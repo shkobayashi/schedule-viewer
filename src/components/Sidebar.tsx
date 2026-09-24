@@ -1,13 +1,18 @@
-import { ROW_HEIGHT } from "../model/rows";
 import type { VisibleRow } from "../model/types";
 
 type SidebarProps = {
   rows: VisibleRow[];
   scrollY: number;
+  rowHeight: number;
   selectedTaskId: number | null;
 };
 
-export function Sidebar({ rows, scrollY, selectedTaskId }: SidebarProps) {
+export function Sidebar({
+  rows,
+  scrollY,
+  rowHeight,
+  selectedTaskId,
+}: SidebarProps) {
   return (
     <div className="sidebar">
       <div className="sidebar-header">WBS / タスク</div>
@@ -22,7 +27,7 @@ export function Sidebar({ rows, scrollY, selectedTaskId }: SidebarProps) {
                 <div
                   key={`cat-${row.label}-${row.y}`}
                   className="sidebar-row category"
-                  style={{ height: ROW_HEIGHT }}
+                  style={{ height: rowHeight }}
                 >
                   {row.label}
                 </div>
@@ -33,7 +38,7 @@ export function Sidebar({ rows, scrollY, selectedTaskId }: SidebarProps) {
               <div
                 key={`task-${row.task.id}`}
                 className={`sidebar-row${selected ? " selected" : ""}`}
-                style={{ height: ROW_HEIGHT }}
+                style={{ height: rowHeight }}
               >
                 <span className="name">{row.task.name}</span>
                 <span className="assignee">{row.task.assignee}</span>

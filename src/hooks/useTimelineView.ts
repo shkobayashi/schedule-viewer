@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { addDays, clamp, daysBetween } from "../model/dates";
 import {
   DEFAULT_PX_PER_DAY,
@@ -25,6 +25,10 @@ export function useTimelineView(
   const { timelineStart, totalDays } = range;
 
   const maxScrollX = Math.max(0, totalDays * pxPerDay - viewportWidth);
+
+  useEffect(() => {
+    setScrollY((sy) => clamp(sy, 0, maxScrollY));
+  }, [maxScrollY]);
 
   const dateToX = useCallback(
     (d: Date) => daysBetween(timelineStart, d) * pxPerDay - scrollX,

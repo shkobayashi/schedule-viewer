@@ -18,6 +18,7 @@ export function taskMatchesFilter(task: Task, filters: ScheduleFilters): boolean
 export function computeVisibleRows(
   categories: Category[],
   filters: ScheduleFilters,
+  rowHeight = ROW_HEIGHT,
 ): VisibleRow[] {
   const rows: VisibleRow[] = [];
   let y = 0;
@@ -25,10 +26,10 @@ export function computeVisibleRows(
     const matched = cat.tasks.filter((t) => taskMatchesFilter(t, filters));
     if (matched.length === 0) continue;
     rows.push({ type: "category", label: cat.name, y });
-    y += ROW_HEIGHT;
+    y += rowHeight;
     for (const task of matched) {
       rows.push({ type: "task", task, y });
-      y += ROW_HEIGHT;
+      y += rowHeight;
     }
   }
   return rows;

@@ -9,6 +9,7 @@ import { useSchedule } from "./hooks/useSchedule";
 import { useTimelineView } from "./hooks/useTimelineView";
 import { isoDate, roundToDay } from "./model/dates";
 import { computeTimelineRange } from "./model/timeline";
+import { readUiScale } from "./model/uiScale";
 import {
   SAMPLE_PROJECT_TITLE,
   sampleCategories,
@@ -18,21 +19,42 @@ import {
 function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
   const [timelineWidth, setTimelineWidth] = useState(520);
+  const [timelineSlotHeight, setTimelineSlotHeight] = useState(440);
+  const [uiScale, setUiScale] = useState(readUiScale);
   const [jsonOpen, setJsonOpen] = useState(false);
+
+  const headerHeight = Math.round(40 * uiScale);
+  const rowHeight = Math.round(32 * uiScale);
+  const barHeight = Math.round(20 * uiScale);
+  const bodyHeight = Math.max(120, timelineSlotHeight - headerHeight);
+
+  useEffect(() => {
+    const onResize = () => setUiScale(readUiScale());
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--s", String(uiScale));
+  }, [uiScale]);
 
   useEffect(() => {
     const node = timelineAreaRef.current;
     if (!node) return;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
-      if (entry) setTimelineWidth(entry.contentRect.width);
+      if (!entry) return;
+      setTimelineWidth(entry.contentRect.width);
+      setTimelineSlotHeight(entry.contentRect.height);
     });
     observer.observe(node);
     setTimelineWidth(node.clientWidth);
+    setTimelineSlotHeight(node.clientHeight);
     return () => observer.disconnect();
   }, []);
 
-  const schedule = useSchedule(sampleCategories);
+  const schedule = useSchedule(sampleCategories, rowHeight, bodyHeight);
   const range = useMemo(
     () => computeTimelineRange(sampleCategories),
     [],
@@ -91,7 +113,7 @@ function App() {
   );
 
   return (
-    <div className="app">
+    <div className="app" style={{ ["--s" as string]: uiScale }}>
       <Toolbar
         title={SAMPLE_PROJECT_TITLE}
         filters={schedule.filters}
@@ -111,12 +133,17 @@ function App() {
         <Sidebar
           rows={schedule.visibleRows}
           scrollY={view.scrollY}
+          rowHeight={rowHeight}
           selectedTaskId={schedule.selectedTaskId}
         />
-        <div ref={timelineAreaRef} style={{ flex: 1, minWidth: 0 }}>
+        <div ref={timelineAreaRef} className="timeline-slot">
           <Timeline
             visibleRows={schedule.visibleRows}
             width={Math.max(200, timelineWidth)}
+            rowHeight={rowHeight}
+            barHeight={barHeight}
+            headerHeight={headerHeight}
+            bodyHeight={bodyHeight}
             pxPerDay={view.pxPerDay}
             scrollY={view.scrollY}
             tier={view.tier}
