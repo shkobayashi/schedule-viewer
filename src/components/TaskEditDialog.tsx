@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TaskRef } from "../model/dependencies";
-import { isUnassigned, UNASSIGNED_LABEL, type Task, type TaskStatus } from "../model/types";
+import {
+  isUnassigned,
+  UNASSIGNED_LABEL,
+  type Milestone,
+  type Task,
+  type TaskStatus,
+} from "../model/types";
 
 type TaskEditDialogProps = {
   task: Task | null;
   assignees: string[];
   tasks: TaskRef[];
+  milestones: Milestone[];
   successorIds: number[];
   onClose: () => void;
   onSave: (patch: {
@@ -17,6 +24,7 @@ type TaskEditDialogProps = {
     progress: number;
     predecessors: number[];
     successors: number[];
+    milestoneId: number | null;
   }) => boolean;
 };
 
@@ -31,6 +39,7 @@ export function TaskEditDialog({
   task,
   assignees,
   tasks,
+  milestones,
   successorIds,
   onClose,
   onSave,
@@ -43,6 +52,7 @@ export function TaskEditDialog({
   const [progress, setProgress] = useState(0);
   const [predecessors, setPredecessors] = useState<number[]>([]);
   const [successors, setSuccessors] = useState<number[]>([]);
+  const [milestoneId, setMilestoneId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!task) return;
@@ -54,6 +64,7 @@ export function TaskEditDialog({
     setProgress(task.progress);
     setPredecessors(task.predecessors);
     setSuccessors(successorIds);
+    setMilestoneId(task.milestoneId);
   }, [successorIds, task]);
 
   const candidates = useMemo(
@@ -132,6 +143,28 @@ export function TaskEditDialog({
             onChange={(e) => setProgress(Number(e.target.value) || 0)}
           />
         </div>
+        <div className="field">
+          <label htmlFor="fieldMilestone">対応マイルストン</label>
+          <select
+            id="fieldMilestone"
+            value={
+              milestoneId != null &&
+              milestones.some((milestone) => milestone.id === milestoneId)
+                ? String(milestoneId)
+                : ""
+            }
+            onChange={(e) =>
+              setMilestoneId(e.target.value === "" ? null : Number(e.target.value))
+            }
+          >
+            <option value="">なし</option>
+            {milestones.map((milestone) => (
+              <option key={milestone.id} value={milestone.id}>
+                {milestone.name}（{milestone.date}）
+              </option>
+            ))}
+          </select>
+        </div>
         <RelationField
           key={`pred-${task.id}`}
           label="先行タスク"
@@ -179,6 +212,7 @@ export function TaskEditDialog({
                 progress,
                 predecessors,
                 successors,
+                milestoneId,
               });
             }}
           >

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import { JsonDialog } from "./components/JsonDialog";
+import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { Sidebar } from "./components/Sidebar";
 import { TaskEditDialog } from "./components/TaskEditDialog";
 import { Timeline } from "./components/Timeline";
@@ -9,11 +10,13 @@ import { useSchedule } from "./hooks/useSchedule";
 import { useTimelineView } from "./hooks/useTimelineView";
 import { listTasks, successorIds, visibleLinks } from "./model/dependencies";
 import { isoDate, roundToDay } from "./model/dates";
+import { layoutMilestones } from "./model/milestones";
 import { computeTimelineRange } from "./model/timeline";
 import { readUiScale } from "./model/uiScale";
 import {
   SAMPLE_PROJECT_TITLE,
   sampleCategories,
+  sampleMilestones,
   scheduleToJson,
 } from "./sample/schedule";
 
@@ -27,7 +30,16 @@ function App() {
   const headerHeight = Math.round(40 * uiScale);
   const rowHeight = Math.round(32 * uiScale);
   const barHeight = Math.round(20 * uiScale);
-  const bodyHeight = Math.max(120, timelineSlotHeight - headerHeight);
+  const milestoneFontSize = Math.round(11 * uiScale);
+  const milestoneDiamondSize = Math.max(8, Math.round(11 * uiScale));
+  const milestoneLaneHeight = Math.round(26 * uiScale);
+  const [milestoneBandHeight, setMilestoneBandHeight] = useState(() =>
+    Math.round(26 * readUiScale()),
+  );
+  const bodyHeight = Math.max(
+    120,
+    timelineSlotHeight - headerHeight - milestoneBandHeight,
+  );
 
   useEffect(() => {
     const onResize = () => setUiScale(readUiScale());
@@ -55,10 +67,15 @@ function App() {
     return () => observer.disconnect();
   }, []);
 
-  const schedule = useSchedule(sampleCategories, rowHeight, bodyHeight);
+  const schedule = useSchedule(
+    sampleCategories,
+    sampleMilestones,
+    rowHeight,
+    bodyHeight,
+  );
   const range = useMemo(
-    () => computeTimelineRange(sampleCategories),
-    [],
+    () => computeTimelineRange(sampleCategories, schedule.milestones),
+    [schedule.milestones],
   );
 
   const view = useTimelineView(
@@ -88,6 +105,29 @@ function App() {
     [timelineWidth, view],
   );
 
+  const milestoneLanes = useMemo(
+    () =>
+      layoutMilestones(
+        schedule.milestones,
+        view.pxPerDay,
+        milestoneFontSize,
+        milestoneDiamondSize,
+      ),
+    [
+      milestoneDiamondSize,
+      milestoneFontSize,
+      schedule.milestones,
+      view.pxPerDay,
+    ],
+  );
+  const nextMilestoneBandHeight =
+    schedule.milestones.length === 0
+      ? 0
+      : (Math.max(...milestoneLanes.values(), 0) + 1) * milestoneLaneHeight;
+  if (nextMilestoneBandHeight !== milestoneBandHeight) {
+    setMilestoneBandHeight(nextMilestoneBandHeight);
+  }
+
   const taskRefs = useMemo(
     () => listTasks(schedule.categories),
     [schedule.categories],
@@ -111,8 +151,13 @@ function App() {
   }, [schedule.categories, schedule.filters.relation, schedule.visibleRows]);
 
   const jsonText = useMemo(
-    () => JSON.stringify(scheduleToJson(schedule.categories), null, 2),
-    [schedule.categories],
+    () =>
+      JSON.stringify(
+        scheduleToJson(schedule.categories, schedule.milestones),
+        null,
+        2,
+      ),
+    [schedule.categories, schedule.milestones],
   );
 
   const handleResizeStart = useCallback(
@@ -154,7 +199,7 @@ function App() {
       <div className="hint">
         Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
         ドラッグで縦横スクロール ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
-        ・ タスクを選んで「系統」で前後だけ表示
+        ・ タスクを選んで「系統」で前後だけ表示 ・ マイルストンは帯のひし形をドラッグ、ダブルクリックで編集
       </div>
       <div className="main">
         <Sidebar
@@ -162,6 +207,8 @@ function App() {
           scrollY={view.scrollY}
           rowHeight={rowHeight}
           selectedTaskId={schedule.selectedTaskId}
+          milestoneBandHeight={milestoneBandHeight}
+          milestones={schedule.milestones}
           onToggleCollapse={schedule.toggleCollapsed}
         />
         <div ref={timelineAreaRef} className="timeline-slot">
@@ -190,6 +237,14 @@ function App() {
             onWheelBody={onWheelBody}
             onWheelHeader={onWheelHeader}
             onPan={view.panBy}
+            milestones={schedule.milestones}
+            milestoneLanes={milestoneLanes}
+            milestoneBandHeight={milestoneBandHeight}
+            milestoneLaneHeight={milestoneLaneHeight}
+            milestoneDiamondSize={milestoneDiamondSize}
+            milestoneFontSize={milestoneFontSize}
+            onMoveMilestone={schedule.moveMilestoneByDays}
+            onOpenMilestone={schedule.openMilestoneEdit}
           />
         </div>
       </div>
@@ -197,9 +252,15 @@ function App() {
         task={schedule.editingTask}
         assignees={schedule.assignees}
         tasks={taskRefs}
+        milestones={schedule.milestones}
         successorIds={editingSuccessors}
         onClose={schedule.closeEditDialog}
         onSave={schedule.saveTaskEdit}
+      />
+      <MilestoneEditDialog
+        milestone={schedule.editingMilestone}
+        onClose={schedule.closeMilestoneEdit}
+        onSave={schedule.saveMilestoneEdit}
       />
       <JsonDialog
         json={jsonText}

@@ -12,7 +12,9 @@ import { addDays, fmtShort, parseDate } from "../model/dates";
 import { linkPoints, type DependencyLink } from "../model/dependencies";
 import { barColors, isOverdue, TODAY_ISO } from "../model/timeline";
 import type { SummarySpan } from "../model/summary";
-import { isUnassigned, type Task, type VisibleRow } from "../model/types";
+import { milestonesExceededBy } from "../model/milestones";
+import { isUnassigned, type Milestone, type Task, type VisibleRow } from "../model/types";
+import { MilestoneBand } from "./MilestoneBand";
 
 type TimelineProps = {
   visibleRows: VisibleRow[];
@@ -39,6 +41,14 @@ type TimelineProps = {
   onWheelBody: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   onWheelHeader: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   onPan: (dx: number, dy: number) => void;
+  milestones: Milestone[];
+  milestoneLanes: Map<number, number>;
+  milestoneBandHeight: number;
+  milestoneLaneHeight: number;
+  milestoneDiamondSize: number;
+  milestoneFontSize: number;
+  onMoveMilestone: (id: number, deltaDays: number) => void;
+  onOpenMilestone: (id: number) => void;
 };
 
 const HANDLE_WIDTH = 8;
@@ -109,6 +119,7 @@ function TaskBar({
   barHeight,
   pxPerDay,
   dateToX,
+  exceeded,
   selected,
   onSelect,
   onOpenEdit,
@@ -120,6 +131,7 @@ function TaskBar({
   barHeight: number;
   pxPerDay: number;
   dateToX: (d: Date) => number;
+  exceeded: Milestone[];
   selected: boolean;
   onSelect: () => void;
   onOpenEdit: () => void;
@@ -134,6 +146,7 @@ function TaskBar({
   const unassigned = isUnassigned(task.assignee);
   const stroke = unassigned && !isOverdue(task) ? "#C48A1A" : colors.border;
   const cap = Math.max(2, Math.round(barHeight * 0.16));
+  const overrunAt = exceeded[0] ? dateToX(parseDate(exceeded[0].date)) - x : null;
   const origXRef = useRef(0);
   const groupRef = useRef<Konva.Group>(null);
 
@@ -209,6 +222,16 @@ function TaskBar({
           width={w}
           height={cap}
           fill="#E0A020"
+          listening={false}
+        />
+      ) : null}
+      {overrunAt != null && overrunAt < w ? (
+        <Rect
+          x={Math.max(0, overrunAt)}
+          width={Math.max(2, w - Math.max(0, overrunAt))}
+          height={barHeight}
+          fill="rgba(196, 53, 26, 0.45)"
+          cornerRadius={overrunAt <= 0 ? 4 : [0, 4, 4, 0]}
           listening={false}
         />
       ) : null}
@@ -377,6 +400,14 @@ export function Timeline({
   onWheelBody,
   onWheelHeader,
   onPan,
+  milestones,
+  milestoneLanes,
+  milestoneBandHeight,
+  milestoneLaneHeight,
+  milestoneDiamondSize,
+  milestoneFontSize,
+  onMoveMilestone,
+  onOpenMilestone,
 }: TimelineProps) {
   const todayDate = parseDate(TODAY_ISO);
   const scale = headerHeight / 40;
@@ -704,6 +735,22 @@ export function Timeline({
           <Layer>{headerContent}</Layer>
         </Stage>
       </div>
+      {milestoneBandHeight > 0 ? (
+        <MilestoneBand
+          milestones={milestones}
+          lanes={milestoneLanes}
+          width={width}
+          height={milestoneBandHeight}
+          laneHeight={milestoneLaneHeight}
+          diamondSize={milestoneDiamondSize}
+          fontSize={milestoneFontSize}
+          pxPerDay={pxPerDay}
+          dateToX={dateToX}
+          onMove={onMoveMilestone}
+          onOpenEdit={onOpenMilestone}
+          onWheel={onWheelHeader}
+        />
+      ) : null}
       <div
         className={`timeline-body${panning ? " panning" : ""}`}
         style={{ cursor: panning ? "grabbing" : "grab" }}
@@ -758,6 +805,7 @@ export function Timeline({
                   barHeight={barHeight}
                   pxPerDay={pxPerDay}
                   dateToX={dateToX}
+                  exceeded={milestonesExceededBy(row.task, milestones)}
                   selected={selectedTaskId === row.task.id}
                   onSelect={() => {
                     if (suppressClickRef.current) {

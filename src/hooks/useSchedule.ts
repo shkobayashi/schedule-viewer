@@ -8,16 +8,28 @@ import {
 import { lineageTaskIds } from "../model/dependencies";
 import { computeVisibleRows, findTaskById } from "../model/rows";
 import { cloneCategories, mapTasks } from "../model/tasks";
-import type { Category, ScheduleFilters, Task } from "../model/types";
+import type {
+  Category,
+  Milestone,
+  ScheduleFilters,
+  Task,
+} from "../model/types";
 import { collectAssignees } from "../sample/schedule";
 
 export function useSchedule(
   initialCategories: Category[],
+  initialMilestones: Milestone[],
   rowHeight: number,
   bodyHeight: number,
 ) {
   const [categories, setCategories] = useState(() =>
     cloneCategories(initialCategories),
+  );
+  const [milestones, setMilestones] = useState(() =>
+    initialMilestones.map((milestone) => ({ ...milestone })),
+  );
+  const [editingMilestoneId, setEditingMilestoneId] = useState<number | null>(
+    null,
   );
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [lineageTaskId, setLineageTaskId] = useState<number | null>(null);
@@ -100,6 +112,53 @@ export function useSchedule(
     );
   }, []);
 
+  const moveMilestoneByDays = useCallback((id: number, deltaDays: number) => {
+    if (deltaDays === 0) return;
+    setMilestones((prev) =>
+      prev.map((milestone) =>
+        milestone.id === id
+          ? {
+              ...milestone,
+              date: isoDate(addDays(parseDate(milestone.date), deltaDays)),
+            }
+          : milestone,
+      ),
+    );
+  }, []);
+
+  const openMilestoneEdit = useCallback((id: number) => {
+    setEditingMilestoneId(id);
+  }, []);
+
+  const closeMilestoneEdit = useCallback(() => {
+    setEditingMilestoneId(null);
+  }, []);
+
+  const saveMilestoneEdit = useCallback(
+    (patch: { name: string; date: string }) => {
+      if (!patch.date || editingMilestoneId == null) return false;
+      setMilestones((prev) =>
+        prev.map((milestone) =>
+          milestone.id === editingMilestoneId
+            ? {
+                ...milestone,
+                name: patch.name.trim() || milestone.name,
+                date: patch.date,
+              }
+            : milestone,
+        ),
+      );
+      setEditingMilestoneId(null);
+      return true;
+    },
+    [editingMilestoneId],
+  );
+
+  const editingMilestone = useMemo(
+    () => milestones.find((milestone) => milestone.id === editingMilestoneId) ?? null,
+    [editingMilestoneId, milestones],
+  );
+
   const setTaskEnd = useCallback((taskId: number, end: string) => {
     setCategories((prev) =>
       mapTasks(prev, (task) => (task.id === taskId ? { ...task, end } : task)),
@@ -124,6 +183,7 @@ export function useSchedule(
       progress: number;
       predecessors: number[];
       successors: number[];
+      milestoneId: number | null;
     }) => {
       if (patch.end < patch.start) return false;
       if (editingTaskId == null) return false;
@@ -147,6 +207,11 @@ export function useSchedule(
               status: patch.status,
               progress: clamp(patch.progress, 0, 100),
               predecessors,
+              milestoneId:
+                patch.milestoneId != null &&
+                milestones.some((milestone) => milestone.id === patch.milestoneId)
+                  ? patch.milestoneId
+                  : null,
             };
           }
           const withoutSelf = task.predecessors.filter(
@@ -163,7 +228,7 @@ export function useSchedule(
       setEditingTaskId(null);
       return true;
     },
-    [editingTaskId],
+    [editingTaskId, milestones],
   );
 
   const editingTask = useMemo(
@@ -178,6 +243,12 @@ export function useSchedule(
 
   return {
     categories,
+    milestones,
+    editingMilestone,
+    moveMilestoneByDays,
+    openMilestoneEdit,
+    closeMilestoneEdit,
+    saveMilestoneEdit,
     assignees,
     visibleRows,
     toggleCollapsed,

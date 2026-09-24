@@ -1,7 +1,13 @@
 import { forEachTask } from "../model/tasks";
-import type { Category } from "../model/types";
+import type { Category, Milestone } from "../model/types";
 
 export const SAMPLE_PROJECT_TITLE = "AI活用PoC推進プロジェクト";
+
+export const sampleMilestones: Milestone[] = [
+  { id: 1, name: "要件確定", date: "2026-10-02" },
+  { id: 2, name: "PoC完了", date: "2026-11-13" },
+  { id: 3, name: "本番リリース", date: "2026-12-21" },
+];
 
 export const sampleCategories: Category[] = [
   {
@@ -19,6 +25,7 @@ export const sampleCategories: Category[] = [
             status: "done",
             progress: 100,
             predecessors: [],
+            milestoneId: 1,
           },
         ],
       },
@@ -34,6 +41,7 @@ export const sampleCategories: Category[] = [
             status: "in-progress",
             progress: 60,
             predecessors: [1],
+            milestoneId: 1,
           },
           {
             id: 3,
@@ -44,6 +52,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [2],
+            milestoneId: 1,
           },
         ],
       },
@@ -64,6 +73,7 @@ export const sampleCategories: Category[] = [
             status: "in-progress",
             progress: 30,
             predecessors: [3],
+            milestoneId: 1,
           },
         ],
       },
@@ -79,6 +89,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [4],
+            milestoneId: 2,
           },
           {
             id: 6,
@@ -89,6 +100,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [5],
+            milestoneId: 2,
           },
         ],
       },
@@ -104,6 +116,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [6],
+            milestoneId: 2,
           },
         ],
       },
@@ -124,6 +137,7 @@ export const sampleCategories: Category[] = [
             status: "in-progress",
             progress: 45,
             predecessors: [],
+            milestoneId: null,
           },
         ],
       },
@@ -139,6 +153,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [8],
+            milestoneId: null,
           },
           {
             id: 10,
@@ -149,6 +164,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [9],
+            milestoneId: null,
           },
         ],
       },
@@ -169,6 +185,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [9],
+            milestoneId: null,
           },
         ],
       },
@@ -184,6 +201,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [6, 11],
+            milestoneId: null,
           },
           {
             id: 13,
@@ -194,6 +212,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [12],
+            milestoneId: null,
           },
         ],
       },
@@ -214,6 +233,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [10, 13],
+            milestoneId: 3,
           },
           {
             id: 15,
@@ -224,6 +244,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [14],
+            milestoneId: 3,
           },
         ],
       },
@@ -239,6 +260,7 @@ export const sampleCategories: Category[] = [
             status: "not-started",
             progress: 0,
             predecessors: [15],
+            milestoneId: null,
           },
         ],
       },
@@ -255,8 +277,16 @@ export function collectAssignees(categories: Category[]): string[] {
   return names;
 }
 
-export function scheduleToJson(categories: Category[]) {
+export function scheduleToJson(
+  categories: Category[],
+  milestones: Milestone[],
+) {
   return {
+    milestones: milestones.map((milestone) => ({
+      id: milestone.id,
+      name: milestone.name,
+      date: milestone.date,
+    })),
     categories: categories.map((category) => ({
       name: category.name,
       groups: category.groups.map((group) => ({
@@ -270,6 +300,7 @@ export function scheduleToJson(categories: Category[]) {
           status: task.status,
           progress: task.progress,
           predecessors: task.predecessors,
+          milestoneId: task.milestoneId,
         })),
       })),
     })),

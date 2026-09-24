@@ -1,15 +1,23 @@
+import { milestonesExceededBy } from "../model/milestones";
 import {
   categoryCollapseKey,
   groupCollapseKey,
 } from "../model/rows";
 import { isOverdue } from "../model/timeline";
-import { isUnassigned, UNASSIGNED_LABEL, type VisibleRow } from "../model/types";
+import {
+  isUnassigned,
+  UNASSIGNED_LABEL,
+  type Milestone,
+  type VisibleRow,
+} from "../model/types";
 
 type SidebarProps = {
   rows: VisibleRow[];
   scrollY: number;
   rowHeight: number;
   selectedTaskId: number | null;
+  milestoneBandHeight: number;
+  milestones: Milestone[];
   onToggleCollapse: (key: string) => void;
 };
 
@@ -18,11 +26,21 @@ export function Sidebar({
   scrollY,
   rowHeight,
   selectedTaskId,
+  milestoneBandHeight,
+  milestones,
   onToggleCollapse,
 }: SidebarProps) {
   return (
     <div className="sidebar">
       <div className="sidebar-header">WBS / タスク</div>
+      {milestoneBandHeight > 0 ? (
+        <div
+          className="sidebar-milestones"
+          style={{ height: milestoneBandHeight }}
+        >
+          マイルストン
+        </div>
+      ) : null}
       <div className="sidebar-viewport">
         <div
           className="sidebar-rows"
@@ -65,15 +83,26 @@ export function Sidebar({
             }
             const selected = row.task.id === selectedTaskId;
             const unassigned = isUnassigned(row.task.assignee);
+            const exceeded = milestonesExceededBy(row.task, milestones);
+            const exceededTitle =
+              exceeded.length === 0
+                ? undefined
+                : `${exceeded.map((milestone) => milestone.name).join("、")}を超える計画です`;
             return (
               <div
                 key={`task-${row.task.id}`}
                 className={`sidebar-row task${selected ? " selected" : ""}${unassigned ? " unassigned" : ""}`}
                 style={{ height: rowHeight }}
+                title={exceededTitle}
               >
                 <span className={`name${isOverdue(row.task) ? " overdue" : ""}`}>
                   {row.task.name}
                 </span>
+                {exceeded.length > 0 ? (
+                  <span className="milestone-alert" title={exceededTitle}>
+                    超過
+                  </span>
+                ) : null}
                 <span className={`assignee${unassigned ? " unassigned" : ""}`}>
                   {unassigned ? UNASSIGNED_LABEL : row.task.assignee}
                 </span>
