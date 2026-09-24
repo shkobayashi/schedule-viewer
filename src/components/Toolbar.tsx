@@ -20,6 +20,7 @@ type ToolbarProps = {
   onZoomOut: () => void;
   onFit: () => void;
   onShowJson: () => void;
+  onExportHtml: () => void;
   canDelete: boolean;
   onAdd: () => void;
   onDelete: () => void;
@@ -38,6 +39,7 @@ export function Toolbar({
   onZoomOut,
   onFit,
   onShowJson,
+  onExportHtml,
   canDelete,
   onAdd,
   onDelete,
@@ -134,6 +136,14 @@ export function Toolbar({
           Fit
         </button>
       </div>
+      <button
+        type="button"
+        className="toolbar-btn"
+        title="見えている行を、今のズームのままHTMLで保存"
+        onClick={onExportHtml}
+      >
+        書き出し
+      </button>
       <button
         type="button"
         className="icon-btn"
