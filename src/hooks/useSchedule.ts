@@ -5,6 +5,7 @@ import {
   isoDate,
   parseDate,
 } from "../model/dates";
+import { lineageTaskIds } from "../model/dependencies";
 import { computeVisibleRows, findTaskById } from "../model/rows";
 import { cloneCategories, mapTasks } from "../model/tasks";
 import type { Category, ScheduleFilters, Task } from "../model/types";
@@ -19,6 +20,7 @@ export function useSchedule(
     cloneCategories(initialCategories),
   );
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [lineageTaskId, setLineageTaskId] = useState<number | null>(null);
   const [filters, setFilters] = useState<ScheduleFilters>({
     assignee: "all",
     status: "all",
@@ -36,9 +38,18 @@ export function useSchedule(
     [categories],
   );
 
+  const lineageIds = useMemo(
+    () =>
+      lineageTaskId == null
+        ? null
+        : lineageTaskIds(categories, lineageTaskId),
+    [categories, lineageTaskId],
+  );
+
   const visibleRows = useMemo(
-    () => computeVisibleRows(categories, filters, collapsed, rowHeight),
-    [categories, collapsed, filters, rowHeight],
+    () =>
+      computeVisibleRows(categories, filters, collapsed, rowHeight, lineageIds),
+    [categories, collapsed, filters, lineageIds, rowHeight],
   );
 
   const toggleCollapsed = useCallback((key: string) => {
@@ -62,6 +73,10 @@ export function useSchedule(
   const clearSelection = useCallback(() => {
     setSelectedTaskId(null);
   }, []);
+
+  const toggleLineage = useCallback(() => {
+    setLineageTaskId((current) => (current == null ? selectedTaskId : null));
+  }, [selectedTaskId]);
 
   const moveTaskByDays = useCallback((taskId: number, deltaDays: number) => {
     if (deltaDays === 0) return;
@@ -156,6 +171,11 @@ export function useSchedule(
     [categories, editingTaskId],
   );
 
+  const lineageTask = useMemo(
+    () => findTaskById(categories, lineageTaskId),
+    [categories, lineageTaskId],
+  );
+
   return {
     categories,
     assignees,
@@ -166,6 +186,8 @@ export function useSchedule(
     selectedTaskId,
     selectTask,
     clearSelection,
+    lineageTask,
+    toggleLineage,
     moveTaskByDays,
     setTaskStart,
     setTaskEnd,
