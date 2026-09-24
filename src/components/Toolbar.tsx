@@ -1,8 +1,10 @@
-import type {
-  OverdueFilter,
-  RelationFilter,
-  ScheduleFilters,
-  StatusFilter,
+import {
+  UNASSIGNED_FILTER,
+  UNASSIGNED_LABEL,
+  type OverdueFilter,
+  type RelationFilter,
+  type ScheduleFilters,
+  type StatusFilter,
 } from "../model/types";
 
 type ToolbarProps = {
@@ -46,6 +48,7 @@ export function Toolbar({
         onChange={(e) => onFiltersChange({ assignee: e.target.value })}
       >
         <option value="all">担当者: すべて</option>
+        <option value={UNASSIGNED_FILTER}>{UNASSIGNED_LABEL}</option>
         {assignees.map((a) => (
           <option key={a} value={a}>
             {a}

@@ -133,7 +133,7 @@ export function useSchedule(
                 name: patch.name || t.name,
                 start: patch.start,
                 end: patch.end,
-                assignee: patch.assignee,
+                assignee: patch.assignee.trim(),
                 status: patch.status,
                 progress: clamp(patch.progress, 0, 100),
                 predecessors,

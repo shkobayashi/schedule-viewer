@@ -190,11 +190,24 @@ input[type="number"] {
   background: #eef0fe;
 }
 
+.sidebar-row.unassigned {
+  box-shadow: inset 3px 0 0 #d4920a;
+}
+
 .sidebar-row .assignee {
   margin-left: auto;
   font-size: calc(10px * var(--s));
   color: var(--text-secondary);
   padding-left: 6px;
+}
+
+.sidebar-row .assignee.unassigned {
+  flex-shrink: 0;
+  color: #8a5a00;
+  background: #fff4d6;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-weight: 700;
 }
 
 .sidebar-row .name {

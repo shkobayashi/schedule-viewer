@@ -1,5 +1,5 @@
 import { isOverdue } from "../model/timeline";
-import type { VisibleRow } from "../model/types";
+import { isUnassigned, UNASSIGNED_LABEL, type VisibleRow } from "../model/types";
 
 type SidebarProps = {
   rows: VisibleRow[];
@@ -35,16 +35,19 @@ export function Sidebar({
               );
             }
             const selected = row.task.id === selectedTaskId;
+            const unassigned = isUnassigned(row.task.assignee);
             return (
               <div
                 key={`task-${row.task.id}`}
-                className={`sidebar-row${selected ? " selected" : ""}`}
+                className={`sidebar-row${selected ? " selected" : ""}${unassigned ? " unassigned" : ""}`}
                 style={{ height: rowHeight }}
               >
                 <span className={`name${isOverdue(row.task) ? " overdue" : ""}`}>
                   {row.task.name}
                 </span>
-                <span className="assignee">{row.task.assignee}</span>
+                <span className={`assignee${unassigned ? " unassigned" : ""}`}>
+                  {unassigned ? UNASSIGNED_LABEL : row.task.assignee}
+                </span>
               </div>
             );
           })}

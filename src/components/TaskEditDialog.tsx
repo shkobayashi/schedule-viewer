@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TaskRef } from "../model/dependencies";
-import type { Task, TaskStatus } from "../model/types";
+import { isUnassigned, UNASSIGNED_LABEL, type Task, type TaskStatus } from "../model/types";
 
 type TaskEditDialogProps = {
   task: Task | null;
@@ -47,7 +47,7 @@ export function TaskEditDialog({
     setName(task.name);
     setStart(task.start);
     setEnd(task.end);
-    setAssignee(task.assignee);
+    setAssignee(isUnassigned(task.assignee) ? "" : task.assignee);
     setStatus(task.status);
     setProgress(task.progress);
     setPredecessors(task.predecessors);
@@ -99,6 +99,7 @@ export function TaskEditDialog({
             value={assignee}
             onChange={(e) => setAssignee(e.target.value)}
           >
+            <option value="">{UNASSIGNED_LABEL}</option>
             {assignees.map((a) => (
               <option key={a} value={a}>
                 {a}

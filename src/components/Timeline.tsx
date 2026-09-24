@@ -10,8 +10,8 @@ import { Arrow, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { addDays, fmtShort, parseDate } from "../model/dates";
 import { linkPoints, type DependencyLink } from "../model/dependencies";
-import { barColors, TODAY_ISO } from "../model/timeline";
-import type { Task, VisibleRow } from "../model/types";
+import { barColors, isOverdue, TODAY_ISO } from "../model/timeline";
+import { isUnassigned, type Task, type VisibleRow } from "../model/types";
 
 type TimelineProps = {
   visibleRows: VisibleRow[];
@@ -71,6 +71,9 @@ function TaskBar({
   const w = Math.max(6, dateToX(end) - dateToX(start));
   const barY = y + (rowHeight - barHeight) / 2;
   const colors = barColors(task);
+  const unassigned = isUnassigned(task.assignee);
+  const stroke = unassigned && !isOverdue(task) ? "#C48A1A" : colors.border;
+  const cap = Math.max(2, Math.round(barHeight * 0.16));
   const origXRef = useRef(0);
   const groupRef = useRef<Konva.Group>(null);
 
@@ -121,8 +124,6 @@ function TaskBar({
         width={w}
         height={barHeight}
         fill={colors.bg}
-        stroke={colors.border}
-        strokeWidth={selected ? 1.5 : 1}
         cornerRadius={4}
       />
       {task.status === "in-progress" && colors.fill ? (
@@ -131,6 +132,24 @@ function TaskBar({
           height={barHeight}
           fill={colors.fill}
           cornerRadius={4}
+        />
+      ) : null}
+      <Rect
+        width={w}
+        height={barHeight}
+        stroke={stroke}
+        strokeWidth={unassigned || selected ? 1.75 : 1}
+        dash={unassigned ? [5, 3] : undefined}
+        cornerRadius={4}
+        listening={false}
+      />
+      {unassigned ? (
+        <Rect
+          y={-cap}
+          width={w}
+          height={cap}
+          fill="#E0A020"
+          listening={false}
         />
       ) : null}
     </Group>

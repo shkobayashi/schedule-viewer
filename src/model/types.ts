@@ -23,7 +23,17 @@ export type OverdueFilter = "all" | "overdue";
 
 export type RelationFilter = "all" | "broken";
 
+/** フィルタ値。実データの空文字とは分ける。 */
+export const UNASSIGNED_FILTER = "unassigned";
+
+export const UNASSIGNED_LABEL = "割り当てなし";
+
+export function isUnassigned(assignee: string): boolean {
+  return assignee.trim() === "";
+}
+
 export type ScheduleFilters = {
+  /** "all" | "unassigned" | 担当者名 */
   assignee: string;
   status: StatusFilter;
   overdue: OverdueFilter;

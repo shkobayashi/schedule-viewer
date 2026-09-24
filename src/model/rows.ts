@@ -1,6 +1,13 @@
 import { brokenLinkTaskIds } from "./dependencies";
 import { isOverdue } from "./timeline";
-import type { Category, ScheduleFilters, Task, VisibleRow } from "./types";
+import {
+  isUnassigned,
+  UNASSIGNED_FILTER,
+  type Category,
+  type ScheduleFilters,
+  type Task,
+  type VisibleRow,
+} from "./types";
 
 export const ROW_HEIGHT = 32;
 
@@ -9,7 +16,12 @@ export function taskMatchesFilter(
   filters: ScheduleFilters,
   brokenIds?: ReadonlySet<number>,
 ): boolean {
-  if (filters.assignee !== "all" && task.assignee !== filters.assignee) {
+  if (filters.assignee === UNASSIGNED_FILTER) {
+    if (!isUnassigned(task.assignee)) return false;
+  } else if (
+    filters.assignee !== "all" &&
+    task.assignee.trim() !== filters.assignee
+  ) {
     return false;
   }
   if (filters.status === "not-done" && task.status === "done") {
