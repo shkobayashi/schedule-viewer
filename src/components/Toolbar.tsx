@@ -1,4 +1,9 @@
-import type { OverdueFilter, ScheduleFilters, StatusFilter } from "../model/types";
+import type {
+  OverdueFilter,
+  RelationFilter,
+  ScheduleFilters,
+  StatusFilter,
+} from "../model/types";
 
 type ToolbarProps = {
   title: string;
@@ -67,6 +72,15 @@ export function Toolbar({
       >
         <option value="all">期限: すべて</option>
         <option value="overdue">期限超過</option>
+      </select>
+      <select
+        value={filters.relation}
+        onChange={(e) =>
+          onFiltersChange({ relation: e.target.value as RelationFilter })
+        }
+      >
+        <option value="all">前後: すべて</option>
+        <option value="broken">前後: 破綻のみ</option>
       </select>
       <div className="zoom-controls">
         <button type="button" title="縮小" onClick={onZoomOut}>

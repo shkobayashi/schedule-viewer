@@ -1,9 +1,14 @@
+import { brokenLinkTaskIds } from "./dependencies";
 import { isOverdue } from "./timeline";
 import type { Category, ScheduleFilters, Task, VisibleRow } from "./types";
 
 export const ROW_HEIGHT = 32;
 
-export function taskMatchesFilter(task: Task, filters: ScheduleFilters): boolean {
+export function taskMatchesFilter(
+  task: Task,
+  filters: ScheduleFilters,
+  brokenIds?: ReadonlySet<number>,
+): boolean {
   if (filters.assignee !== "all" && task.assignee !== filters.assignee) {
     return false;
   }
@@ -20,6 +25,9 @@ export function taskMatchesFilter(task: Task, filters: ScheduleFilters): boolean
   if (filters.overdue === "overdue" && !isOverdue(task)) {
     return false;
   }
+  if (filters.relation === "broken" && !brokenIds?.has(task.id)) {
+    return false;
+  }
   if (filters.search && !task.name.includes(filters.search)) {
     return false;
   }
@@ -31,10 +39,14 @@ export function computeVisibleRows(
   filters: ScheduleFilters,
   rowHeight = ROW_HEIGHT,
 ): VisibleRow[] {
+  const brokenIds =
+    filters.relation === "broken" ? brokenLinkTaskIds(categories) : undefined;
   const rows: VisibleRow[] = [];
   let y = 0;
   for (const cat of categories) {
-    const matched = cat.tasks.filter((t) => taskMatchesFilter(t, filters));
+    const matched = cat.tasks.filter((t) =>
+      taskMatchesFilter(t, filters, brokenIds),
+    );
     if (matched.length === 0) continue;
     rows.push({ type: "category", label: cat.name, y });
     y += rowHeight;

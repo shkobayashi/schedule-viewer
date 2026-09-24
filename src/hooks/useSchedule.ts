@@ -29,6 +29,7 @@ export function useSchedule(
     assignee: "all",
     status: "all",
     overdue: "all",
+    relation: "all",
     search: "",
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
@@ -109,25 +110,45 @@ export function useSchedule(
       assignee: string;
       status: Task["status"];
       progress: number;
+      predecessors: number[];
+      successors: number[];
     }) => {
       if (patch.end < patch.start) return false;
       if (editingTaskId == null) return false;
+      const predecessors = [
+        ...new Set(
+          patch.predecessors.filter((id) => id !== editingTaskId),
+        ),
+      ];
+      const successors = new Set(
+        patch.successors.filter((id) => id !== editingTaskId),
+      );
       setCategories((prev) =>
         prev.map((c) => ({
           ...c,
-          tasks: c.tasks.map((t) =>
-            t.id === editingTaskId
-              ? {
-                  ...t,
-                  name: patch.name || t.name,
-                  start: patch.start,
-                  end: patch.end,
-                  assignee: patch.assignee,
-                  status: patch.status,
-                  progress: clamp(patch.progress, 0, 100),
-                }
-              : t,
-          ),
+          tasks: c.tasks.map((t) => {
+            if (t.id === editingTaskId) {
+              return {
+                ...t,
+                name: patch.name || t.name,
+                start: patch.start,
+                end: patch.end,
+                assignee: patch.assignee,
+                status: patch.status,
+                progress: clamp(patch.progress, 0, 100),
+                predecessors,
+              };
+            }
+            const withoutSelf = t.predecessors.filter(
+              (id) => id !== editingTaskId,
+            );
+            return {
+              ...t,
+              predecessors: successors.has(t.id)
+                ? [...withoutSelf, editingTaskId]
+                : withoutSelf,
+            };
+          }),
         })),
       );
       setEditingTaskId(null);

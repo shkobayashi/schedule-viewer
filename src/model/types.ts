@@ -8,6 +8,8 @@ export type Task = {
   assignee: string;
   status: TaskStatus;
   progress: number;
+  /** このタスクの開始前に終わる先行タスク。後続は他タスクの predecessors から導く。 */
+  predecessors: number[];
 };
 
 export type Category = {
@@ -19,10 +21,13 @@ export type StatusFilter = "all" | "not-done" | TaskStatus;
 
 export type OverdueFilter = "all" | "overdue";
 
+export type RelationFilter = "all" | "broken";
+
 export type ScheduleFilters = {
   assignee: string;
   status: StatusFilter;
   overdue: OverdueFilter;
+  relation: RelationFilter;
   search: string;
 };
 
