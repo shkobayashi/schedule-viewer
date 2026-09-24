@@ -1,11 +1,11 @@
 import { daysBetween, parseDate } from "./dates";
-import type { Milestone } from "./types";
+import type { Milestone, ScheduleId } from "./types";
 
 const ORIGIN = parseDate("2020-01-01");
 
 /** 対応マイルストンがあり、完了予定日がその日付より後のときだけ超過。 */
 export function milestonesExceededBy(
-  task: { end: string; milestoneId: number | null },
+  task: { end: string; milestoneId: ScheduleId | null },
   milestones: Milestone[],
 ): Milestone[] {
   if (task.milestoneId == null) return [];
@@ -28,12 +28,12 @@ export function layoutMilestones(
   pxPerDay: number,
   fontSize: number,
   diamondSize: number,
-): Map<number, number> {
+): Map<ScheduleId, number> {
   const sorted = [...milestones].sort(
-    (a, b) => a.date.localeCompare(b.date) || a.id - b.id,
+    (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
   );
   const laneEnds: number[] = [];
-  const lanes = new Map<number, number>();
+  const lanes = new Map<ScheduleId, number>();
   const dayWidth = Math.max(pxPerDay, 0.5);
   for (const milestone of sorted) {
     const day = daysBetween(ORIGIN, parseDate(milestone.date));

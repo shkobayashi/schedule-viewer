@@ -14,9 +14,9 @@ import {
 } from "../model/rows";
 import {
   cloneCategories,
+  createScheduleId,
   insertTask,
   mapTasks,
-  nextTaskId,
   removeTask,
   validateNewTask,
 } from "../model/tasks";
@@ -24,29 +24,32 @@ import { isOverdue, TODAY_ISO } from "../model/timeline";
 import {
   UNASSIGNED_FILTER,
   type Category,
-  Milestone,
-  ScheduleFilters,
-  Task,
+  type Milestone,
+  type ScheduleFilters,
+  type ScheduleId,
+  type Task,
 } from "../model/types";
 import { collectAssignees } from "../sample/schedule";
 
 export function useSchedule(
+  initialTitle: string,
   initialCategories: Category[],
   initialMilestones: Milestone[],
   rowHeight: number,
   bodyHeight: number,
 ) {
+  const [title] = useState(() => initialTitle);
   const [categories, setCategories] = useState(() =>
     cloneCategories(initialCategories),
   );
   const [milestones, setMilestones] = useState(() =>
     initialMilestones.map((milestone) => ({ ...milestone })),
   );
-  const [editingMilestoneId, setEditingMilestoneId] = useState<number | null>(
+  const [editingMilestoneId, setEditingMilestoneId] = useState<ScheduleId | null>(
     null,
   );
-  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-  const [lineageTaskId, setLineageTaskId] = useState<number | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<ScheduleId | null>(null);
+  const [lineageTaskId, setLineageTaskId] = useState<ScheduleId | null>(null);
   const [filters, setFilters] = useState<ScheduleFilters>({
     assignee: "all",
     status: "all",
@@ -54,7 +57,7 @@ export function useSchedule(
     relation: "all",
     search: "",
   });
-  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<ScheduleId | null>(null);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -92,7 +95,7 @@ export function useSchedule(
     setSelectedTaskId(null);
   }, []);
 
-  const selectTask = useCallback((id: number | null) => {
+  const selectTask = useCallback((id: ScheduleId | null) => {
     setSelectedTaskId(id);
   }, []);
 
@@ -104,7 +107,7 @@ export function useSchedule(
     setLineageTaskId((current) => (current == null ? selectedTaskId : null));
   }, [selectedTaskId]);
 
-  const moveTaskByDays = useCallback((taskId: number, deltaDays: number) => {
+  const moveTaskByDays = useCallback((taskId: ScheduleId, deltaDays: number) => {
     if (deltaDays === 0) return;
     setCategories((prev) =>
       mapTasks(prev, (task) => {
@@ -118,7 +121,7 @@ export function useSchedule(
     );
   }, []);
 
-  const setTaskStart = useCallback((taskId: number, start: string) => {
+  const setTaskStart = useCallback((taskId: ScheduleId, start: string) => {
     setCategories((prev) =>
       mapTasks(prev, (task) => {
         if (task.id !== taskId) return task;
@@ -131,7 +134,7 @@ export function useSchedule(
     );
   }, []);
 
-  const moveMilestoneByDays = useCallback((id: number, deltaDays: number) => {
+  const moveMilestoneByDays = useCallback((id: ScheduleId, deltaDays: number) => {
     if (deltaDays === 0) return;
     setMilestones((prev) =>
       prev.map((milestone) =>
@@ -145,7 +148,7 @@ export function useSchedule(
     );
   }, []);
 
-  const openMilestoneEdit = useCallback((id: number) => {
+  const openMilestoneEdit = useCallback((id: ScheduleId) => {
     setEditingMilestoneId(id);
   }, []);
 
@@ -178,7 +181,7 @@ export function useSchedule(
     [editingMilestoneId, milestones],
   );
 
-  const setTaskEnd = useCallback((taskId: number, end: string) => {
+  const setTaskEnd = useCallback((taskId: ScheduleId, end: string) => {
     setCategories((prev) =>
       mapTasks(prev, (task) => {
         if (task.id !== taskId) return task;
@@ -207,9 +210,9 @@ export function useSchedule(
       assignee: string;
       status: Task["status"];
       progress: number;
-      predecessors: number[];
-      successors: number[];
-      milestoneId: number | null;
+      predecessors: ScheduleId[];
+      successors: ScheduleId[];
+      milestoneId: ScheduleId | null;
     }) => {
       if (patch.end <= patch.start) return false;
       if (editingTaskId == null) return false;
@@ -267,7 +270,7 @@ export function useSchedule(
     }) => {
       if (validateNewTask(input, categories)) return null;
       const name = input.name.trim();
-      const id = nextTaskId(categories);
+      const id = createScheduleId();
       const task: Task = {
         id,
         name,
@@ -313,7 +316,7 @@ export function useSchedule(
     [categories],
   );
 
-  const deleteTask = useCallback((taskId: number) => {
+  const deleteTask = useCallback((taskId: ScheduleId) => {
     setCategories((prev) => removeTask(prev, taskId));
     setSelectedTaskId((current) => (current === taskId ? null : current));
     setEditingTaskId((current) => (current === taskId ? null : current));
@@ -331,6 +334,7 @@ export function useSchedule(
   );
 
   return {
+    title,
     categories,
     milestones,
     editingMilestone,

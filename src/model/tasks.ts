@@ -1,4 +1,9 @@
-import type { Category, Task } from "./types";
+import { isIsoDateString } from "./dates";
+import type { Category, ScheduleId, Task } from "./types";
+
+export function createScheduleId(): ScheduleId {
+  return crypto.randomUUID();
+}
 
 export function forEachTask(
   categories: Category[],
@@ -26,19 +31,9 @@ export function mapTasks(
   }));
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-export function nextTaskId(categories: Category[]): number {
-  let max = 0;
-  forEachTask(categories, (task) => {
-    if (task.id > max) max = task.id;
-  });
-  return max + 1;
-}
-
 export function findTaskPlace(
   categories: Category[],
-  taskId: number,
+  taskId: ScheduleId,
 ): { category: string; group: string } | null {
   let place: { category: string; group: string } | null = null;
   forEachTask(categories, (task, at) => {
@@ -58,8 +53,8 @@ export function validateNewTask(
   categories: Category[],
 ): string | null {
   if (!input.name.trim()) return "タスク名を入力してください";
-  if (!isIsoDate(input.start)) return "開始日を入力してください";
-  if (!isIsoDate(input.end)) return "終了日を入力してください";
+  if (!isIsoDateString(input.start)) return "開始日を入力してください";
+  if (!isIsoDateString(input.end)) return "終了日を入力してください";
   if (input.end <= input.start) return "期間は1日以上にしてください";
   const category = categories.find((item) => item.name === input.category);
   if (!category) return "カテゴリを選択してください";
@@ -69,14 +64,6 @@ export function validateNewTask(
   return null;
 }
 
-function isIsoDate(value: string): boolean {
-  if (!ISO_DATE.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return false;
-  const month = String(parsed.getMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getDate()).padStart(2, "0");
-  return value === `${parsed.getFullYear()}-${month}-${day}`;
-}
 
 /** 指定したカテゴリとグループの末尾に足す。置き場が無ければ変えない。 */
 export function insertTask(
@@ -93,7 +80,7 @@ export function insertTask(
 }
 
 /** タスクを消し、他タスクの先行からそのIDを外す。空になったグループとカテゴリも外す。 */
-export function removeTask(categories: Category[], taskId: number): Category[] {
+export function removeTask(categories: Category[], taskId: ScheduleId): Category[] {
   return cloneCategories(categories)
     .map((category) => ({
       ...category,
