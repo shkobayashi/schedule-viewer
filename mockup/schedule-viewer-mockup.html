@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>WBS Timeline Mockup</title>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#F8F9FB; --border:#E3E6EB;
+    --text:#1F2937; --text-secondary:#697586; --accent:#4C5FD5;
+    --today:#E2542A;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:20px;background:#EEF0F3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN",sans-serif;}
+  .app{width:100%;max-width:920px;margin:0 auto;border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(16,24,40,0.08);background:var(--bg);}
+  .toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .toolbar h1{font-size:14px;font-weight:600;margin:0 auto 0 0;color:var(--text);white-space:nowrap;}
+  .tag{font-size:10px;color:var(--text-secondary);background:var(--panel);padding:2px 8px;border-radius:12px;margin-left:8px;}
+  select,input[type=text]{font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;color:var(--text);background:#fff;}
+  .zoom-controls{display:flex;align-items:center;gap:4px;}
+  .zoom-controls button,.icon-btn{width:26px;height:26px;border:1px solid var(--border);background:#fff;border-radius:6px;cursor:pointer;font-size:13px;color:var(--text);}
+  .zoom-controls button:hover,.icon-btn:hover{background:var(--panel);}
+  .zoom-controls span{font-size:10px;color:var(--text-secondary);width:44px;text-align:center;}
+  .hint{font-size:11px;color:var(--text-secondary);padding:5px 16px;border-bottom:1px solid var(--border);background:var(--panel);}
+  .main{display:flex;}
+  .sidebar{width:190px;flex-shrink:0;border-right:1px solid var(--border);overflow:hidden;position:relative;background:#fff;}
+  .sidebar-header{height:40px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;font-size:11px;color:var(--text-secondary);font-weight:600;background:var(--panel);}
+  #sidebarViewport{height:400px;overflow:hidden;position:relative;}
+  #sidebarRows{position:absolute;left:0;right:0;top:0;}
+  .sidebar-row{height:32px;display:flex;align-items:center;padding:0 12px;font-size:12px;color:var(--text);border-bottom:1px solid #F0F1F4;white-space:nowrap;overflow:hidden;}
+  .sidebar-row.category{background:var(--panel);font-weight:600;}
+  .sidebar-row .assignee{margin-left:auto;font-size:10px;color:var(--text-secondary);padding-left:6px;}
+  .sidebar-row .name{overflow:hidden;text-overflow:ellipsis;}
+  .timeline{flex:1;display:flex;flex-direction:column;min-width:0;}
+  #headerContainer{height:40px;border-bottom:1px solid var(--border);overflow:hidden;}
+  #bodyContainer{height:400px;overflow:hidden;position:relative;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(16,24,40,0.4);display:flex;align-items:center;justify-content:center;z-index:50;}
+  .modal-overlay.hidden{display:none;}
+  .modal{background:#fff;border-radius:10px;padding:20px;width:320px;box-shadow:0 8px 24px rgba(16,24,40,0.2);}
+  .modal h2{font-size:14px;margin:0 0 14px;color:var(--text);}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:11px;color:var(--text-secondary);margin-bottom:4px;}
+  .field input,.field select{width:100%;padding:6px 8px;font-size:12px;border:1px solid var(--border);border-radius:6px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+  .btn{padding:6px 14px;font-size:12px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer;}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="toolbar">
+    <h1>AI活用PoC推進プロジェクト<span class="tag">サンプルデータ</span></h1>
+    <input type="text" id="searchInput" placeholder="タスク名で検索" style="width:130px">
+    <select id="filterAssignee"><option value="all">担当者: すべて</option></select>
+    <select id="filterStatus">
+      <option value="all">ステータス: すべて</option>
+      <option value="not-started">未着手</option>
+      <option value="in-progress">進行中</option>
+      <option value="done">完了</option>
+    </select>
+    <div class="zoom-controls">
+      <button id="zoomOutBtn" title="縮小">−</button>
+      <span id="zoomLabel">週表示</span>
+      <button id="zoomInBtn" title="拡大">＋</button>
+      <button id="fitBtn" title="全体表示">Fit</button>
+    </div>
+    <button class="icon-btn" id="showJsonBtn" title="現在のデータをJSONで見る">{ }</button>
+  </div>
+  <div class="hint">Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・ バーはドラッグで移動、端をドラッグで期間変更、ダブルクリックで詳細編集</div>
+  <div class="main">
+    <div class="sidebar">
+      <div class="sidebar-header">WBS / タスク</div>
+      <div id="sidebarViewport"><div id="sidebarRows"></div></div>
+    </div>
+    <div class="timeline">
+      <div id="headerContainer"></div>
+      <div id="bodyContainer"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal">
+    <h2>タスク編集</h2>
+    <div class="field"><label>タスク名</label><input type="text" id="fieldName"></div>
+    <div class="field"><label>開始日</label><input type="date" id="fieldStart"></div>
+    <div class="field"><label>終了日</label><input type="date" id="fieldEnd"></div>
+    <div class="field"><label>担当者</label><select id="fieldAssignee"></select></div>
+    <div class="field"><label>ステータス</label>
+      <select id="fieldStatus">
+        <option value="not-started">未着手</option>
+        <option value="in-progress">進行中</option>
+        <option value="done">完了</option>
+      </select>
+    </div>
+    <div class="field"><label>進捗率 (%)</label><input type="number" id="fieldProgress" min="0" max="100"></div>
+    <div class="modal-actions">
+      <button class="btn" id="cancelBtn">キャンセル</button>
+      <button class="btn primary" id="saveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="jsonOverlay">
+  <div class="modal" style="width:440px;">
+    <h2>現在のスケジュールJSON</h2>
+    <textarea id="jsonOutput" readonly style="width:100%;height:340px;font-family:ui-monospace,Consolas,monospace;font-size:11px;border:1px solid var(--border);border-radius:6px;padding:8px;"></textarea>
+    <div class="modal-actions"><button class="btn" id="closeJsonBtn">閉じる</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/konva/9.3.6/konva.min.js"></script>
+<script>
+(function(){
+  // ---------------- Sample data (this shape is a straw-man for the eventual JSON schema) ----------------
+  const categories = [
+    { name:'要件定義', tasks:[
+      {id:1,name:'現状業務ヒアリング',start:'2026-09-14',end:'2026-09-20',assignee:'田中',status:'done',progress:100},
+      {id:2,name:'要件定義書作成',start:'2026-09-18',end:'2026-09-29',assignee:'佐藤',status:'in-progress',progress:60},
+      {id:3,name:'要件レビュー',start:'2026-09-29',end:'2026-10-02',assignee:'田中',status:'not-started',progress:0},
+    ]},
+    { name:'PoC設計・開発', tasks:[
+      {id:4,name:'アーキテクチャ設計',start:'2026-09-25',end:'2026-10-09',assignee:'鈴木',status:'in-progress',progress:30},
+      {id:5,name:'PoC環境構築',start:'2026-10-05',end:'2026-10-16',assignee:'高橋',status:'not-started',progress:0},
+      {id:6,name:'プロトタイプ開発',start:'2026-10-13',end:'2026-11-06',assignee:'鈴木',status:'not-started',progress:0},
+      {id:7,name:'評価・振り返り',start:'2026-11-06',end:'2026-11-13',assignee:'佐藤',status:'not-started',progress:0},
+    ]},
+    { name:'基盤構築', tasks:[
+      {id:8,name:'データ基盤設計',start:'2026-10-01',end:'2026-10-15',assignee:'高橋',status:'in-progress',progress:45},
+      {id:9,name:'基盤構築',start:'2026-10-15',end:'2026-11-12',assignee:'高橋',status:'not-started',progress:0},
+      {id:10,name:'セキュリティ設定',start:'2026-11-05',end:'2026-11-19',assignee:'鈴木',status:'not-started',progress:0},
+    ]},
+    { name:'移行・テスト', tasks:[
+      {id:11,name:'データ移行',start:'2026-11-12',end:'2026-11-26',assignee:'田中',status:'not-started',progress:0},
+      {id:12,name:'結合テスト',start:'2026-11-19',end:'2026-12-03',assignee:'佐藤',status:'not-started',progress:0},
+      {id:13,name:'受け入れテスト',start:'2026-12-03',end:'2026-12-14',assignee:'田中',status:'not-started',progress:0},
+    ]},
+    { name:'リリース', tasks:[
+      {id:14,name:'リリース準備',start:'2026-12-10',end:'2026-12-18',assignee:'高橋',status:'not-started',progress:0},
+      {id:15,name:'本番リリース',start:'2026-12-18',end:'2026-12-21',assignee:'鈴木',status:'not-started',progress:0},
+      {id:16,name:'運用引き継ぎ',start:'2026-12-21',end:'2027-01-08',assignee:'佐藤',status:'not-started',progress:0},
+    ]},
+  ];
+  const assignees = Array.from(new Set(categories.flatMap(c=>c.tasks.map(t=>t.assignee))));
+
+  // ---------------- Date utils (timezone-safe) ----------------
+  const DAY_MS = 86400000;
+  function parseDate(s){ return new Date(s+'T00:00:00'); }
+  function isoDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function daysBetween(a,b){ return Math.round((b-a)/DAY_MS); }
+  function addDays(d,n){ return new Date(d.getTime()+n*DAY_MS); }
+  function fmt(d){ return (d.getMonth()+1)+'/'+d.getDate(); }
+  function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+
+  let minDate=null, maxDate=null;
+  categories.forEach(c=>c.tasks.forEach(t=>{
+    const s=parseDate(t.start), e=parseDate(t.end);
+    if(!minDate||s<minDate) minDate=s;
+    if(!maxDate||e>maxDate) maxDate=e;
+  }));
+  const timelineStart = addDays(minDate,-6);
+  const timelineEnd = addDays(maxDate,7);
+  const totalDays = daysBetween(timelineStart, timelineEnd);
+  const todayDate = parseDate('2026-09-24');
+
+  // ---------------- View state ----------------
+  let pxPerDay = 22;
+  const MIN_PX=3, MAX_PX=90;
+  let scrollX=0, scrollY=0;
+  let selectedTaskId=null;
+  const filters = { assignee:'all', status:'all', search:'' };
+  const HEADER_HEIGHT=40, ROW_HEIGHT=32, BAR_HEIGHT=20;
+
+  function dateToX(d){ return daysBetween(timelineStart,d)*pxPerDay - scrollX; }
+  function xToDate(x){ return addDays(timelineStart,(x+scrollX)/pxPerDay); }
+  function roundToDay(d){ return addDays(timelineStart, daysBetween(timelineStart,d)); }
+  function findTaskById(id){ for(const c of categories) for(const t of c.tasks) if(t.id===id) return t; return null; }
+  function taskMatchesFilter(t){
+    if(filters.assignee!=='all' && t.assignee!==filters.assignee) return false;
+    if(filters.status!=='all' && t.status!==filters.status) return false;
+    if(filters.search && !t.name.includes(filters.search)) return false;
+    return true;
+  }
+
+  let visibleRows=[];
+  function computeVisibleRows(){
+    visibleRows=[]; let y=0;
+    categories.forEach(cat=>{
+      const matched = cat.tasks.filter(taskMatchesFilter);
+      if(matched.length===0) return;
+      visibleRows.push({type:'category',label:cat.name,y}); y+=ROW_HEIGHT;
+      matched.forEach(t=>{ visibleRows.push({type:'task',task:t,y}); y+=ROW_HEIGHT; });
+    });
+  }
+
+  // ---------------- Konva setup ----------------
+  const headerContainer = document.getElementById('headerContainer');
+  const bodyContainer = document.getElementById('bodyContainer');
+  let headerStage, bodyStage, headerLayer, bgLayer, barsLayer, handlesLayer;
+
+  function initStages(){
+    const w = bodyContainer.clientWidth;
+    headerStage = new Konva.Stage({container:'headerContainer', width:w, height:HEADER_HEIGHT});
+    headerLayer = new Konva.Layer(); headerStage.add(headerLayer);
+    bodyStage = new Konva.Stage({container:'bodyContainer', width:w, height:bodyContainer.clientHeight});
+    bgLayer = new Konva.Layer(); barsLayer = new Konva.Layer(); handlesLayer = new Konva.Layer();
+    bodyStage.add(bgLayer); bodyStage.add(barsLayer); bodyStage.add(handlesLayer);
+    bodyStage.on('click tap', (e)=>{
+      if(e.target===bodyStage || (e.target.getLayer && e.target.getLayer()===bgLayer)){
+        selectedTaskId=null; renderAll();
+      }
+    });
+  }
+
+  function gridTier(){ return pxPerDay>=40?'day':(pxPerDay>=10?'week':'month'); }
+
+  function renderHeader(){
+    headerLayer.destroyChildren();
+    const tier = gridTier(), width = headerStage.width();
+    headerLayer.add(new Konva.Line({points:[0,HEADER_HEIGHT-0.5,width,HEADER_HEIGHT-0.5],stroke:'#E3E6EB',strokeWidth:1}));
+    if(tier==='month'){
+      let d = new Date(timelineStart.getFullYear(), timelineStart.getMonth(), 1);
+      while(d<timelineEnd){
+        const x = dateToX(d);
+        if(x>-120 && x<width+120){
+          headerLayer.add(new Konva.Line({points:[x,0,x,HEADER_HEIGHT],stroke:'#C7CCD6',strokeWidth:1}));
+          headerLayer.add(new Konva.Text({x:x+6,y:13,text:d.getFullYear()+'年'+(d.getMonth()+1)+'月',fontSize:12,fontStyle:'bold',fill:'#1F2937'}));
+        }
+        d = new Date(d.getFullYear(), d.getMonth()+1, 1);
+      }
+    } else {
+      for(let i=0;i<=totalDays;i++){
+        const d = addDays(timelineStart,i), x = dateToX(d);
+        if(x<-40||x>width+40) continue;
+        const isMonday = d.getDay()===1, isFirst = d.getDate()===1;
+        if(tier==='day' || isMonday){
+          headerLayer.add(new Konva.Line({points:[x,tier==='day'?26:20,x,HEADER_HEIGHT],stroke:isMonday?'#9AA5B4':'#E3E6EB',strokeWidth:1}));
+          headerLayer.add(new Konva.Text({x:x+2,y:24,text:fmt(d),fontSize:10,fill:isMonday?'#1F2937':'#8A94A6',fontStyle:isMonday?'bold':'normal'}));
+        }
+        if(isFirst){
+          headerLayer.add(new Konva.Text({x:x+2,y:6,text:(d.getMonth()+1)+'月',fontSize:11,fontStyle:'bold',fill:'#1F2937'}));
+        }
+      }
+    }
+    headerLayer.batchDraw();
+  }
+
+  function renderBg(){
+    bgLayer.destroyChildren();
+    const width=bodyStage.width(), height=bodyStage.height(), tier=gridTier();
+    visibleRows.forEach(row=>{
+      const y = row.y-scrollY;
+      if(y+ROW_HEIGHT<0||y>height) return;
+      if(row.type==='category') bgLayer.add(new Konva.Rect({x:0,y,width,height:ROW_HEIGHT,fill:'#F8F9FB'}));
+    });
+    if(tier!=='month'){
+      for(let i=0;i<=totalDays;i++){
+        const d = addDays(timelineStart,i), x = dateToX(d);
+        if(x<-10||x>width+10) continue;
+        if(d.getDay()===6) bgLayer.add(new Konva.Rect({x,y:0,width:pxPerDay*2,height,fill:'#F4F5F8'}));
+      }
+      for(let i=0;i<=totalDays;i++){
+        const d = addDays(timelineStart,i), x = dateToX(d);
+        if(x<-10||x>width+10) continue;
+        const isMonday = d.getDay()===1;
+        if(tier==='day' || isMonday) bgLayer.add(new Konva.Line({points:[x,0,x,height],stroke:isMonday?'#D8DCE3':'#EDEFF3',strokeWidth:1}));
+      }
+    } else {
+      let d = new Date(timelineStart.getFullYear(), timelineStart.getMonth(),1);
+      while(d<timelineEnd){
+        const x = dateToX(d);
+        if(x>-10&&x<width+10) bgLayer.add(new Konva.Line({points:[x,0,x,height],stroke:'#DDE1E7',strokeWidth:1}));
+        d = new Date(d.getFullYear(), d.getMonth()+1,1);
+      }
+    }
+    const tx = dateToX(todayDate);
+    if(tx>-2&&tx<width+2) bgLayer.add(new Konva.Line({points:[tx,0,tx,height],stroke:'#E2542A',strokeWidth:1.5,dash:[4,3]}));
+    visibleRows.forEach(row=>{
+      const y = row.y-scrollY+ROW_HEIGHT;
+      if(y<0||y>height) return;
+      bgLayer.add(new Konva.Line({points:[0,y,width,y],stroke:'#F0F1F4',strokeWidth:1}));
+    });
+    bgLayer.batchDraw();
+  }
+
+  function statusColors(status){
+    if(status==='done') return {bg:'#2E9E6C',fill:null,border:'#278A5E'};
+    if(status==='in-progress') return {bg:'#DEE3FB',fill:'#4C5FD5',border:'#4C5FD5'};
+    return {bg:'#EDEFF3',fill:null,border:'#C4CAD4'};
+  }
+
+  const barNodes = {};
+  function renderBars(){
+    barsLayer.destroyChildren();
+    Object.keys(barNodes).forEach(k=>delete barNodes[k]);
+    const width=bodyStage.width(), height=bodyStage.height();
+    visibleRows.forEach(row=>{
+      if(row.type!=='task') return;
+      const t=row.task, y=row.y-scrollY;
+      if(y+ROW_HEIGHT<0||y>height) return;
+      const s=parseDate(t.start), e=parseDate(t.end);
+      const x=dateToX(s), w=Math.max(6,dateToX(e)-dateToX(s));
+      const barY = y+(ROW_HEIGHT-BAR_HEIGHT)/2;
+      const colors = statusColors(t.status);
+      const group = new Konva.Group({x,y:barY,draggable:true});
+      group.dragBoundFunc(function(pos){ return {x:pos.x,y:barY}; });
+      const bg = new Konva.Rect({x:0,y:0,width:w,height:BAR_HEIGHT,fill:colors.bg,stroke:colors.border,strokeWidth:selectedTaskId===t.id?1.5:1,cornerRadius:4});
+      group.add(bg);
+      let fillRect=null;
+      if(t.status==='in-progress'){
+        fillRect = new Konva.Rect({x:0,y:0,width:w*(t.progress/100),height:BAR_HEIGHT,fill:colors.fill,cornerRadius:4});
+        group.add(fillRect);
+      }
+      group.on('click tap',(e)=>{ e.cancelBubble=true; selectedTaskId=t.id; renderAll(); });
+      group.on('dblclick dbltap',(e)=>{ e.cancelBubble=true; openEditDialog(t); });
+      group.on('dragstart',()=>{ group._origX=group.x(); });
+      group.on('dragend',()=>{
+        const delta = Math.round((group.x()-group._origX)/pxPerDay);
+        if(delta!==0){
+          t.start = isoDate(addDays(parseDate(t.start),delta));
+          t.end = isoDate(addDays(parseDate(t.end),delta));
+        }
+        renderAll();
+      });
+      barsLayer.add(group);
+      barNodes[t.id] = {group,bg,fillRect,barY};
+    });
+    barsLayer.batchDraw();
+  }
+
+  function renderHandles(){
+    handlesLayer.destroyChildren();
+    if(selectedTaskId==null || !barNodes[selectedTaskId]){ handlesLayer.batchDraw(); return; }
+    const node = barNodes[selectedTaskId], task = findTaskById(selectedTaskId);
+    const groupX = node.group.x(), barY = node.barY, w = node.bg.width(), HW=8;
+    const leftHandle = new Konva.Rect({x:groupX-HW/2,y:barY+BAR_HEIGHT/2-7,width:HW,height:14,fill:'#4C5FD5',cornerRadius:2,draggable:true});
+    const rightHandle = new Konva.Rect({x:groupX+w-HW/2,y:barY+BAR_HEIGHT/2-7,width:HW,height:14,fill:'#4C5FD5',cornerRadius:2,draggable:true});
+    leftHandle.dragBoundFunc(function(pos){ return {x:Math.min(pos.x, rightHandle.x()-pxPerDay), y:barY+BAR_HEIGHT/2-7}; });
+    rightHandle.dragBoundFunc(function(pos){ return {x:Math.max(pos.x, leftHandle.x()+pxPerDay), y:barY+BAR_HEIGHT/2-7}; });
+    leftHandle.on('dragmove',()=>{
+      const newX = leftHandle.x()+HW/2, rightEdge = node.group.x()+node.bg.width();
+      const newW = Math.max(6, rightEdge-newX);
+      node.group.x(newX); node.bg.width(newW);
+      if(node.fillRect) node.fillRect.width(newW*(task.progress/100));
+      barsLayer.batchDraw();
+    });
+    leftHandle.on('dragend',()=>{ task.start = isoDate(roundToDay(xToDate(node.group.x()))); renderAll(); });
+    rightHandle.on('dragmove',()=>{
+      const newW = Math.max(6, rightHandle.x()+HW/2-node.group.x());
+      node.bg.width(newW);
+      if(node.fillRect) node.fillRect.width(newW*(task.progress/100));
+      barsLayer.batchDraw();
+    });
+    rightHandle.on('dragend',()=>{ task.end = isoDate(roundToDay(xToDate(node.group.x()+node.bg.width()))); renderAll(); });
+    handlesLayer.add(leftHandle); handlesLayer.add(rightHandle);
+    handlesLayer.batchDraw();
+  }
+
+  function renderSidebar(){
+    const rowsEl = document.getElementById('sidebarRows');
+    rowsEl.innerHTML='';
+    visibleRows.forEach(row=>{
+      const div = document.createElement('div');
+      div.className = 'sidebar-row'+(row.type==='category'?' category':'');
+      if(row.type==='category'){ div.textContent=row.label; }
+      else {
+        const nameSpan=document.createElement('span'); nameSpan.className='name'; nameSpan.textContent=row.task.name;
+        const asSpan=document.createElement('span'); asSpan.className='assignee'; asSpan.textContent=row.task.assignee;
+        div.appendChild(nameSpan); div.appendChild(asSpan);
+        if(row.task.id===selectedTaskId) div.style.background='#EEF0FE';
+      }
+      rowsEl.appendChild(div);
+    });
+    rowsEl.style.transform = 'translateY('+(-scrollY)+'px)';
+  }
+
+  function updateZoomLabel(){
+    const tier=gridTier();
+    document.getElementById('zoomLabel').textContent = tier==='day'?'日表示':(tier==='week'?'週表示':'月表示');
+  }
+
+  function renderAll(){
+    computeVisibleRows();
+    renderSidebar();
+    renderHeader();
+    renderBg();
+    renderBars();
+    renderHandles();
+    updateZoomLabel();
+  }
+
+  let rafId=null;
+  function requestRender(){ if(rafId) return; rafId=requestAnimationFrame(()=>{ renderAll(); rafId=null; }); }
+
+  function maxScrollX(){ return Math.max(0, totalDays*pxPerDay - bodyStage.width()); }
+  function maxScrollY(){ return Math.max(0, visibleRows.length*ROW_HEIGHT - bodyStage.height()); }
+
+  function setZoom(newPx, anchorX){
+    newPx = clamp(newPx, MIN_PX, MAX_PX);
+    const anchorDate = xToDate(anchorX);
+    const anchorDayIdx = daysBetween(timelineStart, anchorDate);
+    pxPerDay = newPx;
+    scrollX = clamp(anchorDayIdx*pxPerDay - anchorX, 0, maxScrollX());
+    requestRender();
+  }
+
+  function attachWheel(el, isHeader){
+    el.addEventListener('wheel', function(e){
+      e.preventDefault();
+      const rect = bodyContainer.getBoundingClientRect();
+      const pointerX = e.clientX - rect.left;
+      if(e.ctrlKey || e.metaKey){
+        setZoom(pxPerDay*(e.deltaY<0?1.15:1/1.15), pointerX);
+      } else if(e.shiftKey || isHeader){
+        scrollX = clamp(scrollX+e.deltaY, 0, maxScrollX()); requestRender();
+      } else {
+        scrollY = clamp(scrollY+e.deltaY, 0, maxScrollY()); requestRender();
+      }
+    }, {passive:false});
+  }
+
+  // ---------------- Filters ----------------
+  function initFilters(){
+    const asel = document.getElementById('filterAssignee');
+    assignees.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; asel.appendChild(o); });
+    asel.onchange = ()=>{ filters.assignee=asel.value; selectedTaskId=null; renderAll(); };
+    document.getElementById('filterStatus').onchange = (e)=>{ filters.status=e.target.value; selectedTaskId=null; renderAll(); };
+    document.getElementById('searchInput').oninput = (e)=>{ filters.search=e.target.value.trim(); selectedTaskId=null; renderAll(); };
+  }
+
+  // ---------------- Edit dialog ----------------
+  let editingTaskId=null;
+  function openEditDialog(t){
+    editingTaskId=t.id;
+    document.getElementById('fieldName').value=t.name;
+    document.getElementById('fieldStart').value=t.start;
+    document.getElementById('fieldEnd').value=t.end;
+    document.getElementById('fieldStatus').value=t.status;
+    document.getElementById('fieldProgress').value=t.progress;
+    const asel=document.getElementById('fieldAssignee'); asel.innerHTML='';
+    assignees.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; if(a===t.assignee) o.selected=true; asel.appendChild(o); });
+    document.getElementById('modalOverlay').classList.remove('hidden');
+  }
+  document.getElementById('cancelBtn').onclick = ()=> document.getElementById('modalOverlay').classList.add('hidden');
+  document.getElementById('saveBtn').onclick = ()=>{
+    const t = findTaskById(editingTaskId);
+    const newStart = document.getElementById('fieldStart').value;
+    const newEnd = document.getElementById('fieldEnd').value;
+    if(newEnd < newStart){ alert('終了日は開始日以降にしてください'); return; }
+    t.name = document.getElementById('fieldName').value || t.name;
+    t.start = newStart; t.end = newEnd;
+    t.assignee = document.getElementById('fieldAssignee').value;
+    t.status = document.getElementById('fieldStatus').value;
+    t.progress = clamp(Number(document.getElementById('fieldProgress').value)||0, 0, 100);
+    document.getElementById('modalOverlay').classList.add('hidden');
+    renderAll();
+  };
+
+  // ---------------- JSON view ----------------
+  function dataToJSON(){
+    return { categories: categories.map(c=>({ name:c.name, tasks:c.tasks.map(t=>({id:t.id,name:t.name,start:t.start,end:t.end,assignee:t.assignee,status:t.status,progress:t.progress})) })) };
+  }
+  document.getElementById('showJsonBtn').onclick = ()=>{
+    document.getElementById('jsonOutput').value = JSON.stringify(dataToJSON(), null, 2);
+    document.getElementById('jsonOverlay').classList.remove('hidden');
+  };
+  document.getElementById('closeJsonBtn').onclick = ()=> document.getElementById('jsonOverlay').classList.add('hidden');
+
+  // ---------------- Zoom buttons ----------------
+  document.getElementById('zoomInBtn').onclick = ()=> setZoom(pxPerDay*1.4, bodyStage.width()/2);
+  document.getElementById('zoomOutBtn').onclick = ()=> setZoom(pxPerDay/1.4, bodyStage.width()/2);
+  document.getElementById('fitBtn').onclick = ()=>{
+    pxPerDay = clamp(bodyStage.width()/totalDays, MIN_PX, MAX_PX);
+    scrollX = 0;
+    requestRender();
+  };
+
+  window.addEventListener('resize', ()=>{
+    const w = bodyContainer.clientWidth;
+    headerStage.width(w); bodyStage.width(w);
+    requestRender();
+  });
+
+  // ---------------- Init ----------------
+  initStages();
+  initFilters();
+  attachWheel(bodyContainer, false);
+  attachWheel(headerContainer, true);
+  renderAll();
+})();
+</script>
+</body>
+</html>

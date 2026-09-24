@@ -1,0 +1,28 @@
+# --- Node / フロントエンド ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# --- Rust / Tauri ---
+/src-tauri/target/
+
+# --- ログ ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- 環境変数 ---
+.env
+.env.*
+
+# --- エディタ / IDE ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
