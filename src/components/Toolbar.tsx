@@ -12,6 +12,9 @@ type ToolbarProps = {
   filters: ScheduleFilters;
   assignees: string[];
   zoomLabel: string;
+  lineageName: string | null;
+  canStartLineage: boolean;
+  onToggleLineage: () => void;
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -24,6 +27,9 @@ export function Toolbar({
   filters,
   assignees,
   zoomLabel,
+  lineageName,
+  canStartLineage,
+  onToggleLineage,
   onFiltersChange,
   onZoomIn,
   onZoomOut,
@@ -85,6 +91,19 @@ export function Toolbar({
         <option value="all">前後: すべて</option>
         <option value="broken">前後: 破綻のみ</option>
       </select>
+      <button
+        type="button"
+        className={`lineage-btn${lineageName ? " active" : ""}`}
+        disabled={!lineageName && !canStartLineage}
+        title={
+          lineageName
+            ? `${lineageName} の前後の系統を表示中。クリックで解除`
+            : "選択中のタスクについて、前後の最初から最後までを表示"
+        }
+        onClick={onToggleLineage}
+      >
+        {lineageName ? `系統: ${lineageName}` : "系統"}
+      </button>
       <div className="zoom-controls">
         <button type="button" title="縮小" onClick={onZoomOut}>
           −

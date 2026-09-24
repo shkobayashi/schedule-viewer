@@ -51,6 +51,48 @@ function tasksById(categories: Category[]): Map<number, Task> {
   return byId;
 }
 
+/**
+ * 起点から predecessors を遡った先行と、後続を末端まで辿ったタスク。
+ * 起点を通らない枝は含めない。起点が無ければ null。
+ */
+export function lineageTaskIds(
+  categories: Category[],
+  rootId: number,
+): Set<number> | null {
+  const predecessors = new Map<number, number[]>();
+  const successors = new Map<number, number[]>();
+  let rootExists = false;
+  forEachTask(categories, (task) => {
+    if (task.id === rootId) rootExists = true;
+    predecessors.set(task.id, task.predecessors);
+    for (const predId of task.predecessors) {
+      const next = successors.get(predId);
+      if (next) next.push(task.id);
+      else successors.set(predId, [task.id]);
+    }
+  });
+  if (!rootExists) return null;
+
+  const ids = new Set<number>([rootId]);
+  const walk = (nextOf: (id: number) => number[] | undefined) => {
+    const stack = [rootId];
+    const seen = new Set<number>([rootId]);
+    while (stack.length > 0) {
+      const id = stack.pop();
+      if (id == null) continue;
+      for (const other of nextOf(id) ?? []) {
+        if (seen.has(other) || !predecessors.has(other)) continue;
+        seen.add(other);
+        ids.add(other);
+        stack.push(other);
+      }
+    }
+  };
+  walk((id) => predecessors.get(id));
+  walk((id) => successors.get(id));
+  return ids;
+}
+
 /** 破綻した線の先行または後続になっているタスク。 */
 export function brokenLinkTaskIds(categories: Category[]): Set<number> {
   const byId = tasksById(categories);

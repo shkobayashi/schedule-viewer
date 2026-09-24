@@ -103,6 +103,41 @@ input[type="number"] {
   background: var(--panel);
 }
 
+.lineage-btn {
+  height: calc(26px * var(--s));
+  max-width: calc(220px * var(--s));
+  padding: 0 calc(10px * var(--s));
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: calc(12px * var(--s));
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineage-btn:hover:not(:disabled) {
+  background: var(--panel);
+}
+
+.lineage-btn:disabled {
+  color: var(--text-secondary);
+  background: var(--panel);
+  cursor: default;
+}
+
+.lineage-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.lineage-btn.active:hover {
+  background: var(--accent);
+}
+
 .zoom-controls span {
   font-size: calc(10px * var(--s));
   color: var(--text-secondary);

@@ -142,6 +142,9 @@ function App() {
         filters={schedule.filters}
         assignees={schedule.assignees}
         zoomLabel={view.tierLabel}
+        lineageName={schedule.lineageTask?.name ?? null}
+        canStartLineage={schedule.selectedTaskId != null}
+        onToggleLineage={schedule.toggleLineage}
         onFiltersChange={schedule.updateFilters}
         onZoomIn={view.zoomIn}
         onZoomOut={view.zoomOut}
@@ -151,6 +154,7 @@ function App() {
       <div className="hint">
         Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
         ドラッグで縦横スクロール ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
+        ・ タスクを選んで「系統」で前後だけ表示
       </div>
       <div className="main">
         <Sidebar

@@ -25,7 +25,9 @@ export function taskMatchesFilter(
   task: Task,
   filters: ScheduleFilters,
   brokenIds?: ReadonlySet<number>,
+  lineageIds?: ReadonlySet<number> | null,
 ): boolean {
+  if (lineageIds && !lineageIds.has(task.id)) return false;
   if (filters.assignee === UNASSIGNED_FILTER) {
     if (!isUnassigned(task.assignee)) return false;
   } else if (
@@ -61,6 +63,7 @@ export function computeVisibleRows(
   filters: ScheduleFilters,
   collapsed: ReadonlySet<string>,
   rowHeight = ROW_HEIGHT,
+  lineageIds?: ReadonlySet<number> | null,
 ): VisibleRow[] {
   const brokenIds =
     filters.relation === "broken" ? brokenLinkTaskIds(categories) : undefined;
@@ -71,7 +74,7 @@ export function computeVisibleRows(
       .map((group) => ({
         group,
         matched: group.tasks.filter((task) =>
-          taskMatchesFilter(task, filters, brokenIds),
+          taskMatchesFilter(task, filters, brokenIds, lineageIds),
         ),
       }))
       .filter((entry) => entry.matched.length > 0);
