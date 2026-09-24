@@ -6,10 +6,24 @@ import {
   parseDate,
 } from "../model/dates";
 import { lineageTaskIds } from "../model/dependencies";
-import { computeVisibleRows, findTaskById } from "../model/rows";
-import { cloneCategories, mapTasks } from "../model/tasks";
-import type {
-  Category,
+import {
+  categoryCollapseKey,
+  computeVisibleRows,
+  findTaskById,
+  groupCollapseKey,
+} from "../model/rows";
+import {
+  cloneCategories,
+  insertTask,
+  mapTasks,
+  nextTaskId,
+  removeTask,
+  validateNewTask,
+} from "../model/tasks";
+import { isOverdue, TODAY_ISO } from "../model/timeline";
+import {
+  UNASSIGNED_FILTER,
+  type Category,
   Milestone,
   ScheduleFilters,
   Task,
@@ -106,9 +120,14 @@ export function useSchedule(
 
   const setTaskStart = useCallback((taskId: number, start: string) => {
     setCategories((prev) =>
-      mapTasks(prev, (task) =>
-        task.id === taskId ? { ...task, start } : task,
-      ),
+      mapTasks(prev, (task) => {
+        if (task.id !== taskId) return task;
+        const end =
+          start < task.end
+            ? task.end
+            : isoDate(addDays(parseDate(start), 1));
+        return { ...task, start, end };
+      }),
     );
   }, []);
 
@@ -161,7 +180,14 @@ export function useSchedule(
 
   const setTaskEnd = useCallback((taskId: number, end: string) => {
     setCategories((prev) =>
-      mapTasks(prev, (task) => (task.id === taskId ? { ...task, end } : task)),
+      mapTasks(prev, (task) => {
+        if (task.id !== taskId) return task;
+        const next =
+          end > task.start
+            ? end
+            : isoDate(addDays(parseDate(task.start), 1));
+        return { ...task, end: next };
+      }),
     );
   }, []);
 
@@ -185,7 +211,7 @@ export function useSchedule(
       successors: number[];
       milestoneId: number | null;
     }) => {
-      if (patch.end < patch.start) return false;
+      if (patch.end <= patch.start) return false;
       if (editingTaskId == null) return false;
       const predecessors = [
         ...new Set(
@@ -231,6 +257,69 @@ export function useSchedule(
     [editingTaskId, milestones],
   );
 
+  const addTask = useCallback(
+    (input: {
+      name: string;
+      start: string;
+      end: string;
+      category: string;
+      group: string;
+    }) => {
+      if (validateNewTask(input, categories)) return null;
+      const name = input.name.trim();
+      const id = nextTaskId(categories);
+      const task: Task = {
+        id,
+        name,
+        start: input.start,
+        end: input.end,
+        assignee: "",
+        status: "not-started",
+        progress: 0,
+        predecessors: [],
+        milestoneId: null,
+      };
+      const place = { category: input.category, group: input.group };
+      setCategories(insertTask(categories, task, place));
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        next.delete(categoryCollapseKey(place.category));
+        next.delete(groupCollapseKey(place.category, place.group));
+        return next;
+      });
+      setFilters((prev) => ({
+        ...prev,
+        assignee:
+          prev.assignee !== "all" && prev.assignee !== UNASSIGNED_FILTER
+            ? "all"
+            : prev.assignee,
+        status:
+          prev.status === "done" || prev.status === "in-progress"
+            ? "all"
+            : prev.status,
+        overdue:
+          prev.overdue === "overdue" &&
+          !isOverdue({ status: "not-started", end: input.end }, TODAY_ISO)
+            ? "all"
+            : prev.overdue,
+        relation: prev.relation === "broken" ? "all" : prev.relation,
+        search: prev.search && !name.includes(prev.search) ? "" : prev.search,
+      }));
+      setLineageTaskId(null);
+      setSelectedTaskId(id);
+      setEditingTaskId(null);
+      return id;
+    },
+    [categories],
+  );
+
+  const deleteTask = useCallback((taskId: number) => {
+    setCategories((prev) => removeTask(prev, taskId));
+    setSelectedTaskId((current) => (current === taskId ? null : current));
+    setEditingTaskId((current) => (current === taskId ? null : current));
+    setLineageTaskId((current) => (current === taskId ? null : current));
+  }, []);
+
   const editingTask = useMemo(
     () => findTaskById(categories, editingTaskId),
     [categories, editingTaskId],
@@ -266,6 +355,8 @@ export function useSchedule(
     closeEditDialog,
     saveTaskEdit,
     editingTask,
+    addTask,
+    deleteTask,
     maxScrollY: Math.max(0, visibleRows.length * rowHeight - bodyHeight),
   };
 }

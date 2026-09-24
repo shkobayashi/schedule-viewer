@@ -35,6 +35,16 @@ export function listTasks(categories: Category[]): TaskRef[] {
   return tasks;
 }
 
+/** このタスク自身の先行と、このタスクを先行にしている後続の本数。 */
+export function dependencyCount(categories: Category[], taskId: number): number {
+  let count = 0;
+  forEachTask(categories, (task) => {
+    if (task.id === taskId) count += task.predecessors.length;
+    else if (task.predecessors.includes(taskId)) count += 1;
+  });
+  return count;
+}
+
 export function successorIds(categories: Category[], taskId: number): number[] {
   const ids: number[] = [];
   forEachTask(categories, (task) => {

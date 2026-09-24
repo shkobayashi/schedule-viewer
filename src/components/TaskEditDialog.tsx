@@ -199,8 +199,8 @@ export function TaskEditDialog({
             type="button"
             className="btn primary"
             onClick={() => {
-              if (end < start) {
-                window.alert("終了日は開始日以降にしてください");
+              if (end <= start) {
+                window.alert("期間は1日以上にしてください");
                 return;
               }
               onSave({

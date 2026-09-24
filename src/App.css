@@ -122,7 +122,23 @@ input[type="number"] {
   background: var(--panel);
 }
 
-.lineage-btn:disabled {
+.toolbar-btn {
+  height: calc(26px * var(--s));
+  padding: 0 calc(10px * var(--s));
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: calc(12px * var(--s));
+  color: var(--text);
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: var(--panel);
+}
+
+.lineage-btn:disabled,
+.toolbar-btn:disabled {
   color: var(--text-secondary);
   background: var(--panel);
   cursor: default;
@@ -495,6 +511,24 @@ input[type="number"] {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+.btn.danger {
+  background: var(--today);
+  border-color: var(--today);
+  color: #fff;
+}
+
+.form-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.form-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--today);
 }
 
 .json-textarea {
