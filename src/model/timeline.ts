@@ -1,4 +1,5 @@
 import { addDays, daysBetween, parseDate } from "./dates";
+import { forEachTask } from "./tasks";
 import type { Category } from "./types";
 
 export const HEADER_HEIGHT = 40;
@@ -28,14 +29,12 @@ export function computeTimelineRange(categories: Category[]): {
 } {
   let minDate: Date | null = null;
   let maxDate: Date | null = null;
-  for (const c of categories) {
-    for (const t of c.tasks) {
-      const s = parseDate(t.start);
-      const e = parseDate(t.end);
-      if (!minDate || s < minDate) minDate = s;
-      if (!maxDate || e > maxDate) maxDate = e;
-    }
-  }
+  forEachTask(categories, (task) => {
+    const s = parseDate(task.start);
+    const e = parseDate(task.end);
+    if (!minDate || s < minDate) minDate = s;
+    if (!maxDate || e > maxDate) maxDate = e;
+  });
   if (!minDate || !maxDate) {
     const today = parseDate(TODAY_ISO);
     minDate = today;

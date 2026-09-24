@@ -1,3 +1,7 @@
+import {
+  categoryCollapseKey,
+  groupCollapseKey,
+} from "../model/rows";
 import { isOverdue } from "../model/timeline";
 import { isUnassigned, UNASSIGNED_LABEL, type VisibleRow } from "../model/types";
 
@@ -6,6 +10,7 @@ type SidebarProps = {
   scrollY: number;
   rowHeight: number;
   selectedTaskId: number | null;
+  onToggleCollapse: (key: string) => void;
 };
 
 export function Sidebar({
@@ -13,6 +18,7 @@ export function Sidebar({
   scrollY,
   rowHeight,
   selectedTaskId,
+  onToggleCollapse,
 }: SidebarProps) {
   return (
     <div className="sidebar">
@@ -30,6 +36,29 @@ export function Sidebar({
                   className="sidebar-row category"
                   style={{ height: rowHeight }}
                 >
+                  <CollapseButton
+                    label={row.label}
+                    collapsed={row.collapsed}
+                    onClick={() => onToggleCollapse(categoryCollapseKey(row.label))}
+                  />
+                  {row.label}
+                </div>
+              );
+            }
+            if (row.type === "group") {
+              return (
+                <div
+                  key={`group-${row.category}-${row.label}-${row.y}`}
+                  className="sidebar-row group"
+                  style={{ height: rowHeight }}
+                >
+                  <CollapseButton
+                    label={row.label}
+                    collapsed={row.collapsed}
+                    onClick={() =>
+                      onToggleCollapse(groupCollapseKey(row.category, row.label))
+                    }
+                  />
                   {row.label}
                 </div>
               );
@@ -39,7 +68,7 @@ export function Sidebar({
             return (
               <div
                 key={`task-${row.task.id}`}
-                className={`sidebar-row${selected ? " selected" : ""}${unassigned ? " unassigned" : ""}`}
+                className={`sidebar-row task${selected ? " selected" : ""}${unassigned ? " unassigned" : ""}`}
                 style={{ height: rowHeight }}
               >
                 <span className={`name${isOverdue(row.task) ? " overdue" : ""}`}>
@@ -54,5 +83,27 @@ export function Sidebar({
         </div>
       </div>
     </div>
+  );
+}
+
+function CollapseButton({
+  label,
+  collapsed,
+  onClick,
+}: {
+  label: string;
+  collapsed: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="twist"
+      aria-expanded={!collapsed}
+      aria-label={collapsed ? `${label}を展開` : `${label}を折りたたむ`}
+      onClick={onClick}
+    >
+      {collapsed ? "▶" : "▼"}
+    </button>
   );
 }

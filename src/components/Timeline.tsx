@@ -11,6 +11,7 @@ import type Konva from "konva";
 import { addDays, fmtShort, parseDate } from "../model/dates";
 import { linkPoints, type DependencyLink } from "../model/dependencies";
 import { barColors, isOverdue, TODAY_ISO } from "../model/timeline";
+import type { SummarySpan } from "../model/summary";
 import { isUnassigned, type Task, type VisibleRow } from "../model/types";
 
 type TimelineProps = {
@@ -41,6 +42,65 @@ type TimelineProps = {
 };
 
 const HANDLE_WIDTH = 8;
+const SUMMARY_COVERED = "#5C6B82";
+const SUMMARY_GAP = "#D5DBE3";
+
+function SummaryBar({
+  summary,
+  y,
+  rowHeight,
+  barHeight,
+  dateToX,
+}: {
+  summary: SummarySpan;
+  y: number;
+  rowHeight: number;
+  barHeight: number;
+  dateToX: (d: Date) => number;
+}) {
+  const x = dateToX(parseDate(summary.start));
+  const width = Math.max(6, dateToX(parseDate(summary.end)) - x);
+  const height = Math.max(4, Math.round(barHeight / 2));
+  const barY = y + (rowHeight - height) / 2;
+  const radius = Math.min(3, Math.round(height / 2));
+  return (
+    <Group x={x} y={barY} listening={false}>
+      <Rect
+        width={width}
+        height={height}
+        fill={SUMMARY_GAP}
+        cornerRadius={radius}
+      />
+      {summary.covered.map((span) => {
+        const spanX = dateToX(parseDate(span.start)) - x;
+        const spanW = Math.max(
+          2,
+          dateToX(parseDate(span.end)) - dateToX(parseDate(span.start)),
+        );
+        const atStart = span.start === summary.start;
+        const atEnd = span.end === summary.end;
+        const spanRadius: number | number[] =
+          atStart && atEnd
+            ? radius
+            : atStart
+              ? [radius, 0, 0, radius]
+              : atEnd
+                ? [0, radius, radius, 0]
+                : 0;
+        return (
+          <Rect
+            key={`${span.start}-${span.end}`}
+            x={spanX}
+            width={spanW}
+            height={height}
+            fill={SUMMARY_COVERED}
+            cornerRadius={spanRadius}
+          />
+        );
+      })}
+    </Group>
+  );
+}
 
 function TaskBar({
   task,
@@ -418,15 +478,15 @@ export function Timeline({
     for (const row of visibleRows) {
       const y = row.y - scrollY;
       if (y + rowHeight < 0 || y > height) continue;
-      if (row.type === "category") {
+      if (row.type === "category" || row.type === "group") {
         elements.push(
           <Rect
-            key={`cat-bg-${row.label}-${row.y}`}
+            key={`${row.type}-bg-${row.type === "group" ? row.category : ""}-${row.label}-${row.y}`}
             x={0}
             y={y}
             width={width}
             height={rowHeight}
-            fill="#F8F9FB"
+            fill={row.type === "category" ? "#F8F9FB" : "#F3F5F8"}
             listening={false}
           />,
         );
@@ -670,6 +730,21 @@ export function Timeline({
           <Layer listening={false}>{bgContent}</Layer>
           <Layer listening={false}>{linkArrows}</Layer>
           <Layer>
+            {visibleRows.map((row) => {
+              if (row.type === "task") return null;
+              const y = row.y - scrollY;
+              if (y + rowHeight < 0 || y > bodyHeight) return null;
+              return (
+                <SummaryBar
+                  key={`${row.type}-${row.type === "group" ? row.category : ""}-${row.label}-${row.y}`}
+                  summary={row.summary}
+                  y={y}
+                  rowHeight={rowHeight}
+                  barHeight={barHeight}
+                  dateToX={dateToX}
+                />
+              );
+            })}
             {visibleRows.map((row) => {
               if (row.type !== "task") return null;
               const y = row.y - scrollY;
