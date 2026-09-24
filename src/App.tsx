@@ -11,6 +11,7 @@ import { Toolbar } from "./components/Toolbar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useTimelineView } from "./hooks/useTimelineView";
 import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
+import { downloadScheduleHtml } from "./model/exportHtml";
 import { isoDate, parseDate, roundToDay } from "./model/dates";
 import { layoutMilestones } from "./model/milestones";
 import { findTaskById } from "./model/rows";
@@ -212,6 +213,30 @@ function App() {
         onZoomOut={view.zoomOut}
         onFit={view.fitToWidth}
         onShowJson={() => setJsonOpen(true)}
+        onExportHtml={() =>
+          downloadScheduleHtml({
+            title: SAMPLE_PROJECT_TITLE,
+            tierLabel: view.tierLabel,
+            lineageName: schedule.lineageTask?.name ?? null,
+            visibleRows: schedule.visibleRows,
+            milestones: schedule.milestones,
+            milestoneLanes,
+            links,
+            timelineStart: range.timelineStart,
+            timelineEnd: range.timelineEnd,
+            totalDays: range.totalDays,
+            pxPerDay: view.pxPerDay,
+            tier: view.tier,
+            headerHeight,
+            rowHeight,
+            barHeight,
+            milestoneBandHeight,
+            milestoneLaneHeight,
+            milestoneDiamondSize,
+            milestoneFontSize,
+            labelScale: uiScale,
+          })
+        }
         canDelete={schedule.selectedTaskId != null}
         onAdd={() => setAddOpen(true)}
         onDelete={() => {
