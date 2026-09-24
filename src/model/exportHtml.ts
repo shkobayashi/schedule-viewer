@@ -1,3 +1,4 @@
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { addDays, daysBetween, fmtShort, parseDate } from "./dates";
 import { linkPoints, type DependencyLink } from "./dependencies";
 import { milestonesExceededBy } from "./milestones";
@@ -115,7 +116,7 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
 `;
 }
 
-export function downloadScheduleHtml(input: ScheduleExportInput): void {
+function downloadScheduleHtmlInBrowser(input: ScheduleExportInput): void {
   const blob = new Blob([buildScheduleHtml(input)], {
     type: "text/html;charset=utf-8",
   });
@@ -127,6 +128,22 @@ export function downloadScheduleHtml(input: ScheduleExportInput): void {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/** Tauri では保存ダイアログ、ブラウザではダウンロード。キャンセル時は null。 */
+export async function exportScheduleHtml(
+  input: ScheduleExportInput,
+): Promise<string | null> {
+  const html = buildScheduleHtml(input);
+  const suggestedName = scheduleExportFilename(input.title);
+  if (isTauri()) {
+    return invoke<string | null>("save_html_file", {
+      contents: html,
+      suggestedName,
+    });
+  }
+  downloadScheduleHtmlInBrowser(input);
+  return null;
 }
 
 function renderLabels(input: ScheduleExportInput): string {

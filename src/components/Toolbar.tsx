@@ -9,6 +9,7 @@ import {
 
 type ToolbarProps = {
   title: string;
+  fileStatusLabel: string;
   filters: ScheduleFilters;
   assignees: string[];
   zoomLabel: string;
@@ -21,6 +22,9 @@ type ToolbarProps = {
   onFit: () => void;
   onShowJson: () => void;
   onExportHtml: () => void;
+  onOpen: () => void;
+  onSave: () => void;
+  onSaveAs: () => void;
   canDelete: boolean;
   onAdd: () => void;
   onDelete: () => void;
@@ -28,6 +32,7 @@ type ToolbarProps = {
 
 export function Toolbar({
   title,
+  fileStatusLabel,
   filters,
   assignees,
   zoomLabel,
@@ -40,6 +45,9 @@ export function Toolbar({
   onFit,
   onShowJson,
   onExportHtml,
+  onOpen,
+  onSave,
+  onSaveAs,
   canDelete,
   onAdd,
   onDelete,
@@ -48,8 +56,17 @@ export function Toolbar({
     <div className="toolbar">
       <h1>
         {title}
-        <span className="tag">サンプルデータ</span>
+        <span className="tag">{fileStatusLabel}</span>
       </h1>
+      <button type="button" className="toolbar-btn" onClick={onOpen}>
+        開く
+      </button>
+      <button type="button" className="toolbar-btn" onClick={onSave}>
+        保存
+      </button>
+      <button type="button" className="toolbar-btn" onClick={onSaveAs}>
+        別名保存
+      </button>
       <input
         type="text"
         placeholder="タスク名で検索"
