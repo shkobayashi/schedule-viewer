@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
+import { DiscardChangesDialog } from "./components/DiscardChangesDialog";
 import { JsonDialog } from "./components/JsonDialog";
+import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
@@ -9,9 +11,11 @@ import { TaskEditDialog } from "./components/TaskEditDialog";
 import { Timeline } from "./components/Timeline";
 import { Toolbar } from "./components/Toolbar";
 import { useSchedule } from "./hooks/useSchedule";
+import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useTimelineView } from "./hooks/useTimelineView";
+import { serializeScheduleDocument } from "./model/scheduleFile";
 import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
-import { downloadScheduleHtml } from "./model/exportHtml";
+import { exportScheduleHtml } from "./model/exportHtml";
 import { isoDate, parseDate, roundToDay } from "./model/dates";
 import { layoutMilestones } from "./model/milestones";
 import { findTaskById } from "./model/rows";
@@ -26,6 +30,12 @@ import {
   scheduleToJson,
 } from "./sample/schedule";
 
+const INITIAL_BASELINE_JSON = serializeScheduleDocument(
+  SAMPLE_PROJECT_TITLE,
+  sampleCategories,
+  sampleMilestones,
+);
+
 function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
   const [timelineWidth, setTimelineWidth] = useState(520);
@@ -35,6 +45,7 @@ function App() {
   const [addOpen, setAddOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [focusTaskId, setFocusTaskId] = useState<ScheduleId | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const headerHeight = Math.round(40 * uiScale);
   const rowHeight = Math.round(32 * uiScale);
@@ -96,6 +107,19 @@ function App() {
     schedule.maxScrollY,
     timelineWidth,
   );
+
+  const onAfterOpenFile = useCallback(() => {
+    view.fitToWidth();
+  }, [view.fitToWidth]);
+
+  const scheduleFile = useScheduleFile({
+    title: schedule.title,
+    categories: schedule.categories,
+    milestones: schedule.milestones,
+    replaceDocument: schedule.replaceDocument,
+    onAfterOpen: onAfterOpenFile,
+    initialBaselineJson: INITIAL_BASELINE_JSON,
+  });
 
   const onWheelBody = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -204,6 +228,7 @@ function App() {
     <div className="app" style={{ ["--s" as string]: uiScale }}>
       <Toolbar
         title={schedule.title}
+        fileStatusLabel={scheduleFile.statusLabel}
         filters={schedule.filters}
         assignees={schedule.assignees}
         zoomLabel={view.tierLabel}
@@ -215,8 +240,11 @@ function App() {
         onZoomOut={view.zoomOut}
         onFit={view.fitToWidth}
         onShowJson={() => setJsonOpen(true)}
-        onExportHtml={() =>
-          downloadScheduleHtml({
+        onOpen={scheduleFile.requestOpen}
+        onSave={() => void scheduleFile.save(false)}
+        onSaveAs={() => void scheduleFile.save(true)}
+        onExportHtml={() => {
+          void exportScheduleHtml({
             title: schedule.title,
             tierLabel: view.tierLabel,
             lineageName: schedule.lineageTask?.name ?? null,
@@ -237,8 +265,14 @@ function App() {
             milestoneDiamondSize,
             milestoneFontSize,
             labelScale: uiScale,
-          })
-        }
+          }).catch((error: unknown) => {
+            setExportError(
+              error instanceof Error
+                ? error.message
+                : "HTML を書き出せませんでした。",
+            );
+          });
+        }}
         canDelete={schedule.selectedTaskId != null}
         onAdd={() => setAddOpen(true)}
         onDelete={() => {
@@ -247,7 +281,7 @@ function App() {
       />
       <div className="hint">
         Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
-        ドラッグで縦横スクロール ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
+        ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
         ・ タスクを選んで「系統」で前後だけ表示 ・ マイルストンは帯のひし形をドラッグ、ダブルクリックで編集
       </div>
       <div className="main">
@@ -369,6 +403,25 @@ function App() {
         open={jsonOpen}
         onClose={() => setJsonOpen(false)}
       />
+      {scheduleFile.discardPromptOpen ? (
+        <DiscardChangesDialog
+          onConfirm={scheduleFile.confirmDiscardAndOpen}
+          onCancel={scheduleFile.cancelDiscard}
+        />
+      ) : null}
+      {scheduleFile.errorMessage ? (
+        <ScheduleErrorDialog
+          message={scheduleFile.errorMessage}
+          onClose={scheduleFile.dismissError}
+        />
+      ) : null}
+      {exportError ? (
+        <ScheduleErrorDialog
+          title="書き出しに失敗しました"
+          message={exportError}
+          onClose={() => setExportError(null)}
+        />
+      ) : null}
     </div>
   );
 }
