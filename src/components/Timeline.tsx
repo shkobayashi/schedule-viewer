@@ -140,7 +140,7 @@ function TaskBar({
   const start = parseDate(task.start);
   const end = parseDate(task.end);
   const x = dateToX(start);
-  const w = Math.max(6, dateToX(end) - dateToX(start));
+  const w = Math.max(pxPerDay, dateToX(end) - dateToX(start));
   const barY = y + (rowHeight - barHeight) / 2;
   const colors = barColors(task);
   const unassigned = isUnassigned(task.assignee);
@@ -261,7 +261,7 @@ function ResizeHandles({
   const start = parseDate(task.start);
   const end = parseDate(task.end);
   const groupX = dateToX(start);
-  const w = Math.max(6, dateToX(end) - dateToX(start));
+  const w = Math.max(pxPerDay, dateToX(end) - dateToX(start));
   const barY = y + (rowHeight - barHeight) / 2;
   const handleHeight = Math.max(10, Math.round(barHeight * 0.7));
   const handleY = barHeight / 2 - handleHeight / 2;
@@ -319,7 +319,7 @@ function ResizeHandles({
           if (!g || !bg) return;
           const rightEdge = g.x() + bg.width();
           const newLeft = g.x() + e.target.x() + HANDLE_WIDTH / 2;
-          const newW = Math.max(6, rightEdge - newLeft);
+          const newW = Math.max(pxPerDay, rightEdge - newLeft);
           g.x(newLeft);
           e.target.x(-HANDLE_WIDTH / 2);
           bg.width(newW);
@@ -357,7 +357,7 @@ function ResizeHandles({
         onDragMove={(e) => {
           const bg = bgRef.current;
           if (!bg) return;
-          const newW = Math.max(6, e.target.x() + HANDLE_WIDTH / 2);
+          const newW = Math.max(pxPerDay, e.target.x() + HANDLE_WIDTH / 2);
           bg.width(newW);
           rightHandleXRef.current =
             (groupRef.current?.x() ?? groupX) + newW - HANDLE_WIDTH / 2;

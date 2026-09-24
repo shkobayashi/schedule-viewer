@@ -20,6 +20,9 @@ type ToolbarProps = {
   onZoomOut: () => void;
   onFit: () => void;
   onShowJson: () => void;
+  canDelete: boolean;
+  onAdd: () => void;
+  onDelete: () => void;
 };
 
 export function Toolbar({
@@ -35,6 +38,9 @@ export function Toolbar({
   onZoomOut,
   onFit,
   onShowJson,
+  canDelete,
+  onAdd,
+  onDelete,
 }: ToolbarProps) {
   return (
     <div className="toolbar">
@@ -103,6 +109,18 @@ export function Toolbar({
         onClick={onToggleLineage}
       >
         {lineageName ? `系統: ${lineageName}` : "系統"}
+      </button>
+      <button type="button" className="toolbar-btn" onClick={onAdd}>
+        追加
+      </button>
+      <button
+        type="button"
+        className="toolbar-btn"
+        disabled={!canDelete}
+        title={canDelete ? "選択中のタスクを削除" : "タスクを選択してから削除"}
+        onClick={onDelete}
+      >
+        削除
       </button>
       <div className="zoom-controls">
         <button type="button" title="縮小" onClick={onZoomOut}>

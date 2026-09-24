@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
+import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
 import { JsonDialog } from "./components/JsonDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
+import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
 import { TaskEditDialog } from "./components/TaskEditDialog";
 import { Timeline } from "./components/Timeline";
 import { Toolbar } from "./components/Toolbar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useTimelineView } from "./hooks/useTimelineView";
-import { listTasks, successorIds, visibleLinks } from "./model/dependencies";
-import { isoDate, roundToDay } from "./model/dates";
+import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
+import { isoDate, parseDate, roundToDay } from "./model/dates";
 import { layoutMilestones } from "./model/milestones";
-import { computeTimelineRange } from "./model/timeline";
+import { findTaskById } from "./model/rows";
+import { findTaskPlace } from "./model/tasks";
+import { computeTimelineRange, TODAY_ISO } from "./model/timeline";
 import { readUiScale } from "./model/uiScale";
 import {
   SAMPLE_PROJECT_TITLE,
@@ -26,6 +30,9 @@ function App() {
   const [timelineSlotHeight, setTimelineSlotHeight] = useState(440);
   const [uiScale, setUiScale] = useState(readUiScale);
   const [jsonOpen, setJsonOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [focusTaskId, setFocusTaskId] = useState<number | null>(null);
 
   const headerHeight = Math.round(40 * uiScale);
   const rowHeight = Math.round(32 * uiScale);
@@ -74,8 +81,8 @@ function App() {
     bodyHeight,
   );
   const range = useMemo(
-    () => computeTimelineRange(sampleCategories, schedule.milestones),
-    [schedule.milestones],
+    () => computeTimelineRange(schedule.categories, schedule.milestones),
+    [schedule.categories, schedule.milestones],
   );
 
   const view = useTimelineView(
@@ -170,6 +177,16 @@ function App() {
     [range.timelineStart, schedule, view],
   );
 
+  useEffect(() => {
+    if (focusTaskId == null) return;
+    const row = schedule.visibleRows.find(
+      (item) => item.type === "task" && item.task.id === focusTaskId,
+    );
+    if (!row || row.type !== "task") return;
+    view.reveal(parseDate(row.task.start), row.y);
+    setFocusTaskId(null);
+  }, [focusTaskId, schedule.visibleRows, view]);
+
   const handleResizeEnd = useCallback(
     (taskId: number, groupX: number, barWidth: number) => {
       const end = isoDate(
@@ -195,6 +212,11 @@ function App() {
         onZoomOut={view.zoomOut}
         onFit={view.fitToWidth}
         onShowJson={() => setJsonOpen(true)}
+        canDelete={schedule.selectedTaskId != null}
+        onAdd={() => setAddOpen(true)}
+        onDelete={() => {
+          if (schedule.selectedTaskId != null) setDeleteOpen(true);
+        }}
       />
       <div className="hint">
         Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
@@ -262,6 +284,55 @@ function App() {
         onClose={schedule.closeMilestoneEdit}
         onSave={schedule.saveMilestoneEdit}
       />
+      {addOpen ? (
+        <TaskAddDialog
+          categories={schedule.categories}
+          initialCategory={
+            findTaskPlace(schedule.categories, schedule.selectedTaskId ?? -1)
+              ?.category ??
+            schedule.categories[0]?.name ??
+            ""
+          }
+          initialGroup={
+            findTaskPlace(schedule.categories, schedule.selectedTaskId ?? -1)
+              ?.group ??
+            schedule.categories[0]?.groups[0]?.name ??
+            ""
+          }
+          initialStart={
+            findTaskById(schedule.categories, schedule.selectedTaskId)?.start ??
+            TODAY_ISO
+          }
+          initialEnd={
+            findTaskById(schedule.categories, schedule.selectedTaskId)?.end ??
+            TODAY_ISO
+          }
+          onClose={() => setAddOpen(false)}
+          onSave={(input) => {
+            const id = schedule.addTask(input);
+            setAddOpen(false);
+            if (id != null) setFocusTaskId(id);
+          }}
+        />
+      ) : null}
+      {deleteOpen && schedule.selectedTaskId != null ? (
+        <DeleteTaskDialog
+          taskName={
+            findTaskById(schedule.categories, schedule.selectedTaskId)?.name ??
+            "このタスク"
+          }
+          hasDependencies={
+            dependencyCount(schedule.categories, schedule.selectedTaskId) > 0
+          }
+          onClose={() => setDeleteOpen(false)}
+          onConfirm={() => {
+            if (schedule.selectedTaskId != null) {
+              schedule.deleteTask(schedule.selectedTaskId);
+            }
+            setDeleteOpen(false);
+          }}
+        />
+      ) : null}
       <JsonDialog
         json={jsonText}
         open={jsonOpen}

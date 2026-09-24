@@ -69,6 +69,16 @@ export function useTimelineView(
     setScrollX(0);
   }, [totalDays, viewportWidth]);
 
+  const reveal = useCallback(
+    (date: Date, y: number) => {
+      const x = daysBetween(timelineStart, date) * pxPerDay;
+      const nextMaxX = Math.max(0, totalDays * pxPerDay - viewportWidth);
+      setScrollX(clamp(x - 40, 0, nextMaxX));
+      setScrollY(clamp(y, 0, maxScrollY));
+    },
+    [maxScrollY, pxPerDay, timelineStart, totalDays, viewportWidth],
+  );
+
   const panBy = useCallback(
     (dx: number, dy: number) => {
       setScrollX((sx) => clamp(sx - dx, 0, maxScrollX));
@@ -111,6 +121,7 @@ export function useTimelineView(
     zoomOut,
     fitToWidth,
     panBy,
+    reveal,
     handleWheel,
     timelineStart,
     totalDays,
