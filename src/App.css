@@ -182,8 +182,34 @@ input[type="number"] {
 }
 
 .sidebar-row.category {
+  padding-left: calc(6px * var(--s));
   background: var(--panel);
   font-weight: 600;
+}
+
+.sidebar-row.group {
+  padding-left: calc(22px * var(--s));
+  background: #f3f5f8;
+  font-weight: 600;
+  color: #4b5568;
+}
+
+.sidebar-row .twist {
+  flex: 0 0 auto;
+  width: calc(16px * var(--s));
+  height: calc(16px * var(--s));
+  margin-right: calc(4px * var(--s));
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: calc(9px * var(--s));
+  line-height: 1;
+}
+
+.sidebar-row.task {
+  padding-left: calc(44px * var(--s));
 }
 
 .sidebar-row.selected {

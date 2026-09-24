@@ -6,15 +6,9 @@ import {
   parseDate,
 } from "../model/dates";
 import { computeVisibleRows, findTaskById } from "../model/rows";
+import { cloneCategories, mapTasks } from "../model/tasks";
 import type { Category, ScheduleFilters, Task } from "../model/types";
 import { collectAssignees } from "../sample/schedule";
-
-function cloneCategories(categories: Category[]): Category[] {
-  return categories.map((c) => ({
-    name: c.name,
-    tasks: c.tasks.map((t) => ({ ...t })),
-  }));
-}
 
 export function useSchedule(
   initialCategories: Category[],
@@ -33,6 +27,9 @@ export function useSchedule(
     search: "",
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   const assignees = useMemo(
     () => collectAssignees(categories),
@@ -40,9 +37,18 @@ export function useSchedule(
   );
 
   const visibleRows = useMemo(
-    () => computeVisibleRows(categories, filters, rowHeight),
-    [categories, filters, rowHeight],
+    () => computeVisibleRows(categories, filters, collapsed, rowHeight),
+    [categories, collapsed, filters, rowHeight],
   );
+
+  const toggleCollapsed = useCallback((key: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   const updateFilters = useCallback((patch: Partial<ScheduleFilters>) => {
     setFilters((prev) => ({ ...prev, ...patch }));
@@ -60,37 +66,28 @@ export function useSchedule(
   const moveTaskByDays = useCallback((taskId: number, deltaDays: number) => {
     if (deltaDays === 0) return;
     setCategories((prev) =>
-      prev.map((c) => ({
-        ...c,
-        tasks: c.tasks.map((t) => {
-          if (t.id !== taskId) return t;
-          return {
-            ...t,
-            start: isoDate(addDays(parseDate(t.start), deltaDays)),
-            end: isoDate(addDays(parseDate(t.end), deltaDays)),
-          };
-        }),
-      })),
+      mapTasks(prev, (task) => {
+        if (task.id !== taskId) return task;
+        return {
+          ...task,
+          start: isoDate(addDays(parseDate(task.start), deltaDays)),
+          end: isoDate(addDays(parseDate(task.end), deltaDays)),
+        };
+      }),
     );
   }, []);
 
   const setTaskStart = useCallback((taskId: number, start: string) => {
     setCategories((prev) =>
-      prev.map((c) => ({
-        ...c,
-        tasks: c.tasks.map((t) =>
-          t.id === taskId ? { ...t, start } : t,
-        ),
-      })),
+      mapTasks(prev, (task) =>
+        task.id === taskId ? { ...task, start } : task,
+      ),
     );
   }, []);
 
   const setTaskEnd = useCallback((taskId: number, end: string) => {
     setCategories((prev) =>
-      prev.map((c) => ({
-        ...c,
-        tasks: c.tasks.map((t) => (t.id === taskId ? { ...t, end } : t)),
-      })),
+      mapTasks(prev, (task) => (task.id === taskId ? { ...task, end } : task)),
     );
   }, []);
 
@@ -124,32 +121,29 @@ export function useSchedule(
         patch.successors.filter((id) => id !== editingTaskId),
       );
       setCategories((prev) =>
-        prev.map((c) => ({
-          ...c,
-          tasks: c.tasks.map((t) => {
-            if (t.id === editingTaskId) {
-              return {
-                ...t,
-                name: patch.name || t.name,
-                start: patch.start,
-                end: patch.end,
-                assignee: patch.assignee.trim(),
-                status: patch.status,
-                progress: clamp(patch.progress, 0, 100),
-                predecessors,
-              };
-            }
-            const withoutSelf = t.predecessors.filter(
-              (id) => id !== editingTaskId,
-            );
+        mapTasks(prev, (task) => {
+          if (task.id === editingTaskId) {
             return {
-              ...t,
-              predecessors: successors.has(t.id)
-                ? [...withoutSelf, editingTaskId]
-                : withoutSelf,
+              ...task,
+              name: patch.name || task.name,
+              start: patch.start,
+              end: patch.end,
+              assignee: patch.assignee.trim(),
+              status: patch.status,
+              progress: clamp(patch.progress, 0, 100),
+              predecessors,
             };
-          }),
-        })),
+          }
+          const withoutSelf = task.predecessors.filter(
+            (id) => id !== editingTaskId,
+          );
+          return {
+            ...task,
+            predecessors: successors.has(task.id)
+              ? [...withoutSelf, editingTaskId]
+              : withoutSelf,
+          };
+        }),
       );
       setEditingTaskId(null);
       return true;
@@ -166,6 +160,7 @@ export function useSchedule(
     categories,
     assignees,
     visibleRows,
+    toggleCollapsed,
     filters,
     updateFilters,
     selectedTaskId,

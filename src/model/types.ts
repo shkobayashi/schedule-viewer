@@ -1,3 +1,5 @@
+import type { SummarySpan } from "./summary";
+
 export type TaskStatus = "not-started" | "in-progress" | "done";
 
 export type Task = {
@@ -12,9 +14,15 @@ export type Task = {
   predecessors: number[];
 };
 
-export type Category = {
+/** カテゴリとタスクの間。日付は持たず、配下タスクのまとまり。 */
+export type TaskGroup = {
   name: string;
   tasks: Task[];
+};
+
+export type Category = {
+  name: string;
+  groups: TaskGroup[];
 };
 
 export type StatusFilter = "all" | "not-done" | TaskStatus;
@@ -42,5 +50,19 @@ export type ScheduleFilters = {
 };
 
 export type VisibleRow =
-  | { type: "category"; label: string; y: number }
+  | {
+      type: "category";
+      label: string;
+      y: number;
+      collapsed: boolean;
+      summary: SummarySpan;
+    }
+  | {
+      type: "group";
+      category: string;
+      label: string;
+      y: number;
+      collapsed: boolean;
+      summary: SummarySpan;
+    }
   | { type: "task"; task: Task; y: number };

@@ -158,6 +158,7 @@ function App() {
           scrollY={view.scrollY}
           rowHeight={rowHeight}
           selectedTaskId={schedule.selectedTaskId}
+          onToggleCollapse={schedule.toggleCollapsed}
         />
         <div ref={timelineAreaRef} className="timeline-slot">
           <Timeline

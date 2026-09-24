@@ -22,7 +22,9 @@ type TaskEditDialogProps = {
 
 function taskLabel(tasks: TaskRef[], id: number): string {
   const found = tasks.find((task) => task.id === id);
-  return found ? `${found.category} / ${found.name}` : `ID ${id}`;
+  return found
+    ? `${found.category} / ${found.group} / ${found.name}`
+    : `ID ${id}`;
 }
 
 export function TaskEditDialog({
@@ -191,7 +193,11 @@ export function TaskEditDialog({
 function matchesQuery(item: TaskRef, query: string): boolean {
   const q = query.trim();
   if (!q) return true;
-  return item.name.includes(q) || item.category.includes(q);
+  return (
+    item.name.includes(q) ||
+    item.category.includes(q) ||
+    item.group.includes(q)
+  );
 }
 
 function RelationField({
@@ -295,7 +301,7 @@ function RelationField({
                     onMouseEnter={() => setActive(index)}
                     onClick={() => add(item.id)}
                   >
-                    {item.category} / {item.name}
+                    {item.category} / {item.group} / {item.name}
                   </button>
                 </li>
               ))

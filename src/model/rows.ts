@@ -1,5 +1,7 @@
 import { brokenLinkTaskIds } from "./dependencies";
 import { isOverdue } from "./timeline";
+import { summarizeSpans } from "./summary";
+import { forEachTask } from "./tasks";
 import {
   isUnassigned,
   UNASSIGNED_FILTER,
@@ -10,6 +12,14 @@ import {
 } from "./types";
 
 export const ROW_HEIGHT = 32;
+
+export function categoryCollapseKey(name: string): string {
+  return `category:${name}`;
+}
+
+export function groupCollapseKey(category: string, group: string): string {
+  return `group:${category}\u0000${group}`;
+}
 
 export function taskMatchesFilter(
   task: Task,
@@ -49,6 +59,7 @@ export function taskMatchesFilter(
 export function computeVisibleRows(
   categories: Category[],
   filters: ScheduleFilters,
+  collapsed: ReadonlySet<string>,
   rowHeight = ROW_HEIGHT,
 ): VisibleRow[] {
   const brokenIds =
@@ -56,15 +67,49 @@ export function computeVisibleRows(
   const rows: VisibleRow[] = [];
   let y = 0;
   for (const cat of categories) {
-    const matched = cat.tasks.filter((t) =>
-      taskMatchesFilter(t, filters, brokenIds),
+    const groups = cat.groups
+      .map((group) => ({
+        group,
+        matched: group.tasks.filter((task) =>
+          taskMatchesFilter(task, filters, brokenIds),
+        ),
+      }))
+      .filter((entry) => entry.matched.length > 0);
+    if (groups.length === 0) continue;
+    const categorySummary = summarizeSpans(
+      groups.flatMap((entry) => entry.matched),
     );
-    if (matched.length === 0) continue;
-    rows.push({ type: "category", label: cat.name, y });
+    if (!categorySummary) continue;
+    const categoryCollapsed = collapsed.has(categoryCollapseKey(cat.name));
+    rows.push({
+      type: "category",
+      label: cat.name,
+      y,
+      collapsed: categoryCollapsed,
+      summary: categorySummary,
+    });
     y += rowHeight;
-    for (const task of matched) {
-      rows.push({ type: "task", task, y });
+    if (categoryCollapsed) continue;
+    for (const { group, matched } of groups) {
+      const groupSummary = summarizeSpans(matched);
+      if (!groupSummary) continue;
+      const groupCollapsed = collapsed.has(
+        groupCollapseKey(cat.name, group.name),
+      );
+      rows.push({
+        type: "group",
+        category: cat.name,
+        label: group.name,
+        y,
+        collapsed: groupCollapsed,
+        summary: groupSummary,
+      });
       y += rowHeight;
+      if (groupCollapsed) continue;
+      for (const task of matched) {
+        rows.push({ type: "task", task, y });
+        y += rowHeight;
+      }
     }
   }
   return rows;
@@ -75,10 +120,9 @@ export function findTaskById(
   id: number | null,
 ): Task | null {
   if (id == null) return null;
-  for (const c of categories) {
-    for (const t of c.tasks) {
-      if (t.id === id) return t;
-    }
-  }
-  return null;
+  let found: Task | null = null;
+  forEachTask(categories, (task) => {
+    if (task.id === id) found = task;
+  });
+  return found;
 }

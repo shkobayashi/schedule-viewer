@@ -1,9 +1,11 @@
+import { forEachTask } from "./tasks";
 import type { Category, Task } from "./types";
 
 export type TaskRef = {
   id: number;
   name: string;
   category: string;
+  group: string;
 };
 
 export type DependencyLink = {
@@ -21,30 +23,31 @@ export function isBrokenLink(
 }
 
 export function listTasks(categories: Category[]): TaskRef[] {
-  return categories.flatMap((category) =>
-    category.tasks.map((task) => ({
+  const tasks: TaskRef[] = [];
+  forEachTask(categories, (task, place) => {
+    tasks.push({
       id: task.id,
       name: task.name,
-      category: category.name,
-    })),
-  );
+      category: place.category,
+      group: place.group,
+    });
+  });
+  return tasks;
 }
 
 export function successorIds(categories: Category[], taskId: number): number[] {
   const ids: number[] = [];
-  for (const category of categories) {
-    for (const task of category.tasks) {
-      if (task.predecessors.includes(taskId)) ids.push(task.id);
-    }
-  }
+  forEachTask(categories, (task) => {
+    if (task.predecessors.includes(taskId)) ids.push(task.id);
+  });
   return ids;
 }
 
 function tasksById(categories: Category[]): Map<number, Task> {
   const byId = new Map<number, Task>();
-  for (const category of categories) {
-    for (const task of category.tasks) byId.set(task.id, task);
-  }
+  forEachTask(categories, (task) => {
+    byId.set(task.id, task);
+  });
   return byId;
 }
 
@@ -70,20 +73,18 @@ export function visibleLinks(
 ): DependencyLink[] {
   const byId = tasksById(categories);
   const links: DependencyLink[] = [];
-  for (const category of categories) {
-    for (const task of category.tasks) {
-      if (!visibleIds.has(task.id)) continue;
-      for (const predecessorId of task.predecessors) {
-        if (!visibleIds.has(predecessorId)) continue;
-        const predecessor = byId.get(predecessorId);
-        links.push({
-          fromId: predecessorId,
-          toId: task.id,
-          broken: predecessor ? isBrokenLink(predecessor, task) : false,
-        });
-      }
+  forEachTask(categories, (task) => {
+    if (!visibleIds.has(task.id)) return;
+    for (const predecessorId of task.predecessors) {
+      if (!visibleIds.has(predecessorId)) continue;
+      const predecessor = byId.get(predecessorId);
+      links.push({
+        fromId: predecessorId,
+        toId: task.id,
+        broken: predecessor ? isBrokenLink(predecessor, task) : false,
+      });
     }
-  }
+  });
   return links;
 }
 
