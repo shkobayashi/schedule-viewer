@@ -273,6 +273,7 @@ input[type="number"] {
 
 .sidebar-row .assignee {
   margin-left: auto;
+  flex-shrink: 0;
   font-size: calc(10px * var(--s));
   color: var(--text-secondary);
   padding-left: 6px;
@@ -287,12 +288,39 @@ input[type="number"] {
   font-weight: 700;
 }
 
-.sidebar-row .name {
+.slide-label {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+  user-select: none;
+  touch-action: pan-y;
 }
 
-.sidebar-row .name.overdue {
+.slide-label.can-slide {
+  cursor: grab;
+}
+
+.slide-label.sliding {
+  cursor: grabbing;
+}
+
+.slide-label-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slide-label.sliding .slide-label-text,
+.slide-label.shifted .slide-label-text {
+  display: inline-block;
+  width: max-content;
+  overflow: visible;
+  text-overflow: clip;
+  transform: translateX(var(--slide));
+}
+
+.slide-label.overdue {
   color: #c4351a;
   font-weight: 600;
 }
