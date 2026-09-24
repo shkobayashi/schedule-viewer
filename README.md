@@ -22,14 +22,43 @@ LLMが生成したWBS/ガントスケジュール(JSON)を表示・フィルタ�
 ```
 .
 ├── README.md
+├── src/                                # React (UI)
+├── src-tauri/                          # Tauri / Rust（薄い橋渡しのみ）
+├── .devcontainer/                      # DevContainer 定義
 ├── docs/
 │   └── PLANNING.md                     # 計画・ロードマップ・検討事項
 └── mockup/
     └── schedule-viewer-mockup.html     # Konva単体でのインタラクション検証用モックアップ
 ```
 
+## 開発環境
+
+- **Node.js**: 24（`.nvmrc` / `package.json` の `engines`）
+- **Rust**: 1.98.1（`rust-toolchain.toml`）
+- Tauri identifier: `com.collabcentral.schedule-viewer`
+
+### セットアップ
+
+```bash
+npm install
+```
+
+フロントのみ（ブラウザで Konva 確認）:
+
+```bash
+npm run dev
+```
+
+デスクトップアプリ（ウィンドウ起動はホスト OS 上で行う）:
+
+```bash
+npm run tauri dev
+```
+
+DevContainer を使う場合は VS Code / Cursor で「Reopen in Container」を選ぶ。コンテナ内では `npm run build` と `src-tauri` の `cargo check` までを想定している（GUI の動作確認はホスト側）。
+
 ## 現在の状態
 
-まだ計画フェーズ。`docs/PLANNING.md` にロードマップと次に詰める論点をまとめている。
+**Phase 0 完了**: Tauri 2 + React + TypeScript の雛形、DevContainer、`react-konva` による最小ズーム画面（`pxPerDay` の再描画）まで実装済み。
 
-`mockup/schedule-viewer-mockup.html` は、ズーム・バーのドラッグ移動・端リサイズ・ダイアログ編集・フィルタといった操作感を検証するための単体プロトタイプ(React/Tauri未結線、Konva.jsのみ)。ブラウザで直接開いて動作確認できる想定だが、現時点でCanvas部分が表示されない既知の問題あり(`docs/PLANNING.md`末尾を参照)。
+Phase 1 以降で `mockup/` の操作を React コンポーネントへ移植する。`mockup/schedule-viewer-mockup.html` は CDN 経由の Konva が読み込めず Canvas が表示されない既知の問題あり（`docs/PLANNING.md` 末尾）。本番 UI は npm 経由の `react-konva` を使用する。

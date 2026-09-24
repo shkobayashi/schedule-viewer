@@ -46,16 +46,19 @@
 
 ## リポジトリ / 開発環境
 
-- GitHub単一リポジトリ
-- 想定ディレクトリ構成:
+- GitHub単一リポジトリ（`CollabCentralOrganization/schedule-viewer`）
+- 採用ディレクトリ構成（Phase 0 で反映済み）:
 
 ```
 /src              React (UI)
 /src-tauri        Rust側 (ファイルI/Oなど薄いコマンドのみ)
 /.devcontainer    DevContainer定義
 /docs             計画・ADR・JSONスキーマ定義など
+/mockup           Konva単体プロトタイプ（Phase 1 移植の参照）
 ```
 
+- **バージョン固定（Phase 0）**: Node.js 24、Rust 1.98.1（`rust-toolchain.toml` / `.nvmrc`）
+- Tauri アプリ identifier: `com.collabcentral.schedule-viewer`
 - 開発はVSCode + Claude Codeで実施
 - DevContainerでNode.js + Rust(Tauri CLI)+ Linux向け依存(webkit2gtk等)を用意し、可搬性を確保する
   - **注意点**: DevContainerはコード編集・型チェック・ビルドまでは快適に行えるが、Tauriアプリの実際のウィンドウを起動しての動作確認はコンテナにディスプレイがないためホストOS側で行う必要がある(WSL2+WSLgやX11転送で多少緩和はできるが、基本はホスト実行が前提になる)
@@ -70,8 +73,6 @@
 
 ## 次に詰めるべきこと
 
-- リポジトリ名・最終的なディレクトリ構成の決定
-- DevContainerの中身(Node/Rustのバージョン固定など)
 - JSONスキーマの詳細設計(Phase 1と並行で叩き台を作るのが望ましい)
 - フィルタリングの軸の最終決定(担当者・ステータス以外に必要な軸があるか)
 
