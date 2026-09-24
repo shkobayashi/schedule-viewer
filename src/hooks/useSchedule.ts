@@ -5,7 +5,7 @@ import {
   isoDate,
   parseDate,
 } from "../model/dates";
-import { computeVisibleRows, findTaskById, ROW_HEIGHT } from "../model/rows";
+import { computeVisibleRows, findTaskById } from "../model/rows";
 import type { Category, ScheduleFilters, Task } from "../model/types";
 import { collectAssignees } from "../sample/schedule";
 
@@ -16,7 +16,11 @@ function cloneCategories(categories: Category[]): Category[] {
   }));
 }
 
-export function useSchedule(initialCategories: Category[]) {
+export function useSchedule(
+  initialCategories: Category[],
+  rowHeight: number,
+  bodyHeight: number,
+) {
   const [categories, setCategories] = useState(() =>
     cloneCategories(initialCategories),
   );
@@ -34,8 +38,8 @@ export function useSchedule(initialCategories: Category[]) {
   );
 
   const visibleRows = useMemo(
-    () => computeVisibleRows(categories, filters),
-    [categories, filters],
+    () => computeVisibleRows(categories, filters, rowHeight),
+    [categories, filters, rowHeight],
   );
 
   const updateFilters = useCallback((patch: Partial<ScheduleFilters>) => {
@@ -152,6 +156,6 @@ export function useSchedule(initialCategories: Category[]) {
     closeEditDialog,
     saveTaskEdit,
     editingTask,
-    maxScrollY: Math.max(0, visibleRows.length * ROW_HEIGHT - 400),
+    maxScrollY: Math.max(0, visibleRows.length * rowHeight - bodyHeight),
   };
 }

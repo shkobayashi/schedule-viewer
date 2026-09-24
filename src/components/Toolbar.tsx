@@ -32,7 +32,7 @@ export function Toolbar({
       <input
         type="text"
         placeholder="タスク名で検索"
-        style={{ width: 130 }}
+        className="search-input"
         value={filters.search}
         onChange={(e) => onFiltersChange({ search: e.target.value.trim() })}
       />

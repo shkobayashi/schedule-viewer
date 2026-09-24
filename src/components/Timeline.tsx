@@ -9,19 +9,16 @@ import {
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { addDays, fmtShort, parseDate } from "../model/dates";
-import { ROW_HEIGHT } from "../model/rows";
-import {
-  BAR_HEIGHT,
-  BODY_VIEWPORT_HEIGHT,
-  HEADER_HEIGHT,
-  statusColors,
-  TODAY_ISO,
-} from "../model/timeline";
+import { statusColors, TODAY_ISO } from "../model/timeline";
 import type { Task, VisibleRow } from "../model/types";
 
 type TimelineProps = {
   visibleRows: VisibleRow[];
   width: number;
+  rowHeight: number;
+  barHeight: number;
+  headerHeight: number;
+  bodyHeight: number;
   pxPerDay: number;
   scrollY: number;
   tier: "day" | "week" | "month";
@@ -46,6 +43,8 @@ const HANDLE_WIDTH = 8;
 function TaskBar({
   task,
   y,
+  rowHeight,
+  barHeight,
   pxPerDay,
   dateToX,
   selected,
@@ -55,6 +54,8 @@ function TaskBar({
 }: {
   task: Task;
   y: number;
+  rowHeight: number;
+  barHeight: number;
   pxPerDay: number;
   dateToX: (d: Date) => number;
   selected: boolean;
@@ -66,7 +67,7 @@ function TaskBar({
   const end = parseDate(task.end);
   const x = dateToX(start);
   const w = Math.max(6, dateToX(end) - dateToX(start));
-  const barY = y + (ROW_HEIGHT - BAR_HEIGHT) / 2;
+  const barY = y + (rowHeight - barHeight) / 2;
   const colors = statusColors(task.status);
   const origXRef = useRef(0);
   const groupRef = useRef<Konva.Group>(null);
@@ -116,7 +117,7 @@ function TaskBar({
     >
       <Rect
         width={w}
-        height={BAR_HEIGHT}
+        height={barHeight}
         fill={colors.bg}
         stroke={colors.border}
         strokeWidth={selected ? 1.5 : 1}
@@ -125,7 +126,7 @@ function TaskBar({
       {task.status === "in-progress" && colors.fill ? (
         <Rect
           width={w * (task.progress / 100)}
-          height={BAR_HEIGHT}
+          height={barHeight}
           fill={colors.fill}
           cornerRadius={4}
         />
@@ -137,6 +138,8 @@ function TaskBar({
 function ResizeHandles({
   task,
   y,
+  rowHeight,
+  barHeight,
   pxPerDay,
   dateToX,
   onResizeStart,
@@ -144,6 +147,8 @@ function ResizeHandles({
 }: {
   task: Task;
   y: number;
+  rowHeight: number;
+  barHeight: number;
   pxPerDay: number;
   dateToX: (d: Date) => number;
   onResizeStart: (groupX: number) => void;
@@ -153,7 +158,9 @@ function ResizeHandles({
   const end = parseDate(task.end);
   const groupX = dateToX(start);
   const w = Math.max(6, dateToX(end) - dateToX(start));
-  const barY = y + (ROW_HEIGHT - BAR_HEIGHT) / 2;
+  const barY = y + (rowHeight - barHeight) / 2;
+  const handleHeight = Math.max(10, Math.round(barHeight * 0.7));
+  const handleY = barHeight / 2 - handleHeight / 2;
   const groupRef = useRef<Konva.Group>(null);
   const bgRef = useRef<Konva.Rect>(null);
   const fillRef = useRef<Konva.Rect | null>(null);
@@ -170,22 +177,22 @@ function ResizeHandles({
 
   return (
     <Group ref={groupRef} x={groupX} y={barY}>
-      <Rect ref={bgRef} width={w} height={BAR_HEIGHT} visible={false} />
+      <Rect ref={bgRef} width={w} height={barHeight} visible={false} />
       {task.status === "in-progress" ? (
         <Rect
           ref={(node) => {
             fillRef.current = node;
           }}
           width={w * (task.progress / 100)}
-          height={BAR_HEIGHT}
+          height={barHeight}
           visible={false}
         />
       ) : null}
       <Rect
         x={-HANDLE_WIDTH / 2}
-        y={BAR_HEIGHT / 2 - 7}
+        y={handleY}
         width={HANDLE_WIDTH}
-        height={14}
+        height={handleHeight}
         name="resize-handle"
         fill="#4C5FD5"
         cornerRadius={2}
@@ -200,7 +207,7 @@ function ResizeHandles({
         }}
         dragBoundFunc={(pos) => ({
           x: Math.min(pos.x, rightHandleXRef.current - pxPerDay),
-          y: BAR_HEIGHT / 2 - 7,
+          y: handleY,
         })}
         onDragMove={(e) => {
           const g = groupRef.current;
@@ -224,9 +231,9 @@ function ResizeHandles({
       />
       <Rect
         x={w - HANDLE_WIDTH / 2}
-        y={BAR_HEIGHT / 2 - 7}
+        y={handleY}
         width={HANDLE_WIDTH}
-        height={14}
+        height={handleHeight}
         name="resize-handle"
         fill="#4C5FD5"
         cornerRadius={2}
@@ -241,7 +248,7 @@ function ResizeHandles({
         }}
         dragBoundFunc={(pos) => ({
           x: Math.max(pos.x, -HANDLE_WIDTH / 2 + pxPerDay),
-          y: BAR_HEIGHT / 2 - 7,
+          y: handleY,
         })}
         onDragMove={(e) => {
           const bg = bgRef.current;
@@ -267,6 +274,10 @@ function ResizeHandles({
 export function Timeline({
   visibleRows,
   width,
+  rowHeight,
+  barHeight,
+  headerHeight,
+  bodyHeight,
   pxPerDay,
   scrollY,
   tier,
@@ -286,13 +297,14 @@ export function Timeline({
   onPan,
 }: TimelineProps) {
   const todayDate = parseDate(TODAY_ISO);
+  const scale = headerHeight / 40;
 
   const headerContent = useMemo(() => {
     const elements: ReactNode[] = [];
     elements.push(
       <Line
         key="header-border"
-        points={[0, HEADER_HEIGHT - 0.5, width, HEADER_HEIGHT - 0.5]}
+        points={[0, headerHeight - 0.5, width, headerHeight - 0.5]}
         stroke="#E3E6EB"
         strokeWidth={1}
         listening={false}
@@ -311,7 +323,7 @@ export function Timeline({
           elements.push(
             <Line
               key={`mh-${d.getTime()}`}
-              points={[x, 0, x, HEADER_HEIGHT]}
+              points={[x, 0, x, headerHeight]}
               stroke="#C7CCD6"
               strokeWidth={1}
               listening={false}
@@ -319,9 +331,9 @@ export function Timeline({
             <Text
               key={`mt-${d.getTime()}`}
               x={x + 6}
-              y={13}
+              y={13 * scale}
               text={`${d.getFullYear()}年${d.getMonth() + 1}月`}
-              fontSize={12}
+              fontSize={12 * scale}
               fontStyle="bold"
               fill="#1F2937"
               listening={false}
@@ -341,7 +353,7 @@ export function Timeline({
           elements.push(
             <Line
               key={`hl-${i}`}
-              points={[x, tier === "day" ? 26 : 20, x, HEADER_HEIGHT]}
+              points={[x, tier === "day" ? 26 * scale : 20 * scale, x, headerHeight]}
               stroke={isMonday ? "#9AA5B4" : "#E3E6EB"}
               strokeWidth={1}
               listening={false}
@@ -349,9 +361,9 @@ export function Timeline({
             <Text
               key={`ht-${i}`}
               x={x + 2}
-              y={24}
+              y={24 * scale}
               text={fmtShort(d)}
-              fontSize={10}
+              fontSize={10 * scale}
               fill={isMonday ? "#1F2937" : "#8A94A6"}
               fontStyle={isMonday ? "bold" : "normal"}
               listening={false}
@@ -363,9 +375,9 @@ export function Timeline({
             <Text
               key={`hm-${i}`}
               x={x + 2}
-              y={6}
+              y={6 * scale}
               text={`${d.getMonth() + 1}月`}
-              fontSize={11}
+              fontSize={11 * scale}
               fontStyle="bold"
               fill="#1F2937"
               listening={false}
@@ -375,15 +387,15 @@ export function Timeline({
       }
     }
     return elements;
-  }, [dateToX, tier, timelineEnd, timelineStart, totalDays, width]);
+  }, [dateToX, headerHeight, scale, tier, timelineEnd, timelineStart, totalDays, width]);
 
   const bgContent = useMemo(() => {
     const elements: ReactNode[] = [];
-    const height = BODY_VIEWPORT_HEIGHT;
+    const height = bodyHeight;
 
     for (const row of visibleRows) {
       const y = row.y - scrollY;
-      if (y + ROW_HEIGHT < 0 || y > height) continue;
+      if (y + rowHeight < 0 || y > height) continue;
       if (row.type === "category") {
         elements.push(
           <Rect
@@ -391,7 +403,7 @@ export function Timeline({
             x={0}
             y={y}
             width={width}
-            height={ROW_HEIGHT}
+            height={rowHeight}
             fill="#F8F9FB"
             listening={false}
           />,
@@ -473,7 +485,7 @@ export function Timeline({
     }
 
     for (const row of visibleRows) {
-      const y = row.y - scrollY + ROW_HEIGHT;
+      const y = row.y - scrollY + rowHeight;
       if (y < 0 || y > height) continue;
       elements.push(
         <Line
@@ -488,8 +500,10 @@ export function Timeline({
 
     return elements;
   }, [
+    bodyHeight,
     dateToX,
     pxPerDay,
+    rowHeight,
     scrollY,
     tier,
     timelineEnd,
@@ -571,7 +585,7 @@ export function Timeline({
   return (
     <div className="timeline">
       <div className="timeline-header">
-        <Stage width={width} height={HEADER_HEIGHT} onWheel={onWheelHeader}>
+        <Stage width={width} height={headerHeight} onWheel={onWheelHeader}>
           <Layer>{headerContent}</Layer>
         </Stage>
       </div>
@@ -581,7 +595,7 @@ export function Timeline({
       >
         <Stage
           width={width}
-          height={BODY_VIEWPORT_HEIGHT}
+          height={bodyHeight}
           onWheel={onWheelBody}
           onMouseDown={onBodyMouseDown}
           onMouseUp={endPan}
@@ -603,12 +617,14 @@ export function Timeline({
             {visibleRows.map((row) => {
               if (row.type !== "task") return null;
               const y = row.y - scrollY;
-              if (y + ROW_HEIGHT < 0 || y > BODY_VIEWPORT_HEIGHT) return null;
+              if (y + rowHeight < 0 || y > bodyHeight) return null;
               return (
                 <TaskBar
                   key={row.task.id}
                   task={row.task}
                   y={y}
+                  rowHeight={rowHeight}
+                  barHeight={barHeight}
                   pxPerDay={pxPerDay}
                   dateToX={dateToX}
                   selected={selectedTaskId === row.task.id}
@@ -631,6 +647,8 @@ export function Timeline({
                 key={selectedRow.task.id}
                 task={selectedRow.task}
                 y={selectedRow.y - scrollY}
+                rowHeight={rowHeight}
+                barHeight={barHeight}
                 pxPerDay={pxPerDay}
                 dateToX={dateToX}
                 onResizeStart={(groupX) =>

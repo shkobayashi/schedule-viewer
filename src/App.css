@@ -12,23 +12,29 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  padding: 20px;
-  background: #eef0f3;
+  overflow: hidden;
+  background: var(--bg);
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN",
     sans-serif;
 }
 
 .app {
+  --s: 1;
   width: 100%;
-  max-width: 920px;
-  margin: 0 auto;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
   background: var(--bg);
 }
 
@@ -42,7 +48,7 @@ body {
 }
 
 .toolbar h1 {
-  font-size: 14px;
+  font-size: calc(14px * var(--s));
   font-weight: 600;
   margin: 0 auto 0 0;
   color: var(--text);
@@ -50,7 +56,7 @@ body {
 }
 
 .tag {
-  font-size: 10px;
+  font-size: calc(10px * var(--s));
   color: var(--text-secondary);
   background: var(--panel);
   padding: 2px 8px;
@@ -62,12 +68,16 @@ select,
 input[type="text"],
 input[type="date"],
 input[type="number"] {
-  font-size: 12px;
-  padding: 5px 8px;
+  font-size: calc(12px * var(--s));
+  padding: calc(5px * var(--s)) calc(8px * var(--s));
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
   background: #fff;
+}
+
+.search-input {
+  width: calc(130px * var(--s));
 }
 
 .zoom-controls {
@@ -78,13 +88,13 @@ input[type="number"] {
 
 .zoom-controls button,
 .icon-btn {
-  width: 26px;
-  height: 26px;
+  width: calc(26px * var(--s));
+  height: calc(26px * var(--s));
   border: 1px solid var(--border);
   background: #fff;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: calc(13px * var(--s));
   color: var(--text);
 }
 
@@ -94,14 +104,14 @@ input[type="number"] {
 }
 
 .zoom-controls span {
-  font-size: 10px;
+  font-size: calc(10px * var(--s));
   color: var(--text-secondary);
-  width: 44px;
+  width: calc(44px * var(--s));
   text-align: center;
 }
 
 .hint {
-  font-size: 11px;
+  font-size: calc(11px * var(--s));
   color: var(--text-secondary);
   padding: 5px 16px;
   border-bottom: 1px solid var(--border);
@@ -110,11 +120,23 @@ input[type="number"] {
 
 .main {
   display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.timeline-slot {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
 }
 
 .sidebar {
-  width: 190px;
+  width: calc(190px * var(--s));
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border-right: 1px solid var(--border);
   overflow: hidden;
   position: relative;
@@ -122,19 +144,21 @@ input[type="number"] {
 }
 
 .sidebar-header {
-  height: 40px;
+  height: calc(40px * var(--s));
+  flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 12px;
-  font-size: 11px;
+  padding: 0 calc(12px * var(--s));
+  font-size: calc(11px * var(--s));
   color: var(--text-secondary);
   font-weight: 600;
   background: var(--panel);
 }
 
 .sidebar-viewport {
-  height: 400px;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   position: relative;
 }
@@ -147,11 +171,10 @@ input[type="number"] {
 }
 
 .sidebar-row {
-  height: 32px;
   display: flex;
   align-items: center;
-  padding: 0 12px;
-  font-size: 12px;
+  padding: 0 calc(12px * var(--s));
+  font-size: calc(12px * var(--s));
   color: var(--text);
   border-bottom: 1px solid #f0f1f4;
   white-space: nowrap;
@@ -169,7 +192,7 @@ input[type="number"] {
 
 .sidebar-row .assignee {
   margin-left: auto;
-  font-size: 10px;
+  font-size: calc(10px * var(--s));
   color: var(--text-secondary);
   padding-left: 6px;
 }
@@ -184,16 +207,19 @@ input[type="number"] {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 .timeline-header {
-  height: 40px;
+  height: calc(40px * var(--s));
+  flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   overflow: hidden;
 }
 
 .timeline-body {
-  height: 400px;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   position: relative;
   cursor: grab;
