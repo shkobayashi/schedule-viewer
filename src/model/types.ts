@@ -1,9 +1,13 @@
 import type { SummarySpan } from "./summary";
 
+export type ScheduleId = string;
+
+export const SCHEDULE_SCHEMA_VERSION = 1;
+
 export type TaskStatus = "not-started" | "in-progress" | "done";
 
 export type Task = {
-  id: number;
+  id: ScheduleId;
   name: string;
   start: string;
   end: string;
@@ -11,16 +15,23 @@ export type Task = {
   status: TaskStatus;
   progress: number;
   /** このタスクの開始前に終わる先行タスク。後続は他タスクの predecessors から導く。 */
-  predecessors: number[];
+  predecessors: ScheduleId[];
   /** このタスクが間に合わせるマイルストン。未設定なら超過判定しない。 */
-  milestoneId: number | null;
+  milestoneId: ScheduleId | null;
 };
 
 /** タスクではない到達点。期間は持たず、日付だけが決まる。 */
 export type Milestone = {
-  id: number;
+  id: ScheduleId;
   name: string;
   date: string;
+};
+
+export type ScheduleDocument = {
+  schemaVersion: typeof SCHEDULE_SCHEMA_VERSION;
+  title: string;
+  milestones: Milestone[];
+  categories: Category[];
 };
 
 /** カテゴリとタスクの間。日付は持たず、配下タスクのまとまり。 */

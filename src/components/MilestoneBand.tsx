@@ -6,7 +6,7 @@ import type { Milestone } from "../model/types";
 
 type MilestoneBandProps = {
   milestones: Milestone[];
-  lanes: Map<number, number>;
+  lanes: Map<import("../model/types").ScheduleId, number>;
   width: number;
   height: number;
   laneHeight: number;
@@ -14,8 +14,8 @@ type MilestoneBandProps = {
   fontSize: number;
   pxPerDay: number;
   dateToX: (d: Date) => number;
-  onMove: (id: number, deltaDays: number) => void;
-  onOpenEdit: (id: number) => void;
+  onMove: (id: import("../model/types").ScheduleId, deltaDays: number) => void;
+  onOpenEdit: (id: import("../model/types").ScheduleId) => void;
   onWheel: (e: Konva.KonvaEventObject<WheelEvent>) => void;
 };
 

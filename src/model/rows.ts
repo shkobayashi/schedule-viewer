@@ -7,6 +7,7 @@ import {
   UNASSIGNED_FILTER,
   type Category,
   type ScheduleFilters,
+  type ScheduleId,
   type Task,
   type VisibleRow,
 } from "./types";
@@ -24,8 +25,8 @@ export function groupCollapseKey(category: string, group: string): string {
 export function taskMatchesFilter(
   task: Task,
   filters: ScheduleFilters,
-  brokenIds?: ReadonlySet<number>,
-  lineageIds?: ReadonlySet<number> | null,
+  brokenIds?: ReadonlySet<ScheduleId>,
+  lineageIds?: ReadonlySet<ScheduleId> | null,
 ): boolean {
   if (lineageIds && !lineageIds.has(task.id)) return false;
   if (filters.assignee === UNASSIGNED_FILTER) {
@@ -63,7 +64,7 @@ export function computeVisibleRows(
   filters: ScheduleFilters,
   collapsed: ReadonlySet<string>,
   rowHeight = ROW_HEIGHT,
-  lineageIds?: ReadonlySet<number> | null,
+  lineageIds?: ReadonlySet<ScheduleId> | null,
 ): VisibleRow[] {
   const brokenIds =
     filters.relation === "broken" ? brokenLinkTaskIds(categories) : undefined;
@@ -120,7 +121,7 @@ export function computeVisibleRows(
 
 export function findTaskById(
   categories: Category[],
-  id: number | null,
+  id: ScheduleId | null,
 ): Task | null {
   if (id == null) return null;
   let found: Task | null = null;
