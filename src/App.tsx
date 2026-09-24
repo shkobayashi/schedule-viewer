@@ -17,6 +17,7 @@ import { layoutMilestones } from "./model/milestones";
 import { findTaskById } from "./model/rows";
 import { findTaskPlace } from "./model/tasks";
 import { computeTimelineRange, TODAY_ISO } from "./model/timeline";
+import type { ScheduleId } from "./model/types";
 import { readUiScale } from "./model/uiScale";
 import {
   SAMPLE_PROJECT_TITLE,
@@ -33,7 +34,7 @@ function App() {
   const [jsonOpen, setJsonOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [focusTaskId, setFocusTaskId] = useState<number | null>(null);
+  const [focusTaskId, setFocusTaskId] = useState<ScheduleId | null>(null);
 
   const headerHeight = Math.round(40 * uiScale);
   const rowHeight = Math.round(32 * uiScale);
@@ -76,6 +77,7 @@ function App() {
   }, []);
 
   const schedule = useSchedule(
+    SAMPLE_PROJECT_TITLE,
     sampleCategories,
     sampleMilestones,
     rowHeight,
@@ -161,7 +163,7 @@ function App() {
   const jsonText = useMemo(
     () =>
       JSON.stringify(
-        scheduleToJson(schedule.categories, schedule.milestones),
+        scheduleToJson(schedule.title, schedule.categories, schedule.milestones),
         null,
         2,
       ),
@@ -169,7 +171,7 @@ function App() {
   );
 
   const handleResizeStart = useCallback(
-    (taskId: number, groupX: number) => {
+    (taskId: ScheduleId, groupX: number) => {
       const start = isoDate(
         roundToDay(range.timelineStart, view.xToDate(groupX)),
       );
@@ -189,7 +191,7 @@ function App() {
   }, [focusTaskId, schedule.visibleRows, view]);
 
   const handleResizeEnd = useCallback(
-    (taskId: number, groupX: number, barWidth: number) => {
+    (taskId: ScheduleId, groupX: number, barWidth: number) => {
       const end = isoDate(
         roundToDay(range.timelineStart, view.xToDate(groupX + barWidth)),
       );
@@ -201,7 +203,7 @@ function App() {
   return (
     <div className="app" style={{ ["--s" as string]: uiScale }}>
       <Toolbar
-        title={SAMPLE_PROJECT_TITLE}
+        title={schedule.title}
         filters={schedule.filters}
         assignees={schedule.assignees}
         zoomLabel={view.tierLabel}
@@ -215,7 +217,7 @@ function App() {
         onShowJson={() => setJsonOpen(true)}
         onExportHtml={() =>
           downloadScheduleHtml({
-            title: SAMPLE_PROJECT_TITLE,
+            title: schedule.title,
             tierLabel: view.tierLabel,
             lineageName: schedule.lineageTask?.name ?? null,
             visibleRows: schedule.visibleRows,
@@ -313,14 +315,18 @@ function App() {
         <TaskAddDialog
           categories={schedule.categories}
           initialCategory={
-            findTaskPlace(schedule.categories, schedule.selectedTaskId ?? -1)
-              ?.category ??
+            (schedule.selectedTaskId
+              ? findTaskPlace(schedule.categories, schedule.selectedTaskId)
+              : null
+            )?.category ??
             schedule.categories[0]?.name ??
             ""
           }
           initialGroup={
-            findTaskPlace(schedule.categories, schedule.selectedTaskId ?? -1)
-              ?.group ??
+            (schedule.selectedTaskId
+              ? findTaskPlace(schedule.categories, schedule.selectedTaskId)
+              : null
+            )?.group ??
             schedule.categories[0]?.groups[0]?.name ??
             ""
           }

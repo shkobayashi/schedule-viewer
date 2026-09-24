@@ -17,7 +17,7 @@ export type ScheduleExportInput = {
   lineageName: string | null;
   visibleRows: VisibleRow[];
   milestones: Milestone[];
-  milestoneLanes: Map<number, number>;
+  milestoneLanes: Map<import("./types").ScheduleId, number>;
   links: DependencyLink[];
   timelineStart: Date;
   timelineEnd: Date;
@@ -296,7 +296,10 @@ function renderLinks(
   bodyTop: number,
   dateToX: (d: Date) => number,
 ): string {
-  const byId = new Map<number, { x: number; right: number; y: number }>();
+  const byId = new Map<
+    import("./types").ScheduleId,
+    { x: number; right: number; y: number }
+  >();
   for (const row of input.visibleRows) {
     if (row.type !== "task") continue;
     const x = dateToX(parseDate(row.task.start));
