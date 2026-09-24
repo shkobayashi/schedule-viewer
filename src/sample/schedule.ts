@@ -19,7 +19,7 @@ export const sampleCategories: Category[] = [
         id: 2,
         name: "要件定義書作成",
         start: "2026-09-18",
-        end: "2026-09-29",
+        end: "2026-09-22",
         assignee: "佐藤",
         status: "in-progress",
         progress: 60,

@@ -1,4 +1,4 @@
-import type { ScheduleFilters } from "../model/types";
+import type { OverdueFilter, ScheduleFilters, StatusFilter } from "../model/types";
 
 type ToolbarProps = {
   title: string;
@@ -49,12 +49,24 @@ export function Toolbar({
       </select>
       <select
         value={filters.status}
-        onChange={(e) => onFiltersChange({ status: e.target.value })}
+        onChange={(e) =>
+          onFiltersChange({ status: e.target.value as StatusFilter })
+        }
       >
         <option value="all">ステータス: すべて</option>
+        <option value="not-done">完了以外</option>
         <option value="not-started">未着手</option>
         <option value="in-progress">進行中</option>
         <option value="done">完了</option>
+      </select>
+      <select
+        value={filters.overdue}
+        onChange={(e) =>
+          onFiltersChange({ overdue: e.target.value as OverdueFilter })
+        }
+      >
+        <option value="all">期限: すべて</option>
+        <option value="overdue">期限超過</option>
       </select>
       <div className="zoom-controls">
         <button type="button" title="縮小" onClick={onZoomOut}>

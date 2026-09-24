@@ -9,7 +9,7 @@ import {
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { addDays, fmtShort, parseDate } from "../model/dates";
-import { statusColors, TODAY_ISO } from "../model/timeline";
+import { barColors, TODAY_ISO } from "../model/timeline";
 import type { Task, VisibleRow } from "../model/types";
 
 type TimelineProps = {
@@ -68,7 +68,7 @@ function TaskBar({
   const x = dateToX(start);
   const w = Math.max(6, dateToX(end) - dateToX(start));
   const barY = y + (rowHeight - barHeight) / 2;
-  const colors = statusColors(task.status);
+  const colors = barColors(task);
   const origXRef = useRef(0);
   const groupRef = useRef<Konva.Group>(null);
 

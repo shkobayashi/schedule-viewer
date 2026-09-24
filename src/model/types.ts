@@ -15,9 +15,14 @@ export type Category = {
   tasks: Task[];
 };
 
+export type StatusFilter = "all" | "not-done" | TaskStatus;
+
+export type OverdueFilter = "all" | "overdue";
+
 export type ScheduleFilters = {
   assignee: string;
-  status: string;
+  status: StatusFilter;
+  overdue: OverdueFilter;
   search: string;
 };
 
