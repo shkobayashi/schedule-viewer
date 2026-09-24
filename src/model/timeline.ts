@@ -1,0 +1,62 @@
+import { addDays, daysBetween, parseDate } from "./dates";
+import type { Category } from "./types";
+
+export const HEADER_HEIGHT = 40;
+export const BODY_VIEWPORT_HEIGHT = 400;
+export const BAR_HEIGHT = 20;
+export const MIN_PX_PER_DAY = 3;
+export const MAX_PX_PER_DAY = 90;
+export const DEFAULT_PX_PER_DAY = 22;
+export const TODAY_ISO = "2026-09-24";
+
+export function gridTier(pxPerDay: number): "day" | "week" | "month" {
+  if (pxPerDay >= 40) return "day";
+  if (pxPerDay >= 10) return "week";
+  return "month";
+}
+
+export function tierLabel(tier: ReturnType<typeof gridTier>): string {
+  if (tier === "day") return "日表示";
+  if (tier === "week") return "週表示";
+  return "月表示";
+}
+
+export function computeTimelineRange(categories: Category[]): {
+  timelineStart: Date;
+  timelineEnd: Date;
+  totalDays: number;
+} {
+  let minDate: Date | null = null;
+  let maxDate: Date | null = null;
+  for (const c of categories) {
+    for (const t of c.tasks) {
+      const s = parseDate(t.start);
+      const e = parseDate(t.end);
+      if (!minDate || s < minDate) minDate = s;
+      if (!maxDate || e > maxDate) maxDate = e;
+    }
+  }
+  if (!minDate || !maxDate) {
+    const today = parseDate(TODAY_ISO);
+    minDate = today;
+    maxDate = today;
+  }
+  const timelineStart = addDays(minDate, -6);
+  const timelineEnd = addDays(maxDate, 7);
+  const totalDays = daysBetween(timelineStart, timelineEnd);
+  return { timelineStart, timelineEnd, totalDays };
+}
+
+export function statusColors(status: string): {
+  bg: string;
+  fill: string | null;
+  border: string;
+} {
+  if (status === "done") {
+    return { bg: "#2E9E6C", fill: null, border: "#278A5E" };
+  }
+  if (status === "in-progress") {
+    return { bg: "#DEE3FB", fill: "#4C5FD5", border: "#4C5FD5" };
+  }
+  return { bg: "#EDEFF3", fill: null, border: "#C4CAD4" };
+}

@@ -1,146 +1,153 @@
-import {
-  type ReactNode,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Layer, Line, Rect, Stage } from "react-konva";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
-
-const TOTAL_DAYS = 10;
-const MIN_PX_PER_DAY = 4;
-const MAX_PX_PER_DAY = 80;
-const STAGE_WIDTH = 720;
-const STAGE_HEIGHT = 280;
-const BAR_ROW_Y = 120;
-const BAR_HEIGHT = 28;
-const BAR_START_DAY = 2;
-const BAR_DURATION_DAYS = 5;
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function gridTier(pxPerDay: number) {
-  if (pxPerDay >= 40) return "day";
-  if (pxPerDay >= 10) return "week";
-  return "month";
-}
-
-function tierLabel(tier: ReturnType<typeof gridTier>) {
-  if (tier === "day") return "日表示";
-  if (tier === "week") return "週表示";
-  return "月表示";
-}
+import { JsonDialog } from "./components/JsonDialog";
+import { Sidebar } from "./components/Sidebar";
+import { TaskEditDialog } from "./components/TaskEditDialog";
+import { Timeline } from "./components/Timeline";
+import { Toolbar } from "./components/Toolbar";
+import { useSchedule } from "./hooks/useSchedule";
+import { useTimelineView } from "./hooks/useTimelineView";
+import { isoDate, roundToDay } from "./model/dates";
+import { computeTimelineRange } from "./model/timeline";
+import {
+  SAMPLE_PROJECT_TITLE,
+  sampleCategories,
+  scheduleToJson,
+} from "./sample/schedule";
 
 function App() {
-  const [pxPerDay, setPxPerDay] = useState(16);
-  const [scrollX, setScrollX] = useState(0);
-  const stageRef = useRef<Konva.Stage>(null);
+  const timelineAreaRef = useRef<HTMLDivElement>(null);
+  const [timelineWidth, setTimelineWidth] = useState(520);
+  const [jsonOpen, setJsonOpen] = useState(false);
 
-  const setZoom = useCallback(
-    (newPxPerDay: number, pointerX: number) => {
-      const clampedPx = clamp(newPxPerDay, MIN_PX_PER_DAY, MAX_PX_PER_DAY);
-      const anchorDayIndex = (pointerX + scrollX) / pxPerDay;
-      const maxScroll = Math.max(0, TOTAL_DAYS * clampedPx - STAGE_WIDTH);
-      const nextScrollX = clamp(
-        anchorDayIndex * clampedPx - pointerX,
-        0,
-        maxScroll,
-      );
-      setPxPerDay(clampedPx);
-      setScrollX(nextScrollX);
-    },
-    [pxPerDay, scrollX],
+  useEffect(() => {
+    const node = timelineAreaRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setTimelineWidth(entry.contentRect.width);
+    });
+    observer.observe(node);
+    setTimelineWidth(node.clientWidth);
+    return () => observer.disconnect();
+  }, []);
+
+  const schedule = useSchedule(sampleCategories);
+  const range = useMemo(
+    () => computeTimelineRange(sampleCategories),
+    [],
   );
 
-  const onWheel = useCallback(
-    (event: Konva.KonvaEventObject<WheelEvent>) => {
-      if (!event.evt.ctrlKey && !event.evt.metaKey) return;
-      event.evt.preventDefault();
+  const view = useTimelineView(
+    {
+      timelineStart: range.timelineStart,
+      totalDays: range.totalDays,
+    },
+    schedule.maxScrollY,
+    timelineWidth,
+  );
+
+  const onWheelBody = useCallback(
+    (e: Konva.KonvaEventObject<WheelEvent>) => {
       const pointerX =
-        stageRef.current?.getPointerPosition()?.x ?? STAGE_WIDTH / 2;
-      const factor = event.evt.deltaY < 0 ? 1.15 : 1 / 1.15;
-      setZoom(pxPerDay * factor, pointerX);
+        e.target.getStage()?.getPointerPosition()?.x ?? timelineWidth / 2;
+      view.handleWheel(e.evt, pointerX, "body");
     },
-    [pxPerDay, setZoom],
+    [timelineWidth, view],
   );
 
-  const tier = gridTier(pxPerDay);
+  const onWheelHeader = useCallback(
+    (e: Konva.KonvaEventObject<WheelEvent>) => {
+      const pointerX =
+        e.target.getStage()?.getPointerPosition()?.x ?? timelineWidth / 2;
+      view.handleWheel(e.evt, pointerX, "header");
+    },
+    [timelineWidth, view],
+  );
 
-  const canvasContent = useMemo(() => {
-    const elements: ReactNode[] = [];
+  const jsonText = useMemo(
+    () => JSON.stringify(scheduleToJson(schedule.categories), null, 2),
+    [schedule.categories],
+  );
 
-    for (let day = 0; day <= TOTAL_DAYS; day += 1) {
-      const x = day * pxPerDay - scrollX;
-      if (x < -pxPerDay || x > STAGE_WIDTH + pxPerDay) continue;
-      const isMajor =
-        tier === "day" || (tier === "week" && day % 7 === 0) || day === 0;
-      elements.push(
-        <Line
-          key={`grid-${day}`}
-          points={[x, 0, x, STAGE_HEIGHT]}
-          stroke={isMajor ? "#C5CAD3" : "#E8EAEE"}
-          strokeWidth={1}
-          listening={false}
-        />,
+  const handleResizeStart = useCallback(
+    (taskId: number, groupX: number) => {
+      const start = isoDate(
+        roundToDay(range.timelineStart, view.xToDate(groupX)),
       );
-    }
+      schedule.setTaskStart(taskId, start);
+    },
+    [range.timelineStart, schedule, view],
+  );
 
-    const barX = BAR_START_DAY * pxPerDay - scrollX;
-    const barWidth = BAR_DURATION_DAYS * pxPerDay;
-    elements.push(
-      <Rect
-        key="sample-bar"
-        x={barX}
-        y={BAR_ROW_Y}
-        width={barWidth}
-        height={BAR_HEIGHT}
-        fill="#4C5FD5"
-        cornerRadius={4}
-        listening={false}
-      />,
-    );
-
-    return elements;
-  }, [pxPerDay, scrollX, tier]);
+  const handleResizeEnd = useCallback(
+    (taskId: number, groupX: number, barWidth: number) => {
+      const end = isoDate(
+        roundToDay(range.timelineStart, view.xToDate(groupX + barWidth)),
+      );
+      schedule.setTaskEnd(taskId, end);
+    },
+    [range.timelineStart, schedule, view],
+  );
 
   return (
-    <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
-      <h1 style={{ fontSize: 16, margin: "0 0 8px" }}>
-        schedule-viewer — Konva 動作確認
-      </h1>
-      <p style={{ fontSize: 12, color: "#697586", margin: "0 0 12px" }}>
-        Ctrl(⌘)+ホイールでズーム（ポインタ基準） · 現在: {tierLabel(tier)} ·{" "}
-        {pxPerDay.toFixed(1)} px/日
-      </p>
-      <div
-        style={{
-          border: "1px solid #E3E6EB",
-          borderRadius: 8,
-          overflow: "hidden",
-        }}
-      >
-        <Stage
-          width={STAGE_WIDTH}
-          height={STAGE_HEIGHT}
-          ref={stageRef}
-          onWheel={onWheel}
-        >
-          <Layer>
-            <Rect
-              x={0}
-              y={0}
-              width={STAGE_WIDTH}
-              height={STAGE_HEIGHT}
-              fill="#ffffff"
-              listening={false}
-            />
-            {canvasContent}
-          </Layer>
-        </Stage>
+    <div className="app">
+      <Toolbar
+        title={SAMPLE_PROJECT_TITLE}
+        filters={schedule.filters}
+        assignees={schedule.assignees}
+        zoomLabel={view.tierLabel}
+        onFiltersChange={schedule.updateFilters}
+        onZoomIn={view.zoomIn}
+        onZoomOut={view.zoomOut}
+        onFit={view.fitToWidth}
+        onShowJson={() => setJsonOpen(true)}
+      />
+      <div className="hint">
+        Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
+        ドラッグで縦横スクロール ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
       </div>
+      <div className="main">
+        <Sidebar
+          rows={schedule.visibleRows}
+          scrollY={view.scrollY}
+          selectedTaskId={schedule.selectedTaskId}
+        />
+        <div ref={timelineAreaRef} style={{ flex: 1, minWidth: 0 }}>
+          <Timeline
+            visibleRows={schedule.visibleRows}
+            width={Math.max(200, timelineWidth)}
+            pxPerDay={view.pxPerDay}
+            scrollY={view.scrollY}
+            tier={view.tier}
+            timelineStart={range.timelineStart}
+            timelineEnd={range.timelineEnd}
+            totalDays={range.totalDays}
+            dateToX={view.dateToX}
+            selectedTaskId={schedule.selectedTaskId}
+            onSelectTask={schedule.selectTask}
+            onClearSelection={schedule.clearSelection}
+            onMoveTask={schedule.moveTaskByDays}
+            onResizeStart={handleResizeStart}
+            onResizeEnd={handleResizeEnd}
+            onOpenEdit={schedule.openEditDialog}
+            onWheelBody={onWheelBody}
+            onWheelHeader={onWheelHeader}
+            onPan={view.panBy}
+          />
+        </div>
+      </div>
+      <TaskEditDialog
+        task={schedule.editingTask}
+        assignees={schedule.assignees}
+        onClose={schedule.closeEditDialog}
+        onSave={schedule.saveTaskEdit}
+      />
+      <JsonDialog
+        json={jsonText}
+        open={jsonOpen}
+        onClose={() => setJsonOpen(false)}
+      />
     </div>
   );
 }
