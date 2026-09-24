@@ -6,9 +6,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
+import { Arrow, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { addDays, fmtShort, parseDate } from "../model/dates";
+import { linkPoints, type DependencyLink } from "../model/dependencies";
 import { barColors, TODAY_ISO } from "../model/timeline";
 import type { Task, VisibleRow } from "../model/types";
 
@@ -32,6 +33,7 @@ type TimelineProps = {
   onMoveTask: (taskId: number, deltaDays: number) => void;
   onResizeStart: (taskId: number, groupX: number) => void;
   onResizeEnd: (taskId: number, groupX: number, barWidth: number) => void;
+  links: DependencyLink[];
   onOpenEdit: (task: Task) => void;
   onWheelBody: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   onWheelHeader: (e: Konva.KonvaEventObject<WheelEvent>) => void;
@@ -291,6 +293,7 @@ export function Timeline({
   onMoveTask,
   onResizeStart,
   onResizeEnd,
+  links,
   onOpenEdit,
   onWheelBody,
   onWheelHeader,
@@ -518,6 +521,39 @@ export function Timeline({
     (r) => r.type === "task" && r.task.id === selectedTaskId,
   );
 
+  const linkArrows = useMemo(() => {
+    const byId = new Map<number, { x: number; right: number; y: number }>();
+    for (const row of visibleRows) {
+      if (row.type !== "task") continue;
+      const y = row.y - scrollY;
+      const x = dateToX(parseDate(row.task.start));
+      const right = dateToX(parseDate(row.task.end));
+      byId.set(row.task.id, {
+        x,
+        right: Math.max(x + 6, right),
+        y: y + rowHeight / 2,
+      });
+    }
+    return links.flatMap((link) => {
+      const from = byId.get(link.fromId);
+      const to = byId.get(link.toId);
+      if (!from || !to) return [];
+      const color = link.broken ? "#C4351A" : "#8A94A6";
+      return [
+        <Arrow
+          key={`${link.fromId}-${link.toId}`}
+          points={linkPoints(from.right, from.y, to.x, to.y)}
+          stroke={color}
+          fill={color}
+          strokeWidth={link.broken ? 1.75 : 1.25}
+          pointerLength={7}
+          pointerWidth={7}
+          listening={false}
+        />,
+      ];
+    });
+  }, [dateToX, links, rowHeight, scrollY, visibleRows]);
+
   const panRef = useRef<{
     x: number;
     y: number;
@@ -613,6 +649,7 @@ export function Timeline({
           }}
         >
           <Layer listening={false}>{bgContent}</Layer>
+          <Layer listening={false}>{linkArrows}</Layer>
           <Layer>
             {visibleRows.map((row) => {
               if (row.type !== "task") return null;

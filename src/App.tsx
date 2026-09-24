@@ -7,6 +7,7 @@ import { Timeline } from "./components/Timeline";
 import { Toolbar } from "./components/Toolbar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useTimelineView } from "./hooks/useTimelineView";
+import { listTasks, successorIds, visibleLinks } from "./model/dependencies";
 import { isoDate, roundToDay } from "./model/dates";
 import { computeTimelineRange } from "./model/timeline";
 import { readUiScale } from "./model/uiScale";
@@ -87,6 +88,28 @@ function App() {
     [timelineWidth, view],
   );
 
+  const taskRefs = useMemo(
+    () => listTasks(schedule.categories),
+    [schedule.categories],
+  );
+  const editingSuccessors = useMemo(
+    () =>
+      schedule.editingTask
+        ? successorIds(schedule.categories, schedule.editingTask.id)
+        : [],
+    [schedule.categories, schedule.editingTask],
+  );
+  const links = useMemo(() => {
+    const visibleIds = new Set(
+      schedule.visibleRows.flatMap((row) =>
+        row.type === "task" ? [row.task.id] : [],
+      ),
+    );
+    const links = visibleLinks(schedule.categories, visibleIds);
+    if (schedule.filters.relation !== "broken") return links;
+    return links.filter((link) => link.broken);
+  }, [schedule.categories, schedule.filters.relation, schedule.visibleRows]);
+
   const jsonText = useMemo(
     () => JSON.stringify(scheduleToJson(schedule.categories), null, 2),
     [schedule.categories],
@@ -157,6 +180,7 @@ function App() {
             onMoveTask={schedule.moveTaskByDays}
             onResizeStart={handleResizeStart}
             onResizeEnd={handleResizeEnd}
+            links={links}
             onOpenEdit={schedule.openEditDialog}
             onWheelBody={onWheelBody}
             onWheelHeader={onWheelHeader}
@@ -167,6 +191,8 @@ function App() {
       <TaskEditDialog
         task={schedule.editingTask}
         assignees={schedule.assignees}
+        tasks={taskRefs}
+        successorIds={editingSuccessors}
         onClose={schedule.closeEditDialog}
         onSave={schedule.saveTaskEdit}
       />

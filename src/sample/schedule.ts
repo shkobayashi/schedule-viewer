@@ -14,6 +14,7 @@ export const sampleCategories: Category[] = [
         assignee: "田中",
         status: "done",
         progress: 100,
+        predecessors: [],
       },
       {
         id: 2,
@@ -23,6 +24,7 @@ export const sampleCategories: Category[] = [
         assignee: "佐藤",
         status: "in-progress",
         progress: 60,
+        predecessors: [1],
       },
       {
         id: 3,
@@ -32,6 +34,7 @@ export const sampleCategories: Category[] = [
         assignee: "田中",
         status: "not-started",
         progress: 0,
+        predecessors: [2],
       },
     ],
   },
@@ -46,6 +49,7 @@ export const sampleCategories: Category[] = [
         assignee: "鈴木",
         status: "in-progress",
         progress: 30,
+        predecessors: [3],
       },
       {
         id: 5,
@@ -55,6 +59,7 @@ export const sampleCategories: Category[] = [
         assignee: "高橋",
         status: "not-started",
         progress: 0,
+        predecessors: [4],
       },
       {
         id: 6,
@@ -64,6 +69,7 @@ export const sampleCategories: Category[] = [
         assignee: "鈴木",
         status: "not-started",
         progress: 0,
+        predecessors: [5],
       },
       {
         id: 7,
@@ -73,6 +79,7 @@ export const sampleCategories: Category[] = [
         assignee: "佐藤",
         status: "not-started",
         progress: 0,
+        predecessors: [6],
       },
     ],
   },
@@ -87,6 +94,7 @@ export const sampleCategories: Category[] = [
         assignee: "高橋",
         status: "in-progress",
         progress: 45,
+        predecessors: [],
       },
       {
         id: 9,
@@ -96,6 +104,7 @@ export const sampleCategories: Category[] = [
         assignee: "高橋",
         status: "not-started",
         progress: 0,
+        predecessors: [8],
       },
       {
         id: 10,
@@ -105,6 +114,7 @@ export const sampleCategories: Category[] = [
         assignee: "鈴木",
         status: "not-started",
         progress: 0,
+        predecessors: [9],
       },
     ],
   },
@@ -119,6 +129,7 @@ export const sampleCategories: Category[] = [
         assignee: "田中",
         status: "not-started",
         progress: 0,
+        predecessors: [9],
       },
       {
         id: 12,
@@ -128,6 +139,7 @@ export const sampleCategories: Category[] = [
         assignee: "佐藤",
         status: "not-started",
         progress: 0,
+        predecessors: [6, 11],
       },
       {
         id: 13,
@@ -137,6 +149,7 @@ export const sampleCategories: Category[] = [
         assignee: "田中",
         status: "not-started",
         progress: 0,
+        predecessors: [12],
       },
     ],
   },
@@ -151,6 +164,7 @@ export const sampleCategories: Category[] = [
         assignee: "高橋",
         status: "not-started",
         progress: 0,
+        predecessors: [10, 13],
       },
       {
         id: 15,
@@ -160,6 +174,7 @@ export const sampleCategories: Category[] = [
         assignee: "鈴木",
         status: "not-started",
         progress: 0,
+        predecessors: [14],
       },
       {
         id: 16,
@@ -169,6 +184,7 @@ export const sampleCategories: Category[] = [
         assignee: "佐藤",
         status: "not-started",
         progress: 0,
+        predecessors: [15],
       },
     ],
   },
@@ -192,6 +208,7 @@ export function scheduleToJson(categories: Category[]) {
         assignee: t.assignee,
         status: t.status,
         progress: t.progress,
+        predecessors: t.predecessors,
       })),
     })),
   };
