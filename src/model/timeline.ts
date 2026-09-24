@@ -68,6 +68,19 @@ export function statusColors(status: string): {
   return { bg: "#EDEFF3", fill: null, border: "#C4CAD4" };
 }
 
+/**
+ * 本日線を折る日付。進捗率は見ない。
+ * 期限超過は終了日（本日より左）。着手済みで開始日が今日より後なら、その開始日（右）まで伸ばす。
+ */
+export function lightningDate(
+  task: { status: string; start: string; end: string },
+  today = TODAY_ISO,
+): string {
+  if (isOverdue(task, today)) return task.end;
+  if (task.status !== "not-started" && task.start > today) return task.start;
+  return today;
+}
+
 /** 完了以外で、終了日が今日より前のタスク。終了日が今日のタスクは期限当日なので超過にしない。 */
 export function isOverdue(
   task: { status: string; end: string },

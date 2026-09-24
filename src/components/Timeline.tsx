@@ -10,7 +10,7 @@ import { Arrow, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { addDays, fmtShort, parseDate } from "../model/dates";
 import { linkPoints, type DependencyLink } from "../model/dependencies";
-import { barColors, isOverdue, TODAY_ISO } from "../model/timeline";
+import { barColors, isOverdue, lightningDate, TODAY_ISO } from "../model/timeline";
 import type { SummarySpan } from "../model/summary";
 import { milestonesExceededBy } from "../model/milestones";
 import { isUnassigned, type Milestone, type Task, type VisibleRow } from "../model/types";
@@ -583,20 +583,6 @@ export function Timeline({
       }
     }
 
-    const tx = dateToX(todayDate);
-    if (tx > -2 && tx < width + 2) {
-      elements.push(
-        <Line
-          key="today"
-          points={[tx, 0, tx, height]}
-          stroke="#E2542A"
-          strokeWidth={1.5}
-          dash={[4, 3]}
-          listening={false}
-        />,
-      );
-    }
-
     for (const row of visibleRows) {
       const y = row.y - scrollY + rowHeight;
       if (y < 0 || y > height) continue;
@@ -621,11 +607,25 @@ export function Timeline({
     tier,
     timelineEnd,
     timelineStart,
-    todayDate,
     totalDays,
     visibleRows,
     width,
   ]);
+
+  const lightningPoints = useMemo(() => {
+    const tx = dateToX(todayDate);
+    const points = [tx, 0];
+    for (const row of visibleRows) {
+      const y = row.y - scrollY + rowHeight / 2;
+      const x =
+        row.type === "task"
+          ? dateToX(parseDate(lightningDate(row.task, TODAY_ISO)))
+          : tx;
+      points.push(x, y);
+    }
+    points.push(tx, bodyHeight);
+    return points;
+  }, [bodyHeight, dateToX, rowHeight, scrollY, todayDate, visibleRows]);
 
   const selectedRow = visibleRows.find(
     (r) => r.type === "task" && r.task.id === selectedTaskId,
@@ -819,6 +819,16 @@ export function Timeline({
                 />
               );
             })}
+          </Layer>
+          <Layer listening={false}>
+            <Line
+              points={lightningPoints}
+              stroke="#E07B20"
+              strokeWidth={2.5}
+              lineJoin="round"
+              lineCap="round"
+              listening={false}
+            />
           </Layer>
           <Layer>
             {selectedRow && selectedRow.type === "task" ? (
