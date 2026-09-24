@@ -547,6 +547,20 @@ input[type="number"] {
   color: #fff;
 }
 
+.error-text {
+  margin: 0 0 12px;
+  padding: calc(8px * var(--s)) calc(10px * var(--s));
+  font-size: calc(11px * var(--s));
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 40vh;
+  overflow: auto;
+}
+
 .form-note {
   margin: 0 0 12px;
   font-size: 12px;

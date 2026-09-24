@@ -25,6 +25,7 @@ import {
   UNASSIGNED_FILTER,
   type Category,
   type Milestone,
+  type ScheduleDocument,
   type ScheduleFilters,
   type ScheduleId,
   type Task,
@@ -38,7 +39,7 @@ export function useSchedule(
   rowHeight: number,
   bodyHeight: number,
 ) {
-  const [title] = useState(() => initialTitle);
+  const [title, setTitle] = useState(() => initialTitle);
   const [categories, setCategories] = useState(() =>
     cloneCategories(initialCategories),
   );
@@ -323,6 +324,24 @@ export function useSchedule(
     setLineageTaskId((current) => (current === taskId ? null : current));
   }, []);
 
+  const replaceDocument = useCallback((document: ScheduleDocument) => {
+    setTitle(document.title);
+    setCategories(cloneCategories(document.categories));
+    setMilestones(document.milestones.map((milestone) => ({ ...milestone })));
+    setSelectedTaskId(null);
+    setLineageTaskId(null);
+    setEditingTaskId(null);
+    setEditingMilestoneId(null);
+    setCollapsed(new Set());
+    setFilters({
+      assignee: "all",
+      status: "all",
+      overdue: "all",
+      relation: "all",
+      search: "",
+    });
+  }, []);
+
   const editingTask = useMemo(
     () => findTaskById(categories, editingTaskId),
     [categories, editingTaskId],
@@ -361,6 +380,7 @@ export function useSchedule(
     editingTask,
     addTask,
     deleteTask,
+    replaceDocument,
     maxScrollY: Math.max(0, visibleRows.length * rowHeight - bodyHeight),
   };
 }

@@ -59,6 +59,7 @@ DevContainer を使う場合は VS Code / Cursor で「Reopen in Container」を
 
 ## 現在の状態
 
-**Phase 1 完了**: モックアップ相当の UI を React + react-konva に移植済み。サンプルデータの表示、フィルタ（検索・担当者・ステータス）、Ctrl/Cmd+ホイールによるポインタ基準ズーム、横/縦スクロール、バーのドラッグ移動・リサイズ、タスク編集ダイアログ、JSON プレビューまで `npm run dev` で確認できる。
+**Phase 3 完了**: Phase 1 の UI に加え、Phase 2 で確定した JSON スキーマの検証付き読み込み・保存を実装済み。`npm run dev`（ブラウザ）では「開く」「保存」がファイル選択とダウンロードにフォールバックする。`npm run tauri dev` ではネイティブのファイルダイアログを使う。
 
-Phase 2 以降で JSON スキーマ確定と Tauri 経由のファイル I/O を実装する。
+- スキーマ検証: `npm run check:schedule`
+- JSON スキーマ正本: [`docs/schedule.schema.json`](./docs/schedule.schema.json)
