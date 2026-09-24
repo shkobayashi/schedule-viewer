@@ -1,6 +1,6 @@
 import { addDays, daysBetween, parseDate } from "./dates";
 import { forEachTask } from "./tasks";
-import type { Category } from "./types";
+import type { Category, Milestone } from "./types";
 
 export const HEADER_HEIGHT = 40;
 export const BODY_VIEWPORT_HEIGHT = 400;
@@ -22,19 +22,27 @@ export function tierLabel(tier: ReturnType<typeof gridTier>): string {
   return "月表示";
 }
 
-export function computeTimelineRange(categories: Category[]): {
+export function computeTimelineRange(
+  categories: Category[],
+  milestones: Milestone[] = [],
+): {
   timelineStart: Date;
   timelineEnd: Date;
   totalDays: number;
 } {
   let minDate: Date | null = null;
   let maxDate: Date | null = null;
+  const consider = (date: Date) => {
+    if (!minDate || date < minDate) minDate = date;
+    if (!maxDate || date > maxDate) maxDate = date;
+  };
   forEachTask(categories, (task) => {
-    const s = parseDate(task.start);
-    const e = parseDate(task.end);
-    if (!minDate || s < minDate) minDate = s;
-    if (!maxDate || e > maxDate) maxDate = e;
+    consider(parseDate(task.start));
+    consider(parseDate(task.end));
   });
+  for (const milestone of milestones) {
+    consider(parseDate(milestone.date));
+  }
   if (!minDate || !maxDate) {
     const today = parseDate(TODAY_ISO);
     minDate = today;

@@ -281,6 +281,17 @@ input[type="number"] {
   font-weight: 600;
 }
 
+.milestone-alert {
+  flex-shrink: 0;
+  margin-left: 6px;
+  color: #c4351a;
+  background: #fde8e4;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: calc(10px * var(--s));
+  font-weight: 700;
+}
+
 .timeline {
   flex: 1;
   display: flex;
@@ -289,11 +300,30 @@ input[type="number"] {
   min-height: 0;
 }
 
+.sidebar-milestones {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 calc(12px * var(--s));
+  border-bottom: 1px solid var(--border);
+  background: #f4f1ea;
+  color: #111827;
+  font-size: calc(11px * var(--s));
+  font-weight: 700;
+}
+
 .timeline-header {
   height: calc(40px * var(--s));
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   overflow: hidden;
+}
+
+.milestone-band {
+  flex-shrink: 0;
+  overflow: hidden;
+  background: #fbf9f4;
+  border-bottom: 1px solid var(--border);
 }
 
 .timeline-body {
