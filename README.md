@@ -59,6 +59,6 @@ DevContainer を使う場合は VS Code / Cursor で「Reopen in Container」を
 
 ## 現在の状態
 
-**Phase 0 完了**: Tauri 2 + React + TypeScript の雛形、DevContainer、`react-konva` による最小ズーム画面（`pxPerDay` の再描画）まで実装済み。
+**Phase 1 完了**: モックアップ相当の UI を React + react-konva に移植済み。サンプルデータの表示、フィルタ（検索・担当者・ステータス）、Ctrl/Cmd+ホイールによるポインタ基準ズーム、横/縦スクロール、バーのドラッグ移動・リサイズ、タスク編集ダイアログ、JSON プレビューまで `npm run dev` で確認できる。
 
-Phase 1 以降で `mockup/` の操作を React コンポーネントへ移植する。`mockup/schedule-viewer-mockup.html` は CDN 経由の Konva が読み込めず Canvas が表示されない既知の問題あり（`docs/PLANNING.md` 末尾）。本番 UI は npm 経由の `react-konva` を使用する。
+Phase 2 以降で JSON スキーマ確定と Tauri 経由のファイル I/O を実装する。

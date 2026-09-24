@@ -1,146 +1,368 @@
-import {
-  type ReactNode,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Layer, Line, Rect, Stage } from "react-konva";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
-
-const TOTAL_DAYS = 10;
-const MIN_PX_PER_DAY = 4;
-const MAX_PX_PER_DAY = 80;
-const STAGE_WIDTH = 720;
-const STAGE_HEIGHT = 280;
-const BAR_ROW_Y = 120;
-const BAR_HEIGHT = 28;
-const BAR_START_DAY = 2;
-const BAR_DURATION_DAYS = 5;
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function gridTier(pxPerDay: number) {
-  if (pxPerDay >= 40) return "day";
-  if (pxPerDay >= 10) return "week";
-  return "month";
-}
-
-function tierLabel(tier: ReturnType<typeof gridTier>) {
-  if (tier === "day") return "日表示";
-  if (tier === "week") return "週表示";
-  return "月表示";
-}
+import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
+import { JsonDialog } from "./components/JsonDialog";
+import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
+import { TaskAddDialog } from "./components/TaskAddDialog";
+import { Sidebar } from "./components/Sidebar";
+import { TaskEditDialog } from "./components/TaskEditDialog";
+import { Timeline } from "./components/Timeline";
+import { Toolbar } from "./components/Toolbar";
+import { useSchedule } from "./hooks/useSchedule";
+import { useTimelineView } from "./hooks/useTimelineView";
+import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
+import { downloadScheduleHtml } from "./model/exportHtml";
+import { isoDate, parseDate, roundToDay } from "./model/dates";
+import { layoutMilestones } from "./model/milestones";
+import { findTaskById } from "./model/rows";
+import { findTaskPlace } from "./model/tasks";
+import { computeTimelineRange, TODAY_ISO } from "./model/timeline";
+import { readUiScale } from "./model/uiScale";
+import {
+  SAMPLE_PROJECT_TITLE,
+  sampleCategories,
+  sampleMilestones,
+  scheduleToJson,
+} from "./sample/schedule";
 
 function App() {
-  const [pxPerDay, setPxPerDay] = useState(16);
-  const [scrollX, setScrollX] = useState(0);
-  const stageRef = useRef<Konva.Stage>(null);
+  const timelineAreaRef = useRef<HTMLDivElement>(null);
+  const [timelineWidth, setTimelineWidth] = useState(520);
+  const [timelineSlotHeight, setTimelineSlotHeight] = useState(440);
+  const [uiScale, setUiScale] = useState(readUiScale);
+  const [jsonOpen, setJsonOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [focusTaskId, setFocusTaskId] = useState<number | null>(null);
 
-  const setZoom = useCallback(
-    (newPxPerDay: number, pointerX: number) => {
-      const clampedPx = clamp(newPxPerDay, MIN_PX_PER_DAY, MAX_PX_PER_DAY);
-      const anchorDayIndex = (pointerX + scrollX) / pxPerDay;
-      const maxScroll = Math.max(0, TOTAL_DAYS * clampedPx - STAGE_WIDTH);
-      const nextScrollX = clamp(
-        anchorDayIndex * clampedPx - pointerX,
-        0,
-        maxScroll,
-      );
-      setPxPerDay(clampedPx);
-      setScrollX(nextScrollX);
-    },
-    [pxPerDay, scrollX],
+  const headerHeight = Math.round(40 * uiScale);
+  const rowHeight = Math.round(32 * uiScale);
+  const barHeight = Math.round(20 * uiScale);
+  const milestoneFontSize = Math.round(11 * uiScale);
+  const milestoneDiamondSize = Math.max(8, Math.round(11 * uiScale));
+  const milestoneLaneHeight = Math.round(26 * uiScale);
+  const [milestoneBandHeight, setMilestoneBandHeight] = useState(() =>
+    Math.round(26 * readUiScale()),
+  );
+  const bodyHeight = Math.max(
+    120,
+    timelineSlotHeight - headerHeight - milestoneBandHeight,
   );
 
-  const onWheel = useCallback(
-    (event: Konva.KonvaEventObject<WheelEvent>) => {
-      if (!event.evt.ctrlKey && !event.evt.metaKey) return;
-      event.evt.preventDefault();
+  useEffect(() => {
+    const onResize = () => setUiScale(readUiScale());
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--s", String(uiScale));
+  }, [uiScale]);
+
+  useEffect(() => {
+    const node = timelineAreaRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      setTimelineWidth(entry.contentRect.width);
+      setTimelineSlotHeight(entry.contentRect.height);
+    });
+    observer.observe(node);
+    setTimelineWidth(node.clientWidth);
+    setTimelineSlotHeight(node.clientHeight);
+    return () => observer.disconnect();
+  }, []);
+
+  const schedule = useSchedule(
+    sampleCategories,
+    sampleMilestones,
+    rowHeight,
+    bodyHeight,
+  );
+  const range = useMemo(
+    () => computeTimelineRange(schedule.categories, schedule.milestones),
+    [schedule.categories, schedule.milestones],
+  );
+
+  const view = useTimelineView(
+    {
+      timelineStart: range.timelineStart,
+      totalDays: range.totalDays,
+    },
+    schedule.maxScrollY,
+    timelineWidth,
+  );
+
+  const onWheelBody = useCallback(
+    (e: Konva.KonvaEventObject<WheelEvent>) => {
       const pointerX =
-        stageRef.current?.getPointerPosition()?.x ?? STAGE_WIDTH / 2;
-      const factor = event.evt.deltaY < 0 ? 1.15 : 1 / 1.15;
-      setZoom(pxPerDay * factor, pointerX);
+        e.target.getStage()?.getPointerPosition()?.x ?? timelineWidth / 2;
+      view.handleWheel(e.evt, pointerX, "body");
     },
-    [pxPerDay, setZoom],
+    [timelineWidth, view],
   );
 
-  const tier = gridTier(pxPerDay);
+  const onWheelHeader = useCallback(
+    (e: Konva.KonvaEventObject<WheelEvent>) => {
+      const pointerX =
+        e.target.getStage()?.getPointerPosition()?.x ?? timelineWidth / 2;
+      view.handleWheel(e.evt, pointerX, "header");
+    },
+    [timelineWidth, view],
+  );
 
-  const canvasContent = useMemo(() => {
-    const elements: ReactNode[] = [];
+  const milestoneLanes = useMemo(
+    () =>
+      layoutMilestones(
+        schedule.milestones,
+        view.pxPerDay,
+        milestoneFontSize,
+        milestoneDiamondSize,
+      ),
+    [
+      milestoneDiamondSize,
+      milestoneFontSize,
+      schedule.milestones,
+      view.pxPerDay,
+    ],
+  );
+  const nextMilestoneBandHeight =
+    schedule.milestones.length === 0
+      ? 0
+      : (Math.max(...milestoneLanes.values(), 0) + 1) * milestoneLaneHeight;
+  if (nextMilestoneBandHeight !== milestoneBandHeight) {
+    setMilestoneBandHeight(nextMilestoneBandHeight);
+  }
 
-    for (let day = 0; day <= TOTAL_DAYS; day += 1) {
-      const x = day * pxPerDay - scrollX;
-      if (x < -pxPerDay || x > STAGE_WIDTH + pxPerDay) continue;
-      const isMajor =
-        tier === "day" || (tier === "week" && day % 7 === 0) || day === 0;
-      elements.push(
-        <Line
-          key={`grid-${day}`}
-          points={[x, 0, x, STAGE_HEIGHT]}
-          stroke={isMajor ? "#C5CAD3" : "#E8EAEE"}
-          strokeWidth={1}
-          listening={false}
-        />,
-      );
-    }
-
-    const barX = BAR_START_DAY * pxPerDay - scrollX;
-    const barWidth = BAR_DURATION_DAYS * pxPerDay;
-    elements.push(
-      <Rect
-        key="sample-bar"
-        x={barX}
-        y={BAR_ROW_Y}
-        width={barWidth}
-        height={BAR_HEIGHT}
-        fill="#4C5FD5"
-        cornerRadius={4}
-        listening={false}
-      />,
+  const taskRefs = useMemo(
+    () => listTasks(schedule.categories),
+    [schedule.categories],
+  );
+  const editingSuccessors = useMemo(
+    () =>
+      schedule.editingTask
+        ? successorIds(schedule.categories, schedule.editingTask.id)
+        : [],
+    [schedule.categories, schedule.editingTask],
+  );
+  const links = useMemo(() => {
+    const visibleIds = new Set(
+      schedule.visibleRows.flatMap((row) =>
+        row.type === "task" ? [row.task.id] : [],
+      ),
     );
+    const links = visibleLinks(schedule.categories, visibleIds);
+    if (schedule.filters.relation !== "broken") return links;
+    return links.filter((link) => link.broken);
+  }, [schedule.categories, schedule.filters.relation, schedule.visibleRows]);
 
-    return elements;
-  }, [pxPerDay, scrollX, tier]);
+  const jsonText = useMemo(
+    () =>
+      JSON.stringify(
+        scheduleToJson(schedule.categories, schedule.milestones),
+        null,
+        2,
+      ),
+    [schedule.categories, schedule.milestones],
+  );
+
+  const handleResizeStart = useCallback(
+    (taskId: number, groupX: number) => {
+      const start = isoDate(
+        roundToDay(range.timelineStart, view.xToDate(groupX)),
+      );
+      schedule.setTaskStart(taskId, start);
+    },
+    [range.timelineStart, schedule, view],
+  );
+
+  useEffect(() => {
+    if (focusTaskId == null) return;
+    const row = schedule.visibleRows.find(
+      (item) => item.type === "task" && item.task.id === focusTaskId,
+    );
+    if (!row || row.type !== "task") return;
+    view.reveal(parseDate(row.task.start), row.y);
+    setFocusTaskId(null);
+  }, [focusTaskId, schedule.visibleRows, view]);
+
+  const handleResizeEnd = useCallback(
+    (taskId: number, groupX: number, barWidth: number) => {
+      const end = isoDate(
+        roundToDay(range.timelineStart, view.xToDate(groupX + barWidth)),
+      );
+      schedule.setTaskEnd(taskId, end);
+    },
+    [range.timelineStart, schedule, view],
+  );
 
   return (
-    <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
-      <h1 style={{ fontSize: 16, margin: "0 0 8px" }}>
-        schedule-viewer — Konva 動作確認
-      </h1>
-      <p style={{ fontSize: 12, color: "#697586", margin: "0 0 12px" }}>
-        Ctrl(⌘)+ホイールでズーム（ポインタ基準） · 現在: {tierLabel(tier)} ·{" "}
-        {pxPerDay.toFixed(1)} px/日
-      </p>
-      <div
-        style={{
-          border: "1px solid #E3E6EB",
-          borderRadius: 8,
-          overflow: "hidden",
+    <div className="app" style={{ ["--s" as string]: uiScale }}>
+      <Toolbar
+        title={SAMPLE_PROJECT_TITLE}
+        filters={schedule.filters}
+        assignees={schedule.assignees}
+        zoomLabel={view.tierLabel}
+        lineageName={schedule.lineageTask?.name ?? null}
+        canStartLineage={schedule.selectedTaskId != null}
+        onToggleLineage={schedule.toggleLineage}
+        onFiltersChange={schedule.updateFilters}
+        onZoomIn={view.zoomIn}
+        onZoomOut={view.zoomOut}
+        onFit={view.fitToWidth}
+        onShowJson={() => setJsonOpen(true)}
+        onExportHtml={() =>
+          downloadScheduleHtml({
+            title: SAMPLE_PROJECT_TITLE,
+            tierLabel: view.tierLabel,
+            lineageName: schedule.lineageTask?.name ?? null,
+            visibleRows: schedule.visibleRows,
+            milestones: schedule.milestones,
+            milestoneLanes,
+            links,
+            timelineStart: range.timelineStart,
+            timelineEnd: range.timelineEnd,
+            totalDays: range.totalDays,
+            pxPerDay: view.pxPerDay,
+            tier: view.tier,
+            headerHeight,
+            rowHeight,
+            barHeight,
+            milestoneBandHeight,
+            milestoneLaneHeight,
+            milestoneDiamondSize,
+            milestoneFontSize,
+            labelScale: uiScale,
+          })
+        }
+        canDelete={schedule.selectedTaskId != null}
+        onAdd={() => setAddOpen(true)}
+        onDelete={() => {
+          if (schedule.selectedTaskId != null) setDeleteOpen(true);
         }}
-      >
-        <Stage
-          width={STAGE_WIDTH}
-          height={STAGE_HEIGHT}
-          ref={stageRef}
-          onWheel={onWheel}
-        >
-          <Layer>
-            <Rect
-              x={0}
-              y={0}
-              width={STAGE_WIDTH}
-              height={STAGE_HEIGHT}
-              fill="#ffffff"
-              listening={false}
-            />
-            {canvasContent}
-          </Layer>
-        </Stage>
+      />
+      <div className="hint">
+        Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
+        ドラッグで縦横スクロール ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
+        ・ タスクを選んで「系統」で前後だけ表示 ・ マイルストンは帯のひし形をドラッグ、ダブルクリックで編集
       </div>
+      <div className="main">
+        <Sidebar
+          rows={schedule.visibleRows}
+          scrollY={view.scrollY}
+          rowHeight={rowHeight}
+          selectedTaskId={schedule.selectedTaskId}
+          milestoneBandHeight={milestoneBandHeight}
+          milestones={schedule.milestones}
+          onToggleCollapse={schedule.toggleCollapsed}
+        />
+        <div ref={timelineAreaRef} className="timeline-slot">
+          <Timeline
+            visibleRows={schedule.visibleRows}
+            width={Math.max(200, timelineWidth)}
+            rowHeight={rowHeight}
+            barHeight={barHeight}
+            headerHeight={headerHeight}
+            bodyHeight={bodyHeight}
+            pxPerDay={view.pxPerDay}
+            scrollY={view.scrollY}
+            tier={view.tier}
+            timelineStart={range.timelineStart}
+            timelineEnd={range.timelineEnd}
+            totalDays={range.totalDays}
+            dateToX={view.dateToX}
+            selectedTaskId={schedule.selectedTaskId}
+            onSelectTask={schedule.selectTask}
+            onClearSelection={schedule.clearSelection}
+            onMoveTask={schedule.moveTaskByDays}
+            onResizeStart={handleResizeStart}
+            onResizeEnd={handleResizeEnd}
+            links={links}
+            onOpenEdit={schedule.openEditDialog}
+            onWheelBody={onWheelBody}
+            onWheelHeader={onWheelHeader}
+            onPan={view.panBy}
+            milestones={schedule.milestones}
+            milestoneLanes={milestoneLanes}
+            milestoneBandHeight={milestoneBandHeight}
+            milestoneLaneHeight={milestoneLaneHeight}
+            milestoneDiamondSize={milestoneDiamondSize}
+            milestoneFontSize={milestoneFontSize}
+            onMoveMilestone={schedule.moveMilestoneByDays}
+            onOpenMilestone={schedule.openMilestoneEdit}
+          />
+        </div>
+      </div>
+      <TaskEditDialog
+        task={schedule.editingTask}
+        assignees={schedule.assignees}
+        tasks={taskRefs}
+        milestones={schedule.milestones}
+        successorIds={editingSuccessors}
+        onClose={schedule.closeEditDialog}
+        onSave={schedule.saveTaskEdit}
+      />
+      <MilestoneEditDialog
+        milestone={schedule.editingMilestone}
+        onClose={schedule.closeMilestoneEdit}
+        onSave={schedule.saveMilestoneEdit}
+      />
+      {addOpen ? (
+        <TaskAddDialog
+          categories={schedule.categories}
+          initialCategory={
+            findTaskPlace(schedule.categories, schedule.selectedTaskId ?? -1)
+              ?.category ??
+            schedule.categories[0]?.name ??
+            ""
+          }
+          initialGroup={
+            findTaskPlace(schedule.categories, schedule.selectedTaskId ?? -1)
+              ?.group ??
+            schedule.categories[0]?.groups[0]?.name ??
+            ""
+          }
+          initialStart={
+            findTaskById(schedule.categories, schedule.selectedTaskId)?.start ??
+            TODAY_ISO
+          }
+          initialEnd={
+            findTaskById(schedule.categories, schedule.selectedTaskId)?.end ??
+            TODAY_ISO
+          }
+          onClose={() => setAddOpen(false)}
+          onSave={(input) => {
+            const id = schedule.addTask(input);
+            setAddOpen(false);
+            if (id != null) setFocusTaskId(id);
+          }}
+        />
+      ) : null}
+      {deleteOpen && schedule.selectedTaskId != null ? (
+        <DeleteTaskDialog
+          taskName={
+            findTaskById(schedule.categories, schedule.selectedTaskId)?.name ??
+            "このタスク"
+          }
+          hasDependencies={
+            dependencyCount(schedule.categories, schedule.selectedTaskId) > 0
+          }
+          onClose={() => setDeleteOpen(false)}
+          onConfirm={() => {
+            if (schedule.selectedTaskId != null) {
+              schedule.deleteTask(schedule.selectedTaskId);
+            }
+            setDeleteOpen(false);
+          }}
+        />
+      ) : null}
+      <JsonDialog
+        json={jsonText}
+        open={jsonOpen}
+        onClose={() => setJsonOpen(false)}
+      />
     </div>
   );
 }
