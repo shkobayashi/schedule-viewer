@@ -31,7 +31,7 @@ export const sampleCategories: Category[] = [
         name: "要件レビュー",
         start: "2026-09-29",
         end: "2026-10-02",
-        assignee: "田中",
+        assignee: "",
         status: "not-started",
         progress: 0,
         predecessors: [2],
@@ -56,7 +56,7 @@ export const sampleCategories: Category[] = [
         name: "PoC環境構築",
         start: "2026-10-05",
         end: "2026-10-16",
-        assignee: "高橋",
+        assignee: "",
         status: "not-started",
         progress: 0,
         predecessors: [4],
@@ -146,7 +146,7 @@ export const sampleCategories: Category[] = [
         name: "受け入れテスト",
         start: "2026-12-03",
         end: "2026-12-14",
-        assignee: "田中",
+        assignee: "",
         status: "not-started",
         progress: 0,
         predecessors: [12],
@@ -192,7 +192,13 @@ export const sampleCategories: Category[] = [
 
 export function collectAssignees(categories: Category[]): string[] {
   return Array.from(
-    new Set(categories.flatMap((c) => c.tasks.map((t) => t.assignee))),
+    new Set(
+      categories.flatMap((c) =>
+        c.tasks
+          .map((t) => t.assignee.trim())
+          .filter((assignee) => assignee !== ""),
+      ),
+    ),
   );
 }
 
