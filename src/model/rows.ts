@@ -1,3 +1,4 @@
+import { isOverdue } from "./timeline";
 import type { Category, ScheduleFilters, Task, VisibleRow } from "./types";
 
 export const ROW_HEIGHT = 32;
@@ -6,7 +7,17 @@ export function taskMatchesFilter(task: Task, filters: ScheduleFilters): boolean
   if (filters.assignee !== "all" && task.assignee !== filters.assignee) {
     return false;
   }
-  if (filters.status !== "all" && task.status !== filters.status) {
+  if (filters.status === "not-done" && task.status === "done") {
+    return false;
+  }
+  if (
+    filters.status !== "all" &&
+    filters.status !== "not-done" &&
+    task.status !== filters.status
+  ) {
+    return false;
+  }
+  if (filters.overdue === "overdue" && !isOverdue(task)) {
     return false;
   }
   if (filters.search && !task.name.includes(filters.search)) {

@@ -1,3 +1,4 @@
+import { isOverdue } from "../model/timeline";
 import type { VisibleRow } from "../model/types";
 
 type SidebarProps = {
@@ -40,7 +41,9 @@ export function Sidebar({
                 className={`sidebar-row${selected ? " selected" : ""}`}
                 style={{ height: rowHeight }}
               >
-                <span className="name">{row.task.name}</span>
+                <span className={`name${isOverdue(row.task) ? " overdue" : ""}`}>
+                  {row.task.name}
+                </span>
                 <span className="assignee">{row.task.assignee}</span>
               </div>
             );

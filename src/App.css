@@ -202,6 +202,11 @@ input[type="number"] {
   text-overflow: ellipsis;
 }
 
+.sidebar-row .name.overdue {
+  color: #c4351a;
+  font-weight: 600;
+}
+
 .timeline {
   flex: 1;
   display: flex;

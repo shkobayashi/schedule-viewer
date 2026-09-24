@@ -28,6 +28,7 @@ export function useSchedule(
   const [filters, setFilters] = useState<ScheduleFilters>({
     assignee: "all",
     status: "all",
+    overdue: "all",
     search: "",
   });
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);

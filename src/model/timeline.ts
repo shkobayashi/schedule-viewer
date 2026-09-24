@@ -60,3 +60,23 @@ export function statusColors(status: string): {
   }
   return { bg: "#EDEFF3", fill: null, border: "#C4CAD4" };
 }
+
+/** 完了以外で、終了日が今日より前のタスク。終了日が今日のタスクは期限当日なので超過にしない。 */
+export function isOverdue(
+  task: { status: string; end: string },
+  today = TODAY_ISO,
+): boolean {
+  return task.status !== "done" && task.end < today;
+}
+
+export function barColors(task: { status: string; end: string }): {
+  bg: string;
+  fill: string | null;
+  border: string;
+} {
+  if (!isOverdue(task)) return statusColors(task.status);
+  if (task.status === "in-progress") {
+    return { bg: "#F8D0C8", fill: "#E2542A", border: "#C4351A" };
+  }
+  return { bg: "#F8D0C8", fill: null, border: "#C4351A" };
+}
