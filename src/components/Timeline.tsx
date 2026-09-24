@@ -30,25 +30,25 @@ type TimelineProps = {
   timelineEnd: Date;
   totalDays: number;
   dateToX: (d: Date) => number;
-  selectedTaskId: number | null;
-  onSelectTask: (id: number) => void;
+  selectedTaskId: import("../model/types").ScheduleId | null;
+  onSelectTask: (id: import("../model/types").ScheduleId) => void;
   onClearSelection: () => void;
-  onMoveTask: (taskId: number, deltaDays: number) => void;
-  onResizeStart: (taskId: number, groupX: number) => void;
-  onResizeEnd: (taskId: number, groupX: number, barWidth: number) => void;
+  onMoveTask: (taskId: import("../model/types").ScheduleId, deltaDays: number) => void;
+  onResizeStart: (taskId: import("../model/types").ScheduleId, groupX: number) => void;
+  onResizeEnd: (taskId: import("../model/types").ScheduleId, groupX: number, barWidth: number) => void;
   links: DependencyLink[];
   onOpenEdit: (task: Task) => void;
   onWheelBody: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   onWheelHeader: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   onPan: (dx: number, dy: number) => void;
   milestones: Milestone[];
-  milestoneLanes: Map<number, number>;
+  milestoneLanes: Map<import("../model/types").ScheduleId, number>;
   milestoneBandHeight: number;
   milestoneLaneHeight: number;
   milestoneDiamondSize: number;
   milestoneFontSize: number;
-  onMoveMilestone: (id: number, deltaDays: number) => void;
-  onOpenMilestone: (id: number) => void;
+  onMoveMilestone: (id: import("../model/types").ScheduleId, deltaDays: number) => void;
+  onOpenMilestone: (id: import("../model/types").ScheduleId) => void;
 };
 
 const HANDLE_WIDTH = 8;
@@ -632,7 +632,10 @@ export function Timeline({
   );
 
   const linkArrows = useMemo(() => {
-    const byId = new Map<number, { x: number; right: number; y: number }>();
+    const byId = new Map<
+      import("../model/types").ScheduleId,
+      { x: number; right: number; y: number }
+    >();
     for (const row of visibleRows) {
       if (row.type !== "task") continue;
       const y = row.y - scrollY;

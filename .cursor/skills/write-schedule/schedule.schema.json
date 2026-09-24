@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collabcentral.example/schedule-viewer/schedule.schema.json",
+  "title": "Schedule document",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "title", "milestones", "categories"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "milestones": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/milestone" }
+    },
+    "categories": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/category" }
+    }
+  },
+  "$defs": {
+    "scheduleId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "isoDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "taskStatus": {
+      "type": "string",
+      "enum": ["not-started", "in-progress", "done"]
+    },
+    "milestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "date"],
+      "properties": {
+        "id": { "$ref": "#/$defs/scheduleId" },
+        "name": { "type": "string", "minLength": 1 },
+        "date": { "$ref": "#/$defs/isoDate" }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "start",
+        "end",
+        "assignee",
+        "status",
+        "progress",
+        "predecessors",
+        "milestoneId"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/scheduleId" },
+        "name": { "type": "string", "minLength": 1 },
+        "start": { "$ref": "#/$defs/isoDate" },
+        "end": { "$ref": "#/$defs/isoDate" },
+        "assignee": { "type": "string" },
+        "status": { "$ref": "#/$defs/taskStatus" },
+        "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "predecessors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/scheduleId" },
+          "uniqueItems": true
+        },
+        "milestoneId": {
+          "oneOf": [
+            { "$ref": "#/$defs/scheduleId" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "taskGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "tasks"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/task" }
+        }
+      }
+    },
+    "category": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "groups"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "groups": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/taskGroup" }
+        }
+      }
+    }
+  }
+}

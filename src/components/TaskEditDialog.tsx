@@ -4,6 +4,7 @@ import {
   isUnassigned,
   UNASSIGNED_LABEL,
   type Milestone,
+  type ScheduleId,
   type Task,
   type TaskStatus,
 } from "../model/types";
@@ -13,7 +14,7 @@ type TaskEditDialogProps = {
   assignees: string[];
   tasks: TaskRef[];
   milestones: Milestone[];
-  successorIds: number[];
+  successorIds: ScheduleId[];
   onClose: () => void;
   onSave: (patch: {
     name: string;
@@ -22,13 +23,13 @@ type TaskEditDialogProps = {
     assignee: string;
     status: TaskStatus;
     progress: number;
-    predecessors: number[];
-    successors: number[];
-    milestoneId: number | null;
+    predecessors: ScheduleId[];
+    successors: ScheduleId[];
+    milestoneId: ScheduleId | null;
   }) => boolean;
 };
 
-function taskLabel(tasks: TaskRef[], id: number): string {
+function taskLabel(tasks: TaskRef[], id: ScheduleId): string {
   const found = tasks.find((task) => task.id === id);
   return found
     ? `${found.category} / ${found.group} / ${found.name}`
@@ -50,9 +51,9 @@ export function TaskEditDialog({
   const [assignee, setAssignee] = useState("");
   const [status, setStatus] = useState<TaskStatus>("not-started");
   const [progress, setProgress] = useState(0);
-  const [predecessors, setPredecessors] = useState<number[]>([]);
-  const [successors, setSuccessors] = useState<number[]>([]);
-  const [milestoneId, setMilestoneId] = useState<number | null>(null);
+  const [predecessors, setPredecessors] = useState<ScheduleId[]>([]);
+  const [successors, setSuccessors] = useState<ScheduleId[]>([]);
+  const [milestoneId, setMilestoneId] = useState<ScheduleId | null>(null);
 
   useEffect(() => {
     if (!task) return;
@@ -154,7 +155,7 @@ export function TaskEditDialog({
                 : ""
             }
             onChange={(e) =>
-              setMilestoneId(e.target.value === "" ? null : Number(e.target.value))
+              setMilestoneId(e.target.value === "" ? null : e.target.value)
             }
           >
             <option value="">なし</option>
@@ -243,11 +244,11 @@ function RelationField({
   onRemove,
 }: {
   label: string;
-  selected: number[];
+  selected: ScheduleId[];
   candidates: TaskRef[];
   tasks: TaskRef[];
-  onAdd: (id: number) => void;
-  onRemove: (id: number) => void;
+  onAdd: (id: ScheduleId) => void;
+  onRemove: (id: ScheduleId) => void;
 }) {
   const inputId = label === "先行タスク" ? "fieldPredecessors" : "fieldSuccessors";
   const listId = `${inputId}-list`;
@@ -263,7 +264,7 @@ function RelationField({
     setActive(0);
   }, [query]);
 
-  const add = (id: number) => {
+  const add = (id: ScheduleId) => {
     onAdd(id);
     setQuery("");
     setOpen(false);

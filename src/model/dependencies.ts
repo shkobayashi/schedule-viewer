@@ -1,16 +1,16 @@
 import { forEachTask } from "./tasks";
-import type { Category, Task } from "./types";
+import type { Category, ScheduleId, Task } from "./types";
 
 export type TaskRef = {
-  id: number;
+  id: ScheduleId;
   name: string;
   category: string;
   group: string;
 };
 
 export type DependencyLink = {
-  fromId: number;
-  toId: number;
+  fromId: ScheduleId;
+  toId: ScheduleId;
   broken: boolean;
 };
 
@@ -36,7 +36,7 @@ export function listTasks(categories: Category[]): TaskRef[] {
 }
 
 /** このタスク自身の先行と、このタスクを先行にしている後続の本数。 */
-export function dependencyCount(categories: Category[], taskId: number): number {
+export function dependencyCount(categories: Category[], taskId: ScheduleId): number {
   let count = 0;
   forEachTask(categories, (task) => {
     if (task.id === taskId) count += task.predecessors.length;
@@ -45,16 +45,16 @@ export function dependencyCount(categories: Category[], taskId: number): number 
   return count;
 }
 
-export function successorIds(categories: Category[], taskId: number): number[] {
-  const ids: number[] = [];
+export function successorIds(categories: Category[], taskId: ScheduleId): ScheduleId[] {
+  const ids: ScheduleId[] = [];
   forEachTask(categories, (task) => {
     if (task.predecessors.includes(taskId)) ids.push(task.id);
   });
   return ids;
 }
 
-function tasksById(categories: Category[]): Map<number, Task> {
-  const byId = new Map<number, Task>();
+function tasksById(categories: Category[]): Map<ScheduleId, Task> {
+  const byId = new Map<ScheduleId, Task>();
   forEachTask(categories, (task) => {
     byId.set(task.id, task);
   });
@@ -67,10 +67,10 @@ function tasksById(categories: Category[]): Map<number, Task> {
  */
 export function lineageTaskIds(
   categories: Category[],
-  rootId: number,
-): Set<number> | null {
-  const predecessors = new Map<number, number[]>();
-  const successors = new Map<number, number[]>();
+  rootId: ScheduleId,
+): Set<ScheduleId> | null {
+  const predecessors = new Map<ScheduleId, ScheduleId[]>();
+  const successors = new Map<ScheduleId, ScheduleId[]>();
   let rootExists = false;
   forEachTask(categories, (task) => {
     if (task.id === rootId) rootExists = true;
@@ -83,10 +83,10 @@ export function lineageTaskIds(
   });
   if (!rootExists) return null;
 
-  const ids = new Set<number>([rootId]);
-  const walk = (nextOf: (id: number) => number[] | undefined) => {
+  const ids = new Set<ScheduleId>([rootId]);
+  const walk = (nextOf: (id: ScheduleId) => ScheduleId[] | undefined) => {
     const stack = [rootId];
-    const seen = new Set<number>([rootId]);
+    const seen = new Set<ScheduleId>([rootId]);
     while (stack.length > 0) {
       const id = stack.pop();
       if (id == null) continue;
@@ -104,9 +104,9 @@ export function lineageTaskIds(
 }
 
 /** 破綻した線の先行または後続になっているタスク。 */
-export function brokenLinkTaskIds(categories: Category[]): Set<number> {
+export function brokenLinkTaskIds(categories: Category[]): Set<ScheduleId> {
   const byId = tasksById(categories);
-  const ids = new Set<number>();
+  const ids = new Set<ScheduleId>();
   for (const task of byId.values()) {
     for (const predecessorId of task.predecessors) {
       const predecessor = byId.get(predecessorId);
@@ -121,7 +121,7 @@ export function brokenLinkTaskIds(categories: Category[]): Set<number> {
 /** フィルタ後の行に先行・後続の両方がいるリンクだけ返す。 */
 export function visibleLinks(
   categories: Category[],
-  visibleIds: ReadonlySet<number>,
+  visibleIds: ReadonlySet<ScheduleId>,
 ): DependencyLink[] {
   const byId = tasksById(categories);
   const links: DependencyLink[] = [];

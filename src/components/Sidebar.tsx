@@ -15,7 +15,7 @@ type SidebarProps = {
   rows: VisibleRow[];
   scrollY: number;
   rowHeight: number;
-  selectedTaskId: number | null;
+  selectedTaskId: import("../model/types").ScheduleId | null;
   milestoneBandHeight: number;
   milestones: Milestone[];
   onToggleCollapse: (key: string) => void;
