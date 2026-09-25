@@ -355,6 +355,7 @@ function App() {
         membersCatalogError={memberCatalogState.error}
         calendarError={appCalendarState.error}
         filters={schedule.filters}
+        milestones={schedule.milestones}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
         zoomLabel={tierLabel}
         lineageName={schedule.lineageTask?.name ?? null}
