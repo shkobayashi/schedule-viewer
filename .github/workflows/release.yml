@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            bundles: deb
+          - platform: windows-latest
+            bundles: nsis
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+
+      - name: Install Linux packages for Tauri
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            xdg-utils
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: schedule-viewer v__VERSION__
+          releaseBody: |
+            ## ダウンロード
+
+            - **Ubuntu (22.04 以降, amd64)**: `schedule-viewer_*_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_*_amd64.deb` でインストール
+            - **Windows (x64)**: `schedule-viewer_*_x64-setup.exe` を実行
+
+            インストーラはコード署名していません。Windows では SmartScreen の確認が出ることがあります。
+
+            ローカルでのビルド手順は [README](https://github.com/${{ github.repository }}/blob/main/README.md#配布用ビルド) を参照してください。
+          releaseDraft: false
+          prerelease: false
+          args: --bundles ${{ matrix.bundles }}
