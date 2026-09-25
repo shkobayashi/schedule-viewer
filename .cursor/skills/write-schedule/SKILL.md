@@ -30,7 +30,7 @@ description: >-
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "title": "プロジェクト名",
   "milestones": [{ "id": "<uuid>", "name": "...", "date": "YYYY-MM-DD" }],
   "categories": [{
@@ -56,15 +56,15 @@ description: >-
 - `status`: `not-started` | `in-progress` | `done`
 - `progress`: 0〜100 の整数
 - `predecessors`: 先行タスクの `id` の配列（後続は各タスクの `predecessors` から導かれる）
-- タスク期間は **終了日が開始日より後**（1 日以上）
+- タスク期間は **終了日を含む**（`end` は開始日以降。1 日だけなら `start` と `end` を同じ日にする）
 - タスク ID とマイルストン ID は文書内で重複しない UUID
 
 ## 手順
 
 1. 入力をカテゴリ・グループ・タスクの木に整理する（WBS のまま写す）
 2. 新規要素には `crypto.randomUUID()` 相当の UUID v4 を付与する。既存 JSON を更新する場合は既存 `id` を維持する
-3. `schemaVersion: 1` を付ける
-4. JSON ファイルを書き、`node scripts/validate-schedule.mjs` で検証する
+3. `schemaVersion: 2` を付ける
+4. JSON ファイルを書き、`node .cursor/skills/write-schedule/scripts/validate-schedule.mjs`（リポジトリ内）または同梱 `scripts/validate-schedule.mjs` で検証する
 5. エラーがあれば修正して再検証し、通ってからユーザーに渡す
 
 ## 画面にないものは入れない
