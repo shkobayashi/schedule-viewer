@@ -15,6 +15,7 @@ import { TaskEditDialog } from "./components/TaskEditDialog";
 import { TaskNoteDialog } from "./components/TaskNoteDialog";
 import { Timeline } from "./components/Timeline";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { Toolbar } from "./components/Toolbar";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
@@ -24,9 +25,15 @@ import { useTimelineView } from "./hooks/useTimelineView";
 import { serializeScheduleDocument } from "./model/scheduleFile";
 import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
 import {
-  exportScheduleHtml,
+  exportSchedule,
   ScheduleExportTooLargeError,
+  type ScheduleExportFormat,
 } from "./model/exportHtml";
+import {
+  describeActiveFilters,
+  exportTimelineRange,
+  milestonesForExport,
+} from "./model/exportView";
 import { addDays, isoDate, parseDate, roundToDay } from "./model/dates";
 import {
   layoutMilestones,
@@ -83,6 +90,7 @@ function App() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [focusTaskId, setFocusTaskId] = useState<ScheduleId | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const [pendingFit, setPendingFit] = useState(false);
 
   const { headerHeight, rowHeight, barHeight, milestoneLaneHeight } =
@@ -344,6 +352,92 @@ function App() {
     [range.timelineStart, setTaskEnd, xToDate],
   );
 
+  const runScheduleExport = useCallback(
+    (format: ScheduleExportFormat) => {
+      const milestones = milestonesForExport(
+        schedule.filters.milestone,
+        schedule.milestones,
+        schedule.visibleRows,
+      );
+      const exportedRange = exportTimelineRange(
+        schedule.visibleRows,
+        milestones,
+        schedule.today,
+      );
+      const exportedLanes = layoutMilestones(
+        milestones,
+        pxPerDay,
+        milestoneFontSize,
+        milestoneDiamondSize,
+      );
+      const exportedBandHeight =
+        milestones.length === 0
+          ? 0
+          : (Math.max(...exportedLanes.values(), 0) + 1) * milestoneLaneHeight;
+      const assigneeLabel =
+        schedule.assigneeFilterOptions.find(
+          (option) => option.id === schedule.filters.assignee,
+        )?.label ?? null;
+      void exportSchedule(
+        {
+          title: schedule.title,
+          tierLabel,
+          lineageName: schedule.lineageTask?.name ?? null,
+          visibleRows: schedule.visibleRows,
+          milestones,
+          milestoneLanes: exportedLanes,
+          links,
+          timelineStart: exportedRange.timelineStart,
+          timelineEnd: exportedRange.timelineEnd,
+          totalDays: exportedRange.totalDays,
+          pxPerDay,
+          tier,
+          headerHeight,
+          rowHeight,
+          barHeight,
+          milestoneBandHeight: exportedBandHeight,
+          milestoneLaneHeight,
+          milestoneDiamondSize,
+          milestoneFontSize,
+          labelScale: uiScale,
+          today: schedule.today,
+          memberCatalog: memberCatalogState.memberMap,
+          calendar: appCalendarState.calendar,
+          filterSummary: describeActiveFilters(
+            schedule.filters,
+            schedule.milestones,
+            assigneeLabel,
+          ),
+        },
+        format,
+      ).catch((error: unknown) => {
+        if (error instanceof ScheduleExportTooLargeError) {
+          setExportError(error.message);
+          return;
+        }
+        setExportError(
+          error instanceof Error ? error.message : "書き出せませんでした。",
+        );
+      });
+    },
+    [
+      appCalendarState.calendar,
+      headerHeight,
+      links,
+      memberCatalogState.memberMap,
+      milestoneDiamondSize,
+      milestoneFontSize,
+      milestoneLaneHeight,
+      pxPerDay,
+      rowHeight,
+      barHeight,
+      schedule,
+      tier,
+      tierLabel,
+      uiScale,
+    ],
+  );
+
   return (
     <div className="app" style={{ ["--s" as string]: uiScale }}>
       <Toolbar
@@ -370,43 +464,7 @@ function App() {
         onSave={() => void scheduleFile.save(false)}
         onSaveAs={() => void scheduleFile.save(true)}
         onOpenSettings={() => setSettingsOpen(true)}
-        onExportHtml={() => {
-          void exportScheduleHtml({
-            title: schedule.title,
-            tierLabel,
-            lineageName: schedule.lineageTask?.name ?? null,
-            visibleRows: schedule.visibleRows,
-            milestones: schedule.milestones,
-            milestoneLanes,
-            links,
-            timelineStart: range.timelineStart,
-            timelineEnd: range.timelineEnd,
-            totalDays: range.totalDays,
-            pxPerDay,
-            tier,
-            headerHeight,
-            rowHeight,
-            barHeight,
-            milestoneBandHeight,
-            milestoneLaneHeight,
-            milestoneDiamondSize,
-            milestoneFontSize,
-            labelScale: uiScale,
-            today: schedule.today,
-            memberCatalog: memberCatalogState.memberMap,
-            calendar: appCalendarState.calendar,
-          }).catch((error: unknown) => {
-            if (error instanceof ScheduleExportTooLargeError) {
-              setExportError(error.message);
-              return;
-            }
-            setExportError(
-              error instanceof Error
-                ? error.message
-                : "HTML を書き出せませんでした。",
-            );
-          });
-        }}
+        onExportHtml={() => setExportOpen(true)}
         canDelete={schedule.selectedTaskId != null}
         onAdd={() => setAddOpen(true)}
         onDelete={() => {
@@ -630,6 +688,15 @@ function App() {
         <ScheduleErrorDialog
           message={scheduleFile.errorMessage}
           onClose={scheduleFile.dismissError}
+        />
+      ) : null}
+      {exportOpen ? (
+        <ExportFormatDialog
+          onCancel={() => setExportOpen(false)}
+          onExport={(format) => {
+            setExportOpen(false);
+            void runScheduleExport(format);
+          }}
         />
       ) : null}
       {exportError ? (

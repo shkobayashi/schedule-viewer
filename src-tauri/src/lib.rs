@@ -281,17 +281,28 @@ async fn save_html_file(
     app: tauri::AppHandle,
     contents: String,
     suggested_name: String,
+    extension: String,
 ) -> Result<Option<String>, String> {
     if contents.len() as u64 > MAX_HTML_BYTES {
         return Err("保存する内容が大きすぎます（上限 10 MB）".to_string());
     }
-    let default_name = sanitize_export_filename(&suggested_name, "html");
+    let ext = if extension.eq_ignore_ascii_case("svg") {
+        "svg"
+    } else {
+        "html"
+    };
+    let default_name = sanitize_export_filename(&suggested_name, ext);
+    let (filter_label, filter_exts): (&str, &[&str]) = if ext == "svg" {
+        ("SVG", &["svg"])
+    } else {
+        ("HTML", &["html", "htm"])
+    };
     let picked = app
         .dialog()
         .file()
         .set_parent(&window)
         .set_file_name(&default_name)
-        .add_filter("HTML", &["html", "htm"])
+        .add_filter(filter_label, filter_exts)
         .blocking_save_file();
     let target = match picked {
         Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
