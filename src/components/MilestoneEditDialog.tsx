@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Milestone } from "../model/types";
+import { ModalDialog } from "./ModalDialog";
 
 type MilestoneEditDialogProps = {
   milestone: Milestone;
@@ -17,9 +18,7 @@ export function MilestoneEditDialog({
   const [formError, setFormError] = useState<string | null>(null);
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true">
-      <div className="modal">
-        <h2>マイルストン編集</h2>
+    <ModalDialog title="マイルストン編集" onClose={onClose}>
         <div className="field">
           <label htmlFor="milestoneName">名前</label>
           <input
@@ -60,7 +59,6 @@ export function MilestoneEditDialog({
             保存
           </button>
         </div>
-      </div>
-    </div>
+    </ModalDialog>
   );
 }

@@ -19,6 +19,7 @@ type ToolbarProps = {
   showDeferredReload?: boolean;
   onDeferredReload?: () => void;
   membersCatalogLabel: string | null;
+  membersCatalogError?: string | null;
   filters: ScheduleFilters;
   assigneeFilterOptions: AssigneeFilterOption[];
   zoomLabel: string;
@@ -47,6 +48,7 @@ export function Toolbar({
   showDeferredReload = false,
   onDeferredReload,
   membersCatalogLabel,
+  membersCatalogError = null,
   filters,
   assigneeFilterOptions,
   zoomLabel,
@@ -91,7 +93,11 @@ export function Toolbar({
             ファイルに更新あり — 読み直す
           </button>
         ) : null}
-        {membersCatalogLabel ? (
+        {membersCatalogError ? (
+          <span className="tag members-tag members-tag-error" title={membersCatalogError}>
+            メンバー設定エラー
+          </span>
+        ) : membersCatalogLabel ? (
           <span className="tag members-tag">{membersCatalogLabel}</span>
         ) : null}
       </h1>

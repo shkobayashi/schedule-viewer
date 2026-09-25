@@ -9,6 +9,8 @@ import { scheduleToJson } from "./serialize";
 
 export type ScheduleFilePick = {
   path: string | null;
+  /** ブラウザで開いたときの表示名（path が null のとき） */
+  displayName?: string | null;
   contents: string;
 };
 
@@ -63,6 +65,23 @@ export async function openScheduleViaTauri(): Promise<ScheduleFilePick | null> {
   return { path: result.path, contents: result.contents };
 }
 
+export async function acceptOpenedScheduleViaTauri(
+  path: string,
+  contents: string,
+): Promise<void> {
+  await invoke("accept_opened_schedule", { path, contents });
+}
+
+export const DISK_HASH_MISMATCH = "DISK_HASH_MISMATCH";
+
+export async function hashTextSha256(text: string): Promise<string> {
+  const data = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export async function checkScheduleFileChangedViaTauri(): Promise<boolean> {
   return invoke<boolean>("check_schedule_file_changed");
 }
@@ -87,11 +106,15 @@ export async function saveScheduleViaTauri(
   saveAs: boolean,
   contents: string,
   suggestedName: string,
+  expectedPath: string | null,
+  skipDiskHashCheck: boolean,
 ): Promise<string | null> {
   return invoke<string | null>("save_schedule_file", {
     saveAs,
     contents,
     suggestedName,
+    expectedPath,
+    skipDiskHashCheck,
   });
 }
 
@@ -117,6 +140,7 @@ export function openScheduleViaBrowserInput(): Promise<ScheduleFilePick | null> 
         cleanup();
         resolve({
           path: null,
+          displayName: file.name,
           contents: String(reader.result ?? ""),
         });
       };

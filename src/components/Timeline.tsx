@@ -17,7 +17,11 @@ import {
   taskBarExclusiveEnd,
   taskBarWidthPx,
 } from "../model/timeline";
-import type { SummarySpan } from "../model/summary";
+import {
+  coveredSpanWidthPx,
+  summaryBarWidthPx,
+  type SummarySpan,
+} from "../model/summary";
 import { milestonesExceededBy } from "../model/milestones";
 import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
@@ -81,8 +85,12 @@ function SummaryBar({
   barHeight: number;
   dateToX: (d: Date) => number;
 }) {
-  const x = dateToX(parseDate(summary.start));
-  const width = Math.max(6, dateToX(parseDate(summary.end)) - x);
+  const { x, width } = summaryBarWidthPx(
+    summary.start,
+    summary.end,
+    dateToX,
+    6,
+  );
   const height = Math.max(4, Math.round(barHeight / 2));
   const barY = y + (rowHeight - height) / 2;
   const radius = Math.min(3, Math.round(height / 2));
@@ -96,10 +104,7 @@ function SummaryBar({
       />
       {summary.covered.map((span) => {
         const spanX = dateToX(parseDate(span.start)) - x;
-        const spanW = Math.max(
-          2,
-          dateToX(parseDate(span.end)) - dateToX(parseDate(span.start)),
-        );
+        const spanW = coveredSpanWidthPx(span.start, span.end, dateToX, 2);
         const atStart = span.start === summary.start;
         const atEnd = span.end === summary.end;
         const spanRadius: number | number[] =
@@ -299,7 +304,7 @@ function ResizeHandles({
   const groupRef = useRef<Konva.Group>(null);
   const bgRef = useRef<Konva.Rect>(null);
   const fillRef = useRef<Konva.Rect | null>(null);
-  const rightHandleXRef = useRef(groupX + w - HANDLE_WIDTH / 2);
+  const rightHandleRef = useRef<Konva.Rect>(null);
   const leftMaxXRef = useRef<number | null>(null);
 
   const syncFillWidth = useCallback(
@@ -369,7 +374,7 @@ function ResizeHandles({
           g.x(newLeft);
           e.target.x(-HANDLE_WIDTH / 2);
           bg.width(newW);
-          rightHandleXRef.current = newLeft + newW - HANDLE_WIDTH / 2;
+          rightHandleRef.current?.x(newW - HANDLE_WIDTH / 2);
           syncFillWidth(newW);
           e.target.getLayer()?.batchDraw();
         }}
@@ -381,6 +386,7 @@ function ResizeHandles({
         }}
       />
       <Rect
+        ref={rightHandleRef}
         x={w - HANDLE_WIDTH / 2}
         y={handleY}
         width={HANDLE_WIDTH}
@@ -409,8 +415,6 @@ function ResizeHandles({
           if (!bg) return;
           const newW = Math.max(pxPerDay, e.target.x() + HANDLE_WIDTH / 2);
           bg.width(newW);
-          rightHandleXRef.current =
-            (groupRef.current?.x() ?? groupX) + newW - HANDLE_WIDTH / 2;
           syncFillWidth(newW);
           e.target.getLayer()?.batchDraw();
         }}
@@ -562,7 +566,6 @@ export function Timeline({
     tier,
     timelineEnd,
     timelineStart,
-    totalDays,
     width,
   ]);
 

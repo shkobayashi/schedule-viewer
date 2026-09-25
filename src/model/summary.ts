@@ -1,7 +1,37 @@
+import { addDays, parseDate } from "./dates";
+
 export type DateSpan = {
   start: string;
   end: string;
 };
+
+/** 終了日（含む）の翌日。タスクバーと同じ exclusive end。 */
+export function spanExclusiveEnd(end: string): Date {
+  return addDays(parseDate(end), 1);
+}
+
+export function summaryBarWidthPx(
+  start: string,
+  end: string,
+  dateToX: (d: Date) => number,
+  minWidth: number,
+): { x: number; width: number } {
+  const x = dateToX(parseDate(start));
+  const width = Math.max(minWidth, dateToX(spanExclusiveEnd(end)) - x);
+  return { x, width };
+}
+
+export function coveredSpanWidthPx(
+  start: string,
+  end: string,
+  dateToX: (d: Date) => number,
+  minWidth: number,
+): number {
+  return Math.max(
+    minWidth,
+    dateToX(spanExclusiveEnd(end)) - dateToX(parseDate(start)),
+  );
+}
 
 export type SummarySpan = {
   start: string;
@@ -22,7 +52,9 @@ export function summarizeSpans(
   let current = { start: sorted[0].start, end: sorted[0].end };
   for (let i = 1; i < sorted.length; i += 1) {
     const next = sorted[i];
-    if (next.start <= current.end) {
+    const currentExclusiveEnd = spanExclusiveEnd(current.end);
+    const nextStart = parseDate(next.start);
+    if (nextStart.getTime() <= currentExclusiveEnd.getTime()) {
       if (next.end > current.end) current = { ...current, end: next.end };
     } else {
       covered.push(current);
