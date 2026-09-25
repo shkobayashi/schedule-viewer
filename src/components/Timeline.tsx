@@ -525,6 +525,7 @@ export function Timeline({
         pxPerDay,
         width,
         calendar,
+        totalDays,
       );
       for (let i = 0; i < headerBands.length; i += 1) {
         const band = headerBands[i];
@@ -592,6 +593,7 @@ export function Timeline({
     headerHeight,
     pxPerDay,
     scale,
+    totalDays,
     tier,
     timelineEnd,
     timelineStart,
@@ -629,6 +631,7 @@ export function Timeline({
         pxPerDay,
         width,
         calendar,
+        totalDays,
       );
       for (let i = 0; i < bands.length; i += 1) {
         const band = bands[i];
@@ -703,6 +706,7 @@ export function Timeline({
     dayRange.start,
     pxPerDay,
     rowHeight,
+    totalDays,
     scrollY,
     tier,
     timelineEnd,

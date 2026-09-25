@@ -53,10 +53,11 @@ export function nonWorkingDayClipRects(
   pxPerDay: number,
   chartWidth: number,
   calendar: CalendarDocument | null,
+  maxDayIndex: number,
 ): NonWorkingClipRect[] {
   const rects: NonWorkingClipRect[] = [];
   const padStart = Math.max(0, dayIndexStart - 2);
-  const padEnd = dayIndexEnd + 2;
+  const padEnd = Math.min(dayIndexEnd + 2, maxDayIndex);
   for (let i = padStart; i <= padEnd; i += 1) {
     const d = addDays(timelineStart, i);
     if (!isNonWorkingDay(d, calendar)) continue;

@@ -3,8 +3,7 @@ import type { CalendarDocument } from "../model/calendarTypes";
 import {
   deleteAppCalendar,
   importAppCalendar,
-  loadAppCalendarState,
-  readAppCalendar,
+  loadResolvedAppCalendar,
 } from "../model/calendarAppData";
 
 export function useAppCalendar() {
@@ -17,9 +16,10 @@ export function useAppCalendar() {
     setLoading(true);
     setError(null);
     try {
-      const state = await loadAppCalendarState();
-      setLabel(state.label);
-      setCalendar(await readAppCalendar());
+      const loaded = await loadResolvedAppCalendar();
+      setLabel(loaded.label);
+      setCalendar(loaded.document);
+      setError(loaded.error);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "カレンダー設定を読み込めませんでした。",
