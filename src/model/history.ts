@@ -1,4 +1,4 @@
-import { scheduleToJson } from "../sample/schedule";
+import { scheduleToJson } from "./serialize";
 import { cloneCategories } from "./tasks";
 import type { Category, Milestone } from "./types";
 

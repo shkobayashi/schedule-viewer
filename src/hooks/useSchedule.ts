@@ -41,7 +41,7 @@ import {
   type ScheduleId,
   type Task,
 } from "../model/types";
-import { collectAssignees } from "../sample/schedule";
+import { collectAssignees } from "../model/serialize";
 
 function initialSnapshot(
   categories: Category[],
@@ -58,7 +58,6 @@ export function useSchedule(
   initialCategories: Category[],
   initialMilestones: Milestone[],
   rowHeight: number,
-  bodyHeight: number,
 ) {
   const documentRef = useRef<DocumentSnapshot>(
     initialSnapshot(initialCategories, initialMilestones),
@@ -552,7 +551,6 @@ export function useSchedule(
     replaceDocument,
     undo,
     redo,
-    maxScrollY: Math.max(0, visibleRows.length * rowHeight - bodyHeight),
     today,
   };
 }

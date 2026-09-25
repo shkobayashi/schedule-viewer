@@ -4,7 +4,8 @@ import {
   formatValidationErrors,
   validateSchedule,
 } from "./validateSchedule";
-import { scheduleToJson } from "../sample/schedule";
+import { scheduleJsonFilename as jsonFilenameFromTitle } from "./exportFilename";
+import { scheduleToJson } from "./serialize";
 
 export type ScheduleFilePick = {
   path: string | null;
@@ -128,9 +129,7 @@ export function downloadScheduleJson(filename: string, contents: string): void {
 }
 
 export function suggestedJsonFilename(title: string): string {
-  const safe = title.replace(/[\\/:*?"<>|]/g, "_").trim();
-  if (!safe) return "schedule.json";
-  return safe.endsWith(".json") ? safe : `${safe}.json`;
+  return jsonFilenameFromTitle(title);
 }
 
 export { isTauri };

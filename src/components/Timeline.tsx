@@ -19,7 +19,15 @@ import {
 } from "../model/timeline";
 import type { SummarySpan } from "../model/summary";
 import { milestonesExceededBy } from "../model/milestones";
-import { isUnassigned, type Milestone, type Task, type VisibleRow } from "../model/types";
+import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
+import { visibleDayIndexRange } from "../model/timelineVisibleDays";
+import {
+  isUnassigned,
+  type Milestone,
+  type ScheduleId,
+  type Task,
+  type VisibleRow,
+} from "../model/types";
 import { MilestoneBand } from "./MilestoneBand";
 
 type TimelineProps = {
@@ -30,31 +38,32 @@ type TimelineProps = {
   headerHeight: number;
   bodyHeight: number;
   pxPerDay: number;
+  scrollX: number;
   scrollY: number;
   tier: "day" | "week" | "month";
   timelineStart: Date;
   timelineEnd: Date;
   totalDays: number;
   dateToX: (d: Date) => number;
-  selectedTaskId: import("../model/types").ScheduleId | null;
-  onSelectTask: (id: import("../model/types").ScheduleId) => void;
+  selectedTaskId: ScheduleId | null;
+  onSelectTask: (id: ScheduleId) => void;
   onClearSelection: () => void;
-  onMoveTask: (taskId: import("../model/types").ScheduleId, deltaDays: number) => void;
-  onResizeStart: (taskId: import("../model/types").ScheduleId, groupX: number) => void;
-  onResizeEnd: (taskId: import("../model/types").ScheduleId, groupX: number, barWidth: number) => void;
+  onMoveTask: (taskId: ScheduleId, deltaDays: number) => void;
+  onResizeStart: (taskId: ScheduleId, groupX: number) => void;
+  onResizeEnd: (taskId: ScheduleId, groupX: number, barWidth: number) => void;
   links: DependencyLink[];
   onOpenEdit: (task: Task) => void;
   onWheelBody: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   onWheelHeader: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   onPan: (dx: number, dy: number) => void;
   milestones: Milestone[];
-  milestoneLanes: Map<import("../model/types").ScheduleId, number>;
+  milestoneLanes: Map<ScheduleId, number>;
   milestoneBandHeight: number;
   milestoneLaneHeight: number;
   milestoneDiamondSize: number;
   milestoneFontSize: number;
-  onMoveMilestone: (id: import("../model/types").ScheduleId, deltaDays: number) => void;
-  onOpenMilestone: (id: import("../model/types").ScheduleId) => void;
+  onMoveMilestone: (id: ScheduleId, deltaDays: number) => void;
+  onOpenMilestone: (id: ScheduleId) => void;
   today: string;
 };
 
@@ -409,6 +418,7 @@ export function Timeline({
   headerHeight,
   bodyHeight,
   pxPerDay,
+  scrollX,
   scrollY,
   tier,
   timelineStart,
@@ -436,8 +446,12 @@ export function Timeline({
   onOpenMilestone,
   today,
 }: TimelineProps) {
-  const todayDate = parseDate(today);
-  const scale = headerHeight / 40;
+  const todayDate = useMemo(() => parseDate(today), [today]);
+  const scale = headerHeight / LAYOUT_HEADER_HEIGHT;
+  const dayRange = useMemo(
+    () => visibleDayIndexRange(scrollX, pxPerDay, width, totalDays),
+    [pxPerDay, scrollX, totalDays, width],
+  );
 
   const headerContent = useMemo(() => {
     const elements: ReactNode[] = [];
@@ -479,7 +493,7 @@ export function Timeline({
         d = addUtcMonths(d, 1);
       }
     } else {
-      for (let i = 0; i <= totalDays; i += 1) {
+      for (let i = dayRange.start; i <= dayRange.end; i += 1) {
         const d = addDays(timelineStart, i);
         const x = dateToX(d);
         if (x < -40 || x > width + 40) continue;
@@ -523,7 +537,18 @@ export function Timeline({
       }
     }
     return elements;
-  }, [dateToX, headerHeight, scale, tier, timelineEnd, timelineStart, totalDays, width]);
+  }, [
+    dateToX,
+    dayRange.end,
+    dayRange.start,
+    headerHeight,
+    scale,
+    tier,
+    timelineEnd,
+    timelineStart,
+    totalDays,
+    width,
+  ]);
 
   const bgContent = useMemo(() => {
     const elements: ReactNode[] = [];
@@ -548,7 +573,9 @@ export function Timeline({
     }
 
     if (tier !== "month") {
-      for (let i = 0; i <= totalDays; i += 1) {
+      const weekendStart = Math.max(0, dayRange.start - 2);
+      const weekendEnd = Math.min(totalDays, dayRange.end + 1);
+      for (let i = weekendStart; i <= weekendEnd; i += 1) {
         const d = addDays(timelineStart, i);
         const dow = d.getUTCDay();
         const x = dateToX(d);
@@ -590,7 +617,7 @@ export function Timeline({
           }
         }
       }
-      for (let i = 0; i <= totalDays; i += 1) {
+      for (let i = dayRange.start; i <= dayRange.end; i += 1) {
         const d = addDays(timelineStart, i);
         const x = dateToX(d);
         if (x < -10 || x > width + 10) continue;
@@ -644,6 +671,8 @@ export function Timeline({
   }, [
     bodyHeight,
     dateToX,
+    dayRange.end,
+    dayRange.start,
     pxPerDay,
     rowHeight,
     scrollY,
@@ -676,7 +705,7 @@ export function Timeline({
 
   const linkArrows = useMemo(() => {
     const byId = new Map<
-      import("../model/types").ScheduleId,
+      ScheduleId,
       { x: number; right: number; y: number }
     >();
     for (const row of visibleRows) {
@@ -751,8 +780,18 @@ export function Timeline({
     [],
   );
 
+  const panDeltaRef = useRef({ dx: 0, dy: 0 });
+  const panRafRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!panSession) return;
+    const flushPan = () => {
+      panRafRef.current = null;
+      const { dx, dy } = panDeltaRef.current;
+      if (dx === 0 && dy === 0) return;
+      panDeltaRef.current = { dx: 0, dy: 0 };
+      onPan(dx, dy);
+    };
     const onMove = (evt: MouseEvent) => {
       const pan = panRef.current;
       if (!pan?.active) return;
@@ -763,14 +802,29 @@ export function Timeline({
       pan.x = evt.clientX;
       pan.y = evt.clientY;
       setPanning(true);
-      onPan(dx, dy);
+      panDeltaRef.current.dx += dx;
+      panDeltaRef.current.dy += dy;
+      if (panRafRef.current == null) {
+        panRafRef.current = window.requestAnimationFrame(flushPan);
+      }
     };
-    const onUp = () => endPan();
+    const onUp = () => {
+      if (panRafRef.current != null) {
+        window.cancelAnimationFrame(panRafRef.current);
+        panRafRef.current = null;
+        flushPan();
+      }
+      endPan();
+    };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      if (panRafRef.current != null) {
+        window.cancelAnimationFrame(panRafRef.current);
+        panRafRef.current = null;
+      }
     };
   }, [endPan, onPan, panSession]);
 

@@ -1,5 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { scheduleHtmlFilename } from "./exportFilename";
 import { addDays, addUtcMonths, daysBetween, fmtShort, parseDate, utcMonthStart } from "./dates";
+import { LAYOUT_HEADER_HEIGHT } from "./layoutSizes";
 import { linkPoints, type DependencyLink } from "./dependencies";
 import { milestonesExceededBy } from "./milestones";
 import type { SummarySpan } from "./summary";
@@ -14,6 +16,7 @@ import {
   isUnassigned,
   UNASSIGNED_LABEL,
   type Milestone,
+  type ScheduleId,
   type Task,
   type VisibleRow,
 } from "./types";
@@ -24,7 +27,7 @@ export type ScheduleExportInput = {
   lineageName: string | null;
   visibleRows: VisibleRow[];
   milestones: Milestone[];
-  milestoneLanes: Map<import("./types").ScheduleId, number>;
+  milestoneLanes: Map<ScheduleId, number>;
   links: DependencyLink[];
   timelineStart: Date;
   timelineEnd: Date;
@@ -48,8 +51,7 @@ const FONT =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif";
 
 export function scheduleExportFilename(title: string): string {
-  const safe = title.replace(/[\\/:*?"<>|]/g, "").trim() || "schedule";
-  return `${safe}.html`;
+  return scheduleHtmlFilename(title);
 }
 
 export function buildScheduleHtml(input: ScheduleExportInput): string {
@@ -190,7 +192,7 @@ function renderHeader(
   chartWidth: number,
   dateToX: (d: Date) => number,
 ): string {
-  const scale = input.headerHeight / 40;
+  const scale = input.headerHeight / LAYOUT_HEADER_HEIGHT;
   const marks: string[] = [
     line(0, input.headerHeight - 0.5, chartWidth, input.headerHeight - 0.5, "#E3E6EB", 1),
   ];
@@ -331,7 +333,7 @@ function renderLinks(
   dateToX: (d: Date) => number,
 ): string {
   const byId = new Map<
-    import("./types").ScheduleId,
+    ScheduleId,
     { x: number; right: number; y: number }
   >();
   for (const row of input.visibleRows) {

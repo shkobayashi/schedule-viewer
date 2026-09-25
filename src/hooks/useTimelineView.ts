@@ -15,14 +15,15 @@ type TimelineRange = {
 
 export function useTimelineView(
   range: TimelineRange,
-  maxScrollY: number,
   viewportWidth: number,
+  maxScrollYFor: (pxPerDay: number) => number,
 ) {
   const [pxPerDay, setPxPerDay] = useState(DEFAULT_PX_PER_DAY);
   const [scrollX, setScrollX] = useState(0);
   const [scrollY, setScrollY] = useState(0);
 
   const { timelineStart, totalDays } = range;
+  const maxScrollY = maxScrollYFor(pxPerDay);
 
   const maxScrollX = Math.max(0, totalDays * pxPerDay - viewportWidth);
   const prevTimelineStartRef = useRef(timelineStart);

@@ -1,7 +1,6 @@
 import { brokenLinkTaskIds } from "./dependencies";
 import { isOverdue } from "./timeline";
 import { summarizeSpans } from "./summary";
-import { forEachTask } from "./tasks";
 import {
   isUnassigned,
   UNASSIGNED_FILTER,
@@ -127,9 +126,12 @@ export function findTaskById(
   id: ScheduleId | null,
 ): Task | null {
   if (id == null) return null;
-  let found: Task | null = null;
-  forEachTask(categories, (task) => {
-    if (task.id === id) found = task;
-  });
-  return found;
+  for (const category of categories) {
+    for (const group of category.groups) {
+      for (const task of group.tasks) {
+        if (task.id === id) return task;
+      }
+    }
+  }
+  return null;
 }

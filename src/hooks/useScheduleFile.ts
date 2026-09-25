@@ -262,5 +262,6 @@ export function useScheduleFile({
     confirmExternalSaveAs,
     cancelExternalChange,
     dismissError,
+    currentJson,
   };
 }
