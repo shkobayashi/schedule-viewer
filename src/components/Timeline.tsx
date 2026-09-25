@@ -28,6 +28,8 @@ import { visibleDayIndexRange } from "../model/timelineVisibleDays";
 import { resolveAssigneeDisplay } from "../model/assigneeDisplay";
 import type { Member, MemberId } from "../model/memberTypes";
 import type { Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
+import type { CalendarDocument } from "../model/calendarTypes";
+import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
 import { MilestoneBand } from "./MilestoneBand";
 
 type TimelineProps = {
@@ -66,6 +68,7 @@ type TimelineProps = {
   onOpenMilestone: (id: ScheduleId) => void;
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
+  calendar: CalendarDocument | null;
 };
 
 const HANDLE_WIDTH = 8;
@@ -465,6 +468,7 @@ export function Timeline({
   onOpenMilestone,
   today,
   memberCatalog,
+  calendar,
 }: TimelineProps) {
   const todayDate = useMemo(() => parseDate(today), [today]);
   const scale = headerHeight / LAYOUT_HEADER_HEIGHT;
@@ -513,6 +517,29 @@ export function Timeline({
         d = addUtcMonths(d, 1);
       }
     } else {
+      const headerBands = nonWorkingDayClipRects(
+        timelineStart,
+        dayRange.start,
+        dayRange.end,
+        dateToX,
+        pxPerDay,
+        width,
+        calendar,
+      );
+      for (let i = 0; i < headerBands.length; i += 1) {
+        const band = headerBands[i];
+        elements.push(
+          <Rect
+            key={`hwe-${i}-${band.x}`}
+            x={band.x}
+            y={0}
+            width={band.width}
+            height={headerHeight}
+            fill="#F4F5F8"
+            listening={false}
+          />,
+        );
+      }
       for (let i = dayRange.start; i <= dayRange.end; i += 1) {
         const d = addDays(timelineStart, i);
         const x = dateToX(d);
@@ -558,10 +585,12 @@ export function Timeline({
     }
     return elements;
   }, [
+    calendar,
     dateToX,
     dayRange.end,
     dayRange.start,
     headerHeight,
+    pxPerDay,
     scale,
     tier,
     timelineEnd,
@@ -592,49 +621,28 @@ export function Timeline({
     }
 
     if (tier !== "month") {
-      const weekendStart = Math.max(0, dayRange.start - 2);
-      const weekendEnd = Math.min(totalDays, dayRange.end + 1);
-      for (let i = weekendStart; i <= weekendEnd; i += 1) {
-        const d = addDays(timelineStart, i);
-        const dow = d.getUTCDay();
-        const x = dateToX(d);
-        if (dow === 6) {
-          const spanRight = x + pxPerDay * 2;
-          if (spanRight < 0) continue;
-          const clipX = Math.max(0, x);
-          const clipRight = Math.min(width, spanRight);
-          const clipW = clipRight - clipX;
-          if (clipW > 0) {
-            elements.push(
-              <Rect
-                key={`we-${i}`}
-                x={clipX}
-                y={0}
-                width={clipW}
-                height={height}
-                fill="#F4F5F8"
-                listening={false}
-              />,
-            );
-          }
-        } else if (dow === 0 && addDays(d, -1) < timelineStart) {
-          const clipX = Math.max(0, x);
-          const clipRight = Math.min(width, x + pxPerDay);
-          const clipW = clipRight - clipX;
-          if (clipW > 0) {
-            elements.push(
-              <Rect
-                key={`we-sun-${i}`}
-                x={clipX}
-                y={0}
-                width={clipW}
-                height={height}
-                fill="#F4F5F8"
-                listening={false}
-              />,
-            );
-          }
-        }
+      const bands = nonWorkingDayClipRects(
+        timelineStart,
+        dayRange.start,
+        dayRange.end,
+        dateToX,
+        pxPerDay,
+        width,
+        calendar,
+      );
+      for (let i = 0; i < bands.length; i += 1) {
+        const band = bands[i];
+        elements.push(
+          <Rect
+            key={`nwd-${i}-${band.x}`}
+            x={band.x}
+            y={0}
+            width={band.width}
+            height={height}
+            fill="#F4F5F8"
+            listening={false}
+          />,
+        );
       }
       for (let i = dayRange.start; i <= dayRange.end; i += 1) {
         const d = addDays(timelineStart, i);
@@ -689,6 +697,7 @@ export function Timeline({
     return elements;
   }, [
     bodyHeight,
+    calendar,
     dateToX,
     dayRange.end,
     dayRange.start,
@@ -698,7 +707,6 @@ export function Timeline({
     tier,
     timelineEnd,
     timelineStart,
-    totalDays,
     visibleRows,
     width,
   ]);

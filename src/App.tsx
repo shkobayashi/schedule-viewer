@@ -14,6 +14,7 @@ import { Timeline } from "./components/Timeline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { Toolbar } from "./components/Toolbar";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
+import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useTimelineView } from "./hooks/useTimelineView";
@@ -135,6 +136,7 @@ function App() {
   }, []);
 
   const memberCatalogState = useMemberCatalog();
+  const appCalendarState = useAppCalendar();
 
   useEffect(() => {
     void (async () => {
@@ -385,6 +387,7 @@ function App() {
             labelScale: uiScale,
             today: schedule.today,
             memberCatalog: memberCatalogState.memberMap,
+            calendar: appCalendarState.calendar,
           }).catch((error: unknown) => {
             if (error instanceof ScheduleExportTooLargeError) {
               setExportError(error.message);
@@ -460,6 +463,7 @@ function App() {
             onOpenMilestone={schedule.openMilestoneEdit}
             today={schedule.today}
             memberCatalog={memberCatalogState.memberMap}
+            calendar={appCalendarState.calendar}
           />
         </div>
       </div>
@@ -548,6 +552,9 @@ function App() {
           onImport={memberCatalogState.importCatalog}
           onSelectCatalog={memberCatalogState.selectCatalog}
           onDeleteCatalog={memberCatalogState.removeCatalog}
+          calendarLabel={appCalendarState.label}
+          onImportCalendar={appCalendarState.importCalendar}
+          onDeleteCalendar={appCalendarState.removeCalendar}
         />
       ) : null}
       <JsonDialog
