@@ -175,6 +175,21 @@ rustc --version
 npm install
 ```
 
+`npm run tauri dev` で `Cannot find native binding` / `@tauri-apps/cli-darwin-arm64` と出る場合は、Linux の DevContainer など別 OS で作った `node_modules` を macOS で使っていることが多い。リポジトリ直下で `node_modules` を消してから、**macOS 上で** 入れ直す。
+
+```bash
+rm -rf node_modules
+npm install
+```
+
+それでも直らないときは、次を試す。
+
+```bash
+npm install @tauri-apps/cli-darwin-arm64@2.11.5
+```
+
+（Apple Silicon 以外の Mac では `cli-darwin-x64` に読み替える。）
+
 フロントのみ（ブラウザで Konva 確認）:
 
 ```bash

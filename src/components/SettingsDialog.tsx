@@ -8,6 +8,7 @@ import {
   formatMembersValidationErrors,
   validateMembers,
 } from "../model/validateMembers";
+import { ModalDialog } from "./ModalDialog";
 import {
   DISPLAY_SCALE_OPTIONS,
   parseDisplayScalePreference,
@@ -112,9 +113,7 @@ export function SettingsDialog({
   };
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true">
-      <div className="modal settings-dialog">
-        <h2>設定</h2>
+    <ModalDialog title="設定" onClose={onClose} className="modal settings-dialog">
         <div className="settings-layout">
           <nav className="settings-nav" aria-label="設定セクション">
             <button
@@ -280,7 +279,6 @@ export function SettingsDialog({
             閉じる
           </button>
         </div>
-      </div>
-    </div>
+    </ModalDialog>
   );
 }

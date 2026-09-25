@@ -33,6 +33,12 @@ describe("decideExternalReload", () => {
     expect(result).toEqual({ kind: "confirm", diskContents: disk });
   });
 
+  it("returns confirm when an edit dialog is open", () => {
+    const disk = withTitle("別タイトル");
+    const result = decideExternalReload(disk, baselineJson, false, true);
+    expect(result).toEqual({ kind: "confirm", diskContents: disk });
+  });
+
   it("returns apply when clean and content differs", () => {
     const disk = withTitle("別タイトル");
     const result = decideExternalReload(disk, baselineJson, false);

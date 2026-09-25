@@ -4,7 +4,11 @@ import { addDays, addUtcMonths, daysBetween, fmtShort, parseDate, utcMonthStart 
 import { LAYOUT_HEADER_HEIGHT } from "./layoutSizes";
 import { linkPoints, type DependencyLink } from "./dependencies";
 import { milestonesExceededBy } from "./milestones";
-import type { SummarySpan } from "./summary";
+import {
+  coveredSpanWidthPx,
+  summaryBarWidthPx,
+  type SummarySpan,
+} from "./summary";
 import {
   barColors,
   isOverdue,
@@ -43,6 +47,36 @@ export type ScheduleExportInput = {
 
 const SUMMARY_COVERED = "#5C6B82";
 const SUMMARY_GAP = "#D5DBE3";
+
+export const EXPORT_MAX_WIDTH_PX = 200_000;
+export const EXPORT_MAX_HEIGHT_PX = 50_000;
+export const EXPORT_MAX_ROWS = 10_000;
+
+export class ScheduleExportTooLargeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ScheduleExportTooLargeError";
+  }
+}
+
+function assertExportFits(input: ScheduleExportInput): void {
+  if (input.visibleRows.length > EXPORT_MAX_ROWS) {
+    throw new ScheduleExportTooLargeError(
+      `書き出し対象の行数が上限（${EXPORT_MAX_ROWS} 行）を超えています。絞り込みや折りたたみで行数を減らしてください。`,
+    );
+  }
+  const chartWidth = Math.max(input.pxPerDay, input.totalDays * input.pxPerDay);
+  const contentHeight = input.visibleRows.reduce(
+    (max, row) => Math.max(max, row.y + input.rowHeight),
+    0,
+  );
+  const svgHeight = input.headerHeight + input.milestoneBandHeight + contentHeight;
+  if (chartWidth > EXPORT_MAX_WIDTH_PX || svgHeight > EXPORT_MAX_HEIGHT_PX) {
+    throw new ScheduleExportTooLargeError(
+      "書き出しサイズが上限を超えています。表示期間を短くするか、ズームを広げてください。",
+    );
+  }
+}
 const FONT =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif";
 
@@ -51,6 +85,7 @@ export function scheduleExportFilename(title: string): string {
 }
 
 export function buildScheduleHtml(input: ScheduleExportInput): string {
+  assertExportFits(input);
   const chartWidth = Math.max(input.pxPerDay, input.totalDays * input.pxPerDay);
   const contentHeight = input.visibleRows.reduce(
     (max, row) => Math.max(max, row.y + input.rowHeight),
@@ -374,8 +409,12 @@ function renderSummary(
   input: ScheduleExportInput,
   dateToX: (d: Date) => number,
 ): string {
-  const x = dateToX(parseDate(summary.start));
-  const width = Math.max(6, dateToX(parseDate(summary.end)) - x);
+  const { x, width } = summaryBarWidthPx(
+    summary.start,
+    summary.end,
+    dateToX,
+    6,
+  );
   const height = Math.max(4, Math.round(input.barHeight / 2));
   const barY = y + (input.rowHeight - height) / 2;
   const radius = Math.min(3, Math.round(height / 2));
@@ -384,7 +423,7 @@ function renderSummary(
   ];
   for (const span of summary.covered) {
     const spanX = dateToX(parseDate(span.start));
-    const spanW = Math.max(2, dateToX(parseDate(span.end)) - spanX);
+    const spanW = coveredSpanWidthPx(span.start, span.end, dateToX, 2);
     const atStart = span.start === summary.start;
     const atEnd = span.end === summary.end;
     const radii: [number, number, number, number] =

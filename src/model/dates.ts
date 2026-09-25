@@ -2,7 +2,7 @@ const DAY_MS = 86400000;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** 実在する暦日の YYYY-MM-DD か（UTC 暦日）。 */
+/** 実在する暦日の YYYY-MM-DD か（内部は UTC 暦日として保持）。 */
 export function isIsoDateString(value: string): boolean {
   if (!ISO_DATE.test(value)) return false;
   const parsed = parseDate(value);
@@ -25,7 +25,7 @@ export function isoDate(d: Date): string {
   );
 }
 
-/** 実行時の本日（UTC 暦日、YYYY-MM-DD）。 */
+/** 実行時の本日（実行環境のローカル暦日、YYYY-MM-DD）。 */
 export function todayIso(now: Date = new Date()): string {
   return isoDate(
     new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())),

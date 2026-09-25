@@ -1,3 +1,5 @@
+import { ModalDialog } from "./ModalDialog";
+
 type DiscardChangesDialogProps = {
   onConfirm: () => void;
   onCancel: () => void;
@@ -14,19 +16,16 @@ export function DiscardChangesDialog({
   confirmLabel = "破棄して開く",
 }: DiscardChangesDialogProps) {
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true">
-      <div className="modal">
-        <h2>{title}</h2>
-        <p className="form-note">{message}</p>
-        <div className="modal-actions">
-          <button type="button" className="btn" onClick={onCancel}>
-            キャンセル
-          </button>
-          <button type="button" className="btn danger" onClick={onConfirm}>
-            {confirmLabel}
-          </button>
-        </div>
+    <ModalDialog title={title} onClose={onCancel}>
+      <p className="form-note">{message}</p>
+      <div className="modal-actions">
+        <button type="button" className="btn" onClick={onCancel}>
+          キャンセル
+        </button>
+        <button type="button" className="btn danger" onClick={onConfirm}>
+          {confirmLabel}
+        </button>
       </div>
-    </div>
+    </ModalDialog>
   );
 }

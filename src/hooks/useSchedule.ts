@@ -31,12 +31,18 @@ import {
   validateNewTask,
   validateTaskEdit,
 } from "../model/tasks";
+import {
+  validateDependencyCycles,
+  validatePredecessorRefs,
+} from "../model/scheduleSemantics";
+import { formatValidationErrors } from "../model/validateSchedule";
 import { isOverdue } from "../model/timeline";
 import type { Member, MemberId } from "../model/memberTypes";
 import {
   UNASSIGNED_FILTER,
   type Category,
   type Milestone,
+  SCHEDULE_SCHEMA_VERSION,
   type ScheduleDocument,
   type ScheduleFilters,
   type ScheduleId,
@@ -355,17 +361,18 @@ export function useSchedule(
       successors: ScheduleId[];
       milestoneId: ScheduleId | null;
     }) => {
-      if (editingTaskId == null) return false;
+      if (editingTaskId == null) {
+        return "編集対象のタスクがありません。";
+      }
       const roundedProgress = Math.round(patch.progress);
-      if (
-        validateTaskEdit({
-          name: patch.name,
-          start: patch.start,
-          end: patch.end,
-          progress: roundedProgress,
-        })
-      ) {
-        return false;
+      const fieldError = validateTaskEdit({
+        name: patch.name,
+        start: patch.start,
+        end: patch.end,
+        progress: roundedProgress,
+      });
+      if (fieldError) {
+        return fieldError;
       }
       const predecessors = [
         ...new Set(
@@ -378,7 +385,7 @@ export function useSchedule(
       const milestoneIds = new Set(
         documentRef.current.milestones.map((milestone) => milestone.id),
       );
-      commitCategories((prev) =>
+      const buildNext = (prev: Category[]) =>
         mapTasks(prev, (task) => {
           if (task.id === editingTaskId) {
             return {
@@ -416,12 +423,28 @@ export function useSchedule(
             ...task,
             predecessors: [...withoutSelf, editingTaskId],
           };
-        }),
-      );
+        });
+
+      const nextCategories = buildNext(documentRef.current.categories);
+      const candidate: ScheduleDocument = {
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title,
+        categories: nextCategories,
+        milestones: documentRef.current.milestones,
+      };
+      const semanticIssues = [
+        ...validateDependencyCycles(candidate),
+        ...validatePredecessorRefs(candidate),
+      ];
+      if (semanticIssues.length > 0) {
+        return formatValidationErrors(semanticIssues);
+      }
+
+      commitCategories((prev) => buildNext(prev));
       setEditingTaskId(null);
-      return true;
+      return null;
     },
-    [commitCategories, editingTaskId],
+    [commitCategories, editingTaskId, title],
   );
 
   const addTask = useCallback(
