@@ -116,7 +116,7 @@ pub(crate) fn require_active_save_path(
         "保存先が選ばれていません。別名保存を使ってください。".to_string()
     })?;
     let expected = expected.ok_or_else(|| "保存先のパスが一致しません。".to_string())?;
-    if PathBuf::from(expected) != active {
+    if active != Path::new(expected) {
         return Err(
             "保存先のパスが一致しません。ファイルを開き直してください。".to_string(),
         );
@@ -221,7 +221,6 @@ fn acknowledge_schedule_file_contents(
 #[tauri::command]
 async fn save_schedule_file(
     window: tauri::Window,
-    app: tauri::AppHandle,
     state: State<'_, Mutex<ScheduleFileState>>,
     contents: String,
     save_as: bool,
@@ -234,7 +233,7 @@ async fn save_schedule_file(
     }
     let target = if save_as {
         let default_name = sanitize_export_filename(&suggested_name, "json");
-        let picked = app
+        let picked = window
             .dialog()
             .file()
             .set_parent(&window)
