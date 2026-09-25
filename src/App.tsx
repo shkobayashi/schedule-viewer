@@ -36,6 +36,15 @@ const INITIAL_BASELINE_JSON = serializeScheduleDocument(
   sampleMilestones,
 );
 
+function shouldHandleDocumentUndo(target: EventTarget | null): boolean {
+  if (document.querySelector('[role="dialog"]')) return false;
+  if (!(target instanceof HTMLElement)) return true;
+  if (target.isContentEditable) return false;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+  return true;
+}
+
 function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
   const [timelineWidth, setTimelineWidth] = useState(520);
@@ -120,6 +129,25 @@ function App() {
     onAfterOpen: onAfterOpenFile,
     initialBaselineJson: INITIAL_BASELINE_JSON,
   });
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!shouldHandleDocumentUndo(e.target)) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (e.key === "z" && mod && !e.altKey) {
+        e.preventDefault();
+        if (e.shiftKey) schedule.redo();
+        else schedule.undo();
+        return;
+      }
+      if (e.key === "y" && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        schedule.redo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [schedule.redo, schedule.undo]);
 
   const onWheelBody = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -283,6 +311,7 @@ function App() {
         Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
         ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
         ・ タスクを選んで「系統」で前後だけ表示 ・ マイルストンは帯のひし形をドラッグ、ダブルクリックで編集
+        ・ ⌘/Ctrl+Z で取り消し、Shift+Z または Ctrl+Y でやり直し
       </div>
       <div className="main">
         <Sidebar
