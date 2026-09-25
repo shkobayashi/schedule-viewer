@@ -33,11 +33,143 @@ LLMが生成したWBS/ガントスケジュール(JSON)を表示・フィルタ�
 
 ## 開発環境
 
-- **Node.js**: 24（`.nvmrc` / `package.json` の `engines`）
+開発中の起動と配布用ビルドは、同じ Node.js と Rust を使う。
+
+- **Node.js**: 24（`.nvmrc`。`package.json` の `engines` は `>=24 <25`）
 - **Rust**: 1.98.1（`rust-toolchain.toml`）
 - Tauri identifier: `com.collabcentral.schedule-viewer`
 
-### セットアップ
+`npm run dev` は Node.js だけで動く。`npm run tauri dev` と `npm run tauri build` は、Rust と、下の各 OS の追加パッケージも入れる。
+
+Node.js はバージョンマネージャで入れる。Linux と macOS は [nvm](https://github.com/nvm-sh/nvm)（v0.40.7）を使う。Windows は別プログラムの [nvm-windows](https://github.com/coreybutler/nvm-windows) を使う。コマンド名はどちらも `nvm` である。`.nvmrc` の中身は `24` である。Linux と macOS の nvm は、リポジトリ直下の `nvm install` がこのファイルを読む。nvm-windows は `.nvmrc` を読まないので、バージョン `24` を引数で指定する。
+
+Rust は [rustup](https://rustup.rs/) で入れる。このリポジトリに入ると `rust-toolchain.toml` の 1.98.1 がダウンロードされる。
+
+### Ubuntu
+
+Ubuntu 22.04 以降。WSL2 の Ubuntu もこの手順で入れる。
+
+先に Tauri がリンクするシステムパッケージを入れる。この中の `curl` は、続く nvm と rustup の取得にも使う。
+
+```bash
+sudo apt update
+sudo apt install libwebkit2gtk-4.1-dev \
+  build-essential \
+  curl \
+  wget \
+  file \
+  libxdo-dev \
+  libssl-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev \
+  patchelf \
+  xdg-utils
+```
+
+nvm を入れる。
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.7/install.sh | bash
+```
+
+新しいターミナルを開く。リポジトリ直下で Node.js 24 を入れ、バージョンを確認する。
+
+```bash
+cd /path/to/schedule-viewer
+nvm install
+node -v
+```
+
+`node -v` が `v24` で始まればよい。
+
+rustup を入れる。選択肢が出たら `1`（default）を選ぶ。
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+インストール直後の同じターミナルで続けるときは、次で cargo を PATH に載せる。新しいターミナルを開けば、rustup が追記したシェル設定で有効になる。
+
+```bash
+. "$HOME/.cargo/env"
+```
+
+リポジトリ直下で確認する。初回は 1.98.1 の取得に時間がかかる。
+
+```bash
+rustc --version
+```
+
+`rustc 1.98.1` と出ればよい。
+
+### macOS
+
+macOS Catalina (10.15) 以降。Command Line Tools を入れる。デスクトップアプリのビルドに Xcode 本体は不要である。
+
+```bash
+xcode-select --install
+```
+
+nvm を入れる。macOS には `curl` が入っている。
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.7/install.sh | bash
+```
+
+新しいターミナルを開く。リポジトリ直下で Node.js 24 を入れ、バージョンを確認する。
+
+```bash
+cd /path/to/schedule-viewer
+nvm install
+node -v
+```
+
+`node -v` が `v24` で始まればよい。
+
+rustup を入れる。選択肢が出たら `1`（default）を選ぶ。
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+インストール直後の同じターミナルで続けるときは、次で cargo を PATH に載せる。新しいターミナルを開けば、rustup が追記したシェル設定で有効になる。
+
+```bash
+. "$HOME/.cargo/env"
+```
+
+リポジトリ直下で確認する。初回は 1.98.1 の取得に時間がかかる。
+
+```bash
+rustc --version
+```
+
+`rustc 1.98.1` と出ればよい。
+
+### Windows
+
+Windows 10（バージョン 1803 以降）または Windows 11。
+
+1. [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) を入れ、インストール時に「Desktop development with C++」を選ぶ。Tauri は Rust のクレートを MSVC でリンクする。
+2. WebView2 は Windows 10（1803 以降）と Windows 11 に入っている。入っていない場合は Evergreen Bootstrapper を入れる。
+3. 別経路で入れた Node.js がある場合は、先にアンインストールする。PATH が nvm-windows と衝突する。
+4. [nvm-windows の最新リリース](https://github.com/coreybutler/nvm-windows/releases) から `nvm-setup.exe` を実行する。管理者の PowerShell を新しく開き、Node.js 24 を入れる。`node -v` が `v24` で始まればよい。
+
+```powershell
+nvm install 24
+nvm use 24
+node -v
+```
+
+5. [rustup](https://rustup.rs/) の `rustup-init.exe` を実行する。default host は、通常の PC では `x86_64-pc-windows-msvc`、ARM の Windows では `aarch64-pc-windows-msvc` にする。新しい PowerShell を開き、リポジトリ直下で確認する。初回は 1.98.1 の取得に時間がかかる。`rustc 1.98.1` と出ればよい。
+
+```powershell
+rustc --version
+```
+
+### リポジトリでの起動
+
+使う OS の手順が終わってから、リポジトリ直下で依存を入れる。
 
 ```bash
 npm install
@@ -55,15 +187,13 @@ npm run dev
 npm run tauri dev
 ```
 
-DevContainer を使う場合は VS Code / Cursor で「Reopen in Container」を選ぶ。コンテナ内でも `npm run tauri build` で Linux 向けパッケージは作れる。ウィンドウを開いての動作確認は、ディスプレイがあるホスト OS 側で行う。
+DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1.98.1 を使う。VS Code / Cursor で「Reopen in Container」を選ぶ。コンテナ内でも `npm run tauri build` で Linux 向けパッケージは作れる。ウィンドウを開いての動作確認は、ディスプレイがあるホスト OS 側で行う。
 
 ## 配布用ビルド
 
 パッケージは、動かしたい OS の上で作る。Mac 用は Mac、Windows 用は Windows、Ubuntu 用は Ubuntu でビルドする。できたファイルの CPU は、ビルドしたマシンと同じになる。一般的な PC は x86_64、Apple Silicon の Mac は arm64 である。
 
-開発中の起動は `npm run tauri dev`。ここからは、インストールして使うパッケージの作り方。
-
-Node.js 24 と Rust が必要。Rust は [rustup](https://rustup.rs/) を入れ、このリポジトリに入ると `rust-toolchain.toml` の 1.98.1 が使われる。OS ごとの追加パッケージを入れたあと、リポジトリ直下で次を実行する。
+[開発環境](#開発環境) で、ビルドする OS の Node.js、Rust、追加パッケージを入れてから、リポジトリ直下で次を実行する。
 
 ```bash
 npm install
@@ -74,24 +204,9 @@ npm run tauri build
 
 ### Ubuntu
 
-Ubuntu 22.04 以降。
+Ubuntu 22.04 以降。システムパッケージは [Ubuntu の開発環境](#ubuntu) で入れてある。
 
-```bash
-sudo apt update
-sudo apt install libwebkit2gtk-4.1-dev \
-  build-essential \
-  curl \
-  wget \
-  file \
-  libxdo-dev \
-  libssl-dev \
-  libayatana-appindicator3-dev \
-  librsvg2-dev \
-  patchelf \
-  xdg-utils
-```
-
-`npm install` と `npm run tauri build` のあと、deb を入れて起動する。x86_64 の例:
+`npm run tauri build` のあと、deb を入れて起動する。x86_64 の例:
 
 ```bash
 sudo apt install ./src-tauri/target/release/bundle/deb/schedule-viewer_0.1.0_amd64.deb
@@ -111,13 +226,9 @@ chmod +x src-tauri/target/release/bundle/appimage/schedule-viewer_0.1.0_x86_64.A
 
 ### macOS
 
-macOS Catalina (10.15) 以降。デスクトップアプリだけなら Xcode 本体は不要で、Command Line Tools で足りる。
+macOS Catalina (10.15) 以降。Command Line Tools、Node.js、Rust は [macOS の開発環境](#macos) で入れてある。
 
-```bash
-xcode-select --install
-```
-
-Rust（rustup）と Node.js 24 を入れ、リポジトリ直下で `npm install` と `npm run tauri build` を実行する。ビルドした Mac で起動する:
+`npm run tauri build` のあと、ビルドした Mac で起動する:
 
 ```bash
 open src-tauri/target/release/bundle/macos/schedule-viewer.app
@@ -132,14 +243,9 @@ open src-tauri/target/release/bundle/macos/schedule-viewer.app
 
 ### Windows
 
-Windows 10（バージョン 1803 以降）または Windows 11。
+Windows 10（バージョン 1803 以降）または Windows 11。C++ Build Tools、WebView2、Node.js、Rust は [Windows の開発環境](#windows) で入れてある。
 
-1. [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) を入れ、インストール時に「Desktop development with C++」を選ぶ。
-2. WebView2 は Windows 10（1803 以降）と Windows 11 に入っている。入っていない場合は Evergreen Bootstrapper を入れる。
-3. [rustup](https://rustup.rs/) を入れ、default host を `x86_64-pc-windows-msvc` にする。ARM の Windows なら `aarch64-pc-windows-msvc`。
-4. Node.js 24 を入れる。
-
-PowerShell かコマンドプロンプトで、リポジトリ直下から `npm install` と `npm run tauri build` を実行する。できたインストーラを実行し、スタートメニューの schedule-viewer から起動する。x86_64 の例:
+`npm run tauri build` のあと、できたインストーラを実行し、スタートメニューの schedule-viewer から起動する。x86_64 の例:
 
 - `src-tauri\target\release\bundle\nsis\schedule-viewer_0.1.0_x64-setup.exe`
 - `src-tauri\target\release\bundle\msi\schedule-viewer_0.1.0_x64_en-US.msi`
