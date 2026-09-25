@@ -1,13 +1,22 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { addDays, daysBetween, fmtShort, parseDate } from "./dates";
+import { scheduleHtmlFilename } from "./exportFilename";
+import { addDays, addUtcMonths, daysBetween, fmtShort, parseDate, utcMonthStart } from "./dates";
+import { LAYOUT_HEADER_HEIGHT } from "./layoutSizes";
 import { linkPoints, type DependencyLink } from "./dependencies";
 import { milestonesExceededBy } from "./milestones";
 import type { SummarySpan } from "./summary";
-import { barColors, isOverdue, lightningDate, TODAY_ISO } from "./timeline";
+import {
+  barColors,
+  isOverdue,
+  lightningDate,
+  taskBarExclusiveEnd,
+  taskBarWidthPx,
+} from "./timeline";
 import {
   isUnassigned,
   UNASSIGNED_LABEL,
   type Milestone,
+  type ScheduleId,
   type Task,
   type VisibleRow,
 } from "./types";
@@ -18,7 +27,7 @@ export type ScheduleExportInput = {
   lineageName: string | null;
   visibleRows: VisibleRow[];
   milestones: Milestone[];
-  milestoneLanes: Map<import("./types").ScheduleId, number>;
+  milestoneLanes: Map<ScheduleId, number>;
   links: DependencyLink[];
   timelineStart: Date;
   timelineEnd: Date;
@@ -33,6 +42,7 @@ export type ScheduleExportInput = {
   milestoneDiamondSize: number;
   milestoneFontSize: number;
   labelScale: number;
+  today: string;
 };
 
 const SUMMARY_COVERED = "#5C6B82";
@@ -41,8 +51,7 @@ const FONT =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif";
 
 export function scheduleExportFilename(title: string): string {
-  const safe = title.replace(/[\\/:*?"<>|]/g, "").trim() || "schedule";
-  return `${safe}.html`;
+  return scheduleHtmlFilename(title);
 }
 
 export function buildScheduleHtml(input: ScheduleExportInput): string {
@@ -103,7 +112,7 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
 <body>
   <div class="page">
     <h1>${esc(input.title)}</h1>
-    <p class="meta">${esc(input.tierLabel)}。絞り込み・折りたたみで見えている行です。${lineage}本日は ${esc(TODAY_ISO)}。</p>
+    <p class="meta">${esc(input.tierLabel)}。絞り込み・折りたたみで見えている行です。${lineage}本日は ${esc(input.today)}。</p>
     <div class="sheet">
       <div class="labels">
         ${renderLabels(input)}
@@ -116,14 +125,14 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
 `;
 }
 
-function downloadScheduleHtmlInBrowser(input: ScheduleExportInput): void {
-  const blob = new Blob([buildScheduleHtml(input)], {
+function downloadScheduleHtmlInBrowser(html: string, title: string): void {
+  const blob = new Blob([html], {
     type: "text/html;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = scheduleExportFilename(input.title);
+  a.download = scheduleExportFilename(title);
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -142,7 +151,7 @@ export async function exportScheduleHtml(
       suggestedName,
     });
   }
-  downloadScheduleHtmlInBrowser(input);
+  downloadScheduleHtmlInBrowser(html, input.title);
   return null;
 }
 
@@ -168,7 +177,7 @@ function renderLabelRow(row: VisibleRow, input: ScheduleExportInput): string {
     return `<div class="label ${row.type}" ${height}><span class="twist">${mark}</span>${esc(row.label)}</div>`;
   }
   const unassigned = isUnassigned(row.task.assignee);
-  const overdue = isOverdue(row.task);
+  const overdue = isOverdue(row.task, input.today);
   const exceeded = milestonesExceededBy(row.task, input.milestones);
   const alert =
     exceeded.length > 0
@@ -183,25 +192,25 @@ function renderHeader(
   chartWidth: number,
   dateToX: (d: Date) => number,
 ): string {
-  const scale = input.headerHeight / 40;
+  const scale = input.headerHeight / LAYOUT_HEADER_HEIGHT;
   const marks: string[] = [
     line(0, input.headerHeight - 0.5, chartWidth, input.headerHeight - 0.5, "#E3E6EB", 1),
   ];
   if (input.tier === "month") {
-    let d = new Date(input.timelineStart.getFullYear(), input.timelineStart.getMonth(), 1);
+    let d = utcMonthStart(input.timelineStart);
     while (d < input.timelineEnd) {
       const x = dateToX(d);
       marks.push(line(x, 0, x, input.headerHeight, "#C7CCD6", 1));
       marks.push(
-        text(x + 6, 13 * scale, `${d.getFullYear()}年${d.getMonth() + 1}月`, 12 * scale, "#1F2937", true),
+        text(x + 6, 13 * scale, `${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月`, 12 * scale, "#1F2937", true),
       );
-      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      d = addUtcMonths(d, 1);
     }
   } else {
     for (let i = 0; i <= input.totalDays; i += 1) {
       const d = addDays(input.timelineStart, i);
       const x = dateToX(d);
-      const isMonday = d.getDay() === 1;
+      const isMonday = d.getUTCDay() === 1;
       if (input.tier === "day" || isMonday) {
         marks.push(
           line(x, 26 * scale, x, input.headerHeight, isMonday ? "#9AA5B4" : "#E3E6EB", 1),
@@ -210,9 +219,9 @@ function renderHeader(
           text(x + 2, 24 * scale, fmtShort(d), 10 * scale, isMonday ? "#1F2937" : "#8A94A6", isMonday),
         );
       }
-      if (d.getDate() === 1) {
+      if (d.getUTCDate() === 1) {
         marks.push(
-          text(x + 2, 6 * scale, `${d.getMonth() + 1}月`, 11 * scale, "#1F2937", true),
+          text(x + 2, 6 * scale, `${d.getUTCMonth() + 1}月`, 11 * scale, "#1F2937", true),
         );
       }
     }
@@ -265,18 +274,28 @@ function renderBody(
   if (input.tier !== "month") {
     for (let i = 0; i <= input.totalDays; i += 1) {
       const d = addDays(input.timelineStart, i);
-      if (d.getDay() !== 6) continue;
+      const dow = d.getUTCDay();
       const x = dateToX(d);
-      const width = Math.min(input.pxPerDay * 2, chartWidth - x);
-      if (width <= 0) continue;
-      marks.push(
-        `<rect x="${n(x)}" y="${n(bodyTop)}" width="${n(width)}" height="${n(contentHeight)}" fill="#F4F5F8"/>`,
-      );
+      let clipX = 0;
+      let clipW = 0;
+      if (dow === 6) {
+        const spanRight = x + input.pxPerDay * 2;
+        clipX = Math.max(0, x);
+        clipW = Math.min(chartWidth, spanRight) - clipX;
+      } else if (dow === 0 && addDays(d, -1) < input.timelineStart) {
+        clipX = Math.max(0, x);
+        clipW = Math.min(chartWidth, x + input.pxPerDay) - clipX;
+      }
+      if (clipW > 0) {
+        marks.push(
+          `<rect x="${n(clipX)}" y="${n(bodyTop)}" width="${n(clipW)}" height="${n(contentHeight)}" fill="#F4F5F8"/>`,
+        );
+      }
     }
     for (let i = 0; i <= input.totalDays; i += 1) {
       const d = addDays(input.timelineStart, i);
       const x = dateToX(d);
-      const isMonday = d.getDay() === 1;
+      const isMonday = d.getUTCDay() === 1;
       if (input.tier === "day" || isMonday) {
         marks.push(
           line(x, bodyTop, x, bodyTop + contentHeight, isMonday ? "#D8DCE3" : "#EDEFF3", 1),
@@ -284,11 +303,11 @@ function renderBody(
       }
     }
   } else {
-    let d = new Date(input.timelineStart.getFullYear(), input.timelineStart.getMonth(), 1);
+    let d = utcMonthStart(input.timelineStart);
     while (d < input.timelineEnd) {
       const x = dateToX(d);
       marks.push(line(x, bodyTop, x, bodyTop + contentHeight, "#DDE1E7", 1));
-      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      d = addUtcMonths(d, 1);
     }
   }
   for (const row of input.visibleRows) {
@@ -314,13 +333,13 @@ function renderLinks(
   dateToX: (d: Date) => number,
 ): string {
   const byId = new Map<
-    import("./types").ScheduleId,
+    ScheduleId,
     { x: number; right: number; y: number }
   >();
   for (const row of input.visibleRows) {
     if (row.type !== "task") continue;
     const x = dateToX(parseDate(row.task.start));
-    const right = dateToX(parseDate(row.task.end));
+    const right = dateToX(taskBarExclusiveEnd(row.task));
     byId.set(row.task.id, {
       x,
       right: Math.max(x + 6, right),
@@ -382,11 +401,12 @@ function renderTaskBar(
   dateToX: (d: Date) => number,
 ): string {
   const x = dateToX(parseDate(task.start));
-  const w = Math.max(input.pxPerDay, dateToX(parseDate(task.end)) - x);
+  const w = taskBarWidthPx(task, dateToX, input.pxPerDay);
   const barY = y + (input.rowHeight - input.barHeight) / 2;
-  const colors = barColors(task);
+  const colors = barColors(task, input.today);
   const unassigned = isUnassigned(task.assignee);
-  const stroke = unassigned && !isOverdue(task) ? "#C48A1A" : colors.border;
+  const stroke =
+    unassigned && !isOverdue(task, input.today) ? "#C48A1A" : colors.border;
   const cap = Math.max(2, Math.round(input.barHeight * 0.16));
   const parts = [
     `<rect x="${n(x)}" y="${n(barY)}" width="${n(w)}" height="${n(input.barHeight)}" rx="4" fill="${colors.bg}"/>`,
@@ -427,13 +447,13 @@ function renderLightning(
   dateToX: (d: Date) => number,
 ): string {
   if (contentHeight <= 0) return "";
-  const todayX = dateToX(parseDate(TODAY_ISO));
+  const todayX = dateToX(parseDate(input.today));
   const points = [todayX, bodyTop];
   for (const row of input.visibleRows) {
     const y = bodyTop + row.y + input.rowHeight / 2;
     const x =
       row.type === "task"
-        ? dateToX(parseDate(lightningDate(row.task, TODAY_ISO)))
+        ? dateToX(parseDate(lightningDate(row.task, input.today)))
         : todayX;
     points.push(x, y);
   }

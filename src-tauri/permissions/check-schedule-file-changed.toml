@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-check-schedule-file-changed"
+description = "Checks whether the opened schedule file changed on disk."
+commands.allow = ["check_schedule_file_changed"]

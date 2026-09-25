@@ -2,11 +2,11 @@ import { useRef } from "react";
 import { Group, Layer, Line, RegularPolygon, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { parseDate } from "../model/dates";
-import type { Milestone } from "../model/types";
+import type { Milestone, ScheduleId } from "../model/types";
 
 type MilestoneBandProps = {
   milestones: Milestone[];
-  lanes: Map<import("../model/types").ScheduleId, number>;
+  lanes: Map<ScheduleId, number>;
   width: number;
   height: number;
   laneHeight: number;
@@ -14,8 +14,8 @@ type MilestoneBandProps = {
   fontSize: number;
   pxPerDay: number;
   dateToX: (d: Date) => number;
-  onMove: (id: import("../model/types").ScheduleId, deltaDays: number) => void;
-  onOpenEdit: (id: import("../model/types").ScheduleId) => void;
+  onMove: (id: ScheduleId, deltaDays: number) => void;
+  onOpenEdit: (id: ScheduleId) => void;
   onWheel: (e: Konva.KonvaEventObject<WheelEvent>) => void;
 };
 

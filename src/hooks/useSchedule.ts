@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useToday } from "./useToday";
 import {
   addDays,
   clamp,
@@ -28,8 +29,9 @@ import {
   mapTasks,
   removeTask,
   validateNewTask,
+  validateTaskEdit,
 } from "../model/tasks";
-import { isOverdue, TODAY_ISO } from "../model/timeline";
+import { isOverdue } from "../model/timeline";
 import {
   UNASSIGNED_FILTER,
   type Category,
@@ -39,7 +41,7 @@ import {
   type ScheduleId,
   type Task,
 } from "../model/types";
-import { collectAssignees } from "../sample/schedule";
+import { collectAssignees } from "../model/serialize";
 
 function initialSnapshot(
   categories: Category[],
@@ -56,7 +58,6 @@ export function useSchedule(
   initialCategories: Category[],
   initialMilestones: Milestone[],
   rowHeight: number,
-  bodyHeight: number,
 ) {
   const documentRef = useRef<DocumentSnapshot>(
     initialSnapshot(initialCategories, initialMilestones),
@@ -86,6 +87,7 @@ export function useSchedule(
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const today = useToday();
 
   const pruneUiForDocument = useCallback((snapshot: DocumentSnapshot) => {
     setSelectedTaskId((current) =>
@@ -170,9 +172,27 @@ export function useSchedule(
 
   const visibleRows = useMemo(
     () =>
-      computeVisibleRows(categories, filters, collapsed, rowHeight, lineageIds),
-    [categories, collapsed, filters, lineageIds, rowHeight],
+      computeVisibleRows(
+        categories,
+        filters,
+        collapsed,
+        today,
+        rowHeight,
+        lineageIds,
+      ),
+    [categories, collapsed, filters, lineageIds, rowHeight, today],
   );
+
+  useEffect(() => {
+    if (
+      filters.assignee === "all" ||
+      filters.assignee === UNASSIGNED_FILTER ||
+      assignees.includes(filters.assignee)
+    ) {
+      return;
+    }
+    setFilters((prev) => ({ ...prev, assignee: "all" }));
+  }, [assignees, filters.assignee]);
 
   const toggleCollapsed = useCallback((key: string) => {
     setCollapsed((prev) => {
@@ -222,10 +242,7 @@ export function useSchedule(
       commitCategories((prev) =>
         mapTasks(prev, (task) => {
           if (task.id !== taskId) return task;
-          const end =
-            start < task.end
-              ? task.end
-              : isoDate(addDays(parseDate(start), 1));
+          const end = start > task.end ? start : task.end;
           return { ...task, start, end };
         }),
       );
@@ -288,10 +305,7 @@ export function useSchedule(
       commitCategories((prev) =>
         mapTasks(prev, (task) => {
           if (task.id !== taskId) return task;
-          const next =
-            end > task.start
-              ? end
-              : isoDate(addDays(parseDate(task.start), 1));
+          const next = end < task.start ? task.start : end;
           return { ...task, end: next };
         }),
       );
@@ -319,8 +333,18 @@ export function useSchedule(
       successors: ScheduleId[];
       milestoneId: ScheduleId | null;
     }) => {
-      if (patch.end <= patch.start) return false;
       if (editingTaskId == null) return false;
+      const roundedProgress = Math.round(patch.progress);
+      if (
+        validateTaskEdit({
+          name: patch.name,
+          start: patch.start,
+          end: patch.end,
+          progress: roundedProgress,
+        })
+      ) {
+        return false;
+      }
       const predecessors = [
         ...new Set(
           patch.predecessors.filter((id) => id !== editingTaskId),
@@ -337,12 +361,12 @@ export function useSchedule(
           if (task.id === editingTaskId) {
             return {
               ...task,
-              name: patch.name || task.name,
+              name: patch.name.trim(),
               start: patch.start,
               end: patch.end,
               assignee: patch.assignee.trim(),
               status: patch.status,
-              progress: clamp(patch.progress, 0, 100),
+              progress: clamp(roundedProgress, 0, 100),
               predecessors,
               milestoneId:
                 patch.milestoneId != null && milestoneIds.has(patch.milestoneId)
@@ -353,11 +377,22 @@ export function useSchedule(
           const withoutSelf = task.predecessors.filter(
             (id) => id !== editingTaskId,
           );
+          if (!successors.has(task.id)) {
+            return { ...task, predecessors: withoutSelf };
+          }
+          const prevIndex = task.predecessors.indexOf(editingTaskId);
+          if (prevIndex >= 0) {
+            const nextPreds = [...withoutSelf];
+            nextPreds.splice(
+              Math.min(prevIndex, nextPreds.length),
+              0,
+              editingTaskId,
+            );
+            return { ...task, predecessors: nextPreds };
+          }
           return {
             ...task,
-            predecessors: successors.has(task.id)
-              ? [...withoutSelf, editingTaskId]
-              : withoutSelf,
+            predecessors: [...withoutSelf, editingTaskId],
           };
         }),
       );
@@ -410,7 +445,7 @@ export function useSchedule(
             : prev.status,
         overdue:
           prev.overdue === "overdue" &&
-          !isOverdue({ status: "not-started", end: input.end }, TODAY_ISO)
+          !isOverdue({ status: "not-started", end: input.end }, today)
             ? "all"
             : prev.overdue,
         relation: prev.relation === "broken" ? "all" : prev.relation,
@@ -421,7 +456,7 @@ export function useSchedule(
       setEditingTaskId(null);
       return id;
     },
-    [commitCategories],
+    [commitCategories, today],
   );
 
   const deleteTask = useCallback(
@@ -516,6 +551,6 @@ export function useSchedule(
     replaceDocument,
     undo,
     redo,
-    maxScrollY: Math.max(0, visibleRows.length * rowHeight - bodyHeight),
+    today,
   };
 }

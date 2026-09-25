@@ -2,7 +2,7 @@ import type { SummarySpan } from "./summary";
 
 export type ScheduleId = string;
 
-export const SCHEDULE_SCHEMA_VERSION = 1;
+export const SCHEDULE_SCHEMA_VERSION = 2;
 
 export type TaskStatus = "not-started" | "in-progress" | "done";
 

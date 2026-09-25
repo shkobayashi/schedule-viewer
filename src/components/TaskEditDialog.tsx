@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { TaskRef } from "../model/dependencies";
+import { validateTaskEdit } from "../model/tasks";
 import {
   isUnassigned,
   UNASSIGNED_LABEL,
@@ -10,7 +11,7 @@ import {
 } from "../model/types";
 
 type TaskEditDialogProps = {
-  task: Task | null;
+  task: Task;
   assignees: string[];
   tasks: TaskRef[];
   milestones: Milestone[];
@@ -45,35 +46,27 @@ export function TaskEditDialog({
   onClose,
   onSave,
 }: TaskEditDialogProps) {
-  const [name, setName] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [assignee, setAssignee] = useState("");
-  const [status, setStatus] = useState<TaskStatus>("not-started");
-  const [progress, setProgress] = useState(0);
-  const [predecessors, setPredecessors] = useState<ScheduleId[]>([]);
-  const [successors, setSuccessors] = useState<ScheduleId[]>([]);
-  const [milestoneId, setMilestoneId] = useState<ScheduleId | null>(null);
-
-  useEffect(() => {
-    if (!task) return;
-    setName(task.name);
-    setStart(task.start);
-    setEnd(task.end);
-    setAssignee(isUnassigned(task.assignee) ? "" : task.assignee);
-    setStatus(task.status);
-    setProgress(task.progress);
-    setPredecessors(task.predecessors);
-    setSuccessors(successorIds);
-    setMilestoneId(task.milestoneId);
-  }, [successorIds, task]);
+  const [name, setName] = useState(task.name);
+  const [start, setStart] = useState(task.start);
+  const [end, setEnd] = useState(task.end);
+  const [assignee, setAssignee] = useState(
+    isUnassigned(task.assignee) ? "" : task.assignee,
+  );
+  const [status, setStatus] = useState<TaskStatus>(task.status);
+  const [progress, setProgress] = useState(task.progress);
+  const [predecessors, setPredecessors] = useState<ScheduleId[]>(
+    task.predecessors,
+  );
+  const [successors, setSuccessors] = useState<ScheduleId[]>(successorIds);
+  const [milestoneId, setMilestoneId] = useState<ScheduleId | null>(
+    task.milestoneId,
+  );
+  const [formError, setFormError] = useState<string | null>(null);
 
   const candidates = useMemo(
-    () => tasks.filter((item) => item.id !== task?.id),
-    [task?.id, tasks],
+    () => tasks.filter((item) => item.id !== task.id),
+    [task.id, tasks],
   );
-
-  if (!task) return null;
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true">
@@ -98,7 +91,7 @@ export function TaskEditDialog({
           />
         </div>
         <div className="field">
-          <label htmlFor="fieldEnd">終了日</label>
+          <label htmlFor="fieldEnd">終了日（この日を含む）</label>
           <input
             id="fieldEnd"
             type="date"
@@ -170,7 +163,10 @@ export function TaskEditDialog({
           key={`pred-${task.id}`}
           label="先行タスク"
           selected={predecessors}
-          candidates={candidates.filter((item) => !predecessors.includes(item.id))}
+          candidates={candidates.filter(
+            (item) =>
+              !predecessors.includes(item.id) && !successors.includes(item.id),
+          )}
           tasks={tasks}
           onAdd={(id) =>
             setPredecessors((prev) => (prev.includes(id) ? prev : [...prev, id]))
@@ -183,7 +179,10 @@ export function TaskEditDialog({
           key={`succ-${task.id}`}
           label="後続タスク"
           selected={successors}
-          candidates={candidates.filter((item) => !successors.includes(item.id))}
+          candidates={candidates.filter(
+            (item) =>
+              !successors.includes(item.id) && !predecessors.includes(item.id),
+          )}
           tasks={tasks}
           onAdd={(id) =>
             setSuccessors((prev) => (prev.includes(id) ? prev : [...prev, id]))
@@ -192,6 +191,7 @@ export function TaskEditDialog({
             setSuccessors((prev) => prev.filter((item) => item !== id))
           }
         />
+        {formError ? <p className="form-error">{formError}</p> : null}
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>
             キャンセル
@@ -200,21 +200,33 @@ export function TaskEditDialog({
             type="button"
             className="btn primary"
             onClick={() => {
-              if (end <= start) {
-                window.alert("期間は1日以上にしてください");
-                return;
-              }
-              onSave({
+              const roundedProgress = Math.round(progress);
+              const err = validateTaskEdit({
                 name,
                 start,
                 end,
-                assignee,
-                status,
-                progress,
-                predecessors,
-                successors,
-                milestoneId,
+                progress: roundedProgress,
               });
+              if (err) {
+                setFormError(err);
+                return;
+              }
+              setFormError(null);
+              if (
+                !onSave({
+                  name,
+                  start,
+                  end,
+                  assignee,
+                  status,
+                  progress: roundedProgress,
+                  predecessors,
+                  successors,
+                  milestoneId,
+                })
+              ) {
+                setFormError("保存できませんでした。入力内容を確認してください。");
+              }
             }}
           >
             保存
@@ -224,6 +236,8 @@ export function TaskEditDialog({
     </div>
   );
 }
+
+const RELATION_CANDIDATE_LIMIT = 50;
 
 function matchesQuery(item: TaskRef, query: string): boolean {
   const q = query.trim();
@@ -259,10 +273,8 @@ function RelationField({
     () => candidates.filter((item) => matchesQuery(item, query)),
     [candidates, query],
   );
-
-  useEffect(() => {
-    setActive(0);
-  }, [query]);
+  const shown = filtered.slice(0, RELATION_CANDIDATE_LIMIT);
+  const truncated = filtered.length > RELATION_CANDIDATE_LIMIT;
 
   const add = (id: ScheduleId) => {
     onAdd(id);
@@ -299,6 +311,7 @@ function RelationField({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setActive(0);
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
@@ -308,14 +321,14 @@ function RelationField({
               e.preventDefault();
               setOpen(true);
               setActive((prev) =>
-                Math.min(prev + 1, Math.max(filtered.length - 1, 0)),
+                Math.min(prev + 1, Math.max(shown.length - 1, 0)),
               );
             } else if (e.key === "ArrowUp") {
               e.preventDefault();
               setActive((prev) => Math.max(prev - 1, 0));
             } else if (e.key === "Enter") {
               e.preventDefault();
-              const item = filtered[active];
+              const item = shown[active];
               if (item) add(item.id);
             } else if (e.key === "Escape") {
               setOpen(false);
@@ -324,8 +337,8 @@ function RelationField({
         />
         {open ? (
           <ul id={listId} className="relation-options" role="listbox">
-            {filtered.length > 0 ? (
-              filtered.map((item, index) => (
+            {shown.length > 0 ? (
+              shown.map((item, index) => (
                 <li key={item.id}>
                   <button
                     type="button"
@@ -343,6 +356,9 @@ function RelationField({
             ) : (
               <li className="relation-none">一致するタスクがありません</li>
             )}
+            {truncated ? (
+              <li className="relation-none">さらに絞り込んでください</li>
+            ) : null}
           </ul>
         ) : null}
       </div>

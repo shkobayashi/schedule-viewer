@@ -1,7 +1,6 @@
 import { brokenLinkTaskIds } from "./dependencies";
 import { isOverdue } from "./timeline";
 import { summarizeSpans } from "./summary";
-import { forEachTask } from "./tasks";
 import {
   isUnassigned,
   UNASSIGNED_FILTER,
@@ -25,6 +24,7 @@ export function groupCollapseKey(category: string, group: string): string {
 export function taskMatchesFilter(
   task: Task,
   filters: ScheduleFilters,
+  today: string,
   brokenIds?: ReadonlySet<ScheduleId>,
   lineageIds?: ReadonlySet<ScheduleId> | null,
 ): boolean {
@@ -47,13 +47,14 @@ export function taskMatchesFilter(
   ) {
     return false;
   }
-  if (filters.overdue === "overdue" && !isOverdue(task)) {
+  if (filters.overdue === "overdue" && !isOverdue(task, today)) {
     return false;
   }
   if (filters.relation === "broken" && !brokenIds?.has(task.id)) {
     return false;
   }
-  if (filters.search && !task.name.includes(filters.search)) {
+  const search = filters.search.trim();
+  if (search && !task.name.includes(search)) {
     return false;
   }
   return true;
@@ -63,6 +64,7 @@ export function computeVisibleRows(
   categories: Category[],
   filters: ScheduleFilters,
   collapsed: ReadonlySet<string>,
+  today: string,
   rowHeight = ROW_HEIGHT,
   lineageIds?: ReadonlySet<ScheduleId> | null,
 ): VisibleRow[] {
@@ -75,7 +77,7 @@ export function computeVisibleRows(
       .map((group) => ({
         group,
         matched: group.tasks.filter((task) =>
-          taskMatchesFilter(task, filters, brokenIds, lineageIds),
+          taskMatchesFilter(task, filters, today, brokenIds, lineageIds),
         ),
       }))
       .filter((entry) => entry.matched.length > 0);
@@ -124,9 +126,12 @@ export function findTaskById(
   id: ScheduleId | null,
 ): Task | null {
   if (id == null) return null;
-  let found: Task | null = null;
-  forEachTask(categories, (task) => {
-    if (task.id === id) found = task;
-  });
-  return found;
+  for (const category of categories) {
+    for (const group of category.groups) {
+      for (const task of group.tasks) {
+        if (task.id === id) return task;
+      }
+    }
+  }
+  return null;
 }
