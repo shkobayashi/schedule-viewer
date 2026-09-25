@@ -29,6 +29,7 @@ type SettingsDialogProps = {
   settings: AppMembersSettings;
   selectedCatalogLabel: string | null;
   calendarLabel: string | null;
+  calendarError?: string | null;
   displayScalePreference: DisplayScalePreference;
   onDisplayScaleChange: (preference: DisplayScalePreference) => void;
   onClose: () => void;
@@ -46,6 +47,7 @@ export function SettingsDialog({
   settings,
   selectedCatalogLabel,
   calendarLabel,
+  calendarError = null,
   displayScalePreference,
   onDisplayScaleChange,
   onClose,
@@ -319,6 +321,11 @@ export function SettingsDialog({
                     使用中: 未設定（土日を塗る）
                   </p>
                 )}
+                {calendarError ? (
+                  <p className="settings-message">
+                    {calendarError} 表示は土日のみに戻しています。
+                  </p>
+                ) : null}
                 <div className="settings-actions">
                   <button
                     type="button"

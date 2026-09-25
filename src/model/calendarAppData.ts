@@ -40,6 +40,54 @@ export async function loadAppCalendarState(): Promise<AppCalendarState> {
   return { label: readBrowserLabel() };
 }
 
+export type LoadedAppCalendar = {
+  label: string | null;
+  document: CalendarDocument | null;
+  error: string | null;
+};
+
+/** 表示名と本文を揃える。本文が無い表示名は消し、本文が壊れているときはエラーと表示名を残す。 */
+export async function loadResolvedAppCalendar(): Promise<LoadedAppCalendar> {
+  const state = await loadAppCalendarState();
+  if (isTauri()) {
+    const text = await invoke<string | null>("read_app_calendar");
+    if (text == null) {
+      if (state.label) await deleteAppCalendar();
+      return { label: null, document: null, error: null };
+    }
+    return resolveCalendarBody(state.label, text);
+  }
+  const body = readBrowserBody();
+  if (!body) {
+    if (readBrowserLabel()) clearBrowserCalendar();
+    return { label: null, document: null, error: null };
+  }
+  return resolveCalendarBody(readBrowserLabel(), body);
+}
+
+function resolveCalendarBody(
+  label: string | null,
+  body: string,
+): LoadedAppCalendar {
+  const displayLabel = label && label.length > 0 ? label : "calendar.json";
+  try {
+    return {
+      label: displayLabel,
+      document: parseCalendarText(body),
+      error: null,
+    };
+  } catch (err) {
+    return {
+      label: displayLabel,
+      document: null,
+      error:
+        err instanceof Error
+          ? err.message
+          : "カレンダー設定を読み込めませんでした。",
+    };
+  }
+}
+
 export function parseCalendarText(text: string): CalendarDocument {
   let data: unknown;
   try {

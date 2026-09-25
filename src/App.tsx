@@ -348,6 +348,7 @@ function App() {
         onDeferredReload={scheduleFile.requestDeferredReload}
         membersCatalogLabel={memberCatalogState.selectedCatalogLabel}
         membersCatalogError={memberCatalogState.error}
+        calendarError={appCalendarState.error}
         filters={schedule.filters}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
         zoomLabel={tierLabel}
@@ -553,6 +554,7 @@ function App() {
           onSelectCatalog={memberCatalogState.selectCatalog}
           onDeleteCatalog={memberCatalogState.removeCatalog}
           calendarLabel={appCalendarState.label}
+          calendarError={appCalendarState.error}
           onImportCalendar={appCalendarState.importCalendar}
           onDeleteCalendar={appCalendarState.removeCalendar}
         />

@@ -261,6 +261,7 @@ function renderHeader(
       input.pxPerDay,
       chartWidth,
       input.calendar,
+      input.totalDays,
     );
     for (const band of headerBands) {
       marks.push(
@@ -340,6 +341,7 @@ function renderBody(
       input.pxPerDay,
       chartWidth,
       input.calendar,
+      input.totalDays,
     );
     for (const band of bands) {
       marks.push(

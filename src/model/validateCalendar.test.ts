@@ -11,4 +11,24 @@ describe("validateCalendar", () => {
     });
     expect(result.ok).toBe(false);
   });
+
+  it("rejects a duplicate date inside nonWorkingDays", () => {
+    const result = validateCalendar({
+      schemaVersion: 1,
+      weekends: [],
+      nonWorkingDays: [{ date: "2026-01-01" }, { date: "2026-01-01" }],
+      workingDays: [],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects duplicate weekends", () => {
+    const result = validateCalendar({
+      schemaVersion: 1,
+      weekends: ["sat", "sat"],
+      nonWorkingDays: [],
+      workingDays: [],
+    });
+    expect(result.ok).toBe(false);
+  });
 });
