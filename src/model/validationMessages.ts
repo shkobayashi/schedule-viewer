@@ -20,7 +20,7 @@ const FIELD_LABELS: Record<string, string> = {
   start: "開始日",
   end: "終了日",
   progress: "進捗率",
-  assignee: "担当者",
+  assigneeId: "担当者",
   status: "状態",
   predecessors: "先行タスク",
   milestoneId: "マイルストン",

@@ -1,13 +1,16 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use tauri::Manager;
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 
 const MAX_SCHEDULE_BYTES: u64 = 10 * 1024 * 1024;
+
+const MAX_MEMBERS_BYTES: u64 = 2 * 1024 * 1024;
 
 #[derive(Serialize)]
 struct OpenScheduleResult {
@@ -210,6 +213,170 @@ async fn save_html_file(
     Ok(Some(target.to_string_lossy().into_owned()))
 }
 
+#[derive(Serialize, Deserialize, Default)]
+struct AppSettingsFile {
+    #[serde(rename = "selectedMembersCatalogId", default)]
+    selected_members_catalog_id: Option<String>,
+}
+
+#[derive(Serialize)]
+struct MemberCatalogEntry {
+    id: String,
+    label: String,
+}
+
+#[derive(Serialize)]
+struct MembersSettingsResult {
+    #[serde(rename = "selectedCatalogId")]
+    selected_catalog_id: Option<String>,
+    catalogs: Vec<MemberCatalogEntry>,
+}
+
+fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map_err(|e| format!("アプリデータ領域を開けません: {}", e))
+}
+
+fn members_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app_data_dir(app)?.join("members");
+    fs::create_dir_all(&dir).map_err(|e| format!("メンバーデータを準備できません: {}", e))?;
+    Ok(dir)
+}
+
+fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join("settings.json"))
+}
+
+fn read_settings(app: &tauri::AppHandle) -> Result<AppSettingsFile, String> {
+    let path = settings_path(app)?;
+    if !path.exists() {
+        return Ok(AppSettingsFile::default());
+    }
+    let text = read_utf8(&path)?;
+    serde_json::from_str(&text).map_err(|_| "設定ファイルの形式が正しくありません".to_string())
+}
+
+fn write_settings(app: &tauri::AppHandle, settings: &AppSettingsFile) -> Result<(), String> {
+    let path = settings_path(app)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("設定を保存できません: {}", e))?;
+    }
+    let text = serde_json::to_string_pretty(settings)
+        .map_err(|e| format!("設定を保存できません: {}", e))?;
+    write_utf8_atomic(&path, &text)
+}
+
+fn sanitize_catalog_id(id: &str) -> Result<String, String> {
+    let trimmed = id.trim();
+    if trimmed.is_empty() {
+        return Err("カタログ名が空です".to_string());
+    }
+    if trimmed.contains('/') || trimmed.contains('\\') {
+        return Err("カタログ名に / や \\ は使えません".to_string());
+    }
+    Ok(trimmed.to_string())
+}
+
+fn list_catalog_entries(app: &tauri::AppHandle) -> Result<Vec<MemberCatalogEntry>, String> {
+    let dir = members_dir(app)?;
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(&dir).map_err(|e| format!("メンバー一覧を読めません: {}", e))? {
+        let entry = entry.map_err(|e| format!("メンバー一覧を読めません: {}", e))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+            continue;
+        }
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_string();
+        if stem.is_empty() {
+            continue;
+        }
+        entries.push(MemberCatalogEntry {
+            label: stem.clone(),
+            id: stem,
+        });
+    }
+    entries.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(entries)
+}
+
+#[tauri::command]
+fn get_members_settings(app: tauri::AppHandle) -> Result<MembersSettingsResult, String> {
+    let settings = read_settings(&app)?;
+    let catalogs = list_catalog_entries(&app)?;
+    Ok(MembersSettingsResult {
+        selected_catalog_id: settings.selected_members_catalog_id,
+        catalogs,
+    })
+}
+
+#[tauri::command]
+fn read_member_catalog(app: tauri::AppHandle, catalog_id: String) -> Result<Option<String>, String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = members_dir(&app)?.join(format!("{}.json", id));
+    if !path.exists() {
+        return Ok(None);
+    }
+    let meta = fs::metadata(&path).map_err(|e| format!("ファイルを読めません: {}", e))?;
+    if meta.len() > MAX_MEMBERS_BYTES {
+        return Err("メンバーファイルが大きすぎます（上限 2 MB）".to_string());
+    }
+    Ok(Some(read_utf8(&path)?))
+}
+
+#[tauri::command]
+fn import_member_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+    contents: String,
+    overwrite: bool,
+) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("メンバーファイルが大きすぎます（上限 2 MB）".to_string());
+    }
+    let path = members_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() && !overwrite {
+        return Err("同じ名前のカタログが既にあります".to_string());
+    }
+    write_utf8_atomic(&path, &contents)
+}
+
+#[tauri::command]
+fn delete_member_catalog(app: tauri::AppHandle, catalog_id: String) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = members_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| format!("カタログを削除できません: {}", e))?;
+    }
+    let mut settings = read_settings(&app)?;
+    if settings.selected_members_catalog_id.as_deref() == Some(id.as_str()) {
+        settings.selected_members_catalog_id = None;
+        write_settings(&app, &settings)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn set_selected_member_catalog(
+    app: tauri::AppHandle,
+    catalog_id: Option<String>,
+) -> Result<(), String> {
+    let mut settings = read_settings(&app)?;
+    settings.selected_members_catalog_id = match catalog_id {
+        None => None,
+        Some(id) => Some(sanitize_catalog_id(&id)?),
+    };
+    write_settings(&app, &settings)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -219,7 +386,12 @@ pub fn run() {
             open_schedule_file,
             check_schedule_file_changed,
             save_schedule_file,
-            save_html_file
+            save_html_file,
+            get_members_settings,
+            read_member_catalog,
+            import_member_catalog,
+            delete_member_catalog,
+            set_selected_member_catalog,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

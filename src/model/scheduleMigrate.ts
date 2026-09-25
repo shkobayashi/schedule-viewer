@@ -1,5 +1,4 @@
 import { addDays, isoDate, isIsoDateString, parseDate } from "./dates";
-import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
 type RawDoc = Record<string, unknown>;
 
@@ -48,7 +47,7 @@ export function migrateScheduleToV2(data: unknown): unknown {
 
   return {
     ...doc,
-    schemaVersion: SCHEDULE_SCHEMA_VERSION,
+    schemaVersion: 2,
     categories: nextCategories,
   };
 }

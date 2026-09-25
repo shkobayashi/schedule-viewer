@@ -1,0 +1,24 @@
+[[permission]]
+identifier = "allow-get-members-settings"
+description = "Allows reading member catalog settings."
+commands.allow = ["get_members_settings"]
+
+[[permission]]
+identifier = "allow-read-member-catalog"
+description = "Allows reading a member catalog from app data."
+commands.allow = ["read_member_catalog"]
+
+[[permission]]
+identifier = "allow-import-member-catalog"
+description = "Allows importing a member catalog into app data."
+commands.allow = ["import_member_catalog"]
+
+[[permission]]
+identifier = "allow-delete-member-catalog"
+description = "Allows deleting a member catalog from app data."
+commands.allow = ["delete_member_catalog"]
+
+[[permission]]
+identifier = "allow-set-selected-member-catalog"
+description = "Allows selecting the active member catalog."
+commands.allow = ["set_selected_member_catalog"]

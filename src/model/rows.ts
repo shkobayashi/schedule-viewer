@@ -2,7 +2,10 @@ import { brokenLinkTaskIds } from "./dependencies";
 import { isOverdue } from "./timeline";
 import { summarizeSpans } from "./summary";
 import {
-  isUnassigned,
+  matchesUnassignedFilter,
+} from "./assigneeDisplay";
+import type { Member, MemberId } from "./memberTypes";
+import {
   UNASSIGNED_FILTER,
   type Category,
   type ScheduleFilters,
@@ -25,15 +28,16 @@ export function taskMatchesFilter(
   task: Task,
   filters: ScheduleFilters,
   today: string,
+  memberCatalog: Map<MemberId, Member> | null,
   brokenIds?: ReadonlySet<ScheduleId>,
   lineageIds?: ReadonlySet<ScheduleId> | null,
 ): boolean {
   if (lineageIds && !lineageIds.has(task.id)) return false;
   if (filters.assignee === UNASSIGNED_FILTER) {
-    if (!isUnassigned(task.assignee)) return false;
+    if (!matchesUnassignedFilter(task.assigneeId, memberCatalog)) return false;
   } else if (
     filters.assignee !== "all" &&
-    task.assignee.trim() !== filters.assignee
+    task.assigneeId !== filters.assignee
   ) {
     return false;
   }
@@ -65,6 +69,7 @@ export function computeVisibleRows(
   filters: ScheduleFilters,
   collapsed: ReadonlySet<string>,
   today: string,
+  memberCatalog: Map<MemberId, Member> | null,
   rowHeight = ROW_HEIGHT,
   lineageIds?: ReadonlySet<ScheduleId> | null,
 ): VisibleRow[] {
@@ -77,7 +82,14 @@ export function computeVisibleRows(
       .map((group) => ({
         group,
         matched: group.tasks.filter((task) =>
-          taskMatchesFilter(task, filters, today, brokenIds, lineageIds),
+          taskMatchesFilter(
+            task,
+            filters,
+            today,
+            memberCatalog,
+            brokenIds,
+            lineageIds,
+          ),
         ),
       }))
       .filter((entry) => entry.matched.length > 0);
