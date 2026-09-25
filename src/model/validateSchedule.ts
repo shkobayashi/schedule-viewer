@@ -1,6 +1,4 @@
-import Ajv2020 from "ajv/dist/2020.js";
-import addFormats from "ajv-formats";
-import schema from "../../docs/schedule.schema.json";
+import validateSchema from "./generated/scheduleValidator.js";
 import { migrateScheduleToV2 } from "./scheduleMigrate";
 import {
   validateDependencyCycles,
@@ -14,10 +12,6 @@ import {
   formatValidationErrors as formatIssues,
   humanizeInstancePath,
 } from "./validationMessages";
-
-const ajv = new Ajv2020({ allErrors: true, strict: false });
-addFormats(ajv);
-const validateSchema = ajv.compile(schema);
 
 export type ValidateScheduleResult =
   | { ok: true; document: ScheduleDocument }
