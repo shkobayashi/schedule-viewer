@@ -1,6 +1,4 @@
-import Ajv2020 from "ajv/dist/2020.js";
-import addFormats from "ajv-formats";
-import schema from "../../docs/schedule.schema.json";
+import validateSchema from "./generated/scheduleValidator.js";
 import { migrateScheduleToV2 } from "./scheduleMigrate";
 import {
   validateDependencyCycles,
@@ -15,16 +13,30 @@ import {
   humanizeInstancePath,
 } from "./validationMessages";
 
-const ajv = new Ajv2020({ allErrors: true, strict: false });
-addFormats(ajv);
-const validateSchema = ajv.compile(schema);
-
 export type ValidateScheduleResult =
   | { ok: true; document: ScheduleDocument }
   | { ok: false; errors: ValidationIssue[] };
 
 export function validateSchedule(data: unknown): ValidateScheduleResult {
   const migrated = migrateScheduleToV2(data);
+  if (
+    migrated != null &&
+    typeof migrated === "object" &&
+    !Array.isArray(migrated) &&
+    (migrated as Record<string, unknown>).schemaVersion === 2
+  ) {
+    return {
+      ok: false,
+      errors: [
+        {
+          path: "/schemaVersion",
+          message:
+            "schemaVersion 2（担当者名 assignee）は読み込めません。assigneeId を使う schemaVersion 3 に更新してください。",
+        },
+      ],
+    };
+  }
+
   if (!validateSchema(migrated)) {
     return {
       ok: false,

@@ -32,6 +32,7 @@ import {
   validateTaskEdit,
 } from "../model/tasks";
 import { isOverdue } from "../model/timeline";
+import type { Member, MemberId } from "../model/memberTypes";
 import {
   UNASSIGNED_FILTER,
   type Category,
@@ -41,7 +42,11 @@ import {
   type ScheduleId,
   type Task,
 } from "../model/types";
-import { collectAssignees } from "../model/serialize";
+import {
+  duplicateMemberNames,
+  memberMapFromList,
+  memberOptionLabel,
+} from "../model/assigneeDisplay";
 
 function initialSnapshot(
   categories: Category[],
@@ -58,6 +63,7 @@ export function useSchedule(
   initialCategories: Category[],
   initialMilestones: Milestone[],
   rowHeight: number,
+  memberCatalog: Member[] | null,
 ) {
   const documentRef = useRef<DocumentSnapshot>(
     initialSnapshot(initialCategories, initialMilestones),
@@ -87,6 +93,7 @@ export function useSchedule(
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [diskEpoch, setDiskEpoch] = useState(0);
   const today = useToday();
 
   const pruneUiForDocument = useCallback((snapshot: DocumentSnapshot) => {
@@ -157,9 +164,23 @@ export function useSchedule(
     [commitDocument],
   );
 
-  const assignees = useMemo(
-    () => collectAssignees(categories),
-    [categories],
+  const memberMap = useMemo(
+    () => memberMapFromList(memberCatalog),
+    [memberCatalog],
+  );
+
+  const assigneeFilterOptions = useMemo(() => {
+    if (!memberCatalog || memberCatalog.length === 0) return [];
+    const dupes = duplicateMemberNames(memberCatalog);
+    return memberCatalog.map((member) => ({
+      id: member.id,
+      label: memberOptionLabel(member, dupes),
+    }));
+  }, [memberCatalog]);
+
+  const knownMemberIds = useMemo(
+    () => new Set(memberCatalog?.map((member) => member.id) ?? []),
+    [memberCatalog],
   );
 
   const lineageIds = useMemo(
@@ -177,22 +198,23 @@ export function useSchedule(
         filters,
         collapsed,
         today,
+        memberMap,
         rowHeight,
         lineageIds,
       ),
-    [categories, collapsed, filters, lineageIds, rowHeight, today],
+    [categories, collapsed, filters, lineageIds, memberMap, rowHeight, today],
   );
 
   useEffect(() => {
     if (
       filters.assignee === "all" ||
       filters.assignee === UNASSIGNED_FILTER ||
-      assignees.includes(filters.assignee)
+      knownMemberIds.has(filters.assignee)
     ) {
       return;
     }
     setFilters((prev) => ({ ...prev, assignee: "all" }));
-  }, [assignees, filters.assignee]);
+  }, [filters.assignee, knownMemberIds]);
 
   const toggleCollapsed = useCallback((key: string) => {
     setCollapsed((prev) => {
@@ -326,7 +348,7 @@ export function useSchedule(
       name: string;
       start: string;
       end: string;
-      assignee: string;
+      assigneeId: MemberId | null;
       status: Task["status"];
       progress: number;
       predecessors: ScheduleId[];
@@ -364,7 +386,7 @@ export function useSchedule(
               name: patch.name.trim(),
               start: patch.start,
               end: patch.end,
-              assignee: patch.assignee.trim(),
+              assigneeId: patch.assigneeId,
               status: patch.status,
               progress: clamp(roundedProgress, 0, 100),
               predecessors,
@@ -419,7 +441,7 @@ export function useSchedule(
         name,
         start: input.start,
         end: input.end,
-        assignee: "",
+        assigneeId: null,
         status: "not-started",
         progress: 0,
         predecessors: [],
@@ -496,6 +518,23 @@ export function useSchedule(
     [],
   );
 
+  const reloadDocumentFromDisk = useCallback(
+    (document: ScheduleDocument) => {
+      historyRef.current = createDocumentHistory();
+      const snapshot = initialSnapshot(
+        document.categories,
+        document.milestones,
+      );
+      documentRef.current = snapshot;
+      setTitle(document.title);
+      setCategories(snapshot.categories);
+      setMilestones(snapshot.milestones);
+      setDiskEpoch((epoch) => epoch + 1);
+      pruneUiForDocument(snapshot);
+    },
+    [pruneUiForDocument],
+  );
+
   const undo = useCallback(() => {
     const result = undoDocumentHistory(historyRef.current, documentRef.current);
     if (!result) return;
@@ -529,7 +568,7 @@ export function useSchedule(
     openMilestoneEdit,
     closeMilestoneEdit,
     saveMilestoneEdit,
-    assignees,
+    assigneeFilterOptions,
     visibleRows,
     toggleCollapsed,
     filters,
@@ -549,6 +588,8 @@ export function useSchedule(
     addTask,
     deleteTask,
     replaceDocument,
+    reloadDocumentFromDisk,
+    diskEpoch,
     undo,
     redo,
     today,

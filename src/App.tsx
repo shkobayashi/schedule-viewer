@@ -3,6 +3,7 @@ import type Konva from "konva";
 import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
 import { DiscardChangesDialog } from "./components/DiscardChangesDialog";
 import { ExternalChangeDialog } from "./components/ExternalChangeDialog";
+import { ExternalReloadDialog } from "./components/ExternalReloadDialog";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
@@ -10,7 +11,9 @@ import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
 import { TaskEditDialog } from "./components/TaskEditDialog";
 import { Timeline } from "./components/Timeline";
+import { SettingsDialog } from "./components/SettingsDialog";
 import { Toolbar } from "./components/Toolbar";
+import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useSchedule } from "./hooks/useSchedule";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useTimelineView } from "./hooks/useTimelineView";
@@ -24,7 +27,17 @@ import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange } from "./model/timeline";
 import type { ScheduleId } from "./model/types";
-import { readUiScale } from "./model/uiScale";
+import {
+  readDisplayScalePreference,
+  readUiScale,
+  resolveUiScale,
+  type DisplayScalePreference,
+} from "./model/uiScale";
+import { seedSampleMemberCatalogOnce } from "./model/memberAppData";
+import {
+  SAMPLE_MEMBERS_CATALOG_ID,
+} from "./sample/ids";
+import { sampleMembersJson } from "./sample/members";
 import {
   SAMPLE_PROJECT_TITLE,
   sampleCategories,
@@ -50,7 +63,11 @@ function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
   const [timelineWidth, setTimelineWidth] = useState(520);
   const [timelineSlotHeight, setTimelineSlotHeight] = useState(440);
+  const [displayScalePreference, setDisplayScalePreference] = useState(
+    readDisplayScalePreference,
+  );
   const [uiScale, setUiScale] = useState(readUiScale);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -62,12 +79,35 @@ function App() {
     scaledLayoutSizes(uiScale);
   const milestoneFontSize = Math.round(11 * uiScale);
   const milestoneDiamondSize = Math.max(8, Math.round(11 * uiScale));
+  const refreshUiScale = useCallback(() => {
+    setUiScale(
+      resolveUiScale(
+        window.innerWidth,
+        window.innerHeight,
+        displayScalePreference,
+      ),
+    );
+  }, [displayScalePreference]);
+
   useEffect(() => {
-    const onResize = () => setUiScale(readUiScale());
-    onResize();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    refreshUiScale();
+    window.addEventListener("resize", refreshUiScale);
+    return () => window.removeEventListener("resize", refreshUiScale);
+  }, [refreshUiScale]);
+
+  const handleDisplayScaleChange = useCallback(
+    (preference: DisplayScalePreference) => {
+      setDisplayScalePreference(preference);
+      setUiScale(
+        resolveUiScale(
+          window.innerWidth,
+          window.innerHeight,
+          preference,
+        ),
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     document.documentElement.style.setProperty("--s", String(uiScale));
@@ -88,11 +128,25 @@ function App() {
     return () => observer.disconnect();
   }, []);
 
+  const memberCatalogState = useMemberCatalog();
+
+  useEffect(() => {
+    void (async () => {
+      await seedSampleMemberCatalogOnce(
+        SAMPLE_MEMBERS_CATALOG_ID,
+        sampleMembersJson(),
+      );
+      await memberCatalogState.refresh();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回のみサンプルカタログを用意
+  }, []);
+
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
     sampleMilestones,
     rowHeight,
+    memberCatalogState.members,
   );
   const range = useMemo(
     () =>
@@ -184,6 +238,7 @@ function App() {
     categories: schedule.categories,
     milestones: schedule.milestones,
     replaceDocument: schedule.replaceDocument,
+    reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
     onAfterOpen: onAfterOpenFile,
     initialBaselineJson: INITIAL_BASELINE_JSON,
   });
@@ -285,8 +340,11 @@ function App() {
       <Toolbar
         title={schedule.title}
         fileStatusLabel={scheduleFile.statusLabel}
+        showDeferredReload={scheduleFile.showDeferredReload}
+        onDeferredReload={scheduleFile.requestDeferredReload}
+        membersCatalogLabel={memberCatalogState.selectedCatalogLabel}
         filters={schedule.filters}
-        assignees={schedule.assignees}
+        assigneeFilterOptions={schedule.assigneeFilterOptions}
         zoomLabel={tierLabel}
         lineageName={schedule.lineageTask?.name ?? null}
         canStartLineage={schedule.selectedTaskId != null}
@@ -299,6 +357,7 @@ function App() {
         onOpen={scheduleFile.requestOpen}
         onSave={() => void scheduleFile.save(false)}
         onSaveAs={() => void scheduleFile.save(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
         onExportHtml={() => {
           void exportScheduleHtml({
             title: schedule.title,
@@ -322,6 +381,7 @@ function App() {
             milestoneFontSize,
             labelScale: uiScale,
             today: schedule.today,
+            memberCatalog: memberCatalogState.memberMap,
           }).catch((error: unknown) => {
             setExportError(
               error instanceof Error
@@ -354,6 +414,7 @@ function App() {
           milestones={schedule.milestones}
           onToggleCollapse={schedule.toggleCollapsed}
           today={schedule.today}
+          memberCatalog={memberCatalogState.memberMap}
         />
         <div ref={timelineAreaRef} className="timeline-slot">
           <Timeline
@@ -391,14 +452,16 @@ function App() {
             onMoveMilestone={schedule.moveMilestoneByDays}
             onOpenMilestone={schedule.openMilestoneEdit}
             today={schedule.today}
+            memberCatalog={memberCatalogState.memberMap}
           />
         </div>
       </div>
       {schedule.editingTask ? (
         <TaskEditDialog
-          key={schedule.editingTask.id}
+          key={`${schedule.editingTask.id}:${schedule.diskEpoch}`}
           task={schedule.editingTask}
-          assignees={schedule.assignees}
+          members={memberCatalogState.members ?? []}
+          memberCatalog={memberCatalogState.memberMap}
           tasks={taskRefs}
           milestones={schedule.milestones}
           successorIds={editingSuccessors}
@@ -408,7 +471,7 @@ function App() {
       ) : null}
       {schedule.editingMilestone ? (
         <MilestoneEditDialog
-          key={schedule.editingMilestone.id}
+          key={`${schedule.editingMilestone.id}:${schedule.diskEpoch}`}
           milestone={schedule.editingMilestone}
           onClose={schedule.closeMilestoneEdit}
           onSave={schedule.saveMilestoneEdit}
@@ -467,6 +530,19 @@ function App() {
           }}
         />
       ) : null}
+      {settingsOpen ? (
+        <SettingsDialog
+          open={settingsOpen}
+          settings={memberCatalogState.settings}
+          selectedCatalogLabel={memberCatalogState.selectedCatalogLabel}
+          displayScalePreference={displayScalePreference}
+          onDisplayScaleChange={handleDisplayScaleChange}
+          onClose={() => setSettingsOpen(false)}
+          onImport={memberCatalogState.importCatalog}
+          onSelectCatalog={memberCatalogState.selectCatalog}
+          onDeleteCatalog={memberCatalogState.removeCatalog}
+        />
+      ) : null}
       <JsonDialog
         json={jsonOpen ? scheduleFile.currentJson : ""}
         open={jsonOpen}
@@ -492,6 +568,12 @@ function App() {
           onOverwrite={scheduleFile.confirmExternalOverwrite}
           onSaveAs={scheduleFile.confirmExternalSaveAs}
           onCancel={scheduleFile.cancelExternalChange}
+        />
+      ) : null}
+      {scheduleFile.externalReloadOpen ? (
+        <ExternalReloadDialog
+          onReload={scheduleFile.confirmExternalReload}
+          onKeepLocal={scheduleFile.keepLocalEditsOnExternalReload}
         />
       ) : null}
       {scheduleFile.errorMessage ? (

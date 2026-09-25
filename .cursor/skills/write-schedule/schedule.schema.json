@@ -8,8 +8,8 @@
   "properties": {
     "schemaVersion": {
       "type": "integer",
-      "const": 2,
-      "description": "2: 終了日はその日を含む（1日タスクは start と end が同じ日）。"
+      "const": 3,
+      "description": "3: assigneeId で担当を参照（未割当は null）。終了日はその日を含む。"
     },
     "title": {
       "type": "string",
@@ -56,7 +56,7 @@
         "name",
         "start",
         "end",
-        "assignee",
+        "assigneeId",
         "status",
         "progress",
         "predecessors",
@@ -70,7 +70,12 @@
           "$ref": "#/$defs/isoDate",
           "description": "終了日（この日を含む）。開始日以降。"
         },
-        "assignee": { "type": "string" },
+        "assigneeId": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
+        },
         "status": { "$ref": "#/$defs/taskStatus" },
         "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
         "predecessors": {

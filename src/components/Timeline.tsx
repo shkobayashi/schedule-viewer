@@ -21,13 +21,9 @@ import type { SummarySpan } from "../model/summary";
 import { milestonesExceededBy } from "../model/milestones";
 import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
-import {
-  isUnassigned,
-  type Milestone,
-  type ScheduleId,
-  type Task,
-  type VisibleRow,
-} from "../model/types";
+import { resolveAssigneeDisplay } from "../model/assigneeDisplay";
+import type { Member, MemberId } from "../model/memberTypes";
+import type { Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
 import { MilestoneBand } from "./MilestoneBand";
 
 type TimelineProps = {
@@ -65,6 +61,7 @@ type TimelineProps = {
   onMoveMilestone: (id: ScheduleId, deltaDays: number) => void;
   onOpenMilestone: (id: ScheduleId) => void;
   today: string;
+  memberCatalog: Map<MemberId, Member> | null;
 };
 
 const HANDLE_WIDTH = 8;
@@ -141,6 +138,7 @@ function TaskBar({
   onOpenEdit,
   onMoveTask,
   today,
+  memberCatalog,
 }: {
   task: Task;
   y: number;
@@ -154,14 +152,22 @@ function TaskBar({
   onOpenEdit: () => void;
   onMoveTask: (deltaDays: number) => void;
   today: string;
+  memberCatalog: Map<MemberId, Member> | null;
 }) {
   const start = parseDate(task.start);
   const x = dateToX(start);
   const w = taskBarWidthPx(task, dateToX, pxPerDay);
   const barY = y + (rowHeight - barHeight) / 2;
   const colors = barColors(task, today);
-  const unassigned = isUnassigned(task.assignee);
-  const stroke = unassigned && !isOverdue(task, today) ? "#C48A1A" : colors.border;
+  const assigneeDisplay = resolveAssigneeDisplay(task.assigneeId, memberCatalog);
+  const unassigned = assigneeDisplay.kind === "unassigned";
+  const unknownMember = assigneeDisplay.kind === "unknown";
+  const stroke =
+    unassigned && !isOverdue(task, today)
+      ? "#C48A1A"
+      : unknownMember && !isOverdue(task, today)
+        ? "#7B5EA7"
+        : colors.border;
   const cap = Math.max(2, Math.round(barHeight * 0.16));
   const overrunAt = exceeded[0] ? dateToX(parseDate(exceeded[0].date)) - x : null;
   const origXRef = useRef(0);
@@ -228,8 +234,8 @@ function TaskBar({
         width={w}
         height={barHeight}
         stroke={stroke}
-        strokeWidth={unassigned || selected ? 1.75 : 1}
-        dash={unassigned ? [5, 3] : undefined}
+        strokeWidth={unassigned || unknownMember || selected ? 1.75 : 1}
+        dash={unassigned ? [5, 3] : unknownMember ? [2, 2] : undefined}
         cornerRadius={4}
         listening={false}
       />
@@ -239,6 +245,15 @@ function TaskBar({
           width={w}
           height={cap}
           fill="#E0A020"
+          listening={false}
+        />
+      ) : null}
+      {unknownMember ? (
+        <Rect
+          y={-cap}
+          width={w}
+          height={cap}
+          fill="#7B5EA7"
           listening={false}
         />
       ) : null}
@@ -445,6 +460,7 @@ export function Timeline({
   onMoveMilestone,
   onOpenMilestone,
   today,
+  memberCatalog,
 }: TimelineProps) {
   const todayDate = useMemo(() => parseDate(today), [today]);
   const scale = headerHeight / LAYOUT_HEADER_HEIGHT;
@@ -917,6 +933,7 @@ export function Timeline({
                   onOpenEdit={() => onOpenEdit(row.task)}
                   onMoveTask={(delta) => onMoveTask(row.task.id, delta)}
                   today={today}
+                  memberCatalog={memberCatalog}
                 />
               );
             })}

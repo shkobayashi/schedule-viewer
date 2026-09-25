@@ -8034,8 +8034,8 @@ var schedule_schema_default = {
   properties: {
     schemaVersion: {
       type: "integer",
-      const: 2,
-      description: "2: \u7D42\u4E86\u65E5\u306F\u305D\u306E\u65E5\u3092\u542B\u3080\uFF081\u65E5\u30BF\u30B9\u30AF\u306F start \u3068 end \u304C\u540C\u3058\u65E5\uFF09\u3002"
+      const: 3,
+      description: "3: assigneeId \u3067\u62C5\u5F53\u3092\u53C2\u7167\uFF08\u672A\u5272\u5F53\u306F null\uFF09\u3002\u7D42\u4E86\u65E5\u306F\u305D\u306E\u65E5\u3092\u542B\u3080\u3002"
     },
     title: {
       type: "string",
@@ -8082,7 +8082,7 @@ var schedule_schema_default = {
         "name",
         "start",
         "end",
-        "assignee",
+        "assigneeId",
         "status",
         "progress",
         "predecessors",
@@ -8096,7 +8096,12 @@ var schedule_schema_default = {
           $ref: "#/$defs/isoDate",
           description: "\u7D42\u4E86\u65E5\uFF08\u3053\u306E\u65E5\u3092\u542B\u3080\uFF09\u3002\u958B\u59CB\u65E5\u4EE5\u964D\u3002"
         },
-        assignee: { type: "string" },
+        assigneeId: {
+          oneOf: [
+            { type: "string", minLength: 1 },
+            { type: "null" }
+          ]
+        },
         status: { $ref: "#/$defs/taskStatus" },
         progress: { type: "integer", minimum: 0, maximum: 100 },
         predecessors: {
@@ -8165,9 +8170,6 @@ function addDays(d, n) {
   return new Date(d.getTime() + n * DAY_MS);
 }
 
-// src/model/types.ts
-var SCHEDULE_SCHEMA_VERSION = 2;
-
 // src/model/scheduleMigrate.ts
 function migrateTaskEndV1ToV2(end) {
   if (!isIsoDateString(end)) return end;
@@ -8209,7 +8211,7 @@ function migrateScheduleToV2(data2) {
   });
   return {
     ...doc,
-    schemaVersion: SCHEDULE_SCHEMA_VERSION,
+    schemaVersion: 2,
     categories: nextCategories
   };
 }
@@ -8393,21 +8395,161 @@ function validatePredecessorRefs(doc) {
   return issues;
 }
 
+// src/model/validationMessages.ts
+var AJV_JA = {
+  "must be integer": "\u6574\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059",
+  "must be string": "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059",
+  "must be number": "\u6570\u5024\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059",
+  "must be object": "\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059",
+  "must be array": "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059",
+  "must NOT have fewer than 1 items": "1 \u4EF6\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059",
+  "must NOT have additional properties": "\u672A\u77E5\u306E\u30D7\u30ED\u30D1\u30C6\u30A3\u306F\u8A31\u53EF\u3055\u308C\u3066\u3044\u307E\u305B\u3093",
+  'must match format "date"': "\u65E5\u4ED8\u306E\u5F62\u5F0F\uFF08YYYY-MM-DD\uFF09\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059",
+  'must match format "uuid"': "UUID \u306E\u5F62\u5F0F\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059",
+  "must be >= 0": "0 \u4EE5\u4E0A\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059",
+  "must be <= 100": "100 \u4EE5\u4E0B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059"
+};
+var FIELD_LABELS = {
+  name: "\u540D\u524D",
+  start: "\u958B\u59CB\u65E5",
+  end: "\u7D42\u4E86\u65E5",
+  progress: "\u9032\u6357\u7387",
+  assigneeId: "\u62C5\u5F53\u8005",
+  status: "\u72B6\u614B",
+  predecessors: "\u5148\u884C\u30BF\u30B9\u30AF",
+  milestoneId: "\u30DE\u30A4\u30EB\u30B9\u30C8\u30F3",
+  date: "\u65E5\u4ED8",
+  title: "\u30BF\u30A4\u30C8\u30EB",
+  schemaVersion: "\u30B9\u30AD\u30FC\u30DE\u30D0\u30FC\u30B8\u30E7\u30F3",
+  id: "ID",
+  milestones: "\u30DE\u30A4\u30EB\u30B9\u30C8\u30F3",
+  categories: "\u30AB\u30C6\u30B4\u30EA",
+  groups: "\u30B0\u30EB\u30FC\u30D7",
+  tasks: "\u30BF\u30B9\u30AF"
+};
+function fieldLabel(name) {
+  return FIELD_LABELS[name] ?? name;
+}
+function localizeAjvMessage(message) {
+  if (!message) return "\u30B9\u30AD\u30FC\u30DE\u9055\u53CD";
+  return AJV_JA[message] ?? message;
+}
+function localizeAjvError(error) {
+  const params = error.params;
+  switch (error.keyword) {
+    case "type":
+      return localizeAjvMessage(
+        typeof params.type === "string" ? `must be ${params.type}` : error.message
+      );
+    case "required":
+      return `\u5FC5\u9808\u9805\u76EE\u300C${fieldLabel(String(params.missingProperty ?? ""))}\u300D\u304C\u3042\u308A\u307E\u305B\u3093`;
+    case "const":
+      return `${String(params.allowedValue ?? "")} \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+    case "enum":
+      return "\u8A31\u53EF\u3055\u308C\u305F\u5024\u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059";
+    case "minLength":
+      return `${String(params.limit ?? 1)} \u6587\u5B57\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059`;
+    case "minimum":
+      return `${String(params.limit ?? 0)} \u4EE5\u4E0A\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+    case "maximum":
+      return `${String(params.limit ?? 0)} \u4EE5\u4E0B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+    case "minItems":
+      return `${String(params.limit ?? 1)} \u4EF6\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059`;
+    case "format":
+      return localizeAjvMessage(
+        typeof params.format === "string" ? `must match format "${params.format}"` : error.message
+      );
+    case "additionalProperties":
+      return "\u672A\u77E5\u306E\u30D7\u30ED\u30D1\u30C6\u30A3\u306F\u8A31\u53EF\u3055\u308C\u3066\u3044\u307E\u305B\u3093";
+    default:
+      return localizeAjvMessage(error.message);
+  }
+}
+function readAtPath(data2, segments) {
+  let current = data2;
+  for (const segment of segments) {
+    if (current == null || typeof current !== "object") return void 0;
+    if (Array.isArray(current)) {
+      const index = Number(segment);
+      if (!Number.isInteger(index)) return void 0;
+      current = current[index];
+      continue;
+    }
+    current = current[segment];
+  }
+  return current;
+}
+function humanizeInstancePath(data2, instancePath) {
+  if (!instancePath || instancePath === "/") return "\u6587\u66F8";
+  const segments = instancePath.split("/").filter(Boolean);
+  const parts = [];
+  for (let i = 0; i < segments.length; i += 1) {
+    const segment = segments[i];
+    if (segment === "categories" && segments[i + 1] !== void 0) {
+      const cat = readAtPath(data2, segments.slice(0, i + 2));
+      const name = cat && typeof cat === "object" && "name" in cat ? String(cat.name) : `\u30AB\u30C6\u30B4\u30EA ${segments[i + 1]}`;
+      parts.push(`\u30AB\u30C6\u30B4\u30EA\u300C${name}\u300D`);
+      i += 1;
+      continue;
+    }
+    if (segment === "groups" && segments[i + 1] !== void 0) {
+      const group = readAtPath(data2, segments.slice(0, i + 2));
+      const name = group && typeof group === "object" && "name" in group ? String(group.name) : `\u30B0\u30EB\u30FC\u30D7 ${segments[i + 1]}`;
+      parts.push(`\u30B0\u30EB\u30FC\u30D7\u300C${name}\u300D`);
+      i += 1;
+      continue;
+    }
+    if (segment === "tasks" && segments[i + 1] !== void 0) {
+      const task = readAtPath(data2, segments.slice(0, i + 2));
+      const name = task && typeof task === "object" && "name" in task ? String(task.name) : `\u30BF\u30B9\u30AF ${segments[i + 1]}`;
+      parts.push(`\u30BF\u30B9\u30AF\u300C${name}\u300D`);
+      i += 1;
+      continue;
+    }
+    if (segment === "milestones" && segments[i + 1] !== void 0) {
+      const milestone = readAtPath(data2, segments.slice(0, i + 2));
+      const name = milestone && typeof milestone === "object" && "name" in milestone ? String(milestone.name) : `\u30DE\u30A4\u30EB\u30B9\u30C8\u30F3 ${segments[i + 1]}`;
+      parts.push(`\u30DE\u30A4\u30EB\u30B9\u30C8\u30F3\u300C${name}\u300D`);
+      i += 1;
+      continue;
+    }
+    parts.push(fieldLabel(segment));
+  }
+  return parts.join(" / ");
+}
+function formatAjvErrors(data2, errors) {
+  if (!errors) return [];
+  return errors.map((error) => ({
+    path: humanizeInstancePath(data2, error.instancePath || "/"),
+    message: localizeAjvError(error)
+  }));
+}
+function formatValidationErrors(errors) {
+  return errors.map((issue) => `${issue.path}: ${issue.message}`).join("\n");
+}
+
 // src/model/validateSchedule.ts
 var ajv = new import__.default({ allErrors: true, strict: false });
 (0, import_ajv_formats.default)(ajv);
 var validateSchema = ajv.compile(schedule_schema_default);
-function formatAjvErrors(errors) {
-  if (!errors) return [];
-  return errors.map((error) => ({
-    path: error.instancePath || "/",
-    message: error.message ?? "\u30B9\u30AD\u30FC\u30DE\u9055\u53CD"
-  }));
-}
 function validateSchedule(data2) {
   const migrated = migrateScheduleToV2(data2);
+  if (migrated != null && typeof migrated === "object" && !Array.isArray(migrated) && migrated.schemaVersion === 2) {
+    return {
+      ok: false,
+      errors: [
+        {
+          path: "/schemaVersion",
+          message: "schemaVersion 2\uFF08\u62C5\u5F53\u8005\u540D assignee\uFF09\u306F\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3002assigneeId \u3092\u4F7F\u3046 schemaVersion 3 \u306B\u66F4\u65B0\u3057\u3066\u304F\u3060\u3055\u3044\u3002"
+        }
+      ]
+    };
+  }
   if (!validateSchema(migrated)) {
-    return { ok: false, errors: formatAjvErrors(validateSchema.errors) };
+    return {
+      ok: false,
+      errors: formatAjvErrors(migrated, validateSchema.errors)
+    };
   }
   const document = migrated;
   const errors = [
@@ -8416,12 +8558,18 @@ function validateSchedule(data2) {
     ...validateDependencyCycles(document)
   ];
   if (errors.length > 0) {
-    return { ok: false, errors };
+    return {
+      ok: false,
+      errors: errors.map((issue) => ({
+        ...issue,
+        path: humanizeInstancePath(migrated, issue.path)
+      }))
+    };
   }
   return { ok: true, document };
 }
-function formatValidationErrors(errors) {
-  return errors.map((issue) => `${issue.path}: ${issue.message}`).join("\n");
+function formatValidationErrors2(errors) {
+  return formatValidationErrors(errors);
 }
 
 // scripts/validate-schedule-cli.ts
@@ -8440,7 +8588,7 @@ try {
 }
 var result = validateSchedule(data);
 if (!result.ok) {
-  console.error(formatValidationErrors(result.errors));
+  console.error(formatValidationErrors2(result.errors));
   process.exit(1);
 }
 console.log("OK");

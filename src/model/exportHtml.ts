@@ -12,14 +12,9 @@ import {
   taskBarExclusiveEnd,
   taskBarWidthPx,
 } from "./timeline";
-import {
-  isUnassigned,
-  UNASSIGNED_LABEL,
-  type Milestone,
-  type ScheduleId,
-  type Task,
-  type VisibleRow,
-} from "./types";
+import { resolveAssigneeDisplay, assigneeSidebarLabel } from "./assigneeDisplay";
+import type { Member, MemberId } from "./memberTypes";
+import type { Milestone, ScheduleId, Task, VisibleRow } from "./types";
 
 export type ScheduleExportInput = {
   title: string;
@@ -43,6 +38,7 @@ export type ScheduleExportInput = {
   milestoneFontSize: number;
   labelScale: number;
   today: string;
+  memberCatalog: Map<MemberId, Member> | null;
 };
 
 const SUMMARY_COVERED = "#5C6B82";
@@ -107,6 +103,8 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
   .alert { margin-left: 6px; color: #c4351a; background: #fde8e4; border-radius: 999px; padding: 1px 6px; font-size: ${px(10, input.labelScale)}; font-weight: 700; }
   .assignee { margin-left: 16px; color: #697586; font-size: ${px(10, input.labelScale)}; padding-right: 12px; }
   .assignee.unassigned { color: #8a5a00; background: #fff4d6; border-radius: 999px; padding: 1px 7px; font-weight: 700; }
+  .assignee.unknown-member { color: #5b3f91; background: #efe8fb; border-radius: 999px; padding: 1px 7px; font-weight: 700; }
+  .label.task.unknown-member { box-shadow: inset 3px 0 0 #7b5ea7; }
 </style>
 </head>
 <body>
@@ -176,15 +174,25 @@ function renderLabelRow(row: VisibleRow, input: ScheduleExportInput): string {
     const mark = row.collapsed ? "▶" : "▼";
     return `<div class="label ${row.type}" ${height}><span class="twist">${mark}</span>${esc(row.label)}</div>`;
   }
-  const unassigned = isUnassigned(row.task.assignee);
+  const assigneeDisplay = resolveAssigneeDisplay(
+    row.task.assigneeId,
+    input.memberCatalog,
+  );
+  const unassigned = assigneeDisplay.kind === "unassigned";
+  const unknownMember = assigneeDisplay.kind === "unknown";
   const overdue = isOverdue(row.task, input.today);
   const exceeded = milestonesExceededBy(row.task, input.milestones);
   const alert =
     exceeded.length > 0
       ? `<span class="alert">超過</span>`
       : "";
-  const assignee = unassigned ? UNASSIGNED_LABEL : row.task.assignee;
-  return `<div class="label task${unassigned ? " unassigned" : ""}" ${height}><span class="name${overdue ? " overdue" : ""}">${esc(row.task.name)}</span>${alert}<span class="assignee${unassigned ? " unassigned" : ""}">${esc(assignee)}</span></div>`;
+  const assignee = assigneeSidebarLabel(assigneeDisplay);
+  const extraClass = unassigned
+    ? " unassigned"
+    : unknownMember
+      ? " unknown-member"
+      : "";
+  return `<div class="label task${extraClass}" ${height}><span class="name${overdue ? " overdue" : ""}">${esc(row.task.name)}</span>${alert}<span class="assignee${extraClass}">${esc(assignee)}</span></div>`;
 }
 
 function renderHeader(
@@ -404,9 +412,18 @@ function renderTaskBar(
   const w = taskBarWidthPx(task, dateToX, input.pxPerDay);
   const barY = y + (input.rowHeight - input.barHeight) / 2;
   const colors = barColors(task, input.today);
-  const unassigned = isUnassigned(task.assignee);
+  const assigneeDisplay = resolveAssigneeDisplay(
+    task.assigneeId,
+    input.memberCatalog,
+  );
+  const unassigned = assigneeDisplay.kind === "unassigned";
+  const unknownMember = assigneeDisplay.kind === "unknown";
   const stroke =
-    unassigned && !isOverdue(task, input.today) ? "#C48A1A" : colors.border;
+    unassigned && !isOverdue(task, input.today)
+      ? "#C48A1A"
+      : unknownMember && !isOverdue(task, input.today)
+        ? "#7B5EA7"
+        : colors.border;
   const cap = Math.max(2, Math.round(input.barHeight * 0.16));
   const parts = [
     `<rect x="${n(x)}" y="${n(barY)}" width="${n(w)}" height="${n(input.barHeight)}" rx="4" fill="${colors.bg}"/>`,
@@ -417,11 +434,16 @@ function renderTaskBar(
     );
   }
   parts.push(
-    `<rect x="${n(x)}" y="${n(barY)}" width="${n(w)}" height="${n(input.barHeight)}" rx="4" fill="none" stroke="${stroke}" stroke-width="${unassigned ? 1.75 : 1}"${unassigned ? ' stroke-dasharray="5 3"' : ""}/>`,
+    `<rect x="${n(x)}" y="${n(barY)}" width="${n(w)}" height="${n(input.barHeight)}" rx="4" fill="none" stroke="${stroke}" stroke-width="${unassigned || unknownMember ? 1.75 : 1}"${unassigned ? ' stroke-dasharray="5 3"' : unknownMember ? ' stroke-dasharray="2 2"' : ""}/>`,
   );
   if (unassigned) {
     parts.push(
       `<rect x="${n(x)}" y="${n(barY - cap)}" width="${n(w)}" height="${n(cap)}" fill="#E0A020"/>`,
+    );
+  }
+  if (unknownMember) {
+    parts.push(
+      `<rect x="${n(x)}" y="${n(barY - cap)}" width="${n(w)}" height="${n(cap)}" fill="#7B5EA7"/>`,
     );
   }
   const exceeded = milestonesExceededBy(task, input.milestones);
