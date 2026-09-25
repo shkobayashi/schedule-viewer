@@ -8,6 +8,11 @@
     "allow-open-schedule-file",
     "allow-check-schedule-file-changed",
     "allow-save-schedule-file",
-    "allow-save-html-file"
+    "allow-save-html-file",
+    "allow-get-members-settings",
+    "allow-read-member-catalog",
+    "allow-import-member-catalog",
+    "allow-delete-member-catalog",
+    "allow-set-selected-member-catalog"
   ]
 }

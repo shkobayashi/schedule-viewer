@@ -5,6 +5,13 @@ export const SAMPLE_MILESTONE_IDS = {
   release: "a1000001-0000-4000-8000-000000000003",
 } as const;
 
+export const SAMPLE_MEMBER_IDS = {
+  tanaka: "tanaka",
+  sato: "sato",
+  suzuki: "suzuki",
+  takahashi: "takahashi",
+} as const;
+
 export const SAMPLE_TASK_IDS = {
   t01: "b1000001-0000-4000-8000-000000000001",
   t02: "b1000001-0000-4000-8000-000000000002",
@@ -23,3 +30,5 @@ export const SAMPLE_TASK_IDS = {
   t15: "b1000001-0000-4000-8000-00000000000f",
   t16: "b1000001-0000-4000-8000-000000000010",
 } as const;
+
+export const SAMPLE_MEMBERS_CATALOG_ID = "sample-team";

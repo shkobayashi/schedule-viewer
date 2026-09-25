@@ -1,8 +1,9 @@
 import type { SummarySpan } from "./summary";
+import type { MemberId } from "./memberTypes";
 
 export type ScheduleId = string;
 
-export const SCHEDULE_SCHEMA_VERSION = 2;
+export const SCHEDULE_SCHEMA_VERSION = 3;
 
 export type TaskStatus = "not-started" | "in-progress" | "done";
 
@@ -11,7 +12,7 @@ export type Task = {
   name: string;
   start: string;
   end: string;
-  assignee: string;
+  assigneeId: MemberId | null;
   status: TaskStatus;
   progress: number;
   /** このタスクの開始前に終わる先行タスク。後続は他タスクの predecessors から導く。 */
@@ -56,12 +57,12 @@ export const UNASSIGNED_FILTER = "unassigned";
 
 export const UNASSIGNED_LABEL = "割り当てなし";
 
-export function isUnassigned(assignee: string): boolean {
-  return assignee.trim() === "";
+export function isNullAssignee(assigneeId: MemberId | null): boolean {
+  return assigneeId == null;
 }
 
 export type ScheduleFilters = {
-  /** "all" | "unassigned" | 担当者名 */
+  /** "all" | "unassigned" | メンバー id */
   assignee: string;
   status: StatusFilter;
   overdue: OverdueFilter;

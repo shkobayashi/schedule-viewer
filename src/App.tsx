@@ -10,7 +10,9 @@ import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
 import { TaskEditDialog } from "./components/TaskEditDialog";
 import { Timeline } from "./components/Timeline";
+import { SettingsDialog } from "./components/SettingsDialog";
 import { Toolbar } from "./components/Toolbar";
+import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useSchedule } from "./hooks/useSchedule";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useTimelineView } from "./hooks/useTimelineView";
@@ -25,6 +27,11 @@ import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange } from "./model/timeline";
 import type { ScheduleId } from "./model/types";
 import { readUiScale } from "./model/uiScale";
+import { seedSampleMemberCatalogOnce } from "./model/memberAppData";
+import {
+  SAMPLE_MEMBERS_CATALOG_ID,
+} from "./sample/ids";
+import { sampleMembersJson } from "./sample/members";
 import {
   SAMPLE_PROJECT_TITLE,
   sampleCategories,
@@ -51,6 +58,7 @@ function App() {
   const [timelineWidth, setTimelineWidth] = useState(520);
   const [timelineSlotHeight, setTimelineSlotHeight] = useState(440);
   const [uiScale, setUiScale] = useState(readUiScale);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -88,11 +96,25 @@ function App() {
     return () => observer.disconnect();
   }, []);
 
+  const memberCatalogState = useMemberCatalog();
+
+  useEffect(() => {
+    void (async () => {
+      await seedSampleMemberCatalogOnce(
+        SAMPLE_MEMBERS_CATALOG_ID,
+        sampleMembersJson(),
+      );
+      await memberCatalogState.refresh();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回のみサンプルカタログを用意
+  }, []);
+
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
     sampleMilestones,
     rowHeight,
+    memberCatalogState.members,
   );
   const range = useMemo(
     () =>
@@ -285,8 +307,9 @@ function App() {
       <Toolbar
         title={schedule.title}
         fileStatusLabel={scheduleFile.statusLabel}
+        membersCatalogLabel={memberCatalogState.selectedCatalogLabel}
         filters={schedule.filters}
-        assignees={schedule.assignees}
+        assigneeFilterOptions={schedule.assigneeFilterOptions}
         zoomLabel={tierLabel}
         lineageName={schedule.lineageTask?.name ?? null}
         canStartLineage={schedule.selectedTaskId != null}
@@ -299,6 +322,7 @@ function App() {
         onOpen={scheduleFile.requestOpen}
         onSave={() => void scheduleFile.save(false)}
         onSaveAs={() => void scheduleFile.save(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
         onExportHtml={() => {
           void exportScheduleHtml({
             title: schedule.title,
@@ -322,6 +346,7 @@ function App() {
             milestoneFontSize,
             labelScale: uiScale,
             today: schedule.today,
+            memberCatalog: memberCatalogState.memberMap,
           }).catch((error: unknown) => {
             setExportError(
               error instanceof Error
@@ -354,6 +379,7 @@ function App() {
           milestones={schedule.milestones}
           onToggleCollapse={schedule.toggleCollapsed}
           today={schedule.today}
+          memberCatalog={memberCatalogState.memberMap}
         />
         <div ref={timelineAreaRef} className="timeline-slot">
           <Timeline
@@ -391,6 +417,7 @@ function App() {
             onMoveMilestone={schedule.moveMilestoneByDays}
             onOpenMilestone={schedule.openMilestoneEdit}
             today={schedule.today}
+            memberCatalog={memberCatalogState.memberMap}
           />
         </div>
       </div>
@@ -398,7 +425,8 @@ function App() {
         <TaskEditDialog
           key={schedule.editingTask.id}
           task={schedule.editingTask}
-          assignees={schedule.assignees}
+          members={memberCatalogState.members ?? []}
+          memberCatalog={memberCatalogState.memberMap}
           tasks={taskRefs}
           milestones={schedule.milestones}
           successorIds={editingSuccessors}
@@ -465,6 +493,17 @@ function App() {
             }
             setDeleteOpen(false);
           }}
+        />
+      ) : null}
+      {settingsOpen ? (
+        <SettingsDialog
+          open={settingsOpen}
+          settings={memberCatalogState.settings}
+          selectedCatalogLabel={memberCatalogState.selectedCatalogLabel}
+          onClose={() => setSettingsOpen(false)}
+          onImport={memberCatalogState.importCatalog}
+          onSelectCatalog={memberCatalogState.selectCatalog}
+          onDeleteCatalog={memberCatalogState.removeCatalog}
         />
       ) : null}
       <JsonDialog
