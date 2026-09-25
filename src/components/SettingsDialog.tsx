@@ -8,29 +8,39 @@ import {
   formatMembersValidationErrors,
   validateMembers,
 } from "../model/validateMembers";
+import {
+  DISPLAY_SCALE_OPTIONS,
+  parseDisplayScalePreference,
+  writeDisplayScalePreference,
+  type DisplayScalePreference,
+} from "../model/uiScale";
 
 type SettingsDialogProps = {
   open: boolean;
   settings: AppMembersSettings;
   selectedCatalogLabel: string | null;
+  displayScalePreference: DisplayScalePreference;
+  onDisplayScaleChange: (preference: DisplayScalePreference) => void;
   onClose: () => void;
   onImport: (catalogId: string, contents: string, overwrite: boolean) => Promise<void>;
   onSelectCatalog: (catalogId: string | null) => Promise<void>;
   onDeleteCatalog: (catalogId: string) => Promise<void>;
 };
 
-type SettingsSection = "members";
+type SettingsSection = "display" | "members";
 
 export function SettingsDialog({
   open,
   settings,
   selectedCatalogLabel,
+  displayScalePreference,
+  onDisplayScaleChange,
   onClose,
   onImport,
   onSelectCatalog,
   onDeleteCatalog,
 }: SettingsDialogProps) {
-  const [section, setSection] = useState<SettingsSection>("members");
+  const [section, setSection] = useState<SettingsSection>("display");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [confirmOverwriteId, setConfirmOverwriteId] = useState<string | null>(
@@ -109,6 +119,13 @@ export function SettingsDialog({
           <nav className="settings-nav" aria-label="設定セクション">
             <button
               type="button"
+              className={section === "display" ? "active" : undefined}
+              onClick={() => setSection("display")}
+            >
+              表示
+            </button>
+            <button
+              type="button"
               className={section === "members" ? "active" : undefined}
               onClick={() => setSection("members")}
             >
@@ -116,6 +133,36 @@ export function SettingsDialog({
             </button>
           </nav>
           <div className="settings-panel">
+            {section === "display" ? (
+              <>
+                <p className="settings-note">
+                  文字・行・ボタンの大きさ。期間のズーム（日表示・週表示・月表示）とは別です。
+                </p>
+                <label className="settings-field">
+                  <span>表示サイズ</span>
+                  <select
+                    value={String(displayScalePreference)}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const preference = parseDisplayScalePreference(
+                        e.target.value,
+                      );
+                      writeDisplayScalePreference(preference);
+                      onDisplayScaleChange(preference);
+                    }}
+                  >
+                    {DISPLAY_SCALE_OPTIONS.map((option) => (
+                      <option
+                        key={String(option.value)}
+                        value={String(option.value)}
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            ) : null}
             {section === "members" ? (
               <>
                 <p className="settings-note">
