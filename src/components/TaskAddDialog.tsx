@@ -100,7 +100,7 @@ export function TaskAddDialog({
           />
         </div>
         <div className="field">
-          <label htmlFor="addTaskEnd">終了日</label>
+          <label htmlFor="addTaskEnd">終了日（この日を含む）</label>
           <input
             id="addTaskEnd"
             type="date"

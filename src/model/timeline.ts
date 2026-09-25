@@ -1,14 +1,30 @@
-import { addDays, daysBetween, parseDate } from "./dates";
+import { addDays, daysBetween, parseDate, todayIso } from "./dates";
 import { forEachTask } from "./tasks";
 import type { Category, Milestone } from "./types";
 
-export const HEADER_HEIGHT = 40;
-export const BODY_VIEWPORT_HEIGHT = 400;
-export const BAR_HEIGHT = 20;
+export {
+  LAYOUT_BAR_HEIGHT,
+  LAYOUT_HEADER_HEIGHT,
+  LAYOUT_ROW_HEIGHT,
+} from "./layoutSizes";
 export const MIN_PX_PER_DAY = 3;
 export const MAX_PX_PER_DAY = 90;
 export const DEFAULT_PX_PER_DAY = 22;
-export const TODAY_ISO = "2026-09-24";
+
+/** 終了日（含む）の翌日の左端までバーを伸ばす。 */
+export function taskBarExclusiveEnd(task: { end: string }): Date {
+  return addDays(parseDate(task.end), 1);
+}
+
+export function taskBarWidthPx(
+  task: { start: string; end: string },
+  dateToX: (d: Date) => number,
+  pxPerDay: number,
+): number {
+  const startX = dateToX(parseDate(task.start));
+  const endX = dateToX(taskBarExclusiveEnd(task));
+  return Math.max(pxPerDay, endX - startX);
+}
 
 export function gridTier(pxPerDay: number): "day" | "week" | "month" {
   if (pxPerDay >= 40) return "day";
@@ -25,6 +41,7 @@ export function tierLabel(tier: ReturnType<typeof gridTier>): string {
 export function computeTimelineRange(
   categories: Category[],
   milestones: Milestone[] = [],
+  today = todayIso(),
 ): {
   timelineStart: Date;
   timelineEnd: Date;
@@ -44,9 +61,9 @@ export function computeTimelineRange(
     consider(parseDate(milestone.date));
   }
   if (!minDate || !maxDate) {
-    const today = parseDate(TODAY_ISO);
-    minDate = today;
-    maxDate = today;
+    const todayDate = parseDate(today);
+    minDate = todayDate;
+    maxDate = todayDate;
   }
   const timelineStart = addDays(minDate, -6);
   const timelineEnd = addDays(maxDate, 7);
@@ -74,7 +91,7 @@ export function statusColors(status: string): {
  */
 export function lightningDate(
   task: { status: string; start: string; end: string },
-  today = TODAY_ISO,
+  today: string,
 ): string {
   if (isOverdue(task, today)) return task.end;
   if (task.status !== "not-started" && task.start > today) return task.start;
@@ -84,17 +101,20 @@ export function lightningDate(
 /** 完了以外で、終了日が今日より前のタスク。終了日が今日のタスクは期限当日なので超過にしない。 */
 export function isOverdue(
   task: { status: string; end: string },
-  today = TODAY_ISO,
+  today: string,
 ): boolean {
   return task.status !== "done" && task.end < today;
 }
 
-export function barColors(task: { status: string; end: string }): {
+export function barColors(
+  task: { status: string; end: string },
+  today: string,
+): {
   bg: string;
   fill: string | null;
   border: string;
 } {
-  if (!isOverdue(task)) return statusColors(task.status);
+  if (!isOverdue(task, today)) return statusColors(task.status);
   if (task.status === "in-progress") {
     return { bg: "#F8D0C8", fill: "#E2542A", border: "#C4351A" };
   }

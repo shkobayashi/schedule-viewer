@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Milestone } from "../model/types";
 
 type MilestoneEditDialogProps = {
-  milestone: Milestone | null;
+  milestone: Milestone;
   onClose: () => void;
   onSave: (patch: { name: string; date: string }) => boolean;
 };
@@ -12,16 +12,9 @@ export function MilestoneEditDialog({
   onClose,
   onSave,
 }: MilestoneEditDialogProps) {
-  const [name, setName] = useState("");
-  const [date, setDate] = useState("");
-
-  useEffect(() => {
-    if (!milestone) return;
-    setName(milestone.name);
-    setDate(milestone.date);
-  }, [milestone]);
-
-  if (!milestone) return null;
+  const [name, setName] = useState(milestone.name);
+  const [date, setDate] = useState(milestone.date);
+  const [formError, setFormError] = useState<string | null>(null);
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true">
@@ -45,6 +38,7 @@ export function MilestoneEditDialog({
             onChange={(e) => setDate(e.target.value)}
           />
         </div>
+        {formError ? <p className="form-error">{formError}</p> : null}
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>
             キャンセル
@@ -53,7 +47,14 @@ export function MilestoneEditDialog({
             type="button"
             className="btn primary"
             onClick={() => {
-              if (onSave({ name, date })) onClose();
+              if (!date) {
+                setFormError("日付を入力してください");
+                return;
+              }
+              setFormError(null);
+              if (!onSave({ name, date })) {
+                setFormError("保存できませんでした。入力内容を確認してください。");
+              }
             }}
           >
             保存
