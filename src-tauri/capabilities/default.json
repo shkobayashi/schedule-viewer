@@ -20,6 +20,10 @@
     "allow-get-calendar-state",
     "allow-read-app-calendar",
     "allow-import-app-calendar",
-    "allow-delete-app-calendar"
+    "allow-delete-app-calendar",
+    "allow-read-schedule-recovery",
+    "allow-write-schedule-recovery",
+    "allow-delete-schedule-recovery",
+    "allow-read-schedule-file-at-path"
   ]
 }

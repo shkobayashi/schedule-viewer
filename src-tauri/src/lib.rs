@@ -18,6 +18,8 @@ const MAX_CALENDAR_BYTES: u64 = 2 * 1024 * 1024;
 
 const DISK_HASH_MISMATCH: &str = "DISK_HASH_MISMATCH";
 
+const SCHEDULE_FILE_NOT_FOUND: &str = "SCHEDULE_FILE_NOT_FOUND";
+
 #[derive(Serialize)]
 struct OpenScheduleResult {
     path: String,
@@ -469,6 +471,69 @@ fn calendar_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir(app)?.join("calendar.json"))
 }
 
+fn schedule_recovery_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join("schedule-recovery.json"))
+}
+
+#[tauri::command]
+fn read_schedule_recovery(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = schedule_recovery_path(&app)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let meta = fs::metadata(&path).map_err(|e| format!("ファイルを読めません: {}", e))?;
+    if meta.len() > MAX_SCHEDULE_BYTES {
+        return Err("復旧用の控えが大きすぎます（上限 10 MB）".to_string());
+    }
+    Ok(Some(read_utf8(&path)?))
+}
+
+#[tauri::command]
+fn write_schedule_recovery(app: tauri::AppHandle, contents: String) -> Result<(), String> {
+    if contents.len() as u64 > MAX_SCHEDULE_BYTES {
+        return Err("復旧用の控えが大きすぎます（上限 10 MB）".to_string());
+    }
+    write_utf8_atomic(&schedule_recovery_path(&app)?, &contents)
+}
+
+#[tauri::command]
+fn delete_schedule_recovery(app: tauri::AppHandle) -> Result<(), String> {
+    let path = schedule_recovery_path(&app)?;
+    if path.exists() {
+        fs::remove_file(&path)
+            .map_err(|e| format!("復旧用の控えを削除できません: {}", e))?;
+    }
+    Ok(())
+}
+
+fn recovery_targets_path(recovery_text: &str, requested: &str) -> Result<(), String> {
+    let value: serde_json::Value = serde_json::from_str(recovery_text)
+        .map_err(|_| "復旧用の控えの形式が正しくありません。".to_string())?;
+    let expected = value
+        .get("path")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| "復旧用の控えの形式が正しくありません。".to_string())?;
+    if Path::new(expected) != Path::new(requested) {
+        return Err("復旧用の控えと違うファイルは読めません。".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn read_schedule_file_at_path(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    let recovery_path = schedule_recovery_path(&app)?;
+    if !recovery_path.is_file() {
+        return Err("復旧用の控えがありません。".to_string());
+    }
+    let recovery_text = read_utf8(&recovery_path)?;
+    recovery_targets_path(&recovery_text, &path)?;
+    let path_buf = PathBuf::from(&path);
+    if !path_buf.is_file() {
+        return Err(SCHEDULE_FILE_NOT_FOUND.to_string());
+    }
+    read_utf8(&path_buf)
+}
+
 #[derive(Serialize)]
 struct CalendarStateResult {
     label: Option<String>,
@@ -547,6 +612,10 @@ pub fn run() {
             read_app_calendar,
             import_app_calendar,
             delete_app_calendar,
+            read_schedule_recovery,
+            write_schedule_recovery,
+            delete_schedule_recovery,
+            read_schedule_file_at_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -556,7 +625,7 @@ pub fn run() {
 mod tests {
     use std::path::PathBuf;
 
-    use super::{require_active_save_path, sanitize_export_filename};
+    use super::{recovery_targets_path, require_active_save_path, sanitize_export_filename};
 
     #[test]
     fn sanitize_export_filename_removes_path_separators() {
@@ -590,5 +659,13 @@ mod tests {
         assert!(require_active_save_path(Some(&active), Some("/tmp/b.json")).is_err());
         assert!(require_active_save_path(None, Some("/tmp/a.json")).is_err());
         assert!(require_active_save_path(Some(&active), None).is_err());
+    }
+
+    #[test]
+    fn recovery_targets_path_accepts_only_the_draft_path() {
+        let recovery = r#"{"path":"/tmp/plan.json","baselineJson":"{}","documentJson":"{}"}"#;
+        assert!(recovery_targets_path(recovery, "/tmp/plan.json").is_ok());
+        assert!(recovery_targets_path(recovery, "/tmp/other.json").is_err());
+        assert!(recovery_targets_path("{", "/tmp/plan.json").is_err());
     }
 }
