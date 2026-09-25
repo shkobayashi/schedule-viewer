@@ -35,11 +35,16 @@ export function findTaskPlace(
   categories: Category[],
   taskId: ScheduleId,
 ): { category: string; group: string } | null {
-  let place: { category: string; group: string } | null = null;
-  forEachTask(categories, (task, at) => {
-    if (task.id === taskId) place = at;
-  });
-  return place;
+  for (const category of categories) {
+    for (const group of category.groups) {
+      for (const task of group.tasks) {
+        if (task.id === taskId) {
+          return { category: category.name, group: group.name };
+        }
+      }
+    }
+  }
+  return null;
 }
 
 export function validateNewTask(

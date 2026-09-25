@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { TaskRef } from "../model/dependencies";
 import { validateTaskEdit } from "../model/tasks";
 import {
@@ -11,7 +11,7 @@ import {
 } from "../model/types";
 
 type TaskEditDialogProps = {
-  task: Task | null;
+  task: Task;
   assignees: string[];
   tasks: TaskRef[];
   milestones: Milestone[];
@@ -46,36 +46,27 @@ export function TaskEditDialog({
   onClose,
   onSave,
 }: TaskEditDialogProps) {
-  const [name, setName] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [assignee, setAssignee] = useState("");
-  const [status, setStatus] = useState<TaskStatus>("not-started");
-  const [progress, setProgress] = useState(0);
-  const [predecessors, setPredecessors] = useState<ScheduleId[]>([]);
-  const [successors, setSuccessors] = useState<ScheduleId[]>([]);
-  const [milestoneId, setMilestoneId] = useState<ScheduleId | null>(null);
+  const [name, setName] = useState(task.name);
+  const [start, setStart] = useState(task.start);
+  const [end, setEnd] = useState(task.end);
+  const [assignee, setAssignee] = useState(
+    isUnassigned(task.assignee) ? "" : task.assignee,
+  );
+  const [status, setStatus] = useState<TaskStatus>(task.status);
+  const [progress, setProgress] = useState(task.progress);
+  const [predecessors, setPredecessors] = useState<ScheduleId[]>(
+    task.predecessors,
+  );
+  const [successors, setSuccessors] = useState<ScheduleId[]>(successorIds);
+  const [milestoneId, setMilestoneId] = useState<ScheduleId | null>(
+    task.milestoneId,
+  );
   const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!task) return;
-    setName(task.name);
-    setStart(task.start);
-    setEnd(task.end);
-    setAssignee(isUnassigned(task.assignee) ? "" : task.assignee);
-    setStatus(task.status);
-    setProgress(task.progress);
-    setPredecessors(task.predecessors);
-    setSuccessors(successorIds);
-    setMilestoneId(task.milestoneId);
-  }, [successorIds, task]);
-
   const candidates = useMemo(
-    () => tasks.filter((item) => item.id !== task?.id),
-    [task?.id, tasks],
+    () => tasks.filter((item) => item.id !== task.id),
+    [task.id, tasks],
   );
-
-  if (!task) return null;
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true">
@@ -246,6 +237,8 @@ export function TaskEditDialog({
   );
 }
 
+const RELATION_CANDIDATE_LIMIT = 50;
+
 function matchesQuery(item: TaskRef, query: string): boolean {
   const q = query.trim();
   if (!q) return true;
@@ -280,10 +273,8 @@ function RelationField({
     () => candidates.filter((item) => matchesQuery(item, query)),
     [candidates, query],
   );
-
-  useEffect(() => {
-    setActive(0);
-  }, [query]);
+  const shown = filtered.slice(0, RELATION_CANDIDATE_LIMIT);
+  const truncated = filtered.length > RELATION_CANDIDATE_LIMIT;
 
   const add = (id: ScheduleId) => {
     onAdd(id);
@@ -320,6 +311,7 @@ function RelationField({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setActive(0);
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
@@ -329,14 +321,14 @@ function RelationField({
               e.preventDefault();
               setOpen(true);
               setActive((prev) =>
-                Math.min(prev + 1, Math.max(filtered.length - 1, 0)),
+                Math.min(prev + 1, Math.max(shown.length - 1, 0)),
               );
             } else if (e.key === "ArrowUp") {
               e.preventDefault();
               setActive((prev) => Math.max(prev - 1, 0));
             } else if (e.key === "Enter") {
               e.preventDefault();
-              const item = filtered[active];
+              const item = shown[active];
               if (item) add(item.id);
             } else if (e.key === "Escape") {
               setOpen(false);
@@ -345,8 +337,8 @@ function RelationField({
         />
         {open ? (
           <ul id={listId} className="relation-options" role="listbox">
-            {filtered.length > 0 ? (
-              filtered.map((item, index) => (
+            {shown.length > 0 ? (
+              shown.map((item, index) => (
                 <li key={item.id}>
                   <button
                     type="button"
@@ -364,6 +356,9 @@ function RelationField({
             ) : (
               <li className="relation-none">一致するタスクがありません</li>
             )}
+            {truncated ? (
+              <li className="relation-none">さらに絞り込んでください</li>
+            ) : null}
           </ul>
         ) : null}
       </div>

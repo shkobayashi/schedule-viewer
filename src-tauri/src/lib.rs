@@ -63,17 +63,31 @@ fn sanitize_export_filename(name: &str, default_ext: &str) -> String {
     let mut out = String::new();
     for ch in trimmed.chars() {
         if matches!(ch, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') {
-            out.push('_');
-        } else {
-            out.push(ch);
+            continue;
         }
+        if ch.is_control() {
+            continue;
+        }
+        out.push(ch);
     }
-    let base = out.trim();
+    let base = out.trim_matches(|c: char| c.is_whitespace() || c == '.');
     if base.is_empty() {
         return format!("schedule.{}", default_ext);
     }
+    let stem = base
+        .rsplit_once('.')
+        .map(|(left, _)| left)
+        .unwrap_or(base);
+    let reserved = [
+        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
+        "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    ];
+    if reserved.contains(&stem.to_ascii_uppercase().as_str()) {
+        return format!("schedule.{}", default_ext);
+    }
     let suffix = format!(".{}", default_ext);
-    if base.ends_with(&suffix) {
+    let lower = base.to_ascii_lowercase();
+    if lower.ends_with(&suffix) {
         base.to_string()
     } else {
         format!("{}{}", base, suffix)

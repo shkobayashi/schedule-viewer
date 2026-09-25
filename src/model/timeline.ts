@@ -2,9 +2,11 @@ import { addDays, daysBetween, parseDate, todayIso } from "./dates";
 import { forEachTask } from "./tasks";
 import type { Category, Milestone } from "./types";
 
-export const HEADER_HEIGHT = 40;
-export const BODY_VIEWPORT_HEIGHT = 400;
-export const BAR_HEIGHT = 20;
+export {
+  LAYOUT_BAR_HEIGHT,
+  LAYOUT_HEADER_HEIGHT,
+  LAYOUT_ROW_HEIGHT,
+} from "./layoutSizes";
 export const MIN_PX_PER_DAY = 3;
 export const MAX_PX_PER_DAY = 90;
 export const DEFAULT_PX_PER_DAY = 22;

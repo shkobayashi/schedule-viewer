@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { milestonesExceededBy } from "../model/milestones";
 import {
   categoryCollapseKey,
@@ -9,14 +9,16 @@ import {
   isUnassigned,
   UNASSIGNED_LABEL,
   type Milestone,
+  type ScheduleId,
   type VisibleRow,
 } from "../model/types";
 
 type SidebarProps = {
   rows: VisibleRow[];
   scrollY: number;
+  viewportHeight: number;
   rowHeight: number;
-  selectedTaskId: import("../model/types").ScheduleId | null;
+  selectedTaskId: ScheduleId | null;
   milestoneBandHeight: number;
   milestones: Milestone[];
   onToggleCollapse: (key: string) => void;
@@ -26,6 +28,7 @@ type SidebarProps = {
 export function Sidebar({
   rows,
   scrollY,
+  viewportHeight,
   rowHeight,
   selectedTaskId,
   milestoneBandHeight,
@@ -33,6 +36,26 @@ export function Sidebar({
   onToggleCollapse,
   today,
 }: SidebarProps) {
+  const visibleRows = useMemo(() => {
+    const margin = rowHeight;
+    const minY = scrollY - margin;
+    const maxY = scrollY + viewportHeight + margin;
+    return rows.filter((row) => row.y + rowHeight >= minY && row.y <= maxY);
+  }, [rows, rowHeight, scrollY, viewportHeight]);
+
+  const contentHeight = useMemo(
+    () => rows.reduce((max, row) => Math.max(max, row.y + rowHeight), 0),
+    [rowHeight, rows],
+  );
+
+  const rowStyle = (y: number): CSSProperties => ({
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: y,
+    height: rowHeight,
+  });
+
   return (
     <div className="sidebar">
       <div className="sidebar-header">WBS / タスク</div>
@@ -47,15 +70,15 @@ export function Sidebar({
       <div className="sidebar-viewport">
         <div
           className="sidebar-rows"
-          style={{ transform: `translateY(${-scrollY}px)` }}
+          style={{ height: contentHeight, transform: `translateY(${-scrollY}px)` }}
         >
-          {rows.map((row) => {
+          {visibleRows.map((row) => {
             if (row.type === "category") {
               return (
                 <div
-                  key={`cat-${row.label}-${row.y}`}
+                  key={`cat-${row.label}`}
                   className="sidebar-row category"
-                  style={{ height: rowHeight }}
+                  style={rowStyle(row.y)}
                 >
                   <CollapseButton
                     label={row.label}
@@ -69,9 +92,9 @@ export function Sidebar({
             if (row.type === "group") {
               return (
                 <div
-                  key={`group-${row.category}-${row.label}-${row.y}`}
+                  key={`group-${row.category}-${row.label}`}
                   className="sidebar-row group"
-                  style={{ height: rowHeight }}
+                  style={rowStyle(row.y)}
                 >
                   <CollapseButton
                     label={row.label}
@@ -95,7 +118,7 @@ export function Sidebar({
               <div
                 key={`task-${row.task.id}`}
                 className={`sidebar-row task${selected ? " selected" : ""}${unassigned ? " unassigned" : ""}`}
-                style={{ height: rowHeight }}
+                style={rowStyle(row.y)}
                 title={exceededTitle}
               >
                 <SlideLabel
@@ -179,18 +202,19 @@ function SlideLabel({
         setOffset(Math.min(0, Math.max(-overflow, next)));
       }}
       onPointerUp={(event) => {
-        if (dragRef.current?.pointerId !== event.pointerId) return;
+        const drag = dragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
         dragRef.current = null;
         setDragging(false);
+        event.currentTarget.releasePointerCapture(event.pointerId);
       }}
-      onPointerCancel={() => {
+      onPointerCancel={(event) => {
         dragRef.current = null;
         setDragging(false);
+        event.currentTarget.releasePointerCapture(event.pointerId);
       }}
     >
-      <span ref={textRef} className="slide-label-text">
-        {text}
-      </span>
+      <span ref={textRef} className="slide-label-text">{text}</span>
     </span>
   );
 }
@@ -209,7 +233,7 @@ function CollapseButton({
       type="button"
       className="twist"
       aria-expanded={!collapsed}
-      aria-label={collapsed ? `${label}を展開` : `${label}を折りたたむ`}
+      aria-label={collapsed ? `${label} を展開` : `${label} を折りたたむ`}
       onClick={onClick}
     >
       {collapsed ? "▶" : "▼"}
