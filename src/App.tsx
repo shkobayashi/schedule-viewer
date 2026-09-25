@@ -4,6 +4,8 @@ import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
 import { DiscardChangesDialog } from "./components/DiscardChangesDialog";
 import { ExternalChangeDialog } from "./components/ExternalChangeDialog";
 import { ExternalReloadDialog } from "./components/ExternalReloadDialog";
+import { RecoveryConflictDialog } from "./components/RecoveryConflictDialog";
+import { RecoveryInvalidDialog } from "./components/RecoveryInvalidDialog";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
@@ -588,10 +590,26 @@ function App() {
       {scheduleFile.closePromptOpen ? (
         <DiscardChangesDialog
           title="未保存の変更があります"
-          message="保存していない変更は失われます。ウィンドウを閉じますか？"
+          message="サンプルの変更は保存されていません。閉じると失われます。ウィンドウを閉じますか？"
           confirmLabel="閉じる"
           onConfirm={scheduleFile.confirmDiscardAndClose}
           onCancel={scheduleFile.cancelClose}
+        />
+      ) : null}
+      {scheduleFile.recoveryConflictOpen &&
+      scheduleFile.recoveryConflictLabel ? (
+        <RecoveryConflictDialog
+          fileLabel={scheduleFile.recoveryConflictLabel}
+          onOpenDisk={scheduleFile.confirmRecoveryOpenDisk}
+          onRestoreEdits={scheduleFile.confirmRecoveryRestoreEdits}
+        />
+      ) : null}
+      {scheduleFile.recoveryInvalidOpen &&
+      scheduleFile.recoveryInvalidMessage ? (
+        <RecoveryInvalidDialog
+          message={scheduleFile.recoveryInvalidMessage}
+          onClose={scheduleFile.dismissRecoveryInvalid}
+          onDiscard={scheduleFile.discardRecoveryDraft}
         />
       ) : null}
       {scheduleFile.externalChangeOpen ? (
