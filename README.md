@@ -189,6 +189,33 @@ npm run tauri dev
 
 DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1.98.1 を使う。VS Code / Cursor で「Reopen in Container」を選ぶ。コンテナ内でも `npm run tauri build` で Linux 向けパッケージは作れる。ウィンドウを開いての動作確認は、ディスプレイがあるホスト OS 側で行う。
 
+## リリースとバージョン
+
+ブランチ運用は `develop`（開発）と `main`（リリース）の二本立てである。`feature-*` などは `develop` から切り、マージ先も `develop` である。
+
+| トリガー | ワークフロー | 内容 |
+| --- | --- | --- |
+| `develop` への push / `develop` 向け PR | CI | フロントビルド、lint、テスト、スキーマ検証、Clippy |
+| `main` への push | Release | Ubuntu (deb) と Windows (NSIS) をビルドし GitHub Release へ公開 |
+
+### ダウンロード
+
+メンバー向けの配布物は [GitHub Releases](https://github.com/CollabCentralOrganization/schedule-viewer/releases) から取得する。
+
+- **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`
+- **Windows (x64)**: `schedule-viewer_X.Y.Z_x64-setup.exe` を実行
+
+macOS 用の自動ビルドはまだない。必要なときは下の「配布用ビルド」でローカルビルドする。
+
+### `main` に載せる前のバージョン上げ
+
+`develop` を `main` にマージする直前に、リポジトリ直下でバージョンを1回だけ上げる。
+
+- 前回リリース以降に feature が入っている: `npm run version:bump -- minor`
+- fix だけのとき: `npm run version:bump -- patch`
+
+`npm run version:check` で `package.json` / `package-lock.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` / `src-tauri/Cargo.lock` の番号が揃っていることを確認してから、そのコミットを `develop` に入れて `main` にマージする。`main` へ push されると `vX.Y.Z` タグ付きの Release が作られる。同じバージョンのタグが既にある場合は、先にバージョンを上げてから再度マージする。
+
 ## 配布用ビルド
 
 パッケージは、動かしたい OS の上で作る。Mac 用は Mac、Windows 用は Windows、Ubuntu 用は Ubuntu でビルドする。できたファイルの CPU は、ビルドしたマシンと同じになる。一般的な PC は x86_64、Apple Silicon の Mac は arm64 である。
@@ -200,7 +227,7 @@ npm install
 npm run tauri build
 ```
 
-成果物は `src-tauri/target/release/bundle/` に出る。ファイル名の `0.1.0` は `package.json` と `src-tauri/tauri.conf.json` のバージョンで、上げると名前も変わる。初回は依存のコンパイルで時間がかかる。
+成果物は `src-tauri/target/release/bundle/` に出る。ファイル名に入るバージョンは [`npm run version:check`](#main-に載せる前のバージョン上げ) で揃えている番号である。初回は依存のコンパイルで時間がかかる。
 
 ### Ubuntu
 
@@ -209,17 +236,17 @@ Ubuntu 22.04 以降。システムパッケージは [Ubuntu の開発環境](#u
 `npm run tauri build` のあと、deb を入れて起動する。x86_64 の例:
 
 ```bash
-sudo apt install ./src-tauri/target/release/bundle/deb/schedule-viewer_0.1.0_amd64.deb
+sudo apt install ./src-tauri/target/release/bundle/deb/schedule-viewer_0.2.0_amd64.deb
 schedule-viewer
 ```
 
-arm64 でビルドしたときは `schedule-viewer_0.1.0_arm64.deb` になる。DevContainer を Apple Silicon 上の Linux で使っている場合は arm64 向けになる。配布先の Ubuntu が x86_64 なら、そのマシンでビルドする。
+arm64 でビルドしたときは `schedule-viewer_0.2.0_arm64.deb` になる。DevContainer を Apple Silicon 上の Linux で使っている場合は arm64 向けになる。配布先の Ubuntu が x86_64 なら、そのマシンでビルドする。
 
 インストールせずに起動する AppImage もできる。x86_64 では `x86_64`、arm64 では `aarch64` がファイル名に入る。
 
 ```bash
-chmod +x src-tauri/target/release/bundle/appimage/schedule-viewer_0.1.0_x86_64.AppImage
-./src-tauri/target/release/bundle/appimage/schedule-viewer_0.1.0_x86_64.AppImage
+chmod +x src-tauri/target/release/bundle/appimage/schedule-viewer_0.2.0_x86_64.AppImage
+./src-tauri/target/release/bundle/appimage/schedule-viewer_0.2.0_x86_64.AppImage
 ```
 
 同じビルドで RPM も `bundle/rpm/` にできる。Ubuntu では deb を使う。
@@ -236,8 +263,8 @@ open src-tauri/target/release/bundle/macos/schedule-viewer.app
 
 ほかの Mac に渡すときは、ディスクイメージを開いて Applications に入れる。
 
-- Apple Silicon: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.1.0_aarch64.dmg`
-- Intel: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.1.0_x64.dmg`
+- Apple Silicon: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.2.0_aarch64.dmg`
+- Intel: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.2.0_x64.dmg`
 
 別の Mac へ渡すには、Apple の署名と公証が必要になる。ビルドした Mac 上の `.app` はそのまま開ける。
 
@@ -247,8 +274,8 @@ Windows 10（バージョン 1803 以降）または Windows 11。C++ Build Tool
 
 `npm run tauri build` のあと、できたインストーラを実行し、スタートメニューの schedule-viewer から起動する。x86_64 の例:
 
-- `src-tauri\target\release\bundle\nsis\schedule-viewer_0.1.0_x64-setup.exe`
-- `src-tauri\target\release\bundle\msi\schedule-viewer_0.1.0_x64_en-US.msi`
+- `src-tauri\target\release\bundle\nsis\schedule-viewer_0.2.0_x64-setup.exe`
+- `src-tauri\target\release\bundle\msi\schedule-viewer_0.2.0_x64_en-US.msi`
 
 ARM の Windows では `x64` の部分が `arm64` になる。インストーラを使わず、ビルドした PC でそのまま試す場合:
 

@@ -1,7 +1,7 @@
 {
   "name": "schedule-viewer",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "engines": {
     "node": ">=24 <25"
@@ -14,7 +14,9 @@
     "check:schedule": "tsx scripts/check-schedule.ts",
     "test": "vitest run",
     "lint": "eslint .",
-    "build:validate-skill": "node scripts/build-validate-skill.mjs"
+    "build:validate-skill": "node scripts/build-validate-skill.mjs",
+    "version:check": "node scripts/check-version-sync.mjs",
+    "version:bump": "node scripts/bump-version.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
