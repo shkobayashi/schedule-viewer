@@ -3,6 +3,7 @@ import type Konva from "konva";
 import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
 import { DiscardChangesDialog } from "./components/DiscardChangesDialog";
 import { ExternalChangeDialog } from "./components/ExternalChangeDialog";
+import { ExternalReloadDialog } from "./components/ExternalReloadDialog";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
@@ -237,6 +238,7 @@ function App() {
     categories: schedule.categories,
     milestones: schedule.milestones,
     replaceDocument: schedule.replaceDocument,
+    reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
     onAfterOpen: onAfterOpenFile,
     initialBaselineJson: INITIAL_BASELINE_JSON,
   });
@@ -338,6 +340,8 @@ function App() {
       <Toolbar
         title={schedule.title}
         fileStatusLabel={scheduleFile.statusLabel}
+        showDeferredReload={scheduleFile.showDeferredReload}
+        onDeferredReload={scheduleFile.requestDeferredReload}
         membersCatalogLabel={memberCatalogState.selectedCatalogLabel}
         filters={schedule.filters}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
@@ -454,7 +458,7 @@ function App() {
       </div>
       {schedule.editingTask ? (
         <TaskEditDialog
-          key={schedule.editingTask.id}
+          key={`${schedule.editingTask.id}:${schedule.diskEpoch}`}
           task={schedule.editingTask}
           members={memberCatalogState.members ?? []}
           memberCatalog={memberCatalogState.memberMap}
@@ -467,7 +471,7 @@ function App() {
       ) : null}
       {schedule.editingMilestone ? (
         <MilestoneEditDialog
-          key={schedule.editingMilestone.id}
+          key={`${schedule.editingMilestone.id}:${schedule.diskEpoch}`}
           milestone={schedule.editingMilestone}
           onClose={schedule.closeMilestoneEdit}
           onSave={schedule.saveMilestoneEdit}
@@ -564,6 +568,12 @@ function App() {
           onOverwrite={scheduleFile.confirmExternalOverwrite}
           onSaveAs={scheduleFile.confirmExternalSaveAs}
           onCancel={scheduleFile.cancelExternalChange}
+        />
+      ) : null}
+      {scheduleFile.externalReloadOpen ? (
+        <ExternalReloadDialog
+          onReload={scheduleFile.confirmExternalReload}
+          onKeepLocal={scheduleFile.keepLocalEditsOnExternalReload}
         />
       ) : null}
       {scheduleFile.errorMessage ? (

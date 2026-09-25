@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "members": [
+    {
+      "id": "tanaka",
+      "name": "田中"
+    },
+    {
+      "id": "sato",
+      "name": "佐藤"
+    },
+    {
+      "id": "suzuki",
+      "name": "鈴木"
+    },
+    {
+      "id": "takahashi",
+      "name": "高橋"
+    }
+  ]
+}

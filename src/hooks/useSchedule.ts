@@ -93,6 +93,7 @@ export function useSchedule(
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [diskEpoch, setDiskEpoch] = useState(0);
   const today = useToday();
 
   const pruneUiForDocument = useCallback((snapshot: DocumentSnapshot) => {
@@ -517,6 +518,23 @@ export function useSchedule(
     [],
   );
 
+  const reloadDocumentFromDisk = useCallback(
+    (document: ScheduleDocument) => {
+      historyRef.current = createDocumentHistory();
+      const snapshot = initialSnapshot(
+        document.categories,
+        document.milestones,
+      );
+      documentRef.current = snapshot;
+      setTitle(document.title);
+      setCategories(snapshot.categories);
+      setMilestones(snapshot.milestones);
+      setDiskEpoch((epoch) => epoch + 1);
+      pruneUiForDocument(snapshot);
+    },
+    [pruneUiForDocument],
+  );
+
   const undo = useCallback(() => {
     const result = undoDocumentHistory(historyRef.current, documentRef.current);
     if (!result) return;
@@ -570,6 +588,8 @@ export function useSchedule(
     addTask,
     deleteTask,
     replaceDocument,
+    reloadDocumentFromDisk,
+    diskEpoch,
     undo,
     redo,
     today,
