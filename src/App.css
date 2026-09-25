@@ -158,6 +158,18 @@ body {
   margin-top: 0;
 }
 
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: calc(12px * var(--s));
+  margin: 12px 0;
+}
+
+.settings-field select {
+  max-width: 200px;
+}
+
 .settings-current {
   font-size: calc(12px * var(--s));
   margin: 8px 0;
