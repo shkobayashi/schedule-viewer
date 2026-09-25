@@ -175,6 +175,21 @@ rustc --version
 npm install
 ```
 
+`npm run tauri dev` で `Cannot find native binding` / `@tauri-apps/cli-darwin-arm64` と出る場合は、Linux の DevContainer など別 OS で作った `node_modules` を macOS で使っていることが多い。リポジトリ直下で `node_modules` を消してから、**macOS 上で** 入れ直す。
+
+```bash
+rm -rf node_modules
+npm install
+```
+
+それでも直らないときは、次を試す。
+
+```bash
+npm install @tauri-apps/cli-darwin-arm64@2.11.5
+```
+
+（Apple Silicon 以外の Mac では `cli-darwin-x64` に読み替える。）
+
 フロントのみ（ブラウザで Konva 確認）:
 
 ```bash
@@ -236,17 +251,17 @@ Ubuntu 22.04 以降。システムパッケージは [Ubuntu の開発環境](#u
 `npm run tauri build` のあと、deb を入れて起動する。x86_64 の例:
 
 ```bash
-sudo apt install ./src-tauri/target/release/bundle/deb/schedule-viewer_0.3.0_amd64.deb
+sudo apt install ./src-tauri/target/release/bundle/deb/schedule-viewer_0.3.1_amd64.deb
 schedule-viewer
 ```
 
-arm64 でビルドしたときは `schedule-viewer_0.3.0_arm64.deb` になる。DevContainer を Apple Silicon 上の Linux で使っている場合は arm64 向けになる。配布先の Ubuntu が x86_64 なら、そのマシンでビルドする。
+arm64 でビルドしたときは `schedule-viewer_0.3.1_arm64.deb` になる。DevContainer を Apple Silicon 上の Linux で使っている場合は arm64 向けになる。配布先の Ubuntu が x86_64 なら、そのマシンでビルドする。
 
 インストールせずに起動する AppImage もできる。x86_64 では `x86_64`、arm64 では `aarch64` がファイル名に入る。
 
 ```bash
-chmod +x src-tauri/target/release/bundle/appimage/schedule-viewer_0.3.0_x86_64.AppImage
-./src-tauri/target/release/bundle/appimage/schedule-viewer_0.3.0_x86_64.AppImage
+chmod +x src-tauri/target/release/bundle/appimage/schedule-viewer_0.3.1_x86_64.AppImage
+./src-tauri/target/release/bundle/appimage/schedule-viewer_0.3.1_x86_64.AppImage
 ```
 
 同じビルドで RPM も `bundle/rpm/` にできる。Ubuntu では deb を使う。
@@ -263,8 +278,8 @@ open src-tauri/target/release/bundle/macos/schedule-viewer.app
 
 ほかの Mac に渡すときは、ディスクイメージを開いて Applications に入れる。
 
-- Apple Silicon: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.3.0_aarch64.dmg`
-- Intel: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.3.0_x64.dmg`
+- Apple Silicon: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.3.1_aarch64.dmg`
+- Intel: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.3.1_x64.dmg`
 
 別の Mac へ渡すには、Apple の署名と公証が必要になる。ビルドした Mac 上の `.app` はそのまま開ける。
 
@@ -274,8 +289,8 @@ Windows 10（バージョン 1803 以降）または Windows 11。C++ Build Tool
 
 `npm run tauri build` のあと、できたインストーラを実行し、スタートメニューの schedule-viewer から起動する。x86_64 の例:
 
-- `src-tauri\target\release\bundle\nsis\schedule-viewer_0.3.0_x64-setup.exe`
-- `src-tauri\target\release\bundle\msi\schedule-viewer_0.3.0_x64_en-US.msi`
+- `src-tauri\target\release\bundle\nsis\schedule-viewer_0.3.1_x64-setup.exe`
+- `src-tauri\target\release\bundle\msi\schedule-viewer_0.3.1_x64_en-US.msi`
 
 ARM の Windows では `x64` の部分が `arm64` になる。インストーラを使わず、ビルドした PC でそのまま試す場合:
 
