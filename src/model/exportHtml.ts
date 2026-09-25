@@ -17,6 +17,7 @@ import {
   taskBarWidthPx,
 } from "./timeline";
 import { resolveAssigneeDisplay, assigneeSidebarLabel } from "./assigneeDisplay";
+import { hasTaskNote, normalizeTaskNote } from "./taskNote";
 import type { Member, MemberId } from "./memberTypes";
 import type { Milestone, ScheduleId, Task, VisibleRow } from "./types";
 import type { CalendarDocument } from "./calendarTypes";
@@ -134,7 +135,9 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
   .label.milestones { background: #f4f1ea; color: #111827; font-weight: 700; border-bottom-color: #e3e6eb; padding: 0 ${px(12, input.labelScale)}; font-size: ${px(11, input.labelScale)}; }
   .label.category { background: #f8f9fb; font-weight: 600; padding-left: ${px(6, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
   .label.group { background: #f3f5f8; font-weight: 600; color: #4b5568; padding-left: ${px(22, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
-  .label.task { padding-left: ${px(44, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
+  .label.task { padding-left: ${px(26, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
+  .note-icon { flex: 0 0 auto; display: inline-flex; margin-right: ${px(4, input.labelScale)}; line-height: 0; }
+  .note-icon svg { display: block; }
   .label.task.unassigned { box-shadow: inset 3px 0 0 #d4920a; }
   .twist { width: ${px(16, input.labelScale)}; margin-right: ${px(4, input.labelScale)}; color: #6b7280; font-size: ${px(9, input.labelScale)}; }
   .name.overdue { color: #c4351a; font-weight: 600; }
@@ -230,7 +233,19 @@ function renderLabelRow(row: VisibleRow, input: ScheduleExportInput): string {
     : unknownMember
       ? " unknown-member"
       : "";
-  return `<div class="label task${extraClass}" ${height}><span class="name${overdue ? " overdue" : ""}">${esc(row.task.name)}</span>${alert}<span class="assignee${extraClass}">${esc(assignee)}</span></div>`;
+  const noteIcon = renderExportNoteIcon(row.task, input.labelScale);
+  return `<div class="label task${extraClass}" ${height}>${noteIcon}<span class="name${overdue ? " overdue" : ""}">${esc(row.task.name)}</span>${alert}<span class="assignee${extraClass}">${esc(assignee)}</span></div>`;
+}
+
+function renderExportNoteIcon(task: Task, labelScale: number): string {
+  const filled = hasTaskNote(task);
+  const color = filled ? "#4c5fd5" : "#c5cad3";
+  const size = px(14, labelScale);
+  const note = normalizeTaskNote(task.note);
+  const titleAttr = note
+    ? ` title="${esc(note).replace(/\r\n|\r|\n/g, "&#10;")}"`
+    : "";
+  return `<span class="note-icon"${titleAttr}><svg viewBox="0 0 16 16" width="${size}" height="${size}" aria-hidden="true"><path fill="${color}" d="M3 1.5h7l3.5 3.5V13.5A1.5 1.5 0 0 1 12 15H3A1.5 1.5 0 0 1 1.5 13.5v-11A1.5 1.5 0 0 1 3 1.5zm6.5 0V5H13L9.5 1.5zM4 7.25h8v1H4v-1zm0 2.5h8v1H4v-1zm0 2.5h5v1H4v-1z"/></svg></span>`;
 }
 
 function renderHeader(

@@ -443,7 +443,53 @@ input[type="number"] {
 }
 
 .sidebar-row.task {
-  padding-left: calc(44px * var(--s));
+  padding-left: calc(20px * var(--s));
+}
+
+.task-note-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(20px * var(--s));
+  height: calc(20px * var(--s));
+  margin-right: calc(4px * var(--s));
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.task-note-btn.empty {
+  color: #c5cad3;
+}
+
+.task-note-btn.has-note {
+  color: var(--accent);
+}
+
+.task-note-btn:hover {
+  background: #e8ebf4;
+}
+
+.task-note-btn.empty:hover {
+  color: #9aa3b2;
+}
+
+.note-empty {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: calc(12px * var(--s));
+}
+
+.note-textarea {
+  width: 100%;
+  min-height: 6em;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 .sidebar-row.selected {

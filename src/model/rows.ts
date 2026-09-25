@@ -1,4 +1,5 @@
 import { brokenLinkTaskIds } from "./dependencies";
+import { normalizeTaskNote } from "./taskNote";
 import { isOverdue } from "./timeline";
 import { summarizeSpans } from "./summary";
 import {
@@ -60,6 +61,13 @@ export function taskMatchesFilter(
   const search = filters.search.trim();
   if (search && !task.name.includes(search)) {
     return false;
+  }
+  const noteSearch = filters.noteSearch.trim();
+  if (noteSearch) {
+    const note = normalizeTaskNote(task.note);
+    if (note === undefined || !note.includes(noteSearch)) {
+      return false;
+    }
   }
   return true;
 }

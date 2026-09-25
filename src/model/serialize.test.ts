@@ -1,0 +1,66 @@
+import { describe, expect, it } from "vitest";
+import { scheduleToJson } from "./serialize";
+import type { Category } from "./types";
+import { SCHEDULE_SCHEMA_VERSION } from "./types";
+
+describe("scheduleToJson note", () => {
+  it("omits empty note", () => {
+    const categories: Category[] = [
+      {
+        name: "C",
+        groups: [
+          {
+            name: "G",
+            tasks: [
+              {
+                id: "00000000-0000-4000-8000-000000000001",
+                name: "T",
+                start: "2026-01-01",
+                end: "2026-01-01",
+                assigneeId: null,
+                status: "not-started",
+                progress: 0,
+                predecessors: [],
+                milestoneId: null,
+                note: "  ",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const doc = scheduleToJson("P", categories, []);
+    const task = doc.categories[0].groups[0].tasks[0];
+    expect(task).not.toHaveProperty("note");
+    expect(doc.schemaVersion).toBe(SCHEDULE_SCHEMA_VERSION);
+  });
+
+  it("includes trimmed note", () => {
+    const categories: Category[] = [
+      {
+        name: "C",
+        groups: [
+          {
+            name: "G",
+            tasks: [
+              {
+                id: "00000000-0000-4000-8000-000000000001",
+                name: "T",
+                start: "2026-01-01",
+                end: "2026-01-01",
+                assigneeId: null,
+                status: "not-started",
+                progress: 0,
+                predecessors: [],
+                milestoneId: null,
+                note: "  hello  ",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const doc = scheduleToJson("P", categories, []);
+    expect(doc.categories[0].groups[0].tasks[0].note).toBe("hello");
+  });
+});

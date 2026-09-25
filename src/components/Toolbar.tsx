@@ -115,6 +115,13 @@ export function Toolbar({
         value={filters.search}
         onChange={(e) => onFiltersChange({ search: e.target.value })}
       />
+      <input
+        type="text"
+        placeholder="ノートで検索"
+        className="search-input search-input-note"
+        value={filters.noteSearch}
+        onChange={(e) => onFiltersChange({ noteSearch: e.target.value })}
+      />
       <select
         value={filters.assignee}
         onChange={(e) => onFiltersChange({ assignee: e.target.value })}

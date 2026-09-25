@@ -1,5 +1,22 @@
-import type { Category, Milestone, ScheduleDocument } from "./types";
+import { normalizeTaskNote } from "./taskNote";
+import type { Category, Milestone, ScheduleDocument, Task } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
+
+function taskToJson(task: Task): Task {
+  const note = normalizeTaskNote(task.note);
+  const base = {
+    id: task.id,
+    name: task.name,
+    start: task.start,
+    end: task.end,
+    assigneeId: task.assigneeId,
+    status: task.status,
+    progress: task.progress,
+    predecessors: [...task.predecessors],
+    milestoneId: task.milestoneId,
+  };
+  return note !== undefined ? { ...base, note } : base;
+}
 
 export function scheduleToJson(
   title: string,
@@ -18,17 +35,7 @@ export function scheduleToJson(
       name: category.name,
       groups: category.groups.map((group) => ({
         name: group.name,
-        tasks: group.tasks.map((task) => ({
-          id: task.id,
-          name: task.name,
-          start: task.start,
-          end: task.end,
-          assigneeId: task.assigneeId,
-          status: task.status,
-          progress: task.progress,
-          predecessors: [...task.predecessors],
-          milestoneId: task.milestoneId,
-        })),
+        tasks: group.tasks.map((task) => taskToJson(task)),
       })),
     })),
   };
