@@ -59,6 +59,9 @@ export const UNASSIGNED_FILTER = "unassigned";
 
 export const UNASSIGNED_LABEL = "割り当てなし";
 
+/** マイルストン未設定タスクのみに絞るフィルタ値（UUID と区別する）。 */
+export const NO_MILESTONE_FILTER = "none";
+
 export function isNullAssignee(assigneeId: MemberId | null): boolean {
   return assigneeId == null;
 }
@@ -69,6 +72,8 @@ export type ScheduleFilters = {
   status: StatusFilter;
   overdue: OverdueFilter;
   relation: RelationFilter;
+  /** "all" | "none" | マイルストン id */
+  milestone: string;
   search: string;
   noteSearch: string;
 };

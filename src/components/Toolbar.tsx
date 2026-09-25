@@ -1,6 +1,8 @@
 import {
+  NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
   UNASSIGNED_LABEL,
+  type Milestone,
   type OverdueFilter,
   type RelationFilter,
   type ScheduleFilters,
@@ -22,6 +24,7 @@ type ToolbarProps = {
   membersCatalogError?: string | null;
   calendarError?: string | null;
   filters: ScheduleFilters;
+  milestones: Milestone[];
   assigneeFilterOptions: AssigneeFilterOption[];
   zoomLabel: string;
   lineageName: string | null;
@@ -52,6 +55,7 @@ export function Toolbar({
   membersCatalogError = null,
   calendarError = null,
   filters,
+  milestones,
   assigneeFilterOptions,
   zoomLabel,
   lineageName,
@@ -163,6 +167,18 @@ export function Toolbar({
       >
         <option value="all">前後: すべて</option>
         <option value="broken">前後: 破綻のみ</option>
+      </select>
+      <select
+        value={filters.milestone}
+        onChange={(e) => onFiltersChange({ milestone: e.target.value })}
+      >
+        <option value="all">マイルストン: すべて</option>
+        <option value={NO_MILESTONE_FILTER}>なし</option>
+        {milestones.map((milestone) => (
+          <option key={milestone.id} value={milestone.id}>
+            {milestone.name}（{milestone.date}）
+          </option>
+        ))}
       </select>
       <button
         type="button"
