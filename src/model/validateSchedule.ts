@@ -25,6 +25,24 @@ export type ValidateScheduleResult =
 
 export function validateSchedule(data: unknown): ValidateScheduleResult {
   const migrated = migrateScheduleToV2(data);
+  if (
+    migrated != null &&
+    typeof migrated === "object" &&
+    !Array.isArray(migrated) &&
+    (migrated as Record<string, unknown>).schemaVersion === 2
+  ) {
+    return {
+      ok: false,
+      errors: [
+        {
+          path: "/schemaVersion",
+          message:
+            "schemaVersion 2（担当者名 assignee）は読み込めません。assigneeId を使う schemaVersion 3 に更新してください。",
+        },
+      ],
+    };
+  }
+
   if (!validateSchema(migrated)) {
     return {
       ok: false,

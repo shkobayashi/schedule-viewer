@@ -6,12 +6,19 @@ import {
   type ScheduleFilters,
   type StatusFilter,
 } from "../model/types";
+import { AppMenu } from "./AppMenu";
+
+export type AssigneeFilterOption = {
+  id: string;
+  label: string;
+};
 
 type ToolbarProps = {
   title: string;
   fileStatusLabel: string;
+  membersCatalogLabel: string | null;
   filters: ScheduleFilters;
-  assignees: string[];
+  assigneeFilterOptions: AssigneeFilterOption[];
   zoomLabel: string;
   lineageName: string | null;
   canStartLineage: boolean;
@@ -25,6 +32,7 @@ type ToolbarProps = {
   onOpen: () => void;
   onSave: () => void;
   onSaveAs: () => void;
+  onOpenSettings: () => void;
   canDelete: boolean;
   onAdd: () => void;
   onDelete: () => void;
@@ -34,8 +42,9 @@ type ToolbarProps = {
 export function Toolbar({
   title,
   fileStatusLabel,
+  membersCatalogLabel,
   filters,
-  assignees,
+  assigneeFilterOptions,
   zoomLabel,
   lineageName,
   canStartLineage,
@@ -49,6 +58,7 @@ export function Toolbar({
   onOpen,
   onSave,
   onSaveAs,
+  onOpenSettings,
   canDelete,
   onAdd,
   onDelete,
@@ -56,34 +66,22 @@ export function Toolbar({
 }: ToolbarProps) {
   return (
     <div className="toolbar">
+      <AppMenu
+        fileBusy={fileBusy}
+        onOpen={onOpen}
+        onSave={onSave}
+        onSaveAs={onSaveAs}
+        onExportHtml={onExportHtml}
+        onShowJson={onShowJson}
+        onOpenSettings={onOpenSettings}
+      />
       <h1>
         {title}
         <span className="tag">{fileStatusLabel}</span>
+        {membersCatalogLabel ? (
+          <span className="tag members-tag">{membersCatalogLabel}</span>
+        ) : null}
       </h1>
-      <button
-        type="button"
-        className="toolbar-btn"
-        onClick={onOpen}
-        disabled={fileBusy}
-      >
-        開く
-      </button>
-      <button
-        type="button"
-        className="toolbar-btn"
-        onClick={onSave}
-        disabled={fileBusy}
-      >
-        保存
-      </button>
-      <button
-        type="button"
-        className="toolbar-btn"
-        onClick={onSaveAs}
-        disabled={fileBusy}
-      >
-        別名保存
-      </button>
       <input
         type="text"
         placeholder="タスク名で検索"
@@ -97,9 +95,9 @@ export function Toolbar({
       >
         <option value="all">担当者: すべて</option>
         <option value={UNASSIGNED_FILTER}>{UNASSIGNED_LABEL}</option>
-        {assignees.map((a) => (
-          <option key={a} value={a}>
-            {a}
+        {assigneeFilterOptions.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
           </option>
         ))}
       </select>
@@ -170,22 +168,6 @@ export function Toolbar({
           Fit
         </button>
       </div>
-      <button
-        type="button"
-        className="toolbar-btn"
-        title="見えている行を、今のズームのままHTMLで保存"
-        onClick={onExportHtml}
-      >
-        書き出し
-      </button>
-      <button
-        type="button"
-        className="icon-btn"
-        title="現在のデータをJSONで見る"
-        onClick={onShowJson}
-      >
-        {"{ }"}
-      </button>
     </div>
   );
 }

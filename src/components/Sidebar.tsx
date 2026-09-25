@@ -1,17 +1,17 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { milestonesExceededBy } from "../model/milestones";
 import {
+  assigneeSidebarLabel,
+  resolveAssigneeDisplay,
+} from "../model/assigneeDisplay";
+import type { Member } from "../model/memberTypes";
+import type { MemberId } from "../model/memberTypes";
+import {
   categoryCollapseKey,
   groupCollapseKey,
 } from "../model/rows";
 import { isOverdue } from "../model/timeline";
-import {
-  isUnassigned,
-  UNASSIGNED_LABEL,
-  type Milestone,
-  type ScheduleId,
-  type VisibleRow,
-} from "../model/types";
+import type { Milestone, ScheduleId, VisibleRow } from "../model/types";
 
 type SidebarProps = {
   rows: VisibleRow[];
@@ -21,6 +21,7 @@ type SidebarProps = {
   selectedTaskId: ScheduleId | null;
   milestoneBandHeight: number;
   milestones: Milestone[];
+  memberCatalog: Map<MemberId, Member> | null;
   onToggleCollapse: (key: string) => void;
   today: string;
 };
@@ -33,6 +34,7 @@ export function Sidebar({
   selectedTaskId,
   milestoneBandHeight,
   milestones,
+  memberCatalog,
   onToggleCollapse,
   today,
 }: SidebarProps) {
@@ -108,7 +110,18 @@ export function Sidebar({
               );
             }
             const selected = row.task.id === selectedTaskId;
-            const unassigned = isUnassigned(row.task.assignee);
+            const assigneeDisplay = resolveAssigneeDisplay(
+              row.task.assigneeId,
+              memberCatalog,
+            );
+            const assigneeClass =
+              assigneeDisplay.kind === "unassigned"
+                ? " unassigned"
+                : assigneeDisplay.kind === "unknown"
+                  ? " unknown-member"
+                  : "";
+            const rowClass =
+              assigneeDisplay.kind === "unassigned" ? " unassigned" : "";
             const exceeded = milestonesExceededBy(row.task, milestones);
             const exceededTitle =
               exceeded.length === 0
@@ -117,7 +130,7 @@ export function Sidebar({
             return (
               <div
                 key={`task-${row.task.id}`}
-                className={`sidebar-row task${selected ? " selected" : ""}${unassigned ? " unassigned" : ""}`}
+                className={`sidebar-row task${selected ? " selected" : ""}${rowClass}`}
                 style={rowStyle(row.y)}
                 title={exceededTitle}
               >
@@ -130,8 +143,8 @@ export function Sidebar({
                     超過
                   </span>
                 ) : null}
-                <span className={`assignee${unassigned ? " unassigned" : ""}`}>
-                  {unassigned ? UNASSIGNED_LABEL : row.task.assignee}
+                <span className={`assignee${assigneeClass}`}>
+                  {assigneeSidebarLabel(assigneeDisplay)}
                 </span>
               </div>
             );
