@@ -11,6 +11,7 @@ import {
   groupCollapseKey,
 } from "../model/rows";
 import { isOverdue } from "../model/timeline";
+import { TaskNoteButton } from "./TaskNoteButton";
 import type { Milestone, ScheduleId, VisibleRow } from "../model/types";
 
 type SidebarProps = {
@@ -23,6 +24,7 @@ type SidebarProps = {
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
   onToggleCollapse: (key: string) => void;
+  onOpenTaskNote: (taskId: ScheduleId) => void;
   today: string;
 };
 
@@ -36,6 +38,7 @@ export function Sidebar({
   milestones,
   memberCatalog,
   onToggleCollapse,
+  onOpenTaskNote,
   today,
 }: SidebarProps) {
   const visibleRows = useMemo(() => {
@@ -134,6 +137,10 @@ export function Sidebar({
                 style={rowStyle(row.y)}
                 title={exceededTitle}
               >
+                <TaskNoteButton
+                  task={row.task}
+                  onOpen={() => onOpenTaskNote(row.task.id)}
+                />
                 <SlideLabel
                   text={row.task.name}
                   className={isOverdue(row.task, today) ? "overdue" : undefined}

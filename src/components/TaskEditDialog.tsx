@@ -36,6 +36,7 @@ type TaskEditDialogProps = {
     predecessors: ScheduleId[];
     successors: ScheduleId[];
     milestoneId: ScheduleId | null;
+    note: string;
   }) => string | null;
 };
 
@@ -69,6 +70,7 @@ export function TaskEditDialog({
   const [milestoneId, setMilestoneId] = useState<ScheduleId | null>(
     task.milestoneId,
   );
+  const [note, setNote] = useState(task.note ?? "");
   const [formError, setFormError] = useState<string | null>(null);
 
   const candidates = useMemo(
@@ -91,6 +93,17 @@ export function TaskEditDialog({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="fieldNote">ノート</label>
+          <textarea
+            id="fieldNote"
+            className="note-textarea"
+            rows={4}
+            value={note}
+            placeholder="補足説明（任意）"
+            onChange={(e) => setNote(e.target.value)}
           />
         </div>
         <div className="field">
@@ -238,6 +251,7 @@ export function TaskEditDialog({
                 predecessors,
                 successors,
                 milestoneId,
+                note,
               });
               if (saveError) {
                 setFormError(saveError);
