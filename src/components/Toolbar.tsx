@@ -20,6 +20,7 @@ type ToolbarProps = {
   onDeferredReload?: () => void;
   membersCatalogLabel: string | null;
   membersCatalogError?: string | null;
+  calendarError?: string | null;
   filters: ScheduleFilters;
   assigneeFilterOptions: AssigneeFilterOption[];
   zoomLabel: string;
@@ -49,6 +50,7 @@ export function Toolbar({
   onDeferredReload,
   membersCatalogLabel,
   membersCatalogError = null,
+  calendarError = null,
   filters,
   assigneeFilterOptions,
   zoomLabel,
@@ -99,6 +101,11 @@ export function Toolbar({
           </span>
         ) : membersCatalogLabel ? (
           <span className="tag members-tag">{membersCatalogLabel}</span>
+        ) : null}
+        {calendarError ? (
+          <span className="tag members-tag members-tag-error" title={calendarError}>
+            カレンダー設定エラー
+          </span>
         ) : null}
       </h1>
       <input

@@ -29,7 +29,7 @@ jobs:
                 frontend=true
                 rust=true
                 ;;
-              src/*|scripts/*|docs/schedule.schema.json|docs/members.schema.json|examples/*|package.json|package-lock.json|eslint.config.js|vite.config.ts|tsconfig.json|tsconfig.node.json|vitest.config.ts|.cursor/skills/write-schedule/*)
+              src/*|scripts/*|docs/schedule.schema.json|docs/members.schema.json|docs/calendar.schema.json|examples/*|package.json|package-lock.json|eslint.config.js|vite.config.ts|tsconfig.json|tsconfig.node.json|vitest.config.ts|.cursor/skills/write-schedule/*|.cursor/skills/write-calendar/*)
                 frontend=true
                 ;;
             esac
@@ -53,8 +53,9 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run check:schedule
+      - run: npm run check:calendar
       - run: npm run build:validate-skill
-      - run: git diff --exit-code docs/schedule.schema.json .cursor/skills/write-schedule/schedule.schema.json .cursor/skills/write-schedule/scripts/validate-schedule.bundle.mjs
+      - run: git diff --exit-code docs/schedule.schema.json .cursor/skills/write-schedule/schedule.schema.json .cursor/skills/write-schedule/scripts/validate-schedule.bundle.mjs docs/calendar.schema.json .cursor/skills/write-calendar/calendar.schema.json .cursor/skills/write-calendar/scripts/validate-calendar.bundle.mjs
 
   rust:
     needs: changes

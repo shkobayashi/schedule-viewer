@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-get-calendar-state"
+description = "Allows reading working-day calendar settings."
+commands.allow = ["get_calendar_state"]
+
+[[permission]]
+identifier = "allow-read-app-calendar"
+description = "Allows reading the imported working-day calendar."
+commands.allow = ["read_app_calendar"]
+
+[[permission]]
+identifier = "allow-import-app-calendar"
+description = "Allows importing a working-day calendar into app data."
+commands.allow = ["import_app_calendar"]
+
+[[permission]]
+identifier = "allow-delete-app-calendar"
+description = "Allows removing the working-day calendar from app data."
+commands.allow = ["delete_app_calendar"]

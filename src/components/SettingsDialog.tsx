@@ -5,6 +5,14 @@ import {
   pickMembersJsonFile,
 } from "../model/memberAppData";
 import {
+  calendarLabelFromFilename,
+  pickCalendarJsonFile,
+} from "../model/calendarAppData";
+import {
+  formatCalendarValidationErrors,
+  validateCalendar,
+} from "../model/validateCalendar";
+import {
   formatMembersValidationErrors,
   validateMembers,
 } from "../model/validateMembers";
@@ -20,26 +28,34 @@ type SettingsDialogProps = {
   open: boolean;
   settings: AppMembersSettings;
   selectedCatalogLabel: string | null;
+  calendarLabel: string | null;
+  calendarError?: string | null;
   displayScalePreference: DisplayScalePreference;
   onDisplayScaleChange: (preference: DisplayScalePreference) => void;
   onClose: () => void;
   onImport: (catalogId: string, contents: string, overwrite: boolean) => Promise<void>;
   onSelectCatalog: (catalogId: string | null) => Promise<void>;
   onDeleteCatalog: (catalogId: string) => Promise<void>;
+  onImportCalendar: (label: string, contents: string) => Promise<void>;
+  onDeleteCalendar: () => Promise<void>;
 };
 
-type SettingsSection = "display" | "members";
+type SettingsSection = "display" | "members" | "calendar";
 
 export function SettingsDialog({
   open,
   settings,
   selectedCatalogLabel,
+  calendarLabel,
+  calendarError = null,
   displayScalePreference,
   onDisplayScaleChange,
   onClose,
   onImport,
   onSelectCatalog,
   onDeleteCatalog,
+  onImportCalendar,
+  onDeleteCalendar,
 }: SettingsDialogProps) {
   const [section, setSection] = useState<SettingsSection>("display");
   const [busy, setBusy] = useState(false);
@@ -49,6 +65,11 @@ export function SettingsDialog({
   );
   const [pendingImport, setPendingImport] = useState<{
     catalogId: string;
+    contents: string;
+  } | null>(null);
+  const [confirmCalendarOverwrite, setConfirmCalendarOverwrite] = useState(false);
+  const [pendingCalendarImport, setPendingCalendarImport] = useState<{
+    label: string;
     contents: string;
   } | null>(null);
 
@@ -112,6 +133,47 @@ export function SettingsDialog({
     await runImport(catalogId, pick.contents, false);
   };
 
+  const runCalendarImport = async (label: string, contents: string) => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await onImportCalendar(label, contents);
+      setMessage(`「${label}」を取り込みました。`);
+      setConfirmCalendarOverwrite(false);
+      setPendingCalendarImport(null);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "取り込みに失敗しました。",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCalendarImportClick = async () => {
+    const pick = await pickCalendarJsonFile();
+    if (!pick) return;
+    let data: unknown;
+    try {
+      data = JSON.parse(pick.contents.replace(/^\uFEFF/, ""));
+    } catch {
+      setMessage("JSON の形式が正しくありません。");
+      return;
+    }
+    const parsed = validateCalendar(data);
+    if (!parsed.ok) {
+      setMessage(formatCalendarValidationErrors(parsed.errors));
+      return;
+    }
+    const label = calendarLabelFromFilename(pick.name);
+    if (calendarLabel != null) {
+      setPendingCalendarImport({ label, contents: pick.contents });
+      setConfirmCalendarOverwrite(true);
+      return;
+    }
+    await runCalendarImport(label, pick.contents);
+  };
+
   return (
     <ModalDialog title="設定" onClose={onClose} className="modal settings-dialog">
         <div className="settings-layout">
@@ -129,6 +191,13 @@ export function SettingsDialog({
               onClick={() => setSection("members")}
             >
               メンバー
+            </button>
+            <button
+              type="button"
+              className={section === "calendar" ? "active" : undefined}
+              onClick={() => setSection("calendar")}
+            >
+              稼働日
             </button>
           </nav>
           <div className="settings-panel">
@@ -239,6 +308,50 @@ export function SettingsDialog({
                 ) : null}
               </>
             ) : null}
+            {section === "calendar" ? (
+              <>
+                <p className="settings-note">
+                  稼働日カレンダー JSON を1件だけ取り込み、非稼働日をタイムラインに薄く表示します。タスクの移動・期間は暦日のままです。スケジュール
+                  JSON には含めません。
+                </p>
+                {calendarLabel ? (
+                  <p className="settings-current">使用中: {calendarLabel}</p>
+                ) : (
+                  <p className="settings-current">
+                    使用中: 未設定（土日を塗る）
+                  </p>
+                )}
+                {calendarError ? (
+                  <p className="settings-message">
+                    {calendarError} 表示は土日のみに戻しています。
+                  </p>
+                ) : null}
+                <div className="settings-actions">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void handleCalendarImportClick()}
+                  >
+                    取り込み…
+                  </button>
+                  {calendarLabel ? (
+                    <button
+                      type="button"
+                      className="link-btn"
+                      disabled={busy}
+                      onClick={() =>
+                        void runAction(
+                          () => onDeleteCalendar(),
+                          "カレンダーを外せませんでした。",
+                        )
+                      }
+                    >
+                      外す
+                    </button>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
             {message ? <p className="settings-message">{message}</p> : null}
           </div>
         </div>
@@ -267,6 +380,35 @@ export function SettingsDialog({
                 onClick={() => {
                   setConfirmOverwriteId(null);
                   setPendingImport(null);
+                }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {confirmCalendarOverwrite && pendingCalendarImport ? (
+          <div className="settings-confirm">
+            <p>既にカレンダーがあります。上書きしますか？</p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  void runCalendarImport(
+                    pendingCalendarImport.label,
+                    pendingCalendarImport.contents,
+                  )
+                }
+              >
+                上書き
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setConfirmCalendarOverwrite(false);
+                  setPendingCalendarImport(null);
                 }}
               >
                 キャンセル
