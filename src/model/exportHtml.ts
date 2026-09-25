@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { scheduleHtmlFilename } from "./exportFilename";
+import { scheduleHtmlFilename, scheduleSvgFilename } from "./exportFilename";
 import { addDays, addUtcMonths, daysBetween, fmtShort, parseDate, utcMonthStart } from "./dates";
 import { LAYOUT_HEADER_HEIGHT } from "./layoutSizes";
 import { linkPoints, type DependencyLink } from "./dependencies";
@@ -47,7 +47,11 @@ export type ScheduleExportInput = {
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
   calendar: CalendarDocument | null;
+  /** 初期値以外の絞り込み。空なら絞り込みなし。 */
+  filterSummary: string;
 };
+
+export type ScheduleExportFormat = "html" | "svg";
 
 const SUMMARY_COVERED = "#5C6B82";
 const SUMMARY_GAP = "#D5DBE3";
@@ -84,11 +88,20 @@ function assertExportFits(input: ScheduleExportInput): void {
 const FONT =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif";
 
-export function scheduleExportFilename(title: string): string {
-  return scheduleHtmlFilename(title);
+export function scheduleExportFilename(
+  title: string,
+  format: ScheduleExportFormat = "html",
+): string {
+  return format === "svg" ? scheduleSvgFilename(title) : scheduleHtmlFilename(title);
 }
 
-export function buildScheduleHtml(input: ScheduleExportInput): string {
+type ChartGraphic = {
+  inner: string;
+  chartWidth: number;
+  svgHeight: number;
+};
+
+function buildChartGraphic(input: ScheduleExportInput): ChartGraphic {
   assertExportFits(input);
   const chartWidth = Math.max(input.pxPerDay, input.totalDays * input.pxPerDay);
   const contentHeight = input.visibleRows.reduce(
@@ -99,25 +112,36 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
   const svgHeight = bodyTop + contentHeight;
   const dateToX = (d: Date) => daysBetween(input.timelineStart, d) * input.pxPerDay;
   const parts = [
-    renderHeader(input, chartWidth, dateToX),
-    renderMilestones(input, chartWidth, dateToX),
-    renderBody(input, chartWidth, contentHeight, bodyTop, dateToX),
-  ];
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${n(chartWidth)}" height="${n(svgHeight)}" font-family="${FONT}">
-  <rect width="100%" height="100%" fill="#ffffff"/>
-  <defs>
+    `<rect width="${n(chartWidth)}" height="${n(svgHeight)}" fill="#ffffff"/>`,
+    `<defs>
     <marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
       <path d="M0,0 L7,3.5 L0,7 Z" fill="#8A94A6"/>
     </marker>
     <marker id="arrow-broken" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
       <path d="M0,0 L7,3.5 L0,7 Z" fill="#C4351A"/>
     </marker>
-  </defs>
-  ${parts.join("\n  ")}
+  </defs>`,
+    renderHeader(input, chartWidth, dateToX),
+    renderMilestones(input, chartWidth, dateToX),
+    renderBody(input, chartWidth, contentHeight, bodyTop, dateToX),
+  ];
+  return { inner: parts.join("\n  "), chartWidth, svgHeight };
+}
+
+function scopeSentence(input: ScheduleExportInput): string {
+  const lineage = input.lineageName ? `系統「${input.lineageName}」。` : "";
+  const filtered = input.filterSummary
+    ? `絞り込み（${input.filterSummary}）と折りたたみで見えている行です。`
+    : "絞り込み・折りたたみで見えている行です。";
+  return `${input.tierLabel}。${filtered}${lineage}本日は ${input.today}。`;
+}
+
+export function buildScheduleHtml(input: ScheduleExportInput): string {
+  const chart = buildChartGraphic(input);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${n(chart.chartWidth)}" height="${n(chart.svgHeight)}" font-family="${FONT}">
+  ${chart.inner}
 </svg>`;
-  const lineage = input.lineageName
-    ? `系統「${esc(input.lineageName)}」。`
-    : "";
+  const meta = esc(scopeSentence(input));
   return `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -151,7 +175,7 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
 <body>
   <div class="page">
     <h1>${esc(input.title)}</h1>
-    <p class="meta">${esc(input.tierLabel)}。絞り込み・折りたたみで見えている行です。${lineage}本日は ${esc(input.today)}。</p>
+    <p class="meta">${meta}</p>
     <div class="sheet">
       <div class="labels">
         ${renderLabels(input)}
@@ -164,14 +188,52 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
 `;
 }
 
-function downloadScheduleHtmlInBrowser(html: string, title: string): void {
-  const blob = new Blob([html], {
-    type: "text/html;charset=utf-8",
+export function buildScheduleSvg(input: ScheduleExportInput): string {
+  const chart = buildChartGraphic(input);
+  const labelWidth = svgLabelWidth(input);
+  const pad = 16;
+  const titleSize = 16;
+  const metaSize = 12;
+  const titleY = pad;
+  const meta = scopeSentence(input);
+  const metaWidth = Math.max(chart.chartWidth + labelWidth, 320);
+  const metaLines = wrapText(meta, metaWidth, metaSize);
+  const metaY = titleY + titleSize + 6;
+  const sheetY = metaY + metaLines.length * (metaSize + 4) + 8;
+  const width = pad * 2 + labelWidth + chart.chartWidth;
+  const height = sheetY + chart.svgHeight + pad;
+  const metaTexts = metaLines
+    .map(
+      (line, index) =>
+        text(pad, metaY + index * (metaSize + 4), line, metaSize, "#697586", false),
+    )
+    .join("\n  ");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${n(width)}" height="${n(height)}" font-family="${FONT}">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  ${text(pad, titleY, input.title, titleSize, "#1F2937", true)}
+  ${metaTexts}
+  <g transform="translate(${pad},${n(sheetY)})">
+    ${renderSvgLabels(input, labelWidth, chart.svgHeight)}
+    <g transform="translate(${n(labelWidth)},0)">
+      ${chart.inner}
+    </g>
+  </g>
+</svg>
+`;
+}
+
+function downloadExportInBrowser(
+  contents: string,
+  title: string,
+  format: ScheduleExportFormat,
+): void {
+  const blob = new Blob([contents], {
+    type: format === "svg" ? "image/svg+xml;charset=utf-8" : "text/html;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = scheduleExportFilename(title);
+  a.download = scheduleExportFilename(title, format);
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -179,19 +241,215 @@ function downloadScheduleHtmlInBrowser(html: string, title: string): void {
 }
 
 /** Tauri では保存ダイアログ、ブラウザではダウンロード。キャンセル時は null。 */
-export async function exportScheduleHtml(
+export async function exportSchedule(
   input: ScheduleExportInput,
+  format: ScheduleExportFormat,
 ): Promise<string | null> {
-  const html = buildScheduleHtml(input);
-  const suggestedName = scheduleExportFilename(input.title);
+  const contents = format === "svg" ? buildScheduleSvg(input) : buildScheduleHtml(input);
+  const suggestedName = scheduleExportFilename(input.title, format);
   if (isTauri()) {
     return invoke<string | null>("save_html_file", {
-      contents: html,
+      contents,
       suggestedName,
+      extension: format,
     });
   }
-  downloadScheduleHtmlInBrowser(html, input.title);
+  downloadExportInBrowser(contents, input.title, format);
   return null;
+}
+
+function estimateTextWidth(value: string, fontSize: number): number {
+  let width = 0;
+  for (const ch of value) {
+    width += ch.charCodeAt(0) > 0xff ? fontSize : fontSize * 0.62;
+  }
+  return width;
+}
+
+function wrapText(value: string, maxWidth: number, fontSize: number): string[] {
+  if (!value) return [""];
+  const lines: string[] = [];
+  let line = "";
+  for (const ch of value) {
+    const next = line + ch;
+    if (line && estimateTextWidth(next, fontSize) > maxWidth) {
+      lines.push(line);
+      line = ch;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function svgLabelWidth(input: ScheduleExportInput): number {
+  const scale = input.labelScale;
+  let width = estimateTextWidth("WBS / タスク", 11 * scale) + 24 * scale;
+  if (input.milestoneBandHeight > 0) {
+    width = Math.max(width, estimateTextWidth("マイルストン", 11 * scale) + 24 * scale);
+  }
+  for (const row of input.visibleRows) {
+    if (row.type === "category" || row.type === "group") {
+      const indent = row.type === "category" ? 6 : 22;
+      width = Math.max(
+        width,
+        indent * scale + 20 * scale + estimateTextWidth(row.label, 12 * scale) + 12 * scale,
+      );
+      continue;
+    }
+    const assignee = assigneeSidebarLabel(
+      resolveAssigneeDisplay(row.task.assigneeId, input.memberCatalog),
+    );
+    const alert = milestonesExceededBy(row.task, input.milestones).length > 0 ? 36 * scale : 0;
+    width = Math.max(
+      width,
+      26 * scale +
+        18 * scale +
+        estimateTextWidth(row.task.name, 12 * scale) +
+        alert +
+        16 +
+        estimateTextWidth(assignee, 10 * scale) +
+        12 * scale,
+    );
+  }
+  return Math.max(120, Math.ceil(width));
+}
+
+function renderSvgLabels(
+  input: ScheduleExportInput,
+  labelWidth: number,
+  sheetHeight: number,
+): string {
+  const marks = [
+    `<rect x="0" y="0" width="${n(labelWidth)}" height="${n(sheetHeight)}" fill="#ffffff"/>`,
+    `<line x1="${n(labelWidth - 0.5)}" y1="0" x2="${n(labelWidth - 0.5)}" y2="${n(sheetHeight)}" stroke="#E3E6EB" stroke-width="1"/>`,
+  ];
+  marks.push(renderSvgLabelBand(input, labelWidth, 0, input.headerHeight, "header", "WBS / タスク"));
+  if (input.milestoneBandHeight > 0) {
+    marks.push(
+      renderSvgLabelBand(
+        input,
+        labelWidth,
+        input.headerHeight,
+        input.milestoneBandHeight,
+        "milestones",
+        "マイルストン",
+      ),
+    );
+  }
+  const bodyTop = input.headerHeight + input.milestoneBandHeight;
+  for (const row of input.visibleRows) {
+    marks.push(renderSvgLabelRow(row, input, labelWidth, bodyTop + row.y));
+  }
+  return marks.join("\n    ");
+}
+
+function renderSvgLabelBand(
+  input: ScheduleExportInput,
+  labelWidth: number,
+  y: number,
+  height: number,
+  kind: "header" | "milestones",
+  label: string,
+): string {
+  const fill = kind === "header" ? "#F8F9FB" : "#F4F1EA";
+  const color = kind === "header" ? "#697586" : "#111827";
+  const size = 11 * input.labelScale;
+  return [
+    `<rect x="0" y="${n(y)}" width="${n(labelWidth)}" height="${n(height)}" fill="${fill}"/>`,
+    text(12 * input.labelScale, y + (height - size) / 2, label, size, color, true),
+    `<line x1="0" y1="${n(y + height - 0.5)}" x2="${n(labelWidth)}" y2="${n(y + height - 0.5)}" stroke="#E3E6EB" stroke-width="1"/>`,
+  ].join("\n    ");
+}
+
+function renderSvgLabelRow(
+  row: VisibleRow,
+  input: ScheduleExportInput,
+  labelWidth: number,
+  y: number,
+): string {
+  const height = input.rowHeight;
+  const mid = y + height / 2;
+  if (row.type === "category" || row.type === "group") {
+    const fill = row.type === "category" ? "#F8F9FB" : "#F3F5F8";
+    const color = row.type === "category" ? "#1F2937" : "#4B5568";
+    const indent = (row.type === "category" ? 6 : 22) * input.labelScale;
+    const size = 12 * input.labelScale;
+    const mark = row.collapsed ? "▶" : "▼";
+    return [
+      `<rect x="0" y="${n(y)}" width="${n(labelWidth)}" height="${n(height)}" fill="${fill}"/>`,
+      text(indent, mid - size / 2, mark, 9 * input.labelScale, "#6B7280", false),
+      text(indent + 20 * input.labelScale, mid - size / 2, row.label, size, color, true),
+      `<line x1="0" y1="${n(y + height)}" x2="${n(labelWidth)}" y2="${n(y + height)}" stroke="#F0F1F4" stroke-width="1"/>`,
+    ].join("\n    ");
+  }
+  const assigneeDisplay = resolveAssigneeDisplay(row.task.assigneeId, input.memberCatalog);
+  const unassigned = assigneeDisplay.kind === "unassigned";
+  const unknownMember = assigneeDisplay.kind === "unknown";
+  const overdue = isOverdue(row.task, input.today);
+  const exceeded = milestonesExceededBy(row.task, input.milestones);
+  const nameSize = 12 * input.labelScale;
+  let x = 26 * input.labelScale;
+  const parts = [
+    `<rect x="0" y="${n(y)}" width="${n(labelWidth)}" height="${n(height)}" fill="#ffffff"/>`,
+  ];
+  if (unassigned) {
+    parts.push(
+      `<line x1="1.5" y1="${n(y)}" x2="1.5" y2="${n(y + height)}" stroke="#D4920A" stroke-width="3"/>`,
+    );
+  } else if (unknownMember) {
+    parts.push(
+      `<line x1="1.5" y1="${n(y)}" x2="1.5" y2="${n(y + height)}" stroke="#7B5EA7" stroke-width="3"/>`,
+    );
+  }
+  const note = normalizeTaskNote(row.task.note);
+  const iconSize = 14 * input.labelScale;
+  const iconColor = hasTaskNote(row.task) ? "#4C5FD5" : "#C5CAD3";
+  const title = note ? `<title>${esc(note)}</title>` : "";
+  parts.push(
+    `<g transform="translate(${n(x)},${n(mid - iconSize / 2)}) scale(${n(iconSize / 16)})">${title}<path fill="${iconColor}" d="M3 1.5h7l3.5 3.5V13.5A1.5 1.5 0 0 1 12 15H3A1.5 1.5 0 0 1 1.5 13.5v-11A1.5 1.5 0 0 1 3 1.5zm6.5 0V5H13L9.5 1.5zM4 7.25h8v1H4v-1zm0 2.5h8v1H4v-1zm0 2.5h5v1H4v-1z"/></g>`,
+  );
+  x += iconSize + 4 * input.labelScale;
+  parts.push(
+    text(
+      x,
+      mid - nameSize / 2,
+      row.task.name,
+      nameSize,
+      overdue ? "#C4351A" : "#1F2937",
+      overdue,
+    ),
+  );
+  x += estimateTextWidth(row.task.name, nameSize) + 6;
+  if (exceeded.length > 0) {
+    const badge = "超過";
+    const badgeSize = 10 * input.labelScale;
+    const badgeW = estimateTextWidth(badge, badgeSize) + 12;
+    parts.push(
+      `<rect x="${n(x)}" y="${n(mid - 8)}" width="${n(badgeW)}" height="16" rx="8" fill="#FDE8E4"/>`,
+      text(x + 6, mid - badgeSize / 2, badge, badgeSize, "#C4351A", true),
+    );
+    x += badgeW + 6;
+  }
+  const assignee = assigneeSidebarLabel(assigneeDisplay);
+  const assigneeSize = 10 * input.labelScale;
+  x += 10;
+  if (unassigned || unknownMember) {
+    const badgeW = estimateTextWidth(assignee, assigneeSize) + 14;
+    const fill = unassigned ? "#FFF4D6" : "#EFE8FB";
+    const color = unassigned ? "#8A5A00" : "#5B3F91";
+    parts.push(
+      `<rect x="${n(x)}" y="${n(mid - 8)}" width="${n(badgeW)}" height="16" rx="8" fill="${fill}"/>`,
+      text(x + 7, mid - assigneeSize / 2, assignee, assigneeSize, color, true),
+    );
+  } else {
+    parts.push(text(x, mid - assigneeSize / 2, assignee, assigneeSize, "#697586", false));
+  }
+  parts.push(
+    `<line x1="0" y1="${n(y + height)}" x2="${n(labelWidth)}" y2="${n(y + height)}" stroke="#F0F1F4" stroke-width="1"/>`,
+  );
+  return parts.join("\n    ");
 }
 
 function renderLabels(input: ScheduleExportInput): string {
