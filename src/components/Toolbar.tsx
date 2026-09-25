@@ -16,6 +16,8 @@ export type AssigneeFilterOption = {
 type ToolbarProps = {
   title: string;
   fileStatusLabel: string;
+  showDeferredReload?: boolean;
+  onDeferredReload?: () => void;
   membersCatalogLabel: string | null;
   filters: ScheduleFilters;
   assigneeFilterOptions: AssigneeFilterOption[];
@@ -42,6 +44,8 @@ type ToolbarProps = {
 export function Toolbar({
   title,
   fileStatusLabel,
+  showDeferredReload = false,
+  onDeferredReload,
   membersCatalogLabel,
   filters,
   assigneeFilterOptions,
@@ -78,6 +82,15 @@ export function Toolbar({
       <h1>
         {title}
         <span className="tag">{fileStatusLabel}</span>
+        {showDeferredReload ? (
+          <button
+            type="button"
+            className="tag tag-btn"
+            onClick={onDeferredReload}
+          >
+            ファイルに更新あり — 読み直す
+          </button>
+        ) : null}
         {membersCatalogLabel ? (
           <span className="tag members-tag">{membersCatalogLabel}</span>
         ) : null}

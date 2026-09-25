@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Category, Milestone, ScheduleDocument } from "../model/types";
 import { errorMessage } from "../model/errors";
+import { decideExternalReload } from "../model/scheduleExternalReload";
 import {
+  acknowledgeScheduleFileContentsViaTauri,
   downloadScheduleJson,
   isTauri,
   openScheduleViaBrowserInput,
   openScheduleViaTauri,
   parseScheduleText,
+  pollScheduleFileUpdateViaTauri,
   saveScheduleViaTauri,
   scheduleJsonFilename,
   serializeScheduleDocument,
@@ -17,11 +20,15 @@ import {
 
 export type FileStatusTag = "sample" | "saved" | "unsaved";
 
+const EXTERNAL_RELOAD_POLL_MS = 1500;
+const RELOAD_NOTICE_MS = 4000;
+
 type UseScheduleFileOptions = {
   title: string;
   categories: Category[];
   milestones: Milestone[];
   replaceDocument: (document: ScheduleDocument) => void;
+  reloadDocumentFromDisk: (document: ScheduleDocument) => void;
   onAfterOpen: () => void;
   initialBaselineJson: string;
 };
@@ -31,6 +38,7 @@ export function useScheduleFile({
   categories,
   milestones,
   replaceDocument,
+  reloadDocumentFromDisk,
   onAfterOpen,
   initialBaselineJson,
 }: UseScheduleFileOptions) {
@@ -41,6 +49,14 @@ export function useScheduleFile({
   const [pendingOpen, setPendingOpen] = useState(false);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [externalChangeOpen, setExternalChangeOpen] = useState(false);
+  const [externalReloadOpen, setExternalReloadOpen] = useState(false);
+  const [pendingExternalContents, setPendingExternalContents] = useState<
+    string | null
+  >(null);
+  const [deferredExternalContents, setDeferredExternalContents] = useState<
+    string | null
+  >(null);
+  const [reloadNotice, setReloadNotice] = useState(false);
   const [pendingSaveAs, setPendingSaveAs] = useState(false);
   const [fileBusy, setFileBusy] = useState(false);
 
@@ -53,6 +69,16 @@ export function useScheduleFile({
   const isDirtyRef = useRef(isDirty);
   isDirtyRef.current = isDirty;
   const allowCloseRef = useRef(false);
+  const baselineJsonRef = useRef(baselineJson);
+  baselineJsonRef.current = baselineJson;
+  const lastInvalidDiskContentsRef = useRef<string | null>(null);
+  const externalReloadOpenRef = useRef(externalReloadOpen);
+  externalReloadOpenRef.current = externalReloadOpen;
+  const fileBusyRef = useRef(fileBusy);
+  fileBusyRef.current = fileBusy;
+  const pausePollRef = useRef(false);
+  const reloadNoticeTimerRef = useRef<number | null>(null);
+  const suppressedDiskRef = useRef<string | null>(null);
 
   const statusTag: FileStatusTag = useMemo(() => {
     if (isDirty) return "unsaved";
@@ -61,12 +87,41 @@ export function useScheduleFile({
   }, [filePath, isDirty]);
 
   const statusLabel = useMemo(() => {
+    if (reloadNotice) return "ファイルを反映しました";
     if (statusTag === "unsaved") return "未保存";
     if (statusTag === "saved") {
       return scheduleJsonFilename(filePath) ?? "保存済み";
     }
     return "サンプルデータ";
-  }, [filePath, statusTag]);
+  }, [filePath, reloadNotice, statusTag]);
+
+  const showDeferredReload = deferredExternalContents != null;
+
+  const clearExternalReloadPrompt = useCallback(() => {
+    setPendingExternalContents(null);
+    setDeferredExternalContents(null);
+    setExternalReloadOpen(false);
+    suppressedDiskRef.current = null;
+  }, []);
+
+  const flashReloadNotice = useCallback(() => {
+    if (reloadNoticeTimerRef.current != null) {
+      window.clearTimeout(reloadNoticeTimerRef.current);
+    }
+    setReloadNotice(true);
+    reloadNoticeTimerRef.current = window.setTimeout(() => {
+      setReloadNotice(false);
+      reloadNoticeTimerRef.current = null;
+    }, RELOAD_NOTICE_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (reloadNoticeTimerRef.current != null) {
+        window.clearTimeout(reloadNoticeTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (isTauri()) return;
@@ -101,6 +156,126 @@ export function useScheduleFile({
     };
   }, []);
 
+  const acknowledgeDisk = useCallback(async (diskContents: string) => {
+    if (!isTauri()) return;
+    await acknowledgeScheduleFileContentsViaTauri(diskContents);
+  }, []);
+
+  const applyExternalReload = useCallback(
+    async (diskContents: string, canonicalJson: string, document: ScheduleDocument) => {
+      reloadDocumentFromDisk(document);
+      setBaselineJson(canonicalJson);
+      setDeferredExternalContents(null);
+      setPendingExternalContents(null);
+      setExternalReloadOpen(false);
+      lastInvalidDiskContentsRef.current = null;
+      suppressedDiskRef.current = null;
+      baselineJsonRef.current = canonicalJson;
+      isDirtyRef.current = false;
+      flashReloadNotice();
+      await acknowledgeDisk(diskContents);
+    },
+    [acknowledgeDisk, flashReloadNotice, reloadDocumentFromDisk],
+  );
+
+  const processDiskContents = useCallback(
+    async (diskContents: string) => {
+      if (diskContents === suppressedDiskRef.current) return;
+      const decision = decideExternalReload(
+        diskContents,
+        baselineJsonRef.current,
+        isDirtyRef.current,
+      );
+
+      if (pausePollRef.current || fileBusyRef.current) return;
+
+      if (decision.kind === "invalid") {
+        setPendingExternalContents(null);
+        setExternalReloadOpen(false);
+        if (lastInvalidDiskContentsRef.current !== decision.diskContents) {
+          lastInvalidDiskContentsRef.current = decision.diskContents;
+          setErrorMessageText(decision.message);
+        }
+        return;
+      }
+
+      lastInvalidDiskContentsRef.current = null;
+
+      if (decision.kind === "noop") {
+        clearExternalReloadPrompt();
+        await acknowledgeDisk(diskContents);
+        return;
+      }
+
+      if (diskContents === suppressedDiskRef.current) return;
+
+      if (decision.kind === "apply") {
+        if (
+          pausePollRef.current ||
+          fileBusyRef.current ||
+          diskContents === suppressedDiskRef.current
+        ) {
+          return;
+        }
+        await applyExternalReload(
+          diskContents,
+          decision.canonicalJson,
+          decision.document,
+        );
+        return;
+      }
+
+      if (diskContents === suppressedDiskRef.current) return;
+      setPendingExternalContents(diskContents);
+      if (!externalReloadOpenRef.current) {
+        setExternalReloadOpen(true);
+      }
+    },
+    [acknowledgeDisk, applyExternalReload, clearExternalReloadPrompt],
+  );
+
+  useEffect(() => {
+    if (!isTauri() || !filePath) return;
+    let cancelled = false;
+    let inFlight = false;
+
+    const tick = async () => {
+      if (
+        cancelled ||
+        inFlight ||
+        fileBusyRef.current ||
+        pausePollRef.current
+      ) {
+        return;
+      }
+      inFlight = true;
+      try {
+        const update = await pollScheduleFileUpdateViaTauri();
+        if (
+          cancelled ||
+          fileBusyRef.current ||
+          pausePollRef.current ||
+          !update
+        ) {
+          return;
+        }
+        await processDiskContents(update.contents);
+      } catch {
+        // 書き込み途中などは次の間隔で再試行する
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const id = window.setInterval(() => {
+      void tick();
+    }, EXTERNAL_RELOAD_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [filePath, processDiskContents]);
+
   const applyOpenedFile = useCallback(
     (pick: { path: string | null; contents: string }) => {
       const parsed = parseScheduleText(pick.contents);
@@ -111,6 +286,12 @@ export function useScheduleFile({
       replaceDocument(parsed.document);
       setFilePath(pick.path);
       setBaselineJson(parsed.canonicalJson);
+      setDeferredExternalContents(null);
+      setPendingExternalContents(null);
+      setExternalReloadOpen(false);
+      lastInvalidDiskContentsRef.current = null;
+      suppressedDiskRef.current = null;
+      baselineJsonRef.current = parsed.canonicalJson;
       onAfterOpen();
     },
     [onAfterOpen, replaceDocument],
@@ -161,50 +342,68 @@ export function useScheduleFile({
       const parsed = parseScheduleText(currentJson);
       if (!parsed.ok) {
         setErrorMessageText(parsed.message);
+        if (skipExternalCheck) pausePollRef.current = false;
         return;
       }
       const contents = parsed.canonicalJson;
       const suggested = suggestedJsonFilename(title);
+      pausePollRef.current = true;
+      let holdPause = false;
 
-      if (isTauri()) {
-        if (!saveAs && !skipExternalCheck && filePath) {
-          try {
-            const changed = await checkScheduleFileChangedViaTauri();
-            if (changed) {
-              setPendingSaveAs(saveAs);
-              setExternalChangeOpen(true);
+      try {
+        if (isTauri()) {
+          if (!saveAs && !skipExternalCheck && filePath) {
+            try {
+              const changed = await checkScheduleFileChangedViaTauri();
+              if (changed) {
+                setPendingSaveAs(saveAs);
+                setExternalChangeOpen(true);
+                holdPause = true;
+                return;
+              }
+            } catch (error) {
+              setErrorMessageText(
+                errorMessage(error, "ファイルの状態を確認できませんでした。"),
+              );
               return;
             }
+          }
+          setFileBusy(true);
+          try {
+            const writtenPath = await saveScheduleViaTauri(
+              saveAs,
+              contents,
+              suggested,
+            );
+            if (!writtenPath) return;
+            setFilePath(writtenPath);
+            setBaselineJson(contents);
+            baselineJsonRef.current = contents;
+            clearExternalReloadPrompt();
+            lastInvalidDiskContentsRef.current = null;
           } catch (error) {
             setErrorMessageText(
-              errorMessage(error, "ファイルの状態を確認できませんでした。"),
+              errorMessage(error, "ファイルに保存できませんでした。"),
             );
-            return;
+          } finally {
+            setFileBusy(false);
           }
+          return;
         }
-        setFileBusy(true);
-        try {
-          const writtenPath = await saveScheduleViaTauri(saveAs, contents, suggested);
-          if (!writtenPath) return;
-          setFilePath(writtenPath);
-          setBaselineJson(contents);
-        } catch (error) {
-          setErrorMessageText(
-            errorMessage(error, "ファイルに保存できませんでした。"),
-          );
-        } finally {
-          setFileBusy(false);
-        }
-        return;
-      }
 
-      downloadScheduleJson(suggested, contents);
-      setBaselineJson(contents);
-      if (saveAs) {
-        setFilePath(null);
+        downloadScheduleJson(suggested, contents);
+        setBaselineJson(contents);
+        baselineJsonRef.current = contents;
+        clearExternalReloadPrompt();
+        lastInvalidDiskContentsRef.current = null;
+        if (saveAs) {
+          setFilePath(null);
+        }
+      } finally {
+        if (!holdPause) pausePollRef.current = false;
       }
     },
-    [currentJson, filePath, title],
+    [clearExternalReloadPrompt, currentJson, filePath, title],
   );
 
   const save = useCallback(
@@ -227,7 +426,59 @@ export function useScheduleFile({
 
   const cancelExternalChange = useCallback(() => {
     setExternalChangeOpen(false);
+    pausePollRef.current = false;
   }, []);
+
+  const confirmExternalReload = useCallback(() => {
+    const diskContents = pendingExternalContents ?? deferredExternalContents;
+    if (!diskContents) {
+      setExternalReloadOpen(false);
+      return;
+    }
+    const parsed = parseScheduleText(diskContents);
+    if (!parsed.ok) {
+      setErrorMessageText(parsed.message);
+      setExternalReloadOpen(false);
+      return;
+    }
+    void applyExternalReload(
+      diskContents,
+      parsed.canonicalJson,
+      parsed.document,
+    );
+  }, [applyExternalReload, deferredExternalContents, pendingExternalContents]);
+
+  const keepLocalEditsOnExternalReload = useCallback(() => {
+    const diskContents = pendingExternalContents;
+    if (!diskContents) {
+      setExternalReloadOpen(false);
+      return;
+    }
+    setDeferredExternalContents(diskContents);
+    setPendingExternalContents(null);
+    setExternalReloadOpen(false);
+    suppressedDiskRef.current = diskContents;
+    void acknowledgeDisk(diskContents).finally(() => {
+      if (suppressedDiskRef.current === diskContents) {
+        suppressedDiskRef.current = null;
+      }
+    });
+  }, [acknowledgeDisk, pendingExternalContents]);
+
+  const requestDeferredReload = useCallback(() => {
+    const diskContents = deferredExternalContents;
+    if (!diskContents) return;
+    const parsed = parseScheduleText(diskContents);
+    if (!parsed.ok) {
+      setErrorMessageText(parsed.message);
+      return;
+    }
+    void applyExternalReload(
+      diskContents,
+      parsed.canonicalJson,
+      parsed.document,
+    );
+  }, [applyExternalReload, deferredExternalContents]);
 
   const confirmDiscardAndClose = useCallback(() => {
     setClosePromptOpen(false);
@@ -246,12 +497,14 @@ export function useScheduleFile({
   return {
     filePath,
     statusLabel,
+    showDeferredReload,
     isDirty,
     fileBusy,
     errorMessage: errorMessageText,
     discardPromptOpen,
     closePromptOpen,
     externalChangeOpen,
+    externalReloadOpen,
     requestOpen,
     save,
     confirmDiscardAndOpen,
@@ -261,6 +514,9 @@ export function useScheduleFile({
     confirmExternalOverwrite,
     confirmExternalSaveAs,
     cancelExternalChange,
+    confirmExternalReload,
+    keepLocalEditsOnExternalReload,
+    requestDeferredReload,
     dismissError,
     currentJson,
   };
