@@ -7,6 +7,7 @@
     "core:default",
     "allow-open-schedule-file",
     "allow-check-schedule-file-changed",
+    "allow-poll-schedule-file-update",
     "allow-save-schedule-file",
     "allow-save-html-file",
     "allow-get-members-settings",

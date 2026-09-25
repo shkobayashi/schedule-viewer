@@ -64,6 +64,16 @@ body {
   margin-left: 8px;
 }
 
+.tag-btn {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tag-btn:hover {
+  background: var(--border);
+}
+
 .members-tag {
   max-width: calc(140px * var(--s));
   overflow: hidden;

@@ -1,0 +1,309 @@
+{
+  "schemaVersion": 3,
+  "title": "AI活用PoC推進プロジェクト",
+  "milestones": [
+    {
+      "id": "a1000001-0000-4000-8000-000000000001",
+      "name": "要件確定",
+      "date": "2026-10-02"
+    },
+    {
+      "id": "a1000001-0000-4000-8000-000000000002",
+      "name": "PoC完了",
+      "date": "2026-11-13"
+    },
+    {
+      "id": "a1000001-0000-4000-8000-000000000003",
+      "name": "本番リリース",
+      "date": "2026-12-21"
+    }
+  ],
+  "categories": [
+    {
+      "name": "要件定義",
+      "groups": [
+        {
+          "name": "現状把握",
+          "tasks": [
+            {
+              "id": "b1000001-0000-4000-8000-000000000001",
+              "name": "現状業務ヒアリング",
+              "start": "2026-09-14",
+              "end": "2026-09-19",
+              "assigneeId": "tanaka",
+              "status": "done",
+              "progress": 100,
+              "predecessors": [],
+              "milestoneId": "a1000001-0000-4000-8000-000000000001"
+            }
+          ]
+        },
+        {
+          "name": "要件化",
+          "tasks": [
+            {
+              "id": "b1000001-0000-4000-8000-000000000002",
+              "name": "要件定義書作成",
+              "start": "2026-09-18",
+              "end": "2026-09-21",
+              "assigneeId": "sato",
+              "status": "in-progress",
+              "progress": 60,
+              "predecessors": [
+                "b1000001-0000-4000-8000-000000000001"
+              ],
+              "milestoneId": "a1000001-0000-4000-8000-000000000001"
+            },
+            {
+              "id": "b1000001-0000-4000-8000-000000000003",
+              "name": "要件レビュー",
+              "start": "2026-09-29",
+              "end": "2026-10-01",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-000000000002"
+              ],
+              "milestoneId": "a1000001-0000-4000-8000-000000000001"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PoC設計・開発",
+      "groups": [
+        {
+          "name": "設計",
+          "tasks": [
+            {
+              "id": "b1000001-0000-4000-8000-000000000004",
+              "name": "アーキテクチャ設計",
+              "start": "2026-09-25",
+              "end": "2026-10-08",
+              "assigneeId": "suzuki",
+              "status": "in-progress",
+              "progress": 30,
+              "predecessors": [
+                "b1000001-0000-4000-8000-000000000003"
+              ],
+              "milestoneId": "a1000001-0000-4000-8000-000000000001"
+            }
+          ]
+        },
+        {
+          "name": "実装",
+          "tasks": [
+            {
+              "id": "b1000001-0000-4000-8000-000000000005",
+              "name": "PoC環境構築",
+              "start": "2026-10-05",
+              "end": "2026-10-15",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-000000000004"
+              ],
+              "milestoneId": "a1000001-0000-4000-8000-000000000002"
+            },
+            {
+              "id": "b1000001-0000-4000-8000-000000000006",
+              "name": "プロトタイプ開発",
+              "start": "2026-10-13",
+              "end": "2026-11-05",
+              "assigneeId": "suzuki",
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-000000000005"
+              ],
+              "milestoneId": "a1000001-0000-4000-8000-000000000002"
+            }
+          ]
+        },
+        {
+          "name": "評価",
+          "tasks": [
+            {
+              "id": "b1000001-0000-4000-8000-000000000007",
+              "name": "評価・振り返り",
+              "start": "2026-11-06",
+              "end": "2026-11-12",
+              "assigneeId": "sato",
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-000000000006"
+              ],
+              "milestoneId": "a1000001-0000-4000-8000-000000000002"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "基盤構築",
+      "groups": [
+        {
+          "name": "設計",
+          "tasks": [
+            {
+              "id": "b1000001-0000-4000-8000-000000000008",
+              "name": "データ基盤設計",
+              "start": "2026-10-01",
+              "end": "2026-10-14",
+              "assigneeId": "takahashi",
+              "status": "in-progress",
+              "progress": 45,
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "name": "構築",
+          "tasks": [
+            {
+              "id": "b1000001-0000-4000-8000-000000000009",
+              "name": "基盤構築",
+              "start": "2026-10-15",
+              "end": "2026-11-11",
+              "assigneeId": "takahashi",
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-000000000008"
+              ],
+              "milestoneId": null
+            },
+            {
+              "id": "b1000001-0000-4000-8000-00000000000a",
+              "name": "セキュリティ設定",
+              "start": "2026-11-05",
+              "end": "2026-11-18",
+              "assigneeId": "suzuki",
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-000000000009"
+              ],
+              "milestoneId": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "移行・テスト",
+      "groups": [
+        {
+          "name": "移行",
+          "tasks": [
+            {
+              "id": "b1000001-0000-4000-8000-00000000000b",
+              "name": "データ移行",
+              "start": "2026-11-12",
+              "end": "2026-11-25",
+              "assigneeId": "tanaka",
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-000000000009"
+              ],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "name": "検証",
+          "tasks": [
+            {
+              "id": "b1000001-0000-4000-8000-00000000000c",
+              "name": "結合テスト",
+              "start": "2026-11-19",
+              "end": "2026-12-02",
+              "assigneeId": "sato",
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-000000000006",
+                "b1000001-0000-4000-8000-00000000000b"
+              ],
+              "milestoneId": null
+            },
+            {
+              "id": "b1000001-0000-4000-8000-00000000000d",
+              "name": "受け入れテスト",
+              "start": "2026-12-03",
+              "end": "2026-12-13",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-00000000000c"
+              ],
+              "milestoneId": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "リリース",
+      "groups": [
+        {
+          "name": "展開",
+          "tasks": [
+            {
+              "id": "b1000001-0000-4000-8000-00000000000e",
+              "name": "リリース準備",
+              "start": "2026-12-10",
+              "end": "2026-12-17",
+              "assigneeId": "takahashi",
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-00000000000a",
+                "b1000001-0000-4000-8000-00000000000d"
+              ],
+              "milestoneId": "a1000001-0000-4000-8000-000000000003"
+            },
+            {
+              "id": "b1000001-0000-4000-8000-00000000000f",
+              "name": "本番リリース",
+              "start": "2026-12-18",
+              "end": "2026-12-20",
+              "assigneeId": "suzuki",
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-00000000000e"
+              ],
+              "milestoneId": "a1000001-0000-4000-8000-000000000003"
+            }
+          ]
+        },
+        {
+          "name": "引き渡し",
+          "tasks": [
+            {
+              "id": "b1000001-0000-4000-8000-000000000010",
+              "name": "運用引き継ぎ",
+              "start": "2026-12-21",
+              "end": "2027-01-07",
+              "assigneeId": "sato",
+              "status": "not-started",
+              "progress": 0,
+              "predecessors": [
+                "b1000001-0000-4000-8000-00000000000f"
+              ],
+              "milestoneId": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
