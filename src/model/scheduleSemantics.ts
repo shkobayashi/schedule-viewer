@@ -100,11 +100,11 @@ function validateTaskSemantics(
   if (
     isIsoDateString(task.start) &&
     isIsoDateString(task.end) &&
-    task.end <= task.start
+    task.end < task.start
   ) {
     issues.push({
       path: `${taskPath}/end`,
-      message: "終了日は開始日より後である必要があります",
+      message: "終了日は開始日以降である必要があります",
     });
   }
 
@@ -139,6 +139,48 @@ function validateTaskSemantics(
     predSeen.add(predId);
   }
 
+  return issues;
+}
+
+/** 先行関係に循環がないか。 */
+export function validateDependencyCycles(doc: ScheduleDocument): ValidationIssue[] {
+  const byId = new Map<ScheduleId, ScheduleId[]>();
+  for (const category of doc.categories) {
+    for (const group of category.groups) {
+      for (const task of group.tasks) {
+        byId.set(task.id, task.predecessors);
+      }
+    }
+  }
+
+  const issues: ValidationIssue[] = [];
+  const visiting = new Set<ScheduleId>();
+  const visited = new Set<ScheduleId>();
+
+  const visit = (id: ScheduleId, stack: ScheduleId[]): void => {
+    if (visited.has(id)) return;
+    if (visiting.has(id)) {
+      const cycleStart = stack.indexOf(id);
+      const cycle = cycleStart >= 0 ? stack.slice(cycleStart) : [id];
+      issues.push({
+        path: "/categories",
+        message: `先行関係に循環があります: ${cycle.join(" → ")}`,
+      });
+      return;
+    }
+    visiting.add(id);
+    stack.push(id);
+    for (const pred of byId.get(id) ?? []) {
+      visit(pred, stack);
+    }
+    stack.pop();
+    visiting.delete(id);
+    visited.add(id);
+  };
+
+  for (const id of byId.keys()) {
+    visit(id, []);
+  }
   return issues;
 }
 

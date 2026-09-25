@@ -1,7 +1,9 @@
 import Ajv2020, { type ErrorObject } from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import schema from "../../docs/schedule.schema.json";
+import { migrateScheduleToV2 } from "./scheduleMigrate";
 import {
+  validateDependencyCycles,
   validatePredecessorRefs,
   validateScheduleSemantics,
   type ValidationIssue,
@@ -25,14 +27,16 @@ export type ValidateScheduleResult =
   | { ok: false; errors: ValidationIssue[] };
 
 export function validateSchedule(data: unknown): ValidateScheduleResult {
-  if (!validateSchema(data)) {
+  const migrated = migrateScheduleToV2(data);
+  if (!validateSchema(migrated)) {
     return { ok: false, errors: formatAjvErrors(validateSchema.errors) };
   }
 
-  const document = data as ScheduleDocument;
+  const document = migrated as ScheduleDocument;
   const errors = [
     ...validateScheduleSemantics(document),
     ...validatePredecessorRefs(document),
+    ...validateDependencyCycles(document),
   ];
   if (errors.length > 0) {
     return { ok: false, errors };

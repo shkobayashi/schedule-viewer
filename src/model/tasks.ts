@@ -55,7 +55,7 @@ export function validateNewTask(
   if (!input.name.trim()) return "タスク名を入力してください";
   if (!isIsoDateString(input.start)) return "開始日を入力してください";
   if (!isIsoDateString(input.end)) return "終了日を入力してください";
-  if (input.end <= input.start) return "期間は1日以上にしてください";
+  if (input.end < input.start) return "終了日は開始日以降にしてください";
   const category = categories.find((item) => item.name === input.category);
   if (!category) return "カテゴリを選択してください";
   if (!category.groups.some((item) => item.name === input.group)) {
@@ -79,24 +79,42 @@ export function insertTask(
   return cloned;
 }
 
-/** タスクを消し、他タスクの先行からそのIDを外す。空になったグループとカテゴリも外す。 */
+/** タスクを消し、他タスクの先行からその ID を外す。空のグループとカテゴリは残す。 */
 export function removeTask(categories: Category[], taskId: ScheduleId): Category[] {
-  return cloneCategories(categories)
-    .map((category) => ({
-      ...category,
-      groups: category.groups
-        .map((group) => ({
-          ...group,
-          tasks: group.tasks
-            .filter((task) => task.id !== taskId)
-            .map((task) => ({
-              ...task,
-              predecessors: task.predecessors.filter((id) => id !== taskId),
-            })),
-        }))
-        .filter((group) => group.tasks.length > 0),
-    }))
-    .filter((category) => category.groups.length > 0);
+  return cloneCategories(categories).map((category) => ({
+    ...category,
+    groups: category.groups.map((group) => ({
+      ...group,
+      tasks: group.tasks
+        .filter((task) => task.id !== taskId)
+        .map((task) => ({
+          ...task,
+          predecessors: task.predecessors.filter((id) => id !== taskId),
+        })),
+    })),
+  }));
+}
+
+export function validateTaskEdit(
+  input: {
+    name: string;
+    start: string;
+    end: string;
+    progress: number;
+  },
+): string | null {
+  if (!input.name.trim()) return "タスク名を入力してください";
+  if (!isIsoDateString(input.start)) return "開始日を入力してください";
+  if (!isIsoDateString(input.end)) return "終了日を入力してください";
+  if (input.end < input.start) return "終了日は開始日以降にしてください";
+  if (
+    !Number.isInteger(input.progress) ||
+    input.progress < 0 ||
+    input.progress > 100
+  ) {
+    return "進捗率は 0〜100 の整数にしてください";
+  }
+  return null;
 }
 
 export function cloneCategories(categories: Category[]): Category[] {

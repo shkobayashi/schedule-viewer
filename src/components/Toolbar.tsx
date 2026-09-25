@@ -28,6 +28,7 @@ type ToolbarProps = {
   canDelete: boolean;
   onAdd: () => void;
   onDelete: () => void;
+  fileBusy?: boolean;
 };
 
 export function Toolbar({
@@ -51,6 +52,7 @@ export function Toolbar({
   canDelete,
   onAdd,
   onDelete,
+  fileBusy = false,
 }: ToolbarProps) {
   return (
     <div className="toolbar">
@@ -58,13 +60,28 @@ export function Toolbar({
         {title}
         <span className="tag">{fileStatusLabel}</span>
       </h1>
-      <button type="button" className="toolbar-btn" onClick={onOpen}>
+      <button
+        type="button"
+        className="toolbar-btn"
+        onClick={onOpen}
+        disabled={fileBusy}
+      >
         開く
       </button>
-      <button type="button" className="toolbar-btn" onClick={onSave}>
+      <button
+        type="button"
+        className="toolbar-btn"
+        onClick={onSave}
+        disabled={fileBusy}
+      >
         保存
       </button>
-      <button type="button" className="toolbar-btn" onClick={onSaveAs}>
+      <button
+        type="button"
+        className="toolbar-btn"
+        onClick={onSaveAs}
+        disabled={fileBusy}
+      >
         別名保存
       </button>
       <input
@@ -72,7 +89,7 @@ export function Toolbar({
         placeholder="タスク名で検索"
         className="search-input"
         value={filters.search}
-        onChange={(e) => onFiltersChange({ search: e.target.value.trim() })}
+        onChange={(e) => onFiltersChange({ search: e.target.value })}
       />
       <select
         value={filters.assignee}

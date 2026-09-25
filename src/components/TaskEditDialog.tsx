@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TaskRef } from "../model/dependencies";
+import { validateTaskEdit } from "../model/tasks";
 import {
   isUnassigned,
   UNASSIGNED_LABEL,
@@ -54,6 +55,7 @@ export function TaskEditDialog({
   const [predecessors, setPredecessors] = useState<ScheduleId[]>([]);
   const [successors, setSuccessors] = useState<ScheduleId[]>([]);
   const [milestoneId, setMilestoneId] = useState<ScheduleId | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!task) return;
@@ -98,7 +100,7 @@ export function TaskEditDialog({
           />
         </div>
         <div className="field">
-          <label htmlFor="fieldEnd">終了日</label>
+          <label htmlFor="fieldEnd">終了日（この日を含む）</label>
           <input
             id="fieldEnd"
             type="date"
@@ -170,7 +172,10 @@ export function TaskEditDialog({
           key={`pred-${task.id}`}
           label="先行タスク"
           selected={predecessors}
-          candidates={candidates.filter((item) => !predecessors.includes(item.id))}
+          candidates={candidates.filter(
+            (item) =>
+              !predecessors.includes(item.id) && !successors.includes(item.id),
+          )}
           tasks={tasks}
           onAdd={(id) =>
             setPredecessors((prev) => (prev.includes(id) ? prev : [...prev, id]))
@@ -183,7 +188,10 @@ export function TaskEditDialog({
           key={`succ-${task.id}`}
           label="後続タスク"
           selected={successors}
-          candidates={candidates.filter((item) => !successors.includes(item.id))}
+          candidates={candidates.filter(
+            (item) =>
+              !successors.includes(item.id) && !predecessors.includes(item.id),
+          )}
           tasks={tasks}
           onAdd={(id) =>
             setSuccessors((prev) => (prev.includes(id) ? prev : [...prev, id]))
@@ -192,6 +200,7 @@ export function TaskEditDialog({
             setSuccessors((prev) => prev.filter((item) => item !== id))
           }
         />
+        {formError ? <p className="form-error">{formError}</p> : null}
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>
             キャンセル
@@ -200,21 +209,33 @@ export function TaskEditDialog({
             type="button"
             className="btn primary"
             onClick={() => {
-              if (end <= start) {
-                window.alert("期間は1日以上にしてください");
-                return;
-              }
-              onSave({
+              const roundedProgress = Math.round(progress);
+              const err = validateTaskEdit({
                 name,
                 start,
                 end,
-                assignee,
-                status,
-                progress,
-                predecessors,
-                successors,
-                milestoneId,
+                progress: roundedProgress,
               });
+              if (err) {
+                setFormError(err);
+                return;
+              }
+              setFormError(null);
+              if (
+                !onSave({
+                  name,
+                  start,
+                  end,
+                  assignee,
+                  status,
+                  progress: roundedProgress,
+                  predecessors,
+                  successors,
+                  milestoneId,
+                })
+              ) {
+                setFormError("保存できませんでした。入力内容を確認してください。");
+              }
             }}
           >
             保存

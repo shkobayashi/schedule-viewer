@@ -20,6 +20,7 @@ type SidebarProps = {
   milestoneBandHeight: number;
   milestones: Milestone[];
   onToggleCollapse: (key: string) => void;
+  today: string;
 };
 
 export function Sidebar({
@@ -30,6 +31,7 @@ export function Sidebar({
   milestoneBandHeight,
   milestones,
   onToggleCollapse,
+  today,
 }: SidebarProps) {
   return (
     <div className="sidebar">
@@ -98,7 +100,7 @@ export function Sidebar({
               >
                 <SlideLabel
                   text={row.task.name}
-                  className={isOverdue(row.task) ? "overdue" : undefined}
+                  className={isOverdue(row.task, today) ? "overdue" : undefined}
                 />
                 {exceeded.length > 0 ? (
                   <span className="milestone-alert" title={exceededTitle}>

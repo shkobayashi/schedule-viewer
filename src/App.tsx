@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
 import { DiscardChangesDialog } from "./components/DiscardChangesDialog";
+import { ExternalChangeDialog } from "./components/ExternalChangeDialog";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
@@ -16,11 +17,11 @@ import { useTimelineView } from "./hooks/useTimelineView";
 import { serializeScheduleDocument } from "./model/scheduleFile";
 import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
 import { exportScheduleHtml } from "./model/exportHtml";
-import { isoDate, parseDate, roundToDay } from "./model/dates";
+import { addDays, isoDate, parseDate, roundToDay } from "./model/dates";
 import { layoutMilestones } from "./model/milestones";
 import { findTaskById } from "./model/rows";
 import { findTaskPlace } from "./model/tasks";
-import { computeTimelineRange, TODAY_ISO } from "./model/timeline";
+import { computeTimelineRange } from "./model/timeline";
 import type { ScheduleId } from "./model/types";
 import { readUiScale } from "./model/uiScale";
 import {
@@ -55,6 +56,7 @@ function App() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [focusTaskId, setFocusTaskId] = useState<ScheduleId | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [pendingFit, setPendingFit] = useState(false);
 
   const headerHeight = Math.round(40 * uiScale);
   const rowHeight = Math.round(32 * uiScale);
@@ -104,8 +106,13 @@ function App() {
     bodyHeight,
   );
   const range = useMemo(
-    () => computeTimelineRange(schedule.categories, schedule.milestones),
-    [schedule.categories, schedule.milestones],
+    () =>
+      computeTimelineRange(
+        schedule.categories,
+        schedule.milestones,
+        schedule.today,
+      ),
+    [schedule.categories, schedule.milestones, schedule.today],
   );
 
   const view = useTimelineView(
@@ -118,8 +125,14 @@ function App() {
   );
 
   const onAfterOpenFile = useCallback(() => {
+    setPendingFit(true);
+  }, []);
+
+  useEffect(() => {
+    if (!pendingFit) return;
     view.fitToWidth();
-  }, [view.fitToWidth]);
+    setPendingFit(false);
+  }, [pendingFit, range.totalDays, view.fitToWidth]);
 
   const scheduleFile = useScheduleFile({
     title: schedule.title,
@@ -134,13 +147,14 @@ function App() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!shouldHandleDocumentUndo(e.target)) return;
       const mod = e.metaKey || e.ctrlKey;
-      if (e.key === "z" && mod && !e.altKey) {
+      const key = e.key.toLowerCase();
+      if (key === "z" && mod && !e.altKey) {
         e.preventDefault();
         if (e.shiftKey) schedule.redo();
         else schedule.undo();
         return;
       }
-      if (e.key === "y" && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+      if (key === "y" && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         schedule.redo();
       }
@@ -219,7 +233,7 @@ function App() {
         null,
         2,
       ),
-    [schedule.categories, schedule.milestones],
+    [schedule.categories, schedule.milestones, schedule.title],
   );
 
   const handleResizeStart = useCallback(
@@ -244,9 +258,11 @@ function App() {
 
   const handleResizeEnd = useCallback(
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
-      const end = isoDate(
-        roundToDay(range.timelineStart, view.xToDate(groupX + barWidth)),
+      const exclusiveEnd = roundToDay(
+        range.timelineStart,
+        view.xToDate(groupX + barWidth),
       );
+      const end = isoDate(addDays(exclusiveEnd, -1));
       schedule.setTaskEnd(taskId, end);
     },
     [range.timelineStart, schedule, view],
@@ -293,6 +309,7 @@ function App() {
             milestoneDiamondSize,
             milestoneFontSize,
             labelScale: uiScale,
+            today: schedule.today,
           }).catch((error: unknown) => {
             setExportError(
               error instanceof Error
@@ -306,6 +323,7 @@ function App() {
         onDelete={() => {
           if (schedule.selectedTaskId != null) setDeleteOpen(true);
         }}
+        fileBusy={scheduleFile.fileBusy}
       />
       <div className="hint">
         Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
@@ -322,6 +340,7 @@ function App() {
           milestoneBandHeight={milestoneBandHeight}
           milestones={schedule.milestones}
           onToggleCollapse={schedule.toggleCollapsed}
+          today={schedule.today}
         />
         <div ref={timelineAreaRef} className="timeline-slot">
           <Timeline
@@ -357,6 +376,7 @@ function App() {
             milestoneFontSize={milestoneFontSize}
             onMoveMilestone={schedule.moveMilestoneByDays}
             onOpenMilestone={schedule.openMilestoneEdit}
+            today={schedule.today}
           />
         </div>
       </div>
@@ -395,11 +415,11 @@ function App() {
           }
           initialStart={
             findTaskById(schedule.categories, schedule.selectedTaskId)?.start ??
-            TODAY_ISO
+            schedule.today
           }
           initialEnd={
             findTaskById(schedule.categories, schedule.selectedTaskId)?.end ??
-            TODAY_ISO
+            schedule.today
           }
           onClose={() => setAddOpen(false)}
           onSave={(input) => {
@@ -436,6 +456,22 @@ function App() {
         <DiscardChangesDialog
           onConfirm={scheduleFile.confirmDiscardAndOpen}
           onCancel={scheduleFile.cancelDiscard}
+        />
+      ) : null}
+      {scheduleFile.closePromptOpen ? (
+        <DiscardChangesDialog
+          title="未保存の変更があります"
+          message="保存していない変更は失われます。ウィンドウを閉じますか？"
+          confirmLabel="閉じる"
+          onConfirm={scheduleFile.confirmDiscardAndClose}
+          onCancel={scheduleFile.cancelClose}
+        />
+      ) : null}
+      {scheduleFile.externalChangeOpen ? (
+        <ExternalChangeDialog
+          onOverwrite={scheduleFile.confirmExternalOverwrite}
+          onSaveAs={scheduleFile.confirmExternalSaveAs}
+          onCancel={scheduleFile.cancelExternalChange}
         />
       ) : null}
       {scheduleFile.errorMessage ? (
