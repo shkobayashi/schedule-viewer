@@ -8,7 +8,8 @@
   "properties": {
     "schemaVersion": {
       "type": "integer",
-      "const": 1
+      "const": 2,
+      "description": "2: 終了日はその日を含む（1日タスクは start と end が同じ日）。"
     },
     "title": {
       "type": "string",
@@ -65,7 +66,10 @@
         "id": { "$ref": "#/$defs/scheduleId" },
         "name": { "type": "string", "minLength": 1 },
         "start": { "$ref": "#/$defs/isoDate" },
-        "end": { "$ref": "#/$defs/isoDate" },
+        "end": {
+          "$ref": "#/$defs/isoDate",
+          "description": "終了日（この日を含む）。開始日以降。"
+        },
         "assignee": { "type": "string" },
         "status": { "$ref": "#/$defs/taskStatus" },
         "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
@@ -90,7 +94,6 @@
         "name": { "type": "string", "minLength": 1 },
         "tasks": {
           "type": "array",
-          "minItems": 1,
           "items": { "$ref": "#/$defs/task" }
         }
       }

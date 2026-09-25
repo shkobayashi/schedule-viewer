@@ -30,9 +30,10 @@ export function serializeScheduleDocument(
 }
 
 export function parseScheduleText(text: string): ParseScheduleResult {
+  const normalized = text.replace(/^\uFEFF/, "");
   let data: unknown;
   try {
-    data = JSON.parse(text);
+    data = JSON.parse(normalized);
   } catch {
     return { ok: false, message: "JSON の形式が正しくありません。" };
   }
@@ -61,13 +62,17 @@ export async function openScheduleViaTauri(): Promise<ScheduleFilePick | null> {
   return { path: result.path, contents: result.contents };
 }
 
+export async function checkScheduleFileChangedViaTauri(): Promise<boolean> {
+  return invoke<boolean>("check_schedule_file_changed");
+}
+
 export async function saveScheduleViaTauri(
-  path: string | null,
+  saveAs: boolean,
   contents: string,
   suggestedName: string,
 ): Promise<string | null> {
   return invoke<string | null>("save_schedule_file", {
-    path,
+    saveAs,
     contents,
     suggestedName,
   });
