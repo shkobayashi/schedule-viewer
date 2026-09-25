@@ -40,6 +40,7 @@ import { formatValidationErrors } from "../model/validateSchedule";
 import { isOverdue } from "../model/timeline";
 import type { Member, MemberId } from "../model/memberTypes";
 import {
+  NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
   type Category,
   type Milestone,
@@ -94,6 +95,7 @@ export function useSchedule(
     status: "all",
     overdue: "all",
     relation: "all",
+    milestone: "all",
     search: "",
     noteSearch: "",
   });
@@ -199,6 +201,11 @@ export function useSchedule(
     [memberCatalog],
   );
 
+  const knownMilestoneIds = useMemo(
+    () => new Set(milestones.map((milestone) => milestone.id)),
+    [milestones],
+  );
+
   const lineageIds = useMemo(
     () =>
       lineageTaskId == null
@@ -231,6 +238,17 @@ export function useSchedule(
     }
     setFilters((prev) => ({ ...prev, assignee: "all" }));
   }, [filters.assignee, knownMemberIds]);
+
+  useEffect(() => {
+    if (
+      filters.milestone === "all" ||
+      filters.milestone === NO_MILESTONE_FILTER ||
+      knownMilestoneIds.has(filters.milestone)
+    ) {
+      return;
+    }
+    setFilters((prev) => ({ ...prev, milestone: "all" }));
+  }, [filters.milestone, knownMilestoneIds]);
 
   const toggleCollapsed = useCallback((key: string) => {
     setCollapsed((prev) => {
@@ -527,6 +545,10 @@ export function useSchedule(
             ? "all"
             : prev.overdue,
         relation: prev.relation === "broken" ? "all" : prev.relation,
+        milestone:
+          prev.milestone !== "all" && prev.milestone !== NO_MILESTONE_FILTER
+            ? "all"
+            : prev.milestone,
         search: prev.search && !name.includes(prev.search) ? "" : prev.search,
         noteSearch: prev.noteSearch.trim() ? "" : prev.noteSearch,
       }));
@@ -571,6 +593,7 @@ export function useSchedule(
         status: "all",
         overdue: "all",
         relation: "all",
+        milestone: "all",
         search: "",
         noteSearch: "",
       });
