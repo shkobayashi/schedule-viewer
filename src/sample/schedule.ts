@@ -39,6 +39,7 @@ export const sampleCategories: Category[] = [
             progress: 100,
             predecessors: [],
             milestoneId: SAMPLE_MILESTONE_IDS.requirements,
+            note: "各部門の現行フローと pain point を聞き取り。議事録は共有ドライブに置く。",
           },
         ],
       },

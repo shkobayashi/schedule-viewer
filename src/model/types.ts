@@ -19,6 +19,8 @@ export type Task = {
   predecessors: ScheduleId[];
   /** このタスクが間に合わせるマイルストン。未設定なら超過判定しない。 */
   milestoneId: ScheduleId | null;
+  /** 補足説明。未設定または空白のみのときは JSON に含めない。 */
+  note?: string;
 };
 
 /** タスクではない到達点。期間は持たず、日付だけが決まる。 */
@@ -68,6 +70,7 @@ export type ScheduleFilters = {
   overdue: OverdueFilter;
   relation: RelationFilter;
   search: string;
+  noteSearch: string;
 };
 
 export type VisibleRow =
