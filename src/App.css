@@ -796,6 +796,28 @@ input[type="number"] {
   color: var(--text-secondary);
 }
 
+.export-format {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.export-format legend {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.export-format label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
 .form-error {
   margin: 0;
   font-size: 12px;

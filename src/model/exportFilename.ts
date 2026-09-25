@@ -48,3 +48,8 @@ export function scheduleHtmlFilename(title: string): string {
   const base = sanitizeExportBaseName(title);
   return base.toLowerCase().endsWith(".html") ? base : `${base}.html`;
 }
+
+export function scheduleSvgFilename(title: string): string {
+  const base = sanitizeExportBaseName(title);
+  return base.toLowerCase().endsWith(".svg") ? base : `${base}.svg`;
+}
