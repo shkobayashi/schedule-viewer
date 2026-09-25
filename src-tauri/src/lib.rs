@@ -151,6 +151,41 @@ fn check_schedule_file_changed(
     Ok(guard.content_hash.as_ref() != Some(&hash))
 }
 
+#[derive(Serialize)]
+struct PollScheduleFileUpdateResult {
+    contents: String,
+}
+
+#[tauri::command]
+fn poll_schedule_file_update(
+    state: State<'_, Mutex<ScheduleFileState>>,
+) -> Result<Option<PollScheduleFileUpdateResult>, String> {
+    let guard = state.lock().expect("schedule file state");
+    let path = guard
+        .path
+        .as_ref()
+        .ok_or_else(|| "開いているファイルがありません".to_string())?;
+    let contents = read_utf8(path)?;
+    let hash = hash_contents(&contents);
+    if guard.content_hash.as_ref() == Some(&hash) {
+        return Ok(None);
+    }
+    Ok(Some(PollScheduleFileUpdateResult { contents }))
+}
+
+#[tauri::command]
+fn acknowledge_schedule_file_contents(
+    state: State<'_, Mutex<ScheduleFileState>>,
+    contents: String,
+) -> Result<(), String> {
+    let mut guard = state.lock().expect("schedule file state");
+    if guard.path.is_none() {
+        return Err("開いているファイルがありません".to_string());
+    }
+    guard.content_hash = Some(hash_contents(&contents));
+    Ok(())
+}
+
 #[tauri::command]
 async fn save_schedule_file(
     window: tauri::Window,
@@ -385,6 +420,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_schedule_file,
             check_schedule_file_changed,
+            poll_schedule_file_update,
+            acknowledge_schedule_file_contents,
             save_schedule_file,
             save_html_file,
             get_members_settings,

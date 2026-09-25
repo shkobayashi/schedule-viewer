@@ -67,6 +67,22 @@ export async function checkScheduleFileChangedViaTauri(): Promise<boolean> {
   return invoke<boolean>("check_schedule_file_changed");
 }
 
+export type PollScheduleFileUpdateResult = {
+  contents: string;
+};
+
+export async function pollScheduleFileUpdateViaTauri(): Promise<PollScheduleFileUpdateResult | null> {
+  return invoke<PollScheduleFileUpdateResult | null>(
+    "poll_schedule_file_update",
+  );
+}
+
+export async function acknowledgeScheduleFileContentsViaTauri(
+  contents: string,
+): Promise<void> {
+  await invoke("acknowledge_schedule_file_contents", { contents });
+}
+
 export async function saveScheduleViaTauri(
   saveAs: boolean,
   contents: string,

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-poll-schedule-file-update"
+description = "Polls the opened schedule file for external updates."
+commands.allow = ["poll_schedule_file_update", "acknowledge_schedule_file_contents"]
