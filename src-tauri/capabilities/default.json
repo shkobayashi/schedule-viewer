@@ -5,6 +5,8 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
     "allow-open-schedule-file",
     "allow-check-schedule-file-changed",
     "allow-poll-schedule-file-update",
