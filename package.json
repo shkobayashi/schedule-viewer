@@ -7,12 +7,12 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "node scripts/compile-validators.mjs && vite",
+    "build": "node scripts/compile-validators.mjs && tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "check:schedule": "tsx scripts/check-schedule.ts",
-    "test": "vitest run",
+    "test": "node scripts/compile-validators.mjs && vitest run",
     "lint": "eslint .",
     "build:validate-skill": "node scripts/build-validate-skill.mjs",
     "version:check": "node scripts/check-version-sync.mjs",

@@ -1,6 +1,4 @@
-import Ajv2020 from "ajv/dist/2020.js";
-import addFormats from "ajv-formats";
-import membersSchema from "../../docs/members.schema.json";
+import validateSchema from "./generated/membersValidator.js";
 import {
   validateMembersSemantics,
   type ValidationIssue,
@@ -11,10 +9,6 @@ import {
   formatAjvErrors,
   formatValidationErrors as formatIssues,
 } from "./validationMessages";
-
-const ajv = new Ajv2020({ allErrors: true, strict: false });
-addFormats(ajv);
-const validateSchema = ajv.compile(membersSchema);
 
 export type ValidateMembersResult =
   | { ok: true; document: MembersDocument }
