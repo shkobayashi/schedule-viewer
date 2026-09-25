@@ -1,17 +1,49 @@
 name: CI
 
 on:
-  push:
-    branches: [develop]
   pull_request:
     branches: [develop]
 
 jobs:
-  check:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.sha }}"
+          frontend=false
+          rust=false
+          while IFS= read -r file; do
+            case "$file" in
+              src-tauri/*)
+                rust=true
+                ;;
+              .github/workflows/*)
+                frontend=true
+                rust=true
+                ;;
+              src/*|scripts/*|docs/schedule.schema.json|docs/members.schema.json|examples/*|package.json|package-lock.json|eslint.config.js|vite.config.ts|tsconfig.json|tsconfig.node.json|vitest.config.ts|.cursor/skills/write-schedule/*)
+                frontend=true
+                ;;
+            esac
+          done < <(git diff --name-only "$BASE" "$HEAD")
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "rust=$rust" >> "$GITHUB_OUTPUT"
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
           cache: npm
@@ -22,7 +54,18 @@ jobs:
       - run: npm test
       - run: npm run check:schedule
       - run: npm run build:validate-skill
-      - run: git diff --exit-code docs/schedule.schema.json .cursor/skills/write-schedule/schedule.schema.json
+      - run: git diff --exit-code docs/schedule.schema.json .cursor/skills/write-schedule/schedule.schema.json .cursor/skills/write-schedule/scripts/validate-schedule.bundle.mjs
+
+  rust:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+      - run: npm run version:check
       - name: Install Linux packages for Tauri
         run: |
           sudo apt-get update
@@ -38,9 +81,11 @@ jobs:
             librsvg2-dev \
             patchelf \
             xdg-utils
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master 2026-09-12
         with:
           toolchain: 1.98.1
           components: clippy
       - run: cargo clippy -- -D warnings
+        working-directory: src-tauri
+      - run: cargo test --locked
         working-directory: src-tauri

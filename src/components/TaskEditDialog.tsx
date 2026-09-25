@@ -9,6 +9,7 @@ import {
 import type { Member } from "../model/memberTypes";
 import type { MemberId } from "../model/memberTypes";
 import { validateTaskEdit } from "../model/tasks";
+import { ModalDialog } from "./ModalDialog";
 import {
   UNASSIGNED_LABEL,
   type Milestone,
@@ -35,7 +36,7 @@ type TaskEditDialogProps = {
     predecessors: ScheduleId[];
     successors: ScheduleId[];
     milestoneId: ScheduleId | null;
-  }) => boolean;
+  }) => string | null;
 };
 
 function taskLabel(tasks: TaskRef[], id: ScheduleId): string {
@@ -82,9 +83,7 @@ export function TaskEditDialog({
   const showUnknownOption = isUnknownAssignee(task.assigneeId, memberCatalog);
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true">
-      <div className="modal editor">
-        <h2>タスク編集</h2>
+    <ModalDialog title="タスク編集" onClose={onClose} className="modal editor">
         <div className="field">
           <label htmlFor="fieldName">タスク名</label>
           <input
@@ -229,29 +228,29 @@ export function TaskEditDialog({
                 setFormError(err);
                 return;
               }
-              setFormError(null);
-              if (
-                !onSave({
-                  name,
-                  start,
-                  end,
-                  assigneeId: assigneeId === "" ? null : assigneeId,
-                  status,
-                  progress: roundedProgress,
-                  predecessors,
-                  successors,
-                  milestoneId,
-                })
-              ) {
-                setFormError("保存できませんでした。入力内容を確認してください。");
+              const saveError = onSave({
+                name,
+                start,
+                end,
+                assigneeId: assigneeId === "" ? null : assigneeId,
+                status,
+                progress: roundedProgress,
+                predecessors,
+                successors,
+                milestoneId,
+              });
+              if (saveError) {
+                setFormError(saveError);
+                return;
               }
+              setFormError(null);
+              onClose();
             }}
           >
             保存
           </button>
         </div>
-      </div>
-    </div>
+    </ModalDialog>
   );
 }
 

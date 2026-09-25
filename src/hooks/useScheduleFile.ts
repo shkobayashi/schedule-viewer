@@ -4,8 +4,11 @@ import type { Category, Milestone, ScheduleDocument } from "../model/types";
 import { errorMessage } from "../model/errors";
 import { decideExternalReload } from "../model/scheduleExternalReload";
 import {
+  acceptOpenedScheduleViaTauri,
   acknowledgeScheduleFileContentsViaTauri,
+  DISK_HASH_MISMATCH,
   downloadScheduleJson,
+  hashTextSha256,
   isTauri,
   openScheduleViaBrowserInput,
   openScheduleViaTauri,
@@ -31,6 +34,7 @@ type UseScheduleFileOptions = {
   reloadDocumentFromDisk: (document: ScheduleDocument) => void;
   onAfterOpen: () => void;
   initialBaselineJson: string;
+  hasOpenEditDialog: boolean;
 };
 
 export function useScheduleFile({
@@ -41,8 +45,10 @@ export function useScheduleFile({
   reloadDocumentFromDisk,
   onAfterOpen,
   initialBaselineJson,
+  hasOpenEditDialog,
 }: UseScheduleFileOptions) {
   const [filePath, setFilePath] = useState<string | null>(null);
+  const [browserFileLabel, setBrowserFileLabel] = useState<string | null>(null);
   const [baselineJson, setBaselineJson] = useState(initialBaselineJson);
   const [errorMessageText, setErrorMessageText] = useState<string | null>(null);
   const [discardPromptOpen, setDiscardPromptOpen] = useState(false);
@@ -71,7 +77,10 @@ export function useScheduleFile({
   const allowCloseRef = useRef(false);
   const baselineJsonRef = useRef(baselineJson);
   baselineJsonRef.current = baselineJson;
-  const lastInvalidDiskContentsRef = useRef<string | null>(null);
+  const lastInvalidDiskHashRef = useRef<string | null>(null);
+  const pollReadFailuresRef = useRef(0);
+  const hasOpenEditDialogRef = useRef(hasOpenEditDialog);
+  hasOpenEditDialogRef.current = hasOpenEditDialog;
   const externalReloadOpenRef = useRef(externalReloadOpen);
   externalReloadOpenRef.current = externalReloadOpen;
   const fileBusyRef = useRef(fileBusy);
@@ -82,18 +91,20 @@ export function useScheduleFile({
 
   const statusTag: FileStatusTag = useMemo(() => {
     if (isDirty) return "unsaved";
-    if (filePath) return "saved";
+    if (filePath || browserFileLabel) return "saved";
     return "sample";
-  }, [filePath, isDirty]);
+  }, [browserFileLabel, filePath, isDirty]);
 
   const statusLabel = useMemo(() => {
     if (reloadNotice) return "ファイルを反映しました";
     if (statusTag === "unsaved") return "未保存";
     if (statusTag === "saved") {
-      return scheduleJsonFilename(filePath) ?? "保存済み";
+      return (
+        scheduleJsonFilename(filePath) ?? browserFileLabel ?? "保存済み"
+      );
     }
     return "サンプルデータ";
-  }, [filePath, reloadNotice, statusTag]);
+  }, [browserFileLabel, filePath, reloadNotice, statusTag]);
 
   const showDeferredReload = deferredExternalContents != null;
 
@@ -168,7 +179,7 @@ export function useScheduleFile({
       setDeferredExternalContents(null);
       setPendingExternalContents(null);
       setExternalReloadOpen(false);
-      lastInvalidDiskContentsRef.current = null;
+      lastInvalidDiskHashRef.current = null;
       suppressedDiskRef.current = null;
       baselineJsonRef.current = canonicalJson;
       isDirtyRef.current = false;
@@ -185,6 +196,7 @@ export function useScheduleFile({
         diskContents,
         baselineJsonRef.current,
         isDirtyRef.current,
+        hasOpenEditDialogRef.current,
       );
 
       if (pausePollRef.current || fileBusyRef.current) return;
@@ -192,14 +204,17 @@ export function useScheduleFile({
       if (decision.kind === "invalid") {
         setPendingExternalContents(null);
         setExternalReloadOpen(false);
-        if (lastInvalidDiskContentsRef.current !== decision.diskContents) {
-          lastInvalidDiskContentsRef.current = decision.diskContents;
-          setErrorMessageText(decision.message);
+        const diskHash = await hashTextSha256(decision.diskContents);
+        if (lastInvalidDiskHashRef.current === diskHash) {
+          return;
         }
+        lastInvalidDiskHashRef.current = diskHash;
+        await acknowledgeDisk(decision.diskContents);
+        setErrorMessageText(decision.message);
         return;
       }
 
-      lastInvalidDiskContentsRef.current = null;
+      lastInvalidDiskHashRef.current = null;
 
       if (decision.kind === "noop") {
         clearExternalReloadPrompt();
@@ -251,17 +266,19 @@ export function useScheduleFile({
       inFlight = true;
       try {
         const update = await pollScheduleFileUpdateViaTauri();
-        if (
-          cancelled ||
-          fileBusyRef.current ||
-          pausePollRef.current ||
-          !update
-        ) {
+        if (cancelled || fileBusyRef.current || pausePollRef.current) {
           return;
         }
+        pollReadFailuresRef.current = 0;
+        if (!update) return;
         await processDiskContents(update.contents);
       } catch {
-        // 書き込み途中などは次の間隔で再試行する
+        pollReadFailuresRef.current += 1;
+        if (pollReadFailuresRef.current === 5) {
+          setErrorMessageText(
+            "ファイルの監視中に読み取りエラーが続いています。権限やファイルの存在を確認してください。",
+          );
+        }
       } finally {
         inFlight = false;
       }
@@ -277,22 +294,28 @@ export function useScheduleFile({
   }, [filePath, processDiskContents]);
 
   const applyOpenedFile = useCallback(
-    (pick: { path: string | null; contents: string }) => {
+    (pick: {
+      path: string | null;
+      displayName?: string | null;
+      contents: string;
+    }) => {
       const parsed = parseScheduleText(pick.contents);
       if (!parsed.ok) {
         setErrorMessageText(parsed.message);
-        return;
+        return false;
       }
       replaceDocument(parsed.document);
       setFilePath(pick.path);
+      setBrowserFileLabel(pick.path ? null : (pick.displayName ?? null));
       setBaselineJson(parsed.canonicalJson);
       setDeferredExternalContents(null);
       setPendingExternalContents(null);
       setExternalReloadOpen(false);
-      lastInvalidDiskContentsRef.current = null;
+      lastInvalidDiskHashRef.current = null;
       suppressedDiskRef.current = null;
       baselineJsonRef.current = parsed.canonicalJson;
       onAfterOpen();
+      return true;
     },
     [onAfterOpen, replaceDocument],
   );
@@ -305,6 +328,14 @@ export function useScheduleFile({
         ? await openScheduleViaTauri()
         : await openScheduleViaBrowserInput();
       if (!pick) return;
+      const parsed = parseScheduleText(pick.contents);
+      if (!parsed.ok) {
+        setErrorMessageText(parsed.message);
+        return;
+      }
+      if (isTauri() && pick.path) {
+        await acceptOpenedScheduleViaTauri(pick.path, pick.contents);
+      }
       applyOpenedFile(pick);
     } catch (error) {
       setErrorMessageText(
@@ -374,17 +405,25 @@ export function useScheduleFile({
               saveAs,
               contents,
               suggested,
+              saveAs ? null : filePath,
+              skipExternalCheck,
             );
             if (!writtenPath) return;
             setFilePath(writtenPath);
+            setBrowserFileLabel(null);
             setBaselineJson(contents);
             baselineJsonRef.current = contents;
             clearExternalReloadPrompt();
-            lastInvalidDiskContentsRef.current = null;
+            lastInvalidDiskHashRef.current = null;
           } catch (error) {
-            setErrorMessageText(
-              errorMessage(error, "ファイルに保存できませんでした。"),
-            );
+            const message = errorMessage(error, "ファイルに保存できませんでした。");
+            if (message.includes(DISK_HASH_MISMATCH)) {
+              setPendingSaveAs(saveAs);
+              setExternalChangeOpen(true);
+              holdPause = true;
+              return;
+            }
+            setErrorMessageText(message);
           } finally {
             setFileBusy(false);
           }
@@ -395,9 +434,10 @@ export function useScheduleFile({
         setBaselineJson(contents);
         baselineJsonRef.current = contents;
         clearExternalReloadPrompt();
-        lastInvalidDiskContentsRef.current = null;
+        lastInvalidDiskHashRef.current = null;
         if (saveAs) {
           setFilePath(null);
+          setBrowserFileLabel(null);
         }
       } finally {
         if (!holdPause) pausePollRef.current = false;

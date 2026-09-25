@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "allow-open-schedule-file"
 description = "Allows opening schedule JSON via native file dialog."
-commands.allow = ["open_schedule_file"]
+commands.allow = ["open_schedule_file", "accept_opened_schedule"]

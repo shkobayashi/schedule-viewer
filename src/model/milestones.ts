@@ -23,6 +23,18 @@ export function milestoneLabelWidth(name: string, fontSize: number): number {
 }
 
 /** 日付とラベル幅から、重ならない段を割り当てる。横スクロールでは段が変わらない。 */
+export function milestoneBandHeightPx(
+  milestones: Milestone[],
+  pxPerDay: number,
+  fontSize: number,
+  diamondSize: number,
+  laneHeight: number,
+): number {
+  if (milestones.length === 0) return 0;
+  const lanes = layoutMilestones(milestones, pxPerDay, fontSize, diamondSize);
+  return (Math.max(...lanes.values(), 0) + 1) * laneHeight;
+}
+
 export function layoutMilestones(
   milestones: Milestone[],
   pxPerDay: number,

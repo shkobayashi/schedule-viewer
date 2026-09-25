@@ -19,9 +19,15 @@ import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useTimelineView } from "./hooks/useTimelineView";
 import { serializeScheduleDocument } from "./model/scheduleFile";
 import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
-import { exportScheduleHtml } from "./model/exportHtml";
+import {
+  exportScheduleHtml,
+  ScheduleExportTooLargeError,
+} from "./model/exportHtml";
 import { addDays, isoDate, parseDate, roundToDay } from "./model/dates";
-import { layoutMilestones } from "./model/milestones";
+import {
+  layoutMilestones,
+  milestoneBandHeightPx,
+} from "./model/milestones";
 import { findTaskById } from "./model/rows";
 import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
@@ -148,6 +154,7 @@ function App() {
     rowHeight,
     memberCatalogState.members,
   );
+  const { redo, undo, setTaskStart, setTaskEnd, visibleRows } = schedule;
   const range = useMemo(
     () =>
       computeTimelineRange(
@@ -165,20 +172,13 @@ function App() {
     },
     timelineWidth,
     (pxPerDay) => {
-      const band =
-        schedule.milestones.length === 0
-          ? 0
-          : (Math.max(
-              ...layoutMilestones(
-                schedule.milestones,
-                pxPerDay,
-                milestoneFontSize,
-                milestoneDiamondSize,
-              ).values(),
-              0,
-            ) +
-              1) *
-            milestoneLaneHeight;
+      const band = milestoneBandHeightPx(
+        schedule.milestones,
+        pxPerDay,
+        milestoneFontSize,
+        milestoneDiamondSize,
+        milestoneLaneHeight,
+      );
       const body = Math.max(120, timelineSlotHeight - headerHeight - band);
       return Math.max(0, schedule.visibleRows.length * rowHeight - body);
     },
@@ -241,6 +241,8 @@ function App() {
     reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
     onAfterOpen: onAfterOpenFile,
     initialBaselineJson: INITIAL_BASELINE_JSON,
+    hasOpenEditDialog:
+      schedule.editingTask != null || schedule.editingMilestone != null,
   });
 
   useEffect(() => {
@@ -250,18 +252,18 @@ function App() {
       const key = e.key.toLowerCase();
       if (key === "z" && mod && !e.altKey) {
         e.preventDefault();
-        if (e.shiftKey) schedule.redo();
-        else schedule.undo();
+        if (e.shiftKey) redo();
+        else undo();
         return;
       }
       if (key === "y" && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
         e.preventDefault();
-        schedule.redo();
+        redo();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [schedule.redo, schedule.undo]);
+  }, [redo, undo]);
 
   const onWheelBody = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -308,20 +310,20 @@ function App() {
       const start = isoDate(
         roundToDay(range.timelineStart, xToDate(groupX)),
       );
-      schedule.setTaskStart(taskId, start);
+      setTaskStart(taskId, start);
     },
-    [range.timelineStart, schedule.setTaskStart, xToDate],
+    [range.timelineStart, setTaskStart, xToDate],
   );
 
   useEffect(() => {
     if (focusTaskId == null) return;
-    const row = schedule.visibleRows.find(
+    const row = visibleRows.find(
       (item) => item.type === "task" && item.task.id === focusTaskId,
     );
     if (!row || row.type !== "task") return;
     reveal(parseDate(row.task.start), row.y);
     setFocusTaskId(null);
-  }, [focusTaskId, reveal, schedule.visibleRows]);
+  }, [focusTaskId, reveal, visibleRows]);
 
   const handleResizeEnd = useCallback(
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
@@ -330,9 +332,9 @@ function App() {
         xToDate(groupX + barWidth),
       );
       const end = isoDate(addDays(exclusiveEnd, -1));
-      schedule.setTaskEnd(taskId, end);
+      setTaskEnd(taskId, end);
     },
-    [range.timelineStart, schedule.setTaskEnd, xToDate],
+    [range.timelineStart, setTaskEnd, xToDate],
   );
 
   return (
@@ -343,6 +345,7 @@ function App() {
         showDeferredReload={scheduleFile.showDeferredReload}
         onDeferredReload={scheduleFile.requestDeferredReload}
         membersCatalogLabel={memberCatalogState.selectedCatalogLabel}
+        membersCatalogError={memberCatalogState.error}
         filters={schedule.filters}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
         zoomLabel={tierLabel}
@@ -383,6 +386,10 @@ function App() {
             today: schedule.today,
             memberCatalog: memberCatalogState.memberMap,
           }).catch((error: unknown) => {
+            if (error instanceof ScheduleExportTooLargeError) {
+              setExportError(error.message);
+              return;
+            }
             setExportError(
               error instanceof Error
                 ? error.message
