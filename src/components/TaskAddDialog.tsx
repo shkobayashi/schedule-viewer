@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { addDays, isoDate, parseDate } from "../model/dates";
 import { validateNewTask } from "../model/tasks";
+import { ModalDialog } from "./ModalDialog";
 import type { Category } from "../model/types";
 
 type TaskAddDialogProps = {
@@ -43,9 +44,7 @@ export function TaskAddDialog({
     [];
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true">
-      <div className="modal">
-        <h2>タスク追加</h2>
+    <ModalDialog title="タスク追加" onClose={onClose}>
         <div className="field">
           <label htmlFor="addTaskCategory">カテゴリ</label>
           <select
@@ -137,7 +136,6 @@ export function TaskAddDialog({
             追加
           </button>
         </div>
-      </div>
-    </div>
+    </ModalDialog>
   );
 }

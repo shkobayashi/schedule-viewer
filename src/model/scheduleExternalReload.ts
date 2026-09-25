@@ -11,6 +11,7 @@ export function decideExternalReload(
   diskContents: string,
   baselineJson: string,
   isDirty: boolean,
+  hasOpenEditDialog = false,
 ): ExternalReloadAction {
   const parsed = parseScheduleText(diskContents);
   if (!parsed.ok) {
@@ -19,7 +20,7 @@ export function decideExternalReload(
   if (parsed.canonicalJson === baselineJson) {
     return { kind: "noop" };
   }
-  if (isDirty) {
+  if (isDirty || hasOpenEditDialog) {
     return { kind: "confirm", diskContents };
   }
   return {

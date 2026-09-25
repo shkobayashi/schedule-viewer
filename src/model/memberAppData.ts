@@ -1,6 +1,10 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { MemberCatalogInfo } from "./memberTypes";
 import type { MembersDocument } from "./memberTypes";
+import {
+  formatMembersValidationErrors,
+  validateMembers,
+} from "./validateMembers";
 
 export type AppMembersSettings = {
   selectedCatalogId: string | null;
@@ -10,6 +14,8 @@ export type AppMembersSettings = {
 const LS_CATALOGS = "schedule-viewer/members/catalogs";
 const LS_SELECTED = "schedule-viewer/members/selected";
 const LS_SAMPLE_SEEDED = "schedule-viewer/members/sample-seeded";
+
+let sampleSeedInFlight: Promise<void> | null = null;
 
 export function stripUtf8Bom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
@@ -76,12 +82,26 @@ export async function readMemberCatalog(
       catalogId,
     });
     if (text == null) return null;
-    return JSON.parse(stripUtf8Bom(text)) as MembersDocument;
+    return parseMemberCatalogText(text);
   }
   const stored = readBrowserCatalogs();
   const text = stored[catalogId];
   if (!text) return null;
-  return JSON.parse(stripUtf8Bom(text)) as MembersDocument;
+  return parseMemberCatalogText(text);
+}
+
+function parseMemberCatalogText(text: string): MembersDocument {
+  let data: unknown;
+  try {
+    data = JSON.parse(stripUtf8Bom(text));
+  } catch {
+    throw new Error("メンバー JSON の形式が正しくありません。");
+  }
+  const result = validateMembers(data);
+  if (!result.ok) {
+    throw new Error(formatMembersValidationErrors(result.errors));
+  }
+  return result.document;
 }
 
 export async function importMemberCatalog(
@@ -182,10 +202,22 @@ export async function seedSampleMemberCatalogOnce(
   contents: string,
 ): Promise<void> {
   if (localStorage.getItem(LS_SAMPLE_SEEDED) === "1") return;
-  localStorage.setItem(LS_SAMPLE_SEEDED, "1");
-  const settings = await loadAppMembersSettings();
-  if (settings.catalogs.length === 0) {
-    await importMemberCatalog(catalogId, contents, false);
-    await setSelectedMemberCatalog(catalogId);
+  if (sampleSeedInFlight) {
+    await sampleSeedInFlight;
+    return;
+  }
+  sampleSeedInFlight = (async () => {
+    if (localStorage.getItem(LS_SAMPLE_SEEDED) === "1") return;
+    const settings = await loadAppMembersSettings();
+    if (settings.catalogs.length === 0) {
+      await importMemberCatalog(catalogId, contents, false);
+      await setSelectedMemberCatalog(catalogId);
+    }
+    localStorage.setItem(LS_SAMPLE_SEEDED, "1");
+  })();
+  try {
+    await sampleSeedInFlight;
+  } finally {
+    sampleSeedInFlight = null;
   }
 }

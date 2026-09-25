@@ -10,7 +10,11 @@ use tauri_plugin_dialog::DialogExt;
 
 const MAX_SCHEDULE_BYTES: u64 = 10 * 1024 * 1024;
 
+const MAX_HTML_BYTES: u64 = 10 * 1024 * 1024;
+
 const MAX_MEMBERS_BYTES: u64 = 2 * 1024 * 1024;
+
+const DISK_HASH_MISMATCH: &str = "DISK_HASH_MISMATCH";
 
 #[derive(Serialize)]
 struct OpenScheduleResult {
@@ -58,7 +62,7 @@ fn write_utf8_atomic(path: &Path, contents: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn sanitize_export_filename(name: &str, default_ext: &str) -> String {
+pub(crate) fn sanitize_export_filename(name: &str, default_ext: &str) -> String {
     let trimmed = name.trim();
     if trimmed.is_empty() {
         return format!("schedule.{}", default_ext);
@@ -104,6 +108,22 @@ fn is_json_path(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+pub(crate) fn require_active_save_path(
+    active: Option<&Path>,
+    expected: Option<&str>,
+) -> Result<PathBuf, String> {
+    let active = active.ok_or_else(|| {
+        "保存先が選ばれていません。別名保存を使ってください。".to_string()
+    })?;
+    let expected = expected.ok_or_else(|| "保存先のパスが一致しません。".to_string())?;
+    if active != Path::new(expected) {
+        return Err(
+            "保存先のパスが一致しません。ファイルを開き直してください。".to_string(),
+        );
+    }
+    Ok(active.to_path_buf())
+}
+
 fn record_open(state: &Mutex<ScheduleFileState>, path: PathBuf, contents: &str) {
     let mut guard = state.lock().expect("schedule file state");
     guard.path = Some(path);
@@ -114,7 +134,7 @@ fn record_open(state: &Mutex<ScheduleFileState>, path: PathBuf, contents: &str) 
 async fn open_schedule_file(
     window: tauri::Window,
     app: tauri::AppHandle,
-    state: State<'_, Mutex<ScheduleFileState>>,
+    _state: State<'_, Mutex<ScheduleFileState>>,
 ) -> Result<Option<OpenScheduleResult>, String> {
     let path = app
         .dialog()
@@ -127,7 +147,6 @@ async fn open_schedule_file(
         Some(file_path) => {
             let path_buf = file_path.into_path().map_err(|e| e.to_string())?;
             let contents = read_utf8(&path_buf)?;
-            record_open(state.inner(), path_buf.clone(), &contents);
             Ok(Some(OpenScheduleResult {
                 path: path_buf.to_string_lossy().into_owned(),
                 contents,
@@ -135,6 +154,19 @@ async fn open_schedule_file(
         }
         None => Ok(None),
     }
+}
+
+#[tauri::command]
+fn accept_opened_schedule(
+    state: State<'_, Mutex<ScheduleFileState>>,
+    path: String,
+    contents: String,
+) -> Result<(), String> {
+    if contents.len() as u64 > MAX_SCHEDULE_BYTES {
+        return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
+    }
+    record_open(state.inner(), PathBuf::from(path), &contents);
+    Ok(())
 }
 
 #[tauri::command]
@@ -189,15 +221,19 @@ fn acknowledge_schedule_file_contents(
 #[tauri::command]
 async fn save_schedule_file(
     window: tauri::Window,
-    app: tauri::AppHandle,
     state: State<'_, Mutex<ScheduleFileState>>,
     contents: String,
     save_as: bool,
     suggested_name: String,
+    expected_path: Option<String>,
+    skip_disk_hash_check: bool,
 ) -> Result<Option<String>, String> {
+    if contents.len() as u64 > MAX_SCHEDULE_BYTES {
+        return Err("保存する内容が大きすぎます（上限 10 MB）".to_string());
+    }
     let target = if save_as {
         let default_name = sanitize_export_filename(&suggested_name, "json");
-        let picked = app
+        let picked = window
             .dialog()
             .file()
             .set_parent(&window)
@@ -210,14 +246,24 @@ async fn save_schedule_file(
         }
     } else {
         let guard = state.lock().expect("schedule file state");
-        guard
-            .path
-            .clone()
-            .ok_or_else(|| "保存先が選ばれていません。別名保存を使ってください。".to_string())?
+        require_active_save_path(guard.path.as_deref(), expected_path.as_deref())?
     };
 
     if !is_json_path(&target) {
         return Err("JSON ファイル以外には保存できません".to_string());
+    }
+
+    if !save_as && !skip_disk_hash_check {
+        let disk = read_utf8(&target)?;
+        let disk_hash = hash_contents(&disk);
+        let guard = state.lock().expect("schedule file state");
+        let expected_hash = guard
+            .content_hash
+            .as_ref()
+            .ok_or_else(|| "開いているファイルがありません".to_string())?;
+        if disk_hash != *expected_hash {
+            return Err(DISK_HASH_MISMATCH.to_string());
+        }
     }
 
     write_utf8_atomic(&target, &contents)?;
@@ -232,6 +278,9 @@ async fn save_html_file(
     contents: String,
     suggested_name: String,
 ) -> Result<Option<String>, String> {
+    if contents.len() as u64 > MAX_HTML_BYTES {
+        return Err("保存する内容が大きすぎます（上限 10 MB）".to_string());
+    }
     let default_name = sanitize_export_filename(&suggested_name, "html");
     let picked = app
         .dialog()
@@ -419,6 +468,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             open_schedule_file,
+            accept_opened_schedule,
             check_schedule_file_changed,
             poll_schedule_file_update,
             acknowledge_schedule_file_contents,
@@ -432,4 +482,45 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::{require_active_save_path, sanitize_export_filename};
+
+    #[test]
+    fn sanitize_export_filename_removes_path_separators() {
+        assert_eq!(
+            sanitize_export_filename("foo/bar.json", "json"),
+            "foobar.json",
+        );
+    }
+
+    #[test]
+    fn sanitize_export_filename_uses_default_for_empty() {
+        assert_eq!(sanitize_export_filename("  ", "html"), "schedule.html");
+    }
+
+    #[test]
+    fn sanitize_export_filename_adds_extension() {
+        assert_eq!(sanitize_export_filename("plan", "json"), "plan.json");
+    }
+
+    #[test]
+    fn require_active_save_path_accepts_matching_path() {
+        let active = PathBuf::from("/tmp/plan.json");
+        let resolved =
+            require_active_save_path(Some(&active), Some("/tmp/plan.json")).unwrap();
+        assert_eq!(resolved, active);
+    }
+
+    #[test]
+    fn require_active_save_path_rejects_mismatch_and_missing() {
+        let active = PathBuf::from("/tmp/a.json");
+        assert!(require_active_save_path(Some(&active), Some("/tmp/b.json")).is_err());
+        assert!(require_active_save_path(None, Some("/tmp/a.json")).is_err());
+        assert!(require_active_save_path(Some(&active), None).is_err());
+    }
 }
