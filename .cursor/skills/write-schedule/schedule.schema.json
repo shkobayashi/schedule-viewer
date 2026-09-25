@@ -88,6 +88,11 @@
             { "$ref": "#/$defs/scheduleId" },
             { "type": "null" }
           ]
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "description": "タスクの補足説明（任意）。画面ではノートとして表示する。"
         }
       }
     },

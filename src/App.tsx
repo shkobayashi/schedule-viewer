@@ -10,6 +10,7 @@ import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
 import { TaskEditDialog } from "./components/TaskEditDialog";
+import { TaskNoteDialog } from "./components/TaskNoteDialog";
 import { Timeline } from "./components/Timeline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { Toolbar } from "./components/Toolbar";
@@ -244,7 +245,9 @@ function App() {
     onAfterOpen: onAfterOpenFile,
     initialBaselineJson: INITIAL_BASELINE_JSON,
     hasOpenEditDialog:
-      schedule.editingTask != null || schedule.editingMilestone != null,
+      schedule.editingTask != null ||
+      schedule.editingNoteTask != null ||
+      schedule.editingMilestone != null,
   });
 
   useEffect(() => {
@@ -424,6 +427,7 @@ function App() {
           milestoneBandHeight={milestoneBandHeight}
           milestones={schedule.milestones}
           onToggleCollapse={schedule.toggleCollapsed}
+          onOpenTaskNote={schedule.openTaskNoteDialog}
           today={schedule.today}
           memberCatalog={memberCatalogState.memberMap}
         />
@@ -468,6 +472,17 @@ function App() {
           />
         </div>
       </div>
+      {schedule.editingNoteTask ? (
+        <TaskNoteDialog
+          key={`note-${schedule.editingNoteTask.id}:${schedule.diskEpoch}`}
+          task={schedule.editingNoteTask}
+          onClose={schedule.closeTaskNoteDialog}
+          onSave={(note) => {
+            const task = schedule.editingNoteTask;
+            if (task) schedule.saveTaskNote(task.id, note);
+          }}
+        />
+      ) : null}
       {schedule.editingTask ? (
         <TaskEditDialog
           key={`${schedule.editingTask.id}:${schedule.diskEpoch}`}
