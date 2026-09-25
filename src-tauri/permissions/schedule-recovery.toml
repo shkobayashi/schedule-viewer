@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-read-schedule-recovery"
+description = "Allows reading the unsaved schedule recovery draft."
+commands.allow = ["read_schedule_recovery"]
+
+[[permission]]
+identifier = "allow-write-schedule-recovery"
+description = "Allows writing the unsaved schedule recovery draft."
+commands.allow = ["write_schedule_recovery"]
+
+[[permission]]
+identifier = "allow-delete-schedule-recovery"
+description = "Allows deleting the unsaved schedule recovery draft."
+commands.allow = ["delete_schedule_recovery"]
+
+[[permission]]
+identifier = "allow-read-schedule-file-at-path"
+description = "Allows reading the schedule file named in the recovery draft."
+commands.allow = ["read_schedule_file_at_path"]
