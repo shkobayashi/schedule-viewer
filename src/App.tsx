@@ -26,7 +26,12 @@ import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange } from "./model/timeline";
 import type { ScheduleId } from "./model/types";
-import { readUiScale } from "./model/uiScale";
+import {
+  readDisplayScalePreference,
+  readUiScale,
+  resolveUiScale,
+  type DisplayScalePreference,
+} from "./model/uiScale";
 import { seedSampleMemberCatalogOnce } from "./model/memberAppData";
 import {
   SAMPLE_MEMBERS_CATALOG_ID,
@@ -57,6 +62,9 @@ function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
   const [timelineWidth, setTimelineWidth] = useState(520);
   const [timelineSlotHeight, setTimelineSlotHeight] = useState(440);
+  const [displayScalePreference, setDisplayScalePreference] = useState(
+    readDisplayScalePreference,
+  );
   const [uiScale, setUiScale] = useState(readUiScale);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
@@ -70,12 +78,35 @@ function App() {
     scaledLayoutSizes(uiScale);
   const milestoneFontSize = Math.round(11 * uiScale);
   const milestoneDiamondSize = Math.max(8, Math.round(11 * uiScale));
+  const refreshUiScale = useCallback(() => {
+    setUiScale(
+      resolveUiScale(
+        window.innerWidth,
+        window.innerHeight,
+        displayScalePreference,
+      ),
+    );
+  }, [displayScalePreference]);
+
   useEffect(() => {
-    const onResize = () => setUiScale(readUiScale());
-    onResize();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    refreshUiScale();
+    window.addEventListener("resize", refreshUiScale);
+    return () => window.removeEventListener("resize", refreshUiScale);
+  }, [refreshUiScale]);
+
+  const handleDisplayScaleChange = useCallback(
+    (preference: DisplayScalePreference) => {
+      setDisplayScalePreference(preference);
+      setUiScale(
+        resolveUiScale(
+          window.innerWidth,
+          window.innerHeight,
+          preference,
+        ),
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     document.documentElement.style.setProperty("--s", String(uiScale));
@@ -500,6 +531,8 @@ function App() {
           open={settingsOpen}
           settings={memberCatalogState.settings}
           selectedCatalogLabel={memberCatalogState.selectedCatalogLabel}
+          displayScalePreference={displayScalePreference}
+          onDisplayScaleChange={handleDisplayScaleChange}
           onClose={() => setSettingsOpen(false)}
           onImport={memberCatalogState.importCatalog}
           onSelectCatalog={memberCatalogState.selectCatalog}
