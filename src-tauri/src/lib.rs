@@ -14,6 +14,8 @@ const MAX_HTML_BYTES: u64 = 10 * 1024 * 1024;
 
 const MAX_MEMBERS_BYTES: u64 = 2 * 1024 * 1024;
 
+const MAX_CALENDAR_BYTES: u64 = 2 * 1024 * 1024;
+
 const DISK_HASH_MISMATCH: &str = "DISK_HASH_MISMATCH";
 
 #[derive(Serialize)]
@@ -301,6 +303,8 @@ async fn save_html_file(
 struct AppSettingsFile {
     #[serde(rename = "selectedMembersCatalogId", default)]
     selected_members_catalog_id: Option<String>,
+    #[serde(rename = "calendarLabel", default)]
+    calendar_label: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -461,6 +465,66 @@ fn set_selected_member_catalog(
     write_settings(&app, &settings)
 }
 
+fn calendar_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join("calendar.json"))
+}
+
+#[derive(Serialize)]
+struct CalendarStateResult {
+    label: Option<String>,
+}
+
+#[tauri::command]
+fn get_calendar_state(app: tauri::AppHandle) -> Result<CalendarStateResult, String> {
+    let settings = read_settings(&app)?;
+    Ok(CalendarStateResult {
+        label: settings.calendar_label,
+    })
+}
+
+#[tauri::command]
+fn read_app_calendar(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = calendar_path(&app)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let meta = fs::metadata(&path).map_err(|e| format!("ファイルを読めません: {}", e))?;
+    if meta.len() > MAX_CALENDAR_BYTES {
+        return Err("カレンダーファイルが大きすぎます（上限 2 MB）".to_string());
+    }
+    Ok(Some(read_utf8(&path)?))
+}
+
+#[tauri::command]
+fn import_app_calendar(
+    app: tauri::AppHandle,
+    label: String,
+    contents: String,
+) -> Result<(), String> {
+    let trimmed_label = label.trim();
+    if trimmed_label.is_empty() {
+        return Err("ファイル名が空です".to_string());
+    }
+    if contents.len() as u64 > MAX_CALENDAR_BYTES {
+        return Err("カレンダーファイルが大きすぎます（上限 2 MB）".to_string());
+    }
+    write_utf8_atomic(&calendar_path(&app)?, &contents)?;
+    let mut settings = read_settings(&app)?;
+    settings.calendar_label = Some(trimmed_label.to_string());
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn delete_app_calendar(app: tauri::AppHandle) -> Result<(), String> {
+    let path = calendar_path(&app)?;
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| format!("カレンダーを削除できません: {}", e))?;
+    }
+    let mut settings = read_settings(&app)?;
+    settings.calendar_label = None;
+    write_settings(&app, &settings)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -479,6 +543,10 @@ pub fn run() {
             import_member_catalog,
             delete_member_catalog,
             set_selected_member_catalog,
+            get_calendar_state,
+            read_app_calendar,
+            import_app_calendar,
+            delete_app_calendar,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

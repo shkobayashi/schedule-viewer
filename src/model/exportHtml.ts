@@ -19,6 +19,8 @@ import {
 import { resolveAssigneeDisplay, assigneeSidebarLabel } from "./assigneeDisplay";
 import type { Member, MemberId } from "./memberTypes";
 import type { Milestone, ScheduleId, Task, VisibleRow } from "./types";
+import type { CalendarDocument } from "./calendarTypes";
+import { nonWorkingDayClipRects } from "./nonWorkingDay";
 
 export type ScheduleExportInput = {
   title: string;
@@ -43,6 +45,7 @@ export type ScheduleExportInput = {
   labelScale: number;
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
+  calendar: CalendarDocument | null;
 };
 
 const SUMMARY_COVERED = "#5C6B82";
@@ -250,6 +253,20 @@ function renderHeader(
       d = addUtcMonths(d, 1);
     }
   } else {
+    const headerBands = nonWorkingDayClipRects(
+      input.timelineStart,
+      0,
+      input.totalDays,
+      dateToX,
+      input.pxPerDay,
+      chartWidth,
+      input.calendar,
+    );
+    for (const band of headerBands) {
+      marks.push(
+        `<rect x="${n(band.x)}" y="0" width="${n(band.width)}" height="${n(input.headerHeight)}" fill="#F4F5F8"/>`,
+      );
+    }
     for (let i = 0; i <= input.totalDays; i += 1) {
       const d = addDays(input.timelineStart, i);
       const x = dateToX(d);
@@ -315,25 +332,19 @@ function renderBody(
     );
   }
   if (input.tier !== "month") {
-    for (let i = 0; i <= input.totalDays; i += 1) {
-      const d = addDays(input.timelineStart, i);
-      const dow = d.getUTCDay();
-      const x = dateToX(d);
-      let clipX = 0;
-      let clipW = 0;
-      if (dow === 6) {
-        const spanRight = x + input.pxPerDay * 2;
-        clipX = Math.max(0, x);
-        clipW = Math.min(chartWidth, spanRight) - clipX;
-      } else if (dow === 0 && addDays(d, -1) < input.timelineStart) {
-        clipX = Math.max(0, x);
-        clipW = Math.min(chartWidth, x + input.pxPerDay) - clipX;
-      }
-      if (clipW > 0) {
-        marks.push(
-          `<rect x="${n(clipX)}" y="${n(bodyTop)}" width="${n(clipW)}" height="${n(contentHeight)}" fill="#F4F5F8"/>`,
-        );
-      }
+    const bands = nonWorkingDayClipRects(
+      input.timelineStart,
+      0,
+      input.totalDays,
+      dateToX,
+      input.pxPerDay,
+      chartWidth,
+      input.calendar,
+    );
+    for (const band of bands) {
+      marks.push(
+        `<rect x="${n(band.x)}" y="${n(bodyTop)}" width="${n(band.width)}" height="${n(contentHeight)}" fill="#F4F5F8"/>`,
+      );
     }
     for (let i = 0; i <= input.totalDays; i += 1) {
       const d = addDays(input.timelineStart, i);

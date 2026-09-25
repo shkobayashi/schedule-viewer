@@ -16,6 +16,10 @@
     "allow-read-member-catalog",
     "allow-import-member-catalog",
     "allow-delete-member-catalog",
-    "allow-set-selected-member-catalog"
+    "allow-set-selected-member-catalog",
+    "allow-get-calendar-state",
+    "allow-read-app-calendar",
+    "allow-import-app-calendar",
+    "allow-delete-app-calendar"
   ]
 }
