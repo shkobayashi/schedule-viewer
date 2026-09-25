@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "allow-save-html-file"
-description = "Allows exporting schedule HTML via native save dialog."
+description = "Allows exporting the visible schedule as HTML or SVG via native save dialog."
 commands.allow = ["save_html_file"]
