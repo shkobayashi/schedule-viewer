@@ -195,15 +195,15 @@ body {
   background: var(--panel);
 }
 
-.settings-dialog {
-  width: min(720px, 92vw);
-}
-
 .settings-layout {
   display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 16px;
-  min-height: 240px;
+  grid-template-columns: calc(160px * var(--s)) minmax(0, 1fr);
+  gap: calc(16px * var(--s));
+  min-height: calc(320px * var(--s));
+}
+
+.settings-panel {
+  min-width: 0;
 }
 
 .settings-nav {
@@ -241,7 +241,8 @@ body {
 }
 
 .settings-field select {
-  max-width: 200px;
+  width: min(100%, 22em);
+  max-width: 100%;
 }
 
 .settings-current {
@@ -722,6 +723,12 @@ input[type="number"] {
 
 .modal.editor {
   width: 420px;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+
+.modal.settings-dialog {
+  width: min(880px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
   overflow: auto;
 }
