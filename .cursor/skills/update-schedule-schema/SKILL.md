@@ -14,14 +14,15 @@ description: >-
 
 | 役割 | パス |
 |------|------|
-| スキーマ正本 | [docs/schedule.schema.json](../../docs/schedule.schema.json) |
-| 型 | [src/model/types.ts](../../src/model/types.ts) |
-| 意味規則（アプリ） | [src/model/scheduleSemantics.ts](../../src/model/scheduleSemantics.ts) |
-| Ajv 検証 | [src/model/validateSchedule.ts](../../src/model/validateSchedule.ts) |
-| サンプル | [src/sample/schedule.ts](../../src/sample/schedule.ts), [src/sample/ids.ts](../../src/sample/ids.ts) |
+| スキーマ正本 | [docs/schedule.schema.json](../../../docs/schedule.schema.json) |
+| 型 | [src/model/types.ts](../../../src/model/types.ts) |
+| 意味規則（アプリ） | [src/model/scheduleSemantics.ts](../../../src/model/scheduleSemantics.ts) |
+| Ajv 検証 | [src/model/validateSchedule.ts](../../../src/model/validateSchedule.ts) |
+| サンプル | [src/sample/schedule.ts](../../../src/sample/schedule.ts), [src/sample/ids.ts](../../../src/sample/ids.ts) |
 | 持ち出し Skill のスキーマコピー | [.cursor/skills/write-schedule/schedule.schema.json](../write-schedule/schedule.schema.json) |
 | 持ち出し Skill の検証 | [.cursor/skills/write-schedule/scripts/validate-schedule.mjs](../write-schedule/scripts/validate-schedule.mjs) |
-| 計画 | [docs/PLANNING.md](../../docs/PLANNING.md)（破壊的変更時） |
+| データ仕様 | [docs/data-format.md](../../../docs/data-format.md) |
+| 外部仕様 | [docs/external-spec.md](../../../docs/external-spec.md)（画面の見え方が変わるとき） |
 | この Skill | [.cursor/skills/write-schedule/SKILL.md](../write-schedule/SKILL.md)（フィールド説明が変わるとき） |
 
 ## 手順
@@ -33,6 +34,7 @@ description: >-
 5. サンプルデータと `scheduleToJson` の出力を更新する
 6. リポジトリで `npm run check:schedule` を実行し、成功するまで直す
 7. 必要なら `node .cursor/skills/write-schedule/scripts/validate-schedule.mjs <一時json>` でも同じサンプルを検証する
+8. [docs/data-format.md](../../../docs/data-format.md) を変更内容に合わせて更新する。画面の見え方が変わるときは [docs/external-spec.md](../../../docs/external-spec.md) も直す
 
 ## 完了条件
 
