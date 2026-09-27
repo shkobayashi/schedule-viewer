@@ -210,6 +210,18 @@ fn poll_schedule_file_update(
 }
 
 #[tauri::command]
+fn read_open_schedule_file(
+    state: State<'_, Mutex<ScheduleFileState>>,
+) -> Result<String, String> {
+    let guard = state.lock().expect("schedule file state");
+    let path = guard
+        .path
+        .as_ref()
+        .ok_or_else(|| "開いているファイルがありません".to_string())?;
+    read_utf8(path)
+}
+
+#[tauri::command]
 fn acknowledge_schedule_file_contents(
     state: State<'_, Mutex<ScheduleFileState>>,
     contents: String,
@@ -611,6 +623,7 @@ pub fn run() {
             accept_opened_schedule,
             check_schedule_file_changed,
             poll_schedule_file_update,
+            read_open_schedule_file,
             acknowledge_schedule_file_contents,
             save_schedule_file,
             save_html_file,

@@ -202,4 +202,8 @@ export async function readScheduleFileAtPathViaTauri(
   return invoke<string>("read_schedule_file_at_path", { path });
 }
 
+export async function readOpenScheduleFileViaTauri(): Promise<string> {
+  return invoke<string>("read_open_schedule_file");
+}
+
 export { isTauri };

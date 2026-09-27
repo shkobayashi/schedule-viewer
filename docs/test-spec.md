@@ -74,6 +74,19 @@
 | 同上 | `excludes tasks without note when noteSearch is set` | FILTER-02 |
 | 同上 | `matches task linked to selected milestone id` | FILTER-07 |
 | 同上 | `keeps only tasks without milestone when filter is none` | FILTER-07 |
+| `scheduleDiff.test.ts` | `says there is no difference when the documents match` | FILE-07 |
+| 同上 | `shows calendar-day shifts for start and end` | FILE-07 |
+| 同上 | `lists every field of an added task and skips sibling order` | FILE-07 |
+| 同上 | `reports a deleted task and the predecessor dropped from the task that remains` | FILE-07 |
+| 同上 | `treats the same name with a different id as a delete and an add` | FILE-07 |
+| 同上 | `shows file-only edits as the difference from the current file to the screen` | FILE-07 |
+| 同上 | `writes an order line only when the remaining ids are reordered` | FILE-07 |
+| 同上 | `does not treat a category rename as a rename` | FILE-07 |
+| 同上 | `ignores predecessor order when the set is unchanged` | FILE-07 |
+| 同上 | `shows a milestone date shift and a title change` | FILE-07 |
+| 同上 | `writes milestone order and category order when the remaining items swap` | FILE-07 |
+| 同上 | `writes a group order line when groups in a category swap` | FILE-07 |
+| 同上 | `writes a missing note as （なし）` | FILE-07 |
 | `scheduleExternalReload.test.ts` | `returns invalid for broken JSON` | SYNC-01 |
 | 同上 | `returns noop when canonical matches baseline` | SYNC-01, FILE-04 |
 | 同上 | `returns confirm when dirty and content differs` | SYNC-01 |
@@ -199,6 +212,15 @@
 | TC-FILE-05 | FILE-05 | サンプルを編集し、未保存にする | ウィンドウを閉じる | 破棄して閉じるかを聞く。破棄すると控えは残らない |
 | TC-FILE-05b | FILE-05 | パスがあるファイルを未保存のままにする | ウィンドウを閉じる | 確認なしで閉じ、次回その未保存を戻せる |
 | TC-FILE-06 | FILE-06 | タスク名を変えた直後 | 「JSON を表示」を開く | 保存と同じ形で、変えた名前が見える。ファイルは増えない |
+| TC-FILE-07 | FILE-07 | パスのあるファイルを開き、タスクの日付をずらす | 「差分を表示」を開く | そのタスクの start と end の旧値、新値、暦日の差が出る |
+| TC-FILE-07b | FILE-07 | 差分ダイアログが開いている | 「コピー」を押す | ダイアログの全文が写る。ファイルは増えない |
+| TC-FILE-07c | FILE-07 | 差分の出る編集をしたあと保存する | 「差分を表示」を開く | 「差はありません」になる |
+| TC-FILE-07d | FILE-07 | パスのあるファイルを開いている | タスクを追加する | 場所と全フィールドが出て、兄弟の並びは出ない |
+| TC-FILE-07e | FILE-07 | 先行を持つタスクがある | その先行タスクを削除する | 削除したタスクと、先行から外れた残りのタスクの変更が出る。空のグループは削除にならない |
+| TC-FILE-07f | FILE-07 | パスのあるファイルを開いている | タスクを削除し、同じ名前で追加する | 削除と追加の二つになる |
+| TC-FILE-07g | FILE-07 | 未保存の編集を残したまま、外部の更新を「画面の編集を残す」にした | 「差分を表示」を開く | 今のファイルとの差が出る |
+| TC-FILE-07h | FILE-07 | サンプル、またはブラウザ版 | 「差分を表示」を開く | 「比べるファイルがありません」と出る |
+| TC-FILE-07i | FILE-07 | 開いているパスのファイルを、検証に失敗する内容へ変える | 「差分を表示」を開く | 差分は出ず、読み込みエラーになる |
 | TC-SYNC-01 | SYNC-01 | デスクトップ版でファイルを開き、未保存は無い | 別のエディタでその JSON を保存する | 約1.5秒以内に画面に反映し、「ファイルを反映しました」と出る |
 | TC-SYNC-01b | SYNC-01 | 未保存の編集がある | 別のエディタでファイルを保存する | 「読み直す」か「画面の編集を残す」かを聞く。残すと「ファイルに更新あり — 読み直す」が出る |
 | TC-SYNC-01c | SYNC-01 | ブラウザ版でファイルを開く | 別のエディタでファイルを保存する | 画面は変わらない |
