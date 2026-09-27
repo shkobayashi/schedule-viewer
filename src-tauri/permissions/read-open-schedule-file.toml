@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-read-open-schedule-file"
+description = "Reads the schedule file currently open in the app. The path comes from app state, not from the caller."
+commands.allow = ["read_open_schedule_file"]
