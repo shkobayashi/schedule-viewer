@@ -7,6 +7,7 @@ type AppMenuProps = {
   onSaveAs: () => void;
   onExportHtml: () => void;
   onShowJson: () => void;
+  onShowDiff: () => void;
   onOpenSettings: () => void;
 };
 
@@ -17,6 +18,7 @@ export function AppMenu({
   onSaveAs,
   onExportHtml,
   onShowJson,
+  onShowDiff,
   onOpenSettings,
 }: AppMenuProps) {
   const [open, setOpen] = useState(false);
@@ -88,6 +90,14 @@ export function AppMenu({
           </button>
           <button type="button" role="menuitem" onClick={() => run(onShowJson)}>
             JSON を表示
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={fileBusy}
+            onClick={() => run(onShowDiff)}
+          >
+            差分を表示
           </button>
           <hr />
           <button type="button" role="menuitem" onClick={() => run(onOpenSettings)}>

@@ -74,6 +74,7 @@ flowchart TD
 | 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`dates.ts`、`nonWorkingDay.ts`、`milestones.ts` |
 | 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
+| 画面と開いているファイルの差分 | `scheduleDiff.ts` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportView.ts`、`exportFilename.ts` |
@@ -137,6 +138,10 @@ flowchart TD
 
 判断は `scheduleExternalReload.ts` の純粋関数である。自分の保存のあとは `acknowledge_schedule_file_contents` でハッシュを更新し、直後の監視を外部更新とみなさない。
 
+### 差分
+
+「差分を表示」は、画面の保存形式と、`read_open_schedule_file` で読んだ開いているファイルを `formatScheduleDiff` に渡す。パスが無い、またはブラウザ版のときはファイルを読まず、「比べるファイルがありません」と出す。検証に失敗したときは差分ダイアログを出さない。読んだ内容は保存しない。`content_hash` は変えない。
+
 ### 控え
 
 未保存でパスがあるとき、変更から約1秒後と閉じる直前に `write_schedule_recovery` を呼ぶ。起動時は `read_schedule_recovery` と `read_schedule_file_at_path` でディスクを読み、`decideRecoveryStartup` が復元、競合、不正、ファイル無しを返す。`read_schedule_file_at_path` は、控えに書いてあるパスと一致するファイルだけを読む。
@@ -170,7 +175,8 @@ flowchart TD
 | `accept_opened_schedule` | パスと本文。状態を記録 | 10MB | 同上 | 同上 |
 | `check_schedule_file_changed` | ディスクのハッシュが記憶と違うか | ファイルを開いていない | `check-schedule-file-changed.toml` | 同上 |
 | `poll_schedule_file_update` | 変化したときだけ本文 | 同上 | `poll-schedule-file-update.toml` | 同上 |
-| `acknowledge_schedule_file_contents` | 本文。ハッシュを更新 | ファイルを開いていない | 同上 | 同上 |
+| `read_open_schedule_file` | 引数なし。開いているパスの本文 | ファイルを開いていない、10MB、UTF-8 以外 | `read-open-schedule-file.toml` | 同上 |
+| `acknowledge_schedule_file_contents` | 本文。ハッシュを更新 | ファイルを開いていない | `poll-schedule-file-update.toml` | 同上 |
 | `save_schedule_file` | 本文、別名か、提案名、期待パス、ハッシュ確認を飛ばすか。保存したパス | 10MB、`DISK_HASH_MISMATCH`、パス不一致、拡張子 | `save-schedule-file.toml` | 同上 |
 | `save_html_file` | 本文、提案名、拡張子 | 10MB | `save-html-file.toml` | `exportHtml.ts` |
 | `get_members_settings` | カタログ一覧と選択中 ID | — | `members-app-data.toml` | `memberAppData.ts` |
@@ -203,7 +209,7 @@ CSP は `default-src 'self'` で、インラインのスタイルと、Tauri の
 
 capability はメインウィンドウに、`core:default`、ウィンドウの close と destroy、上のコマンドだけを与える。close と destroy は、未保存の確認のあとフロントからウィンドウを閉じるために必要である。
 
-上書きは、開いているパスとフロントが渡したパスが一致するときだけ行う。任意のパスを読めるコマンドは無く、`read_schedule_file_at_path` は控えに書いたパスだけを読む。保存するファイル名は、区切り文字、制御文字、Windows の予約名を除く。カタログ ID も、パスに使えない文字を拒否する。
+上書きは、開いているパスとフロントが渡したパスが一致するときだけ行う。任意のパスを読めるコマンドは無く、`read_schedule_file_at_path` は控えに書いたパスだけを読む。`read_open_schedule_file` は呼び出し元からパスを受け取らず、`ScheduleFileState` が覚えている開いているパスだけを読む。保存するファイル名は、区切り文字、制御文字、Windows の予約名を除く。カタログ ID も、パスに使えない文字を拒否する。
 
 ## 描画
 
@@ -233,7 +239,7 @@ capability はメインウィンドウに、`core:default`、ウィンドウの 
 
 ## ビルドとツール
 
-Vite はポート 1420 で、`src-tauri` の変更では再起動しない。Vitest は `src/**/*.test.ts` を Node 上で実行する。TypeScript は `strict` で、`npm run build` の `tsc` が型を見る。ESLint は `dist`、`src-tauri`、`mockup`、`.cursor` を見ない。
+Vite は、ブラウザ版の `npm run dev` ではポート 5173、`tauri dev` ではポート 1420 を使い、`src-tauri` の変更では再起動しない。Vitest は `src/**/*.test.ts` を Node 上で実行する。TypeScript は `strict` で、`npm run build` の `tsc` が型を見る。ESLint は `dist`、`src-tauri`、`mockup`、`.cursor` を見ない。
 
 Rust は 1.98.1 で、CI は `cargo clippy -- -D warnings` と `cargo test --locked` を実行する。バージョン番号は `package.json`、`package-lock.json`、`tauri.conf.json`、`Cargo.toml`、`Cargo.lock` を `scripts/check-version-sync.mjs` で揃える。`postinstall` は、その OS 向けの Tauri CLI があることを確認する。
 

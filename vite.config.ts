@@ -3,6 +3,10 @@ import react from "@vitejs/plugin-react";
 // @ts-expect-error type error without @types/node package
 import process from "node:process";
 const host = process.env.TAURI_DEV_HOST;
+// `tauri dev` は beforeDevCommand の `npm run dev` に TAURI_ENV_PLATFORM を渡す。
+// そのときだけ 1420 を使い、ブラウザ版の `npm run dev` は別ポートにして同時起動できるようにする。
+const isTauriDev = Boolean(process.env.TAURI_ENV_PLATFORM);
+const port = isTauriDev ? 1420 : 5173;
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
@@ -14,7 +18,7 @@ export default defineConfig(() => ({
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
-    port: 1420,
+    port,
     strictPort: true,
     host: host || false,
     hmr: host
