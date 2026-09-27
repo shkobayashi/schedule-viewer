@@ -30,7 +30,7 @@ flowchart TD
 | `src-tauri/src/lib.rs` | ダイアログ、原子的な書き込み、アプリデータ、内容ハッシュ |
 | `scripts/` | 検証器の生成、サンプル検査、バージョン同期 |
 | `docs/*.schema.json` | JSON Schema の正本 |
-| `.cursor/skills/` | LLM 用のスキル。`write-schedule` と `write-calendar` は他のリポジトリへコピーして使う |
+| `.cursor/skills/` | LLM 用のスキル。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使う |
 
 依存は上の図の向きだけである。`model` はコンポーネントを参照しない。
 
@@ -163,7 +163,7 @@ flowchart TD
 
 メンバーとカレンダーも、JSON Schema のあとに意味規則を見る。`validationMessages.ts` は、エラーの場所を示す JSON Pointer をカテゴリやタスクの名前に置き換えて、エラー文言を作る。
 
-`write-schedule` と `write-calendar` に同梱する検証スクリプトは、`scripts/build-validate-skill.mjs` が同じ検証を1ファイルにまとめて作る。このスクリプトは、スキーマもスキルのフォルダへコピーする。CI は、その結果がコミット済みと一致するかを見る。手順は [開発ガイド](development.md#スキーマを変えるとき) にある。
+`write-schedule`、`write-calendar`、`write-members` に同梱する検証スクリプトは、`scripts/build-validate-skill.mjs` が同じ検証を1ファイルにまとめて作る。このスクリプトは、スキーマもスキルのフォルダへコピーする。CI は、その結果がコミット済みと一致するかを見る。手順は [開発ガイド](development.md#スキーマを変えるとき) にある。
 
 ## Tauri コマンド
 

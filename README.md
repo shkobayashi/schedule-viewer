@@ -42,7 +42,7 @@ macOS 用の自動ビルドはまだない。必要なときは、[開発ガイ�
 
 ## 使い始める
 
-起動直後はサンプルのスケジュールが表示される。☰ メニューの「開く」で、検証済みのスケジュール JSON を読み込む。JSON は、`write-schedule` スキルを他のリポジトリへコピーし、LLM に作らせる。設定の「メンバー」でメンバー JSON を取り込むと、担当者 ID が名前で表示される。
+起動直後はサンプルのスケジュールが表示される。☰ メニューの「開く」で、検証済みのスケジュール JSON を読み込む。JSON は、`write-schedule` スキルを他のリポジトリへコピーし、LLM に作らせる。設定の「メンバー」でメンバー JSON を取り込むと、担当者 ID が名前で表示される。メンバー JSON は `write-members` スキルで作る。
 
 ファイルの開き方、絞り込み、編集、書き出しは [操作マニュアル](docs/user-manual.md) にまとめてある。
 
@@ -87,7 +87,7 @@ npm run tauri dev
 ├── scripts/                            # 検証器の生成、スキーマ検査、バージョン同期
 ├── docs/                               # 仕様、計画、JSON スキーマ
 ├── examples/                           # 手動で開く例とカレンダー例
-├── .cursor/skills/                     # LLM 用スキル（write-schedule / write-calendar は他のリポジトリへコピーして使う）
+├── .cursor/skills/                     # LLM 用スキル（write-schedule / write-members / write-calendar は他のリポジトリへコピーして使う）
 ├── .github/workflows/                  # develop 向け CI と main 向け Release
 ├── .devcontainer/                      # DevContainer 定義
 └── mockup/

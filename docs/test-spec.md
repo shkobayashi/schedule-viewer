@@ -21,6 +21,7 @@
 | Clippy | `cd src-tauri && cargo clippy -- -D warnings` | Rust。警告をエラーにする |
 | スケジュール検証 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` |
 | カレンダー検証 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` |
+| メンバー検証 | `npm run check:members` | 引数なしなら `examples/playground.members.json` |
 | バージョン | `npm run version:check` | 5ファイルのバージョン番号 |
 | スキル同梱物 | `npm run build:validate-skill` のあと、CI と同じパスで `git diff --exit-code` | スキーマコピーと検証 bundle の差分 |
 
@@ -30,7 +31,7 @@
 
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `develop` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`build:validate-skill`、スキル同梱物の差分。Rust なら Clippy と `cargo test --locked` |
+| `.github/workflows/ci.yml` | `develop` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、スキル同梱物の差分。Rust なら Clippy と `cargo test --locked` |
 | `.github/workflows/release.yml` | `main` への push | Ubuntu の deb と Windows の NSIS を GitHub Release へ出し、`SHA256SUMS` を付ける |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更では、CI のどちらも動かない。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
@@ -208,7 +209,7 @@
 | `src/sample/schedule.ts` | タイトル「AI活用PoC推進プロジェクト」。マイルストン 3、カテゴリ 5、グループ 11、タスク 16。割り当てなし 3、ノート 1。前後関係に循環は無い | `npm run check:schedule` |
 | `src/sample/members.ts` | メンバー 4人 | 専用の check は無い。初回の起動時に、カタログとして一度だけ入れる |
 | `examples/playground.schedule.json` | サンプルに近いがノートは無い | 引数なしの `check:schedule` では見ない |
-| `examples/playground.members.json` | サンプルと同じ4人 | 自動では見ない |
+| `examples/playground.members.json` | サンプルと同じ4人 | `npm run check:members` |
 | `examples/jp-2026.calendar.json` | 土日と、非稼働日 18件。振替出勤は空 | `npm run check:calendar` |
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
