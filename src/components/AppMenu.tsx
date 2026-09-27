@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { fileShortcutHint, usesCommandKey } from "../model/shortcuts";
 
 type AppMenuProps = {
   fileBusy?: boolean;
@@ -47,6 +48,8 @@ export function AppMenu({
     action();
   };
 
+  const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
+
   return (
     <div className="app-menu" ref={rootRef}>
       <button
@@ -67,7 +70,8 @@ export function AppMenu({
             disabled={fileBusy}
             onClick={() => run(onOpen)}
           >
-            開く
+            <span>開く</span>
+            <span className="menu-shortcut">{fileShortcutHint("open", commandKey)}</span>
           </button>
           <button
             type="button"
@@ -75,7 +79,8 @@ export function AppMenu({
             disabled={fileBusy}
             onClick={() => run(onSave)}
           >
-            保存
+            <span>保存</span>
+            <span className="menu-shortcut">{fileShortcutHint("save", commandKey)}</span>
           </button>
           <button
             type="button"
@@ -83,7 +88,10 @@ export function AppMenu({
             disabled={fileBusy}
             onClick={() => run(onSaveAs)}
           >
-            別名保存
+            <span>別名保存</span>
+            <span className="menu-shortcut">
+              {fileShortcutHint("saveAs", commandKey)}
+            </span>
           </button>
           <button type="button" role="menuitem" onClick={() => run(onExportHtml)}>
             書き出し

@@ -276,6 +276,14 @@ export function useSchedule(
     setLineageTaskId((current) => (current == null ? selectedTaskId : null));
   }, [selectedTaskId]);
 
+  const showLineage = useCallback((taskId: ScheduleId) => {
+    setLineageTaskId(taskId);
+  }, []);
+
+  const clearLineage = useCallback(() => {
+    setLineageTaskId(null);
+  }, []);
+
   const moveTaskByDays = useCallback(
     (taskId: ScheduleId, deltaDays: number) => {
       if (deltaDays === 0) return;
@@ -666,6 +674,8 @@ export function useSchedule(
     clearSelection,
     lineageTask,
     toggleLineage,
+    showLineage,
+    clearLineage,
     moveTaskByDays,
     setTaskStart,
     setTaskEnd,

@@ -22,7 +22,7 @@ flowchart TD
 | 場所 | 責務 |
 | --- | --- |
 | `src/main.tsx` | React のマウント |
-| `src/App.tsx` | 画面の組み立て、ダイアログの接続、取り消しのキー |
+| `src/App.tsx` | 画面の組み立て、ダイアログの接続、キーボードショートカットと右クリックメニュー |
 | `src/components/` | ツールバー、サイドバー、タイムライン、各ダイアログ |
 | `src/hooks/` | 文書（スケジュールの内容）、ファイル、ズーム、今日、メンバー、カレンダーの状態 |
 | `src/model/` | 型、検証、行、座標、履歴、書き出し。I/O を持つのは一部だけ |
@@ -41,6 +41,7 @@ flowchart TD
 | ファイル | 役割 |
 | --- | --- |
 | `AppMenu.tsx` | ☰ メニュー |
+| `ContextMenu.tsx` | タスクとマイルストンの右クリックメニュー。`#root` に出す |
 | `Toolbar.tsx` | 見出し、検索、絞り込み、系統、追加、削除、ズーム |
 | `Sidebar.tsx` | 左の行、折りたたみ、名前の横ずらし |
 | `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール |
@@ -79,6 +80,7 @@ flowchart TD
 | アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportView.ts`、`exportFilename.ts` |
 | 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts` |
+| キーボードショートカット | `shortcuts.ts` |
 
 ## 状態
 
@@ -121,7 +123,7 @@ flowchart TD
 
 ### 保存
 
-`save_schedule_file` は、上書きのとき開いているパスと要求パスが一致することを見る。`skip_disk_hash_check` が無いときは、記憶している SHA-256 とディスクを比べ、違えば `DISK_HASH_MISMATCH` を返す。フロントはこのとき SYNC-02 の確認を出す。書き込みは一時ファイルへ書いてから置き換える。
+`save_schedule_file` は、上書きのとき開いているパスと要求パスが一致することを見る。パスが無いときは、フロントが別名保存として保存ダイアログを開く。`skip_disk_hash_check` が無いときは、記憶している SHA-256 とディスクを比べ、違えば `DISK_HASH_MISMATCH` を返す。フロントはこのとき SYNC-02 の確認を出す。書き込みは一時ファイルへ書いてから置き換える。
 
 ### 外部更新
 

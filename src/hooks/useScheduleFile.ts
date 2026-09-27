@@ -671,7 +671,8 @@ export function useScheduleFile({
 
       try {
         if (isTauri()) {
-          if (!saveAs && !skipExternalCheck && filePath) {
+          const choosePath = saveAs || filePath == null;
+          if (!choosePath && !skipExternalCheck && filePath) {
             try {
               const changed = await checkScheduleFileChangedViaTauri();
               if (changed) {
@@ -690,10 +691,10 @@ export function useScheduleFile({
           setFileBusy(true);
           try {
             const writtenPath = await saveScheduleViaTauri(
-              saveAs,
+              choosePath,
               contents,
               suggested,
-              saveAs ? null : filePath,
+              choosePath ? null : filePath,
               skipExternalCheck,
             );
             if (!writtenPath) return;

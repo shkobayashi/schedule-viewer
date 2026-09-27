@@ -56,6 +56,7 @@ type TimelineProps = {
   onResizeEnd: (taskId: ScheduleId, groupX: number, barWidth: number) => void;
   links: DependencyLink[];
   onOpenEdit: (task: Task) => void;
+  onTaskContextMenu: (taskId: ScheduleId, x: number, y: number) => void;
   onWheelBody: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   onWheelHeader: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   onPan: (dx: number, dy: number) => void;
@@ -67,6 +68,7 @@ type TimelineProps = {
   milestoneFontSize: number;
   onMoveMilestone: (id: ScheduleId, deltaDays: number) => void;
   onOpenMilestone: (id: ScheduleId) => void;
+  onMilestoneContextMenu: (id: ScheduleId, x: number, y: number) => void;
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
   calendar: CalendarDocument | null;
@@ -146,6 +148,7 @@ function TaskBar({
   selected,
   onSelect,
   onOpenEdit,
+  onContextMenu,
   onMoveTask,
   today,
   memberCatalog,
@@ -161,6 +164,7 @@ function TaskBar({
   selected: boolean;
   onSelect: () => void;
   onOpenEdit: () => void;
+  onContextMenu: (x: number, y: number) => void;
   onMoveTask: (deltaDays: number) => void;
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
@@ -204,6 +208,11 @@ function TaskBar({
       onDblClick={(e) => {
         e.cancelBubble = true;
         onOpenEdit();
+      }}
+      onContextMenu={(e) => {
+        e.cancelBubble = true;
+        e.evt.preventDefault();
+        onContextMenu(e.evt.clientX, e.evt.clientY);
       }}
       onDblTap={(e) => {
         e.cancelBubble = true;
@@ -293,6 +302,7 @@ function ResizeHandles({
   dateToX,
   onResizeStart,
   onResizeEnd,
+  onContextMenu,
   chart,
 }: {
   task: Task;
@@ -303,6 +313,7 @@ function ResizeHandles({
   dateToX: (d: Date) => number;
   onResizeStart: (groupX: number) => void;
   onResizeEnd: (groupX: number, barWidth: number) => void;
+  onContextMenu: (x: number, y: number) => void;
   chart: ChartPalette;
 }) {
   const start = parseDate(task.start);
@@ -327,7 +338,16 @@ function ResizeHandles({
   );
 
   return (
-    <Group ref={groupRef} x={groupX} y={barY}>
+    <Group
+      ref={groupRef}
+      x={groupX}
+      y={barY}
+      onContextMenu={(e) => {
+        e.cancelBubble = true;
+        e.evt.preventDefault();
+        onContextMenu(e.evt.clientX, e.evt.clientY);
+      }}
+    >
       <Rect ref={bgRef} width={w} height={barHeight} visible={false} />
       {task.status === "in-progress" ? (
         <Rect
@@ -462,6 +482,7 @@ export function Timeline({
   onResizeEnd,
   links,
   onOpenEdit,
+  onTaskContextMenu,
   onWheelBody,
   onWheelHeader,
   onPan,
@@ -473,6 +494,7 @@ export function Timeline({
   milestoneFontSize,
   onMoveMilestone,
   onOpenMilestone,
+  onMilestoneContextMenu,
   today,
   memberCatalog,
   calendar,
@@ -893,6 +915,7 @@ export function Timeline({
           dateToX={dateToX}
           onMove={onMoveMilestone}
           onOpenEdit={onOpenMilestone}
+          onContextMenu={onMilestoneContextMenu}
           onWheel={onWheelHeader}
           chart={chart}
         />
@@ -962,6 +985,7 @@ export function Timeline({
                     onSelectTask(row.task.id);
                   }}
                   onOpenEdit={() => onOpenEdit(row.task)}
+                  onContextMenu={(x, y) => onTaskContextMenu(row.task.id, x, y)}
                   onMoveTask={(delta) => onMoveTask(row.task.id, delta)}
                   today={today}
                   memberCatalog={memberCatalog}
@@ -995,6 +1019,9 @@ export function Timeline({
                 }
                 onResizeEnd={(groupX, barWidth) =>
                   onResizeEnd(selectedRow.task.id, groupX, barWidth)
+                }
+                onContextMenu={(x, y) =>
+                  onTaskContextMenu(selectedRow.task.id, x, y)
                 }
                 chart={chart}
               />
