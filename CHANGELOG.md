@@ -2,6 +2,12 @@
 
 このファイルの変更履歴は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に沿い、バージョン番号は [Semantic Versioning](https://semver.org/lang/ja/) に従う。
 
+## [Unreleased]
+
+### 追加
+
+- 設定の「表示」で、ライト・ダーク・システム設定に合わせる配色を選べる。HTML と SVG の書き出しも、書き出した時点の配色に合わせる。
+
 ## [0.3.1] - 2026-09-25
 
 ### 追加

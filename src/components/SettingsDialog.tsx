@@ -18,6 +18,12 @@ import {
 } from "../model/validateMembers";
 import { ModalDialog } from "./ModalDialog";
 import {
+  COLOR_SCHEME_OPTIONS,
+  parseColorSchemePreference,
+  writeColorSchemePreference,
+  type ColorSchemePreference,
+} from "../model/colorScheme";
+import {
   DISPLAY_SCALE_OPTIONS,
   parseDisplayScalePreference,
   writeDisplayScalePreference,
@@ -32,6 +38,8 @@ type SettingsDialogProps = {
   calendarError?: string | null;
   displayScalePreference: DisplayScalePreference;
   onDisplayScaleChange: (preference: DisplayScalePreference) => void;
+  colorSchemePreference: ColorSchemePreference;
+  onColorSchemeChange: (preference: ColorSchemePreference) => void;
   onClose: () => void;
   onImport: (catalogId: string, contents: string, overwrite: boolean) => Promise<void>;
   onSelectCatalog: (catalogId: string | null) => Promise<void>;
@@ -50,6 +58,8 @@ export function SettingsDialog({
   calendarError = null,
   displayScalePreference,
   onDisplayScaleChange,
+  colorSchemePreference,
+  onColorSchemeChange,
   onClose,
   onImport,
   onSelectCatalog,
@@ -204,7 +214,7 @@ export function SettingsDialog({
             {section === "display" ? (
               <>
                 <p className="settings-note">
-                  文字・行・ボタンの大きさ。期間のズーム（日表示・週表示・月表示）とは別です。
+                  文字・行・ボタンの大きさと配色。期間のズーム（日表示・週表示・月表示）とは別です。
                 </p>
                 <label className="settings-field">
                   <span>表示サイズ</span>
@@ -224,6 +234,26 @@ export function SettingsDialog({
                         key={String(option.value)}
                         value={String(option.value)}
                       >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="settings-field">
+                  <span>配色</span>
+                  <select
+                    value={colorSchemePreference}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const preference = parseColorSchemePreference(
+                        e.target.value,
+                      );
+                      writeColorSchemePreference(preference);
+                      onColorSchemeChange(preference);
+                    }}
+                  >
+                    {COLOR_SCHEME_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}

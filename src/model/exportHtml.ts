@@ -22,6 +22,7 @@ import type { Member, MemberId } from "./memberTypes";
 import type { Milestone, ScheduleId, Task, VisibleRow } from "./types";
 import type { CalendarDocument } from "./calendarTypes";
 import { nonWorkingDayClipRects } from "./nonWorkingDay";
+import { paletteFor, type ResolvedColorScheme } from "./palette";
 
 export type ScheduleExportInput = {
   title: string;
@@ -49,12 +50,14 @@ export type ScheduleExportInput = {
   calendar: CalendarDocument | null;
   /** 初期値以外の絞り込み。空なら絞り込みなし。 */
   filterSummary: string;
+  colorScheme: ResolvedColorScheme;
 };
 
 export type ScheduleExportFormat = "html" | "svg";
 
-const SUMMARY_COVERED = "#5C6B82";
-const SUMMARY_GAP = "#D5DBE3";
+function palettes(input: ScheduleExportInput) {
+  return paletteFor(input.colorScheme);
+}
 
 export const EXPORT_MAX_WIDTH_PX = 200_000;
 export const EXPORT_MAX_HEIGHT_PX = 50_000;
@@ -111,14 +114,15 @@ function buildChartGraphic(input: ScheduleExportInput): ChartGraphic {
   const bodyTop = input.headerHeight + input.milestoneBandHeight;
   const svgHeight = bodyTop + contentHeight;
   const dateToX = (d: Date) => daysBetween(input.timelineStart, d) * input.pxPerDay;
+  const { chart } = palettes(input);
   const parts = [
-    `<rect width="${n(chartWidth)}" height="${n(svgHeight)}" fill="#ffffff"/>`,
+    `<rect width="${n(chartWidth)}" height="${n(svgHeight)}" fill="${chart.exportBg}"/>`,
     `<defs>
     <marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 Z" fill="#8A94A6"/>
+      <path d="M0,0 L7,3.5 L0,7 Z" fill="${chart.dependencyMarkerOk}"/>
     </marker>
     <marker id="arrow-broken" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 Z" fill="#C4351A"/>
+      <path d="M0,0 L7,3.5 L0,7 Z" fill="${chart.dependencyMarkerBroken}"/>
     </marker>
   </defs>`,
     renderHeader(input, chartWidth, dateToX),
@@ -138,6 +142,7 @@ function scopeSentence(input: ScheduleExportInput): string {
 
 export function buildScheduleHtml(input: ScheduleExportInput): string {
   const chart = buildChartGraphic(input);
+  const { css: c, chart: chartPalette } = palettes(input);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${n(chart.chartWidth)}" height="${n(chart.svgHeight)}" font-family="${FONT}">
   ${chart.inner}
 </svg>`;
@@ -148,28 +153,28 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
 <meta charset="utf-8">
 <title>${esc(input.title)}</title>
 <style>
-  body { margin: 0; background: #fff; color: #1f2937; font-family: ${FONT}; }
+  body { margin: 0; background: ${c.bg}; color: ${c.text}; font-family: ${FONT}; }
   .page { padding: 16px 20px 32px; }
   h1 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
-  .meta { color: #697586; font-size: 12px; margin: 0 0 12px; }
-  .sheet { display: flex; align-items: flex-start; border: 1px solid #e3e6eb; width: max-content; }
-  .labels { flex: 0 0 auto; background: #fff; }
-  .label { box-sizing: border-box; display: flex; align-items: center; white-space: nowrap; border-bottom: 1px solid #f0f1f4; }
-  .label.header { color: #697586; font-weight: 600; background: #f8f9fb; border-bottom-color: #e3e6eb; padding: 0 ${px(12, input.labelScale)}; font-size: ${px(11, input.labelScale)}; }
-  .label.milestones { background: #f4f1ea; color: #111827; font-weight: 700; border-bottom-color: #e3e6eb; padding: 0 ${px(12, input.labelScale)}; font-size: ${px(11, input.labelScale)}; }
-  .label.category { background: #f8f9fb; font-weight: 600; padding-left: ${px(6, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
-  .label.group { background: #f3f5f8; font-weight: 600; color: #4b5568; padding-left: ${px(22, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
+  .meta { color: ${c.textSecondary}; font-size: 12px; margin: 0 0 12px; }
+  .sheet { display: flex; align-items: flex-start; border: 1px solid ${c.border}; width: max-content; }
+  .labels { flex: 0 0 auto; background: ${c.bg}; }
+  .label { box-sizing: border-box; display: flex; align-items: center; white-space: nowrap; border-bottom: 1px solid ${c.rowBorder}; }
+  .label.header { color: ${c.textSecondary}; font-weight: 600; background: ${c.panel}; border-bottom-color: ${c.border}; padding: 0 ${px(12, input.labelScale)}; font-size: ${px(11, input.labelScale)}; }
+  .label.milestones { background: ${c.milestoneSidebar}; color: ${c.milestoneSidebarText}; font-weight: 700; border-bottom-color: ${c.border}; padding: 0 ${px(12, input.labelScale)}; font-size: ${px(11, input.labelScale)}; }
+  .label.category { background: ${c.panel}; font-weight: 600; padding-left: ${px(6, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
+  .label.group { background: ${c.groupBg}; font-weight: 600; color: ${c.groupText}; padding-left: ${px(22, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
   .label.task { padding-left: ${px(26, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
   .note-icon { flex: 0 0 auto; display: inline-flex; margin-right: ${px(4, input.labelScale)}; line-height: 0; }
   .note-icon svg { display: block; }
-  .label.task.unassigned { box-shadow: inset 3px 0 0 #d4920a; }
-  .twist { width: ${px(16, input.labelScale)}; margin-right: ${px(4, input.labelScale)}; color: #6b7280; font-size: ${px(9, input.labelScale)}; }
-  .name.overdue { color: #c4351a; font-weight: 600; }
-  .alert { margin-left: 6px; color: #c4351a; background: #fde8e4; border-radius: 999px; padding: 1px 6px; font-size: ${px(10, input.labelScale)}; font-weight: 700; }
-  .assignee { margin-left: 16px; color: #697586; font-size: ${px(10, input.labelScale)}; padding-right: 12px; }
-  .assignee.unassigned { color: #8a5a00; background: #fff4d6; border-radius: 999px; padding: 1px 7px; font-weight: 700; }
-  .assignee.unknown-member { color: #5b3f91; background: #efe8fb; border-radius: 999px; padding: 1px 7px; font-weight: 700; }
-  .label.task.unknown-member { box-shadow: inset 3px 0 0 #7b5ea7; }
+  .label.task.unassigned { box-shadow: inset 3px 0 0 ${c.unassignedAccent}; }
+  .twist { width: ${px(16, input.labelScale)}; margin-right: ${px(4, input.labelScale)}; color: ${c.twist}; font-size: ${px(9, input.labelScale)}; }
+  .name.overdue { color: ${c.overdue}; font-weight: 600; }
+  .alert { margin-left: 6px; color: ${c.overdue}; background: ${c.overdueBg}; border-radius: 999px; padding: 1px 6px; font-size: ${px(10, input.labelScale)}; font-weight: 700; }
+  .assignee { margin-left: 16px; color: ${c.textSecondary}; font-size: ${px(10, input.labelScale)}; padding-right: 12px; }
+  .assignee.unassigned { color: ${c.unassignedText}; background: ${c.unassignedBg}; border-radius: 999px; padding: 1px 7px; font-weight: 700; }
+  .assignee.unknown-member { color: ${c.unknownText}; background: ${c.unknownBg}; border-radius: 999px; padding: 1px 7px; font-weight: 700; }
+  .label.task.unknown-member { box-shadow: inset 3px 0 0 ${chartPalette.unknownStroke}; }
 </style>
 </head>
 <body>
@@ -189,33 +194,34 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
 }
 
 export function buildScheduleSvg(input: ScheduleExportInput): string {
-  const chart = buildChartGraphic(input);
+  const chartGraphic = buildChartGraphic(input);
+  const { css: c, chart } = palettes(input);
   const labelWidth = svgLabelWidth(input);
   const pad = 16;
   const titleSize = 16;
   const metaSize = 12;
   const titleY = pad;
   const meta = scopeSentence(input);
-  const metaWidth = Math.max(chart.chartWidth + labelWidth, 320);
+  const metaWidth = Math.max(chartGraphic.chartWidth + labelWidth, 320);
   const metaLines = wrapText(meta, metaWidth, metaSize);
   const metaY = titleY + titleSize + 6;
   const sheetY = metaY + metaLines.length * (metaSize + 4) + 8;
-  const width = pad * 2 + labelWidth + chart.chartWidth;
-  const height = sheetY + chart.svgHeight + pad;
+  const width = pad * 2 + labelWidth + chartGraphic.chartWidth;
+  const height = sheetY + chartGraphic.svgHeight + pad;
   const metaTexts = metaLines
     .map(
       (line, index) =>
-        text(pad, metaY + index * (metaSize + 4), line, metaSize, "#697586", false),
+        text(pad, metaY + index * (metaSize + 4), line, metaSize, c.textSecondary, false),
     )
     .join("\n  ");
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${n(width)}" height="${n(height)}" font-family="${FONT}">
-  <rect width="100%" height="100%" fill="#ffffff"/>
-  ${text(pad, titleY, input.title, titleSize, "#1F2937", true)}
+  <rect width="100%" height="100%" fill="${chart.exportBg}"/>
+  ${text(pad, titleY, input.title, titleSize, chart.textPrimary, true)}
   ${metaTexts}
   <g transform="translate(${pad},${n(sheetY)})">
-    ${renderSvgLabels(input, labelWidth, chart.svgHeight)}
+    ${renderSvgLabels(input, labelWidth, chartGraphic.svgHeight)}
     <g transform="translate(${n(labelWidth)},0)">
-      ${chart.inner}
+      ${chartGraphic.inner}
     </g>
   </g>
 </svg>
@@ -321,9 +327,10 @@ function renderSvgLabels(
   labelWidth: number,
   sheetHeight: number,
 ): string {
+  const { css: c, chart } = palettes(input);
   const marks = [
-    `<rect x="0" y="0" width="${n(labelWidth)}" height="${n(sheetHeight)}" fill="#ffffff"/>`,
-    `<line x1="${n(labelWidth - 0.5)}" y1="0" x2="${n(labelWidth - 0.5)}" y2="${n(sheetHeight)}" stroke="#E3E6EB" stroke-width="1"/>`,
+    `<rect x="0" y="0" width="${n(labelWidth)}" height="${n(sheetHeight)}" fill="${c.bg}"/>`,
+    `<line x1="${n(labelWidth - 0.5)}" y1="0" x2="${n(labelWidth - 0.5)}" y2="${n(sheetHeight)}" stroke="${chart.headerBorder}" stroke-width="1"/>`,
   ];
   marks.push(renderSvgLabelBand(input, labelWidth, 0, input.headerHeight, "header", "WBS / タスク"));
   if (input.milestoneBandHeight > 0) {
@@ -353,13 +360,14 @@ function renderSvgLabelBand(
   kind: "header" | "milestones",
   label: string,
 ): string {
-  const fill = kind === "header" ? "#F8F9FB" : "#F4F1EA";
-  const color = kind === "header" ? "#697586" : "#111827";
+  const { css: c, chart } = palettes(input);
+  const fill = kind === "header" ? c.panel : c.milestoneSidebar;
+  const color = kind === "header" ? c.textSecondary : c.milestoneSidebarText;
   const size = 11 * input.labelScale;
   return [
     `<rect x="0" y="${n(y)}" width="${n(labelWidth)}" height="${n(height)}" fill="${fill}"/>`,
     text(12 * input.labelScale, y + (height - size) / 2, label, size, color, true),
-    `<line x1="0" y1="${n(y + height - 0.5)}" x2="${n(labelWidth)}" y2="${n(y + height - 0.5)}" stroke="#E3E6EB" stroke-width="1"/>`,
+    `<line x1="0" y1="${n(y + height - 0.5)}" x2="${n(labelWidth)}" y2="${n(y + height - 0.5)}" stroke="${chart.headerBorder}" stroke-width="1"/>`,
   ].join("\n    ");
 }
 
@@ -369,19 +377,20 @@ function renderSvgLabelRow(
   labelWidth: number,
   y: number,
 ): string {
+  const { css: c, chart } = palettes(input);
   const height = input.rowHeight;
   const mid = y + height / 2;
   if (row.type === "category" || row.type === "group") {
-    const fill = row.type === "category" ? "#F8F9FB" : "#F3F5F8";
-    const color = row.type === "category" ? "#1F2937" : "#4B5568";
+    const fill = row.type === "category" ? chart.categoryRow : chart.groupRow;
+    const color = row.type === "category" ? chart.textPrimary : c.groupText;
     const indent = (row.type === "category" ? 6 : 22) * input.labelScale;
     const size = 12 * input.labelScale;
     const mark = row.collapsed ? "▶" : "▼";
     return [
       `<rect x="0" y="${n(y)}" width="${n(labelWidth)}" height="${n(height)}" fill="${fill}"/>`,
-      text(indent, mid - size / 2, mark, 9 * input.labelScale, "#6B7280", false),
+      text(indent, mid - size / 2, mark, 9 * input.labelScale, c.twist, false),
       text(indent + 20 * input.labelScale, mid - size / 2, row.label, size, color, true),
-      `<line x1="0" y1="${n(y + height)}" x2="${n(labelWidth)}" y2="${n(y + height)}" stroke="#F0F1F4" stroke-width="1"/>`,
+      `<line x1="0" y1="${n(y + height)}" x2="${n(labelWidth)}" y2="${n(y + height)}" stroke="${chart.rowBorder}" stroke-width="1"/>`,
     ].join("\n    ");
   }
   const assigneeDisplay = resolveAssigneeDisplay(row.task.assigneeId, input.memberCatalog);
@@ -392,20 +401,20 @@ function renderSvgLabelRow(
   const nameSize = 12 * input.labelScale;
   let x = 26 * input.labelScale;
   const parts = [
-    `<rect x="0" y="${n(y)}" width="${n(labelWidth)}" height="${n(height)}" fill="#ffffff"/>`,
+    `<rect x="0" y="${n(y)}" width="${n(labelWidth)}" height="${n(height)}" fill="${c.bg}"/>`,
   ];
   if (unassigned) {
     parts.push(
-      `<line x1="1.5" y1="${n(y)}" x2="1.5" y2="${n(y + height)}" stroke="#D4920A" stroke-width="3"/>`,
+      `<line x1="1.5" y1="${n(y)}" x2="1.5" y2="${n(y + height)}" stroke="${c.unassignedAccent}" stroke-width="3"/>`,
     );
   } else if (unknownMember) {
     parts.push(
-      `<line x1="1.5" y1="${n(y)}" x2="1.5" y2="${n(y + height)}" stroke="#7B5EA7" stroke-width="3"/>`,
+      `<line x1="1.5" y1="${n(y)}" x2="1.5" y2="${n(y + height)}" stroke="${chart.unknownStroke}" stroke-width="3"/>`,
     );
   }
   const note = normalizeTaskNote(row.task.note);
   const iconSize = 14 * input.labelScale;
-  const iconColor = hasTaskNote(row.task) ? "#4C5FD5" : "#C5CAD3";
+  const iconColor = hasTaskNote(row.task) ? c.accent : c.noteEmpty;
   const title = note ? `<title>${esc(note)}</title>` : "";
   parts.push(
     `<g transform="translate(${n(x)},${n(mid - iconSize / 2)}) scale(${n(iconSize / 16)})">${title}<path fill="${iconColor}" d="M3 1.5h7l3.5 3.5V13.5A1.5 1.5 0 0 1 12 15H3A1.5 1.5 0 0 1 1.5 13.5v-11A1.5 1.5 0 0 1 3 1.5zm6.5 0V5H13L9.5 1.5zM4 7.25h8v1H4v-1zm0 2.5h8v1H4v-1zm0 2.5h5v1H4v-1z"/></g>`,
@@ -417,7 +426,7 @@ function renderSvgLabelRow(
       mid - nameSize / 2,
       row.task.name,
       nameSize,
-      overdue ? "#C4351A" : "#1F2937",
+      overdue ? c.overdue : chart.textPrimary,
       overdue,
     ),
   );
@@ -427,8 +436,8 @@ function renderSvgLabelRow(
     const badgeSize = 10 * input.labelScale;
     const badgeW = estimateTextWidth(badge, badgeSize) + 12;
     parts.push(
-      `<rect x="${n(x)}" y="${n(mid - 8)}" width="${n(badgeW)}" height="16" rx="8" fill="#FDE8E4"/>`,
-      text(x + 6, mid - badgeSize / 2, badge, badgeSize, "#C4351A", true),
+      `<rect x="${n(x)}" y="${n(mid - 8)}" width="${n(badgeW)}" height="16" rx="8" fill="${c.overdueBg}"/>`,
+      text(x + 6, mid - badgeSize / 2, badge, badgeSize, c.overdue, true),
     );
     x += badgeW + 6;
   }
@@ -437,17 +446,17 @@ function renderSvgLabelRow(
   x += 10;
   if (unassigned || unknownMember) {
     const badgeW = estimateTextWidth(assignee, assigneeSize) + 14;
-    const fill = unassigned ? "#FFF4D6" : "#EFE8FB";
-    const color = unassigned ? "#8A5A00" : "#5B3F91";
+    const fill = unassigned ? c.unassignedBg : c.unknownBg;
+    const color = unassigned ? c.unassignedText : c.unknownText;
     parts.push(
       `<rect x="${n(x)}" y="${n(mid - 8)}" width="${n(badgeW)}" height="16" rx="8" fill="${fill}"/>`,
       text(x + 7, mid - assigneeSize / 2, assignee, assigneeSize, color, true),
     );
   } else {
-    parts.push(text(x, mid - assigneeSize / 2, assignee, assigneeSize, "#697586", false));
+    parts.push(text(x, mid - assigneeSize / 2, assignee, assigneeSize, c.textSecondary, false));
   }
   parts.push(
-    `<line x1="0" y1="${n(y + height)}" x2="${n(labelWidth)}" y2="${n(y + height)}" stroke="#F0F1F4" stroke-width="1"/>`,
+    `<line x1="0" y1="${n(y + height)}" x2="${n(labelWidth)}" y2="${n(y + height)}" stroke="${chart.rowBorder}" stroke-width="1"/>`,
   );
   return parts.join("\n    ");
 }
@@ -491,13 +500,18 @@ function renderLabelRow(row: VisibleRow, input: ScheduleExportInput): string {
     : unknownMember
       ? " unknown-member"
       : "";
-  const noteIcon = renderExportNoteIcon(row.task, input.labelScale);
+  const noteIcon = renderExportNoteIcon(row.task, input.labelScale, input.colorScheme);
   return `<div class="label task${extraClass}" ${height}>${noteIcon}<span class="name${overdue ? " overdue" : ""}">${esc(row.task.name)}</span>${alert}<span class="assignee${extraClass}">${esc(assignee)}</span></div>`;
 }
 
-function renderExportNoteIcon(task: Task, labelScale: number): string {
+function renderExportNoteIcon(
+  task: Task,
+  labelScale: number,
+  colorScheme: ResolvedColorScheme,
+): string {
   const filled = hasTaskNote(task);
-  const color = filled ? "#4c5fd5" : "#c5cad3";
+  const { css: c } = paletteFor(colorScheme);
+  const color = filled ? c.accent : c.noteEmpty;
   const size = px(14, labelScale);
   const note = normalizeTaskNote(task.note);
   const titleAttr = note
@@ -511,17 +525,18 @@ function renderHeader(
   chartWidth: number,
   dateToX: (d: Date) => number,
 ): string {
+  const { chart } = palettes(input);
   const scale = input.headerHeight / LAYOUT_HEADER_HEIGHT;
   const marks: string[] = [
-    line(0, input.headerHeight - 0.5, chartWidth, input.headerHeight - 0.5, "#E3E6EB", 1),
+    line(0, input.headerHeight - 0.5, chartWidth, input.headerHeight - 0.5, chart.headerBorder, 1),
   ];
   if (input.tier === "month") {
     let d = utcMonthStart(input.timelineStart);
     while (d < input.timelineEnd) {
       const x = dateToX(d);
-      marks.push(line(x, 0, x, input.headerHeight, "#C7CCD6", 1));
+      marks.push(line(x, 0, x, input.headerHeight, chart.monthGrid, 1));
       marks.push(
-        text(x + 6, 13 * scale, `${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月`, 12 * scale, "#1F2937", true),
+        text(x + 6, 13 * scale, `${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月`, 12 * scale, chart.textPrimary, true),
       );
       d = addUtcMonths(d, 1);
     }
@@ -538,7 +553,7 @@ function renderHeader(
     );
     for (const band of headerBands) {
       marks.push(
-        `<rect x="${n(band.x)}" y="0" width="${n(band.width)}" height="${n(input.headerHeight)}" fill="#F4F5F8"/>`,
+        `<rect x="${n(band.x)}" y="0" width="${n(band.width)}" height="${n(input.headerHeight)}" fill="${chart.nonWorking}"/>`,
       );
     }
     for (let i = 0; i <= input.totalDays; i += 1) {
@@ -547,15 +562,15 @@ function renderHeader(
       const isMonday = d.getUTCDay() === 1;
       if (input.tier === "day" || isMonday) {
         marks.push(
-          line(x, 26 * scale, x, input.headerHeight, isMonday ? "#9AA5B4" : "#E3E6EB", 1),
+          line(x, 26 * scale, x, input.headerHeight, isMonday ? chart.gridMonday : chart.gridWeekday, 1),
         );
         marks.push(
-          text(x + 2, 24 * scale, fmtShort(d), 10 * scale, isMonday ? "#1F2937" : "#8A94A6", isMonday),
+          text(x + 2, 24 * scale, fmtShort(d), 10 * scale, isMonday ? chart.textPrimary : chart.textSecondary, isMonday),
         );
       }
       if (d.getUTCDate() === 1) {
         marks.push(
-          text(x + 2, 6 * scale, `${d.getUTCMonth() + 1}月`, 11 * scale, "#1F2937", true),
+          text(x + 2, 6 * scale, `${d.getUTCMonth() + 1}月`, 11 * scale, chart.textPrimary, true),
         );
       }
     }
@@ -569,10 +584,11 @@ function renderMilestones(
   dateToX: (d: Date) => number,
 ): string {
   if (input.milestoneBandHeight <= 0) return "";
+  const { css: c, chart } = palettes(input);
   const top = input.headerHeight;
   const marks = [
-    `<rect x="0" y="${n(top)}" width="${n(chartWidth)}" height="${n(input.milestoneBandHeight)}" fill="#fbf9f4"/>`,
-    line(0, top + input.milestoneBandHeight - 0.5, chartWidth, top + input.milestoneBandHeight - 0.5, "#E3E6EB", 1),
+    `<rect x="0" y="${n(top)}" width="${n(chartWidth)}" height="${n(input.milestoneBandHeight)}" fill="${c.milestoneBand}"/>`,
+    line(0, top + input.milestoneBandHeight - 0.5, chartWidth, top + input.milestoneBandHeight - 0.5, chart.milestoneBandBorder, 1),
   ];
   for (const milestone of input.milestones) {
     const lane = input.milestoneLanes.get(milestone.id) ?? 0;
@@ -580,10 +596,10 @@ function renderMilestones(
     const y = top + lane * input.milestoneLaneHeight + input.milestoneLaneHeight / 2;
     const r = input.milestoneDiamondSize / 2;
     marks.push(
-      `<polygon points="${n(x)},${n(y - r)} ${n(x + r)},${n(y)} ${n(x)},${n(y + r)} ${n(x - r)},${n(y)}" fill="#111827" stroke="#ffffff" stroke-width="1"/>`,
+      `<polygon points="${n(x)},${n(y - r)} ${n(x + r)},${n(y)} ${n(x)},${n(y + r)} ${n(x - r)},${n(y)}" fill="${chart.milestoneDiamond}" stroke="${chart.milestoneDiamondStroke}" stroke-width="1"/>`,
     );
     marks.push(
-      text(x + r + 5, y - input.milestoneFontSize / 2, milestone.name, input.milestoneFontSize, "#111827", true),
+      text(x + r + 5, y - input.milestoneFontSize / 2, milestone.name, input.milestoneFontSize, chart.milestoneDiamond, true),
     );
   }
   return marks.join("\n  ");
@@ -596,11 +612,12 @@ function renderBody(
   bodyTop: number,
   dateToX: (d: Date) => number,
 ): string {
+  const { chart } = palettes(input);
   const marks: string[] = [];
   for (const row of input.visibleRows) {
     if (row.type === "task") continue;
     const y = bodyTop + row.y;
-    const fill = row.type === "category" ? "#F8F9FB" : "#F3F5F8";
+    const fill = row.type === "category" ? chart.categoryRow : chart.groupRow;
     marks.push(
       `<rect x="0" y="${n(y)}" width="${n(chartWidth)}" height="${n(input.rowHeight)}" fill="${fill}"/>`,
     );
@@ -618,7 +635,7 @@ function renderBody(
     );
     for (const band of bands) {
       marks.push(
-        `<rect x="${n(band.x)}" y="${n(bodyTop)}" width="${n(band.width)}" height="${n(contentHeight)}" fill="#F4F5F8"/>`,
+        `<rect x="${n(band.x)}" y="${n(bodyTop)}" width="${n(band.width)}" height="${n(contentHeight)}" fill="${chart.nonWorking}"/>`,
       );
     }
     for (let i = 0; i <= input.totalDays; i += 1) {
@@ -627,7 +644,7 @@ function renderBody(
       const isMonday = d.getUTCDay() === 1;
       if (input.tier === "day" || isMonday) {
         marks.push(
-          line(x, bodyTop, x, bodyTop + contentHeight, isMonday ? "#D8DCE3" : "#EDEFF3", 1),
+          line(x, bodyTop, x, bodyTop + contentHeight, isMonday ? chart.gridBodyMonday : chart.gridBodyWeekday, 1),
         );
       }
     }
@@ -635,13 +652,13 @@ function renderBody(
     let d = utcMonthStart(input.timelineStart);
     while (d < input.timelineEnd) {
       const x = dateToX(d);
-      marks.push(line(x, bodyTop, x, bodyTop + contentHeight, "#DDE1E7", 1));
+      marks.push(line(x, bodyTop, x, bodyTop + contentHeight, chart.gridMonth, 1));
       d = addUtcMonths(d, 1);
     }
   }
   for (const row of input.visibleRows) {
     const y = bodyTop + row.y + input.rowHeight;
-    marks.push(line(0, y, chartWidth, y, "#F0F1F4", 1));
+    marks.push(line(0, y, chartWidth, y, chart.rowBorder, 1));
   }
   marks.push(renderLinks(input, bodyTop, dateToX));
   for (const row of input.visibleRows) {
@@ -661,6 +678,7 @@ function renderLinks(
   bodyTop: number,
   dateToX: (d: Date) => number,
 ): string {
+  const { chart } = palettes(input);
   const byId = new Map<
     ScheduleId,
     { x: number; right: number; y: number }
@@ -680,7 +698,7 @@ function renderLinks(
       const from = byId.get(link.fromId);
       const to = byId.get(link.toId);
       if (!from || !to) return [];
-      const color = link.broken ? "#C4351A" : "#8A94A6";
+      const color = link.broken ? chart.linkBroken : chart.linkOk;
       const marker = link.broken ? "arrow-broken" : "arrow";
       return [
         `<polyline points="${pairs(linkPoints(from.right, from.y, to.x, to.y))}" fill="none" stroke="${color}" stroke-width="${link.broken ? 1.75 : 1.25}" marker-end="url(#${marker})"/>`,
@@ -695,6 +713,7 @@ function renderSummary(
   input: ScheduleExportInput,
   dateToX: (d: Date) => number,
 ): string {
+  const { chart } = palettes(input);
   const { x, width } = summaryBarWidthPx(
     summary.start,
     summary.end,
@@ -705,7 +724,7 @@ function renderSummary(
   const barY = y + (input.rowHeight - height) / 2;
   const radius = Math.min(3, Math.round(height / 2));
   const parts = [
-    `<rect x="${n(x)}" y="${n(barY)}" width="${n(width)}" height="${n(height)}" rx="${radius}" fill="${SUMMARY_GAP}"/>`,
+    `<rect x="${n(x)}" y="${n(barY)}" width="${n(width)}" height="${n(height)}" rx="${radius}" fill="${chart.summaryGap}"/>`,
   ];
   for (const span of summary.covered) {
     const spanX = dateToX(parseDate(span.start));
@@ -721,7 +740,7 @@ function renderSummary(
             ? [0, radius, radius, 0]
             : [0, 0, 0, 0];
     parts.push(
-      `<path d="${roundedRect(spanX, barY, spanW, height, radii)}" fill="${SUMMARY_COVERED}"/>`,
+      `<path d="${roundedRect(spanX, barY, spanW, height, radii)}" fill="${chart.summaryCovered}"/>`,
     );
   }
   return parts.join("\n  ");
@@ -733,10 +752,11 @@ function renderTaskBar(
   input: ScheduleExportInput,
   dateToX: (d: Date) => number,
 ): string {
+  const { chart } = palettes(input);
   const x = dateToX(parseDate(task.start));
   const w = taskBarWidthPx(task, dateToX, input.pxPerDay);
   const barY = y + (input.rowHeight - input.barHeight) / 2;
-  const colors = barColors(task, input.today);
+  const colors = barColors(task, input.today, input.colorScheme);
   const assigneeDisplay = resolveAssigneeDisplay(
     task.assigneeId,
     input.memberCatalog,
@@ -745,9 +765,9 @@ function renderTaskBar(
   const unknownMember = assigneeDisplay.kind === "unknown";
   const stroke =
     unassigned && !isOverdue(task, input.today)
-      ? "#C48A1A"
+      ? chart.unassignedStroke
       : unknownMember && !isOverdue(task, input.today)
-        ? "#7B5EA7"
+        ? chart.unknownStroke
         : colors.border;
   const cap = Math.max(2, Math.round(input.barHeight * 0.16));
   const parts = [
@@ -763,12 +783,12 @@ function renderTaskBar(
   );
   if (unassigned) {
     parts.push(
-      `<rect x="${n(x)}" y="${n(barY - cap)}" width="${n(w)}" height="${n(cap)}" fill="#E0A020"/>`,
+      `<rect x="${n(x)}" y="${n(barY - cap)}" width="${n(w)}" height="${n(cap)}" fill="${chart.unassignedCap}"/>`,
     );
   }
   if (unknownMember) {
     parts.push(
-      `<rect x="${n(x)}" y="${n(barY - cap)}" width="${n(w)}" height="${n(cap)}" fill="#7B5EA7"/>`,
+      `<rect x="${n(x)}" y="${n(barY - cap)}" width="${n(w)}" height="${n(cap)}" fill="${chart.unknownCap}"/>`,
     );
   }
   const exceeded = milestonesExceededBy(task, input.milestones);
@@ -780,7 +800,7 @@ function renderTaskBar(
       const radii: [number, number, number, number] =
         overrunAt <= 0 ? [4, 4, 4, 4] : [0, 4, 4, 0];
       parts.push(
-        `<path d="${roundedRect(x + left, barY, width, input.barHeight, radii)}" fill="rgba(196, 53, 26, 0.45)"/>`,
+        `<path d="${roundedRect(x + left, barY, width, input.barHeight, radii)}" fill="${chart.overrunOverlay}"/>`,
       );
     }
   }
@@ -794,6 +814,7 @@ function renderLightning(
   dateToX: (d: Date) => number,
 ): string {
   if (contentHeight <= 0) return "";
+  const { chart } = palettes(input);
   const todayX = dateToX(parseDate(input.today));
   const points = [todayX, bodyTop];
   for (const row of input.visibleRows) {
@@ -805,7 +826,7 @@ function renderLightning(
     points.push(x, y);
   }
   points.push(todayX, bodyTop + contentHeight);
-  return `<polyline points="${pairs(points)}" fill="none" stroke="#E07B20" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  return `<polyline points="${pairs(points)}" fill="none" stroke="${chart.lightning}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
 }
 
 function roundedRect(
