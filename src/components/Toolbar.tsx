@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import {
   NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
@@ -45,6 +46,7 @@ type ToolbarProps = {
   onAdd: () => void;
   onDelete: () => void;
   fileBusy?: boolean;
+  taskSearchRef?: RefObject<HTMLInputElement | null>;
 };
 
 export function Toolbar({
@@ -77,6 +79,7 @@ export function Toolbar({
   onAdd,
   onDelete,
   fileBusy = false,
+  taskSearchRef,
 }: ToolbarProps) {
   return (
     <div className="toolbar">
@@ -117,6 +120,7 @@ export function Toolbar({
       </h1>
       <input
         type="text"
+        ref={taskSearchRef}
         placeholder="タスク名で検索"
         className="search-input"
         value={filters.search}

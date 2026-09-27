@@ -120,7 +120,7 @@ body {
   top: calc(100% + 4px);
   left: 0;
   z-index: 30;
-  min-width: calc(160px * var(--s));
+  min-width: calc(220px * var(--s));
   padding: 6px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -132,6 +132,10 @@ body {
 }
 
 .app-menu-panel button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16px * var(--s));
   text-align: left;
   border: none;
   background: transparent;
@@ -139,6 +143,12 @@ body {
   border-radius: 6px;
   font-size: calc(12px * var(--s));
   cursor: pointer;
+}
+
+.menu-shortcut {
+  color: var(--text-secondary);
+  font-size: calc(11px * var(--s));
+  white-space: nowrap;
 }
 
 .app-menu-panel button:hover:not(:disabled) {
@@ -154,6 +164,35 @@ body {
   border: none;
   border-top: 1px solid var(--border);
   margin: 4px 0;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 40;
+  min-width: calc(160px * var(--s));
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px var(--menu-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.context-menu button {
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: calc(8px * var(--s)) calc(10px * var(--s));
+  border-radius: 6px;
+  font-size: calc(12px * var(--s));
+  color: var(--text);
+  cursor: pointer;
+}
+
+.context-menu button:hover {
+  background: var(--panel);
 }
 
 .settings-dialog {
