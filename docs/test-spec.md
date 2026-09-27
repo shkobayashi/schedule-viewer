@@ -106,6 +106,22 @@
 | 同上 | `returns invalidDisk when the file fails validation` | SYNC-03 |
 | `serialize.test.ts` | `omits empty note` | EDIT-06 |
 | 同上 | `includes trimmed note` | EDIT-06 |
+| `sidebarWidth.test.ts` | `uses 190 when nothing is stored` | NAV-06 |
+| 同上 | `rejects values that are not numbers` | NAV-06 |
+| 同上 | `clamps stored widths below 140` | NAV-06 |
+| 同上 | `rounds to the nearest pixel` | NAV-06 |
+| 同上 | `keeps the preferred width when the chart still fits` | NAV-06 |
+| 同上 | `shrinks only the applied width when the window is tight` | NAV-06 |
+| 同上 | `returns the preferred width before the main area is measured` | NAV-06 |
+| 同上 | `stays inside the minimum and the chart floor` | NAV-06 |
+| 同上 | `does not replace the preferred width when the minimum cannot fit` | NAV-06 |
+| 同上 | `shrinks from the requested width` | NAV-06 |
+| 同上 | `keeps the preferred width when a drag cannot move the edge` | NAV-06 |
+| 同上 | `shrinks from the visible width` | NAV-06 |
+| 同上 | `grows from the visible width when the chart has room` | NAV-06 |
+| 同上 | `keeps the preferred width when a key cannot move the edge` | NAV-06 |
+| 同上 | `stores a custom width and clears the key at the default` | NAV-06 |
+| 同上 | `ignores localStorage failures` | NAV-06 |
 | `summary.test.ts` | `merges spans that start the day after the previous end` | VIEW-03 |
 | 同上 | `keeps a single day as one span` | VIEW-03 |
 | 同上 | `merges overlapping spans` | VIEW-03 |
@@ -244,6 +260,7 @@
 | TC-NAV-03 | NAV-03 | 横にスクロールした状態 | 「Fit」を押す | 期間が幅に入り、横位置が先頭に戻る |
 | TC-NAV-04 | NAV-04 | タスクがあるグループ | 三角を二度押す | 一度で配下の行が隠れ、親バーは残る。二度で戻る |
 | TC-NAV-05 | NAV-05 | 左の幅に収まらないタスク名 | その名前を横にドラッグする | 続きが読める。担当と「超過」は動かない |
+| TC-NAV-06 | NAV-06 | 左の一覧とチャートの境界 | 境界を横にドラッグし、ダブルクリックする。ウィンドウを狭めてから広げる | 一覧の幅が変わり、チャートは残った幅に合う。ダブルクリックで既定の幅に戻る。名前の横ずらしは残る。ウィンドウを狭めると表示だけ縮み、広げると戻る |
 | TC-FILTER-01 | FILTER-01 | サンプル | タスク名の一部を入れる | その文字を含むタスクだけが残る |
 | TC-FILTER-02 | FILTER-02 | ノートがあるタスクと無いタスク | ノートの一部を入れる | ノートにその文字を含むタスクだけが残る |
 | TC-FILTER-03 | FILTER-03 | 割り当てなし、メンバー不明、名前を表示できる担当が混在 | 「割り当てなし」を選ぶ | 割り当てなしとメンバー不明が残り、名前を表示できる担当のタスクは消える |

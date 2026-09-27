@@ -391,7 +391,8 @@ input[type="number"] {
 }
 
 .sidebar {
-  width: calc(190px * var(--s));
+  width: calc(var(--sidebar-w, 190) * 1px * var(--s));
+  max-width: calc(100% - 200px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -400,6 +401,23 @@ input[type="number"] {
   overflow: hidden;
   position: relative;
   background: var(--bg);
+}
+
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer:focus-visible,
+.sidebar-resizer.dragging {
+  background: var(--border);
 }
 
 .sidebar-header {
