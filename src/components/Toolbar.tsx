@@ -35,6 +35,7 @@ type ToolbarProps = {
   onZoomOut: () => void;
   onFit: () => void;
   onShowJson: () => void;
+  onShowDiff: () => void;
   onExportHtml: () => void;
   onOpen: () => void;
   onSave: () => void;
@@ -66,6 +67,7 @@ export function Toolbar({
   onZoomOut,
   onFit,
   onShowJson,
+  onShowDiff,
   onExportHtml,
   onOpen,
   onSave,
@@ -85,6 +87,7 @@ export function Toolbar({
         onSaveAs={onSaveAs}
         onExportHtml={onExportHtml}
         onShowJson={onShowJson}
+        onShowDiff={onShowDiff}
         onOpenSettings={onOpenSettings}
       />
       <h1>

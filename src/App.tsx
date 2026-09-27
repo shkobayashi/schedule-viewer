@@ -6,6 +6,7 @@ import { ExternalChangeDialog } from "./components/ExternalChangeDialog";
 import { ExternalReloadDialog } from "./components/ExternalReloadDialog";
 import { RecoveryConflictDialog } from "./components/RecoveryConflictDialog";
 import { RecoveryInvalidDialog } from "./components/RecoveryInvalidDialog";
+import { DiffDialog } from "./components/DiffDialog";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
@@ -22,7 +23,18 @@ import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useTimelineView } from "./hooks/useTimelineView";
-import { serializeScheduleDocument } from "./model/scheduleFile";
+import { errorMessage } from "./model/errors";
+import {
+  NO_OPEN_SCHEDULE_FILE_MESSAGE,
+  formatScheduleDiff,
+} from "./model/scheduleDiff";
+import {
+  isTauri,
+  parseScheduleText,
+  readOpenScheduleFileViaTauri,
+  scheduleJsonFilename,
+  serializeScheduleDocument,
+} from "./model/scheduleFile";
 import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
 import {
   exportSchedule,
@@ -100,6 +112,9 @@ function App() {
   const [uiScale, setUiScale] = useState(readUiScale);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
+  const [diffText, setDiffText] = useState<string | null>(null);
+  const [diffError, setDiffError] = useState<string | null>(null);
+  const diffRequestRef = useRef(0);
   const [addOpen, setAddOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [focusTaskId, setFocusTaskId] = useState<ScheduleId | null>(null);
@@ -473,6 +488,45 @@ function App() {
     ],
   );
 
+  const showScheduleDiff = useCallback(() => {
+    if (scheduleFile.fileBusy) return;
+    const requestId = diffRequestRef.current + 1;
+    diffRequestRef.current = requestId;
+    const stillCurrent = () => diffRequestRef.current === requestId;
+    if (!isTauri() || !scheduleFile.filePath) {
+      setDiffError(null);
+      setDiffText(NO_OPEN_SCHEDULE_FILE_MESSAGE);
+      return;
+    }
+    const screenJson = scheduleFile.currentJson;
+    const filename = scheduleJsonFilename(scheduleFile.filePath) ?? "schedule.json";
+    void readOpenScheduleFileViaTauri()
+      .then((contents) => {
+        if (!stillCurrent()) return;
+        const fileParsed = parseScheduleText(contents);
+        if (!fileParsed.ok) {
+          setDiffText(null);
+          setDiffError(fileParsed.message);
+          return;
+        }
+        const screenParsed = parseScheduleText(screenJson);
+        if (!screenParsed.ok) {
+          setDiffText(null);
+          setDiffError(screenParsed.message);
+          return;
+        }
+        setDiffError(null);
+        setDiffText(
+          formatScheduleDiff(screenParsed.document, fileParsed.document, filename),
+        );
+      })
+      .catch((error: unknown) => {
+        if (!stillCurrent()) return;
+        setDiffText(null);
+        setDiffError(errorMessage(error, "ファイルを読めません。"));
+      });
+  }, [scheduleFile.currentJson, scheduleFile.fileBusy, scheduleFile.filePath]);
+
   return (
     <div className="app" style={{ ["--s" as string]: uiScale }}>
       <Toolbar
@@ -495,6 +549,7 @@ function App() {
         onZoomOut={zoomOut}
         onFit={fitToWidth}
         onShowJson={() => setJsonOpen(true)}
+        onShowDiff={showScheduleDiff}
         onOpen={scheduleFile.requestOpen}
         onSave={() => void scheduleFile.save(false)}
         onSaveAs={() => void scheduleFile.save(true)}
@@ -678,6 +733,11 @@ function App() {
         open={jsonOpen}
         onClose={() => setJsonOpen(false)}
       />
+      <DiffDialog
+        text={diffText ?? ""}
+        open={diffText != null}
+        onClose={() => setDiffText(null)}
+      />
       {scheduleFile.discardPromptOpen ? (
         <DiscardChangesDialog
           onConfirm={scheduleFile.confirmDiscardAndOpen}
@@ -742,6 +802,12 @@ function App() {
           title="書き出しに失敗しました"
           message={exportError}
           onClose={() => setExportError(null)}
+        />
+      ) : null}
+      {diffError ? (
+        <ScheduleErrorDialog
+          message={diffError}
+          onClose={() => setDiffError(null)}
         />
       ) : null}
     </div>

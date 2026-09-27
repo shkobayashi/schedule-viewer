@@ -163,13 +163,13 @@ npm install @tauri-apps/cli-darwin-arm64@2.11.5
 
 （Apple Silicon 以外の Mac では `cli-darwin-x64` に読み替える。）
 
-フロントのみ（ブラウザで Konva 確認）:
+フロントのみ（ブラウザで Konva 確認）。ポートは 5173 である。
 
 ```bash
 npm run dev
 ```
 
-デスクトップアプリ（ウィンドウ起動はホスト OS 上で行う）:
+デスクトップアプリ（ウィンドウ起動はホスト OS 上で行う）。こちらはポート 1420 を使うので、上のブラウザ版と同時に起動できる。
 
 ```bash
 npm run tauri dev
@@ -183,7 +183,7 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 
 | スクリプト | 内容 |
 | --- | --- |
-| `npm run dev` | 検証器を生成してから Vite でフロントを起動する（ポート 1420） |
+| `npm run dev` | 検証器を生成してから Vite でフロントを起動する（ポート 5173）。`tauri dev` から呼ばれたときはポート 1420 |
 | `npm run build` | 検証器の生成、`tsc`、Vite の本番ビルド |
 | `npm run preview` | 本番ビルドのプレビュー |
 | `npm run tauri` | Tauri CLI を呼ぶ。後ろに `dev` や `build` を付けて使う |
