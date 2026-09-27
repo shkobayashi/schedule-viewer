@@ -113,6 +113,11 @@
 | 同上 | `uses viewport scaling when preference is auto` | SET-01 |
 | 同上 | `uses fixed preference regardless of viewport` | SET-01 |
 | 同上 | `stores fixed ratios and clears key for auto` | SET-01 |
+| `colorScheme.test.ts` | `stores fixed schemes and clears key for system` | SET-04 |
+| 同上 | `falls back to system for missing or invalid values` | SET-04 |
+| 同上 | `uses OS preference when set to system` | SET-04 |
+| 同上 | `ignores OS when light or dark is chosen` | SET-04 |
+| `exportHtml.test.ts` | `uses dark palette when colorScheme is dark` | SET-04, EXPORT-01 |
 | `validateCalendar.test.ts` | `rejects the same date in nonWorkingDays and workingDays` | SET-03 |
 | 同上 | `rejects a duplicate date inside nonWorkingDays` | SET-03 |
 | 同上 | `rejects duplicate weekends` | SET-03 |
@@ -248,6 +253,7 @@
 | TC-EXPORT-03 | EXPORT-03 | 書き出しの行が 10,000 を超えるデータ | 「書き出し」を実行する | ファイルを作らず、行数の上限を理由に出す |
 | TC-EXPORT-04 | EXPORT-04 | タイトルに `/` や `:` がある | 書き出しの保存ダイアログを開く | 提案名からそれらの文字が除かれ、選んだ形式の拡張子が付く |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す | 文字と行が大きくなり、再起動後も維持される。「自動」に戻すと保存値は消える |
+| TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |

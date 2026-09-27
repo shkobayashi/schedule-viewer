@@ -45,6 +45,14 @@ import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange } from "./model/timeline";
 import type { ScheduleId } from "./model/types";
 import {
+  applyResolvedColorScheme,
+  readColorSchemePreference,
+  resolveColorScheme,
+  subscribeSystemColorScheme,
+  type ColorSchemePreference,
+} from "./model/colorScheme";
+import type { ResolvedColorScheme } from "./model/palette";
+import {
   readDisplayScalePreference,
   readUiScale,
   resolveUiScale,
@@ -83,6 +91,12 @@ function App() {
   const [displayScalePreference, setDisplayScalePreference] = useState(
     readDisplayScalePreference,
   );
+  const [colorSchemePreference, setColorSchemePreference] = useState(
+    readColorSchemePreference,
+  );
+  const [resolvedColorScheme, setResolvedColorScheme] = useState(
+    (): ResolvedColorScheme => resolveColorScheme(readColorSchemePreference()),
+  );
   const [uiScale, setUiScale] = useState(readUiScale);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
@@ -106,6 +120,25 @@ function App() {
       ),
     );
   }, [displayScalePreference]);
+
+  useEffect(() => {
+    applyResolvedColorScheme(resolvedColorScheme);
+  }, [resolvedColorScheme]);
+
+  useEffect(() => {
+    if (colorSchemePreference !== "system") return;
+    return subscribeSystemColorScheme(() => {
+      setResolvedColorScheme(resolveColorScheme("system"));
+    });
+  }, [colorSchemePreference]);
+
+  const handleColorSchemeChange = useCallback(
+    (preference: ColorSchemePreference) => {
+      setColorSchemePreference(preference);
+      setResolvedColorScheme(resolveColorScheme(preference));
+    },
+    [],
+  );
 
   useEffect(() => {
     refreshUiScale();
@@ -408,6 +441,7 @@ function App() {
             schedule.milestones,
             assigneeLabel,
           ),
+          colorScheme: resolvedColorScheme,
         },
         format,
       ).catch((error: unknown) => {
@@ -435,6 +469,7 @@ function App() {
       tier,
       tierLabel,
       uiScale,
+      resolvedColorScheme,
     ],
   );
 
@@ -530,6 +565,7 @@ function App() {
             today={schedule.today}
             memberCatalog={memberCatalogState.memberMap}
             calendar={appCalendarState.calendar}
+            colorScheme={resolvedColorScheme}
           />
         </div>
       </div>
@@ -625,6 +661,8 @@ function App() {
           selectedCatalogLabel={memberCatalogState.selectedCatalogLabel}
           displayScalePreference={displayScalePreference}
           onDisplayScaleChange={handleDisplayScaleChange}
+          colorSchemePreference={colorSchemePreference}
+          onColorSchemeChange={handleColorSchemeChange}
           onClose={() => setSettingsOpen(false)}
           onImport={memberCatalogState.importCatalog}
           onSelectCatalog={memberCatalogState.selectCatalog}

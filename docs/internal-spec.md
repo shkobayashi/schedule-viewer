@@ -64,7 +64,7 @@ flowchart TD
 
 ### モデル
 
-純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` の localStorage だけである。
+純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` の localStorage だけである。
 
 | 関心 | ファイル |
 | --- | --- |
@@ -77,7 +77,7 @@ flowchart TD
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportView.ts`、`exportFilename.ts` |
-| 見た目の寸法 | `layoutSizes.ts`、`uiScale.ts` |
+| 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`colorScheme.ts`、`palette.ts` |
 
 ## 状態
 
@@ -91,7 +91,7 @@ flowchart TD
 
 取り消しのスナップショットに入るのは `categories` と `milestones` だけである。タイトルは履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。バーの移動と端のドラッグは、離したときに1回だけ `commitDocument` する。
 
-表示の状態のうち、表示サイズだけは localStorage の `schedule-viewer/display-scale` に残る。キーの一覧は [データ仕様](data-format.md#アプリデータ) にある。
+表示の状態のうち、表示サイズと配色の選び方だけは localStorage に残る。キーの一覧は [データ仕様](data-format.md#アプリデータ) にある。画面に反映する解決済みの配色（ライトかダーク）は React の状態で持ち、システム追従のときは `prefers-color-scheme` の変化を監視する。
 
 ## 主な処理の流れ
 

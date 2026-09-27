@@ -1,4 +1,5 @@
 import { addDays, daysBetween, parseDate, todayIso } from "./dates";
+import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "./palette";
 import { forEachTask } from "./tasks";
 import type { Category, Milestone } from "./types";
 
@@ -71,18 +72,17 @@ export function computeTimelineRange(
   return { timelineStart, timelineEnd, totalDays };
 }
 
-export function statusColors(status: string): {
+export function statusColors(
+  status: string,
+  chart: ChartPalette = paletteFor("light").chart,
+): {
   bg: string;
   fill: string | null;
   border: string;
 } {
-  if (status === "done") {
-    return { bg: "#2E9E6C", fill: null, border: "#278A5E" };
-  }
-  if (status === "in-progress") {
-    return { bg: "#DEE3FB", fill: "#4C5FD5", border: "#4C5FD5" };
-  }
-  return { bg: "#EDEFF3", fill: null, border: "#C4CAD4" };
+  if (status === "done") return chart.statusDone;
+  if (status === "in-progress") return chart.statusInProgress;
+  return chart.statusNotStarted;
 }
 
 /**
@@ -109,14 +109,14 @@ export function isOverdue(
 export function barColors(
   task: { status: string; end: string },
   today: string,
+  scheme: ResolvedColorScheme = "light",
 ): {
   bg: string;
   fill: string | null;
   border: string;
 } {
-  if (!isOverdue(task, today)) return statusColors(task.status);
-  if (task.status === "in-progress") {
-    return { bg: "#F8D0C8", fill: "#E2542A", border: "#C4351A" };
-  }
-  return { bg: "#F8D0C8", fill: null, border: "#C4351A" };
+  const chart = paletteFor(scheme).chart;
+  if (!isOverdue(task, today)) return statusColors(task.status, chart);
+  if (task.status === "in-progress") return chart.overdueInProgress;
+  return chart.overdueOther;
 }
