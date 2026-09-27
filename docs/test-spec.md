@@ -21,6 +21,7 @@
 | Clippy | `cd src-tauri && cargo clippy -- -D warnings` | Rust。警告をエラーにする |
 | スケジュール検証 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` |
 | カレンダー検証 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` |
+| メンバー検証 | `npm run check:members` | 引数なしなら `examples/playground.members.json` |
 | バージョン | `npm run version:check` | 5ファイルのバージョン番号 |
 | スキル同梱物 | `npm run build:validate-skill` のあと、CI と同じパスで `git diff --exit-code` | スキーマコピーと検証 bundle の差分 |
 
@@ -30,7 +31,7 @@
 
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `develop` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`build:validate-skill`、スキル同梱物の差分。Rust なら Clippy と `cargo test --locked` |
+| `.github/workflows/ci.yml` | `develop` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、スキル同梱物の差分。Rust なら Clippy と `cargo test --locked` |
 | `.github/workflows/release.yml` | `main` への push | Ubuntu の deb と Windows の NSIS を GitHub Release へ出し、`SHA256SUMS` を付ける |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更では、CI のどちらも動かない。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
@@ -106,6 +107,22 @@
 | 同上 | `returns invalidDisk when the file fails validation` | SYNC-03 |
 | `serialize.test.ts` | `omits empty note` | EDIT-06 |
 | 同上 | `includes trimmed note` | EDIT-06 |
+| `sidebarWidth.test.ts` | `uses 190 when nothing is stored` | NAV-06 |
+| 同上 | `rejects values that are not numbers` | NAV-06 |
+| 同上 | `clamps stored widths below 140` | NAV-06 |
+| 同上 | `rounds to the nearest pixel` | NAV-06 |
+| 同上 | `keeps the preferred width when the chart still fits` | NAV-06 |
+| 同上 | `shrinks only the applied width when the window is tight` | NAV-06 |
+| 同上 | `returns the preferred width before the main area is measured` | NAV-06 |
+| 同上 | `stays inside the minimum and the chart floor` | NAV-06 |
+| 同上 | `does not replace the preferred width when the minimum cannot fit` | NAV-06 |
+| 同上 | `shrinks from the requested width` | NAV-06 |
+| 同上 | `keeps the preferred width when a drag cannot move the edge` | NAV-06 |
+| 同上 | `shrinks from the visible width` | NAV-06 |
+| 同上 | `grows from the visible width when the chart has room` | NAV-06 |
+| 同上 | `keeps the preferred width when a key cannot move the edge` | NAV-06 |
+| 同上 | `stores a custom width and clears the key at the default` | NAV-06 |
+| 同上 | `ignores localStorage failures` | NAV-06 |
 | `summary.test.ts` | `merges spans that start the day after the previous end` | VIEW-03 |
 | 同上 | `keeps a single day as one span` | VIEW-03 |
 | 同上 | `merges overlapping spans` | VIEW-03 |
@@ -192,7 +209,7 @@
 | `src/sample/schedule.ts` | タイトル「AI活用PoC推進プロジェクト」。マイルストン 3、カテゴリ 5、グループ 11、タスク 16。割り当てなし 3、ノート 1。前後関係に循環は無い | `npm run check:schedule` |
 | `src/sample/members.ts` | メンバー 4人 | 専用の check は無い。初回の起動時に、カタログとして一度だけ入れる |
 | `examples/playground.schedule.json` | サンプルに近いがノートは無い | 引数なしの `check:schedule` では見ない |
-| `examples/playground.members.json` | サンプルと同じ4人 | 自動では見ない |
+| `examples/playground.members.json` | サンプルと同じ4人 | `npm run check:members` |
 | `examples/jp-2026.calendar.json` | 土日と、非稼働日 18件。振替出勤は空 | `npm run check:calendar` |
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
@@ -204,9 +221,12 @@
 | ID | 機能 | 前提 | 手順 | 期待結果 |
 | --- | --- | --- | --- | --- |
 | TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しがファイル名になる |
+| TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01b | FILE-01 | schemaVersion 2 の JSON がある | 「開く」で選ぶ | 開かず、理由が出る。それまでの保存先は変わらない |
 | TC-FILE-02 | FILE-02 | ファイルを開き、バーを動かして未保存にする | 「保存」を押す | 見出しから「未保存」が消え、ファイルの内容が画面と一致する |
+| TC-FILE-02c | FILE-02 | 同上 | ⌘/Ctrl+S を押す。検索欄にフォーカスがあるときも押す | 「保存」と同じように保存される。編集ダイアログが開いているときは保存されない |
 | TC-FILE-03 | FILE-03 | サンプルを編集する | 「別名保存」で新しいパスを選ぶ | そのパスに JSON ができ、次の「保存」はそのパスへ書く |
+| TC-FILE-03b | FILE-03 | サンプルを編集する | ⌘/Ctrl+Shift+S で新しいパスを選ぶ | 「別名保存」と同じになる |
 | TC-FILE-04 | FILE-04 | ファイルを開いた直後 | 絞り込みだけを変える | 見出しは「未保存」にならない |
 | TC-FILE-04b | FILE-04 | ファイルを開いている | バーを1日動かす | 見出しが「未保存」になる |
 | TC-FILE-05 | FILE-05 | サンプルを編集し、未保存にする | ウィンドウを閉じる | 破棄して閉じるかを聞く。破棄すると控えは残らない |
@@ -244,7 +264,9 @@
 | TC-NAV-03 | NAV-03 | 横にスクロールした状態 | 「Fit」を押す | 期間が幅に入り、横位置が先頭に戻る |
 | TC-NAV-04 | NAV-04 | タスクがあるグループ | 三角を二度押す | 一度で配下の行が隠れ、親バーは残る。二度で戻る |
 | TC-NAV-05 | NAV-05 | 左の幅に収まらないタスク名 | その名前を横にドラッグする | 続きが読める。担当と「超過」は動かない |
+| TC-NAV-06 | NAV-06 | 左の一覧とチャートの境界 | 境界を横にドラッグし、ダブルクリックする。ウィンドウを狭めてから広げる | 一覧の幅が変わり、チャートは残った幅に合う。ダブルクリックで既定の幅に戻る。名前の横ずらしは残る。ウィンドウを狭めると表示だけ縮み、広げると戻る |
 | TC-FILTER-01 | FILTER-01 | サンプル | タスク名の一部を入れる | その文字を含むタスクだけが残る |
+| TC-FILTER-01b | FILTER-01 | サンプル | ⌘/Ctrl+F を押す | 「タスク名で検索」にフォーカスが移り、入っている文字が選択される |
 | TC-FILTER-02 | FILTER-02 | ノートがあるタスクと無いタスク | ノートの一部を入れる | ノートにその文字を含むタスクだけが残る |
 | TC-FILTER-03 | FILTER-03 | 割り当てなし、メンバー不明、名前を表示できる担当が混在 | 「割り当てなし」を選ぶ | 割り当てなしとメンバー不明が残り、名前を表示できる担当のタスクは消える |
 | TC-FILTER-03b | FILTER-03 | 同上 | 特定のメンバーを選ぶ | その ID だけが残り、メンバー不明は出ない |
@@ -254,12 +276,14 @@
 | TC-FILTER-07 | FILTER-07 | マイルストン付きと無しが混在 | 「なし」を選ぶ | 対応が無いタスクだけが残る |
 | TC-FILTER-07b | FILTER-07 | 同上 | 特定のマイルストンを選ぶ | それを指すタスクだけが残る |
 | TC-FILTER-08 | FILTER-08 | 枝分かれした前後関係 | 枝の途中を選んで「系統」を押す | その起点の先行と後続だけが残る。起点を通らない枝は出ない。もう一度で解除する |
+| TC-FILTER-08b | FILTER-08 | 系統を表示している | 別のタスクを右クリックし、「系統を表示」を選ぶ | 起点がそのタスクに切り替わる。同じタスクなら「系統を解除」で外れる |
 | TC-FILTER-09 | FILTER-09 | あるグループのタスクがすべて完了 | 「完了以外」を選ぶ | そのグループの行も消える。追加ダイアログでは、そのグループをまだ選べる |
 | TC-EDIT-01 | EDIT-01 | サンプル | バーをクリックし、次に背景をクリックする | バーで選択され端のハンドルが出る。背景で外れる。左の行をクリックしても選択されない |
 | TC-EDIT-01b | EDIT-01 | タスクを選択している | 絞り込みを変える | 選択が外れる |
 | TC-EDIT-02 | EDIT-02 | タスクを選択できる | ⌘ または Ctrl を押しながらバーを横へドラッグして離す | 開始と終了が同じ日数だけ動く。修飾が無いドラッグはスクロールのまま |
 | TC-EDIT-03 | EDIT-03 | タスクを選択している | 右端を左へ、1日より短くなるところまでドラッグする | 1日で止まり、終了日が開始日より前にならない |
 | TC-EDIT-04 | EDIT-04 | サンプル | バーをダブルクリックし、名前を空にして保存する | 保存されず、理由が出る。Escape では変更が残らない |
+| TC-EDIT-04c | EDIT-04 | タスクを選択している | Enter を押す | 編集ダイアログが開く。検索欄にフォーカスがあるときは開かない |
 | TC-EDIT-05 | EDIT-05 | 3件以上のタスク | 編集で、自分を先行にしようとする。次に、循環する先行を保存する | 自分は候補に出ない。循環は保存されず、理由が出る |
 | TC-EDIT-05b | EDIT-05 | タスクが50件を超えるスケジュール | 先行の検索を空のまま開く | 「さらに絞り込んでください」と出る |
 | TC-EDIT-06 | EDIT-06 | ノートが無いタスク | ノートアイコンから文字を保存し、次に空白だけを保存する | 一度目でノートが付き、二度目でノートが消える |
@@ -268,6 +292,9 @@
 | TC-EDIT-08b | EDIT-08 | 追加ダイアログ | 終了日を開始日より前にして保存する | 追加されない |
 | TC-EDIT-09 | EDIT-09 | 先行を持つタスクを選択 | 「削除」を確認する | タスクが消え、他の先行からも外れ、残ったタスク同士はつながらない |
 | TC-EDIT-09b | EDIT-09 | タスクを選んでいない | 「削除」を見る | 押せない |
+| TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
+| TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左の行を右クリックする。選択中は端のハンドルも右クリックする | ノートが開く。左の行は右クリックで選択され、メニューが出る。左クリックでは選択されない。空白やカテゴリではメニューが出ない。端のハンドルでもバーと同じメニューが出る |
+| TC-EDIT-11b | EDIT-11 | マイルストンがある | ひし形を右クリックし、「編集」を選ぶ | 名前と日付の編集が開く。項目は「編集」だけである |
 | TC-EDIT-10 | EDIT-10 | バーを動かした直後 | ⌘/Ctrl+Z を押し、続けてやり直す | 移動が戻り、やり直しで再度動く。検索欄にフォーカスがあるときは動かない |
 | TC-EDIT-10b | EDIT-10 | 取り消しできる編集がある | 別のファイルを開く | 取り消しできなくなる |
 | TC-EXPORT-01 | EXPORT-01 | サンプル | 「書き出し」で SVG を選んで保存する | SVG ファイルができる。キャンセルではできない |

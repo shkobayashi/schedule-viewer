@@ -171,8 +171,9 @@
 | `schedule-viewer/calendar/label` | カレンダーの表示名 |
 | `schedule-viewer/display-scale` | 表示サイズ。`0.5`、`0.75`、`1`、`1.25`、`1.5`、`2` のいずれか。自動のときはキーを消す |
 | `schedule-viewer/color-scheme` | 配色。`light` または `dark`。システム設定に合わせるときはキーを消す |
+| `schedule-viewer/sidebar-width` | 左一覧の基準幅。表示倍率 1 のときの px。既定の 190 のときはキーを消す |
 
-表示サイズと配色はデスクトップ版でも localStorage に置く。メンバーとカレンダーは、デスクトップ版ではアプリデータだけに置く。
+表示サイズ、配色、左一覧の幅はデスクトップ版でも localStorage に置く。メンバーとカレンダーは、デスクトップ版ではアプリデータだけに置く。
 
 ## 検証のしかた
 
@@ -182,6 +183,7 @@
 
 - `npm run check:schedule` は、引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する
 - `npm run check:calendar` は、引数なしなら [examples/jp-2026.calendar.json](../examples/jp-2026.calendar.json) を検証する
-- 他のリポジトリへコピーしたスキルでは、同梱の `node .cursor/skills/write-schedule/scripts/validate-schedule.mjs <file>` と `node .cursor/skills/write-calendar/scripts/validate-calendar.mjs <file>` を使う
+- `npm run check:members` は、引数なしなら [examples/playground.members.json](../examples/playground.members.json) を検証する
+- 他のリポジトリへコピーしたスキルでは、同梱の `node .cursor/skills/write-schedule/scripts/validate-schedule.mjs <file>`、`node .cursor/skills/write-calendar/scripts/validate-calendar.mjs <file>`、`node .cursor/skills/write-members/scripts/validate-members.mjs <file>` を使う
 
-`examples/playground.schedule.json` と `examples/playground.members.json` は手で開く例であり、引数なしの `check:schedule` では検証しない。
+`examples/playground.schedule.json` は手で開く例であり、引数なしの `check:schedule` では検証しない。

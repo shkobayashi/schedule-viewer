@@ -3,6 +3,10 @@ node_modules/
 dist/
 dist-ssr/
 *.local
+# tsc -b が参照プロジェクト（vite.config.ts）から出す
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
 
 # --- Rust / Tauri ---
 /src-tauri/target/

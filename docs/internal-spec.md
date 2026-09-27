@@ -22,7 +22,7 @@ flowchart TD
 | 場所 | 責務 |
 | --- | --- |
 | `src/main.tsx` | React のマウント |
-| `src/App.tsx` | 画面の組み立て、ダイアログの接続、取り消しのキー |
+| `src/App.tsx` | 画面の組み立て、ダイアログの接続、キーボードショートカットと右クリックメニュー |
 | `src/components/` | ツールバー、サイドバー、タイムライン、各ダイアログ |
 | `src/hooks/` | 文書（スケジュールの内容）、ファイル、ズーム、今日、メンバー、カレンダーの状態 |
 | `src/model/` | 型、検証、行、座標、履歴、書き出し。I/O を持つのは一部だけ |
@@ -30,7 +30,7 @@ flowchart TD
 | `src-tauri/src/lib.rs` | ダイアログ、原子的な書き込み、アプリデータ、内容ハッシュ |
 | `scripts/` | 検証器の生成、サンプル検査、バージョン同期 |
 | `docs/*.schema.json` | JSON Schema の正本 |
-| `.cursor/skills/` | LLM 用のスキル。`write-schedule` と `write-calendar` は他のリポジトリへコピーして使う |
+| `.cursor/skills/` | LLM 用のスキル。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使う |
 
 依存は上の図の向きだけである。`model` はコンポーネントを参照しない。
 
@@ -41,6 +41,7 @@ flowchart TD
 | ファイル | 役割 |
 | --- | --- |
 | `AppMenu.tsx` | ☰ メニュー |
+| `ContextMenu.tsx` | タスクとマイルストンの右クリックメニュー。`#root` に出す |
 | `Toolbar.tsx` | 見出し、検索、絞り込み、系統、追加、削除、ズーム |
 | `Sidebar.tsx` | 左の行、折りたたみ、名前の横ずらし |
 | `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール |
@@ -64,7 +65,7 @@ flowchart TD
 
 ### モデル
 
-純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` の localStorage だけである。
+純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` と `sidebarWidth.ts` の localStorage だけである。
 
 | 関心 | ファイル |
 | --- | --- |
@@ -78,7 +79,8 @@ flowchart TD
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportView.ts`、`exportFilename.ts` |
-| 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`colorScheme.ts`、`palette.ts` |
+| 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts` |
+| キーボードショートカット | `shortcuts.ts` |
 
 ## 状態
 
@@ -92,7 +94,7 @@ flowchart TD
 
 取り消しのスナップショットに入るのは `categories` と `milestones` だけである。タイトルは履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。バーの移動と端のドラッグは、離したときに1回だけ `commitDocument` する。
 
-表示の状態のうち、表示サイズと配色の選び方だけは localStorage に残る。キーの一覧は [データ仕様](data-format.md#アプリデータ) にある。画面に反映する解決済みの配色（ライトかダーク）は React の状態で持ち、システム追従のときは `prefers-color-scheme` の変化を監視する。
+表示の状態のうち、表示サイズ、配色、左一覧の基準幅だけは localStorage に残る。キーの一覧は [データ仕様](data-format.md#アプリデータ) にある。画面に反映する解決済みの配色（ライトかダーク）は React の状態で持ち、システム追従のときは `prefers-color-scheme` の変化を監視する。左一覧の幅は、希望の基準幅と、チャートが 200px を下回らないよう縮めた表示幅を分ける。ウィンドウを狭めたときは表示だけ縮め、希望幅は残す。
 
 ## 主な処理の流れ
 
@@ -121,7 +123,7 @@ flowchart TD
 
 ### 保存
 
-`save_schedule_file` は、上書きのとき開いているパスと要求パスが一致することを見る。`skip_disk_hash_check` が無いときは、記憶している SHA-256 とディスクを比べ、違えば `DISK_HASH_MISMATCH` を返す。フロントはこのとき SYNC-02 の確認を出す。書き込みは一時ファイルへ書いてから置き換える。
+`save_schedule_file` は、上書きのとき開いているパスと要求パスが一致することを見る。パスが無いときは、フロントが別名保存として保存ダイアログを開く。`skip_disk_hash_check` が無いときは、記憶している SHA-256 とディスクを比べ、違えば `DISK_HASH_MISMATCH` を返す。フロントはこのとき SYNC-02 の確認を出す。書き込みは一時ファイルへ書いてから置き換える。
 
 ### 外部更新
 
@@ -163,7 +165,7 @@ flowchart TD
 
 メンバーとカレンダーも、JSON Schema のあとに意味規則を見る。`validationMessages.ts` は、エラーの場所を示す JSON Pointer をカテゴリやタスクの名前に置き換えて、エラー文言を作る。
 
-`write-schedule` と `write-calendar` に同梱する検証スクリプトは、`scripts/build-validate-skill.mjs` が同じ検証を1ファイルにまとめて作る。このスクリプトは、スキーマもスキルのフォルダへコピーする。CI は、その結果がコミット済みと一致するかを見る。手順は [開発ガイド](development.md#スキーマを変えるとき) にある。
+`write-schedule`、`write-calendar`、`write-members` に同梱する検証スクリプトは、`scripts/build-validate-skill.mjs` が同じ検証を1ファイルにまとめて作る。このスクリプトは、スキーマもスキルのフォルダへコピーする。CI は、その結果がコミット済みと一致するかを見る。手順は [開発ガイド](development.md#スキーマを変えるとき) にある。
 
 ## Tauri コマンド
 
@@ -213,7 +215,7 @@ capability はメインウィンドウに、`core:default`、ウィンドウの 
 
 ## 描画
 
-`Timeline.tsx` は日付ヘッダー、本体、前後の線、親バー、タスクバー、イナズマ線を Konva で描く。マイルストンは `MilestoneBand.tsx` である。左の名前は DOM の `Sidebar.tsx` で、縦位置だけをチャートと揃える。
+`Timeline.tsx` は日付ヘッダー、本体、前後の線、親バー、タスクバー、イナズマ線を Konva で描く。マイルストンは `MilestoneBand.tsx` である。左の名前は DOM の `Sidebar.tsx` で、縦位置だけをチャートと揃える。一覧の幅は `--sidebar-w` に、希望の基準幅をチャート余白で縮めた値を入れ、表示倍率を掛けて描く。右端の境界をドラッグすると希望の基準幅が変わる。表示が動かないドラッグでは希望幅を変えない。
 
 座標の基準は `pxPerDay` である。日付から x を計算し、ズームのたびに描き直す。CSS の拡大は使わない。表示期間は、全タスクと全マイルストンのうち、最も早い日付の6日前から最も遅い日付の7日後までである（`computeTimelineRange`）。書き出しは、見えている行から同じ余白で決め直す。
 

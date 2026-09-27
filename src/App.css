@@ -120,7 +120,7 @@ body {
   top: calc(100% + 4px);
   left: 0;
   z-index: 30;
-  min-width: calc(160px * var(--s));
+  min-width: calc(220px * var(--s));
   padding: 6px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -132,6 +132,10 @@ body {
 }
 
 .app-menu-panel button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16px * var(--s));
   text-align: left;
   border: none;
   background: transparent;
@@ -139,6 +143,12 @@ body {
   border-radius: 6px;
   font-size: calc(12px * var(--s));
   cursor: pointer;
+}
+
+.menu-shortcut {
+  color: var(--text-secondary);
+  font-size: calc(11px * var(--s));
+  white-space: nowrap;
 }
 
 .app-menu-panel button:hover:not(:disabled) {
@@ -156,15 +166,44 @@ body {
   margin: 4px 0;
 }
 
-.settings-dialog {
-  width: min(720px, 92vw);
+.context-menu {
+  position: fixed;
+  z-index: 40;
+  min-width: calc(160px * var(--s));
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px var(--menu-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.context-menu button {
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: calc(8px * var(--s)) calc(10px * var(--s));
+  border-radius: 6px;
+  font-size: calc(12px * var(--s));
+  color: var(--text);
+  cursor: pointer;
+}
+
+.context-menu button:hover {
+  background: var(--panel);
 }
 
 .settings-layout {
   display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 16px;
-  min-height: 240px;
+  grid-template-columns: calc(160px * var(--s)) minmax(0, 1fr);
+  gap: calc(16px * var(--s));
+  min-height: calc(320px * var(--s));
+}
+
+.settings-panel {
+  min-width: 0;
 }
 
 .settings-nav {
@@ -202,7 +241,8 @@ body {
 }
 
 .settings-field select {
-  max-width: 200px;
+  width: min(100%, 22em);
+  max-width: 100%;
 }
 
 .settings-current {
@@ -391,7 +431,8 @@ input[type="number"] {
 }
 
 .sidebar {
-  width: calc(190px * var(--s));
+  width: calc(var(--sidebar-w, 190) * 1px * var(--s));
+  max-width: calc(100% - 200px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -400,6 +441,23 @@ input[type="number"] {
   overflow: hidden;
   position: relative;
   background: var(--bg);
+}
+
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer:focus-visible,
+.sidebar-resizer.dragging {
+  background: var(--border);
 }
 
 .sidebar-header {
@@ -665,6 +723,12 @@ input[type="number"] {
 
 .modal.editor {
   width: 420px;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+
+.modal.settings-dialog {
+  width: min(880px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
   overflow: auto;
 }

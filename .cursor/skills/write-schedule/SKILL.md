@@ -25,7 +25,7 @@ description: >-
 - 各タスク: `name`, `start`, `end`, `assigneeId`（未割当は `null`）, `status`, `progress`, `predecessors`, `milestoneId`（なしは `null`）。任意で `note`（補足説明。ユーザーから渡されたときだけ書く）
 - 担当を付けるタスクには、ユーザーから渡された **メンバー id 一覧** に含まれる id だけを使う。一覧に無い人がいる場合は JSON を書かず、不足として返す
 
-日付・担当・期間を推測で埋めない。メンバー JSON ファイル自体はこの Skill では生成しない（アプリ側で取り込む）。
+日付・担当・期間を推測で埋めない。メンバー JSON ファイル自体はこの Skill では生成しない（`write-members` で作り、アプリ側で取り込む）。
 
 ## 出力形
 

@@ -191,7 +191,8 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run lint` | ESLint |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
-| `npm run build:validate-skill` | `write-schedule` と `write-calendar` に同梱する検証スクリプトと、スキーマのコピーを作り直す |
+| `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
+| `npm run build:validate-skill` | `write-schedule`、`write-calendar`、`write-members` に同梱する検証スクリプトと、スキーマのコピーを作り直す |
 | `npm run version:check` | バージョン番号が5ファイルで揃っていることを確認する |
 | `npm run version:bump` | バージョンを上げる。`minor` または `patch` を引数にする |
 | `postinstall` | `@tauri-apps/cli` のその OS 向けバイナリがあることを確認する |
@@ -210,7 +211,7 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 CI は変更されたパスでジョブを分ける。
 
 - `src-tauri/` が変わると Rust ジョブ（Clippy と `cargo test --locked`）が動く
-- `src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`build:validate-skill`、スキル同梱物の差分検査である
+- `src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、スキル同梱物の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
 - `docs/*.md` や `README.md` だけの変更では、どちらのジョブも動かない
 
@@ -256,17 +257,17 @@ Ubuntu 22.04 以降。システムパッケージは [Ubuntu の開発環境](#u
 `npm run tauri build` のあと、deb を入れて起動する。x86_64 の例:
 
 ```bash
-sudo apt install ./src-tauri/target/release/bundle/deb/schedule-viewer_0.4.0_amd64.deb
+sudo apt install ./src-tauri/target/release/bundle/deb/schedule-viewer_0.5.0_amd64.deb
 schedule-viewer
 ```
 
-arm64 でビルドしたときは `schedule-viewer_0.4.0_arm64.deb` になる。DevContainer を Apple Silicon 上の Linux で使っている場合は arm64 向けになる。配布先の Ubuntu が x86_64 なら、そのマシンでビルドする。
+arm64 でビルドしたときは `schedule-viewer_0.5.0_arm64.deb` になる。DevContainer を Apple Silicon 上の Linux で使っている場合は arm64 向けになる。配布先の Ubuntu が x86_64 なら、そのマシンでビルドする。
 
 インストールせずに起動する AppImage もできる。x86_64 では `x86_64`、arm64 では `aarch64` がファイル名に入る。
 
 ```bash
-chmod +x src-tauri/target/release/bundle/appimage/schedule-viewer_0.4.0_x86_64.AppImage
-./src-tauri/target/release/bundle/appimage/schedule-viewer_0.4.0_x86_64.AppImage
+chmod +x src-tauri/target/release/bundle/appimage/schedule-viewer_0.5.0_x86_64.AppImage
+./src-tauri/target/release/bundle/appimage/schedule-viewer_0.5.0_x86_64.AppImage
 ```
 
 同じビルドで RPM も `bundle/rpm/` にできる。Ubuntu では deb を使う。
@@ -283,8 +284,8 @@ open src-tauri/target/release/bundle/macos/schedule-viewer.app
 
 ほかの Mac に渡すときは、ディスクイメージを開いて Applications に入れる。
 
-- Apple Silicon: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.4.0_aarch64.dmg`
-- Intel: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.4.0_x64.dmg`
+- Apple Silicon: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.5.0_aarch64.dmg`
+- Intel: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.5.0_x64.dmg`
 
 別の Mac へ渡すには、Apple の署名と公証が必要になる。ビルドした Mac 上の `.app` はそのまま開ける。
 
@@ -294,8 +295,8 @@ Windows 10（バージョン 1803 以降）または Windows 11。C++ Build Tool
 
 `npm run tauri build` のあと、できたインストーラを実行し、スタートメニューの schedule-viewer から起動する。x86_64 の例:
 
-- `src-tauri\target\release\bundle\nsis\schedule-viewer_0.4.0_x64-setup.exe`
-- `src-tauri\target\release\bundle\msi\schedule-viewer_0.4.0_x64_en-US.msi`
+- `src-tauri\target\release\bundle\nsis\schedule-viewer_0.5.0_x64-setup.exe`
+- `src-tauri\target\release\bundle\msi\schedule-viewer_0.5.0_x64_en-US.msi`
 
 ARM の Windows では `x64` の部分が `arm64` になる。インストーラを使わず、ビルドした PC でそのまま試す場合:
 
@@ -309,7 +310,7 @@ ARM の Windows では `x64` の部分が `arm64` になる。インストーラ
 
 スケジュール JSON の形を変えるときは [.cursor/skills/update-schedule-schema/SKILL.md](../.cursor/skills/update-schedule-schema/SKILL.md) に従う。スキーマの正本、型、意味規則（スキーマでは表せない検証）、サンプル、`write-schedule` スキルを同じ変更で揃える。
 
-カレンダー JSON を変えるときも、`docs/calendar.schema.json`、アプリの検証、`.cursor/skills/write-calendar/` を揃える。メンバー JSON も同様に `docs/members.schema.json` とアプリの検証を揃える。
+カレンダー JSON を変えるときも、`docs/calendar.schema.json`、アプリの検証、`.cursor/skills/write-calendar/` を揃える。メンバー JSON も同様に `docs/members.schema.json`、アプリの検証、`.cursor/skills/write-members/` を揃える。
 
 検証器は `scripts/compile-validators.mjs` がスキーマから `src/model/generated/` へ生成する。`npm run dev`、`npm run build`、`npm test` は先にこれを実行する。スキルに同梱する検証スクリプトは `npm run build:validate-skill` で作り直す。CI のフロントジョブは、生成後のスキル同梱物がコミット済みの内容と一致することを `git diff --exit-code` で見る。
 
@@ -320,7 +321,7 @@ ARM の Windows では `x64` の部分が `arm64` になる。インストーラ
 | 変えたもの | 直す文書 |
 | --- | --- |
 | 画面の操作や見た目 | [外部仕様](external-spec.md) と [操作マニュアル](user-manual.md) |
-| スケジュール、メンバー、カレンダーの JSON | [データ仕様](data-format.md) と、対応するスキル（`write-schedule` か `write-calendar`） |
+| スケジュール、メンバー、カレンダーの JSON | [データ仕様](data-format.md) と、対応するスキル（`write-schedule`、`write-members`、`write-calendar`） |
 | Tauri コマンド、状態の持ち方、ディレクトリ構成 | [内部仕様](internal-spec.md) |
 | 自動テストや手動で確かめる手順 | [テスト仕様](test-spec.md) |
 | 開発環境、起動、CI、リリース | この文書 |

@@ -1,4 +1,12 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { milestonesExceededBy } from "../model/milestones";
 import {
   assigneeSidebarLabel,
@@ -12,6 +20,7 @@ import {
 } from "../model/rows";
 import { isOverdue } from "../model/timeline";
 import { TaskNoteButton } from "./TaskNoteButton";
+import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
 import type { Milestone, ScheduleId, VisibleRow } from "../model/types";
 
 type SidebarProps = {
@@ -25,7 +34,16 @@ type SidebarProps = {
   memberCatalog: Map<MemberId, Member> | null;
   onToggleCollapse: (key: string) => void;
   onOpenTaskNote: (taskId: ScheduleId) => void;
+  onTaskContextMenu: (taskId: ScheduleId, x: number, y: number) => void;
   today: string;
+  uiScale: number;
+  sidebarWidth: number;
+  preferredSidebarWidth: number;
+  sidebarWidthMax: number | null;
+  onSidebarWidthChange: (unscaled: number) => void;
+  onSidebarWidthCommit: () => void;
+  onSidebarWidthReset: () => void;
+  onSidebarWidthNudge: (delta: number) => void;
 };
 
 export function Sidebar({
@@ -39,7 +57,16 @@ export function Sidebar({
   memberCatalog,
   onToggleCollapse,
   onOpenTaskNote,
+  onTaskContextMenu,
   today,
+  uiScale,
+  sidebarWidth,
+  preferredSidebarWidth,
+  sidebarWidthMax,
+  onSidebarWidthChange,
+  onSidebarWidthCommit,
+  onSidebarWidthReset,
+  onSidebarWidthNudge,
 }: SidebarProps) {
   const visibleRows = useMemo(() => {
     const margin = rowHeight;
@@ -136,6 +163,10 @@ export function Sidebar({
                 className={`sidebar-row task${selected ? " selected" : ""}${rowClass}`}
                 style={rowStyle(row.y)}
                 title={exceededTitle}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  onTaskContextMenu(row.task.id, event.clientX, event.clientY);
+                }}
               >
                 <TaskNoteButton
                   task={row.task}
@@ -158,7 +189,125 @@ export function Sidebar({
           })}
         </div>
       </div>
+      <SidebarResizer
+        uiScale={uiScale}
+        sidebarWidth={sidebarWidth}
+        preferredSidebarWidth={preferredSidebarWidth}
+        sidebarWidthMax={sidebarWidthMax}
+        onChange={onSidebarWidthChange}
+        onCommit={onSidebarWidthCommit}
+        onReset={onSidebarWidthReset}
+        onNudge={onSidebarWidthNudge}
+      />
     </div>
+  );
+}
+
+function SidebarResizer({
+  uiScale,
+  sidebarWidth,
+  preferredSidebarWidth,
+  sidebarWidthMax,
+  onChange,
+  onCommit,
+  onReset,
+  onNudge,
+}: {
+  uiScale: number;
+  sidebarWidth: number;
+  preferredSidebarWidth: number;
+  sidebarWidthMax: number | null;
+  onChange: (unscaled: number) => void;
+  onCommit: () => void;
+  onReset: () => void;
+  onNudge: (delta: number) => void;
+}) {
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startWidth: number;
+    scale: number;
+    moved: boolean;
+  } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, []);
+
+  const finishDrag = (pointerId: number, target: HTMLDivElement) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== pointerId) return;
+    dragRef.current = null;
+    setDragging(false);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    if (drag.moved) onCommit();
+    if (target.hasPointerCapture(pointerId)) {
+      target.releasePointerCapture(pointerId);
+    }
+  };
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      onNudge(-SIDEBAR_WIDTH_KEY_STEP);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      onNudge(SIDEBAR_WIDTH_KEY_STEP);
+    }
+  };
+
+  const valueNow = Math.round(preferredSidebarWidth);
+  const valueMax =
+    sidebarWidthMax != null && sidebarWidthMax >= valueNow
+      ? sidebarWidthMax
+      : undefined;
+
+  return (
+    <div
+      className={`sidebar-resizer${dragging ? " dragging" : ""}`}
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="タスク一覧の幅"
+      aria-valuemin={SIDEBAR_WIDTH_MIN}
+      aria-valuenow={valueNow}
+      aria-valuemax={valueMax}
+      tabIndex={0}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.currentTarget.focus({ preventScroll: true });
+        event.currentTarget.setPointerCapture(event.pointerId);
+        dragRef.current = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startWidth: sidebarWidth,
+          scale: uiScale > 0 ? uiScale : 1,
+          moved: false,
+        };
+        setDragging(true);
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+      }}
+      onPointerMove={(event) => {
+        const drag = dragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        if (Math.abs(event.clientX - drag.startX) > 2) drag.moved = true;
+        if (!drag.moved) return;
+        onChange(drag.startWidth + (event.clientX - drag.startX) / drag.scale);
+      }}
+      onPointerUp={(event) => finishDrag(event.pointerId, event.currentTarget)}
+      onPointerCancel={(event) => finishDrag(event.pointerId, event.currentTarget)}
+      onLostPointerCapture={(event) => finishDrag(event.pointerId, event.currentTarget)}
+      onDoubleClick={(event) => {
+        event.preventDefault();
+        onReset();
+      }}
+      onKeyDown={onKeyDown}
+    />
   );
 }
 
