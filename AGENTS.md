@@ -24,7 +24,7 @@
 | 変えたもの | 同じ変更で更新する文書 |
 | --- | --- |
 | 画面の挙動、操作、表示 | [docs/external-spec.md](docs/external-spec.md)。利用者の手順が変わるときは [docs/user-manual.md](docs/user-manual.md)。README の機能説明が変わるときは [README.md](README.md) |
-| JSON のフィールドや `schemaVersion` | [docs/data-format.md](docs/data-format.md) と対応する `docs/*.schema.json`。スケジュール JSON は [.cursor/skills/update-schedule-schema/SKILL.md](.cursor/skills/update-schedule-schema/SKILL.md) の手順で、検証、サンプル、`write-schedule` スキルも揃える。カレンダーとメンバーも、スキーマ、アプリの検証、対応するスキルを同じ変更で揃える |
+| JSON のフィールドや `schemaVersion` | [docs/data-format.md](docs/data-format.md) と対応する `docs/*.schema.json`。スケジュール JSON は [.cursor/skills/update-schedule-schema/SKILL.md](.cursor/skills/update-schedule-schema/SKILL.md) の手順で、検証、サンプル、`write-schedule` スキルも揃える。カレンダーは `write-calendar`、メンバーは `write-members` を、スキーマとアプリの検証と同じ変更で揃える |
 | モジュール構成、状態、Tauri コマンド、描画の流れ | [docs/internal-spec.md](docs/internal-spec.md) |
 | テストの追加、削除、または対応する機能 ID | [docs/test-spec.md](docs/test-spec.md) |
 | 起動手順、依存バージョン、CI、リリース、配布 | [docs/development.md](docs/development.md)。利用者向けの導入が変わるときは [README.md](README.md) と [docs/user-manual.md](docs/user-manual.md) |
