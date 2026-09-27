@@ -34,6 +34,7 @@ type SidebarProps = {
   memberCatalog: Map<MemberId, Member> | null;
   onToggleCollapse: (key: string) => void;
   onOpenTaskNote: (taskId: ScheduleId) => void;
+  onTaskContextMenu: (taskId: ScheduleId, x: number, y: number) => void;
   today: string;
   uiScale: number;
   sidebarWidth: number;
@@ -56,6 +57,7 @@ export function Sidebar({
   memberCatalog,
   onToggleCollapse,
   onOpenTaskNote,
+  onTaskContextMenu,
   today,
   uiScale,
   sidebarWidth,
@@ -161,6 +163,10 @@ export function Sidebar({
                 className={`sidebar-row task${selected ? " selected" : ""}${rowClass}`}
                 style={rowStyle(row.y)}
                 title={exceededTitle}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  onTaskContextMenu(row.task.id, event.clientX, event.clientY);
+                }}
               >
                 <TaskNoteButton
                   task={row.task}

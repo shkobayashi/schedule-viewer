@@ -18,6 +18,7 @@ type MilestoneBandProps = {
   dateToX: (d: Date) => number;
   onMove: (id: ScheduleId, deltaDays: number) => void;
   onOpenEdit: (id: ScheduleId) => void;
+  onContextMenu: (id: ScheduleId, x: number, y: number) => void;
   onWheel: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   chart: ChartPalette;
 };
@@ -34,6 +35,7 @@ export function MilestoneBand({
   dateToX,
   onMove,
   onOpenEdit,
+  onContextMenu,
   onWheel,
   chart,
 }: MilestoneBandProps) {
@@ -63,6 +65,7 @@ export function MilestoneBand({
                 pxPerDay={pxPerDay}
                 onMove={(delta) => onMove(milestone.id, delta)}
                 onOpenEdit={() => onOpenEdit(milestone.id)}
+                onContextMenu={(x, y) => onContextMenu(milestone.id, x, y)}
                 chart={chart}
               />
             );
@@ -82,6 +85,7 @@ function MilestoneMark({
   pxPerDay,
   onMove,
   onOpenEdit,
+  onContextMenu,
   chart,
 }: {
   milestone: Milestone;
@@ -92,6 +96,7 @@ function MilestoneMark({
   pxPerDay: number;
   onMove: (deltaDays: number) => void;
   onOpenEdit: () => void;
+  onContextMenu: (x: number, y: number) => void;
   chart: ChartPalette;
 }) {
   const groupRef = useRef<Konva.Group>(null);
@@ -112,6 +117,11 @@ function MilestoneMark({
       onMouseLeave={(e) => {
         const container = e.target.getStage()?.container();
         if (container) container.style.cursor = "";
+      }}
+      onContextMenu={(e) => {
+        e.cancelBubble = true;
+        e.evt.preventDefault();
+        onContextMenu(e.evt.clientX, e.evt.clientY);
       }}
       onDblClick={(e) => {
         e.cancelBubble = true;

@@ -18,6 +18,7 @@ import { Timeline } from "./components/Timeline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { Toolbar } from "./components/Toolbar";
+import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
@@ -52,6 +53,11 @@ import {
   milestoneBandHeightPx,
 } from "./model/milestones";
 import { findTaskById } from "./model/rows";
+import {
+  blocksBrowserShortcut,
+  blocksEditShortcut,
+  matchAppShortcut,
+} from "./model/shortcuts";
 import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange } from "./model/timeline";
@@ -97,6 +103,10 @@ const INITIAL_BASELINE_JSON = serializeScheduleDocument(
   sampleMilestones,
 );
 
+type ContextMenuState =
+  | { kind: "task"; taskId: ScheduleId; x: number; y: number }
+  | { kind: "milestone"; milestoneId: ScheduleId; x: number; y: number };
+
 function shouldHandleDocumentUndo(target: EventTarget | null): boolean {
   if (document.querySelector('[role="dialog"]')) return false;
   if (!(target instanceof HTMLElement)) return true;
@@ -136,6 +146,8 @@ function App() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [pendingFit, setPendingFit] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const taskSearchRef = useRef<HTMLInputElement>(null);
 
   const { headerHeight, rowHeight, barHeight, milestoneLaneHeight } =
     scaledLayoutSizes(uiScale);
@@ -387,8 +399,67 @@ function App() {
       schedule.editingMilestone != null,
   });
 
+  const {
+    categories,
+    selectedTaskId,
+    openEditDialog,
+    selectTask,
+    openMilestoneEdit,
+    openTaskNoteDialog,
+    clearLineage,
+    showLineage,
+    lineageTask,
+  } = schedule;
+  const { fileBusy, requestOpen, save } = scheduleFile;
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      const dialogOpen = document.querySelector('[role="dialog"]') != null;
+      const target = e.target;
+      const blocksEditKeys =
+        target instanceof HTMLElement &&
+        blocksEditShortcut({
+          tagName: target.tagName,
+          isContentEditable: target.isContentEditable,
+        });
+      const shortcutEvent = {
+        key: e.key,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+        altKey: e.altKey,
+      };
+      if (blocksBrowserShortcut(shortcutEvent)) e.preventDefault();
+      const shortcut = matchAppShortcut(shortcutEvent, {
+        dialogOpen,
+        blocksEditKeys,
+      });
+      if (shortcut) {
+        e.preventDefault();
+        if (e.repeat) return;
+        setContextMenu(null);
+        if (shortcut === "edit") {
+          const task =
+            selectedTaskId == null
+              ? null
+              : findTaskById(categories, selectedTaskId);
+          if (task) openEditDialog(task);
+          return;
+        }
+        if (shortcut === "delete") {
+          if (selectedTaskId != null) setDeleteOpen(true);
+          return;
+        }
+        if (fileBusy && shortcut !== "find") return;
+        if (shortcut === "save") void save(false);
+        else if (shortcut === "saveAs") void save(true);
+        else if (shortcut === "open") requestOpen();
+        else {
+          taskSearchRef.current?.focus();
+          taskSearchRef.current?.select();
+        }
+        return;
+      }
       if (!shouldHandleDocumentUndo(e.target)) return;
       const mod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
@@ -405,7 +476,16 @@ function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [redo, undo]);
+  }, [
+    categories,
+    fileBusy,
+    openEditDialog,
+    redo,
+    requestOpen,
+    save,
+    selectedTaskId,
+    undo,
+  ]);
 
   const onWheelBody = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -606,6 +686,91 @@ function App() {
       });
   }, [scheduleFile.currentJson, scheduleFile.fileBusy, scheduleFile.filePath]);
 
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  useEffect(() => {
+    if (contextMenu == null) return;
+    const closeIfDialog = () => {
+      if (document.querySelector('[role="dialog"]') != null) {
+        setContextMenu(null);
+      }
+    };
+    closeIfDialog();
+    const observer = new MutationObserver(closeIfDialog);
+    observer.observe(document.body, { childList: true });
+    return () => observer.disconnect();
+  }, [contextMenu]);
+
+  const openTaskContextMenu = useCallback(
+    (taskId: ScheduleId, x: number, y: number) => {
+      selectTask(taskId);
+      setContextMenu({ kind: "task", taskId, x, y });
+    },
+    [selectTask],
+  );
+
+  const openMilestoneContextMenu = useCallback(
+    (milestoneId: ScheduleId, x: number, y: number) => {
+      setContextMenu({ kind: "milestone", milestoneId, x, y });
+    },
+    [],
+  );
+
+  const contextMenuItems = useMemo((): ContextMenuItem[] => {
+    if (contextMenu == null) return [];
+    if (contextMenu.kind === "milestone") {
+      const milestoneId = contextMenu.milestoneId;
+      return [
+        {
+          id: "edit",
+          label: "編集",
+          onSelect: () => openMilestoneEdit(milestoneId),
+        },
+      ];
+    }
+    const taskId = contextMenu.taskId;
+    const task = findTaskById(categories, taskId);
+    const lineageActive = lineageTask?.id === taskId;
+    return [
+      {
+        id: "edit",
+        label: "編集",
+        onSelect: () => {
+          if (task) openEditDialog(task);
+        },
+      },
+      {
+        id: "note",
+        label: "ノート",
+        onSelect: () => openTaskNoteDialog(taskId),
+      },
+      {
+        id: "lineage",
+        label: lineageActive ? "系統を解除" : "系統を表示",
+        onSelect: () => {
+          if (lineageActive) clearLineage();
+          else showLineage(taskId);
+        },
+      },
+      {
+        id: "delete",
+        label: "削除",
+        onSelect: () => setDeleteOpen(true),
+      },
+    ];
+  }, [
+    categories,
+    clearLineage,
+    contextMenu,
+    lineageTask?.id,
+    openEditDialog,
+    openMilestoneEdit,
+    openTaskNoteDialog,
+    showLineage,
+  ]);
+
   return (
     <div
       className="app"
@@ -646,6 +811,7 @@ function App() {
           if (schedule.selectedTaskId != null) setDeleteOpen(true);
         }}
         fileBusy={scheduleFile.fileBusy}
+        taskSearchRef={taskSearchRef}
       />
       <div className="hint">
         Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
@@ -665,6 +831,7 @@ function App() {
           milestones={schedule.milestones}
           onToggleCollapse={schedule.toggleCollapsed}
           onOpenTaskNote={schedule.openTaskNoteDialog}
+          onTaskContextMenu={openTaskContextMenu}
           today={schedule.today}
           memberCatalog={memberCatalogState.memberMap}
           uiScale={uiScale}
@@ -700,6 +867,7 @@ function App() {
             onResizeEnd={handleResizeEnd}
             links={links}
             onOpenEdit={schedule.openEditDialog}
+            onTaskContextMenu={openTaskContextMenu}
             onWheelBody={onWheelBody}
             onWheelHeader={onWheelHeader}
             onPan={panBy}
@@ -711,6 +879,7 @@ function App() {
             milestoneFontSize={milestoneFontSize}
             onMoveMilestone={schedule.moveMilestoneByDays}
             onOpenMilestone={schedule.openMilestoneEdit}
+            onMilestoneContextMenu={openMilestoneContextMenu}
             today={schedule.today}
             memberCatalog={memberCatalogState.memberMap}
             calendar={appCalendarState.calendar}
@@ -718,6 +887,14 @@ function App() {
           />
         </div>
       </div>
+      {contextMenu ? (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenuItems}
+          onClose={closeContextMenu}
+        />
+      ) : null}
       {schedule.editingNoteTask ? (
         <TaskNoteDialog
           key={`note-${schedule.editingNoteTask.id}:${schedule.diskEpoch}`}
