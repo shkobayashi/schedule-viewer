@@ -43,6 +43,7 @@ function input(): ScheduleExportInput {
     memberCatalog: null,
     calendar: null,
     filterSummary: "ステータス: 進行中",
+    colorScheme: "light",
   };
 }
 
@@ -52,8 +53,20 @@ describe("schedule export documents", () => {
     const svg = buildScheduleSvg(input());
     expect(html).toContain("絞り込み（ステータス: 進行中）");
     expect(html).toContain("見えるタスク");
+    expect(html).toContain('fill="#ffffff"');
+    expect(html).toContain("inset 3px 0 0 #7B5EA7");
     expect(svg).toContain("絞り込み（ステータス: 進行中）");
     expect(svg).toContain("見えるタスク");
     expect(svg.startsWith("<svg ")).toBe(true);
+  });
+
+  it("uses dark palette when colorScheme is dark", () => {
+    const dark = buildScheduleHtml({ ...input(), colorScheme: "dark" });
+    expect(dark).toContain("background: #1c1f26");
+    expect(dark).toContain('fill="#1c1f26"');
+    expect(dark).toContain("inset 3px 0 0 #a888d8");
+    const svg = buildScheduleSvg({ ...input(), colorScheme: "dark" });
+    expect(svg).toContain('fill="#1c1f26"');
+    expect(svg).toContain('fill="#a8b0bf"');
   });
 });
