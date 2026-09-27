@@ -22,7 +22,7 @@ description: >-
 - プロジェクト `title`
 - `milestones`: 各 `name`, `date`（新規なら `id` は UUID v4）
 - `categories` → `groups` → `tasks` の階層と並び（並び替えフィールドはない。配列順＝画面の並び）
-- 各タスク: `name`, `start`, `end`, `assigneeId`（未割当は `null`）, `status`, `progress`, `predecessors`, `milestoneId`（なしは `null`）
+- 各タスク: `name`, `start`, `end`, `assigneeId`（未割当は `null`）, `status`, `progress`, `predecessors`, `milestoneId`（なしは `null`）。任意で `note`（補足説明。ユーザーから渡されたときだけ書く）
 - 担当を付けるタスクには、ユーザーから渡された **メンバー id 一覧** に含まれる id だけを使う。一覧に無い人がいる場合は JSON を書かず、不足として返す
 
 日付・担当・期間を推測で埋めない。メンバー JSON ファイル自体はこの Skill では生成しない（アプリ側で取り込む）。
@@ -60,6 +60,7 @@ description: >-
 - タスク期間は **終了日を含む**（`end` は開始日以降。1 日だけなら `start` と `end` を同じ日にする）
 - タスク ID とマイルストン ID は文書内で重複しない UUID
 - `assigneeId` はメンバー一覧の `id`（UUID である必要はない）
+- `note` はユーザーから渡された補足があるときだけタスクに足す。空文字や空白だけはプロパティ自体を書かない
 
 ## 手順
 

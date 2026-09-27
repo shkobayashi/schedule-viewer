@@ -4,8 +4,13 @@ import type { Category, Milestone, ScheduleDocument } from "../model/types";
 import { errorMessage } from "../model/errors";
 import { decideExternalReload } from "../model/scheduleExternalReload";
 import {
+  decideRecoveryStartup,
+  parseRecoveryDraft,
+} from "../model/scheduleRecovery";
+import {
   acceptOpenedScheduleViaTauri,
   acknowledgeScheduleFileContentsViaTauri,
+  deleteScheduleRecoveryViaTauri,
   DISK_HASH_MISMATCH,
   downloadScheduleJson,
   hashTextSha256,
@@ -14,17 +19,28 @@ import {
   openScheduleViaTauri,
   parseScheduleText,
   pollScheduleFileUpdateViaTauri,
+  readScheduleFileAtPathViaTauri,
+  readScheduleRecoveryViaTauri,
   saveScheduleViaTauri,
   scheduleJsonFilename,
   serializeScheduleDocument,
   suggestedJsonFilename,
   checkScheduleFileChangedViaTauri,
+  writeScheduleRecoveryViaTauri,
 } from "../model/scheduleFile";
 
 export type FileStatusTag = "sample" | "saved" | "unsaved";
 
 const EXTERNAL_RELOAD_POLL_MS = 1500;
 const RELOAD_NOTICE_MS = 4000;
+const RECOVERY_DEBOUNCE_MS = 1000;
+
+type RecoveryConflictPayload = {
+  path: string;
+  diskContents: string;
+  document: ScheduleDocument;
+  baselineJson: string;
+};
 
 type UseScheduleFileOptions = {
   title: string;
@@ -65,6 +81,18 @@ export function useScheduleFile({
   const [reloadNotice, setReloadNotice] = useState(false);
   const [pendingSaveAs, setPendingSaveAs] = useState(false);
   const [fileBusy, setFileBusy] = useState(false);
+  const [recoveryConflictOpen, setRecoveryConflictOpen] = useState(false);
+  const [recoveryInvalidOpen, setRecoveryInvalidOpen] = useState(false);
+  const [recoveryInvalidMessage, setRecoveryInvalidMessage] = useState<
+    string | null
+  >(null);
+  const [recoveryConflictLabel, setRecoveryConflictLabel] = useState<
+    string | null
+  >(null);
+  const recoveryConflictRef = useRef<RecoveryConflictPayload | null>(null);
+  const recoveryQueueRef = useRef(Promise.resolve());
+  const recoveryEpochRef = useRef(0);
+  const recoveryStartupRef = useRef(0);
 
   const currentJson = useMemo(
     () => serializeScheduleDocument(title, categories, milestones),
@@ -74,6 +102,10 @@ export function useScheduleFile({
   const isDirty = currentJson !== baselineJson;
   const isDirtyRef = useRef(isDirty);
   isDirtyRef.current = isDirty;
+  const currentJsonRef = useRef(currentJson);
+  currentJsonRef.current = currentJson;
+  const filePathRef = useRef(filePath);
+  filePathRef.current = filePath;
   const allowCloseRef = useRef(false);
   const baselineJsonRef = useRef(baselineJson);
   baselineJsonRef.current = baselineJson;
@@ -115,6 +147,88 @@ export function useScheduleFile({
     suppressedDiskRef.current = null;
   }, []);
 
+  const enqueueRecoveryIo = useCallback((task: () => Promise<void>) => {
+    const run = recoveryQueueRef.current.then(task, task);
+    recoveryQueueRef.current = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }, []);
+
+  const clearRecoveryDraft = useCallback(async () => {
+    if (!isTauri()) return;
+    recoveryEpochRef.current += 1;
+    const epoch = recoveryEpochRef.current;
+    await enqueueRecoveryIo(async () => {
+      if (recoveryEpochRef.current !== epoch) return;
+      await deleteScheduleRecoveryViaTauri();
+    });
+  }, [enqueueRecoveryIo]);
+
+  const writeRecoveryDraftNow = useCallback(async () => {
+    if (!isTauri()) return;
+    const epoch = recoveryEpochRef.current;
+    await enqueueRecoveryIo(async () => {
+      if (recoveryEpochRef.current !== epoch) return;
+      const path = filePathRef.current;
+      if (!path || !isDirtyRef.current) return;
+      const parsed = parseScheduleText(currentJsonRef.current);
+      if (!parsed.ok) return;
+      const baseline = baselineJsonRef.current;
+      const documentJson = parsed.canonicalJson;
+      if (
+        recoveryEpochRef.current !== epoch ||
+        filePathRef.current !== path ||
+        !isDirtyRef.current
+      ) {
+        return;
+      }
+      await writeScheduleRecoveryViaTauri({
+        path,
+        baselineJson: baseline,
+        documentJson,
+      });
+      if (recoveryEpochRef.current !== epoch) {
+        await deleteScheduleRecoveryViaTauri();
+      }
+    });
+  }, [enqueueRecoveryIo]);
+
+  const applyRecoverySession = useCallback(
+    async (
+      session: {
+        path: string;
+        document: ScheduleDocument;
+        baselineJson: string;
+        diskContents: string;
+      },
+      options?: { deferDisk?: boolean; abortIfMovedOn?: boolean },
+    ) => {
+      await acceptOpenedScheduleViaTauri(session.path, session.diskContents);
+      if (
+        options?.abortIfMovedOn &&
+        (filePathRef.current != null || isDirtyRef.current)
+      ) {
+        return;
+      }
+      replaceDocument(session.document);
+      setFilePath(session.path);
+      setBrowserFileLabel(null);
+      setBaselineJson(session.baselineJson);
+      baselineJsonRef.current = session.baselineJson;
+      setPendingExternalContents(null);
+      setExternalReloadOpen(false);
+      lastInvalidDiskHashRef.current = null;
+      suppressedDiskRef.current = null;
+      setDeferredExternalContents(
+        options?.deferDisk ? session.diskContents : null,
+      );
+      onAfterOpen();
+    },
+    [onAfterOpen, replaceDocument],
+  );
+
   const flashReloadNotice = useCallback(() => {
     if (reloadNoticeTimerRef.current != null) {
       window.clearTimeout(reloadNoticeTimerRef.current);
@@ -145,12 +259,180 @@ export function useScheduleFile({
   }, [isDirty]);
 
   useEffect(() => {
+    if (!isTauri() || !filePath || !isDirty) return;
+    const id = window.setTimeout(() => {
+      void writeRecoveryDraftNow().catch((error) => {
+        setErrorMessageText(
+          errorMessage(error, "復旧用の控えを保存できませんでした。"),
+        );
+      });
+    }, RECOVERY_DEBOUNCE_MS);
+    return () => window.clearTimeout(id);
+  }, [currentJson, filePath, isDirty, writeRecoveryDraftNow]);
+
+  useEffect(() => {
+    if (!isTauri() || !filePath || isDirty) return;
+    void clearRecoveryDraft().catch((error) => {
+      setErrorMessageText(
+        errorMessage(error, "復旧用の控えを削除できませんでした。"),
+      );
+    });
+  }, [clearRecoveryDraft, filePath, isDirty]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+    const startupId = recoveryStartupRef.current + 1;
+    recoveryStartupRef.current = startupId;
+    fileBusyRef.current = true;
+    setFileBusy(true);
+    const releaseStartupBusy = () => {
+      if (cancelled || recoveryStartupRef.current !== startupId) return;
+      fileBusyRef.current = false;
+      setFileBusy(false);
+    };
+    void (async () => {
+      let draftText: string | null;
+      try {
+        draftText = await readScheduleRecoveryViaTauri();
+      } catch (error) {
+        if (!cancelled) {
+          setRecoveryInvalidMessage(
+            errorMessage(error, "復旧用の控えを読み込めませんでした。"),
+          );
+          setRecoveryInvalidOpen(true);
+        }
+        releaseStartupBusy();
+        return;
+      }
+      if (cancelled || draftText == null) {
+        releaseStartupBusy();
+        return;
+      }
+      try {
+
+        const parsedDraft = parseRecoveryDraft(draftText);
+        if (!parsedDraft.ok) {
+          setRecoveryInvalidMessage(parsedDraft.message);
+          setRecoveryInvalidOpen(true);
+          releaseStartupBusy();
+          return;
+        }
+
+        let diskContents: string | null = null;
+        let diskReadError: string | null = null;
+        try {
+          diskContents = await readScheduleFileAtPathViaTauri(
+            parsedDraft.draft.path,
+          );
+        } catch (error) {
+          diskReadError = errorMessage(error, "ファイルを読めませんでした。");
+        }
+
+        const action = decideRecoveryStartup(
+          draftText,
+          diskContents,
+          diskReadError,
+        );
+        if (cancelled) {
+          releaseStartupBusy();
+          return;
+        }
+        const userMovedOn =
+          filePathRef.current != null || isDirtyRef.current;
+        if (
+          userMovedOn &&
+          (action.kind === "restore" || action.kind === "conflict")
+        ) {
+          releaseStartupBusy();
+          return;
+        }
+
+        switch (action.kind) {
+          case "none":
+            releaseStartupBusy();
+            return;
+          case "invalidDraft":
+            setRecoveryInvalidMessage(action.message);
+            setRecoveryInvalidOpen(true);
+            releaseStartupBusy();
+            return;
+          case "diskMissing":
+            setRecoveryInvalidMessage(
+              `復旧用の控えのファイルが見つかりません（${scheduleJsonFilename(action.path) ?? action.path}）。控えを破棄するか、ファイルを元の場所に戻してください。`,
+            );
+            setRecoveryInvalidOpen(true);
+            releaseStartupBusy();
+            return;
+          case "invalidDisk":
+            setRecoveryInvalidMessage(
+              `${action.message}（${scheduleJsonFilename(action.path) ?? action.path}）`,
+            );
+            setRecoveryInvalidOpen(true);
+            releaseStartupBusy();
+            return;
+          case "restore":
+            await applyRecoverySession(
+              {
+                path: action.path,
+                document: action.document,
+                baselineJson: action.baselineJson,
+                diskContents: action.diskContents,
+              },
+              { abortIfMovedOn: true },
+            );
+            releaseStartupBusy();
+            return;
+          case "conflict":
+            recoveryConflictRef.current = {
+              path: action.path,
+              diskContents: action.diskContents,
+              document: action.document,
+              baselineJson: action.draft.baselineJson,
+            };
+            setRecoveryConflictLabel(
+              scheduleJsonFilename(action.path) ?? action.path,
+            );
+            setRecoveryConflictOpen(true);
+            releaseStartupBusy();
+            return;
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessageText(
+            errorMessage(error, "復旧用の控えを読み込めませんでした。"),
+          );
+        }
+        releaseStartupBusy();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyRecoverySession]);
+
+  const writeRecoveryDraftNowRef = useRef(writeRecoveryDraftNow);
+  writeRecoveryDraftNowRef.current = writeRecoveryDraftNow;
+
+  useEffect(() => {
     if (!isTauri()) return;
     let unlisten: (() => void) | undefined;
     let cancelled = false;
     void getCurrentWindow()
-      .onCloseRequested((event) => {
-        if (allowCloseRef.current || !isDirtyRef.current) return;
+      .onCloseRequested(async (event) => {
+        if (allowCloseRef.current) return;
+        if (!isDirtyRef.current) return;
+        if (filePathRef.current) {
+          try {
+            await writeRecoveryDraftNowRef.current();
+          } catch (error) {
+            event.preventDefault();
+            setErrorMessageText(
+              errorMessage(error, "復旧用の控えを保存できませんでした。"),
+            );
+          }
+          return;
+        }
         event.preventDefault();
         setClosePromptOpen(true);
       })
@@ -185,8 +467,9 @@ export function useScheduleFile({
       isDirtyRef.current = false;
       flashReloadNotice();
       await acknowledgeDisk(diskContents);
+      await clearRecoveryDraft();
     },
-    [acknowledgeDisk, flashReloadNotice, reloadDocumentFromDisk],
+    [acknowledgeDisk, clearRecoveryDraft, flashReloadNotice, reloadDocumentFromDisk],
   );
 
   const processDiskContents = useCallback(
@@ -315,9 +598,14 @@ export function useScheduleFile({
       suppressedDiskRef.current = null;
       baselineJsonRef.current = parsed.canonicalJson;
       onAfterOpen();
+      void clearRecoveryDraft().catch((error) => {
+        setErrorMessageText(
+          errorMessage(error, "復旧用の控えを削除できませんでした。"),
+        );
+      });
       return true;
     },
-    [onAfterOpen, replaceDocument],
+    [clearRecoveryDraft, onAfterOpen, replaceDocument],
   );
 
   const runOpen = useCallback(async () => {
@@ -415,6 +703,7 @@ export function useScheduleFile({
             baselineJsonRef.current = contents;
             clearExternalReloadPrompt();
             lastInvalidDiskHashRef.current = null;
+            await clearRecoveryDraft();
           } catch (error) {
             const message = errorMessage(error, "ファイルに保存できませんでした。");
             if (message.includes(DISK_HASH_MISMATCH)) {
@@ -435,6 +724,7 @@ export function useScheduleFile({
         baselineJsonRef.current = contents;
         clearExternalReloadPrompt();
         lastInvalidDiskHashRef.current = null;
+        await clearRecoveryDraft();
         if (saveAs) {
           setFilePath(null);
           setBrowserFileLabel(null);
@@ -443,7 +733,7 @@ export function useScheduleFile({
         if (!holdPause) pausePollRef.current = false;
       }
     },
-    [clearExternalReloadPrompt, currentJson, filePath, title],
+    [clearExternalReloadPrompt, clearRecoveryDraft, currentJson, filePath, title],
   );
 
   const save = useCallback(
@@ -528,6 +818,63 @@ export function useScheduleFile({
     }
   }, []);
 
+  const confirmRecoveryOpenDisk = useCallback(() => {
+    const payload = recoveryConflictRef.current;
+    setRecoveryConflictOpen(false);
+    setRecoveryConflictLabel(null);
+    recoveryConflictRef.current = null;
+    if (!payload) return;
+    void (async () => {
+      try {
+        await clearRecoveryDraft();
+        await acceptOpenedScheduleViaTauri(payload.path, payload.diskContents);
+        applyOpenedFile({
+          path: payload.path,
+          contents: payload.diskContents,
+        });
+      } catch (error) {
+        setErrorMessageText(
+          errorMessage(error, "ファイルを開けませんでした。"),
+        );
+      }
+    })();
+  }, [applyOpenedFile, clearRecoveryDraft]);
+
+  const confirmRecoveryRestoreEdits = useCallback(() => {
+    const payload = recoveryConflictRef.current;
+    setRecoveryConflictOpen(false);
+    setRecoveryConflictLabel(null);
+    recoveryConflictRef.current = null;
+    if (!payload) return;
+    void applyRecoverySession(
+      {
+        path: payload.path,
+        document: payload.document,
+        baselineJson: payload.baselineJson,
+        diskContents: payload.diskContents,
+      },
+      { deferDisk: true },
+    ).catch((error) => {
+      setErrorMessageText(
+        errorMessage(error, "未保存の編集を戻せませんでした。"),
+      );
+    });
+  }, [applyRecoverySession]);
+
+  const dismissRecoveryInvalid = useCallback(() => {
+    setRecoveryInvalidOpen(false);
+  }, []);
+
+  const discardRecoveryDraft = useCallback(() => {
+    setRecoveryInvalidOpen(false);
+    setRecoveryInvalidMessage(null);
+    void clearRecoveryDraft().catch((error) => {
+      setErrorMessageText(
+        errorMessage(error, "復旧用の控えを削除できませんでした。"),
+      );
+    });
+  }, [clearRecoveryDraft]);
+
   const cancelClose = useCallback(() => {
     setClosePromptOpen(false);
   }, []);
@@ -545,6 +892,14 @@ export function useScheduleFile({
     closePromptOpen,
     externalChangeOpen,
     externalReloadOpen,
+    recoveryConflictOpen,
+    recoveryConflictLabel,
+    recoveryInvalidOpen,
+    recoveryInvalidMessage,
+    confirmRecoveryOpenDisk,
+    confirmRecoveryRestoreEdits,
+    dismissRecoveryInvalid,
+    discardRecoveryDraft,
     requestOpen,
     save,
     confirmDiscardAndOpen,

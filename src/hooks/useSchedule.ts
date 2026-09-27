@@ -22,6 +22,7 @@ import {
   findTaskById,
   groupCollapseKey,
 } from "../model/rows";
+import { applyTaskNote } from "../model/taskNote";
 import {
   cloneCategories,
   createScheduleId,
@@ -39,6 +40,7 @@ import { formatValidationErrors } from "../model/validateSchedule";
 import { isOverdue } from "../model/timeline";
 import type { Member, MemberId } from "../model/memberTypes";
 import {
+  NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
   type Category,
   type Milestone,
@@ -93,9 +95,14 @@ export function useSchedule(
     status: "all",
     overdue: "all",
     relation: "all",
+    milestone: "all",
     search: "",
+    noteSearch: "",
   });
   const [editingTaskId, setEditingTaskId] = useState<ScheduleId | null>(null);
+  const [editingNoteTaskId, setEditingNoteTaskId] = useState<ScheduleId | null>(
+    null,
+  );
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -109,6 +116,11 @@ export function useSchedule(
         : null,
     );
     setEditingTaskId((current) =>
+      current != null && findTaskById(snapshot.categories, current)
+        ? current
+        : null,
+    );
+    setEditingNoteTaskId((current) =>
       current != null && findTaskById(snapshot.categories, current)
         ? current
         : null,
@@ -189,6 +201,11 @@ export function useSchedule(
     [memberCatalog],
   );
 
+  const knownMilestoneIds = useMemo(
+    () => new Set(milestones.map((milestone) => milestone.id)),
+    [milestones],
+  );
+
   const lineageIds = useMemo(
     () =>
       lineageTaskId == null
@@ -221,6 +238,17 @@ export function useSchedule(
     }
     setFilters((prev) => ({ ...prev, assignee: "all" }));
   }, [filters.assignee, knownMemberIds]);
+
+  useEffect(() => {
+    if (
+      filters.milestone === "all" ||
+      filters.milestone === NO_MILESTONE_FILTER ||
+      knownMilestoneIds.has(filters.milestone)
+    ) {
+      return;
+    }
+    setFilters((prev) => ({ ...prev, milestone: "all" }));
+  }, [filters.milestone, knownMilestoneIds]);
 
   const toggleCollapsed = useCallback((key: string) => {
     setCollapsed((prev) => {
@@ -349,6 +377,25 @@ export function useSchedule(
     setEditingTaskId(null);
   }, []);
 
+  const openTaskNoteDialog = useCallback((taskId: ScheduleId) => {
+    setEditingNoteTaskId(taskId);
+  }, []);
+
+  const closeTaskNoteDialog = useCallback(() => {
+    setEditingNoteTaskId(null);
+  }, []);
+
+  const saveTaskNote = useCallback(
+    (taskId: ScheduleId, rawNote: string) => {
+      commitCategories((prev) =>
+        mapTasks(prev, (task) =>
+          task.id === taskId ? applyTaskNote(task, rawNote) : task,
+        ),
+      );
+    },
+    [commitCategories],
+  );
+
   const saveTaskEdit = useCallback(
     (patch: {
       name: string;
@@ -360,6 +407,7 @@ export function useSchedule(
       predecessors: ScheduleId[];
       successors: ScheduleId[];
       milestoneId: ScheduleId | null;
+      note: string;
     }) => {
       if (editingTaskId == null) {
         return "編集対象のタスクがありません。";
@@ -388,20 +436,23 @@ export function useSchedule(
       const buildNext = (prev: Category[]) =>
         mapTasks(prev, (task) => {
           if (task.id === editingTaskId) {
-            return {
-              ...task,
-              name: patch.name.trim(),
-              start: patch.start,
-              end: patch.end,
-              assigneeId: patch.assigneeId,
-              status: patch.status,
-              progress: clamp(roundedProgress, 0, 100),
-              predecessors,
-              milestoneId:
-                patch.milestoneId != null && milestoneIds.has(patch.milestoneId)
-                  ? patch.milestoneId
-                  : null,
-            };
+            return applyTaskNote(
+              {
+                ...task,
+                name: patch.name.trim(),
+                start: patch.start,
+                end: patch.end,
+                assigneeId: patch.assigneeId,
+                status: patch.status,
+                progress: clamp(roundedProgress, 0, 100),
+                predecessors,
+                milestoneId:
+                  patch.milestoneId != null && milestoneIds.has(patch.milestoneId)
+                    ? patch.milestoneId
+                    : null,
+              },
+              patch.note,
+            );
           }
           const withoutSelf = task.predecessors.filter(
             (id) => id !== editingTaskId,
@@ -494,7 +545,12 @@ export function useSchedule(
             ? "all"
             : prev.overdue,
         relation: prev.relation === "broken" ? "all" : prev.relation,
+        milestone:
+          prev.milestone !== "all" && prev.milestone !== NO_MILESTONE_FILTER
+            ? "all"
+            : prev.milestone,
         search: prev.search && !name.includes(prev.search) ? "" : prev.search,
+        noteSearch: prev.noteSearch.trim() ? "" : prev.noteSearch,
       }));
       setLineageTaskId(null);
       setSelectedTaskId(id);
@@ -509,6 +565,7 @@ export function useSchedule(
       commitCategories((prev) => removeTask(prev, taskId));
       setSelectedTaskId((current) => (current === taskId ? null : current));
       setEditingTaskId((current) => (current === taskId ? null : current));
+      setEditingNoteTaskId((current) => (current === taskId ? null : current));
       setLineageTaskId((current) => (current === taskId ? null : current));
     },
     [commitCategories],
@@ -528,6 +585,7 @@ export function useSchedule(
       setSelectedTaskId(null);
       setLineageTaskId(null);
       setEditingTaskId(null);
+      setEditingNoteTaskId(null);
       setEditingMilestoneId(null);
       setCollapsed(new Set());
       setFilters({
@@ -535,7 +593,9 @@ export function useSchedule(
         status: "all",
         overdue: "all",
         relation: "all",
+        milestone: "all",
         search: "",
+        noteSearch: "",
       });
     },
     [],
@@ -577,6 +637,11 @@ export function useSchedule(
     [categories, editingTaskId],
   );
 
+  const editingNoteTask = useMemo(
+    () => findTaskById(categories, editingNoteTaskId),
+    [categories, editingNoteTaskId],
+  );
+
   const lineageTask = useMemo(
     () => findTaskById(categories, lineageTaskId),
     [categories, lineageTaskId],
@@ -608,6 +673,10 @@ export function useSchedule(
     closeEditDialog,
     saveTaskEdit,
     editingTask,
+    editingNoteTask,
+    openTaskNoteDialog,
+    closeTaskNoteDialog,
+    saveTaskNote,
     addTask,
     deleteTask,
     replaceDocument,

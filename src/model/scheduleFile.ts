@@ -74,6 +74,8 @@ export async function acceptOpenedScheduleViaTauri(
 
 export const DISK_HASH_MISMATCH = "DISK_HASH_MISMATCH";
 
+export const SCHEDULE_FILE_NOT_FOUND = "SCHEDULE_FILE_NOT_FOUND";
+
 export async function hashTextSha256(text: string): Promise<string> {
   const data = new TextEncoder().encode(text);
   const digest = await crypto.subtle.digest("SHA-256", data);
@@ -170,6 +172,38 @@ export function downloadScheduleJson(filename: string, contents: string): void {
 
 export function suggestedJsonFilename(title: string): string {
   return jsonFilenameFromTitle(title);
+}
+
+export type ScheduleRecoveryDraft = {
+  path: string;
+  baselineJson: string;
+  documentJson: string;
+};
+
+export async function readScheduleRecoveryViaTauri(): Promise<string | null> {
+  return invoke<string | null>("read_schedule_recovery");
+}
+
+export async function writeScheduleRecoveryViaTauri(
+  draft: ScheduleRecoveryDraft,
+): Promise<void> {
+  await invoke("write_schedule_recovery", {
+    contents: JSON.stringify(draft),
+  });
+}
+
+export async function deleteScheduleRecoveryViaTauri(): Promise<void> {
+  await invoke("delete_schedule_recovery");
+}
+
+export async function readScheduleFileAtPathViaTauri(
+  path: string,
+): Promise<string> {
+  return invoke<string>("read_schedule_file_at_path", { path });
+}
+
+export async function readOpenScheduleFileViaTauri(): Promise<string> {
+  return invoke<string>("read_open_schedule_file");
 }
 
 export { isTauri };

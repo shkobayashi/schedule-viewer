@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collabcentral.example/schedule-viewer/calendar.schema.json",
+  "title": "Working day calendar",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "weekends", "nonWorkingDays", "workingDays"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "weekends": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/weekday" },
+      "uniqueItems": true
+    },
+    "nonWorkingDays": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/datedEntry" }
+    },
+    "workingDays": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/datedEntry" }
+    }
+  },
+  "$defs": {
+    "weekday": {
+      "type": "string",
+      "enum": ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+    },
+    "isoDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "datedEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["date"],
+      "properties": {
+        "date": { "$ref": "#/$defs/isoDate" },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

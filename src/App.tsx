@@ -4,25 +4,48 @@ import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
 import { DiscardChangesDialog } from "./components/DiscardChangesDialog";
 import { ExternalChangeDialog } from "./components/ExternalChangeDialog";
 import { ExternalReloadDialog } from "./components/ExternalReloadDialog";
+import { RecoveryConflictDialog } from "./components/RecoveryConflictDialog";
+import { RecoveryInvalidDialog } from "./components/RecoveryInvalidDialog";
+import { DiffDialog } from "./components/DiffDialog";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
 import { TaskEditDialog } from "./components/TaskEditDialog";
+import { TaskNoteDialog } from "./components/TaskNoteDialog";
 import { Timeline } from "./components/Timeline";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { Toolbar } from "./components/Toolbar";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
+import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useTimelineView } from "./hooks/useTimelineView";
-import { serializeScheduleDocument } from "./model/scheduleFile";
+import { errorMessage } from "./model/errors";
+import {
+  NO_OPEN_SCHEDULE_FILE_MESSAGE,
+  formatScheduleDiff,
+} from "./model/scheduleDiff";
+import {
+  isTauri,
+  parseScheduleText,
+  readOpenScheduleFileViaTauri,
+  scheduleJsonFilename,
+  serializeScheduleDocument,
+} from "./model/scheduleFile";
 import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
 import {
-  exportScheduleHtml,
+  exportSchedule,
   ScheduleExportTooLargeError,
+  type ScheduleExportFormat,
 } from "./model/exportHtml";
+import {
+  describeActiveFilters,
+  exportTimelineRange,
+  milestonesForExport,
+} from "./model/exportView";
 import { addDays, isoDate, parseDate, roundToDay } from "./model/dates";
 import {
   layoutMilestones,
@@ -33,6 +56,14 @@ import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange } from "./model/timeline";
 import type { ScheduleId } from "./model/types";
+import {
+  applyResolvedColorScheme,
+  readColorSchemePreference,
+  resolveColorScheme,
+  subscribeSystemColorScheme,
+  type ColorSchemePreference,
+} from "./model/colorScheme";
+import type { ResolvedColorScheme } from "./model/palette";
 import {
   readDisplayScalePreference,
   readUiScale,
@@ -72,13 +103,23 @@ function App() {
   const [displayScalePreference, setDisplayScalePreference] = useState(
     readDisplayScalePreference,
   );
+  const [colorSchemePreference, setColorSchemePreference] = useState(
+    readColorSchemePreference,
+  );
+  const [resolvedColorScheme, setResolvedColorScheme] = useState(
+    (): ResolvedColorScheme => resolveColorScheme(readColorSchemePreference()),
+  );
   const [uiScale, setUiScale] = useState(readUiScale);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
+  const [diffText, setDiffText] = useState<string | null>(null);
+  const [diffError, setDiffError] = useState<string | null>(null);
+  const diffRequestRef = useRef(0);
   const [addOpen, setAddOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [focusTaskId, setFocusTaskId] = useState<ScheduleId | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const [pendingFit, setPendingFit] = useState(false);
 
   const { headerHeight, rowHeight, barHeight, milestoneLaneHeight } =
@@ -94,6 +135,25 @@ function App() {
       ),
     );
   }, [displayScalePreference]);
+
+  useEffect(() => {
+    applyResolvedColorScheme(resolvedColorScheme);
+  }, [resolvedColorScheme]);
+
+  useEffect(() => {
+    if (colorSchemePreference !== "system") return;
+    return subscribeSystemColorScheme(() => {
+      setResolvedColorScheme(resolveColorScheme("system"));
+    });
+  }, [colorSchemePreference]);
+
+  const handleColorSchemeChange = useCallback(
+    (preference: ColorSchemePreference) => {
+      setColorSchemePreference(preference);
+      setResolvedColorScheme(resolveColorScheme(preference));
+    },
+    [],
+  );
 
   useEffect(() => {
     refreshUiScale();
@@ -135,6 +195,7 @@ function App() {
   }, []);
 
   const memberCatalogState = useMemberCatalog();
+  const appCalendarState = useAppCalendar();
 
   useEffect(() => {
     void (async () => {
@@ -242,7 +303,9 @@ function App() {
     onAfterOpen: onAfterOpenFile,
     initialBaselineJson: INITIAL_BASELINE_JSON,
     hasOpenEditDialog:
-      schedule.editingTask != null || schedule.editingMilestone != null,
+      schedule.editingTask != null ||
+      schedule.editingNoteTask != null ||
+      schedule.editingMilestone != null,
   });
 
   useEffect(() => {
@@ -337,6 +400,133 @@ function App() {
     [range.timelineStart, setTaskEnd, xToDate],
   );
 
+  const runScheduleExport = useCallback(
+    (format: ScheduleExportFormat) => {
+      const milestones = milestonesForExport(
+        schedule.filters.milestone,
+        schedule.milestones,
+        schedule.visibleRows,
+      );
+      const exportedRange = exportTimelineRange(
+        schedule.visibleRows,
+        milestones,
+        schedule.today,
+      );
+      const exportedLanes = layoutMilestones(
+        milestones,
+        pxPerDay,
+        milestoneFontSize,
+        milestoneDiamondSize,
+      );
+      const exportedBandHeight =
+        milestones.length === 0
+          ? 0
+          : (Math.max(...exportedLanes.values(), 0) + 1) * milestoneLaneHeight;
+      const assigneeLabel =
+        schedule.assigneeFilterOptions.find(
+          (option) => option.id === schedule.filters.assignee,
+        )?.label ?? null;
+      void exportSchedule(
+        {
+          title: schedule.title,
+          tierLabel,
+          lineageName: schedule.lineageTask?.name ?? null,
+          visibleRows: schedule.visibleRows,
+          milestones,
+          milestoneLanes: exportedLanes,
+          links,
+          timelineStart: exportedRange.timelineStart,
+          timelineEnd: exportedRange.timelineEnd,
+          totalDays: exportedRange.totalDays,
+          pxPerDay,
+          tier,
+          headerHeight,
+          rowHeight,
+          barHeight,
+          milestoneBandHeight: exportedBandHeight,
+          milestoneLaneHeight,
+          milestoneDiamondSize,
+          milestoneFontSize,
+          labelScale: uiScale,
+          today: schedule.today,
+          memberCatalog: memberCatalogState.memberMap,
+          calendar: appCalendarState.calendar,
+          filterSummary: describeActiveFilters(
+            schedule.filters,
+            schedule.milestones,
+            assigneeLabel,
+          ),
+          colorScheme: resolvedColorScheme,
+        },
+        format,
+      ).catch((error: unknown) => {
+        if (error instanceof ScheduleExportTooLargeError) {
+          setExportError(error.message);
+          return;
+        }
+        setExportError(
+          error instanceof Error ? error.message : "書き出せませんでした。",
+        );
+      });
+    },
+    [
+      appCalendarState.calendar,
+      headerHeight,
+      links,
+      memberCatalogState.memberMap,
+      milestoneDiamondSize,
+      milestoneFontSize,
+      milestoneLaneHeight,
+      pxPerDay,
+      rowHeight,
+      barHeight,
+      schedule,
+      tier,
+      tierLabel,
+      uiScale,
+      resolvedColorScheme,
+    ],
+  );
+
+  const showScheduleDiff = useCallback(() => {
+    if (scheduleFile.fileBusy) return;
+    const requestId = diffRequestRef.current + 1;
+    diffRequestRef.current = requestId;
+    const stillCurrent = () => diffRequestRef.current === requestId;
+    if (!isTauri() || !scheduleFile.filePath) {
+      setDiffError(null);
+      setDiffText(NO_OPEN_SCHEDULE_FILE_MESSAGE);
+      return;
+    }
+    const screenJson = scheduleFile.currentJson;
+    const filename = scheduleJsonFilename(scheduleFile.filePath) ?? "schedule.json";
+    void readOpenScheduleFileViaTauri()
+      .then((contents) => {
+        if (!stillCurrent()) return;
+        const fileParsed = parseScheduleText(contents);
+        if (!fileParsed.ok) {
+          setDiffText(null);
+          setDiffError(fileParsed.message);
+          return;
+        }
+        const screenParsed = parseScheduleText(screenJson);
+        if (!screenParsed.ok) {
+          setDiffText(null);
+          setDiffError(screenParsed.message);
+          return;
+        }
+        setDiffError(null);
+        setDiffText(
+          formatScheduleDiff(screenParsed.document, fileParsed.document, filename),
+        );
+      })
+      .catch((error: unknown) => {
+        if (!stillCurrent()) return;
+        setDiffText(null);
+        setDiffError(errorMessage(error, "ファイルを読めません。"));
+      });
+  }, [scheduleFile.currentJson, scheduleFile.fileBusy, scheduleFile.filePath]);
+
   return (
     <div className="app" style={{ ["--s" as string]: uiScale }}>
       <Toolbar
@@ -346,7 +536,9 @@ function App() {
         onDeferredReload={scheduleFile.requestDeferredReload}
         membersCatalogLabel={memberCatalogState.selectedCatalogLabel}
         membersCatalogError={memberCatalogState.error}
+        calendarError={appCalendarState.error}
         filters={schedule.filters}
+        milestones={schedule.milestones}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
         zoomLabel={tierLabel}
         lineageName={schedule.lineageTask?.name ?? null}
@@ -357,46 +549,12 @@ function App() {
         onZoomOut={zoomOut}
         onFit={fitToWidth}
         onShowJson={() => setJsonOpen(true)}
+        onShowDiff={showScheduleDiff}
         onOpen={scheduleFile.requestOpen}
         onSave={() => void scheduleFile.save(false)}
         onSaveAs={() => void scheduleFile.save(true)}
         onOpenSettings={() => setSettingsOpen(true)}
-        onExportHtml={() => {
-          void exportScheduleHtml({
-            title: schedule.title,
-            tierLabel,
-            lineageName: schedule.lineageTask?.name ?? null,
-            visibleRows: schedule.visibleRows,
-            milestones: schedule.milestones,
-            milestoneLanes,
-            links,
-            timelineStart: range.timelineStart,
-            timelineEnd: range.timelineEnd,
-            totalDays: range.totalDays,
-            pxPerDay,
-            tier,
-            headerHeight,
-            rowHeight,
-            barHeight,
-            milestoneBandHeight,
-            milestoneLaneHeight,
-            milestoneDiamondSize,
-            milestoneFontSize,
-            labelScale: uiScale,
-            today: schedule.today,
-            memberCatalog: memberCatalogState.memberMap,
-          }).catch((error: unknown) => {
-            if (error instanceof ScheduleExportTooLargeError) {
-              setExportError(error.message);
-              return;
-            }
-            setExportError(
-              error instanceof Error
-                ? error.message
-                : "HTML を書き出せませんでした。",
-            );
-          });
-        }}
+        onExportHtml={() => setExportOpen(true)}
         canDelete={schedule.selectedTaskId != null}
         onAdd={() => setAddOpen(true)}
         onDelete={() => {
@@ -420,6 +578,7 @@ function App() {
           milestoneBandHeight={milestoneBandHeight}
           milestones={schedule.milestones}
           onToggleCollapse={schedule.toggleCollapsed}
+          onOpenTaskNote={schedule.openTaskNoteDialog}
           today={schedule.today}
           memberCatalog={memberCatalogState.memberMap}
         />
@@ -460,9 +619,22 @@ function App() {
             onOpenMilestone={schedule.openMilestoneEdit}
             today={schedule.today}
             memberCatalog={memberCatalogState.memberMap}
+            calendar={appCalendarState.calendar}
+            colorScheme={resolvedColorScheme}
           />
         </div>
       </div>
+      {schedule.editingNoteTask ? (
+        <TaskNoteDialog
+          key={`note-${schedule.editingNoteTask.id}:${schedule.diskEpoch}`}
+          task={schedule.editingNoteTask}
+          onClose={schedule.closeTaskNoteDialog}
+          onSave={(note) => {
+            const task = schedule.editingNoteTask;
+            if (task) schedule.saveTaskNote(task.id, note);
+          }}
+        />
+      ) : null}
       {schedule.editingTask ? (
         <TaskEditDialog
           key={`${schedule.editingTask.id}:${schedule.diskEpoch}`}
@@ -544,16 +716,27 @@ function App() {
           selectedCatalogLabel={memberCatalogState.selectedCatalogLabel}
           displayScalePreference={displayScalePreference}
           onDisplayScaleChange={handleDisplayScaleChange}
+          colorSchemePreference={colorSchemePreference}
+          onColorSchemeChange={handleColorSchemeChange}
           onClose={() => setSettingsOpen(false)}
           onImport={memberCatalogState.importCatalog}
           onSelectCatalog={memberCatalogState.selectCatalog}
           onDeleteCatalog={memberCatalogState.removeCatalog}
+          calendarLabel={appCalendarState.label}
+          calendarError={appCalendarState.error}
+          onImportCalendar={appCalendarState.importCalendar}
+          onDeleteCalendar={appCalendarState.removeCalendar}
         />
       ) : null}
       <JsonDialog
         json={jsonOpen ? scheduleFile.currentJson : ""}
         open={jsonOpen}
         onClose={() => setJsonOpen(false)}
+      />
+      <DiffDialog
+        text={diffText ?? ""}
+        open={diffText != null}
+        onClose={() => setDiffText(null)}
       />
       {scheduleFile.discardPromptOpen ? (
         <DiscardChangesDialog
@@ -564,10 +747,26 @@ function App() {
       {scheduleFile.closePromptOpen ? (
         <DiscardChangesDialog
           title="未保存の変更があります"
-          message="保存していない変更は失われます。ウィンドウを閉じますか？"
+          message="サンプルの変更は保存されていません。閉じると失われます。ウィンドウを閉じますか？"
           confirmLabel="閉じる"
           onConfirm={scheduleFile.confirmDiscardAndClose}
           onCancel={scheduleFile.cancelClose}
+        />
+      ) : null}
+      {scheduleFile.recoveryConflictOpen &&
+      scheduleFile.recoveryConflictLabel ? (
+        <RecoveryConflictDialog
+          fileLabel={scheduleFile.recoveryConflictLabel}
+          onOpenDisk={scheduleFile.confirmRecoveryOpenDisk}
+          onRestoreEdits={scheduleFile.confirmRecoveryRestoreEdits}
+        />
+      ) : null}
+      {scheduleFile.recoveryInvalidOpen &&
+      scheduleFile.recoveryInvalidMessage ? (
+        <RecoveryInvalidDialog
+          message={scheduleFile.recoveryInvalidMessage}
+          onClose={scheduleFile.dismissRecoveryInvalid}
+          onDiscard={scheduleFile.discardRecoveryDraft}
         />
       ) : null}
       {scheduleFile.externalChangeOpen ? (
@@ -589,11 +788,26 @@ function App() {
           onClose={scheduleFile.dismissError}
         />
       ) : null}
+      {exportOpen ? (
+        <ExportFormatDialog
+          onCancel={() => setExportOpen(false)}
+          onExport={(format) => {
+            setExportOpen(false);
+            void runScheduleExport(format);
+          }}
+        />
+      ) : null}
       {exportError ? (
         <ScheduleErrorDialog
           title="書き出しに失敗しました"
           message={exportError}
           onClose={() => setExportError(null)}
+        />
+      ) : null}
+      {diffError ? (
+        <ScheduleErrorDialog
+          message={diffError}
+          onClose={() => setDiffError(null)}
         />
       ) : null}
     </div>

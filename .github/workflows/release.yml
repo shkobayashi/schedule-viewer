@@ -63,7 +63,7 @@ jobs:
 
             インストーラはコード署名していません。Windows では SmartScreen の確認が出ることがあります。
 
-            ローカルでのビルド手順は [README](https://github.com/${{ github.repository }}/blob/main/README.md#配布用ビルド) を参照してください。
+            ローカルでのビルド手順は [開発ガイド](https://github.com/${{ github.repository }}/blob/main/docs/development.md#配布用ビルド) を参照してください。
           releaseDraft: false
           prerelease: false
           args: --bundles ${{ matrix.bundles }}

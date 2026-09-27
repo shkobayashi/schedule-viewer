@@ -18,4 +18,21 @@ copyFileSync(
   ".cursor/skills/write-schedule/schedule.schema.json",
 );
 
-console.log("Built validate-schedule.bundle.mjs");
+buildSync({
+  entryPoints: ["scripts/validate-calendar-cli.ts"],
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  outfile:
+    ".cursor/skills/write-calendar/scripts/validate-calendar.bundle.mjs",
+  banner: {
+    js: "#!/usr/bin/env node",
+  },
+});
+
+copyFileSync(
+  "docs/calendar.schema.json",
+  ".cursor/skills/write-calendar/calendar.schema.json",
+);
+
+console.log("Built validate-schedule.bundle.mjs and validate-calendar.bundle.mjs");

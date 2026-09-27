@@ -4,6 +4,8 @@ import type Konva from "konva";
 import { parseDate } from "../model/dates";
 import type { Milestone, ScheduleId } from "../model/types";
 
+import type { ChartPalette } from "../model/palette";
+
 type MilestoneBandProps = {
   milestones: Milestone[];
   lanes: Map<ScheduleId, number>;
@@ -17,9 +19,8 @@ type MilestoneBandProps = {
   onMove: (id: ScheduleId, deltaDays: number) => void;
   onOpenEdit: (id: ScheduleId) => void;
   onWheel: (e: Konva.KonvaEventObject<WheelEvent>) => void;
+  chart: ChartPalette;
 };
-
-const DIAMOND = "#111827";
 
 export function MilestoneBand({
   milestones,
@@ -34,6 +35,7 @@ export function MilestoneBand({
   onMove,
   onOpenEdit,
   onWheel,
+  chart,
 }: MilestoneBandProps) {
   return (
     <div className="milestone-band" style={{ height }}>
@@ -41,7 +43,7 @@ export function MilestoneBand({
         <Layer>
           <Line
             points={[0, height - 0.5, width, height - 0.5]}
-            stroke="#E3E6EB"
+            stroke={chart.milestoneBandBorder}
             strokeWidth={1}
             listening={false}
           />
@@ -61,6 +63,7 @@ export function MilestoneBand({
                 pxPerDay={pxPerDay}
                 onMove={(delta) => onMove(milestone.id, delta)}
                 onOpenEdit={() => onOpenEdit(milestone.id)}
+                chart={chart}
               />
             );
           })}
@@ -79,6 +82,7 @@ function MilestoneMark({
   pxPerDay,
   onMove,
   onOpenEdit,
+  chart,
 }: {
   milestone: Milestone;
   x: number;
@@ -88,6 +92,7 @@ function MilestoneMark({
   pxPerDay: number;
   onMove: (deltaDays: number) => void;
   onOpenEdit: () => void;
+  chart: ChartPalette;
 }) {
   const groupRef = useRef<Konva.Group>(null);
   const originX = useRef(x);
@@ -129,8 +134,8 @@ function MilestoneMark({
       <RegularPolygon
         sides={4}
         radius={radius}
-        fill={DIAMOND}
-        stroke="#FFFFFF"
+        fill={chart.milestoneDiamond}
+        stroke={chart.milestoneDiamondStroke}
         strokeWidth={1}
       />
       <Text
@@ -139,7 +144,7 @@ function MilestoneMark({
         text={milestone.name}
         fontSize={fontSize}
         fontStyle="bold"
-        fill={DIAMOND}
+        fill={chart.milestoneDiamond}
         listening={false}
       />
     </Group>

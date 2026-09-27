@@ -28,6 +28,9 @@ import { visibleDayIndexRange } from "../model/timelineVisibleDays";
 import { resolveAssigneeDisplay } from "../model/assigneeDisplay";
 import type { Member, MemberId } from "../model/memberTypes";
 import type { Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
+import type { CalendarDocument } from "../model/calendarTypes";
+import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
+import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "../model/palette";
 import { MilestoneBand } from "./MilestoneBand";
 
 type TimelineProps = {
@@ -66,11 +69,11 @@ type TimelineProps = {
   onOpenMilestone: (id: ScheduleId) => void;
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
+  calendar: CalendarDocument | null;
+  colorScheme: ResolvedColorScheme;
 };
 
 const HANDLE_WIDTH = 8;
-const SUMMARY_COVERED = "#5C6B82";
-const SUMMARY_GAP = "#D5DBE3";
 
 function SummaryBar({
   summary,
@@ -78,12 +81,14 @@ function SummaryBar({
   rowHeight,
   barHeight,
   dateToX,
+  chart,
 }: {
   summary: SummarySpan;
   y: number;
   rowHeight: number;
   barHeight: number;
   dateToX: (d: Date) => number;
+  chart: ChartPalette;
 }) {
   const { x, width } = summaryBarWidthPx(
     summary.start,
@@ -99,7 +104,7 @@ function SummaryBar({
       <Rect
         width={width}
         height={height}
-        fill={SUMMARY_GAP}
+        fill={chart.summaryGap}
         cornerRadius={radius}
       />
       {summary.covered.map((span) => {
@@ -121,7 +126,7 @@ function SummaryBar({
             x={spanX}
             width={spanW}
             height={height}
-            fill={SUMMARY_COVERED}
+            fill={chart.summaryCovered}
             cornerRadius={spanRadius}
           />
         );
@@ -144,6 +149,7 @@ function TaskBar({
   onMoveTask,
   today,
   memberCatalog,
+  colorScheme,
 }: {
   task: Task;
   y: number;
@@ -158,20 +164,22 @@ function TaskBar({
   onMoveTask: (deltaDays: number) => void;
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
+  colorScheme: ResolvedColorScheme;
 }) {
+  const chart = paletteFor(colorScheme).chart;
   const start = parseDate(task.start);
   const x = dateToX(start);
   const w = taskBarWidthPx(task, dateToX, pxPerDay);
   const barY = y + (rowHeight - barHeight) / 2;
-  const colors = barColors(task, today);
+  const colors = barColors(task, today, colorScheme);
   const assigneeDisplay = resolveAssigneeDisplay(task.assigneeId, memberCatalog);
   const unassigned = assigneeDisplay.kind === "unassigned";
   const unknownMember = assigneeDisplay.kind === "unknown";
   const stroke =
     unassigned && !isOverdue(task, today)
-      ? "#C48A1A"
+      ? chart.unassignedStroke
       : unknownMember && !isOverdue(task, today)
-        ? "#7B5EA7"
+        ? chart.unknownStroke
         : colors.border;
   const cap = Math.max(2, Math.round(barHeight * 0.16));
   const overrunAt = exceeded[0] ? dateToX(parseDate(exceeded[0].date)) - x : null;
@@ -249,7 +257,7 @@ function TaskBar({
           y={-cap}
           width={w}
           height={cap}
-          fill="#E0A020"
+          fill={chart.unassignedCap}
           listening={false}
         />
       ) : null}
@@ -258,7 +266,7 @@ function TaskBar({
           y={-cap}
           width={w}
           height={cap}
-          fill="#7B5EA7"
+          fill={chart.unknownCap}
           listening={false}
         />
       ) : null}
@@ -267,7 +275,7 @@ function TaskBar({
           x={Math.max(0, overrunAt)}
           width={Math.max(2, w - Math.max(0, overrunAt))}
           height={barHeight}
-          fill="rgba(196, 53, 26, 0.45)"
+          fill={chart.overrunOverlay}
           cornerRadius={overrunAt <= 0 ? 4 : [0, 4, 4, 0]}
           listening={false}
         />
@@ -285,6 +293,7 @@ function ResizeHandles({
   dateToX,
   onResizeStart,
   onResizeEnd,
+  chart,
 }: {
   task: Task;
   y: number;
@@ -294,6 +303,7 @@ function ResizeHandles({
   dateToX: (d: Date) => number;
   onResizeStart: (groupX: number) => void;
   onResizeEnd: (groupX: number, barWidth: number) => void;
+  chart: ChartPalette;
 }) {
   const start = parseDate(task.start);
   const groupX = dateToX(start);
@@ -335,7 +345,7 @@ function ResizeHandles({
         width={HANDLE_WIDTH}
         height={handleHeight}
         name="resize-handle"
-        fill="#4C5FD5"
+        fill={chart.resizeHandle}
         cornerRadius={2}
         draggable
         onMouseEnter={(e) => {
@@ -392,7 +402,7 @@ function ResizeHandles({
         width={HANDLE_WIDTH}
         height={handleHeight}
         name="resize-handle"
-        fill="#4C5FD5"
+        fill={chart.resizeHandle}
         cornerRadius={2}
         draggable
         onMouseEnter={(e) => {
@@ -465,7 +475,13 @@ export function Timeline({
   onOpenMilestone,
   today,
   memberCatalog,
+  calendar,
+  colorScheme,
 }: TimelineProps) {
+  const chart = useMemo(
+    () => paletteFor(colorScheme).chart,
+    [colorScheme],
+  );
   const todayDate = useMemo(() => parseDate(today), [today]);
   const scale = headerHeight / LAYOUT_HEADER_HEIGHT;
   const dayRange = useMemo(
@@ -479,7 +495,7 @@ export function Timeline({
       <Line
         key="header-border"
         points={[0, headerHeight - 0.5, width, headerHeight - 0.5]}
-        stroke="#E3E6EB"
+        stroke={chart.headerBorder}
         strokeWidth={1}
         listening={false}
       />,
@@ -494,7 +510,7 @@ export function Timeline({
             <Line
               key={`mh-${d.getTime()}`}
               points={[x, 0, x, headerHeight]}
-              stroke="#C7CCD6"
+              stroke={chart.monthGrid}
               strokeWidth={1}
               listening={false}
             />,
@@ -505,7 +521,7 @@ export function Timeline({
               text={`${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月`}
               fontSize={12 * scale}
               fontStyle="bold"
-              fill="#1F2937"
+              fill={chart.textPrimary}
               listening={false}
             />,
           );
@@ -513,6 +529,30 @@ export function Timeline({
         d = addUtcMonths(d, 1);
       }
     } else {
+      const headerBands = nonWorkingDayClipRects(
+        timelineStart,
+        dayRange.start,
+        dayRange.end,
+        dateToX,
+        pxPerDay,
+        width,
+        calendar,
+        totalDays,
+      );
+      for (let i = 0; i < headerBands.length; i += 1) {
+        const band = headerBands[i];
+        elements.push(
+          <Rect
+            key={`hwe-${i}-${band.x}`}
+            x={band.x}
+            y={0}
+            width={band.width}
+            height={headerHeight}
+            fill={chart.nonWorking}
+            listening={false}
+          />,
+        );
+      }
       for (let i = dayRange.start; i <= dayRange.end; i += 1) {
         const d = addDays(timelineStart, i);
         const x = dateToX(d);
@@ -524,7 +564,7 @@ export function Timeline({
             <Line
               key={`hl-${i}`}
               points={[x, tier === "day" ? 26 * scale : 26 * scale, x, headerHeight]}
-              stroke={isMonday ? "#9AA5B4" : "#E3E6EB"}
+              stroke={isMonday ? chart.gridMonday : chart.gridWeekday}
               strokeWidth={1}
               listening={false}
             />,
@@ -534,7 +574,7 @@ export function Timeline({
               y={24 * scale}
               text={fmtShort(d)}
               fontSize={10 * scale}
-              fill={isMonday ? "#1F2937" : "#8A94A6"}
+              fill={isMonday ? chart.textPrimary : chart.textSecondary}
               fontStyle={isMonday ? "bold" : "normal"}
               listening={false}
             />,
@@ -549,7 +589,7 @@ export function Timeline({
               text={`${d.getUTCMonth() + 1}月`}
               fontSize={11 * scale}
               fontStyle="bold"
-              fill="#1F2937"
+              fill={chart.textPrimary}
               listening={false}
             />,
           );
@@ -558,15 +598,19 @@ export function Timeline({
     }
     return elements;
   }, [
+    calendar,
     dateToX,
     dayRange.end,
     dayRange.start,
     headerHeight,
+    pxPerDay,
     scale,
+    totalDays,
     tier,
     timelineEnd,
     timelineStart,
     width,
+    chart,
   ]);
 
   const bgContent = useMemo(() => {
@@ -584,7 +628,7 @@ export function Timeline({
             y={y}
             width={width}
             height={rowHeight}
-            fill={row.type === "category" ? "#F8F9FB" : "#F3F5F8"}
+            fill={row.type === "category" ? chart.categoryRow : chart.groupRow}
             listening={false}
           />,
         );
@@ -592,49 +636,29 @@ export function Timeline({
     }
 
     if (tier !== "month") {
-      const weekendStart = Math.max(0, dayRange.start - 2);
-      const weekendEnd = Math.min(totalDays, dayRange.end + 1);
-      for (let i = weekendStart; i <= weekendEnd; i += 1) {
-        const d = addDays(timelineStart, i);
-        const dow = d.getUTCDay();
-        const x = dateToX(d);
-        if (dow === 6) {
-          const spanRight = x + pxPerDay * 2;
-          if (spanRight < 0) continue;
-          const clipX = Math.max(0, x);
-          const clipRight = Math.min(width, spanRight);
-          const clipW = clipRight - clipX;
-          if (clipW > 0) {
-            elements.push(
-              <Rect
-                key={`we-${i}`}
-                x={clipX}
-                y={0}
-                width={clipW}
-                height={height}
-                fill="#F4F5F8"
-                listening={false}
-              />,
-            );
-          }
-        } else if (dow === 0 && addDays(d, -1) < timelineStart) {
-          const clipX = Math.max(0, x);
-          const clipRight = Math.min(width, x + pxPerDay);
-          const clipW = clipRight - clipX;
-          if (clipW > 0) {
-            elements.push(
-              <Rect
-                key={`we-sun-${i}`}
-                x={clipX}
-                y={0}
-                width={clipW}
-                height={height}
-                fill="#F4F5F8"
-                listening={false}
-              />,
-            );
-          }
-        }
+      const bands = nonWorkingDayClipRects(
+        timelineStart,
+        dayRange.start,
+        dayRange.end,
+        dateToX,
+        pxPerDay,
+        width,
+        calendar,
+        totalDays,
+      );
+      for (let i = 0; i < bands.length; i += 1) {
+        const band = bands[i];
+        elements.push(
+          <Rect
+            key={`nwd-${i}-${band.x}`}
+            x={band.x}
+            y={0}
+            width={band.width}
+            height={height}
+            fill={chart.nonWorking}
+            listening={false}
+          />,
+        );
       }
       for (let i = dayRange.start; i <= dayRange.end; i += 1) {
         const d = addDays(timelineStart, i);
@@ -646,7 +670,7 @@ export function Timeline({
             <Line
               key={`vg-${i}`}
               points={[x, 0, x, height]}
-              stroke={isMonday ? "#D8DCE3" : "#EDEFF3"}
+              stroke={isMonday ? chart.gridBodyMonday : chart.gridBodyWeekday}
               strokeWidth={1}
               listening={false}
             />,
@@ -662,7 +686,7 @@ export function Timeline({
             <Line
               key={`mg-${d.getTime()}`}
               points={[x, 0, x, height]}
-              stroke="#DDE1E7"
+              stroke={chart.gridMonth}
               strokeWidth={1}
               listening={false}
             />,
@@ -679,7 +703,7 @@ export function Timeline({
         <Line
           key={`hr-${row.y}`}
           points={[0, y, width, y]}
-          stroke="#F0F1F4"
+          stroke={chart.rowBorder}
           strokeWidth={1}
           listening={false}
         />,
@@ -689,18 +713,20 @@ export function Timeline({
     return elements;
   }, [
     bodyHeight,
+    calendar,
     dateToX,
     dayRange.end,
     dayRange.start,
     pxPerDay,
     rowHeight,
+    totalDays,
     scrollY,
     tier,
     timelineEnd,
     timelineStart,
-    totalDays,
     visibleRows,
     width,
+    chart,
   ]);
 
   const lightningPoints = useMemo(() => {
@@ -742,7 +768,7 @@ export function Timeline({
       const from = byId.get(link.fromId);
       const to = byId.get(link.toId);
       if (!from || !to) return [];
-      const color = link.broken ? "#C4351A" : "#8A94A6";
+      const color = link.broken ? chart.linkBroken : chart.linkOk;
       return [
         <Arrow
           key={`${link.fromId}-${link.toId}`}
@@ -756,7 +782,7 @@ export function Timeline({
         />,
       ];
     });
-  }, [dateToX, links, rowHeight, scrollY, visibleRows]);
+  }, [dateToX, links, rowHeight, scrollY, visibleRows, chart]);
 
   const panRef = useRef<{
     x: number;
@@ -868,6 +894,7 @@ export function Timeline({
           onMove={onMoveMilestone}
           onOpenEdit={onOpenMilestone}
           onWheel={onWheelHeader}
+          chart={chart}
         />
       ) : null}
       <div
@@ -908,6 +935,7 @@ export function Timeline({
                   rowHeight={rowHeight}
                   barHeight={barHeight}
                   dateToX={dateToX}
+                  chart={chart}
                 />
               );
             })}
@@ -937,6 +965,7 @@ export function Timeline({
                   onMoveTask={(delta) => onMoveTask(row.task.id, delta)}
                   today={today}
                   memberCatalog={memberCatalog}
+                  colorScheme={colorScheme}
                 />
               );
             })}
@@ -944,7 +973,7 @@ export function Timeline({
           <Layer listening={false}>
             <Line
               points={lightningPoints}
-              stroke="#E07B20"
+              stroke={chart.lightning}
               strokeWidth={2.5}
               lineJoin="round"
               lineCap="round"
@@ -967,6 +996,7 @@ export function Timeline({
                 onResizeEnd={(groupX, barWidth) =>
                   onResizeEnd(selectedRow.task.id, groupX, barWidth)
                 }
+                chart={chart}
               />
             ) : null}
           </Layer>

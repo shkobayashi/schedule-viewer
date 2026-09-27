@@ -1,6 +1,8 @@
 import {
+  NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
   UNASSIGNED_LABEL,
+  type Milestone,
   type OverdueFilter,
   type RelationFilter,
   type ScheduleFilters,
@@ -20,7 +22,9 @@ type ToolbarProps = {
   onDeferredReload?: () => void;
   membersCatalogLabel: string | null;
   membersCatalogError?: string | null;
+  calendarError?: string | null;
   filters: ScheduleFilters;
+  milestones: Milestone[];
   assigneeFilterOptions: AssigneeFilterOption[];
   zoomLabel: string;
   lineageName: string | null;
@@ -31,6 +35,7 @@ type ToolbarProps = {
   onZoomOut: () => void;
   onFit: () => void;
   onShowJson: () => void;
+  onShowDiff: () => void;
   onExportHtml: () => void;
   onOpen: () => void;
   onSave: () => void;
@@ -49,7 +54,9 @@ export function Toolbar({
   onDeferredReload,
   membersCatalogLabel,
   membersCatalogError = null,
+  calendarError = null,
   filters,
+  milestones,
   assigneeFilterOptions,
   zoomLabel,
   lineageName,
@@ -60,6 +67,7 @@ export function Toolbar({
   onZoomOut,
   onFit,
   onShowJson,
+  onShowDiff,
   onExportHtml,
   onOpen,
   onSave,
@@ -79,6 +87,7 @@ export function Toolbar({
         onSaveAs={onSaveAs}
         onExportHtml={onExportHtml}
         onShowJson={onShowJson}
+        onShowDiff={onShowDiff}
         onOpenSettings={onOpenSettings}
       />
       <h1>
@@ -100,6 +109,11 @@ export function Toolbar({
         ) : membersCatalogLabel ? (
           <span className="tag members-tag">{membersCatalogLabel}</span>
         ) : null}
+        {calendarError ? (
+          <span className="tag members-tag members-tag-error" title={calendarError}>
+            カレンダー設定エラー
+          </span>
+        ) : null}
       </h1>
       <input
         type="text"
@@ -107,6 +121,13 @@ export function Toolbar({
         className="search-input"
         value={filters.search}
         onChange={(e) => onFiltersChange({ search: e.target.value })}
+      />
+      <input
+        type="text"
+        placeholder="ノートで検索"
+        className="search-input search-input-note"
+        value={filters.noteSearch}
+        onChange={(e) => onFiltersChange({ noteSearch: e.target.value })}
       />
       <select
         value={filters.assignee}
@@ -149,6 +170,18 @@ export function Toolbar({
       >
         <option value="all">前後: すべて</option>
         <option value="broken">前後: 破綻のみ</option>
+      </select>
+      <select
+        value={filters.milestone}
+        onChange={(e) => onFiltersChange({ milestone: e.target.value })}
+      >
+        <option value="all">マイルストン: すべて</option>
+        <option value={NO_MILESTONE_FILTER}>なし</option>
+        {milestones.map((milestone) => (
+          <option key={milestone.id} value={milestone.id}>
+            {milestone.name}（{milestone.date}）
+          </option>
+        ))}
       </select>
       <button
         type="button"

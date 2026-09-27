@@ -10,12 +10,21 @@
     "allow-open-schedule-file",
     "allow-check-schedule-file-changed",
     "allow-poll-schedule-file-update",
+    "allow-read-open-schedule-file",
     "allow-save-schedule-file",
     "allow-save-html-file",
     "allow-get-members-settings",
     "allow-read-member-catalog",
     "allow-import-member-catalog",
     "allow-delete-member-catalog",
-    "allow-set-selected-member-catalog"
+    "allow-set-selected-member-catalog",
+    "allow-get-calendar-state",
+    "allow-read-app-calendar",
+    "allow-import-app-calendar",
+    "allow-delete-app-calendar",
+    "allow-read-schedule-recovery",
+    "allow-write-schedule-recovery",
+    "allow-delete-schedule-recovery",
+    "allow-read-schedule-file-at-path"
   ]
 }

@@ -1,7 +1,7 @@
 {
   "name": "schedule-viewer",
   "private": true,
-  "version": "0.3.1",
+  "version": "0.4.0",
   "type": "module",
   "engines": {
     "node": ">=24 <25"
@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "check:schedule": "tsx scripts/check-schedule.ts",
+    "check:calendar": "tsx scripts/check-calendar.ts",
     "test": "node scripts/compile-validators.mjs && vitest run",
     "lint": "eslint .",
     "build:validate-skill": "node scripts/build-validate-skill.mjs",

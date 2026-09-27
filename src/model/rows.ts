@@ -1,4 +1,5 @@
 import { brokenLinkTaskIds } from "./dependencies";
+import { normalizeTaskNote } from "./taskNote";
 import { isOverdue } from "./timeline";
 import { summarizeSpans } from "./summary";
 import {
@@ -6,6 +7,7 @@ import {
 } from "./assigneeDisplay";
 import type { Member, MemberId } from "./memberTypes";
 import {
+  NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
   type Category,
   type ScheduleFilters,
@@ -57,9 +59,24 @@ export function taskMatchesFilter(
   if (filters.relation === "broken" && !brokenIds?.has(task.id)) {
     return false;
   }
+  if (filters.milestone === NO_MILESTONE_FILTER) {
+    if (task.milestoneId != null) return false;
+  } else if (
+    filters.milestone !== "all" &&
+    task.milestoneId !== filters.milestone
+  ) {
+    return false;
+  }
   const search = filters.search.trim();
   if (search && !task.name.includes(search)) {
     return false;
+  }
+  const noteSearch = filters.noteSearch.trim();
+  if (noteSearch) {
+    const note = normalizeTaskNote(task.note);
+    if (note === undefined || !note.includes(noteSearch)) {
+      return false;
+    }
   }
   return true;
 }

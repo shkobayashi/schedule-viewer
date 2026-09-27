@@ -19,6 +19,8 @@ export type Task = {
   predecessors: ScheduleId[];
   /** このタスクが間に合わせるマイルストン。未設定なら超過判定しない。 */
   milestoneId: ScheduleId | null;
+  /** 補足説明。未設定または空白のみのときは JSON に含めない。 */
+  note?: string;
 };
 
 /** タスクではない到達点。期間は持たず、日付だけが決まる。 */
@@ -57,6 +59,9 @@ export const UNASSIGNED_FILTER = "unassigned";
 
 export const UNASSIGNED_LABEL = "割り当てなし";
 
+/** マイルストン未設定タスクのみに絞るフィルタ値（UUID と区別する）。 */
+export const NO_MILESTONE_FILTER = "none";
+
 export function isNullAssignee(assigneeId: MemberId | null): boolean {
   return assigneeId == null;
 }
@@ -67,7 +72,10 @@ export type ScheduleFilters = {
   status: StatusFilter;
   overdue: OverdueFilter;
   relation: RelationFilter;
+  /** "all" | "none" | マイルストン id */
+  milestone: string;
   search: string;
+  noteSearch: string;
 };
 
 export type VisibleRow =

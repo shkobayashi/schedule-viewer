@@ -14,7 +14,11 @@ const MAX_HTML_BYTES: u64 = 10 * 1024 * 1024;
 
 const MAX_MEMBERS_BYTES: u64 = 2 * 1024 * 1024;
 
+const MAX_CALENDAR_BYTES: u64 = 2 * 1024 * 1024;
+
 const DISK_HASH_MISMATCH: &str = "DISK_HASH_MISMATCH";
+
+const SCHEDULE_FILE_NOT_FOUND: &str = "SCHEDULE_FILE_NOT_FOUND";
 
 #[derive(Serialize)]
 struct OpenScheduleResult {
@@ -206,6 +210,18 @@ fn poll_schedule_file_update(
 }
 
 #[tauri::command]
+fn read_open_schedule_file(
+    state: State<'_, Mutex<ScheduleFileState>>,
+) -> Result<String, String> {
+    let guard = state.lock().expect("schedule file state");
+    let path = guard
+        .path
+        .as_ref()
+        .ok_or_else(|| "開いているファイルがありません".to_string())?;
+    read_utf8(path)
+}
+
+#[tauri::command]
 fn acknowledge_schedule_file_contents(
     state: State<'_, Mutex<ScheduleFileState>>,
     contents: String,
@@ -277,17 +293,28 @@ async fn save_html_file(
     app: tauri::AppHandle,
     contents: String,
     suggested_name: String,
+    extension: String,
 ) -> Result<Option<String>, String> {
     if contents.len() as u64 > MAX_HTML_BYTES {
         return Err("保存する内容が大きすぎます（上限 10 MB）".to_string());
     }
-    let default_name = sanitize_export_filename(&suggested_name, "html");
+    let ext = if extension.eq_ignore_ascii_case("svg") {
+        "svg"
+    } else {
+        "html"
+    };
+    let default_name = sanitize_export_filename(&suggested_name, ext);
+    let (filter_label, filter_exts): (&str, &[&str]) = if ext == "svg" {
+        ("SVG", &["svg"])
+    } else {
+        ("HTML", &["html", "htm"])
+    };
     let picked = app
         .dialog()
         .file()
         .set_parent(&window)
         .set_file_name(&default_name)
-        .add_filter("HTML", &["html", "htm"])
+        .add_filter(filter_label, filter_exts)
         .blocking_save_file();
     let target = match picked {
         Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
@@ -301,6 +328,8 @@ async fn save_html_file(
 struct AppSettingsFile {
     #[serde(rename = "selectedMembersCatalogId", default)]
     selected_members_catalog_id: Option<String>,
+    #[serde(rename = "calendarLabel", default)]
+    calendar_label: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -461,6 +490,129 @@ fn set_selected_member_catalog(
     write_settings(&app, &settings)
 }
 
+fn calendar_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join("calendar.json"))
+}
+
+fn schedule_recovery_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join("schedule-recovery.json"))
+}
+
+#[tauri::command]
+fn read_schedule_recovery(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = schedule_recovery_path(&app)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let meta = fs::metadata(&path).map_err(|e| format!("ファイルを読めません: {}", e))?;
+    if meta.len() > MAX_SCHEDULE_BYTES {
+        return Err("復旧用の控えが大きすぎます（上限 10 MB）".to_string());
+    }
+    Ok(Some(read_utf8(&path)?))
+}
+
+#[tauri::command]
+fn write_schedule_recovery(app: tauri::AppHandle, contents: String) -> Result<(), String> {
+    if contents.len() as u64 > MAX_SCHEDULE_BYTES {
+        return Err("復旧用の控えが大きすぎます（上限 10 MB）".to_string());
+    }
+    write_utf8_atomic(&schedule_recovery_path(&app)?, &contents)
+}
+
+#[tauri::command]
+fn delete_schedule_recovery(app: tauri::AppHandle) -> Result<(), String> {
+    let path = schedule_recovery_path(&app)?;
+    if path.exists() {
+        fs::remove_file(&path)
+            .map_err(|e| format!("復旧用の控えを削除できません: {}", e))?;
+    }
+    Ok(())
+}
+
+fn recovery_targets_path(recovery_text: &str, requested: &str) -> Result<(), String> {
+    let value: serde_json::Value = serde_json::from_str(recovery_text)
+        .map_err(|_| "復旧用の控えの形式が正しくありません。".to_string())?;
+    let expected = value
+        .get("path")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| "復旧用の控えの形式が正しくありません。".to_string())?;
+    if Path::new(expected) != Path::new(requested) {
+        return Err("復旧用の控えと違うファイルは読めません。".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn read_schedule_file_at_path(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    let recovery_path = schedule_recovery_path(&app)?;
+    if !recovery_path.is_file() {
+        return Err("復旧用の控えがありません。".to_string());
+    }
+    let recovery_text = read_utf8(&recovery_path)?;
+    recovery_targets_path(&recovery_text, &path)?;
+    let path_buf = PathBuf::from(&path);
+    if !path_buf.is_file() {
+        return Err(SCHEDULE_FILE_NOT_FOUND.to_string());
+    }
+    read_utf8(&path_buf)
+}
+
+#[derive(Serialize)]
+struct CalendarStateResult {
+    label: Option<String>,
+}
+
+#[tauri::command]
+fn get_calendar_state(app: tauri::AppHandle) -> Result<CalendarStateResult, String> {
+    let settings = read_settings(&app)?;
+    Ok(CalendarStateResult {
+        label: settings.calendar_label,
+    })
+}
+
+#[tauri::command]
+fn read_app_calendar(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = calendar_path(&app)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let meta = fs::metadata(&path).map_err(|e| format!("ファイルを読めません: {}", e))?;
+    if meta.len() > MAX_CALENDAR_BYTES {
+        return Err("カレンダーファイルが大きすぎます（上限 2 MB）".to_string());
+    }
+    Ok(Some(read_utf8(&path)?))
+}
+
+#[tauri::command]
+fn import_app_calendar(
+    app: tauri::AppHandle,
+    label: String,
+    contents: String,
+) -> Result<(), String> {
+    let trimmed_label = label.trim();
+    if trimmed_label.is_empty() {
+        return Err("ファイル名が空です".to_string());
+    }
+    if contents.len() as u64 > MAX_CALENDAR_BYTES {
+        return Err("カレンダーファイルが大きすぎます（上限 2 MB）".to_string());
+    }
+    write_utf8_atomic(&calendar_path(&app)?, &contents)?;
+    let mut settings = read_settings(&app)?;
+    settings.calendar_label = Some(trimmed_label.to_string());
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn delete_app_calendar(app: tauri::AppHandle) -> Result<(), String> {
+    let path = calendar_path(&app)?;
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| format!("カレンダーを削除できません: {}", e))?;
+    }
+    let mut settings = read_settings(&app)?;
+    settings.calendar_label = None;
+    write_settings(&app, &settings)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -471,6 +623,7 @@ pub fn run() {
             accept_opened_schedule,
             check_schedule_file_changed,
             poll_schedule_file_update,
+            read_open_schedule_file,
             acknowledge_schedule_file_contents,
             save_schedule_file,
             save_html_file,
@@ -479,6 +632,14 @@ pub fn run() {
             import_member_catalog,
             delete_member_catalog,
             set_selected_member_catalog,
+            get_calendar_state,
+            read_app_calendar,
+            import_app_calendar,
+            delete_app_calendar,
+            read_schedule_recovery,
+            write_schedule_recovery,
+            delete_schedule_recovery,
+            read_schedule_file_at_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -488,7 +649,7 @@ pub fn run() {
 mod tests {
     use std::path::PathBuf;
 
-    use super::{require_active_save_path, sanitize_export_filename};
+    use super::{recovery_targets_path, require_active_save_path, sanitize_export_filename};
 
     #[test]
     fn sanitize_export_filename_removes_path_separators() {
@@ -522,5 +683,13 @@ mod tests {
         assert!(require_active_save_path(Some(&active), Some("/tmp/b.json")).is_err());
         assert!(require_active_save_path(None, Some("/tmp/a.json")).is_err());
         assert!(require_active_save_path(Some(&active), None).is_err());
+    }
+
+    #[test]
+    fn recovery_targets_path_accepts_only_the_draft_path() {
+        let recovery = r#"{"path":"/tmp/plan.json","baselineJson":"{}","documentJson":"{}"}"#;
+        assert!(recovery_targets_path(recovery, "/tmp/plan.json").is_ok());
+        assert!(recovery_targets_path(recovery, "/tmp/other.json").is_err());
+        assert!(recovery_targets_path("{", "/tmp/plan.json").is_err());
     }
 }
