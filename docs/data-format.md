@@ -171,8 +171,9 @@
 | `schedule-viewer/calendar/label` | カレンダーの表示名 |
 | `schedule-viewer/display-scale` | 表示サイズ。`0.5`、`0.75`、`1`、`1.25`、`1.5`、`2` のいずれか。自動のときはキーを消す |
 | `schedule-viewer/color-scheme` | 配色。`light` または `dark`。システム設定に合わせるときはキーを消す |
+| `schedule-viewer/sidebar-width` | 左一覧の基準幅。表示倍率 1 のときの px。既定の 190 のときはキーを消す |
 
-表示サイズと配色はデスクトップ版でも localStorage に置く。メンバーとカレンダーは、デスクトップ版ではアプリデータだけに置く。
+表示サイズ、配色、左一覧の幅はデスクトップ版でも localStorage に置く。メンバーとカレンダーは、デスクトップ版ではアプリデータだけに置く。
 
 ## 検証のしかた
 

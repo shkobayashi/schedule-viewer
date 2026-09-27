@@ -70,6 +70,16 @@ import {
   resolveUiScale,
   type DisplayScalePreference,
 } from "./model/uiScale";
+import {
+  SIDEBAR_WIDTH_DEFAULT,
+  SIDEBAR_WIDTH_MIN,
+  TIMELINE_MIN_WIDTH,
+  adjustSidebarWidth,
+  appliedSidebarWidth,
+  nudgeSidebarWidth,
+  readSidebarWidth,
+  writeSidebarWidth,
+} from "./model/sidebarWidth";
 import { seedSampleMemberCatalogOnce } from "./model/memberAppData";
 import {
   SAMPLE_MEMBERS_CATALOG_ID,
@@ -98,8 +108,13 @@ function shouldHandleDocumentUndo(target: EventTarget | null): boolean {
 
 function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
   const [timelineWidth, setTimelineWidth] = useState(520);
   const [timelineSlotHeight, setTimelineSlotHeight] = useState(440);
+  const [mainWidth, setMainWidth] = useState(0);
+  const [preferredSidebarWidth, setPreferredSidebarWidth] = useState(readSidebarWidth);
+  const preferredSidebarWidthRef = useRef(preferredSidebarWidth);
+  preferredSidebarWidthRef.current = preferredSidebarWidth;
   const [displayScalePreference, setDisplayScalePreference] = useState(
     readDisplayScalePreference,
   );
@@ -193,6 +208,70 @@ function App() {
     setTimelineSlotHeight(node.clientHeight);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const node = mainRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      setMainWidth(entry.contentRect.width);
+    });
+    observer.observe(node);
+    setMainWidth(node.clientWidth);
+    return () => observer.disconnect();
+  }, []);
+
+  const sidebarWidth = appliedSidebarWidth(
+    preferredSidebarWidth,
+    mainWidth,
+    uiScale,
+  );
+  const sidebarWidthCeiling =
+    uiScale > 0 ? Math.floor((mainWidth - TIMELINE_MIN_WIDTH) / uiScale) : 0;
+  const sidebarWidthMax =
+    mainWidth > 0 && uiScale > 0 && sidebarWidthCeiling >= SIDEBAR_WIDTH_MIN
+      ? sidebarWidthCeiling
+      : null;
+
+  const handleSidebarWidthChange = useCallback(
+    (requested: number) => {
+      const next = adjustSidebarWidth(
+        preferredSidebarWidthRef.current,
+        requested,
+        mainWidth,
+        uiScale,
+      );
+      preferredSidebarWidthRef.current = next;
+      setPreferredSidebarWidth(next);
+    },
+    [mainWidth, uiScale],
+  );
+
+  const handleSidebarWidthCommit = useCallback(() => {
+    writeSidebarWidth(preferredSidebarWidthRef.current);
+  }, []);
+
+  const handleSidebarWidthReset = useCallback(() => {
+    preferredSidebarWidthRef.current = SIDEBAR_WIDTH_DEFAULT;
+    setPreferredSidebarWidth(SIDEBAR_WIDTH_DEFAULT);
+    writeSidebarWidth(SIDEBAR_WIDTH_DEFAULT);
+  }, []);
+
+  const handleSidebarWidthNudge = useCallback(
+    (delta: number) => {
+      const next = nudgeSidebarWidth(
+        preferredSidebarWidthRef.current,
+        delta,
+        mainWidth,
+        uiScale,
+      );
+      preferredSidebarWidthRef.current = next;
+      setPreferredSidebarWidth(next);
+      writeSidebarWidth(next);
+    },
+    [mainWidth, uiScale],
+  );
 
   const memberCatalogState = useMemberCatalog();
   const appCalendarState = useAppCalendar();
@@ -528,7 +607,13 @@ function App() {
   }, [scheduleFile.currentJson, scheduleFile.fileBusy, scheduleFile.filePath]);
 
   return (
-    <div className="app" style={{ ["--s" as string]: uiScale }}>
+    <div
+      className="app"
+      style={{
+        ["--s" as string]: uiScale,
+        ["--sidebar-w" as string]: sidebarWidth,
+      }}
+    >
       <Toolbar
         title={schedule.title}
         fileStatusLabel={scheduleFile.statusLabel}
@@ -564,11 +649,12 @@ function App() {
       />
       <div className="hint">
         Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
-        ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
+        ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・ 境界をドラッグで左の幅を変える
+        ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
         ・ タスクを選んで「系統」で前後だけ表示 ・ マイルストンは帯のひし形をドラッグ、ダブルクリックで編集
         ・ ⌘/Ctrl+Z で取り消し、Shift+Z または Ctrl+Y でやり直し
       </div>
-      <div className="main">
+      <div ref={mainRef} className="main">
         <Sidebar
           rows={schedule.visibleRows}
           scrollY={scrollY}
@@ -581,6 +667,14 @@ function App() {
           onOpenTaskNote={schedule.openTaskNoteDialog}
           today={schedule.today}
           memberCatalog={memberCatalogState.memberMap}
+          uiScale={uiScale}
+          sidebarWidth={sidebarWidth}
+          preferredSidebarWidth={preferredSidebarWidth}
+          sidebarWidthMax={sidebarWidthMax}
+          onSidebarWidthChange={handleSidebarWidthChange}
+          onSidebarWidthCommit={handleSidebarWidthCommit}
+          onSidebarWidthReset={handleSidebarWidthReset}
+          onSidebarWidthNudge={handleSidebarWidthNudge}
         />
         <div ref={timelineAreaRef} className="timeline-slot">
           <Timeline
