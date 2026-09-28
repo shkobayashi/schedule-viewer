@@ -1,8 +1,33 @@
 import { isIsoDateString } from "./dates";
-import type { Category, ScheduleId, Task } from "./types";
+import type { Category, Milestone, ScheduleId, Task } from "./types";
 
 export function createScheduleId(): ScheduleId {
   return crypto.randomUUID();
+}
+
+export function collectScheduleIds(
+  categories: Category[],
+  milestones: Milestone[],
+): Set<ScheduleId> {
+  const ids = new Set<ScheduleId>();
+  forEachTask(categories, (task) => {
+    ids.add(task.id);
+  });
+  for (const milestone of milestones) {
+    ids.add(milestone.id);
+  }
+  return ids;
+}
+
+export function uniqueScheduleId(
+  taken: ReadonlySet<string>,
+  createId: () => string = createScheduleId,
+): ScheduleId {
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const id = createId();
+    if (!taken.has(id)) return id;
+  }
+  throw new Error("スケジュール ID を作れませんでした");
 }
 
 export function forEachTask(

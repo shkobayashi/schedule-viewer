@@ -1,7 +1,55 @@
-import { daysBetween, parseDate } from "./dates";
-import type { Milestone, ScheduleId } from "./types";
+import { daysBetween, isIsoDateString, parseDate } from "./dates";
+import { forEachTask, mapTasks } from "./tasks";
+import type { Category, Milestone, ScheduleId } from "./types";
 
 const ORIGIN = parseDate("2020-01-01");
+
+export function validateNewMilestone(input: {
+  name: string;
+  date: string;
+}): string | null {
+  if (!input.name.trim()) return "名前を入力してください";
+  if (!isIsoDateString(input.date)) return "日付を入力してください";
+  return null;
+}
+
+export function appendMilestone(
+  milestones: Milestone[],
+  milestone: Milestone,
+): Milestone[] {
+  return [...milestones, milestone];
+}
+
+export function milestoneLinkedByAnyTask(
+  categories: Category[],
+  milestoneId: ScheduleId,
+): boolean {
+  let linked = false;
+  forEachTask(categories, (task) => {
+    if (task.milestoneId === milestoneId) linked = true;
+  });
+  return linked;
+}
+
+export function removeMilestone(
+  categories: Category[],
+  milestones: Milestone[],
+  milestoneId: ScheduleId,
+): { categories: Category[]; milestones: Milestone[] } {
+  return {
+    categories: mapTasks(categories, (task) =>
+      task.milestoneId === milestoneId ? { ...task, milestoneId: null } : task,
+    ),
+    milestones: milestones.filter((item) => item.id !== milestoneId),
+  };
+}
+
+export function milestoneFilterAfterDelete(
+  current: string,
+  deletedId: ScheduleId,
+): string {
+  return current === deletedId ? "all" : current;
+}
 
 /** 対応マイルストンがあり、完了予定日がその日付より後のときだけ超過。 */
 export function milestonesExceededBy(

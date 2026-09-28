@@ -66,6 +66,13 @@
 | 同上 | `stores imported JSON without a BOM and reads it back` | SET-02 |
 | 同上 | `imports the sample only once when two seeds overlap` | SET-02 |
 | 同上 | `does not restore a sample catalog after it was removed` | SET-02 |
+| `milestones.test.ts` | `rejects a blank name and an empty or impossible date` | EDIT-07 |
+| 同上 | `accepts a name that is only padded with spaces` | EDIT-07 |
+| 同上 | `appends a milestone without sorting or rejecting duplicates` | EDIT-07 |
+| 同上 | `removes the milestone and clears only matching milestoneId` | EDIT-07 |
+| 同上 | `skips ids that are already used by a task or a milestone` | EDIT-07 |
+| 同上 | `resets the milestone filter only when it is the deleted id` | EDIT-07 |
+| 同上 | `reports whether any task points at the milestone` | EDIT-07 |
 | `nonWorkingDay.test.ts` | `defaults to Sat/Sun when calendar is null` | VIEW-09 |
 | 同上 | `respects workingDays override on weekends` | VIEW-09, SET-03 |
 | 同上 | `treats an empty weekends list as no weekday holidays` | VIEW-09 |
@@ -87,6 +94,8 @@
 | 同上 | `shows a milestone date shift and a title change` | FILE-07 |
 | 同上 | `writes milestone order and category order when the remaining items swap` | FILE-07 |
 | 同上 | `writes a group order line when groups in a category swap` | FILE-07 |
+| 同上 | `shows a cleared milestone link and the deleted milestone without an order line` | FILE-07 |
+| 同上 | `does not write a milestone order line when a milestone is appended` | FILE-07 |
 | 同上 | `writes a missing note as （なし）` | FILE-07 |
 | `scheduleExternalReload.test.ts` | `returns invalid for broken JSON` | SYNC-01 |
 | 同上 | `returns noop when canonical matches baseline` | SYNC-01, FILE-04 |
@@ -187,7 +196,7 @@
 | `history.ts` | 未テスト |
 | `dependencies.ts` | 破綻と系統は未テスト。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でテストしている |
 | `timeline.ts` | 期限超過、イナズマ線、ズーム段階は未テスト |
-| `milestones.ts` | マイルストン超過と段の割り当ては未テスト |
+| `milestones.ts` | マイルストン超過と段の割り当ては未テスト。追加と削除はテストしている |
 | `rows.ts` | ノートとマイルストン以外の絞り込み、`computeVisibleRows`、折りたたみは未テスト |
 | `exportFilename.ts` | 未テスト。Rust 側が似たファイル名処理をテストしている |
 | `scheduleFile.ts` | Tauri とブラウザの I/O は未テスト |
@@ -301,13 +310,19 @@
 | TC-EDIT-05b | EDIT-05 | タスクが50件を超えるスケジュール | 先行の検索を空のまま開く | 「さらに絞り込んでください」と出る |
 | TC-EDIT-06 | EDIT-06 | ノートが無いタスク | ノートアイコンから文字を保存し、次に空白だけを保存する | 一度目でノートが付き、二度目でノートが消える |
 | TC-EDIT-07 | EDIT-07 | マイルストンがある | ひし形を横にドラッグして離す。次にダブルクリックで名前を空白にして保存する | 日付は離した位置になる。空白の名前は元の名前のまま残る |
+| TC-EDIT-07b | EDIT-07 | マイルストンが 0 件でもよい | 「マイルストン追加」で名前と日付を保存する | ひし形が出る。取り消し 1 回で消える |
+| TC-EDIT-07c | EDIT-07 | 「マイルストン追加」を開いている | 名前を空白だけ、または日付を空にして保存する。次にキャンセルと Escape を試す | どれでもマイルストンは増えない |
+| TC-EDIT-07d | EDIT-07 | 同じ名前と日付のマイルストンがある | 「マイルストン追加」で同じ名前と日付を保存する | もう 1 件足される |
+| TC-EDIT-07e | EDIT-07 | タスクが指しているマイルストンがある | ひし形を右クリックして「削除」を確認する | マイルストンが消え、指していたタスクの対応だけが外れる。日付は変わらない。取り消し 1 回でマイルストンと対応が戻る |
+| TC-EDIT-07f | EDIT-07 | マイルストンがある | ツールバーの「削除」を見る。Delete を押す | マイルストンは消えない |
+| TC-EDIT-07g | EDIT-07 | タスクを選択し、系統を出し、そのマイルストンで絞っている | そのマイルストンを削除する | 絞り込みは「すべて」に戻る。選択と系統は残る。取り消しても絞り込みは「すべて」のまま |
 | TC-EDIT-08 | EDIT-08 | タスクを選択し、「完了」で絞っている | 「追加」で、選択中のグループに今日から1日のタスクを足す | そのグループの末尾に、割り当てなし・未着手で足される。絞り込みは「すべて」に戻り、新しい行が選択される |
 | TC-EDIT-08b | EDIT-08 | 追加ダイアログ | 終了日を開始日より前にして保存する | 追加されない |
 | TC-EDIT-09 | EDIT-09 | 先行を持つタスクを選択 | 「削除」を確認する | タスクが消え、他の先行からも外れ、残ったタスク同士はつながらない |
 | TC-EDIT-09b | EDIT-09 | タスクを選んでいない | 「削除」を見る | 押せない |
 | TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
 | TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左の行を右クリックする。選択中は端のハンドルも右クリックする | ノートが開く。左の行は右クリックで選択され、メニューが出る。左クリックでは選択されない。空白やカテゴリではメニューが出ない。端のハンドルでもバーと同じメニューが出る |
-| TC-EDIT-11b | EDIT-11 | マイルストンがある | ひし形を右クリックし、「編集」を選ぶ | 名前と日付の編集が開く。項目は「編集」だけである |
+| TC-EDIT-11b | EDIT-11 | マイルストンがある | ひし形を右クリックし、「編集」を選ぶ | 「編集」と「削除」が出る。選択は変わらない。編集を選ぶと名前と日付の編集が開く |
 | TC-EDIT-10 | EDIT-10 | バーを動かした直後 | ⌘/Ctrl+Z を押し、続けてやり直す | 移動が戻り、やり直しで再度動く。検索欄にフォーカスがあるときは動かない |
 | TC-EDIT-10b | EDIT-10 | 取り消しできる編集がある | 別のファイルを開く | 取り消しできなくなる |
 | TC-EXPORT-01 | EXPORT-01 | サンプル | 「書き出し」で SVG を選んで保存する | SVG ファイルができる。キャンセルではできない |
