@@ -44,6 +44,7 @@ type ToolbarProps = {
   onOpenSettings: () => void;
   canDelete: boolean;
   onAdd: () => void;
+  onAddMilestone: () => void;
   onDelete: () => void;
   fileBusy?: boolean;
   taskSearchRef?: RefObject<HTMLInputElement | null>;
@@ -77,6 +78,7 @@ export function Toolbar({
   onOpenSettings,
   canDelete,
   onAdd,
+  onAddMilestone,
   onDelete,
   fileBusy = false,
   taskSearchRef,
@@ -202,6 +204,9 @@ export function Toolbar({
       </button>
       <button type="button" className="toolbar-btn" onClick={onAdd}>
         追加
+      </button>
+      <button type="button" className="toolbar-btn" onClick={onAddMilestone}>
+        マイルストン追加
       </button>
       <button
         type="button"
