@@ -1,0 +1,23 @@
+<!-- 原画。作り直しは docs/development.md のアプリアイコン。 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="plate-clip">
+      <rect x="128" y="128" width="768" height="768" rx="192" />
+    </clipPath>
+    <linearGradient id="wash" x1="128" y1="128" x2="896" y2="896" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7B8CFF" stop-opacity="0.5" />
+      <stop offset="0.48" stop-color="#7B8CFF" stop-opacity="0" />
+    </linearGradient>
+    <radialGradient id="glow" cx="300" cy="260" r="460" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="0.72" stop-color="#FFFFFF" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#plate-clip)">
+    <rect x="128" y="128" width="768" height="768" fill="#4C5FD5" />
+    <rect x="128" y="128" width="768" height="768" fill="url(#wash)" />
+    <rect x="128" y="128" width="768" height="768" fill="url(#glow)" />
+  </g>
+  <rect x="256" y="448" width="512" height="192" rx="32" fill="#FFFFFF" />
+  <rect x="576" y="256" width="128" height="320" rx="64" fill="#E2542A" />
+</svg>
