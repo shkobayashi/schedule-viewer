@@ -17,3 +17,13 @@ commands.allow = ["delete_schedule_recovery"]
 identifier = "allow-read-schedule-file-at-path"
 description = "Allows reading the schedule file named in the recovery draft."
 commands.allow = ["read_schedule_file_at_path"]
+
+[[permission]]
+identifier = "allow-read-last-schedule-file"
+description = "Allows reading the schedule file remembered from the previous session."
+commands.allow = ["read_last_schedule_file"]
+
+[[permission]]
+identifier = "allow-clear-last-schedule-path"
+description = "Allows clearing the remembered schedule path."
+commands.allow = ["clear_last_schedule_path"]

@@ -98,11 +98,17 @@
 | 同上 | `accepts assigneeId` | FILE-01 |
 | `scheduleRecovery.test.ts` | `accepts a valid draft` | SYNC-03 |
 | 同上 | `rejects invalid document JSON` | SYNC-03 |
-| 同上 | `returns none when no draft` | SYNC-03 |
+| 同上 | `returns the parent and skips a bare filename` | SYNC-03 |
+| 同上 | `returns none when nothing was open` | SYNC-03 |
+| 同上 | `opens the saved file when there is no draft` | SYNC-03 |
+| 同上 | `opens a saved file when only formatting differs` | SYNC-03, FILE-04 |
 | 同上 | `restores when disk matches baseline` | SYNC-03 |
 | 同上 | `returns conflict when disk differs from baseline` | SYNC-03 |
 | 同上 | `returns invalidDraft for broken draft wrapper` | SYNC-03 |
-| 同上 | `returns diskMissing when file not found` | SYNC-03 |
+| 同上 | `returns missingWithEdits when the file is gone and a draft exists` | SYNC-03 |
+| 同上 | `returns missingNotice when the saved file is gone` | SYNC-03 |
+| 同上 | `uses the draft path when no last path was stored` | SYNC-03 |
+| 同上 | `ignores a draft for a different path and opens the remembered file` | SYNC-03 |
 | 同上 | `restores when disk formatting differs but canonical matches` | SYNC-03, FILE-04 |
 | 同上 | `returns invalidDisk when the file fails validation` | SYNC-03 |
 | `serialize.test.ts` | `omits empty note` | EDIT-06 |
@@ -167,6 +173,10 @@
 | `require_active_save_path_accepts_matching_path` | 開いているパスと一致すれば上書きできる | FILE-02 |
 | `require_active_save_path_rejects_mismatch_and_missing` | パスの不一致と、ファイルを開いていない状態は拒否する | FILE-02 |
 | `recovery_targets_path_accepts_only_the_draft_path` | 控えに書いたパス以外は読まない | SYNC-03 |
+| `resolve_remembered_path_prefers_last_schedule_over_recovery` | 覚えたパスを控えのパスより優先する | SYNC-03 |
+| `resolve_remembered_path_uses_recovery_when_last_schedule_is_absent` | 覚えたパスが無ければ控えのパスを使う | SYNC-03 |
+| `resolve_remembered_path_rejects_broken_last_schedule_and_skips_broken_recovery` | 壊れた前回の記録は拒否し、壊れた控えはパスに使わない | SYNC-03 |
+| `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 
 ## 自動テストが無いところ
 
@@ -246,8 +256,11 @@
 | TC-SYNC-01c | SYNC-01 | ブラウザ版でファイルを開く | 別のエディタでファイルを保存する | 画面は変わらない |
 | TC-SYNC-02 | SYNC-02 | 開いたあと、別のエディタでファイルを変える | 「保存」を押す | 「上書き保存」「別名保存」「取り消し」が出る。取り消しではファイルも画面も変わらない |
 | TC-SYNC-03 | SYNC-03 | TC-FILE-05b のあと、ファイルは変えない | アプリを起動する | 同じファイルが未保存のまま開く |
-| TC-SYNC-03b | SYNC-03 | 控えがあるあいだに、別のエディタでファイルを変える | アプリを起動する | 「ファイルを開く」か「未保存の編集を戻す」かを聞く |
-| TC-SYNC-03c | SYNC-03 | 控えの対象ファイルを消す | アプリを起動する | 復旧用の控えのダイアログが出る。「控えを破棄」で次から出なくなる |
+| TC-SYNC-03b | SYNC-03 | 控えがあるあいだに、別のエディタでファイルを変える | アプリを起動する | 「ファイルを開く」か「未保存の編集を戻す」かを聞く。開くはダイアログにせず、そのファイルの最新内容になる |
+| TC-SYNC-03c | SYNC-03 | 未保存のまま閉じたあと、対象ファイルを消す | アプリを起動する | 未保存が画面に戻り、ファイルが無いと出る。「未保存の編集を戻す」でその内容が残る。そのあと、同じ欠落では監視のファイルダイアログは出ない |
+| TC-SYNC-03d | SYNC-03 | ファイルを開き、保存して閉じる | アプリを起動する | 同じファイルが保存済みで開く。絞り込みやズームは初期状態である |
+| TC-SYNC-03e | SYNC-03 | 保存して閉じたあと、そのファイルを消す | アプリを起動する | 見つからないと知らせてサンプルになる。ファイルダイアログは出ない。その状態で閉じると、次はサンプルのままである |
+| TC-SYNC-01d | SYNC-01 | デスクトップ版でファイルを開いている | そのファイルを消し、連続して読めなくなるまで待つ | ファイルダイアログが出る。読み取り失敗の汎用メッセージは出ない。キャンセルすると見出しのファイル名は残る。上書き保存はできず、別名保存はできる |
 | TC-VIEW-01 | VIEW-01 | サンプル | 左の行を上から見る | カテゴリ、グループ、タスクの順で、JSON の配列順に並ぶ |
 | TC-VIEW-02 | VIEW-02 | 進行中のタスクがある | そのバーを見る | 薄青の地に、進捗率の濃い部分がある。完了は緑、未着手は灰 |
 | TC-VIEW-03 | VIEW-03 | 子の期間が離れているグループ | 親の行を見る | 半分の高さで、途切れた期間は薄い色になる |
@@ -320,7 +333,7 @@
 6. TC-SET-02 でメンバー名が出ることを見る
 7. TC-SET-03 で非稼働日が塗られることを見る
 8. TC-SYNC-01 で、別のエディタで保存した内容が画面に反映されることを見る
-9. TC-SYNC-03 で未保存の復元を見る
+9. TC-SYNC-03 で未保存の復元を、TC-SYNC-03d で保存済みの開き直しを見る
 10. TC-VIEW-05 と TC-VIEW-07 で赤とイナズマ線を見る
 11. Ubuntu では deb のインストールと起動、Windows では NSIS と SmartScreen の表示を見る
 12. `SHA256SUMS` と配布物のハッシュが一致することを見る

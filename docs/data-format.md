@@ -157,8 +157,9 @@
 | `members/<catalogId>.json` | 取り込んだメンバー JSON の本文 | 2MB |
 | `calendar.json` | 取り込んだカレンダー JSON の本文 | 2MB |
 | `schedule-recovery.json` | 未保存の控え。`path`、`baselineJson`、`documentJson` | 10MB |
+| `last-schedule.json` | 前回開いたスケジュールの絶対パス。`path` だけ | — |
 
-控えの `path` は開いているスケジュールの絶対パスである。`baselineJson` は最後に開いた・保存した・読み直したときの内容、`documentJson` は画面の内容で、この2つはどちらも上の保存形式の文字列である。サンプル（パスが無い）では控えを作らない。ブラウザ版は控えを作らない。
+控えの `path` は開いているスケジュールの絶対パスである。`baselineJson` は最後に開いた・保存した・読み直したときの内容、`documentJson` は画面の内容で、この2つはどちらも上の保存形式の文字列である。サンプル（パスが無い）では控えを作らない。`last-schedule.json` は、開いたまたは保存したスケジュールの絶対パスだけを覚える。未保存でなくても残る。パスが無い状態で閉じると消える。ブラウザ版は控えも前回のパスも作らない。
 
 ブラウザ版は localStorage を使う。キーは次のとおりである。
 
