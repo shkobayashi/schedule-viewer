@@ -57,9 +57,20 @@ export function parseScheduleText(text: string): ParseScheduleResult {
   return { ok: true, document: result.document, canonicalJson };
 }
 
-export async function openScheduleViaTauri(): Promise<ScheduleFilePick | null> {
+export function scheduleParentDirectory(path: string): string | null {
+  const slash = path.lastIndexOf("/");
+  const backslash = path.lastIndexOf("\\");
+  const index = Math.max(slash, backslash);
+  if (index <= 0) return null;
+  return path.slice(0, index);
+}
+
+export async function openScheduleViaTauri(
+  initialDirectory?: string | null,
+): Promise<ScheduleFilePick | null> {
   const result = await invoke<{ path: string; contents: string } | null>(
     "open_schedule_file",
+    { initialDirectory: initialDirectory ?? null },
   );
   if (!result) return null;
   return { path: result.path, contents: result.contents };
@@ -200,6 +211,20 @@ export async function readScheduleFileAtPathViaTauri(
   path: string,
 ): Promise<string> {
   return invoke<string>("read_schedule_file_at_path", { path });
+}
+
+export type LastScheduleRead = {
+  path: string;
+  contents: string | null;
+  error: string | null;
+};
+
+export async function readLastScheduleFileViaTauri(): Promise<LastScheduleRead | null> {
+  return invoke<LastScheduleRead | null>("read_last_schedule_file");
+}
+
+export async function clearLastSchedulePathViaTauri(): Promise<void> {
+  await invoke("clear_last_schedule_path");
 }
 
 export async function readOpenScheduleFileViaTauri(): Promise<string> {
