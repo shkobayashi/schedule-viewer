@@ -4,6 +4,7 @@ import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
 import { DiscardChangesDialog } from "./components/DiscardChangesDialog";
 import { ExternalChangeDialog } from "./components/ExternalChangeDialog";
 import { ExternalReloadDialog } from "./components/ExternalReloadDialog";
+import { MissingScheduleFileDialog } from "./components/MissingScheduleFileDialog";
 import { RecoveryConflictDialog } from "./components/RecoveryConflictDialog";
 import { RecoveryInvalidDialog } from "./components/RecoveryInvalidDialog";
 import { DiffDialog } from "./components/DiffDialog";
@@ -1028,8 +1029,15 @@ function App() {
       scheduleFile.recoveryConflictLabel ? (
         <RecoveryConflictDialog
           fileLabel={scheduleFile.recoveryConflictLabel}
+          missing={scheduleFile.recoveryConflictMissing}
           onOpenDisk={scheduleFile.confirmRecoveryOpenDisk}
           onRestoreEdits={scheduleFile.confirmRecoveryRestoreEdits}
+        />
+      ) : null}
+      {scheduleFile.missingScheduleLabel ? (
+        <MissingScheduleFileDialog
+          fileLabel={scheduleFile.missingScheduleLabel}
+          onClose={scheduleFile.dismissMissingSchedule}
         />
       ) : null}
       {scheduleFile.recoveryInvalidOpen &&

@@ -128,10 +128,17 @@ pub(crate) fn require_active_save_path(
     Ok(active.to_path_buf())
 }
 
-fn record_open(state: &Mutex<ScheduleFileState>, path: PathBuf, contents: &str) {
+fn record_open(
+    app: &tauri::AppHandle,
+    state: &Mutex<ScheduleFileState>,
+    path: PathBuf,
+    contents: &str,
+) -> Result<(), String> {
+    write_last_schedule_path(app, &path)?;
     let mut guard = state.lock().expect("schedule file state");
     guard.path = Some(path);
     guard.content_hash = Some(hash_contents(contents));
+    Ok(())
 }
 
 #[tauri::command]
@@ -139,13 +146,17 @@ async fn open_schedule_file(
     window: tauri::Window,
     app: tauri::AppHandle,
     _state: State<'_, Mutex<ScheduleFileState>>,
+    initial_directory: Option<String>,
 ) -> Result<Option<OpenScheduleResult>, String> {
-    let path = app
+    let mut picker = app
         .dialog()
         .file()
         .set_parent(&window)
-        .add_filter("JSON", &["json"])
-        .blocking_pick_file();
+        .add_filter("JSON", &["json"]);
+    if let Some(directory) = dialog_start_directory(&app, initial_directory.as_deref()) {
+        picker = picker.set_directory(directory);
+    }
+    let path = picker.blocking_pick_file();
 
     match path {
         Some(file_path) => {
@@ -162,6 +173,7 @@ async fn open_schedule_file(
 
 #[tauri::command]
 fn accept_opened_schedule(
+    app: tauri::AppHandle,
     state: State<'_, Mutex<ScheduleFileState>>,
     path: String,
     contents: String,
@@ -169,8 +181,7 @@ fn accept_opened_schedule(
     if contents.len() as u64 > MAX_SCHEDULE_BYTES {
         return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
     }
-    record_open(state.inner(), PathBuf::from(path), &contents);
-    Ok(())
+    record_open(&app, state.inner(), PathBuf::from(path), &contents)
 }
 
 #[tauri::command]
@@ -283,7 +294,12 @@ async fn save_schedule_file(
     }
 
     write_utf8_atomic(&target, &contents)?;
-    record_open(state.inner(), target.clone(), &contents);
+    record_open(
+        window.app_handle(),
+        state.inner(),
+        target.clone(),
+        &contents,
+    )?;
     Ok(Some(target.to_string_lossy().into_owned()))
 }
 
@@ -557,6 +573,151 @@ fn read_schedule_file_at_path(app: tauri::AppHandle, path: String) -> Result<Str
     read_utf8(&path_buf)
 }
 
+fn last_schedule_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join("last-schedule.json"))
+}
+
+fn parse_last_schedule_path(text: &str) -> Result<String, String> {
+    let value: serde_json::Value = serde_json::from_str(text)
+        .map_err(|_| "前回のファイルの記録の形式が正しくありません。".to_string())?;
+    let path = value
+        .get("path")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .trim();
+    if path.is_empty() {
+        return Err("前回のファイルの記録の形式が正しくありません。".to_string());
+    }
+    Ok(path.to_string())
+}
+
+fn parse_recovery_path(text: &str) -> Result<String, String> {
+    let value: serde_json::Value = serde_json::from_str(text)
+        .map_err(|_| "復旧用の控えの形式が正しくありません。".to_string())?;
+    let path = value
+        .get("path")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .trim();
+    if path.is_empty() {
+        return Err("復旧用の控えの形式が正しくありません。".to_string());
+    }
+    Ok(path.to_string())
+}
+
+pub(crate) fn resolve_remembered_path(
+    last_schedule_text: Option<&str>,
+    recovery_text: Option<&str>,
+) -> Result<Option<String>, String> {
+    if let Some(text) = last_schedule_text {
+        return Ok(Some(parse_last_schedule_path(text)?));
+    }
+    let Some(text) = recovery_text else {
+        return Ok(None);
+    };
+    if text.is_empty() {
+        return Ok(None);
+    }
+    match parse_recovery_path(text) {
+        Ok(path) => Ok(Some(path)),
+        Err(_) => Ok(None),
+    }
+}
+
+pub(crate) fn choose_open_directory(
+    requested: Option<&str>,
+    requested_is_dir: bool,
+    home: Option<&str>,
+) -> Option<String> {
+    let requested = requested?;
+    if requested_is_dir {
+        return Some(requested.to_string());
+    }
+    home.map(str::to_string)
+}
+
+fn dialog_start_directory(app: &tauri::AppHandle, requested: Option<&str>) -> Option<PathBuf> {
+    let requested_is_dir = requested
+        .map(|value| Path::new(value).is_dir())
+        .unwrap_or(false);
+    let home = app.path().home_dir().ok();
+    let home_text = home.as_ref().map(|path| path.to_string_lossy().into_owned());
+    choose_open_directory(requested, requested_is_dir, home_text.as_deref()).map(PathBuf::from)
+}
+
+fn write_last_schedule_path(app: &tauri::AppHandle, path: &Path) -> Result<(), String> {
+    let text = serde_json::json!({ "path": path.to_string_lossy() }).to_string();
+    write_utf8_atomic(&last_schedule_path(app)?, &text)
+}
+
+fn read_last_schedule_text(app: &tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = last_schedule_path(app)?;
+    if !path.is_file() {
+        return Ok(None);
+    }
+    Ok(Some(read_utf8(&path)?))
+}
+
+fn read_recovery_text(app: &tauri::AppHandle) -> Result<Option<String>, String> {
+    let path = schedule_recovery_path(app)?;
+    if !path.is_file() {
+        return Ok(None);
+    }
+    Ok(Some(read_utf8(&path)?))
+}
+
+#[derive(Serialize)]
+struct LastScheduleRead {
+    path: String,
+    contents: Option<String>,
+    error: Option<String>,
+}
+
+#[tauri::command]
+fn read_last_schedule_file(app: tauri::AppHandle) -> Result<Option<LastScheduleRead>, String> {
+    let last_text = read_last_schedule_text(&app)?;
+    let recovery_text = if last_text.is_none() {
+        read_recovery_text(&app)?
+    } else {
+        None
+    };
+    let remembered =
+        resolve_remembered_path(last_text.as_deref(), recovery_text.as_deref())?;
+    let Some(path) = remembered else {
+        return Ok(None);
+    };
+    let path_buf = PathBuf::from(&path);
+    if !path_buf.is_file() {
+        return Ok(Some(LastScheduleRead {
+            path,
+            contents: None,
+            error: Some(SCHEDULE_FILE_NOT_FOUND.to_string()),
+        }));
+    }
+    match read_utf8(&path_buf) {
+        Ok(contents) => Ok(Some(LastScheduleRead {
+            path,
+            contents: Some(contents),
+            error: None,
+        })),
+        Err(message) => Ok(Some(LastScheduleRead {
+            path,
+            contents: None,
+            error: Some(message),
+        })),
+    }
+}
+
+#[tauri::command]
+fn clear_last_schedule_path(app: tauri::AppHandle) -> Result<(), String> {
+    let path = last_schedule_path(&app)?;
+    if path.exists() {
+        fs::remove_file(&path)
+            .map_err(|e| format!("前回のファイルの記録を削除できません: {}", e))?;
+    }
+    Ok(())
+}
+
 #[derive(Serialize)]
 struct CalendarStateResult {
     label: Option<String>,
@@ -640,6 +801,8 @@ pub fn run() {
             write_schedule_recovery,
             delete_schedule_recovery,
             read_schedule_file_at_path,
+            read_last_schedule_file,
+            clear_last_schedule_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -649,7 +812,10 @@ pub fn run() {
 mod tests {
     use std::path::PathBuf;
 
-    use super::{recovery_targets_path, require_active_save_path, sanitize_export_filename};
+    use super::{
+        choose_open_directory, recovery_targets_path, require_active_save_path,
+        resolve_remembered_path, sanitize_export_filename,
+    };
 
     #[test]
     fn sanitize_export_filename_removes_path_separators() {
@@ -683,6 +849,45 @@ mod tests {
         assert!(require_active_save_path(Some(&active), Some("/tmp/b.json")).is_err());
         assert!(require_active_save_path(None, Some("/tmp/a.json")).is_err());
         assert!(require_active_save_path(Some(&active), None).is_err());
+    }
+
+    #[test]
+    fn resolve_remembered_path_prefers_last_schedule_over_recovery() {
+        let last = r#"{"path":"/tmp/current.json"}"#;
+        let recovery = r#"{"path":"/tmp/old.json","baselineJson":"{}","documentJson":"{}"}"#;
+        let path = resolve_remembered_path(Some(last), Some(recovery)).unwrap();
+        assert_eq!(path.as_deref(), Some("/tmp/current.json"));
+    }
+
+    #[test]
+    fn resolve_remembered_path_uses_recovery_when_last_schedule_is_absent() {
+        let recovery = r#"{"path":"/tmp/plan.json","baselineJson":"{}","documentJson":"{}"}"#;
+        let path = resolve_remembered_path(None, Some(recovery)).unwrap();
+        assert_eq!(path.as_deref(), Some("/tmp/plan.json"));
+        assert_eq!(resolve_remembered_path(None, None).unwrap(), None);
+    }
+
+    #[test]
+    fn resolve_remembered_path_rejects_broken_last_schedule_and_skips_broken_recovery() {
+        assert!(resolve_remembered_path(Some("{"), None).is_err());
+        assert_eq!(resolve_remembered_path(None, Some("{")).unwrap(), None);
+    }
+
+    #[test]
+    fn choose_open_directory_uses_parent_or_home() {
+        assert_eq!(choose_open_directory(None, false, Some("/home/me")), None);
+        assert_eq!(
+            choose_open_directory(Some("/tmp/plans"), true, Some("/home/me")).as_deref(),
+            Some("/tmp/plans")
+        );
+        assert_eq!(
+            choose_open_directory(Some("/tmp/missing"), false, Some("/home/me")).as_deref(),
+            Some("/home/me")
+        );
+        assert_eq!(
+            choose_open_directory(Some("/tmp/missing"), false, None),
+            None
+        );
     }
 
     #[test]

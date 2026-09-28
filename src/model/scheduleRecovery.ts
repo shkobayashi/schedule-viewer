@@ -12,6 +12,14 @@ export type ParsedRecoveryDraft =
 export type RecoveryStartupAction =
   | { kind: "none" }
   | {
+      kind: "openSaved";
+      path: string;
+      document: ScheduleDocument;
+      baselineJson: string;
+      diskContents: string;
+      ignoredDraft: boolean;
+    }
+  | {
       kind: "restore";
       path: string;
       document: ScheduleDocument;
@@ -26,8 +34,23 @@ export type RecoveryStartupAction =
       document: ScheduleDocument;
     }
   | { kind: "invalidDraft"; message: string }
-  | { kind: "diskMissing"; path: string }
-  | { kind: "invalidDisk"; message: string; path: string };
+  | { kind: "missingNotice"; path: string; ignoredDraft: boolean }
+  | {
+      kind: "missingWithEdits";
+      path: string;
+      document: ScheduleDocument;
+      baselineJson: string;
+    }
+  | {
+      kind: "invalidDisk";
+      message: string;
+      path: string;
+      ignoredDraft: boolean;
+    };
+
+export function actionIgnoresDraft(action: RecoveryStartupAction): boolean {
+  return "ignoredDraft" in action && action.ignoredDraft;
+}
 
 export function parseRecoveryDraft(text: string): ParsedRecoveryDraft {
   const normalized = text.replace(/^\uFEFF/, "");
@@ -73,39 +96,94 @@ export function parseRecoveryDraft(text: string): ParsedRecoveryDraft {
   };
 }
 
+function isDiskMissing(
+  diskContents: string | null,
+  diskReadError: string | null,
+): boolean {
+  if (diskReadError != null) {
+    return (
+      diskReadError.includes(SCHEDULE_FILE_NOT_FOUND) ||
+      diskReadError.includes("見つかりません")
+    );
+  }
+  return diskContents == null;
+}
+
 export function decideRecoveryStartup(
+  lastPath: string | null,
   draftText: string | null,
   diskContents: string | null,
   diskReadError: string | null,
 ): RecoveryStartupAction {
-  if (draftText == null || draftText.length === 0) {
-    return { kind: "none" };
-  }
-  const parsedDraft = parseRecoveryDraft(draftText);
-  if (!parsedDraft.ok) {
-    return { kind: "invalidDraft", message: parsedDraft.message };
-  }
-  const { draft } = parsedDraft;
-
-  if (diskReadError != null) {
-    if (
-      diskReadError.includes(SCHEDULE_FILE_NOT_FOUND) ||
-      diskReadError.includes("見つかりません")
-    ) {
-      return { kind: "diskMissing", path: draft.path };
+  const hasDraftText = draftText != null && draftText.length > 0;
+  let draft: ScheduleRecoveryDraft | null = null;
+  if (hasDraftText) {
+    const parsedDraft = parseRecoveryDraft(draftText);
+    if (!parsedDraft.ok) {
+      return { kind: "invalidDraft", message: parsedDraft.message };
     }
-    return { kind: "invalidDisk", message: diskReadError, path: draft.path };
-  }
-  if (diskContents == null) {
-    return { kind: "diskMissing", path: draft.path };
+    draft = parsedDraft.draft;
   }
 
-  const diskParsed = parseScheduleText(diskContents);
+  const remembered =
+    lastPath != null && lastPath.trim().length > 0 ? lastPath : null;
+  let ignoredDraft = false;
+  let path = remembered;
+  if (path == null) {
+    if (draft == null) return { kind: "none" };
+    path = draft.path;
+  } else if (draft != null && draft.path !== path) {
+    ignoredDraft = true;
+    draft = null;
+  }
+
+  if (diskReadError != null && !isDiskMissing(diskContents, diskReadError)) {
+    return {
+      kind: "invalidDisk",
+      message: diskReadError,
+      path,
+      ignoredDraft,
+    };
+  }
+
+  if (isDiskMissing(diskContents, diskReadError)) {
+    if (draft == null) {
+      return { kind: "missingNotice", path, ignoredDraft };
+    }
+    const docParsed = parseScheduleText(draft.documentJson);
+    if (!docParsed.ok) {
+      return { kind: "invalidDraft", message: docParsed.message };
+    }
+    const baselineParsed = parseScheduleText(draft.baselineJson);
+    if (!baselineParsed.ok) {
+      return { kind: "invalidDraft", message: baselineParsed.message };
+    }
+    return {
+      kind: "missingWithEdits",
+      path,
+      document: docParsed.document,
+      baselineJson: baselineParsed.canonicalJson,
+    };
+  }
+
+  const diskParsed = parseScheduleText(diskContents ?? "");
   if (!diskParsed.ok) {
     return {
       kind: "invalidDisk",
       message: diskParsed.message,
-      path: draft.path,
+      path,
+      ignoredDraft,
+    };
+  }
+
+  if (draft == null) {
+    return {
+      kind: "openSaved",
+      path,
+      document: diskParsed.document,
+      baselineJson: diskParsed.canonicalJson,
+      diskContents: diskContents ?? "",
+      ignoredDraft,
     };
   }
 
@@ -127,17 +205,17 @@ export function decideRecoveryStartup(
   if (diskParsed.canonicalJson === baselineParsed.canonicalJson) {
     return {
       kind: "restore",
-      path: draft.path,
+      path,
       document: docParsed.document,
       baselineJson: canonicalDraft.baselineJson,
-      diskContents,
+      diskContents: diskContents ?? "",
     };
   }
 
   return {
     kind: "conflict",
-    path: draft.path,
-    diskContents,
+    path,
+    diskContents: diskContents ?? "",
     draft: canonicalDraft,
     document: docParsed.document,
   };
