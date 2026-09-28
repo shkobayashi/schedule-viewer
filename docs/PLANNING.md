@@ -48,7 +48,7 @@
 
 ## リポジトリ / 開発環境
 
-- GitHub単一リポジトリ（`CollabCentralOrganization/schedule-viewer`）
+- GitHub単一リポジトリ（`shkobayashi/schedule-viewer`）
 - 採用ディレクトリ構成（Phase 0 で反映済み）:
 
 ```

@@ -34,7 +34,7 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 
 ## インストール
 
-メンバー向けの配布物は [GitHub Releases](https://github.com/CollabCentralOrganization/schedule-viewer/releases) から取得する。Release には配布物の SHA-256（`SHA256SUMS`）が付く。
+メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から取得する。Release には配布物の SHA-256（`SHA256SUMS`）が付く。
 
 - **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`
 - **Windows (x64)**: `schedule-viewer_X.Y.Z_x64-setup.exe` を実行する。署名がないため、SmartScreen の確認が出ることがある
