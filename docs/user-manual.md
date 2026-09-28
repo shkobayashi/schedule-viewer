@@ -15,7 +15,7 @@ schedule-viewer を使う人向けの手順です。ボタン名や色の意味�
 
 ## インストールと起動
 
-[GitHub Releases](https://github.com/CollabCentralOrganization/schedule-viewer/releases) から、使う OS 用のファイルをダウンロードします。`SHA256SUMS` で配布物の SHA-256 を確認できます。
+[GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から、使う OS 用のファイルをダウンロードします。`SHA256SUMS` で配布物の SHA-256 を確認できます。
 
 - Ubuntu 22.04 以降では、`schedule-viewer_X.Y.Z_amd64.deb` を `sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb` で入れ、`schedule-viewer` で起動します
 - Windows では、`schedule-viewer_X.Y.Z_x64-setup.exe` を実行し、スタートメニューから起動します

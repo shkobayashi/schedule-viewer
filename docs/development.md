@@ -219,7 +219,7 @@ CI は変更されたパスでジョブを分ける。
 
 ### ダウンロード
 
-メンバー向けの配布物は [GitHub Releases](https://github.com/CollabCentralOrganization/schedule-viewer/releases) から取得する。
+メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から取得する。
 
 - **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`
 - **Windows (x64)**: `schedule-viewer_X.Y.Z_x64-setup.exe` を実行
