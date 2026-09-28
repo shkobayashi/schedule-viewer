@@ -295,6 +295,47 @@ describe("formatScheduleDiff", () => {
     );
   });
 
+  it("shows a cleared milestone link and the deleted milestone without an order line", () => {
+    const linked = task({
+      id: TASK_A,
+      name: "基本設計",
+      milestoneId: MS_A,
+    });
+    const file = doc(design([linked]), [
+      { id: MS_A, name: "要件確定", date: "2026-04-01" },
+    ]);
+    const screen = doc(design([{ ...linked, milestoneId: null }]), []);
+    const text = formatScheduleDiff(screen, file, "plan.json");
+    expect(text).toContain(
+      [
+        "変更 基本設計 (00000000-0000-4000-8000-00000000000a)",
+        "  場所: 設計 / 上流",
+        "  milestoneId: 要件確定 (00000000-0000-4000-8000-0000000000a1) → （なし）",
+      ].join("\n"),
+    );
+    expect(text).toContain(
+      [
+        "削除 要件確定 (00000000-0000-4000-8000-0000000000a1)",
+        "  name: 要件確定",
+        "  date: 2026-04-01",
+      ].join("\n"),
+    );
+    expect(text).not.toContain("並び");
+  });
+
+  it("does not write a milestone order line when a milestone is appended", () => {
+    const file = doc(design([task({ id: TASK_A, name: "基本設計" })]), [
+      { id: MS_A, name: "要件確定", date: "2026-04-01" },
+    ]);
+    const screen = doc(design([task({ id: TASK_A, name: "基本設計" })]), [
+      { id: MS_A, name: "要件確定", date: "2026-04-01" },
+      { id: MS_B, name: "設計完了", date: "2026-03-01" },
+    ]);
+    const text = formatScheduleDiff(screen, file, "plan.json");
+    expect(text).toContain("追加 設計完了 (00000000-0000-4000-8000-0000000000b1)");
+    expect(text).not.toContain("並び");
+  });
+
   it("writes a missing note as （なし）", () => {
     const file = doc(design([task({ id: TASK_A, name: "基本設計", note: "メモ" })]));
     const screen = doc(design([task({ id: TASK_A, name: "基本設計" })]));
