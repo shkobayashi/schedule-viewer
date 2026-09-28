@@ -3,7 +3,11 @@ import {
   decideRecoveryStartup,
   parseRecoveryDraft,
 } from "./scheduleRecovery";
-import { SCHEDULE_FILE_NOT_FOUND, serializeScheduleDocument } from "./scheduleFile";
+import {
+  SCHEDULE_FILE_NOT_FOUND,
+  scheduleParentDirectory,
+  serializeScheduleDocument,
+} from "./scheduleFile";
 import { sampleCategories, sampleMilestones, SAMPLE_PROJECT_TITLE } from "../sample/schedule";
 
 const baselineJson = serializeScheduleDocument(
@@ -45,14 +49,45 @@ describe("parseRecoveryDraft", () => {
   });
 });
 
+describe("scheduleParentDirectory", () => {
+  it("returns the parent and skips a bare filename", () => {
+    expect(scheduleParentDirectory("/tmp/plan.json")).toBe("/tmp");
+    expect(scheduleParentDirectory("C:\\plans\\plan.json")).toBe("C:\\plans");
+    expect(scheduleParentDirectory("plan.json")).toBeNull();
+    expect(scheduleParentDirectory("/plan.json")).toBeNull();
+  });
+});
+
 describe("decideRecoveryStartup", () => {
-  it("returns none when no draft", () => {
-    expect(decideRecoveryStartup(null, baselineJson, null).kind).toBe("none");
+  const path = "/tmp/plan.json";
+
+  it("returns none when nothing was open", () => {
+    expect(decideRecoveryStartup(null, null, null, null).kind).toBe("none");
+  });
+
+  it("opens the saved file when there is no draft", () => {
+    const action = decideRecoveryStartup(path, null, baselineJson, null);
+    expect(action.kind).toBe("openSaved");
+    if (action.kind === "openSaved") {
+      expect(action.path).toBe(path);
+      expect(action.baselineJson).toBe(baselineJson);
+      expect(action.ignoredDraft).toBe(false);
+    }
+  });
+
+  it("opens a saved file when only formatting differs", () => {
+    const minified = JSON.stringify(JSON.parse(baselineJson));
+    const action = decideRecoveryStartup(path, null, minified, null);
+    expect(action.kind).toBe("openSaved");
+    if (action.kind === "openSaved") {
+      expect(action.baselineJson).toBe(baselineJson);
+    }
   });
 
   it("restores when disk matches baseline", () => {
     const doc = withTitle("編集中");
     const action = decideRecoveryStartup(
+      path,
       draftJson(doc),
       baselineJson,
       null,
@@ -68,6 +103,7 @@ describe("decideRecoveryStartup", () => {
     const doc = withTitle("編集中");
     const disk = withTitle("LLM更新");
     const action = decideRecoveryStartup(
+      path,
       draftJson(doc),
       disk,
       null,
@@ -76,24 +112,65 @@ describe("decideRecoveryStartup", () => {
   });
 
   it("returns invalidDraft for broken draft wrapper", () => {
-    const action = decideRecoveryStartup("{", baselineJson, null);
+    const action = decideRecoveryStartup(path, "{", baselineJson, null);
     expect(action.kind).toBe("invalidDraft");
   });
 
-  it("returns diskMissing when file not found", () => {
+  it("returns missingWithEdits when the file is gone and a draft exists", () => {
     const doc = withTitle("編集中");
     const action = decideRecoveryStartup(
+      path,
       draftJson(doc),
       null,
       SCHEDULE_FILE_NOT_FOUND,
     );
-    expect(action.kind).toBe("diskMissing");
+    expect(action.kind).toBe("missingWithEdits");
+    if (action.kind === "missingWithEdits") {
+      expect(action.document.title).toBe("編集中");
+      expect(action.path).toBe(path);
+    }
+  });
+
+  it("returns missingNotice when the saved file is gone", () => {
+    const action = decideRecoveryStartup(
+      path,
+      null,
+      null,
+      SCHEDULE_FILE_NOT_FOUND,
+    );
+    expect(action.kind).toBe("missingNotice");
+    if (action.kind === "missingNotice") {
+      expect(action.ignoredDraft).toBe(false);
+    }
+  });
+
+  it("uses the draft path when no last path was stored", () => {
+    const doc = withTitle("編集中");
+    const action = decideRecoveryStartup(null, draftJson(doc), baselineJson, null);
+    expect(action.kind).toBe("restore");
+    if (action.kind === "restore") {
+      expect(action.path).toBe(path);
+    }
+  });
+
+  it("ignores a draft for a different path and opens the remembered file", () => {
+    const other = JSON.stringify({
+      path: "/tmp/other.json",
+      baselineJson,
+      documentJson: withTitle("編集中"),
+    });
+    const action = decideRecoveryStartup(path, other, baselineJson, null);
+    expect(action.kind).toBe("openSaved");
+    if (action.kind === "openSaved") {
+      expect(action.path).toBe(path);
+      expect(action.ignoredDraft).toBe(true);
+    }
   });
 
   it("restores when disk formatting differs but canonical matches", () => {
     const doc = withTitle("編集中");
     const minified = JSON.stringify(JSON.parse(baselineJson));
-    const action = decideRecoveryStartup(draftJson(doc), minified, null);
+    const action = decideRecoveryStartup(path, draftJson(doc), minified, null);
     expect(action.kind).toBe("restore");
     if (action.kind === "restore") {
       expect(action.baselineJson).toBe(baselineJson);
@@ -103,6 +180,7 @@ describe("decideRecoveryStartup", () => {
   it("returns invalidDisk when the file fails validation", () => {
     const doc = withTitle("編集中");
     const action = decideRecoveryStartup(
+      path,
       draftJson(doc),
       "{",
       null,
