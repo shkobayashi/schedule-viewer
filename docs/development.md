@@ -237,6 +237,19 @@ macOS 用の自動ビルドはまだない。必要なときは下の「配布�
 
 変更の要約は、そのバージョン上げのコミットで [CHANGELOG.md](../CHANGELOG.md) に書く。
 
+## アプリアイコン
+
+ランチャー用の原画は `src-tauri/icons/icon.svg`（1024px）である。Mac、Windows、Ubuntu は同じ絵を使う。地は画面のインディゴ（`#4C5FD5`）の角丸で、キャンバスの端までは塗らない。白い横棒はガントの一行、その上を横切る短いコーラル（`#E2542A`）は今日の線である。文字と目盛りは入れない。光は左上からだけにして、面に薄いハイライトを乗せる。
+
+絵を変えたときは、リポジトリ直下で次を実行する。
+
+```bash
+npm run tauri icon src-tauri/icons/icon.svg
+rm -rf src-tauri/icons/android src-tauri/icons/ios
+```
+
+このコマンドが、`src-tauri/tauri.conf.json` の `bundle.icon` にある PNG と `icon.icns`、`icon.ico`、Windows 用の Square ロゴを原画から作り直す。`android` と `ios` も同時にできる。配布はデスクトップだけなので、その二つのディレクトリは削除する。macOS 26 の Icon Composer 用レイヤーは、三つの OS でこの一枚が使えることを確認してから別に足す。
+
 ## 配布用ビルド
 
 パッケージは、動かしたい OS の上で作る。Mac 用は Mac、Windows 用は Windows、Ubuntu 用は Ubuntu でビルドする。できたファイルの CPU は、ビルドしたマシンと同じになる。一般的な PC は x86_64、Apple Silicon の Mac は arm64 である。
