@@ -25,6 +25,8 @@
     "allow-read-schedule-recovery",
     "allow-write-schedule-recovery",
     "allow-delete-schedule-recovery",
-    "allow-read-schedule-file-at-path"
+    "allow-read-schedule-file-at-path",
+    "allow-read-last-schedule-file",
+    "allow-clear-last-schedule-path"
   ]
 }

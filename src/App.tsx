@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
+import { DeleteMilestoneDialog } from "./components/DeleteMilestoneDialog";
 import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
 import { DiscardChangesDialog } from "./components/DiscardChangesDialog";
 import { ExternalChangeDialog } from "./components/ExternalChangeDialog";
 import { ExternalReloadDialog } from "./components/ExternalReloadDialog";
+import { MissingScheduleFileDialog } from "./components/MissingScheduleFileDialog";
 import { RecoveryConflictDialog } from "./components/RecoveryConflictDialog";
 import { RecoveryInvalidDialog } from "./components/RecoveryInvalidDialog";
 import { DiffDialog } from "./components/DiffDialog";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
+import { MilestoneAddDialog } from "./components/MilestoneAddDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
@@ -37,6 +40,7 @@ import {
   serializeScheduleDocument,
 } from "./model/scheduleFile";
 import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
+import { milestoneLinkedByAnyTask } from "./model/milestones";
 import {
   exportSchedule,
   ScheduleExportTooLargeError,
@@ -141,7 +145,11 @@ function App() {
   const [diffError, setDiffError] = useState<string | null>(null);
   const diffRequestRef = useRef(0);
   const [addOpen, setAddOpen] = useState(false);
+  const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteMilestoneId, setDeleteMilestoneId] = useState<ScheduleId | null>(
+    null,
+  );
   const [focusTaskId, setFocusTaskId] = useState<ScheduleId | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -728,6 +736,11 @@ function App() {
           label: "編集",
           onSelect: () => openMilestoneEdit(milestoneId),
         },
+        {
+          id: "delete",
+          label: "削除",
+          onSelect: () => setDeleteMilestoneId(milestoneId),
+        },
       ];
     }
     const taskId = contextMenu.taskId;
@@ -807,6 +820,7 @@ function App() {
         onExportHtml={() => setExportOpen(true)}
         canDelete={schedule.selectedTaskId != null}
         onAdd={() => setAddOpen(true)}
+        onAddMilestone={() => setAddMilestoneOpen(true)}
         onDelete={() => {
           if (schedule.selectedTaskId != null) setDeleteOpen(true);
         }}
@@ -817,7 +831,8 @@ function App() {
         Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
         ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・ 境界をドラッグで左の幅を変える
         ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
-        ・ タスクを選んで「系統」で前後だけ表示 ・ マイルストンは帯のひし形をドラッグ、ダブルクリックで編集
+        ・ タスクを選んで「系統」で前後だけ表示 ・
+        マイルストンは「マイルストン追加」で足し、帯のひし形をドラッグ、ダブルクリックで編集、右クリックで削除
         ・ ⌘/Ctrl+Z で取り消し、Shift+Z または Ctrl+Y でやり直し
       </div>
       <div ref={mainRef} className="main">
@@ -927,6 +942,17 @@ function App() {
           onSave={schedule.saveMilestoneEdit}
         />
       ) : null}
+      {addMilestoneOpen ? (
+        <MilestoneAddDialog
+          initialDate={schedule.today}
+          onClose={() => setAddMilestoneOpen(false)}
+          onSave={(input) => {
+            const message = schedule.addMilestone(input);
+            if (message == null) setAddMilestoneOpen(false);
+            return message;
+          }}
+        />
+      ) : null}
       {addOpen ? (
         <TaskAddDialog
           categories={schedule.categories}
@@ -959,6 +985,23 @@ function App() {
             const id = schedule.addTask(input);
             setAddOpen(false);
             if (id != null) setFocusTaskId(id);
+          }}
+        />
+      ) : null}
+      {deleteMilestoneId != null ? (
+        <DeleteMilestoneDialog
+          milestoneName={
+            schedule.milestones.find((item) => item.id === deleteMilestoneId)
+              ?.name ?? "このマイルストン"
+          }
+          hasLinkedTasks={milestoneLinkedByAnyTask(
+            schedule.categories,
+            deleteMilestoneId,
+          )}
+          onClose={() => setDeleteMilestoneId(null)}
+          onConfirm={() => {
+            schedule.deleteMilestone(deleteMilestoneId);
+            setDeleteMilestoneId(null);
           }}
         />
       ) : null}
@@ -1028,8 +1071,15 @@ function App() {
       scheduleFile.recoveryConflictLabel ? (
         <RecoveryConflictDialog
           fileLabel={scheduleFile.recoveryConflictLabel}
+          missing={scheduleFile.recoveryConflictMissing}
           onOpenDisk={scheduleFile.confirmRecoveryOpenDisk}
           onRestoreEdits={scheduleFile.confirmRecoveryRestoreEdits}
+        />
+      ) : null}
+      {scheduleFile.missingScheduleLabel ? (
+        <MissingScheduleFileDialog
+          fileLabel={scheduleFile.missingScheduleLabel}
+          onClose={scheduleFile.dismissMissingSchedule}
         />
       ) : null}
       {scheduleFile.recoveryInvalidOpen &&

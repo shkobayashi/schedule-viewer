@@ -41,8 +41,8 @@ flowchart TD
 | ファイル | 役割 |
 | --- | --- |
 | `AppMenu.tsx` | ☰ メニュー |
-| `ContextMenu.tsx` | タスクとマイルストンの右クリックメニュー。`#root` に出す |
-| `Toolbar.tsx` | 見出し、検索、絞り込み、系統、追加、削除、ズーム |
+| `ContextMenu.tsx` | タスクとマイルストンの右クリックメニュー。マイルストンは編集と削除。`#root` に出す |
+| `Toolbar.tsx` | 見出し、検索、絞り込み、系統、追加、マイルストン追加、削除、ズーム |
 | `Sidebar.tsx` | 左の行、折りたたみ、名前の横ずらし |
 | `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
@@ -90,9 +90,9 @@ flowchart TD
 | --- | --- | --- | --- |
 | 文書（`ScheduleDocument`） | タイトル、カテゴリ、マイルストン | `useSchedule` | ファイルと控えだけ。取り消しはメモリ |
 | 表示 | 絞り込み、選択、折りたたみ、系統、ズーム、スクロール | `useSchedule` と `useTimelineView` | 残さない。ファイルを開くと初期化する |
-| ファイル | パス、未保存判定の基準にする JSON、ディスクのハッシュ | `useScheduleFile` と Rust の `ScheduleFileState` | パスは開いているあいだ。控えはアプリデータ |
+| ファイル | パス、未保存判定の基準にする JSON、ディスクのハッシュ | `useScheduleFile` と Rust の `ScheduleFileState` | 前回のパスは `last-schedule.json`。未保存の控えはアプリデータ |
 
-取り消しのスナップショットに入るのは `categories` と `milestones` だけである。タイトルは履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。バーの移動と端のドラッグは、離したときに1回だけ `commitDocument` する。
+取り消しのスナップショットに入るのは `categories` と `milestones` だけである。タイトルは履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。バーの移動と端のドラッグは、離したときに1回だけ `commitDocument` する。マイルストンの追加と削除も、それぞれ 1 回の `commitDocument` である。削除は同じスナップショットで、その ID を指すタスクの `milestoneId` も外す。絞り込んでいたマイルストンを消して絞り込みを「すべて」に戻すのは表示状態であり、履歴に入らない。
 
 表示の状態のうち、表示サイズ、配色、左一覧の基準幅だけは localStorage に残る。キーの一覧は [データ仕様](data-format.md#アプリデータ) にある。画面に反映する解決済みの配色（ライトかダーク）は React の状態で持ち、システム追従のときは `prefers-color-scheme` の変化を監視する。左一覧の幅は、希望の基準幅と、チャートが 200px を下回らないよう縮めた表示幅を分ける。ウィンドウを狭めたときは表示だけ縮め、希望幅は残す。
 
@@ -144,9 +144,11 @@ flowchart TD
 
 「差分を表示」は、画面の保存形式と、`read_open_schedule_file` で読んだ開いているファイルを `formatScheduleDiff` に渡す。パスが無い、またはブラウザ版のときはファイルを読まず、「比べるファイルがありません」と出す。検証に失敗したときは差分ダイアログを出さない。読んだ内容は保存しない。`content_hash` は変えない。
 
-### 控え
+### 前回のファイルと控え
 
-未保存でパスがあるとき、変更から約1秒後と閉じる直前に `write_schedule_recovery` を呼ぶ。起動時は `read_schedule_recovery` と `read_schedule_file_at_path` でディスクを読み、`decideRecoveryStartup` が復元、競合、不正、ファイル無しを返す。`read_schedule_file_at_path` は、控えに書いてあるパスと一致するファイルだけを読む。
+開く成功と保存の成功で、`record_open` が `last-schedule.json` にパスを書く。未保存でパスがあるとき、変更から約1秒後と閉じる直前に `write_schedule_recovery` を呼ぶ。パスが無い状態で閉じるときは `clear_last_schedule_path` で覚えたパスを消す。
+
+起動時は `read_last_schedule_file` と `read_schedule_recovery` を読む。`read_last_schedule_file` は呼び出し元からパスを受け取らず、`last-schedule.json` のパスだけを読む。そのファイルが無いときは、控えの `path` に戻る。`decideRecoveryStartup` が、保存済みで開く、未保存の復元、競合、ファイル無し、不正を返す。覚えたパスと控えのパスが違うときは、覚えたパスを優先して控えは消す。ファイルが無く未保存があるときは、先にその内容を画面へ載せてから警告する。この起動でファイル無しを知らせたあとは、そのパスが再び読めるまで監視のファイルダイアログを出さない。`read_schedule_file_at_path` は、控えに書いてあるパスと一致するファイルだけを読む。
 
 ### 書き出し
 
@@ -173,7 +175,7 @@ flowchart TD
 
 | コマンド | 引数と戻り値 | 失敗と上限 | permission | TS |
 | --- | --- | --- | --- | --- |
-| `open_schedule_file` | ダイアログ。パスと本文、または取り消し | 10MB、UTF-8 | `open-schedule-file.toml` | `scheduleFile.ts` |
+| `open_schedule_file` | ダイアログ。任意の初期ディレクトリ。パスと本文、または取り消し | 10MB、UTF-8 | `open-schedule-file.toml` | `scheduleFile.ts` |
 | `accept_opened_schedule` | パスと本文。状態を記録 | 10MB | 同上 | 同上 |
 | `check_schedule_file_changed` | ディスクのハッシュが記憶と違うか | ファイルを開いていない | `check-schedule-file-changed.toml` | 同上 |
 | `poll_schedule_file_update` | 変化したときだけ本文 | 同上 | `poll-schedule-file-update.toml` | 同上 |
@@ -194,12 +196,14 @@ flowchart TD
 | `write_schedule_recovery` | 本文 | 10MB | 同上 | 同上 |
 | `delete_schedule_recovery` | なし | — | 同上 | 同上 |
 | `read_schedule_file_at_path` | パス。控えのパスと一致するときだけ本文 | `SCHEDULE_FILE_NOT_FOUND` | 同上 | 同上 |
+| `read_last_schedule_file` | 引数なし。覚えたパスと本文。無ければ null | 記録の形式。欠落は戻り値の error に `SCHEDULE_FILE_NOT_FOUND` | 同上 | 同上 |
+| `clear_last_schedule_path` | なし | — | 同上 | 同上 |
 
 ダイアログで選んだだけでは `ScheduleFileState` は更新されない。検証に通したあと `accept_opened_schedule` を呼ぶ。
 
 ## 永続化
 
-`ScheduleFileState` はプロセス内の Mutex で、開いているパスと本文の SHA-256 を持つ。フロントの未保存判定（基準 JSON との文字列比較）とは別である。
+`ScheduleFileState` はプロセス内の Mutex で、開いているパスと本文の SHA-256 を持つ。フロントの未保存判定（基準 JSON との文字列比較）とは別である。前回開いたパスは `last-schedule.json` に残る。
 
 `write_utf8_atomic` は、同じディレクトリの一時ファイルへ書き、flush と sync のあと `persist` で置き換える。
 
@@ -211,7 +215,7 @@ CSP は `default-src 'self'` で、インラインのスタイルと、Tauri の
 
 capability はメインウィンドウに、`core:default`、ウィンドウの close と destroy、上のコマンドだけを与える。close と destroy は、未保存の確認のあとフロントからウィンドウを閉じるために必要である。
 
-上書きは、開いているパスとフロントが渡したパスが一致するときだけ行う。任意のパスを読めるコマンドは無く、`read_schedule_file_at_path` は控えに書いたパスだけを読む。`read_open_schedule_file` は呼び出し元からパスを受け取らず、`ScheduleFileState` が覚えている開いているパスだけを読む。保存するファイル名は、区切り文字、制御文字、Windows の予約名を除く。カタログ ID も、パスに使えない文字を拒否する。
+上書きは、開いているパスとフロントが渡したパスが一致するときだけ行う。任意のパスを読めるコマンドは無く、`read_last_schedule_file` は覚えたパス（無ければ控えのパス）だけを読む。`read_schedule_file_at_path` は控えに書いたパスだけを読む。`read_open_schedule_file` は呼び出し元からパスを受け取らず、`ScheduleFileState` が覚えている開いているパスだけを読む。保存するファイル名は、区切り文字、制御文字、Windows の予約名を除く。カタログ ID も、パスに使えない文字を拒否する。
 
 ## 描画
 
@@ -236,7 +240,7 @@ capability はメインウィンドウに、`core:default`、ウィンドウの 
 | 期限超過 | `timeline.ts` の `isOverdue` | 完了以外で終了日が今日より前 |
 | マイルストン超過 | `milestones.ts` の `milestonesExceededBy` | 終了日が対応マイルストンの日付より後 |
 | 外部更新の判断 | `scheduleExternalReload.ts` | 不正、同じ内容、確認、即時反映 |
-| 起動時の控え | `scheduleRecovery.ts` | 一致なら復元、違いなら競合、不正と欠落は別の結果 |
+| 起動時の前回ファイル | `scheduleRecovery.ts` | 保存済みなら開く。一致なら未保存を復元、違いなら競合。ファイル無しと不正は別の結果 |
 | 書き出しの期間 | `exportView.ts` | 見えている行と、選んだマイルストン。画面全体の期間は使わない |
 
 ## ビルドとツール

@@ -12,14 +12,14 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 
 - カテゴリ、グループ、タスクの3段と、日付ヘッダー下のマイルストン帯
 - 担当者、ステータス、期限、前後関係、マイルストン、タスク名、ノートでの絞り込みと、選んだタスクの系統表示
-- バーの移動と期間変更、編集ダイアログ、タスクの追加と削除、取り消しとやり直し
+- バーの移動と期間変更、編集ダイアログ、タスクとマイルストンの追加と削除、取り消しとやり直し
 - 保存、開く、検索、編集、削除のキーボードショートカットと、タスクとマイルストンの右クリックメニュー
 - 期限超過、マイルストン超過、前後関係の破綻、本日のイナズマ線、非稼働日の表示
 - 見えている行の HTML または SVG への書き出し
 - 画面と開いている JSON の差分をコピーし、変更だけを渡せる
 - 左のタスク一覧の幅を、チャートとの境界をドラッグして変えられる
 - 設定画面での、メンバー一覧と稼働日カレンダーの取り込み、表示サイズと配色（ライト・ダーク）の変更
-- 開いている JSON がほかのプログラムに書き換えられたときの反映と、保存せずに閉じた編集の次回起動時の復元
+- 開いている JSON がほかのプログラムに書き換えられたときの反映と、前回開いたファイルと未保存の編集の次回起動時の復元
 
 操作の手順は [操作マニュアル](docs/user-manual.md)、挙動の定義は [外部仕様](docs/external-spec.md) を参照。
 
@@ -34,7 +34,7 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 
 ## インストール
 
-メンバー向けの配布物は [GitHub Releases](https://github.com/CollabCentralOrganization/schedule-viewer/releases) から取得する。Release には配布物の SHA-256（`SHA256SUMS`）が付く。
+メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から取得する。Release には配布物の SHA-256（`SHA256SUMS`）が付く。
 
 - **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`
 - **Windows (x64)**: `schedule-viewer_X.Y.Z_x64-setup.exe` を実行する。署名がないため、SmartScreen の確認が出ることがある

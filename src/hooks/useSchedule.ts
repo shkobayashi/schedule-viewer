@@ -24,11 +24,19 @@ import {
 } from "../model/rows";
 import { applyTaskNote } from "../model/taskNote";
 import {
+  appendMilestone,
+  milestoneFilterAfterDelete,
+  removeMilestone,
+  validateNewMilestone,
+} from "../model/milestones";
+import {
   cloneCategories,
+  collectScheduleIds,
   createScheduleId,
   insertTask,
   mapTasks,
   removeTask,
+  uniqueScheduleId,
   validateNewTask,
   validateTaskEdit,
 } from "../model/tasks";
@@ -506,6 +514,52 @@ export function useSchedule(
     [commitCategories, editingTaskId, title],
   );
 
+  const addMilestone = useCallback(
+    (input: { name: string; date: string }): string | null => {
+      const message = validateNewMilestone(input);
+      if (message) return message;
+      const id = uniqueScheduleId(
+        collectScheduleIds(
+          documentRef.current.categories,
+          documentRef.current.milestones,
+        ),
+      );
+      const milestone: Milestone = {
+        id,
+        name: input.name.trim(),
+        date: input.date,
+      };
+      commitDocument((current) => ({
+        ...current,
+        milestones: appendMilestone(current.milestones, milestone),
+      }));
+      return null;
+    },
+    [commitDocument],
+  );
+
+  const deleteMilestone = useCallback(
+    (id: ScheduleId) => {
+      commitDocument((current) => {
+        const next = removeMilestone(
+          current.categories,
+          current.milestones,
+          id,
+        );
+        return {
+          ...current,
+          categories: next.categories,
+          milestones: next.milestones,
+        };
+      });
+      setFilters((prev) => ({
+        ...prev,
+        milestone: milestoneFilterAfterDelete(prev.milestone, id),
+      }));
+    },
+    [commitDocument],
+  );
+
   const addTask = useCallback(
     (input: {
       name: string;
@@ -689,6 +743,8 @@ export function useSchedule(
     saveTaskNote,
     addTask,
     deleteTask,
+    addMilestone,
+    deleteMilestone,
     replaceDocument,
     reloadDocumentFromDisk,
     diskEpoch,
