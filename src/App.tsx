@@ -51,7 +51,8 @@ import {
   exportTimelineRange,
   milestonesForExport,
 } from "./model/exportView";
-import { addDays, isoDate, parseDate, roundToDay } from "./model/dates";
+import { parseDate } from "./model/dates";
+import { resizeEndIso, resizeStartIso } from "./model/dragDates";
 import {
   layoutMilestones,
   milestoneBandHeightPx,
@@ -624,10 +625,7 @@ function App() {
 
   const handleResizeStart = useCallback(
     (taskId: ScheduleId, groupX: number) => {
-      const start = isoDate(
-        roundToDay(range.timelineStart, xToDate(groupX)),
-      );
-      setTaskStart(taskId, start);
+      setTaskStart(taskId, resizeStartIso(range.timelineStart, xToDate, groupX));
     },
     [range.timelineStart, setTaskStart, xToDate],
   );
@@ -644,12 +642,10 @@ function App() {
 
   const handleResizeEnd = useCallback(
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
-      const exclusiveEnd = roundToDay(
-        range.timelineStart,
-        xToDate(groupX + barWidth),
+      setTaskEnd(
+        taskId,
+        resizeEndIso(range.timelineStart, xToDate, groupX, barWidth),
       );
-      const end = isoDate(addDays(exclusiveEnd, -1));
-      setTaskEnd(taskId, end);
     },
     [range.timelineStart, setTaskEnd, xToDate],
   );
@@ -964,7 +960,7 @@ function App() {
           <>
             Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
             ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・ 境界をドラッグで左の幅を変える
-            ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
+            ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更（操作中は開始日と終了日）、ダブルクリックで詳細編集
             ・ タスクを選んで「系統」で前後だけ表示 ・
             タスクを選んで「線を引く」または ⌘/Ctrl+L で後続を足す。線の上で Delete か右クリックで外す
             ・ マイルストンは「マイルストン追加」で足し、帯のひし形をドラッグ、ダブルクリックで編集、右クリックで削除
@@ -1011,6 +1007,7 @@ function App() {
             timelineEnd={range.timelineEnd}
             totalDays={range.totalDays}
             dateToX={view.dateToX}
+            xToDate={view.xToDate}
             selectedTaskId={schedule.selectedTaskId}
             onSelectTask={schedule.selectTask}
             onClearSelection={schedule.clearSelection}
