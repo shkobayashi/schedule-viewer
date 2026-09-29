@@ -643,6 +643,17 @@ input[type="number"] {
   font-weight: 600;
 }
 
+.confidence-tentative {
+  flex-shrink: 0;
+  margin-left: 6px;
+  color: var(--text);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: calc(10px * var(--s));
+  font-weight: 700;
+}
+
 .milestone-alert {
   flex-shrink: 0;
   margin-left: 6px;

@@ -3,9 +3,12 @@ import type { MemberId } from "./memberTypes";
 
 export type ScheduleId = string;
 
-export const SCHEDULE_SCHEMA_VERSION = 3;
+export const SCHEDULE_SCHEMA_VERSION = 4;
 
 export type TaskStatus = "not-started" | "in-progress" | "done";
+
+/** 日付を合意したかどうか。着手や進捗とは独立。 */
+export type TaskConfidence = "tentative" | "committed";
 
 export type Task = {
   id: ScheduleId;
@@ -15,6 +18,7 @@ export type Task = {
   assigneeId: MemberId | null;
   status: TaskStatus;
   progress: number;
+  confidence: TaskConfidence;
   /** このタスクの開始前に終わる先行タスク。後続は他タスクの predecessors から導く。 */
   predecessors: ScheduleId[];
   /** このタスクが間に合わせるマイルストン。未設定なら超過判定しない。 */
@@ -50,6 +54,8 @@ export type Category = {
 
 export type StatusFilter = "all" | "not-done" | TaskStatus;
 
+export type ConfidenceFilter = "all" | TaskConfidence;
+
 export type OverdueFilter = "all" | "overdue";
 
 export type RelationFilter = "all" | "broken";
@@ -70,6 +76,7 @@ export type ScheduleFilters = {
   /** "all" | "unassigned" | メンバー id */
   assignee: string;
   status: StatusFilter;
+  confidence: ConfidenceFilter;
   overdue: OverdueFilter;
   relation: RelationFilter;
   /** "all" | "none" | マイルストン id */

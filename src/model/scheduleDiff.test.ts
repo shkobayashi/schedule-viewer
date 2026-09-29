@@ -17,6 +17,7 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
     assigneeId: null,
     status: "not-started",
     progress: 0,
+    confidence: "committed",
     predecessors: [],
     milestoneId: null,
     ...overrides,
@@ -99,6 +100,12 @@ describe("formatScheduleDiff", () => {
     expect(text).toContain("  assigneeId: member-1");
     expect(text).toContain("  status: in-progress");
     expect(text).toContain("  progress: 20");
+    expect(text).toContain("  confidence: committed");
+    const progressAt = text.indexOf("  progress: 20");
+    const confidenceAt = text.indexOf("  confidence: committed");
+    const predecessorsAt = text.indexOf("  predecessors:");
+    expect(progressAt).toBeLessThan(confidenceAt);
+    expect(confidenceAt).toBeLessThan(predecessorsAt);
     expect(text).toContain(
       "  predecessors: 要件整理 (00000000-0000-4000-8000-00000000000a)",
     );

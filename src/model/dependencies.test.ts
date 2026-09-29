@@ -27,6 +27,7 @@ function task(id: string, predecessors: string[] = []): Task {
     assigneeId: null,
     status: "not-started",
     progress: 0,
+    confidence: "committed",
     predecessors,
     milestoneId: null,
   };

@@ -22,6 +22,7 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
     assigneeId: null,
     status: "not-started",
     progress: 0,
+    confidence: "committed",
     predecessors: [],
     milestoneId: null,
     ...overrides,

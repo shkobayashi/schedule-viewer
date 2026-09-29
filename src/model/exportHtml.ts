@@ -21,6 +21,7 @@ import { hasTaskNote, normalizeTaskNote } from "./taskNote";
 import type { Member, MemberId } from "./memberTypes";
 import type { Milestone, ScheduleId, Task, VisibleRow } from "./types";
 import type { CalendarDocument } from "./calendarTypes";
+import { hatchPatternId, hatchPatternMarkup } from "./hatch";
 import { nonWorkingDayClipRects } from "./nonWorkingDay";
 import { paletteFor, type ResolvedColorScheme } from "./palette";
 
@@ -98,6 +99,17 @@ export function scheduleExportFilename(
   return format === "svg" ? scheduleSvgFilename(title) : scheduleHtmlFilename(title);
 }
 
+function tentativeHatchPatterns(input: ScheduleExportInput): string {
+  const colors = new Set<string>();
+  for (const row of input.visibleRows) {
+    if (row.type !== "task" || row.task.confidence !== "tentative") continue;
+    colors.add(barColors(row.task, input.today, input.colorScheme).bg);
+  }
+  return [...colors]
+    .map((bg) => hatchPatternMarkup(bg, input.colorScheme))
+    .join("\n    ");
+}
+
 type ChartGraphic = {
   inner: string;
   chartWidth: number;
@@ -124,6 +136,7 @@ function buildChartGraphic(input: ScheduleExportInput): ChartGraphic {
     <marker id="arrow-broken" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
       <path d="M0,0 L7,3.5 L0,7 Z" fill="${chart.dependencyMarkerBroken}"/>
     </marker>
+    ${tentativeHatchPatterns(input)}
   </defs>`,
     renderHeader(input, chartWidth, dateToX),
     renderMilestones(input, chartWidth, dateToX),
@@ -171,6 +184,7 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
   .twist { width: ${px(16, input.labelScale)}; margin-right: ${px(4, input.labelScale)}; color: ${c.twist}; font-size: ${px(9, input.labelScale)}; }
   .name.overdue { color: ${c.overdue}; font-weight: 600; }
   .alert { margin-left: 6px; color: ${c.overdue}; background: ${c.overdueBg}; border-radius: 999px; padding: 1px 6px; font-size: ${px(10, input.labelScale)}; font-weight: 700; }
+  .tentative { margin-left: 6px; color: ${c.text}; background: ${c.accentSoft}; border-radius: 999px; padding: 1px 6px; font-size: ${px(10, input.labelScale)}; font-weight: 700; }
   .assignee { margin-left: 16px; color: ${c.textSecondary}; font-size: ${px(10, input.labelScale)}; padding-right: 12px; }
   .assignee.unassigned { color: ${c.unassignedText}; background: ${c.unassignedBg}; border-radius: 999px; padding: 1px 7px; font-weight: 700; }
   .assignee.unknown-member { color: ${c.unknownText}; background: ${c.unknownBg}; border-radius: 999px; padding: 1px 7px; font-weight: 700; }
@@ -272,6 +286,11 @@ function estimateTextWidth(value: string, fontSize: number): number {
   return width;
 }
 
+/** 行バッジの矩形幅。描画側の padding と揃える。 */
+function labelBadgeWidth(label: string, scale: number): number {
+  return estimateTextWidth(label, 10 * scale) + 12;
+}
+
 function wrapText(value: string, maxWidth: number, fontSize: number): string[] {
   if (!value) return [""];
   const lines: string[] = [];
@@ -304,18 +323,30 @@ function svgLabelWidth(input: ScheduleExportInput): number {
       );
       continue;
     }
-    const assignee = assigneeSidebarLabel(
-      resolveAssigneeDisplay(row.task.assigneeId, input.memberCatalog),
+    const assigneeDisplay = resolveAssigneeDisplay(
+      row.task.assigneeId,
+      input.memberCatalog,
     );
-    const alert = milestonesExceededBy(row.task, input.milestones).length > 0 ? 36 * scale : 0;
+    const assignee = assigneeSidebarLabel(assigneeDisplay);
+    const assigneeWidth =
+      assigneeDisplay.kind === "unassigned" || assigneeDisplay.kind === "unknown"
+        ? estimateTextWidth(assignee, 10 * scale) + 14
+        : estimateTextWidth(assignee, 10 * scale);
+    let badges = 0;
+    if (row.task.confidence === "tentative") {
+      badges += labelBadgeWidth("未確定", scale) + 6;
+    }
+    if (milestonesExceededBy(row.task, input.milestones).length > 0) {
+      badges += labelBadgeWidth("超過", scale) + 6;
+    }
     width = Math.max(
       width,
       26 * scale +
         18 * scale +
         estimateTextWidth(row.task.name, 12 * scale) +
-        alert +
+        badges +
         16 +
-        estimateTextWidth(assignee, 10 * scale) +
+        assigneeWidth +
         12 * scale,
     );
   }
@@ -431,10 +462,20 @@ function renderSvgLabelRow(
     ),
   );
   x += estimateTextWidth(row.task.name, nameSize) + 6;
+  if (row.task.confidence === "tentative") {
+    const badge = "未確定";
+    const badgeSize = 10 * input.labelScale;
+    const badgeW = labelBadgeWidth(badge, input.labelScale);
+    parts.push(
+      `<rect x="${n(x)}" y="${n(mid - 8)}" width="${n(badgeW)}" height="16" rx="8" fill="${c.accentSoft}"/>`,
+      text(x + 6, mid - badgeSize / 2, badge, badgeSize, c.text, true),
+    );
+    x += badgeW + 6;
+  }
   if (exceeded.length > 0) {
     const badge = "超過";
     const badgeSize = 10 * input.labelScale;
-    const badgeW = estimateTextWidth(badge, badgeSize) + 12;
+    const badgeW = labelBadgeWidth(badge, input.labelScale);
     parts.push(
       `<rect x="${n(x)}" y="${n(mid - 8)}" width="${n(badgeW)}" height="16" rx="8" fill="${c.overdueBg}"/>`,
       text(x + 6, mid - badgeSize / 2, badge, badgeSize, c.overdue, true),
@@ -490,6 +531,10 @@ function renderLabelRow(row: VisibleRow, input: ScheduleExportInput): string {
   const unknownMember = assigneeDisplay.kind === "unknown";
   const overdue = isOverdue(row.task, input.today);
   const exceeded = milestonesExceededBy(row.task, input.milestones);
+  const tentative =
+    row.task.confidence === "tentative"
+      ? `<span class="tentative">未確定</span>`
+      : "";
   const alert =
     exceeded.length > 0
       ? `<span class="alert">超過</span>`
@@ -501,7 +546,7 @@ function renderLabelRow(row: VisibleRow, input: ScheduleExportInput): string {
       ? " unknown-member"
       : "";
   const noteIcon = renderExportNoteIcon(row.task, input.labelScale, input.colorScheme);
-  return `<div class="label task${extraClass}" ${height}>${noteIcon}<span class="name${overdue ? " overdue" : ""}">${esc(row.task.name)}</span>${alert}<span class="assignee${extraClass}">${esc(assignee)}</span></div>`;
+  return `<div class="label task${extraClass}" ${height}>${noteIcon}<span class="name${overdue ? " overdue" : ""}">${esc(row.task.name)}</span>${tentative}${alert}<span class="assignee${extraClass}">${esc(assignee)}</span></div>`;
 }
 
 function renderExportNoteIcon(
@@ -770,8 +815,12 @@ function renderTaskBar(
         ? chart.unknownStroke
         : colors.border;
   const cap = Math.max(2, Math.round(input.barHeight * 0.16));
+  const fill =
+    task.confidence === "tentative"
+      ? `url(#${hatchPatternId(colors.bg)})`
+      : colors.bg;
   const parts = [
-    `<rect x="${n(x)}" y="${n(barY)}" width="${n(w)}" height="${n(input.barHeight)}" rx="4" fill="${colors.bg}"/>`,
+    `<rect x="${n(x)}" y="${n(barY)}" width="${n(w)}" height="${n(input.barHeight)}" rx="4" fill="${fill}"/>`,
   ];
   if (task.status === "in-progress" && colors.fill && task.progress > 0) {
     parts.push(

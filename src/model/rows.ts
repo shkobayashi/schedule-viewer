@@ -53,6 +53,12 @@ export function taskMatchesFilter(
   ) {
     return false;
   }
+  if (
+    filters.confidence !== "all" &&
+    task.confidence !== filters.confidence
+  ) {
+    return false;
+  }
   if (filters.overdue === "overdue" && !isOverdue(task, today)) {
     return false;
   }

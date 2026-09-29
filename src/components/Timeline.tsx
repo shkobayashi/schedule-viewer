@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { Arrow, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
+import { hatchCanvas } from "../model/hatch";
 import type Konva from "konva";
 import { addDays, addUtcMonths, fmtShort, parseDate, utcMonthStart } from "../model/dates";
 import {
@@ -230,6 +231,10 @@ function TaskBar({
         ? chart.unknownStroke
         : colors.border;
   const cap = Math.max(2, Math.round(barHeight * 0.16));
+  const hatch =
+    task.confidence === "tentative"
+      ? hatchCanvas(colors.bg, colorScheme)
+      : null;
   const overrunAt = exceeded[0] ? dateToX(parseDate(exceeded[0].date)) - x : null;
   const origXRef = useRef(0);
   const groupRef = useRef<Konva.Group>(null);
@@ -313,7 +318,13 @@ function TaskBar({
       <Rect
         width={w}
         height={barHeight}
-        fill={colors.bg}
+        fill={hatch ? undefined : colors.bg}
+        fillPriority={hatch ? "pattern" : "color"}
+        fillPatternImage={
+          // 設定型は HTMLImageElement。実行時の setter は canvas も受ける。
+          hatch ? (hatch as unknown as HTMLImageElement) : undefined
+        }
+        fillPatternRepeat="repeat"
         cornerRadius={4}
       />
       {task.status === "in-progress" && colors.fill ? (
