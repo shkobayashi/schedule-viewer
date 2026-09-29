@@ -24,6 +24,7 @@ export type ChartPalette = {
   groupRow: string;
   linkOk: string;
   linkBroken: string;
+  linkTargetStroke: string;
   lightning: string;
   resizeHandle: string;
   milestoneDiamond: string;
@@ -137,6 +138,7 @@ const LIGHT: AppPalette = {
     groupRow: "#F3F5F8",
     linkOk: "#8A94A6",
     linkBroken: "#C4351A",
+    linkTargetStroke: "#0C7C86",
     lightning: "#E07B20",
     resizeHandle: "#4C5FD5",
     milestoneDiamond: "#111827",
@@ -211,6 +213,7 @@ const DARK: AppPalette = {
     groupRow: "#2a2f3a",
     linkOk: "#8a94a6",
     linkBroken: "#f07050",
+    linkTargetStroke: "#5ee0e0",
     lightning: "#f0a040",
     resizeHandle: "#7b8cff",
     milestoneDiamond: "#e6e8ee",
