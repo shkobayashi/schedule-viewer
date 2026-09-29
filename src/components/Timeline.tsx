@@ -7,9 +7,24 @@ import {
   useState,
 } from "react";
 import { Arrow, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
+import { hatchCanvas } from "../model/hatch";
 import type Konva from "konva";
 import { addDays, addUtcMonths, fmtShort, parseDate, utcMonthStart } from "../model/dates";
-import { linkPoints, type DependencyLink } from "../model/dependencies";
+import {
+  dragDateChipSize,
+  layoutDragDateChips,
+  previewDatesForDrag,
+  previewLinkBroken,
+  type DragBarGeometry,
+  type DragDatePreview,
+  type Rect as ChipRect,
+} from "../model/dragDates";
+import {
+  linkPoints,
+  nearestLinkHit,
+  type DependencyLink,
+  type LinkPolyline,
+} from "../model/dependencies";
 import {
   barColors,
   isOverdue,
@@ -48,6 +63,7 @@ type TimelineProps = {
   timelineEnd: Date;
   totalDays: number;
   dateToX: (d: Date) => number;
+  xToDate: (x: number) => Date;
   selectedTaskId: ScheduleId | null;
   onSelectTask: (id: ScheduleId) => void;
   onClearSelection: () => void;
@@ -73,9 +89,26 @@ type TimelineProps = {
   memberCatalog: Map<MemberId, Member> | null;
   calendar: CalendarDocument | null;
   colorScheme: ResolvedColorScheme;
+  linkSourceId: ScheduleId | null;
+  onLinkTargetClick: (taskId: ScheduleId) => void;
+  onLinkContextMenu: (
+    fromId: ScheduleId,
+    toId: ScheduleId,
+    x: number,
+    y: number,
+  ) => void;
+  onChartPointer: (pointer: ChartPointer) => void;
+};
+
+export type ChartPointer = {
+  overTask: boolean;
+  overMilestone: boolean;
+  link: { fromId: ScheduleId; toId: ScheduleId } | null;
 };
 
 const HANDLE_WIDTH = 8;
+/** 同じバーへの連続クリックを、ダブルクリックの 2 回目として扱う時間。 */
+const LINK_DOUBLE_CLICK_MS = 500;
 
 function SummaryBar({
   summary,
@@ -146,10 +179,16 @@ function TaskBar({
   dateToX,
   exceeded,
   selected,
+  linkMode,
+  linkTarget,
+  onLinkPointerDown,
   onSelect,
   onOpenEdit,
   onContextMenu,
   onMoveTask,
+  onDragGeometry,
+  dragLeft,
+  dragWidth,
   today,
   memberCatalog,
   colorScheme,
@@ -162,18 +201,24 @@ function TaskBar({
   dateToX: (d: Date) => number;
   exceeded: Milestone[];
   selected: boolean;
+  linkMode: boolean;
+  linkTarget: boolean;
+  onLinkPointerDown: () => void;
   onSelect: () => void;
   onOpenEdit: () => void;
   onContextMenu: (x: number, y: number) => void;
   onMoveTask: (deltaDays: number) => void;
+  onDragGeometry: (geometry: DragBarGeometry | null) => void;
+  dragLeft?: number;
+  dragWidth?: number;
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
   colorScheme: ResolvedColorScheme;
 }) {
   const chart = paletteFor(colorScheme).chart;
   const start = parseDate(task.start);
-  const x = dateToX(start);
-  const w = taskBarWidthPx(task, dateToX, pxPerDay);
+  const x = dragLeft ?? dateToX(start);
+  const w = dragWidth ?? taskBarWidthPx(task, dateToX, pxPerDay);
   const barY = y + (rowHeight - barHeight) / 2;
   const colors = barColors(task, today, colorScheme);
   const assigneeDisplay = resolveAssigneeDisplay(task.assigneeId, memberCatalog);
@@ -186,6 +231,10 @@ function TaskBar({
         ? chart.unknownStroke
         : colors.border;
   const cap = Math.max(2, Math.round(barHeight * 0.16));
+  const hatch =
+    task.confidence === "tentative"
+      ? hatchCanvas(colors.bg, colorScheme)
+      : null;
   const overrunAt = exceeded[0] ? dateToX(parseDate(exceeded[0].date)) - x : null;
   const origXRef = useRef(0);
   const groupRef = useRef<Konva.Group>(null);
@@ -199,26 +248,35 @@ function TaskBar({
       dragBoundFunc={(pos) => ({ x: pos.x, y: barY })}
       onClick={(e) => {
         e.cancelBubble = true;
+        if (linkMode && e.evt.detail > 1) return;
         onSelect();
       }}
       onTap={(e) => {
         e.cancelBubble = true;
+        if (linkMode && e.evt.detail > 1) return;
         onSelect();
       }}
       onDblClick={(e) => {
         e.cancelBubble = true;
+        if (linkMode) return;
         onOpenEdit();
       }}
       onContextMenu={(e) => {
         e.cancelBubble = true;
         e.evt.preventDefault();
+        if (linkMode) return;
         onContextMenu(e.evt.clientX, e.evt.clientY);
       }}
       onDblTap={(e) => {
         e.cancelBubble = true;
+        if (linkMode) return;
         onOpenEdit();
       }}
       onMouseDown={(e) => {
+        if (linkMode) {
+          onLinkPointerDown();
+          return;
+        }
         if (!(e.evt.metaKey || e.evt.ctrlKey)) return;
         e.cancelBubble = true;
         const node = groupRef.current;
@@ -228,6 +286,24 @@ function TaskBar({
       }}
       onDragStart={(e) => {
         origXRef.current = e.target.x();
+        onDragGeometry({
+          taskId: task.id,
+          kind: "move",
+          barLeft: e.target.x(),
+          barWidth: w,
+          barTop: barY,
+          originX: e.target.x(),
+        });
+      }}
+      onDragMove={(e) => {
+        onDragGeometry({
+          taskId: task.id,
+          kind: "move",
+          barLeft: e.target.x(),
+          barWidth: w,
+          barTop: barY,
+          originX: origXRef.current,
+        });
       }}
       onDragEnd={(e) => {
         const node = e.target;
@@ -235,13 +311,20 @@ function TaskBar({
         const delta = Math.round((node.x() - origXRef.current) / pxPerDay);
         node.position({ x: origXRef.current + delta * pxPerDay, y: barY });
         node.draggable(false);
+        onDragGeometry(null);
         onMoveTask(delta);
       }}
     >
       <Rect
         width={w}
         height={barHeight}
-        fill={colors.bg}
+        fill={hatch ? undefined : colors.bg}
+        fillPriority={hatch ? "pattern" : "color"}
+        fillPatternImage={
+          // 設定型は HTMLImageElement。実行時の setter は canvas も受ける。
+          hatch ? (hatch as unknown as HTMLImageElement) : undefined
+        }
+        fillPatternRepeat="repeat"
         cornerRadius={4}
       />
       {task.status === "in-progress" && colors.fill ? (
@@ -261,6 +344,16 @@ function TaskBar({
         cornerRadius={4}
         listening={false}
       />
+      {linkTarget ? (
+        <Rect
+          width={w}
+          height={barHeight}
+          stroke={chart.linkTargetStroke}
+          strokeWidth={2.5}
+          cornerRadius={4}
+          listening={false}
+        />
+      ) : null}
       {unassigned ? (
         <Rect
           y={-cap}
@@ -302,6 +395,7 @@ function ResizeHandles({
   dateToX,
   onResizeStart,
   onResizeEnd,
+  onDragGeometry,
   onContextMenu,
   chart,
 }: {
@@ -313,6 +407,7 @@ function ResizeHandles({
   dateToX: (d: Date) => number;
   onResizeStart: (groupX: number) => void;
   onResizeEnd: (groupX: number, barWidth: number) => void;
+  onDragGeometry: (geometry: DragBarGeometry | null) => void;
   onContextMenu: (x: number, y: number) => void;
   chart: ChartPalette;
 }) {
@@ -381,6 +476,16 @@ function ResizeHandles({
           const barWidth = bgRef.current?.width() ?? w;
           leftMaxXRef.current =
             parent.x + barWidth - pxPerDay - HANDLE_WIDTH / 2;
+          const g = groupRef.current;
+          if (!g) return;
+          onDragGeometry({
+            taskId: task.id,
+            kind: "start",
+            barLeft: g.x(),
+            barWidth,
+            barTop: barY,
+            originX: g.x(),
+          });
         }}
         dragBoundFunc={function (this: Konva.Node, pos) {
           const parent = this.getParent()!.getAbsolutePosition();
@@ -406,11 +511,20 @@ function ResizeHandles({
           bg.width(newW);
           rightHandleRef.current?.x(newW - HANDLE_WIDTH / 2);
           syncFillWidth(newW);
+          onDragGeometry({
+            taskId: task.id,
+            kind: "start",
+            barLeft: newLeft,
+            barWidth: newW,
+            barTop: barY,
+            originX: newLeft,
+          });
           e.target.getLayer()?.batchDraw();
         }}
         onDragEnd={() => {
           const g = groupRef.current;
           leftMaxXRef.current = null;
+          onDragGeometry(null);
           if (!g) return;
           onResizeStart(g.x());
         }}
@@ -433,6 +547,19 @@ function ResizeHandles({
           const container = e.target.getStage()?.container();
           if (container) container.style.cursor = "";
         }}
+        onDragStart={() => {
+          const g = groupRef.current;
+          const bg = bgRef.current;
+          if (!g || !bg) return;
+          onDragGeometry({
+            taskId: task.id,
+            kind: "end",
+            barLeft: g.x(),
+            barWidth: bg.width(),
+            barTop: barY,
+            originX: g.x(),
+          });
+        }}
         dragBoundFunc={function (this: Konva.Node, pos) {
           const parent = this.getParent()!.getAbsolutePosition();
           return {
@@ -446,16 +573,180 @@ function ResizeHandles({
           const newW = Math.max(pxPerDay, e.target.x() + HANDLE_WIDTH / 2);
           bg.width(newW);
           syncFillWidth(newW);
+          const barLeft = groupRef.current?.x() ?? groupX;
+          onDragGeometry({
+            taskId: task.id,
+            kind: "end",
+            barLeft,
+            barWidth: newW,
+            barTop: barY,
+            originX: barLeft,
+          });
           e.target.getLayer()?.batchDraw();
         }}
         onDragEnd={() => {
           const g = groupRef.current;
           const bg = bgRef.current;
+          onDragGeometry(null);
           if (!g || !bg) return;
           onResizeEnd(g.x(), bg.width());
         }}
       />
     </Group>
+  );
+}
+
+function visibleBarObstacles(
+  rows: VisibleRow[],
+  scrollY: number,
+  rowHeight: number,
+  barHeight: number,
+  bodyHeight: number,
+  dateToX: (d: Date) => number,
+  pxPerDay: number,
+  skipTaskId: ScheduleId,
+): ChipRect[] {
+  const rects: ChipRect[] = [];
+  for (const row of rows) {
+    const y = row.y - scrollY;
+    if (y + rowHeight < 0 || y > bodyHeight) continue;
+    if (row.type !== "task") {
+      const placed = summaryBarWidthPx(
+        row.summary.start,
+        row.summary.end,
+        dateToX,
+        6,
+      );
+      const height = Math.max(4, Math.round(barHeight / 2));
+      rects.push({
+        x: placed.x,
+        y: y + (rowHeight - height) / 2,
+        width: placed.width,
+        height,
+      });
+      continue;
+    }
+    if (row.task.id === skipTaskId) continue;
+    const x = dateToX(parseDate(row.task.start));
+    const top = y + (rowHeight - barHeight) / 2;
+    rects.push({
+      x,
+      y: top,
+      width: taskBarWidthPx(row.task, dateToX, pxPerDay),
+      height: barHeight,
+    });
+  }
+  return rects;
+}
+
+function DragDateChip({
+  box,
+  text,
+  fontSize,
+  fill,
+  stroke,
+  textFill,
+}: {
+  box: ChipRect;
+  text: string;
+  fontSize: number;
+  fill: string;
+  stroke: string;
+  textFill: string;
+}) {
+  return (
+    <Group listening={false}>
+      <Rect
+        x={box.x}
+        y={box.y}
+        width={box.width}
+        height={box.height}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={1}
+        cornerRadius={Math.min(3, box.height / 2)}
+        listening={false}
+      />
+      <Text
+        name="drag-date"
+        x={box.x}
+        y={box.y}
+        width={box.width}
+        height={box.height}
+        text={text}
+        fontSize={fontSize}
+        fill={textFill}
+        align="center"
+        verticalAlign="middle"
+        listening={false}
+      />
+    </Group>
+  );
+}
+
+function DragDateLabels({
+  preview,
+  fontSize,
+  padX,
+  padY,
+  gap,
+  viewportWidth,
+  viewportHeight,
+  barHeight,
+  obstacles,
+  chart,
+}: {
+  preview: DragDatePreview;
+  fontSize: number;
+  padX: number;
+  padY: number;
+  gap: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  barHeight: number;
+  obstacles: readonly ChipRect[];
+  chart: ChartPalette;
+}) {
+  const startText = fmtShort(parseDate(preview.start));
+  const endText = fmtShort(parseDate(preview.end));
+  const layout = layoutDragDateChips({
+    bar: {
+      x: preview.barLeft,
+      y: preview.barTop,
+      width: preview.barWidth,
+      height: barHeight,
+    },
+    avoid: {
+      x: preview.barLeft - HANDLE_WIDTH / 2,
+      y: preview.barTop,
+      width: preview.barWidth + HANDLE_WIDTH,
+      height: barHeight,
+    },
+    start: dragDateChipSize(startText, fontSize, padX, padY),
+    end: dragDateChipSize(endText, fontSize, padX, padY),
+    viewport: { width: viewportWidth, height: viewportHeight },
+    gap,
+    obstacles,
+  });
+  return (
+    <>
+      <DragDateChip
+        box={layout.start}
+        text={startText}
+        fontSize={fontSize}
+        fill={chart.dragDateFill}
+        stroke={chart.dragDateStroke}
+        textFill={chart.textPrimary}
+      />
+      <DragDateChip
+        box={layout.end}
+        text={endText}
+        fontSize={fontSize}
+        fill={chart.dragDateFill}
+        stroke={chart.dragDateStroke}
+        textFill={chart.textPrimary}
+      />
+    </>
   );
 }
 
@@ -474,6 +765,7 @@ export function Timeline({
   timelineEnd,
   totalDays,
   dateToX,
+  xToDate,
   selectedTaskId,
   onSelectTask,
   onClearSelection,
@@ -499,13 +791,55 @@ export function Timeline({
   memberCatalog,
   calendar,
   colorScheme,
+  linkSourceId,
+  onLinkTargetClick,
+  onLinkContextMenu,
+  onChartPointer,
 }: TimelineProps) {
+  const linkMode = linkSourceId != null;
   const chart = useMemo(
     () => paletteFor(colorScheme).chart,
     [colorScheme],
   );
   const todayDate = useMemo(() => parseDate(today), [today]);
   const scale = headerHeight / LAYOUT_HEADER_HEIGHT;
+  const dateFontSize = Math.max(8, Math.round(11 * scale));
+  const datePadX = Math.max(3, Math.round(4 * scale));
+  const datePadY = Math.max(1, Math.round(2 * scale));
+  const dateGap = Math.max(4, Math.round(4 * scale));
+  const [dragPreview, setDragPreview] = useState<DragDatePreview | null>(null);
+  const onDragGeometry = useCallback(
+    (geometry: DragBarGeometry | null) => {
+      if (geometry == null) {
+        setDragPreview(null);
+        return;
+      }
+      const row = visibleRows.find(
+        (item) => item.type === "task" && item.task.id === geometry.taskId,
+      );
+      if (!row || row.type !== "task") {
+        setDragPreview(null);
+        return;
+      }
+      const dates = previewDatesForDrag(
+        row.task,
+        geometry,
+        timelineStart,
+        xToDate,
+        pxPerDay,
+      );
+      setDragPreview({
+        taskId: geometry.taskId,
+        kind: geometry.kind,
+        start: dates.start,
+        end: dates.end,
+        barLeft: geometry.barLeft,
+        barWidth: geometry.barWidth,
+        barTop: geometry.barTop,
+      });
+    },
+    [pxPerDay, timelineStart, visibleRows, xToDate],
+  );
   const dayRange = useMemo(
     () => visibleDayIndexRange(scrollX, pxPerDay, width, totalDays),
     [pxPerDay, scrollX, totalDays, width],
@@ -770,41 +1104,247 @@ export function Timeline({
     (r) => r.type === "task" && r.task.id === selectedTaskId,
   );
 
-  const linkArrows = useMemo(() => {
+  const taskAnchors = useMemo(() => {
     const byId = new Map<
       ScheduleId,
-      { x: number; right: number; y: number }
+      { x: number; right: number; linkRight: number; y: number }
     >();
     for (const row of visibleRows) {
       if (row.type !== "task") continue;
-      const y = row.y - scrollY;
+      const y = row.y - scrollY + rowHeight / 2;
       const x = dateToX(parseDate(row.task.start));
-      const right = dateToX(taskBarExclusiveEnd(row.task));
+      const exclusive = dateToX(taskBarExclusiveEnd(row.task));
       byId.set(row.task.id, {
         x,
-        right: Math.max(x + 6, right),
-        y: y + rowHeight / 2,
+        right: x + Math.max(pxPerDay, exclusive - x),
+        linkRight: Math.max(x + 6, exclusive),
+        y,
       });
     }
-    return links.flatMap((link) => {
-      const from = byId.get(link.fromId);
-      const to = byId.get(link.toId);
-      if (!from || !to) return [];
+    return byId;
+  }, [dateToX, pxPerDay, rowHeight, scrollY, visibleRows]);
+
+  const liveAnchors = useMemo(() => {
+    if (dragPreview == null) return taskAnchors;
+    const current = taskAnchors.get(dragPreview.taskId);
+    if (!current) return taskAnchors;
+    const next = new Map(taskAnchors);
+    const x = dragPreview.barLeft;
+    const right = x + dragPreview.barWidth;
+    next.set(dragPreview.taskId, {
+      x,
+      right,
+      linkRight: Math.max(x + 6, right),
+      y: dragPreview.barTop + barHeight / 2,
+    });
+    return next;
+  }, [barHeight, dragPreview, taskAnchors]);
+
+  const dragObstacles = useMemo(() => {
+    if (dragPreview == null) return [];
+    return visibleBarObstacles(
+      visibleRows,
+      scrollY,
+      rowHeight,
+      barHeight,
+      bodyHeight,
+      dateToX,
+      pxPerDay,
+      dragPreview.taskId,
+    );
+  }, [
+    barHeight,
+    bodyHeight,
+    dateToX,
+    dragPreview,
+    pxPerDay,
+    rowHeight,
+    scrollY,
+    visibleRows,
+  ]);
+
+  const linkPolylines = useMemo(() => {
+    const dates = new Map<ScheduleId, { start: string; end: string }>();
+    for (const row of visibleRows) {
+      if (row.type === "task") dates.set(row.task.id, row.task);
+    }
+    const polylines: Array<LinkPolyline & { broken: boolean }> = [];
+    for (const link of links) {
+      const from = liveAnchors.get(link.fromId);
+      const to = liveAnchors.get(link.toId);
+      if (!from || !to) continue;
+      polylines.push({
+        fromId: link.fromId,
+        toId: link.toId,
+        broken: previewLinkBroken(link, dates, dragPreview),
+        points: linkPoints(from.linkRight, from.y, to.x, to.y),
+      });
+    }
+    return polylines;
+  }, [dragPreview, links, liveAnchors, visibleRows]);
+
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const bandRef = useRef<HTMLDivElement>(null);
+  const [clientPointer, setClientPointer] = useState<{
+    x: number;
+    y: number;
+    sidebar: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const onMove = (event: MouseEvent) => {
+      const sidebar =
+        event.target instanceof Element &&
+        event.target.closest(".sidebar") != null;
+      setClientPointer({ x: event.clientX, y: event.clientY, sidebar });
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
+
+  const chartPointer = useMemo(() => {
+    const empty = {
+      overTask: false,
+      overMilestone: false,
+      link: null as ChartPointer["link"],
+      hoverTaskId: null as ScheduleId | null,
+      previewEnd: null as { x: number; y: number } | null,
+    };
+    if (clientPointer == null) return empty;
+
+    let overMilestone = false;
+    const band = bandRef.current?.getBoundingClientRect();
+    if (
+      band &&
+      clientPointer.x >= band.left &&
+      clientPointer.x <= band.right &&
+      clientPointer.y >= band.top &&
+      clientPointer.y <= band.bottom
+    ) {
+      const x = clientPointer.x - band.left;
+      const y = clientPointer.y - band.top;
+      const radius = milestoneDiamondSize / 2 + 2;
+      for (const milestone of milestones) {
+        const cx = dateToX(parseDate(milestone.date));
+        const lane = milestoneLanes.get(milestone.id) ?? 0;
+        const cy = lane * milestoneLaneHeight + milestoneLaneHeight / 2;
+        if (Math.hypot(x - cx, y - cy) <= radius) {
+          overMilestone = true;
+          break;
+        }
+      }
+    }
+
+    const body = bodyRef.current?.getBoundingClientRect();
+    if (!body) return { ...empty, overMilestone };
+
+    const local = {
+      x: clientPointer.x - body.left,
+      y: clientPointer.y - body.top,
+    };
+    const insideBody =
+      clientPointer.x >= body.left &&
+      clientPointer.x <= body.right &&
+      clientPointer.y >= body.top &&
+      clientPointer.y <= body.bottom;
+
+    let hoverTaskId: ScheduleId | null = null;
+    let hoverAnchor: { x: number; y: number } | null = null;
+    if (insideBody) {
+      for (const [id, anchor] of liveAnchors) {
+        const top = anchor.y - barHeight / 2;
+        const bottom = anchor.y + barHeight / 2;
+        const handlePad =
+          !linkMode && id === selectedTaskId ? HANDLE_WIDTH / 2 : 0;
+        if (
+          local.x >= anchor.x - handlePad &&
+          local.x <= anchor.right + handlePad &&
+          local.y >= top &&
+          local.y <= bottom
+        ) {
+          hoverTaskId = id;
+          hoverAnchor = anchor;
+          break;
+        }
+      }
+    }
+    const overTask = hoverTaskId != null;
+    const link =
+      insideBody && !overTask && !overMilestone
+        ? nearestLinkHit(linkPolylines, local.x, local.y)
+        : null;
+
+    let previewEnd: { x: number; y: number } | null = null;
+    if (linkMode) {
+      if (clientPointer.sidebar) previewEnd = { x: 0, y: local.y };
+      else if (hoverAnchor) previewEnd = { x: hoverAnchor.x, y: hoverAnchor.y };
+      else previewEnd = local;
+    }
+
+    return {
+      overTask,
+      overMilestone,
+      link,
+      hoverTaskId,
+      previewEnd,
+    };
+  }, [
+    barHeight,
+    clientPointer,
+    dateToX,
+    linkMode,
+    linkPolylines,
+    milestoneDiamondSize,
+    milestoneLaneHeight,
+    milestoneLanes,
+    milestones,
+    selectedTaskId,
+    liveAnchors,
+  ]);
+
+  const onChartPointerRef = useRef(onChartPointer);
+  onChartPointerRef.current = onChartPointer;
+  useEffect(() => {
+    onChartPointerRef.current({
+      overTask: chartPointer.overTask,
+      overMilestone: chartPointer.overMilestone,
+      link: chartPointer.link,
+    });
+  }, [chartPointer.link, chartPointer.overMilestone, chartPointer.overTask]);
+
+  const linkArrows = useMemo(() => {
+    return linkPolylines.flatMap((link) => {
+      const hovered =
+        chartPointer.link?.fromId === link.fromId &&
+        chartPointer.link.toId === link.toId;
       const color = link.broken ? chart.linkBroken : chart.linkOk;
+      const strokeWidth = link.broken ? 1.75 : 1.25;
       return [
         <Arrow
           key={`${link.fromId}-${link.toId}`}
-          points={linkPoints(from.right, from.y, to.x, to.y)}
+          points={link.points}
           stroke={color}
           fill={color}
-          strokeWidth={link.broken ? 1.75 : 1.25}
+          strokeWidth={hovered ? strokeWidth + 1.5 : strokeWidth}
           pointerLength={7}
           pointerWidth={7}
           listening={false}
         />,
       ];
     });
-  }, [dateToX, links, rowHeight, scrollY, visibleRows, chart]);
+  }, [chart, chartPointer.link, linkPolylines]);
+
+  const previewPoints = useMemo(() => {
+    if (!linkSourceId || !chartPointer.previewEnd) return null;
+    const from = liveAnchors.get(linkSourceId);
+    if (!from) return null;
+    return linkPoints(
+      from.linkRight,
+      from.y,
+      chartPointer.previewEnd.x,
+      chartPointer.previewEnd.y,
+    );
+  }, [chartPointer.previewEnd, linkSourceId, liveAnchors]);
 
   const panRef = useRef<{
     x: number;
@@ -813,6 +1353,26 @@ export function Timeline({
     moved: boolean;
   } | null>(null);
   const suppressClickRef = useRef(false);
+  const linkClickAtRef = useRef(0);
+  const linkPressRef = useRef(false);
+  const linkPressTimerRef = useRef<number | null>(null);
+  const armLinkPress = useCallback(() => {
+    linkPressRef.current = true;
+    if (linkPressTimerRef.current != null) {
+      window.clearTimeout(linkPressTimerRef.current);
+    }
+    linkPressTimerRef.current = window.setTimeout(() => {
+      linkPressRef.current = false;
+      linkPressTimerRef.current = null;
+    }, LINK_DOUBLE_CLICK_MS + 100);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (linkPressTimerRef.current != null) {
+        window.clearTimeout(linkPressTimerRef.current);
+      }
+    };
+  }, []);
   const [panning, setPanning] = useState(false);
   const [panSession, setPanSession] = useState(false);
 
@@ -827,6 +1387,10 @@ export function Timeline({
   const onBodyMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (e.evt.button !== 0) return;
+      if (linkMode) {
+        suppressClickRef.current = false;
+        return;
+      }
       suppressClickRef.current = false;
       const target = e.target;
       if (
@@ -844,7 +1408,7 @@ export function Timeline({
       };
       setPanSession(true);
     },
-    [],
+    [linkMode],
   );
 
   const panDeltaRef = useRef({ dx: 0, dy: 0 });
@@ -913,6 +1477,8 @@ export function Timeline({
           fontSize={milestoneFontSize}
           pxPerDay={pxPerDay}
           dateToX={dateToX}
+          linkMode={linkMode}
+          containerRef={bandRef}
           onMove={onMoveMilestone}
           onOpenEdit={onOpenMilestone}
           onContextMenu={onMilestoneContextMenu}
@@ -922,7 +1488,8 @@ export function Timeline({
       ) : null}
       <div
         className={`timeline-body${panning ? " panning" : ""}`}
-        style={{ cursor: panning ? "grabbing" : "grab" }}
+        ref={bodyRef}
+        style={{ cursor: linkMode ? "default" : panning ? "grabbing" : "grab" }}
       >
         <Stage
           width={width}
@@ -930,7 +1497,36 @@ export function Timeline({
           onWheel={onWheelBody}
           onMouseDown={onBodyMouseDown}
           onMouseUp={endPan}
+          onContextMenu={(e) => {
+            const stage = e.target.getStage();
+            const pos = stage?.getPointerPosition();
+            if (!pos) return;
+            const overTask = [...liveAnchors].some(([id, anchor]) => {
+              const top = anchor.y - barHeight / 2;
+              const bottom = anchor.y + barHeight / 2;
+              const handlePad =
+                !linkMode && id === selectedTaskId ? HANDLE_WIDTH / 2 : 0;
+              return (
+                pos.x >= anchor.x - handlePad &&
+                pos.x <= anchor.right + handlePad &&
+                pos.y >= top &&
+                pos.y <= bottom
+              );
+            });
+            if (overTask) {
+              if (linkMode) e.evt.preventDefault();
+              return;
+            }
+            const hit = nearestLinkHit(linkPolylines, pos.x, pos.y);
+            if (hit) {
+              e.evt.preventDefault();
+              onLinkContextMenu(hit.fromId, hit.toId, e.evt.clientX, e.evt.clientY);
+              return;
+            }
+            if (linkMode) e.evt.preventDefault();
+          }}
           onClick={(e) => {
+            if (linkMode) return;
             if (suppressClickRef.current) {
               suppressClickRef.current = false;
               return;
@@ -939,6 +1535,7 @@ export function Timeline({
             if (e.target === stage) onClearSelection();
           }}
           onTap={(e) => {
+            if (linkMode) return;
             const stage = e.target.getStage();
             if (e.target === stage) onClearSelection();
           }}
@@ -977,22 +1574,66 @@ export function Timeline({
                   dateToX={dateToX}
                   exceeded={milestonesExceededBy(row.task, milestones)}
                   selected={selectedTaskId === row.task.id}
+                  linkMode={linkMode}
+                  linkTarget={
+                    linkMode &&
+                    chartPointer.hoverTaskId === row.task.id &&
+                    row.task.id !== linkSourceId
+                  }
+                  onLinkPointerDown={armLinkPress}
                   onSelect={() => {
                     if (suppressClickRef.current) {
                       suppressClickRef.current = false;
                       return;
                     }
+                    if (linkMode) {
+                      armLinkPress();
+                      const now = performance.now();
+                      if (now - linkClickAtRef.current < 50) return;
+                      linkClickAtRef.current = now;
+                      onLinkTargetClick(row.task.id);
+                      return;
+                    }
                     onSelectTask(row.task.id);
                   }}
-                  onOpenEdit={() => onOpenEdit(row.task)}
+                  onOpenEdit={() => {
+                    if (linkPressRef.current) return;
+                    onOpenEdit(row.task);
+                  }}
                   onContextMenu={(x, y) => onTaskContextMenu(row.task.id, x, y)}
                   onMoveTask={(delta) => onMoveTask(row.task.id, delta)}
+                  onDragGeometry={onDragGeometry}
+                  dragLeft={
+                    dragPreview?.taskId === row.task.id &&
+                    dragPreview.kind !== "move"
+                      ? dragPreview.barLeft
+                      : undefined
+                  }
+                  dragWidth={
+                    dragPreview?.taskId === row.task.id &&
+                    dragPreview.kind !== "move"
+                      ? dragPreview.barWidth
+                      : undefined
+                  }
                   today={today}
                   memberCatalog={memberCatalog}
                   colorScheme={colorScheme}
                 />
               );
             })}
+          </Layer>
+          <Layer listening={false}>
+            {previewPoints ? (
+              <Arrow
+                points={previewPoints}
+                stroke={chart.linkOk}
+                fill={chart.linkOk}
+                strokeWidth={1.25}
+                pointerLength={7}
+                pointerWidth={7}
+                listening={false}
+              />
+            ) : null}
           </Layer>
           <Layer listening={false}>
             <Line
@@ -1005,7 +1646,7 @@ export function Timeline({
             />
           </Layer>
           <Layer>
-            {selectedRow && selectedRow.type === "task" ? (
+            {selectedRow && selectedRow.type === "task" && !linkMode ? (
               <ResizeHandles
                 key={selectedRow.task.id}
                 task={selectedRow.task}
@@ -1020,9 +1661,24 @@ export function Timeline({
                 onResizeEnd={(groupX, barWidth) =>
                   onResizeEnd(selectedRow.task.id, groupX, barWidth)
                 }
+                onDragGeometry={onDragGeometry}
                 onContextMenu={(x, y) =>
                   onTaskContextMenu(selectedRow.task.id, x, y)
                 }
+                chart={chart}
+              />
+            ) : null}
+            {dragPreview ? (
+              <DragDateLabels
+                preview={dragPreview}
+                fontSize={dateFontSize}
+                padX={datePadX}
+                padY={datePadY}
+                gap={dateGap}
+                viewportWidth={width}
+                viewportHeight={bodyHeight}
+                barHeight={barHeight}
+                obstacles={dragObstacles}
                 chart={chart}
               />
             ) : null}

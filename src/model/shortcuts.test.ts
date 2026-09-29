@@ -2,16 +2,37 @@ import { describe, expect, it } from "vitest";
 import {
   blocksBrowserShortcut,
   blocksEditShortcut,
+  blocksLinkShortcut,
+  chartScrollOffset,
   fileShortcutHint,
+  linkShortcutHint,
   matchAppShortcut,
+  matchChartScroll,
   usesCommandKey,
   type ShortcutContext,
   type ShortcutKeyEvent,
 } from "./shortcuts";
 
-const idle: ShortcutContext = { dialogOpen: false, blocksEditKeys: false };
-const typing: ShortcutContext = { dialogOpen: false, blocksEditKeys: true };
-const dialog: ShortcutContext = { dialogOpen: true, blocksEditKeys: false };
+const idle: ShortcutContext = {
+  dialogOpen: false,
+  blocksEditKeys: false,
+  blocksLinkKeys: false,
+};
+const typing: ShortcutContext = {
+  dialogOpen: false,
+  blocksEditKeys: true,
+  blocksLinkKeys: true,
+};
+const dialog: ShortcutContext = {
+  dialogOpen: true,
+  blocksEditKeys: false,
+  blocksLinkKeys: false,
+};
+const buttonFocus: ShortcutContext = {
+  dialogOpen: false,
+  blocksEditKeys: true,
+  blocksLinkKeys: false,
+};
 
 function key(
   name: string,
@@ -59,6 +80,18 @@ describe("matchAppShortcut", () => {
     expect(matchAppShortcut(key("Backspace"), dialog)).toBeNull();
   });
 
+  it("maps command L for drawing a link unless a field or dialog has focus", () => {
+    expect(matchAppShortcut(key("l", { ctrlKey: true }), idle)).toBe("link");
+    expect(matchAppShortcut(key("L", { metaKey: true }), idle)).toBe("link");
+    expect(matchAppShortcut(key("l", { ctrlKey: true }), buttonFocus)).toBe("link");
+    expect(matchAppShortcut(key("l"), idle)).toBeNull();
+    expect(matchAppShortcut(key("l", { ctrlKey: true }), typing)).toBeNull();
+    expect(matchAppShortcut(key("l", { metaKey: true }), dialog)).toBeNull();
+    expect(matchAppShortcut(key("l", { ctrlKey: true, shiftKey: true }), idle)).toBeNull();
+    expect(matchAppShortcut(key("l", { altKey: true }), idle)).toBeNull();
+    expect(matchAppShortcut(key("l", { ctrlKey: true, altKey: true }), idle)).toBeNull();
+  });
+
   it("ignores undo, zoom-like modifiers, and alt combinations", () => {
     expect(matchAppShortcut(key("z", { ctrlKey: true }), idle)).toBeNull();
     expect(matchAppShortcut(key("y", { ctrlKey: true }), idle)).toBeNull();
@@ -66,6 +99,43 @@ describe("matchAppShortcut", () => {
     expect(matchAppShortcut(key("Enter", { ctrlKey: true }), idle)).toBeNull();
     expect(matchAppShortcut(key("Enter", { shiftKey: true }), idle)).toBeNull();
     expect(matchAppShortcut(key("o", { ctrlKey: true, shiftKey: true }), idle)).toBeNull();
+  });
+});
+
+describe("matchChartScroll", () => {
+  it("scrolls one row with ctrl or meta and an arrow", () => {
+    expect(matchChartScroll(key("ArrowUp", { ctrlKey: true }), idle)).toBe("up");
+    expect(matchChartScroll(key("ArrowDown", { metaKey: true }), idle)).toBe("down");
+    expect(matchChartScroll(key("ArrowLeft", { ctrlKey: true }), idle)).toBe("left");
+    expect(matchChartScroll(key("ArrowRight", { metaKey: true }), idle)).toBe("right");
+    expect(chartScrollOffset("up", 32)).toEqual({ x: 0, y: -32 });
+    expect(chartScrollOffset("down", 32)).toEqual({ x: 0, y: 32 });
+    expect(chartScrollOffset("left", 32)).toEqual({ x: -32, y: 0 });
+    expect(chartScrollOffset("right", 32)).toEqual({ x: 32, y: 0 });
+  });
+
+  it("scrolls while an edit key target is focused", () => {
+    expect(matchChartScroll(key("ArrowDown", { ctrlKey: true }), typing)).toBe("down");
+    expect(matchChartScroll(key("ArrowRight", { metaKey: true }), typing)).toBe("right");
+  });
+
+  it("does not scroll for a bare arrow, shift, alt, or a dialog", () => {
+    expect(matchChartScroll(key("ArrowDown"), idle)).toBeNull();
+    expect(matchChartScroll(key("ArrowLeft", { shiftKey: true }), idle)).toBeNull();
+    expect(
+      matchChartScroll(key("ArrowRight", { ctrlKey: true, shiftKey: true }), idle),
+    ).toBeNull();
+    expect(
+      matchChartScroll(key("ArrowUp", { metaKey: true, altKey: true }), idle),
+    ).toBeNull();
+    expect(matchChartScroll(key("ArrowDown", { ctrlKey: true }), dialog)).toBeNull();
+    expect(matchChartScroll(key("Enter", { ctrlKey: true }), idle)).toBeNull();
+  });
+
+  it("scrolls when both ctrl and meta are held", () => {
+    expect(
+      matchChartScroll(key("ArrowLeft", { ctrlKey: true, metaKey: true }), idle),
+    ).toBe("left");
   });
 });
 
@@ -107,6 +177,34 @@ describe("blocksEditShortcut", () => {
     expect(blocksEditShortcut({ tagName: "DIV", isContentEditable: false })).toBe(
       false,
     );
+  });
+});
+
+describe("blocksLinkShortcut", () => {
+  it("blocks fields but not buttons", () => {
+    expect(blocksLinkShortcut({ tagName: "INPUT", isContentEditable: false })).toBe(
+      true,
+    );
+    expect(blocksLinkShortcut({ tagName: "TEXTAREA", isContentEditable: false })).toBe(
+      true,
+    );
+    expect(blocksLinkShortcut({ tagName: "SELECT", isContentEditable: false })).toBe(
+      true,
+    );
+    expect(blocksLinkShortcut({ tagName: "BUTTON", isContentEditable: false })).toBe(
+      false,
+    );
+    expect(blocksLinkShortcut({ tagName: "DIV", isContentEditable: true })).toBe(true);
+    expect(blocksLinkShortcut({ tagName: "DIV", isContentEditable: false })).toBe(
+      false,
+    );
+  });
+});
+
+describe("linkShortcutHint", () => {
+  it("uses the command key on mac and ctrl elsewhere", () => {
+    expect(linkShortcutHint(true)).toBe("⌘L");
+    expect(linkShortcutHint(false)).toBe("Ctrl+L");
   });
 });
 

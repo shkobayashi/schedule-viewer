@@ -42,7 +42,7 @@ flowchart TD
 | --- | --- |
 | `AppMenu.tsx` | ☰ メニュー |
 | `ContextMenu.tsx` | タスクとマイルストンの右クリックメニュー。マイルストンは編集と削除。`#root` に出す |
-| `Toolbar.tsx` | 見出し、検索、絞り込み、系統、追加、マイルストン追加、削除、ズーム |
+| `Toolbar.tsx` | 見出し、検索、絞り込み、系統、線を引く、追加、マイルストン追加、削除、ズーム |
 | `Sidebar.tsx` | 左の行、折りたたみ、名前の横ずらし |
 | `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
@@ -58,7 +58,7 @@ flowchart TD
 | --- | --- |
 | `useSchedule` | 文書、取り消し、絞り込み、選択、折りたたみ、系統、編集対象 |
 | `useScheduleFile` | パス、未保存の基準、開く・保存、外部更新、控え、閉じる確認 |
-| `useTimelineView` | 1日あたりの幅、スクロール、ホイール |
+| `useTimelineView` | 1日あたりの幅、スクロール、ホイール。キーの `scrollBy` は `App.tsx` から呼ぶ |
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
 | `useAppCalendar` | カレンダーの読み込み |
@@ -89,10 +89,10 @@ flowchart TD
 | 種類 | 中身 | 置く場所 | 残るか |
 | --- | --- | --- | --- |
 | 文書（`ScheduleDocument`） | タイトル、カテゴリ、マイルストン | `useSchedule` | ファイルと控えだけ。取り消しはメモリ |
-| 表示 | 絞り込み、選択、折りたたみ、系統、ズーム、スクロール | `useSchedule` と `useTimelineView` | 残さない。ファイルを開くと初期化する |
+| 表示 | 絞り込み、選択、折りたたみ、系統、線を引くモード、ズーム、スクロール | `useSchedule`、`App.tsx`、`useTimelineView` | 残さない。ファイルを開くと初期化する |
 | ファイル | パス、未保存判定の基準にする JSON、ディスクのハッシュ | `useScheduleFile` と Rust の `ScheduleFileState` | 前回のパスは `last-schedule.json`。未保存の控えはアプリデータ |
 
-取り消しのスナップショットに入るのは `categories` と `milestones` だけである。タイトルは履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。バーの移動と端のドラッグは、離したときに1回だけ `commitDocument` する。マイルストンの追加と削除も、それぞれ 1 回の `commitDocument` である。削除は同じスナップショットで、その ID を指すタスクの `milestoneId` も外す。絞り込んでいたマイルストンを消して絞り込みを「すべて」に戻すのは表示状態であり、履歴に入らない。
+取り消しのスナップショットに入るのは `categories` と `milestones` だけである。タイトルは履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。バーの移動と端のドラッグは、離したときに1回だけ `commitDocument` する。線を足すと外すも、それぞれ 1 回の `commitCategories` である。失敗した線は積まない。マイルストンの追加と削除も、それぞれ 1 回の `commitDocument` である。削除は同じスナップショットで、その ID を指すタスクの `milestoneId` も外す。絞り込んでいたマイルストンを消して絞り込みを「すべて」に戻すのは表示状態であり、履歴に入らない。線を引くモードの起点は `App.tsx` の表示状態で、文書にも履歴にも入らない。選択が起点と違う値になったとき、モードは終わる。
 
 表示の状態のうち、表示サイズ、配色、左一覧の基準幅だけは localStorage に残る。キーの一覧は [データ仕様](data-format.md#アプリデータ) にある。画面に反映する解決済みの配色（ライトかダーク）は React の状態で持ち、システム追従のときは `prefers-color-scheme` の変化を監視する。左一覧の幅は、希望の基準幅と、チャートが 200px を下回らないよう縮めた表示幅を分ける。ウィンドウを狭めたときは表示だけ縮め、希望幅は残す。
 
@@ -162,8 +162,9 @@ flowchart TD
 
 1. schemaVersion 1 なら、終了日を1日戻して schemaVersion 2 にする
 2. schemaVersion 2 は拒否する
-3. JSON Schema
-4. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）
+3. schemaVersion 3 なら、確度が無いタスクに `committed` を足して schemaVersion 4 にする。既にある `confidence` はそのまま残す
+4. JSON Schema（schemaVersion 4）
+5. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）
 
 メンバーとカレンダーも、JSON Schema のあとに意味規則を見る。`validationMessages.ts` は、エラーの場所を示す JSON Pointer をカテゴリやタスクの名前に置き換えて、エラー文言を作る。
 
@@ -219,9 +220,17 @@ capability はメインウィンドウに、`core:default`、ウィンドウの 
 
 ## 描画
 
-`Timeline.tsx` は日付ヘッダー、本体、前後の線、親バー、タスクバー、イナズマ線を Konva で描く。マイルストンは `MilestoneBand.tsx` である。左の名前は DOM の `Sidebar.tsx` で、縦位置だけをチャートと揃える。一覧の幅は `--sidebar-w` に、希望の基準幅をチャート余白で縮めた値を入れ、表示倍率を掛けて描く。右端の境界をドラッグすると希望の基準幅が変わる。表示が動かないドラッグでは希望幅を変えない。
+`Timeline.tsx` は日付ヘッダー、本体、前後の線、親バー、タスクバー、イナズマ線を Konva で描く。未確定のタスクバーの地は、`hatch.ts` の斜線パターンである。確定はベタ塗りである。進捗の濃い帯は斜線の上にベタで描く。書き出しの SVG も同じ定数の `pattern` を使う。マイルストンは `MilestoneBand.tsx` である。左の名前は DOM の `Sidebar.tsx` で、縦位置だけをチャートと揃える。一覧の幅は `--sidebar-w` に、希望の基準幅をチャート余白で縮めた値を入れ、表示倍率を掛けて描く。右端の境界をドラッグすると希望の基準幅が変わる。表示が動かないドラッグでは希望幅を変えない。境界にフォーカスがあるとき、修飾キーの無い左右キーは幅を変える。⌘ または Ctrl がある左右は幅を変えず、チャートの横スクロールになる。そこに Shift または Alt も一緒のときは、幅もスクロールも変えない。
+
+線を引くモードでは、起点バーの右端からポインタまで、確定した矢印と同じ `linkPoints` の折れ線を通常色で描く。クリックは受けない。タスクバーの上ではそのバーの左端まで、左の一覧の上ではチャートの左端まで、それ以外はポインタの位置で終わる。スクロールで起点が動くと始点も動く。モードが終わると消える。後続にできるタスクバーだけ、選択や状態色とは別の `linkTargetStroke` で囲む。
+
+見えている線の当たりは、描画とは別の座標計算である。`nearestLinkHit` が閾値 8px 以内で一番近い 1 本を返す。線のレイヤはクリックを受けない。タスクバーとひし形が先である。
+
+⌘ または Ctrl と矢印の判定は `shortcuts.ts` の `matchChartScroll` と `chartScrollOffset` である。`App.tsx` が `scrollBy` を呼ぶ。移動量は表示倍率を掛けた行の高さで、押し続けは keydown のリピートである。Shift または Alt が一緒のときと、ダイアログが開いているときは呼ばない。右クリックメニューはこのキーで閉じる。端で位置が変わらなくても閉じる。⌘ または Ctrl と L は `matchAppShortcut` の `link` で、線を引くモードの開始と終了である。修飾キーの無い L では始まらない。ダイアログ、検索欄、入力欄、選択欄では効かない。ボタンにフォーカスがあっても効く。
 
 座標の基準は `pxPerDay` である。日付から x を計算し、ズームのたびに描き直す。CSS の拡大は使わない。表示期間は、全タスクと全マイルストンのうち、最も早い日付の6日前から最も遅い日付の7日後までである（`computeTimelineRange`）。書き出しは、見えている行から同じ余白で決め直す。
+
+バーの移動と端のドラッグのあいだ、開始日と終了日は `dragDates.ts` の `layoutDragDateChips` で置き、`Timeline.tsx` が Konva の文字で描く。文字の大きさは `headerHeight / 40`（表示倍率）に従い、`pxPerDay` には従わない。文書は離すまで変えない。触っているタスクが端の線だけ、`previewLinkBroken` の日付で色を決め、そのバーの見た目の位置へアンカーを移す。他の線は確定した位置と色のままである。日付は書き出しには入らない。
 
 `uiScale` は文字と行の倍率で、`layoutSizes.ts` のヘッダー 40px、行 32px、バー 20px、マイルストン段 26px に掛ける。自動は幅 1100px、高さ 780px を基準にし、1 未満にはしない。固定は 0.5 から 2 である。
 
@@ -231,10 +240,14 @@ capability はメインウィンドウに、`core:default`、ウィンドウの 
 
 | 処理 | 場所 | 内容 |
 | --- | --- | --- |
-| 行の絞り込み | `rows.ts` の `taskMatchesFilter` | 系統、担当、ステータス、期限、破綻、マイルストン、名前、ノートをすべて満たすタスクだけを残す。0件のグループとカテゴリは行にしない |
+| 行の絞り込み | `rows.ts` の `taskMatchesFilter` | 系統、担当、ステータス、確度、期限、破綻、マイルストン、名前、ノートをすべて満たすタスクだけを残す。0件のグループとカテゴリは行にしない |
 | 系統 | `dependencies.ts` の `lineageTaskIds` | 起点から先行と後続を辿る。起点を通らない枝は入れない |
-| 循環 | `scheduleSemantics.ts` の `validateDependencyCycles` | 先行を深さ優先でたどり、たどっている途中のタスクへ戻ったら循環とみなす。編集の保存時にも見る |
+| 線を足す | `dependencies.ts` の `tryAddPredecessorLink` | 後続の `predecessors` に起点を足した候補を、循環と先行参照と先行 ID の重複で見る。通ったときだけ保存する |
+| 線の当たり | `dependencies.ts` の `nearestLinkHit` | ポインタから折れ線までの距離が 8px 以内の、一番近い 1 本 |
+| 循環 | `scheduleSemantics.ts` の `validateDependencyCycles` | 先行を深さ優先でたどり、たどっている途中のタスクへ戻ったら循環とみなす。編集の保存時と、チャートで線を足すときにも見る |
 | 破綻 | `dependencies.ts` の `isBrokenLink` | 後続の開始が先行の終了より前。同じ日は破綻でない |
+| ドラッグ中の日付 | `dragDates.ts` の `layoutDragDateChips` と `previewDatesForDrag` | 開始と終了を月/日で、棒と互いの地と他の棒を避けて置く。離したときに入る日に数字を合わせる |
+| ドラッグ中の線の色 | `dragDates.ts` の `previewLinkBroken` | 触っているタスクが端の線だけ、preview の日付で破綻を見る |
 | 親バー | `summary.ts` の `summarizeSpans` | 開始順に並べ、次が前の終了の翌日以前ならつなぐ。1日空くと分ける |
 | イナズマ線 | `timeline.ts` の `lightningDate` | 期限超過なら終了日。着手済みで開始が今日より後なら開始日。それ以外は今日 |
 | 期限超過 | `timeline.ts` の `isOverdue` | 完了以外で終了日が今日より前 |
@@ -256,5 +269,5 @@ npm スクリプトと CI の分岐は [開発ガイド](development.md#npm-ス�
 - `rows.ts` の `ROW_HEIGHT` と `layoutSizes.ts` の `LAYOUT_ROW_HEIGHT` は、どちらも 32 で二重に定義されている。画面が使うのは、`App.tsx` が `scaledLayoutSizes` から渡す高さである
 - 書き出しは、表示中の Konva を撮るのではなく、モデルから SVG を組み立て直す。見た目は近づけるが、別の実装である
 - `mockup/schedule-viewer-mockup.html` は初期の検証用で、アプリからは参照しない。ESLint の対象外である
-- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。実際に開けるのは 3 だけである
+- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は読み込み時に 4 へ上げ、確度が無いタスクを `committed` にする。未保存の比較は、その正規化後の文字列である。実際に開けるのは 3 と 4 である
 - 取り消しはドラッグの途中では積まない。離したときの確定が1ステップである

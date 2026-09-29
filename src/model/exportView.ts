@@ -91,6 +91,14 @@ const STATUS_LABEL: Record<Exclude<ScheduleFilters["status"], "all">, string> = 
   done: "完了",
 };
 
+const CONFIDENCE_LABEL: Record<
+  Exclude<ScheduleFilters["confidence"], "all">,
+  string
+> = {
+  tentative: "未確定",
+  committed: "確定",
+};
+
 /** 初期値以外の絞り込みだけを、書き出しの説明文にする。該当がなければ空文字。 */
 export function describeActiveFilters(
   filters: ScheduleFilters,
@@ -105,6 +113,9 @@ export function describeActiveFilters(
   }
   if (filters.status !== "all") {
     parts.push(`ステータス: ${STATUS_LABEL[filters.status]}`);
+  }
+  if (filters.confidence !== "all") {
+    parts.push(`確度: ${CONFIDENCE_LABEL[filters.confidence]}`);
   }
   if (filters.overdue === "overdue") {
     parts.push("期限: 期限超過");

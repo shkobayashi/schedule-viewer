@@ -15,6 +15,7 @@ import {
   type Milestone,
   type ScheduleId,
   type Task,
+  type TaskConfidence,
   type TaskStatus,
 } from "../model/types";
 
@@ -33,6 +34,7 @@ type TaskEditDialogProps = {
     assigneeId: MemberId | null;
     status: TaskStatus;
     progress: number;
+    confidence: TaskConfidence;
     predecessors: ScheduleId[];
     successors: ScheduleId[];
     milestoneId: ScheduleId | null;
@@ -63,6 +65,7 @@ export function TaskEditDialog({
   const [assigneeId, setAssigneeId] = useState<string>(task.assigneeId ?? "");
   const [status, setStatus] = useState<TaskStatus>(task.status);
   const [progress, setProgress] = useState(task.progress);
+  const [confidence, setConfidence] = useState<TaskConfidence>(task.confidence);
   const [predecessors, setPredecessors] = useState<ScheduleId[]>(
     task.predecessors,
   );
@@ -168,6 +171,17 @@ export function TaskEditDialog({
           />
         </div>
         <div className="field">
+          <label htmlFor="fieldConfidence">確度</label>
+          <select
+            id="fieldConfidence"
+            value={confidence}
+            onChange={(e) => setConfidence(e.target.value as TaskConfidence)}
+          >
+            <option value="tentative">未確定</option>
+            <option value="committed">確定</option>
+          </select>
+        </div>
+        <div className="field">
           <label htmlFor="fieldMilestone">対応マイルストン</label>
           <select
             id="fieldMilestone"
@@ -248,6 +262,7 @@ export function TaskEditDialog({
                 assigneeId: assigneeId === "" ? null : assigneeId,
                 status,
                 progress: roundedProgress,
+                confidence,
                 predecessors,
                 successors,
                 milestoneId,

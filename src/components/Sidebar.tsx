@@ -176,6 +176,9 @@ export function Sidebar({
                   text={row.task.name}
                   className={isOverdue(row.task, today) ? "overdue" : undefined}
                 />
+                {row.task.confidence === "tentative" ? (
+                  <span className="confidence-tentative">未確定</span>
+                ) : null}
                 {exceeded.length > 0 ? (
                   <span className="milestone-alert" title={exceededTitle}>
                     超過
@@ -252,6 +255,7 @@ function SidebarResizer({
   };
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.ctrlKey || event.metaKey) return;
     if (event.key === "ArrowLeft") {
       event.preventDefault();
       onNudge(-SIDEBAR_WIDTH_KEY_STEP);

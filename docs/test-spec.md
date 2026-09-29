@@ -55,7 +55,26 @@
 | `dates.test.ts` | `steps across US DST end without losing a calendar day` | — |
 | 同上 | `supports fractional days for timeline dragging` | EDIT-02 |
 | 同上 | `formats UTC calendar date` | VIEW-07 |
+| `dragDates.test.ts` | `places both dates above the ends when the bar is long enough` | EDIT-02, EDIT-03 |
+| 同上 | `separates the chips when the bar is shorter than the labels` | EDIT-02, EDIT-03 |
+| 同上 | `shifts a chip inward when the end is at the screen edge` | EDIT-02 |
+| 同上 | `moves dates off the bar when the row is at the top of the chart` | EDIT-02 |
+| 同上 | `keeps chips off the handle padding` | EDIT-03 |
+| 同上 | `avoids another bar when a clear slot exists` | EDIT-02 |
+| 同上 | `sizes the date chip from the display font, not the timeline zoom` | EDIT-02 |
+| 同上 | `moves start and end by the same rounded day count` | EDIT-02 |
+| 同上 | `snaps a resized end to the inclusive day and stops at the start` | EDIT-03 |
+| 同上 | `stops a resized start from passing the end` | EDIT-03 |
+| 同上 | `recolors only the link touched by the dragged task` | VIEW-08, EDIT-02 |
+| 同上 | `uses the successor start when that task is dragged` | VIEW-08 |
+| `dependencies.test.ts` | `hits the segment, the elbow, and the endpoint` | EDIT-12 |
+| 同上 | `picks the closer line and ignores points outside the threshold` | EDIT-12 |
+| 同上 | `appends the predecessor in one list` | EDIT-12 |
+| 同上 | `rejects a duplicate with the same message as a repeated predecessor id` | EDIT-12 |
+| 同上 | `rejects a cycle with the edit dialog message` | EDIT-12, EDIT-05 |
+| 同上 | `removes only that predecessor id` | EDIT-12 |
 | `exportHtml.test.ts` | `puts the active filter into HTML and SVG` | EXPORT-01, EXPORT-02 |
+| 同上 | `hatches tentative bars and labels them, and leaves committed bars solid` | VIEW-12, EXPORT-01 |
 | `exportView.test.ts` | `keeps milestones inside the visible span and referenced ones outside it` | EXPORT-02 |
 | 同上 | `keeps only the selected milestone` | EXPORT-02 |
 | 同上 | `drops milestones when the filter is none` | EXPORT-02 |
@@ -79,6 +98,7 @@
 | 同上 | `does not paint days past the schedule end` | VIEW-09 |
 | 同上 | `respects nonWorkingDays on weekdays` | VIEW-09 |
 | `rows.test.ts` | `matches note substring independently of name` | FILTER-02, FILTER-09 |
+| 同上 | `keeps only the selected confidence` | FILTER-10 |
 | 同上 | `excludes tasks without note when noteSearch is set` | FILTER-02 |
 | 同上 | `matches task linked to selected milestone id` | FILTER-07 |
 | 同上 | `keeps only tasks without milestone when filter is none` | FILTER-07 |
@@ -104,7 +124,10 @@
 | 同上 | `returns apply when clean and content differs` | SYNC-01 |
 | `scheduleMigrate.test.ts` | `rejects v1 after date migration because v2 is no longer supported` | FILE-01 |
 | 同上 | `rejects v2 documents` | FILE-01 |
-| 同上 | `accepts assigneeId` | FILE-01 |
+| 同上 | `accepts assigneeId and confidence` | FILE-01 |
+| 同上 | `reads a v3 task without confidence as committed and canonicalizes to v4` | FILE-01, FILE-04 |
+| 同上 | `keeps confidence already present on a v3 task` | FILE-01 |
+| 同上 | `rejects a v4 task without confidence` | FILE-01 |
 | `scheduleRecovery.test.ts` | `accepts a valid draft` | SYNC-03 |
 | 同上 | `rejects invalid document JSON` | SYNC-03 |
 | 同上 | `returns the parent and skips a bare filename` | SYNC-03 |
@@ -121,7 +144,15 @@
 | 同上 | `restores when disk formatting differs but canonical matches` | SYNC-03, FILE-04 |
 | 同上 | `returns invalidDisk when the file fails validation` | SYNC-03 |
 | `serialize.test.ts` | `omits empty note` | EDIT-06 |
+| 同上 | `writes confidence after progress` | FILE-02 |
 | 同上 | `includes trimmed note` | EDIT-06 |
+| `shortcuts.test.ts` | `maps command L for drawing a link unless a field or dialog has focus` | EDIT-12 |
+| 同上 | `uses the command key on mac and ctrl elsewhere` | EDIT-12 |
+| 同上 | `blocks fields but not buttons` | EDIT-12 |
+| 同上 | `scrolls one row with ctrl or meta and an arrow` | NAV-01 |
+| 同上 | `scrolls while an edit key target is focused` | NAV-01 |
+| 同上 | `does not scroll for a bare arrow, shift, alt, or a dialog` | NAV-01 |
+| 同上 | `scrolls when both ctrl and meta are held` | NAV-01 |
 | `sidebarWidth.test.ts` | `uses 190 when nothing is stored` | NAV-06 |
 | 同上 | `rejects values that are not numbers` | NAV-06 |
 | 同上 | `clamps stored widths below 140` | NAV-06 |
@@ -194,10 +225,10 @@
 | モジュール | 状態 |
 | --- | --- |
 | `history.ts` | 未テスト |
-| `dependencies.ts` | 破綻と系統は未テスト。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でテストしている |
+| `dependencies.ts` | 破綻の境界と系統は未テスト。線の追加、除去、当たりはテストしている。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でもテストしている |
 | `timeline.ts` | 期限超過、イナズマ線、ズーム段階は未テスト |
 | `milestones.ts` | マイルストン超過と段の割り当ては未テスト。追加と削除はテストしている |
-| `rows.ts` | ノートとマイルストン以外の絞り込み、`computeVisibleRows`、折りたたみは未テスト |
+| `rows.ts` | ノート、マイルストン、確度以外の絞り込み、`computeVisibleRows`、折りたたみは未テスト |
 | `exportFilename.ts` | 未テスト。Rust 側が似たファイル名処理をテストしている |
 | `scheduleFile.ts` | Tauri とブラウザの I/O は未テスト |
 | `tasks.ts` | 追加と削除の操作は未テスト |
@@ -242,6 +273,7 @@
 | TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しがファイル名になる |
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01b | FILE-01 | schemaVersion 2 の JSON がある | 「開く」で選ぶ | 開かず、理由が出る。それまでの保存先は変わらない |
+| TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーはベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 4 になり、全部のタスクに `confidence` がある |
 | TC-FILE-02 | FILE-02 | ファイルを開き、バーを動かして未保存にする | 「保存」を押す | 見出しから「未保存」が消え、ファイルの内容が画面と一致する |
 | TC-FILE-02c | FILE-02 | 同上 | ⌘/Ctrl+S を押す。検索欄にフォーカスがあるときも押す | 「保存」と同じように保存される。編集ダイアログが開いているときは保存されない |
 | TC-FILE-03 | FILE-03 | サンプルを編集する | 「別名保存」で新しいパスを選ぶ | そのパスに JSON ができ、次の「保存」はそのパスへ書く |
@@ -278,15 +310,19 @@
 | TC-VIEW-06 | VIEW-06 | 対応マイルストンより終了日が後のタスクと、当日で終わるタスク | 行を見る | 後のタスクだけ、右が半透明の赤になり「超過」が出る |
 | TC-VIEW-07 | VIEW-07 | 期限超過の行と、進行中で開始日が明日の行 | 橙の線を見る | 超過の行では終了日まで左へ、未来に開始する着手済みの行では開始日まで右へ折れる |
 | TC-VIEW-08 | VIEW-08 | 後続の開始が先行の終了より前の組と、同じ日に始まる組 | 線を見る | 先行の終了より前に始まる組の線だけが赤い。どちらかを折りたたむと線は消える |
+| TC-VIEW-08b | VIEW-08 | 先行と後続が見えている | 後続の開始を超えるまで先行の終了を延ばし、離す前に線を見る。同じ日まで戻してから離す | 離す前に赤く太くなる。同じ日では赤くならない。離してから「前後: 破綻のみ」に入る |
 | TC-VIEW-09 | VIEW-09 | カレンダー未設定で日表示 | 背景を見る | 土日だけが薄い灰。月表示では日ごとに塗らない |
 | TC-VIEW-10 | VIEW-10 | 使用中カタログがある | 割り当てなし、一致する ID、存在しない ID の行を見る | 「割り当てなし」は破線、「メンバー不明」は点線と ID、一致は表示名 |
 | TC-VIEW-11 | VIEW-11 | ノートがあるタスクと無いタスク | ノートアイコンを押す | 色が違い、本文が出る。無いタスクは「ノートはありません」 |
 | TC-NAV-01 | NAV-01 | 期間が画面より広い | チャートをドラッグし、ホイールと Shift+ホイールを回す | ドラッグは縦横、ホイールは縦、Shift+ホイールは横に動く |
+| TC-NAV-01b | NAV-01 | 期間が画面より広く、行が画面より多い | ⌘ または Ctrl を押しながら上下左右を押す。押し続ける。端まで押す | 上で縦に戻り、下で進む。左で過去、右で未来へ動く。縦は左の一覧と一緒に動く。上下は 1 行分、左右も同じ画面上の距離である。押しているあいだは連続して動き、端で止まる |
+| TC-NAV-01c | NAV-01 | 検索欄、選択欄、またはボタンにフォーカスがある。別途、ダイアログと右クリックメニューを開く | 矢印キーだけを押し、続けて ⌘ または Ctrl と矢印を押す | 矢印キーだけではその欄の操作のままである。⌘ または Ctrl と矢印ではチャートが動く。ダイアログが開いているあいだは動かない。右クリックメニューは、この操作で閉じる |
 | TC-NAV-02 | NAV-02 | 週表示 | Ctrl または ⌘ を押してホイールを回す | ポインタの位置を保ったまま拡大し、十分拡大すると「日表示」、縮小すると「月表示」になる |
 | TC-NAV-03 | NAV-03 | 横にスクロールした状態 | 「Fit」を押す | 期間が幅に入り、横位置が先頭に戻る |
 | TC-NAV-04 | NAV-04 | タスクがあるグループ | 三角を二度押す | 一度で配下の行が隠れ、親バーは残る。二度で戻る |
 | TC-NAV-05 | NAV-05 | 左の幅に収まらないタスク名 | その名前を横にドラッグする | 続きが読める。担当と「超過」は動かない |
 | TC-NAV-06 | NAV-06 | 左の一覧とチャートの境界 | 境界を横にドラッグし、ダブルクリックする。ウィンドウを狭めてから広げる | 一覧の幅が変わり、チャートは残った幅に合う。ダブルクリックで既定の幅に戻る。名前の横ずらしは残る。ウィンドウを狭めると表示だけ縮み、広げると戻る |
+| TC-NAV-06b | NAV-06 | 境界にフォーカスがある | 左右キーを押す。続けて ⌘ または Ctrl と左右を押す。さらに Shift または Alt も一緒に押す | 左右キーだけでは幅が変わる。⌘ または Ctrl を押すと幅は変わらず、チャートが横にスクロールする。Shift または Alt も一緒のときは、幅もスクロールも変わらない |
 | TC-FILTER-01 | FILTER-01 | サンプル | タスク名の一部を入れる | その文字を含むタスクだけが残る |
 | TC-FILTER-01b | FILTER-01 | サンプル | ⌘/Ctrl+F を押す | 「タスク名で検索」にフォーカスが移り、入っている文字が選択される |
 | TC-FILTER-02 | FILTER-02 | ノートがあるタスクと無いタスク | ノートの一部を入れる | ノートにその文字を含むタスクだけが残る |
@@ -300,29 +336,44 @@
 | TC-FILTER-08 | FILTER-08 | 枝分かれした前後関係 | 枝の途中を選んで「系統」を押す | その起点の先行と後続だけが残る。起点を通らない枝は出ない。もう一度で解除する |
 | TC-FILTER-08b | FILTER-08 | 系統を表示している | 別のタスクを右クリックし、「系統を表示」を選ぶ | 起点がそのタスクに切り替わる。同じタスクなら「系統を解除」で外れる |
 | TC-FILTER-09 | FILTER-09 | あるグループのタスクがすべて完了 | 「完了以外」を選ぶ | そのグループの行も消える。追加ダイアログでは、そのグループをまだ選べる |
+| TC-FILTER-10 | FILTER-10 | サンプル | 「確度」で「未確定」、次に「確定」を選ぶ | 未確定だけ、次に確定だけが残る。選んでいたタスクの選択は外れる |
+| TC-VIEW-12 | VIEW-12 | サンプル | 未確定と確定のバーを、ライトとダークで見る。超過もある未確定を見る | 未確定は斜線で、確定はベタ塗り。色はステータスと期限超過のまま。左に「未確定」が出る。超過もあるときは「未確定」「超過」の順 |
 | TC-EDIT-01 | EDIT-01 | サンプル | バーをクリックし、次に背景をクリックする | バーで選択され端のハンドルが出る。背景で外れる。左の行をクリックしても選択されない |
 | TC-EDIT-01b | EDIT-01 | タスクを選択している | 絞り込みを変える | 選択が外れる |
 | TC-EDIT-02 | EDIT-02 | タスクを選択できる | ⌘ または Ctrl を押しながらバーを横へドラッグして離す | 開始と終了が同じ日数だけ動く。修飾が無いドラッグはスクロールのまま |
-| TC-EDIT-03 | EDIT-03 | タスクを選択している | 右端を左へ、1日より短くなるところまでドラッグする | 1日で止まり、終了日が開始日より前にならない |
+| TC-EDIT-02b | EDIT-02 | タスクを選択できる | ⌘ または Ctrl を押しながらバーを横へドラッグし、離す前に日付を見る。離したあと、修飾キー無しでドラッグする。名前の横ずらしと、ひし形のドラッグもする | ドラッグ中は開始日と終了日が月/日で、棒と重ならずに出る。離すと消える。スクロール、名前の横ずらし、ひし形では出ない |
+| TC-EDIT-02c | EDIT-02 | 前後の線が複数ある | 1本の端のタスクだけをドラッグし、終了日を非稼働日まで動かす | 触っていない線の色は変わらない。見えている行も変わらない。「休」は出ず、バーの長さは暦日のまま |
+| TC-EDIT-03 | EDIT-03 | タスクを選択している | 右端を左へ、1日より短くなるところまでドラッグする | 1日で止まり、終了日が開始日より前にならない。止まった位置の開始日と終了日が出る |
+| TC-EDIT-03b | EDIT-03 | タスクを選択している | 左端をドラッグする | 開始日と終了日が出る。1日より短い位置では、その日付で止まる |
 | TC-EDIT-04 | EDIT-04 | サンプル | バーをダブルクリックし、名前を空にして保存する | 保存されず、理由が出る。Escape では変更が残らない |
 | TC-EDIT-04c | EDIT-04 | タスクを選択している | Enter を押す | 編集ダイアログが開く。検索欄にフォーカスがあるときは開かない |
+| TC-EDIT-04d | EDIT-04, EDIT-10 | タスクを選択している | 編集で確度を変えて保存し、取り消す | 確度だけが変わり、日付は動かない。取り消し 1 回で戻る |
 | TC-EDIT-05 | EDIT-05 | 3件以上のタスク | 編集で、自分を先行にしようとする。次に、循環する先行を保存する | 自分は候補に出ない。循環は保存されず、理由が出る |
 | TC-EDIT-05b | EDIT-05 | タスクが50件を超えるスケジュール | 先行の検索を空のまま開く | 「さらに絞り込んでください」と出る |
 | TC-EDIT-06 | EDIT-06 | ノートが無いタスク | ノートアイコンから文字を保存し、次に空白だけを保存する | 一度目でノートが付き、二度目でノートが消える |
-| TC-EDIT-07 | EDIT-07 | マイルストンがある | ひし形を横にドラッグして離す。次にダブルクリックで名前を空白にして保存する | 日付は離した位置になる。空白の名前は元の名前のまま残る |
+| TC-EDIT-07 | EDIT-07 | マイルストンがある | ひし形を横にドラッグして離す。次にダブルクリックで名前を空白にして保存する | 日付は離した位置になる。ドラッグ中の月/日は出ない。空白の名前は元の名前のまま残る |
 | TC-EDIT-07b | EDIT-07 | マイルストンが 0 件でもよい | 「マイルストン追加」で名前と日付を保存する | ひし形が出る。取り消し 1 回で消える |
 | TC-EDIT-07c | EDIT-07 | 「マイルストン追加」を開いている | 名前を空白だけ、または日付を空にして保存する。次にキャンセルと Escape を試す | どれでもマイルストンは増えない |
 | TC-EDIT-07d | EDIT-07 | 同じ名前と日付のマイルストンがある | 「マイルストン追加」で同じ名前と日付を保存する | もう 1 件足される |
 | TC-EDIT-07e | EDIT-07 | タスクが指しているマイルストンがある | ひし形を右クリックして「削除」を確認する | マイルストンが消え、指していたタスクの対応だけが外れる。日付は変わらない。取り消し 1 回でマイルストンと対応が戻る |
 | TC-EDIT-07f | EDIT-07 | マイルストンがある | ツールバーの「削除」を見る。Delete を押す | マイルストンは消えない |
 | TC-EDIT-07g | EDIT-07 | タスクを選択し、系統を出し、そのマイルストンで絞っている | そのマイルストンを削除する | 絞り込みは「すべて」に戻る。選択と系統は残る。取り消しても絞り込みは「すべて」のまま |
-| TC-EDIT-08 | EDIT-08 | タスクを選択し、「完了」で絞っている | 「追加」で、選択中のグループに今日から1日のタスクを足す | そのグループの末尾に、割り当てなし・未着手で足される。絞り込みは「すべて」に戻り、新しい行が選択される |
+| TC-EDIT-08 | EDIT-08 | タスクを選択し、「完了」で絞っている | 「追加」で、選択中のグループに今日から1日のタスクを足す | そのグループの末尾に、割り当てなし・未着手・未確定で足される。絞り込みは「すべて」に戻り、新しい行が選択される |
+| TC-EDIT-08c | EDIT-08, FILTER-10 | 確度を「確定」で絞っている | タスクを追加する。次に、確度を「未確定」に戻してから追加する | 「確定」のときだけ「すべて」に戻る。「未確定」のまま追加したタスクは残って見える |
 | TC-EDIT-08b | EDIT-08 | 追加ダイアログ | 終了日を開始日より前にして保存する | 追加されない |
 | TC-EDIT-09 | EDIT-09 | 先行を持つタスクを選択 | 「削除」を確認する | タスクが消え、他の先行からも外れ、残ったタスク同士はつながらない |
 | TC-EDIT-09b | EDIT-09 | タスクを選んでいない | 「削除」を見る | 押せない |
 | TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
 | TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左の行を右クリックする。選択中は端のハンドルも右クリックする | ノートが開く。左の行は右クリックで選択され、メニューが出る。左クリックでは選択されない。空白やカテゴリではメニューが出ない。端のハンドルでもバーと同じメニューが出る |
+| TC-EDIT-11c | EDIT-11, EDIT-10, VIEW-12 | 未確定のタスクと、確定のタスクがある | それぞれを右クリックし、確度の項目を選ぶ。取り消す | 未確定には「確定にする」、確定には「未確定にする」だけが出る。日付は動かない。取り消し 1 回で戻る |
 | TC-EDIT-11b | EDIT-11 | マイルストンがある | ひし形を右クリックし、「編集」を選ぶ | 「編集」と「削除」が出る。選択は変わらない。編集を選ぶと名前と日付の編集が開く |
+| TC-EDIT-12 | EDIT-12 | 見えているタスクを選択 | 「線を引く」または ⌘/Ctrl+L を押す。L だけも押す | モードに入る。ボタンに起点の名前が出る。ヒントは「次にクリックしたタスクを後続にします。Esc で中止」になる。選択が無いときと、L だけでは入らない |
+| TC-EDIT-12b | EDIT-12 | 線を引くモード | カーソルを動かし、タスクバー、左の一覧、それ以外へ乗せる | 起点の右端から折れ線が追随する。バーの上ではその左端まで、一覧の上ではチャートの左端まで伸びる。乗ったタスクバーだけ別の輪郭になる。起点、親バー、ひし形は強調されない。モードを終えると線は消える |
+| TC-EDIT-12c | EDIT-12 | 線を引くモード | 別のタスクバーをクリックする。続けて Esc、起点の再クリック、「線を引く」、⌘/Ctrl+L を試す。親バー、ひし形、背景もクリックする | クリックで線が 1 本足る。取り消しの 1 ステップで戻り、モードは残る。Esc、起点、ボタン、⌘/Ctrl+L では結ばずに終わる。親バー、ひし形、背景では終わらない |
+| TC-EDIT-12d | EDIT-12 | 線を引くモード | チャートをドラッグする。ホイール、Shift+ホイール、⌘ または Ctrl と矢印で動かす | ドラッグではスクロールも移動も期間変更もひし形の日付変更もしない。ホイールと矢印ではスクロールし、追随する線も動く。ダブルクリックと Enter では編集が開かない |
+| TC-EDIT-12e | EDIT-12 | すでに結ばれている組と、循環する組 | そのタスクをクリックする | 保存されない。編集ダイアログと同じ理由が出る。モードは残る |
+| TC-EDIT-12f | EDIT-12 | 折りたたみか絞り込みで見えていないタスクがある | 線を引くモードで、見えているタスクだけをクリックする | 見えていない相手へは引けない。編集ダイアログの先行と後続は今どおり足せる |
+| TC-EDIT-12g | EDIT-12 | 見えている線がある | 線にカーソルを合わせて Delete または Backspace を押す。別の線を右クリックして「線を外す」を選ぶ。バーの上でも Delete を押す | 線は 1 本だけ消え、確認は出ない。取り消しの 1 ステップで戻る。タスクは残る。バーやひし形の上ではタスクの削除確認が開く。ツールバーの「削除」はタスクを消す |
 | TC-EDIT-10 | EDIT-10 | バーを動かした直後 | ⌘/Ctrl+Z を押し、続けてやり直す | 移動が戻り、やり直しで再度動く。検索欄にフォーカスがあるときは動かない |
 | TC-EDIT-10b | EDIT-10 | 取り消しできる編集がある | 別のファイルを開く | 取り消しできなくなる |
 | TC-EXPORT-01 | EXPORT-01 | サンプル | 「書き出し」で SVG を選んで保存する | SVG ファイルができる。キャンセルではできない |
