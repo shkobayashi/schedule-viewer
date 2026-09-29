@@ -105,6 +105,7 @@ export function useSchedule(
   const [filters, setFilters] = useState<ScheduleFilters>({
     assignee: "all",
     status: "all",
+    confidence: "all",
     overdue: "all",
     relation: "all",
     milestone: "all",
@@ -405,6 +406,17 @@ export function useSchedule(
     setEditingNoteTaskId(null);
   }, []);
 
+  const setTaskConfidence = useCallback(
+    (taskId: ScheduleId, confidence: Task["confidence"]) => {
+      commitCategories((prev) =>
+        mapTasks(prev, (task) =>
+          task.id === taskId ? { ...task, confidence } : task,
+        ),
+      );
+    },
+    [commitCategories],
+  );
+
   const saveTaskNote = useCallback(
     (taskId: ScheduleId, rawNote: string) => {
       commitCategories((prev) =>
@@ -424,6 +436,7 @@ export function useSchedule(
       assigneeId: MemberId | null;
       status: Task["status"];
       progress: number;
+      confidence: Task["confidence"];
       predecessors: ScheduleId[];
       successors: ScheduleId[];
       milestoneId: ScheduleId | null;
@@ -465,6 +478,7 @@ export function useSchedule(
                 assigneeId: patch.assigneeId,
                 status: patch.status,
                 progress: clamp(roundedProgress, 0, 100),
+                confidence: patch.confidence,
                 predecessors,
                 milestoneId:
                   patch.milestoneId != null && milestoneIds.has(patch.milestoneId)
@@ -584,6 +598,7 @@ export function useSchedule(
         assigneeId: null,
         status: "not-started",
         progress: 0,
+        confidence: "tentative",
         predecessors: [],
         milestoneId: null,
       };
@@ -617,6 +632,7 @@ export function useSchedule(
             : prev.milestone,
         search: prev.search && !name.includes(prev.search) ? "" : prev.search,
         noteSearch: prev.noteSearch.trim() ? "" : prev.noteSearch,
+        confidence: prev.confidence === "committed" ? "all" : prev.confidence,
       }));
       setLineageTaskId(null);
       setSelectedTaskId(id);
@@ -680,6 +696,7 @@ export function useSchedule(
       setFilters({
         assignee: "all",
         status: "all",
+        confidence: "all",
         overdue: "all",
         relation: "all",
         milestone: "all",
@@ -763,6 +780,7 @@ export function useSchedule(
     openEditDialog,
     closeEditDialog,
     saveTaskEdit,
+    setTaskConfidence,
     editingTask,
     editingNoteTask,
     openTaskNoteDialog,

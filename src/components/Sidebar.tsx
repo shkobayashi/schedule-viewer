@@ -176,6 +176,9 @@ export function Sidebar({
                   text={row.task.name}
                   className={isOverdue(row.task, today) ? "overdue" : undefined}
                 />
+                {row.task.confidence === "tentative" ? (
+                  <span className="confidence-tentative">未確定</span>
+                ) : null}
                 {exceeded.length > 0 ? (
                   <span className="milestone-alert" title={exceededTitle}>
                     超過

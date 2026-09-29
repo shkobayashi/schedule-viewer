@@ -438,6 +438,7 @@ function App() {
     lineageTask,
     addPredecessorLink,
     removePredecessorLink,
+    setTaskConfidence,
   } = schedule;
   const { fileBusy, requestOpen, save } = scheduleFile;
 
@@ -869,6 +870,21 @@ function App() {
           if (task) openEditDialog(task);
         },
       },
+      ...(task
+        ? [
+            {
+              id: "confidence",
+              label:
+                task.confidence === "tentative" ? "確定にする" : "未確定にする",
+              onSelect: () => {
+                setTaskConfidence(
+                  taskId,
+                  task.confidence === "tentative" ? "committed" : "tentative",
+                );
+              },
+            },
+          ]
+        : []),
       {
         id: "note",
         label: "ノート",
@@ -894,6 +910,7 @@ function App() {
     contextMenu,
     lineageTask?.id,
     openEditDialog,
+    setTaskConfidence,
     openMilestoneEdit,
     openTaskNoteDialog,
     removePredecessorLink,

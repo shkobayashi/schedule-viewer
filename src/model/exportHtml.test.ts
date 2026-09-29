@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildScheduleHtml, buildScheduleSvg, type ScheduleExportInput } from "./exportHtml";
+import { hatchStripeColor } from "./hatch";
 import type { Task } from "./types";
 
 const task: Task = {
@@ -10,6 +11,7 @@ const task: Task = {
   assigneeId: null,
   status: "in-progress",
   progress: 40,
+  confidence: "committed",
   predecessors: [],
   milestoneId: null,
   note: "補足",
@@ -47,6 +49,24 @@ function input(): ScheduleExportInput {
   };
 }
 
+function labelColumnWidth(svg: string): number {
+  const match = /transform="translate\(([0-9.]+),0\)"/.exec(svg);
+  if (!match) throw new Error("chart translate missing");
+  return Number(match[1]);
+}
+
+function widestLabelRect(svg: string): number {
+  const chartAt = svg.search(/transform="translate\([0-9.]+,0\)"/);
+  const labels = svg.slice(0, chartAt);
+  let right = 0;
+  for (const match of labels.matchAll(
+    /<rect x="([0-9.]+)"[^>]* width="([0-9.]+)"/g,
+  )) {
+    right = Math.max(right, Number(match[1]) + Number(match[2]));
+  }
+  return right;
+}
+
 describe("schedule export documents", () => {
   it("puts the active filter into HTML and SVG", () => {
     const html = buildScheduleHtml(input());
@@ -58,6 +78,59 @@ describe("schedule export documents", () => {
     expect(svg).toContain("絞り込み（ステータス: 進行中）");
     expect(svg).toContain("見えるタスク");
     expect(svg.startsWith("<svg ")).toBe(true);
+    expect(html).not.toContain("<pattern ");
+    expect(svg).not.toContain("<pattern ");
+  });
+
+  it("hatches tentative bars and labels them, and leaves committed bars solid", () => {
+    const milestoneId = "00000000-0000-4000-8000-000000000010";
+    const tentative: Task = {
+      ...task,
+      id: "00000000-0000-4000-8000-000000000002",
+      name: "未確定タスク",
+      confidence: "tentative",
+      milestoneId,
+    };
+    const both = {
+      ...input(),
+      milestones: [
+        { id: milestoneId, name: "要件", date: "2026-04-01" },
+      ],
+      visibleRows: [
+        { type: "task" as const, task, y: 0 },
+        { type: "task" as const, task: tentative, y: 32 },
+      ],
+    };
+    const html = buildScheduleHtml(both);
+    const svg = buildScheduleSvg(both);
+    expect(html).toContain("未確定");
+    expect(html).toContain("<pattern ");
+    expect(svg).toContain("未確定");
+    expect(svg).toContain("<pattern ");
+    expect(svg).toContain('rx="4" fill="#DEE3FB"');
+    expect(svg).toContain('rx="4" fill="url(#hatch-dee3fb)"');
+    const light = hatchStripeColor("#DEE3FB", "light");
+    const dark = hatchStripeColor("#DEE3FB", "dark");
+    expect(html).toContain('fill="#DEE3FB"');
+    expect(html).toContain('fill="url(#hatch-dee3fb)"');
+    expect(html).toContain(`stroke="${light}"`);
+    expect(Number.parseInt(light.slice(1), 16)).toBeLessThan(
+      Number.parseInt("DEE3FB", 16),
+    );
+    expect(Number.parseInt(dark.slice(1), 16)).toBeGreaterThan(
+      Number.parseInt("DEE3FB", 16),
+    );
+    const column = labelColumnWidth(svg);
+    expect(widestLabelRect(svg)).toBeLessThanOrEqual(column);
+    const solid = buildScheduleSvg({
+      ...both,
+      visibleRows: both.visibleRows.map((row) =>
+        row.type === "task"
+          ? { ...row, task: { ...row.task, confidence: "committed" as const } }
+          : row,
+      ),
+    });
+    expect(column).toBeGreaterThan(labelColumnWidth(solid));
   });
 
   it("uses dark palette when colorScheme is dark", () => {
