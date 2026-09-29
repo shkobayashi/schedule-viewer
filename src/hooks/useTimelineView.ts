@@ -102,6 +102,14 @@ export function useTimelineView(
     [maxScrollX, maxScrollY],
   );
 
+  const scrollBy = useCallback(
+    (dx: number, dy: number) => {
+      setScrollX((sx) => clamp(sx + dx, 0, maxScrollX));
+      setScrollY((sy) => clamp(sy + dy, 0, maxScrollY));
+    },
+    [maxScrollX, maxScrollY],
+  );
+
   const handleWheel = useCallback(
     (
       e: WheelEvent,
@@ -136,6 +144,7 @@ export function useTimelineView(
     zoomOut,
     fitToWidth,
     panBy,
+    scrollBy,
     reveal,
     handleWheel,
     timelineStart,

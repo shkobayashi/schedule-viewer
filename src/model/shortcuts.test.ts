@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   blocksBrowserShortcut,
   blocksEditShortcut,
+  chartScrollOffset,
   fileShortcutHint,
   matchAppShortcut,
+  matchChartScroll,
   usesCommandKey,
   type ShortcutContext,
   type ShortcutKeyEvent,
@@ -66,6 +68,43 @@ describe("matchAppShortcut", () => {
     expect(matchAppShortcut(key("Enter", { ctrlKey: true }), idle)).toBeNull();
     expect(matchAppShortcut(key("Enter", { shiftKey: true }), idle)).toBeNull();
     expect(matchAppShortcut(key("o", { ctrlKey: true, shiftKey: true }), idle)).toBeNull();
+  });
+});
+
+describe("matchChartScroll", () => {
+  it("scrolls one row with ctrl or meta and an arrow", () => {
+    expect(matchChartScroll(key("ArrowUp", { ctrlKey: true }), idle)).toBe("up");
+    expect(matchChartScroll(key("ArrowDown", { metaKey: true }), idle)).toBe("down");
+    expect(matchChartScroll(key("ArrowLeft", { ctrlKey: true }), idle)).toBe("left");
+    expect(matchChartScroll(key("ArrowRight", { metaKey: true }), idle)).toBe("right");
+    expect(chartScrollOffset("up", 32)).toEqual({ x: 0, y: -32 });
+    expect(chartScrollOffset("down", 32)).toEqual({ x: 0, y: 32 });
+    expect(chartScrollOffset("left", 32)).toEqual({ x: -32, y: 0 });
+    expect(chartScrollOffset("right", 32)).toEqual({ x: 32, y: 0 });
+  });
+
+  it("scrolls while an edit key target is focused", () => {
+    expect(matchChartScroll(key("ArrowDown", { ctrlKey: true }), typing)).toBe("down");
+    expect(matchChartScroll(key("ArrowRight", { metaKey: true }), typing)).toBe("right");
+  });
+
+  it("does not scroll for a bare arrow, shift, alt, or a dialog", () => {
+    expect(matchChartScroll(key("ArrowDown"), idle)).toBeNull();
+    expect(matchChartScroll(key("ArrowLeft", { shiftKey: true }), idle)).toBeNull();
+    expect(
+      matchChartScroll(key("ArrowRight", { ctrlKey: true, shiftKey: true }), idle),
+    ).toBeNull();
+    expect(
+      matchChartScroll(key("ArrowUp", { metaKey: true, altKey: true }), idle),
+    ).toBeNull();
+    expect(matchChartScroll(key("ArrowDown", { ctrlKey: true }), dialog)).toBeNull();
+    expect(matchChartScroll(key("Enter", { ctrlKey: true }), idle)).toBeNull();
+  });
+
+  it("scrolls when both ctrl and meta are held", () => {
+    expect(
+      matchChartScroll(key("ArrowLeft", { ctrlKey: true, metaKey: true }), idle),
+    ).toBe("left");
   });
 });
 
