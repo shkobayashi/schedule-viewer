@@ -6,7 +6,11 @@ import {
   isoDate,
   parseDate,
 } from "../model/dates";
-import { lineageTaskIds } from "../model/dependencies";
+import {
+  dropPredecessorLink,
+  lineageTaskIds,
+  tryAddPredecessorLink,
+} from "../model/dependencies";
 import {
   cloneSnapshot,
   createDocumentHistory,
@@ -622,6 +626,29 @@ export function useSchedule(
     [commitCategories, today],
   );
 
+  const addPredecessorLink = useCallback(
+    (predecessorId: ScheduleId, successorId: ScheduleId): string | null => {
+      const result = tryAddPredecessorLink(
+        documentRef.current.categories,
+        predecessorId,
+        successorId,
+      );
+      if (!result.ok) return result.message;
+      commitCategories(() => result.categories);
+      return null;
+    },
+    [commitCategories],
+  );
+
+  const removePredecessorLink = useCallback(
+    (predecessorId: ScheduleId, successorId: ScheduleId) => {
+      commitCategories((prev) =>
+        dropPredecessorLink(prev, predecessorId, successorId),
+      );
+    },
+    [commitCategories],
+  );
+
   const deleteTask = useCallback(
     (taskId: ScheduleId) => {
       commitCategories((prev) => removeTask(prev, taskId));
@@ -742,6 +769,8 @@ export function useSchedule(
     closeTaskNoteDialog,
     saveTaskNote,
     addTask,
+    addPredecessorLink,
+    removePredecessorLink,
     deleteTask,
     addMilestone,
     deleteMilestone,

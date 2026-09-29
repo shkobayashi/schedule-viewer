@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type Ref } from "react";
 import { Group, Layer, Line, RegularPolygon, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { parseDate } from "../model/dates";
@@ -20,7 +20,9 @@ type MilestoneBandProps = {
   onOpenEdit: (id: ScheduleId) => void;
   onContextMenu: (id: ScheduleId, x: number, y: number) => void;
   onWheel: (e: Konva.KonvaEventObject<WheelEvent>) => void;
+  linkMode?: boolean;
   chart: ChartPalette;
+  containerRef?: Ref<HTMLDivElement>;
 };
 
 export function MilestoneBand({
@@ -37,10 +39,12 @@ export function MilestoneBand({
   onOpenEdit,
   onContextMenu,
   onWheel,
+  linkMode = false,
   chart,
+  containerRef,
 }: MilestoneBandProps) {
   return (
-    <div className="milestone-band" style={{ height }}>
+    <div className="milestone-band" style={{ height }} ref={containerRef}>
       <Stage width={width} height={height} onWheel={onWheel}>
         <Layer>
           <Line
@@ -66,6 +70,7 @@ export function MilestoneBand({
                 onMove={(delta) => onMove(milestone.id, delta)}
                 onOpenEdit={() => onOpenEdit(milestone.id)}
                 onContextMenu={(x, y) => onContextMenu(milestone.id, x, y)}
+                linkMode={linkMode}
                 chart={chart}
               />
             );
@@ -86,6 +91,7 @@ function MilestoneMark({
   onMove,
   onOpenEdit,
   onContextMenu,
+  linkMode,
   chart,
 }: {
   milestone: Milestone;
@@ -97,6 +103,7 @@ function MilestoneMark({
   onMove: (deltaDays: number) => void;
   onOpenEdit: () => void;
   onContextMenu: (x: number, y: number) => void;
+  linkMode: boolean;
   chart: ChartPalette;
 }) {
   const groupRef = useRef<Konva.Group>(null);
@@ -108,9 +115,10 @@ function MilestoneMark({
       ref={groupRef}
       x={x}
       y={y}
-      draggable
+      draggable={!linkMode}
       dragBoundFunc={(pos) => ({ x: pos.x, y })}
       onMouseEnter={(e) => {
+        if (linkMode) return;
         const container = e.target.getStage()?.container();
         if (container) container.style.cursor = "ew-resize";
       }}
@@ -121,14 +129,17 @@ function MilestoneMark({
       onContextMenu={(e) => {
         e.cancelBubble = true;
         e.evt.preventDefault();
+        if (linkMode) return;
         onContextMenu(e.evt.clientX, e.evt.clientY);
       }}
       onDblClick={(e) => {
         e.cancelBubble = true;
+        if (linkMode) return;
         onOpenEdit();
       }}
       onDblTap={(e) => {
         e.cancelBubble = true;
+        if (linkMode) return;
         onOpenEdit();
       }}
       onDragStart={(e) => {

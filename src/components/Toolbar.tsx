@@ -9,6 +9,7 @@ import {
   type ScheduleFilters,
   type StatusFilter,
 } from "../model/types";
+import { linkShortcutHint, usesCommandKey } from "../model/shortcuts";
 import { AppMenu } from "./AppMenu";
 
 export type AssigneeFilterOption = {
@@ -31,6 +32,9 @@ type ToolbarProps = {
   lineageName: string | null;
   canStartLineage: boolean;
   onToggleLineage: () => void;
+  linkSourceName: string | null;
+  canStartLink: boolean;
+  onToggleLink: () => void;
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -65,6 +69,9 @@ export function Toolbar({
   lineageName,
   canStartLineage,
   onToggleLineage,
+  linkSourceName,
+  canStartLink,
+  onToggleLink,
   onFiltersChange,
   onZoomIn,
   onZoomOut,
@@ -83,6 +90,9 @@ export function Toolbar({
   fileBusy = false,
   taskSearchRef,
 }: ToolbarProps) {
+  const linkKey = linkShortcutHint(
+    usesCommandKey(navigator.platform || navigator.userAgent),
+  );
   return (
     <div className="toolbar">
       <AppMenu
@@ -201,6 +211,19 @@ export function Toolbar({
         onClick={onToggleLineage}
       >
         {lineageName ? `系統: ${lineageName}` : "系統"}
+      </button>
+      <button
+        type="button"
+        className={`lineage-btn${linkSourceName ? " active" : ""}`}
+        disabled={!linkSourceName && !canStartLink}
+        title={
+          linkSourceName
+            ? `${linkSourceName} から後続へ線を引いています。もう一度押すか、${linkKey} で中止`
+            : `選択中のタスクから、次にクリックしたタスクを後続にする（${linkKey}）`
+        }
+        onClick={onToggleLink}
+      >
+        {linkSourceName ? `線を引く: ${linkSourceName}` : "線を引く"}
       </button>
       <button type="button" className="toolbar-btn" onClick={onAdd}>
         追加
