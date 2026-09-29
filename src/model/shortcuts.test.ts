@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   blocksBrowserShortcut,
   blocksEditShortcut,
+  blocksLinkShortcut,
   chartScrollOffset,
   fileShortcutHint,
+  linkShortcutHint,
   matchAppShortcut,
   matchChartScroll,
   usesCommandKey,
@@ -11,9 +13,26 @@ import {
   type ShortcutKeyEvent,
 } from "./shortcuts";
 
-const idle: ShortcutContext = { dialogOpen: false, blocksEditKeys: false };
-const typing: ShortcutContext = { dialogOpen: false, blocksEditKeys: true };
-const dialog: ShortcutContext = { dialogOpen: true, blocksEditKeys: false };
+const idle: ShortcutContext = {
+  dialogOpen: false,
+  blocksEditKeys: false,
+  blocksLinkKeys: false,
+};
+const typing: ShortcutContext = {
+  dialogOpen: false,
+  blocksEditKeys: true,
+  blocksLinkKeys: true,
+};
+const dialog: ShortcutContext = {
+  dialogOpen: true,
+  blocksEditKeys: false,
+  blocksLinkKeys: false,
+};
+const buttonFocus: ShortcutContext = {
+  dialogOpen: false,
+  blocksEditKeys: true,
+  blocksLinkKeys: false,
+};
 
 function key(
   name: string,
@@ -59,6 +78,18 @@ describe("matchAppShortcut", () => {
     expect(matchAppShortcut(key("Enter"), typing)).toBeNull();
     expect(matchAppShortcut(key("Delete"), typing)).toBeNull();
     expect(matchAppShortcut(key("Backspace"), dialog)).toBeNull();
+  });
+
+  it("maps command L for drawing a link unless a field or dialog has focus", () => {
+    expect(matchAppShortcut(key("l", { ctrlKey: true }), idle)).toBe("link");
+    expect(matchAppShortcut(key("L", { metaKey: true }), idle)).toBe("link");
+    expect(matchAppShortcut(key("l", { ctrlKey: true }), buttonFocus)).toBe("link");
+    expect(matchAppShortcut(key("l"), idle)).toBeNull();
+    expect(matchAppShortcut(key("l", { ctrlKey: true }), typing)).toBeNull();
+    expect(matchAppShortcut(key("l", { metaKey: true }), dialog)).toBeNull();
+    expect(matchAppShortcut(key("l", { ctrlKey: true, shiftKey: true }), idle)).toBeNull();
+    expect(matchAppShortcut(key("l", { altKey: true }), idle)).toBeNull();
+    expect(matchAppShortcut(key("l", { ctrlKey: true, altKey: true }), idle)).toBeNull();
   });
 
   it("ignores undo, zoom-like modifiers, and alt combinations", () => {
@@ -146,6 +177,34 @@ describe("blocksEditShortcut", () => {
     expect(blocksEditShortcut({ tagName: "DIV", isContentEditable: false })).toBe(
       false,
     );
+  });
+});
+
+describe("blocksLinkShortcut", () => {
+  it("blocks fields but not buttons", () => {
+    expect(blocksLinkShortcut({ tagName: "INPUT", isContentEditable: false })).toBe(
+      true,
+    );
+    expect(blocksLinkShortcut({ tagName: "TEXTAREA", isContentEditable: false })).toBe(
+      true,
+    );
+    expect(blocksLinkShortcut({ tagName: "SELECT", isContentEditable: false })).toBe(
+      true,
+    );
+    expect(blocksLinkShortcut({ tagName: "BUTTON", isContentEditable: false })).toBe(
+      false,
+    );
+    expect(blocksLinkShortcut({ tagName: "DIV", isContentEditable: true })).toBe(true);
+    expect(blocksLinkShortcut({ tagName: "DIV", isContentEditable: false })).toBe(
+      false,
+    );
+  });
+});
+
+describe("linkShortcutHint", () => {
+  it("uses the command key on mac and ctrl elsewhere", () => {
+    expect(linkShortcutHint(true)).toBe("⌘L");
+    expect(linkShortcutHint(false)).toBe("Ctrl+L");
   });
 });
 

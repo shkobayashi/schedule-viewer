@@ -4,7 +4,8 @@ export type AppShortcut =
   | "open"
   | "find"
   | "edit"
-  | "delete";
+  | "delete"
+  | "link";
 
 export type ShortcutKeyEvent = {
   key: string;
@@ -17,6 +18,8 @@ export type ShortcutKeyEvent = {
 export type ShortcutContext = {
   dialogOpen: boolean;
   blocksEditKeys: boolean;
+  /** 検索欄、入力欄、選択欄。ボタンは線を引くキーを止めない。 */
+  blocksLinkKeys: boolean;
 };
 
 export type ChartScrollDirection = "up" | "down" | "left" | "right";
@@ -27,6 +30,7 @@ export type ChartScrollOffset = {
 };
 
 const EDIT_BLOCK_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"]);
+const LINK_BLOCK_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 
 function shortcutKey(event: ShortcutKeyEvent): string {
   return event.key.length === 1 ? event.key.toLowerCase() : event.key;
@@ -38,6 +42,15 @@ export function blocksEditShortcut(target: {
 }): boolean {
   if (target.isContentEditable) return true;
   return EDIT_BLOCK_TAGS.has(target.tagName);
+}
+
+/** 線を引くキーは、検索欄・入力欄・選択欄と編集可能領域では効かない。 */
+export function blocksLinkShortcut(target: {
+  tagName: string;
+  isContentEditable: boolean;
+}): boolean {
+  if (target.isContentEditable) return true;
+  return LINK_BLOCK_TAGS.has(target.tagName);
 }
 
 export function blocksBrowserShortcut(event: ShortcutKeyEvent): boolean {
@@ -61,6 +74,15 @@ export function matchAppShortcut(
     if (key === "s") return "save";
     if (key === "o") return "open";
     return "find";
+  }
+
+  if (
+    key === "l" &&
+    (event.ctrlKey || event.metaKey) &&
+    !event.shiftKey
+  ) {
+    if (context.blocksLinkKeys) return null;
+    return "link";
   }
 
   if (event.ctrlKey || event.metaKey || event.shiftKey || context.blocksEditKeys) {
@@ -96,6 +118,10 @@ export function chartScrollOffset(
 
 export function usesCommandKey(platform: string): boolean {
   return /Mac|iPhone|iPad|iPod/i.test(platform);
+}
+
+export function linkShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘L" : "Ctrl+L";
 }
 
 export function fileShortcutHint(

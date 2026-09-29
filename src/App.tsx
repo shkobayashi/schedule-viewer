@@ -17,7 +17,7 @@ import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
 import { TaskEditDialog } from "./components/TaskEditDialog";
 import { TaskNoteDialog } from "./components/TaskNoteDialog";
-import { Timeline } from "./components/Timeline";
+import { Timeline, type ChartPointer } from "./components/Timeline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { Toolbar } from "./components/Toolbar";
@@ -60,6 +60,7 @@ import { findTaskById } from "./model/rows";
 import {
   blocksBrowserShortcut,
   blocksEditShortcut,
+  blocksLinkShortcut,
   chartScrollOffset,
   matchAppShortcut,
   matchChartScroll,
@@ -111,7 +112,14 @@ const INITIAL_BASELINE_JSON = serializeScheduleDocument(
 
 type ContextMenuState =
   | { kind: "task"; taskId: ScheduleId; x: number; y: number }
-  | { kind: "milestone"; milestoneId: ScheduleId; x: number; y: number };
+  | { kind: "milestone"; milestoneId: ScheduleId; x: number; y: number }
+  | {
+      kind: "link";
+      fromId: ScheduleId;
+      toId: ScheduleId;
+      x: number;
+      y: number;
+    };
 
 function shouldHandleDocumentUndo(target: EventTarget | null): boolean {
   if (document.querySelector('[role="dialog"]')) return false;
@@ -157,6 +165,13 @@ function App() {
   const [exportOpen, setExportOpen] = useState(false);
   const [pendingFit, setPendingFit] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [linkSourceId, setLinkSourceId] = useState<ScheduleId | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const chartPointerRef = useRef<ChartPointer>({
+    overTask: false,
+    overMilestone: false,
+    link: null,
+  });
   const taskSearchRef = useRef<HTMLInputElement>(null);
 
   const { headerHeight, rowHeight, barHeight, milestoneLaneHeight } =
@@ -420,8 +435,26 @@ function App() {
     clearLineage,
     showLineage,
     lineageTask,
+    addPredecessorLink,
+    removePredecessorLink,
   } = schedule;
   const { fileBusy, requestOpen, save } = scheduleFile;
+
+  useEffect(() => {
+    if (linkSourceId == null) return;
+    if (selectedTaskId !== linkSourceId) {
+      setLinkSourceId(null);
+      setLinkError(null);
+    }
+  }, [linkSourceId, selectedTaskId]);
+
+  const toggleLinkMode = useCallback(() => {
+    setLinkError(null);
+    setLinkSourceId((current) => {
+      if (current != null) return null;
+      return selectedTaskId;
+    });
+  }, [selectedTaskId]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -430,6 +463,12 @@ function App() {
       const blocksEditKeys =
         target instanceof HTMLElement &&
         blocksEditShortcut({
+          tagName: target.tagName,
+          isContentEditable: target.isContentEditable,
+        });
+      const blocksLinkKeys =
+        target instanceof HTMLElement &&
+        blocksLinkShortcut({
           tagName: target.tagName,
           isContentEditable: target.isContentEditable,
         });
@@ -449,15 +488,37 @@ function App() {
         return;
       }
       if (blocksBrowserShortcut(shortcutEvent)) e.preventDefault();
+      if (
+        shortcutEvent.key === "Escape" &&
+        !dialogOpen &&
+        !shortcutEvent.altKey &&
+        !shortcutEvent.ctrlKey &&
+        !shortcutEvent.metaKey &&
+        !shortcutEvent.shiftKey
+      ) {
+        if (document.querySelector('[role="menu"]')) return;
+        if (linkSourceId != null) {
+          e.preventDefault();
+          setLinkSourceId(null);
+          setLinkError(null);
+        }
+        return;
+      }
       const shortcut = matchAppShortcut(shortcutEvent, {
         dialogOpen,
         blocksEditKeys,
+        blocksLinkKeys,
       });
       if (shortcut) {
         e.preventDefault();
         if (e.repeat) return;
         setContextMenu(null);
+        if (shortcut === "link") {
+          toggleLinkMode();
+          return;
+        }
         if (shortcut === "edit") {
+          if (linkSourceId != null) return;
           const task =
             selectedTaskId == null
               ? null
@@ -466,6 +527,16 @@ function App() {
           return;
         }
         if (shortcut === "delete") {
+          const pointer = chartPointerRef.current;
+          const hovered = pointer.link;
+          if (
+            hovered &&
+            !pointer.overTask &&
+            !pointer.overMilestone
+          ) {
+            removePredecessorLink(hovered.fromId, hovered.toId);
+            return;
+          }
           if (selectedTaskId != null) setDeleteOpen(true);
           return;
         }
@@ -505,6 +576,9 @@ function App() {
     save,
     scrollBy,
     selectedTaskId,
+    linkSourceId,
+    toggleLinkMode,
+    removePredecessorLink,
     undo,
   ]);
 
@@ -726,17 +800,39 @@ function App() {
 
   const openTaskContextMenu = useCallback(
     (taskId: ScheduleId, x: number, y: number) => {
+      if (linkSourceId != null) return;
       selectTask(taskId);
       setContextMenu({ kind: "task", taskId, x, y });
     },
-    [selectTask],
+    [linkSourceId, selectTask],
   );
 
   const openMilestoneContextMenu = useCallback(
     (milestoneId: ScheduleId, x: number, y: number) => {
+      if (linkSourceId != null) return;
       setContextMenu({ kind: "milestone", milestoneId, x, y });
     },
+    [linkSourceId],
+  );
+
+  const openLinkContextMenu = useCallback(
+    (fromId: ScheduleId, toId: ScheduleId, x: number, y: number) => {
+      setContextMenu({ kind: "link", fromId, toId, x, y });
+    },
     [],
+  );
+
+  const onLinkTargetClick = useCallback(
+    (taskId: ScheduleId) => {
+      if (linkSourceId == null) return;
+      if (taskId === linkSourceId) {
+        setLinkSourceId(null);
+        setLinkError(null);
+        return;
+      }
+      setLinkError(addPredecessorLink(linkSourceId, taskId));
+    },
+    [addPredecessorLink, linkSourceId],
   );
 
   const contextMenuItems = useMemo((): ContextMenuItem[] => {
@@ -753,6 +849,16 @@ function App() {
           id: "delete",
           label: "削除",
           onSelect: () => setDeleteMilestoneId(milestoneId),
+        },
+      ];
+    }
+    if (contextMenu.kind === "link") {
+      const { fromId, toId } = contextMenu;
+      return [
+        {
+          id: "unlink",
+          label: "線を外す",
+          onSelect: () => removePredecessorLink(fromId, toId),
         },
       ];
     }
@@ -794,6 +900,7 @@ function App() {
     openEditDialog,
     openMilestoneEdit,
     openTaskNoteDialog,
+    removePredecessorLink,
     showLineage,
   ]);
 
@@ -820,6 +927,13 @@ function App() {
         lineageName={schedule.lineageTask?.name ?? null}
         canStartLineage={schedule.selectedTaskId != null}
         onToggleLineage={schedule.toggleLineage}
+        linkSourceName={
+          linkSourceId == null
+            ? null
+            : (findTaskById(schedule.categories, linkSourceId)?.name ?? null)
+        }
+        canStartLink={schedule.selectedTaskId != null}
+        onToggleLink={toggleLinkMode}
         onFiltersChange={schedule.updateFilters}
         onZoomIn={zoomIn}
         onZoomOut={zoomOut}
@@ -841,12 +955,22 @@ function App() {
         taskSearchRef={taskSearchRef}
       />
       <div className="hint">
-        Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
-        ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・ 境界をドラッグで左の幅を変える
-        ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
-        ・ タスクを選んで「系統」で前後だけ表示 ・
-        マイルストンは「マイルストン追加」で足し、帯のひし形をドラッグ、ダブルクリックで編集、右クリックで削除
-        ・ ⌘/Ctrl+Z で取り消し、Shift+Z または Ctrl+Y でやり直し
+        {linkSourceId != null ? (
+          <>
+            <div>次にクリックしたタスクを後続にします。Esc で中止</div>
+            {linkError ? <div className="hint-error">{linkError}</div> : null}
+          </>
+        ) : (
+          <>
+            Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
+            ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・ 境界をドラッグで左の幅を変える
+            ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更、ダブルクリックで詳細編集
+            ・ タスクを選んで「系統」で前後だけ表示 ・
+            タスクを選んで「線を引く」または ⌘/Ctrl+L で後続を足す。線の上で Delete か右クリックで外す
+            ・ マイルストンは「マイルストン追加」で足し、帯のひし形をドラッグ、ダブルクリックで編集、右クリックで削除
+            ・ ⌘/Ctrl+Z で取り消し、Shift+Z または Ctrl+Y でやり直し
+          </>
+        )}
       </div>
       <div ref={mainRef} className="main">
         <Sidebar
@@ -912,6 +1036,12 @@ function App() {
             memberCatalog={memberCatalogState.memberMap}
             calendar={appCalendarState.calendar}
             colorScheme={resolvedColorScheme}
+            linkSourceId={linkSourceId}
+            onLinkTargetClick={onLinkTargetClick}
+            onLinkContextMenu={openLinkContextMenu}
+            onChartPointer={(pointer) => {
+              chartPointerRef.current = pointer;
+            }}
           />
         </div>
       </div>

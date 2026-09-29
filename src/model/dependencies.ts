@@ -1,5 +1,11 @@
-import { forEachTask } from "./tasks";
-import type { Category, ScheduleId, Task } from "./types";
+import {
+  validateDependencyCycles,
+  validatePredecessorRefs,
+  type ValidationIssue,
+} from "./scheduleSemantics";
+import { forEachTask, mapTasks } from "./tasks";
+import { SCHEDULE_SCHEMA_VERSION, type Category, type ScheduleId, type Task } from "./types";
+import { formatValidationErrors } from "./validateSchedule";
 
 export type TaskRef = {
   id: ScheduleId;
@@ -155,4 +161,159 @@ export function linkPoints(
   }
   const elbow = fromRight + 12;
   return [fromRight, fromY, elbow, fromY, elbow, toY, toLeft, toY];
+}
+
+/** 描いた線より広い当たり。重なったときはこの距離以内で一番近い 1 本。 */
+export const LINK_HIT_DISTANCE = 8;
+
+export type LinkPolyline = {
+  fromId: ScheduleId;
+  toId: ScheduleId;
+  points: number[];
+};
+
+function pointToSegmentDistance(
+  px: number,
+  py: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(px - x1, py - y1);
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+
+export function pointToPolylineDistance(
+  px: number,
+  py: number,
+  points: readonly number[],
+): number {
+  if (points.length < 4) {
+    if (points.length < 2) return Infinity;
+    return Math.hypot(px - points[0]!, py - points[1]!);
+  }
+  let best = Infinity;
+  for (let i = 0; i + 3 < points.length; i += 2) {
+    const distance = pointToSegmentDistance(
+      px,
+      py,
+      points[i]!,
+      points[i + 1]!,
+      points[i + 2]!,
+      points[i + 3]!,
+    );
+    if (distance < best) best = distance;
+  }
+  return best;
+}
+
+/** 閾値以内でポインタに一番近い線。無ければ null。 */
+export function nearestLinkHit(
+  links: readonly LinkPolyline[],
+  x: number,
+  y: number,
+  maxDistance = LINK_HIT_DISTANCE,
+): LinkPolyline | null {
+  let best: LinkPolyline | null = null;
+  let bestDistance = maxDistance;
+  for (const link of links) {
+    const distance = pointToPolylineDistance(x, y, link.points);
+    if (distance < bestDistance || (distance === bestDistance && best == null)) {
+      if (distance <= maxDistance) {
+        best = link;
+        bestDistance = distance;
+      }
+    }
+  }
+  return best;
+}
+
+export type PredecessorLinkResult =
+  | { ok: true; categories: Category[] }
+  | { ok: false; message: string };
+
+function duplicatePredecessorIssues(categories: Category[]): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  categories.forEach((category, ci) => {
+    category.groups.forEach((group, gi) => {
+      group.tasks.forEach((task, ti) => {
+        const seen = new Set<ScheduleId>();
+        const taskPath = `/categories/${ci}/groups/${gi}/tasks/${ti}`;
+        task.predecessors.forEach((predId, pi) => {
+          const predPath = `${taskPath}/predecessors/${pi}`;
+          if (predId === task.id) {
+            issues.push({
+              path: predPath,
+              message: "自分自身を先行に指定できません",
+            });
+          }
+          if (seen.has(predId)) {
+            issues.push({ path: predPath, message: "先行 ID が重複しています" });
+          }
+          seen.add(predId);
+        });
+      });
+    });
+  });
+  return issues;
+}
+
+/**
+ * 後続の predecessors に先行を足す。
+ * 既存の線と循環は保存せず、編集ダイアログと同じ検証文言を返す。
+ */
+export function tryAddPredecessorLink(
+  categories: Category[],
+  predecessorId: ScheduleId,
+  successorId: ScheduleId,
+): PredecessorLinkResult {
+  let found = false;
+  const next = mapTasks(categories, (task) => {
+    if (task.id !== successorId) return task;
+    found = true;
+    return { ...task, predecessors: [...task.predecessors, predecessorId] };
+  });
+  if (!found) return { ok: false, message: "後続のタスクがありません。" };
+
+  const candidate: {
+    schemaVersion: typeof SCHEDULE_SCHEMA_VERSION;
+    title: string;
+    categories: Category[];
+    milestones: [];
+  } = {
+    schemaVersion: SCHEDULE_SCHEMA_VERSION,
+    title: "link",
+    categories: next,
+    milestones: [],
+  };
+  const issues = [
+    ...validateDependencyCycles(candidate),
+    ...validatePredecessorRefs(candidate),
+    ...duplicatePredecessorIssues(next),
+  ];
+  if (issues.length > 0) {
+    return { ok: false, message: formatValidationErrors(issues) };
+  }
+  return { ok: true, categories: next };
+}
+
+/** 後続の predecessors から、その先行だけを外す。 */
+export function dropPredecessorLink(
+  categories: Category[],
+  predecessorId: ScheduleId,
+  successorId: ScheduleId,
+): Category[] {
+  return mapTasks(categories, (task) => {
+    if (task.id !== successorId) return task;
+    if (!task.predecessors.includes(predecessorId)) return task;
+    return {
+      ...task,
+      predecessors: task.predecessors.filter((id) => id !== predecessorId),
+    };
+  });
 }

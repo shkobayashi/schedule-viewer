@@ -55,6 +55,12 @@
 | `dates.test.ts` | `steps across US DST end without losing a calendar day` | — |
 | 同上 | `supports fractional days for timeline dragging` | EDIT-02 |
 | 同上 | `formats UTC calendar date` | VIEW-07 |
+| `dependencies.test.ts` | `hits the segment, the elbow, and the endpoint` | EDIT-12 |
+| 同上 | `picks the closer line and ignores points outside the threshold` | EDIT-12 |
+| 同上 | `appends the predecessor in one list` | EDIT-12 |
+| 同上 | `rejects a duplicate with the same message as a repeated predecessor id` | EDIT-12 |
+| 同上 | `rejects a cycle with the edit dialog message` | EDIT-12, EDIT-05 |
+| 同上 | `removes only that predecessor id` | EDIT-12 |
 | `exportHtml.test.ts` | `puts the active filter into HTML and SVG` | EXPORT-01, EXPORT-02 |
 | `exportView.test.ts` | `keeps milestones inside the visible span and referenced ones outside it` | EXPORT-02 |
 | 同上 | `keeps only the selected milestone` | EXPORT-02 |
@@ -122,7 +128,10 @@
 | 同上 | `returns invalidDisk when the file fails validation` | SYNC-03 |
 | `serialize.test.ts` | `omits empty note` | EDIT-06 |
 | 同上 | `includes trimmed note` | EDIT-06 |
-| `shortcuts.test.ts` | `scrolls one row with ctrl or meta and an arrow` | NAV-01 |
+| `shortcuts.test.ts` | `maps command L for drawing a link unless a field or dialog has focus` | EDIT-12 |
+| 同上 | `uses the command key on mac and ctrl elsewhere` | EDIT-12 |
+| 同上 | `blocks fields but not buttons` | EDIT-12 |
+| 同上 | `scrolls one row with ctrl or meta and an arrow` | NAV-01 |
 | 同上 | `scrolls while an edit key target is focused` | NAV-01 |
 | 同上 | `does not scroll for a bare arrow, shift, alt, or a dialog` | NAV-01 |
 | 同上 | `scrolls when both ctrl and meta are held` | NAV-01 |
@@ -198,7 +207,7 @@
 | モジュール | 状態 |
 | --- | --- |
 | `history.ts` | 未テスト |
-| `dependencies.ts` | 破綻と系統は未テスト。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でテストしている |
+| `dependencies.ts` | 破綻の境界と系統は未テスト。線の追加、除去、当たりはテストしている。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でもテストしている |
 | `timeline.ts` | 期限超過、イナズマ線、ズーム段階は未テスト |
 | `milestones.ts` | マイルストン超過と段の割り当ては未テスト。追加と削除はテストしている |
 | `rows.ts` | ノートとマイルストン以外の絞り込み、`computeVisibleRows`、折りたたみは未テスト |
@@ -330,6 +339,13 @@
 | TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
 | TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左の行を右クリックする。選択中は端のハンドルも右クリックする | ノートが開く。左の行は右クリックで選択され、メニューが出る。左クリックでは選択されない。空白やカテゴリではメニューが出ない。端のハンドルでもバーと同じメニューが出る |
 | TC-EDIT-11b | EDIT-11 | マイルストンがある | ひし形を右クリックし、「編集」を選ぶ | 「編集」と「削除」が出る。選択は変わらない。編集を選ぶと名前と日付の編集が開く |
+| TC-EDIT-12 | EDIT-12 | 見えているタスクを選択 | 「線を引く」または ⌘/Ctrl+L を押す。L だけも押す | モードに入る。ボタンに起点の名前が出る。ヒントは「次にクリックしたタスクを後続にします。Esc で中止」になる。選択が無いときと、L だけでは入らない |
+| TC-EDIT-12b | EDIT-12 | 線を引くモード | カーソルを動かし、タスクバー、左の一覧、それ以外へ乗せる | 起点の右端から折れ線が追随する。バーの上ではその左端まで、一覧の上ではチャートの左端まで伸びる。乗ったタスクバーだけ別の輪郭になる。起点、親バー、ひし形は強調されない。モードを終えると線は消える |
+| TC-EDIT-12c | EDIT-12 | 線を引くモード | 別のタスクバーをクリックする。続けて Esc、起点の再クリック、「線を引く」、⌘/Ctrl+L を試す。親バー、ひし形、背景もクリックする | クリックで線が 1 本足る。取り消しの 1 ステップで戻り、モードは残る。Esc、起点、ボタン、⌘/Ctrl+L では結ばずに終わる。親バー、ひし形、背景では終わらない |
+| TC-EDIT-12d | EDIT-12 | 線を引くモード | チャートをドラッグする。ホイール、Shift+ホイール、⌘ または Ctrl と矢印で動かす | ドラッグではスクロールも移動も期間変更もひし形の日付変更もしない。ホイールと矢印ではスクロールし、追随する線も動く。ダブルクリックと Enter では編集が開かない |
+| TC-EDIT-12e | EDIT-12 | すでに結ばれている組と、循環する組 | そのタスクをクリックする | 保存されない。編集ダイアログと同じ理由が出る。モードは残る |
+| TC-EDIT-12f | EDIT-12 | 折りたたみか絞り込みで見えていないタスクがある | 線を引くモードで、見えているタスクだけをクリックする | 見えていない相手へは引けない。編集ダイアログの先行と後続は今どおり足せる |
+| TC-EDIT-12g | EDIT-12 | 見えている線がある | 線にカーソルを合わせて Delete または Backspace を押す。別の線を右クリックして「線を外す」を選ぶ。バーの上でも Delete を押す | 線は 1 本だけ消え、確認は出ない。取り消しの 1 ステップで戻る。タスクは残る。バーやひし形の上ではタスクの削除確認が開く。ツールバーの「削除」はタスクを消す |
 | TC-EDIT-10 | EDIT-10 | バーを動かした直後 | ⌘/Ctrl+Z を押し、続けてやり直す | 移動が戻り、やり直しで再度動く。検索欄にフォーカスがあるときは動かない |
 | TC-EDIT-10b | EDIT-10 | 取り消しできる編集がある | 別のファイルを開く | 取り消しできなくなる |
 | TC-EXPORT-01 | EXPORT-01 | サンプル | 「書き出し」で SVG を選んで保存する | SVG ファイルができる。キャンセルではできない |
