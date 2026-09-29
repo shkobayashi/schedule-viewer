@@ -10,6 +10,7 @@ const baseTask: Task = {
   assigneeId: null,
   status: "not-started",
   progress: 0,
+  confidence: "committed",
   predecessors: [],
   milestoneId: null,
 };
@@ -19,6 +20,7 @@ const milestoneId = "00000000-0000-4000-8000-000000000099";
 const filters: ScheduleFilters = {
   assignee: "all",
   status: "all",
+  confidence: "all",
   overdue: "all",
   relation: "all",
   milestone: "all",
@@ -97,5 +99,34 @@ describe("taskMatchesFilter milestone", () => {
         null,
       ),
     ).toBe(false);
+  });
+});
+
+describe("taskMatchesFilter confidence", () => {
+  it("keeps only the selected confidence", () => {
+    expect(
+      taskMatchesFilter(
+        { ...baseTask, confidence: "tentative" },
+        { ...filters, confidence: "tentative" },
+        "2026-01-01",
+        null,
+      ),
+    ).toBe(true);
+    expect(
+      taskMatchesFilter(
+        baseTask,
+        { ...filters, confidence: "tentative" },
+        "2026-01-01",
+        null,
+      ),
+    ).toBe(false);
+    expect(
+      taskMatchesFilter(
+        baseTask,
+        { ...filters, confidence: "committed" },
+        "2026-01-01",
+        null,
+      ),
+    ).toBe(true);
   });
 });

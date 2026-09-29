@@ -9,7 +9,7 @@
 - OS: Mac / Windows / Ubuntu 対応のGUIデスクトップアプリ
 - 用途: LLM(Claude)が生成したスケジュールを表示・フィルタリング・編集・ズームイン/アウトする
 - 方向性: WBS/ガントツールという見た目だが、制約やスケジュール計算の機能はすべてLLMとスキルに寄せ、アプリ自体には持たせない
-- データ形式: JSON（`docs/schedule.schema.json`、`schemaVersion: 3`。担当は `assigneeId`、割り当てなしは `null`。メンバー一覧は別 JSON。終了日はその日を含む。開けるのは schemaVersion 3 だけ。v1 は終了日を移行したあと v2 として拒否する。詳細は [data-format.md](data-format.md)）
+- データ形式: JSON（`docs/schedule.schema.json`、`schemaVersion: 4`。担当は `assigneeId`、割り当てなしは `null`。タスクの `confidence` は `tentative` か `committed`。メンバー一覧は別 JSON。終了日はその日を含む。開けるのは schemaVersion 3 と 4。3 は確度なしを確定として読む。v1 は終了日を移行したあと v2 として拒否する。詳細は [data-format.md](data-format.md)）
 - 利用者: チーム内で配布・共有(自分専用ではない)
 
 ## 技術スタック(決定事項)
@@ -78,9 +78,9 @@
 
 画面の挙動は [外部仕様](external-spec.md) に移した。
 
-## スケジュール JSON（schemaVersion 3）
+## スケジュール JSON（schemaVersion 4）
 
-形式は [データ仕様](data-format.md#スケジュール-jsonschemaversion-3) に移した。
+形式は [データ仕様](data-format.md#スケジュール-jsonschemaversion-4) に移した。
 
 ## 稼働日カレンダー JSON（schemaVersion 1）
 

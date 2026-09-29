@@ -4,6 +4,7 @@ import {
   UNASSIGNED_FILTER,
   UNASSIGNED_LABEL,
   type Milestone,
+  type ConfidenceFilter,
   type OverdueFilter,
   type RelationFilter,
   type ScheduleFilters,
@@ -168,6 +169,16 @@ export function Toolbar({
         <option value="not-started">未着手</option>
         <option value="in-progress">進行中</option>
         <option value="done">完了</option>
+      </select>
+      <select
+        value={filters.confidence}
+        onChange={(e) =>
+          onFiltersChange({ confidence: e.target.value as ConfidenceFilter })
+        }
+      >
+        <option value="all">確度: すべて</option>
+        <option value="tentative">未確定</option>
+        <option value="committed">確定</option>
       </select>
       <select
         value={filters.overdue}

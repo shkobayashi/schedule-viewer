@@ -8,8 +8,8 @@
   "properties": {
     "schemaVersion": {
       "type": "integer",
-      "const": 3,
-      "description": "3: assigneeId で担当を参照（未割当は null）。終了日はその日を含む。"
+      "const": 4,
+      "description": "4: タスクの confidence は tentative か committed。担当は assigneeId（未割当は null）。終了日はその日を含む。schemaVersion 3 は確度なしを committed として読む。"
     },
     "title": {
       "type": "string",
@@ -59,6 +59,7 @@
         "assigneeId",
         "status",
         "progress",
+        "confidence",
         "predecessors",
         "milestoneId"
       ],
@@ -78,6 +79,11 @@
         },
         "status": { "$ref": "#/$defs/taskStatus" },
         "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "confidence": {
+          "type": "string",
+          "enum": ["tentative", "committed"],
+          "description": "日付を合意したかどうか。着手や進捗とは独立。tentative は未確定、committed は確定。"
+        },
         "predecessors": {
           "type": "array",
           "items": { "$ref": "#/$defs/scheduleId" },

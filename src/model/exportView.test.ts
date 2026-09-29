@@ -10,6 +10,7 @@ import { NO_MILESTONE_FILTER, type Milestone, type ScheduleFilters, type Task, t
 const filters: ScheduleFilters = {
   assignee: "all",
   status: "all",
+  confidence: "all",
   overdue: "all",
   relation: "all",
   milestone: "all",
@@ -25,6 +26,7 @@ const task = (patch: Partial<Task>): Task => ({
   assigneeId: null,
   status: "not-started",
   progress: 0,
+  confidence: "committed",
   predecessors: [],
   milestoneId: null,
   ...patch,
@@ -89,12 +91,15 @@ describe("describeActiveFilters", () => {
         {
           ...filters,
           status: "in-progress",
+          confidence: "tentative",
           search: "設計",
           milestone: near.id,
         },
         [near],
         null,
       ),
-    ).toBe("ステータス: 進行中、マイルストン: 近い（2026-04-05）、タスク名: 「設計」");
+    ).toBe(
+      "ステータス: 進行中、確度: 未確定、マイルストン: 近い（2026-04-05）、タスク名: 「設計」",
+    );
   });
 });
