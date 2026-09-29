@@ -122,6 +122,10 @@
 | 同上 | `returns invalidDisk when the file fails validation` | SYNC-03 |
 | `serialize.test.ts` | `omits empty note` | EDIT-06 |
 | 同上 | `includes trimmed note` | EDIT-06 |
+| `shortcuts.test.ts` | `scrolls one row with ctrl or meta and an arrow` | NAV-01 |
+| 同上 | `scrolls while an edit key target is focused` | NAV-01 |
+| 同上 | `does not scroll for a bare arrow, shift, alt, or a dialog` | NAV-01 |
+| 同上 | `scrolls when both ctrl and meta are held` | NAV-01 |
 | `sidebarWidth.test.ts` | `uses 190 when nothing is stored` | NAV-06 |
 | 同上 | `rejects values that are not numbers` | NAV-06 |
 | 同上 | `clamps stored widths below 140` | NAV-06 |
@@ -282,11 +286,14 @@
 | TC-VIEW-10 | VIEW-10 | 使用中カタログがある | 割り当てなし、一致する ID、存在しない ID の行を見る | 「割り当てなし」は破線、「メンバー不明」は点線と ID、一致は表示名 |
 | TC-VIEW-11 | VIEW-11 | ノートがあるタスクと無いタスク | ノートアイコンを押す | 色が違い、本文が出る。無いタスクは「ノートはありません」 |
 | TC-NAV-01 | NAV-01 | 期間が画面より広い | チャートをドラッグし、ホイールと Shift+ホイールを回す | ドラッグは縦横、ホイールは縦、Shift+ホイールは横に動く |
+| TC-NAV-01b | NAV-01 | 期間が画面より広く、行が画面より多い | ⌘ または Ctrl を押しながら上下左右を押す。押し続ける。端まで押す | 上で縦に戻り、下で進む。左で過去、右で未来へ動く。縦は左の一覧と一緒に動く。上下は 1 行分、左右も同じ画面上の距離である。押しているあいだは連続して動き、端で止まる |
+| TC-NAV-01c | NAV-01 | 検索欄、選択欄、またはボタンにフォーカスがある。別途、ダイアログと右クリックメニューを開く | 矢印キーだけを押し、続けて ⌘ または Ctrl と矢印を押す | 矢印キーだけではその欄の操作のままである。⌘ または Ctrl と矢印ではチャートが動く。ダイアログが開いているあいだは動かない。右クリックメニューは、この操作で閉じる |
 | TC-NAV-02 | NAV-02 | 週表示 | Ctrl または ⌘ を押してホイールを回す | ポインタの位置を保ったまま拡大し、十分拡大すると「日表示」、縮小すると「月表示」になる |
 | TC-NAV-03 | NAV-03 | 横にスクロールした状態 | 「Fit」を押す | 期間が幅に入り、横位置が先頭に戻る |
 | TC-NAV-04 | NAV-04 | タスクがあるグループ | 三角を二度押す | 一度で配下の行が隠れ、親バーは残る。二度で戻る |
 | TC-NAV-05 | NAV-05 | 左の幅に収まらないタスク名 | その名前を横にドラッグする | 続きが読める。担当と「超過」は動かない |
 | TC-NAV-06 | NAV-06 | 左の一覧とチャートの境界 | 境界を横にドラッグし、ダブルクリックする。ウィンドウを狭めてから広げる | 一覧の幅が変わり、チャートは残った幅に合う。ダブルクリックで既定の幅に戻る。名前の横ずらしは残る。ウィンドウを狭めると表示だけ縮み、広げると戻る |
+| TC-NAV-06b | NAV-06 | 境界にフォーカスがある | 左右キーを押す。続けて ⌘ または Ctrl と左右を押す。さらに Shift または Alt も一緒に押す | 左右キーだけでは幅が変わる。⌘ または Ctrl を押すと幅は変わらず、チャートが横にスクロールする。Shift または Alt も一緒のときは、幅もスクロールも変わらない |
 | TC-FILTER-01 | FILTER-01 | サンプル | タスク名の一部を入れる | その文字を含むタスクだけが残る |
 | TC-FILTER-01b | FILTER-01 | サンプル | ⌘/Ctrl+F を押す | 「タスク名で検索」にフォーカスが移り、入っている文字が選択される |
 | TC-FILTER-02 | FILTER-02 | ノートがあるタスクと無いタスク | ノートの一部を入れる | ノートにその文字を含むタスクだけが残る |

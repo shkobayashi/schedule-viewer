@@ -19,6 +19,13 @@ export type ShortcutContext = {
   blocksEditKeys: boolean;
 };
 
+export type ChartScrollDirection = "up" | "down" | "left" | "right";
+
+export type ChartScrollOffset = {
+  x: number;
+  y: number;
+};
+
 const EDIT_BLOCK_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"]);
 
 function shortcutKey(event: ShortcutKeyEvent): string {
@@ -62,6 +69,29 @@ export function matchAppShortcut(
   if (key === "Enter") return "edit";
   if (key === "Delete" || key === "Backspace") return "delete";
   return null;
+}
+
+export function matchChartScroll(
+  event: ShortcutKeyEvent,
+  context: Pick<ShortcutContext, "dialogOpen">,
+): ChartScrollDirection | null {
+  if (context.dialogOpen || event.altKey || event.shiftKey) return null;
+  if (!(event.ctrlKey || event.metaKey)) return null;
+  if (event.key === "ArrowUp") return "up";
+  if (event.key === "ArrowDown") return "down";
+  if (event.key === "ArrowLeft") return "left";
+  if (event.key === "ArrowRight") return "right";
+  return null;
+}
+
+export function chartScrollOffset(
+  direction: ChartScrollDirection,
+  stepPx: number,
+): ChartScrollOffset {
+  if (direction === "up") return { x: 0, y: -stepPx };
+  if (direction === "down") return { x: 0, y: stepPx };
+  if (direction === "left") return { x: -stepPx, y: 0 };
+  return { x: stepPx, y: 0 };
 }
 
 export function usesCommandKey(platform: string): boolean {
