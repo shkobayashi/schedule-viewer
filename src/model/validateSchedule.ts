@@ -1,5 +1,5 @@
 import validateSchema from "./generated/scheduleValidator.js";
-import { migrateScheduleToV2 } from "./scheduleMigrate";
+import { migrateScheduleToV2, migrateScheduleV3ToV4 } from "./scheduleMigrate";
 import {
   validateDependencyCycles,
   validatePredecessorRefs,
@@ -18,12 +18,12 @@ export type ValidateScheduleResult =
   | { ok: false; errors: ValidationIssue[] };
 
 export function validateSchedule(data: unknown): ValidateScheduleResult {
-  const migrated = migrateScheduleToV2(data);
+  const afterV1 = migrateScheduleToV2(data);
   if (
-    migrated != null &&
-    typeof migrated === "object" &&
-    !Array.isArray(migrated) &&
-    (migrated as Record<string, unknown>).schemaVersion === 2
+    afterV1 != null &&
+    typeof afterV1 === "object" &&
+    !Array.isArray(afterV1) &&
+    (afterV1 as Record<string, unknown>).schemaVersion === 2
   ) {
     return {
       ok: false,
@@ -31,11 +31,13 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
         {
           path: "/schemaVersion",
           message:
-            "schemaVersion 2（担当者名 assignee）は読み込めません。assigneeId を使う schemaVersion 3 に更新してください。",
+            "schemaVersion 2（担当者名 assignee）は読み込めません。assigneeId と confidence を使う schemaVersion 4 に更新してください。",
         },
       ],
     };
   }
+
+  const migrated = migrateScheduleV3ToV4(afterV1);
 
   if (!validateSchema(migrated)) {
     return {

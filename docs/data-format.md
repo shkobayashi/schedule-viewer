@@ -16,7 +16,7 @@
 
 画面の絞り込み、折りたたみ、ズーム、系統、選択、取り消し履歴は、どの JSON にも書かない。
 
-## スケジュール JSON（schemaVersion 3）
+## スケジュール JSON（schemaVersion 4）
 
 正本は [schedule.schema.json](schedule.schema.json)。追加の意味規則は [src/model/scheduleSemantics.ts](../src/model/scheduleSemantics.ts) にある。
 
@@ -24,7 +24,7 @@
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "title": "プロジェクト名",
   "milestones": [{ "id": "<uuid>", "name": "要件確定", "date": "2026-04-01" }],
   "categories": [{
@@ -39,6 +39,7 @@
         "assigneeId": null,
         "status": "not-started",
         "progress": 0,
+        "confidence": "committed",
         "predecessors": [],
         "milestoneId": null
       }]
@@ -49,7 +50,7 @@
 
 | フィールド | 内容 |
 | --- | --- |
-| `schemaVersion` | `3` 固定 |
+| `schemaVersion` | `4` 固定 |
 | `title` | 1文字以上。空白だけは不可 |
 | `milestones` | マイルストンの配列。空でもよい |
 | `categories` | 1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
@@ -59,6 +60,7 @@
 | `assigneeId` | メンバー JSON の `id`。割り当てなしは `null`。UUID である必要はない。スケジュール側ではメンバーの実在を検査しない |
 | `status` | `not-started`、`in-progress`、`done` のいずれか |
 | `progress` | 0 以上 100 以下の整数 |
+| `confidence` | `tentative`（未確定）か `committed`（確定）。日付を合意したかどうかで、着手や進捗とは独立 |
 | `predecessors` | 先行タスクの `id`。重複しない。自分自身は指定できない。存在しない ID は不可。循環も不可。後続は各タスクの `predecessors` から導く |
 | `milestoneId` | 対応するマイルストンの `id`。未設定は `null`。存在しない ID は不可 |
 | `note` | 任意。1文字以上。空文字や空白だけはプロパティ自体を書かない |
@@ -67,10 +69,11 @@
 
 ### 以前の schemaVersion
 
-開けるのは schemaVersion 3 だけである。
+開けるのは schemaVersion 3 と 4 である。
 
 - schemaVersion 1 の終了日は、その日を含まない書き方（最終日の翌日）だった。読み込むと終了日を1日戻して schemaVersion 2 にする（[src/model/scheduleMigrate.ts](../src/model/scheduleMigrate.ts)）。そのあと schemaVersion 2 として拒否するので、結果として開けない
-- schemaVersion 2 は、担当が名前（`assignee`）の形式なので拒否する。メッセージは、`assigneeId` を使う schemaVersion 3 へ更新するよう求める
+- schemaVersion 2 は、担当が名前（`assignee`）の形式なので拒否する。メッセージは、`assigneeId` と `confidence` を使う schemaVersion 4 へ更新するよう求める
+- schemaVersion 3 は開ける。確度が無いタスクは `committed` として読み、文書は schemaVersion 4 にする。既に `confidence` があるタスクはその値のまま検証する。未保存の比較元は、この移行後の保存形式である。ディスク上の 3 の文字列とそのまま比べない。開いただけでは未保存にならない。保存すると schemaVersion 4 で、全部のタスクに `confidence` が入る
 
 ## メンバー JSON（schemaVersion 1）
 
@@ -121,7 +124,7 @@
 
 アプリが書くスケジュール JSON は [src/model/serialize.ts](../src/model/serialize.ts) のキー順で、2スペースのインデントである（[src/model/scheduleFile.ts](../src/model/scheduleFile.ts) の `serializeScheduleDocument`）。
 
-キーの順は `schemaVersion`、`title`、`milestones`、`categories` である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`predecessors`、`milestoneId` の順で、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。
+キーの順は `schemaVersion`、`title`、`milestones`、`categories` である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。
 
 未保存かどうかは、この形にした文字列と、最後に開いた・保存した・読み直したときの文字列を比べて決める。インデントやキー順だけが違うファイルは、同じ内容として扱う。
 

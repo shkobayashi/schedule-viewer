@@ -194,6 +194,7 @@ function taskFieldLines(
     `  assigneeId: ${formatAssignee(task.assigneeId)}`,
     `  status: ${task.status}`,
     `  progress: ${task.progress}`,
+    `  confidence: ${task.confidence}`,
     `  predecessors: ${formatPredecessorList(task.predecessors, taskNames)}`,
     `  milestoneId: ${formatMilestoneRef(task.milestoneId, milestoneNames)}`,
     `  note: ${noteOf(task) ?? "（なし）"}`,
@@ -232,6 +233,11 @@ function changedTaskBlock(
   }
   if (fileTask.progress !== screenTask.progress) {
     lines.push(`  progress: ${fileTask.progress} → ${screenTask.progress}`);
+  }
+  if (fileTask.confidence !== screenTask.confidence) {
+    lines.push(
+      `  confidence: ${fileTask.confidence} → ${screenTask.confidence}`,
+    );
   }
   const predecessors = formatPredecessorDelta(
     fileTask.predecessors,

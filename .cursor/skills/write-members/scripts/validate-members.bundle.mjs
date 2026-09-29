@@ -312,6 +312,7 @@ var FIELD_LABELS = {
   start: "\u958B\u59CB\u65E5",
   end: "\u7D42\u4E86\u65E5",
   progress: "\u9032\u6357\u7387",
+  confidence: "\u78BA\u5EA6",
   assigneeId: "\u62C5\u5F53\u8005",
   status: "\u72B6\u614B",
   predecessors: "\u5148\u884C\u30BF\u30B9\u30AF",

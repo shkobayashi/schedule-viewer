@@ -12,6 +12,7 @@ function taskToJson(task: Task): Task {
     assigneeId: task.assigneeId,
     status: task.status,
     progress: task.progress,
+    confidence: task.confidence,
     predecessors: [...task.predecessors],
     milestoneId: task.milestoneId,
   };
