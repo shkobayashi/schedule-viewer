@@ -417,6 +417,12 @@ input[type="number"] {
   background: var(--panel);
 }
 
+.hint-error {
+  color: var(--overdue);
+  margin-top: 2px;
+  white-space: pre-wrap;
+}
+
 .main {
   display: flex;
   flex: 1;
