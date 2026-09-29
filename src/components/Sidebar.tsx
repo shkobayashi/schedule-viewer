@@ -252,6 +252,7 @@ function SidebarResizer({
   };
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.ctrlKey || event.metaKey) return;
     if (event.key === "ArrowLeft") {
       event.preventDefault();
       onNudge(-SIDEBAR_WIDTH_KEY_STEP);
