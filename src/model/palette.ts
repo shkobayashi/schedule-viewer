@@ -27,6 +27,8 @@ export type ChartPalette = {
   linkTargetStroke: string;
   lightning: string;
   resizeHandle: string;
+  dragDateFill: string;
+  dragDateStroke: string;
   milestoneDiamond: string;
   milestoneDiamondStroke: string;
   milestoneBandBorder: string;
@@ -141,6 +143,8 @@ const LIGHT: AppPalette = {
     linkTargetStroke: "#0C7C86",
     lightning: "#E07B20",
     resizeHandle: "#4C5FD5",
+    dragDateFill: "#FFFFFF",
+    dragDateStroke: "#5C6B82",
     milestoneDiamond: "#111827",
     milestoneDiamondStroke: "#FFFFFF",
     milestoneBandBorder: "#E3E6EB",
@@ -216,6 +220,8 @@ const DARK: AppPalette = {
     linkTargetStroke: "#5ee0e0",
     lightning: "#f0a040",
     resizeHandle: "#7b8cff",
+    dragDateFill: "#3a4254",
+    dragDateStroke: "#c5cad3",
     milestoneDiamond: "#e6e8ee",
     milestoneDiamondStroke: "#1c1f26",
     milestoneBandBorder: "#3a4050",

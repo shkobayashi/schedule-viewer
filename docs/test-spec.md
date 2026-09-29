@@ -55,6 +55,18 @@
 | `dates.test.ts` | `steps across US DST end without losing a calendar day` | — |
 | 同上 | `supports fractional days for timeline dragging` | EDIT-02 |
 | 同上 | `formats UTC calendar date` | VIEW-07 |
+| `dragDates.test.ts` | `places both dates above the ends when the bar is long enough` | EDIT-02, EDIT-03 |
+| 同上 | `separates the chips when the bar is shorter than the labels` | EDIT-02, EDIT-03 |
+| 同上 | `shifts a chip inward when the end is at the screen edge` | EDIT-02 |
+| 同上 | `moves dates off the bar when the row is at the top of the chart` | EDIT-02 |
+| 同上 | `keeps chips off the handle padding` | EDIT-03 |
+| 同上 | `avoids another bar when a clear slot exists` | EDIT-02 |
+| 同上 | `sizes the date chip from the display font, not the timeline zoom` | EDIT-02 |
+| 同上 | `moves start and end by the same rounded day count` | EDIT-02 |
+| 同上 | `snaps a resized end to the inclusive day and stops at the start` | EDIT-03 |
+| 同上 | `stops a resized start from passing the end` | EDIT-03 |
+| 同上 | `recolors only the link touched by the dragged task` | VIEW-08, EDIT-02 |
+| 同上 | `uses the successor start when that task is dragged` | VIEW-08 |
 | `dependencies.test.ts` | `hits the segment, the elbow, and the endpoint` | EDIT-12 |
 | 同上 | `picks the closer line and ignores points outside the threshold` | EDIT-12 |
 | 同上 | `appends the predecessor in one list` | EDIT-12 |
@@ -291,6 +303,7 @@
 | TC-VIEW-06 | VIEW-06 | 対応マイルストンより終了日が後のタスクと、当日で終わるタスク | 行を見る | 後のタスクだけ、右が半透明の赤になり「超過」が出る |
 | TC-VIEW-07 | VIEW-07 | 期限超過の行と、進行中で開始日が明日の行 | 橙の線を見る | 超過の行では終了日まで左へ、未来に開始する着手済みの行では開始日まで右へ折れる |
 | TC-VIEW-08 | VIEW-08 | 後続の開始が先行の終了より前の組と、同じ日に始まる組 | 線を見る | 先行の終了より前に始まる組の線だけが赤い。どちらかを折りたたむと線は消える |
+| TC-VIEW-08b | VIEW-08 | 先行と後続が見えている | 後続の開始を超えるまで先行の終了を延ばし、離す前に線を見る。同じ日まで戻してから離す | 離す前に赤く太くなる。同じ日では赤くならない。離してから「前後: 破綻のみ」に入る |
 | TC-VIEW-09 | VIEW-09 | カレンダー未設定で日表示 | 背景を見る | 土日だけが薄い灰。月表示では日ごとに塗らない |
 | TC-VIEW-10 | VIEW-10 | 使用中カタログがある | 割り当てなし、一致する ID、存在しない ID の行を見る | 「割り当てなし」は破線、「メンバー不明」は点線と ID、一致は表示名 |
 | TC-VIEW-11 | VIEW-11 | ノートがあるタスクと無いタスク | ノートアイコンを押す | 色が違い、本文が出る。無いタスクは「ノートはありません」 |
@@ -319,13 +332,16 @@
 | TC-EDIT-01 | EDIT-01 | サンプル | バーをクリックし、次に背景をクリックする | バーで選択され端のハンドルが出る。背景で外れる。左の行をクリックしても選択されない |
 | TC-EDIT-01b | EDIT-01 | タスクを選択している | 絞り込みを変える | 選択が外れる |
 | TC-EDIT-02 | EDIT-02 | タスクを選択できる | ⌘ または Ctrl を押しながらバーを横へドラッグして離す | 開始と終了が同じ日数だけ動く。修飾が無いドラッグはスクロールのまま |
-| TC-EDIT-03 | EDIT-03 | タスクを選択している | 右端を左へ、1日より短くなるところまでドラッグする | 1日で止まり、終了日が開始日より前にならない |
+| TC-EDIT-02b | EDIT-02 | タスクを選択できる | ⌘ または Ctrl を押しながらバーを横へドラッグし、離す前に日付を見る。離したあと、修飾キー無しでドラッグする。名前の横ずらしと、ひし形のドラッグもする | ドラッグ中は開始日と終了日が月/日で、棒と重ならずに出る。離すと消える。スクロール、名前の横ずらし、ひし形では出ない |
+| TC-EDIT-02c | EDIT-02 | 前後の線が複数ある | 1本の端のタスクだけをドラッグし、終了日を非稼働日まで動かす | 触っていない線の色は変わらない。見えている行も変わらない。「休」は出ず、バーの長さは暦日のまま |
+| TC-EDIT-03 | EDIT-03 | タスクを選択している | 右端を左へ、1日より短くなるところまでドラッグする | 1日で止まり、終了日が開始日より前にならない。止まった位置の開始日と終了日が出る |
+| TC-EDIT-03b | EDIT-03 | タスクを選択している | 左端をドラッグする | 開始日と終了日が出る。1日より短い位置では、その日付で止まる |
 | TC-EDIT-04 | EDIT-04 | サンプル | バーをダブルクリックし、名前を空にして保存する | 保存されず、理由が出る。Escape では変更が残らない |
 | TC-EDIT-04c | EDIT-04 | タスクを選択している | Enter を押す | 編集ダイアログが開く。検索欄にフォーカスがあるときは開かない |
 | TC-EDIT-05 | EDIT-05 | 3件以上のタスク | 編集で、自分を先行にしようとする。次に、循環する先行を保存する | 自分は候補に出ない。循環は保存されず、理由が出る |
 | TC-EDIT-05b | EDIT-05 | タスクが50件を超えるスケジュール | 先行の検索を空のまま開く | 「さらに絞り込んでください」と出る |
 | TC-EDIT-06 | EDIT-06 | ノートが無いタスク | ノートアイコンから文字を保存し、次に空白だけを保存する | 一度目でノートが付き、二度目でノートが消える |
-| TC-EDIT-07 | EDIT-07 | マイルストンがある | ひし形を横にドラッグして離す。次にダブルクリックで名前を空白にして保存する | 日付は離した位置になる。空白の名前は元の名前のまま残る |
+| TC-EDIT-07 | EDIT-07 | マイルストンがある | ひし形を横にドラッグして離す。次にダブルクリックで名前を空白にして保存する | 日付は離した位置になる。ドラッグ中の月/日は出ない。空白の名前は元の名前のまま残る |
 | TC-EDIT-07b | EDIT-07 | マイルストンが 0 件でもよい | 「マイルストン追加」で名前と日付を保存する | ひし形が出る。取り消し 1 回で消える |
 | TC-EDIT-07c | EDIT-07 | 「マイルストン追加」を開いている | 名前を空白だけ、または日付を空にして保存する。次にキャンセルと Escape を試す | どれでもマイルストンは増えない |
 | TC-EDIT-07d | EDIT-07 | 同じ名前と日付のマイルストンがある | 「マイルストン追加」で同じ名前と日付を保存する | もう 1 件足される |
