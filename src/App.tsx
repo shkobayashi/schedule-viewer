@@ -60,7 +60,9 @@ import { findTaskById } from "./model/rows";
 import {
   blocksBrowserShortcut,
   blocksEditShortcut,
+  chartScrollOffset,
   matchAppShortcut,
+  matchChartScroll,
 } from "./model/shortcuts";
 import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
@@ -371,6 +373,7 @@ function App() {
   const {
     fitToWidth,
     panBy,
+    scrollBy,
     zoomIn,
     zoomOut,
     tierLabel,
@@ -437,6 +440,14 @@ function App() {
         shiftKey: e.shiftKey,
         altKey: e.altKey,
       };
+      const chartScroll = matchChartScroll(shortcutEvent, { dialogOpen });
+      if (chartScroll) {
+        e.preventDefault();
+        setContextMenu(null);
+        const offset = chartScrollOffset(chartScroll, rowHeight);
+        scrollBy(offset.x, offset.y);
+        return;
+      }
       if (blocksBrowserShortcut(shortcutEvent)) e.preventDefault();
       const shortcut = matchAppShortcut(shortcutEvent, {
         dialogOpen,
@@ -490,7 +501,9 @@ function App() {
     openEditDialog,
     redo,
     requestOpen,
+    rowHeight,
     save,
+    scrollBy,
     selectedTaskId,
     undo,
   ]);
