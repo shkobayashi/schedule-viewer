@@ -83,7 +83,21 @@ jobs:
             librsvg2-dev \
             patchelf \
             xdg-utils
+      - id: rust-toolchain
+        name: Read rust-toolchain.toml
+        run: |
+          channel=$(sed -n 's/^channel = "\([^"]*\)"/\1/p' rust-toolchain.toml)
+          components=$(sed -n 's/^components = \[\(.*\)\]/\1/p' rust-toolchain.toml | tr -d ' "')
+          if [ -z "$channel" ] || [ -z "$components" ]; then
+            echo "rust-toolchain.toml must set channel and components" >&2
+            exit 1
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "components=$components" >> "$GITHUB_OUTPUT"
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master 2026-09-12
+        with:
+          toolchain: ${{ steps.rust-toolchain.outputs.channel }}
+          components: ${{ steps.rust-toolchain.outputs.components }}
       - run: cargo clippy -- -D warnings
         working-directory: src-tauri
       - run: cargo test --locked
