@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  LINK_ARROW_CLEARANCE,
   LINK_HIT_DISTANCE,
   dropPredecessorLink,
   linkPoints,
@@ -57,6 +58,37 @@ function dialogMessage(next: Category[]): string {
     ...validatePredecessorRefs(doc),
   ]);
 }
+
+function finalSegment(points: number[]): { fromX: number; toX: number; y: number } {
+  const n = points.length;
+  return {
+    fromX: points[n - 4]!,
+    toX: points[n - 2]!,
+    y: points[n - 1]!,
+  };
+}
+
+describe("linkPoints", () => {
+  it("keeps a right elbow when the gap fits the arrow", () => {
+    expect(linkPoints(0, 10, 40, 40)).toEqual([0, 10, 12, 10, 12, 40, 40, 40]);
+    expect(linkPoints(0, 80, 50, 80)).toEqual([0, 80, 50, 80]);
+  });
+
+  it("approaches from the left when the gap is shorter than the arrow", () => {
+    const tight = linkPoints(100, 16, 108, 48, 20);
+    const end = finalSegment(tight);
+    expect(end).toEqual({ fromX: 108 - LINK_ARROW_CLEARANCE, toX: 108, y: 48 });
+    expect(end.fromX).toBeLessThan(end.toX);
+  });
+
+  it("routes around a bar that starts before the predecessor ends", () => {
+    const overlap = linkPoints(100, 16, 90, 48, 20);
+    const end = finalSegment(overlap);
+    expect(end.toX).toBe(90);
+    expect(end.fromX).toBe(90 - LINK_ARROW_CLEARANCE);
+    expect(end.y).toBe(48);
+  });
+});
 
 describe("nearestLinkHit", () => {
   const elbow = linkPoints(0, 10, 40, 40);

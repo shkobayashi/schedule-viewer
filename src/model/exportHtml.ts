@@ -2,7 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { scheduleHtmlFilename, scheduleSvgFilename } from "./exportFilename";
 import { addDays, addUtcMonths, daysBetween, fmtShort, parseDate, utcMonthStart } from "./dates";
 import { LAYOUT_HEADER_HEIGHT } from "./layoutSizes";
-import { linkPoints, type DependencyLink } from "./dependencies";
+import { LINK_POINTER_LENGTH, linkPoints, type DependencyLink } from "./dependencies";
 import { milestonesExceededBy } from "./milestones";
 import {
   coveredSpanWidthPx,
@@ -130,11 +130,11 @@ function buildChartGraphic(input: ScheduleExportInput): ChartGraphic {
   const parts = [
     `<rect width="${n(chartWidth)}" height="${n(svgHeight)}" fill="${chart.exportBg}"/>`,
     `<defs>
-    <marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 Z" fill="${chart.dependencyMarkerOk}"/>
+    <marker id="arrow" markerWidth="${LINK_POINTER_LENGTH}" markerHeight="${LINK_POINTER_LENGTH}" refX="${LINK_POINTER_LENGTH - 1}" refY="${LINK_POINTER_LENGTH / 2}" orient="auto">
+      <path d="M0,0 L${LINK_POINTER_LENGTH},${LINK_POINTER_LENGTH / 2} L0,${LINK_POINTER_LENGTH} Z" fill="${chart.dependencyMarkerOk}"/>
     </marker>
-    <marker id="arrow-broken" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 Z" fill="${chart.dependencyMarkerBroken}"/>
+    <marker id="arrow-broken" markerWidth="${LINK_POINTER_LENGTH}" markerHeight="${LINK_POINTER_LENGTH}" refX="${LINK_POINTER_LENGTH - 1}" refY="${LINK_POINTER_LENGTH / 2}" orient="auto">
+      <path d="M0,0 L${LINK_POINTER_LENGTH},${LINK_POINTER_LENGTH / 2} L0,${LINK_POINTER_LENGTH} Z" fill="${chart.dependencyMarkerBroken}"/>
     </marker>
     ${tentativeHatchPatterns(input)}
   </defs>`,
@@ -746,7 +746,7 @@ function renderLinks(
       const color = link.broken ? chart.linkBroken : chart.linkOk;
       const marker = link.broken ? "arrow-broken" : "arrow";
       return [
-        `<polyline points="${pairs(linkPoints(from.right, from.y, to.x, to.y))}" fill="none" stroke="${color}" stroke-width="${link.broken ? 1.75 : 1.25}" marker-end="url(#${marker})"/>`,
+        `<polyline points="${pairs(linkPoints(from.right, from.y, to.x, to.y, input.barHeight))}" fill="none" stroke="${color}" stroke-width="${link.broken ? 1.75 : 1.25}" marker-end="url(#${marker})"/>`,
       ];
     })
     .join("\n  ");
