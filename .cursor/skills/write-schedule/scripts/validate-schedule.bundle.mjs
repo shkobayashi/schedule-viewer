@@ -1463,21 +1463,8 @@ function sha1(message) {
     let d = h3;
     let e = h4;
     for (let t = 0; t < 80; t += 1) {
-      let f = 0;
-      let k = 0;
-      if (t < 20) {
-        f = b & c | ~b & d;
-        k = 1518500249;
-      } else if (t < 40) {
-        f = b ^ c ^ d;
-        k = 1859775393;
-      } else if (t < 60) {
-        f = b & c | b & d | c & d;
-        k = 2400959708;
-      } else {
-        f = b ^ c ^ d;
-        k = 3395469782;
-      }
+      const f = t < 20 ? b & c | ~b & d : t < 40 ? b ^ c ^ d : t < 60 ? b & c | b & d | c & d : b ^ c ^ d;
+      const k = t < 20 ? 1518500249 : t < 40 ? 1859775393 : t < 60 ? 2400959708 : 3395469782;
       const temp = (a << 5 | a >>> 27) + f + e + k + w[t] >>> 0;
       e = d;
       d = c;
