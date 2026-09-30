@@ -51,9 +51,24 @@ describe("validateNewMilestone", () => {
 
 describe("appendMilestone", () => {
   it("appends a milestone without sorting or rejecting duplicates", () => {
-    const later: Milestone = { id: MS_A, name: "要件確定", date: "2026-04-01" };
-    const earlier: Milestone = { id: MS_B, name: "要件確定", date: "2026-03-01" };
-    const same: Milestone = { id: MS_C, name: "要件確定", date: "2026-04-01" };
+    const later: Milestone = {
+      id: MS_A,
+      name: "要件確定",
+      date: "2026-04-01",
+      confidence: "committed",
+    };
+    const earlier: Milestone = {
+      id: MS_B,
+      name: "要件確定",
+      date: "2026-03-01",
+      confidence: "committed",
+    };
+    const same: Milestone = {
+      id: MS_C,
+      name: "要件確定",
+      date: "2026-04-01",
+      confidence: "committed",
+    };
     const before = [later];
     const next = appendMilestone(appendMilestone(before, earlier), same);
     expect(before).toEqual([later]);
@@ -93,8 +108,8 @@ describe("removeMilestone", () => {
       },
     ];
     const milestones: Milestone[] = [
-      { id: MS_A, name: "要件確定", date: "2026-04-01" },
-      { id: MS_B, name: "設計完了", date: "2026-05-01" },
+      { id: MS_A, name: "要件確定", date: "2026-04-01", confidence: "committed" },
+      { id: MS_B, name: "設計完了", date: "2026-05-01", confidence: "committed" },
     ];
     const next = removeMilestone(categories, milestones, MS_A);
     expect(next.milestones).toEqual([milestones[1]]);
@@ -129,7 +144,7 @@ describe("uniqueScheduleId", () => {
       },
     ];
     const milestones: Milestone[] = [
-      { id: MS_A, name: "要件確定", date: "2026-04-01" },
+      { id: MS_A, name: "要件確定", date: "2026-04-01", confidence: "committed" },
     ];
     const taken = collectScheduleIds(categories, milestones);
     const sequence = [

@@ -31,6 +31,7 @@ export function scheduleToJson(
       id: milestone.id,
       name: milestone.name,
       date: milestone.date,
+      confidence: milestone.confidence,
     })),
     categories: categories.map((category) => ({
       id: category.id,

@@ -15,16 +15,19 @@ export const sampleMilestones: Milestone[] = [
     id: SAMPLE_MILESTONE_IDS.requirements,
     name: "要件確定",
     date: "2026-10-02",
+    confidence: "committed",
   },
   {
     id: SAMPLE_MILESTONE_IDS.pocDone,
     name: "PoC完了",
     date: "2026-11-13",
+    confidence: "committed",
   },
   {
     id: SAMPLE_MILESTONE_IDS.release,
     name: "本番リリース",
     date: "2026-12-21",
+    confidence: "tentative",
   },
 ];
 

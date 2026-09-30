@@ -94,7 +94,7 @@ function document(schemaVersion: number, tasks: Record<string, unknown>[]) {
   return {
     schemaVersion,
     title: "t",
-    milestones: [],
+    milestones: [] as Record<string, unknown>[],
     categories: [
       {
         id: "c1000001-0000-4000-8000-000000000001",
@@ -143,6 +143,46 @@ describe("validateSchedule v4", () => {
     const tasks = result.document.categories[0]?.groups[0]?.tasks ?? [];
     expect(tasks[0]?.confidence).toBe("tentative");
     expect(tasks[1]?.confidence).toBe("committed");
+  });
+
+  it("reads a milestone without confidence as committed and keeps one already set", () => {
+    const raw = document(5, [task("committed")]);
+    raw.milestones = [
+      { id: "a1000001-0000-4000-8000-000000000001", name: "m", date: "2026-09-01" },
+      {
+        id: "a1000001-0000-4000-8000-000000000002",
+        name: "n",
+        date: "2026-09-02",
+        confidence: "tentative",
+      },
+    ];
+    const parsed = parseScheduleText(JSON.stringify(raw));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.document.milestones.map((item) => item.confidence)).toEqual([
+      "committed",
+      "tentative",
+    ]);
+    expect(parsed.canonicalJson).toContain('"confidence": "committed"');
+    expect(parsed.canonicalJson).toContain('"confidence": "tentative"');
+    const again = parseScheduleText(parsed.canonicalJson);
+    expect(again.ok).toBe(true);
+    if (!again.ok) return;
+    expect(again.canonicalJson).toBe(parsed.canonicalJson);
+  });
+
+  it("rejects a milestone confidence that is not tentative or committed", () => {
+    const raw = document(5, [task("committed")]);
+    raw.milestones = [
+      {
+        id: "a1000001-0000-4000-8000-000000000001",
+        name: "m",
+        date: "2026-09-01",
+        confidence: "maybe",
+      },
+    ];
+    const result = validateSchedule(raw);
+    expect(result.ok).toBe(false);
   });
 
   it("rejects a v4 task without confidence", () => {

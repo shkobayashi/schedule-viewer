@@ -1,11 +1,11 @@
 import { useState } from "react";
-import type { Milestone } from "../model/types";
+import type { Milestone, TaskConfidence } from "../model/types";
 import { ModalDialog } from "./ModalDialog";
 
 type MilestoneEditDialogProps = {
   milestone: Milestone;
   onClose: () => void;
-  onSave: (patch: { name: string; date: string }) => boolean;
+  onSave: (patch: { name: string; date: string; confidence: TaskConfidence }) => boolean;
 };
 
 export function MilestoneEditDialog({
@@ -15,6 +15,7 @@ export function MilestoneEditDialog({
 }: MilestoneEditDialogProps) {
   const [name, setName] = useState(milestone.name);
   const [date, setDate] = useState(milestone.date);
+  const [confidence, setConfidence] = useState<TaskConfidence>(milestone.confidence);
   const [formError, setFormError] = useState<string | null>(null);
 
   return (
@@ -37,6 +38,17 @@ export function MilestoneEditDialog({
             onChange={(e) => setDate(e.target.value)}
           />
         </div>
+        <div className="field">
+          <label htmlFor="milestoneConfidence">確度</label>
+          <select
+            id="milestoneConfidence"
+            value={confidence}
+            onChange={(e) => setConfidence(e.target.value as TaskConfidence)}
+          >
+            <option value="tentative">未確定</option>
+            <option value="committed">確定</option>
+          </select>
+        </div>
         {formError ? <p className="form-error">{formError}</p> : null}
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>
@@ -51,7 +63,7 @@ export function MilestoneEditDialog({
                 return;
               }
               setFormError(null);
-              if (!onSave({ name, date })) {
+              if (!onSave({ name, date, confidence })) {
                 setFormError("保存できませんでした。入力内容を確認してください。");
               }
             }}

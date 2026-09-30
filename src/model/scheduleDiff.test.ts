@@ -28,6 +28,12 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
   };
 }
 
+function milestone(
+  overrides: Partial<Milestone> & Pick<Milestone, "id" | "name" | "date">,
+): Milestone {
+  return { confidence: "committed", ...overrides };
+}
+
 function doc(
   categories: Category[],
   milestones: Milestone[] = [],
@@ -90,10 +96,10 @@ describe("formatScheduleDiff", () => {
       milestoneId: MS_A,
       note: "  補足  ",
     });
-    const file = doc(design([existing]), [{ id: MS_A, name: "要件確定", date: "2026-04-30" }]);
+    const file = doc(design([existing]), [milestone({ id: MS_A, name: "要件確定", date: "2026-04-30" })]);
     const screen = doc(
       design([existing, added]),
-      [{ id: MS_A, name: "要件確定", date: "2026-04-30" }],
+      [milestone({ id: MS_A, name: "要件確定", date: "2026-04-30" })],
     );
     const text = formatScheduleDiff(screen, file, "plan.json");
     expect(text).toContain("追加 基本設計 (00000000-0000-4000-8000-00000000000b)");
@@ -355,8 +361,8 @@ describe("formatScheduleDiff", () => {
   });
 
   it("shows a milestone date shift and a title change", () => {
-    const file = doc([], [{ id: MS_A, name: "要件確定", date: "2026-04-01" }], "旧題");
-    const screen = doc([], [{ id: MS_A, name: "要件確定", date: "2026-04-08" }], "新題");
+    const file = doc([], [milestone({ id: MS_A, name: "要件確定", date: "2026-04-01" })], "旧題");
+    const screen = doc([], [milestone({ id: MS_A, name: "要件確定", date: "2026-04-08" })], "新題");
     const text = formatScheduleDiff(screen, file, "plan.json");
     expect(text).toContain("title: 旧題 → 新題");
     expect(text).toContain(
@@ -371,8 +377,8 @@ describe("formatScheduleDiff", () => {
         { id: CAT_B, name: "開発", groups: [] },
       ],
       [
-        { id: MS_A, name: "要件確定", date: "2026-04-01" },
-        { id: MS_B, name: "設計完了", date: "2026-05-01" },
+        milestone({ id: MS_A, name: "要件確定", date: "2026-04-01" }),
+        milestone({ id: MS_B, name: "設計完了", date: "2026-05-01" }),
       ],
     );
     const screen = doc(
@@ -381,8 +387,8 @@ describe("formatScheduleDiff", () => {
         { id: CAT_A, name: "設計", groups: [] },
       ],
       [
-        { id: MS_B, name: "設計完了", date: "2026-05-01" },
-        { id: MS_A, name: "要件確定", date: "2026-04-01" },
+        milestone({ id: MS_B, name: "設計完了", date: "2026-05-01" }),
+        milestone({ id: MS_A, name: "要件確定", date: "2026-04-01" }),
       ],
     );
     const text = formatScheduleDiff(screen, file, "plan.json");
@@ -428,7 +434,7 @@ describe("formatScheduleDiff", () => {
       milestoneId: MS_A,
     });
     const file = doc(design([linked]), [
-      { id: MS_A, name: "要件確定", date: "2026-04-01" },
+      milestone({ id: MS_A, name: "要件確定", date: "2026-04-01" }),
     ]);
     const screen = doc(design([{ ...linked, milestoneId: null }]), []);
     const text = formatScheduleDiff(screen, file, "plan.json");
@@ -451,15 +457,35 @@ describe("formatScheduleDiff", () => {
 
   it("does not write a milestone order line when a milestone is appended", () => {
     const file = doc(design([task({ id: TASK_A, name: "基本設計" })]), [
-      { id: MS_A, name: "要件確定", date: "2026-04-01" },
+      milestone({ id: MS_A, name: "要件確定", date: "2026-04-01" }),
     ]);
     const screen = doc(design([task({ id: TASK_A, name: "基本設計" })]), [
-      { id: MS_A, name: "要件確定", date: "2026-04-01" },
-      { id: MS_B, name: "設計完了", date: "2026-03-01" },
+      milestone({ id: MS_A, name: "要件確定", date: "2026-04-01" }),
+      milestone({ id: MS_B, name: "設計完了", date: "2026-03-01" }),
     ]);
     const text = formatScheduleDiff(screen, file, "plan.json");
     expect(text).toContain("追加 設計完了 (00000000-0000-4000-8000-0000000000b1)");
     expect(text).not.toContain("並び");
+  });
+
+  it("shows a milestone confidence change after the date", () => {
+    const file = doc([], [milestone({ id: MS_A, name: "要件確定", date: "2026-04-01" })]);
+    const screen = doc(
+      [],
+      [
+        milestone({
+          id: MS_A,
+          name: "要件確定",
+          date: "2026-04-01",
+          confidence: "tentative",
+        }),
+      ],
+    );
+    const text = formatScheduleDiff(screen, file, "plan.json");
+    expect(text).toContain(
+      "変更 要件確定 (00000000-0000-4000-8000-0000000000a1)\n  confidence: committed → tentative",
+    );
+    expect(text).not.toContain("  date:");
   });
 
   it("writes a missing note as （なし）", () => {

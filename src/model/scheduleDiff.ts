@@ -310,7 +310,11 @@ function deletedMilestoneBlock(milestone: Milestone): string {
 }
 
 function milestoneFieldLines(milestone: Milestone): string[] {
-  return [`  name: ${milestone.name}`, `  date: ${milestone.date}`];
+  return [
+    `  name: ${milestone.name}`,
+    `  date: ${milestone.date}`,
+    `  confidence: ${milestone.confidence}`,
+  ];
 }
 
 function changedMilestoneBlock(fileMilestone: Milestone, screenMilestone: Milestone): string | null {
@@ -320,6 +324,11 @@ function changedMilestoneBlock(fileMilestone: Milestone, screenMilestone: Milest
   }
   if (fileMilestone.date !== screenMilestone.date) {
     lines.push(`  date: ${formatDayDelta(fileMilestone.date, screenMilestone.date)}`);
+  }
+  if (fileMilestone.confidence !== screenMilestone.confidence) {
+    lines.push(
+      `  confidence: ${fileMilestone.confidence} → ${screenMilestone.confidence}`,
+    );
   }
   if (lines.length === 0) return null;
   return [`変更 ${screenMilestone.name} (${screenMilestone.id})`, ...lines].join("\n");

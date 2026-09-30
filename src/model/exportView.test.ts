@@ -38,16 +38,19 @@ const near: Milestone = {
   id: "00000000-0000-4000-8000-000000000010",
   name: "近い",
   date: "2026-04-05",
+  confidence: "committed",
 };
 const far: Milestone = {
   id: "00000000-0000-4000-8000-000000000011",
   name: "遠い",
   date: "2027-01-01",
+  confidence: "tentative",
 };
 const linked: Milestone = {
   id: "00000000-0000-4000-8000-000000000012",
   name: "対応",
   date: "2026-03-01",
+  confidence: "committed",
 };
 
 describe("milestonesForExport", () => {
