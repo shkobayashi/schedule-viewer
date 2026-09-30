@@ -8,8 +8,8 @@
   "properties": {
     "schemaVersion": {
       "type": "integer",
-      "const": 4,
-      "description": "4: タスクの confidence は tentative か committed。担当は assigneeId（未割当は null）。終了日はその日を含む。schemaVersion 3 は確度なしを committed として読む。"
+      "const": 5,
+      "description": "5: カテゴリとグループは id を持つ。名前は表示であり、同じスケジュールの中ではカテゴリ名、同じカテゴリの中ではグループ名が重複しない。タスクの confidence は tentative か committed。担当は assigneeId（未割当は null）。終了日はその日を含む。schemaVersion 3 は確度なしを committed として読む。schemaVersion 4 はカテゴリとグループへ id を補って読む。"
     },
     "title": {
       "type": "string",
@@ -105,8 +105,9 @@
     "taskGroup": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "tasks"],
+      "required": ["id", "name", "tasks"],
       "properties": {
+        "id": { "$ref": "#/$defs/scheduleId" },
         "name": { "type": "string", "minLength": 1 },
         "tasks": {
           "type": "array",
@@ -117,8 +118,9 @@
     "category": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "groups"],
+      "required": ["id", "name", "groups"],
       "properties": {
+        "id": { "$ref": "#/$defs/scheduleId" },
         "name": { "type": "string", "minLength": 1 },
         "groups": {
           "type": "array",

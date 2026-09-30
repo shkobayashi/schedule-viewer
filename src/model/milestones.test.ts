@@ -79,15 +79,17 @@ describe("removeMilestone", () => {
     });
     const categories: Category[] = [
       {
+        id: "c1000001-0000-4000-8000-000000000001",
         name: "設計",
         groups: [
-          { name: "上流", tasks: [linked] },
-          { name: "空", tasks: [] },
+          { id: "d1000001-0000-4000-8000-000000000001", name: "上流", tasks: [linked] },
+          { id: "d1000001-0000-4000-8000-000000000002", name: "空", tasks: [] },
         ],
       },
       {
+        id: "c1000001-0000-4000-8000-000000000002",
         name: "開発",
-        groups: [{ name: "実装", tasks: [other] }],
+        groups: [{ id: "d1000001-0000-4000-8000-000000000003", name: "実装", tasks: [other] }],
       },
     ];
     const milestones: Milestone[] = [
@@ -98,15 +100,17 @@ describe("removeMilestone", () => {
     expect(next.milestones).toEqual([milestones[1]]);
     expect(next.categories).toEqual([
       {
+        id: "c1000001-0000-4000-8000-000000000001",
         name: "設計",
         groups: [
-          { name: "上流", tasks: [{ ...linked, milestoneId: null }] },
-          { name: "空", tasks: [] },
+          { id: "d1000001-0000-4000-8000-000000000001", name: "上流", tasks: [{ ...linked, milestoneId: null }] },
+          { id: "d1000001-0000-4000-8000-000000000002", name: "空", tasks: [] },
         ],
       },
       {
+        id: "c1000001-0000-4000-8000-000000000002",
         name: "開発",
-        groups: [{ name: "実装", tasks: [other] }],
+        groups: [{ id: "d1000001-0000-4000-8000-000000000003", name: "実装", tasks: [other] }],
       },
     ]);
     expect(categories[0]?.groups[0]?.tasks[0]).toBe(linked);
@@ -114,12 +118,13 @@ describe("removeMilestone", () => {
 });
 
 describe("uniqueScheduleId", () => {
-  it("skips ids that are already used by a task or a milestone", () => {
+  it("skips ids already used by a category, group, task, or milestone", () => {
     const categories: Category[] = [
       {
+        id: "c1000001-0000-4000-8000-000000000001",
         name: "設計",
         groups: [
-          { name: "上流", tasks: [task({ id: TASK_A, name: "基本設計" })] },
+          { id: "d1000001-0000-4000-8000-000000000001", name: "上流", tasks: [task({ id: TASK_A, name: "基本設計" })] },
         ],
       },
     ];
@@ -127,10 +132,16 @@ describe("uniqueScheduleId", () => {
       { id: MS_A, name: "要件確定", date: "2026-04-01" },
     ];
     const taken = collectScheduleIds(categories, milestones);
-    const sequence = [MS_A, TASK_A, MS_B];
+    const sequence = [
+      MS_A,
+      TASK_A,
+      "c1000001-0000-4000-8000-000000000001",
+      "d1000001-0000-4000-8000-000000000001",
+      MS_B,
+    ];
     let index = 0;
     expect(uniqueScheduleId(taken, () => sequence[index++] ?? MS_C)).toBe(MS_B);
-    expect(index).toBe(3);
+    expect(index).toBe(5);
 
     let attempts = 0;
     expect(() =>
@@ -158,13 +169,15 @@ describe("milestoneLinkedByAnyTask", () => {
   it("reports whether any task points at the milestone", () => {
     const categories: Category[] = [
       {
+        id: "c1000001-0000-4000-8000-000000000001",
         name: "設計",
         groups: [
           {
+            id: "d1000001-0000-4000-8000-000000000001",
             name: "上流",
             tasks: [task({ id: TASK_A, name: "基本設計", milestoneId: MS_A })],
           },
-          { name: "空", tasks: [] },
+          { id: "d1000001-0000-4000-8000-000000000002", name: "空", tasks: [] },
         ],
       },
     ];

@@ -41,7 +41,7 @@ flowchart TD
 | ファイル | 役割 |
 | --- | --- |
 | `AppMenu.tsx` | ☰ メニュー |
-| `ContextMenu.tsx` | タスクとマイルストンの右クリックメニュー。マイルストンは編集と削除。`#root` に出す |
+| `ContextMenu.tsx` | タスク、マイルストン、カテゴリ、グループの右クリックメニュー。カテゴリとグループは名前の変更だけ。マイルストンは編集と削除。`#root` に出す |
 | `Toolbar.tsx` | 見出し、検索、絞り込み、系統、線を引く、追加、マイルストン追加、削除、ズーム |
 | `Sidebar.tsx` | 左の行、折りたたみ、名前の横ずらし |
 | `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール |
@@ -70,7 +70,7 @@ flowchart TD
 | 関心 | ファイル |
 | --- | --- |
 | 型 | `types.ts`、`memberTypes.ts`、`calendarTypes.ts` |
-| 検証 | `validateSchedule.ts`、`validateMembers.ts`、`validateCalendar.ts`、`*Semantics.ts`、`scheduleMigrate.ts`、`validationMessages.ts`、`generated/` |
+| 検証 | `validateSchedule.ts`、`validateMembers.ts`、`validateCalendar.ts`、`*Semantics.ts`、`scheduleMigrate.ts`、`uuidV5.ts`、`validationMessages.ts`、`generated/` |
 | 行と前後関係 | `rows.ts`、`dependencies.ts`、`summary.ts`、`tasks.ts` |
 | 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`dates.ts`、`nonWorkingDay.ts`、`milestones.ts` |
 | 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
@@ -142,7 +142,7 @@ flowchart TD
 
 ### 差分
 
-「差分を表示」は、画面の保存形式と、`read_open_schedule_file` で読んだ開いているファイルを `formatScheduleDiff` に渡す。パスが無い、またはブラウザ版のときはファイルを読まず、「比べるファイルがありません」と出す。検証に失敗したときは差分ダイアログを出さない。読んだ内容は保存しない。`content_hash` は変えない。
+「差分を表示」は、画面の保存形式と、`read_open_schedule_file` で読んだ開いているファイルを `formatScheduleDiff` に渡す。カテゴリ、グループ、タスク、マイルストンは id で対応づける。グループは、別のカテゴリへ移っていても同じ id なら変更である。パスが無い、またはブラウザ版のときはファイルを読まず、「比べるファイルがありません」と出す。検証に失敗したときは差分ダイアログを出さない。読んだ内容は保存しない。`content_hash` は変えない。
 
 ### 前回のファイルと控え
 
@@ -163,8 +163,9 @@ flowchart TD
 1. schemaVersion 1 なら、終了日を1日戻して schemaVersion 2 にする
 2. schemaVersion 2 は拒否する
 3. schemaVersion 3 なら、確度が無いタスクに `committed` を足して schemaVersion 4 にする。既にある `confidence` はそのまま残す
-4. JSON Schema（schemaVersion 4）
-5. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）
+4. schemaVersion 4 なら、カテゴリとグループへ名前から決まる UUID を付けて schemaVersion 5 にする。同じ内容なら ID は毎回同じである。タスクやマイルストンの ID とぶつかったときだけ別の ID にする
+5. JSON Schema（schemaVersion 5）
+6. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）。ID はカテゴリ、グループ、タスク、マイルストンを通して重複できない
 
 メンバーとカレンダーも、JSON Schema のあとに意味規則を見る。`validationMessages.ts` は、エラーの場所を示す JSON Pointer をカテゴリやタスクの名前に置き換えて、エラー文言を作る。
 
@@ -240,7 +241,7 @@ capability はメインウィンドウに、`core:default`、ウィンドウの 
 
 | 処理 | 場所 | 内容 |
 | --- | --- | --- |
-| 行の絞り込み | `rows.ts` の `taskMatchesFilter` | 系統、担当、ステータス、確度、期限、破綻、マイルストン、名前、ノートをすべて満たすタスクだけを残す。0件のグループとカテゴリは行にしない |
+| 行の絞り込み | `rows.ts` の `taskMatchesFilter` | 系統、担当、ステータス、確度、期限、破綻、マイルストン、名前、ノートをすべて満たすタスクだけを残す。0件のグループとカテゴリは行にしない。折りたたみの鍵はカテゴリとグループの `id` である |
 | 系統 | `dependencies.ts` の `lineageTaskIds` | 起点から先行と後続を辿る。起点を通らない枝は入れない |
 | 線を足す | `dependencies.ts` の `tryAddPredecessorLink` | 後続の `predecessors` に起点を足した候補を、循環と先行参照と先行 ID の重複で見る。通ったときだけ保存する |
 | 線の当たり | `dependencies.ts` の `nearestLinkHit` | ポインタから折れ線までの距離が 8px 以内の、一番近い 1 本 |
@@ -269,5 +270,5 @@ npm スクリプトと CI の分岐は [開発ガイド](development.md#npm-ス�
 - `rows.ts` の `ROW_HEIGHT` と `layoutSizes.ts` の `LAYOUT_ROW_HEIGHT` は、どちらも 32 で二重に定義されている。画面が使うのは、`App.tsx` が `scaledLayoutSizes` から渡す高さである
 - 書き出しは、表示中の Konva を撮るのではなく、モデルから SVG を組み立て直す。見た目は近づけるが、別の実装である
 - `mockup/schedule-viewer-mockup.html` は初期の検証用で、アプリからは参照しない。ESLint の対象外である
-- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は読み込み時に 4 へ上げ、確度が無いタスクを `committed` にする。未保存の比較は、その正規化後の文字列である。実際に開けるのは 3 と 4 である
+- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。未保存の比較は、その schemaVersion 5 の保存形式である。実際に開けるのは 3、4、5 である
 - 取り消しはドラッグの途中では積まない。離したときの確定が1ステップである

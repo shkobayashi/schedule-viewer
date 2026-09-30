@@ -1,6 +1,12 @@
 import { scheduleToJson } from "../model/serialize";
 import type { Category, Milestone, ScheduleDocument } from "../model/types";
-import { SAMPLE_MILESTONE_IDS, SAMPLE_MEMBER_IDS, SAMPLE_TASK_IDS } from "./ids";
+import {
+  SAMPLE_CATEGORY_IDS,
+  SAMPLE_GROUP_IDS,
+  SAMPLE_MILESTONE_IDS,
+  SAMPLE_MEMBER_IDS,
+  SAMPLE_TASK_IDS,
+} from "./ids";
 
 export const SAMPLE_PROJECT_TITLE = "AI活用PoC推進プロジェクト";
 
@@ -24,9 +30,11 @@ export const sampleMilestones: Milestone[] = [
 
 export const sampleCategories: Category[] = [
   {
+    id: SAMPLE_CATEGORY_IDS.requirements,
     name: "要件定義",
     groups: [
       {
+        id: SAMPLE_GROUP_IDS.asIs,
         name: "現状把握",
         tasks: [
           {
@@ -45,6 +53,7 @@ export const sampleCategories: Category[] = [
         ],
       },
       {
+        id: SAMPLE_GROUP_IDS.requirements,
         name: "要件化",
         tasks: [
           {
@@ -76,9 +85,11 @@ export const sampleCategories: Category[] = [
     ],
   },
   {
+    id: SAMPLE_CATEGORY_IDS.poc,
     name: "PoC設計・開発",
     groups: [
       {
+        id: SAMPLE_GROUP_IDS.pocDesign,
         name: "設計",
         tasks: [
           {
@@ -96,6 +107,7 @@ export const sampleCategories: Category[] = [
         ],
       },
       {
+        id: SAMPLE_GROUP_IDS.pocBuild,
         name: "実装",
         tasks: [
           {
@@ -125,6 +137,7 @@ export const sampleCategories: Category[] = [
         ],
       },
       {
+        id: SAMPLE_GROUP_IDS.pocReview,
         name: "評価",
         tasks: [
           {
@@ -144,9 +157,11 @@ export const sampleCategories: Category[] = [
     ],
   },
   {
+    id: SAMPLE_CATEGORY_IDS.platform,
     name: "基盤構築",
     groups: [
       {
+        id: SAMPLE_GROUP_IDS.platformDesign,
         name: "設計",
         tasks: [
           {
@@ -164,6 +179,7 @@ export const sampleCategories: Category[] = [
         ],
       },
       {
+        id: SAMPLE_GROUP_IDS.platformBuild,
         name: "構築",
         tasks: [
           {
@@ -195,9 +211,11 @@ export const sampleCategories: Category[] = [
     ],
   },
   {
+    id: SAMPLE_CATEGORY_IDS.migration,
     name: "移行・テスト",
     groups: [
       {
+        id: SAMPLE_GROUP_IDS.migration,
         name: "移行",
         tasks: [
           {
@@ -215,6 +233,7 @@ export const sampleCategories: Category[] = [
         ],
       },
       {
+        id: SAMPLE_GROUP_IDS.verification,
         name: "検証",
         tasks: [
           {
@@ -246,9 +265,11 @@ export const sampleCategories: Category[] = [
     ],
   },
   {
+    id: SAMPLE_CATEGORY_IDS.release,
     name: "リリース",
     groups: [
       {
+        id: SAMPLE_GROUP_IDS.rollout,
         name: "展開",
         tasks: [
           {
@@ -278,6 +299,7 @@ export const sampleCategories: Category[] = [
         ],
       },
       {
+        id: SAMPLE_GROUP_IDS.handover,
         name: "引き渡し",
         tasks: [
           {

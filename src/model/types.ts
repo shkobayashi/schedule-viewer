@@ -3,7 +3,7 @@ import type { MemberId } from "./memberTypes";
 
 export type ScheduleId = string;
 
-export const SCHEDULE_SCHEMA_VERSION = 4;
+export const SCHEDULE_SCHEMA_VERSION = 5;
 
 export type TaskStatus = "not-started" | "in-progress" | "done";
 
@@ -43,11 +43,13 @@ export type ScheduleDocument = {
 
 /** カテゴリとタスクの間。日付は持たず、配下タスクのまとまり。 */
 export type TaskGroup = {
+  id: ScheduleId;
   name: string;
   tasks: Task[];
 };
 
 export type Category = {
+  id: ScheduleId;
   name: string;
   groups: TaskGroup[];
 };
@@ -88,6 +90,7 @@ export type ScheduleFilters = {
 export type VisibleRow =
   | {
       type: "category";
+      id: ScheduleId;
       label: string;
       y: number;
       collapsed: boolean;
@@ -95,6 +98,8 @@ export type VisibleRow =
     }
   | {
       type: "group";
+      id: ScheduleId;
+      categoryId: ScheduleId;
       category: string;
       label: string;
       y: number;

@@ -18,12 +18,12 @@ import {
 
 export const ROW_HEIGHT = 32;
 
-export function categoryCollapseKey(name: string): string {
-  return `category:${name}`;
+export function categoryCollapseKey(id: ScheduleId): string {
+  return `category:${id}`;
 }
 
-export function groupCollapseKey(category: string, group: string): string {
-  return `group:${category}\u0000${group}`;
+export function groupCollapseKey(id: ScheduleId): string {
+  return `group:${id}`;
 }
 
 export function taskMatchesFilter(
@@ -121,9 +121,10 @@ export function computeVisibleRows(
       groups.flatMap((entry) => entry.matched),
     );
     if (!categorySummary) continue;
-    const categoryCollapsed = collapsed.has(categoryCollapseKey(cat.name));
+    const categoryCollapsed = collapsed.has(categoryCollapseKey(cat.id));
     rows.push({
       type: "category",
+      id: cat.id,
       label: cat.name,
       y,
       collapsed: categoryCollapsed,
@@ -134,11 +135,11 @@ export function computeVisibleRows(
     for (const { group, matched } of groups) {
       const groupSummary = summarizeSpans(matched);
       if (!groupSummary) continue;
-      const groupCollapsed = collapsed.has(
-        groupCollapseKey(cat.name, group.name),
-      );
+      const groupCollapsed = collapsed.has(groupCollapseKey(group.id));
       rows.push({
         type: "group",
+        id: group.id,
+        categoryId: cat.id,
         category: cat.name,
         label: group.name,
         y,
