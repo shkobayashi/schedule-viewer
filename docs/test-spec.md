@@ -86,6 +86,11 @@
 | 同上 | `spans the visible tasks and exported milestones, not hidden dates` | EXPORT-02 |
 | 同上 | `returns empty text when every filter is the default` | EXPORT-02 |
 | 同上 | `lists only the filters that are on` | EXPORT-02 |
+| `history.test.ts` | `does not push identical content` | EDIT-10 |
+| 同上 | `treats a whitespace-only note as the same content` | EDIT-10 |
+| 同上 | `drops the oldest entry after 100 steps` | EDIT-10 |
+| 同上 | `undo and redo restore the document` | EDIT-10 |
+| 同上 | `clears the redo stack after a new edit` | EDIT-10 |
 | `memberAppData.test.ts` | `drops a leading BOM and leaves other text unchanged` | SET-02 |
 | 同上 | `stores imported JSON without a BOM and reads it back` | SET-02 |
 | 同上 | `imports the sample only once when two seeds overlap` | SET-02 |
@@ -269,7 +274,6 @@
 
 | モジュール | 状態 |
 | --- | --- |
-| `history.ts` | 未テスト |
 | `dependencies.ts` | 破綻の境界と系統は未テスト。線の追加、除去、当たりはテストしている。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でもテストしている |
 | `timeline.ts` | 期限超過、イナズマ線、ズーム段階は未テスト |
 | `milestones.ts` | マイルストン超過と段の割り当ては未テスト。追加と削除はテストしている |
@@ -285,11 +289,10 @@
 
 足すなら、手間のわりに効果が大きい次の順がよい。
 
-1. `history.ts`。100件の上限と、同じ内容を積まないこと
-2. `dependencies.ts`。破綻の境界（同じ日は破綻でない）と系統
-3. `timeline.ts`。期限超過とイナズマ線
-4. `rows.ts`。担当、ステータス、期限、破綻の組み合わせ
-5. `tasks.ts`。追加時に外す絞り込みと、削除時の先行の除去
+1. `dependencies.ts`。破綻の境界（同じ日は破綻でない）と系統
+2. `timeline.ts`。期限超過とイナズマ線
+3. `rows.ts`。担当、ステータス、期限、破綻の組み合わせ
+4. `tasks.ts`。追加時に外す絞り込みと、削除時の先行の除去
 
 ## テスト環境とデータ
 

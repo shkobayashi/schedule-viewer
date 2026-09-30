@@ -211,6 +211,7 @@ export function useSchedule(
       const pushed = pushDocumentHistory(historyRef.current, current, next);
       if (!pushed) return;
       historyRef.current = pushed.history;
+      if (!pushed.applied) return;
       documentRef.current = pushed.applied;
       setCategories(pushed.applied.categories);
       setMilestones(pushed.applied.milestones);
