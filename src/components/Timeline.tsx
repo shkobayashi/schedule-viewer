@@ -1486,6 +1486,7 @@ export function Timeline({
           onContextMenu={onMilestoneContextMenu}
           onWheel={onWheelHeader}
           chart={chart}
+          colorScheme={colorScheme}
         />
       ) : null}
       <div

@@ -435,6 +435,7 @@ function App() {
     selectedTaskId,
     openEditDialog,
     selectTask,
+    milestones,
     openMilestoneEdit,
     openTaskNoteDialog,
     clearLineage,
@@ -443,6 +444,7 @@ function App() {
     addPredecessorLink,
     removePredecessorLink,
     setTaskConfidence,
+    setMilestoneConfidence,
   } = schedule;
   const { fileBusy, requestOpen, save } = scheduleFile;
 
@@ -856,12 +858,30 @@ function App() {
     if (contextMenu == null) return [];
     if (contextMenu.kind === "milestone") {
       const milestoneId = contextMenu.milestoneId;
+      const milestone = milestones.find((item) => item.id === milestoneId);
       return [
         {
           id: "edit",
           label: "編集",
           onSelect: () => openMilestoneEdit(milestoneId),
         },
+        ...(milestone
+          ? [
+              {
+                id: "confidence",
+                label:
+                  milestone.confidence === "tentative"
+                    ? "確定にする"
+                    : "未確定にする",
+                onSelect: () => {
+                  setMilestoneConfidence(
+                    milestoneId,
+                    milestone.confidence === "tentative" ? "committed" : "tentative",
+                  );
+                },
+              },
+            ]
+          : []),
         {
           id: "delete",
           label: "削除",
@@ -939,8 +959,10 @@ function App() {
     clearLineage,
     contextMenu,
     lineageTask?.id,
+    milestones,
     openEditDialog,
     openHierarchyEdit,
+    setMilestoneConfidence,
     setTaskConfidence,
     openMilestoneEdit,
     openTaskNoteDialog,

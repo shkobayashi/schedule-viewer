@@ -1,5 +1,6 @@
 import validateSchema from "./generated/scheduleValidator.js";
 import {
+  fillMissingMilestoneConfidence,
   migrateScheduleToV2,
   migrateScheduleV3ToV4,
   migrateScheduleV4ToV5,
@@ -41,7 +42,9 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
     };
   }
 
-  const migrated = migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1));
+  const migrated = fillMissingMilestoneConfidence(
+    migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1)),
+  );
 
   if (!validateSchema(migrated)) {
     return {

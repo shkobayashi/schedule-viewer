@@ -320,6 +320,7 @@ function __standaloneValue(mod, path) {
 }
 var scheduleValidator_default = validate20;
 var func1 = __standaloneValue(import_ucs2length.default, ["default"]);
+var schema32 = { "type": "object", "additionalProperties": false, "required": ["id", "name", "date", "confidence"], "properties": { "id": { "$ref": "#/$defs/scheduleId" }, "name": { "type": "string", "minLength": 1 }, "date": { "$ref": "#/$defs/isoDate" }, "confidence": { "type": "string", "enum": ["tentative", "committed"], "description": "\u65E5\u4ED8\u3092\u5408\u610F\u3057\u305F\u304B\u3069\u3046\u304B\u3002tentative \u306F\u672A\u78BA\u5B9A\u3001committed \u306F\u78BA\u5B9A\u3002\u30BF\u30B9\u30AF\u306E\u78BA\u5EA6\u3068\u306F\u72EC\u7ACB\u3002" } } };
 var formats0 = /^(?:urn:uuid:)?[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 var formats2 = __standaloneValue(import_formats.default, ["fullFormats", "date"]);
 function validate21(data2, { instancePath = "", parentData, parentDataProperty, rootData = data2, dynamicAnchors = {} } = {}) {
@@ -360,13 +361,22 @@ function validate21(data2, { instancePath = "", parentData, parentDataProperty, 
       }
       errors++;
     }
+    if (data2.confidence === void 0) {
+      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "confidence" }, message: "must have required property 'confidence'" };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
     for (const key0 in data2) {
-      if (!(key0 === "id" || key0 === "name" || key0 === "date")) {
-        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+      if (!(key0 === "id" || key0 === "name" || key0 === "date" || key0 === "confidence")) {
+        const err4 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
-          vErrors = [err3];
+          vErrors = [err4];
         } else {
-          vErrors.push(err3);
+          vErrors.push(err4);
         }
         errors++;
       }
@@ -375,20 +385,20 @@ function validate21(data2, { instancePath = "", parentData, parentDataProperty, 
       let data0 = data2.id;
       if (typeof data0 === "string") {
         if (!formats0.test(data0)) {
-          const err4 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/scheduleId/format", keyword: "format", params: { format: "uuid" }, message: 'must match format "uuid"' };
+          const err5 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/scheduleId/format", keyword: "format", params: { format: "uuid" }, message: 'must match format "uuid"' };
           if (vErrors === null) {
-            vErrors = [err4];
+            vErrors = [err5];
           } else {
-            vErrors.push(err4);
+            vErrors.push(err5);
           }
           errors++;
         }
       } else {
-        const err5 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/scheduleId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        const err6 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/scheduleId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
-          vErrors = [err5];
+          vErrors = [err6];
         } else {
-          vErrors.push(err5);
+          vErrors.push(err6);
         }
         errors++;
       }
@@ -397,20 +407,20 @@ function validate21(data2, { instancePath = "", parentData, parentDataProperty, 
       let data1 = data2.name;
       if (typeof data1 === "string") {
         if (func1(data1) < 1) {
-          const err6 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          const err7 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
           if (vErrors === null) {
-            vErrors = [err6];
+            vErrors = [err7];
           } else {
-            vErrors.push(err6);
+            vErrors.push(err7);
           }
           errors++;
         }
       } else {
-        const err7 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        const err8 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
-          vErrors = [err7];
+          vErrors = [err8];
         } else {
-          vErrors.push(err7);
+          vErrors.push(err8);
         }
         errors++;
       }
@@ -419,30 +429,51 @@ function validate21(data2, { instancePath = "", parentData, parentDataProperty, 
       let data22 = data2.date;
       if (typeof data22 === "string") {
         if (!formats2.validate(data22)) {
-          const err8 = { instancePath: instancePath + "/date", schemaPath: "#/$defs/isoDate/format", keyword: "format", params: { format: "date" }, message: 'must match format "date"' };
+          const err9 = { instancePath: instancePath + "/date", schemaPath: "#/$defs/isoDate/format", keyword: "format", params: { format: "date" }, message: 'must match format "date"' };
           if (vErrors === null) {
-            vErrors = [err8];
+            vErrors = [err9];
           } else {
-            vErrors.push(err8);
+            vErrors.push(err9);
           }
           errors++;
         }
       } else {
-        const err9 = { instancePath: instancePath + "/date", schemaPath: "#/$defs/isoDate/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        const err10 = { instancePath: instancePath + "/date", schemaPath: "#/$defs/isoDate/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
-          vErrors = [err9];
+          vErrors = [err10];
         } else {
-          vErrors.push(err9);
+          vErrors.push(err10);
+        }
+        errors++;
+      }
+    }
+    if (data2.confidence !== void 0) {
+      let data3 = data2.confidence;
+      if (typeof data3 !== "string") {
+        const err11 = { instancePath: instancePath + "/confidence", schemaPath: "#/properties/confidence/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err11];
+        } else {
+          vErrors.push(err11);
+        }
+        errors++;
+      }
+      if (!(data3 === "tentative" || data3 === "committed")) {
+        const err12 = { instancePath: instancePath + "/confidence", schemaPath: "#/properties/confidence/enum", keyword: "enum", params: { allowedValues: schema32.properties.confidence.enum }, message: "must be equal to one of the allowed values" };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
         }
         errors++;
       }
     }
   } else {
-    const err10 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err13 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err10];
+      vErrors = [err13];
     } else {
-      vErrors.push(err10);
+      vErrors.push(err13);
     }
     errors++;
   }
@@ -1642,6 +1673,18 @@ function migrateScheduleV4ToV5(data2) {
     categories: nextCategories
   };
 }
+function fillMissingMilestoneConfidence(data2) {
+  if (!isRecord(data2) || data2.schemaVersion !== 5 || !Array.isArray(data2.milestones)) {
+    return data2;
+  }
+  let changed = false;
+  const milestones = data2.milestones.map((milestone) => {
+    if (!isRecord(milestone) || "confidence" in milestone) return milestone;
+    changed = true;
+    return { ...milestone, confidence: "committed" };
+  });
+  return changed ? { ...data2, milestones } : data2;
+}
 
 // src/model/scheduleSemantics.ts
 function nonEmptyName(value, label, path) {
@@ -2025,7 +2068,9 @@ function validateSchedule(data2) {
       ]
     };
   }
-  const migrated = migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1));
+  const migrated = fillMissingMilestoneConfidence(
+    migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1))
+  );
   if (!scheduleValidator_default(migrated)) {
     return {
       ok: false,
