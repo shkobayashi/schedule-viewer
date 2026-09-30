@@ -4,20 +4,28 @@ import type { CalendarDocument } from "./calendarTypes";
 
 const DEFAULT_WEEKEND_DOW = new Set([0, 6]);
 
+type CalendarIndex = {
+  weekends: Set<string>;
+  nonWorking: Set<string>;
+  working: Set<string>;
+};
+
+const calendarIndexCache = new WeakMap<CalendarDocument, CalendarIndex>();
+
 function isDefaultWeekend(d: Date): boolean {
   return DEFAULT_WEEKEND_DOW.has(d.getUTCDay());
 }
 
-function calendarWeekendSet(calendar: CalendarDocument): Set<string> {
-  return new Set(calendar.weekends);
-}
-
-function calendarNonWorkingDates(calendar: CalendarDocument): Set<string> {
-  return new Set(calendar.nonWorkingDays.map((e) => e.date));
-}
-
-function calendarWorkingDates(calendar: CalendarDocument): Set<string> {
-  return new Set(calendar.workingDays.map((e) => e.date));
+function calendarIndex(calendar: CalendarDocument): CalendarIndex {
+  const cached = calendarIndexCache.get(calendar);
+  if (cached) return cached;
+  const index: CalendarIndex = {
+    weekends: new Set(calendar.weekends),
+    nonWorking: new Set(calendar.nonWorkingDays.map((entry) => entry.date)),
+    working: new Set(calendar.workingDays.map((entry) => entry.date)),
+  };
+  calendarIndexCache.set(calendar, index);
+  return index;
 }
 
 /** 非稼働日なら true。calendar が null のときは土日のみ非稼働。 */
@@ -27,10 +35,10 @@ export function isNonWorkingDay(
 ): boolean {
   const key = isoDate(date);
   if (calendar) {
-    if (calendarWorkingDates(calendar).has(key)) return false;
-    if (calendarNonWorkingDates(calendar).has(key)) return true;
-    const weekends = calendarWeekendSet(calendar);
-    return weekends.has(utcWeekdayFromDate(date));
+    const index = calendarIndex(calendar);
+    if (index.working.has(key)) return false;
+    if (index.nonWorking.has(key)) return true;
+    return index.weekends.has(utcWeekdayFromDate(date));
   }
   return isDefaultWeekend(date);
 }

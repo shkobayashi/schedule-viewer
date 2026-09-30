@@ -1,0 +1,59 @@
+---
+name: implement-change
+description: >-
+  Implements a planned change in the schedule-viewer app and updates the
+  matching docs and tests in the same change. Use when implementing or fixing
+  screen behavior, state, the model, Tauri commands, or rendering from a plan,
+  or when the plan names implement-change. Schedule, member, and calendar JSON
+  authoring uses write-schedule, write-members, and write-calendar. Schedule
+  JSON shape changes use update-schedule-schema.
+---
+
+# implement-change（schedule-viewer の実装）
+
+計画に書かれた変更を、このリポジトリのアプリへ入れる。JSON を作る作業と、スキーマの形を変える作業は、このスキルの対象外である。
+
+計画が節を指定しているときは、その節と「着手前」だけに従う。
+
+## 着手前
+
+1. [AGENTS.md](../../../AGENTS.md) の表で、この変更に合う文書を読み、場所を絞ってからソースを開く
+2. 機能 ID がある変更は、[docs/external-spec.md](../../../docs/external-spec.md) のその節に合わせる
+3. 画面の組み立て、状態、モデル、Tauri、描画のどれを触るかを決める。依存はコンポーネントからフック、フックからモデルである。モデルはコンポーネントを参照しない。Rust は JSON の意味を解釈しない
+
+## 画面と操作
+
+利用者に見える挙動、操作、表示を変える。
+
+1. `src/components/`、`src/hooks/`、`src/App.tsx` のうち、計画が指す箇所を変える
+2. [docs/external-spec.md](../../../docs/external-spec.md) を同じ変更で更新する
+3. 利用者の手順が変わるときは [docs/user-manual.md](../../../docs/user-manual.md)、README の機能説明が変わるときは [README.md](../../../README.md) を更新する
+4. 変えた操作を最後まで行う。ブラウザ版（`npm run dev`、ポート 5173）で確かめられる操作はそこで確認する。ファイルダイアログなど Tauri のウィンドウでないと確かめられない操作は、確認できなかったことを結果に書く
+5. 入力欄と選択欄には読めるラベルを付け、動的なエラーは支援技術へ通知する。ダイアログ内の候補一覧などが Escape を処理したときは、親ダイアログまで閉じない
+
+## 状態・モデル・描画・Tauri
+
+画面の手順が変わらなくても、状態、計算、描画、ファイルの橋渡しを変える。
+
+1. 検証、行、履歴、書き出す内容は `src/model/` の純粋関数に置く。ファイルの読み書きは Tauri 側に残す
+2. 構成、状態、Tauri コマンド、描画の流れが変わるときは [docs/internal-spec.md](../../../docs/internal-spec.md) を同じ変更で更新する
+3. 純粋関数を変えたときは、対応する `src/model/*.test.ts` を更新する。`src-tauri/` のパス検査を変えたときは Rust のテストを更新する
+4. 非同期処理は、多重実行と `await` 中の状態変更を考慮し、処理中の ref または世代番号で古い結果を反映しない。状態と同時に参照する ref は同じ処理内で更新する。公開しているフックの戻り値を保ったまま、独立した状態機械は分割前に境界のテストを置いてから分ける
+5. ブラウザ版とデスクトップ版の両方にある入力は、サイズ上限、検証、エラー処理の差を意図したものか確認する
+
+## 文書
+
+どの文書を同じ変更に含めるかは [AGENTS.md](../../../AGENTS.md) の「変更したら文書も更新する」に従う。通常の不具合修正では [docs/PLANNING.md](../../../docs/PLANNING.md) は更新しない。利用者に見える変更をリリースへ入れるときは [CHANGELOG.md](../../../CHANGELOG.md) も更新する。計画が REVIEW.md の指摘を扱うときは、対応または見送りを同じ変更で REVIEW.md に書く。
+
+## テストと確認
+
+1. 機能 ID がある変更は、自動テストか [docs/test-spec.md](../../../docs/test-spec.md) の手動テストケースの少なくとも一方に対応づける。テストを足した、消した、または対応する機能 ID が変わるときは、テスト仕様を同じ変更で更新する
+2. 自動テストの対象は `src/model/` の純粋関数と、Rust 側のパス検査である。画面操作、Konva の描画、Tauri のダイアログは手で確かめる
+3. 触った層に応じて検査する。フロントの型とテストは `npm run build`、`npm run lint`、`npm test`。Rust を変えたときは `cd src-tauri && cargo clippy -- -D warnings` と `cargo test --locked`
+
+## 完了条件
+
+- 計画が指定した範囲が入っている
+- 対応する文書が同じ変更に含まれている
+- 触った層の検査が通っている
+- 画面を変えたときは、操作を確認したか、確認できなかった箇所を結果に書いている

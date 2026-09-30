@@ -18,11 +18,12 @@ import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
 import { TaskEditDialog } from "./components/TaskEditDialog";
 import { TaskNoteDialog } from "./components/TaskNoteDialog";
-import { Timeline, type ChartPointer } from "./components/Timeline";
+import { Timeline } from "./components/Timeline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { Toolbar } from "./components/Toolbar";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
+import { useAppKeyboard } from "./hooks/useAppKeyboard";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
@@ -58,15 +59,8 @@ import {
   layoutMilestones,
   milestoneBandHeightPx,
 } from "./model/milestones";
+import type { ChartPointer } from "./model/chartHitTest";
 import { findTaskById } from "./model/rows";
-import {
-  blocksBrowserShortcut,
-  blocksEditShortcut,
-  blocksLinkShortcut,
-  chartScrollOffset,
-  matchAppShortcut,
-  matchChartScroll,
-} from "./model/shortcuts";
 import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange } from "./model/timeline";
@@ -124,15 +118,6 @@ type ContextMenuState =
       x: number;
       y: number;
     };
-
-function shouldHandleDocumentUndo(target: EventTarget | null): boolean {
-  if (document.querySelector('[role="dialog"]')) return false;
-  if (!(target instanceof HTMLElement)) return true;
-  if (target.isContentEditable) return false;
-  const tag = target.tagName;
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
-  return true;
-}
 
 function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
@@ -328,12 +313,14 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回のみサンプルカタログを用意
   }, []);
 
+  const blockDocumentEditsRef = useRef(false);
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
     sampleMilestones,
     rowHeight,
     memberCatalogState.members,
+    blockDocumentEditsRef,
   );
   const { redo, undo, setTaskStart, setTaskEnd, visibleRows } = schedule;
   const range = useMemo(
@@ -428,6 +415,7 @@ function App() {
       schedule.editingNoteTask != null ||
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null,
+    blockDocumentEditsRef,
   });
 
   const {
@@ -464,132 +452,37 @@ function App() {
       return selectedTaskId;
     });
   }, [selectedTaskId]);
+  const clearLinkMode = useCallback(() => {
+    setLinkSourceId(null);
+    setLinkError(null);
+  }, []);
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+  const requestDeleteTask = useCallback(() => {
+    setDeleteOpen(true);
+  }, []);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const dialogOpen = document.querySelector('[role="dialog"]') != null;
-      const target = e.target;
-      const blocksEditKeys =
-        target instanceof HTMLElement &&
-        blocksEditShortcut({
-          tagName: target.tagName,
-          isContentEditable: target.isContentEditable,
-        });
-      const blocksLinkKeys =
-        target instanceof HTMLElement &&
-        blocksLinkShortcut({
-          tagName: target.tagName,
-          isContentEditable: target.isContentEditable,
-        });
-      const shortcutEvent = {
-        key: e.key,
-        ctrlKey: e.ctrlKey,
-        metaKey: e.metaKey,
-        shiftKey: e.shiftKey,
-        altKey: e.altKey,
-      };
-      const chartScroll = matchChartScroll(shortcutEvent, { dialogOpen });
-      if (chartScroll) {
-        e.preventDefault();
-        setContextMenu(null);
-        const offset = chartScrollOffset(chartScroll, rowHeight);
-        scrollBy(offset.x, offset.y);
-        return;
-      }
-      if (blocksBrowserShortcut(shortcutEvent)) e.preventDefault();
-      if (
-        shortcutEvent.key === "Escape" &&
-        !dialogOpen &&
-        !shortcutEvent.altKey &&
-        !shortcutEvent.ctrlKey &&
-        !shortcutEvent.metaKey &&
-        !shortcutEvent.shiftKey
-      ) {
-        if (document.querySelector('[role="menu"]')) return;
-        if (linkSourceId != null) {
-          e.preventDefault();
-          setLinkSourceId(null);
-          setLinkError(null);
-        }
-        return;
-      }
-      const shortcut = matchAppShortcut(shortcutEvent, {
-        dialogOpen,
-        blocksEditKeys,
-        blocksLinkKeys,
-      });
-      if (shortcut) {
-        e.preventDefault();
-        if (e.repeat) return;
-        setContextMenu(null);
-        if (shortcut === "link") {
-          toggleLinkMode();
-          return;
-        }
-        if (shortcut === "edit") {
-          if (linkSourceId != null) return;
-          const task =
-            selectedTaskId == null
-              ? null
-              : findTaskById(categories, selectedTaskId);
-          if (task) openEditDialog(task);
-          return;
-        }
-        if (shortcut === "delete") {
-          const pointer = chartPointerRef.current;
-          const hovered = pointer.link;
-          if (
-            hovered &&
-            !pointer.overTask &&
-            !pointer.overMilestone
-          ) {
-            removePredecessorLink(hovered.fromId, hovered.toId);
-            return;
-          }
-          if (selectedTaskId != null) setDeleteOpen(true);
-          return;
-        }
-        if (fileBusy && shortcut !== "find") return;
-        if (shortcut === "save") void save(false);
-        else if (shortcut === "saveAs") void save(true);
-        else if (shortcut === "open") requestOpen();
-        else {
-          taskSearchRef.current?.focus();
-          taskSearchRef.current?.select();
-        }
-        return;
-      }
-      if (!shouldHandleDocumentUndo(e.target)) return;
-      const mod = e.metaKey || e.ctrlKey;
-      const key = e.key.toLowerCase();
-      if (key === "z" && mod && !e.altKey) {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-        return;
-      }
-      if (key === "y" && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
-        e.preventDefault();
-        redo();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [
-    categories,
-    fileBusy,
-    openEditDialog,
-    redo,
-    requestOpen,
+  useAppKeyboard({
     rowHeight,
-    save,
     scrollBy,
+    fileBusy,
+    save,
+    requestOpen,
+    categories,
     selectedTaskId,
+    openEditDialog,
     linkSourceId,
     toggleLinkMode,
+    clearLinkMode,
     removePredecessorLink,
+    chartPointerRef,
+    closeContextMenu,
+    requestDeleteTask,
     undo,
-  ]);
+    redo,
+    taskSearchRef,
+  });
 
   const onWheelBody = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -784,10 +677,6 @@ function App() {
         setDiffError(errorMessage(error, "ファイルを読めません。"));
       });
   }, [scheduleFile.currentJson, scheduleFile.fileBusy, scheduleFile.filePath]);
-
-  const closeContextMenu = useCallback(() => {
-    setContextMenu(null);
-  }, []);
 
   useEffect(() => {
     if (contextMenu == null) return;

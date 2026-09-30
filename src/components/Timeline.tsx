@@ -20,12 +20,18 @@ import {
   type Rect as ChipRect,
 } from "../model/dragDates";
 import {
+  hitTaskAnchor,
+  TASK_HANDLE_WIDTH,
+  type ChartPointer,
+} from "../model/chartHitTest";
+import {
   LINK_POINTER_LENGTH,
   linkPoints,
   nearestLinkHit,
   type DependencyLink,
   type LinkPolyline,
 } from "../model/dependencies";
+import { useTimelinePointer } from "../hooks/useTimelinePointer";
 import {
   barColors,
   isOverdue,
@@ -101,13 +107,7 @@ type TimelineProps = {
   onChartPointer: (pointer: ChartPointer) => void;
 };
 
-export type ChartPointer = {
-  overTask: boolean;
-  overMilestone: boolean;
-  link: { fromId: ScheduleId; toId: ScheduleId } | null;
-};
-
-const HANDLE_WIDTH = 8;
+const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
 /** 同じバーへの連続クリックを、ダブルクリックの 2 回目として扱う時間。 */
 const LINK_DOUBLE_CLICK_MS = 500;
 
@@ -1184,140 +1184,25 @@ export function Timeline({
     return polylines;
   }, [barHeight, dragPreview, links, liveAnchors, visibleRows]);
 
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const bandRef = useRef<HTMLDivElement>(null);
-  const [clientPointer, setClientPointer] = useState<{
-    x: number;
-    y: number;
-    sidebar: boolean;
-  } | null>(null);
-
-  useEffect(() => {
-    const onMove = (event: MouseEvent) => {
-      const sidebar =
-        event.target instanceof Element &&
-        event.target.closest(".sidebar") != null;
-      setClientPointer({ x: event.clientX, y: event.clientY, sidebar });
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
-
-  const chartPointer = useMemo(() => {
-    const empty = {
-      overTask: false,
-      overMilestone: false,
-      link: null as ChartPointer["link"],
-      hoverTaskId: null as ScheduleId | null,
-      previewEnd: null as { x: number; y: number } | null,
-    };
-    if (clientPointer == null) return empty;
-
-    let overMilestone = false;
-    const band = bandRef.current?.getBoundingClientRect();
-    if (
-      band &&
-      clientPointer.x >= band.left &&
-      clientPointer.x <= band.right &&
-      clientPointer.y >= band.top &&
-      clientPointer.y <= band.bottom
-    ) {
-      const x = clientPointer.x - band.left;
-      const y = clientPointer.y - band.top;
-      const radius = milestoneDiamondSize / 2 + 2;
-      for (const milestone of milestones) {
-        const cx = dateToX(parseDate(milestone.date));
-        const lane = milestoneLanes.get(milestone.id) ?? 0;
-        const cy = lane * milestoneLaneHeight + milestoneLaneHeight / 2;
-        if (Math.hypot(x - cx, y - cy) <= radius) {
-          overMilestone = true;
-          break;
-        }
-      }
-    }
-
-    const body = bodyRef.current?.getBoundingClientRect();
-    if (!body) return { ...empty, overMilestone };
-
-    const local = {
-      x: clientPointer.x - body.left,
-      y: clientPointer.y - body.top,
-    };
-    const insideBody =
-      clientPointer.x >= body.left &&
-      clientPointer.x <= body.right &&
-      clientPointer.y >= body.top &&
-      clientPointer.y <= body.bottom;
-
-    let hoverTaskId: ScheduleId | null = null;
-    let hoverAnchor: { x: number; y: number } | null = null;
-    if (insideBody) {
-      for (const [id, anchor] of liveAnchors) {
-        const top = anchor.y - barHeight / 2;
-        const bottom = anchor.y + barHeight / 2;
-        const handlePad =
-          !linkMode && id === selectedTaskId ? HANDLE_WIDTH / 2 : 0;
-        if (
-          local.x >= anchor.x - handlePad &&
-          local.x <= anchor.right + handlePad &&
-          local.y >= top &&
-          local.y <= bottom
-        ) {
-          hoverTaskId = id;
-          hoverAnchor = anchor;
-          break;
-        }
-      }
-    }
-    const overTask = hoverTaskId != null;
-    const link =
-      insideBody && !overTask && !overMilestone
-        ? nearestLinkHit(linkPolylines, local.x, local.y)
-        : null;
-
-    let previewEnd: { x: number; y: number } | null = null;
-    if (linkMode) {
-      if (clientPointer.sidebar) previewEnd = { x: 0, y: local.y };
-      else if (hoverAnchor) previewEnd = { x: hoverAnchor.x, y: hoverAnchor.y };
-      else previewEnd = local;
-    }
-
-    return {
-      overTask,
-      overMilestone,
-      link,
-      hoverTaskId,
-      previewEnd,
-    };
-  }, [
-    barHeight,
-    clientPointer,
-    dateToX,
+  const { bodyRef, bandRef, hover, previewEnd } = useTimelinePointer({
     linkMode,
-    linkPolylines,
+    milestones,
+    milestoneLanes,
+    dateToX,
     milestoneDiamondSize,
     milestoneLaneHeight,
-    milestoneLanes,
-    milestones,
-    selectedTaskId,
     liveAnchors,
-  ]);
-
-  const onChartPointerRef = useRef(onChartPointer);
-  onChartPointerRef.current = onChartPointer;
-  useEffect(() => {
-    onChartPointerRef.current({
-      overTask: chartPointer.overTask,
-      overMilestone: chartPointer.overMilestone,
-      link: chartPointer.link,
-    });
-  }, [chartPointer.link, chartPointer.overMilestone, chartPointer.overTask]);
+    linkPolylines,
+    barHeight,
+    selectedTaskId,
+    onChartPointer,
+  });
 
   const linkArrows = useMemo(() => {
     return linkPolylines.flatMap((link) => {
       const hovered =
-        chartPointer.link?.fromId === link.fromId &&
-        chartPointer.link.toId === link.toId;
+        hover.link?.fromId === link.fromId &&
+        hover.link.toId === link.toId;
       const color = link.broken ? chart.linkBroken : chart.linkOk;
       const strokeWidth = link.broken ? 1.75 : 1.25;
       return [
@@ -1333,20 +1218,20 @@ export function Timeline({
         />,
       ];
     });
-  }, [chart, chartPointer.link, linkPolylines]);
+  }, [chart, hover.link, linkPolylines]);
 
   const previewPoints = useMemo(() => {
-    if (!linkSourceId || !chartPointer.previewEnd) return null;
+    if (!linkSourceId || !previewEnd) return null;
     const from = liveAnchors.get(linkSourceId);
     if (!from) return null;
     return linkPoints(
       from.linkRight,
       from.y,
-      chartPointer.previewEnd.x,
-      chartPointer.previewEnd.y,
+      previewEnd.x,
+      previewEnd.y,
       barHeight,
     );
-  }, [barHeight, chartPointer.previewEnd, linkSourceId, liveAnchors]);
+  }, [barHeight, previewEnd, linkSourceId, liveAnchors]);
 
   const panRef = useRef<{
     x: number;
@@ -1504,18 +1389,11 @@ export function Timeline({
             const stage = e.target.getStage();
             const pos = stage?.getPointerPosition();
             if (!pos) return;
-            const overTask = [...liveAnchors].some(([id, anchor]) => {
-              const top = anchor.y - barHeight / 2;
-              const bottom = anchor.y + barHeight / 2;
-              const handlePad =
-                !linkMode && id === selectedTaskId ? HANDLE_WIDTH / 2 : 0;
-              return (
-                pos.x >= anchor.x - handlePad &&
-                pos.x <= anchor.right + handlePad &&
-                pos.y >= top &&
-                pos.y <= bottom
-              );
-            });
+            const overTask =
+              hitTaskAnchor(pos, liveAnchors, barHeight, {
+                linkMode,
+                selectedTaskId,
+              }) != null;
             if (overTask) {
               if (linkMode) e.evt.preventDefault();
               return;
@@ -1580,7 +1458,7 @@ export function Timeline({
                   linkMode={linkMode}
                   linkTarget={
                     linkMode &&
-                    chartPointer.hoverTaskId === row.task.id &&
+                    hover.hoverTaskId === row.task.id &&
                     row.task.id !== linkSourceId
                   }
                   onLinkPointerDown={armLinkPress}
