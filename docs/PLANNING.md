@@ -56,7 +56,7 @@
 /src-tauri        Rust側 (ファイルI/Oなど薄いコマンドのみ)
 /.devcontainer    DevContainer定義
 /docs             計画・ADR・JSONスキーマ定義など
-/.cursor/skills   LLM用スキル（write-schedule / write-members / write-calendar は他プロジェクトへコピー可）
+/.cursor/skills   LLM用スキル（implement-change はこのリポジトリの実装手順。write-schedule / write-members / write-calendar は他プロジェクトへコピー可）
 /mockup           Konva単体プロトタイプ（Phase 1 移植の参照）
 ```
 
