@@ -101,7 +101,10 @@
 | 同上 | `treats an empty weekends list as no weekday holidays` | VIEW-09 |
 | 同上 | `does not paint days past the schedule end` | VIEW-09 |
 | 同上 | `respects nonWorkingDays on weekdays` | VIEW-09 |
-| `rows.test.ts` | `matches note substring independently of name` | FILTER-02, FILTER-09 |
+| `rows.test.ts` | `relaxes filters that would hide a newly added task` | EDIT-08, EDIT-14 |
+| 同上 | `keeps filters that still show a newly added task` | EDIT-08 |
+| 同上 | `keeps filters that match the duplicated task` | EDIT-14, FILTER-10 |
+| 同上 | `matches note substring independently of name` | FILTER-02, FILTER-09 |
 | 同上 | `keeps only the selected confidence` | FILTER-10 |
 | 同上 | `excludes tasks without note when noteSearch is set` | FILTER-02 |
 | 同上 | `matches task linked to selected milestone id` | FILTER-07 |
@@ -198,6 +201,10 @@
 | 同上 | `merges overlapping spans` | VIEW-03 |
 | 同上 | `leaves a one-day gap between spans` | VIEW-03 |
 | 同上 | `draws a single-day summary through the exclusive end` | VIEW-03 |
+| `tasks.test.ts` | `inserts the copy immediately after the source` | EDIT-14 |
+| 同上 | `copies fields and predecessors without changing successors` | EDIT-14 |
+| 同上 | `rejects a cycle created by a successor link` | EDIT-14, EDIT-05 |
+| 同上 | `reports a missing source` | EDIT-14 |
 | `taskEditCycles.test.ts` | `detects indirect cycles` | EDIT-05 |
 | 同上 | `detects a direct cycle` | EDIT-05 |
 | 同上 | `clears a cycle once the closing predecessor is removed` | EDIT-05 |
@@ -252,10 +259,10 @@
 | `dependencies.ts` | 破綻の境界と系統は未テスト。線の追加、除去、当たりはテストしている。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でもテストしている |
 | `timeline.ts` | 期限超過、イナズマ線、ズーム段階は未テスト |
 | `milestones.ts` | マイルストン超過と段の割り当ては未テスト。追加と削除はテストしている |
-| `rows.ts` | ノート、マイルストン、確度以外の絞り込み、`computeVisibleRows`、折りたたみは未テスト |
+| `rows.ts` | ノート、マイルストン、確度以外の絞り込み、`computeVisibleRows`、折りたたみは未テスト。追加と複製で外す絞り込みはテストしている |
 | `exportFilename.ts` | 未テスト。Rust 側が似たファイル名処理をテストしている |
 | `scheduleFile.ts` | Tauri とブラウザの I/O は未テスト |
-| `tasks.ts` | 追加と削除の操作は未テスト |
+| `tasks.ts` | 末尾への追加と削除は未テスト。複製の直後挿入と先行の写しはテストしている |
 | `validationMessages.ts` | 文言の組み立ては未テスト |
 | `errors.ts` | 未テスト |
 | `timelineVisibleDays.ts` | 未テスト |
@@ -389,6 +396,9 @@
 | TC-EDIT-08 | EDIT-08 | タスクを選択し、「完了」で絞っている | 「追加」で、選択中のグループに今日から1日のタスクを足す | そのグループの末尾に、割り当てなし・未着手・未確定で足される。絞り込みは「すべて」に戻り、新しい行が選択される |
 | TC-EDIT-08c | EDIT-08, FILTER-10 | 確度を「確定」で絞っている | タスクを追加する。次に、確度を「未確定」に戻してから追加する | 「確定」のときだけ「すべて」に戻る。「未確定」のまま追加したタスクは残って見える |
 | TC-EDIT-08b | EDIT-08 | 追加ダイアログ | 終了日を開始日より前にして保存する | 追加されない |
+| TC-EDIT-14 | EDIT-14, EDIT-10 | 担当、確度、ノート、先行があるタスク | 右クリックの「複製」を開き、名前だけ変えて追加する。取り消す | 元の直後に、担当・確度・ノート・先行を写したタスクが足る。後続の相手は変わらない。取り消し 1 回で消える |
+| TC-EDIT-14b | EDIT-14 | 複製ダイアログ | キャンセル、または Escape を押す。別途、終了日を開始日より前にして追加する | タスクは増えない。日付が不正なときはダイアログが開いたまま |
+| TC-EDIT-14c | EDIT-14, FILTER-10 | 確定のタスクがあり、確度を「未確定」で絞っている | そのタスクを複製して追加する。次に確度を「確定」に絞り、確定のタスクを複製する | 未確定で絞っているときは「すべて」に戻り、複製が見える。確定で絞っているときは「確定」のまま、複製が見える |
 | TC-EDIT-09 | EDIT-09 | 先行を持つタスクを選択 | 「削除」を確認する | タスクが消え、他の先行からも外れ、残ったタスク同士はつながらない |
 | TC-EDIT-09b | EDIT-09 | タスクを選んでいない | 「削除」を見る | 押せない |
 | TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
