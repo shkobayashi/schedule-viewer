@@ -89,7 +89,7 @@ npm run tauri dev
 ├── scripts/                            # 検証器の生成、スキーマ検査、バージョン同期
 ├── docs/                               # 仕様、計画、JSON スキーマ
 ├── examples/                           # 手動で開く例とカレンダー例
-├── .cursor/skills/                     # LLM 用スキル（implement-change は実装手順。write-schedule / write-members / write-calendar は他のリポジトリへコピーして使う）
+├── .cursor/skills/                     # LLM 用スキル（implement-change は実装、review-project は全体レビュー。write-schedule / write-members / write-calendar は他のリポジトリへコピーして使う）
 ├── .github/workflows/                  # develop 向け CI と main 向け Release
 ├── .devcontainer/                      # DevContainer 定義
 └── mockup/

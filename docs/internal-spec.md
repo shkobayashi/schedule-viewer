@@ -30,7 +30,7 @@ flowchart TD
 | `src-tauri/src/lib.rs` | ダイアログ、原子的な書き込み、アプリデータ、内容ハッシュ |
 | `scripts/` | 検証器の生成、サンプル検査、バージョン同期 |
 | `docs/*.schema.json` | JSON Schema の正本 |
-| `.cursor/skills/` | LLM 用のスキル。`implement-change` はこのリポジトリの実装手順。`update-schedule-schema` はスケジュール JSON の形を変えるとき。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使う |
+| `.cursor/skills/` | LLM 用のスキル。`implement-change` はこのリポジトリの実装手順、`review-project` は全体レビューの手順。`update-schedule-schema` はスケジュール JSON の形を変えるとき。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使う |
 
 依存は上の図の向きだけである。`model` はコンポーネントを参照しない。
 
