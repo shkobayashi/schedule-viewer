@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildScheduleHtml, buildScheduleSvg, type ScheduleExportInput } from "./exportHtml";
-import { hatchStripeColor } from "./hatch";
+import { hatchPatternId, hatchStripeColor } from "./hatch";
 import type { Task } from "./types";
 
 const task: Task = {
@@ -94,7 +94,12 @@ describe("schedule export documents", () => {
     const both = {
       ...input(),
       milestones: [
-        { id: milestoneId, name: "要件", date: "2026-04-01" },
+        {
+          id: milestoneId,
+          name: "要件",
+          date: "2026-04-01",
+          confidence: "committed" as const,
+        },
       ],
       visibleRows: [
         { type: "task" as const, task, y: 0 },
@@ -131,6 +136,36 @@ describe("schedule export documents", () => {
       ),
     });
     expect(column).toBeGreaterThan(labelColumnWidth(solid));
+  });
+
+  it("hatches a tentative milestone and leaves a committed one solid", () => {
+    const committedId = "00000000-0000-4000-8000-000000000010";
+    const tentativeId = "00000000-0000-4000-8000-000000000011";
+    const svg = buildScheduleSvg({
+      ...input(),
+      milestoneBandHeight: 26,
+      milestones: [
+        {
+          id: committedId,
+          name: "確定",
+          date: "2026-04-01",
+          confidence: "committed" as const,
+        },
+        {
+          id: tentativeId,
+          name: "未確定",
+          date: "2026-04-03",
+          confidence: "tentative" as const,
+        },
+      ],
+      milestoneLanes: new Map([
+        [committedId, 0],
+        [tentativeId, 0],
+      ]),
+    });
+    expect(svg).toContain('fill="#111827"');
+    expect(svg).toContain(`fill="url(#${hatchPatternId("#111827")})"`);
+    expect(svg).toContain("<pattern ");
   });
 
   it("uses dark palette when colorScheme is dark", () => {

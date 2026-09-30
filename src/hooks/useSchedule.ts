@@ -388,7 +388,7 @@ export function useSchedule(
   }, []);
 
   const saveMilestoneEdit = useCallback(
-    (patch: { name: string; date: string }) => {
+    (patch: { name: string; date: string; confidence: Milestone["confidence"] }) => {
       if (!patch.date || editingMilestoneId == null) return false;
       commitMilestones((prev) =>
         prev.map((milestone) =>
@@ -397,6 +397,7 @@ export function useSchedule(
                 ...milestone,
                 name: patch.name.trim() || milestone.name,
                 date: patch.date,
+                confidence: patch.confidence,
               }
             : milestone,
         ),
@@ -405,6 +406,17 @@ export function useSchedule(
       return true;
     },
     [commitMilestones, editingMilestoneId],
+  );
+
+  const setMilestoneConfidence = useCallback(
+    (id: ScheduleId, confidence: Milestone["confidence"]) => {
+      commitMilestones((prev) =>
+        prev.map((milestone) =>
+          milestone.id === id ? { ...milestone, confidence } : milestone,
+        ),
+      );
+    },
+    [commitMilestones],
   );
 
   const editingMilestone = useMemo(
@@ -599,7 +611,11 @@ export function useSchedule(
   );
 
   const addMilestone = useCallback(
-    (input: { name: string; date: string }): string | null => {
+    (input: {
+      name: string;
+      date: string;
+      confidence: Milestone["confidence"];
+    }): string | null => {
       const message = validateNewMilestone(input);
       if (message) return message;
       const id = uniqueScheduleId(
@@ -612,6 +628,7 @@ export function useSchedule(
         id,
         name: input.name.trim(),
         date: input.date,
+        confidence: input.confidence,
       };
       commitDocument((current) => ({
         ...current,
@@ -836,6 +853,7 @@ export function useSchedule(
     openMilestoneEdit,
     closeMilestoneEdit,
     saveMilestoneEdit,
+    setMilestoneConfidence,
     assigneeFilterOptions,
     visibleRows,
     toggleCollapsed,

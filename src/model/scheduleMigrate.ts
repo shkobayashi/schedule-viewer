@@ -181,3 +181,20 @@ export function migrateScheduleV4ToV5(data: unknown): unknown {
     categories: nextCategories,
   };
 }
+
+/**
+ * schemaVersion 5 のマイルストンに確度が無いときは committed として読む。
+ * 既にある confidence はそのまま残し、あとからスキーマで検証する。
+ */
+export function fillMissingMilestoneConfidence(data: unknown): unknown {
+  if (!isRecord(data) || data.schemaVersion !== 5 || !Array.isArray(data.milestones)) {
+    return data;
+  }
+  let changed = false;
+  const milestones = data.milestones.map((milestone) => {
+    if (!isRecord(milestone) || "confidence" in milestone) return milestone;
+    changed = true;
+    return { ...milestone, confidence: "committed" };
+  });
+  return changed ? { ...data, milestones } : data;
+}

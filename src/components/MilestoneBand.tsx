@@ -2,9 +2,9 @@ import { useRef, type Ref } from "react";
 import { Group, Layer, Line, RegularPolygon, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { parseDate } from "../model/dates";
+import { hatchCanvas } from "../model/hatch";
+import type { ChartPalette, ResolvedColorScheme } from "../model/palette";
 import type { Milestone, ScheduleId } from "../model/types";
-
-import type { ChartPalette } from "../model/palette";
 
 type MilestoneBandProps = {
   milestones: Milestone[];
@@ -22,6 +22,7 @@ type MilestoneBandProps = {
   onWheel: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   linkMode?: boolean;
   chart: ChartPalette;
+  colorScheme: ResolvedColorScheme;
   containerRef?: Ref<HTMLDivElement>;
 };
 
@@ -41,6 +42,7 @@ export function MilestoneBand({
   onWheel,
   linkMode = false,
   chart,
+  colorScheme,
   containerRef,
 }: MilestoneBandProps) {
   return (
@@ -72,6 +74,7 @@ export function MilestoneBand({
                 onContextMenu={(x, y) => onContextMenu(milestone.id, x, y)}
                 linkMode={linkMode}
                 chart={chart}
+                colorScheme={colorScheme}
               />
             );
           })}
@@ -93,6 +96,7 @@ function MilestoneMark({
   onContextMenu,
   linkMode,
   chart,
+  colorScheme,
 }: {
   milestone: Milestone;
   x: number;
@@ -105,10 +109,15 @@ function MilestoneMark({
   onContextMenu: (x: number, y: number) => void;
   linkMode: boolean;
   chart: ChartPalette;
+  colorScheme: ResolvedColorScheme;
 }) {
   const groupRef = useRef<Konva.Group>(null);
   const originX = useRef(x);
   const radius = diamondSize / 2;
+  const hatch =
+    milestone.confidence === "tentative"
+      ? hatchCanvas(chart.milestoneDiamond, colorScheme)
+      : null;
 
   return (
     <Group
@@ -155,7 +164,12 @@ function MilestoneMark({
       <RegularPolygon
         sides={4}
         radius={radius}
-        fill={chart.milestoneDiamond}
+        fill={hatch ? undefined : chart.milestoneDiamond}
+        fillPriority={hatch ? "pattern" : "color"}
+        fillPatternImage={
+          hatch ? (hatch as unknown as HTMLImageElement) : undefined
+        }
+        fillPatternRepeat="repeat"
         stroke={chart.milestoneDiamondStroke}
         strokeWidth={1}
       />

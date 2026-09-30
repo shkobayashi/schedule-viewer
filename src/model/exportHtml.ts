@@ -105,6 +105,9 @@ function tentativeHatchPatterns(input: ScheduleExportInput): string {
     if (row.type !== "task" || row.task.confidence !== "tentative") continue;
     colors.add(barColors(row.task, input.today, input.colorScheme).bg);
   }
+  if (input.milestones.some((milestone) => milestone.confidence === "tentative")) {
+    colors.add(palettes(input).chart.milestoneDiamond);
+  }
   return [...colors]
     .map((bg) => hatchPatternMarkup(bg, input.colorScheme))
     .join("\n    ");
@@ -640,8 +643,12 @@ function renderMilestones(
     const x = dateToX(parseDate(milestone.date));
     const y = top + lane * input.milestoneLaneHeight + input.milestoneLaneHeight / 2;
     const r = input.milestoneDiamondSize / 2;
+    const fill =
+      milestone.confidence === "tentative"
+        ? `url(#${hatchPatternId(chart.milestoneDiamond)})`
+        : chart.milestoneDiamond;
     marks.push(
-      `<polygon points="${n(x)},${n(y - r)} ${n(x + r)},${n(y)} ${n(x)},${n(y + r)} ${n(x - r)},${n(y)}" fill="${chart.milestoneDiamond}" stroke="${chart.milestoneDiamondStroke}" stroke-width="1"/>`,
+      `<polygon points="${n(x)},${n(y - r)} ${n(x + r)},${n(y)} ${n(x)},${n(y + r)} ${n(x - r)},${n(y)}" fill="${fill}" stroke="${chart.milestoneDiamondStroke}" stroke-width="1"/>`,
     );
     marks.push(
       text(x + r + 5, y - input.milestoneFontSize / 2, milestone.name, input.milestoneFontSize, chart.milestoneDiamond, true),
