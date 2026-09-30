@@ -51,8 +51,10 @@ describe("task edit dependency validation", () => {
     });
     const issues = validateDependencyCycles(docWithCategories(patched));
     expect(issues.length).toBeGreaterThan(0);
-    expect(issues[0]?.message).toContain(a.id);
-    expect(issues[0]?.message).toContain(b.id);
+    expect(issues[0]?.message).toContain(a.name);
+    expect(issues[0]?.message).toContain(b.name);
+    expect(issues[0]?.message).not.toContain(a.id);
+    expect(issues[0]?.path).toMatch(/^\/categories\/\d+\/groups\/\d+\/tasks\/\d+$/);
   });
 
   it("clears a cycle once the closing predecessor is removed", () => {

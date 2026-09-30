@@ -10,6 +10,9 @@ export type AppCalendarState = {
   label: string | null;
 };
 
+const BROWSER_STORAGE_ERROR = "ブラウザの保存領域に書けませんでした。";
+const MAX_CALENDAR_BYTES = 2 * 1024 * 1024;
+
 const LS_BODY = "schedule-viewer/calendar/body";
 const LS_LABEL = "schedule-viewer/calendar/label";
 
@@ -23,14 +26,43 @@ function readBrowserLabel(): string | null {
   return value && value.length > 0 ? value : null;
 }
 
+function restoreBrowserCalendar(body: string | null, label: string | null): void {
+  if (body == null) localStorage.removeItem(LS_BODY);
+  else localStorage.setItem(LS_BODY, body);
+  if (label == null) localStorage.removeItem(LS_LABEL);
+  else localStorage.setItem(LS_LABEL, label);
+}
+
 function writeBrowserCalendar(label: string, body: string): void {
-  localStorage.setItem(LS_BODY, body);
-  localStorage.setItem(LS_LABEL, label);
+  const previousBody = localStorage.getItem(LS_BODY);
+  const previousLabel = localStorage.getItem(LS_LABEL);
+  try {
+    localStorage.setItem(LS_BODY, body);
+    localStorage.setItem(LS_LABEL, label);
+  } catch {
+    try {
+      restoreBrowserCalendar(previousBody, previousLabel);
+    } catch {
+      // 戻す書き込みも失敗したときは、先のエラーを利用者に返す。
+    }
+    throw new Error(BROWSER_STORAGE_ERROR);
+  }
 }
 
 function clearBrowserCalendar(): void {
-  localStorage.removeItem(LS_BODY);
-  localStorage.removeItem(LS_LABEL);
+  const previousBody = localStorage.getItem(LS_BODY);
+  const previousLabel = localStorage.getItem(LS_LABEL);
+  try {
+    localStorage.removeItem(LS_BODY);
+    localStorage.removeItem(LS_LABEL);
+  } catch {
+    try {
+      restoreBrowserCalendar(previousBody, previousLabel);
+    } catch {
+      // 戻す書き込みも失敗したときは、先のエラーを利用者に返す。
+    }
+    throw new Error(BROWSER_STORAGE_ERROR);
+  }
 }
 
 export async function loadAppCalendarState(): Promise<AppCalendarState> {
@@ -145,7 +177,7 @@ export function pickCalendarJsonFile(): Promise<{
   name: string;
   contents: string;
 } | null> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json,application/json";
@@ -157,6 +189,11 @@ export function pickCalendarJsonFile(): Promise<{
       if (!file) {
         cleanup();
         resolve(null);
+        return;
+      }
+      if (file.size > MAX_CALENDAR_BYTES) {
+        cleanup();
+        reject(new Error("カレンダーファイルが大きすぎます（上限 2 MB）"));
         return;
       }
       const reader = new FileReader();

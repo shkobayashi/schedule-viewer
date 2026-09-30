@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 
 export type ContextMenuItem = {
   id: string;
@@ -42,11 +43,19 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
       onClose();
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      onClose();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+        return;
+      }
+      if (!ref.current) return;
+      if (moveMenuFocus(ref.current, event.key)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
     };
+    if (ref.current) focusMenuEdge(ref.current, "first");
     const onDismiss = () => onClose();
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);

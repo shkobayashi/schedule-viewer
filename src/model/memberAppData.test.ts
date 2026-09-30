@@ -53,6 +53,23 @@ describe("member catalog storage", () => {
     expect((await readMemberCatalog("sample"))?.members).toHaveLength(1);
   });
 
+  it("turns a storage failure into a user-facing error", async () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error("quota");
+      },
+      removeItem: () => {},
+    });
+    await expect(
+      importMemberCatalog(
+        "team",
+        '{"schemaVersion":1,"members":[]}',
+        false,
+      ),
+    ).rejects.toThrow("ブラウザの保存領域に書けませんでした。");
+  });
+
   it("does not restore a sample catalog after it was removed", async () => {
     installLocalStorage();
     const sample = '{"schemaVersion":1,"members":[]}';

@@ -38,7 +38,7 @@ export function HierarchyNameDialog({
           }}
         />
       </div>
-      {formError ? <p className="form-error">{formError}</p> : null}
+      {formError ? <p className="form-error" role="alert">{formError}</p> : null}
       <div className="modal-actions">
         <button type="button" className="btn" onClick={onClose}>
           キャンセル

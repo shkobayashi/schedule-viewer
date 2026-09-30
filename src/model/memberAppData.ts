@@ -11,6 +11,9 @@ export type AppMembersSettings = {
   catalogs: MemberCatalogInfo[];
 };
 
+const BROWSER_STORAGE_ERROR = "ブラウザの保存領域に書けませんでした。";
+const MAX_MEMBERS_BYTES = 2 * 1024 * 1024;
+
 const LS_CATALOGS = "schedule-viewer/members/catalogs";
 const LS_SELECTED = "schedule-viewer/members/selected";
 const LS_SAMPLE_SEEDED = "schedule-viewer/members/sample-seeded";
@@ -39,8 +42,18 @@ function readBrowserCatalogs(): Record<string, string> {
   }
 }
 
+function writeBrowserStorage(write: () => void): void {
+  try {
+    write();
+  } catch {
+    throw new Error(BROWSER_STORAGE_ERROR);
+  }
+}
+
 function writeBrowserCatalogs(catalogs: Record<string, string>): void {
-  localStorage.setItem(LS_CATALOGS, JSON.stringify(catalogs));
+  writeBrowserStorage(() => {
+    localStorage.setItem(LS_CATALOGS, JSON.stringify(catalogs));
+  });
 }
 
 function readBrowserSelected(): string | null {
@@ -49,11 +62,13 @@ function readBrowserSelected(): string | null {
 }
 
 function writeBrowserSelected(id: string | null): void {
-  if (id == null) {
-    localStorage.removeItem(LS_SELECTED);
-  } else {
-    localStorage.setItem(LS_SELECTED, id);
-  }
+  writeBrowserStorage(() => {
+    if (id == null) {
+      localStorage.removeItem(LS_SELECTED);
+    } else {
+      localStorage.setItem(LS_SELECTED, id);
+    }
+  });
 }
 
 function catalogLabelFromId(id: string): string {
@@ -154,7 +169,7 @@ export async function setSelectedMemberCatalog(
 }
 
 export function pickMembersJsonFile(): Promise<{ name: string; contents: string } | null> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json,application/json";
@@ -166,6 +181,11 @@ export function pickMembersJsonFile(): Promise<{ name: string; contents: string 
       if (!file) {
         cleanup();
         resolve(null);
+        return;
+      }
+      if (file.size > MAX_MEMBERS_BYTES) {
+        cleanup();
+        reject(new Error("メンバーファイルが大きすぎます（上限 2 MB）"));
         return;
       }
       const reader = new FileReader();
@@ -213,7 +233,9 @@ export async function seedSampleMemberCatalogOnce(
       await importMemberCatalog(catalogId, contents, false);
       await setSelectedMemberCatalog(catalogId);
     }
-    localStorage.setItem(LS_SAMPLE_SEEDED, "1");
+    writeBrowserStorage(() => {
+      localStorage.setItem(LS_SAMPLE_SEEDED, "1");
+    });
   })();
   try {
     await sampleSeedInFlight;

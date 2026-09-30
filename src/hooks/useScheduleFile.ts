@@ -54,6 +54,7 @@ type UseScheduleFileOptions = {
   onAfterOpen: () => void;
   initialBaselineJson: string;
   hasOpenEditDialog: boolean;
+  blockDocumentEditsRef: { current: boolean };
 };
 
 export function useScheduleFile({
@@ -65,6 +66,7 @@ export function useScheduleFile({
   onAfterOpen,
   initialBaselineJson,
   hasOpenEditDialog,
+  blockDocumentEditsRef,
 }: UseScheduleFileOptions) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [browserFileLabel, setBrowserFileLabel] = useState<string | null>(null);
@@ -128,6 +130,7 @@ export function useScheduleFile({
   externalReloadOpenRef.current = externalReloadOpen;
   const fileBusyRef = useRef(fileBusy);
   fileBusyRef.current = fileBusy;
+  const saveInFlightRef = useRef(false);
   const pausePollRef = useRef(false);
   const reloadNoticeTimerRef = useRef<number | null>(null);
   const suppressedDiskRef = useRef<string | null>(null);
@@ -216,13 +219,14 @@ export function useScheduleFile({
       },
       options?: { deferDisk?: boolean; abortIfMovedOn?: boolean },
     ): Promise<boolean> => {
+      const startupId = recoveryStartupRef.current;
+      const movedOn = () =>
+        recoveryStartupRef.current !== startupId ||
+        filePathRef.current != null ||
+        isDirtyRef.current;
+      if (options?.abortIfMovedOn && movedOn()) return false;
       await acceptOpenedScheduleViaTauri(session.path, session.diskContents);
-      if (
-        options?.abortIfMovedOn &&
-        (filePathRef.current != null || isDirtyRef.current)
-      ) {
-        return false;
-      }
+      if (options?.abortIfMovedOn && movedOn()) return false;
       replaceDocument(session.document);
       filePathRef.current = session.path;
       setFilePath(session.path);
@@ -297,11 +301,13 @@ export function useScheduleFile({
     let cancelled = false;
     const startupId = recoveryStartupRef.current + 1;
     recoveryStartupRef.current = startupId;
+    blockDocumentEditsRef.current = true;
     fileBusyRef.current = true;
     setFileBusy(true);
     const releaseStartupBusy = () => {
       if (cancelled || recoveryStartupRef.current !== startupId) return;
       startupSettledRef.current = true;
+      blockDocumentEditsRef.current = false;
       fileBusyRef.current = false;
       setFileBusy(false);
     };
@@ -439,8 +445,11 @@ export function useScheduleFile({
     })();
     return () => {
       cancelled = true;
+      if (recoveryStartupRef.current === startupId) {
+        blockDocumentEditsRef.current = false;
+      }
     };
-  }, [applyRecoverySession, clearRecoveryDraft]);
+  }, [applyRecoverySession, blockDocumentEditsRef, clearRecoveryDraft]);
 
   const writeRecoveryDraftNowRef = useRef(writeRecoveryDraftNow);
   writeRecoveryDraftNowRef.current = writeRecoveryDraftNow;
@@ -725,6 +734,9 @@ export function useScheduleFile({
 
   const performSave = useCallback(
     async (saveAs: boolean, skipExternalCheck = false) => {
+      if (saveInFlightRef.current || fileBusyRef.current) return;
+      saveInFlightRef.current = true;
+      try {
       const parsed = parseScheduleText(currentJson);
       if (!parsed.ok) {
         setErrorMessageText(parsed.message);
@@ -800,16 +812,18 @@ export function useScheduleFile({
       } finally {
         if (!holdPause) pausePollRef.current = false;
       }
+      } finally {
+        saveInFlightRef.current = false;
+      }
     },
     [clearExternalReloadPrompt, clearRecoveryDraft, currentJson, filePath, title],
   );
 
   const save = useCallback(
     async (saveAs: boolean) => {
-      if (fileBusy) return;
       await performSave(saveAs);
     },
-    [fileBusy, performSave],
+    [performSave],
   );
 
   const confirmExternalOverwrite = useCallback(() => {

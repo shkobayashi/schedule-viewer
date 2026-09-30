@@ -119,7 +119,15 @@ export function SettingsDialog({
   };
 
   const handleImportClick = async () => {
-    const pick = await pickMembersJsonFile();
+    let pick: Awaited<ReturnType<typeof pickMembersJsonFile>>;
+    try {
+      pick = await pickMembersJsonFile();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "取り込みに失敗しました。",
+      );
+      return;
+    }
     if (!pick) return;
     let data: unknown;
     try {
@@ -161,7 +169,15 @@ export function SettingsDialog({
   };
 
   const handleCalendarImportClick = async () => {
-    const pick = await pickCalendarJsonFile();
+    let pick: Awaited<ReturnType<typeof pickCalendarJsonFile>>;
+    try {
+      pick = await pickCalendarJsonFile();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "取り込みに失敗しました。",
+      );
+      return;
+    }
     if (!pick) return;
     let data: unknown;
     try {

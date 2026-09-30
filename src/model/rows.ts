@@ -87,7 +87,7 @@ export function taskMatchesFilter(
   return true;
 }
 
-/** 新しいタスクを隠す絞り込みだけを外す。タスク名の検索は空白を除かずに含むかを見る。 */
+/** 新しいタスクを隠す絞り込みだけを外す。タスク名の検索は表示と同じく前後の空白を除いて比べる。 */
 export function relaxFiltersForNewTask(
   filters: ScheduleFilters,
   task: Task,
@@ -141,7 +141,9 @@ export function relaxFiltersForNewTask(
         ? "all"
         : filters.milestone,
     search:
-      filters.search && !task.name.includes(filters.search) ? "" : filters.search,
+      filters.search.trim() && hides({ search: filters.search })
+        ? ""
+        : filters.search,
     noteSearch:
       filters.noteSearch.trim() && hides({ noteSearch: filters.noteSearch })
         ? ""
