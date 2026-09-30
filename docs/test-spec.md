@@ -89,7 +89,7 @@
 | 同上 | `accepts a name that is only padded with spaces` | EDIT-07 |
 | 同上 | `appends a milestone without sorting or rejecting duplicates` | EDIT-07 |
 | 同上 | `removes the milestone and clears only matching milestoneId` | EDIT-07 |
-| 同上 | `skips ids that are already used by a task or a milestone` | EDIT-07 |
+| 同上 | `skips ids already used by a category, group, task, or milestone` | EDIT-07, EDIT-08 |
 | 同上 | `resets the milestone filter only when it is the deleted id` | EDIT-07 |
 | 同上 | `reports whether any task points at the milestone` | EDIT-07 |
 | `nonWorkingDay.test.ts` | `defaults to Sat/Sun when calendar is null` | VIEW-09 |
@@ -109,7 +109,11 @@
 | 同上 | `treats the same name with a different id as a delete and an add` | FILE-07 |
 | 同上 | `shows file-only edits as the difference from the current file to the screen` | FILE-07 |
 | 同上 | `writes an order line only when the remaining ids are reordered` | FILE-07 |
-| 同上 | `does not treat a category rename as a rename` | FILE-07 |
+| 同上 | `shows a task place change when it moves to another group` | FILE-07 |
+| 同上 | `treats a group that moves to another category as a place change` | FILE-07 |
+| 同上 | `treats a group rename as a name change and leaves tasks in place` | FILE-07 |
+| 同上 | `treats a category rename as a name change` | FILE-07 |
+| 同上 | `treats the same category name with a different id as a delete and an add` | FILE-07 |
 | 同上 | `ignores predecessor order when the set is unchanged` | FILE-07 |
 | 同上 | `shows a milestone date shift and a title change` | FILE-07 |
 | 同上 | `writes milestone order and category order when the remaining items swap` | FILE-07 |
@@ -125,9 +129,21 @@
 | `scheduleMigrate.test.ts` | `rejects v1 after date migration because v2 is no longer supported` | FILE-01 |
 | 同上 | `rejects v2 documents` | FILE-01 |
 | 同上 | `accepts assigneeId and confidence` | FILE-01 |
-| 同上 | `reads a v3 task without confidence as committed and canonicalizes to v4` | FILE-01, FILE-04 |
+| 同上 | `reads a v3 task without confidence as committed and canonicalizes to v5` | FILE-01, FILE-04 |
 | 同上 | `keeps confidence already present on a v3 task` | FILE-01 |
 | 同上 | `rejects a v4 task without confidence` | FILE-01 |
+| 同上 | `assigns the same hierarchy ids each time a v4 document is opened` | FILE-01, FILE-04 |
+| 同上 | `picks another hierarchy id when the name-derived id is already used` | FILE-01 |
+| 同上 | `rejects a category id that duplicates a milestone id` | FILE-01 |
+| 同上 | `rejects a group id that duplicates its category id` | FILE-01 |
+| 同上 | `rejects a category id that duplicates a task id` | FILE-01 |
+| `uuidV5.test.ts` | `matches the RFC 4122 DNS example` | FILE-01 |
+| `hierarchyRename.test.ts` | `trims the name and keeps the id` | EDIT-13 |
+| 同上 | `keeps the original name when the input is blank` | EDIT-13 |
+| 同上 | `rejects a duplicate category name` | EDIT-13 |
+| 同上 | `rejects a duplicate name in the same category` | EDIT-13 |
+| 同上 | `allows the same group name in another category` | EDIT-13 |
+| 同上 | `keeps the original name when the input is blank` | EDIT-13 |
 | `scheduleRecovery.test.ts` | `accepts a valid draft` | SYNC-03 |
 | 同上 | `rejects invalid document JSON` | SYNC-03 |
 | 同上 | `returns the parent and skips a bare filename` | SYNC-03 |
@@ -273,7 +289,8 @@
 | TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しがファイル名になる |
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01b | FILE-01 | schemaVersion 2 の JSON がある | 「開く」で選ぶ | 開かず、理由が出る。それまでの保存先は変わらない |
-| TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーはベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 4 になり、全部のタスクに `confidence` がある |
+| TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーはベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 5 になり、全部のタスクに `confidence` があり、カテゴリとグループに `id` がある |
+| TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 5 になる |
 | TC-FILE-02 | FILE-02 | ファイルを開き、バーを動かして未保存にする | 「保存」を押す | 見出しから「未保存」が消え、ファイルの内容が画面と一致する |
 | TC-FILE-02c | FILE-02 | 同上 | ⌘/Ctrl+S を押す。検索欄にフォーカスがあるときも押す | 「保存」と同じように保存される。編集ダイアログが開いているときは保存されない |
 | TC-FILE-03 | FILE-03 | サンプルを編集する | 「別名保存」で新しいパスを選ぶ | そのパスに JSON ができ、次の「保存」はそのパスへ書く |
@@ -364,9 +381,11 @@
 | TC-EDIT-09 | EDIT-09 | 先行を持つタスクを選択 | 「削除」を確認する | タスクが消え、他の先行からも外れ、残ったタスク同士はつながらない |
 | TC-EDIT-09b | EDIT-09 | タスクを選んでいない | 「削除」を見る | 押せない |
 | TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
-| TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左の行を右クリックする。選択中は端のハンドルも右クリックする | ノートが開く。左の行は右クリックで選択され、メニューが出る。左クリックでは選択されない。空白やカテゴリではメニューが出ない。端のハンドルでもバーと同じメニューが出る |
+| TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左のタスク行を右クリックする。選択中は端のハンドルも右クリックする。カテゴリ行も右クリックする | ノートが開く。左のタスク行は右クリックで選択され、メニューが出る。左クリックでは選択されない。チャートの空白ではメニューが出ない。端のハンドルでもバーと同じメニューが出る。カテゴリ行では「名前を変更」だけが出る |
 | TC-EDIT-11c | EDIT-11, EDIT-10, VIEW-12 | 未確定のタスクと、確定のタスクがある | それぞれを右クリックし、確度の項目を選ぶ。取り消す | 未確定には「確定にする」、確定には「未確定にする」だけが出る。日付は動かない。取り消し 1 回で戻る |
 | TC-EDIT-11b | EDIT-11 | マイルストンがある | ひし形を右クリックし、「編集」を選ぶ | 「編集」と「削除」が出る。選択は変わらない。編集を選ぶと名前と日付の編集が開く |
+| TC-EDIT-13 | EDIT-13, EDIT-10 | サンプルで、カテゴリを折りたたむ | 左のカテゴリ行をダブルクリックし、名前を変えて保存する。同じ名前のカテゴリへも変えてみる。空白だけでも保存する。取り消す | 折りたたみは残る。重複する名前は保存されない。空白だけなら元の名前のまま閉じる。取り消し 1 回で名前が戻る。グループ行も同じである |
+| TC-EDIT-13b | EDIT-13 | 別のカテゴリに同じグループ名がある | そのグループを、別カテゴリと同じ名前に変える | 保存できる。同じカテゴリの中の既存名には変えられない |
 | TC-EDIT-12 | EDIT-12 | 見えているタスクを選択 | 「線を引く」または ⌘/Ctrl+L を押す。L だけも押す | モードに入る。ボタンに起点の名前が出る。ヒントは「次にクリックしたタスクを後続にします。Esc で中止」になる。選択が無いときと、L だけでは入らない |
 | TC-EDIT-12b | EDIT-12 | 線を引くモード | カーソルを動かし、タスクバー、左の一覧、それ以外へ乗せる | 起点の右端から折れ線が追随する。バーの上ではその左端まで、一覧の上ではチャートの左端まで伸びる。乗ったタスクバーだけ別の輪郭になる。起点、親バー、ひし形は強調されない。モードを終えると線は消える |
 | TC-EDIT-12c | EDIT-12 | 線を引くモード | 別のタスクバーをクリックする。続けて Esc、起点の再クリック、「線を引く」、⌘/Ctrl+L を試す。親バー、ひし形、背景もクリックする | クリックで線が 1 本足る。取り消しの 1 ステップで戻り、モードは残る。Esc、起点、ボタン、⌘/Ctrl+L では結ばずに終わる。親バー、ひし形、背景では終わらない |

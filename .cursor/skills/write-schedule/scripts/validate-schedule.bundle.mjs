@@ -450,8 +450,8 @@ function validate21(data2, { instancePath = "", parentData, parentDataProperty, 
   return errors === 0;
 }
 validate21.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema37 = { "type": "object", "additionalProperties": false, "required": ["id", "name", "start", "end", "assigneeId", "status", "progress", "confidence", "predecessors", "milestoneId"], "properties": { "id": { "$ref": "#/$defs/scheduleId" }, "name": { "type": "string", "minLength": 1 }, "start": { "$ref": "#/$defs/isoDate" }, "end": { "$ref": "#/$defs/isoDate", "description": "\u7D42\u4E86\u65E5\uFF08\u3053\u306E\u65E5\u3092\u542B\u3080\uFF09\u3002\u958B\u59CB\u65E5\u4EE5\u964D\u3002" }, "assigneeId": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }, "status": { "$ref": "#/$defs/taskStatus" }, "progress": { "type": "integer", "minimum": 0, "maximum": 100 }, "confidence": { "type": "string", "enum": ["tentative", "committed"], "description": "\u65E5\u4ED8\u3092\u5408\u610F\u3057\u305F\u304B\u3069\u3046\u304B\u3002\u7740\u624B\u3084\u9032\u6357\u3068\u306F\u72EC\u7ACB\u3002tentative \u306F\u672A\u78BA\u5B9A\u3001committed \u306F\u78BA\u5B9A\u3002" }, "predecessors": { "type": "array", "items": { "$ref": "#/$defs/scheduleId" }, "uniqueItems": true }, "milestoneId": { "oneOf": [{ "$ref": "#/$defs/scheduleId" }, { "type": "null" }] }, "note": { "type": "string", "minLength": 1, "description": "\u30BF\u30B9\u30AF\u306E\u88DC\u8DB3\u8AAC\u660E\uFF08\u4EFB\u610F\uFF09\u3002\u753B\u9762\u3067\u306F\u30CE\u30FC\u30C8\u3068\u3057\u3066\u8868\u793A\u3059\u308B\u3002" } } };
-var schema41 = { "type": "string", "enum": ["not-started", "in-progress", "done"] };
+var schema39 = { "type": "object", "additionalProperties": false, "required": ["id", "name", "start", "end", "assigneeId", "status", "progress", "confidence", "predecessors", "milestoneId"], "properties": { "id": { "$ref": "#/$defs/scheduleId" }, "name": { "type": "string", "minLength": 1 }, "start": { "$ref": "#/$defs/isoDate" }, "end": { "$ref": "#/$defs/isoDate", "description": "\u7D42\u4E86\u65E5\uFF08\u3053\u306E\u65E5\u3092\u542B\u3080\uFF09\u3002\u958B\u59CB\u65E5\u4EE5\u964D\u3002" }, "assigneeId": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }, "status": { "$ref": "#/$defs/taskStatus" }, "progress": { "type": "integer", "minimum": 0, "maximum": 100 }, "confidence": { "type": "string", "enum": ["tentative", "committed"], "description": "\u65E5\u4ED8\u3092\u5408\u610F\u3057\u305F\u304B\u3069\u3046\u304B\u3002\u7740\u624B\u3084\u9032\u6357\u3068\u306F\u72EC\u7ACB\u3002tentative \u306F\u672A\u78BA\u5B9A\u3001committed \u306F\u78BA\u5B9A\u3002" }, "predecessors": { "type": "array", "items": { "$ref": "#/$defs/scheduleId" }, "uniqueItems": true }, "milestoneId": { "oneOf": [{ "$ref": "#/$defs/scheduleId" }, { "type": "null" }] }, "note": { "type": "string", "minLength": 1, "description": "\u30BF\u30B9\u30AF\u306E\u88DC\u8DB3\u8AAC\u660E\uFF08\u4EFB\u610F\uFF09\u3002\u753B\u9762\u3067\u306F\u30CE\u30FC\u30C8\u3068\u3057\u3066\u8868\u793A\u3059\u308B\u3002" } } };
+var schema43 = { "type": "string", "enum": ["not-started", "in-progress", "done"] };
 var func5 = Object.prototype.hasOwnProperty;
 var func0 = __standaloneValue(import_equal.default, ["default"]);
 function validate25(data2, { instancePath = "", parentData, parentDataProperty, rootData = data2, dynamicAnchors = {} } = {}) {
@@ -556,7 +556,7 @@ function validate25(data2, { instancePath = "", parentData, parentDataProperty, 
       errors++;
     }
     for (const key0 in data2) {
-      if (!func5.call(schema37.properties, key0)) {
+      if (!func5.call(schema39.properties, key0)) {
         const err10 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
           vErrors = [err10];
@@ -735,7 +735,7 @@ function validate25(data2, { instancePath = "", parentData, parentDataProperty, 
         errors++;
       }
       if (!(data5 === "not-started" || data5 === "in-progress" || data5 === "done")) {
-        const err24 = { instancePath: instancePath + "/status", schemaPath: "#/$defs/taskStatus/enum", keyword: "enum", params: { allowedValues: schema41.enum }, message: "must be equal to one of the allowed values" };
+        const err24 = { instancePath: instancePath + "/status", schemaPath: "#/$defs/taskStatus/enum", keyword: "enum", params: { allowedValues: schema43.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err24];
         } else {
@@ -788,7 +788,7 @@ function validate25(data2, { instancePath = "", parentData, parentDataProperty, 
         errors++;
       }
       if (!(data7 === "tentative" || data7 === "committed")) {
-        const err29 = { instancePath: instancePath + "/confidence", schemaPath: "#/properties/confidence/enum", keyword: "enum", params: { allowedValues: schema37.properties.confidence.enum }, message: "must be equal to one of the allowed values" };
+        const err29 = { instancePath: instancePath + "/confidence", schemaPath: "#/properties/confidence/enum", keyword: "enum", params: { allowedValues: schema39.properties.confidence.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err29];
         } else {
@@ -966,8 +966,8 @@ function validate24(data2, { instancePath = "", parentData, parentDataProperty, 
     evaluated0.items = void 0;
   }
   if (data2 && typeof data2 == "object" && !Array.isArray(data2)) {
-    if (data2.name === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "name" }, message: "must have required property 'name'" };
+    if (data2.id === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "id" }, message: "must have required property 'id'" };
       if (vErrors === null) {
         vErrors = [err0];
       } else {
@@ -975,8 +975,8 @@ function validate24(data2, { instancePath = "", parentData, parentDataProperty, 
       }
       errors++;
     }
-    if (data2.tasks === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "tasks" }, message: "must have required property 'tasks'" };
+    if (data2.name === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "name" }, message: "must have required property 'name'" };
       if (vErrors === null) {
         vErrors = [err1];
       } else {
@@ -984,51 +984,40 @@ function validate24(data2, { instancePath = "", parentData, parentDataProperty, 
       }
       errors++;
     }
+    if (data2.tasks === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "tasks" }, message: "must have required property 'tasks'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
     for (const key0 in data2) {
-      if (!(key0 === "name" || key0 === "tasks")) {
-        const err2 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+      if (!(key0 === "id" || key0 === "name" || key0 === "tasks")) {
+        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
-          vErrors = [err2];
+          vErrors = [err3];
         } else {
-          vErrors.push(err2);
+          vErrors.push(err3);
         }
         errors++;
       }
     }
-    if (data2.name !== void 0) {
-      let data0 = data2.name;
+    if (data2.id !== void 0) {
+      let data0 = data2.id;
       if (typeof data0 === "string") {
-        if (func1(data0) < 1) {
-          const err3 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+        if (!formats0.test(data0)) {
+          const err4 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/scheduleId/format", keyword: "format", params: { format: "uuid" }, message: 'must match format "uuid"' };
           if (vErrors === null) {
-            vErrors = [err3];
+            vErrors = [err4];
           } else {
-            vErrors.push(err3);
+            vErrors.push(err4);
           }
           errors++;
         }
       } else {
-        const err4 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err4];
-        } else {
-          vErrors.push(err4);
-        }
-        errors++;
-      }
-    }
-    if (data2.tasks !== void 0) {
-      let data1 = data2.tasks;
-      if (Array.isArray(data1)) {
-        const len0 = data1.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          if (!validate25(data1[i0], { instancePath: instancePath + "/tasks/" + i0, parentData: data1, parentDataProperty: i0, rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate25.errors : vErrors.concat(validate25.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err5 = { instancePath: instancePath + "/tasks", schemaPath: "#/properties/tasks/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err5 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/scheduleId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
           vErrors = [err5];
         } else {
@@ -1037,12 +1026,54 @@ function validate24(data2, { instancePath = "", parentData, parentDataProperty, 
         errors++;
       }
     }
+    if (data2.name !== void 0) {
+      let data1 = data2.name;
+      if (typeof data1 === "string") {
+        if (func1(data1) < 1) {
+          const err6 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          if (vErrors === null) {
+            vErrors = [err6];
+          } else {
+            vErrors.push(err6);
+          }
+          errors++;
+        }
+      } else {
+        const err7 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+    }
+    if (data2.tasks !== void 0) {
+      let data22 = data2.tasks;
+      if (Array.isArray(data22)) {
+        const len0 = data22.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          if (!validate25(data22[i0], { instancePath: instancePath + "/tasks/" + i0, parentData: data22, parentDataProperty: i0, rootData, dynamicAnchors })) {
+            vErrors = vErrors === null ? validate25.errors : vErrors.concat(validate25.errors);
+            errors = vErrors.length;
+          }
+        }
+      } else {
+        const err8 = { instancePath: instancePath + "/tasks", schemaPath: "#/properties/tasks/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
   } else {
-    const err6 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err9 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err6];
+      vErrors = [err9];
     } else {
-      vErrors.push(err6);
+      vErrors.push(err9);
     }
     errors++;
   }
@@ -1061,8 +1092,8 @@ function validate23(data2, { instancePath = "", parentData, parentDataProperty, 
     evaluated0.items = void 0;
   }
   if (data2 && typeof data2 == "object" && !Array.isArray(data2)) {
-    if (data2.name === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "name" }, message: "must have required property 'name'" };
+    if (data2.id === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "id" }, message: "must have required property 'id'" };
       if (vErrors === null) {
         vErrors = [err0];
       } else {
@@ -1070,8 +1101,8 @@ function validate23(data2, { instancePath = "", parentData, parentDataProperty, 
       }
       errors++;
     }
-    if (data2.groups === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "groups" }, message: "must have required property 'groups'" };
+    if (data2.name === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "name" }, message: "must have required property 'name'" };
       if (vErrors === null) {
         vErrors = [err1];
       } else {
@@ -1079,74 +1110,105 @@ function validate23(data2, { instancePath = "", parentData, parentDataProperty, 
       }
       errors++;
     }
+    if (data2.groups === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "groups" }, message: "must have required property 'groups'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
     for (const key0 in data2) {
-      if (!(key0 === "name" || key0 === "groups")) {
-        const err2 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+      if (!(key0 === "id" || key0 === "name" || key0 === "groups")) {
+        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
-          vErrors = [err2];
+          vErrors = [err3];
         } else {
-          vErrors.push(err2);
+          vErrors.push(err3);
+        }
+        errors++;
+      }
+    }
+    if (data2.id !== void 0) {
+      let data0 = data2.id;
+      if (typeof data0 === "string") {
+        if (!formats0.test(data0)) {
+          const err4 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/scheduleId/format", keyword: "format", params: { format: "uuid" }, message: 'must match format "uuid"' };
+          if (vErrors === null) {
+            vErrors = [err4];
+          } else {
+            vErrors.push(err4);
+          }
+          errors++;
+        }
+      } else {
+        const err5 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/scheduleId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
         }
         errors++;
       }
     }
     if (data2.name !== void 0) {
-      let data0 = data2.name;
-      if (typeof data0 === "string") {
-        if (func1(data0) < 1) {
-          const err3 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+      let data1 = data2.name;
+      if (typeof data1 === "string") {
+        if (func1(data1) < 1) {
+          const err6 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
           if (vErrors === null) {
-            vErrors = [err3];
+            vErrors = [err6];
           } else {
-            vErrors.push(err3);
+            vErrors.push(err6);
           }
           errors++;
         }
       } else {
-        const err4 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        const err7 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
-          vErrors = [err4];
+          vErrors = [err7];
         } else {
-          vErrors.push(err4);
+          vErrors.push(err7);
         }
         errors++;
       }
     }
     if (data2.groups !== void 0) {
-      let data1 = data2.groups;
-      if (Array.isArray(data1)) {
-        if (data1.length < 1) {
-          const err5 = { instancePath: instancePath + "/groups", schemaPath: "#/properties/groups/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
+      let data22 = data2.groups;
+      if (Array.isArray(data22)) {
+        if (data22.length < 1) {
+          const err8 = { instancePath: instancePath + "/groups", schemaPath: "#/properties/groups/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
           if (vErrors === null) {
-            vErrors = [err5];
+            vErrors = [err8];
           } else {
-            vErrors.push(err5);
+            vErrors.push(err8);
           }
           errors++;
         }
-        const len0 = data1.length;
+        const len0 = data22.length;
         for (let i0 = 0; i0 < len0; i0++) {
-          if (!validate24(data1[i0], { instancePath: instancePath + "/groups/" + i0, parentData: data1, parentDataProperty: i0, rootData, dynamicAnchors })) {
+          if (!validate24(data22[i0], { instancePath: instancePath + "/groups/" + i0, parentData: data22, parentDataProperty: i0, rootData, dynamicAnchors })) {
             vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
             errors = vErrors.length;
           }
         }
       } else {
-        const err6 = { instancePath: instancePath + "/groups", schemaPath: "#/properties/groups/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err9 = { instancePath: instancePath + "/groups", schemaPath: "#/properties/groups/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err6];
+          vErrors = [err9];
         } else {
-          vErrors.push(err6);
+          vErrors.push(err9);
         }
         errors++;
       }
     }
   } else {
-    const err7 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err10 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err7];
+      vErrors = [err10];
     } else {
-      vErrors.push(err7);
+      vErrors.push(err10);
     }
     errors++;
   }
@@ -1224,8 +1286,8 @@ function validate20(data2, { instancePath = "", parentData, parentDataProperty, 
         }
         errors++;
       }
-      if (4 !== data0) {
-        const err6 = { instancePath: instancePath + "/schemaVersion", schemaPath: "#/properties/schemaVersion/const", keyword: "const", params: { allowedValue: 4 }, message: "must be equal to constant" };
+      if (5 !== data0) {
+        const err6 = { instancePath: instancePath + "/schemaVersion", schemaPath: "#/properties/schemaVersion/const", keyword: "const", params: { allowedValue: 5 }, message: "must be equal to constant" };
         if (vErrors === null) {
           vErrors = [err6];
         } else {
@@ -1344,6 +1406,101 @@ function addDays(d, n) {
   return new Date(d.getTime() + n * DAY_MS);
 }
 
+// src/model/uuidV5.ts
+var HIERARCHY_ID_NAMESPACE = "8c1e5b2a-85f0-4d3a-9e11-6b0c4a7d2e15";
+function uuidV5(namespace, name) {
+  const ns = parseUuid(namespace);
+  const nameBytes = new TextEncoder().encode(name);
+  const data2 = new Uint8Array(ns.length + nameBytes.length);
+  data2.set(ns);
+  data2.set(nameBytes, ns.length);
+  const hash = sha1(data2).subarray(0, 16);
+  const bytes = new Uint8Array(hash);
+  bytes[6] = bytes[6] & 15 | 80;
+  bytes[8] = bytes[8] & 63 | 128;
+  return formatUuid(bytes);
+}
+function parseUuid(value) {
+  const hex = value.replace(/-/g, "");
+  if (!/^[0-9a-fA-F]{32}$/.test(hex)) {
+    throw new Error("UUID \u306E\u5F62\u5F0F\u304C\u6B63\u3057\u304F\u3042\u308A\u307E\u305B\u3093");
+  }
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < 16; i += 1) {
+    bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+function formatUuid(bytes) {
+  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+function sha1(message) {
+  const bitLength = message.length * 8;
+  const padLength = (64 - (message.length + 9) % 64) % 64;
+  const data2 = new Uint8Array(message.length + 1 + padLength + 8);
+  data2.set(message);
+  data2[message.length] = 128;
+  const view = new DataView(data2.buffer);
+  view.setUint32(data2.length - 4, bitLength, false);
+  let h0 = 1732584193;
+  let h1 = 4023233417;
+  let h2 = 2562383102;
+  let h3 = 271733878;
+  let h4 = 3285377520;
+  const w = new Uint32Array(80);
+  for (let offset = 0; offset < data2.length; offset += 64) {
+    for (let t = 0; t < 16; t += 1) {
+      w[t] = view.getUint32(offset + t * 4, false);
+    }
+    for (let t = 16; t < 80; t += 1) {
+      const n = (w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16]) >>> 0;
+      w[t] = (n << 1 | n >>> 31) >>> 0;
+    }
+    let a = h0;
+    let b = h1;
+    let c = h2;
+    let d = h3;
+    let e = h4;
+    for (let t = 0; t < 80; t += 1) {
+      let f = 0;
+      let k = 0;
+      if (t < 20) {
+        f = b & c | ~b & d;
+        k = 1518500249;
+      } else if (t < 40) {
+        f = b ^ c ^ d;
+        k = 1859775393;
+      } else if (t < 60) {
+        f = b & c | b & d | c & d;
+        k = 2400959708;
+      } else {
+        f = b ^ c ^ d;
+        k = 3395469782;
+      }
+      const temp = (a << 5 | a >>> 27) + f + e + k + w[t] >>> 0;
+      e = d;
+      d = c;
+      c = (b << 30 | b >>> 2) >>> 0;
+      b = a;
+      a = temp;
+    }
+    h0 = h0 + a >>> 0;
+    h1 = h1 + b >>> 0;
+    h2 = h2 + c >>> 0;
+    h3 = h3 + d >>> 0;
+    h4 = h4 + e >>> 0;
+  }
+  const out = new Uint8Array(20);
+  const outView = new DataView(out.buffer);
+  outView.setUint32(0, h0, false);
+  outView.setUint32(4, h1, false);
+  outView.setUint32(8, h2, false);
+  outView.setUint32(12, h3, false);
+  outView.setUint32(16, h4, false);
+  return out;
+}
+
 // src/model/scheduleMigrate.ts
 function migrateTaskEndV1ToV2(end) {
   if (!isIsoDateString(end)) return end;
@@ -1431,6 +1588,73 @@ function migrateScheduleV3ToV4(data2) {
     categories: nextCategories
   };
 }
+function isRecord(value) {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+function collectLeafIds(doc) {
+  const used = /* @__PURE__ */ new Set();
+  if (Array.isArray(doc.milestones)) {
+    for (const milestone of doc.milestones) {
+      if (isRecord(milestone) && typeof milestone.id === "string") {
+        used.add(milestone.id);
+      }
+    }
+  }
+  if (!Array.isArray(doc.categories)) return used;
+  for (const category of doc.categories) {
+    if (!isRecord(category) || !Array.isArray(category.groups)) continue;
+    for (const group of category.groups) {
+      if (!isRecord(group) || !Array.isArray(group.tasks)) continue;
+      for (const task of group.tasks) {
+        if (isRecord(task) && typeof task.id === "string") used.add(task.id);
+      }
+    }
+  }
+  return used;
+}
+function takeHierarchyId(used, seed) {
+  let id = uuidV5(HIERARCHY_ID_NAMESPACE, seed);
+  let n = 2;
+  while (used.has(id)) {
+    id = uuidV5(HIERARCHY_ID_NAMESPACE, `${seed}\0${n}`);
+    n += 1;
+    if (n > 1e3) {
+      throw new Error("\u30AB\u30C6\u30B4\u30EA ID \u3092\u5272\u308A\u5F53\u3066\u3089\u308C\u307E\u305B\u3093\u3067\u3057\u305F");
+    }
+  }
+  used.add(id);
+  return id;
+}
+function migrateScheduleV4ToV5(data2) {
+  if (!isRecord(data2) || data2.schemaVersion !== 4) return data2;
+  const used = collectLeafIds(data2);
+  const categories = data2.categories;
+  if (!Array.isArray(categories)) {
+    return { ...data2, schemaVersion: 5 };
+  }
+  const nextCategories = categories.map((category) => {
+    if (!isRecord(category)) return category;
+    const categoryName = typeof category.name === "string" ? category.name : "";
+    const id = takeHierarchyId(used, `category\0${categoryName}`);
+    const groups = category.groups;
+    if (!Array.isArray(groups)) return { ...category, id };
+    const nextGroups = groups.map((group) => {
+      if (!isRecord(group)) return group;
+      const groupName = typeof group.name === "string" ? group.name : "";
+      const groupId = takeHierarchyId(
+        used,
+        `group\0${categoryName}\0${groupName}`
+      );
+      return { ...group, id: groupId };
+    });
+    return { ...category, id, groups: nextGroups };
+  });
+  return {
+    ...data2,
+    schemaVersion: 5,
+    categories: nextCategories
+  };
+}
 
 // src/model/scheduleSemantics.ts
 function nonEmptyName(value, label, path) {
@@ -1461,6 +1685,8 @@ function validateScheduleSemantics(doc) {
     milestoneIds.add(milestone.id);
   }
   const taskIds = /* @__PURE__ */ new Set();
+  const categoryIds = /* @__PURE__ */ new Set();
+  const groupIds = /* @__PURE__ */ new Set();
   const categoryNames = /* @__PURE__ */ new Set();
   for (let ci = 0; ci < doc.categories.length; ci += 1) {
     const category = doc.categories[ci];
@@ -1474,6 +1700,19 @@ function validateScheduleSemantics(doc) {
       });
     }
     categoryNames.add(category.name);
+    const categoryIdIssue = hierarchyIdConflict(
+      "\u30AB\u30C6\u30B4\u30EA",
+      category.id,
+      categoryIds,
+      milestoneIds,
+      categoryIds,
+      groupIds,
+      taskIds
+    );
+    if (categoryIdIssue) {
+      issues.push({ path: `${catPath}/id`, message: categoryIdIssue });
+    }
+    categoryIds.add(category.id);
     const groupNames = /* @__PURE__ */ new Set();
     for (let gi = 0; gi < category.groups.length; gi += 1) {
       const group = category.groups[gi];
@@ -1487,16 +1726,46 @@ function validateScheduleSemantics(doc) {
         });
       }
       groupNames.add(group.name);
+      const groupIdIssue = hierarchyIdConflict(
+        "\u30B0\u30EB\u30FC\u30D7",
+        group.id,
+        groupIds,
+        milestoneIds,
+        categoryIds,
+        groupIds,
+        taskIds
+      );
+      if (groupIdIssue) {
+        issues.push({ path: `${groupPath}/id`, message: groupIdIssue });
+      }
+      groupIds.add(group.id);
       for (let ti = 0; ti < group.tasks.length; ti += 1) {
         const task = group.tasks[ti];
         const taskPath = `${groupPath}/tasks/${ti}`;
-        issues.push(...validateTaskSemantics(task, taskPath, taskIds, milestoneIds));
+        issues.push(
+          ...validateTaskSemantics(
+            task,
+            taskPath,
+            taskIds,
+            milestoneIds,
+            categoryIds,
+            groupIds
+          )
+        );
       }
     }
   }
   return issues;
 }
-function validateTaskSemantics(task, taskPath, taskIds, milestoneIds) {
+function hierarchyIdConflict(kind, id, sameKind, milestoneIds, categoryIds, groupIds, taskIds) {
+  if (milestoneIds.has(id)) return `${kind} ID \u304C\u30DE\u30A4\u30EB\u30B9\u30C8\u30F3 ID \u3068\u91CD\u8907\u3057\u3066\u3044\u307E\u3059`;
+  if (sameKind.has(id)) return `${kind} ID \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059`;
+  if (categoryIds.has(id)) return `${kind} ID \u304C\u30AB\u30C6\u30B4\u30EA ID \u3068\u91CD\u8907\u3057\u3066\u3044\u307E\u3059`;
+  if (groupIds.has(id)) return `${kind} ID \u304C\u30B0\u30EB\u30FC\u30D7 ID \u3068\u91CD\u8907\u3057\u3066\u3044\u307E\u3059`;
+  if (taskIds.has(id)) return `${kind} ID \u304C\u30BF\u30B9\u30AF ID \u3068\u91CD\u8907\u3057\u3066\u3044\u307E\u3059`;
+  return null;
+}
+function validateTaskSemantics(task, taskPath, taskIds, milestoneIds, categoryIds, groupIds) {
   const issues = [];
   const nameIssue = nonEmptyName(task.name, "\u30BF\u30B9\u30AF\u540D", `${taskPath}/name`);
   if (nameIssue) issues.push(nameIssue);
@@ -1519,6 +1788,16 @@ function validateTaskSemantics(task, taskPath, taskIds, milestoneIds) {
     issues.push({
       path: `${taskPath}/id`,
       message: "\u30BF\u30B9\u30AF ID \u304C\u30DE\u30A4\u30EB\u30B9\u30C8\u30F3 ID \u3068\u91CD\u8907\u3057\u3066\u3044\u307E\u3059"
+    });
+  } else if (categoryIds.has(task.id)) {
+    issues.push({
+      path: `${taskPath}/id`,
+      message: "\u30BF\u30B9\u30AF ID \u304C\u30AB\u30C6\u30B4\u30EA ID \u3068\u91CD\u8907\u3057\u3066\u3044\u307E\u3059"
+    });
+  } else if (groupIds.has(task.id)) {
+    issues.push({
+      path: `${taskPath}/id`,
+      message: "\u30BF\u30B9\u30AF ID \u304C\u30B0\u30EB\u30FC\u30D7 ID \u3068\u91CD\u8907\u3057\u3066\u3044\u307E\u3059"
     });
   }
   taskIds.add(task.id);
@@ -1754,12 +2033,12 @@ function validateSchedule(data2) {
       errors: [
         {
           path: "/schemaVersion",
-          message: "schemaVersion 2\uFF08\u62C5\u5F53\u8005\u540D assignee\uFF09\u306F\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3002assigneeId \u3068 confidence \u3092\u4F7F\u3046 schemaVersion 4 \u306B\u66F4\u65B0\u3057\u3066\u304F\u3060\u3055\u3044\u3002"
+          message: "schemaVersion 2\uFF08\u62C5\u5F53\u8005\u540D assignee\uFF09\u306F\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3002assigneeId \u3068 confidence \u3092\u4F7F\u3046 schemaVersion 5 \u306B\u66F4\u65B0\u3057\u3066\u304F\u3060\u3055\u3044\u3002"
         }
       ]
     };
   }
-  const migrated = migrateScheduleV3ToV4(afterV1);
+  const migrated = migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1));
   if (!scheduleValidator_default(migrated)) {
     return {
       ok: false,
