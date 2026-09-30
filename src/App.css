@@ -767,12 +767,23 @@ input[type="number"] {
   color: var(--text);
 }
 
-.relation-list li span {
+.relation-label {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.relation-ancestors {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.relation-leaf {
+  overflow-wrap: anywhere;
 }
 
 .relation-list button {
