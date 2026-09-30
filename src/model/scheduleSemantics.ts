@@ -40,6 +40,8 @@ export function validateScheduleSemantics(
   }
 
   const taskIds = new Set<ScheduleId>();
+  const categoryIds = new Set<ScheduleId>();
+  const groupIds = new Set<ScheduleId>();
   const categoryNames = new Set<string>();
 
   for (let ci = 0; ci < doc.categories.length; ci += 1) {
@@ -54,6 +56,19 @@ export function validateScheduleSemantics(
       });
     }
     categoryNames.add(category.name);
+    const categoryIdIssue = hierarchyIdConflict(
+      "カテゴリ",
+      category.id,
+      categoryIds,
+      milestoneIds,
+      categoryIds,
+      groupIds,
+      taskIds,
+    );
+    if (categoryIdIssue) {
+      issues.push({ path: `${catPath}/id`, message: categoryIdIssue });
+    }
+    categoryIds.add(category.id);
 
     const groupNames = new Set<string>();
     for (let gi = 0; gi < category.groups.length; gi += 1) {
@@ -68,11 +83,33 @@ export function validateScheduleSemantics(
         });
       }
       groupNames.add(group.name);
+      const groupIdIssue = hierarchyIdConflict(
+        "グループ",
+        group.id,
+        groupIds,
+        milestoneIds,
+        categoryIds,
+        groupIds,
+        taskIds,
+      );
+      if (groupIdIssue) {
+        issues.push({ path: `${groupPath}/id`, message: groupIdIssue });
+      }
+      groupIds.add(group.id);
 
       for (let ti = 0; ti < group.tasks.length; ti += 1) {
         const task = group.tasks[ti];
         const taskPath = `${groupPath}/tasks/${ti}`;
-        issues.push(...validateTaskSemantics(task, taskPath, taskIds, milestoneIds));
+        issues.push(
+          ...validateTaskSemantics(
+            task,
+            taskPath,
+            taskIds,
+            milestoneIds,
+            categoryIds,
+            groupIds,
+          ),
+        );
       }
     }
   }
@@ -80,11 +117,30 @@ export function validateScheduleSemantics(
   return issues;
 }
 
+function hierarchyIdConflict(
+  kind: "カテゴリ" | "グループ",
+  id: ScheduleId,
+  sameKind: Set<ScheduleId>,
+  milestoneIds: Set<ScheduleId>,
+  categoryIds: Set<ScheduleId>,
+  groupIds: Set<ScheduleId>,
+  taskIds: Set<ScheduleId>,
+): string | null {
+  if (milestoneIds.has(id)) return `${kind} ID がマイルストン ID と重複しています`;
+  if (sameKind.has(id)) return `${kind} ID が重複しています`;
+  if (categoryIds.has(id)) return `${kind} ID がカテゴリ ID と重複しています`;
+  if (groupIds.has(id)) return `${kind} ID がグループ ID と重複しています`;
+  if (taskIds.has(id)) return `${kind} ID がタスク ID と重複しています`;
+  return null;
+}
+
 function validateTaskSemantics(
   task: Task,
   taskPath: string,
   taskIds: Set<ScheduleId>,
   milestoneIds: Set<ScheduleId>,
+  categoryIds: Set<ScheduleId>,
+  groupIds: Set<ScheduleId>,
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
@@ -115,6 +171,16 @@ function validateTaskSemantics(
     issues.push({
       path: `${taskPath}/id`,
       message: "タスク ID がマイルストン ID と重複しています",
+    });
+  } else if (categoryIds.has(task.id)) {
+    issues.push({
+      path: `${taskPath}/id`,
+      message: "タスク ID がカテゴリ ID と重複しています",
+    });
+  } else if (groupIds.has(task.id)) {
+    issues.push({
+      path: `${taskPath}/id`,
+      message: "タスク ID がグループ ID と重複しています",
     });
   }
   taskIds.add(task.id);

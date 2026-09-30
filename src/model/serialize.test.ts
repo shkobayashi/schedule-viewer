@@ -7,9 +7,11 @@ describe("scheduleToJson note", () => {
   it("omits empty note", () => {
     const categories: Category[] = [
       {
+        id: "c1000001-0000-4000-8000-000000000001",
         name: "C",
         groups: [
           {
+            id: "d1000001-0000-4000-8000-000000000001",
             name: "G",
             tasks: [
               {
@@ -39,9 +41,11 @@ describe("scheduleToJson note", () => {
   it("includes trimmed note", () => {
     const categories: Category[] = [
       {
+        id: "c1000001-0000-4000-8000-000000000001",
         name: "C",
         groups: [
           {
+            id: "d1000001-0000-4000-8000-000000000001",
             name: "G",
             tasks: [
               {
@@ -69,9 +73,11 @@ describe("scheduleToJson note", () => {
   it("writes confidence after progress", () => {
     const categories: Category[] = [
       {
+        id: "c1000001-0000-4000-8000-000000000001",
         name: "C",
         groups: [
           {
+            id: "d1000001-0000-4000-8000-000000000001",
             name: "G",
             tasks: [
               {
