@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TaskRef } from "../model/dependencies";
 import {
   duplicateMemberNames,
@@ -20,12 +20,15 @@ import {
 } from "../model/types";
 
 type TaskEditDialogProps = {
+  mode?: "edit" | "duplicate";
   task: Task;
   members: Member[];
   memberCatalog: Map<MemberId, Member> | null;
   tasks: TaskRef[];
   milestones: Milestone[];
   successorIds: ScheduleId[];
+  /** 候補から除く ID。複製では元タスクも候補に残すため null。 */
+  excludeTaskId?: ScheduleId | null;
   onClose: () => void;
   onSave: (patch: {
     name: string;
@@ -59,12 +62,14 @@ function taskRelationLabel(
 }
 
 export function TaskEditDialog({
+  mode = "edit",
   task,
   members,
   memberCatalog,
   tasks,
   milestones,
   successorIds,
+  excludeTaskId,
   onClose,
   onSave,
 }: TaskEditDialogProps) {
@@ -84,10 +89,23 @@ export function TaskEditDialog({
   );
   const [note, setNote] = useState(task.note ?? "");
   const [formError, setFormError] = useState<string | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const omittedId = excludeTaskId === undefined ? task.id : excludeTaskId;
+
+  useEffect(() => {
+    if (mode !== "duplicate") return;
+    const frame = requestAnimationFrame(() => {
+      const input = nameRef.current;
+      if (!input) return;
+      input.focus();
+      input.select();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [mode]);
 
   const candidates = useMemo(
-    () => tasks.filter((item) => item.id !== task.id),
-    [task.id, tasks],
+    () => tasks.filter((item) => item.id !== omittedId),
+    [omittedId, tasks],
   );
 
   const duplicateNames = useMemo(
@@ -97,10 +115,15 @@ export function TaskEditDialog({
   const showUnknownOption = isUnknownAssignee(task.assigneeId, memberCatalog);
 
   return (
-    <ModalDialog title="タスク編集" onClose={onClose} className="modal editor">
+    <ModalDialog
+      title={mode === "duplicate" ? "タスクを複製" : "タスク編集"}
+      onClose={onClose}
+      className="modal editor"
+    >
         <div className="field">
           <label htmlFor="fieldName">タスク名</label>
           <input
+            ref={nameRef}
             id="fieldName"
             type="text"
             value={name}
@@ -285,7 +308,7 @@ export function TaskEditDialog({
               onClose();
             }}
           >
-            保存
+            {mode === "duplicate" ? "追加" : "保存"}
           </button>
         </div>
     </ModalDialog>

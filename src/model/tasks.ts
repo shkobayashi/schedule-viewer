@@ -1,5 +1,21 @@
-import { isIsoDateString } from "./dates";
-import type { Category, Milestone, ScheduleId, Task } from "./types";
+import { clamp, isIsoDateString } from "./dates";
+import type { MemberId } from "./memberTypes";
+import {
+  validateDependencyCycles,
+  validatePredecessorRefs,
+} from "./scheduleSemantics";
+import { applyTaskNote } from "./taskNote";
+import {
+  SCHEDULE_SCHEMA_VERSION,
+  type Category,
+  type Milestone,
+  type ScheduleDocument,
+  type ScheduleId,
+  type Task,
+  type TaskConfidence,
+  type TaskStatus,
+} from "./types";
+import { formatValidationErrors } from "./validateSchedule";
 
 export function createScheduleId(): ScheduleId {
   return crypto.randomUUID();
@@ -101,6 +117,41 @@ export function validateNewTask(
 }
 
 
+/** 指定タスクの直後へ足す。元が無ければ null。入力は変えない。 */
+export function insertTaskAfter(
+  categories: Category[],
+  task: Task,
+  afterId: ScheduleId,
+): Category[] | null {
+  const cloned = cloneCategories(categories);
+  for (const category of cloned) {
+    for (const group of category.groups) {
+      const index = group.tasks.findIndex((item) => item.id === afterId);
+      if (index < 0) continue;
+      group.tasks.splice(index + 1, 0, {
+        ...task,
+        predecessors: [...task.predecessors],
+      });
+      return cloned;
+    }
+  }
+  return null;
+}
+
+export function findTaskOwner(
+  categories: Category[],
+  taskId: ScheduleId,
+): { categoryId: ScheduleId; groupId: ScheduleId } | null {
+  for (const category of categories) {
+    for (const group of category.groups) {
+      if (group.tasks.some((task) => task.id === taskId)) {
+        return { categoryId: category.id, groupId: group.id };
+      }
+    }
+  }
+  return null;
+}
+
 /** 指定したカテゴリとグループの末尾に足す。置き場が無ければ変えない。 */
 export function insertTask(
   categories: Category[],
@@ -151,6 +202,148 @@ export function validateTaskEdit(
     return "進捗率は 0〜100 の整数にしてください";
   }
   return null;
+}
+
+export type TaskEditPatch = {
+  name: string;
+  start: string;
+  end: string;
+  assigneeId: MemberId | null;
+  status: TaskStatus;
+  progress: number;
+  confidence: TaskConfidence;
+  predecessors: ScheduleId[];
+  successors: ScheduleId[];
+  milestoneId: ScheduleId | null;
+  note: string;
+};
+
+export type TaskGraphResult =
+  | { ok: true; categories: Category[] }
+  | { ok: false; message: string };
+
+/** 既存タスクの項目と、他タスクから見た後続を一度に反映する。 */
+export function applyTaskEdit(
+  categories: Category[],
+  taskId: ScheduleId,
+  patch: TaskEditPatch,
+  milestoneIds: ReadonlySet<ScheduleId>,
+): Category[] {
+  const progress = clamp(Math.round(patch.progress), 0, 100);
+  const predecessors = [
+    ...new Set(patch.predecessors.filter((id) => id !== taskId)),
+  ];
+  const successors = new Set(
+    patch.successors.filter((id) => id !== taskId),
+  );
+  return mapTasks(categories, (task) => {
+    if (task.id === taskId) {
+      return applyTaskNote(
+        {
+          ...task,
+          name: patch.name.trim(),
+          start: patch.start,
+          end: patch.end,
+          assigneeId: patch.assigneeId,
+          status: patch.status,
+          progress,
+          confidence: patch.confidence,
+          predecessors,
+          milestoneId:
+            patch.milestoneId != null && milestoneIds.has(patch.milestoneId)
+              ? patch.milestoneId
+              : null,
+        },
+        patch.note,
+      );
+    }
+    const withoutSelf = task.predecessors.filter((id) => id !== taskId);
+    if (!successors.has(task.id)) {
+      return { ...task, predecessors: withoutSelf };
+    }
+    const prevIndex = task.predecessors.indexOf(taskId);
+    if (prevIndex >= 0) {
+      const nextPreds = [...withoutSelf];
+      nextPreds.splice(Math.min(prevIndex, nextPreds.length), 0, taskId);
+      return { ...task, predecessors: nextPreds };
+    }
+    return { ...task, predecessors: [...withoutSelf, taskId] };
+  });
+}
+
+function rejectTaskGraph(
+  categories: Category[],
+  milestones: Milestone[],
+  title: string,
+): string | null {
+  const candidate: ScheduleDocument = {
+    schemaVersion: SCHEDULE_SCHEMA_VERSION,
+    title,
+    categories,
+    milestones,
+  };
+  const issues = [
+    ...validateDependencyCycles(candidate),
+    ...validatePredecessorRefs(candidate),
+  ];
+  if (issues.length === 0) return null;
+  return formatValidationErrors(issues);
+}
+
+/** 編集ダイアログの保存後のカテゴリ。循環と欠けた先行は拒む。 */
+export function categoriesAfterTaskEdit(
+  categories: Category[],
+  milestones: Milestone[],
+  title: string,
+  taskId: ScheduleId,
+  patch: TaskEditPatch,
+): TaskGraphResult {
+  const next = applyTaskEdit(
+    categories,
+    taskId,
+    patch,
+    new Set(milestones.map((milestone) => milestone.id)),
+  );
+  const message = rejectTaskGraph(next, milestones, title);
+  if (message) return { ok: false, message };
+  return { ok: true, categories: next };
+}
+
+/** 元タスクの直後に複製を足す。後続は patch にあるときだけ相手へ入る。 */
+export function categoriesAfterDuplicate(
+  categories: Category[],
+  milestones: Milestone[],
+  title: string,
+  sourceId: ScheduleId,
+  newId: ScheduleId,
+  patch: TaskEditPatch,
+): TaskGraphResult {
+  const inserted = insertTaskAfter(
+    categories,
+    {
+      id: newId,
+      name: patch.name.trim(),
+      start: patch.start,
+      end: patch.end,
+      assigneeId: patch.assigneeId,
+      status: patch.status,
+      progress: patch.progress,
+      confidence: patch.confidence,
+      predecessors: [],
+      milestoneId: null,
+    },
+    sourceId,
+  );
+  if (!inserted) {
+    return { ok: false, message: "複製元のタスクがありません。" };
+  }
+  return categoriesAfterTaskEdit(
+    inserted,
+    milestones,
+    title,
+    newId,
+    patch,
+  );
 }
 
 export function cloneCategories(categories: Category[]): Category[] {

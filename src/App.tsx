@@ -434,6 +434,7 @@ function App() {
     categories,
     selectedTaskId,
     openEditDialog,
+    openDuplicateDialog,
     selectTask,
     milestones,
     openMilestoneEdit,
@@ -920,6 +921,11 @@ function App() {
           if (task) openEditDialog(task);
         },
       },
+      {
+        id: "duplicate",
+        label: "複製",
+        onSelect: () => openDuplicateDialog(taskId),
+      },
       ...(task
         ? [
             {
@@ -960,6 +966,7 @@ function App() {
     contextMenu,
     lineageTask?.id,
     milestones,
+    openDuplicateDialog,
     openEditDialog,
     openHierarchyEdit,
     setMilestoneConfidence,
@@ -1130,6 +1137,26 @@ function App() {
           onSave={(note) => {
             const task = schedule.editingNoteTask;
             if (task) schedule.saveTaskNote(task.id, note);
+          }}
+        />
+      ) : null}
+      {schedule.duplicatingTask ? (
+        <TaskEditDialog
+          key={`duplicate-${schedule.duplicatingTask.id}:${schedule.diskEpoch}`}
+          mode="duplicate"
+          task={schedule.duplicatingTask}
+          members={memberCatalogState.members ?? []}
+          memberCatalog={memberCatalogState.memberMap}
+          tasks={taskRefs}
+          milestones={schedule.milestones}
+          successorIds={[]}
+          excludeTaskId={null}
+          onClose={schedule.closeDuplicateDialog}
+          onSave={(patch) => {
+            const result = schedule.duplicateTask(patch);
+            if (!result.ok) return result.error;
+            setFocusTaskId(result.id);
+            return null;
           }}
         />
       ) : null}
