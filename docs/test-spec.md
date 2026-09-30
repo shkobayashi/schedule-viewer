@@ -182,6 +182,16 @@
 | 同上 | `writes confidence after progress` | FILE-02 |
 | 同上 | `writes milestone confidence after date` | FILE-02 |
 | 同上 | `includes trimmed note` | EDIT-06 |
+| `appKeyboard.test.ts` | `clears link mode on Escape and leaves a menu to close itself` | EDIT-12 |
+| 同上 | `deletes the hovered link before the selected task` | EDIT-09, EDIT-12 |
+| 同上 | `drops file shortcuts while a file operation is busy and keeps find` | FILE-02, NAV-05 |
+| 同上 | `ignores undo and redo in a dialog or text field` | EDIT-10 |
+| `saveFlight.test.ts` | `rejects a second save until the first releases the flight` | FILE-02, SYNC-02 |
+| 同上 | `does not start a save while the file operation is busy` | FILE-02 |
+| `recoveryApply.test.ts` | `accepts before checking the generation again and skips the screen update` | SYNC-03 |
+| 同上 | `does not accept once the generation has already moved on` | SYNC-03 |
+| `pollGate.test.ts` | `does not read or apply while a file operation is busy or paused` | SYNC-01 |
+| 同上 | `prompts for a missing file on the fifth consecutive read failure` | SYNC-01 |
 | `shortcuts.test.ts` | `maps save, save as, open, and find` | FILE-01, FILE-02, FILE-03, NAV-05 |
 | 同上 | `keeps file shortcuts while typing and drops them in a dialog` | FILE-02 |
 | 同上 | `maps Enter and Delete only when edit keys are free` | EDIT-04, EDIT-09 |
@@ -238,6 +248,12 @@
 | 同上 | `uses viewport scaling when preference is auto` | SET-01 |
 | 同上 | `uses fixed preference regardless of viewport` | SET-01 |
 | 同上 | `stores fixed ratios and clears key for auto` | SET-01 |
+| `chartHitTest.test.ts` | `extends the selected bar by the resize handle` | EDIT-02, EDIT-03, EDIT-12 |
+| 同上 | `does not extend the handle while drawing a link` | EDIT-12 |
+| 同上 | `prefers a task or milestone over a link` | EDIT-11, EDIT-12 |
+| 同上 | `hits a link only when the pointer misses bars and diamonds` | EDIT-12 |
+| 同上 | `places the link preview at the sidebar, bar start, or pointer` | EDIT-12 |
+| 同上 | `hits a milestone diamond inside the slop and misses outside it` | VIEW-04, EDIT-11 |
 | `colorScheme.test.ts` | `accepts light and dark` | SET-04 |
 | 同上 | `stores fixed schemes and clears key for system` | SET-04 |
 | 同上 | `falls back to system for missing or invalid values` | SET-04 |
@@ -285,7 +301,7 @@
 | `errors.ts` | 未テスト |
 | `timelineVisibleDays.ts` | 未テスト |
 | `layoutSizes.ts` | 未テスト |
-| `src/components/`、`src/hooks/`、`App.tsx` | 画面の自動テストは無い |
+| `src/components/`、`src/hooks/`、`App.tsx` | DOM、Konva、Tauri の操作は未テスト。キーの判断、チャートの当たり、保存の直列化、起動の世代、監視の停止は純粋関数としてテストしている |
 
 足すなら、手間のわりに効果が大きい次の順がよい。
 
