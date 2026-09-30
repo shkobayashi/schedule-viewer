@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToday } from "./useToday";
 import {
   addDays,
-  clamp,
   isoDate,
   parseDate,
 } from "../model/dates";
 import {
+  brokenLinkTaskIds,
   dropPredecessorLink,
   lineageTaskIds,
   tryAddPredecessorLink,
@@ -25,6 +25,7 @@ import {
   computeVisibleRows,
   findTaskById,
   groupCollapseKey,
+  relaxFiltersForNewTask,
 } from "../model/rows";
 import { applyTaskNote } from "../model/taskNote";
 import {
@@ -34,8 +35,11 @@ import {
   validateNewMilestone,
 } from "../model/milestones";
 import {
+  categoriesAfterDuplicate,
+  categoriesAfterTaskEdit,
   cloneCategories,
   collectScheduleIds,
+  findTaskOwner,
   insertTask,
   mapTasks,
   removeTask,
@@ -44,20 +48,14 @@ import {
   uniqueScheduleId,
   validateNewTask,
   validateTaskEdit,
+  type TaskEditPatch,
 } from "../model/tasks";
-import {
-  validateDependencyCycles,
-  validatePredecessorRefs,
-} from "../model/scheduleSemantics";
-import { formatValidationErrors } from "../model/validateSchedule";
-import { isOverdue } from "../model/timeline";
-import type { Member, MemberId } from "../model/memberTypes";
+import type { Member } from "../model/memberTypes";
 import {
   NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
   type Category,
   type Milestone,
-  SCHEDULE_SCHEMA_VERSION,
   type ScheduleDocument,
   type ScheduleFilters,
   type ScheduleId,
@@ -136,6 +134,9 @@ export function useSchedule(
     noteSearch: "",
   });
   const [editingTaskId, setEditingTaskId] = useState<ScheduleId | null>(null);
+  const [duplicatingTaskId, setDuplicatingTaskId] = useState<ScheduleId | null>(
+    null,
+  );
   const [editingNoteTaskId, setEditingNoteTaskId] = useState<ScheduleId | null>(
     null,
   );
@@ -152,6 +153,11 @@ export function useSchedule(
         : null,
     );
     setEditingTaskId((current) =>
+      current != null && findTaskById(snapshot.categories, current)
+        ? current
+        : null,
+    );
+    setDuplicatingTaskId((current) =>
       current != null && findTaskById(snapshot.categories, current)
         ? current
         : null,
@@ -469,11 +475,22 @@ export function useSchedule(
   );
 
   const openEditDialog = useCallback((task: Task) => {
+    setDuplicatingTaskId(null);
     setEditingTaskId(task.id);
   }, []);
 
   const closeEditDialog = useCallback(() => {
     setEditingTaskId(null);
+  }, []);
+
+  const openDuplicateDialog = useCallback((taskId: ScheduleId) => {
+    setEditingTaskId(null);
+    setEditingNoteTaskId(null);
+    setDuplicatingTaskId(taskId);
+  }, []);
+
+  const closeDuplicateDialog = useCallback(() => {
+    setDuplicatingTaskId(null);
   }, []);
 
   const openTaskNoteDialog = useCallback((taskId: ScheduleId) => {
@@ -507,19 +524,7 @@ export function useSchedule(
   );
 
   const saveTaskEdit = useCallback(
-    (patch: {
-      name: string;
-      start: string;
-      end: string;
-      assigneeId: MemberId | null;
-      status: Task["status"];
-      progress: number;
-      confidence: Task["confidence"];
-      predecessors: ScheduleId[];
-      successors: ScheduleId[];
-      milestoneId: ScheduleId | null;
-      note: string;
-    }) => {
+    (patch: TaskEditPatch) => {
       if (editingTaskId == null) {
         return "編集対象のタスクがありません。";
       }
@@ -533,77 +538,15 @@ export function useSchedule(
       if (fieldError) {
         return fieldError;
       }
-      const predecessors = [
-        ...new Set(
-          patch.predecessors.filter((id) => id !== editingTaskId),
-        ),
-      ];
-      const successors = new Set(
-        patch.successors.filter((id) => id !== editingTaskId),
-      );
-      const milestoneIds = new Set(
-        documentRef.current.milestones.map((milestone) => milestone.id),
-      );
-      const buildNext = (prev: Category[]) =>
-        mapTasks(prev, (task) => {
-          if (task.id === editingTaskId) {
-            return applyTaskNote(
-              {
-                ...task,
-                name: patch.name.trim(),
-                start: patch.start,
-                end: patch.end,
-                assigneeId: patch.assigneeId,
-                status: patch.status,
-                progress: clamp(roundedProgress, 0, 100),
-                confidence: patch.confidence,
-                predecessors,
-                milestoneId:
-                  patch.milestoneId != null && milestoneIds.has(patch.milestoneId)
-                    ? patch.milestoneId
-                    : null,
-              },
-              patch.note,
-            );
-          }
-          const withoutSelf = task.predecessors.filter(
-            (id) => id !== editingTaskId,
-          );
-          if (!successors.has(task.id)) {
-            return { ...task, predecessors: withoutSelf };
-          }
-          const prevIndex = task.predecessors.indexOf(editingTaskId);
-          if (prevIndex >= 0) {
-            const nextPreds = [...withoutSelf];
-            nextPreds.splice(
-              Math.min(prevIndex, nextPreds.length),
-              0,
-              editingTaskId,
-            );
-            return { ...task, predecessors: nextPreds };
-          }
-          return {
-            ...task,
-            predecessors: [...withoutSelf, editingTaskId],
-          };
-        });
-
-      const nextCategories = buildNext(documentRef.current.categories);
-      const candidate: ScheduleDocument = {
-        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      const result = categoriesAfterTaskEdit(
+        documentRef.current.categories,
+        documentRef.current.milestones,
         title,
-        categories: nextCategories,
-        milestones: documentRef.current.milestones,
-      };
-      const semanticIssues = [
-        ...validateDependencyCycles(candidate),
-        ...validatePredecessorRefs(candidate),
-      ];
-      if (semanticIssues.length > 0) {
-        return formatValidationErrors(semanticIssues);
-      }
-
-      commitCategories((prev) => buildNext(prev));
+        editingTaskId,
+        { ...patch, progress: roundedProgress },
+      );
+      if (!result.ok) return result.message;
+      commitCategories(() => result.categories);
       setEditingTaskId(null);
       return null;
     },
@@ -697,36 +640,73 @@ export function useSchedule(
         if (group) next.delete(groupCollapseKey(group.id));
         return next;
       });
-      setFilters((prev) => ({
-        ...prev,
-        assignee:
-          prev.assignee !== "all" && prev.assignee !== UNASSIGNED_FILTER
-            ? "all"
-            : prev.assignee,
-        status:
-          prev.status === "done" || prev.status === "in-progress"
-            ? "all"
-            : prev.status,
-        overdue:
-          prev.overdue === "overdue" &&
-          !isOverdue({ status: "not-started", end: input.end }, today)
-            ? "all"
-            : prev.overdue,
-        relation: prev.relation === "broken" ? "all" : prev.relation,
-        milestone:
-          prev.milestone !== "all" && prev.milestone !== NO_MILESTONE_FILTER
-            ? "all"
-            : prev.milestone,
-        search: prev.search && !name.includes(prev.search) ? "" : prev.search,
-        noteSearch: prev.noteSearch.trim() ? "" : prev.noteSearch,
-        confidence: prev.confidence === "committed" ? "all" : prev.confidence,
-      }));
+      setFilters((prev) =>
+        relaxFiltersForNewTask(prev, task, today, memberMap),
+      );
       setLineageTaskId(null);
       setSelectedTaskId(id);
       setEditingTaskId(null);
+      setDuplicatingTaskId(null);
       return id;
     },
-    [commitCategories, today],
+    [commitCategories, memberMap, today],
+  );
+
+  const duplicateTask = useCallback(
+    (patch: TaskEditPatch): { ok: true; id: ScheduleId } | { ok: false; error: string } => {
+      if (duplicatingTaskId == null) {
+        return { ok: false, error: "複製元のタスクがありません。" };
+      }
+      const roundedProgress = Math.round(patch.progress);
+      const fieldError = validateTaskEdit({
+        name: patch.name,
+        start: patch.start,
+        end: patch.end,
+        progress: roundedProgress,
+      });
+      if (fieldError) return { ok: false, error: fieldError };
+      const current = documentRef.current;
+      const id = uniqueScheduleId(
+        collectScheduleIds(current.categories, current.milestones),
+      );
+      const result = categoriesAfterDuplicate(
+        current.categories,
+        current.milestones,
+        title,
+        duplicatingTaskId,
+        id,
+        { ...patch, progress: roundedProgress },
+      );
+      if (!result.ok) return { ok: false, error: result.message };
+      const owner = findTaskOwner(current.categories, duplicatingTaskId);
+      const saved = findTaskById(result.categories, id);
+      commitCategories(() => result.categories);
+      if (owner) {
+        setCollapsed((prev) => {
+          const next = new Set(prev);
+          next.delete(categoryCollapseKey(owner.categoryId));
+          next.delete(groupCollapseKey(owner.groupId));
+          return next;
+        });
+      }
+      if (saved) {
+        setFilters((prev) =>
+          relaxFiltersForNewTask(
+            prev,
+            saved,
+            today,
+            memberMap,
+            brokenLinkTaskIds(result.categories),
+          ),
+        );
+      }
+      setLineageTaskId(null);
+      setSelectedTaskId(id);
+      setEditingTaskId(null);
+      setDuplicatingTaskId(null);
+      return { ok: true, id };
+    },
+    [commitCategories, duplicatingTaskId, memberMap, title, today],
   );
 
   const addPredecessorLink = useCallback(
@@ -757,6 +737,7 @@ export function useSchedule(
       commitCategories((prev) => removeTask(prev, taskId));
       setSelectedTaskId((current) => (current === taskId ? null : current));
       setEditingTaskId((current) => (current === taskId ? null : current));
+      setDuplicatingTaskId((current) => (current === taskId ? null : current));
       setEditingNoteTaskId((current) => (current === taskId ? null : current));
       setLineageTaskId((current) => (current === taskId ? null : current));
     },
@@ -777,6 +758,7 @@ export function useSchedule(
       setSelectedTaskId(null);
       setLineageTaskId(null);
       setEditingTaskId(null);
+      setDuplicatingTaskId(null);
       setEditingNoteTaskId(null);
       setEditingMilestoneId(null);
       setCollapsed(new Set());
@@ -830,6 +812,11 @@ export function useSchedule(
     [categories, editingTaskId],
   );
 
+  const duplicatingTask = useMemo(
+    () => findTaskById(categories, duplicatingTaskId),
+    [categories, duplicatingTaskId],
+  );
+
   const editingNoteTask = useMemo(
     () => findTaskById(categories, editingNoteTaskId),
     [categories, editingNoteTaskId],
@@ -871,7 +858,11 @@ export function useSchedule(
     setTaskEnd,
     openEditDialog,
     closeEditDialog,
+    openDuplicateDialog,
+    closeDuplicateDialog,
+    duplicatingTask,
     saveTaskEdit,
+    duplicateTask,
     setTaskConfidence,
     editingTask,
     editingNoteTask,

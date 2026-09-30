@@ -87,6 +87,68 @@ export function taskMatchesFilter(
   return true;
 }
 
+/** 新しいタスクを隠す絞り込みだけを外す。タスク名の検索は空白を除かずに含むかを見る。 */
+export function relaxFiltersForNewTask(
+  filters: ScheduleFilters,
+  task: Task,
+  today: string,
+  memberCatalog: Map<MemberId, Member> | null,
+  brokenIds?: ReadonlySet<ScheduleId>,
+): ScheduleFilters {
+  const open: ScheduleFilters = {
+    assignee: "all",
+    status: "all",
+    confidence: "all",
+    overdue: "all",
+    relation: "all",
+    milestone: "all",
+    search: "",
+    noteSearch: "",
+  };
+  const hides = (partial: Partial<ScheduleFilters>) =>
+    !taskMatchesFilter(
+      task,
+      { ...open, ...partial },
+      today,
+      memberCatalog,
+      brokenIds,
+      null,
+    );
+  return {
+    ...filters,
+    assignee:
+      filters.assignee !== "all" && hides({ assignee: filters.assignee })
+        ? "all"
+        : filters.assignee,
+    status:
+      filters.status !== "all" && hides({ status: filters.status })
+        ? "all"
+        : filters.status,
+    confidence:
+      filters.confidence !== "all" && hides({ confidence: filters.confidence })
+        ? "all"
+        : filters.confidence,
+    overdue:
+      filters.overdue !== "all" && hides({ overdue: filters.overdue })
+        ? "all"
+        : filters.overdue,
+    relation:
+      filters.relation !== "all" && hides({ relation: filters.relation })
+        ? "all"
+        : filters.relation,
+    milestone:
+      filters.milestone !== "all" && hides({ milestone: filters.milestone })
+        ? "all"
+        : filters.milestone,
+    search:
+      filters.search && !task.name.includes(filters.search) ? "" : filters.search,
+    noteSearch:
+      filters.noteSearch.trim() && hides({ noteSearch: filters.noteSearch })
+        ? ""
+        : filters.noteSearch,
+  };
+}
+
 export function computeVisibleRows(
   categories: Category[],
   filters: ScheduleFilters,
