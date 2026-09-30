@@ -62,21 +62,16 @@ function sha1(message: Uint8Array): Uint8Array {
     let d = h3;
     let e = h4;
     for (let t = 0; t < 80; t += 1) {
-      let f = 0;
-      let k = 0;
-      if (t < 20) {
-        f = (b & c) | (~b & d);
-        k = 0x5a827999;
-      } else if (t < 40) {
-        f = b ^ c ^ d;
-        k = 0x6ed9eba1;
-      } else if (t < 60) {
-        f = (b & c) | (b & d) | (c & d);
-        k = 0x8f1bbcdc;
-      } else {
-        f = b ^ c ^ d;
-        k = 0xca62c1d6;
-      }
+      const f =
+        t < 20
+          ? (b & c) | (~b & d)
+          : t < 40
+            ? b ^ c ^ d
+            : t < 60
+              ? (b & c) | (b & d) | (c & d)
+              : b ^ c ^ d;
+      const k =
+        t < 20 ? 0x5a827999 : t < 40 ? 0x6ed9eba1 : t < 60 ? 0x8f1bbcdc : 0xca62c1d6;
       const temp = (((a << 5) | (a >>> 27)) + f + e + k + w[t]!) >>> 0;
       e = d;
       d = c;
