@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { fileShortcutHint, usesCommandKey } from "../model/shortcuts";
+import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 
 type AppMenuProps = {
   fileBusy?: boolean;
@@ -33,8 +34,16 @@ export function AppMenu({
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      const menu = rootRef.current?.querySelector<HTMLElement>('[role="menu"]');
+      if (!menu) return;
+      if (moveMenuFocus(menu, event.key)) event.preventDefault();
     };
+    focusMenuEdge(rootRef.current ?? document.body, "first");
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     return () => {

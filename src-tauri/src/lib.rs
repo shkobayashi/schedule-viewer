@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::Manager;
@@ -37,12 +37,53 @@ fn hash_contents(contents: &str) -> String {
     format!("{:x}", digest)
 }
 
-fn read_utf8(path: &Path) -> Result<String, String> {
-    let meta = fs::metadata(path).map_err(|e| format!("ファイルを読めません: {}", e))?;
-    if meta.len() > MAX_SCHEDULE_BYTES {
-        return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
+fn read_open_schedule<T>(
+    state: &Mutex<ScheduleFileState>,
+    use_contents: impl Fn(&ScheduleFileState, &str, &str) -> Result<T, String>,
+) -> Result<T, String> {
+    for _ in 0..2 {
+        let path = {
+            let guard = state.lock().expect("schedule file state");
+            guard
+                .path
+                .as_ref()
+                .ok_or_else(|| "開いているファイルがありません".to_string())?
+                .clone()
+        };
+        let contents = read_utf8(&path, MAX_SCHEDULE_BYTES)?;
+        let hash = hash_contents(&contents);
+        let guard = state.lock().expect("schedule file state");
+        if guard.path.as_ref() == Some(&path) {
+            return use_contents(&guard, &contents, &hash);
+        }
     }
-    let bytes = fs::read(path).map_err(|e| format!("ファイルを読めません: {}", e))?;
+    Err("開いているファイルがありません".to_string())
+}
+
+fn too_large_message(max_bytes: u64) -> String {
+    if max_bytes == MAX_MEMBERS_BYTES {
+        "メンバーファイルが大きすぎます（上限 2 MB）".to_string()
+    } else if max_bytes == MAX_CALENDAR_BYTES {
+        "カレンダーファイルが大きすぎます（上限 2 MB）".to_string()
+    } else {
+        "ファイルが大きすぎます（上限 10 MB）".to_string()
+    }
+}
+
+fn read_utf8(path: &Path, max_bytes: u64) -> Result<String, String> {
+    read_utf8_limited(path, max_bytes, &too_large_message(max_bytes))
+}
+
+fn read_utf8_limited(path: &Path, max_bytes: u64, too_large: &str) -> Result<String, String> {
+    let file = fs::File::open(path).map_err(|e| format!("ファイルを読めません: {}", e))?;
+    let mut limited = file.take(max_bytes.saturating_add(1));
+    let mut bytes = Vec::new();
+    limited
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("ファイルを読めません: {}", e))?;
+    if bytes.len() as u64 > max_bytes {
+        return Err(too_large.to_string());
+    }
     String::from_utf8(bytes).map_err(|_| "UTF-8 以外の文字コードのファイルです".to_string())
 }
 
@@ -161,7 +202,7 @@ async fn open_schedule_file(
     match path {
         Some(file_path) => {
             let path_buf = file_path.into_path().map_err(|e| e.to_string())?;
-            let contents = read_utf8(&path_buf)?;
+            let contents = read_utf8(&path_buf, MAX_SCHEDULE_BYTES)?;
             Ok(Some(OpenScheduleResult {
                 path: path_buf.to_string_lossy().into_owned(),
                 contents,
@@ -188,14 +229,9 @@ fn accept_opened_schedule(
 fn check_schedule_file_changed(
     state: State<'_, Mutex<ScheduleFileState>>,
 ) -> Result<bool, String> {
-    let guard = state.lock().expect("schedule file state");
-    let path = guard
-        .path
-        .as_ref()
-        .ok_or_else(|| "開いているファイルがありません".to_string())?;
-    let contents = read_utf8(path)?;
-    let hash = hash_contents(&contents);
-    Ok(guard.content_hash.as_ref() != Some(&hash))
+    read_open_schedule(state.inner(), |guard, _contents, hash| {
+        Ok(guard.content_hash.as_deref() != Some(hash))
+    })
 }
 
 #[derive(Serialize)]
@@ -207,17 +243,15 @@ struct PollScheduleFileUpdateResult {
 fn poll_schedule_file_update(
     state: State<'_, Mutex<ScheduleFileState>>,
 ) -> Result<Option<PollScheduleFileUpdateResult>, String> {
-    let guard = state.lock().expect("schedule file state");
-    let path = guard
-        .path
-        .as_ref()
-        .ok_or_else(|| "開いているファイルがありません".to_string())?;
-    let contents = read_utf8(path)?;
-    let hash = hash_contents(&contents);
-    if guard.content_hash.as_ref() == Some(&hash) {
-        return Ok(None);
-    }
-    Ok(Some(PollScheduleFileUpdateResult { contents }))
+    read_open_schedule(state.inner(), |guard, contents, hash| {
+        if guard.content_hash.as_deref() == Some(hash) {
+            Ok(None)
+        } else {
+            Ok(Some(PollScheduleFileUpdateResult {
+                contents: contents.to_string(),
+            }))
+        }
+    })
 }
 
 #[tauri::command]
@@ -229,7 +263,7 @@ fn read_open_schedule_file(
         .path
         .as_ref()
         .ok_or_else(|| "開いているファイルがありません".to_string())?;
-    read_utf8(path)
+    read_utf8(path, MAX_SCHEDULE_BYTES)
 }
 
 #[tauri::command]
@@ -281,7 +315,7 @@ async fn save_schedule_file(
     }
 
     if !save_as && !skip_disk_hash_check {
-        let disk = read_utf8(&target)?;
+        let disk = read_utf8(&target, MAX_SCHEDULE_BYTES)?;
         let disk_hash = hash_contents(&disk);
         let guard = state.lock().expect("schedule file state");
         let expected_hash = guard
@@ -382,7 +416,7 @@ fn read_settings(app: &tauri::AppHandle) -> Result<AppSettingsFile, String> {
     if !path.exists() {
         return Ok(AppSettingsFile::default());
     }
-    let text = read_utf8(&path)?;
+    let text = read_utf8(&path, MAX_SCHEDULE_BYTES)?;
     serde_json::from_str(&text).map_err(|_| "設定ファイルの形式が正しくありません".to_string())
 }
 
@@ -453,11 +487,7 @@ fn read_member_catalog(app: tauri::AppHandle, catalog_id: String) -> Result<Opti
     if !path.exists() {
         return Ok(None);
     }
-    let meta = fs::metadata(&path).map_err(|e| format!("ファイルを読めません: {}", e))?;
-    if meta.len() > MAX_MEMBERS_BYTES {
-        return Err("メンバーファイルが大きすぎます（上限 2 MB）".to_string());
-    }
-    Ok(Some(read_utf8(&path)?))
+    Ok(Some(read_utf8(&path, MAX_MEMBERS_BYTES)?))
 }
 
 #[tauri::command]
@@ -520,11 +550,11 @@ fn read_schedule_recovery(app: tauri::AppHandle) -> Result<Option<String>, Strin
     if !path.exists() {
         return Ok(None);
     }
-    let meta = fs::metadata(&path).map_err(|e| format!("ファイルを読めません: {}", e))?;
-    if meta.len() > MAX_SCHEDULE_BYTES {
-        return Err("復旧用の控えが大きすぎます（上限 10 MB）".to_string());
-    }
-    Ok(Some(read_utf8(&path)?))
+    Ok(Some(read_utf8_limited(
+        &path,
+        MAX_SCHEDULE_BYTES,
+        "復旧用の控えが大きすぎます（上限 10 MB）",
+    )?))
 }
 
 #[tauri::command]
@@ -564,13 +594,17 @@ fn read_schedule_file_at_path(app: tauri::AppHandle, path: String) -> Result<Str
     if !recovery_path.is_file() {
         return Err("復旧用の控えがありません。".to_string());
     }
-    let recovery_text = read_utf8(&recovery_path)?;
+    let recovery_text = read_utf8_limited(
+        &recovery_path,
+        MAX_SCHEDULE_BYTES,
+        "復旧用の控えが大きすぎます（上限 10 MB）",
+    )?;
     recovery_targets_path(&recovery_text, &path)?;
     let path_buf = PathBuf::from(&path);
     if !path_buf.is_file() {
         return Err(SCHEDULE_FILE_NOT_FOUND.to_string());
     }
-    read_utf8(&path_buf)
+    read_utf8(&path_buf, MAX_SCHEDULE_BYTES)
 }
 
 fn last_schedule_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -655,7 +689,7 @@ fn read_last_schedule_text(app: &tauri::AppHandle) -> Result<Option<String>, Str
     if !path.is_file() {
         return Ok(None);
     }
-    Ok(Some(read_utf8(&path)?))
+    Ok(Some(read_utf8(&path, MAX_SCHEDULE_BYTES)?))
 }
 
 fn read_recovery_text(app: &tauri::AppHandle) -> Result<Option<String>, String> {
@@ -663,7 +697,11 @@ fn read_recovery_text(app: &tauri::AppHandle) -> Result<Option<String>, String> 
     if !path.is_file() {
         return Ok(None);
     }
-    Ok(Some(read_utf8(&path)?))
+    Ok(Some(read_utf8_limited(
+        &path,
+        MAX_SCHEDULE_BYTES,
+        "復旧用の控えが大きすぎます（上限 10 MB）",
+    )?))
 }
 
 #[derive(Serialize)]
@@ -694,7 +732,7 @@ fn read_last_schedule_file(app: tauri::AppHandle) -> Result<Option<LastScheduleR
             error: Some(SCHEDULE_FILE_NOT_FOUND.to_string()),
         }));
     }
-    match read_utf8(&path_buf) {
+    match read_utf8(&path_buf, MAX_SCHEDULE_BYTES) {
         Ok(contents) => Ok(Some(LastScheduleRead {
             path,
             contents: Some(contents),
@@ -737,11 +775,7 @@ fn read_app_calendar(app: tauri::AppHandle) -> Result<Option<String>, String> {
     if !path.exists() {
         return Ok(None);
     }
-    let meta = fs::metadata(&path).map_err(|e| format!("ファイルを読めません: {}", e))?;
-    if meta.len() > MAX_CALENDAR_BYTES {
-        return Err("カレンダーファイルが大きすぎます（上限 2 MB）".to_string());
-    }
-    Ok(Some(read_utf8(&path)?))
+    Ok(Some(read_utf8(&path, MAX_CALENDAR_BYTES)?))
 }
 
 #[tauri::command]
@@ -813,9 +847,19 @@ mod tests {
     use std::path::PathBuf;
 
     use super::{
-        choose_open_directory, recovery_targets_path, require_active_save_path,
+        choose_open_directory, read_utf8, recovery_targets_path, require_active_save_path,
         resolve_remembered_path, sanitize_export_filename,
     };
+
+    #[test]
+    fn read_utf8_stops_at_the_byte_limit() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("sample.txt");
+        std::fs::write(&path, "abcd").expect("write");
+        let err = read_utf8(&path, 3).expect_err("over the limit");
+        assert!(err.contains("大きすぎます"));
+        assert_eq!(read_utf8(&path, 4).expect("within the limit"), "abcd");
+    }
 
     #[test]
     fn sanitize_export_filename_removes_path_separators() {

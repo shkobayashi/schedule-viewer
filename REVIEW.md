@@ -19,7 +19,13 @@
 
 ただし、生成物が CI で正しく同期されるかはレビュー対象に含めた。
 
-指摘は実装 19 件（高 1、中 12、低 6）、文書 10 件（中 3、低 7）である。レビューで見つけた横断的な手順は `.cursor/skills/review-project/SKILL.md` と `.cursor/skills/implement-change/SKILL.md` に反映した。指摘したソースと既存文書そのものは修正していない。
+指摘は実装 19 件（高 1、中 12、低 6）、文書 10 件（中 3、低 7）である。レビューで見つけた横断的な手順は `.cursor/skills/review-project/SKILL.md` と `.cursor/skills/implement-change/SKILL.md` に反映した。指摘の本文は残し、ソースと文書は各指摘の「対応」に従って直した。
+
+## 対応状況
+
+- 実装: 対応済み 16、見送り 3
+- 文書: 対応済み 10
+- 文書とソースの食い違い: 対応済み 4
 
 ## 自動チェック
 
@@ -51,6 +57,8 @@
 
 #### C-02 起動復旧の `accept` 後に画面反映を中止できる
 
+対応: 対応済み。画面へ載せる前に `accept` し、起動の世代が変わっていたら文書を置き換えない。起動復旧が終わるまでだけ文書の変更を止め、終わったあとは受け付ける。そのあいだのディスクの変更は、開いたあと外部更新として読む。
+
 - 重要度: 中
 - 場所: [src/hooks/useScheduleFile.ts:219](src/hooks/useScheduleFile.ts#L219)、[src/hooks/useScheduleFile.ts:300](src/hooks/useScheduleFile.ts#L300)
 
@@ -59,6 +67,8 @@
 起動復旧中は文書の編集も止めるか、画面へ反映することを確定してから Rust 側を `accept` する。処理の世代番号を持ち、古い復旧処理が Rust と React のどちらにも状態を残さない形が望ましい。
 
 #### C-03 保存処理を二重に開始できる
+
+対応: 対応済み。保存の開始で同期的な印を立て、終わるまで次の保存を始めない。
 
 - 重要度: 中
 - 場所: [src/hooks/useScheduleFile.ts:726](src/hooks/useScheduleFile.ts#L726)、[src/hooks/useScheduleFile.ts:807](src/hooks/useScheduleFile.ts#L807)
@@ -69,6 +79,8 @@
 
 #### C-07 空白だけのノートが読み込み検証を通る
 
+対応: 対応済み。意味規則で空白だけのノートを拒否し、持ち出し用の検証器も同じ規則にした。
+
 - 重要度: 中
 - 場所: [src/model/scheduleSemantics.ts:138](src/model/scheduleSemantics.ts#L138)、[docs/schedule.schema.json:102](docs/schedule.schema.json#L102)
 
@@ -77,6 +89,8 @@
 意味規則で空白だけのノートを拒否し、アプリ用と持ち出し用の検証器の両方へ同じ規則を反映する。
 
 #### C-08 候補一覧を Escape で閉じると編集ダイアログも閉じる
+
+対応: 対応済み。候補一覧が開いているときの Escape は一覧だけを閉じる。
 
 - 重要度: 中
 - 場所: [src/components/TaskEditDialog.tsx:419](src/components/TaskEditDialog.tsx#L419)、[src/components/ModalDialog.tsx:80](src/components/ModalDialog.tsx#L80)
@@ -87,6 +101,8 @@
 
 #### C-13 循環エラーがタスク名ではなく UUID を表示する
 
+対応: 対応済み。最初のタスクの JSON Pointer と、カテゴリ、グループ、タスク名による循環経路を返す。
+
 - 重要度: 中
 - 場所: [src/model/scheduleSemantics.ts:211](src/model/scheduleSemantics.ts#L211)
 
@@ -95,6 +111,8 @@
 ID から階層とタスク名を引き、最初のタスクの JSON Pointer と、名前による循環経路を返す。
 
 #### C-14 追加後に残せる検索条件まで解除する
+
+対応: 対応済み。追加後に検索を緩める判定も、表示と同じく前後の空白を除いて比べる。
 
 - 重要度: 低
 - 場所: [src/model/rows.ts:75](src/model/rows.ts#L75)、[src/model/rows.ts:90](src/model/rows.ts#L90)、[src/model/rows.ts:143](src/model/rows.ts#L143)
@@ -107,6 +125,8 @@ ID から階層とタスク名を引き、最初のタスクの JSON Pointer と
 
 #### C-04 画面外を含む `mousemove` で Timeline 全体を再描画する
 
+対応: 対応済み。チャート上（線を引くときはサイドバーも）の移動だけを `requestAnimationFrame` で間引き、ホバー対象が変わったときだけ state を更新する。
+
 - 重要度: 中
 - 場所: [src/components/Timeline.tsx:1188](src/components/Timeline.tsx#L1188)、[src/components/Timeline.tsx:1206](src/components/Timeline.tsx#L1206)、[src/components/Timeline.tsx:1316](src/components/Timeline.tsx#L1316)
 
@@ -115,6 +135,8 @@ ID から階層とタスク名を引き、最初のタスクの JSON Pointer と
 Stage 上のポインターだけを対象にし、`requestAnimationFrame` で間引く。ポインター位置は ref に置き、hover 対象が変わったときだけ state を更新する。
 
 #### C-05 非稼働日の判定ごとに `Set` を作り直す
+
+対応: 対応済み。カレンダー文書をキーに、週末と日付の集合を一度だけ作る。
 
 - 重要度: 中
 - 場所: [src/model/nonWorkingDay.ts:11](src/model/nonWorkingDay.ts#L11)、[src/model/nonWorkingDay.ts:61](src/model/nonWorkingDay.ts#L61)
@@ -125,6 +147,8 @@ Stage 上のポインターだけを対象にし、`requestAnimationFrame` で�
 
 #### C-06 Rust の監視処理がファイル読み込み中も Mutex を保持する
 
+対応: 対応済み。ロック中はパスだけを取り、読み込みとハッシュ計算はロックの外で行う。
+
 - 重要度: 中
 - 場所: [src-tauri/src/lib.rs:190](src-tauri/src/lib.rs#L190)、[src-tauri/src/lib.rs:207](src-tauri/src/lib.rs#L207)
 
@@ -134,6 +158,8 @@ Stage 上のポインターだけを対象にし、`requestAnimationFrame` で�
 
 #### C-12 マイルストンの段割り当てが最悪 O(n²)
 
+対応: 対応済み。空いている段の番号をヒープで選び、最も小さい番号を使う今の割り当ては変えない。
+
 - 重要度: 中
 - 場所: [src/model/milestones.ts:87](src/model/milestones.ts#L87)
 
@@ -142,6 +168,8 @@ Stage 上のポインターだけを対象にし、`requestAnimationFrame` で�
 段の終端をヒープで管理するか、終端順を維持して二分探索する。変更前後を多数の重なったマイルストンで計測する。
 
 #### C-16 履歴へ積むたび文書全体を二度文字列化する
+
+対応: 見送り。先に大きなサンプルで測定してから判断する。別計画にする。
 
 - 重要度: 低
 - 場所: [src/model/history.ts:19](src/model/history.ts#L19)
@@ -154,6 +182,8 @@ Stage 上のポインターだけを対象にし、`requestAnimationFrame` で�
 
 #### C-01 Release が検査なしで公開される
 
+対応: 見送り。開発は当面ひとりで、GitHub Actions は無料枠に収める。検査は `develop` 向け pull request の変わった側だけで、Release は配布物のビルドと公開のままにする。
+
 - 重要度: 高
 - 場所: [.github/workflows/release.yml:3](.github/workflows/release.yml#L3)
 
@@ -162,6 +192,8 @@ Stage 上のポインターだけを対象にし、`requestAnimationFrame` で�
 Release ジョブ自身に最低でも `version:check`、`build`、`lint`、`test`、`cargo clippy`、`cargo test --locked` を置く。ブランチ保護だけに依存する場合も、Release 側で版番号とビルドを再確認する。
 
 #### C-10 CI の変更パス判定に抜けがある
+
+対応: 対応済み。`index.html` と `rust-toolchain.toml` を変更パスに足し、Rust の版は `rust-toolchain.toml` を正本にした。開発ガイドに、ビルド入力を足したら CI の対象パスにも足す手順を書いた。パス判定を別スクリプトへ切り出してテストすることは見送った。
 
 - 重要度: 中
 - 場所: [.github/workflows/ci.yml:24](.github/workflows/ci.yml#L24)
@@ -172,6 +204,8 @@ Release ジョブ自身に最低でも `version:check`、`build`、`lint`、`tes
 
 #### C-11 アプリ用の生成済み検証器を CI で差分検査しない
 
+対応: 対応済み。フロントジョブの `git diff --exit-code` に `src/model/generated/` を足した。
+
 - 重要度: 中
 - 場所: [.github/workflows/ci.yml:50](.github/workflows/ci.yml#L50)、[src/model/generated/](src/model/generated/)
 
@@ -181,6 +215,8 @@ CI はスキルへ同梱するスキーマと bundle の差分だけを見る。
 
 #### C-17 ブラウザ版のファイル読み込みにサイズ上限がない
 
+対応: 対応済み。ブラウザ版もスケジュールは 10MB、メンバーとカレンダーは 2MB で、選んだ直後に拒否する。
+
 - 重要度: 低
 - 場所: [src/model/scheduleFile.ts:134](src/model/scheduleFile.ts#L134)、[src/model/memberAppData.ts:156](src/model/memberAppData.ts#L156)、[src/model/calendarAppData.ts:144](src/model/calendarAppData.ts#L144)
 
@@ -189,6 +225,8 @@ CI はスキルへ同梱するスキーマと bundle の差分だけを見る。
 差を維持する理由がなければ、`File.size` で同じ上限を適用する。差を維持するなら、操作マニュアルのブラウザ版の制約にも明記する。
 
 #### C-18 2MB ファイルの上限検査と読み込みが一体でない
+
+対応: 対応済み。開いたファイルから上限付きで一度だけ読む。
 
 - 重要度: 低
 - 場所: [src-tauri/src/lib.rs:40](src-tauri/src/lib.rs#L40)、[src-tauri/src/lib.rs:450](src-tauri/src/lib.rs#L450)、[src-tauri/src/lib.rs:734](src-tauri/src/lib.rs#L734)
@@ -203,6 +241,8 @@ CI はスキルへ同梱するスキーマと bundle の差分だけを見る。
 
 #### C-09 メニューと絞り込みをキーボード・支援技術で識別しにくい
 
+対応: 対応済み。メニューを開くと最初の項目へフォーカスし、上下と Home/End で移動する。検索欄と選択欄に名前を付け、フォームのエラーは `role="alert"` にした。
+
 - 重要度: 中
 - 場所: [src/components/AppMenu.tsx:65](src/components/AppMenu.tsx#L65)、[src/components/ContextMenu.tsx:63](src/components/ContextMenu.tsx#L63)、[src/components/Toolbar.tsx:134](src/components/Toolbar.tsx#L134)
 
@@ -212,6 +252,8 @@ WAI-ARIA のメニューパターンに合わせ、メニューを開いたら�
 
 #### C-15 localStorage の書き込み失敗を一部だけ処理していない
 
+対応: 対応済み。メンバーとカレンダーの保存失敗は利用者向けのエラーにする。カレンダーは本文と表示名の途中失敗で両方を戻す。
+
 - 重要度: 低
 - 場所: [src/model/memberAppData.ts:42](src/model/memberAppData.ts#L42)、[src/model/calendarAppData.ts:26](src/model/calendarAppData.ts#L26)
 
@@ -220,6 +262,8 @@ WAI-ARIA のメニューパターンに合わせ、メニューを開いたら�
 失敗を利用者向けエラーへ変換し、本文と表示名を二つの key へ書くカレンダーは途中失敗時にロールバックする。
 
 #### C-19 中核ファイルへ責務が集中している
+
+対応: 見送り。ファイル分割は別計画にする。
 
 - 重要度: 低
 - 場所: [src/App.tsx](src/App.tsx)、[src/components/Timeline.tsx](src/components/Timeline.tsx)、[src/hooks/useScheduleFile.ts](src/hooks/useScheduleFile.ts)
@@ -232,6 +276,8 @@ WAI-ARIA のメニューパターンに合わせ、メニューを開いたら�
 
 ### D-01 PLANNING の今後の項目が実装済みの状態と食い違う
 
+対応: 対応済み。絞り込み、保存、外部更新、復旧を完了として外し、自動保存の要否だけを検討に残した。`mockup/` の CDN は参照しないため対応しない、と閉じた。
+
 - 重要度: 中
 - 観点: ストーリー、冗長
 - 場所: [docs/PLANNING.md:91](docs/PLANNING.md#L91)
@@ -241,6 +287,8 @@ WAI-ARIA のメニューパターンに合わせ、メニューを開いたら�
 決定済み・完了・今後を現在の状態で整理し、`mockup/` の問題は「参照しないため対応しない」と閉じるか削除する。「保存したりとかそういうやつ」は「自動保存の要否」のように検討事項を具体化する。
 
 ### D-02 テスト仕様のケース一覧が実装より 8 件少ない
+
+対応: 対応済み。欠けた 8 件を一覧へ足した。テスト名一覧の CI 生成は見送った。
 
 - 重要度: 中
 - 観点: ストーリー、冗長
@@ -252,6 +300,8 @@ WAI-ARIA のメニューパターンに合わせ、メニューを開いたら�
 
 ### D-03 マイルストンの確度操作が一部の要約から抜けている
 
+対応: 対応済み。操作早見表、マイルストン編集ダイアログ、`TC-EDIT-11b` を、編集、確度の切り替え、削除の三つに揃えた。
+
 - 重要度: 中
 - 観点: ストーリー、文書間の整合
 - 場所: [docs/user-manual.md:220](docs/user-manual.md#L220)、[docs/external-spec.md:660](docs/external-spec.md#L660)、[docs/test-spec.md:405](docs/test-spec.md#L405)
@@ -261,6 +311,8 @@ WAI-ARIA のメニューパターンに合わせ、メニューを開いたら�
 早見表、ダイアログ表、手動テストを現在の三項目に揃える。
 
 ### D-04 配布用ビルドの例が 0.6.0 のまま固定されている
+
+対応: 対応済み。配布物の例を README と同じ `X.Y.Z` にした。
 
 - 重要度: 低
 - 観点: ストーリー
@@ -272,6 +324,8 @@ README と同じ `X.Y.Z` を使うか、シェル変数を使った例にする�
 
 ### D-05 外部仕様の機能 ID が番号順に並んでいない
 
+対応: 対応済み。番号は変えず、EDIT-12、EDIT-13、EDIT-14 と SET-02、SET-03、SET-04 の順へ本文を並べた。
+
 - 重要度: 低
 - 観点: ストーリー
 - 場所: [docs/external-spec.md:568](docs/external-spec.md#L568)、[docs/external-spec.md:584](docs/external-spec.md#L584)、[docs/external-spec.md:632](docs/external-spec.md#L632)
@@ -282,6 +336,8 @@ EDIT-13、EDIT-14 のあとに EDIT-12 があり、SET-04 のあとに SET-02、
 
 ### D-06 「足る」という誤記が複数の文書にある
 
+対応: 対応済み。操作マニュアルとテスト仕様の該当 3 箇所を「追加される」または「加わる」にした。
+
 - 重要度: 低
 - 観点: 日本語
 - 場所: [docs/user-manual.md:211](docs/user-manual.md#L211)、[docs/test-spec.md:399](docs/test-spec.md#L399)、[docs/test-spec.md:413](docs/test-spec.md#L413)
@@ -289,6 +345,8 @@ EDIT-13、EDIT-14 のあとに EDIT-12 があり、SET-04 のあとに SET-02、
 「タスクが足る」「線が 1 本足る」は、「追加される」または「1 本加わる」が自然である。同じ誤記がコピーされているため、一括で直す。
 
 ### D-07 「親バー」と「イナズマ線」が定義より先に現れる
+
+対応: 対応済み。外部仕様の用語表に定義を足し、README と操作マニュアルの画面図の初出に短い説明を添えた。
 
 - 重要度: 低
 - 観点: 未説明の造語
@@ -300,6 +358,8 @@ EDIT-13、EDIT-14 のあとに EDIT-12 があり、SET-04 のあとに SET-02、
 
 ### D-08 「原子的な書き込み」が直訳調である
 
+対応: 対応済み。一覧の文言を「一時ファイルを使った安全な置き換え」にし、仕組みの説明は永続化の節に残した。
+
 - 重要度: 低
 - 観点: 直訳調
 - 場所: [docs/internal-spec.md:30](docs/internal-spec.md#L30)
@@ -309,6 +369,8 @@ EDIT-13、EDIT-14 のあとに EDIT-12 があり、SET-04 のあとに SET-02、
 一覧では「一時ファイルを使った安全な置き換え」とし、永続化の節で仕組みを説明する。
 
 ### D-09 内部仕様の状態説明が操作単位まで入り込みすぎる
+
+対応: 対応済み。履歴は文書だけで表示状態は入れないことと、その例外だけを残した。
 
 - 重要度: 低
 - 観点: 冗長
@@ -320,6 +382,8 @@ EDIT-13、EDIT-14 のあとに EDIT-12 があり、SET-04 のあとに SET-02、
 
 ### D-10 外部仕様の一段落が長く、規則を検索しにくい
 
+対応: 対応済み。FILE-07、EDIT-07、EDIT-12 の「挙動」を、対応づけ、表示順、失敗時、履歴のような短い箇条書きに分けた。規則は削っていない。
+
 - 重要度: 低
 - 観点: 冗長、ストーリー
 - 場所: [docs/external-spec.md:211](docs/external-spec.md#L211)、[docs/external-spec.md:520](docs/external-spec.md#L520)、[docs/external-spec.md:588](docs/external-spec.md#L588)
@@ -330,10 +394,10 @@ FILE-07、EDIT-07、EDIT-12 は、一つの「挙動」段落に対応づけ、�
 
 ## 文書とソースの食い違い
 
-1. [docs/internal-spec.md:36](docs/internal-spec.md#L36) は依存が図の向きだけとするが、`App.tsx`、`Toolbar.tsx`、`Timeline.tsx` などのコンポーネントは `src/model/` を直接 import している。図に `components --> model` を足すか、依存をフック経由へ変える必要がある。
-2. 外部仕様 FILE-01 の「エラーの場所は名前で示す」に対し、循環だけは UUID の列になる。詳細は [C-13](#c-13-循環エラーがタスク名ではなく-uuid-を表示する)。
-3. テスト仕様の自動テスト一覧は、実装より 8 件少ない。詳細は [D-02](#d-02-テスト仕様のケース一覧が実装より-8-件少ない)。
-4. マイルストンの確度切り替えは実装と外部仕様本文にあるが、操作早見表、ダイアログ表、手動テストの一部から抜けている。詳細は [D-03](#d-03-マイルストンの確度操作が一部の要約から抜けている)。
+1. [docs/internal-spec.md:36](docs/internal-spec.md#L36) は依存が図の向きだけとするが、`App.tsx`、`Toolbar.tsx`、`Timeline.tsx` などのコンポーネントは `src/model/` を直接 import している。図に `components --> model` を足すか、依存をフック経由へ変える必要がある。対応: 対応済み。図に `components --> model` を足した。import をフック経由へ寄せることは、C-19 と同じ分割になるので見送った。
+2. 外部仕様 FILE-01 の「エラーの場所は名前で示す」に対し、循環だけは UUID の列になる。詳細は [C-13](#c-13-循環エラーがタスク名ではなく-uuid-を表示する)。対応: 対応済み。循環経路を名前で返す。
+3. テスト仕様の自動テスト一覧は、実装より 8 件少ない。詳細は [D-02](#d-02-テスト仕様のケース一覧が実装より-8-件少ない)。対応: 対応済み。欠けた 8 件を一覧へ足した。
+4. マイルストンの確度切り替えは実装と外部仕様本文にあるが、操作早見表、ダイアログ表、手動テストの一部から抜けている。詳細は [D-03](#d-03-マイルストンの確度操作が一部の要約から抜けている)。対応: 対応済み。三つの要約を編集、確度の切り替え、削除に揃えた。
 
 ## テストについての所見
 
@@ -349,7 +413,7 @@ FILE-07、EDIT-07、EDIT-12 は、一つの「挙動」段落に対応づけ、�
 6. `rows.ts`: 担当、ステータス、期限、破綻、前後空白を含む検索の組み合わせ
 7. `release.yml` と CI のパス判定: `index.html`、`rust-toolchain.toml`、生成済み検証器の変更
 
-画面操作の自動テスト基盤がないため、復旧、保存、フォーカス、メニュー、Konva の hover は手動テストだけである。今回見つかった問題は複数のイベントをまたぐものが多い。少なくともブラウザで再現できるダイアログとキーボード操作には、Testing Library または Playwright の小さいテスト層を加える効果が大きい。
+画面操作の自動テスト基盤がないため、復旧、保存、フォーカス、メニュー、Konva の hover は手動テストだけである。今回見つかった問題は複数のイベントをまたぐものが多い。少なくともブラウザで再現できるダイアログとキーボード操作には、Testing Library または Playwright の小さいテスト層を加える効果が大きい。画面テストの基盤は今回は足さない。ダイアログとキーボードは手動ケースとブラウザ確認にする。
 
 ## スキルに足した手順
 

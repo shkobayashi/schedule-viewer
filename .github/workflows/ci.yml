@@ -22,14 +22,14 @@ jobs:
           rust=false
           while IFS= read -r file; do
             case "$file" in
-              src-tauri/*)
+              src-tauri/*|rust-toolchain.toml)
                 rust=true
                 ;;
               .github/workflows/*)
                 frontend=true
                 rust=true
                 ;;
-              src/*|scripts/*|docs/schedule.schema.json|docs/members.schema.json|docs/calendar.schema.json|examples/*|package.json|package-lock.json|eslint.config.js|vite.config.ts|tsconfig.json|tsconfig.node.json|vitest.config.ts|.cursor/skills/write-schedule/*|.cursor/skills/write-calendar/*|.cursor/skills/write-members/*)
+              index.html|src/*|scripts/*|docs/schedule.schema.json|docs/members.schema.json|docs/calendar.schema.json|examples/*|package.json|package-lock.json|eslint.config.js|vite.config.ts|tsconfig.json|tsconfig.node.json|vitest.config.ts|.cursor/skills/write-schedule/*|.cursor/skills/write-calendar/*|.cursor/skills/write-members/*)
                 frontend=true
                 ;;
             esac
@@ -56,7 +56,7 @@ jobs:
       - run: npm run check:calendar
       - run: npm run check:members
       - run: npm run build:validate-skill
-      - run: git diff --exit-code docs/schedule.schema.json .cursor/skills/write-schedule/schedule.schema.json .cursor/skills/write-schedule/scripts/validate-schedule.bundle.mjs docs/calendar.schema.json .cursor/skills/write-calendar/calendar.schema.json .cursor/skills/write-calendar/scripts/validate-calendar.bundle.mjs docs/members.schema.json .cursor/skills/write-members/members.schema.json .cursor/skills/write-members/scripts/validate-members.bundle.mjs
+      - run: git diff --exit-code src/model/generated docs/schedule.schema.json .cursor/skills/write-schedule/schedule.schema.json .cursor/skills/write-schedule/scripts/validate-schedule.bundle.mjs docs/calendar.schema.json .cursor/skills/write-calendar/calendar.schema.json .cursor/skills/write-calendar/scripts/validate-calendar.bundle.mjs docs/members.schema.json .cursor/skills/write-members/members.schema.json .cursor/skills/write-members/scripts/validate-members.bundle.mjs
 
   rust:
     needs: changes
@@ -84,9 +84,6 @@ jobs:
             patchelf \
             xdg-utils
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master 2026-09-12
-        with:
-          toolchain: 1.98.1
-          components: clippy
       - run: cargo clippy -- -D warnings
         working-directory: src-tauri
       - run: cargo test --locked

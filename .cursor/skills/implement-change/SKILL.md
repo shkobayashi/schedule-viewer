@@ -43,7 +43,7 @@ description: >-
 
 ## 文書
 
-どの文書を同じ変更に含めるかは [AGENTS.md](../../../AGENTS.md) の「変更したら文書も更新する」に従う。通常の不具合修正では [docs/PLANNING.md](../../../docs/PLANNING.md) は更新しない。利用者に見える変更をリリースへ入れるときは [CHANGELOG.md](../../../CHANGELOG.md) も更新する。
+どの文書を同じ変更に含めるかは [AGENTS.md](../../../AGENTS.md) の「変更したら文書も更新する」に従う。通常の不具合修正では [docs/PLANNING.md](../../../docs/PLANNING.md) は更新しない。利用者に見える変更をリリースへ入れるときは [CHANGELOG.md](../../../CHANGELOG.md) も更新する。計画が REVIEW.md の指摘を扱うときは、対応または見送りを同じ変更で REVIEW.md に書く。
 
 ## テストと確認
 

@@ -328,12 +328,14 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回のみサンプルカタログを用意
   }, []);
 
+  const blockDocumentEditsRef = useRef(false);
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
     sampleMilestones,
     rowHeight,
     memberCatalogState.members,
+    blockDocumentEditsRef,
   );
   const { redo, undo, setTaskStart, setTaskEnd, visibleRows } = schedule;
   const range = useMemo(
@@ -428,6 +430,7 @@ function App() {
       schedule.editingNoteTask != null ||
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null,
+    blockDocumentEditsRef,
   });
 
   const {

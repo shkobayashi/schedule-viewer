@@ -1831,6 +1831,9 @@ function validateTaskSemantics(task, taskPath, taskIds, milestoneIds, categoryId
     });
   }
   taskIds.add(task.id);
+  if (task.note != null && task.note.trim().length === 0) {
+    issues.push({ path: `${taskPath}/note`, message: "\u30CE\u30FC\u30C8\u306F\u7A7A\u767D\u306B\u3067\u304D\u307E\u305B\u3093" });
+  }
   if (task.milestoneId != null && !milestoneIds.has(task.milestoneId)) {
     issues.push({
       path: `${taskPath}/milestoneId`,
@@ -1851,8 +1854,26 @@ function validateTaskSemantics(task, taskPath, taskIds, milestoneIds, categoryId
   }
   return issues;
 }
+function taskLocations(doc) {
+  const locations = /* @__PURE__ */ new Map();
+  for (let ci = 0; ci < doc.categories.length; ci += 1) {
+    const category = doc.categories[ci];
+    for (let gi = 0; gi < category.groups.length; gi += 1) {
+      const group = category.groups[gi];
+      for (let ti = 0; ti < group.tasks.length; ti += 1) {
+        const task = group.tasks[ti];
+        locations.set(task.id, {
+          path: `/categories/${ci}/groups/${gi}/tasks/${ti}`,
+          label: `${category.name} / ${group.name} / ${task.name}`
+        });
+      }
+    }
+  }
+  return locations;
+}
 function validateDependencyCycles(doc) {
   const byId = /* @__PURE__ */ new Map();
+  const locations = taskLocations(doc);
   for (const category of doc.categories) {
     for (const group of category.groups) {
       for (const task of group.tasks) {
@@ -1868,9 +1889,11 @@ function validateDependencyCycles(doc) {
     if (visiting.has(id)) {
       const cycleStart = stack.indexOf(id);
       const cycle = cycleStart >= 0 ? stack.slice(cycleStart) : [id];
+      const first = cycle[0] ?? id;
+      const route = cycle.map((taskId) => locations.get(taskId)?.label ?? taskId).join(" \u2192 ");
       issues.push({
-        path: "/categories",
-        message: `\u5148\u884C\u95A2\u4FC2\u306B\u5FAA\u74B0\u304C\u3042\u308A\u307E\u3059: ${cycle.join(" \u2192 ")}`
+        path: locations.get(first)?.path ?? "/categories",
+        message: `\u5148\u884C\u95A2\u4FC2\u306B\u5FAA\u74B0\u304C\u3042\u308A\u307E\u3059: ${route}`
       });
       return;
     }

@@ -1186,32 +1186,43 @@ export function Timeline({
 
   const bodyRef = useRef<HTMLDivElement>(null);
   const bandRef = useRef<HTMLDivElement>(null);
-  const [clientPointer, setClientPointer] = useState<{
+  const pointerRef = useRef<{
     x: number;
     y: number;
     sidebar: boolean;
   } | null>(null);
+  const [hover, setHover] = useState<{
+    overTask: boolean;
+    overMilestone: boolean;
+    link: ChartPointer["link"];
+    hoverTaskId: ScheduleId | null;
+  }>({
+    overTask: false,
+    overMilestone: false,
+    link: null,
+    hoverTaskId: null,
+  });
+  const [previewEnd, setPreviewEnd] = useState<{ x: number; y: number } | null>(
+    null,
+  );
 
-  useEffect(() => {
-    const onMove = (event: MouseEvent) => {
-      const sidebar =
-        event.target instanceof Element &&
-        event.target.closest(".sidebar") != null;
-      setClientPointer({ x: event.clientX, y: event.clientY, sidebar });
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
-
-  const chartPointer = useMemo(() => {
-    const empty = {
-      overTask: false,
-      overMilestone: false,
-      link: null as ChartPointer["link"],
-      hoverTaskId: null as ScheduleId | null,
-      previewEnd: null as { x: number; y: number } | null,
-    };
-    if (clientPointer == null) return empty;
+  const evaluatePointerRef = useRef(() => {});
+  evaluatePointerRef.current = () => {
+    const clientPointer = pointerRef.current;
+    if (clientPointer == null) {
+      setHover((prev) =>
+        prev.overTask || prev.overMilestone || prev.link || prev.hoverTaskId
+          ? {
+              overTask: false,
+              overMilestone: false,
+              link: null,
+              hoverTaskId: null,
+            }
+          : prev,
+      );
+      setPreviewEnd((prev) => (prev == null ? prev : null));
+      return;
+    }
 
     let overMilestone = false;
     const band = bandRef.current?.getBoundingClientRect();
@@ -1237,13 +1248,15 @@ export function Timeline({
     }
 
     const body = bodyRef.current?.getBoundingClientRect();
-    if (!body) return { ...empty, overMilestone };
-
-    const local = {
-      x: clientPointer.x - body.left,
-      y: clientPointer.y - body.top,
-    };
+    const local = body
+      ? {
+          x: clientPointer.x - body.left,
+          y: clientPointer.y - body.top,
+        }
+      : null;
     const insideBody =
+      body != null &&
+      local != null &&
       clientPointer.x >= body.left &&
       clientPointer.x <= body.right &&
       clientPointer.y >= body.top &&
@@ -1251,7 +1264,7 @@ export function Timeline({
 
     let hoverTaskId: ScheduleId | null = null;
     let hoverAnchor: { x: number; y: number } | null = null;
-    if (insideBody) {
+    if (insideBody && local) {
       for (const [id, anchor] of liveAnchors) {
         const top = anchor.y - barHeight / 2;
         const bottom = anchor.y + barHeight / 2;
@@ -1271,53 +1284,105 @@ export function Timeline({
     }
     const overTask = hoverTaskId != null;
     const link =
-      insideBody && !overTask && !overMilestone
+      insideBody && local && !overTask && !overMilestone
         ? nearestLinkHit(linkPolylines, local.x, local.y)
         : null;
+    setHover((prev) => {
+      if (
+        prev.overTask === overTask &&
+        prev.overMilestone === overMilestone &&
+        prev.hoverTaskId === hoverTaskId &&
+        prev.link?.fromId === link?.fromId &&
+        prev.link?.toId === link?.toId
+      ) {
+        return prev;
+      }
+      return { overTask, overMilestone, link, hoverTaskId };
+    });
 
-    let previewEnd: { x: number; y: number } | null = null;
-    if (linkMode) {
-      if (clientPointer.sidebar) previewEnd = { x: 0, y: local.y };
-      else if (hoverAnchor) previewEnd = { x: hoverAnchor.x, y: hoverAnchor.y };
-      else previewEnd = local;
+    let nextPreview: { x: number; y: number } | null = null;
+    if (linkMode && local) {
+      if (clientPointer.sidebar) nextPreview = { x: 0, y: local.y };
+      else if (hoverAnchor) nextPreview = { x: hoverAnchor.x, y: hoverAnchor.y };
+      else nextPreview = local;
     }
+    setPreviewEnd((prev) => {
+      if (nextPreview == null) return prev == null ? prev : null;
+      if (prev && prev.x === nextPreview.x && prev.y === nextPreview.y) {
+        return prev;
+      }
+      return nextPreview;
+    });
+  };
 
-    return {
-      overTask,
-      overMilestone,
-      link,
-      hoverTaskId,
-      previewEnd,
+  useEffect(() => {
+    let frame: number | null = null;
+    const schedule = () => {
+      if (frame != null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        evaluatePointerRef.current();
+      });
     };
-  }, [
-    barHeight,
-    clientPointer,
-    dateToX,
-    linkMode,
-    linkPolylines,
-    milestoneDiamondSize,
-    milestoneLaneHeight,
-    milestoneLanes,
-    milestones,
-    selectedTaskId,
-    liveAnchors,
-  ]);
+    const onMove = (event: Event) => {
+      if (!(event instanceof globalThis.MouseEvent)) return;
+      const sidebar =
+        event.currentTarget instanceof Element &&
+        event.currentTarget.closest(".sidebar") != null;
+      pointerRef.current = { x: event.clientX, y: event.clientY, sidebar };
+      schedule();
+    };
+    const onLeave = (event: Event) => {
+      if (!(event instanceof globalThis.MouseEvent)) return;
+      const next = event.relatedTarget;
+      const band = bandRef.current;
+      const body = bodyRef.current;
+      const sidebar = document.querySelector(".sidebar");
+      if (
+        next instanceof Node &&
+        (band?.contains(next) ||
+          body?.contains(next) ||
+          (linkMode && sidebar?.contains(next)))
+      ) {
+        return;
+      }
+      pointerRef.current = null;
+      schedule();
+    };
+    const targets: EventTarget[] = [];
+    const add = (node: EventTarget | null) => {
+      if (!node) return;
+      node.addEventListener("mousemove", onMove);
+      node.addEventListener("mouseleave", onLeave);
+      targets.push(node);
+    };
+    add(bandRef.current);
+    add(bodyRef.current);
+    if (linkMode) add(document.querySelector(".sidebar"));
+    return () => {
+      for (const node of targets) {
+        node.removeEventListener("mousemove", onMove);
+        node.removeEventListener("mouseleave", onLeave);
+      }
+      if (frame != null) window.cancelAnimationFrame(frame);
+    };
+  }, [linkMode]);
 
   const onChartPointerRef = useRef(onChartPointer);
   onChartPointerRef.current = onChartPointer;
   useEffect(() => {
     onChartPointerRef.current({
-      overTask: chartPointer.overTask,
-      overMilestone: chartPointer.overMilestone,
-      link: chartPointer.link,
+      overTask: hover.overTask,
+      overMilestone: hover.overMilestone,
+      link: hover.link,
     });
-  }, [chartPointer.link, chartPointer.overMilestone, chartPointer.overTask]);
+  }, [hover.link, hover.overMilestone, hover.overTask]);
 
   const linkArrows = useMemo(() => {
     return linkPolylines.flatMap((link) => {
       const hovered =
-        chartPointer.link?.fromId === link.fromId &&
-        chartPointer.link.toId === link.toId;
+        hover.link?.fromId === link.fromId &&
+        hover.link.toId === link.toId;
       const color = link.broken ? chart.linkBroken : chart.linkOk;
       const strokeWidth = link.broken ? 1.75 : 1.25;
       return [
@@ -1333,20 +1398,20 @@ export function Timeline({
         />,
       ];
     });
-  }, [chart, chartPointer.link, linkPolylines]);
+  }, [chart, hover.link, linkPolylines]);
 
   const previewPoints = useMemo(() => {
-    if (!linkSourceId || !chartPointer.previewEnd) return null;
+    if (!linkSourceId || !previewEnd) return null;
     const from = liveAnchors.get(linkSourceId);
     if (!from) return null;
     return linkPoints(
       from.linkRight,
       from.y,
-      chartPointer.previewEnd.x,
-      chartPointer.previewEnd.y,
+      previewEnd.x,
+      previewEnd.y,
       barHeight,
     );
-  }, [barHeight, chartPointer.previewEnd, linkSourceId, liveAnchors]);
+  }, [barHeight, previewEnd, linkSourceId, liveAnchors]);
 
   const panRef = useRef<{
     x: number;
@@ -1580,7 +1645,7 @@ export function Timeline({
                   linkMode={linkMode}
                   linkTarget={
                     linkMode &&
-                    chartPointer.hoverTaskId === row.task.id &&
+                    hover.hoverTaskId === row.task.id &&
                     row.task.id !== linkSourceId
                   }
                   onLinkPointerDown={armLinkPress}
