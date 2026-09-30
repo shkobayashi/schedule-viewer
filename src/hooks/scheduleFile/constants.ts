@@ -1,0 +1,4 @@
+export const EXTERNAL_RELOAD_POLL_MS = 1500;
+export const RELOAD_NOTICE_MS = 4000;
+export const RECOVERY_DEBOUNCE_MS = 1000;
+export const MISSING_FILE_READ_FAILURES = 5;

@@ -92,7 +92,9 @@ export function layoutMilestones(
   const sorted = [...milestones].sort(
     (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
   );
-  const laneEnds: number[] = [];
+  const freeLanes: number[] = [];
+  const active: Array<{ end: number; lane: number }> = [];
+  let nextLane = 0;
   const lanes = new Map<ScheduleId, number>();
   const dayWidth = Math.max(pxPerDay, 0.5);
   for (const milestone of sorted) {
@@ -101,14 +103,72 @@ export function layoutMilestones(
       (diamondSize + 6 + milestoneLabelWidth(milestone.name, fontSize) + 10) /
       dayWidth;
     const right = day + span;
-    let lane = laneEnds.findIndex((end) => day >= end);
-    if (lane < 0) {
-      lane = laneEnds.length;
-      laneEnds.push(right);
-    } else {
-      laneEnds[lane] = right;
+    while (active.length > 0 && active[0]!.end <= day) {
+      pushMin(freeLanes, popMinByEnd(active).lane);
     }
+    const lane = freeLanes.length > 0 ? popMin(freeLanes) : nextLane++;
+    pushMinByEnd(active, { end: right, lane });
     lanes.set(milestone.id, lane);
   }
   return lanes;
+}
+
+function pushMin(heap: number[], value: number): void {
+  heap.push(value);
+  siftUp(heap, heap.length - 1, (item) => item);
+}
+
+function popMin(heap: number[]): number {
+  return popMinBy(heap, (item) => item);
+}
+
+function pushMinByEnd(
+  heap: Array<{ end: number; lane: number }>,
+  value: { end: number; lane: number },
+): void {
+  heap.push(value);
+  siftUp(heap, heap.length - 1, (item) => item.end);
+}
+
+function popMinByEnd(
+  heap: Array<{ end: number; lane: number }>,
+): { end: number; lane: number } {
+  return popMinBy(heap, (item) => item.end);
+}
+
+function siftUp<T>(heap: T[], index: number, key: (item: T) => number): void {
+  let i = index;
+  while (i > 0) {
+    const parent = (i - 1) >> 1;
+    if (key(heap[parent]!) <= key(heap[i]!)) break;
+    const current = heap[i]!;
+    heap[i] = heap[parent]!;
+    heap[parent] = current;
+    i = parent;
+  }
+}
+
+function popMinBy<T>(heap: T[], key: (item: T) => number): T {
+  const top = heap[0]!;
+  const last = heap.pop()!;
+  if (heap.length === 0) return top;
+  heap[0] = last;
+  let i = 0;
+  for (;;) {
+    const left = i * 2 + 1;
+    const right = left + 1;
+    let smallest = i;
+    if (left < heap.length && key(heap[left]!) < key(heap[smallest]!)) {
+      smallest = left;
+    }
+    if (right < heap.length && key(heap[right]!) < key(heap[smallest]!)) {
+      smallest = right;
+    }
+    if (smallest === i) break;
+    const current = heap[i]!;
+    heap[i] = heap[smallest]!;
+    heap[smallest] = current;
+    i = smallest;
+  }
+  return top;
 }

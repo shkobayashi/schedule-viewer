@@ -185,6 +185,10 @@ function validateTaskSemantics(
   }
   taskIds.add(task.id);
 
+  if (task.note != null && task.note.trim().length === 0) {
+    issues.push({ path: `${taskPath}/note`, message: "ノートは空白にできません" });
+  }
+
   if (task.milestoneId != null && !milestoneIds.has(task.milestoneId)) {
     issues.push({
       path: `${taskPath}/milestoneId`,
@@ -208,9 +212,33 @@ function validateTaskSemantics(
   return issues;
 }
 
+type TaskLocation = {
+  path: string;
+  label: string;
+};
+
+function taskLocations(doc: ScheduleDocument): Map<ScheduleId, TaskLocation> {
+  const locations = new Map<ScheduleId, TaskLocation>();
+  for (let ci = 0; ci < doc.categories.length; ci += 1) {
+    const category = doc.categories[ci]!;
+    for (let gi = 0; gi < category.groups.length; gi += 1) {
+      const group = category.groups[gi]!;
+      for (let ti = 0; ti < group.tasks.length; ti += 1) {
+        const task = group.tasks[ti]!;
+        locations.set(task.id, {
+          path: `/categories/${ci}/groups/${gi}/tasks/${ti}`,
+          label: `${category.name} / ${group.name} / ${task.name}`,
+        });
+      }
+    }
+  }
+  return locations;
+}
+
 /** 先行関係に循環がないか。 */
 export function validateDependencyCycles(doc: ScheduleDocument): ValidationIssue[] {
   const byId = new Map<ScheduleId, ScheduleId[]>();
+  const locations = taskLocations(doc);
   for (const category of doc.categories) {
     for (const group of category.groups) {
       for (const task of group.tasks) {
@@ -228,9 +256,13 @@ export function validateDependencyCycles(doc: ScheduleDocument): ValidationIssue
     if (visiting.has(id)) {
       const cycleStart = stack.indexOf(id);
       const cycle = cycleStart >= 0 ? stack.slice(cycleStart) : [id];
+      const first = cycle[0] ?? id;
+      const route = cycle
+        .map((taskId) => locations.get(taskId)?.label ?? taskId)
+        .join(" → ");
       issues.push({
-        path: "/categories",
-        message: `先行関係に循環があります: ${cycle.join(" → ")}`,
+        path: locations.get(first)?.path ?? "/categories",
+        message: `先行関係に循環があります: ${route}`,
       });
       return;
     }

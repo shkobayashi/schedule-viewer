@@ -267,7 +267,7 @@ export function TaskEditDialog({
             setSuccessors((prev) => prev.filter((item) => item !== id))
           }
         />
-        {formError ? <p className="form-error">{formError}</p> : null}
+        {formError ? <p className="form-error" role="alert">{formError}</p> : null}
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>
             キャンセル
@@ -416,7 +416,9 @@ function RelationField({
               e.preventDefault();
               const item = shown[active];
               if (item) add(item.id);
-            } else if (e.key === "Escape") {
+            } else if (e.key === "Escape" && open) {
+              e.preventDefault();
+              e.stopPropagation();
               setOpen(false);
             }
           }}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appendMilestone,
+  layoutMilestones,
   milestoneFilterAfterDelete,
   milestoneLinkedByAnyTask,
   removeMilestone,
@@ -199,5 +200,30 @@ describe("milestoneLinkedByAnyTask", () => {
     expect(milestoneLinkedByAnyTask(categories, MS_A)).toBe(true);
     expect(milestoneLinkedByAnyTask(categories, MS_B)).toBe(false);
     expect(milestoneLinkedByAnyTask([], MS_A)).toBe(false);
+  });
+});
+
+describe("layoutMilestones", () => {
+  it("reuses the lowest free lane after overlapping labels end", () => {
+    const crowded = Array.from({ length: 8 }, (_, index) => {
+      const id = `00000000-0000-4000-8000-0000000001${index.toString(16)}`;
+      return {
+        id,
+        name: "とても長いマイルストン名",
+        date: "2026-04-01",
+        confidence: "committed" as const,
+      };
+    });
+    const later = {
+      id: "00000000-0000-4000-8000-0000000001f1",
+      name: "後",
+      date: "2026-06-01",
+      confidence: "committed" as const,
+    };
+    const lanes = layoutMilestones([...crowded, later], 12, 13, 14);
+    const used = crowded.map((item) => lanes.get(item.id));
+    expect(new Set(used).size).toBe(crowded.length);
+    expect(Math.min(...used.map((lane) => lane ?? 99))).toBe(0);
+    expect(lanes.get(later.id)).toBe(0);
   });
 });

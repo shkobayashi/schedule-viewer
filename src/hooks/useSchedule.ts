@@ -102,6 +102,7 @@ export function useSchedule(
   initialMilestones: Milestone[],
   rowHeight: number,
   memberCatalog: Member[] | null,
+  blockDocumentEditsRef?: { current: boolean },
 ) {
   const documentRef = useRef<DocumentSnapshot>(
     initialSnapshot(initialCategories, initialMilestones),
@@ -204,16 +205,18 @@ export function useSchedule(
 
   const commitDocument = useCallback(
     (buildNext: (current: DocumentSnapshot) => DocumentSnapshot) => {
+      if (blockDocumentEditsRef?.current) return;
       const current = documentRef.current;
       const next = buildNext(current);
       const pushed = pushDocumentHistory(historyRef.current, current, next);
       if (!pushed) return;
       historyRef.current = pushed.history;
+      if (!pushed.applied) return;
       documentRef.current = pushed.applied;
       setCategories(pushed.applied.categories);
       setMilestones(pushed.applied.milestones);
     },
-    [],
+    [blockDocumentEditsRef],
   );
 
   const commitCategories = useCallback(
@@ -794,18 +797,20 @@ export function useSchedule(
   );
 
   const undo = useCallback(() => {
+    if (blockDocumentEditsRef?.current) return;
     const result = undoDocumentHistory(historyRef.current, documentRef.current);
     if (!result) return;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
-  }, [applySnapshot]);
+  }, [applySnapshot, blockDocumentEditsRef]);
 
   const redo = useCallback(() => {
+    if (blockDocumentEditsRef?.current) return;
     const result = redoDocumentHistory(historyRef.current, documentRef.current);
     if (!result) return;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
-  }, [applySnapshot]);
+  }, [applySnapshot, blockDocumentEditsRef]);
 
   const editingTask = useMemo(
     () => findTaskById(categories, editingTaskId),
