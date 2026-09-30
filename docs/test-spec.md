@@ -67,7 +67,10 @@
 | 同上 | `stops a resized start from passing the end` | EDIT-03 |
 | 同上 | `recolors only the link touched by the dragged task` | VIEW-08, EDIT-02 |
 | 同上 | `uses the successor start when that task is dragged` | VIEW-08 |
-| `dependencies.test.ts` | `hits the segment, the elbow, and the endpoint` | EDIT-12 |
+| `dependencies.test.ts` | `keeps a right elbow when the gap fits the arrow` | VIEW-08 |
+| 同上 | `approaches from the left when the gap is shorter than the arrow` | VIEW-08 |
+| 同上 | `routes around a bar that starts before the predecessor ends` | VIEW-08 |
+| 同上 | `hits the segment, the elbow, and the endpoint` | EDIT-12 |
 | 同上 | `picks the closer line and ignores points outside the threshold` | EDIT-12 |
 | 同上 | `appends the predecessor in one list` | EDIT-12 |
 | 同上 | `rejects a duplicate with the same message as a repeated predecessor id` | EDIT-12 |
@@ -328,6 +331,7 @@
 | TC-VIEW-07 | VIEW-07 | 期限超過の行と、進行中で開始日が明日の行 | 橙の線を見る | 超過の行では終了日まで左へ、未来に開始する着手済みの行では開始日まで右へ折れる |
 | TC-VIEW-08 | VIEW-08 | 後続の開始が先行の終了より前の組と、同じ日に始まる組 | 線を見る | 先行の終了より前に始まる組の線だけが赤い。どちらかを折りたたむと線は消える |
 | TC-VIEW-08b | VIEW-08 | 先行と後続が見えている | 後続の開始を超えるまで先行の終了を延ばし、離す前に線を見る。同じ日まで戻してから離す | 離す前に赤く太くなる。同じ日では赤くならない。離してから「前後: 破綻のみ」に入る |
+| TC-VIEW-08c | VIEW-08 | 先行の終了と後続の開始が数日以内の組 | 月表示まで縮小して線を見る。週表示でも見る | どちらの表示でも矢印の頭が後続バーの左の外にあり、後続の行へ向かう線が分かる |
 | TC-VIEW-09 | VIEW-09 | カレンダー未設定で日表示 | 背景を見る | 土日だけが薄い灰。月表示では日ごとに塗らない |
 | TC-VIEW-10 | VIEW-10 | 使用中カタログがある | 割り当てなし、一致する ID、存在しない ID の行を見る | 「割り当てなし」は破線、「メンバー不明」は点線と ID、一致は表示名 |
 | TC-VIEW-11 | VIEW-11 | ノートがあるタスクと無いタスク | ノートアイコンを押す | 色が違い、本文が出る。無いタスクは「ノートはありません」 |
