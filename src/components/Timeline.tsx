@@ -20,6 +20,7 @@ import {
   type Rect as ChipRect,
 } from "../model/dragDates";
 import {
+  LINK_POINTER_LENGTH,
   linkPoints,
   nearestLinkHit,
   type DependencyLink,
@@ -1177,11 +1178,11 @@ export function Timeline({
         fromId: link.fromId,
         toId: link.toId,
         broken: previewLinkBroken(link, dates, dragPreview),
-        points: linkPoints(from.linkRight, from.y, to.x, to.y),
+        points: linkPoints(from.linkRight, from.y, to.x, to.y, barHeight),
       });
     }
     return polylines;
-  }, [dragPreview, links, liveAnchors, visibleRows]);
+  }, [barHeight, dragPreview, links, liveAnchors, visibleRows]);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   const bandRef = useRef<HTMLDivElement>(null);
@@ -1326,8 +1327,8 @@ export function Timeline({
           stroke={color}
           fill={color}
           strokeWidth={hovered ? strokeWidth + 1.5 : strokeWidth}
-          pointerLength={7}
-          pointerWidth={7}
+          pointerLength={LINK_POINTER_LENGTH}
+          pointerWidth={LINK_POINTER_LENGTH}
           listening={false}
         />,
       ];
@@ -1343,8 +1344,9 @@ export function Timeline({
       from.y,
       chartPointer.previewEnd.x,
       chartPointer.previewEnd.y,
+      barHeight,
     );
-  }, [chartPointer.previewEnd, linkSourceId, liveAnchors]);
+  }, [barHeight, chartPointer.previewEnd, linkSourceId, liveAnchors]);
 
   const panRef = useRef<{
     x: number;
@@ -1484,6 +1486,7 @@ export function Timeline({
           onContextMenu={onMilestoneContextMenu}
           onWheel={onWheelHeader}
           chart={chart}
+          colorScheme={colorScheme}
         />
       ) : null}
       <div
@@ -1629,8 +1632,8 @@ export function Timeline({
                 stroke={chart.linkOk}
                 fill={chart.linkOk}
                 strokeWidth={1.25}
-                pointerLength={7}
-                pointerWidth={7}
+                pointerLength={LINK_POINTER_LENGTH}
+                pointerWidth={LINK_POINTER_LENGTH}
                 listening={false}
               />
             ) : null}

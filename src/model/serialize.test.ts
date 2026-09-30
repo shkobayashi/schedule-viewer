@@ -7,9 +7,11 @@ describe("scheduleToJson note", () => {
   it("omits empty note", () => {
     const categories: Category[] = [
       {
+        id: "c1000001-0000-4000-8000-000000000001",
         name: "C",
         groups: [
           {
+            id: "d1000001-0000-4000-8000-000000000001",
             name: "G",
             tasks: [
               {
@@ -39,9 +41,11 @@ describe("scheduleToJson note", () => {
   it("includes trimmed note", () => {
     const categories: Category[] = [
       {
+        id: "c1000001-0000-4000-8000-000000000001",
         name: "C",
         groups: [
           {
+            id: "d1000001-0000-4000-8000-000000000001",
             name: "G",
             tasks: [
               {
@@ -69,9 +73,11 @@ describe("scheduleToJson note", () => {
   it("writes confidence after progress", () => {
     const categories: Category[] = [
       {
+        id: "c1000001-0000-4000-8000-000000000001",
         name: "C",
         groups: [
           {
+            id: "d1000001-0000-4000-8000-000000000001",
             name: "G",
             tasks: [
               {
@@ -96,5 +102,19 @@ describe("scheduleToJson note", () => {
     const keys = Object.keys(task);
     expect(keys.indexOf("confidence")).toBe(keys.indexOf("progress") + 1);
     expect(task.confidence).toBe("tentative");
+  });
+
+  it("writes milestone confidence after date", () => {
+    const milestone = scheduleToJson("P", [], [
+      {
+        id: "a1000001-0000-4000-8000-000000000001",
+        name: "要件確定",
+        date: "2026-04-01",
+        confidence: "tentative",
+      },
+    ]).milestones[0];
+    const keys = Object.keys(milestone);
+    expect(keys).toEqual(["id", "name", "date", "confidence"]);
+    expect(milestone.confidence).toBe("tentative");
   });
 });

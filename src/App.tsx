@@ -12,6 +12,7 @@ import { DiffDialog } from "./components/DiffDialog";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneAddDialog } from "./components/MilestoneAddDialog";
+import { HierarchyNameDialog } from "./components/HierarchyNameDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
@@ -114,6 +115,8 @@ const INITIAL_BASELINE_JSON = serializeScheduleDocument(
 type ContextMenuState =
   | { kind: "task"; taskId: ScheduleId; x: number; y: number }
   | { kind: "milestone"; milestoneId: ScheduleId; x: number; y: number }
+  | { kind: "category"; id: ScheduleId; x: number; y: number }
+  | { kind: "group"; id: ScheduleId; x: number; y: number }
   | {
       kind: "link";
       fromId: ScheduleId;
@@ -423,14 +426,17 @@ function App() {
     hasOpenEditDialog:
       schedule.editingTask != null ||
       schedule.editingNoteTask != null ||
-      schedule.editingMilestone != null,
+      schedule.editingMilestone != null ||
+      schedule.editingHierarchyTarget != null,
   });
 
   const {
     categories,
     selectedTaskId,
     openEditDialog,
+    openDuplicateDialog,
     selectTask,
+    milestones,
     openMilestoneEdit,
     openTaskNoteDialog,
     clearLineage,
@@ -439,6 +445,7 @@ function App() {
     addPredecessorLink,
     removePredecessorLink,
     setTaskConfidence,
+    setMilestoneConfidence,
   } = schedule;
   const { fileBusy, requestOpen, save } = scheduleFile;
 
@@ -812,6 +819,22 @@ function App() {
     [linkSourceId],
   );
 
+  const openHierarchyContextMenu = useCallback(
+    (kind: "category" | "group", id: ScheduleId, x: number, y: number) => {
+      if (linkSourceId != null) return;
+      setContextMenu({ kind, id, x, y });
+    },
+    [linkSourceId],
+  );
+
+  const openHierarchyEdit = useCallback(
+    (kind: "category" | "group", id: ScheduleId) => {
+      if (linkSourceId != null) return;
+      schedule.openHierarchyEdit(kind, id);
+    },
+    [linkSourceId, schedule],
+  );
+
   const openLinkContextMenu = useCallback(
     (fromId: ScheduleId, toId: ScheduleId, x: number, y: number) => {
       setContextMenu({ kind: "link", fromId, toId, x, y });
@@ -836,12 +859,30 @@ function App() {
     if (contextMenu == null) return [];
     if (contextMenu.kind === "milestone") {
       const milestoneId = contextMenu.milestoneId;
+      const milestone = milestones.find((item) => item.id === milestoneId);
       return [
         {
           id: "edit",
           label: "編集",
           onSelect: () => openMilestoneEdit(milestoneId),
         },
+        ...(milestone
+          ? [
+              {
+                id: "confidence",
+                label:
+                  milestone.confidence === "tentative"
+                    ? "確定にする"
+                    : "未確定にする",
+                onSelect: () => {
+                  setMilestoneConfidence(
+                    milestoneId,
+                    milestone.confidence === "tentative" ? "committed" : "tentative",
+                  );
+                },
+              },
+            ]
+          : []),
         {
           id: "delete",
           label: "削除",
@@ -859,6 +900,16 @@ function App() {
         },
       ];
     }
+    if (contextMenu.kind === "category" || contextMenu.kind === "group") {
+      const { kind, id } = contextMenu;
+      return [
+        {
+          id: "rename",
+          label: "名前を変更",
+          onSelect: () => openHierarchyEdit(kind, id),
+        },
+      ];
+    }
     const taskId = contextMenu.taskId;
     const task = findTaskById(categories, taskId);
     const lineageActive = lineageTask?.id === taskId;
@@ -869,6 +920,11 @@ function App() {
         onSelect: () => {
           if (task) openEditDialog(task);
         },
+      },
+      {
+        id: "duplicate",
+        label: "複製",
+        onSelect: () => openDuplicateDialog(taskId),
       },
       ...(task
         ? [
@@ -909,7 +965,11 @@ function App() {
     clearLineage,
     contextMenu,
     lineageTask?.id,
+    milestones,
+    openDuplicateDialog,
     openEditDialog,
+    openHierarchyEdit,
+    setMilestoneConfidence,
     setTaskConfidence,
     openMilestoneEdit,
     openTaskNoteDialog,
@@ -997,6 +1057,8 @@ function App() {
           onToggleCollapse={schedule.toggleCollapsed}
           onOpenTaskNote={schedule.openTaskNoteDialog}
           onTaskContextMenu={openTaskContextMenu}
+          onHierarchyContextMenu={openHierarchyContextMenu}
+          onHierarchyDoubleClick={openHierarchyEdit}
           today={schedule.today}
           memberCatalog={memberCatalogState.memberMap}
           uiScale={uiScale}
@@ -1078,6 +1140,26 @@ function App() {
           }}
         />
       ) : null}
+      {schedule.duplicatingTask ? (
+        <TaskEditDialog
+          key={`duplicate-${schedule.duplicatingTask.id}:${schedule.diskEpoch}`}
+          mode="duplicate"
+          task={schedule.duplicatingTask}
+          members={memberCatalogState.members ?? []}
+          memberCatalog={memberCatalogState.memberMap}
+          tasks={taskRefs}
+          milestones={schedule.milestones}
+          successorIds={[]}
+          excludeTaskId={null}
+          onClose={schedule.closeDuplicateDialog}
+          onSave={(patch) => {
+            const result = schedule.duplicateTask(patch);
+            if (!result.ok) return result.error;
+            setFocusTaskId(result.id);
+            return null;
+          }}
+        />
+      ) : null}
       {schedule.editingTask ? (
         <TaskEditDialog
           key={`${schedule.editingTask.id}:${schedule.diskEpoch}`}
@@ -1097,6 +1179,15 @@ function App() {
           milestone={schedule.editingMilestone}
           onClose={schedule.closeMilestoneEdit}
           onSave={schedule.saveMilestoneEdit}
+        />
+      ) : null}
+      {schedule.editingHierarchyTarget ? (
+        <HierarchyNameDialog
+          key={`${schedule.editingHierarchyTarget.title}:${schedule.editingHierarchyTarget.name}:${schedule.diskEpoch}`}
+          title={schedule.editingHierarchyTarget.title}
+          initialName={schedule.editingHierarchyTarget.name}
+          onClose={schedule.closeHierarchyEdit}
+          onSave={schedule.saveHierarchyName}
         />
       ) : null}
       {addMilestoneOpen ? (

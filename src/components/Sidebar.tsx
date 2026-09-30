@@ -35,6 +35,13 @@ type SidebarProps = {
   onToggleCollapse: (key: string) => void;
   onOpenTaskNote: (taskId: ScheduleId) => void;
   onTaskContextMenu: (taskId: ScheduleId, x: number, y: number) => void;
+  onHierarchyContextMenu: (
+    kind: "category" | "group",
+    id: ScheduleId,
+    x: number,
+    y: number,
+  ) => void;
+  onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
   today: string;
   uiScale: number;
   sidebarWidth: number;
@@ -58,6 +65,8 @@ export function Sidebar({
   onToggleCollapse,
   onOpenTaskNote,
   onTaskContextMenu,
+  onHierarchyContextMenu,
+  onHierarchyDoubleClick,
   today,
   uiScale,
   sidebarWidth,
@@ -108,14 +117,22 @@ export function Sidebar({
             if (row.type === "category") {
               return (
                 <div
-                  key={`cat-${row.label}`}
+                  key={`cat-${row.id}`}
                   className="sidebar-row category"
                   style={rowStyle(row.y)}
+                  onDoubleClick={(event) => {
+                    event.preventDefault();
+                    onHierarchyDoubleClick("category", row.id);
+                  }}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    onHierarchyContextMenu("category", row.id, event.clientX, event.clientY);
+                  }}
                 >
                   <CollapseButton
                     label={row.label}
                     collapsed={row.collapsed}
-                    onClick={() => onToggleCollapse(categoryCollapseKey(row.label))}
+                    onClick={() => onToggleCollapse(categoryCollapseKey(row.id))}
                   />
                   <SlideLabel text={row.label} />
                 </div>
@@ -124,16 +141,22 @@ export function Sidebar({
             if (row.type === "group") {
               return (
                 <div
-                  key={`group-${row.category}-${row.label}`}
+                  key={`group-${row.id}`}
                   className="sidebar-row group"
                   style={rowStyle(row.y)}
+                  onDoubleClick={(event) => {
+                    event.preventDefault();
+                    onHierarchyDoubleClick("group", row.id);
+                  }}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    onHierarchyContextMenu("group", row.id, event.clientX, event.clientY);
+                  }}
                 >
                   <CollapseButton
                     label={row.label}
                     collapsed={row.collapsed}
-                    onClick={() =>
-                      onToggleCollapse(groupCollapseKey(row.category, row.label))
-                    }
+                    onClick={() => onToggleCollapse(groupCollapseKey(row.id))}
                   />
                   <SlideLabel text={row.label} />
                 </div>
@@ -408,6 +431,7 @@ function CollapseButton({
       aria-expanded={!collapsed}
       aria-label={collapsed ? `${label} を展開` : `${label} を折りたたむ`}
       onClick={onClick}
+      onDoubleClick={(event) => event.stopPropagation()}
     >
       {collapsed ? "▶" : "▼"}
     </button>

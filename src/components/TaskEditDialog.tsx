@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TaskRef } from "../model/dependencies";
 import {
   duplicateMemberNames,
@@ -20,12 +20,15 @@ import {
 } from "../model/types";
 
 type TaskEditDialogProps = {
+  mode?: "edit" | "duplicate";
   task: Task;
   members: Member[];
   memberCatalog: Map<MemberId, Member> | null;
   tasks: TaskRef[];
   milestones: Milestone[];
   successorIds: ScheduleId[];
+  /** 候補から除く ID。複製では元タスクも候補に残すため null。 */
+  excludeTaskId?: ScheduleId | null;
   onClose: () => void;
   onSave: (patch: {
     name: string;
@@ -42,20 +45,31 @@ type TaskEditDialogProps = {
   }) => string | null;
 };
 
-function taskLabel(tasks: TaskRef[], id: ScheduleId): string {
+function taskRelationLabel(
+  tasks: TaskRef[],
+  id: ScheduleId,
+): { title: string; ancestors: string | null; leaf: string } {
   const found = tasks.find((task) => task.id === id);
-  return found
-    ? `${found.category} / ${found.group} / ${found.name}`
-    : `ID ${id}`;
+  if (!found) {
+    const title = `ID ${id}`;
+    return { title, ancestors: null, leaf: title };
+  }
+  return {
+    title: `${found.category} / ${found.group} / ${found.name}`,
+    ancestors: `${found.category} / ${found.group}`,
+    leaf: found.name,
+  };
 }
 
 export function TaskEditDialog({
+  mode = "edit",
   task,
   members,
   memberCatalog,
   tasks,
   milestones,
   successorIds,
+  excludeTaskId,
   onClose,
   onSave,
 }: TaskEditDialogProps) {
@@ -75,10 +89,23 @@ export function TaskEditDialog({
   );
   const [note, setNote] = useState(task.note ?? "");
   const [formError, setFormError] = useState<string | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const omittedId = excludeTaskId === undefined ? task.id : excludeTaskId;
+
+  useEffect(() => {
+    if (mode !== "duplicate") return;
+    const frame = requestAnimationFrame(() => {
+      const input = nameRef.current;
+      if (!input) return;
+      input.focus();
+      input.select();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [mode]);
 
   const candidates = useMemo(
-    () => tasks.filter((item) => item.id !== task.id),
-    [task.id, tasks],
+    () => tasks.filter((item) => item.id !== omittedId),
+    [omittedId, tasks],
   );
 
   const duplicateNames = useMemo(
@@ -88,10 +115,15 @@ export function TaskEditDialog({
   const showUnknownOption = isUnknownAssignee(task.assigneeId, memberCatalog);
 
   return (
-    <ModalDialog title="タスク編集" onClose={onClose} className="modal editor">
+    <ModalDialog
+      title={mode === "duplicate" ? "タスクを複製" : "タスク編集"}
+      onClose={onClose}
+      className="modal editor"
+    >
         <div className="field">
           <label htmlFor="fieldName">タスク名</label>
           <input
+            ref={nameRef}
             id="fieldName"
             type="text"
             value={name}
@@ -276,7 +308,7 @@ export function TaskEditDialog({
               onClose();
             }}
           >
-            保存
+            {mode === "duplicate" ? "追加" : "保存"}
           </button>
         </div>
     </ModalDialog>
@@ -333,14 +365,22 @@ function RelationField({
       <label htmlFor={inputId}>{label}</label>
       {selected.length > 0 ? (
         <ul className="relation-list">
-          {selected.map((id) => (
-            <li key={id}>
-              <span>{taskLabel(tasks, id)}</span>
-              <button type="button" onClick={() => onRemove(id)}>
-                外す
-              </button>
-            </li>
-          ))}
+          {selected.map((id) => {
+            const label = taskRelationLabel(tasks, id);
+            return (
+              <li key={id}>
+                <span className="relation-label" title={label.title}>
+                  {label.ancestors ? (
+                    <span className="relation-ancestors">{label.ancestors}</span>
+                  ) : null}
+                  <span className="relation-leaf">{label.leaf}</span>
+                </span>
+                <button type="button" onClick={() => onRemove(id)}>
+                  外す
+                </button>
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="relation-empty">なし</p>

@@ -20,10 +20,11 @@ description: >-
 次が決まっている（または既存 JSON にある）こと。足りないときは **JSON を書かず**、不足項目をユーザーに返す。
 
 - プロジェクト `title`
-- `milestones`: 各 `name`, `date`（新規なら `id` は UUID v4）
-- `categories` → `groups` → `tasks` の階層と並び（並び替えフィールドはない。配列順＝画面の並び）
+- `milestones`: 各 `name`, `date`, `confidence`（日付を合意したなら `committed`、まだなら `tentative`。新規なら `id` は UUID v4）
+- `categories` → `groups` → `tasks` の階層と並び（並び替えフィールドはない。配列順＝画面の並び）。カテゴリとグループにも `id`（新規なら UUID v4）
+
 - 各タスク: `name`, `start`, `end`, `assigneeId`（未割当は `null`）, `status`, `progress`, `confidence`（日付を合意したなら `committed`、まだなら `tentative`）, `predecessors`, `milestoneId`（なしは `null`）。任意で `note`（補足説明。ユーザーから渡されたときだけ書く）
-- `confidence` が入力から分からなければ、JSON を書かず不足として返す。未確定を既定にしない
+- タスクとマイルストンの `confidence` が入力から分からなければ、JSON を書かず不足として返す。未確定を既定にしない
 - 担当を付けるタスクには、ユーザーから渡された **メンバー id 一覧** に含まれる id だけを使う。一覧に無い人がいる場合は JSON を書かず、不足として返す
 
 日付・担当・期間を推測で埋めない。メンバー JSON ファイル自体はこの Skill では生成しない（`write-members` で作り、アプリ側で取り込む）。
@@ -32,12 +33,14 @@ description: >-
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "title": "プロジェクト名",
-  "milestones": [{ "id": "<uuid>", "name": "...", "date": "YYYY-MM-DD" }],
+  "milestones": [{ "id": "<uuid>", "name": "...", "date": "YYYY-MM-DD", "confidence": "committed" }],
   "categories": [{
+    "id": "<uuid>",
     "name": "カテゴリ",
     "groups": [{
+      "id": "<uuid>",
       "name": "グループ",
       "tasks": [{
         "id": "<uuid>",
@@ -58,18 +61,18 @@ description: >-
 
 - `status`: `not-started` | `in-progress` | `done`
 - `progress`: 0〜100 の整数
-- `confidence`: `tentative`（未確定）| `committed`（確定）。着手や進捗とは独立。日付を合意したかどうかが分からなければ書かない
+- `confidence`: タスクとマイルストンの `tentative`（未確定）| `committed`（確定）。着手や進捗とは独立。日付を合意したかどうかが分からなければ書かない
 - `predecessors`: 先行タスクの `id` の配列（後続は各タスクの `predecessors` から導かれる）
 - タスク期間は **終了日を含む**（`end` は開始日以降。1 日だけなら `start` と `end` を同じ日にする）
-- タスク ID とマイルストン ID は文書内で重複しない UUID
+- カテゴリ、グループ、タスク、マイルストンの ID は文書内で重複しない UUID。カテゴリ名は文書内で重複しない。グループ名は同じカテゴリの中で重複しない
 - `assigneeId` はメンバー一覧の `id`（UUID である必要はない）
 - `note` はユーザーから渡された補足があるときだけタスクに足す。空文字や空白だけはプロパティ自体を書かない
 
 ## 手順
 
 1. 入力をカテゴリ・グループ・タスクの木に整理する（WBS のまま写す）
-2. 新規要素には `crypto.randomUUID()` 相当の UUID v4 を付与する。既存 JSON を更新する場合は既存 `id` を維持する
-3. `schemaVersion: 4` を付ける
+2. 新規のカテゴリ、グループ、タスク、マイルストンには `crypto.randomUUID()` 相当の UUID v4 を付与する。既存 JSON を更新する場合は既存 `id` を維持する
+3. `schemaVersion: 5` を付ける
 4. JSON ファイルを書き、`node .cursor/skills/write-schedule/scripts/validate-schedule.mjs`（リポジトリ内）または同梱 `scripts/validate-schedule.mjs` で検証する
 5. エラーがあれば修正して再検証し、通ってからユーザーに渡す
 

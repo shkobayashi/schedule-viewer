@@ -67,7 +67,10 @@
 | 同上 | `stops a resized start from passing the end` | EDIT-03 |
 | 同上 | `recolors only the link touched by the dragged task` | VIEW-08, EDIT-02 |
 | 同上 | `uses the successor start when that task is dragged` | VIEW-08 |
-| `dependencies.test.ts` | `hits the segment, the elbow, and the endpoint` | EDIT-12 |
+| `dependencies.test.ts` | `keeps a right elbow when the gap fits the arrow` | VIEW-08 |
+| 同上 | `approaches from the left when the gap is shorter than the arrow` | VIEW-08 |
+| 同上 | `routes around a bar that starts before the predecessor ends` | VIEW-08 |
+| 同上 | `hits the segment, the elbow, and the endpoint` | EDIT-12 |
 | 同上 | `picks the closer line and ignores points outside the threshold` | EDIT-12 |
 | 同上 | `appends the predecessor in one list` | EDIT-12 |
 | 同上 | `rejects a duplicate with the same message as a repeated predecessor id` | EDIT-12 |
@@ -75,6 +78,7 @@
 | 同上 | `removes only that predecessor id` | EDIT-12 |
 | `exportHtml.test.ts` | `puts the active filter into HTML and SVG` | EXPORT-01, EXPORT-02 |
 | 同上 | `hatches tentative bars and labels them, and leaves committed bars solid` | VIEW-12, EXPORT-01 |
+| 同上 | `hatches a tentative milestone and leaves a committed one solid` | VIEW-04, VIEW-12, EXPORT-01 |
 | `exportView.test.ts` | `keeps milestones inside the visible span and referenced ones outside it` | EXPORT-02 |
 | 同上 | `keeps only the selected milestone` | EXPORT-02 |
 | 同上 | `drops milestones when the filter is none` | EXPORT-02 |
@@ -89,7 +93,7 @@
 | 同上 | `accepts a name that is only padded with spaces` | EDIT-07 |
 | 同上 | `appends a milestone without sorting or rejecting duplicates` | EDIT-07 |
 | 同上 | `removes the milestone and clears only matching milestoneId` | EDIT-07 |
-| 同上 | `skips ids that are already used by a task or a milestone` | EDIT-07 |
+| 同上 | `skips ids already used by a category, group, task, or milestone` | EDIT-07, EDIT-08 |
 | 同上 | `resets the milestone filter only when it is the deleted id` | EDIT-07 |
 | 同上 | `reports whether any task points at the milestone` | EDIT-07 |
 | `nonWorkingDay.test.ts` | `defaults to Sat/Sun when calendar is null` | VIEW-09 |
@@ -97,7 +101,10 @@
 | 同上 | `treats an empty weekends list as no weekday holidays` | VIEW-09 |
 | 同上 | `does not paint days past the schedule end` | VIEW-09 |
 | 同上 | `respects nonWorkingDays on weekdays` | VIEW-09 |
-| `rows.test.ts` | `matches note substring independently of name` | FILTER-02, FILTER-09 |
+| `rows.test.ts` | `relaxes filters that would hide a newly added task` | EDIT-08, EDIT-14 |
+| 同上 | `keeps filters that still show a newly added task` | EDIT-08 |
+| 同上 | `keeps filters that match the duplicated task` | EDIT-14, FILTER-10 |
+| 同上 | `matches note substring independently of name` | FILTER-02, FILTER-09 |
 | 同上 | `keeps only the selected confidence` | FILTER-10 |
 | 同上 | `excludes tasks without note when noteSearch is set` | FILTER-02 |
 | 同上 | `matches task linked to selected milestone id` | FILTER-07 |
@@ -109,9 +116,14 @@
 | 同上 | `treats the same name with a different id as a delete and an add` | FILE-07 |
 | 同上 | `shows file-only edits as the difference from the current file to the screen` | FILE-07 |
 | 同上 | `writes an order line only when the remaining ids are reordered` | FILE-07 |
-| 同上 | `does not treat a category rename as a rename` | FILE-07 |
+| 同上 | `shows a task place change when it moves to another group` | FILE-07 |
+| 同上 | `treats a group that moves to another category as a place change` | FILE-07 |
+| 同上 | `treats a group rename as a name change and leaves tasks in place` | FILE-07 |
+| 同上 | `treats a category rename as a name change` | FILE-07 |
+| 同上 | `treats the same category name with a different id as a delete and an add` | FILE-07 |
 | 同上 | `ignores predecessor order when the set is unchanged` | FILE-07 |
 | 同上 | `shows a milestone date shift and a title change` | FILE-07 |
+| 同上 | `shows a milestone confidence change after the date` | FILE-07 |
 | 同上 | `writes milestone order and category order when the remaining items swap` | FILE-07 |
 | 同上 | `writes a group order line when groups in a category swap` | FILE-07 |
 | 同上 | `shows a cleared milestone link and the deleted milestone without an order line` | FILE-07 |
@@ -125,9 +137,23 @@
 | `scheduleMigrate.test.ts` | `rejects v1 after date migration because v2 is no longer supported` | FILE-01 |
 | 同上 | `rejects v2 documents` | FILE-01 |
 | 同上 | `accepts assigneeId and confidence` | FILE-01 |
-| 同上 | `reads a v3 task without confidence as committed and canonicalizes to v4` | FILE-01, FILE-04 |
+| 同上 | `reads a v3 task without confidence as committed and canonicalizes to v5` | FILE-01, FILE-04 |
+| 同上 | `reads a milestone without confidence as committed and keeps one already set` | FILE-01, FILE-04 |
+| 同上 | `rejects a milestone confidence that is not tentative or committed` | FILE-01 |
 | 同上 | `keeps confidence already present on a v3 task` | FILE-01 |
 | 同上 | `rejects a v4 task without confidence` | FILE-01 |
+| 同上 | `assigns the same hierarchy ids each time a v4 document is opened` | FILE-01, FILE-04 |
+| 同上 | `picks another hierarchy id when the name-derived id is already used` | FILE-01 |
+| 同上 | `rejects a category id that duplicates a milestone id` | FILE-01 |
+| 同上 | `rejects a group id that duplicates its category id` | FILE-01 |
+| 同上 | `rejects a category id that duplicates a task id` | FILE-01 |
+| `uuidV5.test.ts` | `matches the RFC 4122 DNS example` | FILE-01 |
+| `hierarchyRename.test.ts` | `trims the name and keeps the id` | EDIT-13 |
+| 同上 | `keeps the original name when the input is blank` | EDIT-13 |
+| 同上 | `rejects a duplicate category name` | EDIT-13 |
+| 同上 | `rejects a duplicate name in the same category` | EDIT-13 |
+| 同上 | `allows the same group name in another category` | EDIT-13 |
+| 同上 | `keeps the original name when the input is blank` | EDIT-13 |
 | `scheduleRecovery.test.ts` | `accepts a valid draft` | SYNC-03 |
 | 同上 | `rejects invalid document JSON` | SYNC-03 |
 | 同上 | `returns the parent and skips a bare filename` | SYNC-03 |
@@ -145,6 +171,7 @@
 | 同上 | `returns invalidDisk when the file fails validation` | SYNC-03 |
 | `serialize.test.ts` | `omits empty note` | EDIT-06 |
 | 同上 | `writes confidence after progress` | FILE-02 |
+| 同上 | `writes milestone confidence after date` | FILE-02 |
 | 同上 | `includes trimmed note` | EDIT-06 |
 | `shortcuts.test.ts` | `maps command L for drawing a link unless a field or dialog has focus` | EDIT-12 |
 | 同上 | `uses the command key on mac and ctrl elsewhere` | EDIT-12 |
@@ -174,6 +201,10 @@
 | 同上 | `merges overlapping spans` | VIEW-03 |
 | 同上 | `leaves a one-day gap between spans` | VIEW-03 |
 | 同上 | `draws a single-day summary through the exclusive end` | VIEW-03 |
+| `tasks.test.ts` | `inserts the copy immediately after the source` | EDIT-14 |
+| 同上 | `copies fields and predecessors without changing successors` | EDIT-14 |
+| 同上 | `rejects a cycle created by a successor link` | EDIT-14, EDIT-05 |
+| 同上 | `reports a missing source` | EDIT-14 |
 | `taskEditCycles.test.ts` | `detects indirect cycles` | EDIT-05 |
 | 同上 | `detects a direct cycle` | EDIT-05 |
 | 同上 | `clears a cycle once the closing predecessor is removed` | EDIT-05 |
@@ -228,10 +259,10 @@
 | `dependencies.ts` | 破綻の境界と系統は未テスト。線の追加、除去、当たりはテストしている。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でもテストしている |
 | `timeline.ts` | 期限超過、イナズマ線、ズーム段階は未テスト |
 | `milestones.ts` | マイルストン超過と段の割り当ては未テスト。追加と削除はテストしている |
-| `rows.ts` | ノート、マイルストン、確度以外の絞り込み、`computeVisibleRows`、折りたたみは未テスト |
+| `rows.ts` | ノート、マイルストン、確度以外の絞り込み、`computeVisibleRows`、折りたたみは未テスト。追加と複製で外す絞り込みはテストしている |
 | `exportFilename.ts` | 未テスト。Rust 側が似たファイル名処理をテストしている |
 | `scheduleFile.ts` | Tauri とブラウザの I/O は未テスト |
-| `tasks.ts` | 追加と削除の操作は未テスト |
+| `tasks.ts` | 末尾への追加と削除は未テスト。複製の直後挿入と先行の写しはテストしている |
 | `validationMessages.ts` | 文言の組み立ては未テスト |
 | `errors.ts` | 未テスト |
 | `timelineVisibleDays.ts` | 未テスト |
@@ -273,7 +304,8 @@
 | TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しがファイル名になる |
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01b | FILE-01 | schemaVersion 2 の JSON がある | 「開く」で選ぶ | 開かず、理由が出る。それまでの保存先は変わらない |
-| TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーはベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 4 になり、全部のタスクに `confidence` がある |
+| TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 5 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある |
+| TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 5 になる |
 | TC-FILE-02 | FILE-02 | ファイルを開き、バーを動かして未保存にする | 「保存」を押す | 見出しから「未保存」が消え、ファイルの内容が画面と一致する |
 | TC-FILE-02c | FILE-02 | 同上 | ⌘/Ctrl+S を押す。検索欄にフォーカスがあるときも押す | 「保存」と同じように保存される。編集ダイアログが開いているときは保存されない |
 | TC-FILE-03 | FILE-03 | サンプルを編集する | 「別名保存」で新しいパスを選ぶ | そのパスに JSON ができ、次の「保存」はそのパスへ書く |
@@ -306,11 +338,13 @@
 | TC-VIEW-02 | VIEW-02 | 進行中のタスクがある | そのバーを見る | 薄青の地に、進捗率の濃い部分がある。完了は緑、未着手は灰 |
 | TC-VIEW-03 | VIEW-03 | 子の期間が離れているグループ | 親の行を見る | 半分の高さで、途切れた期間は薄い色になる |
 | TC-VIEW-04 | VIEW-04 | 日付が近く名前が長いマイルストンが複数ある | 日付ヘッダーの下を見る | ひし形と名前が出る。重なるときは段が増える。チャート全体の縦線は無い |
+| TC-VIEW-04b | VIEW-04, VIEW-12 | 未確定と確定のマイルストンがある | ひし形を、ライトとダークで見る。HTML と SVG に書き出す | 未確定は斜線、確定は塗りつぶし。書き出しも同じ |
 | TC-VIEW-05 | VIEW-05 | 終了日が昨日の未完了タスクと、終了日が今日の未完了タスク | 両方のバーを見る | 昨日で終わるものだけが赤い |
 | TC-VIEW-06 | VIEW-06 | 対応マイルストンより終了日が後のタスクと、当日で終わるタスク | 行を見る | 後のタスクだけ、右が半透明の赤になり「超過」が出る |
 | TC-VIEW-07 | VIEW-07 | 期限超過の行と、進行中で開始日が明日の行 | 橙の線を見る | 超過の行では終了日まで左へ、未来に開始する着手済みの行では開始日まで右へ折れる |
 | TC-VIEW-08 | VIEW-08 | 後続の開始が先行の終了より前の組と、同じ日に始まる組 | 線を見る | 先行の終了より前に始まる組の線だけが赤い。どちらかを折りたたむと線は消える |
 | TC-VIEW-08b | VIEW-08 | 先行と後続が見えている | 後続の開始を超えるまで先行の終了を延ばし、離す前に線を見る。同じ日まで戻してから離す | 離す前に赤く太くなる。同じ日では赤くならない。離してから「前後: 破綻のみ」に入る |
+| TC-VIEW-08c | VIEW-08 | 先行の終了と後続の開始が数日以内の組 | 月表示まで縮小して線を見る。週表示でも見る | どちらの表示でも矢印の頭が後続バーの左の外にあり、後続の行へ向かう線が分かる |
 | TC-VIEW-09 | VIEW-09 | カレンダー未設定で日表示 | 背景を見る | 土日だけが薄い灰。月表示では日ごとに塗らない |
 | TC-VIEW-10 | VIEW-10 | 使用中カタログがある | 割り当てなし、一致する ID、存在しない ID の行を見る | 「割り当てなし」は破線、「メンバー不明」は点線と ID、一致は表示名 |
 | TC-VIEW-11 | VIEW-11 | ノートがあるタスクと無いタスク | ノートアイコンを押す | 色が違い、本文が出る。無いタスクは「ノートはありません」 |
@@ -337,7 +371,7 @@
 | TC-FILTER-08b | FILTER-08 | 系統を表示している | 別のタスクを右クリックし、「系統を表示」を選ぶ | 起点がそのタスクに切り替わる。同じタスクなら「系統を解除」で外れる |
 | TC-FILTER-09 | FILTER-09 | あるグループのタスクがすべて完了 | 「完了以外」を選ぶ | そのグループの行も消える。追加ダイアログでは、そのグループをまだ選べる |
 | TC-FILTER-10 | FILTER-10 | サンプル | 「確度」で「未確定」、次に「確定」を選ぶ | 未確定だけ、次に確定だけが残る。選んでいたタスクの選択は外れる |
-| TC-VIEW-12 | VIEW-12 | サンプル | 未確定と確定のバーを、ライトとダークで見る。超過もある未確定を見る | 未確定は斜線で、確定はベタ塗り。色はステータスと期限超過のまま。左に「未確定」が出る。超過もあるときは「未確定」「超過」の順 |
+| TC-VIEW-12 | VIEW-12 | サンプル | 未確定と確定のバーを、ライトとダークで見る。超過もある未確定を見る。サンプルの「本番リリース」も見る | 未確定は斜線で、確定はベタ塗り。色はステータスと期限超過のまま。左に「未確定」が出る。超過もあるときは「未確定」「超過」の順。本番リリースのひし形は斜線で、他のマイルストンは塗りつぶし |
 | TC-EDIT-01 | EDIT-01 | サンプル | バーをクリックし、次に背景をクリックする | バーで選択され端のハンドルが出る。背景で外れる。左の行をクリックしても選択されない |
 | TC-EDIT-01b | EDIT-01 | タスクを選択している | 絞り込みを変える | 選択が外れる |
 | TC-EDIT-02 | EDIT-02 | タスクを選択できる | ⌘ または Ctrl を押しながらバーを横へドラッグして離す | 開始と終了が同じ日数だけ動く。修飾が無いドラッグはスクロールのまま |
@@ -350,9 +384,10 @@
 | TC-EDIT-04d | EDIT-04, EDIT-10 | タスクを選択している | 編集で確度を変えて保存し、取り消す | 確度だけが変わり、日付は動かない。取り消し 1 回で戻る |
 | TC-EDIT-05 | EDIT-05 | 3件以上のタスク | 編集で、自分を先行にしようとする。次に、循環する先行を保存する | 自分は候補に出ない。循環は保存されず、理由が出る |
 | TC-EDIT-05b | EDIT-05 | タスクが50件を超えるスケジュール | 先行の検索を空のまま開く | 「さらに絞り込んでください」と出る |
+| TC-EDIT-05c | EDIT-05 | カテゴリ名とグループ名が長い後続がある | そのタスクの編集を開く。後続にカーソルを乗せる。先行も見る | タスク名は省略されず見える。階層の行は長いとき省略される。ホバーで「カテゴリ / グループ / タスク名」の全文が出る。先行も同じである |
 | TC-EDIT-06 | EDIT-06 | ノートが無いタスク | ノートアイコンから文字を保存し、次に空白だけを保存する | 一度目でノートが付き、二度目でノートが消える |
 | TC-EDIT-07 | EDIT-07 | マイルストンがある | ひし形を横にドラッグして離す。次にダブルクリックで名前を空白にして保存する | 日付は離した位置になる。ドラッグ中の月/日は出ない。空白の名前は元の名前のまま残る |
-| TC-EDIT-07b | EDIT-07 | マイルストンが 0 件でもよい | 「マイルストン追加」で名前と日付を保存する | ひし形が出る。取り消し 1 回で消える |
+| TC-EDIT-07b | EDIT-07, VIEW-12 | マイルストンが 0 件でもよい | 「マイルストン追加」で名前と日付を、確度は未確定のまま保存する。次に確度を確定にして足す | 未確定は斜線、確定は塗りつぶしのひし形が出る。取り消し 1 回で、最後に足したものだけ消える |
 | TC-EDIT-07c | EDIT-07 | 「マイルストン追加」を開いている | 名前を空白だけ、または日付を空にして保存する。次にキャンセルと Escape を試す | どれでもマイルストンは増えない |
 | TC-EDIT-07d | EDIT-07 | 同じ名前と日付のマイルストンがある | 「マイルストン追加」で同じ名前と日付を保存する | もう 1 件足される |
 | TC-EDIT-07e | EDIT-07 | タスクが指しているマイルストンがある | ひし形を右クリックして「削除」を確認する | マイルストンが消え、指していたタスクの対応だけが外れる。日付は変わらない。取り消し 1 回でマイルストンと対応が戻る |
@@ -361,12 +396,18 @@
 | TC-EDIT-08 | EDIT-08 | タスクを選択し、「完了」で絞っている | 「追加」で、選択中のグループに今日から1日のタスクを足す | そのグループの末尾に、割り当てなし・未着手・未確定で足される。絞り込みは「すべて」に戻り、新しい行が選択される |
 | TC-EDIT-08c | EDIT-08, FILTER-10 | 確度を「確定」で絞っている | タスクを追加する。次に、確度を「未確定」に戻してから追加する | 「確定」のときだけ「すべて」に戻る。「未確定」のまま追加したタスクは残って見える |
 | TC-EDIT-08b | EDIT-08 | 追加ダイアログ | 終了日を開始日より前にして保存する | 追加されない |
+| TC-EDIT-14 | EDIT-14, EDIT-10 | 担当、確度、ノート、先行があるタスク | 右クリックの「複製」を開き、名前だけ変えて追加する。取り消す | 元の直後に、担当・確度・ノート・先行を写したタスクが足る。後続の相手は変わらない。取り消し 1 回で消える |
+| TC-EDIT-14b | EDIT-14 | 複製ダイアログ | キャンセル、または Escape を押す。別途、終了日を開始日より前にして追加する | タスクは増えない。日付が不正なときはダイアログが開いたまま |
+| TC-EDIT-14c | EDIT-14, FILTER-10 | 確定のタスクがあり、確度を「未確定」で絞っている | そのタスクを複製して追加する。次に確度を「確定」に絞り、確定のタスクを複製する | 未確定で絞っているときは「すべて」に戻り、複製が見える。確定で絞っているときは「確定」のまま、複製が見える |
 | TC-EDIT-09 | EDIT-09 | 先行を持つタスクを選択 | 「削除」を確認する | タスクが消え、他の先行からも外れ、残ったタスク同士はつながらない |
 | TC-EDIT-09b | EDIT-09 | タスクを選んでいない | 「削除」を見る | 押せない |
 | TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
-| TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左の行を右クリックする。選択中は端のハンドルも右クリックする | ノートが開く。左の行は右クリックで選択され、メニューが出る。左クリックでは選択されない。空白やカテゴリではメニューが出ない。端のハンドルでもバーと同じメニューが出る |
+| TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左のタスク行を右クリックする。選択中は端のハンドルも右クリックする。カテゴリ行も右クリックする | ノートが開く。左のタスク行は右クリックで選択され、メニューが出る。左クリックでは選択されない。チャートの空白ではメニューが出ない。端のハンドルでもバーと同じメニューが出る。カテゴリ行では「名前を変更」だけが出る |
 | TC-EDIT-11c | EDIT-11, EDIT-10, VIEW-12 | 未確定のタスクと、確定のタスクがある | それぞれを右クリックし、確度の項目を選ぶ。取り消す | 未確定には「確定にする」、確定には「未確定にする」だけが出る。日付は動かない。取り消し 1 回で戻る |
+| TC-EDIT-11d | EDIT-11, EDIT-07, EDIT-10, VIEW-12 | 未確定のマイルストンと、確定のマイルストンがある | それぞれを右クリックし、確度の項目を選ぶ。取り消す | 未確定には「確定にする」、確定には「未確定にする」が出る。日付は動かない。ひし形の斜線が切り替わる。取り消し 1 回で戻る。タスクの選択は変わらない |
 | TC-EDIT-11b | EDIT-11 | マイルストンがある | ひし形を右クリックし、「編集」を選ぶ | 「編集」と「削除」が出る。選択は変わらない。編集を選ぶと名前と日付の編集が開く |
+| TC-EDIT-13 | EDIT-13, EDIT-10 | サンプルで、カテゴリを折りたたむ | 左のカテゴリ行をダブルクリックし、名前を変えて保存する。同じ名前のカテゴリへも変えてみる。空白だけでも保存する。取り消す | 折りたたみは残る。重複する名前は保存されない。空白だけなら元の名前のまま閉じる。取り消し 1 回で名前が戻る。グループ行も同じである |
+| TC-EDIT-13b | EDIT-13 | 別のカテゴリに同じグループ名がある | そのグループを、別カテゴリと同じ名前に変える | 保存できる。同じカテゴリの中の既存名には変えられない |
 | TC-EDIT-12 | EDIT-12 | 見えているタスクを選択 | 「線を引く」または ⌘/Ctrl+L を押す。L だけも押す | モードに入る。ボタンに起点の名前が出る。ヒントは「次にクリックしたタスクを後続にします。Esc で中止」になる。選択が無いときと、L だけでは入らない |
 | TC-EDIT-12b | EDIT-12 | 線を引くモード | カーソルを動かし、タスクバー、左の一覧、それ以外へ乗せる | 起点の右端から折れ線が追随する。バーの上ではその左端まで、一覧の上ではチャートの左端まで伸びる。乗ったタスクバーだけ別の輪郭になる。起点、親バー、ひし形は強調されない。モードを終えると線は消える |
 | TC-EDIT-12c | EDIT-12 | 線を引くモード | 別のタスクバーをクリックする。続けて Esc、起点の再クリック、「線を引く」、⌘/Ctrl+L を試す。親バー、ひし形、背景もクリックする | クリックで線が 1 本足る。取り消しの 1 ステップで戻り、モードは残る。Esc、起点、ボタン、⌘/Ctrl+L では結ばずに終わる。親バー、ひし形、背景では終わらない |

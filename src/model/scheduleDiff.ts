@@ -14,6 +14,8 @@ export const NO_OPEN_SCHEDULE_FILE_MESSAGE = "比べるファイルがありま�
 const HEADER = "差分（今の画面 − 開いているファイル）";
 
 type TaskPlace = {
+  categoryId: ScheduleId;
+  groupId: ScheduleId;
   category: string;
   group: string;
   task: Task;
@@ -42,8 +44,10 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
   const fileMilestones = indexMilestones(file);
   const screenMilestoneNames = milestoneNameMap(screen);
   const fileMilestoneNames = milestoneNameMap(file);
-  const screenCategories = new Map(screen.categories.map((category) => [category.name, category]));
-  const fileCategories = new Map(file.categories.map((category) => [category.name, category]));
+  const screenCategories = new Map(screen.categories.map((category) => [category.id, category]));
+  const fileCategories = new Map(file.categories.map((category) => [category.id, category]));
+  const screenGroups = indexGroups(screen);
+  const fileGroups = indexGroups(file);
 
   if (screen.title !== file.title) {
     blocks.push(`title: ${file.title} → ${screen.title}`);
@@ -51,31 +55,58 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
 
   const categoryOrder = orderBlock(
     "並び カテゴリ",
-    file.categories.map((category) => category.name),
-    screen.categories.map((category) => category.name),
-    (name) => name,
+    file.categories.map((category) => category.id),
+    screen.categories.map((category) => category.id),
+    (id) => namedId(fileCategories.get(id)?.name, id),
+    (id) => namedId(screenCategories.get(id)?.name, id),
   );
   if (categoryOrder) blocks.push(categoryOrder);
 
   for (const category of screen.categories) {
-    const fileCategory = fileCategories.get(category.name);
+    const fileCategory = fileCategories.get(category.id);
     if (!fileCategory) {
-      blocks.push(`追加 カテゴリ ${category.name}`);
-    } else {
+      blocks.push(`追加 カテゴリ ${namedId(category.name, category.id)}`);
+    } else if (fileCategory.name !== category.name) {
+      blocks.push(
+        [
+          `変更 カテゴリ ${namedId(category.name, category.id)}`,
+          `  name: ${fileCategory.name} → ${category.name}`,
+        ].join("\n"),
+      );
+    }
+    if (fileCategory) {
       const groupOrder = orderBlock(
         `並び グループ ${category.name}`,
-        fileCategory.groups.map((group) => group.name),
-        category.groups.map((group) => group.name),
-        (name) => name,
+        fileCategory.groups.map((group) => group.id),
+        category.groups.map((group) => group.id),
+        (id) => namedId(fileCategory.groups.find((group) => group.id === id)?.name, id),
+        (id) => namedId(category.groups.find((group) => group.id === id)?.name, id),
       );
       if (groupOrder) blocks.push(groupOrder);
     }
 
     for (const group of category.groups) {
-      const fileGroup = findGroup(fileCategory, group.name);
-      if (!fileGroup) {
-        blocks.push(`追加 グループ ${category.name} / ${group.name}`);
+      const fileGroupPlace = fileGroups.get(group.id);
+      if (!fileGroupPlace) {
+        blocks.push(`追加 グループ ${place(category.name, group.name)} (${group.id})`);
       } else {
+        const fileGroup = fileGroupPlace.group;
+        const parentChanged = fileGroupPlace.category.id !== category.id;
+        const nameChanged = fileGroup.name !== group.name;
+        if (parentChanged || nameChanged) {
+          const lines = [
+            `変更 グループ ${place(category.name, group.name)} (${group.id})`,
+          ];
+          if (parentChanged) {
+            lines.push(
+              `  場所: ${place(fileGroupPlace.category.name, fileGroup.name)} → ${place(category.name, group.name)}`,
+            );
+          }
+          if (nameChanged) {
+            lines.push(`  name: ${fileGroup.name} → ${group.name}`);
+          }
+          blocks.push(lines.join("\n"));
+        }
         const taskOrder = orderBlock(
           `並び タスク ${category.name} / ${group.name}`,
           fileGroup.tasks.map((task) => task.id),
@@ -96,7 +127,13 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
         }
         const changed = changedTaskBlock(
           filePlace,
-          { category: category.name, group: group.name, task },
+          {
+            categoryId: category.id,
+            groupId: group.id,
+            category: category.name,
+            group: group.name,
+            task,
+          },
           fileTaskNames,
           screenTaskNames,
           fileMilestoneNames,
@@ -127,13 +164,13 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
   }
 
   for (const category of file.categories) {
-    const screenCategory = screenCategories.get(category.name);
+    const screenCategory = screenCategories.get(category.id);
     if (!screenCategory) {
-      blocks.push(`削除 カテゴリ ${category.name}`);
+      blocks.push(`削除 カテゴリ ${namedId(category.name, category.id)}`);
     }
     for (const group of category.groups) {
-      if (!findGroup(screenCategory, group.name)) {
-        blocks.push(`削除 グループ ${category.name} / ${group.name}`);
+      if (!screenGroups.has(group.id)) {
+        blocks.push(`削除 グループ ${place(category.name, group.name)} (${group.id})`);
       }
       for (const task of group.tasks) {
         if (!screenTasks.has(task.id)) {
@@ -213,7 +250,8 @@ function changedTaskBlock(
   const screenTask = screenPlace.task;
   const lines: string[] = [];
   const locationChanged =
-    filePlace.category !== screenPlace.category || filePlace.group !== screenPlace.group;
+    filePlace.categoryId !== screenPlace.categoryId ||
+    filePlace.groupId !== screenPlace.groupId;
   if (fileTask.name !== screenTask.name) {
     lines.push(`  name: ${fileTask.name} → ${screenTask.name}`);
   }
@@ -272,7 +310,11 @@ function deletedMilestoneBlock(milestone: Milestone): string {
 }
 
 function milestoneFieldLines(milestone: Milestone): string[] {
-  return [`  name: ${milestone.name}`, `  date: ${milestone.date}`];
+  return [
+    `  name: ${milestone.name}`,
+    `  date: ${milestone.date}`,
+    `  confidence: ${milestone.confidence}`,
+  ];
 }
 
 function changedMilestoneBlock(fileMilestone: Milestone, screenMilestone: Milestone): string | null {
@@ -282,6 +324,11 @@ function changedMilestoneBlock(fileMilestone: Milestone, screenMilestone: Milest
   }
   if (fileMilestone.date !== screenMilestone.date) {
     lines.push(`  date: ${formatDayDelta(fileMilestone.date, screenMilestone.date)}`);
+  }
+  if (fileMilestone.confidence !== screenMilestone.confidence) {
+    lines.push(
+      `  confidence: ${fileMilestone.confidence} → ${screenMilestone.confidence}`,
+    );
   }
   if (lines.length === 0) return null;
   return [`変更 ${screenMilestone.name} (${screenMilestone.id})`, ...lines].join("\n");
@@ -361,8 +408,16 @@ function taskNameIn(tasks: Task[], id: string): string | undefined {
   return tasks.find((task) => task.id === id)?.name;
 }
 
-function findGroup(category: Category | undefined, name: string): TaskGroup | undefined {
-  return category?.groups.find((group) => group.name === name);
+function indexGroups(
+  doc: ScheduleDocument,
+): Map<ScheduleId, { category: Category; group: TaskGroup }> {
+  const map = new Map<ScheduleId, { category: Category; group: TaskGroup }>();
+  for (const category of doc.categories) {
+    for (const group of category.groups) {
+      map.set(group.id, { category, group });
+    }
+  }
+  return map;
 }
 
 function indexTasks(doc: ScheduleDocument): Map<ScheduleId, TaskPlace> {
@@ -370,7 +425,13 @@ function indexTasks(doc: ScheduleDocument): Map<ScheduleId, TaskPlace> {
   for (const category of doc.categories) {
     for (const group of category.groups) {
       for (const task of group.tasks) {
-        map.set(task.id, { category: category.name, group: group.name, task });
+        map.set(task.id, {
+          categoryId: category.id,
+          groupId: group.id,
+          category: category.name,
+          group: group.name,
+          task,
+        });
       }
     }
   }

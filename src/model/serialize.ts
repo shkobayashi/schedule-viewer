@@ -31,10 +31,13 @@ export function scheduleToJson(
       id: milestone.id,
       name: milestone.name,
       date: milestone.date,
+      confidence: milestone.confidence,
     })),
     categories: categories.map((category) => ({
+      id: category.id,
       name: category.name,
       groups: category.groups.map((group) => ({
+        id: group.id,
         name: group.name,
         tasks: group.tasks.map((task) => taskToJson(task)),
       })),

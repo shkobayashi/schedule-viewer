@@ -3,7 +3,7 @@ import type { MemberId } from "./memberTypes";
 
 export type ScheduleId = string;
 
-export const SCHEDULE_SCHEMA_VERSION = 4;
+export const SCHEDULE_SCHEMA_VERSION = 5;
 
 export type TaskStatus = "not-started" | "in-progress" | "done";
 
@@ -27,11 +27,13 @@ export type Task = {
   note?: string;
 };
 
-/** タスクではない到達点。期間は持たず、日付だけが決まる。 */
+/** タスクではない到達点。期間は持たず、日付と確度が決まる。 */
 export type Milestone = {
   id: ScheduleId;
   name: string;
   date: string;
+  /** 日付を合意したかどうか。着手や進捗とは独立。 */
+  confidence: TaskConfidence;
 };
 
 export type ScheduleDocument = {
@@ -43,11 +45,13 @@ export type ScheduleDocument = {
 
 /** カテゴリとタスクの間。日付は持たず、配下タスクのまとまり。 */
 export type TaskGroup = {
+  id: ScheduleId;
   name: string;
   tasks: Task[];
 };
 
 export type Category = {
+  id: ScheduleId;
   name: string;
   groups: TaskGroup[];
 };
@@ -88,6 +92,7 @@ export type ScheduleFilters = {
 export type VisibleRow =
   | {
       type: "category";
+      id: ScheduleId;
       label: string;
       y: number;
       collapsed: boolean;
@@ -95,6 +100,8 @@ export type VisibleRow =
     }
   | {
       type: "group";
+      id: ScheduleId;
+      categoryId: ScheduleId;
       category: string;
       label: string;
       y: number;

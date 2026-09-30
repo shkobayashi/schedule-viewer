@@ -1,4 +1,5 @@
 import { addDays, isoDate, isIsoDateString, parseDate } from "./dates";
+import { HIERARCHY_ID_NAMESPACE, uuidV5 } from "./uuidV5";
 
 type RawDoc = Record<string, unknown>;
 
@@ -101,4 +102,99 @@ export function migrateScheduleV3ToV4(data: unknown): unknown {
     schemaVersion: 4,
     categories: nextCategories,
   };
+}
+
+function isRecord(value: unknown): value is RawDoc {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function collectLeafIds(doc: RawDoc): Set<string> {
+  const used = new Set<string>();
+  if (Array.isArray(doc.milestones)) {
+    for (const milestone of doc.milestones) {
+      if (isRecord(milestone) && typeof milestone.id === "string") {
+        used.add(milestone.id);
+      }
+    }
+  }
+  if (!Array.isArray(doc.categories)) return used;
+  for (const category of doc.categories) {
+    if (!isRecord(category) || !Array.isArray(category.groups)) continue;
+    for (const group of category.groups) {
+      if (!isRecord(group) || !Array.isArray(group.tasks)) continue;
+      for (const task of group.tasks) {
+        if (isRecord(task) && typeof task.id === "string") used.add(task.id);
+      }
+    }
+  }
+  return used;
+}
+
+function takeHierarchyId(used: Set<string>, seed: string): string {
+  let id = uuidV5(HIERARCHY_ID_NAMESPACE, seed);
+  let n = 2;
+  while (used.has(id)) {
+    id = uuidV5(HIERARCHY_ID_NAMESPACE, `${seed}\0${n}`);
+    n += 1;
+    if (n > 1000) {
+      throw new Error("カテゴリ ID を割り当てられませんでした");
+    }
+  }
+  used.add(id);
+  return id;
+}
+
+/**
+ * schemaVersion 4 を 5 にする。カテゴリとグループへ、名前から決まる ID を付ける。
+ * 同じ内容を開き直しても ID は変わらない。既にあるタスクやマイルストンの ID と
+ * ぶつかったときだけ、別の ID にする。
+ */
+export function migrateScheduleV4ToV5(data: unknown): unknown {
+  if (!isRecord(data) || data.schemaVersion !== 4) return data;
+  const used = collectLeafIds(data);
+  const categories = data.categories;
+  if (!Array.isArray(categories)) {
+    return { ...data, schemaVersion: 5 };
+  }
+
+  const nextCategories = categories.map((category) => {
+    if (!isRecord(category)) return category;
+    const categoryName = typeof category.name === "string" ? category.name : "";
+    const id = takeHierarchyId(used, `category\0${categoryName}`);
+    const groups = category.groups;
+    if (!Array.isArray(groups)) return { ...category, id };
+    const nextGroups = groups.map((group) => {
+      if (!isRecord(group)) return group;
+      const groupName = typeof group.name === "string" ? group.name : "";
+      const groupId = takeHierarchyId(
+        used,
+        `group\0${categoryName}\0${groupName}`,
+      );
+      return { ...group, id: groupId };
+    });
+    return { ...category, id, groups: nextGroups };
+  });
+
+  return {
+    ...data,
+    schemaVersion: 5,
+    categories: nextCategories,
+  };
+}
+
+/**
+ * schemaVersion 5 のマイルストンに確度が無いときは committed として読む。
+ * 既にある confidence はそのまま残し、あとからスキーマで検証する。
+ */
+export function fillMissingMilestoneConfidence(data: unknown): unknown {
+  if (!isRecord(data) || data.schemaVersion !== 5 || !Array.isArray(data.milestones)) {
+    return data;
+  }
+  let changed = false;
+  const milestones = data.milestones.map((milestone) => {
+    if (!isRecord(milestone) || "confidence" in milestone) return milestone;
+    changed = true;
+    return { ...milestone, confidence: "committed" };
+  });
+  return changed ? { ...data, milestones } : data;
 }
