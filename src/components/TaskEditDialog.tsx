@@ -42,11 +42,20 @@ type TaskEditDialogProps = {
   }) => string | null;
 };
 
-function taskLabel(tasks: TaskRef[], id: ScheduleId): string {
+function taskRelationLabel(
+  tasks: TaskRef[],
+  id: ScheduleId,
+): { title: string; ancestors: string | null; leaf: string } {
   const found = tasks.find((task) => task.id === id);
-  return found
-    ? `${found.category} / ${found.group} / ${found.name}`
-    : `ID ${id}`;
+  if (!found) {
+    const title = `ID ${id}`;
+    return { title, ancestors: null, leaf: title };
+  }
+  return {
+    title: `${found.category} / ${found.group} / ${found.name}`,
+    ancestors: `${found.category} / ${found.group}`,
+    leaf: found.name,
+  };
 }
 
 export function TaskEditDialog({
@@ -333,14 +342,22 @@ function RelationField({
       <label htmlFor={inputId}>{label}</label>
       {selected.length > 0 ? (
         <ul className="relation-list">
-          {selected.map((id) => (
-            <li key={id}>
-              <span>{taskLabel(tasks, id)}</span>
-              <button type="button" onClick={() => onRemove(id)}>
-                外す
-              </button>
-            </li>
-          ))}
+          {selected.map((id) => {
+            const label = taskRelationLabel(tasks, id);
+            return (
+              <li key={id}>
+                <span className="relation-label" title={label.title}>
+                  {label.ancestors ? (
+                    <span className="relation-ancestors">{label.ancestors}</span>
+                  ) : null}
+                  <span className="relation-leaf">{label.leaf}</span>
+                </span>
+                <button type="button" onClick={() => onRemove(id)}>
+                  外す
+                </button>
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="relation-empty">なし</p>
