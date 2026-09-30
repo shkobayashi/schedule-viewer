@@ -1,3 +1,4 @@
+import { LAYOUT_BAR_HEIGHT } from "./layoutSizes";
 import {
   validateDependencyCycles,
   validatePredecessorRefs,
@@ -146,21 +147,55 @@ export function visibleLinks(
   return links;
 }
 
+/** 矢印の頭の長さ。画面の Arrow と書き出しの marker と揃える。 */
+export const LINK_POINTER_LENGTH = 7;
+
+/** 後続バーの左に残す水平区間。頭がバーに隠れない長さ。 */
+export const LINK_ARROW_CLEARANCE = LINK_POINTER_LENGTH + 3;
+
+const LINK_ELBOW = 12;
+const LINK_STUB = 8;
+const LINK_LANE_GAP = 4;
+
 /**
  * 先行バー右端から後続バー左端への折れ線。
- * 日付が重なって右に抜けられない場合も、同じ形で後続の左端へ向ける。
+ * 最後の区間は右向きで、頭が後続バーの外に収まる。
+ * 右へ出る余地が足りないときは、先行バーの外側を回ってから左端へ入る。
  */
 export function linkPoints(
   fromRight: number,
   fromY: number,
   toLeft: number,
   toY: number,
+  barHeight = LAYOUT_BAR_HEIGHT,
 ): number[] {
-  if (Math.abs(fromY - toY) < 1) {
-    return [fromRight, fromY, toLeft, toY];
+  const sameRow = Math.abs(fromY - toY) < 1;
+  if (toLeft - fromRight >= LINK_ARROW_CLEARANCE) {
+    if (sameRow) return [fromRight, fromY, toLeft, toY];
+    const elbow = Math.min(fromRight + LINK_ELBOW, toLeft - LINK_ARROW_CLEARANCE);
+    if (elbow <= fromRight + 0.5) {
+      return [fromRight, fromY, fromRight, toY, toLeft, toY];
+    }
+    return [fromRight, fromY, elbow, fromY, elbow, toY, toLeft, toY];
   }
-  const elbow = fromRight + 12;
-  return [fromRight, fromY, elbow, fromY, elbow, toY, toLeft, toY];
+  const laneDir = sameRow ? -1 : Math.sign(toY - fromY);
+  const laneY = fromY + laneDir * (barHeight / 2 + LINK_LANE_GAP);
+  const exitX = fromRight + LINK_STUB;
+  const approachX = toLeft - LINK_ARROW_CLEARANCE;
+  return [
+    fromRight,
+    fromY,
+    exitX,
+    fromY,
+    exitX,
+    laneY,
+    approachX,
+    laneY,
+    approachX,
+    toY,
+    toLeft,
+    toY,
+  ];
 }
 
 /** 描いた線より広い当たり。重なったときはこの距離以内で一番近い 1 本。 */
