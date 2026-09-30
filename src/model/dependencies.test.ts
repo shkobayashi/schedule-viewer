@@ -34,7 +34,15 @@ function task(id: string, predecessors: string[] = []): Task {
 }
 
 function categories(tasks: Task[]): Category[] {
-  return [{ name: "設計", groups: [{ name: "上流", tasks }] }];
+  return [
+    {
+      id: "c1000001-0000-4000-8000-000000000001",
+      name: "設計",
+      groups: [
+        { id: "d1000001-0000-4000-8000-000000000001", name: "上流", tasks },
+      ],
+    },
+  ];
 }
 
 function dialogMessage(next: Category[]): string {

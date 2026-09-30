@@ -36,10 +36,11 @@ import {
 import {
   cloneCategories,
   collectScheduleIds,
-  createScheduleId,
   insertTask,
   mapTasks,
   removeTask,
+  renameCategory,
+  renameGroup,
   uniqueScheduleId,
   validateNewTask,
   validateTaskEdit,
@@ -78,6 +79,25 @@ function initialSnapshot(
   };
 }
 
+type EditingHierarchy = { kind: "category" | "group"; id: ScheduleId };
+
+function findHierarchyTarget(
+  categories: Category[],
+  editing: EditingHierarchy | null,
+): { title: string; name: string } | null {
+  if (editing == null) return null;
+  if (editing.kind === "category") {
+    const category = categories.find((item) => item.id === editing.id);
+    if (!category) return null;
+    return { title: "カテゴリ名", name: category.name };
+  }
+  for (const category of categories) {
+    const group = category.groups.find((item) => item.id === editing.id);
+    if (group) return { title: "グループ名", name: group.name };
+  }
+  return null;
+}
+
 export function useSchedule(
   initialTitle: string,
   initialCategories: Category[],
@@ -98,6 +118,9 @@ export function useSchedule(
     () => documentRef.current.milestones,
   );
   const [editingMilestoneId, setEditingMilestoneId] = useState<ScheduleId | null>(
+    null,
+  );
+  const [editingHierarchy, setEditingHierarchy] = useState<EditingHierarchy | null>(
     null,
   );
   const [selectedTaskId, setSelectedTaskId] = useState<ScheduleId | null>(null);
@@ -148,6 +171,18 @@ export function useSchedule(
         ? current
         : null,
     );
+    setEditingHierarchy((current) => {
+      if (current == null) return null;
+      if (current.kind === "category") {
+        return snapshot.categories.some((category) => category.id === current.id)
+          ? current
+          : null;
+      }
+      const exists = snapshot.categories.some((category) =>
+        category.groups.some((group) => group.id === current.id),
+      );
+      return exists ? current : null;
+    });
   }, []);
 
   const applySnapshot = useCallback(
@@ -377,6 +412,37 @@ export function useSchedule(
     [editingMilestoneId, milestones],
   );
 
+  const openHierarchyEdit = useCallback(
+    (kind: "category" | "group", id: ScheduleId) => {
+      setEditingHierarchy({ kind, id });
+    },
+    [],
+  );
+
+  const closeHierarchyEdit = useCallback(() => {
+    setEditingHierarchy(null);
+  }, []);
+
+  const saveHierarchyName = useCallback(
+    (rawName: string): string | null => {
+      if (editingHierarchy == null) return "名前を保存できませんでした";
+      const current = documentRef.current.categories;
+      const result =
+        editingHierarchy.kind === "category"
+          ? renameCategory(current, editingHierarchy.id, rawName)
+          : renameGroup(current, editingHierarchy.id, rawName);
+      if (result.error) return result.error;
+      if (result.changed) {
+        commitCategories(() => result.categories);
+      }
+      setEditingHierarchy(null);
+      return null;
+    },
+    [commitCategories, editingHierarchy],
+  );
+
+  const editingHierarchyTarget = findHierarchyTarget(categories, editingHierarchy);
+
   const setTaskEnd = useCallback(
     (taskId: ScheduleId, end: string) => {
       commitCategories((prev) =>
@@ -589,7 +655,9 @@ export function useSchedule(
       const currentCategories = documentRef.current.categories;
       if (validateNewTask(input, currentCategories)) return null;
       const name = input.name.trim();
-      const id = createScheduleId();
+      const id = uniqueScheduleId(
+        collectScheduleIds(currentCategories, documentRef.current.milestones),
+      );
       const task: Task = {
         id,
         name,
@@ -603,11 +671,13 @@ export function useSchedule(
         milestoneId: null,
       };
       const place = { category: input.category, group: input.group };
+      const category = currentCategories.find((item) => item.name === place.category);
+      const group = category?.groups.find((item) => item.name === place.group);
       commitCategories((prev) => insertTask(prev, task, place));
       setCollapsed((prev) => {
         const next = new Set(prev);
-        next.delete(categoryCollapseKey(place.category));
-        next.delete(groupCollapseKey(place.category, place.group));
+        if (category) next.delete(categoryCollapseKey(category.id));
+        if (group) next.delete(groupCollapseKey(group.id));
         return next;
       });
       setFilters((prev) => ({
@@ -758,6 +828,10 @@ export function useSchedule(
     categories,
     milestones,
     editingMilestone,
+    editingHierarchyTarget,
+    openHierarchyEdit,
+    closeHierarchyEdit,
+    saveHierarchyName,
     moveMilestoneByDays,
     openMilestoneEdit,
     closeMilestoneEdit,

@@ -1,5 +1,9 @@
 import validateSchema from "./generated/scheduleValidator.js";
-import { migrateScheduleToV2, migrateScheduleV3ToV4 } from "./scheduleMigrate";
+import {
+  migrateScheduleToV2,
+  migrateScheduleV3ToV4,
+  migrateScheduleV4ToV5,
+} from "./scheduleMigrate";
 import {
   validateDependencyCycles,
   validatePredecessorRefs,
@@ -31,13 +35,13 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
         {
           path: "/schemaVersion",
           message:
-            "schemaVersion 2（担当者名 assignee）は読み込めません。assigneeId と confidence を使う schemaVersion 4 に更新してください。",
+            "schemaVersion 2（担当者名 assignee）は読み込めません。assigneeId と confidence を使う schemaVersion 5 に更新してください。",
         },
       ],
     };
   }
 
-  const migrated = migrateScheduleV3ToV4(afterV1);
+  const migrated = migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1));
 
   if (!validateSchema(migrated)) {
     return {

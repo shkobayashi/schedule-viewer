@@ -12,6 +12,7 @@ import { DiffDialog } from "./components/DiffDialog";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneAddDialog } from "./components/MilestoneAddDialog";
+import { HierarchyNameDialog } from "./components/HierarchyNameDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
@@ -114,6 +115,8 @@ const INITIAL_BASELINE_JSON = serializeScheduleDocument(
 type ContextMenuState =
   | { kind: "task"; taskId: ScheduleId; x: number; y: number }
   | { kind: "milestone"; milestoneId: ScheduleId; x: number; y: number }
+  | { kind: "category"; id: ScheduleId; x: number; y: number }
+  | { kind: "group"; id: ScheduleId; x: number; y: number }
   | {
       kind: "link";
       fromId: ScheduleId;
@@ -423,7 +426,8 @@ function App() {
     hasOpenEditDialog:
       schedule.editingTask != null ||
       schedule.editingNoteTask != null ||
-      schedule.editingMilestone != null,
+      schedule.editingMilestone != null ||
+      schedule.editingHierarchyTarget != null,
   });
 
   const {
@@ -812,6 +816,22 @@ function App() {
     [linkSourceId],
   );
 
+  const openHierarchyContextMenu = useCallback(
+    (kind: "category" | "group", id: ScheduleId, x: number, y: number) => {
+      if (linkSourceId != null) return;
+      setContextMenu({ kind, id, x, y });
+    },
+    [linkSourceId],
+  );
+
+  const openHierarchyEdit = useCallback(
+    (kind: "category" | "group", id: ScheduleId) => {
+      if (linkSourceId != null) return;
+      schedule.openHierarchyEdit(kind, id);
+    },
+    [linkSourceId, schedule],
+  );
+
   const openLinkContextMenu = useCallback(
     (fromId: ScheduleId, toId: ScheduleId, x: number, y: number) => {
       setContextMenu({ kind: "link", fromId, toId, x, y });
@@ -856,6 +876,16 @@ function App() {
           id: "unlink",
           label: "線を外す",
           onSelect: () => removePredecessorLink(fromId, toId),
+        },
+      ];
+    }
+    if (contextMenu.kind === "category" || contextMenu.kind === "group") {
+      const { kind, id } = contextMenu;
+      return [
+        {
+          id: "rename",
+          label: "名前を変更",
+          onSelect: () => openHierarchyEdit(kind, id),
         },
       ];
     }
@@ -910,6 +940,7 @@ function App() {
     contextMenu,
     lineageTask?.id,
     openEditDialog,
+    openHierarchyEdit,
     setTaskConfidence,
     openMilestoneEdit,
     openTaskNoteDialog,
@@ -997,6 +1028,8 @@ function App() {
           onToggleCollapse={schedule.toggleCollapsed}
           onOpenTaskNote={schedule.openTaskNoteDialog}
           onTaskContextMenu={openTaskContextMenu}
+          onHierarchyContextMenu={openHierarchyContextMenu}
+          onHierarchyDoubleClick={openHierarchyEdit}
           today={schedule.today}
           memberCatalog={memberCatalogState.memberMap}
           uiScale={uiScale}
@@ -1097,6 +1130,15 @@ function App() {
           milestone={schedule.editingMilestone}
           onClose={schedule.closeMilestoneEdit}
           onSave={schedule.saveMilestoneEdit}
+        />
+      ) : null}
+      {schedule.editingHierarchyTarget ? (
+        <HierarchyNameDialog
+          key={`${schedule.editingHierarchyTarget.title}:${schedule.editingHierarchyTarget.name}:${schedule.diskEpoch}`}
+          title={schedule.editingHierarchyTarget.title}
+          initialName={schedule.editingHierarchyTarget.name}
+          onClose={schedule.closeHierarchyEdit}
+          onSave={schedule.saveHierarchyName}
         />
       ) : null}
       {addMilestoneOpen ? (

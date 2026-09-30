@@ -9,6 +9,10 @@ const TASK_C = "00000000-0000-4000-8000-00000000000c";
 const TASK_D = "00000000-0000-4000-8000-00000000000d";
 const MS_A = "00000000-0000-4000-8000-0000000000a1";
 const MS_B = "00000000-0000-4000-8000-0000000000b1";
+const CAT_A = "c1000001-0000-4000-8000-000000000001";
+const CAT_B = "c1000001-0000-4000-8000-000000000002";
+const GRP_A = "d1000001-0000-4000-8000-000000000001";
+const GRP_B = "d1000001-0000-4000-8000-000000000002";
 
 function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
   return {
@@ -38,7 +42,7 @@ function doc(
 }
 
 function design(tasks: Task[], group = "上流"): Category[] {
-  return [{ name: "設計", groups: [{ name: group, tasks }] }];
+  return [{ id: CAT_A, name: "設計", groups: [{ id: GRP_A, name: group, tasks }] }];
 }
 
 describe("formatScheduleDiff", () => {
@@ -125,19 +129,21 @@ describe("formatScheduleDiff", () => {
     });
     const file = doc([
       {
+        id: CAT_A,
         name: "設計",
         groups: [
-          { name: "上流", tasks: [removed, kept] },
-          { name: "詳細", tasks: [] },
+          { id: GRP_A, name: "上流", tasks: [removed, kept] },
+          { id: GRP_B, name: "詳細", tasks: [] },
         ],
       },
     ]);
     const screen = doc([
       {
+        id: CAT_A,
         name: "設計",
         groups: [
-          { name: "上流", tasks: [{ ...kept, predecessors: [] }] },
-          { name: "詳細", tasks: [] },
+          { id: GRP_A, name: "上流", tasks: [{ ...kept, predecessors: [] }] },
+          { id: GRP_B, name: "詳細", tasks: [] },
         ],
       },
     ]);
@@ -206,16 +212,125 @@ describe("formatScheduleDiff", () => {
     expect(middleRemoved).not.toContain("並び");
   });
 
-  it("does not treat a category rename as a rename", () => {
+  it("shows a task place change when it moves to another group", () => {
+    const item = task({ id: TASK_A, name: "基本設計" });
+    const file = doc([
+      {
+        id: CAT_A,
+        name: "設計",
+        groups: [
+          { id: GRP_A, name: "上流", tasks: [item] },
+          { id: GRP_B, name: "詳細", tasks: [] },
+        ],
+      },
+    ]);
+    const screen = doc([
+      {
+        id: CAT_A,
+        name: "設計",
+        groups: [
+          { id: GRP_A, name: "上流", tasks: [] },
+          { id: GRP_B, name: "詳細", tasks: [item] },
+        ],
+      },
+    ]);
+    const text = formatScheduleDiff(screen, file, "plan.json");
+    expect(text).toContain(
+      "変更 基本設計 (00000000-0000-4000-8000-00000000000a)\n  場所: 設計 / 上流 → 設計 / 詳細",
+    );
+    expect(text).not.toContain("追加 グループ");
+    expect(text).not.toContain("削除");
+    expect(text).not.toContain("変更 グループ");
+  });
+
+  it("treats a group that moves to another category as a place change", () => {
+    const item = task({ id: TASK_A, name: "基本設計" });
+    const file = doc([
+      {
+        id: CAT_A,
+        name: "設計",
+        groups: [{ id: GRP_A, name: "上流", tasks: [item] }],
+      },
+      {
+        id: CAT_B,
+        name: "開発",
+        groups: [{ id: GRP_B, name: "実装", tasks: [] }],
+      },
+    ]);
+    const screen = doc([
+      {
+        id: CAT_A,
+        name: "設計",
+        groups: [{ id: GRP_B, name: "実装", tasks: [] }],
+      },
+      {
+        id: CAT_B,
+        name: "開発",
+        groups: [{ id: GRP_A, name: "下流", tasks: [item] }],
+      },
+    ]);
+    const text = formatScheduleDiff(screen, file, "plan.json");
+    expect(text).toContain(
+      [
+        `変更 グループ 設計 / 実装 (${GRP_B})`,
+        "  場所: 開発 / 実装 → 設計 / 実装",
+      ].join("\n"),
+    );
+    expect(text).toContain(
+      [
+        `変更 グループ 開発 / 下流 (${GRP_A})`,
+        "  場所: 設計 / 上流 → 開発 / 下流",
+        "  name: 上流 → 下流",
+      ].join("\n"),
+    );
+    expect(text).toContain(
+      "変更 基本設計 (00000000-0000-4000-8000-00000000000a)\n  場所: 設計 / 上流 → 開発 / 下流",
+    );
+    expect(text).not.toContain("追加 グループ");
+    expect(text).not.toContain("削除 グループ");
+  });
+
+  it("treats a group rename as a name change and leaves tasks in place", () => {
     const item = task({ id: TASK_A, name: "基本設計" });
     const file = doc(design([item]));
-    const screen = doc([{ name: "詳細設計", groups: [{ name: "上流", tasks: [item] }] }]);
+    const screen = doc([
+      { id: CAT_A, name: "設計", groups: [{ id: GRP_A, name: "下流", tasks: [item] }] },
+    ]);
     const text = formatScheduleDiff(screen, file, "plan.json");
-    expect(text).toContain("追加 カテゴリ 詳細設計");
-    expect(text).toContain("追加 グループ 詳細設計 / 上流");
-    expect(text).toContain("  場所: 設計 / 上流 → 詳細設計 / 上流");
-    expect(text).toContain("削除 カテゴリ 設計");
-    expect(text).toContain("削除 グループ 設計 / 上流");
+    expect(text).toContain(
+      `変更 グループ 設計 / 下流 (${GRP_A})\n  name: 上流 → 下流`,
+    );
+    expect(text).not.toContain("場所:");
+    expect(text).not.toContain("削除 グループ");
+  });
+
+  it("treats a category rename as a name change", () => {
+    const item = task({ id: TASK_A, name: "基本設計" });
+    const file = doc(design([item]));
+    const screen = doc([
+      { id: CAT_A, name: "詳細設計", groups: [{ id: GRP_A, name: "上流", tasks: [item] }] },
+    ]);
+    const text = formatScheduleDiff(screen, file, "plan.json");
+    expect(text).toContain(
+      `変更 カテゴリ 詳細設計 (${CAT_A})\n  name: 設計 → 詳細設計`,
+    );
+    expect(text).not.toContain("追加 カテゴリ");
+    expect(text).not.toContain("削除 カテゴリ");
+    expect(text).not.toContain("場所:");
+  });
+
+  it("treats the same category name with a different id as a delete and an add", () => {
+    const item = task({ id: TASK_A, name: "基本設計" });
+    const file = doc(design([item]));
+    const screen = doc([
+      { id: CAT_B, name: "設計", groups: [{ id: GRP_B, name: "上流", tasks: [item] }] },
+    ]);
+    const text = formatScheduleDiff(screen, file, "plan.json");
+    expect(text).toContain(`追加 カテゴリ 設計 (${CAT_B})`);
+    expect(text).toContain(`削除 カテゴリ 設計 (${CAT_A})`);
+    expect(text).toContain(`追加 グループ 設計 / 上流 (${GRP_B})`);
+    expect(text).toContain(`削除 グループ 設計 / 上流 (${GRP_A})`);
+    expect(text).toContain("  場所: 設計 / 上流 → 設計 / 上流");
     expect(text).not.toContain("変更 カテゴリ");
   });
 
@@ -252,8 +367,8 @@ describe("formatScheduleDiff", () => {
   it("writes milestone order and category order when the remaining items swap", () => {
     const file = doc(
       [
-        { name: "設計", groups: [] },
-        { name: "開発", groups: [] },
+        { id: CAT_A, name: "設計", groups: [] },
+        { id: CAT_B, name: "開発", groups: [] },
       ],
       [
         { id: MS_A, name: "要件確定", date: "2026-04-01" },
@@ -262,8 +377,8 @@ describe("formatScheduleDiff", () => {
     );
     const screen = doc(
       [
-        { name: "開発", groups: [] },
-        { name: "設計", groups: [] },
+        { id: CAT_B, name: "開発", groups: [] },
+        { id: CAT_A, name: "設計", groups: [] },
       ],
       [
         { id: MS_B, name: "設計完了", date: "2026-05-01" },
@@ -271,7 +386,9 @@ describe("formatScheduleDiff", () => {
       ],
     );
     const text = formatScheduleDiff(screen, file, "plan.json");
-    expect(text).toContain("並び カテゴリ\n  設計, 開発 → 開発, 設計");
+    expect(text).toContain(
+      `並び カテゴリ\n  設計 (${CAT_A}), 開発 (${CAT_B}) → 開発 (${CAT_B}), 設計 (${CAT_A})`,
+    );
     expect(text).toContain(
       "並び マイルストン\n  要件確定 (00000000-0000-4000-8000-0000000000a1), 設計完了 (00000000-0000-4000-8000-0000000000b1) → 設計完了 (00000000-0000-4000-8000-0000000000b1), 要件確定 (00000000-0000-4000-8000-0000000000a1)",
     );
@@ -281,24 +398,26 @@ describe("formatScheduleDiff", () => {
     const item = task({ id: TASK_A, name: "基本設計" });
     const file = doc([
       {
+        id: CAT_A,
         name: "設計",
         groups: [
-          { name: "上流", tasks: [item] },
-          { name: "詳細", tasks: [] },
+          { id: GRP_A, name: "上流", tasks: [item] },
+          { id: GRP_B, name: "詳細", tasks: [] },
         ],
       },
     ]);
     const screen = doc([
       {
+        id: CAT_A,
         name: "設計",
         groups: [
-          { name: "詳細", tasks: [] },
-          { name: "上流", tasks: [item] },
+          { id: GRP_B, name: "詳細", tasks: [] },
+          { id: GRP_A, name: "上流", tasks: [item] },
         ],
       },
     ]);
     expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
-      "並び グループ 設計\n  上流, 詳細 → 詳細, 上流",
+      `並び グループ 設計\n  上流 (${GRP_A}), 詳細 (${GRP_B}) → 詳細 (${GRP_B}), 上流 (${GRP_A})`,
     );
   });
 

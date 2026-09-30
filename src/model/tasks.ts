@@ -10,6 +10,12 @@ export function collectScheduleIds(
   milestones: Milestone[],
 ): Set<ScheduleId> {
   const ids = new Set<ScheduleId>();
+  for (const category of categories) {
+    ids.add(category.id);
+    for (const group of category.groups) {
+      ids.add(group.id);
+    }
+  }
   forEachTask(categories, (task) => {
     ids.add(task.id);
   });
@@ -149,8 +155,10 @@ export function validateTaskEdit(
 
 export function cloneCategories(categories: Category[]): Category[] {
   return categories.map((category) => ({
+    id: category.id,
     name: category.name,
     groups: category.groups.map((group) => ({
+      id: group.id,
       name: group.name,
       tasks: group.tasks.map((task) => ({
         ...task,
@@ -158,4 +166,76 @@ export function cloneCategories(categories: Category[]): Category[] {
       })),
     })),
   }));
+}
+
+export type HierarchyRenameResult = {
+  categories: Category[];
+  error: string | null;
+  changed: boolean;
+};
+
+/** 空白だけなら変えない。重複する名前は保存しない。 */
+export function renameCategory(
+  categories: Category[],
+  categoryId: ScheduleId,
+  rawName: string,
+): HierarchyRenameResult {
+  const category = categories.find((item) => item.id === categoryId);
+  if (!category) {
+    return { categories, error: "カテゴリが見つかりません", changed: false };
+  }
+  const name = rawName.trim();
+  if (!name || name === category.name) {
+    return { categories, error: null, changed: false };
+  }
+  if (categories.some((item) => item.id !== categoryId && item.name === name)) {
+    return { categories, error: "カテゴリ名が重複しています", changed: false };
+  }
+  return {
+    categories: categories.map((item) =>
+      item.id === categoryId ? { ...item, name } : item,
+    ),
+    error: null,
+    changed: true,
+  };
+}
+
+/** 空白だけなら変えない。同じカテゴリ内の重複は保存しない。 */
+export function renameGroup(
+  categories: Category[],
+  groupId: ScheduleId,
+  rawName: string,
+): HierarchyRenameResult {
+  const parent = categories.find((category) =>
+    category.groups.some((group) => group.id === groupId),
+  );
+  const group = parent?.groups.find((item) => item.id === groupId);
+  if (!parent || !group) {
+    return { categories, error: "グループが見つかりません", changed: false };
+  }
+  const name = rawName.trim();
+  if (!name || name === group.name) {
+    return { categories, error: null, changed: false };
+  }
+  if (parent.groups.some((item) => item.id !== groupId && item.name === name)) {
+    return {
+      categories,
+      error: "同じカテゴリ内でグループ名が重複しています",
+      changed: false,
+    };
+  }
+  return {
+    categories: categories.map((category) =>
+      category.id !== parent.id
+        ? category
+        : {
+            ...category,
+            groups: category.groups.map((item) =>
+              item.id === groupId ? { ...item, name } : item,
+            ),
+          },
+    ),
+    error: null,
+    changed: true,
+  };
 }
