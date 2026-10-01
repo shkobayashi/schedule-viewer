@@ -55,6 +55,10 @@
 | 同上 | `rolls back both keys when the label cannot be stored` | SET-03 |
 | `dates.test.ts` | `steps across US DST end without losing a calendar day` | — |
 | 同上 | `supports fractional days for timeline dragging` | EDIT-02 |
+| 同上 | `includes the left edge of a day and excludes the next left edge` | EDIT-07, EDIT-11 |
+| 同上 | `uses the day under a scrolled pointer` | EDIT-07, EDIT-11 |
+| 同上 | `keeps the left edge when a day width does not divide evenly` | EDIT-07, EDIT-11 |
+| 同上 | `returns null outside the timeline and when a day has no width` | EDIT-07, EDIT-11 |
 | 同上 | `formats UTC calendar date` | VIEW-07 |
 | `dragDates.test.ts` | `places both dates above the ends when the bar is long enough` | EDIT-02, EDIT-03 |
 | 同上 | `separates the chips when the bar is shorter than the labels` | EDIT-02, EDIT-03 |
@@ -470,7 +474,8 @@
 | TC-EDIT-09 | EDIT-09 | 先行を持つタスクを選択 | 「削除」を確認する | タスクが消え、他の先行からも外れ、残ったタスク同士はつながらない |
 | TC-EDIT-09b | EDIT-09 | タスクを選んでいない | 「削除」を見る | 押せない |
 | TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
-| TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左のタスク行を右クリックする。選択中は端のハンドルも右クリックする。カテゴリ行も右クリックする | ノートが開く。左のタスク行は右クリックで選択され、メニューが出る。左クリックでは選択されない。チャートの空白ではメニューが出ない。端のハンドルでもバーと同じメニューが出る。カテゴリ行では「名前を変更」だけが出る |
+| TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左のタスク行を右クリックする。選択中は端のハンドルも右クリックする。カテゴリ行も右クリックする | ノートが開く。左のタスク行は右クリックで選択され、メニューが出る。左クリックでは選択されない。チャートの空白では「マイルストンを追加」だけが出る。端のハンドルでもバーと同じメニューが出る。カテゴリ行では「名前を変更」だけが出る |
+| TC-EDIT-11e | EDIT-11, EDIT-07 | タスクを選択している。マイルストンが 0 件でもよい | 日付ヘッダー、マイルストン帯の空き、チャートの空き（親バーの上を含む）を右クリックし、「マイルストンを追加」を選ぶ。月表示のヘッダーでも日の位置で確かめる。印の上と、線を引くモードと、ツールバーの「マイルストン追加」も見る | 「マイルストンを追加」だけが出る。名前は空、確度は未確定、日付は指した暦日。選択は変わらない。印の上はマイルストンのメニューのまま。線を引くモードでは出ない。ツールバーから開いた日付は今日。0 件でもヘッダーとチャートの空きから足せる。保存、空白だけの名前、空の日付、キャンセル、取り消しはツールバーと同じ |
 | TC-EDIT-11c | EDIT-11, EDIT-10, VIEW-12 | 未確定のタスクと、確定のタスクがある | それぞれを右クリックし、確度の項目を選ぶ。取り消す | 未確定には「確定にする」、確定には「未確定にする」だけが出る。日付は動かない。取り消し 1 回で戻る |
 | TC-EDIT-11d | EDIT-11, EDIT-07, EDIT-10, VIEW-12 | 未確定のマイルストンと、確定のマイルストンがある | それぞれを、ひし形かその右の名前で右クリックし、確度の項目を選ぶ。取り消す | 未確定には「確定にする」、確定には「未確定にする」が出る。日付は動かない。ひし形の斜線が切り替わる。取り消し 1 回で戻る。タスクの選択は変わらない |
 | TC-EDIT-11b | EDIT-11 | マイルストンがある | ひし形の右の名前を右クリックし、「編集」を選ぶ。線を引くモードでは名前を右クリックする | 「編集」、確度の切り替え、「削除」が出る。選択は変わらない。編集を選ぶと名前、日付、確度の編集が開く。線を引くモードではメニューは出ない |
