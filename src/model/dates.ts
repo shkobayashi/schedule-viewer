@@ -64,3 +64,23 @@ export function clamp(v: number, min: number, max: number): number {
 export function roundToDay(timelineStart: Date, d: Date): Date {
   return addDays(timelineStart, daysBetween(timelineStart, d));
 }
+
+/**
+ * チャート上の横位置が含まれる暦日。日の左端を含み、次の日の左端は含まない。
+ * 日インデックスが 0 未満、または totalDays 以上、pxPerDay が 0 以下なら null。
+ */
+export function isoDateAtChartX(
+  timelineStart: Date,
+  scrollX: number,
+  pxPerDay: number,
+  chartX: number,
+  totalDays: number,
+): string | null {
+  if (!(pxPerDay > 0) || !Number.isFinite(chartX) || !Number.isFinite(scrollX)) {
+    return null;
+  }
+  // 日幅が割り切れないとき、左端の商が整数の直前まで落ちることがある。
+  const dayIndex = Math.floor((chartX + scrollX) / pxPerDay + 1e-6);
+  if (dayIndex < 0 || dayIndex >= totalDays) return null;
+  return isoDate(addDays(timelineStart, dayIndex));
+}
