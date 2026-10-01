@@ -1331,6 +1331,7 @@ export function Timeline({
     dateToX,
     milestoneDiamondSize,
     milestoneLaneHeight,
+    milestoneFontSize,
     liveAnchors,
     linkPolylines,
     barHeight,
