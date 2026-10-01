@@ -135,6 +135,8 @@ function App() {
   const [displayScalePreference, setDisplayScalePreference] = useState(
     readDisplayScalePreference,
   );
+  const displayScalePreferenceRef = useRef(displayScalePreference);
+  displayScalePreferenceRef.current = displayScalePreference;
   const [colorSchemePreference, setColorSchemePreference] = useState(
     readColorSchemePreference,
   );
@@ -142,6 +144,8 @@ function App() {
     (): ResolvedColorScheme => resolveColorScheme(readColorSchemePreference()),
   );
   const [uiScale, setUiScale] = useState(readUiScale);
+  const uiScaleRef = useRef(uiScale);
+  uiScaleRef.current = uiScale;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [diffText, setDiffText] = useState<string | null>(null);
@@ -486,6 +490,9 @@ function App() {
     undo,
     redo,
     taskSearchRef,
+    displayScalePreferenceRef,
+    uiScaleRef,
+    onDisplayScaleChange: handleDisplayScaleChange,
   });
 
   const onWheelBody = useCallback(
