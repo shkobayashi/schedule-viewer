@@ -29,6 +29,7 @@ type UseTimelinePointerOptions = {
   linkPolylines: readonly LinkPolyline[];
   barHeight: number;
   selectedTaskId: ScheduleId | null;
+  clipTop: number;
   onChartPointer: (pointer: ChartPointer) => void;
 };
 
@@ -43,6 +44,7 @@ export function useTimelinePointer({
   linkPolylines,
   barHeight,
   selectedTaskId,
+  clipTop,
   onChartPointer,
 }: UseTimelinePointerOptions): {
   bodyRef: RefObject<HTMLDivElement | null>;
@@ -121,6 +123,7 @@ export function useTimelinePointer({
       linkMode,
       selectedTaskId,
       sidebar: clientPointer.sidebar,
+      clipTop,
     });
     setHover((prev) => (chartHoverEquals(prev, resolved.hover) ? prev : resolved.hover));
     setPreviewEnd((prev) =>

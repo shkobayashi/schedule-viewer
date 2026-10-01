@@ -493,6 +493,20 @@ input[type="number"] {
   top: 0;
 }
 
+.sidebar-sticky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sidebar-sticky-clip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
 .sidebar-row {
   display: flex;
   align-items: center;

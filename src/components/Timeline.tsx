@@ -49,6 +49,7 @@ import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
 import { resolveAssigneeDisplay } from "../model/assigneeDisplay";
 import type { Member, MemberId } from "../model/memberTypes";
+import type { StickyLayout } from "../model/stickyRows";
 import type { Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
 import type { CalendarDocument } from "../model/calendarTypes";
 import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
@@ -105,6 +106,7 @@ type TimelineProps = {
     y: number,
   ) => void;
   onChartPointer: (pointer: ChartPointer) => void;
+  sticky: StickyLayout;
 };
 
 const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
@@ -751,6 +753,100 @@ function DragDateLabels({
   );
 }
 
+function bodyColumnNodes(input: {
+  keyPrefix: string;
+  width: number;
+  height: number;
+  tier: "day" | "week" | "month";
+  timelineStart: Date;
+  timelineEnd: Date;
+  totalDays: number;
+  dayStart: number;
+  dayEnd: number;
+  dateToX: (d: Date) => number;
+  pxPerDay: number;
+  calendar: CalendarDocument | null;
+  chart: ChartPalette;
+}): ReactNode[] {
+  const elements: ReactNode[] = [];
+  const {
+    keyPrefix,
+    width,
+    height,
+    tier,
+    timelineStart,
+    timelineEnd,
+    totalDays,
+    dayStart,
+    dayEnd,
+    dateToX,
+    pxPerDay,
+    calendar,
+    chart,
+  } = input;
+  if (tier !== "month") {
+    const bands = nonWorkingDayClipRects(
+      timelineStart,
+      dayStart,
+      dayEnd,
+      dateToX,
+      pxPerDay,
+      width,
+      calendar,
+      totalDays,
+    );
+    for (let i = 0; i < bands.length; i += 1) {
+      const band = bands[i];
+      elements.push(
+        <Rect
+          key={`${keyPrefix}nwd-${i}-${band.x}`}
+          x={band.x}
+          y={0}
+          width={band.width}
+          height={height}
+          fill={chart.nonWorking}
+          listening={false}
+        />,
+      );
+    }
+    for (let i = dayStart; i <= dayEnd; i += 1) {
+      const d = addDays(timelineStart, i);
+      const x = dateToX(d);
+      if (x < -10 || x > width + 10) continue;
+      const isMonday = d.getUTCDay() === 1;
+      if (tier === "day" || isMonday) {
+        elements.push(
+          <Line
+            key={`${keyPrefix}vg-${i}`}
+            points={[x, 0, x, height]}
+            stroke={isMonday ? chart.gridBodyMonday : chart.gridBodyWeekday}
+            strokeWidth={1}
+            listening={false}
+          />,
+        );
+      }
+    }
+  } else {
+    let d = utcMonthStart(timelineStart);
+    while (d < timelineEnd) {
+      const x = dateToX(d);
+      if (x > -10 && x < width + 10) {
+        elements.push(
+          <Line
+            key={`${keyPrefix}mg-${d.getTime()}`}
+            points={[x, 0, x, height]}
+            stroke={chart.gridMonth}
+            strokeWidth={1}
+            listening={false}
+          />,
+        );
+      }
+      d = addUtcMonths(d, 1);
+    }
+  }
+  return elements;
+}
+
 export function Timeline({
   visibleRows,
   width,
@@ -796,6 +892,7 @@ export function Timeline({
   onLinkTargetClick,
   onLinkContextMenu,
   onChartPointer,
+  sticky,
 }: TimelineProps) {
   const linkMode = linkSourceId != null;
   const chart = useMemo(
@@ -970,11 +1067,18 @@ export function Timeline({
     chart,
   ]);
 
+  const stickyHidden = useMemo(
+    () => new Set(sticky.hiddenIndexes),
+    [sticky.hiddenIndexes],
+  );
+
   const bgContent = useMemo(() => {
     const elements: ReactNode[] = [];
     const height = bodyHeight;
 
-    for (const row of visibleRows) {
+    for (let index = 0; index < visibleRows.length; index += 1) {
+      if (stickyHidden.has(index)) continue;
+      const row = visibleRows[index];
       const y = row.y - scrollY;
       if (y + rowHeight < 0 || y > height) continue;
       if (row.type === "category" || row.type === "group") {
@@ -992,68 +1096,27 @@ export function Timeline({
       }
     }
 
-    if (tier !== "month") {
-      const bands = nonWorkingDayClipRects(
+    elements.push(
+      ...bodyColumnNodes({
+        keyPrefix: "",
+        width,
+        height,
+        tier,
         timelineStart,
-        dayRange.start,
-        dayRange.end,
+        timelineEnd,
+        totalDays,
+        dayStart: dayRange.start,
+        dayEnd: dayRange.end,
         dateToX,
         pxPerDay,
-        width,
         calendar,
-        totalDays,
-      );
-      for (let i = 0; i < bands.length; i += 1) {
-        const band = bands[i];
-        elements.push(
-          <Rect
-            key={`nwd-${i}-${band.x}`}
-            x={band.x}
-            y={0}
-            width={band.width}
-            height={height}
-            fill={chart.nonWorking}
-            listening={false}
-          />,
-        );
-      }
-      for (let i = dayRange.start; i <= dayRange.end; i += 1) {
-        const d = addDays(timelineStart, i);
-        const x = dateToX(d);
-        if (x < -10 || x > width + 10) continue;
-        const isMonday = d.getUTCDay() === 1;
-        if (tier === "day" || isMonday) {
-          elements.push(
-            <Line
-              key={`vg-${i}`}
-              points={[x, 0, x, height]}
-              stroke={isMonday ? chart.gridBodyMonday : chart.gridBodyWeekday}
-              strokeWidth={1}
-              listening={false}
-            />,
-          );
-        }
-      }
-    } else {
-      let d = utcMonthStart(timelineStart);
-      while (d < timelineEnd) {
-        const x = dateToX(d);
-        if (x > -10 && x < width + 10) {
-          elements.push(
-            <Line
-              key={`mg-${d.getTime()}`}
-              points={[x, 0, x, height]}
-              stroke={chart.gridMonth}
-              strokeWidth={1}
-              listening={false}
-            />,
-          );
-        }
-        d = addUtcMonths(d, 1);
-      }
-    }
+        chart,
+      }),
+    );
 
-    for (const row of visibleRows) {
+    for (let index = 0; index < visibleRows.length; index += 1) {
+      if (stickyHidden.has(index)) continue;
+      const row = visibleRows[index];
       const y = row.y - scrollY + rowHeight;
       if (y < 0 || y > height) continue;
       elements.push(
@@ -1081,9 +1144,86 @@ export function Timeline({
     tier,
     timelineEnd,
     timelineStart,
+    stickyHidden,
     visibleRows,
     width,
     chart,
+  ]);
+
+  const stickyContent = useMemo(() => {
+    return sticky.draws.map((draw) => {
+      const row = visibleRows[draw.index];
+      if (row == null || (row.type !== "category" && row.type !== "group")) {
+        return null;
+      }
+      const clipHeight = draw.clipBottom - draw.clipTop;
+      if (clipHeight <= 0) return null;
+      return (
+        <Group
+          key={`sticky-${draw.index}`}
+          clipX={0}
+          clipY={draw.clipTop}
+          clipWidth={width}
+          clipHeight={clipHeight}
+          listening={false}
+        >
+          <Rect
+            x={0}
+            y={draw.top}
+            width={width}
+            height={rowHeight}
+            fill={row.type === "category" ? chart.categoryRow : chart.groupRow}
+            listening={false}
+          />
+          {bodyColumnNodes({
+            keyPrefix: `s${draw.index}-`,
+            width,
+            height: bodyHeight,
+            tier,
+            timelineStart,
+            timelineEnd,
+            totalDays,
+            dayStart: dayRange.start,
+            dayEnd: dayRange.end,
+            dateToX,
+            pxPerDay,
+            calendar,
+            chart,
+          })}
+          <Line
+            points={[0, draw.top + rowHeight, width, draw.top + rowHeight]}
+            stroke={chart.rowBorder}
+            strokeWidth={1}
+            listening={false}
+          />
+          <SummaryBar
+            summary={row.summary}
+            y={draw.top}
+            rowHeight={rowHeight}
+            barHeight={barHeight}
+            dateToX={dateToX}
+            chart={chart}
+          />
+        </Group>
+      );
+    });
+  }, [
+    barHeight,
+    bodyHeight,
+    calendar,
+    chart,
+    dateToX,
+    dayRange.end,
+    dayRange.start,
+    pxPerDay,
+    rowHeight,
+    sticky.draws,
+    tier,
+    timelineEnd,
+    timelineStart,
+    totalDays,
+    visibleRows,
+    width,
   ]);
 
   const lightningPoints = useMemo(() => {
@@ -1195,6 +1335,7 @@ export function Timeline({
     linkPolylines,
     barHeight,
     selectedTaskId,
+    clipTop: sticky.clipTop,
     onChartPointer,
   });
 
@@ -1389,6 +1530,10 @@ export function Timeline({
             const stage = e.target.getStage();
             const pos = stage?.getPointerPosition();
             if (!pos) return;
+            if (pos.y < sticky.clipTop) {
+              if (linkMode) e.evt.preventDefault();
+              return;
+            }
             const overTask =
               hitTaskAnchor(pos, liveAnchors, barHeight, {
                 linkMode,
@@ -1421,11 +1566,37 @@ export function Timeline({
             if (e.target === stage) onClearSelection();
           }}
         >
-          <Layer listening={false}>{bgContent}</Layer>
-          <Layer listening={false}>{linkArrows}</Layer>
+          <Layer listening={false}>
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+              listening={false}
+            >
+              {bgContent}
+            </Group>
+          </Layer>
+          <Layer listening={false}>
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+              listening={false}
+            >
+              {linkArrows}
+            </Group>
+          </Layer>
           <Layer>
-            {visibleRows.map((row) => {
-              if (row.type === "task") return null;
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+            >
+            {visibleRows.map((row, index) => {
+              if (row.type === "task" || stickyHidden.has(index)) return null;
               const y = row.y - scrollY;
               if (y + rowHeight < 0 || y > bodyHeight) return null;
               return (
@@ -1502,31 +1673,54 @@ export function Timeline({
                 />
               );
             })}
+            </Group>
           </Layer>
           <Layer listening={false}>
-            {previewPoints ? (
-              <Arrow
-                points={previewPoints}
-                stroke={chart.linkOk}
-                fill={chart.linkOk}
-                strokeWidth={1.25}
-                pointerLength={LINK_POINTER_LENGTH}
-                pointerWidth={LINK_POINTER_LENGTH}
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+              listening={false}
+            >
+              {previewPoints ? (
+                <Arrow
+                  points={previewPoints}
+                  stroke={chart.linkOk}
+                  fill={chart.linkOk}
+                  strokeWidth={1.25}
+                  pointerLength={LINK_POINTER_LENGTH}
+                  pointerWidth={LINK_POINTER_LENGTH}
+                  listening={false}
+                />
+              ) : null}
+            </Group>
+          </Layer>
+          <Layer listening={false}>
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+              listening={false}
+            >
+              <Line
+                points={lightningPoints}
+                stroke={chart.lightning}
+                strokeWidth={2.5}
+                lineJoin="round"
+                lineCap="round"
                 listening={false}
               />
-            ) : null}
-          </Layer>
-          <Layer listening={false}>
-            <Line
-              points={lightningPoints}
-              stroke={chart.lightning}
-              strokeWidth={2.5}
-              lineJoin="round"
-              lineCap="round"
-              listening={false}
-            />
+            </Group>
           </Layer>
           <Layer>
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+            >
             {selectedRow && selectedRow.type === "task" && !linkMode ? (
               <ResizeHandles
                 key={selectedRow.task.id}
@@ -1563,6 +1757,8 @@ export function Timeline({
                 chart={chart}
               />
             ) : null}
+            </Group>
+            {stickyContent}
           </Layer>
         </Stage>
       </div>
