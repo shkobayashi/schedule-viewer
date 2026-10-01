@@ -21,6 +21,7 @@ export type AppKeyAction =
   | { type: "scroll"; x: number; y: number }
   | { type: "clearLink" }
   | { type: "toggleLink" }
+  | { type: "note" }
   | { type: "edit" }
   | { type: "deleteLink"; fromId: ScheduleId; toId: ScheduleId }
   | { type: "deleteTask" }
@@ -119,6 +120,12 @@ export function decideAppKey(input: {
     preventDefault = true;
     if (event.repeat) {
       return { preventDefault, closeMenu: true, action: { type: "none" } };
+    }
+    if (shortcut === "note") {
+      if (input.linkSourceId != null || input.selectedTaskId == null) {
+        return { preventDefault, closeMenu: true, action: { type: "none" } };
+      }
+      return { preventDefault, closeMenu: true, action: { type: "note" } };
     }
     if (shortcut === "link") {
       return { preventDefault, closeMenu: true, action: { type: "toggleLink" } };
