@@ -104,6 +104,42 @@ describe("decideAppKey", () => {
     ).toEqual({ type: "find" });
   });
 
+  it("steps display scale from a dialog, a field, or a repeat", () => {
+    const plus = {
+      key: "+",
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: true,
+      altKey: false,
+      repeat: true,
+    };
+    const zoomIn = decide({
+      event: plus,
+      dialogOpen: true,
+      target: field,
+      fileBusy: true,
+      linkSourceId: "task-a",
+      menuOpen: true,
+    });
+    expect(zoomIn.action).toEqual({ type: "displayScale", direction: "in" });
+    expect(zoomIn.preventDefault).toBe(true);
+    expect(zoomIn.closeMenu).toBe(true);
+    const zoomOut = decide({
+      event: {
+        key: "-",
+        ctrlKey: false,
+        metaKey: true,
+        shiftKey: false,
+        altKey: false,
+        repeat: false,
+      },
+      target: { tagName: "BUTTON", isContentEditable: false },
+    });
+    expect(zoomOut.action).toEqual({ type: "displayScale", direction: "out" });
+    expect(zoomOut.preventDefault).toBe(true);
+    expect(zoomOut.closeMenu).toBe(true);
+  });
+
   it("ignores undo and redo in a dialog or text field", () => {
     const undo = {
       key: "z",
