@@ -1,8 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, type MutableRefObject } from "react";
 import { decideAppKey, type AppKeyTarget } from "./appKeyboard";
 import type { ChartPointer } from "../model/chartHitTest";
 import { findTaskById } from "../model/rows";
 import type { Category, ScheduleId, Task } from "../model/types";
+import {
+  resolveUiScale,
+  stepDisplayScale,
+  writeDisplayScalePreference,
+  type DisplayScalePreference,
+} from "../model/uiScale";
 
 type UseAppKeyboardOptions = {
   rowHeight: number;
@@ -23,6 +29,9 @@ type UseAppKeyboardOptions = {
   undo: () => void;
   redo: () => void;
   taskSearchRef: { current: HTMLInputElement | null };
+  displayScalePreferenceRef: MutableRefObject<DisplayScalePreference>;
+  uiScaleRef: MutableRefObject<number>;
+  onDisplayScaleChange: (preference: DisplayScalePreference) => void;
 };
 
 export function useAppKeyboard({
@@ -44,6 +53,9 @@ export function useAppKeyboard({
   undo,
   redo,
   taskSearchRef,
+  displayScalePreferenceRef,
+  uiScaleRef,
+  onDisplayScaleChange,
 }: UseAppKeyboardOptions) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -77,6 +89,24 @@ export function useAppKeyboard({
       const action = decision.action;
       if (action.type === "scroll") {
         scrollBy(action.x, action.y);
+        return;
+      }
+      if (action.type === "displayScale") {
+        const next = stepDisplayScale(
+          displayScalePreferenceRef.current,
+          uiScaleRef.current,
+          action.direction,
+        );
+        if (next != null) {
+          displayScalePreferenceRef.current = next;
+          uiScaleRef.current = resolveUiScale(
+            window.innerWidth,
+            window.innerHeight,
+            next,
+          );
+          writeDisplayScalePreference(next);
+          onDisplayScaleChange(next);
+        }
         return;
       }
       if (action.type === "clearLink") {
@@ -131,5 +161,8 @@ export function useAppKeyboard({
     taskSearchRef,
     toggleLinkMode,
     undo,
+    displayScalePreferenceRef,
+    uiScaleRef,
+    onDisplayScaleChange,
   ]);
 }

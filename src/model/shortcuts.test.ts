@@ -8,6 +8,7 @@ import {
   linkShortcutHint,
   matchAppShortcut,
   matchChartScroll,
+  matchDisplayScale,
   usesCommandKey,
   type ShortcutContext,
   type ShortcutKeyEvent,
@@ -99,6 +100,26 @@ describe("matchAppShortcut", () => {
     expect(matchAppShortcut(key("Enter", { ctrlKey: true }), idle)).toBeNull();
     expect(matchAppShortcut(key("Enter", { shiftKey: true }), idle)).toBeNull();
     expect(matchAppShortcut(key("o", { ctrlKey: true, shiftKey: true }), idle)).toBeNull();
+  });
+});
+
+describe("matchDisplayScale", () => {
+  it("maps plus, equals, and minus with ctrl or meta", () => {
+    expect(matchDisplayScale(key("+", { ctrlKey: true }))).toBe("in");
+    expect(matchDisplayScale(key("=", { metaKey: true }))).toBe("in");
+    expect(matchDisplayScale(key("+", { ctrlKey: true, shiftKey: true }))).toBe("in");
+    expect(matchDisplayScale(key("-", { ctrlKey: true }))).toBe("out");
+    expect(matchDisplayScale(key("-", { metaKey: true }))).toBe("out");
+    expect(matchDisplayScale(key("+", { ctrlKey: true, metaKey: true }))).toBe("in");
+  });
+
+  it("ignores underscore, alt, a bare key, and zero", () => {
+    expect(matchDisplayScale(key("_", { ctrlKey: true, shiftKey: true }))).toBeNull();
+    expect(matchDisplayScale(key("+", { ctrlKey: true, altKey: true }))).toBeNull();
+    expect(matchDisplayScale(key("-", { altKey: true, metaKey: true }))).toBeNull();
+    expect(matchDisplayScale(key("+"))).toBeNull();
+    expect(matchDisplayScale(key("-"))).toBeNull();
+    expect(matchDisplayScale(key("0", { ctrlKey: true }))).toBeNull();
   });
 });
 

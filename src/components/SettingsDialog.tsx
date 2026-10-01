@@ -16,6 +16,7 @@ import {
   formatMembersValidationErrors,
   validateMembers,
 } from "../model/validateMembers";
+import { usesCommandKey } from "../model/shortcuts";
 import { ModalDialog } from "./ModalDialog";
 import {
   COLOR_SCHEME_OPTIONS,
@@ -67,6 +68,11 @@ export function SettingsDialog({
   onImportCalendar,
   onDeleteCalendar,
 }: SettingsDialogProps) {
+  const displayScaleShortcut = usesCommandKey(
+    navigator.platform || navigator.userAgent,
+  )
+    ? "⌘+ と ⌘−"
+    : "Ctrl++ と Ctrl+-";
   const [section, setSection] = useState<SettingsSection>("display");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -231,6 +237,7 @@ export function SettingsDialog({
               <>
                 <p className="settings-note">
                   文字・行・ボタンの大きさと配色。期間のズーム（日表示・週表示・月表示）とは別です。
+                  {displayScaleShortcut} で表示サイズを一段変えます。
                 </p>
                 <label className="settings-field">
                   <span>表示サイズ</span>

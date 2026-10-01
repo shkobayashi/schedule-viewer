@@ -202,6 +202,7 @@
 | 同上 | `deletes the hovered link before the selected task` | EDIT-09, EDIT-12 |
 | 同上 | `drops file shortcuts while a file operation is busy and keeps find` | FILE-02, NAV-05 |
 | 同上 | `ignores undo and redo in a dialog or text field` | EDIT-10 |
+| 同上 | `steps display scale from a dialog, a field, or a repeat` | SET-01 |
 | `saveFlight.test.ts` | `rejects a second save until the first releases the flight` | FILE-02, SYNC-02 |
 | 同上 | `does not start a save while the file operation is busy` | FILE-02 |
 | `recoveryApply.test.ts` | `accepts before checking the generation again and skips the screen update` | SYNC-03 |
@@ -219,6 +220,8 @@
 | 同上 | `scrolls while an edit key target is focused` | NAV-01 |
 | 同上 | `does not scroll for a bare arrow, shift, alt, or a dialog` | NAV-01 |
 | 同上 | `scrolls when both ctrl and meta are held` | NAV-01 |
+| 同上 | `maps plus, equals, and minus with ctrl or meta` | SET-01 |
+| 同上 | `ignores underscore, alt, a bare key, and zero` | SET-01 |
 | 同上 | `marks save, open, and find so the browser action can be cancelled` | FILE-02, NAV-05 |
 | 同上 | `blocks text fields, buttons, and links` | EDIT-04 |
 | 同上 | `uses the command key on Apple platforms` | EDIT-12 |
@@ -264,6 +267,9 @@
 | 同上 | `uses viewport scaling when preference is auto` | SET-01 |
 | 同上 | `uses fixed preference regardless of viewport` | SET-01 |
 | 同上 | `stores fixed ratios and clears key for auto` | SET-01 |
+| 同上 | `steps a fixed ratio and stays put at the ends` | SET-01 |
+| 同上 | `leaves auto for the neighboring fixed step` | SET-01 |
+| 同上 | `compares auto scale at two decimal places` | SET-01 |
 | `chartHitTest.test.ts` | `extends the selected bar by the resize handle` | EDIT-02, EDIT-03, EDIT-12 |
 | 同上 | `does not extend the handle while drawing a link` | EDIT-12 |
 | 同上 | `prefers a task or milestone over a link` | EDIT-11, EDIT-12 |
@@ -480,6 +486,7 @@
 | TC-EXPORT-03 | EXPORT-03 | 書き出しの行が 10,000 を超えるデータ | 「書き出し」を実行する | ファイルを作らず、行数の上限を理由に出す |
 | TC-EXPORT-04 | EXPORT-04 | タイトルに `/` や `:` がある | 書き出しの保存ダイアログを開く | 提案名からそれらの文字が除かれ、選んだ形式の拡張子が付く |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す | 文字と行が大きくなり、再起動後も維持される。「自動」に戻すと保存値は消える |
+| TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |

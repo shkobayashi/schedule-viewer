@@ -6,6 +6,8 @@ import {
   chartScrollOffset,
   matchAppShortcut,
   matchChartScroll,
+  matchDisplayScale,
+  type DisplayScaleDirection,
   type ShortcutKeyEvent,
 } from "../model/shortcuts";
 import type { ScheduleId } from "../model/types";
@@ -28,6 +30,7 @@ export type AppKeyAction =
   | { type: "find" }
   | { type: "undo" }
   | { type: "redo" }
+  | { type: "displayScale"; direction: DisplayScaleDirection }
   | { type: "none" };
 
 export type AppKeyDecision = {
@@ -73,6 +76,15 @@ export function decideAppKey(input: {
       preventDefault: true,
       closeMenu: true,
       action: { type: "scroll", x: offset.x, y: offset.y },
+    };
+  }
+
+  const displayScale = matchDisplayScale(event);
+  if (displayScale) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "displayScale", direction: displayScale },
     };
   }
 
