@@ -1,6 +1,7 @@
 import { useRef, type Ref } from "react";
-import { Group, Layer, Line, RegularPolygon, Stage, Text } from "react-konva";
+import { Group, Layer, Line, RegularPolygon, Shape, Stage, Text } from "react-konva";
 import type Konva from "konva";
+import { milestoneMarkHit } from "../model/chartHitTest";
 import { parseDate } from "../model/dates";
 import { hatchCanvas } from "../model/hatch";
 import type { ChartPalette, ResolvedColorScheme } from "../model/palette";
@@ -161,6 +162,26 @@ function MilestoneMark({
         onMove(delta);
       }}
     >
+      <Shape
+        fill="black"
+        listening
+        sceneFunc={() => {}}
+        hitFunc={(context, shape) => {
+          const hit = milestoneMarkHit(diamondSize, fontSize, milestone.name);
+          context.beginPath();
+          context.arc(0, 0, hit.radius, 0, Math.PI * 2, false);
+          if (hit.label) {
+            context.rect(
+              hit.label.x,
+              hit.label.y,
+              hit.label.width,
+              hit.label.height,
+            );
+          }
+          context.closePath();
+          context.fillStrokeShape(shape);
+        }}
+      />
       <RegularPolygon
         sides={4}
         radius={radius}
@@ -172,6 +193,7 @@ function MilestoneMark({
         fillPatternRepeat="repeat"
         stroke={chart.milestoneDiamondStroke}
         strokeWidth={1}
+        listening={false}
       />
       <Text
         x={radius + 5}

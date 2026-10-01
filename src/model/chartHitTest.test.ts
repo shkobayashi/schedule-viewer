@@ -158,13 +158,65 @@ describe("chartHitTest", () => {
 
   it("hits a milestone diamond inside the slop and misses outside it", () => {
     const dateToX = () => 30;
-    const milestones = [{ id: "m1", date: "2026-04-01" }];
+    const milestones = [{ id: "m1", date: "2026-04-01", name: "" }];
     const lanes = new Map([["m1", 0]]);
     expect(
-      hitMilestoneDiamond({ x: 30, y: 8 }, milestones, lanes, dateToX, 12, 16),
+      hitMilestoneDiamond(
+        { x: 30, y: 8 },
+        milestones,
+        lanes,
+        dateToX,
+        12,
+        16,
+        11,
+      ),
     ).toBe(true);
     expect(
-      hitMilestoneDiamond({ x: 80, y: 8 }, milestones, lanes, dateToX, 12, 16),
+      hitMilestoneDiamond(
+        { x: 80, y: 8 },
+        milestones,
+        lanes,
+        dateToX,
+        12,
+        16,
+        11,
+      ),
     ).toBe(false);
+  });
+
+  it("hits the milestone name and the gap, and misses past the name and lane padding", () => {
+    const dateToX = () => 100;
+    const milestones = [{ id: "m1", date: "2026-04-01", name: "あいう" }];
+    const lanes = new Map([["m1", 0]]);
+    const diamondSize = 12;
+    const laneHeight = 26;
+    const fontSize = 11;
+    const hitAt = (x: number, y: number) =>
+      hitMilestoneDiamond(
+        { x, y },
+        milestones,
+        lanes,
+        dateToX,
+        diamondSize,
+        laneHeight,
+        fontSize,
+      );
+    const cy = laneHeight / 2;
+    expect(hitAt(109, cy)).toBe(true);
+    expect(hitAt(120, cy)).toBe(true);
+    expect(hitAt(145, cy)).toBe(false);
+    expect(hitAt(100, 4)).toBe(false);
+    expect(hitAt(120, 4)).toBe(false);
+    expect(hitAt(120, 22)).toBe(false);
+  });
+
+  it("extends the name hit to the text height when that is taller than the circle", () => {
+    const dateToX = () => 0;
+    const milestones = [{ id: "m1", date: "2026-04-01", name: "あ" }];
+    const lanes = new Map([["m1", 0]]);
+    const hitAt = (x: number, y: number) =>
+      hitMilestoneDiamond({ x, y }, milestones, lanes, dateToX, 8, 40, 20);
+    expect(hitAt(10, 12)).toBe(true);
+    expect(hitAt(10, 9)).toBe(false);
   });
 });

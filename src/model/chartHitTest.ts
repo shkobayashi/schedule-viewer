@@ -1,6 +1,12 @@
 import { parseDate } from "./dates";
 import { nearestLinkHit, type LinkPolyline } from "./dependencies";
+import { milestoneLabelWidth } from "./milestones";
 import type { ScheduleId } from "./types";
+
+/** ひし形の当たり円が、見た目の半径へ足す余裕。 */
+const MILESTONE_HIT_SLOP = 2;
+/** ひし形の右端から名前の左端までの隙間。描画の Text と同じ。 */
+const MILESTONE_LABEL_GAP = 5;
 
 /** 選択中バーの端ハンドルが当たり判定へ広がる幅。 */
 export const TASK_HANDLE_WIDTH = 8;
@@ -60,20 +66,70 @@ export function hitTaskAnchor(
   return null;
 }
 
+export type MilestoneMarkHit = {
+  radius: number;
+  /** 円の右端から名前の右端まで。名前幅が 0 のときは null。 */
+  label: { x: number; y: number; width: number; height: number } | null;
+};
+
+/** ひし形の中心を原点にした、円と名前の当たり。 */
+export function milestoneMarkHit(
+  diamondSize: number,
+  fontSize: number,
+  name: string,
+): MilestoneMarkHit {
+  const radius = diamondSize / 2 + MILESTONE_HIT_SLOP;
+  const labelWidth = milestoneLabelWidth(name, fontSize);
+  if (labelWidth <= 0) return { radius, label: null };
+  const height = Math.max(radius * 2, fontSize);
+  const textLeft = diamondSize / 2 + MILESTONE_LABEL_GAP;
+  return {
+    radius,
+    label: {
+      x: radius,
+      y: -height / 2,
+      width: textLeft + labelWidth - radius,
+      height,
+    },
+  };
+}
+
+export function milestoneMarkContainsPoint(
+  local: { x: number; y: number },
+  hit: MilestoneMarkHit,
+): boolean {
+  if (Math.hypot(local.x, local.y) <= hit.radius) return true;
+  const label = hit.label;
+  if (label == null) return false;
+  return (
+    local.x >= label.x &&
+    local.x <= label.x + label.width &&
+    local.y >= label.y &&
+    local.y <= label.y + label.height
+  );
+}
+
 export function hitMilestoneDiamond(
   local: { x: number; y: number },
-  milestones: readonly { id: ScheduleId; date: string }[],
+  milestones: readonly { id: ScheduleId; date: string; name: string }[],
   lanes: ReadonlyMap<ScheduleId, number>,
   dateToX: (date: Date) => number,
   diamondSize: number,
   laneHeight: number,
+  fontSize: number,
 ): boolean {
-  const radius = diamondSize / 2 + 2;
   for (const milestone of milestones) {
     const cx = dateToX(parseDate(milestone.date));
     const lane = lanes.get(milestone.id) ?? 0;
     const cy = lane * laneHeight + laneHeight / 2;
-    if (Math.hypot(local.x - cx, local.y - cy) <= radius) return true;
+    if (
+      milestoneMarkContainsPoint(
+        { x: local.x - cx, y: local.y - cy },
+        milestoneMarkHit(diamondSize, fontSize, milestone.name),
+      )
+    ) {
+      return true;
+    }
   }
   return false;
 }
