@@ -54,7 +54,7 @@ import {
   exportTimelineRange,
   milestonesForExport,
 } from "./model/exportView";
-import { parseDate } from "./model/dates";
+import { isoDateAtChartX, parseDate } from "./model/dates";
 import { resizeEndIso, resizeStartIso } from "./model/dragDates";
 import {
   layoutMilestones,
@@ -122,7 +122,8 @@ type ContextMenuState =
       toId: ScheduleId;
       x: number;
       y: number;
-    };
+    }
+  | { kind: "addMilestone"; date: string; x: number; y: number };
 
 function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
@@ -154,6 +155,9 @@ function App() {
   const diffRequestRef = useRef(0);
   const [addOpen, setAddOpen] = useState(false);
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
+  const [addMilestoneInitialDate, setAddMilestoneInitialDate] = useState<
+    string | null
+  >(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteMilestoneId, setDeleteMilestoneId] = useState<ScheduleId | null>(
     null,
@@ -752,6 +756,22 @@ function App() {
     [],
   );
 
+  const openAddMilestoneContextMenu = useCallback(
+    (chartX: number, clientX: number, clientY: number) => {
+      if (linkSourceId != null) return;
+      const date = isoDateAtChartX(
+        range.timelineStart,
+        scrollX,
+        pxPerDay,
+        chartX,
+        range.totalDays,
+      );
+      if (date == null) return;
+      setContextMenu({ kind: "addMilestone", date, x: clientX, y: clientY });
+    },
+    [linkSourceId, pxPerDay, range.timelineStart, range.totalDays, scrollX],
+  );
+
   const onLinkTargetClick = useCallback(
     (taskId: ScheduleId) => {
       if (linkSourceId == null) return;
@@ -807,6 +827,19 @@ function App() {
           id: "unlink",
           label: "線を外す",
           onSelect: () => removePredecessorLink(fromId, toId),
+        },
+      ];
+    }
+    if (contextMenu.kind === "addMilestone") {
+      const date = contextMenu.date;
+      return [
+        {
+          id: "add-milestone",
+          label: "マイルストンを追加",
+          onSelect: () => {
+            setAddMilestoneInitialDate(date);
+            setAddMilestoneOpen(true);
+          },
         },
       ];
     }
@@ -933,7 +966,10 @@ function App() {
         onExportHtml={() => setExportOpen(true)}
         canDelete={schedule.selectedTaskId != null}
         onAdd={() => setAddOpen(true)}
-        onAddMilestone={() => setAddMilestoneOpen(true)}
+        onAddMilestone={() => {
+          setAddMilestoneInitialDate(null);
+          setAddMilestoneOpen(true);
+        }}
         onDelete={() => {
           if (schedule.selectedTaskId != null) setDeleteOpen(true);
         }}
@@ -954,7 +990,7 @@ function App() {
             ・ タスクを選んで「系統」で前後だけ表示 ・
             タスクを選んで「線を引く」または ⌘/Ctrl+L で後続を足す。線の上で Delete か右クリックで外す
             ・ 選択中のタスクは ⌘/Ctrl+N でノートを開く
-            ・ マイルストンは「マイルストン追加」で足し、帯のひし形か右の名前をドラッグ、ダブルクリックで編集、右クリックで削除
+            ・ マイルストンは「マイルストン追加」で足す。日付ヘッダー、帯の空き、チャートの空きの右クリックでも足せる。帯のひし形か右の名前は、ドラッグで日付を変え、ダブルクリックで編集し、右クリックで削除する
             ・ ⌘/Ctrl+Z で取り消し、Shift+Z または Ctrl+Y でやり直し
           </>
         )}
@@ -1030,6 +1066,7 @@ function App() {
             linkSourceId={linkSourceId}
             onLinkTargetClick={onLinkTargetClick}
             onLinkContextMenu={openLinkContextMenu}
+            onAddMilestoneContextMenu={openAddMilestoneContextMenu}
             onChartPointer={(pointer) => {
               chartPointerRef.current = pointer;
             }}
@@ -1108,11 +1145,17 @@ function App() {
       ) : null}
       {addMilestoneOpen ? (
         <MilestoneAddDialog
-          initialDate={schedule.today}
-          onClose={() => setAddMilestoneOpen(false)}
+          initialDate={addMilestoneInitialDate ?? schedule.today}
+          onClose={() => {
+            setAddMilestoneOpen(false);
+            setAddMilestoneInitialDate(null);
+          }}
           onSave={(input) => {
             const message = schedule.addMilestone(input);
-            if (message == null) setAddMilestoneOpen(false);
+            if (message == null) {
+              setAddMilestoneOpen(false);
+              setAddMilestoneInitialDate(null);
+            }
             return message;
           }}
         />

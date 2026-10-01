@@ -105,6 +105,11 @@ type TimelineProps = {
     x: number,
     y: number,
   ) => void;
+  onAddMilestoneContextMenu: (
+    chartX: number,
+    clientX: number,
+    clientY: number,
+  ) => void;
   onChartPointer: (pointer: ChartPointer) => void;
   sticky: StickyLayout;
 };
@@ -891,6 +896,7 @@ export function Timeline({
   linkSourceId,
   onLinkTargetClick,
   onLinkContextMenu,
+  onAddMilestoneContextMenu,
   onChartPointer,
   sticky,
 }: TimelineProps) {
@@ -1491,7 +1497,18 @@ export function Timeline({
   return (
     <div className="timeline">
       <div className="timeline-header">
-        <Stage width={width} height={headerHeight} onWheel={onWheelHeader}>
+        <Stage
+          width={width}
+          height={headerHeight}
+          onWheel={onWheelHeader}
+          onContextMenu={(e) => {
+            e.evt.preventDefault();
+            if (linkMode) return;
+            const pos = e.target.getStage()?.getPointerPosition();
+            if (!pos) return;
+            onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
+          }}
+        >
           <Layer>{headerContent}</Layer>
         </Stage>
       </div>
@@ -1511,6 +1528,7 @@ export function Timeline({
           onMove={onMoveMilestone}
           onOpenEdit={onOpenMilestone}
           onContextMenu={onMilestoneContextMenu}
+          onEmptyContextMenu={onAddMilestoneContextMenu}
           onWheel={onWheelHeader}
           chart={chart}
           colorScheme={colorScheme}
@@ -1528,11 +1546,13 @@ export function Timeline({
           onMouseDown={onBodyMouseDown}
           onMouseUp={endPan}
           onContextMenu={(e) => {
+            e.evt.preventDefault();
             const stage = e.target.getStage();
             const pos = stage?.getPointerPosition();
             if (!pos) return;
             if (pos.y < sticky.clipTop) {
-              if (linkMode) e.evt.preventDefault();
+              if (linkMode) return;
+              onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
               return;
             }
             const overTask =
@@ -1540,20 +1560,19 @@ export function Timeline({
                 linkMode,
                 selectedTaskId,
               }) != null;
-            if (overTask) {
-              if (linkMode) e.evt.preventDefault();
-              return;
-            }
+            if (overTask) return;
             const hit = nearestLinkHit(linkPolylines, pos.x, pos.y);
             if (hit) {
-              e.evt.preventDefault();
               onLinkContextMenu(hit.fromId, hit.toId, e.evt.clientX, e.evt.clientY);
               return;
             }
-            if (linkMode) e.evt.preventDefault();
+            if (linkMode) return;
+            onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
           }}
           onClick={(e) => {
             if (linkMode) return;
+            // Konva は右ボタンの mouseup でも click を出す。右クリックは選択を外さない。
+            if (e.evt.button !== 0) return;
             if (suppressClickRef.current) {
               suppressClickRef.current = false;
               return;
