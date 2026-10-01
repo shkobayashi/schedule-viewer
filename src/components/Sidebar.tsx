@@ -21,6 +21,7 @@ import {
 import { isOverdue } from "../model/timeline";
 import { TaskNoteButton } from "./TaskNoteButton";
 import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
+import type { StickyLayout } from "../model/stickyRows";
 import type { Milestone, ScheduleId, VisibleRow } from "../model/types";
 
 type SidebarProps = {
@@ -51,6 +52,7 @@ type SidebarProps = {
   onSidebarWidthCommit: () => void;
   onSidebarWidthReset: () => void;
   onSidebarWidthNudge: (delta: number) => void;
+  sticky: StickyLayout;
 };
 
 export function Sidebar({
@@ -76,13 +78,19 @@ export function Sidebar({
   onSidebarWidthCommit,
   onSidebarWidthReset,
   onSidebarWidthNudge,
+  sticky,
 }: SidebarProps) {
+  const hiddenIndexes = sticky.hiddenIndexes;
   const visibleRows = useMemo(() => {
     const margin = rowHeight;
     const minY = scrollY - margin;
     const maxY = scrollY + viewportHeight + margin;
-    return rows.filter((row) => row.y + rowHeight >= minY && row.y <= maxY);
-  }, [rows, rowHeight, scrollY, viewportHeight]);
+    const hidden = new Set(hiddenIndexes);
+    return rows.filter((row, index) => {
+      if (hidden.has(index)) return false;
+      return row.y + rowHeight >= minY && row.y <= maxY;
+    });
+  }, [hiddenIndexes, rows, rowHeight, scrollY, viewportHeight]);
 
   const contentHeight = useMemo(
     () => rows.reduce((max, row) => Math.max(max, row.y + rowHeight), 0),
@@ -114,52 +122,17 @@ export function Sidebar({
           style={{ height: contentHeight, transform: `translateY(${-scrollY}px)` }}
         >
           {visibleRows.map((row) => {
-            if (row.type === "category") {
+            if (row.type === "category" || row.type === "group") {
               return (
-                <div
-                  key={`cat-${row.id}`}
-                  className="sidebar-row category"
-                  style={rowStyle(row.y)}
-                  onDoubleClick={(event) => {
-                    event.preventDefault();
-                    onHierarchyDoubleClick("category", row.id);
-                  }}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    onHierarchyContextMenu("category", row.id, event.clientX, event.clientY);
-                  }}
-                >
-                  <CollapseButton
-                    label={row.label}
-                    collapsed={row.collapsed}
-                    onClick={() => onToggleCollapse(categoryCollapseKey(row.id))}
-                  />
-                  <SlideLabel text={row.label} />
-                </div>
-              );
-            }
-            if (row.type === "group") {
-              return (
-                <div
-                  key={`group-${row.id}`}
-                  className="sidebar-row group"
-                  style={rowStyle(row.y)}
-                  onDoubleClick={(event) => {
-                    event.preventDefault();
-                    onHierarchyDoubleClick("group", row.id);
-                  }}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    onHierarchyContextMenu("group", row.id, event.clientX, event.clientY);
-                  }}
-                >
-                  <CollapseButton
-                    label={row.label}
-                    collapsed={row.collapsed}
-                    onClick={() => onToggleCollapse(groupCollapseKey(row.id))}
-                  />
-                  <SlideLabel text={row.label} />
-                </div>
+                <HierarchySidebarRow
+                  key={`${row.type}-${row.id}`}
+                  row={row}
+                  top={row.y}
+                  rowHeight={rowHeight}
+                  onToggleCollapse={onToggleCollapse}
+                  onHierarchyContextMenu={onHierarchyContextMenu}
+                  onHierarchyDoubleClick={onHierarchyDoubleClick}
+                />
               );
             }
             const selected = row.task.id === selectedTaskId;
@@ -210,6 +183,31 @@ export function Sidebar({
                 <span className={`assignee${assigneeClass}`}>
                   {assigneeSidebarLabel(assigneeDisplay)}
                 </span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="sidebar-sticky">
+          {sticky.draws.map((draw) => {
+            const row = rows[draw.index];
+            if (row == null || (row.type !== "category" && row.type !== "group")) {
+              return null;
+            }
+            const clipHeight = draw.clipBottom - draw.clipTop;
+            return (
+              <div
+                key={draw.index}
+                className="sidebar-sticky-clip"
+                style={{ top: draw.clipTop, height: clipHeight }}
+              >
+                <HierarchySidebarRow
+                  row={row}
+                  top={draw.top - draw.clipTop}
+                  rowHeight={rowHeight}
+                  onToggleCollapse={onToggleCollapse}
+                  onHierarchyContextMenu={onHierarchyContextMenu}
+                  onHierarchyDoubleClick={onHierarchyDoubleClick}
+                />
               </div>
             );
           })}
@@ -335,6 +333,62 @@ function SidebarResizer({
       }}
       onKeyDown={onKeyDown}
     />
+  );
+}
+
+function HierarchySidebarRow({
+  row,
+  top,
+  rowHeight,
+  onToggleCollapse,
+  onHierarchyContextMenu,
+  onHierarchyDoubleClick,
+}: {
+  row: Extract<VisibleRow, { type: "category" | "group" }>;
+  top: number;
+  rowHeight: number;
+  onToggleCollapse: (key: string) => void;
+  onHierarchyContextMenu: (
+    kind: "category" | "group",
+    id: ScheduleId,
+    x: number,
+    y: number,
+  ) => void;
+  onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
+}) {
+  const kind = row.type;
+  return (
+    <div
+      className={`sidebar-row ${kind}`}
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        top,
+        height: rowHeight,
+      }}
+      onDoubleClick={(event) => {
+        event.preventDefault();
+        onHierarchyDoubleClick(kind, row.id);
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onHierarchyContextMenu(kind, row.id, event.clientX, event.clientY);
+      }}
+    >
+      <CollapseButton
+        label={row.label}
+        collapsed={row.collapsed}
+        onClick={() =>
+          onToggleCollapse(
+            kind === "category"
+              ? categoryCollapseKey(row.id)
+              : groupCollapseKey(row.id),
+          )
+        }
+      />
+      <SlideLabel text={row.label} />
+    </div>
   );
 }
 

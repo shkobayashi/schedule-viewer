@@ -74,6 +74,38 @@ describe("chartHitTest", () => {
     expect(onMilestone.hover.link).toBeNull();
   });
 
+  it("misses tasks and links in the sticky band", () => {
+    const inBand = resolveChartHover({
+      insideBody: true,
+      local: { x: 20, y: 20 },
+      overMilestone: false,
+      anchors,
+      linkPolylines: [linkOnTask],
+      barHeight: 20,
+      linkMode: false,
+      selectedTaskId: null,
+      sidebar: false,
+      clipTop: 40,
+    });
+    expect(inBand.hover.overTask).toBe(false);
+    expect(inBand.hover.link).toBeNull();
+    expect(inBand.hover.hoverTaskId).toBeNull();
+
+    const below = resolveChartHover({
+      insideBody: true,
+      local: { x: 30, y: 40 },
+      overMilestone: false,
+      anchors: new Map(),
+      linkPolylines: [{ ...linkOnTask, points: [10, 40, 50, 40] }],
+      barHeight: 20,
+      linkMode: false,
+      selectedTaskId: null,
+      sidebar: false,
+      clipTop: 40,
+    });
+    expect(below.hover.link).toEqual({ fromId: "task-a", toId: "task-b" });
+  });
+
   it("hits a link only when the pointer misses bars and diamonds", () => {
     const hit = resolveChartHover({
       insideBody: true,

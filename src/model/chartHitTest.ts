@@ -100,10 +100,15 @@ export function resolveChartHover(input: {
   linkMode: boolean;
   selectedTaskId: ScheduleId | null;
   sidebar: boolean;
+  /** これ未満は固定段。タスクと線には当てない。 */
+  clipTop?: number;
 }): { hover: ChartHover; previewEnd: { x: number; y: number } | null } {
+  const clipTop = input.clipTop ?? 0;
+  const belowSticky =
+    input.local != null && input.local.y >= clipTop;
   let hoverTaskId: ScheduleId | null = null;
   let hoverAnchor: ChartTaskAnchor | null = null;
-  if (input.insideBody && input.local) {
+  if (input.insideBody && input.local && belowSticky) {
     const hit = hitTaskAnchor(input.local, input.anchors, input.barHeight, {
       linkMode: input.linkMode,
       selectedTaskId: input.selectedTaskId,
@@ -115,7 +120,11 @@ export function resolveChartHover(input: {
   }
   const overTask = hoverTaskId != null;
   const linkHit =
-    input.insideBody && input.local && !overTask && !input.overMilestone
+    input.insideBody &&
+    input.local &&
+    belowSticky &&
+    !overTask &&
+    !input.overMilestone
       ? nearestLinkHit(input.linkPolylines, input.local.x, input.local.y)
       : null;
   return {
