@@ -16,6 +16,7 @@ import {
   formatMembersValidationErrors,
   validateMembers,
 } from "../model/validateMembers";
+import { usesCommandKey } from "../model/shortcuts";
 import { ModalDialog } from "./ModalDialog";
 import {
   COLOR_SCHEME_OPTIONS,
@@ -67,6 +68,11 @@ export function SettingsDialog({
   onImportCalendar,
   onDeleteCalendar,
 }: SettingsDialogProps) {
+  const displayScaleShortcut = usesCommandKey(
+    navigator.platform || navigator.userAgent,
+  )
+    ? "⌘+ と ⌘−"
+    : "Ctrl++ と Ctrl+-";
   const [section, setSection] = useState<SettingsSection>("display");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -119,7 +125,15 @@ export function SettingsDialog({
   };
 
   const handleImportClick = async () => {
-    const pick = await pickMembersJsonFile();
+    let pick: Awaited<ReturnType<typeof pickMembersJsonFile>>;
+    try {
+      pick = await pickMembersJsonFile();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "取り込みに失敗しました。",
+      );
+      return;
+    }
     if (!pick) return;
     let data: unknown;
     try {
@@ -161,7 +175,15 @@ export function SettingsDialog({
   };
 
   const handleCalendarImportClick = async () => {
-    const pick = await pickCalendarJsonFile();
+    let pick: Awaited<ReturnType<typeof pickCalendarJsonFile>>;
+    try {
+      pick = await pickCalendarJsonFile();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "取り込みに失敗しました。",
+      );
+      return;
+    }
     if (!pick) return;
     let data: unknown;
     try {
@@ -215,6 +237,7 @@ export function SettingsDialog({
               <>
                 <p className="settings-note">
                   文字・行・ボタンの大きさと配色。期間のズーム（日表示・週表示・月表示）とは別です。
+                  {displayScaleShortcut} で表示サイズを一段変えます。
                 </p>
                 <label className="settings-field">
                   <span>表示サイズ</span>

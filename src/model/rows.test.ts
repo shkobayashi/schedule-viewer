@@ -186,6 +186,17 @@ describe("relaxFiltersForNewTask", () => {
     ).toBe("all");
   });
 
+  it("keeps a search when only surrounding spaces differ", () => {
+    expect(
+      relaxFiltersForNewTask(
+        { ...filters, search: "  新しい  " },
+        addedTask,
+        "2026-09-30",
+        null,
+      ).search,
+    ).toBe("  新しい  ");
+  });
+
   it("keeps filters that still show a newly added task", () => {
     const kept: ScheduleFilters = {
       assignee: UNASSIGNED_FILTER,

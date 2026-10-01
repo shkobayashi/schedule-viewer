@@ -20,12 +20,18 @@ import {
   type Rect as ChipRect,
 } from "../model/dragDates";
 import {
+  hitTaskAnchor,
+  TASK_HANDLE_WIDTH,
+  type ChartPointer,
+} from "../model/chartHitTest";
+import {
   LINK_POINTER_LENGTH,
   linkPoints,
   nearestLinkHit,
   type DependencyLink,
   type LinkPolyline,
 } from "../model/dependencies";
+import { useTimelinePointer } from "../hooks/useTimelinePointer";
 import {
   barColors,
   isOverdue,
@@ -43,6 +49,7 @@ import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
 import { resolveAssigneeDisplay } from "../model/assigneeDisplay";
 import type { Member, MemberId } from "../model/memberTypes";
+import type { StickyLayout } from "../model/stickyRows";
 import type { Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
 import type { CalendarDocument } from "../model/calendarTypes";
 import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
@@ -98,16 +105,16 @@ type TimelineProps = {
     x: number,
     y: number,
   ) => void;
+  onAddMilestoneContextMenu: (
+    chartX: number,
+    clientX: number,
+    clientY: number,
+  ) => void;
   onChartPointer: (pointer: ChartPointer) => void;
+  sticky: StickyLayout;
 };
 
-export type ChartPointer = {
-  overTask: boolean;
-  overMilestone: boolean;
-  link: { fromId: ScheduleId; toId: ScheduleId } | null;
-};
-
-const HANDLE_WIDTH = 8;
+const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
 /** 同じバーへの連続クリックを、ダブルクリックの 2 回目として扱う時間。 */
 const LINK_DOUBLE_CLICK_MS = 500;
 
@@ -751,6 +758,100 @@ function DragDateLabels({
   );
 }
 
+function bodyColumnNodes(input: {
+  keyPrefix: string;
+  width: number;
+  height: number;
+  tier: "day" | "week" | "month";
+  timelineStart: Date;
+  timelineEnd: Date;
+  totalDays: number;
+  dayStart: number;
+  dayEnd: number;
+  dateToX: (d: Date) => number;
+  pxPerDay: number;
+  calendar: CalendarDocument | null;
+  chart: ChartPalette;
+}): ReactNode[] {
+  const elements: ReactNode[] = [];
+  const {
+    keyPrefix,
+    width,
+    height,
+    tier,
+    timelineStart,
+    timelineEnd,
+    totalDays,
+    dayStart,
+    dayEnd,
+    dateToX,
+    pxPerDay,
+    calendar,
+    chart,
+  } = input;
+  if (tier !== "month") {
+    const bands = nonWorkingDayClipRects(
+      timelineStart,
+      dayStart,
+      dayEnd,
+      dateToX,
+      pxPerDay,
+      width,
+      calendar,
+      totalDays,
+    );
+    for (let i = 0; i < bands.length; i += 1) {
+      const band = bands[i];
+      elements.push(
+        <Rect
+          key={`${keyPrefix}nwd-${i}-${band.x}`}
+          x={band.x}
+          y={0}
+          width={band.width}
+          height={height}
+          fill={chart.nonWorking}
+          listening={false}
+        />,
+      );
+    }
+    for (let i = dayStart; i <= dayEnd; i += 1) {
+      const d = addDays(timelineStart, i);
+      const x = dateToX(d);
+      if (x < -10 || x > width + 10) continue;
+      const isMonday = d.getUTCDay() === 1;
+      if (tier === "day" || isMonday) {
+        elements.push(
+          <Line
+            key={`${keyPrefix}vg-${i}`}
+            points={[x, 0, x, height]}
+            stroke={isMonday ? chart.gridBodyMonday : chart.gridBodyWeekday}
+            strokeWidth={1}
+            listening={false}
+          />,
+        );
+      }
+    }
+  } else {
+    let d = utcMonthStart(timelineStart);
+    while (d < timelineEnd) {
+      const x = dateToX(d);
+      if (x > -10 && x < width + 10) {
+        elements.push(
+          <Line
+            key={`${keyPrefix}mg-${d.getTime()}`}
+            points={[x, 0, x, height]}
+            stroke={chart.gridMonth}
+            strokeWidth={1}
+            listening={false}
+          />,
+        );
+      }
+      d = addUtcMonths(d, 1);
+    }
+  }
+  return elements;
+}
+
 export function Timeline({
   visibleRows,
   width,
@@ -795,7 +896,9 @@ export function Timeline({
   linkSourceId,
   onLinkTargetClick,
   onLinkContextMenu,
+  onAddMilestoneContextMenu,
   onChartPointer,
+  sticky,
 }: TimelineProps) {
   const linkMode = linkSourceId != null;
   const chart = useMemo(
@@ -970,11 +1073,18 @@ export function Timeline({
     chart,
   ]);
 
+  const stickyHidden = useMemo(
+    () => new Set(sticky.hiddenIndexes),
+    [sticky.hiddenIndexes],
+  );
+
   const bgContent = useMemo(() => {
     const elements: ReactNode[] = [];
     const height = bodyHeight;
 
-    for (const row of visibleRows) {
+    for (let index = 0; index < visibleRows.length; index += 1) {
+      if (stickyHidden.has(index)) continue;
+      const row = visibleRows[index];
       const y = row.y - scrollY;
       if (y + rowHeight < 0 || y > height) continue;
       if (row.type === "category" || row.type === "group") {
@@ -992,68 +1102,27 @@ export function Timeline({
       }
     }
 
-    if (tier !== "month") {
-      const bands = nonWorkingDayClipRects(
+    elements.push(
+      ...bodyColumnNodes({
+        keyPrefix: "",
+        width,
+        height,
+        tier,
         timelineStart,
-        dayRange.start,
-        dayRange.end,
+        timelineEnd,
+        totalDays,
+        dayStart: dayRange.start,
+        dayEnd: dayRange.end,
         dateToX,
         pxPerDay,
-        width,
         calendar,
-        totalDays,
-      );
-      for (let i = 0; i < bands.length; i += 1) {
-        const band = bands[i];
-        elements.push(
-          <Rect
-            key={`nwd-${i}-${band.x}`}
-            x={band.x}
-            y={0}
-            width={band.width}
-            height={height}
-            fill={chart.nonWorking}
-            listening={false}
-          />,
-        );
-      }
-      for (let i = dayRange.start; i <= dayRange.end; i += 1) {
-        const d = addDays(timelineStart, i);
-        const x = dateToX(d);
-        if (x < -10 || x > width + 10) continue;
-        const isMonday = d.getUTCDay() === 1;
-        if (tier === "day" || isMonday) {
-          elements.push(
-            <Line
-              key={`vg-${i}`}
-              points={[x, 0, x, height]}
-              stroke={isMonday ? chart.gridBodyMonday : chart.gridBodyWeekday}
-              strokeWidth={1}
-              listening={false}
-            />,
-          );
-        }
-      }
-    } else {
-      let d = utcMonthStart(timelineStart);
-      while (d < timelineEnd) {
-        const x = dateToX(d);
-        if (x > -10 && x < width + 10) {
-          elements.push(
-            <Line
-              key={`mg-${d.getTime()}`}
-              points={[x, 0, x, height]}
-              stroke={chart.gridMonth}
-              strokeWidth={1}
-              listening={false}
-            />,
-          );
-        }
-        d = addUtcMonths(d, 1);
-      }
-    }
+        chart,
+      }),
+    );
 
-    for (const row of visibleRows) {
+    for (let index = 0; index < visibleRows.length; index += 1) {
+      if (stickyHidden.has(index)) continue;
+      const row = visibleRows[index];
       const y = row.y - scrollY + rowHeight;
       if (y < 0 || y > height) continue;
       elements.push(
@@ -1081,9 +1150,86 @@ export function Timeline({
     tier,
     timelineEnd,
     timelineStart,
+    stickyHidden,
     visibleRows,
     width,
     chart,
+  ]);
+
+  const stickyContent = useMemo(() => {
+    return sticky.draws.map((draw) => {
+      const row = visibleRows[draw.index];
+      if (row == null || (row.type !== "category" && row.type !== "group")) {
+        return null;
+      }
+      const clipHeight = draw.clipBottom - draw.clipTop;
+      if (clipHeight <= 0) return null;
+      return (
+        <Group
+          key={`sticky-${draw.index}`}
+          clipX={0}
+          clipY={draw.clipTop}
+          clipWidth={width}
+          clipHeight={clipHeight}
+          listening={false}
+        >
+          <Rect
+            x={0}
+            y={draw.top}
+            width={width}
+            height={rowHeight}
+            fill={row.type === "category" ? chart.categoryRow : chart.groupRow}
+            listening={false}
+          />
+          {bodyColumnNodes({
+            keyPrefix: `s${draw.index}-`,
+            width,
+            height: bodyHeight,
+            tier,
+            timelineStart,
+            timelineEnd,
+            totalDays,
+            dayStart: dayRange.start,
+            dayEnd: dayRange.end,
+            dateToX,
+            pxPerDay,
+            calendar,
+            chart,
+          })}
+          <Line
+            points={[0, draw.top + rowHeight, width, draw.top + rowHeight]}
+            stroke={chart.rowBorder}
+            strokeWidth={1}
+            listening={false}
+          />
+          <SummaryBar
+            summary={row.summary}
+            y={draw.top}
+            rowHeight={rowHeight}
+            barHeight={barHeight}
+            dateToX={dateToX}
+            chart={chart}
+          />
+        </Group>
+      );
+    });
+  }, [
+    barHeight,
+    bodyHeight,
+    calendar,
+    chart,
+    dateToX,
+    dayRange.end,
+    dayRange.start,
+    pxPerDay,
+    rowHeight,
+    sticky.draws,
+    tier,
+    timelineEnd,
+    timelineStart,
+    totalDays,
+    visibleRows,
+    width,
   ]);
 
   const lightningPoints = useMemo(() => {
@@ -1184,140 +1330,27 @@ export function Timeline({
     return polylines;
   }, [barHeight, dragPreview, links, liveAnchors, visibleRows]);
 
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const bandRef = useRef<HTMLDivElement>(null);
-  const [clientPointer, setClientPointer] = useState<{
-    x: number;
-    y: number;
-    sidebar: boolean;
-  } | null>(null);
-
-  useEffect(() => {
-    const onMove = (event: MouseEvent) => {
-      const sidebar =
-        event.target instanceof Element &&
-        event.target.closest(".sidebar") != null;
-      setClientPointer({ x: event.clientX, y: event.clientY, sidebar });
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
-
-  const chartPointer = useMemo(() => {
-    const empty = {
-      overTask: false,
-      overMilestone: false,
-      link: null as ChartPointer["link"],
-      hoverTaskId: null as ScheduleId | null,
-      previewEnd: null as { x: number; y: number } | null,
-    };
-    if (clientPointer == null) return empty;
-
-    let overMilestone = false;
-    const band = bandRef.current?.getBoundingClientRect();
-    if (
-      band &&
-      clientPointer.x >= band.left &&
-      clientPointer.x <= band.right &&
-      clientPointer.y >= band.top &&
-      clientPointer.y <= band.bottom
-    ) {
-      const x = clientPointer.x - band.left;
-      const y = clientPointer.y - band.top;
-      const radius = milestoneDiamondSize / 2 + 2;
-      for (const milestone of milestones) {
-        const cx = dateToX(parseDate(milestone.date));
-        const lane = milestoneLanes.get(milestone.id) ?? 0;
-        const cy = lane * milestoneLaneHeight + milestoneLaneHeight / 2;
-        if (Math.hypot(x - cx, y - cy) <= radius) {
-          overMilestone = true;
-          break;
-        }
-      }
-    }
-
-    const body = bodyRef.current?.getBoundingClientRect();
-    if (!body) return { ...empty, overMilestone };
-
-    const local = {
-      x: clientPointer.x - body.left,
-      y: clientPointer.y - body.top,
-    };
-    const insideBody =
-      clientPointer.x >= body.left &&
-      clientPointer.x <= body.right &&
-      clientPointer.y >= body.top &&
-      clientPointer.y <= body.bottom;
-
-    let hoverTaskId: ScheduleId | null = null;
-    let hoverAnchor: { x: number; y: number } | null = null;
-    if (insideBody) {
-      for (const [id, anchor] of liveAnchors) {
-        const top = anchor.y - barHeight / 2;
-        const bottom = anchor.y + barHeight / 2;
-        const handlePad =
-          !linkMode && id === selectedTaskId ? HANDLE_WIDTH / 2 : 0;
-        if (
-          local.x >= anchor.x - handlePad &&
-          local.x <= anchor.right + handlePad &&
-          local.y >= top &&
-          local.y <= bottom
-        ) {
-          hoverTaskId = id;
-          hoverAnchor = anchor;
-          break;
-        }
-      }
-    }
-    const overTask = hoverTaskId != null;
-    const link =
-      insideBody && !overTask && !overMilestone
-        ? nearestLinkHit(linkPolylines, local.x, local.y)
-        : null;
-
-    let previewEnd: { x: number; y: number } | null = null;
-    if (linkMode) {
-      if (clientPointer.sidebar) previewEnd = { x: 0, y: local.y };
-      else if (hoverAnchor) previewEnd = { x: hoverAnchor.x, y: hoverAnchor.y };
-      else previewEnd = local;
-    }
-
-    return {
-      overTask,
-      overMilestone,
-      link,
-      hoverTaskId,
-      previewEnd,
-    };
-  }, [
-    barHeight,
-    clientPointer,
-    dateToX,
+  const { bodyRef, bandRef, hover, previewEnd } = useTimelinePointer({
     linkMode,
-    linkPolylines,
+    milestones,
+    milestoneLanes,
+    dateToX,
     milestoneDiamondSize,
     milestoneLaneHeight,
-    milestoneLanes,
-    milestones,
-    selectedTaskId,
+    milestoneFontSize,
     liveAnchors,
-  ]);
-
-  const onChartPointerRef = useRef(onChartPointer);
-  onChartPointerRef.current = onChartPointer;
-  useEffect(() => {
-    onChartPointerRef.current({
-      overTask: chartPointer.overTask,
-      overMilestone: chartPointer.overMilestone,
-      link: chartPointer.link,
-    });
-  }, [chartPointer.link, chartPointer.overMilestone, chartPointer.overTask]);
+    linkPolylines,
+    barHeight,
+    selectedTaskId,
+    clipTop: sticky.clipTop,
+    onChartPointer,
+  });
 
   const linkArrows = useMemo(() => {
     return linkPolylines.flatMap((link) => {
       const hovered =
-        chartPointer.link?.fromId === link.fromId &&
-        chartPointer.link.toId === link.toId;
+        hover.link?.fromId === link.fromId &&
+        hover.link.toId === link.toId;
       const color = link.broken ? chart.linkBroken : chart.linkOk;
       const strokeWidth = link.broken ? 1.75 : 1.25;
       return [
@@ -1333,20 +1366,20 @@ export function Timeline({
         />,
       ];
     });
-  }, [chart, chartPointer.link, linkPolylines]);
+  }, [chart, hover.link, linkPolylines]);
 
   const previewPoints = useMemo(() => {
-    if (!linkSourceId || !chartPointer.previewEnd) return null;
+    if (!linkSourceId || !previewEnd) return null;
     const from = liveAnchors.get(linkSourceId);
     if (!from) return null;
     return linkPoints(
       from.linkRight,
       from.y,
-      chartPointer.previewEnd.x,
-      chartPointer.previewEnd.y,
+      previewEnd.x,
+      previewEnd.y,
       barHeight,
     );
-  }, [barHeight, chartPointer.previewEnd, linkSourceId, liveAnchors]);
+  }, [barHeight, previewEnd, linkSourceId, liveAnchors]);
 
   const panRef = useRef<{
     x: number;
@@ -1464,7 +1497,18 @@ export function Timeline({
   return (
     <div className="timeline">
       <div className="timeline-header">
-        <Stage width={width} height={headerHeight} onWheel={onWheelHeader}>
+        <Stage
+          width={width}
+          height={headerHeight}
+          onWheel={onWheelHeader}
+          onContextMenu={(e) => {
+            e.evt.preventDefault();
+            if (linkMode) return;
+            const pos = e.target.getStage()?.getPointerPosition();
+            if (!pos) return;
+            onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
+          }}
+        >
           <Layer>{headerContent}</Layer>
         </Stage>
       </div>
@@ -1484,6 +1528,7 @@ export function Timeline({
           onMove={onMoveMilestone}
           onOpenEdit={onOpenMilestone}
           onContextMenu={onMilestoneContextMenu}
+          onEmptyContextMenu={onAddMilestoneContextMenu}
           onWheel={onWheelHeader}
           chart={chart}
           colorScheme={colorScheme}
@@ -1501,35 +1546,33 @@ export function Timeline({
           onMouseDown={onBodyMouseDown}
           onMouseUp={endPan}
           onContextMenu={(e) => {
+            e.evt.preventDefault();
             const stage = e.target.getStage();
             const pos = stage?.getPointerPosition();
             if (!pos) return;
-            const overTask = [...liveAnchors].some(([id, anchor]) => {
-              const top = anchor.y - barHeight / 2;
-              const bottom = anchor.y + barHeight / 2;
-              const handlePad =
-                !linkMode && id === selectedTaskId ? HANDLE_WIDTH / 2 : 0;
-              return (
-                pos.x >= anchor.x - handlePad &&
-                pos.x <= anchor.right + handlePad &&
-                pos.y >= top &&
-                pos.y <= bottom
-              );
-            });
-            if (overTask) {
-              if (linkMode) e.evt.preventDefault();
+            if (pos.y < sticky.clipTop) {
+              if (linkMode) return;
+              onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
               return;
             }
+            const overTask =
+              hitTaskAnchor(pos, liveAnchors, barHeight, {
+                linkMode,
+                selectedTaskId,
+              }) != null;
+            if (overTask) return;
             const hit = nearestLinkHit(linkPolylines, pos.x, pos.y);
             if (hit) {
-              e.evt.preventDefault();
               onLinkContextMenu(hit.fromId, hit.toId, e.evt.clientX, e.evt.clientY);
               return;
             }
-            if (linkMode) e.evt.preventDefault();
+            if (linkMode) return;
+            onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
           }}
           onClick={(e) => {
             if (linkMode) return;
+            // Konva は右ボタンの mouseup でも click を出す。右クリックは選択を外さない。
+            if (e.evt.button !== 0) return;
             if (suppressClickRef.current) {
               suppressClickRef.current = false;
               return;
@@ -1543,11 +1586,37 @@ export function Timeline({
             if (e.target === stage) onClearSelection();
           }}
         >
-          <Layer listening={false}>{bgContent}</Layer>
-          <Layer listening={false}>{linkArrows}</Layer>
+          <Layer listening={false}>
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+              listening={false}
+            >
+              {bgContent}
+            </Group>
+          </Layer>
+          <Layer listening={false}>
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+              listening={false}
+            >
+              {linkArrows}
+            </Group>
+          </Layer>
           <Layer>
-            {visibleRows.map((row) => {
-              if (row.type === "task") return null;
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+            >
+            {visibleRows.map((row, index) => {
+              if (row.type === "task" || stickyHidden.has(index)) return null;
               const y = row.y - scrollY;
               if (y + rowHeight < 0 || y > bodyHeight) return null;
               return (
@@ -1580,7 +1649,7 @@ export function Timeline({
                   linkMode={linkMode}
                   linkTarget={
                     linkMode &&
-                    chartPointer.hoverTaskId === row.task.id &&
+                    hover.hoverTaskId === row.task.id &&
                     row.task.id !== linkSourceId
                   }
                   onLinkPointerDown={armLinkPress}
@@ -1624,31 +1693,54 @@ export function Timeline({
                 />
               );
             })}
+            </Group>
           </Layer>
           <Layer listening={false}>
-            {previewPoints ? (
-              <Arrow
-                points={previewPoints}
-                stroke={chart.linkOk}
-                fill={chart.linkOk}
-                strokeWidth={1.25}
-                pointerLength={LINK_POINTER_LENGTH}
-                pointerWidth={LINK_POINTER_LENGTH}
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+              listening={false}
+            >
+              {previewPoints ? (
+                <Arrow
+                  points={previewPoints}
+                  stroke={chart.linkOk}
+                  fill={chart.linkOk}
+                  strokeWidth={1.25}
+                  pointerLength={LINK_POINTER_LENGTH}
+                  pointerWidth={LINK_POINTER_LENGTH}
+                  listening={false}
+                />
+              ) : null}
+            </Group>
+          </Layer>
+          <Layer listening={false}>
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+              listening={false}
+            >
+              <Line
+                points={lightningPoints}
+                stroke={chart.lightning}
+                strokeWidth={2.5}
+                lineJoin="round"
+                lineCap="round"
                 listening={false}
               />
-            ) : null}
-          </Layer>
-          <Layer listening={false}>
-            <Line
-              points={lightningPoints}
-              stroke={chart.lightning}
-              strokeWidth={2.5}
-              lineJoin="round"
-              lineCap="round"
-              listening={false}
-            />
+            </Group>
           </Layer>
           <Layer>
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+            >
             {selectedRow && selectedRow.type === "task" && !linkMode ? (
               <ResizeHandles
                 key={selectedRow.task.id}
@@ -1685,6 +1777,8 @@ export function Timeline({
                 chart={chart}
               />
             ) : null}
+            </Group>
+            {stickyContent}
           </Layer>
         </Stage>
       </div>

@@ -78,6 +78,45 @@ export function writeDisplayScalePreference(
   }
 }
 
+const FIXED_DISPLAY_SCALES = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
+
+function roundedScale(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** 表示サイズを一段進める。端で変えないときは null。自動は固定の段へ移る。 */
+export function stepDisplayScale(
+  preference: DisplayScalePreference,
+  resolvedScale: number,
+  direction: "in" | "out",
+): DisplayScalePreference | null {
+  const delta = direction === "in" ? 1 : -1;
+  if (preference !== "auto") {
+    const index = FIXED_DISPLAY_SCALES.indexOf(preference);
+    const next = index + delta;
+    if (next < 0 || next >= FIXED_DISPLAY_SCALES.length) return null;
+    return FIXED_DISPLAY_SCALES[next];
+  }
+  const rounded = roundedScale(resolvedScale);
+  const index = FIXED_DISPLAY_SCALES.findIndex(
+    (step) => roundedScale(step) === rounded,
+  );
+  if (index >= 0) {
+    const next = index + delta;
+    if (next >= FIXED_DISPLAY_SCALES.length) return 2;
+    if (next < 0) return 0.5;
+    return FIXED_DISPLAY_SCALES[next];
+  }
+  if (direction === "in") {
+    return FIXED_DISPLAY_SCALES.find((step) => step > rounded) ?? 2;
+  }
+  for (let i = FIXED_DISPLAY_SCALES.length - 1; i >= 0; i -= 1) {
+    const step = FIXED_DISPLAY_SCALES[i];
+    if (step < rounded) return step;
+  }
+  return 0.5;
+}
+
 export function resolveUiScale(
   width: number,
   height: number,

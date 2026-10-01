@@ -107,7 +107,7 @@ export function TaskAddDialog({
             onChange={(e) => setEnd(e.target.value)}
           />
         </div>
-        {error ? <p className="form-error">{error}</p> : null}
+        {error ? <p className="form-error" role="alert">{error}</p> : null}
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>
             キャンセル

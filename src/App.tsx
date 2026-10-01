@@ -18,11 +18,13 @@ import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
 import { TaskEditDialog } from "./components/TaskEditDialog";
 import { TaskNoteDialog } from "./components/TaskNoteDialog";
-import { Timeline, type ChartPointer } from "./components/Timeline";
+import { Timeline } from "./components/Timeline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { Toolbar } from "./components/Toolbar";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
+import { noteShortcutHint, usesCommandKey } from "./model/shortcuts";
+import { useAppKeyboard } from "./hooks/useAppKeyboard";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
@@ -52,21 +54,18 @@ import {
   exportTimelineRange,
   milestonesForExport,
 } from "./model/exportView";
-import { parseDate } from "./model/dates";
+import { isoDateAtChartX, parseDate } from "./model/dates";
 import { resizeEndIso, resizeStartIso } from "./model/dragDates";
 import {
   layoutMilestones,
   milestoneBandHeightPx,
 } from "./model/milestones";
+import type { ChartPointer } from "./model/chartHitTest";
 import { findTaskById } from "./model/rows";
 import {
-  blocksBrowserShortcut,
-  blocksEditShortcut,
-  blocksLinkShortcut,
-  chartScrollOffset,
-  matchAppShortcut,
-  matchChartScroll,
-} from "./model/shortcuts";
+  layoutStickyHeaders,
+  scrollYToRevealTask,
+} from "./model/stickyRows";
 import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange } from "./model/timeline";
@@ -123,16 +122,8 @@ type ContextMenuState =
       toId: ScheduleId;
       x: number;
       y: number;
-    };
-
-function shouldHandleDocumentUndo(target: EventTarget | null): boolean {
-  if (document.querySelector('[role="dialog"]')) return false;
-  if (!(target instanceof HTMLElement)) return true;
-  if (target.isContentEditable) return false;
-  const tag = target.tagName;
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
-  return true;
-}
+    }
+  | { kind: "addMilestone"; date: string; x: number; y: number };
 
 function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
@@ -146,6 +137,8 @@ function App() {
   const [displayScalePreference, setDisplayScalePreference] = useState(
     readDisplayScalePreference,
   );
+  const displayScalePreferenceRef = useRef(displayScalePreference);
+  displayScalePreferenceRef.current = displayScalePreference;
   const [colorSchemePreference, setColorSchemePreference] = useState(
     readColorSchemePreference,
   );
@@ -153,6 +146,8 @@ function App() {
     (): ResolvedColorScheme => resolveColorScheme(readColorSchemePreference()),
   );
   const [uiScale, setUiScale] = useState(readUiScale);
+  const uiScaleRef = useRef(uiScale);
+  uiScaleRef.current = uiScale;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [diffText, setDiffText] = useState<string | null>(null);
@@ -160,6 +155,9 @@ function App() {
   const diffRequestRef = useRef(0);
   const [addOpen, setAddOpen] = useState(false);
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
+  const [addMilestoneInitialDate, setAddMilestoneInitialDate] = useState<
+    string | null
+  >(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteMilestoneId, setDeleteMilestoneId] = useState<ScheduleId | null>(
     null,
@@ -328,12 +326,14 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回のみサンプルカタログを用意
   }, []);
 
+  const blockDocumentEditsRef = useRef(false);
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
     sampleMilestones,
     rowHeight,
     memberCatalogState.members,
+    blockDocumentEditsRef,
   );
   const { redo, undo, setTaskStart, setTaskEnd, visibleRows } = schedule;
   const range = useMemo(
@@ -428,6 +428,7 @@ function App() {
       schedule.editingNoteTask != null ||
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null,
+    blockDocumentEditsRef,
   });
 
   const {
@@ -464,132 +465,41 @@ function App() {
       return selectedTaskId;
     });
   }, [selectedTaskId]);
+  const clearLinkMode = useCallback(() => {
+    setLinkSourceId(null);
+    setLinkError(null);
+  }, []);
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+  const requestDeleteTask = useCallback(() => {
+    setDeleteOpen(true);
+  }, []);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const dialogOpen = document.querySelector('[role="dialog"]') != null;
-      const target = e.target;
-      const blocksEditKeys =
-        target instanceof HTMLElement &&
-        blocksEditShortcut({
-          tagName: target.tagName,
-          isContentEditable: target.isContentEditable,
-        });
-      const blocksLinkKeys =
-        target instanceof HTMLElement &&
-        blocksLinkShortcut({
-          tagName: target.tagName,
-          isContentEditable: target.isContentEditable,
-        });
-      const shortcutEvent = {
-        key: e.key,
-        ctrlKey: e.ctrlKey,
-        metaKey: e.metaKey,
-        shiftKey: e.shiftKey,
-        altKey: e.altKey,
-      };
-      const chartScroll = matchChartScroll(shortcutEvent, { dialogOpen });
-      if (chartScroll) {
-        e.preventDefault();
-        setContextMenu(null);
-        const offset = chartScrollOffset(chartScroll, rowHeight);
-        scrollBy(offset.x, offset.y);
-        return;
-      }
-      if (blocksBrowserShortcut(shortcutEvent)) e.preventDefault();
-      if (
-        shortcutEvent.key === "Escape" &&
-        !dialogOpen &&
-        !shortcutEvent.altKey &&
-        !shortcutEvent.ctrlKey &&
-        !shortcutEvent.metaKey &&
-        !shortcutEvent.shiftKey
-      ) {
-        if (document.querySelector('[role="menu"]')) return;
-        if (linkSourceId != null) {
-          e.preventDefault();
-          setLinkSourceId(null);
-          setLinkError(null);
-        }
-        return;
-      }
-      const shortcut = matchAppShortcut(shortcutEvent, {
-        dialogOpen,
-        blocksEditKeys,
-        blocksLinkKeys,
-      });
-      if (shortcut) {
-        e.preventDefault();
-        if (e.repeat) return;
-        setContextMenu(null);
-        if (shortcut === "link") {
-          toggleLinkMode();
-          return;
-        }
-        if (shortcut === "edit") {
-          if (linkSourceId != null) return;
-          const task =
-            selectedTaskId == null
-              ? null
-              : findTaskById(categories, selectedTaskId);
-          if (task) openEditDialog(task);
-          return;
-        }
-        if (shortcut === "delete") {
-          const pointer = chartPointerRef.current;
-          const hovered = pointer.link;
-          if (
-            hovered &&
-            !pointer.overTask &&
-            !pointer.overMilestone
-          ) {
-            removePredecessorLink(hovered.fromId, hovered.toId);
-            return;
-          }
-          if (selectedTaskId != null) setDeleteOpen(true);
-          return;
-        }
-        if (fileBusy && shortcut !== "find") return;
-        if (shortcut === "save") void save(false);
-        else if (shortcut === "saveAs") void save(true);
-        else if (shortcut === "open") requestOpen();
-        else {
-          taskSearchRef.current?.focus();
-          taskSearchRef.current?.select();
-        }
-        return;
-      }
-      if (!shouldHandleDocumentUndo(e.target)) return;
-      const mod = e.metaKey || e.ctrlKey;
-      const key = e.key.toLowerCase();
-      if (key === "z" && mod && !e.altKey) {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-        return;
-      }
-      if (key === "y" && e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
-        e.preventDefault();
-        redo();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [
-    categories,
-    fileBusy,
-    openEditDialog,
-    redo,
-    requestOpen,
+  useAppKeyboard({
     rowHeight,
-    save,
     scrollBy,
+    fileBusy,
+    save,
+    requestOpen,
+    categories,
     selectedTaskId,
+    openEditDialog,
     linkSourceId,
     toggleLinkMode,
+    openTaskNote: schedule.openTaskNoteDialog,
+    clearLinkMode,
     removePredecessorLink,
+    chartPointerRef,
+    closeContextMenu,
+    requestDeleteTask,
     undo,
-  ]);
+    redo,
+    taskSearchRef,
+    displayScalePreferenceRef,
+    uiScaleRef,
+    onDisplayScaleChange: handleDisplayScaleChange,
+  });
 
   const onWheelBody = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -638,15 +548,23 @@ function App() {
     [range.timelineStart, setTaskStart, xToDate],
   );
 
+  const stickyLayout = useMemo(
+    () => layoutStickyHeaders(visibleRows, scrollY, rowHeight, bodyHeight),
+    [bodyHeight, rowHeight, scrollY, visibleRows],
+  );
+
   useEffect(() => {
     if (focusTaskId == null) return;
     const row = visibleRows.find(
       (item) => item.type === "task" && item.task.id === focusTaskId,
     );
     if (!row || row.type !== "task") return;
-    reveal(parseDate(row.task.start), row.y);
+    reveal(
+      parseDate(row.task.start),
+      scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+    );
     setFocusTaskId(null);
-  }, [focusTaskId, reveal, visibleRows]);
+  }, [bodyHeight, focusTaskId, reveal, rowHeight, visibleRows]);
 
   const handleResizeEnd = useCallback(
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
@@ -785,10 +703,6 @@ function App() {
       });
   }, [scheduleFile.currentJson, scheduleFile.fileBusy, scheduleFile.filePath]);
 
-  const closeContextMenu = useCallback(() => {
-    setContextMenu(null);
-  }, []);
-
   useEffect(() => {
     if (contextMenu == null) return;
     const closeIfDialog = () => {
@@ -840,6 +754,22 @@ function App() {
       setContextMenu({ kind: "link", fromId, toId, x, y });
     },
     [],
+  );
+
+  const openAddMilestoneContextMenu = useCallback(
+    (chartX: number, clientX: number, clientY: number) => {
+      if (linkSourceId != null) return;
+      const date = isoDateAtChartX(
+        range.timelineStart,
+        scrollX,
+        pxPerDay,
+        chartX,
+        range.totalDays,
+      );
+      if (date == null) return;
+      setContextMenu({ kind: "addMilestone", date, x: clientX, y: clientY });
+    },
+    [linkSourceId, pxPerDay, range.timelineStart, range.totalDays, scrollX],
   );
 
   const onLinkTargetClick = useCallback(
@@ -900,6 +830,19 @@ function App() {
         },
       ];
     }
+    if (contextMenu.kind === "addMilestone") {
+      const date = contextMenu.date;
+      return [
+        {
+          id: "add-milestone",
+          label: "マイルストンを追加",
+          onSelect: () => {
+            setAddMilestoneInitialDate(date);
+            setAddMilestoneOpen(true);
+          },
+        },
+      ];
+    }
     if (contextMenu.kind === "category" || contextMenu.kind === "group") {
       const { kind, id } = contextMenu;
       return [
@@ -944,6 +887,9 @@ function App() {
       {
         id: "note",
         label: "ノート",
+        shortcut: noteShortcutHint(
+          usesCommandKey(navigator.platform || navigator.userAgent),
+        ),
         onSelect: () => openTaskNoteDialog(taskId),
       },
       {
@@ -1020,7 +966,10 @@ function App() {
         onExportHtml={() => setExportOpen(true)}
         canDelete={schedule.selectedTaskId != null}
         onAdd={() => setAddOpen(true)}
-        onAddMilestone={() => setAddMilestoneOpen(true)}
+        onAddMilestone={() => {
+          setAddMilestoneInitialDate(null);
+          setAddMilestoneOpen(true);
+        }}
         onDelete={() => {
           if (schedule.selectedTaskId != null) setDeleteOpen(true);
         }}
@@ -1040,7 +989,8 @@ function App() {
             ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更（操作中は開始日と終了日）、ダブルクリックで詳細編集
             ・ タスクを選んで「系統」で前後だけ表示 ・
             タスクを選んで「線を引く」または ⌘/Ctrl+L で後続を足す。線の上で Delete か右クリックで外す
-            ・ マイルストンは「マイルストン追加」で足し、帯のひし形をドラッグ、ダブルクリックで編集、右クリックで削除
+            ・ 選択中のタスクは ⌘/Ctrl+N でノートを開く
+            ・ マイルストンは「マイルストン追加」で足す。日付ヘッダー、帯の空き、チャートの空きの右クリックでも足せる。帯のひし形か右の名前は、ドラッグで日付を変え、ダブルクリックで編集し、右クリックで削除する
             ・ ⌘/Ctrl+Z で取り消し、Shift+Z または Ctrl+Y でやり直し
           </>
         )}
@@ -1069,6 +1019,7 @@ function App() {
           onSidebarWidthCommit={handleSidebarWidthCommit}
           onSidebarWidthReset={handleSidebarWidthReset}
           onSidebarWidthNudge={handleSidebarWidthNudge}
+          sticky={stickyLayout}
         />
         <div ref={timelineAreaRef} className="timeline-slot">
           <Timeline
@@ -1115,9 +1066,11 @@ function App() {
             linkSourceId={linkSourceId}
             onLinkTargetClick={onLinkTargetClick}
             onLinkContextMenu={openLinkContextMenu}
+            onAddMilestoneContextMenu={openAddMilestoneContextMenu}
             onChartPointer={(pointer) => {
               chartPointerRef.current = pointer;
             }}
+            sticky={stickyLayout}
           />
         </div>
       </div>
@@ -1192,11 +1145,17 @@ function App() {
       ) : null}
       {addMilestoneOpen ? (
         <MilestoneAddDialog
-          initialDate={schedule.today}
-          onClose={() => setAddMilestoneOpen(false)}
+          initialDate={addMilestoneInitialDate ?? schedule.today}
+          onClose={() => {
+            setAddMilestoneOpen(false);
+            setAddMilestoneInitialDate(null);
+          }}
           onSave={(input) => {
             const message = schedule.addMilestone(input);
-            if (message == null) setAddMilestoneOpen(false);
+            if (message == null) {
+              setAddMilestoneOpen(false);
+              setAddMilestoneInitialDate(null);
+            }
             return message;
           }}
         />

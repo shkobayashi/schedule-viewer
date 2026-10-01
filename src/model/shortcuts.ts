@@ -5,7 +5,8 @@ export type AppShortcut =
   | "find"
   | "edit"
   | "delete"
-  | "link";
+  | "link"
+  | "note";
 
 export type ShortcutKeyEvent = {
   key: string;
@@ -18,7 +19,7 @@ export type ShortcutKeyEvent = {
 export type ShortcutContext = {
   dialogOpen: boolean;
   blocksEditKeys: boolean;
-  /** 検索欄、入力欄、選択欄。ボタンは線を引くキーを止めない。 */
+  /** 検索欄、入力欄、選択欄。ボタンは線を引くキーとノートのキーを止めない。 */
   blocksLinkKeys: boolean;
 };
 
@@ -44,7 +45,7 @@ export function blocksEditShortcut(target: {
   return EDIT_BLOCK_TAGS.has(target.tagName);
 }
 
-/** 線を引くキーは、検索欄・入力欄・選択欄と編集可能領域では効かない。 */
+/** 線を引くキーとノートのキーは、検索欄・入力欄・選択欄と編集可能領域では効かない。 */
 export function blocksLinkShortcut(target: {
   tagName: string;
   isContentEditable: boolean;
@@ -59,6 +60,7 @@ export function blocksBrowserShortcut(event: ShortcutKeyEvent): boolean {
   const mod = event.ctrlKey || event.metaKey;
   if (!mod) return false;
   if (key === "s") return true;
+  if (key === "n") return !event.shiftKey;
   return (key === "o" || key === "f") && !event.shiftKey;
 }
 
@@ -69,7 +71,7 @@ export function matchAppShortcut(
   if (context.dialogOpen || event.altKey) return null;
   const key = shortcutKey(event);
 
-  if (blocksBrowserShortcut(event)) {
+  if (blocksBrowserShortcut(event) && key !== "n") {
     if (key === "s" && event.shiftKey) return "saveAs";
     if (key === "s") return "save";
     if (key === "o") return "open";
@@ -77,12 +79,12 @@ export function matchAppShortcut(
   }
 
   if (
-    key === "l" &&
+    (key === "l" || key === "n") &&
     (event.ctrlKey || event.metaKey) &&
     !event.shiftKey
   ) {
     if (context.blocksLinkKeys) return null;
-    return "link";
+    return key === "l" ? "link" : "note";
   }
 
   if (event.ctrlKey || event.metaKey || event.shiftKey || context.blocksEditKeys) {
@@ -90,6 +92,19 @@ export function matchAppShortcut(
   }
   if (key === "Enter") return "edit";
   if (key === "Delete" || key === "Backspace") return "delete";
+  return null;
+}
+
+export type DisplayScaleDirection = "in" | "out";
+
+/** ⌘ または Ctrl と + / = で拡大、- で縮小。Alt と、文字が `_` の押し方は対象外。 */
+export function matchDisplayScale(
+  event: ShortcutKeyEvent,
+): DisplayScaleDirection | null {
+  if (event.altKey) return null;
+  if (!(event.ctrlKey || event.metaKey)) return null;
+  if (event.key === "+" || event.key === "=") return "in";
+  if (event.key === "-") return "out";
   return null;
 }
 
@@ -122,6 +137,10 @@ export function usesCommandKey(platform: string): boolean {
 
 export function linkShortcutHint(commandKey: boolean): string {
   return commandKey ? "⌘L" : "Ctrl+L";
+}
+
+export function noteShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘N" : "Ctrl+N";
 }
 
 export function fileShortcutHint(

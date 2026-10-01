@@ -131,8 +131,10 @@ export async function saveScheduleViaTauri(
   });
 }
 
+const MAX_SCHEDULE_BYTES = 10 * 1024 * 1024;
+
 export function openScheduleViaBrowserInput(): Promise<ScheduleFilePick | null> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json,application/json";
@@ -146,6 +148,11 @@ export function openScheduleViaBrowserInput(): Promise<ScheduleFilePick | null> 
       if (!file) {
         cleanup();
         resolve(null);
+        return;
+      }
+      if (file.size > MAX_SCHEDULE_BYTES) {
+        cleanup();
+        reject(new Error("ファイルが大きすぎます（上限 10 MB）"));
         return;
       }
       const reader = new FileReader();

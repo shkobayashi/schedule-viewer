@@ -208,10 +208,10 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 
 `develop` への push だけでは CI は動かない。CI が動くのは `develop` 向けの pull request のときだけである。
 
-CI は変更されたパスでジョブを分ける。
+CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
-- `src-tauri/` が変わると Rust ジョブ（Clippy と `cargo test --locked`）が動く
-- `src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、スキル同梱物の差分検査である
+- `src-tauri/` または `rust-toolchain.toml` が変わると Rust ジョブ（Clippy と `cargo test --locked`）が動く
+- `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、スキル同梱物と `src/model/generated/` の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
 - `docs/*.md` や `README.md` だけの変更では、どちらのジョブも動かない
 
@@ -270,17 +270,17 @@ Ubuntu 22.04 以降。システムパッケージは [Ubuntu の開発環境](#u
 `npm run tauri build` のあと、deb を入れて起動する。x86_64 の例:
 
 ```bash
-sudo apt install ./src-tauri/target/release/bundle/deb/schedule-viewer_0.6.0_amd64.deb
+sudo apt install ./src-tauri/target/release/bundle/deb/schedule-viewer_X.Y.Z_amd64.deb
 schedule-viewer
 ```
 
-arm64 でビルドしたときは `schedule-viewer_0.6.0_arm64.deb` になる。DevContainer を Apple Silicon 上の Linux で使っている場合は arm64 向けになる。配布先の Ubuntu が x86_64 なら、そのマシンでビルドする。
+arm64 でビルドしたときは `schedule-viewer_X.Y.Z_arm64.deb` になる。DevContainer を Apple Silicon 上の Linux で使っている場合は arm64 向けになる。配布先の Ubuntu が x86_64 なら、そのマシンでビルドする。
 
 インストールせずに起動する AppImage もできる。x86_64 では `x86_64`、arm64 では `aarch64` がファイル名に入る。
 
 ```bash
-chmod +x src-tauri/target/release/bundle/appimage/schedule-viewer_0.6.0_x86_64.AppImage
-./src-tauri/target/release/bundle/appimage/schedule-viewer_0.6.0_x86_64.AppImage
+chmod +x src-tauri/target/release/bundle/appimage/schedule-viewer_X.Y.Z_x86_64.AppImage
+./src-tauri/target/release/bundle/appimage/schedule-viewer_X.Y.Z_x86_64.AppImage
 ```
 
 同じビルドで RPM も `bundle/rpm/` にできる。Ubuntu では deb を使う。
@@ -297,8 +297,8 @@ open src-tauri/target/release/bundle/macos/schedule-viewer.app
 
 ほかの Mac に渡すときは、ディスクイメージを開いて Applications に入れる。
 
-- Apple Silicon: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.6.0_aarch64.dmg`
-- Intel: `src-tauri/target/release/bundle/dmg/schedule-viewer_0.6.0_x64.dmg`
+- Apple Silicon: `src-tauri/target/release/bundle/dmg/schedule-viewer_X.Y.Z_aarch64.dmg`
+- Intel: `src-tauri/target/release/bundle/dmg/schedule-viewer_X.Y.Z_x64.dmg`
 
 別の Mac へ渡すには、Apple の署名と公証が必要になる。ビルドした Mac 上の `.app` はそのまま開ける。
 
@@ -308,8 +308,8 @@ Windows 10（バージョン 1803 以降）または Windows 11。C++ Build Tool
 
 `npm run tauri build` のあと、できたインストーラを実行し、スタートメニューの schedule-viewer から起動する。x86_64 の例:
 
-- `src-tauri\target\release\bundle\nsis\schedule-viewer_0.6.0_x64-setup.exe`
-- `src-tauri\target\release\bundle\msi\schedule-viewer_0.6.0_x64_en-US.msi`
+- `src-tauri\target\release\bundle\nsis\schedule-viewer_X.Y.Z_x64-setup.exe`
+- `src-tauri\target\release\bundle\msi\schedule-viewer_X.Y.Z_x64_en-US.msi`
 
 ARM の Windows では `x64` の部分が `arm64` になる。インストーラを使わず、ビルドした PC でそのまま試す場合:
 
@@ -325,7 +325,7 @@ ARM の Windows では `x64` の部分が `arm64` になる。インストーラ
 
 カレンダー JSON を変えるときも、`docs/calendar.schema.json`、アプリの検証、`.cursor/skills/write-calendar/` を揃える。メンバー JSON も同様に `docs/members.schema.json`、アプリの検証、`.cursor/skills/write-members/` を揃える。
 
-検証器は `scripts/compile-validators.mjs` がスキーマから `src/model/generated/` へ生成する。`npm run dev`、`npm run build`、`npm test` は先にこれを実行する。スキルに同梱する検証スクリプトは `npm run build:validate-skill` で作り直す。CI のフロントジョブは、生成後のスキル同梱物がコミット済みの内容と一致することを `git diff --exit-code` で見る。
+検証器は `scripts/compile-validators.mjs` がスキーマから `src/model/generated/` へ生成する。`npm run dev`、`npm run build`、`npm test` は先にこれを実行する。スキルに同梱する検証スクリプトは `npm run build:validate-skill` で作り直す。CI のフロントジョブは、生成後の `src/model/generated/` とスキル同梱物がコミット済みの内容と一致することを `git diff --exit-code` で見る。
 
 ## ドキュメントの更新ルール
 

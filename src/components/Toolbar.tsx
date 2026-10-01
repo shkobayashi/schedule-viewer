@@ -135,6 +135,7 @@ export function Toolbar({
         type="text"
         ref={taskSearchRef}
         placeholder="タスク名で検索"
+        aria-label="タスク名で検索"
         className="search-input"
         value={filters.search}
         onChange={(e) => onFiltersChange({ search: e.target.value })}
@@ -142,11 +143,13 @@ export function Toolbar({
       <input
         type="text"
         placeholder="ノートで検索"
+        aria-label="ノートで検索"
         className="search-input search-input-note"
         value={filters.noteSearch}
         onChange={(e) => onFiltersChange({ noteSearch: e.target.value })}
       />
       <select
+        aria-label="担当者"
         value={filters.assignee}
         onChange={(e) => onFiltersChange({ assignee: e.target.value })}
       >
@@ -159,6 +162,7 @@ export function Toolbar({
         ))}
       </select>
       <select
+        aria-label="ステータス"
         value={filters.status}
         onChange={(e) =>
           onFiltersChange({ status: e.target.value as StatusFilter })
@@ -171,6 +175,7 @@ export function Toolbar({
         <option value="done">完了</option>
       </select>
       <select
+        aria-label="確度"
         value={filters.confidence}
         onChange={(e) =>
           onFiltersChange({ confidence: e.target.value as ConfidenceFilter })
@@ -181,6 +186,7 @@ export function Toolbar({
         <option value="committed">確定</option>
       </select>
       <select
+        aria-label="期限"
         value={filters.overdue}
         onChange={(e) =>
           onFiltersChange({ overdue: e.target.value as OverdueFilter })
@@ -190,6 +196,7 @@ export function Toolbar({
         <option value="overdue">期限超過</option>
       </select>
       <select
+        aria-label="前後"
         value={filters.relation}
         onChange={(e) =>
           onFiltersChange({ relation: e.target.value as RelationFilter })
@@ -199,6 +206,7 @@ export function Toolbar({
         <option value="broken">前後: 破綻のみ</option>
       </select>
       <select
+        aria-label="マイルストン"
         value={filters.milestone}
         onChange={(e) => onFiltersChange({ milestone: e.target.value })}
       >

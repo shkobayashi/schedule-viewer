@@ -181,6 +181,10 @@ body {
 }
 
 .context-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16px * var(--s));
   text-align: left;
   border: none;
   background: transparent;
@@ -491,6 +495,20 @@ input[type="number"] {
   left: 0;
   right: 0;
   top: 0;
+}
+
+.sidebar-sticky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sidebar-sticky-clip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  pointer-events: auto;
 }
 
 .sidebar-row {

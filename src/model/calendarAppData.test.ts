@@ -76,4 +76,26 @@ describe("calendar app storage", () => {
     expect(loaded.label).toBe("calendar.json");
     expect(loaded.document?.nonWorkingDays[0]?.date).toBe("2026-01-01");
   });
+
+  it("rolls back both keys when the label cannot be stored", async () => {
+    memory.set("schedule-viewer/calendar/body", validCalendar);
+    memory.set("schedule-viewer/calendar/label", "before.json");
+    let writes = 0;
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        writes += 1;
+        if (writes === 2) throw new Error("quota");
+        memory.set(key, value);
+      },
+      removeItem: (key: string) => {
+        memory.delete(key);
+      },
+    });
+    await expect(importAppCalendar("next.json", validCalendar)).rejects.toThrow(
+      "ブラウザの保存領域に書けませんでした。",
+    );
+    expect(memory.get("schedule-viewer/calendar/body")).toBe(validCalendar);
+    expect(memory.get("schedule-viewer/calendar/label")).toBe("before.json");
+  });
 });
