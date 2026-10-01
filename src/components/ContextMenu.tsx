@@ -5,6 +5,7 @@ import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 export type ContextMenuItem = {
   id: string;
   label: string;
+  shortcut?: string;
   onSelect: () => void;
 };
 
@@ -87,7 +88,10 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
             item.onSelect();
           }}
         >
-          {item.label}
+          <span>{item.label}</span>
+          {item.shortcut ? (
+            <span className="menu-shortcut">{item.shortcut}</span>
+          ) : null}
         </button>
       ))}
     </div>,

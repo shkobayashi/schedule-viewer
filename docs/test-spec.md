@@ -202,6 +202,7 @@
 | 同上 | `deletes the hovered link before the selected task` | EDIT-09, EDIT-12 |
 | 同上 | `drops file shortcuts while a file operation is busy and keeps find` | FILE-02, NAV-05 |
 | 同上 | `ignores undo and redo in a dialog or text field` | EDIT-10 |
+| 同上 | `opens the note for the selected task and swallows a no-op` | EDIT-06 |
 | 同上 | `steps display scale from a dialog, a field, or a repeat` | SET-01 |
 | `saveFlight.test.ts` | `rejects a second save until the first releases the flight` | FILE-02, SYNC-02 |
 | 同上 | `does not start a save while the file operation is busy` | FILE-02 |
@@ -213,6 +214,8 @@
 | 同上 | `keeps file shortcuts while typing and drops them in a dialog` | FILE-02 |
 | 同上 | `maps Enter and Delete only when edit keys are free` | EDIT-04, EDIT-09 |
 | 同上 | `maps command L for drawing a link unless a field or dialog has focus` | EDIT-12 |
+| 同上 | `maps command N for the selected task note unless a field or dialog has focus` | EDIT-06 |
+| 同上 | `uses the command key for the note hint` | EDIT-06 |
 | 同上 | `uses the command key on mac and ctrl elsewhere` | EDIT-12 |
 | 同上 | `blocks fields but not buttons` | EDIT-12 |
 | 同上 | `ignores undo, zoom-like modifiers, and alt combinations` | EDIT-10 |
@@ -222,7 +225,7 @@
 | 同上 | `scrolls when both ctrl and meta are held` | NAV-01 |
 | 同上 | `maps plus, equals, and minus with ctrl or meta` | SET-01 |
 | 同上 | `ignores underscore, alt, a bare key, and zero` | SET-01 |
-| 同上 | `marks save, open, and find so the browser action can be cancelled` | FILE-02, NAV-05 |
+| 同上 | `marks save, open, find, and note so the browser action can be cancelled` | FILE-02, NAV-05, EDIT-06 |
 | 同上 | `blocks text fields, buttons, and links` | EDIT-04 |
 | 同上 | `uses the command key on Apple platforms` | EDIT-12 |
 | `sidebarWidth.test.ts` | `uses 190 when nothing is stored` | NAV-06 |
@@ -450,6 +453,7 @@
 | TC-EDIT-05b | EDIT-05 | タスクが50件を超えるスケジュール | 先行の検索を空のまま開く | 「さらに絞り込んでください」と出る |
 | TC-EDIT-05c | EDIT-05 | カテゴリ名とグループ名が長い後続がある | そのタスクの編集を開く。後続にカーソルを乗せる。先行も見る | タスク名は省略されず見える。階層の行は長いとき省略される。ホバーで「カテゴリ / グループ / タスク名」の全文が出る。先行も同じである |
 | TC-EDIT-06 | EDIT-06 | ノートが無いタスク | ノートアイコンから文字を保存し、次に空白だけを保存する | 一度目でノートが付き、二度目でノートが消える |
+| TC-EDIT-06b | EDIT-06, EDIT-11 | タスクを選択している | ⌘/Ctrl+N を押す。N だけ、選択が無いとき、線を引くモード、検索欄でも押す。右クリックの「ノート」を見る | 選択中のノートが開く。タイトルはタスク名。ノートが無ければ「ノートはありません」と出る。N だけ、選択が無いとき、線を引くモード、検索欄では開かない。右クリックの「ノート」の右に ⌘N または Ctrl+N が出る |
 | TC-EDIT-07 | EDIT-07 | マイルストンがある | ひし形を横にドラッグして離す。次に名前を横にドラッグして離し、名前をダブルクリックで空白にして保存する。名前の右と、段の上下の空きも押す | 日付は、名前を離した位置になる。ドラッグ中の月/日は出ない。空白の名前は元の名前のまま残る。名前の右と段の上下では編集もドラッグも始まらない |
 | TC-EDIT-07b | EDIT-07, VIEW-12 | マイルストンが 0 件でもよい | 「マイルストン追加」で名前と日付を、確度は未確定のまま保存する。次に確度を確定にして足す | 未確定は斜線、確定は塗りつぶしのひし形が出る。取り消し 1 回で、最後に足したものだけ消える |
 | TC-EDIT-07c | EDIT-07 | 「マイルストン追加」を開いている | 名前を空白だけ、または日付を空にして保存する。次にキャンセルと Escape を試す | どれでもマイルストンは増えない |

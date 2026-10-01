@@ -6,6 +6,7 @@ import {
   chartScrollOffset,
   fileShortcutHint,
   linkShortcutHint,
+  noteShortcutHint,
   matchAppShortcut,
   matchChartScroll,
   matchDisplayScale,
@@ -93,6 +94,18 @@ describe("matchAppShortcut", () => {
     expect(matchAppShortcut(key("l", { ctrlKey: true, altKey: true }), idle)).toBeNull();
   });
 
+  it("maps command N for the selected task note unless a field or dialog has focus", () => {
+    expect(matchAppShortcut(key("n", { ctrlKey: true }), idle)).toBe("note");
+    expect(matchAppShortcut(key("N", { metaKey: true }), idle)).toBe("note");
+    expect(matchAppShortcut(key("n", { ctrlKey: true }), buttonFocus)).toBe("note");
+    expect(matchAppShortcut(key("n"), idle)).toBeNull();
+    expect(matchAppShortcut(key("n", { ctrlKey: true }), typing)).toBeNull();
+    expect(matchAppShortcut(key("n", { metaKey: true }), dialog)).toBeNull();
+    expect(matchAppShortcut(key("n", { ctrlKey: true, shiftKey: true }), idle)).toBeNull();
+    expect(matchAppShortcut(key("n", { altKey: true }), idle)).toBeNull();
+    expect(matchAppShortcut(key("n", { ctrlKey: true, altKey: true }), idle)).toBeNull();
+  });
+
   it("ignores undo, zoom-like modifiers, and alt combinations", () => {
     expect(matchAppShortcut(key("z", { ctrlKey: true }), idle)).toBeNull();
     expect(matchAppShortcut(key("y", { ctrlKey: true }), idle)).toBeNull();
@@ -161,8 +174,17 @@ describe("matchChartScroll", () => {
 });
 
 describe("blocksBrowserShortcut", () => {
-  it("marks save, open, and find so the browser action can be cancelled", () => {
+  it("marks save, open, find, and note so the browser action can be cancelled", () => {
     expect(blocksBrowserShortcut(key("s", { ctrlKey: true }))).toBe(true);
+    expect(blocksBrowserShortcut(key("n", { ctrlKey: true }))).toBe(true);
+    expect(blocksBrowserShortcut(key("N", { metaKey: true }))).toBe(true);
+    expect(blocksBrowserShortcut(key("n", { ctrlKey: true, shiftKey: true }))).toBe(
+      false,
+    );
+    expect(blocksBrowserShortcut(key("n", { ctrlKey: true, altKey: true }))).toBe(
+      false,
+    );
+    expect(blocksBrowserShortcut(key("n"))).toBe(false);
     expect(blocksBrowserShortcut(key("S", { metaKey: true, shiftKey: true }))).toBe(
       true,
     );
@@ -226,6 +248,13 @@ describe("linkShortcutHint", () => {
   it("uses the command key on mac and ctrl elsewhere", () => {
     expect(linkShortcutHint(true)).toBe("⌘L");
     expect(linkShortcutHint(false)).toBe("Ctrl+L");
+  });
+});
+
+describe("noteShortcutHint", () => {
+  it("uses the command key for the note hint", () => {
+    expect(noteShortcutHint(true)).toBe("⌘N");
+    expect(noteShortcutHint(false)).toBe("Ctrl+N");
   });
 });
 

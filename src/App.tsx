@@ -23,6 +23,7 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { Toolbar } from "./components/Toolbar";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
+import { noteShortcutHint, usesCommandKey } from "./model/shortcuts";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
@@ -482,6 +483,7 @@ function App() {
     openEditDialog,
     linkSourceId,
     toggleLinkMode,
+    openTaskNote: schedule.openTaskNoteDialog,
     clearLinkMode,
     removePredecessorLink,
     chartPointerRef,
@@ -852,6 +854,9 @@ function App() {
       {
         id: "note",
         label: "ノート",
+        shortcut: noteShortcutHint(
+          usesCommandKey(navigator.platform || navigator.userAgent),
+        ),
         onSelect: () => openTaskNoteDialog(taskId),
       },
       {
@@ -948,6 +953,7 @@ function App() {
             ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更（操作中は開始日と終了日）、ダブルクリックで詳細編集
             ・ タスクを選んで「系統」で前後だけ表示 ・
             タスクを選んで「線を引く」または ⌘/Ctrl+L で後続を足す。線の上で Delete か右クリックで外す
+            ・ 選択中のタスクは ⌘/Ctrl+N でノートを開く
             ・ マイルストンは「マイルストン追加」で足し、帯のひし形か右の名前をドラッグ、ダブルクリックで編集、右クリックで削除
             ・ ⌘/Ctrl+Z で取り消し、Shift+Z または Ctrl+Y でやり直し
           </>

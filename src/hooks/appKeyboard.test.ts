@@ -140,6 +140,65 @@ describe("decideAppKey", () => {
     expect(zoomOut.closeMenu).toBe(true);
   });
 
+  it("opens the note for the selected task and swallows a no-op", () => {
+    const note = {
+      key: "n",
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      repeat: false,
+    };
+    const open = decide({ event: note, selectedTaskId: "task-a" });
+    expect(open.action).toEqual({ type: "note" });
+    expect(open.preventDefault).toBe(true);
+    expect(open.closeMenu).toBe(true);
+    const missing = decide({ event: note });
+    expect(missing.action).toEqual({ type: "none" });
+    expect(missing.preventDefault).toBe(true);
+    expect(missing.closeMenu).toBe(true);
+    const linking = decide({
+      event: note,
+      selectedTaskId: "task-a",
+      linkSourceId: "task-a",
+    });
+    expect(linking.action).toEqual({ type: "none" });
+    expect(linking.preventDefault).toBe(true);
+    const repeat = decide({
+      event: { ...note, repeat: true },
+      selectedTaskId: "task-a",
+    });
+    expect(repeat.action).toEqual({ type: "none" });
+    expect(repeat.preventDefault).toBe(true);
+    expect(repeat.closeMenu).toBe(true);
+    const dialog = decide({
+      event: note,
+      dialogOpen: true,
+      selectedTaskId: "task-a",
+    });
+    expect(dialog.action).toEqual({ type: "none" });
+    expect(dialog.preventDefault).toBe(true);
+    const fieldNote = decide({
+      event: note,
+      target: field,
+      selectedTaskId: "task-a",
+    });
+    expect(fieldNote.action).toEqual({ type: "none" });
+    expect(fieldNote.preventDefault).toBe(true);
+    const busy = decide({
+      event: note,
+      fileBusy: true,
+      selectedTaskId: "task-a",
+    });
+    expect(busy.action).toEqual({ type: "note" });
+    const shifted = decide({
+      event: { ...note, shiftKey: true },
+      selectedTaskId: "task-a",
+    });
+    expect(shifted.action).toEqual({ type: "none" });
+    expect(shifted.preventDefault).toBe(false);
+  });
+
   it("ignores undo and redo in a dialog or text field", () => {
     const undo = {
       key: "z",
