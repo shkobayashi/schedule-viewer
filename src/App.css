@@ -181,6 +181,10 @@ body {
 }
 
 .context-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16px * var(--s));
   text-align: left;
   border: none;
   background: transparent;

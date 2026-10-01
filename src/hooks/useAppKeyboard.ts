@@ -21,6 +21,7 @@ type UseAppKeyboardOptions = {
   openEditDialog: (task: Task) => void;
   linkSourceId: ScheduleId | null;
   toggleLinkMode: () => void;
+  openTaskNote: (taskId: ScheduleId) => void;
   clearLinkMode: () => void;
   removePredecessorLink: (fromId: ScheduleId, toId: ScheduleId) => void;
   chartPointerRef: { current: ChartPointer };
@@ -45,6 +46,7 @@ export function useAppKeyboard({
   openEditDialog,
   linkSourceId,
   toggleLinkMode,
+  openTaskNote,
   clearLinkMode,
   removePredecessorLink,
   chartPointerRef,
@@ -117,6 +119,10 @@ export function useAppKeyboard({
         toggleLinkMode();
         return;
       }
+      if (action.type === "note") {
+        if (selectedTaskId != null) openTaskNote(selectedTaskId);
+        return;
+      }
       if (action.type === "edit") {
         const task =
           selectedTaskId == null ? null : findTaskById(categories, selectedTaskId);
@@ -159,6 +165,7 @@ export function useAppKeyboard({
     scrollBy,
     selectedTaskId,
     taskSearchRef,
+    openTaskNote,
     toggleLinkMode,
     undo,
     displayScalePreferenceRef,
