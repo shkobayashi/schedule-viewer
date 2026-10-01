@@ -61,6 +61,10 @@ import {
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
 import { findTaskById } from "./model/rows";
+import {
+  layoutStickyHeaders,
+  scrollYToRevealTask,
+} from "./model/stickyRows";
 import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange } from "./model/timeline";
@@ -531,15 +535,23 @@ function App() {
     [range.timelineStart, setTaskStart, xToDate],
   );
 
+  const stickyLayout = useMemo(
+    () => layoutStickyHeaders(visibleRows, scrollY, rowHeight, bodyHeight),
+    [bodyHeight, rowHeight, scrollY, visibleRows],
+  );
+
   useEffect(() => {
     if (focusTaskId == null) return;
     const row = visibleRows.find(
       (item) => item.type === "task" && item.task.id === focusTaskId,
     );
     if (!row || row.type !== "task") return;
-    reveal(parseDate(row.task.start), row.y);
+    reveal(
+      parseDate(row.task.start),
+      scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+    );
     setFocusTaskId(null);
-  }, [focusTaskId, reveal, visibleRows]);
+  }, [bodyHeight, focusTaskId, reveal, rowHeight, visibleRows]);
 
   const handleResizeEnd = useCallback(
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
@@ -958,6 +970,7 @@ function App() {
           onSidebarWidthCommit={handleSidebarWidthCommit}
           onSidebarWidthReset={handleSidebarWidthReset}
           onSidebarWidthNudge={handleSidebarWidthNudge}
+          sticky={stickyLayout}
         />
         <div ref={timelineAreaRef} className="timeline-slot">
           <Timeline
@@ -1007,6 +1020,7 @@ function App() {
             onChartPointer={(pointer) => {
               chartPointerRef.current = pointer;
             }}
+            sticky={stickyLayout}
           />
         </div>
       </div>

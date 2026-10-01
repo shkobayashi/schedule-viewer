@@ -109,6 +109,22 @@
 | 同上 | `treats an empty weekends list as no weekday holidays` | VIEW-09 |
 | 同上 | `does not paint days past the schedule end` | VIEW-09 |
 | 同上 | `respects nonWorkingDays on weekdays` | VIEW-09 |
+| `stickyRows.test.ts` | `sticks nothing at the top of the list` | NAV-01 |
+| 同上 | `sticks the open category and its first group after a short scroll` | NAV-01 |
+| 同上 | `keeps those headers when the next task meets the band` | NAV-01 |
+| 同上 | `slides the next group into the group slot` | NAV-01 |
+| 同上 | `releases the finished group and keeps the next one` | NAV-01 |
+| 同上 | `keeps the current headers before the next category arrives` | NAV-01 |
+| 同上 | `swaps categories while the group stays in its slot` | NAV-01 |
+| 同上 | `switches to the next category and group together` | NAV-01 |
+| 同上 | `places the later task just below the sticky band` | NAV-01 |
+| 同上 | `sticks nothing when the viewport is taller than the content` | NAV-01 |
+| 同上 | `skips a collapsed group` | NAV-01 |
+| 同上 | `skips a collapsed category` | NAV-01 |
+| 同上 | `sticks only the category when every group is collapsed` | NAV-01 |
+| 同上 | `returns no draws for an empty list` | NAV-01 |
+| 同上 | `scrolls a task to just under the sticky headers` | NAV-01, EDIT-01, EDIT-14 |
+| 同上 | `returns the task offset when the list fits` | NAV-01, EDIT-01, EDIT-14 |
 | `rows.test.ts` | `relaxes filters that would hide a newly added task` | EDIT-08, EDIT-14 |
 | 同上 | `keeps a search when only surrounding spaces differ` | EDIT-08, FILTER-01 |
 | 同上 | `keeps filters that still show a newly added task` | EDIT-08 |
@@ -251,6 +267,7 @@
 | `chartHitTest.test.ts` | `extends the selected bar by the resize handle` | EDIT-02, EDIT-03, EDIT-12 |
 | 同上 | `does not extend the handle while drawing a link` | EDIT-12 |
 | 同上 | `prefers a task or milestone over a link` | EDIT-11, EDIT-12 |
+| 同上 | `misses tasks and links in the sticky band` | NAV-01 |
 | 同上 | `hits a link only when the pointer misses bars and diamonds` | EDIT-12 |
 | 同上 | `places the link preview at the sidebar, bar start, or pointer` | EDIT-12 |
 | 同上 | `hits a milestone diamond inside the slop and misses outside it` | VIEW-04, EDIT-11 |
@@ -388,6 +405,7 @@
 | TC-NAV-01 | NAV-01 | 期間が画面より広い | チャートをドラッグし、ホイールと Shift+ホイールを回す | ドラッグは縦横、ホイールは縦、Shift+ホイールは横に動く |
 | TC-NAV-01b | NAV-01 | 期間が画面より広く、行が画面より多い | ⌘ または Ctrl を押しながら上下左右を押す。押し続ける。端まで押す | 上で縦に戻り、下で進む。左で過去、右で未来へ動く。縦は左の一覧と一緒に動く。上下は 1 行分、左右も同じ画面上の距離である。押しているあいだは連続して動き、端で止まる |
 | TC-NAV-01c | NAV-01 | 検索欄、選択欄、またはボタンにフォーカスがある。別途、ダイアログと右クリックメニューを開く | 矢印キーだけを押し、続けて ⌘ または Ctrl と矢印を押す | 矢印キーだけではその欄の操作のままである。⌘ または Ctrl と矢印ではチャートが動く。ダイアログが開いているあいだは動かない。右クリックメニューは、この操作で閉じる |
+| TC-NAV-01d | NAV-01 | 行が画面より多い。別途、一覧が画面に収まるスケジュールと、折りたたんだカテゴリまたはグループ | 縦にスクロールする。次の見出しが上へ来るまで進める。折りたたんだ行の下も見る。一覧が画面に収まるときはスクロールしない | 展開中のカテゴリとグループが、日付ヘッダーとマイルストン帯の下に残る。次の見出しで入れ替わる。折りたたんだ行は残らない。一覧が画面に収まるときは残らない |
 | TC-NAV-02 | NAV-02 | 週表示 | Ctrl または ⌘ を押してホイールを回す | ポインタの位置を保ったまま拡大し、十分拡大すると「日表示」、縮小すると「月表示」になる |
 | TC-NAV-03 | NAV-03 | 横にスクロールした状態 | 「Fit」を押す | 期間が幅に入り、横位置が先頭に戻る |
 | TC-NAV-04 | NAV-04 | タスクがあるグループ | 三角を二度押す | 一度で配下の行が隠れ、親バーは残る。二度で戻る |
