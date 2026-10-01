@@ -93,6 +93,19 @@ export function matchAppShortcut(
   return null;
 }
 
+export type DisplayScaleDirection = "in" | "out";
+
+/** ⌘ または Ctrl と + / = で拡大、- で縮小。Alt と、文字が `_` の押し方は対象外。 */
+export function matchDisplayScale(
+  event: ShortcutKeyEvent,
+): DisplayScaleDirection | null {
+  if (event.altKey) return null;
+  if (!(event.ctrlKey || event.metaKey)) return null;
+  if (event.key === "+" || event.key === "=") return "in";
+  if (event.key === "-") return "out";
+  return null;
+}
+
 export function matchChartScroll(
   event: ShortcutKeyEvent,
   context: Pick<ShortcutContext, "dialogOpen">,
