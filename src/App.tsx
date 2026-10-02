@@ -519,6 +519,13 @@ function App() {
     [handleWheel, timelineWidth],
   );
 
+  const onWheelSidebar = useCallback(
+    (event: WheelEvent) => {
+      handleWheel(event, 0, "body");
+    },
+    [handleWheel],
+  );
+
   const taskRefs = useMemo(
     () => listTasks(schedule.categories),
     [schedule.categories],
@@ -1019,6 +1026,7 @@ function App() {
           onSidebarWidthCommit={handleSidebarWidthCommit}
           onSidebarWidthReset={handleSidebarWidthReset}
           onSidebarWidthNudge={handleSidebarWidthNudge}
+          onWheelRows={onWheelSidebar}
           sticky={stickyLayout}
         />
         <div ref={timelineAreaRef} className="timeline-slot">
