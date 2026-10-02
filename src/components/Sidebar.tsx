@@ -52,6 +52,7 @@ type SidebarProps = {
   onSidebarWidthCommit: () => void;
   onSidebarWidthReset: () => void;
   onSidebarWidthNudge: (delta: number) => void;
+  onWheelRows: (event: WheelEvent) => void;
   sticky: StickyLayout;
 };
 
@@ -78,8 +79,11 @@ export function Sidebar({
   onSidebarWidthCommit,
   onSidebarWidthReset,
   onSidebarWidthNudge,
+  onWheelRows,
   sticky,
 }: SidebarProps) {
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const hiddenIndexes = sticky.hiddenIndexes;
   const visibleRows = useMemo(() => {
     const margin = rowHeight;
@@ -97,6 +101,27 @@ export function Sidebar({
     [rowHeight, rows],
   );
 
+  useEffect(() => {
+    const sidebar = sidebarRef.current;
+    const viewport = viewportRef.current;
+    if (!sidebar || !viewport) return;
+    const onWheel = (event: WheelEvent) => {
+      const rowBox = viewport.getBoundingClientRect();
+      const side = sidebar.getBoundingClientRect();
+      if (
+        event.clientX < side.left ||
+        event.clientX >= side.right ||
+        event.clientY < rowBox.top ||
+        event.clientY >= rowBox.bottom
+      ) {
+        return;
+      }
+      onWheelRows(event);
+    };
+    sidebar.addEventListener("wheel", onWheel, { passive: false });
+    return () => sidebar.removeEventListener("wheel", onWheel);
+  }, [onWheelRows]);
+
   const rowStyle = (y: number): CSSProperties => ({
     position: "absolute",
     left: 0,
@@ -106,7 +131,7 @@ export function Sidebar({
   });
 
   return (
-    <div className="sidebar">
+    <div className="sidebar" ref={sidebarRef}>
       <div className="sidebar-header">WBS / タスク</div>
       {milestoneBandHeight > 0 ? (
         <div
@@ -116,7 +141,7 @@ export function Sidebar({
           マイルストン
         </div>
       ) : null}
-      <div className="sidebar-viewport">
+      <div className="sidebar-viewport" ref={viewportRef}>
         <div
           className="sidebar-rows"
           style={{ height: contentHeight, transform: `translateY(${-scrollY}px)` }}
