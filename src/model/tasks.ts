@@ -166,6 +166,64 @@ export function insertTask(
   return cloned;
 }
 
+/** categories 配列の中で、1件を動かす。見つからない、または位置が同じときは元を返す。 */
+export function reorderCategories(
+  categories: Category[],
+  categoryId: ScheduleId,
+  newIndex: number,
+): Category[] {
+  const fromIndex = categories.findIndex((category) => category.id === categoryId);
+  if (fromIndex < 0 || fromIndex === newIndex) return categories;
+  const cloned = cloneCategories(categories);
+  const [moved] = cloned.splice(fromIndex, 1);
+  if (!moved) return categories;
+  const toIndex = Math.max(0, Math.min(newIndex, cloned.length));
+  cloned.splice(toIndex, 0, moved);
+  return cloned;
+}
+
+/** 同じカテゴリの groups 配列の中で、1件を動かす。見つからない、または位置が同じときは元を返す。 */
+export function reorderGroups(
+  categories: Category[],
+  groupId: ScheduleId,
+  newIndex: number,
+): Category[] {
+  const cloned = cloneCategories(categories);
+  for (const category of cloned) {
+    const fromIndex = category.groups.findIndex((group) => group.id === groupId);
+    if (fromIndex < 0) continue;
+    if (fromIndex === newIndex) return categories;
+    const [moved] = category.groups.splice(fromIndex, 1);
+    if (!moved) return categories;
+    const toIndex = Math.max(0, Math.min(newIndex, category.groups.length));
+    category.groups.splice(toIndex, 0, moved);
+    return cloned;
+  }
+  return categories;
+}
+
+/** 同じグループの tasks 配列の中で、1件を動かす。見つからない、または位置が同じときは元を返す。 */
+export function reorderTaskInGroup(
+  categories: Category[],
+  taskId: ScheduleId,
+  newIndex: number,
+): Category[] {
+  const cloned = cloneCategories(categories);
+  for (const category of cloned) {
+    for (const group of category.groups) {
+      const fromIndex = group.tasks.findIndex((task) => task.id === taskId);
+      if (fromIndex < 0) continue;
+      if (fromIndex === newIndex) return categories;
+      const tasks = group.tasks;
+      const [moved] = tasks.splice(fromIndex, 1);
+      const toIndex = Math.max(0, Math.min(newIndex, tasks.length));
+      tasks.splice(toIndex, 0, moved);
+      return cloned;
+    }
+  }
+  return categories;
+}
+
 /** タスクを消し、他タスクの先行からその ID を外す。空のグループとカテゴリは残す。 */
 export function removeTask(categories: Category[], taskId: ScheduleId): Category[] {
   return cloneCategories(categories).map((category) => ({

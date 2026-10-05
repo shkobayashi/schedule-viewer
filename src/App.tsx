@@ -992,7 +992,10 @@ function App() {
         ) : (
           <>
             Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
-            ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・ 境界をドラッグで左の幅を変える
+            ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・
+            左のタスク行は縦にドラッグして同じグループの中で順を変えられます ・
+            左のグループ行は縦にドラッグして同じカテゴリの中で順を変えられます ・
+            左のカテゴリ行は縦にドラッグして順を変えられます ・ 境界をドラッグで左の幅を変える
             ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更（操作中は開始日と終了日）、ダブルクリックで詳細編集
             ・ タスクを選んで「系統」で前後だけ表示 ・
             タスクを選んで「線を引く」または ⌘/Ctrl+L で後続を足す。線の上で Delete か右クリックで外す
@@ -1004,11 +1007,37 @@ function App() {
       </div>
       <div ref={mainRef} className="main">
         <Sidebar
+          categories={schedule.categories}
           rows={schedule.visibleRows}
+          reorderBaseRows={schedule.baseVisibleRows}
           scrollY={scrollY}
           viewportHeight={bodyHeight}
           rowHeight={rowHeight}
           selectedTaskId={schedule.selectedTaskId}
+          reorderingTaskId={
+            schedule.reorderPreview?.kind === "task"
+              ? schedule.reorderPreview.taskId
+              : null
+          }
+          reorderingCategoryId={
+            schedule.reorderPreview?.kind === "category"
+              ? schedule.reorderPreview.categoryId
+              : null
+          }
+          reorderingGroupId={
+            schedule.reorderPreview?.kind === "group"
+              ? schedule.reorderPreview.groupId
+              : null
+          }
+          reorderMarkerY={schedule.reorderInsertMarkerY}
+          canEditDocument={!blockDocumentEditsRef.current}
+          onPreviewTaskReorder={schedule.previewTaskReorder}
+          onCommitTaskReorder={schedule.commitTaskReorder}
+          onPreviewCategoryReorder={schedule.previewCategoryReorder}
+          onCommitCategoryReorder={schedule.commitCategoryReorder}
+          onPreviewGroupReorder={schedule.previewGroupReorder}
+          onCommitGroupReorder={schedule.commitGroupReorder}
+          onCancelReorder={schedule.cancelReorder}
           milestoneBandHeight={milestoneBandHeight}
           milestones={schedule.milestones}
           onToggleCollapse={schedule.toggleCollapsed}
