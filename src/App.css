@@ -549,8 +549,20 @@ input[type="number"] {
   line-height: 1;
 }
 
+.sidebar-row.task.reordering {
+  opacity: 0.85;
+  cursor: grabbing;
+}
+
+.sidebar-reorder-marker {
+  pointer-events: none;
+  border-top: 2px solid var(--accent);
+  z-index: 2;
+}
+
 .sidebar-row.task {
   padding-left: calc(20px * var(--s));
+  touch-action: none;
 }
 
 .task-note-btn {

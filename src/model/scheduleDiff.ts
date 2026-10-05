@@ -107,7 +107,7 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
           }
           blocks.push(lines.join("\n"));
         }
-        const taskOrder = orderBlock(
+        const taskOrder = taskOrderBlock(
           `並び タスク ${category.name} / ${group.name}`,
           fileGroup.tasks.map((task) => task.id),
           group.tasks.map((task) => task.id),
@@ -332,6 +332,39 @@ function changedMilestoneBlock(fileMilestone: Milestone, screenMilestone: Milest
   }
   if (lines.length === 0) return null;
   return [`変更 ${screenMilestone.name} (${screenMilestone.id})`, ...lines].join("\n");
+}
+
+function taskOrderBlock(
+  title: string,
+  fileTaskIds: string[],
+  screenTaskIds: string[],
+  formatFile: (key: string) => string,
+  formatScreen: (key: string) => string,
+): string | null {
+  const fileSet = new Set(fileTaskIds);
+  const addedIds = screenTaskIds.filter((id) => !fileSet.has(id));
+
+  let trailingAddedCount = 0;
+  for (let index = screenTaskIds.length - 1; index >= 0; index -= 1) {
+    if (!fileSet.has(screenTaskIds[index])) trailingAddedCount += 1;
+    else break;
+  }
+
+  const existingInScreen = screenTaskIds.filter((id) => fileSet.has(id));
+  const left = fileTaskIds.filter((id) => screenTaskIds.includes(id));
+  const reorderAmongExisting = left.join("\0") !== existingInScreen.join("\0");
+  const midInsert = addedIds.some(
+    (id) => screenTaskIds.indexOf(id) < screenTaskIds.length - trailingAddedCount,
+  );
+  if (!reorderAmongExisting && !midInsert) return null;
+
+  const rightIds = screenTaskIds.slice(
+    0,
+    screenTaskIds.length - trailingAddedCount,
+  );
+  const leftText = left.map(formatFile).join(", ");
+  const rightText = rightIds.map(formatScreen).join(", ");
+  return `${title}\n  ${leftText} → ${rightText}`;
 }
 
 function orderBlock(
