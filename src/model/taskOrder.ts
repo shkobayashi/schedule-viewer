@@ -1,6 +1,11 @@
 import { findTaskOwner } from "./tasks";
 import type { Category, ScheduleId, VisibleRow } from "./types";
 
+export type TaskDropTarget = {
+  targetGroupId: ScheduleId;
+  insertIndex: number;
+};
+
 export const REORDER_DRAG_THRESHOLD_PX = 3;
 
 export type RowDragGesture = "pending" | "slide" | "reorder" | "ignore";
@@ -59,6 +64,80 @@ export function canReorderTaskInGroup(
   const owner = findTaskOwner(categories, taskId);
   if (owner == null) return false;
   return visibleGroupTaskRows(categories, owner.groupId, visibleRows) != null;
+}
+
+function groupTaskCount(categories: Category[], groupId: ScheduleId): number {
+  for (const category of categories) {
+    for (const group of category.groups) {
+      if (group.id === groupId) return group.tasks.length;
+    }
+  }
+  return 0;
+}
+
+/** タスクの移動先として選べるグループが、行にすべて出ているか。 */
+export function visibleGroupForTaskDrop(
+  categories: Category[],
+  groupId: ScheduleId,
+  visibleRows: readonly VisibleRow[],
+): boolean {
+  if (groupTaskCount(categories, groupId) === 0) {
+    return visibleRows.some(
+      (row) => row.type === "group" && row.id === groupId,
+    );
+  }
+  return visibleGroupTaskRows(categories, groupId, visibleRows) != null;
+}
+
+export function resolveTaskDropTarget(
+  contentY: number,
+  rowHeight: number,
+  taskId: ScheduleId,
+  categories: Category[],
+  visibleRows: readonly VisibleRow[],
+): TaskDropTarget | null {
+  const owner = findTaskOwner(categories, taskId);
+  if (owner == null) return null;
+  if (!visibleGroupTaskRows(categories, owner.groupId, visibleRows)) return null;
+
+  for (const row of visibleRows) {
+    if (contentY < row.y || contentY >= row.y + rowHeight) continue;
+    if (row.type === "group") {
+      if (row.collapsed) return null;
+      if (!visibleGroupForTaskDrop(categories, row.id, visibleRows)) return null;
+      return { targetGroupId: row.id, insertIndex: 0 };
+    }
+    if (row.type === "task") {
+      const taskOwner = findTaskOwner(categories, row.task.id);
+      if (taskOwner == null) return null;
+      if (!visibleGroupForTaskDrop(categories, taskOwner.groupId, visibleRows)) {
+        return null;
+      }
+      const groupRows = visibleGroupTaskRows(
+        categories,
+        taskOwner.groupId,
+        visibleRows,
+      );
+      if (groupRows == null) return null;
+      if (taskOwner.groupId === owner.groupId) {
+        return {
+          targetGroupId: taskOwner.groupId,
+          insertIndex: insertIndexForReorder(
+            contentY,
+            rowHeight,
+            groupRows,
+            taskId,
+          ),
+        };
+      }
+      const index = groupRows.findIndex((item) => item.id === row.task.id);
+      if (index < 0) return null;
+      const mid = row.y + rowHeight / 2;
+      const insertIndex = contentY < mid ? index : index + 1;
+      return { targetGroupId: taskOwner.groupId, insertIndex };
+    }
+  }
+  return null;
 }
 
 /** ドラッグ中のタスクを除き、内容座標の y から挿入位置を返す。 */

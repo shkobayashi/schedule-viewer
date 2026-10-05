@@ -619,6 +619,7 @@ function visibleBarObstacles(
     const y = row.y - scrollY;
     if (y + rowHeight < 0 || y > bodyHeight) continue;
     if (row.type !== "task") {
+      if (row.summary == null) continue;
       const placed = summaryBarWidthPx(
         row.summary.start,
         row.summary.end,
@@ -1202,14 +1203,16 @@ export function Timeline({
             strokeWidth={1}
             listening={false}
           />
-          <SummaryBar
-            summary={row.summary}
-            y={draw.top}
-            rowHeight={rowHeight}
-            barHeight={barHeight}
-            dateToX={dateToX}
-            chart={chart}
-          />
+          {row.summary != null ? (
+            <SummaryBar
+              summary={row.summary}
+              y={draw.top}
+              rowHeight={rowHeight}
+              barHeight={barHeight}
+              dateToX={dateToX}
+              chart={chart}
+            />
+          ) : null}
         </Group>
       );
     });
@@ -1619,6 +1622,7 @@ export function Timeline({
               if (row.type === "task" || stickyHidden.has(index)) return null;
               const y = row.y - scrollY;
               if (y + rowHeight < 0 || y > bodyHeight) return null;
+              if (row.summary == null) return null;
               return (
                 <SummaryBar
                   key={`${row.type}-${row.type === "group" ? row.category : ""}-${row.label}-${row.y}`}

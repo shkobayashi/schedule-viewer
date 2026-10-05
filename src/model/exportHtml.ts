@@ -717,7 +717,7 @@ function renderBody(
     const y = bodyTop + row.y;
     if (row.type === "task") {
       marks.push(renderTaskBar(row.task, y, input, dateToX));
-    } else {
+    } else if (row.summary != null) {
       marks.push(renderSummary(row.summary, y, input, dateToX));
     }
   }

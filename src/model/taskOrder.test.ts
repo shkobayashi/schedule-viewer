@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeVisibleRows } from "./rows";
+import { groupCollapseKey } from "./rows";
 import {
   canReorderTaskInGroup,
   classifyRowDrag,
@@ -7,6 +8,7 @@ import {
   insertIndexForReorder,
   insertMarkerY,
   isContentYInGroupTaskBand,
+  resolveTaskDropTarget,
   taskIndexInGroup,
   visibleGroupTaskRows,
 } from "./taskOrder";
@@ -15,6 +17,7 @@ import type { Category, ScheduleFilters, Task } from "./types";
 
 const CAT = "00000000-0000-4000-8000-000000000001";
 const GRP = "00000000-0000-4000-8000-000000000002";
+const GRP_OTHER = "00000000-0000-4000-8000-000000000003";
 const TASK_A = "00000000-0000-4000-8000-00000000000a";
 const TASK_B = "00000000-0000-4000-8000-00000000000b";
 const TASK_C = "00000000-0000-4000-8000-00000000000c";
@@ -177,5 +180,73 @@ describe("taskIndexInGroup", () => {
   it("finds the task index", () => {
     const cats = categories([task(TASK_A, "A"), task(TASK_B, "B")]);
     expect(taskIndexInGroup(cats, TASK_B)).toBe(1);
+  });
+});
+
+describe("resolveTaskDropTarget", () => {
+  it("places a downward move at the index after the dragged task is removed", () => {
+    const cats = categories([
+      task(TASK_A, "A"),
+      task(TASK_B, "B"),
+      task(TASK_C, "C"),
+    ]);
+    const rows = computeVisibleRows(cats, filters, new Set(), "2026-04-01", null);
+    const target = resolveTaskDropTarget(120, 32, TASK_A, cats, rows);
+    expect(target).toEqual({ targetGroupId: GRP, insertIndex: 1 });
+    const next = reorderTaskInGroup(cats, TASK_A, target!.insertIndex);
+    expect(next[0].groups[0].tasks.map((item) => item.id)).toEqual([
+      TASK_B,
+      TASK_A,
+      TASK_C,
+    ]);
+  });
+
+  it("inserts at the start of another group", () => {
+    const cats: Category[] = [
+      {
+        id: CAT,
+        name: "設計",
+        groups: [
+          {
+            id: GRP,
+            name: "上流",
+            tasks: [task(TASK_A, "A"), task(TASK_B, "B")],
+          },
+          { id: GRP_OTHER, name: "詳細", tasks: [task(TASK_C, "C")] },
+        ],
+      },
+    ];
+    const rows = computeVisibleRows(cats, filters, new Set(), "2026-04-01", null);
+    const onTask = resolveTaskDropTarget(168, 32, TASK_A, cats, rows);
+    expect(onTask).toEqual({ targetGroupId: GRP_OTHER, insertIndex: 0 });
+    const onGroup = resolveTaskDropTarget(129, 32, TASK_A, cats, rows);
+    expect(onGroup).toEqual({ targetGroupId: GRP_OTHER, insertIndex: 0 });
+  });
+
+  it("does not drop into a collapsed group", () => {
+    const cats: Category[] = [
+      {
+        id: CAT,
+        name: "設計",
+        groups: [
+          { id: GRP, name: "上流", tasks: [task(TASK_A, "A")] },
+          { id: GRP_OTHER, name: "空", tasks: [] },
+        ],
+      },
+    ];
+    const rows = computeVisibleRows(
+      cats,
+      filters,
+      new Set([groupCollapseKey(GRP_OTHER)]),
+      "2026-04-01",
+      null,
+    );
+    const empty = rows.find(
+      (row) => row.type === "group" && row.id === GRP_OTHER,
+    );
+    expect(empty?.type === "group" && empty.collapsed).toBe(true);
+    expect(
+      resolveTaskDropTarget((empty?.y ?? 0) + 1, 32, TASK_A, cats, rows),
+    ).toBeNull();
   });
 });
