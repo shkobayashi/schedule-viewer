@@ -7,6 +7,7 @@ import {
   groupInsertMarkerY,
   insertIndexForGroupReorder,
   isContentYInGroupBand,
+  resolveGroupDropTarget,
   visibleGroupSpans,
 } from "./groupOrder";
 import { categoryCollapseKey, computeVisibleRows, groupCollapseKey } from "./rows";
@@ -140,11 +141,15 @@ describe("visibleGroupSpans", () => {
     expect(canReorderGroup(cats, GRP_A, rows, 32)).toBe(false);
   });
 
-  it("returns null when a sibling group has no tasks", () => {
+  it("returns spans when a sibling group has no tasks", () => {
     const cats = sample();
     cats[0].groups[1] = { ...cats[0].groups[1], tasks: [] };
     const rows = computeVisibleRows(cats, filters, new Set(), "2026-04-01", null);
-    expect(visibleGroupSpans(cats, CAT_A, rows, 32)).toBeNull();
+    expect(visibleGroupSpans(cats, CAT_A, rows, 32)?.map((span) => span.id)).toEqual([
+      GRP_A,
+      GRP_B,
+      GRP_C,
+    ]);
   });
 
   it("returns null when the parent category is collapsed", () => {
@@ -211,5 +216,29 @@ describe("groupIndex", () => {
   it("finds the group index in its category", () => {
     expect(groupIndex(sample(), GRP_C)).toBe(2);
     expect(groupIndex(sample(), "missing")).toBeNull();
+  });
+});
+
+describe("resolveGroupDropTarget", () => {
+  it("accepts another category when the name is free and a group remains", () => {
+    const cats = sample();
+    const rows = computeVisibleRows(cats, filters, new Set(), "2026-04-01", null);
+    expect(resolveGroupDropTarget(260, 32, GRP_A, cats, rows)).toEqual({
+      targetCategoryId: CAT_B,
+      insertIndex: 0,
+    });
+  });
+
+  it("rejects a category that already has the same group name", () => {
+    const cats = sample();
+    cats[1].groups[0] = { ...cats[1].groups[0], name: "調査" };
+    const rows = computeVisibleRows(cats, filters, new Set(), "2026-04-01", null);
+    expect(resolveGroupDropTarget(260, 32, GRP_A, cats, rows)).toBeNull();
+  });
+
+  it("rejects moving the last group out of its category", () => {
+    const cats = sample();
+    const rows = computeVisibleRows(cats, filters, new Set(), "2026-04-01", null);
+    expect(resolveGroupDropTarget(40, 32, GRP_D, cats, rows)).toBeNull();
   });
 });

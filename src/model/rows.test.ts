@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { relaxFiltersForNewTask, taskMatchesFilter } from "./rows";
+import { computeVisibleRows, relaxFiltersForNewTask, taskMatchesFilter } from "./rows";
 import {
   NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
+  type Category,
   type ScheduleFilters,
   type Task,
 } from "./types";
@@ -259,5 +260,91 @@ describe("relaxFiltersForNewTask", () => {
         null,
       ),
     ).toMatchObject({ confidence: "all", noteSearch: "" });
+  });
+});
+
+describe("computeVisibleRows empty hierarchy", () => {
+  const catId = "00000000-0000-4000-8000-0000000000a1";
+  const emptyCatId = "00000000-0000-4000-8000-0000000000a2";
+  const groupId = "00000000-0000-4000-8000-0000000000b1";
+  const emptyGroupId = "00000000-0000-4000-8000-0000000000b2";
+  const emptyCatGroupId = "00000000-0000-4000-8000-0000000000b3";
+
+  function hierarchy(): Category[] {
+    return [
+      {
+        id: catId,
+        name: "設計",
+        groups: [
+          { id: groupId, name: "上流", tasks: [baseTask] },
+          { id: emptyGroupId, name: "空", tasks: [] },
+        ],
+      },
+      {
+        id: emptyCatId,
+        name: "空き",
+        groups: [{ id: emptyCatGroupId, name: "グループ", tasks: [] }],
+      },
+    ];
+  }
+
+  it("shows empty groups and categories when filters and lineage are clear", () => {
+    const rows = computeVisibleRows(
+      hierarchy(),
+      filters,
+      new Set(),
+      "2026-04-01",
+      null,
+    );
+    const emptyGroup = rows.find(
+      (row) => row.type === "group" && row.id === emptyGroupId,
+    );
+    const emptyCategory = rows.find(
+      (row) => row.type === "category" && row.id === emptyCatId,
+    );
+    expect(emptyGroup?.type === "group" ? emptyGroup.summary : undefined).toBeNull();
+    expect(
+      emptyCategory?.type === "category" ? emptyCategory.summary : undefined,
+    ).toBeNull();
+    expect(rows.some((row) => row.type === "category" && row.id === emptyCatId)).toBe(
+      true,
+    );
+  });
+
+  it("hides empty groups when a filter is set", () => {
+    const rows = computeVisibleRows(
+      hierarchy(),
+      { ...filters, search: "Alpha" },
+      new Set(),
+      "2026-04-01",
+      null,
+    );
+    expect(rows.some((row) => row.type === "group" && row.id === emptyGroupId)).toBe(
+      false,
+    );
+    expect(rows.some((row) => row.type === "category" && row.id === emptyCatId)).toBe(
+      false,
+    );
+    expect(rows.some((row) => row.type === "task" && row.task.id === baseTask.id)).toBe(
+      true,
+    );
+  });
+
+  it("hides empty groups when lineage is set", () => {
+    const rows = computeVisibleRows(
+      hierarchy(),
+      filters,
+      new Set(),
+      "2026-04-01",
+      null,
+      32,
+      new Set([baseTask.id]),
+    );
+    expect(rows.some((row) => row.type === "group" && row.id === emptyGroupId)).toBe(
+      false,
+    );
+    expect(rows.some((row) => row.type === "category" && row.id === emptyCatId)).toBe(
+      false,
+    );
   });
 });

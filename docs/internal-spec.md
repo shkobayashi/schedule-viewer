@@ -42,9 +42,9 @@ flowchart TD
 | ファイル | 役割 |
 | --- | --- |
 | `AppMenu.tsx` | ☰ メニュー |
-| `ContextMenu.tsx` | タスク、マイルストン、カテゴリ、グループ、チャートの空きの右クリックメニュー。タスクは編集、複製、確度、ノート、系統、削除。カテゴリとグループは名前の変更だけ。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す |
+| `ContextMenu.tsx` | タスク、マイルストン、カテゴリ、グループ、チャートの空きの右クリックメニュー。タスクは編集、複製、確度、ノート、系統、削除。カテゴリは名前の変更、下へのカテゴリ追加、グループ追加、条件付きの削除。グループは名前の変更、下へのグループ追加、条件付きの削除。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す |
 | `Toolbar.tsx` | 見出し、検索、絞り込み、系統、線を引く、追加、マイルストン追加、削除、ズーム |
-| `Sidebar.tsx` | 左の行、折りたたみ、名前の横ずらし、同じグループのタスク行の縦ドラッグによる並べ替え、同じカテゴリのグループ行の縦ドラッグによる並べ替え、カテゴリ行の縦ドラッグによる並べ替え |
+| `Sidebar.tsx` | 左の行、折りたたみ、名前の横ずらし、タスク行の縦ドラッグによる並べ替えと別グループへの移動、グループ行の縦ドラッグによる並べ替えと別カテゴリへの移動、カテゴリ行の縦ドラッグによる並べ替え |
 | `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer` |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
@@ -249,7 +249,7 @@ capability はメインウィンドウに、`core:default`、ウィンドウの 
 
 | 処理 | 場所 | 内容 |
 | --- | --- | --- |
-| 行の絞り込み | `rows.ts` の `taskMatchesFilter` | 系統、担当、ステータス、確度、期限、破綻、マイルストン、名前、ノートをすべて満たすタスクだけを残す。0件のグループとカテゴリは行にしない。折りたたみの鍵はカテゴリとグループの `id` である |
+| 行の絞り込み | `rows.ts` の `taskMatchesFilter` と `showEmptyHierarchyRows` | 系統、担当、ステータス、確度、期限、破綻、マイルストン、名前、ノートをすべて満たすタスクだけを残す。絞り込みも系統も無いときはタスク0件のグループとカテゴリも行に出す。それ以外は0件のグループとカテゴリは行にしない。折りたたみの鍵はカテゴリとグループの `id` である |
 | 見出し行の固定 | `stickyRows.ts` の `layoutStickyHeaders` と `scrollYToRevealTask` | 見えている行のうち、展開して配下が残っているカテゴリとグループを、上端へ最大2行残す。画面に収まるときと折りたたんだ行は残さない。タスクを見せるスクロールは固定段の下に合わせる |
 | 系統 | `dependencies.ts` の `lineageTaskIds` | 起点から先行と後続を辿る。起点を通らない枝は入れない |
 | 線を足す | `dependencies.ts` の `tryAddPredecessorLink` | 後続の `predecessors` に起点を足した候補を、循環と先行参照と先行 ID の重複で見る。通ったときだけ保存する |
@@ -283,4 +283,4 @@ npm スクリプトと CI の分岐は [開発ガイド](development.md#npm-ス�
 - `mockup/schedule-viewer-mockup.html` は初期の検証用で、アプリからは参照しない。ESLint の対象外である
 - schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。schemaVersion 5 のマイルストンに確度が無いときは `committed` を足す。未保存の比較は、その schemaVersion 5 の保存形式である。実際に開けるのは 3、4、5 である
 - 取り消しはドラッグの途中では積まない。離したときの確定が1ステップである
-- タスクの並べ替えは `tasks.ts` の `reorderTaskInGroup` と `taskOrder.ts` が挿入位置と兄弟の可視性を決める。グループの並べ替えは `tasks.ts` の `reorderGroups` と `groupOrder.ts` が挿入位置と、同じカテゴリのグループが全部行に出ているかを決める。カテゴリの並べ替えは `tasks.ts` の `reorderCategories` と `categoryOrder.ts` が挿入位置と、行に出ているカテゴリが全部かを決める。ドラッグ中は `useSchedule` が `reorderPreview` で行だけを仮表示し、離したときに `commitCategories` で1件積む
+- タスクの並べ替えと別グループへの移動は `tasks.ts` の `reorderTaskInGroup` と `moveTaskToGroup`、`taskOrder.ts` の `resolveTaskDropTarget` が挿入位置と兄弟の可視性を決める。同じグループの挿入位置は、動かしているタスクを除いたあとである。折りたたんだグループ行は候補にしない。グループの並べ替えと別カテゴリへの移動は `tasks.ts` の `moveGroupToCategory` と `groupOrder.ts` の `resolveGroupDropTarget` が挿入位置と、同じカテゴリのグループが全部行に出ているかを決める。名前が重なる位置と、元のカテゴリのグループが無くなる位置は候補にしない。カテゴリとグループの追加と削除は `tasks.ts` の純粋関数と `useSchedule` が確定する。カテゴリの並べ替えは `tasks.ts` の `reorderCategories` と `categoryOrder.ts` が挿入位置と、行に出ているカテゴリが全部かを決める。ドラッグ中は `useSchedule` が `reorderPreview` で行だけを仮表示し、離したときに `commitCategories` で1件積む

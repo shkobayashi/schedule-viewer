@@ -129,11 +129,15 @@ describe("visibleCategorySpans", () => {
     expect(canReorderCategory(cats, CAT_A, rows, 32)).toBe(false);
   });
 
-  it("returns null when a category has no tasks", () => {
+  it("returns spans when a category has only empty groups", () => {
     const cats = sample();
     cats[1] = { ...cats[1], groups: [{ ...cats[1].groups[0], tasks: [] }] };
     const rows = computeVisibleRows(cats, filters, new Set(), "2026-04-01", null);
-    expect(visibleCategorySpans(cats, rows, 32)).toBeNull();
+    expect(visibleCategorySpans(cats, rows, 32)?.map((span) => span.id)).toEqual([
+      CAT_A,
+      CAT_B,
+      CAT_C,
+    ]);
   });
 });
 

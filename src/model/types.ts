@@ -96,7 +96,7 @@ export type VisibleRow =
       label: string;
       y: number;
       collapsed: boolean;
-      summary: SummarySpan;
+      summary: SummarySpan | null;
     }
   | {
       type: "group";
@@ -106,6 +106,6 @@ export type VisibleRow =
       label: string;
       y: number;
       collapsed: boolean;
-      summary: SummarySpan;
+      summary: SummarySpan | null;
     }
   | { type: "task"; task: Task; y: number };

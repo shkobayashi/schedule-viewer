@@ -45,8 +45,16 @@ import {
   removeTask,
   renameCategory,
   renameGroup,
+  appendGroupToCategory,
+  canDeleteCategory,
+  canDeleteGroup,
+  insertCategoryAfter,
+  insertGroupAfter,
+  moveGroupToCategory,
+  moveTaskToGroup,
+  removeCategory,
+  removeGroup,
   reorderCategories,
-  reorderGroups,
   reorderTaskInGroup,
   uniqueScheduleId,
   validateNewTask,
@@ -59,8 +67,6 @@ import {
   visibleCategorySpans,
 } from "../model/categoryOrder";
 import {
-  categoryIdOfGroup,
-  groupIndex,
   groupInsertMarkerY,
   visibleGroupSpans,
 } from "../model/groupOrder";
@@ -97,6 +103,27 @@ function initialSnapshot(
 }
 
 type EditingHierarchy = { kind: "category" | "group"; id: ScheduleId };
+
+export type AddingHierarchy =
+  | { kind: "category"; afterCategoryId: ScheduleId }
+  | { kind: "group"; categoryId: ScheduleId; afterGroupId: ScheduleId | null };
+
+function findDeletingHierarchyTarget(
+  categories: Category[],
+  deleting: { kind: "category" | "group"; id: ScheduleId } | null,
+): { kind: "category" | "group"; name: string } | null {
+  if (deleting == null) return null;
+  if (deleting.kind === "category") {
+    const category = categories.find((item) => item.id === deleting.id);
+    if (!category) return null;
+    return { kind: "category", name: category.name };
+  }
+  for (const category of categories) {
+    const group = category.groups.find((item) => item.id === deleting.id);
+    if (group) return { kind: "group", name: group.name };
+  }
+  return null;
+}
 
 function findHierarchyTarget(
   categories: Category[],
@@ -141,6 +168,12 @@ export function useSchedule(
   const [editingHierarchy, setEditingHierarchy] = useState<EditingHierarchy | null>(
     null,
   );
+  const [addingHierarchy, setAddingHierarchy] = useState<AddingHierarchy | null>(
+    null,
+  );
+  const [deletingHierarchy, setDeletingHierarchy] = useState<
+    { kind: "category" | "group"; id: ScheduleId } | null
+  >(null);
   const [selectedTaskId, setSelectedTaskId] = useState<ScheduleId | null>(null);
   const [lineageTaskId, setLineageTaskId] = useState<ScheduleId | null>(null);
   const [filters, setFilters] = useState<ScheduleFilters>({
@@ -164,9 +197,19 @@ export function useSchedule(
     () => new Set(),
   );
   const [reorderPreview, setReorderPreview] = useState<
-    | { kind: "task"; taskId: ScheduleId; insertIndex: number }
+    | {
+        kind: "task";
+        taskId: ScheduleId;
+        targetGroupId: ScheduleId;
+        insertIndex: number;
+      }
     | { kind: "category"; categoryId: ScheduleId; insertIndex: number }
-    | { kind: "group"; groupId: ScheduleId; insertIndex: number }
+    | {
+        kind: "group";
+        groupId: ScheduleId;
+        targetCategoryId: ScheduleId;
+        insertIndex: number;
+      }
     | null
   >(null);
   const [diskEpoch, setDiskEpoch] = useState(0);
@@ -314,16 +357,26 @@ export function useSchedule(
   const displayCategories = useMemo(() => {
     if (reorderPreview == null) return categories;
     if (reorderPreview.kind === "task") {
-      return reorderTaskInGroup(
+      const owner = findTaskOwner(categories, reorderPreview.taskId);
+      if (owner?.groupId === reorderPreview.targetGroupId) {
+        return reorderTaskInGroup(
+          categories,
+          reorderPreview.taskId,
+          reorderPreview.insertIndex,
+        );
+      }
+      return moveTaskToGroup(
         categories,
         reorderPreview.taskId,
+        reorderPreview.targetGroupId,
         reorderPreview.insertIndex,
       );
     }
     if (reorderPreview.kind === "group") {
-      return reorderGroups(
+      return moveGroupToCategory(
         categories,
         reorderPreview.groupId,
+        reorderPreview.targetCategoryId,
         reorderPreview.insertIndex,
       );
     }
@@ -361,23 +414,43 @@ export function useSchedule(
   }, [setReorderPreview]);
 
   const previewTaskReorder = useCallback(
-    (taskId: ScheduleId, insertIndex: number) => {
+    (taskId: ScheduleId, targetGroupId: ScheduleId, insertIndex: number) => {
       if (blockDocumentEditsRef?.current) return;
-      setReorderPreview({ kind: "task", taskId, insertIndex });
+      setReorderPreview({
+        kind: "task",
+        taskId,
+        targetGroupId,
+        insertIndex,
+      });
     },
     [blockDocumentEditsRef, setReorderPreview],
   );
 
   const commitTaskReorder = useCallback(
-    (taskId: ScheduleId, insertIndex: number) => {
+    (taskId: ScheduleId, targetGroupId: ScheduleId, insertIndex: number) => {
       if (blockDocumentEditsRef?.current) {
         setReorderPreview(null);
         return;
       }
-      const currentIndex = taskIndexInGroup(categories, taskId);
+      const owner = findTaskOwner(categories, taskId);
       setReorderPreview(null);
-      if (currentIndex == null || currentIndex === insertIndex) return;
-      commitCategories((prev) => reorderTaskInGroup(prev, taskId, insertIndex));
+      if (owner == null) return;
+      if (owner.groupId === targetGroupId) {
+        const currentIndex = taskIndexInGroup(categories, taskId);
+        if (currentIndex == null || currentIndex === insertIndex) return;
+        commitCategories((prev) =>
+          reorderTaskInGroup(prev, taskId, insertIndex),
+        );
+        return;
+      }
+      const next = moveTaskToGroup(
+        categories,
+        taskId,
+        targetGroupId,
+        insertIndex,
+      );
+      if (next === categories) return;
+      commitCategories(() => next);
     },
     [blockDocumentEditsRef, categories, commitCategories, setReorderPreview],
   );
@@ -405,23 +478,41 @@ export function useSchedule(
   );
 
   const previewGroupReorder = useCallback(
-    (groupId: ScheduleId, insertIndex: number) => {
+    (
+      groupId: ScheduleId,
+      targetCategoryId: ScheduleId,
+      insertIndex: number,
+    ) => {
       if (blockDocumentEditsRef?.current) return;
-      setReorderPreview({ kind: "group", groupId, insertIndex });
+      setReorderPreview({
+        kind: "group",
+        groupId,
+        targetCategoryId,
+        insertIndex,
+      });
     },
     [blockDocumentEditsRef, setReorderPreview],
   );
 
   const commitGroupReorder = useCallback(
-    (groupId: ScheduleId, insertIndex: number) => {
+    (
+      groupId: ScheduleId,
+      targetCategoryId: ScheduleId,
+      insertIndex: number,
+    ) => {
       if (blockDocumentEditsRef?.current) {
         setReorderPreview(null);
         return;
       }
-      const currentIndex = groupIndex(categories, groupId);
       setReorderPreview(null);
-      if (currentIndex == null || currentIndex === insertIndex) return;
-      commitCategories((prev) => reorderGroups(prev, groupId, insertIndex));
+      const next = moveGroupToCategory(
+        categories,
+        groupId,
+        targetCategoryId,
+        insertIndex,
+      );
+      if (next === categories) return;
+      commitCategories(() => next);
     },
     [blockDocumentEditsRef, categories, commitCategories, setReorderPreview],
   );
@@ -434,11 +525,9 @@ export function useSchedule(
       return categoryInsertMarkerY(reorderPreview.insertIndex, spans);
     }
     if (reorderPreview.kind === "group") {
-      const categoryId = categoryIdOfGroup(displayCategories, reorderPreview.groupId);
-      if (categoryId == null) return null;
       const spans = visibleGroupSpans(
         displayCategories,
-        categoryId,
+        reorderPreview.targetCategoryId,
         visibleRows,
         rowHeight,
       );
@@ -449,7 +538,7 @@ export function useSchedule(
     if (owner == null) return null;
     const groupRows = visibleGroupTaskRows(
       displayCategories,
-      owner.groupId,
+      reorderPreview.targetGroupId,
       visibleRows,
     );
     if (groupRows == null) return null;
@@ -636,6 +725,115 @@ export function useSchedule(
     },
     [commitCategories, editingHierarchy],
   );
+
+  const addingHierarchyTarget = useMemo((): {
+    title: string;
+    initialName: string;
+  } | null => {
+    if (addingHierarchy == null) return null;
+    if (addingHierarchy.kind === "category") {
+      return { title: "カテゴリを追加", initialName: "" };
+    }
+    return { title: "グループを追加", initialName: "" };
+  }, [addingHierarchy]);
+
+  const openAddCategoryAfter = useCallback((afterCategoryId: ScheduleId) => {
+    setAddingHierarchy({ kind: "category", afterCategoryId });
+  }, []);
+
+  const openAddGroupToCategory = useCallback((categoryId: ScheduleId) => {
+    setAddingHierarchy({ kind: "group", categoryId, afterGroupId: null });
+  }, []);
+
+  const openAddGroupAfter = useCallback((afterGroupId: ScheduleId) => {
+    for (const category of documentRef.current.categories) {
+      if (category.groups.some((group) => group.id === afterGroupId)) {
+        setAddingHierarchy({
+          kind: "group",
+          categoryId: category.id,
+          afterGroupId,
+        });
+        return;
+      }
+    }
+  }, []);
+
+  const closeAddingHierarchy = useCallback(() => {
+    setAddingHierarchy(null);
+  }, []);
+
+  const saveHierarchyAdd = useCallback(
+    (rawName: string): string | null => {
+      if (addingHierarchy == null) return "追加できませんでした";
+      const current = documentRef.current;
+      const taken = collectScheduleIds(current.categories, current.milestones);
+      if (addingHierarchy.kind === "category") {
+        const newCategoryId = uniqueScheduleId(taken);
+        taken.add(newCategoryId);
+        const newGroupId = uniqueScheduleId(taken);
+        const result = insertCategoryAfter(
+          current.categories,
+          addingHierarchy.afterCategoryId,
+          rawName,
+          newCategoryId,
+          newGroupId,
+        );
+        if (result.error) return result.error;
+        if (result.changed) {
+          commitCategories(() => result.categories);
+        }
+        setAddingHierarchy(null);
+        return null;
+      }
+      const newGroupId = uniqueScheduleId(taken);
+      const result =
+        addingHierarchy.afterGroupId == null
+          ? appendGroupToCategory(
+              current.categories,
+              addingHierarchy.categoryId,
+              rawName,
+              newGroupId,
+            )
+          : insertGroupAfter(
+              current.categories,
+              addingHierarchy.afterGroupId,
+              rawName,
+              newGroupId,
+            );
+      if (result.error) return result.error;
+      if (result.changed) {
+        commitCategories(() => result.categories);
+      }
+      setAddingHierarchy(null);
+      return null;
+    },
+    [addingHierarchy, commitCategories],
+  );
+
+  const openDeleteHierarchy = useCallback(
+    (kind: "category" | "group", id: ScheduleId) => {
+      setDeletingHierarchy({ kind, id });
+    },
+    [],
+  );
+
+  const closeDeleteHierarchy = useCallback(() => {
+    setDeletingHierarchy(null);
+  }, []);
+
+  const deletingHierarchyTarget = findDeletingHierarchyTarget(
+    categories,
+    deletingHierarchy,
+  );
+
+  const confirmDeleteHierarchy = useCallback(() => {
+    if (deletingHierarchy == null) return;
+    const { kind, id } = deletingHierarchy;
+    setDeletingHierarchy(null);
+    commitCategories((prev) =>
+      kind === "category" ? removeCategory(prev, id) : removeGroup(prev, id),
+    );
+  }, [commitCategories, deletingHierarchy]);
 
   const editingHierarchyTarget = findHierarchyTarget(categories, editingHierarchy);
 
@@ -1018,6 +1216,18 @@ export function useSchedule(
     openHierarchyEdit,
     closeHierarchyEdit,
     saveHierarchyName,
+    addingHierarchyTarget,
+    openAddCategoryAfter,
+    openAddGroupToCategory,
+    openAddGroupAfter,
+    closeAddingHierarchy,
+    saveHierarchyAdd,
+    canDeleteCategory: (id: ScheduleId) => canDeleteCategory(categories, id),
+    canDeleteGroup: (id: ScheduleId) => canDeleteGroup(categories, id),
+    openDeleteHierarchy,
+    closeDeleteHierarchy,
+    deletingHierarchyTarget,
+    confirmDeleteHierarchy,
     moveMilestoneByDays,
     openMilestoneEdit,
     closeMilestoneEdit,

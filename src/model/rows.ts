@@ -26,6 +26,27 @@ export function groupCollapseKey(id: ScheduleId): string {
   return `group:${id}`;
 }
 
+export function filtersAreDefault(filters: ScheduleFilters): boolean {
+  return (
+    filters.assignee === "all" &&
+    filters.status === "all" &&
+    filters.confidence === "all" &&
+    filters.overdue === "all" &&
+    filters.relation === "all" &&
+    filters.milestone === "all" &&
+    filters.search.trim() === "" &&
+    filters.noteSearch.trim() === ""
+  );
+}
+
+/** 絞り込みも系統も無いとき、タスク0件のグループとカテゴリも行に出す。 */
+export function showEmptyHierarchyRows(
+  filters: ScheduleFilters,
+  lineageIds?: ReadonlySet<ScheduleId> | null,
+): boolean {
+  return filtersAreDefault(filters) && lineageIds == null;
+}
+
 export function taskMatchesFilter(
   task: Task,
   filters: ScheduleFilters,
@@ -162,6 +183,7 @@ export function computeVisibleRows(
 ): VisibleRow[] {
   const brokenIds =
     filters.relation === "broken" ? brokenLinkTaskIds(categories) : undefined;
+  const showEmpty = showEmptyHierarchyRows(filters, lineageIds);
   const rows: VisibleRow[] = [];
   let y = 0;
   for (const cat of categories) {
@@ -179,12 +201,16 @@ export function computeVisibleRows(
           ),
         ),
       }))
-      .filter((entry) => entry.matched.length > 0);
+      .filter(
+        (entry) =>
+          entry.matched.length > 0 ||
+          (showEmpty && entry.group.tasks.length === 0),
+      );
     if (groups.length === 0) continue;
-    const categorySummary = summarizeSpans(
-      groups.flatMap((entry) => entry.matched),
-    );
-    if (!categorySummary) continue;
+    const categoryTasks = groups.flatMap((entry) => entry.matched);
+    const categorySummary =
+      categoryTasks.length > 0 ? summarizeSpans(categoryTasks) : null;
+    if (!categorySummary && !showEmpty) continue;
     const categoryCollapsed = collapsed.has(categoryCollapseKey(cat.id));
     rows.push({
       type: "category",
@@ -197,8 +223,9 @@ export function computeVisibleRows(
     y += rowHeight;
     if (categoryCollapsed) continue;
     for (const { group, matched } of groups) {
-      const groupSummary = summarizeSpans(matched);
-      if (!groupSummary) continue;
+      const groupSummary =
+        matched.length > 0 ? summarizeSpans(matched) : null;
+      if (!groupSummary && !showEmpty) continue;
       const groupCollapsed = collapsed.has(groupCollapseKey(group.id));
       rows.push({
         type: "group",

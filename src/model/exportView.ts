@@ -30,7 +30,7 @@ export function milestonesForExport(
       consider(row.task.start);
       consider(row.task.end);
       if (row.task.milestoneId != null) referenced.add(row.task.milestoneId);
-    } else {
+    } else if (row.summary != null) {
       consider(row.summary.start);
       consider(row.summary.end);
     }
@@ -62,7 +62,7 @@ export function exportTimelineRange(
     if (row.type === "task") {
       consider(parseDate(row.task.start));
       consider(parseDate(row.task.end));
-    } else {
+    } else if (row.summary != null) {
       consider(parseDate(row.summary.start));
       consider(parseDate(row.summary.end));
     }
