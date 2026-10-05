@@ -177,6 +177,33 @@
 | 同上 | `covers the full task row span` | EDIT-15 |
 | 同上 | `places the marker at the preview gap` | EDIT-15 |
 | 同上 | `finds the task index` | EDIT-15 |
+| `groupOrder.test.ts` | `moves a group and keeps its tasks` | EDIT-17 |
+| 同上 | `returns the same array when the index is unchanged` | EDIT-17 |
+| 同上 | `places a group at the insert index from the original spans` | EDIT-17 |
+| 同上 | `returns spans when every sibling group is visible` | EDIT-17 |
+| 同上 | `returns spans when a group is collapsed` | EDIT-17 |
+| 同上 | `returns null when a sibling group is filtered out` | EDIT-17 |
+| 同上 | `returns null when a sibling group has no tasks` | EDIT-17 |
+| 同上 | `returns null when the parent category is collapsed` | EDIT-17 |
+| 同上 | `inserts before the first group` | EDIT-17 |
+| 同上 | `inserts after the last group` | EDIT-17 |
+| 同上 | `inserts between groups` | EDIT-17 |
+| 同上 | `covers the groups in one category` | EDIT-17 |
+| 同上 | `places the marker at the group boundary` | EDIT-17 |
+| 同上 | `finds the group index in its category` | EDIT-17 |
+| `categoryOrder.test.ts` | `moves a category and keeps its groups` | EDIT-16 |
+| 同上 | `returns the same array when the index is unchanged` | EDIT-16 |
+| 同上 | `places a category at the insert index from the original spans` | EDIT-16 |
+| 同上 | `returns spans when every category is visible` | EDIT-16 |
+| 同上 | `returns spans when a category is collapsed` | EDIT-16 |
+| 同上 | `returns null when a category is filtered out` | EDIT-16 |
+| 同上 | `returns null when a category has no tasks` | EDIT-16 |
+| 同上 | `inserts before the first category` | EDIT-16 |
+| 同上 | `inserts after the last category` | EDIT-16 |
+| 同上 | `inserts between categories` | EDIT-16 |
+| 同上 | `covers the full category stack` | EDIT-16 |
+| 同上 | `places the marker at the category boundary` | EDIT-16 |
+| 同上 | `finds the category index` | EDIT-16 |
 | `scheduleExternalReload.test.ts` | `returns invalid for broken JSON` | SYNC-01 |
 | 同上 | `returns noop when canonical matches baseline` | SYNC-01, FILE-04 |
 | 同上 | `returns confirm when dirty and content differs` | SYNC-01 |
@@ -496,6 +523,14 @@
 | TC-EDIT-15b | EDIT-15, NAV-05 | 名前が幅に収まらないタスクがある | その名前を横にドラッグする。次に縦にドラッグして順を変える | 横は名前の続きが読める。縦は並べ替えになる |
 | TC-EDIT-15c | EDIT-15, FILTER-01 | 同じグループにタスクが複数ある | タスク名で1件だけ残す絞り込みをかけ、行を縦にドラッグする | 並べ替えは始まらない |
 | TC-EDIT-15d | EDIT-15, FILE-07 | パスのあるファイルを開いている | 同じグループで順だけ変え、「差分を表示」を開く | `並び タスク` の行が出る。末尾に足しただけの追加では並びは出ない |
+| TC-EDIT-16 | EDIT-16, EDIT-10 | カテゴリが3件以上ある | 真ん中のカテゴリ行を縦にドラッグして、別の位置で離す。取り消す | 左の一覧とチャートで、そのカテゴリのグループとタスクがまとめて移る。中身の日付と先行は変わらない。取り消し 1 回で戻る |
+| TC-EDIT-16b | EDIT-16, NAV-05 | 名前が幅に収まらないカテゴリがある | その名前を横にドラッグする。次に縦にドラッグして順を変える | 横は名前の続きが読める。縦は並べ替えになる |
+| TC-EDIT-16c | EDIT-16, FILTER-01 | カテゴリが複数ある | タスク名で1つのカテゴリだけ残す絞り込みをかけ、カテゴリ行を縦にドラッグする | 並べ替えは始まらない |
+| TC-EDIT-16d | EDIT-16, FILE-07 | パスのあるファイルを開いている | カテゴリの順だけ変え、「差分を表示」を開く | `並び カテゴリ` の行が出る |
+| TC-EDIT-17 | EDIT-17, EDIT-10 | 同じカテゴリにグループが3件以上ある | 真ん中のグループ行を縦にドラッグして、別の位置で離す。取り消す | 左の一覧とチャートで、そのグループのタスクがまとめて移る。中身の日付と先行は変わらない。別のカテゴリのグループは動かない。取り消し 1 回で戻る |
+| TC-EDIT-17b | EDIT-17, NAV-05 | 名前が幅に収まらないグループがある | その名前を横にドラッグする。次に縦にドラッグして順を変える | 横は名前の続きが読める。縦は並べ替えになる |
+| TC-EDIT-17c | EDIT-17, FILTER-01 | 同じカテゴリにグループが複数ある | タスク名で1つのグループだけ残す絞り込みをかけ、グループ行を縦にドラッグする | 並べ替えは始まらない |
+| TC-EDIT-17d | EDIT-17, FILE-07 | パスのあるファイルを開いている | 同じカテゴリでグループの順だけ変え、「差分を表示」を開く | `並び グループ` の行が出る |
 | TC-EDIT-09 | EDIT-09 | 先行を持つタスクを選択 | 「削除」を確認する | タスクが消え、他の先行からも外れ、残ったタスク同士はつながらない |
 | TC-EDIT-09b | EDIT-09 | タスクを選んでいない | 「削除」を見る | 押せない |
 | TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
