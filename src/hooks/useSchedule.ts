@@ -45,12 +45,25 @@ import {
   removeTask,
   renameCategory,
   renameGroup,
+  reorderCategories,
+  reorderGroups,
   reorderTaskInGroup,
   uniqueScheduleId,
   validateNewTask,
   validateTaskEdit,
   type TaskEditPatch,
 } from "../model/tasks";
+import {
+  categoryIndex,
+  categoryInsertMarkerY,
+  visibleCategorySpans,
+} from "../model/categoryOrder";
+import {
+  categoryIdOfGroup,
+  groupIndex,
+  groupInsertMarkerY,
+  visibleGroupSpans,
+} from "../model/groupOrder";
 import {
   insertMarkerY,
   taskIndexInGroup,
@@ -150,10 +163,12 @@ export function useSchedule(
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const [reorderPreview, setReorderPreview] = useState<{
-    taskId: ScheduleId;
-    insertIndex: number;
-  } | null>(null);
+  const [reorderPreview, setReorderPreview] = useState<
+    | { kind: "task"; taskId: ScheduleId; insertIndex: number }
+    | { kind: "category"; categoryId: ScheduleId; insertIndex: number }
+    | { kind: "group"; groupId: ScheduleId; insertIndex: number }
+    | null
+  >(null);
   const [diskEpoch, setDiskEpoch] = useState(0);
   const today = useToday();
 
@@ -298,9 +313,23 @@ export function useSchedule(
 
   const displayCategories = useMemo(() => {
     if (reorderPreview == null) return categories;
-    return reorderTaskInGroup(
+    if (reorderPreview.kind === "task") {
+      return reorderTaskInGroup(
+        categories,
+        reorderPreview.taskId,
+        reorderPreview.insertIndex,
+      );
+    }
+    if (reorderPreview.kind === "group") {
+      return reorderGroups(
+        categories,
+        reorderPreview.groupId,
+        reorderPreview.insertIndex,
+      );
+    }
+    return reorderCategories(
       categories,
-      reorderPreview.taskId,
+      reorderPreview.categoryId,
       reorderPreview.insertIndex,
     );
   }, [categories, reorderPreview]);
@@ -327,14 +356,14 @@ export function useSchedule(
     ],
   );
 
-  const cancelTaskReorder = useCallback(() => {
+  const cancelReorder = useCallback(() => {
     setReorderPreview(null);
   }, [setReorderPreview]);
 
   const previewTaskReorder = useCallback(
     (taskId: ScheduleId, insertIndex: number) => {
       if (blockDocumentEditsRef?.current) return;
-      setReorderPreview({ taskId, insertIndex });
+      setReorderPreview({ kind: "task", taskId, insertIndex });
     },
     [blockDocumentEditsRef, setReorderPreview],
   );
@@ -353,8 +382,69 @@ export function useSchedule(
     [blockDocumentEditsRef, categories, commitCategories, setReorderPreview],
   );
 
+  const previewCategoryReorder = useCallback(
+    (categoryId: ScheduleId, insertIndex: number) => {
+      if (blockDocumentEditsRef?.current) return;
+      setReorderPreview({ kind: "category", categoryId, insertIndex });
+    },
+    [blockDocumentEditsRef, setReorderPreview],
+  );
+
+  const commitCategoryReorder = useCallback(
+    (categoryId: ScheduleId, insertIndex: number) => {
+      if (blockDocumentEditsRef?.current) {
+        setReorderPreview(null);
+        return;
+      }
+      const currentIndex = categoryIndex(categories, categoryId);
+      setReorderPreview(null);
+      if (currentIndex == null || currentIndex === insertIndex) return;
+      commitCategories((prev) => reorderCategories(prev, categoryId, insertIndex));
+    },
+    [blockDocumentEditsRef, categories, commitCategories, setReorderPreview],
+  );
+
+  const previewGroupReorder = useCallback(
+    (groupId: ScheduleId, insertIndex: number) => {
+      if (blockDocumentEditsRef?.current) return;
+      setReorderPreview({ kind: "group", groupId, insertIndex });
+    },
+    [blockDocumentEditsRef, setReorderPreview],
+  );
+
+  const commitGroupReorder = useCallback(
+    (groupId: ScheduleId, insertIndex: number) => {
+      if (blockDocumentEditsRef?.current) {
+        setReorderPreview(null);
+        return;
+      }
+      const currentIndex = groupIndex(categories, groupId);
+      setReorderPreview(null);
+      if (currentIndex == null || currentIndex === insertIndex) return;
+      commitCategories((prev) => reorderGroups(prev, groupId, insertIndex));
+    },
+    [blockDocumentEditsRef, categories, commitCategories, setReorderPreview],
+  );
+
   const reorderInsertMarkerY = useMemo(() => {
     if (reorderPreview == null) return null;
+    if (reorderPreview.kind === "category") {
+      const spans = visibleCategorySpans(displayCategories, visibleRows, rowHeight);
+      if (spans == null) return null;
+      return categoryInsertMarkerY(reorderPreview.insertIndex, spans);
+    }
+    if (reorderPreview.kind === "group") {
+      const categoryId = categoryIdOfGroup(displayCategories, reorderPreview.groupId);
+      if (categoryId == null) return null;
+      const spans = visibleGroupSpans(
+        displayCategories,
+        categoryId,
+        visibleRows,
+        rowHeight,
+      );
+      if (spans == null) return null;
+      return groupInsertMarkerY(reorderPreview.insertIndex, spans);
+    }
     const owner = findTaskOwner(displayCategories, reorderPreview.taskId);
     if (owner == null) return null;
     const groupRows = visibleGroupTaskRows(
@@ -940,7 +1030,11 @@ export function useSchedule(
     reorderInsertMarkerY,
     previewTaskReorder,
     commitTaskReorder,
-    cancelTaskReorder,
+    previewCategoryReorder,
+    commitCategoryReorder,
+    previewGroupReorder,
+    commitGroupReorder,
+    cancelReorder,
     toggleCollapsed,
     filters,
     updateFilters,

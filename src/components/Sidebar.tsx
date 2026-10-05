@@ -23,6 +23,21 @@ import {
 import { isOverdue } from "../model/timeline";
 import { TaskNoteButton } from "./TaskNoteButton";
 import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
+import {
+  canReorderCategory,
+  categoryBand,
+  insertIndexForCategoryReorder,
+  isContentYInCategoryBand,
+  visibleCategorySpans,
+} from "../model/categoryOrder";
+import {
+  canReorderGroup,
+  categoryIdOfGroup,
+  groupBand,
+  insertIndexForGroupReorder,
+  isContentYInGroupBand,
+  visibleGroupSpans,
+} from "../model/groupOrder";
 import type { StickyLayout } from "../model/stickyRows";
 import {
   canReorderTaskInGroup,
@@ -44,11 +59,17 @@ type SidebarProps = {
   rowHeight: number;
   selectedTaskId: ScheduleId | null;
   reorderingTaskId: ScheduleId | null;
+  reorderingCategoryId: ScheduleId | null;
+  reorderingGroupId: ScheduleId | null;
   reorderMarkerY: number | null;
   canEditDocument: boolean;
   onPreviewTaskReorder: (taskId: ScheduleId, insertIndex: number) => void;
   onCommitTaskReorder: (taskId: ScheduleId, insertIndex: number) => void;
-  onCancelTaskReorder: () => void;
+  onPreviewCategoryReorder: (categoryId: ScheduleId, insertIndex: number) => void;
+  onCommitCategoryReorder: (categoryId: ScheduleId, insertIndex: number) => void;
+  onPreviewGroupReorder: (groupId: ScheduleId, insertIndex: number) => void;
+  onCommitGroupReorder: (groupId: ScheduleId, insertIndex: number) => void;
+  onCancelReorder: () => void;
   milestoneBandHeight: number;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
@@ -84,11 +105,17 @@ export function Sidebar({
   rowHeight,
   selectedTaskId,
   reorderingTaskId,
+  reorderingCategoryId,
+  reorderingGroupId,
   reorderMarkerY,
   canEditDocument,
   onPreviewTaskReorder,
   onCommitTaskReorder,
-  onCancelTaskReorder,
+  onPreviewCategoryReorder,
+  onCommitCategoryReorder,
+  onPreviewGroupReorder,
+  onCommitGroupReorder,
+  onCancelReorder,
   milestoneBandHeight,
   milestones,
   memberCatalog,
@@ -198,6 +225,223 @@ export function Sidebar({
     ],
   );
 
+  const hierarchyDragRef = useRef<{
+    pointerId: number;
+    kind: "category" | "group";
+    id: ScheduleId;
+    downEl: HTMLDivElement;
+    startX: number;
+    startY: number;
+    mode: "pending" | "slide" | "reorder" | "ignore";
+    slideStartOffset: number;
+    overflow: number;
+    canSlide: boolean;
+    canReorder: boolean;
+    lastInsert: number | null;
+    detach: () => void;
+  } | null>(null);
+  const [categoryOffsets, setCategoryOffsets] = useState<Record<string, number>>({});
+  const [groupOffsets, setGroupOffsets] = useState<Record<string, number>>({});
+  const [slidingCategoryId, setSlidingCategoryId] = useState<ScheduleId | null>(null);
+  const [slidingGroupId, setSlidingGroupId] = useState<ScheduleId | null>(null);
+
+  useEffect(() => {
+    return () => {
+      hierarchyDragRef.current?.detach();
+      hierarchyDragRef.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, []);
+
+  const resolveCategoryInsert = useCallback(
+    (categoryId: ScheduleId, clientX: number, clientY: number): number | null => {
+      const spans = visibleCategorySpans(categories, reorderBaseRows, rowHeight);
+      if (spans == null) return null;
+      const band = categoryBand(spans);
+      if (band == null) return null;
+      const contentY = contentYFromPointer(clientY);
+      if (!isContentYInCategoryBand(contentY, band)) return null;
+      if (pointerOnStickyHeader(clientX, clientY)) return null;
+      return insertIndexForCategoryReorder(contentY, spans, categoryId);
+    },
+    [
+      categories,
+      contentYFromPointer,
+      pointerOnStickyHeader,
+      reorderBaseRows,
+      rowHeight,
+    ],
+  );
+
+  const resolveGroupInsert = useCallback(
+    (groupId: ScheduleId, clientX: number, clientY: number): number | null => {
+      const categoryId = categoryIdOfGroup(categories, groupId);
+      if (categoryId == null) return null;
+      const spans = visibleGroupSpans(categories, categoryId, reorderBaseRows, rowHeight);
+      if (spans == null) return null;
+      const band = groupBand(spans);
+      if (band == null) return null;
+      const contentY = contentYFromPointer(clientY);
+      if (!isContentYInGroupBand(contentY, band)) return null;
+      if (pointerOnStickyHeader(clientX, clientY)) return null;
+      return insertIndexForGroupReorder(contentY, spans, groupId);
+    },
+    [
+      categories,
+      contentYFromPointer,
+      pointerOnStickyHeader,
+      reorderBaseRows,
+      rowHeight,
+    ],
+  );
+
+  const beginHierarchyDrag = (
+    kind: "category" | "group",
+    id: ScheduleId,
+    event: ReactPointerEvent<HTMLDivElement>,
+    metrics: { canSlide: boolean; overflow: number; offset: number },
+  ) => {
+    if (event.button !== 0) return;
+    if ((event.target as HTMLElement).closest("button")) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const onMove = (native: PointerEvent) => {
+      onHierarchyPointerMove(native);
+    };
+    const onUp = (native: PointerEvent) => {
+      hierarchyDragRef.current?.detach();
+      finishHierarchyDrag(native.pointerId, native.clientX, native.clientY, true);
+    };
+    const onCancel = (native: PointerEvent) => {
+      hierarchyDragRef.current?.detach();
+      finishHierarchyDrag(native.pointerId, 0, 0, false);
+    };
+    const detach = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+    };
+    hierarchyDragRef.current = {
+      pointerId: event.pointerId,
+      kind,
+      id,
+      downEl: event.currentTarget,
+      startX: event.clientX,
+      startY: event.clientY,
+      mode: "pending",
+      slideStartOffset: metrics.offset,
+      overflow: metrics.overflow,
+      canSlide: metrics.canSlide,
+      canReorder:
+        canEditDocument &&
+        (kind === "category"
+          ? canReorderCategory(categories, id, reorderBaseRows, rowHeight)
+          : canReorderGroup(categories, id, reorderBaseRows, rowHeight)),
+      lastInsert: null,
+      detach,
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+  };
+
+  const finishHierarchyDrag = (
+    pointerId: number,
+    clientX: number,
+    clientY: number,
+    commit: boolean,
+  ) => {
+    const drag = hierarchyDragRef.current;
+    if (!drag || drag.pointerId !== pointerId) return;
+    drag.detach();
+    hierarchyDragRef.current = null;
+    setSlidingCategoryId(null);
+    setSlidingGroupId(null);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    if (drag.downEl.isConnected && drag.downEl.hasPointerCapture(pointerId)) {
+      drag.downEl.releasePointerCapture(pointerId);
+    }
+    const viewport = viewportRef.current;
+    if (viewport?.hasPointerCapture(pointerId)) {
+      viewport.releasePointerCapture(pointerId);
+    }
+    if (drag.mode !== "reorder") return;
+    if (!commit) {
+      onCancelReorder();
+      return;
+    }
+    const insertIndex =
+      drag.kind === "category"
+        ? resolveCategoryInsert(drag.id, clientX, clientY)
+        : resolveGroupInsert(drag.id, clientX, clientY);
+    if (insertIndex == null) onCancelReorder();
+    else if (drag.kind === "category") onCommitCategoryReorder(drag.id, insertIndex);
+    else onCommitGroupReorder(drag.id, insertIndex);
+  };
+
+  const previewHierarchyReorder = (
+    kind: "category" | "group",
+    id: ScheduleId,
+    insertIndex: number,
+  ) => {
+    if (kind === "category") onPreviewCategoryReorder(id, insertIndex);
+    else onPreviewGroupReorder(id, insertIndex);
+  };
+
+  const onHierarchyPointerMove = (event: {
+    pointerId: number;
+    clientX: number;
+    clientY: number;
+  }) => {
+    const drag = hierarchyDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (drag.mode === "pending") {
+      const gesture = classifyRowDrag(dx, dy, drag.canSlide, drag.canReorder);
+      if (gesture === "pending") return;
+      drag.mode = gesture;
+      if (gesture === "slide") {
+        if (drag.kind === "category") setSlidingCategoryId(drag.id);
+        else setSlidingGroupId(drag.id);
+        return;
+      }
+      if (gesture === "reorder") {
+        document.body.style.cursor = "grabbing";
+        document.body.style.userSelect = "none";
+        viewportRef.current?.setPointerCapture(event.pointerId);
+        const insertIndex =
+          drag.kind === "category"
+            ? resolveCategoryInsert(drag.id, event.clientX, event.clientY)
+            : resolveGroupInsert(drag.id, event.clientX, event.clientY);
+        if (insertIndex != null) {
+          drag.lastInsert = insertIndex;
+          previewHierarchyReorder(drag.kind, drag.id, insertIndex);
+        }
+      }
+      return;
+    }
+    if (drag.mode === "slide") {
+      const next = drag.slideStartOffset + (event.clientX - drag.startX);
+      const offset = Math.min(0, Math.max(-drag.overflow, next));
+      const setOffsets = drag.kind === "category" ? setCategoryOffsets : setGroupOffsets;
+      setOffsets((prev) => (prev[drag.id] === offset ? prev : { ...prev, [drag.id]: offset }));
+      return;
+    }
+    if (drag.mode === "reorder") {
+      const insertIndex =
+        drag.kind === "category"
+          ? resolveCategoryInsert(drag.id, event.clientX, event.clientY)
+          : resolveGroupInsert(drag.id, event.clientX, event.clientY);
+      if (insertIndex == null || insertIndex === drag.lastInsert) return;
+      drag.lastInsert = insertIndex;
+      previewHierarchyReorder(drag.kind, drag.id, insertIndex);
+    }
+  };
+
   return (
     <div className="sidebar" ref={sidebarRef}>
       <div className="sidebar-header">WBS / タスク</div>
@@ -209,22 +453,55 @@ export function Sidebar({
           マイルストン
         </div>
       ) : null}
-      <div className="sidebar-viewport" ref={viewportRef}>
+      <div
+        className="sidebar-viewport"
+        ref={viewportRef}
+        onLostPointerCapture={(event) => {
+          if (event.target !== event.currentTarget) return;
+          hierarchyDragRef.current?.detach();
+          finishHierarchyDrag(event.pointerId, 0, 0, false);
+        }}
+      >
         <div
           className="sidebar-rows"
           style={{ height: contentHeight, transform: `translateY(${-scrollY}px)` }}
         >
           {visibleRows.map((row) => {
-            if (row.type === "category" || row.type === "group") {
+            if (row.type === "category") {
               return (
-                <HierarchySidebarRow
-                  key={`${row.type}-${row.id}`}
+                <CategorySidebarRow
+                  key={`category-${row.id}`}
                   row={row}
                   top={row.y}
                   rowHeight={rowHeight}
+                  reordering={row.id === reorderingCategoryId}
+                  offset={categoryOffsets[row.id] ?? 0}
+                  sliding={slidingCategoryId === row.id}
                   onToggleCollapse={onToggleCollapse}
                   onHierarchyContextMenu={onHierarchyContextMenu}
                   onHierarchyDoubleClick={onHierarchyDoubleClick}
+                  onCategoryPointerDown={(event, metrics) =>
+                    beginHierarchyDrag("category", row.id, event, metrics)
+                  }
+                />
+              );
+            }
+            if (row.type === "group") {
+              return (
+                <HierarchySidebarRow
+                  key={`group-${row.id}`}
+                  row={row}
+                  top={row.y}
+                  rowHeight={rowHeight}
+                  reordering={row.id === reorderingGroupId}
+                  offset={groupOffsets[row.id] ?? 0}
+                  sliding={slidingGroupId === row.id}
+                  onToggleCollapse={onToggleCollapse}
+                  onHierarchyContextMenu={onHierarchyContextMenu}
+                  onHierarchyDoubleClick={onHierarchyDoubleClick}
+                  onGroupPointerDown={(event, metrics) =>
+                    beginHierarchyDrag("group", row.id, event, metrics)
+                  }
                 />
               );
             }
@@ -254,7 +531,7 @@ export function Sidebar({
                 onCommitReorder={(insertIndex) =>
                   onCommitTaskReorder(row.task.id, insertIndex)
                 }
-                onCancelReorder={onCancelTaskReorder}
+                onCancelReorder={onCancelReorder}
               />
             );
           })}
@@ -273,20 +550,44 @@ export function Sidebar({
               return null;
             }
             const clipHeight = draw.clipBottom - draw.clipTop;
+            const top = draw.top - draw.clipTop;
             return (
               <div
                 key={draw.index}
                 className="sidebar-sticky-clip"
                 style={{ top: draw.clipTop, height: clipHeight }}
               >
-                <HierarchySidebarRow
-                  row={row}
-                  top={draw.top - draw.clipTop}
-                  rowHeight={rowHeight}
-                  onToggleCollapse={onToggleCollapse}
-                  onHierarchyContextMenu={onHierarchyContextMenu}
-                  onHierarchyDoubleClick={onHierarchyDoubleClick}
-                />
+                {row.type === "category" ? (
+                  <CategorySidebarRow
+                    row={row}
+                    top={top}
+                    rowHeight={rowHeight}
+                    reordering={row.id === reorderingCategoryId}
+                    offset={categoryOffsets[row.id] ?? 0}
+                    sliding={slidingCategoryId === row.id}
+                    onToggleCollapse={onToggleCollapse}
+                    onHierarchyContextMenu={onHierarchyContextMenu}
+                    onHierarchyDoubleClick={onHierarchyDoubleClick}
+                    onCategoryPointerDown={(event, metrics) =>
+                      beginHierarchyDrag("category", row.id, event, metrics)
+                    }
+                  />
+                ) : (
+                  <HierarchySidebarRow
+                    row={row}
+                    top={top}
+                    rowHeight={rowHeight}
+                    reordering={row.id === reorderingGroupId}
+                    offset={groupOffsets[row.id] ?? 0}
+                    sliding={slidingGroupId === row.id}
+                    onToggleCollapse={onToggleCollapse}
+                    onHierarchyContextMenu={onHierarchyContextMenu}
+                    onHierarchyDoubleClick={onHierarchyDoubleClick}
+                    onGroupPointerDown={(event, metrics) =>
+                      beginHierarchyDrag("group", row.id, event, metrics)
+                    }
+                  />
+                )}
               </div>
             );
           })}
@@ -415,17 +716,24 @@ function SidebarResizer({
   );
 }
 
-function HierarchySidebarRow({
+function CategorySidebarRow({
   row,
   top,
   rowHeight,
+  reordering,
+  offset,
+  sliding,
   onToggleCollapse,
   onHierarchyContextMenu,
   onHierarchyDoubleClick,
+  onCategoryPointerDown,
 }: {
-  row: Extract<VisibleRow, { type: "category" | "group" }>;
+  row: Extract<VisibleRow, { type: "category" }>;
   top: number;
   rowHeight: number;
+  reordering: boolean;
+  offset: number;
+  sliding: boolean;
   onToggleCollapse: (key: string) => void;
   onHierarchyContextMenu: (
     kind: "category" | "group",
@@ -434,11 +742,34 @@ function HierarchySidebarRow({
     y: number,
   ) => void;
   onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
+  onCategoryPointerDown: (
+    event: ReactPointerEvent<HTMLDivElement>,
+    metrics: { canSlide: boolean; overflow: number; offset: number },
+  ) => void;
 }) {
-  const kind = row.type;
+  const clipRef = useRef<HTMLSpanElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [overflow, setOverflow] = useState(0);
+  const canSlide = overflow > 0 || offset < 0;
+
+  useLayoutEffect(() => {
+    const clip = clipRef.current;
+    const label = textRef.current;
+    if (!clip || !label) return;
+
+    const measure = () => {
+      setOverflow(Math.max(0, label.scrollWidth - clip.clientWidth));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(clip);
+    return () => observer.disconnect();
+  }, [row.label]);
+
   return (
     <div
-      className={`sidebar-row ${kind}`}
+      className={`sidebar-row category${reordering ? " reordering" : ""}`}
       style={{
         position: "absolute",
         left: 0,
@@ -448,25 +779,119 @@ function HierarchySidebarRow({
       }}
       onDoubleClick={(event) => {
         event.preventDefault();
-        onHierarchyDoubleClick(kind, row.id);
+        onHierarchyDoubleClick("category", row.id);
       }}
       onContextMenu={(event) => {
         event.preventDefault();
-        onHierarchyContextMenu(kind, row.id, event.clientX, event.clientY);
+        onHierarchyContextMenu("category", row.id, event.clientX, event.clientY);
+      }}
+      onPointerDown={(event) => {
+        onCategoryPointerDown(event, { canSlide, overflow, offset });
       }}
     >
       <CollapseButton
         label={row.label}
         collapsed={row.collapsed}
-        onClick={() =>
-          onToggleCollapse(
-            kind === "category"
-              ? categoryCollapseKey(row.id)
-              : groupCollapseKey(row.id),
-          )
-        }
+        onClick={() => onToggleCollapse(categoryCollapseKey(row.id))}
       />
-      <SlideLabel text={row.label} />
+      <span
+        ref={clipRef}
+        className={`slide-label${canSlide ? " can-slide" : ""}${sliding ? " sliding" : ""}${offset < 0 ? " shifted" : ""}`}
+        style={{ "--slide": `${offset}px` } as CSSProperties}
+        title={canSlide ? row.label : undefined}
+      >
+        <span ref={textRef} className="slide-label-text">{row.label}</span>
+      </span>
+    </div>
+  );
+}
+
+function HierarchySidebarRow({
+  row,
+  top,
+  rowHeight,
+  reordering,
+  offset,
+  sliding,
+  onToggleCollapse,
+  onHierarchyContextMenu,
+  onHierarchyDoubleClick,
+  onGroupPointerDown,
+}: {
+  row: Extract<VisibleRow, { type: "group" }>;
+  top: number;
+  rowHeight: number;
+  reordering: boolean;
+  offset: number;
+  sliding: boolean;
+  onToggleCollapse: (key: string) => void;
+  onHierarchyContextMenu: (
+    kind: "category" | "group",
+    id: ScheduleId,
+    x: number,
+    y: number,
+  ) => void;
+  onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
+  onGroupPointerDown: (
+    event: ReactPointerEvent<HTMLDivElement>,
+    metrics: { canSlide: boolean; overflow: number; offset: number },
+  ) => void;
+}) {
+  const clipRef = useRef<HTMLSpanElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [overflow, setOverflow] = useState(0);
+  const canSlide = overflow > 0 || offset < 0;
+
+  useLayoutEffect(() => {
+    const clip = clipRef.current;
+    const label = textRef.current;
+    if (!clip || !label) return;
+
+    const measure = () => {
+      setOverflow(Math.max(0, label.scrollWidth - clip.clientWidth));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(clip);
+    return () => observer.disconnect();
+  }, [row.label]);
+
+  return (
+    <div
+      className={`sidebar-row group${reordering ? " reordering" : ""}`}
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        top,
+        height: rowHeight,
+      }}
+      onDoubleClick={(event) => {
+        event.preventDefault();
+        onHierarchyDoubleClick("group", row.id);
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onHierarchyContextMenu("group", row.id, event.clientX, event.clientY);
+      }}
+      onPointerDown={(event) => {
+        onGroupPointerDown(event, { canSlide, overflow, offset });
+      }}
+    >
+      <CollapseButton
+        label={row.label}
+        collapsed={row.collapsed}
+        onClick={() => onToggleCollapse(groupCollapseKey(row.id))}
+      />
+      <span
+        ref={clipRef}
+        className={`slide-label${canSlide ? " can-slide" : ""}${sliding ? " sliding" : ""}${offset < 0 ? " shifted" : ""}`}
+        style={{ "--slide": `${offset}px` } as CSSProperties}
+        title={canSlide ? row.label : undefined}
+      >
+        <span ref={textRef} className="slide-label-text">{row.label}</span>
+      </span>
     </div>
   );
 }
@@ -664,83 +1089,6 @@ function TaskSidebarRow({
         {assigneeSidebarLabel(assigneeDisplay)}
       </span>
     </div>
-  );
-}
-
-function SlideLabel({
-  text,
-  className,
-}: {
-  text: string;
-  className?: string;
-}) {
-  const clipRef = useRef<HTMLSpanElement>(null);
-  const textRef = useRef<HTMLSpanElement>(null);
-  const dragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startOffset: number;
-  } | null>(null);
-  const [offset, setOffset] = useState(0);
-  const [overflow, setOverflow] = useState(0);
-  const [dragging, setDragging] = useState(false);
-
-  useLayoutEffect(() => {
-    const clip = clipRef.current;
-    const label = textRef.current;
-    if (!clip || !label) return;
-
-    const measure = () => {
-      const hidden = Math.max(0, label.scrollWidth - clip.clientWidth);
-      setOverflow(hidden);
-      setOffset((current) => Math.min(0, Math.max(-hidden, current)));
-    };
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(clip);
-    return () => observer.disconnect();
-  }, [text]);
-
-  const canSlide = overflow > 0 || offset < 0;
-
-  return (
-    <span
-      ref={clipRef}
-      className={`slide-label${className ? ` ${className}` : ""}${canSlide ? " can-slide" : ""}${dragging ? " sliding" : ""}${offset < 0 ? " shifted" : ""}`}
-      style={{ "--slide": `${offset}px` } as CSSProperties}
-      title={canSlide ? text : undefined}
-      onPointerDown={(event) => {
-        if (!canSlide || event.button !== 0) return;
-        event.currentTarget.setPointerCapture(event.pointerId);
-        dragRef.current = {
-          pointerId: event.pointerId,
-          startX: event.clientX,
-          startOffset: offset,
-        };
-        setDragging(true);
-      }}
-      onPointerMove={(event) => {
-        const drag = dragRef.current;
-        if (!drag || drag.pointerId !== event.pointerId) return;
-        const next = drag.startOffset + (event.clientX - drag.startX);
-        setOffset(Math.min(0, Math.max(-overflow, next)));
-      }}
-      onPointerUp={(event) => {
-        const drag = dragRef.current;
-        if (!drag || drag.pointerId !== event.pointerId) return;
-        dragRef.current = null;
-        setDragging(false);
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }}
-      onPointerCancel={(event) => {
-        dragRef.current = null;
-        setDragging(false);
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }}
-    >
-      <span ref={textRef} className="slide-label-text">{text}</span>
-    </span>
   );
 }
 

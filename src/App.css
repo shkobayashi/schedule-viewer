@@ -526,6 +526,12 @@ input[type="number"] {
   padding-left: calc(6px * var(--s));
   background: var(--panel);
   font-weight: 600;
+  touch-action: none;
+}
+
+.sidebar-row.category.reordering {
+  opacity: 0.85;
+  cursor: grabbing;
 }
 
 .sidebar-row.group {
@@ -533,6 +539,12 @@ input[type="number"] {
   background: var(--group-bg);
   font-weight: 600;
   color: var(--group-text);
+  touch-action: none;
+}
+
+.sidebar-row.group.reordering {
+  opacity: 0.85;
+  cursor: grabbing;
 }
 
 .sidebar-row .twist {
