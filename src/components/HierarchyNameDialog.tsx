@@ -4,6 +4,7 @@ import { ModalDialog } from "./ModalDialog";
 type HierarchyNameDialogProps = {
   title: string;
   initialName: string;
+  primaryLabel?: string;
   onClose: () => void;
   onSave: (name: string) => string | null;
 };
@@ -11,6 +12,7 @@ type HierarchyNameDialogProps = {
 export function HierarchyNameDialog({
   title,
   initialName,
+  primaryLabel = "保存",
   onClose,
   onSave,
 }: HierarchyNameDialogProps) {
@@ -51,7 +53,7 @@ export function HierarchyNameDialog({
             if (message) setFormError(message);
           }}
         >
-          保存
+          {primaryLabel}
         </button>
       </div>
     </ModalDialog>

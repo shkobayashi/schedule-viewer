@@ -1,3 +1,4 @@
+import { canMoveGroupToCategory } from "./tasks";
 import type { Category, ScheduleId, VisibleRow } from "./types";
 
 export type GroupSpan = {
@@ -81,6 +82,46 @@ export function canReorderGroup(
   const categoryId = categoryIdOfGroup(categories, groupId);
   if (categoryId == null) return false;
   return visibleGroupSpans(categories, categoryId, visibleRows, rowHeight) != null;
+}
+
+export type GroupDropTarget = {
+  targetCategoryId: ScheduleId;
+  insertIndex: number;
+};
+
+export function resolveGroupDropTarget(
+  contentY: number,
+  rowHeight: number,
+  draggedGroupId: ScheduleId,
+  categories: Category[],
+  visibleRows: readonly VisibleRow[],
+): GroupDropTarget | null {
+  const sourceCategoryId = categoryIdOfGroup(categories, draggedGroupId);
+  if (sourceCategoryId == null) return null;
+  if (!visibleGroupSpans(categories, sourceCategoryId, visibleRows, rowHeight)) {
+    return null;
+  }
+  for (const category of categories) {
+    const spans = visibleGroupSpans(
+      categories,
+      category.id,
+      visibleRows,
+      rowHeight,
+    );
+    if (spans == null) continue;
+    const band = groupBand(spans);
+    if (band == null || !isContentYInGroupBand(contentY, band)) continue;
+    if (!canMoveGroupToCategory(categories, draggedGroupId, category.id)) {
+      return null;
+    }
+    const insertIndex = insertIndexForGroupReorder(
+      contentY,
+      spans,
+      draggedGroupId,
+    );
+    return { targetCategoryId: category.id, insertIndex };
+  }
+  return null;
 }
 
 /** ドラッグ中のグループを除き、内容座標の y から挿入位置を返す。 */

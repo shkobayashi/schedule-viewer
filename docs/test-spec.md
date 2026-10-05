@@ -138,6 +138,9 @@
 | 同上 | `excludes tasks without note when noteSearch is set` | FILTER-02 |
 | 同上 | `matches task linked to selected milestone id` | FILTER-07 |
 | 同上 | `keeps only tasks without milestone when filter is none` | FILTER-07 |
+| 同上 | `shows empty groups and categories when filters and lineage are clear` | VIEW-01, VIEW-03, FILTER-09 |
+| 同上 | `hides empty groups when a filter is set` | FILTER-09 |
+| 同上 | `hides empty groups when lineage is set` | FILTER-09 |
 | `scheduleDiff.test.ts` | `says there is no difference when the documents match` | FILE-07 |
 | 同上 | `shows calendar-day shifts for start and end` | FILE-07 |
 | 同上 | `lists every field of an added task and skips sibling order` | FILE-07 |
@@ -177,13 +180,16 @@
 | 同上 | `covers the full task row span` | EDIT-15 |
 | 同上 | `places the marker at the preview gap` | EDIT-15 |
 | 同上 | `finds the task index` | EDIT-15 |
+| 同上 | `places a downward move at the index after the dragged task is removed` | EDIT-15 |
+| 同上 | `inserts at the start of another group` | EDIT-15 |
+| 同上 | `does not drop into a collapsed group` | EDIT-15 |
 | `groupOrder.test.ts` | `moves a group and keeps its tasks` | EDIT-17 |
 | 同上 | `returns the same array when the index is unchanged` | EDIT-17 |
 | 同上 | `places a group at the insert index from the original spans` | EDIT-17 |
 | 同上 | `returns spans when every sibling group is visible` | EDIT-17 |
 | 同上 | `returns spans when a group is collapsed` | EDIT-17 |
 | 同上 | `returns null when a sibling group is filtered out` | EDIT-17 |
-| 同上 | `returns null when a sibling group has no tasks` | EDIT-17 |
+| 同上 | `returns spans when a sibling group has no tasks` | EDIT-17 |
 | 同上 | `returns null when the parent category is collapsed` | EDIT-17 |
 | 同上 | `inserts before the first group` | EDIT-17 |
 | 同上 | `inserts after the last group` | EDIT-17 |
@@ -191,13 +197,16 @@
 | 同上 | `covers the groups in one category` | EDIT-17 |
 | 同上 | `places the marker at the group boundary` | EDIT-17 |
 | 同上 | `finds the group index in its category` | EDIT-17 |
+| 同上 | `accepts another category when the name is free and a group remains` | EDIT-17 |
+| 同上 | `rejects a category that already has the same group name` | EDIT-17 |
+| 同上 | `rejects moving the last group out of its category` | EDIT-17 |
 | `categoryOrder.test.ts` | `moves a category and keeps its groups` | EDIT-16 |
 | 同上 | `returns the same array when the index is unchanged` | EDIT-16 |
 | 同上 | `places a category at the insert index from the original spans` | EDIT-16 |
 | 同上 | `returns spans when every category is visible` | EDIT-16 |
 | 同上 | `returns spans when a category is collapsed` | EDIT-16 |
 | 同上 | `returns null when a category is filtered out` | EDIT-16 |
-| 同上 | `returns null when a category has no tasks` | EDIT-16 |
+| 同上 | `returns spans when a category has only empty groups` | EDIT-16 |
 | 同上 | `inserts before the first category` | EDIT-16 |
 | 同上 | `inserts after the last category` | EDIT-16 |
 | 同上 | `inserts between categories` | EDIT-16 |
@@ -229,6 +238,18 @@
 | 同上 | `rejects a duplicate name in the same category` | EDIT-13 |
 | 同上 | `allows the same group name in another category` | EDIT-13 |
 | 同上 | `keeps the original name when the input is blank` | EDIT-13 |
+| `hierarchyCrud.test.ts` | `inserts a category with an empty default group` | EDIT-18 |
+| 同上 | `rejects a blank category name` | EDIT-18 |
+| 同上 | `rejects duplicate category names on add` | EDIT-18 |
+| 同上 | `deletes only when allowed` | EDIT-19 |
+| 同上 | `moves a task to another group by id` | EDIT-15 |
+| 同上 | `moves a group to another category when names do not clash` | EDIT-17 |
+| 同上 | `returns the same array when the target category has the same group name` | EDIT-17 |
+| 同上 | `shows a cross-category group move as a location change in diff` | FILE-07, EDIT-17 |
+| 同上 | `refuses to empty the source category of groups` | EDIT-17 |
+| 同上 | `shows cross-group task move as location change in diff` | FILE-07, EDIT-15 |
+| 同上 | `rejects a duplicate group name` | EDIT-18 |
+| 同上 | `appends at category end` | EDIT-18 |
 | `scheduleRecovery.test.ts` | `accepts a valid draft` | SYNC-03 |
 | 同上 | `rejects invalid document JSON` | SYNC-03 |
 | 同上 | `returns the parent and skips a bare filename` | SYNC-03 |
@@ -531,10 +552,12 @@
 | TC-EDIT-17b | EDIT-17, NAV-05 | 名前が幅に収まらないグループがある | その名前を横にドラッグする。次に縦にドラッグして順を変える | 横は名前の続きが読める。縦は並べ替えになる |
 | TC-EDIT-17c | EDIT-17, FILTER-01 | 同じカテゴリにグループが複数ある | タスク名で1つのグループだけ残す絞り込みをかけ、グループ行を縦にドラッグする | 並べ替えは始まらない |
 | TC-EDIT-17d | EDIT-17, FILE-07 | パスのあるファイルを開いている | 同じカテゴリでグループの順だけ変え、「差分を表示」を開く | `並び グループ` の行が出る |
+| TC-EDIT-18 | EDIT-18, EDIT-10 | カテゴリが2件以上ある | カテゴリ行を右クリックし「下にカテゴリを追加」で名前を保存する。取り消す | 直後にカテゴリと空の「グループ」が足る。取り消し 1 回で戻る |
+| TC-EDIT-19 | EDIT-19, EDIT-10 | タスク0件のグループがあり、同じカテゴリに別のグループがある | そのグループ行を右クリックし「削除」を確認する。取り消す | グループが消える。取り消し 1 回で戻る。最後のグループ単体では「削除」は出ない |
 | TC-EDIT-09 | EDIT-09 | 先行を持つタスクを選択 | 「削除」を確認する | タスクが消え、他の先行からも外れ、残ったタスク同士はつながらない |
 | TC-EDIT-09b | EDIT-09 | タスクを選んでいない | 「削除」を見る | 押せない |
 | TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
-| TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左のタスク行を右クリックする。選択中は端のハンドルも右クリックする。カテゴリ行も右クリックする | ノートが開く。左のタスク行は右クリックで選択され、メニューが出る。左クリックでは選択されない。チャートの空白では「マイルストンを追加」だけが出る。端のハンドルでもバーと同じメニューが出る。カテゴリ行では「名前を変更」だけが出る |
+| TC-EDIT-11 | EDIT-11 | サンプル | バーを右クリックし、「ノート」を選ぶ。次に左のタスク行を右クリックする。選択中は端のハンドルも右クリックする。カテゴリ行とグループ行も右クリックする | ノートが開く。左のタスク行は右クリックで選択され、メニューが出る。左クリックでは選択されない。チャートの空白では「マイルストンを追加」だけが出る。端のハンドルでもバーと同じメニューが出る。カテゴリ行では追加項目と、消せるときだけ「削除」が出る。グループ行も同様である |
 | TC-EDIT-11e | EDIT-11, EDIT-07 | タスクを選択している。マイルストンが 0 件でもよい | 日付ヘッダー、マイルストン帯の空き、チャートの空き（親バーの上を含む）を右クリックし、「マイルストンを追加」を選ぶ。月表示のヘッダーでも日の位置で確かめる。印の上と、線を引くモードと、ツールバーの「マイルストン追加」も見る | 「マイルストンを追加」だけが出る。名前は空、確度は未確定、日付は指した暦日。選択は変わらない。印の上はマイルストンのメニューのまま。線を引くモードでは出ない。ツールバーから開いた日付は今日。0 件でもヘッダーとチャートの空きから足せる。保存、空白だけの名前、空の日付、キャンセル、取り消しはツールバーと同じ |
 | TC-EDIT-11c | EDIT-11, EDIT-10, VIEW-12 | 未確定のタスクと、確定のタスクがある | それぞれを右クリックし、確度の項目を選ぶ。取り消す | 未確定には「確定にする」、確定には「未確定にする」だけが出る。日付は動かない。取り消し 1 回で戻る |
 | TC-EDIT-11d | EDIT-11, EDIT-07, EDIT-10, VIEW-12 | 未確定のマイルストンと、確定のマイルストンがある | それぞれを、ひし形かその右の名前で右クリックし、確度の項目を選ぶ。取り消す | 未確定には「確定にする」、確定には「未確定にする」が出る。日付は動かない。ひし形の斜線が切り替わる。取り消し 1 回で戻る。タスクの選択は変わらない |
