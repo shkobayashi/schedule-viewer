@@ -12,6 +12,7 @@ import { DiffDialog } from "./components/DiffDialog";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneAddDialog } from "./components/MilestoneAddDialog";
+import { DeleteHierarchyDialog } from "./components/DeleteHierarchyDialog";
 import { HierarchyNameDialog } from "./components/HierarchyNameDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
@@ -427,7 +428,9 @@ function App() {
       schedule.editingTask != null ||
       schedule.editingNoteTask != null ||
       schedule.editingMilestone != null ||
-      schedule.editingHierarchyTarget != null,
+      schedule.editingHierarchyTarget != null ||
+      schedule.addingHierarchyTarget != null ||
+      schedule.deletingHierarchyTarget != null,
     blockDocumentEditsRef,
   });
 
@@ -850,15 +853,56 @@ function App() {
         },
       ];
     }
-    if (contextMenu.kind === "category" || contextMenu.kind === "group") {
-      const { kind, id } = contextMenu;
-      return [
+    if (contextMenu.kind === "category") {
+      const { id } = contextMenu;
+      const items: ContextMenuItem[] = [
         {
           id: "rename",
           label: "名前を変更",
-          onSelect: () => openHierarchyEdit(kind, id),
+          onSelect: () => openHierarchyEdit("category", id),
+        },
+        {
+          id: "add-category",
+          label: "下にカテゴリを追加",
+          onSelect: () => schedule.openAddCategoryAfter(id),
+        },
+        {
+          id: "add-group",
+          label: "グループを追加",
+          onSelect: () => schedule.openAddGroupToCategory(id),
         },
       ];
+      if (schedule.canDeleteCategory(id)) {
+        items.push({
+          id: "delete",
+          label: "削除",
+          onSelect: () => schedule.openDeleteHierarchy("category", id),
+        });
+      }
+      return items;
+    }
+    if (contextMenu.kind === "group") {
+      const { id } = contextMenu;
+      const items: ContextMenuItem[] = [
+        {
+          id: "rename",
+          label: "名前を変更",
+          onSelect: () => openHierarchyEdit("group", id),
+        },
+        {
+          id: "add-group",
+          label: "下にグループを追加",
+          onSelect: () => schedule.openAddGroupAfter(id),
+        },
+      ];
+      if (schedule.canDeleteGroup(id)) {
+        items.push({
+          id: "delete",
+          label: "削除",
+          onSelect: () => schedule.openDeleteHierarchy("group", id),
+        });
+      }
+      return items;
     }
     const taskId = contextMenu.taskId;
     const task = findTaskById(categories, taskId);
@@ -927,6 +971,7 @@ function App() {
     openMilestoneEdit,
     openTaskNoteDialog,
     removePredecessorLink,
+    schedule,
     showLineage,
   ]);
 
@@ -993,8 +1038,8 @@ function App() {
           <>
             Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
             ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・
-            左のタスク行は縦にドラッグして同じグループの中で順を変えられます ・
-            左のグループ行は縦にドラッグして同じカテゴリの中で順を変えられます ・
+            左のタスク行は縦にドラッグして順を変えたり、別のグループへ移せます ・
+            左のグループ行は縦にドラッグして順を変えたり、別のカテゴリへ移せます ・
             左のカテゴリ行は縦にドラッグして順を変えられます ・ 境界をドラッグで左の幅を変える
             ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更（操作中は開始日と終了日）、ダブルクリックで詳細編集
             ・ タスクを選んで「系統」で前後だけ表示 ・
@@ -1178,6 +1223,24 @@ function App() {
           initialName={schedule.editingHierarchyTarget.name}
           onClose={schedule.closeHierarchyEdit}
           onSave={schedule.saveHierarchyName}
+        />
+      ) : null}
+      {schedule.addingHierarchyTarget ? (
+        <HierarchyNameDialog
+          key={`add:${schedule.addingHierarchyTarget.title}:${schedule.diskEpoch}`}
+          title={schedule.addingHierarchyTarget.title}
+          initialName={schedule.addingHierarchyTarget.initialName}
+          primaryLabel="追加"
+          onClose={schedule.closeAddingHierarchy}
+          onSave={schedule.saveHierarchyAdd}
+        />
+      ) : null}
+      {schedule.deletingHierarchyTarget ? (
+        <DeleteHierarchyDialog
+          kind={schedule.deletingHierarchyTarget.kind}
+          name={schedule.deletingHierarchyTarget.name}
+          onClose={schedule.closeDeleteHierarchy}
+          onConfirm={schedule.confirmDeleteHierarchy}
         />
       ) : null}
       {addMilestoneOpen ? (

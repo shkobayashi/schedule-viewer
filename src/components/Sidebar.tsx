@@ -32,22 +32,14 @@ import {
 } from "../model/categoryOrder";
 import {
   canReorderGroup,
-  categoryIdOfGroup,
-  groupBand,
-  insertIndexForGroupReorder,
-  isContentYInGroupBand,
-  visibleGroupSpans,
+  resolveGroupDropTarget,
 } from "../model/groupOrder";
 import type { StickyLayout } from "../model/stickyRows";
 import {
   canReorderTaskInGroup,
   classifyRowDrag,
-  groupTaskBand,
-  insertIndexForReorder,
-  isContentYInGroupTaskBand,
-  visibleGroupTaskRows,
+  resolveTaskDropTarget,
 } from "../model/taskOrder";
-import { findTaskOwner } from "../model/tasks";
 import type { Category, Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
 
 type SidebarProps = {
@@ -63,12 +55,28 @@ type SidebarProps = {
   reorderingGroupId: ScheduleId | null;
   reorderMarkerY: number | null;
   canEditDocument: boolean;
-  onPreviewTaskReorder: (taskId: ScheduleId, insertIndex: number) => void;
-  onCommitTaskReorder: (taskId: ScheduleId, insertIndex: number) => void;
+  onPreviewTaskReorder: (
+    taskId: ScheduleId,
+    targetGroupId: ScheduleId,
+    insertIndex: number,
+  ) => void;
+  onCommitTaskReorder: (
+    taskId: ScheduleId,
+    targetGroupId: ScheduleId,
+    insertIndex: number,
+  ) => void;
   onPreviewCategoryReorder: (categoryId: ScheduleId, insertIndex: number) => void;
   onCommitCategoryReorder: (categoryId: ScheduleId, insertIndex: number) => void;
-  onPreviewGroupReorder: (groupId: ScheduleId, insertIndex: number) => void;
-  onCommitGroupReorder: (groupId: ScheduleId, insertIndex: number) => void;
+  onPreviewGroupReorder: (
+    groupId: ScheduleId,
+    targetCategoryId: ScheduleId,
+    insertIndex: number,
+  ) => void;
+  onCommitGroupReorder: (
+    groupId: ScheduleId,
+    targetCategoryId: ScheduleId,
+    insertIndex: number,
+  ) => void;
   onCancelReorder: () => void;
   milestoneBandHeight: number;
   milestones: Milestone[];
@@ -200,21 +208,20 @@ export function Sidebar({
   }, []);
 
   const resolveReorderInsert = useCallback(
-    (taskId: ScheduleId, clientX: number, clientY: number): number | null => {
-      const owner = findTaskOwner(categories, taskId);
-      if (owner == null) return null;
-      const groupRows = visibleGroupTaskRows(
+    (
+      taskId: ScheduleId,
+      clientX: number,
+      clientY: number,
+    ): { targetGroupId: ScheduleId; insertIndex: number } | null => {
+      if (pointerOnStickyHeader(clientX, clientY)) return null;
+      const contentY = contentYFromPointer(clientY);
+      return resolveTaskDropTarget(
+        contentY,
+        rowHeight,
+        taskId,
         categories,
-        owner.groupId,
         reorderBaseRows,
       );
-      if (groupRows == null) return null;
-      const band = groupTaskBand(groupRows, rowHeight);
-      if (band == null) return null;
-      const contentY = contentYFromPointer(clientY);
-      if (!isContentYInGroupTaskBand(contentY, band)) return null;
-      if (pointerOnStickyHeader(clientX, clientY)) return null;
-      return insertIndexForReorder(contentY, rowHeight, groupRows, taskId);
     },
     [
       categories,
@@ -237,7 +244,7 @@ export function Sidebar({
     overflow: number;
     canSlide: boolean;
     canReorder: boolean;
-    lastInsert: number | null;
+    lastPreviewKey: string | null;
     detach: () => void;
   } | null>(null);
   const [categoryOffsets, setCategoryOffsets] = useState<Record<string, number>>({});
@@ -275,17 +282,20 @@ export function Sidebar({
   );
 
   const resolveGroupInsert = useCallback(
-    (groupId: ScheduleId, clientX: number, clientY: number): number | null => {
-      const categoryId = categoryIdOfGroup(categories, groupId);
-      if (categoryId == null) return null;
-      const spans = visibleGroupSpans(categories, categoryId, reorderBaseRows, rowHeight);
-      if (spans == null) return null;
-      const band = groupBand(spans);
-      if (band == null) return null;
-      const contentY = contentYFromPointer(clientY);
-      if (!isContentYInGroupBand(contentY, band)) return null;
+    (
+      groupId: ScheduleId,
+      clientX: number,
+      clientY: number,
+    ): { targetCategoryId: ScheduleId; insertIndex: number } | null => {
       if (pointerOnStickyHeader(clientX, clientY)) return null;
-      return insertIndexForGroupReorder(contentY, spans, groupId);
+      const contentY = contentYFromPointer(clientY);
+      return resolveGroupDropTarget(
+        contentY,
+        rowHeight,
+        groupId,
+        categories,
+        reorderBaseRows,
+      );
     },
     [
       categories,
@@ -339,7 +349,7 @@ export function Sidebar({
         (kind === "category"
           ? canReorderCategory(categories, id, reorderBaseRows, rowHeight)
           : canReorderGroup(categories, id, reorderBaseRows, rowHeight)),
-      lastInsert: null,
+      lastPreviewKey: null,
       detach,
     };
     window.addEventListener("pointermove", onMove);
@@ -373,22 +383,33 @@ export function Sidebar({
       onCancelReorder();
       return;
     }
-    const insertIndex =
-      drag.kind === "category"
-        ? resolveCategoryInsert(drag.id, clientX, clientY)
-        : resolveGroupInsert(drag.id, clientX, clientY);
-    if (insertIndex == null) onCancelReorder();
-    else if (drag.kind === "category") onCommitCategoryReorder(drag.id, insertIndex);
-    else onCommitGroupReorder(drag.id, insertIndex);
+    if (drag.kind === "category") {
+      const insertIndex = resolveCategoryInsert(drag.id, clientX, clientY);
+      if (insertIndex == null) onCancelReorder();
+      else onCommitCategoryReorder(drag.id, insertIndex);
+      return;
+    }
+    const groupTarget = resolveGroupInsert(drag.id, clientX, clientY);
+    if (groupTarget == null) onCancelReorder();
+    else {
+      onCommitGroupReorder(
+        drag.id,
+        groupTarget.targetCategoryId,
+        groupTarget.insertIndex,
+      );
+    }
   };
 
   const previewHierarchyReorder = (
     kind: "category" | "group",
     id: ScheduleId,
     insertIndex: number,
+    targetCategoryId?: ScheduleId,
   ) => {
     if (kind === "category") onPreviewCategoryReorder(id, insertIndex);
-    else onPreviewGroupReorder(id, insertIndex);
+    else if (targetCategoryId != null) {
+      onPreviewGroupReorder(id, targetCategoryId, insertIndex);
+    }
   };
 
   const onHierarchyPointerMove = (event: {
@@ -413,13 +434,31 @@ export function Sidebar({
         document.body.style.cursor = "grabbing";
         document.body.style.userSelect = "none";
         viewportRef.current?.setPointerCapture(event.pointerId);
-        const insertIndex =
-          drag.kind === "category"
-            ? resolveCategoryInsert(drag.id, event.clientX, event.clientY)
-            : resolveGroupInsert(drag.id, event.clientX, event.clientY);
-        if (insertIndex != null) {
-          drag.lastInsert = insertIndex;
-          previewHierarchyReorder(drag.kind, drag.id, insertIndex);
+        if (drag.kind === "category") {
+          const insertIndex = resolveCategoryInsert(
+            drag.id,
+            event.clientX,
+            event.clientY,
+          );
+          if (insertIndex != null) {
+            drag.lastPreviewKey = String(insertIndex);
+            previewHierarchyReorder("category", drag.id, insertIndex);
+          }
+        } else {
+          const target = resolveGroupInsert(
+            drag.id,
+            event.clientX,
+            event.clientY,
+          );
+          if (target != null) {
+            drag.lastPreviewKey = `${target.targetCategoryId}:${target.insertIndex}`;
+            previewHierarchyReorder(
+              "group",
+              drag.id,
+              target.insertIndex,
+              target.targetCategoryId,
+            );
+          }
         }
       }
       return;
@@ -432,13 +471,31 @@ export function Sidebar({
       return;
     }
     if (drag.mode === "reorder") {
-      const insertIndex =
-        drag.kind === "category"
-          ? resolveCategoryInsert(drag.id, event.clientX, event.clientY)
-          : resolveGroupInsert(drag.id, event.clientX, event.clientY);
-      if (insertIndex == null || insertIndex === drag.lastInsert) return;
-      drag.lastInsert = insertIndex;
-      previewHierarchyReorder(drag.kind, drag.id, insertIndex);
+      if (drag.kind === "category") {
+        const insertIndex = resolveCategoryInsert(
+          drag.id,
+          event.clientX,
+          event.clientY,
+        );
+        const key = insertIndex == null ? null : String(insertIndex);
+        if (key == null || key === drag.lastPreviewKey) return;
+        drag.lastPreviewKey = key;
+        previewHierarchyReorder("category", drag.id, insertIndex!);
+        return;
+      }
+      const target = resolveGroupInsert(drag.id, event.clientX, event.clientY);
+      const key =
+        target == null
+          ? null
+          : `${target.targetCategoryId}:${target.insertIndex}`;
+      if (key == null || key === drag.lastPreviewKey) return;
+      drag.lastPreviewKey = key;
+      previewHierarchyReorder(
+        "group",
+        drag.id,
+        target!.insertIndex,
+        target!.targetCategoryId,
+      );
     }
   };
 
@@ -525,12 +582,25 @@ export function Sidebar({
                 resolveReorderInsert={(clientX, clientY) =>
                   resolveReorderInsert(row.task.id, clientX, clientY)
                 }
-                onPreviewReorder={(insertIndex) =>
-                  onPreviewTaskReorder(row.task.id, insertIndex)
-                }
-                onCommitReorder={(insertIndex) =>
-                  onCommitTaskReorder(row.task.id, insertIndex)
-                }
+                onPreviewReorder={(target) => {
+                  if (target == null) return;
+                  onPreviewTaskReorder(
+                    row.task.id,
+                    target.targetGroupId,
+                    target.insertIndex,
+                  );
+                }}
+                onCommitReorder={(target) => {
+                  if (target == null) {
+                    onCancelReorder();
+                    return;
+                  }
+                  onCommitTaskReorder(
+                    row.task.id,
+                    target.targetGroupId,
+                    target.insertIndex,
+                  );
+                }}
                 onCancelReorder={onCancelReorder}
               />
             );
@@ -924,9 +994,16 @@ function TaskSidebarRow({
   memberCatalog: Map<MemberId, Member> | null;
   onOpenTaskNote: () => void;
   onTaskContextMenu: (x: number, y: number) => void;
-  resolveReorderInsert: (clientX: number, clientY: number) => number | null;
-  onPreviewReorder: (insertIndex: number) => void;
-  onCommitReorder: (insertIndex: number) => void;
+  resolveReorderInsert: (
+    clientX: number,
+    clientY: number,
+  ) => { targetGroupId: ScheduleId; insertIndex: number } | null;
+  onPreviewReorder: (
+    target: { targetGroupId: ScheduleId; insertIndex: number } | null,
+  ) => void;
+  onCommitReorder: (
+    target: { targetGroupId: ScheduleId; insertIndex: number } | null,
+  ) => void;
   onCancelReorder: () => void;
 }) {
   const clipRef = useRef<HTMLSpanElement>(null);
@@ -937,11 +1014,15 @@ function TaskSidebarRow({
     startY: number;
     mode: "pending" | "slide" | "reorder" | "ignore";
     slideStartOffset: number;
-    lastInsert: number | null;
+    lastPreviewKey: string | null;
   } | null>(null);
   const [offset, setOffset] = useState(0);
   const [overflow, setOverflow] = useState(0);
   const [slideDragging, setSlideDragging] = useState(false);
+
+  const dropPreviewKey = (
+    target: { targetGroupId: ScheduleId; insertIndex: number } | null,
+  ) => (target == null ? null : `${target.targetGroupId}:${target.insertIndex}`);
 
   const assigneeDisplay = resolveAssigneeDisplay(task.assigneeId, memberCatalog);
   const assigneeClass =
@@ -993,9 +1074,7 @@ function TaskSidebarRow({
       onCancelReorder();
       return;
     }
-    const insertIndex = resolveReorderInsert(event.clientX, event.clientY);
-    if (insertIndex == null) onCancelReorder();
-    else onCommitReorder(insertIndex);
+    onCommitReorder(resolveReorderInsert(event.clientX, event.clientY));
   };
 
   const rowStyle: CSSProperties = {
@@ -1024,7 +1103,7 @@ function TaskSidebarRow({
           startY: event.clientY,
           mode: "pending",
           slideStartOffset: offset,
-          lastInsert: null,
+          lastPreviewKey: null,
         };
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
@@ -1044,10 +1123,11 @@ function TaskSidebarRow({
           if (gesture === "reorder") {
             document.body.style.cursor = "grabbing";
             document.body.style.userSelect = "none";
-            const insertIndex = resolveReorderInsert(event.clientX, event.clientY);
-            if (insertIndex != null) {
-              drag.lastInsert = insertIndex;
-              onPreviewReorder(insertIndex);
+            const target = resolveReorderInsert(event.clientX, event.clientY);
+            const key = dropPreviewKey(target);
+            if (key != null) {
+              drag.lastPreviewKey = key;
+              onPreviewReorder(target);
             }
           }
           return;
@@ -1058,10 +1138,11 @@ function TaskSidebarRow({
           return;
         }
         if (drag.mode === "reorder") {
-          const insertIndex = resolveReorderInsert(event.clientX, event.clientY);
-          if (insertIndex == null || insertIndex === drag.lastInsert) return;
-          drag.lastInsert = insertIndex;
-          onPreviewReorder(insertIndex);
+          const target = resolveReorderInsert(event.clientX, event.clientY);
+          const key = dropPreviewKey(target);
+          if (key == null || key === drag.lastPreviewKey) return;
+          drag.lastPreviewKey = key;
+          onPreviewReorder(target);
         }
       }}
       onPointerUp={(event) => endPointer(event, true)}
