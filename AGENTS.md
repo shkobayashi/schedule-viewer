@@ -18,6 +18,7 @@
 | 概要と文書の入口 | [README.md](README.md) |
 | 計画に沿ってアプリを実装する | [.cursor/skills/implement-change/SKILL.md](.cursor/skills/implement-change/SKILL.md) |
 | プロジェクト全体をレビューする | [.cursor/skills/review-project/SKILL.md](.cursor/skills/review-project/SKILL.md) |
+| 日本語の文章の書き方 | [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc)。書く直前に yomiyasuのSKILL.mdを読む |
 
 フィールド定義の正本は各 JSON Schema である。挙動の正本はソースコードである。文書とソースが食い違ったときは、ソースに合わせて文書を直す。
 
@@ -39,6 +40,8 @@
 計画を書いて実装に渡すときは、実装が読むスキル名と、その中の節を計画に書く。アプリの実装（画面、状態、モデル、Tauri、描画と、それに伴う文書とテスト）は [implement-change](.cursor/skills/implement-change/SKILL.md)、プロジェクト全体のレビューは [review-project](.cursor/skills/review-project/SKILL.md) である。スケジュール、メンバー、カレンダーの JSON を作るときは `write-schedule`、`write-members`、`write-calendar`。スケジュール JSON の形を変えるときは `update-schedule-schema`。
 
 計画を実装する前に、計画が名指ししたスキルの `SKILL.md` を読む。名指しが無いときは、`description` がこの作業に合うスキルを1つ読む。`implement-change` は、指定された節と、節の指定にかかわらず「着手前」を読む。
+
+日本語の文章を書くときは、作業用のスキルとは別に yomiyasuのSKILL.mdを読む。対象と、書き直し用の見出しを出さない条件は [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) にある。
 
 スキルの作成、本文の更新、分割してよいかの判断は、エージェントが同じ作業の中で行う。
 

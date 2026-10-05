@@ -44,7 +44,7 @@ flowchart TD
 | `AppMenu.tsx` | ☰ メニュー |
 | `ContextMenu.tsx` | タスク、マイルストン、カテゴリ、グループ、チャートの空きの右クリックメニュー。タスクは編集、複製、確度、ノート、系統、削除。カテゴリとグループは名前の変更だけ。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す |
 | `Toolbar.tsx` | 見出し、検索、絞り込み、系統、線を引く、追加、マイルストン追加、削除、ズーム |
-| `Sidebar.tsx` | 左の行、折りたたみ、名前の横ずらし |
+| `Sidebar.tsx` | 左の行、折りたたみ、名前の横ずらし、同じグループのタスク行の縦ドラッグによる並べ替え |
 | `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer` |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
@@ -57,7 +57,7 @@ flowchart TD
 
 | フック | 持つもの |
 | --- | --- |
-| `useSchedule` | 文書、取り消し、絞り込み、選択、折りたたみ、系統、編集対象、複製元 |
+| `useSchedule` | 文書、取り消し、絞り込み、選択、折りたたみ、系統、編集対象、複製元、タスク並べ替えのプレビュー |
 | `useScheduleFile` | パス、未保存の基準、開く、閉じる確認。保存、控え、外部更新、起動復旧は `src/hooks/scheduleFile/` に分け、戻り値はここがまとめる |
 | `useAppKeyboard` | ウィンドウのキー。押した結果の判断は `appKeyboard.ts` |
 | `useTimelinePointer` | チャートとマイルストン帯のホバー、線を引くときの追随。当たりは `chartHitTest.ts` |
@@ -74,7 +74,7 @@ flowchart TD
 | --- | --- |
 | 型 | `types.ts`、`memberTypes.ts`、`calendarTypes.ts` |
 | 検証 | `validateSchedule.ts`、`validateMembers.ts`、`validateCalendar.ts`、`*Semantics.ts`、`scheduleMigrate.ts`、`uuidV5.ts`、`validationMessages.ts`、`generated/` |
-| 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`tasks.ts` |
+| 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`tasks.ts`、`taskOrder.ts` |
 | 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`dates.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
 | 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
@@ -283,3 +283,4 @@ npm スクリプトと CI の分岐は [開発ガイド](development.md#npm-ス�
 - `mockup/schedule-viewer-mockup.html` は初期の検証用で、アプリからは参照しない。ESLint の対象外である
 - schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。schemaVersion 5 のマイルストンに確度が無いときは `committed` を足す。未保存の比較は、その schemaVersion 5 の保存形式である。実際に開けるのは 3、4、5 である
 - 取り消しはドラッグの途中では積まない。離したときの確定が1ステップである
+- タスクの並べ替えは `tasks.ts` の `reorderTaskInGroup` と `taskOrder.ts` が挿入位置と兄弟の可視性を決める。ドラッグ中は `useSchedule` が `reorderPreview` で行だけを仮表示し、離したときに `commitCategories` で1件積む

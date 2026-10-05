@@ -218,6 +218,63 @@ describe("formatScheduleDiff", () => {
     expect(middleRemoved).not.toContain("並び");
   });
 
+  it("shows task order when a new task is inserted before the end", () => {
+    const first = task({ id: TASK_A, name: "要件整理" });
+    const second = task({ id: TASK_B, name: "基本設計" });
+    const third = task({ id: TASK_C, name: "詳細設計" });
+    const file = doc(design([first, second, third]));
+    const inserted = task({ id: TASK_D, name: "試験" });
+    const screen = doc(design([first, inserted, second, third]));
+    const text = formatScheduleDiff(screen, file, "plan.json");
+    expect(text).toContain("追加 試験");
+    expect(text).toContain(
+      [
+        "並び タスク 設計 / 上流",
+        "  要件整理 (00000000-0000-4000-8000-00000000000a), 基本設計 (00000000-0000-4000-8000-00000000000b), 詳細設計 (00000000-0000-4000-8000-00000000000c) → 要件整理 (00000000-0000-4000-8000-00000000000a), 試験 (00000000-0000-4000-8000-00000000000d), 基本設計 (00000000-0000-4000-8000-00000000000b), 詳細設計 (00000000-0000-4000-8000-00000000000c)",
+      ].join("\n"),
+    );
+  });
+
+  it("omits task order for trailing append when existing order is unchanged", () => {
+    const first = task({ id: TASK_A, name: "要件整理" });
+    const second = task({ id: TASK_B, name: "基本設計" });
+    const file = doc(design([first, second]));
+    const screen = doc(
+      design([first, second, task({ id: TASK_C, name: "詳細設計" })]),
+    );
+    const text = formatScheduleDiff(screen, file, "plan.json");
+    expect(text).toContain("追加 詳細設計");
+    expect(text).not.toContain("並び タスク");
+  });
+
+  it("excludes trailing new tasks from the order line when reorder and append happen together", () => {
+    const first = task({ id: TASK_A, name: "要件整理" });
+    const second = task({ id: TASK_B, name: "基本設計" });
+    const third = task({ id: TASK_C, name: "詳細設計" });
+    const file = doc(design([first, second, third]));
+    const screen = doc(
+      design([
+        second,
+        first,
+        third,
+        task({ id: TASK_D, name: "試験" }),
+      ]),
+    );
+    const text = formatScheduleDiff(screen, file, "plan.json");
+    expect(text).toContain("追加 試験");
+    expect(text).toContain(
+      [
+        "並び タスク 設計 / 上流",
+        "  要件整理 (00000000-0000-4000-8000-00000000000a), 基本設計 (00000000-0000-4000-8000-00000000000b), 詳細設計 (00000000-0000-4000-8000-00000000000c) → 基本設計 (00000000-0000-4000-8000-00000000000b), 要件整理 (00000000-0000-4000-8000-00000000000a), 詳細設計 (00000000-0000-4000-8000-00000000000c)",
+      ].join("\n"),
+    );
+    const orderLine = text
+      .split("\n\n")
+      .find((block) => block.startsWith("並び タスク"));
+    expect(orderLine).toBeDefined();
+    expect(orderLine).not.toContain("試験 (00000000-0000-4000-8000-00000000000d)");
+  });
+
   it("shows a task place change when it moves to another group", () => {
     const item = task({ id: TASK_A, name: "基本設計" });
     const file = doc([
