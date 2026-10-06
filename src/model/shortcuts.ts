@@ -61,7 +61,38 @@ export function blocksBrowserShortcut(event: ShortcutKeyEvent): boolean {
   if (!mod) return false;
   if (key === "s") return true;
   if (key === "n") return !event.shiftKey;
+  if (key === "d" && event.shiftKey) return true;
+  if (key === "k" && !event.shiftKey) return true;
   return (key === "o" || key === "f") && !event.shiftKey;
+}
+
+export function commandPaletteShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘K" : "Ctrl+K";
+}
+
+/** ダイアログが開いているあいだは開かない。コマンドパレット自身は別処理。 */
+export function matchOpenCommandPalette(
+  event: ShortcutKeyEvent,
+  context: Pick<ShortcutContext, "dialogOpen"> & { commandPaletteOpen: boolean },
+): "open" | "close" | null {
+  if (event.altKey || event.shiftKey) return null;
+  if (!(event.ctrlKey || event.metaKey)) return null;
+  if (shortcutKey(event) !== "k") return null;
+  if (context.commandPaletteOpen) return "close";
+  if (context.dialogOpen) return null;
+  return "open";
+}
+
+/** macOS の ⌘Q。Tauri のウィンドウ close へ渡し、未保存確認は onCloseRequested が行う。 */
+export function matchMacAppQuit(
+  event: ShortcutKeyEvent,
+  context: Pick<ShortcutContext, "dialogOpen"> & { commandPaletteOpen: boolean },
+): boolean {
+  if (context.dialogOpen || context.commandPaletteOpen || event.altKey || event.shiftKey) {
+    return false;
+  }
+  if (!(event.ctrlKey || event.metaKey)) return false;
+  return shortcutKey(event) === "q";
 }
 
 export function matchAppShortcut(
@@ -155,4 +186,88 @@ export function fileShortcutHint(
   if (action === "open") return "Ctrl+O";
   if (action === "save") return "Ctrl+S";
   return "Ctrl+Shift+S";
+}
+
+export function editShortcutHint(): string {
+  return "Enter";
+}
+
+export function deleteShortcutHint(): string {
+  return "Delete";
+}
+
+export function diffCopyShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘⇧D" : "Ctrl+Shift+D";
+}
+
+export function matchDiffCopy(
+  event: ShortcutKeyEvent,
+  context: Pick<ShortcutContext, "dialogOpen"> & { fileBusy: boolean },
+): boolean {
+  if (context.dialogOpen || context.fileBusy || event.altKey) return false;
+  if (!(event.ctrlKey || event.metaKey) || !event.shiftKey) return false;
+  return shortcutKey(event) === "d";
+}
+
+export function undoShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘Z" : "Ctrl+Z";
+}
+
+export function redoShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘⇧Z" : "Ctrl+Shift+Z / Ctrl+Y";
+}
+
+export function findShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘F" : "Ctrl+F";
+}
+
+export function displayScaleShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘+ / ⌘−" : "Ctrl+ / Ctrl−";
+}
+
+export function chartScrollShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘矢印" : "Ctrl+矢印";
+}
+
+export type ShortcutReferenceRow = {
+  action: string;
+  keys: string;
+};
+
+export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow[] {
+  const mod = commandKey ? "⌘" : "Ctrl";
+  return [
+    { action: "開く", keys: fileShortcutHint("open", commandKey) },
+    { action: "保存", keys: fileShortcutHint("save", commandKey) },
+    { action: "別名保存", keys: fileShortcutHint("saveAs", commandKey) },
+    { action: "検索", keys: findShortcutHint(commandKey) },
+    { action: "編集", keys: editShortcutHint() },
+    { action: "削除", keys: deleteShortcutHint() },
+    { action: "差分をコピー", keys: diffCopyShortcutHint(commandKey) },
+    { action: "線を引く", keys: linkShortcutHint(commandKey) },
+    { action: "ノート", keys: noteShortcutHint(commandKey) },
+    { action: "取り消し", keys: undoShortcutHint(commandKey) },
+    { action: "やり直し", keys: redoShortcutHint(commandKey) },
+    { action: "表示サイズ", keys: displayScaleShortcutHint(commandKey) },
+    { action: "チャートのスクロール", keys: chartScrollShortcutHint(commandKey) },
+    { action: "ショートカット一覧", keys: "? / F1" },
+    { action: "コマンドパレット", keys: commandPaletteShortcutHint(commandKey) },
+    {
+      action: "ズーム",
+      keys: `${mod}+ホイール（一覧の上では左端の日付を保つ）`,
+    },
+    { action: "横スクロール", keys: "Shift+ホイール" },
+  ];
+}
+
+/** 入力欄・選択欄・ボタン・ダイアログのあいだは効かない。? と F1。 */
+export function matchOpenShortcutsHelp(
+  event: ShortcutKeyEvent,
+  context: Pick<ShortcutContext, "dialogOpen" | "blocksEditKeys">,
+): boolean {
+  if (context.dialogOpen || context.blocksEditKeys) return false;
+  if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+    return false;
+  }
+  return event.key === "?" || event.key === "？" || event.key === "F1";
 }

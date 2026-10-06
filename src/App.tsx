@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Copy,
+  GitBranch,
+  Pencil,
+  StickyNote,
+  Trash2,
+} from "lucide-react";
 import type Konva from "konva";
 import { DeleteMilestoneDialog } from "./components/DeleteMilestoneDialog";
 import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
@@ -17,15 +24,32 @@ import { HierarchyNameDialog } from "./components/HierarchyNameDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
+import {
+  TaskDetailPanel,
+  type TaskDetailPanelHandle,
+} from "./components/TaskDetailPanel";
 import { TaskEditDialog } from "./components/TaskEditDialog";
 import { TaskNoteDialog } from "./components/TaskNoteDialog";
 import { Timeline } from "./components/Timeline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { ExportFormatDialog } from "./components/ExportFormatDialog";
-import { Toolbar } from "./components/Toolbar";
+import { ActiveFilterBar } from "./components/ActiveFilterBar";
+import { AppToast } from "./components/AppToast";
+import { ShortcutsDialog } from "./components/ShortcutsDialog";
+import { CommandPalette } from "./components/CommandPalette";
+import type { CommandPaletteCommandId } from "./model/commandPalette";
+import { StatusBar } from "./components/StatusBar";
+import { Toolbar, type SearchField } from "./components/Toolbar";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
-import { noteShortcutHint, usesCommandKey } from "./model/shortcuts";
+import {
+  deleteShortcutHint,
+  editShortcutHint,
+  noteShortcutHint,
+  usesCommandKey,
+} from "./model/shortcuts";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
+import { useMacOSAppMenu } from "./hooks/useMacOSAppMenu";
+import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
@@ -69,8 +93,8 @@ import {
 } from "./model/stickyRows";
 import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
-import { computeTimelineRange } from "./model/timeline";
-import type { ScheduleId } from "./model/types";
+import { computeTimelineRange, taskBarWidthPx } from "./model/timeline";
+import type { ScheduleId, Task } from "./model/types";
 import {
   applyResolvedColorScheme,
   readColorSchemePreference,
@@ -83,6 +107,8 @@ import {
   readDisplayScalePreference,
   readUiScale,
   resolveUiScale,
+  stepDisplayScale,
+  writeDisplayScalePreference,
   type DisplayScalePreference,
 } from "./model/uiScale";
 import {
@@ -95,6 +121,13 @@ import {
   readSidebarWidth,
   writeSidebarWidth,
 } from "./model/sidebarWidth";
+import {
+  readRowDensity,
+  readShowLightning,
+  readSidebarColumns,
+  type RowDensity,
+  type SidebarColumnsPreference,
+} from "./model/viewPreferences";
 import { seedSampleMemberCatalogOnce } from "./model/memberAppData";
 import {
   SAMPLE_MEMBERS_CATALOG_ID,
@@ -150,7 +183,19 @@ function App() {
   const uiScaleRef = useRef(uiScale);
   uiScaleRef.current = uiScale;
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<
+    "display" | "members" | "calendar"
+  >("display");
+  const [rowDensity, setRowDensity] = useState<RowDensity>(readRowDensity);
+  const [showLightningLine, setShowLightningLine] = useState(readShowLightning);
+  const [sidebarColumns, setSidebarColumns] = useState<SidebarColumnsPreference>(
+    readSidebarColumns,
+  );
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [jsonOpen, setJsonOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [searchField, setSearchField] = useState<SearchField>("name");
   const [diffText, setDiffText] = useState<string | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
   const diffRequestRef = useRef(0);
@@ -174,11 +219,15 @@ function App() {
     overTask: false,
     overMilestone: false,
     link: null,
+    hoverTaskId: null,
   });
+  const [hoveredTaskId, setHoveredTaskId] = useState<ScheduleId | null>(null);
+  const [detailPanelEditing, setDetailPanelEditing] = useState(false);
+  const detailPanelRef = useRef<TaskDetailPanelHandle>(null);
   const taskSearchRef = useRef<HTMLInputElement>(null);
 
   const { headerHeight, rowHeight, barHeight, milestoneLaneHeight } =
-    scaledLayoutSizes(uiScale);
+    scaledLayoutSizes(uiScale, rowDensity);
   const milestoneFontSize = Math.round(11 * uiScale);
   const milestoneDiamondSize = Math.max(8, Math.round(11 * uiScale));
   const refreshUiScale = useCallback(() => {
@@ -336,7 +385,15 @@ function App() {
     memberCatalogState.members,
     blockDocumentEditsRef,
   );
-  const { redo, undo, setTaskStart, setTaskEnd, visibleRows } = schedule;
+  const {
+    redo,
+    undo,
+    setTaskStart,
+    setTaskEnd,
+    visibleRows,
+    moveTaskByDays,
+    shiftTaskEndByDays,
+  } = schedule;
   const range = useMemo(
     () =>
       computeTimelineRange(
@@ -364,6 +421,7 @@ function App() {
       const body = Math.max(120, timelineSlotHeight - headerHeight - band);
       return Math.max(0, schedule.visibleRows.length * rowHeight - body);
     },
+    schedule.today,
   );
 
   const milestoneLanes = useMemo(
@@ -392,10 +450,10 @@ function App() {
 
   const {
     fitToWidth,
+    setTierZoom,
+    scrollToToday,
     panBy,
     scrollBy,
-    zoomIn,
-    zoomOut,
     tierLabel,
     handleWheel,
     xToDate,
@@ -404,7 +462,16 @@ function App() {
     scrollX,
     scrollY,
     tier,
+    dateToX,
   } = view;
+
+  const filterAssigneeLabel = useMemo(
+    () =>
+      schedule.assigneeFilterOptions.find(
+        (option) => option.id === schedule.filters.assignee,
+      )?.label ?? null,
+    [schedule.assigneeFilterOptions, schedule.filters.assignee],
+  );
 
   const onAfterOpenFile = useCallback(() => {
     setPendingFit(true);
@@ -425,7 +492,7 @@ function App() {
     onAfterOpen: onAfterOpenFile,
     initialBaselineJson: INITIAL_BASELINE_JSON,
     hasOpenEditDialog:
-      schedule.editingTask != null ||
+      detailPanelEditing ||
       schedule.editingNoteTask != null ||
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null ||
@@ -433,6 +500,21 @@ function App() {
       schedule.deletingHierarchyTarget != null,
     blockDocumentEditsRef,
   });
+
+  useWindowTitle(scheduleFile.displayFileName, scheduleFile.isDirty);
+
+  useEffect(() => {
+    if (!scheduleFile.reloadNotice) return;
+    setToastMessage("ファイルを反映しました");
+    const timer = window.setTimeout(() => setToastMessage(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [scheduleFile.reloadNotice]);
+
+  const { visibleTaskCount, totalTaskCount } = useMemo(() => {
+    const total = listTasks(schedule.categories).length;
+    const visible = schedule.visibleRows.filter((row) => row.type === "task").length;
+    return { visibleTaskCount: visible, totalTaskCount: total };
+  }, [schedule.categories, schedule.visibleRows]);
 
   const {
     categories,
@@ -479,30 +561,32 @@ function App() {
     setDeleteOpen(true);
   }, []);
 
-  useAppKeyboard({
-    rowHeight,
-    scrollBy,
-    fileBusy,
-    save,
-    requestOpen,
-    categories,
-    selectedTaskId,
-    openEditDialog,
-    linkSourceId,
-    toggleLinkMode,
-    openTaskNote: schedule.openTaskNoteDialog,
-    clearLinkMode,
-    removePredecessorLink,
-    chartPointerRef,
-    closeContextMenu,
-    requestDeleteTask,
-    undo,
-    redo,
-    taskSearchRef,
-    displayScalePreferenceRef,
-    uiScaleRef,
-    onDisplayScaleChange: handleDisplayScaleChange,
-  });
+  const revealTaskRow = useCallback(
+    (taskId: ScheduleId) => {
+      const row = visibleRows.find(
+        (item) => item.type === "task" && item.task.id === taskId,
+      );
+      if (!row || row.type !== "task") return;
+      reveal(
+        parseDate(row.task.start),
+        scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+        taskBarWidthPx(row.task, dateToX, pxPerDay),
+      );
+    },
+    [bodyHeight, dateToX, pxPerDay, reveal, rowHeight, visibleRows],
+  );
+
+  const focusDetailName = useCallback(() => {
+    detailPanelRef.current?.focusName();
+  }, []);
+
+  const openTaskForEdit = useCallback(
+    (task: Task) => {
+      openEditDialog(task);
+      requestAnimationFrame(() => focusDetailName());
+    },
+    [focusDetailName, openEditDialog],
+  );
 
   const onWheelBody = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -533,12 +617,19 @@ function App() {
     () => listTasks(schedule.categories),
     [schedule.categories],
   );
-  const editingSuccessors = useMemo(
+  const selectedDetailTask = useMemo(
     () =>
-      schedule.editingTask
-        ? successorIds(schedule.categories, schedule.editingTask.id)
+      schedule.selectedTaskId == null
+        ? null
+        : findTaskById(schedule.categories, schedule.selectedTaskId),
+    [schedule.categories, schedule.selectedTaskId],
+  );
+  const selectedDetailSuccessors = useMemo(
+    () =>
+      selectedDetailTask
+        ? successorIds(schedule.categories, selectedDetailTask.id)
         : [],
-    [schedule.categories, schedule.editingTask],
+    [schedule.categories, selectedDetailTask],
   );
   const links = useMemo(() => {
     const visibleIds = new Set(
@@ -572,9 +663,10 @@ function App() {
     reveal(
       parseDate(row.task.start),
       scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+      taskBarWidthPx(row.task, dateToX, pxPerDay),
     );
     setFocusTaskId(null);
-  }, [bodyHeight, focusTaskId, reveal, rowHeight, visibleRows]);
+  }, [bodyHeight, dateToX, focusTaskId, pxPerDay, reveal, rowHeight, visibleRows]);
 
   const handleResizeEnd = useCallback(
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
@@ -643,6 +735,7 @@ function App() {
             assigneeLabel,
           ),
           colorScheme: resolvedColorScheme,
+          showLightningLine,
         },
         format,
       ).catch((error: unknown) => {
@@ -671,47 +764,289 @@ function App() {
       tierLabel,
       uiScale,
       resolvedColorScheme,
+      showLightningLine,
     ],
   );
+
+  const loadScheduleDiffText = useCallback(async (): Promise<
+    { ok: true; text: string } | { ok: false; message: string; showDialog: boolean }
+  > => {
+    if (!isTauri() || !scheduleFile.filePath) {
+      return {
+        ok: false,
+        message: NO_OPEN_SCHEDULE_FILE_MESSAGE,
+        showDialog: true,
+      };
+    }
+    const screenJson = scheduleFile.currentJson;
+    const filename = scheduleJsonFilename(scheduleFile.filePath) ?? "schedule.json";
+    try {
+      const contents = await readOpenScheduleFileViaTauri();
+      const fileParsed = parseScheduleText(contents);
+      if (!fileParsed.ok) {
+        return { ok: false, message: fileParsed.message, showDialog: false };
+      }
+      const screenParsed = parseScheduleText(screenJson);
+      if (!screenParsed.ok) {
+        return { ok: false, message: screenParsed.message, showDialog: false };
+      }
+      return {
+        ok: true,
+        text: formatScheduleDiff(
+          screenParsed.document,
+          fileParsed.document,
+          filename,
+        ),
+      };
+    } catch (error: unknown) {
+      return {
+        ok: false,
+        message: errorMessage(error, "ファイルを読めません。"),
+        showDialog: false,
+      };
+    }
+  }, [scheduleFile.currentJson, scheduleFile.filePath]);
 
   const showScheduleDiff = useCallback(() => {
     if (scheduleFile.fileBusy) return;
     const requestId = diffRequestRef.current + 1;
     diffRequestRef.current = requestId;
     const stillCurrent = () => diffRequestRef.current === requestId;
-    if (!isTauri() || !scheduleFile.filePath) {
+    void loadScheduleDiffText().then((result) => {
+      if (!stillCurrent()) return;
+      if (!result.ok) {
+        if (result.showDialog) {
+          setDiffError(null);
+          setDiffText(result.message);
+        } else {
+          setDiffText(null);
+          setDiffError(result.message);
+        }
+        return;
+      }
       setDiffError(null);
-      setDiffText(NO_OPEN_SCHEDULE_FILE_MESSAGE);
-      return;
-    }
-    const screenJson = scheduleFile.currentJson;
-    const filename = scheduleJsonFilename(scheduleFile.filePath) ?? "schedule.json";
-    void readOpenScheduleFileViaTauri()
-      .then((contents) => {
-        if (!stillCurrent()) return;
-        const fileParsed = parseScheduleText(contents);
-        if (!fileParsed.ok) {
+      setDiffText(result.text);
+    });
+  }, [loadScheduleDiffText, scheduleFile.fileBusy]);
+
+  const copyScheduleDiff = useCallback(() => {
+    if (scheduleFile.fileBusy) return;
+    void loadScheduleDiffText().then(async (result) => {
+      if (!result.ok) {
+        if (result.showDialog) {
+          setDiffError(null);
+          setDiffText(result.message);
+        } else {
           setDiffText(null);
-          setDiffError(fileParsed.message);
-          return;
+          setDiffError(result.message);
         }
-        const screenParsed = parseScheduleText(screenJson);
-        if (!screenParsed.ok) {
-          setDiffText(null);
-          setDiffError(screenParsed.message);
-          return;
-        }
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(result.text);
+        setToastMessage("差分をコピーしました");
+        window.setTimeout(() => setToastMessage(null), 3000);
+      } catch {
         setDiffError(null);
-        setDiffText(
-          formatScheduleDiff(screenParsed.document, fileParsed.document, filename),
+        setDiffText(result.text);
+      }
+    });
+  }, [loadScheduleDiffText, scheduleFile.fileBusy]);
+
+  const commandPaletteContext = useMemo(
+    () => ({
+      fileBusy: scheduleFile.fileBusy,
+      canUndo: schedule.canUndo,
+      canRedo: schedule.canRedo,
+      selectedTaskId: schedule.selectedTaskId,
+      linkSourceId,
+      lineageActive:
+        schedule.lineageTask?.id != null &&
+        schedule.lineageTask.id === schedule.selectedTaskId,
+    }),
+    [
+      linkSourceId,
+      schedule.canRedo,
+      schedule.canUndo,
+      schedule.lineageTask,
+      schedule.selectedTaskId,
+      scheduleFile.fileBusy,
+    ],
+  );
+
+  const runCommandPalette = useCallback(
+    (id: CommandPaletteCommandId) => {
+      const stepScale = (direction: "in" | "out") => {
+        const next = stepDisplayScale(
+          displayScalePreferenceRef.current,
+          uiScaleRef.current,
+          direction,
         );
-      })
-      .catch((error: unknown) => {
-        if (!stillCurrent()) return;
-        setDiffText(null);
-        setDiffError(errorMessage(error, "ファイルを読めません。"));
-      });
-  }, [scheduleFile.currentJson, scheduleFile.fileBusy, scheduleFile.filePath]);
+        if (next == null) return;
+        displayScalePreferenceRef.current = next;
+        uiScaleRef.current = resolveUiScale(
+          window.innerWidth,
+          window.innerHeight,
+          next,
+        );
+        writeDisplayScalePreference(next);
+        handleDisplayScaleChange(next);
+      };
+      switch (id) {
+        case "open":
+          scheduleFile.requestOpen();
+          break;
+        case "save":
+          void scheduleFile.save(false);
+          break;
+        case "saveAs":
+          void scheduleFile.save(true);
+          break;
+        case "find":
+          taskSearchRef.current?.focus();
+          taskSearchRef.current?.select();
+          break;
+        case "showDiff":
+          showScheduleDiff();
+          break;
+        case "copyDiff":
+          copyScheduleDiff();
+          break;
+        case "showJson":
+          setJsonOpen(true);
+          break;
+        case "export":
+          setExportOpen(true);
+          break;
+        case "settings":
+          setSettingsSection("display");
+          setSettingsOpen(true);
+          break;
+        case "shortcuts":
+          setShortcutsOpen(true);
+          break;
+        case "goToday":
+          scrollToToday();
+          break;
+        case "tierDay":
+          setTierZoom("day");
+          break;
+        case "tierWeek":
+          setTierZoom("week");
+          break;
+        case "tierMonth":
+          setTierZoom("month");
+          break;
+        case "fit":
+          fitToWidth();
+          break;
+        case "undo":
+          undo();
+          break;
+        case "redo":
+          redo();
+          break;
+        case "displayScaleIn":
+          stepScale("in");
+          break;
+        case "displayScaleOut":
+          stepScale("out");
+          break;
+        case "editTask":
+          if (schedule.selectedTaskId == null) break;
+          focusDetailName();
+          break;
+        case "deleteTask":
+          requestDeleteTask();
+          break;
+        case "link":
+          toggleLinkMode();
+          break;
+        case "note":
+          if (schedule.selectedTaskId != null) {
+            schedule.openTaskNoteDialog(schedule.selectedTaskId);
+          }
+          break;
+        case "lineage":
+          schedule.toggleLineage();
+          break;
+        default:
+          break;
+      }
+    },
+    [
+      copyScheduleDiff,
+      fitToWidth,
+      focusDetailName,
+      handleDisplayScaleChange,
+      redo,
+      requestDeleteTask,
+      schedule,
+      scheduleFile,
+      scrollToToday,
+      setTierZoom,
+      showScheduleDiff,
+      toggleLinkMode,
+      undo,
+    ],
+  );
+
+  useAppKeyboard({
+    rowHeight,
+    scrollBy,
+    fileBusy,
+    save,
+    requestOpen,
+    categories,
+    selectedTaskId,
+    linkSourceId,
+    toggleLinkMode,
+    openTaskNote: schedule.openTaskNoteDialog,
+    clearLinkMode,
+    removePredecessorLink,
+    chartPointerRef,
+    closeContextMenu,
+    requestDeleteTask,
+    undo,
+    redo,
+    taskSearchRef,
+    displayScalePreferenceRef,
+    uiScaleRef,
+    onDisplayScaleChange: handleDisplayScaleChange,
+    onOpenShortcuts: () => setShortcutsOpen(true),
+    commandPaletteOpen,
+    onOpenCommandPalette: () => setCommandPaletteOpen(true),
+    onCloseCommandPalette: () => setCommandPaletteOpen(false),
+    visibleRows,
+    selectTask: (taskId) => {
+      schedule.selectTask(taskId);
+      revealTaskRow(taskId);
+    },
+    moveTaskByDays,
+    shiftTaskEndByDays,
+    focusDetailName,
+    copyScheduleDiff,
+  });
+
+  useMacOSAppMenu({
+    fileBusy: () => scheduleFile.fileBusy,
+    onOpen: scheduleFile.requestOpen,
+    onSave: () => void scheduleFile.save(false),
+    onSaveAs: () => void scheduleFile.save(true),
+    onExportHtml: () => setExportOpen(true),
+    onShowJson: () => setJsonOpen(true),
+    onShowDiff: showScheduleDiff,
+    onOpenShortcuts: () => setShortcutsOpen(true),
+    onOpenSettings: () => {
+      setSettingsSection("display");
+      setSettingsOpen(true);
+    },
+    onGoToday: scrollToToday,
+    onSetTier: setTierZoom,
+    onFit: fitToWidth,
+    onUndo: undo,
+    onRedo: redo,
+  });
 
   useEffect(() => {
     if (contextMenu == null) return;
@@ -802,13 +1137,16 @@ function App() {
       const milestone = milestones.find((item) => item.id === milestoneId);
       return [
         {
+          type: "item",
           id: "edit",
           label: "編集",
+          icon: <Pencil size={14} strokeWidth={2} />,
           onSelect: () => openMilestoneEdit(milestoneId),
         },
         ...(milestone
           ? [
               {
+                type: "item" as const,
                 id: "confidence",
                 label:
                   milestone.confidence === "tentative"
@@ -823,9 +1161,13 @@ function App() {
               },
             ]
           : []),
+        { type: "separator", id: "milestone-sep" },
         {
+          type: "item",
           id: "delete",
           label: "削除",
+          danger: true,
+          icon: <Trash2 size={14} strokeWidth={2} />,
           onSelect: () => setDeleteMilestoneId(milestoneId),
         },
       ];
@@ -834,6 +1176,7 @@ function App() {
       const { fromId, toId } = contextMenu;
       return [
         {
+          type: "item",
           id: "unlink",
           label: "線を外す",
           onSelect: () => removePredecessorLink(fromId, toId),
@@ -844,6 +1187,7 @@ function App() {
       const date = contextMenu.date;
       return [
         {
+          type: "item",
           id: "add-milestone",
           label: "マイルストンを追加",
           onSelect: () => {
@@ -857,27 +1201,36 @@ function App() {
       const { id } = contextMenu;
       const items: ContextMenuItem[] = [
         {
+          type: "item",
           id: "rename",
           label: "名前を変更",
           onSelect: () => openHierarchyEdit("category", id),
         },
         {
+          type: "item",
           id: "add-category",
           label: "下にカテゴリを追加",
           onSelect: () => schedule.openAddCategoryAfter(id),
         },
         {
+          type: "item",
           id: "add-group",
           label: "グループを追加",
           onSelect: () => schedule.openAddGroupToCategory(id),
         },
       ];
       if (schedule.canDeleteCategory(id)) {
-        items.push({
-          id: "delete",
-          label: "削除",
-          onSelect: () => schedule.openDeleteHierarchy("category", id),
-        });
+        items.push(
+          { type: "separator", id: "category-sep" },
+          {
+            type: "item",
+            id: "delete",
+            label: "削除",
+            danger: true,
+            icon: <Trash2 size={14} strokeWidth={2} />,
+            onSelect: () => schedule.openDeleteHierarchy("category", id),
+          },
+        );
       }
       return items;
     }
@@ -885,44 +1238,60 @@ function App() {
       const { id } = contextMenu;
       const items: ContextMenuItem[] = [
         {
+          type: "item",
           id: "rename",
           label: "名前を変更",
           onSelect: () => openHierarchyEdit("group", id),
         },
         {
+          type: "item",
           id: "add-group",
           label: "下にグループを追加",
           onSelect: () => schedule.openAddGroupAfter(id),
         },
       ];
       if (schedule.canDeleteGroup(id)) {
-        items.push({
-          id: "delete",
-          label: "削除",
-          onSelect: () => schedule.openDeleteHierarchy("group", id),
-        });
+        items.push(
+          { type: "separator", id: "group-sep" },
+          {
+            type: "item",
+            id: "delete",
+            label: "削除",
+            danger: true,
+            icon: <Trash2 size={14} strokeWidth={2} />,
+            onSelect: () => schedule.openDeleteHierarchy("group", id),
+          },
+        );
       }
       return items;
     }
     const taskId = contextMenu.taskId;
     const task = findTaskById(categories, taskId);
     const lineageActive = lineageTask?.id === taskId;
+    const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
     return [
       {
+        type: "item",
         id: "edit",
         label: "編集",
+        icon: <Pencil size={14} strokeWidth={2} />,
+        shortcut: editShortcutHint(),
         onSelect: () => {
-          if (task) openEditDialog(task);
+          if (task) openTaskForEdit(task);
         },
       },
       {
+        type: "item",
         id: "duplicate",
         label: "複製",
+        icon: <Copy size={14} strokeWidth={2} />,
         onSelect: () => openDuplicateDialog(taskId),
       },
+      { type: "separator", id: "task-sep-1" },
       ...(task
         ? [
             {
+              type: "item" as const,
               id: "confidence",
               label:
                 task.confidence === "tentative" ? "確定にする" : "未確定にする",
@@ -936,24 +1305,32 @@ function App() {
           ]
         : []),
       {
+        type: "item",
         id: "note",
         label: "ノート",
-        shortcut: noteShortcutHint(
-          usesCommandKey(navigator.platform || navigator.userAgent),
-        ),
+        icon: <StickyNote size={14} strokeWidth={2} />,
+        shortcut: noteShortcutHint(commandKey),
         onSelect: () => openTaskNoteDialog(taskId),
       },
+      { type: "separator", id: "task-sep-2" },
       {
+        type: "item",
         id: "lineage",
         label: lineageActive ? "系統を解除" : "系統を表示",
+        icon: <GitBranch size={14} strokeWidth={2} />,
         onSelect: () => {
           if (lineageActive) clearLineage();
           else showLineage(taskId);
         },
       },
+      { type: "separator", id: "task-sep-3" },
       {
+        type: "item",
         id: "delete",
         label: "削除",
+        danger: true,
+        icon: <Trash2 size={14} strokeWidth={2} />,
+        shortcut: deleteShortcutHint(),
         onSelect: () => setDeleteOpen(true),
       },
     ];
@@ -964,7 +1341,7 @@ function App() {
     lineageTask?.id,
     milestones,
     openDuplicateDialog,
-    openEditDialog,
+    openTaskForEdit,
     openHierarchyEdit,
     setMilestoneConfidence,
     setTaskConfidence,
@@ -985,16 +1362,12 @@ function App() {
     >
       <Toolbar
         title={schedule.title}
-        fileStatusLabel={scheduleFile.statusLabel}
-        showDeferredReload={scheduleFile.showDeferredReload}
-        onDeferredReload={scheduleFile.requestDeferredReload}
-        membersCatalogLabel={memberCatalogState.selectedCatalogLabel}
-        membersCatalogError={memberCatalogState.error}
-        calendarError={appCalendarState.error}
         filters={schedule.filters}
+        searchField={searchField}
+        onSearchFieldChange={setSearchField}
         milestones={schedule.milestones}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
-        zoomLabel={tierLabel}
+        tier={tier}
         lineageName={schedule.lineageTask?.name ?? null}
         canStartLineage={schedule.selectedTaskId != null}
         onToggleLineage={schedule.toggleLineage}
@@ -1006,15 +1379,23 @@ function App() {
         canStartLink={schedule.selectedTaskId != null}
         onToggleLink={toggleLinkMode}
         onFiltersChange={schedule.updateFilters}
-        onZoomIn={zoomIn}
-        onZoomOut={zoomOut}
+        onGoToday={scrollToToday}
+        onSetTier={setTierZoom}
         onFit={fitToWidth}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={schedule.canUndo}
+        canRedo={schedule.canRedo}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
         onShowJson={() => setJsonOpen(true)}
         onShowDiff={showScheduleDiff}
         onOpen={scheduleFile.requestOpen}
         onSave={() => void scheduleFile.save(false)}
         onSaveAs={() => void scheduleFile.save(true)}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => {
+          setSettingsSection("display");
+          setSettingsOpen(true);
+        }}
         onExportHtml={() => setExportOpen(true)}
         canDelete={schedule.selectedTaskId != null}
         onAdd={() => setAddOpen(true)}
@@ -1028,28 +1409,14 @@ function App() {
         fileBusy={scheduleFile.fileBusy}
         taskSearchRef={taskSearchRef}
       />
-      <div className="hint">
-        {linkSourceId != null ? (
-          <>
-            <div>次にクリックしたタスクを後続にします。Esc で中止</div>
-            {linkError ? <div className="hint-error">{linkError}</div> : null}
-          </>
-        ) : (
-          <>
-            Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
-            ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・
-            左のタスク行は縦にドラッグして順を変えたり、別のグループへ移せます ・
-            左のグループ行は縦にドラッグして順を変えたり、別のカテゴリへ移せます ・
-            左のカテゴリ行は縦にドラッグして順を変えられます ・ 境界をドラッグで左の幅を変える
-            ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更（操作中は開始日と終了日）、ダブルクリックで詳細編集
-            ・ タスクを選んで「系統」で前後だけ表示 ・
-            タスクを選んで「線を引く」または ⌘/Ctrl+L で後続を足す。線の上で Delete か右クリックで外す
-            ・ 選択中のタスクは ⌘/Ctrl+N でノートを開く
-            ・ マイルストンは「マイルストン追加」で足す。日付ヘッダー、帯の空き、チャートの空きの右クリックでも足せる。帯のひし形か右の名前は、ドラッグで日付を変え、ダブルクリックで編集し、右クリックで削除する
-            ・ ⌘/Ctrl+Z で取り消し、Shift+Z または Ctrl+Y でやり直し
-          </>
-        )}
-      </div>
+      <ActiveFilterBar
+        filters={schedule.filters}
+        milestones={schedule.milestones}
+        assigneeLabel={filterAssigneeLabel}
+        lineageName={schedule.lineageTask?.name ?? null}
+        onFiltersChange={schedule.updateFilters}
+        onClearLineage={schedule.clearLineage}
+      />
       <div ref={mainRef} className="main">
         <Sidebar
           categories={schedule.categories}
@@ -1059,6 +1426,11 @@ function App() {
           viewportHeight={bodyHeight}
           rowHeight={rowHeight}
           selectedTaskId={schedule.selectedTaskId}
+          hoveredTaskId={hoveredTaskId}
+          onSelectTask={(taskId) => {
+            schedule.selectTask(taskId);
+            revealTaskRow(taskId);
+          }}
           reorderingTaskId={
             schedule.reorderPreview?.kind === "task"
               ? schedule.reorderPreview.taskId
@@ -1102,8 +1474,16 @@ function App() {
           onSidebarWidthNudge={handleSidebarWidthNudge}
           onWheelRows={onWheelSidebar}
           sticky={stickyLayout}
+          sidebarColumns={sidebarColumns}
         />
+        <div className="chart-detail">
         <div ref={timelineAreaRef} className="timeline-slot">
+          {linkSourceId != null ? (
+            <div className="link-banner" role="status">
+              <div>次にクリックしたタスクを後続にします。Esc で中止</div>
+              {linkError ? <div className="hint-error">{linkError}</div> : null}
+            </div>
+          ) : null}
           <Timeline
             visibleRows={schedule.visibleRows}
             width={Math.max(200, timelineWidth)}
@@ -1127,7 +1507,7 @@ function App() {
             onResizeStart={handleResizeStart}
             onResizeEnd={handleResizeEnd}
             links={links}
-            onOpenEdit={schedule.openEditDialog}
+            onOpenEdit={openTaskForEdit}
             onTaskContextMenu={openTaskContextMenu}
             onWheelBody={onWheelBody}
             onWheelHeader={onWheelHeader}
@@ -1151,11 +1531,54 @@ function App() {
             onAddMilestoneContextMenu={openAddMilestoneContextMenu}
             onChartPointer={(pointer) => {
               chartPointerRef.current = pointer;
+              setHoveredTaskId(pointer.hoverTaskId);
             }}
             sticky={stickyLayout}
+            showLightningLine={showLightningLine}
           />
         </div>
+        {selectedDetailTask ? (
+          <TaskDetailPanel
+            key={`${selectedDetailTask.id}:${schedule.diskEpoch}`}
+            panelRef={detailPanelRef}
+            task={selectedDetailTask}
+            members={memberCatalogState.members ?? []}
+            memberCatalog={memberCatalogState.memberMap}
+            tasks={taskRefs}
+            milestones={schedule.milestones}
+            successorIds={selectedDetailSuccessors}
+            onPatch={(patch) =>
+              schedule.applyTaskPatch(selectedDetailTask.id, patch)
+            }
+            onEditingChange={setDetailPanelEditing}
+          />
+        ) : null}
+        </div>
       </div>
+      <StatusBar
+        fileName={scheduleFile.displayFileName}
+        saveStatus={scheduleFile.saveStatusLabel}
+        saveStatusClickable={scheduleFile.isDirty}
+        onSaveStatusClick={showScheduleDiff}
+        membersCatalogLabel={memberCatalogState.selectedCatalogLabel}
+        membersCatalogError={memberCatalogState.error}
+        calendarError={appCalendarState.error}
+        tier={tier}
+        visibleTaskCount={visibleTaskCount}
+        totalTaskCount={totalTaskCount}
+        showDeferredReload={scheduleFile.showDeferredReload}
+        onDeferredReload={scheduleFile.requestDeferredReload}
+        onOpenSettingsMembers={() => {
+          setSettingsSection("members");
+          setSettingsOpen(true);
+        }}
+        onOpenSettingsCalendar={() => {
+          setSettingsSection("calendar");
+          setSettingsOpen(true);
+        }}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+      />
+      <AppToast message={toastMessage} />
       {contextMenu ? (
         <ContextMenu
           x={contextMenu.x}
@@ -1193,19 +1616,6 @@ function App() {
             setFocusTaskId(result.id);
             return null;
           }}
-        />
-      ) : null}
-      {schedule.editingTask ? (
-        <TaskEditDialog
-          key={`${schedule.editingTask.id}:${schedule.diskEpoch}`}
-          task={schedule.editingTask}
-          members={memberCatalogState.members ?? []}
-          memberCatalog={memberCatalogState.memberMap}
-          tasks={taskRefs}
-          milestones={schedule.milestones}
-          successorIds={editingSuccessors}
-          onClose={schedule.closeEditDialog}
-          onSave={schedule.saveTaskEdit}
         />
       ) : null}
       {schedule.editingMilestone ? (
@@ -1339,6 +1749,13 @@ function App() {
           onDisplayScaleChange={handleDisplayScaleChange}
           colorSchemePreference={colorSchemePreference}
           onColorSchemeChange={handleColorSchemeChange}
+          rowDensity={rowDensity}
+          onRowDensityChange={setRowDensity}
+          showLightningLine={showLightningLine}
+          onShowLightningLineChange={setShowLightningLine}
+          sidebarColumns={sidebarColumns}
+          onSidebarColumnsChange={setSidebarColumns}
+          initialSection={settingsSection}
           onClose={() => setSettingsOpen(false)}
           onImport={memberCatalogState.importCatalog}
           onSelectCatalog={memberCatalogState.selectCatalog}
@@ -1349,6 +1766,16 @@ function App() {
           onDeleteCalendar={appCalendarState.removeCalendar}
         />
       ) : null}
+      <ShortcutsDialog
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
+      <CommandPalette
+        open={commandPaletteOpen}
+        context={commandPaletteContext}
+        onClose={() => setCommandPaletteOpen(false)}
+        onRun={runCommandPalette}
+      />
       <JsonDialog
         json={jsonOpen ? scheduleFile.currentJson : ""}
         open={jsonOpen}

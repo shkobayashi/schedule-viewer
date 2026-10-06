@@ -327,7 +327,7 @@ function matchesQuery(item: TaskRef, query: string): boolean {
   );
 }
 
-function RelationField({
+export function RelationField({
   label,
   selected,
   candidates,

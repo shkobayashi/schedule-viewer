@@ -194,8 +194,9 @@ export function useTimelinePointer({
       overTask: hover.overTask,
       overMilestone: hover.overMilestone,
       link: hover.link,
+      hoverTaskId: hover.hoverTaskId,
     });
-  }, [hover.link, hover.overMilestone, hover.overTask]);
+  }, [hover.hoverTaskId, hover.link, hover.overMilestone, hover.overTask]);
 
   return { bodyRef, bandRef, hover, previewEnd };
 }

@@ -1,8 +1,7 @@
 import { addDays, daysBetween, parseDate } from "./dates";
+import { activeFilterChips } from "./filterChips";
 import {
   NO_MILESTONE_FILTER,
-  UNASSIGNED_FILTER,
-  UNASSIGNED_LABEL,
   type Milestone,
   type ScheduleFilters,
   type VisibleRow,
@@ -84,58 +83,14 @@ export function exportTimelineRange(
   };
 }
 
-const STATUS_LABEL: Record<Exclude<ScheduleFilters["status"], "all">, string> = {
-  "not-done": "完了以外",
-  "not-started": "未着手",
-  "in-progress": "進行中",
-  done: "完了",
-};
-
-const CONFIDENCE_LABEL: Record<
-  Exclude<ScheduleFilters["confidence"], "all">,
-  string
-> = {
-  tentative: "未確定",
-  committed: "確定",
-};
-
 /** 初期値以外の絞り込みだけを、書き出しの説明文にする。該当がなければ空文字。 */
 export function describeActiveFilters(
   filters: ScheduleFilters,
   milestones: Milestone[],
   assigneeLabel: string | null,
 ): string {
-  const parts: string[] = [];
-  if (filters.assignee === UNASSIGNED_FILTER) {
-    parts.push(`担当: ${UNASSIGNED_LABEL}`);
-  } else if (filters.assignee !== "all") {
-    parts.push(`担当: ${assigneeLabel ?? filters.assignee}`);
-  }
-  if (filters.status !== "all") {
-    parts.push(`ステータス: ${STATUS_LABEL[filters.status]}`);
-  }
-  if (filters.confidence !== "all") {
-    parts.push(`確度: ${CONFIDENCE_LABEL[filters.confidence]}`);
-  }
-  if (filters.overdue === "overdue") {
-    parts.push("期限: 期限超過");
-  }
-  if (filters.relation === "broken") {
-    parts.push("前後: 破綻のみ");
-  }
-  if (filters.milestone === NO_MILESTONE_FILTER) {
-    parts.push("マイルストン: なし");
-  } else if (filters.milestone !== "all") {
-    const milestone = milestones.find((item) => item.id === filters.milestone);
-    parts.push(
-      milestone
-        ? `マイルストン: ${milestone.name}（${milestone.date}）`
-        : `マイルストン: ${filters.milestone}`,
-    );
-  }
-  const search = filters.search.trim();
-  if (search) parts.push(`タスク名: 「${search}」`);
-  const noteSearch = filters.noteSearch.trim();
-  if (noteSearch) parts.push(`ノート: 「${noteSearch}」`);
-  return parts.join("、");
+  return activeFilterChips(filters, milestones, assigneeLabel, null)
+    .filter((chip) => chip.kind !== "lineage")
+    .map((chip) => chip.label)
+    .join("、");
 }

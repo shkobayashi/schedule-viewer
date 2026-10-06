@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assigneeColumnChars,
   assigneeSidebarLabel,
   matchesUnassignedFilter,
   memberOptionLabel,
@@ -13,6 +14,14 @@ const members: Member[] = [
   { id: "tanaka-2", name: "田中" },
   { id: "sato", name: "佐藤" },
 ];
+
+describe("assigneeColumnChars", () => {
+  it("uses at least three characters and caps at eight", () => {
+    expect(assigneeColumnChars([])).toBe(3);
+    expect(assigneeColumnChars(["田中", "未割当"])).toBe(3);
+    expect(assigneeColumnChars(["メンバー不明（missing）"])).toBe(8);
+  });
+});
 
 describe("resolveAssigneeDisplay", () => {
   const catalog = memberMapFromList(members);
