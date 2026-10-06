@@ -62,7 +62,37 @@ export function blocksBrowserShortcut(event: ShortcutKeyEvent): boolean {
   if (key === "s") return true;
   if (key === "n") return !event.shiftKey;
   if (key === "d" && event.shiftKey) return true;
+  if (key === "k" && !event.shiftKey) return true;
   return (key === "o" || key === "f") && !event.shiftKey;
+}
+
+export function commandPaletteShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘K" : "Ctrl+K";
+}
+
+/** ダイアログが開いているあいだは開かない。コマンドパレット自身は別処理。 */
+export function matchOpenCommandPalette(
+  event: ShortcutKeyEvent,
+  context: Pick<ShortcutContext, "dialogOpen"> & { commandPaletteOpen: boolean },
+): "open" | "close" | null {
+  if (event.altKey || event.shiftKey) return null;
+  if (!(event.ctrlKey || event.metaKey)) return null;
+  if (shortcutKey(event) !== "k") return null;
+  if (context.commandPaletteOpen) return "close";
+  if (context.dialogOpen) return null;
+  return "open";
+}
+
+/** macOS の ⌘Q。Tauri のウィンドウ close へ渡し、未保存確認は onCloseRequested が行う。 */
+export function matchMacAppQuit(
+  event: ShortcutKeyEvent,
+  context: Pick<ShortcutContext, "dialogOpen"> & { commandPaletteOpen: boolean },
+): boolean {
+  if (context.dialogOpen || context.commandPaletteOpen || event.altKey || event.shiftKey) {
+    return false;
+  }
+  if (!(event.ctrlKey || event.metaKey)) return false;
+  return shortcutKey(event) === "q";
 }
 
 export function matchAppShortcut(
@@ -221,6 +251,7 @@ export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow
     { action: "表示サイズ", keys: displayScaleShortcutHint(commandKey) },
     { action: "チャートのスクロール", keys: chartScrollShortcutHint(commandKey) },
     { action: "ショートカット一覧", keys: "? / F1" },
+    { action: "コマンドパレット", keys: commandPaletteShortcutHint(commandKey) },
     {
       action: "ズーム",
       keys: `${mod}+ホイール（一覧の上では左端の日付を保つ）`,

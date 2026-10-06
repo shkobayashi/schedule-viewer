@@ -1,4 +1,6 @@
 import { useEffect, type MutableRefObject } from "react";
+import { isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { decideAppKey, type AppKeyTarget } from "./appKeyboard";
 import type { ChartPointer } from "../model/chartHitTest";
 import { adjacentVisibleTaskId } from "../model/taskSelection";
@@ -40,6 +42,9 @@ type UseAppKeyboardOptions = {
   shiftTaskEndByDays: (taskId: ScheduleId, deltaDays: number) => void;
   focusDetailName: () => void;
   copyScheduleDiff: () => void;
+  commandPaletteOpen: boolean;
+  onOpenCommandPalette: () => void;
+  onCloseCommandPalette: () => void;
 };
 
 export function useAppKeyboard({
@@ -66,6 +71,9 @@ export function useAppKeyboard({
   uiScaleRef,
   onDisplayScaleChange,
   onOpenShortcuts,
+  commandPaletteOpen,
+  onOpenCommandPalette,
+  onCloseCommandPalette,
   visibleRows,
   selectTask,
   moveTaskByDays,
@@ -74,6 +82,8 @@ export function useAppKeyboard({
   copyScheduleDiff,
 }: UseAppKeyboardOptions) {
   useEffect(() => {
+    const macAppQuit =
+      isTauri() && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
     const onKeyDown = (event: KeyboardEvent) => {
       const target: AppKeyTarget =
         event.target instanceof HTMLElement
@@ -92,6 +102,8 @@ export function useAppKeyboard({
           repeat: event.repeat,
         },
         dialogOpen: document.querySelector('[role="dialog"]') != null,
+        commandPaletteOpen,
+        macAppQuit,
         menuOpen: document.querySelector('[role="menu"]') != null,
         target,
         linkSourceId,
@@ -181,6 +193,9 @@ export function useAppKeyboard({
       } else if (action.type === "undo") undo();
       else if (action.type === "redo") redo();
       else if (action.type === "openShortcuts") onOpenShortcuts();
+      else if (action.type === "openCommandPalette") onOpenCommandPalette();
+      else if (action.type === "closeCommandPalette") onCloseCommandPalette();
+      else if (action.type === "closeWindow") void getCurrentWindow().close();
       else if (action.type === "openDiffCopy") copyScheduleDiff();
     };
     window.addEventListener("keydown", onKeyDown);
@@ -209,6 +224,9 @@ export function useAppKeyboard({
     uiScaleRef,
     onDisplayScaleChange,
     onOpenShortcuts,
+    commandPaletteOpen,
+    onOpenCommandPalette,
+    onCloseCommandPalette,
     visibleRows,
     selectTask,
     moveTaskByDays,

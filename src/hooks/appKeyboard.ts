@@ -8,6 +8,8 @@ import {
   matchChartScroll,
   matchDisplayScale,
   matchDiffCopy,
+  matchMacAppQuit,
+  matchOpenCommandPalette,
   matchOpenShortcutsHelp,
   type DisplayScaleDirection,
   type ShortcutKeyEvent,
@@ -41,6 +43,9 @@ export type AppKeyAction =
   | { type: "redo" }
   | { type: "displayScale"; direction: DisplayScaleDirection }
   | { type: "openShortcuts" }
+  | { type: "openCommandPalette" }
+  | { type: "closeCommandPalette" }
+  | { type: "closeWindow" }
   | { type: "none" };
 
 export type AppKeyDecision = {
@@ -64,6 +69,8 @@ export function allowsDocumentUndo(input: {
 export function decideAppKey(input: {
   event: ShortcutKeyEvent & { repeat: boolean };
   dialogOpen: boolean;
+  commandPaletteOpen: boolean;
+  macAppQuit: boolean;
   menuOpen: boolean;
   target: AppKeyTarget;
   linkSourceId: ScheduleId | null;
@@ -80,6 +87,40 @@ export function decideAppKey(input: {
   };
   const blocksEditKeys = input.target != null && blocksEditShortcut(targetFields);
   const blocksLinkKeys = input.target != null && blocksLinkShortcut(targetFields);
+  const paletteToggle = matchOpenCommandPalette(event, {
+    dialogOpen: input.dialogOpen,
+    commandPaletteOpen: input.commandPaletteOpen,
+  });
+  if (paletteToggle === "open") {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "openCommandPalette" },
+    };
+  }
+  if (paletteToggle === "close") {
+    return {
+      preventDefault: true,
+      closeMenu: false,
+      action: { type: "closeCommandPalette" },
+    };
+  }
+  if (input.commandPaletteOpen) {
+    return { preventDefault: false, closeMenu: false, action: { type: "none" } };
+  }
+  if (
+    input.macAppQuit &&
+    matchMacAppQuit(event, {
+      dialogOpen: input.dialogOpen,
+      commandPaletteOpen: input.commandPaletteOpen,
+    })
+  ) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "closeWindow" },
+    };
+  }
   if (
     matchOpenShortcutsHelp(event, {
       dialogOpen: input.dialogOpen,
