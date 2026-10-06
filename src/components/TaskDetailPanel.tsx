@@ -120,38 +120,25 @@ export function TaskDetailPanel({
   const durationDays =
     daysBetween(parseDate(start), parseDate(end)) + 1;
 
-  const buildPatch = useCallback((): TaskEditPatch => {
-    const roundedProgress = Math.round(progress);
+  const documentPatch = useCallback((): TaskEditPatch => {
     return {
-      name,
-      start,
-      end,
-      assigneeId: assigneeId === "" ? null : assigneeId,
-      status,
-      progress: roundedProgress,
-      confidence,
-      predecessors,
-      successors,
-      milestoneId,
-      note,
+      name: task.name,
+      start: task.start,
+      end: task.end,
+      assigneeId: task.assigneeId ?? null,
+      status: task.status,
+      progress: task.progress,
+      confidence: task.confidence,
+      predecessors: task.predecessors,
+      successors: successorIds,
+      milestoneId: task.milestoneId,
+      note: task.note ?? "",
     };
-  }, [
-    assigneeId,
-    confidence,
-    end,
-    milestoneId,
-    name,
-    note,
-    predecessors,
-    progress,
-    start,
-    status,
-    successors,
-  ]);
+  }, [successorIds, task]);
 
   const commitWith = useCallback(
-    (overrides: Partial<TaskEditPatch> = {}) => {
-      const patch = { ...buildPatch(), ...overrides };
+    (overrides: Partial<TaskEditPatch>) => {
+      const patch = { ...documentPatch(), ...overrides };
       const fieldError = validateTaskEdit({
         name: patch.name,
         start: patch.start,
@@ -169,8 +156,60 @@ export function TaskDetailPanel({
       }
       setFormError(null);
     },
-    [buildPatch, onPatch],
+    [documentPatch, onPatch],
   );
+
+  const dirtyPatch = useCallback((): Partial<TaskEditPatch> | null => {
+    const patch: Partial<TaskEditPatch> = {};
+    const trimmedName = name.trim();
+    if (trimmedName !== task.name.trim()) patch.name = name;
+    const noteValue = note.trim();
+    const taskNote = (task.note ?? "").trim();
+    if (noteValue !== taskNote) patch.note = note;
+    const nextAssignee = assigneeId === "" ? null : assigneeId;
+    if (nextAssignee !== (task.assigneeId ?? null)) {
+      patch.assigneeId = nextAssignee;
+    }
+    if (status !== task.status) patch.status = status;
+    if (Math.round(progress) !== task.progress) patch.progress = progress;
+    if (confidence !== task.confidence) patch.confidence = confidence;
+    if (milestoneId !== task.milestoneId) patch.milestoneId = milestoneId;
+    const predKey = [...predecessors].sort().join("\0");
+    const taskPredKey = [...task.predecessors].sort().join("\0");
+    if (predKey !== taskPredKey) patch.predecessors = predecessors;
+    const succKey = [...successors].sort().join("\0");
+    const taskSuccKey = [...successorIds].sort().join("\0");
+    if (succKey !== taskSuccKey) patch.successors = successors;
+    return Object.keys(patch).length > 0 ? patch : null;
+  }, [
+    assigneeId,
+    confidence,
+    milestoneId,
+    name,
+    note,
+    predecessors,
+    progress,
+    status,
+    successorIds,
+    successors,
+    task,
+  ]);
+
+  const commitNameIfDirty = useCallback(() => {
+    const trimmedName = name.trim();
+    if (trimmedName !== task.name.trim()) commitWith({ name });
+  }, [commitWith, name, task.name]);
+
+  const commitNoteIfDirty = useCallback(() => {
+    const noteValue = note.trim();
+    const taskNote = (task.note ?? "").trim();
+    if (noteValue !== taskNote) commitWith({ note });
+  }, [commitWith, note, task.note]);
+
+  const commitProgressIfDirty = useCallback(() => {
+    const rounded = Math.round(progress);
+    if (rounded !== task.progress) commitWith({ progress });
+  }, [commitWith, progress, task.progress]);
 
   const onFocusIn = () => onEditingChange(true);
   const onFocusOut = (event: FocusEvent) => {
@@ -178,7 +217,8 @@ export function TaskDetailPanel({
     const next = event.relatedTarget;
     if (root && next instanceof Node && root.contains(next)) return;
     onEditingChange(false);
-    commitWith();
+    const overrides = dirtyPatch();
+    if (overrides) commitWith(overrides);
   };
 
   return (
@@ -199,7 +239,7 @@ export function TaskDetailPanel({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onBlur={() => commitWith()}
+            onBlur={() => commitNameIfDirty()}
           />
         </div>
         <div className="field">
@@ -211,7 +251,7 @@ export function TaskDetailPanel({
             value={note}
             placeholder="補足説明（任意）"
             onChange={(e) => setNote(e.target.value)}
-            onBlur={() => commitWith()}
+            onBlur={() => commitNoteIfDirty()}
           />
         </div>
       </section>
@@ -299,9 +339,9 @@ export function TaskDetailPanel({
               max={100}
               value={progress}
               onChange={(e) => setProgress(Number(e.target.value))}
-              onMouseUp={() => commitWith()}
-              onPointerUp={() => commitWith()}
-              onBlur={() => commitWith()}
+              onMouseUp={() => commitProgressIfDirty()}
+              onPointerUp={() => commitProgressIfDirty()}
+              onBlur={() => commitProgressIfDirty()}
             />
             <input
               type="number"
@@ -312,7 +352,7 @@ export function TaskDetailPanel({
               onChange={(e) => {
                 setProgress(Number(e.target.value) || 0);
               }}
-              onBlur={() => commitWith()}
+              onBlur={() => commitProgressIfDirty()}
             />
             <span>%</span>
           </div>

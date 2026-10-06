@@ -13,7 +13,7 @@ import {
   type ScheduleFilters,
   type StatusFilter,
 } from "../model/types";
-import { anchorBelowRect, menuViewportShift } from "./anchoredMenu";
+import { anchorBelowRect, menuShiftForRect } from "./anchoredMenu";
 import type { AssigneeFilterOption } from "./Toolbar";
 
 type FilterPanelProps = {
@@ -56,7 +56,15 @@ export function FilterPanel({
     if (!open) return;
     const panel = panelRef.current;
     if (!panel) return;
-    setShift(menuViewportShift(panel.getBoundingClientRect()));
+    const next = menuShiftForRect(
+      position.left,
+      position.top,
+      panel.offsetWidth,
+      panel.offsetHeight,
+    );
+    setShift((prev) =>
+      prev.x === next.x && prev.y === next.y ? prev : next,
+    );
   }, [open, position.left, position.top]);
 
   useEffect(() => {

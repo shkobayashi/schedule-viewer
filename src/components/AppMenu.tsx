@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Menu } from "lucide-react";
 import { createPortal } from "react-dom";
 import { fileShortcutHint, usesCommandKey } from "../model/shortcuts";
-import { anchorBelowRect, menuViewportShift } from "./anchoredMenu";
+import { anchorBelowRect, menuShiftForRect } from "./anchoredMenu";
 import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 
 type AppMenuProps = {
@@ -47,8 +47,15 @@ export function AppMenu({
     if (!open) return;
     const panel = panelRef.current;
     if (!panel) return;
-    const rect = panel.getBoundingClientRect();
-    setShift(menuViewportShift(rect));
+    const next = menuShiftForRect(
+      position.left,
+      position.top,
+      panel.offsetWidth,
+      panel.offsetHeight,
+    );
+    setShift((prev) =>
+      prev.x === next.x && prev.y === next.y ? prev : next,
+    );
   }, [open, position.left, position.top]);
 
   useEffect(() => {
