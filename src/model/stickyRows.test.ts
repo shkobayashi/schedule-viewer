@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { layoutStickyHeaders, scrollYToRevealTask } from "./stickyRows";
+import {
+  layoutStickyHeaders,
+  scrollYToRevealTask,
+  scrollYToShowSelectedTask,
+} from "./stickyRows";
 import type { SummarySpan } from "./summary";
 import type { Task, VisibleRow } from "./types";
 
@@ -253,5 +257,33 @@ describe("scrollYToRevealTask", () => {
   it("returns the task offset when the list fits", () => {
     expect(scrollYToRevealTask(sample, 96, H, sample.length * H + 40)).toBe(96);
     expect(scrollYToRevealTask(sample, 0, H, sample.length * H + 40)).toBe(0);
+  });
+});
+
+describe("scrollYToShowSelectedTask", () => {
+  it("keeps scroll when the task row is already visible", () => {
+    const scrollY = 120;
+    const taskY = 160;
+    expect(scrollYToShowSelectedTask(sample, taskY, H, VIEWPORT, scrollY)).toBe(
+      scrollY,
+    );
+  });
+
+  it("reveals a task hidden above like scrollYToRevealTask", () => {
+    const scrollY = 200;
+    const taskY = 96;
+    expect(scrollYToShowSelectedTask(sample, taskY, H, VIEWPORT, scrollY)).toBe(
+      scrollYToRevealTask(sample, taskY, H, VIEWPORT),
+    );
+  });
+
+  it("scrolls down only until the row bottom fits", () => {
+    const scrollY = 0;
+    const taskY = 384;
+    const expected = scrollYToShowSelectedTask(sample, taskY, H, VIEWPORT, scrollY);
+    expect(taskY + H - expected).toBeLessThanOrEqual(VIEWPORT);
+    const layout = layoutStickyHeaders(sample, expected, H, VIEWPORT);
+    expect(taskY - expected).toBeGreaterThanOrEqual(layout.clipTop);
+    expect(expected).toBeGreaterThan(scrollY);
   });
 });
