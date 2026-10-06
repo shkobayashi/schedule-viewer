@@ -1,3 +1,8 @@
+mod json_skills;
+
+use json_skills::{
+    install_json_skills, json_skill_home_dirs, pick_json_skill_folder, uninstall_json_skills,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -126,13 +131,10 @@ pub(crate) fn sanitize_export_filename(name: &str, default_ext: &str) -> String 
     if base.is_empty() {
         return format!("schedule.{}", default_ext);
     }
-    let stem = base
-        .rsplit_once('.')
-        .map(|(left, _)| left)
-        .unwrap_or(base);
+    let stem = base.rsplit_once('.').map(|(left, _)| left).unwrap_or(base);
     let reserved = [
-        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
-        "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+        "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
     ];
     if reserved.contains(&stem.to_ascii_uppercase().as_str()) {
         return format!("schedule.{}", default_ext);
@@ -157,14 +159,11 @@ pub(crate) fn require_active_save_path(
     active: Option<&Path>,
     expected: Option<&str>,
 ) -> Result<PathBuf, String> {
-    let active = active.ok_or_else(|| {
-        "保存先が選ばれていません。別名保存を使ってください。".to_string()
-    })?;
+    let active =
+        active.ok_or_else(|| "保存先が選ばれていません。別名保存を使ってください。".to_string())?;
     let expected = expected.ok_or_else(|| "保存先のパスが一致しません。".to_string())?;
     if active != Path::new(expected) {
-        return Err(
-            "保存先のパスが一致しません。ファイルを開き直してください。".to_string(),
-        );
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
     }
     Ok(active.to_path_buf())
 }
@@ -226,9 +225,7 @@ fn accept_opened_schedule(
 }
 
 #[tauri::command]
-fn check_schedule_file_changed(
-    state: State<'_, Mutex<ScheduleFileState>>,
-) -> Result<bool, String> {
+fn check_schedule_file_changed(state: State<'_, Mutex<ScheduleFileState>>) -> Result<bool, String> {
     read_open_schedule(state.inner(), |guard, _contents, hash| {
         Ok(guard.content_hash.as_deref() != Some(hash))
     })
@@ -255,9 +252,7 @@ fn poll_schedule_file_update(
 }
 
 #[tauri::command]
-fn read_open_schedule_file(
-    state: State<'_, Mutex<ScheduleFileState>>,
-) -> Result<String, String> {
+fn read_open_schedule_file(state: State<'_, Mutex<ScheduleFileState>>) -> Result<String, String> {
     let guard = state.lock().expect("schedule file state");
     let path = guard
         .path
@@ -444,7 +439,8 @@ fn sanitize_catalog_id(id: &str) -> Result<String, String> {
 fn list_catalog_entries(app: &tauri::AppHandle) -> Result<Vec<MemberCatalogEntry>, String> {
     let dir = members_dir(app)?;
     let mut entries = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|e| format!("メンバー一覧を読めません: {}", e))? {
+    for entry in fs::read_dir(&dir).map_err(|e| format!("メンバー一覧を読めません: {}", e))?
+    {
         let entry = entry.map_err(|e| format!("メンバー一覧を読めません: {}", e))?;
         let path = entry.path();
         if !path.is_file() {
@@ -481,7 +477,10 @@ fn get_members_settings(app: tauri::AppHandle) -> Result<MembersSettingsResult, 
 }
 
 #[tauri::command]
-fn read_member_catalog(app: tauri::AppHandle, catalog_id: String) -> Result<Option<String>, String> {
+fn read_member_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+) -> Result<Option<String>, String> {
     let id = sanitize_catalog_id(&catalog_id)?;
     let path = members_dir(&app)?.join(format!("{}.json", id));
     if !path.exists() {
@@ -569,8 +568,7 @@ fn write_schedule_recovery(app: tauri::AppHandle, contents: String) -> Result<()
 fn delete_schedule_recovery(app: tauri::AppHandle) -> Result<(), String> {
     let path = schedule_recovery_path(&app)?;
     if path.exists() {
-        fs::remove_file(&path)
-            .map_err(|e| format!("復旧用の控えを削除できません: {}", e))?;
+        fs::remove_file(&path).map_err(|e| format!("復旧用の控えを削除できません: {}", e))?;
     }
     Ok(())
 }
@@ -675,7 +673,9 @@ fn dialog_start_directory(app: &tauri::AppHandle, requested: Option<&str>) -> Op
         .map(|value| Path::new(value).is_dir())
         .unwrap_or(false);
     let home = app.path().home_dir().ok();
-    let home_text = home.as_ref().map(|path| path.to_string_lossy().into_owned());
+    let home_text = home
+        .as_ref()
+        .map(|path| path.to_string_lossy().into_owned());
     choose_open_directory(requested, requested_is_dir, home_text.as_deref()).map(PathBuf::from)
 }
 
@@ -719,8 +719,7 @@ fn read_last_schedule_file(app: tauri::AppHandle) -> Result<Option<LastScheduleR
     } else {
         None
     };
-    let remembered =
-        resolve_remembered_path(last_text.as_deref(), recovery_text.as_deref())?;
+    let remembered = resolve_remembered_path(last_text.as_deref(), recovery_text.as_deref())?;
     let Some(path) = remembered else {
         return Ok(None);
     };
@@ -837,6 +836,10 @@ pub fn run() {
             read_schedule_file_at_path,
             read_last_schedule_file,
             clear_last_schedule_path,
+            json_skill_home_dirs,
+            pick_json_skill_folder,
+            install_json_skills,
+            uninstall_json_skills,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -882,8 +885,7 @@ mod tests {
     #[test]
     fn require_active_save_path_accepts_matching_path() {
         let active = PathBuf::from("/tmp/plan.json");
-        let resolved =
-            require_active_save_path(Some(&active), Some("/tmp/plan.json")).unwrap();
+        let resolved = require_active_save_path(Some(&active), Some("/tmp/plan.json")).unwrap();
         assert_eq!(resolved, active);
     }
 

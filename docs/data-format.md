@@ -193,6 +193,6 @@
 - `npm run check:schedule` は、引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する
 - `npm run check:calendar` は、引数なしなら [examples/jp-2026.calendar.json](../examples/jp-2026.calendar.json) を検証する
 - `npm run check:members` は、引数なしなら [examples/playground.members.json](../examples/playground.members.json) を検証する
-- 他のリポジトリへコピーしたスキルでは、同梱の `node .cursor/skills/write-schedule/scripts/validate-schedule.mjs <file>`、`node .cursor/skills/write-calendar/scripts/validate-calendar.mjs <file>`、`node .cursor/skills/write-members/scripts/validate-members.mjs <file>` を使う
+- 置いたスキルでは、各スキルフォルダで `node scripts/validate-schedule.mjs <file>`、`node scripts/validate-calendar.mjs <file>`、`node scripts/validate-members.mjs <file>` を使う
 
 `examples/playground.schedule.json` は手で開く例であり、引数なしの `check:schedule` では検証しない。
