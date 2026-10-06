@@ -158,7 +158,7 @@ npm install
 それでも直らないときは、次を試す。
 
 ```bash
-npm install @tauri-apps/cli-darwin-arm64@2.11.5
+npm install @tauri-apps/cli-darwin-arm64@2.12.1
 ```
 
 （Apple Silicon 以外の Mac では `cli-darwin-x64` に読み替える。）
