@@ -35,6 +35,7 @@ description: >-
 6. リポジトリで `npm run check:schedule` を実行し、成功するまで直す
 7. 必要なら `node .cursor/skills/write-schedule/scripts/validate-schedule.mjs <一時json>` でも同じサンプルを検証する
 8. [docs/data-format.md](../../../docs/data-format.md) を変更内容に合わせて更新する。画面の見え方が変わるときは [docs/external-spec.md](../../../docs/external-spec.md) も直す
+9. 移行で新しい ID を付けるときは、意味規則が重複を禁じる ID をすべて避ける。対象はカテゴリ、グループ、タスク、マイルストン、マイルストングループである
 
 ## 完了条件
 

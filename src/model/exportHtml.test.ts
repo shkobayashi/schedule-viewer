@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildScheduleHtml, buildScheduleSvg, type ScheduleExportInput } from "./exportHtml";
+import { layoutMilestoneBand } from "./milestones";
 import { hatchPatternId, hatchStripeColor } from "./hatch";
 import type { Task } from "./types";
 
@@ -26,7 +27,16 @@ function input(): ScheduleExportInput {
     lineageName: null,
     visibleRows: [{ type: "task", task, y: 0 }],
     milestones: [],
-    milestoneLanes: new Map(),
+    milestoneBandLayout: layoutMilestoneBand(
+      [],
+      [],
+      new Set(),
+      22,
+      11,
+      11,
+      26,
+      "export",
+    ),
     links: [],
     timelineStart,
     timelineEnd,
@@ -85,6 +95,7 @@ describe("schedule export documents", () => {
 
   it("hatches tentative bars and labels them, and leaves committed bars solid", () => {
     const milestoneId = "00000000-0000-4000-8000-000000000010";
+    const groupId = "e1000001-0000-4000-8000-000000000001";
     const tentative: Task = {
       ...task,
       id: "00000000-0000-4000-8000-000000000002",
@@ -100,8 +111,28 @@ describe("schedule export documents", () => {
           name: "要件",
           date: "2026-04-01",
           confidence: "committed" as const,
+          groupId,
         },
       ],
+      milestoneBandLayout: layoutMilestoneBand(
+        [{ id: groupId, name: "G" }],
+        [
+          {
+            id: milestoneId,
+            name: "要件",
+            date: "2026-04-01",
+            confidence: "committed",
+            groupId,
+          },
+        ],
+        new Set([groupId]),
+        22,
+        11,
+        11,
+        26,
+        "export",
+      ),
+      milestoneBandHeight: 26,
       visibleRows: [
         { type: "task" as const, task, y: 0 },
         { type: "task" as const, task: tentative, y: 32 },
@@ -142,31 +173,66 @@ describe("schedule export documents", () => {
   it("hatches a tentative milestone and leaves a committed one solid", () => {
     const committedId = "00000000-0000-4000-8000-000000000010";
     const tentativeId = "00000000-0000-4000-8000-000000000011";
+    const groupId = "e1000001-0000-4000-8000-000000000001";
+    const milestones = [
+      {
+        id: committedId,
+        name: "確定",
+        date: "2026-04-01",
+        confidence: "committed" as const,
+        groupId,
+      },
+      {
+        id: tentativeId,
+        name: "未確定",
+        date: "2026-04-03",
+        confidence: "tentative" as const,
+        groupId,
+      },
+    ];
     const svg = buildScheduleSvg({
       ...input(),
       milestoneBandHeight: 26,
-      milestones: [
-        {
-          id: committedId,
-          name: "確定",
-          date: "2026-04-01",
-          confidence: "committed" as const,
-        },
-        {
-          id: tentativeId,
-          name: "未確定",
-          date: "2026-04-03",
-          confidence: "tentative" as const,
-        },
-      ],
-      milestoneLanes: new Map([
-        [committedId, 0],
-        [tentativeId, 0],
-      ]),
+      milestones,
+      milestoneBandLayout: layoutMilestoneBand(
+        [{ id: groupId, name: "G" }],
+        milestones,
+        new Set([groupId]),
+        22,
+        11,
+        11,
+        26,
+        "export",
+      ),
     });
     expect(svg).toContain('fill="#111827"');
     expect(svg).toContain(`fill="url(#${hatchPatternId("#111827")})"`);
     expect(svg).toContain("<pattern ");
+  });
+
+  it("draws the overrun frame when that milestone is left off the band", () => {
+    const milestoneId = "00000000-0000-4000-8000-000000000010";
+    const linked: Task = {
+      ...task,
+      end: "2026-04-10",
+      milestoneId,
+    };
+    const svg = buildScheduleSvg({
+      ...input(),
+      milestones: [
+        {
+          id: milestoneId,
+          name: "隠した線",
+          date: "2026-04-01",
+          confidence: "committed",
+          groupId: "e1000001-0000-4000-8000-000000000001",
+        },
+      ],
+      visibleRows: [{ type: "task", task: linked, y: 0 }],
+    });
+    expect(svg).toContain("超過");
+    expect(svg).toContain('stroke="#C4351A"');
+    expect(svg).not.toContain("隠した線");
   });
 
   it("uses dark palette when colorScheme is dark", () => {

@@ -94,6 +94,7 @@ function document(schemaVersion: number, tasks: Record<string, unknown>[]) {
   return {
     schemaVersion,
     title: "t",
+    milestoneGroups: [] as Record<string, unknown>[],
     milestones: [] as Record<string, unknown>[],
     categories: [
       {
@@ -115,16 +116,16 @@ describe("validateSchedule v4", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("reads a v3 task without confidence as committed and canonicalizes to v5", () => {
+  it("reads a v3 task without confidence as committed and canonicalizes to v6", () => {
     const raw = JSON.stringify(document(3, [task()]));
     const parsed = parseScheduleText(raw);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(parsed.document.schemaVersion).toBe(5);
+    expect(parsed.document.schemaVersion).toBe(6);
     expect(parsed.document.categories[0]?.groups[0]?.tasks[0]?.confidence).toBe(
       "committed",
     );
-    expect(parsed.canonicalJson).toContain('"schemaVersion": 5');
+    expect(parsed.canonicalJson).toContain('"schemaVersion": 6');
     expect(parsed.canonicalJson).toContain('"confidence": "committed"');
     const again = parseScheduleText(parsed.canonicalJson);
     expect(again.ok).toBe(true);
@@ -326,6 +327,111 @@ describe("validateSchedule v4", () => {
     expect(
       result.errors.some(
         (issue) => issue.message === "カテゴリ ID がタスク ID と重複しています",
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("migrateScheduleV5ToV6", () => {
+  const category = {
+    id: "c1000001-0000-4000-8000-000000000001",
+    name: "c",
+    groups: [
+      {
+        id: "d1000001-0000-4000-8000-000000000001",
+        name: "g",
+        tasks: [task("committed")],
+      },
+    ],
+  };
+
+  it("leaves milestone groups empty when there are no milestones", () => {
+    const parsed = parseScheduleText(
+      JSON.stringify({
+        schemaVersion: 5,
+        title: "t",
+        milestones: [],
+        categories: [category],
+      }),
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.document.schemaVersion).toBe(6);
+    expect(parsed.document.milestoneGroups).toEqual([]);
+    const again = parseScheduleText(parsed.canonicalJson);
+    expect(again.ok).toBe(true);
+    if (!again.ok) return;
+    expect(again.canonicalJson).toBe(parsed.canonicalJson);
+  });
+
+  it("puts every milestone into one group named マイルストン", () => {
+    const parsed = parseScheduleText(
+      JSON.stringify({
+        schemaVersion: 5,
+        title: "t",
+        milestones: [
+          {
+            id: "a1000001-0000-4000-8000-000000000001",
+            name: "m",
+            date: "2026-09-01",
+            confidence: "committed",
+          },
+        ],
+        categories: [category],
+      }),
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const groupId = uuidV5(HIERARCHY_ID_NAMESPACE, "milestoneGroup\0マイルストン");
+    expect(parsed.document.milestoneGroups).toEqual([
+      { id: groupId, name: "マイルストン" },
+    ]);
+    expect(parsed.document.milestones[0]?.groupId).toBe(groupId);
+  });
+
+  it("picks another milestone group id when the name-derived id is already used", () => {
+    const taken = uuidV5(HIERARCHY_ID_NAMESPACE, "milestoneGroup\0マイルストン");
+    const parsed = parseScheduleText(
+      JSON.stringify({
+        schemaVersion: 5,
+        title: "t",
+        milestones: [
+          {
+            id: "a1000001-0000-4000-8000-000000000001",
+            name: "m",
+            date: "2026-09-01",
+            confidence: "committed",
+          },
+        ],
+        categories: [{ ...category, id: taken }],
+      }),
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const groupId = uuidV5(
+      HIERARCHY_ID_NAMESPACE,
+      "milestoneGroup\0マイルストン\u00002",
+    );
+    expect(parsed.document.milestoneGroups[0]?.id).toBe(groupId);
+    expect(parsed.document.milestones[0]?.groupId).toBe(groupId);
+  });
+
+  it("rejects a duplicated milestone group name", () => {
+    const result = validateSchedule({
+      schemaVersion: 6,
+      title: "t",
+      milestoneGroups: [
+        { id: "e1000001-0000-4000-8000-000000000001", name: "同じ" },
+        { id: "e1000001-0000-4000-8000-000000000002", name: "同じ" },
+      ],
+      milestones: [],
+      categories: [category],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(
+      result.errors.some(
+        (issue) => issue.message === "マイルストングループ名が重複しています",
       ),
     ).toBe(true);
   });

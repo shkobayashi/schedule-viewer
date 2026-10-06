@@ -11,6 +11,7 @@ function docWithCategories(categories: ScheduleDocument["categories"]): Schedule
   return {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title: "t",
+    milestoneGroups: [],
     categories,
     milestones: [],
   };

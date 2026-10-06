@@ -28,8 +28,10 @@ import {
   relaxFiltersForNewTask,
 } from "../model/rows";
 import { applyTaskNote } from "../model/taskNote";
+import { pruneHiddenMilestoneGroupIds } from "../model/filterChips";
 import {
   appendMilestone,
+  ensureMilestoneGroupForAdd,
   milestoneFilterAfterDelete,
   removeMilestone,
   validateNewMilestone,
@@ -81,6 +83,7 @@ import {
   UNASSIGNED_FILTER,
   type Category,
   type Milestone,
+  type MilestoneGroup,
   type ScheduleDocument,
   type ScheduleFilters,
   type ScheduleId,
@@ -94,10 +97,12 @@ import {
 
 function initialSnapshot(
   categories: Category[],
+  milestoneGroups: MilestoneGroup[],
   milestones: Milestone[],
 ): DocumentSnapshot {
   return {
     categories: cloneCategories(categories),
+    milestoneGroups: milestoneGroups.map((group) => ({ ...group })),
     milestones: milestones.map((milestone) => ({ ...milestone })),
   };
 }
@@ -145,13 +150,18 @@ function findHierarchyTarget(
 export function useSchedule(
   initialTitle: string,
   initialCategories: Category[],
+  initialMilestoneGroups: MilestoneGroup[],
   initialMilestones: Milestone[],
   rowHeight: number,
   memberCatalog: Member[] | null,
   blockDocumentEditsRef?: { current: boolean },
 ) {
   const documentRef = useRef<DocumentSnapshot>(
-    initialSnapshot(initialCategories, initialMilestones),
+    initialSnapshot(
+      initialCategories,
+      initialMilestoneGroups,
+      initialMilestones,
+    ),
   );
   const historyRef = useRef<DocumentHistory>(createDocumentHistory());
   const [historyUi, setHistoryUi] = useState({ canUndo: false, canRedo: false });
@@ -166,9 +176,15 @@ export function useSchedule(
   const [categories, setCategories] = useState(
     () => documentRef.current.categories,
   );
+  const [milestoneGroups, setMilestoneGroups] = useState(
+    () => documentRef.current.milestoneGroups,
+  );
   const [milestones, setMilestones] = useState(
     () => documentRef.current.milestones,
   );
+  const [hiddenMilestoneGroupIds, setHiddenMilestoneGroupIds] = useState<
+    ScheduleId[]
+  >([]);
   const [editingMilestoneId, setEditingMilestoneId] = useState<ScheduleId | null>(
     null,
   );
@@ -266,6 +282,7 @@ export function useSchedule(
       const cloned = cloneSnapshot(snapshot);
       documentRef.current = cloned;
       setCategories(cloned.categories);
+      setMilestoneGroups(cloned.milestoneGroups);
       setMilestones(cloned.milestones);
       setReorderPreview(null);
       pruneUiForDocument(cloned);
@@ -285,6 +302,7 @@ export function useSchedule(
       if (!pushed.applied) return;
       documentRef.current = pushed.applied;
       setCategories(pushed.applied.categories);
+      setMilestoneGroups(pushed.applied.milestoneGroups);
       setMilestones(pushed.applied.milestones);
     },
     [blockDocumentEditsRef, syncHistoryUi],
@@ -768,7 +786,11 @@ export function useSchedule(
     (rawName: string): string | null => {
       if (addingHierarchy == null) return "追加できませんでした";
       const current = documentRef.current;
-      const taken = collectScheduleIds(current.categories, current.milestones);
+      const taken = collectScheduleIds(
+        current.categories,
+        current.milestoneGroups,
+        current.milestones,
+      );
       if (addingHierarchy.kind === "category") {
         const newCategoryId = uniqueScheduleId(taken);
         taken.add(newCategoryId);
@@ -951,19 +973,35 @@ export function useSchedule(
       const id = uniqueScheduleId(
         collectScheduleIds(
           documentRef.current.categories,
+          documentRef.current.milestoneGroups,
           documentRef.current.milestones,
         ),
       );
-      const milestone: Milestone = {
-        id,
-        name: input.name.trim(),
-        date: input.date,
-        confidence: input.confidence,
-      };
-      commitDocument((current) => ({
-        ...current,
-        milestones: appendMilestone(current.milestones, milestone),
-      }));
+      commitDocument((current) => {
+        const taken = collectScheduleIds(
+          current.categories,
+          current.milestoneGroups,
+          current.milestones,
+        );
+        taken.add(id);
+        const ensured = ensureMilestoneGroupForAdd(
+          current.milestoneGroups,
+          taken,
+          () => uniqueScheduleId(taken),
+        );
+        const milestone: Milestone = {
+          id,
+          name: input.name.trim(),
+          date: input.date,
+          confidence: input.confidence,
+          groupId: ensured.groupId,
+        };
+        return {
+          ...current,
+          milestoneGroups: ensured.milestoneGroups,
+          milestones: appendMilestone(current.milestones, milestone),
+        };
+      });
       return null;
     },
     [commitDocument],
@@ -1003,7 +1041,11 @@ export function useSchedule(
       if (validateNewTask(input, currentCategories)) return null;
       const name = input.name.trim();
       const id = uniqueScheduleId(
-        collectScheduleIds(currentCategories, documentRef.current.milestones),
+        collectScheduleIds(
+          currentCategories,
+          documentRef.current.milestoneGroups,
+          documentRef.current.milestones,
+        ),
       );
       const task: Task = {
         id,
@@ -1053,7 +1095,11 @@ export function useSchedule(
       if (fieldError) return { ok: false, error: fieldError };
       const current = documentRef.current;
       const id = uniqueScheduleId(
-        collectScheduleIds(current.categories, current.milestones),
+        collectScheduleIds(
+          current.categories,
+          current.milestoneGroups,
+          current.milestones,
+        ),
       );
       const result = categoriesAfterDuplicate(
         current.categories,
@@ -1133,12 +1179,15 @@ export function useSchedule(
       historyRef.current = createDocumentHistory();
       const snapshot = initialSnapshot(
         document.categories,
+        document.milestoneGroups,
         document.milestones,
       );
       documentRef.current = snapshot;
       setTitle(document.title);
       setCategories(snapshot.categories);
+      setMilestoneGroups(snapshot.milestoneGroups);
       setMilestones(snapshot.milestones);
+      setHiddenMilestoneGroupIds([]);
       setSelectedTaskId(null);
       setLineageTaskId(null);
       setDuplicatingTaskId(null);
@@ -1166,12 +1215,19 @@ export function useSchedule(
       historyRef.current = createDocumentHistory();
       const snapshot = initialSnapshot(
         document.categories,
+        document.milestoneGroups,
         document.milestones,
       );
       documentRef.current = snapshot;
       setTitle(document.title);
       setCategories(snapshot.categories);
+      setMilestoneGroups(snapshot.milestoneGroups);
       setMilestones(snapshot.milestones);
+      setHiddenMilestoneGroupIds((hidden) =>
+        hidden.filter((groupId) =>
+          snapshot.milestoneGroups.some((group) => group.id === groupId),
+        ),
+      );
       setDiskEpoch((epoch) => epoch + 1);
       setReorderPreview(null);
       pruneUiForDocument(snapshot);
@@ -1213,9 +1269,57 @@ export function useSchedule(
     [categories, lineageTaskId],
   );
 
+  const prunedHiddenMilestoneGroupIds = useMemo(
+    () => pruneHiddenMilestoneGroupIds(hiddenMilestoneGroupIds, milestoneGroups),
+    [hiddenMilestoneGroupIds, milestoneGroups],
+  );
+
+  useEffect(() => {
+    if (prunedHiddenMilestoneGroupIds.length === hiddenMilestoneGroupIds.length) {
+      return;
+    }
+    setHiddenMilestoneGroupIds(prunedHiddenMilestoneGroupIds);
+  }, [hiddenMilestoneGroupIds, prunedHiddenMilestoneGroupIds]);
+
+  const hiddenMilestoneGroupIdSet = useMemo(
+    () => new Set(prunedHiddenMilestoneGroupIds),
+    [prunedHiddenMilestoneGroupIds],
+  );
+
+  const visibleMilestoneGroupIds = useMemo(
+    () =>
+      new Set(
+        milestoneGroups
+          .filter((group) => !hiddenMilestoneGroupIdSet.has(group.id))
+          .map((group) => group.id),
+      ),
+    [hiddenMilestoneGroupIdSet, milestoneGroups],
+  );
+
+  const setMilestoneGroupVisible = useCallback(
+    (groupId: ScheduleId, visible: boolean) => {
+      setHiddenMilestoneGroupIds((prev) => {
+        const hidden = prev.includes(groupId);
+        if (visible && hidden) return prev.filter((id) => id !== groupId);
+        if (!visible && !hidden) return [...prev, groupId];
+        return prev;
+      });
+    },
+    [],
+  );
+
+  const showAllMilestoneGroups = useCallback(() => {
+    setHiddenMilestoneGroupIds([]);
+  }, []);
+
   return {
     title,
     categories,
+    milestoneGroups,
+    visibleMilestoneGroupIds,
+    hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
+    setMilestoneGroupVisible,
+    showAllMilestoneGroups,
     milestones,
     editingMilestone,
     editingHierarchyTarget,
