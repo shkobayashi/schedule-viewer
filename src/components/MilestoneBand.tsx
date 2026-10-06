@@ -1,16 +1,19 @@
-import { useRef, type Ref } from "react";
+import { useRef, useState, type Ref } from "react";
 import { Group, Layer, Line, RegularPolygon, Shape, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { milestoneMarkHit } from "../model/chartHitTest";
 import { parseDate } from "../model/dates";
 import { hatchCanvas } from "../model/hatch";
 import { KONVA_FONT_FAMILY } from "../model/fontStack";
+import {
+  MILESTONE_LABEL_GAP,
+  type MilestoneBandLayout,
+} from "../model/milestones";
 import type { ChartPalette, ResolvedColorScheme } from "../model/palette";
 import type { Milestone, ScheduleId } from "../model/types";
 
 type MilestoneBandProps = {
-  milestones: Milestone[];
-  lanes: Map<ScheduleId, number>;
+  bandLayout: MilestoneBandLayout;
   width: number;
   height: number;
   laneHeight: number;
@@ -30,8 +33,7 @@ type MilestoneBandProps = {
 };
 
 export function MilestoneBand({
-  milestones,
-  lanes,
+  bandLayout,
   width,
   height,
   laneHeight,
@@ -49,6 +51,8 @@ export function MilestoneBand({
   colorScheme,
   containerRef,
 }: MilestoneBandProps) {
+  const [hoveredId, setHoveredId] = useState<ScheduleId | null>(null);
+
   return (
     <div className="milestone-band" style={{ height }} ref={containerRef}>
       <Stage
@@ -70,29 +74,53 @@ export function MilestoneBand({
             strokeWidth={1}
             listening={false}
           />
-          {milestones.map((milestone) => {
-            const lane = lanes.get(milestone.id) ?? 0;
-            const x = dateToX(parseDate(milestone.date));
-            const y = lane * laneHeight + laneHeight / 2;
-            if (x < -180 || x > width + 40) return null;
-            return (
-              <MilestoneMark
-                key={milestone.id}
-                milestone={milestone}
-                x={x}
-                y={y}
-                diamondSize={diamondSize}
-                fontSize={fontSize}
-                pxPerDay={pxPerDay}
-                onMove={(delta) => onMove(milestone.id, delta)}
-                onOpenEdit={() => onOpenEdit(milestone.id)}
-                onContextMenu={(x, y) => onContextMenu(milestone.id, x, y)}
-                linkMode={linkMode}
-                chart={chart}
-                colorScheme={colorScheme}
-              />
-            );
-          })}
+          {bandLayout.blocks.map((block, blockIndex) => (
+            <Group key={block.group.id} y={block.offsetY}>
+              {blockIndex > 0 ? (
+                <Line
+                  points={[0, 0, width, 0]}
+                  stroke={chart.milestoneBandBorder}
+                  strokeWidth={1}
+                  listening={false}
+                />
+              ) : null}
+              {block.milestones.map((milestone) => {
+                const lane = block.lanes.get(milestone.id) ?? 0;
+                const x = dateToX(parseDate(milestone.date));
+                const y = lane * laneHeight + laneHeight / 2;
+                if (x < -180 || x > width + 40) return null;
+                const displayName =
+                  bandLayout.displayLabels.get(milestone.id) ?? milestone.name;
+                const showHover =
+                  hoveredId === milestone.id &&
+                  displayName !== milestone.name;
+                return (
+                  <MilestoneMark
+                    key={milestone.id}
+                    milestone={milestone}
+                    displayName={displayName}
+                    hoverFullName={showHover ? milestone.name : null}
+                    x={x}
+                    y={y}
+                    diamondSize={diamondSize}
+                    fontSize={fontSize}
+                    pxPerDay={pxPerDay}
+                    onMove={(delta) => onMove(milestone.id, delta)}
+                    onOpenEdit={() => onOpenEdit(milestone.id)}
+                    onContextMenu={(clientX, clientY) =>
+                      onContextMenu(milestone.id, clientX, clientY)
+                    }
+                    onHoverChange={(active) =>
+                      setHoveredId(active ? milestone.id : null)
+                    }
+                    linkMode={linkMode}
+                    chart={chart}
+                    colorScheme={colorScheme}
+                  />
+                );
+              })}
+            </Group>
+          ))}
         </Layer>
       </Stage>
     </div>
@@ -101,6 +129,8 @@ export function MilestoneBand({
 
 function MilestoneMark({
   milestone,
+  displayName,
+  hoverFullName,
   x,
   y,
   diamondSize,
@@ -109,11 +139,14 @@ function MilestoneMark({
   onMove,
   onOpenEdit,
   onContextMenu,
+  onHoverChange,
   linkMode,
   chart,
   colorScheme,
 }: {
   milestone: Milestone;
+  displayName: string;
+  hoverFullName: string | null;
   x: number;
   y: number;
   diamondSize: number;
@@ -122,6 +155,7 @@ function MilestoneMark({
   onMove: (deltaDays: number) => void;
   onOpenEdit: () => void;
   onContextMenu: (x: number, y: number) => void;
+  onHoverChange: (active: boolean) => void;
   linkMode: boolean;
   chart: ChartPalette;
   colorScheme: ResolvedColorScheme;
@@ -141,14 +175,12 @@ function MilestoneMark({
       y={y}
       draggable={!linkMode}
       dragBoundFunc={(pos) => ({ x: pos.x, y })}
-      onMouseEnter={(e) => {
+      onMouseEnter={() => {
         if (linkMode) return;
-        const container = e.target.getStage()?.container();
-        if (container) container.style.cursor = "ew-resize";
+        onHoverChange(true);
       }}
-      onMouseLeave={(e) => {
-        const container = e.target.getStage()?.container();
-        if (container) container.style.cursor = "";
+      onMouseLeave={() => {
+        onHoverChange(false);
       }}
       onContextMenu={(e) => {
         e.cancelBubble = true;
@@ -181,7 +213,7 @@ function MilestoneMark({
         listening
         sceneFunc={() => {}}
         hitFunc={(context, shape) => {
-          const hit = milestoneMarkHit(diamondSize, fontSize, milestone.name);
+          const hit = milestoneMarkHit(diamondSize, fontSize, displayName);
           context.beginPath();
           context.arc(0, 0, hit.radius, 0, Math.PI * 2, false);
           if (hit.label) {
@@ -210,15 +242,27 @@ function MilestoneMark({
         listening={false}
       />
       <Text
-        x={radius + 5}
+        x={radius + MILESTONE_LABEL_GAP}
         y={-fontSize / 2}
-        text={milestone.name}
+        text={displayName}
         fontSize={fontSize}
         fontStyle="bold"
         fontFamily={KONVA_FONT_FAMILY}
         fill={chart.milestoneDiamond}
         listening={false}
       />
+      {hoverFullName ? (
+        <Text
+          x={radius + MILESTONE_LABEL_GAP}
+          y={-fontSize / 2}
+          text={hoverFullName}
+          fontSize={fontSize}
+          fontStyle="bold"
+          fontFamily={KONVA_FONT_FAMILY}
+          fill={chart.milestoneDiamond}
+          listening={false}
+        />
+      ) : null}
     </Group>
   );
 }

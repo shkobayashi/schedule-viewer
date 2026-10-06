@@ -8,6 +8,7 @@ import {
   setSelectedMemberCatalog,
   type AppMembersSettings,
 } from "../model/memberAppData";
+import { bumpSharedSettingsRevision } from "../model/sharedSettingsRevision";
 import { memberMapFromList } from "../model/assigneeDisplay";
 
 export function useMemberCatalog() {
@@ -47,6 +48,7 @@ export function useMemberCatalog() {
     async (catalogId: string | null) => {
       await setSelectedMemberCatalog(catalogId);
       await refresh();
+      bumpSharedSettingsRevision();
     },
     [refresh],
   );
@@ -56,6 +58,7 @@ export function useMemberCatalog() {
       await importMemberCatalog(catalogId, contents, overwrite);
       await setSelectedMemberCatalog(catalogId);
       await refresh();
+      bumpSharedSettingsRevision();
     },
     [refresh],
   );
@@ -64,6 +67,7 @@ export function useMemberCatalog() {
     async (catalogId: string) => {
       await deleteMemberCatalog(catalogId);
       await refresh();
+      bumpSharedSettingsRevision();
     },
     [refresh],
   );

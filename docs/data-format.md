@@ -16,17 +16,18 @@
 
 画面の絞り込み、折りたたみ、ズーム、系統、選択、取り消し履歴は、どの JSON にも書かない。
 
-## スケジュール JSON（schemaVersion 5）
+## スケジュール JSON（schemaVersion 6）
 
 正本は [schedule.schema.json](schedule.schema.json)。追加の意味規則は [src/model/scheduleSemantics.ts](../src/model/scheduleSemantics.ts) にある。
 
-ルートは `schemaVersion`、`title`、`milestones`、`categories` だけを持つ。知らないプロパティは拒否する。
+ルートは `schemaVersion`、`title`、`milestoneGroups`、`milestones`、`categories` だけを持つ。知らないプロパティは拒否する。
 
 ```json
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "title": "プロジェクト名",
-  "milestones": [{ "id": "<uuid>", "name": "要件確定", "date": "2026-04-01", "confidence": "committed" }],
+  "milestoneGroups": [{ "id": "<uuid>", "name": "マイルストン" }],
+  "milestones": [{ "id": "<uuid>", "name": "要件確定", "date": "2026-04-01", "confidence": "committed", "groupId": "<milestone-group-uuid>" }],
   "categories": [{
     "id": "<uuid>",
     "name": "カテゴリ",
@@ -52,11 +53,13 @@
 
 | フィールド | 内容 |
 | --- | --- |
-| `schemaVersion` | `5` 固定 |
+| `schemaVersion` | `6` 固定 |
 | `title` | 1文字以上。空白だけは不可 |
+| `milestoneGroups` | マイルストン帯の行。空でもよい。タスクのカテゴリ・グループとは別 |
 | `milestones` | マイルストンの配列。空でもよい |
 | `categories` | 1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
-| `id` | カテゴリ、グループ、タスク、マイルストンの UUID。1つのスケジュールの中で、この4種を通して重複しない |
+| `id` | カテゴリ、グループ、タスク、マイルストン、マイルストングループの UUID。1つのスケジュールの中で、この5種を通して重複しない |
+| `groupId`（マイルストン） | 属する `milestoneGroups` の `id`。存在しない ID は不可 |
 | `name` | 1文字以上。空白だけは不可 |
 | `date` / `start` / `end` | `YYYY-MM-DD`。実在する日。`end` はその日を含む。`end` は `start` 以降の日付にする。同じ日なら1日のタスクになる |
 | `assigneeId` | メンバー JSON の `id`。割り当てなしは `null`。UUID である必要はない。スケジュール側ではメンバーの実在を検査しない |
@@ -71,14 +74,15 @@
 
 ### 以前の schemaVersion
 
-開けるのは schemaVersion 3、4、5 である。
+開けるのは schemaVersion 3、4、5、6 である。
 
 - schemaVersion 1 の終了日は、その日を含まない書き方（最終日の翌日）だった。読み込むと終了日を1日戻して schemaVersion 2 にする（[src/model/scheduleMigrate.ts](../src/model/scheduleMigrate.ts)）。そのあと schemaVersion 2 として拒否するので、結果として開けない
-- schemaVersion 2 は、担当が名前（`assignee`）の形式なので拒否する。メッセージは、`assigneeId` と `confidence` を使う schemaVersion 5 へ更新するよう求める
-- schemaVersion 3 は開ける。確度が無いタスクは `committed` として読み、schemaVersion 4 にしたうえで、次と同じく schemaVersion 5 にする。既に `confidence` があるタスクはその値のまま検証する
-- schemaVersion 4 は開ける。カテゴリとグループに `id` が無いので、名前から決まる UUID を付けて schemaVersion 5 にする。同じファイルを開き直しても、その ID は変わらない。タスクやマイルストンの ID とぶつかったときだけ、別の ID にする
-- 未保存の比較元は、3 または 4 を 5 にしたあとの保存形式である。ディスク上の文字列とそのまま比べない。開いただけでは未保存にならない。保存すると schemaVersion 5 で、全部のタスクとマイルストンに `confidence` が入り、カテゴリとグループに `id` が入る
-- マイルストンに `confidence` が無い 3、4、5 は、そのマイルストンを `committed` として読む。既にある値はそのまま残す。schemaVersion は上げない
+- schemaVersion 2 は、担当が名前（`assignee`）の形式なので拒否する。メッセージは、`assigneeId` と `confidence` を使う schemaVersion 6 へ更新するよう求める
+- schemaVersion 3 は開ける。確度が無いタスクは `committed` として読み、schemaVersion 4 にしたうえで、次と同じく schemaVersion 6 にする。既に `confidence` があるタスクはその値のまま検証する
+- schemaVersion 4 は開ける。カテゴリとグループに `id` が無いので、名前から決まる UUID を付けて schemaVersion 5 にし、続けて schemaVersion 6 にする。同じファイルを開き直しても、その ID は変わらない。タスクやマイルストンの ID とぶつかったときだけ、別の ID にする
+- schemaVersion 5 は開ける。マイルストンが1件以上あるときは、名前「マイルストン」の `milestoneGroups` を1つ足し、全部のマイルストンにその `groupId` を付けて schemaVersion 6 にする。そのグループの ID は名前から決まり、カテゴリ、グループ、タスク、マイルストンの ID とぶつかったときだけ別にする。マイルストンが0件なら `milestoneGroups` は空のままである
+- 未保存の比較元は、3〜5 を 6 にしたあとの保存形式である。ディスク上の文字列とそのまま比べない。開いただけでは未保存にならない。保存すると schemaVersion 6 になる
+- マイルストンに `confidence` が無い 3、4、5 は、そのマイルストンを `committed` として読む。既にある値はそのまま残す。schemaVersion 5 の読み込みでは、そのあと 6 に上げる
 
 ## メンバー JSON（schemaVersion 1）
 
@@ -129,7 +133,7 @@
 
 アプリが書くスケジュール JSON は [src/model/serialize.ts](../src/model/serialize.ts) のキー順で、2スペースのインデントである（[src/model/scheduleFile.ts](../src/model/scheduleFile.ts) の `serializeScheduleDocument`）。
 
-キーの順は `schemaVersion`、`title`、`milestones`、`categories` である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。マイルストンは `id`、`name`、`date`、`confidence` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。
+キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones`、`categories` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。
 
 未保存かどうかは、この形にした文字列と、最後に開いた・保存した・読み直したときの文字列を比べて決める。インデントやキー順だけが違うファイルは、同じ内容として扱う。
 
@@ -144,6 +148,7 @@
 - マイルストンの絞り込みが「なし」のときは載せない
 - 特定のマイルストンで絞っているときは、その1件だけ
 - それ以外は、見えている行が参照しているものと、見えている行の期間に入るもの
+- 帯の線で隠したグループのマイルストンは載せない。期間の端にも使わない。超過の判定には、隠したグループのマイルストンも使う
 
 提案するファイル名は、タイトルから使えない文字を除いた本体に `.html` または `.svg` を付ける。タイトルが空、または Windows の予約名だけなら `schedule` を使う。
 
@@ -164,10 +169,10 @@
 | `settings.json` | `selectedMembersCatalogId` と `calendarLabel`。どちらも無くてよい | — |
 | `members/<catalogId>.json` | 取り込んだメンバー JSON の本文 | 2MB |
 | `calendar.json` | 取り込んだカレンダー JSON の本文 | 2MB |
-| `schedule-recovery.json` | 未保存の控え。`path`、`baselineJson`、`documentJson` | 10MB |
-| `last-schedule.json` | 前回開いたスケジュールの絶対パス。`path` だけ | — |
+| `schedule-recovery/<ハッシュ>.json` | 未保存の控え。パスごとに1ファイル。`path`、`baselineJson`、`documentJson` | 10MB |
+| `open-windows.json` | 開いていたウィンドウの順、`focusedLabel`、各ウィンドウの `label` と `path` またはサンプル | — |
 
-控えの `path` は開いているスケジュールの絶対パスである。`baselineJson` は最後に開いた・保存した・読み直したときの内容、`documentJson` は画面の内容で、この2つはどちらも上の保存形式の文字列である。サンプル（パスが無い）では控えを作らない。`last-schedule.json` は、開いたまたは保存したスケジュールの絶対パスだけを覚える。未保存でなくても残る。パスが無い状態で閉じると消える。ブラウザ版は控えも前回のパスも作らない。
+控えの `path` は開いているスケジュールの絶対パスである。`baselineJson` は最後に開いた・保存した・読み直したときの内容、`documentJson` は画面の内容で、この2つはどちらも上の保存形式の文字列である。サンプル（パスが無い）では控えを作らない。同じパスを複数のウィンドウで開いているとき、控えを書くのはそのパスを開いているウィンドウのうち前面のものだけである。`open-windows.json` は、ほかのウィンドウが残っているときに1枚閉じると、そのウィンドウだけ外す。最後の1枚を閉じるときと、アプリの終了時は、開いていた記録を残す。古い `last-schedule.json` と `schedule-recovery.json` は、初回起動時に上の形へ移してから消す。読めなかった古い控えは消さず、次回の起動で移し直す。ブラウザ版は控えもウィンドウ一覧も作らない。
 
 ブラウザ版は localStorage を使う。キーは次のとおりである。
 
@@ -193,6 +198,6 @@
 - `npm run check:schedule` は、引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する
 - `npm run check:calendar` は、引数なしなら [examples/jp-2026.calendar.json](../examples/jp-2026.calendar.json) を検証する
 - `npm run check:members` は、引数なしなら [examples/playground.members.json](../examples/playground.members.json) を検証する
-- 他のリポジトリへコピーしたスキルでは、同梱の `node .cursor/skills/write-schedule/scripts/validate-schedule.mjs <file>`、`node .cursor/skills/write-calendar/scripts/validate-calendar.mjs <file>`、`node .cursor/skills/write-members/scripts/validate-members.mjs <file>` を使う
+- 置いたスキルでは、各スキルフォルダで `node scripts/validate-schedule.mjs <file>`、`node scripts/validate-calendar.mjs <file>`、`node scripts/validate-members.mjs <file>` を使う
 
-`examples/playground.schedule.json` は手で開く例であり、引数なしの `check:schedule` では検証しない。
+`examples/playground.schedule.json` は手で開く例であり、引数なしの `check:schedule` では検証しない。内容は `src/sample/playgroundSchedule.ts` から `tsx scripts/write-playground-schedule.ts` で書き出す。

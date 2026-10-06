@@ -1,12 +1,29 @@
+mod json_skills;
+mod window_session;
+
+use json_skills::{
+    install_json_skills, json_skill_home_dirs, pick_json_skill_folder, uninstall_json_skills,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use tauri::Emitter;
 use tauri::Manager;
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
+use window_session::{
+    create_schedule_webview, delete_recovery_for_path, forget_window_focus,
+    migrate_legacy_session, next_schedule_window_label, note_window_focus, read_open_windows,
+    read_recovery_for_path, recovery_close_persist, recovery_live_persist, recovery_owner_label,
+    recovery_owners_by_path,
+    remove_window_label, set_focused_label, spawn_startup_windows, store_pending_open,
+    take_pending_open, upsert_window_path, write_open_windows, write_recovery_for_path,
+    OpenWindowEntry, WindowSessionState, WindowStartupRead,
+};
 
 const MAX_SCHEDULE_BYTES: u64 = 10 * 1024 * 1024;
 
@@ -32,19 +49,78 @@ struct ScheduleFileState {
     content_hash: Option<String>,
 }
 
+#[derive(Default)]
+struct ScheduleFileStates {
+    by_label: HashMap<String, ScheduleFileState>,
+}
+
+fn window_label(window: &tauri::Window) -> String {
+    window.label().to_string()
+}
+
+fn schedule_path_text(path: &Path) -> String {
+    path.to_string_lossy().into_owned()
+}
+
+fn windows_for_recovery(states: &ScheduleFileStates) -> Vec<(String, String)> {
+    let mut windows = Vec::new();
+    for (label, state) in &states.by_label {
+        if let Some(path) = &state.path {
+            windows.push((label.clone(), schedule_path_text(path)));
+        }
+    }
+    windows.sort_by(|left, right| left.0.cmp(&right.0));
+    windows
+}
+
+fn caller_is_recovery_owner(
+    session: &WindowSessionState,
+    states: &ScheduleFileStates,
+    label: &str,
+    path: &str,
+) -> bool {
+    recovery_owner_label(&session.focus_order, &windows_for_recovery(states), path).as_deref()
+        == Some(label)
+}
+
+fn other_windows_with_path(states: &ScheduleFileStates, label: &str, path: &str) -> usize {
+    states
+        .by_label
+        .iter()
+        .filter(|(other, state)| {
+            *other != label
+                && state
+                    .path
+                    .as_ref()
+                    .is_some_and(|open| schedule_path_text(open) == path)
+        })
+        .count()
+}
+
+fn any_window_focused(app: &tauri::AppHandle) -> bool {
+    app.webview_windows()
+        .values()
+        .any(|window| window.is_focused().unwrap_or(false))
+}
+
 fn hash_contents(contents: &str) -> String {
     let digest = Sha256::digest(contents.as_bytes());
     format!("{:x}", digest)
 }
 
 fn read_open_schedule<T>(
-    state: &Mutex<ScheduleFileState>,
+    states: &Mutex<ScheduleFileStates>,
+    label: &str,
     use_contents: impl Fn(&ScheduleFileState, &str, &str) -> Result<T, String>,
 ) -> Result<T, String> {
     for _ in 0..2 {
         let path = {
-            let guard = state.lock().expect("schedule file state");
-            guard
+            let guard = states.lock().expect("schedule file states");
+            let state = guard
+                .by_label
+                .get(label)
+                .ok_or_else(|| "開いているファイルがありません".to_string())?;
+            state
                 .path
                 .as_ref()
                 .ok_or_else(|| "開いているファイルがありません".to_string())?
@@ -52,9 +128,12 @@ fn read_open_schedule<T>(
         };
         let contents = read_utf8(&path, MAX_SCHEDULE_BYTES)?;
         let hash = hash_contents(&contents);
-        let guard = state.lock().expect("schedule file state");
-        if guard.path.as_ref() == Some(&path) {
-            return use_contents(&guard, &contents, &hash);
+        let guard = states.lock().expect("schedule file states");
+        let Some(state) = guard.by_label.get(label) else {
+            return Err("開いているファイルがありません".to_string());
+        };
+        if state.path.as_ref() == Some(&path) {
+            return use_contents(state, &contents, &hash);
         }
     }
     Err("開いているファイルがありません".to_string())
@@ -126,13 +205,10 @@ pub(crate) fn sanitize_export_filename(name: &str, default_ext: &str) -> String 
     if base.is_empty() {
         return format!("schedule.{}", default_ext);
     }
-    let stem = base
-        .rsplit_once('.')
-        .map(|(left, _)| left)
-        .unwrap_or(base);
+    let stem = base.rsplit_once('.').map(|(left, _)| left).unwrap_or(base);
     let reserved = [
-        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
-        "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+        "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
     ];
     if reserved.contains(&stem.to_ascii_uppercase().as_str()) {
         return format!("schedule.{}", default_ext);
@@ -157,28 +233,33 @@ pub(crate) fn require_active_save_path(
     active: Option<&Path>,
     expected: Option<&str>,
 ) -> Result<PathBuf, String> {
-    let active = active.ok_or_else(|| {
-        "保存先が選ばれていません。別名保存を使ってください。".to_string()
-    })?;
+    let active =
+        active.ok_or_else(|| "保存先が選ばれていません。別名保存を使ってください。".to_string())?;
     let expected = expected.ok_or_else(|| "保存先のパスが一致しません。".to_string())?;
     if active != Path::new(expected) {
-        return Err(
-            "保存先のパスが一致しません。ファイルを開き直してください。".to_string(),
-        );
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
     }
     Ok(active.to_path_buf())
 }
 
 fn record_open(
     app: &tauri::AppHandle,
-    state: &Mutex<ScheduleFileState>,
+    states: &Mutex<ScheduleFileStates>,
+    label: &str,
     path: PathBuf,
     contents: &str,
 ) -> Result<(), String> {
-    write_last_schedule_path(app, &path)?;
-    let mut guard = state.lock().expect("schedule file state");
-    guard.path = Some(path);
-    guard.content_hash = Some(hash_contents(contents));
+    let app_data = app_data_dir(app)?;
+    upsert_window_path(
+        &app_data,
+        label,
+        Some(path.to_string_lossy().as_ref()),
+        false,
+    )?;
+    let mut guard = states.lock().expect("schedule file states");
+    let state = guard.by_label.entry(label.to_string()).or_default();
+    state.path = Some(path);
+    state.content_hash = Some(hash_contents(contents));
     Ok(())
 }
 
@@ -186,7 +267,7 @@ fn record_open(
 async fn open_schedule_file(
     window: tauri::Window,
     app: tauri::AppHandle,
-    _state: State<'_, Mutex<ScheduleFileState>>,
+    _state: State<'_, Mutex<ScheduleFileStates>>,
     initial_directory: Option<String>,
 ) -> Result<Option<OpenScheduleResult>, String> {
     let mut picker = app
@@ -214,22 +295,30 @@ async fn open_schedule_file(
 
 #[tauri::command]
 fn accept_opened_schedule(
+    window: tauri::Window,
     app: tauri::AppHandle,
-    state: State<'_, Mutex<ScheduleFileState>>,
+    state: State<'_, Mutex<ScheduleFileStates>>,
     path: String,
     contents: String,
 ) -> Result<(), String> {
     if contents.len() as u64 > MAX_SCHEDULE_BYTES {
         return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
     }
-    record_open(&app, state.inner(), PathBuf::from(path), &contents)
+    record_open(
+        &app,
+        state.inner(),
+        &window_label(&window),
+        PathBuf::from(path),
+        &contents,
+    )
 }
 
 #[tauri::command]
 fn check_schedule_file_changed(
-    state: State<'_, Mutex<ScheduleFileState>>,
+    window: tauri::Window,
+    state: State<'_, Mutex<ScheduleFileStates>>,
 ) -> Result<bool, String> {
-    read_open_schedule(state.inner(), |guard, _contents, hash| {
+    read_open_schedule(state.inner(), &window_label(&window), |guard, _contents, hash| {
         Ok(guard.content_hash.as_deref() != Some(hash))
     })
 }
@@ -241,9 +330,10 @@ struct PollScheduleFileUpdateResult {
 
 #[tauri::command]
 fn poll_schedule_file_update(
-    state: State<'_, Mutex<ScheduleFileState>>,
+    window: tauri::Window,
+    state: State<'_, Mutex<ScheduleFileStates>>,
 ) -> Result<Option<PollScheduleFileUpdateResult>, String> {
-    read_open_schedule(state.inner(), |guard, contents, hash| {
+    read_open_schedule(state.inner(), &window_label(&window), |guard, contents, hash| {
         if guard.content_hash.as_deref() == Some(hash) {
             Ok(None)
         } else {
@@ -256,10 +346,16 @@ fn poll_schedule_file_update(
 
 #[tauri::command]
 fn read_open_schedule_file(
-    state: State<'_, Mutex<ScheduleFileState>>,
+    window: tauri::Window,
+    state: State<'_, Mutex<ScheduleFileStates>>,
 ) -> Result<String, String> {
-    let guard = state.lock().expect("schedule file state");
-    let path = guard
+    let label = window_label(&window);
+    let guard = state.lock().expect("schedule file states");
+    let file_state = guard
+        .by_label
+        .get(&label)
+        .ok_or_else(|| "開いているファイルがありません".to_string())?;
+    let path = file_state
         .path
         .as_ref()
         .ok_or_else(|| "開いているファイルがありません".to_string())?;
@@ -268,21 +364,27 @@ fn read_open_schedule_file(
 
 #[tauri::command]
 fn acknowledge_schedule_file_contents(
-    state: State<'_, Mutex<ScheduleFileState>>,
+    window: tauri::Window,
+    state: State<'_, Mutex<ScheduleFileStates>>,
     contents: String,
 ) -> Result<(), String> {
-    let mut guard = state.lock().expect("schedule file state");
-    if guard.path.is_none() {
+    let label = window_label(&window);
+    let mut guard = state.lock().expect("schedule file states");
+    let file_state = guard
+        .by_label
+        .get_mut(&label)
+        .ok_or_else(|| "開いているファイルがありません".to_string())?;
+    if file_state.path.is_none() {
         return Err("開いているファイルがありません".to_string());
     }
-    guard.content_hash = Some(hash_contents(&contents));
+    file_state.content_hash = Some(hash_contents(&contents));
     Ok(())
 }
 
 #[tauri::command]
 async fn save_schedule_file(
     window: tauri::Window,
-    state: State<'_, Mutex<ScheduleFileState>>,
+    state: State<'_, Mutex<ScheduleFileStates>>,
     contents: String,
     save_as: bool,
     suggested_name: String,
@@ -306,8 +408,13 @@ async fn save_schedule_file(
             None => return Ok(None),
         }
     } else {
-        let guard = state.lock().expect("schedule file state");
-        require_active_save_path(guard.path.as_deref(), expected_path.as_deref())?
+        let guard = state.lock().expect("schedule file states");
+        let label = window_label(&window);
+        let file_state = guard
+            .by_label
+            .get(&label)
+            .ok_or_else(|| "保存先が選ばれていません。別名保存を使ってください。".to_string())?;
+        require_active_save_path(file_state.path.as_deref(), expected_path.as_deref())?
     };
 
     if !is_json_path(&target) {
@@ -317,8 +424,13 @@ async fn save_schedule_file(
     if !save_as && !skip_disk_hash_check {
         let disk = read_utf8(&target, MAX_SCHEDULE_BYTES)?;
         let disk_hash = hash_contents(&disk);
-        let guard = state.lock().expect("schedule file state");
-        let expected_hash = guard
+        let guard = state.lock().expect("schedule file states");
+        let label = window_label(&window);
+        let file_state = guard
+            .by_label
+            .get(&label)
+            .ok_or_else(|| "開いているファイルがありません".to_string())?;
+        let expected_hash = file_state
             .content_hash
             .as_ref()
             .ok_or_else(|| "開いているファイルがありません".to_string())?;
@@ -331,6 +443,7 @@ async fn save_schedule_file(
     record_open(
         window.app_handle(),
         state.inner(),
+        &window_label(&window),
         target.clone(),
         &contents,
     )?;
@@ -444,7 +557,8 @@ fn sanitize_catalog_id(id: &str) -> Result<String, String> {
 fn list_catalog_entries(app: &tauri::AppHandle) -> Result<Vec<MemberCatalogEntry>, String> {
     let dir = members_dir(app)?;
     let mut entries = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|e| format!("メンバー一覧を読めません: {}", e))? {
+    for entry in fs::read_dir(&dir).map_err(|e| format!("メンバー一覧を読めません: {}", e))?
+    {
         let entry = entry.map_err(|e| format!("メンバー一覧を読めません: {}", e))?;
         let path = entry.path();
         if !path.is_file() {
@@ -481,7 +595,10 @@ fn get_members_settings(app: tauri::AppHandle) -> Result<MembersSettingsResult, 
 }
 
 #[tauri::command]
-fn read_member_catalog(app: tauri::AppHandle, catalog_id: String) -> Result<Option<String>, String> {
+fn read_member_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+) -> Result<Option<String>, String> {
     let id = sanitize_catalog_id(&catalog_id)?;
     let path = members_dir(&app)?.join(format!("{}.json", id));
     if !path.exists() {
@@ -540,66 +657,161 @@ fn calendar_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir(app)?.join("calendar.json"))
 }
 
-fn schedule_recovery_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    Ok(app_data_dir(app)?.join("schedule-recovery.json"))
+#[tauri::command]
+fn read_schedule_recovery(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    state: State<'_, Mutex<ScheduleFileStates>>,
+    path: Option<String>,
+) -> Result<Option<String>, String> {
+    let schedule_path = match path {
+        Some(value) => value,
+        None => {
+            let label = window_label(&window);
+            let guard = state.lock().expect("schedule file states");
+            guard
+                .by_label
+                .get(&label)
+                .and_then(|entry| entry.path.as_ref())
+                .map(|p| p.to_string_lossy().into_owned())
+                .ok_or_else(|| "開いているファイルがありません".to_string())?
+        }
+    };
+    read_recovery_for_path(&app_data_dir(&app)?, &schedule_path)
 }
 
 #[tauri::command]
-fn read_schedule_recovery(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let path = schedule_recovery_path(&app)?;
-    if !path.exists() {
-        return Ok(None);
-    }
-    Ok(Some(read_utf8_limited(
-        &path,
-        MAX_SCHEDULE_BYTES,
-        "復旧用の控えが大きすぎます（上限 10 MB）",
-    )?))
-}
-
-#[tauri::command]
-fn write_schedule_recovery(app: tauri::AppHandle, contents: String) -> Result<(), String> {
-    if contents.len() as u64 > MAX_SCHEDULE_BYTES {
-        return Err("復旧用の控えが大きすぎます（上限 10 MB）".to_string());
-    }
-    write_utf8_atomic(&schedule_recovery_path(&app)?, &contents)
-}
-
-#[tauri::command]
-fn delete_schedule_recovery(app: tauri::AppHandle) -> Result<(), String> {
-    let path = schedule_recovery_path(&app)?;
-    if path.exists() {
-        fs::remove_file(&path)
-            .map_err(|e| format!("復旧用の控えを削除できません: {}", e))?;
-    }
-    Ok(())
-}
-
-fn recovery_targets_path(recovery_text: &str, requested: &str) -> Result<(), String> {
-    let value: serde_json::Value = serde_json::from_str(recovery_text)
+fn write_schedule_recovery(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    contents: String,
+) -> Result<(), String> {
+    let value: serde_json::Value = serde_json::from_str(&contents)
         .map_err(|_| "復旧用の控えの形式が正しくありません。".to_string())?;
-    let expected = value
+    let path = value
         .get("path")
         .and_then(|value| value.as_str())
         .ok_or_else(|| "復旧用の控えの形式が正しくありません。".to_string())?;
-    if Path::new(expected) != Path::new(requested) {
-        return Err("復旧用の控えと違うファイルは読めません。".to_string());
+    let label = window_label(&window);
+    let session_guard = session.lock().expect("window session");
+    let states_guard = states.lock().expect("schedule file states");
+    if !caller_is_recovery_owner(&session_guard, &states_guard, &label, path) {
+        return Ok(());
+    }
+    drop(states_guard);
+    drop(session_guard);
+    write_recovery_for_path(&app_data_dir(&app)?, path, &contents)
+}
+
+#[tauri::command]
+fn delete_schedule_recovery(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    path: String,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    let session_guard = session.lock().expect("window session");
+    let states_guard = states.lock().expect("schedule file states");
+    let may_delete = caller_is_recovery_owner(&session_guard, &states_guard, &label, &path)
+        || !windows_for_recovery(&states_guard)
+            .iter()
+            .any(|(_, open)| open == &path);
+    drop(states_guard);
+    drop(session_guard);
+    if !may_delete {
+        return Ok(());
+    }
+    delete_recovery_for_path(&app_data_dir(&app)?, &path)
+}
+
+#[tauri::command]
+fn release_schedule_recovery(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    path: String,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    let others = {
+        let guard = states.lock().expect("schedule file states");
+        other_windows_with_path(&guard, &label, &path)
+    };
+    if others == 0 {
+        return delete_recovery_for_path(&app_data_dir(&app)?, &path);
+    }
+    let payload = RecoveryReconcilePayload { path };
+    for (other, webview) in app.webview_windows() {
+        if other != label {
+            let _ = webview.emit("schedule-recovery-reconcile", &payload);
+        }
     }
     Ok(())
+}
+
+#[tauri::command]
+fn recovery_live_action(
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    dirty: bool,
+) -> Result<String, String> {
+    let label = window_label(&window);
+    let session_guard = session.lock().expect("window session");
+    let states_guard = states.lock().expect("schedule file states");
+    let path = states_guard
+        .by_label
+        .get(&label)
+        .and_then(|state| state.path.as_ref())
+        .map(|path| schedule_path_text(path));
+    let Some(path) = path else {
+        return Ok(window_session::RecoveryPersist::Skip.as_str().to_string());
+    };
+    let owner = caller_is_recovery_owner(&session_guard, &states_guard, &label, &path);
+    Ok(recovery_live_persist(owner, dirty).as_str().to_string())
+}
+
+#[tauri::command]
+fn recovery_close_action(
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    dirty: bool,
+) -> Result<String, String> {
+    let label = window_label(&window);
+    let session_guard = session.lock().expect("window session");
+    let states_guard = states.lock().expect("schedule file states");
+    let path = states_guard
+        .by_label
+        .get(&label)
+        .and_then(|state| state.path.as_ref())
+        .map(|path| schedule_path_text(path));
+    let Some(path) = path else {
+        return Ok(window_session::RecoveryPersist::Skip.as_str().to_string());
+    };
+    let owner = if session_guard.quitting {
+        session_guard
+            .quit_recovery_owners
+            .get(&path)
+            .is_some_and(|owner| owner == &label)
+    } else {
+        caller_is_recovery_owner(&session_guard, &states_guard, &label, &path)
+    };
+    let others = other_windows_with_path(&states_guard, &label, &path);
+    Ok(recovery_close_persist(owner, others, dirty, session_guard.quitting)
+        .as_str()
+        .to_string())
 }
 
 #[tauri::command]
 fn read_schedule_file_at_path(app: tauri::AppHandle, path: String) -> Result<String, String> {
-    let recovery_path = schedule_recovery_path(&app)?;
-    if !recovery_path.is_file() {
+    let app_data = app_data_dir(&app)?;
+    if read_recovery_for_path(&app_data, &path)?.is_none() {
         return Err("復旧用の控えがありません。".to_string());
     }
-    let recovery_text = read_utf8_limited(
-        &recovery_path,
-        MAX_SCHEDULE_BYTES,
-        "復旧用の控えが大きすぎます（上限 10 MB）",
-    )?;
-    recovery_targets_path(&recovery_text, &path)?;
     let path_buf = PathBuf::from(&path);
     if !path_buf.is_file() {
         return Err(SCHEDULE_FILE_NOT_FOUND.to_string());
@@ -607,55 +819,343 @@ fn read_schedule_file_at_path(app: tauri::AppHandle, path: String) -> Result<Str
     read_utf8(&path_buf, MAX_SCHEDULE_BYTES)
 }
 
-fn last_schedule_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    Ok(app_data_dir(app)?.join("last-schedule.json"))
+#[derive(Serialize)]
+struct LastScheduleRead {
+    path: String,
+    contents: Option<String>,
+    error: Option<String>,
 }
 
-fn parse_last_schedule_path(text: &str) -> Result<String, String> {
-    let value: serde_json::Value = serde_json::from_str(text)
-        .map_err(|_| "前回のファイルの記録の形式が正しくありません。".to_string())?;
-    let path = value
-        .get("path")
-        .and_then(|value| value.as_str())
-        .unwrap_or("")
-        .trim();
-    if path.is_empty() {
-        return Err("前回のファイルの記録の形式が正しくありません。".to_string());
-    }
-    Ok(path.to_string())
+#[tauri::command]
+fn read_window_startup(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+) -> Result<WindowStartupRead, String> {
+    window_session::read_window_startup(&app_data_dir(&app)?, &window_label(&window))
 }
 
-fn parse_recovery_path(text: &str) -> Result<String, String> {
-    let value: serde_json::Value = serde_json::from_str(text)
-        .map_err(|_| "復旧用の控えの形式が正しくありません。".to_string())?;
-    let path = value
-        .get("path")
-        .and_then(|value| value.as_str())
-        .unwrap_or("")
-        .trim();
-    if path.is_empty() {
-        return Err("復旧用の控えの形式が正しくありません。".to_string());
+#[tauri::command]
+fn read_last_schedule_file(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+) -> Result<Option<LastScheduleRead>, String> {
+    let startup =
+        window_session::read_window_startup(&app_data_dir(&app)?, &window_label(&window))?;
+    if startup.sample && startup.path.is_none() {
+        return Ok(None);
     }
-    Ok(path.to_string())
-}
-
-pub(crate) fn resolve_remembered_path(
-    last_schedule_text: Option<&str>,
-    recovery_text: Option<&str>,
-) -> Result<Option<String>, String> {
-    if let Some(text) = last_schedule_text {
-        return Ok(Some(parse_last_schedule_path(text)?));
-    }
-    let Some(text) = recovery_text else {
+    let Some(path) = startup.path else {
         return Ok(None);
     };
-    if text.is_empty() {
-        return Ok(None);
+    Ok(Some(LastScheduleRead {
+        path,
+        contents: startup.contents,
+        error: startup.error,
+    }))
+}
+
+#[tauri::command]
+fn clear_last_schedule_path(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    let app_data = app_data_dir(&app)?;
+    upsert_window_path(&app_data, &label, None, true)?;
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct PendingScheduleWindowOpen {
+    path: String,
+    contents: String,
+}
+
+#[tauri::command]
+fn take_pending_schedule_window_open(
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<Option<PendingScheduleWindowOpen>, String> {
+    let label = window_label(&window);
+    let mut guard = session.lock().expect("window session");
+    Ok(take_pending_open(&mut guard, &label).map(|pending| PendingScheduleWindowOpen {
+        path: pending.path,
+        contents: pending.contents,
+    }))
+}
+
+#[tauri::command]
+fn create_schedule_window(
+    app: tauri::AppHandle,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    path: String,
+    contents: String,
+) -> Result<String, String> {
+    if contents.len() as u64 > MAX_SCHEDULE_BYTES {
+        return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
     }
-    match parse_recovery_path(text) {
-        Ok(path) => Ok(Some(path)),
-        Err(_) => Ok(None),
+    let label = next_schedule_window_label(&app)?;
+    let app_data = app_data_dir(&app)?;
+    let mut file = read_open_windows(&app_data)?;
+    file.windows.push(OpenWindowEntry {
+        label: label.clone(),
+        path: Some(path.clone()),
+        sample: false,
+    });
+    file.focused_label = label.clone();
+    write_open_windows(&app_data, &file)?;
+    {
+        let mut guard = session.lock().expect("window session");
+        store_pending_open(&mut guard, label.clone(), path.clone(), contents.clone());
+        note_window_focus(&mut guard, &label);
     }
+    if let Err(error) = create_schedule_webview(&app, &label, "schedule-viewer") {
+        {
+            let mut guard = session.lock().expect("window session");
+            let _ = take_pending_open(&mut guard, &label);
+            forget_window_focus(&mut guard, &label);
+        }
+        let _ = remove_window_label(&app_data, &label);
+        return Err(error);
+    }
+    let mut guard = states.lock().expect("schedule file states");
+    let state = guard.by_label.entry(label.clone()).or_default();
+    state.path = Some(PathBuf::from(path));
+    state.content_hash = Some(hash_contents(&contents));
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.set_focus();
+    }
+    let _ = set_focused_label(&app_data, &label);
+    Ok(label)
+}
+
+#[tauri::command]
+fn register_window_focus(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    {
+        let mut guard = session.lock().expect("window session");
+        note_window_focus(&mut guard, &label);
+    }
+    set_focused_label(&app_data_dir(&app)?, &label)
+}
+
+#[tauri::command]
+fn unregister_window_session(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    let app_data = app_data_dir(&app)?;
+    let window_count = app.webview_windows().len();
+    let (quitting, path, was_owner) = {
+        let session_guard = session.lock().expect("window session");
+        let states_guard = states.lock().expect("schedule file states");
+        let path = states_guard
+            .by_label
+            .get(&label)
+            .and_then(|state| state.path.as_ref())
+            .map(|open| schedule_path_text(open));
+        let was_owner = path.as_ref().is_some_and(|open| {
+            caller_is_recovery_owner(&session_guard, &states_guard, &label, open)
+        });
+        (session_guard.quitting, path, was_owner)
+    };
+    if !quitting && window_count > 1 {
+        remove_window_label(&app_data, &label)?;
+    }
+    {
+        let mut session_guard = session.lock().expect("window session");
+        forget_window_focus(&mut session_guard, &label);
+        let mut states_guard = states.lock().expect("schedule file states");
+        states_guard.by_label.remove(&label);
+    }
+    if quitting || window_count <= 1 || !was_owner {
+        return Ok(());
+    }
+    let Some(path) = path else {
+        return Ok(());
+    };
+    let still_open = {
+        let states_guard = states.lock().expect("schedule file states");
+        states_guard.by_label.values().any(|state| {
+            state
+                .path
+                .as_ref()
+                .is_some_and(|open| schedule_path_text(open) == path)
+        })
+    };
+    if !still_open {
+        return Ok(());
+    }
+    let payload = RecoveryReconcilePayload { path };
+    for (other, webview) in app.webview_windows() {
+        if other != label {
+            let _ = webview.emit("schedule-recovery-reconcile", &payload);
+        }
+    }
+    Ok(())
+}
+
+#[derive(Clone, Serialize)]
+struct RecoveryReconcilePayload {
+    path: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SchedulePeerNoticePayload {
+    target_label: String,
+    file_name: String,
+    status: String,
+}
+
+#[tauri::command]
+fn emit_schedule_peer_notice(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    target_label: String,
+    file_name: String,
+    status: String,
+) -> Result<(), String> {
+    let origin = window_label(&window);
+    let notice = status_notice_text(&status);
+    let payload = SchedulePeerNoticePayload {
+        target_label: target_label.clone(),
+        file_name: file_name.clone(),
+        status: status.clone(),
+    };
+    for (label, webview) in app.webview_windows() {
+        if label == origin {
+            continue;
+        }
+        let _ = webview.emit("schedule-peer-notice", &payload);
+    }
+    if status != "cleared" && !any_window_focused(&app) {
+        show_peer_os_notification(&app, file_name, notice.to_string(), target_label);
+    }
+    Ok(())
+}
+
+fn status_notice_text(status: &str) -> &str {
+    if status == "applied" {
+        "反映した"
+    } else {
+        "確認待ち"
+    }
+}
+
+fn show_peer_os_notification(
+    app: &tauri::AppHandle,
+    title: String,
+    body: String,
+    target_label: String,
+) {
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        show_linux_peer_notification(app.clone(), title, body, target_label);
+    }
+    #[cfg(not(all(unix, not(target_os = "macos"))))]
+    {
+        use tauri_plugin_notification::NotificationExt;
+        let _ = app
+            .notification()
+            .builder()
+            .title(title)
+            .body(body)
+            .extra("targetLabel", target_label)
+            .show();
+    }
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn show_linux_peer_notification(
+    app: tauri::AppHandle,
+    title: String,
+    body: String,
+    target_label: String,
+) {
+    let mut notification = notify_rust::Notification::new();
+    notification
+        .summary(&title)
+        .body(&body)
+        .action("default", "表示");
+    std::thread::spawn(move || {
+        let Ok(handle) = notification.show() else {
+            return;
+        };
+        handle.wait_for_action(move |action| {
+            if action != "default" {
+                return;
+            }
+            let Some(window) = app.get_webview_window(&target_label) else {
+                return;
+            };
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+        });
+    });
+}
+
+#[tauri::command]
+async fn show_schedule_peer_notification(
+    app: tauri::AppHandle,
+    title: String,
+    body: String,
+    target_label: String,
+) -> Result<(), String> {
+    if any_window_focused(&app) {
+        return Ok(());
+    }
+    show_peer_os_notification(&app, title, body, target_label);
+    Ok(())
+}
+
+#[tauri::command]
+fn focus_schedule_window(
+    app: tauri::AppHandle,
+    session: State<'_, Mutex<WindowSessionState>>,
+    label: String,
+) -> Result<(), String> {
+    let window = app
+        .get_webview_window(&label)
+        .ok_or_else(|| "ウィンドウが見つかりません。".to_string())?;
+    window
+        .set_focus()
+        .map_err(|e| format!("ウィンドウを前面に出せません: {}", e))?;
+    {
+        let mut guard = session.lock().expect("window session");
+        note_window_focus(&mut guard, &label);
+    }
+    let _ = set_focused_label(&app_data_dir(&app)?, &label);
+    Ok(())
+}
+
+#[tauri::command]
+fn list_open_window_labels(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    Ok(app
+        .webview_windows()
+        .keys()
+        .map(|label| label.to_string())
+        .collect())
+}
+
+#[tauri::command]
+fn close_other_schedule_windows(app: tauri::AppHandle, window: tauri::Window) -> Result<(), String> {
+    let origin = window_label(&window);
+    for (label, webview) in app.webview_windows() {
+        if label != origin {
+            let _ = webview.close();
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn choose_open_directory(
@@ -675,85 +1175,10 @@ fn dialog_start_directory(app: &tauri::AppHandle, requested: Option<&str>) -> Op
         .map(|value| Path::new(value).is_dir())
         .unwrap_or(false);
     let home = app.path().home_dir().ok();
-    let home_text = home.as_ref().map(|path| path.to_string_lossy().into_owned());
+    let home_text = home
+        .as_ref()
+        .map(|path| path.to_string_lossy().into_owned());
     choose_open_directory(requested, requested_is_dir, home_text.as_deref()).map(PathBuf::from)
-}
-
-fn write_last_schedule_path(app: &tauri::AppHandle, path: &Path) -> Result<(), String> {
-    let text = serde_json::json!({ "path": path.to_string_lossy() }).to_string();
-    write_utf8_atomic(&last_schedule_path(app)?, &text)
-}
-
-fn read_last_schedule_text(app: &tauri::AppHandle) -> Result<Option<String>, String> {
-    let path = last_schedule_path(app)?;
-    if !path.is_file() {
-        return Ok(None);
-    }
-    Ok(Some(read_utf8(&path, MAX_SCHEDULE_BYTES)?))
-}
-
-fn read_recovery_text(app: &tauri::AppHandle) -> Result<Option<String>, String> {
-    let path = schedule_recovery_path(app)?;
-    if !path.is_file() {
-        return Ok(None);
-    }
-    Ok(Some(read_utf8_limited(
-        &path,
-        MAX_SCHEDULE_BYTES,
-        "復旧用の控えが大きすぎます（上限 10 MB）",
-    )?))
-}
-
-#[derive(Serialize)]
-struct LastScheduleRead {
-    path: String,
-    contents: Option<String>,
-    error: Option<String>,
-}
-
-#[tauri::command]
-fn read_last_schedule_file(app: tauri::AppHandle) -> Result<Option<LastScheduleRead>, String> {
-    let last_text = read_last_schedule_text(&app)?;
-    let recovery_text = if last_text.is_none() {
-        read_recovery_text(&app)?
-    } else {
-        None
-    };
-    let remembered =
-        resolve_remembered_path(last_text.as_deref(), recovery_text.as_deref())?;
-    let Some(path) = remembered else {
-        return Ok(None);
-    };
-    let path_buf = PathBuf::from(&path);
-    if !path_buf.is_file() {
-        return Ok(Some(LastScheduleRead {
-            path,
-            contents: None,
-            error: Some(SCHEDULE_FILE_NOT_FOUND.to_string()),
-        }));
-    }
-    match read_utf8(&path_buf, MAX_SCHEDULE_BYTES) {
-        Ok(contents) => Ok(Some(LastScheduleRead {
-            path,
-            contents: Some(contents),
-            error: None,
-        })),
-        Err(message) => Ok(Some(LastScheduleRead {
-            path,
-            contents: None,
-            error: Some(message),
-        })),
-    }
-}
-
-#[tauri::command]
-fn clear_last_schedule_path(app: tauri::AppHandle) -> Result<(), String> {
-    let path = last_schedule_path(&app)?;
-    if path.exists() {
-        fs::remove_file(&path)
-            .map_err(|e| format!("前回のファイルの記録を削除できません: {}", e))?;
-    }
-    Ok(())
 }
 
 #[derive(Serialize)]
@@ -808,11 +1233,144 @@ fn delete_app_calendar(app: tauri::AppHandle) -> Result<(), String> {
     write_settings(&app, &settings)
 }
 
+fn finish_application_quit(
+    app: &tauri::AppHandle,
+    session: &Mutex<WindowSessionState>,
+    states: &Mutex<ScheduleFileStates>,
+) -> bool {
+    let labels: Vec<String> = {
+        let mut guard = session.lock().expect("window session");
+        if !guard.quit_active {
+            return false;
+        }
+        if guard.quit_labels.is_empty()
+            || !guard
+                .quit_labels
+                .iter()
+                .all(|label| guard.quit_ready.iter().any(|ready| ready == label))
+        {
+            return false;
+        }
+        let states_guard = states.lock().expect("schedule file states");
+        guard.quit_recovery_owners = recovery_owners_by_path(
+            &guard.focus_order,
+            &windows_for_recovery(&states_guard),
+        );
+        drop(states_guard);
+        guard.quit_active = false;
+        guard.quitting = true;
+        guard.quit_labels.clone()
+    };
+    for label in labels {
+        if let Some(window) = app.get_webview_window(&label) {
+            let _ = window.close();
+        }
+    }
+    true
+}
+
+#[tauri::command]
+fn request_application_quit(
+    app: tauri::AppHandle,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<(), String> {
+    let labels: Vec<String> = app.webview_windows().keys().cloned().collect();
+    {
+        let mut guard = session.lock().expect("window session");
+        guard.quit_active = true;
+        guard.quitting = false;
+        guard.quit_labels = labels;
+        guard.quit_ready.clear();
+    }
+    for (_, window) in app.webview_windows() {
+        let _ = window.emit("application-quit-requested", ());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn accept_application_quit(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    {
+        let mut guard = session.lock().expect("window session");
+        if !guard.quit_active || !guard.quit_labels.iter().any(|item| item == &label) {
+            return Ok(());
+        }
+        if !guard.quit_ready.iter().any(|item| item == &label) {
+            guard.quit_ready.push(label);
+        }
+    }
+    let _ = finish_application_quit(&app, session.inner(), states.inner());
+    Ok(())
+}
+
+#[tauri::command]
+fn cancel_application_quit(
+    app: tauri::AppHandle,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<(), String> {
+    {
+        let mut guard = session.lock().expect("window session");
+        guard.quit_active = false;
+        guard.quitting = false;
+        guard.quit_labels.clear();
+        guard.quit_ready.clear();
+        guard.quit_recovery_owners.clear();
+    }
+    for (_, window) in app.webview_windows() {
+        let _ = window.emit("application-quit-cancelled", ());
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(Mutex::new(ScheduleFileState::default()))
+        .manage(Mutex::new(ScheduleFileStates::default()))
+        .manage(Mutex::new(WindowSessionState::default()))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            let file = app
+                .path()
+                .app_data_dir()
+                .ok()
+                .and_then(|dir| read_open_windows(&dir).ok());
+            let focus_label = file
+                .as_ref()
+                .map(|value| value.focused_label.clone())
+                .unwrap_or_else(|| "main".to_string());
+            if let Some(window) = app.get_webview_window(&focus_label) {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+                return;
+            }
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
+        .setup(|app| {
+            let handle = app.handle().clone();
+            if let Ok(dir) = app_data_dir(&handle) {
+                let _ = migrate_legacy_session(&dir);
+                let session = handle.state::<Mutex<WindowSessionState>>();
+                let mut guard = session.lock().expect("window session");
+                if !guard.startup_spawned {
+                    guard.startup_spawned = true;
+                    drop(guard);
+                    let _ = spawn_startup_windows(&handle, &dir);
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             open_schedule_file,
             accept_opened_schedule,
@@ -834,9 +1392,29 @@ pub fn run() {
             read_schedule_recovery,
             write_schedule_recovery,
             delete_schedule_recovery,
+            release_schedule_recovery,
+            recovery_live_action,
+            recovery_close_action,
             read_schedule_file_at_path,
             read_last_schedule_file,
+            read_window_startup,
             clear_last_schedule_path,
+            create_schedule_window,
+            take_pending_schedule_window_open,
+            register_window_focus,
+            unregister_window_session,
+            emit_schedule_peer_notice,
+            show_schedule_peer_notification,
+            focus_schedule_window,
+            list_open_window_labels,
+            close_other_schedule_windows,
+            request_application_quit,
+            accept_application_quit,
+            cancel_application_quit,
+            json_skill_home_dirs,
+            pick_json_skill_folder,
+            install_json_skills,
+            uninstall_json_skills,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -847,8 +1425,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::{
-        choose_open_directory, read_utf8, recovery_targets_path, require_active_save_path,
-        resolve_remembered_path, sanitize_export_filename,
+        choose_open_directory, read_utf8, require_active_save_path, sanitize_export_filename,
     };
 
     #[test]
@@ -882,8 +1459,7 @@ mod tests {
     #[test]
     fn require_active_save_path_accepts_matching_path() {
         let active = PathBuf::from("/tmp/plan.json");
-        let resolved =
-            require_active_save_path(Some(&active), Some("/tmp/plan.json")).unwrap();
+        let resolved = require_active_save_path(Some(&active), Some("/tmp/plan.json")).unwrap();
         assert_eq!(resolved, active);
     }
 
@@ -893,28 +1469,6 @@ mod tests {
         assert!(require_active_save_path(Some(&active), Some("/tmp/b.json")).is_err());
         assert!(require_active_save_path(None, Some("/tmp/a.json")).is_err());
         assert!(require_active_save_path(Some(&active), None).is_err());
-    }
-
-    #[test]
-    fn resolve_remembered_path_prefers_last_schedule_over_recovery() {
-        let last = r#"{"path":"/tmp/current.json"}"#;
-        let recovery = r#"{"path":"/tmp/old.json","baselineJson":"{}","documentJson":"{}"}"#;
-        let path = resolve_remembered_path(Some(last), Some(recovery)).unwrap();
-        assert_eq!(path.as_deref(), Some("/tmp/current.json"));
-    }
-
-    #[test]
-    fn resolve_remembered_path_uses_recovery_when_last_schedule_is_absent() {
-        let recovery = r#"{"path":"/tmp/plan.json","baselineJson":"{}","documentJson":"{}"}"#;
-        let path = resolve_remembered_path(None, Some(recovery)).unwrap();
-        assert_eq!(path.as_deref(), Some("/tmp/plan.json"));
-        assert_eq!(resolve_remembered_path(None, None).unwrap(), None);
-    }
-
-    #[test]
-    fn resolve_remembered_path_rejects_broken_last_schedule_and_skips_broken_recovery() {
-        assert!(resolve_remembered_path(Some("{"), None).is_err());
-        assert_eq!(resolve_remembered_path(None, Some("{")).unwrap(), None);
     }
 
     #[test]
@@ -932,13 +1486,5 @@ mod tests {
             choose_open_directory(Some("/tmp/missing"), false, None),
             None
         );
-    }
-
-    #[test]
-    fn recovery_targets_path_accepts_only_the_draft_path() {
-        let recovery = r#"{"path":"/tmp/plan.json","baselineJson":"{}","documentJson":"{}"}"#;
-        assert!(recovery_targets_path(recovery, "/tmp/plan.json").is_ok());
-        assert!(recovery_targets_path(recovery, "/tmp/other.json").is_err());
-        assert!(recovery_targets_path("{", "/tmp/plan.json").is_err());
     }
 }

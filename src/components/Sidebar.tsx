@@ -9,7 +9,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, GripVertical } from "lucide-react";
 import { milestonesExceededBy } from "../model/milestones";
 import {
   assigneeColumnChars,
@@ -22,6 +22,8 @@ import type { Member, MemberId } from "../model/memberTypes";
 import {
   categoryCollapseKey,
   groupCollapseKey,
+  reorderDragBlockRows,
+  rowInReorderDragBlock,
 } from "../model/rows";
 import { isOverdue } from "../model/timeline";
 import { TaskNoteButton } from "./TaskNoteButton";
@@ -40,7 +42,7 @@ import {
 import type { StickyLayout } from "../model/stickyRows";
 import {
   canReorderTaskInGroup,
-  classifyRowDrag,
+  classifyHandleDrag,
   resolveTaskDropTarget,
 } from "../model/taskOrder";
 import type { Category, Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
@@ -84,6 +86,7 @@ type SidebarProps = {
   ) => void;
   onCancelReorder: () => void;
   milestoneBandHeight: number;
+  milestoneBandLayout: import("../model/milestones").MilestoneBandLayout;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
   onToggleCollapse: (key: string) => void;
@@ -133,6 +136,7 @@ export function Sidebar({
   onCommitGroupReorder,
   onCancelReorder,
   milestoneBandHeight,
+  milestoneBandLayout,
   milestones,
   memberCatalog,
   onToggleCollapse,
@@ -255,30 +259,37 @@ export function Sidebar({
     ],
   );
 
-  const hierarchyDragRef = useRef<{
+  const rowDragRef = useRef<{
     pointerId: number;
-    kind: "category" | "group";
+    kind: "category" | "group" | "task";
     id: ScheduleId;
     downEl: HTMLDivElement;
     startX: number;
     startY: number;
-    mode: "pending" | "slide" | "reorder" | "ignore";
-    slideStartOffset: number;
-    overflow: number;
-    canSlide: boolean;
+    grabOffsetY: number;
+    mode: "pending" | "reorder" | "ignore";
     canReorder: boolean;
     lastPreviewKey: string | null;
     detach: () => void;
   } | null>(null);
-  const [categoryOffsets, setCategoryOffsets] = useState<Record<string, number>>({});
-  const [groupOffsets, setGroupOffsets] = useState<Record<string, number>>({});
-  const [slidingCategoryId, setSlidingCategoryId] = useState<ScheduleId | null>(null);
-  const [slidingGroupId, setSlidingGroupId] = useState<ScheduleId | null>(null);
+  const [dragGhost, setDragGhost] = useState<{
+    kind: "category" | "group" | "task";
+    id: ScheduleId;
+    top: number;
+  } | null>(null);
+
+  const isRowHiddenByDragGhost = useCallback(
+    (row: VisibleRow) => {
+      if (dragGhost == null) return false;
+      return rowInReorderDragBlock(row, rows, dragGhost.kind, dragGhost.id);
+    },
+    [dragGhost, rows],
+  );
 
   useEffect(() => {
     return () => {
-      hierarchyDragRef.current?.detach();
-      hierarchyDragRef.current = null;
+      rowDragRef.current?.detach();
+      rowDragRef.current = null;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
@@ -329,49 +340,90 @@ export function Sidebar({
     ],
   );
 
-  const beginHierarchyDrag = (
-    kind: "category" | "group",
+  const reorderAllowed = (kind: "category" | "group" | "task", id: ScheduleId) => {
+    if (!canEditDocument) return false;
+    if (kind === "category") {
+      return canReorderCategory(categories, id, reorderBaseRows, rowHeight);
+    }
+    if (kind === "group") {
+      return canReorderGroup(categories, id, reorderBaseRows, rowHeight);
+    }
+    return canReorderTaskInGroup(categories, id, reorderBaseRows);
+  };
+
+  const previewRowReorder = (
+    drag: NonNullable<(typeof rowDragRef)["current"]>,
+    clientX: number,
+    clientY: number,
+  ) => {
+    if (drag.kind === "task") {
+      const target = resolveReorderInsert(drag.id, clientX, clientY);
+      if (target == null) return;
+      const key = `${target.targetGroupId}:${target.insertIndex}`;
+      if (key === drag.lastPreviewKey) return;
+      drag.lastPreviewKey = key;
+      onPreviewTaskReorder(drag.id, target.targetGroupId, target.insertIndex);
+      return;
+    }
+    if (drag.kind === "category") {
+      const insertIndex = resolveCategoryInsert(drag.id, clientX, clientY);
+      if (insertIndex == null) return;
+      const key = String(insertIndex);
+      if (key === drag.lastPreviewKey) return;
+      drag.lastPreviewKey = key;
+      onPreviewCategoryReorder(drag.id, insertIndex);
+      return;
+    }
+    const target = resolveGroupInsert(drag.id, clientX, clientY);
+    if (target == null) return;
+    const key = `${target.targetCategoryId}:${target.insertIndex}`;
+    if (key === drag.lastPreviewKey) return;
+    drag.lastPreviewKey = key;
+    onPreviewGroupReorder(drag.id, target.targetCategoryId, target.insertIndex);
+  };
+
+  const beginRowDrag = (
+    kind: "category" | "group" | "task",
     id: ScheduleId,
     event: ReactPointerEvent<HTMLDivElement>,
-    metrics: { canSlide: boolean; overflow: number; offset: number },
   ) => {
-    if (event.button !== 0) return;
-    if ((event.target as HTMLElement).closest("button")) return;
     const viewport = viewportRef.current;
     if (!viewport) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // ポインタが既に無効なときは、window の監視だけで続ける。
+    }
+    document.body.style.userSelect = "none";
+    const rowEl = event.currentTarget.closest(".sidebar-row");
+    const rowTop =
+      rowEl instanceof HTMLElement ? rowEl.getBoundingClientRect().top : event.clientY;
     const onMove = (native: PointerEvent) => {
-      onHierarchyPointerMove(native);
+      onRowPointerMove(native);
     };
     const onUp = (native: PointerEvent) => {
-      hierarchyDragRef.current?.detach();
-      finishHierarchyDrag(native.pointerId, native.clientX, native.clientY, true);
+      rowDragRef.current?.detach();
+      finishRowDrag(native.pointerId, native.clientX, native.clientY, true);
     };
     const onCancel = (native: PointerEvent) => {
-      hierarchyDragRef.current?.detach();
-      finishHierarchyDrag(native.pointerId, 0, 0, false);
+      rowDragRef.current?.detach();
+      finishRowDrag(native.pointerId, 0, 0, false);
     };
     const detach = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
     };
-    hierarchyDragRef.current = {
+    rowDragRef.current = {
       pointerId: event.pointerId,
       kind,
       id,
       downEl: event.currentTarget,
       startX: event.clientX,
       startY: event.clientY,
+      grabOffsetY: event.clientY - rowTop,
       mode: "pending",
-      slideStartOffset: metrics.offset,
-      overflow: metrics.overflow,
-      canSlide: metrics.canSlide,
-      canReorder:
-        canEditDocument &&
-        (kind === "category"
-          ? canReorderCategory(categories, id, reorderBaseRows, rowHeight)
-          : canReorderGroup(categories, id, reorderBaseRows, rowHeight)),
+      canReorder: reorderAllowed(kind, id),
       lastPreviewKey: null,
       detach,
     };
@@ -380,20 +432,19 @@ export function Sidebar({
     window.addEventListener("pointercancel", onCancel);
   };
 
-  const finishHierarchyDrag = (
+  const finishRowDrag = (
     pointerId: number,
     clientX: number,
     clientY: number,
     commit: boolean,
   ) => {
-    const drag = hierarchyDragRef.current;
+    const drag = rowDragRef.current;
     if (!drag || drag.pointerId !== pointerId) return;
     drag.detach();
-    hierarchyDragRef.current = null;
-    setSlidingCategoryId(null);
-    setSlidingGroupId(null);
+    rowDragRef.current = null;
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
+    setDragGhost(null);
     if (drag.downEl.isConnected && drag.downEl.hasPointerCapture(pointerId)) {
       drag.downEl.releasePointerCapture(pointerId);
     }
@@ -401,9 +452,18 @@ export function Sidebar({
     if (viewport?.hasPointerCapture(pointerId)) {
       viewport.releasePointerCapture(pointerId);
     }
+    if (drag.mode === "pending") {
+      return;
+    }
     if (drag.mode !== "reorder") return;
     if (!commit) {
       onCancelReorder();
+      return;
+    }
+    if (drag.kind === "task") {
+      const target = resolveReorderInsert(drag.id, clientX, clientY);
+      if (target == null) onCancelReorder();
+      else onCommitTaskReorder(drag.id, target.targetGroupId, target.insertIndex);
       return;
     }
     if (drag.kind === "category") {
@@ -423,103 +483,48 @@ export function Sidebar({
     }
   };
 
-  const previewHierarchyReorder = (
-    kind: "category" | "group",
-    id: ScheduleId,
-    insertIndex: number,
-    targetCategoryId?: ScheduleId,
-  ) => {
-    if (kind === "category") onPreviewCategoryReorder(id, insertIndex);
-    else if (targetCategoryId != null) {
-      onPreviewGroupReorder(id, targetCategoryId, insertIndex);
-    }
-  };
-
-  const onHierarchyPointerMove = (event: {
+  const onRowPointerMove = (event: {
     pointerId: number;
     clientX: number;
     clientY: number;
   }) => {
-    const drag = hierarchyDragRef.current;
+    const drag = rowDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
     if (drag.mode === "pending") {
-      const gesture = classifyRowDrag(dx, dy, drag.canSlide, drag.canReorder);
+      const gesture = classifyHandleDrag(dx, dy, drag.canReorder);
       if (gesture === "pending") return;
       drag.mode = gesture;
-      if (gesture === "slide") {
-        if (drag.kind === "category") setSlidingCategoryId(drag.id);
-        else setSlidingGroupId(drag.id);
-        return;
-      }
-      if (gesture === "reorder") {
-        document.body.style.cursor = "grabbing";
-        document.body.style.userSelect = "none";
-        viewportRef.current?.setPointerCapture(event.pointerId);
-        if (drag.kind === "category") {
-          const insertIndex = resolveCategoryInsert(
-            drag.id,
-            event.clientX,
-            event.clientY,
-          );
-          if (insertIndex != null) {
-            drag.lastPreviewKey = String(insertIndex);
-            previewHierarchyReorder("category", drag.id, insertIndex);
-          }
-        } else {
-          const target = resolveGroupInsert(
-            drag.id,
-            event.clientX,
-            event.clientY,
-          );
-          if (target != null) {
-            drag.lastPreviewKey = `${target.targetCategoryId}:${target.insertIndex}`;
-            previewHierarchyReorder(
-              "group",
-              drag.id,
-              target.insertIndex,
-              target.targetCategoryId,
-            );
-          }
+      if (gesture !== "reorder") return;
+      document.body.style.cursor = "grabbing";
+      const viewport = viewportRef.current;
+      if (viewport != null) {
+        try {
+          viewport.setPointerCapture(event.pointerId);
+        } catch {
+          // 握り側の監視が残っていれば、並べ替えは続ける。
         }
       }
-      return;
     }
-    if (drag.mode === "slide") {
-      const next = drag.slideStartOffset + (event.clientX - drag.startX);
-      const offset = Math.min(0, Math.max(-drag.overflow, next));
-      const setOffsets = drag.kind === "category" ? setCategoryOffsets : setGroupOffsets;
-      setOffsets((prev) => (prev[drag.id] === offset ? prev : { ...prev, [drag.id]: offset }));
-      return;
-    }
-    if (drag.mode === "reorder") {
-      if (drag.kind === "category") {
-        const insertIndex = resolveCategoryInsert(
-          drag.id,
-          event.clientX,
-          event.clientY,
-        );
-        const key = insertIndex == null ? null : String(insertIndex);
-        if (key == null || key === drag.lastPreviewKey) return;
-        drag.lastPreviewKey = key;
-        previewHierarchyReorder("category", drag.id, insertIndex!);
-        return;
+    if (drag.mode !== "reorder") return;
+    previewRowReorder(drag, event.clientX, event.clientY);
+    const viewport = viewportRef.current;
+    if (viewport == null) return;
+    const raw = event.clientY - viewport.getBoundingClientRect().top - drag.grabOffsetY;
+    const maxTop = Math.max(0, viewport.clientHeight - rowHeight);
+    const top = Math.round(Math.min(Math.max(0, raw), maxTop));
+    setDragGhost((current) => {
+      if (
+        current != null &&
+        current.kind === drag.kind &&
+        current.id === drag.id &&
+        current.top === top
+      ) {
+        return current;
       }
-      const target = resolveGroupInsert(drag.id, event.clientX, event.clientY);
-      const key =
-        target == null
-          ? null
-          : `${target.targetCategoryId}:${target.insertIndex}`;
-      if (key == null || key === drag.lastPreviewKey) return;
-      drag.lastPreviewKey = key;
-      previewHierarchyReorder(
-        "group",
-        drag.id,
-        target!.insertIndex,
-        target!.targetCategoryId,
-      );
-    }
+      return { kind: drag.kind, id: drag.id, top };
+    });
   };
 
   return (
@@ -527,10 +532,18 @@ export function Sidebar({
       <div className="sidebar-header">WBS / タスク</div>
       {milestoneBandHeight > 0 ? (
         <div
-          className="sidebar-milestones"
+          className="sidebar-milestone-groups"
           style={{ height: milestoneBandHeight }}
         >
-          マイルストン
+          {milestoneBandLayout.blocks.map((block) => (
+            <div
+              key={block.group.id}
+              className="sidebar-milestones"
+              style={{ height: block.height }}
+            >
+              {block.group.name}
+            </div>
+          ))}
         </div>
       ) : null}
       <div
@@ -538,8 +551,8 @@ export function Sidebar({
         ref={viewportRef}
         onLostPointerCapture={(event) => {
           if (event.target !== event.currentTarget) return;
-          hierarchyDragRef.current?.detach();
-          finishHierarchyDrag(event.pointerId, 0, 0, false);
+          rowDragRef.current?.detach();
+          finishRowDrag(event.pointerId, 0, 0, false);
         }}
       >
         <div
@@ -558,14 +571,15 @@ export function Sidebar({
                   row={row}
                   top={row.y}
                   rowHeight={rowHeight}
-                  reordering={row.id === reorderingCategoryId}
-                  offset={categoryOffsets[row.id] ?? 0}
-                  sliding={slidingCategoryId === row.id}
+                  reordering={
+                    row.id === reorderingCategoryId || isRowHiddenByDragGhost(row)
+                  }
+                  canReorder={reorderAllowed("category", row.id)}
                   onToggleCollapse={onToggleCollapse}
                   onHierarchyContextMenu={onHierarchyContextMenu}
                   onHierarchyDoubleClick={onHierarchyDoubleClick}
-                  onCategoryPointerDown={(event, metrics) =>
-                    beginHierarchyDrag("category", row.id, event, metrics)
+                  onGripPointerDown={(event) =>
+                    beginRowDrag("category", row.id, event)
                   }
                 />
               );
@@ -577,15 +591,14 @@ export function Sidebar({
                   row={row}
                   top={row.y}
                   rowHeight={rowHeight}
-                  reordering={row.id === reorderingGroupId}
-                  offset={groupOffsets[row.id] ?? 0}
-                  sliding={slidingGroupId === row.id}
+                  reordering={
+                    row.id === reorderingGroupId || isRowHiddenByDragGhost(row)
+                  }
+                  canReorder={reorderAllowed("group", row.id)}
                   onToggleCollapse={onToggleCollapse}
                   onHierarchyContextMenu={onHierarchyContextMenu}
                   onHierarchyDoubleClick={onHierarchyDoubleClick}
-                  onGroupPointerDown={(event, metrics) =>
-                    beginHierarchyDrag("group", row.id, event, metrics)
-                  }
+                  onGripPointerDown={(event) => beginRowDrag("group", row.id, event)}
                 />
               );
             }
@@ -597,40 +610,17 @@ export function Sidebar({
                 rowHeight={rowHeight}
                 selected={row.task.id === selectedTaskId}
                 hovered={row.task.id === hoveredTaskId}
-                reordering={row.task.id === reorderingTaskId}
-                onSelect={() => onSelectTask(row.task.id)}
-                canReorder={
-                  canEditDocument &&
-                  canReorderTaskInGroup(categories, row.task.id, reorderBaseRows)
+                reordering={
+                  row.task.id === reorderingTaskId || isRowHiddenByDragGhost(row)
                 }
+                onSelect={() => onSelectTask(row.task.id)}
+                canReorder={reorderAllowed("task", row.task.id)}
                 today={today}
                 milestones={milestones}
                 memberCatalog={memberCatalog}
                 onOpenTaskNote={() => onOpenTaskNote(row.task.id)}
                 onTaskContextMenu={(x, y) => onTaskContextMenu(row.task.id, x, y)}
-                resolveReorderInsert={(clientX, clientY) =>
-                  resolveReorderInsert(row.task.id, clientX, clientY)
-                }
-                onPreviewReorder={(target) => {
-                  if (target == null) return;
-                  onPreviewTaskReorder(
-                    row.task.id,
-                    target.targetGroupId,
-                    target.insertIndex,
-                  );
-                }}
-                onCommitReorder={(target) => {
-                  if (target == null) {
-                    onCancelReorder();
-                    return;
-                  }
-                  onCommitTaskReorder(
-                    row.task.id,
-                    target.targetGroupId,
-                    target.insertIndex,
-                  );
-                }}
-                onCancelReorder={onCancelReorder}
+                onGripPointerDown={(event) => beginRowDrag("task", row.task.id, event)}
                 sidebarColumns={sidebarColumns}
               />
             );
@@ -662,14 +652,15 @@ export function Sidebar({
                     row={row}
                     top={top}
                     rowHeight={rowHeight}
-                    reordering={row.id === reorderingCategoryId}
-                    offset={categoryOffsets[row.id] ?? 0}
-                    sliding={slidingCategoryId === row.id}
+                    reordering={
+                    row.id === reorderingCategoryId || isRowHiddenByDragGhost(row)
+                  }
+                    canReorder={reorderAllowed("category", row.id)}
                     onToggleCollapse={onToggleCollapse}
                     onHierarchyContextMenu={onHierarchyContextMenu}
                     onHierarchyDoubleClick={onHierarchyDoubleClick}
-                    onCategoryPointerDown={(event, metrics) =>
-                      beginHierarchyDrag("category", row.id, event, metrics)
+                    onGripPointerDown={(event) =>
+                      beginRowDrag("category", row.id, event)
                     }
                   />
                 ) : (
@@ -677,14 +668,15 @@ export function Sidebar({
                     row={row}
                     top={top}
                     rowHeight={rowHeight}
-                    reordering={row.id === reorderingGroupId}
-                    offset={groupOffsets[row.id] ?? 0}
-                    sliding={slidingGroupId === row.id}
+                    reordering={
+                    row.id === reorderingGroupId || isRowHiddenByDragGhost(row)
+                  }
+                    canReorder={reorderAllowed("group", row.id)}
                     onToggleCollapse={onToggleCollapse}
                     onHierarchyContextMenu={onHierarchyContextMenu}
                     onHierarchyDoubleClick={onHierarchyDoubleClick}
-                    onGroupPointerDown={(event, metrics) =>
-                      beginHierarchyDrag("group", row.id, event, metrics)
+                    onGripPointerDown={(event) =>
+                      beginRowDrag("group", row.id, event)
                     }
                   />
                 )}
@@ -692,6 +684,19 @@ export function Sidebar({
             );
           })}
         </div>
+        {dragGhost != null ? (
+          <SidebarDragGhost
+            ghost={dragGhost}
+            rows={rows}
+            rowHeight={rowHeight}
+            assigneeChars={assigneeChars}
+            selectedTaskId={selectedTaskId}
+            today={today}
+            milestones={milestones}
+            memberCatalog={memberCatalog}
+            sidebarColumns={sidebarColumns}
+          />
+        ) : null}
       </div>
       <SidebarResizer
         uiScale={uiScale}
@@ -816,24 +821,87 @@ function SidebarResizer({
   );
 }
 
+function NameLabel({ text, overdue }: { text: string; overdue?: boolean }) {
+  const clipRef = useRef<HTMLSpanElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [overflow, setOverflow] = useState(false);
+
+  useLayoutEffect(() => {
+    const clip = clipRef.current;
+    const label = textRef.current;
+    if (!clip || !label) return;
+
+    const measure = () => {
+      setOverflow(label.scrollWidth - clip.clientWidth > 0);
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(clip);
+    return () => observer.disconnect();
+  }, [text]);
+
+  return (
+    <span
+      ref={clipRef}
+      className={`row-label${overdue ? " overdue" : ""}`}
+      title={overflow ? text : undefined}
+    >
+      <span ref={textRef} className="row-label-text">{text}</span>
+    </span>
+  );
+}
+
+function RowGrip({
+  canReorder,
+  label,
+  onPointerDown,
+}: {
+  canReorder: boolean;
+  label: string;
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div
+      className={`row-grip${canReorder ? " can-reorder" : ""}`}
+      role="button"
+      tabIndex={-1}
+      aria-label={label}
+      aria-disabled={!canReorder}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onPointerDown(event);
+      }}
+      onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
+      <GripVertical size={14} strokeWidth={2.25} aria-hidden="true" />
+    </div>
+  );
+}
+
 function CategorySidebarRow({
   row,
   top,
   rowHeight,
   reordering,
-  offset,
-  sliding,
+  canReorder,
   onToggleCollapse,
   onHierarchyContextMenu,
   onHierarchyDoubleClick,
-  onCategoryPointerDown,
+  onGripPointerDown,
 }: {
   row: Extract<VisibleRow, { type: "category" }>;
   top: number;
   rowHeight: number;
   reordering: boolean;
-  offset: number;
-  sliding: boolean;
+  canReorder: boolean;
   onToggleCollapse: (key: string) => void;
   onHierarchyContextMenu: (
     kind: "category" | "group",
@@ -842,31 +910,8 @@ function CategorySidebarRow({
     y: number,
   ) => void;
   onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
-  onCategoryPointerDown: (
-    event: ReactPointerEvent<HTMLDivElement>,
-    metrics: { canSlide: boolean; overflow: number; offset: number },
-  ) => void;
+  onGripPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
-  const clipRef = useRef<HTMLSpanElement>(null);
-  const textRef = useRef<HTMLSpanElement>(null);
-  const [overflow, setOverflow] = useState(0);
-  const canSlide = overflow > 0 || offset < 0;
-
-  useLayoutEffect(() => {
-    const clip = clipRef.current;
-    const label = textRef.current;
-    if (!clip || !label) return;
-
-    const measure = () => {
-      setOverflow(Math.max(0, label.scrollWidth - clip.clientWidth));
-    };
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(clip);
-    return () => observer.disconnect();
-  }, [row.label]);
-
   return (
     <div
       className={`sidebar-row category${reordering ? " reordering" : ""}`}
@@ -885,23 +930,20 @@ function CategorySidebarRow({
         event.preventDefault();
         onHierarchyContextMenu("category", row.id, event.clientX, event.clientY);
       }}
-      onPointerDown={(event) => {
-        onCategoryPointerDown(event, { canSlide, overflow, offset });
-      }}
     >
-      <CollapseButton
-        label={row.label}
-        collapsed={row.collapsed}
-        onClick={() => onToggleCollapse(categoryCollapseKey(row.id))}
+      <RowGrip
+        canReorder={canReorder}
+        label="カテゴリを並べ替える"
+        onPointerDown={onGripPointerDown}
       />
-      <span
-        ref={clipRef}
-        className={`slide-label${canSlide ? " can-slide" : ""}${sliding ? " sliding" : ""}${offset < 0 ? " shifted" : ""}`}
-        style={{ "--slide": `${offset}px` } as CSSProperties}
-        title={canSlide ? row.label : undefined}
-      >
-        <span ref={textRef} className="slide-label-text">{row.label}</span>
-      </span>
+      <div className="sidebar-row-body">
+        <CollapseButton
+          label={row.label}
+          collapsed={row.collapsed}
+          onClick={() => onToggleCollapse(categoryCollapseKey(row.id))}
+        />
+        <NameLabel text={row.label} />
+      </div>
     </div>
   );
 }
@@ -911,19 +953,17 @@ function HierarchySidebarRow({
   top,
   rowHeight,
   reordering,
-  offset,
-  sliding,
+  canReorder,
   onToggleCollapse,
   onHierarchyContextMenu,
   onHierarchyDoubleClick,
-  onGroupPointerDown,
+  onGripPointerDown,
 }: {
   row: Extract<VisibleRow, { type: "group" }>;
   top: number;
   rowHeight: number;
   reordering: boolean;
-  offset: number;
-  sliding: boolean;
+  canReorder: boolean;
   onToggleCollapse: (key: string) => void;
   onHierarchyContextMenu: (
     kind: "category" | "group",
@@ -932,31 +972,8 @@ function HierarchySidebarRow({
     y: number,
   ) => void;
   onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
-  onGroupPointerDown: (
-    event: ReactPointerEvent<HTMLDivElement>,
-    metrics: { canSlide: boolean; overflow: number; offset: number },
-  ) => void;
+  onGripPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
-  const clipRef = useRef<HTMLSpanElement>(null);
-  const textRef = useRef<HTMLSpanElement>(null);
-  const [overflow, setOverflow] = useState(0);
-  const canSlide = overflow > 0 || offset < 0;
-
-  useLayoutEffect(() => {
-    const clip = clipRef.current;
-    const label = textRef.current;
-    if (!clip || !label) return;
-
-    const measure = () => {
-      setOverflow(Math.max(0, label.scrollWidth - clip.clientWidth));
-    };
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(clip);
-    return () => observer.disconnect();
-  }, [row.label]);
-
   return (
     <div
       className={`sidebar-row group${reordering ? " reordering" : ""}`}
@@ -975,23 +992,20 @@ function HierarchySidebarRow({
         event.preventDefault();
         onHierarchyContextMenu("group", row.id, event.clientX, event.clientY);
       }}
-      onPointerDown={(event) => {
-        onGroupPointerDown(event, { canSlide, overflow, offset });
-      }}
     >
-      <CollapseButton
-        label={row.label}
-        collapsed={row.collapsed}
-        onClick={() => onToggleCollapse(groupCollapseKey(row.id))}
+      <RowGrip
+        canReorder={canReorder}
+        label="グループを並べ替える"
+        onPointerDown={onGripPointerDown}
       />
-      <span
-        ref={clipRef}
-        className={`slide-label${canSlide ? " can-slide" : ""}${sliding ? " sliding" : ""}${offset < 0 ? " shifted" : ""}`}
-        style={{ "--slide": `${offset}px` } as CSSProperties}
-        title={canSlide ? row.label : undefined}
-      >
-        <span ref={textRef} className="slide-label-text">{row.label}</span>
-      </span>
+      <div className="sidebar-row-body">
+        <CollapseButton
+          label={row.label}
+          collapsed={row.collapsed}
+          onClick={() => onToggleCollapse(groupCollapseKey(row.id))}
+        />
+        <NameLabel text={row.label} />
+      </div>
     </div>
   );
 }
@@ -1010,10 +1024,7 @@ function TaskSidebarRow({
   onOpenTaskNote,
   onTaskContextMenu,
   onSelect,
-  resolveReorderInsert,
-  onPreviewReorder,
-  onCommitReorder,
-  onCancelReorder,
+  onGripPointerDown,
   sidebarColumns,
 }: {
   task: Task;
@@ -1030,36 +1041,8 @@ function TaskSidebarRow({
   onOpenTaskNote: () => void;
   onTaskContextMenu: (x: number, y: number) => void;
   onSelect: () => void;
-  resolveReorderInsert: (
-    clientX: number,
-    clientY: number,
-  ) => { targetGroupId: ScheduleId; insertIndex: number } | null;
-  onPreviewReorder: (
-    target: { targetGroupId: ScheduleId; insertIndex: number } | null,
-  ) => void;
-  onCommitReorder: (
-    target: { targetGroupId: ScheduleId; insertIndex: number } | null,
-  ) => void;
-  onCancelReorder: () => void;
+  onGripPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
-  const clipRef = useRef<HTMLSpanElement>(null);
-  const textRef = useRef<HTMLSpanElement>(null);
-  const pointerRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    mode: "pending" | "slide" | "reorder" | "ignore";
-    slideStartOffset: number;
-    lastPreviewKey: string | null;
-  } | null>(null);
-  const [offset, setOffset] = useState(0);
-  const [overflow, setOverflow] = useState(0);
-  const [slideDragging, setSlideDragging] = useState(false);
-
-  const dropPreviewKey = (
-    target: { targetGroupId: ScheduleId; insertIndex: number } | null,
-  ) => (target == null ? null : `${target.targetGroupId}:${target.insertIndex}`);
-
   const assigneeDisplay = resolveAssigneeDisplay(task.assigneeId, memberCatalog);
   const assigneeClass =
     assigneeDisplay.kind === "unassigned"
@@ -1073,50 +1056,6 @@ function TaskSidebarRow({
     exceeded.length === 0
       ? undefined
       : `${exceeded.map((milestone) => milestone.name).join("、")}を超える計画です`;
-  const canSlide = overflow > 0 || offset < 0;
-
-  useLayoutEffect(() => {
-    const clip = clipRef.current;
-    const label = textRef.current;
-    if (!clip || !label) return;
-
-    const measure = () => {
-      const hidden = Math.max(0, label.scrollWidth - clip.clientWidth);
-      setOverflow(hidden);
-      setOffset((current) => Math.min(0, Math.max(-hidden, current)));
-    };
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(clip);
-    return () => observer.disconnect();
-  }, [task.name]);
-
-  const endPointer = (
-    event: ReactPointerEvent<HTMLDivElement>,
-    commit: boolean,
-  ) => {
-    const drag = pointerRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    pointerRef.current = null;
-    setSlideDragging(false);
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    if (drag.mode === "pending") {
-      if (commit) onSelect();
-      return;
-    }
-    if (drag.mode === "slide") return;
-    if (drag.mode !== "reorder") return;
-    if (!commit) {
-      onCancelReorder();
-      return;
-    }
-    onCommitReorder(resolveReorderInsert(event.clientX, event.clientY));
-  };
 
   const rowStyle: CSSProperties = {
     position: "absolute",
@@ -1131,74 +1070,24 @@ function TaskSidebarRow({
       className={`sidebar-row task${selected ? " selected" : ""}${hovered ? " hovered" : ""}${rowClass}${reordering ? " reordering" : ""}`}
       style={rowStyle}
       title={exceededTitle}
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest("button, .row-grip")) return;
+        onSelect();
+      }}
       onContextMenu={(event) => {
         event.preventDefault();
         onTaskContextMenu(event.clientX, event.clientY);
       }}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return;
-        if ((event.target as HTMLElement).closest("button")) return;
-        pointerRef.current = {
-          pointerId: event.pointerId,
-          startX: event.clientX,
-          startY: event.clientY,
-          mode: "pending",
-          slideStartOffset: offset,
-          lastPreviewKey: null,
-        };
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        const drag = pointerRef.current;
-        if (!drag || drag.pointerId !== event.pointerId) return;
-        const dx = event.clientX - drag.startX;
-        const dy = event.clientY - drag.startY;
-        if (drag.mode === "pending") {
-          const gesture = classifyRowDrag(dx, dy, canSlide, canReorder);
-          if (gesture === "pending") return;
-          drag.mode = gesture;
-          if (gesture === "slide") {
-            setSlideDragging(true);
-            return;
-          }
-          if (gesture === "reorder") {
-            document.body.style.cursor = "grabbing";
-            document.body.style.userSelect = "none";
-            const target = resolveReorderInsert(event.clientX, event.clientY);
-            const key = dropPreviewKey(target);
-            if (key != null) {
-              drag.lastPreviewKey = key;
-              onPreviewReorder(target);
-            }
-          }
-          return;
-        }
-        if (drag.mode === "slide") {
-          const next = drag.slideStartOffset + (event.clientX - drag.startX);
-          setOffset(Math.min(0, Math.max(-overflow, next)));
-          return;
-        }
-        if (drag.mode === "reorder") {
-          const target = resolveReorderInsert(event.clientX, event.clientY);
-          const key = dropPreviewKey(target);
-          if (key == null || key === drag.lastPreviewKey) return;
-          drag.lastPreviewKey = key;
-          onPreviewReorder(target);
-        }
-      }}
-      onPointerUp={(event) => endPointer(event, true)}
-      onPointerCancel={(event) => endPointer(event, false)}
-      onLostPointerCapture={(event) => endPointer(event, false)}
     >
+      <RowGrip
+        canReorder={canReorder}
+        label="タスクを並べ替える"
+        onPointerDown={onGripPointerDown}
+      />
+      <div className="sidebar-row-body">
       <TaskNoteButton task={task} onOpen={onOpenTaskNote} />
-      <span
-        ref={clipRef}
-        className={`slide-label${isOverdue(task, today) ? " overdue" : ""}${canSlide ? " can-slide" : ""}${slideDragging ? " sliding" : ""}${offset < 0 ? " shifted" : ""}`}
-        style={{ "--slide": `${offset}px` } as CSSProperties}
-        title={canSlide ? task.name : undefined}
-      >
-        <span ref={textRef} className="slide-label-text">{task.name}</span>
-      </span>
+      <NameLabel text={task.name} overdue={isOverdue(task, today)} />
       <span className="sidebar-trail">
         {sidebarColumns.start ||
         sidebarColumns.end ||
@@ -1247,6 +1136,107 @@ function TaskSidebarRow({
             : assigneeSidebarLabel(assigneeDisplay)}
         </span>
       </span>
+      </div>
+    </div>
+  );
+}
+
+function SidebarDragGhost({
+  ghost,
+  rows,
+  rowHeight,
+  assigneeChars,
+  selectedTaskId,
+  today,
+  milestones,
+  memberCatalog,
+  sidebarColumns,
+}: {
+  ghost: { kind: "category" | "group" | "task"; id: ScheduleId; top: number };
+  rows: VisibleRow[];
+  rowHeight: number;
+  assigneeChars: number;
+  selectedTaskId: ScheduleId | null;
+  today: string;
+  milestones: Milestone[];
+  memberCatalog: Map<MemberId, Member> | null;
+  sidebarColumns: SidebarColumnsPreference;
+}) {
+  const block = useMemo(
+    () => reorderDragBlockRows(rows, ghost.kind, ghost.id),
+    [rows, ghost.kind, ghost.id],
+  );
+  if (block.length === 0) return null;
+
+  const gripDown = () => {};
+
+  return (
+    <div
+      className="sidebar-drag-ghost"
+      style={
+        {
+          top: ghost.top,
+          height: block.length * rowHeight,
+          "--assignee-chars": String(assigneeChars),
+        } as CSSProperties
+      }
+      aria-hidden="true"
+    >
+      {block.map((row, index) => {
+        const top = index * rowHeight;
+        if (row.type === "category") {
+          return (
+            <CategorySidebarRow
+              key={`category-${row.id}`}
+              row={row}
+              top={top}
+              rowHeight={rowHeight}
+              reordering={false}
+              canReorder
+              onToggleCollapse={() => {}}
+              onHierarchyContextMenu={() => {}}
+              onHierarchyDoubleClick={() => {}}
+              onGripPointerDown={gripDown}
+            />
+          );
+        }
+        if (row.type === "group") {
+          return (
+            <HierarchySidebarRow
+              key={`group-${row.id}`}
+              row={row}
+              top={top}
+              rowHeight={rowHeight}
+              reordering={false}
+              canReorder
+              onToggleCollapse={() => {}}
+              onHierarchyContextMenu={() => {}}
+              onHierarchyDoubleClick={() => {}}
+              onGripPointerDown={gripDown}
+            />
+          );
+        }
+        return (
+          <TaskSidebarRow
+            key={`task-${row.task.id}`}
+            task={row.task}
+            top={top}
+            rowHeight={rowHeight}
+            selected={row.task.id === selectedTaskId}
+            hovered={false}
+            reordering={false}
+            canReorder
+            today={today}
+            milestones={milestones}
+            memberCatalog={memberCatalog}
+            onOpenTaskNote={() => {}}
+            onTaskContextMenu={() => {}}
+            onSelect={() => {}}
+            onGripPointerDown={gripDown}
+            sidebarColumns={sidebarColumns}
+          />
+        );
+      })}
     </div>
   );
 }

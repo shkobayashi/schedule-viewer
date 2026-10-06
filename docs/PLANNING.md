@@ -9,7 +9,7 @@
 - OS: Mac / Windows / Ubuntu 対応のGUIデスクトップアプリ
 - 用途: LLM(Claude)が生成したスケジュールを表示・フィルタリング・編集・ズームイン/アウトする
 - 方向性: WBS/ガントツールという見た目だが、制約やスケジュール計算の機能はすべてLLMとスキルに寄せ、アプリ自体には持たせない
-- データ形式: JSON（`docs/schedule.schema.json`、`schemaVersion: 5`。カテゴリとグループは `id` を持ち、名前は表示である。担当は `assigneeId`、割り当てなしは `null`。タスクとマイルストンの `confidence` は `tentative` か `committed`。マイルストンに確度が無いときは確定として読む。メンバー一覧は別 JSON。終了日はその日を含む。開けるのは schemaVersion 3、4、5。3 は確度なしを確定として読む。4 はカテゴリとグループへ名前から決まる ID を付ける。v1 は終了日を移行したあと v2 として拒否する。詳細は [data-format.md](data-format.md)）
+- データ形式: JSON（`docs/schedule.schema.json`、`schemaVersion: 6`。マイルストンは `milestoneGroups` と `groupId` で帯の行に分ける。カテゴリとグループは `id` を持ち、名前は表示である。担当は `assigneeId`、割り当てなしは `null`。タスクとマイルストンの `confidence` は `tentative` か `committed`。メンバー一覧は別 JSON。終了日はその日を含む。開けるのは schemaVersion 3〜6。v1 は終了日を移行したあと v2 として拒否する。詳細は [data-format.md](data-format.md)）
 - 利用者: チーム内で配布・共有(自分専用ではない)
 
 ## 技術スタック(決定事項)
@@ -78,9 +78,9 @@
 
 画面の挙動は [外部仕様](external-spec.md) に移した。
 
-## スケジュール JSON（schemaVersion 5）
+## スケジュール JSON（schemaVersion 6）
 
-形式は [データ仕様](data-format.md#スケジュール-jsonschemaversion-5) に移した。
+形式は [データ仕様](data-format.md#スケジュール-jsonschemaversion-6) に移した。
 
 カテゴリとグループの識別子は名前ではなく `id` である。Issue 85 の改名を、差分の削除と追加にしないためである。カテゴリやグループの追加と、タスクの付け替えはまだしない。別ファイルのマスターにはしない。
 
@@ -97,6 +97,11 @@
 ## 今後の検討
 
 - LLM ネイティブ連携機能
+
+## 決定（JSON 作成スキルの配置）
+
+- `write-schedule`、`write-members`、`write-calendar` は配布ビルドに同梱する。利用者が置く操作はデスクトップ版の設定から行う
+- deb や NSIS などのインストーラーは、ホームやプロジェクトへスキルをコピーしない。初回起動でも勝手に書かない
 
 ## 既知の課題
 

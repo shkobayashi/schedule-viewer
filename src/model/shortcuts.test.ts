@@ -126,7 +126,9 @@ describe("matchAppShortcut", () => {
     expect(matchAppShortcut(key("s", { ctrlKey: true, altKey: true }), idle)).toBeNull();
     expect(matchAppShortcut(key("Enter", { ctrlKey: true }), idle)).toBeNull();
     expect(matchAppShortcut(key("Enter", { shiftKey: true }), idle)).toBeNull();
-    expect(matchAppShortcut(key("o", { ctrlKey: true, shiftKey: true }), idle)).toBeNull();
+    expect(matchAppShortcut(key("o", { ctrlKey: true, shiftKey: true }), idle)).toBe(
+      "openNew",
+    );
   });
 });
 
@@ -208,7 +210,7 @@ describe("blocksBrowserShortcut", () => {
       false,
     );
     expect(blocksBrowserShortcut(key("o", { ctrlKey: true, shiftKey: true }))).toBe(
-      false,
+      true,
     );
     expect(blocksBrowserShortcut(key("z", { ctrlKey: true }))).toBe(false);
     expect(blocksBrowserShortcut(key("Enter"))).toBe(false);

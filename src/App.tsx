@@ -54,6 +54,7 @@ import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useScheduleFile } from "./hooks/useScheduleFile";
+import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
 import { errorMessage } from "./model/errors";
 import {
@@ -82,14 +83,16 @@ import {
 import { isoDateAtChartX, parseDate } from "./model/dates";
 import { resizeEndIso, resizeStartIso } from "./model/dragDates";
 import {
-  layoutMilestones,
+  layoutMilestoneBand,
   milestoneBandHeightPx,
+  type MilestoneBandLayout,
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
 import { findTaskById } from "./model/rows";
 import {
   layoutStickyHeaders,
   scrollYToRevealTask,
+  scrollYToShowSelectedTask,
 } from "./model/stickyRows";
 import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
@@ -97,6 +100,7 @@ import { computeTimelineRange, taskBarWidthPx } from "./model/timeline";
 import type { ScheduleId, Task } from "./model/types";
 import {
   applyResolvedColorScheme,
+  COLOR_SCHEME_LS_KEY,
   readColorSchemePreference,
   resolveColorScheme,
   subscribeSystemColorScheme,
@@ -104,6 +108,7 @@ import {
 } from "./model/colorScheme";
 import type { ResolvedColorScheme } from "./model/palette";
 import {
+  DISPLAY_SCALE_LS_KEY,
   readDisplayScalePreference,
   readUiScale,
   resolveUiScale,
@@ -119,15 +124,20 @@ import {
   appliedSidebarWidth,
   nudgeSidebarWidth,
   readSidebarWidth,
+  SIDEBAR_WIDTH_LS_KEY,
   writeSidebarWidth,
 } from "./model/sidebarWidth";
 import {
   readRowDensity,
   readShowLightning,
   readSidebarColumns,
+  ROW_DENSITY_LS_KEY,
+  SHOW_LIGHTNING_LS_KEY,
+  SIDEBAR_COLUMNS_LS_KEY,
   type RowDensity,
   type SidebarColumnsPreference,
 } from "./model/viewPreferences";
+import { SETTINGS_REVISION_KEY } from "./model/sharedSettingsRevision";
 import { seedSampleMemberCatalogOnce } from "./model/memberAppData";
 import {
   SAMPLE_MEMBERS_CATALOG_ID,
@@ -136,12 +146,14 @@ import { sampleMembersJson } from "./sample/members";
 import {
   SAMPLE_PROJECT_TITLE,
   sampleCategories,
+  sampleMilestoneGroups,
   sampleMilestones,
 } from "./sample/schedule";
 
 const INITIAL_BASELINE_JSON = serializeScheduleDocument(
   SAMPLE_PROJECT_TITLE,
   sampleCategories,
+  sampleMilestoneGroups,
   sampleMilestones,
 );
 
@@ -184,7 +196,7 @@ function App() {
   uiScaleRef.current = uiScale;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
-    "display" | "members" | "calendar"
+    "display" | "members" | "calendar" | "jsonSkills"
   >("display");
   const [rowDensity, setRowDensity] = useState<RowDensity>(readRowDensity);
   const [showLightningLine, setShowLightningLine] = useState(readShowLightning);
@@ -365,6 +377,40 @@ function App() {
   const memberCatalogState = useMemberCatalog();
   const appCalendarState = useAppCalendar();
 
+  const refreshMemberCatalog = memberCatalogState.refresh;
+  const refreshAppCalendar = appCalendarState.refresh;
+  const refreshSharedSettings = useCallback((key: string | null) => {
+    const all = key == null;
+    if (all || key === SETTINGS_REVISION_KEY) {
+      void refreshMemberCatalog();
+      void refreshAppCalendar();
+    }
+    if (all || key === DISPLAY_SCALE_LS_KEY || key === SETTINGS_REVISION_KEY) {
+      setDisplayScalePreference(readDisplayScalePreference());
+    }
+    if (all || key === COLOR_SCHEME_LS_KEY) {
+      const preference = readColorSchemePreference();
+      setColorSchemePreference(preference);
+      setResolvedColorScheme(resolveColorScheme(preference));
+    }
+    if (all || key === SIDEBAR_WIDTH_LS_KEY) {
+      const next = readSidebarWidth();
+      preferredSidebarWidthRef.current = next;
+      setPreferredSidebarWidth(next);
+    }
+    if (all || key === ROW_DENSITY_LS_KEY) {
+      setRowDensity(readRowDensity());
+    }
+    if (all || key === SHOW_LIGHTNING_LS_KEY) {
+      setShowLightningLine(readShowLightning());
+    }
+    if (all || key === SIDEBAR_COLUMNS_LS_KEY) {
+      setSidebarColumns(readSidebarColumns());
+    }
+  }, [refreshAppCalendar, refreshMemberCatalog]);
+
+  useSharedSettingsRevision(refreshSharedSettings);
+
   useEffect(() => {
     void (async () => {
       await seedSampleMemberCatalogOnce(
@@ -380,6 +426,7 @@ function App() {
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
+    sampleMilestoneGroups,
     sampleMilestones,
     rowHeight,
     memberCatalogState.members,
@@ -404,6 +451,7 @@ function App() {
     [schedule.categories, schedule.milestones, schedule.today],
   );
 
+  const [timelineEpoch, setTimelineEpoch] = useState(0);
   const view = useTimelineView(
     {
       timelineStart: range.timelineStart,
@@ -412,7 +460,9 @@ function App() {
     timelineWidth,
     (pxPerDay) => {
       const band = milestoneBandHeightPx(
+        schedule.milestoneGroups,
         schedule.milestones,
+        schedule.visibleMilestoneGroupIds,
         pxPerDay,
         milestoneFontSize,
         milestoneDiamondSize,
@@ -422,27 +472,32 @@ function App() {
       return Math.max(0, schedule.visibleRows.length * rowHeight - body);
     },
     schedule.today,
+    `${timelineEpoch}:${schedule.diskEpoch}`,
   );
 
-  const milestoneLanes = useMemo(
+  const milestoneBandLayout: MilestoneBandLayout = useMemo(
     () =>
-      layoutMilestones(
+      layoutMilestoneBand(
+        schedule.milestoneGroups,
         schedule.milestones,
+        schedule.visibleMilestoneGroupIds,
         view.pxPerDay,
         milestoneFontSize,
         milestoneDiamondSize,
+        milestoneLaneHeight,
+        "screen",
       ),
     [
       milestoneDiamondSize,
       milestoneFontSize,
+      milestoneLaneHeight,
+      schedule.milestoneGroups,
       schedule.milestones,
+      schedule.visibleMilestoneGroupIds,
       view.pxPerDay,
     ],
   );
-  const milestoneBandHeight =
-    schedule.milestones.length === 0
-      ? 0
-      : (Math.max(...milestoneLanes.values(), 0) + 1) * milestoneLaneHeight;
+  const milestoneBandHeight = milestoneBandLayout.totalHeight;
   const bodyHeight = Math.max(
     120,
     timelineSlotHeight - headerHeight - milestoneBandHeight,
@@ -463,6 +518,8 @@ function App() {
     scrollY,
     tier,
     dateToX,
+    timelineStart: viewStart,
+    totalDays: viewTotalDays,
   } = view;
 
   const filterAssigneeLabel = useMemo(
@@ -475,6 +532,7 @@ function App() {
 
   const onAfterOpenFile = useCallback(() => {
     setPendingFit(true);
+    setTimelineEpoch((epoch) => epoch + 1);
   }, []);
 
   useEffect(() => {
@@ -486,6 +544,7 @@ function App() {
   const scheduleFile = useScheduleFile({
     title: schedule.title,
     categories: schedule.categories,
+    milestoneGroups: schedule.milestoneGroups,
     milestones: schedule.milestones,
     replaceDocument: schedule.replaceDocument,
     reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
@@ -510,6 +569,13 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [scheduleFile.reloadNotice]);
 
+  const peerNoticeMessage = useMemo(() => {
+    const notice = scheduleFile.peerNotice.peerNotice;
+    if (!notice) return null;
+    const statusLabel = notice.status === "applied" ? "反映した" : "確認待ち";
+    return `${notice.fileName} — ${statusLabel}`;
+  }, [scheduleFile.peerNotice.peerNotice]);
+
   const { visibleTaskCount, totalTaskCount } = useMemo(() => {
     const total = listTasks(schedule.categories).length;
     const visible = schedule.visibleRows.filter((row) => row.type === "task").length;
@@ -533,7 +599,7 @@ function App() {
     setTaskConfidence,
     setMilestoneConfidence,
   } = schedule;
-  const { fileBusy, requestOpen, save } = scheduleFile;
+  const { fileBusy, requestOpen, requestOpenInNewWindow, save } = scheduleFile;
 
   useEffect(() => {
     if (linkSourceId == null) return;
@@ -569,11 +635,17 @@ function App() {
       if (!row || row.type !== "task") return;
       reveal(
         parseDate(row.task.start),
-        scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+        scrollYToShowSelectedTask(
+          visibleRows,
+          row.y,
+          rowHeight,
+          bodyHeight,
+          scrollY,
+        ),
         taskBarWidthPx(row.task, dateToX, pxPerDay),
       );
     },
-    [bodyHeight, dateToX, pxPerDay, reveal, rowHeight, visibleRows],
+    [bodyHeight, dateToX, pxPerDay, reveal, rowHeight, scrollY, visibleRows],
   );
 
   const focusDetailName = useCallback(() => {
@@ -644,9 +716,9 @@ function App() {
 
   const handleResizeStart = useCallback(
     (taskId: ScheduleId, groupX: number) => {
-      setTaskStart(taskId, resizeStartIso(range.timelineStart, xToDate, groupX));
+      setTaskStart(taskId, resizeStartIso(viewStart, xToDate, groupX));
     },
-    [range.timelineStart, setTaskStart, xToDate],
+    [viewStart, setTaskStart, xToDate],
   );
 
   const stickyLayout = useMemo(
@@ -672,16 +744,18 @@ function App() {
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
       setTaskEnd(
         taskId,
-        resizeEndIso(range.timelineStart, xToDate, groupX, barWidth),
+        resizeEndIso(viewStart, xToDate, groupX, barWidth),
       );
     },
-    [range.timelineStart, setTaskEnd, xToDate],
+    [viewStart, setTaskEnd, xToDate],
   );
 
   const runScheduleExport = useCallback(
     (format: ScheduleExportFormat) => {
       const milestones = milestonesForExport(
         schedule.filters.milestone,
+        schedule.milestoneGroups,
+        schedule.visibleMilestoneGroupIds,
         schedule.milestones,
         schedule.visibleRows,
       );
@@ -690,16 +764,20 @@ function App() {
         milestones,
         schedule.today,
       );
-      const exportedLanes = layoutMilestones(
+      const exportedGroups = schedule.milestoneGroups.filter((group) =>
+        schedule.visibleMilestoneGroupIds.has(group.id),
+      );
+      const exportedBandLayout = layoutMilestoneBand(
+        exportedGroups,
         milestones,
+        schedule.visibleMilestoneGroupIds,
         pxPerDay,
         milestoneFontSize,
         milestoneDiamondSize,
+        milestoneLaneHeight,
+        "export",
       );
-      const exportedBandHeight =
-        milestones.length === 0
-          ? 0
-          : (Math.max(...exportedLanes.values(), 0) + 1) * milestoneLaneHeight;
+      const exportedBandHeight = exportedBandLayout.totalHeight;
       const assigneeLabel =
         schedule.assigneeFilterOptions.find(
           (option) => option.id === schedule.filters.assignee,
@@ -710,8 +788,8 @@ function App() {
           tierLabel,
           lineageName: schedule.lineageTask?.name ?? null,
           visibleRows: schedule.visibleRows,
-          milestones,
-          milestoneLanes: exportedLanes,
+          milestones: schedule.milestones,
+          milestoneBandLayout: exportedBandLayout,
           links,
           timelineStart: exportedRange.timelineStart,
           timelineEnd: exportedRange.timelineEnd,
@@ -733,6 +811,8 @@ function App() {
             schedule.filters,
             schedule.milestones,
             assigneeLabel,
+            schedule.milestoneGroups,
+            schedule.hiddenMilestoneGroupIds,
           ),
           colorScheme: resolvedColorScheme,
           showLightningLine,
@@ -856,6 +936,7 @@ function App() {
   const commandPaletteContext = useMemo(
     () => ({
       fileBusy: scheduleFile.fileBusy,
+      isTauriDesktop: isTauri(),
       canUndo: schedule.canUndo,
       canRedo: schedule.canRedo,
       selectedTaskId: schedule.selectedTaskId,
@@ -895,6 +976,9 @@ function App() {
       switch (id) {
         case "open":
           scheduleFile.requestOpen();
+          break;
+        case "openNewWindow":
+          scheduleFile.requestOpenInNewWindow();
           break;
         case "save":
           void scheduleFile.save(false);
@@ -997,6 +1081,7 @@ function App() {
     fileBusy,
     save,
     requestOpen,
+    requestOpenInNewWindow,
     categories,
     selectedTaskId,
     linkSourceId,
@@ -1031,6 +1116,7 @@ function App() {
   useMacOSAppMenu({
     fileBusy: () => scheduleFile.fileBusy,
     onOpen: scheduleFile.requestOpen,
+    onOpenInNewWindow: scheduleFile.requestOpenInNewWindow,
     onSave: () => void scheduleFile.save(false),
     onSaveAs: () => void scheduleFile.save(true),
     onExportHtml: () => setExportOpen(true),
@@ -1105,16 +1191,16 @@ function App() {
     (chartX: number, clientX: number, clientY: number) => {
       if (linkSourceId != null) return;
       const date = isoDateAtChartX(
-        range.timelineStart,
+        viewStart,
         scrollX,
         pxPerDay,
         chartX,
-        range.totalDays,
+        viewTotalDays,
       );
       if (date == null) return;
       setContextMenu({ kind: "addMilestone", date, x: clientX, y: clientY });
     },
-    [linkSourceId, pxPerDay, range.timelineStart, range.totalDays, scrollX],
+    [linkSourceId, pxPerDay, viewStart, viewTotalDays, scrollX],
   );
 
   const onLinkTargetClick = useCallback(
@@ -1366,6 +1452,9 @@ function App() {
         searchField={searchField}
         onSearchFieldChange={setSearchField}
         milestones={schedule.milestones}
+        milestoneGroups={schedule.milestoneGroups}
+        hiddenMilestoneGroupIds={schedule.hiddenMilestoneGroupIds}
+        onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
         tier={tier}
         lineageName={schedule.lineageTask?.name ?? null}
@@ -1390,6 +1479,7 @@ function App() {
         onShowJson={() => setJsonOpen(true)}
         onShowDiff={showScheduleDiff}
         onOpen={scheduleFile.requestOpen}
+        onOpenInNewWindow={scheduleFile.requestOpenInNewWindow}
         onSave={() => void scheduleFile.save(false)}
         onSaveAs={() => void scheduleFile.save(true)}
         onOpenSettings={() => {
@@ -1412,10 +1502,14 @@ function App() {
       <ActiveFilterBar
         filters={schedule.filters}
         milestones={schedule.milestones}
+        milestoneGroups={schedule.milestoneGroups}
+        hiddenMilestoneGroupIds={schedule.hiddenMilestoneGroupIds}
         assigneeLabel={filterAssigneeLabel}
         lineageName={schedule.lineageTask?.name ?? null}
         onFiltersChange={schedule.updateFilters}
         onClearLineage={schedule.clearLineage}
+        onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
+        onShowAllMilestoneGroups={schedule.showAllMilestoneGroups}
       />
       <div ref={mainRef} className="main">
         <Sidebar
@@ -1456,6 +1550,7 @@ function App() {
           onCommitGroupReorder={schedule.commitGroupReorder}
           onCancelReorder={schedule.cancelReorder}
           milestoneBandHeight={milestoneBandHeight}
+          milestoneBandLayout={milestoneBandLayout}
           milestones={schedule.milestones}
           onToggleCollapse={schedule.toggleCollapsed}
           onOpenTaskNote={schedule.openTaskNoteDialog}
@@ -1495,9 +1590,9 @@ function App() {
             scrollX={scrollX}
             scrollY={scrollY}
             tier={tier}
-            timelineStart={range.timelineStart}
+            timelineStart={viewStart}
             timelineEnd={range.timelineEnd}
-            totalDays={range.totalDays}
+            totalDays={viewTotalDays}
             dateToX={view.dateToX}
             xToDate={view.xToDate}
             selectedTaskId={schedule.selectedTaskId}
@@ -1513,7 +1608,7 @@ function App() {
             onWheelHeader={onWheelHeader}
             onPan={panBy}
             milestones={schedule.milestones}
-            milestoneLanes={milestoneLanes}
+            milestoneBandLayout={milestoneBandLayout}
             milestoneBandHeight={milestoneBandHeight}
             milestoneLaneHeight={milestoneLaneHeight}
             milestoneDiamondSize={milestoneDiamondSize}
@@ -1579,6 +1674,10 @@ function App() {
         onOpenShortcuts={() => setShortcutsOpen(true)}
       />
       <AppToast message={toastMessage} />
+      <AppToast
+        message={peerNoticeMessage}
+        onClick={() => void scheduleFile.peerNotice.focusPeerTarget()}
+      />
       {contextMenu ? (
         <ContextMenu
           x={contextMenu.x}

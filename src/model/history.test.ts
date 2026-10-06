@@ -34,6 +34,7 @@ function snapshot(name: string, note?: string): DocumentSnapshot {
         ],
       },
     ],
+    milestoneGroups: [],
     milestones: [],
   };
 }

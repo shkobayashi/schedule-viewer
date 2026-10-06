@@ -1,5 +1,10 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { Category, Milestone, ScheduleDocument } from "./types";
+import type {
+  Category,
+  Milestone,
+  MilestoneGroup,
+  ScheduleDocument,
+} from "./types";
 import {
   formatValidationErrors,
   validateSchedule,
@@ -27,9 +32,13 @@ export function scheduleJsonFilename(path: string | null): string | null {
 export function serializeScheduleDocument(
   title: string,
   categories: Category[],
+  milestoneGroups: MilestoneGroup[],
   milestones: Milestone[],
 ): string {
-  return JSON.stringify(scheduleToJson(title, categories, milestones), null, 2);
+  return JSON.stringify(
+    scheduleToJson(title, categories, milestoneGroups, milestones),
+    null,
+  2);
 }
 
 export function parseScheduleText(text: string): ParseScheduleResult {
@@ -52,6 +61,7 @@ export function parseScheduleText(text: string): ParseScheduleResult {
   const canonicalJson = serializeScheduleDocument(
     result.document.title,
     result.document.categories,
+    result.document.milestoneGroups,
     result.document.milestones,
   );
   return { ok: true, document: result.document, canonicalJson };
@@ -198,8 +208,12 @@ export type ScheduleRecoveryDraft = {
   documentJson: string;
 };
 
-export async function readScheduleRecoveryViaTauri(): Promise<string | null> {
-  return invoke<string | null>("read_schedule_recovery");
+export async function readScheduleRecoveryViaTauri(
+  path?: string | null,
+): Promise<string | null> {
+  return invoke<string | null>("read_schedule_recovery", {
+    path: path ?? null,
+  });
 }
 
 export async function writeScheduleRecoveryViaTauri(
@@ -210,8 +224,8 @@ export async function writeScheduleRecoveryViaTauri(
   });
 }
 
-export async function deleteScheduleRecoveryViaTauri(): Promise<void> {
-  await invoke("delete_schedule_recovery");
+export async function deleteScheduleRecoveryViaTauri(path: string): Promise<void> {
+  await invoke("delete_schedule_recovery", { path });
 }
 
 export async function readScheduleFileAtPathViaTauri(

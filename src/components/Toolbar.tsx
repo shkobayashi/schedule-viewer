@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ChevronDown, Plus } from "lucide-react";
-import type { Milestone, ScheduleFilters } from "../model/types";
+import type {
+  Milestone,
+  MilestoneGroup,
+  ScheduleFilters,
+  ScheduleId,
+} from "../model/types";
 import { activeFilterCount } from "../model/filterChips";
 import {
   deleteShortcutHint,
@@ -27,6 +32,9 @@ type ToolbarProps = {
   searchField: SearchField;
   onSearchFieldChange: (field: SearchField) => void;
   milestones: Milestone[];
+  milestoneGroups: MilestoneGroup[];
+  hiddenMilestoneGroupIds: ScheduleId[];
+  onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
   assigneeFilterOptions: AssigneeFilterOption[];
   tier: GridTier;
   lineageName: string | null;
@@ -48,6 +56,7 @@ type ToolbarProps = {
   onShowDiff: () => void;
   onExportHtml: () => void;
   onOpen: () => void;
+  onOpenInNewWindow?: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   onOpenSettings: () => void;
@@ -65,6 +74,9 @@ export function Toolbar({
   searchField,
   onSearchFieldChange,
   milestones,
+  milestoneGroups,
+  hiddenMilestoneGroupIds,
+  onMilestoneGroupVisible,
   assigneeFilterOptions,
   tier,
   lineageName,
@@ -86,6 +98,7 @@ export function Toolbar({
   onShowDiff,
   onExportHtml,
   onOpen,
+  onOpenInNewWindow,
   onSave,
   onSaveAs,
   onOpenSettings,
@@ -105,7 +118,11 @@ export function Toolbar({
   const [addMenuPos, setAddMenuPos] = useState<{ left: number; top: number } | null>(
     null,
   );
-  const filterCount = activeFilterCount(filters, false);
+  const filterCount = activeFilterCount(
+    filters,
+    false,
+    hiddenMilestoneGroupIds.length,
+  );
 
   const showSelectionActions =
     canDelete || Boolean(lineageName) || Boolean(linkSourceName);
@@ -160,6 +177,7 @@ export function Toolbar({
       <AppMenu
         fileBusy={fileBusy}
         onOpen={onOpen}
+        onOpenInNewWindow={onOpenInNewWindow}
         onSave={onSave}
         onSaveAs={onSaveAs}
         onExportHtml={onExportHtml}
@@ -213,6 +231,9 @@ export function Toolbar({
           anchorRef={filterButtonRef}
           filters={filters}
           milestones={milestones}
+          milestoneGroups={milestoneGroups}
+          hiddenMilestoneGroupIds={hiddenMilestoneGroupIds}
+          onMilestoneGroupVisible={onMilestoneGroupVisible}
           assigneeFilterOptions={assigneeFilterOptions}
           onFiltersChange={onFiltersChange}
         />

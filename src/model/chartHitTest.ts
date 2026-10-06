@@ -1,18 +1,34 @@
 import { parseDate } from "./dates";
 import { nearestLinkHit, type LinkPolyline } from "./dependencies";
-import { milestoneLabelWidth } from "./milestones";
+import { MILESTONE_LABEL_GAP, milestoneLabelWidth } from "./milestones";
 import type { ScheduleId } from "./types";
 
 /** ひし形の当たり円が、見た目の半径へ足す余裕。 */
 const MILESTONE_HIT_SLOP = 2;
-/** ひし形の右端から名前の左端までの隙間。描画の Text と同じ。 */
-const MILESTONE_LABEL_GAP = 5;
 
 /** 選択中バーの端ハンドルが当たり判定へ広がる幅。 */
 export const TASK_HANDLE_WIDTH = 8;
 
 /** バー移動・期間変更を始めるポインタの移動量。 */
 export const TASK_DRAG_THRESHOLD_PX = 8;
+
+/** 期間ドラッグ専用の当たりが、バーの外へ出る幅。 */
+export const RESIZE_EXCLUSIVE_OUTSIDE_PX = 12;
+
+/** 期間ドラッグ専用の当たりが、バーの中へ入る最大幅。 */
+export const RESIZE_EXCLUSIVE_INSIDE_PX = 16;
+
+/** 端の当たりが重ならないとき、バー中央に残すクリック幅。 */
+export const RESIZE_BODY_CLICK_PX = 8;
+
+/** バーの中へ入る期間ドラッグ専用の幅。短いバーは中央のクリック幅を残す。 */
+export function resizeExclusiveInside(barWidth: number): number {
+  const room = (barWidth - RESIZE_BODY_CLICK_PX) / 2;
+  return Math.max(
+    TASK_HANDLE_WIDTH / 2,
+    Math.min(RESIZE_EXCLUSIVE_INSIDE_PX, room),
+  );
+}
 
 export type TaskBarEdge = "start" | "end";
 
@@ -24,6 +40,27 @@ export function taskBarEdgeAt(
 ): TaskBarEdge | null {
   if (localX >= -edgeWidth && localX < edgeWidth) return "start";
   if (localX > barWidth - edgeWidth && localX <= barWidth + edgeWidth) {
+    return "end";
+  }
+  return null;
+}
+
+/** バー左端を原点とした localX が、期間ドラッグ専用の端の当たりにあるか。 */
+export function taskBarResizeEdgeAt(
+  localX: number,
+  barWidth: number,
+): TaskBarEdge | null {
+  const inside = resizeExclusiveInside(barWidth);
+  if (
+    localX >= -RESIZE_EXCLUSIVE_OUTSIDE_PX &&
+    localX < inside
+  ) {
+    return "start";
+  }
+  if (
+    localX > barWidth - inside &&
+    localX <= barWidth + RESIZE_EXCLUSIVE_OUTSIDE_PX
+  ) {
     return "end";
   }
   return null;
@@ -46,6 +83,24 @@ export type ChartTaskAnchor = {
   right: number;
   y: number;
 };
+
+export function hitTaskResizeEdge(
+  local: { x: number; y: number },
+  anchors: Iterable<[ScheduleId, ChartTaskAnchor]>,
+  barHeight: number,
+): { taskId: ScheduleId; edge: TaskBarEdge } | null {
+  for (const [taskId, anchor] of anchors) {
+    const top = anchor.y - barHeight / 2;
+    const bottom = anchor.y + barHeight / 2;
+    if (local.y < top || local.y > bottom) continue;
+    const edge = taskBarResizeEdgeAt(
+      local.x - anchor.x,
+      anchor.right - anchor.x,
+    );
+    if (edge != null) return { taskId, edge };
+  }
+  return null;
+}
 
 export type ChartHover = ChartPointer;
 
@@ -126,20 +181,21 @@ export function milestoneMarkContainsPoint(
 export function hitMilestoneDiamond(
   local: { x: number; y: number },
   milestones: readonly { id: ScheduleId; date: string; name: string }[],
-  lanes: ReadonlyMap<ScheduleId, number>,
+  centerYById: ReadonlyMap<ScheduleId, number>,
+  displayLabels: ReadonlyMap<ScheduleId, string>,
   dateToX: (date: Date) => number,
   diamondSize: number,
-  laneHeight: number,
   fontSize: number,
 ): boolean {
   for (const milestone of milestones) {
     const cx = dateToX(parseDate(milestone.date));
-    const lane = lanes.get(milestone.id) ?? 0;
-    const cy = lane * laneHeight + laneHeight / 2;
+    const cy = centerYById.get(milestone.id);
+    if (cy == null) continue;
+    const label = displayLabels.get(milestone.id) ?? milestone.name;
     if (
       milestoneMarkContainsPoint(
         { x: local.x - cx, y: local.y - cy },
-        milestoneMarkHit(diamondSize, fontSize, milestone.name),
+        milestoneMarkHit(diamondSize, fontSize, label),
       )
     ) {
       return true;

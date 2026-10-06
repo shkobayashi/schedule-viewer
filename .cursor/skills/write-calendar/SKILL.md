@@ -52,7 +52,7 @@ schedule-viewer の設定から取り込む、非稼働日表示専用の JSON �
 1. ユーザーから期間・週末の扱い・休日一覧・振替出勤を整理する
 2. 既存 JSON を更新する場合は既存の日付エントリを維持しつつ差分を足す
 3. `schemaVersion: 1` を付け、3 つの配列をすべて含める
-4. `node scripts/validate-calendar.mjs`（リポジトリ内は `.cursor/skills/write-calendar/scripts/validate-calendar.mjs`）で検証する
+4. このスキルフォルダで `node scripts/validate-calendar.mjs <file>` を実行して検証する
 5. エラーがあれば修正して再検証し、通ってからユーザーに渡す
 
 ## 画面にないものは入れない
