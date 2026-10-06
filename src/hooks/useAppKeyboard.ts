@@ -1,8 +1,8 @@
 import { useEffect, type MutableRefObject } from "react";
 import { decideAppKey, type AppKeyTarget } from "./appKeyboard";
 import type { ChartPointer } from "../model/chartHitTest";
-import { findTaskById } from "../model/rows";
-import type { Category, ScheduleId, Task } from "../model/types";
+import { adjacentVisibleTaskId } from "../model/taskSelection";
+import type { Category, ScheduleId, VisibleRow } from "../model/types";
 import {
   resolveUiScale,
   stepDisplayScale,
@@ -18,7 +18,6 @@ type UseAppKeyboardOptions = {
   requestOpen: () => void;
   categories: Category[];
   selectedTaskId: ScheduleId | null;
-  openEditDialog: (task: Task) => void;
   linkSourceId: ScheduleId | null;
   toggleLinkMode: () => void;
   openTaskNote: (taskId: ScheduleId) => void;
@@ -35,6 +34,12 @@ type UseAppKeyboardOptions = {
   uiScaleRef: MutableRefObject<number>;
   onDisplayScaleChange: (preference: DisplayScalePreference) => void;
   onOpenShortcuts: () => void;
+  visibleRows: VisibleRow[];
+  selectTask: (taskId: ScheduleId) => void;
+  moveTaskByDays: (taskId: ScheduleId, deltaDays: number) => void;
+  shiftTaskEndByDays: (taskId: ScheduleId, deltaDays: number) => void;
+  focusDetailName: () => void;
+  copyScheduleDiff: () => void;
 };
 
 export function useAppKeyboard({
@@ -45,7 +50,6 @@ export function useAppKeyboard({
   requestOpen,
   categories,
   selectedTaskId,
-  openEditDialog,
   linkSourceId,
   toggleLinkMode,
   openTaskNote,
@@ -62,6 +66,12 @@ export function useAppKeyboard({
   uiScaleRef,
   onDisplayScaleChange,
   onOpenShortcuts,
+  visibleRows,
+  selectTask,
+  moveTaskByDays,
+  shiftTaskEndByDays,
+  focusDetailName,
+  copyScheduleDiff,
 }: UseAppKeyboardOptions) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -128,10 +138,30 @@ export function useAppKeyboard({
         if (selectedTaskId != null) openTaskNote(selectedTaskId);
         return;
       }
-      if (action.type === "edit") {
-        const task =
-          selectedTaskId == null ? null : findTaskById(categories, selectedTaskId);
-        if (task) openEditDialog(task);
+      if (action.type === "focusDetailName") {
+        if (selectedTaskId == null) return;
+        focusDetailName();
+        return;
+      }
+      if (action.type === "selectTaskPrev" || action.type === "selectTaskNext") {
+        const next = adjacentVisibleTaskId(
+          visibleRows,
+          selectedTaskId,
+          action.type === "selectTaskPrev" ? "prev" : "next",
+        );
+        if (next != null) selectTask(next);
+        return;
+      }
+      if (action.type === "shiftTaskDates") {
+        if (selectedTaskId != null) {
+          moveTaskByDays(selectedTaskId, action.deltaDays);
+        }
+        return;
+      }
+      if (action.type === "shiftTaskEnd") {
+        if (selectedTaskId != null) {
+          shiftTaskEndByDays(selectedTaskId, action.deltaDays);
+        }
         return;
       }
       if (action.type === "deleteLink") {
@@ -151,6 +181,7 @@ export function useAppKeyboard({
       } else if (action.type === "undo") undo();
       else if (action.type === "redo") redo();
       else if (action.type === "openShortcuts") onOpenShortcuts();
+      else if (action.type === "openDiffCopy") copyScheduleDiff();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -161,7 +192,6 @@ export function useAppKeyboard({
     closeContextMenu,
     fileBusy,
     linkSourceId,
-    openEditDialog,
     redo,
     removePredecessorLink,
     requestDeleteTask,
@@ -179,5 +209,11 @@ export function useAppKeyboard({
     uiScaleRef,
     onDisplayScaleChange,
     onOpenShortcuts,
+    visibleRows,
+    selectTask,
+    moveTaskByDays,
+    shiftTaskEndByDays,
+    focusDetailName,
+    copyScheduleDiff,
   ]);
 }

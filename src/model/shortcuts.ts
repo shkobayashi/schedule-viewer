@@ -61,6 +61,7 @@ export function blocksBrowserShortcut(event: ShortcutKeyEvent): boolean {
   if (!mod) return false;
   if (key === "s") return true;
   if (key === "n") return !event.shiftKey;
+  if (key === "d" && event.shiftKey) return true;
   return (key === "o" || key === "f") && !event.shiftKey;
 }
 
@@ -165,6 +166,19 @@ export function deleteShortcutHint(): string {
   return "Delete";
 }
 
+export function diffCopyShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘⇧D" : "Ctrl+Shift+D";
+}
+
+export function matchDiffCopy(
+  event: ShortcutKeyEvent,
+  context: Pick<ShortcutContext, "dialogOpen"> & { fileBusy: boolean },
+): boolean {
+  if (context.dialogOpen || context.fileBusy || event.altKey) return false;
+  if (!(event.ctrlKey || event.metaKey) || !event.shiftKey) return false;
+  return shortcutKey(event) === "d";
+}
+
 export function undoShortcutHint(commandKey: boolean): string {
   return commandKey ? "⌘Z" : "Ctrl+Z";
 }
@@ -199,6 +213,7 @@ export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow
     { action: "検索", keys: findShortcutHint(commandKey) },
     { action: "編集", keys: editShortcutHint() },
     { action: "削除", keys: deleteShortcutHint() },
+    { action: "差分をコピー", keys: diffCopyShortcutHint(commandKey) },
     { action: "線を引く", keys: linkShortcutHint(commandKey) },
     { action: "ノート", keys: noteShortcutHint(commandKey) },
     { action: "取り消し", keys: undoShortcutHint(commandKey) },

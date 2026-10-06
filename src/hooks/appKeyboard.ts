@@ -7,6 +7,7 @@ import {
   matchAppShortcut,
   matchChartScroll,
   matchDisplayScale,
+  matchDiffCopy,
   matchOpenShortcutsHelp,
   type DisplayScaleDirection,
   type ShortcutKeyEvent,
@@ -24,12 +25,18 @@ export type AppKeyAction =
   | { type: "toggleLink" }
   | { type: "note" }
   | { type: "edit" }
+  | { type: "focusDetailName" }
+  | { type: "selectTaskPrev" }
+  | { type: "selectTaskNext" }
+  | { type: "shiftTaskDates"; deltaDays: number }
+  | { type: "shiftTaskEnd"; deltaDays: number }
   | { type: "deleteLink"; fromId: ScheduleId; toId: ScheduleId }
   | { type: "deleteTask" }
   | { type: "save" }
   | { type: "saveAs" }
   | { type: "open" }
   | { type: "find" }
+  | { type: "openDiffCopy" }
   | { type: "undo" }
   | { type: "redo" }
   | { type: "displayScale"; direction: DisplayScaleDirection }
@@ -85,6 +92,47 @@ export function decideAppKey(input: {
       action: { type: "openShortcuts" },
     };
   }
+  if (
+    !input.dialogOpen &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !blocksEditShortcut(
+      input.target ?? { tagName: "", isContentEditable: false },
+    )
+  ) {
+    if (event.altKey && !event.repeat) {
+      const delta =
+        event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
+      if (delta !== 0 && input.selectedTaskId != null) {
+        if (event.shiftKey) {
+          return {
+            preventDefault: true,
+            closeMenu: true,
+            action: { type: "shiftTaskEnd", deltaDays: delta },
+          };
+        }
+        return {
+          preventDefault: true,
+          closeMenu: true,
+          action: { type: "shiftTaskDates", deltaDays: delta },
+        };
+      }
+    }
+    if (
+      !event.altKey &&
+      !event.shiftKey &&
+      (event.key === "ArrowUp" || event.key === "ArrowDown")
+    ) {
+      return {
+        preventDefault: true,
+        closeMenu: true,
+        action: {
+          type: event.key === "ArrowUp" ? "selectTaskPrev" : "selectTaskNext",
+        },
+      };
+    }
+  }
+
   const chartScroll = matchChartScroll(event, { dialogOpen: input.dialogOpen });
   if (chartScroll) {
     const offset = chartScrollOffset(chartScroll, input.rowHeight);
@@ -92,6 +140,14 @@ export function decideAppKey(input: {
       preventDefault: true,
       closeMenu: true,
       action: { type: "scroll", x: offset.x, y: offset.y },
+    };
+  }
+
+  if (matchDiffCopy(event, { dialogOpen: input.dialogOpen, fileBusy: input.fileBusy })) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "openDiffCopy" },
     };
   }
 
@@ -152,7 +208,11 @@ export function decideAppKey(input: {
       if (input.linkSourceId != null) {
         return { preventDefault, closeMenu: true, action: { type: "none" } };
       }
-      return { preventDefault, closeMenu: true, action: { type: "edit" } };
+      return {
+        preventDefault,
+        closeMenu: true,
+        action: { type: "focusDetailName" },
+      };
     }
     if (shortcut === "delete") {
       const hovered = input.pointer.link;

@@ -67,6 +67,7 @@ export type CssPalette = {
   noteHoverBg: string;
   noteEmptyHover: string;
   selectedRow: string;
+  hoverRow: string;
   unassignedAccent: string;
   unassignedText: string;
   unassignedBg: string;
@@ -111,6 +112,7 @@ const LIGHT: AppPalette = {
     noteHoverBg: "#e8ebf4",
     noteEmptyHover: "#9aa3b2",
     selectedRow: "#dce3fb",
+    hoverRow: "#eef2fc",
     unassignedAccent: "#d4920a",
     unassignedText: "#8a5a00",
     unassignedBg: "#fff4d6",
@@ -191,6 +193,7 @@ const DARK: AppPalette = {
     noteHoverBg: "#323844",
     noteEmptyHover: "#7a8496",
     selectedRow: "#343b52",
+    hoverRow: "#2a3148",
     unassignedAccent: "#d4920a",
     unassignedText: "#e8c060",
     unassignedBg: "#3d3520",
@@ -276,6 +279,7 @@ export function applyCssPalette(palette: AppPalette): void {
   root.style.setProperty("--note-hover-bg", c.noteHoverBg);
   root.style.setProperty("--note-empty-hover", c.noteEmptyHover);
   root.style.setProperty("--selected-row", c.selectedRow);
+  root.style.setProperty("--hover-row", c.hoverRow);
   root.style.setProperty("--unassigned-accent", c.unassignedAccent);
   root.style.setProperty("--unassigned-text", c.unassignedText);
   root.style.setProperty("--unassigned-bg", c.unassignedBg);

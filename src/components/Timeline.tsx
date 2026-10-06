@@ -21,7 +21,9 @@ import {
 } from "../model/dragDates";
 import {
   hitTaskAnchor,
+  TASK_DRAG_THRESHOLD_PX,
   TASK_HANDLE_WIDTH,
+  taskBarEdgeAt,
   type ChartPointer,
 } from "../model/chartHitTest";
 import {
@@ -233,9 +235,16 @@ function TaskBar({
   onOpenEdit,
   onContextMenu,
   onMoveTask,
+  onResizeStart,
+  onResizeEnd,
   onDragGeometry,
+  onBeginPan,
+  panScrollArmed,
+  onDragMoved,
+  registerDragCancel,
   dragLeft,
   dragWidth,
+  chart,
   today,
   memberCatalog,
   colorScheme,
@@ -256,15 +265,21 @@ function TaskBar({
   onOpenEdit: () => void;
   onContextMenu: (x: number, y: number) => void;
   onMoveTask: (deltaDays: number) => void;
+  onResizeStart: (groupX: number) => void;
+  onResizeEnd: (groupX: number, barWidth: number) => void;
   onDragGeometry: (geometry: DragBarGeometry | null) => void;
+  onBeginPan: (clientX: number, clientY: number) => void;
+  panScrollArmed: boolean;
+  onDragMoved: () => void;
+  registerDragCancel: (cancel: (() => void) | null) => void;
   dragLeft?: number;
   dragWidth?: number;
+  chart: ChartPalette;
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
   colorScheme: ResolvedColorScheme;
   tier: "day" | "week" | "month";
 }) {
-  const chart = paletteFor(colorScheme).chart;
   const css = paletteFor(colorScheme).css;
   const start = parseDate(task.start);
   const x = dragLeft ?? dateToX(start);
@@ -292,6 +307,105 @@ function TaskBar({
   const overrunAt = exceeded[0] ? dateToX(parseDate(exceeded[0].date)) - x : null;
   const origXRef = useRef(0);
   const groupRef = useRef<Konva.Group>(null);
+  const bgWidthRef = useRef(w);
+  const leftMaxXRef = useRef<number | null>(null);
+  const movePendingRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+  } | null>(null);
+  const handleHeight = Math.max(10, Math.round(barHeight * 0.7));
+  const handleY = barHeight / 2 - handleHeight / 2;
+
+  const cancelMove = useCallback(() => {
+    const node = groupRef.current;
+    if (!node) return;
+    node.position({ x: origXRef.current, y: barY });
+    node.draggable(false);
+    onDragGeometry(null);
+  }, [barY, onDragGeometry]);
+
+  useEffect(() => {
+    bgWidthRef.current = w;
+  }, [w]);
+
+  useEffect(() => {
+    return () => registerDragCancel(null);
+  }, [registerDragCancel]);
+
+  const startMoveDrag = useCallback(() => {
+    const node = groupRef.current;
+    if (!node) return;
+    origXRef.current = node.x();
+    registerDragCancel(() => cancelMove());
+    node.draggable(true);
+    node.startDrag();
+  }, [cancelMove, registerDragCancel]);
+
+  const onBodyPointerDown = useCallback(
+    (e: Konva.KonvaEventObject<PointerEvent>) => {
+      if (linkMode) {
+        onLinkPointerDown();
+        return;
+      }
+      if (e.evt.button === 1 || panScrollArmed) {
+        onBeginPan(e.evt.clientX, e.evt.clientY);
+        return;
+      }
+      if (e.evt.button !== 0) return;
+      e.cancelBubble = true;
+      movePendingRef.current = {
+        pointerId: e.evt.pointerId,
+        startX: e.evt.clientX,
+        startY: e.evt.clientY,
+      };
+      const onMove = (evt: PointerEvent) => {
+        const pending = movePendingRef.current;
+        if (!pending || evt.pointerId !== pending.pointerId) return;
+        const dx = evt.clientX - pending.startX;
+        const dy = evt.clientY - pending.startY;
+        if (Math.hypot(dx, dy) < TASK_DRAG_THRESHOLD_PX) return;
+        movePendingRef.current = null;
+        onDragMoved();
+        onSelect();
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
+        startMoveDrag();
+      };
+      const onUp = (evt: PointerEvent) => {
+        const pending = movePendingRef.current;
+        if (!pending || evt.pointerId !== pending.pointerId) return;
+        movePendingRef.current = null;
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
+    },
+    [
+      linkMode,
+      onBeginPan,
+      onDragMoved,
+      onLinkPointerDown,
+      onSelect,
+      panScrollArmed,
+      startMoveDrag,
+    ],
+  );
+
+  const onHitPointerDown = useCallback(
+    (e: Konva.KonvaEventObject<PointerEvent>) => {
+      const pos = e.target.getRelativePointerPosition();
+      if (pos != null && taskBarEdgeAt(pos.x, w) != null) return;
+      onBodyPointerDown(e);
+    },
+    [onBodyPointerDown, w],
+  );
+
+  const rightHandleRef = useRef<Konva.Rect>(null);
 
   return (
     <Group
@@ -326,20 +440,9 @@ function TaskBar({
         if (linkMode) return;
         onOpenEdit();
       }}
-      onMouseDown={(e) => {
-        if (linkMode) {
-          onLinkPointerDown();
-          return;
-        }
-        if (!(e.evt.metaKey || e.evt.ctrlKey)) return;
-        e.cancelBubble = true;
-        const node = groupRef.current;
-        if (!node) return;
-        node.draggable(true);
-        node.startDrag();
-      }}
       onDragStart={(e) => {
         origXRef.current = e.target.x();
+        registerDragCancel(() => cancelMove());
         onDragGeometry({
           taskId: task.id,
           kind: "move",
@@ -365,8 +468,9 @@ function TaskBar({
         const delta = Math.round((node.x() - origXRef.current) / pxPerDay);
         node.position({ x: origXRef.current + delta * pxPerDay, y: barY });
         node.draggable(false);
+        registerDragCancel(null);
         onDragGeometry(null);
-        onMoveTask(delta);
+        if (delta !== 0) onMoveTask(delta);
       }}
     >
       <Rect
@@ -455,6 +559,158 @@ function TaskBar({
           cornerRadius={overrunAt <= 0 ? 4 : [0, 4, 4, 0]}
           listening={false}
         />
+      ) : null}
+      {!linkMode ? (
+        <Rect
+          width={w}
+          height={barHeight}
+          fill="rgba(0,0,0,0.001)"
+          onPointerDown={onHitPointerDown}
+        />
+      ) : null}
+      {!linkMode && !selected ? (
+        <>
+          <Rect
+            x={-HANDLE_WIDTH / 2}
+            y={handleY}
+            width={HANDLE_WIDTH}
+            height={handleHeight}
+            name="resize-handle"
+            fill="rgba(0,0,0,0.001)"
+            draggable
+            onMouseEnter={(e) => {
+              const container = e.target.getStage()?.container();
+              if (container) container.style.cursor = "ew-resize";
+            }}
+            onMouseLeave={(e) => {
+              const container = e.target.getStage()?.container();
+              if (container) container.style.cursor = "";
+            }}
+            onPointerDown={(e) => {
+              if (e.evt.button === 0) onSelect();
+            }}
+            onDragStart={function (this: Konva.Node) {
+              const parent = this.getParent()!.getAbsolutePosition();
+              const barWidth = bgWidthRef.current;
+              leftMaxXRef.current =
+                parent.x + barWidth - pxPerDay - HANDLE_WIDTH / 2;
+              const g = groupRef.current;
+              if (!g) return;
+              registerDragCancel(() => onDragGeometry(null));
+              onDragGeometry({
+                taskId: task.id,
+                kind: "start",
+                barLeft: g.x(),
+                barWidth,
+                barTop: barY,
+                originX: g.x(),
+              });
+            }}
+            dragBoundFunc={function (this: Konva.Node, pos) {
+              const parent = this.getParent()!.getAbsolutePosition();
+              if (leftMaxXRef.current == null) {
+                const barWidth = bgWidthRef.current;
+                leftMaxXRef.current =
+                  parent.x + barWidth - pxPerDay - HANDLE_WIDTH / 2;
+              }
+              return {
+                x: Math.min(pos.x, leftMaxXRef.current),
+                y: parent.y + handleY,
+              };
+            }}
+            onDragMove={(e) => {
+              const g = groupRef.current;
+              if (!g) return;
+              const barWidth = bgWidthRef.current;
+              const rightEdge = g.x() + barWidth;
+              const newLeft = g.x() + e.target.x() + HANDLE_WIDTH / 2;
+              const newW = Math.max(pxPerDay, rightEdge - newLeft);
+              g.x(newLeft);
+              e.target.x(-HANDLE_WIDTH / 2);
+              bgWidthRef.current = newW;
+              rightHandleRef.current?.x(newW - HANDLE_WIDTH / 2);
+              onDragGeometry({
+                taskId: task.id,
+                kind: "start",
+                barLeft: newLeft,
+                barWidth: newW,
+                barTop: barY,
+                originX: newLeft,
+              });
+              e.target.getLayer()?.batchDraw();
+            }}
+            onDragEnd={() => {
+              const g = groupRef.current;
+              leftMaxXRef.current = null;
+              registerDragCancel(null);
+              onDragGeometry(null);
+              if (!g) return;
+              onResizeStart(g.x());
+            }}
+          />
+          <Rect
+            ref={rightHandleRef}
+            x={w - HANDLE_WIDTH / 2}
+            y={handleY}
+            width={HANDLE_WIDTH}
+            height={handleHeight}
+            name="resize-handle"
+            fill="rgba(0,0,0,0.001)"
+            draggable
+            onMouseEnter={(e) => {
+              const container = e.target.getStage()?.container();
+              if (container) container.style.cursor = "ew-resize";
+            }}
+            onMouseLeave={(e) => {
+              const container = e.target.getStage()?.container();
+              if (container) container.style.cursor = "";
+            }}
+            onPointerDown={(e) => {
+              if (e.evt.button === 0) onSelect();
+            }}
+            onDragStart={() => {
+              const g = groupRef.current;
+              if (!g) return;
+              registerDragCancel(() => onDragGeometry(null));
+              onDragGeometry({
+                taskId: task.id,
+                kind: "end",
+                barLeft: g.x(),
+                barWidth: bgWidthRef.current,
+                barTop: barY,
+                originX: g.x(),
+              });
+            }}
+            dragBoundFunc={function (this: Konva.Node, pos) {
+              const parent = this.getParent()!.getAbsolutePosition();
+              return {
+                x: Math.max(pos.x, parent.x + pxPerDay - HANDLE_WIDTH / 2),
+                y: parent.y + handleY,
+              };
+            }}
+            onDragMove={(e) => {
+              const newW = Math.max(pxPerDay, e.target.x() + HANDLE_WIDTH / 2);
+              bgWidthRef.current = newW;
+              const barLeft = groupRef.current?.x() ?? x;
+              onDragGeometry({
+                taskId: task.id,
+                kind: "end",
+                barLeft,
+                barWidth: newW,
+                barTop: barY,
+                originX: barLeft,
+              });
+              e.target.getLayer()?.batchDraw();
+            }}
+            onDragEnd={() => {
+              const g = groupRef.current;
+              registerDragCancel(null);
+              onDragGeometry(null);
+              if (!g) return;
+              onResizeEnd(g.x(), bgWidthRef.current);
+            }}
+          />
+        </>
       ) : null}
     </Group>
   );
@@ -984,6 +1240,51 @@ export function Timeline({
   const datePadY = Math.max(1, Math.round(2 * scale));
   const dateGap = Math.max(4, Math.round(4 * scale));
   const [dragPreview, setDragPreview] = useState<DragDatePreview | null>(null);
+  const dragCancelRef = useRef<(() => void) | null>(null);
+  const registerDragCancel = useCallback((cancel: (() => void) | null) => {
+    dragCancelRef.current = cancel;
+  }, []);
+  const [spacePanArmed, setSpacePanArmed] = useState(false);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || event.repeat) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setSpacePanArmed(true);
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "Space") setSpacePanArmed(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, []);
+  useEffect(() => {
+    if (dragPreview == null) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      dragCancelRef.current?.();
+      dragCancelRef.current = null;
+      setDragPreview(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dragPreview]);
   const onDragGeometry = useCallback(
     (geometry: DragBarGeometry | null) => {
       if (geometry == null) {
@@ -1511,9 +1812,25 @@ export function Timeline({
     if (pan?.moved) suppressClickRef.current = true;
   }, []);
 
+  const beginPan = useCallback(
+    (clientX: number, clientY: number) => {
+      if (linkMode) return;
+      suppressClickRef.current = false;
+      panRef.current = {
+        x: clientX,
+        y: clientY,
+        active: true,
+        moved: false,
+      };
+      setPanSession(true);
+    },
+    [linkMode],
+  );
+
   const onBodyMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
-      if (e.evt.button !== 0) return;
+      const panOnly = e.evt.button === 1 || spacePanArmed;
+      if (e.evt.button !== 0 && e.evt.button !== 1) return;
       if (linkMode) {
         suppressClickRef.current = false;
         return;
@@ -1526,16 +1843,10 @@ export function Timeline({
       ) {
         return;
       }
-      if (e.evt.metaKey || e.evt.ctrlKey) return;
-      panRef.current = {
-        x: e.evt.clientX,
-        y: e.evt.clientY,
-        active: true,
-        moved: false,
-      };
-      setPanSession(true);
+      if (!panOnly && (e.evt.metaKey || e.evt.ctrlKey)) return;
+      beginPan(e.evt.clientX, e.evt.clientY);
     },
-    [linkMode],
+    [beginPan, linkMode, spacePanArmed],
   );
 
   const panDeltaRef = useRef({ dx: 0, dy: 0 });
@@ -1707,6 +2018,30 @@ export function Timeline({
               clipWidth={width}
               clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
             >
+            {hover.hoverTaskId != null &&
+            hover.hoverTaskId !== selectedTaskId &&
+            visibleRows.find(
+              (row) =>
+                row.type === "task" && row.task.id === hover.hoverTaskId,
+            ) ? (
+              <Rect
+                key={`hover-row-${hover.hoverTaskId}`}
+                x={0}
+                y={
+                  (
+                    visibleRows.find(
+                      (row) =>
+                        row.type === "task" &&
+                        row.task.id === hover.hoverTaskId,
+                    )!
+                  ).y - scrollY
+                }
+                width={width}
+                height={rowHeight}
+                fill={cssPalette.hoverRow}
+                listening={false}
+              />
+            ) : null}
             {selectedRow && selectedRow.type === "task" ? (
               <Rect
                 key="selected-row-band"
@@ -1778,7 +2113,20 @@ export function Timeline({
                   }}
                   onContextMenu={(x, y) => onTaskContextMenu(row.task.id, x, y)}
                   onMoveTask={(delta) => onMoveTask(row.task.id, delta)}
+                  onResizeStart={(groupX) =>
+                    onResizeStart(row.task.id, groupX)
+                  }
+                  onResizeEnd={(groupX, barWidth) =>
+                    onResizeEnd(row.task.id, groupX, barWidth)
+                  }
                   onDragGeometry={onDragGeometry}
+                  onBeginPan={beginPan}
+                  panScrollArmed={spacePanArmed}
+                  onDragMoved={() => {
+                    suppressClickRef.current = true;
+                  }}
+                  registerDragCancel={registerDragCancel}
+                  chart={chart}
                   dragLeft={
                     dragPreview?.taskId === row.task.id &&
                     dragPreview.kind !== "move"
