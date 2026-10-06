@@ -248,6 +248,69 @@ export function computeVisibleRows(
   return rows;
 }
 
+export type ReorderDragKind = "category" | "group" | "task";
+
+export function visibleRowIdentityKey(row: VisibleRow): string {
+  if (row.type === "task") return `task:${row.task.id}`;
+  return `${row.type}:${row.id}`;
+}
+
+/** 並べ替えドラッグの半透明塊に含める、いま見えている行（上から順）。 */
+export function reorderDragBlockRows(
+  rows: readonly VisibleRow[],
+  kind: ReorderDragKind,
+  id: ScheduleId,
+): VisibleRow[] {
+  const startIndex = rows.findIndex((row) => {
+    if (kind === "task") {
+      return row.type === "task" && row.task.id === id;
+    }
+    if (kind === "category") {
+      return row.type === "category" && row.id === id;
+    }
+    return row.type === "group" && row.id === id;
+  });
+  if (startIndex < 0) return [];
+
+  const startRow = rows[startIndex];
+  if (kind === "task") {
+    return [startRow];
+  }
+
+  if (kind === "group") {
+    const block: VisibleRow[] = [startRow];
+    for (let i = startIndex + 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.type === "category" || row.type === "group") break;
+      block.push(row);
+    }
+    return block;
+  }
+
+  const block: VisibleRow[] = [startRow];
+  if (startRow.type === "category" && startRow.collapsed) {
+    return block;
+  }
+  for (let i = startIndex + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.type === "category") break;
+    block.push(row);
+  }
+  return block;
+}
+
+export function rowInReorderDragBlock(
+  row: VisibleRow,
+  rows: readonly VisibleRow[],
+  kind: ReorderDragKind,
+  id: ScheduleId,
+): boolean {
+  const key = visibleRowIdentityKey(row);
+  return reorderDragBlockRows(rows, kind, id).some(
+    (candidate) => visibleRowIdentityKey(candidate) === key,
+  );
+}
+
 export function findTaskById(
   categories: Category[],
   id: ScheduleId | null,

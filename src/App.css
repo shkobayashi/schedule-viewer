@@ -961,8 +961,7 @@ button:focus-visible,
 }
 
 .sidebar-row.category.reordering {
-  opacity: 0.85;
-  cursor: grabbing;
+  opacity: 0;
 }
 
 .sidebar-row.group {
@@ -977,8 +976,7 @@ button:focus-visible,
 }
 
 .sidebar-row.group.reordering {
-  opacity: 0.85;
-  cursor: grabbing;
+  opacity: 0;
 }
 
 .sidebar-row .twist {
@@ -1000,8 +998,45 @@ button:focus-visible,
 }
 
 .sidebar-row.task.reordering {
-  opacity: 0.85;
-  cursor: grabbing;
+  opacity: 0;
+}
+
+.sidebar-drag-ghost {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0.7;
+  background: var(--surface);
+  box-shadow: var(--elevation-menu);
+  color: var(--text);
+}
+
+.sidebar-drag-ghost .sidebar-row,
+.sidebar-drag-ghost .sidebar-row.category,
+.sidebar-drag-ghost .sidebar-row.group,
+.sidebar-drag-ghost .sidebar-row.task,
+.sidebar-drag-ghost .sidebar-row.selected,
+.sidebar-drag-ghost .sidebar-row.task.hovered,
+.sidebar-drag-ghost .sidebar-row.task.hovered:not(.selected),
+.sidebar-drag-ghost .row-grip,
+.sidebar-drag-ghost .twist,
+.sidebar-drag-ghost .sidebar-cols,
+.sidebar-drag-ghost .row-label.overdue,
+.sidebar-drag-ghost .task-note-btn,
+.sidebar-drag-ghost .task-note-btn.empty,
+.sidebar-drag-ghost .task-note-btn.has-note,
+.sidebar-drag-ghost .sidebar-row .assignee,
+.sidebar-drag-ghost .sidebar-row .assignee.unassigned,
+.sidebar-drag-ghost .sidebar-row .assignee.unknown-member,
+.sidebar-drag-ghost .milestone-alert-icon {
+  background: transparent;
+  color: var(--text);
+}
+
+.sidebar-drag-ghost .sidebar-row.unassigned {
+  box-shadow: none;
 }
 
 .sidebar-reorder-marker {
