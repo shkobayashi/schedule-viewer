@@ -1,4 +1,4 @@
-import { useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import type { Milestone, ScheduleFilters } from "../model/types";
 import { activeFilterCount } from "../model/filterChips";
@@ -117,10 +117,35 @@ export function Toolbar({
     setAddOpen(true);
   };
 
+  const addMenuRef = useRef<HTMLDivElement>(null);
+
   const closeAddMenu = () => {
     setAddOpen(false);
     setAddMenuPos(null);
   };
+
+  useEffect(() => {
+    if (!addOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (addButtonRef.current?.contains(target) || addMenuRef.current?.contains(target)) {
+        return;
+      }
+      closeAddMenu();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeAddMenu();
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [addOpen]);
 
   const searchValue =
     searchField === "name" ? filters.search : filters.noteSearch;
@@ -158,7 +183,7 @@ export function Toolbar({
         </select>
         <input
           type="text"
-          ref={searchField === "name" ? taskSearchRef : undefined}
+          ref={taskSearchRef}
           placeholder={searchPlaceholder}
           aria-label={searchAria}
           className="search-input"
@@ -282,6 +307,7 @@ export function Toolbar({
         </button>
         {addOpen && addMenuPos ? (
           <div
+            ref={addMenuRef}
             className="app-menu-panel app-menu-panel--fixed add-split-menu"
             style={{
               left: addMenuPos.left,

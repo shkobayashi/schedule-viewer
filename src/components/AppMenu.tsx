@@ -1,10 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Menu } from "lucide-react";
 import { createPortal } from "react-dom";
-import {
-  diffCopyShortcutHint,
-  fileShortcutHint,
-  usesCommandKey,
-} from "../model/shortcuts";
+import { fileShortcutHint, usesCommandKey } from "../model/shortcuts";
 import { anchorBelowRect, menuViewportShift } from "./anchoredMenu";
 import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 
@@ -137,8 +134,7 @@ export function AppMenu({
         disabled={fileBusy}
         onClick={() => run(onShowDiff)}
       >
-        <span>差分を表示</span>
-        <span className="menu-shortcut">{diffCopyShortcutHint(commandKey)}</span>
+        差分を表示
       </button>
       <hr />
       <button type="button" role="menuitem" onClick={() => run(onOpenShortcuts)}>
@@ -161,7 +157,7 @@ export function AppMenu({
         title="メニュー"
         onClick={() => setOpen((prev) => !prev)}
       >
-        ☰
+        <Menu size={18} strokeWidth={2} aria-hidden="true" />
       </button>
       {panel
         ? createPortal(panel, document.getElementById("root") ?? document.body)

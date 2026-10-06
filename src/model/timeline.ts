@@ -132,3 +132,16 @@ export function barColors(
   if (task.status === "in-progress") return chart.overdueInProgress;
   return chart.overdueOther;
 }
+
+/** バー内ラベルの文字色。 */
+export function barLabelFill(
+  task: { status: string; end: string },
+  today: string,
+  scheme: ResolvedColorScheme = "light",
+): string {
+  const chart = paletteFor(scheme).chart;
+  if (task.status === "done") return chart.barLabelOnFill;
+  if (isOverdue(task, today)) return chart.barLabelOnFill;
+  if (task.status === "in-progress") return chart.barLabelMuted;
+  return chart.barLabelMuted;
+}

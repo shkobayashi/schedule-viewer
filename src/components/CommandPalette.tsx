@@ -65,11 +65,15 @@ export function CommandPalette({
 
   if (!open) return null;
 
+  const runCommand = (id: CommandPaletteCommandId) => {
+    onClose();
+    window.setTimeout(() => onRun(id), 0);
+  };
+
   const runHighlighted = () => {
     const item = items[activeIndex];
     if (item == null || !item.enabled) return;
-    onRun(item.id);
-    onClose();
+    runCommand(item.id);
   };
 
   return createPortal(
@@ -127,6 +131,7 @@ export function CommandPalette({
           onKeyDown={(event) => {
             if (event.key === "ArrowDown" || event.key === "ArrowUp") {
               event.preventDefault();
+              event.stopPropagation();
               setHighlight((current) =>
                 moveCommandPaletteHighlight(
                   current,
@@ -137,6 +142,7 @@ export function CommandPalette({
             }
             if (event.key === "Enter") {
               event.preventDefault();
+              event.stopPropagation();
               runHighlighted();
             }
           }}
@@ -169,8 +175,7 @@ export function CommandPalette({
                   onMouseEnter={() => setHighlight(index)}
                   onClick={() => {
                     if (!item.enabled) return;
-                    onRun(item.id);
-                    onClose();
+                    runCommand(item.id);
                   }}
                 >
                   {item.label}

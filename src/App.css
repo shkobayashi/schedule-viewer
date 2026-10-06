@@ -259,7 +259,7 @@ body {
 }
 
 .context-menu button.danger {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .context-menu-sep {
@@ -636,7 +636,7 @@ input[type="number"] {
 }
 
 .toolbar-btn-danger {
-  color: var(--danger);
+  color: var(--danger-text);
   border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
 }
 
@@ -799,8 +799,9 @@ button:focus-visible,
   min-width: 0;
 }
 
-.detail-progress-num {
+.detail-progress input[type="number"].detail-progress-num {
   width: calc(52px * var(--s));
+  flex: 0 0 auto;
 }
 
 .timeline-slot > .timeline {
@@ -917,8 +918,9 @@ button:focus-visible,
 
 .sidebar-row .twist {
   flex: 0 0 auto;
-  width: calc(16px * var(--s));
-  height: calc(16px * var(--s));
+  box-sizing: border-box;
+  width: calc(24px * var(--s));
+  height: calc(24px * var(--s));
   margin-right: calc(4px * var(--s));
   border: 0;
   padding: 0;
@@ -927,6 +929,9 @@ button:focus-visible,
   cursor: pointer;
   font-size: calc(9px * var(--s));
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sidebar-row.task.reordering {
@@ -1257,9 +1262,9 @@ button:focus-visible,
 
 .modal {
   background: var(--surface);
-  border-radius: 10px;
-  padding: 20px;
-  width: 320px;
+  border-radius: calc(10px * var(--s));
+  padding: calc(20px * var(--s));
+  width: calc(320px * var(--s));
   box-shadow: var(--elevation-modal);
 }
 
@@ -1393,28 +1398,28 @@ button:focus-visible,
 }
 
 .modal h2 {
-  font-size: 14px;
-  margin: 0 0 14px;
+  font-size: calc(14px * var(--s));
+  margin: 0 0 calc(14px * var(--s));
   color: var(--text);
 }
 
 .field {
-  margin-bottom: 12px;
+  margin-bottom: calc(12px * var(--s));
 }
 
 .field label {
   display: block;
-  font-size: 11px;
+  font-size: calc(11px * var(--s));
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: calc(4px * var(--s));
 }
 
 .field input,
 .field select,
 .field textarea {
   width: 100%;
-  padding: 6px 8px;
-  font-size: 12px;
+  padding: calc(6px * var(--s)) calc(8px * var(--s));
+  font-size: calc(12px * var(--s));
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }

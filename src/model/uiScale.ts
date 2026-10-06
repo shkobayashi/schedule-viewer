@@ -52,7 +52,7 @@ export function parseDisplayScalePreference(
   if (n === 1.25) return 1.25;
   if (n === 1.5) return 1.5;
   if (n === 2) return 2;
-  return "auto";
+  return 1;
 }
 
 export function readDisplayScalePreference(): DisplayScalePreference {
@@ -61,7 +61,7 @@ export function readDisplayScalePreference(): DisplayScalePreference {
       localStorage.getItem(DISPLAY_SCALE_LS_KEY),
     );
   } catch {
-    return "auto";
+    return 1;
   }
 }
 
@@ -69,11 +69,10 @@ export function writeDisplayScalePreference(
   preference: DisplayScalePreference,
 ): void {
   try {
-    if (preference === "auto") {
-      localStorage.removeItem(DISPLAY_SCALE_LS_KEY);
-    } else {
-      localStorage.setItem(DISPLAY_SCALE_LS_KEY, String(preference));
-    }
+    localStorage.setItem(
+      DISPLAY_SCALE_LS_KEY,
+      preference === "auto" ? "auto" : String(preference),
+    );
   } catch {
     // ignore quota / private mode
   }

@@ -90,7 +90,7 @@ export function StatusBar({
       ) : null}
       <span className="status-bar-item">{tierLabel(tier)}</span>
       <span className="status-bar-item status-bar-count">
-        {visibleTaskCount}件中{totalTaskCount}件を表示
+        {totalTaskCount}件中{visibleTaskCount}件を表示
       </span>
       <button
         type="button"

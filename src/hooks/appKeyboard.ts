@@ -78,7 +78,6 @@ export function decideAppKey(input: {
   pointer: ChartPointer;
   selectedTaskId: ScheduleId | null;
   rowHeight: number;
-  findTargetsName: boolean;
 }): AppKeyDecision {
   const { event } = input;
   const targetFields = input.target ?? {
@@ -228,9 +227,6 @@ export function decideAppKey(input: {
     blocksEditKeys,
     blocksLinkKeys,
   });
-  if (shortcut === "find" && !input.findTargetsName) {
-    return { preventDefault: false, closeMenu: false, action: { type: "none" } };
-  }
   if (shortcut) {
     preventDefault = true;
     if (event.repeat) {

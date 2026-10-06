@@ -33,7 +33,6 @@ function decide(
     pointer,
     selectedTaskId: null,
     rowHeight: 32,
-    findTargetsName: true,
     ...overrides,
   });
 }

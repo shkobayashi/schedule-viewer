@@ -54,8 +54,8 @@ describe("parseDisplayScalePreference", () => {
   });
 
   it("falls back to auto for invalid stored values", () => {
-    expect(parseDisplayScalePreference("oops")).toBe("auto");
-    expect(parseDisplayScalePreference("1.3")).toBe("auto");
+    expect(parseDisplayScalePreference("oops")).toBe(1);
+    expect(parseDisplayScalePreference("1.3")).toBe(1);
   });
 
   it("round-trips every display scale option", () => {
@@ -106,13 +106,13 @@ describe("stepDisplayScale", () => {
 });
 
 describe("display scale persistence", () => {
-  it("stores fixed ratios and clears key for auto", () => {
+  it("stores fixed ratios and persists auto", () => {
     installLocalStorage();
     writeDisplayScalePreference(1.25);
     expect(memory.get(DISPLAY_SCALE_LS_KEY)).toBe("1.25");
     expect(readDisplayScalePreference()).toBe(1.25);
     writeDisplayScalePreference("auto");
-    expect(memory.has(DISPLAY_SCALE_LS_KEY)).toBe(false);
-    expect(readDisplayScalePreference()).toBe(1);
+    expect(memory.get(DISPLAY_SCALE_LS_KEY)).toBe("auto");
+    expect(readDisplayScalePreference()).toBe("auto");
   });
 });

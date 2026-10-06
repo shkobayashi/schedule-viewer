@@ -31,7 +31,6 @@ type UseAppKeyboardOptions = {
   undo: () => void;
   redo: () => void;
   taskSearchRef: { current: HTMLInputElement | null };
-  findTargetsName: boolean;
   displayScalePreferenceRef: MutableRefObject<DisplayScalePreference>;
   uiScaleRef: MutableRefObject<number>;
   onDisplayScaleChange: (preference: DisplayScalePreference) => void;
@@ -66,7 +65,6 @@ export function useAppKeyboard({
   undo,
   redo,
   taskSearchRef,
-  findTargetsName,
   displayScalePreferenceRef,
   uiScaleRef,
   onDisplayScaleChange,
@@ -111,7 +109,6 @@ export function useAppKeyboard({
         pointer: chartPointerRef.current,
         selectedTaskId,
         rowHeight,
-        findTargetsName,
       });
       if (decision.preventDefault) event.preventDefault();
       if (decision.closeMenu) closeContextMenu();
@@ -216,7 +213,6 @@ export function useAppKeyboard({
     scrollBy,
     selectedTaskId,
     taskSearchRef,
-    findTargetsName,
     openTaskNote,
     toggleLinkMode,
     undo,
