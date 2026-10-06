@@ -3,7 +3,13 @@ import type { MemberId } from "./memberTypes";
 
 export type ScheduleId = string;
 
-export const SCHEDULE_SCHEMA_VERSION = 5;
+export const SCHEDULE_SCHEMA_VERSION = 6;
+
+/** マイルストン帯の行。タスクのカテゴリ・グループとは別。 */
+export type MilestoneGroup = {
+  id: ScheduleId;
+  name: string;
+};
 
 export type TaskStatus = "not-started" | "in-progress" | "done";
 
@@ -34,11 +40,13 @@ export type Milestone = {
   date: string;
   /** 日付を合意したかどうか。着手や進捗とは独立。 */
   confidence: TaskConfidence;
+  groupId: ScheduleId;
 };
 
 export type ScheduleDocument = {
   schemaVersion: typeof SCHEDULE_SCHEMA_VERSION;
   title: string;
+  milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
   categories: Category[];
 };

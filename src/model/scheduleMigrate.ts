@@ -110,6 +110,13 @@ function isRecord(value: unknown): value is RawDoc {
 
 function collectLeafIds(doc: RawDoc): Set<string> {
   const used = new Set<string>();
+  if (Array.isArray(doc.milestoneGroups)) {
+    for (const group of doc.milestoneGroups) {
+      if (isRecord(group) && typeof group.id === "string") {
+        used.add(group.id);
+      }
+    }
+  }
   if (Array.isArray(doc.milestones)) {
     for (const milestone of doc.milestones) {
       if (isRecord(milestone) && typeof milestone.id === "string") {
@@ -125,6 +132,21 @@ function collectLeafIds(doc: RawDoc): Set<string> {
       for (const task of group.tasks) {
         if (isRecord(task) && typeof task.id === "string") used.add(task.id);
       }
+    }
+  }
+  return used;
+}
+
+/** マイルストングループの ID を決めるとき、意味規則が重複を禁じる ID をすべて避ける。 */
+function collectUsedIds(doc: RawDoc): Set<string> {
+  const used = collectLeafIds(doc);
+  if (!Array.isArray(doc.categories)) return used;
+  for (const category of doc.categories) {
+    if (!isRecord(category)) continue;
+    if (typeof category.id === "string") used.add(category.id);
+    if (!Array.isArray(category.groups)) continue;
+    for (const group of category.groups) {
+      if (isRecord(group) && typeof group.id === "string") used.add(group.id);
     }
   }
   return used;
@@ -197,4 +219,39 @@ export function fillMissingMilestoneConfidence(data: unknown): unknown {
     return { ...milestone, confidence: "committed" };
   });
   return changed ? { ...data, milestones } : data;
+}
+
+const DEFAULT_MILESTONE_GROUP_NAME = "マイルストン";
+
+/**
+ * schemaVersion 5 を 6 にする。マイルストンがあるときは既定のマイルストングループを1つ足し、
+ * 全部のマイルストンに groupId を付ける。
+ */
+export function migrateScheduleV5ToV6(data: unknown): unknown {
+  if (!isRecord(data) || data.schemaVersion !== 5) return data;
+  const milestones = data.milestones;
+  if (!Array.isArray(milestones) || milestones.length === 0) {
+    return {
+      ...data,
+      schemaVersion: 6,
+      milestoneGroups: [],
+    };
+  }
+  const used = collectUsedIds(data);
+  const groupId = takeHierarchyId(
+    used,
+    `milestoneGroup\0${DEFAULT_MILESTONE_GROUP_NAME}`,
+  );
+  const milestoneGroups = [{ id: groupId, name: DEFAULT_MILESTONE_GROUP_NAME }];
+  const nextMilestones = milestones.map((milestone) => {
+    if (!isRecord(milestone)) return milestone;
+    if (typeof milestone.groupId === "string") return milestone;
+    return { ...milestone, groupId };
+  });
+  return {
+    ...data,
+    schemaVersion: 6,
+    milestoneGroups,
+    milestones: nextMilestones,
+  };
 }

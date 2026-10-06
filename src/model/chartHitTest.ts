@@ -1,12 +1,10 @@
 import { parseDate } from "./dates";
 import { nearestLinkHit, type LinkPolyline } from "./dependencies";
-import { milestoneLabelWidth } from "./milestones";
+import { MILESTONE_LABEL_GAP, milestoneLabelWidth } from "./milestones";
 import type { ScheduleId } from "./types";
 
 /** ひし形の当たり円が、見た目の半径へ足す余裕。 */
 const MILESTONE_HIT_SLOP = 2;
-/** ひし形の右端から名前の左端までの隙間。描画の Text と同じ。 */
-const MILESTONE_LABEL_GAP = 5;
 
 /** 選択中バーの端ハンドルが当たり判定へ広がる幅。 */
 export const TASK_HANDLE_WIDTH = 8;
@@ -126,20 +124,21 @@ export function milestoneMarkContainsPoint(
 export function hitMilestoneDiamond(
   local: { x: number; y: number },
   milestones: readonly { id: ScheduleId; date: string; name: string }[],
-  lanes: ReadonlyMap<ScheduleId, number>,
+  centerYById: ReadonlyMap<ScheduleId, number>,
+  displayLabels: ReadonlyMap<ScheduleId, string>,
   dateToX: (date: Date) => number,
   diamondSize: number,
-  laneHeight: number,
   fontSize: number,
 ): boolean {
   for (const milestone of milestones) {
     const cx = dateToX(parseDate(milestone.date));
-    const lane = lanes.get(milestone.id) ?? 0;
-    const cy = lane * laneHeight + laneHeight / 2;
+    const cy = centerYById.get(milestone.id);
+    if (cy == null) continue;
+    const label = displayLabels.get(milestone.id) ?? milestone.name;
     if (
       milestoneMarkContainsPoint(
         { x: local.x - cx, y: local.y - cy },
-        milestoneMarkHit(diamondSize, fontSize, milestone.name),
+        milestoneMarkHit(diamondSize, fontSize, label),
       )
     ) {
       return true;

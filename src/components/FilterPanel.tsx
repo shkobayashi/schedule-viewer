@@ -6,6 +6,8 @@ import {
   UNASSIGNED_LABEL,
   type ConfidenceFilter,
   type Milestone,
+  type MilestoneGroup,
+  type ScheduleId,
   type OverdueFilter,
   type RelationFilter,
   type ScheduleFilters,
@@ -20,6 +22,9 @@ type FilterPanelProps = {
   anchorRef: RefObject<HTMLElement | null>;
   filters: ScheduleFilters;
   milestones: Milestone[];
+  milestoneGroups: MilestoneGroup[];
+  hiddenMilestoneGroupIds: ScheduleId[];
+  onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
   assigneeFilterOptions: AssigneeFilterOption[];
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
 };
@@ -30,9 +35,13 @@ export function FilterPanel({
   anchorRef,
   filters,
   milestones,
+  milestoneGroups,
+  hiddenMilestoneGroupIds,
+  onMilestoneGroupVisible,
   assigneeFilterOptions,
   onFiltersChange,
 }: FilterPanelProps) {
+  const hiddenMilestoneGroupSet = new Set(hiddenMilestoneGroupIds);
   const panelRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: 0, top: 0 });
   const [shift, setShift] = useState({ x: 0, y: 0 });
@@ -173,6 +182,25 @@ export function FilterPanel({
             ))}
           </select>
         </label>
+        {milestoneGroups.length > 0 ? (
+          <div className="filter-panel-field filter-panel-milestone-groups">
+            <span>帯の線</span>
+            <div className="filter-panel-checks">
+              {milestoneGroups.map((group) => (
+                <label key={group.id} className="filter-panel-check">
+                  <input
+                    type="checkbox"
+                    checked={!hiddenMilestoneGroupSet.has(group.id)}
+                    onChange={(e) =>
+                      onMilestoneGroupVisible(group.id, e.target.checked)
+                    }
+                  />
+                  <span>{group.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>,
     document.getElementById("root") ?? document.body,

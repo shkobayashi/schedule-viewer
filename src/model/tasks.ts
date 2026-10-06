@@ -9,6 +9,7 @@ import {
   SCHEDULE_SCHEMA_VERSION,
   type Category,
   type Milestone,
+  type MilestoneGroup,
   type ScheduleDocument,
   type ScheduleId,
   type Task,
@@ -23,9 +24,13 @@ export function createScheduleId(): ScheduleId {
 
 export function collectScheduleIds(
   categories: Category[],
+  milestoneGroups: MilestoneGroup[],
   milestones: Milestone[],
 ): Set<ScheduleId> {
   const ids = new Set<ScheduleId>();
+  for (const group of milestoneGroups) {
+    ids.add(group.id);
+  }
   for (const category of categories) {
     ids.add(category.id);
     for (const group of category.groups) {
@@ -337,6 +342,7 @@ function rejectTaskGraph(
   const candidate: ScheduleDocument = {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title,
+    milestoneGroups: [],
     categories,
     milestones,
   };

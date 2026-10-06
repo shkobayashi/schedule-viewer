@@ -50,6 +50,7 @@ function dialogMessage(next: Category[]): string {
   const doc: ScheduleDocument = {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title: "link",
+    milestoneGroups: [],
     categories: next,
     milestones: [],
   };

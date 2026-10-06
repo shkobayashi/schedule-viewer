@@ -82,8 +82,9 @@ import {
 import { isoDateAtChartX, parseDate } from "./model/dates";
 import { resizeEndIso, resizeStartIso } from "./model/dragDates";
 import {
-  layoutMilestones,
+  layoutMilestoneBand,
   milestoneBandHeightPx,
+  type MilestoneBandLayout,
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
 import { findTaskById } from "./model/rows";
@@ -136,12 +137,14 @@ import { sampleMembersJson } from "./sample/members";
 import {
   SAMPLE_PROJECT_TITLE,
   sampleCategories,
+  sampleMilestoneGroups,
   sampleMilestones,
 } from "./sample/schedule";
 
 const INITIAL_BASELINE_JSON = serializeScheduleDocument(
   SAMPLE_PROJECT_TITLE,
   sampleCategories,
+  sampleMilestoneGroups,
   sampleMilestones,
 );
 
@@ -380,6 +383,7 @@ function App() {
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
+    sampleMilestoneGroups,
     sampleMilestones,
     rowHeight,
     memberCatalogState.members,
@@ -412,7 +416,9 @@ function App() {
     timelineWidth,
     (pxPerDay) => {
       const band = milestoneBandHeightPx(
+        schedule.milestoneGroups,
         schedule.milestones,
+        schedule.visibleMilestoneGroupIds,
         pxPerDay,
         milestoneFontSize,
         milestoneDiamondSize,
@@ -424,25 +430,29 @@ function App() {
     schedule.today,
   );
 
-  const milestoneLanes = useMemo(
+  const milestoneBandLayout: MilestoneBandLayout = useMemo(
     () =>
-      layoutMilestones(
+      layoutMilestoneBand(
+        schedule.milestoneGroups,
         schedule.milestones,
+        schedule.visibleMilestoneGroupIds,
         view.pxPerDay,
         milestoneFontSize,
         milestoneDiamondSize,
+        milestoneLaneHeight,
+        "screen",
       ),
     [
       milestoneDiamondSize,
       milestoneFontSize,
+      milestoneLaneHeight,
+      schedule.milestoneGroups,
       schedule.milestones,
+      schedule.visibleMilestoneGroupIds,
       view.pxPerDay,
     ],
   );
-  const milestoneBandHeight =
-    schedule.milestones.length === 0
-      ? 0
-      : (Math.max(...milestoneLanes.values(), 0) + 1) * milestoneLaneHeight;
+  const milestoneBandHeight = milestoneBandLayout.totalHeight;
   const bodyHeight = Math.max(
     120,
     timelineSlotHeight - headerHeight - milestoneBandHeight,
@@ -486,6 +496,7 @@ function App() {
   const scheduleFile = useScheduleFile({
     title: schedule.title,
     categories: schedule.categories,
+    milestoneGroups: schedule.milestoneGroups,
     milestones: schedule.milestones,
     replaceDocument: schedule.replaceDocument,
     reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
@@ -682,6 +693,8 @@ function App() {
     (format: ScheduleExportFormat) => {
       const milestones = milestonesForExport(
         schedule.filters.milestone,
+        schedule.milestoneGroups,
+        schedule.visibleMilestoneGroupIds,
         schedule.milestones,
         schedule.visibleRows,
       );
@@ -690,16 +703,20 @@ function App() {
         milestones,
         schedule.today,
       );
-      const exportedLanes = layoutMilestones(
+      const exportedGroups = schedule.milestoneGroups.filter((group) =>
+        schedule.visibleMilestoneGroupIds.has(group.id),
+      );
+      const exportedBandLayout = layoutMilestoneBand(
+        exportedGroups,
         milestones,
+        schedule.visibleMilestoneGroupIds,
         pxPerDay,
         milestoneFontSize,
         milestoneDiamondSize,
+        milestoneLaneHeight,
+        "export",
       );
-      const exportedBandHeight =
-        milestones.length === 0
-          ? 0
-          : (Math.max(...exportedLanes.values(), 0) + 1) * milestoneLaneHeight;
+      const exportedBandHeight = exportedBandLayout.totalHeight;
       const assigneeLabel =
         schedule.assigneeFilterOptions.find(
           (option) => option.id === schedule.filters.assignee,
@@ -710,8 +727,8 @@ function App() {
           tierLabel,
           lineageName: schedule.lineageTask?.name ?? null,
           visibleRows: schedule.visibleRows,
-          milestones,
-          milestoneLanes: exportedLanes,
+          milestones: schedule.milestones,
+          milestoneBandLayout: exportedBandLayout,
           links,
           timelineStart: exportedRange.timelineStart,
           timelineEnd: exportedRange.timelineEnd,
@@ -733,6 +750,8 @@ function App() {
             schedule.filters,
             schedule.milestones,
             assigneeLabel,
+            schedule.milestoneGroups,
+            schedule.hiddenMilestoneGroupIds,
           ),
           colorScheme: resolvedColorScheme,
           showLightningLine,
@@ -1366,6 +1385,9 @@ function App() {
         searchField={searchField}
         onSearchFieldChange={setSearchField}
         milestones={schedule.milestones}
+        milestoneGroups={schedule.milestoneGroups}
+        hiddenMilestoneGroupIds={schedule.hiddenMilestoneGroupIds}
+        onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
         tier={tier}
         lineageName={schedule.lineageTask?.name ?? null}
@@ -1412,10 +1434,14 @@ function App() {
       <ActiveFilterBar
         filters={schedule.filters}
         milestones={schedule.milestones}
+        milestoneGroups={schedule.milestoneGroups}
+        hiddenMilestoneGroupIds={schedule.hiddenMilestoneGroupIds}
         assigneeLabel={filterAssigneeLabel}
         lineageName={schedule.lineageTask?.name ?? null}
         onFiltersChange={schedule.updateFilters}
         onClearLineage={schedule.clearLineage}
+        onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
+        onShowAllMilestoneGroups={schedule.showAllMilestoneGroups}
       />
       <div ref={mainRef} className="main">
         <Sidebar
@@ -1456,6 +1482,7 @@ function App() {
           onCommitGroupReorder={schedule.commitGroupReorder}
           onCancelReorder={schedule.cancelReorder}
           milestoneBandHeight={milestoneBandHeight}
+          milestoneBandLayout={milestoneBandLayout}
           milestones={schedule.milestones}
           onToggleCollapse={schedule.toggleCollapsed}
           onOpenTaskNote={schedule.openTaskNoteDialog}
@@ -1513,7 +1540,7 @@ function App() {
             onWheelHeader={onWheelHeader}
             onPan={panBy}
             milestones={schedule.milestones}
-            milestoneLanes={milestoneLanes}
+            milestoneBandLayout={milestoneBandLayout}
             milestoneBandHeight={milestoneBandHeight}
             milestoneLaneHeight={milestoneLaneHeight}
             milestoneDiamondSize={milestoneDiamondSize}

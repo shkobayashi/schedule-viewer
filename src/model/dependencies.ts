@@ -318,11 +318,13 @@ export function tryAddPredecessorLink(
   const candidate: {
     schemaVersion: typeof SCHEDULE_SCHEMA_VERSION;
     title: string;
+    milestoneGroups: [];
     categories: Category[];
     milestones: [];
   } = {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title: "link",
+    milestoneGroups: [],
     categories: next,
     milestones: [],
   };

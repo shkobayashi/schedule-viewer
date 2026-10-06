@@ -58,6 +58,7 @@ const milestones: Milestone[] = [
     name: "設計完了",
     date: "2026-04-10",
     confidence: "committed",
+    groupId: "e1000001-0000-4000-8000-000000000001",
   },
 ];
 
