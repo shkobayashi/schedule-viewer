@@ -7,6 +7,10 @@ import {
   matchAppShortcut,
   matchChartScroll,
   matchDisplayScale,
+  matchDiffCopy,
+  matchMacAppQuit,
+  matchOpenCommandPalette,
+  matchOpenShortcutsHelp,
   type DisplayScaleDirection,
   type ShortcutKeyEvent,
 } from "../model/shortcuts";
@@ -23,15 +27,25 @@ export type AppKeyAction =
   | { type: "toggleLink" }
   | { type: "note" }
   | { type: "edit" }
+  | { type: "focusDetailName" }
+  | { type: "selectTaskPrev" }
+  | { type: "selectTaskNext" }
+  | { type: "shiftTaskDates"; deltaDays: number }
+  | { type: "shiftTaskEnd"; deltaDays: number }
   | { type: "deleteLink"; fromId: ScheduleId; toId: ScheduleId }
   | { type: "deleteTask" }
   | { type: "save" }
   | { type: "saveAs" }
   | { type: "open" }
   | { type: "find" }
+  | { type: "openDiffCopy" }
   | { type: "undo" }
   | { type: "redo" }
   | { type: "displayScale"; direction: DisplayScaleDirection }
+  | { type: "openShortcuts" }
+  | { type: "openCommandPalette" }
+  | { type: "closeCommandPalette" }
+  | { type: "closeWindow" }
   | { type: "none" };
 
 export type AppKeyDecision = {
@@ -55,6 +69,8 @@ export function allowsDocumentUndo(input: {
 export function decideAppKey(input: {
   event: ShortcutKeyEvent & { repeat: boolean };
   dialogOpen: boolean;
+  commandPaletteOpen: boolean;
+  macAppQuit: boolean;
   menuOpen: boolean;
   target: AppKeyTarget;
   linkSourceId: ScheduleId | null;
@@ -70,6 +86,93 @@ export function decideAppKey(input: {
   };
   const blocksEditKeys = input.target != null && blocksEditShortcut(targetFields);
   const blocksLinkKeys = input.target != null && blocksLinkShortcut(targetFields);
+  const paletteToggle = matchOpenCommandPalette(event, {
+    dialogOpen: input.dialogOpen,
+    commandPaletteOpen: input.commandPaletteOpen,
+  });
+  if (paletteToggle === "open") {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "openCommandPalette" },
+    };
+  }
+  if (paletteToggle === "close") {
+    return {
+      preventDefault: true,
+      closeMenu: false,
+      action: { type: "closeCommandPalette" },
+    };
+  }
+  if (input.commandPaletteOpen) {
+    return { preventDefault: false, closeMenu: false, action: { type: "none" } };
+  }
+  if (
+    input.macAppQuit &&
+    matchMacAppQuit(event, {
+      dialogOpen: input.dialogOpen,
+      commandPaletteOpen: input.commandPaletteOpen,
+    })
+  ) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "closeWindow" },
+    };
+  }
+  if (
+    matchOpenShortcutsHelp(event, {
+      dialogOpen: input.dialogOpen,
+      blocksEditKeys,
+    })
+  ) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "openShortcuts" },
+    };
+  }
+  if (
+    !input.dialogOpen &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !blocksEditShortcut(
+      input.target ?? { tagName: "", isContentEditable: false },
+    )
+  ) {
+    if (event.altKey && !event.repeat) {
+      const delta =
+        event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
+      if (delta !== 0 && input.selectedTaskId != null) {
+        if (event.shiftKey) {
+          return {
+            preventDefault: true,
+            closeMenu: true,
+            action: { type: "shiftTaskEnd", deltaDays: delta },
+          };
+        }
+        return {
+          preventDefault: true,
+          closeMenu: true,
+          action: { type: "shiftTaskDates", deltaDays: delta },
+        };
+      }
+    }
+    if (
+      !event.altKey &&
+      !event.shiftKey &&
+      (event.key === "ArrowUp" || event.key === "ArrowDown")
+    ) {
+      return {
+        preventDefault: true,
+        closeMenu: true,
+        action: {
+          type: event.key === "ArrowUp" ? "selectTaskPrev" : "selectTaskNext",
+        },
+      };
+    }
+  }
+
   const chartScroll = matchChartScroll(event, { dialogOpen: input.dialogOpen });
   if (chartScroll) {
     const offset = chartScrollOffset(chartScroll, input.rowHeight);
@@ -77,6 +180,14 @@ export function decideAppKey(input: {
       preventDefault: true,
       closeMenu: true,
       action: { type: "scroll", x: offset.x, y: offset.y },
+    };
+  }
+
+  if (matchDiffCopy(event, { dialogOpen: input.dialogOpen, fileBusy: input.fileBusy })) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "openDiffCopy" },
     };
   }
 
@@ -134,7 +245,11 @@ export function decideAppKey(input: {
       if (input.linkSourceId != null) {
         return { preventDefault, closeMenu: true, action: { type: "none" } };
       }
-      return { preventDefault, closeMenu: true, action: { type: "edit" } };
+      return {
+        preventDefault,
+        closeMenu: true,
+        action: { type: "focusDetailName" },
+      };
     }
     if (shortcut === "delete") {
       const hovered = input.pointer.link;

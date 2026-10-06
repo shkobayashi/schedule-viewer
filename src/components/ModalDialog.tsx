@@ -5,22 +5,10 @@ import {
   useRef,
 } from "react";
 import { createPortal } from "react-dom";
+import { acquireBackgroundInert } from "./backgroundInert";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-let backgroundInertDepth = 0;
-
-function acquireBackgroundInert(): () => void {
-  backgroundInertDepth += 1;
-  document.getElementById("root")?.setAttribute("inert", "");
-  return () => {
-    backgroundInertDepth = Math.max(0, backgroundInertDepth - 1);
-    if (backgroundInertDepth === 0) {
-      document.getElementById("root")?.removeAttribute("inert");
-    }
-  };
-}
 
 type ModalDialogProps = {
   title: string;

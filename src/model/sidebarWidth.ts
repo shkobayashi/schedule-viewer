@@ -1,5 +1,5 @@
 /** 左一覧の基準幅（表示倍率 1 のときの px）。画面上の幅はこれに表示倍率を掛ける。 */
-export const SIDEBAR_WIDTH_DEFAULT = 190;
+export const SIDEBAR_WIDTH_DEFAULT = 260;
 export const SIDEBAR_WIDTH_MIN = 140;
 /** チャート側に残す最低幅（画面上の px）。 */
 export const TIMELINE_MIN_WIDTH = 200;

@@ -1,13 +1,18 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 
-export type ContextMenuItem = {
-  id: string;
-  label: string;
-  shortcut?: string;
-  onSelect: () => void;
-};
+export type ContextMenuItem =
+  | {
+      type: "item";
+      id: string;
+      label: string;
+      shortcut?: string;
+      icon?: ReactNode;
+      danger?: boolean;
+      onSelect: () => void;
+    }
+  | { type: "separator"; id: string };
 
 type ContextMenuProps = {
   x: number;
@@ -78,22 +83,34 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
       style={{ left: x + shift.x, top: y + shift.y }}
       onContextMenu={(event) => event.preventDefault()}
     >
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          role="menuitem"
-          onClick={() => {
-            onClose();
-            item.onSelect();
-          }}
-        >
-          <span>{item.label}</span>
-          {item.shortcut ? (
-            <span className="menu-shortcut">{item.shortcut}</span>
-          ) : null}
-        </button>
-      ))}
+      {items.map((item) =>
+        item.type === "separator" ? (
+          <div key={item.id} className="context-menu-sep" role="separator" />
+        ) : (
+          <button
+            key={item.id}
+            type="button"
+            role="menuitem"
+            className={item.danger ? "danger" : undefined}
+            onClick={() => {
+              onClose();
+              item.onSelect();
+            }}
+          >
+            <span className="context-menu-label">
+              {item.icon ? (
+                <span className="context-menu-icon" aria-hidden="true">
+                  {item.icon}
+                </span>
+              ) : null}
+              <span>{item.label}</span>
+            </span>
+            {item.shortcut ? (
+              <span className="menu-shortcut">{item.shortcut}</span>
+            ) : null}
+          </button>
+        ),
+      )}
     </div>,
     document.getElementById("root") ?? document.body,
   );

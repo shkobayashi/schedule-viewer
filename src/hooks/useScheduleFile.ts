@@ -141,6 +141,17 @@ export function useScheduleFile({
     return "サンプルデータ";
   }, [browserFileLabel, externalReload.reloadNotice, filePath, statusTag]);
 
+  const displayFileName = useMemo(
+    () => scheduleJsonFilename(filePath) ?? browserFileLabel ?? "サンプルデータ",
+    [browserFileLabel, filePath],
+  );
+
+  const saveStatusLabel = useMemo(() => {
+    if (isDirty) return "未保存";
+    if (filePath || browserFileLabel) return "保存済み";
+    return "サンプルデータ";
+  }, [browserFileLabel, filePath, isDirty]);
+
   const applyOpenedFile = useCallback(
     (pick: {
       path: string | null;
@@ -288,10 +299,12 @@ export function useScheduleFile({
             return;
           }
           if (!startup.startupSettledRef.current) return;
+          event.preventDefault();
           try {
             await clearLastSchedulePathViaTauri();
+            allowCloseRef.current = true;
+            await getCurrentWindow().close();
           } catch (error) {
-            event.preventDefault();
             setErrorMessageText(
               errorMessage(error, "前回のファイルの記録を削除できませんでした。"),
             );
@@ -299,10 +312,12 @@ export function useScheduleFile({
           return;
         }
         if (!isDirtyRef.current) return;
+        event.preventDefault();
         try {
           await writeRecoveryDraftNowRef.current();
+          allowCloseRef.current = true;
+          await getCurrentWindow().close();
         } catch (error) {
-          event.preventDefault();
           setErrorMessageText(
             errorMessage(error, "復旧用の控えを保存できませんでした。"),
           );
@@ -346,7 +361,10 @@ export function useScheduleFile({
 
   return {
     filePath,
+    displayFileName,
+    saveStatusLabel,
     statusLabel,
+    reloadNotice: externalReload.reloadNotice,
     showDeferredReload: externalReload.showDeferredReload,
     isDirty,
     fileBusy,

@@ -43,7 +43,8 @@ function clampUiScale(value: number): number {
 export function parseDisplayScalePreference(
   raw: string | null,
 ): DisplayScalePreference {
-  if (raw == null || raw === "" || raw === "auto") return "auto";
+  if (raw == null || raw === "") return 1;
+  if (raw === "auto") return "auto";
   const n = Number(raw);
   if (n === 0.5) return 0.5;
   if (n === 0.75) return 0.75;
@@ -51,7 +52,7 @@ export function parseDisplayScalePreference(
   if (n === 1.25) return 1.25;
   if (n === 1.5) return 1.5;
   if (n === 2) return 2;
-  return "auto";
+  return 1;
 }
 
 export function readDisplayScalePreference(): DisplayScalePreference {
@@ -60,7 +61,7 @@ export function readDisplayScalePreference(): DisplayScalePreference {
       localStorage.getItem(DISPLAY_SCALE_LS_KEY),
     );
   } catch {
-    return "auto";
+    return 1;
   }
 }
 
@@ -68,11 +69,10 @@ export function writeDisplayScalePreference(
   preference: DisplayScalePreference,
 ): void {
   try {
-    if (preference === "auto") {
-      localStorage.removeItem(DISPLAY_SCALE_LS_KEY);
-    } else {
-      localStorage.setItem(DISPLAY_SCALE_LS_KEY, String(preference));
-    }
+    localStorage.setItem(
+      DISPLAY_SCALE_LS_KEY,
+      preference === "auto" ? "auto" : String(preference),
+    );
   } catch {
     // ignore quota / private mode
   }

@@ -9,13 +9,16 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { AlertTriangle } from "lucide-react";
 import { milestonesExceededBy } from "../model/milestones";
 import {
+  assigneeColumnChars,
   assigneeSidebarLabel,
   resolveAssigneeDisplay,
 } from "../model/assigneeDisplay";
-import type { Member } from "../model/memberTypes";
-import type { MemberId } from "../model/memberTypes";
+import type { SidebarColumnsPreference } from "../model/viewPreferences";
+import { daysBetween, fmtMonthDay, parseDate } from "../model/dates";
+import type { Member, MemberId } from "../model/memberTypes";
 import {
   categoryCollapseKey,
   groupCollapseKey,
@@ -50,6 +53,8 @@ type SidebarProps = {
   viewportHeight: number;
   rowHeight: number;
   selectedTaskId: ScheduleId | null;
+  hoveredTaskId: ScheduleId | null;
+  onSelectTask: (taskId: ScheduleId) => void;
   reorderingTaskId: ScheduleId | null;
   reorderingCategoryId: ScheduleId | null;
   reorderingGroupId: ScheduleId | null;
@@ -102,6 +107,7 @@ type SidebarProps = {
   onSidebarWidthNudge: (delta: number) => void;
   onWheelRows: (event: WheelEvent) => void;
   sticky: StickyLayout;
+  sidebarColumns: SidebarColumnsPreference;
 };
 
 export function Sidebar({
@@ -112,6 +118,8 @@ export function Sidebar({
   viewportHeight,
   rowHeight,
   selectedTaskId,
+  hoveredTaskId,
+  onSelectTask,
   reorderingTaskId,
   reorderingCategoryId,
   reorderingGroupId,
@@ -143,6 +151,7 @@ export function Sidebar({
   onSidebarWidthNudge,
   onWheelRows,
   sticky,
+  sidebarColumns,
 }: SidebarProps) {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -157,6 +166,20 @@ export function Sidebar({
       return row.y + rowHeight >= minY && row.y <= maxY;
     });
   }, [hiddenIndexes, rows, rowHeight, scrollY, viewportHeight]);
+
+  const assigneeChars = useMemo(
+    () =>
+      assigneeColumnChars(
+        rows.flatMap((row) => {
+          if (row.type !== "task") return [];
+          const display = resolveAssigneeDisplay(row.task.assigneeId, memberCatalog);
+          return [
+            display.kind === "unassigned" ? "未割当" : assigneeSidebarLabel(display),
+          ];
+        }),
+      ),
+    [memberCatalog, rows],
+  );
 
   const contentHeight = useMemo(
     () => rows.reduce((max, row) => Math.max(max, row.y + rowHeight), 0),
@@ -521,7 +544,11 @@ export function Sidebar({
       >
         <div
           className="sidebar-rows"
-          style={{ height: contentHeight, transform: `translateY(${-scrollY}px)` }}
+          style={{
+            height: contentHeight,
+            transform: `translateY(${-scrollY}px)`,
+            "--assignee-chars": String(assigneeChars),
+          } as CSSProperties}
         >
           {visibleRows.map((row) => {
             if (row.type === "category") {
@@ -569,7 +596,9 @@ export function Sidebar({
                 top={row.y}
                 rowHeight={rowHeight}
                 selected={row.task.id === selectedTaskId}
+                hovered={row.task.id === hoveredTaskId}
                 reordering={row.task.id === reorderingTaskId}
+                onSelect={() => onSelectTask(row.task.id)}
                 canReorder={
                   canEditDocument &&
                   canReorderTaskInGroup(categories, row.task.id, reorderBaseRows)
@@ -602,6 +631,7 @@ export function Sidebar({
                   );
                 }}
                 onCancelReorder={onCancelReorder}
+                sidebarColumns={sidebarColumns}
               />
             );
           })}
@@ -971,6 +1001,7 @@ function TaskSidebarRow({
   top,
   rowHeight,
   selected,
+  hovered,
   reordering,
   canReorder,
   today,
@@ -978,22 +1009,27 @@ function TaskSidebarRow({
   memberCatalog,
   onOpenTaskNote,
   onTaskContextMenu,
+  onSelect,
   resolveReorderInsert,
   onPreviewReorder,
   onCommitReorder,
   onCancelReorder,
+  sidebarColumns,
 }: {
   task: Task;
   top: number;
   rowHeight: number;
   selected: boolean;
+  hovered: boolean;
   reordering: boolean;
   canReorder: boolean;
   today: string;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
+  sidebarColumns: SidebarColumnsPreference;
   onOpenTaskNote: () => void;
   onTaskContextMenu: (x: number, y: number) => void;
+  onSelect: () => void;
   resolveReorderInsert: (
     clientX: number,
     clientY: number,
@@ -1069,6 +1105,11 @@ function TaskSidebarRow({
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    if (drag.mode === "pending") {
+      if (commit) onSelect();
+      return;
+    }
+    if (drag.mode === "slide") return;
     if (drag.mode !== "reorder") return;
     if (!commit) {
       onCancelReorder();
@@ -1087,7 +1128,7 @@ function TaskSidebarRow({
 
   return (
     <div
-      className={`sidebar-row task${selected ? " selected" : ""}${rowClass}${reordering ? " reordering" : ""}`}
+      className={`sidebar-row task${selected ? " selected" : ""}${hovered ? " hovered" : ""}${rowClass}${reordering ? " reordering" : ""}`}
       style={rowStyle}
       title={exceededTitle}
       onContextMenu={(event) => {
@@ -1158,16 +1199,53 @@ function TaskSidebarRow({
       >
         <span ref={textRef} className="slide-label-text">{task.name}</span>
       </span>
-      {task.confidence === "tentative" ? (
-        <span className="confidence-tentative">未確定</span>
-      ) : null}
-      {exceeded.length > 0 ? (
-        <span className="milestone-alert" title={exceededTitle}>
-          超過
+      <span className="sidebar-trail">
+        {sidebarColumns.start ||
+        sidebarColumns.end ||
+        sidebarColumns.duration ||
+        sidebarColumns.progress ? (
+          <span className="sidebar-cols">
+            {sidebarColumns.start ? (
+              <span className="sidebar-col start" title="開始">
+                {fmtMonthDay(task.start)}
+              </span>
+            ) : null}
+            {sidebarColumns.end ? (
+              <span className="sidebar-col end" title="終了">
+                {fmtMonthDay(task.end)}
+              </span>
+            ) : null}
+            {sidebarColumns.duration ? (
+              <span className="sidebar-col duration" title="日数">
+                {daysBetween(parseDate(task.start), parseDate(task.end)) + 1}日
+              </span>
+            ) : null}
+            {sidebarColumns.progress ? (
+              <span className="sidebar-col progress" title="進捗">
+                {task.progress}%
+              </span>
+            ) : null}
+          </span>
+        ) : null}
+        <span className="sidebar-alert-slot">
+          {exceeded.length > 0 ? (
+            <span className="milestone-alert-icon" title={exceededTitle} aria-label="超過">
+              <AlertTriangle size={14} strokeWidth={2.25} />
+            </span>
+          ) : null}
         </span>
-      ) : null}
-      <span className={`assignee${assigneeClass}`}>
-        {assigneeSidebarLabel(assigneeDisplay)}
+        <span
+          className={`assignee${assigneeClass}`}
+          title={
+            assigneeDisplay.kind === "unassigned"
+              ? "未割当"
+              : assigneeSidebarLabel(assigneeDisplay)
+          }
+        >
+          {assigneeDisplay.kind === "unassigned"
+            ? "未割当"
+            : assigneeSidebarLabel(assigneeDisplay)}
+        </span>
       </span>
     </div>
   );

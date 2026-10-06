@@ -4,6 +4,7 @@ import type Konva from "konva";
 import { milestoneMarkHit } from "../model/chartHitTest";
 import { parseDate } from "../model/dates";
 import { hatchCanvas } from "../model/hatch";
+import { KONVA_FONT_FAMILY } from "../model/fontStack";
 import type { ChartPalette, ResolvedColorScheme } from "../model/palette";
 import type { Milestone, ScheduleId } from "../model/types";
 
@@ -214,6 +215,7 @@ function MilestoneMark({
         text={milestone.name}
         fontSize={fontSize}
         fontStyle="bold"
+        fontFamily={KONVA_FONT_FAMILY}
         fill={chart.milestoneDiamond}
         listening={false}
       />
