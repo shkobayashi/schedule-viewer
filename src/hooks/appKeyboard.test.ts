@@ -24,6 +24,8 @@ function decide(
       repeat: false,
     },
     dialogOpen: false,
+    commandPaletteOpen: false,
+    macAppQuit: false,
     menuOpen: false,
     target: null,
     linkSourceId: null,

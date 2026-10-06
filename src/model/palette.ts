@@ -260,6 +260,11 @@ export function paletteFor(scheme: ResolvedColorScheme): AppPalette {
 export function applyCssPalette(palette: AppPalette): void {
   const root = document.documentElement;
   const c = palette.css;
+  root.style.setProperty("--radius-sm", "4px");
+  root.style.setProperty("--radius-md", "6px");
+  root.style.setProperty("--radius-lg", "8px");
+  root.style.setProperty("--elevation-menu", `0 8px 24px ${c.menuShadow}`);
+  root.style.setProperty("--elevation-modal", `0 8px 24px ${c.modalShadow}`);
   root.style.setProperty("--bg", c.bg);
   root.style.setProperty("--panel", c.panel);
   root.style.setProperty("--border", c.border);

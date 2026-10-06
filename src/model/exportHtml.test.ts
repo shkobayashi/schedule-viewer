@@ -46,6 +46,7 @@ function input(): ScheduleExportInput {
     calendar: null,
     filterSummary: "ステータス: 進行中",
     colorScheme: "light",
+    showLightningLine: true,
   };
 }
 

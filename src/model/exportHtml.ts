@@ -52,6 +52,7 @@ export type ScheduleExportInput = {
   /** 初期値以外の絞り込み。空なら絞り込みなし。 */
   filterSummary: string;
   colorScheme: ResolvedColorScheme;
+  showLightningLine: boolean;
 };
 
 export type ScheduleExportFormat = "html" | "svg";
@@ -722,7 +723,11 @@ function renderBody(
       marks.push(renderSummary(row.summary, y, input, dateToX));
     }
   }
-  marks.push(renderLightning(input, bodyTop, contentHeight, dateToX));
+  marks.push(
+    input.showLightningLine
+      ? renderLightning(input, bodyTop, contentHeight, dateToX)
+      : "",
+  );
   return marks.join("\n  ");
 }
 
@@ -857,7 +862,7 @@ function renderTaskBar(
       const radii: [number, number, number, number] =
         overrunAt <= 0 ? [4, 4, 4, 4] : [0, 4, 4, 0];
       parts.push(
-        `<path d="${roundedRect(x + left, barY, width, input.barHeight, radii)}" fill="${chart.overrunOverlay}"/>`,
+        `<path d="${roundedRect(x + left, barY, width, input.barHeight, radii)}" fill="none" stroke="${chart.linkBroken}" stroke-width="1.5"/>`,
       );
     }
   }
@@ -883,7 +888,7 @@ function renderLightning(
     points.push(x, y);
   }
   points.push(todayX, bodyTop + contentHeight);
-  return `<polyline points="${pairs(points)}" fill="none" stroke="${chart.lightning}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  return `<polyline points="${pairs(points)}" fill="none" stroke="${chart.lightning}" stroke-width="1.5" stroke-opacity="0.55" stroke-linejoin="round" stroke-linecap="round"/>`;
 }
 
 function roundedRect(

@@ -36,6 +36,8 @@ import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { ActiveFilterBar } from "./components/ActiveFilterBar";
 import { AppToast } from "./components/AppToast";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
+import { CommandPalette } from "./components/CommandPalette";
+import type { CommandPaletteCommandId } from "./model/commandPalette";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar, type SearchField } from "./components/Toolbar";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
@@ -46,6 +48,7 @@ import {
   usesCommandKey,
 } from "./model/shortcuts";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
+import { useMacOSAppMenu } from "./hooks/useMacOSAppMenu";
 import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
@@ -104,6 +107,8 @@ import {
   readDisplayScalePreference,
   readUiScale,
   resolveUiScale,
+  stepDisplayScale,
+  writeDisplayScalePreference,
   type DisplayScalePreference,
 } from "./model/uiScale";
 import {
@@ -189,6 +194,7 @@ function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [searchField, setSearchField] = useState<SearchField>("name");
   const [diffText, setDiffText] = useState<string | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
@@ -726,6 +732,7 @@ function App() {
             assigneeLabel,
           ),
           colorScheme: resolvedColorScheme,
+          showLightningLine,
         },
         format,
       ).catch((error: unknown) => {
@@ -754,6 +761,7 @@ function App() {
       tierLabel,
       uiScale,
       resolvedColorScheme,
+      showLightningLine,
     ],
   );
 
@@ -842,6 +850,144 @@ function App() {
     });
   }, [loadScheduleDiffText, scheduleFile.fileBusy]);
 
+  const commandPaletteContext = useMemo(
+    () => ({
+      fileBusy: scheduleFile.fileBusy,
+      canUndo: schedule.canUndo,
+      canRedo: schedule.canRedo,
+      selectedTaskId: schedule.selectedTaskId,
+      linkSourceId,
+      lineageActive:
+        schedule.lineageTask?.id != null &&
+        schedule.lineageTask.id === schedule.selectedTaskId,
+    }),
+    [
+      linkSourceId,
+      schedule.canRedo,
+      schedule.canUndo,
+      schedule.lineageTask,
+      schedule.selectedTaskId,
+      scheduleFile.fileBusy,
+    ],
+  );
+
+  const runCommandPalette = useCallback(
+    (id: CommandPaletteCommandId) => {
+      const stepScale = (direction: "in" | "out") => {
+        const next = stepDisplayScale(
+          displayScalePreferenceRef.current,
+          uiScaleRef.current,
+          direction,
+        );
+        if (next == null) return;
+        displayScalePreferenceRef.current = next;
+        uiScaleRef.current = resolveUiScale(
+          window.innerWidth,
+          window.innerHeight,
+          next,
+        );
+        writeDisplayScalePreference(next);
+        handleDisplayScaleChange(next);
+      };
+      switch (id) {
+        case "open":
+          scheduleFile.requestOpen();
+          break;
+        case "save":
+          void scheduleFile.save(false);
+          break;
+        case "saveAs":
+          void scheduleFile.save(true);
+          break;
+        case "find":
+          taskSearchRef.current?.focus();
+          taskSearchRef.current?.select();
+          break;
+        case "showDiff":
+          showScheduleDiff();
+          break;
+        case "copyDiff":
+          copyScheduleDiff();
+          break;
+        case "showJson":
+          setJsonOpen(true);
+          break;
+        case "export":
+          setExportOpen(true);
+          break;
+        case "settings":
+          setSettingsSection("display");
+          setSettingsOpen(true);
+          break;
+        case "shortcuts":
+          setShortcutsOpen(true);
+          break;
+        case "goToday":
+          scrollToToday();
+          break;
+        case "tierDay":
+          setTierZoom("day");
+          break;
+        case "tierWeek":
+          setTierZoom("week");
+          break;
+        case "tierMonth":
+          setTierZoom("month");
+          break;
+        case "fit":
+          fitToWidth();
+          break;
+        case "undo":
+          undo();
+          break;
+        case "redo":
+          redo();
+          break;
+        case "displayScaleIn":
+          stepScale("in");
+          break;
+        case "displayScaleOut":
+          stepScale("out");
+          break;
+        case "editTask":
+          if (schedule.selectedTaskId == null) break;
+          focusDetailName();
+          break;
+        case "deleteTask":
+          requestDeleteTask();
+          break;
+        case "link":
+          toggleLinkMode();
+          break;
+        case "note":
+          if (schedule.selectedTaskId != null) {
+            schedule.openTaskNoteDialog(schedule.selectedTaskId);
+          }
+          break;
+        case "lineage":
+          schedule.toggleLineage();
+          break;
+        default:
+          break;
+      }
+    },
+    [
+      copyScheduleDiff,
+      fitToWidth,
+      focusDetailName,
+      handleDisplayScaleChange,
+      redo,
+      requestDeleteTask,
+      schedule,
+      scheduleFile,
+      scrollToToday,
+      setTierZoom,
+      showScheduleDiff,
+      toggleLinkMode,
+      undo,
+    ],
+  );
+
   useAppKeyboard({
     rowHeight,
     scrollBy,
@@ -866,6 +1012,9 @@ function App() {
     uiScaleRef,
     onDisplayScaleChange: handleDisplayScaleChange,
     onOpenShortcuts: () => setShortcutsOpen(true),
+    commandPaletteOpen,
+    onOpenCommandPalette: () => setCommandPaletteOpen(true),
+    onCloseCommandPalette: () => setCommandPaletteOpen(false),
     visibleRows,
     selectTask: (taskId) => {
       schedule.selectTask(taskId);
@@ -875,6 +1024,24 @@ function App() {
     shiftTaskEndByDays,
     focusDetailName,
     copyScheduleDiff,
+  });
+
+  useMacOSAppMenu({
+    fileBusy: () => scheduleFile.fileBusy,
+    onOpen: scheduleFile.requestOpen,
+    onSave: () => void scheduleFile.save(false),
+    onSaveAs: () => void scheduleFile.save(true),
+    onExportHtml: () => setExportOpen(true),
+    onShowJson: () => setJsonOpen(true),
+    onShowDiff: showScheduleDiff,
+    onOpenShortcuts: () => setShortcutsOpen(true),
+    onOpenSettings: () => {
+      setSettingsSection("display");
+      setSettingsOpen(true);
+    },
+    onGoToday: scrollToToday,
+    onSetTier: setTierZoom,
+    onFit: fitToWidth,
   });
 
   useEffect(() => {
@@ -1598,6 +1765,12 @@ function App() {
       <ShortcutsDialog
         open={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}
+      />
+      <CommandPalette
+        open={commandPaletteOpen}
+        context={commandPaletteContext}
+        onClose={() => setCommandPaletteOpen(false)}
+        onRun={runCommandPalette}
       />
       <JsonDialog
         json={jsonOpen ? scheduleFile.currentJson : ""}

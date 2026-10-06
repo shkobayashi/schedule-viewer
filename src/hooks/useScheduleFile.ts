@@ -299,10 +299,12 @@ export function useScheduleFile({
             return;
           }
           if (!startup.startupSettledRef.current) return;
+          event.preventDefault();
           try {
             await clearLastSchedulePathViaTauri();
+            allowCloseRef.current = true;
+            await getCurrentWindow().close();
           } catch (error) {
-            event.preventDefault();
             setErrorMessageText(
               errorMessage(error, "前回のファイルの記録を削除できませんでした。"),
             );
@@ -310,10 +312,12 @@ export function useScheduleFile({
           return;
         }
         if (!isDirtyRef.current) return;
+        event.preventDefault();
         try {
           await writeRecoveryDraftNowRef.current();
+          allowCloseRef.current = true;
+          await getCurrentWindow().close();
         } catch (error) {
-          event.preventDefault();
           setErrorMessageText(
             errorMessage(error, "復旧用の控えを保存できませんでした。"),
           );
