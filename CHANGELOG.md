@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### 追加
+
+- 設定の「JSON作成スキルを置く」。デスクトップ版から write-schedule、write-members、write-calendar を Cursor または Claude Code のスキルフォルダへ置ける。同じ画面から外せる。インストーラーと初回起動では書かない。
+
+### 変更
+
+- write-schedule、write-members、write-calendar の SKILL.md とデータ仕様の検証手順を、置いたスキルフォルダの `scripts/validate-*.mjs` を実行する説明に揃えた。
+
 ## [1.0.0] - 2026-10-06
 
 ### 追加

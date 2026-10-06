@@ -282,7 +282,7 @@ body {
 
 .settings-layout {
   display: grid;
-  grid-template-columns: calc(160px * var(--s)) minmax(0, 1fr);
+  grid-template-columns: calc(184px * var(--s)) minmax(0, 1fr);
   gap: calc(16px * var(--s));
   min-height: calc(320px * var(--s));
 }
@@ -343,6 +343,18 @@ body {
   list-style: none;
   padding: 0;
   margin: 0 0 12px;
+}
+
+.settings-path-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  font-size: calc(12px * var(--s));
+  word-break: break-all;
+}
+
+.settings-path-list li {
+  padding: 4px 0;
 }
 
 .settings-catalog-list li {

@@ -1,6 +1,6 @@
 # テスト仕様
 
-何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs` の `#[test]` の名前である。
+何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs` および `src-tauri/src/json_skills.rs` の `#[test]` の名前である。
 
 ## 方針
 
@@ -15,7 +15,7 @@
 | 種類 | コマンド | 見ているもの |
 | --- | --- | --- |
 | Vitest | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
-| Rust | `cd src-tauri && cargo test --locked` | `lib.rs` のパス検査 |
+| Rust | `cd src-tauri && cargo test --locked` | `lib.rs` と `json_skills.rs` のパス検査 |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外 |
 | 型検査 | `npm run build` の中の `tsc` | `src` |
 | Clippy | `cd src-tauri && cargo clippy -- -D warnings` | Rust。警告をエラーにする |
@@ -384,6 +384,19 @@
 | `resolve_remembered_path_uses_recovery_when_last_schedule_is_absent` | 覚えたパスが無ければ控えのパスを使う | SYNC-03 |
 | `resolve_remembered_path_rejects_broken_last_schedule_and_skips_broken_recovery` | 壊れた前回の記録は拒否し、壊れた控えはパスに使わない | SYNC-03 |
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
+| `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
+| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの3スキルに限る | SET-05 |
+| `install_without_replace_leaves_existing` | 置き換えを確認するまでは既存を残し、何も書かない | SET-05 |
+| `install_creates_real_parent_directories` | 無い `.cursor/skills` を実ディレクトリとして作る | SET-05 |
+| `install_without_replace_treats_symlink_as_existing` | 壊れたシンボリックリンクも既存として、確認前は書かない | SET-05 |
+| `install_replaces_symlink_destination` | 宛先のシンボリックリンクはリンクだけ外し、リンク先は残す | SET-05 |
+| `install_does_not_write_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら置かない | SET-05 |
+| `place_staged_skill_restores_original_when_copy_fails` | 入れ替えのコピーに失敗したら元のフォルダを残す | SET-05 |
+| `install_keeps_earlier_skill_when_a_later_copy_fails` | 後続のコピーに失敗しても、先に置けたスキルは残る | SET-05 |
+| `uninstall_removes_only_bundled_skill_folders` | 外すのは3スキルだけで、別名のスキルは残す | SET-05 |
+| `uninstall_does_not_remove_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら外さない | SET-05 |
+| `uninstall_removes_broken_symlink_at_destination` | 宛先の壊れたシンボリックリンクはリンクだけ外す | SET-05 |
+| `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
 
 ## 自動テストが無いところ
 
@@ -600,6 +613,11 @@
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
+| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar が `~/.cursor/skills/` に置かれ、パスが示される |
+| TC-SET-05b | SET-05 | 上記のいずれかが既にある | もう一度「置く」 | 上書き確認が出る。上書き後、置いたパスが示される |
+| TC-SET-05c | SET-05 | 指定フォルダへ Claude Code を置く。`~/.claude/skills/` に同名がある | 「置く」 | 置いたあと、個人用が先に使われる旨が出る |
+| TC-SET-05d | SET-05 | ブラウザ版 | 設定の「JSON作成スキルを置く」を開く | デスクトップ版でのみ置ける旨が出て、「置く」は押せない |
+| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に3つがある | 「外す」で確認のあと外す | 3つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
 
 ## リリース前確認
 
