@@ -338,6 +338,14 @@ function TaskBar({
     pointerId: number;
     startX: number;
     startY: number;
+    captureTarget: Element;
+  } | null>(null);
+  const moveDragRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    originBarX: number;
+    captureTarget: Element;
+    detach: () => void;
   } | null>(null);
   const resizeEdgeAtPointer = useCallback(() => {
     const pos = groupRef.current?.getRelativePointerPosition();
@@ -347,13 +355,38 @@ function TaskBar({
   const handleHeight = Math.max(10, Math.round(barHeight * 0.7));
   const handleY = barHeight / 2 - handleHeight / 2;
 
+  const finishPointerMove = useCallback(
+    (commit: boolean) => {
+      const drag = moveDragRef.current;
+      const node = groupRef.current;
+      if (drag) {
+        drag.detach();
+        if (drag.captureTarget.hasPointerCapture(drag.pointerId)) {
+          drag.captureTarget.releasePointerCapture(drag.pointerId);
+        }
+        moveDragRef.current = null;
+      }
+      registerDragCancel(null);
+      if (!node) {
+        onDragGeometry(null);
+        return;
+      }
+      if (commit) {
+        const delta = Math.round((node.x() - origXRef.current) / pxPerDay);
+        node.position({ x: origXRef.current + delta * pxPerDay, y: barY });
+        if (delta !== 0) onMoveTask(delta);
+      } else {
+        node.position({ x: origXRef.current, y: barY });
+      }
+      onDragGeometry(null);
+      node.getLayer()?.batchDraw();
+    },
+    [barY, onDragGeometry, onMoveTask, pxPerDay, registerDragCancel],
+  );
+
   const cancelMove = useCallback(() => {
-    const node = groupRef.current;
-    if (!node) return;
-    node.position({ x: origXRef.current, y: barY });
-    node.draggable(false);
-    onDragGeometry(null);
-  }, [barY, onDragGeometry]);
+    finishPointerMove(false);
+  }, [finishPointerMove]);
 
   useEffect(() => {
     bgWidthRef.current = w;
@@ -363,14 +396,75 @@ function TaskBar({
     return () => registerDragCancel(null);
   }, [registerDragCancel]);
 
-  const startMoveDrag = useCallback(() => {
-    const node = groupRef.current;
-    if (!node) return;
-    origXRef.current = node.x();
-    registerDragCancel(() => cancelMove());
-    node.draggable(true);
-    node.startDrag();
-  }, [cancelMove, registerDragCancel]);
+  const beginPointerMove = useCallback(
+    (
+      pointerId: number,
+      startClientX: number,
+      captureTarget: Element,
+    ) => {
+      const node = groupRef.current;
+      if (!node || moveDragRef.current) return;
+      origXRef.current = node.x();
+      try {
+        captureTarget.setPointerCapture(pointerId);
+      } catch {
+        // キャプチャできないときは window の監視だけで続ける。
+      }
+      registerDragCancel(() => cancelMove());
+      const reportGeometry = (barLeft: number) => {
+        onDragGeometry({
+          taskId: task.id,
+          kind: "move",
+          barLeft,
+          barWidth: w,
+          barTop: barY,
+          originX: origXRef.current,
+        });
+      };
+      reportGeometry(origXRef.current);
+      const onMove = (evt: PointerEvent) => {
+        const drag = moveDragRef.current;
+        if (!drag || evt.pointerId !== drag.pointerId) return;
+        const dx = evt.clientX - drag.startClientX;
+        const nextX = drag.originBarX + dx;
+        node.x(nextX);
+        reportGeometry(nextX);
+        node.getLayer()?.batchDraw();
+      };
+      const onUp = (evt: PointerEvent) => {
+        if (evt.pointerId !== pointerId) return;
+        finishPointerMove(true);
+      };
+      const onCancel = (evt: PointerEvent) => {
+        if (evt.pointerId !== pointerId) return;
+        finishPointerMove(false);
+      };
+      const detach = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onCancel);
+      };
+      moveDragRef.current = {
+        pointerId,
+        startClientX,
+        originBarX: origXRef.current,
+        captureTarget,
+        detach,
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onCancel);
+    },
+    [
+      barY,
+      cancelMove,
+      finishPointerMove,
+      onDragGeometry,
+      registerDragCancel,
+      task.id,
+      w,
+    ],
+  );
 
   const onBodyPointerDown = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
@@ -384,10 +478,13 @@ function TaskBar({
       }
       if (e.evt.button !== 0) return;
       e.cancelBubble = true;
+      const captureTarget = e.target.getStage()?.content;
+      if (!captureTarget) return;
       movePendingRef.current = {
         pointerId: e.evt.pointerId,
         startX: e.evt.clientX,
         startY: e.evt.clientY,
+        captureTarget,
       };
       const onMove = (evt: PointerEvent) => {
         const pending = movePendingRef.current;
@@ -395,13 +492,14 @@ function TaskBar({
         const dx = evt.clientX - pending.startX;
         const dy = evt.clientY - pending.startY;
         if (Math.hypot(dx, dy) < TASK_DRAG_THRESHOLD_PX) return;
+        const { pointerId, startX, captureTarget: target } = pending;
         movePendingRef.current = null;
         onDragMoved();
         onSelect();
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onUp);
-        startMoveDrag();
+        beginPointerMove(pointerId, startX, target);
       };
       const onUp = (evt: PointerEvent) => {
         const pending = movePendingRef.current;
@@ -416,13 +514,13 @@ function TaskBar({
       window.addEventListener("pointercancel", onUp);
     },
     [
+      beginPointerMove,
       linkMode,
       onBeginPan,
       onDragMoved,
       onLinkPointerDown,
       onSelect,
       panScrollArmed,
-      startMoveDrag,
     ],
   );
 
@@ -468,7 +566,6 @@ function TaskBar({
       name="task-bar"
       x={x}
       y={barY}
-      dragBoundFunc={(pos) => ({ x: pos.x, y: barY })}
       onClick={(e) => {
         e.cancelBubble = true;
         if (resizeEdgeAtPointer() != null || e.evt.button !== 0) return;
@@ -499,38 +596,6 @@ function TaskBar({
         if (resizeEdgeAtPointer() != null) return;
         if (linkMode) return;
         onOpenEdit();
-      }}
-      onDragStart={(e) => {
-        origXRef.current = e.target.x();
-        registerDragCancel(() => cancelMove());
-        onDragGeometry({
-          taskId: task.id,
-          kind: "move",
-          barLeft: e.target.x(),
-          barWidth: w,
-          barTop: barY,
-          originX: e.target.x(),
-        });
-      }}
-      onDragMove={(e) => {
-        onDragGeometry({
-          taskId: task.id,
-          kind: "move",
-          barLeft: e.target.x(),
-          barWidth: w,
-          barTop: barY,
-          originX: origXRef.current,
-        });
-      }}
-      onDragEnd={(e) => {
-        const node = e.target;
-        if (!node.draggable()) return;
-        const delta = Math.round((node.x() - origXRef.current) / pxPerDay);
-        node.position({ x: origXRef.current + delta * pxPerDay, y: barY });
-        node.draggable(false);
-        registerDragCancel(null);
-        onDragGeometry(null);
-        if (delta !== 0) onMoveTask(delta);
       }}
     >
       <Rect
