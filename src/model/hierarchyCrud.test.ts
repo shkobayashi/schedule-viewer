@@ -129,8 +129,9 @@ describe("hierarchy move", () => {
 
   it("shows a cross-category group move as a location change in diff", () => {
     const file: ScheduleDocument = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "t",
+      milestoneGroups: [],
       milestones: [],
       categories: baseCategories(),
     };
@@ -162,8 +163,9 @@ describe("hierarchy move", () => {
 
   it("shows cross-group task move as location change in diff", () => {
     const file: ScheduleDocument = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       title: "t",
+      milestoneGroups: [],
       milestones: [],
       categories: baseCategories(),
     };

@@ -6,6 +6,7 @@
 
 ### 追加
 
+- マイルストン帯のグループ（`milestoneGroups` / `groupId`、schemaVersion 6）。帯はグループごとに積み、ひし形が重なるときだけ段を増やす。絞り込みの「帯の線」で表示するグループを選べる
 - 設定の「JSON作成スキルを置く」。デスクトップ版から write-schedule、write-members、write-calendar を Cursor または Claude Code のスキルフォルダへ置ける。同じ画面から外せる。インストーラーと初回起動では書かない。
 
 ### 変更

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { formatScheduleDiff } from "./scheduleDiff";
-import type { Category, Milestone, ScheduleDocument, Task } from "./types";
+import type {
+  Category,
+  Milestone,
+  MilestoneGroup,
+  ScheduleDocument,
+  Task,
+} from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
 const TASK_A = "00000000-0000-4000-8000-00000000000a";
@@ -31,17 +37,23 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
 function milestone(
   overrides: Partial<Milestone> & Pick<Milestone, "id" | "name" | "date">,
 ): Milestone {
-  return { confidence: "committed", ...overrides };
+  return {
+    confidence: "committed",
+    groupId: "e1000001-0000-4000-8000-000000000001",
+    ...overrides,
+  };
 }
 
 function doc(
   categories: Category[],
   milestones: Milestone[] = [],
   title = "計画",
+  milestoneGroups: MilestoneGroup[] = [],
 ): ScheduleDocument {
   return {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title,
+    milestoneGroups,
     milestones,
     categories,
   };
@@ -415,6 +427,36 @@ describe("formatScheduleDiff", () => {
       ]),
     );
     expect(formatScheduleDiff(screen, file, "plan.json")).toContain("差はありません");
+  });
+
+  it("shows a milestone group rename, a groupId change, and an added or deleted group", () => {
+    const groupA = "e1000001-0000-4000-8000-000000000001";
+    const groupB = "e1000001-0000-4000-8000-000000000002";
+    const groupC = "e1000001-0000-4000-8000-000000000003";
+    const file = doc(
+      [],
+      [milestone({ id: MS_A, name: "要件確定", date: "2026-04-01", groupId: groupA })],
+      "計画",
+      [
+        { id: groupA, name: "旧" },
+        { id: groupB, name: "消す" },
+      ],
+    );
+    const screen = doc(
+      [],
+      [milestone({ id: MS_A, name: "要件確定", date: "2026-04-01", groupId: groupC })],
+      "計画",
+      [
+        { id: groupA, name: "新" },
+        { id: groupC, name: "追加分" },
+      ],
+    );
+    const text = formatScheduleDiff(screen, file, "plan.json");
+    expect(text).toContain(`変更 マイルストングループ 新 (${groupA})`);
+    expect(text).toContain("name: 旧 → 新");
+    expect(text).toContain("追加 マイルストングループ 追加分");
+    expect(text).toContain("削除 マイルストングループ 消す");
+    expect(text).toContain("groupId: 旧 → 追加分");
   });
 
   it("shows a milestone date shift and a title change", () => {

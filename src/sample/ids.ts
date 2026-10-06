@@ -1,4 +1,8 @@
 /** サンプルデータ用の固定 UUID（読み込みのたびに変えない）。 */
+export const SAMPLE_MILESTONE_GROUP_IDS = {
+  default: "e1000001-0000-4000-8000-000000000001",
+} as const;
+
 export const SAMPLE_MILESTONE_IDS = {
   requirements: "a1000001-0000-4000-8000-000000000001",
   pocDone: "a1000001-0000-4000-8000-000000000002",

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { Category, Milestone, ScheduleDocument } from "../model/types";
+import type {
+  Category,
+  Milestone,
+  MilestoneGroup,
+  ScheduleDocument,
+} from "../model/types";
 import { errorMessage } from "../model/errors";
 import {
   acceptOpenedScheduleViaTauri,
@@ -23,6 +28,7 @@ export type FileStatusTag = "sample" | "saved" | "unsaved";
 type UseScheduleFileOptions = {
   title: string;
   categories: Category[];
+  milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
   replaceDocument: (document: ScheduleDocument) => void;
   reloadDocumentFromDisk: (document: ScheduleDocument) => void;
@@ -35,6 +41,7 @@ type UseScheduleFileOptions = {
 export function useScheduleFile({
   title,
   categories,
+  milestoneGroups,
   milestones,
   replaceDocument,
   reloadDocumentFromDisk,
@@ -58,8 +65,9 @@ export function useScheduleFile({
   const clearInvalidDiskHashRef = useRef<() => void>(() => {});
 
   const currentJson = useMemo(
-    () => serializeScheduleDocument(title, categories, milestones),
-    [categories, milestones, title],
+    () =>
+      serializeScheduleDocument(title, categories, milestoneGroups, milestones),
+    [categories, milestoneGroups, milestones, title],
   );
 
   const isDirty = currentJson !== baselineJson;

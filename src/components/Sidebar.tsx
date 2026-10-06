@@ -84,6 +84,7 @@ type SidebarProps = {
   ) => void;
   onCancelReorder: () => void;
   milestoneBandHeight: number;
+  milestoneBandLayout: import("../model/milestones").MilestoneBandLayout;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
   onToggleCollapse: (key: string) => void;
@@ -133,6 +134,7 @@ export function Sidebar({
   onCommitGroupReorder,
   onCancelReorder,
   milestoneBandHeight,
+  milestoneBandLayout,
   milestones,
   memberCatalog,
   onToggleCollapse,
@@ -527,10 +529,18 @@ export function Sidebar({
       <div className="sidebar-header">WBS / タスク</div>
       {milestoneBandHeight > 0 ? (
         <div
-          className="sidebar-milestones"
+          className="sidebar-milestone-groups"
           style={{ height: milestoneBandHeight }}
         >
-          マイルストン
+          {milestoneBandLayout.blocks.map((block) => (
+            <div
+              key={block.group.id}
+              className="sidebar-milestones"
+              style={{ height: block.height }}
+            >
+              {block.group.name}
+            </div>
+          ))}
         </div>
       ) : null}
       <div

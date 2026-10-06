@@ -1,28 +1,106 @@
 {
-  "schemaVersion": 3,
-  "title": "AI活用PoC推進プロジェクト",
+  "schemaVersion": 6,
+  "title": "AI活用PoC推進プロジェクト（playground）",
+  "milestoneGroups": [
+    {
+      "id": "e1000001-0000-4000-8000-000000000011",
+      "name": "承認・契約"
+    },
+    {
+      "id": "e1000001-0000-4000-8000-000000000012",
+      "name": "開発・リリース"
+    },
+    {
+      "id": "e1000001-0000-4000-8000-000000000013",
+      "name": "同日重なり（デモ）"
+    }
+  ],
   "milestones": [
     {
+      "id": "a1000001-0000-4000-8000-000000000011",
+      "name": "事業部長承認（経営会議付議前の前提確認）",
+      "date": "2026-09-22",
+      "confidence": "tentative",
+      "groupId": "e1000001-0000-4000-8000-000000000011"
+    },
+    {
+      "id": "a1000001-0000-4000-8000-000000000012",
+      "name": "契約締結・発注完了（調達・法務サインオフ済み）",
+      "date": "2026-09-28",
+      "confidence": "committed",
+      "groupId": "e1000001-0000-4000-8000-000000000011"
+    },
+    {
       "id": "a1000001-0000-4000-8000-000000000001",
-      "name": "要件確定",
-      "date": "2026-10-02"
+      "name": "要件確定（スコープ・受入条件の合意）",
+      "date": "2026-10-02",
+      "confidence": "committed",
+      "groupId": "e1000001-0000-4000-8000-000000000012"
+    },
+    {
+      "id": "a1000001-0000-4000-8000-000000000013",
+      "name": "設計レビュー完了（アーキテクチャサインオフ）",
+      "date": "2026-10-03",
+      "confidence": "tentative",
+      "groupId": "e1000001-0000-4000-8000-000000000012"
     },
     {
       "id": "a1000001-0000-4000-8000-000000000002",
-      "name": "PoC完了",
-      "date": "2026-11-13"
+      "name": "PoC完了（評価指標クリア・次フェーズ判定）",
+      "date": "2026-11-13",
+      "confidence": "committed",
+      "groupId": "e1000001-0000-4000-8000-000000000012"
     },
     {
       "id": "a1000001-0000-4000-8000-000000000003",
-      "name": "本番リリース",
-      "date": "2026-12-21"
+      "name": "本番リリース（全社展開開始・運用移管）",
+      "date": "2026-12-21",
+      "confidence": "tentative",
+      "groupId": "e1000001-0000-4000-8000-000000000012"
+    },
+    {
+      "id": "a1000001-0000-4000-8000-000000000021",
+      "name": "キックオフ（全社向け説明会・Q&A）",
+      "date": "2026-10-15",
+      "confidence": "committed",
+      "groupId": "e1000001-0000-4000-8000-000000000013"
+    },
+    {
+      "id": "a1000001-0000-4000-8000-000000000022",
+      "name": "セキュリティレビュー通過（脆弱性対応完了）",
+      "date": "2026-10-15",
+      "confidence": "tentative",
+      "groupId": "e1000001-0000-4000-8000-000000000013"
+    },
+    {
+      "id": "a1000001-0000-4000-8000-000000000023",
+      "name": "データ連携試験完了（本番相当環境）",
+      "date": "2026-10-15",
+      "confidence": "committed",
+      "groupId": "e1000001-0000-4000-8000-000000000013"
+    },
+    {
+      "id": "a1000001-0000-4000-8000-000000000024",
+      "name": "UAT開始宣言（受入テスト観点の合意）",
+      "date": "2026-10-15",
+      "confidence": "tentative",
+      "groupId": "e1000001-0000-4000-8000-000000000013"
+    },
+    {
+      "id": "a1000001-0000-4000-8000-000000000025",
+      "name": "ステークホルダー合意形成（例外運用の了承）",
+      "date": "2026-10-15",
+      "confidence": "committed",
+      "groupId": "e1000001-0000-4000-8000-000000000013"
     }
   ],
   "categories": [
     {
+      "id": "c2000001-0000-4000-8000-000000000001",
       "name": "要件定義",
       "groups": [
         {
+          "id": "d2000001-0000-4000-8000-000000000001",
           "name": "現状把握",
           "tasks": [
             {
@@ -33,12 +111,15 @@
               "assigneeId": "tanaka",
               "status": "done",
               "progress": 100,
+              "confidence": "committed",
               "predecessors": [],
-              "milestoneId": "a1000001-0000-4000-8000-000000000001"
+              "milestoneId": "a1000001-0000-4000-8000-000000000001",
+              "note": "各部門の現行フローと pain point を聞き取り。議事録は共有ドライブに置く。"
             }
           ]
         },
         {
+          "id": "d2000001-0000-4000-8000-000000000002",
           "name": "要件化",
           "tasks": [
             {
@@ -49,6 +130,7 @@
               "assigneeId": "sato",
               "status": "in-progress",
               "progress": 60,
+              "confidence": "committed",
               "predecessors": [
                 "b1000001-0000-4000-8000-000000000001"
               ],
@@ -57,11 +139,12 @@
             {
               "id": "b1000001-0000-4000-8000-000000000003",
               "name": "要件レビュー",
-              "start": "2026-09-29",
-              "end": "2026-10-01",
+              "start": "2026-09-22",
+              "end": "2026-09-26",
               "assigneeId": null,
               "status": "not-started",
               "progress": 0,
+              "confidence": "tentative",
               "predecessors": [
                 "b1000001-0000-4000-8000-000000000002"
               ],
@@ -72,9 +155,11 @@
       ]
     },
     {
+      "id": "c2000001-0000-4000-8000-000000000002",
       "name": "PoC設計・開発",
       "groups": [
         {
+          "id": "d2000001-0000-4000-8000-000000000003",
           "name": "設計",
           "tasks": [
             {
@@ -85,6 +170,7 @@
               "assigneeId": "suzuki",
               "status": "in-progress",
               "progress": 30,
+              "confidence": "tentative",
               "predecessors": [
                 "b1000001-0000-4000-8000-000000000003"
               ],
@@ -93,6 +179,7 @@
           ]
         },
         {
+          "id": "d2000001-0000-4000-8000-000000000004",
           "name": "実装",
           "tasks": [
             {
@@ -103,6 +190,7 @@
               "assigneeId": null,
               "status": "not-started",
               "progress": 0,
+              "confidence": "committed",
               "predecessors": [
                 "b1000001-0000-4000-8000-000000000004"
               ],
@@ -116,6 +204,7 @@
               "assigneeId": "suzuki",
               "status": "not-started",
               "progress": 0,
+              "confidence": "tentative",
               "predecessors": [
                 "b1000001-0000-4000-8000-000000000005"
               ],
@@ -124,6 +213,7 @@
           ]
         },
         {
+          "id": "d2000001-0000-4000-8000-000000000005",
           "name": "評価",
           "tasks": [
             {
@@ -134,6 +224,7 @@
               "assigneeId": "sato",
               "status": "not-started",
               "progress": 0,
+              "confidence": "committed",
               "predecessors": [
                 "b1000001-0000-4000-8000-000000000006"
               ],
@@ -144,9 +235,11 @@
       ]
     },
     {
+      "id": "c2000001-0000-4000-8000-000000000003",
       "name": "基盤構築",
       "groups": [
         {
+          "id": "d2000001-0000-4000-8000-000000000006",
           "name": "設計",
           "tasks": [
             {
@@ -157,12 +250,14 @@
               "assigneeId": "takahashi",
               "status": "in-progress",
               "progress": 45,
+              "confidence": "committed",
               "predecessors": [],
               "milestoneId": null
             }
           ]
         },
         {
+          "id": "d2000001-0000-4000-8000-000000000007",
           "name": "構築",
           "tasks": [
             {
@@ -173,6 +268,7 @@
               "assigneeId": "takahashi",
               "status": "not-started",
               "progress": 0,
+              "confidence": "committed",
               "predecessors": [
                 "b1000001-0000-4000-8000-000000000008"
               ],
@@ -186,6 +282,7 @@
               "assigneeId": "suzuki",
               "status": "not-started",
               "progress": 0,
+              "confidence": "committed",
               "predecessors": [
                 "b1000001-0000-4000-8000-000000000009"
               ],
@@ -196,9 +293,11 @@
       ]
     },
     {
+      "id": "c2000001-0000-4000-8000-000000000004",
       "name": "移行・テスト",
       "groups": [
         {
+          "id": "d2000001-0000-4000-8000-000000000008",
           "name": "移行",
           "tasks": [
             {
@@ -209,6 +308,7 @@
               "assigneeId": "tanaka",
               "status": "not-started",
               "progress": 0,
+              "confidence": "committed",
               "predecessors": [
                 "b1000001-0000-4000-8000-000000000009"
               ],
@@ -217,6 +317,7 @@
           ]
         },
         {
+          "id": "d2000001-0000-4000-8000-000000000009",
           "name": "検証",
           "tasks": [
             {
@@ -227,6 +328,7 @@
               "assigneeId": "sato",
               "status": "not-started",
               "progress": 0,
+              "confidence": "committed",
               "predecessors": [
                 "b1000001-0000-4000-8000-000000000006",
                 "b1000001-0000-4000-8000-00000000000b"
@@ -241,6 +343,7 @@
               "assigneeId": null,
               "status": "not-started",
               "progress": 0,
+              "confidence": "tentative",
               "predecessors": [
                 "b1000001-0000-4000-8000-00000000000c"
               ],
@@ -251,9 +354,11 @@
       ]
     },
     {
+      "id": "c2000001-0000-4000-8000-000000000005",
       "name": "リリース",
       "groups": [
         {
+          "id": "d2000001-0000-4000-8000-00000000000a",
           "name": "展開",
           "tasks": [
             {
@@ -264,6 +369,7 @@
               "assigneeId": "takahashi",
               "status": "not-started",
               "progress": 0,
+              "confidence": "committed",
               "predecessors": [
                 "b1000001-0000-4000-8000-00000000000a",
                 "b1000001-0000-4000-8000-00000000000d"
@@ -278,6 +384,7 @@
               "assigneeId": "suzuki",
               "status": "not-started",
               "progress": 0,
+              "confidence": "committed",
               "predecessors": [
                 "b1000001-0000-4000-8000-00000000000e"
               ],
@@ -286,6 +393,7 @@
           ]
         },
         {
+          "id": "d2000001-0000-4000-8000-00000000000b",
           "name": "引き渡し",
           "tasks": [
             {
@@ -296,6 +404,7 @@
               "assigneeId": "sato",
               "status": "not-started",
               "progress": 0,
+              "confidence": "tentative",
               "predecessors": [
                 "b1000001-0000-4000-8000-00000000000f"
               ],

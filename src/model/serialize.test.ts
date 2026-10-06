@@ -32,7 +32,7 @@ describe("scheduleToJson note", () => {
         ],
       },
     ];
-    const doc = scheduleToJson("P", categories, []);
+    const doc = scheduleToJson("P", categories, [], []);
     const task = doc.categories[0].groups[0].tasks[0];
     expect(task).not.toHaveProperty("note");
     expect(doc.schemaVersion).toBe(SCHEDULE_SCHEMA_VERSION);
@@ -66,7 +66,7 @@ describe("scheduleToJson note", () => {
         ],
       },
     ];
-    const doc = scheduleToJson("P", categories, []);
+    const doc = scheduleToJson("P", categories, [], []);
     expect(doc.categories[0].groups[0].tasks[0].note).toBe("hello");
   });
 
@@ -97,7 +97,7 @@ describe("scheduleToJson note", () => {
         ],
       },
     ];
-    const task = scheduleToJson("P", categories, []).categories[0].groups[0]
+    const task = scheduleToJson("P", categories, [], []).categories[0].groups[0]
       .tasks[0];
     const keys = Object.keys(task);
     expect(keys.indexOf("confidence")).toBe(keys.indexOf("progress") + 1);
@@ -105,16 +105,35 @@ describe("scheduleToJson note", () => {
   });
 
   it("writes milestone confidence after date", () => {
-    const milestone = scheduleToJson("P", [], [
-      {
-        id: "a1000001-0000-4000-8000-000000000001",
-        name: "要件確定",
-        date: "2026-04-01",
-        confidence: "tentative",
-      },
-    ]).milestones[0];
+    const groupId = "e1000001-0000-4000-8000-000000000001";
+    const milestone = scheduleToJson(
+      "P",
+      [
+        {
+          id: "c1000001-0000-4000-8000-000000000001",
+          name: "C",
+          groups: [
+            {
+              id: "d1000001-0000-4000-8000-000000000001",
+              name: "G",
+              tasks: [],
+            },
+          ],
+        },
+      ],
+      [{ id: groupId, name: "G" }],
+      [
+        {
+          id: "a1000001-0000-4000-8000-000000000001",
+          name: "要件確定",
+          date: "2026-04-01",
+          confidence: "tentative",
+          groupId,
+        },
+      ],
+    ).milestones[0];
     const keys = Object.keys(milestone);
-    expect(keys).toEqual(["id", "name", "date", "confidence"]);
+    expect(keys).toEqual(["id", "name", "date", "confidence", "groupId"]);
     expect(milestone.confidence).toBe("tentative");
   });
 });

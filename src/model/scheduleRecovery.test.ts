@@ -8,11 +8,17 @@ import {
   scheduleParentDirectory,
   serializeScheduleDocument,
 } from "./scheduleFile";
-import { sampleCategories, sampleMilestones, SAMPLE_PROJECT_TITLE } from "../sample/schedule";
+import {
+  sampleCategories,
+  sampleMilestoneGroups,
+  sampleMilestones,
+  SAMPLE_PROJECT_TITLE,
+} from "../sample/schedule";
 
 const baselineJson = serializeScheduleDocument(
   SAMPLE_PROJECT_TITLE,
   sampleCategories,
+  sampleMilestoneGroups,
   sampleMilestones,
 );
 

@@ -144,6 +144,41 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
     }
   }
 
+  const screenMilestoneGroups = new Map(
+    screen.milestoneGroups.map((group) => [group.id, group]),
+  );
+  const fileMilestoneGroups = new Map(
+    file.milestoneGroups.map((group) => [group.id, group]),
+  );
+  const screenMilestoneGroupNames = new Map(
+    screen.milestoneGroups.map((group) => [group.id, group.name]),
+  );
+  const fileMilestoneGroupNames = new Map(
+    file.milestoneGroups.map((group) => [group.id, group.name]),
+  );
+
+  const milestoneGroupOrder = orderBlock(
+    "並び マイルストングループ",
+    file.milestoneGroups.map((group) => group.id),
+    screen.milestoneGroups.map((group) => group.id),
+    (id) => namedId(fileMilestoneGroups.get(id)?.name, id),
+    (id) => namedId(screenMilestoneGroups.get(id)?.name, id),
+  );
+  if (milestoneGroupOrder) blocks.push(milestoneGroupOrder);
+
+  for (const group of screen.milestoneGroups) {
+    const fileGroup = fileMilestoneGroups.get(group.id);
+    if (!fileGroup) {
+      blocks.push(`追加 マイルストングループ ${group.name} (${group.id})`);
+      continue;
+    }
+    if (fileGroup.name !== group.name) {
+      blocks.push(
+        `変更 マイルストングループ ${group.name} (${group.id})\n  name: ${fileGroup.name} → ${group.name}`,
+      );
+    }
+  }
+
   const milestoneOrder = orderBlock(
     "並び マイルストン",
     file.milestones.map((milestone) => milestone.id),
@@ -156,10 +191,17 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
   for (const milestone of screen.milestones) {
     const fileMilestone = fileMilestones.get(milestone.id);
     if (!fileMilestone) {
-      blocks.push(addedMilestoneBlock(milestone));
+      blocks.push(
+        addedMilestoneBlock(milestone, screenMilestoneGroupNames),
+      );
       continue;
     }
-    const changed = changedMilestoneBlock(fileMilestone, milestone);
+    const changed = changedMilestoneBlock(
+      fileMilestone,
+      milestone,
+      fileMilestoneGroupNames,
+      screenMilestoneGroupNames,
+    );
     if (changed) blocks.push(changed);
   }
 
@@ -182,9 +224,17 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
     }
   }
 
+  for (const group of file.milestoneGroups) {
+    if (!screenMilestoneGroups.has(group.id)) {
+      blocks.push(`削除 マイルストングループ ${group.name} (${group.id})`);
+    }
+  }
+
   for (const milestone of file.milestones) {
     if (!screenMilestones.has(milestone.id)) {
-      blocks.push(deletedMilestoneBlock(milestone));
+      blocks.push(
+        deletedMilestoneBlock(milestone, fileMilestoneGroupNames),
+      );
     }
   }
 
@@ -301,23 +351,44 @@ function changedTaskBlock(
   return [`変更 ${screenTask.name} (${screenTask.id})`, `  場所: ${location}`, ...lines].join("\n");
 }
 
-function addedMilestoneBlock(milestone: Milestone): string {
-  return [`追加 ${milestone.name} (${milestone.id})`, ...milestoneFieldLines(milestone)].join("\n");
+function addedMilestoneBlock(
+  milestone: Milestone,
+  groupNames: Map<ScheduleId, string>,
+): string {
+  return [
+    `追加 ${milestone.name} (${milestone.id})`,
+    ...milestoneFieldLines(milestone, groupNames),
+  ].join("\n");
 }
 
-function deletedMilestoneBlock(milestone: Milestone): string {
-  return [`削除 ${milestone.name} (${milestone.id})`, ...milestoneFieldLines(milestone)].join("\n");
+function deletedMilestoneBlock(
+  milestone: Milestone,
+  groupNames: Map<ScheduleId, string>,
+): string {
+  return [
+    `削除 ${milestone.name} (${milestone.id})`,
+    ...milestoneFieldLines(milestone, groupNames),
+  ].join("\n");
 }
 
-function milestoneFieldLines(milestone: Milestone): string[] {
+function milestoneFieldLines(
+  milestone: Milestone,
+  groupNames: Map<ScheduleId, string>,
+): string[] {
   return [
     `  name: ${milestone.name}`,
     `  date: ${milestone.date}`,
     `  confidence: ${milestone.confidence}`,
+    `  groupId: ${groupNames.get(milestone.groupId) ?? milestone.groupId}`,
   ];
 }
 
-function changedMilestoneBlock(fileMilestone: Milestone, screenMilestone: Milestone): string | null {
+function changedMilestoneBlock(
+  fileMilestone: Milestone,
+  screenMilestone: Milestone,
+  fileGroupNames: Map<ScheduleId, string>,
+  screenGroupNames: Map<ScheduleId, string>,
+): string | null {
   const lines: string[] = [];
   if (fileMilestone.name !== screenMilestone.name) {
     lines.push(`  name: ${fileMilestone.name} → ${screenMilestone.name}`);
@@ -328,6 +399,11 @@ function changedMilestoneBlock(fileMilestone: Milestone, screenMilestone: Milest
   if (fileMilestone.confidence !== screenMilestone.confidence) {
     lines.push(
       `  confidence: ${fileMilestone.confidence} → ${screenMilestone.confidence}`,
+    );
+  }
+  if (fileMilestone.groupId !== screenMilestone.groupId) {
+    lines.push(
+      `  groupId: ${fileGroupNames.get(fileMilestone.groupId) ?? fileMilestone.groupId} → ${screenGroupNames.get(screenMilestone.groupId) ?? screenMilestone.groupId}`,
     );
   }
   if (lines.length === 0) return null;
