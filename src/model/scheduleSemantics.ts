@@ -22,6 +22,43 @@ export function validateScheduleSemantics(
   if (titleIssue) issues.push(titleIssue);
 
   const milestoneIds = new Set<ScheduleId>();
+  const milestoneGroupIds = new Set<ScheduleId>();
+  const milestoneGroupNames = new Set<string>();
+
+  for (let gi = 0; gi < doc.milestoneGroups.length; gi += 1) {
+    const group = doc.milestoneGroups[gi];
+    const base = `/milestoneGroups/${gi}`;
+    const nameIssue = nonEmptyName(
+      group.name,
+      "マイルストングループ名",
+      `${base}/name`,
+    );
+    if (nameIssue) issues.push(nameIssue);
+    if (milestoneGroupNames.has(group.name)) {
+      issues.push({
+        path: `${base}/name`,
+        message: "マイルストングループ名が重複しています",
+      });
+    }
+    milestoneGroupNames.add(group.name);
+    const groupIdIssue = hierarchyIdConflict(
+      "マイルストングループ",
+      group.id,
+      milestoneGroupIds,
+      new Set(
+        doc.milestones.map((item) => item.id),
+      ),
+      milestoneGroupIds,
+      new Set<ScheduleId>(),
+      new Set<ScheduleId>(),
+      new Set<ScheduleId>(),
+    );
+    if (groupIdIssue) {
+      issues.push({ path: `${base}/id`, message: groupIdIssue });
+    }
+    milestoneGroupIds.add(group.id);
+  }
+
   for (let i = 0; i < doc.milestones.length; i += 1) {
     const milestone = doc.milestones[i];
     const base = `/milestones/${i}`;
@@ -36,7 +73,19 @@ export function validateScheduleSemantics(
         message: "マイルストン ID が重複しています",
       });
     }
+    if (milestoneGroupIds.has(milestone.id)) {
+      issues.push({
+        path: `${base}/id`,
+        message: "マイルストン ID がマイルストングループ ID と重複しています",
+      });
+    }
     milestoneIds.add(milestone.id);
+    if (!milestoneGroupIds.has(milestone.groupId)) {
+      issues.push({
+        path: `${base}/groupId`,
+        message: "存在しないマイルストングループ ID です",
+      });
+    }
   }
 
   const taskIds = new Set<ScheduleId>();
@@ -61,6 +110,7 @@ export function validateScheduleSemantics(
       category.id,
       categoryIds,
       milestoneIds,
+      milestoneGroupIds,
       categoryIds,
       groupIds,
       taskIds,
@@ -88,6 +138,7 @@ export function validateScheduleSemantics(
         group.id,
         groupIds,
         milestoneIds,
+        milestoneGroupIds,
         categoryIds,
         groupIds,
         taskIds,
@@ -106,6 +157,7 @@ export function validateScheduleSemantics(
             taskPath,
             taskIds,
             milestoneIds,
+            milestoneGroupIds,
             categoryIds,
             groupIds,
           ),
@@ -118,15 +170,19 @@ export function validateScheduleSemantics(
 }
 
 function hierarchyIdConflict(
-  kind: "カテゴリ" | "グループ",
+  kind: "カテゴリ" | "グループ" | "マイルストングループ",
   id: ScheduleId,
   sameKind: Set<ScheduleId>,
   milestoneIds: Set<ScheduleId>,
+  milestoneGroupIds: Set<ScheduleId>,
   categoryIds: Set<ScheduleId>,
   groupIds: Set<ScheduleId>,
   taskIds: Set<ScheduleId>,
 ): string | null {
   if (milestoneIds.has(id)) return `${kind} ID がマイルストン ID と重複しています`;
+  if (milestoneGroupIds.has(id)) {
+    return `${kind} ID がマイルストングループ ID と重複しています`;
+  }
   if (sameKind.has(id)) return `${kind} ID が重複しています`;
   if (categoryIds.has(id)) return `${kind} ID がカテゴリ ID と重複しています`;
   if (groupIds.has(id)) return `${kind} ID がグループ ID と重複しています`;
@@ -139,6 +195,7 @@ function validateTaskSemantics(
   taskPath: string,
   taskIds: Set<ScheduleId>,
   milestoneIds: Set<ScheduleId>,
+  milestoneGroupIds: Set<ScheduleId>,
   categoryIds: Set<ScheduleId>,
   groupIds: Set<ScheduleId>,
 ): ValidationIssue[] {
@@ -171,6 +228,11 @@ function validateTaskSemantics(
     issues.push({
       path: `${taskPath}/id`,
       message: "タスク ID がマイルストン ID と重複しています",
+    });
+  } else if (milestoneGroupIds.has(task.id)) {
+    issues.push({
+      path: `${taskPath}/id`,
+      message: "タスク ID がマイルストングループ ID と重複しています",
     });
   } else if (categoryIds.has(task.id)) {
     issues.push({

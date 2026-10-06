@@ -3,19 +3,26 @@ import { activeFilterChips } from "./filterChips";
 import {
   NO_MILESTONE_FILTER,
   type Milestone,
+  type MilestoneGroup,
   type ScheduleFilters,
+  type ScheduleId,
   type VisibleRow,
 } from "./types";
 
 /** 絞り込み後の行に合わせて、書き出しに載せるマイルストンを決める。 */
 export function milestonesForExport(
   milestoneFilter: string,
+  _milestoneGroups: MilestoneGroup[],
+  visibleGroupIds: ReadonlySet<ScheduleId>,
   milestones: Milestone[],
   visibleRows: VisibleRow[],
 ): Milestone[] {
+  const visible = milestones.filter((milestone) =>
+    visibleGroupIds.has(milestone.groupId),
+  );
   if (milestoneFilter === NO_MILESTONE_FILTER) return [];
   if (milestoneFilter !== "all") {
-    return milestones.filter((milestone) => milestone.id === milestoneFilter);
+    return visible.filter((milestone) => milestone.id === milestoneFilter);
   }
   const referenced = new Set<string>();
   let min: string | null = null;
@@ -34,7 +41,7 @@ export function milestonesForExport(
       consider(row.summary.end);
     }
   }
-  return milestones.filter((milestone) => {
+  return visible.filter((milestone) => {
     if (referenced.has(milestone.id)) return true;
     if (min == null || max == null) return false;
     return milestone.date >= min && milestone.date <= max;
@@ -88,8 +95,17 @@ export function describeActiveFilters(
   filters: ScheduleFilters,
   milestones: Milestone[],
   assigneeLabel: string | null,
+  milestoneGroups: MilestoneGroup[] = [],
+  hiddenMilestoneGroupIds: readonly ScheduleId[] = [],
 ): string {
-  return activeFilterChips(filters, milestones, assigneeLabel, null)
+  return activeFilterChips(
+    filters,
+    milestones,
+    assigneeLabel,
+    null,
+    milestoneGroups,
+    hiddenMilestoneGroupIds,
+  )
     .filter((chip) => chip.kind !== "lineage")
     .map((chip) => chip.label)
     .join("、");

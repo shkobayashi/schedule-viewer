@@ -27,6 +27,7 @@ function document(note?: string): ScheduleDocument {
   return {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title: "予定",
+    milestoneGroups: [],
     milestones: [],
     categories: [
       {

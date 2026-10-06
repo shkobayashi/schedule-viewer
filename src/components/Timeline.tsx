@@ -88,7 +88,7 @@ type TimelineProps = {
   onWheelHeader: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   onPan: (dx: number, dy: number) => void;
   milestones: Milestone[];
-  milestoneLanes: Map<ScheduleId, number>;
+  milestoneBandLayout: import("../model/milestones").MilestoneBandLayout;
   milestoneBandHeight: number;
   milestoneLaneHeight: number;
   milestoneDiamondSize: number;
@@ -1292,7 +1292,7 @@ export function Timeline({
   onWheelHeader,
   onPan,
   milestones,
-  milestoneLanes,
+  milestoneBandLayout,
   milestoneBandHeight,
   milestoneLaneHeight,
   milestoneDiamondSize,
@@ -1821,13 +1821,18 @@ export function Timeline({
     return polylines;
   }, [barHeight, dragPreview, links, liveAnchors, visibleRows]);
 
+  const bandMilestones = useMemo(
+    () => milestoneBandLayout.blocks.flatMap((block) => block.milestones),
+    [milestoneBandLayout],
+  );
+
   const { bodyRef, bandRef, hover, previewEnd } = useTimelinePointer({
     linkMode,
-    milestones,
-    milestoneLanes,
+    milestones: bandMilestones,
+    milestoneCenterYById: milestoneBandLayout.centerYById,
+    milestoneDisplayLabels: milestoneBandLayout.displayLabels,
     dateToX,
     milestoneDiamondSize,
-    milestoneLaneHeight,
     milestoneFontSize,
     liveAnchors,
     linkPolylines,
@@ -2015,8 +2020,7 @@ export function Timeline({
       </div>
       {milestoneBandHeight > 0 ? (
         <MilestoneBand
-          milestones={milestones}
-          lanes={milestoneLanes}
+          bandLayout={milestoneBandLayout}
           width={width}
           height={milestoneBandHeight}
           laneHeight={milestoneLaneHeight}

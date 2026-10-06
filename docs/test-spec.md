@@ -107,7 +107,7 @@
 | 同上 | `skips ids already used by a category, group, task, or milestone` | EDIT-07, EDIT-08 |
 | 同上 | `resets the milestone filter only when it is the deleted id` | EDIT-07 |
 | 同上 | `reports whether any task points at the milestone` | EDIT-07 |
-| 同上 | `reuses the lowest free lane after overlapping labels end` | EDIT-07 |
+| 同上 | `stacks diamonds on the same day and reuses a lane after they end` | VIEW-04, EDIT-07 |
 | `nonWorkingDay.test.ts` | `defaults to Sat/Sun when calendar is null` | VIEW-09 |
 | 同上 | `respects workingDays override on weekends` | VIEW-09, SET-03 |
 | 同上 | `treats an empty weekends list as no weekday holidays` | VIEW-09 |
@@ -436,7 +436,7 @@
 | --- | --- | --- |
 | `src/sample/schedule.ts` | タイトル「AI活用PoC推進プロジェクト」。マイルストン 3、カテゴリ 5、グループ 11、タスク 16。割り当てなし 3、ノート 1。前後関係に循環は無い | `npm run check:schedule` |
 | `src/sample/members.ts` | メンバー 4人 | 専用の check は無い。初回の起動時に、カタログとして一度だけ入れる |
-| `examples/playground.schedule.json` | サンプルに近いがノートは無い | 引数なしの `check:schedule` では見ない |
+| `examples/playground.schedule.json` | サンプルと同じタスク構成（ノート無し）。マイルストン帯は3グループ・長い名前・同日重なり用。`tsx scripts/write-playground-schedule.ts` で再生成 | 引数なしの `check:schedule` では見ない |
 | `examples/playground.members.json` | サンプルと同じ4人 | `npm run check:members` |
 | `examples/jp-2026.calendar.json` | 土日と、非稼働日 18件。振替出勤は空 | `npm run check:calendar` |
 
@@ -452,8 +452,8 @@
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01f | FILE-01 | サンプル | ☰ を開き、下、上、Home、End を押す | 最初の項目にフォーカスが移る。キーで項目を移動できる。Escape で閉じる |
 | TC-FILE-01b | FILE-01 | schemaVersion 2 の JSON がある | 「開く」で選ぶ | 開かず、理由が出る。それまでの保存先は変わらない |
-| TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 5 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある |
-| TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 5 になる |
+| TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 6 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
+| TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 6 になる |
 | TC-FILE-02 | FILE-02 | ファイルを開き、バーを動かして未保存にする | 「保存」を押す | 見出しから「未保存」が消え、ファイルの内容が画面と一致する |
 | TC-FILE-02c | FILE-02 | 同上 | ⌘/Ctrl+S を押す。検索欄にフォーカスがあるときも押す | 「保存」と同じように保存される。モーダルダイアログが開いているときは保存されない |
 | TC-FILE-03 | FILE-03 | サンプルを編集する | 「別名保存」で新しいパスを選ぶ | そのパスに JSON ができ、次の「保存」はそのパスへ書く |
@@ -491,7 +491,8 @@
 | TC-VIEW-01 | VIEW-01 | サンプル | 左の行を上から見る | カテゴリ、グループ、タスクの順で、JSON の配列順に並ぶ |
 | TC-VIEW-02 | VIEW-02 | 進行中のタスクがある | そのバーを見る | 薄青の地に、進捗率の濃い部分がある。完了は緑、未着手は灰 |
 | TC-VIEW-03 | VIEW-03 | 子の期間が離れているグループ | 親の行を見る。HTML で書き出す | タスクバーより細い帯で、途切れた期間は点線、つながる期間は塗り。両端に下向きの角がある。書き出しも同じ |
-| TC-VIEW-04 | VIEW-04 | 日付が近く名前が長いマイルストンが複数ある | 日付ヘッダーの下を見る | ひし形と名前が出る。重なるときは段が増える。チャート全体の縦線は無い |
+| TC-VIEW-04 | VIEW-04 | 同じグループで日付が近いマイルストンが複数ある | 日付ヘッダーの下を見る。日・週・月も切り替える | グループごとに帯が積まれる。ひし形が重なるときだけ段が増える。名前は次のひし形の手前まで。ホバーで全文。左はグループ名。チャート全体の縦線は無い |
+| TC-FILTER-11 | FILTER-11 | マイルストングループが2つ以上ある JSON | 絞り込みの帯の線で1つをオフにする。書き出す | 帯と書き出しからその線が消える。タスク行は変わらない。札とすべて解除で戻る |
 | TC-VIEW-04b | VIEW-04, VIEW-12 | 未確定と確定のマイルストンがある | ひし形を、ライトとダークで見る。HTML と SVG に書き出す | 未確定は斜線、確定は塗りつぶし。書き出しも同じ |
 | TC-VIEW-05 | VIEW-05 | 終了日が昨日の未完了タスクと、終了日が今日の未完了タスク | 両方のバーを見る | 昨日で終わるものだけが赤い |
 | TC-VIEW-06 | VIEW-06 | 対応マイルストンより終了日が後のタスクと、当日で終わるタスク | 行を見る | 後のタスクだけ、右が半透明の赤になり「超過」が出る |

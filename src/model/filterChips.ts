@@ -3,7 +3,9 @@ import {
   UNASSIGNED_FILTER,
   UNASSIGNED_LABEL,
   type Milestone,
+  type MilestoneGroup,
   type ScheduleFilters,
+  type ScheduleId,
 } from "./types";
 
 export type FilterChipKind =
@@ -15,11 +17,13 @@ export type FilterChipKind =
   | "milestone"
   | "search"
   | "noteSearch"
-  | "lineage";
+  | "lineage"
+  | "milestoneGroup";
 
 export type FilterChip = {
   kind: FilterChipKind;
   label: string;
+  milestoneGroupId?: ScheduleId;
 };
 
 const STATUS_LABEL: Record<Exclude<ScheduleFilters["status"], "all">, string> = {
@@ -68,6 +72,8 @@ export function filterChipClearPatch(
       return { search: "" };
     case "noteSearch":
       return { noteSearch: "" };
+    case "milestoneGroup":
+      return {};
     default:
       return {};
   }
@@ -78,6 +84,8 @@ export function activeFilterChips(
   milestones: Milestone[],
   assigneeLabel: string | null,
   lineageName: string | null,
+  milestoneGroups: MilestoneGroup[] = [],
+  hiddenMilestoneGroupIds: readonly ScheduleId[] = [],
 ): FilterChip[] {
   const chips: FilterChip[] = [];
   if (filters.assignee === UNASSIGNED_FILTER) {
@@ -126,12 +134,31 @@ export function activeFilterChips(
   if (lineageName) {
     chips.push({ kind: "lineage", label: `系統: ${lineageName}` });
   }
+  const hidden = new Set(hiddenMilestoneGroupIds);
+  for (const group of milestoneGroups) {
+    if (!hidden.has(group.id)) continue;
+    chips.push({
+      kind: "milestoneGroup",
+      label: `帯の線: ${group.name}を非表示`,
+      milestoneGroupId: group.id,
+    });
+  }
   return chips;
+}
+
+/** 文書から消えたマイルストングループの非表示選択を外す。 */
+export function pruneHiddenMilestoneGroupIds(
+  hiddenIds: readonly ScheduleId[],
+  milestoneGroups: readonly MilestoneGroup[],
+): ScheduleId[] {
+  const ids = new Set(milestoneGroups.map((group) => group.id));
+  return hiddenIds.filter((id) => ids.has(id));
 }
 
 export function activeFilterCount(
   filters: ScheduleFilters,
   lineageActive: boolean,
+  hiddenMilestoneGroupCount = 0,
 ): number {
   let count = 0;
   if (filters.assignee !== "all") count += 1;
@@ -143,5 +170,6 @@ export function activeFilterCount(
   if (filters.search.trim()) count += 1;
   if (filters.noteSearch.trim()) count += 1;
   if (lineageActive) count += 1;
+  if (hiddenMilestoneGroupCount > 0) count += 1;
   return count;
 }

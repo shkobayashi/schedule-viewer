@@ -1,8 +1,14 @@
 import { scheduleToJson } from "../model/serialize";
-import type { Category, Milestone, ScheduleDocument } from "../model/types";
+import type {
+  Category,
+  Milestone,
+  MilestoneGroup,
+  ScheduleDocument,
+} from "../model/types";
 import {
   SAMPLE_CATEGORY_IDS,
   SAMPLE_GROUP_IDS,
+  SAMPLE_MILESTONE_GROUP_IDS,
   SAMPLE_MILESTONE_IDS,
   SAMPLE_MEMBER_IDS,
   SAMPLE_TASK_IDS,
@@ -10,24 +16,34 @@ import {
 
 export const SAMPLE_PROJECT_TITLE = "AI活用PoC推進プロジェクト";
 
+export const sampleMilestoneGroups: MilestoneGroup[] = [
+  {
+    id: SAMPLE_MILESTONE_GROUP_IDS.default,
+    name: "マイルストン",
+  },
+];
+
 export const sampleMilestones: Milestone[] = [
   {
     id: SAMPLE_MILESTONE_IDS.requirements,
     name: "要件確定",
     date: "2026-10-02",
     confidence: "committed",
+    groupId: SAMPLE_MILESTONE_GROUP_IDS.default,
   },
   {
     id: SAMPLE_MILESTONE_IDS.pocDone,
     name: "PoC完了",
     date: "2026-11-13",
     confidence: "committed",
+    groupId: SAMPLE_MILESTONE_GROUP_IDS.default,
   },
   {
     id: SAMPLE_MILESTONE_IDS.release,
     name: "本番リリース",
     date: "2026-12-21",
     confidence: "tentative",
+    groupId: SAMPLE_MILESTONE_GROUP_IDS.default,
   },
 ];
 
@@ -327,6 +343,7 @@ export function sampleScheduleDocument(): ScheduleDocument {
   return scheduleToJson(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
+    sampleMilestoneGroups,
     sampleMilestones,
   );
 }

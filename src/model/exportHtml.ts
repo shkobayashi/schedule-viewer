@@ -3,7 +3,7 @@ import { scheduleHtmlFilename, scheduleSvgFilename } from "./exportFilename";
 import { addDays, addUtcMonths, daysBetween, fmtShort, parseDate, utcMonthStart } from "./dates";
 import { LAYOUT_HEADER_HEIGHT } from "./layoutSizes";
 import { LINK_POINTER_LENGTH, linkPoints, type DependencyLink } from "./dependencies";
-import { milestonesExceededBy } from "./milestones";
+import { MILESTONE_LABEL_GAP, milestonesExceededBy } from "./milestones";
 import {
   coveredSpanWidthPx,
   summaryBarWidthPx,
@@ -32,7 +32,7 @@ export type ScheduleExportInput = {
   lineageName: string | null;
   visibleRows: VisibleRow[];
   milestones: Milestone[];
-  milestoneLanes: Map<ScheduleId, number>;
+  milestoneBandLayout: import("./milestones").MilestoneBandLayout;
   links: DependencyLink[];
   timelineStart: Date;
   timelineEnd: Date;
@@ -108,7 +108,10 @@ function tentativeHatchPatterns(input: ScheduleExportInput): string {
     if (row.type !== "task" || row.task.confidence !== "tentative") continue;
     colors.add(barColors(row.task, input.today, input.colorScheme).bg);
   }
-  if (input.milestones.some((milestone) => milestone.confidence === "tentative")) {
+  const drawnTentative = input.milestoneBandLayout.blocks.some((block) =>
+    block.milestones.some((milestone) => milestone.confidence === "tentative"),
+  );
+  if (drawnTentative) {
     colors.add(palettes(input).chart.milestoneDiamond);
   }
   return [...colors]
@@ -512,9 +515,9 @@ function renderLabels(input: ScheduleExportInput): string {
   const rows = [
     `<div class="label header" style="height:${input.headerHeight}px">WBS / タスク</div>`,
   ];
-  if (input.milestoneBandHeight > 0) {
+  for (const block of input.milestoneBandLayout.blocks) {
     rows.push(
-      `<div class="label milestones" style="height:${input.milestoneBandHeight}px">マイルストン</div>`,
+      `<div class="label milestones" style="height:${block.height}px">${esc(block.group.name)}</div>`,
     );
   }
   for (const row of input.visibleRows) {
@@ -641,10 +644,24 @@ function renderMilestones(
     `<rect x="0" y="${n(top)}" width="${n(chartWidth)}" height="${n(input.milestoneBandHeight)}" fill="${c.milestoneBand}"/>`,
     line(0, top + input.milestoneBandHeight - 0.5, chartWidth, top + input.milestoneBandHeight - 0.5, chart.milestoneBandBorder, 1),
   ];
-  for (const milestone of input.milestones) {
-    const lane = input.milestoneLanes.get(milestone.id) ?? 0;
-    const x = dateToX(parseDate(milestone.date));
-    const y = top + lane * input.milestoneLaneHeight + input.milestoneLaneHeight / 2;
+  for (const block of input.milestoneBandLayout.blocks) {
+    if (block.offsetY > 0) {
+      marks.push(
+        line(
+          0,
+          top + block.offsetY - 0.5,
+          chartWidth,
+          top + block.offsetY - 0.5,
+          chart.milestoneBandBorder,
+          1,
+        ),
+      );
+    }
+    for (const milestone of block.milestones) {
+      const lane = block.lanes.get(milestone.id) ?? 0;
+      const x = dateToX(parseDate(milestone.date));
+      const y =
+        top + block.offsetY + lane * input.milestoneLaneHeight + input.milestoneLaneHeight / 2;
     const r = input.milestoneDiamondSize / 2;
     const fill =
       milestone.confidence === "tentative"
@@ -653,9 +670,10 @@ function renderMilestones(
     marks.push(
       `<polygon points="${n(x)},${n(y - r)} ${n(x + r)},${n(y)} ${n(x)},${n(y + r)} ${n(x - r)},${n(y)}" fill="${fill}" stroke="${chart.milestoneDiamondStroke}" stroke-width="1"/>`,
     );
-    marks.push(
-      text(x + r + 5, y - input.milestoneFontSize / 2, milestone.name, input.milestoneFontSize, chart.milestoneDiamond, true),
-    );
+      marks.push(
+        text(x + r + MILESTONE_LABEL_GAP, y - input.milestoneFontSize / 2, milestone.name, input.milestoneFontSize, chart.milestoneDiamond, true),
+      );
+    }
   }
   return marks.join("\n  ");
 }

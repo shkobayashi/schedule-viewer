@@ -21,10 +21,10 @@ const EMPTY_HOVER: ChartHover = {
 type UseTimelinePointerOptions = {
   linkMode: boolean;
   milestones: readonly { id: ScheduleId; date: string; name: string }[];
-  milestoneLanes: ReadonlyMap<ScheduleId, number>;
+  milestoneCenterYById: ReadonlyMap<ScheduleId, number>;
+  milestoneDisplayLabels: ReadonlyMap<ScheduleId, string>;
   dateToX: (date: Date) => number;
   milestoneDiamondSize: number;
-  milestoneLaneHeight: number;
   milestoneFontSize: number;
   liveAnchors: ReadonlyMap<ScheduleId, ChartTaskAnchor>;
   linkPolylines: readonly LinkPolyline[];
@@ -37,10 +37,10 @@ type UseTimelinePointerOptions = {
 export function useTimelinePointer({
   linkMode,
   milestones,
-  milestoneLanes,
+  milestoneCenterYById,
+  milestoneDisplayLabels,
   dateToX,
   milestoneDiamondSize,
-  milestoneLaneHeight,
   milestoneFontSize,
   liveAnchors,
   linkPolylines,
@@ -94,10 +94,10 @@ export function useTimelinePointer({
           y: clientPointer.y - band.top,
         },
         milestones,
-        milestoneLanes,
+        milestoneCenterYById,
+        milestoneDisplayLabels,
         dateToX,
         milestoneDiamondSize,
-        milestoneLaneHeight,
         milestoneFontSize,
       );
     }

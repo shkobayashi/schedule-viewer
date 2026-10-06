@@ -1,5 +1,11 @@
 import { normalizeTaskNote } from "./taskNote";
-import type { Category, Milestone, ScheduleDocument, Task } from "./types";
+import type {
+  Category,
+  Milestone,
+  MilestoneGroup,
+  ScheduleDocument,
+  Task,
+} from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
 function taskToJson(task: Task): Task {
@@ -22,16 +28,22 @@ function taskToJson(task: Task): Task {
 export function scheduleToJson(
   title: string,
   categories: Category[],
+  milestoneGroups: MilestoneGroup[],
   milestones: Milestone[],
 ): ScheduleDocument {
   return {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title,
+    milestoneGroups: milestoneGroups.map((group) => ({
+      id: group.id,
+      name: group.name,
+    })),
     milestones: milestones.map((milestone) => ({
       id: milestone.id,
       name: milestone.name,
       date: milestone.date,
       confidence: milestone.confidence,
+      groupId: milestone.groupId,
     })),
     categories: categories.map((category) => ({
       id: category.id,

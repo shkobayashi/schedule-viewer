@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   appendMilestone,
-  layoutMilestones,
+  layoutMilestoneBand,
+  layoutMilestonesInGroup,
   milestoneFilterAfterDelete,
   milestoneLinkedByAnyTask,
   removeMilestone,
@@ -15,6 +16,17 @@ const TASK_B = "00000000-0000-4000-8000-00000000000b";
 const MS_A = "00000000-0000-4000-8000-0000000000a1";
 const MS_B = "00000000-0000-4000-8000-0000000000b1";
 const MS_C = "00000000-0000-4000-8000-0000000000c1";
+const GRP = "e1000001-0000-4000-8000-000000000001";
+
+function milestone(
+  overrides: Partial<Milestone> & Pick<Milestone, "id" | "name" | "date">,
+): Milestone {
+  return {
+    confidence: "committed",
+    groupId: GRP,
+    ...overrides,
+  };
+}
 
 function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
   return {
@@ -52,24 +64,9 @@ describe("validateNewMilestone", () => {
 
 describe("appendMilestone", () => {
   it("appends a milestone without sorting or rejecting duplicates", () => {
-    const later: Milestone = {
-      id: MS_A,
-      name: "要件確定",
-      date: "2026-04-01",
-      confidence: "committed",
-    };
-    const earlier: Milestone = {
-      id: MS_B,
-      name: "要件確定",
-      date: "2026-03-01",
-      confidence: "committed",
-    };
-    const same: Milestone = {
-      id: MS_C,
-      name: "要件確定",
-      date: "2026-04-01",
-      confidence: "committed",
-    };
+    const later = milestone({ id: MS_A, name: "要件確定", date: "2026-04-01" });
+    const earlier = milestone({ id: MS_B, name: "要件確定", date: "2026-03-01" });
+    const same = milestone({ id: MS_C, name: "要件確定", date: "2026-04-01" });
     const before = [later];
     const next = appendMilestone(appendMilestone(before, earlier), same);
     expect(before).toEqual([later]);
@@ -109,8 +106,8 @@ describe("removeMilestone", () => {
       },
     ];
     const milestones: Milestone[] = [
-      { id: MS_A, name: "要件確定", date: "2026-04-01", confidence: "committed" },
-      { id: MS_B, name: "設計完了", date: "2026-05-01", confidence: "committed" },
+      milestone({ id: MS_A, name: "要件確定", date: "2026-04-01" }),
+      milestone({ id: MS_B, name: "設計完了", date: "2026-05-01" }),
     ];
     const next = removeMilestone(categories, milestones, MS_A);
     expect(next.milestones).toEqual([milestones[1]]);
@@ -145,9 +142,9 @@ describe("uniqueScheduleId", () => {
       },
     ];
     const milestones: Milestone[] = [
-      { id: MS_A, name: "要件確定", date: "2026-04-01", confidence: "committed" },
+      milestone({ id: MS_A, name: "要件確定", date: "2026-04-01" }),
     ];
-    const taken = collectScheduleIds(categories, milestones);
+    const taken = collectScheduleIds(categories, [], milestones);
     const sequence = [
       MS_A,
       TASK_A,
@@ -203,27 +200,135 @@ describe("milestoneLinkedByAnyTask", () => {
   });
 });
 
-describe("layoutMilestones", () => {
-  it("reuses the lowest free lane after overlapping labels end", () => {
+describe("layoutMilestonesInGroup", () => {
+  it("stacks diamonds on the same day and reuses a lane after they end", () => {
     const crowded = Array.from({ length: 8 }, (_, index) => {
       const id = `00000000-0000-4000-8000-0000000001${index.toString(16)}`;
-      return {
-        id,
-        name: "とても長いマイルストン名",
-        date: "2026-04-01",
-        confidence: "committed" as const,
-      };
+      return milestone({ id, name: "MS", date: "2026-04-01" });
     });
-    const later = {
+    const later = milestone({
       id: "00000000-0000-4000-8000-0000000001f1",
       name: "後",
       date: "2026-06-01",
-      confidence: "committed" as const,
-    };
-    const lanes = layoutMilestones([...crowded, later], 12, 13, 14);
+    });
+    const lanes = layoutMilestonesInGroup(
+      [...crowded, later],
+      12,
+      13,
+      14,
+      "screen",
+    );
     const used = crowded.map((item) => lanes.get(item.id));
     expect(new Set(used).size).toBe(crowded.length);
     expect(Math.min(...used.map((lane) => lane ?? 99))).toBe(0);
     expect(lanes.get(later.id)).toBe(0);
+  });
+
+  it("keeps a long name on one lane when the diamonds do not overlap", () => {
+    const lanes = layoutMilestonesInGroup(
+      [
+        milestone({
+          id: MS_A,
+          name: "あいうえおかきくけこ",
+          date: "2026-04-01",
+        }),
+        milestone({ id: MS_B, name: "次", date: "2026-04-02" }),
+      ],
+      40,
+      11,
+      11,
+      "screen",
+    );
+    expect(lanes.get(MS_A)).toBe(0);
+    expect(lanes.get(MS_B)).toBe(0);
+  });
+
+  it("splits a lane when diamonds overlap", () => {
+    const lanes = layoutMilestonesInGroup(
+      [
+        milestone({ id: MS_A, name: "A", date: "2026-04-01" }),
+        milestone({ id: MS_B, name: "B", date: "2026-04-02" }),
+      ],
+      8,
+      11,
+      11,
+      "screen",
+    );
+    expect(lanes.get(MS_A)).not.toBe(lanes.get(MS_B));
+  });
+
+  it("adds an export lane only when the full name runs past the next diamond", () => {
+    const fit = layoutMilestonesInGroup(
+      [
+        milestone({ id: MS_A, name: "あい", date: "2026-04-01" }),
+        milestone({ id: MS_B, name: "次", date: "2026-04-02" }),
+      ],
+      40,
+      11,
+      11,
+      "export",
+    );
+    expect(fit.get(MS_A)).toBe(0);
+    expect(fit.get(MS_B)).toBe(0);
+    const overflow = layoutMilestonesInGroup(
+      [
+        milestone({ id: MS_A, name: "あいう", date: "2026-04-01" }),
+        milestone({ id: MS_B, name: "次", date: "2026-04-02" }),
+      ],
+      40,
+      11,
+      11,
+      "export",
+    );
+    expect(overflow.get(MS_A)).not.toBe(overflow.get(MS_B));
+  });
+});
+
+describe("layoutMilestoneBand", () => {
+  const other = "e1000001-0000-4000-8000-000000000002";
+
+  it("cuts a screen label before the next diamond on the same lane", () => {
+    const layout = layoutMilestoneBand(
+      [{ id: GRP, name: "G" }],
+      [
+        milestone({ id: MS_A, name: "あいうえお", date: "2026-04-01" }),
+        milestone({ id: MS_B, name: "次", date: "2026-04-02" }),
+      ],
+      new Set([GRP]),
+      40,
+      11,
+      11,
+      26,
+      "screen",
+    );
+    expect(layout.displayLabels.get(MS_A)).toBe("あ…");
+    expect(layout.displayLabels.get(MS_B)).toBe("次");
+  });
+
+  it("skips empty groups and hidden groups", () => {
+    const layout = layoutMilestoneBand(
+      [
+        { id: GRP, name: "G" },
+        { id: other, name: "H" },
+        { id: "e1000001-0000-4000-8000-000000000003", name: "空" },
+      ],
+      [
+        milestone({ id: MS_A, name: "見", date: "2026-04-01" }),
+        milestone({
+          id: MS_B,
+          name: "隠",
+          date: "2026-04-02",
+          groupId: other,
+        }),
+      ],
+      new Set([GRP]),
+      40,
+      11,
+      11,
+      26,
+      "screen",
+    );
+    expect(layout.blocks.map((block) => block.group.name)).toEqual(["G"]);
+    expect(layout.totalHeight).toBe(26);
   });
 });

@@ -466,6 +466,19 @@ input[type="number"] {
   color: var(--text-secondary);
 }
 
+.filter-panel-checks {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4px * var(--s, 1));
+}
+
+.filter-panel-check {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--s, 1));
+  font-size: calc(13px * var(--s, 1));
+}
+
 .filter-panel-field select {
   width: 100%;
 }
