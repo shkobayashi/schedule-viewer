@@ -1,0 +1,34 @@
+[[permission]]
+identifier = "allow-read-window-startup"
+description = "Allows reading startup assignment for the current window."
+commands.allow = ["read_window_startup"]
+
+[[permission]]
+identifier = "allow-create-schedule-window"
+description = "Allows opening a schedule in a new window."
+commands.allow = ["create_schedule_window", "take_pending_schedule_window_open"]
+
+[[permission]]
+identifier = "allow-window-session"
+description = "Allows updating open-window records and focus."
+commands.allow = [
+  "register_window_focus",
+  "unregister_window_session",
+  "list_open_window_labels",
+  "close_other_schedule_windows",
+  "request_application_quit",
+  "accept_application_quit",
+  "cancel_application_quit",
+  "recovery_live_action",
+  "recovery_close_action",
+  "release_schedule_recovery",
+]
+
+[[permission]]
+identifier = "allow-schedule-peer-notice"
+description = "Allows cross-window file update notices."
+commands.allow = [
+  "emit_schedule_peer_notice",
+  "show_schedule_peer_notification",
+  "focus_schedule_window",
+]

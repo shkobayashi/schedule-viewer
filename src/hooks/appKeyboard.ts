@@ -37,6 +37,7 @@ export type AppKeyAction =
   | { type: "save" }
   | { type: "saveAs" }
   | { type: "open" }
+  | { type: "openNewWindow" }
   | { type: "find" }
   | { type: "openDiffCopy" }
   | { type: "undo" }
@@ -46,6 +47,7 @@ export type AppKeyAction =
   | { type: "openCommandPalette" }
   | { type: "closeCommandPalette" }
   | { type: "closeWindow" }
+  | { type: "quitApplication" }
   | { type: "none" };
 
 export type AppKeyDecision = {
@@ -71,6 +73,7 @@ export function decideAppKey(input: {
   dialogOpen: boolean;
   commandPaletteOpen: boolean;
   macAppQuit: boolean;
+  isTauriDesktop: boolean;
   menuOpen: boolean;
   target: AppKeyTarget;
   linkSourceId: ScheduleId | null;
@@ -117,7 +120,7 @@ export function decideAppKey(input: {
     return {
       preventDefault: true,
       closeMenu: true,
-      action: { type: "closeWindow" },
+      action: { type: "quitApplication" },
     };
   }
   if (
@@ -280,6 +283,12 @@ export function decideAppKey(input: {
     }
     if (shortcut === "open") {
       return { preventDefault, closeMenu: true, action: { type: "open" } };
+    }
+    if (shortcut === "openNew") {
+      if (!input.isTauriDesktop) {
+        return { preventDefault: false, closeMenu: true, action: { type: "none" } };
+      }
+      return { preventDefault, closeMenu: true, action: { type: "openNewWindow" } };
     }
     return { preventDefault, closeMenu: true, action: { type: "find" } };
   }

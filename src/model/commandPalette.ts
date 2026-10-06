@@ -1,5 +1,6 @@
 export type CommandPaletteCommandId =
   | "open"
+  | "openNewWindow"
   | "save"
   | "saveAs"
   | "find"
@@ -33,6 +34,7 @@ export type CommandPaletteItem = {
 
 export type CommandPaletteContext = {
   fileBusy: boolean;
+  isTauriDesktop: boolean;
   canUndo: boolean;
   canRedo: boolean;
   selectedTaskId: string | null;
@@ -53,6 +55,12 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
     label: "開く",
     keywords: "open file ファイル",
     enabled: (ctx) => !ctx.fileBusy,
+  },
+  {
+    id: "openNewWindow",
+    label: "新しいウィンドウで開く",
+    keywords: "open new window 別ウィンドウ",
+    enabled: (ctx) => ctx.isTauriDesktop && !ctx.fileBusy,
   },
   {
     id: "save",
@@ -198,7 +206,9 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
 export function buildCommandPaletteItems(
   context: CommandPaletteContext,
 ): CommandPaletteItem[] {
-  return BASE_ITEMS.map((item) => ({
+  return BASE_ITEMS.filter(
+    (item) => item.id !== "openNewWindow" || context.isTauriDesktop,
+  ).map((item) => ({
     id: item.id,
     label: typeof item.label === "function" ? item.label(context) : item.label,
     keywords: item.keywords,

@@ -4,13 +4,20 @@
 
 ## [Unreleased]
 
+### 修正
+
+- デスクトップ版で「新しいウィンドウで開く」が `create_schedule_window not allowed` になる不具合を直した。ウィンドウセッション用コマンドを `permissions/window-session.toml` に追加し、capability に載せた
+- 同じファイルを複数のウィンドウで開いているとき、未保存の控えは前面のウィンドウだけが残す。終了の確認をキャンセルすると、他のウィンドウも閉じない。反映の知らせは数秒で消え、確認待ちは確認が終わると消える。配色、一覧の幅、行の密度、イナズマ線、一覧の列も、開いているウィンドウで揃う
+
 ### 追加
 
+- デスクトップ版で、同じスケジュールを別ウィンドウでも開ける（WIN-01）。起動時に開いていたウィンドウを戻し、未保存の控えはパスごとに保存する。同じファイルを複数開いたときの更新は、他ウィンドウの隅と OS 通知で知らせる（WIN-02）
 - マイルストン帯のグループ（`milestoneGroups` / `groupId`、schemaVersion 6）。帯はグループごとに積み、ひし形が重なるときだけ段を増やす。絞り込みの「帯の線」で表示するグループを選べる
 - 設定の「JSON作成スキルを置く」。デスクトップ版から write-schedule、write-members、write-calendar を Cursor または Claude Code のスキルフォルダへ置ける。同じ画面から外せる。インストーラーと初回起動では書かない。
 
 ### 変更
 
+- アプリデータの前回ファイル記録を `open-windows.json` と `schedule-recovery/` に移す。古い `last-schedule.json` と `schedule-recovery.json` は初回起動時に移行して削除する
 - write-schedule、write-members、write-calendar の SKILL.md とデータ仕様の検証手順を、置いたスキルフォルダの `scripts/validate-*.mjs` を実行する説明に揃えた。
 
 ## [1.0.0] - 2026-10-06
