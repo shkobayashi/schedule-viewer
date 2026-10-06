@@ -56,6 +56,7 @@ type ToolbarProps = {
   onShowDiff: () => void;
   onExportHtml: () => void;
   onOpen: () => void;
+  onOpenInNewWindow?: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   onOpenSettings: () => void;
@@ -97,6 +98,7 @@ export function Toolbar({
   onShowDiff,
   onExportHtml,
   onOpen,
+  onOpenInNewWindow,
   onSave,
   onSaveAs,
   onOpenSettings,
@@ -175,6 +177,7 @@ export function Toolbar({
       <AppMenu
         fileBusy={fileBusy}
         onOpen={onOpen}
+        onOpenInNewWindow={onOpenInNewWindow}
         onSave={onSave}
         onSaveAs={onSaveAs}
         onExportHtml={onExportHtml}

@@ -1,3 +1,4 @@
+import { isTauri } from "@tauri-apps/api/core";
 import { ModalDialog } from "./ModalDialog";
 import { shortcutReferenceRows, usesCommandKey } from "../model/shortcuts";
 
@@ -9,7 +10,9 @@ type ShortcutsDialogProps = {
 export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
   if (!open) return null;
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
-  const rows = shortcutReferenceRows(commandKey);
+  const rows = shortcutReferenceRows(commandKey).filter(
+    (row) => isTauri() || row.action !== "新しいウィンドウで開く",
+  );
   return (
     <ModalDialog title="ショートカット" onClose={onClose} className="modal shortcuts-modal">
       <table className="shortcuts-table">

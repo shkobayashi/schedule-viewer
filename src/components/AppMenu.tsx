@@ -1,3 +1,4 @@
+import { isTauri } from "@tauri-apps/api/core";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Menu } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -8,6 +9,7 @@ import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 type AppMenuProps = {
   fileBusy?: boolean;
   onOpen: () => void;
+  onOpenInNewWindow?: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   onExportHtml: () => void;
@@ -20,6 +22,7 @@ type AppMenuProps = {
 export function AppMenu({
   fileBusy = false,
   onOpen,
+  onOpenInNewWindow,
   onSave,
   onSaveAs,
   onExportHtml,
@@ -102,6 +105,19 @@ export function AppMenu({
         <span>開く</span>
         <span className="menu-shortcut">{fileShortcutHint("open", commandKey)}</span>
       </button>
+      {isTauri() && onOpenInNewWindow ? (
+        <button
+          type="button"
+          role="menuitem"
+          disabled={fileBusy}
+          onClick={() => run(onOpenInNewWindow)}
+        >
+          <span>新しいウィンドウで開く</span>
+          <span className="menu-shortcut">
+            {fileShortcutHint("openNew", commandKey)}
+          </span>
+        </button>
+      ) : null}
       <button
         type="button"
         role="menuitem"

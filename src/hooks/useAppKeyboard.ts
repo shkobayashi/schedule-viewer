@@ -1,6 +1,7 @@
 import { useEffect, type MutableRefObject } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { requestApplicationQuitViaTauri } from "../model/windowSession";
 import { decideAppKey, type AppKeyTarget } from "./appKeyboard";
 import type { ChartPointer } from "../model/chartHitTest";
 import { adjacentVisibleTaskId } from "../model/taskSelection";
@@ -18,6 +19,7 @@ type UseAppKeyboardOptions = {
   fileBusy: boolean;
   save: (saveAs: boolean) => void;
   requestOpen: () => void;
+  requestOpenInNewWindow: () => void;
   categories: Category[];
   selectedTaskId: ScheduleId | null;
   linkSourceId: ScheduleId | null;
@@ -52,6 +54,7 @@ export function useAppKeyboard({
   fileBusy,
   save,
   requestOpen,
+  requestOpenInNewWindow,
   categories,
   selectedTaskId,
   linkSourceId,
@@ -102,6 +105,7 @@ export function useAppKeyboard({
         dialogOpen: document.querySelector('[role="dialog"]') != null,
         commandPaletteOpen,
         macAppQuit,
+        isTauriDesktop: isTauri(),
         menuOpen: document.querySelector('[role="menu"]') != null,
         target,
         linkSourceId,
@@ -184,6 +188,7 @@ export function useAppKeyboard({
       if (action.type === "save") void save(false);
       else if (action.type === "saveAs") void save(true);
       else if (action.type === "open") requestOpen();
+      else if (action.type === "openNewWindow") requestOpenInNewWindow();
       else if (action.type === "find") {
         taskSearchRef.current?.focus();
         taskSearchRef.current?.select();
@@ -193,6 +198,9 @@ export function useAppKeyboard({
       else if (action.type === "openCommandPalette") onOpenCommandPalette();
       else if (action.type === "closeCommandPalette") onCloseCommandPalette();
       else if (action.type === "closeWindow") void getCurrentWindow().close();
+      else if (action.type === "quitApplication") {
+        void requestApplicationQuitViaTauri();
+      }
       else if (action.type === "openDiffCopy") copyScheduleDiff();
     };
     window.addEventListener("keydown", onKeyDown);
@@ -208,6 +216,7 @@ export function useAppKeyboard({
     removePredecessorLink,
     requestDeleteTask,
     requestOpen,
+    requestOpenInNewWindow,
     rowHeight,
     save,
     scrollBy,

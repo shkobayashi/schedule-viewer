@@ -26,6 +26,7 @@ function decide(
     dialogOpen: false,
     commandPaletteOpen: false,
     macAppQuit: false,
+    isTauriDesktop: false,
     menuOpen: false,
     target: null,
     linkSourceId: null,
