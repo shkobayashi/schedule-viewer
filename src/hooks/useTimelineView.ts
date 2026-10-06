@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays, clamp, daysBetween } from "../model/dates";
 import { scrollXForToday, scrollXToRevealTask } from "../model/chartScroll";
 import {
@@ -8,6 +8,7 @@ import {
   MAX_PX_PER_DAY,
   MIN_PX_PER_DAY,
   pxPerDayForTier,
+  resolveTimelineOrigin,
   tierLabel,
 } from "../model/timeline";
 
@@ -21,16 +22,23 @@ export function useTimelineView(
   viewportWidth: number,
   maxScrollYFor: (pxPerDay: number) => number,
   todayIso: string,
+  resetKey: string | number = 0,
 ) {
   const [pxPerDay, setPxPerDay] = useState(DEFAULT_PX_PER_DAY);
   const [scrollX, setScrollX] = useState(0);
   const [scrollY, setScrollY] = useState(0);
 
-  const { timelineStart, totalDays } = range;
+  const { timelineStart: dataStart, totalDays: dataTotalDays } = range;
+  const [pinnedStart, setPinnedStart] = useState(dataStart);
+  const pinnedRef = useRef(dataStart);
+  const resetRef = useRef(resetKey);
+  const drawStart =
+    dataStart.getTime() < pinnedStart.getTime() ? dataStart : pinnedStart;
+  const dataEnd = addDays(dataStart, dataTotalDays);
+  const totalDays = daysBetween(drawStart, dataEnd);
   const maxScrollY = maxScrollYFor(pxPerDay);
 
   const maxScrollX = Math.max(0, totalDays * pxPerDay - viewportWidth);
-  const prevTimelineStartRef = useRef(timelineStart);
 
   useEffect(() => {
     setScrollY((sy) => clamp(sy, 0, maxScrollY));
@@ -40,37 +48,53 @@ export function useTimelineView(
     setScrollX((sx) => clamp(sx, 0, maxScrollX));
   }, [maxScrollX]);
 
-  useEffect(() => {
-    const prev = prevTimelineStartRef.current;
-    if (prev.getTime() === timelineStart.getTime()) return;
-    const deltaDays = daysBetween(prev, timelineStart);
-    const deltaPx = deltaDays * pxPerDay;
-    setScrollX((sx) => clamp(sx - deltaPx, 0, maxScrollX));
-    prevTimelineStartRef.current = timelineStart;
-  }, [maxScrollX, pxPerDay, timelineStart]);
+  useLayoutEffect(() => {
+    if (resetRef.current !== resetKey) {
+      resetRef.current = resetKey;
+      pinnedRef.current = dataStart;
+      setPinnedStart(dataStart);
+      return;
+    }
+    const dataEndInEffect = addDays(dataStart, dataTotalDays);
+    setScrollX((sx) => {
+      const next = resolveTimelineOrigin({
+        pinnedStart: pinnedRef.current,
+        dataStart,
+        scrollX: sx,
+        pxPerDay,
+      });
+      if (next.pinnedStart.getTime() !== pinnedRef.current.getTime()) {
+        pinnedRef.current = next.pinnedStart;
+        setPinnedStart(next.pinnedStart);
+      }
+      const nextTotal = daysBetween(next.pinnedStart, dataEndInEffect);
+      const nextMax = Math.max(0, nextTotal * pxPerDay - viewportWidth);
+      return clamp(next.scrollX, 0, nextMax);
+    });
+  }, [dataStart, dataTotalDays, pxPerDay, resetKey, viewportWidth]);
 
   const dateToX = useCallback(
-    (d: Date) => daysBetween(timelineStart, d) * pxPerDay - scrollX,
-    [timelineStart, pxPerDay, scrollX],
+    (d: Date) => daysBetween(drawStart, d) * pxPerDay - scrollX,
+    [drawStart, pxPerDay, scrollX],
   );
 
   const xToDate = useCallback(
-    (x: number) => addDays(timelineStart, (x + scrollX) / pxPerDay),
-    [timelineStart, scrollX, pxPerDay],
+    (x: number) => addDays(drawStart, (x + scrollX) / pxPerDay),
+    [drawStart, scrollX, pxPerDay],
   );
 
   const setZoom = useCallback(
     (newPx: number, anchorX: number) => {
       const clamped = clamp(newPx, MIN_PX_PER_DAY, MAX_PX_PER_DAY);
       const anchorDate = xToDate(anchorX);
-      const anchorDayIdx = daysBetween(timelineStart, anchorDate);
+      const anchorDayIdx = daysBetween(drawStart, anchorDate);
       const nextMaxScroll = Math.max(0, totalDays * clamped - viewportWidth);
       setPxPerDay(clamped);
       setScrollX(
         clamp(anchorDayIdx * clamped - anchorX, 0, nextMaxScroll),
       );
     },
-    [timelineStart, totalDays, viewportWidth, xToDate],
+    [drawStart, totalDays, viewportWidth, xToDate],
   );
 
   const zoomIn = useCallback(() => {
@@ -99,13 +123,13 @@ export function useTimelineView(
     setScrollX(
       scrollXForToday(
         todayIso,
-        timelineStart,
+        drawStart,
         totalDays,
         pxPerDay,
         viewportWidth,
       ),
     );
-  }, [pxPerDay, todayIso, timelineStart, totalDays, viewportWidth]);
+  }, [pxPerDay, todayIso, drawStart, totalDays, viewportWidth]);
 
   const reveal = useCallback(
     (date: Date, y: number, barWidthPx?: number) => {
@@ -115,20 +139,20 @@ export function useTimelineView(
               date,
               barWidthPx,
               scrollX,
-              timelineStart,
+              drawStart,
               totalDays,
               pxPerDay,
               viewportWidth,
             )
           : clamp(
-              daysBetween(timelineStart, date) * pxPerDay - 40,
+              daysBetween(drawStart, date) * pxPerDay - 40,
               0,
               Math.max(0, totalDays * pxPerDay - viewportWidth),
             );
       setScrollX(nextX);
       setScrollY(clamp(y, 0, maxScrollY));
     },
-    [maxScrollY, pxPerDay, scrollX, timelineStart, totalDays, viewportWidth],
+    [maxScrollY, pxPerDay, scrollX, drawStart, totalDays, viewportWidth],
   );
 
   const panBy = useCallback(
@@ -186,7 +210,7 @@ export function useTimelineView(
     scrollBy,
     reveal,
     handleWheel,
-    timelineStart,
+    timelineStart: drawStart,
     totalDays,
   };
 }

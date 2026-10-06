@@ -21,9 +21,12 @@ import {
 } from "../model/dragDates";
 import {
   hitTaskAnchor,
+  hitTaskResizeEdge,
+  RESIZE_EXCLUSIVE_OUTSIDE_PX,
+  resizeExclusiveInside,
   TASK_DRAG_THRESHOLD_PX,
   TASK_HANDLE_WIDTH,
-  taskBarEdgeAt,
+  taskBarResizeEdgeAt,
   type ChartPointer,
 } from "../model/chartHitTest";
 import {
@@ -119,6 +122,27 @@ type TimelineProps = {
 };
 
 const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
+
+function exclusiveResizeHit(
+  barHeight: number,
+  handleY: number,
+  intoBar: 1 | -1,
+  inside: number,
+) {
+  return (context: Konva.Context, shape: Konva.Shape) => {
+    const edge = shape.width() / 2;
+    const outside = RESIZE_EXCLUSIVE_OUTSIDE_PX;
+    const start = intoBar === 1 ? edge - outside : edge - inside;
+    context.beginPath();
+    context.rect(start, -handleY, outside + inside, barHeight);
+    context.closePath();
+    context.fillStrokeShape(shape);
+  };
+}
+
+function swallowResizeClick(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
+  e.cancelBubble = true;
+}
 /** 同じバーへの連続クリックを、ダブルクリックの 2 回目として扱う時間。 */
 const LINK_DOUBLE_CLICK_MS = 500;
 
@@ -315,6 +339,11 @@ function TaskBar({
     startX: number;
     startY: number;
   } | null>(null);
+  const resizeEdgeAtPointer = useCallback(() => {
+    const pos = groupRef.current?.getRelativePointerPosition();
+    if (pos == null || pos.y < 0 || pos.y > barHeight) return null;
+    return taskBarResizeEdgeAt(pos.x, bgWidthRef.current);
+  }, [barHeight]);
   const handleHeight = Math.max(10, Math.round(barHeight * 0.7));
   const handleY = barHeight / 2 - handleHeight / 2;
 
@@ -399,11 +428,13 @@ function TaskBar({
 
   const onHitPointerDown = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
-      const pos = e.target.getRelativePointerPosition();
-      if (pos != null && taskBarEdgeAt(pos.x, w) != null) return;
+      if (resizeEdgeAtPointer() != null) {
+        e.cancelBubble = true;
+        return;
+      }
       onBodyPointerDown(e);
     },
-    [onBodyPointerDown, w],
+    [onBodyPointerDown, resizeEdgeAtPointer],
   );
 
   const leftHandleRef = useRef<Konva.Rect>(null);
@@ -440,27 +471,32 @@ function TaskBar({
       dragBoundFunc={(pos) => ({ x: pos.x, y: barY })}
       onClick={(e) => {
         e.cancelBubble = true;
+        if (resizeEdgeAtPointer() != null || e.evt.button !== 0) return;
         if (linkMode && e.evt.detail > 1) return;
         onSelect();
       }}
       onTap={(e) => {
         e.cancelBubble = true;
+        if (resizeEdgeAtPointer() != null) return;
         if (linkMode && e.evt.detail > 1) return;
         onSelect();
       }}
       onDblClick={(e) => {
         e.cancelBubble = true;
+        if (resizeEdgeAtPointer() != null) return;
         if (linkMode) return;
         onOpenEdit();
       }}
       onContextMenu={(e) => {
         e.cancelBubble = true;
         e.evt.preventDefault();
+        if (resizeEdgeAtPointer() != null) return;
         if (linkMode) return;
         onContextMenu(e.evt.clientX, e.evt.clientY);
       }}
       onDblTap={(e) => {
         e.cancelBubble = true;
+        if (resizeEdgeAtPointer() != null) return;
         if (linkMode) return;
         onOpenEdit();
       }}
@@ -603,15 +639,17 @@ function TaskBar({
             height={handleHeight}
             name="resize-handle"
             fill="rgba(0,0,0,0.001)"
+            hitFunc={exclusiveResizeHit(
+              barHeight,
+              handleY,
+              1,
+              resizeExclusiveInside(w),
+            )}
             draggable
-            onMouseEnter={(e) => {
-              const container = e.target.getStage()?.container();
-              if (container) container.style.cursor = "ew-resize";
-            }}
-            onMouseLeave={(e) => {
-              const container = e.target.getStage()?.container();
-              if (container) container.style.cursor = "";
-            }}
+            onClick={swallowResizeClick}
+            onTap={swallowResizeClick}
+            onDblClick={swallowResizeClick}
+            onDblTap={swallowResizeClick}
             onDragStart={function (this: Konva.Node) {
               const parent = this.getParent()!.getAbsolutePosition();
               const barWidth = bgWidthRef.current;
@@ -678,7 +716,6 @@ function TaskBar({
                 return;
               }
               if (!g) return;
-              onSelect();
               onResizeStart(g.x());
             }}
           />
@@ -690,15 +727,17 @@ function TaskBar({
             height={handleHeight}
             name="resize-handle"
             fill="rgba(0,0,0,0.001)"
+            hitFunc={exclusiveResizeHit(
+              barHeight,
+              handleY,
+              -1,
+              resizeExclusiveInside(w),
+            )}
             draggable
-            onMouseEnter={(e) => {
-              const container = e.target.getStage()?.container();
-              if (container) container.style.cursor = "ew-resize";
-            }}
-            onMouseLeave={(e) => {
-              const container = e.target.getStage()?.container();
-              if (container) container.style.cursor = "";
-            }}
+            onClick={swallowResizeClick}
+            onTap={swallowResizeClick}
+            onDblClick={swallowResizeClick}
+            onDblTap={swallowResizeClick}
             onDragStart={function (this: Konva.Node) {
               const g = groupRef.current;
               if (!g) return;
@@ -748,7 +787,6 @@ function TaskBar({
                 return;
               }
               if (!g) return;
-              onSelect();
               onResizeEnd(g.x(), bgWidthRef.current);
             }}
           />
@@ -769,7 +807,6 @@ function ResizeHandles({
   onResizeEnd,
   onDragGeometry,
   registerDragCancel,
-  onContextMenu,
   chart,
 }: {
   task: Task;
@@ -782,7 +819,6 @@ function ResizeHandles({
   onResizeEnd: (groupX: number, barWidth: number) => void;
   onDragGeometry: (geometry: DragBarGeometry | null) => void;
   registerDragCancel: (cancel: (() => void) | null) => void;
-  onContextMenu: (x: number, y: number) => void;
   chart: ChartPalette;
 }) {
   const start = parseDate(task.start);
@@ -839,7 +875,6 @@ function ResizeHandles({
       onContextMenu={(e) => {
         e.cancelBubble = true;
         e.evt.preventDefault();
-        onContextMenu(e.evt.clientX, e.evt.clientY);
       }}
     >
       <Rect ref={bgRef} width={w} height={barHeight} visible={false} />
@@ -862,15 +897,17 @@ function ResizeHandles({
         name="resize-handle"
         fill={chart.resizeHandle}
         cornerRadius={2}
+        hitFunc={exclusiveResizeHit(
+          barHeight,
+          handleY,
+          1,
+          resizeExclusiveInside(w),
+        )}
         draggable
-        onMouseEnter={(e) => {
-          const container = e.target.getStage()?.container();
-          if (container) container.style.cursor = "ew-resize";
-        }}
-        onMouseLeave={(e) => {
-          const container = e.target.getStage()?.container();
-          if (container) container.style.cursor = "";
-        }}
+        onClick={swallowResizeClick}
+        onTap={swallowResizeClick}
+        onDblClick={swallowResizeClick}
+        onDblTap={swallowResizeClick}
         onDragStart={function (this: Konva.Node) {
           const parent = this.getParent()!.getAbsolutePosition();
           const barWidth = bgRef.current?.width() ?? w;
@@ -947,15 +984,17 @@ function ResizeHandles({
         name="resize-handle"
         fill={chart.resizeHandle}
         cornerRadius={2}
+        hitFunc={exclusiveResizeHit(
+          barHeight,
+          handleY,
+          -1,
+          resizeExclusiveInside(w),
+        )}
         draggable
-        onMouseEnter={(e) => {
-          const container = e.target.getStage()?.container();
-          if (container) container.style.cursor = "ew-resize";
-        }}
-        onMouseLeave={(e) => {
-          const container = e.target.getStage()?.container();
-          if (container) container.style.cursor = "";
-        }}
+        onClick={swallowResizeClick}
+        onTap={swallowResizeClick}
+        onDblClick={swallowResizeClick}
+        onDblTap={swallowResizeClick}
         onDragStart={function (this: Konva.Node) {
           const g = groupRef.current;
           const bg = bgRef.current;
@@ -1777,6 +1816,11 @@ export function Timeline({
     });
     return next;
   }, [barHeight, dragPreview, taskAnchors]);
+  const resizeHitAt = useCallback(
+    (pos: { x: number; y: number }) =>
+      hitTaskResizeEdge(pos, liveAnchors, barHeight),
+    [barHeight, liveAnchors],
+  );
 
   const dragObstacles = useMemo(() => {
     if (dragPreview == null) return [];
@@ -1939,17 +1983,20 @@ export function Timeline({
         return;
       }
       suppressClickRef.current = false;
+      const pos = e.target.getStage()?.getPointerPosition();
+      if (pos != null && resizeHitAt(pos) != null) return;
       const target = e.target;
+      // pointerdown の cancelBubble は mousedown を止めない。バー本体でもパンが始まると、移動とスクロールが重なる。
       if (
-        target.name() === "resize-handle" ||
-        target.findAncestor(".resize-handle")
+        !panOnly &&
+        (target.name() === "task-bar" || target.findAncestor(".task-bar"))
       ) {
         return;
       }
       if (!panOnly && (e.evt.metaKey || e.evt.ctrlKey)) return;
       beginPan(e.evt.clientX, e.evt.clientY);
     },
-    [beginPan, linkMode, spacePanArmed],
+    [beginPan, linkMode, resizeHitAt, spacePanArmed],
   );
 
   const panDeltaRef = useRef({ dx: 0, dy: 0 });
@@ -2040,9 +2087,8 @@ export function Timeline({
         />
       ) : null}
       <div
-        className={`timeline-body${panning ? " panning" : ""}`}
+        className={`timeline-body${linkMode ? " linking" : ""}${panning ? " panning" : ""}`}
         ref={bodyRef}
-        style={{ cursor: linkMode ? "default" : panning ? "grabbing" : "grab" }}
       >
         <Stage
           width={width}
@@ -2055,6 +2101,7 @@ export function Timeline({
             const stage = e.target.getStage();
             const pos = stage?.getPointerPosition();
             if (!pos) return;
+            if (resizeHitAt(pos) != null) return;
             if (pos.y < sticky.clipTop) {
               if (linkMode) return;
               onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
@@ -2083,11 +2130,15 @@ export function Timeline({
               return;
             }
             const stage = e.target.getStage();
+            const pos = stage?.getPointerPosition();
+            if (pos != null && resizeHitAt(pos) != null) return;
             if (e.target === stage) onClearSelection();
           }}
           onTap={(e) => {
             if (linkMode) return;
             const stage = e.target.getStage();
+            const pos = stage?.getPointerPosition();
+            if (pos != null && resizeHitAt(pos) != null) return;
             if (e.target === stage) onClearSelection();
           }}
         >
@@ -2338,9 +2389,6 @@ export function Timeline({
                 }
                 onDragGeometry={onDragGeometry}
                 registerDragCancel={registerDragCancel}
-                onContextMenu={(x, y) =>
-                  onTaskContextMenu(selectedRow.task.id, x, y)
-                }
                 chart={chart}
               />
             ) : null}
