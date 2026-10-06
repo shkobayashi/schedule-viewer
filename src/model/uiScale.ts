@@ -1,3 +1,5 @@
+import { bumpSharedSettingsRevision } from "./sharedSettingsRevision";
+
 /** 手動の表示サイズの下限。自動は 1 未満にならない。 */
 export const UI_SCALE_MIN = 0.5;
 export const UI_SCALE_MAX = 2;
@@ -73,6 +75,7 @@ export function writeDisplayScalePreference(
       DISPLAY_SCALE_LS_KEY,
       preference === "auto" ? "auto" : String(preference),
     );
+    bumpSharedSettingsRevision();
   } catch {
     // ignore quota / private mode
   }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { errorMessage } from "../../model/errors";
 import {
   deleteScheduleRecoveryViaTauri,
@@ -6,6 +7,7 @@ import {
   parseScheduleText,
   writeScheduleRecoveryViaTauri,
 } from "../../model/scheduleFile";
+import { recoveryLiveActionViaTauri } from "../../model/windowSession";
 import { RECOVERY_DEBOUNCE_MS } from "./constants";
 
 type UseScheduleRecoveryDraftOptions = {
@@ -43,13 +45,15 @@ export function useScheduleRecoveryDraft({
 
   const clearRecoveryDraft = useCallback(async () => {
     if (!isTauri()) return;
+    const path = filePathRef.current;
+    if (!path) return;
     recoveryEpochRef.current += 1;
     const epoch = recoveryEpochRef.current;
     await enqueueRecoveryIo(async () => {
       if (recoveryEpochRef.current !== epoch) return;
-      await deleteScheduleRecoveryViaTauri();
+      await deleteScheduleRecoveryViaTauri(path);
     });
-  }, [enqueueRecoveryIo]);
+  }, [enqueueRecoveryIo, filePathRef]);
 
   const writeRecoveryDraftNow = useCallback(async () => {
     if (!isTauri()) return;
@@ -75,31 +79,62 @@ export function useScheduleRecoveryDraft({
         documentJson,
       });
       if (recoveryEpochRef.current !== epoch) {
-        await deleteScheduleRecoveryViaTauri();
+        await deleteScheduleRecoveryViaTauri(path);
       }
     });
   }, [baselineJsonRef, currentJsonRef, enqueueRecoveryIo, filePathRef, isDirtyRef]);
 
+  const syncLiveRecovery = useCallback(async () => {
+    if (!isTauri() || !filePathRef.current) return;
+    const action = await recoveryLiveActionViaTauri(isDirtyRef.current);
+    if (action === "write") await writeRecoveryDraftNow();
+    else if (action === "delete") await clearRecoveryDraft();
+  }, [clearRecoveryDraft, filePathRef, isDirtyRef, writeRecoveryDraftNow]);
+
   useEffect(() => {
     if (!isTauri() || !filePath || !isDirty) return;
     const id = window.setTimeout(() => {
-      void writeRecoveryDraftNow().catch((error) => {
+      void syncLiveRecovery().catch((error) => {
         setErrorMessageText(
           errorMessage(error, "復旧用の控えを保存できませんでした。"),
         );
       });
     }, RECOVERY_DEBOUNCE_MS);
     return () => window.clearTimeout(id);
-  }, [currentJson, filePath, isDirty, setErrorMessageText, writeRecoveryDraftNow]);
+  }, [currentJson, filePath, isDirty, setErrorMessageText, syncLiveRecovery]);
 
   useEffect(() => {
     if (!isTauri() || !filePath || isDirty) return;
-    void clearRecoveryDraft().catch((error) => {
+    void syncLiveRecovery().catch((error) => {
       setErrorMessageText(
         errorMessage(error, "復旧用の控えを削除できませんでした。"),
       );
     });
-  }, [clearRecoveryDraft, filePath, isDirty, setErrorMessageText]);
+  }, [filePath, isDirty, setErrorMessageText, syncLiveRecovery]);
 
-  return { clearRecoveryDraft, writeRecoveryDraftNow };
+  useEffect(() => {
+    if (!isTauri()) return;
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    void listen<{ path: string }>("schedule-recovery-reconcile", (event) => {
+      if (event.payload.path !== filePathRef.current) return;
+      void syncLiveRecovery().catch((error) => {
+        setErrorMessageText(
+          errorMessage(error, "復旧用の控えを保存できませんでした。"),
+        );
+      });
+    }).then((fn) => {
+      if (cancelled) {
+        fn();
+        return;
+      }
+      unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [filePathRef, setErrorMessageText, syncLiveRecovery]);
+
+  return { clearRecoveryDraft, writeRecoveryDraftNow, syncLiveRecovery };
 }

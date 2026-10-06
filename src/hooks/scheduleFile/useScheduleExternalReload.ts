@@ -28,6 +28,7 @@ type UseScheduleExternalReloadOptions = {
   pausePollRef: { current: boolean };
   clearRecoveryDraft: () => Promise<void>;
   requestMissingFileOpenRef: { current: () => void };
+  notifyPeersRef?: { current: (status: "applied" | "pending" | "cleared") => void };
 };
 
 export function useScheduleExternalReload({
@@ -42,6 +43,7 @@ export function useScheduleExternalReload({
   pausePollRef,
   clearRecoveryDraft,
   requestMissingFileOpenRef,
+  notifyPeersRef,
 }: UseScheduleExternalReloadOptions) {
   const [externalReloadOpen, setExternalReloadOpen] = useState(false);
   const [pendingExternalContents, setPendingExternalContents] = useState<
@@ -120,6 +122,7 @@ export function useScheduleExternalReload({
       baselineJsonRef.current = canonicalJson;
       isDirtyRef.current = false;
       flashReloadNotice();
+      notifyPeersRef?.current("applied");
       await acknowledgeDisk(diskContents);
       await clearRecoveryDraft();
     },
@@ -129,6 +132,7 @@ export function useScheduleExternalReload({
       clearRecoveryDraft,
       flashReloadNotice,
       isDirtyRef,
+      notifyPeersRef,
       reloadDocumentFromDisk,
       setBaselineJson,
     ],
@@ -197,6 +201,7 @@ export function useScheduleExternalReload({
       if (diskContents === suppressedDiskRef.current) return;
       setPendingExternalContents(diskContents);
       if (!externalReloadOpenRef.current) {
+        notifyPeersRef?.current("pending");
         setExternalReloadOpen(true);
       }
     },
@@ -208,6 +213,7 @@ export function useScheduleExternalReload({
       fileBusyRef,
       hasOpenEditDialogRef,
       isDirtyRef,
+      notifyPeersRef,
       pausePollRef,
       setErrorMessageText,
     ],
@@ -301,12 +307,13 @@ export function useScheduleExternalReload({
     setPendingExternalContents(null);
     setExternalReloadOpen(false);
     suppressedDiskRef.current = diskContents;
+    notifyPeersRef?.current("cleared");
     void acknowledgeDisk(diskContents).finally(() => {
       if (suppressedDiskRef.current === diskContents) {
         suppressedDiskRef.current = null;
       }
     });
-  }, [acknowledgeDisk, pendingExternalContents]);
+  }, [acknowledgeDisk, notifyPeersRef, pendingExternalContents]);
 
   const requestDeferredReload = useCallback(() => {
     const diskContents = deferredExternalContents;

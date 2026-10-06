@@ -5,6 +5,7 @@ import {
   importAppCalendar,
   loadResolvedAppCalendar,
 } from "../model/calendarAppData";
+import { bumpSharedSettingsRevision } from "../model/sharedSettingsRevision";
 
 export function useAppCalendar() {
   const [label, setLabel] = useState<string | null>(null);
@@ -38,6 +39,7 @@ export function useAppCalendar() {
     async (fileLabel: string, contents: string) => {
       await importAppCalendar(fileLabel, contents);
       await refresh();
+      bumpSharedSettingsRevision();
     },
     [refresh],
   );
@@ -45,6 +47,7 @@ export function useAppCalendar() {
   const removeCalendar = useCallback(async () => {
     await deleteAppCalendar();
     await refresh();
+    bumpSharedSettingsRevision();
   }, [refresh]);
 
   return {

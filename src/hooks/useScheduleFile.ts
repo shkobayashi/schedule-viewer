@@ -22,6 +22,16 @@ import { useScheduleExternalReload } from "./scheduleFile/useScheduleExternalRel
 import { useScheduleRecoveryDraft } from "./scheduleFile/useScheduleRecoveryDraft";
 import { useScheduleSave } from "./scheduleFile/useScheduleSave";
 import { useScheduleStartupRecovery } from "./scheduleFile/useScheduleStartupRecovery";
+import { useSchedulePeerNotice } from "./useSchedulePeerNotice";
+import { finalizeWindowClose } from "./useWindowSession";
+import { listen } from "@tauri-apps/api/event";
+import {
+  acceptApplicationQuitViaTauri,
+  cancelApplicationQuitViaTauri,
+  createScheduleWindowViaTauri,
+  recoveryCloseActionViaTauri,
+  releaseScheduleRecoveryViaTauri,
+} from "../model/windowSession";
 
 export type FileStatusTag = "sample" | "saved" | "unsaved";
 
@@ -84,7 +94,8 @@ export function useScheduleFile({
   const fileBusyRef = useRef(fileBusy);
   fileBusyRef.current = fileBusy;
 
-  const { clearRecoveryDraft, writeRecoveryDraftNow } = useScheduleRecoveryDraft({
+  const { clearRecoveryDraft, writeRecoveryDraftNow, syncLiveRecovery } =
+    useScheduleRecoveryDraft({
     filePath,
     isDirty,
     currentJson,
@@ -118,6 +129,15 @@ export function useScheduleFile({
     clearInvalidDiskHashRef,
   });
 
+  const notifyPeersRef = useRef<(status: "applied" | "pending" | "cleared") => void>(
+    () => {},
+  );
+  const closePromptForQuitRef = useRef(false);
+  const quitDiscardedRef = useRef(false);
+  const applicationQuitRef = useRef(false);
+  const syncLiveRecoveryRef = useRef(syncLiveRecovery);
+  syncLiveRecoveryRef.current = syncLiveRecovery;
+
   const externalReload = useScheduleExternalReload({
     filePath,
     reloadDocumentFromDisk,
@@ -130,6 +150,7 @@ export function useScheduleFile({
     pausePollRef,
     clearRecoveryDraft,
     requestMissingFileOpenRef,
+    notifyPeersRef,
   });
   clearExternalReloadPromptRef.current = externalReload.clearExternalReloadPrompt;
   clearInvalidDiskHashRef.current = externalReload.clearInvalidDiskHash;
@@ -171,7 +192,9 @@ export function useScheduleFile({
         setErrorMessageText(parsed.message);
         return false;
       }
+      const previousPath = filePathRef.current;
       replaceDocument(parsed.document);
+      filePathRef.current = pick.path;
       setFilePath(pick.path);
       setBrowserFileLabel(pick.path ? null : (pick.displayName ?? null));
       setBaselineJson(parsed.canonicalJson);
@@ -179,16 +202,17 @@ export function useScheduleFile({
       externalReload.resetPollTracking();
       baselineJsonRef.current = parsed.canonicalJson;
       onAfterOpen();
-      void clearRecoveryDraft().catch((error) => {
-        setErrorMessageText(
-          errorMessage(error, "復旧用の控えを削除できませんでした。"),
-        );
-      });
+      if (isTauri() && previousPath && previousPath !== pick.path) {
+        void releaseScheduleRecoveryViaTauri(previousPath).catch((error) => {
+          setErrorMessageText(
+            errorMessage(error, "復旧用の控えを削除できませんでした。"),
+          );
+        });
+      }
       return true;
     },
     [
       baselineJsonRef,
-      clearRecoveryDraft,
       externalReload,
       onAfterOpen,
       replaceDocument,
@@ -241,6 +265,34 @@ export function useScheduleFile({
     beginOpen(scheduleParentDirectory(path) ?? path);
   };
 
+  const runOpenInNewWindow = useCallback(async () => {
+    if (fileBusy || !isTauri()) return;
+    const initialDirectory = initialDirectoryRef.current;
+    initialDirectoryRef.current = null;
+    setFileBusy(true);
+    try {
+      const pick = await openScheduleViaTauri(initialDirectory);
+      if (!pick?.path) return;
+      const parsed = parseScheduleText(pick.contents);
+      if (!parsed.ok) {
+        setErrorMessageText(parsed.message);
+        return;
+      }
+      await createScheduleWindowViaTauri(pick.path, pick.contents);
+    } catch (error) {
+      setErrorMessageText(
+        errorMessage(error, "新しいウィンドウで開けませんでした。"),
+      );
+    } finally {
+      setFileBusy(false);
+    }
+  }, [fileBusy]);
+
+  const requestOpenInNewWindow = useCallback(() => {
+    if (fileBusyRef.current || !isTauri()) return;
+    void runOpenInNewWindow();
+  }, [runOpenInNewWindow]);
+
   const requestOpen = useCallback(() => {
     beginOpen(null);
   }, [beginOpen]);
@@ -280,8 +332,23 @@ export function useScheduleFile({
     applyOpenedFile,
   });
 
+  const peerNotice = useSchedulePeerNotice({
+    filePath,
+    displayFileName,
+    onWindowFocused: () => {
+      void syncLiveRecoveryRef.current().catch((error) => {
+        setErrorMessageText(
+          errorMessage(error, "復旧用の控えを保存できませんでした。"),
+        );
+      });
+    },
+  });
+  notifyPeersRef.current = peerNotice.notifyPeers;
+
   const writeRecoveryDraftNowRef = useRef(writeRecoveryDraftNow);
   writeRecoveryDraftNowRef.current = writeRecoveryDraftNow;
+  const clearRecoveryDraftRef = useRef(clearRecoveryDraft);
+  clearRecoveryDraftRef.current = clearRecoveryDraft;
 
   useEffect(() => {
     if (isTauri()) return;
@@ -301,6 +368,25 @@ export function useScheduleFile({
       .onCloseRequested(async (event) => {
         if (allowCloseRef.current) return;
         if (!filePathRef.current) {
+          if (isDirtyRef.current && quitDiscardedRef.current) {
+            event.preventDefault();
+            try {
+              await clearLastSchedulePathViaTauri();
+              quitDiscardedRef.current = false;
+              allowCloseRef.current = true;
+              await finalizeWindowClose();
+            } catch (error) {
+              allowCloseRef.current = false;
+              setErrorMessageText(
+                errorMessage(error, "前回のファイルの記録を削除できませんでした。"),
+              );
+              if (applicationQuitRef.current) {
+                applicationQuitRef.current = false;
+                void cancelApplicationQuitViaTauri();
+              }
+            }
+            return;
+          }
           if (isDirtyRef.current) {
             event.preventDefault();
             setClosePromptOpen(true);
@@ -311,24 +397,35 @@ export function useScheduleFile({
           try {
             await clearLastSchedulePathViaTauri();
             allowCloseRef.current = true;
-            await getCurrentWindow().close();
+            await finalizeWindowClose();
           } catch (error) {
+            allowCloseRef.current = false;
             setErrorMessageText(
               errorMessage(error, "前回のファイルの記録を削除できませんでした。"),
             );
+            if (applicationQuitRef.current) {
+              applicationQuitRef.current = false;
+              void cancelApplicationQuitViaTauri();
+            }
           }
           return;
         }
-        if (!isDirtyRef.current) return;
         event.preventDefault();
         try {
-          await writeRecoveryDraftNowRef.current();
+          const action = await recoveryCloseActionViaTauri(isDirtyRef.current);
+          if (action === "write") await writeRecoveryDraftNowRef.current();
+          else if (action === "delete") await clearRecoveryDraftRef.current();
           allowCloseRef.current = true;
-          await getCurrentWindow().close();
+          await finalizeWindowClose();
         } catch (error) {
+          allowCloseRef.current = false;
           setErrorMessageText(
             errorMessage(error, "復旧用の控えを保存できませんでした。"),
           );
+          if (applicationQuitRef.current) {
+            applicationQuitRef.current = false;
+            void cancelApplicationQuitViaTauri();
+          }
         }
       })
       .then((fn) => {
@@ -344,9 +441,50 @@ export function useScheduleFile({
     };
   }, [startup.startupSettledRef]);
 
+  useEffect(() => {
+    if (!isTauri()) return;
+    let unlistenQuit: (() => void) | undefined;
+    let unlistenCancel: (() => void) | undefined;
+    let cancelled = false;
+    void listen("application-quit-requested", () => {
+      applicationQuitRef.current = true;
+      if (!filePathRef.current && isDirtyRef.current) {
+        closePromptForQuitRef.current = true;
+        setClosePromptOpen(true);
+        return;
+      }
+      void acceptApplicationQuitViaTauri();
+    }).then((fn) => {
+      if (cancelled) {
+        fn();
+        return;
+      }
+      unlistenQuit = fn;
+    });
+    void listen("application-quit-cancelled", () => {
+      applicationQuitRef.current = false;
+      closePromptForQuitRef.current = false;
+      quitDiscardedRef.current = false;
+      setClosePromptOpen(false);
+    }).then((fn) => {
+      if (cancelled) {
+        fn();
+        return;
+      }
+      unlistenCancel = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlistenQuit?.();
+      unlistenCancel?.();
+    };
+  }, []);
+
   const confirmDiscardAndClose = useCallback(() => {
     setClosePromptOpen(false);
     if (!isTauri()) return;
+    const forQuit = closePromptForQuitRef.current;
+    closePromptForQuitRef.current = false;
     void (async () => {
       try {
         await clearLastSchedulePathViaTauri();
@@ -354,15 +492,28 @@ export function useScheduleFile({
         setErrorMessageText(
           errorMessage(error, "前回のファイルの記録を削除できませんでした。"),
         );
+        if (forQuit) {
+          applicationQuitRef.current = false;
+          void cancelApplicationQuitViaTauri();
+        }
+        return;
+      }
+      if (forQuit) {
+        quitDiscardedRef.current = true;
+        await acceptApplicationQuitViaTauri();
         return;
       }
       allowCloseRef.current = true;
-      void getCurrentWindow().close();
+      await finalizeWindowClose();
     })();
   }, []);
 
   const cancelClose = useCallback(() => {
     setClosePromptOpen(false);
+    if (!closePromptForQuitRef.current) return;
+    closePromptForQuitRef.current = false;
+    allowCloseRef.current = false;
+    void cancelApplicationQuitViaTauri();
   }, []);
 
   const dismissError = useCallback(() => setErrorMessageText(null), []);
@@ -393,6 +544,7 @@ export function useScheduleFile({
     dismissRecoveryInvalid: startup.dismissRecoveryInvalid,
     discardRecoveryDraft: startup.discardRecoveryDraft,
     requestOpen,
+    requestOpenInNewWindow,
     save,
     confirmDiscardAndOpen,
     cancelDiscard,
@@ -406,5 +558,6 @@ export function useScheduleFile({
     requestDeferredReload: externalReload.requestDeferredReload,
     dismissError,
     currentJson,
+    peerNotice,
   };
 }

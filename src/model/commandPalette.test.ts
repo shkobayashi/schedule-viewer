@@ -7,6 +7,7 @@ import {
 
 const idle = {
   fileBusy: false,
+  isTauriDesktop: false,
   canUndo: true,
   canRedo: false,
   selectedTaskId: "t1",
@@ -35,6 +36,17 @@ describe("moveCommandPaletteHighlight", () => {
 });
 
 describe("buildCommandPaletteItems", () => {
+  it("hides open in a new window outside the desktop app", () => {
+    expect(
+      buildCommandPaletteItems(idle).some((item) => item.id === "openNewWindow"),
+    ).toBe(false);
+    expect(
+      buildCommandPaletteItems({ ...idle, isTauriDesktop: true }).some(
+        (item) => item.id === "openNewWindow",
+      ),
+    ).toBe(true);
+  });
+
   it("disables file commands when busy", () => {
     const items = buildCommandPaletteItems({ ...idle, fileBusy: true });
     expect(items.find((item) => item.id === "open")?.enabled).toBe(false);

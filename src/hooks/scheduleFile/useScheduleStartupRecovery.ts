@@ -4,16 +4,19 @@ import { errorMessage } from "../../model/errors";
 import {
   actionIgnoresDraft,
   decideRecoveryStartup,
+  parseRecoveryDraft,
 } from "../../model/scheduleRecovery";
 import {
   acceptOpenedScheduleViaTauri,
   deleteScheduleRecoveryViaTauri,
   isTauri,
-  readLastScheduleFileViaTauri,
-  readScheduleRecoveryViaTauri,
   scheduleJsonFilename,
   scheduleParentDirectory,
 } from "../../model/scheduleFile";
+import {
+  readWindowStartupViaTauri,
+  takePendingScheduleWindowOpenViaTauri,
+} from "../../model/windowSession";
 import { applyAfterAccept } from "./recoveryApply";
 
 type RecoveryConflictPayload = {
@@ -156,8 +159,23 @@ export function useScheduleStartupRecovery({
     };
     void (async () => {
       try {
-        const last = await readLastScheduleFileViaTauri();
-        const draftText = await readScheduleRecoveryViaTauri();
+        const pending = await takePendingScheduleWindowOpenViaTauri();
+        if (cancelled || recoveryStartupRef.current !== startupId) return;
+        if (pending) {
+          applyOpenedFile({ path: pending.path, contents: pending.contents });
+          releaseStartupBusy();
+          return;
+        }
+        const startup = await readWindowStartupViaTauri();
+        const last =
+          startup.path != null
+            ? {
+                path: startup.path,
+                contents: startup.contents,
+                error: startup.error,
+              }
+            : null;
+        const draftText = startup.draftText;
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (last == null && (draftText == null || draftText.length === 0)) {
           releaseStartupBusy();
@@ -176,7 +194,20 @@ export function useScheduleStartupRecovery({
           return;
         }
         if (actionIgnoresDraft(action)) {
-          await deleteScheduleRecoveryViaTauri();
+          const path =
+            ("path" in action && typeof action.path === "string"
+              ? action.path
+              : null) ??
+            last?.path ??
+            (draftText
+              ? (() => {
+                  const parsed = parseRecoveryDraft(draftText);
+                  return parsed.ok ? parsed.draft.path : null;
+                })()
+              : null);
+          if (path) {
+            await deleteScheduleRecoveryViaTauri(path);
+          }
         }
         if (cancelled || recoveryStartupRef.current !== startupId) return;
 
@@ -289,6 +320,7 @@ export function useScheduleStartupRecovery({
       }
     };
   }, [
+    applyOpenedFile,
     applyRecoverySession,
     blockDocumentEditsRef,
     clearRecoveryDraft,

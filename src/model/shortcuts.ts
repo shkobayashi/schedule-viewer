@@ -2,6 +2,7 @@ export type AppShortcut =
   | "save"
   | "saveAs"
   | "open"
+  | "openNew"
   | "find"
   | "edit"
   | "delete"
@@ -63,7 +64,8 @@ export function blocksBrowserShortcut(event: ShortcutKeyEvent): boolean {
   if (key === "n") return !event.shiftKey;
   if (key === "d" && event.shiftKey) return true;
   if (key === "k" && !event.shiftKey) return true;
-  return (key === "o" || key === "f") && !event.shiftKey;
+  if (key === "o") return true;
+  return key === "f" && !event.shiftKey;
 }
 
 export function commandPaletteShortcutHint(commandKey: boolean): string {
@@ -105,6 +107,7 @@ export function matchAppShortcut(
   if (blocksBrowserShortcut(event) && key !== "n") {
     if (key === "s" && event.shiftKey) return "saveAs";
     if (key === "s") return "save";
+    if (key === "o" && event.shiftKey) return "openNew";
     if (key === "o") return "open";
     return "find";
   }
@@ -175,15 +178,17 @@ export function noteShortcutHint(commandKey: boolean): string {
 }
 
 export function fileShortcutHint(
-  action: "open" | "save" | "saveAs",
+  action: "open" | "openNew" | "save" | "saveAs",
   commandKey: boolean,
 ): string {
   if (commandKey) {
     if (action === "open") return "⌘O";
+    if (action === "openNew") return "⌘⇧O";
     if (action === "save") return "⌘S";
     return "⌘⇧S";
   }
   if (action === "open") return "Ctrl+O";
+  if (action === "openNew") return "Ctrl+Shift+O";
   if (action === "save") return "Ctrl+S";
   return "Ctrl+Shift+S";
 }
@@ -238,6 +243,7 @@ export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow
   const mod = commandKey ? "⌘" : "Ctrl";
   return [
     { action: "開く", keys: fileShortcutHint("open", commandKey) },
+    { action: "新しいウィンドウで開く", keys: fileShortcutHint("openNew", commandKey) },
     { action: "保存", keys: fileShortcutHint("save", commandKey) },
     { action: "別名保存", keys: fileShortcutHint("saveAs", commandKey) },
     { action: "検索", keys: findShortcutHint(commandKey) },
