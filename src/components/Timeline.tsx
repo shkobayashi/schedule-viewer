@@ -36,6 +36,7 @@ import {
 import { useTimelinePointer } from "../hooks/useTimelinePointer";
 import {
   barColors,
+  barLabelFill,
   lightningDate,
   taskBarExclusiveEnd,
   taskBarWidthPx,
@@ -405,7 +406,30 @@ function TaskBar({
     [onBodyPointerDown, w],
   );
 
+  const leftHandleRef = useRef<Konva.Rect>(null);
   const rightHandleRef = useRef<Konva.Rect>(null);
+  const resizeAbortedRef = useRef(false);
+  const origResizeRef = useRef<{ groupX: number; barWidth: number } | null>(
+    null,
+  );
+  const draggingHandleRef = useRef<Konva.Rect | null>(null);
+
+  const cancelUnselectedResize = useCallback(() => {
+    resizeAbortedRef.current = true;
+    const orig = origResizeRef.current;
+    const g = groupRef.current;
+    if (orig && g) {
+      g.x(orig.groupX);
+      bgWidthRef.current = orig.barWidth;
+      leftHandleRef.current?.x(-HANDLE_WIDTH / 2);
+      rightHandleRef.current?.x(orig.barWidth - HANDLE_WIDTH / 2);
+    }
+    draggingHandleRef.current?.stopDrag();
+    draggingHandleRef.current = null;
+    origResizeRef.current = null;
+    registerDragCancel(null);
+    onDragGeometry(null);
+  }, [onDragGeometry, registerDragCancel]);
 
   return (
     <Group
@@ -532,7 +556,8 @@ function TaskBar({
           text={labelInside}
           fontSize={fontSize}
           fontFamily={KONVA_FONT_FAMILY}
-          fill={chart.textPrimary}
+          fill={barLabelFill(task, today, colorScheme)}
+          wrap="none"
           ellipsis
           listening={false}
         />
@@ -571,6 +596,7 @@ function TaskBar({
       {!linkMode && !selected ? (
         <>
           <Rect
+            ref={leftHandleRef}
             x={-HANDLE_WIDTH / 2}
             y={handleY}
             width={HANDLE_WIDTH}
@@ -586,9 +612,6 @@ function TaskBar({
               const container = e.target.getStage()?.container();
               if (container) container.style.cursor = "";
             }}
-            onPointerDown={(e) => {
-              if (e.evt.button === 0) onSelect();
-            }}
             onDragStart={function (this: Konva.Node) {
               const parent = this.getParent()!.getAbsolutePosition();
               const barWidth = bgWidthRef.current;
@@ -596,7 +619,13 @@ function TaskBar({
                 parent.x + barWidth - pxPerDay - HANDLE_WIDTH / 2;
               const g = groupRef.current;
               if (!g) return;
-              registerDragCancel(() => onDragGeometry(null));
+              resizeAbortedRef.current = false;
+              origResizeRef.current = {
+                groupX: g.x(),
+                barWidth,
+              };
+              draggingHandleRef.current = this as Konva.Rect;
+              registerDragCancel(() => cancelUnselectedResize());
               onDragGeometry({
                 taskId: task.id,
                 kind: "start",
@@ -644,7 +673,12 @@ function TaskBar({
               leftMaxXRef.current = null;
               registerDragCancel(null);
               onDragGeometry(null);
+              if (resizeAbortedRef.current) {
+                resizeAbortedRef.current = false;
+                return;
+              }
               if (!g) return;
+              onSelect();
               onResizeStart(g.x());
             }}
           />
@@ -665,13 +699,16 @@ function TaskBar({
               const container = e.target.getStage()?.container();
               if (container) container.style.cursor = "";
             }}
-            onPointerDown={(e) => {
-              if (e.evt.button === 0) onSelect();
-            }}
-            onDragStart={() => {
+            onDragStart={function (this: Konva.Node) {
               const g = groupRef.current;
               if (!g) return;
-              registerDragCancel(() => onDragGeometry(null));
+              resizeAbortedRef.current = false;
+              origResizeRef.current = {
+                groupX: g.x(),
+                barWidth: bgWidthRef.current,
+              };
+              draggingHandleRef.current = this as Konva.Rect;
+              registerDragCancel(() => cancelUnselectedResize());
               onDragGeometry({
                 taskId: task.id,
                 kind: "end",
@@ -706,7 +743,12 @@ function TaskBar({
               const g = groupRef.current;
               registerDragCancel(null);
               onDragGeometry(null);
+              if (resizeAbortedRef.current) {
+                resizeAbortedRef.current = false;
+                return;
+              }
               if (!g) return;
+              onSelect();
               onResizeEnd(g.x(), bgWidthRef.current);
             }}
           />
@@ -726,6 +768,7 @@ function ResizeHandles({
   onResizeStart,
   onResizeEnd,
   onDragGeometry,
+  registerDragCancel,
   onContextMenu,
   chart,
 }: {
@@ -738,6 +781,7 @@ function ResizeHandles({
   onResizeStart: (groupX: number) => void;
   onResizeEnd: (groupX: number, barWidth: number) => void;
   onDragGeometry: (geometry: DragBarGeometry | null) => void;
+  registerDragCancel: (cancel: (() => void) | null) => void;
   onContextMenu: (x: number, y: number) => void;
   chart: ChartPalette;
 }) {
@@ -750,8 +794,14 @@ function ResizeHandles({
   const groupRef = useRef<Konva.Group>(null);
   const bgRef = useRef<Konva.Rect>(null);
   const fillRef = useRef<Konva.Rect | null>(null);
+  const leftHandleRef = useRef<Konva.Rect>(null);
   const rightHandleRef = useRef<Konva.Rect>(null);
   const leftMaxXRef = useRef<number | null>(null);
+  const resizeAbortedRef = useRef(false);
+  const origResizeRef = useRef<{ groupX: number; barWidth: number } | null>(
+    null,
+  );
+  const draggingHandleRef = useRef<Konva.Rect | null>(null);
 
   const syncFillWidth = useCallback(
     (barWidth: number) => {
@@ -761,6 +811,25 @@ function ResizeHandles({
     },
     [task.progress, task.status],
   );
+
+  const cancelSelectedResize = useCallback(() => {
+    resizeAbortedRef.current = true;
+    const orig = origResizeRef.current;
+    const g = groupRef.current;
+    const bg = bgRef.current;
+    if (orig && g && bg) {
+      g.x(orig.groupX);
+      bg.width(orig.barWidth);
+      syncFillWidth(orig.barWidth);
+      leftHandleRef.current?.x(-HANDLE_WIDTH / 2);
+      rightHandleRef.current?.x(orig.barWidth - HANDLE_WIDTH / 2);
+    }
+    draggingHandleRef.current?.stopDrag();
+    draggingHandleRef.current = null;
+    origResizeRef.current = null;
+    registerDragCancel(null);
+    onDragGeometry(null);
+  }, [onDragGeometry, registerDragCancel, syncFillWidth]);
 
   return (
     <Group
@@ -785,6 +854,7 @@ function ResizeHandles({
         />
       ) : null}
       <Rect
+        ref={leftHandleRef}
         x={-HANDLE_WIDTH / 2}
         y={handleY}
         width={HANDLE_WIDTH}
@@ -808,6 +878,10 @@ function ResizeHandles({
             parent.x + barWidth - pxPerDay - HANDLE_WIDTH / 2;
           const g = groupRef.current;
           if (!g) return;
+          resizeAbortedRef.current = false;
+          origResizeRef.current = { groupX: g.x(), barWidth };
+          draggingHandleRef.current = this as Konva.Rect;
+          registerDragCancel(() => cancelSelectedResize());
           onDragGeometry({
             taskId: task.id,
             kind: "start",
@@ -854,7 +928,12 @@ function ResizeHandles({
         onDragEnd={() => {
           const g = groupRef.current;
           leftMaxXRef.current = null;
+          registerDragCancel(null);
           onDragGeometry(null);
+          if (resizeAbortedRef.current) {
+            resizeAbortedRef.current = false;
+            return;
+          }
           if (!g) return;
           onResizeStart(g.x());
         }}
@@ -877,10 +956,14 @@ function ResizeHandles({
           const container = e.target.getStage()?.container();
           if (container) container.style.cursor = "";
         }}
-        onDragStart={() => {
+        onDragStart={function (this: Konva.Node) {
           const g = groupRef.current;
           const bg = bgRef.current;
           if (!g || !bg) return;
+          resizeAbortedRef.current = false;
+          origResizeRef.current = { groupX: g.x(), barWidth: bg.width() };
+          draggingHandleRef.current = this as Konva.Rect;
+          registerDragCancel(() => cancelSelectedResize());
           onDragGeometry({
             taskId: task.id,
             kind: "end",
@@ -917,7 +1000,12 @@ function ResizeHandles({
         onDragEnd={() => {
           const g = groupRef.current;
           const bg = bgRef.current;
+          registerDragCancel(null);
           onDragGeometry(null);
+          if (resizeAbortedRef.current) {
+            resizeAbortedRef.current = false;
+            return;
+          }
           if (!g || !bg) return;
           onResizeEnd(g.x(), bg.width());
         }}
@@ -1254,7 +1342,15 @@ export function Timeline({
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
           target.tagName === "SELECT" ||
-          target.isContentEditable)
+          target.isContentEditable ||
+          target.tagName === "BUTTON" ||
+          target.closest("button, a, [role='button']"))
+      ) {
+        return;
+      }
+      if (
+        target !== document.body &&
+        !(target instanceof HTMLElement && target.closest(".timeline-body"))
       ) {
         return;
       }
@@ -1339,7 +1435,7 @@ export function Timeline({
       Math.min(totalDays - 1, Math.floor(scrollX / Math.max(pxPerDay, 0.001))),
     );
     const anchorDate = addDays(timelineStart, scrollAnchor);
-    elements.push(
+    const yearMonthLabel = (
       <Text
         key="header-year-month"
         x={4}
@@ -1350,10 +1446,11 @@ export function Timeline({
         fontFamily={KONVA_FONT_FAMILY}
         fill={chart.textPrimary}
         listening={false}
-      />,
+      />
     );
 
     if (tier === "month") {
+      elements.push(yearMonthLabel);
       let d = utcMonthStart(timelineStart);
       while (d < timelineEnd) {
         const x = dateToX(d);
@@ -1406,6 +1503,7 @@ export function Timeline({
           />,
         );
       }
+      elements.push(yearMonthLabel);
       for (let i = dayRange.start; i <= dayRange.end; i += 1) {
         const d = addDays(timelineStart, i);
         const x = dateToX(d);
@@ -2235,6 +2333,7 @@ export function Timeline({
                   onResizeEnd(selectedRow.task.id, groupX, barWidth)
                 }
                 onDragGeometry={onDragGeometry}
+                registerDragCancel={registerDragCancel}
                 onContextMenu={(x, y) =>
                   onTaskContextMenu(selectedRow.task.id, x, y)
                 }

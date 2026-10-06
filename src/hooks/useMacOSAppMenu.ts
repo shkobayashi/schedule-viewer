@@ -17,11 +17,20 @@ export type MacOSAppMenuHandlers = {
   onGoToday: () => void;
   onSetTier: (tier: GridTier) => void;
   onFit: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
 };
 
 function isMacPlatform(): boolean {
   const platform = navigator.platform || navigator.userAgent;
   return /Mac|iPhone|iPad|iPod/i.test(platform);
+}
+
+function isTextFieldTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
 export function useMacOSAppMenu(handlers: MacOSAppMenuHandlers): void {
@@ -83,8 +92,32 @@ export function useMacOSAppMenu(handlers: MacOSAppMenuHandlers): void {
       const editSubmenu = await Submenu.new({
         text: "編集",
         items: [
-          await PredefinedMenuItem.new({ item: "Undo" }),
-          await PredefinedMenuItem.new({ item: "Redo" }),
+          await MenuItem.new({
+            id: "edit-undo",
+            text: "取り消し",
+            accelerator: "Command+Z",
+            action: () => {
+              const active = document.activeElement;
+              if (isTextFieldTarget(active)) {
+                document.execCommand("undo");
+                return;
+              }
+              h().onUndo();
+            },
+          }),
+          await MenuItem.new({
+            id: "edit-redo",
+            text: "やり直し",
+            accelerator: "Shift+Command+Z",
+            action: () => {
+              const active = document.activeElement;
+              if (isTextFieldTarget(active)) {
+                document.execCommand("redo");
+                return;
+              }
+              h().onRedo();
+            },
+          }),
           await PredefinedMenuItem.new({ item: "Separator" }),
           await PredefinedMenuItem.new({ item: "Cut" }),
           await PredefinedMenuItem.new({ item: "Copy" }),
@@ -130,8 +163,23 @@ export function useMacOSAppMenu(handlers: MacOSAppMenuHandlers): void {
         ],
       });
 
+      const windowSubmenu = await Submenu.new({
+        text: "ウィンドウ",
+        items: [
+          await MenuItem.new({
+            id: "window-close",
+            text: "閉じる",
+            accelerator: "Command+W",
+            action: () => {
+              void getCurrentWindow().close();
+            },
+          }),
+          await PredefinedMenuItem.new({ item: "Minimize" }),
+        ],
+      });
+
       const menu = await Menu.new({
-        items: [appSubmenu, fileSubmenu, editSubmenu, viewSubmenu],
+        items: [appSubmenu, fileSubmenu, editSubmenu, viewSubmenu, windowSubmenu],
       });
       if (cancelled) return;
       await menu.setAsAppMenu();

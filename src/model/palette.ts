@@ -45,6 +45,8 @@ export type ChartPalette = {
   exportBg: string;
   dependencyMarkerOk: string;
   dependencyMarkerBroken: string;
+  barLabelMuted: string;
+  barLabelOnFill: string;
 };
 
 export type CssPalette = {
@@ -57,6 +59,7 @@ export type CssPalette = {
   today: string;
   danger: string;
   dangerOn: string;
+  dangerText: string;
   surface: string;
   accentSoft: string;
   rowBorder: string;
@@ -102,6 +105,7 @@ const LIGHT: AppPalette = {
     today: "#e2542a",
     danger: "#c4351a",
     dangerOn: "#ffffff",
+    dangerText: "#c4351a",
     surface: "#ffffff",
     accentSoft: "#dce3fb",
     rowBorder: "#f0f1f4",
@@ -163,12 +167,14 @@ const LIGHT: AppPalette = {
     overrunOverlay: "rgba(196, 53, 26, 0.45)",
     statusNotStarted: { bg: "#E2E6ED", fill: null, border: "#7d8799" },
     statusInProgress: { bg: "#DEE3FB", fill: "#4C5FD5", border: "#4C5FD5" },
-    statusDone: { bg: "#2E9E6C", fill: null, border: "#278A5E" },
+    statusDone: { bg: "#247A55", fill: null, border: "#1F6B4A" },
     overdueInProgress: { bg: "#F8D0C8", fill: "#E2542A", border: "#C4351A" },
     overdueOther: { bg: "#F8D0C8", fill: null, border: "#C4351A" },
     exportBg: "#ffffff",
     dependencyMarkerOk: "#8A94A6",
     dependencyMarkerBroken: "#C4351A",
+    barLabelMuted: "#1F2937",
+    barLabelOnFill: "#FFFFFF",
   },
 };
 
@@ -183,6 +189,7 @@ const DARK: AppPalette = {
     today: "#f07050",
     danger: "#c4351a",
     dangerOn: "#ffffff",
+    dangerText: "#ff9a82",
     surface: "#23272f",
     accentSoft: "#343b52",
     rowBorder: "#323844",
@@ -250,6 +257,8 @@ const DARK: AppPalette = {
     exportBg: "#1c1f26",
     dependencyMarkerOk: "#8a94a6",
     dependencyMarkerBroken: "#f07050",
+    barLabelMuted: "#E6E8EE",
+    barLabelOnFill: "#12152B",
   },
 };
 
@@ -274,6 +283,7 @@ export function applyCssPalette(palette: AppPalette): void {
   root.style.setProperty("--today", c.today);
   root.style.setProperty("--danger", c.danger);
   root.style.setProperty("--danger-on", c.dangerOn);
+  root.style.setProperty("--danger-text", c.dangerText);
   root.style.setProperty("--surface", c.surface);
   root.style.setProperty("--accent-soft", c.accentSoft);
   root.style.setProperty("--row-border", c.rowBorder);

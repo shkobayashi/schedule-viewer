@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, clamp, daysBetween } from "../model/dates";
-import { scrollXForToday } from "../model/chartScroll";
+import { scrollXForToday, scrollXToRevealTask } from "../model/chartScroll";
 import {
   DEFAULT_PX_PER_DAY,
   gridTier,
@@ -108,13 +108,27 @@ export function useTimelineView(
   }, [pxPerDay, todayIso, timelineStart, totalDays, viewportWidth]);
 
   const reveal = useCallback(
-    (date: Date, y: number) => {
-      const x = daysBetween(timelineStart, date) * pxPerDay;
-      const nextMaxX = Math.max(0, totalDays * pxPerDay - viewportWidth);
-      setScrollX(clamp(x - 40, 0, nextMaxX));
+    (date: Date, y: number, barWidthPx?: number) => {
+      const nextX =
+        barWidthPx != null
+          ? scrollXToRevealTask(
+              date,
+              barWidthPx,
+              scrollX,
+              timelineStart,
+              totalDays,
+              pxPerDay,
+              viewportWidth,
+            )
+          : clamp(
+              daysBetween(timelineStart, date) * pxPerDay - 40,
+              0,
+              Math.max(0, totalDays * pxPerDay - viewportWidth),
+            );
+      setScrollX(nextX);
       setScrollY(clamp(y, 0, maxScrollY));
     },
-    [maxScrollY, pxPerDay, timelineStart, totalDays, viewportWidth],
+    [maxScrollY, pxPerDay, scrollX, timelineStart, totalDays, viewportWidth],
   );
 
   const panBy = useCallback(

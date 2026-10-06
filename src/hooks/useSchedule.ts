@@ -193,7 +193,6 @@ export function useSchedule(
     search: "",
     noteSearch: "",
   });
-  const [editingTaskId, setEditingTaskId] = useState<ScheduleId | null>(null);
   const [duplicatingTaskId, setDuplicatingTaskId] = useState<ScheduleId | null>(
     null,
   );
@@ -224,11 +223,6 @@ export function useSchedule(
 
   const pruneUiForDocument = useCallback((snapshot: DocumentSnapshot) => {
     setSelectedTaskId((current) =>
-      current != null && findTaskById(snapshot.categories, current)
-        ? current
-        : null,
-    );
-    setEditingTaskId((current) =>
       current != null && findTaskById(snapshot.categories, current)
         ? current
         : null,
@@ -876,18 +870,12 @@ export function useSchedule(
   const openEditDialog = useCallback(
     (task: Task) => {
       setDuplicatingTaskId(null);
-      setEditingTaskId(null);
       selectTask(task.id);
     },
     [selectTask],
   );
 
-  const closeEditDialog = useCallback(() => {
-    setEditingTaskId(null);
-  }, []);
-
   const openDuplicateDialog = useCallback((taskId: ScheduleId) => {
-    setEditingTaskId(null);
     setEditingNoteTaskId(null);
     setDuplicatingTaskId(taskId);
   }, []);
@@ -950,18 +938,6 @@ export function useSchedule(
       return null;
     },
     [commitCategories, title],
-  );
-
-  const saveTaskEdit = useCallback(
-    (patch: TaskEditPatch) => {
-      if (editingTaskId == null) {
-        return "編集対象のタスクがありません。";
-      }
-      const error = applyTaskPatch(editingTaskId, patch);
-      if (error == null) setEditingTaskId(null);
-      return error;
-    },
-    [applyTaskPatch, editingTaskId],
   );
 
   const addMilestone = useCallback(
@@ -1056,7 +1032,6 @@ export function useSchedule(
       );
       setLineageTaskId(null);
       setSelectedTaskId(id);
-      setEditingTaskId(null);
       setDuplicatingTaskId(null);
       return id;
     },
@@ -1113,7 +1088,6 @@ export function useSchedule(
       }
       setLineageTaskId(null);
       setSelectedTaskId(id);
-      setEditingTaskId(null);
       setDuplicatingTaskId(null);
       return { ok: true, id };
     },
@@ -1147,7 +1121,6 @@ export function useSchedule(
     (taskId: ScheduleId) => {
       commitCategories((prev) => removeTask(prev, taskId));
       setSelectedTaskId((current) => (current === taskId ? null : current));
-      setEditingTaskId((current) => (current === taskId ? null : current));
       setDuplicatingTaskId((current) => (current === taskId ? null : current));
       setEditingNoteTaskId((current) => (current === taskId ? null : current));
       setLineageTaskId((current) => (current === taskId ? null : current));
@@ -1168,7 +1141,6 @@ export function useSchedule(
       setMilestones(snapshot.milestones);
       setSelectedTaskId(null);
       setLineageTaskId(null);
-      setEditingTaskId(null);
       setDuplicatingTaskId(null);
       setEditingNoteTaskId(null);
       setEditingMilestoneId(null);
@@ -1225,11 +1197,6 @@ export function useSchedule(
     applySnapshot(result.snapshot);
     syncHistoryUi();
   }, [applySnapshot, blockDocumentEditsRef, syncHistoryUi]);
-
-  const editingTask = useMemo(
-    () => findTaskById(categories, editingTaskId),
-    [categories, editingTaskId],
-  );
 
   const duplicatingTask = useMemo(
     () => findTaskById(categories, duplicatingTaskId),
@@ -1299,15 +1266,12 @@ export function useSchedule(
     setTaskEnd,
     shiftTaskEndByDays,
     openEditDialog,
-    closeEditDialog,
     openDuplicateDialog,
     closeDuplicateDialog,
     duplicatingTask,
-    saveTaskEdit,
     applyTaskPatch,
     duplicateTask,
     setTaskConfidence,
-    editingTask,
     editingNoteTask,
     openTaskNoteDialog,
     closeTaskNoteDialog,

@@ -76,6 +76,13 @@ export function TaskDetailPanel({
   const nameRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLElement>(null);
 
+  useEffect(
+    () => () => {
+      onEditingChange(false);
+    },
+    [onEditingChange],
+  );
+
   useEffect(() => {
     setName(task.name);
     setNote(task.note ?? "");
@@ -291,11 +298,10 @@ export function TaskDetailPanel({
               min={0}
               max={100}
               value={progress}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                setProgress(next);
-                commitWith({ progress: next });
-              }}
+              onChange={(e) => setProgress(Number(e.target.value))}
+              onMouseUp={() => commitWith()}
+              onPointerUp={() => commitWith()}
+              onBlur={() => commitWith()}
             />
             <input
               type="number"

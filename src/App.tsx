@@ -93,7 +93,7 @@ import {
 } from "./model/stickyRows";
 import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
-import { computeTimelineRange } from "./model/timeline";
+import { computeTimelineRange, taskBarWidthPx } from "./model/timeline";
 import type { ScheduleId, Task } from "./model/types";
 import {
   applyResolvedColorScheme,
@@ -462,6 +462,7 @@ function App() {
     scrollX,
     scrollY,
     tier,
+    dateToX,
   } = view;
 
   const filterAssigneeLabel = useMemo(
@@ -569,9 +570,10 @@ function App() {
       reveal(
         parseDate(row.task.start),
         scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+        taskBarWidthPx(row.task, dateToX, pxPerDay),
       );
     },
-    [bodyHeight, reveal, rowHeight, visibleRows],
+    [bodyHeight, dateToX, pxPerDay, reveal, rowHeight, visibleRows],
   );
 
   const focusDetailName = useCallback(() => {
@@ -661,9 +663,10 @@ function App() {
     reveal(
       parseDate(row.task.start),
       scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+      taskBarWidthPx(row.task, dateToX, pxPerDay),
     );
     setFocusTaskId(null);
-  }, [bodyHeight, focusTaskId, reveal, rowHeight, visibleRows]);
+  }, [bodyHeight, dateToX, focusTaskId, pxPerDay, reveal, rowHeight, visibleRows]);
 
   const handleResizeEnd = useCallback(
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
@@ -1007,7 +1010,6 @@ function App() {
     undo,
     redo,
     taskSearchRef,
-    findTargetsName: searchField === "name",
     displayScalePreferenceRef,
     uiScaleRef,
     onDisplayScaleChange: handleDisplayScaleChange,
@@ -1042,6 +1044,8 @@ function App() {
     onGoToday: scrollToToday,
     onSetTier: setTierZoom,
     onFit: fitToWidth,
+    onUndo: undo,
+    onRedo: redo,
   });
 
   useEffect(() => {
