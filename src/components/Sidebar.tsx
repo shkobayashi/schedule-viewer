@@ -22,6 +22,8 @@ import type { Member, MemberId } from "../model/memberTypes";
 import {
   categoryCollapseKey,
   groupCollapseKey,
+  reorderDragBlockRows,
+  rowInReorderDragBlock,
 } from "../model/rows";
 import { isOverdue } from "../model/timeline";
 import { TaskNoteButton } from "./TaskNoteButton";
@@ -264,11 +266,25 @@ export function Sidebar({
     downEl: HTMLDivElement;
     startX: number;
     startY: number;
+    grabOffsetY: number;
     mode: "pending" | "reorder" | "ignore";
     canReorder: boolean;
     lastPreviewKey: string | null;
     detach: () => void;
   } | null>(null);
+  const [dragGhost, setDragGhost] = useState<{
+    kind: "category" | "group" | "task";
+    id: ScheduleId;
+    top: number;
+  } | null>(null);
+
+  const isRowHiddenByDragGhost = useCallback(
+    (row: VisibleRow) => {
+      if (dragGhost == null) return false;
+      return rowInReorderDragBlock(row, rows, dragGhost.kind, dragGhost.id);
+    },
+    [dragGhost, rows],
+  );
 
   useEffect(() => {
     return () => {
@@ -379,6 +395,9 @@ export function Sidebar({
       // ポインタが既に無効なときは、window の監視だけで続ける。
     }
     document.body.style.userSelect = "none";
+    const rowEl = event.currentTarget.closest(".sidebar-row");
+    const rowTop =
+      rowEl instanceof HTMLElement ? rowEl.getBoundingClientRect().top : event.clientY;
     const onMove = (native: PointerEvent) => {
       onRowPointerMove(native);
     };
@@ -402,6 +421,7 @@ export function Sidebar({
       downEl: event.currentTarget,
       startX: event.clientX,
       startY: event.clientY,
+      grabOffsetY: event.clientY - rowTop,
       mode: "pending",
       canReorder: reorderAllowed(kind, id),
       lastPreviewKey: null,
@@ -424,6 +444,7 @@ export function Sidebar({
     rowDragRef.current = null;
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
+    setDragGhost(null);
     if (drag.downEl.isConnected && drag.downEl.hasPointerCapture(pointerId)) {
       drag.downEl.releasePointerCapture(pointerId);
     }
@@ -486,7 +507,24 @@ export function Sidebar({
         }
       }
     }
-    if (drag.mode === "reorder") previewRowReorder(drag, event.clientX, event.clientY);
+    if (drag.mode !== "reorder") return;
+    previewRowReorder(drag, event.clientX, event.clientY);
+    const viewport = viewportRef.current;
+    if (viewport == null) return;
+    const raw = event.clientY - viewport.getBoundingClientRect().top - drag.grabOffsetY;
+    const maxTop = Math.max(0, viewport.clientHeight - rowHeight);
+    const top = Math.round(Math.min(Math.max(0, raw), maxTop));
+    setDragGhost((current) => {
+      if (
+        current != null &&
+        current.kind === drag.kind &&
+        current.id === drag.id &&
+        current.top === top
+      ) {
+        return current;
+      }
+      return { kind: drag.kind, id: drag.id, top };
+    });
   };
 
   return (
@@ -533,7 +571,9 @@ export function Sidebar({
                   row={row}
                   top={row.y}
                   rowHeight={rowHeight}
-                  reordering={row.id === reorderingCategoryId}
+                  reordering={
+                    row.id === reorderingCategoryId || isRowHiddenByDragGhost(row)
+                  }
                   canReorder={reorderAllowed("category", row.id)}
                   onToggleCollapse={onToggleCollapse}
                   onHierarchyContextMenu={onHierarchyContextMenu}
@@ -551,7 +591,9 @@ export function Sidebar({
                   row={row}
                   top={row.y}
                   rowHeight={rowHeight}
-                  reordering={row.id === reorderingGroupId}
+                  reordering={
+                    row.id === reorderingGroupId || isRowHiddenByDragGhost(row)
+                  }
                   canReorder={reorderAllowed("group", row.id)}
                   onToggleCollapse={onToggleCollapse}
                   onHierarchyContextMenu={onHierarchyContextMenu}
@@ -568,7 +610,9 @@ export function Sidebar({
                 rowHeight={rowHeight}
                 selected={row.task.id === selectedTaskId}
                 hovered={row.task.id === hoveredTaskId}
-                reordering={row.task.id === reorderingTaskId}
+                reordering={
+                  row.task.id === reorderingTaskId || isRowHiddenByDragGhost(row)
+                }
                 onSelect={() => onSelectTask(row.task.id)}
                 canReorder={reorderAllowed("task", row.task.id)}
                 today={today}
@@ -608,7 +652,9 @@ export function Sidebar({
                     row={row}
                     top={top}
                     rowHeight={rowHeight}
-                    reordering={row.id === reorderingCategoryId}
+                    reordering={
+                    row.id === reorderingCategoryId || isRowHiddenByDragGhost(row)
+                  }
                     canReorder={reorderAllowed("category", row.id)}
                     onToggleCollapse={onToggleCollapse}
                     onHierarchyContextMenu={onHierarchyContextMenu}
@@ -622,7 +668,9 @@ export function Sidebar({
                     row={row}
                     top={top}
                     rowHeight={rowHeight}
-                    reordering={row.id === reorderingGroupId}
+                    reordering={
+                    row.id === reorderingGroupId || isRowHiddenByDragGhost(row)
+                  }
                     canReorder={reorderAllowed("group", row.id)}
                     onToggleCollapse={onToggleCollapse}
                     onHierarchyContextMenu={onHierarchyContextMenu}
@@ -636,6 +684,19 @@ export function Sidebar({
             );
           })}
         </div>
+        {dragGhost != null ? (
+          <SidebarDragGhost
+            ghost={dragGhost}
+            rows={rows}
+            rowHeight={rowHeight}
+            assigneeChars={assigneeChars}
+            selectedTaskId={selectedTaskId}
+            today={today}
+            milestones={milestones}
+            memberCatalog={memberCatalog}
+            sidebarColumns={sidebarColumns}
+          />
+        ) : null}
       </div>
       <SidebarResizer
         uiScale={uiScale}
@@ -1076,6 +1137,106 @@ function TaskSidebarRow({
         </span>
       </span>
       </div>
+    </div>
+  );
+}
+
+function SidebarDragGhost({
+  ghost,
+  rows,
+  rowHeight,
+  assigneeChars,
+  selectedTaskId,
+  today,
+  milestones,
+  memberCatalog,
+  sidebarColumns,
+}: {
+  ghost: { kind: "category" | "group" | "task"; id: ScheduleId; top: number };
+  rows: VisibleRow[];
+  rowHeight: number;
+  assigneeChars: number;
+  selectedTaskId: ScheduleId | null;
+  today: string;
+  milestones: Milestone[];
+  memberCatalog: Map<MemberId, Member> | null;
+  sidebarColumns: SidebarColumnsPreference;
+}) {
+  const block = useMemo(
+    () => reorderDragBlockRows(rows, ghost.kind, ghost.id),
+    [rows, ghost.kind, ghost.id],
+  );
+  if (block.length === 0) return null;
+
+  const gripDown = () => {};
+
+  return (
+    <div
+      className="sidebar-drag-ghost"
+      style={
+        {
+          top: ghost.top,
+          height: block.length * rowHeight,
+          "--assignee-chars": String(assigneeChars),
+        } as CSSProperties
+      }
+      aria-hidden="true"
+    >
+      {block.map((row, index) => {
+        const top = index * rowHeight;
+        if (row.type === "category") {
+          return (
+            <CategorySidebarRow
+              key={`category-${row.id}`}
+              row={row}
+              top={top}
+              rowHeight={rowHeight}
+              reordering={false}
+              canReorder
+              onToggleCollapse={() => {}}
+              onHierarchyContextMenu={() => {}}
+              onHierarchyDoubleClick={() => {}}
+              onGripPointerDown={gripDown}
+            />
+          );
+        }
+        if (row.type === "group") {
+          return (
+            <HierarchySidebarRow
+              key={`group-${row.id}`}
+              row={row}
+              top={top}
+              rowHeight={rowHeight}
+              reordering={false}
+              canReorder
+              onToggleCollapse={() => {}}
+              onHierarchyContextMenu={() => {}}
+              onHierarchyDoubleClick={() => {}}
+              onGripPointerDown={gripDown}
+            />
+          );
+        }
+        return (
+          <TaskSidebarRow
+            key={`task-${row.task.id}`}
+            task={row.task}
+            top={top}
+            rowHeight={rowHeight}
+            selected={row.task.id === selectedTaskId}
+            hovered={false}
+            reordering={false}
+            canReorder
+            today={today}
+            milestones={milestones}
+            memberCatalog={memberCatalog}
+            onOpenTaskNote={() => {}}
+            onTaskContextMenu={() => {}}
+            onSelect={() => {}}
+            onGripPointerDown={gripDown}
+            sidebarColumns={sidebarColumns}
+          />
+        );
+      })}
     </div>
   );
 }
