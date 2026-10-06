@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   hitMilestoneDiamond,
+  hitTaskResizeEdge,
   hitTaskAnchor,
   linkPreviewEnd,
   resolveChartHover,
+  resizeExclusiveInside,
   taskBarEdgeAt,
+  taskBarResizeEdgeAt,
+  RESIZE_BODY_CLICK_PX,
+  RESIZE_EXCLUSIVE_INSIDE_PX,
+  RESIZE_EXCLUSIVE_OUTSIDE_PX,
   TASK_HANDLE_WIDTH,
 } from "./chartHitTest";
 import type { LinkPolyline } from "./dependencies";
@@ -36,10 +42,50 @@ describe("chartHitTest", () => {
     ).toEqual({ taskId: "task-a", anchor: anchors.get("task-a")! });
   });
 
+  it("keeps a clickable middle when the bar is longer than the resize edges", () => {
+    expect(resizeExclusiveInside(80)).toBe(RESIZE_EXCLUSIVE_INSIDE_PX);
+    const medium = resizeExclusiveInside(RESIZE_BODY_CLICK_PX + 20);
+    expect(medium).toBe(10);
+    expect(medium * 2 + RESIZE_BODY_CLICK_PX).toBe(
+      RESIZE_BODY_CLICK_PX + 20,
+    );
+    expect(resizeExclusiveInside(6)).toBe(TASK_HANDLE_WIDTH / 2);
+  });
+
   it("classifies bar edge from local x", () => {
     expect(taskBarEdgeAt(0, 40)).toBe("start");
     expect(taskBarEdgeAt(39, 40)).toBe("end");
     expect(taskBarEdgeAt(20, 40)).toBeNull();
+  });
+
+  it("classifies the full resize-only zone from pointer position", () => {
+    const width = 80;
+    expect(taskBarResizeEdgeAt(-RESIZE_EXCLUSIVE_OUTSIDE_PX, width)).toBe(
+      "start",
+    );
+    expect(taskBarResizeEdgeAt(RESIZE_EXCLUSIVE_INSIDE_PX - 1, width)).toBe(
+      "start",
+    );
+    expect(
+      taskBarResizeEdgeAt(width - RESIZE_EXCLUSIVE_INSIDE_PX + 1, width),
+    ).toBe("end");
+    expect(
+      taskBarResizeEdgeAt(width + RESIZE_EXCLUSIVE_OUTSIDE_PX, width),
+    ).toBe("end");
+    expect(taskBarResizeEdgeAt(width / 2, width)).toBeNull();
+  });
+
+  it("finds a resize-only edge only within the bar height", () => {
+    expect(hitTaskResizeEdge({ x: -2, y: 20 }, anchors, 20)).toEqual({
+      taskId: "task-a",
+      edge: "start",
+    });
+    expect(hitTaskResizeEdge({ x: 44, y: 20 }, anchors, 20)).toEqual({
+      taskId: "task-a",
+      edge: "end",
+    });
+    expect(hitTaskResizeEdge({ x: 30, y: 20 }, anchors, 20)).toBeNull();
+    expect(hitTaskResizeEdge({ x: -2, y: 31 }, anchors, 20)).toBeNull();
   });
 
   it("does not extend the handle while drawing a link", () => {

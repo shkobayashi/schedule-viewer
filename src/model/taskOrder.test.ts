@@ -3,7 +3,7 @@ import { computeVisibleRows } from "./rows";
 import { groupCollapseKey } from "./rows";
 import {
   canReorderTaskInGroup,
-  classifyRowDrag,
+  classifyHandleDrag,
   groupTaskBand,
   insertIndexForReorder,
   insertMarkerY,
@@ -58,27 +58,22 @@ function categories(tasks: Task[]): Category[] {
   ];
 }
 
-describe("classifyRowDrag", () => {
-  it("stays pending until one axis passes the threshold", () => {
-    expect(classifyRowDrag(2, 1, true, true)).toBe("pending");
-    expect(classifyRowDrag(3, 3, true, true)).toBe("pending");
-    expect(classifyRowDrag(4, 4, true, true)).toBe("pending");
+describe("classifyHandleDrag", () => {
+  it("stays pending until movement passes the threshold", () => {
+    expect(classifyHandleDrag(2, 1, true)).toBe("pending");
+    expect(classifyHandleDrag(3, 3, true)).toBe("pending");
+    expect(classifyHandleDrag(0, 0, true)).toBe("pending");
   });
 
-  it("slides when horizontal movement is first and the name overflows", () => {
-    expect(classifyRowDrag(8, 2, true, true)).toBe("slide");
+  it("reorders when either axis passes the threshold", () => {
+    expect(classifyHandleDrag(4, 0, true)).toBe("reorder");
+    expect(classifyHandleDrag(0, 4, true)).toBe("reorder");
+    expect(classifyHandleDrag(4, 4, true)).toBe("reorder");
   });
 
-  it("ignores a horizontal-first drag when the name fits", () => {
-    expect(classifyRowDrag(8, 2, false, true)).toBe("ignore");
-  });
-
-  it("reorders when vertical movement is greater", () => {
-    expect(classifyRowDrag(2, 8, true, true)).toBe("reorder");
-  });
-
-  it("stays pending when vertical movement is greater but siblings are hidden", () => {
-    expect(classifyRowDrag(2, 8, true, false)).toBe("pending");
+  it("ignores movement when reorder is not allowed", () => {
+    expect(classifyHandleDrag(2, 1, false)).toBe("pending");
+    expect(classifyHandleDrag(8, 8, false)).toBe("ignore");
   });
 });
 

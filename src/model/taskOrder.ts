@@ -8,23 +8,20 @@ export type TaskDropTarget = {
 
 export const REORDER_DRAG_THRESHOLD_PX = 3;
 
-export type RowDragGesture = "pending" | "slide" | "reorder" | "ignore";
+export type HandleDragGesture = "pending" | "reorder" | "ignore";
 
-/** 押した位置からの移動で、横ずらし・並べ替え・無視のどれにするかを返す。 */
-export function classifyRowDrag(
+/** 握りの移動で、まだ動かない・並べ替え・無視のどれにするかを返す。 */
+export function classifyHandleDrag(
   dx: number,
   dy: number,
-  canSlide: boolean,
   canReorder: boolean,
-): RowDragGesture {
+): HandleDragGesture {
   const adx = Math.abs(dx);
   const ady = Math.abs(dy);
   if (adx <= REORDER_DRAG_THRESHOLD_PX && ady <= REORDER_DRAG_THRESHOLD_PX) {
     return "pending";
   }
-  if (adx > ady) return canSlide ? "slide" : "ignore";
-  if (ady > adx && canReorder) return "reorder";
-  return "pending";
+  return canReorder ? "reorder" : "ignore";
 }
 
 /** 絞り込みや系統で兄弟が隠れていなければ、グループ内のタスク行を返す。 */
