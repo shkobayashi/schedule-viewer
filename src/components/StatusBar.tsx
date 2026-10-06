@@ -3,6 +3,8 @@ import type { GridTier } from "../model/timeline";
 type StatusBarProps = {
   fileName: string;
   saveStatus: string;
+  saveStatusClickable: boolean;
+  onSaveStatusClick: () => void;
   membersCatalogLabel: string | null;
   membersCatalogError: string | null;
   calendarError: string | null;
@@ -25,6 +27,8 @@ function tierLabel(tier: GridTier): string {
 export function StatusBar({
   fileName,
   saveStatus,
+  saveStatusClickable,
+  onSaveStatusClick,
   membersCatalogLabel,
   membersCatalogError,
   calendarError,
@@ -44,7 +48,18 @@ export function StatusBar({
         <span className="status-bar-sep" aria-hidden="true">
           ·
         </span>
-        <span className="status-bar-item">{saveStatus}</span>
+        {saveStatusClickable ? (
+          <button
+            type="button"
+            className="status-bar-link status-bar-unsaved"
+            onClick={onSaveStatusClick}
+            title="差分を表示"
+          >
+            {saveStatus}
+          </button>
+        ) : (
+          <span className="status-bar-item">{saveStatus}</span>
+        )}
       </div>
       {showDeferredReload ? (
         <button type="button" className="status-bar-action" onClick={onDeferredReload}>

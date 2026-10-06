@@ -6,6 +6,7 @@ const pointer: ChartPointer = {
   overTask: false,
   overMilestone: false,
   link: null,
+  hoverTaskId: null,
 };
 
 const field: AppKeyTarget = { tagName: "INPUT", isContentEditable: false };
@@ -56,7 +57,7 @@ describe("decideAppKey", () => {
           altKey: false,
           repeat: false,
         },
-        pointer: { overTask: false, overMilestone: false, link },
+        pointer: { overTask: false, overMilestone: false, link, hoverTaskId: null },
         selectedTaskId: "task-a",
       }).action,
     ).toEqual({ type: "deleteLink", fromId: "from", toId: "to" });
@@ -70,7 +71,7 @@ describe("decideAppKey", () => {
           altKey: false,
           repeat: false,
         },
-        pointer: { overTask: true, overMilestone: false, link },
+        pointer: { overTask: true, overMilestone: false, link, hoverTaskId: null },
         selectedTaskId: "task-a",
       }).action,
     ).toEqual({ type: "deleteTask" });

@@ -1,6 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { fileShortcutHint, usesCommandKey } from "../model/shortcuts";
+import {
+  diffCopyShortcutHint,
+  fileShortcutHint,
+  usesCommandKey,
+} from "../model/shortcuts";
 import { anchorBelowRect, menuViewportShift } from "./anchoredMenu";
 import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 
@@ -133,7 +137,8 @@ export function AppMenu({
         disabled={fileBusy}
         onClick={() => run(onShowDiff)}
       >
-        差分を表示
+        <span>差分を表示</span>
+        <span className="menu-shortcut">{diffCopyShortcutHint(commandKey)}</span>
       </button>
       <hr />
       <button type="button" role="menuitem" onClick={() => run(onOpenShortcuts)}>

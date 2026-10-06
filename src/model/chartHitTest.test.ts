@@ -4,6 +4,7 @@ import {
   hitTaskAnchor,
   linkPreviewEnd,
   resolveChartHover,
+  taskBarEdgeAt,
   TASK_HANDLE_WIDTH,
 } from "./chartHitTest";
 import type { LinkPolyline } from "./dependencies";
@@ -20,7 +21,7 @@ const linkOnTask: LinkPolyline = {
 };
 
 describe("chartHitTest", () => {
-  it("extends the selected bar by the resize handle", () => {
+  it("extends every bar by the resize edge when not linking", () => {
     const pad = TASK_HANDLE_WIDTH / 2;
     const hit = hitTaskAnchor({ x: 10 - pad, y: 20 }, anchors, 20, {
       linkMode: false,
@@ -32,7 +33,13 @@ describe("chartHitTest", () => {
         linkMode: false,
         selectedTaskId: "task-b",
       }),
-    ).toBeNull();
+    ).toEqual({ taskId: "task-a", anchor: anchors.get("task-a")! });
+  });
+
+  it("classifies bar edge from local x", () => {
+    expect(taskBarEdgeAt(0, 40)).toBe("start");
+    expect(taskBarEdgeAt(39, 40)).toBe("end");
+    expect(taskBarEdgeAt(20, 40)).toBeNull();
   });
 
   it("does not extend the handle while drawing a link", () => {

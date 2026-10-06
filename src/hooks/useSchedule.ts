@@ -858,10 +858,29 @@ export function useSchedule(
     [commitCategories],
   );
 
-  const openEditDialog = useCallback((task: Task) => {
-    setDuplicatingTaskId(null);
-    setEditingTaskId(task.id);
-  }, []);
+  const shiftTaskEndByDays = useCallback(
+    (taskId: ScheduleId, deltaDays: number) => {
+      if (deltaDays === 0) return;
+      commitCategories((prev) =>
+        mapTasks(prev, (task) => {
+          if (task.id !== taskId) return task;
+          const end = isoDate(addDays(parseDate(task.end), deltaDays));
+          const next = end < task.start ? task.start : end;
+          return { ...task, end: next };
+        }),
+      );
+    },
+    [commitCategories],
+  );
+
+  const openEditDialog = useCallback(
+    (task: Task) => {
+      setDuplicatingTaskId(null);
+      setEditingTaskId(null);
+      selectTask(task.id);
+    },
+    [selectTask],
+  );
 
   const closeEditDialog = useCallback(() => {
     setEditingTaskId(null);
@@ -907,11 +926,8 @@ export function useSchedule(
     [commitCategories],
   );
 
-  const saveTaskEdit = useCallback(
-    (patch: TaskEditPatch) => {
-      if (editingTaskId == null) {
-        return "編集対象のタスクがありません。";
-      }
+  const applyTaskPatch = useCallback(
+    (taskId: ScheduleId, patch: TaskEditPatch): string | null => {
       const roundedProgress = Math.round(patch.progress);
       const fieldError = validateTaskEdit({
         name: patch.name,
@@ -926,15 +942,26 @@ export function useSchedule(
         documentRef.current.categories,
         documentRef.current.milestones,
         title,
-        editingTaskId,
+        taskId,
         { ...patch, progress: roundedProgress },
       );
       if (!result.ok) return result.message;
       commitCategories(() => result.categories);
-      setEditingTaskId(null);
       return null;
     },
-    [commitCategories, editingTaskId, title],
+    [commitCategories, title],
+  );
+
+  const saveTaskEdit = useCallback(
+    (patch: TaskEditPatch) => {
+      if (editingTaskId == null) {
+        return "編集対象のタスクがありません。";
+      }
+      const error = applyTaskPatch(editingTaskId, patch);
+      if (error == null) setEditingTaskId(null);
+      return error;
+    },
+    [applyTaskPatch, editingTaskId],
   );
 
   const addMilestone = useCallback(
@@ -1270,12 +1297,14 @@ export function useSchedule(
     moveTaskByDays,
     setTaskStart,
     setTaskEnd,
+    shiftTaskEndByDays,
     openEditDialog,
     closeEditDialog,
     openDuplicateDialog,
     closeDuplicateDialog,
     duplicatingTask,
     saveTaskEdit,
+    applyTaskPatch,
     duplicateTask,
     setTaskConfidence,
     editingTask,

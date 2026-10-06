@@ -52,6 +52,8 @@ type SidebarProps = {
   viewportHeight: number;
   rowHeight: number;
   selectedTaskId: ScheduleId | null;
+  hoveredTaskId: ScheduleId | null;
+  onSelectTask: (taskId: ScheduleId) => void;
   reorderingTaskId: ScheduleId | null;
   reorderingCategoryId: ScheduleId | null;
   reorderingGroupId: ScheduleId | null;
@@ -115,6 +117,8 @@ export function Sidebar({
   viewportHeight,
   rowHeight,
   selectedTaskId,
+  hoveredTaskId,
+  onSelectTask,
   reorderingTaskId,
   reorderingCategoryId,
   reorderingGroupId,
@@ -573,7 +577,9 @@ export function Sidebar({
                 top={row.y}
                 rowHeight={rowHeight}
                 selected={row.task.id === selectedTaskId}
+                hovered={row.task.id === hoveredTaskId}
                 reordering={row.task.id === reorderingTaskId}
+                onSelect={() => onSelectTask(row.task.id)}
                 canReorder={
                   canEditDocument &&
                   canReorderTaskInGroup(categories, row.task.id, reorderBaseRows)
@@ -976,6 +982,7 @@ function TaskSidebarRow({
   top,
   rowHeight,
   selected,
+  hovered,
   reordering,
   canReorder,
   today,
@@ -983,6 +990,7 @@ function TaskSidebarRow({
   memberCatalog,
   onOpenTaskNote,
   onTaskContextMenu,
+  onSelect,
   resolveReorderInsert,
   onPreviewReorder,
   onCommitReorder,
@@ -993,6 +1001,7 @@ function TaskSidebarRow({
   top: number;
   rowHeight: number;
   selected: boolean;
+  hovered: boolean;
   reordering: boolean;
   canReorder: boolean;
   today: string;
@@ -1001,6 +1010,7 @@ function TaskSidebarRow({
   sidebarColumns: SidebarColumnsPreference;
   onOpenTaskNote: () => void;
   onTaskContextMenu: (x: number, y: number) => void;
+  onSelect: () => void;
   resolveReorderInsert: (
     clientX: number,
     clientY: number,
@@ -1076,6 +1086,11 @@ function TaskSidebarRow({
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    if (drag.mode === "pending") {
+      if (commit) onSelect();
+      return;
+    }
+    if (drag.mode === "slide") return;
     if (drag.mode !== "reorder") return;
     if (!commit) {
       onCancelReorder();
@@ -1094,7 +1109,7 @@ function TaskSidebarRow({
 
   return (
     <div
-      className={`sidebar-row task${selected ? " selected" : ""}${rowClass}${reordering ? " reordering" : ""}`}
+      className={`sidebar-row task${selected ? " selected" : ""}${hovered ? " hovered" : ""}${rowClass}${reordering ? " reordering" : ""}`}
       style={rowStyle}
       title={exceededTitle}
       onContextMenu={(event) => {
