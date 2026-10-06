@@ -23,7 +23,9 @@ import { Timeline } from "./components/Timeline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { ActiveFilterBar } from "./components/ActiveFilterBar";
+import { AppToast } from "./components/AppToast";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
+import { StatusBar } from "./components/StatusBar";
 import { Toolbar, type SearchField } from "./components/Toolbar";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
 import {
@@ -33,6 +35,7 @@ import {
   usesCommandKey,
 } from "./model/shortcuts";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
+import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
@@ -102,6 +105,13 @@ import {
   readSidebarWidth,
   writeSidebarWidth,
 } from "./model/sidebarWidth";
+import {
+  readRowDensity,
+  readShowLightning,
+  readSidebarColumns,
+  type RowDensity,
+  type SidebarColumnsPreference,
+} from "./model/viewPreferences";
 import { seedSampleMemberCatalogOnce } from "./model/memberAppData";
 import {
   SAMPLE_MEMBERS_CATALOG_ID,
@@ -157,6 +167,15 @@ function App() {
   const uiScaleRef = useRef(uiScale);
   uiScaleRef.current = uiScale;
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<
+    "display" | "members" | "calendar"
+  >("display");
+  const [rowDensity, setRowDensity] = useState<RowDensity>(readRowDensity);
+  const [showLightningLine, setShowLightningLine] = useState(readShowLightning);
+  const [sidebarColumns, setSidebarColumns] = useState<SidebarColumnsPreference>(
+    readSidebarColumns,
+  );
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [searchField, setSearchField] = useState<SearchField>("name");
@@ -187,7 +206,7 @@ function App() {
   const taskSearchRef = useRef<HTMLInputElement>(null);
 
   const { headerHeight, rowHeight, barHeight, milestoneLaneHeight } =
-    scaledLayoutSizes(uiScale);
+    scaledLayoutSizes(uiScale, rowDensity);
   const milestoneFontSize = Math.round(11 * uiScale);
   const milestoneDiamondSize = Math.max(8, Math.round(11 * uiScale));
   const refreshUiScale = useCallback(() => {
@@ -451,6 +470,21 @@ function App() {
       schedule.deletingHierarchyTarget != null,
     blockDocumentEditsRef,
   });
+
+  useWindowTitle(scheduleFile.displayFileName, scheduleFile.isDirty);
+
+  useEffect(() => {
+    if (!scheduleFile.reloadNotice) return;
+    setToastMessage("ファイルを反映しました");
+    const timer = window.setTimeout(() => setToastMessage(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [scheduleFile.reloadNotice]);
+
+  const { visibleTaskCount, totalTaskCount } = useMemo(() => {
+    const total = listTasks(schedule.categories).length;
+    const visible = schedule.visibleRows.filter((row) => row.type === "task").length;
+    return { visibleTaskCount: visible, totalTaskCount: total };
+  }, [schedule.categories, schedule.visibleRows]);
 
   const {
     categories,
@@ -1007,12 +1041,6 @@ function App() {
     >
       <Toolbar
         title={schedule.title}
-        fileStatusLabel={scheduleFile.statusLabel}
-        showDeferredReload={scheduleFile.showDeferredReload}
-        onDeferredReload={scheduleFile.requestDeferredReload}
-        membersCatalogLabel={memberCatalogState.selectedCatalogLabel}
-        membersCatalogError={memberCatalogState.error}
-        calendarError={appCalendarState.error}
         filters={schedule.filters}
         searchField={searchField}
         onSearchFieldChange={setSearchField}
@@ -1043,7 +1071,10 @@ function App() {
         onOpen={scheduleFile.requestOpen}
         onSave={() => void scheduleFile.save(false)}
         onSaveAs={() => void scheduleFile.save(true)}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => {
+          setSettingsSection("display");
+          setSettingsOpen(true);
+        }}
         onExportHtml={() => setExportOpen(true)}
         canDelete={schedule.selectedTaskId != null}
         onAdd={() => setAddOpen(true)}
@@ -1117,6 +1148,7 @@ function App() {
           onSidebarWidthNudge={handleSidebarWidthNudge}
           onWheelRows={onWheelSidebar}
           sticky={stickyLayout}
+          sidebarColumns={sidebarColumns}
         />
         <div ref={timelineAreaRef} className="timeline-slot">
           {linkSourceId != null ? (
@@ -1174,9 +1206,32 @@ function App() {
               chartPointerRef.current = pointer;
             }}
             sticky={stickyLayout}
+            showLightningLine={showLightningLine}
           />
         </div>
       </div>
+      <StatusBar
+        fileName={scheduleFile.displayFileName}
+        saveStatus={scheduleFile.saveStatusLabel}
+        membersCatalogLabel={memberCatalogState.selectedCatalogLabel}
+        membersCatalogError={memberCatalogState.error}
+        calendarError={appCalendarState.error}
+        tier={tier}
+        visibleTaskCount={visibleTaskCount}
+        totalTaskCount={totalTaskCount}
+        showDeferredReload={scheduleFile.showDeferredReload}
+        onDeferredReload={scheduleFile.requestDeferredReload}
+        onOpenSettingsMembers={() => {
+          setSettingsSection("members");
+          setSettingsOpen(true);
+        }}
+        onOpenSettingsCalendar={() => {
+          setSettingsSection("calendar");
+          setSettingsOpen(true);
+        }}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+      />
+      <AppToast message={toastMessage} />
       {contextMenu ? (
         <ContextMenu
           x={contextMenu.x}
@@ -1360,6 +1415,13 @@ function App() {
           onDisplayScaleChange={handleDisplayScaleChange}
           colorSchemePreference={colorSchemePreference}
           onColorSchemeChange={handleColorSchemeChange}
+          rowDensity={rowDensity}
+          onRowDensityChange={setRowDensity}
+          showLightningLine={showLightningLine}
+          onShowLightningLineChange={setShowLightningLine}
+          sidebarColumns={sidebarColumns}
+          onSidebarColumnsChange={setSidebarColumns}
+          initialSection={settingsSection}
           onClose={() => setSettingsOpen(false)}
           onImport={memberCatalogState.importCatalog}
           onSelectCatalog={memberCatalogState.selectCatalog}

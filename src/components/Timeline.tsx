@@ -9,7 +9,7 @@ import {
 import { Arrow, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { hatchCanvas } from "../model/hatch";
 import type Konva from "konva";
-import { addDays, addUtcMonths, fmtShort, parseDate, utcMonthStart } from "../model/dates";
+import { addDays, addUtcMonths, fmtShort, fmtWeekday, isoDate, parseDate, utcMonthStart } from "../model/dates";
 import {
   dragDateChipSize,
   layoutDragDateChips,
@@ -34,7 +34,6 @@ import {
 import { useTimelinePointer } from "../hooks/useTimelinePointer";
 import {
   barColors,
-  isOverdue,
   lightningDate,
   taskBarExclusiveEnd,
   taskBarWidthPx,
@@ -47,7 +46,8 @@ import {
 import { milestonesExceededBy } from "../model/milestones";
 import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
-import { resolveAssigneeDisplay } from "../model/assigneeDisplay";
+import { resolveAssigneeDisplay, assigneeSidebarLabel } from "../model/assigneeDisplay";
+import { KONVA_FONT_FAMILY } from "../model/fontStack";
 import type { Member, MemberId } from "../model/memberTypes";
 import type { StickyLayout } from "../model/stickyRows";
 import type { Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
@@ -112,6 +112,7 @@ type TimelineProps = {
   ) => void;
   onChartPointer: (pointer: ChartPointer) => void;
   sticky: StickyLayout;
+  showLightningLine?: boolean;
 };
 
 const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
@@ -139,41 +140,79 @@ function SummaryBar({
     dateToX,
     6,
   );
-  const height = Math.max(4, Math.round(barHeight / 2));
+  const height = Math.max(3, Math.round(barHeight * 0.35));
   const barY = y + (rowHeight - height) / 2;
-  const radius = Math.min(3, Math.round(height / 2));
+  const cap = Math.max(3, Math.round(height * 0.9));
+  const sorted = [...summary.covered].sort((a, b) =>
+    a.start.localeCompare(b.start),
+  );
+  const gapLines: ReactNode[] = [];
+  let cursor = summary.start;
+  for (const span of sorted) {
+    if (span.start > cursor) {
+      const gx = dateToX(parseDate(cursor)) - x;
+      const gw = dateToX(parseDate(span.start)) - x - gx;
+      if (gw > 2) {
+        gapLines.push(
+          <Line
+            key={`gap-${cursor}-${span.start}`}
+            points={[gx, height / 2, gx + gw, height / 2]}
+            stroke={chart.summaryGap}
+            strokeWidth={1}
+            dash={[4, 3]}
+            listening={false}
+          />,
+        );
+      }
+    }
+    cursor = span.end > cursor ? span.end : cursor;
+  }
+  if (cursor < summary.end) {
+    const gx = dateToX(parseDate(cursor)) - x;
+    const gw = dateToX(parseDate(summary.end)) - x - gx;
+    if (gw > 2) {
+      gapLines.push(
+        <Line
+          key={`gap-tail-${cursor}`}
+          points={[gx, height / 2, gx + gw, height / 2]}
+          stroke={chart.summaryGap}
+          strokeWidth={1}
+          dash={[4, 3]}
+          listening={false}
+        />,
+      );
+    }
+  }
   return (
     <Group x={x} y={barY} listening={false}>
-      <Rect
-        width={width}
-        height={height}
-        fill={chart.summaryGap}
-        cornerRadius={radius}
-      />
-      {summary.covered.map((span) => {
+      {sorted.map((span) => {
         const spanX = dateToX(parseDate(span.start)) - x;
         const spanW = coveredSpanWidthPx(span.start, span.end, dateToX, 2);
-        const atStart = span.start === summary.start;
-        const atEnd = span.end === summary.end;
-        const spanRadius: number | number[] =
-          atStart && atEnd
-            ? radius
-            : atStart
-              ? [radius, 0, 0, radius]
-              : atEnd
-                ? [0, radius, radius, 0]
-                : 0;
         return (
           <Rect
             key={`${span.start}-${span.end}`}
             x={spanX}
+            y={0}
             width={spanW}
             height={height}
             fill={chart.summaryCovered}
-            cornerRadius={spanRadius}
+            cornerRadius={1}
           />
         );
       })}
+      {gapLines}
+      <Line
+        points={[0, height, cap, height + cap, 0, height + cap]}
+        closed
+        fill={chart.summaryCovered}
+        listening={false}
+      />
+      <Line
+        points={[width, height, width - cap, height + cap, width, height + cap]}
+        closed
+        fill={chart.summaryCovered}
+        listening={false}
+      />
     </Group>
   );
 }
@@ -200,6 +239,7 @@ function TaskBar({
   today,
   memberCatalog,
   colorScheme,
+  tier,
 }: {
   task: Task;
   y: number;
@@ -222,23 +262,29 @@ function TaskBar({
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
   colorScheme: ResolvedColorScheme;
+  tier: "day" | "week" | "month";
 }) {
   const chart = paletteFor(colorScheme).chart;
+  const css = paletteFor(colorScheme).css;
   const start = parseDate(task.start);
   const x = dragLeft ?? dateToX(start);
   const w = dragWidth ?? taskBarWidthPx(task, dateToX, pxPerDay);
   const barY = y + (rowHeight - barHeight) / 2;
   const colors = barColors(task, today, colorScheme);
   const assigneeDisplay = resolveAssigneeDisplay(task.assigneeId, memberCatalog);
-  const unassigned = assigneeDisplay.kind === "unassigned";
-  const unknownMember = assigneeDisplay.kind === "unknown";
-  const stroke =
-    unassigned && !isOverdue(task, today)
-      ? chart.unassignedStroke
-      : unknownMember && !isOverdue(task, today)
-        ? chart.unknownStroke
-        : colors.border;
-  const cap = Math.max(2, Math.round(barHeight * 0.16));
+  const assigneeLabel = assigneeSidebarLabel(assigneeDisplay);
+  const stroke = colors.border;
+  const fontSize = Math.max(10, Math.round(barHeight * 0.55));
+  const labelInside =
+    w >= 72 && tier !== "month"
+      ? `${task.name}${task.status === "in-progress" ? ` ${task.progress}%` : ""}`
+      : null;
+  const labelOutside =
+    tier === "month" || w < 72
+      ? `${task.name} ${assigneeLabel}`.trim()
+      : assigneeLabel
+        ? assigneeLabel
+        : null;
   const hatch =
     task.confidence === "tentative"
       ? hatchCanvas(colors.bg, colorScheme)
@@ -347,11 +393,23 @@ function TaskBar({
         width={w}
         height={barHeight}
         stroke={stroke}
-        strokeWidth={unassigned || unknownMember || selected ? 1.75 : 1}
-        dash={unassigned ? [5, 3] : unknownMember ? [2, 2] : undefined}
+        strokeWidth={selected ? 2 : 1}
         cornerRadius={4}
         listening={false}
       />
+      {selected ? (
+        <Rect
+          x={-2}
+          y={-2}
+          width={w + 4}
+          height={barHeight + 4}
+          stroke={css.accent}
+          strokeWidth={1}
+          opacity={0.35}
+          cornerRadius={6}
+          listening={false}
+        />
+      ) : null}
       {linkTarget ? (
         <Rect
           width={w}
@@ -362,30 +420,38 @@ function TaskBar({
           listening={false}
         />
       ) : null}
-      {unassigned ? (
-        <Rect
-          y={-cap}
-          width={w}
-          height={cap}
-          fill={chart.unassignedCap}
+      {labelInside ? (
+        <Text
+          x={6}
+          y={barHeight / 2 - fontSize / 2}
+          width={Math.max(0, w - 12)}
+          text={labelInside}
+          fontSize={fontSize}
+          fontFamily={KONVA_FONT_FAMILY}
+          fill={chart.textPrimary}
+          ellipsis
           listening={false}
         />
       ) : null}
-      {unknownMember ? (
-        <Rect
-          y={-cap}
-          width={w}
-          height={cap}
-          fill={chart.unknownCap}
+      {labelOutside ? (
+        <Text
+          x={w + 4}
+          y={barHeight / 2 - fontSize / 2}
+          text={labelOutside}
+          fontSize={fontSize}
+          fontFamily={KONVA_FONT_FAMILY}
+          fill={chart.textSecondary}
           listening={false}
         />
       ) : null}
       {overrunAt != null && overrunAt < w ? (
         <Rect
           x={Math.max(0, overrunAt)}
+          y={0}
           width={Math.max(2, w - Math.max(0, overrunAt))}
           height={barHeight}
-          fill={chart.overrunOverlay}
+          stroke={chart.linkBroken}
+          strokeWidth={1.5}
           cornerRadius={overrunAt <= 0 ? 4 : [0, 4, 4, 0]}
           listening={false}
         />
@@ -900,10 +966,15 @@ export function Timeline({
   onAddMilestoneContextMenu,
   onChartPointer,
   sticky,
+  showLightningLine = true,
 }: TimelineProps) {
   const linkMode = linkSourceId != null;
   const chart = useMemo(
     () => paletteFor(colorScheme).chart,
+    [colorScheme],
+  );
+  const cssPalette = useMemo(
+    () => paletteFor(colorScheme).css,
     [colorScheme],
   );
   const todayDate = useMemo(() => parseDate(today), [today]);
@@ -962,6 +1033,25 @@ export function Timeline({
       />,
     );
 
+    const scrollAnchor = Math.max(
+      0,
+      Math.min(totalDays - 1, Math.floor(scrollX / Math.max(pxPerDay, 0.001))),
+    );
+    const anchorDate = addDays(timelineStart, scrollAnchor);
+    elements.push(
+      <Text
+        key="header-year-month"
+        x={4}
+        y={4 * scale}
+        text={`${anchorDate.getUTCFullYear()}年${anchorDate.getUTCMonth() + 1}月`}
+        fontSize={11 * scale}
+        fontStyle="bold"
+        fontFamily={KONVA_FONT_FAMILY}
+        fill={chart.textPrimary}
+        listening={false}
+      />,
+    );
+
     if (tier === "month") {
       let d = utcMonthStart(timelineStart);
       while (d < timelineEnd) {
@@ -982,6 +1072,7 @@ export function Timeline({
               text={`${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月`}
               fontSize={12 * scale}
               fontStyle="bold"
+              fontFamily={KONVA_FONT_FAMILY}
               fill={chart.textPrimary}
               listening={false}
             />,
@@ -1019,12 +1110,12 @@ export function Timeline({
         const x = dateToX(d);
         if (x < -40 || x > width + 40) continue;
         const isMonday = d.getUTCDay() === 1;
-        const isFirst = d.getUTCDate() === 1;
+        const isToday = isoDate(d) === today;
         if (tier === "day" || isMonday) {
           elements.push(
             <Line
               key={`hl-${i}`}
-              points={[x, tier === "day" ? 26 * scale : 26 * scale, x, headerHeight]}
+              points={[x, 22 * scale, x, headerHeight]}
               stroke={isMonday ? chart.gridMonday : chart.gridWeekday}
               strokeWidth={1}
               listening={false}
@@ -1032,25 +1123,30 @@ export function Timeline({
             <Text
               key={`ht-${i}`}
               x={x + 2}
-              y={24 * scale}
-              text={fmtShort(d)}
+              y={28 * scale}
+              text={
+                tier === "day"
+                  ? `${fmtShort(d)} ${fmtWeekday(d)}`
+                  : fmtShort(d)
+              }
               fontSize={10 * scale}
-              fill={isMonday ? chart.textPrimary : chart.textSecondary}
-              fontStyle={isMonday ? "bold" : "normal"}
+              fontFamily={KONVA_FONT_FAMILY}
+              fill={isMonday || isToday ? chart.textPrimary : chart.textSecondary}
+              fontStyle={isMonday || isToday ? "bold" : "normal"}
               listening={false}
             />,
           );
         }
-        if (isFirst) {
+        if (isToday) {
           elements.push(
-            <Text
-              key={`hm-${i}`}
-              x={x + 2}
-              y={6 * scale}
-              text={`${d.getUTCMonth() + 1}月`}
-              fontSize={11 * scale}
-              fontStyle="bold"
-              fill={chart.textPrimary}
+            <Rect
+              key={`today-${i}`}
+              x={x + 1}
+              y={26 * scale}
+              width={Math.max(4, pxPerDay - 2)}
+              height={4 * scale}
+              fill={cssPalette.accent}
+              cornerRadius={2}
               listening={false}
             />,
           );
@@ -1060,12 +1156,15 @@ export function Timeline({
     return elements;
   }, [
     calendar,
+    cssPalette.accent,
     dateToX,
     dayRange.end,
     dayRange.start,
     headerHeight,
     pxPerDay,
     scale,
+    scrollX,
+    today,
     totalDays,
     tier,
     timelineEnd,
@@ -1089,17 +1188,7 @@ export function Timeline({
       const y = row.y - scrollY;
       if (y + rowHeight < 0 || y > height) continue;
       if (row.type === "category" || row.type === "group") {
-        elements.push(
-          <Rect
-            key={`${row.type}-bg-${row.type === "group" ? row.category : ""}-${row.label}-${row.y}`}
-            x={0}
-            y={y}
-            width={width}
-            height={rowHeight}
-            fill={row.type === "category" ? chart.categoryRow : chart.groupRow}
-            listening={false}
-          />,
-        );
+        continue;
       }
     }
 
@@ -1179,7 +1268,7 @@ export function Timeline({
             y={draw.top}
             width={width}
             height={rowHeight}
-            fill={row.type === "category" ? chart.categoryRow : chart.groupRow}
+            fill="transparent"
             listening={false}
           />
           {bodyColumnNodes({
@@ -1618,6 +1707,17 @@ export function Timeline({
               clipWidth={width}
               clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
             >
+            {selectedRow && selectedRow.type === "task" ? (
+              <Rect
+                key="selected-row-band"
+                x={0}
+                y={selectedRow.y - scrollY}
+                width={width}
+                height={rowHeight}
+                fill={cssPalette.selectedRow}
+                listening={false}
+              />
+            ) : null}
             {visibleRows.map((row, index) => {
               if (row.type === "task" || stickyHidden.has(index)) return null;
               const y = row.y - scrollY;
@@ -1694,6 +1794,7 @@ export function Timeline({
                   today={today}
                   memberCatalog={memberCatalog}
                   colorScheme={colorScheme}
+                  tier={tier}
                 />
               );
             })}
@@ -1729,13 +1830,38 @@ export function Timeline({
               listening={false}
             >
               <Line
+                points={[
+                  dateToX(todayDate),
+                  sticky.clipTop,
+                  dateToX(todayDate),
+                  bodyHeight,
+                ]}
+                stroke={cssPalette.accent}
+                strokeWidth={1}
+                opacity={0.85}
+                listening={false}
+              />
+            </Group>
+          </Layer>
+          <Layer listening={false}>
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+              listening={false}
+            >
+              {showLightningLine ? (
+              <Line
                 points={lightningPoints}
                 stroke={chart.lightning}
-                strokeWidth={2.5}
+                strokeWidth={1.5}
+                opacity={0.55}
                 lineJoin="round"
                 lineCap="round"
                 listening={false}
               />
+              ) : null}
             </Group>
           </Layer>
           <Layer>

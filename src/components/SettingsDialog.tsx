@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { AppMembersSettings } from "../model/memberAppData";
 import {
   catalogIdFromFilename,
@@ -30,6 +30,15 @@ import {
   writeDisplayScalePreference,
   type DisplayScalePreference,
 } from "../model/uiScale";
+import {
+  SIDEBAR_COLUMN_LABELS,
+  type RowDensity,
+  type SidebarColumnId,
+  type SidebarColumnsPreference,
+  writeRowDensity,
+  writeShowLightning,
+  writeSidebarColumns,
+} from "../model/viewPreferences";
 
 type SettingsDialogProps = {
   open: boolean;
@@ -41,6 +50,13 @@ type SettingsDialogProps = {
   onDisplayScaleChange: (preference: DisplayScalePreference) => void;
   colorSchemePreference: ColorSchemePreference;
   onColorSchemeChange: (preference: ColorSchemePreference) => void;
+  rowDensity: RowDensity;
+  onRowDensityChange: (value: RowDensity) => void;
+  showLightningLine: boolean;
+  onShowLightningLineChange: (value: boolean) => void;
+  sidebarColumns: SidebarColumnsPreference;
+  onSidebarColumnsChange: (value: SidebarColumnsPreference) => void;
+  initialSection?: SettingsSection;
   onClose: () => void;
   onImport: (catalogId: string, contents: string, overwrite: boolean) => Promise<void>;
   onSelectCatalog: (catalogId: string | null) => Promise<void>;
@@ -61,6 +77,13 @@ export function SettingsDialog({
   onDisplayScaleChange,
   colorSchemePreference,
   onColorSchemeChange,
+  rowDensity,
+  onRowDensityChange,
+  showLightningLine,
+  onShowLightningLineChange,
+  sidebarColumns,
+  onSidebarColumnsChange,
+  initialSection = "display",
   onClose,
   onImport,
   onSelectCatalog,
@@ -73,7 +96,11 @@ export function SettingsDialog({
   )
     ? "⌘+ と ⌘−"
     : "Ctrl++ と Ctrl+-";
-  const [section, setSection] = useState<SettingsSection>("display");
+  const [section, setSection] = useState<SettingsSection>(initialSection);
+
+  useEffect(() => {
+    if (open) setSection(initialSection);
+  }, [initialSection, open]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [confirmOverwriteId, setConfirmOverwriteId] = useState<string | null>(
@@ -282,6 +309,56 @@ export function SettingsDialog({
                     ))}
                   </select>
                 </label>
+                <label className="settings-field">
+                  <span>行の密度</span>
+                  <select
+                    value={rowDensity}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const value = e.target.value === "compact" ? "compact" : "comfortable";
+                      writeRowDensity(value);
+                      onRowDensityChange(value);
+                    }}
+                  >
+                    <option value="comfortable">標準</option>
+                    <option value="compact">詰める</option>
+                  </select>
+                </label>
+                <label className="settings-field settings-field-check">
+                  <input
+                    type="checkbox"
+                    checked={showLightningLine}
+                    disabled={busy}
+                    onChange={(e) => {
+                      writeShowLightning(e.target.checked);
+                      onShowLightningLineChange(e.target.checked);
+                    }}
+                  />
+                  <span>イナズマ線を表示</span>
+                </label>
+                <fieldset className="settings-field">
+                  <legend>左一覧の列</legend>
+                  {(Object.keys(SIDEBAR_COLUMN_LABELS) as SidebarColumnId[]).map(
+                    (columnId) => (
+                      <label key={columnId} className="settings-field-check">
+                        <input
+                          type="checkbox"
+                          checked={sidebarColumns[columnId]}
+                          disabled={busy}
+                          onChange={(e) => {
+                            const next = {
+                              ...sidebarColumns,
+                              [columnId]: e.target.checked,
+                            };
+                            writeSidebarColumns(next);
+                            onSidebarColumnsChange(next);
+                          }}
+                        />
+                        <span>{SIDEBAR_COLUMN_LABELS[columnId]}</span>
+                      </label>
+                    ),
+                  )}
+                </fieldset>
               </>
             ) : null}
             {section === "members" ? (

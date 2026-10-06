@@ -43,7 +43,8 @@ function clampUiScale(value: number): number {
 export function parseDisplayScalePreference(
   raw: string | null,
 ): DisplayScalePreference {
-  if (raw == null || raw === "" || raw === "auto") return "auto";
+  if (raw == null || raw === "") return 1;
+  if (raw === "auto") return "auto";
   const n = Number(raw);
   if (n === 0.5) return 0.5;
   if (n === 0.75) return 0.75;
