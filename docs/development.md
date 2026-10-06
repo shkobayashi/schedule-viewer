@@ -194,7 +194,7 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
 | `npm run build:validate-skill` | `write-schedule`、`write-calendar`、`write-members` に同梱する検証スクリプトと、スキーマのコピーを作り直す |
 | `npm run version:check` | バージョン番号が5ファイルで揃っていることを確認する |
-| `npm run version:bump` | バージョンを上げる。`minor` または `patch` を引数にする |
+| `npm run version:bump` | バージョンを上げる。`major`、`minor`、または `patch` を引数にする |
 | `postinstall` | `@tauri-apps/cli` のその OS 向けバイナリがあることを確認する |
 
 ## ブランチと CI
@@ -230,6 +230,7 @@ macOS 用の自動ビルドはまだない。必要なときは下の「配布�
 
 `develop` を `main` にマージする直前に、リポジトリ直下でバージョンを1回だけ上げる。
 
+- 公開する契約を次のメジャーまで守るとき: `npm run version:bump -- major`
 - 前回リリース以降に feature が入っている: `npm run version:bump -- minor`
 - fix だけのとき: `npm run version:bump -- patch`
 
