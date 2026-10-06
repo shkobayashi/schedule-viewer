@@ -215,7 +215,7 @@ export function Toolbar({
         <button
           type="button"
           className="icon-btn shortcuts-btn"
-          title="ショートカット一覧（?）"
+          title="ショートカット一覧（?、F1）"
           onClick={onOpenShortcuts}
         >
           ?

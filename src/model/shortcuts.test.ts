@@ -10,6 +10,7 @@ import {
   matchAppShortcut,
   matchChartScroll,
   matchDisplayScale,
+  matchOpenShortcutsHelp,
   usesCommandKey,
   type ShortcutContext,
   type ShortcutKeyEvent,
@@ -49,6 +50,19 @@ function key(
     ...mods,
   };
 }
+
+describe("matchOpenShortcutsHelp", () => {
+  it("opens from ? and F1, and not while typing or in a dialog", () => {
+    expect(matchOpenShortcutsHelp(key("?"), idle)).toBe(true);
+    expect(matchOpenShortcutsHelp(key("？"), idle)).toBe(true);
+    expect(matchOpenShortcutsHelp(key("F1"), idle)).toBe(true);
+    expect(matchOpenShortcutsHelp(key("F1"), typing)).toBe(false);
+    expect(matchOpenShortcutsHelp(key("F1"), dialog)).toBe(false);
+    expect(matchOpenShortcutsHelp(key("F1"), buttonFocus)).toBe(false);
+    expect(matchOpenShortcutsHelp(key("F1", { shiftKey: true }), idle)).toBe(false);
+    expect(matchOpenShortcutsHelp(key("F1", { ctrlKey: true }), idle)).toBe(false);
+  });
+});
 
 describe("matchAppShortcut", () => {
   it("maps save, save as, open, and find", () => {
