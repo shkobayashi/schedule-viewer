@@ -22,6 +22,7 @@
 ### 変更
 
 - 左一覧のカテゴリ、グループ、タスクは、行の左端の握りをドラッグして並べ替え、別のグループやカテゴリへ移す。握り以外をドラッグしても順番は変わらない。幅に収まらない名前は、マウスを乗せると全文が出る
+- タスク、グループ、カテゴリを並べ替えるドラッグでは、半透明の行がポインタに付いて動く。グループとカテゴリは、見えている配下の行も含めた塊で付く
 - アプリデータの前回ファイル記録を `open-windows.json` と `schedule-recovery/` に移す。古い `last-schedule.json` と `schedule-recovery.json` は初回起動時に移行して削除する
 - write-schedule、write-members、write-calendar の SKILL.md とデータ仕様の検証手順を、置いたスキルフォルダの `scripts/validate-*.mjs` を実行する説明に揃えた。
 

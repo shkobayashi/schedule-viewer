@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computeVisibleRows, relaxFiltersForNewTask, taskMatchesFilter } from "./rows";
+import {
+  computeVisibleRows,
+  reorderDragBlockRows,
+  relaxFiltersForNewTask,
+  taskMatchesFilter,
+} from "./rows";
 import {
   NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
@@ -346,5 +351,86 @@ describe("computeVisibleRows empty hierarchy", () => {
     expect(rows.some((row) => row.type === "category" && row.id === emptyCatId)).toBe(
       false,
     );
+  });
+});
+
+describe("reorderDragBlockRows", () => {
+  const catId = "00000000-0000-4000-8000-0000000000c1";
+  const cat2Id = "00000000-0000-4000-8000-0000000000c2";
+  const groupId = "00000000-0000-4000-8000-0000000000d1";
+  const group2Id = "00000000-0000-4000-8000-0000000000d2";
+  const task2: Task = {
+    ...baseTask,
+    id: "00000000-0000-4000-8000-000000000002",
+    name: "Beta",
+  };
+
+  function expandedRows(collapsed: Set<string> = new Set()) {
+    return computeVisibleRows(
+      [
+        {
+          id: catId,
+          name: "A",
+          groups: [
+            { id: groupId, name: "G1", tasks: [baseTask, task2] },
+            { id: group2Id, name: "G2", tasks: [] },
+          ],
+        },
+        { id: cat2Id, name: "B", groups: [] },
+      ],
+      filters,
+      collapsed,
+      "2026-04-01",
+      null,
+    );
+  }
+
+  it("includes visible tasks under an expanded group", () => {
+    const rows = expandedRows();
+    const block = reorderDragBlockRows(rows, "group", groupId);
+    expect(block.map((row) => row.type)).toEqual(["group", "task", "task"]);
+    expect(
+      block.filter((row) => row.type === "task").map((row) => row.task.id),
+    ).toEqual([baseTask.id, task2.id]);
+  });
+
+  it("is only the group row when the group is collapsed", () => {
+    const rows = expandedRows(new Set([`group:${groupId}`]));
+    const block = reorderDragBlockRows(rows, "group", groupId);
+    expect(block).toHaveLength(1);
+    expect(block[0]?.type).toBe("group");
+  });
+
+  it("is only the group row when the group is empty", () => {
+    const rows = expandedRows();
+    const block = reorderDragBlockRows(rows, "group", group2Id);
+    expect(block).toHaveLength(1);
+    expect(block[0]?.type).toBe("group");
+  });
+
+  it("includes visible groups and tasks under an expanded category", () => {
+    const rows = expandedRows();
+    const block = reorderDragBlockRows(rows, "category", catId);
+    expect(block.map((row) => row.type)).toEqual([
+      "category",
+      "group",
+      "task",
+      "task",
+      "group",
+    ]);
+  });
+
+  it("is only the category row when the category is collapsed", () => {
+    const rows = expandedRows(new Set([`category:${catId}`]));
+    const block = reorderDragBlockRows(rows, "category", catId);
+    expect(block).toHaveLength(1);
+    expect(block[0]?.type).toBe("category");
+  });
+
+  it("is a single task row for task drags", () => {
+    const rows = expandedRows();
+    const block = reorderDragBlockRows(rows, "task", baseTask.id);
+    expect(block).toHaveLength(1);
+    expect(block[0]?.type).toBe("task");
   });
 });
