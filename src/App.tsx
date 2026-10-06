@@ -22,9 +22,16 @@ import { TaskNoteDialog } from "./components/TaskNoteDialog";
 import { Timeline } from "./components/Timeline";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { ExportFormatDialog } from "./components/ExportFormatDialog";
-import { Toolbar } from "./components/Toolbar";
+import { ActiveFilterBar } from "./components/ActiveFilterBar";
+import { ShortcutsDialog } from "./components/ShortcutsDialog";
+import { Toolbar, type SearchField } from "./components/Toolbar";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
-import { noteShortcutHint, usesCommandKey } from "./model/shortcuts";
+import {
+  deleteShortcutHint,
+  editShortcutHint,
+  noteShortcutHint,
+  usesCommandKey,
+} from "./model/shortcuts";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
@@ -151,6 +158,8 @@ function App() {
   uiScaleRef.current = uiScale;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [searchField, setSearchField] = useState<SearchField>("name");
   const [diffText, setDiffText] = useState<string | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
   const diffRequestRef = useRef(0);
@@ -364,6 +373,7 @@ function App() {
       const body = Math.max(120, timelineSlotHeight - headerHeight - band);
       return Math.max(0, schedule.visibleRows.length * rowHeight - body);
     },
+    schedule.today,
   );
 
   const milestoneLanes = useMemo(
@@ -392,10 +402,10 @@ function App() {
 
   const {
     fitToWidth,
+    setTierZoom,
+    scrollToToday,
     panBy,
     scrollBy,
-    zoomIn,
-    zoomOut,
     tierLabel,
     handleWheel,
     xToDate,
@@ -405,6 +415,14 @@ function App() {
     scrollY,
     tier,
   } = view;
+
+  const filterAssigneeLabel = useMemo(
+    () =>
+      schedule.assigneeFilterOptions.find(
+        (option) => option.id === schedule.filters.assignee,
+      )?.label ?? null,
+    [schedule.assigneeFilterOptions, schedule.filters.assignee],
+  );
 
   const onAfterOpenFile = useCallback(() => {
     setPendingFit(true);
@@ -499,9 +517,11 @@ function App() {
     undo,
     redo,
     taskSearchRef,
+    findTargetsName: searchField === "name",
     displayScalePreferenceRef,
     uiScaleRef,
     onDisplayScaleChange: handleDisplayScaleChange,
+    onOpenShortcuts: () => setShortcutsOpen(true),
   });
 
   const onWheelBody = useCallback(
@@ -911,6 +931,7 @@ function App() {
       {
         id: "edit",
         label: "編集",
+        shortcut: editShortcutHint(),
         onSelect: () => {
           if (task) openEditDialog(task);
         },
@@ -954,6 +975,7 @@ function App() {
       {
         id: "delete",
         label: "削除",
+        shortcut: deleteShortcutHint(),
         onSelect: () => setDeleteOpen(true),
       },
     ];
@@ -992,9 +1014,11 @@ function App() {
         membersCatalogError={memberCatalogState.error}
         calendarError={appCalendarState.error}
         filters={schedule.filters}
+        searchField={searchField}
+        onSearchFieldChange={setSearchField}
         milestones={schedule.milestones}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
-        zoomLabel={tierLabel}
+        tier={tier}
         lineageName={schedule.lineageTask?.name ?? null}
         canStartLineage={schedule.selectedTaskId != null}
         onToggleLineage={schedule.toggleLineage}
@@ -1006,9 +1030,14 @@ function App() {
         canStartLink={schedule.selectedTaskId != null}
         onToggleLink={toggleLinkMode}
         onFiltersChange={schedule.updateFilters}
-        onZoomIn={zoomIn}
-        onZoomOut={zoomOut}
+        onGoToday={scrollToToday}
+        onSetTier={setTierZoom}
         onFit={fitToWidth}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={schedule.canUndo}
+        canRedo={schedule.canRedo}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
         onShowJson={() => setJsonOpen(true)}
         onShowDiff={showScheduleDiff}
         onOpen={scheduleFile.requestOpen}
@@ -1028,28 +1057,14 @@ function App() {
         fileBusy={scheduleFile.fileBusy}
         taskSearchRef={taskSearchRef}
       />
-      <div className="hint">
-        {linkSourceId != null ? (
-          <>
-            <div>次にクリックしたタスクを後続にします。Esc で中止</div>
-            {linkError ? <div className="hint-error">{linkError}</div> : null}
-          </>
-        ) : (
-          <>
-            Ctrl(⌘)+ホイールでズーム ・ Shift+ホイールで横スクロール ・
-            ドラッグで縦横スクロール ・ 左の名前はドラッグで横にずらせます ・
-            左のタスク行は縦にドラッグして順を変えたり、別のグループへ移せます ・
-            左のグループ行は縦にドラッグして順を変えたり、別のカテゴリへ移せます ・
-            左のカテゴリ行は縦にドラッグして順を変えられます ・ 境界をドラッグで左の幅を変える
-            ・ ⌘/Ctrl+ドラッグでバー移動、端をドラッグで期間変更（操作中は開始日と終了日）、ダブルクリックで詳細編集
-            ・ タスクを選んで「系統」で前後だけ表示 ・
-            タスクを選んで「線を引く」または ⌘/Ctrl+L で後続を足す。線の上で Delete か右クリックで外す
-            ・ 選択中のタスクは ⌘/Ctrl+N でノートを開く
-            ・ マイルストンは「マイルストン追加」で足す。日付ヘッダー、帯の空き、チャートの空きの右クリックでも足せる。帯のひし形か右の名前は、ドラッグで日付を変え、ダブルクリックで編集し、右クリックで削除する
-            ・ ⌘/Ctrl+Z で取り消し、Shift+Z または Ctrl+Y でやり直し
-          </>
-        )}
-      </div>
+      <ActiveFilterBar
+        filters={schedule.filters}
+        milestones={schedule.milestones}
+        assigneeLabel={filterAssigneeLabel}
+        lineageName={schedule.lineageTask?.name ?? null}
+        onFiltersChange={schedule.updateFilters}
+        onClearLineage={schedule.clearLineage}
+      />
       <div ref={mainRef} className="main">
         <Sidebar
           categories={schedule.categories}
@@ -1104,6 +1119,12 @@ function App() {
           sticky={stickyLayout}
         />
         <div ref={timelineAreaRef} className="timeline-slot">
+          {linkSourceId != null ? (
+            <div className="link-banner" role="status">
+              <div>次にクリックしたタスクを後続にします。Esc で中止</div>
+              {linkError ? <div className="hint-error">{linkError}</div> : null}
+            </div>
+          ) : null}
           <Timeline
             visibleRows={schedule.visibleRows}
             width={Math.max(200, timelineWidth)}
@@ -1349,6 +1370,10 @@ function App() {
           onDeleteCalendar={appCalendarState.removeCalendar}
         />
       ) : null}
+      <ShortcutsDialog
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
       <JsonDialog
         json={jsonOpen ? scheduleFile.currentJson : ""}
         open={jsonOpen}

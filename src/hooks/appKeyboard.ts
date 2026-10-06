@@ -7,6 +7,7 @@ import {
   matchAppShortcut,
   matchChartScroll,
   matchDisplayScale,
+  matchOpenShortcutsHelp,
   type DisplayScaleDirection,
   type ShortcutKeyEvent,
 } from "../model/shortcuts";
@@ -32,6 +33,7 @@ export type AppKeyAction =
   | { type: "undo" }
   | { type: "redo" }
   | { type: "displayScale"; direction: DisplayScaleDirection }
+  | { type: "openShortcuts" }
   | { type: "none" };
 
 export type AppKeyDecision = {
@@ -62,6 +64,7 @@ export function decideAppKey(input: {
   pointer: ChartPointer;
   selectedTaskId: ScheduleId | null;
   rowHeight: number;
+  findTargetsName: boolean;
 }): AppKeyDecision {
   const { event } = input;
   const targetFields = input.target ?? {
@@ -70,6 +73,18 @@ export function decideAppKey(input: {
   };
   const blocksEditKeys = input.target != null && blocksEditShortcut(targetFields);
   const blocksLinkKeys = input.target != null && blocksLinkShortcut(targetFields);
+  if (
+    matchOpenShortcutsHelp(event, {
+      dialogOpen: input.dialogOpen,
+      blocksEditKeys,
+    })
+  ) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "openShortcuts" },
+    };
+  }
   const chartScroll = matchChartScroll(event, { dialogOpen: input.dialogOpen });
   if (chartScroll) {
     const offset = chartScrollOffset(chartScroll, input.rowHeight);
@@ -116,6 +131,9 @@ export function decideAppKey(input: {
     blocksEditKeys,
     blocksLinkKeys,
   });
+  if (shortcut === "find" && !input.findTargetsName) {
+    return { preventDefault: false, closeMenu: false, action: { type: "none" } };
+  }
   if (shortcut) {
     preventDefault = true;
     if (event.repeat) {

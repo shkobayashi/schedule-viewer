@@ -156,3 +156,72 @@ export function fileShortcutHint(
   if (action === "save") return "Ctrl+S";
   return "Ctrl+Shift+S";
 }
+
+export function editShortcutHint(): string {
+  return "Enter";
+}
+
+export function deleteShortcutHint(): string {
+  return "Delete";
+}
+
+export function undoShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘Z" : "Ctrl+Z";
+}
+
+export function redoShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘⇧Z" : "Ctrl+Shift+Z / Ctrl+Y";
+}
+
+export function findShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘F" : "Ctrl+F";
+}
+
+export function displayScaleShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘+ / ⌘−" : "Ctrl+ / Ctrl−";
+}
+
+export function chartScrollShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘矢印" : "Ctrl+矢印";
+}
+
+export type ShortcutReferenceRow = {
+  action: string;
+  keys: string;
+};
+
+export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow[] {
+  const mod = commandKey ? "⌘" : "Ctrl";
+  return [
+    { action: "開く", keys: fileShortcutHint("open", commandKey) },
+    { action: "保存", keys: fileShortcutHint("save", commandKey) },
+    { action: "別名保存", keys: fileShortcutHint("saveAs", commandKey) },
+    { action: "検索", keys: findShortcutHint(commandKey) },
+    { action: "編集", keys: editShortcutHint() },
+    { action: "削除", keys: deleteShortcutHint() },
+    { action: "線を引く", keys: linkShortcutHint(commandKey) },
+    { action: "ノート", keys: noteShortcutHint(commandKey) },
+    { action: "取り消し", keys: undoShortcutHint(commandKey) },
+    { action: "やり直し", keys: redoShortcutHint(commandKey) },
+    { action: "表示サイズ", keys: displayScaleShortcutHint(commandKey) },
+    { action: "チャートのスクロール", keys: chartScrollShortcutHint(commandKey) },
+    { action: "ショートカット一覧", keys: "?" },
+    {
+      action: "ズーム",
+      keys: `${mod}+ホイール（一覧の上では左端の日付を保つ）`,
+    },
+    { action: "横スクロール", keys: "Shift+ホイール" },
+  ];
+}
+
+/** 入力欄・選択欄・ダイアログのあいだは効かない。 */
+export function matchOpenShortcutsHelp(
+  event: ShortcutKeyEvent,
+  context: Pick<ShortcutContext, "dialogOpen" | "blocksEditKeys">,
+): boolean {
+  if (context.dialogOpen || context.blocksEditKeys) return false;
+  if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+    return false;
+  }
+  return event.key === "?" || event.key === "？";
+}

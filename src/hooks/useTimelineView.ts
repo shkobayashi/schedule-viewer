@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, clamp, daysBetween } from "../model/dates";
+import { scrollXForToday } from "../model/chartScroll";
 import {
   DEFAULT_PX_PER_DAY,
   gridTier,
+  type GridTier,
   MAX_PX_PER_DAY,
   MIN_PX_PER_DAY,
+  pxPerDayForTier,
   tierLabel,
 } from "../model/timeline";
 
@@ -17,6 +20,7 @@ export function useTimelineView(
   range: TimelineRange,
   viewportWidth: number,
   maxScrollYFor: (pxPerDay: number) => number,
+  todayIso: string,
 ) {
   const [pxPerDay, setPxPerDay] = useState(DEFAULT_PX_PER_DAY);
   const [scrollX, setScrollX] = useState(0);
@@ -84,6 +88,25 @@ export function useTimelineView(
     setScrollX(0);
   }, [totalDays, viewportWidth]);
 
+  const setTierZoom = useCallback(
+    (tier: GridTier) => {
+      setZoom(pxPerDayForTier(tier), viewportWidth / 2);
+    },
+    [setZoom, viewportWidth],
+  );
+
+  const scrollToToday = useCallback(() => {
+    setScrollX(
+      scrollXForToday(
+        todayIso,
+        timelineStart,
+        totalDays,
+        pxPerDay,
+        viewportWidth,
+      ),
+    );
+  }, [pxPerDay, todayIso, timelineStart, totalDays, viewportWidth]);
+
   const reveal = useCallback(
     (date: Date, y: number) => {
       const x = daysBetween(timelineStart, date) * pxPerDay;
@@ -143,6 +166,8 @@ export function useTimelineView(
     zoomIn,
     zoomOut,
     fitToWidth,
+    setTierZoom,
+    scrollToToday,
     panBy,
     scrollBy,
     reveal,
