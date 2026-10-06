@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { menuShiftForRect } from "./anchoredMenu";
 import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 
 export type ContextMenuItem =
@@ -24,27 +25,20 @@ type ContextMenuProps = {
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [shift, setShift] = useState({ x: 0, y: 0 });
+  const itemsKey = items.map((item) => item.id).join("\0");
 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const margin = 8;
-    let dx = 0;
-    let dy = 0;
-    if (rect.right > window.innerWidth - margin) {
-      dx = window.innerWidth - margin - rect.right;
-    }
-    if (rect.bottom > window.innerHeight - margin) {
-      dy = window.innerHeight - margin - rect.bottom;
-    }
-    if (rect.left + dx < margin) dx = margin - rect.left;
-    if (rect.top + dy < margin) dy = margin - rect.top;
-    setShift({ x: dx, y: dy });
-  }, [x, y, items]);
+    const next = menuShiftForRect(x, y, el.offsetWidth, el.offsetHeight);
+    setShift((prev) =>
+      prev.x === next.x && prev.y === next.y ? prev : next,
+    );
+  }, [x, y, itemsKey]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
+      if (event.button === 2) return;
       if (ref.current?.contains(event.target as Node)) return;
       onClose();
     };
@@ -61,13 +55,17 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
         event.stopPropagation();
       }
     };
-    if (ref.current) focusMenuEdge(ref.current, "first");
     const onDismiss = () => onClose();
-    document.addEventListener("mousedown", onPointerDown);
+    let raf = 0;
+    raf = window.requestAnimationFrame(() => {
+      if (ref.current) focusMenuEdge(ref.current, "first");
+      document.addEventListener("mousedown", onPointerDown);
+    });
     document.addEventListener("keydown", onKeyDown);
     window.addEventListener("scroll", onDismiss, true);
     window.addEventListener("wheel", onDismiss, { capture: true });
     return () => {
+      window.cancelAnimationFrame(raf);
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("scroll", onDismiss, true);
