@@ -27,10 +27,22 @@ export function taskBarWidthPx(
   return Math.max(pxPerDay, endX - startX);
 }
 
-export function gridTier(pxPerDay: number): "day" | "week" | "month" {
+export type GridTier = "day" | "week" | "month";
+
+export function gridTier(pxPerDay: number): GridTier {
   if (pxPerDay >= 40) return "day";
   if (pxPerDay >= 10) return "week";
   return "month";
+}
+
+export const TIER_PX_PER_DAY: Record<ReturnType<typeof gridTier>, number> = {
+  day: 40,
+  week: DEFAULT_PX_PER_DAY,
+  month: 8,
+};
+
+export function pxPerDayForTier(tier: ReturnType<typeof gridTier>): number {
+  return TIER_PX_PER_DAY[tier];
 }
 
 export function tierLabel(tier: ReturnType<typeof gridTier>): string {

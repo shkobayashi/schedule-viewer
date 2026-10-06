@@ -30,9 +30,11 @@ type UseAppKeyboardOptions = {
   undo: () => void;
   redo: () => void;
   taskSearchRef: { current: HTMLInputElement | null };
+  findTargetsName: boolean;
   displayScalePreferenceRef: MutableRefObject<DisplayScalePreference>;
   uiScaleRef: MutableRefObject<number>;
   onDisplayScaleChange: (preference: DisplayScalePreference) => void;
+  onOpenShortcuts: () => void;
 };
 
 export function useAppKeyboard({
@@ -55,9 +57,11 @@ export function useAppKeyboard({
   undo,
   redo,
   taskSearchRef,
+  findTargetsName,
   displayScalePreferenceRef,
   uiScaleRef,
   onDisplayScaleChange,
+  onOpenShortcuts,
 }: UseAppKeyboardOptions) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -85,6 +89,7 @@ export function useAppKeyboard({
         pointer: chartPointerRef.current,
         selectedTaskId,
         rowHeight,
+        findTargetsName,
       });
       if (decision.preventDefault) event.preventDefault();
       if (decision.closeMenu) closeContextMenu();
@@ -145,6 +150,7 @@ export function useAppKeyboard({
         taskSearchRef.current?.select();
       } else if (action.type === "undo") undo();
       else if (action.type === "redo") redo();
+      else if (action.type === "openShortcuts") onOpenShortcuts();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -165,11 +171,13 @@ export function useAppKeyboard({
     scrollBy,
     selectedTaskId,
     taskSearchRef,
+    findTargetsName,
     openTaskNote,
     toggleLinkMode,
     undo,
     displayScalePreferenceRef,
     uiScaleRef,
     onDisplayScaleChange,
+    onOpenShortcuts,
   ]);
 }

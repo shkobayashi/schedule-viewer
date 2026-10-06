@@ -154,6 +154,13 @@ export function useSchedule(
     initialSnapshot(initialCategories, initialMilestones),
   );
   const historyRef = useRef<DocumentHistory>(createDocumentHistory());
+  const [historyUi, setHistoryUi] = useState({ canUndo: false, canRedo: false });
+  const syncHistoryUi = useCallback(() => {
+    setHistoryUi({
+      canUndo: historyRef.current.past.length > 0,
+      canRedo: historyRef.current.future.length > 0,
+    });
+  }, []);
 
   const [title, setTitle] = useState(() => initialTitle);
   const [categories, setCategories] = useState(
@@ -280,12 +287,13 @@ export function useSchedule(
       const pushed = pushDocumentHistory(historyRef.current, current, next);
       if (!pushed) return;
       historyRef.current = pushed.history;
+      syncHistoryUi();
       if (!pushed.applied) return;
       documentRef.current = pushed.applied;
       setCategories(pushed.applied.categories);
       setMilestones(pushed.applied.milestones);
     },
-    [blockDocumentEditsRef],
+    [blockDocumentEditsRef, syncHistoryUi],
   );
 
   const commitCategories = useCallback(
@@ -1149,8 +1157,9 @@ export function useSchedule(
         noteSearch: "",
       });
       setReorderPreview(null);
+      syncHistoryUi();
     },
-    [setReorderPreview],
+    [setReorderPreview, syncHistoryUi],
   );
 
   const reloadDocumentFromDisk = useCallback(
@@ -1167,8 +1176,9 @@ export function useSchedule(
       setDiskEpoch((epoch) => epoch + 1);
       setReorderPreview(null);
       pruneUiForDocument(snapshot);
+      syncHistoryUi();
     },
-    [pruneUiForDocument, setReorderPreview],
+    [pruneUiForDocument, setReorderPreview, syncHistoryUi],
   );
 
   const undo = useCallback(() => {
@@ -1177,7 +1187,8 @@ export function useSchedule(
     if (!result) return;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
-  }, [applySnapshot, blockDocumentEditsRef]);
+    syncHistoryUi();
+  }, [applySnapshot, blockDocumentEditsRef, syncHistoryUi]);
 
   const redo = useCallback(() => {
     if (blockDocumentEditsRef?.current) return;
@@ -1185,7 +1196,8 @@ export function useSchedule(
     if (!result) return;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
-  }, [applySnapshot, blockDocumentEditsRef]);
+    syncHistoryUi();
+  }, [applySnapshot, blockDocumentEditsRef, syncHistoryUi]);
 
   const editingTask = useMemo(
     () => findTaskById(categories, editingTaskId),
@@ -1282,6 +1294,8 @@ export function useSchedule(
     diskEpoch,
     undo,
     redo,
+    canUndo: historyUi.canUndo,
+    canRedo: historyUi.canRedo,
     today,
   };
 }
