@@ -184,7 +184,7 @@ function App() {
   uiScaleRef.current = uiScale;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
-    "display" | "members" | "calendar"
+    "display" | "members" | "calendar" | "jsonSkills"
   >("display");
   const [rowDensity, setRowDensity] = useState<RowDensity>(readRowDensity);
   const [showLightningLine, setShowLightningLine] = useState(readShowLightning);

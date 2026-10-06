@@ -73,7 +73,7 @@ description: >-
 1. 入力をカテゴリ・グループ・タスクの木に整理する（WBS のまま写す）
 2. 新規のカテゴリ、グループ、タスク、マイルストンには `crypto.randomUUID()` 相当の UUID v4 を付与する。既存 JSON を更新する場合は既存 `id` を維持する
 3. `schemaVersion: 5` を付ける
-4. JSON ファイルを書き、`node .cursor/skills/write-schedule/scripts/validate-schedule.mjs`（リポジトリ内）または同梱 `scripts/validate-schedule.mjs` で検証する
+4. JSON ファイルを書き、このスキルフォルダで `node scripts/validate-schedule.mjs <file>` を実行して検証する
 5. エラーがあれば修正して再検証し、通ってからユーザーに渡す
 
 ## 画面にないものは入れない
