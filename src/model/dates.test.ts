@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { addDays, isoDate, isoDateAtChartX, parseDate, todayIso } from "./dates";
+import {
+  addDays,
+  fmtMonthDay,
+  isoDate,
+  isoDateAtChartX,
+  parseDate,
+  todayIso,
+} from "./dates";
+
+describe("fmtMonthDay", () => {
+  it("keeps zero-padded month and day", () => {
+    expect(fmtMonthDay("2026-09-19")).toBe("09/19");
+    expect(fmtMonthDay("2026-01-07")).toBe("01/07");
+  });
+});
 
 describe("addDays", () => {
   it("steps across US DST end without losing a calendar day", () => {

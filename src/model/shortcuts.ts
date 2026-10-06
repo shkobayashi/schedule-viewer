@@ -220,7 +220,7 @@ export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow
     { action: "やり直し", keys: redoShortcutHint(commandKey) },
     { action: "表示サイズ", keys: displayScaleShortcutHint(commandKey) },
     { action: "チャートのスクロール", keys: chartScrollShortcutHint(commandKey) },
-    { action: "ショートカット一覧", keys: "?" },
+    { action: "ショートカット一覧", keys: "? / F1" },
     {
       action: "ズーム",
       keys: `${mod}+ホイール（一覧の上では左端の日付を保つ）`,
@@ -229,7 +229,7 @@ export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow
   ];
 }
 
-/** 入力欄・選択欄・ダイアログのあいだは効かない。 */
+/** 入力欄・選択欄・ボタン・ダイアログのあいだは効かない。? と F1。 */
 export function matchOpenShortcutsHelp(
   event: ShortcutKeyEvent,
   context: Pick<ShortcutContext, "dialogOpen" | "blocksEditKeys">,
@@ -238,5 +238,5 @@ export function matchOpenShortcutsHelp(
   if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
     return false;
   }
-  return event.key === "?" || event.key === "？";
+  return event.key === "?" || event.key === "？" || event.key === "F1";
 }

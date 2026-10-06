@@ -96,7 +96,7 @@ export function StatusBar({
         type="button"
         className="status-bar-link"
         onClick={onOpenShortcuts}
-        title="ショートカット一覧（?）"
+        title="ショートカット一覧（?、F1）"
       >
         ? ショートカット
       </button>

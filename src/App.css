@@ -996,12 +996,60 @@ button:focus-visible,
   box-shadow: inset 3px 0 0 var(--unassigned-accent);
 }
 
-.sidebar-row .assignee {
+.sidebar-trail {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: calc(8px * var(--s));
   margin-left: auto;
-  flex-shrink: 0;
+}
+
+.sidebar-cols {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: calc(8px * var(--s));
+  margin-left: calc(12px * var(--s));
+  color: var(--text-secondary);
+  font-size: calc(11px * var(--s));
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-col {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.sidebar-col.start,
+.sidebar-col.end {
+  width: 5ch;
+}
+
+.sidebar-col.duration {
+  width: 5ch;
+}
+
+.sidebar-col.progress {
+  width: 4ch;
+}
+
+.sidebar-alert-slot {
+  flex: 0 0 calc(16px * var(--s));
+  width: calc(16px * var(--s));
+  height: calc(16px * var(--s));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-row .assignee {
+  flex: 0 0 auto;
+  width: calc(var(--assignee-chars, 3) * 1em + 0.2em);
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: calc(10px * var(--s));
   color: var(--text-secondary);
-  padding-left: 6px;
+  padding-left: 0;
 }
 
 .sidebar-row .assignee.unassigned {
@@ -1474,7 +1522,7 @@ button:focus-visible,
 }
 
 .sidebar-row .milestone-alert-icon {
-  flex-shrink: 0;
+  display: inline-flex;
   color: var(--overdue);
 }
 

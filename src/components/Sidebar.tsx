@@ -12,11 +12,12 @@ import {
 import { AlertTriangle } from "lucide-react";
 import { milestonesExceededBy } from "../model/milestones";
 import {
+  assigneeColumnChars,
   assigneeSidebarLabel,
   resolveAssigneeDisplay,
 } from "../model/assigneeDisplay";
 import type { SidebarColumnsPreference } from "../model/viewPreferences";
-import { daysBetween, parseDate } from "../model/dates";
+import { daysBetween, fmtMonthDay, parseDate } from "../model/dates";
 import type { Member, MemberId } from "../model/memberTypes";
 import {
   categoryCollapseKey,
@@ -165,6 +166,20 @@ export function Sidebar({
       return row.y + rowHeight >= minY && row.y <= maxY;
     });
   }, [hiddenIndexes, rows, rowHeight, scrollY, viewportHeight]);
+
+  const assigneeChars = useMemo(
+    () =>
+      assigneeColumnChars(
+        rows.flatMap((row) => {
+          if (row.type !== "task") return [];
+          const display = resolveAssigneeDisplay(row.task.assigneeId, memberCatalog);
+          return [
+            display.kind === "unassigned" ? "未割当" : assigneeSidebarLabel(display),
+          ];
+        }),
+      ),
+    [memberCatalog, rows],
+  );
 
   const contentHeight = useMemo(
     () => rows.reduce((max, row) => Math.max(max, row.y + rowHeight), 0),
@@ -529,7 +544,11 @@ export function Sidebar({
       >
         <div
           className="sidebar-rows"
-          style={{ height: contentHeight, transform: `translateY(${-scrollY}px)` }}
+          style={{
+            height: contentHeight,
+            transform: `translateY(${-scrollY}px)`,
+            "--assignee-chars": String(assigneeChars),
+          } as CSSProperties}
         >
           {visibleRows.map((row) => {
             if (row.type === "category") {
@@ -1180,29 +1199,53 @@ function TaskSidebarRow({
       >
         <span ref={textRef} className="slide-label-text">{task.name}</span>
       </span>
-      {sidebarColumns.start ? (
-        <span className="sidebar-col">{task.start.slice(5)}</span>
-      ) : null}
-      {sidebarColumns.end ? (
-        <span className="sidebar-col">{task.end.slice(5)}</span>
-      ) : null}
-      {sidebarColumns.duration ? (
-        <span className="sidebar-col">
-          {daysBetween(parseDate(task.start), parseDate(task.end)) + 1}
+      <span className="sidebar-trail">
+        {sidebarColumns.start ||
+        sidebarColumns.end ||
+        sidebarColumns.duration ||
+        sidebarColumns.progress ? (
+          <span className="sidebar-cols">
+            {sidebarColumns.start ? (
+              <span className="sidebar-col start" title="開始">
+                {fmtMonthDay(task.start)}
+              </span>
+            ) : null}
+            {sidebarColumns.end ? (
+              <span className="sidebar-col end" title="終了">
+                {fmtMonthDay(task.end)}
+              </span>
+            ) : null}
+            {sidebarColumns.duration ? (
+              <span className="sidebar-col duration" title="日数">
+                {daysBetween(parseDate(task.start), parseDate(task.end)) + 1}日
+              </span>
+            ) : null}
+            {sidebarColumns.progress ? (
+              <span className="sidebar-col progress" title="進捗">
+                {task.progress}%
+              </span>
+            ) : null}
+          </span>
+        ) : null}
+        <span className="sidebar-alert-slot">
+          {exceeded.length > 0 ? (
+            <span className="milestone-alert-icon" title={exceededTitle} aria-label="超過">
+              <AlertTriangle size={14} strokeWidth={2.25} />
+            </span>
+          ) : null}
         </span>
-      ) : null}
-      {sidebarColumns.progress ? (
-        <span className="sidebar-col">{task.progress}%</span>
-      ) : null}
-      {exceeded.length > 0 ? (
-        <span className="milestone-alert-icon" title={exceededTitle} aria-label="超過">
-          <AlertTriangle size={14} strokeWidth={2.25} />
+        <span
+          className={`assignee${assigneeClass}`}
+          title={
+            assigneeDisplay.kind === "unassigned"
+              ? "未割当"
+              : assigneeSidebarLabel(assigneeDisplay)
+          }
+        >
+          {assigneeDisplay.kind === "unassigned"
+            ? "未割当"
+            : assigneeSidebarLabel(assigneeDisplay)}
         </span>
-      ) : null}
-      <span className={`assignee${assigneeClass}`}>
-        {assigneeDisplay.kind === "unassigned"
-          ? "未割当"
-          : assigneeSidebarLabel(assigneeDisplay)}
       </span>
     </div>
   );

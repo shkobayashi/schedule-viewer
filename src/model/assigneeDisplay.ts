@@ -73,6 +73,18 @@ export function duplicateMemberNames(members: Member[]): Set<string> {
   return dupes;
 }
 
+const SIDEBAR_ASSIGNEE_CHARS_MIN = 3;
+const SIDEBAR_ASSIGNEE_CHARS_MAX = 8;
+
+/** 左一覧の担当列。見えているラベルの文字数に合わせ、3文字以上8文字以下にする。 */
+export function assigneeColumnChars(labels: readonly string[]): number {
+  let chars = SIDEBAR_ASSIGNEE_CHARS_MIN;
+  for (const label of labels) {
+    if (label.length > chars) chars = label.length;
+  }
+  return Math.min(chars, SIDEBAR_ASSIGNEE_CHARS_MAX);
+}
+
 export function assigneeSidebarLabel(display: AssigneeDisplay): string {
   if (display.kind === "unknown") {
     return `${UNKNOWN_MEMBER_LABEL}（${display.id}）`;
