@@ -92,6 +92,7 @@ import { findTaskById } from "./model/rows";
 import {
   layoutStickyHeaders,
   scrollYToRevealTask,
+  scrollYToShowSelectedTask,
 } from "./model/stickyRows";
 import { findTaskPlace } from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
@@ -634,11 +635,17 @@ function App() {
       if (!row || row.type !== "task") return;
       reveal(
         parseDate(row.task.start),
-        scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+        scrollYToShowSelectedTask(
+          visibleRows,
+          row.y,
+          rowHeight,
+          bodyHeight,
+          scrollY,
+        ),
         taskBarWidthPx(row.task, dateToX, pxPerDay),
       );
     },
-    [bodyHeight, dateToX, pxPerDay, reveal, rowHeight, visibleRows],
+    [bodyHeight, dateToX, pxPerDay, reveal, rowHeight, scrollY, visibleRows],
   );
 
   const focusDetailName = useCallback(() => {
