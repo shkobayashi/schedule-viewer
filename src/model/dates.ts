@@ -57,6 +57,12 @@ export function fmtShort(d: Date): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 }
 
+const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"] as const;
+
+export function fmtWeekday(d: Date): string {
+  return WEEKDAY_LABELS[d.getUTCDay()] ?? "";
+}
+
 export function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }

@@ -89,8 +89,9 @@ function assertExportFits(input: ScheduleExportInput): void {
     );
   }
 }
-const FONT =
-  "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif";
+import { CSS_FONT_FAMILY } from "./fontStack";
+
+const FONT = CSS_FONT_FAMILY;
 
 export function scheduleExportFilename(
   title: string,

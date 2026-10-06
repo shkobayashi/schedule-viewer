@@ -9,13 +9,15 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { AlertTriangle } from "lucide-react";
 import { milestonesExceededBy } from "../model/milestones";
 import {
   assigneeSidebarLabel,
   resolveAssigneeDisplay,
 } from "../model/assigneeDisplay";
-import type { Member } from "../model/memberTypes";
-import type { MemberId } from "../model/memberTypes";
+import type { SidebarColumnsPreference } from "../model/viewPreferences";
+import { daysBetween, parseDate } from "../model/dates";
+import type { Member, MemberId } from "../model/memberTypes";
 import {
   categoryCollapseKey,
   groupCollapseKey,
@@ -102,6 +104,7 @@ type SidebarProps = {
   onSidebarWidthNudge: (delta: number) => void;
   onWheelRows: (event: WheelEvent) => void;
   sticky: StickyLayout;
+  sidebarColumns: SidebarColumnsPreference;
 };
 
 export function Sidebar({
@@ -143,6 +146,7 @@ export function Sidebar({
   onSidebarWidthNudge,
   onWheelRows,
   sticky,
+  sidebarColumns,
 }: SidebarProps) {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -602,6 +606,7 @@ export function Sidebar({
                   );
                 }}
                 onCancelReorder={onCancelReorder}
+                sidebarColumns={sidebarColumns}
               />
             );
           })}
@@ -982,6 +987,7 @@ function TaskSidebarRow({
   onPreviewReorder,
   onCommitReorder,
   onCancelReorder,
+  sidebarColumns,
 }: {
   task: Task;
   top: number;
@@ -992,6 +998,7 @@ function TaskSidebarRow({
   today: string;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
+  sidebarColumns: SidebarColumnsPreference;
   onOpenTaskNote: () => void;
   onTaskContextMenu: (x: number, y: number) => void;
   resolveReorderInsert: (
@@ -1158,16 +1165,29 @@ function TaskSidebarRow({
       >
         <span ref={textRef} className="slide-label-text">{task.name}</span>
       </span>
-      {task.confidence === "tentative" ? (
-        <span className="confidence-tentative">未確定</span>
+      {sidebarColumns.start ? (
+        <span className="sidebar-col">{task.start.slice(5)}</span>
+      ) : null}
+      {sidebarColumns.end ? (
+        <span className="sidebar-col">{task.end.slice(5)}</span>
+      ) : null}
+      {sidebarColumns.duration ? (
+        <span className="sidebar-col">
+          {daysBetween(parseDate(task.start), parseDate(task.end)) + 1}
+        </span>
+      ) : null}
+      {sidebarColumns.progress ? (
+        <span className="sidebar-col">{task.progress}%</span>
       ) : null}
       {exceeded.length > 0 ? (
-        <span className="milestone-alert" title={exceededTitle}>
-          超過
+        <span className="milestone-alert-icon" title={exceededTitle} aria-label="超過">
+          <AlertTriangle size={14} strokeWidth={2.25} />
         </span>
       ) : null}
       <span className={`assignee${assigneeClass}`}>
-        {assigneeSidebarLabel(assigneeDisplay)}
+        {assigneeDisplay.kind === "unassigned"
+          ? "未割当"
+          : assigneeSidebarLabel(assigneeDisplay)}
       </span>
     </div>
   );

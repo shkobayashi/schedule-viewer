@@ -42,18 +42,18 @@ describe("uiScaleForViewport", () => {
 
 describe("parseDisplayScalePreference", () => {
   it("accepts auto and fixed ratios", () => {
-    expect(parseDisplayScalePreference(null)).toBe("auto");
-    expect(parseDisplayScalePreference("auto")).toBe("auto");
+    expect(parseDisplayScalePreference(null)).toBe(1);
+    expect(parseDisplayScalePreference("")).toBe(1);
     expect(parseDisplayScalePreference("0.5")).toBe(0.5);
     expect(parseDisplayScalePreference("0.75")).toBe(0.75);
     expect(parseDisplayScalePreference("1")).toBe(1);
+    expect(parseDisplayScalePreference("auto")).toBe("auto");
     expect(parseDisplayScalePreference("1.25")).toBe(1.25);
     expect(parseDisplayScalePreference("1.5")).toBe(1.5);
     expect(parseDisplayScalePreference("2")).toBe(2);
   });
 
   it("falls back to auto for invalid stored values", () => {
-    expect(parseDisplayScalePreference("")).toBe("auto");
     expect(parseDisplayScalePreference("oops")).toBe("auto");
     expect(parseDisplayScalePreference("1.3")).toBe("auto");
   });
@@ -113,6 +113,6 @@ describe("display scale persistence", () => {
     expect(readDisplayScalePreference()).toBe(1.25);
     writeDisplayScalePreference("auto");
     expect(memory.has(DISPLAY_SCALE_LS_KEY)).toBe(false);
-    expect(readDisplayScalePreference()).toBe("auto");
+    expect(readDisplayScalePreference()).toBe(1);
   });
 });

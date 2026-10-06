@@ -1,4 +1,5 @@
 import { useRef, useState, type RefObject } from "react";
+import { ChevronDown, Plus } from "lucide-react";
 import type { Milestone, ScheduleFilters } from "../model/types";
 import { activeFilterCount } from "../model/filterChips";
 import {
@@ -11,6 +12,7 @@ import {
 import type { GridTier } from "../model/timeline";
 import { AppMenu } from "./AppMenu";
 import { FilterPanel } from "./FilterPanel";
+import { anchorBelowRect, menuViewportShift } from "./anchoredMenu";
 
 export type AssigneeFilterOption = {
   id: string;
@@ -21,12 +23,6 @@ export type SearchField = "name" | "note";
 
 type ToolbarProps = {
   title: string;
-  fileStatusLabel: string;
-  showDeferredReload?: boolean;
-  onDeferredReload?: () => void;
-  membersCatalogLabel: string | null;
-  membersCatalogError?: string | null;
-  calendarError?: string | null;
   filters: ScheduleFilters;
   searchField: SearchField;
   onSearchFieldChange: (field: SearchField) => void;
@@ -65,12 +61,6 @@ type ToolbarProps = {
 
 export function Toolbar({
   title,
-  fileStatusLabel,
-  showDeferredReload = false,
-  onDeferredReload,
-  membersCatalogLabel,
-  membersCatalogError = null,
-  calendarError = null,
   filters,
   searchField,
   onSearchFieldChange,
@@ -110,7 +100,27 @@ export function Toolbar({
   const linkKey = linkShortcutHint(commandKey);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const addButtonRef = useRef<HTMLDivElement>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addMenuPos, setAddMenuPos] = useState<{ left: number; top: number } | null>(
+    null,
+  );
   const filterCount = activeFilterCount(filters, false);
+
+  const showSelectionActions =
+    canDelete || Boolean(lineageName) || Boolean(linkSourceName);
+
+  const openAddMenu = () => {
+    const anchor = addButtonRef.current;
+    if (!anchor) return;
+    setAddMenuPos(anchorBelowRect(anchor));
+    setAddOpen(true);
+  };
+
+  const closeAddMenu = () => {
+    setAddOpen(false);
+    setAddMenuPos(null);
+  };
 
   const searchValue =
     searchField === "name" ? filters.search : filters.noteSearch;
@@ -135,28 +145,6 @@ export function Toolbar({
       />
       <h1 className="toolbar-title">
         <span className="toolbar-title-text">{title}</span>
-        <span className="tag">{fileStatusLabel}</span>
-        {showDeferredReload ? (
-          <button
-            type="button"
-            className="tag tag-btn"
-            onClick={onDeferredReload}
-          >
-            ファイルに更新あり — 読み直す
-          </button>
-        ) : null}
-        {membersCatalogError ? (
-          <span className="tag members-tag members-tag-error" title={membersCatalogError}>
-            メンバー設定エラー
-          </span>
-        ) : membersCatalogLabel ? (
-          <span className="tag members-tag">{membersCatalogLabel}</span>
-        ) : null}
-        {calendarError ? (
-          <span className="tag members-tag members-tag-error" title={calendarError}>
-            カレンダー設定エラー
-          </span>
-        ) : null}
       </h1>
       <div className="toolbar-search">
         <select
@@ -235,6 +223,8 @@ export function Toolbar({
       </div>
       </div>
       <div className="toolbar-row toolbar-row-actions">
+      {showSelectionActions ? (
+        <>
       <button
         type="button"
         className={`lineage-btn${lineageName ? " active" : ""}`}
@@ -264,15 +254,9 @@ export function Toolbar({
         </span>
         <span className="menu-shortcut">{linkKey}</span>
       </button>
-      <button type="button" className="toolbar-btn" onClick={onAdd}>
-        追加
-      </button>
-      <button type="button" className="toolbar-btn" onClick={onAddMilestone}>
-        マイルストン追加
-      </button>
       <button
         type="button"
-        className="toolbar-btn toolbar-btn-with-shortcut"
+        className="toolbar-btn toolbar-btn-with-shortcut toolbar-btn-danger"
         disabled={!canDelete}
         title={canDelete ? "選択中のタスクを削除" : "タスクを選択してから削除"}
         onClick={onDelete}
@@ -280,6 +264,57 @@ export function Toolbar({
         <span>削除</span>
         <span className="menu-shortcut">{deleteShortcutHint()}</span>
       </button>
+        </>
+      ) : null}
+      <div className="add-split" ref={addButtonRef}>
+        <button type="button" className="toolbar-btn toolbar-btn-primary" onClick={onAdd}>
+          <Plus size={16} strokeWidth={2.25} aria-hidden="true" />
+          <span>追加</span>
+        </button>
+        <button
+          type="button"
+          className="toolbar-btn toolbar-btn-primary add-split-toggle"
+          aria-expanded={addOpen}
+          aria-label="追加の種類"
+          onClick={() => (addOpen ? closeAddMenu() : openAddMenu())}
+        >
+          <ChevronDown size={16} aria-hidden="true" />
+        </button>
+        {addOpen && addMenuPos ? (
+          <div
+            className="app-menu-panel app-menu-panel--fixed add-split-menu"
+            style={{
+              left: addMenuPos.left,
+              top: addMenuPos.top,
+              transform: `translate(${menuViewportShift(
+                addButtonRef.current!.getBoundingClientRect(),
+              ).x}px, ${menuViewportShift(addButtonRef.current!.getBoundingClientRect()).y}px)`,
+            }}
+            role="menu"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                closeAddMenu();
+                onAdd();
+              }}
+            >
+              タスクを追加
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                closeAddMenu();
+                onAddMilestone();
+              }}
+            >
+              マイルストンを追加
+            </button>
+          </div>
+        ) : null}
+      </div>
       <button
         type="button"
         className="toolbar-btn toolbar-btn-with-shortcut"

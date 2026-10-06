@@ -6,7 +6,7 @@
   "permissions": [
     "core:default",
     "core:window:allow-close",
-    "core:window:allow-destroy",
+    "core:window:allow-set-title",
     "allow-open-schedule-file",
     "allow-check-schedule-file-changed",
     "allow-poll-schedule-file-update",

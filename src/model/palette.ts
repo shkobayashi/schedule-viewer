@@ -55,6 +55,8 @@ export type CssPalette = {
   textSecondary: string;
   accent: string;
   today: string;
+  danger: string;
+  dangerOn: string;
   surface: string;
   accentSoft: string;
   rowBorder: string;
@@ -80,6 +82,7 @@ export type CssPalette = {
   modalShadow: string;
   menuShadow: string;
   onAccent: string;
+  onAccentDark: string;
 };
 
 export type AppPalette = {
@@ -96,8 +99,10 @@ const LIGHT: AppPalette = {
     textSecondary: "#697586",
     accent: "#4c5fd5",
     today: "#e2542a",
+    danger: "#c4351a",
+    dangerOn: "#ffffff",
     surface: "#ffffff",
-    accentSoft: "#eef0fe",
+    accentSoft: "#dce3fb",
     rowBorder: "#f0f1f4",
     groupBg: "#f3f5f8",
     groupText: "#4b5568",
@@ -105,7 +110,7 @@ const LIGHT: AppPalette = {
     noteEmpty: "#c5cad3",
     noteHoverBg: "#e8ebf4",
     noteEmptyHover: "#9aa3b2",
-    selectedRow: "#eef0fe",
+    selectedRow: "#dce3fb",
     unassignedAccent: "#d4920a",
     unassignedText: "#8a5a00",
     unassignedBg: "#fff4d6",
@@ -121,14 +126,15 @@ const LIGHT: AppPalette = {
     modalShadow: "rgba(16, 24, 40, 0.2)",
     menuShadow: "rgba(0, 0, 0, 0.12)",
     onAccent: "#ffffff",
+    onAccentDark: "#12152b",
   },
   chart: {
-    summaryCovered: "#5C6B82",
+    summaryCovered: "#8A94A6",
     summaryGap: "#D5DBE3",
     headerBorder: "#E3E6EB",
     monthGrid: "#C7CCD6",
     textPrimary: "#1F2937",
-    textSecondary: "#8A94A6",
+    textSecondary: "#697586",
     nonWorking: "#F4F5F8",
     gridMonday: "#9AA5B4",
     gridWeekday: "#E3E6EB",
@@ -153,7 +159,7 @@ const LIGHT: AppPalette = {
     unassignedCap: "#E0A020",
     unknownCap: "#7B5EA7",
     overrunOverlay: "rgba(196, 53, 26, 0.45)",
-    statusNotStarted: { bg: "#EDEFF3", fill: null, border: "#C4CAD4" },
+    statusNotStarted: { bg: "#E2E6ED", fill: null, border: "#7d8799" },
     statusInProgress: { bg: "#DEE3FB", fill: "#4C5FD5", border: "#4C5FD5" },
     statusDone: { bg: "#2E9E6C", fill: null, border: "#278A5E" },
     overdueInProgress: { bg: "#F8D0C8", fill: "#E2542A", border: "#C4351A" },
@@ -173,8 +179,10 @@ const DARK: AppPalette = {
     textSecondary: "#a8b0bf",
     accent: "#7b8cff",
     today: "#f07050",
+    danger: "#c4351a",
+    dangerOn: "#ffffff",
     surface: "#23272f",
-    accentSoft: "#2e3344",
+    accentSoft: "#343b52",
     rowBorder: "#323844",
     groupBg: "#2a2f3a",
     groupText: "#b8c0cf",
@@ -182,7 +190,7 @@ const DARK: AppPalette = {
     noteEmpty: "#5c6578",
     noteHoverBg: "#323844",
     noteEmptyHover: "#7a8496",
-    selectedRow: "#2e3344",
+    selectedRow: "#343b52",
     unassignedAccent: "#d4920a",
     unassignedText: "#e8c060",
     unassignedBg: "#3d3520",
@@ -197,10 +205,11 @@ const DARK: AppPalette = {
     overlay: "rgba(0, 0, 0, 0.55)",
     modalShadow: "rgba(0, 0, 0, 0.45)",
     menuShadow: "rgba(0, 0, 0, 0.35)",
-    onAccent: "#e8eaef",
+    onAccent: "#12152b",
+    onAccentDark: "#12152b",
   },
   chart: {
-    summaryCovered: "#8a9bb5",
+    summaryCovered: "#6b7588",
     summaryGap: "#3a4050",
     headerBorder: "#3a4050",
     monthGrid: "#5c6578",
@@ -230,7 +239,7 @@ const DARK: AppPalette = {
     unassignedCap: "#e8c060",
     unknownCap: "#a888d8",
     overrunOverlay: "rgba(240, 112, 80, 0.45)",
-    statusNotStarted: { bg: "#3a4050", fill: null, border: "#5c6578" },
+    statusNotStarted: { bg: "#454b5c", fill: null, border: "#8a94a6" },
     statusInProgress: { bg: "#2e3344", fill: "#7b8cff", border: "#7b8cff" },
     statusDone: { bg: "#3d9a72", fill: null, border: "#4cb088" },
     overdueInProgress: { bg: "#4a302c", fill: "#f07050", border: "#f07050" },
@@ -255,6 +264,8 @@ export function applyCssPalette(palette: AppPalette): void {
   root.style.setProperty("--text-secondary", c.textSecondary);
   root.style.setProperty("--accent", c.accent);
   root.style.setProperty("--today", c.today);
+  root.style.setProperty("--danger", c.danger);
+  root.style.setProperty("--danger-on", c.dangerOn);
   root.style.setProperty("--surface", c.surface);
   root.style.setProperty("--accent-soft", c.accentSoft);
   root.style.setProperty("--row-border", c.rowBorder);
@@ -280,4 +291,5 @@ export function applyCssPalette(palette: AppPalette): void {
   root.style.setProperty("--modal-shadow", c.modalShadow);
   root.style.setProperty("--menu-shadow", c.menuShadow);
   root.style.setProperty("--on-accent", c.onAccent);
+  root.style.setProperty("--on-accent-dark", c.onAccentDark);
 }
