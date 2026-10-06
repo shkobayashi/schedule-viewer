@@ -127,6 +127,60 @@ export function scrollYToRevealTask(
   return scrollY;
 }
 
+/**
+ * 選択時用。行が見えていれば currentScrollY のまま。
+ * 上に隠れていれば固定段の下へ、下にはみ出していれば下端が入るまでだけ動かす。
+ */
+export function scrollYToShowSelectedTask(
+  rows: readonly VisibleRow[],
+  taskY: number,
+  rowHeight: number,
+  viewportHeight: number,
+  currentScrollY: number,
+): number {
+  if (rows.length === 0 || rowHeight <= 0) return currentScrollY;
+  const contentHeight = rows[rows.length - 1].y + rowHeight;
+  const maxScrollY = Math.max(0, contentHeight - viewportHeight);
+  const scrollY = clampScrollY(currentScrollY, maxScrollY);
+
+  if (contentHeight <= viewportHeight) return scrollY;
+  if (rowHeight >= viewportHeight) {
+    return scrollYToRevealTask(rows, taskY, rowHeight, viewportHeight);
+  }
+
+  const layout = layoutStickyHeaders(rows, scrollY, rowHeight, viewportHeight);
+  const viewTop = scrollY + layout.clipTop;
+  const viewBottom = scrollY + viewportHeight;
+  const taskBottom = taskY + rowHeight;
+
+  if (taskBottom > viewTop && taskY < viewBottom) {
+    return scrollY;
+  }
+
+  if (taskBottom <= viewTop || taskY < scrollY) {
+    return scrollYToRevealTask(rows, taskY, rowHeight, viewportHeight);
+  }
+
+  let next = clampScrollY(taskY + rowHeight - viewportHeight, maxScrollY);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const nextLayout = layoutStickyHeaders(rows, next, rowHeight, viewportHeight);
+    const top = taskY - next;
+    if (top >= nextLayout.clipTop && top + rowHeight <= viewportHeight) {
+      return next;
+    }
+    if (top < nextLayout.clipTop) {
+      next = clampScrollY(taskY - nextLayout.clipTop, maxScrollY);
+      continue;
+    }
+    next = clampScrollY(taskY + rowHeight - viewportHeight, maxScrollY);
+  }
+  return next;
+}
+
+function clampScrollY(scrollY: number, maxScrollY: number): number {
+  return Math.max(0, Math.min(scrollY, maxScrollY));
+}
+
 function pushSlot(
   draws: StickyDraw[],
   hiddenIndexes: number[],
