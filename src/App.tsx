@@ -450,6 +450,7 @@ function App() {
     [schedule.categories, schedule.milestones, schedule.today],
   );
 
+  const [timelineEpoch, setTimelineEpoch] = useState(0);
   const view = useTimelineView(
     {
       timelineStart: range.timelineStart,
@@ -470,6 +471,7 @@ function App() {
       return Math.max(0, schedule.visibleRows.length * rowHeight - body);
     },
     schedule.today,
+    `${timelineEpoch}:${schedule.diskEpoch}`,
   );
 
   const milestoneBandLayout: MilestoneBandLayout = useMemo(
@@ -515,6 +517,8 @@ function App() {
     scrollY,
     tier,
     dateToX,
+    timelineStart: viewStart,
+    totalDays: viewTotalDays,
   } = view;
 
   const filterAssigneeLabel = useMemo(
@@ -527,6 +531,7 @@ function App() {
 
   const onAfterOpenFile = useCallback(() => {
     setPendingFit(true);
+    setTimelineEpoch((epoch) => epoch + 1);
   }, []);
 
   useEffect(() => {
@@ -704,9 +709,9 @@ function App() {
 
   const handleResizeStart = useCallback(
     (taskId: ScheduleId, groupX: number) => {
-      setTaskStart(taskId, resizeStartIso(range.timelineStart, xToDate, groupX));
+      setTaskStart(taskId, resizeStartIso(viewStart, xToDate, groupX));
     },
-    [range.timelineStart, setTaskStart, xToDate],
+    [viewStart, setTaskStart, xToDate],
   );
 
   const stickyLayout = useMemo(
@@ -732,10 +737,10 @@ function App() {
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
       setTaskEnd(
         taskId,
-        resizeEndIso(range.timelineStart, xToDate, groupX, barWidth),
+        resizeEndIso(viewStart, xToDate, groupX, barWidth),
       );
     },
-    [range.timelineStart, setTaskEnd, xToDate],
+    [viewStart, setTaskEnd, xToDate],
   );
 
   const runScheduleExport = useCallback(
@@ -1179,16 +1184,16 @@ function App() {
     (chartX: number, clientX: number, clientY: number) => {
       if (linkSourceId != null) return;
       const date = isoDateAtChartX(
-        range.timelineStart,
+        viewStart,
         scrollX,
         pxPerDay,
         chartX,
-        range.totalDays,
+        viewTotalDays,
       );
       if (date == null) return;
       setContextMenu({ kind: "addMilestone", date, x: clientX, y: clientY });
     },
-    [linkSourceId, pxPerDay, range.timelineStart, range.totalDays, scrollX],
+    [linkSourceId, pxPerDay, viewStart, viewTotalDays, scrollX],
   );
 
   const onLinkTargetClick = useCallback(
@@ -1578,9 +1583,9 @@ function App() {
             scrollX={scrollX}
             scrollY={scrollY}
             tier={tier}
-            timelineStart={range.timelineStart}
+            timelineStart={viewStart}
             timelineEnd={range.timelineEnd}
-            totalDays={range.totalDays}
+            totalDays={viewTotalDays}
             dateToX={view.dateToX}
             xToDate={view.xToDate}
             selectedTaskId={schedule.selectedTaskId}

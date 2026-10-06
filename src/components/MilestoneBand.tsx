@@ -175,16 +175,12 @@ function MilestoneMark({
       y={y}
       draggable={!linkMode}
       dragBoundFunc={(pos) => ({ x: pos.x, y })}
-      onMouseEnter={(e) => {
+      onMouseEnter={() => {
         if (linkMode) return;
         onHoverChange(true);
-        const container = e.target.getStage()?.container();
-        if (container) container.style.cursor = "ew-resize";
       }}
-      onMouseLeave={(e) => {
+      onMouseLeave={() => {
         onHoverChange(false);
-        const container = e.target.getStage()?.container();
-        if (container) container.style.cursor = "";
       }}
       onContextMenu={(e) => {
         e.cancelBubble = true;

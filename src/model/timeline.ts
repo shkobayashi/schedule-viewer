@@ -84,6 +84,27 @@ export function computeTimelineRange(
   return { timelineStart, timelineEnd, totalDays };
 }
 
+/**
+ * データの開始が動いたとき、同じ日が同じ位置に残る原点とスクロールを返す。
+ * 左端より前には戻せないので、そのときは原点を据え置く。
+ */
+export function resolveTimelineOrigin(input: {
+  pinnedStart: Date;
+  dataStart: Date;
+  scrollX: number;
+  pxPerDay: number;
+}): { pinnedStart: Date; scrollX: number } {
+  if (input.pinnedStart.getTime() === input.dataStart.getTime()) {
+    return { pinnedStart: input.pinnedStart, scrollX: input.scrollX };
+  }
+  const deltaDays = daysBetween(input.pinnedStart, input.dataStart);
+  const desired = input.scrollX - deltaDays * input.pxPerDay;
+  if (desired < 0) {
+    return { pinnedStart: input.pinnedStart, scrollX: input.scrollX };
+  }
+  return { pinnedStart: input.dataStart, scrollX: desired };
+}
+
 export function statusColors(
   status: string,
   chart: ChartPalette = paletteFor("light").chart,
