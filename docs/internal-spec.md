@@ -213,6 +213,10 @@ flowchart TD
 | `read_schedule_file_at_path` | パス。控えのパスと一致するときだけ本文 | `SCHEDULE_FILE_NOT_FOUND` | 同上 | 同上 |
 | `read_last_schedule_file` | 引数なし。覚えたパスと本文。無ければ null | 記録の形式。欠落は戻り値の error に `SCHEDULE_FILE_NOT_FOUND` | 同上 | 同上 |
 | `clear_last_schedule_path` | なし | — | 同上 | 同上 |
+| `json_skill_home_dirs` | 引数なし。`~/.cursor` と `~/.claude` がディレクトリか | — | `json-skills.toml` | `jsonSkills.ts` |
+| `pick_json_skill_folder` | フォルダダイアログ。選んだ絶対パスまたは取り消し | — | 同上 | 同上 |
+| `install_json_skills` | ツール、範囲、プロジェクトフォルダ、置き換え。置いたパス、既存パス、Claude の優先警告 | 同梱スキル欠落、パス不正 | 同上 | 同上 |
+| `uninstall_json_skills` | ツール、範囲、プロジェクトフォルダ。外したパスと無かったパス | パス不正 | 同上 | 同上 |
 
 ダイアログで選んだだけでは `ScheduleFileState` は更新されない。検証に通したあと `accept_opened_schedule` を呼ぶ。
 
@@ -231,6 +235,8 @@ CSP は `default-src 'self'` で、インラインのスタイルと、Tauri の
 capability はメインウィンドウに、`core:default`、`core:menu:default`、ウィンドウの close、destroy、set-title、上のコマンドだけを与える。close、destroy、set-title は、未保存の確認のあとフロントからウィンドウを閉じるために必要である。
 
 上書きは、開いているパスとフロントが渡したパスが一致するときだけ行う。任意のパスを読めるコマンドは無く、`read_last_schedule_file` は覚えたパス（無ければ控えのパス）だけを読む。`read_schedule_file_at_path` は控えに書いたパスだけを読む。`read_open_schedule_file` は呼び出し元からパスを受け取らず、`ScheduleFileState` が覚えている開いているパスだけを読む。保存するファイル名は、区切り文字、制御文字、Windows の予約名を除く。カタログ ID も、パスに使えない文字を拒否する。
+
+JSON 作成スキルの配置は `install_json_skills` だけが行う。外すのは `uninstall_json_skills` だけである。書けるのは、ログイン中のユーザーのホーム配下の `~/.cursor/skills/<name>/` と `~/.claude/skills/<name>/`、または利用者がフォルダダイアログで選んだ絶対パス配下の `.cursor/skills/<name>/` と `.claude/skills/<name>/` だけである。外すのも同じ `<name>` の3つだけである。`<name>` は `write-schedule`、`write-members`、`write-calendar` の3つだけ。プロジェクトフォルダはシンボリックリンクを拒否する。宛先がシンボリックリンクのときはリンクだけ外し、リンク先は消さない。`.cursor` と `.claude` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。中身はバンドル内 `json-skills/` からコピーする。外すときは skills フォルダや別名のスキルは残す。スキルフォルダの中にあるシンボリックリンクの先は消さない。
 
 ## 描画
 

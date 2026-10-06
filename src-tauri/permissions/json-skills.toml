@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-json-skill-home-dirs"
+description = "Allows detecting Cursor and Claude Code home directories."
+commands.allow = ["json_skill_home_dirs"]
+
+[[permission]]
+identifier = "allow-pick-json-skill-folder"
+description = "Allows picking a project folder for JSON skill installation."
+commands.allow = ["pick_json_skill_folder"]
+
+[[permission]]
+identifier = "allow-install-json-skills"
+description = "Allows installing bundled JSON authoring skills to Cursor or Claude Code."
+commands.allow = ["install_json_skills"]
+
+[[permission]]
+identifier = "allow-uninstall-json-skills"
+description = "Allows removing installed JSON authoring skills from Cursor or Claude Code."
+commands.allow = ["uninstall_json_skills"]

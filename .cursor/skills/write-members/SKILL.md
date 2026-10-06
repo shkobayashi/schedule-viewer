@@ -46,7 +46,7 @@ schedule-viewer の設定から取り込む、担当者の ID と表示名の JS
 1. ユーザーから ID と表示名を整理する
 2. 既存 JSON を更新する場合は、残す人の `id` を維持する
 3. `schemaVersion: 1` を付け、`members` を含める
-4. `node scripts/validate-members.mjs`（リポジトリ内は `.cursor/skills/write-members/scripts/validate-members.mjs`）で検証する
+4. このスキルフォルダで `node scripts/validate-members.mjs <file>` を実行して検証する
 5. エラーがあれば修正して再検証し、通ってからユーザーに渡す
 
 ## 画面にないものは入れない
