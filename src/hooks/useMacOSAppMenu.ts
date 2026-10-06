@@ -2,11 +2,13 @@ import { useEffect, useRef } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { requestApplicationQuitViaTauri } from "../model/windowSession";
 import type { GridTier } from "../model/timeline";
 
 export type MacOSAppMenuHandlers = {
   fileBusy: () => boolean;
   onOpen: () => void;
+  onOpenInNewWindow: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   onExportHtml: () => void;
@@ -70,7 +72,7 @@ export function useMacOSAppMenu(handlers: MacOSAppMenuHandlers): void {
             text: "schedule-viewer を終了",
             accelerator: "Command+Q",
             action: () => {
-              void getCurrentWindow().close();
+              void requestApplicationQuitViaTauri();
             },
           }),
         ],
@@ -80,6 +82,11 @@ export function useMacOSAppMenu(handlers: MacOSAppMenuHandlers): void {
         text: "ファイル",
         items: [
           await fileItem("file-open", "開く", () => h().onOpen()),
+          await fileItem(
+            "file-open-new",
+            "新しいウィンドウで開く",
+            () => h().onOpenInNewWindow(),
+          ),
           await fileItem("file-save", "保存", () => h().onSave()),
           await fileItem("file-save-as", "別名保存", () => h().onSaveAs()),
           await PredefinedMenuItem.new({ item: "Separator" }),

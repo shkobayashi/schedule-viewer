@@ -1612,6 +1612,18 @@ button:focus-visible,
   color: var(--text);
 }
 
+.app-toast--action {
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.app-toast--action + .app-toast,
+.app-toast + .app-toast--action {
+  bottom: calc(72px * var(--s));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .toolbar-btn,
   .app-menu-panel,

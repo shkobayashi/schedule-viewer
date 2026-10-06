@@ -208,8 +208,12 @@ export type ScheduleRecoveryDraft = {
   documentJson: string;
 };
 
-export async function readScheduleRecoveryViaTauri(): Promise<string | null> {
-  return invoke<string | null>("read_schedule_recovery");
+export async function readScheduleRecoveryViaTauri(
+  path?: string | null,
+): Promise<string | null> {
+  return invoke<string | null>("read_schedule_recovery", {
+    path: path ?? null,
+  });
 }
 
 export async function writeScheduleRecoveryViaTauri(
@@ -220,8 +224,8 @@ export async function writeScheduleRecoveryViaTauri(
   });
 }
 
-export async function deleteScheduleRecoveryViaTauri(): Promise<void> {
-  await invoke("delete_schedule_recovery");
+export async function deleteScheduleRecoveryViaTauri(path: string): Promise<void> {
+  await invoke("delete_schedule_recovery", { path });
 }
 
 export async function readScheduleFileAtPathViaTauri(

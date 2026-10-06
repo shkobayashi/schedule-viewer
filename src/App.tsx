@@ -54,6 +54,7 @@ import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useScheduleFile } from "./hooks/useScheduleFile";
+import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
 import { errorMessage } from "./model/errors";
 import {
@@ -98,6 +99,7 @@ import { computeTimelineRange, taskBarWidthPx } from "./model/timeline";
 import type { ScheduleId, Task } from "./model/types";
 import {
   applyResolvedColorScheme,
+  COLOR_SCHEME_LS_KEY,
   readColorSchemePreference,
   resolveColorScheme,
   subscribeSystemColorScheme,
@@ -105,6 +107,7 @@ import {
 } from "./model/colorScheme";
 import type { ResolvedColorScheme } from "./model/palette";
 import {
+  DISPLAY_SCALE_LS_KEY,
   readDisplayScalePreference,
   readUiScale,
   resolveUiScale,
@@ -120,15 +123,20 @@ import {
   appliedSidebarWidth,
   nudgeSidebarWidth,
   readSidebarWidth,
+  SIDEBAR_WIDTH_LS_KEY,
   writeSidebarWidth,
 } from "./model/sidebarWidth";
 import {
   readRowDensity,
   readShowLightning,
   readSidebarColumns,
+  ROW_DENSITY_LS_KEY,
+  SHOW_LIGHTNING_LS_KEY,
+  SIDEBAR_COLUMNS_LS_KEY,
   type RowDensity,
   type SidebarColumnsPreference,
 } from "./model/viewPreferences";
+import { SETTINGS_REVISION_KEY } from "./model/sharedSettingsRevision";
 import { seedSampleMemberCatalogOnce } from "./model/memberAppData";
 import {
   SAMPLE_MEMBERS_CATALOG_ID,
@@ -368,6 +376,40 @@ function App() {
   const memberCatalogState = useMemberCatalog();
   const appCalendarState = useAppCalendar();
 
+  const refreshMemberCatalog = memberCatalogState.refresh;
+  const refreshAppCalendar = appCalendarState.refresh;
+  const refreshSharedSettings = useCallback((key: string | null) => {
+    const all = key == null;
+    if (all || key === SETTINGS_REVISION_KEY) {
+      void refreshMemberCatalog();
+      void refreshAppCalendar();
+    }
+    if (all || key === DISPLAY_SCALE_LS_KEY || key === SETTINGS_REVISION_KEY) {
+      setDisplayScalePreference(readDisplayScalePreference());
+    }
+    if (all || key === COLOR_SCHEME_LS_KEY) {
+      const preference = readColorSchemePreference();
+      setColorSchemePreference(preference);
+      setResolvedColorScheme(resolveColorScheme(preference));
+    }
+    if (all || key === SIDEBAR_WIDTH_LS_KEY) {
+      const next = readSidebarWidth();
+      preferredSidebarWidthRef.current = next;
+      setPreferredSidebarWidth(next);
+    }
+    if (all || key === ROW_DENSITY_LS_KEY) {
+      setRowDensity(readRowDensity());
+    }
+    if (all || key === SHOW_LIGHTNING_LS_KEY) {
+      setShowLightningLine(readShowLightning());
+    }
+    if (all || key === SIDEBAR_COLUMNS_LS_KEY) {
+      setSidebarColumns(readSidebarColumns());
+    }
+  }, [refreshAppCalendar, refreshMemberCatalog]);
+
+  useSharedSettingsRevision(refreshSharedSettings);
+
   useEffect(() => {
     void (async () => {
       await seedSampleMemberCatalogOnce(
@@ -521,6 +563,13 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [scheduleFile.reloadNotice]);
 
+  const peerNoticeMessage = useMemo(() => {
+    const notice = scheduleFile.peerNotice.peerNotice;
+    if (!notice) return null;
+    const statusLabel = notice.status === "applied" ? "反映した" : "確認待ち";
+    return `${notice.fileName} — ${statusLabel}`;
+  }, [scheduleFile.peerNotice.peerNotice]);
+
   const { visibleTaskCount, totalTaskCount } = useMemo(() => {
     const total = listTasks(schedule.categories).length;
     const visible = schedule.visibleRows.filter((row) => row.type === "task").length;
@@ -544,7 +593,7 @@ function App() {
     setTaskConfidence,
     setMilestoneConfidence,
   } = schedule;
-  const { fileBusy, requestOpen, save } = scheduleFile;
+  const { fileBusy, requestOpen, requestOpenInNewWindow, save } = scheduleFile;
 
   useEffect(() => {
     if (linkSourceId == null) return;
@@ -875,6 +924,7 @@ function App() {
   const commandPaletteContext = useMemo(
     () => ({
       fileBusy: scheduleFile.fileBusy,
+      isTauriDesktop: isTauri(),
       canUndo: schedule.canUndo,
       canRedo: schedule.canRedo,
       selectedTaskId: schedule.selectedTaskId,
@@ -914,6 +964,9 @@ function App() {
       switch (id) {
         case "open":
           scheduleFile.requestOpen();
+          break;
+        case "openNewWindow":
+          scheduleFile.requestOpenInNewWindow();
           break;
         case "save":
           void scheduleFile.save(false);
@@ -1016,6 +1069,7 @@ function App() {
     fileBusy,
     save,
     requestOpen,
+    requestOpenInNewWindow,
     categories,
     selectedTaskId,
     linkSourceId,
@@ -1050,6 +1104,7 @@ function App() {
   useMacOSAppMenu({
     fileBusy: () => scheduleFile.fileBusy,
     onOpen: scheduleFile.requestOpen,
+    onOpenInNewWindow: scheduleFile.requestOpenInNewWindow,
     onSave: () => void scheduleFile.save(false),
     onSaveAs: () => void scheduleFile.save(true),
     onExportHtml: () => setExportOpen(true),
@@ -1412,6 +1467,7 @@ function App() {
         onShowJson={() => setJsonOpen(true)}
         onShowDiff={showScheduleDiff}
         onOpen={scheduleFile.requestOpen}
+        onOpenInNewWindow={scheduleFile.requestOpenInNewWindow}
         onSave={() => void scheduleFile.save(false)}
         onSaveAs={() => void scheduleFile.save(true)}
         onOpenSettings={() => {
@@ -1606,6 +1662,10 @@ function App() {
         onOpenShortcuts={() => setShortcutsOpen(true)}
       />
       <AppToast message={toastMessage} />
+      <AppToast
+        message={peerNoticeMessage}
+        onClick={() => void scheduleFile.peerNotice.focusPeerTarget()}
+      />
       {contextMenu ? (
         <ContextMenu
           x={contextMenu.x}
