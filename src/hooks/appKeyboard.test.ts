@@ -6,6 +6,7 @@ const pointer: ChartPointer = {
   overTask: false,
   overMilestone: false,
   link: null,
+  hoverTaskId: null,
 };
 
 const field: AppKeyTarget = { tagName: "INPUT", isContentEditable: false };
@@ -23,6 +24,8 @@ function decide(
       repeat: false,
     },
     dialogOpen: false,
+    commandPaletteOpen: false,
+    macAppQuit: false,
     menuOpen: false,
     target: null,
     linkSourceId: null,
@@ -55,7 +58,7 @@ describe("decideAppKey", () => {
           altKey: false,
           repeat: false,
         },
-        pointer: { overTask: false, overMilestone: false, link },
+        pointer: { overTask: false, overMilestone: false, link, hoverTaskId: null },
         selectedTaskId: "task-a",
       }).action,
     ).toEqual({ type: "deleteLink", fromId: "from", toId: "to" });
@@ -69,7 +72,7 @@ describe("decideAppKey", () => {
           altKey: false,
           repeat: false,
         },
-        pointer: { overTask: true, overMilestone: false, link },
+        pointer: { overTask: true, overMilestone: false, link, hoverTaskId: null },
         selectedTaskId: "task-a",
       }).action,
     ).toEqual({ type: "deleteTask" });

@@ -42,9 +42,15 @@ flowchart TD
 | ファイル | 役割 |
 | --- | --- |
 | `AppMenu.tsx` | ☰ メニュー |
-| `ContextMenu.tsx` | タスク、マイルストン、カテゴリ、グループ、チャートの空きの右クリックメニュー。タスクは編集、複製、確度、ノート、系統、削除。カテゴリとグループは名前の変更だけ。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す |
-| `Toolbar.tsx` | 見出し、検索、絞り込み、系統、線を引く、追加、マイルストン追加、削除、ズーム |
-| `Sidebar.tsx` | 左の行、折りたたみ、名前の横ずらし |
+| `ContextMenu.tsx` | タスク、マイルストン、カテゴリ、グループ、チャートの空きの右クリックメニュー。区切り、危険色の削除、Lucide アイコン、ショートカット表示。タスクは編集、複製、確度、ノート、系統、削除。カテゴリは名前の変更、下へのカテゴリ追加、グループ追加、条件付きの削除。グループは名前の変更、下へのグループ追加、条件付きの削除。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す |
+| `TaskDetailPanel.tsx` | 選択中タスクの右パネル。`applyTaskPatch` で項目ごとに履歴。フォーカス中は外部反映を止める |
+| `StatusBar.tsx` | 画面下端。未保存のクリックで差分ダイアログ |
+| `Toolbar.tsx` | 見出し、検索、絞り込みパネル、系統、線を引く、追加、マイルストン追加、削除、取り消し、やり直し、今日と日・週・月・全体 |
+| `ActiveFilterBar.tsx` | 効いている絞り込みと系統の札 |
+| `FilterPanel.tsx` | 絞り込みの選択欄 |
+| `ShortcutsDialog.tsx` | ショートカット一覧 |
+| `CommandPalette.tsx` | ⌘/Ctrl+K のコマンドパレット |
+| `Sidebar.tsx` | 左の行、折りたたみ、名前の横ずらし、タスク行のクリック選択とホバー帯、縦ドラッグによる並べ替えと別グループへの移動、グループ行の縦ドラッグによる並べ替えと別カテゴリへの移動、カテゴリ行の縦ドラッグによる並べ替え |
 | `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer` |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
@@ -57,7 +63,8 @@ flowchart TD
 
 | フック | 持つもの |
 | --- | --- |
-| `useSchedule` | 文書、取り消し、絞り込み、選択、折りたたみ、系統、編集対象、複製元 |
+| `useSchedule` | 文書、取り消し、絞り込み、選択、折りたたみ、系統、編集対象、複製元、タスクとカテゴリの並べ替えのプレビュー |
+| `useMacOSAppMenu` | macOS のデスクトップ版だけ、画面上部のアプリメニューを組み立てる |
 | `useScheduleFile` | パス、未保存の基準、開く、閉じる確認。保存、控え、外部更新、起動復旧は `src/hooks/scheduleFile/` に分け、戻り値はここがまとめる |
 | `useAppKeyboard` | ウィンドウのキー。押した結果の判断は `appKeyboard.ts` |
 | `useTimelinePointer` | チャートとマイルストン帯のホバー、線を引くときの追随。当たりは `chartHitTest.ts` |
@@ -74,7 +81,7 @@ flowchart TD
 | --- | --- |
 | 型 | `types.ts`、`memberTypes.ts`、`calendarTypes.ts` |
 | 検証 | `validateSchedule.ts`、`validateMembers.ts`、`validateCalendar.ts`、`*Semantics.ts`、`scheduleMigrate.ts`、`uuidV5.ts`、`validationMessages.ts`、`generated/` |
-| 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`tasks.ts` |
+| 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`tasks.ts`、`taskOrder.ts`、`categoryOrder.ts`、`groupOrder.ts` |
 | 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`dates.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
 | 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
@@ -221,21 +228,21 @@ flowchart TD
 
 CSP は `default-src 'self'` で、インラインのスタイルと、Tauri の IPC 接続だけを追加で許す。Windows の IPC のため `connect-src` に `ipc:` と `http://ipc.localhost`、`https://ipc.localhost` がある。スクリプトの eval は許さない。
 
-capability はメインウィンドウに、`core:default`、ウィンドウの close と destroy、上のコマンドだけを与える。close と destroy は、未保存の確認のあとフロントからウィンドウを閉じるために必要である。
+capability はメインウィンドウに、`core:default`、`core:menu:default`、ウィンドウの close、destroy、set-title、上のコマンドだけを与える。close、destroy、set-title は、未保存の確認のあとフロントからウィンドウを閉じるために必要である。
 
 上書きは、開いているパスとフロントが渡したパスが一致するときだけ行う。任意のパスを読めるコマンドは無く、`read_last_schedule_file` は覚えたパス（無ければ控えのパス）だけを読む。`read_schedule_file_at_path` は控えに書いたパスだけを読む。`read_open_schedule_file` は呼び出し元からパスを受け取らず、`ScheduleFileState` が覚えている開いているパスだけを読む。保存するファイル名は、区切り文字、制御文字、Windows の予約名を除く。カタログ ID も、パスに使えない文字を拒否する。
 
 ## 描画
 
-`Timeline.tsx` は日付ヘッダー、本体、前後の線、親バー、タスクバー、イナズマ線を Konva で描く。未確定のタスクバーの地は、`hatch.ts` の斜線パターンである。確定はベタ塗りである。進捗の濃い帯は斜線の上にベタで描く。書き出しの SVG も同じ定数の `pattern` を使う。マイルストンは `MilestoneBand.tsx` である。未確定のひし形も同じ斜線で、確定は塗りつぶす。左の名前は DOM の `Sidebar.tsx` で、縦位置だけをチャートと揃える。左の一覧の行の上のホイールは、`useTimelineView` の `handleWheel` をチャート本体と同じく呼ぶ。ズームの基準はチャートの左端である。`Sidebar.tsx` は `passive: false` で受け、既定のスクロールは止める。縦スクロールで残すカテゴリとグループは `stickyRows.ts` の `layoutStickyHeaders` が決める。左は、その行をスクロール層から外し、ビューポート上端のオーバーレイに同じ行として描く。右は、スクロールする本体を `clipTop` より下だけ描き、固定層には同じ地、非稼働日、縦格子、下端の線、親バーを、その行のクリップ矩形の中だけ描く。親バーの x は `dateToX` のままである。ポインタの y が `clipTop` 未満のときは、`resolveChartHover` がタスクと線に当てない。書き出しは行の y も並びも変えない。一覧の幅は `--sidebar-w` に、希望の基準幅をチャート余白で縮めた値を入れ、表示倍率を掛けて描く。右端の境界をドラッグすると希望の基準幅が変わる。表示が動かないドラッグでは希望幅を変えない。境界にフォーカスがあるとき、修飾キーの無い左右キーは幅を変える。⌘ または Ctrl がある左右は幅を変えず、チャートの横スクロールになる。そこに Shift または Alt も一緒のときは、幅もスクロールも変えない。
+`Timeline.tsx` は日付ヘッダー、本体、前後の線、親バー、タスクバー、イナズマ線を Konva で描く。未確定のタスクバーの地は、`hatch.ts` の斜線パターンである。確定はベタ塗りである。進捗の濃い帯は斜線の上にベタで描く。書き出しの SVG も同じ定数の `pattern` を使う。マイルストンは `MilestoneBand.tsx` である。未確定のひし形も同じ斜線で、確定は塗りつぶす。左の名前と追加列は DOM の `Sidebar.tsx` で、縦位置だけをチャートと揃える。追加列の月日は `dates.ts` の `fmtMonthDay` で `09/19` にする。担当列の文字数は `assigneeDisplay.ts` の `assigneeColumnChars` で、見えているタスクのラベルから決める。超過の有無で列は動かさない。左の一覧の行の上のホイールは、`useTimelineView` の `handleWheel` をチャート本体と同じく呼ぶ。ズームの基準はチャートの左端である。`Sidebar.tsx` は `passive: false` で受け、既定のスクロールは止める。縦スクロールで残すカテゴリとグループは `stickyRows.ts` の `layoutStickyHeaders` が決める。左は、その行をスクロール層から外し、ビューポート上端のオーバーレイに同じ行として描く。右は、スクロールする本体を `clipTop` より下だけ描き、固定層には同じ地、非稼働日、縦格子、下端の線、親バーを、その行のクリップ矩形の中だけ描く。親バーの x は `dateToX` のままである。ポインタの y が `clipTop` 未満のときは、`resolveChartHover` がタスクと線に当てない。書き出しは行の y も並びも変えない。一覧の幅は `--sidebar-w` に、希望の基準幅をチャート余白で縮めた値を入れ、表示倍率を掛けて描く。右端の境界をドラッグすると希望の基準幅が変わる。表示が動かないドラッグでは希望幅を変えない。境界にフォーカスがあるとき、修飾キーの無い左右キーは幅を変える。⌘ または Ctrl がある左右は幅を変えず、チャートの横スクロールになる。そこに Shift または Alt も一緒のときは、幅もスクロールも変えない。
 
 前後の線は `dependencies.ts` の `linkPoints` である。間隔があるときは先行の右端から 12px 右で折れ、後続の左端へ入る。右へ出る余地が頭の長さより狭いときは、先行バーの外側を回ってから左端の手前で右を向く。最後の区間は右向きで、頭（`LINK_POINTER_LENGTH`）が後続バーの外に残る。画面の Arrow と書き出しの marker はその長さを共有する。線はバーより先に描く。
 
 線を引くモードでは、起点バーの右端からポインタまで、確定した矢印と同じ `linkPoints` の折れ線を通常色で描く。クリックは受けない。タスクバーの上ではそのバーの左端まで、左の一覧の上ではチャートの左端まで、それ以外はポインタの位置で終わる。スクロールで起点が動くと始点も動く。モードが終わると消える。後続にできるタスクバーだけ、選択や状態色とは別の `linkTargetStroke` で囲む。
 
-見えている線の当たりは、描画とは別の座標計算である。`chartHitTest.ts` がタスクバー、マイルストン、線の順で一つに決める。マイルストンの当たりは `milestoneMarkHit` で、ひし形の円（見た目の半径に 2px）と、名前の矩形と、そのあいだの隙間である。名前の幅は `milestoneLabelWidth`、左端は描画と同じくひし形の半径に 5px を足した位置、上下は円の直径と文字の高さのうち広い方である。名前幅が 0 のときは円だけである。帯のクリック、ドラッグ、右クリックは `MilestoneBand.tsx` が、同じ形の Konva の当たりで受ける。線は `nearestLinkHit` が閾値 8px 以内で一番近い 1 本を返す。選択中バーは端のハンドルの幅だけ当たりを広げる。線を引くモードでは広げない。右クリックの線も同じタスクの当たりを使う。線のレイヤはクリックを受けない。タスクバーとマイルストンが先である。日付ヘッダー、マイルストン帯の空き、チャート本体の空き（親バーと、固定段より上を含む）の右クリックは「マイルストンを追加」だけを出す。新しい当たり図形は足さない。日付は `dates.ts` の `isoDateAtChartX` で、ポインタの横位置が含まれる暦日である。日の左端を含み、次の日の左端は含まない。表示期間の外は出さない。印とタスクバーは先に受け、空きの項目は出さない。線を引くモードでは出さない。
+見えている線の当たりは、描画とは別の座標計算である。`chartHitTest.ts` がタスクバー、マイルストン、線の順で一つに決める。バー本体の移動と端の期間変更は `TASK_DRAG_THRESHOLD_PX`（8px）を超えてから始まる。端の当たりは `taskBarEdgeAt` で、選択前のバーにも付く。見えるハンドルは選択中だけである。マイルストンの当たりは `milestoneMarkHit` で、ひし形の円（見た目の半径に 2px）と、名前の矩形と、そのあいだの隙間である。名前の幅は `milestoneLabelWidth`、左端は描画と同じくひし形の半径に 5px を足した位置、上下は円の直径と文字の高さのうち広い方である。名前幅が 0 のときは円だけである。帯のクリック、ドラッグ、右クリックは `MilestoneBand.tsx` が、同じ形の Konva の当たりで受ける。線は `nearestLinkHit` が閾値 8px 以内で一番近い 1 本を返す。選択中バーは端のハンドルの幅だけ当たりを広げる。線を引くモードでは広げない。右クリックの線も同じタスクの当たりを使う。線のレイヤはクリックを受けない。タスクバーとマイルストンが先である。日付ヘッダー、マイルストン帯の空き、チャート本体の空き（親バーと、固定段より上を含む）の右クリックは「マイルストンを追加」だけを出す。新しい当たり図形は足さない。日付は `dates.ts` の `isoDateAtChartX` で、ポインタの横位置が含まれる暦日である。日の左端を含み、次の日の左端は含まない。表示期間の外は出さない。印とタスクバーは先に受け、空きの項目は出さない。線を引くモードでは出さない。
 
-⌘ または Ctrl と矢印の判定は `shortcuts.ts` の `matchChartScroll` と `chartScrollOffset` である。`useAppKeyboard` が `scrollBy` を呼ぶ。キーを押したときの編集、削除、ファイル操作、取り消しは `appKeyboard.ts` が決め、フックが画面の操作を呼ぶ。移動量は表示倍率を掛けた行の高さで、押し続けは keydown のリピートである。Shift または Alt が一緒のときと、ダイアログが開いているときは呼ばない。右クリックメニューはこのキーで閉じる。端で位置が変わらなくても閉じる。⌘ または Ctrl と L は `matchAppShortcut` の `link` で、線を引くモードの開始と終了である。修飾キーの無い L では始まらない。ダイアログ、検索欄、入力欄、選択欄では効かない。ボタンにフォーカスがあっても効く。⌘ または Ctrl と N は `note` で、選択中のタスクのノートダイアログを開く。効く場所は L と同じである。選択が無いときと線を引くモードでは開かない。キーのリピートでは開かない。右クリックメニューは閉じる。Shift も Alt も無い ⌘/Ctrl+N は `blocksBrowserShortcut` が真で、開かないときもブラウザに渡さない。Shift 付きは渡す。⌘ または Ctrl と +、=、− は `matchDisplayScale` で、`stepDisplayScale` が表示サイズを一段進める。押し続けは keydown のリピートである。ダイアログ、検索欄、入力欄、選択欄、ボタンでも `preventDefault` してページズームを止め、右クリックメニューを閉じる。線を引くモードは終わらせない。固定の端で段が変わらないときは保存値を変えない。自動は解決済みの倍率を小数第2位で段と比べ、固定の段にして保存する。自動で 200% の拡大は 200% を保存する。
+⌘ または Ctrl と矢印の判定は `shortcuts.ts` の `matchChartScroll` と `chartScrollOffset` である。`useAppKeyboard` が `scrollBy` を呼ぶ。キーを押したときの編集、削除、ファイル操作、取り消しは `appKeyboard.ts` が決め、フックが画面の操作を呼ぶ。↑↓ のタスク選択は `taskSelection.ts` の `adjacentVisibleTaskId`。Alt+←→ と Shift+Alt+←→ は `useSchedule` の日付ずらし。⌘/Ctrl+Shift+D は `copyScheduleDiff` で差分全文をコピーする。移動量は表示倍率を掛けた行の高さで、押し続けは keydown のリピートである。Shift または Alt が一緒のときと、ダイアログが開いているときは呼ばない。右クリックメニューはこのキーで閉じる。端で位置が変わらなくても閉じる。ショートカット一覧は `shortcuts.ts` の `matchOpenShortcutsHelp` が ? と F1 で開き、ダイアログ、検索欄、入力欄、選択欄、ボタンでは開かない。コマンドパレットは `matchOpenCommandPalette` が ⌘/Ctrl+K で開き、ほかのダイアログが開いているあいだは開かない。候補は `commandPalette.ts` が絞る。実行は `CommandPalette.tsx` から `App.tsx` の既存操作を呼ぶ。macOS のデスクトップ版だけ `useMacOSAppMenu` が画面上部のメニューを置く。⌘ または Ctrl と L は `matchAppShortcut` の `link` で、線を引くモードの開始と終了である。修飾キーの無い L では始まらない。ダイアログ、検索欄、入力欄、選択欄では効かない。ボタンにフォーカスがあっても効く。⌘ または Ctrl と N は `note` で、選択中のタスクのノートダイアログを開く。効く場所は L と同じである。選択が無いときと線を引くモードでは開かない。キーのリピートでは開かない。右クリックメニューは閉じる。Shift も Alt も無い ⌘/Ctrl+N は `blocksBrowserShortcut` が真で、開かないときもブラウザに渡さない。Shift 付きは渡す。⌘ または Ctrl と +、=、− は `matchDisplayScale` で、`stepDisplayScale` が表示サイズを一段進める。押し続けは keydown のリピートである。ダイアログ、検索欄、入力欄、選択欄、ボタンでも `preventDefault` してページズームを止め、右クリックメニューを閉じる。線を引くモードは終わらせない。固定の端で段が変わらないときは保存値を変えない。自動は解決済みの倍率を小数第2位で段と比べ、固定の段にして保存する。自動で 200% の拡大は 200% を保存する。
 
 座標の基準は `pxPerDay` である。日付から x を計算し、ズームのたびに描き直す。CSS の拡大は使わない。表示期間は、全タスクと全マイルストンのうち、最も早い日付の6日前から最も遅い日付の7日後までである（`computeTimelineRange`）。書き出しは、見えている行から同じ余白で決め直す。
 
@@ -249,7 +256,7 @@ capability はメインウィンドウに、`core:default`、ウィンドウの 
 
 | 処理 | 場所 | 内容 |
 | --- | --- | --- |
-| 行の絞り込み | `rows.ts` の `taskMatchesFilter` | 系統、担当、ステータス、確度、期限、破綻、マイルストン、名前、ノートをすべて満たすタスクだけを残す。0件のグループとカテゴリは行にしない。折りたたみの鍵はカテゴリとグループの `id` である |
+| 行の絞り込み | `rows.ts` の `taskMatchesFilter` と `showEmptyHierarchyRows` | 系統、担当、ステータス、確度、期限、破綻、マイルストン、名前、ノートをすべて満たすタスクだけを残す。絞り込みも系統も無いときはタスク0件のグループとカテゴリも行に出す。それ以外は0件のグループとカテゴリは行にしない。折りたたみの鍵はカテゴリとグループの `id` である |
 | 見出し行の固定 | `stickyRows.ts` の `layoutStickyHeaders` と `scrollYToRevealTask` | 見えている行のうち、展開して配下が残っているカテゴリとグループを、上端へ最大2行残す。画面に収まるときと折りたたんだ行は残さない。タスクを見せるスクロールは固定段の下に合わせる |
 | 系統 | `dependencies.ts` の `lineageTaskIds` | 起点から先行と後続を辿る。起点を通らない枝は入れない |
 | 線を足す | `dependencies.ts` の `tryAddPredecessorLink` | 後続の `predecessors` に起点を足した候補を、循環と先行参照と先行 ID の重複で見る。通ったときだけ保存する |
@@ -283,3 +290,4 @@ npm スクリプトと CI の分岐は [開発ガイド](development.md#npm-ス�
 - `mockup/schedule-viewer-mockup.html` は初期の検証用で、アプリからは参照しない。ESLint の対象外である
 - schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。schemaVersion 5 のマイルストンに確度が無いときは `committed` を足す。未保存の比較は、その schemaVersion 5 の保存形式である。実際に開けるのは 3、4、5 である
 - 取り消しはドラッグの途中では積まない。離したときの確定が1ステップである
+- タスクの並べ替えと別グループへの移動は `tasks.ts` の `reorderTaskInGroup` と `moveTaskToGroup`、`taskOrder.ts` の `resolveTaskDropTarget` が挿入位置と兄弟の可視性を決める。同じグループの挿入位置は、動かしているタスクを除いたあとである。折りたたんだグループ行は候補にしない。グループの並べ替えと別カテゴリへの移動は `tasks.ts` の `moveGroupToCategory` と `groupOrder.ts` の `resolveGroupDropTarget` が挿入位置と、同じカテゴリのグループが全部行に出ているかを決める。名前が重なる位置と、元のカテゴリのグループが無くなる位置は候補にしない。カテゴリとグループの追加と削除は `tasks.ts` の純粋関数と `useSchedule` が確定する。カテゴリの並べ替えは `tasks.ts` の `reorderCategories` と `categoryOrder.ts` が挿入位置と、行に出ているカテゴリが全部かを決める。ドラッグ中は `useSchedule` が `reorderPreview` で行だけを仮表示し、離したときに `commitCategories` で1件積む

@@ -166,6 +166,64 @@ export function insertTask(
   return cloned;
 }
 
+/** categories 配列の中で、1件を動かす。見つからない、または位置が同じときは元を返す。 */
+export function reorderCategories(
+  categories: Category[],
+  categoryId: ScheduleId,
+  newIndex: number,
+): Category[] {
+  const fromIndex = categories.findIndex((category) => category.id === categoryId);
+  if (fromIndex < 0 || fromIndex === newIndex) return categories;
+  const cloned = cloneCategories(categories);
+  const [moved] = cloned.splice(fromIndex, 1);
+  if (!moved) return categories;
+  const toIndex = Math.max(0, Math.min(newIndex, cloned.length));
+  cloned.splice(toIndex, 0, moved);
+  return cloned;
+}
+
+/** 同じカテゴリの groups 配列の中で、1件を動かす。見つからない、または位置が同じときは元を返す。 */
+export function reorderGroups(
+  categories: Category[],
+  groupId: ScheduleId,
+  newIndex: number,
+): Category[] {
+  const cloned = cloneCategories(categories);
+  for (const category of cloned) {
+    const fromIndex = category.groups.findIndex((group) => group.id === groupId);
+    if (fromIndex < 0) continue;
+    if (fromIndex === newIndex) return categories;
+    const [moved] = category.groups.splice(fromIndex, 1);
+    if (!moved) return categories;
+    const toIndex = Math.max(0, Math.min(newIndex, category.groups.length));
+    category.groups.splice(toIndex, 0, moved);
+    return cloned;
+  }
+  return categories;
+}
+
+/** 同じグループの tasks 配列の中で、1件を動かす。見つからない、または位置が同じときは元を返す。 */
+export function reorderTaskInGroup(
+  categories: Category[],
+  taskId: ScheduleId,
+  newIndex: number,
+): Category[] {
+  const cloned = cloneCategories(categories);
+  for (const category of cloned) {
+    for (const group of category.groups) {
+      const fromIndex = group.tasks.findIndex((task) => task.id === taskId);
+      if (fromIndex < 0) continue;
+      if (fromIndex === newIndex) return categories;
+      const tasks = group.tasks;
+      const [moved] = tasks.splice(fromIndex, 1);
+      const toIndex = Math.max(0, Math.min(newIndex, tasks.length));
+      tasks.splice(toIndex, 0, moved);
+      return cloned;
+    }
+  }
+  return categories;
+}
+
 /** タスクを消し、他タスクの先行からその ID を外す。空のグループとカテゴリは残す。 */
 export function removeTask(categories: Category[], taskId: ScheduleId): Category[] {
   return cloneCategories(categories).map((category) => ({
@@ -431,4 +489,217 @@ export function renameGroup(
     error: null,
     changed: true,
   };
+}
+
+export function countTasksInCategory(category: Category): number {
+  return category.groups.reduce((total, group) => total + group.tasks.length, 0);
+}
+
+export function canDeleteCategory(
+  categories: Category[],
+  categoryId: ScheduleId,
+): boolean {
+  if (categories.length <= 1) return false;
+  const category = categories.find((item) => item.id === categoryId);
+  if (!category) return false;
+  return countTasksInCategory(category) === 0;
+}
+
+export function canDeleteGroup(
+  categories: Category[],
+  groupId: ScheduleId,
+): boolean {
+  for (const category of categories) {
+    const group = category.groups.find((item) => item.id === groupId);
+    if (!group) continue;
+    if (category.groups.length <= 1) return false;
+    return group.tasks.length === 0;
+  }
+  return false;
+}
+
+export function removeCategory(
+  categories: Category[],
+  categoryId: ScheduleId,
+): Category[] {
+  if (!canDeleteCategory(categories, categoryId)) return categories;
+  return categories.filter((item) => item.id !== categoryId);
+}
+
+export function removeGroup(
+  categories: Category[],
+  groupId: ScheduleId,
+): Category[] {
+  if (!canDeleteGroup(categories, groupId)) return categories;
+  return categories.map((category) => ({
+    ...category,
+    groups: category.groups.filter((item) => item.id !== groupId),
+  }));
+}
+
+export function insertCategoryAfter(
+  categories: Category[],
+  afterCategoryId: ScheduleId,
+  rawName: string,
+  newCategoryId: ScheduleId,
+  newGroupId: ScheduleId,
+): HierarchyRenameResult {
+  const name = rawName.trim();
+  if (!name) {
+    return { categories, error: "名前を入力してください", changed: false };
+  }
+  if (categories.some((item) => item.name === name)) {
+    return { categories, error: "カテゴリ名が重複しています", changed: false };
+  }
+  const afterIndex = categories.findIndex((item) => item.id === afterCategoryId);
+  const insertAt = afterIndex < 0 ? categories.length : afterIndex + 1;
+  const cloned = cloneCategories(categories);
+  cloned.splice(insertAt, 0, {
+    id: newCategoryId,
+    name,
+    groups: [{ id: newGroupId, name: "グループ", tasks: [] }],
+  });
+  return { categories: cloned, error: null, changed: true };
+}
+
+export function appendGroupToCategory(
+  categories: Category[],
+  categoryId: ScheduleId,
+  rawName: string,
+  newGroupId: ScheduleId,
+): HierarchyRenameResult {
+  const name = rawName.trim();
+  if (!name) {
+    return { categories, error: "名前を入力してください", changed: false };
+  }
+  const category = categories.find((item) => item.id === categoryId);
+  if (!category) {
+    return { categories, error: "カテゴリが見つかりません", changed: false };
+  }
+  if (category.groups.some((item) => item.name === name)) {
+    return {
+      categories,
+      error: "同じカテゴリ内でグループ名が重複しています",
+      changed: false,
+    };
+  }
+  const cloned = cloneCategories(categories);
+  const target = cloned.find((item) => item.id === categoryId);
+  if (!target) {
+    return { categories, error: "カテゴリが見つかりません", changed: false };
+  }
+  target.groups.push({ id: newGroupId, name, tasks: [] });
+  return { categories: cloned, error: null, changed: true };
+}
+
+export function insertGroupAfter(
+  categories: Category[],
+  afterGroupId: ScheduleId,
+  rawName: string,
+  newGroupId: ScheduleId,
+): HierarchyRenameResult {
+  const name = rawName.trim();
+  if (!name) {
+    return { categories, error: "名前を入力してください", changed: false };
+  }
+  const cloned = cloneCategories(categories);
+  for (const category of cloned) {
+    const afterIndex = category.groups.findIndex((item) => item.id === afterGroupId);
+    if (afterIndex < 0) continue;
+    if (category.groups.some((item) => item.name === name)) {
+      return {
+        categories,
+        error: "同じカテゴリ内でグループ名が重複しています",
+        changed: false,
+      };
+    }
+    category.groups.splice(afterIndex + 1, 0, { id: newGroupId, name, tasks: [] });
+    return { categories: cloned, error: null, changed: true };
+  }
+  return { categories, error: "グループが見つかりません", changed: false };
+}
+
+export function moveTaskToGroup(
+  categories: Category[],
+  taskId: ScheduleId,
+  targetGroupId: ScheduleId,
+  insertIndex: number,
+): Category[] {
+  const cloned = cloneCategories(categories);
+  let moved: Task | null = null;
+  for (const category of cloned) {
+    for (const group of category.groups) {
+      const fromIndex = group.tasks.findIndex((task) => task.id === taskId);
+      if (fromIndex < 0) continue;
+      moved = group.tasks[fromIndex];
+      group.tasks.splice(fromIndex, 1);
+      break;
+    }
+    if (moved) break;
+  }
+  if (!moved) return categories;
+  for (const category of cloned) {
+    for (const group of category.groups) {
+      if (group.id !== targetGroupId) continue;
+      const toIndex = Math.max(0, Math.min(insertIndex, group.tasks.length));
+      group.tasks.splice(toIndex, 0, moved);
+      return cloned;
+    }
+  }
+  return categories;
+}
+
+/** 別カテゴリへ移せるか。同じカテゴリの並べ替えは常に受け、名前の重複と元カテゴリが空になる移動は受けない。 */
+export function canMoveGroupToCategory(
+  categories: Category[],
+  groupId: ScheduleId,
+  targetCategoryId: ScheduleId,
+): boolean {
+  const sourceCategoryId = findCategoryIdOfGroup(categories, groupId);
+  if (sourceCategoryId == null) return false;
+  if (sourceCategoryId === targetCategoryId) return true;
+  const source = categories.find((item) => item.id === sourceCategoryId);
+  const target = categories.find((item) => item.id === targetCategoryId);
+  if (source == null || target == null) return false;
+  if (source.groups.length <= 1) return false;
+  const dragged = source.groups.find((group) => group.id === groupId);
+  if (dragged == null) return false;
+  return !target.groups.some((group) => group.name === dragged.name);
+}
+
+export function moveGroupToCategory(
+  categories: Category[],
+  groupId: ScheduleId,
+  targetCategoryId: ScheduleId,
+  insertIndex: number,
+): Category[] {
+  const sourceCategoryId = findCategoryIdOfGroup(categories, groupId);
+  if (sourceCategoryId == null) return categories;
+  if (sourceCategoryId === targetCategoryId) {
+    return reorderGroups(categories, groupId, insertIndex);
+  }
+  if (!canMoveGroupToCategory(categories, groupId, targetCategoryId)) {
+    return categories;
+  }
+  const cloned = cloneCategories(categories);
+  const sourceCategory = cloned.find((item) => item.id === sourceCategoryId);
+  const targetCategory = cloned.find((item) => item.id === targetCategoryId);
+  if (!sourceCategory || !targetCategory) return categories;
+  const fromIndex = sourceCategory.groups.findIndex((item) => item.id === groupId);
+  if (fromIndex < 0) return categories;
+  const [moved] = sourceCategory.groups.splice(fromIndex, 1);
+  if (!moved) return categories;
+  const toIndex = Math.max(0, Math.min(insertIndex, targetCategory.groups.length));
+  targetCategory.groups.splice(toIndex, 0, moved);
+  return cloned;
+}
+
+export function findCategoryIdOfGroup(
+  categories: Category[],
+  groupId: ScheduleId,
+): ScheduleId | null {
+  for (const category of categories) {
+    if (category.groups.some((group) => group.id === groupId)) return category.id;
+  }
+  return null;
 }

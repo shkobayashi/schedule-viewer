@@ -1,6 +1,6 @@
 [package]
 name = "schedule-viewer"
-version = "0.9.1"
+version = "1.0.0"
 description = "WBS schedule viewer"
 authors = ["schedule-viewer"]
 edition = "2021"

@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
 const kind = process.argv[2];
-if (kind !== "minor" && kind !== "patch") {
-  console.error("Usage: node scripts/bump-version.mjs <minor|patch>");
+if (kind !== "major" && kind !== "minor" && kind !== "patch") {
+  console.error("Usage: node scripts/bump-version.mjs <major|minor|patch>");
   process.exit(1);
 }
 
@@ -20,6 +20,9 @@ function parseSemver(version) {
 
 function bump(version, bumpKind) {
   const parts = parseSemver(version);
+  if (bumpKind === "major") {
+    return `${parts.major + 1}.0.0`;
+  }
   if (bumpKind === "minor") {
     return `${parts.major}.${parts.minor + 1}.0`;
   }

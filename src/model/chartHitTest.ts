@@ -11,6 +11,24 @@ const MILESTONE_LABEL_GAP = 5;
 /** 選択中バーの端ハンドルが当たり判定へ広がる幅。 */
 export const TASK_HANDLE_WIDTH = 8;
 
+/** バー移動・期間変更を始めるポインタの移動量。 */
+export const TASK_DRAG_THRESHOLD_PX = 8;
+
+export type TaskBarEdge = "start" | "end";
+
+/** バー左端を原点とした localX が、どちらの端か。 */
+export function taskBarEdgeAt(
+  localX: number,
+  barWidth: number,
+  edgeWidth: number = TASK_HANDLE_WIDTH / 2,
+): TaskBarEdge | null {
+  if (localX >= -edgeWidth && localX < edgeWidth) return "start";
+  if (localX > barWidth - edgeWidth && localX <= barWidth + edgeWidth) {
+    return "end";
+  }
+  return null;
+}
+
 export type ChartPointerLink = {
   fromId: ScheduleId;
   toId: ScheduleId;
@@ -20,6 +38,7 @@ export type ChartPointer = {
   overTask: boolean;
   overMilestone: boolean;
   link: ChartPointerLink | null;
+  hoverTaskId: ScheduleId | null;
 };
 
 export type ChartTaskAnchor = {
@@ -28,9 +47,7 @@ export type ChartTaskAnchor = {
   y: number;
 };
 
-export type ChartHover = ChartPointer & {
-  hoverTaskId: ScheduleId | null;
-};
+export type ChartHover = ChartPointer;
 
 export function taskBarContainsPoint(
   local: { x: number; y: number },
@@ -55,10 +72,7 @@ export function hitTaskAnchor(
   options: { linkMode: boolean; selectedTaskId: ScheduleId | null },
 ): { taskId: ScheduleId; anchor: ChartTaskAnchor } | null {
   for (const [id, anchor] of anchors) {
-    const handlePad =
-      !options.linkMode && id === options.selectedTaskId
-        ? TASK_HANDLE_WIDTH / 2
-        : 0;
+    const handlePad = options.linkMode ? 0 : TASK_HANDLE_WIDTH / 2;
     if (taskBarContainsPoint(local, anchor, barHeight, handlePad)) {
       return { taskId: id, anchor };
     }

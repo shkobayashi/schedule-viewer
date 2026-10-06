@@ -32,7 +32,7 @@ afterEach(() => {
 });
 
 describe("parseSidebarWidth", () => {
-  it("uses 190 when nothing is stored", () => {
+  it("uses 260 when nothing is stored", () => {
     expect(parseSidebarWidth(null)).toBe(SIDEBAR_WIDTH_DEFAULT);
     expect(parseSidebarWidth("")).toBe(SIDEBAR_WIDTH_DEFAULT);
     expect(parseSidebarWidth("  ")).toBe(SIDEBAR_WIDTH_DEFAULT);

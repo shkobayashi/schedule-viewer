@@ -45,6 +45,8 @@ export type ChartPalette = {
   exportBg: string;
   dependencyMarkerOk: string;
   dependencyMarkerBroken: string;
+  barLabelMuted: string;
+  barLabelOnFill: string;
 };
 
 export type CssPalette = {
@@ -55,6 +57,9 @@ export type CssPalette = {
   textSecondary: string;
   accent: string;
   today: string;
+  danger: string;
+  dangerOn: string;
+  dangerText: string;
   surface: string;
   accentSoft: string;
   rowBorder: string;
@@ -65,6 +70,7 @@ export type CssPalette = {
   noteHoverBg: string;
   noteEmptyHover: string;
   selectedRow: string;
+  hoverRow: string;
   unassignedAccent: string;
   unassignedText: string;
   unassignedBg: string;
@@ -80,6 +86,7 @@ export type CssPalette = {
   modalShadow: string;
   menuShadow: string;
   onAccent: string;
+  onAccentDark: string;
 };
 
 export type AppPalette = {
@@ -96,8 +103,11 @@ const LIGHT: AppPalette = {
     textSecondary: "#697586",
     accent: "#4c5fd5",
     today: "#e2542a",
+    danger: "#c4351a",
+    dangerOn: "#ffffff",
+    dangerText: "#c4351a",
     surface: "#ffffff",
-    accentSoft: "#eef0fe",
+    accentSoft: "#dce3fb",
     rowBorder: "#f0f1f4",
     groupBg: "#f3f5f8",
     groupText: "#4b5568",
@@ -105,7 +115,8 @@ const LIGHT: AppPalette = {
     noteEmpty: "#c5cad3",
     noteHoverBg: "#e8ebf4",
     noteEmptyHover: "#9aa3b2",
-    selectedRow: "#eef0fe",
+    selectedRow: "#dce3fb",
+    hoverRow: "#eef2fc",
     unassignedAccent: "#d4920a",
     unassignedText: "#8a5a00",
     unassignedBg: "#fff4d6",
@@ -121,14 +132,15 @@ const LIGHT: AppPalette = {
     modalShadow: "rgba(16, 24, 40, 0.2)",
     menuShadow: "rgba(0, 0, 0, 0.12)",
     onAccent: "#ffffff",
+    onAccentDark: "#12152b",
   },
   chart: {
-    summaryCovered: "#5C6B82",
+    summaryCovered: "#8A94A6",
     summaryGap: "#D5DBE3",
     headerBorder: "#E3E6EB",
     monthGrid: "#C7CCD6",
     textPrimary: "#1F2937",
-    textSecondary: "#8A94A6",
+    textSecondary: "#697586",
     nonWorking: "#F4F5F8",
     gridMonday: "#9AA5B4",
     gridWeekday: "#E3E6EB",
@@ -153,14 +165,16 @@ const LIGHT: AppPalette = {
     unassignedCap: "#E0A020",
     unknownCap: "#7B5EA7",
     overrunOverlay: "rgba(196, 53, 26, 0.45)",
-    statusNotStarted: { bg: "#EDEFF3", fill: null, border: "#C4CAD4" },
+    statusNotStarted: { bg: "#E2E6ED", fill: null, border: "#7d8799" },
     statusInProgress: { bg: "#DEE3FB", fill: "#4C5FD5", border: "#4C5FD5" },
-    statusDone: { bg: "#2E9E6C", fill: null, border: "#278A5E" },
+    statusDone: { bg: "#247A55", fill: null, border: "#1F6B4A" },
     overdueInProgress: { bg: "#F8D0C8", fill: "#E2542A", border: "#C4351A" },
     overdueOther: { bg: "#F8D0C8", fill: null, border: "#C4351A" },
     exportBg: "#ffffff",
     dependencyMarkerOk: "#8A94A6",
     dependencyMarkerBroken: "#C4351A",
+    barLabelMuted: "#1F2937",
+    barLabelOnFill: "#FFFFFF",
   },
 };
 
@@ -173,8 +187,11 @@ const DARK: AppPalette = {
     textSecondary: "#a8b0bf",
     accent: "#7b8cff",
     today: "#f07050",
+    danger: "#c4351a",
+    dangerOn: "#ffffff",
+    dangerText: "#ff9a82",
     surface: "#23272f",
-    accentSoft: "#2e3344",
+    accentSoft: "#343b52",
     rowBorder: "#323844",
     groupBg: "#2a2f3a",
     groupText: "#b8c0cf",
@@ -182,7 +199,8 @@ const DARK: AppPalette = {
     noteEmpty: "#5c6578",
     noteHoverBg: "#323844",
     noteEmptyHover: "#7a8496",
-    selectedRow: "#2e3344",
+    selectedRow: "#343b52",
+    hoverRow: "#2a3148",
     unassignedAccent: "#d4920a",
     unassignedText: "#e8c060",
     unassignedBg: "#3d3520",
@@ -197,10 +215,11 @@ const DARK: AppPalette = {
     overlay: "rgba(0, 0, 0, 0.55)",
     modalShadow: "rgba(0, 0, 0, 0.45)",
     menuShadow: "rgba(0, 0, 0, 0.35)",
-    onAccent: "#e8eaef",
+    onAccent: "#12152b",
+    onAccentDark: "#12152b",
   },
   chart: {
-    summaryCovered: "#8a9bb5",
+    summaryCovered: "#6b7588",
     summaryGap: "#3a4050",
     headerBorder: "#3a4050",
     monthGrid: "#5c6578",
@@ -230,7 +249,7 @@ const DARK: AppPalette = {
     unassignedCap: "#e8c060",
     unknownCap: "#a888d8",
     overrunOverlay: "rgba(240, 112, 80, 0.45)",
-    statusNotStarted: { bg: "#3a4050", fill: null, border: "#5c6578" },
+    statusNotStarted: { bg: "#454b5c", fill: null, border: "#8a94a6" },
     statusInProgress: { bg: "#2e3344", fill: "#7b8cff", border: "#7b8cff" },
     statusDone: { bg: "#3d9a72", fill: null, border: "#4cb088" },
     overdueInProgress: { bg: "#4a302c", fill: "#f07050", border: "#f07050" },
@@ -238,6 +257,8 @@ const DARK: AppPalette = {
     exportBg: "#1c1f26",
     dependencyMarkerOk: "#8a94a6",
     dependencyMarkerBroken: "#f07050",
+    barLabelMuted: "#E6E8EE",
+    barLabelOnFill: "#12152B",
   },
 };
 
@@ -248,6 +269,11 @@ export function paletteFor(scheme: ResolvedColorScheme): AppPalette {
 export function applyCssPalette(palette: AppPalette): void {
   const root = document.documentElement;
   const c = palette.css;
+  root.style.setProperty("--radius-sm", "4px");
+  root.style.setProperty("--radius-md", "6px");
+  root.style.setProperty("--radius-lg", "8px");
+  root.style.setProperty("--elevation-menu", `0 8px 24px ${c.menuShadow}`);
+  root.style.setProperty("--elevation-modal", `0 8px 24px ${c.modalShadow}`);
   root.style.setProperty("--bg", c.bg);
   root.style.setProperty("--panel", c.panel);
   root.style.setProperty("--border", c.border);
@@ -255,6 +281,9 @@ export function applyCssPalette(palette: AppPalette): void {
   root.style.setProperty("--text-secondary", c.textSecondary);
   root.style.setProperty("--accent", c.accent);
   root.style.setProperty("--today", c.today);
+  root.style.setProperty("--danger", c.danger);
+  root.style.setProperty("--danger-on", c.dangerOn);
+  root.style.setProperty("--danger-text", c.dangerText);
   root.style.setProperty("--surface", c.surface);
   root.style.setProperty("--accent-soft", c.accentSoft);
   root.style.setProperty("--row-border", c.rowBorder);
@@ -265,6 +294,7 @@ export function applyCssPalette(palette: AppPalette): void {
   root.style.setProperty("--note-hover-bg", c.noteHoverBg);
   root.style.setProperty("--note-empty-hover", c.noteEmptyHover);
   root.style.setProperty("--selected-row", c.selectedRow);
+  root.style.setProperty("--hover-row", c.hoverRow);
   root.style.setProperty("--unassigned-accent", c.unassignedAccent);
   root.style.setProperty("--unassigned-text", c.unassignedText);
   root.style.setProperty("--unassigned-bg", c.unassignedBg);
@@ -280,4 +310,5 @@ export function applyCssPalette(palette: AppPalette): void {
   root.style.setProperty("--modal-shadow", c.modalShadow);
   root.style.setProperty("--menu-shadow", c.menuShadow);
   root.style.setProperty("--on-accent", c.onAccent);
+  root.style.setProperty("--on-accent-dark", c.onAccentDark);
 }

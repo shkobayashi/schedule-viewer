@@ -45,11 +45,36 @@ import {
   removeTask,
   renameCategory,
   renameGroup,
+  appendGroupToCategory,
+  canDeleteCategory,
+  canDeleteGroup,
+  insertCategoryAfter,
+  insertGroupAfter,
+  moveGroupToCategory,
+  moveTaskToGroup,
+  removeCategory,
+  removeGroup,
+  reorderCategories,
+  reorderTaskInGroup,
   uniqueScheduleId,
   validateNewTask,
   validateTaskEdit,
   type TaskEditPatch,
 } from "../model/tasks";
+import {
+  categoryIndex,
+  categoryInsertMarkerY,
+  visibleCategorySpans,
+} from "../model/categoryOrder";
+import {
+  groupInsertMarkerY,
+  visibleGroupSpans,
+} from "../model/groupOrder";
+import {
+  insertMarkerY,
+  taskIndexInGroup,
+  visibleGroupTaskRows,
+} from "../model/taskOrder";
 import type { Member } from "../model/memberTypes";
 import {
   NO_MILESTONE_FILTER,
@@ -78,6 +103,27 @@ function initialSnapshot(
 }
 
 type EditingHierarchy = { kind: "category" | "group"; id: ScheduleId };
+
+export type AddingHierarchy =
+  | { kind: "category"; afterCategoryId: ScheduleId }
+  | { kind: "group"; categoryId: ScheduleId; afterGroupId: ScheduleId | null };
+
+function findDeletingHierarchyTarget(
+  categories: Category[],
+  deleting: { kind: "category" | "group"; id: ScheduleId } | null,
+): { kind: "category" | "group"; name: string } | null {
+  if (deleting == null) return null;
+  if (deleting.kind === "category") {
+    const category = categories.find((item) => item.id === deleting.id);
+    if (!category) return null;
+    return { kind: "category", name: category.name };
+  }
+  for (const category of categories) {
+    const group = category.groups.find((item) => item.id === deleting.id);
+    if (group) return { kind: "group", name: group.name };
+  }
+  return null;
+}
 
 function findHierarchyTarget(
   categories: Category[],
@@ -108,6 +154,13 @@ export function useSchedule(
     initialSnapshot(initialCategories, initialMilestones),
   );
   const historyRef = useRef<DocumentHistory>(createDocumentHistory());
+  const [historyUi, setHistoryUi] = useState({ canUndo: false, canRedo: false });
+  const syncHistoryUi = useCallback(() => {
+    setHistoryUi({
+      canUndo: historyRef.current.past.length > 0,
+      canRedo: historyRef.current.future.length > 0,
+    });
+  }, []);
 
   const [title, setTitle] = useState(() => initialTitle);
   const [categories, setCategories] = useState(
@@ -122,6 +175,12 @@ export function useSchedule(
   const [editingHierarchy, setEditingHierarchy] = useState<EditingHierarchy | null>(
     null,
   );
+  const [addingHierarchy, setAddingHierarchy] = useState<AddingHierarchy | null>(
+    null,
+  );
+  const [deletingHierarchy, setDeletingHierarchy] = useState<
+    { kind: "category" | "group"; id: ScheduleId } | null
+  >(null);
   const [selectedTaskId, setSelectedTaskId] = useState<ScheduleId | null>(null);
   const [lineageTaskId, setLineageTaskId] = useState<ScheduleId | null>(null);
   const [filters, setFilters] = useState<ScheduleFilters>({
@@ -134,7 +193,6 @@ export function useSchedule(
     search: "",
     noteSearch: "",
   });
-  const [editingTaskId, setEditingTaskId] = useState<ScheduleId | null>(null);
   const [duplicatingTaskId, setDuplicatingTaskId] = useState<ScheduleId | null>(
     null,
   );
@@ -144,16 +202,27 @@ export function useSchedule(
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [reorderPreview, setReorderPreview] = useState<
+    | {
+        kind: "task";
+        taskId: ScheduleId;
+        targetGroupId: ScheduleId;
+        insertIndex: number;
+      }
+    | { kind: "category"; categoryId: ScheduleId; insertIndex: number }
+    | {
+        kind: "group";
+        groupId: ScheduleId;
+        targetCategoryId: ScheduleId;
+        insertIndex: number;
+      }
+    | null
+  >(null);
   const [diskEpoch, setDiskEpoch] = useState(0);
   const today = useToday();
 
   const pruneUiForDocument = useCallback((snapshot: DocumentSnapshot) => {
     setSelectedTaskId((current) =>
-      current != null && findTaskById(snapshot.categories, current)
-        ? current
-        : null,
-    );
-    setEditingTaskId((current) =>
       current != null && findTaskById(snapshot.categories, current)
         ? current
         : null,
@@ -198,9 +267,10 @@ export function useSchedule(
       documentRef.current = cloned;
       setCategories(cloned.categories);
       setMilestones(cloned.milestones);
+      setReorderPreview(null);
       pruneUiForDocument(cloned);
     },
-    [pruneUiForDocument],
+    [pruneUiForDocument, setReorderPreview],
   );
 
   const commitDocument = useCallback(
@@ -211,12 +281,13 @@ export function useSchedule(
       const pushed = pushDocumentHistory(historyRef.current, current, next);
       if (!pushed) return;
       historyRef.current = pushed.history;
+      syncHistoryUi();
       if (!pushed.applied) return;
       documentRef.current = pushed.applied;
       setCategories(pushed.applied.categories);
       setMilestones(pushed.applied.milestones);
     },
-    [blockDocumentEditsRef],
+    [blockDocumentEditsRef, syncHistoryUi],
   );
 
   const commitCategories = useCallback(
@@ -271,7 +342,7 @@ export function useSchedule(
     [categories, lineageTaskId],
   );
 
-  const visibleRows = useMemo(
+  const baseVisibleRows = useMemo(
     () =>
       computeVisibleRows(
         categories,
@@ -284,6 +355,201 @@ export function useSchedule(
       ),
     [categories, collapsed, filters, lineageIds, memberMap, rowHeight, today],
   );
+
+  const displayCategories = useMemo(() => {
+    if (reorderPreview == null) return categories;
+    if (reorderPreview.kind === "task") {
+      const owner = findTaskOwner(categories, reorderPreview.taskId);
+      if (owner?.groupId === reorderPreview.targetGroupId) {
+        return reorderTaskInGroup(
+          categories,
+          reorderPreview.taskId,
+          reorderPreview.insertIndex,
+        );
+      }
+      return moveTaskToGroup(
+        categories,
+        reorderPreview.taskId,
+        reorderPreview.targetGroupId,
+        reorderPreview.insertIndex,
+      );
+    }
+    if (reorderPreview.kind === "group") {
+      return moveGroupToCategory(
+        categories,
+        reorderPreview.groupId,
+        reorderPreview.targetCategoryId,
+        reorderPreview.insertIndex,
+      );
+    }
+    return reorderCategories(
+      categories,
+      reorderPreview.categoryId,
+      reorderPreview.insertIndex,
+    );
+  }, [categories, reorderPreview]);
+
+  const visibleRows = useMemo(
+    () =>
+      computeVisibleRows(
+        displayCategories,
+        filters,
+        collapsed,
+        today,
+        memberMap,
+        rowHeight,
+        lineageIds,
+      ),
+    [
+      collapsed,
+      displayCategories,
+      filters,
+      lineageIds,
+      memberMap,
+      rowHeight,
+      today,
+    ],
+  );
+
+  const cancelReorder = useCallback(() => {
+    setReorderPreview(null);
+  }, [setReorderPreview]);
+
+  const previewTaskReorder = useCallback(
+    (taskId: ScheduleId, targetGroupId: ScheduleId, insertIndex: number) => {
+      if (blockDocumentEditsRef?.current) return;
+      setReorderPreview({
+        kind: "task",
+        taskId,
+        targetGroupId,
+        insertIndex,
+      });
+    },
+    [blockDocumentEditsRef, setReorderPreview],
+  );
+
+  const commitTaskReorder = useCallback(
+    (taskId: ScheduleId, targetGroupId: ScheduleId, insertIndex: number) => {
+      if (blockDocumentEditsRef?.current) {
+        setReorderPreview(null);
+        return;
+      }
+      const owner = findTaskOwner(categories, taskId);
+      setReorderPreview(null);
+      if (owner == null) return;
+      if (owner.groupId === targetGroupId) {
+        const currentIndex = taskIndexInGroup(categories, taskId);
+        if (currentIndex == null || currentIndex === insertIndex) return;
+        commitCategories((prev) =>
+          reorderTaskInGroup(prev, taskId, insertIndex),
+        );
+        return;
+      }
+      const next = moveTaskToGroup(
+        categories,
+        taskId,
+        targetGroupId,
+        insertIndex,
+      );
+      if (next === categories) return;
+      commitCategories(() => next);
+    },
+    [blockDocumentEditsRef, categories, commitCategories, setReorderPreview],
+  );
+
+  const previewCategoryReorder = useCallback(
+    (categoryId: ScheduleId, insertIndex: number) => {
+      if (blockDocumentEditsRef?.current) return;
+      setReorderPreview({ kind: "category", categoryId, insertIndex });
+    },
+    [blockDocumentEditsRef, setReorderPreview],
+  );
+
+  const commitCategoryReorder = useCallback(
+    (categoryId: ScheduleId, insertIndex: number) => {
+      if (blockDocumentEditsRef?.current) {
+        setReorderPreview(null);
+        return;
+      }
+      const currentIndex = categoryIndex(categories, categoryId);
+      setReorderPreview(null);
+      if (currentIndex == null || currentIndex === insertIndex) return;
+      commitCategories((prev) => reorderCategories(prev, categoryId, insertIndex));
+    },
+    [blockDocumentEditsRef, categories, commitCategories, setReorderPreview],
+  );
+
+  const previewGroupReorder = useCallback(
+    (
+      groupId: ScheduleId,
+      targetCategoryId: ScheduleId,
+      insertIndex: number,
+    ) => {
+      if (blockDocumentEditsRef?.current) return;
+      setReorderPreview({
+        kind: "group",
+        groupId,
+        targetCategoryId,
+        insertIndex,
+      });
+    },
+    [blockDocumentEditsRef, setReorderPreview],
+  );
+
+  const commitGroupReorder = useCallback(
+    (
+      groupId: ScheduleId,
+      targetCategoryId: ScheduleId,
+      insertIndex: number,
+    ) => {
+      if (blockDocumentEditsRef?.current) {
+        setReorderPreview(null);
+        return;
+      }
+      setReorderPreview(null);
+      const next = moveGroupToCategory(
+        categories,
+        groupId,
+        targetCategoryId,
+        insertIndex,
+      );
+      if (next === categories) return;
+      commitCategories(() => next);
+    },
+    [blockDocumentEditsRef, categories, commitCategories, setReorderPreview],
+  );
+
+  const reorderInsertMarkerY = useMemo(() => {
+    if (reorderPreview == null) return null;
+    if (reorderPreview.kind === "category") {
+      const spans = visibleCategorySpans(displayCategories, visibleRows, rowHeight);
+      if (spans == null) return null;
+      return categoryInsertMarkerY(reorderPreview.insertIndex, spans);
+    }
+    if (reorderPreview.kind === "group") {
+      const spans = visibleGroupSpans(
+        displayCategories,
+        reorderPreview.targetCategoryId,
+        visibleRows,
+        rowHeight,
+      );
+      if (spans == null) return null;
+      return groupInsertMarkerY(reorderPreview.insertIndex, spans);
+    }
+    const owner = findTaskOwner(displayCategories, reorderPreview.taskId);
+    if (owner == null) return null;
+    const groupRows = visibleGroupTaskRows(
+      displayCategories,
+      reorderPreview.targetGroupId,
+      visibleRows,
+    );
+    if (groupRows == null) return null;
+    return insertMarkerY(
+      reorderPreview.insertIndex,
+      rowHeight,
+      groupRows,
+    );
+  }, [displayCategories, reorderPreview, rowHeight, visibleRows]);
 
   useEffect(() => {
     if (
@@ -462,6 +728,115 @@ export function useSchedule(
     [commitCategories, editingHierarchy],
   );
 
+  const addingHierarchyTarget = useMemo((): {
+    title: string;
+    initialName: string;
+  } | null => {
+    if (addingHierarchy == null) return null;
+    if (addingHierarchy.kind === "category") {
+      return { title: "カテゴリを追加", initialName: "" };
+    }
+    return { title: "グループを追加", initialName: "" };
+  }, [addingHierarchy]);
+
+  const openAddCategoryAfter = useCallback((afterCategoryId: ScheduleId) => {
+    setAddingHierarchy({ kind: "category", afterCategoryId });
+  }, []);
+
+  const openAddGroupToCategory = useCallback((categoryId: ScheduleId) => {
+    setAddingHierarchy({ kind: "group", categoryId, afterGroupId: null });
+  }, []);
+
+  const openAddGroupAfter = useCallback((afterGroupId: ScheduleId) => {
+    for (const category of documentRef.current.categories) {
+      if (category.groups.some((group) => group.id === afterGroupId)) {
+        setAddingHierarchy({
+          kind: "group",
+          categoryId: category.id,
+          afterGroupId,
+        });
+        return;
+      }
+    }
+  }, []);
+
+  const closeAddingHierarchy = useCallback(() => {
+    setAddingHierarchy(null);
+  }, []);
+
+  const saveHierarchyAdd = useCallback(
+    (rawName: string): string | null => {
+      if (addingHierarchy == null) return "追加できませんでした";
+      const current = documentRef.current;
+      const taken = collectScheduleIds(current.categories, current.milestones);
+      if (addingHierarchy.kind === "category") {
+        const newCategoryId = uniqueScheduleId(taken);
+        taken.add(newCategoryId);
+        const newGroupId = uniqueScheduleId(taken);
+        const result = insertCategoryAfter(
+          current.categories,
+          addingHierarchy.afterCategoryId,
+          rawName,
+          newCategoryId,
+          newGroupId,
+        );
+        if (result.error) return result.error;
+        if (result.changed) {
+          commitCategories(() => result.categories);
+        }
+        setAddingHierarchy(null);
+        return null;
+      }
+      const newGroupId = uniqueScheduleId(taken);
+      const result =
+        addingHierarchy.afterGroupId == null
+          ? appendGroupToCategory(
+              current.categories,
+              addingHierarchy.categoryId,
+              rawName,
+              newGroupId,
+            )
+          : insertGroupAfter(
+              current.categories,
+              addingHierarchy.afterGroupId,
+              rawName,
+              newGroupId,
+            );
+      if (result.error) return result.error;
+      if (result.changed) {
+        commitCategories(() => result.categories);
+      }
+      setAddingHierarchy(null);
+      return null;
+    },
+    [addingHierarchy, commitCategories],
+  );
+
+  const openDeleteHierarchy = useCallback(
+    (kind: "category" | "group", id: ScheduleId) => {
+      setDeletingHierarchy({ kind, id });
+    },
+    [],
+  );
+
+  const closeDeleteHierarchy = useCallback(() => {
+    setDeletingHierarchy(null);
+  }, []);
+
+  const deletingHierarchyTarget = findDeletingHierarchyTarget(
+    categories,
+    deletingHierarchy,
+  );
+
+  const confirmDeleteHierarchy = useCallback(() => {
+    if (deletingHierarchy == null) return;
+    const { kind, id } = deletingHierarchy;
+    setDeletingHierarchy(null);
+    commitCategories((prev) =>
+      kind === "category" ? removeCategory(prev, id) : removeGroup(prev, id),
+    );
+  }, [commitCategories, deletingHierarchy]);
+
   const editingHierarchyTarget = findHierarchyTarget(categories, editingHierarchy);
 
   const setTaskEnd = useCallback(
@@ -477,17 +852,30 @@ export function useSchedule(
     [commitCategories],
   );
 
-  const openEditDialog = useCallback((task: Task) => {
-    setDuplicatingTaskId(null);
-    setEditingTaskId(task.id);
-  }, []);
+  const shiftTaskEndByDays = useCallback(
+    (taskId: ScheduleId, deltaDays: number) => {
+      if (deltaDays === 0) return;
+      commitCategories((prev) =>
+        mapTasks(prev, (task) => {
+          if (task.id !== taskId) return task;
+          const end = isoDate(addDays(parseDate(task.end), deltaDays));
+          const next = end < task.start ? task.start : end;
+          return { ...task, end: next };
+        }),
+      );
+    },
+    [commitCategories],
+  );
 
-  const closeEditDialog = useCallback(() => {
-    setEditingTaskId(null);
-  }, []);
+  const openEditDialog = useCallback(
+    (task: Task) => {
+      setDuplicatingTaskId(null);
+      selectTask(task.id);
+    },
+    [selectTask],
+  );
 
   const openDuplicateDialog = useCallback((taskId: ScheduleId) => {
-    setEditingTaskId(null);
     setEditingNoteTaskId(null);
     setDuplicatingTaskId(taskId);
   }, []);
@@ -526,11 +914,8 @@ export function useSchedule(
     [commitCategories],
   );
 
-  const saveTaskEdit = useCallback(
-    (patch: TaskEditPatch) => {
-      if (editingTaskId == null) {
-        return "編集対象のタスクがありません。";
-      }
+  const applyTaskPatch = useCallback(
+    (taskId: ScheduleId, patch: TaskEditPatch): string | null => {
       const roundedProgress = Math.round(patch.progress);
       const fieldError = validateTaskEdit({
         name: patch.name,
@@ -545,15 +930,14 @@ export function useSchedule(
         documentRef.current.categories,
         documentRef.current.milestones,
         title,
-        editingTaskId,
+        taskId,
         { ...patch, progress: roundedProgress },
       );
       if (!result.ok) return result.message;
       commitCategories(() => result.categories);
-      setEditingTaskId(null);
       return null;
     },
-    [commitCategories, editingTaskId, title],
+    [commitCategories, title],
   );
 
   const addMilestone = useCallback(
@@ -648,7 +1032,6 @@ export function useSchedule(
       );
       setLineageTaskId(null);
       setSelectedTaskId(id);
-      setEditingTaskId(null);
       setDuplicatingTaskId(null);
       return id;
     },
@@ -705,7 +1088,6 @@ export function useSchedule(
       }
       setLineageTaskId(null);
       setSelectedTaskId(id);
-      setEditingTaskId(null);
       setDuplicatingTaskId(null);
       return { ok: true, id };
     },
@@ -739,7 +1121,6 @@ export function useSchedule(
     (taskId: ScheduleId) => {
       commitCategories((prev) => removeTask(prev, taskId));
       setSelectedTaskId((current) => (current === taskId ? null : current));
-      setEditingTaskId((current) => (current === taskId ? null : current));
       setDuplicatingTaskId((current) => (current === taskId ? null : current));
       setEditingNoteTaskId((current) => (current === taskId ? null : current));
       setLineageTaskId((current) => (current === taskId ? null : current));
@@ -760,7 +1141,6 @@ export function useSchedule(
       setMilestones(snapshot.milestones);
       setSelectedTaskId(null);
       setLineageTaskId(null);
-      setEditingTaskId(null);
       setDuplicatingTaskId(null);
       setEditingNoteTaskId(null);
       setEditingMilestoneId(null);
@@ -775,8 +1155,10 @@ export function useSchedule(
         search: "",
         noteSearch: "",
       });
+      setReorderPreview(null);
+      syncHistoryUi();
     },
-    [],
+    [setReorderPreview, syncHistoryUi],
   );
 
   const reloadDocumentFromDisk = useCallback(
@@ -791,9 +1173,11 @@ export function useSchedule(
       setCategories(snapshot.categories);
       setMilestones(snapshot.milestones);
       setDiskEpoch((epoch) => epoch + 1);
+      setReorderPreview(null);
       pruneUiForDocument(snapshot);
+      syncHistoryUi();
     },
-    [pruneUiForDocument],
+    [pruneUiForDocument, setReorderPreview, syncHistoryUi],
   );
 
   const undo = useCallback(() => {
@@ -802,7 +1186,8 @@ export function useSchedule(
     if (!result) return;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
-  }, [applySnapshot, blockDocumentEditsRef]);
+    syncHistoryUi();
+  }, [applySnapshot, blockDocumentEditsRef, syncHistoryUi]);
 
   const redo = useCallback(() => {
     if (blockDocumentEditsRef?.current) return;
@@ -810,12 +1195,8 @@ export function useSchedule(
     if (!result) return;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
-  }, [applySnapshot, blockDocumentEditsRef]);
-
-  const editingTask = useMemo(
-    () => findTaskById(categories, editingTaskId),
-    [categories, editingTaskId],
-  );
+    syncHistoryUi();
+  }, [applySnapshot, blockDocumentEditsRef, syncHistoryUi]);
 
   const duplicatingTask = useMemo(
     () => findTaskById(categories, duplicatingTaskId),
@@ -841,6 +1222,18 @@ export function useSchedule(
     openHierarchyEdit,
     closeHierarchyEdit,
     saveHierarchyName,
+    addingHierarchyTarget,
+    openAddCategoryAfter,
+    openAddGroupToCategory,
+    openAddGroupAfter,
+    closeAddingHierarchy,
+    saveHierarchyAdd,
+    canDeleteCategory: (id: ScheduleId) => canDeleteCategory(categories, id),
+    canDeleteGroup: (id: ScheduleId) => canDeleteGroup(categories, id),
+    openDeleteHierarchy,
+    closeDeleteHierarchy,
+    deletingHierarchyTarget,
+    confirmDeleteHierarchy,
     moveMilestoneByDays,
     openMilestoneEdit,
     closeMilestoneEdit,
@@ -848,6 +1241,16 @@ export function useSchedule(
     setMilestoneConfidence,
     assigneeFilterOptions,
     visibleRows,
+    baseVisibleRows,
+    reorderPreview,
+    reorderInsertMarkerY,
+    previewTaskReorder,
+    commitTaskReorder,
+    previewCategoryReorder,
+    commitCategoryReorder,
+    previewGroupReorder,
+    commitGroupReorder,
+    cancelReorder,
     toggleCollapsed,
     filters,
     updateFilters,
@@ -861,15 +1264,14 @@ export function useSchedule(
     moveTaskByDays,
     setTaskStart,
     setTaskEnd,
+    shiftTaskEndByDays,
     openEditDialog,
-    closeEditDialog,
     openDuplicateDialog,
     closeDuplicateDialog,
     duplicatingTask,
-    saveTaskEdit,
+    applyTaskPatch,
     duplicateTask,
     setTaskConfidence,
-    editingTask,
     editingNoteTask,
     openTaskNoteDialog,
     closeTaskNoteDialog,
@@ -885,6 +1287,8 @@ export function useSchedule(
     diskEpoch,
     undo,
     redo,
+    canUndo: historyUi.canUndo,
+    canRedo: historyUi.canRedo,
     today,
   };
 }

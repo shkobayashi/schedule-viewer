@@ -11,6 +11,7 @@ import {
 } from "./summary";
 import {
   barColors,
+  barLabelFill,
   isOverdue,
   lightningDate,
   taskBarExclusiveEnd,
@@ -52,6 +53,7 @@ export type ScheduleExportInput = {
   /** 初期値以外の絞り込み。空なら絞り込みなし。 */
   filterSummary: string;
   colorScheme: ResolvedColorScheme;
+  showLightningLine: boolean;
 };
 
 export type ScheduleExportFormat = "html" | "svg";
@@ -89,8 +91,9 @@ function assertExportFits(input: ScheduleExportInput): void {
     );
   }
 }
-const FONT =
-  "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif";
+import { CSS_FONT_FAMILY } from "./fontStack";
+
+const FONT = CSS_FONT_FAMILY;
 
 export function scheduleExportFilename(
   title: string,
@@ -717,11 +720,15 @@ function renderBody(
     const y = bodyTop + row.y;
     if (row.type === "task") {
       marks.push(renderTaskBar(row.task, y, input, dateToX));
-    } else {
+    } else if (row.summary != null) {
       marks.push(renderSummary(row.summary, y, input, dateToX));
     }
   }
-  marks.push(renderLightning(input, bodyTop, contentHeight, dateToX));
+  marks.push(
+    input.showLightningLine
+      ? renderLightning(input, bodyTop, contentHeight, dateToX)
+      : "",
+  );
   return marks.join("\n  ");
 }
 
@@ -772,30 +779,55 @@ function renderSummary(
     dateToX,
     6,
   );
-  const height = Math.max(4, Math.round(input.barHeight / 2));
+  const height = Math.max(3, Math.round(input.barHeight * 0.35));
   const barY = y + (input.rowHeight - height) / 2;
-  const radius = Math.min(3, Math.round(height / 2));
-  const parts = [
-    `<rect x="${n(x)}" y="${n(barY)}" width="${n(width)}" height="${n(height)}" rx="${radius}" fill="${chart.summaryGap}"/>`,
-  ];
-  for (const span of summary.covered) {
-    const spanX = dateToX(parseDate(span.start));
+  const cap = Math.max(3, Math.round(height * 0.9));
+  const parts: string[] = [];
+  const sorted = [...summary.covered].sort((a, b) =>
+    a.start.localeCompare(b.start),
+  );
+  for (const span of sorted) {
+    const spanX = dateToX(parseDate(span.start)) - x;
     const spanW = coveredSpanWidthPx(span.start, span.end, dateToX, 2);
-    const atStart = span.start === summary.start;
-    const atEnd = span.end === summary.end;
-    const radii: [number, number, number, number] =
-      atStart && atEnd
-        ? [radius, radius, radius, radius]
-        : atStart
-          ? [radius, 0, 0, radius]
-          : atEnd
-            ? [0, radius, radius, 0]
-            : [0, 0, 0, 0];
     parts.push(
-      `<path d="${roundedRect(spanX, barY, spanW, height, radii)}" fill="${chart.summaryCovered}"/>`,
+      `<rect x="${n(x + spanX)}" y="${n(barY)}" width="${n(spanW)}" height="${n(height)}" fill="${chart.summaryCovered}"/>`,
     );
   }
+  let cursor = summary.start;
+  for (const span of sorted) {
+    if (span.start > cursor) {
+      const gx = dateToX(parseDate(cursor)) - x;
+      const gw = dateToX(parseDate(span.start)) - x - gx;
+      if (gw > 2) {
+        parts.push(
+          `<line x1="${n(x + gx)}" y1="${n(barY + height / 2)}" x2="${n(x + gx + gw)}" y2="${n(barY + height / 2)}" stroke="${chart.summaryGap}" stroke-width="1" stroke-dasharray="4 3"/>`,
+        );
+      }
+    }
+    cursor = span.end > cursor ? span.end : cursor;
+  }
+  if (cursor < summary.end) {
+    const gx = dateToX(parseDate(cursor)) - x;
+    const gw = dateToX(parseDate(summary.end)) - x - gx;
+    if (gw > 2) {
+      parts.push(
+        `<line x1="${n(x + gx)}" y1="${n(barY + height / 2)}" x2="${n(x + gx + gw)}" y2="${n(barY + height / 2)}" stroke="${chart.summaryGap}" stroke-width="1" stroke-dasharray="4 3"/>`,
+      );
+    }
+  }
+  parts.push(
+    `<polygon points="${n(x)},${n(barY + height)} ${n(x + cap)},${n(barY + height + cap)} ${n(x)},${n(barY + height + cap)}" fill="${chart.summaryCovered}"/>`,
+    `<polygon points="${n(x + width)},${n(barY + height)} ${n(x + width - cap)},${n(barY + height + cap)} ${n(x + width)},${n(barY + height + cap)}" fill="${chart.summaryCovered}"/>`,
+  );
   return parts.join("\n  ");
+}
+
+function escapeXmlText(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function renderTaskBar(
@@ -813,15 +845,7 @@ function renderTaskBar(
     task.assigneeId,
     input.memberCatalog,
   );
-  const unassigned = assigneeDisplay.kind === "unassigned";
-  const unknownMember = assigneeDisplay.kind === "unknown";
-  const stroke =
-    unassigned && !isOverdue(task, input.today)
-      ? chart.unassignedStroke
-      : unknownMember && !isOverdue(task, input.today)
-        ? chart.unknownStroke
-        : colors.border;
-  const cap = Math.max(2, Math.round(input.barHeight * 0.16));
+  const assigneeLabel = assigneeSidebarLabel(assigneeDisplay);
   const fill =
     task.confidence === "tentative"
       ? `url(#${hatchPatternId(colors.bg)})`
@@ -835,16 +859,27 @@ function renderTaskBar(
     );
   }
   parts.push(
-    `<rect x="${n(x)}" y="${n(barY)}" width="${n(w)}" height="${n(input.barHeight)}" rx="4" fill="none" stroke="${stroke}" stroke-width="${unassigned || unknownMember ? 1.75 : 1}"${unassigned ? ' stroke-dasharray="5 3"' : unknownMember ? ' stroke-dasharray="2 2"' : ""}/>`,
+    `<rect x="${n(x)}" y="${n(barY)}" width="${n(w)}" height="${n(input.barHeight)}" rx="4" fill="none" stroke="${colors.border}" stroke-width="1"/>`,
   );
-  if (unassigned) {
+  const fontSize = Math.max(10, Math.round(input.barHeight * 0.55));
+  const labelFill = barLabelFill(task, input.today, input.colorScheme);
+  const labelInside =
+    w >= 72 && input.tier !== "month"
+      ? `${task.name}${task.status === "in-progress" ? ` ${task.progress}%` : ""}`
+      : null;
+  const labelOutside =
+    input.tier === "month" || w < 72
+      ? `${task.name} ${assigneeLabel}`.trim()
+      : assigneeLabel
+        ? assigneeLabel
+        : null;
+  if (labelInside) {
     parts.push(
-      `<rect x="${n(x)}" y="${n(barY - cap)}" width="${n(w)}" height="${n(cap)}" fill="${chart.unassignedCap}"/>`,
+      `<text x="${n(x + 6)}" y="${n(barY + input.barHeight / 2 + fontSize * 0.35)}" font-family="${FONT}" font-size="${n(fontSize)}" fill="${labelFill}">${escapeXmlText(labelInside)}</text>`,
     );
-  }
-  if (unknownMember) {
+  } else if (labelOutside) {
     parts.push(
-      `<rect x="${n(x)}" y="${n(barY - cap)}" width="${n(w)}" height="${n(cap)}" fill="${chart.unknownCap}"/>`,
+      `<text x="${n(x + w + 4)}" y="${n(barY + input.barHeight / 2 + fontSize * 0.35)}" font-family="${FONT}" font-size="${n(fontSize)}" fill="${chart.textSecondary}">${escapeXmlText(labelOutside)}</text>`,
     );
   }
   const exceeded = milestonesExceededBy(task, input.milestones);
@@ -856,7 +891,7 @@ function renderTaskBar(
       const radii: [number, number, number, number] =
         overrunAt <= 0 ? [4, 4, 4, 4] : [0, 4, 4, 0];
       parts.push(
-        `<path d="${roundedRect(x + left, barY, width, input.barHeight, radii)}" fill="${chart.overrunOverlay}"/>`,
+        `<path d="${roundedRect(x + left, barY, width, input.barHeight, radii)}" fill="none" stroke="${chart.linkBroken}" stroke-width="1.5"/>`,
       );
     }
   }
@@ -882,7 +917,7 @@ function renderLightning(
     points.push(x, y);
   }
   points.push(todayX, bodyTop + contentHeight);
-  return `<polyline points="${pairs(points)}" fill="none" stroke="${chart.lightning}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  return `<polyline points="${pairs(points)}" fill="none" stroke="${chart.lightning}" stroke-width="1.5" stroke-opacity="0.55" stroke-linejoin="round" stroke-linecap="round"/>`;
 }
 
 function roundedRect(

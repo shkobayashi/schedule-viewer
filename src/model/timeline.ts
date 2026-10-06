@@ -27,10 +27,22 @@ export function taskBarWidthPx(
   return Math.max(pxPerDay, endX - startX);
 }
 
-export function gridTier(pxPerDay: number): "day" | "week" | "month" {
+export type GridTier = "day" | "week" | "month";
+
+export function gridTier(pxPerDay: number): GridTier {
   if (pxPerDay >= 40) return "day";
   if (pxPerDay >= 10) return "week";
   return "month";
+}
+
+export const TIER_PX_PER_DAY: Record<ReturnType<typeof gridTier>, number> = {
+  day: 40,
+  week: DEFAULT_PX_PER_DAY,
+  month: 8,
+};
+
+export function pxPerDayForTier(tier: ReturnType<typeof gridTier>): number {
+  return TIER_PX_PER_DAY[tier];
 }
 
 export function tierLabel(tier: ReturnType<typeof gridTier>): string {
@@ -119,4 +131,17 @@ export function barColors(
   if (!isOverdue(task, today)) return statusColors(task.status, chart);
   if (task.status === "in-progress") return chart.overdueInProgress;
   return chart.overdueOther;
+}
+
+/** バー内ラベルの文字色。 */
+export function barLabelFill(
+  task: { status: string; end: string },
+  today: string,
+  scheme: ResolvedColorScheme = "light",
+): string {
+  const chart = paletteFor(scheme).chart;
+  if (task.status === "done") return chart.barLabelOnFill;
+  if (isOverdue(task, today)) return chart.barLabelOnFill;
+  if (task.status === "in-progress") return chart.barLabelMuted;
+  return chart.barLabelMuted;
 }

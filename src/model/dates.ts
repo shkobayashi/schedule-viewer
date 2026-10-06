@@ -57,6 +57,17 @@ export function fmtShort(d: Date): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 }
 
+/** 左一覧の列。YYYY-MM-DD の月日を `09/19` にする。 */
+export function fmtMonthDay(iso: string): string {
+  return `${iso.slice(5, 7)}/${iso.slice(8, 10)}`;
+}
+
+const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"] as const;
+
+export function fmtWeekday(d: Date): string {
+  return WEEKDAY_LABELS[d.getUTCDay()] ?? "";
+}
+
 export function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
