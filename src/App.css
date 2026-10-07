@@ -956,6 +956,8 @@ button:focus-visible,
 .row-grip svg {
   width: calc(14px * var(--s));
   height: calc(14px * var(--s));
+  pointer-events: none;
+  cursor: inherit;
 }
 
 .sidebar-row.category {
