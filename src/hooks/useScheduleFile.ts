@@ -68,6 +68,9 @@ export function useScheduleFile({
   const [pendingOpen, setPendingOpen] = useState(false);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [fileBusy, setFileBusy] = useState(false);
+  const [startupSettled, setStartupSettled] = useState(!isTauri());
+  const startupSettledRef = useRef(startupSettled);
+  startupSettledRef.current = startupSettled;
   const initialDirectoryRef = useRef<string | null>(null);
   const allowCloseRef = useRef(false);
   const requestMissingFileOpenRef = useRef<() => void>(() => {});
@@ -220,7 +223,7 @@ export function useScheduleFile({
   );
 
   const runOpen = useCallback(async () => {
-    if (fileBusy) return;
+    if (fileBusy || !startupSettledRef.current) return;
     const initialDirectory = initialDirectoryRef.current;
     initialDirectoryRef.current = null;
     setFileBusy(true);
@@ -247,7 +250,7 @@ export function useScheduleFile({
 
   const beginOpen = useCallback(
     (initialDirectory: string | null) => {
-      if (fileBusyRef.current) return;
+      if (fileBusyRef.current || !startupSettledRef.current) return;
       initialDirectoryRef.current = initialDirectory;
       if (isDirtyRef.current) {
         setPendingOpen(true);
@@ -266,7 +269,7 @@ export function useScheduleFile({
   };
 
   const runOpenInNewWindow = useCallback(async () => {
-    if (fileBusy || !isTauri()) return;
+    if (fileBusy || !startupSettledRef.current || !isTauri()) return;
     const initialDirectory = initialDirectoryRef.current;
     initialDirectoryRef.current = null;
     setFileBusy(true);
@@ -316,8 +319,9 @@ export function useScheduleFile({
     setFilePath,
     setBrowserFileLabel,
     setBaselineJson,
-    setFileBusy,
     setErrorMessageText,
+    startupSettledRef,
+    setStartupSettled,
     filePathRef,
     baselineJsonRef,
     isDirtyRef,
@@ -527,6 +531,7 @@ export function useScheduleFile({
     showDeferredReload: externalReload.showDeferredReload,
     isDirty,
     fileBusy,
+    startupSettled,
     errorMessage: errorMessageText,
     discardPromptOpen,
     closePromptOpen,

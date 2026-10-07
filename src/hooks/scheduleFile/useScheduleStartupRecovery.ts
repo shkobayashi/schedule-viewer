@@ -40,8 +40,9 @@ type UseScheduleStartupRecoveryOptions = {
   setFilePath: (path: string | null) => void;
   setBrowserFileLabel: (label: string | null) => void;
   setBaselineJson: (json: string) => void;
-  setFileBusy: (busy: boolean) => void;
   setErrorMessageText: (message: string | null) => void;
+  startupSettledRef: { current: boolean };
+  setStartupSettled: (settled: boolean) => void;
   filePathRef: { current: string | null };
   baselineJsonRef: { current: string };
   isDirtyRef: { current: boolean };
@@ -66,8 +67,9 @@ export function useScheduleStartupRecovery({
   setFilePath,
   setBrowserFileLabel,
   setBaselineJson,
-  setFileBusy,
   setErrorMessageText,
+  startupSettledRef,
+  setStartupSettled,
   filePathRef,
   baselineJsonRef,
   isDirtyRef,
@@ -94,7 +96,6 @@ export function useScheduleStartupRecovery({
     null,
   );
   const recoveryConflictRef = useRef<RecoveryConflictPayload | null>(null);
-  const startupSettledRef = useRef(false);
   const recoveryStartupRef = useRef(0);
 
   const applyRecoverySession = useCallback(
@@ -149,13 +150,14 @@ export function useScheduleStartupRecovery({
     recoveryStartupRef.current = startupId;
     blockDocumentEditsRef.current = true;
     fileBusyRef.current = true;
-    setFileBusy(true);
+    startupSettledRef.current = false;
+    setStartupSettled(false);
     const releaseStartupBusy = () => {
       if (cancelled || recoveryStartupRef.current !== startupId) return;
       startupSettledRef.current = true;
+      setStartupSettled(true);
       blockDocumentEditsRef.current = false;
       fileBusyRef.current = false;
-      setFileBusy(false);
     };
     void (async () => {
       try {
@@ -329,7 +331,8 @@ export function useScheduleStartupRecovery({
     isDirtyRef,
     markMissingFilePrompted,
     setErrorMessageText,
-    setFileBusy,
+    setStartupSettled,
+    startupSettledRef,
   ]);
 
   const confirmRecoveryOpenDisk = useCallback(() => {
