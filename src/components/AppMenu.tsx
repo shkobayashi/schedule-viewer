@@ -3,11 +3,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Menu } from "lucide-react";
 import { createPortal } from "react-dom";
 import { fileShortcutHint, usesCommandKey } from "../model/shortcuts";
-import { anchorBelowRect, menuViewportShift } from "./anchoredMenu";
+import { anchorBelowRect, menuShiftForRect } from "./anchoredMenu";
 import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 
 type AppMenuProps = {
   fileBusy?: boolean;
+  startupSettled?: boolean;
   onOpen: () => void;
   onOpenInNewWindow?: () => void;
   onSave: () => void;
@@ -21,6 +22,7 @@ type AppMenuProps = {
 
 export function AppMenu({
   fileBusy = false,
+  startupSettled = true,
   onOpen,
   onOpenInNewWindow,
   onSave,
@@ -36,6 +38,24 @@ export function AppMenu({
   const panelRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: 0, top: 0 });
   const [shift, setShift] = useState({ x: 0, y: 0 });
+  const [menuFileActionsLocked, setMenuFileActionsLocked] = useState(false);
+  const fileBusyRef = useRef(fileBusy);
+  const startupSettledRef = useRef(startupSettled);
+  fileBusyRef.current = fileBusy;
+  startupSettledRef.current = startupSettled;
+
+  useLayoutEffect(() => {
+    if (open) {
+      setMenuFileActionsLocked(
+        fileBusyRef.current || !startupSettledRef.current,
+      );
+    }
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    if (startupSettled && !fileBusy) setMenuFileActionsLocked(false);
+  }, [open, startupSettled, fileBusy]);
 
   useLayoutEffect(() => {
     if (!open || !buttonRef.current) return;
@@ -47,8 +67,15 @@ export function AppMenu({
     if (!open) return;
     const panel = panelRef.current;
     if (!panel) return;
-    const rect = panel.getBoundingClientRect();
-    setShift(menuViewportShift(rect));
+    const next = menuShiftForRect(
+      position.left,
+      position.top,
+      panel.offsetWidth,
+      panel.offsetHeight,
+    );
+    setShift((prev) =>
+      prev.x === next.x && prev.y === next.y ? prev : next,
+    );
   }, [open, position.left, position.top]);
 
   useEffect(() => {
@@ -99,7 +126,7 @@ export function AppMenu({
       <button
         type="button"
         role="menuitem"
-        disabled={fileBusy}
+        disabled={menuFileActionsLocked}
         onClick={() => run(onOpen)}
       >
         <span>開く</span>
@@ -109,7 +136,7 @@ export function AppMenu({
         <button
           type="button"
           role="menuitem"
-          disabled={fileBusy}
+          disabled={menuFileActionsLocked}
           onClick={() => run(onOpenInNewWindow)}
         >
           <span>新しいウィンドウで開く</span>
@@ -121,7 +148,7 @@ export function AppMenu({
       <button
         type="button"
         role="menuitem"
-        disabled={fileBusy}
+        disabled={menuFileActionsLocked}
         onClick={() => run(onSave)}
       >
         <span>保存</span>
@@ -130,7 +157,7 @@ export function AppMenu({
       <button
         type="button"
         role="menuitem"
-        disabled={fileBusy}
+        disabled={menuFileActionsLocked}
         onClick={() => run(onSaveAs)}
       >
         <span>別名保存</span>
@@ -147,7 +174,7 @@ export function AppMenu({
       <button
         type="button"
         role="menuitem"
-        disabled={fileBusy}
+        disabled={menuFileActionsLocked}
         onClick={() => run(onShowDiff)}
       >
         差分を表示

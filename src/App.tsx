@@ -94,7 +94,11 @@ import {
   scrollYToRevealTask,
   scrollYToShowSelectedTask,
 } from "./model/stickyRows";
-import { findTaskPlace } from "./model/tasks";
+import {
+  canDeleteCategory,
+  canDeleteGroup,
+  findTaskPlace,
+} from "./model/tasks";
 import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange, taskBarWidthPx } from "./model/timeline";
 import type { ScheduleId, Task } from "./model/types";
@@ -440,6 +444,10 @@ function App() {
     visibleRows,
     moveTaskByDays,
     shiftTaskEndByDays,
+    openAddCategoryAfter,
+    openAddGroupToCategory,
+    openAddGroupAfter,
+    openDeleteHierarchy,
   } = schedule;
   const range = useMemo(
     () =>
@@ -935,7 +943,7 @@ function App() {
 
   const commandPaletteContext = useMemo(
     () => ({
-      fileBusy: scheduleFile.fileBusy,
+      fileBusy: scheduleFile.fileBusy || !scheduleFile.startupSettled,
       isTauriDesktop: isTauri(),
       canUndo: schedule.canUndo,
       canRedo: schedule.canRedo,
@@ -952,6 +960,7 @@ function App() {
       schedule.lineageTask,
       schedule.selectedTaskId,
       scheduleFile.fileBusy,
+      scheduleFile.startupSettled,
     ],
   );
 
@@ -1114,7 +1123,7 @@ function App() {
   });
 
   useMacOSAppMenu({
-    fileBusy: () => scheduleFile.fileBusy,
+    fileBusy: () => scheduleFile.fileBusy || !scheduleFile.startupSettled,
     onOpen: scheduleFile.requestOpen,
     onOpenInNewWindow: scheduleFile.requestOpenInNewWindow,
     onSave: () => void scheduleFile.save(false),
@@ -1296,16 +1305,16 @@ function App() {
           type: "item",
           id: "add-category",
           label: "下にカテゴリを追加",
-          onSelect: () => schedule.openAddCategoryAfter(id),
+          onSelect: () => openAddCategoryAfter(id),
         },
         {
           type: "item",
           id: "add-group",
           label: "グループを追加",
-          onSelect: () => schedule.openAddGroupToCategory(id),
+          onSelect: () => openAddGroupToCategory(id),
         },
       ];
-      if (schedule.canDeleteCategory(id)) {
+      if (canDeleteCategory(categories, id)) {
         items.push(
           { type: "separator", id: "category-sep" },
           {
@@ -1314,7 +1323,7 @@ function App() {
             label: "削除",
             danger: true,
             icon: <Trash2 size={14} strokeWidth={2} />,
-            onSelect: () => schedule.openDeleteHierarchy("category", id),
+            onSelect: () => openDeleteHierarchy("category", id),
           },
         );
       }
@@ -1333,10 +1342,10 @@ function App() {
           type: "item",
           id: "add-group",
           label: "下にグループを追加",
-          onSelect: () => schedule.openAddGroupAfter(id),
+          onSelect: () => openAddGroupAfter(id),
         },
       ];
-      if (schedule.canDeleteGroup(id)) {
+      if (canDeleteGroup(categories, id)) {
         items.push(
           { type: "separator", id: "group-sep" },
           {
@@ -1345,7 +1354,7 @@ function App() {
             label: "削除",
             danger: true,
             icon: <Trash2 size={14} strokeWidth={2} />,
-            onSelect: () => schedule.openDeleteHierarchy("group", id),
+            onSelect: () => openDeleteHierarchy("group", id),
           },
         );
       }
@@ -1434,7 +1443,10 @@ function App() {
     openMilestoneEdit,
     openTaskNoteDialog,
     removePredecessorLink,
-    schedule,
+    openAddCategoryAfter,
+    openAddGroupToCategory,
+    openAddGroupAfter,
+    openDeleteHierarchy,
     showLineage,
   ]);
 
@@ -1497,6 +1509,7 @@ function App() {
           if (schedule.selectedTaskId != null) setDeleteOpen(true);
         }}
         fileBusy={scheduleFile.fileBusy}
+        startupSettled={scheduleFile.startupSettled}
         taskSearchRef={taskSearchRef}
       />
       <ActiveFilterBar
@@ -1541,7 +1554,7 @@ function App() {
               : null
           }
           reorderMarkerY={schedule.reorderInsertMarkerY}
-          canEditDocument={!blockDocumentEditsRef.current}
+          canEditDocument={scheduleFile.startupSettled}
           onPreviewTaskReorder={schedule.previewTaskReorder}
           onCommitTaskReorder={schedule.commitTaskReorder}
           onPreviewCategoryReorder={schedule.previewCategoryReorder}

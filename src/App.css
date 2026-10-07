@@ -201,6 +201,8 @@ body {
   padding: calc(8px * var(--s)) calc(10px * var(--s));
   border-radius: var(--radius-md);
   font-size: calc(12px * var(--s));
+  color: var(--text);
+  appearance: none;
   cursor: pointer;
 }
 
@@ -215,8 +217,14 @@ body {
 }
 
 .app-menu-panel button:disabled {
-  opacity: 0.5;
+  color: var(--text-secondary);
+  -webkit-text-fill-color: var(--text-secondary);
   cursor: not-allowed;
+}
+
+.app-menu-panel button:disabled .menu-shortcut {
+  color: var(--text-secondary);
+  -webkit-text-fill-color: var(--text-secondary);
 }
 
 .app-menu-panel hr {
@@ -948,6 +956,8 @@ button:focus-visible,
 .row-grip svg {
   width: calc(14px * var(--s));
   height: calc(14px * var(--s));
+  pointer-events: none;
+  cursor: inherit;
 }
 
 .sidebar-row.category {

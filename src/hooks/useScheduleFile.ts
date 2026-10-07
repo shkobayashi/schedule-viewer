@@ -68,6 +68,9 @@ export function useScheduleFile({
   const [pendingOpen, setPendingOpen] = useState(false);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [fileBusy, setFileBusy] = useState(false);
+  const [startupSettled, setStartupSettled] = useState(!isTauri());
+  const startupSettledRef = useRef(startupSettled);
+  startupSettledRef.current = startupSettled;
   const initialDirectoryRef = useRef<string | null>(null);
   const allowCloseRef = useRef(false);
   const requestMissingFileOpenRef = useRef<() => void>(() => {});
@@ -138,7 +141,19 @@ export function useScheduleFile({
   const syncLiveRecoveryRef = useRef(syncLiveRecovery);
   syncLiveRecoveryRef.current = syncLiveRecovery;
 
-  const externalReload = useScheduleExternalReload({
+  const {
+    reloadNotice,
+    showDeferredReload,
+    externalReloadOpen,
+    clearExternalReloadPrompt,
+    clearInvalidDiskHash,
+    resetPollTracking,
+    markMissingFilePrompted,
+    setDeferredExternalContents,
+    confirmExternalReload,
+    keepLocalEditsOnExternalReload,
+    requestDeferredReload,
+  } = useScheduleExternalReload({
     filePath,
     reloadDocumentFromDisk,
     setBaselineJson,
@@ -152,8 +167,8 @@ export function useScheduleFile({
     requestMissingFileOpenRef,
     notifyPeersRef,
   });
-  clearExternalReloadPromptRef.current = externalReload.clearExternalReloadPrompt;
-  clearInvalidDiskHashRef.current = externalReload.clearInvalidDiskHash;
+  clearExternalReloadPromptRef.current = clearExternalReloadPrompt;
+  clearInvalidDiskHashRef.current = clearInvalidDiskHash;
 
   const statusTag: FileStatusTag = useMemo(() => {
     if (isDirty) return "unsaved";
@@ -162,13 +177,13 @@ export function useScheduleFile({
   }, [browserFileLabel, filePath, isDirty]);
 
   const statusLabel = useMemo(() => {
-    if (externalReload.reloadNotice) return "ファイルを反映しました";
+    if (reloadNotice) return "ファイルを反映しました";
     if (statusTag === "unsaved") return "未保存";
     if (statusTag === "saved") {
       return scheduleJsonFilename(filePath) ?? browserFileLabel ?? "保存済み";
     }
     return "サンプルデータ";
-  }, [browserFileLabel, externalReload.reloadNotice, filePath, statusTag]);
+  }, [browserFileLabel, filePath, reloadNotice, statusTag]);
 
   const displayFileName = useMemo(
     () => scheduleJsonFilename(filePath) ?? browserFileLabel ?? "サンプルデータ",
@@ -198,8 +213,8 @@ export function useScheduleFile({
       setFilePath(pick.path);
       setBrowserFileLabel(pick.path ? null : (pick.displayName ?? null));
       setBaselineJson(parsed.canonicalJson);
-      externalReload.clearExternalReloadPrompt();
-      externalReload.resetPollTracking();
+      clearExternalReloadPrompt();
+      resetPollTracking();
       baselineJsonRef.current = parsed.canonicalJson;
       onAfterOpen();
       if (isTauri() && previousPath && previousPath !== pick.path) {
@@ -213,14 +228,15 @@ export function useScheduleFile({
     },
     [
       baselineJsonRef,
-      externalReload,
+      clearExternalReloadPrompt,
       onAfterOpen,
       replaceDocument,
+      resetPollTracking,
     ],
   );
 
   const runOpen = useCallback(async () => {
-    if (fileBusy) return;
+    if (fileBusy || !startupSettledRef.current) return;
     const initialDirectory = initialDirectoryRef.current;
     initialDirectoryRef.current = null;
     setFileBusy(true);
@@ -247,7 +263,7 @@ export function useScheduleFile({
 
   const beginOpen = useCallback(
     (initialDirectory: string | null) => {
-      if (fileBusyRef.current) return;
+      if (fileBusyRef.current || !startupSettledRef.current) return;
       initialDirectoryRef.current = initialDirectory;
       if (isDirtyRef.current) {
         setPendingOpen(true);
@@ -266,7 +282,7 @@ export function useScheduleFile({
   };
 
   const runOpenInNewWindow = useCallback(async () => {
-    if (fileBusy || !isTauri()) return;
+    if (fileBusy || !startupSettledRef.current || !isTauri()) return;
     const initialDirectory = initialDirectoryRef.current;
     initialDirectoryRef.current = null;
     setFileBusy(true);
@@ -316,18 +332,19 @@ export function useScheduleFile({
     setFilePath,
     setBrowserFileLabel,
     setBaselineJson,
-    setFileBusy,
     setErrorMessageText,
+    startupSettledRef,
+    setStartupSettled,
     filePathRef,
     baselineJsonRef,
     isDirtyRef,
     fileBusyRef,
     blockDocumentEditsRef,
     clearRecoveryDraft,
-    clearExternalReloadPrompt: externalReload.clearExternalReloadPrompt,
-    clearInvalidDiskHash: externalReload.clearInvalidDiskHash,
-    setDeferredExternalContents: externalReload.setDeferredExternalContents,
-    markMissingFilePrompted: externalReload.markMissingFilePrompted,
+    clearExternalReloadPrompt,
+    clearInvalidDiskHash,
+    setDeferredExternalContents,
+    markMissingFilePrompted,
     beginOpen,
     applyOpenedFile,
   });
@@ -523,15 +540,16 @@ export function useScheduleFile({
     displayFileName,
     saveStatusLabel,
     statusLabel,
-    reloadNotice: externalReload.reloadNotice,
-    showDeferredReload: externalReload.showDeferredReload,
+    reloadNotice,
+    showDeferredReload,
     isDirty,
     fileBusy,
+    startupSettled,
     errorMessage: errorMessageText,
     discardPromptOpen,
     closePromptOpen,
     externalChangeOpen,
-    externalReloadOpen: externalReload.externalReloadOpen,
+    externalReloadOpen,
     recoveryConflictOpen: startup.recoveryConflictOpen,
     recoveryConflictLabel: startup.recoveryConflictLabel,
     recoveryConflictMissing: startup.recoveryConflictMissing,
@@ -553,9 +571,9 @@ export function useScheduleFile({
     confirmExternalOverwrite,
     confirmExternalSaveAs,
     cancelExternalChange,
-    confirmExternalReload: externalReload.confirmExternalReload,
-    keepLocalEditsOnExternalReload: externalReload.keepLocalEditsOnExternalReload,
-    requestDeferredReload: externalReload.requestDeferredReload,
+    confirmExternalReload,
+    keepLocalEditsOnExternalReload,
+    requestDeferredReload,
     dismissError,
     currentJson,
     peerNotice,
