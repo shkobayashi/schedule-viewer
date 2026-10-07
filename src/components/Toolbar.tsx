@@ -65,6 +65,7 @@ type ToolbarProps = {
   onAddMilestone: () => void;
   onDelete: () => void;
   fileBusy?: boolean;
+  startupSettled?: boolean;
   taskSearchRef?: RefObject<HTMLInputElement | null>;
 };
 
@@ -107,6 +108,7 @@ export function Toolbar({
   onAddMilestone,
   onDelete,
   fileBusy = false,
+  startupSettled = true,
   taskSearchRef,
 }: ToolbarProps) {
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
@@ -176,6 +178,7 @@ export function Toolbar({
       <div className="toolbar-row toolbar-row-primary">
       <AppMenu
         fileBusy={fileBusy}
+        startupSettled={startupSettled}
         onOpen={onOpen}
         onOpenInNewWindow={onOpenInNewWindow}
         onSave={onSave}

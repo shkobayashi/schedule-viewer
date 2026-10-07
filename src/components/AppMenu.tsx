@@ -8,6 +8,7 @@ import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 
 type AppMenuProps = {
   fileBusy?: boolean;
+  startupSettled?: boolean;
   onOpen: () => void;
   onOpenInNewWindow?: () => void;
   onSave: () => void;
@@ -21,6 +22,7 @@ type AppMenuProps = {
 
 export function AppMenu({
   fileBusy = false,
+  startupSettled = true,
   onOpen,
   onOpenInNewWindow,
   onSave,
@@ -36,6 +38,24 @@ export function AppMenu({
   const panelRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: 0, top: 0 });
   const [shift, setShift] = useState({ x: 0, y: 0 });
+  const [menuFileActionsLocked, setMenuFileActionsLocked] = useState(false);
+  const fileBusyRef = useRef(fileBusy);
+  const startupSettledRef = useRef(startupSettled);
+  fileBusyRef.current = fileBusy;
+  startupSettledRef.current = startupSettled;
+
+  useLayoutEffect(() => {
+    if (open) {
+      setMenuFileActionsLocked(
+        fileBusyRef.current || !startupSettledRef.current,
+      );
+    }
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    if (startupSettled && !fileBusy) setMenuFileActionsLocked(false);
+  }, [open, startupSettled, fileBusy]);
 
   useLayoutEffect(() => {
     if (!open || !buttonRef.current) return;
@@ -106,7 +126,7 @@ export function AppMenu({
       <button
         type="button"
         role="menuitem"
-        disabled={fileBusy}
+        disabled={menuFileActionsLocked}
         onClick={() => run(onOpen)}
       >
         <span>開く</span>
@@ -116,7 +136,7 @@ export function AppMenu({
         <button
           type="button"
           role="menuitem"
-          disabled={fileBusy}
+          disabled={menuFileActionsLocked}
           onClick={() => run(onOpenInNewWindow)}
         >
           <span>新しいウィンドウで開く</span>
@@ -128,7 +148,7 @@ export function AppMenu({
       <button
         type="button"
         role="menuitem"
-        disabled={fileBusy}
+        disabled={menuFileActionsLocked}
         onClick={() => run(onSave)}
       >
         <span>保存</span>
@@ -137,7 +157,7 @@ export function AppMenu({
       <button
         type="button"
         role="menuitem"
-        disabled={fileBusy}
+        disabled={menuFileActionsLocked}
         onClick={() => run(onSaveAs)}
       >
         <span>別名保存</span>
@@ -154,7 +174,7 @@ export function AppMenu({
       <button
         type="button"
         role="menuitem"
-        disabled={fileBusy}
+        disabled={menuFileActionsLocked}
         onClick={() => run(onShowDiff)}
       >
         差分を表示
