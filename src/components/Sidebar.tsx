@@ -46,7 +46,6 @@ import {
   resolveTaskDropTarget,
 } from "../model/taskOrder";
 import type { Category, Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
-
 type SidebarProps = {
   categories: Category[];
   rows: VisibleRow[];
@@ -395,10 +394,14 @@ export function Sidebar({
       // ポインタが既に無効なときは、window の監視だけで続ける。
     }
     document.body.style.userSelect = "none";
-    const rowEl = event.currentTarget.closest(".sidebar-row");
+    const downEl = event.currentTarget;
+    const rowEl = downEl.closest(".sidebar-row");
     const rowTop =
       rowEl instanceof HTMLElement ? rowEl.getBoundingClientRect().top : event.clientY;
     const onMove = (native: PointerEvent) => {
+      onRowPointerMove(native);
+    };
+    const onGripMove = (native: PointerEvent) => {
       onRowPointerMove(native);
     };
     const onUp = (native: PointerEvent) => {
@@ -413,12 +416,13 @@ export function Sidebar({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
+      downEl.removeEventListener("pointermove", onGripMove);
     };
     rowDragRef.current = {
       pointerId: event.pointerId,
       kind,
       id,
-      downEl: event.currentTarget,
+      downEl,
       startX: event.clientX,
       startY: event.clientY,
       grabOffsetY: event.clientY - rowTop,
@@ -430,6 +434,7 @@ export function Sidebar({
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
+    downEl.addEventListener("pointermove", onGripMove);
   };
 
   const finishRowDrag = (
@@ -551,6 +556,7 @@ export function Sidebar({
         ref={viewportRef}
         onLostPointerCapture={(event) => {
           if (event.target !== event.currentTarget) return;
+          if (rowDragRef.current?.mode === "reorder") return;
           rowDragRef.current?.detach();
           finishRowDrag(event.pointerId, 0, 0, false);
         }}
@@ -861,13 +867,23 @@ function RowGrip({
   label: string;
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
+  const [hoverGrabCursor, setHoverGrabCursor] = useState(false);
+  const showGrabCursor = canReorder || hoverGrabCursor;
+
+  const keepGrabCursor = () => {
+    if (canReorder) setHoverGrabCursor(true);
+  };
+
   return (
     <div
-      className={`row-grip${canReorder ? " can-reorder" : ""}`}
+      className={`row-grip${showGrabCursor ? " can-reorder" : ""}`}
       role="button"
       tabIndex={-1}
       aria-label={label}
       aria-disabled={!canReorder}
+      onPointerEnter={keepGrabCursor}
+      onPointerMove={keepGrabCursor}
+      onPointerLeave={() => setHoverGrabCursor(false)}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         event.preventDefault();
