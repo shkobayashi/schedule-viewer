@@ -143,6 +143,11 @@ export function useScheduleStartupRecovery({
     ],
   );
 
+  const applyOpenedFileRef = useRef(applyOpenedFile);
+  applyOpenedFileRef.current = applyOpenedFile;
+  const applyRecoverySessionRef = useRef(applyRecoverySession);
+  applyRecoverySessionRef.current = applyRecoverySession;
+
   useEffect(() => {
     if (!isTauri()) return;
     let cancelled = false;
@@ -164,7 +169,10 @@ export function useScheduleStartupRecovery({
         const pending = await takePendingScheduleWindowOpenViaTauri();
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (pending) {
-          applyOpenedFile({ path: pending.path, contents: pending.contents });
+          applyOpenedFileRef.current({
+            path: pending.path,
+            contents: pending.contents,
+          });
           releaseStartupBusy();
           return;
         }
@@ -233,7 +241,7 @@ export function useScheduleStartupRecovery({
             releaseStartupBusy();
             return;
           case "openSaved": {
-            const applied = await applyRecoverySession(
+            const applied = await applyRecoverySessionRef.current(
               {
                 path: action.path,
                 document: action.document,
@@ -249,7 +257,7 @@ export function useScheduleStartupRecovery({
             return;
           }
           case "restore":
-            await applyRecoverySession(
+            await applyRecoverySessionRef.current(
               {
                 path: action.path,
                 document: action.document,
@@ -276,7 +284,7 @@ export function useScheduleStartupRecovery({
             releaseStartupBusy();
             return;
           case "missingWithEdits": {
-            const applied = await applyRecoverySession(
+            const applied = await applyRecoverySessionRef.current(
               {
                 path: action.path,
                 document: action.document,
@@ -321,19 +329,9 @@ export function useScheduleStartupRecovery({
         blockDocumentEditsRef.current = false;
       }
     };
-  }, [
-    applyOpenedFile,
-    applyRecoverySession,
-    blockDocumentEditsRef,
-    clearRecoveryDraft,
-    fileBusyRef,
-    filePathRef,
-    isDirtyRef,
-    markMissingFilePrompted,
-    setErrorMessageText,
-    setStartupSettled,
-    startupSettledRef,
-  ]);
+    // 起動復旧はマウント時に一度だけ走らせる。applyOpenedFile の参照が変わっても再起動しない。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 起動時のみ
+  }, []);
 
   const confirmRecoveryOpenDisk = useCallback(() => {
     const payload = recoveryConflictRef.current;
