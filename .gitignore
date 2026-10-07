@@ -36,3 +36,6 @@ lerna-debug.log*
 # --- OS ---
 .DS_Store
 Thumbs.db
+target/menu-paint-probe-sample.jsonl
+target/menu-paint-probe.jsonl
+target/grip-cursor-probe.jsonl

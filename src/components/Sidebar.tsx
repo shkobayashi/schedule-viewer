@@ -46,7 +46,6 @@ import {
   resolveTaskDropTarget,
 } from "../model/taskOrder";
 import type { Category, Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
-
 type SidebarProps = {
   categories: Category[];
   rows: VisibleRow[];
@@ -861,13 +860,23 @@ function RowGrip({
   label: string;
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
+  const [hoverGrabCursor, setHoverGrabCursor] = useState(false);
+  const showGrabCursor = canReorder || hoverGrabCursor;
+
+  const keepGrabCursor = () => {
+    if (canReorder) setHoverGrabCursor(true);
+  };
+
   return (
     <div
-      className={`row-grip${canReorder ? " can-reorder" : ""}`}
+      className={`row-grip${showGrabCursor ? " can-reorder" : ""}`}
       role="button"
       tabIndex={-1}
       aria-label={label}
       aria-disabled={!canReorder}
+      onPointerEnter={keepGrabCursor}
+      onPointerMove={keepGrabCursor}
+      onPointerLeave={() => setHoverGrabCursor(false)}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         event.preventDefault();

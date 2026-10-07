@@ -1554,7 +1554,7 @@ function App() {
               : null
           }
           reorderMarkerY={schedule.reorderInsertMarkerY}
-          canEditDocument={!blockDocumentEditsRef.current}
+          canEditDocument={scheduleFile.startupSettled}
           onPreviewTaskReorder={schedule.previewTaskReorder}
           onCommitTaskReorder={schedule.commitTaskReorder}
           onPreviewCategoryReorder={schedule.previewCategoryReorder}
