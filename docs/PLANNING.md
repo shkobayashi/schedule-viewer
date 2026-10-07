@@ -49,6 +49,7 @@
 ## リポジトリ / 開発環境
 
 - GitHub単一リポジトリ（`shkobayashi/schedule-viewer`）
+- ライセンス: MIT（ルートの `LICENSE`）。依存に GPL は無く、公開向けに MIT を採用した
 - 採用ディレクトリ構成（Phase 0 で反映済み）:
 
 ```

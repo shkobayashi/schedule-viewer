@@ -35,6 +35,10 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 
 詳しい経緯・検討した代替案・ロードマップは [`docs/PLANNING.md`](docs/PLANNING.md) を参照。
 
+## ライセンス
+
+本リポジトリのソースは [MIT](LICENSE) である。依存ライブラリは各パッケージのライセンスに従う。
+
 ## インストール
 
 メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から取得する。Release には配布物の SHA-256（`SHA256SUMS`）が付く。
