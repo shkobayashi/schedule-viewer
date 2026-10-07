@@ -943,7 +943,7 @@ function App() {
 
   const commandPaletteContext = useMemo(
     () => ({
-      fileBusy: scheduleFile.fileBusy,
+      fileBusy: scheduleFile.fileBusy || !scheduleFile.startupSettled,
       isTauriDesktop: isTauri(),
       canUndo: schedule.canUndo,
       canRedo: schedule.canRedo,
@@ -960,6 +960,7 @@ function App() {
       schedule.lineageTask,
       schedule.selectedTaskId,
       scheduleFile.fileBusy,
+      scheduleFile.startupSettled,
     ],
   );
 
@@ -1122,7 +1123,7 @@ function App() {
   });
 
   useMacOSAppMenu({
-    fileBusy: () => scheduleFile.fileBusy,
+    fileBusy: () => scheduleFile.fileBusy || !scheduleFile.startupSettled,
     onOpen: scheduleFile.requestOpen,
     onOpenInNewWindow: scheduleFile.requestOpenInNewWindow,
     onSave: () => void scheduleFile.save(false),
@@ -1508,6 +1509,7 @@ function App() {
           if (schedule.selectedTaskId != null) setDeleteOpen(true);
         }}
         fileBusy={scheduleFile.fileBusy}
+        startupSettled={scheduleFile.startupSettled}
         taskSearchRef={taskSearchRef}
       />
       <ActiveFilterBar
@@ -1552,7 +1554,7 @@ function App() {
               : null
           }
           reorderMarkerY={schedule.reorderInsertMarkerY}
-          canEditDocument={!blockDocumentEditsRef.current}
+          canEditDocument={scheduleFile.startupSettled}
           onPreviewTaskReorder={schedule.previewTaskReorder}
           onCommitTaskReorder={schedule.commitTaskReorder}
           onPreviewCategoryReorder={schedule.previewCategoryReorder}
