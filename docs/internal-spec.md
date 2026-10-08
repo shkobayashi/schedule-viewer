@@ -182,8 +182,9 @@ flowchart TD
 4. schemaVersion 4 なら、カテゴリとグループへ名前から決まる UUID を付けて schemaVersion 5 にする。同じ内容なら ID は毎回同じである。タスクやマイルストンの ID とぶつかったときだけ別の ID にする
 5. schemaVersion 5 のマイルストンに確度が無いときは `committed` を足す。既にある `confidence` はそのまま残す
 6. schemaVersion 5 なら、マイルストンが1件以上あるときは名前「マイルストン」の `milestoneGroups` を1つ足し、全部のマイルストンに `groupId` を付けて schemaVersion 6 にする。その ID は名前から決まり、カテゴリ、グループ、タスク、マイルストンの ID とぶつかったときだけ別にする。マイルストンが0件なら `milestoneGroups` は空のままである
-7. JSON Schema（schemaVersion 6）
-8. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）。ID はカテゴリ、グループ、タスク、マイルストン、マイルストングループを通して重複できない
+7. schemaVersion 6 なら schemaVersion 7 にする。タグは付けない
+8. JSON Schema（schemaVersion 7）
+9. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）。ID はカテゴリ、グループ、タスク、マイルストン、マイルストングループを通して重複できない
 
 メンバーとカレンダーも、JSON Schema のあとに意味規則を見る。`validationMessages.ts` は、エラーの場所を示す JSON Pointer をカテゴリやタスクの名前に置き換えて、エラー文言を作る。
 
@@ -282,7 +283,7 @@ JSON 作成スキルの配置は `install_json_skills` だけが行う。外す�
 
 | 処理 | 場所 | 内容 |
 | --- | --- | --- |
-| 行の絞り込み | `rows.ts` の `taskMatchesFilter` と `showEmptyHierarchyRows` | 系統、担当、ステータス、確度、期限、破綻、マイルストン、名前、ノートをすべて満たすタスクだけを残す。絞り込みも系統も無いときはタスク0件のグループとカテゴリも行に出す。それ以外は0件のグループとカテゴリは行にしない。折りたたみの鍵はカテゴリとグループの `id` である |
+| 行の絞り込み | `rows.ts` の `taskMatchesFilter` と `showEmptyHierarchyRows` | 系統、担当、ステータス、確度、期限、破綻、マイルストン、タグ、名前、ノートをすべて満たすタスクだけを残す。絞り込みも系統も無いときはタスク0件のグループとカテゴリも行に出す。それ以外は0件のグループとカテゴリは行にしない。折りたたみの鍵はカテゴリとグループの `id` である |
 | 見出し行の固定 | `stickyRows.ts` の `layoutStickyHeaders`、`scrollYToRevealTask`、`scrollYToShowSelectedTask` | 見えている行のうち、展開して配下が残っているカテゴリとグループを、上端へ最大2行残す。画面に収まるときと折りたたんだ行は残さない。追加と複製では `scrollYToRevealTask` で固定段の下へ寄せる。選択では `scrollYToShowSelectedTask` が、見えている行は縦位置を変えず、画面外だけ入るところまで動かす |
 | 系統 | `dependencies.ts` の `lineageTaskIds` | 起点から先行と後続を辿る。起点を通らない枝は入れない |
 | 線を足す | `dependencies.ts` の `tryAddPredecessorLink` | 後続の `predecessors` に起点を足した候補を、循環と先行参照と先行 ID の重複で見る。通ったときだけ保存する |
@@ -317,6 +318,6 @@ npm スクリプトと CI の分岐は [開発ガイド](development.md#npm-ス�
 - `rows.ts` の `ROW_HEIGHT` と `layoutSizes.ts` の `LAYOUT_ROW_HEIGHT` は、どちらも 32 で二重に定義されている。画面が使うのは、`App.tsx` が `scaledLayoutSizes` から渡す高さである
 - 書き出しは、表示中の Konva を撮るのではなく、モデルから SVG を組み立て直す。見た目は近づけるが、別の実装である
 - `mockup/schedule-viewer-mockup.html` は初期の検証用で、アプリからは参照しない。ESLint の対象外である
-- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。schemaVersion 5 のマイルストンに確度が無いときは `committed` を足し、続けて schemaVersion 6 に上げる。未保存の比較は、その schemaVersion 6 の保存形式である。実際に開けるのは 3〜6 である
+- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。schemaVersion 5 のマイルストンに確度が無いときは `committed` を足し、続けて schemaVersion 7 に上げる。schemaVersion 6 はタグなしのまま 7 に上げる。未保存の比較は、その schemaVersion 7 の保存形式である。実際に開けるのは 3〜7 である
 - 取り消しはドラッグの途中では積まない。離したときの確定が1ステップである
 - タスクの並べ替えと別グループへの移動は `tasks.ts` の `reorderTaskInGroup` と `moveTaskToGroup`、`taskOrder.ts` の `resolveTaskDropTarget` が挿入位置と兄弟の可視性を決める。同じグループの挿入位置は、動かしているタスクを除いたあとである。折りたたんだグループ行は候補にしない。グループの並べ替えと別カテゴリへの移動は `tasks.ts` の `moveGroupToCategory` と `groupOrder.ts` の `resolveGroupDropTarget` が挿入位置と、同じカテゴリのグループが全部行に出ているかを決める。名前が重なる位置と、元のカテゴリのグループが無くなる位置は候補にしない。カテゴリとグループの追加と削除は `tasks.ts` の純粋関数と `useSchedule` が確定する。カテゴリの並べ替えは `tasks.ts` の `reorderCategories` と `categoryOrder.ts` が挿入位置と、行に出ているカテゴリが全部かを決める。ドラッグ中は `useSchedule` が `reorderPreview` で行だけを仮表示し、離したときに `commitCategories` で1件積む。並べ替えを始めるのは各行の左端の握りだけで、`taskOrder.ts` の `classifyHandleDrag` が 3px を超えたかを見る。方向は問わない。3px 以内で離した握りは何もせず、選択を変えない。握りの右クリックも `RowGrip` が止める。並べ替え中は、`rows.ts` の `reorderDragBlockRows` が、いま見えている行の並びから半透明の塊を決め、`Sidebar.tsx` がその塊をポインタの縦位置に描く。タスクは1行、グループは見えている配下のタスク行まで、カテゴリは見えている配下のグループ行とタスク行まで含める。左の一覧の仮の位置では、塊に入った行の中身は出さない。

@@ -821,6 +821,13 @@ button:focus-visible,
   font-variant-numeric: tabular-nums;
 }
 
+.detail-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(6px * var(--s));
+  margin-bottom: calc(8px * var(--s));
+}
+
 .detail-progress {
   display: flex;
   align-items: center;

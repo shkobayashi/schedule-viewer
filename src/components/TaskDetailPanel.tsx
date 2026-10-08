@@ -42,6 +42,9 @@ type TaskDetailPanelProps = {
   milestones: Milestone[];
   successorIds: ScheduleId[];
   onPatch: (patch: TaskEditPatch) => string | null;
+  documentTags: string[];
+  onAddTag: (tag: string) => string | null;
+  onRemoveTag: (tag: string) => void;
   onEditingChange: (editing: boolean) => void;
   panelRef?: Ref<TaskDetailPanelHandle>;
 };
@@ -54,6 +57,9 @@ export function TaskDetailPanel({
   milestones,
   successorIds,
   onPatch,
+  documentTags,
+  onAddTag,
+  onRemoveTag,
   onEditingChange,
   panelRef,
 }: TaskDetailPanelProps) {
@@ -73,8 +79,24 @@ export function TaskDetailPanel({
     task.milestoneId,
   );
   const [formError, setFormError] = useState<string | null>(null);
+  const [tagInput, setTagInput] = useState("");
+  const [tagStatus, setTagStatus] = useState<string | null>(null);
+  const tagStatusRef = useRef<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLElement>(null);
+
+  const announceTagStatus = useCallback((message: string) => {
+    if (tagStatusRef.current === message) {
+      setTagStatus(null);
+      queueMicrotask(() => setTagStatus(message));
+      return;
+    }
+    setTagStatus(message);
+  }, []);
+
+  useEffect(() => {
+    tagStatusRef.current = tagStatus;
+  }, [tagStatus]);
 
   useEffect(
     () => () => {
@@ -96,6 +118,8 @@ export function TaskDetailPanel({
     setSuccessors(successorIds);
     setMilestoneId(task.milestoneId);
     setFormError(null);
+    setTagInput("");
+    setTagStatus(null);
   }, [successorIds, task]);
 
   useImperativeHandle(panelRef, () => ({
@@ -116,6 +140,10 @@ export function TaskDetailPanel({
     () => tasks.filter((item) => item.id !== task.id),
     [task.id, tasks],
   );
+  const tagSuggestions = useMemo(() => {
+    const taskTags = task.tags ?? [];
+    return documentTags.filter((tag) => !taskTags.includes(tag));
+  }, [documentTags, task.tags]);
 
   const durationDays =
     daysBetween(parseDate(start), parseDate(end)) + 1;
@@ -253,6 +281,58 @@ export function TaskDetailPanel({
             onChange={(e) => setNote(e.target.value)}
             onBlur={() => commitNoteIfDirty()}
           />
+        </div>
+        <div className="field">
+          <label htmlFor="detailTagInput">タグ</label>
+          {(task.tags ?? []).length > 0 ? (
+            <div className="detail-tag-list">
+              {(task.tags ?? []).map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  className="filter-chip"
+                  aria-label={`タグ ${tag} を外す`}
+                  onClick={() => onRemoveTag(tag)}
+                >
+                  {tag}
+                  <span className="filter-chip-x" aria-hidden="true">×</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <input
+            id="detailTagInput"
+            type="text"
+            list={tagSuggestions.length > 0 ? "detailTagSuggestions" : undefined}
+            value={tagInput}
+            placeholder="タグを入力して Enter"
+            onChange={(e) => {
+              setTagInput(e.target.value);
+              if (tagStatus) setTagStatus(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+              e.preventDefault();
+              const message = onAddTag(tagInput);
+              if (message) {
+                announceTagStatus(message);
+                return;
+              }
+              setTagInput("");
+              setTagStatus(null);
+            }}
+          />
+          {tagSuggestions.length > 0 ? (
+            <datalist id="detailTagSuggestions">
+              {tagSuggestions.map((tag) => (
+                <option key={tag} value={tag} />
+              ))}
+            </datalist>
+          ) : null}
+          {tagStatus ? (
+            <p className="form-error" role="alert">{tagStatus}</p>
+          ) : null}
         </div>
       </section>
       <section className="detail-section">

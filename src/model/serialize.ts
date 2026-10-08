@@ -1,4 +1,5 @@
 import { normalizeTaskNote } from "./taskNote";
+import { normalizeTaskTags } from "./taskTags";
 import type {
   Category,
   Milestone,
@@ -10,6 +11,7 @@ import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
 function taskToJson(task: Task): Task {
   const note = normalizeTaskNote(task.note);
+  const tags = normalizeTaskTags(task.tags);
   const base = {
     id: task.id,
     name: task.name,
@@ -22,7 +24,8 @@ function taskToJson(task: Task): Task {
     predecessors: [...task.predecessors],
     milestoneId: task.milestoneId,
   };
-  return note !== undefined ? { ...base, note } : base;
+  const withTags = tags !== undefined ? { ...base, tags } : base;
+  return note !== undefined ? { ...withTags, note } : withTags;
 }
 
 export function scheduleToJson(

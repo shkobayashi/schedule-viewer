@@ -28,6 +28,7 @@ import {
   relaxFiltersForNewTask,
 } from "../model/rows";
 import { applyTaskNote } from "../model/taskNote";
+import { collectTagsInDocumentOrder } from "../model/taskTags";
 import {
   hiddenMilestoneGroupIdsForShowOnly,
   pruneHiddenMilestoneGroupIds,
@@ -41,6 +42,7 @@ import {
   validateNewMilestone,
 } from "../model/milestones";
 import {
+  addTaskTag,
   categoriesAfterDuplicate,
   categoriesAfterTaskEdit,
   cloneCategories,
@@ -48,6 +50,7 @@ import {
   findTaskOwner,
   insertTask,
   mapTasks,
+  removeTaskTag,
   removeTask,
   renameCategory,
   renameGroup,
@@ -210,6 +213,7 @@ export function useSchedule(
     overdue: "all",
     relation: "all",
     milestone: "all",
+    tag: "",
     search: "",
     noteSearch: "",
   });
@@ -594,6 +598,17 @@ export function useSchedule(
     }
     setFilters((prev) => ({ ...prev, milestone: "all" }));
   }, [filters.milestone, knownMilestoneIds]);
+
+  const scheduleTags = useMemo(
+    () => collectTagsInDocumentOrder(categories),
+    [categories],
+  );
+  const knownTags = useMemo(() => new Set(scheduleTags), [scheduleTags]);
+
+  useEffect(() => {
+    if (filters.tag === "" || knownTags.has(filters.tag)) return;
+    setFilters((prev) => ({ ...prev, tag: "" }));
+  }, [filters.tag, knownTags]);
 
   const toggleCollapsed = useCallback((key: string) => {
     setCollapsed((prev) => {
@@ -983,6 +998,27 @@ export function useSchedule(
     [commitCategories, title],
   );
 
+  const appendTaskTag = useCallback(
+    (taskId: ScheduleId, rawTag: string): string | null => {
+      let duplicate = false;
+      commitCategories((prev) => {
+        const result = addTaskTag(prev, taskId, rawTag);
+        duplicate = result.duplicate;
+        return result.categories;
+      });
+      if (duplicate) return "このタスクには、同じタグが付いています。";
+      return null;
+    },
+    [commitCategories],
+  );
+
+  const dropTaskTag = useCallback(
+    (taskId: ScheduleId, tag: string) => {
+      commitCategories((prev) => removeTaskTag(prev, taskId, tag));
+    },
+    [commitCategories],
+  );
+
   const addMilestone = useCallback(
     (input: {
       name: string;
@@ -1224,6 +1260,7 @@ export function useSchedule(
         overdue: "all",
         relation: "all",
         milestone: "all",
+        tag: "",
         search: "",
         noteSearch: "",
       });
@@ -1407,6 +1444,9 @@ export function useSchedule(
     closeDuplicateDialog,
     duplicatingTask,
     applyTaskPatch,
+    appendTaskTag,
+    dropTaskTag,
+    scheduleTags,
     duplicateTask,
     setTaskConfidence,
     editingNoteTask,

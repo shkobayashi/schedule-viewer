@@ -104,6 +104,43 @@ describe("scheduleToJson note", () => {
     expect(task.confidence).toBe("tentative");
   });
 
+  it("writes tags after milestoneId and before note", () => {
+    const categories: Category[] = [
+      {
+        id: "c1000001-0000-4000-8000-000000000001",
+        name: "C",
+        groups: [
+          {
+            id: "d1000001-0000-4000-8000-000000000001",
+            name: "G",
+            tasks: [
+              {
+                id: "00000000-0000-4000-8000-000000000001",
+                name: "T",
+                start: "2026-01-01",
+                end: "2026-01-01",
+                assigneeId: null,
+                status: "not-started",
+                progress: 0,
+                confidence: "committed",
+                predecessors: [],
+                milestoneId: null,
+                tags: ["  a  ", "a", "b"],
+                note: "n",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const task = scheduleToJson("P", categories, [], []).categories[0].groups[0]
+      .tasks[0];
+    const keys = Object.keys(task);
+    expect(keys.indexOf("tags")).toBe(keys.indexOf("milestoneId") + 1);
+    expect(keys.indexOf("note")).toBe(keys.indexOf("tags") + 1);
+    expect(task.tags).toEqual(["a", "b"]);
+  });
+
   it("writes milestone confidence after date", () => {
     const groupId = "e1000001-0000-4000-8000-000000000001";
     const milestone = scheduleToJson(

@@ -16,7 +16,7 @@
 
 画面の絞り込み、折りたたみ、ズーム、系統、選択、取り消し履歴は、どの JSON にも書かない。
 
-## スケジュール JSON（schemaVersion 6）
+## スケジュール JSON（schemaVersion 7）
 
 正本は [schedule.schema.json](schedule.schema.json)。追加の意味規則は [src/model/scheduleSemantics.ts](../src/model/scheduleSemantics.ts) にある。
 
@@ -24,7 +24,7 @@
 
 ```json
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "title": "プロジェクト名",
   "milestoneGroups": [{ "id": "<uuid>", "name": "マイルストン" }],
   "milestones": [{ "id": "<uuid>", "name": "要件確定", "date": "2026-04-01", "confidence": "committed", "groupId": "<milestone-group-uuid>" }],
@@ -53,7 +53,7 @@
 
 | フィールド | 内容 |
 | --- | --- |
-| `schemaVersion` | `6` 固定 |
+| `schemaVersion` | `7` 固定 |
 | `title` | 1文字以上。空白だけは不可 |
 | `milestoneGroups` | マイルストン帯の行。空でもよい。タスクのカテゴリ・グループとは別 |
 | `milestones` | マイルストンの配列。空でもよい |
@@ -68,21 +68,23 @@
 | `confidence` | タスクとマイルストンの確度。`tentative`（未確定）か `committed`（確定）。日付を合意したかどうかで、着手や進捗とは独立 |
 | `predecessors` | 先行タスクの `id`。重複しない。自分自身は指定できない。存在しない ID は不可。循環も不可。後続は各タスクの `predecessors` から導く |
 | `milestoneId` | 対応するマイルストンの `id`。未設定は `null`。存在しない ID は不可 |
+| `tags` | 任意。説明用の文字列の配列。各要素は1文字以上。前後の空白だけは不可。同一タスク内で、空白を除いた文字列が重複したら拒否する。大文字小文字は区別する。0件のときはプロパティを書かない |
 | `note` | 任意。1文字以上。空文字や空白だけはプロパティ自体を書かない |
 
 カテゴリ名は1つのスケジュールの中で重複できない。グループ名は同じカテゴリの中で重複できない。別のカテゴリに同じグループ名があってもよい。名前は表示であり、対応づけは `id` で行う。並び替え用のフィールドはない。配列の順が画面の並びになる。
 
 ### 以前の schemaVersion
 
-開けるのは schemaVersion 3、4、5、6 である。
+開けるのは schemaVersion 3、4、5、6、7 である。
 
 - schemaVersion 1 の終了日は、その日を含まない書き方（最終日の翌日）だった。読み込むと終了日を1日戻して schemaVersion 2 にする（[src/model/scheduleMigrate.ts](../src/model/scheduleMigrate.ts)）。そのあと schemaVersion 2 として拒否するので、結果として開けない
-- schemaVersion 2 は、担当が名前（`assignee`）の形式なので拒否する。メッセージは、`assigneeId` と `confidence` を使う schemaVersion 6 へ更新するよう求める
-- schemaVersion 3 は開ける。確度が無いタスクは `committed` として読み、schemaVersion 4 にしたうえで、次と同じく schemaVersion 6 にする。既に `confidence` があるタスクはその値のまま検証する
-- schemaVersion 4 は開ける。カテゴリとグループに `id` が無いので、名前から決まる UUID を付けて schemaVersion 5 にし、続けて schemaVersion 6 にする。同じファイルを開き直しても、その ID は変わらない。タスクやマイルストンの ID とぶつかったときだけ、別の ID にする
-- schemaVersion 5 は開ける。マイルストンが1件以上あるときは、名前「マイルストン」の `milestoneGroups` を1つ足し、全部のマイルストンにその `groupId` を付けて schemaVersion 6 にする。そのグループの ID は名前から決まり、カテゴリ、グループ、タスク、マイルストンの ID とぶつかったときだけ別にする。マイルストンが0件なら `milestoneGroups` は空のままである
-- 未保存の比較元は、3〜5 を 6 にしたあとの保存形式である。ディスク上の文字列とそのまま比べない。開いただけでは未保存にならない。保存すると schemaVersion 6 になる
-- マイルストンに `confidence` が無い 3、4、5 は、そのマイルストンを `committed` として読む。既にある値はそのまま残す。schemaVersion 5 の読み込みでは、そのあと 6 に上げる
+- schemaVersion 2 は、担当が名前（`assignee`）の形式なので拒否する。メッセージは、`assigneeId` と `confidence` を使う schemaVersion 7 へ更新するよう求める
+- schemaVersion 3 は開ける。確度が無いタスクは `committed` として読み、schemaVersion 4 にしたうえで、次と同じく schemaVersion 7 にする。既に `confidence` があるタスクはその値のまま検証する
+- schemaVersion 4 は開ける。カテゴリとグループに `id` が無いので、名前から決まる UUID を付けて schemaVersion 5 にし、続けて schemaVersion 7 にする。同じファイルを開き直しても、その ID は変わらない。タスクやマイルストンの ID とぶつかったときだけ、別の ID にする
+- schemaVersion 5 は開ける。マイルストンが1件以上あるときは、名前「マイルストン」の `milestoneGroups` を1つ足し、全部のマイルストンにその `groupId` を付けて schemaVersion 7 にする。そのグループの ID は名前から決まり、カテゴリ、グループ、タスク、マイルストンの ID とぶつかったときだけ別にする。マイルストンが0件なら `milestoneGroups` は空のままである
+- schemaVersion 6 は開ける。タグは無いまま schemaVersion 7 にする
+- 未保存の比較元は、3〜6 を 7 にしたあとの保存形式である。ディスク上の文字列とそのまま比べない。開いただけでは未保存にならない。保存すると schemaVersion 7 になる
+- マイルストンに `confidence` が無い 3、4、5 は、そのマイルストンを `committed` として読む。既にある値はそのまま残す。schemaVersion 5 の読み込みでは、そのあと 7 に上げる
 
 ## メンバー JSON（schemaVersion 1）
 
@@ -133,7 +135,7 @@
 
 アプリが書くスケジュール JSON は [src/model/serialize.ts](../src/model/serialize.ts) のキー順で、2スペースのインデントである（[src/model/scheduleFile.ts](../src/model/scheduleFile.ts) の `serializeScheduleDocument`）。
 
-キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones`、`categories` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。
+キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones`、`categories` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、タグがあるときだけ `tags` を付け、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
 
 未保存かどうかは、この形にした文字列と、最後に開いた・保存した・読み直したときの文字列を比べて決める。インデントやキー順だけが違うファイルは、同じ内容として扱う。
 

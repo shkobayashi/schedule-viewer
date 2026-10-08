@@ -150,6 +150,16 @@
 | 同上 | `keeps filters that match the duplicated task` | EDIT-14, FILTER-10 |
 | 同上 | `matches note substring independently of name` | FILTER-02, FILTER-09 |
 | 同上 | `keeps only the selected confidence` | FILTER-10 |
+| 同上 | `keeps only tasks that have the selected tag` | FILTER-12 |
+| 同上 | `filters by the literal tag name all` | FILTER-12 |
+| 同上 | `keeps tag filter when the duplicated task has that tag` | FILTER-12, EDIT-14 |
+| `filterChips.test.ts` | `shows a tag chip when a tag is selected` | FILTER-12 |
+| `serialize.test.ts` | `writes tags after milestoneId and before note` | FILE-02 |
+| `taskTags.test.ts` | `bumps schemaVersion from 6 to 7` | FILE-01 |
+| 同上 | `quotes each tag for display` | FILE-07 |
+| 同上 | `rejects whitespace-only, padded, and duplicate tags` | FILE-01 |
+| 同上 | `accepts tags that differ only by case` | FILE-01 |
+| `tasks.test.ts` | `copies fields and predecessors without changing successors` | EDIT-14, FILTER-12 |
 | 同上 | `excludes tasks without note when noteSearch is set` | FILTER-02 |
 | 同上 | `matches task linked to selected milestone id` | FILTER-07 |
 | 同上 | `keeps only tasks without milestone when filter is none` | FILTER-07 |
@@ -157,6 +167,7 @@
 | 同上 | `hides empty groups when a filter is set` | FILTER-09 |
 | 同上 | `hides empty groups when lineage is set` | FILTER-09 |
 | `scheduleDiff.test.ts` | `says there is no difference when the documents match` | FILE-07 |
+| 同上 | `shows tag changes and distinguishes comma inside a tag from separate tags` | FILE-07 |
 | 同上 | `shows calendar-day shifts for start and end` | FILE-07 |
 | 同上 | `lists every field of an added task and skips sibling order` | FILE-07 |
 | 同上 | `reports a deleted task and the predecessor dropped from the task that remains` | FILE-07 |
@@ -475,8 +486,9 @@
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01f | FILE-01 | サンプル | ☰ を開き、下、上、Home、End を押す | 最初の項目にフォーカスが移る。キーで項目を移動できる。Escape で閉じる |
 | TC-FILE-01b | FILE-01 | schemaVersion 2 の JSON がある | 「開く」で選ぶ | 開かず、理由が出る。それまでの保存先は変わらない |
-| TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 6 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
-| TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 6 になる |
+| TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 7 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
+| TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 7 になる |
+| TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 7 になる。タグを付けていないタスクに `tags` は無い |
 | TC-FILE-02 | FILE-02 | ファイルを開き、バーを動かして未保存にする | 「保存」を押す | 見出しから「未保存」が消え、ファイルの内容が画面と一致する |
 | TC-FILE-02c | FILE-02 | 同上 | ⌘/Ctrl+S を押す。検索欄にフォーカスがあるときも押す | 「保存」と同じように保存される。モーダルダイアログが開いているときは保存されない |
 | TC-FILE-03 | FILE-03 | サンプルを編集する | 「別名保存」で新しいパスを選ぶ | そのパスに JSON ができ、次の「保存」はそのパスへ書く |
@@ -566,6 +578,9 @@
 | TC-FILTER-08b | FILTER-08 | 系統を表示している | 別のタスクを右クリックし、「系統を表示」を選ぶ | 起点がそのタスクに切り替わる。同じタスクなら「系統を解除」で外れる |
 | TC-FILTER-09 | FILTER-09 | あるグループのタスクがすべて完了 | 「完了以外」を選ぶ | そのグループの行も消える。追加ダイアログでは、そのグループをまだ選べる |
 | TC-FILTER-10 | FILTER-10 | サンプル | 「確度」で「未確定」、次に「確定」を選ぶ | 未確定だけ、次に確定だけが残る。選んでいたタスクの選択は外れる |
+| TC-FILTER-12 | FILTER-12 | サンプルにタグ付きタスクがある | 「タグ」で一つ選ぶ。担当など別の条件も入れる | そのタグを持つタスクだけが残る。ほかの条件も満たすものだけが残る |
+| TC-FILTER-12b | FILTER-12 | タグで絞っている | 札を押す。「すべて解除」でも試す | 札でタグだけ外れる。「すべて解除」で絞り込みは戻り、系統は残る |
+| TC-FILTER-12c | FILTER-12 | タグで絞っている | ファイルを開き直す | タグの絞り込みは「すべて」に戻る |
 | TC-VIEW-12 | VIEW-12 | サンプル | 未確定と確定のバーを、ライトとダークで見る。超過もある未確定を見る。サンプルの「本番リリース」も見る | 未確定は斜線で、確定はベタ塗り。色はステータスと期限超過のまま。一覧に「未確定」は出ない。超過があるときは「超過」だけ出る。本番リリースのひし形は斜線で、他のマイルストンは塗りつぶし |
 | TC-EDIT-01 | EDIT-01 | サンプル | バーをクリックし、次に左のタスク行をクリックし、背景をクリックする | バーと左の行で選択され端のハンドルが出る。背景で外れる |
 | TC-EDIT-01c | EDIT-01, NAV-01 | 見えているタスクが複数ある。行が画面より多い | ↑↓で選択を移す。見えている行を選んだあと、左の行をクリックして選び直す。端で止まる | カテゴリ行とグループ行は飛ばす。見えている行では縦位置は変わらない。画面外の行へ移したときだけ、入るところまでスクロールする |
@@ -581,6 +596,9 @@
 | TC-EDIT-04 | EDIT-04 | サンプル | タスクを選び、詳細パネルで名前を空にしてフォーカスを外す | 反映されず、理由が出る |
 | TC-EDIT-04c | EDIT-04 | タスクを選択している | Enter を押す | 詳細パネルの名前欄にフォーカスが移る。検索欄にフォーカスがあるときは移らない |
 | TC-EDIT-04d | EDIT-04, EDIT-10 | タスクを選択している | 詳細パネルで確度を変え、取り消す | 確度だけが変わり、日付は動かない。取り消し 1 回で戻る |
+| TC-EDIT-04e | EDIT-04, EDIT-10, FILTER-12 | タスクを選択している | 詳細パネルでタグを足し、外し、取り消しとやり直しをする | 未保存になる。取り消しとやり直しでタグが戻る。タグの絞り込みの選択は戻らない |
+| TC-EDIT-08d | EDIT-08, FILTER-12 | タグで絞っている | タスクを追加する | タグの絞り込みは「すべて」に戻る |
+| TC-EDIT-14d | EDIT-14, FILTER-12 | タグ付きタスクをタグで絞っている | そのタスクを複製する | タグの絞り込みは残り、複製が見える |
 | TC-EDIT-05 | EDIT-05 | 3件以上のタスク | 編集で、自分を先行にしようとする。次に、循環する先行を保存する | 自分は候補に出ない。循環は保存されず、理由が出る |
 | TC-EDIT-05d | EDIT-05 | 詳細パネルでタスクを選んでいる | 先行の候補を開き、Escape を押す | 候補だけが閉じ、パネルは開いたままである |
 | TC-EDIT-05b | EDIT-05 | タスクが50件を超えるスケジュール | 先行の検索を空のまま開く | 「さらに絞り込んでください」と出る |

@@ -106,6 +106,7 @@ describe("formatScheduleDiff", () => {
       progress: 20,
       predecessors: [TASK_A],
       milestoneId: MS_A,
+      tags: ["設計"],
       note: "  補足  ",
     });
     const file = doc(design([existing]), [milestone({ id: MS_A, name: "要件確定", date: "2026-04-30" })]);
@@ -134,8 +135,50 @@ describe("formatScheduleDiff", () => {
     expect(text).toContain(
       "  milestoneId: 要件確定 (00000000-0000-4000-8000-0000000000a1)",
     );
+    const milestoneAt = text.indexOf("  milestoneId:");
+    const tagsAt = text.indexOf('  tags: "設計"');
+    const noteAt = text.indexOf("  note: 補足");
+    expect(tagsAt).toBeGreaterThan(milestoneAt);
+    expect(noteAt).toBeGreaterThan(tagsAt);
     expect(text).toContain("  note: 補足");
     expect(text).not.toContain("並び");
+  });
+
+  it("shows tag changes and distinguishes comma inside a tag from separate tags", () => {
+    const file = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          tags: ["設計, レビュー"],
+        }),
+      ]),
+    );
+    const screenCommaSplit = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          tags: ["設計", "レビュー"],
+        }),
+      ]),
+    );
+    const splitText = formatScheduleDiff(screenCommaSplit, file, "plan.json");
+    expect(splitText).toContain(
+      '  tags: "設計, レビュー" → "設計", "レビュー"',
+    );
+
+    const screenSame = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          tags: ["設計, レビュー"],
+        }),
+      ]),
+    );
+    const sameText = formatScheduleDiff(screenSame, file, "plan.json");
+    expect(sameText).not.toContain("  tags:");
   });
 
   it("reports a deleted task and the predecessor dropped from the task that remains", () => {

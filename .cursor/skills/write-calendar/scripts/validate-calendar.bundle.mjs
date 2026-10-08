@@ -685,6 +685,7 @@ var FIELD_LABELS = {
   status: "\u72B6\u614B",
   predecessors: "\u5148\u884C\u30BF\u30B9\u30AF",
   milestoneId: "\u30DE\u30A4\u30EB\u30B9\u30C8\u30F3",
+  tags: "\u30BF\u30B0",
   date: "\u65E5\u4ED8",
   title: "\u30BF\u30A4\u30C8\u30EB",
   schemaVersion: "\u30B9\u30AD\u30FC\u30DE\u30D0\u30FC\u30B8\u30E7\u30F3",

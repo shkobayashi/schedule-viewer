@@ -25,6 +25,7 @@ const FIELD_LABELS: Record<string, string> = {
   status: "状態",
   predecessors: "先行タスク",
   milestoneId: "マイルストン",
+  tags: "タグ",
   date: "日付",
   title: "タイトル",
   schemaVersion: "スキーマバージョン",

@@ -116,16 +116,16 @@ describe("validateSchedule v4", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("reads a v3 task without confidence as committed and canonicalizes to v6", () => {
+  it("reads a v3 task without confidence as committed and canonicalizes to v7", () => {
     const raw = JSON.stringify(document(3, [task()]));
     const parsed = parseScheduleText(raw);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(parsed.document.schemaVersion).toBe(6);
+    expect(parsed.document.schemaVersion).toBe(7);
     expect(parsed.document.categories[0]?.groups[0]?.tasks[0]?.confidence).toBe(
       "committed",
     );
-    expect(parsed.canonicalJson).toContain('"schemaVersion": 6');
+    expect(parsed.canonicalJson).toContain('"schemaVersion": 7');
     expect(parsed.canonicalJson).toContain('"confidence": "committed"');
     const again = parseScheduleText(parsed.canonicalJson);
     expect(again.ok).toBe(true);
@@ -356,7 +356,7 @@ describe("migrateScheduleV5ToV6", () => {
     );
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(parsed.document.schemaVersion).toBe(6);
+    expect(parsed.document.schemaVersion).toBe(7);
     expect(parsed.document.milestoneGroups).toEqual([]);
     const again = parseScheduleText(parsed.canonicalJson);
     expect(again.ok).toBe(true);
@@ -418,7 +418,7 @@ describe("migrateScheduleV5ToV6", () => {
 
   it("rejects a duplicated milestone group name", () => {
     const result = validateSchedule({
-      schemaVersion: 6,
+      schemaVersion: 7,
       title: "t",
       milestoneGroups: [
         { id: "e1000001-0000-4000-8000-000000000001", name: "同じ" },
