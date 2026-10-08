@@ -85,6 +85,7 @@ import { resizeEndIso, resizeStartIso } from "./model/dragDates";
 import {
   layoutMilestoneBand,
   milestoneBandHeightPx,
+  milestoneGroupIdAtBandY,
   type MilestoneBandLayout,
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
@@ -174,7 +175,13 @@ type ContextMenuState =
       x: number;
       y: number;
     }
-  | { kind: "addMilestone"; date: string; x: number; y: number }
+  | {
+      kind: "addMilestone";
+      date: string;
+      groupId: ScheduleId | null;
+      x: number;
+      y: number;
+    }
   | { kind: "milestoneGroup"; groupId: ScheduleId; x: number; y: number };
 
 function App() {
@@ -221,6 +228,9 @@ function App() {
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
   const [addMilestoneInitialDate, setAddMilestoneInitialDate] = useState<
     string | null
+  >(null);
+  const [addMilestoneInitialGroupId, setAddMilestoneInitialGroupId] = useState<
+    ScheduleId | null
   >(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteMilestoneId, setDeleteMilestoneId] = useState<ScheduleId | null>(
@@ -1210,7 +1220,7 @@ function App() {
   );
 
   const openAddMilestoneContextMenu = useCallback(
-    (chartX: number, clientX: number, clientY: number) => {
+    (chartX: number, clientX: number, clientY: number, bandY?: number) => {
       if (linkSourceId != null) return;
       const date = isoDateAtChartX(
         viewStart,
@@ -1220,9 +1230,26 @@ function App() {
         viewTotalDays,
       );
       if (date == null) return;
-      setContextMenu({ kind: "addMilestone", date, x: clientX, y: clientY });
+      const groupId =
+        bandY != null
+          ? milestoneGroupIdAtBandY(milestoneBandLayout.blocks, bandY)
+          : null;
+      setContextMenu({
+        kind: "addMilestone",
+        date,
+        groupId,
+        x: clientX,
+        y: clientY,
+      });
     },
-    [linkSourceId, pxPerDay, viewStart, viewTotalDays, scrollX],
+    [
+      linkSourceId,
+      milestoneBandLayout,
+      pxPerDay,
+      viewStart,
+      viewTotalDays,
+      scrollX,
+    ],
   );
 
   const onLinkTargetClick = useCallback(
@@ -1300,6 +1327,7 @@ function App() {
           label: "マイルストンを追加",
           onSelect: () => {
             setAddMilestoneInitialDate(date);
+            setAddMilestoneInitialGroupId(contextMenu.groupId);
             setAddMilestoneOpen(true);
           },
         },
@@ -1545,6 +1573,7 @@ function App() {
         onAdd={() => setAddOpen(true)}
         onAddMilestone={() => {
           setAddMilestoneInitialDate(null);
+          setAddMilestoneInitialGroupId(null);
           setAddMilestoneOpen(true);
         }}
         onDelete={() => {
@@ -1777,6 +1806,7 @@ function App() {
         <MilestoneEditDialog
           key={`${schedule.editingMilestone.id}:${schedule.diskEpoch}`}
           milestone={schedule.editingMilestone}
+          milestoneGroups={schedule.milestoneGroups}
           onClose={schedule.closeMilestoneEdit}
           onSave={schedule.saveMilestoneEdit}
         />
@@ -1811,15 +1841,19 @@ function App() {
       {addMilestoneOpen ? (
         <MilestoneAddDialog
           initialDate={addMilestoneInitialDate ?? schedule.today}
+          initialGroupId={addMilestoneInitialGroupId}
+          milestoneGroups={schedule.milestoneGroups}
           onClose={() => {
             setAddMilestoneOpen(false);
             setAddMilestoneInitialDate(null);
+            setAddMilestoneInitialGroupId(null);
           }}
           onSave={(input) => {
             const message = schedule.addMilestone(input);
             if (message == null) {
               setAddMilestoneOpen(false);
               setAddMilestoneInitialDate(null);
+              setAddMilestoneInitialGroupId(null);
             }
             return message;
           }}

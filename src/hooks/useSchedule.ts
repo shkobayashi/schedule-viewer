@@ -34,6 +34,7 @@ import {
 } from "../model/filterChips";
 import {
   appendMilestone,
+  applyMilestoneEdit,
   ensureMilestoneGroupForAdd,
   milestoneFilterAfterDelete,
   removeMilestone,
@@ -684,24 +685,41 @@ export function useSchedule(
   }, []);
 
   const saveMilestoneEdit = useCallback(
-    (patch: { name: string; date: string; confidence: Milestone["confidence"] }) => {
+    (patch: {
+      name: string;
+      date: string;
+      confidence: Milestone["confidence"];
+      groupId: ScheduleId;
+    }) => {
       if (!patch.date || editingMilestoneId == null) return false;
-      commitMilestones((prev) =>
-        prev.map((milestone) =>
-          milestone.id === editingMilestoneId
-            ? {
-                ...milestone,
-                name: patch.name.trim() || milestone.name,
-                date: patch.date,
-                confidence: patch.confidence,
-              }
-            : milestone,
-        ),
+      const current = documentRef.current;
+      const before = current.milestones.find(
+        (milestone) => milestone.id === editingMilestoneId,
       );
+      if (before == null) return false;
+      const nextMilestones = applyMilestoneEdit(
+        current.milestones,
+        editingMilestoneId,
+        current.milestoneGroups,
+        patch,
+      );
+      const after = nextMilestones.find(
+        (milestone) => milestone.id === editingMilestoneId,
+      );
+      if (after == null) return false;
+      commitMilestones(() => nextMilestones);
+      if (
+        before.groupId !== after.groupId &&
+        hiddenMilestoneGroupIds.includes(after.groupId)
+      ) {
+        setHiddenMilestoneGroupIds((prev) =>
+          prev.filter((id) => id !== after.groupId),
+        );
+      }
       setEditingMilestoneId(null);
       return true;
     },
-    [commitMilestones, editingMilestoneId],
+    [commitMilestones, editingMilestoneId, hiddenMilestoneGroupIds],
   );
 
   const setMilestoneConfidence = useCallback(
@@ -970,6 +988,7 @@ export function useSchedule(
       name: string;
       date: string;
       confidence: Milestone["confidence"];
+      groupId: ScheduleId | null;
     }): string | null => {
       const message = validateNewMilestone(input);
       if (message) return message;
@@ -991,6 +1010,7 @@ export function useSchedule(
           current.milestoneGroups,
           taken,
           () => uniqueScheduleId(taken),
+          input.groupId,
         );
         const milestone: Milestone = {
           id,
