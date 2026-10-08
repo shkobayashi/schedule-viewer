@@ -116,6 +116,18 @@ jobs:
           $tauriArgs = "--bundles nsis --config $configPath --config $releaseConfig"
           Add-Content -Path $env:GITHUB_ENV -Value "TAURI_CLI_ARGS=$tauriArgs"
 
+      - name: Load release body prefix
+        id: release_prefix
+        shell: bash
+        run: |
+          repo="${{ github.repository }}"
+          body=$(sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md)
+          {
+            echo 'body<<EOF'
+            printf '%s\n' "$body"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -124,15 +136,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: schedule-viewer v__VERSION__
-          releaseBody: |
-            ## ダウンロード
-
-            - **Ubuntu (22.04 以降, amd64)**: `schedule-viewer_*_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_*_amd64.deb` でインストール
-            - **Windows (x64)**: `schedule-viewer_*_x64-setup.exe` を実行。同じ Release の `schedule-viewer-codesign.cer` を入れた PC では発行元が `schedule-viewer` と表示される
-
-            Windows のインストーラは自己署名である。公開用証明書を入れていない PC では SmartScreen の確認が出る。入れ方は [開発ガイド](https://github.com/${{ github.repository }}/blob/main/docs/development.md#release-後に証明書を入れる) を参照してください。
-
-            ローカルでのビルド手順は [開発ガイド](https://github.com/${{ github.repository }}/blob/main/docs/development.md#配布用ビルド) を参照してください。
+          releaseBody: ${{ steps.release_prefix.outputs.body }}
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.platform == 'windows-latest' && env.TAURI_CLI_ARGS || format('--bundles {0} --config src-tauri/tauri.release.json', matrix.bundles) }}
@@ -179,12 +183,15 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+          cache: npm
+      - run: npm ci
       - name: Publish SHA-256 checksums
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="$(node -p "require('./package.json').version")"
           tag="v${version}"
+          repo="${{ github.repository }}"
           mkdir -p dist-release
           gh release download "$tag" --dir dist-release --clobber
           node scripts/merge-latest-json.mjs \
@@ -195,3 +202,6 @@ jobs:
           rm -f dist-release/SHA256SUMS
           (cd dist-release && sha256sum -- * > SHA256SUMS)
           gh release upload "$tag" dist-release/SHA256SUMS --clobber
+          sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md > dist-release/release-body-prefix.md
+          npx tsx scripts/build-release-notes.ts "$version" "$repo" dist-release/release-body-prefix.md CHANGELOG.md dist-release/release-body.md
+          gh release edit "$tag" --notes-file dist-release/release-body.md

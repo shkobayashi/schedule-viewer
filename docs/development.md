@@ -481,7 +481,9 @@ Windows の NSIS を署名する変更を `main` に載せるときは、先に�
 
 `npm run version:check` で `package.json` / `package-lock.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` / `src-tauri/Cargo.lock` の番号が揃っていることを確認してから、そのコミットを `develop` に入れて `main` にマージする。`main` へ push されると `vX.Y.Z` タグ付きの Release が作られる。同じバージョンのタグが既にある場合は、先にバージョンを上げてから再度マージする。
 
-変更の要約は、そのバージョン上げのコミットで [CHANGELOG.md](../CHANGELOG.md) に書く。
+変更の要約は、そのバージョン上げのコミットで [CHANGELOG.md](../CHANGELOG.md) に書く。公開する版の節へ移すときは、各項目の末尾に対応する Issue 番号を `(#番号)` の形で書く。番号が複数あるときは `(#155) (#156)` のように並べる。`[Unreleased]` の項目には書かなくてよい。
+
+Release ワークフローは、各 OS のビルドが同じダウンロード手順だけを `releaseBody` に載せる。`checksums` ジョブが [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) で接頭文のあとにその版の CHANGELOG 節を足し、`gh release edit` で本文を確定する。節の項目に Issue 番号が無いときはジョブが失敗し、本文はダウンロード手順のまま残る。
 
 ### Release 後に証明書を入れる
 

@@ -12,10 +12,12 @@ import {
   cancelApplicationUpdateViaTauri,
   reportStartupSettledViaTauri,
   requestApplicationUpdateViaTauri,
+  writePendingReleaseNotesViaTauri,
 } from "../model/windowSession";
 
 type UseAppAutoUpdateOptions = {
   startupSettled: boolean;
+  startupReportingReady: boolean;
   onUpdateToast: (message: string) => void;
   prepareForApplicationUpdate: () => Promise<boolean>;
   onUpdatePromptCancel: () => void;
@@ -23,6 +25,7 @@ type UseAppAutoUpdateOptions = {
 
 export function useAppAutoUpdate({
   startupSettled,
+  startupReportingReady,
   onUpdateToast,
   prepareForApplicationUpdate,
   onUpdatePromptCancel,
@@ -34,9 +37,9 @@ export function useAppAutoUpdate({
   const checkStartedRef = useRef(false);
 
   useEffect(() => {
-    if (!isTauri() || !startupSettled) return;
+    if (!isTauri() || !startupSettled || !startupReportingReady) return;
     void reportStartupSettledViaTauri(autoUpdateAtStartupRef.current);
-  }, [startupSettled]);
+  }, [startupSettled, startupReportingReady]);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -102,12 +105,18 @@ export function useAppAutoUpdate({
         if (!update) return;
         try {
           await update.downloadAndInstall();
-          pendingUpdateRef.current = null;
-          await relaunch();
         } catch {
           pendingUpdateRef.current = null;
           onUpdateToast("更新の入れ直しに失敗しました");
+          return;
         }
+        try {
+          await writePendingReleaseNotesViaTauri(update.version);
+        } catch {
+          // 入れ直しは済んでいる。印が書けなくても再起動する。
+        }
+        pendingUpdateRef.current = null;
+        await relaunch();
       })();
     }).then((fn) => {
       if (cancelled) {

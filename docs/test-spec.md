@@ -32,7 +32,7 @@
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら Clippy と `cargo test --locked`。最後に集約ジョブ `ci` が成功する |
-| `.github/workflows/release.yml` | `main` への push | 環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Windows NSIS、`latest-linux-x86_64.json` と `latest-windows-x86_64.json`、それらをまとめた `latest.json`、Windows コード署名用の `schedule-viewer-codesign.cer`、`SHA256SUMS` を GitHub Release へ出す |
+| `.github/workflows/release.yml` | `main` への push | 環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Windows NSIS、`latest-linux-x86_64.json` と `latest-windows-x86_64.json`、それらをまとめた `latest.json`、Windows コード署名用の `schedule-viewer-codesign.cer`、`SHA256SUMS`、CHANGELOG から組み立てた Release 本文を GitHub Release へ出す |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更ではフロントと Rust はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
@@ -681,10 +681,12 @@
 | TC-SET-06b | SET-06 | デスクトップ版、初回起動 | 設定の「更新」を見る | 「起動時に更新を確認する」はオフである |
 | TC-SET-06c | SET-06 | デスクトップ版、2つのウィンドウ | 片方で自動更新をオンにする | もう一方もオンになる。オンにした直後は更新を確認しない |
 | TC-SET-06d | SET-06 | 自動更新オフ | 起動する | 更新を確認しない |
-| TC-SET-06e | SET-06 | 自動更新オン、Release に新しい版がある | 起動する | 起動復旧のあと入れ直す。失敗したときは隅に短く出て、今の版のまま使える |
+| TC-SET-06e | SET-06 | 自動更新オン、Release に新しい版がある | 起動する | 起動復旧のあと入れ直す。失敗したときは隅に短く出て、今の版のまま使える。その次の起動では変更内容のダイアログは出ない |
 | TC-SET-06f | SET-06 | 自動更新オン、サンプルが未保存 | 新しい版で入れ直す流れでキャンセルする | その起動では入れ直さない |
 | TC-SET-06g | SET-06 | 自動更新オン、パスのあるファイルが未保存 | 新しい版で入れ直す | 確認は出ず、再起動後に控えが戻る |
 | TC-SET-06h | SET-06 | 自動更新オン、同じパスを2つのウィンドウで開き、前面で未保存 | 新しい版で入れ直す | 確認は出ず、再起動後に前面の控えが戻る |
+| TC-SET-06i | SET-06 | 自動更新で入れ直したあと（印あり） | 起動する | OS のフォーカスがあるウィンドウだけにその版の変更が出る。閉じるまで更新確認は始まらない。閉じたあと印が消え、次の起動では出ない |
+| TC-SET-06j | SET-06 | 手で入れた版 | 起動する | 変更内容のダイアログは出ない |
 
 ## リリース前確認
 
@@ -702,4 +704,5 @@
 10. TC-VIEW-05 と TC-VIEW-07 で赤とイナズマ線を見る
 11. Ubuntu では deb のインストールと起動を見る。Windows では Release の NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
 12. `SHA256SUMS` に deb、NSIS、`.cer`、`latest.json` が含まれ、各ファイルのハッシュが一致することを見る。`latest.json` に `linux-x86_64` と `windows-x86_64` があることを見る
-13. TC-SET-06b から TC-SET-06g で自動更新を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
+13. 対象 Release の本文にダウンロード手順とその版の CHANGELOG 節があり、項目の Issue 番号がリンクになっていることを見る。`[Unreleased]` と前の版の節は無い
+14. TC-SET-06b から TC-SET-06j で自動更新と変更内容の表示を見る（新しい Release が無いときは TC-SET-06e と TC-SET-06i は Release 公開後に見る）

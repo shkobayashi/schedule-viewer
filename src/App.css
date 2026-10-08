@@ -1407,6 +1407,57 @@ button:focus-visible,
   width: min(480px, calc(100vw - 48px));
 }
 
+.modal.release-notes-modal {
+  width: min(560px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.release-notes-body {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  font-size: calc(13px * var(--s));
+  color: var(--text);
+}
+
+.release-notes-body section {
+  margin-bottom: calc(12px * var(--s));
+}
+
+.release-notes-body h3 {
+  margin: 0 0 calc(6px * var(--s));
+  font-size: calc(12px * var(--s));
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.release-notes-body ul {
+  margin: 0;
+  padding-left: calc(18px * var(--s));
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
+.release-notes-issues {
+  margin-left: calc(6px * var(--s));
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: calc(4px * var(--s));
+}
+
+.release-notes-issue-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: calc(12px * var(--s));
+  text-decoration: underline;
+}
+
 .shortcuts-table {
   width: 100%;
   border-collapse: collapse;

@@ -54,6 +54,8 @@ import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useAppAutoUpdate } from "./hooks/useAppAutoUpdate";
+import { usePendingReleaseNotes } from "./hooks/usePendingReleaseNotes";
+import { ReleaseNotesDialog } from "./components/ReleaseNotesDialog";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
@@ -602,8 +604,11 @@ function App() {
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
 
+  const pendingReleaseNotes = usePendingReleaseNotes(scheduleFile.startupSettled);
+
   useAppAutoUpdate({
     startupSettled: scheduleFile.startupSettled,
+    startupReportingReady: pendingReleaseNotes.startupReportingReady,
     onUpdateToast: showUpdateToast,
     prepareForApplicationUpdate: scheduleFile.prepareForApplicationUpdate,
     onUpdatePromptCancel: scheduleFile.onUpdatePromptCancel,
@@ -1986,6 +1991,12 @@ function App() {
             writeAutoUpdateEnabled(enabled);
             setAutoUpdateEnabled(enabled);
           }}
+        />
+      ) : null}
+      {pendingReleaseNotes.showReleaseNotes && pendingReleaseNotes.releaseNotes ? (
+        <ReleaseNotesDialog
+          notes={pendingReleaseNotes.releaseNotes}
+          onClose={pendingReleaseNotes.dismissReleaseNotes}
         />
       ) : null}
       <ShortcutsDialog

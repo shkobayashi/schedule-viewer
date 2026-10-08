@@ -6,6 +6,7 @@
 
 ### 追加
 
+- GitHub Release の本文に、その版の CHANGELOG の節と Issue へのリンクを載せるようにした。自動更新で入れ直したあとの起動では、前面のウィンドウに同じ版の変更内容を一度だけ出す (#155)
 - デスクトップ版の設定「更新」で、GitHub Releases の新しい版を起動時に確認し、署名が合うときだけ deb または NSIS を入れ直せるようにした。既定はオフ。配信は `latest.json` のみで、更新用サーバーは置かない
 - GitHub Release の Windows インストーラ（NSIS）へ自己署名とタイムスタンプを付けた。公開用証明書 `schedule-viewer-codesign.cer` を同じ Release に載せる。証明書を入れた PC では発行元が `schedule-viewer` と表示される
 - タスクに任意のタグを付け、スケジュール JSON（schemaVersion 7）に保存できるようにした。絞り込みでタグを一つ選べる。詳細パネルで付け外しでき、取り消しに入る
