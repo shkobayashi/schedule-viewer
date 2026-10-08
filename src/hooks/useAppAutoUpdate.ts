@@ -12,6 +12,7 @@ import {
   cancelApplicationUpdateViaTauri,
   reportStartupSettledViaTauri,
   requestApplicationUpdateViaTauri,
+  clearPendingReleaseNotesViaTauri,
   writePendingReleaseNotesViaTauri,
 } from "../model/windowSession";
 
@@ -104,16 +105,21 @@ export function useAppAutoUpdate({
         const update = pendingUpdateRef.current;
         if (!update) return;
         try {
+          await writePendingReleaseNotesViaTauri(update.version);
+        } catch {
+          // 印が書けなくても入れ直しは続ける。
+        }
+        try {
           await update.downloadAndInstall();
         } catch {
+          try {
+            await clearPendingReleaseNotesViaTauri();
+          } catch {
+            // 消せなくても、知らせは入れ直しの失敗だけにする。
+          }
           pendingUpdateRef.current = null;
           onUpdateToast("更新の入れ直しに失敗しました");
           return;
-        }
-        try {
-          await writePendingReleaseNotesViaTauri(update.version);
-        } catch {
-          // 入れ直しは済んでいる。印が書けなくても再起動する。
         }
         pendingUpdateRef.current = null;
         await relaunch();
