@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   appendMilestone,
+  applyMilestoneEdit,
+  ensureMilestoneGroupForAdd,
   layoutMilestoneBand,
   layoutMilestonesInGroup,
   milestoneFilterAfterDelete,
+  milestoneGroupIdAtBandY,
   milestoneLinkedByAnyTask,
   removeMilestone,
   validateNewMilestone,
@@ -17,6 +20,7 @@ const MS_A = "00000000-0000-4000-8000-0000000000a1";
 const MS_B = "00000000-0000-4000-8000-0000000000b1";
 const MS_C = "00000000-0000-4000-8000-0000000000c1";
 const GRP = "e1000001-0000-4000-8000-000000000001";
+const GRP_B = "e1000001-0000-4000-8000-000000000002";
 
 function milestone(
   overrides: Partial<Milestone> & Pick<Milestone, "id" | "name" | "date">,
@@ -284,8 +288,121 @@ describe("layoutMilestonesInGroup", () => {
   });
 });
 
+describe("applyMilestoneEdit", () => {
+  const groups = [
+    { id: GRP, name: "G" },
+    { id: GRP_B, name: "H" },
+  ];
+
+  it("updates groupId and keeps array order and id", () => {
+    const milestones = [
+      milestone({ id: MS_A, name: "A", date: "2026-04-01" }),
+      milestone({ id: MS_B, name: "B", date: "2026-04-02" }),
+    ];
+    const next = applyMilestoneEdit(milestones, MS_A, groups, {
+      name: "A",
+      date: "2026-04-01",
+      confidence: "committed",
+      groupId: GRP_B,
+    });
+    expect(next.map((item) => item.id)).toEqual([MS_A, MS_B]);
+    expect(next[0]?.groupId).toBe(GRP_B);
+    expect(next[1]?.groupId).toBe(GRP);
+  });
+
+  it("keeps the original name when the patch name is only spaces", () => {
+    const milestones = [milestone({ id: MS_A, name: "要件確定", date: "2026-04-01" })];
+    const next = applyMilestoneEdit(milestones, MS_A, groups, {
+      name: "   ",
+      date: "2026-04-02",
+      confidence: "tentative",
+      groupId: GRP,
+    });
+    expect(next[0]?.name).toBe("要件確定");
+    expect(next[0]?.date).toBe("2026-04-02");
+    expect(next[0]?.confidence).toBe("tentative");
+  });
+
+  it("keeps the original groupId when the patch groupId is unknown", () => {
+    const milestones = [milestone({ id: MS_A, name: "A", date: "2026-04-01" })];
+    const next = applyMilestoneEdit(milestones, MS_A, groups, {
+      name: "A",
+      date: "2026-04-01",
+      confidence: "committed",
+      groupId: "00000000-0000-4000-8000-000000000099",
+    });
+    expect(next[0]?.groupId).toBe(GRP);
+  });
+});
+
+describe("milestoneGroupIdAtBandY", () => {
+  it("returns the group for a y inside a block and null outside", () => {
+    const layout = layoutMilestoneBand(
+      [
+        { id: GRP, name: "G" },
+        { id: GRP_B, name: "H" },
+      ],
+      [
+        milestone({ id: MS_A, name: "A", date: "2026-04-01" }),
+        milestone({
+          id: MS_B,
+          name: "B",
+          date: "2026-04-02",
+          groupId: GRP_B,
+        }),
+      ],
+      new Set([GRP, GRP_B]),
+      40,
+      11,
+      11,
+      26,
+      "screen",
+    );
+    const first = layout.blocks[0]!;
+    const second = layout.blocks[1]!;
+    expect(milestoneGroupIdAtBandY(layout.blocks, first.offsetY)).toBe(GRP);
+    expect(
+      milestoneGroupIdAtBandY(layout.blocks, first.offsetY + first.height - 1),
+    ).toBe(GRP);
+    expect(milestoneGroupIdAtBandY(layout.blocks, second.offsetY)).toBe(GRP_B);
+    expect(milestoneGroupIdAtBandY(layout.blocks, -1)).toBeNull();
+    expect(
+      milestoneGroupIdAtBandY(layout.blocks, layout.totalHeight),
+    ).toBeNull();
+  });
+});
+
+describe("ensureMilestoneGroupForAdd", () => {
+  const groups = [
+    { id: GRP, name: "G" },
+    { id: GRP_B, name: "H" },
+  ];
+  const taken = new Set<string>();
+
+  it("uses the preferred group when it exists", () => {
+    const result = ensureMilestoneGroupForAdd(
+      groups,
+      taken,
+      () => "new-id",
+      GRP_B,
+    );
+    expect(result.groupId).toBe(GRP_B);
+    expect(result.milestoneGroups).toBe(groups);
+  });
+
+  it("falls back to the first group when the preferred id is missing", () => {
+    const result = ensureMilestoneGroupForAdd(
+      groups,
+      taken,
+      () => "new-id",
+      "00000000-0000-4000-8000-000000000099",
+    );
+    expect(result.groupId).toBe(GRP);
+  });
+});
+
 describe("layoutMilestoneBand", () => {
-  const other = "e1000001-0000-4000-8000-000000000002";
+  const other = GRP_B;
 
   it("cuts a screen label before the next diamond on the same lane", () => {
     const layout = layoutMilestoneBand(

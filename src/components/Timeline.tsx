@@ -120,6 +120,7 @@ type TimelineProps = {
     chartX: number,
     clientX: number,
     clientY: number,
+    bandY?: number,
   ) => void;
   onChartPointer: (pointer: ChartPointer) => void;
   sticky: StickyLayout;

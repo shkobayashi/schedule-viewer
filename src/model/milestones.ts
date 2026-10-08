@@ -366,13 +366,58 @@ export function layoutMilestones(
   return lanes;
 }
 
+export function milestoneGroupIdAtBandY(
+  blocks: MilestoneBandBlockLayout[],
+  y: number,
+): ScheduleId | null {
+  for (const block of blocks) {
+    if (y >= block.offsetY && y < block.offsetY + block.height) {
+      return block.group.id;
+    }
+  }
+  return null;
+}
+
+export function applyMilestoneEdit(
+  milestones: Milestone[],
+  milestoneId: ScheduleId,
+  milestoneGroups: MilestoneGroup[],
+  patch: {
+    name: string;
+    date: string;
+    confidence: Milestone["confidence"];
+    groupId: ScheduleId;
+  },
+): Milestone[] {
+  const validGroupIds = new Set(milestoneGroups.map((group) => group.id));
+  return milestones.map((milestone) => {
+    if (milestone.id !== milestoneId) return milestone;
+    const groupId = validGroupIds.has(patch.groupId)
+      ? patch.groupId
+      : milestone.groupId;
+    return {
+      ...milestone,
+      name: patch.name.trim() || milestone.name,
+      date: patch.date,
+      confidence: patch.confidence,
+      groupId,
+    };
+  });
+}
+
 export function ensureMilestoneGroupForAdd(
   milestoneGroups: MilestoneGroup[],
   taken: ReadonlySet<ScheduleId>,
   createId: () => ScheduleId,
+  preferredGroupId?: ScheduleId | null,
 ): { milestoneGroups: MilestoneGroup[]; groupId: ScheduleId } {
   if (milestoneGroups.length > 0) {
-    return { milestoneGroups, groupId: milestoneGroups[0]!.id };
+    const groupId =
+      preferredGroupId != null &&
+      milestoneGroups.some((group) => group.id === preferredGroupId)
+        ? preferredGroupId
+        : milestoneGroups[0]!.id;
+    return { milestoneGroups, groupId };
   }
   let id = createId();
   while (taken.has(id)) id = createId();

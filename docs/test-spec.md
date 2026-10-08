@@ -117,6 +117,12 @@
 | 同上 | `resets the milestone filter only when it is the deleted id` | EDIT-07 |
 | 同上 | `reports whether any task points at the milestone` | EDIT-07 |
 | 同上 | `stacks diamonds on the same day and reuses a lane after they end` | VIEW-04, EDIT-07 |
+| 同上 | `updates groupId and keeps array order and id` | EDIT-07 |
+| 同上 | `keeps the original name when the patch name is only spaces` | EDIT-07 |
+| 同上 | `keeps the original groupId when the patch groupId is unknown` | EDIT-07 |
+| 同上 | `returns the group for a y inside a block and null outside` | EDIT-07 |
+| 同上 | `uses the preferred group when it exists` | EDIT-07 |
+| 同上 | `falls back to the first group when the preferred id is missing` | EDIT-07 |
 | `nonWorkingDay.test.ts` | `defaults to Sat/Sun when calendar is null` | VIEW-09 |
 | 同上 | `respects workingDays override on weekends` | VIEW-09, SET-03 |
 | 同上 | `treats an empty weekends list as no weekday holidays` | VIEW-09 |
@@ -588,6 +594,7 @@
 | TC-EDIT-07e | EDIT-07 | タスクが指しているマイルストンがある | ひし形を右クリックして「削除」を確認する | マイルストンが消え、指していたタスクの対応だけが外れる。日付は変わらない。取り消し 1 回でマイルストンと対応が戻る |
 | TC-EDIT-07f | EDIT-07 | マイルストンがある | ツールバーの「削除」を見る。Delete を押す | マイルストンは消えない |
 | TC-EDIT-07g | EDIT-07 | タスクを選択し、系統を出し、そのマイルストンで絞っている | そのマイルストンを削除する | 絞り込みは「すべて」に戻る。選択と系統は残る。取り消しても絞り込みは「すべて」のまま |
+| TC-EDIT-07h | EDIT-07, FILE-07, FILTER-11 | マイルストングループが2件以上ある JSON。空のグループを1つ残す | 編集で別のグループへ移し、取り消しで戻す。帯の線がオフのグループを編集で選び、取り消す。空のグループを選ぶ。元のグループが空になるまで移す。ひし形をドラッグする。帯の空き、日付ヘッダー、チャートの空き、ツールバーから「マイルストン追加」を開く。オフのグループを選んで追加する | 編集でグループが変わり、取り消し 1 回で戻る。編集でオフのグループを選ぶとその線がオンになり、ひし形が見える。取り消しのあと、オンにした線はオンのまま残る。空のグループを選ぶと帯が出る。元が空になるとその行は消える。ドラッグでは日付だけが変わり、グループは変わらない。帯の空きの初期グループは指した縦位置。日付ヘッダー、チャートの空き、ツールバーは並びの先頭。追加でオフのグループを選んでも線はオンにならない。差分に `groupId` の前後が出る |
 | TC-EDIT-08 | EDIT-08 | タスクを選択し、「完了」で絞っている | 「追加」で、選択中のグループに今日から1日のタスクを足す | そのグループの末尾に、割り当てなし・未着手・未確定で足される。絞り込みは「すべて」に戻り、新しい行が選択される |
 | TC-EDIT-08c | EDIT-08, FILTER-10 | 確度を「確定」で絞っている | タスクを追加する。次に、確度を「未確定」に戻してから追加する | 「確定」のときだけ「すべて」に戻る。「未確定」のまま追加したタスクは残って見える |
 | TC-EDIT-08b | EDIT-08 | 追加ダイアログ | 終了日を開始日より前にして保存する | 追加されない |
