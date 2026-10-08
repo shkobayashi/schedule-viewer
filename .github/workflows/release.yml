@@ -94,8 +94,8 @@ jobs:
           certutil -decode certificate/tempCert.txt certificate/certificate.pfx | Out-Null
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Remove-Item certificate/tempCert.txt -Force
-          $pwd = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
-          $imported = Import-PfxCertificate -FilePath certificate/certificate.pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pwd
+          $certificatePassword = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          $imported = Import-PfxCertificate -FilePath certificate/certificate.pfx -CertStoreLocation Cert:\CurrentUser\My -Password $certificatePassword
           Remove-Item certificate/certificate.pfx -Force
           $thumb = $imported.Thumbprint
           Export-Certificate -Cert "Cert:\CurrentUser\My\$thumb" -FilePath schedule-viewer-codesign.cer | Out-Null
