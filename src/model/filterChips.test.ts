@@ -3,6 +3,8 @@ import {
   activeFilterChips,
   activeFilterCount,
   filterChipClearPatch,
+  hasOtherVisibleMilestoneBandGroup,
+  hiddenMilestoneGroupIdsForShowOnly,
   pruneHiddenMilestoneGroupIds,
 } from "./filterChips";
 import type { ScheduleFilters } from "./types";
@@ -68,5 +70,55 @@ describe("activeFilterCount", () => {
     expect(activeFilterCount({ ...base, search: "a" }, false)).toBe(1);
     expect(activeFilterCount({ ...base, search: "a" }, true)).toBe(2);
     expect(activeFilterCount(base, false, 2)).toBe(1);
+  });
+});
+
+describe("hiddenMilestoneGroupIdsForShowOnly", () => {
+  const groups = [
+    { id: "e1000001-0000-4000-8000-000000000001", name: "A" },
+    { id: "e1000001-0000-4000-8000-000000000002", name: "B" },
+    { id: "e1000001-0000-4000-8000-000000000003", name: "C" },
+  ];
+
+  it("hides every group except the kept one", () => {
+    expect(
+      hiddenMilestoneGroupIdsForShowOnly(
+        "e1000001-0000-4000-8000-000000000002",
+        groups,
+      ),
+    ).toEqual([
+      "e1000001-0000-4000-8000-000000000001",
+      "e1000001-0000-4000-8000-000000000003",
+    ]);
+  });
+});
+
+describe("hasOtherVisibleMilestoneBandGroup", () => {
+  const visible = new Set([
+    "e1000001-0000-4000-8000-000000000001",
+    "e1000001-0000-4000-8000-000000000002",
+  ]);
+
+  it("is false when no other visible group has milestones", () => {
+    expect(
+      hasOtherVisibleMilestoneBandGroup(
+        visible,
+        [{ id: "m1", name: "M", date: "2026-01-01", confidence: "committed", groupId: "e1000001-0000-4000-8000-000000000001" }],
+        "e1000001-0000-4000-8000-000000000001",
+      ),
+    ).toBe(false);
+  });
+
+  it("is true when another visible group has milestones", () => {
+    expect(
+      hasOtherVisibleMilestoneBandGroup(
+        visible,
+        [
+          { id: "m1", name: "M", date: "2026-01-01", confidence: "committed", groupId: "e1000001-0000-4000-8000-000000000001" },
+          { id: "m2", name: "N", date: "2026-01-02", confidence: "committed", groupId: "e1000001-0000-4000-8000-000000000002" },
+        ],
+        "e1000001-0000-4000-8000-000000000001",
+      ),
+    ).toBe(true);
   });
 });

@@ -155,6 +155,31 @@ export function pruneHiddenMilestoneGroupIds(
   return hiddenIds.filter((id) => ids.has(id));
 }
 
+/** 「この行だけ表示」で隠すマイルストングループの ID。空のグループも含める。 */
+export function hiddenMilestoneGroupIdsForShowOnly(
+  keepGroupId: ScheduleId,
+  milestoneGroups: readonly MilestoneGroup[],
+): ScheduleId[] {
+  return milestoneGroups
+    .filter((group) => group.id !== keepGroupId)
+    .map((group) => group.id);
+}
+
+/** 帯に出ている別のマイルストングループ行があるか。空のグループと非表示は数えない。 */
+export function hasOtherVisibleMilestoneBandGroup(
+  visibleGroupIds: ReadonlySet<ScheduleId>,
+  milestones: readonly Milestone[],
+  currentGroupId: ScheduleId,
+): boolean {
+  for (const groupId of visibleGroupIds) {
+    if (groupId === currentGroupId) continue;
+    if (milestones.some((milestone) => milestone.groupId === groupId)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function activeFilterCount(
   filters: ScheduleFilters,
   lineageActive: boolean,

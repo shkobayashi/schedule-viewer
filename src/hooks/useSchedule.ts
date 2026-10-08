@@ -28,7 +28,10 @@ import {
   relaxFiltersForNewTask,
 } from "../model/rows";
 import { applyTaskNote } from "../model/taskNote";
-import { pruneHiddenMilestoneGroupIds } from "../model/filterChips";
+import {
+  hiddenMilestoneGroupIdsForShowOnly,
+  pruneHiddenMilestoneGroupIds,
+} from "../model/filterChips";
 import {
   appendMilestone,
   ensureMilestoneGroupForAdd,
@@ -1312,6 +1315,15 @@ export function useSchedule(
     setHiddenMilestoneGroupIds([]);
   }, []);
 
+  const showOnlyMilestoneGroup = useCallback(
+    (groupId: ScheduleId) => {
+      setHiddenMilestoneGroupIds(
+        hiddenMilestoneGroupIdsForShowOnly(groupId, milestoneGroups),
+      );
+    },
+    [milestoneGroups],
+  );
+
   return {
     title,
     categories,
@@ -1320,6 +1332,7 @@ export function useSchedule(
     hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
     setMilestoneGroupVisible,
     showAllMilestoneGroups,
+    showOnlyMilestoneGroup,
     milestones,
     editingMilestone,
     editingHierarchyTarget,
