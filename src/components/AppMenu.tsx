@@ -1,6 +1,5 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Menu } from "lucide-react";
 import { createPortal } from "react-dom";
 import { fileShortcutHint, usesCommandKey } from "../model/shortcuts";
 import { anchorBelowRect, menuShiftForRect } from "./anchoredMenu";
@@ -17,6 +16,7 @@ type AppMenuProps = {
   onShowJson: () => void;
   onShowDiff: () => void;
   onOpenSettings: () => void;
+  onOpenGuide: () => void;
   onOpenShortcuts: () => void;
 };
 
@@ -31,6 +31,7 @@ export function AppMenu({
   onShowJson,
   onShowDiff,
   onOpenSettings,
+  onOpenGuide,
   onOpenShortcuts,
 }: AppMenuProps) {
   const [open, setOpen] = useState(false);
@@ -180,6 +181,9 @@ export function AppMenu({
         差分を表示
       </button>
       <hr />
+      <button type="button" role="menuitem" onClick={() => run(onOpenGuide)}>
+        操作の案内
+      </button>
       <button type="button" role="menuitem" onClick={() => run(onOpenShortcuts)}>
         ショートカット一覧
       </button>
@@ -200,7 +204,7 @@ export function AppMenu({
         title="メニュー"
         onClick={() => setOpen((prev) => !prev)}
       >
-        <Menu size={18} strokeWidth={2} aria-hidden="true" />
+        <span className="menu-btn-icon" aria-hidden="true" />
       </button>
       {panel
         ? createPortal(panel, document.getElementById("root") ?? document.body)

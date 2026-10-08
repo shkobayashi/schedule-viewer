@@ -35,6 +35,7 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { ActiveFilterBar } from "./components/ActiveFilterBar";
 import { AppToast } from "./components/AppToast";
+import { GuideDialog } from "./components/GuideDialog";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import type { CommandPaletteCommandId } from "./model/commandPalette";
@@ -83,7 +84,7 @@ import {
   exportTimelineRange,
   milestonesForExport,
 } from "./model/exportView";
-import { isoDateAtChartX, parseDate } from "./model/dates";
+import { addDays, isoDateAtChartX, parseDate } from "./model/dates";
 import { resizeEndIso, resizeStartIso } from "./model/dragDates";
 import {
   layoutMilestoneBand,
@@ -104,8 +105,16 @@ import {
   canDeleteGroup,
   findTaskPlace,
 } from "./model/tasks";
-import { scaledLayoutSizes } from "./model/layoutSizes";
-import { computeTimelineRange, taskBarWidthPx } from "./model/timeline";
+import {
+  LAYOUT_HEADER_HEIGHT,
+  scaledLayoutSizes,
+} from "./model/layoutSizes";
+import {
+  computeTimelineRange,
+  gridTier,
+  taskBarWidthPx,
+} from "./model/timeline";
+import { extraTimelineDaysForRightEdge } from "./model/timelineRightPadding";
 import type { ScheduleId, Task } from "./model/types";
 import {
   AUTO_UPDATE_LS_KEY,
@@ -229,7 +238,16 @@ function App() {
   );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [jsonOpen, setJsonOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const openGuide = useCallback(() => {
+    setShortcutsOpen(false);
+    setGuideOpen(true);
+  }, []);
+  const openShortcuts = useCallback(() => {
+    setGuideOpen(false);
+    setShortcutsOpen(true);
+  }, []);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [searchField, setSearchField] = useState<SearchField>("name");
   const [diffText, setDiffText] = useState<string | null>(null);
@@ -488,11 +506,40 @@ function App() {
     [schedule.categories, schedule.milestones, schedule.today],
   );
 
+  const monthHeaderFontSize = 12 * (headerHeight / LAYOUT_HEADER_HEIGHT);
+
+  const extraDaysForPxPerDay = useCallback(
+    (px: number) =>
+      extraTimelineDaysForRightEdge({
+        timelineStart: range.timelineStart,
+        baseTotalDays: range.totalDays,
+        pxPerDay: px,
+        tier: gridTier(px),
+        milestoneGroups: schedule.milestoneGroups,
+        milestones: schedule.milestones,
+        visibleGroupIds: schedule.visibleMilestoneGroupIds,
+        milestoneFontSize,
+        milestoneDiamondSize,
+        monthHeaderFontSize,
+        mode: "screen",
+      }),
+    [
+      milestoneDiamondSize,
+      milestoneFontSize,
+      monthHeaderFontSize,
+      range.timelineStart,
+      range.totalDays,
+      schedule.milestoneGroups,
+      schedule.milestones,
+      schedule.visibleMilestoneGroupIds,
+    ],
+  );
+
   const [timelineEpoch, setTimelineEpoch] = useState(0);
   const view = useTimelineView(
     {
       timelineStart: range.timelineStart,
-      totalDays: range.totalDays,
+      baseTotalDays: range.totalDays,
     },
     timelineWidth,
     (pxPerDay) => {
@@ -510,6 +557,7 @@ function App() {
     },
     schedule.today,
     `${timelineEpoch}:${schedule.diskEpoch}`,
+    extraDaysForPxPerDay,
   );
 
   const milestoneBandLayout: MilestoneBandLayout = useMemo(
@@ -557,6 +605,7 @@ function App() {
     dateToX,
     timelineStart: viewStart,
     totalDays: viewTotalDays,
+    timelineEnd: viewTimelineEnd,
   } = view;
 
   const filterAssigneeLabel = useMemo(
@@ -811,7 +860,7 @@ function App() {
         schedule.milestones,
         schedule.visibleRows,
       );
-      const exportedRange = exportTimelineRange(
+      const baseExportedRange = exportTimelineRange(
         schedule.visibleRows,
         milestones,
         schedule.today,
@@ -819,6 +868,28 @@ function App() {
       const exportedGroups = schedule.milestoneGroups.filter((group) =>
         schedule.visibleMilestoneGroupIds.has(group.id),
       );
+      const exportExtraDays = extraTimelineDaysForRightEdge({
+        timelineStart: baseExportedRange.timelineStart,
+        baseTotalDays: baseExportedRange.totalDays,
+        pxPerDay,
+        tier: gridTier(pxPerDay),
+        milestoneGroups: exportedGroups,
+        milestones,
+        visibleGroupIds: schedule.visibleMilestoneGroupIds,
+        milestoneFontSize,
+        milestoneDiamondSize,
+        monthHeaderFontSize,
+        mode: "export",
+      });
+      const exportedTotalDays = baseExportedRange.totalDays + exportExtraDays;
+      const exportedRange = {
+        timelineStart: baseExportedRange.timelineStart,
+        timelineEnd: addDays(
+          baseExportedRange.timelineStart,
+          exportedTotalDays,
+        ),
+        totalDays: exportedTotalDays,
+      };
       const exportedBandLayout = layoutMilestoneBand(
         exportedGroups,
         milestones,
@@ -865,6 +936,7 @@ function App() {
             assigneeLabel,
             schedule.milestoneGroups,
             schedule.hiddenMilestoneGroupIds,
+            schedule.scheduleTags,
           ),
           colorScheme: resolvedColorScheme,
           showLightningLine,
@@ -888,6 +960,7 @@ function App() {
       milestoneDiamondSize,
       milestoneFontSize,
       milestoneLaneHeight,
+      monthHeaderFontSize,
       pxPerDay,
       rowHeight,
       barHeight,
@@ -1059,8 +1132,11 @@ function App() {
           setSettingsSection("display");
           setSettingsOpen(true);
           break;
+        case "guide":
+          openGuide();
+          break;
         case "shortcuts":
-          setShortcutsOpen(true);
+          openShortcuts();
           break;
         case "goToday":
           scrollToToday();
@@ -1116,6 +1192,8 @@ function App() {
       fitToWidth,
       focusDetailName,
       handleDisplayScaleChange,
+      openGuide,
+      openShortcuts,
       redo,
       requestDeleteTask,
       schedule,
@@ -1151,7 +1229,7 @@ function App() {
     displayScalePreferenceRef,
     uiScaleRef,
     onDisplayScaleChange: handleDisplayScaleChange,
-    onOpenShortcuts: () => setShortcutsOpen(true),
+    onOpenShortcuts: openShortcuts,
     commandPaletteOpen,
     onOpenCommandPalette: () => setCommandPaletteOpen(true),
     onCloseCommandPalette: () => setCommandPaletteOpen(false),
@@ -1175,7 +1253,8 @@ function App() {
     onExportHtml: () => setExportOpen(true),
     onShowJson: () => setJsonOpen(true),
     onShowDiff: showScheduleDiff,
-    onOpenShortcuts: () => setShortcutsOpen(true),
+    onOpenGuide: openGuide,
+    onOpenShortcuts: openShortcuts,
     onOpenSettings: () => {
       setSettingsSection("display");
       setSettingsOpen(true);
@@ -1587,7 +1666,8 @@ function App() {
         onRedo={redo}
         canUndo={schedule.canUndo}
         canRedo={schedule.canRedo}
-        onOpenShortcuts={() => setShortcutsOpen(true)}
+        onOpenGuide={openGuide}
+        onOpenShortcuts={openShortcuts}
         onShowJson={() => setJsonOpen(true)}
         onShowDiff={showScheduleDiff}
         onOpen={scheduleFile.requestOpen}
@@ -1624,6 +1704,7 @@ function App() {
         onClearLineage={schedule.clearLineage}
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
         onShowAllMilestoneGroups={schedule.showAllMilestoneGroups}
+        scheduleTags={schedule.scheduleTags}
       />
       <div ref={mainRef} className="main">
         <Sidebar
@@ -1706,7 +1787,7 @@ function App() {
             scrollY={scrollY}
             tier={tier}
             timelineStart={viewStart}
-            timelineEnd={range.timelineEnd}
+            timelineEnd={viewTimelineEnd}
             totalDays={viewTotalDays}
             dateToX={view.dateToX}
             xToDate={view.xToDate}
@@ -1789,7 +1870,7 @@ function App() {
           setSettingsSection("calendar");
           setSettingsOpen(true);
         }}
-        onOpenShortcuts={() => setShortcutsOpen(true)}
+        onOpenShortcuts={openShortcuts}
       />
       <AppToast message={toastMessage} />
       <AppToast
@@ -1999,6 +2080,11 @@ function App() {
           onClose={pendingReleaseNotes.dismissReleaseNotes}
         />
       ) : null}
+      <GuideDialog
+        open={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        onOpenShortcuts={openShortcuts}
+      />
       <ShortcutsDialog
         open={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}

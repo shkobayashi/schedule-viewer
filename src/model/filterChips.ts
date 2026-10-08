@@ -25,6 +25,7 @@ export type FilterChip = {
   kind: FilterChipKind;
   label: string;
   milestoneGroupId?: ScheduleId;
+  tagName?: string;
 };
 
 const STATUS_LABEL: Record<Exclude<ScheduleFilters["status"], "all">, string> = {
@@ -49,7 +50,7 @@ export const DEFAULT_FILTERS: ScheduleFilters = {
   overdue: "all",
   relation: "all",
   milestone: "all",
-  tag: "",
+  tags: [],
   search: "",
   noteSearch: "",
 };
@@ -71,7 +72,7 @@ export function filterChipClearPatch(
     case "milestone":
       return { milestone: "all" };
     case "tag":
-      return { tag: "" };
+      return { tags: [] };
     case "search":
       return { search: "" };
     case "noteSearch":
@@ -90,6 +91,7 @@ export function activeFilterChips(
   lineageName: string | null,
   milestoneGroups: MilestoneGroup[] = [],
   hiddenMilestoneGroupIds: readonly ScheduleId[] = [],
+  scheduleTags: readonly string[] = [],
 ): FilterChip[] {
   const chips: FilterChip[] = [];
   if (filters.assignee === UNASSIGNED_FILTER) {
@@ -129,8 +131,10 @@ export function activeFilterChips(
         : `マイルストン: ${filters.milestone}`,
     });
   }
-  if (filters.tag !== "") {
-    chips.push({ kind: "tag", label: `タグ: ${filters.tag}` });
+  const selectedTags = new Set(filters.tags);
+  for (const tag of scheduleTags) {
+    if (!selectedTags.has(tag)) continue;
+    chips.push({ kind: "tag", label: `タグ: ${tag}`, tagName: tag });
   }
   const search = filters.search.trim();
   if (search) chips.push({ kind: "search", label: `タスク名: 「${search}」` });
@@ -199,7 +203,7 @@ export function activeFilterCount(
   if (filters.overdue !== "all") count += 1;
   if (filters.relation !== "all") count += 1;
   if (filters.milestone !== "all") count += 1;
-  if (filters.tag !== "") count += 1;
+  if (filters.tags.length > 0) count += 1;
   if (filters.search.trim()) count += 1;
   if (filters.noteSearch.trim()) count += 1;
   if (lineageActive) count += 1;

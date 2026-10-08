@@ -164,7 +164,22 @@ body {
 }
 
 .menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 0;
   font-size: calc(14px * var(--s));
+}
+
+.menu-btn-icon {
+  display: block;
+  width: calc(14px * var(--s));
+  height: calc(2px * var(--s));
+  background: currentColor;
+  box-shadow:
+    0 calc(-6px * var(--s)) 0 0 currentColor,
+    0 calc(6px * var(--s)) 0 0 currentColor;
 }
 
 .app-menu-panel {
@@ -474,17 +489,43 @@ input[type="number"] {
   color: var(--text-secondary);
 }
 
+.filter-panel-field-span {
+  grid-column: 1 / -1;
+}
+
 .filter-panel-checks {
   display: flex;
   flex-direction: column;
   gap: calc(4px * var(--s, 1));
+  --filter-panel-check-row: calc(18px * var(--s, 1));
+}
+
+.filter-panel-checks-scroll {
+  max-height: calc(
+    8 *
+      (
+        var(--filter-panel-check-row) + calc(4px * var(--s, 1))
+      )
+  );
+  overflow-y: auto;
+}
+
+.filter-panel-empty-tags {
+  margin: 0;
+  font-size: calc(13px * var(--s, 1));
+  color: var(--text-secondary);
 }
 
 .filter-panel-check {
   display: flex;
   align-items: center;
   gap: calc(6px * var(--s, 1));
+  min-height: var(--filter-panel-check-row);
   font-size: calc(13px * var(--s, 1));
+}
+
+.filter-panel-check input[type="checkbox"] {
+  margin: 0;
 }
 
 .filter-panel-field select {
@@ -1244,6 +1285,7 @@ button:focus-visible,
 }
 
 .timeline {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1277,6 +1319,19 @@ button:focus-visible,
   overflow: hidden;
   background: var(--milestone-band);
   border-bottom: 1px solid var(--border);
+}
+
+.milestone-hover-overlay {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  font-weight: 700;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.milestone-hover-overlay-line {
+  white-space: nowrap;
 }
 
 .timeline-body {
@@ -1412,6 +1467,45 @@ button:focus-visible,
   max-height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
+}
+
+.modal.guide-modal {
+  width: min(calc(560px * var(--s)), calc(100vw - calc(48px * var(--s))));
+  max-height: calc(100vh - calc(48px * var(--s)));
+  display: flex;
+  flex-direction: column;
+}
+
+.guide-body {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  font-size: calc(13px * var(--s));
+  color: var(--text);
+}
+
+.guide-body:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.guide-body section {
+  margin-bottom: calc(12px * var(--s));
+}
+
+.guide-body h3 {
+  margin: 0 0 calc(6px * var(--s));
+  font-size: calc(12px * var(--s));
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.guide-body ul {
+  margin: 0;
+  padding-left: calc(18px * var(--s));
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
 }
 
 .release-notes-body {

@@ -28,7 +28,10 @@ import {
   relaxFiltersForNewTask,
 } from "../model/rows";
 import { applyTaskNote } from "../model/taskNote";
-import { collectTagsInDocumentOrder } from "../model/taskTags";
+import {
+  collectTagsInDocumentOrder,
+  pruneSelectedTags,
+} from "../model/taskTags";
 import {
   hiddenMilestoneGroupIdsForShowOnly,
   pruneHiddenMilestoneGroupIds,
@@ -213,7 +216,7 @@ export function useSchedule(
     overdue: "all",
     relation: "all",
     milestone: "all",
-    tag: "",
+    tags: [],
     search: "",
     noteSearch: "",
   });
@@ -603,12 +606,16 @@ export function useSchedule(
     () => collectTagsInDocumentOrder(categories),
     [categories],
   );
-  const knownTags = useMemo(() => new Set(scheduleTags), [scheduleTags]);
-
   useEffect(() => {
-    if (filters.tag === "" || knownTags.has(filters.tag)) return;
-    setFilters((prev) => ({ ...prev, tag: "" }));
-  }, [filters.tag, knownTags]);
+    const pruned = pruneSelectedTags(filters.tags, scheduleTags);
+    if (
+      pruned.length === filters.tags.length &&
+      pruned.every((tag, index) => tag === filters.tags[index])
+    ) {
+      return;
+    }
+    setFilters((prev) => ({ ...prev, tags: pruned }));
+  }, [filters.tags, scheduleTags]);
 
   const toggleCollapsed = useCallback((key: string) => {
     setCollapsed((prev) => {
@@ -1260,7 +1267,7 @@ export function useSchedule(
         overdue: "all",
         relation: "all",
         milestone: "all",
-        tag: "",
+        tags: [],
         search: "",
         noteSearch: "",
       });

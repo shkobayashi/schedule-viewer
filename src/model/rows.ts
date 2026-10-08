@@ -1,6 +1,6 @@
 import { brokenLinkTaskIds } from "./dependencies";
 import { normalizeTaskNote } from "./taskNote";
-import { taskHasTag } from "./taskTags";
+import { taskHasAnySelectedTag } from "./taskTags";
 import { isOverdue } from "./timeline";
 import { summarizeSpans } from "./summary";
 import {
@@ -35,7 +35,7 @@ export function filtersAreDefault(filters: ScheduleFilters): boolean {
     filters.overdue === "all" &&
     filters.relation === "all" &&
     filters.milestone === "all" &&
-    filters.tag === "" &&
+    filters.tags.length === 0 &&
     filters.search.trim() === "" &&
     filters.noteSearch.trim() === ""
   );
@@ -96,7 +96,7 @@ export function taskMatchesFilter(
   ) {
     return false;
   }
-  if (filters.tag !== "" && !taskHasTag(task, filters.tag)) {
+  if (!taskHasAnySelectedTag(task, filters.tags)) {
     return false;
   }
   const search = filters.search.trim();
@@ -128,7 +128,7 @@ export function relaxFiltersForNewTask(
     overdue: "all",
     relation: "all",
     milestone: "all",
-    tag: "",
+    tags: [],
     search: "",
     noteSearch: "",
   };
@@ -167,8 +167,10 @@ export function relaxFiltersForNewTask(
       filters.milestone !== "all" && hides({ milestone: filters.milestone })
         ? "all"
         : filters.milestone,
-    tag:
-      filters.tag !== "" && hides({ tag: filters.tag }) ? "" : filters.tag,
+    tags:
+      filters.tags.length > 0 && hides({ tags: filters.tags })
+        ? []
+        : filters.tags,
     search:
       filters.search.trim() && hides({ search: filters.search })
         ? ""

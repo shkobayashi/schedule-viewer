@@ -123,6 +123,18 @@
 | 同上 | `returns the group for a y inside a block and null outside` | EDIT-07 |
 | 同上 | `uses the preferred group when it exists` | EDIT-07 |
 | 同上 | `falls back to the first group when the preferred id is missing` | EDIT-07 |
+| 同上 | `truncates a lone screen label at the 24 full-width character cap` | VIEW-04 |
+| 同上 | `cuts a screen label before the next diamond on the same lane` | VIEW-04 |
+| `timelineRightPadding.test.ts` | `adds days when a visible milestone name extends past the base right edge` | VIEW-04 |
+| 同上 | `does not extend for milestones in hidden groups` | VIEW-04, FILTER-11 |
+| 同上 | `uses full export names for export mode padding` | VIEW-04, EXPORT-02 |
+| 同上 | `covers truncated screen labels with bold width padding` | VIEW-04 |
+| 同上 | `adds fewer days for narrow half-width names than full-width names` | VIEW-04 |
+| 同上 | `does not extend when labels already fit the base range` | VIEW-04 |
+| 同上 | `extends for month header labels past the base right edge` | VIEW-04 |
+| `milestoneHoverLabel.test.ts` | `wraps within the chart width and shifts left when needed` | VIEW-04 |
+| 同上 | `aligns the block top with the label top` | VIEW-04 |
+| 同上 | `truncates with an ellipsis when the text exceeds max height` | VIEW-04 |
 | `nonWorkingDay.test.ts` | `defaults to Sat/Sun when calendar is null` | VIEW-09 |
 | 同上 | `respects workingDays override on weekends` | VIEW-09, SET-03 |
 | 同上 | `treats an empty weekends list as no weekday holidays` | VIEW-09 |
@@ -150,10 +162,16 @@
 | 同上 | `keeps filters that match the duplicated task` | EDIT-14, FILTER-10 |
 | 同上 | `matches note substring independently of name` | FILTER-02, FILTER-09 |
 | 同上 | `keeps only the selected confidence` | FILTER-10 |
-| 同上 | `keeps only tasks that have the selected tag` | FILTER-12 |
+| 同上 | `keeps tasks with no tag when none are selected` | FILTER-12 |
+| 同上 | `keeps only tasks that have any selected tag` | FILTER-12 |
 | 同上 | `filters by the literal tag name all` | FILTER-12 |
+| 同上 | `hides untagged tasks when every file tag is selected` | FILTER-12 |
 | 同上 | `keeps tag filter when the duplicated task has that tag` | FILTER-12, EDIT-14 |
-| `filterChips.test.ts` | `shows a tag chip when a tag is selected` | FILTER-12 |
+| 同上 | `keeps all selected tags when duplicated task matches one of them` | FILTER-12, EDIT-14 |
+| `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
+| `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
+| 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
+| `taskTags.test.ts` | `keeps only tags that still exist, in document order` | FILTER-12 |
 | `serialize.test.ts` | `writes tags after milestoneId and before note` | FILE-02 |
 | `taskTags.test.ts` | `bumps schemaVersion from 6 to 7` | FILE-01 |
 | 同上 | `quotes each tag for display` | FILE-07 |
@@ -365,10 +383,27 @@
 | 同上 | `uses viewport scaling when preference is auto` | SET-01 |
 | 同上 | `uses fixed preference regardless of viewport` | SET-01 |
 | 同上 | `stores fixed ratios and persists auto` | SET-01 |
+| `wheelScroll.test.ts` | `scrolls vertically from deltaY alone` | NAV-01 |
+| 同上 | `scrolls horizontally from deltaX alone` | NAV-01 |
+| 同上 | `scrolls both axes on diagonal gesture` | NAV-01 |
+| 同上 | `maps shift+vertical wheel to horizontal scroll` | NAV-01 |
+| 同上 | `uses swapped horizontal delta once when only deltaX is set` | NAV-01 |
+| 同上 | `does not double-count equal deltas under shift` | NAV-01 |
+| 同上 | `ignores deltaX under shift when deltas differ` | NAV-01 |
+| 同上 | `maps vertical wheel to horizontal scroll` (header) | NAV-01 |
+| 同上 | `maps horizontal delta to horizontal scroll` (header) | NAV-01 |
+| 同上 | `adds both axes when they differ` (header) | NAV-01 |
+| 同上 | `counts shift swap once` (header) | NAV-01 |
+| 同上 | `adds both axes under shift when they differ` (header) | NAV-01 |
+| 同上 | `zooms in from negative deltaY with ctrl` | NAV-01, NAV-02 |
+| 同上 | `zooms out from positive deltaY with meta` | NAV-01, NAV-02 |
+| 同上 | `ignores deltaX for zoom and scroll` | NAV-01, NAV-02 |
 | `chartScroll.test.ts` | `keeps scrollX when the task bar is already visible` | NAV-01, EDIT-01 |
 | `timeline.test.ts` | `keeps the origin when a later start would scroll past the left edge` | EDIT-02, NAV-01 |
 | 同上 | `adopts a later start when the scroll can keep the same day in place` | EDIT-02, NAV-01 |
 | 同上 | `adopts an earlier start and increases scroll` | EDIT-02, NAV-01 |
+| 同上 | `includes extra days when fitting to the viewport width` | NAV-01, VIEW-04 |
+| 同上 | `includes prefix days before the data range when fitting` | NAV-01, VIEW-04 |
 | `contrast.test.ts` | `meets text contrast for bar labels` | VIEW-02 |
 | 同上 | `steps a fixed ratio and stays put at the ends` | SET-01 |
 | 同上 | `leaves auto for the neighboring fixed step` | SET-01 |
@@ -534,7 +569,7 @@
 | TC-VIEW-01 | VIEW-01 | サンプル | 左の行を上から見る | カテゴリ、グループ、タスクの順で、JSON の配列順に並ぶ |
 | TC-VIEW-02 | VIEW-02 | 進行中のタスクがある | そのバーを見る | 薄青の地に、進捗率の濃い部分がある。完了は緑、未着手は灰 |
 | TC-VIEW-03 | VIEW-03 | 子の期間が離れているグループ | 親の行を見る。HTML で書き出す | タスクバーより細い帯で、途切れた期間は点線、つながる期間は塗り。両端に下向きの角がある。書き出しも同じ |
-| TC-VIEW-04 | VIEW-04 | 同じグループで日付が近いマイルストンが複数ある | 日付ヘッダーの下を見る。日・週・月も切り替える | グループごとに帯が積まれる。ひし形が重なるときだけ段が増える。名前は次のひし形の手前まで。ホバーで全文。左はグループ名。チャート全体の縦線は無い |
+| TC-VIEW-04 | VIEW-04 | playground または長い名前のマイルストンがある JSON | 右端まで横スクロールする。月表示でも見る。全角24文字を超える名前にカーソルを乗せる。近いひし形の手前で切れる名前も見る。日・週・月を切り替える | 右端まで送ったとき、次のひし形が無い名前と年月が最後まで読める。全角24文字を超える名前は「…」になり、ホバーでチャート内に全文が読める。近いひし形の手前で切れることと、日・週・月の切り替えは今までどおり。グループごとに帯が積まれる。ひし形が重なるときだけ段が増える。左はグループ名。チャート全体の縦線は無い |
 | TC-FILTER-11 | FILTER-11 | マイルストングループが2つ以上ある JSON | 絞り込みの帯の線で1つをオフにする。書き出す | 帯と書き出しからその線が消える。タスク行は変わらない。札とすべて解除で戻る |
 | TC-FILTER-11b | FILTER-11, EDIT-11 | マイルストングループが2つ以上あり、各グループにマイルストンがある JSON | 左のマイルストングループ名の行の空きを右クリックし「非表示」を選ぶ。札を押す。別の行で「この行だけ表示」を選ぶ。残った1行を右クリックし、メニューを見る。そのあと最後の1行も非表示にする。書き出す | 帯と左の行が消える。札でそのグループだけ戻る。「この行だけ表示」で他がオフになり、オフしたグループごとに札が出る。帯に別のグループ行が無くなったあとは、「この行だけ表示」は出ない。全部オフで帯の高さは0。ひし形の右クリックメニューは今どおり。線を引くモードと見出しではメニューが出ない。タスクの選択は変わらない |
 | TC-VIEW-04b | VIEW-04, VIEW-12 | 未確定と確定のマイルストンがある | ひし形を、ライトとダークで見る。HTML と SVG に書き出す | 未確定は斜線、確定は塗りつぶし。書き出しも同じ |
@@ -547,11 +582,11 @@
 | TC-VIEW-09 | VIEW-09 | カレンダー未設定で日表示 | 背景を見る | 土日だけが薄い灰。月表示では日ごとに塗らない |
 | TC-VIEW-10 | VIEW-10 | 使用中カタログがある | 割り当てなし、一致する ID、存在しない ID の行を見る。割り当てなしを選択し、カーソルを乗せる。期限超過の割り当てなし行も見る。ライトとダーク、HTML と SVG の書き出しも確かめる | 一覧では「未割当」は琥珀色の札で切れず、名前付きは薄い文字、一致は表示名、「メンバー不明」と ID は紫の札。選択中とホバーでも札の地色が残る。期限超過でも「未割当」は赤くならない。チャートのバーに破線や上端の色は出ない。書き出しも同じ札である |
 | TC-VIEW-11 | VIEW-11 | ノートがあるタスクと無いタスク | ノートアイコンを押す | 色が違い、本文が出る。無いタスクは「ノートはありません」 |
-| TC-NAV-01 | NAV-01 | 期間が画面より広い | チャートをドラッグし、ホイールと Shift+ホイールを回す | ドラッグは縦横、ホイールは縦、Shift+ホイールは横に動く |
+| TC-NAV-01 | NAV-01 | 期間が画面より広い | チャートをドラッグする。チャート本体、日付の行、マイルストン帯で、クリックせず二本指を横へ滑らせる。ホイールと Shift+ホイールも試す | ドラッグは縦横。本体ではホイールの縦は上下、横の量は左右。斜めは一緒に動く。日付の行とマイルストン帯では縦と横の量が左右。Shift+ホイールは横。端で止まる |
 | TC-NAV-01b | NAV-01 | 期間が画面より広く、行が画面より多い | ⌘ または Ctrl を押しながら上下左右を押す。押し続ける。端まで押す | 上で縦に戻り、下で進む。左で過去、右で未来へ動く。縦は左の一覧と一緒に動く。上下は 1 行分、左右も同じ画面上の距離である。押しているあいだは連続して動き、端で止まる |
 | TC-NAV-01c | NAV-01 | 検索欄、選択欄、またはボタンにフォーカスがある。別途、ダイアログと右クリックメニューを開く | 矢印キーだけを押し、続けて ⌘ または Ctrl と矢印を押す | 矢印キーだけではその欄の操作のままである。⌘ または Ctrl と矢印ではチャートが動く。ダイアログが開いているあいだは動かない。右クリックメニューは、この操作で閉じる |
 | TC-NAV-01d | NAV-01 | 行が画面より多い。別途、一覧が画面に収まるスケジュールと、折りたたんだカテゴリまたはグループ | 縦にスクロールする。次の見出しが上へ来るまで進める。折りたたんだ行の下も見る。一覧が画面に収まるときはスクロールしない | 展開中のカテゴリとグループが、日付ヘッダーとマイルストン帯の下に残る。次の見出しで入れ替わる。折りたたんだ行は残らない。一覧が画面に収まるときは残らない |
-| TC-NAV-01e | NAV-01, NAV-02 | 行が画面より多く、期間が画面より広い | 左の名前の一覧の上でホイールを回す。続けて Shift+ホイールを回す。さらに Ctrl または ⌘ とホイールを回す | ホイールで左の一覧とチャートが一緒に縦へ動く。Shift+ホイールでは横へ動く。Ctrl または ⌘ とホイールでは、チャートの左端の日付を保って拡大・縮小する |
+| TC-NAV-01e | NAV-01, NAV-02 | 行が画面より多く、期間が画面より広い | 左の名前の一覧の上で、クリックせず二本指を横へ滑らせる。ホイールと Shift+ホイールを試す。さらに Ctrl または ⌘ とホイールを回す | ホイールの縦で左の一覧とチャートが一緒に上下へ動く。横の量では左右へ動く。Shift+ホイールでは横へ動く。Ctrl または ⌘ とホイールでは、チャートの左端の日付を保って拡大・縮小する |
 | TC-NAV-02 | NAV-02 | 週表示 | Ctrl または ⌘ を押してホイールを回す | ポインタの位置を保ったまま拡大し、十分拡大すると「日表示」、縮小すると「月表示」になる |
 | TC-NAV-02b | NAV-02 | サンプル | 「日」「週」「月」を順に押す | 1日あたりの幅が 40px、22px、8px になり、見出しの表示単位が切り替わる |
 | TC-NAV-02c | NAV-02 | 今日が期間内 | 「今日」を押す | 縦位置と選択は変わらず、横スクロールだけが今日が見える位置へ動く |
@@ -579,9 +614,14 @@
 | TC-FILTER-08b | FILTER-08 | 系統を表示している | 別のタスクを右クリックし、「系統を表示」を選ぶ | 起点がそのタスクに切り替わる。同じタスクなら「系統を解除」で外れる |
 | TC-FILTER-09 | FILTER-09 | あるグループのタスクがすべて完了 | 「完了以外」を選ぶ | そのグループの行も消える。追加ダイアログでは、そのグループをまだ選べる |
 | TC-FILTER-10 | FILTER-10 | サンプル | 「確度」で「未確定」、次に「確定」を選ぶ | 未確定だけ、次に確定だけが残る。選んでいたタスクの選択は外れる |
-| TC-FILTER-12 | FILTER-12 | サンプルにタグ付きタスクがある | 「タグ」で一つ選ぶ。担当など別の条件も入れる | そのタグを持つタスクだけが残る。ほかの条件も満たすものだけが残る |
-| TC-FILTER-12b | FILTER-12 | タグで絞っている | 札を押す。「すべて解除」でも試す | 札でタグだけ外れる。「すべて解除」で絞り込みは戻り、系統は残る |
-| TC-FILTER-12c | FILTER-12 | タグで絞っている | ファイルを開き直す | タグの絞り込みは「すべて」に戻る |
+| TC-FILTER-12 | FILTER-12 | サンプルにタグ付きタスクがある | 「タグ」で二つオンにする。担当など別の条件も入れる | どちらかのタグを持つタスクだけが残る。タグの無いタスクは残らない。ほかの条件も満たすものだけが残る |
+| TC-FILTER-12b | FILTER-12 | タグを二つ以上オンにしている | 札を一つ押す。「すべて解除」でも試す | 押したタグだけ外れ、ほかのタグは残る。「すべて解除」で絞り込みは戻り、系統は残る |
+| TC-FILTER-12c | FILTER-12 | タグをオンにしている | ファイルを開き直す | タグの選択は無くなる |
+| TC-FILTER-12d | FILTER-12 | サンプルでファイル内のタグをすべてオンにできる | すべてオンにする | タグ付きタスクだけが残り、タグの無いタスクは残らない |
+| TC-FILTER-12e | FILTER-12 | タグが 9 件以上ある JSON を開ける | 「絞り込み」でタグ欄を見る | 8 件まで見え、それより多いときは一覧の中をスクロールする |
+| TC-FILTER-12f | FILTER-12 | タグが無い JSON を開ける | 「絞り込み」でタグ欄を見る | チェックは出ず、「タグはありません」と出る |
+| TC-FILTER-12g | FILTER-12 | タグで絞っている | 選んだタグを文書から消す（詳細パネルで外すなど） | 消えたタグだけ選択から外れる。ほかに選んだタグがあれば残る |
+| TC-FILTER-12h | FILTER-12 | サンプルにタグ付きとタグ無しのタスクがある | 「タグ」は一つもオンにしない | タグでは絞らない。タグの無いタスクも残る |
 | TC-VIEW-12 | VIEW-12 | サンプル | 未確定と確定のバーを、ライトとダークで見る。超過もある未確定を見る。サンプルの「本番リリース」も見る | 未確定は斜線で、確定はベタ塗り。色はステータスと期限超過のまま。一覧に「未確定」は出ない。超過があるときは「超過」だけ出る。本番リリースのひし形は斜線で、他のマイルストンは塗りつぶし |
 | TC-EDIT-01 | EDIT-01 | サンプル | バーをクリックし、次に左のタスク行をクリックし、背景をクリックする | バーと左の行で選択され端のハンドルが出る。背景で外れる |
 | TC-EDIT-01c | EDIT-01, NAV-01 | 見えているタスクが複数ある。行が画面より多い | ↑↓で選択を移す。見えている行を選んだあと、左の行をクリックして選び直す。端で止まる | カテゴリ行とグループ行は飛ばす。見えている行では縦位置は変わらない。画面外の行へ移したときだけ、入るところまでスクロールする |
@@ -598,7 +638,7 @@
 | TC-EDIT-04c | EDIT-04 | タスクを選択している | Enter を押す | 詳細パネルの名前欄にフォーカスが移る。検索欄にフォーカスがあるときは移らない |
 | TC-EDIT-04d | EDIT-04, EDIT-10 | タスクを選択している | 詳細パネルで確度を変え、取り消す | 確度だけが変わり、日付は動かない。取り消し 1 回で戻る |
 | TC-EDIT-04e | EDIT-04, EDIT-10, FILTER-12 | タスクを選択している | 詳細パネルでタグを足し、外し、取り消しとやり直しをする | 未保存になる。取り消しとやり直しでタグが戻る。タグの絞り込みの選択は戻らない |
-| TC-EDIT-08d | EDIT-08, FILTER-12 | タグで絞っている | タスクを追加する | タグの絞り込みは「すべて」に戻る |
+| TC-EDIT-08d | EDIT-08, FILTER-12 | タグで絞っている | タスクを追加する | タグの選択は無くなる |
 | TC-EDIT-14d | EDIT-14, FILTER-12 | タグ付きタスクをタグで絞っている | そのタスクを複製する | タグの絞り込みは残り、複製が見える |
 | TC-EDIT-05 | EDIT-05 | 3件以上のタスク | 編集で、自分を先行にしようとする。次に、循環する先行を保存する | 自分は候補に出ない。循環は保存されず、理由が出る |
 | TC-EDIT-05d | EDIT-05 | 詳細パネルでタスクを選んでいる | 先行の候補を開き、Escape を押す | 候補だけが閉じ、パネルは開いたままである |
@@ -652,9 +692,12 @@
 | TC-EDIT-13b | EDIT-13 | 別のカテゴリに同じグループ名がある | そのグループを、別カテゴリと同じ名前に変える | 保存できる。同じカテゴリの中の既存名には変えられない |
 | TC-EDIT-12 | EDIT-12 | 見えているタスクを選択 | 「線を引く」または ⌘/Ctrl+L を押す。L だけも押す | モードに入る。ボタンに起点の名前が出る。チャート上端の帯は「次にクリックしたタスクを後続にします。Esc で中止」になる。選択が無いときと、L だけでは入らない |
 | TC-UI-01 | NAV-02 | サンプル | ? と F1 を押す。☰ の「ショートカット一覧」も開く | 一覧ダイアログが開き、Escape で閉じる。検索欄にフォーカスがあるときは ? でも F1 でも開かない |
+| TC-UI-02 | NAV-08 | サンプル | 起動直後は案内が出ないことを見る。上段の「案内」、☰ の「操作の案内」、⌘ または Ctrl+K で「操作の案内」を開く | 見出し「スケジュールの作り方」「画面」「タグ」「気づきにくい操作」「色と線」が出る。スキルの2文はブラウザ版でも出る。本文にフォーカスしたままキーで末尾までスクロールできる。Escape で閉じる。中の「ショートカット一覧」で案内が閉じ、ショートカット一覧が開く。? と F1 は一覧を開く |
+| TC-UI-02b | NAV-08 | ブラウザ版 | 案内を開く | 「気づきにくい操作」に、外部ファイルの反映と自動更新の文が無い |
+| TC-UI-02c | NAV-08 | デスクトップ版 | 案内を開く | 外部ファイルの反映と自動更新の文が出る |
 | TC-EDIT-12b | EDIT-12 | 線を引くモード | カーソルを動かし、タスクバー、左の一覧、それ以外へ乗せる | 起点の右端から折れ線が追随する。バーの上ではその左端まで、一覧の上ではチャートの左端まで伸びる。乗ったタスクバーだけ別の輪郭になる。起点、親バー、ひし形は強調されない。モードを終えると線は消える |
 | TC-EDIT-12c | EDIT-12 | 線を引くモード | 別のタスクバーをクリックする。続けて Esc、起点の再クリック、「線を引く」、⌘/Ctrl+L を試す。親バー、ひし形、背景もクリックする | クリックで線が 1 本加わる。取り消しの 1 ステップで戻り、モードは残る。Esc、起点、ボタン、⌘/Ctrl+L では結ばずに終わる。親バー、ひし形、背景では終わらない |
-| TC-EDIT-12d | EDIT-12 | 線を引くモード | チャートをドラッグする。ホイール、Shift+ホイール、⌘ または Ctrl と矢印で動かす | ドラッグではスクロールも移動も期間変更もひし形の日付変更もしない。ホイールと矢印ではスクロールし、追随する線も動く。ダブルクリックと Enter では詳細パネルの名前欄にフォーカスが移らない |
+| TC-EDIT-12d | EDIT-12 | 線を引くモード | チャートをドラッグする。ホイールの縦と横、Shift+ホイール、⌘ または Ctrl と矢印で動かす | ドラッグではスクロールも移動も期間変更もひし形の日付変更もしない。ホイールの縦と横と矢印ではスクロールし、追随する線も動く。ダブルクリックと Enter では詳細パネルの名前欄にフォーカスが移らない |
 | TC-EDIT-12e | EDIT-12 | すでに結ばれている組と、循環する組 | そのタスクをクリックする | 保存されない。詳細パネルと同じ理由が出る。モードは残る |
 | TC-EDIT-12f | EDIT-12 | 折りたたみか絞り込みで見えていないタスクがある | 線を引くモードで、見えているタスクだけをクリックする | 見えていない相手へは引けない。詳細パネルの先行と後続は今どおり足せる |
 | TC-EDIT-12g | EDIT-12 | 見えている線がある | 線にカーソルを合わせて Delete または Backspace を押す。別の線を右クリックして「線を外す」を選ぶ。バーの上でも Delete を押す | 線は 1 本だけ消え、確認は出ない。取り消しの 1 ステップで戻る。タスクは残る。バーやひし形の上ではタスクの削除確認が開く。ツールバーの「削除」はタスクを消す |

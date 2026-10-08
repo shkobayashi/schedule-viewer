@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseDate } from "./dates";
-import { resolveTimelineOrigin } from "./timeline";
+import { fitPxPerDayToViewport, resolveTimelineOrigin } from "./timeline";
 
 describe("resolveTimelineOrigin", () => {
   const pinned = parseDate("2026-09-08");
@@ -39,5 +39,19 @@ describe("resolveTimelineOrigin", () => {
     });
     expect(next.pinnedStart.getTime()).toBe(dataStart.getTime());
     expect(next.scrollX).toBe(10 + 2 * pxPerDay);
+  });
+});
+
+describe("fitPxPerDayToViewport", () => {
+  it("includes extra days when fitting to the viewport width", () => {
+    const baseTotalDays = 100;
+    const extraForPx = (px: number) => (px < 10 ? 5 : 0);
+    const px = fitPxPerDayToViewport(800, 0, baseTotalDays, extraForPx);
+    expect(px).toBeCloseTo(800 / (baseTotalDays + 5), 1);
+  });
+
+  it("includes prefix days before the data range when fitting", () => {
+    const px = fitPxPerDayToViewport(800, 10, 100, () => 0);
+    expect(px).toBeCloseTo(800 / 110, 1);
   });
 });

@@ -31,8 +31,33 @@ export function applyTaskTags<T extends { tags?: string[] }>(
   return { ...task, tags };
 }
 
-export function taskHasTag(task: Task, tag: string): boolean {
-  return task.tags?.includes(tag) ?? false;
+export function taskHasAnySelectedTag(
+  task: Task,
+  selectedTags: readonly string[],
+): boolean {
+  if (selectedTags.length === 0) return true;
+  const taskTags = task.tags;
+  if (!taskTags || taskTags.length === 0) return false;
+  for (const tag of selectedTags) {
+    if (taskTags.includes(tag)) return true;
+  }
+  return false;
+}
+
+/** 文書の初出順のうち、まだ選ばれているタグだけを返す。 */
+export function pruneSelectedTags(
+  selected: readonly string[],
+  tagsInDocumentOrder: readonly string[],
+): string[] {
+  const selectedSet = new Set(selected);
+  return tagsInDocumentOrder.filter((tag) => selectedSet.has(tag));
+}
+
+export function removeSelectedTag(
+  selected: readonly string[],
+  tag: string,
+): string[] {
+  return selected.filter((item) => item !== tag);
 }
 
 /** 文書を前から見て、タグの初出順で一覧する。 */

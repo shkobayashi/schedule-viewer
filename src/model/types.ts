@@ -95,8 +95,8 @@ export type ScheduleFilters = {
   relation: RelationFilter;
   /** "all" | "none" | マイルストン id */
   milestone: string;
-  /** 空文字はすべて。それ以外はファイル内のタグ名そのもの */
-  tag: string;
+  /** 空配列はタグで絞らない。要素はファイル内のタグ名そのもの */
+  tags: string[];
   search: string;
   noteSearch: string;
 };

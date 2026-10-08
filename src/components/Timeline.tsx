@@ -50,6 +50,7 @@ import {
   type SummarySpan,
 } from "../model/summary";
 import { milestonesExceededBy } from "../model/milestones";
+import { resolveMilestoneHover } from "../model/milestoneHoverLabel";
 import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
 import {
   formatYearMonth,
@@ -66,6 +67,10 @@ import type { CalendarDocument } from "../model/calendarTypes";
 import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
 import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "../model/palette";
 import { MilestoneBand } from "./MilestoneBand";
+import {
+  MilestoneHoverOverlay,
+  type MilestoneHoverState,
+} from "./MilestoneHoverOverlay";
 
 type TimelineProps = {
   visibleRows: VisibleRow[];
@@ -1442,6 +1447,30 @@ export function Timeline({
   const registerDragCancel = useCallback((cancel: (() => void) | null) => {
     dragCancelRef.current = cancel;
   }, []);
+  const [milestoneHoverId, setMilestoneHoverId] =
+    useState<ScheduleId | null>(null);
+
+  const milestoneHover =
+    milestoneHoverId == null
+      ? null
+      : resolveMilestoneHover(
+          milestoneHoverId,
+          milestoneBandLayout,
+          milestoneLaneHeight,
+          milestoneDiamondSize,
+          milestoneFontSize,
+          dateToX,
+        );
+
+  useEffect(() => {
+    if (milestoneHoverId != null && milestoneHover == null) {
+      setMilestoneHoverId(null);
+    }
+  }, [milestoneHover, milestoneHoverId]);
+
+  const onHoverMilestone = useCallback((hover: MilestoneHoverState | null) => {
+    setMilestoneHoverId(hover?.id ?? null);
+  }, []);
   const [spacePanArmed, setSpacePanArmed] = useState(false);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -2174,8 +2203,17 @@ export function Timeline({
           onWheel={onWheelHeader}
           chart={chart}
           colorScheme={colorScheme}
+          onHoverMilestone={onHoverMilestone}
         />
       ) : null}
+      <MilestoneHoverOverlay
+        hover={milestoneHover}
+        bandTopPx={headerHeight}
+        chartWidth={width}
+        fontSize={milestoneFontSize}
+        chart={chart}
+        bandBackground={cssPalette.milestoneBand}
+      />
       <div
         className={`timeline-body${linkMode ? " linking" : ""}${panning ? " panning" : ""}`}
         ref={bodyRef}
