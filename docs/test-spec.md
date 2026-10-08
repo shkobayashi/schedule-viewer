@@ -81,7 +81,16 @@
 | 同上 | `rejects a duplicate with the same message as a repeated predecessor id` | EDIT-12 |
 | 同上 | `rejects a cycle with the edit dialog message` | EDIT-12, EDIT-05 |
 | 同上 | `removes only that predecessor id` | EDIT-12 |
+| `monthHeader.test.ts` | `formats year and month in Japanese` | NAV-02 |
+| 同上 | `shows distant month labels` | NAV-02 |
+| 同上 | `hides a month label that overlaps a fixed label` | NAV-02 |
+| 同上 | `shows a month label that clears the fixed label with gap` | NAV-02 |
+| 同上 | `does not treat a skipped month as obstruction for the next month` | NAV-02 |
+| 同上 | `scales the gap with display size` | NAV-02 |
+| 同上 | `estimates width from each label font size` | NAV-02 |
+| 同上 | `hides the next label when the previous label uses a larger font size` | NAV-02 |
 | `exportHtml.test.ts` | `puts the active filter into HTML and SVG` | EXPORT-01, EXPORT-02 |
+| 同上 | `omits overlapping month header labels in month export but keeps grid lines` | NAV-02, EXPORT-02 |
 | 同上 | `hatches tentative bars and labels them, and leaves committed bars solid` | VIEW-12, EXPORT-01 |
 | 同上 | `hatches a tentative milestone and leaves a committed one solid` | VIEW-04, VIEW-12, EXPORT-01 |
 | `exportView.test.ts` | `keeps milestones inside the visible span and referenced ones outside it` | EXPORT-02 |
@@ -526,6 +535,7 @@
 | TC-NAV-02 | NAV-02 | 週表示 | Ctrl または ⌘ を押してホイールを回す | ポインタの位置を保ったまま拡大し、十分拡大すると「日表示」、縮小すると「月表示」になる |
 | TC-NAV-02b | NAV-02 | サンプル | 「日」「週」「月」を順に押す | 1日あたりの幅が 40px、22px、8px になり、見出しの表示単位が切り替わる |
 | TC-NAV-02c | NAV-02 | 今日が期間内 | 「今日」を押す | 縦位置と選択は変わらず、横スクロールだけが今日が見える位置へ動く |
+| TC-NAV-02d | NAV-02 | 期間が複数月にまたがる | 月表示にする。左端が前の月のまま、次の月の1日が左へ寄る位置まで横スクロールする。表示サイズを 50% と 200% にし、隣の月と左端の固定月のあいだに隙間が残ることを確かめる。表示サイズを大きくし、1日の幅を 3px まで縮める。日表示と週表示にも切り替える | 重なる月の文字だけが消え、左端の固定月と月の区切り線は残る。50% と 200% では隣の月の文字のあいだに隙間が残る。縮小して隣の月が重なるときも同じ。日表示と週表示の見出しは変わらない |
 | TC-NAV-03 | NAV-03 | 横にスクロールした状態 | 「全体」を押す | 期間が幅に入り、横位置が先頭に戻る |
 | TC-NAV-07 | NAV-07 | サンプルを開く | ⌘/Ctrl+K で「今日」を実行する。ほかのダイアログを開いたあいだ ⌘/Ctrl+K を押す | 今日が見える位置へ横が動く。パレットは開かない |
 | TC-NAV-07b | NAV-07 | 未保存にする | コマンドパレットで「差分をコピー」を実行する | 差分がコピーされる |
