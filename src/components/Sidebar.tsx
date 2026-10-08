@@ -97,6 +97,11 @@ type SidebarProps = {
     x: number,
     y: number,
   ) => void;
+  onMilestoneGroupContextMenu: (
+    groupId: ScheduleId,
+    x: number,
+    y: number,
+  ) => void;
   onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
   today: string;
   uiScale: number;
@@ -142,6 +147,7 @@ export function Sidebar({
   onOpenTaskNote,
   onTaskContextMenu,
   onHierarchyContextMenu,
+  onMilestoneGroupContextMenu,
   onHierarchyDoubleClick,
   today,
   uiScale,
@@ -545,8 +551,16 @@ export function Sidebar({
               key={block.group.id}
               className="sidebar-milestones"
               style={{ height: block.height }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                onMilestoneGroupContextMenu(
+                  block.group.id,
+                  event.clientX,
+                  event.clientY,
+                );
+              }}
             >
-              {block.group.name}
+              <NameLabel text={block.group.name} />
             </div>
           ))}
         </div>
@@ -1147,9 +1161,11 @@ function TaskSidebarRow({
               : assigneeSidebarLabel(assigneeDisplay)
           }
         >
-          {assigneeDisplay.kind === "unassigned"
-            ? "未割当"
-            : assigneeSidebarLabel(assigneeDisplay)}
+          {assigneeDisplay.kind === "unassigned" ? (
+            <span className="assignee-badge">未割当</span>
+          ) : (
+            assigneeSidebarLabel(assigneeDisplay)
+          )}
         </span>
       </span>
       </div>

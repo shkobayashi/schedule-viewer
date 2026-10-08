@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { buildScheduleHtml, buildScheduleSvg, type ScheduleExportInput } from "./exportHtml";
 import { layoutMilestoneBand } from "./milestones";
 import { hatchPatternId, hatchStripeColor } from "./hatch";
+import {
+  MONTH_HEADER_LABEL_GAP_BASE_PX,
+  monthHeaderLabelWidth,
+} from "./monthHeader";
+import { LAYOUT_HEADER_HEIGHT } from "./layoutSizes";
+import { daysBetween } from "./dates";
 import type { Task } from "./types";
 
 const task: Task = {
@@ -233,6 +239,60 @@ describe("schedule export documents", () => {
     expect(svg).toContain("超過");
     expect(svg).toContain('stroke="#C4351A"');
     expect(svg).not.toContain("隠した線");
+  });
+
+  it("omits overlapping month header labels in month export but keeps grid lines", () => {
+    const timelineStart = new Date(Date.UTC(2026, 5, 1));
+    const timelineEnd = new Date(Date.UTC(2026, 8, 1));
+    const julyStart = new Date(Date.UTC(2026, 6, 1));
+    const augustStart = new Date(Date.UTC(2026, 7, 1));
+    const headerHeight = 40;
+    const scale = headerHeight / LAYOUT_HEADER_HEIGHT;
+    const monthFontSize = 12 * scale;
+    const gapPx = MONTH_HEADER_LABEL_GAP_BASE_PX * scale;
+    const junWidth = monthHeaderLabelWidth("2026年6月", monthFontSize);
+    const minPxPerDay =
+      (6 + junWidth + gapPx - 6) / daysBetween(timelineStart, augustStart);
+    const maxPxPerDay =
+      (6 + junWidth + gapPx - 6) / daysBetween(timelineStart, julyStart);
+    const tightPxPerDay = (minPxPerDay + maxPxPerDay) / 2;
+    const base = {
+      ...input(),
+      tier: "month" as const,
+      tierLabel: "月表示",
+      timelineStart,
+      timelineEnd,
+      totalDays: 92,
+      headerHeight,
+      visibleRows: [],
+      milestones: [],
+      milestoneBandHeight: 0,
+      milestoneBandLayout: layoutMilestoneBand(
+        [],
+        [],
+        new Set(),
+        3,
+        11,
+        11,
+        26,
+        "export",
+      ),
+    };
+    const monthLabels = (svg: string) =>
+      [...svg.matchAll(/>(\d{4}年\d{1,2}月)</g)].map((match) => match[1]);
+    const verticalGridLines = (svg: string) =>
+      [...svg.matchAll(/<line x1="([0-9.]+)" y1="0" x2="[0-9.]+" y2="[0-9.]+"/g)].map(
+        (match) => Number(match[1]),
+      );
+    const wide = buildScheduleSvg({ ...base, pxPerDay: 40 });
+    const tight = buildScheduleSvg({ ...base, pxPerDay: tightPxPerDay });
+    expect(monthLabels(wide)).toEqual(["2026年6月", "2026年7月", "2026年8月"]);
+    expect(monthLabels(tight)).toEqual(["2026年6月", "2026年8月"]);
+    const julyGridX =
+      daysBetween(timelineStart, julyStart) * tightPxPerDay;
+    const lines = verticalGridLines(tight);
+    expect(lines).toContain(0);
+    expect(lines).toContain(Math.round(julyGridX * 100) / 100);
   });
 
   it("uses dark palette when colorScheme is dark", () => {

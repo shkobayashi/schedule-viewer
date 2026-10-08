@@ -51,6 +51,11 @@ import {
 } from "../model/summary";
 import { milestonesExceededBy } from "../model/milestones";
 import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
+import {
+  formatYearMonth,
+  MONTH_HEADER_LABEL_GAP_BASE_PX,
+  visibleMonthHeaderLabels,
+} from "../model/monthHeader";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
 import { resolveAssigneeDisplay, assigneeSidebarLabel } from "../model/assigneeDisplay";
 import { KONVA_FONT_FAMILY } from "../model/fontStack";
@@ -115,6 +120,7 @@ type TimelineProps = {
     chartX: number,
     clientX: number,
     clientY: number,
+    bandY?: number,
   ) => void;
   onChartPointer: (pointer: ChartPointer) => void;
   sticky: StickyLayout;
@@ -1544,7 +1550,7 @@ export function Timeline({
         key="header-year-month"
         x={4}
         y={4 * scale}
-        text={`${anchorDate.getUTCFullYear()}年${anchorDate.getUTCMonth() + 1}月`}
+        text={formatYearMonth(anchorDate)}
         fontSize={11 * scale}
         fontStyle="bold"
         fontFamily={KONVA_FONT_FAMILY}
@@ -1554,7 +1560,11 @@ export function Timeline({
     );
 
     if (tier === "month") {
+      const fixedFontSize = 11 * scale;
+      const monthFontSize = 12 * scale;
+      const gapPx = MONTH_HEADER_LABEL_GAP_BASE_PX * scale;
       elements.push(yearMonthLabel);
+      const monthLabelCandidates = [];
       let d = utcMonthStart(timelineStart);
       while (d < timelineEnd) {
         const x = dateToX(d);
@@ -1567,20 +1577,35 @@ export function Timeline({
               strokeWidth={1}
               listening={false}
             />,
-            <Text
-              key={`mt-${d.getTime()}`}
-              x={x + 6}
-              y={13 * scale}
-              text={`${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月`}
-              fontSize={12 * scale}
-              fontStyle="bold"
-              fontFamily={KONVA_FONT_FAMILY}
-              fill={chart.textPrimary}
-              listening={false}
-            />,
           );
+          monthLabelCandidates.push({
+            key: `mt-${d.getTime()}`,
+            x: x + 6,
+            text: formatYearMonth(d),
+            fontSize: monthFontSize,
+          });
         }
         d = addUtcMonths(d, 1);
+      }
+      const visibleMonthLabels = visibleMonthHeaderLabels(
+        monthLabelCandidates,
+        [{ left: 4, text: formatYearMonth(anchorDate), fontSize: fixedFontSize }],
+        gapPx,
+      );
+      for (const label of visibleMonthLabels) {
+        elements.push(
+          <Text
+            key={label.key}
+            x={label.x}
+            y={13 * scale}
+            text={label.text}
+            fontSize={label.fontSize}
+            fontStyle="bold"
+            fontFamily={KONVA_FONT_FAMILY}
+            fill={chart.textPrimary}
+            listening={false}
+          />,
+        );
       }
     } else {
       const headerBands = nonWorkingDayClipRects(

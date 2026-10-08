@@ -8,8 +8,8 @@
   "properties": {
     "schemaVersion": {
       "type": "integer",
-      "const": 6,
-      "description": "6: マイルストンは milestoneGroups の groupId で帯の行に分ける。5 以前は読み込み時に 6 へ移行する。カテゴリとグループは id を持つ。タスクとマイルストンの confidence は tentative か committed。担当は assigneeId（未割当は null）。終了日はその日を含む。"
+      "const": 7,
+      "description": "7: タスクに任意の tags（文字列配列）を足せる。6 以前は読み込み時に 7 へ移行する。マイルストンは milestoneGroups の groupId で帯の行に分ける。カテゴリとグループは id を持つ。タスクとマイルストンの confidence は tentative か committed。担当は assigneeId（未割当は null）。終了日はその日を含む。"
     },
     "title": {
       "type": "string",
@@ -113,6 +113,11 @@
             { "$ref": "#/$defs/scheduleId" },
             { "type": "null" }
           ]
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "説明用の任意タグ。画面では絞り込みに使う。"
         },
         "note": {
           "type": "string",

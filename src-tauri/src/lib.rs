@@ -1,11 +1,11 @@
 mod json_skills;
+mod pending_release_notes;
 mod window_session;
 
 use json_skills::{
     install_json_skills, json_skill_home_dirs, pick_json_skill_folder, uninstall_json_skills,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
@@ -16,13 +16,14 @@ use tauri::Manager;
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 use window_session::{
-    create_schedule_webview, delete_recovery_for_path, forget_window_focus,
+    all_windows_startup_settled, any_startup_auto_update_enabled, create_schedule_webview,
+    delete_recovery_for_path, forget_startup_settlement, forget_window_focus,
     migrate_legacy_session, next_schedule_window_label, note_window_focus, read_open_windows,
     read_recovery_for_path, recovery_close_persist, recovery_live_persist, recovery_owner_label,
-    recovery_owners_by_path,
-    remove_window_label, set_focused_label, spawn_startup_windows, store_pending_open,
-    take_pending_open, upsert_window_path, write_open_windows, write_recovery_for_path,
-    OpenWindowEntry, WindowSessionState, WindowStartupRead,
+    recovery_owners_by_path, remove_window_label, set_focused_label, sha256_hex,
+    spawn_startup_windows, store_pending_open, take_pending_open, upsert_window_path,
+    write_open_windows, write_recovery_for_path, OpenWindowEntry, WindowSessionState,
+    WindowStartupRead,
 };
 
 const MAX_SCHEDULE_BYTES: u64 = 10 * 1024 * 1024;
@@ -104,8 +105,7 @@ fn any_window_focused(app: &tauri::AppHandle) -> bool {
 }
 
 fn hash_contents(contents: &str) -> String {
-    let digest = Sha256::digest(contents.as_bytes());
-    format!("{:x}", digest)
+    sha256_hex(contents.as_bytes())
 }
 
 fn read_open_schedule<T>(
@@ -318,9 +318,11 @@ fn check_schedule_file_changed(
     window: tauri::Window,
     state: State<'_, Mutex<ScheduleFileStates>>,
 ) -> Result<bool, String> {
-    read_open_schedule(state.inner(), &window_label(&window), |guard, _contents, hash| {
-        Ok(guard.content_hash.as_deref() != Some(hash))
-    })
+    read_open_schedule(
+        state.inner(),
+        &window_label(&window),
+        |guard, _contents, hash| Ok(guard.content_hash.as_deref() != Some(hash)),
+    )
 }
 
 #[derive(Serialize)]
@@ -333,15 +335,19 @@ fn poll_schedule_file_update(
     window: tauri::Window,
     state: State<'_, Mutex<ScheduleFileStates>>,
 ) -> Result<Option<PollScheduleFileUpdateResult>, String> {
-    read_open_schedule(state.inner(), &window_label(&window), |guard, contents, hash| {
-        if guard.content_hash.as_deref() == Some(hash) {
-            Ok(None)
-        } else {
-            Ok(Some(PollScheduleFileUpdateResult {
-                contents: contents.to_string(),
-            }))
-        }
-    })
+    read_open_schedule(
+        state.inner(),
+        &window_label(&window),
+        |guard, contents, hash| {
+            if guard.content_hash.as_deref() == Some(hash) {
+                Ok(None)
+            } else {
+                Ok(Some(PollScheduleFileUpdateResult {
+                    contents: contents.to_string(),
+                }))
+            }
+        },
+    )
 }
 
 #[tauri::command]
@@ -797,13 +803,20 @@ fn recovery_close_action(
             .quit_recovery_owners
             .get(&path)
             .is_some_and(|owner| owner == &label)
+    } else if session_guard.updating {
+        session_guard
+            .update_recovery_owners
+            .get(&path)
+            .is_some_and(|owner| owner == &label)
     } else {
         caller_is_recovery_owner(&session_guard, &states_guard, &label, &path)
     };
     let others = other_windows_with_path(&states_guard, &label, &path);
-    Ok(recovery_close_persist(owner, others, dirty, session_guard.quitting)
-        .as_str()
-        .to_string())
+    Ok(
+        recovery_close_persist(owner, others, dirty, session_guard.quitting, session_guard.updating)
+            .as_str()
+            .to_string(),
+    )
 }
 
 #[tauri::command]
@@ -855,10 +868,7 @@ fn read_last_schedule_file(
 }
 
 #[tauri::command]
-fn clear_last_schedule_path(
-    app: tauri::AppHandle,
-    window: tauri::Window,
-) -> Result<(), String> {
+fn clear_last_schedule_path(app: tauri::AppHandle, window: tauri::Window) -> Result<(), String> {
     let label = window_label(&window);
     let app_data = app_data_dir(&app)?;
     upsert_window_path(&app_data, &label, None, true)?;
@@ -878,10 +888,12 @@ fn take_pending_schedule_window_open(
 ) -> Result<Option<PendingScheduleWindowOpen>, String> {
     let label = window_label(&window);
     let mut guard = session.lock().expect("window session");
-    Ok(take_pending_open(&mut guard, &label).map(|pending| PendingScheduleWindowOpen {
-        path: pending.path,
-        contents: pending.contents,
-    }))
+    Ok(
+        take_pending_open(&mut guard, &label).map(|pending| PendingScheduleWindowOpen {
+            path: pending.path,
+            contents: pending.contents,
+        }),
+    )
 }
 
 #[tauri::command]
@@ -972,10 +984,12 @@ fn unregister_window_session(
     }
     {
         let mut session_guard = session.lock().expect("window session");
+        forget_startup_settlement(&mut session_guard, &label);
         forget_window_focus(&mut session_guard, &label);
         let mut states_guard = states.lock().expect("schedule file states");
         states_guard.by_label.remove(&label);
     }
+    try_finalize_startup_update_check(&app, session.inner());
     if quitting || window_count <= 1 || !was_owner {
         return Ok(());
     }
@@ -1148,7 +1162,10 @@ fn list_open_window_labels(app: tauri::AppHandle) -> Result<Vec<String>, String>
 }
 
 #[tauri::command]
-fn close_other_schedule_windows(app: tauri::AppHandle, window: tauri::Window) -> Result<(), String> {
+fn close_other_schedule_windows(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+) -> Result<(), String> {
     let origin = window_label(&window);
     for (label, webview) in app.webview_windows() {
         if label != origin {
@@ -1252,10 +1269,8 @@ fn finish_application_quit(
             return false;
         }
         let states_guard = states.lock().expect("schedule file states");
-        guard.quit_recovery_owners = recovery_owners_by_path(
-            &guard.focus_order,
-            &windows_for_recovery(&states_guard),
-        );
+        guard.quit_recovery_owners =
+            recovery_owners_by_path(&guard.focus_order, &windows_for_recovery(&states_guard));
         drop(states_guard);
         guard.quit_active = false;
         guard.quitting = true;
@@ -1328,9 +1343,242 @@ fn cancel_application_quit(
     Ok(())
 }
 
+fn try_finalize_startup_update_check(
+    app: &tauri::AppHandle,
+    session: &Mutex<WindowSessionState>,
+) {
+    let should_run = {
+        let mut guard = session.lock().expect("window session");
+        if guard.update_check_claimed {
+            return;
+        }
+        if !all_windows_startup_settled(app, &guard.startup_settled_labels) {
+            return;
+        }
+        guard.update_check_claimed = true;
+        let labels: Vec<String> = app.webview_windows().keys().cloned().collect();
+        any_startup_auto_update_enabled(&labels, &guard.startup_auto_update_at_startup)
+    };
+    if !should_run {
+        return;
+    }
+    let target = app
+        .get_webview_window("main")
+        .or_else(|| app.webview_windows().values().next().cloned());
+    if let Some(window) = target {
+        let _ = window.emit("application-run-update-check", ());
+    }
+}
+
+fn finish_application_update_accept(
+    app: &tauri::AppHandle,
+    session: &Mutex<WindowSessionState>,
+    states: &Mutex<ScheduleFileStates>,
+) -> bool {
+    let should_persist = {
+        let mut guard = session.lock().expect("window session");
+        if !guard.update_active {
+            return false;
+        }
+        if guard.update_labels.is_empty()
+            || !guard
+                .update_labels
+                .iter()
+                .all(|label| guard.update_ready.iter().any(|ready| ready == label))
+        {
+            return false;
+        }
+        let states_guard = states.lock().expect("schedule file states");
+        guard.update_recovery_owners =
+            recovery_owners_by_path(&guard.focus_order, &windows_for_recovery(&states_guard));
+        guard.updating = true;
+        guard.update_recovery_persisted.clear();
+        true
+    };
+    if !should_persist {
+        return false;
+    }
+    for (_, window) in app.webview_windows() {
+        let _ = window.emit("application-update-write-recovery", ());
+    }
+    true
+}
+
+fn finish_application_update_install(
+    app: &tauri::AppHandle,
+    session: &Mutex<WindowSessionState>,
+) -> bool {
+    let install_label = {
+        let mut guard = session.lock().expect("window session");
+        if !guard.updating || guard.update_labels.is_empty() {
+            return false;
+        }
+        if !guard
+            .update_labels
+            .iter()
+            .all(|label| guard.update_recovery_persisted.iter().any(|ready| ready == label))
+        {
+            return false;
+        }
+        guard.update_active = false;
+        guard.update_install_label.clone()
+    };
+    if let Some(label) = install_label {
+        if let Some(window) = app.get_webview_window(&label) {
+            let _ = window.emit("application-update-proceed", ());
+            return true;
+        }
+    }
+    false
+}
+
+#[derive(Serialize)]
+struct StartupSettledResult {
+    all_settled: bool,
+}
+
+#[tauri::command]
+fn write_pending_release_notes(
+    app: tauri::AppHandle,
+    version: String,
+) -> Result<(), String> {
+    pending_release_notes::write_pending_release_notes(&app_data_dir(&app)?, &version)
+}
+
+#[tauri::command]
+fn peek_pending_release_notes(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+) -> Result<Option<String>, String> {
+    let app_version = app.package_info().version.to_string();
+    let window_is_focused = window.is_focused().unwrap_or(false);
+    Ok(pending_release_notes::pending_release_notes_for_focused_window(
+        &app_data_dir(&app)?,
+        window_is_focused,
+        &app_version,
+    ))
+}
+
+#[tauri::command]
+fn clear_pending_release_notes(app: tauri::AppHandle) -> Result<(), String> {
+    pending_release_notes::clear_pending_release_notes(&app_data_dir(&app)?)
+}
+
+#[tauri::command]
+fn report_startup_settled(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    auto_update_at_startup: bool,
+) -> Result<StartupSettledResult, String> {
+    let label = window_label(&window);
+    let all_settled = {
+        let mut guard = session.lock().expect("window session");
+        if !guard.startup_settled_labels.iter().any(|item| item == &label) {
+            guard.startup_settled_labels.push(label.clone());
+        }
+        guard
+            .startup_auto_update_at_startup
+            .insert(label, auto_update_at_startup);
+        all_windows_startup_settled(&app, &guard.startup_settled_labels)
+    };
+    try_finalize_startup_update_check(&app, session.inner());
+    Ok(StartupSettledResult { all_settled })
+}
+
+#[tauri::command]
+fn request_application_update(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<(), String> {
+    let install_label = window_label(&window);
+    let labels: Vec<String> = app.webview_windows().keys().cloned().collect();
+    {
+        let mut guard = session.lock().expect("window session");
+        guard.update_active = true;
+        guard.update_labels = labels;
+        guard.update_ready.clear();
+        guard.update_install_label = Some(install_label);
+    }
+    for (_, window) in app.webview_windows() {
+        let _ = window.emit("application-update-requested", ());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn accept_application_update(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    {
+        let mut guard = session.lock().expect("window session");
+        if !guard.update_active || !guard.update_labels.iter().any(|item| item == &label) {
+            return Ok(());
+        }
+        if !guard.update_ready.iter().any(|item| item == &label) {
+            guard.update_ready.push(label);
+        }
+    }
+    let _ = finish_application_update_accept(&app, session.inner(), states.inner());
+    Ok(())
+}
+
+#[tauri::command]
+fn complete_application_update_recovery(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    {
+        let mut guard = session.lock().expect("window session");
+        if !guard.updating || !guard.update_labels.iter().any(|item| item == &label) {
+            return Ok(());
+        }
+        if !guard
+            .update_recovery_persisted
+            .iter()
+            .any(|item| item == &label)
+        {
+            guard.update_recovery_persisted.push(label);
+        }
+    }
+    let _ = finish_application_update_install(&app, session.inner());
+    Ok(())
+}
+
+#[tauri::command]
+fn cancel_application_update(
+    app: tauri::AppHandle,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<(), String> {
+    {
+        let mut guard = session.lock().expect("window session");
+        guard.update_active = false;
+        guard.updating = false;
+        guard.update_labels.clear();
+        guard.update_ready.clear();
+        guard.update_recovery_persisted.clear();
+        guard.update_install_label = None;
+        guard.update_recovery_owners.clear();
+    }
+    for (_, window) in app.webview_windows() {
+        let _ = window.emit("application-update-cancelled", ());
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Mutex::new(ScheduleFileStates::default()))
         .manage(Mutex::new(WindowSessionState::default()))
         .plugin(tauri_plugin_dialog::init())
@@ -1411,6 +1659,14 @@ pub fn run() {
             request_application_quit,
             accept_application_quit,
             cancel_application_quit,
+            report_startup_settled,
+            request_application_update,
+            accept_application_update,
+            complete_application_update_recovery,
+            cancel_application_update,
+            write_pending_release_notes,
+            peek_pending_release_notes,
+            clear_pending_release_notes,
             json_skill_home_dirs,
             pick_json_skill_folder,
             install_json_skills,

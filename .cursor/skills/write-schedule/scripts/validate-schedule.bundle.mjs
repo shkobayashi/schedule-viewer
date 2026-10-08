@@ -609,7 +609,7 @@ function validate23(data2, { instancePath = "", parentData, parentDataProperty, 
   return errors === 0;
 }
 validate23.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema42 = { "type": "object", "additionalProperties": false, "required": ["id", "name", "start", "end", "assigneeId", "status", "progress", "confidence", "predecessors", "milestoneId"], "properties": { "id": { "$ref": "#/$defs/scheduleId" }, "name": { "type": "string", "minLength": 1 }, "start": { "$ref": "#/$defs/isoDate" }, "end": { "$ref": "#/$defs/isoDate", "description": "\u7D42\u4E86\u65E5\uFF08\u3053\u306E\u65E5\u3092\u542B\u3080\uFF09\u3002\u958B\u59CB\u65E5\u4EE5\u964D\u3002" }, "assigneeId": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }, "status": { "$ref": "#/$defs/taskStatus" }, "progress": { "type": "integer", "minimum": 0, "maximum": 100 }, "confidence": { "type": "string", "enum": ["tentative", "committed"], "description": "\u65E5\u4ED8\u3092\u5408\u610F\u3057\u305F\u304B\u3069\u3046\u304B\u3002\u7740\u624B\u3084\u9032\u6357\u3068\u306F\u72EC\u7ACB\u3002tentative \u306F\u672A\u78BA\u5B9A\u3001committed \u306F\u78BA\u5B9A\u3002" }, "predecessors": { "type": "array", "items": { "$ref": "#/$defs/scheduleId" }, "uniqueItems": true }, "milestoneId": { "oneOf": [{ "$ref": "#/$defs/scheduleId" }, { "type": "null" }] }, "note": { "type": "string", "minLength": 1, "description": "\u30BF\u30B9\u30AF\u306E\u88DC\u8DB3\u8AAC\u660E\uFF08\u4EFB\u610F\uFF09\u3002\u753B\u9762\u3067\u306F\u30CE\u30FC\u30C8\u3068\u3057\u3066\u8868\u793A\u3059\u308B\u3002" } } };
+var schema42 = { "type": "object", "additionalProperties": false, "required": ["id", "name", "start", "end", "assigneeId", "status", "progress", "confidence", "predecessors", "milestoneId"], "properties": { "id": { "$ref": "#/$defs/scheduleId" }, "name": { "type": "string", "minLength": 1 }, "start": { "$ref": "#/$defs/isoDate" }, "end": { "$ref": "#/$defs/isoDate", "description": "\u7D42\u4E86\u65E5\uFF08\u3053\u306E\u65E5\u3092\u542B\u3080\uFF09\u3002\u958B\u59CB\u65E5\u4EE5\u964D\u3002" }, "assigneeId": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }, "status": { "$ref": "#/$defs/taskStatus" }, "progress": { "type": "integer", "minimum": 0, "maximum": 100 }, "confidence": { "type": "string", "enum": ["tentative", "committed"], "description": "\u65E5\u4ED8\u3092\u5408\u610F\u3057\u305F\u304B\u3069\u3046\u304B\u3002\u7740\u624B\u3084\u9032\u6357\u3068\u306F\u72EC\u7ACB\u3002tentative \u306F\u672A\u78BA\u5B9A\u3001committed \u306F\u78BA\u5B9A\u3002" }, "predecessors": { "type": "array", "items": { "$ref": "#/$defs/scheduleId" }, "uniqueItems": true }, "milestoneId": { "oneOf": [{ "$ref": "#/$defs/scheduleId" }, { "type": "null" }] }, "tags": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "\u8AAC\u660E\u7528\u306E\u4EFB\u610F\u30BF\u30B0\u3002\u753B\u9762\u3067\u306F\u7D5E\u308A\u8FBC\u307F\u306B\u4F7F\u3046\u3002" }, "note": { "type": "string", "minLength": 1, "description": "\u30BF\u30B9\u30AF\u306E\u88DC\u8DB3\u8AAC\u660E\uFF08\u4EFB\u610F\uFF09\u3002\u753B\u9762\u3067\u306F\u30CE\u30FC\u30C8\u3068\u3057\u3066\u8868\u793A\u3059\u308B\u3002" } } };
 var schema46 = { "type": "string", "enum": ["not-started", "in-progress", "done"] };
 var func6 = Object.prototype.hasOwnProperty;
 var func0 = __standaloneValue(import_equal.default, ["default"]);
@@ -1079,34 +1079,70 @@ function validate27(data2, { instancePath = "", parentData, parentDataProperty, 
         }
       }
     }
-    if (data2.note !== void 0) {
-      let data11 = data2.note;
-      if (typeof data11 === "string") {
-        if (func1(data11) < 1) {
-          const err38 = { instancePath: instancePath + "/note", schemaPath: "#/properties/note/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          if (vErrors === null) {
-            vErrors = [err38];
+    if (data2.tags !== void 0) {
+      let data11 = data2.tags;
+      if (Array.isArray(data11)) {
+        const len1 = data11.length;
+        for (let i2 = 0; i2 < len1; i2++) {
+          let data12 = data11[i2];
+          if (typeof data12 === "string") {
+            if (func1(data12) < 1) {
+              const err38 = { instancePath: instancePath + "/tags/" + i2, schemaPath: "#/properties/tags/items/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              if (vErrors === null) {
+                vErrors = [err38];
+              } else {
+                vErrors.push(err38);
+              }
+              errors++;
+            }
           } else {
-            vErrors.push(err38);
+            const err39 = { instancePath: instancePath + "/tags/" + i2, schemaPath: "#/properties/tags/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err39];
+            } else {
+              vErrors.push(err39);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err40 = { instancePath: instancePath + "/tags", schemaPath: "#/properties/tags/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err40];
+        } else {
+          vErrors.push(err40);
+        }
+        errors++;
+      }
+    }
+    if (data2.note !== void 0) {
+      let data13 = data2.note;
+      if (typeof data13 === "string") {
+        if (func1(data13) < 1) {
+          const err41 = { instancePath: instancePath + "/note", schemaPath: "#/properties/note/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          if (vErrors === null) {
+            vErrors = [err41];
+          } else {
+            vErrors.push(err41);
           }
           errors++;
         }
       } else {
-        const err39 = { instancePath: instancePath + "/note", schemaPath: "#/properties/note/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        const err42 = { instancePath: instancePath + "/note", schemaPath: "#/properties/note/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
-          vErrors = [err39];
+          vErrors = [err42];
         } else {
-          vErrors.push(err39);
+          vErrors.push(err42);
         }
         errors++;
       }
     }
   } else {
-    const err40 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err43 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err40];
+      vErrors = [err43];
     } else {
-      vErrors.push(err40);
+      vErrors.push(err43);
     }
     errors++;
   }
@@ -1454,8 +1490,8 @@ function validate20(data2, { instancePath = "", parentData, parentDataProperty, 
         }
         errors++;
       }
-      if (6 !== data0) {
-        const err7 = { instancePath: instancePath + "/schemaVersion", schemaPath: "#/properties/schemaVersion/const", keyword: "const", params: { allowedValue: 6 }, message: "must be equal to constant" };
+      if (7 !== data0) {
+        const err7 = { instancePath: instancePath + "/schemaVersion", schemaPath: "#/properties/schemaVersion/const", keyword: "const", params: { allowedValue: 7 }, message: "must be equal to constant" };
         if (vErrors === null) {
           vErrors = [err7];
         } else {
@@ -1863,6 +1899,10 @@ function fillMissingMilestoneConfidence(data2) {
   return changed ? { ...data2, milestones } : data2;
 }
 var DEFAULT_MILESTONE_GROUP_NAME = "\u30DE\u30A4\u30EB\u30B9\u30C8\u30F3";
+function migrateScheduleV6ToV7(data2) {
+  if (!isRecord(data2) || data2.schemaVersion !== 6) return data2;
+  return { ...data2, schemaVersion: 7 };
+}
 function migrateScheduleV5ToV6(data2) {
   if (!isRecord(data2) || data2.schemaVersion !== 5) return data2;
   const milestones = data2.milestones;
@@ -2098,6 +2138,28 @@ function validateTaskSemantics(task, taskPath, taskIds, milestoneIds, milestoneG
   if (task.note != null && task.note.trim().length === 0) {
     issues.push({ path: `${taskPath}/note`, message: "\u30CE\u30FC\u30C8\u306F\u7A7A\u767D\u306B\u3067\u304D\u307E\u305B\u3093" });
   }
+  if (task.tags != null) {
+    const tagSeen = /* @__PURE__ */ new Set();
+    for (let ti = 0; ti < task.tags.length; ti += 1) {
+      const tag = task.tags[ti];
+      const tagPath = `${taskPath}/tags/${ti}`;
+      const trimmed = tag.trim();
+      if (trimmed.length === 0) {
+        issues.push({ path: tagPath, message: "\u30BF\u30B0\u306F\u7A7A\u767D\u306B\u3067\u304D\u307E\u305B\u3093" });
+        continue;
+      }
+      if (tag !== trimmed) {
+        issues.push({
+          path: tagPath,
+          message: "\u30BF\u30B0\u306E\u524D\u5F8C\u306B\u7A7A\u767D\u306F\u66F8\u3051\u307E\u305B\u3093"
+        });
+      }
+      if (tagSeen.has(trimmed)) {
+        issues.push({ path: tagPath, message: "\u30BF\u30B0\u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059" });
+      }
+      tagSeen.add(trimmed);
+    }
+  }
   if (task.milestoneId != null && !milestoneIds.has(task.milestoneId)) {
     issues.push({
       path: `${taskPath}/milestoneId`,
@@ -2231,6 +2293,7 @@ var FIELD_LABELS = {
   status: "\u72B6\u614B",
   predecessors: "\u5148\u884C\u30BF\u30B9\u30AF",
   milestoneId: "\u30DE\u30A4\u30EB\u30B9\u30C8\u30F3",
+  tags: "\u30BF\u30B0",
   date: "\u65E5\u4ED8",
   title: "\u30BF\u30A4\u30C8\u30EB",
   schemaVersion: "\u30B9\u30AD\u30FC\u30DE\u30D0\u30FC\u30B8\u30E7\u30F3",
@@ -2350,14 +2413,16 @@ function validateSchedule(data2) {
       errors: [
         {
           path: "/schemaVersion",
-          message: "schemaVersion 2\uFF08\u62C5\u5F53\u8005\u540D assignee\uFF09\u306F\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3002assigneeId \u3068 confidence \u3092\u4F7F\u3046 schemaVersion 6 \u306B\u66F4\u65B0\u3057\u3066\u304F\u3060\u3055\u3044\u3002"
+          message: "schemaVersion 2\uFF08\u62C5\u5F53\u8005\u540D assignee\uFF09\u306F\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3002assigneeId \u3068 confidence \u3092\u4F7F\u3046 schemaVersion 7 \u306B\u66F4\u65B0\u3057\u3066\u304F\u3060\u3055\u3044\u3002"
         }
       ]
     };
   }
-  const migrated = migrateScheduleV5ToV6(
-    fillMissingMilestoneConfidence(
-      migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1))
+  const migrated = migrateScheduleV6ToV7(
+    migrateScheduleV5ToV6(
+      fillMissingMilestoneConfidence(
+        migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1))
+      )
     )
   );
   if (!scheduleValidator_default(migrated)) {

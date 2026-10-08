@@ -1,5 +1,6 @@
 import { daysBetween, parseDate } from "./dates";
 import { normalizeTaskNote } from "./taskNote";
+import { formatTaskTagsForDiff, taskTagsEqualForDiff } from "./taskTags";
 import type {
   Category,
   Milestone,
@@ -284,6 +285,7 @@ function taskFieldLines(
     `  confidence: ${task.confidence}`,
     `  predecessors: ${formatPredecessorList(task.predecessors, taskNames)}`,
     `  milestoneId: ${formatMilestoneRef(task.milestoneId, milestoneNames)}`,
+    `  tags: ${formatTaskTagsForDiff(task)}`,
     `  note: ${noteOf(task) ?? "（なし）"}`,
   ];
 }
@@ -337,6 +339,11 @@ function changedTaskBlock(
   if (fileTask.milestoneId !== screenTask.milestoneId) {
     lines.push(
       `  milestoneId: ${formatMilestoneRef(fileTask.milestoneId, fileMilestoneNames)} → ${formatMilestoneRef(screenTask.milestoneId, screenMilestoneNames)}`,
+    );
+  }
+  if (!taskTagsEqualForDiff(fileTask, screenTask)) {
+    lines.push(
+      `  tags: ${formatTaskTagsForDiff(fileTask)} → ${formatTaskTagsForDiff(screenTask)}`,
     );
   }
   const fileNote = noteOf(fileTask);

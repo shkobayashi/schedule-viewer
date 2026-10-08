@@ -90,6 +90,48 @@ export async function cancelApplicationQuitViaTauri(): Promise<void> {
   await invoke("cancel_application_quit");
 }
 
+export type StartupSettledResult = {
+  allSettled: boolean;
+};
+
+export async function reportStartupSettledViaTauri(
+  autoUpdateAtStartup: boolean,
+): Promise<StartupSettledResult> {
+  return invoke<StartupSettledResult>("report_startup_settled", {
+    autoUpdateAtStartup,
+  });
+}
+
+export async function requestApplicationUpdateViaTauri(): Promise<void> {
+  await invoke("request_application_update");
+}
+
+export async function acceptApplicationUpdateViaTauri(): Promise<void> {
+  await invoke("accept_application_update");
+}
+
+export async function completeApplicationUpdateRecoveryViaTauri(): Promise<void> {
+  await invoke("complete_application_update_recovery");
+}
+
+export async function cancelApplicationUpdateViaTauri(): Promise<void> {
+  await invoke("cancel_application_update");
+}
+
+export async function writePendingReleaseNotesViaTauri(
+  version: string,
+): Promise<void> {
+  await invoke("write_pending_release_notes", { version });
+}
+
+export async function peekPendingReleaseNotesViaTauri(): Promise<string | null> {
+  return invoke<string | null>("peek_pending_release_notes");
+}
+
+export async function clearPendingReleaseNotesViaTauri(): Promise<void> {
+  await invoke("clear_pending_release_notes");
+}
+
 export async function recoveryLiveActionViaTauri(
   dirty: boolean,
 ): Promise<RecoveryPersistAction> {

@@ -3,7 +3,7 @@ import type { MemberId } from "./memberTypes";
 
 export type ScheduleId = string;
 
-export const SCHEDULE_SCHEMA_VERSION = 6;
+export const SCHEDULE_SCHEMA_VERSION = 7;
 
 /** マイルストン帯の行。タスクのカテゴリ・グループとは別。 */
 export type MilestoneGroup = {
@@ -29,6 +29,8 @@ export type Task = {
   predecessors: ScheduleId[];
   /** このタスクが間に合わせるマイルストン。未設定なら超過判定しない。 */
   milestoneId: ScheduleId | null;
+  /** 説明用の任意タグ。未設定または空のときは JSON に含めない。 */
+  tags?: string[];
   /** 補足説明。未設定または空白のみのときは JSON に含めない。 */
   note?: string;
 };
@@ -93,6 +95,8 @@ export type ScheduleFilters = {
   relation: RelationFilter;
   /** "all" | "none" | マイルストン id */
   milestone: string;
+  /** 空文字はすべて。それ以外はファイル内のタグ名そのもの */
+  tag: string;
   search: string;
   noteSearch: string;
 };

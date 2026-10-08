@@ -28,15 +28,21 @@ import {
   relaxFiltersForNewTask,
 } from "../model/rows";
 import { applyTaskNote } from "../model/taskNote";
-import { pruneHiddenMilestoneGroupIds } from "../model/filterChips";
+import { collectTagsInDocumentOrder } from "../model/taskTags";
+import {
+  hiddenMilestoneGroupIdsForShowOnly,
+  pruneHiddenMilestoneGroupIds,
+} from "../model/filterChips";
 import {
   appendMilestone,
+  applyMilestoneEdit,
   ensureMilestoneGroupForAdd,
   milestoneFilterAfterDelete,
   removeMilestone,
   validateNewMilestone,
 } from "../model/milestones";
 import {
+  addTaskTag,
   categoriesAfterDuplicate,
   categoriesAfterTaskEdit,
   cloneCategories,
@@ -44,6 +50,7 @@ import {
   findTaskOwner,
   insertTask,
   mapTasks,
+  removeTaskTag,
   removeTask,
   renameCategory,
   renameGroup,
@@ -206,6 +213,7 @@ export function useSchedule(
     overdue: "all",
     relation: "all",
     milestone: "all",
+    tag: "",
     search: "",
     noteSearch: "",
   });
@@ -591,6 +599,17 @@ export function useSchedule(
     setFilters((prev) => ({ ...prev, milestone: "all" }));
   }, [filters.milestone, knownMilestoneIds]);
 
+  const scheduleTags = useMemo(
+    () => collectTagsInDocumentOrder(categories),
+    [categories],
+  );
+  const knownTags = useMemo(() => new Set(scheduleTags), [scheduleTags]);
+
+  useEffect(() => {
+    if (filters.tag === "" || knownTags.has(filters.tag)) return;
+    setFilters((prev) => ({ ...prev, tag: "" }));
+  }, [filters.tag, knownTags]);
+
   const toggleCollapsed = useCallback((key: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -681,24 +700,41 @@ export function useSchedule(
   }, []);
 
   const saveMilestoneEdit = useCallback(
-    (patch: { name: string; date: string; confidence: Milestone["confidence"] }) => {
+    (patch: {
+      name: string;
+      date: string;
+      confidence: Milestone["confidence"];
+      groupId: ScheduleId;
+    }) => {
       if (!patch.date || editingMilestoneId == null) return false;
-      commitMilestones((prev) =>
-        prev.map((milestone) =>
-          milestone.id === editingMilestoneId
-            ? {
-                ...milestone,
-                name: patch.name.trim() || milestone.name,
-                date: patch.date,
-                confidence: patch.confidence,
-              }
-            : milestone,
-        ),
+      const current = documentRef.current;
+      const before = current.milestones.find(
+        (milestone) => milestone.id === editingMilestoneId,
       );
+      if (before == null) return false;
+      const nextMilestones = applyMilestoneEdit(
+        current.milestones,
+        editingMilestoneId,
+        current.milestoneGroups,
+        patch,
+      );
+      const after = nextMilestones.find(
+        (milestone) => milestone.id === editingMilestoneId,
+      );
+      if (after == null) return false;
+      commitMilestones(() => nextMilestones);
+      if (
+        before.groupId !== after.groupId &&
+        hiddenMilestoneGroupIds.includes(after.groupId)
+      ) {
+        setHiddenMilestoneGroupIds((prev) =>
+          prev.filter((id) => id !== after.groupId),
+        );
+      }
       setEditingMilestoneId(null);
       return true;
     },
-    [commitMilestones, editingMilestoneId],
+    [commitMilestones, editingMilestoneId, hiddenMilestoneGroupIds],
   );
 
   const setMilestoneConfidence = useCallback(
@@ -962,11 +998,33 @@ export function useSchedule(
     [commitCategories, title],
   );
 
+  const appendTaskTag = useCallback(
+    (taskId: ScheduleId, rawTag: string): string | null => {
+      let duplicate = false;
+      commitCategories((prev) => {
+        const result = addTaskTag(prev, taskId, rawTag);
+        duplicate = result.duplicate;
+        return result.categories;
+      });
+      if (duplicate) return "このタスクには、同じタグが付いています。";
+      return null;
+    },
+    [commitCategories],
+  );
+
+  const dropTaskTag = useCallback(
+    (taskId: ScheduleId, tag: string) => {
+      commitCategories((prev) => removeTaskTag(prev, taskId, tag));
+    },
+    [commitCategories],
+  );
+
   const addMilestone = useCallback(
     (input: {
       name: string;
       date: string;
       confidence: Milestone["confidence"];
+      groupId: ScheduleId | null;
     }): string | null => {
       const message = validateNewMilestone(input);
       if (message) return message;
@@ -988,6 +1046,7 @@ export function useSchedule(
           current.milestoneGroups,
           taken,
           () => uniqueScheduleId(taken),
+          input.groupId,
         );
         const milestone: Milestone = {
           id,
@@ -1201,6 +1260,7 @@ export function useSchedule(
         overdue: "all",
         relation: "all",
         milestone: "all",
+        tag: "",
         search: "",
         noteSearch: "",
       });
@@ -1312,6 +1372,15 @@ export function useSchedule(
     setHiddenMilestoneGroupIds([]);
   }, []);
 
+  const showOnlyMilestoneGroup = useCallback(
+    (groupId: ScheduleId) => {
+      setHiddenMilestoneGroupIds(
+        hiddenMilestoneGroupIdsForShowOnly(groupId, milestoneGroups),
+      );
+    },
+    [milestoneGroups],
+  );
+
   return {
     title,
     categories,
@@ -1320,6 +1389,7 @@ export function useSchedule(
     hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
     setMilestoneGroupVisible,
     showAllMilestoneGroups,
+    showOnlyMilestoneGroup,
     milestones,
     editingMilestone,
     editingHierarchyTarget,
@@ -1374,6 +1444,9 @@ export function useSchedule(
     closeDuplicateDialog,
     duplicatingTask,
     applyTaskPatch,
+    appendTaskTag,
+    dropTaskTag,
+    scheduleTags,
     duplicateTask,
     setTaskConfidence,
     editingNoteTask,

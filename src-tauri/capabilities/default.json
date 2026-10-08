@@ -43,6 +43,9 @@
     "allow-json-skill-home-dirs",
     "allow-pick-json-skill-folder",
     "allow-install-json-skills",
-    "allow-uninstall-json-skills"
+    "allow-uninstall-json-skills",
+    "updater:default",
+    "opener:default",
+    "process:allow-restart"
   ]
 }

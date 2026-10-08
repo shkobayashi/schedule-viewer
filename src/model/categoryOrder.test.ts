@@ -29,6 +29,7 @@ const filters: ScheduleFilters = {
   overdue: "all",
   relation: "all",
   milestone: "all",
+  tag: "",
   search: "",
   noteSearch: "",
 };

@@ -5,7 +5,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
-use crate::{read_utf8, read_utf8_limited, write_utf8_atomic, SCHEDULE_FILE_NOT_FOUND, MAX_SCHEDULE_BYTES};
+use crate::{
+    read_utf8, read_utf8_limited, write_utf8_atomic, MAX_SCHEDULE_BYTES, SCHEDULE_FILE_NOT_FOUND,
+};
 
 const OPEN_WINDOWS_FILE: &str = "open-windows.json";
 const RECOVERY_DIR: &str = "schedule-recovery";
@@ -50,6 +52,16 @@ pub struct WindowSessionState {
     pub quit_ready: Vec<String>,
     /// 終了を確定した時点の、パスごとの控えの書き手。
     pub quit_recovery_owners: HashMap<String, String>,
+    pub startup_settled_labels: Vec<String>,
+    pub startup_auto_update_at_startup: HashMap<String, bool>,
+    pub update_check_claimed: bool,
+    pub update_active: bool,
+    pub update_labels: Vec<String>,
+    pub update_ready: Vec<String>,
+    pub update_recovery_persisted: Vec<String>,
+    pub update_install_label: Option<String>,
+    pub updating: bool,
+    pub update_recovery_owners: HashMap<String, String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -85,7 +97,10 @@ pub fn recovery_owner_label(
     path: &str,
 ) -> Option<String> {
     for label in focus_order_newest_last.iter().rev() {
-        if windows.iter().any(|(window, open)| window == label && open == path) {
+        if windows
+            .iter()
+            .any(|(window, open)| window == label && open == path)
+        {
             return Some(label.clone());
         }
     }
@@ -111,6 +126,30 @@ pub fn recovery_owners_by_path(
     owners
 }
 
+pub fn all_windows_startup_settled(app: &AppHandle, settled: &[String]) -> bool {
+    let labels: Vec<String> = app.webview_windows().keys().cloned().collect();
+    if labels.is_empty() {
+        return false;
+    }
+    labels.iter().all(|label| settled.iter().any(|item| item == label))
+}
+
+pub fn any_startup_auto_update_enabled(
+    open_labels: &[String],
+    flags: &HashMap<String, bool>,
+) -> bool {
+    open_labels
+        .iter()
+        .any(|label| flags.get(label) == Some(&true))
+}
+
+pub fn forget_startup_settlement(state: &mut WindowSessionState, label: &str) {
+    state
+        .startup_settled_labels
+        .retain(|existing| existing != label);
+    state.startup_auto_update_at_startup.remove(label);
+}
+
 pub fn recovery_live_persist(owner: bool, dirty: bool) -> RecoveryPersist {
     if !owner {
         return RecoveryPersist::Skip;
@@ -127,8 +166,9 @@ pub fn recovery_close_persist(
     other_windows: usize,
     dirty: bool,
     quitting: bool,
+    updating: bool,
 ) -> RecoveryPersist {
-    if quitting {
+    if quitting || updating {
         return recovery_live_persist(owner, dirty);
     }
     if other_windows == 0 {
@@ -141,9 +181,16 @@ pub fn recovery_close_persist(
     RecoveryPersist::Skip
 }
 
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .as_slice()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 pub fn path_recovery_key(path: &str) -> String {
-    let digest = Sha256::digest(path.as_bytes());
-    format!("{:x}", digest)
+    sha256_hex(path.as_bytes())
 }
 
 pub fn open_windows_path(app_data: &Path) -> PathBuf {
@@ -171,8 +218,7 @@ pub fn read_open_windows(app_data: &Path) -> Result<OpenWindowsFile, String> {
         });
     }
     let text = read_utf8(&path, MAX_SCHEDULE_BYTES)?;
-    serde_json::from_str(&text)
-        .map_err(|_| "ウィンドウ一覧の形式が正しくありません。".to_string())
+    serde_json::from_str(&text).map_err(|_| "ウィンドウ一覧の形式が正しくありません。".to_string())
 }
 
 pub fn write_open_windows(app_data: &Path, file: &OpenWindowsFile) -> Result<(), String> {
@@ -354,7 +400,10 @@ pub fn set_focused_label(app_data: &Path, label: &str) -> Result<(), String> {
     }
 }
 
-pub fn read_recovery_for_path(app_data: &Path, schedule_path: &str) -> Result<Option<String>, String> {
+pub fn read_recovery_for_path(
+    app_data: &Path,
+    schedule_path: &str,
+) -> Result<Option<String>, String> {
     let path = recovery_path_for(app_data, schedule_path);
     if !path.is_file() {
         return Ok(None);
@@ -382,8 +431,7 @@ pub fn write_recovery_for_path(
 pub fn delete_recovery_for_path(app_data: &Path, schedule_path: &str) -> Result<(), String> {
     let path = recovery_path_for(app_data, schedule_path);
     if path.exists() {
-        fs::remove_file(&path)
-            .map_err(|e| format!("復旧用の控えを削除できません: {}", e))?;
+        fs::remove_file(&path).map_err(|e| format!("復旧用の控えを削除できません: {}", e))?;
     }
     Ok(())
 }
@@ -402,11 +450,7 @@ pub fn next_schedule_window_label(app: &AppHandle) -> Result<String, String> {
     }
 }
 
-pub fn create_schedule_webview(
-    app: &AppHandle,
-    label: &str,
-    title: &str,
-) -> Result<(), String> {
+pub fn create_schedule_webview(app: &AppHandle, label: &str, title: &str) -> Result<(), String> {
     if app.get_webview_window(label).is_some() {
         return Err("同じウィンドウが既に開いています。".to_string());
     }
@@ -495,10 +539,7 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
     }
 }
 
-pub fn take_pending_open(
-    state: &mut WindowSessionState,
-    label: &str,
-) -> Option<PendingWindowOpen> {
+pub fn take_pending_open(state: &mut WindowSessionState, label: &str) -> Option<PendingWindowOpen> {
     state.pending_opens.remove(label)
 }
 
@@ -508,10 +549,9 @@ pub fn store_pending_open(
     path: String,
     contents: String,
 ) {
-    state.pending_opens.insert(
-        label,
-        PendingWindowOpen { path, contents },
-    );
+    state
+        .pending_opens
+        .insert(label, PendingWindowOpen { path, contents });
 }
 
 #[cfg(test)]
@@ -522,7 +562,7 @@ mod tests {
     fn path_recovery_key_is_stable() {
         assert_eq!(
             path_recovery_key("/tmp/a.json"),
-            path_recovery_key("/tmp/a.json"),
+            "f946e9b42fa5a53b72835c49cf5dd290b7530f72057a876b2509de5870d62493",
         );
         assert_ne!(
             path_recovery_key("/tmp/a.json"),
@@ -583,7 +623,10 @@ mod tests {
             "schedule-3".to_string(),
         ];
         let owners = recovery_owners_by_path(&focus, &windows);
-        assert_eq!(owners.get("/tmp/plan.json").map(String::as_str), Some("schedule-2"));
+        assert_eq!(
+            owners.get("/tmp/plan.json").map(String::as_str),
+            Some("schedule-2")
+        );
         assert_eq!(
             owners.get("/tmp/other.json").map(String::as_str),
             Some("schedule-3"),
@@ -605,40 +648,35 @@ mod tests {
     #[test]
     fn recovery_close_keeps_front_window_only() {
         assert_eq!(
-            recovery_close_persist(false, 1, true, false),
+            recovery_close_persist(false, 1, true, false, false),
             RecoveryPersist::Skip,
         );
         assert_eq!(
-            recovery_close_persist(true, 1, true, false),
+            recovery_close_persist(true, 1, true, false, false),
             RecoveryPersist::Skip,
         );
         assert_eq!(
-            recovery_close_persist(true, 0, true, false),
+            recovery_close_persist(true, 0, true, false, false),
             RecoveryPersist::Write,
         );
         assert_eq!(
-            recovery_close_persist(true, 2, false, true),
+            recovery_close_persist(true, 2, false, true, false),
             RecoveryPersist::Delete,
         );
         assert_eq!(
-            recovery_live_persist(false, true),
-            RecoveryPersist::Skip,
+            recovery_close_persist(true, 2, true, false, true),
+            RecoveryPersist::Write,
         );
+        assert_eq!(recovery_live_persist(false, true), RecoveryPersist::Skip,);
     }
 
     #[test]
     fn migrate_moves_legacy_files_and_removes_them() {
-        let dir = std::env::temp_dir().join(format!(
-            "schedule-viewer-migrate-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("schedule-viewer-migrate-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
-        fs::write(
-            dir.join(LEGACY_LAST),
-            r#"{"path":"/tmp/plan.json"}"#,
-        )
-        .unwrap();
+        fs::write(dir.join(LEGACY_LAST), r#"{"path":"/tmp/plan.json"}"#).unwrap();
         let recovery = r#"{"path":"/tmp/plan.json","baselineJson":"b","documentJson":"d"}"#;
         fs::write(dir.join(LEGACY_RECOVERY), recovery).unwrap();
 

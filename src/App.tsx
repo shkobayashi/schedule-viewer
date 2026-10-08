@@ -53,6 +53,9 @@ import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
+import { useAppAutoUpdate } from "./hooks/useAppAutoUpdate";
+import { usePendingReleaseNotes } from "./hooks/usePendingReleaseNotes";
+import { ReleaseNotesDialog } from "./components/ReleaseNotesDialog";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
@@ -85,9 +88,11 @@ import { resizeEndIso, resizeStartIso } from "./model/dragDates";
 import {
   layoutMilestoneBand,
   milestoneBandHeightPx,
+  milestoneGroupIdAtBandY,
   type MilestoneBandLayout,
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
+import { hasOtherVisibleMilestoneBandGroup } from "./model/filterChips";
 import { findTaskById } from "./model/rows";
 import {
   layoutStickyHeaders,
@@ -102,6 +107,11 @@ import {
 import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange, taskBarWidthPx } from "./model/timeline";
 import type { ScheduleId, Task } from "./model/types";
+import {
+  AUTO_UPDATE_LS_KEY,
+  readAutoUpdateEnabled,
+  writeAutoUpdateEnabled,
+} from "./model/autoUpdate";
 import {
   applyResolvedColorScheme,
   COLOR_SCHEME_LS_KEY,
@@ -173,7 +183,14 @@ type ContextMenuState =
       x: number;
       y: number;
     }
-  | { kind: "addMilestone"; date: string; x: number; y: number };
+  | {
+      kind: "addMilestone";
+      date: string;
+      groupId: ScheduleId | null;
+      x: number;
+      y: number;
+    }
+  | { kind: "milestoneGroup"; groupId: ScheduleId; x: number; y: number };
 
 function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
@@ -200,8 +217,11 @@ function App() {
   uiScaleRef.current = uiScale;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
-    "display" | "members" | "calendar" | "jsonSkills"
+    "display" | "members" | "calendar" | "updates" | "jsonSkills"
   >("display");
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(
+    readAutoUpdateEnabled,
+  );
   const [rowDensity, setRowDensity] = useState<RowDensity>(readRowDensity);
   const [showLightningLine, setShowLightningLine] = useState(readShowLightning);
   const [sidebarColumns, setSidebarColumns] = useState<SidebarColumnsPreference>(
@@ -219,6 +239,9 @@ function App() {
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
   const [addMilestoneInitialDate, setAddMilestoneInitialDate] = useState<
     string | null
+  >(null);
+  const [addMilestoneInitialGroupId, setAddMilestoneInitialGroupId] = useState<
+    ScheduleId | null
   >(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteMilestoneId, setDeleteMilestoneId] = useState<ScheduleId | null>(
@@ -411,6 +434,9 @@ function App() {
     if (all || key === SIDEBAR_COLUMNS_LS_KEY) {
       setSidebarColumns(readSidebarColumns());
     }
+    if (all || key === AUTO_UPDATE_LS_KEY) {
+      setAutoUpdateEnabled(readAutoUpdateEnabled());
+    }
   }, [refreshAppCalendar, refreshMemberCatalog]);
 
   useSharedSettingsRevision(refreshSharedSettings);
@@ -448,6 +474,9 @@ function App() {
     openAddGroupToCategory,
     openAddGroupAfter,
     openDeleteHierarchy,
+    setMilestoneGroupVisible,
+    showOnlyMilestoneGroup,
+    visibleMilestoneGroupIds,
   } = schedule;
   const range = useMemo(
     () =>
@@ -569,6 +598,21 @@ function App() {
   });
 
   useWindowTitle(scheduleFile.displayFileName, scheduleFile.isDirty);
+
+  const showUpdateToast = useCallback((message: string) => {
+    setToastMessage(message);
+    window.setTimeout(() => setToastMessage(null), 4000);
+  }, []);
+
+  const pendingReleaseNotes = usePendingReleaseNotes(scheduleFile.startupSettled);
+
+  useAppAutoUpdate({
+    startupSettled: scheduleFile.startupSettled,
+    startupReportingReady: pendingReleaseNotes.startupReportingReady,
+    onUpdateToast: showUpdateToast,
+    prepareForApplicationUpdate: scheduleFile.prepareForApplicationUpdate,
+    onUpdatePromptCancel: scheduleFile.onUpdatePromptCancel,
+  });
 
   useEffect(() => {
     if (!scheduleFile.reloadNotice) return;
@@ -1173,6 +1217,14 @@ function App() {
     [linkSourceId],
   );
 
+  const openMilestoneGroupContextMenu = useCallback(
+    (groupId: ScheduleId, x: number, y: number) => {
+      if (linkSourceId != null) return;
+      setContextMenu({ kind: "milestoneGroup", groupId, x, y });
+    },
+    [linkSourceId],
+  );
+
   const openHierarchyContextMenu = useCallback(
     (kind: "category" | "group", id: ScheduleId, x: number, y: number) => {
       if (linkSourceId != null) return;
@@ -1197,7 +1249,7 @@ function App() {
   );
 
   const openAddMilestoneContextMenu = useCallback(
-    (chartX: number, clientX: number, clientY: number) => {
+    (chartX: number, clientX: number, clientY: number, bandY?: number) => {
       if (linkSourceId != null) return;
       const date = isoDateAtChartX(
         viewStart,
@@ -1207,9 +1259,26 @@ function App() {
         viewTotalDays,
       );
       if (date == null) return;
-      setContextMenu({ kind: "addMilestone", date, x: clientX, y: clientY });
+      const groupId =
+        bandY != null
+          ? milestoneGroupIdAtBandY(milestoneBandLayout.blocks, bandY)
+          : null;
+      setContextMenu({
+        kind: "addMilestone",
+        date,
+        groupId,
+        x: clientX,
+        y: clientY,
+      });
     },
-    [linkSourceId, pxPerDay, viewStart, viewTotalDays, scrollX],
+    [
+      linkSourceId,
+      milestoneBandLayout,
+      pxPerDay,
+      viewStart,
+      viewTotalDays,
+      scrollX,
+    ],
   );
 
   const onLinkTargetClick = useCallback(
@@ -1287,10 +1356,37 @@ function App() {
           label: "マイルストンを追加",
           onSelect: () => {
             setAddMilestoneInitialDate(date);
+            setAddMilestoneInitialGroupId(contextMenu.groupId);
             setAddMilestoneOpen(true);
           },
         },
       ];
+    }
+    if (contextMenu.kind === "milestoneGroup") {
+      const groupId = contextMenu.groupId;
+      const items: ContextMenuItem[] = [
+        {
+          type: "item",
+          id: "hide-milestone-group",
+          label: "非表示",
+          onSelect: () => setMilestoneGroupVisible(groupId, false),
+        },
+      ];
+      if (
+        hasOtherVisibleMilestoneBandGroup(
+          visibleMilestoneGroupIds,
+          milestones,
+          groupId,
+        )
+      ) {
+        items.push({
+          type: "item",
+          id: "show-only-milestone-group",
+          label: "この行だけ表示",
+          onSelect: () => showOnlyMilestoneGroup(groupId),
+        });
+      }
+      return items;
     }
     if (contextMenu.kind === "category") {
       const { id } = contextMenu;
@@ -1447,6 +1543,9 @@ function App() {
     openAddGroupToCategory,
     openAddGroupAfter,
     openDeleteHierarchy,
+    setMilestoneGroupVisible,
+    showOnlyMilestoneGroup,
+    visibleMilestoneGroupIds,
     showLineage,
   ]);
 
@@ -1468,6 +1567,7 @@ function App() {
         hiddenMilestoneGroupIds={schedule.hiddenMilestoneGroupIds}
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
+        scheduleTags={schedule.scheduleTags}
         tier={tier}
         lineageName={schedule.lineageTask?.name ?? null}
         canStartLineage={schedule.selectedTaskId != null}
@@ -1503,6 +1603,7 @@ function App() {
         onAdd={() => setAddOpen(true)}
         onAddMilestone={() => {
           setAddMilestoneInitialDate(null);
+          setAddMilestoneInitialGroupId(null);
           setAddMilestoneOpen(true);
         }}
         onDelete={() => {
@@ -1569,6 +1670,7 @@ function App() {
           onOpenTaskNote={schedule.openTaskNoteDialog}
           onTaskContextMenu={openTaskContextMenu}
           onHierarchyContextMenu={openHierarchyContextMenu}
+          onMilestoneGroupContextMenu={openMilestoneGroupContextMenu}
           onHierarchyDoubleClick={openHierarchyEdit}
           today={schedule.today}
           memberCatalog={memberCatalogState.memberMap}
@@ -1658,6 +1760,9 @@ function App() {
             onPatch={(patch) =>
               schedule.applyTaskPatch(selectedDetailTask.id, patch)
             }
+            documentTags={schedule.scheduleTags}
+            onAddTag={(tag) => schedule.appendTaskTag(selectedDetailTask.id, tag)}
+            onRemoveTag={(tag) => schedule.dropTaskTag(selectedDetailTask.id, tag)}
             onEditingChange={setDetailPanelEditing}
           />
         ) : null}
@@ -1734,6 +1839,7 @@ function App() {
         <MilestoneEditDialog
           key={`${schedule.editingMilestone.id}:${schedule.diskEpoch}`}
           milestone={schedule.editingMilestone}
+          milestoneGroups={schedule.milestoneGroups}
           onClose={schedule.closeMilestoneEdit}
           onSave={schedule.saveMilestoneEdit}
         />
@@ -1768,15 +1874,19 @@ function App() {
       {addMilestoneOpen ? (
         <MilestoneAddDialog
           initialDate={addMilestoneInitialDate ?? schedule.today}
+          initialGroupId={addMilestoneInitialGroupId}
+          milestoneGroups={schedule.milestoneGroups}
           onClose={() => {
             setAddMilestoneOpen(false);
             setAddMilestoneInitialDate(null);
+            setAddMilestoneInitialGroupId(null);
           }}
           onSave={(input) => {
             const message = schedule.addMilestone(input);
             if (message == null) {
               setAddMilestoneOpen(false);
               setAddMilestoneInitialDate(null);
+              setAddMilestoneInitialGroupId(null);
             }
             return message;
           }}
@@ -1876,6 +1986,17 @@ function App() {
           calendarError={appCalendarState.error}
           onImportCalendar={appCalendarState.importCalendar}
           onDeleteCalendar={appCalendarState.removeCalendar}
+          autoUpdateEnabled={autoUpdateEnabled}
+          onAutoUpdateChange={(enabled) => {
+            writeAutoUpdateEnabled(enabled);
+            setAutoUpdateEnabled(enabled);
+          }}
+        />
+      ) : null}
+      {pendingReleaseNotes.showReleaseNotes && pendingReleaseNotes.releaseNotes ? (
+        <ReleaseNotesDialog
+          notes={pendingReleaseNotes.releaseNotes}
+          onClose={pendingReleaseNotes.dismissReleaseNotes}
         />
       ) : null}
       <ShortcutsDialog
@@ -1907,8 +2028,14 @@ function App() {
       {scheduleFile.closePromptOpen ? (
         <DiscardChangesDialog
           title="未保存の変更があります"
-          message="サンプルの変更は保存されていません。閉じると失われます。ウィンドウを閉じますか？"
-          confirmLabel="閉じる"
+          message={
+            scheduleFile.closePromptForUpdate
+              ? "サンプルの変更は保存されていません。更新を入れると失われます。入れ直しますか？"
+              : "サンプルの変更は保存されていません。閉じると失われます。ウィンドウを閉じますか？"
+          }
+          confirmLabel={
+            scheduleFile.closePromptForUpdate ? "入れ直す" : "閉じる"
+          }
           onConfirm={scheduleFile.confirmDiscardAndClose}
           onCancel={scheduleFile.cancelClose}
         />

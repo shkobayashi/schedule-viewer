@@ -4,10 +4,14 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   release:
     permissions:
       contents: write
+    environment: release
     strategy:
       fail-fast: false
       matrix:
@@ -19,9 +23,11 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
           cache: npm
@@ -38,7 +44,7 @@ jobs:
           fi
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
           echo "components=$components" >> "$GITHUB_OUTPUT"
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master 2026-09-12
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master 2026-09-12
         with:
           toolchain: ${{ steps.rust-toolchain.outputs.channel }}
           components: ${{ steps.rust-toolchain.outputs.components }}
@@ -62,43 +68,140 @@ jobs:
 
       - run: npm ci
 
-      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
+      - name: Verify updater signing secrets
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY must be set in repository secrets" >&2
+            exit 1
+          fi
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD must be set in repository secrets" >&2
+            exit 1
+          fi
+
+      - name: Import Windows code signing certificate
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE -or -not $env:WINDOWS_CERTIFICATE_PASSWORD) {
+            Write-Error 'WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD must be set in repository secrets'
+            exit 1
+          }
+          New-Item -ItemType directory -Force -Path certificate | Out-Null
+          [System.IO.File]::WriteAllText("$PWD/certificate/tempCert.txt", $env:WINDOWS_CERTIFICATE)
+          certutil -decode certificate/tempCert.txt certificate/certificate.pfx | Out-Null
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item certificate/tempCert.txt -Force
+          $pwd = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          $imported = Import-PfxCertificate -FilePath certificate/certificate.pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pwd
+          Remove-Item certificate/certificate.pfx -Force
+          $thumb = $imported.Thumbprint
+          Export-Certificate -Cert "Cert:\CurrentUser\My\$thumb" -FilePath schedule-viewer-codesign.cer | Out-Null
+          $configPath = Join-Path $env:RUNNER_TEMP 'tauri-sign-config.json'
+          @{
+            bundle = @{
+              windows = @{
+                certificateThumbprint = $thumb
+              }
+            }
+          } | ConvertTo-Json -Depth 5 | Set-Content -Path $configPath -Encoding utf8NoBOM
+          $releaseConfig = Join-Path $PWD 'src-tauri/tauri.release.json'
+          $tauriArgs = "--bundles nsis --config $configPath --config $releaseConfig"
+          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_CLI_ARGS=$tauriArgs"
+
+      - name: Load release body prefix
+        id: release_prefix
+        shell: bash
+        run: |
+          repo="${{ github.repository }}"
+          body=$(sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md)
+          {
+            echo 'body<<EOF'
+            printf '%s\n' "$body"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: schedule-viewer v__VERSION__
-          releaseBody: |
-            ## ダウンロード
-
-            - **Ubuntu (22.04 以降, amd64)**: `schedule-viewer_*_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_*_amd64.deb` でインストール
-            - **Windows (x64)**: `schedule-viewer_*_x64-setup.exe` を実行
-
-            インストーラはコード署名していません。Windows では SmartScreen の確認が出ることがあります。
-
-            ローカルでのビルド手順は [開発ガイド](https://github.com/${{ github.repository }}/blob/main/docs/development.md#配布用ビルド) を参照してください。
+          releaseBody: ${{ steps.release_prefix.outputs.body }}
           releaseDraft: false
           prerelease: false
-          args: --bundles ${{ matrix.bundles }}
+          args: ${{ matrix.platform == 'windows-latest' && env.TAURI_CLI_ARGS || format('--bundles {0} --config src-tauri/tauri.release.json', matrix.bundles) }}
+
+      - name: Upload platform updater manifest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          if [ "${{ matrix.platform }}" = "ubuntu-22.04" ]; then
+            platform=linux-x86_64
+          else
+            platform=windows-x86_64
+          fi
+          node scripts/build-platform-latest-json.mjs \
+            "$platform" \
+            "$version" \
+            "src-tauri/target/release/bundle" \
+            "${{ github.repository }}" \
+            "latest-${platform}.json"
+          gh release upload "$tag" "latest-${platform}.json" --clobber
+
+      - name: Upload code signing certificate to Release
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          gh release upload "v${version}" schedule-viewer-codesign.cer --clobber
 
   checksums:
     needs: release
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    environment: release
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+          cache: npm
+      - run: npm ci
       - name: Publish SHA-256 checksums
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="$(node -p "require('./package.json').version")"
           tag="v${version}"
+          repo="${{ github.repository }}"
           mkdir -p dist-release
           gh release download "$tag" --dir dist-release --clobber
+          node scripts/merge-latest-json.mjs \
+            dist-release/latest-linux-x86_64.json \
+            dist-release/latest-windows-x86_64.json \
+            dist-release/latest.json
+          gh release upload "$tag" dist-release/latest.json --clobber
           rm -f dist-release/SHA256SUMS
           (cd dist-release && sha256sum -- * > SHA256SUMS)
           gh release upload "$tag" dist-release/SHA256SUMS --clobber
+          sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md > dist-release/release-body-prefix.md
+          npx tsx scripts/build-release-notes.ts "$version" "$repo" dist-release/release-body-prefix.md CHANGELOG.md dist-release/release-body.md
+          gh release edit "$tag" --notes-file dist-release/release-body.md

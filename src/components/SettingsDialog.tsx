@@ -73,9 +73,16 @@ type SettingsDialogProps = {
   onDeleteCatalog: (catalogId: string) => Promise<void>;
   onImportCalendar: (label: string, contents: string) => Promise<void>;
   onDeleteCalendar: () => Promise<void>;
+  autoUpdateEnabled?: boolean;
+  onAutoUpdateChange?: (enabled: boolean) => void;
 };
 
-export type SettingsSection = "display" | "members" | "calendar" | "jsonSkills";
+export type SettingsSection =
+  | "display"
+  | "members"
+  | "calendar"
+  | "updates"
+  | "jsonSkills";
 
 export function SettingsDialog({
   open,
@@ -100,6 +107,8 @@ export function SettingsDialog({
   onDeleteCatalog,
   onImportCalendar,
   onDeleteCalendar,
+  autoUpdateEnabled = false,
+  onAutoUpdateChange,
 }: SettingsDialogProps) {
   const displayScaleShortcut = usesCommandKey(
     navigator.platform || navigator.userAgent,
@@ -422,6 +431,15 @@ export function SettingsDialog({
             >
               稼働日
             </button>
+            {isTauri() ? (
+              <button
+                type="button"
+                className={section === "updates" ? "active" : undefined}
+                onClick={() => setSection("updates")}
+              >
+                更新
+              </button>
+            ) : null}
             <button
               type="button"
               className={section === "jsonSkills" ? "active" : undefined}
@@ -651,6 +669,25 @@ export function SettingsDialog({
                     </button>
                   ) : null}
                 </div>
+              </>
+            ) : null}
+            {section === "updates" && isTauri() ? (
+              <>
+                <p className="settings-note">
+                  オンにすると、次回の起動から GitHub Releases
+                  の新しい版を確認し、あれば入れ直します。初回はオフです。オンにした直後は確認しません。
+                </p>
+                <label className="settings-field settings-field-check">
+                  <input
+                    type="checkbox"
+                    checked={autoUpdateEnabled}
+                    disabled={!onAutoUpdateChange}
+                    onChange={(event) =>
+                      onAutoUpdateChange?.(event.target.checked)
+                    }
+                  />
+                  <span>起動時に更新を確認する</span>
+                </label>
               </>
             ) : null}
             {section === "jsonSkills" ? (

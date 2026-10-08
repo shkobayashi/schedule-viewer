@@ -821,6 +821,13 @@ button:focus-visible,
   font-variant-numeric: tabular-nums;
 }
 
+.detail-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(6px * var(--s));
+  margin-bottom: calc(8px * var(--s));
+}
+
 .detail-progress {
   display: flex;
   align-items: center;
@@ -1040,6 +1047,7 @@ button:focus-visible,
 .sidebar-drag-ghost .sidebar-row .assignee,
 .sidebar-drag-ghost .sidebar-row .assignee.unassigned,
 .sidebar-drag-ghost .sidebar-row .assignee.unknown-member,
+.sidebar-drag-ghost .sidebar-row .assignee .assignee-badge,
 .sidebar-drag-ghost .milestone-alert-icon {
   background: transparent;
   color: var(--text);
@@ -1169,7 +1177,7 @@ button:focus-visible,
 
 .sidebar-row .assignee {
   flex: 0 0 auto;
-  width: calc(var(--assignee-chars, 3) * 1em + 0.2em);
+  width: calc(var(--assignee-chars, 3) * 1em + 0.2em + 14px);
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: calc(10px * var(--s));
@@ -1178,6 +1186,14 @@ button:focus-visible,
 }
 
 .sidebar-row .assignee.unassigned {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.sidebar-row .assignee .assignee-badge {
   flex-shrink: 0;
   color: var(--unassigned-text);
   background: var(--unassigned-bg);
@@ -1240,6 +1256,7 @@ button:focus-visible,
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  min-width: 0;
   padding: 0 calc(12px * var(--s));
   border-bottom: 1px solid var(--border);
   background: var(--milestone-sidebar);
@@ -1388,6 +1405,57 @@ button:focus-visible,
 
 .modal.shortcuts-modal {
   width: min(480px, calc(100vw - 48px));
+}
+
+.modal.release-notes-modal {
+  width: min(560px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.release-notes-body {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  font-size: calc(13px * var(--s));
+  color: var(--text);
+}
+
+.release-notes-body section {
+  margin-bottom: calc(12px * var(--s));
+}
+
+.release-notes-body h3 {
+  margin: 0 0 calc(6px * var(--s));
+  font-size: calc(12px * var(--s));
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.release-notes-body ul {
+  margin: 0;
+  padding-left: calc(18px * var(--s));
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
+.release-notes-issues {
+  margin-left: calc(6px * var(--s));
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: calc(4px * var(--s));
+}
+
+.release-notes-issue-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: calc(12px * var(--s));
+  text-decoration: underline;
 }
 
 .shortcuts-table {
@@ -1719,11 +1787,4 @@ button:focus-visible,
 .sidebar-row .milestone-alert-icon {
   display: inline-flex;
   color: var(--overdue);
-}
-
-.sidebar-row .assignee.unassigned {
-  font-weight: 400;
-  background: transparent;
-  padding: 0;
-  color: var(--text-secondary);
 }

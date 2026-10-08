@@ -24,6 +24,11 @@ import type { Milestone, ScheduleId, Task, VisibleRow } from "./types";
 import type { CalendarDocument } from "./calendarTypes";
 import { hatchPatternId, hatchPatternMarkup } from "./hatch";
 import { nonWorkingDayClipRects } from "./nonWorkingDay";
+import {
+  formatYearMonth,
+  MONTH_HEADER_LABEL_GAP_BASE_PX,
+  visibleMonthHeaderLabels,
+} from "./monthHeader";
 import { paletteFor, type ResolvedColorScheme } from "./palette";
 
 export type ScheduleExportInput = {
@@ -585,14 +590,37 @@ function renderHeader(
     line(0, input.headerHeight - 0.5, chartWidth, input.headerHeight - 0.5, chart.headerBorder, 1),
   ];
   if (input.tier === "month") {
+    const monthFontSize = 12 * scale;
+    const gapPx = MONTH_HEADER_LABEL_GAP_BASE_PX * scale;
+    const monthLabelCandidates = [];
     let d = utcMonthStart(input.timelineStart);
     while (d < input.timelineEnd) {
       const x = dateToX(d);
       marks.push(line(x, 0, x, input.headerHeight, chart.monthGrid, 1));
-      marks.push(
-        text(x + 6, 13 * scale, `${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月`, 12 * scale, chart.textPrimary, true),
-      );
+      monthLabelCandidates.push({
+        key: String(d.getTime()),
+        x: x + 6,
+        text: formatYearMonth(d),
+        fontSize: monthFontSize,
+      });
       d = addUtcMonths(d, 1);
+    }
+    const visibleMonthLabels = visibleMonthHeaderLabels(
+      monthLabelCandidates,
+      [],
+      gapPx,
+    );
+    for (const label of visibleMonthLabels) {
+      marks.push(
+        text(
+          label.x,
+          13 * scale,
+          label.text,
+          label.fontSize,
+          chart.textPrimary,
+          true,
+        ),
+      );
     }
   } else {
     const headerBands = nonWorkingDayClipRects(

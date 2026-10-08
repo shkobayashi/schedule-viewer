@@ -227,6 +227,12 @@ const DEFAULT_MILESTONE_GROUP_NAME = "マイルストン";
  * schemaVersion 5 を 6 にする。マイルストンがあるときは既定のマイルストングループを1つ足し、
  * 全部のマイルストンに groupId を付ける。
  */
+/** schemaVersion 6 を 7 にする。タグは無いままである。 */
+export function migrateScheduleV6ToV7(data: unknown): unknown {
+  if (!isRecord(data) || data.schemaVersion !== 6) return data;
+  return { ...data, schemaVersion: 7 };
+}
+
 export function migrateScheduleV5ToV6(data: unknown): unknown {
   if (!isRecord(data) || data.schemaVersion !== 5) return data;
   const milestones = data.milestones;

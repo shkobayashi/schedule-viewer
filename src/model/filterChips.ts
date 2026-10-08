@@ -15,6 +15,7 @@ export type FilterChipKind =
   | "overdue"
   | "relation"
   | "milestone"
+  | "tag"
   | "search"
   | "noteSearch"
   | "lineage"
@@ -48,6 +49,7 @@ export const DEFAULT_FILTERS: ScheduleFilters = {
   overdue: "all",
   relation: "all",
   milestone: "all",
+  tag: "",
   search: "",
   noteSearch: "",
 };
@@ -68,6 +70,8 @@ export function filterChipClearPatch(
       return { relation: "all" };
     case "milestone":
       return { milestone: "all" };
+    case "tag":
+      return { tag: "" };
     case "search":
       return { search: "" };
     case "noteSearch":
@@ -125,6 +129,9 @@ export function activeFilterChips(
         : `マイルストン: ${filters.milestone}`,
     });
   }
+  if (filters.tag !== "") {
+    chips.push({ kind: "tag", label: `タグ: ${filters.tag}` });
+  }
   const search = filters.search.trim();
   if (search) chips.push({ kind: "search", label: `タスク名: 「${search}」` });
   const noteSearch = filters.noteSearch.trim();
@@ -155,6 +162,31 @@ export function pruneHiddenMilestoneGroupIds(
   return hiddenIds.filter((id) => ids.has(id));
 }
 
+/** 「この行だけ表示」で隠すマイルストングループの ID。空のグループも含める。 */
+export function hiddenMilestoneGroupIdsForShowOnly(
+  keepGroupId: ScheduleId,
+  milestoneGroups: readonly MilestoneGroup[],
+): ScheduleId[] {
+  return milestoneGroups
+    .filter((group) => group.id !== keepGroupId)
+    .map((group) => group.id);
+}
+
+/** 帯に出ている別のマイルストングループ行があるか。空のグループと非表示は数えない。 */
+export function hasOtherVisibleMilestoneBandGroup(
+  visibleGroupIds: ReadonlySet<ScheduleId>,
+  milestones: readonly Milestone[],
+  currentGroupId: ScheduleId,
+): boolean {
+  for (const groupId of visibleGroupIds) {
+    if (groupId === currentGroupId) continue;
+    if (milestones.some((milestone) => milestone.groupId === groupId)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function activeFilterCount(
   filters: ScheduleFilters,
   lineageActive: boolean,
@@ -167,6 +199,7 @@ export function activeFilterCount(
   if (filters.overdue !== "all") count += 1;
   if (filters.relation !== "all") count += 1;
   if (filters.milestone !== "all") count += 1;
+  if (filters.tag !== "") count += 1;
   if (filters.search.trim()) count += 1;
   if (filters.noteSearch.trim()) count += 1;
   if (lineageActive) count += 1;

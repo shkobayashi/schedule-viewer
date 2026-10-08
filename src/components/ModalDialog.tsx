@@ -15,6 +15,8 @@ type ModalDialogProps = {
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  /** 最初のフォーカスをパネル本体に置く（一覧の先頭ボタンへ飛ばさない） */
+  initialFocusOnPanel?: boolean;
 };
 
 export function ModalDialog({
@@ -22,6 +24,7 @@ export function ModalDialog({
   onClose,
   children,
   className = "modal",
+  initialFocusOnPanel = false,
 }: ModalDialogProps) {
   const titleId = useId();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -31,15 +34,16 @@ export function ModalDialog({
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     const releaseInert = acquireBackgroundInert();
-    const focusTarget =
-      panelRef.current?.querySelector<HTMLElement>(FOCUSABLE) ??
-      panelRef.current;
+    const focusTarget = initialFocusOnPanel
+      ? panelRef.current
+      : (panelRef.current?.querySelector<HTMLElement>(FOCUSABLE) ??
+        panelRef.current);
     focusTarget?.focus();
     return () => {
       releaseInert();
       previousFocusRef.current?.focus();
     };
-  }, []);
+  }, [initialFocusOnPanel]);
 
   const trapTab = (event: React.KeyboardEvent) => {
     if (event.key !== "Tab" || !panelRef.current) return;

@@ -28,6 +28,8 @@ import { listen } from "@tauri-apps/api/event";
 import {
   acceptApplicationQuitViaTauri,
   cancelApplicationQuitViaTauri,
+  cancelApplicationUpdateViaTauri,
+  completeApplicationUpdateRecoveryViaTauri,
   createScheduleWindowViaTauri,
   recoveryCloseActionViaTauri,
   releaseScheduleRecoveryViaTauri,
@@ -67,6 +69,7 @@ export function useScheduleFile({
   const [discardPromptOpen, setDiscardPromptOpen] = useState(false);
   const [pendingOpen, setPendingOpen] = useState(false);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
+  const [closePromptForUpdate, setClosePromptForUpdate] = useState(false);
   const [fileBusy, setFileBusy] = useState(false);
   const [startupSettled, setStartupSettled] = useState(!isTauri());
   const startupSettledRef = useRef(startupSettled);
@@ -136,6 +139,11 @@ export function useScheduleFile({
     () => {},
   );
   const closePromptForQuitRef = useRef(false);
+  const closePromptForUpdateRef = useRef(false);
+  const updatePrepareResolverRef = useRef<((ready: boolean) => void) | null>(
+    null,
+  );
+  const applicationUpdatingRef = useRef(false);
   const quitDiscardedRef = useRef(false);
   const applicationQuitRef = useRef(false);
   const syncLiveRecoveryRef = useRef(syncLiveRecovery);
@@ -384,6 +392,7 @@ export function useScheduleFile({
     void getCurrentWindow()
       .onCloseRequested(async (event) => {
         if (allowCloseRef.current) return;
+        if (applicationUpdatingRef.current) return;
         if (!filePathRef.current) {
           if (isDirtyRef.current && quitDiscardedRef.current) {
             event.preventDefault();
@@ -497,10 +506,71 @@ export function useScheduleFile({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isTauri()) return;
+    let unlistenRecovery: (() => void) | undefined;
+    let cancelled = false;
+    void listen("application-update-write-recovery", () => {
+      void (async () => {
+        applicationUpdatingRef.current = true;
+        try {
+          if (filePathRef.current) {
+            const action = await recoveryCloseActionViaTauri(isDirtyRef.current);
+            if (action === "write") await writeRecoveryDraftNowRef.current();
+            else if (action === "delete") await clearRecoveryDraftRef.current();
+          }
+          await completeApplicationUpdateRecoveryViaTauri();
+        } catch (error) {
+          applicationUpdatingRef.current = false;
+          setErrorMessageText(
+            errorMessage(error, "復旧用の控えを保存できませんでした。"),
+          );
+          void cancelApplicationUpdateViaTauri();
+        }
+      })();
+    }).then((fn) => {
+      if (cancelled) {
+        fn();
+        return;
+      }
+      unlistenRecovery = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlistenRecovery?.();
+    };
+  }, []);
+
+  const prepareForApplicationUpdate = useCallback(async (): Promise<boolean> => {
+    if (!isTauri()) return false;
+    if (!filePathRef.current && isDirtyRef.current) {
+      return await new Promise<boolean>((resolve) => {
+        updatePrepareResolverRef.current = resolve;
+        closePromptForUpdateRef.current = true;
+        setClosePromptForUpdate(true);
+        setClosePromptOpen(true);
+      });
+    }
+    return true;
+  }, []);
+
+  const onUpdatePromptCancel = useCallback(() => {
+    applicationUpdatingRef.current = false;
+    if (!closePromptForUpdateRef.current) return;
+    closePromptForUpdateRef.current = false;
+    setClosePromptForUpdate(false);
+    setClosePromptOpen(false);
+    updatePrepareResolverRef.current?.(false);
+    updatePrepareResolverRef.current = null;
+  }, []);
+
   const confirmDiscardAndClose = useCallback(() => {
     setClosePromptOpen(false);
     if (!isTauri()) return;
+    const forUpdate = closePromptForUpdateRef.current;
     const forQuit = closePromptForQuitRef.current;
+    closePromptForUpdateRef.current = false;
+    setClosePromptForUpdate(false);
     closePromptForQuitRef.current = false;
     void (async () => {
       try {
@@ -513,6 +583,16 @@ export function useScheduleFile({
           applicationQuitRef.current = false;
           void cancelApplicationQuitViaTauri();
         }
+        if (forUpdate) {
+          updatePrepareResolverRef.current?.(false);
+          updatePrepareResolverRef.current = null;
+          void cancelApplicationUpdateViaTauri();
+        }
+        return;
+      }
+      if (forUpdate) {
+        updatePrepareResolverRef.current?.(true);
+        updatePrepareResolverRef.current = null;
         return;
       }
       if (forQuit) {
@@ -527,6 +607,14 @@ export function useScheduleFile({
 
   const cancelClose = useCallback(() => {
     setClosePromptOpen(false);
+    if (closePromptForUpdateRef.current) {
+      closePromptForUpdateRef.current = false;
+      setClosePromptForUpdate(false);
+      updatePrepareResolverRef.current?.(false);
+      updatePrepareResolverRef.current = null;
+      void cancelApplicationUpdateViaTauri();
+      return;
+    }
     if (!closePromptForQuitRef.current) return;
     closePromptForQuitRef.current = false;
     allowCloseRef.current = false;
@@ -548,6 +636,9 @@ export function useScheduleFile({
     errorMessage: errorMessageText,
     discardPromptOpen,
     closePromptOpen,
+    closePromptForUpdate,
+    prepareForApplicationUpdate,
+    onUpdatePromptCancel,
     externalChangeOpen,
     externalReloadOpen,
     recoveryConflictOpen: startup.recoveryConflictOpen,

@@ -26,6 +26,7 @@ type FilterPanelProps = {
   hiddenMilestoneGroupIds: ScheduleId[];
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
   assigneeFilterOptions: AssigneeFilterOption[];
+  scheduleTags: string[];
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
 };
 
@@ -39,6 +40,7 @@ export function FilterPanel({
   hiddenMilestoneGroupIds,
   onMilestoneGroupVisible,
   assigneeFilterOptions,
+  scheduleTags,
   onFiltersChange,
 }: FilterPanelProps) {
   const hiddenMilestoneGroupSet = new Set(hiddenMilestoneGroupIds);
@@ -186,6 +188,21 @@ export function FilterPanel({
             {milestones.map((milestone) => (
               <option key={milestone.id} value={milestone.id}>
                 {milestone.name}（{milestone.date}）
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="filter-panel-field">
+          <span>タグ</span>
+          <select
+            aria-label="タグ"
+            value={filters.tag}
+            onChange={(e) => onFiltersChange({ tag: e.target.value })}
+          >
+            <option value="">すべて</option>
+            {scheduleTags.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
               </option>
             ))}
           </select>

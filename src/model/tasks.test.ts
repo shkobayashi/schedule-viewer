@@ -43,6 +43,7 @@ function categories(): Category[] {
               predecessors: [OTHER],
               milestoneId: MILESTONE,
               note: "  レビュー待ち  ",
+              tags: ["共有"],
             }),
             task({ id: TAIL, name: "詳細設計", predecessors: [SOURCE] }),
           ],
@@ -134,6 +135,7 @@ describe("categoriesAfterDuplicate", () => {
       predecessors: [OTHER],
       milestoneId: MILESTONE,
       note: "レビュー待ち",
+      tags: ["共有"],
     });
     expect(tasks[0]?.predecessors).toEqual([]);
     expect(tasks[1]?.predecessors).toEqual([OTHER]);

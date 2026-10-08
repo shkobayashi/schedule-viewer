@@ -203,17 +203,65 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 
 | トリガー | ワークフロー | 内容 |
 | --- | --- | --- |
-| `develop` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロントと Rust を分ける |
-| `main` への push | Release（`.github/workflows/release.yml`） | Ubuntu (deb) と Windows (NSIS) をビルドし GitHub Release へ公開 |
+| `develop` または `main` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロントと Rust を分け、集約ジョブ `ci` で結果をまとめる |
+| `main` への push | Release（`.github/workflows/release.yml`） | 環境 `release` の承認のあと、Ubuntu (deb) と Windows (NSIS) をビルドし GitHub Release へ公開 |
 
-`develop` への push だけでは CI は動かない。CI が動くのは `develop` 向けの pull request のときだけである。
+`develop` への push だけでは CI は動かない。CI が動くのは `develop` または `main` 向けの pull request のときである。
 
 CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。読み取りステップは `shell: bash` にする。Release の Windows ランナーの既定シェルは PowerShell で、bash のまま書くと構文エラーになる。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
 - `src-tauri/` または `rust-toolchain.toml` が変わると Rust ジョブ（Clippy と `cargo test --locked`）が動く
 - `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、スキル同梱物と `src/model/generated/` の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
-- `docs/*.md` や `README.md` だけの変更では、どちらのジョブも動かない
+- `docs/*.md` や `README.md` だけの変更では、フロントと Rust はスキップする。集約ジョブ `ci` は成功する
+
+ワークフロー全体の `permissions` は `contents: read` である。Release の `contents: write` は配布ジョブだけに付ける。`actions/checkout` は `persist-credentials: false` である。
+
+## GitHub のセキュリティ設定
+
+リポジトリを公開する前に、次をリポジトリ設定で入れる（非公開のままでも設定できる）。
+
+| 項目 | 推奨 |
+| --- | --- |
+| Actions の一般権限 | Read repository contents |
+| Actions による pull request の作成・承認 | オフ |
+| アクションの SHA 固定 | 必須 |
+| Wiki | オフ |
+
+公開したあと、ruleset で `develop` と `main` に pull request 必須、コードオーナーのレビュー、必須ステータスチェック `ci`、force push と削除の禁止を入れる。タグ `v*` は更新と削除を禁止する。詳細はリポジトリの **Settings → Rules → Rulesets** である。非公開の Free プランでは ruleset を作れない。公開の直後に設定する。
+
+Dependabot は [`.github/dependabot.yml`](../.github/dependabot.yml) で npm、cargo、github-actions を週次に見る。脆弱性の報告は [SECURITY.md](../SECURITY.md) に従う。
+
+Release ワークフローは GitHub 環境 `release` を使う。環境は **Settings → Environments → release** で作る。Required reviewers は、プランによっては非公開リポジトリでは使えない。使えないときは承認なしで Release が走る。使えるときは管理者を Required reviewers に入れ、Actions が自分で承認できない設定にする。
+
+### コミットのメールアドレス
+
+GitHub の **Settings → Emails** で、コミット用の noreply アドレス（`49135353+shkobayashi@users.noreply.github.com`）を有効にする。
+
+このリポジトリだけ noreply を使う例:
+
+```bash
+git config --local user.email '49135353+shkobayashi@users.noreply.github.com'
+git config --local user.name 'shkobayashi'
+```
+
+履歴に残したくないメールを直すときは、mirror のバックアップを取ったあと `git filter-repo` を使う。mailmap の形式は **正本（左）→ 履歴に残っているアドレス（右）** である。
+
+```
+shkobayashi <49135353+shkobayashi@users.noreply.github.com> shkobayashi <shkobayashi@abeam.com>
+```
+
+書き換え後は `main`、`develop`、必要なブランチとタグ `v*` を force push する。`git push --mirror` は使わない。手元のクローンは `git fetch origin --prune` のあと `git reset --hard origin/develop` などで揃える。
+
+force push のあとも、マージ済み pull request や GitHub のキャッシュから古いコミットが辿れることがある。公開前に [Remove cached views and references to sensitive data](https://support.github.com/contact?tags=rr-remove-sensitive-data) から削除を依頼する。
+
+### リポジトリを public にする
+
+```bash
+gh repo edit shkobayashi/schedule-viewer --visibility public
+```
+
+公開後は、Dependabot alerts、secret scanning、Code scanning（既定セットアップ）、非公開の脆弱性報告を有効にする。フォークからの pull request でワークフローを走らせるときは、初回は承認が要る設定にする。
 
 ## リリースとバージョン
 
@@ -226,7 +274,204 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 
 macOS 用の自動ビルドはまだない。必要なときは下の「配布用ビルド」でローカルビルドする。
 
+### Windows のコード署名
+
+GitHub Release の Windows インストーラ（NSIS）へ、自己署名とタイムスタンプを付ける。秘密鍵はリポジトリに置かず、GitHub の secret に置く。公開用の証明書（`.cer`）は各 Release に添付する。知り合いの PC で発行元を示すための手順である。有料のコード署名証明書は使わない。
+
+初回だけ、次の手順を上から順に実行する。証明書を作るのは、使っている OS の見出しだけを選び、もう一方は飛ばす。
+
+1. 作業用のディレクトリを、リポジトリの外に作る。`.pfx` と秘密鍵はここにだけ置く。
+
+```bash
+mkdir -p "$HOME/schedule-viewer-codesign"
+cd "$HOME/schedule-viewer-codesign"
+```
+
+Windows の PowerShell では、次のようにする。
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$HOME\schedule-viewer-codesign" | Out-Null
+Set-Location "$HOME\schedule-viewer-codesign"
+```
+
+#### Windows で証明書を作る
+
+管理者の PowerShell で、作業ディレクトリにいることを確認してから、次を順に実行する。
+
+2. コード署名用の自己署名証明書を作る。表示名は `schedule-viewer`、有効期限は 5 年である。
+
+```powershell
+$cert = New-SelfSignedCertificate `
+  -Subject "CN=schedule-viewer" `
+  -KeyAlgorithm RSA `
+  -KeyLength 3072 `
+  -HashAlgorithm SHA256 `
+  -NotAfter (Get-Date).AddYears(5) `
+  -CertStoreLocation "Cert:\CurrentUser\My" `
+  -Type CodeSigningCert
+$cert.Thumbprint
+```
+
+`Thumbprint` が 40 文字の英数字で表示されれば、このステップは完了である。メモしておく（あとでストアから証明書を消すときに使う）。
+
+3. エクスポート用のパスワードを決める。GitHub secret `WINDOWS_CERTIFICATE_PASSWORD` に入れる値である。画面には出さない。
+
+```powershell
+$exportPassword = Read-Host "Export password (for WINDOWS_CERTIFICATE_PASSWORD)" -AsSecureString
+```
+
+4. 秘密鍵付きの `.pfx` を書き出す。
+
+```powershell
+Export-PfxCertificate `
+  -Cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" `
+  -FilePath "$HOME\schedule-viewer-codesign\schedule-viewer-codesign.pfx" `
+  -Password $exportPassword
+```
+
+`schedule-viewer-codesign.pfx` ができていれば、このステップは完了である。
+
+5. CI が復元する形式のテキストにする。
+
+```powershell
+certutil -encode "$HOME\schedule-viewer-codesign\schedule-viewer-codesign.pfx" "$HOME\schedule-viewer-codesign\schedule-viewer-codesign.pfx.txt"
+```
+
+`schedule-viewer-codesign.pfx.txt` の先頭が `-----BEGIN`、末尾が `-----END` で終わっていれば、このステップは完了である。
+
+#### macOS で証明書を作る
+
+ターミナルで、作業ディレクトリにいることを確認してから、次を順に実行する。
+
+2. 秘密鍵と証明書を作る。表示名は `schedule-viewer`、有効期限は 5 年である。
+
+```bash
+openssl req -x509 -newkey rsa:3072 -sha256 -days 1825 -nodes \
+  -keyout schedule-viewer-codesign.key.pem \
+  -out schedule-viewer-codesign.cert.pem \
+  -subj "/CN=schedule-viewer" \
+  -addext "keyUsage=digitalSignature" \
+  -addext "extendedKeyUsage=codeSigning"
+```
+
+`schedule-viewer-codesign.key.pem` と `schedule-viewer-codesign.cert.pem` ができていれば、このステップは完了である。
+
+3. エクスポート用のパスワードを決める。GitHub secret `WINDOWS_CERTIFICATE_PASSWORD` に入れる値である。
+
+4. 秘密鍵付きの `.pfx` を書き出す。パスワードの入力を求められたら、手順 3 の値を入れる。
+
+```bash
+openssl pkcs12 -export \
+  -inkey schedule-viewer-codesign.key.pem \
+  -in schedule-viewer-codesign.cert.pem \
+  -out schedule-viewer-codesign.pfx
+```
+
+`schedule-viewer-codesign.pfx` ができていれば、このステップは完了である。
+
+5. CI の `certutil -decode` で `.pfx` に戻せるテキストにする。`BEGIN CERTIFICATE` から `END CERTIFICATE` までを含める。
+
+```bash
+{
+  echo "-----BEGIN CERTIFICATE-----"
+  openssl base64 -in schedule-viewer-codesign.pfx | fold -w 64
+  echo "-----END CERTIFICATE-----"
+} > schedule-viewer-codesign.pfx.txt
+```
+
+`schedule-viewer-codesign.pfx.txt` の先頭が `-----BEGIN CERTIFICATE-----`、末尾が `-----END CERTIFICATE-----` であれば、このステップは完了である。
+
+#### secret を登録する
+
+6. リポジトリのルートで、GitHub CLI が `shkobayashi/schedule-viewer` を指していることを確認する。`schedule-viewer-codesign.pfx.txt` の**中身全体**を secret `WINDOWS_CERTIFICATE` に入れる。
+
+```bash
+cd /path/to/schedule-viewer
+gh secret set WINDOWS_CERTIFICATE < "$HOME/schedule-viewer-codesign/schedule-viewer-codesign.pfx.txt"
+```
+
+7. 手順 3 で決めたパスワードを secret `WINDOWS_CERTIFICATE_PASSWORD` に入れる。引数にパスワードを書かず、プロンプトへ入力する。
+
+```bash
+gh secret set WINDOWS_CERTIFICATE_PASSWORD
+```
+
+8. 登録を確認する。値は表示されない。次の一覧に `WINDOWS_CERTIFICATE` と `WINDOWS_CERTIFICATE_PASSWORD` があれば、このステップは完了である。
+
+```bash
+gh secret list
+```
+
+Release ワークフローは、ビルド前に `.pfx` を復元し、証明書ストアへ取り込んだあと、Tauri が NSIS へ署名する。拇印は `src-tauri/tauri.conf.json` には書かず、CI だけが渡す。タイムスタンプは `http://timestamp.digicert.com`（RFC 3161）を使う。証明書の期限のあとでも、署名は有効なままである。
+
+9. 作業ディレクトリの `.pfx`、`.pfx.txt`、秘密鍵（`.pem`）を消す。
+
+```bash
+rm -f "$HOME/schedule-viewer-codesign/"*.pfx "$HOME/schedule-viewer-codesign/"*.pfx.txt "$HOME/schedule-viewer-codesign/"*.pem
+```
+
+Windows で個人ストアへ証明書を入れた場合は、手順 2 の拇印を指定して消す。
+
+```powershell
+Remove-Item "Cert:\CurrentUser\My\<Thumbprint>"
+Remove-Item -Force "$HOME\schedule-viewer-codesign\schedule-viewer-codesign.pfx", "$HOME\schedule-viewer-codesign\schedule-viewer-codesign.pfx.txt" -ErrorAction SilentlyContinue
+```
+
+次は、下の「`main` に載せる前のバージョン上げ」である。`main` へ載せる時点で secret が無いと、Windows の Release ジョブは署名に失敗する。
+
+### 更新用の署名鍵
+
+GitHub Release の deb と NSIS に、Tauri アップデータ用の署名を付ける。秘密鍵はリポジトリに置かず、GitHub の secret に置く。公開鍵は [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) の `plugins.updater.pubkey` に書く。これは Windows のコード署名（`WINDOWS_CERTIFICATE`）とは別の鍵である。
+
+初回だけ、次の手順を上から順に実行する。
+
+1. 作業用のディレクトリを、リポジトリの外に作る。
+
+```bash
+mkdir -p "$HOME/schedule-viewer-updater"
+```
+
+2. リポジトリ直下で鍵を発行する。パスワードを聞かれたら、secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` に入れる値を入れる。
+
+```bash
+cd /path/to/schedule-viewer
+npm run tauri signer generate -- -w "$HOME/schedule-viewer-updater/schedule-viewer-updater.key"
+```
+
+`schedule-viewer-updater.key` ができ、公開鍵の文字列が表示されれば、このステップは完了である。表示された公開鍵だけを `plugins.updater.pubkey` に書く。秘密鍵の中身は、設定ファイル、コミット、Issue には残さない。
+
+3. `gh` が `shkobayashi/schedule-viewer` を指していることを確認する。秘密鍵ファイルの中身全体を secret `TAURI_SIGNING_PRIVATE_KEY` に入れる。
+
+```bash
+gh repo view --json nameWithOwner --jq .nameWithOwner
+gh secret set TAURI_SIGNING_PRIVATE_KEY < "$HOME/schedule-viewer-updater/schedule-viewer-updater.key"
+```
+
+4. 手順 2 と同じパスワードを secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` に入れる。引数には書かず、プロンプトへ入力する。
+
+```bash
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+```
+
+5. 登録を確認する。値は表示されない。一覧に `TAURI_SIGNING_PRIVATE_KEY` と `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` があれば、このステップは完了である。
+
+```bash
+gh secret list
+```
+
+6. 作業ディレクトリの秘密鍵を消す。
+
+```bash
+rm -f "$HOME/schedule-viewer-updater/schedule-viewer-updater.key" "$HOME/schedule-viewer-updater/schedule-viewer-updater.key.pub"
+```
+
+Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` と `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。各 OS ジョブは `latest-linux-x86_64.json` または `latest-windows-x86_64.json` を Release に載せ、`checksums` ジョブが `latest.json` にまとめる。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
+
+`main` へ載せる時点でこの secret が無いと、Release ジョブは失敗する。
+
 ### `main` に載せる前のバージョン上げ
+
+Windows の NSIS を署名する変更を `main` に載せるときは、先に「Windows のコード署名」の secret 登録が終わっていること。自動更新を含む変更を載せるときは、「更新用の署名鍵」の secret 登録も終わっていること。
 
 `develop` を `main` にマージする直前に、リポジトリ直下でバージョンを1回だけ上げる。
 
@@ -236,7 +481,27 @@ macOS 用の自動ビルドはまだない。必要なときは下の「配布�
 
 `npm run version:check` で `package.json` / `package-lock.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` / `src-tauri/Cargo.lock` の番号が揃っていることを確認してから、そのコミットを `develop` に入れて `main` にマージする。`main` へ push されると `vX.Y.Z` タグ付きの Release が作られる。同じバージョンのタグが既にある場合は、先にバージョンを上げてから再度マージする。
 
-変更の要約は、そのバージョン上げのコミットで [CHANGELOG.md](../CHANGELOG.md) に書く。
+変更の要約は、そのバージョン上げのコミットで [CHANGELOG.md](../CHANGELOG.md) に書く。公開する版の節へ移すときは、各項目の末尾に対応する Issue 番号を `(#番号)` の形で書く。番号が複数あるときは `(#155) (#156)` のように並べる。`[Unreleased]` の項目には書かなくてよい。
+
+Release ワークフローは、各 OS のビルドが同じダウンロード手順だけを `releaseBody` に載せる。`checksums` ジョブが [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) で接頭文のあとにその版の CHANGELOG 節を足し、`gh release edit` で本文を確定する。節の項目に Issue 番号が無いときはジョブが失敗し、本文はダウンロード手順のまま残る。
+
+### Release 後に証明書を入れる
+
+`main` への push で Release ができたあと、知り合いの Windows PC で次を上から順に実行する。証明書を入れた PC だけで、インストーラの発行元が `schedule-viewer` と表示される。入れていない PC では、これまでどおり SmartScreen の確認が出る。
+
+1. [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から、対象の版を開き、`schedule-viewer-codesign.cer` をダウンロードする。
+
+2. 管理者の PowerShell で、ダウンロードした `.cer` を「信頼されたルート証明機関」と「信頼された発行元」の両方へ入れる。
+
+```powershell
+$cer = "C:\path\to\schedule-viewer-codesign.cer"
+Import-Certificate -FilePath $cer -CertStoreLocation Cert:\LocalMachine\Root
+Import-Certificate -FilePath $cer -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
+```
+
+エラーが出ず、両方のストアに `schedule-viewer` が見えれば、このステップは完了である。ルートへの取り込みが拒否されたときは、「Windows のコード署名」の証明書を作り直し、secret を差し替えてから Release を出す。
+
+3. 同じ Release の `schedule-viewer_*_x64-setup.exe` を実行し、プロパティまたは実行時の表示で発行元が `schedule-viewer` になることを確認する。
 
 ## アプリアイコン
 
@@ -320,7 +585,9 @@ ARM の Windows では `x64` の部分が `arm64` になる。インストーラ
 .\src-tauri\target\release\schedule-viewer.exe
 ```
 
-別の PC でインストーラを開くと、署名がないため SmartScreen の確認が出ることがある。MSI の作成で `failed to run light.exe` と出たときは、Windows のオプション機能で VBSCRIPT を有効にする。
+手元の `npm run tauri build` ではインストーラへ署名しない。署名するのは GitHub Release の NSIS である。公開用証明書の入れ方は、上の「Release 後に証明書を入れる」にある。
+
+MSI の作成で `failed to run light.exe` と出たときは、Windows のオプション機能で VBSCRIPT を有効にする。
 
 ## スキーマを変えるとき
 
