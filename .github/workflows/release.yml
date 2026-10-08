@@ -68,6 +68,38 @@ jobs:
 
       - run: npm ci
 
+      - name: Import Windows code signing certificate
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE -or -not $env:WINDOWS_CERTIFICATE_PASSWORD) {
+            Write-Error 'WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD must be set in repository secrets'
+            exit 1
+          }
+          New-Item -ItemType directory -Force -Path certificate | Out-Null
+          [System.IO.File]::WriteAllText("$PWD/certificate/tempCert.txt", $env:WINDOWS_CERTIFICATE)
+          certutil -decode certificate/tempCert.txt certificate/certificate.pfx | Out-Null
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item certificate/tempCert.txt -Force
+          $pwd = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          $imported = Import-PfxCertificate -FilePath certificate/certificate.pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pwd
+          Remove-Item certificate/certificate.pfx -Force
+          $thumb = $imported.Thumbprint
+          Export-Certificate -Cert "Cert:\CurrentUser\My\$thumb" -FilePath schedule-viewer-codesign.cer | Out-Null
+          $configPath = Join-Path $env:RUNNER_TEMP 'tauri-sign-config.json'
+          @{
+            bundle = @{
+              windows = @{
+                certificateThumbprint = $thumb
+              }
+            }
+          } | ConvertTo-Json -Depth 5 | Set-Content -Path $configPath -Encoding utf8NoBOM
+          $tauriArgs = "--bundles nsis --config $configPath"
+          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_CLI_ARGS=$tauriArgs"
+
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -78,14 +110,23 @@ jobs:
             ## ダウンロード
 
             - **Ubuntu (22.04 以降, amd64)**: `schedule-viewer_*_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_*_amd64.deb` でインストール
-            - **Windows (x64)**: `schedule-viewer_*_x64-setup.exe` を実行
+            - **Windows (x64)**: `schedule-viewer_*_x64-setup.exe` を実行。同じ Release の `schedule-viewer-codesign.cer` を入れた PC では発行元が `schedule-viewer` と表示される
 
-            インストーラはコード署名していません。Windows では SmartScreen の確認が出ることがあります。
+            Windows のインストーラは自己署名である。公開用証明書を入れていない PC では SmartScreen の確認が出る。入れ方は [開発ガイド](https://github.com/${{ github.repository }}/blob/main/docs/development.md#release-後に証明書を入れる) を参照してください。
 
             ローカルでのビルド手順は [開発ガイド](https://github.com/${{ github.repository }}/blob/main/docs/development.md#配布用ビルド) を参照してください。
           releaseDraft: false
           prerelease: false
-          args: --bundles ${{ matrix.bundles }}
+          args: ${{ matrix.platform == 'windows-latest' && env.TAURI_CLI_ARGS || format('--bundles {0}', matrix.bundles) }}
+
+      - name: Upload code signing certificate to Release
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          gh release upload "v${version}" schedule-viewer-codesign.cer --clobber
 
   checksums:
     needs: release

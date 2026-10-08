@@ -32,7 +32,7 @@
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら Clippy と `cargo test --locked`。最後に集約ジョブ `ci` が成功する |
-| `.github/workflows/release.yml` | `main` への push | 環境 `release` の承認のあと、Ubuntu の deb と Windows の NSIS を GitHub Release へ出し、`SHA256SUMS` を付ける |
+| `.github/workflows/release.yml` | `main` への push | 環境 `release` の承認のあと、Ubuntu の deb と、秘密鍵を secret から取り込んで署名した Windows の NSIS と `schedule-viewer-codesign.cer` を GitHub Release へ出し、`SHA256SUMS` を付ける |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更ではフロントと Rust はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
@@ -691,5 +691,5 @@
 8. TC-SYNC-01 で、別のエディタで保存した内容が画面に反映されることを見る
 9. TC-SYNC-03 で未保存の復元を、TC-SYNC-03d で保存済みの開き直しを見る。TC-WIN-01 で別ウィンドウ、TC-WIN-02 で他ウィンドウの知らせ、TC-WIN-03 で設定の共有を見る
 10. TC-VIEW-05 と TC-VIEW-07 で赤とイナズマ線を見る
-11. Ubuntu では deb のインストールと起動、Windows では NSIS と SmartScreen の表示を見る
-12. `SHA256SUMS` と配布物のハッシュが一致することを見る
+11. Ubuntu では deb のインストールと起動を見る。Windows では Release の NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
+12. `SHA256SUMS` に deb、NSIS、`.cer` が含まれ、各ファイルのハッシュが一致することを見る

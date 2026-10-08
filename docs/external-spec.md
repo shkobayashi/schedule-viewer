@@ -37,7 +37,7 @@
 
 ## 動作環境
 
-配布物は Ubuntu 22.04 以降の deb と、Windows の NSIS インストーラである。macOS は、使う Mac の上でビルドしたアプリを使う。ビルドの手順は [開発ガイド](development.md#配布用ビルド) にある。
+配布物は Ubuntu 22.04 以降の deb と、Windows の NSIS インストーラである。GitHub Release の NSIS は自己署名で、公開用証明書（`.cer`）が同じ Release に付く。macOS は、使う Mac の上でビルドしたアプリを使う。ビルドの手順は [開発ガイド](development.md#配布用ビルド) にある。
 
 Tauri で作ったデスクトップアプリをデスクトップ版、`npm run dev` でブラウザに開いたものをブラウザ版と呼ぶ。違いは次のとおりである。
 

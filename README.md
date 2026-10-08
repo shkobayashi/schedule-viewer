@@ -44,7 +44,7 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から取得する。Release には配布物の SHA-256（`SHA256SUMS`）が付く。
 
 - **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`
-- **Windows (x64)**: `schedule-viewer_X.Y.Z_x64-setup.exe` を実行する。署名がないため、SmartScreen の確認が出ることがある
+- **Windows (x64)**: `schedule-viewer_X.Y.Z_x64-setup.exe` を実行する。インストーラは自己署名である。同じ Release の `schedule-viewer-codesign.cer` を入れた PC では発行元が `schedule-viewer` と表示される。入れていない PC では SmartScreen の確認が出ることがある（[開発ガイド](docs/development.md#release-後に証明書を入れる)）
 
 macOS 用の自動ビルドはまだない。必要なときは、[開発ガイドの配布用ビルド](docs/development.md#配布用ビルド) の手順で、使う Mac の上でビルドする。
 
