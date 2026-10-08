@@ -141,9 +141,16 @@ pub fn recovery_close_persist(
     RecoveryPersist::Skip
 }
 
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .as_slice()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 pub fn path_recovery_key(path: &str) -> String {
-    let digest = Sha256::digest(path.as_bytes());
-    format!("{:x}", digest)
+    sha256_hex(path.as_bytes())
 }
 
 pub fn open_windows_path(app_data: &Path) -> PathBuf {
@@ -522,7 +529,7 @@ mod tests {
     fn path_recovery_key_is_stable() {
         assert_eq!(
             path_recovery_key("/tmp/a.json"),
-            path_recovery_key("/tmp/a.json"),
+            "f946e9b42fa5a53b72835c49cf5dd290b7530f72057a876b2509de5870d62493",
         );
         assert_ne!(
             path_recovery_key("/tmp/a.json"),
