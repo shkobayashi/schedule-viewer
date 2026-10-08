@@ -31,10 +31,10 @@
 
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `develop` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、スキル同梱物の差分。Rust なら Clippy と `cargo test --locked` |
-| `.github/workflows/release.yml` | `main` への push | Ubuntu の deb と Windows の NSIS を GitHub Release へ出し、`SHA256SUMS` を付ける |
+| `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら Clippy と `cargo test --locked`。最後に集約ジョブ `ci` が成功する |
+| `.github/workflows/release.yml` | `main` への push | 環境 `release` の承認のあと、Ubuntu の deb と Windows の NSIS を GitHub Release へ出し、`SHA256SUMS` を付ける |
 
-`develop` への push だけでは CI は動かない。`docs/*.md` だけの変更では、CI のどちらも動かない。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
+`develop` への push だけでは CI は動かない。`docs/*.md` だけの変更ではフロントと Rust はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
 ## 自動テスト一覧
 
