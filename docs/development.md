@@ -431,7 +431,7 @@ GitHub Release の deb と NSIS に、Tauri アップデータ用の署名を付
 mkdir -p "$HOME/schedule-viewer-updater"
 ```
 
-2. リポジトリ直下で鍵を発行する。パスワードを聞かれたら、secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` に入れる値を入れる。
+2. リポジトリ直下で鍵を発行する。パスワードを聞かれたら、空のまま Enter を押す。この鍵にパスワードは付けない。
 
 ```bash
 cd /path/to/schedule-viewer
@@ -440,32 +440,26 @@ npm run tauri signer generate -- -w "$HOME/schedule-viewer-updater/schedule-view
 
 `schedule-viewer-updater.key` ができ、公開鍵の文字列が表示されれば、このステップは完了である。表示された公開鍵だけを `plugins.updater.pubkey` に書く。秘密鍵の中身は、設定ファイル、コミット、Issue には残さない。
 
-3. `gh` が `shkobayashi/schedule-viewer` を指していることを確認する。秘密鍵ファイルの中身全体を secret `TAURI_SIGNING_PRIVATE_KEY` に入れる。
+3. `gh` が `shkobayashi/schedule-viewer` を指していることを確認する。秘密鍵ファイルの中身全体を secret `TAURI_SIGNING_PRIVATE_KEY` に入れる。`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` は置かない。空の値を渡すと、署名の段階でパスワードが無いとして失敗する。
 
 ```bash
 gh repo view --json nameWithOwner --jq .nameWithOwner
 gh secret set TAURI_SIGNING_PRIVATE_KEY < "$HOME/schedule-viewer-updater/schedule-viewer-updater.key"
 ```
 
-4. 手順 2 と同じパスワードを secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` に入れる。引数には書かず、プロンプトへ入力する。
-
-```bash
-gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-```
-
-5. 登録を確認する。値は表示されない。一覧に `TAURI_SIGNING_PRIVATE_KEY` と `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` があれば、このステップは完了である。
+4. 登録を確認する。値は表示されない。一覧に `TAURI_SIGNING_PRIVATE_KEY` があれば、このステップは完了である。
 
 ```bash
 gh secret list
 ```
 
-6. 作業ディレクトリの秘密鍵を消す。
+5. 作業ディレクトリの秘密鍵を消す。
 
 ```bash
 rm -f "$HOME/schedule-viewer-updater/schedule-viewer-updater.key" "$HOME/schedule-viewer-updater/schedule-viewer-updater.key.pub"
 ```
 
-Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` と `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。各 OS ジョブは `latest-linux-x86_64.json` または `latest-windows-x86_64.json` を Release に載せ、`checksums` ジョブが `latest.json` にまとめる。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
+Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。パスワード用の環境変数は渡さない。各 OS ジョブは `latest-linux-x86_64.json` または `latest-windows-x86_64.json` を Release に載せ、`checksums` ジョブが `latest.json` にまとめる。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
 
 `main` へ載せる時点でこの secret が無いと、Release ジョブは失敗する。
 
