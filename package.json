@@ -39,7 +39,7 @@
     "@tauri-apps/api": "2.12.1",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
-    "konva": "^9.3.22",
+    "konva": "^10.7.0",
     "lucide-react": "^1.52.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
