@@ -1454,6 +1454,45 @@ button:focus-visible,
   flex-direction: column;
 }
 
+.modal.guide-modal {
+  width: min(calc(560px * var(--s)), calc(100vw - calc(48px * var(--s))));
+  max-height: calc(100vh - calc(48px * var(--s)));
+  display: flex;
+  flex-direction: column;
+}
+
+.guide-body {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  font-size: calc(13px * var(--s));
+  color: var(--text);
+}
+
+.guide-body:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.guide-body section {
+  margin-bottom: calc(12px * var(--s));
+}
+
+.guide-body h3 {
+  margin: 0 0 calc(6px * var(--s));
+  font-size: calc(12px * var(--s));
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.guide-body ul {
+  margin: 0;
+  padding-left: calc(18px * var(--s));
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
 .release-notes-body {
   overflow: auto;
   flex: 1;

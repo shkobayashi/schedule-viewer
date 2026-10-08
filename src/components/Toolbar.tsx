@@ -52,6 +52,7 @@ type ToolbarProps = {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  onOpenGuide: () => void;
   onOpenShortcuts: () => void;
   onShowJson: () => void;
   onShowDiff: () => void;
@@ -96,6 +97,7 @@ export function Toolbar({
   onRedo,
   canUndo,
   canRedo,
+  onOpenGuide,
   onOpenShortcuts,
   onShowJson,
   onShowDiff,
@@ -189,6 +191,7 @@ export function Toolbar({
         onShowJson={onShowJson}
         onShowDiff={onShowDiff}
         onOpenSettings={onOpenSettings}
+        onOpenGuide={onOpenGuide}
         onOpenShortcuts={onOpenShortcuts}
       />
       <h1 className="toolbar-title">
@@ -263,6 +266,13 @@ export function Toolbar({
         </div>
         <button type="button" className="toolbar-btn" onClick={onFit}>
           全体
+        </button>
+        <button
+          type="button"
+          className="toolbar-btn"
+          onClick={onOpenGuide}
+        >
+          案内
         </button>
         <button
           type="button"
