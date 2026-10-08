@@ -234,13 +234,32 @@ Dependabot は [`.github/dependabot.yml`](../.github/dependabot.yml) で npm、c
 
 Release ワークフローは GitHub 環境 `release` を使う。環境は **Settings → Environments → release** で作る。Required reviewers は、プランによっては非公開リポジトリでは使えない。使えないときは承認なしで Release が走る。使えるときは管理者を Required reviewers に入れ、Actions が自分で承認できない設定にする。
 
+### コミットのメールアドレス
+
+GitHub の **Settings → Emails** で、コミット用の noreply アドレス（`49135353+shkobayashi@users.noreply.github.com`）を有効にする。
+
+このリポジトリだけ noreply を使う例:
+
+```bash
+git config --local user.email '49135353+shkobayashi@users.noreply.github.com'
+git config --local user.name 'shkobayashi'
+```
+
+履歴に残したくないメールを直すときは、mirror のバックアップを取ったあと `git filter-repo` を使う。mailmap の形式は **正本（左）→ 履歴に残っているアドレス（右）** である。
+
+```
+shkobayashi <49135353+shkobayashi@users.noreply.github.com> shkobayashi <shkobayashi@abeam.com>
+```
+
+書き換え後は `main`、`develop`、必要なブランチとタグ `v*` を force push する。`git push --mirror` は使わない。手元のクローンは `git fetch origin --prune` のあと `git reset --hard origin/develop` などで揃える。
+
+force push のあとも、マージ済み pull request や GitHub のキャッシュから古いコミットが辿れることがある。公開前に [Remove cached views and references to sensitive data](https://support.github.com/contact?tags=rr-remove-sensitive-data) から削除を依頼する。
+
 ### リポジトリを public にする
 
 ```bash
 gh repo edit shkobayashi/schedule-viewer --visibility public
 ```
-
-公開前に、GitHub の commit email を noreply にしておく（**Settings → Emails**）。コミット履歴に残したくないメールアドレスがある場合は、公開前に履歴の書き換え（`git filter-repo` など）を別途行う。
 
 公開後は、Dependabot alerts、secret scanning、Code scanning（既定セットアップ）、非公開の脆弱性報告を有効にする。フォークからの pull request でワークフローを走らせるときは、初回は承認が要る設定にする。
 
