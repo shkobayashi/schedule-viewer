@@ -173,7 +173,7 @@
 | `calendar.json` | 取り込んだカレンダー JSON の本文 | 2MB |
 | `schedule-recovery/<ハッシュ>.json` | 未保存の控え。パスごとに1ファイル。`path`、`baselineJson`、`documentJson` | 10MB |
 | `open-windows.json` | 開いていたウィンドウの順、`focusedLabel`、各ウィンドウの `label` と `path` またはサンプル | — |
-| `pending-release-notes.json` | 自動更新で入れ直したあと、次の起動で変更内容を出す版。`version` のみ | — |
+| `pending-release-notes.json` | 自動更新の入れ直しの前に書き、次の起動で変更内容を出す版。`version` のみ。入れ直しが処理を戻して失敗したときは消す | — |
 
 控えの `path` は開いているスケジュールの絶対パスである。`baselineJson` は最後に開いた・保存した・読み直したときの内容、`documentJson` は画面の内容で、この2つはどちらも上の保存形式の文字列である。サンプル（パスが無い）では控えを作らない。同じパスを複数のウィンドウで開いているとき、控えを書くのはそのパスを開いているウィンドウのうち前面のものだけである。`open-windows.json` は、ほかのウィンドウが残っているときに1枚閉じると、そのウィンドウだけ外す。最後の1枚を閉じるときと、アプリの終了時は、開いていた記録を残す。古い `last-schedule.json` と `schedule-recovery.json` は、初回起動時に上の形へ移してから消す。読めなかった古い控えは消さず、次回の起動で移し直す。ブラウザ版は控えもウィンドウ一覧も作らない。
 
