@@ -19,6 +19,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# --- コード署名（リポジトリへ置かない） ---
+*.pfx
+*.pem
+
 # --- 環境変数 ---
 .env
 .env.*

@@ -274,7 +274,154 @@ gh repo edit shkobayashi/schedule-viewer --visibility public
 
 macOS 用の自動ビルドはまだない。必要なときは下の「配布用ビルド」でローカルビルドする。
 
+### Windows のコード署名
+
+GitHub Release の Windows インストーラ（NSIS）へ、自己署名とタイムスタンプを付ける。秘密鍵はリポジトリに置かず、GitHub の secret に置く。公開用の証明書（`.cer`）は各 Release に添付する。知り合いの PC で発行元を示すための手順である。有料のコード署名証明書は使わない。
+
+初回だけ、次の手順を上から順に実行する。証明書を作るのは、使っている OS の見出しだけを選び、もう一方は飛ばす。
+
+1. 作業用のディレクトリを、リポジトリの外に作る。`.pfx` と秘密鍵はここにだけ置く。
+
+```bash
+mkdir -p "$HOME/schedule-viewer-codesign"
+cd "$HOME/schedule-viewer-codesign"
+```
+
+Windows の PowerShell では、次のようにする。
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$HOME\schedule-viewer-codesign" | Out-Null
+Set-Location "$HOME\schedule-viewer-codesign"
+```
+
+#### Windows で証明書を作る
+
+管理者の PowerShell で、作業ディレクトリにいることを確認してから、次を順に実行する。
+
+2. コード署名用の自己署名証明書を作る。表示名は `schedule-viewer`、有効期限は 5 年である。
+
+```powershell
+$cert = New-SelfSignedCertificate `
+  -Subject "CN=schedule-viewer" `
+  -KeyAlgorithm RSA `
+  -KeyLength 3072 `
+  -HashAlgorithm SHA256 `
+  -NotAfter (Get-Date).AddYears(5) `
+  -CertStoreLocation "Cert:\CurrentUser\My" `
+  -Type CodeSigningCert
+$cert.Thumbprint
+```
+
+`Thumbprint` が 40 文字の英数字で表示されれば、このステップは完了である。メモしておく（あとでストアから証明書を消すときに使う）。
+
+3. エクスポート用のパスワードを決める。GitHub secret `WINDOWS_CERTIFICATE_PASSWORD` に入れる値である。画面には出さない。
+
+```powershell
+$exportPassword = Read-Host "Export password (for WINDOWS_CERTIFICATE_PASSWORD)" -AsSecureString
+```
+
+4. 秘密鍵付きの `.pfx` を書き出す。
+
+```powershell
+Export-PfxCertificate `
+  -Cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" `
+  -FilePath "$HOME\schedule-viewer-codesign\schedule-viewer-codesign.pfx" `
+  -Password $exportPassword
+```
+
+`schedule-viewer-codesign.pfx` ができていれば、このステップは完了である。
+
+5. CI が復元する形式のテキストにする。
+
+```powershell
+certutil -encode "$HOME\schedule-viewer-codesign\schedule-viewer-codesign.pfx" "$HOME\schedule-viewer-codesign\schedule-viewer-codesign.pfx.txt"
+```
+
+`schedule-viewer-codesign.pfx.txt` の先頭が `-----BEGIN`、末尾が `-----END` で終わっていれば、このステップは完了である。
+
+#### macOS で証明書を作る
+
+ターミナルで、作業ディレクトリにいることを確認してから、次を順に実行する。
+
+2. 秘密鍵と証明書を作る。表示名は `schedule-viewer`、有効期限は 5 年である。
+
+```bash
+openssl req -x509 -newkey rsa:3072 -sha256 -days 1825 -nodes \
+  -keyout schedule-viewer-codesign.key.pem \
+  -out schedule-viewer-codesign.cert.pem \
+  -subj "/CN=schedule-viewer" \
+  -addext "keyUsage=digitalSignature" \
+  -addext "extendedKeyUsage=codeSigning"
+```
+
+`schedule-viewer-codesign.key.pem` と `schedule-viewer-codesign.cert.pem` ができていれば、このステップは完了である。
+
+3. エクスポート用のパスワードを決める。GitHub secret `WINDOWS_CERTIFICATE_PASSWORD` に入れる値である。
+
+4. 秘密鍵付きの `.pfx` を書き出す。パスワードの入力を求められたら、手順 3 の値を入れる。
+
+```bash
+openssl pkcs12 -export \
+  -inkey schedule-viewer-codesign.key.pem \
+  -in schedule-viewer-codesign.cert.pem \
+  -out schedule-viewer-codesign.pfx
+```
+
+`schedule-viewer-codesign.pfx` ができていれば、このステップは完了である。
+
+5. CI の `certutil -decode` で `.pfx` に戻せるテキストにする。`BEGIN CERTIFICATE` から `END CERTIFICATE` までを含める。
+
+```bash
+{
+  echo "-----BEGIN CERTIFICATE-----"
+  openssl base64 -in schedule-viewer-codesign.pfx | fold -w 64
+  echo "-----END CERTIFICATE-----"
+} > schedule-viewer-codesign.pfx.txt
+```
+
+`schedule-viewer-codesign.pfx.txt` の先頭が `-----BEGIN CERTIFICATE-----`、末尾が `-----END CERTIFICATE-----` であれば、このステップは完了である。
+
+#### secret を登録する
+
+6. リポジトリのルートで、GitHub CLI が `shkobayashi/schedule-viewer` を指していることを確認する。`schedule-viewer-codesign.pfx.txt` の**中身全体**を secret `WINDOWS_CERTIFICATE` に入れる。
+
+```bash
+cd /path/to/schedule-viewer
+gh secret set WINDOWS_CERTIFICATE < "$HOME/schedule-viewer-codesign/schedule-viewer-codesign.pfx.txt"
+```
+
+7. 手順 3 で決めたパスワードを secret `WINDOWS_CERTIFICATE_PASSWORD` に入れる。引数にパスワードを書かず、プロンプトへ入力する。
+
+```bash
+gh secret set WINDOWS_CERTIFICATE_PASSWORD
+```
+
+8. 登録を確認する。値は表示されない。次の一覧に `WINDOWS_CERTIFICATE` と `WINDOWS_CERTIFICATE_PASSWORD` があれば、このステップは完了である。
+
+```bash
+gh secret list
+```
+
+Release ワークフローは、ビルド前に `.pfx` を復元し、証明書ストアへ取り込んだあと、Tauri が NSIS へ署名する。拇印は `src-tauri/tauri.conf.json` には書かず、CI だけが渡す。タイムスタンプは `http://timestamp.digicert.com`（RFC 3161）を使う。証明書の期限のあとでも、署名は有効なままである。
+
+9. 作業ディレクトリの `.pfx`、`.pfx.txt`、秘密鍵（`.pem`）を消す。
+
+```bash
+rm -f "$HOME/schedule-viewer-codesign/"*.pfx "$HOME/schedule-viewer-codesign/"*.pfx.txt "$HOME/schedule-viewer-codesign/"*.pem
+```
+
+Windows で個人ストアへ証明書を入れた場合は、手順 2 の拇印を指定して消す。
+
+```powershell
+Remove-Item "Cert:\CurrentUser\My\<Thumbprint>"
+Remove-Item -Force "$HOME\schedule-viewer-codesign\schedule-viewer-codesign.pfx", "$HOME\schedule-viewer-codesign\schedule-viewer-codesign.pfx.txt" -ErrorAction SilentlyContinue
+```
+
+次は、下の「`main` に載せる前のバージョン上げ」である。`main` へ載せる時点で secret が無いと、Windows の Release ジョブは署名に失敗する。
+
 ### `main` に載せる前のバージョン上げ
+
+Windows の NSIS を署名する変更を `main` に載せるときは、先に「Windows のコード署名」の secret 登録が終わっていること。
 
 `develop` を `main` にマージする直前に、リポジトリ直下でバージョンを1回だけ上げる。
 
@@ -285,6 +432,24 @@ macOS 用の自動ビルドはまだない。必要なときは下の「配布�
 `npm run version:check` で `package.json` / `package-lock.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` / `src-tauri/Cargo.lock` の番号が揃っていることを確認してから、そのコミットを `develop` に入れて `main` にマージする。`main` へ push されると `vX.Y.Z` タグ付きの Release が作られる。同じバージョンのタグが既にある場合は、先にバージョンを上げてから再度マージする。
 
 変更の要約は、そのバージョン上げのコミットで [CHANGELOG.md](../CHANGELOG.md) に書く。
+
+### Release 後に証明書を入れる
+
+`main` への push で Release ができたあと、知り合いの Windows PC で次を上から順に実行する。証明書を入れた PC だけで、インストーラの発行元が `schedule-viewer` と表示される。入れていない PC では、これまでどおり SmartScreen の確認が出る。
+
+1. [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から、対象の版を開き、`schedule-viewer-codesign.cer` をダウンロードする。
+
+2. 管理者の PowerShell で、ダウンロードした `.cer` を「信頼されたルート証明機関」と「信頼された発行元」の両方へ入れる。
+
+```powershell
+$cer = "C:\path\to\schedule-viewer-codesign.cer"
+Import-Certificate -FilePath $cer -CertStoreLocation Cert:\LocalMachine\Root
+Import-Certificate -FilePath $cer -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
+```
+
+エラーが出ず、両方のストアに `schedule-viewer` が見えれば、このステップは完了である。ルートへの取り込みが拒否されたときは、「Windows のコード署名」の証明書を作り直し、secret を差し替えてから Release を出す。
+
+3. 同じ Release の `schedule-viewer_*_x64-setup.exe` を実行し、プロパティまたは実行時の表示で発行元が `schedule-viewer` になることを確認する。
 
 ## アプリアイコン
 
@@ -368,7 +533,9 @@ ARM の Windows では `x64` の部分が `arm64` になる。インストーラ
 .\src-tauri\target\release\schedule-viewer.exe
 ```
 
-別の PC でインストーラを開くと、署名がないため SmartScreen の確認が出ることがある。MSI の作成で `failed to run light.exe` と出たときは、Windows のオプション機能で VBSCRIPT を有効にする。
+手元の `npm run tauri build` ではインストーラへ署名しない。署名するのは GitHub Release の NSIS である。公開用証明書の入れ方は、上の「Release 後に証明書を入れる」にある。
+
+MSI の作成で `failed to run light.exe` と出たときは、Windows のオプション機能で VBSCRIPT を有効にする。
 
 ## スキーマを変えるとき
 

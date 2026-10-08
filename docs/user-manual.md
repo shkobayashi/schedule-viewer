@@ -290,7 +290,7 @@ Ctrlまたは⌘を押しながらホイールを回すと、マウスの位置�
 
 ### WindowsでSmartScreenが出る
 
-インストーラは署名していません。入手元がGitHub Releasesであることを確認してから進めてください。
+GitHub Releases の Windows インストーラは自己署名です。同じ Release の `schedule-viewer-codesign.cer` を、管理者権限で「信頼されたルート証明機関」と「信頼された発行元」へ一度入れた PC では、発行元が `schedule-viewer` と表示されます。証明書を入れていない PC では SmartScreen の確認が出ます。入手元が GitHub Releases であることを確認してから進めてください。入れ方は [開発ガイドの「Release 後に証明書を入れる」](development.md#release-後に証明書を入れる) にあります。
 
 ### 書き出せない
 
