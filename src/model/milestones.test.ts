@@ -404,6 +404,23 @@ describe("ensureMilestoneGroupForAdd", () => {
 describe("layoutMilestoneBand", () => {
   const other = GRP_B;
 
+  it("truncates a lone screen label at the 24 full-width character cap", () => {
+    const longName = "あ".repeat(30);
+    const layout = layoutMilestoneBand(
+      [{ id: GRP, name: "G" }],
+      [milestone({ id: MS_A, name: longName, date: "2026-04-01" })],
+      new Set([GRP]),
+      40,
+      11,
+      11,
+      26,
+      "screen",
+    );
+    const label = layout.displayLabels.get(MS_A);
+    expect(label).toMatch(/…$/);
+    expect(label!.length).toBeLessThan(longName.length);
+  });
+
   it("cuts a screen label before the next diamond on the same lane", () => {
     const layout = layoutMilestoneBand(
       [{ id: GRP, name: "G" }],

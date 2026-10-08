@@ -1,4 +1,5 @@
 import { daysBetween, isIsoDateString, parseDate } from "./dates";
+import { monthHeaderLabelWidth } from "./monthHeader";
 import { forEachTask, mapTasks } from "./tasks";
 import type {
   Category,
@@ -13,6 +14,17 @@ export const DEFAULT_MILESTONE_GROUP_NAME = "マイルストン";
 
 /** ひし形の右端から名前の左端までの空き。画面と書き出しの文字もこの値。 */
 export const MILESTONE_LABEL_GAP = 5;
+
+/** 画面のマイルストン名の幅上限（全角文字数）。 */
+export const MILESTONE_SCREEN_LABEL_MAX_FULLWIDTH_CHARS = 24;
+
+/** 画面用の名前幅上限。月ラベルと同じ太字見積もり。 */
+export function milestoneScreenLabelMaxWidthPx(fontSize: number): number {
+  return monthHeaderLabelWidth(
+    "あ".repeat(MILESTONE_SCREEN_LABEL_MAX_FULLWIDTH_CHARS),
+    fontSize,
+  );
+}
 
 export function validateNewMilestone(input: {
   name: string;
@@ -230,12 +242,12 @@ function displayLabelsForScreen(
       const milestone = sorted[i]!;
       const x = dateToDayX(dayIndex(milestone.date));
       const next = sorted[i + 1];
-      let maxWidth = Number.POSITIVE_INFINITY;
+      let maxWidth = milestoneScreenLabelMaxWidthPx(fontSize);
       if (next) {
         const nextX = dateToDayX(dayIndex(next.date));
-        maxWidth = Math.max(
-          0,
-          nextX - x - diamondSize - MILESTONE_LABEL_GAP,
+        maxWidth = Math.min(
+          maxWidth,
+          Math.max(0, nextX - x - diamondSize - MILESTONE_LABEL_GAP),
         );
       }
       labels.set(

@@ -1,4 +1,4 @@
-import { addDays, daysBetween, parseDate, todayIso } from "./dates";
+import { addDays, clamp, daysBetween, parseDate, todayIso } from "./dates";
 import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "./palette";
 import { forEachTask } from "./tasks";
 import type { Category, Milestone } from "./types";
@@ -82,6 +82,26 @@ export function computeTimelineRange(
   const timelineEnd = addDays(maxDate, 7);
   const totalDays = daysBetween(timelineStart, timelineEnd);
   return { timelineStart, timelineEnd, totalDays };
+}
+
+/** 右余白を含む日数で、ビューポート幅に収まる 1 日あたりの幅を求める。 */
+export function fitPxPerDayToViewport(
+  viewportWidth: number,
+  prefixDays: number,
+  baseTotalDays: number,
+  extraDaysForPx: (px: number) => number,
+): number {
+  const span = prefixDays + baseTotalDays;
+  if (viewportWidth <= 0 || span <= 0) return DEFAULT_PX_PER_DAY;
+  let px = clamp(viewportWidth / span, MIN_PX_PER_DAY, MAX_PX_PER_DAY);
+  for (let i = 0; i < 12; i += 1) {
+    const extra = extraDaysForPx(px);
+    const total = prefixDays + baseTotalDays + extra;
+    const next = clamp(viewportWidth / total, MIN_PX_PER_DAY, MAX_PX_PER_DAY);
+    if (Math.abs(next - px) < 0.001) return next;
+    px = next;
+  }
+  return px;
 }
 
 /**

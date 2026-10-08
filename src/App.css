@@ -1244,6 +1244,7 @@ button:focus-visible,
 }
 
 .timeline {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1277,6 +1278,19 @@ button:focus-visible,
   overflow: hidden;
   background: var(--milestone-band);
   border-bottom: 1px solid var(--border);
+}
+
+.milestone-hover-overlay {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  font-weight: 700;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.milestone-hover-overlay-line {
+  white-space: nowrap;
 }
 
 .timeline-body {
