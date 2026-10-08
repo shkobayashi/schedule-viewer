@@ -164,7 +164,22 @@ body {
 }
 
 .menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 0;
   font-size: calc(14px * var(--s));
+}
+
+.menu-btn-icon {
+  display: block;
+  width: calc(14px * var(--s));
+  height: calc(2px * var(--s));
+  background: currentColor;
+  box-shadow:
+    0 calc(-6px * var(--s)) 0 0 currentColor,
+    0 calc(6px * var(--s)) 0 0 currentColor;
 }
 
 .app-menu-panel {
