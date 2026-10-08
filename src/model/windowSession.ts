@@ -90,6 +90,34 @@ export async function cancelApplicationQuitViaTauri(): Promise<void> {
   await invoke("cancel_application_quit");
 }
 
+export type StartupSettledResult = {
+  allSettled: boolean;
+};
+
+export async function reportStartupSettledViaTauri(
+  autoUpdateAtStartup: boolean,
+): Promise<StartupSettledResult> {
+  return invoke<StartupSettledResult>("report_startup_settled", {
+    autoUpdateAtStartup,
+  });
+}
+
+export async function requestApplicationUpdateViaTauri(): Promise<void> {
+  await invoke("request_application_update");
+}
+
+export async function acceptApplicationUpdateViaTauri(): Promise<void> {
+  await invoke("accept_application_update");
+}
+
+export async function completeApplicationUpdateRecoveryViaTauri(): Promise<void> {
+  await invoke("complete_application_update_recovery");
+}
+
+export async function cancelApplicationUpdateViaTauri(): Promise<void> {
+  await invoke("cancel_application_update");
+}
+
 export async function recoveryLiveActionViaTauri(
   dirty: boolean,
 ): Promise<RecoveryPersistAction> {
