@@ -1,4 +1,5 @@
 mod json_skills;
+mod pending_release_notes;
 mod window_session;
 
 use json_skills::{
@@ -1437,6 +1438,33 @@ struct StartupSettledResult {
 }
 
 #[tauri::command]
+fn write_pending_release_notes(
+    app: tauri::AppHandle,
+    version: String,
+) -> Result<(), String> {
+    pending_release_notes::write_pending_release_notes(&app_data_dir(&app)?, &version)
+}
+
+#[tauri::command]
+fn peek_pending_release_notes(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+) -> Result<Option<String>, String> {
+    let app_version = app.package_info().version.to_string();
+    let window_is_focused = window.is_focused().unwrap_or(false);
+    Ok(pending_release_notes::pending_release_notes_for_focused_window(
+        &app_data_dir(&app)?,
+        window_is_focused,
+        &app_version,
+    ))
+}
+
+#[tauri::command]
+fn clear_pending_release_notes(app: tauri::AppHandle) -> Result<(), String> {
+    pending_release_notes::clear_pending_release_notes(&app_data_dir(&app)?)
+}
+
+#[tauri::command]
 fn report_startup_settled(
     app: tauri::AppHandle,
     window: tauri::Window,
@@ -1548,6 +1576,7 @@ fn cancel_application_update(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Mutex::new(ScheduleFileStates::default()))
@@ -1635,6 +1664,9 @@ pub fn run() {
             accept_application_update,
             complete_application_update_recovery,
             cancel_application_update,
+            write_pending_release_notes,
+            peek_pending_release_notes,
+            clear_pending_release_notes,
             json_skill_home_dirs,
             pick_json_skill_folder,
             install_json_skills,

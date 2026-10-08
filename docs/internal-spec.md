@@ -162,7 +162,7 @@ flowchart TD
 
 ### 別ウィンドウ
 
-デスクトップ版の自動更新は `tauri-plugin-updater` と `tauri-plugin-process` が担う。エンドポイントと公開鍵は [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) の `plugins.updater` に置く。起動時にオンだったかは `readAutoUpdateEnabled`（`src/model/autoUpdate.ts`）が起動直後に一度だけ読む。`useAppAutoUpdate` が、起動復旧の完了後に `report_startup_settled` で各ウィンドウの起動時のオンオフを渡し、開いているウィンドウがすべて揃ったときだけ一度だけ `application-run-update-check` を送る。ウィンドウが閉じて揃いが変わったときも同じ判断をもう一度行う。受け取ったウィンドウだけが `check` で新しい版を調べる。`latest.json` に今の OS が無いときは失敗の知らせを出さない。更新があるときは `request_application_update` が全ウィンドウへ `application-update-requested` を送る。サンプルの未保存は破棄確認を出し、確定かキャンセルを待ってから `accept_application_update` する。すべて揃ったあと、終了と同じくパスごとの控えの書き手を固定し、全ウィンドウへ `application-update-write-recovery` を送って控えを書く。書き終えたあと、確認を取ったウィンドウだけが `application-update-proceed` を受け取り、`downloadAndInstall` のあと `relaunch` する。再起動で閉じるときは破棄確認を出さない。失敗は `AppToast` に短く出す。Release 用の署名付き `latest.json` は CI が作る。
+デスクトップ版の自動更新は `tauri-plugin-updater` と `tauri-plugin-process` が担う。エンドポイントと公開鍵は [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) の `plugins.updater` に置く。起動時にオンだったかは `readAutoUpdateEnabled`（`src/model/autoUpdate.ts`）が起動直後に一度だけ読む。`usePendingReleaseNotes` が、起動復旧のあと `peek_pending_release_notes` で版の印を見る。前面かどうかは `open-windows.json` の `focusedLabel` ではなく、呼び出し元ウィンドウの OS のフォーカスで決める。印があり、版が今の版と一致し、同梱の CHANGELOG からその版の節が読めるときは `ReleaseNotesDialog` を出す。版が違うときは出さず、印は残す。節が読めないときは出さず、印を消してから起動時の更新確認へ進む。閉じるまで `report_startup_settled` は送らない。閉じたあと `clear_pending_release_notes` で印を消し、起動時の更新確認へ進む。`useAppAutoUpdate` が、起動復旧の完了と印の処理のあと `report_startup_settled` で各ウィンドウの起動時のオンオフを渡し、開いているウィンドウがすべて揃ったときだけ一度だけ `application-run-update-check` を送る。ウィンドウが閉じて揃いが変わったときも同じ判断をもう一度行う。受け取ったウィンドウだけが `check` で新しい版を調べる。`latest.json` に今の OS が無いときは失敗の知らせを出さない。更新があるときは `request_application_update` が全ウィンドウへ `application-update-requested` を送る。サンプルの未保存は破棄確認を出し、確定かキャンセルを待ってから `accept_application_update` する。すべて揃ったあと、終了と同じくパスごとの控えの書き手を固定し、全ウィンドウへ `application-update-write-recovery` を送って控えを書く。書き終えたあと、確認を取ったウィンドウだけが `application-update-proceed` を受け取り、`downloadAndInstall` のあと `write_pending_release_notes` で版の印を書き、`relaunch` する。印の書き込みに失敗しても、入れ直しが済んでいれば再起動する。再起動で閉じるときは破棄確認を出さない。失敗は `AppToast` に短く出す。Release 用の署名付き `latest.json` と、CHANGELOG から組み立てた Release 本文は CI が作る。本文の組み立ては [src/model/releaseNotes.ts](../src/model/releaseNotes.ts) と [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) が担う。印の読み書きは `pending_release_notes.rs` が担う。
 
 `create_schedule_window` が追加ウィンドウを作り、検証済みの内容を pending として預ける。ウィンドウを作れなかったときは、一覧と pending を戻す。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出す。
 
@@ -238,6 +238,9 @@ flowchart TD
 | `accept_application_update` | このウィンドウは更新してよい | — | 同上 | 同上 |
 | `complete_application_update_recovery` | 更新前の控えの書き込みが終わった | — | 同上 | 同上 |
 | `cancel_application_update` | 更新を取りやめる | — | 同上 | 同上 |
+| `write_pending_release_notes` | 入れ直し直前の版 | — | 同上 | 同上 |
+| `peek_pending_release_notes` | 呼び出し元ウィンドウが OS で前面かつ版が一致するときだけ版を返す | — | 同上 | 同上 |
+| `clear_pending_release_notes` | 印を消す | — | 同上 | 同上 |
 | `recovery_live_action` | 前面なら書き込みか削除 | — | 同上 | 同上 |
 | `recovery_close_action` | 閉じるときと終了時の控えの扱い | — | 同上 | 同上 |
 | `release_schedule_recovery` | 別ファイルを開いたあとの、元パスの控え | — | 同上 | 同上 |
