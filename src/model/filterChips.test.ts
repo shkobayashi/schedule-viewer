@@ -16,20 +16,27 @@ const base: ScheduleFilters = {
   overdue: "all",
   relation: "all",
   milestone: "all",
-  tag: "",
+  tags: [],
   search: "",
   noteSearch: "",
 };
 
 describe("activeFilterChips tag", () => {
-  it("shows a tag chip when a tag is selected", () => {
+  it("shows a tag chip per selected tag in document order", () => {
     const chips = activeFilterChips(
-      { ...base, tag: "説明" },
+      { ...base, tags: ["共有", "説明"] },
       [],
       null,
       null,
+      [],
+      [],
+      ["説明", "共有", "その他"],
     );
-    expect(chips).toContainEqual({ kind: "tag", label: "タグ: 説明" });
+    expect(chips.map((chip) => chip.label)).toEqual([
+      "タグ: 説明",
+      "タグ: 共有",
+    ]);
+    expect(chips[0]).toMatchObject({ kind: "tag", tagName: "説明" });
   });
 });
 
@@ -49,6 +56,7 @@ describe("activeFilterChips", () => {
 
   it("clears one field with filterChipClearPatch", () => {
     expect(filterChipClearPatch("search")).toEqual({ search: "" });
+    expect(filterChipClearPatch("tag")).toEqual({ tags: [] });
   });
 
   it("lists each hidden milestone group", () => {
@@ -83,6 +91,11 @@ describe("activeFilterCount", () => {
     expect(activeFilterCount({ ...base, search: "a" }, false)).toBe(1);
     expect(activeFilterCount({ ...base, search: "a" }, true)).toBe(2);
     expect(activeFilterCount(base, false, 2)).toBe(1);
+  });
+
+  it("counts tag filter once regardless of how many tags are selected", () => {
+    expect(activeFilterCount({ ...base, tags: ["a"] }, false)).toBe(1);
+    expect(activeFilterCount({ ...base, tags: ["a", "b"] }, false)).toBe(1);
   });
 });
 

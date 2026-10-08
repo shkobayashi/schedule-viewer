@@ -4,6 +4,7 @@ import {
   filterChipClearPatch,
   type FilterChipKind,
 } from "../model/filterChips";
+import { removeSelectedTag } from "../model/taskTags";
 import type {
   Milestone,
   MilestoneGroup,
@@ -22,6 +23,7 @@ type ActiveFilterBarProps = {
   onClearLineage: () => void;
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
   onShowAllMilestoneGroups: () => void;
+  scheduleTags: string[];
 };
 
 export function ActiveFilterBar({
@@ -35,6 +37,7 @@ export function ActiveFilterBar({
   onClearLineage,
   onMilestoneGroupVisible,
   onShowAllMilestoneGroups,
+  scheduleTags,
 }: ActiveFilterBarProps) {
   const chips = activeFilterChips(
     filters,
@@ -43,16 +46,25 @@ export function ActiveFilterBar({
     lineageName,
     milestoneGroups,
     hiddenMilestoneGroupIds,
+    scheduleTags,
   );
   if (chips.length === 0) return null;
 
-  const clearChip = (kind: FilterChipKind, milestoneGroupId?: ScheduleId) => {
+  const clearChip = (
+    kind: FilterChipKind,
+    milestoneGroupId?: ScheduleId,
+    tagName?: string,
+  ) => {
     if (kind === "lineage") {
       onClearLineage();
       return;
     }
     if (kind === "milestoneGroup" && milestoneGroupId != null) {
       onMilestoneGroupVisible(milestoneGroupId, true);
+      return;
+    }
+    if (kind === "tag" && tagName != null) {
+      onFiltersChange({ tags: removeSelectedTag(filters.tags, tagName) });
       return;
     }
     onFiltersChange(filterChipClearPatch(kind));
@@ -69,10 +81,12 @@ export function ActiveFilterBar({
     <div className="filter-bar">
       {chips.map((chip) => (
         <button
-          key={`${chip.kind}-${chip.label}`}
+          key={`${chip.kind}-${chip.tagName ?? chip.milestoneGroupId ?? chip.label}`}
           type="button"
           className="filter-chip"
-          onClick={() => clearChip(chip.kind, chip.milestoneGroupId)}
+          onClick={() =>
+            clearChip(chip.kind, chip.milestoneGroupId, chip.tagName)
+          }
           title="この条件を外す"
         >
           <span>{chip.label}</span>

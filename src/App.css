@@ -474,17 +474,43 @@ input[type="number"] {
   color: var(--text-secondary);
 }
 
+.filter-panel-field-span {
+  grid-column: 1 / -1;
+}
+
 .filter-panel-checks {
   display: flex;
   flex-direction: column;
   gap: calc(4px * var(--s, 1));
+  --filter-panel-check-row: calc(18px * var(--s, 1));
+}
+
+.filter-panel-checks-scroll {
+  max-height: calc(
+    8 *
+      (
+        var(--filter-panel-check-row) + calc(4px * var(--s, 1))
+      )
+  );
+  overflow-y: auto;
+}
+
+.filter-panel-empty-tags {
+  margin: 0;
+  font-size: calc(13px * var(--s, 1));
+  color: var(--text-secondary);
 }
 
 .filter-panel-check {
   display: flex;
   align-items: center;
   gap: calc(6px * var(--s, 1));
+  min-height: var(--filter-panel-check-row);
   font-size: calc(13px * var(--s, 1));
+}
+
+.filter-panel-check input[type="checkbox"] {
+  margin: 0;
 }
 
 .filter-panel-field select {
