@@ -68,6 +68,21 @@ jobs:
 
       - run: npm ci
 
+      - name: Verify updater signing secrets
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY must be set in repository secrets" >&2
+            exit 1
+          fi
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD must be set in repository secrets" >&2
+            exit 1
+          fi
+
       - name: Import Windows code signing certificate
         if: matrix.platform == 'windows-latest'
         shell: pwsh
@@ -97,12 +112,15 @@ jobs:
               }
             }
           } | ConvertTo-Json -Depth 5 | Set-Content -Path $configPath -Encoding utf8NoBOM
-          $tauriArgs = "--bundles nsis --config $configPath"
+          $releaseConfig = Join-Path $PWD 'src-tauri/tauri.release.json'
+          $tauriArgs = "--bundles nsis --config $configPath --config $releaseConfig"
           Add-Content -Path $env:GITHUB_ENV -Value "TAURI_CLI_ARGS=$tauriArgs"
 
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: schedule-viewer v__VERSION__
@@ -117,7 +135,27 @@ jobs:
             ローカルでのビルド手順は [開発ガイド](https://github.com/${{ github.repository }}/blob/main/docs/development.md#配布用ビルド) を参照してください。
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.platform == 'windows-latest' && env.TAURI_CLI_ARGS || format('--bundles {0}', matrix.bundles) }}
+          args: ${{ matrix.platform == 'windows-latest' && env.TAURI_CLI_ARGS || format('--bundles {0} --config src-tauri/tauri.release.json', matrix.bundles) }}
+
+      - name: Upload platform updater manifest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          if [ "${{ matrix.platform }}" = "ubuntu-22.04" ]; then
+            platform=linux-x86_64
+          else
+            platform=windows-x86_64
+          fi
+          node scripts/build-platform-latest-json.mjs \
+            "$platform" \
+            "$version" \
+            "src-tauri/target/release/bundle" \
+            "${{ github.repository }}" \
+            "latest-${platform}.json"
+          gh release upload "$tag" "latest-${platform}.json" --clobber
 
       - name: Upload code signing certificate to Release
         if: matrix.platform == 'windows-latest'
@@ -149,6 +187,11 @@ jobs:
           tag="v${version}"
           mkdir -p dist-release
           gh release download "$tag" --dir dist-release --clobber
+          node scripts/merge-latest-json.mjs \
+            dist-release/latest-linux-x86_64.json \
+            dist-release/latest-windows-x86_64.json \
+            dist-release/latest.json
+          gh release upload "$tag" dist-release/latest.json --clobber
           rm -f dist-release/SHA256SUMS
           (cd dist-release && sha256sum -- * > SHA256SUMS)
           gh release upload "$tag" dist-release/SHA256SUMS --clobber

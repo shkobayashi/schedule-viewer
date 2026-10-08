@@ -104,7 +104,7 @@ flowchart TD
 
 取り消しのスナップショットに入るのは `categories`、`milestoneGroups`、`milestones` だけである。タイトルも、絞り込みなどの表示状態も履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。比較は保存形式の文字列で行い、現在の文書のキーを覚えているので、次の文書だけを文字列化する。文書を変える操作は、確定したときに 1 ステップだけ積む。失敗した変更は積まない。マイルストンを消して絞り込みを「すべて」に戻すことは表示状態で、その戻りは履歴に入らない。編集で別のマイルストングループへ移し、移した先の帯の線がオフだったときにそのグループだけオンに戻すことも表示状態で、履歴に入らない。線を引くモードの起点は表示状態で、選択が起点と違う値になったときモードは終わる。
 
-表示の状態のうち、表示サイズ、配色、左一覧の基準幅だけは localStorage に残る。キーの一覧は [データ仕様](data-format.md#アプリデータ) にある。デスクトップ版では、同じオリジンの `storage` イベントと、メンバー・カレンダー変更時の revision イベントで、他のウィンドウが設定を読み直す。行の密度、イナズマ線、一覧の列も localStorage のままアプリで一つである。画面に反映する解決済みの配色（ライトかダーク）は React の状態で持ち、システム追従のときは `prefers-color-scheme` の変化を監視する。左一覧の幅は、希望の基準幅と、チャートが 200px を下回らないよう縮めた表示幅を分ける。ウィンドウを狭めたときは表示だけ縮め、希望幅は残す。
+表示の状態のうち、表示サイズ、配色、左一覧の基準幅、自動更新のオンオフは localStorage に残る。キーの一覧は [データ仕様](data-format.md#アプリデータ) にある。デスクトップ版では、同じオリジンの `storage` イベントと、メンバー・カレンダー変更時の revision イベントで、他のウィンドウが設定を読み直す。行の密度、イナズマ線、一覧の列も localStorage のままアプリで一つである。画面に反映する解決済みの配色（ライトかダーク）は React の状態で持ち、システム追従のときは `prefers-color-scheme` の変化を監視する。左一覧の幅は、希望の基準幅と、チャートが 200px を下回らないよう縮めた表示幅を分ける。ウィンドウを狭めたときは表示だけ縮め、希望幅は残す。
 
 ## 主な処理の流れ
 
@@ -161,6 +161,8 @@ flowchart TD
 起動時の判断と画面への反映は `useScheduleStartupRecovery`、控えの書き込みと削除は `useScheduleRecoveryDraft` が行う。起動時は `read_window_startup` が、ウィンドウごとのパス、控え、サンプルかを返す。追加ウィンドウは、その前に `take_pending_schedule_window_open` の内容を載せる。古い `last-schedule.json` と `schedule-recovery.json` は `window_session.rs` が初回に移す。読めなかった古い控えは残し、`open-windows.json` はまだ作らない。`decideRecoveryStartup` が、保存済みで開く、未保存の復元、競合、ファイル無し、不正を返す。ファイルが無く未保存があるときは、先にその内容を画面へ載せてから警告する。この起動でファイル無しを知らせたあとは、そのパスが再び読めるまで監視のファイルダイアログを出さない。`read_schedule_file_at_path` は、控えがあるパスと一致するファイルだけを読む。起動復旧が終わるまでだけ、文書の変更、取り消し、やり直しは受け付けない。終わったあとは受け付ける。開き終わる前にディスクが変わっていれば、開いたあと通常の外部更新として読む。ファイルの書き込みは止めない。画面へ載せる前に、パスも未保存も無いかを見てから `accept_opened_schedule` する。そのあと起動の世代が変わっていたら、文書は置き換えない。
 
 ### 別ウィンドウ
+
+デスクトップ版の自動更新は `tauri-plugin-updater` と `tauri-plugin-process` が担う。エンドポイントと公開鍵は [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) の `plugins.updater` に置く。起動時にオンだったかは `readAutoUpdateEnabled`（`src/model/autoUpdate.ts`）が起動直後に一度だけ読む。`useAppAutoUpdate` が、起動復旧の完了後に `report_startup_settled` で各ウィンドウの起動時のオンオフを渡し、開いているウィンドウがすべて揃ったときだけ一度だけ `application-run-update-check` を送る。ウィンドウが閉じて揃いが変わったときも同じ判断をもう一度行う。受け取ったウィンドウだけが `check` で新しい版を調べる。`latest.json` に今の OS が無いときは失敗の知らせを出さない。更新があるときは `request_application_update` が全ウィンドウへ `application-update-requested` を送る。サンプルの未保存は破棄確認を出し、確定かキャンセルを待ってから `accept_application_update` する。すべて揃ったあと、終了と同じくパスごとの控えの書き手を固定し、全ウィンドウへ `application-update-write-recovery` を送って控えを書く。書き終えたあと、確認を取ったウィンドウだけが `application-update-proceed` を受け取り、`downloadAndInstall` のあと `relaunch` する。再起動で閉じるときは破棄確認を出さない。失敗は `AppToast` に短く出す。Release 用の署名付き `latest.json` は CI が作る。
 
 `create_schedule_window` が追加ウィンドウを作り、検証済みの内容を pending として預ける。ウィンドウを作れなかったときは、一覧と pending を戻す。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出す。
 
@@ -231,6 +233,11 @@ flowchart TD
 | `request_application_quit` | 全ウィンドウへ終了の確認を送る | — | `window-session.toml` | 同上 |
 | `accept_application_quit` | このウィンドウは終了してよい | — | 同上 | 同上 |
 | `cancel_application_quit` | 終了を取りやめる | — | 同上 | 同上 |
+| `report_startup_settled` | 起動復旧完了と起動時の自動更新オンオフを記録し、全ウィンドウが揃ったか返す | — | 同上 | `windowSession.ts` |
+| `request_application_update` | 全ウィンドウへ更新前確認を送る | — | 同上 | 同上 |
+| `accept_application_update` | このウィンドウは更新してよい | — | 同上 | 同上 |
+| `complete_application_update_recovery` | 更新前の控えの書き込みが終わった | — | 同上 | 同上 |
+| `cancel_application_update` | 更新を取りやめる | — | 同上 | 同上 |
 | `recovery_live_action` | 前面なら書き込みか削除 | — | 同上 | 同上 |
 | `recovery_close_action` | 閉じるときと終了時の控えの扱い | — | 同上 | 同上 |
 | `release_schedule_recovery` | 別ファイルを開いたあとの、元パスの控え | — | 同上 | 同上 |
@@ -251,7 +258,7 @@ flowchart TD
 
 ## セキュリティ
 
-CSP は `default-src 'self'` で、インラインのスタイルと、Tauri の IPC 接続だけを追加で許す。Windows の IPC のため `connect-src` に `ipc:` と `http://ipc.localhost`、`https://ipc.localhost` がある。スクリプトの eval は許さない。
+CSP は `default-src 'self'` で、インラインのスタイルと、Tauri の IPC 接続だけを追加で許す。Windows の IPC のため `connect-src` に `ipc:` と `http://ipc.localhost`、`https://ipc.localhost` がある。更新の取得は `tauri-plugin-updater` の Rust 側が行い、フロントの CSP は広げない。スクリプトの eval は許さない。
 
 capability はメインウィンドウと `schedule-*` ウィンドウに、`core:default`、`core:menu:default`、ウィンドウの close、destroy、set-title、set-focus、上のコマンドだけを与える。close、destroy、set-title は、未保存の確認のあとフロントからウィンドウを閉じるために必要である。
 

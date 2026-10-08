@@ -53,6 +53,7 @@ import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
+import { useAppAutoUpdate } from "./hooks/useAppAutoUpdate";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
@@ -104,6 +105,11 @@ import {
 import { scaledLayoutSizes } from "./model/layoutSizes";
 import { computeTimelineRange, taskBarWidthPx } from "./model/timeline";
 import type { ScheduleId, Task } from "./model/types";
+import {
+  AUTO_UPDATE_LS_KEY,
+  readAutoUpdateEnabled,
+  writeAutoUpdateEnabled,
+} from "./model/autoUpdate";
 import {
   applyResolvedColorScheme,
   COLOR_SCHEME_LS_KEY,
@@ -209,8 +215,11 @@ function App() {
   uiScaleRef.current = uiScale;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
-    "display" | "members" | "calendar" | "jsonSkills"
+    "display" | "members" | "calendar" | "updates" | "jsonSkills"
   >("display");
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(
+    readAutoUpdateEnabled,
+  );
   const [rowDensity, setRowDensity] = useState<RowDensity>(readRowDensity);
   const [showLightningLine, setShowLightningLine] = useState(readShowLightning);
   const [sidebarColumns, setSidebarColumns] = useState<SidebarColumnsPreference>(
@@ -423,6 +432,9 @@ function App() {
     if (all || key === SIDEBAR_COLUMNS_LS_KEY) {
       setSidebarColumns(readSidebarColumns());
     }
+    if (all || key === AUTO_UPDATE_LS_KEY) {
+      setAutoUpdateEnabled(readAutoUpdateEnabled());
+    }
   }, [refreshAppCalendar, refreshMemberCatalog]);
 
   useSharedSettingsRevision(refreshSharedSettings);
@@ -584,6 +596,18 @@ function App() {
   });
 
   useWindowTitle(scheduleFile.displayFileName, scheduleFile.isDirty);
+
+  const showUpdateToast = useCallback((message: string) => {
+    setToastMessage(message);
+    window.setTimeout(() => setToastMessage(null), 4000);
+  }, []);
+
+  useAppAutoUpdate({
+    startupSettled: scheduleFile.startupSettled,
+    onUpdateToast: showUpdateToast,
+    prepareForApplicationUpdate: scheduleFile.prepareForApplicationUpdate,
+    onUpdatePromptCancel: scheduleFile.onUpdatePromptCancel,
+  });
 
   useEffect(() => {
     if (!scheduleFile.reloadNotice) return;
@@ -1957,6 +1981,11 @@ function App() {
           calendarError={appCalendarState.error}
           onImportCalendar={appCalendarState.importCalendar}
           onDeleteCalendar={appCalendarState.removeCalendar}
+          autoUpdateEnabled={autoUpdateEnabled}
+          onAutoUpdateChange={(enabled) => {
+            writeAutoUpdateEnabled(enabled);
+            setAutoUpdateEnabled(enabled);
+          }}
         />
       ) : null}
       <ShortcutsDialog
@@ -1988,8 +2017,14 @@ function App() {
       {scheduleFile.closePromptOpen ? (
         <DiscardChangesDialog
           title="未保存の変更があります"
-          message="サンプルの変更は保存されていません。閉じると失われます。ウィンドウを閉じますか？"
-          confirmLabel="閉じる"
+          message={
+            scheduleFile.closePromptForUpdate
+              ? "サンプルの変更は保存されていません。更新を入れると失われます。入れ直しますか？"
+              : "サンプルの変更は保存されていません。閉じると失われます。ウィンドウを閉じますか？"
+          }
+          confirmLabel={
+            scheduleFile.closePromptForUpdate ? "入れ直す" : "閉じる"
+          }
           onConfirm={scheduleFile.confirmDiscardAndClose}
           onCancel={scheduleFile.cancelClose}
         />

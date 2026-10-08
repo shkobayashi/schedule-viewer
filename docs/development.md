@@ -419,9 +419,59 @@ Remove-Item -Force "$HOME\schedule-viewer-codesign\schedule-viewer-codesign.pfx"
 
 次は、下の「`main` に載せる前のバージョン上げ」である。`main` へ載せる時点で secret が無いと、Windows の Release ジョブは署名に失敗する。
 
+### 更新用の署名鍵
+
+GitHub Release の deb と NSIS に、Tauri アップデータ用の署名を付ける。秘密鍵はリポジトリに置かず、GitHub の secret に置く。公開鍵は [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) の `plugins.updater.pubkey` に書く。これは Windows のコード署名（`WINDOWS_CERTIFICATE`）とは別の鍵である。
+
+初回だけ、次の手順を上から順に実行する。
+
+1. 作業用のディレクトリを、リポジトリの外に作る。
+
+```bash
+mkdir -p "$HOME/schedule-viewer-updater"
+```
+
+2. リポジトリ直下で鍵を発行する。パスワードを聞かれたら、secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` に入れる値を入れる。
+
+```bash
+cd /path/to/schedule-viewer
+npm run tauri signer generate -- -w "$HOME/schedule-viewer-updater/schedule-viewer-updater.key"
+```
+
+`schedule-viewer-updater.key` ができ、公開鍵の文字列が表示されれば、このステップは完了である。表示された公開鍵だけを `plugins.updater.pubkey` に書く。秘密鍵の中身は、設定ファイル、コミット、Issue には残さない。
+
+3. `gh` が `shkobayashi/schedule-viewer` を指していることを確認する。秘密鍵ファイルの中身全体を secret `TAURI_SIGNING_PRIVATE_KEY` に入れる。
+
+```bash
+gh repo view --json nameWithOwner --jq .nameWithOwner
+gh secret set TAURI_SIGNING_PRIVATE_KEY < "$HOME/schedule-viewer-updater/schedule-viewer-updater.key"
+```
+
+4. 手順 2 と同じパスワードを secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` に入れる。引数には書かず、プロンプトへ入力する。
+
+```bash
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+```
+
+5. 登録を確認する。値は表示されない。一覧に `TAURI_SIGNING_PRIVATE_KEY` と `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` があれば、このステップは完了である。
+
+```bash
+gh secret list
+```
+
+6. 作業ディレクトリの秘密鍵を消す。
+
+```bash
+rm -f "$HOME/schedule-viewer-updater/schedule-viewer-updater.key" "$HOME/schedule-viewer-updater/schedule-viewer-updater.key.pub"
+```
+
+Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` と `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。各 OS ジョブは `latest-linux-x86_64.json` または `latest-windows-x86_64.json` を Release に載せ、`checksums` ジョブが `latest.json` にまとめる。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
+
+`main` へ載せる時点でこの secret が無いと、Release ジョブは失敗する。
+
 ### `main` に載せる前のバージョン上げ
 
-Windows の NSIS を署名する変更を `main` に載せるときは、先に「Windows のコード署名」の secret 登録が終わっていること。
+Windows の NSIS を署名する変更を `main` に載せるときは、先に「Windows のコード署名」の secret 登録が終わっていること。自動更新を含む変更を載せるときは、「更新用の署名鍵」の secret 登録も終わっていること。
 
 `develop` を `main` にマージする直前に、リポジトリ直下でバージョンを1回だけ上げる。
 
