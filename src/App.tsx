@@ -926,6 +926,7 @@ function App() {
             assigneeLabel,
             schedule.milestoneGroups,
             schedule.hiddenMilestoneGroupIds,
+            schedule.scheduleTags,
           ),
           colorScheme: resolvedColorScheme,
           showLightningLine,
@@ -1686,6 +1687,7 @@ function App() {
         onClearLineage={schedule.clearLineage}
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
         onShowAllMilestoneGroups={schedule.showAllMilestoneGroups}
+        scheduleTags={schedule.scheduleTags}
       />
       <div ref={mainRef} className="main">
         <Sidebar

@@ -5,6 +5,7 @@ import {
   collectTagsInDocumentOrder,
   formatTaskTagsForDiff,
   normalizeTaskTags,
+  pruneSelectedTags,
 } from "./taskTags";
 import { SCHEDULE_SCHEMA_VERSION, type Category, type ScheduleDocument, type Task } from "./types";
 
@@ -116,6 +117,15 @@ describe("formatTaskTagsForDiff", () => {
       '"設計", "レビュー"',
     );
     expect(formatTaskTagsForDiff(task())).toBe("（なし）");
+  });
+});
+
+describe("pruneSelectedTags", () => {
+  it("keeps only tags that still exist, in document order", () => {
+    expect(pruneSelectedTags(["b", "a", "gone"], ["a", "b", "c"])).toEqual([
+      "a",
+      "b",
+    ]);
   });
 });
 

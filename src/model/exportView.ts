@@ -97,6 +97,7 @@ export function describeActiveFilters(
   assigneeLabel: string | null,
   milestoneGroups: MilestoneGroup[] = [],
   hiddenMilestoneGroupIds: readonly ScheduleId[] = [],
+  scheduleTags: readonly string[] = [],
 ): string {
   return activeFilterChips(
     filters,
@@ -105,6 +106,7 @@ export function describeActiveFilters(
     null,
     milestoneGroups,
     hiddenMilestoneGroupIds,
+    scheduleTags,
   )
     .filter((chip) => chip.kind !== "lineage")
     .map((chip) => chip.label)

@@ -14,7 +14,7 @@ const filters: ScheduleFilters = {
   overdue: "all",
   relation: "all",
   milestone: "all",
-  tag: "",
+  tags: [],
   search: "",
   noteSearch: "",
 };
@@ -159,5 +159,18 @@ describe("describeActiveFilters", () => {
     expect(describeActiveFilters(filters, [near], null, groups, [GRP])).toBe(
       "帯の線: Gを非表示",
     );
+  });
+
+  it("lists selected tags in document order", () => {
+    expect(
+      describeActiveFilters(
+        { ...filters, tags: ["共有", "説明"] },
+        [near],
+        null,
+        [],
+        [],
+        ["説明", "共有"],
+      ),
+    ).toBe("タグ: 説明、タグ: 共有");
   });
 });

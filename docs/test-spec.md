@@ -162,10 +162,16 @@
 | 同上 | `keeps filters that match the duplicated task` | EDIT-14, FILTER-10 |
 | 同上 | `matches note substring independently of name` | FILTER-02, FILTER-09 |
 | 同上 | `keeps only the selected confidence` | FILTER-10 |
-| 同上 | `keeps only tasks that have the selected tag` | FILTER-12 |
+| 同上 | `keeps tasks with no tag when none are selected` | FILTER-12 |
+| 同上 | `keeps only tasks that have any selected tag` | FILTER-12 |
 | 同上 | `filters by the literal tag name all` | FILTER-12 |
+| 同上 | `hides untagged tasks when every file tag is selected` | FILTER-12 |
 | 同上 | `keeps tag filter when the duplicated task has that tag` | FILTER-12, EDIT-14 |
-| `filterChips.test.ts` | `shows a tag chip when a tag is selected` | FILTER-12 |
+| 同上 | `keeps all selected tags when duplicated task matches one of them` | FILTER-12, EDIT-14 |
+| `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
+| `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
+| 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
+| `taskTags.test.ts` | `keeps only tags that still exist, in document order` | FILTER-12 |
 | `serialize.test.ts` | `writes tags after milestoneId and before note` | FILE-02 |
 | `taskTags.test.ts` | `bumps schemaVersion from 6 to 7` | FILE-01 |
 | 同上 | `quotes each tag for display` | FILE-07 |
@@ -608,9 +614,14 @@
 | TC-FILTER-08b | FILTER-08 | 系統を表示している | 別のタスクを右クリックし、「系統を表示」を選ぶ | 起点がそのタスクに切り替わる。同じタスクなら「系統を解除」で外れる |
 | TC-FILTER-09 | FILTER-09 | あるグループのタスクがすべて完了 | 「完了以外」を選ぶ | そのグループの行も消える。追加ダイアログでは、そのグループをまだ選べる |
 | TC-FILTER-10 | FILTER-10 | サンプル | 「確度」で「未確定」、次に「確定」を選ぶ | 未確定だけ、次に確定だけが残る。選んでいたタスクの選択は外れる |
-| TC-FILTER-12 | FILTER-12 | サンプルにタグ付きタスクがある | 「タグ」で一つ選ぶ。担当など別の条件も入れる | そのタグを持つタスクだけが残る。ほかの条件も満たすものだけが残る |
-| TC-FILTER-12b | FILTER-12 | タグで絞っている | 札を押す。「すべて解除」でも試す | 札でタグだけ外れる。「すべて解除」で絞り込みは戻り、系統は残る |
-| TC-FILTER-12c | FILTER-12 | タグで絞っている | ファイルを開き直す | タグの絞り込みは「すべて」に戻る |
+| TC-FILTER-12 | FILTER-12 | サンプルにタグ付きタスクがある | 「タグ」で二つオンにする。担当など別の条件も入れる | どちらかのタグを持つタスクだけが残る。タグの無いタスクは残らない。ほかの条件も満たすものだけが残る |
+| TC-FILTER-12b | FILTER-12 | タグを二つ以上オンにしている | 札を一つ押す。「すべて解除」でも試す | 押したタグだけ外れ、ほかのタグは残る。「すべて解除」で絞り込みは戻り、系統は残る |
+| TC-FILTER-12c | FILTER-12 | タグをオンにしている | ファイルを開き直す | タグの選択は無くなる |
+| TC-FILTER-12d | FILTER-12 | サンプルでファイル内のタグをすべてオンにできる | すべてオンにする | タグ付きタスクだけが残り、タグの無いタスクは残らない |
+| TC-FILTER-12e | FILTER-12 | タグが 9 件以上ある JSON を開ける | 「絞り込み」でタグ欄を見る | 8 件まで見え、それより多いときは一覧の中をスクロールする |
+| TC-FILTER-12f | FILTER-12 | タグが無い JSON を開ける | 「絞り込み」でタグ欄を見る | チェックは出ず、「タグはありません」と出る |
+| TC-FILTER-12g | FILTER-12 | タグで絞っている | 選んだタグを文書から消す（詳細パネルで外すなど） | 消えたタグだけ選択から外れる。ほかに選んだタグがあれば残る |
+| TC-FILTER-12h | FILTER-12 | サンプルにタグ付きとタグ無しのタスクがある | 「タグ」は一つもオンにしない | タグでは絞らない。タグの無いタスクも残る |
 | TC-VIEW-12 | VIEW-12 | サンプル | 未確定と確定のバーを、ライトとダークで見る。超過もある未確定を見る。サンプルの「本番リリース」も見る | 未確定は斜線で、確定はベタ塗り。色はステータスと期限超過のまま。一覧に「未確定」は出ない。超過があるときは「超過」だけ出る。本番リリースのひし形は斜線で、他のマイルストンは塗りつぶし |
 | TC-EDIT-01 | EDIT-01 | サンプル | バーをクリックし、次に左のタスク行をクリックし、背景をクリックする | バーと左の行で選択され端のハンドルが出る。背景で外れる |
 | TC-EDIT-01c | EDIT-01, NAV-01 | 見えているタスクが複数ある。行が画面より多い | ↑↓で選択を移す。見えている行を選んだあと、左の行をクリックして選び直す。端で止まる | カテゴリ行とグループ行は飛ばす。見えている行では縦位置は変わらない。画面外の行へ移したときだけ、入るところまでスクロールする |
@@ -627,7 +638,7 @@
 | TC-EDIT-04c | EDIT-04 | タスクを選択している | Enter を押す | 詳細パネルの名前欄にフォーカスが移る。検索欄にフォーカスがあるときは移らない |
 | TC-EDIT-04d | EDIT-04, EDIT-10 | タスクを選択している | 詳細パネルで確度を変え、取り消す | 確度だけが変わり、日付は動かない。取り消し 1 回で戻る |
 | TC-EDIT-04e | EDIT-04, EDIT-10, FILTER-12 | タスクを選択している | 詳細パネルでタグを足し、外し、取り消しとやり直しをする | 未保存になる。取り消しとやり直しでタグが戻る。タグの絞り込みの選択は戻らない |
-| TC-EDIT-08d | EDIT-08, FILTER-12 | タグで絞っている | タスクを追加する | タグの絞り込みは「すべて」に戻る |
+| TC-EDIT-08d | EDIT-08, FILTER-12 | タグで絞っている | タスクを追加する | タグの選択は無くなる |
 | TC-EDIT-14d | EDIT-14, FILTER-12 | タグ付きタスクをタグで絞っている | そのタスクを複製する | タグの絞り込みは残り、複製が見える |
 | TC-EDIT-05 | EDIT-05 | 3件以上のタスク | 編集で、自分を先行にしようとする。次に、循環する先行を保存する | 自分は候補に出ない。循環は保存されず、理由が出る |
 | TC-EDIT-05d | EDIT-05 | 詳細パネルでタスクを選んでいる | 先行の候補を開き、Escape を押す | 候補だけが閉じ、パネルは開いたままである |

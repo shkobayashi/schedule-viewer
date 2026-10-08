@@ -192,21 +192,38 @@ export function FilterPanel({
             ))}
           </select>
         </label>
-        <label className="filter-panel-field">
+        <div className="filter-panel-field filter-panel-tags filter-panel-field-span">
           <span>タグ</span>
-          <select
-            aria-label="タグ"
-            value={filters.tag}
-            onChange={(e) => onFiltersChange({ tag: e.target.value })}
-          >
-            <option value="">すべて</option>
-            {scheduleTags.map((tag) => (
-              <option key={tag} value={tag}>
-                {tag}
-              </option>
-            ))}
-          </select>
-        </label>
+          {scheduleTags.length === 0 ? (
+            <p className="filter-panel-empty-tags">タグはありません</p>
+          ) : (
+            <div
+              className={
+                scheduleTags.length > 8
+                  ? "filter-panel-checks filter-panel-checks-scroll"
+                  : "filter-panel-checks"
+              }
+            >
+              {scheduleTags.map((tag) => (
+                <label key={tag} className="filter-panel-check">
+                  <input
+                    type="checkbox"
+                    checked={filters.tags.includes(tag)}
+                    onChange={(e) => {
+                      const selected = new Set(filters.tags);
+                      if (e.target.checked) selected.add(tag);
+                      else selected.delete(tag);
+                      onFiltersChange({
+                        tags: scheduleTags.filter((item) => selected.has(item)),
+                      });
+                    }}
+                  />
+                  <span>{tag}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
         {milestoneGroups.length > 0 ? (
           <div className="filter-panel-field filter-panel-milestone-groups">
             <span>帯の線</span>
