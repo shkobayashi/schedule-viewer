@@ -5,7 +5,6 @@ use json_skills::{
     install_json_skills, json_skill_home_dirs, pick_json_skill_folder, uninstall_json_skills,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
@@ -19,8 +18,8 @@ use window_session::{
     create_schedule_webview, delete_recovery_for_path, forget_window_focus,
     migrate_legacy_session, next_schedule_window_label, note_window_focus, read_open_windows,
     read_recovery_for_path, recovery_close_persist, recovery_live_persist, recovery_owner_label,
-    recovery_owners_by_path,
-    remove_window_label, set_focused_label, spawn_startup_windows, store_pending_open,
+    recovery_owners_by_path, remove_window_label, set_focused_label, sha256_hex,
+    spawn_startup_windows, store_pending_open,
     take_pending_open, upsert_window_path, write_open_windows, write_recovery_for_path,
     OpenWindowEntry, WindowSessionState, WindowStartupRead,
 };
@@ -104,8 +103,7 @@ fn any_window_focused(app: &tauri::AppHandle) -> bool {
 }
 
 fn hash_contents(contents: &str) -> String {
-    let digest = Sha256::digest(contents.as_bytes());
-    format!("{:x}", digest)
+    sha256_hex(contents.as_bytes())
 }
 
 fn read_open_schedule<T>(
