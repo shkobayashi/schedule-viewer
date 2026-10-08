@@ -83,7 +83,7 @@ import {
   exportTimelineRange,
   milestonesForExport,
 } from "./model/exportView";
-import { isoDateAtChartX, parseDate } from "./model/dates";
+import { addDays, isoDateAtChartX, parseDate } from "./model/dates";
 import { resizeEndIso, resizeStartIso } from "./model/dragDates";
 import {
   layoutMilestoneBand,
@@ -104,8 +104,16 @@ import {
   canDeleteGroup,
   findTaskPlace,
 } from "./model/tasks";
-import { scaledLayoutSizes } from "./model/layoutSizes";
-import { computeTimelineRange, taskBarWidthPx } from "./model/timeline";
+import {
+  LAYOUT_HEADER_HEIGHT,
+  scaledLayoutSizes,
+} from "./model/layoutSizes";
+import {
+  computeTimelineRange,
+  gridTier,
+  taskBarWidthPx,
+} from "./model/timeline";
+import { extraTimelineDaysForRightEdge } from "./model/timelineRightPadding";
 import type { ScheduleId, Task } from "./model/types";
 import {
   AUTO_UPDATE_LS_KEY,
@@ -488,11 +496,40 @@ function App() {
     [schedule.categories, schedule.milestones, schedule.today],
   );
 
+  const monthHeaderFontSize = 12 * (headerHeight / LAYOUT_HEADER_HEIGHT);
+
+  const extraDaysForPxPerDay = useCallback(
+    (px: number) =>
+      extraTimelineDaysForRightEdge({
+        timelineStart: range.timelineStart,
+        baseTotalDays: range.totalDays,
+        pxPerDay: px,
+        tier: gridTier(px),
+        milestoneGroups: schedule.milestoneGroups,
+        milestones: schedule.milestones,
+        visibleGroupIds: schedule.visibleMilestoneGroupIds,
+        milestoneFontSize,
+        milestoneDiamondSize,
+        monthHeaderFontSize,
+        mode: "screen",
+      }),
+    [
+      milestoneDiamondSize,
+      milestoneFontSize,
+      monthHeaderFontSize,
+      range.timelineStart,
+      range.totalDays,
+      schedule.milestoneGroups,
+      schedule.milestones,
+      schedule.visibleMilestoneGroupIds,
+    ],
+  );
+
   const [timelineEpoch, setTimelineEpoch] = useState(0);
   const view = useTimelineView(
     {
       timelineStart: range.timelineStart,
-      totalDays: range.totalDays,
+      baseTotalDays: range.totalDays,
     },
     timelineWidth,
     (pxPerDay) => {
@@ -510,6 +547,7 @@ function App() {
     },
     schedule.today,
     `${timelineEpoch}:${schedule.diskEpoch}`,
+    extraDaysForPxPerDay,
   );
 
   const milestoneBandLayout: MilestoneBandLayout = useMemo(
@@ -557,6 +595,7 @@ function App() {
     dateToX,
     timelineStart: viewStart,
     totalDays: viewTotalDays,
+    timelineEnd: viewTimelineEnd,
   } = view;
 
   const filterAssigneeLabel = useMemo(
@@ -811,7 +850,7 @@ function App() {
         schedule.milestones,
         schedule.visibleRows,
       );
-      const exportedRange = exportTimelineRange(
+      const baseExportedRange = exportTimelineRange(
         schedule.visibleRows,
         milestones,
         schedule.today,
@@ -819,6 +858,28 @@ function App() {
       const exportedGroups = schedule.milestoneGroups.filter((group) =>
         schedule.visibleMilestoneGroupIds.has(group.id),
       );
+      const exportExtraDays = extraTimelineDaysForRightEdge({
+        timelineStart: baseExportedRange.timelineStart,
+        baseTotalDays: baseExportedRange.totalDays,
+        pxPerDay,
+        tier: gridTier(pxPerDay),
+        milestoneGroups: exportedGroups,
+        milestones,
+        visibleGroupIds: schedule.visibleMilestoneGroupIds,
+        milestoneFontSize,
+        milestoneDiamondSize,
+        monthHeaderFontSize,
+        mode: "export",
+      });
+      const exportedTotalDays = baseExportedRange.totalDays + exportExtraDays;
+      const exportedRange = {
+        timelineStart: baseExportedRange.timelineStart,
+        timelineEnd: addDays(
+          baseExportedRange.timelineStart,
+          exportedTotalDays,
+        ),
+        totalDays: exportedTotalDays,
+      };
       const exportedBandLayout = layoutMilestoneBand(
         exportedGroups,
         milestones,
@@ -888,6 +949,7 @@ function App() {
       milestoneDiamondSize,
       milestoneFontSize,
       milestoneLaneHeight,
+      monthHeaderFontSize,
       pxPerDay,
       rowHeight,
       barHeight,
@@ -1706,7 +1768,7 @@ function App() {
             scrollY={scrollY}
             tier={tier}
             timelineStart={viewStart}
-            timelineEnd={range.timelineEnd}
+            timelineEnd={viewTimelineEnd}
             totalDays={viewTotalDays}
             dateToX={view.dateToX}
             xToDate={view.xToDate}

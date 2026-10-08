@@ -4,6 +4,7 @@ import { scrollXForToday, scrollXToRevealTask } from "../model/chartScroll";
 import { resolveWheelScroll } from "../model/wheelScroll";
 import {
   DEFAULT_PX_PER_DAY,
+  fitPxPerDayToViewport,
   gridTier,
   type GridTier,
   MAX_PX_PER_DAY,
@@ -15,7 +16,7 @@ import {
 
 type TimelineRange = {
   timelineStart: Date;
-  totalDays: number;
+  baseTotalDays: number;
 };
 
 export function useTimelineView(
@@ -24,12 +25,15 @@ export function useTimelineView(
   maxScrollYFor: (pxPerDay: number) => number,
   todayIso: string,
   resetKey: string | number = 0,
+  extraDaysForPxPerDay: (px: number) => number = () => 0,
 ) {
   const [pxPerDay, setPxPerDay] = useState(DEFAULT_PX_PER_DAY);
   const [scrollX, setScrollX] = useState(0);
   const [scrollY, setScrollY] = useState(0);
 
-  const { timelineStart: dataStart, totalDays: dataTotalDays } = range;
+  const { timelineStart: dataStart, baseTotalDays } = range;
+  const extraDays = extraDaysForPxPerDay(pxPerDay);
+  const dataTotalDays = baseTotalDays + extraDays;
   const [pinnedStart, setPinnedStart] = useState(dataStart);
   const pinnedRef = useRef(dataStart);
   const resetRef = useRef(resetKey);
@@ -84,18 +88,29 @@ export function useTimelineView(
     [drawStart, scrollX, pxPerDay],
   );
 
+  const prefixDays = daysBetween(drawStart, dataStart);
+
   const setZoom = useCallback(
     (newPx: number, anchorX: number) => {
       const clamped = clamp(newPx, MIN_PX_PER_DAY, MAX_PX_PER_DAY);
       const anchorDate = xToDate(anchorX);
       const anchorDayIdx = daysBetween(drawStart, anchorDate);
-      const nextMaxScroll = Math.max(0, totalDays * clamped - viewportWidth);
+      const nextExtra = extraDaysForPxPerDay(clamped);
+      const nextTotal = prefixDays + baseTotalDays + nextExtra;
+      const nextMaxScroll = Math.max(0, nextTotal * clamped - viewportWidth);
       setPxPerDay(clamped);
       setScrollX(
         clamp(anchorDayIdx * clamped - anchorX, 0, nextMaxScroll),
       );
     },
-    [drawStart, totalDays, viewportWidth, xToDate],
+    [
+      baseTotalDays,
+      drawStart,
+      extraDaysForPxPerDay,
+      prefixDays,
+      viewportWidth,
+      xToDate,
+    ],
   );
 
   const zoomIn = useCallback(() => {
@@ -108,10 +123,15 @@ export function useTimelineView(
 
   const fitToWidth = useCallback(() => {
     if (viewportWidth <= 0) return;
-    const nextPx = clamp(viewportWidth / totalDays, MIN_PX_PER_DAY, MAX_PX_PER_DAY);
+    const nextPx = fitPxPerDayToViewport(
+      viewportWidth,
+      prefixDays,
+      baseTotalDays,
+      extraDaysForPxPerDay,
+    );
     setPxPerDay(nextPx);
     setScrollX(0);
-  }, [totalDays, viewportWidth]);
+  }, [baseTotalDays, extraDaysForPxPerDay, prefixDays, viewportWidth]);
 
   const setTierZoom = useCallback(
     (tier: GridTier) => {
@@ -224,5 +244,6 @@ export function useTimelineView(
     handleWheel,
     timelineStart: drawStart,
     totalDays,
+    timelineEnd: dataEnd,
   };
 }

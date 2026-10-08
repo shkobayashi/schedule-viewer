@@ -123,6 +123,18 @@
 | 同上 | `returns the group for a y inside a block and null outside` | EDIT-07 |
 | 同上 | `uses the preferred group when it exists` | EDIT-07 |
 | 同上 | `falls back to the first group when the preferred id is missing` | EDIT-07 |
+| 同上 | `truncates a lone screen label at the 24 full-width character cap` | VIEW-04 |
+| 同上 | `cuts a screen label before the next diamond on the same lane` | VIEW-04 |
+| `timelineRightPadding.test.ts` | `adds days when a visible milestone name extends past the base right edge` | VIEW-04 |
+| 同上 | `does not extend for milestones in hidden groups` | VIEW-04, FILTER-11 |
+| 同上 | `uses full export names for export mode padding` | VIEW-04, EXPORT-02 |
+| 同上 | `covers truncated screen labels with bold width padding` | VIEW-04 |
+| 同上 | `adds fewer days for narrow half-width names than full-width names` | VIEW-04 |
+| 同上 | `does not extend when labels already fit the base range` | VIEW-04 |
+| 同上 | `extends for month header labels past the base right edge` | VIEW-04 |
+| `milestoneHoverLabel.test.ts` | `wraps within the chart width and shifts left when needed` | VIEW-04 |
+| 同上 | `aligns the block top with the label top` | VIEW-04 |
+| 同上 | `truncates with an ellipsis when the text exceeds max height` | VIEW-04 |
 | `nonWorkingDay.test.ts` | `defaults to Sat/Sun when calendar is null` | VIEW-09 |
 | 同上 | `respects workingDays override on weekends` | VIEW-09, SET-03 |
 | 同上 | `treats an empty weekends list as no weekday holidays` | VIEW-09 |
@@ -384,6 +396,8 @@
 | `timeline.test.ts` | `keeps the origin when a later start would scroll past the left edge` | EDIT-02, NAV-01 |
 | 同上 | `adopts a later start when the scroll can keep the same day in place` | EDIT-02, NAV-01 |
 | 同上 | `adopts an earlier start and increases scroll` | EDIT-02, NAV-01 |
+| 同上 | `includes extra days when fitting to the viewport width` | NAV-01, VIEW-04 |
+| 同上 | `includes prefix days before the data range when fitting` | NAV-01, VIEW-04 |
 | `contrast.test.ts` | `meets text contrast for bar labels` | VIEW-02 |
 | 同上 | `steps a fixed ratio and stays put at the ends` | SET-01 |
 | 同上 | `leaves auto for the neighboring fixed step` | SET-01 |
@@ -549,7 +563,7 @@
 | TC-VIEW-01 | VIEW-01 | サンプル | 左の行を上から見る | カテゴリ、グループ、タスクの順で、JSON の配列順に並ぶ |
 | TC-VIEW-02 | VIEW-02 | 進行中のタスクがある | そのバーを見る | 薄青の地に、進捗率の濃い部分がある。完了は緑、未着手は灰 |
 | TC-VIEW-03 | VIEW-03 | 子の期間が離れているグループ | 親の行を見る。HTML で書き出す | タスクバーより細い帯で、途切れた期間は点線、つながる期間は塗り。両端に下向きの角がある。書き出しも同じ |
-| TC-VIEW-04 | VIEW-04 | 同じグループで日付が近いマイルストンが複数ある | 日付ヘッダーの下を見る。日・週・月も切り替える | グループごとに帯が積まれる。ひし形が重なるときだけ段が増える。名前は次のひし形の手前まで。ホバーで全文。左はグループ名。チャート全体の縦線は無い |
+| TC-VIEW-04 | VIEW-04 | playground または長い名前のマイルストンがある JSON | 右端まで横スクロールする。月表示でも見る。全角24文字を超える名前にカーソルを乗せる。近いひし形の手前で切れる名前も見る。日・週・月を切り替える | 右端まで送ったとき、次のひし形が無い名前と年月が最後まで読める。全角24文字を超える名前は「…」になり、ホバーでチャート内に全文が読める。近いひし形の手前で切れることと、日・週・月の切り替えは今までどおり。グループごとに帯が積まれる。ひし形が重なるときだけ段が増える。左はグループ名。チャート全体の縦線は無い |
 | TC-FILTER-11 | FILTER-11 | マイルストングループが2つ以上ある JSON | 絞り込みの帯の線で1つをオフにする。書き出す | 帯と書き出しからその線が消える。タスク行は変わらない。札とすべて解除で戻る |
 | TC-FILTER-11b | FILTER-11, EDIT-11 | マイルストングループが2つ以上あり、各グループにマイルストンがある JSON | 左のマイルストングループ名の行の空きを右クリックし「非表示」を選ぶ。札を押す。別の行で「この行だけ表示」を選ぶ。残った1行を右クリックし、メニューを見る。そのあと最後の1行も非表示にする。書き出す | 帯と左の行が消える。札でそのグループだけ戻る。「この行だけ表示」で他がオフになり、オフしたグループごとに札が出る。帯に別のグループ行が無くなったあとは、「この行だけ表示」は出ない。全部オフで帯の高さは0。ひし形の右クリックメニューは今どおり。線を引くモードと見出しではメニューが出ない。タスクの選択は変わらない |
 | TC-VIEW-04b | VIEW-04, VIEW-12 | 未確定と確定のマイルストンがある | ひし形を、ライトとダークで見る。HTML と SVG に書き出す | 未確定は斜線、確定は塗りつぶし。書き出しも同じ |

@@ -1,4 +1,4 @@
-import { useRef, useState, type Ref } from "react";
+import { useRef, type Ref } from "react";
 import { Group, Layer, Line, RegularPolygon, Shape, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { milestoneMarkHit } from "../model/chartHitTest";
@@ -11,6 +11,7 @@ import {
 } from "../model/milestones";
 import type { ChartPalette, ResolvedColorScheme } from "../model/palette";
 import type { Milestone, ScheduleId } from "../model/types";
+import type { MilestoneHoverState } from "./MilestoneHoverOverlay";
 
 type MilestoneBandProps = {
   bandLayout: MilestoneBandLayout;
@@ -35,6 +36,7 @@ type MilestoneBandProps = {
   chart: ChartPalette;
   colorScheme: ResolvedColorScheme;
   containerRef?: Ref<HTMLDivElement>;
+  onHoverMilestone: (hover: MilestoneHoverState | null) => void;
 };
 
 export function MilestoneBand({
@@ -55,9 +57,8 @@ export function MilestoneBand({
   chart,
   colorScheme,
   containerRef,
+  onHoverMilestone,
 }: MilestoneBandProps) {
-  const [hoveredId, setHoveredId] = useState<ScheduleId | null>(null);
-
   return (
     <div className="milestone-band" style={{ height }} ref={containerRef}>
       <Stage
@@ -96,15 +97,12 @@ export function MilestoneBand({
                 if (x < -180 || x > width + 40) return null;
                 const displayName =
                   bandLayout.displayLabels.get(milestone.id) ?? milestone.name;
-                const showHover =
-                  hoveredId === milestone.id &&
-                  displayName !== milestone.name;
+                const showHover = displayName !== milestone.name;
                 return (
                   <MilestoneMark
                     key={milestone.id}
                     milestone={milestone}
                     displayName={displayName}
-                    hoverFullName={showHover ? milestone.name : null}
                     x={x}
                     y={y}
                     diamondSize={diamondSize}
@@ -115,9 +113,13 @@ export function MilestoneBand({
                     onContextMenu={(clientX, clientY) =>
                       onContextMenu(milestone.id, clientX, clientY)
                     }
-                    onHoverChange={(active) =>
-                      setHoveredId(active ? milestone.id : null)
-                    }
+                    onHoverChange={(active) => {
+                      if (!showHover) {
+                        onHoverMilestone(null);
+                        return;
+                      }
+                      onHoverMilestone(active ? { id: milestone.id } : null);
+                    }}
                     linkMode={linkMode}
                     chart={chart}
                     colorScheme={colorScheme}
@@ -135,7 +137,6 @@ export function MilestoneBand({
 function MilestoneMark({
   milestone,
   displayName,
-  hoverFullName,
   x,
   y,
   diamondSize,
@@ -151,7 +152,6 @@ function MilestoneMark({
 }: {
   milestone: Milestone;
   displayName: string;
-  hoverFullName: string | null;
   x: number;
   y: number;
   diamondSize: number;
@@ -256,18 +256,6 @@ function MilestoneMark({
         fill={chart.milestoneDiamond}
         listening={false}
       />
-      {hoverFullName ? (
-        <Text
-          x={radius + MILESTONE_LABEL_GAP}
-          y={-fontSize / 2}
-          text={hoverFullName}
-          fontSize={fontSize}
-          fontStyle="bold"
-          fontFamily={KONVA_FONT_FAMILY}
-          fill={chart.milestoneDiamond}
-          listening={false}
-        />
-      ) : null}
     </Group>
   );
 }
