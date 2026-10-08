@@ -88,6 +88,7 @@ import {
   type MilestoneBandLayout,
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
+import { hasOtherVisibleMilestoneBandGroup } from "./model/filterChips";
 import { findTaskById } from "./model/rows";
 import {
   layoutStickyHeaders,
@@ -173,7 +174,8 @@ type ContextMenuState =
       x: number;
       y: number;
     }
-  | { kind: "addMilestone"; date: string; x: number; y: number };
+  | { kind: "addMilestone"; date: string; x: number; y: number }
+  | { kind: "milestoneGroup"; groupId: ScheduleId; x: number; y: number };
 
 function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
@@ -448,6 +450,9 @@ function App() {
     openAddGroupToCategory,
     openAddGroupAfter,
     openDeleteHierarchy,
+    setMilestoneGroupVisible,
+    showOnlyMilestoneGroup,
+    visibleMilestoneGroupIds,
   } = schedule;
   const range = useMemo(
     () =>
@@ -1173,6 +1178,14 @@ function App() {
     [linkSourceId],
   );
 
+  const openMilestoneGroupContextMenu = useCallback(
+    (groupId: ScheduleId, x: number, y: number) => {
+      if (linkSourceId != null) return;
+      setContextMenu({ kind: "milestoneGroup", groupId, x, y });
+    },
+    [linkSourceId],
+  );
+
   const openHierarchyContextMenu = useCallback(
     (kind: "category" | "group", id: ScheduleId, x: number, y: number) => {
       if (linkSourceId != null) return;
@@ -1291,6 +1304,32 @@ function App() {
           },
         },
       ];
+    }
+    if (contextMenu.kind === "milestoneGroup") {
+      const groupId = contextMenu.groupId;
+      const items: ContextMenuItem[] = [
+        {
+          type: "item",
+          id: "hide-milestone-group",
+          label: "非表示",
+          onSelect: () => setMilestoneGroupVisible(groupId, false),
+        },
+      ];
+      if (
+        hasOtherVisibleMilestoneBandGroup(
+          visibleMilestoneGroupIds,
+          milestones,
+          groupId,
+        )
+      ) {
+        items.push({
+          type: "item",
+          id: "show-only-milestone-group",
+          label: "この行だけ表示",
+          onSelect: () => showOnlyMilestoneGroup(groupId),
+        });
+      }
+      return items;
     }
     if (contextMenu.kind === "category") {
       const { id } = contextMenu;
@@ -1447,6 +1486,9 @@ function App() {
     openAddGroupToCategory,
     openAddGroupAfter,
     openDeleteHierarchy,
+    setMilestoneGroupVisible,
+    showOnlyMilestoneGroup,
+    visibleMilestoneGroupIds,
     showLineage,
   ]);
 
@@ -1569,6 +1611,7 @@ function App() {
           onOpenTaskNote={schedule.openTaskNoteDialog}
           onTaskContextMenu={openTaskContextMenu}
           onHierarchyContextMenu={openHierarchyContextMenu}
+          onMilestoneGroupContextMenu={openMilestoneGroupContextMenu}
           onHierarchyDoubleClick={openHierarchyEdit}
           today={schedule.today}
           memberCatalog={memberCatalogState.memberMap}

@@ -75,6 +75,7 @@ description: >-
 2. 自動テストの対象は `src/model/` の純粋関数と、Rust 側のパス検査である。画面操作、Konva の描画、Tauri のダイアログは手で確かめる
 3. 触った層に応じて検査する。フロントの型とテストは `npm run build`、`npm run lint`、`npm test`。Rust を変えたときは `cd src-tauri && cargo clippy -- -D warnings` と `cargo test --locked`
 4. 画面の幅、余白、切れ、行の揃いを変えたときは、計画が指す境界をサンプルが含まないなら、その境界も見る。サンプルのラベルが札の文字より短いときは、より長い表示名とメンバー不明でも、札の幅と列の揃いを見る
+5. 計画が手動テストで見る内容を列挙しているときは、その各項目を [docs/test-spec.md](../../../docs/test-spec.md) の手順か期待に残す
 
 ## 完了条件
 
