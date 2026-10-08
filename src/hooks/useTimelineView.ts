@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays, clamp, daysBetween } from "../model/dates";
 import { scrollXForToday, scrollXToRevealTask } from "../model/chartScroll";
+import { resolveWheelScroll } from "../model/wheelScroll";
 import {
   DEFAULT_PX_PER_DAY,
   gridTier,
@@ -178,13 +179,24 @@ export function useTimelineView(
       mode: "body" | "header",
     ) => {
       e.preventDefault();
-      if (e.ctrlKey || e.metaKey) {
-        const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-        setZoom(pxPerDay * factor, pointerX);
-      } else if (e.shiftKey || mode === "header") {
-        setScrollX((sx) => clamp(sx + e.deltaY, 0, maxScrollX));
-      } else {
-        setScrollY((sy) => clamp(sy + e.deltaY, 0, maxScrollY));
+      const effect = resolveWheelScroll({
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        shiftKey: e.shiftKey,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        zone: mode,
+      });
+      if (effect.type === "zoom") {
+        setZoom(pxPerDay * effect.factor, pointerX);
+        return;
+      }
+      const { deltaScrollX, deltaScrollY } = effect;
+      if (deltaScrollX !== 0) {
+        setScrollX((sx) => clamp(sx + deltaScrollX, 0, maxScrollX));
+      }
+      if (deltaScrollY !== 0) {
+        setScrollY((sy) => clamp(sy + deltaScrollY, 0, maxScrollY));
       }
     },
     [maxScrollX, maxScrollY, pxPerDay, setZoom],
