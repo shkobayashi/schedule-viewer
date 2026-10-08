@@ -36,6 +36,7 @@ type ToolbarProps = {
   hiddenMilestoneGroupIds: ScheduleId[];
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
   assigneeFilterOptions: AssigneeFilterOption[];
+  scheduleTags: string[];
   tier: GridTier;
   lineageName: string | null;
   canStartLineage: boolean;
@@ -79,6 +80,7 @@ export function Toolbar({
   hiddenMilestoneGroupIds,
   onMilestoneGroupVisible,
   assigneeFilterOptions,
+  scheduleTags,
   tier,
   lineageName,
   canStartLineage,
@@ -238,6 +240,7 @@ export function Toolbar({
           hiddenMilestoneGroupIds={hiddenMilestoneGroupIds}
           onMilestoneGroupVisible={onMilestoneGroupVisible}
           assigneeFilterOptions={assigneeFilterOptions}
+          scheduleTags={scheduleTags}
           onFiltersChange={onFiltersChange}
         />
       </div>

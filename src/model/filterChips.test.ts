@@ -16,9 +16,22 @@ const base: ScheduleFilters = {
   overdue: "all",
   relation: "all",
   milestone: "all",
+  tag: "",
   search: "",
   noteSearch: "",
 };
+
+describe("activeFilterChips tag", () => {
+  it("shows a tag chip when a tag is selected", () => {
+    const chips = activeFilterChips(
+      { ...base, tag: "説明" },
+      [],
+      null,
+      null,
+    );
+    expect(chips).toContainEqual({ kind: "tag", label: "タグ: 説明" });
+  });
+});
 
 describe("activeFilterChips", () => {
   it("includes lineage when a name is given", () => {

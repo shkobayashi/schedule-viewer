@@ -67,6 +67,7 @@ export const sampleCategories: Category[] = [
             confidence: "committed",
             predecessors: [],
             milestoneId: SAMPLE_MILESTONE_IDS.requirements,
+            tags: ["ステークホルダー向け"],
             note: "各部門の現行フローと pain point を聞き取り。議事録は共有ドライブに置く。",
           },
         ],
@@ -86,6 +87,7 @@ export const sampleCategories: Category[] = [
             confidence: "committed",
             predecessors: [SAMPLE_TASK_IDS.t01],
             milestoneId: SAMPLE_MILESTONE_IDS.requirements,
+            tags: ["ステークホルダー向け", "要件"],
           },
           {
             id: SAMPLE_TASK_IDS.t03,

@@ -1538,6 +1538,7 @@ function App() {
         hiddenMilestoneGroupIds={schedule.hiddenMilestoneGroupIds}
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
+        scheduleTags={schedule.scheduleTags}
         tier={tier}
         lineageName={schedule.lineageTask?.name ?? null}
         canStartLineage={schedule.selectedTaskId != null}
@@ -1730,6 +1731,9 @@ function App() {
             onPatch={(patch) =>
               schedule.applyTaskPatch(selectedDetailTask.id, patch)
             }
+            documentTags={schedule.scheduleTags}
+            onAddTag={(tag) => schedule.appendTaskTag(selectedDetailTask.id, tag)}
+            onRemoveTag={(tag) => schedule.dropTaskTag(selectedDetailTask.id, tag)}
             onEditingChange={setDetailPanelEditing}
           />
         ) : null}

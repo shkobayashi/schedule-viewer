@@ -1,5 +1,6 @@
 import { brokenLinkTaskIds } from "./dependencies";
 import { normalizeTaskNote } from "./taskNote";
+import { taskHasTag } from "./taskTags";
 import { isOverdue } from "./timeline";
 import { summarizeSpans } from "./summary";
 import {
@@ -34,6 +35,7 @@ export function filtersAreDefault(filters: ScheduleFilters): boolean {
     filters.overdue === "all" &&
     filters.relation === "all" &&
     filters.milestone === "all" &&
+    filters.tag === "" &&
     filters.search.trim() === "" &&
     filters.noteSearch.trim() === ""
   );
@@ -94,6 +96,9 @@ export function taskMatchesFilter(
   ) {
     return false;
   }
+  if (filters.tag !== "" && !taskHasTag(task, filters.tag)) {
+    return false;
+  }
   const search = filters.search.trim();
   if (search && !task.name.includes(search)) {
     return false;
@@ -123,6 +128,7 @@ export function relaxFiltersForNewTask(
     overdue: "all",
     relation: "all",
     milestone: "all",
+    tag: "",
     search: "",
     noteSearch: "",
   };
@@ -161,6 +167,8 @@ export function relaxFiltersForNewTask(
       filters.milestone !== "all" && hides({ milestone: filters.milestone })
         ? "all"
         : filters.milestone,
+    tag:
+      filters.tag !== "" && hides({ tag: filters.tag }) ? "" : filters.tag,
     search:
       filters.search.trim() && hides({ search: filters.search })
         ? ""

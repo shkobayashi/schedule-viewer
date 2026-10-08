@@ -24,7 +24,7 @@ description: >-
 - `milestones`: 各 `name`, `date`, `confidence`（日付を合意したなら `committed`、まだなら `tentative`。新規なら `id` は UUID v4）, `groupId`（`milestoneGroups` のいずれか）
 - `categories` → `groups` → `tasks` の階層と並び（並び替えフィールドはない。配列順＝画面の並び）。カテゴリとグループにも `id`（新規なら UUID v4）
 
-- 各タスク: `name`, `start`, `end`, `assigneeId`（未割当は `null`）, `status`, `progress`, `confidence`（日付を合意したなら `committed`、まだなら `tentative`）, `predecessors`, `milestoneId`（なしは `null`）。任意で `note`（補足説明。ユーザーから渡されたときだけ書く）
+- 各タスク: `name`, `start`, `end`, `assigneeId`（未割当は `null`）, `status`, `progress`, `confidence`（日付を合意したなら `committed`、まだなら `tentative`）, `predecessors`, `milestoneId`（なしは `null`）。任意で `tags`（説明用タグの配列。ユーザーから渡されたときだけ書く）, `note`（補足説明。ユーザーから渡されたときだけ書く）
 - タスクとマイルストンの `confidence` が入力から分からなければ、JSON を書かず不足として返す。未確定を既定にしない
 - 担当を付けるタスクには、ユーザーから渡された **メンバー id 一覧** に含まれる id だけを使う。一覧に無い人がいる場合は JSON を書かず、不足として返す
 
@@ -34,7 +34,7 @@ description: >-
 
 ```json
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "title": "プロジェクト名",
   "milestoneGroups": [{ "id": "<uuid>", "name": "マイルストン" }],
   "milestones": [{ "id": "<uuid>", "name": "...", "date": "YYYY-MM-DD", "confidence": "committed", "groupId": "<milestone-group-uuid>" }],
@@ -68,13 +68,14 @@ description: >-
 - タスク期間は **終了日を含む**（`end` は開始日以降。1 日だけなら `start` と `end` を同じ日にする）
 - カテゴリ、グループ、タスク、マイルストン、マイルストングループの ID は文書内で重複しない UUID。カテゴリ名は文書内で重複しない。グループ名は同じカテゴリの中で重複しない。マイルストングループの名前は、その中で重複しない
 - `assigneeId` はメンバー一覧の `id`（UUID である必要はない）
+- `tags` はユーザーから渡されたタグがあるときだけタスクに足す。各要素は1文字以上。空文字や空白だけは含めず、0件ならプロパティ自体を書かない
 - `note` はユーザーから渡された補足があるときだけタスクに足す。空文字や空白だけはプロパティ自体を書かない
 
 ## 手順
 
 1. 入力をカテゴリ・グループ・タスクの木に整理する（WBS のまま写す）
 2. 新規のカテゴリ、グループ、タスク、マイルストン、マイルストングループには `crypto.randomUUID()` 相当の UUID v4 を付与する。既存 JSON を更新する場合は既存 `id` を維持する
-3. `schemaVersion: 6` を付ける
+3. `schemaVersion: 7` を付ける
 4. JSON ファイルを書き、このスキルフォルダで `node scripts/validate-schedule.mjs <file>` を実行して検証する
 5. エラーがあれば修正して再検証し、通ってからユーザーに渡す
 

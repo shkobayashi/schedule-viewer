@@ -35,6 +35,7 @@ const filters: ScheduleFilters = {
   overdue: "all",
   relation: "all",
   milestone: "all",
+  tag: "",
   search: "",
   noteSearch: "",
 };
@@ -113,6 +114,28 @@ describe("taskMatchesFilter milestone", () => {
   });
 });
 
+describe("taskMatchesFilter tag", () => {
+  it("keeps only tasks that have the selected tag", () => {
+    const tagged = { ...baseTask, tags: ["説明"] };
+    expect(
+      taskMatchesFilter(tagged, { ...filters, tag: "説明" }, "2026-01-01", null),
+    ).toBe(true);
+    expect(
+      taskMatchesFilter(baseTask, { ...filters, tag: "説明" }, "2026-01-01", null),
+    ).toBe(false);
+  });
+
+  it("filters by the literal tag name all", () => {
+    const tagged = { ...baseTask, tags: ["all"] };
+    expect(
+      taskMatchesFilter(tagged, { ...filters, tag: "all" }, "2026-01-01", null),
+    ).toBe(true);
+    expect(
+      taskMatchesFilter(baseTask, { ...filters, tag: "all" }, "2026-01-01", null),
+    ).toBe(false);
+  });
+});
+
 describe("taskMatchesFilter confidence", () => {
   it("keeps only the selected confidence", () => {
     expect(
@@ -165,6 +188,7 @@ describe("relaxFiltersForNewTask", () => {
         overdue: "overdue",
         relation: "broken",
         milestone: milestoneId,
+        tag: "説明",
         search: " 別の名前",
         noteSearch: "メモ",
       },
@@ -179,12 +203,13 @@ describe("relaxFiltersForNewTask", () => {
       overdue: "all",
       relation: "all",
       milestone: "all",
+      tag: "",
       search: "",
       noteSearch: "",
     });
     expect(
       relaxFiltersForNewTask(
-        { ...filters, status: "in-progress" },
+        { ...filters, status: "in-progress", tag: "説明" },
         addedTask,
         "2026-09-30",
         null,
@@ -211,6 +236,7 @@ describe("relaxFiltersForNewTask", () => {
       overdue: "all",
       relation: "all",
       milestone: NO_MILESTONE_FILTER,
+      tag: "",
       search: "新しい",
       noteSearch: "",
     };
@@ -245,6 +271,7 @@ describe("relaxFiltersForNewTask", () => {
       overdue: "overdue",
       relation: "broken",
       milestone: milestoneId,
+      tag: "",
       search: "複製",
       noteSearch: "引き継",
     };
@@ -264,7 +291,23 @@ describe("relaxFiltersForNewTask", () => {
         "2026-09-30",
         null,
       ),
-    ).toMatchObject({ confidence: "all", noteSearch: "" });
+    ).toMatchObject({ confidence: "all", tag: "", noteSearch: "" });
+  });
+
+  it("keeps tag filter when the duplicated task has that tag", () => {
+    const copy: Task = {
+      ...addedTask,
+      tags: ["共有"],
+    };
+    expect(
+      relaxFiltersForNewTask(
+        { ...filters, tag: "共有" },
+        copy,
+        "2026-09-30",
+        null,
+        new Set([copy.id]),
+      ).tag,
+    ).toBe("共有");
   });
 });
 

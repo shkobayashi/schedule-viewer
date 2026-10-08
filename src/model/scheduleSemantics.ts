@@ -251,6 +251,29 @@ function validateTaskSemantics(
     issues.push({ path: `${taskPath}/note`, message: "ノートは空白にできません" });
   }
 
+  if (task.tags != null) {
+    const tagSeen = new Set<string>();
+    for (let ti = 0; ti < task.tags.length; ti += 1) {
+      const tag = task.tags[ti];
+      const tagPath = `${taskPath}/tags/${ti}`;
+      const trimmed = tag.trim();
+      if (trimmed.length === 0) {
+        issues.push({ path: tagPath, message: "タグは空白にできません" });
+        continue;
+      }
+      if (tag !== trimmed) {
+        issues.push({
+          path: tagPath,
+          message: "タグの前後に空白は書けません",
+        });
+      }
+      if (tagSeen.has(trimmed)) {
+        issues.push({ path: tagPath, message: "タグが重複しています" });
+      }
+      tagSeen.add(trimmed);
+    }
+  }
+
   if (task.milestoneId != null && !milestoneIds.has(task.milestoneId)) {
     issues.push({
       path: `${taskPath}/milestoneId`,

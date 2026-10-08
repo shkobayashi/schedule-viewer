@@ -5,6 +5,7 @@ import {
   validatePredecessorRefs,
 } from "./scheduleSemantics";
 import { applyTaskNote } from "./taskNote";
+import { applyTaskTags } from "./taskTags";
 import {
   SCHEDULE_SCHEMA_VERSION,
   type Category,
@@ -81,6 +82,55 @@ export function mapTasks(
       tasks: group.tasks.map(update),
     })),
   }));
+}
+
+export function findTaskInCategories(
+  categories: Category[],
+  taskId: ScheduleId,
+): Task | null {
+  for (const category of categories) {
+    for (const group of category.groups) {
+      for (const task of group.tasks) {
+        if (task.id === taskId) return task;
+      }
+    }
+  }
+  return null;
+}
+
+export function addTaskTag(
+  categories: Category[],
+  taskId: ScheduleId,
+  rawTag: string,
+): { categories: Category[]; duplicate: boolean } {
+  const trimmed = rawTag.trim();
+  if (trimmed.length === 0) {
+    return { categories, duplicate: false };
+  }
+  let duplicate = false;
+  const next = mapTasks(categories, (task) => {
+    if (task.id !== taskId) return task;
+    const existing = task.tags ?? [];
+    if (existing.includes(trimmed)) {
+      duplicate = true;
+      return task;
+    }
+    return applyTaskTags(task, [...existing, trimmed]);
+  });
+  return { categories: next, duplicate };
+}
+
+export function removeTaskTag(
+  categories: Category[],
+  taskId: ScheduleId,
+  tag: string,
+): Category[] {
+  return mapTasks(categories, (task) => {
+    if (task.id !== taskId) return task;
+    const existing = task.tags;
+    if (!existing?.includes(tag)) return task;
+    return applyTaskTags(task, existing.filter((item) => item !== tag));
+  });
 }
 
 export function findTaskPlace(
@@ -382,6 +432,7 @@ export function categoriesAfterDuplicate(
   newId: ScheduleId,
   patch: TaskEditPatch,
 ): TaskGraphResult {
+  const source = findTaskInCategories(categories, sourceId);
   const inserted = insertTaskAfter(
     categories,
     {
@@ -395,6 +446,7 @@ export function categoriesAfterDuplicate(
       confidence: patch.confidence,
       predecessors: [],
       milestoneId: null,
+      ...(source?.tags ? { tags: [...source.tags] } : {}),
     },
     sourceId,
   );

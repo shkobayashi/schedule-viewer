@@ -15,6 +15,7 @@ export type FilterChipKind =
   | "overdue"
   | "relation"
   | "milestone"
+  | "tag"
   | "search"
   | "noteSearch"
   | "lineage"
@@ -48,6 +49,7 @@ export const DEFAULT_FILTERS: ScheduleFilters = {
   overdue: "all",
   relation: "all",
   milestone: "all",
+  tag: "",
   search: "",
   noteSearch: "",
 };
@@ -68,6 +70,8 @@ export function filterChipClearPatch(
       return { relation: "all" };
     case "milestone":
       return { milestone: "all" };
+    case "tag":
+      return { tag: "" };
     case "search":
       return { search: "" };
     case "noteSearch":
@@ -124,6 +128,9 @@ export function activeFilterChips(
         ? `マイルストン: ${milestone.name}（${milestone.date}）`
         : `マイルストン: ${filters.milestone}`,
     });
+  }
+  if (filters.tag !== "") {
+    chips.push({ kind: "tag", label: `タグ: ${filters.tag}` });
   }
   const search = filters.search.trim();
   if (search) chips.push({ kind: "search", label: `タスク名: 「${search}」` });
@@ -192,6 +199,7 @@ export function activeFilterCount(
   if (filters.overdue !== "all") count += 1;
   if (filters.relation !== "all") count += 1;
   if (filters.milestone !== "all") count += 1;
+  if (filters.tag !== "") count += 1;
   if (filters.search.trim()) count += 1;
   if (filters.noteSearch.trim()) count += 1;
   if (lineageActive) count += 1;
