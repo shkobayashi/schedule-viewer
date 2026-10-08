@@ -14,6 +14,7 @@ export type MacOSAppMenuHandlers = {
   onExportHtml: () => void;
   onShowJson: () => void;
   onShowDiff: () => void;
+  onOpenGuide: () => void;
   onOpenShortcuts: () => void;
   onOpenSettings: () => void;
   onGoToday: () => void;
@@ -136,6 +137,11 @@ export function useMacOSAppMenu(handlers: MacOSAppMenuHandlers): void {
       const viewSubmenu = await Submenu.new({
         text: "表示",
         items: [
+          await MenuItem.new({
+            id: "view-guide",
+            text: "操作の案内",
+            action: () => h().onOpenGuide(),
+          }),
           await MenuItem.new({
             id: "view-shortcuts",
             text: "ショートカット一覧",

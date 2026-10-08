@@ -17,6 +17,7 @@ type AppMenuProps = {
   onShowJson: () => void;
   onShowDiff: () => void;
   onOpenSettings: () => void;
+  onOpenGuide: () => void;
   onOpenShortcuts: () => void;
 };
 
@@ -31,6 +32,7 @@ export function AppMenu({
   onShowJson,
   onShowDiff,
   onOpenSettings,
+  onOpenGuide,
   onOpenShortcuts,
 }: AppMenuProps) {
   const [open, setOpen] = useState(false);
@@ -180,6 +182,9 @@ export function AppMenu({
         差分を表示
       </button>
       <hr />
+      <button type="button" role="menuitem" onClick={() => run(onOpenGuide)}>
+        操作の案内
+      </button>
       <button type="button" role="menuitem" onClick={() => run(onOpenShortcuts)}>
         ショートカット一覧
       </button>

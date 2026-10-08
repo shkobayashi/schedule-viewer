@@ -9,6 +9,7 @@ export type CommandPaletteCommandId =
   | "showJson"
   | "export"
   | "settings"
+  | "guide"
   | "shortcuts"
   | "goToday"
   | "tierDay"
@@ -108,6 +109,12 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
     id: "settings",
     label: "設定",
     keywords: "settings 設定",
+    enabled: () => true,
+  },
+  {
+    id: "guide",
+    label: "操作の案内",
+    keywords: "guide help 案内 操作",
     enabled: () => true,
   },
   {
