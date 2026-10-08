@@ -1147,9 +1147,11 @@ function TaskSidebarRow({
               : assigneeSidebarLabel(assigneeDisplay)
           }
         >
-          {assigneeDisplay.kind === "unassigned"
-            ? "未割当"
-            : assigneeSidebarLabel(assigneeDisplay)}
+          {assigneeDisplay.kind === "unassigned" ? (
+            <span className="assignee-badge">未割当</span>
+          ) : (
+            assigneeSidebarLabel(assigneeDisplay)
+          )}
         </span>
       </span>
       </div>
