@@ -1,6 +1,5 @@
 use std::ffi::c_void;
 use std::fs::File;
-use std::io::{Read, Write};
 use std::os::windows::io::{FromRawHandle, IntoRawHandle};
 use std::ptr;
 use std::sync::Arc;
@@ -10,21 +9,20 @@ use std::time::{Duration, Instant};
 use serde_json::Value;
 use tauri::AppHandle;
 use windows_sys::Win32::Foundation::{
-    CloseHandle, ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, GetLastError,
-    HANDLE, INVALID_HANDLE_VALUE, LocalFree,
+    CloseHandle, GetLastError, LocalFree, ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY,
+    ERROR_PIPE_CONNECTED, GENERIC_READ, GENERIC_WRITE, HANDLE, INVALID_HANDLE_VALUE,
 };
 use windows_sys::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW;
 use windows_sys::Win32::Security::SECURITY_ATTRIBUTES;
 use windows_sys::Win32::Storage::FileSystem::{
-    CreateFileW, FILE_ATTRIBUTE_NORMAL, GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING,
+    CreateFileW, FILE_ATTRIBUTE_NORMAL, OPEN_EXISTING, PIPE_ACCESS_DUPLEX,
 };
 use windows_sys::Win32::System::Pipes::{
-    ConnectNamedPipe, CreateNamedPipeW, DisconnectNamedPipe, PIPE_ACCESS_DUPLEX,
+    ConnectNamedPipe, CreateNamedPipeW, DisconnectNamedPipe, SetNamedPipeHandleState,
     PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE, PIPE_WAIT,
-    SetNamedPipeHandleState,
 };
 
-use crate::mcp_app_data::{current_user_sid_string, mcp_pipe_name, mcp_pipe_name_for_current_user};
+use crate::mcp_app_data::{current_user_sid_string, mcp_pipe_name_for_current_user};
 use crate::mcp_bridge::{
     bridge_exchange, handle_bridge_connection_io, McpBridgeError, McpBridgeState,
     MCP_PIPE_CONNECT_TIMEOUT,
@@ -49,12 +47,14 @@ impl PipeSecurity {
         let sddl = format!("D:(A;;GA;;;{})", sid);
         let wide = wide_null(&sddl);
         let mut descriptor = ptr::null_mut();
-        if ConvertStringSecurityDescriptorToSecurityDescriptorW(
-            wide.as_ptr(),
-            SDDL_REVISION_1,
-            &mut descriptor,
-            ptr::null_mut(),
-        ) == 0
+        if unsafe {
+            ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                wide.as_ptr(),
+                SDDL_REVISION_1,
+                &mut descriptor,
+                ptr::null_mut(),
+            )
+        } == 0
         {
             return Err("MCP パイプの権限を設定できません。".to_string());
         }
@@ -72,7 +72,7 @@ impl PipeSecurity {
 impl Drop for PipeSecurity {
     fn drop(&mut self) {
         if !self.descriptor.is_null() {
-            let _ = LocalFree(self.descriptor);
+            let _ = unsafe { LocalFree(self.descriptor) };
         }
     }
 }
@@ -97,9 +97,9 @@ fn open_pipe_client(pipe_name: &str) -> Result<File, u32> {
     if handle == INVALID_HANDLE_VALUE {
         return Err(unsafe { GetLastError() });
     }
-    let mut mode = PIPE_READMODE_BYTE;
+    let mode = PIPE_READMODE_BYTE;
     if unsafe {
-        SetNamedPipeHandleState(handle, &mut mode, ptr::null_mut(), ptr::null_mut())
+        SetNamedPipeHandleState(handle, &mode, ptr::null_mut(), ptr::null_mut())
     } == 0
     {
         let err = unsafe { GetLastError() };
@@ -205,6 +205,7 @@ pub fn call_tool_via_bridge(tool: &str, arguments: Value) -> Result<Value, McpBr
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mcp_app_data::mcp_pipe_name;
     use crate::mcp_bridge::{read_frame, write_frame, BridgeRequest, BridgeResponse, BRIDGE_VERSION};
     use std::sync::mpsc;
     use std::time::Duration;
