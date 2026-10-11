@@ -3,6 +3,7 @@ import { migrateScheduleV6ToV7 } from "./scheduleMigrate";
 import { validateScheduleSemantics } from "./scheduleSemantics";
 import {
   collectTagsInDocumentOrder,
+  filterTagsByQuery,
   formatTaskTagsForDiff,
   normalizeTaskTags,
   pruneSelectedTags,
@@ -52,6 +53,30 @@ describe("normalizeTaskTags", () => {
     expect(normalizeTaskTags(["  a ", "a", "", "b"])).toEqual(["a", "b"]);
     expect(normalizeTaskTags([])).toBeUndefined();
     expect(normalizeTaskTags(["   "])).toBeUndefined();
+  });
+});
+
+describe("filterTagsByQuery", () => {
+  const tags = ["alpha", "Beta", "common", "z"];
+
+  it("returns all tags when query is empty or whitespace only", () => {
+    expect(filterTagsByQuery(tags, "")).toEqual(tags);
+    expect(filterTagsByQuery(tags, "   ")).toEqual(tags);
+  });
+
+  it("matches substrings case-sensitively after trim", () => {
+    expect(filterTagsByQuery(tags, "  al  ")).toEqual(["alpha"]);
+    expect(filterTagsByQuery(tags, "beta")).toEqual([]);
+    expect(filterTagsByQuery(tags, "Beta")).toEqual(["Beta"]);
+    expect(filterTagsByQuery(tags, "om")).toEqual(["common"]);
+  });
+
+  it("returns empty when nothing matches", () => {
+    expect(filterTagsByQuery(tags, "missing")).toEqual([]);
+  });
+
+  it("preserves document order", () => {
+    expect(filterTagsByQuery(tags, "a")).toEqual(["alpha", "Beta"]);
   });
 });
 
