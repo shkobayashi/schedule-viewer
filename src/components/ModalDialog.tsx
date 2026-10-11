@@ -49,7 +49,10 @@ export function ModalDialog({
     if (event.key !== "Tab" || !panelRef.current) return;
     const nodes = [
       ...panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE),
-    ].filter((node) => node.offsetParent !== null);
+    ].filter(
+      (node) =>
+        node.offsetParent !== null && !node.closest("[inert]"),
+    );
     if (nodes.length === 0) return;
     const first = nodes[0];
     const last = nodes[nodes.length - 1];

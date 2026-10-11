@@ -13,7 +13,12 @@ export type ReleaseNotesForVersion = {
   categories: ReleaseNotesCategory[];
 };
 
+export type BundledReleaseNotesVersion = ReleaseNotesForVersion & {
+  releaseDate: string | null;
+};
+
 const VERSION_HEADING_RE = /^## \[([^\]]+)\]/;
+const VERSION_LINE_RE = /^## \[([^\]]+)\](?:\s*-\s*(.+))?$/;
 
 export function normalizeVersionLabel(version: string): string {
   const trimmed = version.trim();
@@ -124,12 +129,21 @@ function stripTrailingIssueRefs(text: string): string {
   return text.replace(/\s*(?:\(#\d+\)\s*)+$/u, "").trimEnd();
 }
 
-export function parseReleaseNotesForVersion(
-  changelog: string,
-  version: string,
-): ReleaseNotesForVersion | null {
-  const sectionBody = extractVersionSectionBody(changelog, version);
-  if (sectionBody === null || sectionBody.trim() === "") return null;
+export function parseVersionHeadingLine(
+  line: string,
+): { version: string; releaseDate: string | null } | null {
+  const match = VERSION_LINE_RE.exec(line.trim());
+  if (!match) return null;
+  const version = normalizeVersionLabel(match[1].split(/\s/)[0] ?? "");
+  if (version.toLowerCase() === "unreleased") return null;
+  const releaseDate = match[2]?.trim() ?? null;
+  return { version, releaseDate: releaseDate || null };
+}
+
+function parseSectionBodyToCategories(
+  sectionBody: string,
+): ReleaseNotesCategory[] | null {
+  if (sectionBody.trim() === "") return null;
 
   const categories: ReleaseNotesCategory[] = [];
   let current: ReleaseNotesCategory | null = null;
@@ -149,9 +163,49 @@ export function parseReleaseNotesForVersion(
 
   const nonEmpty = categories.filter((category) => category.items.length > 0);
   if (nonEmpty.length === 0) return null;
+  return nonEmpty;
+}
+
+export function parseBundledChangelogVersions(
+  changelog: string,
+): BundledReleaseNotesVersion[] {
+  const lines = changelog.split(/\r?\n/);
+  const result: BundledReleaseNotesVersion[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const heading = parseVersionHeadingLine(lines[i]);
+    if (!heading) continue;
+
+    const body: string[] = [];
+    for (let j = i + 1; j < lines.length; j += 1) {
+      if (VERSION_HEADING_RE.test(lines[j])) break;
+      body.push(lines[j]);
+    }
+    const categories = parseSectionBodyToCategories(body.join("\n").trimEnd());
+    if (!categories) continue;
+
+    result.push({
+      version: heading.version,
+      releaseDate: heading.releaseDate,
+      categories,
+    });
+  }
+
+  return result;
+}
+
+export function parseReleaseNotesForVersion(
+  changelog: string,
+  version: string,
+): ReleaseNotesForVersion | null {
+  const sectionBody = extractVersionSectionBody(changelog, version);
+  if (sectionBody === null) return null;
+
+  const categories = parseSectionBodyToCategories(sectionBody);
+  if (!categories) return null;
 
   return {
     version: normalizeVersionLabel(version),
-    categories: nonEmpty,
+    categories,
   };
 }

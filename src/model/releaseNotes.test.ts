@@ -5,7 +5,9 @@ import {
   extractVersionSectionBody,
   linkifyIssueReferencesInLine,
   normalizeVersionLabel,
+  parseBundledChangelogVersions,
   parseReleaseNotesForVersion,
+  parseVersionHeadingLine,
   validateVersionSectionBullets,
 } from "./releaseNotes";
 
@@ -118,5 +120,52 @@ describe("parseReleaseNotesForVersion", () => {
 
   it("returns null when the version section is missing", () => {
     expect(parseReleaseNotesForVersion(SAMPLE, "9.9.9")).toBeNull();
+  });
+});
+
+describe("parseVersionHeadingLine", () => {
+  it("reads version and date from a release heading", () => {
+    expect(parseVersionHeadingLine("## [2.0.0] - 2026-01-01")).toEqual({
+      version: "2.0.0",
+      releaseDate: "2026-01-01",
+    });
+  });
+
+  it("returns null for Unreleased", () => {
+    expect(parseVersionHeadingLine("## [Unreleased]")).toBeNull();
+  });
+});
+
+describe("parseBundledChangelogVersions", () => {
+  it("returns versions in file order without Unreleased or intro", () => {
+    const versions = parseBundledChangelogVersions(SAMPLE);
+    expect(versions.map((v) => v.version)).toEqual(["2.0.0", "1.0.0"]);
+    expect(versions[0].releaseDate).toBe("2026-01-01");
+    expect(versions[1].releaseDate).toBe("2025-01-01");
+  });
+
+  it("keeps bullets without issue numbers", () => {
+    const versions = parseBundledChangelogVersions(SAMPLE);
+    const first = versions[1].categories[0].items[0];
+    expect(first).toEqual({ text: "初版", issueNumbers: [] });
+  });
+
+  it("omits versions with no list items", () => {
+    const changelog = `# Changelog
+
+説明だけ
+
+## [Unreleased]
+
+### 追加
+
+- 未公開
+
+## [3.0.0] - 2026-02-01
+
+### 追加
+
+`;
+    expect(parseBundledChangelogVersions(changelog)).toEqual([]);
   });
 });
