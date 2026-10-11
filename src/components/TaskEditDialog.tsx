@@ -77,11 +77,15 @@ export function TaskEditDialog({
   const [start, setStart] = useState(task.start);
   const [end, setEnd] = useState(task.end);
   const [assigneeId, setAssigneeId] = useState<string>(task.assigneeId ?? "");
-  const [status, setStatus] = useState<TaskStatus>(task.status);
-  const [progress, setProgress] = useState(task.progress);
+  const [status, setStatus] = useState<TaskStatus>(() =>
+    mode === "duplicate" ? "not-started" : task.status,
+  );
+  const [progress, setProgress] = useState(() =>
+    mode === "duplicate" ? 0 : task.progress,
+  );
   const [confidence, setConfidence] = useState<TaskConfidence>(task.confidence);
-  const [predecessors, setPredecessors] = useState<ScheduleId[]>(
-    task.predecessors,
+  const [predecessors, setPredecessors] = useState<ScheduleId[]>(() =>
+    mode === "duplicate" ? [] : task.predecessors,
   );
   const [successors, setSuccessors] = useState<ScheduleId[]>(successorIds);
   const [milestoneId, setMilestoneId] = useState<ScheduleId | null>(

@@ -55,7 +55,7 @@ flowchart TD
 | `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer` |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
-| `ModalDialog.tsx` | 共通の枠。Escape、フォーカスの保持、背面の操作禁止 |
+| `ModalDialog.tsx` | 共通の枠。Escape、フォーカスの保持、背面の操作禁止。`#root` の `inert` は `useLayoutEffect` で付け外しし、閉じたあとの描画の前に外す |
 | `TaskNoteButton.tsx` | ノートの有無で色を分けるボタン |
 
 ### フック
