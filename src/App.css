@@ -462,6 +462,14 @@ body {
   background: var(--panel);
 }
 
+.settings-app-version {
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+  margin: calc(12px * var(--s)) 0 0;
+  user-select: text;
+  cursor: text;
+}
+
 .sidebar-row .assignee.unknown-member {
   flex-shrink: 0;
   color: var(--unknown-text);
@@ -1564,18 +1572,38 @@ button:focus-visible,
 .modal.settings-dialog {
   width: min(880px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
-  overflow: auto;
-}
-
-.modal.settings-dialog.settings-dialog--updates {
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.modal.settings-dialog.settings-dialog--updates .settings-layout {
-  flex: 1;
+.modal.settings-dialog > h2,
+.modal.settings-dialog > .modal-actions,
+.modal.settings-dialog > .settings-app-version {
+  flex-shrink: 0;
+}
+
+.modal.settings-dialog .settings-layout {
+  flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.modal.settings-dialog .settings-nav {
+  min-height: 0;
+  overflow: auto;
+}
+
+.modal.settings-dialog:not(.settings-dialog--updates) .settings-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.modal.settings-dialog > .settings-confirm {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .modal.settings-dialog.settings-dialog--updates .settings-panel {

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
+import packageJson from "../../package.json";
 import type { AppMembersSettings } from "../model/memberAppData";
 import {
   catalogIdFromFilename,
@@ -50,6 +52,41 @@ import {
   type JsonSkillScope,
   type JsonSkillTools,
 } from "../model/jsonSkills";
+import { normalizeVersionLabel } from "../model/releaseNotes";
+
+function formatAppVersionLine(raw: string): string {
+  const normalized = normalizeVersionLabel(raw);
+  return normalized
+    ? `バージョン ${normalized}`
+    : "バージョンを取得できませんでした";
+}
+
+let cachedAppVersionLine: string | null = null;
+let appVersionFetchPromise: Promise<void> | null = null;
+
+if (!isTauri()) {
+  cachedAppVersionLine = formatAppVersionLine(packageJson.version);
+}
+
+function fetchAppVersionLineIfNeeded(): Promise<void> {
+  if (cachedAppVersionLine !== null) return Promise.resolve();
+  if (!isTauri()) {
+    cachedAppVersionLine = formatAppVersionLine(packageJson.version);
+    return Promise.resolve();
+  }
+  if (appVersionFetchPromise) return appVersionFetchPromise;
+  appVersionFetchPromise = getVersion()
+    .then((version) => {
+      cachedAppVersionLine = formatAppVersionLine(version);
+    })
+    .catch(() => {
+      cachedAppVersionLine = "バージョンを取得できませんでした";
+    })
+    .finally(() => {
+      appVersionFetchPromise = null;
+    });
+  return appVersionFetchPromise;
+}
 
 type SettingsDialogProps = {
   open: boolean;
@@ -156,6 +193,26 @@ export function SettingsDialog({
     string[] | null
   >(null);
   const jsonSkillToolsTouched = useRef(false);
+  const [appVersionLine, setAppVersionLine] = useState<string | null>(
+    () => cachedAppVersionLine,
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    if (cachedAppVersionLine !== null) {
+      setAppVersionLine(cachedAppVersionLine);
+      return;
+    }
+    let cancelled = false;
+    void fetchAppVersionLineIfNeeded().then(() => {
+      if (!cancelled && cachedAppVersionLine !== null) {
+        setAppVersionLine(cachedAppVersionLine);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -981,6 +1038,9 @@ export function SettingsDialog({
             閉じる
           </button>
         </div>
+        {appVersionLine ? (
+          <p className="settings-app-version">{appVersionLine}</p>
+        ) : null}
     </ModalDialog>
   );
 }
