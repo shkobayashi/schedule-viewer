@@ -6,6 +6,10 @@ import {
   chartScrollOffset,
   fileShortcutHint,
   linkShortcutHint,
+  matchAddMilestoneShortcut,
+  matchAddTaskShortcut,
+  matchDuplicateTaskShortcut,
+  matchReorderTaskShortcut,
   noteShortcutHint,
   matchAppShortcut,
   matchChartScroll,
@@ -271,6 +275,29 @@ describe("noteShortcutHint", () => {
   it("uses the command key for the note hint", () => {
     expect(noteShortcutHint(true)).toBe("⌘N");
     expect(noteShortcutHint(false)).toBe("Ctrl+N");
+  });
+});
+
+describe("task workflow shortcuts", () => {
+  it("matches add, milestone, duplicate, and reorder keys", () => {
+    expect(matchAddTaskShortcut(key("Enter", { ctrlKey: true }), idle)).toBe(true);
+    expect(matchAddTaskShortcut(key("Insert"), idle)).toBe(true);
+    expect(matchAddTaskShortcut(key("Enter", { ctrlKey: true, shiftKey: true }), idle)).toBe(
+      false,
+    );
+    expect(matchAddMilestoneShortcut(key("Enter", { ctrlKey: true, shiftKey: true }), idle)).toBe(
+      true,
+    );
+    expect(matchDuplicateTaskShortcut(key("ArrowDown", { altKey: true, shiftKey: true }), idle)).toBe(
+      true,
+    );
+    expect(
+      matchDuplicateTaskShortcut(key("ArrowUp", { altKey: true, shiftKey: true }), idle),
+    ).toBe(false);
+    expect(matchReorderTaskShortcut(key("ArrowUp", { altKey: true }), idle)).toBe("up");
+    expect(matchReorderTaskShortcut(key("ArrowDown", { altKey: true }), idle)).toBe("down");
+    expect(matchAddTaskShortcut(key("Enter", { ctrlKey: true }), typing)).toBe(false);
+    expect(matchReorderTaskShortcut(key("ArrowDown", { altKey: true }), dialog)).toBeNull();
   });
 });
 

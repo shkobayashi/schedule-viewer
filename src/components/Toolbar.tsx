@@ -8,6 +8,8 @@ import type {
 } from "../model/types";
 import { activeFilterCount } from "../model/filterChips";
 import {
+  addMilestoneShortcutHint,
+  addTaskShortcutHint,
   deleteShortcutHint,
   linkShortcutHint,
   redoShortcutHint,
@@ -146,6 +148,14 @@ export function Toolbar({
     setAddOpen(false);
     setAddMenuPos(null);
   };
+
+  useEffect(() => {
+    const onCloseMenus = () => closeAddMenu();
+    document.addEventListener("schedule-viewer:close-menus", onCloseMenus);
+    return () => {
+      document.removeEventListener("schedule-viewer:close-menus", onCloseMenus);
+    };
+  }, []);
 
   useEffect(() => {
     if (!addOpen) return;
@@ -329,9 +339,14 @@ export function Toolbar({
         </>
       ) : null}
       <div className="add-split" ref={addButtonRef}>
-        <button type="button" className="toolbar-btn toolbar-btn-primary" onClick={onAdd}>
+        <button
+          type="button"
+          className="toolbar-btn toolbar-btn-primary toolbar-btn-with-shortcut"
+          onClick={onAdd}
+        >
           <Plus size={16} strokeWidth={2.25} aria-hidden="true" />
           <span>追加</span>
+          <span className="menu-shortcut">{addTaskShortcutHint(commandKey)}</span>
         </button>
         <button
           type="button"
@@ -373,7 +388,10 @@ export function Toolbar({
                 onAddMilestone();
               }}
             >
-              マイルストンを追加
+              <span>マイルストンを追加</span>
+              <span className="menu-shortcut">
+                {addMilestoneShortcutHint(commandKey)}
+              </span>
             </button>
           </div>
         ) : null}

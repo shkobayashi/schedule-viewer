@@ -234,6 +234,82 @@ export function chartScrollShortcutHint(commandKey: boolean): string {
   return commandKey ? "⌘矢印" : "Ctrl+矢印";
 }
 
+export type TaskWorkflowShortcutContext = Pick<
+  ShortcutContext,
+  "dialogOpen" | "blocksLinkKeys"
+>;
+
+function taskWorkflowBlocked(context: TaskWorkflowShortcutContext): boolean {
+  return context.dialogOpen || context.blocksLinkKeys;
+}
+
+export function matchAddTaskShortcut(
+  event: ShortcutKeyEvent,
+  context: TaskWorkflowShortcutContext,
+): boolean {
+  if (taskWorkflowBlocked(context)) return false;
+  if (event.altKey) return false;
+  const key = event.key;
+  if (key === "Insert" && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+    return true;
+  }
+  if (key !== "Enter") return false;
+  if (!(event.ctrlKey || event.metaKey) || event.shiftKey) return false;
+  return true;
+}
+
+export function matchAddMilestoneShortcut(
+  event: ShortcutKeyEvent,
+  context: TaskWorkflowShortcutContext,
+): boolean {
+  if (taskWorkflowBlocked(context)) return false;
+  if (event.altKey) return false;
+  if (event.key !== "Enter") return false;
+  if (!(event.ctrlKey || event.metaKey) || !event.shiftKey) return false;
+  return true;
+}
+
+export function matchDuplicateTaskShortcut(
+  event: ShortcutKeyEvent,
+  context: TaskWorkflowShortcutContext,
+): boolean {
+  if (taskWorkflowBlocked(context)) return false;
+  if (!event.altKey || !event.shiftKey) return false;
+  if (event.ctrlKey || event.metaKey) return false;
+  return event.key === "ArrowDown";
+}
+
+export type ReorderTaskDirection = "up" | "down";
+
+export function matchReorderTaskShortcut(
+  event: ShortcutKeyEvent,
+  context: TaskWorkflowShortcutContext,
+): ReorderTaskDirection | null {
+  if (taskWorkflowBlocked(context)) return null;
+  if (!event.altKey || event.shiftKey) return null;
+  if (event.ctrlKey || event.metaKey) return null;
+  if (event.key === "ArrowUp") return "up";
+  if (event.key === "ArrowDown") return "down";
+  return null;
+}
+
+export function addTaskShortcutHint(commandKey: boolean): string {
+  const mod = commandKey ? "⌘" : "Ctrl";
+  return `${mod}+Enter / Insert`;
+}
+
+export function addMilestoneShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘⇧Enter" : "Ctrl+Shift+Enter";
+}
+
+export function duplicateTaskShortcutHint(): string {
+  return "Alt+Shift+↓";
+}
+
+export function reorderTaskShortcutHint(): string {
+  return "Alt+↑ / Alt+↓";
+}
+
 export type ShortcutReferenceRow = {
   action: string;
   keys: string;
@@ -252,6 +328,13 @@ export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow
     { action: "差分をコピー", keys: diffCopyShortcutHint(commandKey) },
     { action: "線を引く", keys: linkShortcutHint(commandKey) },
     { action: "ノート", keys: noteShortcutHint(commandKey) },
+    { action: "タスクを追加", keys: addTaskShortcutHint(commandKey) },
+    { action: "マイルストンを追加", keys: addMilestoneShortcutHint(commandKey) },
+    {
+      action: "同じグループで上下に移動",
+      keys: reorderTaskShortcutHint(),
+    },
+    { action: "タスクを複製", keys: duplicateTaskShortcutHint() },
     { action: "取り消し", keys: undoShortcutHint(commandKey) },
     { action: "やり直し", keys: redoShortcutHint(commandKey) },
     { action: "表示サイズ", keys: displayScaleShortcutHint(commandKey) },

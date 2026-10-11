@@ -80,6 +80,14 @@ export function AppMenu({
   }, [open, position.left, position.top]);
 
   useEffect(() => {
+    const onCloseMenus = () => setOpen(false);
+    document.addEventListener("schedule-viewer:close-menus", onCloseMenus);
+    return () => {
+      document.removeEventListener("schedule-viewer:close-menus", onCloseMenus);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -96,7 +104,16 @@ export function AppMenu({
       }
       const menu = panelRef.current;
       if (!menu) return;
-      if (moveMenuFocus(menu, event.key)) event.preventDefault();
+      if (
+        moveMenuFocus(menu, event.key, {
+          altKey: event.altKey,
+          shiftKey: event.shiftKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+        })
+      ) {
+        event.preventDefault();
+      }
     };
     focusMenuEdge(panelRef.current ?? buttonRef.current ?? document.body, "first");
     document.addEventListener("mousedown", onPointerDown);

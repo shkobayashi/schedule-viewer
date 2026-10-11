@@ -912,6 +912,12 @@ button:focus-visible,
   opacity: 0.9;
 }
 
+.toolbar-btn-primary .menu-shortcut {
+  color: var(--on-accent);
+  -webkit-text-fill-color: var(--on-accent);
+  opacity: 0.9;
+}
+
 .link-banner {
   font-size: calc(11px * var(--s));
   color: var(--text-secondary);

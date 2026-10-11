@@ -5,6 +5,8 @@ import { requestApplicationQuitViaTauri } from "../model/windowSession";
 import { decideAppKey, type AppKeyTarget } from "./appKeyboard";
 import type { ChartPointer } from "../model/chartHitTest";
 import { adjacentVisibleTaskId } from "../model/taskSelection";
+import { canReorderTaskInGroup, taskIndexInGroup } from "../model/taskOrder";
+import { findTaskOwner } from "../model/tasks";
 import type { Category, ScheduleId, VisibleRow } from "../model/types";
 import {
   resolveUiScale,
@@ -23,12 +25,13 @@ type UseAppKeyboardOptions = {
   categories: Category[];
   selectedTaskId: ScheduleId | null;
   linkSourceId: ScheduleId | null;
+  startupSettled: boolean;
   toggleLinkMode: () => void;
   openTaskNote: (taskId: ScheduleId) => void;
   clearLinkMode: () => void;
   removePredecessorLink: (fromId: ScheduleId, toId: ScheduleId) => void;
   chartPointerRef: { current: ChartPointer };
-  closeContextMenu: () => void;
+  closeFloatingMenus: () => void;
   requestDeleteTask: () => void;
   undo: () => void;
   redo: () => void;
@@ -46,7 +49,24 @@ type UseAppKeyboardOptions = {
   commandPaletteOpen: boolean;
   onOpenCommandPalette: () => void;
   onCloseCommandPalette: () => void;
+  onAddTask: () => void;
+  onAddMilestone: () => void;
+  onDuplicateTask: (taskId: ScheduleId) => void;
+  commitTaskReorder: (
+    taskId: ScheduleId,
+    targetGroupId: ScheduleId,
+    insertIndex: number,
+  ) => void;
 };
+
+function groupTaskCount(categories: Category[], groupId: ScheduleId): number {
+  for (const category of categories) {
+    for (const group of category.groups) {
+      if (group.id === groupId) return group.tasks.length;
+    }
+  }
+  return 0;
+}
 
 export function useAppKeyboard({
   rowHeight,
@@ -58,12 +78,13 @@ export function useAppKeyboard({
   categories,
   selectedTaskId,
   linkSourceId,
+  startupSettled,
   toggleLinkMode,
   openTaskNote,
   clearLinkMode,
   removePredecessorLink,
   chartPointerRef,
-  closeContextMenu,
+  closeFloatingMenus,
   requestDeleteTask,
   undo,
   redo,
@@ -81,6 +102,10 @@ export function useAppKeyboard({
   shiftTaskEndByDays,
   focusDetailName,
   copyScheduleDiff,
+  onAddTask,
+  onAddMilestone,
+  onDuplicateTask,
+  commitTaskReorder,
 }: UseAppKeyboardOptions) {
   useEffect(() => {
     const macAppQuit =
@@ -93,6 +118,19 @@ export function useAppKeyboard({
               isContentEditable: event.target.isContentEditable,
             }
           : null;
+      const owner =
+        selectedTaskId != null
+          ? findTaskOwner(categories, selectedTaskId)
+          : null;
+      const taskIndex =
+        selectedTaskId != null
+          ? taskIndexInGroup(categories, selectedTaskId)
+          : null;
+      const groupCount =
+        owner != null ? groupTaskCount(categories, owner.groupId) : 0;
+      const canReorderInGroup =
+        selectedTaskId != null &&
+        canReorderTaskInGroup(categories, selectedTaskId, visibleRows);
       const decision = decideAppKey({
         event: {
           key: event.key,
@@ -113,9 +151,13 @@ export function useAppKeyboard({
         pointer: chartPointerRef.current,
         selectedTaskId,
         rowHeight,
+        startupSettled,
+        canReorderInGroup,
+        taskIndexInGroup: taskIndex,
+        groupTaskCount: groupCount,
       });
       if (decision.preventDefault) event.preventDefault();
-      if (decision.closeMenu) closeContextMenu();
+      if (decision.closeMenu) closeFloatingMenus();
       const action = decision.action;
       if (action.type === "scroll") {
         scrollBy(action.x, action.y);
@@ -185,6 +227,27 @@ export function useAppKeyboard({
         requestDeleteTask();
         return;
       }
+      if (action.type === "addTask") {
+        onAddTask();
+        return;
+      }
+      if (action.type === "addMilestone") {
+        onAddMilestone();
+        return;
+      }
+      if (action.type === "duplicateTask") {
+        if (selectedTaskId != null) onDuplicateTask(selectedTaskId);
+        return;
+      }
+      if (action.type === "reorderTaskInGroup") {
+        if (selectedTaskId == null || owner == null) return;
+        commitTaskReorder(
+          selectedTaskId,
+          owner.groupId,
+          action.insertIndex,
+        );
+        return;
+      }
       if (action.type === "save") void save(false);
       else if (action.type === "saveAs") void save(true);
       else if (action.type === "open") requestOpen();
@@ -200,8 +263,7 @@ export function useAppKeyboard({
       else if (action.type === "closeWindow") void getCurrentWindow().close();
       else if (action.type === "quitApplication") {
         void requestApplicationQuitViaTauri();
-      }
-      else if (action.type === "openDiffCopy") copyScheduleDiff();
+      } else if (action.type === "openDiffCopy") copyScheduleDiff();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -209,9 +271,13 @@ export function useAppKeyboard({
     categories,
     chartPointerRef,
     clearLinkMode,
-    closeContextMenu,
+    closeFloatingMenus,
+    commitTaskReorder,
     fileBusy,
     linkSourceId,
+    onAddMilestone,
+    onAddTask,
+    onDuplicateTask,
     redo,
     removePredecessorLink,
     requestDeleteTask,
@@ -221,6 +287,7 @@ export function useAppKeyboard({
     save,
     scrollBy,
     selectedTaskId,
+    startupSettled,
     taskSearchRef,
     openTaskNote,
     toggleLinkMode,

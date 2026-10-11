@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, isoDate, parseDate } from "../model/dates";
 import { validateNewTask } from "../model/tasks";
 import { ModalDialog } from "./ModalDialog";
@@ -39,9 +39,43 @@ export function TaskAddDialog({
   const [categoryName, setCategoryName] = useState(initialCategory);
   const [groupName, setGroupName] = useState(initialGroup);
   const [error, setError] = useState<string | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
   const groups =
     categories.find((category) => category.name === categoryName)?.groups ??
     [];
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      nameRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  const trySave = useCallback(() => {
+    const message = validateNewTask(
+      { name, start, end, category: categoryName, group: groupName },
+      categories,
+    );
+    if (message) {
+      setError(message);
+      return;
+    }
+    onSave({
+      name: name.trim(),
+      start,
+      end,
+      category: categoryName,
+      group: groupName,
+    });
+  }, [
+    categories,
+    categoryName,
+    end,
+    groupName,
+    name,
+    onSave,
+    start,
+  ]);
 
   return (
     <ModalDialog title="タスク追加" onClose={onClose}>
@@ -83,10 +117,27 @@ export function TaskAddDialog({
         <div className="field">
           <label htmlFor="addTaskName">タスク名</label>
           <input
+            ref={nameRef}
             id="addTaskName"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              if (
+                event.ctrlKey ||
+                event.metaKey ||
+                event.altKey ||
+                event.shiftKey
+              ) {
+                return;
+              }
+              if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+                return;
+              }
+              event.preventDefault();
+              trySave();
+            }}
           />
         </div>
         <div className="field">
@@ -112,27 +163,7 @@ export function TaskAddDialog({
           <button type="button" className="btn" onClick={onClose}>
             キャンセル
           </button>
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => {
-              const message = validateNewTask(
-                { name, start, end, category: categoryName, group: groupName },
-                categories,
-              );
-              if (message) {
-                setError(message);
-                return;
-              }
-              onSave({
-                name: name.trim(),
-                start,
-                end,
-                category: categoryName,
-                group: groupName,
-              });
-            }}
-          >
+          <button type="button" className="btn primary" onClick={trySave}>
             追加
           </button>
         </div>

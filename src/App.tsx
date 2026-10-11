@@ -51,6 +51,7 @@ import { Toolbar, type SearchField } from "./components/Toolbar";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
 import {
   deleteShortcutHint,
+  duplicateTaskShortcutHint,
   editShortcutHint,
   noteShortcutHint,
   usesCommandKey,
@@ -729,6 +730,10 @@ function App() {
   const closeContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
+  const closeFloatingMenus = useCallback(() => {
+    setContextMenu(null);
+    document.dispatchEvent(new Event("schedule-viewer:close-menus"));
+  }, []);
   const requestDeleteTask = useCallback(() => {
     setDeleteOpen(true);
   }, []);
@@ -1188,6 +1193,19 @@ function App() {
         case "lineage":
           schedule.toggleLineage();
           break;
+        case "addTask":
+          setAddOpen(true);
+          break;
+        case "addMilestone":
+          setAddMilestoneInitialDate(null);
+          setAddMilestoneInitialGroupId(null);
+          setAddMilestoneOpen(true);
+          break;
+        case "duplicateTask":
+          if (schedule.selectedTaskId != null) {
+            openDuplicateDialog(schedule.selectedTaskId);
+          }
+          break;
         default:
           break;
       }
@@ -1197,6 +1215,7 @@ function App() {
       fitToWidth,
       focusDetailName,
       handleDisplayScaleChange,
+      openDuplicateDialog,
       openGuide,
       openShortcuts,
       redo,
@@ -1221,12 +1240,13 @@ function App() {
     categories,
     selectedTaskId,
     linkSourceId,
+    startupSettled: scheduleFile.startupSettled,
     toggleLinkMode,
     openTaskNote: schedule.openTaskNoteDialog,
     clearLinkMode,
     removePredecessorLink,
     chartPointerRef,
-    closeContextMenu,
+    closeFloatingMenus,
     requestDeleteTask,
     undo,
     redo,
@@ -1247,6 +1267,14 @@ function App() {
     shiftTaskEndByDays,
     focusDetailName,
     copyScheduleDiff,
+    onAddTask: () => setAddOpen(true),
+    onAddMilestone: () => {
+      setAddMilestoneInitialDate(null);
+      setAddMilestoneInitialGroupId(null);
+      setAddMilestoneOpen(true);
+    },
+    onDuplicateTask: openDuplicateDialog,
+    commitTaskReorder: schedule.commitTaskReorder,
   });
 
   useMacOSAppMenu({
@@ -1560,6 +1588,7 @@ function App() {
         id: "duplicate",
         label: "複製",
         icon: <Copy size={14} strokeWidth={2} />,
+        shortcut: duplicateTaskShortcutHint(),
         onSelect: () => openDuplicateDialog(taskId),
       },
       { type: "separator", id: "task-sep-1" },

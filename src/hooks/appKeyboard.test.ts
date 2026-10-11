@@ -34,6 +34,10 @@ function decide(
     pointer,
     selectedTaskId: null,
     rowHeight: 32,
+    startupSettled: true,
+    canReorderInGroup: false,
+    taskIndexInGroup: null,
+    groupTaskCount: 0,
     ...overrides,
   });
 }
@@ -201,6 +205,160 @@ describe("decideAppKey", () => {
     });
     expect(shifted.action).toEqual({ type: "none" });
     expect(shifted.preventDefault).toBe(false);
+  });
+
+  it("opens add, milestone, duplicate, and reorders within a group", () => {
+    const addTask = {
+      key: "Enter",
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      repeat: false,
+    };
+    expect(decide({ event: addTask }).action).toEqual({ type: "addTask" });
+    expect(
+      decide({
+        event: {
+          key: "Insert",
+          ctrlKey: false,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          repeat: false,
+        },
+      }).action,
+    ).toEqual({ type: "addTask" });
+    expect(
+      decide({
+        event: { ...addTask, shiftKey: true },
+      }).action,
+    ).toEqual({ type: "addMilestone" });
+    const duplicate = {
+      key: "ArrowDown",
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: true,
+      altKey: true,
+      repeat: false,
+    };
+    expect(
+      decide({ event: duplicate, selectedTaskId: "task-a" }).action,
+    ).toEqual({ type: "duplicateTask" });
+    expect(decide({ event: duplicate }).action).toEqual({ type: "none" });
+    expect(
+      decide({
+        event: { ...duplicate, key: "ArrowUp" },
+        selectedTaskId: "task-a",
+      }).action,
+    ).toEqual({ type: "none" });
+    const reorder = {
+      key: "ArrowDown",
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: true,
+      repeat: false,
+    };
+    expect(
+      decide({
+        event: reorder,
+        selectedTaskId: "task-a",
+        canReorderInGroup: true,
+        taskIndexInGroup: 1,
+        groupTaskCount: 3,
+      }).action,
+    ).toEqual({
+      type: "reorderTaskInGroup",
+      direction: "down",
+      insertIndex: 2,
+    });
+    expect(
+      decide({
+        event: { ...reorder, key: "ArrowUp" },
+        selectedTaskId: "task-a",
+        canReorderInGroup: true,
+        taskIndexInGroup: 0,
+        groupTaskCount: 3,
+      }).action,
+    ).toEqual({ type: "none" });
+    expect(
+      decide({
+        event: reorder,
+        selectedTaskId: "task-a",
+        canReorderInGroup: false,
+        taskIndexInGroup: 1,
+        groupTaskCount: 3,
+      }).action,
+    ).toEqual({ type: "none" });
+    const reorderBlockedInDialog = decide({
+      event: reorder,
+      dialogOpen: true,
+      selectedTaskId: "task-a",
+      canReorderInGroup: true,
+      taskIndexInGroup: 1,
+      groupTaskCount: 3,
+      target: { tagName: "BUTTON", isContentEditable: false },
+    });
+    expect(reorderBlockedInDialog.action).toEqual({ type: "none" });
+    expect(reorderBlockedInDialog.preventDefault).toBe(true);
+    const reorderBlockedInLink = decide({
+      event: reorder,
+      linkSourceId: "task-a",
+      selectedTaskId: "task-a",
+      canReorderInGroup: true,
+      taskIndexInGroup: 1,
+      groupTaskCount: 3,
+      target: { tagName: "BUTTON", isContentEditable: false },
+    });
+    expect(reorderBlockedInLink.action).toEqual({ type: "none" });
+    expect(reorderBlockedInLink.preventDefault).toBe(true);
+    expect(
+      decide({
+        event: addTask,
+        target: field,
+      }).action,
+    ).toEqual({ type: "none" });
+    expect(
+      decide({
+        event: addTask,
+        target: { tagName: "BUTTON", isContentEditable: false },
+      }).action,
+    ).toEqual({ type: "addTask" });
+  });
+
+  it("suppresses workflow shortcuts during a dialog or link mode outside fields", () => {
+    const addTask = {
+      key: "Enter",
+      ctrlKey: true,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      repeat: false,
+    };
+    const button = { tagName: "BUTTON", isContentEditable: false };
+    const dialogButton = decide({
+      event: addTask,
+      dialogOpen: true,
+      target: button,
+    });
+    expect(dialogButton.action).toEqual({ type: "none" });
+    expect(dialogButton.preventDefault).toBe(true);
+    expect(dialogButton.closeMenu).toBe(true);
+    const dialogField = decide({
+      event: addTask,
+      dialogOpen: true,
+      target: field,
+    });
+    expect(dialogField.action).toEqual({ type: "none" });
+    expect(dialogField.preventDefault).toBe(false);
+    const linkButton = decide({
+      event: addTask,
+      linkSourceId: "task-a",
+      target: button,
+    });
+    expect(linkButton.action).toEqual({ type: "none" });
+    expect(linkButton.preventDefault).toBe(true);
   });
 
   it("ignores undo and redo in a dialog or text field", () => {
