@@ -9,9 +9,14 @@ import {
   matchDisplayScale,
   matchDiffCopy,
   matchMacAppQuit,
+  matchAddMilestoneShortcut,
+  matchAddTaskShortcut,
+  matchDuplicateTaskShortcut,
   matchOpenCommandPalette,
   matchOpenShortcutsHelp,
+  matchReorderTaskShortcut,
   type DisplayScaleDirection,
+  type ReorderTaskDirection,
   type ShortcutKeyEvent,
 } from "../model/shortcuts";
 import type { ScheduleId } from "../model/types";
@@ -48,6 +53,10 @@ export type AppKeyAction =
   | { type: "closeCommandPalette" }
   | { type: "closeWindow" }
   | { type: "quitApplication" }
+  | { type: "addTask" }
+  | { type: "addMilestone" }
+  | { type: "duplicateTask" }
+  | { type: "reorderTaskInGroup"; direction: ReorderTaskDirection; insertIndex: number }
   | { type: "none" };
 
 export type AppKeyDecision = {
@@ -81,6 +90,10 @@ export function decideAppKey(input: {
   pointer: ChartPointer;
   selectedTaskId: ScheduleId | null;
   rowHeight: number;
+  startupSettled: boolean;
+  canReorderInGroup: boolean;
+  taskIndexInGroup: number | null;
+  groupTaskCount: number;
 }): AppKeyDecision {
   const { event } = input;
   const targetFields = input.target ?? {
@@ -201,6 +214,117 @@ export function decideAppKey(input: {
       closeMenu: true,
       action: { type: "displayScale", direction: displayScale },
     };
+  }
+
+  const workflowContext = {
+    dialogOpen: input.dialogOpen,
+    blocksLinkKeys,
+  };
+  const workflowKeyContext = {
+    dialogOpen: false,
+    blocksLinkKeys,
+  };
+  const reorderKey = matchReorderTaskShortcut(event, workflowKeyContext);
+  const isWorkflowShortcutKey =
+    reorderKey != null ||
+    matchAddTaskShortcut(event, workflowKeyContext) ||
+    matchAddMilestoneShortcut(event, workflowKeyContext) ||
+    matchDuplicateTaskShortcut(event, workflowKeyContext);
+  if (
+    isWorkflowShortcutKey &&
+    !blocksLinkKeys &&
+    (input.dialogOpen || input.linkSourceId != null)
+  ) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "none" },
+    };
+  }
+  if (!input.dialogOpen && input.linkSourceId == null) {
+    const reorderDir = matchReorderTaskShortcut(event, workflowContext);
+    if (reorderDir != null) {
+      const preventReorder = true;
+      if (event.repeat) {
+        return {
+          preventDefault: preventReorder,
+          closeMenu: true,
+          action: { type: "none" },
+        };
+      }
+      if (
+        !input.startupSettled ||
+        input.selectedTaskId == null ||
+        !input.canReorderInGroup ||
+        input.taskIndexInGroup == null
+      ) {
+        return {
+          preventDefault: preventReorder,
+          closeMenu: true,
+          action: { type: "none" },
+        };
+      }
+      const current = input.taskIndexInGroup;
+      const insertIndex =
+        reorderDir === "up" ? current - 1 : current + 1;
+      if (insertIndex < 0 || insertIndex >= input.groupTaskCount) {
+        return {
+          preventDefault: preventReorder,
+          closeMenu: true,
+          action: { type: "none" },
+        };
+      }
+      return {
+        preventDefault: preventReorder,
+        closeMenu: true,
+        action: {
+          type: "reorderTaskInGroup",
+          direction: reorderDir,
+          insertIndex,
+        },
+      };
+    }
+
+    const opensDialog =
+      matchAddTaskShortcut(event, workflowContext) ||
+      matchAddMilestoneShortcut(event, workflowContext) ||
+      matchDuplicateTaskShortcut(event, workflowContext);
+    if (opensDialog) {
+      const preventDialog = true;
+      if (event.repeat) {
+        return {
+          preventDefault: preventDialog,
+          closeMenu: true,
+          action: { type: "none" },
+        };
+      }
+      if (matchAddTaskShortcut(event, workflowContext)) {
+        return {
+          preventDefault: preventDialog,
+          closeMenu: true,
+          action: { type: "addTask" },
+        };
+      }
+      if (matchAddMilestoneShortcut(event, workflowContext)) {
+        return {
+          preventDefault: preventDialog,
+          closeMenu: true,
+          action: { type: "addMilestone" },
+        };
+      }
+      if (input.selectedTaskId == null) {
+        return {
+          preventDefault: preventDialog,
+          closeMenu: true,
+          action: { type: "none" },
+        };
+      }
+      return {
+        preventDefault: preventDialog,
+        closeMenu: true,
+        action: { type: "duplicateTask" },
+      };
+    }
   }
 
   let preventDefault = blocksBrowserShortcut(event);

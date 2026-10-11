@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { validateNewMilestone } from "../model/milestones";
 import type { MilestoneGroup, ScheduleId, TaskConfidence } from "../model/types";
 import { ModalDialog } from "./ModalDialog";
@@ -35,6 +35,28 @@ export function MilestoneAddDialog({
   const [groupId, setGroupId] = useState(defaultGroupId);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const trySave = useCallback(() => {
+    const message = validateNewMilestone({ name, date });
+    if (message) {
+      setFormError(message);
+      return;
+    }
+    const saved = onSave({
+      name,
+      date,
+      confidence,
+      groupId: showGroupSelect ? groupId : null,
+    });
+    if (saved) setFormError(saved);
+  }, [
+    confidence,
+    date,
+    groupId,
+    name,
+    onSave,
+    showGroupSelect,
+  ]);
+
   return (
     <ModalDialog title="マイルストン追加" onClose={onClose}>
         <div className="field">
@@ -44,6 +66,22 @@ export function MilestoneAddDialog({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              if (
+                event.ctrlKey ||
+                event.metaKey ||
+                event.altKey ||
+                event.shiftKey
+              ) {
+                return;
+              }
+              if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+                return;
+              }
+              event.preventDefault();
+              trySave();
+            }}
           />
         </div>
         <div className="field">
@@ -87,24 +125,7 @@ export function MilestoneAddDialog({
           <button type="button" className="btn" onClick={onClose}>
             キャンセル
           </button>
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => {
-              const message = validateNewMilestone({ name, date });
-              if (message) {
-                setFormError(message);
-                return;
-              }
-              const saved = onSave({
-                name,
-                date,
-                confidence,
-                groupId: showGroupSelect ? groupId : null,
-              });
-              if (saved) setFormError(saved);
-            }}
-          >
+          <button type="button" className="btn primary" onClick={trySave}>
             保存
           </button>
         </div>

@@ -50,7 +50,14 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
         return;
       }
       if (!ref.current) return;
-      if (moveMenuFocus(ref.current, event.key)) {
+      if (
+        moveMenuFocus(ref.current, event.key, {
+          altKey: event.altKey,
+          shiftKey: event.shiftKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+        })
+      ) {
         event.preventDefault();
         event.stopPropagation();
       }

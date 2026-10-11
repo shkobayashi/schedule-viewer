@@ -24,7 +24,10 @@ export type CommandPaletteCommandId =
   | "deleteTask"
   | "link"
   | "note"
-  | "lineage";
+  | "lineage"
+  | "addTask"
+  | "addMilestone"
+  | "duplicateTask";
 
 export type CommandPaletteItem = {
   id: CommandPaletteCommandId;
@@ -207,6 +210,25 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
     label: (ctx) => (ctx.lineageActive ? "系統を解除" : "系統を表示"),
     keywords: "lineage 系統",
     enabled: (ctx) => ctx.selectedTaskId != null,
+  },
+  {
+    id: "addTask",
+    label: "タスクを追加",
+    keywords: "add task 追加 insert",
+    enabled: (ctx) => ctx.linkSourceId == null,
+  },
+  {
+    id: "addMilestone",
+    label: "マイルストンを追加",
+    keywords: "add milestone マイルストン",
+    enabled: (ctx) => ctx.linkSourceId == null,
+  },
+  {
+    id: "duplicateTask",
+    label: "タスクを複製",
+    keywords: "duplicate 複製 copy",
+    enabled: (ctx) =>
+      ctx.selectedTaskId != null && ctx.linkSourceId == null,
   },
 ];
 

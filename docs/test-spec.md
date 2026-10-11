@@ -314,6 +314,10 @@
 | 同上 | `writes milestone confidence after date` | FILE-02 |
 | 同上 | `includes trimmed note` | EDIT-06 |
 | `appKeyboard.test.ts` | `clears link mode on Escape and leaves a menu to close itself` | EDIT-12 |
+| 同上 | `opens add, milestone, duplicate, and reorders within a group` | EDIT-07, EDIT-08, EDIT-14, EDIT-15 |
+| 同上 | `suppresses workflow shortcuts during a dialog or link mode outside fields` | EDIT-07, EDIT-08, EDIT-14, EDIT-15 |
+| `shortcuts.test.ts` | `matches add, milestone, duplicate, and reorder keys` | EDIT-07, EDIT-08, EDIT-14, EDIT-15 |
+| `commandPalette.test.ts` | `disables add and duplicate commands in link mode without selection` | NAV-07 |
 | 同上 | `deletes the hovered link before the selected task` | EDIT-09, EDIT-12 |
 | 同上 | `drops file shortcuts while a file operation is busy and keeps find` | FILE-02, NAV-05 |
 | 同上 | `ignores undo and redo in a dialog or text field` | EDIT-10 |
@@ -671,6 +675,7 @@
 | TC-EDIT-15c | EDIT-15, FILTER-01 | 同じグループにタスクが複数ある | タスク名で1件だけ残す絞り込みをかけ、行の左端の握りをドラッグする | 並べ替えは始まらない |
 | TC-EDIT-15d | EDIT-15, FILE-07 | パスのあるファイルを開いている | 同じグループで順だけ変え、「差分を表示」を開く | `並び タスク` の行が出る。末尾に足しただけの追加では並びは出ない |
 | TC-EDIT-15e | EDIT-01, EDIT-11, EDIT-15 | 未選択のタスクと、別の選択中タスクがある | 未選択タスクの左端の握りをクリック、右クリックする。次に同じ握りを 3px 以内で動かして離す | 選択は変わらず、未選択タスクの詳細パネルやメニューは開かない。並べ替えも始まらない |
+| TC-KEY-194 | EDIT-07, EDIT-08, EDIT-14, EDIT-15, NAV-07 | サンプル。ライトとダークの両方で「追加」ボタンのキー表示も見る | ⌘ または Ctrl+Enter と Insert でタスク追加が開き、名前欄にフォーカスがある。⌘ または Ctrl+Shift+Enter でマイルストン追加が開く。Alt+↑↓ で同じグループ内を一つ動く。Alt+Shift+↓ で複製が開く。検索欄では効かず、削除ボタンにフォーカスがあっても効き、そのボタンは押されない。線を引くモードでは開かず動かない。タスク追加ダイアログの名前欄で ⌘ または Ctrl+Enter では保存しない。ショートカット一覧とコマンドパレットに項目が出る | 仕様どおり開き、端と絞り込み中は並べ替えしない。複製ダイアログの Enter では確定しない |
 | TC-EDIT-16 | EDIT-16, EDIT-10 | カテゴリが3件以上ある。配下のグループとタスクが展開して見えている | 真ん中のカテゴリ行の左端の握りをドラッグして、別の位置で離す。取り消す | ドラッグ中は、見えている配下の行も含めた半透明の塊がポインタに付く。左の一覧の仮の位置は塊の行が空く。離すと左の一覧とチャートで、そのカテゴリのグループとタスクがまとめて移る。中身の日付と先行は変わらない。取り消し 1 回で戻る |
 | TC-EDIT-16e | EDIT-16 | カテゴリを折りたたんでいる | そのカテゴリ行の左端の握りをドラッグする | 半透明で付くのはカテゴリ行の1行だけである |
 | TC-EDIT-16b | EDIT-16, NAV-05 | 名前が幅に収まらないカテゴリがある | その名前をドラッグする。次に左端の握りをドラッグして順を変える | 名前は動かない。マウスを乗せると全文が出る。握りをドラッグすると並べ替えになる |

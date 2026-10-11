@@ -52,4 +52,14 @@ describe("buildCommandPaletteItems", () => {
     expect(items.find((item) => item.id === "open")?.enabled).toBe(false);
     expect(items.find((item) => item.id === "find")?.enabled).toBe(true);
   });
+
+  it("disables add and duplicate commands in link mode without selection", () => {
+    const linked = buildCommandPaletteItems({ ...idle, linkSourceId: "t1" });
+    expect(linked.find((item) => item.id === "addTask")?.enabled).toBe(false);
+    expect(linked.find((item) => item.id === "addMilestone")?.enabled).toBe(false);
+    expect(linked.find((item) => item.id === "duplicateTask")?.enabled).toBe(false);
+    const noSelection = buildCommandPaletteItems({ ...idle, selectedTaskId: null });
+    expect(noSelection.find((item) => item.id === "duplicateTask")?.enabled).toBe(false);
+    expect(noSelection.find((item) => item.id === "addTask")?.enabled).toBe(true);
+  });
 });
