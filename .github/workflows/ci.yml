@@ -68,7 +68,10 @@ jobs:
   rust:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,6 +81,7 @@ jobs:
           node-version: "24"
       - run: npm run version:check
       - name: Install Linux packages for Tauri
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -94,6 +98,7 @@ jobs:
             xdg-utils
       - id: rust-toolchain
         name: Read rust-toolchain.toml
+        shell: bash
         run: |
           channel=$(sed -n 's/^channel = "\([^"]*\)"/\1/p' rust-toolchain.toml)
           components=$(sed -n 's/^components = \[\(.*\)\]/\1/p' rust-toolchain.toml | tr -d ' "')

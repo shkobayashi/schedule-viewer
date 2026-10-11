@@ -1,6 +1,6 @@
 # テスト仕様
 
-何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs` および `src-tauri/src/json_skills.rs` の `#[test]` の名前である。
+何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
 
 ## 方針
 
@@ -15,7 +15,7 @@
 | 種類 | コマンド | 見ているもの |
 | --- | --- | --- |
 | Vitest | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
-| Rust | `cd src-tauri && cargo test --locked` | `lib.rs` と `json_skills.rs` のパス検査 |
+| Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査 |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外 |
 | 型検査 | `npm run build` の中の `tsc` | `src` |
 | Clippy | `cd src-tauri && cargo clippy -- -D warnings` | Rust。警告をエラーにする |
@@ -31,7 +31,7 @@
 
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら Clippy と `cargo test --locked`。最後に集約ジョブ `ci` が成功する |
+| `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら Ubuntu と Windows で Clippy と `cargo test --locked`。最後に集約ジョブ `ci` が成功する |
 | `.github/workflows/release.yml` | `main` への push | 環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Windows NSIS、`latest-linux-x86_64.json` と `latest-windows-x86_64.json`、それらをまとめた `latest.json`、Windows コード署名用の `schedule-viewer-codesign.cer`、`SHA256SUMS`、CHANGELOG から組み立てた Release 本文を GitHub Release へ出す |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更ではフロントと Rust はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
@@ -186,6 +186,12 @@
 | 同上 | `shows empty groups and categories when filters and lineage are clear` | VIEW-01, VIEW-03, FILTER-09 |
 | 同上 | `hides empty groups when a filter is set` | FILTER-09 |
 | 同上 | `hides empty groups when lineage is set` | FILTER-09 |
+| `screenContext.test.ts` | `keeps broken-link endpoints only when relation is broken` | MCP-01 |
+| 同上 | `keeps unassigned and unknown assignee when assignee filter is unassigned` | MCP-01, FILTER-03 |
+| 同上 | `respects lineage and still returns selected task outside filter` | MCP-01, FILTER-08, EDIT-01 |
+| `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |
+| 同上 | `keeps spaces and quotes inside the JSON command string` | MCP-01 |
+| 同上 | `keeps a macOS path with spaces as the command string` | MCP-01 |
 | `scheduleDiff.test.ts` | `says there is no difference when the documents match` | FILE-07 |
 | 同上 | `shows tag changes and distinguishes comma inside a tag from separate tags` | FILE-07 |
 | 同上 | `shows calendar-day shifts for start and end` | FILE-07 |
@@ -476,6 +482,13 @@
 | `uninstall_does_not_remove_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら外さない | SET-05 |
 | `uninstall_removes_broken_symlink_at_destination` | 宛先の壊れたシンボリックリンクはリンクだけ外す | SET-05 |
 | `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
+| `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
+| `tools_list_exposes_three_read_tools` | `tools/list` が `schedule_diff` / `selected_task` / `filtered_tasks` のみで、`screen_context` が無い | MCP-01 |
+| `mcp_socket_lives_in_app_data` | Unix のソケットはアプリデータ直下 | MCP-01 |
+| `mcp_pipe_name_includes_identifier_and_sid` | Windows のパイプ名に identifier と SID が入る | MCP-01 |
+| `pipe_roundtrips_length_prefixed_frame` | Windows の名前付きパイプで長さ付き JSON が往復する | MCP-01 |
+| `skips_new_listener_when_pipe_is_alive` | 接続できるパイプは取り替えない | MCP-01 |
+| `open_pipe_client_with_retry_waits_for_busy_pipe` | 使用中の名前付きパイプは接続を試し直し、解放後に繋がる | MCP-01 |
 
 ## 自動テストが無いところ
 
@@ -756,6 +769,12 @@
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
+| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`selected_task`、`filtered_tasks` をそれぞれ1回呼ぶ | 差分は差分テキストだけ。選択は選択タスクだけ。絞り込みはオン条件と残るタスクだけ。画面の絞り込みは変わらない |
+| TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
+| TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |
+| TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
+
+TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 3 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。
 
 ## リリース前確認
 

@@ -97,7 +97,7 @@
 
 ## 今後の検討
 
-- LLM ネイティブ連携機能
+- LLM ネイティブ連携機能（デスクトップ版の読み取り入口 MCP-01。`schedule_diff` / `selected_task` / `filtered_tasks` の 3 ツール）
 
 ## 決定（JSON 作成スキルの配置）
 

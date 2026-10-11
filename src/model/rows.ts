@@ -49,6 +49,56 @@ export function showEmptyHierarchyRows(
   return filtersAreDefault(filters) && lineageIds == null;
 }
 
+export function brokenIdsForFilter(
+  categories: Category[],
+  filters: ScheduleFilters,
+): ReadonlySet<ScheduleId> | undefined {
+  return filters.relation === "broken"
+    ? brokenLinkTaskIds(categories)
+    : undefined;
+}
+
+export type FilteredTaskRef = {
+  task: Task;
+  category: string;
+  group: string;
+};
+
+/** 折りたたみや空グループの行は含めず、絞り込みで残るタスクだけを返す。 */
+export function listTasksMatchingFilter(
+  categories: Category[],
+  filters: ScheduleFilters,
+  today: string,
+  memberCatalog: Map<MemberId, Member> | null,
+  lineageIds?: ReadonlySet<ScheduleId> | null,
+): FilteredTaskRef[] {
+  const brokenIds = brokenIdsForFilter(categories, filters);
+  const matched: FilteredTaskRef[] = [];
+  for (const cat of categories) {
+    for (const group of cat.groups) {
+      for (const task of group.tasks) {
+        if (
+          taskMatchesFilter(
+            task,
+            filters,
+            today,
+            memberCatalog,
+            brokenIds,
+            lineageIds,
+          )
+        ) {
+          matched.push({
+            task,
+            category: cat.name,
+            group: group.name,
+          });
+        }
+      }
+    }
+  }
+  return matched;
+}
+
 export function taskMatchesFilter(
   task: Task,
   filters: ScheduleFilters,
@@ -191,8 +241,7 @@ export function computeVisibleRows(
   rowHeight = ROW_HEIGHT,
   lineageIds?: ReadonlySet<ScheduleId> | null,
 ): VisibleRow[] {
-  const brokenIds =
-    filters.relation === "broken" ? brokenLinkTaskIds(categories) : undefined;
+  const brokenIds = brokenIdsForFilter(categories, filters);
   const showEmpty = showEmptyHierarchyRows(filters, lineageIds);
   const rows: VisibleRow[] = [];
   let y = 0;

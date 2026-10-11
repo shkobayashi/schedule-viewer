@@ -53,6 +53,7 @@ import {
   type JsonSkillTools,
 } from "../model/jsonSkills";
 import { normalizeVersionLabel } from "../model/releaseNotes";
+import { fetchMcpConfigJson } from "../model/mcpRegistration";
 
 function formatAppVersionLine(raw: string): string {
   const normalized = normalizeVersionLabel(raw);
@@ -120,6 +121,7 @@ export type SettingsSection =
   | "members"
   | "calendar"
   | "updates"
+  | "mcp"
   | "jsonSkills";
 
 export function SettingsDialog({
@@ -158,8 +160,16 @@ export function SettingsDialog({
   useEffect(() => {
     if (open) setSection(initialSection);
   }, [initialSection, open]);
+
+  useEffect(() => {
+    if (!open || section !== "mcp" || !isTauri()) return;
+    void fetchMcpConfigJson().then((json) => {
+      setMcpConfig(json ?? "");
+    });
+  }, [open, section]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [mcpConfig, setMcpConfig] = useState("");
   const [confirmOverwriteId, setConfirmOverwriteId] = useState<string | null>(
     null,
   );
@@ -506,6 +516,15 @@ export function SettingsDialog({
                 更新
               </button>
             ) : null}
+            {isTauri() ? (
+              <button
+                type="button"
+                className={section === "mcp" ? "active" : undefined}
+                onClick={() => setSection("mcp")}
+              >
+                画面の状態を渡す
+              </button>
+            ) : null}
             <button
               type="button"
               className={section === "jsonSkills" ? "active" : undefined}
@@ -736,6 +755,39 @@ export function SettingsDialog({
                       外す
                     </button>
                   ) : null}
+                </div>
+              </>
+            ) : null}
+            {section === "mcp" && isTauri() ? (
+              <>
+                <p className="settings-note">
+                  登録した Cursor または Claude が、このアプリと同じバイナリを、ウィンドウを出さずに起動します。下の JSON をコピーして、mcp.json
+                  に貼ります。スケジュールのウィンドウが開いていないときは、渡せません。ウィンドウが複数のときは、前面のウィンドウだけを渡します。
+                </p>
+                <label className="settings-field">
+                  <span>mcp.json</span>
+                  <textarea
+                    className="settings-mcp-json"
+                    readOnly
+                    spellCheck={false}
+                    rows={11}
+                    value={mcpConfig}
+                  />
+                </label>
+                <div className="settings-actions">
+                  <button
+                    type="button"
+                    className="toolbar-btn"
+                    disabled={!mcpConfig}
+                    onClick={() => {
+                      void navigator.clipboard.writeText(mcpConfig).then(
+                        () => setMessage("JSON をコピーしました。"),
+                        () => setMessage(null),
+                      );
+                    }}
+                  >
+                    コピー
+                  </button>
                 </div>
               </>
             ) : null}

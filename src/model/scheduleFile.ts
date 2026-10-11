@@ -29,6 +29,14 @@ export function scheduleJsonFilename(path: string | null): string | null {
   return parts[parts.length - 1] || path;
 }
 
+/** パス区切りを含まないファイル名だけ。末尾が空のときは path 全体を返さない。 */
+export function safeScheduleJsonFilename(path: string | null): string {
+  const name = scheduleJsonFilename(path);
+  if (!name) return "schedule.json";
+  if (name.includes("/") || name.includes("\\")) return "schedule.json";
+  return name;
+}
+
 export function serializeScheduleDocument(
   title: string,
   categories: Category[],

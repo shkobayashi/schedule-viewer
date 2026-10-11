@@ -353,6 +353,22 @@ body {
   max-width: 100%;
 }
 
+.settings-mcp-json {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: calc(12px * var(--s));
+  line-height: 1.45;
+  padding: calc(6px * var(--s)) calc(8px * var(--s));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  background: var(--surface);
+  resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .settings-current {
   font-size: calc(12px * var(--s));
   margin: 8px 0;
