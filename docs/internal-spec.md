@@ -31,7 +31,8 @@ flowchart TD
 | `src-tauri/src/lib.rs` | ダイアログ、一時ファイルを使った安全な置き換え、アプリデータ、内容ハッシュ、MCP 待ち受け |
 | `src-tauri/src/mcp_stdio.rs` | `--mcp` 起動の標準入出力 JSON-RPC（`initialize`、`tools/list`、`tools/call`） |
 | `src-tauri/src/mcp_bridge.rs` | アプリデータのローカルソケットと、前面 webview への `mcp-screen-request` |
-| `src-tauri/src/mcp_app_data.rs` | Tauri を起動せずにアプリデータディレクトリと `mcp.sock` のパスを決める |
+| `src-tauri/src/mcp_app_data.rs` | Tauri を起動せずにアプリデータディレクトリと `mcp.sock` のパスを決める。Windows の名前付きパイプ名も組み立てる |
+| `src-tauri/src/mcp_bridge_windows.rs` | Windows の名前付きパイプ待ち受けと `--mcp` からの接続 |
 | `scripts/` | 検証器の生成、サンプル検査、バージョン同期 |
 | `docs/*.schema.json` | JSON Schema の正本 |
 | `.cursor/skills/` | LLM 用のスキル。`implement-change` はこのリポジトリの実装手順、`review-project` は全体レビューの手順。`update-schedule-schema` はスケジュール JSON の形を変えるとき。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使う |
@@ -178,7 +179,7 @@ flowchart TD
 
 `create_schedule_window` が追加ウィンドウを作り、検証済みの内容を pending として預ける。ウィンドウを作れなかったときは、一覧と pending を戻す。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出す。引数が `--mcp` だけの起動は `main` で分岐し、この処理には含めない。
 
-MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をアプリデータの `mcp.sock`（Unix、所有者のみ）へ送る。GUI は `setup` で待ち受けを始め、`read_open_windows` の `focused_label` の webview だけへ `mcp-screen-request` を送る。応答は `mcp_reply` で返す。ウィンドウごとの世代番号で遅れた応答を捨てる。判定はフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけである。表示状態は変えず、スケジュール JSON にも書かない。
+MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をローカル待ち受けへ送る。Unix はアプリデータの `mcp.sock`（所有者のみ）。Windows は `\\.\pipe\com.collabcentral.schedule-viewer-<SID>` の名前付きパイプで、アプリデータにファイルは置かない。GUI は `setup` で待ち受けを始め、`read_open_windows` の `focused_label` の webview だけへ `mcp-screen-request` を送る。応答は `mcp_reply` で返す。ウィンドウごとの世代番号で遅れた応答を捨てる。判定はフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけである。表示状態は変えず、スケジュール JSON にも書かない。
 
 保存は、外部更新の確認を待つあいだも一つの処理だけが進む。確認を出して戻ったあとに、上書きや別名保存を続ける。
 
@@ -286,7 +287,7 @@ capability はメインウィンドウと `schedule-*` ウィンドウに、`cor
 
 JSON 作成スキルの配置は `install_json_skills` だけが行う。外すのは `uninstall_json_skills` だけである。書けるのは、ログイン中のユーザーのホーム配下の `~/.cursor/skills/<name>/` と `~/.claude/skills/<name>/`、または利用者がフォルダダイアログで選んだ絶対パス配下の `.cursor/skills/<name>/` と `.claude/skills/<name>/` だけである。外すのも同じ `<name>` の3つだけである。`<name>` は `write-schedule`、`write-members`、`write-calendar` の3つだけ。プロジェクトフォルダはシンボリックリンクを拒否する。宛先がシンボリックリンクのときはリンクだけ外し、リンク先は消さない。`.cursor` と `.claude` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。中身はバンドル内 `json-skills/` からコピーする。外すときは skills フォルダや別名のスキルは残す。スキルフォルダの中にあるシンボリックリンクの先は消さない。
 
-MCP のローカルソケットは、Tauri の `app_data_dir` と `dirs::data_dir` が同じときだけ GUI が待ち受ける。ソケットは所有者のみが読み書きできる。接続元の UID を確認し、本人以外は拒否する。`--mcp` プロセスはファイルを直接読まず、前面 webview の読み取りだけを使う。応答は前面 1 ウィンドウ分で、スケジュール読み込み上限 10MB を超えたらエラーにする。待ち受け TCP ポートは持たない。
+MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_dir` が同じときだけ GUI が始める。Unix のソケットは所有者のみが読み書きできる。接続元の UID を確認し、本人以外は拒否する。Windows の名前付きパイプは現在のユーザーの SID を名前に含め、セキュリティ記述子でそのユーザーだけに許可し、リモート接続は拒否する。`--mcp` プロセスはファイルを直接読まず、前面 webview の読み取りだけを使う。応答は前面 1 ウィンドウ分で、スケジュール読み込み上限 10MB を超えたらエラーにする。待ち受け TCP ポートは持たない。
 
 ## 描画
 

@@ -12,7 +12,10 @@ use uuid::Uuid;
 use crate::mcp_app_data::mcp_socket_path;
 use crate::window_session::read_open_windows;
 
-const BRIDGE_VERSION: u32 = 1;
+#[cfg(windows)]
+mod mcp_bridge_windows;
+
+pub(crate) const BRIDGE_VERSION: u32 = 1;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(5);
 
 const MSG_NO_GUI: &str = "スケジュールのウィンドウが開いていないので、渡せません。";
@@ -39,21 +42,21 @@ impl McpBridgeError {
 }
 
 #[derive(Serialize, Deserialize)]
-struct BridgeRequest {
-    v: u32,
-    id: String,
-    tool: String,
-    arguments: Value,
+pub(crate) struct BridgeRequest {
+    pub v: u32,
+    pub id: String,
+    pub tool: String,
+    pub arguments: Value,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-struct BridgeResponse {
-    v: u32,
-    id: String,
+pub(crate) struct BridgeResponse {
+    pub v: u32,
+    pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    body: Option<Value>,
+    pub body: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
+    pub error: Option<String>,
 }
 
 struct PendingReply {
@@ -121,8 +124,28 @@ pub fn start_mcp_bridge_server(
     app: AppHandle,
     state: Arc<McpBridgeState>,
 ) -> Result<(), String> {
+    #[cfg(unix)]
+    {
+        start_mcp_bridge_server_unix(app, state)
+    }
+    #[cfg(windows)]
+    {
+        mcp_bridge_windows::start_mcp_bridge_server(app, state)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (app, state);
+        Err("この OS では MCP のローカル連携は未対応です。".to_string())
+    }
+}
+
+#[cfg(unix)]
+fn start_mcp_bridge_server_unix(
+    app: AppHandle,
+    state: Arc<McpBridgeState>,
+) -> Result<(), String> {
     let socket_path = mcp_socket_path(&state.app_data);
-    if socket_path.exists() && can_connect_to_socket(&socket_path) {
+    if socket_path.exists() && can_connect_to_unix_socket(&socket_path) {
         return Ok(());
     }
     prepare_socket_file(&socket_path)?;
@@ -132,12 +155,14 @@ pub fn start_mcp_bridge_server(
             if !peer_is_same_user(&stream) {
                 continue;
             }
-            let _ = handle_bridge_connection(&app, &state, stream);
+            let mut stream = stream;
+            let _ = handle_bridge_connection_io(&app, &state, &mut stream);
         }
     });
     Ok(())
 }
 
+#[cfg(unix)]
 fn prepare_socket_file(socket_path: &Path) -> Result<(), String> {
     if !socket_path.exists() {
         return Ok(());
@@ -146,7 +171,8 @@ fn prepare_socket_file(socket_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn can_connect_to_socket(socket_path: &Path) -> bool {
+#[cfg(unix)]
+fn can_connect_to_unix_socket(socket_path: &Path) -> bool {
     use std::os::unix::net::UnixStream;
     UnixStream::connect(socket_path).is_ok()
 }
@@ -162,18 +188,10 @@ fn bind_unix_listener(
     }
     let listener = UnixListener::bind(socket_path)
         .map_err(|e| format!("MCP ソケットを開けません: {}", e))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(socket_path, fs::Permissions::from_mode(0o600))
-            .map_err(|e| format!("MCP ソケットの権限を設定できません: {}", e))?;
-    }
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(socket_path, fs::Permissions::from_mode(0o600))
+        .map_err(|e| format!("MCP ソケットの権限を設定できません: {}", e))?;
     Ok(listener)
-}
-
-#[cfg(not(unix))]
-fn bind_unix_listener(_socket_path: &Path) -> Result<(), String> {
-    Err("この OS では MCP のローカル連携は未対応です。".to_string())
 }
 
 #[cfg(unix)]
@@ -182,11 +200,6 @@ fn peer_is_same_user(stream: &std::os::unix::net::UnixStream) -> bool {
     let fd = stream.as_raw_fd();
     let cred = peer_credentials(fd);
     cred.map(|(uid, _)| uid == current_uid()).unwrap_or(false)
-}
-
-#[cfg(not(unix))]
-fn peer_is_same_user(_stream: &()) -> bool {
-    false
 }
 
 #[cfg(target_os = "linux")]
@@ -233,18 +246,17 @@ fn current_uid() -> u32 {
     unsafe { libc::getuid() as u32 }
 }
 
-#[cfg(unix)]
-fn handle_bridge_connection(
+pub(crate) fn handle_bridge_connection_io<R: Read + Write>(
     app: &AppHandle,
     state: &Arc<McpBridgeState>,
-    mut stream: std::os::unix::net::UnixStream,
+    stream: &mut R,
 ) -> Result<(), String> {
-    let request: BridgeRequest = match read_frame(&mut stream) {
+    let request: BridgeRequest = match read_frame(stream) {
         Ok(value) => value,
         Err(_) => return Ok(()),
     };
     let response = dispatch_to_front_window(app, state, request)?;
-    write_frame(&mut stream, &response)?;
+    write_frame(stream, &response)?;
     Ok(())
 }
 
@@ -365,36 +377,46 @@ pub fn mcp_reply(
 }
 
 pub fn call_tool_via_bridge(tool: &str, arguments: Value) -> Result<Value, McpBridgeError> {
-    let app_data = crate::mcp_app_data::app_data_dir_without_tauri()
-        .ok_or(McpBridgeError::NoGui)?;
-    let socket_path = mcp_socket_path(&app_data);
     #[cfg(unix)]
     {
+        let app_data = crate::mcp_app_data::app_data_dir_without_tauri()
+            .ok_or(McpBridgeError::NoGui)?;
+        let socket_path = mcp_socket_path(&app_data);
         use std::os::unix::net::UnixStream;
-        let stream =
+        let mut stream =
             UnixStream::connect(&socket_path).map_err(|_| McpBridgeError::NoGui)?;
-        let request = BridgeRequest {
-            v: BRIDGE_VERSION,
-            id: Uuid::new_v4().to_string(),
-            tool: tool.to_string(),
-            arguments,
-        };
-        let mut stream = stream;
-        if write_frame(&mut stream, &request).is_err() {
-            return Err(McpBridgeError::NoGui);
-        }
-        let response: BridgeResponse =
-            read_frame(&mut stream).map_err(|_| McpBridgeError::Io(()))?;
-        if let Some(error) = response.error {
-            return Err(map_bridge_error(&error));
-        }
-        response.body.ok_or(McpBridgeError::Stale)
+        bridge_exchange(&mut stream, tool, arguments)
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     {
-        let _ = (tool, arguments, socket_path);
+        mcp_bridge_windows::call_tool_via_bridge(tool, arguments)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (tool, arguments);
         Err(McpBridgeError::NoGui)
     }
+}
+
+pub(crate) fn bridge_exchange<R: Read + Write>(
+    stream: &mut R,
+    tool: &str,
+    arguments: Value,
+) -> Result<Value, McpBridgeError> {
+    let request = BridgeRequest {
+        v: BRIDGE_VERSION,
+        id: Uuid::new_v4().to_string(),
+        tool: tool.to_string(),
+        arguments,
+    };
+    if write_frame(stream, &request).is_err() {
+        return Err(McpBridgeError::NoGui);
+    }
+    let response: BridgeResponse = read_frame(stream).map_err(|_| McpBridgeError::Io(()))?;
+    if let Some(error) = response.error {
+        return Err(map_bridge_error(&error));
+    }
+    response.body.ok_or(McpBridgeError::Stale)
 }
 
 fn map_bridge_error(code: &str) -> McpBridgeError {
@@ -405,7 +427,7 @@ fn map_bridge_error(code: &str) -> McpBridgeError {
     }
 }
 
-fn read_frame<T: for<'de> Deserialize<'de>, R: Read>(reader: &mut R) -> Result<T, String> {
+pub(crate) fn read_frame<T: for<'de> Deserialize<'de>, R: Read>(reader: &mut R) -> Result<T, String> {
     let mut len_buf = [0u8; 4];
     reader
         .read_exact(&mut len_buf)
@@ -421,7 +443,7 @@ fn read_frame<T: for<'de> Deserialize<'de>, R: Read>(reader: &mut R) -> Result<T
     serde_json::from_slice(&buf).map_err(|e| format!("parse json: {}", e))
 }
 
-fn write_frame<T: Serialize, W: Write>(writer: &mut W, value: &T) -> Result<(), String> {
+pub(crate) fn write_frame<T: Serialize, W: Write>(writer: &mut W, value: &T) -> Result<(), String> {
     let body = serde_json::to_vec(value).map_err(|e| format!("serialize: {}", e))?;
     let len = body.len();
     if len > 12 * 1024 * 1024 {
@@ -436,8 +458,11 @@ fn write_frame<T: Serialize, W: Write>(writer: &mut W, value: &T) -> Result<(), 
 }
 
 pub fn cleanup_mcp_socket(app_data: &Path) {
-    let path = mcp_socket_path(app_data);
-    if path.exists() && !can_connect_to_socket(&path) {
-        let _ = fs::remove_file(path);
+    #[cfg(unix)]
+    {
+        let path = mcp_socket_path(app_data);
+        if path.exists() && !can_connect_to_unix_socket(&path) {
+            let _ = fs::remove_file(path);
+        }
     }
 }

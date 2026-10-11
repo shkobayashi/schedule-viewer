@@ -53,7 +53,7 @@ import {
   type JsonSkillTools,
 } from "../model/jsonSkills";
 import { normalizeVersionLabel } from "../model/releaseNotes";
-import { fetchMcpRegistrationCommand } from "../model/mcpRegistration";
+import { fetchMcpConfigJson } from "../model/mcpRegistration";
 
 function formatAppVersionLine(raw: string): string {
   const normalized = normalizeVersionLabel(raw);
@@ -163,13 +163,13 @@ export function SettingsDialog({
 
   useEffect(() => {
     if (!open || section !== "mcp" || !isTauri()) return;
-    void fetchMcpRegistrationCommand().then((command) => {
-      setMcpCommand(command ?? "");
+    void fetchMcpConfigJson().then((json) => {
+      setMcpConfig(json ?? "");
     });
   }, [open, section]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [mcpCommand, setMcpCommand] = useState("");
+  const [mcpConfig, setMcpConfig] = useState("");
   const [confirmOverwriteId, setConfirmOverwriteId] = useState<string | null>(
     null,
   );
@@ -761,25 +761,27 @@ export function SettingsDialog({
             {section === "mcp" && isTauri() ? (
               <>
                 <p className="settings-note">
-                  登録した Cursor または Claude が、このアプリと同じバイナリを、ウィンドウを出さずに起動します。下のコマンドをコピーして、クライアントの MCP
-                  に登録します。スケジュールのウィンドウが開いていないときは、渡せません。ウィンドウが複数のときは、前面のウィンドウだけを渡します。
+                  登録した Cursor または Claude が、このアプリと同じバイナリを、ウィンドウを出さずに起動します。下の JSON をコピーして、mcp.json
+                  に貼ります。スケジュールのウィンドウが開いていないときは、渡せません。ウィンドウが複数のときは、前面のウィンドウだけを渡します。
                 </p>
                 <label className="settings-field">
-                  <span>登録するコマンド</span>
-                  <input
-                    type="text"
+                  <span>mcp.json</span>
+                  <textarea
+                    className="settings-mcp-json"
                     readOnly
-                    value={mcpCommand}
+                    spellCheck={false}
+                    rows={11}
+                    value={mcpConfig}
                   />
                 </label>
                 <div className="settings-actions">
                   <button
                     type="button"
                     className="toolbar-btn"
-                    disabled={!mcpCommand}
+                    disabled={!mcpConfig}
                     onClick={() => {
-                      void navigator.clipboard.writeText(mcpCommand).then(
-                        () => setMessage("コマンドをコピーしました。"),
+                      void navigator.clipboard.writeText(mcpConfig).then(
+                        () => setMessage("JSON をコピーしました。"),
                         () => setMessage(null),
                       );
                     }}
