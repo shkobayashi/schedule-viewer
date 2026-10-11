@@ -37,6 +37,8 @@ import {
   pruneHiddenMilestoneGroupIds,
 } from "../model/filterChips";
 import {
+  collapsedIdsFromSet,
+  collapsedSetFromIds,
   defaultScheduleFilterViewState,
   type ScheduleFilterViewState,
   type SearchField,
@@ -1341,16 +1343,25 @@ export function useSchedule(
     });
     setSearchField(state.searchField);
     setHiddenMilestoneGroupIds([...state.hiddenMilestoneGroupIds]);
+    setCollapsed(
+      collapsedSetFromIds(
+        state.collapsedCategoryIds,
+        state.collapsedGroupIds,
+      ),
+    );
   }, []);
 
-  const getFilterViewState = useCallback(
-    (): ScheduleFilterViewState => ({
+  const getFilterViewState = useCallback((): ScheduleFilterViewState => {
+    const { collapsedCategoryIds, collapsedGroupIds } =
+      collapsedIdsFromSet(collapsed);
+    return {
       filters,
       searchField,
       hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
-    }),
-    [filters, prunedHiddenMilestoneGroupIds, searchField],
-  );
+      collapsedCategoryIds,
+      collapsedGroupIds,
+    };
+  }, [collapsed, filters, prunedHiddenMilestoneGroupIds, searchField]);
 
   useEffect(() => {
     if (prunedHiddenMilestoneGroupIds.length === hiddenMilestoneGroupIds.length) {

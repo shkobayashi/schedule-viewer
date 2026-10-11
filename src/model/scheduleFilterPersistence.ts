@@ -1,5 +1,9 @@
 import { DEFAULT_FILTERS, pruneHiddenMilestoneGroupIds } from "./filterChips";
-import { filtersAreDefault } from "./rows";
+import {
+  categoryCollapseKey,
+  filtersAreDefault,
+  groupCollapseKey,
+} from "./rows";
 import { pruneSelectedTags } from "./taskTags";
 import {
   NO_MILESTONE_FILTER,
@@ -24,6 +28,8 @@ export type ScheduleFilterViewState = {
   filters: ScheduleFilters;
   searchField: SearchField;
   hiddenMilestoneGroupIds: ScheduleId[];
+  collapsedCategoryIds: ScheduleId[];
+  collapsedGroupIds: ScheduleId[];
 };
 
 export type ScheduleFilterPersistenceFile = {
@@ -32,6 +38,8 @@ export type ScheduleFilterPersistenceFile = {
   filters: ScheduleFilters;
   searchField: SearchField;
   hiddenMilestoneGroupIds: ScheduleId[];
+  collapsedCategoryIds: ScheduleId[];
+  collapsedGroupIds: ScheduleId[];
 };
 
 export type ParsedScheduleFilterPersistence =
@@ -58,6 +66,23 @@ const RELATION_VALUES: readonly RelationFilter[] = ["all", "broken"];
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
+}
+
+function parseIdArrayField(value: unknown): ScheduleId[] | null {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  if (!value.every((id) => typeof id === "string" && id.length > 0)) {
+    return null;
+  }
+  return [...value];
+}
+
+function sortedIds(ids: readonly ScheduleId[]): ScheduleId[] {
+  return [...ids].sort();
 }
 
 function parseFiltersRecord(record: Record<string, unknown>): ScheduleFilters | null {
@@ -132,6 +157,14 @@ export function parseScheduleFilterPersistence(
   ) {
     return { ok: false };
   }
+  const collapsedCategoryIds = parseIdArrayField(record.collapsedCategoryIds);
+  if (collapsedCategoryIds == null) {
+    return { ok: false };
+  }
+  const collapsedGroupIds = parseIdArrayField(record.collapsedGroupIds);
+  if (collapsedGroupIds == null) {
+    return { ok: false };
+  }
   return {
     ok: true,
     data: {
@@ -140,6 +173,8 @@ export function parseScheduleFilterPersistence(
       filters,
       searchField,
       hiddenMilestoneGroupIds: [...hidden],
+      collapsedCategoryIds,
+      collapsedGroupIds,
     },
   };
 }
@@ -149,6 +184,8 @@ export function isDefaultScheduleFilterViewState(
 ): boolean {
   if (!filtersAreDefault(state.filters)) return false;
   if (state.hiddenMilestoneGroupIds.length > 0) return false;
+  if (state.collapsedCategoryIds.length > 0) return false;
+  if (state.collapsedGroupIds.length > 0) return false;
   return true;
 }
 
@@ -162,6 +199,8 @@ export function serializeScheduleFilterPersistence(
     filters: state.filters,
     searchField: state.searchField,
     hiddenMilestoneGroupIds: state.hiddenMilestoneGroupIds,
+    collapsedCategoryIds: sortedIds(state.collapsedCategoryIds),
+    collapsedGroupIds: sortedIds(state.collapsedGroupIds),
   };
   return JSON.stringify(file);
 }
@@ -171,6 +210,8 @@ export function defaultScheduleFilterViewState(): ScheduleFilterViewState {
     filters: { ...DEFAULT_FILTERS, tags: [] },
     searchField: "name",
     hiddenMilestoneGroupIds: [],
+    collapsedCategoryIds: [],
+    collapsedGroupIds: [],
   };
 }
 
@@ -183,6 +224,7 @@ export type PruneFiltersContext = {
 
 export type PruneScheduleFilterOptions = {
   pruneAssignee?: boolean;
+  pruneCollapse?: boolean;
 };
 
 export function pruneContextFromScheduleDocument(
@@ -231,11 +273,63 @@ export function pruneScheduleFilterViewState(
     state.hiddenMilestoneGroupIds,
     context.milestoneGroups,
   );
+  const pruneCollapse = options?.pruneCollapse ?? true;
+  let collapsedCategoryIds = state.collapsedCategoryIds;
+  let collapsedGroupIds = state.collapsedGroupIds;
+  if (pruneCollapse) {
+    const categoryIds = new Set(context.categories.map((category) => category.id));
+    collapsedCategoryIds = state.collapsedCategoryIds.filter((id) =>
+      categoryIds.has(id),
+    );
+    const groupIds = new Set(
+      context.categories.flatMap((category) =>
+        category.groups.map((group) => group.id),
+      ),
+    );
+    collapsedGroupIds = state.collapsedGroupIds.filter((id) => groupIds.has(id));
+  }
   return {
     filters,
     searchField: state.searchField,
     hiddenMilestoneGroupIds,
+    collapsedCategoryIds,
+    collapsedGroupIds,
   };
+}
+
+export function collapsedIdsFromSet(collapsed: ReadonlySet<string>): {
+  collapsedCategoryIds: ScheduleId[];
+  collapsedGroupIds: ScheduleId[];
+} {
+  const collapsedCategoryIds: ScheduleId[] = [];
+  const collapsedGroupIds: ScheduleId[] = [];
+  const categoryPrefix = "category:";
+  const groupPrefix = "group:";
+  for (const key of collapsed) {
+    if (key.startsWith(categoryPrefix)) {
+      collapsedCategoryIds.push(key.slice(categoryPrefix.length));
+    } else if (key.startsWith(groupPrefix)) {
+      collapsedGroupIds.push(key.slice(groupPrefix.length));
+    }
+  }
+  return {
+    collapsedCategoryIds: sortedIds(collapsedCategoryIds),
+    collapsedGroupIds: sortedIds(collapsedGroupIds),
+  };
+}
+
+export function collapsedSetFromIds(
+  collapsedCategoryIds: readonly ScheduleId[],
+  collapsedGroupIds: readonly ScheduleId[],
+): Set<string> {
+  const next = new Set<string>();
+  for (const id of collapsedCategoryIds) {
+    next.add(categoryCollapseKey(id));
+  }
+  for (const id of collapsedGroupIds) {
+    next.add(groupCollapseKey(id));
+  }
+  return next;
 }
 
 function collectTagsFromCategories(categories: Category[]): string[] {
@@ -266,5 +360,7 @@ export function viewStateFromPersistence(
     },
     searchField: data.searchField,
     hiddenMilestoneGroupIds: [...data.hiddenMilestoneGroupIds],
+    collapsedCategoryIds: [...data.collapsedCategoryIds],
+    collapsedGroupIds: [...data.collapsedGroupIds],
   };
 }

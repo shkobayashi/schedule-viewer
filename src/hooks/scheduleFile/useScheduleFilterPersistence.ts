@@ -13,6 +13,7 @@ import {
   pruneContextFromScheduleDocument,
   pruneScheduleFilterViewState,
   serializeScheduleFilterPersistence,
+  viewStateFromPersistence,
   type PruneFiltersContext,
   type ScheduleFilterViewState,
 } from "../../model/scheduleFilterPersistence";
@@ -137,16 +138,7 @@ export function useScheduleFilterPersistence({
           if (!parsed.ok) {
             view = defaultScheduleFilterViewState();
           } else {
-            view = {
-              filters: {
-                ...parsed.data.filters,
-                tags: [...parsed.data.filters.tags],
-              },
-              searchField: parsed.data.searchField,
-              hiddenMilestoneGroupIds: [
-                ...parsed.data.hiddenMilestoneGroupIds,
-              ],
-            };
+            view = viewStateFromPersistence(parsed.data);
           }
         }
         const restoreContext = pruneContextFromScheduleDocument(
@@ -201,7 +193,9 @@ export function useScheduleFilterPersistence({
       return;
     }
     const before = getFilterViewState();
-    const pruned = pruneScheduleFilterViewState(before, pruneContext);
+    const pruned = pruneScheduleFilterViewState(before, pruneContext, {
+      pruneCollapse: false,
+    });
     if (JSON.stringify(before) === JSON.stringify(pruned)) return;
     setFilterViewState(pruned);
   }, [

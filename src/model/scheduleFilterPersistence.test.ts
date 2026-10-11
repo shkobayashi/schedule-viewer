@@ -44,6 +44,33 @@ describe("parseScheduleFilterPersistence", () => {
     expect(parseScheduleFilterPersistence(text, PATH).ok).toBe(false);
   });
 
+  it("accepts a file without collapse arrays", () => {
+    const text = JSON.stringify({
+      version: 1,
+      path: PATH,
+      filters: defaultScheduleFilterViewState().filters,
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+    });
+    const parsed = parseScheduleFilterPersistence(text, PATH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.data.collapsedCategoryIds).toEqual([]);
+    expect(parsed.data.collapsedGroupIds).toEqual([]);
+  });
+
+  it("rejects invalid collapsedCategoryIds", () => {
+    const text = JSON.stringify({
+      version: 1,
+      path: PATH,
+      filters: defaultScheduleFilterViewState().filters,
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+      collapsedCategoryIds: "not-array",
+    });
+    expect(parseScheduleFilterPersistence(text, PATH).ok).toBe(false);
+  });
+
   it("rejects invalid status", () => {
     const text = JSON.stringify({
       version: 1,
@@ -53,6 +80,19 @@ describe("parseScheduleFilterPersistence", () => {
       hiddenMilestoneGroupIds: [],
     });
     expect(parseScheduleFilterPersistence(text, PATH).ok).toBe(false);
+  });
+
+  it("serializes collapse ids in sorted order", () => {
+    const state = defaultScheduleFilterViewState();
+    state.collapsedCategoryIds = ["c2", "c1"];
+    state.collapsedGroupIds = ["g2", "g1"];
+    const text = serializeScheduleFilterPersistence(PATH, state);
+    const parsed = JSON.parse(text) as {
+      collapsedCategoryIds: string[];
+      collapsedGroupIds: string[];
+    };
+    expect(parsed.collapsedCategoryIds).toEqual(["c1", "c2"]);
+    expect(parsed.collapsedGroupIds).toEqual(["g1", "g2"]);
   });
 });
 
@@ -78,6 +118,18 @@ describe("isDefaultScheduleFilterViewState", () => {
   it("is false when band lines are hidden", () => {
     const state = defaultScheduleFilterViewState();
     state.hiddenMilestoneGroupIds = ["g1"];
+    expect(isDefaultScheduleFilterViewState(state)).toBe(false);
+  });
+
+  it("is false when a category is collapsed", () => {
+    const state = defaultScheduleFilterViewState();
+    state.collapsedCategoryIds = ["c1"];
+    expect(isDefaultScheduleFilterViewState(state)).toBe(false);
+  });
+
+  it("is false when only collapse is set", () => {
+    const state = defaultScheduleFilterViewState();
+    state.collapsedGroupIds = ["g1"];
     expect(isDefaultScheduleFilterViewState(state)).toBe(false);
   });
 });
@@ -198,6 +250,36 @@ describe("pruneScheduleFilterViewState", () => {
     });
     expect(pruned.hiddenMilestoneGroupIds).toEqual(["mg1", "mg2"]);
   });
+
+  it("drops collapsed ids missing from document", () => {
+    const state = defaultScheduleFilterViewState();
+    state.collapsedCategoryIds = ["c1", "missing-cat"];
+    state.collapsedGroupIds = ["g1", "missing-grp"];
+    const pruned = pruneScheduleFilterViewState(state, {
+      categories,
+      milestones,
+      milestoneGroups,
+      knownMemberIds: new Set(),
+    });
+    expect(pruned.collapsedCategoryIds).toEqual(["c1"]);
+    expect(pruned.collapsedGroupIds).toEqual(["g1"]);
+  });
+
+  it("keeps unknown collapse ids when collapse pruning is off", () => {
+    const state = defaultScheduleFilterViewState();
+    state.collapsedCategoryIds = ["missing-cat"];
+    const pruned = pruneScheduleFilterViewState(
+      state,
+      {
+        categories,
+        milestones,
+        milestoneGroups,
+        knownMemberIds: new Set(),
+      },
+      { pruneCollapse: false },
+    );
+    expect(pruned.collapsedCategoryIds).toEqual(["missing-cat"]);
+  });
 });
 
 describe("viewStateFromPersistence", () => {
@@ -208,11 +290,15 @@ describe("viewStateFromPersistence", () => {
       filters: { ...defaultScheduleFilterViewState().filters, tags: ["x"] },
       searchField: "note" as const,
       hiddenMilestoneGroupIds: ["g"],
+      collapsedCategoryIds: ["c1"],
+      collapsedGroupIds: ["g1"],
     };
     const view = viewStateFromPersistence(data);
     expect(view.searchField).toBe("note");
     expect(view.filters.tags).toEqual(["x"]);
     expect(view.hiddenMilestoneGroupIds).toEqual(["g"]);
+    expect(view.collapsedCategoryIds).toEqual(["c1"]);
+    expect(view.collapsedGroupIds).toEqual(["g1"]);
     expect(view.filters).not.toBe(data.filters);
   });
 });
