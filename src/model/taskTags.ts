@@ -60,6 +60,18 @@ export function removeSelectedTag(
   return selected.filter((item) => item !== tag);
 }
 
+/** タスク名の検索と同じく、前後の空白を除いた文字を含むタグだけを、渡された順で返す。 */
+export function filterTagsByQuery(
+  tagsInDocumentOrder: readonly string[],
+  query: string,
+): string[] {
+  const needle = query.trim();
+  if (needle.length === 0) {
+    return [...tagsInDocumentOrder];
+  }
+  return tagsInDocumentOrder.filter((tag) => tag.includes(needle));
+}
+
 /** 文書を前から見て、タグの初出順で一覧する。 */
 export function collectTagsInDocumentOrder(categories: Category[]): string[] {
   const seen = new Set<string>();

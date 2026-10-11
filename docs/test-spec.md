@@ -171,7 +171,8 @@
 | `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
 | `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
 | 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
-| `taskTags.test.ts` | `keeps only tags that still exist, in document order` | FILTER-12 |
+| `taskTags.test.ts` | `matches substrings case-sensitively after trim` | FILTER-12 |
+| 同上 | `keeps only tags that still exist, in document order` | FILTER-12 |
 | `serialize.test.ts` | `writes tags after milestoneId and before note` | FILE-02 |
 | `taskTags.test.ts` | `bumps schemaVersion from 6 to 7` | FILE-01 |
 | 同上 | `quotes each tag for display` | FILE-07 |
@@ -618,8 +619,10 @@
 | TC-FILTER-12b | FILTER-12 | タグを二つ以上オンにしている | 札を一つ押す。「すべて解除」でも試す | 押したタグだけ外れ、ほかのタグは残る。「すべて解除」で絞り込みは戻り、系統は残る |
 | TC-FILTER-12c | FILTER-12 | タグをオンにしている | ファイルを開き直す | タグの選択は無くなる |
 | TC-FILTER-12d | FILTER-12 | サンプルでファイル内のタグをすべてオンにできる | すべてオンにする | タグ付きタスクだけが残り、タグの無いタスクは残らない |
-| TC-FILTER-12e | FILTER-12 | タグが 9 件以上ある JSON を開ける | 「絞り込み」でタグ欄を見る | 8 件まで見え、それより多いときは一覧の中をスクロールする |
-| TC-FILTER-12f | FILTER-12 | タグが無い JSON を開ける | 「絞り込み」でタグ欄を見る | チェックは出ず、「タグはありません」と出る |
+| TC-FILTER-12e | FILTER-12 | タグが 9 件以上ある JSON を開ける | 「絞り込み」でタグ欄にフォーカスし、文字を入れて空に戻し、ウィンドウを低くする | パネルの高さと帯の線の位置はタグ件数で変わらない。欄の下に全タグが出る。6 行を超える分は候補一覧だけがスクロールする。前後の空白を除き大文字小文字を区別して候補が減る。空に戻すと全部出る。低くしても一覧は欄の下に出る |
+| TC-FILTER-12f | FILTER-12 | タグが無い JSON を開ける | 「絞り込み」でタグ欄を見る | 入力欄は出ず、「タグはありません」と出る |
+| TC-FILTER-12i | FILTER-12 | タグが複数ある JSON | 候補を二つオンにする。パネルを閉じる。選択中の名前に一致しない文字を入れ、空に戻す。一致が無い文字で Enter を押す。開き直す | オンにしても一覧は閉じない。パネル内に札は無い。閉じると札がタグごとに出る。一致しない文字ではそのタグは一覧から消え、絞り込みは残る。空にするとチェックがオンで戻る。一致が無いときは「該当するタグはありません」と出て Enter ではタグが増えない。開き直すと入力は空で一覧は閉じ、選択は残る |
+| TC-FILTER-12j | FILTER-12 | タグがある JSON | 矢印で現在行を動かし Enter でオンオフする。Space を押す。Escape で一覧を閉じ、欄を押す。一覧が閉じている Enter を押す。変換中に矢印を押す。Escape をもう一度押す。Tab で隣へ移る。パネルを開いた直後のフォーカスを見る | 一覧は開いたまま残る。Space は文字として入る。Escape は 1 回目で一覧、欄を押すと一覧が開く。一覧が閉じている Enter では選択が変わらない。変換中の矢印では現在行が動かない。2 回目の Escape でパネル。Tab は候補を飛ばして隣へ移り一覧が閉じる。開いた直後はタグ欄にフォーカスしない。変換中の Enter ではオンにならない |
 | TC-FILTER-12g | FILTER-12 | タグで絞っている | 選んだタグを文書から消す（詳細パネルで外すなど） | 消えたタグだけ選択から外れる。ほかに選んだタグがあれば残る |
 | TC-FILTER-12h | FILTER-12 | サンプルにタグ付きとタグ無しのタスクがある | 「タグ」は一つもオンにしない | タグでは絞らない。タグの無いタスクも残る |
 | TC-VIEW-12 | VIEW-12 | サンプル | 未確定と確定のバーを、ライトとダークで見る。超過もある未確定を見る。サンプルの「本番リリース」も見る | 未確定は斜線で、確定はベタ塗り。色はステータスと期限超過のまま。一覧に「未確定」は出ない。超過があるときは「超過」だけ出る。本番リリースのひし形は斜線で、他のマイルストンは塗りつぶし |
