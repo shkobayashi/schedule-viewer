@@ -1008,8 +1008,9 @@ function App() {
 
   useMcpScreenBridge({
     categories: schedule.categories,
+    milestones: schedule.milestones,
+    milestoneGroups: schedule.milestoneGroups,
     filters: schedule.filters,
-    searchField: schedule.searchField,
     lineageTaskId: schedule.lineageTaskId,
     lineageIds: schedule.lineageIds,
     hiddenMilestoneGroupIds: schedule.hiddenMilestoneGroupIds,

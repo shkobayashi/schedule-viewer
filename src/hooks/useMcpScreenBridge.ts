@@ -3,14 +3,24 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Member, MemberId } from "../model/memberTypes";
 import { loadScheduleDiffText } from "../model/scheduleDiffLoad";
-import type { SearchField } from "../model/scheduleFilterPersistence";
 import {
-  buildScreenContextPayload,
+  buildFilteredTasksPayload,
+  buildScheduleDiffPayload,
+  buildSelectedTaskPayload,
+  MCP_TOOL_FILTERED_TASKS,
+  MCP_TOOL_SCHEDULE_DIFF,
+  MCP_TOOL_SELECTED_TASK,
+  mcpPayloadToToolBody,
   mcpToolErrorBody,
-  screenContextToMcpToolBody,
 } from "../model/screenContext";
 import { isTauri } from "../model/scheduleFile";
-import type { Category, ScheduleFilters, ScheduleId } from "../model/types";
+import type {
+  Category,
+  Milestone,
+  MilestoneGroup,
+  ScheduleFilters,
+  ScheduleId,
+} from "../model/types";
 
 type McpScreenRequest = {
   id: string;
@@ -21,8 +31,9 @@ type McpScreenRequest = {
 
 type UseMcpScreenBridgeInput = {
   categories: Category[];
+  milestones: Milestone[];
+  milestoneGroups: MilestoneGroup[];
   filters: ScheduleFilters;
-  searchField: SearchField;
   lineageTaskId: ScheduleId | null;
   lineageIds: ReadonlySet<ScheduleId> | null;
   hiddenMilestoneGroupIds: ScheduleId[];
@@ -53,34 +64,55 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
 
     async function handleRequest(payload: McpScreenRequest) {
       const snap = inputRef.current;
-      if (payload.tool !== "screen_context") {
-        await reply(
-          payload.id,
-          payload.generation,
-          mcpToolErrorBody(`未知のツールです: ${payload.tool}`),
-        );
-        return;
+      let toolPayload: unknown;
+      switch (payload.tool) {
+        case MCP_TOOL_SCHEDULE_DIFF: {
+          const diff = await loadScheduleDiffText(
+            snap.scheduleFilePath,
+            snap.scheduleCurrentJson,
+          );
+          const scheduleDiffText = diff.ok ? diff.text : diff.message;
+          const scheduleDiffIsError = !diff.ok && diff.isError;
+          toolPayload = buildScheduleDiffPayload({
+            scheduleDiffText,
+            scheduleDiffIsError,
+          });
+          break;
+        }
+        case MCP_TOOL_SELECTED_TASK: {
+          toolPayload = buildSelectedTaskPayload({
+            categories: snap.categories,
+            filters: snap.filters,
+            today: snap.today,
+            memberCatalog: snap.memberMap,
+            lineageIds: snap.lineageIds,
+            selectedTaskId: snap.selectedTaskId,
+          });
+          break;
+        }
+        case MCP_TOOL_FILTERED_TASKS: {
+          toolPayload = buildFilteredTasksPayload({
+            categories: snap.categories,
+            filters: snap.filters,
+            lineageTaskId: snap.lineageTaskId,
+            hiddenMilestoneGroupIds: snap.hiddenMilestoneGroupIds,
+            milestoneGroups: snap.milestoneGroups,
+            milestones: snap.milestones,
+            today: snap.today,
+            memberCatalog: snap.memberMap,
+            lineageIds: snap.lineageIds,
+          });
+          break;
+        }
+        default:
+          await reply(
+            payload.id,
+            payload.generation,
+            mcpToolErrorBody(`未知のツールです: ${payload.tool}`),
+          );
+          return;
       }
-      const diff = await loadScheduleDiffText(
-        snap.scheduleFilePath,
-        snap.scheduleCurrentJson,
-      );
-      const scheduleDiffText = diff.ok ? diff.text : diff.message;
-      const scheduleDiffIsError = !diff.ok && diff.isError;
-      const context = buildScreenContextPayload({
-        categories: snap.categories,
-        filters: snap.filters,
-        searchField: snap.searchField,
-        lineageTaskId: snap.lineageTaskId,
-        hiddenMilestoneGroupIds: snap.hiddenMilestoneGroupIds,
-        today: snap.today,
-        memberCatalog: snap.memberMap,
-        lineageIds: snap.lineageIds,
-        selectedTaskId: snap.selectedTaskId,
-        scheduleDiffText,
-        scheduleDiffIsError,
-      });
-      const body = screenContextToMcpToolBody(context);
+      const body = mcpPayloadToToolBody(toolPayload);
       if ("tooLarge" in body) {
         await reply(
           payload.id,

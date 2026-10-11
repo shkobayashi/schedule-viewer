@@ -483,6 +483,7 @@
 | `uninstall_removes_broken_symlink_at_destination` | 宛先の壊れたシンボリックリンクはリンクだけ外す | SET-05 |
 | `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
+| `tools_list_exposes_three_read_tools` | `tools/list` が `schedule_diff` / `selected_task` / `filtered_tasks` のみで、`screen_context` が無い | MCP-01 |
 | `mcp_socket_lives_in_app_data` | Unix のソケットはアプリデータ直下 | MCP-01 |
 | `mcp_pipe_name_includes_identifier_and_sid` | Windows のパイプ名に identifier と SID が入る | MCP-01 |
 | `pipe_roundtrips_length_prefixed_frame` | Windows の名前付きパイプで長さ付き JSON が往復する | MCP-01 |
@@ -767,9 +768,9 @@
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
-| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、スケジュールを開いている | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `screen_context` を1回呼ぶ | 絞り込みで残るタスク、フィルタ条件、選択、差分テキストが返る。画面の絞り込みは変わらない |
-| TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP で `screen_context` を呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
-| TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `screen_context` を呼ぶ | 前面の絞り込み結果が返る |
+| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`selected_task`、`filtered_tasks` をそれぞれ1回呼ぶ | 差分は差分テキストだけ。選択は選択タスクだけ。絞り込みはオン条件と残るタスクだけ。画面の絞り込みは変わらない |
+| TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
+| TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |
 | TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
 
 ## リリース前確認

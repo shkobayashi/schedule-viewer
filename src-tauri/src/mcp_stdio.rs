@@ -83,15 +83,35 @@ fn initialize_result() -> Value {
 
 fn tools_list_result() -> Value {
     json!({
-        "tools": [{
-            "name": "screen_context",
-            "description": "開いている画面の絞り込みで残るタスク、現在のフィルタ条件、選択中のタスク、開いているファイルとの差分テキストを返します。",
-            "inputSchema": {
-                "type": "object",
-                "properties": {},
-                "additionalProperties": false,
+        "tools": [
+            {
+                "name": "schedule_diff",
+                "description": "開いているファイルと画面の編集内容の差分テキスト（FILE-07 と同じ）だけを返します。人が直したあとに前後関係を見直すときに使います。タスク一覧は含みません。3つのツールをまとめて呼ぶ必要はありません。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false,
+                }
+            },
+            {
+                "name": "selected_task",
+                "description": "前面ウィンドウで選択中のタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときは null です。3つのツールをまとめて呼ぶ必要はありません。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false,
+                }
+            },
+            {
+                "name": "filtered_tasks",
+                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。3つのツールをまとめて呼ぶ必要はありません。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false,
+                }
             }
-        }]
+        ]
     })
 }
 
@@ -153,12 +173,30 @@ pub fn is_mcp_stdio_mode(args: &[String]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_mcp_stdio_mode;
+    use super::{is_mcp_stdio_mode, tools_list_result};
 
     #[test]
     fn mcp_stdio_mode_requires_only_flag() {
         assert!(is_mcp_stdio_mode(&["--mcp".to_string()]));
         assert!(!is_mcp_stdio_mode(&[]));
         assert!(!is_mcp_stdio_mode(&["--mcp".to_string(), "extra".to_string()]));
+    }
+
+    #[test]
+    fn tools_list_exposes_three_read_tools() {
+        let result = tools_list_result();
+        let tools = result
+            .get("tools")
+            .and_then(|v| v.as_array())
+            .expect("tools array");
+        let names: Vec<&str> = tools
+            .iter()
+            .filter_map(|t| t.get("name").and_then(|n| n.as_str()))
+            .collect();
+        assert_eq!(
+            names,
+            ["schedule_diff", "selected_task", "filtered_tasks"]
+        );
+        assert!(!names.contains(&"screen_context"));
     }
 }

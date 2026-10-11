@@ -77,7 +77,7 @@ flowchart TD
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
 | `useAppCalendar` | カレンダーの読み込み |
-| `useMcpScreenBridge` | デスクトップ版だけ。`mcp-screen-request` を受け、`screenContext` と `scheduleDiffLoad` で組み立てて `mcp_reply` する |
+| `useMcpScreenBridge` | デスクトップ版だけ。`mcp-screen-request` を受け、ツール名で `schedule_diff`（`scheduleDiffLoad` だけ）、`selected_task`、`filtered_tasks`（`screenContext`）を組み立てて `mcp_reply` する |
 
 ### モデル
 
@@ -92,7 +92,7 @@ flowchart TD
 | 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
 | 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffLoad.ts` |
-| MCP 用の画面スナップショット | `screenContext.ts`、`mcpRegistration.ts` |
+| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`mcpRegistration.ts` |
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
