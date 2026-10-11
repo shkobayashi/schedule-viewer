@@ -223,7 +223,7 @@ fn peer_credentials(fd: i32) -> Option<(u32, u32)> {
         return None;
     }
     let cred = unsafe { cred.assume_init() };
-    Some((cred.uid as u32, cred.gid as u32))
+    Some((cred.uid, cred.gid))
 }
 
 #[cfg(target_os = "macos")]
