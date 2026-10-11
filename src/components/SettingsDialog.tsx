@@ -566,6 +566,7 @@ export function SettingsDialog({
                 <div className="settings-actions">
                   <button
                     type="button"
+                    className="toolbar-btn"
                     disabled={busy}
                     onClick={() => void handleImportClick()}
                   >
@@ -595,7 +596,7 @@ export function SettingsDialog({
                         </label>
                         <button
                           type="button"
-                          className="link-btn"
+                          className="toolbar-btn"
                           disabled={busy}
                           onClick={() =>
                             void runAction(
@@ -613,7 +614,7 @@ export function SettingsDialog({
                 {settings.catalogs.length > 0 ? (
                   <button
                     type="button"
-                    className="link-btn"
+                    className="toolbar-btn"
                     disabled={busy || settings.selectedCatalogId == null}
                     onClick={() =>
                       void runAction(
@@ -648,6 +649,7 @@ export function SettingsDialog({
                 <div className="settings-actions">
                   <button
                     type="button"
+                    className="toolbar-btn"
                     disabled={busy}
                     onClick={() => void handleCalendarImportClick()}
                   >
@@ -656,7 +658,7 @@ export function SettingsDialog({
                   {calendarLabel ? (
                     <button
                       type="button"
-                      className="link-btn"
+                      className="toolbar-btn"
                       disabled={busy}
                       onClick={() =>
                         void runAction(
@@ -760,6 +762,7 @@ export function SettingsDialog({
                     <div className="settings-actions">
                       <button
                         type="button"
+                        className="toolbar-btn"
                         disabled={busy || !isTauri()}
                         onClick={() => void handlePickJsonSkillFolder()}
                       >
@@ -776,6 +779,7 @@ export function SettingsDialog({
                 <div className="settings-actions">
                   <button
                     type="button"
+                    className="toolbar-btn"
                     disabled={
                       busy ||
                       !isTauri() ||
@@ -788,7 +792,7 @@ export function SettingsDialog({
                   </button>
                   <button
                     type="button"
-                    className="link-btn"
+                    className="toolbar-btn"
                     disabled={
                       busy ||
                       !isTauri() ||
@@ -846,6 +850,7 @@ export function SettingsDialog({
             <div className="modal-actions">
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() =>
                   void runImport(
@@ -859,6 +864,7 @@ export function SettingsDialog({
               </button>
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => {
                   setConfirmOverwriteId(null);
@@ -876,6 +882,7 @@ export function SettingsDialog({
             <div className="modal-actions">
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() =>
                   void runCalendarImport(
@@ -888,6 +895,7 @@ export function SettingsDialog({
               </button>
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => {
                   setConfirmCalendarOverwrite(false);
@@ -912,6 +920,7 @@ export function SettingsDialog({
             <div className="modal-actions">
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => void runJsonSkillInstall(true)}
               >
@@ -919,6 +928,7 @@ export function SettingsDialog({
               </button>
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => {
                   setConfirmJsonSkillReplace(false);
@@ -939,6 +949,7 @@ export function SettingsDialog({
             <div className="modal-actions">
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => void runJsonSkillUninstall()}
               >
@@ -946,6 +957,7 @@ export function SettingsDialog({
               </button>
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => setConfirmJsonSkillUninstall(false)}
               >
@@ -955,7 +967,7 @@ export function SettingsDialog({
           </div>
         ) : null}
         <div className="modal-actions">
-          <button type="button" onClick={onClose}>
+          <button type="button" className="toolbar-btn" onClick={onClose}>
             閉じる
           </button>
         </div>

@@ -359,7 +359,56 @@ body {
 }
 
 .settings-actions {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--s));
   margin: 12px 0;
+}
+
+.settings-field-check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: calc(6px * var(--s));
+  min-height: calc(18px * var(--s));
+  margin: 0;
+  font-size: calc(12px * var(--s));
+}
+
+.settings-field-check input[type="checkbox"],
+.settings-field-check input[type="radio"] {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.settings-field.settings-field-check {
+  flex-direction: row;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.settings-dialog fieldset.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+  border: none;
+  margin: 12px 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.settings-dialog fieldset.settings-field > legend {
+  padding: 0;
+  margin: 0 0 calc(6px * var(--s));
+  color: var(--text);
+  font-size: calc(12px * var(--s));
+}
+
+.settings-dialog .modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: calc(8px * var(--s));
 }
 
 .settings-catalog-list {
@@ -411,15 +460,6 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel);
-}
-
-.link-btn {
-  border: none;
-  background: none;
-  color: var(--accent);
-  cursor: pointer;
-  font-size: calc(12px * var(--s));
-  padding: 0;
 }
 
 .sidebar-row .assignee.unknown-member {
