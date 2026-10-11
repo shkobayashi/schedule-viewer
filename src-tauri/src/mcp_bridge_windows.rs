@@ -168,9 +168,21 @@ fn pipe_server_loop(app: AppHandle, state: Arc<McpBridgeState>, pipe_name: Strin
         }
         let mut file = unsafe { File::from_raw_handle(handle as _) };
         let _ = handle_bridge_connection_io(&app, &state, &mut file);
+        wait_until_client_closes(&mut file);
         let raw = file.into_raw_handle();
         let _ = unsafe { DisconnectNamedPipe(raw as HANDLE) };
         let _ = unsafe { CloseHandle(raw as HANDLE) };
+    }
+}
+
+fn wait_until_client_closes(file: &mut File) {
+    use std::io::Read;
+    let mut buf = [0u8; 8];
+    loop {
+        match file.read(&mut buf) {
+            Ok(0) | Err(_) => return,
+            Ok(_) => {}
+        }
     }
 }
 
@@ -237,6 +249,7 @@ mod tests {
                 error: None,
             };
             write_frame(&mut file, &response).expect("write response");
+            wait_until_client_closes(&mut file);
             let raw = file.into_raw_handle();
             let _ = unsafe { DisconnectNamedPipe(raw as HANDLE) };
             let _ = unsafe { CloseHandle(raw as HANDLE) };
@@ -252,6 +265,7 @@ mod tests {
         write_frame(&mut client, &request).expect("write request");
         let response: BridgeResponse = read_frame(&mut client).expect("read response");
         assert_eq!(response.id, "test-id");
+        drop(client);
         server.join().expect("server thread");
     }
 
