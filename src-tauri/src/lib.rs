@@ -16,12 +16,15 @@ use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 use window_session::{
     all_windows_startup_settled, any_startup_auto_update_enabled, create_schedule_webview,
-    delete_recovery_for_path, forget_startup_settlement, forget_window_focus,
+    delete_filter_for_path, delete_recovery_for_path, forget_startup_settlement,
+    forget_window_focus,
     migrate_legacy_session, next_schedule_window_label, note_window_focus, read_open_windows,
-    read_recovery_for_path, recovery_close_persist, recovery_live_persist, recovery_owner_label,
+    read_filter_for_path, read_recovery_for_path, recovery_close_persist, recovery_live_persist,
+    recovery_owner_label,
     recovery_owners_by_path, remove_window_label, set_focused_label, sha256_hex,
     spawn_startup_windows, store_pending_open, take_pending_open, upsert_window_path,
-    write_open_windows, write_recovery_for_path, OpenWindowEntry, WindowSessionState,
+    write_filter_for_path, write_open_windows, write_recovery_for_path, OpenWindowEntry,
+    WindowSessionState,
     WindowStartupRead,
 };
 
@@ -752,6 +755,102 @@ fn release_schedule_recovery(
     for (other, webview) in app.webview_windows() {
         if other != label {
             let _ = webview.emit("schedule-recovery-reconcile", &payload);
+            let _ = webview.emit("schedule-filter-reconcile", &payload);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn read_schedule_filter(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    state: State<'_, Mutex<ScheduleFileStates>>,
+    path: Option<String>,
+) -> Result<Option<String>, String> {
+    let schedule_path = match path {
+        Some(value) => value,
+        None => {
+            let label = window_label(&window);
+            let guard = state.lock().expect("schedule file states");
+            guard
+                .by_label
+                .get(&label)
+                .and_then(|entry| entry.path.as_ref())
+                .map(|p| p.to_string_lossy().into_owned())
+                .ok_or_else(|| "開いているファイルがありません".to_string())?
+        }
+    };
+    read_filter_for_path(&app_data_dir(&app)?, &schedule_path)
+}
+
+#[tauri::command]
+fn write_schedule_filter(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    contents: String,
+) -> Result<(), String> {
+    let value: serde_json::Value = serde_json::from_str(&contents)
+        .map_err(|_| "絞り込みの記録の形式が正しくありません。".to_string())?;
+    let path = value
+        .get("path")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| "絞り込みの記録の形式が正しくありません。".to_string())?;
+    let label = window_label(&window);
+    let session_guard = session.lock().expect("window session");
+    let states_guard = states.lock().expect("schedule file states");
+    if !caller_is_recovery_owner(&session_guard, &states_guard, &label, path) {
+        return Ok(());
+    }
+    drop(states_guard);
+    drop(session_guard);
+    write_filter_for_path(&app_data_dir(&app)?, path, &contents)
+}
+
+#[tauri::command]
+fn delete_schedule_filter(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    path: String,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    let session_guard = session.lock().expect("window session");
+    let states_guard = states.lock().expect("schedule file states");
+    let may_delete = caller_is_recovery_owner(&session_guard, &states_guard, &label, &path)
+        || !windows_for_recovery(&states_guard)
+            .iter()
+            .any(|(_, open)| open == &path);
+    drop(states_guard);
+    drop(session_guard);
+    if !may_delete {
+        return Ok(());
+    }
+    delete_filter_for_path(&app_data_dir(&app)?, &path)
+}
+
+#[tauri::command]
+fn release_schedule_filter(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    path: String,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    let others = {
+        let guard = states.lock().expect("schedule file states");
+        other_windows_with_path(&guard, &label, &path)
+    };
+    if others == 0 {
+        return delete_filter_for_path(&app_data_dir(&app)?, &path);
+    }
+    let payload = RecoveryReconcilePayload { path };
+    for (other, webview) in app.webview_windows() {
+        if other != label {
+            let _ = webview.emit("schedule-filter-reconcile", &payload);
         }
     }
     Ok(())
@@ -1007,10 +1106,11 @@ fn unregister_window_session(
     if !still_open {
         return Ok(());
     }
-    let payload = RecoveryReconcilePayload { path };
+    let payload = RecoveryReconcilePayload { path: path.clone() };
     for (other, webview) in app.webview_windows() {
         if other != label {
             let _ = webview.emit("schedule-recovery-reconcile", &payload);
+            let _ = webview.emit("schedule-filter-reconcile", &payload);
         }
     }
     Ok(())
@@ -1613,6 +1713,10 @@ pub fn run() {
             write_schedule_recovery,
             delete_schedule_recovery,
             release_schedule_recovery,
+            read_schedule_filter,
+            write_schedule_filter,
+            delete_schedule_filter,
+            release_schedule_filter,
             recovery_live_action,
             recovery_close_action,
             read_schedule_file_at_path,

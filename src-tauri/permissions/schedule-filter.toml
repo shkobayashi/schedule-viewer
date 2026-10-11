@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-read-schedule-filter"
+description = "Allows reading persisted schedule filter state."
+commands.allow = ["read_schedule_filter"]
+
+[[permission]]
+identifier = "allow-write-schedule-filter"
+description = "Allows writing persisted schedule filter state."
+commands.allow = ["write_schedule_filter"]
+
+[[permission]]
+identifier = "allow-delete-schedule-filter"
+description = "Allows deleting persisted schedule filter state."
+commands.allow = ["delete_schedule_filter"]
+
+[[permission]]
+identifier = "allow-release-schedule-filter"
+description = "Allows releasing persisted schedule filter state when switching files."
+commands.allow = ["release_schedule_filter"]

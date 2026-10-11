@@ -17,6 +17,7 @@ import {
   usesCommandKey,
 } from "../model/shortcuts";
 import type { GridTier } from "../model/timeline";
+import type { SearchField } from "../model/scheduleFilterPersistence";
 import { AppMenu } from "./AppMenu";
 import { FilterPanel } from "./FilterPanel";
 import { anchorBelowRect, menuViewportShift } from "./anchoredMenu";
@@ -26,7 +27,7 @@ export type AssigneeFilterOption = {
   label: string;
 };
 
-export type SearchField = "name" | "note";
+export type { SearchField } from "../model/scheduleFilterPersistence";
 
 type ToolbarProps = {
   title: string;
