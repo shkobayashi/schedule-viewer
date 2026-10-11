@@ -5,14 +5,17 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
+#[cfg(unix)]
 use std::{fs, thread};
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use uuid::Uuid;
 
+#[cfg(unix)]
 use crate::mcp_app_data::mcp_socket_path;
 use crate::window_session::read_open_windows;
 
 #[cfg(windows)]
+#[path = "mcp_bridge_windows.rs"]
 mod mcp_bridge_windows;
 
 pub(crate) const BRIDGE_VERSION: u32 = 1;
@@ -466,5 +469,9 @@ pub fn cleanup_mcp_socket(app_data: &Path) {
         if path.exists() && !can_connect_to_unix_socket(&path) {
             let _ = fs::remove_file(path);
         }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = app_data;
     }
 }
