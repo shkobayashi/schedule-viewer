@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use serde_json::Value;
 use tauri::AppHandle;
 use windows_sys::Win32::Foundation::{
-    CloseHandle, GetLastError, LocalFree, ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY,
+    CloseHandle, GetLastError, LocalFree, ERROR_PIPE_BUSY,
     ERROR_PIPE_CONNECTED, GENERIC_READ, GENERIC_WRITE, HANDLE, INVALID_HANDLE_VALUE,
 };
 use windows_sys::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW;
@@ -188,21 +188,20 @@ fn wait_until_client_closes(file: &mut File) {
 
 fn open_pipe_client_with_retry(pipe_name: &str) -> Result<File, McpBridgeError> {
     let deadline = Instant::now() + MCP_PIPE_CONNECT_TIMEOUT;
+    let mut saw_busy = false;
     loop {
         match open_pipe_client(pipe_name) {
             Ok(file) => return Ok(file),
             Err(err) => {
-                if err == ERROR_FILE_NOT_FOUND {
+                if err == ERROR_PIPE_BUSY {
+                    saw_busy = true;
+                } else if !saw_busy {
                     return Err(McpBridgeError::NoGui);
                 }
-                if err == ERROR_PIPE_BUSY {
-                    if Instant::now() >= deadline {
-                        return Err(McpBridgeError::Stale);
-                    }
-                    thread::sleep(PIPE_CLIENT_BUSY_SLEEP);
-                    continue;
+                if Instant::now() >= deadline {
+                    return Err(McpBridgeError::Stale);
                 }
-                return Err(McpBridgeError::NoGui);
+                thread::sleep(PIPE_CLIENT_BUSY_SLEEP);
             }
         }
     }
@@ -303,8 +302,11 @@ mod tests {
             thread::sleep(Duration::from_millis(300));
             let _ = unsafe { DisconnectNamedPipe(server_handle) };
             accept_pipe_client(server_handle);
-            let _ = unsafe { DisconnectNamedPipe(server_handle) };
-            let _ = unsafe { CloseHandle(server_handle) };
+            let mut file = unsafe { File::from_raw_handle(server_handle as _) };
+            wait_until_client_closes(&mut file);
+            let raw = file.into_raw_handle();
+            let _ = unsafe { DisconnectNamedPipe(raw as HANDLE) };
+            let _ = unsafe { CloseHandle(raw as HANDLE) };
         });
         ready_rx
             .recv_timeout(Duration::from_secs(5))
