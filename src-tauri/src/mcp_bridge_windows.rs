@@ -264,25 +264,37 @@ mod tests {
         let _ = unsafe { CloseHandle(handle) };
     }
 
+    fn accept_pipe_client(handle: HANDLE) {
+        let connected = unsafe { ConnectNamedPipe(handle, ptr::null_mut()) };
+        if connected == 0 {
+            let err = unsafe { GetLastError() };
+            if err != ERROR_PIPE_CONNECTED {
+                panic!("connect: {}", err);
+            }
+        }
+    }
+
     #[test]
     fn open_pipe_client_with_retry_waits_for_busy_pipe() {
         use std::sync::{Arc, Mutex};
 
         let pipe_name = mcp_pipe_name("S-1-5-21-schedule-viewer-test-busy");
-        let security = PipeSecurity::for_current_user().expect("security");
-        let server_handle = create_pipe_server(&pipe_name, &security).expect("server pipe");
+        let server_name = pipe_name.clone();
+        let (ready_tx, ready_rx) = mpsc::channel();
         let server = thread::spawn(move || {
-            let connected = unsafe { ConnectNamedPipe(server_handle, ptr::null_mut()) };
-            if connected == 0 {
-                let err = unsafe { GetLastError() };
-                if err != ERROR_PIPE_CONNECTED {
-                    panic!("connect: {}", err);
-                }
-            }
+            let security = PipeSecurity::for_current_user().expect("security");
+            let server_handle = create_pipe_server(&server_name, &security).expect("server pipe");
+            let _ = ready_tx.send(());
+            accept_pipe_client(server_handle);
             thread::sleep(Duration::from_millis(300));
+            let _ = unsafe { DisconnectNamedPipe(server_handle) };
+            accept_pipe_client(server_handle);
             let _ = unsafe { DisconnectNamedPipe(server_handle) };
             let _ = unsafe { CloseHandle(server_handle) };
         });
+        ready_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("server ready");
 
         let client_hold = open_pipe_client(&pipe_name).expect("first client");
         assert_eq!(
