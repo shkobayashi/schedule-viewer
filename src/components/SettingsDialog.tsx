@@ -19,6 +19,7 @@ import {
 } from "../model/validateMembers";
 import { usesCommandKey } from "../model/shortcuts";
 import { ModalDialog } from "./ModalDialog";
+import { SettingsChangelogHistory } from "./SettingsChangelogHistory";
 import {
   COLOR_SCHEME_OPTIONS,
   parseColorSchemePreference,
@@ -407,7 +408,15 @@ export function SettingsDialog({
       message.includes("見つかりません"));
 
   return (
-    <ModalDialog title="設定" onClose={onClose} className="modal settings-dialog">
+    <ModalDialog
+      title="設定"
+      onClose={onClose}
+      className={
+        section === "updates"
+          ? "modal settings-dialog settings-dialog--updates"
+          : "modal settings-dialog"
+      }
+    >
         <div className="settings-layout">
           <nav className="settings-nav" aria-label="設定セクション">
             <button
@@ -690,6 +699,7 @@ export function SettingsDialog({
                   />
                   <span>起動時に更新を確認する</span>
                 </label>
+                <SettingsChangelogHistory active={section === "updates"} />
               </>
             ) : null}
             {section === "jsonSkills" ? (
