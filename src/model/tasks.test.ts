@@ -98,6 +98,44 @@ describe("categoriesAfterDuplicate", () => {
     expect(current[0]?.groups[0]?.tasks).toHaveLength(3);
   });
 
+  it("does not copy predecessors or progress when patch starts fresh", () => {
+    const result = categoriesAfterDuplicate(
+      categories(),
+      milestones,
+      "工程",
+      SOURCE,
+      COPY,
+      {
+        name: "基本設計のコピー",
+        start: "2026-04-01",
+        end: "2026-04-05",
+        assigneeId: "member-1",
+        status: "not-started",
+        progress: 0,
+        confidence: "committed",
+        predecessors: [],
+        successors: [],
+        milestoneId: MILESTONE,
+        note: "レビュー待ち",
+      },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const tasks = result.categories[0]?.groups[0]?.tasks ?? [];
+    const copy = tasks[2];
+    expect(copy).toMatchObject({
+      id: COPY,
+      name: "基本設計のコピー",
+      status: "not-started",
+      progress: 0,
+      predecessors: [],
+      milestoneId: MILESTONE,
+      tags: ["共有"],
+    });
+    expect(tasks[1]?.predecessors).toEqual([OTHER]);
+    expect(tasks[3]?.predecessors).toEqual([SOURCE]);
+  });
+
   it("copies fields and predecessors without changing successors", () => {
     const result = categoriesAfterDuplicate(
       categories(),

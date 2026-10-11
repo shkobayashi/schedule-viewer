@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Copy,
   GitBranch,
@@ -551,7 +558,10 @@ function App() {
         milestoneLaneHeight,
       );
       const body = Math.max(120, timelineSlotHeight - headerHeight - band);
-      return Math.max(0, schedule.visibleRows.length * rowHeight - body);
+      const rows = schedule.visibleRows;
+      const contentHeight =
+        rows.length === 0 ? 0 : rows[rows.length - 1].y + rowHeight;
+      return Math.max(0, contentHeight - body);
     },
     schedule.today,
     `${timelineEpoch}:${schedule.diskEpoch}`,
@@ -822,7 +832,7 @@ function App() {
     [bodyHeight, rowHeight, scrollY, visibleRows],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (focusTaskId == null) return;
     const row = visibleRows.find(
       (item) => item.type === "task" && item.task.id === focusTaskId,

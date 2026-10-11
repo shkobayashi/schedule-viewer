@@ -171,9 +171,9 @@ export function useTimelineView(
               Math.max(0, totalDays * pxPerDay - viewportWidth),
             );
       setScrollX(nextX);
-      setScrollY(clamp(y, 0, maxScrollY));
+      setScrollY(clamp(y, 0, maxScrollYFor(pxPerDay)));
     },
-    [maxScrollY, pxPerDay, scrollX, drawStart, totalDays, viewportWidth],
+    [maxScrollYFor, pxPerDay, scrollX, drawStart, totalDays, viewportWidth],
   );
 
   const panBy = useCallback(

@@ -178,7 +178,8 @@
 | 同上 | `quotes each tag for display` | FILE-07 |
 | 同上 | `rejects whitespace-only, padded, and duplicate tags` | FILE-01 |
 | 同上 | `accepts tags that differ only by case` | FILE-01 |
-| `tasks.test.ts` | `copies fields and predecessors without changing successors` | EDIT-14, FILTER-12 |
+| `tasks.test.ts` | `does not copy predecessors or progress when patch starts fresh` | EDIT-14 |
+| 同上 | `copies fields and predecessors without changing successors` | EDIT-14, FILTER-12 |
 | 同上 | `excludes tasks without note when noteSearch is set` | FILTER-02 |
 | 同上 | `matches task linked to selected milestone id` | FILTER-07 |
 | 同上 | `keeps only tasks without milestone when filter is none` | FILTER-07 |
@@ -364,6 +365,7 @@
 | 同上 | `leaves a one-day gap between spans` | VIEW-03 |
 | 同上 | `draws a single-day summary through the exclusive end` | VIEW-03 |
 | `tasks.test.ts` | `inserts the copy immediately after the source` | EDIT-14 |
+| 同上 | `does not copy predecessors or progress when patch starts fresh` | EDIT-14 |
 | 同上 | `copies fields and predecessors without changing successors` | EDIT-14 |
 | 同上 | `rejects a cycle created by a successor link` | EDIT-14, EDIT-05 |
 | 同上 | `reports a missing source` | EDIT-14 |
@@ -660,7 +662,8 @@
 | TC-EDIT-08 | EDIT-08 | タスクを選択し、「完了」で絞っている | 「追加」で、選択中のグループに今日から1日のタスクを足す | そのグループの末尾に、割り当てなし・未着手・未確定で足される。絞り込みは「すべて」に戻り、新しい行が選択される |
 | TC-EDIT-08c | EDIT-08, FILTER-10 | 確度を「確定」で絞っている | タスクを追加する。次に、確度を「未確定」に戻してから追加する | 「確定」のときだけ「すべて」に戻る。「未確定」のまま追加したタスクは残って見える |
 | TC-EDIT-08b | EDIT-08 | 追加ダイアログ | 終了日を開始日より前にして保存する | 追加されない |
-| TC-EDIT-14 | EDIT-14, EDIT-10 | 担当、確度、ノート、先行があるタスク | 右クリックの「複製」を開き、名前だけ変えて追加する。取り消す | 元の直後に、担当・確度・ノート・先行を写したタスクが追加される。後続の相手は変わらない。取り消し 1 回で消える |
+| TC-EDIT-14 | EDIT-14, EDIT-10 | 担当、確度、ノート、タグ、先行があり、進行中のタスク。元を先行にしているタスクがある | 右クリックの「複製」を開き、ステータスが未着手、進捗が 0、先行と後続が空であることを見る。名前だけ変えて追加する。取り消す。別途、追加前に先行または後続を足して追加する | 元の直後に、担当・確度・ノート・タグ・日付・対応マイルストンを写し、ステータスは未着手、進捗は 0、先行は空のタスクが追加される。元を先行にしているタスクは元の ID のまま。後続の相手は、ダイアログで足したときだけ変わる。取り消し 1 回で消える。ダイアログを閉じた直後、手でスクロールしなくても左の行とチャートのバーが見える |
+| TC-EDIT-14e | EDIT-14, FILTER-01 | 進行中のタスクがあり、ステータスで「進行中」に絞っている | そのタスクを複製して追加する | 複製は未着手のため、ステータスの絞り込みは「すべて」に戻り、複製が見える |
 | TC-EDIT-14b | EDIT-14 | 複製ダイアログ | キャンセル、または Escape を押す。別途、終了日を開始日より前にして追加する | タスクは増えない。日付が不正なときはダイアログが開いたまま |
 | TC-EDIT-14c | EDIT-14, FILTER-10 | 確定のタスクがあり、確度を「未確定」で絞っている | そのタスクを複製して追加する。次に確度を「確定」に絞り、確定のタスクを複製する | 未確定で絞っているときは「すべて」に戻り、複製が見える。確定で絞っているときは「確定」のまま、複製が見える |
 | TC-EDIT-15 | EDIT-15, EDIT-10 | 同じグループにタスクが3件以上ある | 真ん中のタスク行の左端の握りをドラッグして、別の位置で離す。取り消す | ドラッグ中は半透明のタスク行がポインタに付く。離すと左の一覧とチャートの順が変わる。日付と先行は変わらない。取り消し 1 回で戻る |
