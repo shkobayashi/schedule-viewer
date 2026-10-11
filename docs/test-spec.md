@@ -1,6 +1,6 @@
 # テスト仕様
 
-何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs` および `src-tauri/src/json_skills.rs` の `#[test]` の名前である。
+何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
 
 ## 方針
 
@@ -15,7 +15,7 @@
 | 種類 | コマンド | 見ているもの |
 | --- | --- | --- |
 | Vitest | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
-| Rust | `cd src-tauri && cargo test --locked` | `lib.rs` と `json_skills.rs` のパス検査 |
+| Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査 |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外 |
 | 型検査 | `npm run build` の中の `tsc` | `src` |
 | Clippy | `cd src-tauri && cargo clippy -- -D warnings` | Rust。警告をエラーにする |
@@ -31,7 +31,7 @@
 
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら Clippy と `cargo test --locked`。最後に集約ジョブ `ci` が成功する |
+| `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら Ubuntu と Windows で Clippy と `cargo test --locked`。最後に集約ジョブ `ci` が成功する |
 | `.github/workflows/release.yml` | `main` への push | 環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Windows NSIS、`latest-linux-x86_64.json` と `latest-windows-x86_64.json`、それらをまとめた `latest.json`、Windows コード署名用の `schedule-viewer-codesign.cer`、`SHA256SUMS`、CHANGELOG から組み立てた Release 本文を GitHub Release へ出す |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更ではフロントと Rust はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
@@ -171,19 +171,27 @@
 | `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
 | `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
 | 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
-| `taskTags.test.ts` | `keeps only tags that still exist, in document order` | FILTER-12 |
+| `taskTags.test.ts` | `matches substrings case-sensitively after trim` | FILTER-12 |
+| 同上 | `keeps only tags that still exist, in document order` | FILTER-12 |
 | `serialize.test.ts` | `writes tags after milestoneId and before note` | FILE-02 |
 | `taskTags.test.ts` | `bumps schemaVersion from 6 to 7` | FILE-01 |
 | 同上 | `quotes each tag for display` | FILE-07 |
 | 同上 | `rejects whitespace-only, padded, and duplicate tags` | FILE-01 |
 | 同上 | `accepts tags that differ only by case` | FILE-01 |
-| `tasks.test.ts` | `copies fields and predecessors without changing successors` | EDIT-14, FILTER-12 |
+| `tasks.test.ts` | `does not copy predecessors or progress when patch starts fresh` | EDIT-14 |
+| 同上 | `copies fields and predecessors without changing successors` | EDIT-14, FILTER-12 |
 | 同上 | `excludes tasks without note when noteSearch is set` | FILTER-02 |
 | 同上 | `matches task linked to selected milestone id` | FILTER-07 |
 | 同上 | `keeps only tasks without milestone when filter is none` | FILTER-07 |
 | 同上 | `shows empty groups and categories when filters and lineage are clear` | VIEW-01, VIEW-03, FILTER-09 |
 | 同上 | `hides empty groups when a filter is set` | FILTER-09 |
 | 同上 | `hides empty groups when lineage is set` | FILTER-09 |
+| `screenContext.test.ts` | `keeps broken-link endpoints only when relation is broken` | MCP-01 |
+| 同上 | `keeps unassigned and unknown assignee when assignee filter is unassigned` | MCP-01, FILTER-03 |
+| 同上 | `respects lineage and still returns selected task outside filter` | MCP-01, FILTER-08, EDIT-01 |
+| `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |
+| 同上 | `keeps spaces and quotes inside the JSON command string` | MCP-01 |
+| 同上 | `keeps a macOS path with spaces as the command string` | MCP-01 |
 | `scheduleDiff.test.ts` | `says there is no difference when the documents match` | FILE-07 |
 | 同上 | `shows tag changes and distinguishes comma inside a tag from separate tags` | FILE-07 |
 | 同上 | `shows calendar-day shifts for start and end` | FILE-07 |
@@ -307,11 +315,16 @@
 | 同上 | `ignores a draft for a different path and opens the remembered file` | SYNC-03 |
 | 同上 | `restores when disk formatting differs but canonical matches` | SYNC-03, FILE-04 |
 | 同上 | `returns invalidDisk when the file fails validation` | SYNC-03 |
+| `scheduleFilterPersistence.test.ts` | `accepts a valid file` など | SYNC-03 |
 | `serialize.test.ts` | `omits empty note` | EDIT-06 |
 | 同上 | `writes confidence after progress` | FILE-02 |
 | 同上 | `writes milestone confidence after date` | FILE-02 |
 | 同上 | `includes trimmed note` | EDIT-06 |
 | `appKeyboard.test.ts` | `clears link mode on Escape and leaves a menu to close itself` | EDIT-12 |
+| 同上 | `opens add, milestone, duplicate, and reorders within a group` | EDIT-07, EDIT-08, EDIT-14, EDIT-15 |
+| 同上 | `suppresses workflow shortcuts during a dialog or link mode outside fields` | EDIT-07, EDIT-08, EDIT-14, EDIT-15 |
+| `shortcuts.test.ts` | `matches add, milestone, duplicate, and reorder keys` | EDIT-07, EDIT-08, EDIT-14, EDIT-15 |
+| `commandPalette.test.ts` | `disables add and duplicate commands in link mode without selection` | NAV-07 |
 | 同上 | `deletes the hovered link before the selected task` | EDIT-09, EDIT-12 |
 | 同上 | `drops file shortcuts while a file operation is busy and keeps find` | FILE-02, NAV-05 |
 | 同上 | `ignores undo and redo in a dialog or text field` | EDIT-10 |
@@ -363,6 +376,7 @@
 | 同上 | `leaves a one-day gap between spans` | VIEW-03 |
 | 同上 | `draws a single-day summary through the exclusive end` | VIEW-03 |
 | `tasks.test.ts` | `inserts the copy immediately after the source` | EDIT-14 |
+| 同上 | `does not copy predecessors or progress when patch starts fresh` | EDIT-14 |
 | 同上 | `copies fields and predecessors without changing successors` | EDIT-14 |
 | 同上 | `rejects a cycle created by a successor link` | EDIT-14, EDIT-05 |
 | 同上 | `reports a missing source` | EDIT-14 |
@@ -453,6 +467,7 @@
 | `migrate_moves_legacy_files_and_removes_them` | 古い記録を新しい控えとウィンドウ一覧へ移し、移し終えたら消す | SYNC-03 |
 | `migrate_keeps_unreadable_legacy_recovery` | 読めない古い控えは消さず、ウィンドウ一覧も作らない | SYNC-03 |
 | `path_recovery_key_is_stable` | パスから控えファイル名のハッシュが安定する | SYNC-03 |
+| `filter_path_uses_same_hash_as_recovery` | 絞り込みのファイル名のハッシュは控えと同じ | SYNC-03 |
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 | `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
 | `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの3スキルに限る | SET-05 |
@@ -467,6 +482,13 @@
 | `uninstall_does_not_remove_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら外さない | SET-05 |
 | `uninstall_removes_broken_symlink_at_destination` | 宛先の壊れたシンボリックリンクはリンクだけ外す | SET-05 |
 | `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
+| `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
+| `tools_list_exposes_three_read_tools` | `tools/list` が `schedule_diff` / `selected_task` / `filtered_tasks` のみで、`screen_context` が無い | MCP-01 |
+| `mcp_socket_lives_in_app_data` | Unix のソケットはアプリデータ直下 | MCP-01 |
+| `mcp_pipe_name_includes_identifier_and_sid` | Windows のパイプ名に identifier と SID が入る | MCP-01 |
+| `pipe_roundtrips_length_prefixed_frame` | Windows の名前付きパイプで長さ付き JSON が往復する | MCP-01 |
+| `skips_new_listener_when_pipe_is_alive` | 接続できるパイプは取り替えない | MCP-01 |
+| `open_pipe_client_with_retry_waits_for_busy_pipe` | 使用中の名前付きパイプは接続を試し直し、解放後に繋がる | MCP-01 |
 
 ## 自動テストが無いところ
 
@@ -554,7 +576,17 @@
 | TC-SYNC-03 | SYNC-03 | TC-FILE-05b のあと、ファイルは変えない | アプリを起動する | 同じファイルが未保存のまま開く |
 | TC-SYNC-03b | SYNC-03 | 控えがあるあいだに、別のエディタでファイルを変える | アプリを起動する | 「ファイルを開く」か「未保存の編集を戻す」かを聞く。開くはダイアログにせず、そのファイルの最新内容になる |
 | TC-SYNC-03c | SYNC-03 | 未保存のまま閉じたあと、対象ファイルを消す | アプリを起動する | 未保存が画面に戻り、ファイルが無いと出る。「未保存の編集を戻す」でその内容が残る。そのあと、同じ欠落では監視のファイルダイアログは出ない |
-| TC-SYNC-03d | SYNC-03 | ファイルを開き、保存して閉じる | アプリを起動する | 同じファイルが保存済みで開く。絞り込みやズームは初期状態である |
+| TC-SYNC-03d | SYNC-03 | ファイルを開き、保存して閉じる | アプリを起動する | 同じファイルが保存済みで開く。ズームは初期状態である |
+| TC-SYNC-03h | SYNC-03 | パスのあるファイルで担当者とタグを絞り、保存済みのまま閉じる | 起動する | 同じ絞り込みが戻り、未保存にはならない |
+| TC-SYNC-03o | SYNC-03 | マイルストングループが2つ以上ある JSON で、帯の線を1つ以上オフにし、保存済みのまま閉じる | 起動する | 同じ帯の線の札が戻り、未保存にはならない |
+| TC-SYNC-03p | SYNC-03 | カテゴリとグループを折りたたみ、保存済みのまま閉じる | 起動する | 同じ開閉が戻り、未保存にはならない |
+| TC-SYNC-03q | SYNC-03 | 折りたたんだあと ☰ の「開く」で別のファイルを選ぶ | 起動する | 開いたファイルはすべて展開である |
+| TC-SYNC-03i | SYNC-03 | 未保存の編集と絞り込みがある状態で閉じる | 起動する | 編集と絞り込みの両方が戻る |
+| TC-SYNC-03j | SYNC-03 | 絞り込みだけ変えて閉じる | 起動する | 未保存にならない |
+| TC-SYNC-03k | SYNC-03 | 「開く」で別のファイルを選ぶ | 起動する | 開いたファイルの絞り込みは初期値である |
+| TC-SYNC-03l | SYNC-03 | マイルストンで絞ったあと、そのマイルストンをファイルから消して閉じる | 起動する | マイルストンの条件は「すべて」になる。取り消しでは戻らない |
+| TC-SYNC-03m | SYNC-03 | 同じパスを2つのウィンドウで開き、前面だけ条件を変えて閉じる | 起動する | 前面の条件だけが戻る |
+| TC-SYNC-03n | SYNC-03 | ブラウザ版で絞り込みを変えて閉じる | ページを開き直す | 絞り込みは戻らない |
 | TC-SYNC-03e | SYNC-03 | 保存して閉じたあと、そのファイルを消す | アプリを起動する | 見つからないと知らせてサンプルになる。ファイルダイアログは出ない。その状態で閉じると、次はサンプルのままである |
 | TC-SYNC-03f | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、見出しがファイル名になるまでバーをドラッグする | 復旧が終わるまで日付は変わらない。終わったあとはドラッグできる |
 | TC-SYNC-03g | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、見出しがファイル名になる前に別のエディタでその JSON を保存する。ファイル名になったあと少し待つ | 変えた内容が画面に出る。起動が終わったあとはバーをドラッグできる |
@@ -618,8 +650,10 @@
 | TC-FILTER-12b | FILTER-12 | タグを二つ以上オンにしている | 札を一つ押す。「すべて解除」でも試す | 押したタグだけ外れ、ほかのタグは残る。「すべて解除」で絞り込みは戻り、系統は残る |
 | TC-FILTER-12c | FILTER-12 | タグをオンにしている | ファイルを開き直す | タグの選択は無くなる |
 | TC-FILTER-12d | FILTER-12 | サンプルでファイル内のタグをすべてオンにできる | すべてオンにする | タグ付きタスクだけが残り、タグの無いタスクは残らない |
-| TC-FILTER-12e | FILTER-12 | タグが 9 件以上ある JSON を開ける | 「絞り込み」でタグ欄を見る | 8 件まで見え、それより多いときは一覧の中をスクロールする |
-| TC-FILTER-12f | FILTER-12 | タグが無い JSON を開ける | 「絞り込み」でタグ欄を見る | チェックは出ず、「タグはありません」と出る |
+| TC-FILTER-12e | FILTER-12 | タグが 9 件以上ある JSON を開ける | 「絞り込み」でタグ欄にフォーカスし、文字を入れて空に戻し、ウィンドウを低くする | パネルの高さと帯の線の位置はタグ件数で変わらない。欄の下に全タグが出る。6 行を超える分は候補一覧だけがスクロールする。前後の空白を除き大文字小文字を区別して候補が減る。空に戻すと全部出る。低くしても一覧は欄の下に出る |
+| TC-FILTER-12f | FILTER-12 | タグが無い JSON を開ける | 「絞り込み」でタグ欄を見る | 入力欄は出ず、「タグはありません」と出る |
+| TC-FILTER-12i | FILTER-12 | タグが複数ある JSON | 候補を二つオンにする。パネルを閉じる。選択中の名前に一致しない文字を入れ、空に戻す。一致が無い文字で Enter を押す。開き直す | オンにしても一覧は閉じない。パネル内に札は無い。閉じると札がタグごとに出る。一致しない文字ではそのタグは一覧から消え、絞り込みは残る。空にするとチェックがオンで戻る。一致が無いときは「該当するタグはありません」と出て Enter ではタグが増えない。開き直すと入力は空で一覧は閉じ、選択は残る |
+| TC-FILTER-12j | FILTER-12 | タグがある JSON | 矢印で現在行を動かし Enter でオンオフする。Space を押す。Escape で一覧を閉じ、欄を押す。一覧が閉じている Enter を押す。変換中に矢印を押す。Escape をもう一度押す。Tab で隣へ移る。パネルを開いた直後のフォーカスを見る | 一覧は開いたまま残る。Space は文字として入る。Escape は 1 回目で一覧、欄を押すと一覧が開く。一覧が閉じている Enter では選択が変わらない。変換中の矢印では現在行が動かない。2 回目の Escape でパネル。Tab は候補を飛ばして隣へ移り一覧が閉じる。開いた直後はタグ欄にフォーカスしない。変換中の Enter ではオンにならない |
 | TC-FILTER-12g | FILTER-12 | タグで絞っている | 選んだタグを文書から消す（詳細パネルで外すなど） | 消えたタグだけ選択から外れる。ほかに選んだタグがあれば残る |
 | TC-FILTER-12h | FILTER-12 | サンプルにタグ付きとタグ無しのタスクがある | 「タグ」は一つもオンにしない | タグでは絞らない。タグの無いタスクも残る |
 | TC-VIEW-12 | VIEW-12 | サンプル | 未確定と確定のバーを、ライトとダークで見る。超過もある未確定を見る。サンプルの「本番リリース」も見る | 未確定は斜線で、確定はベタ塗り。色はステータスと期限超過のまま。一覧に「未確定」は出ない。超過があるときは「超過」だけ出る。本番リリースのひし形は斜線で、他のマイルストンは塗りつぶし |
@@ -657,7 +691,8 @@
 | TC-EDIT-08 | EDIT-08 | タスクを選択し、「完了」で絞っている | 「追加」で、選択中のグループに今日から1日のタスクを足す | そのグループの末尾に、割り当てなし・未着手・未確定で足される。絞り込みは「すべて」に戻り、新しい行が選択される |
 | TC-EDIT-08c | EDIT-08, FILTER-10 | 確度を「確定」で絞っている | タスクを追加する。次に、確度を「未確定」に戻してから追加する | 「確定」のときだけ「すべて」に戻る。「未確定」のまま追加したタスクは残って見える |
 | TC-EDIT-08b | EDIT-08 | 追加ダイアログ | 終了日を開始日より前にして保存する | 追加されない |
-| TC-EDIT-14 | EDIT-14, EDIT-10 | 担当、確度、ノート、先行があるタスク | 右クリックの「複製」を開き、名前だけ変えて追加する。取り消す | 元の直後に、担当・確度・ノート・先行を写したタスクが追加される。後続の相手は変わらない。取り消し 1 回で消える |
+| TC-EDIT-14 | EDIT-14, EDIT-10 | 担当、確度、ノート、タグ、先行があり、進行中のタスク。元を先行にしているタスクがある | 右クリックの「複製」を開き、ステータスが未着手、進捗が 0、先行と後続が空であることを見る。名前だけ変えて追加する。取り消す。別途、追加前に先行または後続を足して追加する | 元の直後に、担当・確度・ノート・タグ・日付・対応マイルストンを写し、ステータスは未着手、進捗は 0、先行は空のタスクが追加される。元を先行にしているタスクは元の ID のまま。後続の相手は、ダイアログで足したときだけ変わる。取り消し 1 回で消える。ダイアログを閉じた直後、手でスクロールしなくても左の行とチャートのバーが見える |
+| TC-EDIT-14e | EDIT-14, FILTER-01 | 進行中のタスクがあり、ステータスで「進行中」に絞っている | そのタスクを複製して追加する | 複製は未着手のため、ステータスの絞り込みは「すべて」に戻り、複製が見える |
 | TC-EDIT-14b | EDIT-14 | 複製ダイアログ | キャンセル、または Escape を押す。別途、終了日を開始日より前にして追加する | タスクは増えない。日付が不正なときはダイアログが開いたまま |
 | TC-EDIT-14c | EDIT-14, FILTER-10 | 確定のタスクがあり、確度を「未確定」で絞っている | そのタスクを複製して追加する。次に確度を「確定」に絞り、確定のタスクを複製する | 未確定で絞っているときは「すべて」に戻り、複製が見える。確定で絞っているときは「確定」のまま、複製が見える |
 | TC-EDIT-15 | EDIT-15, EDIT-10 | 同じグループにタスクが3件以上ある | 真ん中のタスク行の左端の握りをドラッグして、別の位置で離す。取り消す | ドラッグ中は半透明のタスク行がポインタに付く。離すと左の一覧とチャートの順が変わる。日付と先行は変わらない。取り消し 1 回で戻る |
@@ -665,6 +700,7 @@
 | TC-EDIT-15c | EDIT-15, FILTER-01 | 同じグループにタスクが複数ある | タスク名で1件だけ残す絞り込みをかけ、行の左端の握りをドラッグする | 並べ替えは始まらない |
 | TC-EDIT-15d | EDIT-15, FILE-07 | パスのあるファイルを開いている | 同じグループで順だけ変え、「差分を表示」を開く | `並び タスク` の行が出る。末尾に足しただけの追加では並びは出ない |
 | TC-EDIT-15e | EDIT-01, EDIT-11, EDIT-15 | 未選択のタスクと、別の選択中タスクがある | 未選択タスクの左端の握りをクリック、右クリックする。次に同じ握りを 3px 以内で動かして離す | 選択は変わらず、未選択タスクの詳細パネルやメニューは開かない。並べ替えも始まらない |
+| TC-KEY-194 | EDIT-07, EDIT-08, EDIT-14, EDIT-15, NAV-07 | サンプル。ライトとダークの両方で「追加」ボタンのキー表示も見る | ⌘ または Ctrl+Enter と Insert でタスク追加が開き、名前欄にフォーカスがある。⌘ または Ctrl+Shift+Enter でマイルストン追加が開く。Alt+↑↓ で同じグループ内を一つ動く。Alt+Shift+↓ で複製が開く。検索欄では効かず、削除ボタンにフォーカスがあっても効き、そのボタンは押されない。線を引くモードでは開かず動かない。タスク追加ダイアログの名前欄で ⌘ または Ctrl+Enter では保存しない。ショートカット一覧とコマンドパレットに項目が出る | 仕様どおり開き、端と絞り込み中は並べ替えしない。複製ダイアログの Enter では確定しない |
 | TC-EDIT-16 | EDIT-16, EDIT-10 | カテゴリが3件以上ある。配下のグループとタスクが展開して見えている | 真ん中のカテゴリ行の左端の握りをドラッグして、別の位置で離す。取り消す | ドラッグ中は、見えている配下の行も含めた半透明の塊がポインタに付く。左の一覧の仮の位置は塊の行が空く。離すと左の一覧とチャートで、そのカテゴリのグループとタスクがまとめて移る。中身の日付と先行は変わらない。取り消し 1 回で戻る |
 | TC-EDIT-16e | EDIT-16 | カテゴリを折りたたんでいる | そのカテゴリ行の左端の握りをドラッグする | 半透明で付くのはカテゴリ行の1行だけである |
 | TC-EDIT-16b | EDIT-16, NAV-05 | 名前が幅に収まらないカテゴリがある | その名前をドラッグする。次に左端の握りをドラッグして順を変える | 名前は動かない。マウスを乗せると全文が出る。握りをドラッグすると並べ替えになる |
@@ -724,12 +760,21 @@
 | TC-SET-06b | SET-06 | デスクトップ版、初回起動 | 設定の「更新」を見る | 「起動時に更新を確認する」はオフである |
 | TC-SET-06c | SET-06 | デスクトップ版、2つのウィンドウ | 片方で自動更新をオンにする | もう一方もオンになる。オンにした直後は更新を確認しない |
 | TC-SET-06d | SET-06 | 自動更新オフ | 起動する | 更新を確認しない |
-| TC-SET-06e | SET-06 | 自動更新オン、Release に新しい版がある | 起動する | 起動復旧のあと入れ直す。失敗したときは隅に短く出て、今の版のまま使える。印は消える。その次の起動では変更内容のダイアログは出ない。あとから同じ版を手で入れても出ない |
+| TC-SET-06e | SET-06 | 自動更新オン、Release に新しい版がある | 起動する | 起動復旧のあと入れ直す。失敗したときは隅に短く出て、今の版のまま使える。起動時に変更履歴のダイアログは出ない |
 | TC-SET-06f | SET-06 | 自動更新オン、サンプルが未保存 | 新しい版で入れ直す流れでキャンセルする | その起動では入れ直さない |
 | TC-SET-06g | SET-06 | 自動更新オン、パスのあるファイルが未保存 | 新しい版で入れ直す | 確認は出ず、再起動後に控えが戻る |
 | TC-SET-06h | SET-06 | 自動更新オン、同じパスを2つのウィンドウで開き、前面で未保存 | 新しい版で入れ直す | 確認は出ず、再起動後に前面の控えが戻る |
-| TC-SET-06i | SET-06 | 自動更新で入れ直したあと（印あり） | 起動する | OS のフォーカスがあるウィンドウだけにその版の変更が出る。閉じるまで更新確認は始まらない。閉じたあと印が消え、次の起動では出ない |
-| TC-SET-06j | SET-06 | 手で入れた版 | 起動する | 変更内容のダイアログは出ない |
+| TC-SET-06i | SET-06 | デスクトップ版、自動更新オフ | 設定の「更新」を開く。表示サイズ 100% と 200%、ライトとダーク、ウィンドウを低くした状態でも見る | 同梱の版が新しい順に並ぶ。`[Unreleased]` と冒頭の説明は無い。版番号、項目、Issue の札が欠けない。Issue 番号のリンクが開く。欄の中だけがスクロールし、チェックはダイアログの中に見える |
+| TC-SET-06j | SET-06 | デスクトップ版 | 起動直後の画面を見る | 変更履歴のダイアログは出ない。入れ直しに失敗したあとの起動でも出ない |
+| TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
+| TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
+| TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
+| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`selected_task`、`filtered_tasks` をそれぞれ1回呼ぶ | 差分は差分テキストだけ。選択は選択タスクだけ。絞り込みはオン条件と残るタスクだけ。画面の絞り込みは変わらない |
+| TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
+| TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |
+| TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
+
+TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 3 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。
 
 ## リリース前確認
 
@@ -748,4 +793,4 @@
 11. Ubuntu では deb のインストールと起動を見る。Windows では Release の NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
 12. `SHA256SUMS` に deb、NSIS、`.cer`、`latest.json` が含まれ、各ファイルのハッシュが一致することを見る。`latest.json` に `linux-x86_64` と `windows-x86_64` があることを見る
 13. 対象 Release の本文にダウンロード手順とその版の CHANGELOG 節があり、項目の Issue 番号がリンクになっていることを見る。`[Unreleased]` と前の版の節は無い
-14. TC-SET-06b から TC-SET-06j で自動更新と変更内容の表示を見る（新しい Release が無いときは TC-SET-06e と TC-SET-06i は Release 公開後に見る）
+14. TC-SET-06b から TC-SET-06j で自動更新と設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）

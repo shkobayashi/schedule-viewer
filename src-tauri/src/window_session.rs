@@ -11,8 +11,11 @@ use crate::{
 
 const OPEN_WINDOWS_FILE: &str = "open-windows.json";
 const RECOVERY_DIR: &str = "schedule-recovery";
+const FILTER_DIR: &str = "schedule-filters";
 const LEGACY_LAST: &str = "last-schedule.json";
 const LEGACY_RECOVERY: &str = "schedule-recovery.json";
+
+pub const MAX_FILTER_BYTES: u64 = 64 * 1024;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct OpenWindowEntry {
@@ -436,6 +439,50 @@ pub fn delete_recovery_for_path(app_data: &Path, schedule_path: &str) -> Result<
     Ok(())
 }
 
+pub fn filter_dir(app_data: &Path) -> PathBuf {
+    app_data.join(FILTER_DIR)
+}
+
+pub fn filter_path_for(app_data: &Path, schedule_path: &str) -> PathBuf {
+    filter_dir(app_data).join(format!("{}.json", path_recovery_key(schedule_path)))
+}
+
+pub fn read_filter_for_path(
+    app_data: &Path,
+    schedule_path: &str,
+) -> Result<Option<String>, String> {
+    let path = filter_path_for(app_data, schedule_path);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    Ok(Some(read_utf8_limited(
+        &path,
+        MAX_FILTER_BYTES,
+        "絞り込みの記録が大きすぎます（上限 64 KB）",
+    )?))
+}
+
+pub fn write_filter_for_path(
+    app_data: &Path,
+    schedule_path: &str,
+    contents: &str,
+) -> Result<(), String> {
+    if contents.len() as u64 > MAX_FILTER_BYTES {
+        return Err("絞り込みの記録が大きすぎます（上限 64 KB）".to_string());
+    }
+    fs::create_dir_all(filter_dir(app_data))
+        .map_err(|e| format!("アプリデータを準備できません: {}", e))?;
+    write_utf8_atomic(&filter_path_for(app_data, schedule_path), contents)
+}
+
+pub fn delete_filter_for_path(app_data: &Path, schedule_path: &str) -> Result<(), String> {
+    let path = filter_path_for(app_data, schedule_path);
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| format!("絞り込みの記録を削除できません: {}", e))?;
+    }
+    Ok(())
+}
+
 pub fn next_schedule_window_label(app: &AppHandle) -> Result<String, String> {
     let mut index = 2;
     loop {
@@ -567,6 +614,17 @@ mod tests {
         assert_ne!(
             path_recovery_key("/tmp/a.json"),
             path_recovery_key("/tmp/b.json"),
+        );
+    }
+
+    #[test]
+    fn filter_path_uses_same_hash_as_recovery() {
+        let app_data = std::env::temp_dir().join("schedule-viewer-filter-test");
+        let _ = fs::remove_dir_all(&app_data);
+        let schedule = "/tmp/plan.json";
+        assert_eq!(
+            filter_path_for(&app_data, schedule).file_name(),
+            recovery_path_for(&app_data, schedule).file_name(),
         );
     }
 

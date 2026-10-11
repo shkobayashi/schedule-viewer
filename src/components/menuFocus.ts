@@ -16,8 +16,24 @@ export function focusMenuEdge(menu: ParentNode, edge: "first" | "last"): void {
   focusMenuItem(target);
 }
 
-/** メニュー項目を上下と Home/End で動かす。扱ったキーなら true。 */
-export function moveMenuFocus(menu: ParentNode, key: string): boolean {
+/** メニュー項目を上下と Home/End で動かす。修飾キー付きの矢印は扱わない。 */
+export function moveMenuFocus(
+  menu: ParentNode,
+  key: string,
+  modifiers?: Pick<
+    KeyboardEvent,
+    "altKey" | "shiftKey" | "ctrlKey" | "metaKey"
+  >,
+): boolean {
+  if (
+    modifiers &&
+    (modifiers.altKey ||
+      modifiers.shiftKey ||
+      modifiers.ctrlKey ||
+      modifiers.metaKey)
+  ) {
+    return false;
+  }
   const items = menuItems(menu);
   if (items.length === 0) return false;
   const current = items.indexOf(document.activeElement as HTMLButtonElement);

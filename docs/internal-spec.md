@@ -28,7 +28,11 @@ flowchart TD
 | `src/hooks/` | 文書（スケジュールの内容）、ファイル、ズーム、今日、メンバー、カレンダーの状態 |
 | `src/model/` | 型、検証、行、座標、履歴、書き出し。I/O を持つのは一部だけ |
 | `src/sample/` | 起動時のサンプル |
-| `src-tauri/src/lib.rs` | ダイアログ、一時ファイルを使った安全な置き換え、アプリデータ、内容ハッシュ |
+| `src-tauri/src/lib.rs` | ダイアログ、一時ファイルを使った安全な置き換え、アプリデータ、内容ハッシュ、MCP 待ち受け |
+| `src-tauri/src/mcp_stdio.rs` | `--mcp` 起動の標準入出力 JSON-RPC（`initialize`、`tools/list`、`tools/call`） |
+| `src-tauri/src/mcp_bridge.rs` | アプリデータのローカルソケットと、前面 webview への `mcp-screen-request` |
+| `src-tauri/src/mcp_app_data.rs` | Tauri を起動せずにアプリデータディレクトリと `mcp.sock` のパスを決める。Windows の名前付きパイプ名も組み立てる |
+| `src-tauri/src/mcp_bridge_windows.rs` | Windows の名前付きパイプ待ち受けと `--mcp` からの接続 |
 | `scripts/` | 検証器の生成、サンプル検査、バージョン同期 |
 | `docs/*.schema.json` | JSON Schema の正本 |
 | `.cursor/skills/` | LLM 用のスキル。`implement-change` はこのリポジトリの実装手順、`review-project` は全体レビューの手順。`update-schedule-schema` はスケジュール JSON の形を変えるとき。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使う |
@@ -55,7 +59,7 @@ flowchart TD
 | `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer` |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
-| `ModalDialog.tsx` | 共通の枠。Escape、フォーカスの保持、背面の操作禁止 |
+| `ModalDialog.tsx` | 共通の枠。Escape、フォーカスの保持、背面の操作禁止。`#root` の `inert` は `useLayoutEffect` で付け外しし、閉じたあとの描画の前に外す |
 | `TaskNoteButton.tsx` | ノートの有無で色を分けるボタン |
 
 ### フック
@@ -73,6 +77,7 @@ flowchart TD
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
 | `useAppCalendar` | カレンダーの読み込み |
+| `useMcpScreenBridge` | デスクトップ版だけ。`mcp-screen-request` を受け、ツール名で `schedule_diff`（`scheduleDiffLoad` だけ）、`selected_task`、`filtered_tasks`（`screenContext`）を組み立てて `mcp_reply` する |
 
 ### モデル
 
@@ -86,7 +91,9 @@ flowchart TD
 | 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`dates.ts`、`monthHeader.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
 | 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
-| 画面と開いているファイルの差分 | `scheduleDiff.ts` |
+| 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffLoad.ts` |
+| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`mcpRegistration.ts` |
+| 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportView.ts`、`exportFilename.ts` |
@@ -101,8 +108,8 @@ flowchart TD
 | 種類 | 中身 | 置く場所 | 残るか |
 | --- | --- | --- | --- |
 | 文書（`ScheduleDocument`） | タイトル、カテゴリ、マイルストングループ、マイルストン | `useSchedule` | ファイルと控えだけ。取り消しはメモリ |
-| 表示 | 絞り込み、帯の線の表示、選択、折りたたみ、系統、線を引くモード、ズーム、スクロール | `useSchedule`、`App.tsx`、`useTimelineView` | 残さない。ファイルを開くと初期化する |
-| ファイル | パス、未保存判定の基準にする JSON、ディスクのハッシュ | `useScheduleFile` と Rust の `ScheduleFileStates`（ウィンドウラベルごと） | ウィンドウ一覧は `open-windows.json`。未保存の控えはパスごとに `schedule-recovery/` |
+| 表示 | 絞り込み、帯の線の表示、選択、折りたたみ、系統、線を引くモード、ズーム、スクロール | `useSchedule`、`App.tsx`、`useTimelineView` | 絞り込み、帯の線、折りたたみはデスクトップ版でパスごとに `schedule-filters/`。☰ の「開く」と新しいウィンドウでは初期化。系統、選択、ズーム、スクロールは残さない |
+| ファイル | パス、未保存判定の基準にする JSON、ディスクのハッシュ | `useScheduleFile` と Rust の `ScheduleFileStates`（ウィンドウラベルごと） | ウィンドウ一覧は `open-windows.json`。未保存の控えはパスごとに `schedule-recovery/`。絞り込みはパスごとに `schedule-filters/` |
 
 取り消しのスナップショットに入るのは `categories`、`milestoneGroups`、`milestones` だけである。タイトルも、絞り込みなどの表示状態も履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。比較は保存形式の文字列で行い、現在の文書のキーを覚えているので、次の文書だけを文字列化する。文書を変える操作は、確定したときに 1 ステップだけ積む。失敗した変更は積まない。マイルストンを消して絞り込みを「すべて」に戻すことは表示状態で、その戻りは履歴に入らない。編集で別のマイルストングループへ移し、移した先の帯の線がオフだったときにそのグループだけオンに戻すことも表示状態で、履歴に入らない。線を引くモードの起点は表示状態で、選択が起点と違う値になったときモードは終わる。
 
@@ -160,13 +167,19 @@ flowchart TD
 
 開く成功と保存の成功で、ウィンドウ一覧とそのウィンドウのパスを `open-windows.json` に書く。前面のウィンドウのラベルも更新する。未保存でパスがあるとき、そのパスの前面のウィンドウだけが、変更から約1秒後に `write_schedule_recovery` を呼ぶ。前面が保存済みなら、そのパスの控えは消す。終了で閉じ始める直前の前面を、その終了の控えの書き手として固定する。控えはパスごとに `schedule-recovery/<ハッシュ>.json` へ書く。後ろのウィンドウからの書き込みと削除は、Rust が捨てる。
 
+絞り込みは `useScheduleFilterPersistence` が、前面のウィンドウだけから約1秒後に `write_schedule_filter` を呼ぶ。初期値なら `delete_schedule_filter` する。閉じるときと終了・更新前の控えの書き込みと同じタイミングで、待たずに書く。書き手の決め方は控えと同じ `recovery_live_action` と `recovery_close_action` で、未保存の代わりに初期値でないかを渡す。起動で文書を載せたあと、`read_schedule_filter` で読み、`scheduleFilterPersistence.ts` で検証して `useSchedule` の表示状態へ入れる。戻すときに無くなった参照を外すのは、いま載せた文書のカテゴリ、グループ、マイルストン、マイルストングループを使う。React の state がまだ前の文書のとき、画面の `pruneContext` だけに頼らない。メンバー一覧の初回読み込みが終わるまで、戻す処理では担当者を外さない。編集中にカテゴリやグループを消したあとも、折りたたみの id は画面の集合からは外さない。次回起動の戻しだけ、文書に無い id を外す。書き込みを止めているあいだに戻した組は、その組をそのまま書く。`replaceDocument` が初期値に戻した直後の `getFilterViewState` で消さない。メンバー一覧の初回読み込みが終わるまで、担当者の参照を外す effect は動かない。パスを替えたときは `release_schedule_filter` で後始末する。
+
 起動時の判断と画面への反映は `useScheduleStartupRecovery`、控えの書き込みと削除は `useScheduleRecoveryDraft` が行う。起動時は `read_window_startup` が、ウィンドウごとのパス、控え、サンプルかを返す。追加ウィンドウは、その前に `take_pending_schedule_window_open` の内容を載せる。古い `last-schedule.json` と `schedule-recovery.json` は `window_session.rs` が初回に移す。読めなかった古い控えは残し、`open-windows.json` はまだ作らない。`decideRecoveryStartup` が、保存済みで開く、未保存の復元、競合、ファイル無し、不正を返す。ファイルが無く未保存があるときは、先にその内容を画面へ載せてから警告する。この起動でファイル無しを知らせたあとは、そのパスが再び読めるまで監視のファイルダイアログを出さない。`read_schedule_file_at_path` は、控えがあるパスと一致するファイルだけを読む。起動復旧が終わるまでだけ、文書の変更、取り消し、やり直しは受け付けない。終わったあとは受け付ける。開き終わる前にディスクが変わっていれば、開いたあと通常の外部更新として読む。ファイルの書き込みは止めない。画面へ載せる前に、パスも未保存も無いかを見てから `accept_opened_schedule` する。そのあと起動の世代が変わっていたら、文書は置き換えない。
 
 ### 別ウィンドウ
 
-デスクトップ版の自動更新は `tauri-plugin-updater` と `tauri-plugin-process` が担う。エンドポイントと公開鍵は [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) の `plugins.updater` に置く。起動時にオンだったかは `readAutoUpdateEnabled`（`src/model/autoUpdate.ts`）が起動直後に一度だけ読む。`usePendingReleaseNotes` が、起動復旧のあと `peek_pending_release_notes` で版の印を見る。前面かどうかは `open-windows.json` の `focusedLabel` ではなく、呼び出し元ウィンドウの OS のフォーカスで決める。印があり、版が今の版と一致し、同梱の CHANGELOG からその版の節が読めるときは `ReleaseNotesDialog` を出す。版が違うときは出さず、印は残す。節が読めないときは出さず、印を消してから起動時の更新確認へ進む。閉じるまで `report_startup_settled` は送らない。閉じたあと `clear_pending_release_notes` で印を消し、起動時の更新確認へ進む。`useAppAutoUpdate` が、起動復旧の完了と印の処理のあと `report_startup_settled` で各ウィンドウの起動時のオンオフを渡し、開いているウィンドウがすべて揃ったときだけ一度だけ `application-run-update-check` を送る。ウィンドウが閉じて揃いが変わったときも同じ判断をもう一度行う。受け取ったウィンドウだけが `check` で新しい版を調べる。`latest.json` に今の OS が無いときは失敗の知らせを出さない。更新があるときは `request_application_update` が全ウィンドウへ `application-update-requested` を送る。サンプルの未保存は破棄確認を出し、確定かキャンセルを待ってから `accept_application_update` する。すべて揃ったあと、終了と同じくパスごとの控えの書き手を固定し、全ウィンドウへ `application-update-write-recovery` を送って控えを書く。書き終えたあと、確認を取ったウィンドウだけが `application-update-proceed` を受け取り、`write_pending_release_notes` で版の印を書き、そのあと `downloadAndInstall` して `relaunch` する。Windows ではインストーラ起動の直後にプロセスが終わるので、印は入れ直しの前に書く。印の書き込みに失敗しても入れ直しは続ける。`downloadAndInstall` が処理を戻して失敗したときは印を消す。入れ直しが戻って成功したときは、印は残したまま再起動する。再起動で閉じるときは破棄確認を出さない。失敗は `AppToast` に短く出す。Release 用の署名付き `latest.json` と、CHANGELOG から組み立てた Release 本文は CI が作る。本文の組み立ては [src/model/releaseNotes.ts](../src/model/releaseNotes.ts) と [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) が担う。印の読み書きは `pending_release_notes.rs` が担う。
+デスクトップ版の自動更新は `tauri-plugin-updater` と `tauri-plugin-process` が担う。エンドポイントと公開鍵は [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) の `plugins.updater` に置く。起動時にオンだったかは `readAutoUpdateEnabled`（`src/model/autoUpdate.ts`）が起動直後に一度だけ読む。`useAppAutoUpdate` が、起動復旧のあと `report_startup_settled` で各ウィンドウの起動時のオンオフを渡し、開いているウィンドウがすべて揃ったときだけ一度だけ `application-run-update-check` を送る。ウィンドウが閉じて揃いが変わったときも同じ判断をもう一度行う。受け取ったウィンドウだけが `check` で新しい版を調べる。`latest.json` に今の OS が無いときは失敗の知らせを出さない。更新があるときは `request_application_update` が全ウィンドウへ `application-update-requested` を送る。サンプルの未保存は破棄確認を出し、確定かキャンセルを待ってから `accept_application_update` する。すべて揃ったあと、終了と同じくパスごとの控えの書き手を固定し、全ウィンドウへ `application-update-write-recovery` を送って控えを書く。書き終えたあと、確認を取ったウィンドウだけが `application-update-proceed` を受け取り、`downloadAndInstall` して `relaunch` する。再起動で閉じるときは破棄確認を出さない。`downloadAndInstall` が処理を戻して失敗したときは、失敗の知らせはダウンロードまたは入れ直しの失敗だけに出す。Release 用の署名付き `latest.json` と、CHANGELOG から組み立てた Release 本文は CI が作る。本文の組み立ては [src/model/releaseNotes.ts](../src/model/releaseNotes.ts) と [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) が担う。設定の「更新」は [src/components/SettingsChangelogHistory.tsx](../src/components/SettingsChangelogHistory.tsx) が、同梱の `CHANGELOG.md` を `parseBundledChangelogVersions` で読んで欄内に出す。起動時には出さない。
 
-`create_schedule_window` が追加ウィンドウを作り、検証済みの内容を pending として預ける。ウィンドウを作れなかったときは、一覧と pending を戻す。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出す。
+設定ダイアログの下に出す今の版は、デスクトップ版では `@tauri-apps/api/app` の `getVersion`（権限 `core:app:allow-version`）を、ブラウザ版では `package.json` の `version` を、設定を初めて開いたときに 1 回だけ読む。整形した 1 行は [src/components/SettingsDialog.tsx](../src/components/SettingsDialog.tsx) のモジュール内に残し、閉じたあとも取り直さない。新しい Tauri 命令は足さない。
+
+`create_schedule_window` が追加ウィンドウを作り、検証済みの内容を pending として預ける。ウィンドウを作れなかったときは、一覧と pending を戻す。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出す。引数が `--mcp` だけの起動は `main` で分岐し、この処理には含めない。
+
+MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をローカル待ち受けへ送る。Unix はアプリデータの `mcp.sock`（所有者のみ）。Windows は `\\.\pipe\com.collabcentral.schedule-viewer-<SID>` の名前付きパイプで、アプリデータにファイルは置かない。パイプのセキュリティ記述子は待ち受けスレッドの中で作る。応答を書いたあと、クライアントが接続を閉じるまで待ってからパイプを切る。使用中の接続があるときは、クライアントは応答待ちと同じ 5 秒まで接続を試し直す。待ち受けが次のパイプを作るあいだに名前が消えても、その秒数まではウィンドウが無い旨にしない。待ち受けの 1 回の失敗ではスレッドを終えず、短い待ちのあと次のパイプを作る。GUI は `setup` で待ち受けを始め、`read_open_windows` の `focused_label` の webview だけへ `mcp-screen-request` を送る。応答は `mcp_reply` で返す。応答待ちを過ぎた相関 id は pending から外し、遅れた `mcp_reply` は捨てる。ウィンドウごとの世代番号でも遅れた応答を捨てる。判定はフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけである。表示状態は変えず、スケジュール JSON にも書かない。
 
 保存は、外部更新の確認を待つあいだも一つの処理だけが進む。確認を出して戻ったあとに、上書きや別名保存を続ける。
 
@@ -220,6 +233,10 @@ flowchart TD
 | `read_schedule_recovery` | 任意のパス。無ければ呼び出し元ウィンドウのパスの控え | 10MB | `schedule-recovery.toml` | `scheduleFile.ts` |
 | `write_schedule_recovery` | 本文（`path` を含む） | 10MB | 同上 | 同上 |
 | `delete_schedule_recovery` | パス | — | 同上 | 同上 |
+| `read_schedule_filter` | 任意のパス。無ければ呼び出し元ウィンドウのパスの絞り込み | 64KB | `schedule-filter.toml` | `scheduleFilterFile.ts` |
+| `write_schedule_filter` | 本文（`path` を含む） | 64KB | 同上 | 同上 |
+| `delete_schedule_filter` | パス | — | 同上 | 同上 |
+| `release_schedule_filter` | 別ファイルを開いたあとの、元パスの絞り込み | — | 同上 | 同上 |
 | `read_schedule_file_at_path` | パス。控えがあるときだけ本文 | `SCHEDULE_FILE_NOT_FOUND` | 同上 | 同上 |
 | `read_last_schedule_file` | 互換用。覚えたパスと本文 | 記録の形式 | 同上 | 同上 |
 | `clear_last_schedule_path` | なし | — | 同上 | 同上 |
@@ -240,9 +257,6 @@ flowchart TD
 | `accept_application_update` | このウィンドウは更新してよい | — | 同上 | 同上 |
 | `complete_application_update_recovery` | 更新前の控えの書き込みが終わった | — | 同上 | 同上 |
 | `cancel_application_update` | 更新を取りやめる | — | 同上 | 同上 |
-| `write_pending_release_notes` | 入れ直し直前の版 | — | 同上 | 同上 |
-| `peek_pending_release_notes` | 呼び出し元ウィンドウが OS で前面かつ版が一致するときだけ版を返す | — | 同上 | 同上 |
-| `clear_pending_release_notes` | 印を消す | — | 同上 | 同上 |
 | `recovery_live_action` | 前面なら書き込みか削除 | — | 同上 | 同上 |
 | `recovery_close_action` | 閉じるときと終了時の控えの扱い | — | 同上 | 同上 |
 | `release_schedule_recovery` | 別ファイルを開いたあとの、元パスの控え | — | 同上 | 同上 |
@@ -250,6 +264,8 @@ flowchart TD
 | `pick_json_skill_folder` | フォルダダイアログ。選んだ絶対パスまたは取り消し | — | 同上 | 同上 |
 | `install_json_skills` | ツール、範囲、プロジェクトフォルダ、置き換え。置いたパス、既存パス、Claude の優先警告 | 同梱スキル欠落、パス不正 | 同上 | 同上 |
 | `uninstall_json_skills` | ツール、範囲、プロジェクトフォルダ。外したパスと無かったパス | パス不正 | 同上 | 同上 |
+| `get_executable_path` | 引数なし。実行ファイルの絶対パス | — | `mcp.toml` | `mcpRegistration.ts` |
+| `mcp_reply` | 相関 id、世代、MCP ツール結果の JSON | — | 同上 | `useMcpScreenBridge.ts` |
 
 ダイアログで選んだだけでは `ScheduleFileState` は更新されない。検証に通したあと `accept_opened_schedule` を呼ぶ。
 
@@ -271,6 +287,10 @@ capability はメインウィンドウと `schedule-*` ウィンドウに、`cor
 
 JSON 作成スキルの配置は `install_json_skills` だけが行う。外すのは `uninstall_json_skills` だけである。書けるのは、ログイン中のユーザーのホーム配下の `~/.cursor/skills/<name>/` と `~/.claude/skills/<name>/`、または利用者がフォルダダイアログで選んだ絶対パス配下の `.cursor/skills/<name>/` と `.claude/skills/<name>/` だけである。外すのも同じ `<name>` の3つだけである。`<name>` は `write-schedule`、`write-members`、`write-calendar` の3つだけ。プロジェクトフォルダはシンボリックリンクを拒否する。宛先がシンボリックリンクのときはリンクだけ外し、リンク先は消さない。`.cursor` と `.claude` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。中身はバンドル内 `json-skills/` からコピーする。外すときは skills フォルダや別名のスキルは残す。スキルフォルダの中にあるシンボリックリンクの先は消さない。
 
+MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_dir` が同じときだけ GUI が始める。Unix のソケットは所有者のみが読み書きできる。接続元の UID を確認し、本人以外は拒否する。Windows の名前付きパイプは現在のユーザーの SID を名前に含め、セキュリティ記述子でそのユーザーだけに許可し、リモート接続は拒否する。`--mcp` プロセスはファイルを直接読まず、前面 webview の読み取りだけを使う。応答は前面 1 ウィンドウ分で、スケジュール読み込み上限 10MB を超えたらエラーにする。待ち受け TCP ポートは持たない。
+
+同じ OS ユーザーの別プロセスは、前面ウィンドウの絞り込み結果、絞り込み条件、選択、FILE-07 の差分テキストを読める。未保存の内容も、差分に入っていれば読める。差分見出しの `ファイル:` はパス区切りを含まない末尾だけである。タスク名やノートに利用者が書いたパスは、本文としてそのまま返る。接続元を MCP の子プロセスだけに限るトークンや PID の照合、本文中のパスらしき文字列の伏字、接続数の制限、監査ログ、ソケット通信の暗号化は入れない。
+
 ## 描画
 
 `Timeline.tsx` は日付ヘッダー、本体、前後の線、親バー、タスクバー、イナズマ線を Konva で描く。月表示の日付ヘッダーは、左端の固定ラベルと各月1日のラベルを描き、横に重なる月の文字だけを `monthHeader.ts` の `visibleMonthHeaderLabels` で省く。月の縦線は残す。未確定のタスクバーの地は、`hatch.ts` の斜線パターンである。確定はベタ塗りである。進捗の濃い帯は斜線の上にベタで描く。書き出しの SVG も同じ定数の `pattern` を使う。マイルストン帯は `MilestoneBand.tsx` で、`milestoneGroups` の順にグループごとに積む。段は `milestones.ts` の `layoutMilestoneBand` が決める。未確定のひし形も同じ斜線で、確定は塗りつぶす。左の名前と追加列は DOM の `Sidebar.tsx` で、縦位置だけをチャートと揃える。追加列の月日は `dates.ts` の `fmtMonthDay` で `09/19` にする。担当列の文字数は `assigneeDisplay.ts` の `assigneeColumnChars` で、見えているタスクのラベルから決める。超過の有無で列は動かさない。左の一覧の行の上のホイールは、`useTimelineView` の `handleWheel` をチャート本体と同じく呼ぶ。縦横の量の分け方は `wheelScroll.ts` の `resolveWheelScroll` である。ズームの基準はチャートの左端である。`Sidebar.tsx` は `passive: false` で受け、既定のスクロールは止める。縦スクロールで残すカテゴリとグループは `stickyRows.ts` の `layoutStickyHeaders` が決める。左は、その行をスクロール層から外し、ビューポート上端のオーバーレイに同じ行として描く。右は、スクロールする本体を `clipTop` より下だけ描き、固定層には同じ地、非稼働日、縦格子、下端の線、親バーを、その行のクリップ矩形の中だけ描く。親バーの x は `dateToX` のままである。ポインタの y が `clipTop` 未満のときは、`resolveChartHover` がタスクと線に当てない。書き出しは行の y も並びも変えない。一覧の幅は `--sidebar-w` に、希望の基準幅をチャート余白で縮めた値を入れ、表示倍率を掛けて描く。右端の境界をドラッグすると希望の基準幅が変わる。表示が動かないドラッグでは希望幅を変えない。境界にフォーカスがあるとき、修飾キーの無い左右キーは幅を変える。⌘ または Ctrl がある左右は幅を変えず、チャートの横スクロールになる。そこに Shift または Alt も一緒のときは、幅もスクロールも変えない。
@@ -281,7 +301,11 @@ JSON 作成スキルの配置は `install_json_skills` だけが行う。外す�
 
 見えている線の当たりは、描画とは別の座標計算である。`chartHitTest.ts` がタスクバー、マイルストン、線の順で一つに決める。バー本体の移動と端の期間変更は `TASK_DRAG_THRESHOLD_PX`（8px）を超えてから始まる。本体の移動は Konva のドラッグではなく、ステージのキャンバスでポインタを取り、`pointerup` で日数を一度だけ確定する。`pointercancel` と Escape は離す前の位置へ戻し、履歴に積まない。期間の端は Konva のハンドルのドラッグのままである。端の当たりは `taskBarResizeEdgeAt` と `hitTaskResizeEdge` でポインタ位置から判定し、選択前のバーにも付く。見えるハンドルは選択中だけである。期間ドラッグ専用の Konva 当たりは、見た目より広い。バーの外へ 12px、中へは最大 16px、上下はバーの高さである。短いバーは中央に 8px のクリック幅を残す。クリック、ダブルクリック、タップ、右クリック、バー移動、パンを止める判定は、イベント対象のノード名を使わず、同じポインタ位置の判定を使う。この当たりは期間のドラッグだけを受ける。カーソルはチャートの `grab` のままにし、端で切り替えない。マイルストンの当たりは `milestoneMarkHit` で、ひし形の円（見た目の半径に 2px）と、名前の矩形と、そのあいだの隙間である。名前の幅は画面上に出している切り詰め後の文字列から `milestoneLabelWidth` で求め、左端は描画と同じくひし形の半径に 5px を足した位置、上下は円の直径と文字の高さのうち広い方である。名前幅が 0 のときは円だけである。帯の y はレイアウトの `centerYById` を使う。帯のクリック、ドラッグ、右クリックは `MilestoneBand.tsx` が、同じ形の Konva の当たりで受ける。線は `nearestLinkHit` が閾値 8px 以内で一番近い 1 本を返す。選択中バーは端のハンドルの幅だけ当たりを広げる。線を引くモードでは広げない。右クリックの線も同じタスクの当たりを使う。線のレイヤはクリックを受けない。タスクバーとマイルストンが先である。日付ヘッダー、マイルストン帯の空き、チャート本体の空き（親バーと、固定段より上を含む）の右クリックは「マイルストンを追加」だけを出す。新しい当たり図形は足さない。日付は `dates.ts` の `isoDateAtChartX` で、ポインタの横位置が含まれる暦日である。日の左端を含み、次の日の左端は含まない。表示期間の外は出さない。印とタスクバーは先に受け、空きの項目は出さない。線を引くモードでは出さない。
 
-⌘ または Ctrl と矢印の判定は `shortcuts.ts` の `matchChartScroll` と `chartScrollOffset` である。`useAppKeyboard` が `scrollBy` を呼ぶ。キーを押したときの編集、削除、ファイル操作、取り消しは `appKeyboard.ts` が決め、フックが画面の操作を呼ぶ。↑↓ のタスク選択は `taskSelection.ts` の `adjacentVisibleTaskId`。Alt+←→ と Shift+Alt+←→ は `useSchedule` の日付ずらし。⌘/Ctrl+Shift+D は `copyScheduleDiff` で差分全文をコピーする。移動量は表示倍率を掛けた行の高さで、押し続けは keydown のリピートである。Shift または Alt が一緒のときと、ダイアログが開いているときは呼ばない。右クリックメニューはこのキーで閉じる。端で位置が変わらなくても閉じる。ショートカット一覧は `shortcuts.ts` の `matchOpenShortcutsHelp` が ? と F1 で開き、ダイアログ、検索欄、入力欄、選択欄、ボタンでは開かない。コマンドパレットは `matchOpenCommandPalette` が ⌘/Ctrl+K で開き、ほかのダイアログが開いているあいだは開かない。候補は `commandPalette.ts` が絞る。実行は `CommandPalette.tsx` から `App.tsx` の既存操作を呼ぶ。macOS のデスクトップ版だけ `useMacOSAppMenu` が画面上部のメニューを置く。⌘ または Ctrl と L は `matchAppShortcut` の `link` で、線を引くモードの開始と終了である。修飾キーの無い L では始まらない。ダイアログ、検索欄、入力欄、選択欄では効かない。ボタンにフォーカスがあっても効く。⌘ または Ctrl と N は `note` で、選択中のタスクのノートダイアログを開く。効く場所は L と同じである。選択が無いときと線を引くモードでは開かない。キーのリピートでは開かない。右クリックメニューは閉じる。Shift も Alt も無い ⌘/Ctrl+N は `blocksBrowserShortcut` が真で、開かないときもブラウザに渡さない。Shift 付きは渡す。⌘ または Ctrl と +、=、− は `matchDisplayScale` で、`stepDisplayScale` が表示サイズを一段進める。押し続けは keydown のリピートである。ダイアログ、検索欄、入力欄、選択欄、ボタンでも `preventDefault` してページズームを止め、右クリックメニューを閉じる。線を引くモードは終わらせない。固定の端で段が変わらないときは保存値を変えない。自動は解決済みの倍率を小数第2位で段と比べ、固定の段にして保存する。自動で 200% の拡大は 200% を保存する。
+⌘ または Ctrl と矢印の判定は `shortcuts.ts` の `matchChartScroll` と `chartScrollOffset` である。`useAppKeyboard` が `scrollBy` を呼ぶ。移動量は表示倍率を掛けた行の高さで、押し続けは keydown のリピートである。Shift または Alt が一緒のときと、ダイアログが開いているときは呼ばない。右クリックメニューはこのキーで閉じる。端で位置が変わらなくても閉じる。
+
+タスクの追加、マイルストンの追加、複製、同じグループでの並べ替えは `shortcuts.ts` の `matchAddTaskShortcut`、`matchAddMilestoneShortcut`、`matchDuplicateTaskShortcut`、`matchReorderTaskShortcut` である。`decideAppKey` が押下を決め、ダイアログが開いているあいだと線を引くモードのあいだは実行しない。検索欄、入力欄、選択欄、編集できる領域では操作しない。ボタンでは操作し、実行しないときも入力欄以外では `preventDefault` する。右クリックメニューと ☰ と追加の種類のメニューを閉じる。実行するときはフックが `App.tsx` の開く処理と `useSchedule` の `commitTaskReorder` を呼ぶ。
+
+キーを押したときの編集、削除、ファイル操作、取り消しは `appKeyboard.ts` の `decideAppKey` が決める。浮動メニューを閉じるときは `schedule-viewer:close-menus` を `Toolbar` と `AppMenu` が受け取る。`menuFocus.ts` は修飾キー付きの矢印をメニューの項目移動に使わない。↑↓ のタスク選択は `taskSelection.ts` の `adjacentVisibleTaskId`。Alt+←→ と Shift+Alt+←→ は `useSchedule` の日付ずらし。⌘/Ctrl+Shift+D は `copyScheduleDiff` で差分全文をコピーする。ショートカット一覧は `shortcuts.ts` の `matchOpenShortcutsHelp` が ? と F1 で開き、ダイアログ、検索欄、入力欄、選択欄、ボタンでは開かない。コマンドパレットは `matchOpenCommandPalette` が ⌘/Ctrl+K で開き、ほかのダイアログが開いているあいだは開かない。候補は `commandPalette.ts` が絞る。実行は `CommandPalette.tsx` から `App.tsx` の既存操作を呼ぶ。macOS のデスクトップ版だけ `useMacOSAppMenu` が画面上部のメニューを置く。⌘ または Ctrl と L は `matchAppShortcut` の `link` で、線を引くモードの開始と終了である。修飾キーの無い L では始まらない。ダイアログ、検索欄、入力欄、選択欄では効かない。ボタンにフォーカスがあっても効く。⌘ または Ctrl と N は `note` で、選択中のタスクのノートダイアログを開く。効く場所は L と同じである。選択が無いときと線を引くモードでは開かない。キーのリピートでは開かない。右クリックメニューは閉じる。Shift も Alt も無い ⌘/Ctrl+N は `blocksBrowserShortcut` が真で、開かないときもブラウザに渡さない。Shift 付きは渡す。⌘ または Ctrl と +、=、− は `matchDisplayScale` で、`stepDisplayScale` が表示サイズを一段進める。押し続けは keydown のリピートである。ダイアログ、検索欄、入力欄、選択欄、ボタンでも `preventDefault` してページズームを止め、右クリックメニューを閉じる。線を引くモードは終わらせない。固定の端で段が変わらないときは保存値を変えない。自動は解決済みの倍率を小数第2位で段と比べ、固定の段にして保存する。自動で 200% の拡大は 200% を保存する。
 
 座標の基準は `pxPerDay` である。日付から x を計算し、ズームのたびに描き直す。CSS の拡大は使わない。表示期間の基準は、全タスクと全マイルストンのうち、最も早い日付の6日前から最も遅い日付の7日後までである（`computeTimelineRange`）。`useTimelineView` は、その日数に `timelineRightPadding.ts` の `extraTimelineDaysForRightEdge` で足した日数を加える。帯に出ているマイルストン名（画面は全角24文字まで）と、月表示の右端の年月ラベルが内容の右端に収まるまで延ばす。FILTER-11 で隠したグループの名前では延ばさない。`fitPxPerDayToViewport` は全体表示で、延ばした日数を含めて幅に収まる `pxPerDay` を求める。最も早い日が後ろへ動いて、左端のスクロールでは同じ日を保てないときは、`resolveTimelineOrigin` が描画の原点を据え置く。他のバーは動かない。ファイルを開くと原点はデータの期間に戻る。書き出しは、見えている行から同じ余白で決め直し、右は書き出すマイルストン名の全文と年月ラベルまで延ばす。
 

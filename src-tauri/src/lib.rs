@@ -1,5 +1,7 @@
 mod json_skills;
-mod pending_release_notes;
+mod mcp_app_data;
+mod mcp_bridge;
+pub mod mcp_stdio;
 mod window_session;
 
 use json_skills::{
@@ -15,14 +17,21 @@ use tauri::Emitter;
 use tauri::Manager;
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
+use mcp_bridge::{
+    cleanup_mcp_socket, mcp_reply, start_mcp_bridge_server, McpBridgeState,
+};
+use std::sync::Arc;
 use window_session::{
     all_windows_startup_settled, any_startup_auto_update_enabled, create_schedule_webview,
-    delete_recovery_for_path, forget_startup_settlement, forget_window_focus,
+    delete_filter_for_path, delete_recovery_for_path, forget_startup_settlement,
+    forget_window_focus,
     migrate_legacy_session, next_schedule_window_label, note_window_focus, read_open_windows,
-    read_recovery_for_path, recovery_close_persist, recovery_live_persist, recovery_owner_label,
+    read_filter_for_path, read_recovery_for_path, recovery_close_persist, recovery_live_persist,
+    recovery_owner_label,
     recovery_owners_by_path, remove_window_label, set_focused_label, sha256_hex,
     spawn_startup_windows, store_pending_open, take_pending_open, upsert_window_path,
-    write_open_windows, write_recovery_for_path, OpenWindowEntry, WindowSessionState,
+    write_filter_for_path, write_open_windows, write_recovery_for_path, OpenWindowEntry,
+    WindowSessionState,
     WindowStartupRead,
 };
 
@@ -753,6 +762,102 @@ fn release_schedule_recovery(
     for (other, webview) in app.webview_windows() {
         if other != label {
             let _ = webview.emit("schedule-recovery-reconcile", &payload);
+            let _ = webview.emit("schedule-filter-reconcile", &payload);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn read_schedule_filter(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    state: State<'_, Mutex<ScheduleFileStates>>,
+    path: Option<String>,
+) -> Result<Option<String>, String> {
+    let schedule_path = match path {
+        Some(value) => value,
+        None => {
+            let label = window_label(&window);
+            let guard = state.lock().expect("schedule file states");
+            guard
+                .by_label
+                .get(&label)
+                .and_then(|entry| entry.path.as_ref())
+                .map(|p| p.to_string_lossy().into_owned())
+                .ok_or_else(|| "開いているファイルがありません".to_string())?
+        }
+    };
+    read_filter_for_path(&app_data_dir(&app)?, &schedule_path)
+}
+
+#[tauri::command]
+fn write_schedule_filter(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    contents: String,
+) -> Result<(), String> {
+    let value: serde_json::Value = serde_json::from_str(&contents)
+        .map_err(|_| "絞り込みの記録の形式が正しくありません。".to_string())?;
+    let path = value
+        .get("path")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| "絞り込みの記録の形式が正しくありません。".to_string())?;
+    let label = window_label(&window);
+    let session_guard = session.lock().expect("window session");
+    let states_guard = states.lock().expect("schedule file states");
+    if !caller_is_recovery_owner(&session_guard, &states_guard, &label, path) {
+        return Ok(());
+    }
+    drop(states_guard);
+    drop(session_guard);
+    write_filter_for_path(&app_data_dir(&app)?, path, &contents)
+}
+
+#[tauri::command]
+fn delete_schedule_filter(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    path: String,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    let session_guard = session.lock().expect("window session");
+    let states_guard = states.lock().expect("schedule file states");
+    let may_delete = caller_is_recovery_owner(&session_guard, &states_guard, &label, &path)
+        || !windows_for_recovery(&states_guard)
+            .iter()
+            .any(|(_, open)| open == &path);
+    drop(states_guard);
+    drop(session_guard);
+    if !may_delete {
+        return Ok(());
+    }
+    delete_filter_for_path(&app_data_dir(&app)?, &path)
+}
+
+#[tauri::command]
+fn release_schedule_filter(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    states: State<'_, Mutex<ScheduleFileStates>>,
+    path: String,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    let others = {
+        let guard = states.lock().expect("schedule file states");
+        other_windows_with_path(&guard, &label, &path)
+    };
+    if others == 0 {
+        return delete_filter_for_path(&app_data_dir(&app)?, &path);
+    }
+    let payload = RecoveryReconcilePayload { path };
+    for (other, webview) in app.webview_windows() {
+        if other != label {
+            let _ = webview.emit("schedule-filter-reconcile", &payload);
         }
     }
     Ok(())
@@ -1008,10 +1113,11 @@ fn unregister_window_session(
     if !still_open {
         return Ok(());
     }
-    let payload = RecoveryReconcilePayload { path };
+    let payload = RecoveryReconcilePayload { path: path.clone() };
     for (other, webview) in app.webview_windows() {
         if other != label {
             let _ = webview.emit("schedule-recovery-reconcile", &payload);
+            let _ = webview.emit("schedule-filter-reconcile", &payload);
         }
     }
     Ok(())
@@ -1438,33 +1544,6 @@ struct StartupSettledResult {
 }
 
 #[tauri::command]
-fn write_pending_release_notes(
-    app: tauri::AppHandle,
-    version: String,
-) -> Result<(), String> {
-    pending_release_notes::write_pending_release_notes(&app_data_dir(&app)?, &version)
-}
-
-#[tauri::command]
-fn peek_pending_release_notes(
-    app: tauri::AppHandle,
-    window: tauri::Window,
-) -> Result<Option<String>, String> {
-    let app_version = app.package_info().version.to_string();
-    let window_is_focused = window.is_focused().unwrap_or(false);
-    Ok(pending_release_notes::pending_release_notes_for_focused_window(
-        &app_data_dir(&app)?,
-        window_is_focused,
-        &app_version,
-    ))
-}
-
-#[tauri::command]
-fn clear_pending_release_notes(app: tauri::AppHandle) -> Result<(), String> {
-    pending_release_notes::clear_pending_release_notes(&app_data_dir(&app)?)
-}
-
-#[tauri::command]
 fn report_startup_settled(
     app: tauri::AppHandle,
     window: tauri::Window,
@@ -1573,6 +1652,13 @@ fn cancel_application_update(
     Ok(())
 }
 
+#[tauri::command]
+fn get_executable_path() -> Result<String, String> {
+    std::env::current_exe()
+        .map(|path| path.to_string_lossy().into_owned())
+        .map_err(|e| format!("実行ファイルの場所を取得できません: {}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1609,6 +1695,12 @@ pub fn run() {
             let handle = app.handle().clone();
             if let Ok(dir) = app_data_dir(&handle) {
                 let _ = migrate_legacy_session(&dir);
+                let bridge = Arc::new(McpBridgeState::new(dir.clone()));
+                app.manage(bridge.clone());
+                let without_tauri = mcp_app_data::app_data_dir_without_tauri();
+                if without_tauri.as_deref() == Some(dir.as_path()) {
+                    let _ = start_mcp_bridge_server(handle.clone(), bridge);
+                }
                 let session = handle.state::<Mutex<WindowSessionState>>();
                 let mut guard = session.lock().expect("window session");
                 if !guard.startup_spawned {
@@ -1618,6 +1710,13 @@ pub fn run() {
                 }
             }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Some(state) = window.try_state::<Arc<McpBridgeState>>() {
+                    state.bump_generation(window.label());
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             open_schedule_file,
@@ -1641,6 +1740,10 @@ pub fn run() {
             write_schedule_recovery,
             delete_schedule_recovery,
             release_schedule_recovery,
+            read_schedule_filter,
+            write_schedule_filter,
+            delete_schedule_filter,
+            release_schedule_filter,
             recovery_live_action,
             recovery_close_action,
             read_schedule_file_at_path,
@@ -1664,16 +1767,22 @@ pub fn run() {
             accept_application_update,
             complete_application_update_recovery,
             cancel_application_update,
-            write_pending_release_notes,
-            peek_pending_release_notes,
-            clear_pending_release_notes,
             json_skill_home_dirs,
             pick_json_skill_folder,
             install_json_skills,
             uninstall_json_skills,
+            get_executable_path,
+            mcp_reply,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                if let Ok(dir) = app_data_dir(app) {
+                    cleanup_mcp_socket(&dir);
+                }
+            }
+        });
 }
 
 #[cfg(test)]

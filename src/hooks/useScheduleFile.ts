@@ -21,7 +21,10 @@ import {
 import { useScheduleExternalReload } from "./scheduleFile/useScheduleExternalReload";
 import { useScheduleRecoveryDraft } from "./scheduleFile/useScheduleRecoveryDraft";
 import { useScheduleSave } from "./scheduleFile/useScheduleSave";
+import { useScheduleFilterPersistence } from "./scheduleFile/useScheduleFilterPersistence";
 import { useScheduleStartupRecovery } from "./scheduleFile/useScheduleStartupRecovery";
+import type { ScheduleFilterViewState } from "../model/scheduleFilterPersistence";
+import { releaseScheduleFilterViaTauri } from "../model/scheduleFilterFile";
 import { useSchedulePeerNotice } from "./useSchedulePeerNotice";
 import { finalizeWindowClose } from "./useWindowSession";
 import { listen } from "@tauri-apps/api/event";
@@ -48,6 +51,14 @@ type UseScheduleFileOptions = {
   initialBaselineJson: string;
   hasOpenEditDialog: boolean;
   blockDocumentEditsRef: { current: boolean };
+  setFilterViewState: (state: ScheduleFilterViewState) => void;
+  getFilterViewState: () => ScheduleFilterViewState;
+  knownMemberIds: ReadonlySet<string>;
+  memberCatalogSettled: boolean;
+};
+
+export type ApplyOpenedFileOptions = {
+  restoreFilters?: boolean;
 };
 
 export function useScheduleFile({
@@ -61,6 +72,10 @@ export function useScheduleFile({
   initialBaselineJson,
   hasOpenEditDialog,
   blockDocumentEditsRef,
+  setFilterViewState,
+  getFilterViewState,
+  knownMemberIds,
+  memberCatalogSettled,
 }: UseScheduleFileOptions) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [browserFileLabel, setBrowserFileLabel] = useState<string | null>(null);
@@ -99,6 +114,37 @@ export function useScheduleFile({
   hasOpenEditDialogRef.current = hasOpenEditDialog;
   const fileBusyRef = useRef(fileBusy);
   fileBusyRef.current = fileBusy;
+  const persistSuppressedRef = useRef(false);
+  const getFilterViewStateRef = useRef(getFilterViewState);
+  getFilterViewStateRef.current = getFilterViewState;
+
+  const pruneContext = useMemo(
+    () => ({
+      categories,
+      milestones,
+      milestoneGroups,
+      knownMemberIds,
+    }),
+    [categories, knownMemberIds, milestoneGroups, milestones],
+  );
+
+  const filterPersistence = useScheduleFilterPersistence({
+    filePath,
+    startupSettled,
+    memberCatalogSettled,
+    pruneContext,
+    getFilterViewState: () => getFilterViewStateRef.current(),
+    setFilterViewState,
+    setErrorMessageText,
+    filePathRef,
+    persistSuppressedRef,
+  });
+  const restoreFiltersForPathRef = useRef(filterPersistence.restoreFiltersForPath);
+  restoreFiltersForPathRef.current = filterPersistence.restoreFiltersForPath;
+  const flushFilterOnCloseRef = useRef(filterPersistence.flushFilterOnClose);
+  flushFilterOnCloseRef.current = filterPersistence.flushFilterOnClose;
+  const syncLiveFilterRef = useRef(filterPersistence.syncLiveFilter);
+  syncLiveFilterRef.current = filterPersistence.syncLiveFilter;
 
   const { clearRecoveryDraft, writeRecoveryDraftNow, syncLiveRecovery } =
     useScheduleRecoveryDraft({
@@ -205,11 +251,14 @@ export function useScheduleFile({
   }, [browserFileLabel, filePath, isDirty]);
 
   const applyOpenedFile = useCallback(
-    (pick: {
-      path: string | null;
-      displayName?: string | null;
-      contents: string;
-    }) => {
+    async (
+      pick: {
+        path: string | null;
+        displayName?: string | null;
+        contents: string;
+      },
+      options?: ApplyOpenedFileOptions,
+    ) => {
       const parsed = parseScheduleText(pick.contents);
       if (!parsed.ok) {
         setErrorMessageText(parsed.message);
@@ -231,6 +280,14 @@ export function useScheduleFile({
             errorMessage(error, "復旧用の控えを削除できませんでした。"),
           );
         });
+        void releaseScheduleFilterViaTauri(previousPath).catch((error) => {
+          setErrorMessageText(
+            errorMessage(error, "絞り込みの記録を削除できませんでした。"),
+          );
+        });
+      }
+      if (options?.restoreFilters && pick.path) {
+        await restoreFiltersForPathRef.current(pick.path, parsed.document);
       }
       return true;
     },
@@ -355,6 +412,7 @@ export function useScheduleFile({
     markMissingFilePrompted,
     beginOpen,
     applyOpenedFile,
+    restoreFiltersForPath: filterPersistence.restoreFiltersForPath,
   });
 
   const peerNotice = useSchedulePeerNotice({
@@ -364,6 +422,11 @@ export function useScheduleFile({
       void syncLiveRecoveryRef.current().catch((error) => {
         setErrorMessageText(
           errorMessage(error, "復旧用の控えを保存できませんでした。"),
+        );
+      });
+      void syncLiveFilterRef.current().catch((error) => {
+        setErrorMessageText(
+          errorMessage(error, "絞り込みの記録を保存できませんでした。"),
         );
       });
     },
@@ -441,6 +504,7 @@ export function useScheduleFile({
           const action = await recoveryCloseActionViaTauri(isDirtyRef.current);
           if (action === "write") await writeRecoveryDraftNowRef.current();
           else if (action === "delete") await clearRecoveryDraftRef.current();
+          await flushFilterOnCloseRef.current();
           allowCloseRef.current = true;
           await finalizeWindowClose();
         } catch (error) {
@@ -518,6 +582,7 @@ export function useScheduleFile({
             const action = await recoveryCloseActionViaTauri(isDirtyRef.current);
             if (action === "write") await writeRecoveryDraftNowRef.current();
             else if (action === "delete") await clearRecoveryDraftRef.current();
+            await flushFilterOnCloseRef.current();
           }
           await completeApplicationUpdateRecoveryViaTauri();
         } catch (error) {

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Copy,
   GitBranch,
@@ -40,10 +47,11 @@ import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import type { CommandPaletteCommandId } from "./model/commandPalette";
 import { StatusBar } from "./components/StatusBar";
-import { Toolbar, type SearchField } from "./components/Toolbar";
+import { Toolbar } from "./components/Toolbar";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
 import {
   deleteShortcutHint,
+  duplicateTaskShortcutHint,
   editShortcutHint,
   noteShortcutHint,
   usesCommandKey,
@@ -55,21 +63,14 @@ import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useAppAutoUpdate } from "./hooks/useAppAutoUpdate";
-import { usePendingReleaseNotes } from "./hooks/usePendingReleaseNotes";
-import { ReleaseNotesDialog } from "./components/ReleaseNotesDialog";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
-import { errorMessage } from "./model/errors";
-import {
-  NO_OPEN_SCHEDULE_FILE_MESSAGE,
-  formatScheduleDiff,
-} from "./model/scheduleDiff";
+import { NO_OPEN_SCHEDULE_FILE_MESSAGE } from "./model/scheduleDiff";
+import { loadScheduleDiffText as loadScheduleDiffTextCore } from "./model/scheduleDiffLoad";
+import { useMcpScreenBridge } from "./hooks/useMcpScreenBridge";
 import {
   isTauri,
-  parseScheduleText,
-  readOpenScheduleFileViaTauri,
-  scheduleJsonFilename,
   serializeScheduleDocument,
 } from "./model/scheduleFile";
 import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
@@ -226,7 +227,12 @@ function App() {
   uiScaleRef.current = uiScale;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
-    "display" | "members" | "calendar" | "updates" | "jsonSkills"
+    | "display"
+    | "members"
+    | "calendar"
+    | "updates"
+    | "mcp"
+    | "jsonSkills"
   >("display");
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(
     readAutoUpdateEnabled,
@@ -249,7 +255,6 @@ function App() {
     setShortcutsOpen(true);
   }, []);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [searchField, setSearchField] = useState<SearchField>("name");
   const [diffText, setDiffText] = useState<string | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
   const diffRequestRef = useRef(0);
@@ -478,6 +483,7 @@ function App() {
     sampleMilestones,
     rowHeight,
     memberCatalogState.members,
+    !memberCatalogState.loading,
     blockDocumentEditsRef,
   );
   const {
@@ -553,7 +559,10 @@ function App() {
         milestoneLaneHeight,
       );
       const body = Math.max(120, timelineSlotHeight - headerHeight - band);
-      return Math.max(0, schedule.visibleRows.length * rowHeight - body);
+      const rows = schedule.visibleRows;
+      const contentHeight =
+        rows.length === 0 ? 0 : rows[rows.length - 1].y + rowHeight;
+      return Math.max(0, contentHeight - body);
     },
     schedule.today,
     `${timelineEpoch}:${schedule.diskEpoch}`,
@@ -644,6 +653,10 @@ function App() {
       schedule.addingHierarchyTarget != null ||
       schedule.deletingHierarchyTarget != null,
     blockDocumentEditsRef,
+    setFilterViewState: schedule.setFilterViewState,
+    getFilterViewState: schedule.getFilterViewState,
+    knownMemberIds: schedule.knownMemberIds,
+    memberCatalogSettled: !memberCatalogState.loading,
   });
 
   useWindowTitle(scheduleFile.displayFileName, scheduleFile.isDirty);
@@ -653,11 +666,8 @@ function App() {
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
 
-  const pendingReleaseNotes = usePendingReleaseNotes(scheduleFile.startupSettled);
-
   useAppAutoUpdate({
     startupSettled: scheduleFile.startupSettled,
-    startupReportingReady: pendingReleaseNotes.startupReportingReady,
     onUpdateToast: showUpdateToast,
     prepareForApplicationUpdate: scheduleFile.prepareForApplicationUpdate,
     onUpdatePromptCancel: scheduleFile.onUpdatePromptCancel,
@@ -723,6 +733,10 @@ function App() {
   }, []);
   const closeContextMenu = useCallback(() => {
     setContextMenu(null);
+  }, []);
+  const closeFloatingMenus = useCallback(() => {
+    setContextMenu(null);
+    document.dispatchEvent(new Event("schedule-viewer:close-menus"));
   }, []);
   const requestDeleteTask = useCallback(() => {
     setDeleteOpen(true);
@@ -827,7 +841,7 @@ function App() {
     [bodyHeight, rowHeight, scrollY, visibleRows],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (focusTaskId == null) return;
     const row = visibleRows.find(
       (item) => item.type === "task" && item.task.id === focusTaskId,
@@ -976,41 +990,36 @@ function App() {
   const loadScheduleDiffText = useCallback(async (): Promise<
     { ok: true; text: string } | { ok: false; message: string; showDialog: boolean }
   > => {
-    if (!isTauri() || !scheduleFile.filePath) {
-      return {
-        ok: false,
-        message: NO_OPEN_SCHEDULE_FILE_MESSAGE,
-        showDialog: true,
-      };
+    const result = await loadScheduleDiffTextCore(
+      scheduleFile.filePath,
+      scheduleFile.currentJson,
+    );
+    if (result.ok) {
+      return { ok: true, text: result.text };
     }
-    const screenJson = scheduleFile.currentJson;
-    const filename = scheduleJsonFilename(scheduleFile.filePath) ?? "schedule.json";
-    try {
-      const contents = await readOpenScheduleFileViaTauri();
-      const fileParsed = parseScheduleText(contents);
-      if (!fileParsed.ok) {
-        return { ok: false, message: fileParsed.message, showDialog: false };
-      }
-      const screenParsed = parseScheduleText(screenJson);
-      if (!screenParsed.ok) {
-        return { ok: false, message: screenParsed.message, showDialog: false };
-      }
-      return {
-        ok: true,
-        text: formatScheduleDiff(
-          screenParsed.document,
-          fileParsed.document,
-          filename,
-        ),
-      };
-    } catch (error: unknown) {
-      return {
-        ok: false,
-        message: errorMessage(error, "ファイルを読めません。"),
-        showDialog: false,
-      };
-    }
+    return {
+      ok: false,
+      message: result.message,
+      showDialog:
+        !result.isError &&
+        result.message === NO_OPEN_SCHEDULE_FILE_MESSAGE,
+    };
   }, [scheduleFile.currentJson, scheduleFile.filePath]);
+
+  useMcpScreenBridge({
+    categories: schedule.categories,
+    milestones: schedule.milestones,
+    milestoneGroups: schedule.milestoneGroups,
+    filters: schedule.filters,
+    lineageTaskId: schedule.lineageTaskId,
+    lineageIds: schedule.lineageIds,
+    hiddenMilestoneGroupIds: schedule.hiddenMilestoneGroupIds,
+    selectedTaskId: schedule.selectedTaskId,
+    today: schedule.today,
+    memberMap: memberCatalogState.memberMap,
+    scheduleFilePath: scheduleFile.filePath,
+    scheduleCurrentJson: scheduleFile.currentJson,
+  });
 
   const showScheduleDiff = useCallback(() => {
     if (scheduleFile.fileBusy) return;
@@ -1183,6 +1192,19 @@ function App() {
         case "lineage":
           schedule.toggleLineage();
           break;
+        case "addTask":
+          setAddOpen(true);
+          break;
+        case "addMilestone":
+          setAddMilestoneInitialDate(null);
+          setAddMilestoneInitialGroupId(null);
+          setAddMilestoneOpen(true);
+          break;
+        case "duplicateTask":
+          if (schedule.selectedTaskId != null) {
+            openDuplicateDialog(schedule.selectedTaskId);
+          }
+          break;
         default:
           break;
       }
@@ -1192,6 +1214,7 @@ function App() {
       fitToWidth,
       focusDetailName,
       handleDisplayScaleChange,
+      openDuplicateDialog,
       openGuide,
       openShortcuts,
       redo,
@@ -1216,12 +1239,13 @@ function App() {
     categories,
     selectedTaskId,
     linkSourceId,
+    startupSettled: scheduleFile.startupSettled,
     toggleLinkMode,
     openTaskNote: schedule.openTaskNoteDialog,
     clearLinkMode,
     removePredecessorLink,
     chartPointerRef,
-    closeContextMenu,
+    closeFloatingMenus,
     requestDeleteTask,
     undo,
     redo,
@@ -1242,6 +1266,14 @@ function App() {
     shiftTaskEndByDays,
     focusDetailName,
     copyScheduleDiff,
+    onAddTask: () => setAddOpen(true),
+    onAddMilestone: () => {
+      setAddMilestoneInitialDate(null);
+      setAddMilestoneInitialGroupId(null);
+      setAddMilestoneOpen(true);
+    },
+    onDuplicateTask: openDuplicateDialog,
+    commitTaskReorder: schedule.commitTaskReorder,
   });
 
   useMacOSAppMenu({
@@ -1555,6 +1587,7 @@ function App() {
         id: "duplicate",
         label: "複製",
         icon: <Copy size={14} strokeWidth={2} />,
+        shortcut: duplicateTaskShortcutHint(),
         onSelect: () => openDuplicateDialog(taskId),
       },
       { type: "separator", id: "task-sep-1" },
@@ -1639,8 +1672,8 @@ function App() {
       <Toolbar
         title={schedule.title}
         filters={schedule.filters}
-        searchField={searchField}
-        onSearchFieldChange={setSearchField}
+        searchField={schedule.searchField}
+        onSearchFieldChange={schedule.setSearchField}
         milestones={schedule.milestones}
         milestoneGroups={schedule.milestoneGroups}
         hiddenMilestoneGroupIds={schedule.hiddenMilestoneGroupIds}
@@ -2072,12 +2105,6 @@ function App() {
             writeAutoUpdateEnabled(enabled);
             setAutoUpdateEnabled(enabled);
           }}
-        />
-      ) : null}
-      {pendingReleaseNotes.showReleaseNotes && pendingReleaseNotes.releaseNotes ? (
-        <ReleaseNotesDialog
-          notes={pendingReleaseNotes.releaseNotes}
-          onClose={pendingReleaseNotes.dismissReleaseNotes}
         />
       ) : null}
       <GuideDialog

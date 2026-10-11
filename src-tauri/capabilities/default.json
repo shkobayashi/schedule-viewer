@@ -5,6 +5,7 @@
   "windows": ["main", "schedule-*"],
   "permissions": [
     "core:default",
+    "core:app:allow-version",
     "core:window:allow-close",
     "core:window:allow-destroy",
     "core:window:allow-set-title",
@@ -33,6 +34,10 @@
     "allow-read-schedule-recovery",
     "allow-write-schedule-recovery",
     "allow-delete-schedule-recovery",
+    "allow-read-schedule-filter",
+    "allow-write-schedule-filter",
+    "allow-delete-schedule-filter",
+    "allow-release-schedule-filter",
     "allow-read-schedule-file-at-path",
     "allow-read-last-schedule-file",
     "allow-clear-last-schedule-path",
@@ -44,6 +49,7 @@
     "allow-pick-json-skill-folder",
     "allow-install-json-skills",
     "allow-uninstall-json-skills",
+    "allow-mcp",
     "updater:default",
     "opener:default",
     "process:allow-restart"

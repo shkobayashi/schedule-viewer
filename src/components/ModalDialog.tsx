@@ -2,6 +2,7 @@ import {
   type ReactNode,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
 } from "react";
 import { createPortal } from "react-dom";
@@ -31,16 +32,21 @@ export function ModalDialog({
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
+  useLayoutEffect(() => {
+    const releaseInert = acquireBackgroundInert();
+    return () => {
+      releaseInert();
+    };
+  }, []);
+
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement | null;
-    const releaseInert = acquireBackgroundInert();
     const focusTarget = initialFocusOnPanel
       ? panelRef.current
       : (panelRef.current?.querySelector<HTMLElement>(FOCUSABLE) ??
         panelRef.current);
     focusTarget?.focus();
     return () => {
-      releaseInert();
       previousFocusRef.current?.focus();
     };
   }, [initialFocusOnPanel]);
@@ -49,7 +55,10 @@ export function ModalDialog({
     if (event.key !== "Tab" || !panelRef.current) return;
     const nodes = [
       ...panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE),
-    ].filter((node) => node.offsetParent !== null);
+    ].filter(
+      (node) =>
+        node.offsetParent !== null && !node.closest("[inert]"),
+    );
     if (nodes.length === 0) return;
     const first = nodes[0];
     const last = nodes[nodes.length - 1];

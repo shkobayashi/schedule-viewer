@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
+import packageJson from "../../package.json";
 import type { AppMembersSettings } from "../model/memberAppData";
 import {
   catalogIdFromFilename,
@@ -19,6 +21,7 @@ import {
 } from "../model/validateMembers";
 import { usesCommandKey } from "../model/shortcuts";
 import { ModalDialog } from "./ModalDialog";
+import { SettingsChangelogHistory } from "./SettingsChangelogHistory";
 import {
   COLOR_SCHEME_OPTIONS,
   parseColorSchemePreference,
@@ -49,6 +52,42 @@ import {
   type JsonSkillScope,
   type JsonSkillTools,
 } from "../model/jsonSkills";
+import { normalizeVersionLabel } from "../model/releaseNotes";
+import { fetchMcpConfigJson } from "../model/mcpRegistration";
+
+function formatAppVersionLine(raw: string): string {
+  const normalized = normalizeVersionLabel(raw);
+  return normalized
+    ? `バージョン ${normalized}`
+    : "バージョンを取得できませんでした";
+}
+
+let cachedAppVersionLine: string | null = null;
+let appVersionFetchPromise: Promise<void> | null = null;
+
+if (!isTauri()) {
+  cachedAppVersionLine = formatAppVersionLine(packageJson.version);
+}
+
+function fetchAppVersionLineIfNeeded(): Promise<void> {
+  if (cachedAppVersionLine !== null) return Promise.resolve();
+  if (!isTauri()) {
+    cachedAppVersionLine = formatAppVersionLine(packageJson.version);
+    return Promise.resolve();
+  }
+  if (appVersionFetchPromise) return appVersionFetchPromise;
+  appVersionFetchPromise = getVersion()
+    .then((version) => {
+      cachedAppVersionLine = formatAppVersionLine(version);
+    })
+    .catch(() => {
+      cachedAppVersionLine = "バージョンを取得できませんでした";
+    })
+    .finally(() => {
+      appVersionFetchPromise = null;
+    });
+  return appVersionFetchPromise;
+}
 
 type SettingsDialogProps = {
   open: boolean;
@@ -82,6 +121,7 @@ export type SettingsSection =
   | "members"
   | "calendar"
   | "updates"
+  | "mcp"
   | "jsonSkills";
 
 export function SettingsDialog({
@@ -120,8 +160,16 @@ export function SettingsDialog({
   useEffect(() => {
     if (open) setSection(initialSection);
   }, [initialSection, open]);
+
+  useEffect(() => {
+    if (!open || section !== "mcp" || !isTauri()) return;
+    void fetchMcpConfigJson().then((json) => {
+      setMcpConfig(json ?? "");
+    });
+  }, [open, section]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [mcpConfig, setMcpConfig] = useState("");
   const [confirmOverwriteId, setConfirmOverwriteId] = useState<string | null>(
     null,
   );
@@ -155,6 +203,26 @@ export function SettingsDialog({
     string[] | null
   >(null);
   const jsonSkillToolsTouched = useRef(false);
+  const [appVersionLine, setAppVersionLine] = useState<string | null>(
+    () => cachedAppVersionLine,
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    if (cachedAppVersionLine !== null) {
+      setAppVersionLine(cachedAppVersionLine);
+      return;
+    }
+    let cancelled = false;
+    void fetchAppVersionLineIfNeeded().then(() => {
+      if (!cancelled && cachedAppVersionLine !== null) {
+        setAppVersionLine(cachedAppVersionLine);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -407,7 +475,15 @@ export function SettingsDialog({
       message.includes("見つかりません"));
 
   return (
-    <ModalDialog title="設定" onClose={onClose} className="modal settings-dialog">
+    <ModalDialog
+      title="設定"
+      onClose={onClose}
+      className={
+        section === "updates"
+          ? "modal settings-dialog settings-dialog--updates"
+          : "modal settings-dialog"
+      }
+    >
         <div className="settings-layout">
           <nav className="settings-nav" aria-label="設定セクション">
             <button
@@ -438,6 +514,15 @@ export function SettingsDialog({
                 onClick={() => setSection("updates")}
               >
                 更新
+              </button>
+            ) : null}
+            {isTauri() ? (
+              <button
+                type="button"
+                className={section === "mcp" ? "active" : undefined}
+                onClick={() => setSection("mcp")}
+              >
+                画面の状態を渡す
               </button>
             ) : null}
             <button
@@ -566,6 +651,7 @@ export function SettingsDialog({
                 <div className="settings-actions">
                   <button
                     type="button"
+                    className="toolbar-btn"
                     disabled={busy}
                     onClick={() => void handleImportClick()}
                   >
@@ -595,7 +681,7 @@ export function SettingsDialog({
                         </label>
                         <button
                           type="button"
-                          className="link-btn"
+                          className="toolbar-btn"
                           disabled={busy}
                           onClick={() =>
                             void runAction(
@@ -613,7 +699,7 @@ export function SettingsDialog({
                 {settings.catalogs.length > 0 ? (
                   <button
                     type="button"
-                    className="link-btn"
+                    className="toolbar-btn"
                     disabled={busy || settings.selectedCatalogId == null}
                     onClick={() =>
                       void runAction(
@@ -648,6 +734,7 @@ export function SettingsDialog({
                 <div className="settings-actions">
                   <button
                     type="button"
+                    className="toolbar-btn"
                     disabled={busy}
                     onClick={() => void handleCalendarImportClick()}
                   >
@@ -656,7 +743,7 @@ export function SettingsDialog({
                   {calendarLabel ? (
                     <button
                       type="button"
-                      className="link-btn"
+                      className="toolbar-btn"
                       disabled={busy}
                       onClick={() =>
                         void runAction(
@@ -668,6 +755,39 @@ export function SettingsDialog({
                       外す
                     </button>
                   ) : null}
+                </div>
+              </>
+            ) : null}
+            {section === "mcp" && isTauri() ? (
+              <>
+                <p className="settings-note">
+                  登録した Cursor または Claude が、このアプリと同じバイナリを、ウィンドウを出さずに起動します。下の JSON をコピーして、mcp.json
+                  に貼ります。スケジュールのウィンドウが開いていないときは、渡せません。ウィンドウが複数のときは、前面のウィンドウだけを渡します。
+                </p>
+                <label className="settings-field">
+                  <span>mcp.json</span>
+                  <textarea
+                    className="settings-mcp-json"
+                    readOnly
+                    spellCheck={false}
+                    rows={11}
+                    value={mcpConfig}
+                  />
+                </label>
+                <div className="settings-actions">
+                  <button
+                    type="button"
+                    className="toolbar-btn"
+                    disabled={!mcpConfig}
+                    onClick={() => {
+                      void navigator.clipboard.writeText(mcpConfig).then(
+                        () => setMessage("JSON をコピーしました。"),
+                        () => setMessage(null),
+                      );
+                    }}
+                  >
+                    コピー
+                  </button>
                 </div>
               </>
             ) : null}
@@ -688,6 +808,7 @@ export function SettingsDialog({
                   />
                   <span>起動時に更新を確認する</span>
                 </label>
+                <SettingsChangelogHistory active={section === "updates"} />
               </>
             ) : null}
             {section === "jsonSkills" ? (
@@ -760,6 +881,7 @@ export function SettingsDialog({
                     <div className="settings-actions">
                       <button
                         type="button"
+                        className="toolbar-btn"
                         disabled={busy || !isTauri()}
                         onClick={() => void handlePickJsonSkillFolder()}
                       >
@@ -776,6 +898,7 @@ export function SettingsDialog({
                 <div className="settings-actions">
                   <button
                     type="button"
+                    className="toolbar-btn"
                     disabled={
                       busy ||
                       !isTauri() ||
@@ -788,7 +911,7 @@ export function SettingsDialog({
                   </button>
                   <button
                     type="button"
-                    className="link-btn"
+                    className="toolbar-btn"
                     disabled={
                       busy ||
                       !isTauri() ||
@@ -846,6 +969,7 @@ export function SettingsDialog({
             <div className="modal-actions">
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() =>
                   void runImport(
@@ -859,6 +983,7 @@ export function SettingsDialog({
               </button>
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => {
                   setConfirmOverwriteId(null);
@@ -876,6 +1001,7 @@ export function SettingsDialog({
             <div className="modal-actions">
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() =>
                   void runCalendarImport(
@@ -888,6 +1014,7 @@ export function SettingsDialog({
               </button>
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => {
                   setConfirmCalendarOverwrite(false);
@@ -912,6 +1039,7 @@ export function SettingsDialog({
             <div className="modal-actions">
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => void runJsonSkillInstall(true)}
               >
@@ -919,6 +1047,7 @@ export function SettingsDialog({
               </button>
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => {
                   setConfirmJsonSkillReplace(false);
@@ -939,6 +1068,7 @@ export function SettingsDialog({
             <div className="modal-actions">
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => void runJsonSkillUninstall()}
               >
@@ -946,6 +1076,7 @@ export function SettingsDialog({
               </button>
               <button
                 type="button"
+                className="toolbar-btn"
                 disabled={busy}
                 onClick={() => setConfirmJsonSkillUninstall(false)}
               >
@@ -955,10 +1086,13 @@ export function SettingsDialog({
           </div>
         ) : null}
         <div className="modal-actions">
-          <button type="button" onClick={onClose}>
+          <button type="button" className="toolbar-btn" onClick={onClose}>
             閉じる
           </button>
         </div>
+        {appVersionLine ? (
+          <p className="settings-app-version">{appVersionLine}</p>
+        ) : null}
     </ModalDialog>
   );
 }

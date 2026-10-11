@@ -54,11 +54,18 @@ type UseScheduleStartupRecoveryOptions = {
   setDeferredExternalContents: (contents: string | null) => void;
   markMissingFilePrompted: () => void;
   beginOpen: (initialDirectory: string | null) => void;
-  applyOpenedFile: (pick: {
-    path: string | null;
-    displayName?: string | null;
-    contents: string;
-  }) => boolean;
+  applyOpenedFile: (
+    pick: {
+      path: string | null;
+      displayName?: string | null;
+      contents: string;
+    },
+    options?: { restoreFilters?: boolean },
+  ) => Promise<boolean>;
+  restoreFiltersForPath: (
+    path: string,
+    document: ScheduleDocument,
+  ) => Promise<void>;
 };
 
 export function useScheduleStartupRecovery({
@@ -82,6 +89,7 @@ export function useScheduleStartupRecovery({
   markMissingFilePrompted,
   beginOpen,
   applyOpenedFile,
+  restoreFiltersForPath,
 }: UseScheduleStartupRecoveryOptions) {
   const [recoveryConflictOpen, setRecoveryConflictOpen] = useState(false);
   const [recoveryInvalidOpen, setRecoveryInvalidOpen] = useState(false);
@@ -101,7 +109,11 @@ export function useScheduleStartupRecovery({
   const applyRecoverySession = useCallback(
     async (
       session: RecoverySession,
-      options?: { deferDisk?: boolean; abortIfMovedOn?: boolean },
+      options?: {
+        deferDisk?: boolean;
+        abortIfMovedOn?: boolean;
+        restoreFilters?: boolean;
+      },
     ): Promise<boolean> => {
       const startupId = recoveryStartupRef.current;
       return applyAfterAccept({
@@ -126,6 +138,11 @@ export function useScheduleStartupRecovery({
           onAfterOpen();
           return true;
         },
+      }).then(async (applied) => {
+        if (applied && options?.restoreFilters) {
+          await restoreFiltersForPath(session.path, session.document);
+        }
+        return applied;
       });
     },
     [
@@ -140,6 +157,7 @@ export function useScheduleStartupRecovery({
       setBrowserFileLabel,
       setDeferredExternalContents,
       setFilePath,
+      restoreFiltersForPath,
     ],
   );
 
@@ -169,7 +187,7 @@ export function useScheduleStartupRecovery({
         const pending = await takePendingScheduleWindowOpenViaTauri();
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (pending) {
-          applyOpenedFileRef.current({
+          await applyOpenedFileRef.current({
             path: pending.path,
             contents: pending.contents,
           });
@@ -248,7 +266,7 @@ export function useScheduleStartupRecovery({
                 baselineJson: action.baselineJson,
                 diskContents: action.diskContents,
               },
-              { abortIfMovedOn: true },
+              { abortIfMovedOn: true, restoreFilters: true },
             );
             if (applied) {
               await clearRecoveryDraft();
@@ -264,7 +282,7 @@ export function useScheduleStartupRecovery({
                 baselineJson: action.baselineJson,
                 diskContents: action.diskContents,
               },
-              { abortIfMovedOn: true },
+              { abortIfMovedOn: true, restoreFilters: true },
             );
             releaseStartupBusy();
             return;
@@ -291,7 +309,7 @@ export function useScheduleStartupRecovery({
                 baselineJson: action.baselineJson,
                 diskContents: action.baselineJson,
               },
-              { abortIfMovedOn: true },
+              { abortIfMovedOn: true, restoreFilters: true },
             );
             if (!applied) {
               releaseStartupBusy();
@@ -350,10 +368,10 @@ export function useScheduleStartupRecovery({
       try {
         await clearRecoveryDraft();
         await acceptOpenedScheduleViaTauri(payload.path, diskContents);
-        applyOpenedFile({
+        void applyOpenedFile({
           path: payload.path,
           contents: diskContents,
-        });
+        }, { restoreFilters: true });
       } catch (error) {
         setErrorMessageText(errorMessage(error, "ファイルを開けませんでした。"));
       }
@@ -375,7 +393,7 @@ export function useScheduleStartupRecovery({
         baselineJson: payload.baselineJson,
         diskContents: payload.diskContents,
       },
-      { deferDisk: true },
+      { deferDisk: true, restoreFilters: true },
     ).catch((error) => {
       setErrorMessageText(
         errorMessage(error, "未保存の編集を戻せませんでした。"),
