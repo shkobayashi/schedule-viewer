@@ -37,6 +37,13 @@ import {
   pruneHiddenMilestoneGroupIds,
 } from "../model/filterChips";
 import {
+  collapsedIdsFromSet,
+  collapsedSetFromIds,
+  defaultScheduleFilterViewState,
+  type ScheduleFilterViewState,
+  type SearchField,
+} from "../model/scheduleFilterPersistence";
+import {
   appendMilestone,
   applyMilestoneEdit,
   ensureMilestoneGroupForAdd,
@@ -164,6 +171,7 @@ export function useSchedule(
   initialMilestones: Milestone[],
   rowHeight: number,
   memberCatalog: Member[] | null,
+  memberCatalogSettled: boolean,
   blockDocumentEditsRef?: { current: boolean },
 ) {
   const documentRef = useRef<DocumentSnapshot>(
@@ -209,17 +217,10 @@ export function useSchedule(
   >(null);
   const [selectedTaskId, setSelectedTaskId] = useState<ScheduleId | null>(null);
   const [lineageTaskId, setLineageTaskId] = useState<ScheduleId | null>(null);
-  const [filters, setFilters] = useState<ScheduleFilters>({
-    assignee: "all",
-    status: "all",
-    confidence: "all",
-    overdue: "all",
-    relation: "all",
-    milestone: "all",
-    tags: [],
-    search: "",
-    noteSearch: "",
-  });
+  const [filters, setFilters] = useState<ScheduleFilters>(
+    () => defaultScheduleFilterViewState().filters,
+  );
+  const [searchField, setSearchField] = useState<SearchField>("name");
   const [duplicatingTaskId, setDuplicatingTaskId] = useState<ScheduleId | null>(
     null,
   );
@@ -581,6 +582,7 @@ export function useSchedule(
   }, [displayCategories, reorderPreview, rowHeight, visibleRows]);
 
   useEffect(() => {
+    if (!memberCatalogSettled) return;
     if (
       filters.assignee === "all" ||
       filters.assignee === UNASSIGNED_FILTER ||
@@ -589,7 +591,7 @@ export function useSchedule(
       return;
     }
     setFilters((prev) => ({ ...prev, assignee: "all" }));
-  }, [filters.assignee, knownMemberIds]);
+  }, [filters.assignee, knownMemberIds, memberCatalogSettled]);
 
   useEffect(() => {
     if (
@@ -1260,17 +1262,10 @@ export function useSchedule(
       setEditingNoteTaskId(null);
       setEditingMilestoneId(null);
       setCollapsed(new Set());
-      setFilters({
-        assignee: "all",
-        status: "all",
-        confidence: "all",
-        overdue: "all",
-        relation: "all",
-        milestone: "all",
-        tags: [],
-        search: "",
-        noteSearch: "",
-      });
+      const defaultView = defaultScheduleFilterViewState();
+      setFilters(defaultView.filters);
+      setSearchField(defaultView.searchField);
+      setHiddenMilestoneGroupIds(defaultView.hiddenMilestoneGroupIds);
       setReorderPreview(null);
       syncHistoryUi();
     },
@@ -1340,6 +1335,33 @@ export function useSchedule(
     () => pruneHiddenMilestoneGroupIds(hiddenMilestoneGroupIds, milestoneGroups),
     [hiddenMilestoneGroupIds, milestoneGroups],
   );
+
+  const setFilterViewState = useCallback((state: ScheduleFilterViewState) => {
+    setFilters({
+      ...state.filters,
+      tags: [...state.filters.tags],
+    });
+    setSearchField(state.searchField);
+    setHiddenMilestoneGroupIds([...state.hiddenMilestoneGroupIds]);
+    setCollapsed(
+      collapsedSetFromIds(
+        state.collapsedCategoryIds,
+        state.collapsedGroupIds,
+      ),
+    );
+  }, []);
+
+  const getFilterViewState = useCallback((): ScheduleFilterViewState => {
+    const { collapsedCategoryIds, collapsedGroupIds } =
+      collapsedIdsFromSet(collapsed);
+    return {
+      filters,
+      searchField,
+      hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
+      collapsedCategoryIds,
+      collapsedGroupIds,
+    };
+  }, [collapsed, filters, prunedHiddenMilestoneGroupIds, searchField]);
 
   useEffect(() => {
     if (prunedHiddenMilestoneGroupIds.length === hiddenMilestoneGroupIds.length) {
@@ -1434,6 +1456,11 @@ export function useSchedule(
     cancelReorder,
     toggleCollapsed,
     filters,
+    searchField,
+    setSearchField,
+    setFilterViewState,
+    getFilterViewState,
+    knownMemberIds,
     updateFilters,
     selectedTaskId,
     selectTask,

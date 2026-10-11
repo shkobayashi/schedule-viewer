@@ -309,6 +309,7 @@
 | 同上 | `ignores a draft for a different path and opens the remembered file` | SYNC-03 |
 | 同上 | `restores when disk formatting differs but canonical matches` | SYNC-03, FILE-04 |
 | 同上 | `returns invalidDisk when the file fails validation` | SYNC-03 |
+| `scheduleFilterPersistence.test.ts` | `accepts a valid file` など | SYNC-03 |
 | `serialize.test.ts` | `omits empty note` | EDIT-06 |
 | 同上 | `writes confidence after progress` | FILE-02 |
 | 同上 | `writes milestone confidence after date` | FILE-02 |
@@ -460,6 +461,7 @@
 | `migrate_moves_legacy_files_and_removes_them` | 古い記録を新しい控えとウィンドウ一覧へ移し、移し終えたら消す | SYNC-03 |
 | `migrate_keeps_unreadable_legacy_recovery` | 読めない古い控えは消さず、ウィンドウ一覧も作らない | SYNC-03 |
 | `path_recovery_key_is_stable` | パスから控えファイル名のハッシュが安定する | SYNC-03 |
+| `filter_path_uses_same_hash_as_recovery` | 絞り込みのファイル名のハッシュは控えと同じ | SYNC-03 |
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 | `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
 | `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの3スキルに限る | SET-05 |
@@ -561,7 +563,17 @@
 | TC-SYNC-03 | SYNC-03 | TC-FILE-05b のあと、ファイルは変えない | アプリを起動する | 同じファイルが未保存のまま開く |
 | TC-SYNC-03b | SYNC-03 | 控えがあるあいだに、別のエディタでファイルを変える | アプリを起動する | 「ファイルを開く」か「未保存の編集を戻す」かを聞く。開くはダイアログにせず、そのファイルの最新内容になる |
 | TC-SYNC-03c | SYNC-03 | 未保存のまま閉じたあと、対象ファイルを消す | アプリを起動する | 未保存が画面に戻り、ファイルが無いと出る。「未保存の編集を戻す」でその内容が残る。そのあと、同じ欠落では監視のファイルダイアログは出ない |
-| TC-SYNC-03d | SYNC-03 | ファイルを開き、保存して閉じる | アプリを起動する | 同じファイルが保存済みで開く。絞り込みやズームは初期状態である |
+| TC-SYNC-03d | SYNC-03 | ファイルを開き、保存して閉じる | アプリを起動する | 同じファイルが保存済みで開く。ズームは初期状態である |
+| TC-SYNC-03h | SYNC-03 | パスのあるファイルで担当者とタグを絞り、保存済みのまま閉じる | 起動する | 同じ絞り込みが戻り、未保存にはならない |
+| TC-SYNC-03o | SYNC-03 | マイルストングループが2つ以上ある JSON で、帯の線を1つ以上オフにし、保存済みのまま閉じる | 起動する | 同じ帯の線の札が戻り、未保存にはならない |
+| TC-SYNC-03p | SYNC-03 | カテゴリとグループを折りたたみ、保存済みのまま閉じる | 起動する | 同じ開閉が戻り、未保存にはならない |
+| TC-SYNC-03q | SYNC-03 | 折りたたんだあと ☰ の「開く」で別のファイルを選ぶ | 起動する | 開いたファイルはすべて展開である |
+| TC-SYNC-03i | SYNC-03 | 未保存の編集と絞り込みがある状態で閉じる | 起動する | 編集と絞り込みの両方が戻る |
+| TC-SYNC-03j | SYNC-03 | 絞り込みだけ変えて閉じる | 起動する | 未保存にならない |
+| TC-SYNC-03k | SYNC-03 | 「開く」で別のファイルを選ぶ | 起動する | 開いたファイルの絞り込みは初期値である |
+| TC-SYNC-03l | SYNC-03 | マイルストンで絞ったあと、そのマイルストンをファイルから消して閉じる | 起動する | マイルストンの条件は「すべて」になる。取り消しでは戻らない |
+| TC-SYNC-03m | SYNC-03 | 同じパスを2つのウィンドウで開き、前面だけ条件を変えて閉じる | 起動する | 前面の条件だけが戻る |
+| TC-SYNC-03n | SYNC-03 | ブラウザ版で絞り込みを変えて閉じる | ページを開き直す | 絞り込みは戻らない |
 | TC-SYNC-03e | SYNC-03 | 保存して閉じたあと、そのファイルを消す | アプリを起動する | 見つからないと知らせてサンプルになる。ファイルダイアログは出ない。その状態で閉じると、次はサンプルのままである |
 | TC-SYNC-03f | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、見出しがファイル名になるまでバーをドラッグする | 復旧が終わるまで日付は変わらない。終わったあとはドラッグできる |
 | TC-SYNC-03g | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、見出しがファイル名になる前に別のエディタでその JSON を保存する。ファイル名になったあと少し待つ | 変えた内容が画面に出る。起動が終わったあとはバーをドラッグできる |

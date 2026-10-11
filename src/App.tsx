@@ -47,7 +47,7 @@ import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import type { CommandPaletteCommandId } from "./model/commandPalette";
 import { StatusBar } from "./components/StatusBar";
-import { Toolbar, type SearchField } from "./components/Toolbar";
+import { Toolbar } from "./components/Toolbar";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
 import {
   deleteShortcutHint,
@@ -255,7 +255,6 @@ function App() {
     setShortcutsOpen(true);
   }, []);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [searchField, setSearchField] = useState<SearchField>("name");
   const [diffText, setDiffText] = useState<string | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
   const diffRequestRef = useRef(0);
@@ -484,6 +483,7 @@ function App() {
     sampleMilestones,
     rowHeight,
     memberCatalogState.members,
+    !memberCatalogState.loading,
     blockDocumentEditsRef,
   );
   const {
@@ -653,6 +653,10 @@ function App() {
       schedule.addingHierarchyTarget != null ||
       schedule.deletingHierarchyTarget != null,
     blockDocumentEditsRef,
+    setFilterViewState: schedule.setFilterViewState,
+    getFilterViewState: schedule.getFilterViewState,
+    knownMemberIds: schedule.knownMemberIds,
+    memberCatalogSettled: !memberCatalogState.loading,
   });
 
   useWindowTitle(scheduleFile.displayFileName, scheduleFile.isDirty);
@@ -1673,8 +1677,8 @@ function App() {
       <Toolbar
         title={schedule.title}
         filters={schedule.filters}
-        searchField={searchField}
-        onSearchFieldChange={setSearchField}
+        searchField={schedule.searchField}
+        onSearchFieldChange={schedule.setSearchField}
         milestones={schedule.milestones}
         milestoneGroups={schedule.milestoneGroups}
         hiddenMilestoneGroupIds={schedule.hiddenMilestoneGroupIds}

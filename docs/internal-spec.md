@@ -101,8 +101,8 @@ flowchart TD
 | 種類 | 中身 | 置く場所 | 残るか |
 | --- | --- | --- | --- |
 | 文書（`ScheduleDocument`） | タイトル、カテゴリ、マイルストングループ、マイルストン | `useSchedule` | ファイルと控えだけ。取り消しはメモリ |
-| 表示 | 絞り込み、帯の線の表示、選択、折りたたみ、系統、線を引くモード、ズーム、スクロール | `useSchedule`、`App.tsx`、`useTimelineView` | 残さない。ファイルを開くと初期化する |
-| ファイル | パス、未保存判定の基準にする JSON、ディスクのハッシュ | `useScheduleFile` と Rust の `ScheduleFileStates`（ウィンドウラベルごと） | ウィンドウ一覧は `open-windows.json`。未保存の控えはパスごとに `schedule-recovery/` |
+| 表示 | 絞り込み、帯の線の表示、選択、折りたたみ、系統、線を引くモード、ズーム、スクロール | `useSchedule`、`App.tsx`、`useTimelineView` | 絞り込み、帯の線、折りたたみはデスクトップ版でパスごとに `schedule-filters/`。☰ の「開く」と新しいウィンドウでは初期化。系統、選択、ズーム、スクロールは残さない |
+| ファイル | パス、未保存判定の基準にする JSON、ディスクのハッシュ | `useScheduleFile` と Rust の `ScheduleFileStates`（ウィンドウラベルごと） | ウィンドウ一覧は `open-windows.json`。未保存の控えはパスごとに `schedule-recovery/`。絞り込みはパスごとに `schedule-filters/` |
 
 取り消しのスナップショットに入るのは `categories`、`milestoneGroups`、`milestones` だけである。タイトルも、絞り込みなどの表示状態も履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。比較は保存形式の文字列で行い、現在の文書のキーを覚えているので、次の文書だけを文字列化する。文書を変える操作は、確定したときに 1 ステップだけ積む。失敗した変更は積まない。マイルストンを消して絞り込みを「すべて」に戻すことは表示状態で、その戻りは履歴に入らない。編集で別のマイルストングループへ移し、移した先の帯の線がオフだったときにそのグループだけオンに戻すことも表示状態で、履歴に入らない。線を引くモードの起点は表示状態で、選択が起点と違う値になったときモードは終わる。
 
@@ -159,6 +159,8 @@ flowchart TD
 ### 前回のファイルと控え
 
 開く成功と保存の成功で、ウィンドウ一覧とそのウィンドウのパスを `open-windows.json` に書く。前面のウィンドウのラベルも更新する。未保存でパスがあるとき、そのパスの前面のウィンドウだけが、変更から約1秒後に `write_schedule_recovery` を呼ぶ。前面が保存済みなら、そのパスの控えは消す。終了で閉じ始める直前の前面を、その終了の控えの書き手として固定する。控えはパスごとに `schedule-recovery/<ハッシュ>.json` へ書く。後ろのウィンドウからの書き込みと削除は、Rust が捨てる。
+
+絞り込みは `useScheduleFilterPersistence` が、前面のウィンドウだけから約1秒後に `write_schedule_filter` を呼ぶ。初期値なら `delete_schedule_filter` する。閉じるときと終了・更新前の控えの書き込みと同じタイミングで、待たずに書く。書き手の決め方は控えと同じ `recovery_live_action` と `recovery_close_action` で、未保存の代わりに初期値でないかを渡す。起動で文書を載せたあと、`read_schedule_filter` で読み、`scheduleFilterPersistence.ts` で検証して `useSchedule` の表示状態へ入れる。戻すときに無くなった参照を外すのは、いま載せた文書のカテゴリ、グループ、マイルストン、マイルストングループを使う。React の state がまだ前の文書のとき、画面の `pruneContext` だけに頼らない。メンバー一覧の初回読み込みが終わるまで、戻す処理では担当者を外さない。編集中にカテゴリやグループを消したあとも、折りたたみの id は画面の集合からは外さない。次回起動の戻しだけ、文書に無い id を外す。書き込みを止めているあいだに戻した組は、その組をそのまま書く。`replaceDocument` が初期値に戻した直後の `getFilterViewState` で消さない。メンバー一覧の初回読み込みが終わるまで、担当者の参照を外す effect は動かない。パスを替えたときは `release_schedule_filter` で後始末する。
 
 起動時の判断と画面への反映は `useScheduleStartupRecovery`、控えの書き込みと削除は `useScheduleRecoveryDraft` が行う。起動時は `read_window_startup` が、ウィンドウごとのパス、控え、サンプルかを返す。追加ウィンドウは、その前に `take_pending_schedule_window_open` の内容を載せる。古い `last-schedule.json` と `schedule-recovery.json` は `window_session.rs` が初回に移す。読めなかった古い控えは残し、`open-windows.json` はまだ作らない。`decideRecoveryStartup` が、保存済みで開く、未保存の復元、競合、ファイル無し、不正を返す。ファイルが無く未保存があるときは、先にその内容を画面へ載せてから警告する。この起動でファイル無しを知らせたあとは、そのパスが再び読めるまで監視のファイルダイアログを出さない。`read_schedule_file_at_path` は、控えがあるパスと一致するファイルだけを読む。起動復旧が終わるまでだけ、文書の変更、取り消し、やり直しは受け付けない。終わったあとは受け付ける。開き終わる前にディスクが変わっていれば、開いたあと通常の外部更新として読む。ファイルの書き込みは止めない。画面へ載せる前に、パスも未保存も無いかを見てから `accept_opened_schedule` する。そのあと起動の世代が変わっていたら、文書は置き換えない。
 
@@ -222,6 +224,10 @@ flowchart TD
 | `read_schedule_recovery` | 任意のパス。無ければ呼び出し元ウィンドウのパスの控え | 10MB | `schedule-recovery.toml` | `scheduleFile.ts` |
 | `write_schedule_recovery` | 本文（`path` を含む） | 10MB | 同上 | 同上 |
 | `delete_schedule_recovery` | パス | — | 同上 | 同上 |
+| `read_schedule_filter` | 任意のパス。無ければ呼び出し元ウィンドウのパスの絞り込み | 64KB | `schedule-filter.toml` | `scheduleFilterFile.ts` |
+| `write_schedule_filter` | 本文（`path` を含む） | 64KB | 同上 | 同上 |
+| `delete_schedule_filter` | パス | — | 同上 | 同上 |
+| `release_schedule_filter` | 別ファイルを開いたあとの、元パスの絞り込み | — | 同上 | 同上 |
 | `read_schedule_file_at_path` | パス。控えがあるときだけ本文 | `SCHEDULE_FILE_NOT_FOUND` | 同上 | 同上 |
 | `read_last_schedule_file` | 互換用。覚えたパスと本文 | 記録の形式 | 同上 | 同上 |
 | `clear_last_schedule_path` | なし | — | 同上 | 同上 |
