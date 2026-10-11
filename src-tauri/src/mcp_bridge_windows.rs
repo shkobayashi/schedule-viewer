@@ -5,11 +5,13 @@ use std::os::windows::io::{FromRawHandle, IntoRawHandle};
 use std::ptr;
 use std::sync::Arc;
 use std::thread;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 use tauri::AppHandle;
 use windows_sys::Win32::Foundation::{
-    CloseHandle, ERROR_PIPE_CONNECTED, GetLastError, HANDLE, INVALID_HANDLE_VALUE, LocalFree,
+    CloseHandle, ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, GetLastError,
+    HANDLE, INVALID_HANDLE_VALUE, LocalFree,
 };
 use windows_sys::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW;
 use windows_sys::Win32::Security::SECURITY_ATTRIBUTES;
@@ -25,9 +27,12 @@ use windows_sys::Win32::System::Pipes::{
 use crate::mcp_app_data::{current_user_sid_string, mcp_pipe_name, mcp_pipe_name_for_current_user};
 use crate::mcp_bridge::{
     bridge_exchange, handle_bridge_connection_io, McpBridgeError, McpBridgeState,
+    MCP_PIPE_CONNECT_TIMEOUT,
 };
 
 const SDDL_REVISION_1: u32 = 1;
+const PIPE_SERVER_RETRY_SLEEP: Duration = Duration::from_millis(100);
+const PIPE_CLIENT_BUSY_SLEEP: Duration = Duration::from_millis(50);
 
 fn wide_null(s: &str) -> Vec<u16> {
     s.encode_utf16().chain([0]).collect()
@@ -76,7 +81,7 @@ pub fn can_connect_to_pipe(pipe_name: &str) -> bool {
     open_pipe_client(pipe_name).is_ok()
 }
 
-fn open_pipe_client(pipe_name: &str) -> Result<File, ()> {
+fn open_pipe_client(pipe_name: &str) -> Result<File, u32> {
     let wide = wide_null(pipe_name);
     let handle = unsafe {
         CreateFileW(
@@ -90,15 +95,16 @@ fn open_pipe_client(pipe_name: &str) -> Result<File, ()> {
         )
     };
     if handle == INVALID_HANDLE_VALUE {
-        return Err(());
+        return Err(unsafe { GetLastError() });
     }
     let mut mode = PIPE_READMODE_BYTE;
     if unsafe {
         SetNamedPipeHandleState(handle, &mut mode, ptr::null_mut(), ptr::null_mut())
     } == 0
     {
+        let err = unsafe { GetLastError() };
         let _ = unsafe { CloseHandle(handle) };
-        return Err(());
+        return Err(err);
     }
     Ok(unsafe { File::from_raw_handle(handle as _) })
 }
@@ -129,29 +135,35 @@ pub fn start_mcp_bridge_server(app: AppHandle, state: Arc<McpBridgeState>) -> Re
     if can_connect_to_pipe(&pipe_name) {
         return Ok(());
     }
-    let security = PipeSecurity::for_current_user()?;
-    thread::spawn(move || {
-        if let Err(err) = pipe_server_loop(app, state, pipe_name, security) {
-            eprintln!("{err}");
-        }
-    });
+    thread::spawn(move || pipe_server_loop(app, state, pipe_name));
     Ok(())
 }
 
-fn pipe_server_loop(
-    app: AppHandle,
-    state: Arc<McpBridgeState>,
-    pipe_name: String,
-    security: PipeSecurity,
-) -> Result<(), String> {
+fn pipe_server_loop(app: AppHandle, state: Arc<McpBridgeState>, pipe_name: String) {
+    let security = match PipeSecurity::for_current_user() {
+        Ok(value) => value,
+        Err(err) => {
+            eprintln!("{err}");
+            return;
+        }
+    };
     loop {
-        let handle = create_pipe_server(&pipe_name, &security)?;
+        let handle = match create_pipe_server(&pipe_name, &security) {
+            Ok(value) => value,
+            Err(err) => {
+                eprintln!("{err}");
+                thread::sleep(PIPE_SERVER_RETRY_SLEEP);
+                continue;
+            }
+        };
         let connected = unsafe { ConnectNamedPipe(handle, ptr::null_mut()) };
         if connected == 0 {
             let err = unsafe { GetLastError() };
             if err != ERROR_PIPE_CONNECTED {
                 let _ = unsafe { CloseHandle(handle) };
-                return Err("MCP パイプの接続を待てません。".to_string());
+                eprintln!("MCP パイプの接続を待てません: {}", err);
+                thread::sleep(PIPE_SERVER_RETRY_SLEEP);
+                continue;
             }
         }
         let mut file = unsafe { File::from_raw_handle(handle as _) };
@@ -162,9 +174,31 @@ fn pipe_server_loop(
     }
 }
 
+fn open_pipe_client_with_retry(pipe_name: &str) -> Result<File, McpBridgeError> {
+    let deadline = Instant::now() + MCP_PIPE_CONNECT_TIMEOUT;
+    loop {
+        match open_pipe_client(pipe_name) {
+            Ok(file) => return Ok(file),
+            Err(err) => {
+                if err == ERROR_FILE_NOT_FOUND {
+                    return Err(McpBridgeError::NoGui);
+                }
+                if err == ERROR_PIPE_BUSY {
+                    if Instant::now() >= deadline {
+                        return Err(McpBridgeError::Stale);
+                    }
+                    thread::sleep(PIPE_CLIENT_BUSY_SLEEP);
+                    continue;
+                }
+                return Err(McpBridgeError::NoGui);
+            }
+        }
+    }
+}
+
 pub fn call_tool_via_bridge(tool: &str, arguments: Value) -> Result<Value, McpBridgeError> {
     let pipe_name = mcp_pipe_name_for_current_user().map_err(|_| McpBridgeError::NoGui)?;
-    let mut stream = open_pipe_client(&pipe_name).map_err(|_| McpBridgeError::NoGui)?;
+    let mut stream = open_pipe_client_with_retry(&pipe_name)?;
     bridge_exchange(&mut stream, tool, arguments)
 }
 
@@ -175,17 +209,13 @@ mod tests {
     use std::sync::mpsc;
     use std::time::Duration;
 
-    fn test_pipe_name() -> String {
-        mcp_pipe_name("S-1-5-21-schedule-viewer-test")
-    }
-
     #[test]
     fn pipe_roundtrips_length_prefixed_frame() {
-        let pipe_name = test_pipe_name();
-        let security = PipeSecurity::for_current_user().expect("security");
+        let pipe_name = mcp_pipe_name("S-1-5-21-schedule-viewer-test-roundtrip");
         let server_name = pipe_name.clone();
         let (ready_tx, ready_rx) = mpsc::channel();
         let server = thread::spawn(move || {
+            let security = PipeSecurity::for_current_user().expect("security");
             let handle = create_pipe_server(&server_name, &security).expect("server pipe");
             let _ = ready_tx.send(());
             let connected = unsafe { ConnectNamedPipe(handle, ptr::null_mut()) };
@@ -226,10 +256,48 @@ mod tests {
 
     #[test]
     fn skips_new_listener_when_pipe_is_alive() {
-        let pipe_name = test_pipe_name();
+        let pipe_name = mcp_pipe_name("S-1-5-21-schedule-viewer-test-alive");
         let security = PipeSecurity::for_current_user().expect("security");
         let handle = create_pipe_server(&pipe_name, &security).expect("server pipe");
         assert!(can_connect_to_pipe(&pipe_name));
         let _ = unsafe { CloseHandle(handle) };
+    }
+
+    #[test]
+    fn open_pipe_client_with_retry_waits_for_busy_pipe() {
+        use std::sync::{Arc, Mutex};
+
+        let pipe_name = mcp_pipe_name("S-1-5-21-schedule-viewer-test-busy");
+        let security = PipeSecurity::for_current_user().expect("security");
+        let server_handle = create_pipe_server(&pipe_name, &security).expect("server pipe");
+        let server = thread::spawn(move || {
+            let connected = unsafe { ConnectNamedPipe(server_handle, ptr::null_mut()) };
+            if connected == 0 {
+                let err = unsafe { GetLastError() };
+                if err != ERROR_PIPE_CONNECTED {
+                    panic!("connect: {}", err);
+                }
+            }
+            thread::sleep(Duration::from_millis(300));
+            let _ = unsafe { DisconnectNamedPipe(server_handle) };
+            let _ = unsafe { CloseHandle(server_handle) };
+        });
+
+        let client_hold = open_pipe_client(&pipe_name).expect("first client");
+        assert_eq!(
+            open_pipe_client(&pipe_name).unwrap_err(),
+            ERROR_PIPE_BUSY,
+        );
+
+        let shared = Arc::new(Mutex::new(Some(client_hold)));
+        let shared_clone = Arc::clone(&shared);
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(80));
+            shared_clone.lock().expect("hold").take();
+        });
+
+        let file = open_pipe_client_with_retry(&pipe_name).expect("retry connects");
+        drop(file);
+        server.join().expect("server thread");
     }
 }

@@ -488,6 +488,7 @@
 | `mcp_pipe_name_includes_identifier_and_sid` | Windows のパイプ名に identifier と SID が入る | MCP-01 |
 | `pipe_roundtrips_length_prefixed_frame` | Windows の名前付きパイプで長さ付き JSON が往復する | MCP-01 |
 | `skips_new_listener_when_pipe_is_alive` | 接続できるパイプは取り替えない | MCP-01 |
+| `open_pipe_client_with_retry_waits_for_busy_pipe` | 使用中の名前付きパイプは接続を試し直し、解放後に繋がる | MCP-01 |
 
 ## 自動テストが無いところ
 
