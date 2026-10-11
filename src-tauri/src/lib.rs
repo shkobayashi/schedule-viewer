@@ -1,4 +1,7 @@
 mod json_skills;
+mod mcp_app_data;
+mod mcp_bridge;
+pub mod mcp_stdio;
 mod window_session;
 
 use json_skills::{
@@ -14,6 +17,10 @@ use tauri::Emitter;
 use tauri::Manager;
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
+use mcp_bridge::{
+    cleanup_mcp_socket, mcp_reply, start_mcp_bridge_server, McpBridgeState,
+};
+use std::sync::Arc;
 use window_session::{
     all_windows_startup_settled, any_startup_auto_update_enabled, create_schedule_webview,
     delete_filter_for_path, delete_recovery_for_path, forget_startup_settlement,
@@ -1645,6 +1652,13 @@ fn cancel_application_update(
     Ok(())
 }
 
+#[tauri::command]
+fn get_executable_path() -> Result<String, String> {
+    std::env::current_exe()
+        .map(|path| path.to_string_lossy().into_owned())
+        .map_err(|e| format!("実行ファイルの場所を取得できません: {}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1681,6 +1695,12 @@ pub fn run() {
             let handle = app.handle().clone();
             if let Ok(dir) = app_data_dir(&handle) {
                 let _ = migrate_legacy_session(&dir);
+                let bridge = Arc::new(McpBridgeState::new(dir.clone()));
+                app.manage(bridge.clone());
+                let without_tauri = mcp_app_data::app_data_dir_without_tauri();
+                if without_tauri.as_deref() == Some(dir.as_path()) {
+                    let _ = start_mcp_bridge_server(handle.clone(), bridge);
+                }
                 let session = handle.state::<Mutex<WindowSessionState>>();
                 let mut guard = session.lock().expect("window session");
                 if !guard.startup_spawned {
@@ -1690,6 +1710,13 @@ pub fn run() {
                 }
             }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Some(state) = window.try_state::<Arc<McpBridgeState>>() {
+                    state.bump_generation(window.label());
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             open_schedule_file,
@@ -1744,9 +1771,18 @@ pub fn run() {
             pick_json_skill_folder,
             install_json_skills,
             uninstall_json_skills,
+            get_executable_path,
+            mcp_reply,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                if let Ok(dir) = app_data_dir(app) {
+                    cleanup_mcp_socket(&dir);
+                }
+            }
+        });
 }
 
 #[cfg(test)]

@@ -186,6 +186,9 @@
 | 同上 | `shows empty groups and categories when filters and lineage are clear` | VIEW-01, VIEW-03, FILTER-09 |
 | 同上 | `hides empty groups when a filter is set` | FILTER-09 |
 | 同上 | `hides empty groups when lineage is set` | FILTER-09 |
+| `screenContext.test.ts` | `keeps broken-link endpoints only when relation is broken` | MCP-01 |
+| 同上 | `keeps unassigned and unknown assignee when assignee filter is unassigned` | MCP-01, FILTER-03 |
+| 同上 | `respects lineage and still returns selected task outside filter` | MCP-01, FILTER-08, EDIT-01 |
 | `scheduleDiff.test.ts` | `says there is no difference when the documents match` | FILE-07 |
 | 同上 | `shows tag changes and distinguishes comma inside a tag from separate tags` | FILE-07 |
 | 同上 | `shows calendar-day shifts for start and end` | FILE-07 |
@@ -756,6 +759,10 @@
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
+| TC-MCP-01 | MCP-01 | デスクトップ版、スケジュールを開いている | 設定の「画面の状態を渡す」でコマンドをコピーし、Cursor または Claude の MCP に登録して `screen_context` を1回呼ぶ | 絞り込みで残るタスク、フィルタ条件、選択、差分テキストが返る。画面の絞り込みは変わらない |
+| TC-MCP-01b | MCP-01 | アプリを終了した状態 | 登録した MCP で `screen_context` を呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
+| TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `screen_context` を呼ぶ | 前面の絞り込み結果が返る |
+| TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
 
 ## リリース前確認
 

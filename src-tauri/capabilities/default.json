@@ -49,6 +49,7 @@
     "allow-pick-json-skill-folder",
     "allow-install-json-skills",
     "allow-uninstall-json-skills",
+    "allow-mcp",
     "updater:default",
     "opener:default",
     "process:allow-restart"

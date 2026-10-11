@@ -28,7 +28,10 @@ flowchart TD
 | `src/hooks/` | 文書（スケジュールの内容）、ファイル、ズーム、今日、メンバー、カレンダーの状態 |
 | `src/model/` | 型、検証、行、座標、履歴、書き出し。I/O を持つのは一部だけ |
 | `src/sample/` | 起動時のサンプル |
-| `src-tauri/src/lib.rs` | ダイアログ、一時ファイルを使った安全な置き換え、アプリデータ、内容ハッシュ |
+| `src-tauri/src/lib.rs` | ダイアログ、一時ファイルを使った安全な置き換え、アプリデータ、内容ハッシュ、MCP 待ち受け |
+| `src-tauri/src/mcp_stdio.rs` | `--mcp` 起動の標準入出力 JSON-RPC（`initialize`、`tools/list`、`tools/call`） |
+| `src-tauri/src/mcp_bridge.rs` | アプリデータのローカルソケットと、前面 webview への `mcp-screen-request` |
+| `src-tauri/src/mcp_app_data.rs` | Tauri を起動せずにアプリデータディレクトリと `mcp.sock` のパスを決める |
 | `scripts/` | 検証器の生成、サンプル検査、バージョン同期 |
 | `docs/*.schema.json` | JSON Schema の正本 |
 | `.cursor/skills/` | LLM 用のスキル。`implement-change` はこのリポジトリの実装手順、`review-project` は全体レビューの手順。`update-schedule-schema` はスケジュール JSON の形を変えるとき。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使う |
@@ -73,6 +76,7 @@ flowchart TD
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
 | `useAppCalendar` | カレンダーの読み込み |
+| `useMcpScreenBridge` | デスクトップ版だけ。`mcp-screen-request` を受け、`screenContext` と `scheduleDiffLoad` で組み立てて `mcp_reply` する |
 
 ### モデル
 
@@ -86,7 +90,9 @@ flowchart TD
 | 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`dates.ts`、`monthHeader.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
 | 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
-| 画面と開いているファイルの差分 | `scheduleDiff.ts` |
+| 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffLoad.ts` |
+| MCP 用の画面スナップショット | `screenContext.ts`、`mcpRegistration.ts` |
+| 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportView.ts`、`exportFilename.ts` |
@@ -170,7 +176,9 @@ flowchart TD
 
 設定ダイアログの下に出す今の版は、デスクトップ版では `@tauri-apps/api/app` の `getVersion`（権限 `core:app:allow-version`）を、ブラウザ版では `package.json` の `version` を、設定を初めて開いたときに 1 回だけ読む。整形した 1 行は [src/components/SettingsDialog.tsx](../src/components/SettingsDialog.tsx) のモジュール内に残し、閉じたあとも取り直さない。新しい Tauri 命令は足さない。
 
-`create_schedule_window` が追加ウィンドウを作り、検証済みの内容を pending として預ける。ウィンドウを作れなかったときは、一覧と pending を戻す。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出す。
+`create_schedule_window` が追加ウィンドウを作り、検証済みの内容を pending として預ける。ウィンドウを作れなかったときは、一覧と pending を戻す。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出す。引数が `--mcp` だけの起動は `main` で分岐し、この処理には含めない。
+
+MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をアプリデータの `mcp.sock`（Unix、所有者のみ）へ送る。GUI は `setup` で待ち受けを始め、`read_open_windows` の `focused_label` の webview だけへ `mcp-screen-request` を送る。応答は `mcp_reply` で返す。ウィンドウごとの世代番号で遅れた応答を捨てる。判定はフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけである。表示状態は変えず、スケジュール JSON にも書かない。
 
 保存は、外部更新の確認を待つあいだも一つの処理だけが進む。確認を出して戻ったあとに、上書きや別名保存を続ける。
 
@@ -255,6 +263,8 @@ flowchart TD
 | `pick_json_skill_folder` | フォルダダイアログ。選んだ絶対パスまたは取り消し | — | 同上 | 同上 |
 | `install_json_skills` | ツール、範囲、プロジェクトフォルダ、置き換え。置いたパス、既存パス、Claude の優先警告 | 同梱スキル欠落、パス不正 | 同上 | 同上 |
 | `uninstall_json_skills` | ツール、範囲、プロジェクトフォルダ。外したパスと無かったパス | パス不正 | 同上 | 同上 |
+| `get_executable_path` | 引数なし。実行ファイルの絶対パス | — | `mcp.toml` | `mcpRegistration.ts` |
+| `mcp_reply` | 相関 id、世代、MCP ツール結果の JSON | — | 同上 | `useMcpScreenBridge.ts` |
 
 ダイアログで選んだだけでは `ScheduleFileState` は更新されない。検証に通したあと `accept_opened_schedule` を呼ぶ。
 
@@ -275,6 +285,8 @@ capability はメインウィンドウと `schedule-*` ウィンドウに、`cor
 上書きは、開いているパスとフロントが渡したパスが一致するときだけ行う。任意のパスを読めるコマンドは無く、`read_last_schedule_file` は覚えたパス（無ければ控えのパス）だけを読む。`read_schedule_file_at_path` は控えに書いたパスだけを読む。`read_open_schedule_file` は呼び出し元からパスを受け取らず、`ScheduleFileState` が覚えている開いているパスだけを読む。保存するファイル名は、区切り文字、制御文字、Windows の予約名を除く。カタログ ID も、パスに使えない文字を拒否する。
 
 JSON 作成スキルの配置は `install_json_skills` だけが行う。外すのは `uninstall_json_skills` だけである。書けるのは、ログイン中のユーザーのホーム配下の `~/.cursor/skills/<name>/` と `~/.claude/skills/<name>/`、または利用者がフォルダダイアログで選んだ絶対パス配下の `.cursor/skills/<name>/` と `.claude/skills/<name>/` だけである。外すのも同じ `<name>` の3つだけである。`<name>` は `write-schedule`、`write-members`、`write-calendar` の3つだけ。プロジェクトフォルダはシンボリックリンクを拒否する。宛先がシンボリックリンクのときはリンクだけ外し、リンク先は消さない。`.cursor` と `.claude` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。中身はバンドル内 `json-skills/` からコピーする。外すときは skills フォルダや別名のスキルは残す。スキルフォルダの中にあるシンボリックリンクの先は消さない。
+
+MCP のローカルソケットは、Tauri の `app_data_dir` と `dirs::data_dir` が同じときだけ GUI が待ち受ける。ソケットは所有者のみが読み書きできる。接続元の UID を確認し、本人以外は拒否する。`--mcp` プロセスはファイルを直接読まず、前面 webview の読み取りだけを使う。応答は前面 1 ウィンドウ分で、スケジュール読み込み上限 10MB を超えたらエラーにする。待ち受け TCP ポートは持たない。
 
 ## 描画
 

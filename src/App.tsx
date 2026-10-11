@@ -66,16 +66,11 @@ import { useAppAutoUpdate } from "./hooks/useAppAutoUpdate";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
-import { errorMessage } from "./model/errors";
-import {
-  NO_OPEN_SCHEDULE_FILE_MESSAGE,
-  formatScheduleDiff,
-} from "./model/scheduleDiff";
+import { NO_OPEN_SCHEDULE_FILE_MESSAGE } from "./model/scheduleDiff";
+import { loadScheduleDiffText as loadScheduleDiffTextCore } from "./model/scheduleDiffLoad";
+import { useMcpScreenBridge } from "./hooks/useMcpScreenBridge";
 import {
   isTauri,
-  parseScheduleText,
-  readOpenScheduleFileViaTauri,
-  scheduleJsonFilename,
   serializeScheduleDocument,
 } from "./model/scheduleFile";
 import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
@@ -232,7 +227,12 @@ function App() {
   uiScaleRef.current = uiScale;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
-    "display" | "members" | "calendar" | "updates" | "jsonSkills"
+    | "display"
+    | "members"
+    | "calendar"
+    | "updates"
+    | "mcp"
+    | "jsonSkills"
   >("display");
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(
     readAutoUpdateEnabled,
@@ -990,41 +990,35 @@ function App() {
   const loadScheduleDiffText = useCallback(async (): Promise<
     { ok: true; text: string } | { ok: false; message: string; showDialog: boolean }
   > => {
-    if (!isTauri() || !scheduleFile.filePath) {
-      return {
-        ok: false,
-        message: NO_OPEN_SCHEDULE_FILE_MESSAGE,
-        showDialog: true,
-      };
+    const result = await loadScheduleDiffTextCore(
+      scheduleFile.filePath,
+      scheduleFile.currentJson,
+    );
+    if (result.ok) {
+      return { ok: true, text: result.text };
     }
-    const screenJson = scheduleFile.currentJson;
-    const filename = scheduleJsonFilename(scheduleFile.filePath) ?? "schedule.json";
-    try {
-      const contents = await readOpenScheduleFileViaTauri();
-      const fileParsed = parseScheduleText(contents);
-      if (!fileParsed.ok) {
-        return { ok: false, message: fileParsed.message, showDialog: false };
-      }
-      const screenParsed = parseScheduleText(screenJson);
-      if (!screenParsed.ok) {
-        return { ok: false, message: screenParsed.message, showDialog: false };
-      }
-      return {
-        ok: true,
-        text: formatScheduleDiff(
-          screenParsed.document,
-          fileParsed.document,
-          filename,
-        ),
-      };
-    } catch (error: unknown) {
-      return {
-        ok: false,
-        message: errorMessage(error, "ファイルを読めません。"),
-        showDialog: false,
-      };
-    }
+    return {
+      ok: false,
+      message: result.message,
+      showDialog:
+        !result.isError &&
+        result.message === NO_OPEN_SCHEDULE_FILE_MESSAGE,
+    };
   }, [scheduleFile.currentJson, scheduleFile.filePath]);
+
+  useMcpScreenBridge({
+    categories: schedule.categories,
+    filters: schedule.filters,
+    searchField: schedule.searchField,
+    lineageTaskId: schedule.lineageTaskId,
+    lineageIds: schedule.lineageIds,
+    hiddenMilestoneGroupIds: schedule.hiddenMilestoneGroupIds,
+    selectedTaskId: schedule.selectedTaskId,
+    today: schedule.today,
+    memberMap: memberCatalogState.memberMap,
+    scheduleFilePath: scheduleFile.filePath,
+    scheduleCurrentJson: scheduleFile.currentJson,
+  });
 
   const showScheduleDiff = useCallback(() => {
     if (scheduleFile.fileBusy) return;

@@ -1466,6 +1466,8 @@ export function useSchedule(
     selectTask,
     clearSelection,
     lineageTask,
+    lineageTaskId,
+    lineageIds,
     toggleLineage,
     showLineage,
     clearLineage,
