@@ -271,13 +271,30 @@ function insertTocBeforeFirstH2(bodyHtml, tocHtml) {
   return `${bodyHtml.slice(0, idx)}${tocHtml}${bodyHtml.slice(idx)}`;
 }
 
+function inlinePlainText(tokens) {
+  let plain = "";
+  for (const token of tokens) {
+    if (token.type === "html" || token.type === "image") {
+      continue;
+    }
+    if (Array.isArray(token.tokens) && token.tokens.length > 0) {
+      plain += inlinePlainText(token.tokens);
+      continue;
+    }
+    if (typeof token.text === "string") {
+      plain += token.text;
+    }
+  }
+  return plain;
+}
+
 function createMarked(slugger, tocEntries) {
   const marked = new Marked({ gfm: true });
   marked.use({
     renderer: {
       heading(token) {
         const text = this.parser.parseInline(token.tokens);
-        const plain = text.replace(/<[^>]+>/g, "");
+        const plain = inlinePlainText(token.tokens);
         const id = slugger.slug(plain);
         if (tocEntries && (token.depth === 2 || token.depth === 3)) {
           tocEntries.push({ depth: token.depth, id, text: plain });
