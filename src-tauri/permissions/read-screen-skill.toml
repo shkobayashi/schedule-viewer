@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-install-read-screen-skill"
+description = "Allows installing the read-screen skill for MCP-less clients."
+commands.allow = ["install_read_screen_skill"]
+
+[[permission]]
+identifier = "allow-uninstall-read-screen-skill"
+description = "Allows removing the installed read-screen skill."
+commands.allow = ["uninstall_read_screen_skill"]

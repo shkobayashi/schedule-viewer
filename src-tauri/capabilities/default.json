@@ -49,6 +49,8 @@
     "allow-pick-json-skill-folder",
     "allow-install-json-skills",
     "allow-uninstall-json-skills",
+    "allow-install-read-screen-skill",
+    "allow-uninstall-read-screen-skill",
     "allow-mcp",
     "updater:default",
     "opener:default",

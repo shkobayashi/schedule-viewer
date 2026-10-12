@@ -354,6 +354,7 @@ async function captureDesktopChromeShots(page) {
     fullPage: false,
   });
   await clickSettingsNav(page, "画面の状態を渡す");
+  await page.waitForSelector("h3.settings-changelog-heading");
   await page.waitForSelector(".settings-mcp-json");
   await page.waitForFunction(() => {
     const area = document.querySelector(".settings-mcp-json");
