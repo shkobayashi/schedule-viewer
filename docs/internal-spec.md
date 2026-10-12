@@ -33,7 +33,7 @@ flowchart TD
 | `src-tauri/src/mcp_bridge.rs` | アプリデータのローカルソケットと、前面 webview への `mcp-screen-request` |
 | `src-tauri/src/mcp_app_data.rs` | Tauri を起動せずにアプリデータディレクトリと `mcp.sock` のパスを決める。Windows の名前付きパイプ名も組み立てる |
 | `src-tauri/src/mcp_bridge_windows.rs` | Windows の名前付きパイプ待ち受けと `--mcp` からの接続 |
-| `scripts/` | 検証器の生成、サンプル検査、バージョン同期 |
+| `scripts/` | 検証器の生成、サンプル検査、バージョン同期、操作マニュアルの GitHub Pages 用サイトビルド |
 | `docs/*.schema.json` | JSON Schema の正本 |
 | `.cursor/skills/` | LLM 用のスキル。`implement-change` はこのリポジトリの実装手順、`review-project` は全体レビューの手順。`update-schedule-schema` はスケジュール JSON の形を変えるとき。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使う |
 

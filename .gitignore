@@ -2,6 +2,7 @@
 node_modules/
 dist/
 dist-ssr/
+site/
 *.local
 # tsc -b が参照プロジェクト（vite.config.ts）から出す
 *.tsbuildinfo

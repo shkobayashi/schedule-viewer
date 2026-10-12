@@ -186,6 +186,9 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run dev` | 検証器を生成してから Vite でフロントを起動する（ポート 5173）。`tauri dev` から呼ばれたときはポート 1420 |
 | `npm run build` | 検証器の生成、`tsc`、Vite の本番ビルド |
 | `npm run preview` | 本番ビルドのプレビュー |
+| `npm run dev:manual-screenshot` | 操作マニュアル用の画面ショット撮影向けに、Tauri をモックした Vite を起動する |
+| `npm run capture:manual-screenshots` | [操作マニュアル](user-manual.md) 用の PNG を `docs/user-manual/images/` に生成する。Chrome が入っていること。色の見本は `examples/manual-colors.schedule.json` |
+| `npm run build:manual-site` | [操作マニュアル](user-manual.md) だけを `site/` に静的 HTML として出力する。fragment と画像の参照を検査する。全機能の HTML には h2 と h3 の見出し一覧を出す。出力は git に含めない |
 | `npm run tauri` | Tauri CLI を呼ぶ。後ろに `dev` や `build` を付けて使う |
 | `npm test` | 検証器を生成してから Vitest を1回実行する |
 | `npm run lint` | ESLint |
@@ -203,7 +206,8 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 
 | トリガー | ワークフロー | 内容 |
 | --- | --- | --- |
-| `develop` または `main` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロントと Rust を分け、集約ジョブ `ci` で結果をまとめる |
+| `develop` または `main` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルドを分け、集約ジョブ `ci` で結果をまとめる |
+| `main` への push（操作マニュアルとサイトビルドの入力） | Pages（`.github/workflows/pages.yml`） | `npm run build:manual-site` のあと GitHub Pages へ公開。URL は https://shkobayashi.github.io/schedule-viewer/ 。`workflow_dispatch` でも動く |
 | `main` または `release/**` への push | Release（`.github/workflows/release.yml`） | 版とブランチを検査したあと、環境 `release` の承認のあと、Ubuntu (deb) と Windows (NSIS) をビルドし GitHub Release へ公開。`main` は安定版、`release/X.Y.Z` は Pre-release |
 
 `develop` への push だけでは CI は動かない。CI が動くのは `develop` または `main` 向けの pull request のときである。
@@ -213,9 +217,14 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 - `src-tauri/` または `rust-toolchain.toml` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`）が動く
 - `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、スキル同梱物と `src/model/generated/` の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
-- `docs/*.md` や `README.md` だけの変更では、フロントと Rust はスキップする。集約ジョブ `ci` は成功する
+- `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`）が動く。`package.json` と `package-lock.json` が変わったときも同じ
+- `docs/*.md` や `README.md` だけの変更（操作マニュアル以外）では、フロントと Rust と `manual` はスキップする。集約ジョブ `ci` は成功する
 
-ワークフロー全体の `permissions` は `contents: read` である。Release の `contents: write` は配布ジョブだけに付ける。`actions/checkout` は `persist-credentials: false` である。
+ワークフロー全体の `permissions` は `contents: read` である。Release の `contents: write` は配布ジョブだけに付ける。Pages の `pages: write` と `id-token: write` は deploy ジョブだけに付ける。`actions/checkout` は `persist-credentials: false` である。
+
+### 操作マニュアルの GitHub Pages
+
+リポジトリの **Settings → Pages** で、Source を GitHub Actions にする（API では `build_type=workflow`）。サイトは `main` に載った操作マニュアルだけを公開する。`develop` へのマージだけでは更新されない。全機能のページには、ビルド時に h2 と h3 への目次を出す。手元では `npm run build:manual-site` のあと、`site/` を HTTP サーバで開いて確認する。
 
 ## GitHub のセキュリティ設定
 
