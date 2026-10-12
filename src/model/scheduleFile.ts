@@ -261,3 +261,4 @@ export async function readOpenScheduleFileViaTauri(): Promise<string> {
 }
 
 export { isTauri };
+

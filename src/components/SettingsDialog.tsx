@@ -19,6 +19,10 @@ import {
   formatMembersValidationErrors,
   validateMembers,
 } from "../model/validateMembers";
+
+function settingsDesktopOnly(): boolean {
+  return isTauri() || import.meta.env.MODE === "manual-screenshot";
+}
 import { usesCommandKey } from "../model/shortcuts";
 import { ModalDialog } from "./ModalDialog";
 import { SettingsChangelogHistory } from "./SettingsChangelogHistory";
@@ -52,6 +56,10 @@ import {
   type JsonSkillScope,
   type JsonSkillTools,
 } from "../model/jsonSkills";
+import {
+  installReadScreenSkill,
+  uninstallReadScreenSkill,
+} from "../model/readScreenSkill";
 import { normalizeVersionLabel } from "../model/releaseNotes";
 import { fetchMcpConfigJson } from "../model/mcpRegistration";
 
@@ -65,13 +73,13 @@ function formatAppVersionLine(raw: string): string {
 let cachedAppVersionLine: string | null = null;
 let appVersionFetchPromise: Promise<void> | null = null;
 
-if (!isTauri()) {
+if (!settingsDesktopOnly()) {
   cachedAppVersionLine = formatAppVersionLine(packageJson.version);
 }
 
 function fetchAppVersionLineIfNeeded(): Promise<void> {
   if (cachedAppVersionLine !== null) return Promise.resolve();
-  if (!isTauri()) {
+  if (!settingsDesktopOnly()) {
     cachedAppVersionLine = formatAppVersionLine(packageJson.version);
     return Promise.resolve();
   }
@@ -162,14 +170,40 @@ export function SettingsDialog({
   }, [initialSection, open]);
 
   useEffect(() => {
-    if (!open || section !== "mcp" || !isTauri()) return;
+    setMessage(null);
+    setMcpPanelMessage(null);
+  }, [section]);
+
+  useEffect(() => {
+    if (!open || section !== "mcp" || !settingsDesktopOnly()) return;
     void fetchMcpConfigJson().then((json) => {
       setMcpConfig(json ?? "");
     });
   }, [open, section]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [mcpPanelMessage, setMcpPanelMessage] = useState<{
+    text: string;
+    kind: "status" | "alert";
+  } | null>(null);
   const [mcpConfig, setMcpConfig] = useState("");
+  const [readScreenTools, setReadScreenTools] = useState<JsonSkillTools>("both");
+  const [readScreenInstalledPaths, setReadScreenInstalledPaths] = useState<
+    string[] | null
+  >(null);
+  const [readScreenExecutablePath, setReadScreenExecutablePath] = useState<
+    string | null
+  >(null);
+  const [readScreenRemovedPaths, setReadScreenRemovedPaths] = useState<
+    string[] | null
+  >(null);
+  const [confirmReadScreenReplace, setConfirmReadScreenReplace] = useState(false);
+  const [pendingReadScreenExisting, setPendingReadScreenExisting] = useState<
+    string[] | null
+  >(null);
+  const [confirmReadScreenUninstall, setConfirmReadScreenUninstall] =
+    useState(false);
+  const readScreenToolsTouched = useRef(false);
   const [confirmOverwriteId, setConfirmOverwriteId] = useState<string | null>(
     null,
   );
@@ -227,14 +261,18 @@ export function SettingsDialog({
   useEffect(() => {
     if (!open) {
       jsonSkillToolsTouched.current = false;
+      readScreenToolsTouched.current = false;
       return;
     }
-    if (!isTauri()) return;
+    if (!settingsDesktopOnly()) return;
     let cancelled = false;
     void fetchJsonSkillHomeDirs()
       .then((homeDirs) => {
         if (cancelled || jsonSkillToolsTouched.current) return;
         setJsonSkillTools(defaultJsonSkillTools(homeDirs));
+        if (!readScreenToolsTouched.current) {
+          setReadScreenTools(defaultJsonSkillTools(homeDirs));
+        }
       })
       .catch(() => {
         if (!cancelled && !jsonSkillToolsTouched.current) {
@@ -403,7 +441,7 @@ export function SettingsDialog({
   };
 
   const handlePickJsonSkillFolder = async () => {
-    if (!isTauri()) return;
+    if (!settingsDesktopOnly()) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -425,6 +463,82 @@ export function SettingsDialog({
     }
     setMessage(null);
     setConfirmJsonSkillUninstall(true);
+  };
+
+  const chooseReadScreenTools = (tools: JsonSkillTools) => {
+    readScreenToolsTouched.current = true;
+    setReadScreenTools(tools);
+  };
+
+  const runReadScreenInstall = async (replace: boolean) => {
+    setBusy(true);
+    setMcpPanelMessage(null);
+    try {
+      const result = await installReadScreenSkill({
+        tools: readScreenTools,
+        replace,
+      });
+      if (!replace && result.existingPaths.length > 0) {
+        setPendingReadScreenExisting(result.existingPaths);
+        setConfirmReadScreenReplace(true);
+        return;
+      }
+      setReadScreenInstalledPaths(result.installedPaths);
+      setReadScreenExecutablePath(result.executablePath);
+      setReadScreenRemovedPaths(null);
+      setConfirmReadScreenReplace(false);
+      setPendingReadScreenExisting(null);
+      setMcpPanelMessage({
+        text: "画面の状態を読むスキルを置きました。",
+        kind: "status",
+      });
+    } catch (error) {
+      setMcpPanelMessage({
+        text:
+          error instanceof Error ? error.message : "スキルを置けませんでした。",
+        kind: "alert",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const requestReadScreenUninstall = () => {
+    setMcpPanelMessage(null);
+    setConfirmReadScreenUninstall(true);
+  };
+
+  const runReadScreenUninstall = async () => {
+    setBusy(true);
+    setMcpPanelMessage(null);
+    try {
+      const result = await uninstallReadScreenSkill({ tools: readScreenTools });
+      setReadScreenRemovedPaths(result.removedPaths);
+      setReadScreenInstalledPaths((current) =>
+        current?.filter((path) => !result.removedPaths.includes(path)) ?? null,
+      );
+      setConfirmReadScreenUninstall(false);
+      if (result.removedPaths.length === 0) {
+        setMcpPanelMessage({
+          text: "選んだ場所に read-screen は見つかりませんでした。",
+          kind: "status",
+        });
+        return;
+      }
+      setReadScreenExecutablePath(null);
+      setMcpPanelMessage({
+        text: "画面の状態を読むスキルを外しました。",
+        kind: "status",
+      });
+    } catch (error) {
+      setMcpPanelMessage({
+        text:
+          error instanceof Error ? error.message : "スキルを外せませんでした。",
+        kind: "alert",
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const runJsonSkillUninstall = async () => {
@@ -489,6 +603,7 @@ export function SettingsDialog({
             <button
               type="button"
               className={section === "display" ? "active" : undefined}
+              aria-current={section === "display" ? "true" : undefined}
               onClick={() => setSection("display")}
             >
               表示
@@ -496,6 +611,7 @@ export function SettingsDialog({
             <button
               type="button"
               className={section === "members" ? "active" : undefined}
+              aria-current={section === "members" ? "true" : undefined}
               onClick={() => setSection("members")}
             >
               メンバー
@@ -503,23 +619,26 @@ export function SettingsDialog({
             <button
               type="button"
               className={section === "calendar" ? "active" : undefined}
+              aria-current={section === "calendar" ? "true" : undefined}
               onClick={() => setSection("calendar")}
             >
               稼働日
             </button>
-            {isTauri() ? (
+            {settingsDesktopOnly() ? (
               <button
                 type="button"
                 className={section === "updates" ? "active" : undefined}
+                aria-current={section === "updates" ? "true" : undefined}
                 onClick={() => setSection("updates")}
               >
                 更新
               </button>
             ) : null}
-            {isTauri() ? (
+            {settingsDesktopOnly() ? (
               <button
                 type="button"
                 className={section === "mcp" ? "active" : undefined}
+                aria-current={section === "mcp" ? "true" : undefined}
                 onClick={() => setSection("mcp")}
               >
                 画面の状態を渡す
@@ -528,6 +647,7 @@ export function SettingsDialog({
             <button
               type="button"
               className={section === "jsonSkills" ? "active" : undefined}
+              aria-current={section === "jsonSkills" ? "true" : undefined}
               onClick={() => setSection("jsonSkills")}
             >
               JSON作成スキルを置く
@@ -758,11 +878,12 @@ export function SettingsDialog({
                 </div>
               </>
             ) : null}
-            {section === "mcp" && isTauri() ? (
+            {section === "mcp" && settingsDesktopOnly() ? (
               <>
+                <h3 className="settings-changelog-heading">mcp.json に登録する</h3>
                 <p className="settings-note">
-                  登録した Cursor または Claude が、このアプリと同じバイナリを、ウィンドウを出さずに起動します。下の JSON をコピーして、mcp.json
-                  に貼ります。スケジュールのウィンドウが開いていないときは、渡せません。ウィンドウが複数のときは、前面のウィンドウだけを渡します。
+                  MCP を使える Cursor または Claude 向けです。下の JSON をコピーして、mcp.json
+                  に貼ります。渡すのは差分（schedule_diff）、選択中のタスク（selected_task）、オンな絞り込みと残るタスク（filtered_tasks）です。下のスキルを置いても、この登録は終わりません。スケジュールのウィンドウが開いていないときは渡せません。ウィンドウが複数のときは前面だけです。
                 </p>
                 <label className="settings-field">
                   <span>mcp.json</span>
@@ -781,17 +902,110 @@ export function SettingsDialog({
                     disabled={!mcpConfig}
                     onClick={() => {
                       void navigator.clipboard.writeText(mcpConfig).then(
-                        () => setMessage("JSON をコピーしました。"),
-                        () => setMessage(null),
+                        () =>
+                          setMcpPanelMessage({
+                            text: "JSON をコピーしました。",
+                            kind: "status",
+                          }),
+                        () =>
+                          setMcpPanelMessage({
+                            text: "コピーできませんでした。",
+                            kind: "alert",
+                          }),
                       );
                     }}
                   >
                     コピー
                   </button>
                 </div>
+                <h3 className="settings-changelog-heading">MCP を使えないときに渡す</h3>
+                <p className="settings-note">
+                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルのパスをスキルへ書き込みます。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 3 つは「JSON作成スキルを置く」にあります。
+                </p>
+                <fieldset className="settings-field" disabled={busy}>
+                  <legend>置く先</legend>
+                  <label className="settings-field-check">
+                    <input
+                      type="radio"
+                      name="readScreenTools"
+                      checked={readScreenTools === "cursor"}
+                      onChange={() => chooseReadScreenTools("cursor")}
+                    />
+                    <span>Cursor</span>
+                  </label>
+                  <label className="settings-field-check">
+                    <input
+                      type="radio"
+                      name="readScreenTools"
+                      checked={readScreenTools === "claude"}
+                      onChange={() => chooseReadScreenTools("claude")}
+                    />
+                    <span>Claude Code</span>
+                  </label>
+                  <label className="settings-field-check">
+                    <input
+                      type="radio"
+                      name="readScreenTools"
+                      checked={readScreenTools === "both"}
+                      onChange={() => chooseReadScreenTools("both")}
+                    />
+                    <span>両方（同じ内容を置く）</span>
+                  </label>
+                </fieldset>
+                <div className="settings-actions">
+                  <button
+                    type="button"
+                    className="toolbar-btn"
+                    disabled={busy}
+                    onClick={() => void runReadScreenInstall(false)}
+                  >
+                    置く
+                  </button>
+                  <button
+                    type="button"
+                    className="toolbar-btn"
+                    disabled={busy}
+                    onClick={() => requestReadScreenUninstall()}
+                  >
+                    外す
+                  </button>
+                </div>
+                {readScreenRemovedPaths && readScreenRemovedPaths.length > 0 ? (
+                  <div className="settings-current">
+                    <p>外したパス:</p>
+                    <ul className="settings-path-list">
+                      {readScreenRemovedPaths.map((path) => (
+                        <li key={path}>{path}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {readScreenInstalledPaths && readScreenInstalledPaths.length > 0 ? (
+                  <div className="settings-current">
+                    <p>置いたパス:</p>
+                    <ul className="settings-path-list">
+                      {readScreenInstalledPaths.map((path) => (
+                        <li key={path}>{path}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {readScreenExecutablePath ? (
+                  <p className="settings-note">
+                    スキルへ書き込んだ実行ファイル: {readScreenExecutablePath}
+                  </p>
+                ) : null}
+                {mcpPanelMessage ? (
+                  <p
+                    className="settings-message"
+                    role={mcpPanelMessage.kind === "alert" ? "alert" : "status"}
+                  >
+                    {mcpPanelMessage.text}
+                  </p>
+                ) : null}
               </>
             ) : null}
-            {section === "updates" && isTauri() ? (
+            {section === "updates" && settingsDesktopOnly() ? (
               <>
                 <p className="settings-note">
                   オンにすると、次回の起動から GitHub Releases
@@ -817,14 +1031,14 @@ export function SettingsDialog({
                   write-schedule、write-members、write-calendar
                   の3つをまとめて置きます。中身はマージしません。git
                   には入れず、置いたパスだけを使います。検証スクリプトは Node.js
-                  で動かします。
+                  で動かします。画面の状態を渡す手順は、設定の「画面の状態を渡す」にあります。
                 </p>
-                {!isTauri() ? (
+                {!settingsDesktopOnly() ? (
                   <p className="settings-note">
                     この操作はデスクトップ版でのみ使えます。
                   </p>
                 ) : null}
-                <fieldset className="settings-field" disabled={busy || !isTauri()}>
+                <fieldset className="settings-field" disabled={busy || !settingsDesktopOnly()}>
                   <legend>置く先</legend>
                   <label className="settings-field-check">
                     <input
@@ -854,7 +1068,7 @@ export function SettingsDialog({
                     <span>両方（同じ内容を置く）</span>
                   </label>
                 </fieldset>
-                <fieldset className="settings-field" disabled={busy || !isTauri()}>
+                <fieldset className="settings-field" disabled={busy || !settingsDesktopOnly()}>
                   <legend>範囲</legend>
                   <label className="settings-field-check">
                     <input
@@ -882,7 +1096,7 @@ export function SettingsDialog({
                       <button
                         type="button"
                         className="toolbar-btn"
-                        disabled={busy || !isTauri()}
+                        disabled={busy || !settingsDesktopOnly()}
                         onClick={() => void handlePickJsonSkillFolder()}
                       >
                         フォルダを選ぶ…
@@ -901,7 +1115,7 @@ export function SettingsDialog({
                     className="toolbar-btn"
                     disabled={
                       busy ||
-                      !isTauri() ||
+                      !settingsDesktopOnly() ||
                       confirmJsonSkillReplace ||
                       confirmJsonSkillUninstall
                     }
@@ -914,7 +1128,7 @@ export function SettingsDialog({
                     className="toolbar-btn"
                     disabled={
                       busy ||
-                      !isTauri() ||
+                      !settingsDesktopOnly() ||
                       confirmJsonSkillReplace ||
                       confirmJsonSkillUninstall
                     }
@@ -951,10 +1165,10 @@ export function SettingsDialog({
                 ) : null}
               </>
             ) : null}
-            {message ? (
+            {section !== "mcp" && message ? (
               <p
                 className="settings-message"
-                role={messageIsError ? "alert" : undefined}
+                role={messageIsError ? "alert" : "status"}
               >
                 {message}
               </p>
@@ -1053,6 +1267,67 @@ export function SettingsDialog({
                   setConfirmJsonSkillReplace(false);
                   setPendingJsonSkillExisting(null);
                 }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {section === "mcp" &&
+        confirmReadScreenReplace &&
+        pendingReadScreenExisting ? (
+          <div className="settings-confirm">
+            <p>
+              次の場所に read-screen があります。上書きしますか？中身はマージしません。
+            </p>
+            <ul className="settings-path-list">
+              {pendingReadScreenExisting.map((path) => (
+                <li key={path}>{path}</li>
+              ))}
+            </ul>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="toolbar-btn"
+                disabled={busy}
+                onClick={() => void runReadScreenInstall(true)}
+              >
+                上書き
+              </button>
+              <button
+                type="button"
+                className="toolbar-btn"
+                disabled={busy}
+                onClick={() => {
+                  setConfirmReadScreenReplace(false);
+                  setPendingReadScreenExisting(null);
+                }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {section === "mcp" && confirmReadScreenUninstall ? (
+          <div className="settings-confirm">
+            <p>
+              選んだ場所から read-screen だけを外します。ほかのスキルや skills
+              フォルダ自体は残します。
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="toolbar-btn"
+                disabled={busy}
+                onClick={() => void runReadScreenUninstall()}
+              >
+                外す
+              </button>
+              <button
+                type="button"
+                className="toolbar-btn"
+                disabled={busy}
+                onClick={() => setConfirmReadScreenUninstall(false)}
               >
                 キャンセル
               </button>

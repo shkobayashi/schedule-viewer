@@ -25,7 +25,7 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 - デスクトップ版で、開いている画面の差分・選択・絞り込みを、同じバイナリの MCP 入口（`--mcp`）から LLM に渡す（`schedule_diff` / `selected_task` / `filtered_tasks`。設定の「画面の状態を渡す」で mcp.json に貼る JSON をコピー）
 - 開いている JSON がほかのプログラムに書き換えられたときの反映と、前回開いたファイルと未保存の編集の次回起動時の復元
 
-操作の手順は [操作マニュアル](docs/user-manual.md)、挙動の定義は [外部仕様](docs/external-spec.md) を参照。
+操作の手順は [操作マニュアル](docs/user-manual.md)（公開版は https://shkobayashi.github.io/schedule-viewer/ ）、挙動の定義は [外部仕様](docs/external-spec.md) を参照。
 
 ## 技術スタック
 
@@ -42,7 +42,7 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 
 ## インストール
 
-メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から取得する。Release には配布物の SHA-256（`SHA256SUMS`）が付く。
+メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) の Latest（安定版）から取得する。Pre-release は実機確認用であり、自動更新では届かない。Release には配布物の SHA-256（`SHA256SUMS`）が付く。Ubuntu でベータの deb を入れたあとに安定版へ移すときは、先にベータの deb を外す。
 
 - **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`
 - **Windows (x64)**: `schedule-viewer_X.Y.Z_x64-setup.exe` を実行する。インストーラは自己署名である。同じ Release の `schedule-viewer-codesign.cer` を入れた PC では発行元が `schedule-viewer` と表示される。入れていない PC では SmartScreen の確認が出ることがある（[開発ガイド](docs/development.md#release-後に証明書を入れる)）
@@ -51,9 +51,7 @@ macOS 用の自動ビルドはまだない。必要なときは、[開発ガイ�
 
 ## 使い始める
 
-起動直後はサンプルのスケジュールが表示される。☰ メニューの「開く」で、検証済みのスケジュール JSON を読み込む。JSON は、`write-schedule` スキルを LLM 用に置き、LLM に作らせる。デスクトップ版では設定の「JSON作成スキルを置く」から置ける。設定の「メンバー」でメンバー JSON を取り込むと、担当者 ID が名前で表示される。メンバー JSON は `write-members` スキルで作る。
-
-ファイルの開き方、絞り込み、編集、書き出しは [操作マニュアル](docs/user-manual.md) にまとめてある。
+起動直後はサンプルのスケジュールが表示される。入手と、☰ の「開く」「保存」までの短い手順は [操作マニュアルのはじめに](docs/user-manual/getting-started.md) にある。スケジュール JSON を LLM とスキルで作る流れは [チュートリアル](docs/user-manual/tutorial.md)、絞り込みや編集などの操作は [全機能](docs/user-manual/features.md) にある。文書の入口は [操作マニュアル](docs/user-manual.md) です。
 
 ## ドキュメント
 
@@ -61,7 +59,7 @@ macOS 用の自動ビルドはまだない。必要なときは、[開発ガイ�
 
 | 文書 | 内容 |
 | --- | --- |
-| [操作マニュアル](docs/user-manual.md) | 利用者向けの手順 |
+| [操作マニュアル](docs/user-manual.md) | 利用者向けの手順（[はじめに](docs/user-manual/getting-started.md)、[チュートリアル](docs/user-manual/tutorial.md)、[全機能](docs/user-manual/features.md)） |
 | [外部仕様](docs/external-spec.md) | 画面と機能の挙動。機能 ID の正本 |
 | [データ仕様](docs/data-format.md) | スケジュール、メンバー、カレンダーの JSON とアプリデータ |
 | [内部仕様](docs/internal-spec.md) | 構成、状態、Tauri コマンド、描画 |
@@ -97,7 +95,7 @@ npm run tauri dev
 ├── docs/                               # 仕様、計画、JSON スキーマ
 ├── examples/                           # 手動で開く例とカレンダー例
 ├── .cursor/skills/                     # LLM 用スキル（implement-change は実装、review-project は全体レビュー。write-schedule / write-members / write-calendar は他のリポジトリへコピーして使う）
-├── .github/workflows/                  # develop 向け CI と main 向け Release
+├── .github/workflows/                  # develop 向け CI と、main および release/** 向け Release
 ├── .devcontainer/                      # DevContainer 定義
 └── mockup/
     └── schedule-viewer-mockup.html     # Konva 単体での初期検証用。アプリ本体からは使わない

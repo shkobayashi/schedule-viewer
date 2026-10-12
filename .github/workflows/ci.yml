@@ -13,6 +13,7 @@ jobs:
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       rust: ${{ steps.filter.outputs.rust }}
+      manual: ${{ steps.filter.outputs.manual }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -24,6 +25,7 @@ jobs:
           HEAD="${{ github.sha }}"
           frontend=false
           rust=false
+          manual=false
           while IFS= read -r file; do
             case "$file" in
               src-tauri/*|rust-toolchain.toml)
@@ -33,6 +35,9 @@ jobs:
                 frontend=true
                 rust=true
                 ;;
+              docs/user-manual/*|docs/user-manual.md|scripts/build-user-manual-site.mjs|scripts/manual-site/*|.github/workflows/pages.yml)
+                manual=true
+                ;;
               index.html|src/*|scripts/*|docs/schedule.schema.json|docs/members.schema.json|docs/calendar.schema.json|examples/*|package.json|package-lock.json|eslint.config.js|vite.config.ts|tsconfig.json|tsconfig.node.json|vitest.config.ts|.cursor/skills/write-schedule/*|.cursor/skills/write-calendar/*|.cursor/skills/write-members/*)
                 frontend=true
                 ;;
@@ -40,6 +45,7 @@ jobs:
           done < <(git diff --name-only "$BASE" "$HEAD")
           echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
           echo "rust=$rust" >> "$GITHUB_OUTPUT"
+          echo "manual=$manual" >> "$GITHUB_OUTPUT"
 
   frontend:
     needs: changes
@@ -79,6 +85,8 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+          cache: npm
+      - run: npm ci
       - run: npm run version:check
       - name: Install Linux packages for Tauri
         if: matrix.os == 'ubuntu-latest'
@@ -117,9 +125,24 @@ jobs:
       - run: cargo test --locked
         working-directory: src-tauri
 
+  manual:
+    needs: changes
+    if: needs.changes.outputs.manual == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run build:manual-site
+
   ci:
     name: ci
-    needs: [changes, frontend, rust]
+    needs: [changes, frontend, rust, manual]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -135,5 +158,9 @@ jobs:
           fi
           if [ "${{ needs.changes.outputs.rust }}" = "true" ] && [ "${{ needs.rust.result }}" != "success" ]; then
             echo "rust job did not succeed"
+            exit 1
+          fi
+          if [ "${{ needs.changes.outputs.manual }}" = "true" ] && [ "${{ needs.manual.result }}" != "success" ]; then
+            echo "manual job did not succeed"
             exit 1
           fi

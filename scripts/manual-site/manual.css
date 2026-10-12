@@ -1,0 +1,172 @@
+:root {
+  color-scheme: light dark;
+  --text: #1a1a1a;
+  --muted: #555;
+  --link: #0969da;
+  --border: #d8dee4;
+  --bg: #fff;
+  --nav-bg: #f6f8fa;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --link: #4493f8;
+    --border: #30363d;
+    --bg: #0d1117;
+    --nav-bg: #161b22;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  line-height: 1.65;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.site-nav {
+  border-bottom: 1px solid var(--border);
+  background: var(--nav-bg);
+  padding: 0.75rem 1rem;
+}
+
+.site-nav ul {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  max-width: 48rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+
+.site-nav a {
+  color: var(--link);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.site-nav a[aria-current="page"] {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.site-nav a:hover {
+  text-decoration: underline;
+}
+
+main {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+main img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1rem 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+main h1 {
+  font-size: 1.75rem;
+  margin-top: 0;
+  line-height: 1.3;
+}
+
+.page-toc {
+  margin: 1.25rem 0 2rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--nav-bg);
+  font-size: 0.95rem;
+}
+
+.page-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.page-toc > ul > li {
+  margin: 0.35rem 0;
+}
+
+.page-toc > ul > li > ul {
+  margin: 0.25rem 0 0.5rem;
+  padding-left: 1.25rem;
+}
+
+.page-toc > ul > li > ul > li {
+  margin: 0.2rem 0;
+  font-size: 0.9rem;
+}
+
+.page-toc a {
+  text-decoration: none;
+}
+
+.page-toc a:hover {
+  text-decoration: underline;
+}
+
+main h2 {
+  font-size: 1.35rem;
+  margin-top: 2rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+main h3 {
+  font-size: 1.1rem;
+  margin-top: 1.5rem;
+}
+
+main a {
+  color: var(--link);
+}
+
+main table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.95rem;
+}
+
+main th,
+main td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+main th {
+  background: var(--nav-bg);
+}
+
+main code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+main pre code {
+  font-size: 0.85em;
+}
+
+main hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}

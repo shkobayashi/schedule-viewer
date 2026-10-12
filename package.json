@@ -1,7 +1,7 @@
 {
   "name": "schedule-viewer",
   "private": true,
-  "version": "1.4.0",
+  "version": "1.4.1",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -11,6 +11,9 @@
     "dev": "node scripts/compile-validators.mjs && vite",
     "build": "node scripts/compile-validators.mjs && tsc && vite build",
     "preview": "vite preview",
+    "dev:manual-screenshot": "node scripts/compile-validators.mjs && vite --mode manual-screenshot",
+    "capture:manual-screenshots": "node scripts/capture-user-manual-screenshots.mjs",
+    "build:manual-site": "node scripts/build-user-manual-site.mjs",
     "tauri": "tauri",
     "check:schedule": "tsx scripts/check-schedule.ts",
     "check:calendar": "tsx scripts/check-calendar.ts",
@@ -18,8 +21,8 @@
     "test": "node scripts/compile-validators.mjs && vitest run",
     "lint": "eslint .",
     "build:validate-skill": "node scripts/build-validate-skill.mjs",
-    "version:check": "node scripts/check-version-sync.mjs",
-    "version:bump": "node scripts/bump-version.mjs",
+    "version:check": "tsx scripts/check-version-sync.ts",
+    "version:bump": "tsx scripts/bump-version.ts",
     "postinstall": "node scripts/ensure-tauri-cli-native.mjs"
   },
   "optionalDependencies": {
@@ -58,7 +61,10 @@
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
+    "github-slugger": "^2.0.0",
     "globals": "^17.12.0",
+    "marked": "^18.1.0",
+    "playwright": "^1.64.0",
     "tsx": "^4.20.5",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.0",

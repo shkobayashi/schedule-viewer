@@ -18,7 +18,10 @@ export async function loadScheduleDiffText(
   filePath: string | null,
   screenJson: string,
 ): Promise<ScheduleDiffLoadResult> {
-  if (!isTauri() || !filePath) {
+  const canCompareOnDisk =
+    filePath != null &&
+    (isTauri() || import.meta.env.MODE === "manual-screenshot");
+  if (!canCompareOnDisk) {
     return {
       ok: false,
       message: NO_OPEN_SCHEDULE_FILE_MESSAGE,
@@ -27,8 +30,14 @@ export async function loadScheduleDiffText(
   }
   const filename = safeScheduleJsonFilename(filePath);
   try {
-    const contents = await readOpenScheduleFileViaTauri();
-    const fileParsed = parseScheduleText(contents);
+    const contents =
+      import.meta.env.MODE === "manual-screenshot"
+        ? ((await import("../../scripts/manual-screenshot/tauri-invoke")).manualScreenshotInvoke(
+            "read_open_schedule_file",
+          ) as Promise<string>)
+        : readOpenScheduleFileViaTauri();
+    const fileText = await contents;
+    const fileParsed = parseScheduleText(fileText);
     if (!fileParsed.ok) {
       return {
         ok: false,

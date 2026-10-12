@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 7,
+  "title": "操作マニュアル用の見本",
+  "milestoneGroups": [
+    {
+      "id": "f1000001-0000-4000-8000-000000000001",
+      "name": "マイルストン"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "f2000001-0000-4000-8000-000000000001",
+      "name": "締切（確定）",
+      "date": "2026-10-05",
+      "confidence": "committed",
+      "groupId": "f1000001-0000-4000-8000-000000000001"
+    },
+    {
+      "id": "f2000001-0000-4000-8000-000000000002",
+      "name": "次の節目（未確定）",
+      "date": "2026-10-20",
+      "confidence": "tentative",
+      "groupId": "f1000001-0000-4000-8000-000000000001"
+    }
+  ],
+  "categories": [
+    {
+      "id": "f3000001-0000-4000-8000-000000000001",
+      "name": "見本",
+      "groups": [
+        {
+          "id": "f4000001-0000-4000-8000-000000000001",
+          "name": "色と線",
+          "tasks": [
+            {
+              "id": "f5000001-0000-4000-8000-000000000001",
+              "name": "完了（緑）",
+              "start": "2026-10-01",
+              "end": "2026-10-08",
+              "assigneeId": "sato",
+              "status": "done",
+              "progress": 100,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": "f2000001-0000-4000-8000-000000000001"
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000002",
+              "name": "進行中（青）",
+              "start": "2026-10-06",
+              "end": "2026-10-16",
+              "assigneeId": "sato",
+              "status": "in-progress",
+              "progress": 55,
+              "confidence": "committed",
+              "predecessors": ["f5000001-0000-4000-8000-000000000001"],
+              "milestoneId": "f2000001-0000-4000-8000-000000000002"
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000003",
+              "name": "未着手（灰）",
+              "start": "2026-10-14",
+              "end": "2026-10-18",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000004",
+              "name": "期限超過（赤）",
+              "start": "2026-10-01",
+              "end": "2026-10-09",
+              "assigneeId": "suzuki",
+              "status": "in-progress",
+              "progress": 20,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": "f2000001-0000-4000-8000-000000000001",
+              "tags": ["超過の例"]
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000005",
+              "name": "日付未確定（斜線）",
+              "start": "2026-10-13",
+              "end": "2026-10-22",
+              "assigneeId": "unknown-member-id",
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "tentative",
+              "predecessors": ["f5000001-0000-4000-8000-000000000004"],
+              "milestoneId": null
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000006",
+              "name": "前後の破綻（赤い矢印）",
+              "start": "2026-10-07",
+              "end": "2026-10-11",
+              "assigneeId": "tanaka",
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": ["f5000001-0000-4000-8000-000000000002"],
+              "milestoneId": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -2,11 +2,14 @@ mod json_skills;
 mod mcp_app_data;
 mod mcp_bridge;
 pub mod mcp_stdio;
+mod read_screen_skill;
+pub mod screen_cli;
 mod window_session;
 
 use json_skills::{
     install_json_skills, json_skill_home_dirs, pick_json_skill_folder, uninstall_json_skills,
 };
+use read_screen_skill::{install_read_screen_skill, uninstall_read_screen_skill};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -1771,6 +1774,8 @@ pub fn run() {
             pick_json_skill_folder,
             install_json_skills,
             uninstall_json_skills,
+            install_read_screen_skill,
+            uninstall_read_screen_skill,
             get_executable_path,
             mcp_reply,
         ])

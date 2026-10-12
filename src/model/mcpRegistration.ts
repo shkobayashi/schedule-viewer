@@ -18,7 +18,12 @@ export function mcpConfigJson(executablePath: string): string {
 }
 
 export async function fetchMcpConfigJson(): Promise<string | null> {
-  if (!isTauri()) return null;
-  const exe = await invoke<string>("get_executable_path");
+  if (!isTauri() && import.meta.env.MODE !== "manual-screenshot") return null;
+  const exe =
+    import.meta.env.MODE === "manual-screenshot"
+      ? (await (
+          await import("../../scripts/manual-screenshot/tauri-invoke")
+        ).manualScreenshotInvoke("get_executable_path")) as string
+      : await invoke<string>("get_executable_path");
   return mcpConfigJson(exe);
 }

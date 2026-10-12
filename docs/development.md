@@ -186,6 +186,9 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run dev` | 検証器を生成してから Vite でフロントを起動する（ポート 5173）。`tauri dev` から呼ばれたときはポート 1420 |
 | `npm run build` | 検証器の生成、`tsc`、Vite の本番ビルド |
 | `npm run preview` | 本番ビルドのプレビュー |
+| `npm run dev:manual-screenshot` | 操作マニュアル用の画面ショット撮影向けに、Tauri をモックした Vite を起動する |
+| `npm run capture:manual-screenshots` | [操作マニュアル](user-manual.md) 用の PNG を `docs/user-manual/images/` に生成する。Chrome が入っていること。色の見本は `examples/manual-colors.schedule.json` |
+| `npm run build:manual-site` | [操作マニュアル](user-manual.md) だけを `site/` に静的 HTML として出力する。fragment と画像の参照を検査する。全機能の HTML には h2 と h3 の見出し一覧を出す。出力は git に含めない |
 | `npm run tauri` | Tauri CLI を呼ぶ。後ろに `dev` や `build` を付けて使う |
 | `npm test` | 検証器を生成してから Vitest を1回実行する |
 | `npm run lint` | ESLint |
@@ -193,8 +196,8 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
 | `npm run build:validate-skill` | `write-schedule`、`write-calendar`、`write-members` に同梱する検証スクリプトと、スキーマのコピーを作り直す |
-| `npm run version:check` | バージョン番号が5ファイルで揃っていることを確認する |
-| `npm run version:bump` | バージョンを上げる。`major`、`minor`、または `patch` を引数にする |
+| `npm run version:check` | バージョン番号が5ファイルで揃っていることと、`X.Y.Z` または `X.Y.Z-beta.N` の形であることを確認する |
+| `npm run version:bump` | バージョンを上げる。`major`、`minor`、`patch`、`beta`、`stable` を引数にする |
 | `postinstall` | `@tauri-apps/cli` のその OS 向けバイナリがあることを確認する |
 
 ## ブランチと CI
@@ -203,19 +206,25 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 
 | トリガー | ワークフロー | 内容 |
 | --- | --- | --- |
-| `develop` または `main` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロントと Rust を分け、集約ジョブ `ci` で結果をまとめる |
-| `main` への push | Release（`.github/workflows/release.yml`） | 環境 `release` の承認のあと、Ubuntu (deb) と Windows (NSIS) をビルドし GitHub Release へ公開 |
+| `develop` または `main` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルドを分け、集約ジョブ `ci` で結果をまとめる |
+| `main` への push（操作マニュアルとサイトビルドの入力） | Pages（`.github/workflows/pages.yml`） | `npm run build:manual-site` のあと GitHub Pages へ公開。URL は https://shkobayashi.github.io/schedule-viewer/ 。`workflow_dispatch` でも動く |
+| `main` または `release/**` への push | Release（`.github/workflows/release.yml`） | 版とブランチを検査したあと、環境 `release` の承認のあと、Ubuntu (deb) と Windows (NSIS) をビルドし GitHub Release へ公開。`main` は安定版、`release/X.Y.Z` は Pre-release |
 
 `develop` への push だけでは CI は動かない。CI が動くのは `develop` または `main` 向けの pull request のときである。
 
 CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。読み取りステップは `shell: bash` にする。Release の Windows ランナーの既定シェルは PowerShell で、bash のまま書くと構文エラーになる。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
-- `src-tauri/` または `rust-toolchain.toml` が変わると Rust ジョブ（Ubuntu と Windows で Clippy と `cargo test --locked`）が動く
+- `src-tauri/` または `rust-toolchain.toml` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`）が動く
 - `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、スキル同梱物と `src/model/generated/` の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
-- `docs/*.md` や `README.md` だけの変更では、フロントと Rust はスキップする。集約ジョブ `ci` は成功する
+- `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`）が動く。`package.json` と `package-lock.json` が変わったときも同じ
+- `docs/*.md` や `README.md` だけの変更（操作マニュアル以外）では、フロントと Rust と `manual` はスキップする。集約ジョブ `ci` は成功する
 
-ワークフロー全体の `permissions` は `contents: read` である。Release の `contents: write` は配布ジョブだけに付ける。`actions/checkout` は `persist-credentials: false` である。
+ワークフロー全体の `permissions` は `contents: read` である。Release の `contents: write` は配布ジョブだけに付ける。Pages の `pages: write` と `id-token: write` は deploy ジョブだけに付ける。`actions/checkout` は `persist-credentials: false` である。
+
+### 操作マニュアルの GitHub Pages
+
+リポジトリの **Settings → Pages** で、Source を GitHub Actions にする（API では `build_type=workflow`）。サイトは `main` に載った操作マニュアルだけを公開する。`develop` へのマージだけでは更新されない。全機能のページには、ビルド時に h2 と h3 への目次を出す。手元では `npm run build:manual-site` のあと、`site/` を HTTP サーバで開いて確認する。
 
 ## GitHub のセキュリティ設定
 
@@ -267,9 +276,9 @@ gh repo edit shkobayashi/schedule-viewer --visibility public
 
 ### ダウンロード
 
-メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から取得する。
+メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から取得する。ふだんは Latest（安定版）である。Pre-release は実機確認用である。
 
-- **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`
+- **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`。ベータの deb を入れたあとに安定版へ移すときは、先にベータの deb を外す
 - **Windows (x64)**: `schedule-viewer_X.Y.Z_x64-setup.exe` を実行
 
 macOS 用の自動ビルドはまだない。必要なときは下の「配布用ビルド」でローカルビルドする。
@@ -467,17 +476,43 @@ Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が�
 
 Windows の NSIS を署名する変更を `main` に載せるときは、先に「Windows のコード署名」の secret 登録が終わっていること。自動更新を含む変更を載せるときは、「更新用の署名鍵」の secret 登録も終わっていること。
 
-`develop` を `main` にマージする直前に、リポジトリ直下でバージョンを1回だけ上げる。
+実機で Windows または Ubuntu のインストーラを見てから配りたい版は、下の「ベータリリース」で Pre-release として出す。実機確認が要らない変更は、今までどおり `develop` から `main` へ載せる。
+
+`develop` を `main` にマージする直前に、リポジトリ直下でバージョンを1回だけ上げる。版は `X.Y.Z` である（`-beta.N` は付けない）。
 
 - 公開する契約を次のメジャーまで守るとき: `npm run version:bump -- major`
 - 前回リリース以降に feature が入っている: `npm run version:bump -- minor`
 - fix だけのとき: `npm run version:bump -- patch`
 
-`npm run version:check` で `package.json` / `package-lock.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` / `src-tauri/Cargo.lock` の番号が揃っていることを確認してから、そのコミットを `develop` に入れて `main` にマージする。`main` へ push されると `vX.Y.Z` タグ付きの Release が作られる。同じバージョンのタグが既にある場合は、先にバージョンを上げてから再度マージする。
+`npm run version:check` で `package.json` / `package-lock.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` / `src-tauri/Cargo.lock` の番号が揃っていることを確認してから、そのコミットを `develop` に入れて `main` にマージする。`main` へ push されると `vX.Y.Z` タグ付きの安定版 Release が作られる。同じバージョンのタグが別のコミットを指している場合は、先にバージョンを上げてから再度マージする。タグが同じコミットを指しているときは、失敗した Release ジョブを同じタグのまま再実行できる。
 
 変更の要約は、そのバージョン上げのコミットで [CHANGELOG.md](../CHANGELOG.md) に書く。公開する版の節へ移すときは、各項目の末尾に対応する Issue 番号を `(#番号)` の形で書く。番号が複数あるときは `(#155) (#156)` のように並べる。`[Unreleased]` の項目には書かなくてよい。
 
-Release ワークフローは、各 OS のビルドが同じダウンロード手順だけを `releaseBody` に載せる。`checksums` ジョブが [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) で接頭文のあとにその版の CHANGELOG 節を足し、`gh release edit` で本文を確定する。節の項目に Issue 番号が無いときはジョブが失敗し、本文はダウンロード手順のまま残る。
+Release ワークフローは、安定版では各 OS のビルドが同じダウンロード手順だけを `releaseBody` に載せる。`checksums` ジョブが [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) で接頭文のあとにその版の CHANGELOG 節を足し、`gh release edit` で本文を確定する。CHANGELOG にその版の節が無いとき、または節の項目に Issue 番号が無いときはジョブが失敗し、本文はダウンロード手順のまま残る。Pre-release では CHANGELOG を読まず、[scripts/release-body-beta.md](../scripts/release-body-beta.md) の短い文だけを載せる。
+
+### ベータリリース
+
+統合用のブランチは `develop` と `main` のままである。確認用の版は、その版だけの `release/X.Y.Z` から Pre-release として出す。
+
+1. `develop` から `release/X.Y.Z` を切る
+2. 今の番号が出したい安定版と同じなら `npm run version:bump -- beta` だけで `X.Y.Z-beta.1` にする。違うときは、目的の番号になるまで `npm run version:bump -- major`（または `minor`、`patch`）を実行してから `beta` を実行する
+3. インストーラが要るコミットをこのブランチへ push する。検査のあと環境 `release` の承認を経て、deb と NSIS が Pre-release として出る。タグは `vX.Y.Z-beta.N` である。ベータを使ってよい人は、その Release のページからインストーラを取る
+4. ベータのあいだに直す不具合は `release/X.Y.Z` に入れる。直すたびに `npm run version:bump -- beta` で `N` を増やして push する。`develop` で進めた別の機能は、そのベータに混ぜない
+5. 確認が終わったら `npm run version:bump -- stable` で接尾辞を外し、[CHANGELOG.md](../CHANGELOG.md) の版の節を今の手順で書く。この push では Release ワークフローが失敗する（`release/X.Y.Z` に安定版の番号は載せない）
+6. `release/X.Y.Z` を `main` へマージする。`main` への push が安定版になり、Latest と自動更新の対象になる
+7. `release/X.Y.Z` に入れた修正を `develop` へ戻し、`release/X.Y.Z` ブランチを消す
+
+次の push は検査で失敗し、Release は作られない。
+
+- 版番号に `-beta.N` がある `main`
+- 版番号に `-beta.N` が無い `release/X.Y.Z`（手順 5 の push）
+- ブランチ名が `release/X.Y.Z` ではない（例: `release/1.5.0-beta.1`）
+- ブランチの番号と版から接尾辞を外した番号が違う
+- 同じタグが別のコミットを指している版を、もう一度新規に作ろうとしたとき
+
+ベータを入れたあとも、自動更新が見る先は安定版の `latest` である。入っている版より古い安定版へは進まない。次の `beta.N` は自動では入らない。自動更新の版比較は semver である。接尾辞を外した安定版が出て、自動更新がオンなら、判定上はベータより新しい版として入れ直しが始まる。Windows では NSIS の上書きで進む。この仕組みを初めて使うベータでは、その上書きを手で確認する。
+
+Ubuntu では deb の版比較は Debian の規則である。`X.Y.Z-beta.N` は同じ番号の `X.Y.Z` より新しいため、ベータの deb が入っている状態で安定版の deb を `apt install` すると、`dpkg` がダウングレードとして拒否する。手で安定版へ移すときは、先にベータの deb を外してから安定版を入れる。
 
 ### Release 後に証明書を入れる
 
