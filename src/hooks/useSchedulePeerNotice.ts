@@ -10,6 +10,12 @@ import {
   type SchedulePeerNotice,
 } from "../model/windowSession";
 
+declare global {
+  interface Window {
+    __manualScreenshotShowPeerNotice?: () => void;
+  }
+}
+
 export type ActivePeerNotice = {
   fileName: string;
   status: SchedulePeerNotice["status"];
@@ -104,6 +110,20 @@ export function useSchedulePeerNotice({
     await focusScheduleWindowViaTauri(peerNotice.targetLabel);
     if (status === "applied") setPeerNotice(null);
   }, [peerNotice]);
+
+  useEffect(() => {
+    if (import.meta.env.MODE !== "manual-screenshot") return;
+    window.__manualScreenshotShowPeerNotice = () => {
+      setPeerNotice({
+        fileName: "AI活用PoC推進プロジェクト.json",
+        status: "pending",
+        targetLabel: "schedule-window-2",
+      });
+    };
+    return () => {
+      delete window.__manualScreenshotShowPeerNotice;
+    };
+  }, []);
 
   return {
     peerNotice,

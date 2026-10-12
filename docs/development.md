@@ -186,6 +186,8 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run dev` | 検証器を生成してから Vite でフロントを起動する（ポート 5173）。`tauri dev` から呼ばれたときはポート 1420 |
 | `npm run build` | 検証器の生成、`tsc`、Vite の本番ビルド |
 | `npm run preview` | 本番ビルドのプレビュー |
+| `npm run dev:manual-screenshot` | 操作マニュアル用の画面ショット撮影向けに、Tauri をモックした Vite を起動する |
+| `npm run capture:manual-screenshots` | [操作マニュアル](user-manual.md) 用の PNG を `docs/user-manual/images/` に生成する。Chrome が入っていること。色の見本は `examples/manual-colors.schedule.json` |
 | `npm run tauri` | Tauri CLI を呼ぶ。後ろに `dev` や `build` を付けて使う |
 | `npm test` | 検証器を生成してから Vitest を1回実行する |
 | `npm run lint` | ESLint |
