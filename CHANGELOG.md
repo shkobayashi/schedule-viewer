@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 変更
+
+- 配布物の入手は、通常は GitHub Releases の Latest（安定版）から行う。Pre-release は Windows または Ubuntu での実機確認用であり、自動更新の配信には載らない
+
 ## [1.4.0] - 2026-10-11
 
 ### 追加

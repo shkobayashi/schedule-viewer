@@ -2,13 +2,40 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "release/**"
 
 permissions:
   contents: read
 
 jobs:
+  validate-release-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      prerelease: ${{ steps.check.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Validate version, branch, and tag
+        id: check
+        run: npx tsx scripts/check-release-push.ts
+
   release:
+    needs: validate-release-push
     permissions:
       contents: write
     environment: release
@@ -114,9 +141,15 @@ jobs:
       - name: Load release body prefix
         id: release_prefix
         shell: bash
+        env:
+          PRERELEASE: ${{ needs.validate-release-push.outputs.prerelease }}
         run: |
           repo="${{ github.repository }}"
-          body=$(sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md)
+          if [ "$PRERELEASE" = "true" ]; then
+            body=$(cat scripts/release-body-beta.md)
+          else
+            body=$(sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md)
+          fi
           {
             echo 'body<<EOF'
             printf '%s\n' "$body"
@@ -132,7 +165,7 @@ jobs:
           releaseName: schedule-viewer v__VERSION__
           releaseBody: ${{ steps.release_prefix.outputs.body }}
           releaseDraft: false
-          prerelease: false
+          prerelease: ${{ needs.validate-release-push.outputs.prerelease == 'true' }}
           args: ${{ matrix.platform == 'windows-latest' && env.TAURI_CLI_ARGS || format('--bundles {0} --config src-tauri/tauri.release.json', matrix.bundles) }}
 
       - name: Upload platform updater manifest
@@ -165,7 +198,7 @@ jobs:
           gh release upload "v${version}" schedule-viewer-codesign.cer --clobber
 
   checksums:
-    needs: release
+    needs: [validate-release-push, release]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -182,6 +215,7 @@ jobs:
       - name: Publish SHA-256 checksums
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRERELEASE: ${{ needs.validate-release-push.outputs.prerelease }}
         run: |
           version="$(node -p "require('./package.json').version")"
           tag="v${version}"
@@ -196,6 +230,10 @@ jobs:
           rm -f dist-release/SHA256SUMS
           (cd dist-release && sha256sum -- * > SHA256SUMS)
           gh release upload "$tag" dist-release/SHA256SUMS --clobber
-          sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md > dist-release/release-body-prefix.md
-          npx tsx scripts/build-release-notes.ts "$version" "$repo" dist-release/release-body-prefix.md CHANGELOG.md dist-release/release-body.md
+          if [ "$PRERELEASE" = "true" ]; then
+            cp scripts/release-body-beta.md dist-release/release-body.md
+          else
+            sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md > dist-release/release-body-prefix.md
+            npx tsx scripts/build-release-notes.ts "$version" "$repo" dist-release/release-body-prefix.md CHANGELOG.md dist-release/release-body.md
+          fi
           gh release edit "$tag" --notes-file dist-release/release-body.md
