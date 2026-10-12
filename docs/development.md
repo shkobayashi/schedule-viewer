@@ -226,6 +226,8 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 
 リポジトリの **Settings → Pages** で、Source を GitHub Actions にする（API では `build_type=workflow`）。サイトは `main` に載った操作マニュアルだけを公開する。`develop` へのマージだけでは更新されない。全機能のページには、ビルド時に h2 と h3 への目次を出す。手元では `npm run build:manual-site` のあと、`site/` を HTTP サーバで開いて確認する。
 
+`actions/upload-pages-artifact` は、中で呼ぶ `actions/upload-artifact` も完全なコミット SHA に固定した版を使う。v3.0.1 は `actions/upload-artifact@v4` を参照し、リポジトリの SHA 固定で build が失敗する。v4 はドットファイルを成果物に含めない。サイトの生成物は HTML、CSS、画像だけである。
+
 ## GitHub のセキュリティ設定
 
 リポジトリを公開する前に、次をリポジトリ設定で入れる（非公開のままでも設定できる）。
