@@ -274,7 +274,7 @@ fn ensure_skill_parents(
     Ok(())
 }
 
-fn remove_at_path(path: &Path, action: &str) -> Result<(), String> {
+pub(crate) fn remove_at_path(path: &Path, action: &str) -> Result<(), String> {
     let meta = fs::symlink_metadata(path).map_err(|e| format!("{action}: {e}"))?;
     if meta.file_type().is_symlink() {
         fs::remove_file(path).map_err(|e| format!("{action}: {e}"))?;
@@ -288,7 +288,7 @@ fn remove_at_path(path: &Path, action: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn place_staged_skill(
+pub(crate) fn place_staged_skill(
     staged: &Path,
     dest: &Path,
     allow_symlink_anchor: bool,

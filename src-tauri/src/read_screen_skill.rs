@@ -1,0 +1,267 @@
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::{Path, PathBuf};
+use tauri::Manager;
+
+use crate::json_skills::{
+    existing_skill_paths, parse_tools, place_staged_skill, remove_at_path, JsonSkillTool,
+};
+
+pub const READ_SCREEN_SKILL_NAME: &str = "read-screen";
+pub const EXECUTABLE_PLACEHOLDER: &str = "{{SCHEDULE_VIEWER_EXECUTABLE}}";
+const RESOURCE_TEMPLATE_DIR: &str = "read-screen";
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallReadScreenSkillParams {
+    pub tools: String,
+    pub replace: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallReadScreenSkillResult {
+    pub installed_paths: Vec<String>,
+    pub existing_paths: Vec<String>,
+    pub executable_path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UninstallReadScreenSkillParams {
+    pub tools: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UninstallReadScreenSkillResult {
+    pub removed_paths: Vec<String>,
+    pub missing_paths: Vec<String>,
+}
+
+pub fn read_screen_destinations(home: &Path, tools: JsonSkillTool) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    if matches!(tools, JsonSkillTool::Cursor | JsonSkillTool::Both) {
+        out.push(
+            home.join(".cursor")
+                .join("skills")
+                .join(READ_SCREEN_SKILL_NAME),
+        );
+    }
+    if matches!(tools, JsonSkillTool::Claude | JsonSkillTool::Both) {
+        out.push(
+            home.join(".claude")
+                .join("skills")
+                .join(READ_SCREEN_SKILL_NAME),
+        );
+    }
+    out
+}
+
+fn bundled_template_path(resource_dir: &Path) -> PathBuf {
+    resource_dir.join(RESOURCE_TEMPLATE_DIR).join("SKILL.md")
+}
+
+pub fn render_read_screen_skill(template: &str, executable_path: &str) -> Result<String, String> {
+    if executable_path.is_empty() {
+        return Err("実行ファイルの場所を取得できません。".to_string());
+    }
+    let rendered = template.replace(EXECUTABLE_PLACEHOLDER, executable_path);
+    if rendered.contains(EXECUTABLE_PLACEHOLDER) {
+        return Err("スキル本文を書き込めません。".to_string());
+    }
+    Ok(rendered)
+}
+
+pub fn install_read_screen_skill_to_disk(
+    resource_dir: &Path,
+    home: &Path,
+    tools: JsonSkillTool,
+    executable_path: &str,
+    replace: bool,
+) -> Result<InstallReadScreenSkillResult, String> {
+    let template_path = bundled_template_path(resource_dir);
+    let template = fs::read_to_string(&template_path)
+        .map_err(|_| "同梱スキルが見つかりません。".to_string())?;
+    let rendered = render_read_screen_skill(&template, executable_path)?;
+
+    let destinations = read_screen_destinations(home, tools);
+    let existing_paths = existing_skill_paths(&destinations);
+    if !replace && !existing_paths.is_empty() {
+        return Ok(InstallReadScreenSkillResult {
+            installed_paths: Vec::new(),
+            existing_paths,
+            executable_path: executable_path.to_string(),
+        });
+    }
+
+    let staged = tempfile::tempdir().map_err(|e| format!("スキルを置けません: {e}"))?;
+    fs::write(staged.path().join("SKILL.md"), rendered.as_bytes())
+        .map_err(|e| format!("スキルを置けません: {e}"))?;
+
+    let mut installed_paths = Vec::new();
+    for dest in destinations {
+        place_staged_skill(staged.path(), &dest, false)?;
+        installed_paths.push(dest.to_string_lossy().into_owned());
+    }
+
+    Ok(InstallReadScreenSkillResult {
+        installed_paths,
+        existing_paths: Vec::new(),
+        executable_path: executable_path.to_string(),
+    })
+}
+
+pub fn uninstall_read_screen_skill_from_disk(
+    home: &Path,
+    tools: JsonSkillTool,
+) -> Result<UninstallReadScreenSkillResult, String> {
+    let destinations = read_screen_destinations(home, tools);
+    let mut removed_paths = Vec::new();
+    let mut missing_paths = Vec::new();
+    for dest in destinations {
+        if fs::symlink_metadata(&dest).is_ok() {
+            remove_at_path(&dest, "スキルを外せません")?;
+            removed_paths.push(dest.to_string_lossy().into_owned());
+        } else {
+            missing_paths.push(dest.to_string_lossy().into_owned());
+        }
+    }
+    Ok(UninstallReadScreenSkillResult {
+        removed_paths,
+        missing_paths,
+    })
+}
+
+#[tauri::command]
+pub fn install_read_screen_skill(
+    app: tauri::AppHandle,
+    params: InstallReadScreenSkillParams,
+) -> Result<InstallReadScreenSkillResult, String> {
+    let tools = parse_tools(&params.tools)?;
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|_| "ホームディレクトリが見つかりません。".to_string())?;
+    let resource_dir = app
+        .path()
+        .resource_dir()
+        .map_err(|_| "同梱スキルが見つかりません。".to_string())?;
+    let executable_path = std::env::current_exe()
+        .map(|path| path.to_string_lossy().into_owned())
+        .map_err(|e| format!("実行ファイルの場所を取得できません: {e}"))?;
+
+    install_read_screen_skill_to_disk(
+        &resource_dir,
+        &home,
+        tools,
+        &executable_path,
+        params.replace,
+    )
+}
+
+#[tauri::command]
+pub fn uninstall_read_screen_skill(
+    app: tauri::AppHandle,
+    params: UninstallReadScreenSkillParams,
+) -> Result<UninstallReadScreenSkillResult, String> {
+    let tools = parse_tools(&params.tools)?;
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|_| "ホームディレクトリが見つかりません。".to_string())?;
+    uninstall_read_screen_skill_from_disk(&home, tools)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn render_replaces_executable_placeholder() {
+        let template = "exe:\n{{SCHEDULE_VIEWER_EXECUTABLE}}\n";
+        let out = render_read_screen_skill(template, "/app/bin").unwrap();
+        assert_eq!(out, "exe:\n/app/bin\n");
+        assert!(!out.contains(EXECUTABLE_PLACEHOLDER));
+    }
+
+    #[test]
+    fn render_fails_when_executable_path_is_empty() {
+        let template = "{{SCHEDULE_VIEWER_EXECUTABLE}}";
+        assert!(render_read_screen_skill(template, "").is_err());
+    }
+
+    #[test]
+    fn render_fails_when_placeholder_remains_after_replace() {
+        let template = "path: {{SCHEDULE_VIEWER_EXECUTABLE}}";
+        let executable_path = "/bin/{{SCHEDULE_VIEWER_EXECUTABLE}}";
+        assert!(render_read_screen_skill(template, executable_path).is_err());
+    }
+
+    #[test]
+    fn destinations_are_user_skill_dirs_only() {
+        let home = PathBuf::from("/home/me");
+        let both = read_screen_destinations(home.as_path(), JsonSkillTool::Both);
+        assert_eq!(both.len(), 2);
+        assert!(both[0].ends_with(".cursor/skills/read-screen"));
+        assert!(both[1].ends_with(".claude/skills/read-screen"));
+    }
+
+    #[test]
+    fn install_without_replace_leaves_existing() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        let resource = dir.path().join("resources");
+        fs::create_dir_all(home.join(".cursor").join("skills").join(READ_SCREEN_SKILL_NAME))
+            .expect("mkdir");
+        fs::create_dir_all(resource.join(RESOURCE_TEMPLATE_DIR)).expect("mkdir resource");
+        fs::write(
+            resource.join(RESOURCE_TEMPLATE_DIR).join("SKILL.md"),
+            "exe: {{SCHEDULE_VIEWER_EXECUTABLE}}",
+        )
+        .expect("write");
+
+        let result = install_read_screen_skill_to_disk(
+            &resource,
+            &home,
+            JsonSkillTool::Cursor,
+            "/bin/schedule-viewer",
+            false,
+        )
+        .expect("install");
+        assert!(result.existing_paths.len() == 1);
+        assert!(result.installed_paths.is_empty());
+    }
+
+    #[test]
+    fn install_does_not_write_through_tool_dir_symlink() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        let resource = dir.path().join("resources");
+        fs::create_dir_all(resource.join(RESOURCE_TEMPLATE_DIR)).expect("mkdir resource");
+        fs::write(
+            resource.join(RESOURCE_TEMPLATE_DIR).join("SKILL.md"),
+            "{{SCHEDULE_VIEWER_EXECUTABLE}}",
+        )
+        .expect("write");
+        fs::create_dir_all(home.join("real")).expect("mkdir");
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink("real", home.join(".cursor")).expect("symlink");
+            let result = install_read_screen_skill_to_disk(
+                &resource,
+                &home,
+                JsonSkillTool::Cursor,
+                "/bin/schedule-viewer",
+                true,
+            );
+            assert!(result.is_err());
+            assert!(
+                result
+                    .err()
+                    .expect("error message")
+                    .contains("シンボリックリンク")
+            );
+        }
+    }
+}

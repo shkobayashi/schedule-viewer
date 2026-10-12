@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 追加
+
+- デスクトップ版で、MCP を使えないときに同じ画面の状態を、`read-screen` スキルと `--screen` コマンドで渡せる。設定の「画面の状態を渡す」に mcp.json 登録とスキル置きを分けて出す (#208)
+
 ### 変更
 
 - 配布物の入手は、通常は GitHub Releases の Latest（安定版）から行う。Pre-release は Windows または Ubuntu での実機確認用であり、自動更新の配信には載らない

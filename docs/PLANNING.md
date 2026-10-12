@@ -97,7 +97,14 @@
 
 ## 今後の検討
 
-- LLM ネイティブ連携機能（デスクトップ版の読み取り入口 MCP-01。`schedule_diff` / `selected_task` / `filtered_tasks` の 3 ツール）
+- （特になし）
+
+## 決定（MCP を使えないときの画面の状態）
+
+- コマンドは `--screen` とツール名（`schedule_diff`、`selected_task`、`filtered_tasks`）だけ。引数はこの 2 つだけ
+- スキル名は `read-screen`。同梱テンプレートの実行ファイルパスを、置くときにこのパソコンの絶対パスへ書き込む
+- 置き先はユーザー全体（`~/.cursor/skills/read-screen/` と `~/.claude/skills/read-screen/`）だけ。指定フォルダは出さない
+- 設定の「画面の状態を渡す」に、mcp.json 登録とスキル置きを並べる。どちらか一方を終えても、もう一方は終わらない
 
 ## 決定（JSON 作成スキルの配置）
 
