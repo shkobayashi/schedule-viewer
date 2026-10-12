@@ -1,5 +1,7 @@
 # 操作マニュアル
 
+ブラウザ向けの公開版は https://shkobayashi.github.io/schedule-viewer/ にあります（`main` に入った内容が載ります）。
+
 schedule-viewer の手順は、次の三つに分けてあります。ボタン名や色の意味が文書と違って見えたときは、挙動を定めている [外部仕様](external-spec.md) を確認してください。
 
 | 文書 | 読むとき |

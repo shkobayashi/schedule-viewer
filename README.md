@@ -25,7 +25,7 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 - デスクトップ版で、開いている画面の差分・選択・絞り込みを、同じバイナリの MCP 入口（`--mcp`）から LLM に渡す（`schedule_diff` / `selected_task` / `filtered_tasks`。設定の「画面の状態を渡す」で mcp.json に貼る JSON をコピー）
 - 開いている JSON がほかのプログラムに書き換えられたときの反映と、前回開いたファイルと未保存の編集の次回起動時の復元
 
-操作の手順は [操作マニュアル](docs/user-manual.md)、挙動の定義は [外部仕様](docs/external-spec.md) を参照。
+操作の手順は [操作マニュアル](docs/user-manual.md)（公開版は https://shkobayashi.github.io/schedule-viewer/ ）、挙動の定義は [外部仕様](docs/external-spec.md) を参照。
 
 ## 技術スタック
 
