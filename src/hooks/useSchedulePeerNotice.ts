@@ -13,6 +13,10 @@ import {
 declare global {
   interface Window {
     __manualScreenshotShowPeerNotice?: () => void;
+    __manualScreenshotApplyOpen?: (pick: {
+      path: string;
+      contents: string;
+    }) => Promise<void>;
   }
 }
 

@@ -1,5 +1,21 @@
 type InvokeArgs = Record<string, unknown> | undefined;
 
+type OpenPick = { path: string; contents: string };
+
+let pendingOpenPick: OpenPick | null = null;
+let openScheduleDiskContents: string | null = null;
+
+export function setManualScreenshotOpenPick(pick: OpenPick | null): void {
+  pendingOpenPick = pick;
+}
+
+export function setManualScreenshotDiskContents(contents: string | null): void {
+  openScheduleDiskContents = contents;
+}
+
+const MANUAL_SCREENSHOT_EXE_PATH =
+  "/Applications/schedule-viewer.app/Contents/MacOS/schedule-viewer";
+
 export async function manualScreenshotInvoke(
   cmd: string,
   args: InvokeArgs = {},
@@ -35,7 +51,26 @@ export async function manualScreenshotInvoke(
     case "delete_schedule_filter":
     case "release_schedule_filter":
       return null;
+    case "open_schedule_file": {
+      if (pendingOpenPick) {
+        const pick = pendingOpenPick;
+        pendingOpenPick = null;
+        return pick;
+      }
+      if (typeof sessionStorage !== "undefined") {
+        const raw = sessionStorage.getItem("manual-screenshot-open-pick");
+        if (raw) {
+          sessionStorage.removeItem("manual-screenshot-open-pick");
+          return JSON.parse(raw) as OpenPick;
+        }
+      }
+      return null;
+    }
     case "accept_opened_schedule":
+      if (typeof args.contents === "string") {
+        openScheduleDiskContents = args.contents;
+      }
+      return null;
     case "acknowledge_schedule_file_contents":
       return null;
     case "poll_schedule_file_update":
@@ -43,7 +78,10 @@ export async function manualScreenshotInvoke(
     case "check_schedule_file_changed":
       return false;
     case "read_open_schedule_file":
-      return null;
+      if (openScheduleDiskContents == null) {
+        throw new Error("開いているスケジュールファイルがありません");
+      }
+      return openScheduleDiskContents;
     case "read_members_app_data":
     case "write_members_app_data":
     case "read_calendar_app_data":
@@ -55,6 +93,8 @@ export async function manualScreenshotInvoke(
     case "export_schedule_html":
     case "export_schedule_svg":
       return null;
+    case "get_executable_path":
+      return MANUAL_SCREENSHOT_EXE_PATH;
     case "get_mcp_registration_json":
       return null;
     default:

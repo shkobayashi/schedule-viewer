@@ -10,7 +10,24 @@ export {
   transformCallback,
 } from "@tauri-apps/api/core-original";
 
-import { manualScreenshotInvoke } from "./tauri-invoke";
+import {
+  manualScreenshotInvoke,
+  setManualScreenshotDiskContents,
+  setManualScreenshotOpenPick,
+} from "./tauri-invoke";
+
+declare global {
+  interface Window {
+    __manualScreenshotPrepareOpen?: (pick: { path: string; contents: string }) => void;
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.__manualScreenshotPrepareOpen = (pick) => {
+    setManualScreenshotOpenPick(pick);
+    setManualScreenshotDiskContents(pick.contents);
+  };
+}
 
 export function isTauri(): boolean {
   return true;

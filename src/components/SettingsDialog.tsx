@@ -19,6 +19,10 @@ import {
   formatMembersValidationErrors,
   validateMembers,
 } from "../model/validateMembers";
+
+function settingsDesktopOnly(): boolean {
+  return isTauri() || import.meta.env.MODE === "manual-screenshot";
+}
 import { usesCommandKey } from "../model/shortcuts";
 import { ModalDialog } from "./ModalDialog";
 import { SettingsChangelogHistory } from "./SettingsChangelogHistory";
@@ -65,13 +69,13 @@ function formatAppVersionLine(raw: string): string {
 let cachedAppVersionLine: string | null = null;
 let appVersionFetchPromise: Promise<void> | null = null;
 
-if (!isTauri()) {
+if (!settingsDesktopOnly()) {
   cachedAppVersionLine = formatAppVersionLine(packageJson.version);
 }
 
 function fetchAppVersionLineIfNeeded(): Promise<void> {
   if (cachedAppVersionLine !== null) return Promise.resolve();
-  if (!isTauri()) {
+  if (!settingsDesktopOnly()) {
     cachedAppVersionLine = formatAppVersionLine(packageJson.version);
     return Promise.resolve();
   }
@@ -162,7 +166,7 @@ export function SettingsDialog({
   }, [initialSection, open]);
 
   useEffect(() => {
-    if (!open || section !== "mcp" || !isTauri()) return;
+    if (!open || section !== "mcp" || !settingsDesktopOnly()) return;
     void fetchMcpConfigJson().then((json) => {
       setMcpConfig(json ?? "");
     });
@@ -229,7 +233,7 @@ export function SettingsDialog({
       jsonSkillToolsTouched.current = false;
       return;
     }
-    if (!isTauri()) return;
+    if (!settingsDesktopOnly()) return;
     let cancelled = false;
     void fetchJsonSkillHomeDirs()
       .then((homeDirs) => {
@@ -403,7 +407,7 @@ export function SettingsDialog({
   };
 
   const handlePickJsonSkillFolder = async () => {
-    if (!isTauri()) return;
+    if (!settingsDesktopOnly()) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -507,7 +511,7 @@ export function SettingsDialog({
             >
               稼働日
             </button>
-            {isTauri() ? (
+            {settingsDesktopOnly() ? (
               <button
                 type="button"
                 className={section === "updates" ? "active" : undefined}
@@ -516,7 +520,7 @@ export function SettingsDialog({
                 更新
               </button>
             ) : null}
-            {isTauri() ? (
+            {settingsDesktopOnly() ? (
               <button
                 type="button"
                 className={section === "mcp" ? "active" : undefined}
@@ -758,7 +762,7 @@ export function SettingsDialog({
                 </div>
               </>
             ) : null}
-            {section === "mcp" && isTauri() ? (
+            {section === "mcp" && settingsDesktopOnly() ? (
               <>
                 <p className="settings-note">
                   登録した Cursor または Claude が、このアプリと同じバイナリを、ウィンドウを出さずに起動します。下の JSON をコピーして、mcp.json
@@ -791,7 +795,7 @@ export function SettingsDialog({
                 </div>
               </>
             ) : null}
-            {section === "updates" && isTauri() ? (
+            {section === "updates" && settingsDesktopOnly() ? (
               <>
                 <p className="settings-note">
                   オンにすると、次回の起動から GitHub Releases
@@ -819,12 +823,12 @@ export function SettingsDialog({
                   には入れず、置いたパスだけを使います。検証スクリプトは Node.js
                   で動かします。
                 </p>
-                {!isTauri() ? (
+                {!settingsDesktopOnly() ? (
                   <p className="settings-note">
                     この操作はデスクトップ版でのみ使えます。
                   </p>
                 ) : null}
-                <fieldset className="settings-field" disabled={busy || !isTauri()}>
+                <fieldset className="settings-field" disabled={busy || !settingsDesktopOnly()}>
                   <legend>置く先</legend>
                   <label className="settings-field-check">
                     <input
@@ -854,7 +858,7 @@ export function SettingsDialog({
                     <span>両方（同じ内容を置く）</span>
                   </label>
                 </fieldset>
-                <fieldset className="settings-field" disabled={busy || !isTauri()}>
+                <fieldset className="settings-field" disabled={busy || !settingsDesktopOnly()}>
                   <legend>範囲</legend>
                   <label className="settings-field-check">
                     <input
@@ -882,7 +886,7 @@ export function SettingsDialog({
                       <button
                         type="button"
                         className="toolbar-btn"
-                        disabled={busy || !isTauri()}
+                        disabled={busy || !settingsDesktopOnly()}
                         onClick={() => void handlePickJsonSkillFolder()}
                       >
                         フォルダを選ぶ…
@@ -901,7 +905,7 @@ export function SettingsDialog({
                     className="toolbar-btn"
                     disabled={
                       busy ||
-                      !isTauri() ||
+                      !settingsDesktopOnly() ||
                       confirmJsonSkillReplace ||
                       confirmJsonSkillUninstall
                     }
@@ -914,7 +918,7 @@ export function SettingsDialog({
                     className="toolbar-btn"
                     disabled={
                       busy ||
-                      !isTauri() ||
+                      !settingsDesktopOnly() ||
                       confirmJsonSkillReplace ||
                       confirmJsonSkillUninstall
                     }

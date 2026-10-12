@@ -51,9 +51,7 @@ macOS 用の自動ビルドはまだない。必要なときは、[開発ガイ�
 
 ## 使い始める
 
-起動直後はサンプルのスケジュールが表示される。☰ メニューの「開く」で、検証済みのスケジュール JSON を読み込む。JSON は、`write-schedule` スキルを LLM 用に置き、LLM に作らせる。デスクトップ版では設定の「JSON作成スキルを置く」から置ける。設定の「メンバー」でメンバー JSON を取り込むと、担当者 ID が名前で表示される。メンバー JSON は `write-members` スキルで作る。
-
-ファイルの開き方、絞り込み、編集、書き出しは [操作マニュアル](docs/user-manual.md) にまとめてある。
+起動直後はサンプルのスケジュールが表示される。入手と、☰ の「開く」「保存」までの短い手順は [操作マニュアルのはじめに](docs/user-manual/getting-started.md) にある。スケジュール JSON を LLM とスキルで作る流れは [チュートリアル](docs/user-manual/tutorial.md)、絞り込みや編集などの操作は [全機能](docs/user-manual/features.md) にある。文書の入口は [操作マニュアル](docs/user-manual.md) です。
 
 ## ドキュメント
 
@@ -61,7 +59,7 @@ macOS 用の自動ビルドはまだない。必要なときは、[開発ガイ�
 
 | 文書 | 内容 |
 | --- | --- |
-| [操作マニュアル](docs/user-manual.md) | 利用者向けの手順 |
+| [操作マニュアル](docs/user-manual.md) | 利用者向けの手順（[はじめに](docs/user-manual/getting-started.md)、[チュートリアル](docs/user-manual/tutorial.md)、[全機能](docs/user-manual/features.md)） |
 | [外部仕様](docs/external-spec.md) | 画面と機能の挙動。機能 ID の正本 |
 | [データ仕様](docs/data-format.md) | スケジュール、メンバー、カレンダーの JSON とアプリデータ |
 | [内部仕様](docs/internal-spec.md) | 構成、状態、Tauri コマンド、描画 |

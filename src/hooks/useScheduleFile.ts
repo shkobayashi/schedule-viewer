@@ -415,6 +415,23 @@ export function useScheduleFile({
     restoreFiltersForPath: filterPersistence.restoreFiltersForPath,
   });
 
+  useEffect(() => {
+    if (import.meta.env.MODE !== "manual-screenshot") return;
+    window.__manualScreenshotApplyOpen = async (pick) => {
+      const { setManualScreenshotDiskContents } = await import(
+        "../../scripts/manual-screenshot/tauri-invoke"
+      );
+      setManualScreenshotDiskContents(pick.contents);
+      await applyOpenedFile(
+        { path: pick.path, contents: pick.contents },
+        { restoreFilters: false },
+      );
+    };
+    return () => {
+      delete window.__manualScreenshotApplyOpen;
+    };
+  }, [applyOpenedFile]);
+
   const peerNotice = useSchedulePeerNotice({
     filePath,
     displayFileName,

@@ -27,7 +27,7 @@ description: >-
 
 1. `src/components/`、`src/hooks/`、`src/App.tsx` のうち、計画が指す箇所を変える
 2. [docs/external-spec.md](../../../docs/external-spec.md) を同じ変更で更新する
-3. 利用者の手順が変わるときは [docs/user-manual.md](../../../docs/user-manual.md)、README の機能説明が変わるときは [README.md](../../../README.md) を更新する
+3. 利用者の手順が変わるときは、内容に合う [docs/user-manual/getting-started.md](../../../docs/user-manual/getting-started.md)、[docs/user-manual/tutorial.md](../../../docs/user-manual/tutorial.md)、[docs/user-manual/features.md](../../../docs/user-manual/features.md) を更新する。読み方だけ変えるときは [docs/user-manual.md](../../../docs/user-manual.md)。README の機能説明が変わるときは [README.md](../../../README.md) を更新する
 4. 変えた操作を最後まで行う。ブラウザ版（`npm run dev`、ポート 5173）で確かめられる操作はそこで確認する。ファイルダイアログなど Tauri のウィンドウでないと確かめられない操作は、確認できなかったことを結果に書く
 5. 入力欄と選択欄には読めるラベルを付け、動的なエラーは支援技術へ通知する。ダイアログ内の候補一覧などが Escape を処理したときは、親ダイアログまで閉じない
 6. 操作の対象や手順を変えたときは、計画が挙げる文書のほか、ショートカット一覧と、その場だけ出す帯（線を引くモードなど）と、マニュアルでその操作を説明する文も揃える
@@ -55,7 +55,7 @@ description: >-
 28. ダイアログの一部だけをスクロールして、外の操作やチェックを画面内に残すときは、`max-height` をビューポートからの引き算だけで決めない。表示倍率が大きいと式が 0 以下になり、ダイアログ全体が伸びる。ダイアログを縦の flex にし、見出しの下を `flex: 1` と `min-height: 0` で縮め、スクロールする要素だけ `overflow: auto` にする。段階的に出す項目は、まだ見えないものを `inert` にし、ダイアログのフォーカストラップの対象から `inert` の内側を外す。出現の待ちは JavaScript と CSS の二重に掛けない
 29. ショートカットを抑止するときも、検索欄、入力欄、選択欄、編集できる領域では操作しない。それ以外では `preventDefault` する。ダイアログが開いているあいだと線を引くモードのあいだは、開く処理と並べ替えを実行しない
 30. [docs/internal-spec.md](../../../docs/internal-spec.md) のキーボードの節へ文を挿入するときは、うしろの「このキー」が前の操作のまま残るように、文を分ける
-31. [操作マニュアル](../../../docs/user-manual.md) の 7 図（`docs/user-manual/images/` の `ui-overview.png`、`ui-menu.png`、`ui-filter.png`、`ui-colors.png`、`ui-task-detail.png`、`ui-settings.png`、`ui-peer-notice.png`）のどれかに写る見た目が変わるときは、同じ変更で `npm run capture:manual-screenshots` を実行し、出た PNG を含める。図の説明文が画面とずれたときは、マニュアルのその文も直す。マニュアルの文章だけを直す変更や、7 図に写らない操作だけの変更では撮影しない。撮影スクリプトのボタン名や待ちの要素が画面と合わなくなったときは、スクリプトを直してから撮影する。図を増やす、図をやめる、節への配置を変えることは、計画がそれを指定したときだけ行う。ポート 5173 か 5174 が使用中で Vite が起動できないときは、その開発サーバを止めてから実行する。撮影できなかったときは、理由を結果に書く
+31. 操作マニュアルの 18 図（`docs/user-manual/images/` の `ui-overview.png`、`ui-menu.png`、`ui-filter.png`、`ui-colors.png`、`ui-task-detail.png`、`ui-settings.png`、`ui-peer-notice.png`、`ui-diff.png`、`ui-export.png`、`ui-context-menu.png`、`ui-task-duplicate.png`、`ui-task-note.png`、`ui-task-add.png`、`ui-settings-members.png`、`ui-settings-calendar.png`、`ui-settings-updates.png`、`ui-settings-mcp.png`、`ui-settings-skills.png`）のどれかに写る見た目が変わるときは、同じ変更で `npm run capture:manual-screenshots` を実行し、出た PNG を含める。図の説明文が画面とずれたときは、[docs/user-manual/getting-started.md](../../../docs/user-manual/getting-started.md)（`ui-overview.png`）または [docs/user-manual/features.md](../../../docs/user-manual/features.md)（そのほか 17 図）のその文も直す。マニュアルの文章だけを直す変更や、18 図に写らない操作だけの変更では撮影しない。撮影スクリプトのボタン名や待ちの要素が画面と合わなくなったときは、スクリプトを直してから撮影する。図を増やす、図をやめる、節への配置を変えることは、計画がそれを指定したときだけ行う。ポート 5173 か 5174 が使用中で Vite が起動できないときは、その開発サーバを止めてから実行する。撮影できなかったときは、理由を結果に書く
 
 ## 状態・モデル・描画・Tauri
 
@@ -97,5 +97,5 @@ description: >-
 - 対応する文書が同じ変更に含まれている
 - 触った層の検査が通っている
 - 画面を変えたときは、操作を確認したか、確認できなかった箇所を結果に書いている
-- 操作マニュアルの 7 図に写る見た目が変わる変更では、`docs/user-manual/images/` の PNG を撮影し直している。撮影しなかったときは、図に写る見た目が変わらないことを結果に書く。撮影できなかったときは、理由を結果に書く
+- 操作マニュアルの 7 図に写る見た目が変わる変更では、`docs/user-manual/images/` の PNG を撮影し直し、図を載せている getting-started または features の説明文も揃えている。撮影しなかったときは、図に写る見た目が変わらないことを結果に書く。撮影できなかったときは、理由を結果に書く
 - レビューで計画と仕上がりがずれた箇所を直したときは、再発を防ぐ手順を該当する節へ同じ変更で必ず足す。足した節を結果に書く。足さない判断だけを書いて完了にしない
