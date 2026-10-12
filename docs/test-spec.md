@@ -22,7 +22,7 @@
 | スケジュール検証 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` |
 | カレンダー検証 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` |
 | メンバー検証 | `npm run check:members` | 引数なしなら `examples/playground.members.json` |
-| バージョン | `npm run version:check` | 5ファイルのバージョン番号 |
+| バージョン | `npm run version:check` | 5ファイルのバージョン番号と `X.Y.Z` / `X.Y.Z-beta.N` の形 |
 | スキル同梱物 | `npm run build:validate-skill` のあと、CI と同じパスで `git diff --exit-code` | スキーマコピーと検証 bundle の差分 |
 
 画面用のテストランナー（jsdom、Testing Library、Playwright）は入っていない。
@@ -32,7 +32,7 @@
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら Ubuntu と Windows で Clippy と `cargo test --locked`。最後に集約ジョブ `ci` が成功する |
-| `.github/workflows/release.yml` | `main` への push | 環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Windows NSIS、`latest-linux-x86_64.json` と `latest-windows-x86_64.json`、それらをまとめた `latest.json`、Windows コード署名用の `schedule-viewer-codesign.cer`、`SHA256SUMS`、CHANGELOG から組み立てた Release 本文を GitHub Release へ出す |
+| `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Windows NSIS、`latest-linux-x86_64.json` と `latest-windows-x86_64.json`、それらをまとめた `latest.json`、Windows コード署名用の `schedule-viewer-codesign.cer`、`SHA256SUMS` を GitHub Release へ出す。`main` は安定版で CHANGELOG から本文を組み立てる。`release/X.Y.Z` は Pre-release で短い確認用の本文 |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更ではフロントと Rust はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
@@ -450,6 +450,13 @@
 
 `dates.test.ts` の夏時間のケースは、特定の機能ではなく、日付計算の基礎を確かめるものである。
 
+| `releaseVersion.test.ts` | `accepts stable versions`、先頭 `0` の拒否 | — |
+| 同上 | `bumps major, minor, patch on stable only`（ベータでは失敗） | — |
+| 同上 | `bumps beta from stable and from beta`、`strips beta suffix` | — |
+| 同上 | `rejects beta on main`、`rejects stable on release branch` | — |
+| 同上 | `rejects unsupported release branch name`、`rejects release branch base mismatch` | — |
+| 同上 | `rejects tag on different commit`、`allows retry when tag points at same commit` | — |
+
 ### Rust
 
 | テスト | 確認すること | 機能 ID |
@@ -792,5 +799,6 @@ TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu�
 10. TC-VIEW-05 と TC-VIEW-07 で赤とイナズマ線を見る
 11. Ubuntu では deb のインストールと起動を見る。Windows では Release の NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
 12. `SHA256SUMS` に deb、NSIS、`.cer`、`latest.json` が含まれ、各ファイルのハッシュが一致することを見る。`latest.json` に `linux-x86_64` と `windows-x86_64` があることを見る
-13. 対象 Release の本文にダウンロード手順とその版の CHANGELOG 節があり、項目の Issue 番号がリンクになっていることを見る。`[Unreleased]` と前の版の節は無い
+13. 安定版の Release 本文にダウンロード手順とその版の CHANGELOG 節の本体（版見出しは無い）があり、項目の Issue 番号がリンクになっていることを見る。CHANGELOG にその版の節が無いとき、または項目に Issue 番号が無いときは本文ジョブが失敗し、本文はダウンロード手順のまま残る。`[Unreleased]` と前の版の節は載らない。Pre-release の本文は確認用の短い文だけで、CHANGELOG 節は無い
 14. TC-SET-06b から TC-SET-06j で自動更新と設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
+15. この仕組みを初めて使うベータでは、Windows にベータを入れたあと、接尾辞を外した安定版の NSIS を上書きして入れることを確認する

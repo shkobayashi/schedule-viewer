@@ -18,8 +18,8 @@
     "test": "node scripts/compile-validators.mjs && vitest run",
     "lint": "eslint .",
     "build:validate-skill": "node scripts/build-validate-skill.mjs",
-    "version:check": "node scripts/check-version-sync.mjs",
-    "version:bump": "node scripts/bump-version.mjs",
+    "version:check": "tsx scripts/check-version-sync.ts",
+    "version:bump": "tsx scripts/bump-version.ts",
     "postinstall": "node scripts/ensure-tauri-cli-native.mjs"
   },
   "optionalDependencies": {

@@ -37,7 +37,7 @@
 
 ## 動作環境
 
-配布物は Ubuntu 22.04 以降の deb と、Windows の NSIS インストーラである。GitHub Release の NSIS は自己署名で、公開用証明書（`.cer`）が同じ Release に付く。同じ Release に `latest.json` があり、デスクトップ版は設定で自動更新をオンにしているときだけ、起動復旧のあとそこから新しい版を確認して入れ直す。各 Release のページには、ダウンロード手順のあとに、その版の [CHANGELOG](../CHANGELOG.md) の節が載る。macOS は、使う Mac の上でビルドしたアプリを使う。ビルドの手順は [開発ガイド](development.md#配布用ビルド) にある。
+配布物は Ubuntu 22.04 以降の deb と、Windows の NSIS インストーラである。ふだんの入手先は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) の Latest（安定版）である。Pre-release は実機確認用であり、自動更新の配信には載らない。GitHub Release の NSIS は自己署名で、公開用証明書（`.cer`）が同じ Release に付く。安定版の Release に `latest.json` があり、デスクトップ版は設定で自動更新をオンにしているときだけ、起動復旧のあと GitHub の `releases/latest` から新しい安定版を確認して入れ直す。ベータを手で入れたあとも、自動更新が見る先は安定版の `latest` である。入っている版より古い安定版へは進まない。次の `beta.N` は自動では入らない。自動更新の版比較は semver である。接尾辞を外した安定版が出て、自動更新がオンなら、判定上はベータより新しい版として入れ直しが始まる。Windows では NSIS の上書きで進む。Ubuntu では deb の版比較は Debian の規則であり、ベータの deb が入っている状態では `dpkg` が安定版の deb をダウングレードとして拒否する。手で安定版へ移すときは、先にベータの deb を外す。安定版の Release ページには、ダウンロード手順のあとに、その版の [CHANGELOG](../CHANGELOG.md) の節が載る。Pre-release の本文は、動作確認用だと分かる短い文だけである。macOS は、使う Mac の上でビルドしたアプリを使う。ビルドの手順は [開発ガイド](development.md#配布用ビルド) にある。
 
 Tauri で作ったデスクトップアプリをデスクトップ版、`npm run dev` でブラウザに開いたものをブラウザ版と呼ぶ。違いは次のとおりである。
 

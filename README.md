@@ -42,7 +42,7 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 
 ## インストール
 
-メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から取得する。Release には配布物の SHA-256（`SHA256SUMS`）が付く。
+メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) の Latest（安定版）から取得する。Pre-release は実機確認用であり、自動更新では届かない。Release には配布物の SHA-256（`SHA256SUMS`）が付く。Ubuntu でベータの deb を入れたあとに安定版へ移すときは、先にベータの deb を外す。
 
 - **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`
 - **Windows (x64)**: `schedule-viewer_X.Y.Z_x64-setup.exe` を実行する。インストーラは自己署名である。同じ Release の `schedule-viewer-codesign.cer` を入れた PC では発行元が `schedule-viewer` と表示される。入れていない PC では SmartScreen の確認が出ることがある（[開発ガイド](docs/development.md#release-後に証明書を入れる)）
@@ -97,7 +97,7 @@ npm run tauri dev
 ├── docs/                               # 仕様、計画、JSON スキーマ
 ├── examples/                           # 手動で開く例とカレンダー例
 ├── .cursor/skills/                     # LLM 用スキル（implement-change は実装、review-project は全体レビュー。write-schedule / write-members / write-calendar は他のリポジトリへコピーして使う）
-├── .github/workflows/                  # develop 向け CI と main 向け Release
+├── .github/workflows/                  # develop 向け CI と、main および release/** 向け Release
 ├── .devcontainer/                      # DevContainer 定義
 └── mockup/
     └── schedule-viewer-mockup.html     # Konva 単体での初期検証用。アプリ本体からは使わない
