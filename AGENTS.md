@@ -41,6 +41,10 @@
 
 GitHub の Issue を見る、コメントする、作る、更新するときは、gh を使う。
 
+## 個人の学習
+
+会話から残す個人の好みと、このマシンだけの作業事実は、`.cursor/rules/personal.local.mdc` に書く。`AGENTS.md` には `Learned User Preferences` と `Learned Workspace Facts` を足さない。学習の実行状態は `.cursor/hooks/state/` に置く。この二つは Git に含めない。
+
 ## スキルの使い方と保守
 
 計画を書いて実装に渡すときは、実装が読むスキル名と、その中の節を計画に書く。アプリの実装（画面、状態、モデル、Tauri、描画と、それに伴う文書とテスト）は [implement-change](.cursor/skills/implement-change/SKILL.md)、リリース、CI、配布用ビルドは [cut-release](.cursor/skills/cut-release/SKILL.md)、操作マニュアルの GitHub Pages は [publish-user-manual](.cursor/skills/publish-user-manual/SKILL.md)、プロジェクト全体のレビューは [review-project](.cursor/skills/review-project/SKILL.md) である。スケジュール、メンバー、カレンダーの JSON を作るときは `write-schedule`、`write-members`、`write-calendar`。スケジュール JSON の形を変えるときは `update-schedule-schema`。
