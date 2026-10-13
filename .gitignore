@@ -29,6 +29,8 @@ lerna-debug.log*
 .env.*
 
 # --- エディタ / IDE ---
+.cursor/hooks/state/
+.cursor/rules/*.local.mdc
 .vscode/*
 !.vscode/extensions.json
 .idea/
