@@ -81,18 +81,24 @@ describe("shouldAcceptAutoUpdate", () => {
 });
 
 describe("manualUpdateCheckInfoMessage", () => {
-  it("treats release json fetch failure as fail for manual check", () => {
+  it("treats missing updater channel as latest for manual check", () => {
     expect(
       manualUpdateCheckInfoMessage(
         "Could not fetch a valid release JSON from the remote",
         false,
       ),
-    ).toBe("更新の確認に失敗しました");
+    ).toBe("この版が最新です");
   });
 
   it("treats no update as latest for manual check", () => {
     expect(manualUpdateCheckInfoMessage("No update available", false)).toBe(
       "この版が最新です",
+    );
+  });
+
+  it("treats network failure as fail for manual check", () => {
+    expect(manualUpdateCheckInfoMessage("network error", false)).toBe(
+      "更新の確認に失敗しました",
     );
   });
 });

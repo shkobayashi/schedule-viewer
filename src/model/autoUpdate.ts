@@ -60,10 +60,6 @@ export function classifyUpdateCheckError(
   return "fail";
 }
 
-export function isNoUpdateAvailableError(message: string): boolean {
-  return message.includes("No update available");
-}
-
 /** 手動の「更新を確認」で欄または隅に出す文言 */
 export function manualUpdateCheckInfoMessage(
   errorMessage: string,
@@ -76,10 +72,7 @@ export function manualUpdateCheckInfoMessage(
   if (kind === "fail") {
     return "更新の確認に失敗しました";
   }
-  if (isNoUpdateAvailableError(errorMessage)) {
-    return "この版が最新です";
-  }
-  return "更新の確認に失敗しました";
+  return "この版が最新です";
 }
 
 /** 同じメジャーの、より新しい安定版だけ入れ直す */
