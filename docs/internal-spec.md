@@ -79,7 +79,7 @@ flowchart TD
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
 | `useAppCalendar` | カレンダーの読み込み |
-| `useMcpScreenBridge` | デスクトップ版だけ。`mcp-screen-request` を受け、ツール名で `schedule_diff`（`scheduleDiffLoad` だけ）、`selected_task`、`filtered_tasks`（`screenContext`）を組み立てて `mcp_reply` する |
+| `useMcpScreenBridge` | デスクトップ版だけ。`mcp-screen-request` を受け、ツール名で `schedule_diff`（`scheduleDiffLoad` だけ）、`selected_task`、`selected_tasks`、`filtered_tasks`（`screenContext`）を組み立てて `mcp_reply` する |
 
 ### モデル
 
@@ -95,7 +95,7 @@ flowchart TD
 | 対応マイルストン欄と絞り込みのマイルストン欄 | `milestoneField.ts` の `buildMilestoneFieldList`、`buildMilestoneFilterList`、`initialMilestoneFieldActiveIndex`、`initialMilestoneFilterActiveIndex` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
 | 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffLoad.ts` |
-| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`mcpRegistration.ts` |
+| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`mcpRegistration.ts` |
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
@@ -319,7 +319,7 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 
 タスクの追加、マイルストンの追加、複製、同じグループでの並べ替えは `shortcuts.ts` の `matchAddTaskShortcut`、`matchAddMilestoneShortcut`、`matchDuplicateTaskShortcut`、`matchReorderTaskShortcut` である。`decideAppKey` が押下を決め、ダイアログが開いているあいだと線を引くモードのあいだは実行しない。検索欄、入力欄、選択欄、編集できる領域では操作しない。ボタンでは操作し、実行しないときも入力欄以外では `preventDefault` する。右クリックメニューと ☰ と追加の種類のメニューを閉じる。実行するときはフックが `App.tsx` の開く処理と `useSchedule` の `commitTaskReorder` を呼ぶ。
 
-タスクのクリック選択と Shift+クリック、⌘ または Ctrl+クリック、↑↓、Shift+↑↓ は `taskSelection.ts` の純関数と `useSchedule` が受け、見えている行の id だけを対象にする。Mac では Ctrl+クリックはトグルに使わない。2件以上選ぶと線を引くモードは終わる。MCP の `selected_task` は `selectedTaskId` が非 null のときだけ組み立てる。
+タスクのクリック選択と Shift+クリック、⌘ または Ctrl+クリック、↑↓、Shift+↑↓ は `taskSelection.ts` の純関数と `useSchedule` が受け、見えている行の id だけを対象にする。Mac では Ctrl+クリックはトグルに使わない。2件以上選ぶと線を引くモードは終わる。MCP の `selected_task` は `selectedTaskId` が非 null のときだけ組み立てる。MCP の `selected_tasks` は `taskSelection.ids` を文書順に並べたタスクの配列で組み立てる。
 
 キーを押したときの編集、削除、ファイル操作、取り消しは `appKeyboard.ts` の `decideAppKey` が決める。浮動メニューを閉じるときは `schedule-viewer:close-menus` を `Toolbar` と `AppMenu` が受け取る。`menuFocus.ts` は修飾キー付きの矢印をメニューの項目移動に使わない。↑↓ のタスク選択は `taskSelection.ts` の `adjacentVisibleTaskId` と `navigateTaskSelection` である。移動後の `activeId` に対して `App.tsx` の `revealTaskRow` を呼び、行が縦に画面外なら入るところまでスクロールする。Alt+←→ は選択件数が1以上のとき `useSchedule` の `moveSelectedTasksByDays` で選択中のすべてを同じ日数だけ動かす。Shift+Alt+←→ は1件のときだけ終了日をずらす。Delete と Backspace、コマンドパレットの削除は選択件数が1以上のとき有効である。`useAppKeyboard` の effect の依存に `selectedTaskIds`、`navigateTaskSelection`、`moveSelectedTasksByDays` を含める。⌘/Ctrl+Shift+D は `copyScheduleDiff` で差分全文をコピーする。ショートカット一覧は `shortcuts.ts` の `matchOpenShortcutsHelp` が ? と F1 で開き、ダイアログ、検索欄、入力欄、選択欄、ボタンでは開かない。コマンドパレットは `matchOpenCommandPalette` が ⌘/Ctrl+K で開き、ほかのダイアログが開いているあいだは開かない。候補は `commandPalette.ts` が絞る。実行は `CommandPalette.tsx` から `App.tsx` の既存操作を呼ぶ。macOS のデスクトップ版だけ `useMacOSAppMenu` が画面上部のメニューを置く。⌘ または Ctrl と L は `matchAppShortcut` の `link` で、線を引くモードの開始と終了である。修飾キーの無い L では始まらない。ダイアログ、検索欄、入力欄、選択欄では効かない。ボタンにフォーカスがあっても効く。⌘ または Ctrl と N は `note` で、選択中のタスクのノートダイアログを開く。効く場所は L と同じである。選択が無いときと線を引くモードでは開かない。キーのリピートでは開かない。右クリックメニューは閉じる。Shift も Alt も無い ⌘/Ctrl+N は `blocksBrowserShortcut` が真で、開かないときもブラウザに渡さない。Shift 付きは渡す。⌘ または Ctrl と +、=、− は `matchDisplayScale` で、`stepDisplayScale` が表示サイズを一段進める。押し続けは keydown のリピートである。ダイアログ、検索欄、入力欄、選択欄、ボタンでも `preventDefault` してページズームを止め、右クリックメニューを閉じる。線を引くモードは終わらせない。固定の端で段が変わらないときは保存値を変えない。自動は解決済みの倍率を小数第2位で段と比べ、固定の段にして保存する。自動で 200% の拡大は 200% を保存する。
 

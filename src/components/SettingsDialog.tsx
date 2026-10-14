@@ -915,7 +915,7 @@ export function SettingsDialog({
                 <h3 className="settings-changelog-heading">mcp.json に登録する</h3>
                 <p className="settings-note">
                   MCP を使える Cursor または Claude 向けです。下の JSON をコピーして、mcp.json
-                  に貼ります。渡すのは差分（schedule_diff）、選択中のタスク（selected_task）、オンな絞り込みと残るタスク（filtered_tasks）です。下のスキルを置いても、この登録は終わりません。スケジュールのウィンドウが開いていないときは渡せません。ウィンドウが複数のときは前面だけです。
+                  に貼ります。渡すのは差分（schedule_diff）、選択中のタスク（selected_task）、編集の選択（selected_tasks）、オンな絞り込みと残るタスク（filtered_tasks）です。下のスキルを置いても、この登録は終わりません。スケジュールのウィンドウが開いていないときは渡せません。ウィンドウが複数のときは前面だけです。
                 </p>
                 <label className="settings-field">
                   <span>mcp.json</span>
