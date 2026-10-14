@@ -9,9 +9,17 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
+import {
+  buildMilestoneFilterList,
+  initialMilestoneFilterActiveIndex,
+  milestoneFilterClosedLabel,
+  milestoneFilterValueFromOption,
+  stepMilestoneFieldActiveIndex,
+  type MilestoneFilterListState,
+  type MilestoneFilterOption,
+} from "../model/milestoneField";
 import { filterTagsByQuery } from "../model/taskTags";
 import {
-  NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
   UNASSIGNED_LABEL,
   type ConfidenceFilter,
@@ -48,6 +56,23 @@ function filterTagListMaxHeightPx(anchorBottom: number): number {
   const oneRow = pad * 2 + row + borderY;
   const available = window.innerHeight - anchorBottom - 8 * s;
   return Math.max(oneRow, Math.min(fullMax, available));
+}
+
+function filterMilestoneStatusHeightPx(): number {
+  const s = readScale();
+  return 6 * s * 2 + 13 * s * 1.5 + 1;
+}
+
+function filterMilestoneDropdownMaxHeightPx(
+  anchorBottom: number,
+  listState: MilestoneFilterListState,
+): number {
+  const listBudget = filterTagListMaxHeightPx(anchorBottom);
+  let extra = 0;
+  if (listState.noMatches || listState.truncated) {
+    extra += filterMilestoneStatusHeightPx();
+  }
+  return listBudget + extra;
 }
 
 type FilterTagFieldProps = {
@@ -279,6 +304,314 @@ function FilterTagField({
   );
 }
 
+type FilterMilestoneFieldProps = {
+  filterValue: string;
+  milestones: Milestone[];
+  onMilestoneChange: (value: string) => void;
+};
+
+function filterMilestoneOptionLabel(option: MilestoneFilterOption): string {
+  if (option.kind === "all") return "すべて";
+  if (option.kind === "none") return "なし";
+  return option.label;
+}
+
+function filterMilestoneOptionKey(option: MilestoneFilterOption): string {
+  if (option.kind === "all") return "all";
+  if (option.kind === "none") return "none";
+  return option.id;
+}
+
+function FilterMilestoneField({
+  filterValue,
+  milestones,
+  onMilestoneChange,
+}: FilterMilestoneFieldProps) {
+  const inputId = useId();
+  const listId = `${inputId}-list`;
+  const inputRef = useRef<HTMLInputElement>(null);
+  const comboRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const [listOpen, setListOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState("");
+  const [inputText, setInputText] = useState(() =>
+    milestoneFilterClosedLabel(filterValue, milestones),
+  );
+  const [typing, setTyping] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [listMaxHeight, setListMaxHeight] = useState<number | undefined>(
+    undefined,
+  );
+
+  const closedLabel = useMemo(
+    () => milestoneFilterClosedLabel(filterValue, milestones),
+    [filterValue, milestones],
+  );
+
+  const listState = useMemo(
+    () => buildMilestoneFilterList(milestones, filterQuery),
+    [filterQuery, milestones],
+  );
+
+  const syncActiveToList = (query: string) => {
+    const list = buildMilestoneFilterList(milestones, query);
+    setActiveIndex(
+      initialMilestoneFilterActiveIndex(filterValue, list, query),
+    );
+  };
+
+  useEffect(() => {
+    if (listOpen) return;
+    setInputText(closedLabel);
+    setFilterQuery("");
+    setTyping(false);
+  }, [closedLabel, listOpen]);
+
+  useLayoutEffect(() => {
+    if (!listOpen) return;
+    const applyMaxHeight = () => {
+      const combo = comboRef.current;
+      if (!combo) return;
+      const input = inputRef.current;
+      const bottom = input
+        ? input.getBoundingClientRect().bottom + 4 * readScale()
+        : combo.getBoundingClientRect().bottom;
+      setListMaxHeight(
+        filterMilestoneDropdownMaxHeightPx(bottom, listState),
+      );
+    };
+    applyMaxHeight();
+    const onResize = () => applyMaxHeight();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [listOpen, listState]);
+
+  useLayoutEffect(() => {
+    if (!listOpen || !listRef.current || activeIndex < 0) return;
+    if (listState.options.length === 0) return;
+    const list = listRef.current;
+    const row = list.querySelector<HTMLElement>(
+      `[data-filter-milestone-index="${activeIndex}"]`,
+    );
+    if (!row) return;
+    const listRect = list.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    if (rowRect.top < listRect.top) {
+      list.scrollTop -= listRect.top - rowRect.top;
+    } else if (rowRect.bottom > listRect.bottom) {
+      list.scrollTop += rowRect.bottom - listRect.bottom;
+    }
+  }, [activeIndex, listOpen, listState.options.length, listMaxHeight]);
+
+  const selectAllInput = () => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.setSelectionRange(0, input.value.length);
+  };
+
+  const commitOption = (option: MilestoneFilterOption) => {
+    const next = milestoneFilterValueFromOption(option);
+    if (next !== filterValue) {
+      onMilestoneChange(next);
+    }
+    setListOpen(false);
+    setFilterQuery("");
+    setTyping(false);
+    setInputText(milestoneFilterClosedLabel(next, milestones));
+  };
+
+  const onFocus = () => {
+    setListOpen(true);
+    setFilterQuery("");
+    setTyping(false);
+    setInputText(closedLabel);
+    syncActiveToList("");
+    queueMicrotask(() => selectAllInput());
+  };
+
+  const onBlur = () => {
+    setListOpen(false);
+    setFilterQuery("");
+    setTyping(false);
+    setInputText(closedLabel);
+  };
+
+  const onInputChange = (text: string) => {
+    setTyping(true);
+    setFilterQuery(text);
+    setInputText(text);
+    setListOpen(true);
+    syncActiveToList(text);
+  };
+
+  const onInputKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    const composing =
+      event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229;
+
+    if (!typing && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      event.preventDefault();
+      selectAllInput();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      if (composing) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!listOpen) {
+        setListOpen(true);
+        syncActiveToList(filterQuery);
+        return;
+      }
+      setActiveIndex((prev) =>
+        stepMilestoneFieldActiveIndex(
+          prev,
+          listState.options.length,
+          "down",
+        ),
+      );
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      if (composing) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!listOpen) {
+        setListOpen(true);
+        syncActiveToList(filterQuery);
+        return;
+      }
+      setActiveIndex((prev) =>
+        stepMilestoneFieldActiveIndex(prev, listState.options.length, "up"),
+      );
+      return;
+    }
+    if (event.key === "Enter") {
+      if (composing) return;
+      if (!listOpen) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (listState.noMatches || activeIndex < 0) return;
+      const option = listState.options[activeIndex];
+      if (option) commitOption(option);
+      return;
+    }
+    if (event.key === "Escape" && listOpen) {
+      event.preventDefault();
+      event.stopPropagation();
+      setListOpen(false);
+      setFilterQuery("");
+      setTyping(false);
+      setInputText(closedLabel);
+      queueMicrotask(() => selectAllInput());
+    }
+  };
+
+  const activeOptionId =
+    listOpen && activeIndex >= 0 && listState.options[activeIndex]
+      ? `${listId}-opt-${activeIndex}`
+      : undefined;
+
+  const listboxId =
+    listOpen && listState.options.length > 0 ? listId : undefined;
+
+  return (
+    <div className="filter-panel-field filter-panel-milestone">
+      <label className="filter-panel-milestone-label" htmlFor={inputId}>
+        マイルストン
+      </label>
+      <div className="filter-panel-milestone-combo" ref={comboRef}>
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="text"
+          className="filter-panel-milestone-input"
+          role="combobox"
+          aria-expanded={listOpen}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={activeOptionId}
+          autoComplete="off"
+          spellCheck={false}
+          value={inputText}
+          onChange={(e) => onInputChange(e.target.value)}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          onMouseDown={(e) => {
+            if (!typing && listOpen) e.preventDefault();
+          }}
+          onClick={() => {
+            if (!typing) selectAllInput();
+            if (!listOpen) setListOpen(true);
+          }}
+          onKeyDown={onInputKeyDown}
+        />
+        {listOpen ? (
+          <div
+            className="filter-panel-milestone-dropdown"
+            style={
+              listMaxHeight != null ? { maxHeight: listMaxHeight } : undefined
+            }
+          >
+            {listState.options.length > 0 ? (
+              <ul
+                id={listId}
+                ref={listRef}
+                className="filter-panel-milestone-options"
+                role="listbox"
+              >
+                {listState.options.map((option, index) => {
+                  const active = index === activeIndex;
+                  return (
+                    <li key={filterMilestoneOptionKey(option)}>
+                      <button
+                        type="button"
+                        role="option"
+                        id={`${listId}-opt-${index}`}
+                        data-filter-milestone-index={index}
+                        aria-selected={active}
+                        className={
+                          active
+                            ? "filter-panel-milestone-option filter-panel-milestone-option-active"
+                            : "filter-panel-milestone-option"
+                        }
+                        tabIndex={-1}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        onClick={() => commitOption(option)}
+                      >
+                        {filterMilestoneOptionLabel(option)}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+            {listState.noMatches ? (
+              <p
+                className="filter-panel-milestone-status"
+                role="status"
+                aria-live="polite"
+              >
+                一致するマイルストンがありません
+              </p>
+            ) : null}
+            {listState.truncated ? (
+              <p
+                className="filter-panel-milestone-status"
+                role="status"
+                aria-live="polite"
+              >
+                さらに絞り込んでください
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 type FilterPanelProps = {
   open: boolean;
   onClose: () => void;
@@ -439,22 +772,11 @@ export function FilterPanel({
             <option value="broken">破綻のみ</option>
           </select>
         </label>
-        <label className="filter-panel-field">
-          <span>マイルストン</span>
-          <select
-            aria-label="マイルストン"
-            value={filters.milestone}
-            onChange={(e) => onFiltersChange({ milestone: e.target.value })}
-          >
-            <option value="all">すべて</option>
-            <option value={NO_MILESTONE_FILTER}>なし</option>
-            {milestones.map((milestone) => (
-              <option key={milestone.id} value={milestone.id}>
-                {milestone.name}（{milestone.date}）
-              </option>
-            ))}
-          </select>
-        </label>
+        <FilterMilestoneField
+          filterValue={filters.milestone}
+          milestones={milestones}
+          onMilestoneChange={(milestone) => onFiltersChange({ milestone })}
+        />
         {scheduleTags.length === 0 ? (
           <div className="filter-panel-field filter-panel-tags filter-panel-field-span">
             <span>タグ</span>

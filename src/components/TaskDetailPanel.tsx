@@ -28,6 +28,7 @@ import {
   type TaskConfidence,
   type TaskStatus,
 } from "../model/types";
+import { MilestoneField } from "./MilestoneField";
 import { RelationField } from "./TaskEditDialog";
 
 export type TaskDetailPanelHandle = {
@@ -457,27 +458,15 @@ export function TaskDetailPanel({
         <h2 className="detail-section-title">マイルストンと前後関係</h2>
         <div className="field">
           <label htmlFor="detailMilestone">対応マイルストン</label>
-          <select
+          <MilestoneField
             id="detailMilestone"
-            value={
-              milestoneId != null &&
-              milestones.some((milestone) => milestone.id === milestoneId)
-                ? String(milestoneId)
-                : ""
-            }
-            onChange={(e) => {
-              const next = e.target.value === "" ? null : e.target.value;
+            milestones={milestones}
+            value={milestoneId}
+            onChange={(next) => {
               setMilestoneId(next);
               commitWith({ milestoneId: next });
             }}
-          >
-            <option value="">なし</option>
-            {milestones.map((milestone) => (
-              <option key={milestone.id} value={milestone.id}>
-                {milestone.name}（{milestone.date}）
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <RelationField
           key={`pred-${task.id}`}

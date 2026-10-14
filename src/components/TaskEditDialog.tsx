@@ -9,6 +9,7 @@ import {
 import type { Member } from "../model/memberTypes";
 import type { MemberId } from "../model/memberTypes";
 import { validateTaskEdit } from "../model/tasks";
+import { MilestoneField } from "./MilestoneField";
 import { ModalDialog } from "./ModalDialog";
 import {
   UNASSIGNED_LABEL,
@@ -219,25 +220,12 @@ export function TaskEditDialog({
         </div>
         <div className="field">
           <label htmlFor="fieldMilestone">対応マイルストン</label>
-          <select
+          <MilestoneField
             id="fieldMilestone"
-            value={
-              milestoneId != null &&
-              milestones.some((milestone) => milestone.id === milestoneId)
-                ? String(milestoneId)
-                : ""
-            }
-            onChange={(e) =>
-              setMilestoneId(e.target.value === "" ? null : e.target.value)
-            }
-          >
-            <option value="">なし</option>
-            {milestones.map((milestone) => (
-              <option key={milestone.id} value={milestone.id}>
-                {milestone.name}（{milestone.date}）
-              </option>
-            ))}
-          </select>
+            milestones={milestones}
+            value={milestoneId}
+            onChange={setMilestoneId}
+          />
         </div>
         <RelationField
           key={`pred-${task.id}`}

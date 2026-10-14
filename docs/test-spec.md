@@ -172,6 +172,15 @@
 | `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
 | `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
 | 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
+| `milestoneField.test.ts` | `prepends none and keeps array order without date sort` | EDIT-04, EDIT-14 |
+| 同上 | `caps milestones at 50 and none does not count` | EDIT-04, EDIT-14 |
+| 同上 | `returns -1 when current is beyond first 50 with empty query` | EDIT-04, EDIT-14 |
+| 同上 | `returns -1 when current id is not in the milestone list with empty query` | EDIT-04 |
+| 同上 | `prepends all and none when query is empty` | FILTER-07 |
+| 同上 | `omits all and none when query is non-empty` | FILTER-07 |
+| 同上 | `caps milestones at 50 and all or none do not count` | FILTER-07 |
+| 同上 | `highlights all or none when query empty` | FILTER-07 |
+| 同上 | `highlights current milestone when in shown list` | FILTER-07 |
 | `taskTags.test.ts` | `matches substrings case-sensitively after trim` | FILTER-12 |
 | 同上 | `keeps only tags that still exist, in document order` | FILTER-12 |
 | `serialize.test.ts` | `writes tags after milestoneId and before note` | FILE-02 |
@@ -659,6 +668,13 @@
 | TC-FILTER-06 | FILTER-06 | 破綻している組と、していない組 | 「前後: 破綻のみ」を選ぶ | 破綻している線の両端だけが残る |
 | TC-FILTER-07 | FILTER-07 | マイルストン付きと無しが混在 | 「なし」を選ぶ | 対応が無いタスクだけが残る |
 | TC-FILTER-07b | FILTER-07 | 同上 | 特定のマイルストンを選ぶ | それを指すタスクだけが残る |
+| TC-FILTER-07c | FILTER-07 | マイルストンが複数ある JSON | 名前の一部と日付の一部で候補を絞る。検索語が空のとき「すべて」と「なし」が先頭にあることを見る | 大文字小文字を区別する。空のときだけ先頭に「すべて」と「なし」 |
+| TC-FILTER-07d | FILTER-07 | タスクを選択している | 文字を入れるだけではチャートが変わらない。一覧からマイルストンを選ぶ | 選んだ条件だけが残る。タスクの選択は外れる。パネルは開いたまま一覧は閉じる |
+| TC-FILTER-07e | FILTER-07 | 同上 | 一覧が開いている Escape。もう一度 Escape。一致が無い文字で Enter。変換中の矢印 | 1 回目は一覧だけ閉じる。2 回目でパネル。一致が無い Enter では条件は変わらない。変換中の矢印では強調は動かない |
+| TC-FILTER-07f | FILTER-07 | 長い名前のマイルストンがある、または 51 件以上 | 候補の折り返しと 50 件、「さらに絞り込んでください」を見る | 長い名前は折り返す。50 件まで。文言は一覧をスクロールしなくても見える |
+| TC-FILTER-07g | FILTER-07 | 同上 | Escape のあと文字を入れる | 閉じた表示を置き換えて検索を始める |
+| TC-FILTER-07h | FILTER-07 | マイルストンで絞り、タスクを選択している | 同じマイルストンをもう一度選ぶ。別のマイルストンを選ぶ | 同じ行ではタスクの選択が残る。別の行では条件が変わり、タスクの選択は外れる |
+| TC-FILTER-07i | FILTER-07 | マイルストンがある JSON | 一致が無い文字を入れる。51 件以上で上限の文言を見る | 一致が無いときは文言だけで、枠付きの一覧は無い。上限の文言は一覧をスクロールしなくても見える |
 | TC-FILTER-08 | FILTER-08 | 枝分かれした前後関係 | 枝の途中を選んで「系統」を押す | その起点の先行と後続だけが残る。起点を通らない枝は出ない。もう一度で解除する |
 | TC-FILTER-08b | FILTER-08 | 系統を表示している | 別のタスクを右クリックし、「系統を表示」を選ぶ | 起点がそのタスクに切り替わる。同じタスクなら「系統を解除」で外れる |
 | TC-FILTER-09 | FILTER-09 | あるグループのタスクがすべて完了 | 「完了以外」を選ぶ | そのグループの行も消える。追加ダイアログでは、そのグループをまだ選べる |
@@ -691,6 +707,12 @@
 | TC-EDIT-04c | EDIT-04 | タスクを選択している | Enter を押す | 詳細パネルの名前欄にフォーカスが移る。検索欄にフォーカスがあるときは移らない |
 | TC-EDIT-04d | EDIT-04, EDIT-10 | タスクを選択している | 詳細パネルで確度を変え、取り消す | 確度だけが変わり、日付は動かない。取り消し 1 回で戻る |
 | TC-EDIT-04e | EDIT-04, EDIT-10, FILTER-12 | タスクを選択している | 詳細パネルでタグを足し、外し、取り消しとやり直しをする | 未保存になる。取り消しとやり直しでタグが戻る。タグの絞り込みの選択は戻らない |
+| TC-EDIT-04f | EDIT-04, EDIT-10 | 対応マイルストンが未設定のタスク | 詳細パネルで「対応マイルストン」にフォーカスする。文字が全選択され、先頭が「なし」であることを見る。Enter を押す。別途、名前で絞って別のマイルストンを選び、同じマイルストンをもう一度選び、「なし」を選び、取り消す | 一覧が開き、全選択される。最初の Enter では未設定のまま、取り消しは増えない。選んだときだけ反映し、同じ選び直しでは取り消しは増えない。取り消し 1 回で戻る。「なし」で対応が外れる |
+| TC-EDIT-04g | EDIT-04, EDIT-14 | マイルストンが51件以上ある、または一致が無い文字を入れる | 詳細パネルと複製ダイアログで候補を開く。51件目以降を設定済みのとき Enter を押す。一致が無いとき Enter を押す。複製では「追加」も押さない。選ばずにフォーカスを外し、一覧を Escape で閉じる。Escape のあと文字を入れて検索を始める | 50件まで出る。「さらに絞り込んでください」が一覧をスクロールしなくても見える。一致が無いときは枠付きの一覧は出ない。51件目の Enter では外れない。一致が無い Enter では変わらない。複製では追加されない。外すと表示と値が戻る。Escape で一覧だけ閉じ、複製ダイアログは残る。Escape のあとの最初の文字は閉じた表示を置き換えて検索を始める |
+| TC-EDIT-04h | EDIT-04 | 一覧に無い ID を指すタスクがある | 詳細パネルで「なし」と出ることを見る。フォーカスで一覧を開き、強調が無いことを見る。Enter を押す。「なし」を選び、取り消す | 選ぶまで ID は残る。検索語が空の Enter では値は変わらない。取り消しは増えない。「なし」で外れ、取り消し 1 回で ID が戻る |
+| TC-EDIT-04i | EDIT-04, EDIT-10 | 対応マイルストンが設定済みのタスク。51件未満で一覧の下の方にあるマイルストンを選べる | 詳細パネルで「対応マイルストン」にフォーカスする。強調行が見える位置にあることを見る。先頭が一瞬強調されてから飛び移らないことも見る。矢印で先頭へ戻しても、その行が見える。Enter を押す | その行が強調される。見えない位置なら見えるところへ送られる。Enter では値は変わらず、取り消しは増えない |
+| TC-EDIT-04j | EDIT-04, FILTER-11 | 帯の線がオフのグループのマイルストンがある | 詳細パネルで「対応マイルストン」を開き、名前と日付で絞る。文字を入れてもマイルストン件数が増えないことを見る | 帯の線がオフのマイルストンも候補に出る。入力ではマイルストンを足さない |
+| TC-EDIT-04k | EDIT-04, EDIT-14 | 複製ダイアログ | 対応マイルストンを変えてキャンセルする。再度開き、変えて「追加」する。一覧を閉じたあと Escape を押す。変換中の Enter を試す | キャンセルでは文書は変わらない。「追加」で選んだ対応が付く。一覧を閉じたあとの Escape でダイアログが閉じる。変換中の Enter では選ばない |
 | TC-EDIT-08d | EDIT-08, FILTER-12 | タグで絞っている | タスクを追加する | タグの選択は無くなる |
 | TC-EDIT-14d | EDIT-14, FILTER-12 | タグ付きタスクをタグで絞っている | そのタスクを複製する | タグの絞り込みは残り、複製が見える |
 | TC-EDIT-05 | EDIT-05 | 3件以上のタスク | 編集で、自分を先行にしようとする。次に、循環する先行を保存する | 自分は候補に出ない。循環は保存されず、理由が出る |
