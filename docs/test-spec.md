@@ -445,7 +445,8 @@
 | 同上 | `hits the milestone name and the gap, and misses past the name and lane padding` | EDIT-07, EDIT-11 |
 | 同上 | `extends the name hit to the text height when that is taller than the circle` | EDIT-07 |
 | `colorScheme.test.ts` | `accepts light and dark` | SET-04 |
-| `autoUpdate.test.ts` | `treats on as enabled`、localStorage の読み書き、更新確認の失敗を出さない条件 | SET-06 |
+| `autoUpdate.test.ts` | `treats on as enabled`、localStorage の読み書き、更新確認の失敗を出さない条件、`classifyUpdateCheckError` | SET-06 |
+| `betaRelease.test.ts` | `updater-X` の除外、一覧から最新ベータを選ぶ、入っている版より新しいときだけ保存対象、OS に合うファイル名 | SET-06 |
 | 同上 | `stores fixed schemes and clears key for system` | SET-04 |
 | 同上 | `falls back to system for missing or invalid values` | SET-04 |
 | 同上 | `uses OS preference when set to system` | SET-04 |
@@ -801,13 +802,22 @@
 | TC-SET-06b | SET-06 | デスクトップ版、初回起動 | 設定の「更新」を見る | 「起動時に更新を確認する」はオフである |
 | TC-SET-06c | SET-06 | デスクトップ版、2つのウィンドウ | 片方で自動更新をオンにする | もう一方もオンになる。オンにした直後は更新を確認しない |
 | TC-SET-06d | SET-06 | 自動更新オフ | 起動する | 更新を確認しない |
-| TC-SET-06e | SET-06 | 自動更新オン、同じメジャーの `updater-X` により新しい安定版がある | 起動する | 起動復旧のあと入れ直す。失敗したときは隅に短く出て、今の版のまま使える。起動時に変更履歴のダイアログは出ない |
+| TC-SET-06e | SET-06 | 自動更新オン、同じメジャーの `updater-X` により新しい安定版がある | 起動する | 起動復旧のあと、入れ直す前の知らせが出る。「入れ直す」で入れ直す。失敗したときは隅に短く出て、今の版のまま使える。起動時に変更履歴のダイアログは出ない |
 | TC-SET-06k | SET-06 | 自動更新オン、リモートが別メジャーだけ、または `updater-X` が無い | 起動する | 入れ直さない。隅の知らせも出ない |
 | TC-SET-06f | SET-06 | 自動更新オン、サンプルが未保存 | 新しい版で入れ直す流れでキャンセルする | その起動では入れ直さない |
 | TC-SET-06g | SET-06 | 自動更新オン、パスのあるファイルが未保存 | 新しい版で入れ直す | 確認は出ず、再起動後に控えが戻る |
 | TC-SET-06h | SET-06 | 自動更新オン、同じパスを2つのウィンドウで開き、前面で未保存 | 新しい版で入れ直す | 確認は出ず、再起動後に前面の控えが戻る |
 | TC-SET-06i | SET-06 | デスクトップ版、自動更新オフ | 設定の「更新」を開く。表示サイズ 100% と 200%、ライトとダーク、ウィンドウを低くした状態でも見る | 同梱の版が新しい順に並ぶ。`[Unreleased]` と冒頭の説明は無い。版番号、項目、Issue の札が欠けない。Issue 番号のリンクが開く。欄の中だけがスクロールし、チェックはダイアログの中に見える |
 | TC-SET-06j | SET-06 | デスクトップ版 | 起動直後の画面を見る | 変更履歴のダイアログは出ない。入れ直しに失敗したあとの起動でも出ない |
+| TC-SET-06l | SET-06 | ブラウザ版 | ☰ を開く | 「更新を確認」が無い |
+| TC-SET-06m | SET-06 | デスクトップ版、入れ直す版が無い | 「更新を確認」する | 「この版が最新です」が出る |
+| TC-SET-06m2 | SET-06 | デスクトップ版、入れ直す版がある | 「更新を確認」する | 起動時と同じ知らせと「あとで」「入れ直す」が出る |
+| TC-SET-06m3 | SET-06 | デスクトップ版、更新の確認が通信などで失敗する | 「更新を確認」する | 「更新の確認に失敗しました」が出る |
+| TC-SET-06m4 | SET-06 | macOS の手元ビルド、デスクトップ版 | 「更新を確認」する | 「この Mac でビルドしたアプリは、更新の確認の対象外です」が出る |
+| TC-SET-06n | SET-06 | デスクトップ版、知らせが出ている | 設定を開き「更新」以外を見る | 隅の知らせは出ない。「更新」に戻すと同じ知らせが見える |
+| TC-SET-06o | SET-06 | Windows または Ubuntu、入っている版 `1.0.0`、公開ベータ `1.0.0-beta.1` だけ | 設定の「更新」で「インストーラを保存」 | 「公開中のベータはありません」 |
+| TC-SET-06p | SET-06 | 同上、公開ベータ `1.0.1-beta.1` がある | 同上 | 保存先を選べ、欄にパスが出る。インストーラは起動しない |
+| TC-SET-06q | SET-06 | macOS のデスクトップ版 | 設定の「更新」を見る | ベータの保存ボタンと説明が無い |
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
@@ -837,6 +847,6 @@ TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu�
 11. Ubuntu では deb のインストールと起動を見る。Windows では Release の NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
 12. `SHA256SUMS` に deb、NSIS、`.cer`、`latest.json` が含まれ、各ファイルのハッシュが一致することを見る。`latest.json` に `linux-x86_64` と `windows-x86_64` があることを見る
 13. 安定版の Release 本文にダウンロード手順とその版の CHANGELOG 節の本体（版見出しは無い）があり、項目の Issue 番号がリンクになっていることを見る。CHANGELOG にその版の節が無いとき、または項目に Issue 番号が無いときは本文ジョブが失敗し、本文はダウンロード手順のまま残る。`[Unreleased]` と前の版の節は載らない。Pre-release の本文は確認用の短い文だけで、CHANGELOG 節は無い
-14. TC-SET-06b から TC-SET-06k で自動更新と設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
+14. TC-SET-06b から TC-SET-06q で自動更新、手動確認、ベータ保存、設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
 15. この仕組みを初めて使うベータでは、Windows にベータを入れたあと、接尾辞を外した安定版の NSIS を上書きして入れることを確認する
 16. 安定版の Release 後、`updater-X` が Pre-release で `latest.json` だけを載せていることを見る。タグ `updater-X` は初回の位置のままである。より大きいメジャーの安定版が無いときだけ、その版が Latest になる

@@ -62,7 +62,15 @@ import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
-import { useAppAutoUpdate } from "./hooks/useAppAutoUpdate";
+import { useAppUpdateFlow } from "./hooks/useAppAutoUpdate";
+import { UpdateOfferNotice } from "./components/UpdateOfferNotice";
+import { getVersion } from "@tauri-apps/api/app";
+import { pickSaveableBetaVersion } from "./model/betaRelease";
+import { normalizeVersionLabel } from "./model/releaseNotes";
+import {
+  fetchBetaReleaseTagsViaTauri,
+  saveBetaInstallerViaTauri,
+} from "./model/windowSession";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
@@ -243,6 +251,10 @@ function App() {
     readSidebarColumns,
   );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [updateOfferHeight, setUpdateOfferHeight] = useState(0);
+  const [betaInstallerStatusLine, setBetaInstallerStatusLine] = useState<
+    string | null
+  >(null);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -666,12 +678,85 @@ function App() {
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
 
-  useAppAutoUpdate({
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+  }, []);
+
+  const {
+    uiState: updateUiState,
+    showCornerNotice,
+    requestManualUpdateCheck,
+    onLater: onUpdateLater,
+    beginInstall: onUpdateInstall,
+    dismissUpdateInfo,
+    offerLiveAnnouncementKey,
+    registerOfferAnnouncement,
+    markOfferAnnounced,
+  } = useAppUpdateFlow({
     startupSettled: scheduleFile.startupSettled,
+    settingsOpen,
+    settingsSection,
+    onCloseSettings: closeSettings,
     onUpdateToast: showUpdateToast,
     prepareForApplicationUpdate: scheduleFile.prepareForApplicationUpdate,
     onUpdatePromptCancel: scheduleFile.onUpdatePromptCancel,
   });
+
+  const handleSettingsClose = useCallback(() => {
+    if (
+      settingsSection === "updates" &&
+      updateUiState.phase === "info" &&
+      !updateUiState.infoEphemeral
+    ) {
+      dismissUpdateInfo();
+    }
+    setSettingsOpen(false);
+  }, [dismissUpdateInfo, settingsSection, updateUiState]);
+
+  const handleCheckForUpdates = useCallback(
+    (inSettings = false) => {
+      requestManualUpdateCheck(inSettings);
+    },
+    [requestManualUpdateCheck],
+  );
+
+  const handleSaveBetaInstaller = useCallback(async () => {
+    if (!isTauri()) return;
+    if (updateUiState.phase === "installing") return;
+    const previousLine = betaInstallerStatusLine;
+    setBetaInstallerStatusLine(null);
+    try {
+      const raw = await getVersion();
+      const installed =
+        normalizeVersionLabel(raw) ?? raw.replace(/^[vV]/, "");
+      const tags = await fetchBetaReleaseTagsViaTauri();
+      const version = pickSaveableBetaVersion(installed, tags);
+      if (!version) {
+        setBetaInstallerStatusLine("公開中のベータはありません");
+        return;
+      }
+      const saved = await saveBetaInstallerViaTauri(version);
+      if (saved) {
+        setBetaInstallerStatusLine(saved);
+      } else {
+        setBetaInstallerStatusLine(previousLine);
+      }
+    } catch {
+      setBetaInstallerStatusLine("ベータの取得に失敗しました");
+    }
+  }, [betaInstallerStatusLine, updateUiState.phase]);
+
+  const updateCornerMessage =
+    updateUiState.phase === "checking"
+      ? "確認しています"
+      : updateUiState.message ?? "";
+
+  const updateCornerMode =
+    updateUiState.phase === "offer"
+      ? "offer"
+      : updateUiState.phase === "installing"
+        ? "installing"
+        : "info";
 
   useEffect(() => {
     if (!scheduleFile.reloadNotice) return;
@@ -686,6 +771,22 @@ function App() {
     const statusLabel = notice.status === "applied" ? "反映した" : "確認待ち";
     return `${notice.fileName} — ${statusLabel}`;
   }, [scheduleFile.peerNotice.peerNotice]);
+
+  const ephemeralToastBottom =
+    showCornerNotice && updateOfferHeight > 0
+      ? `calc(36px * var(--s) + ${updateOfferHeight}px + 8px * var(--s))`
+      : showCornerNotice
+        ? "calc(110px * var(--s))"
+        : peerNoticeMessage
+          ? "calc(72px * var(--s))"
+          : undefined;
+
+  const peerToastBottom =
+    showCornerNotice && updateOfferHeight > 0 && toastMessage
+      ? `calc(36px * var(--s) + ${updateOfferHeight}px + 8px * var(--s) + 40px * var(--s))`
+      : showCornerNotice
+        ? "calc(110px * var(--s))"
+        : "calc(72px * var(--s))";
 
   const { visibleTaskCount, totalTaskCount } = useMemo(() => {
     const total = listTasks(schedule.categories).length;
@@ -1205,6 +1306,9 @@ function App() {
             openDuplicateDialog(schedule.selectedTaskId);
           }
           break;
+        case "checkForUpdates":
+          handleCheckForUpdates(false);
+          break;
         default:
           break;
       }
@@ -1213,6 +1317,7 @@ function App() {
       copyScheduleDiff,
       fitToWidth,
       focusDetailName,
+      handleCheckForUpdates,
       handleDisplayScaleChange,
       openDuplicateDialog,
       openGuide,
@@ -1291,6 +1396,7 @@ function App() {
       setSettingsSection("display");
       setSettingsOpen(true);
     },
+    onCheckForUpdates: () => handleCheckForUpdates(false),
     onGoToday: scrollToToday,
     onSetTier: setTierZoom,
     onFit: fitToWidth,
@@ -1711,6 +1817,9 @@ function App() {
           setSettingsSection("display");
           setSettingsOpen(true);
         }}
+        onCheckForUpdates={
+          isTauri() ? () => handleCheckForUpdates(false) : undefined
+        }
         onExportHtml={() => setExportOpen(true)}
         canDelete={schedule.selectedTaskId != null}
         onAdd={() => setAddOpen(true)}
@@ -1905,10 +2014,38 @@ function App() {
         }}
         onOpenShortcuts={openShortcuts}
       />
-      <AppToast message={toastMessage} />
+      {showCornerNotice && updateCornerMessage ? (
+        updateCornerMode === "offer" || updateCornerMode === "installing" ? (
+          <UpdateOfferNotice
+            message={updateCornerMessage}
+            mode={updateCornerMode}
+            onLater={onUpdateLater}
+            onInstall={() => void onUpdateInstall()}
+            onHeightChange={setUpdateOfferHeight}
+            liveAnnouncementKey={offerLiveAnnouncementKey}
+            shouldAnnounceOffer={registerOfferAnnouncement}
+            onOfferAnnounced={markOfferAnnounced}
+          />
+        ) : (
+          <p
+            className="app-update-offer app-update-offer--status"
+            role="status"
+            aria-live="polite"
+          >
+            {updateCornerMessage}
+          </p>
+        )
+      ) : null}
+      <AppToast
+        message={toastMessage}
+        style={
+          ephemeralToastBottom ? { bottom: ephemeralToastBottom } : undefined
+        }
+      />
       <AppToast
         message={peerNoticeMessage}
         onClick={() => void scheduleFile.peerNotice.focusPeerTarget()}
+        style={peerNoticeMessage ? { bottom: peerToastBottom } : undefined}
       />
       {contextMenu ? (
         <ContextMenu
@@ -2092,7 +2229,7 @@ function App() {
           sidebarColumns={sidebarColumns}
           onSidebarColumnsChange={setSidebarColumns}
           initialSection={settingsSection}
-          onClose={() => setSettingsOpen(false)}
+          onClose={handleSettingsClose}
           onImport={memberCatalogState.importCatalog}
           onSelectCatalog={memberCatalogState.selectCatalog}
           onDeleteCatalog={memberCatalogState.removeCatalog}
@@ -2105,6 +2242,16 @@ function App() {
             writeAutoUpdateEnabled(enabled);
             setAutoUpdateEnabled(enabled);
           }}
+          onCheckForUpdates={() => handleCheckForUpdates(true)}
+          updateUiPhase={updateUiState.phase}
+          updateUiMessage={updateUiState.message ?? null}
+          onUpdateLater={onUpdateLater}
+          onUpdateInstall={() => void onUpdateInstall()}
+          updateOfferLiveAnnouncementKey={offerLiveAnnouncementKey}
+          registerOfferAnnouncement={registerOfferAnnouncement}
+          markOfferAnnounced={markOfferAnnounced}
+          onSaveBetaInstaller={() => void handleSaveBetaInstaller()}
+          betaInstallerStatusLine={betaInstallerStatusLine}
         />
       ) : null}
       <GuideDialog

@@ -65,6 +65,7 @@ type ToolbarProps = {
   onSave: () => void;
   onSaveAs: () => void;
   onOpenSettings: () => void;
+  onCheckForUpdates?: () => void;
   canDelete: boolean;
   onAdd: () => void;
   onAddMilestone: () => void;
@@ -110,6 +111,7 @@ export function Toolbar({
   onSave,
   onSaveAs,
   onOpenSettings,
+  onCheckForUpdates,
   canDelete,
   onAdd,
   onAddMilestone,
@@ -204,6 +206,7 @@ export function Toolbar({
         onOpenSettings={onOpenSettings}
         onOpenGuide={onOpenGuide}
         onOpenShortcuts={onOpenShortcuts}
+        onCheckForUpdates={onCheckForUpdates}
       />
       <h1 className="toolbar-title">
         <span className="toolbar-title-text">{title}</span>

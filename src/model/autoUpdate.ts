@@ -43,6 +43,45 @@ export function shouldIgnoreUpdateCheckError(message: string): boolean {
   return false;
 }
 
+export type UpdateCheckErrorKind = "ignore" | "unsupported_mac" | "fail";
+
+/** 起動時の自動確認と手動確認で、画面に出す失敗の種類を分ける */
+export function classifyUpdateCheckError(
+  message: string,
+  isMacDesktop: boolean,
+): UpdateCheckErrorKind {
+  if (message.includes("was not found in the response `platforms` object")) {
+    if (isMacDesktop) {
+      return "unsupported_mac";
+    }
+    return "fail";
+  }
+  if (shouldIgnoreUpdateCheckError(message)) return "ignore";
+  return "fail";
+}
+
+export function isNoUpdateAvailableError(message: string): boolean {
+  return message.includes("No update available");
+}
+
+/** 手動の「更新を確認」で欄または隅に出す文言 */
+export function manualUpdateCheckInfoMessage(
+  errorMessage: string,
+  isMacDesktop: boolean,
+): string {
+  const kind = classifyUpdateCheckError(errorMessage, isMacDesktop);
+  if (kind === "unsupported_mac") {
+    return "この Mac でビルドしたアプリは、更新の確認の対象外です";
+  }
+  if (kind === "fail") {
+    return "更新の確認に失敗しました";
+  }
+  if (isNoUpdateAvailableError(errorMessage)) {
+    return "この版が最新です";
+  }
+  return "更新の確認に失敗しました";
+}
+
 /** 同じメジャーの、より新しい安定版だけ入れ直す */
 export function shouldAcceptAutoUpdate(
   currentVersion: string,
