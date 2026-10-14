@@ -366,9 +366,18 @@ export function previewLinkBroken(
   tasks: ReadonlyMap<ScheduleId, { start: string; end: string }>,
   preview: { taskId: ScheduleId; start: string; end: string } | null,
 ): boolean {
+  if (preview == null) return link.broken;
+  return previewLinkBrokenWithOverrides(link, tasks, new Map([[preview.taskId, preview]]));
+}
+
+export function previewLinkBrokenWithOverrides(
+  link: { fromId: ScheduleId; toId: ScheduleId; broken: boolean },
+  tasks: ReadonlyMap<ScheduleId, { start: string; end: string }>,
+  overrides: ReadonlyMap<ScheduleId, { start: string; end: string }>,
+): boolean {
   if (
-    preview == null ||
-    (link.fromId !== preview.taskId && link.toId !== preview.taskId)
+    overrides.size === 0 ||
+    (!overrides.has(link.fromId) && !overrides.has(link.toId))
   ) {
     return link.broken;
   }
@@ -376,7 +385,55 @@ export function previewLinkBroken(
   const to = tasks.get(link.toId);
   if (!from || !to) return link.broken;
   return isBrokenLink(
-    { end: link.fromId === preview.taskId ? preview.end : from.end },
-    { start: link.toId === preview.taskId ? preview.start : to.start },
+    { end: overrides.get(link.fromId)?.end ?? from.end },
+    { start: overrides.get(link.toId)?.start ?? to.start },
   );
+}
+
+export type VisibleTaskRowForMoveDrag = {
+  task: { id: ScheduleId; start: string; end: string };
+  y: number;
+};
+
+/** 複数選択の本体移動中に、選択中の見えているタスクすべての日付プレビューを作る。 */
+export function buildMoveDragPreviews(
+  geometry: DragBarGeometry,
+  rows: readonly VisibleTaskRowForMoveDrag[],
+  selectedTaskIds: ReadonlySet<ScheduleId>,
+  pxPerDay: number,
+  dateToX: (d: Date) => number,
+  scrollY: number,
+  rowHeight: number,
+  barHeight: number,
+  taskBarWidth: (task: { start: string; end: string }) => number,
+): DragDatePreview[] {
+  if (
+    geometry.kind !== "move" ||
+    selectedTaskIds.size <= 1 ||
+    !selectedTaskIds.has(geometry.taskId)
+  ) {
+    return [];
+  }
+  const delta = dragMoveDeltaDays(geometry.originX, geometry.barLeft, pxPerDay);
+  const previews: DragDatePreview[] = [];
+  for (const row of rows) {
+    if (!selectedTaskIds.has(row.task.id)) continue;
+    const dates = datesMovedBy(row.task, delta);
+    const barTop = row.y - scrollY + (rowHeight - barHeight) / 2;
+    const barWidth = taskBarWidth(row.task);
+    const barLeft =
+      row.task.id === geometry.taskId
+        ? geometry.barLeft
+        : dateToX(parseDate(dates.start));
+    previews.push({
+      taskId: row.task.id,
+      kind: "move",
+      start: dates.start,
+      end: dates.end,
+      barLeft,
+      barWidth,
+      barTop,
+    });
+  }
+  return previews;
 }

@@ -244,6 +244,18 @@ describe("buildSelectedTaskPayload", () => {
     });
     expect(payload.selectedTask?.id).toBe(c.id);
   });
+
+  it("returns null when selection is not exactly one task", () => {
+    const payload = buildSelectedTaskPayload({
+      categories: [],
+      filters,
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      selectedTaskId: null,
+    });
+    expect(payload.selectedTask).toBeNull();
+  });
 });
 
 describe("buildActiveFilterConditions", () => {

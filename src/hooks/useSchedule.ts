@@ -105,12 +105,30 @@ import {
   type ScheduleFilters,
   type ScheduleId,
   type Task,
+  type VisibleRow,
 } from "../model/types";
 import {
   duplicateMemberNames,
   memberMapFromList,
   memberOptionLabel,
 } from "../model/assigneeDisplay";
+import {
+  applyBulkTaskEdit,
+  type BulkTaskDraft,
+} from "../model/bulkTaskEdit";
+import {
+  emptyTaskSelection,
+  extendSelectionByArrow,
+  moveSelectionByArrow,
+  primarySelectedTaskId,
+  pruneTaskSelection,
+  removeDeletedTasksFromSelection,
+  selectTaskClick,
+  selectTaskContextMenu,
+  singleTaskSelection,
+  type TaskClickModifiers,
+  type TaskSelectionState,
+} from "../model/taskSelection";
 
 function initialSnapshot(
   categories: Category[],
@@ -215,7 +233,11 @@ export function useSchedule(
   const [deletingHierarchy, setDeletingHierarchy] = useState<
     { kind: "category" | "group"; id: ScheduleId } | null
   >(null);
-  const [selectedTaskId, setSelectedTaskId] = useState<ScheduleId | null>(null);
+  const [taskSelection, setTaskSelection] = useState<TaskSelectionState>(
+    () => emptyTaskSelection(),
+  );
+  const selectedTaskIds = taskSelection.ids;
+  const selectedTaskId = primarySelectedTaskId(taskSelection);
   const [lineageTaskId, setLineageTaskId] = useState<ScheduleId | null>(null);
   const [filters, setFilters] = useState<ScheduleFilters>(
     () => defaultScheduleFilterViewState().filters,
@@ -250,10 +272,8 @@ export function useSchedule(
   const today = useToday();
 
   const pruneUiForDocument = useCallback((snapshot: DocumentSnapshot) => {
-    setSelectedTaskId((current) =>
-      current != null && findTaskById(snapshot.categories, current)
-        ? current
-        : null,
+    setTaskSelection((current) =>
+      pruneTaskSelection(snapshot.categories, current),
     );
     setDuplicatingTaskId((current) =>
       current != null && findTaskById(snapshot.categories, current)
@@ -630,15 +650,51 @@ export function useSchedule(
 
   const updateFilters = useCallback((patch: Partial<ScheduleFilters>) => {
     setFilters((prev) => ({ ...prev, ...patch }));
-    setSelectedTaskId(null);
+    setTaskSelection(emptyTaskSelection());
   }, []);
 
   const selectTask = useCallback((id: ScheduleId | null) => {
-    setSelectedTaskId(id);
+    setTaskSelection(id == null ? emptyTaskSelection() : singleTaskSelection(id));
   }, []);
 
+  const selectTaskWithClick = useCallback(
+    (
+      id: ScheduleId,
+      mod: TaskClickModifiers,
+      visibleIds: ScheduleId[],
+      commandKey: boolean,
+    ) => {
+      setTaskSelection((prev) =>
+        selectTaskClick(visibleIds, prev, id, mod, commandKey),
+      );
+    },
+    [],
+  );
+
+  const selectTaskFromContextMenu = useCallback((id: ScheduleId) => {
+    setTaskSelection((prev) => selectTaskContextMenu(prev, id));
+  }, []);
+
+  const navigateTaskSelection = useCallback(
+    (
+      rows: VisibleRow[],
+      direction: "prev" | "next",
+      extend: boolean,
+      onAfter?: (next: TaskSelectionState) => void,
+    ) => {
+      setTaskSelection((prev) => {
+        const next = extend
+          ? extendSelectionByArrow(rows, prev, direction)
+          : moveSelectionByArrow(rows, prev, direction);
+        onAfter?.(next);
+        return next;
+      });
+    },
+    [],
+  );
+
   const clearSelection = useCallback(() => {
-    setSelectedTaskId(null);
+    setTaskSelection(emptyTaskSelection());
   }, []);
 
   const toggleLineage = useCallback(() => {
@@ -659,6 +715,24 @@ export function useSchedule(
       commitCategories((prev) =>
         mapTasks(prev, (task) => {
           if (task.id !== taskId) return task;
+          return {
+            ...task,
+            start: isoDate(addDays(parseDate(task.start), deltaDays)),
+            end: isoDate(addDays(parseDate(task.end), deltaDays)),
+          };
+        }),
+      );
+    },
+    [commitCategories],
+  );
+
+  const moveSelectedTasksByDays = useCallback(
+    (taskIds: readonly ScheduleId[], deltaDays: number) => {
+      if (deltaDays === 0 || taskIds.length === 0) return;
+      const idSet = new Set(taskIds);
+      commitCategories((prev) =>
+        mapTasks(prev, (task) => {
+          if (!idSet.has(task.id)) return task;
           return {
             ...task,
             start: isoDate(addDays(parseDate(task.start), deltaDays)),
@@ -1007,6 +1081,22 @@ export function useSchedule(
     [commitCategories, title],
   );
 
+  const applyBulkTaskDraft = useCallback(
+    (taskIds: readonly ScheduleId[], draft: BulkTaskDraft): string | null => {
+      const result = applyBulkTaskEdit(
+        documentRef.current.categories,
+        documentRef.current.milestones,
+        title,
+        taskIds,
+        draft,
+      );
+      if (!result.ok) return result.message;
+      commitCategories(() => result.categories);
+      return null;
+    },
+    [commitCategories, title],
+  );
+
   const appendTaskTag = useCallback(
     (taskId: ScheduleId, rawTag: string): string | null => {
       let duplicate = false;
@@ -1141,7 +1231,7 @@ export function useSchedule(
         relaxFiltersForNewTask(prev, task, today, memberMap),
       );
       setLineageTaskId(null);
-      setSelectedTaskId(id);
+      setTaskSelection(singleTaskSelection(id));
       setDuplicatingTaskId(null);
       return id;
     },
@@ -1201,7 +1291,7 @@ export function useSchedule(
         );
       }
       setLineageTaskId(null);
-      setSelectedTaskId(id);
+      setTaskSelection(singleTaskSelection(id));
       setDuplicatingTaskId(null);
       return { ok: true, id };
     },
@@ -1234,10 +1324,40 @@ export function useSchedule(
   const deleteTask = useCallback(
     (taskId: ScheduleId) => {
       commitCategories((prev) => removeTask(prev, taskId));
-      setSelectedTaskId((current) => (current === taskId ? null : current));
+      const deleted = new Set<ScheduleId>([taskId]);
+      setTaskSelection((current) =>
+        removeDeletedTasksFromSelection(current, deleted),
+      );
       setDuplicatingTaskId((current) => (current === taskId ? null : current));
       setEditingNoteTaskId((current) => (current === taskId ? null : current));
       setLineageTaskId((current) => (current === taskId ? null : current));
+    },
+    [commitCategories],
+  );
+
+  const deleteTasks = useCallback(
+    (taskIds: readonly ScheduleId[]) => {
+      if (taskIds.length === 0) return;
+      const deleted = new Set(taskIds);
+      commitCategories((prev) => {
+        let next = prev;
+        for (const taskId of taskIds) {
+          next = removeTask(next, taskId);
+        }
+        return next;
+      });
+      setTaskSelection((current) =>
+        removeDeletedTasksFromSelection(current, deleted),
+      );
+      setDuplicatingTaskId((current) =>
+        current != null && deleted.has(current) ? null : current,
+      );
+      setEditingNoteTaskId((current) =>
+        current != null && deleted.has(current) ? null : current,
+      );
+      setLineageTaskId((current) =>
+        current != null && deleted.has(current) ? null : current,
+      );
     },
     [commitCategories],
   );
@@ -1256,7 +1376,7 @@ export function useSchedule(
       setMilestoneGroups(snapshot.milestoneGroups);
       setMilestones(snapshot.milestones);
       setHiddenMilestoneGroupIds([]);
-      setSelectedTaskId(null);
+      setTaskSelection(emptyTaskSelection());
       setLineageTaskId(null);
       setDuplicatingTaskId(null);
       setEditingNoteTaskId(null);
@@ -1462,8 +1582,13 @@ export function useSchedule(
     getFilterViewState,
     knownMemberIds,
     updateFilters,
+    taskSelection,
+    selectedTaskIds,
     selectedTaskId,
     selectTask,
+    selectTaskWithClick,
+    selectTaskFromContextMenu,
+    navigateTaskSelection,
     clearSelection,
     lineageTask,
     lineageTaskId,
@@ -1472,6 +1597,7 @@ export function useSchedule(
     showLineage,
     clearLineage,
     moveTaskByDays,
+    moveSelectedTasksByDays,
     setTaskStart,
     setTaskEnd,
     shiftTaskEndByDays,
@@ -1480,6 +1606,7 @@ export function useSchedule(
     closeDuplicateDialog,
     duplicatingTask,
     applyTaskPatch,
+    applyBulkTaskDraft,
     appendTaskTag,
     dropTaskTag,
     scheduleTags,
@@ -1493,6 +1620,7 @@ export function useSchedule(
     addPredecessorLink,
     removePredecessorLink,
     deleteTask,
+    deleteTasks,
     addMilestone,
     deleteMilestone,
     replaceDocument,

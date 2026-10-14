@@ -43,6 +43,7 @@ export type CommandPaletteContext = {
   canUndo: boolean;
   canRedo: boolean;
   selectedTaskId: string | null;
+  selectedTaskCount: number;
   linkSourceId: string | null;
   lineageActive: boolean;
 };
@@ -197,7 +198,7 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
     id: "deleteTask",
     label: "選択中のタスクを削除",
     keywords: "delete 削除",
-    enabled: (ctx) => ctx.selectedTaskId != null,
+    enabled: (ctx) => ctx.selectedTaskCount > 0,
   },
   {
     id: "link",
