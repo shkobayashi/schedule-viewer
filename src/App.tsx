@@ -31,10 +31,12 @@ import { HierarchyNameDialog } from "./components/HierarchyNameDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
+import { BulkTaskDetailPanel } from "./components/BulkTaskDetailPanel";
 import {
   TaskDetailPanel,
   type TaskDetailPanelHandle,
 } from "./components/TaskDetailPanel";
+import { visibleTaskIds } from "./model/taskSelection";
 import { TaskEditDialog } from "./components/TaskEditDialog";
 import { TaskNoteDialog } from "./components/TaskNoteDialog";
 import { Timeline } from "./components/Timeline";
@@ -297,8 +299,17 @@ function App() {
   });
   const [hoveredTaskId, setHoveredTaskId] = useState<ScheduleId | null>(null);
   const [detailPanelEditing, setDetailPanelEditing] = useState(false);
+  const [bulkDiscardNotice, setBulkDiscardNotice] = useState<string | null>(null);
   const detailPanelRef = useRef<TaskDetailPanelHandle>(null);
+  const bulkHadDraftRef = useRef(false);
+  const bulkPanelHadFocusRef = useRef(false);
+  const prevSelectionCountRef = useRef(0);
   const taskSearchRef = useRef<HTMLInputElement>(null);
+  const commandKey = usesCommandKey(
+    typeof navigator !== "undefined"
+      ? navigator.platform || navigator.userAgent
+      : "",
+  );
 
   const { headerHeight, rowHeight, barHeight, milestoneLaneHeight } =
     scaledLayoutSizes(uiScale, rowDensity);
@@ -799,7 +810,6 @@ function App() {
     selectedTaskId,
     openEditDialog,
     openDuplicateDialog,
-    selectTask,
     milestones,
     openMilestoneEdit,
     openTaskNoteDialog,
@@ -840,8 +850,9 @@ function App() {
     document.dispatchEvent(new Event("schedule-viewer:close-menus"));
   }, []);
   const requestDeleteTask = useCallback(() => {
+    if (schedule.selectedTaskIds.length === 0) return;
     setDeleteOpen(true);
-  }, []);
+  }, [schedule.selectedTaskIds.length]);
 
   const revealTaskRow = useCallback(
     (taskId: ScheduleId) => {
@@ -905,6 +916,10 @@ function App() {
     () => listTasks(schedule.categories),
     [schedule.categories],
   );
+  const selectedTaskIdSet = useMemo(
+    () => new Set(schedule.selectedTaskIds),
+    [schedule.selectedTaskIds],
+  );
   const selectedDetailTask = useMemo(
     () =>
       schedule.selectedTaskId == null
@@ -912,6 +927,83 @@ function App() {
         : findTaskById(schedule.categories, schedule.selectedTaskId),
     [schedule.categories, schedule.selectedTaskId],
   );
+  const bulkDetailTasks = useMemo(() => {
+    if (schedule.selectedTaskIds.length <= 1) return [];
+    return schedule.selectedTaskIds
+      .map((id) => findTaskById(schedule.categories, id))
+      .filter((task): task is NonNullable<typeof task> => task != null);
+  }, [schedule.categories, schedule.selectedTaskIds]);
+
+  const handleBulkEditingChange = useCallback((editing: boolean) => {
+    bulkHadDraftRef.current = editing;
+    setDetailPanelEditing(editing);
+  }, []);
+
+  useEffect(() => {
+    const count = schedule.selectedTaskIds.length;
+    const prev = prevSelectionCountRef.current;
+    if (prev > 1 && count <= 1) {
+      if (bulkHadDraftRef.current) {
+        setBulkDiscardNotice("入力は破棄しました");
+        bulkHadDraftRef.current = false;
+        window.setTimeout(() => setBulkDiscardNotice(null), 5000);
+      }
+      if (bulkPanelHadFocusRef.current) {
+        bulkPanelHadFocusRef.current = false;
+        requestAnimationFrame(() => {
+          if (count === 1) detailPanelRef.current?.focusPanelHeading();
+          else timelineAreaRef.current?.focus();
+        });
+      }
+    }
+    prevSelectionCountRef.current = count;
+  }, [schedule.selectedTaskIds.length]);
+
+  const handleSelectTask = useCallback(
+    (
+      taskId: ScheduleId,
+      mod: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean },
+    ) => {
+      schedule.selectTaskWithClick(
+        taskId,
+        mod,
+        visibleTaskIds(visibleRows),
+        commandKey,
+      );
+      revealTaskRow(taskId);
+    },
+    [commandKey, revealTaskRow, schedule, visibleRows],
+  );
+
+  const handleMoveTask = useCallback(
+    (_taskId: ScheduleId, deltaDays: number, taskIds: readonly ScheduleId[]) => {
+      schedule.moveSelectedTasksByDays(taskIds, deltaDays);
+    },
+    [schedule],
+  );
+
+  const navigateTaskSelection = useCallback(
+    (
+      rows: typeof visibleRows,
+      direction: "prev" | "next",
+      extend: boolean,
+      onAfter?: (activeId: ScheduleId | null) => void,
+    ) => {
+      schedule.navigateTaskSelection(rows, direction, extend, (next) => {
+        onAfter?.(next.activeId);
+      });
+    },
+    [schedule],
+  );
+
+  const openTaskFromChart = useCallback(
+    (task: Task) => {
+      if (schedule.selectedTaskIds.length > 1) return;
+      openTaskForEdit(task);
+    },
+    [openTaskForEdit, schedule.selectedTaskIds.length],
+  );
+
   const selectedDetailSuccessors = useMemo(
     () =>
       selectedDetailTask
@@ -1175,6 +1267,7 @@ function App() {
       canUndo: schedule.canUndo,
       canRedo: schedule.canRedo,
       selectedTaskId: schedule.selectedTaskId,
+      selectedTaskCount: schedule.selectedTaskIds.length,
       linkSourceId,
       lineageActive:
         schedule.lineageTask?.id != null &&
@@ -1186,6 +1279,7 @@ function App() {
       schedule.canUndo,
       schedule.lineageTask,
       schedule.selectedTaskId,
+      schedule.selectedTaskIds.length,
       scheduleFile.fileBusy,
       scheduleFile.startupSettled,
     ],
@@ -1367,9 +1461,13 @@ function App() {
       schedule.selectTask(taskId);
       revealTaskRow(taskId);
     },
+    selectedTaskIds: schedule.selectedTaskIds,
+    navigateTaskSelection,
     moveTaskByDays,
+    moveSelectedTasksByDays: schedule.moveSelectedTasksByDays,
     shiftTaskEndByDays,
     focusDetailName,
+    revealTaskRow,
     copyScheduleDiff,
     onAddTask: () => setAddOpen(true),
     onAddMilestone: () => {
@@ -1420,10 +1518,10 @@ function App() {
   const openTaskContextMenu = useCallback(
     (taskId: ScheduleId, x: number, y: number) => {
       if (linkSourceId != null) return;
-      selectTask(taskId);
+      schedule.selectTaskFromContextMenu(taskId);
       setContextMenu({ kind: "task", taskId, x, y });
     },
-    [linkSourceId, selectTask],
+    [linkSourceId, schedule],
   );
 
   const openMilestoneContextMenu = useCallback(
@@ -1675,6 +1773,20 @@ function App() {
     }
     const taskId = contextMenu.taskId;
     const task = findTaskById(categories, taskId);
+    const multiCount = schedule.selectedTaskIds.length;
+    if (multiCount > 1) {
+      return [
+        {
+          type: "item",
+          id: "delete",
+          label: "削除",
+          danger: true,
+          icon: <Trash2 size={14} strokeWidth={2} />,
+          shortcut: deleteShortcutHint(),
+          onSelect: () => setDeleteOpen(true),
+        },
+      ];
+    }
     const lineageActive = lineageTask?.id === taskId;
     const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
     return [
@@ -1765,6 +1877,7 @@ function App() {
     showOnlyMilestoneGroup,
     visibleMilestoneGroupIds,
     showLineage,
+    schedule.selectedTaskIds.length,
   ]);
 
   return (
@@ -1821,7 +1934,7 @@ function App() {
           isTauri() ? () => handleCheckForUpdates(false) : undefined
         }
         onExportHtml={() => setExportOpen(true)}
-        canDelete={schedule.selectedTaskId != null}
+        canDelete={schedule.selectedTaskIds.length > 0}
         onAdd={() => setAddOpen(true)}
         onAddMilestone={() => {
           setAddMilestoneInitialDate(null);
@@ -1829,7 +1942,7 @@ function App() {
           setAddMilestoneOpen(true);
         }}
         onDelete={() => {
-          if (schedule.selectedTaskId != null) setDeleteOpen(true);
+          if (schedule.selectedTaskIds.length > 0) setDeleteOpen(true);
         }}
         fileBusy={scheduleFile.fileBusy}
         startupSettled={scheduleFile.startupSettled}
@@ -1856,12 +1969,9 @@ function App() {
           scrollY={scrollY}
           viewportHeight={bodyHeight}
           rowHeight={rowHeight}
-          selectedTaskId={schedule.selectedTaskId}
+          selectedTaskIds={selectedTaskIdSet}
           hoveredTaskId={hoveredTaskId}
-          onSelectTask={(taskId) => {
-            schedule.selectTask(taskId);
-            revealTaskRow(taskId);
-          }}
+          onSelectTask={handleSelectTask}
           reorderingTaskId={
             schedule.reorderPreview?.kind === "task"
               ? schedule.reorderPreview.taskId
@@ -1910,7 +2020,17 @@ function App() {
           sidebarColumns={sidebarColumns}
         />
         <div className="chart-detail">
-        <div ref={timelineAreaRef} className="timeline-slot">
+        {bulkDiscardNotice ? (
+          <p className="filter-panel-sr-only" role="status" aria-live="polite">
+            {bulkDiscardNotice}
+          </p>
+        ) : null}
+        <div
+          ref={timelineAreaRef}
+          className="timeline-slot"
+          tabIndex={-1}
+          aria-label="スケジュールチャート"
+        >
           {linkSourceId != null ? (
             <div className="link-banner" role="status">
               <div>次にクリックしたタスクを後続にします。Esc で中止</div>
@@ -1933,14 +2053,15 @@ function App() {
             totalDays={viewTotalDays}
             dateToX={view.dateToX}
             xToDate={view.xToDate}
+            selectedTaskIds={selectedTaskIdSet}
             selectedTaskId={schedule.selectedTaskId}
-            onSelectTask={schedule.selectTask}
+            onSelectTask={handleSelectTask}
             onClearSelection={schedule.clearSelection}
-            onMoveTask={schedule.moveTaskByDays}
+            onMoveTask={handleMoveTask}
             onResizeStart={handleResizeStart}
             onResizeEnd={handleResizeEnd}
             links={links}
-            onOpenEdit={openTaskForEdit}
+            onOpenEdit={openTaskFromChart}
             onTaskContextMenu={openTaskContextMenu}
             onWheelBody={onWheelBody}
             onWheelHeader={onWheelHeader}
@@ -1987,6 +2108,21 @@ function App() {
             onAddTag={(tag) => schedule.appendTaskTag(selectedDetailTask.id, tag)}
             onRemoveTag={(tag) => schedule.dropTaskTag(selectedDetailTask.id, tag)}
             onEditingChange={setDetailPanelEditing}
+          />
+        ) : bulkDetailTasks.length > 1 ? (
+          <BulkTaskDetailPanel
+            key={`bulk:${schedule.selectedTaskIds.join(",")}:${schedule.diskEpoch}`}
+            tasks={bulkDetailTasks}
+            selectedIds={schedule.selectedTaskIds}
+            members={memberCatalogState.members ?? []}
+            taskRefs={taskRefs}
+            milestones={schedule.milestones}
+            documentTags={schedule.scheduleTags}
+            onApply={schedule.applyBulkTaskDraft}
+            onEditingChange={handleBulkEditingChange}
+            onPanelFocus={() => {
+              bulkPanelHadFocusRef.current = true;
+            }}
           />
         ) : null}
         </div>
@@ -2195,19 +2331,30 @@ function App() {
           }}
         />
       ) : null}
-      {deleteOpen && schedule.selectedTaskId != null ? (
+      {deleteOpen && schedule.selectedTaskIds.length > 0 ? (
         <DeleteTaskDialog
           taskName={
-            findTaskById(schedule.categories, schedule.selectedTaskId)?.name ??
-            "このタスク"
+            schedule.selectedTaskIds.length === 1
+              ? (findTaskById(
+                  schedule.categories,
+                  schedule.selectedTaskIds[0]!,
+                )?.name ?? "このタスク")
+              : undefined
           }
-          hasDependencies={
-            dependencyCount(schedule.categories, schedule.selectedTaskId) > 0
+          bulkCount={
+            schedule.selectedTaskIds.length > 1
+              ? schedule.selectedTaskIds.length
+              : undefined
           }
+          hasDependencies={schedule.selectedTaskIds.some(
+            (id) => dependencyCount(schedule.categories, id) > 0,
+          )}
           onClose={() => setDeleteOpen(false)}
           onConfirm={() => {
-            if (schedule.selectedTaskId != null) {
-              schedule.deleteTask(schedule.selectedTaskId);
+            if (schedule.selectedTaskIds.length === 1) {
+              schedule.deleteTask(schedule.selectedTaskIds[0]!);
+            } else {
+              schedule.deleteTasks(schedule.selectedTaskIds);
             }
             setDeleteOpen(false);
           }}

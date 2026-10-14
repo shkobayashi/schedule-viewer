@@ -1109,6 +1109,47 @@ button:focus-visible,
   font-variant-numeric: tabular-nums;
 }
 
+.detail-bulk-heading {
+  margin: 0 0 calc(8px * var(--s));
+  font-size: calc(14px * var(--s));
+  font-weight: 600;
+  padding-bottom: calc(6px * var(--s));
+  border-bottom: 2px solid var(--accent);
+}
+
+.detail-bulk-intro,
+.detail-bulk-hint {
+  margin: 0 0 calc(8px * var(--s));
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.detail-mixed-hint {
+  margin: calc(4px * var(--s)) 0 0;
+  font-size: calc(12px * var(--s));
+  color: var(--text);
+}
+
+.detail-bulk-apply-preview {
+  margin: 0 0 calc(8px * var(--s));
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+}
+
+.detail-bulk-actions {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--s));
+  margin-bottom: calc(8px * var(--s));
+}
+
+.detail-bulk-discard {
+  margin: 0;
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+}
+
 .detail-tag-list {
   display: flex;
   flex-wrap: wrap;

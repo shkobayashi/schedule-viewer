@@ -35,6 +35,8 @@ export type AppKeyAction =
   | { type: "focusDetailName" }
   | { type: "selectTaskPrev" }
   | { type: "selectTaskNext" }
+  | { type: "selectTaskPrevExtend" }
+  | { type: "selectTaskNextExtend" }
   | { type: "shiftTaskDates"; deltaDays: number }
   | { type: "shiftTaskEnd"; deltaDays: number }
   | { type: "deleteLink"; fromId: ScheduleId; toId: ScheduleId }
@@ -89,6 +91,7 @@ export function decideAppKey(input: {
   fileBusy: boolean;
   pointer: ChartPointer;
   selectedTaskId: ScheduleId | null;
+  selectedTaskCount: number;
   rowHeight: number;
   startupSettled: boolean;
   canReorderInGroup: boolean;
@@ -159,8 +162,11 @@ export function decideAppKey(input: {
     if (event.altKey && !event.repeat) {
       const delta =
         event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0;
-      if (delta !== 0 && input.selectedTaskId != null) {
+      if (delta !== 0 && input.selectedTaskCount > 0) {
         if (event.shiftKey) {
+          if (input.selectedTaskId == null) {
+            return { preventDefault: true, closeMenu: true, action: { type: "none" } };
+          }
           return {
             preventDefault: true,
             closeMenu: true,
@@ -176,14 +182,21 @@ export function decideAppKey(input: {
     }
     if (
       !event.altKey &&
-      !event.shiftKey &&
       (event.key === "ArrowUp" || event.key === "ArrowDown")
     ) {
+      const extend = event.shiftKey;
+      const up = event.key === "ArrowUp";
       return {
         preventDefault: true,
         closeMenu: true,
         action: {
-          type: event.key === "ArrowUp" ? "selectTaskPrev" : "selectTaskNext",
+          type: extend
+            ? up
+              ? "selectTaskPrevExtend"
+              : "selectTaskNextExtend"
+            : up
+              ? "selectTaskPrev"
+              : "selectTaskNext",
         },
       };
     }
@@ -391,7 +404,7 @@ export function decideAppKey(input: {
           },
         };
       }
-      if (input.selectedTaskId != null) {
+      if (input.selectedTaskCount > 0) {
         return { preventDefault, closeMenu: true, action: { type: "deleteTask" } };
       }
       return { preventDefault, closeMenu: true, action: { type: "none" } };

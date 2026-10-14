@@ -21,6 +21,8 @@ type MilestoneFieldProps = {
   milestones: Milestone[];
   value: ScheduleId | null;
   onChange: (milestoneId: ScheduleId | null) => void;
+  /** 閉じた欄を空にする（一括編集で値が揃っていないとき） */
+  blankClosedDisplay?: boolean;
 };
 
 export function MilestoneField({
@@ -28,6 +30,7 @@ export function MilestoneField({
   milestones,
   value,
   onChange,
+  blankClosedDisplay = false,
 }: MilestoneFieldProps) {
   const listId = `${id}-list`;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,14 +38,15 @@ export function MilestoneField({
   const [open, setOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
   const [inputText, setInputText] = useState(() =>
-    milestoneFieldClosedLabel(value, milestones),
+    blankClosedDisplay ? "" : milestoneFieldClosedLabel(value, milestones),
   );
   const [typing, setTyping] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
   const closedLabel = useMemo(
-    () => milestoneFieldClosedLabel(value, milestones),
-    [milestones, value],
+    () =>
+      blankClosedDisplay ? "" : milestoneFieldClosedLabel(value, milestones),
+    [blankClosedDisplay, milestones, value],
   );
 
   const listState = useMemo(

@@ -73,6 +73,23 @@
 | 同上 | `stops a resized start from passing the end` | EDIT-03 |
 | 同上 | `recolors only the link touched by the dragged task` | VIEW-08, EDIT-02 |
 | 同上 | `uses the successor start when that task is dragged` | VIEW-08 |
+| 同上 | `returns a preview per selected visible task` | EDIT-02 |
+| 同上 | `recolors when either endpoint is in the override map` | VIEW-08, EDIT-02 |
+| `taskSelection.test.ts` | `selects a range with shift+click` | EDIT-01 |
+| 同上 | `toggles with meta+click` | EDIT-01 |
+| 同上 | `does not toggle with ctrl+click on Mac` | EDIT-01 |
+| 同上 | `shrinks range when extending back with shift+arrow` | EDIT-01 |
+| 同上 | `extends selection with shift+arrow` | EDIT-01 |
+| `bulkTaskEdit.test.ts` | `returns null when two tasks are selected` | EDIT-01, EDIT-04 |
+| `bulkTaskEdit.test.ts` | `applies status to all selected tasks` | EDIT-04 |
+| 同上 | `rejects when end is before start for any task` | EDIT-04 |
+| 同上 | `rejects draft with end before start using the first task name` | EDIT-04 |
+| 同上 | `skips existing predecessor links` | EDIT-04, EDIT-05 |
+| 同上 | `rejects when all tasks already have the tag` | EDIT-04 |
+| 同上 | `adds tag only to tasks that do not have it` | EDIT-04 |
+| 同上 | `rejects a cycle for the whole apply` | EDIT-04, EDIT-05 |
+| `appKeyboard.test.ts` | `shifts dates when multiple tasks are selected without a primary id` | EDIT-03, EDIT-04 |
+| 同上 | `deletes when multiple tasks are selected` | EDIT-01, EDIT-09 |
 | `dependencies.test.ts` | `keeps a right elbow when the gap fits the arrow` | VIEW-08 |
 | 同上 | `approaches from the left when the gap is shorter than the arrow` | VIEW-08 |
 | 同上 | `routes around a bar that starts before the predecessor ends` | VIEW-08 |
@@ -199,6 +216,7 @@
 | `screenContext.test.ts` | `keeps broken-link endpoints only when relation is broken` | MCP-01 |
 | 同上 | `keeps unassigned and unknown assignee when assignee filter is unassigned` | MCP-01, FILTER-03 |
 | 同上 | `respects lineage and still returns selected task outside filter` | MCP-01, FILTER-08, EDIT-01 |
+| 同上 | `returns null when selection is not exactly one task` | MCP-01, EDIT-01 |
 | `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |
 | 同上 | `keeps spaces and quotes inside the JSON command string` | MCP-01 |
 | 同上 | `keeps a macOS path with spaces as the command string` | MCP-01 |
@@ -697,6 +715,9 @@
 | TC-EDIT-01c | EDIT-01, NAV-01 | 見えているタスクが複数ある。行が画面より多い | ↑↓で選択を移す。見えている行を選んだあと、左の行をクリックして選び直す。端で止まる | カテゴリ行とグループ行は飛ばす。見えている行では縦位置は変わらない。画面外の行へ移したときだけ、入るところまでスクロールする |
 | TC-EDIT-01d | EDIT-01, NAV-01 | 横にスクロールした状態で、バーが画面にかかっているタスクがある | そのバーをクリックする。次に、横に見えていないタスクを選ぶ | かかっているバーを選んでも横位置は変わらない。見えていないバーを選ぶと、開始の手前が見える位置へ寄る |
 | TC-EDIT-01b | EDIT-01 | タスクを選択している | 絞り込みを変える | 選択が外れる |
+| TC-EDIT-01e | EDIT-01, EDIT-04 | 見えているタスクが複数ある | ⌘ または Ctrl+クリックで2件選ぶ。一括パネルで担当だけ変えて適用する。取り消す | 2件とも担当が変わる。取り消し1回で戻る |
+| TC-EDIT-01f | EDIT-01, EDIT-02 | 2件以上選んでいる | 選択中の1本を横にドラッグする | 選択中の全部が同じ日数だけ動く。ドラッグ中は選んだバーすべてに日付が出る |
+| TC-EDIT-01g | EDIT-01, EDIT-11 | 2件以上選んでいる | タスクを右クリックする | メニューは削除だけ |
 | TC-EDIT-02 | EDIT-02 | タスクを選択できる | バー本体を横へドラッグして離す。⌘ または Ctrl 付きでも同じ。詳細パネルが開いているときも同じ | 8px を超えたら開始と終了が同じ日数だけ動く。他のバーや日付は動かない。空きやスペースキー付きドラッグはスクロールのまま |
 | TC-EDIT-02b | EDIT-02 | タスクを選択できる | バー本体を横へドラッグし、離す前に日付を見る。離したあと、空きをドラッグする。左の名前と、ひし形のドラッグもする | ドラッグ中は開始日と終了日が月/日で、棒と重ならずに出る。離すと消える。スクロール、左の名前、ひし形では出ない |
 | TC-EDIT-02d | EDIT-02 | タスクを選択できる | バー本体を動かし、離す前に Escape を押す | 押したときの日付に戻り、履歴には積まれない |
