@@ -470,7 +470,9 @@ gh secret list
 rm -f "$HOME/schedule-viewer-updater/schedule-viewer-updater.key" "$HOME/schedule-viewer-updater/schedule-viewer-updater.key.pub"
 ```
 
-Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。パスワード用の環境変数は渡さない。各 OS ジョブは `latest-linux-x86_64.json` または `latest-windows-x86_64.json` を Release に載せ、`checksums` ジョブが `latest.json` にまとめる。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
+Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。パスワード用の環境変数は渡さない。安定版では、各 OS のビルドの前に `prepare-stable-github-release` が GitHub Release を作る。タグは push したコミット（`GITHUB_SHA`）を指す。より大きいメジャーの安定版が既にあるときは、ビルド前に Latest を外す。各 OS ジョブは `latest-linux-x86_64.json` または `latest-windows-x86_64.json` を Release に載せ、`checksums` ジョブが `latest.json` にまとめる。安定版の `checksums` は、同じメジャー用の Pre-release `updater-X` の `latest.json` も更新し、より大きいメジャーが無いときだけ `finalize-stable-github-release-latest` で Latest を付ける。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
+
+デスクトップ版の自動更新は、入っている版のメジャー用 `updater-X` の `latest.json` を見る。確認先の URL は `tauri.conf.json` にビルドごとに入る。この確認先を含む版を入れたあとから効く。それより前の版は `releases/latest` を見るため、次のメジャーへ自動で進み得る。次のメジャーを出す前に、今のメジャーの安定版として `updater-X` を配る。
 
 `main` へ載せる時点でこの secret が無いと、Release ジョブは失敗する。
 
@@ -512,7 +514,7 @@ Release ワークフローは、安定版では各 OS のビルドが同じダ�
 - ブランチの番号と版から接尾辞を外した番号が違う
 - 同じタグが別のコミットを指している版を、もう一度新規に作ろうとしたとき
 
-ベータを入れたあとも、自動更新が見る先は安定版の `latest` である。入っている版より古い安定版へは進まない。次の `beta.N` は自動では入らない。自動更新の版比較は semver である。接尾辞を外した安定版が出て、自動更新がオンなら、判定上はベータより新しい版として入れ直しが始まる。Windows では NSIS の上書きで進む。この仕組みを初めて使うベータでは、その上書きを手で確認する。
+ベータを手で入れたあとも、同じメジャーの `updater-X` を見る。入っている版より古い安定版へは進まない。次のメジャーへは自動では進まない。次の `beta.N` は自動では入らない。自動更新の版比較は semver である。接尾辞を外した安定版が出て、自動更新がオンなら、判定上はベータより新しい版として入れ直しが始まる。Windows では NSIS の上書きで進む。この仕組みを初めて使うベータでは、その上書きを手で確認する。より大きいメジャーの安定版を出したあとに、小さいメジャーの安定版を出しても、GitHub の Latest は大きいメジャーのままである。
 
 Ubuntu では deb の版比較は Debian の規則である。`X.Y.Z-beta.N` は同じ番号の `X.Y.Z` より新しいため、ベータの deb が入っている状態で安定版の deb を `apt install` すると、`dpkg` がダウングレードとして拒否する。手で安定版へ移すときは、先にベータの deb を外してから安定版を入れる。
 

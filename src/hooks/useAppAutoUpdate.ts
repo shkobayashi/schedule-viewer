@@ -5,6 +5,7 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import {
   readAutoUpdateEnabled,
+  shouldAcceptAutoUpdate,
   shouldIgnoreUpdateCheckError,
 } from "../model/autoUpdate";
 import {
@@ -49,6 +50,12 @@ export function useAppAutoUpdate({
         try {
           const update = await check();
           if (cancelled || !update) return;
+          if (
+            !shouldAcceptAutoUpdate(update.currentVersion, update.version)
+          ) {
+            await update.close();
+            return;
+          }
           pendingUpdateRef.current = update;
           await requestApplicationUpdateViaTauri();
         } catch (error) {

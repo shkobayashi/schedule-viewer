@@ -3,6 +3,7 @@ import {
   AUTO_UPDATE_LS_KEY,
   parseAutoUpdateEnabled,
   readAutoUpdateEnabled,
+  shouldAcceptAutoUpdate,
   shouldIgnoreUpdateCheckError,
   writeAutoUpdateEnabled,
 } from "./autoUpdate";
@@ -28,11 +29,32 @@ describe("shouldIgnoreUpdateCheckError", () => {
         "the platform `darwin-aarch64` was not found in the response `platforms` object",
       ),
     ).toBe(true);
+    expect(
+      shouldIgnoreUpdateCheckError(
+        "Could not fetch a valid release JSON from the remote",
+      ),
+    ).toBe(true);
   });
 
   it("does not ignore network failures", () => {
     expect(shouldIgnoreUpdateCheckError("network error")).toBe(false);
     expect(shouldIgnoreUpdateCheckError("fetch failed")).toBe(false);
+  });
+});
+
+describe("shouldAcceptAutoUpdate", () => {
+  it("accepts newer stable in the same major", () => {
+    expect(shouldAcceptAutoUpdate("1.4.1", "1.4.2")).toBe(true);
+    expect(shouldAcceptAutoUpdate("1.4.1", "1.5.0")).toBe(true);
+    expect(shouldAcceptAutoUpdate("1.4.2-beta.1", "1.4.2")).toBe(true);
+  });
+
+  it("rejects different major, beta remote, same or older", () => {
+    expect(shouldAcceptAutoUpdate("1.4.1", "2.0.0")).toBe(false);
+    expect(shouldAcceptAutoUpdate("1.4.1", "1.4.1-beta.1")).toBe(false);
+    expect(shouldAcceptAutoUpdate("1.4.2", "1.4.2")).toBe(false);
+    expect(shouldAcceptAutoUpdate("1.4.2", "1.4.1")).toBe(false);
+    expect(shouldAcceptAutoUpdate("bad", "1.4.2")).toBe(false);
   });
 });
 
