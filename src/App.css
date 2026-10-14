@@ -569,12 +569,30 @@ input[type="number"] {
   z-index: 2;
 }
 
-.filter-panel-tag-label {
+.filter-panel-tag-heading {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8px * var(--s));
+  font-size: calc(11px * var(--s));
+  min-height: calc(4px + calc(11px * var(--s) * 1.5));
+}
+
+.filter-panel-tag-label {
   font-size: calc(11px * var(--s));
   color: var(--text-secondary);
+}
+
+.filter-panel-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .filter-panel-tag-combo {

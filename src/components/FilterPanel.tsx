@@ -72,6 +72,7 @@ function FilterTagField({
   const inputRef = useRef<HTMLInputElement>(null);
   const comboRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const [clearAnnouncement, setClearAnnouncement] = useState("");
 
   const candidates = useMemo(
     () => filterTagsByQuery(scheduleTags, query),
@@ -83,6 +84,13 @@ function FilterTagField({
     if (selected.has(tag)) selected.delete(tag);
     else selected.add(tag);
     onTagsChange(scheduleTags.filter((item) => selected.has(item)));
+  };
+
+  const clearSelectedTags = () => {
+    onTagsChange([]);
+    setClearAnnouncement("");
+    queueMicrotask(() => setClearAnnouncement("タグの選択を外しました"));
+    inputRef.current?.focus();
   };
 
   const updateListMaxHeight = () => {
@@ -168,9 +176,27 @@ function FilterTagField({
       ? `${listId}-opt-${activeIndex}`
       : undefined;
 
+  const showClearTags = selectedTags.length > 0;
+
   return (
     <div className="filter-panel-field filter-panel-tags filter-panel-field-span">
-      <label className="filter-panel-tag-label" htmlFor={inputId}>タグ</label>
+      <div className="filter-panel-tag-heading">
+        <label className="filter-panel-tag-label" htmlFor={inputId}>タグ</label>
+        {showClearTags ? (
+          <button
+            type="button"
+            className="filter-clear-all"
+            aria-label="タグの選択を外す"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={clearSelectedTags}
+          >
+            選択を外す
+          </button>
+        ) : null}
+      </div>
+      <div className="filter-panel-sr-only" role="status" aria-live="polite">
+        {clearAnnouncement}
+      </div>
       <div className="filter-panel-tag-combo" ref={comboRef}>
         <input
           ref={inputRef}
