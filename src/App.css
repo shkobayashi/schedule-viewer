@@ -569,6 +569,87 @@ input[type="number"] {
   z-index: 2;
 }
 
+.filter-panel-milestone {
+  position: relative;
+  z-index: 2;
+}
+
+.filter-panel-milestone-label {
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+}
+
+.filter-panel-milestone-combo {
+  position: relative;
+}
+
+.filter-panel-milestone-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.filter-panel-milestone-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.filter-panel-milestone-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + calc(4px * var(--s, 1)));
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  max-height: min(40vh, calc(100vh - 8px));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--elevation-menu);
+  overflow: hidden;
+}
+
+.filter-panel-milestone-options {
+  list-style: none;
+  margin: 0;
+  padding: calc(4px * var(--s, 1)) 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.filter-panel-milestone-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: calc(6px * var(--s, 1)) calc(8px * var(--s, 1));
+  font-size: calc(13px * var(--s, 1));
+  color: var(--text);
+  cursor: pointer;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.filter-panel-milestone-option-active,
+.filter-panel-milestone-option:hover {
+  background: var(--accent-soft);
+}
+
+.filter-panel-milestone-status {
+  margin: 0;
+  flex-shrink: 0;
+  padding: calc(6px * var(--s, 1)) calc(8px * var(--s, 1));
+  font-size: calc(13px * var(--s, 1));
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+}
+
+.filter-panel-milestone-dropdown > .filter-panel-milestone-status:first-child {
+  border-top: 0;
+}
+
 .filter-panel-tag-heading {
   display: flex;
   align-items: center;
@@ -1995,6 +2076,11 @@ button:focus-visible,
 .relation-options button.active,
 .relation-options button:hover {
   background: var(--accent-soft);
+}
+
+.milestone-field-combo .relation-options button {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .relation-none {
