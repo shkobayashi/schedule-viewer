@@ -34,8 +34,32 @@ jobs:
         id: check
         run: npx tsx scripts/check-release-push.ts
 
-  release:
+  prepare-stable-github-release:
     needs: validate-release-push
+    if: needs.validate-release-push.outputs.prerelease != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Create stable release before build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: npx tsx scripts/prepare-stable-github-release.ts
+
+  release:
+    needs: [validate-release-push, prepare-stable-github-release]
+    if: always() && needs.validate-release-push.result == 'success' && (needs.validate-release-push.outputs.prerelease == 'true' || needs.prepare-stable-github-release.result == 'success')
     permissions:
       contents: write
     environment: release
@@ -237,3 +261,9 @@ jobs:
             npx tsx scripts/build-release-notes.ts "$version" "$repo" dist-release/release-body-prefix.md CHANGELOG.md dist-release/release-body.md
           fi
           gh release edit "$tag" --notes-file dist-release/release-body.md
+          if [ "$PRERELEASE" != "true" ]; then
+            GITHUB_SHA="${{ github.sha }}" GITHUB_REPOSITORY="${{ github.repository }}" \
+              npx tsx scripts/publish-updater-channel.ts dist-release/latest.json
+            GITHUB_REPOSITORY="${{ github.repository }}" \
+              npx tsx scripts/finalize-stable-github-release-latest.ts
+          fi

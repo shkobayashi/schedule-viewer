@@ -73,7 +73,7 @@
 2. **Phase 1: フロント作り込み** — 完了。`mockup/`のKonvaプロトタイプをReactコンポーネントに移植し、表示・フィルタ・編集・ズーム・系統・マイルストン・追加削除・配布用HTML書き出しまでを画面側で持つ。タスクの並び替えはしない
 3. **Phase 2: JSONスキーマ確定** — 完了。`schemaVersion`・`title`・マイルストン・カテゴリ→グループ→タスク・`predecessors`・UUID ID。Ajv + 意味規則検証（`npm run check:schedule`）。別プロジェクト向け `.cursor/skills/write-schedule`（自己完結の検証スクリプト同梱）
 4. **Phase 3: ファイルI/O実装** — 完了。JSON の開く・保存・別名保存（Tauri はネイティブダイアログ、ブラウザはファイル選択とダウンロード）。読み込み前に `validateSchedule`、未保存のまま開くときは確認
-5. **Phase 4: 配布** — GitHub Release で Ubuntu の deb と Windows の NSIS を自動で作っている。Windows の NSIS は自己署名済み。安定版の Release 本文にはその版の CHANGELOG を載せる。実機確認用の版は `release/X.Y.Z` から Pre-release として出し、本文は短い確認用の文だけである。Latest と自動更新は安定版だけを指す。デスクトップ版は設定でオンにしたときだけ、安定版の `latest.json` から署名付きで自動更新する。設定の「更新」で同梱の変更履歴を読める。操作マニュアルは `main` から https://shkobayashi.github.io/schedule-viewer/ で公開する。macOS の署名と配布はまだ
+5. **Phase 4: 配布** — GitHub Release で Ubuntu の deb と Windows の NSIS を自動で作っている。Windows の NSIS は自己署名済み。安定版の Release 本文にはその版の CHANGELOG を載せる。実機確認用の版は `release/X.Y.Z` から Pre-release として出し、本文は短い確認用の文だけである。Latest は安定版のうち、より大きいメジャーが無いときだけ付く。デスクトップ版は設定でオンにしたときだけ、同じメジャー用の `updater-X` の `latest.json` から、より新しい安定版だけを署名付きで自動更新する。設定の「更新」で同梱の変更履歴を読める。操作マニュアルは `main` から https://shkobayashi.github.io/schedule-viewer/ で公開する。macOS の署名と配布はまだ
 
 ## 画面の現状
 

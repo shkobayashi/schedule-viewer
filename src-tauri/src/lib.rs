@@ -1,3 +1,4 @@
+mod beta_installer;
 mod json_skills;
 mod mcp_app_data;
 mod mcp_bridge;
@@ -1568,13 +1569,11 @@ fn report_startup_settled(
     Ok(StartupSettledResult { all_settled })
 }
 
-#[tauri::command]
-fn request_application_update(
-    app: tauri::AppHandle,
-    window: tauri::Window,
-    session: State<'_, Mutex<WindowSessionState>>,
-) -> Result<(), String> {
-    let install_label = window_label(&window);
+fn start_application_update_flow(
+    app: &tauri::AppHandle,
+    session: &Mutex<WindowSessionState>,
+    install_label: String,
+) {
     let labels: Vec<String> = app.webview_windows().keys().cloned().collect();
     {
         let mut guard = session.lock().expect("window session");
@@ -1586,6 +1585,29 @@ fn request_application_update(
     for (_, window) in app.webview_windows() {
         let _ = window.emit("application-update-requested", ());
     }
+}
+
+#[tauri::command]
+fn request_application_update(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<(), String> {
+    let install_label = window_label(&window);
+    start_application_update_flow(&app, session.inner(), install_label);
+    Ok(())
+}
+
+#[tauri::command]
+fn begin_application_update_install(
+    app: tauri::AppHandle,
+    session: State<'_, Mutex<WindowSessionState>>,
+    install_label: String,
+) -> Result<(), String> {
+    if app.get_webview_window(&install_label).is_none() {
+        return Err("更新を入れ直すウィンドウがありません。".to_string());
+    }
+    start_application_update_flow(&app, session.inner(), install_label);
     Ok(())
 }
 
@@ -1653,6 +1675,88 @@ fn cancel_application_update(
         let _ = window.emit("application-update-cancelled", ());
     }
     Ok(())
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ApplicationUpdateUiBroadcast {
+    phase: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    info_ephemeral: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    check_label: Option<String>,
+}
+
+#[tauri::command]
+fn sync_application_update_ui(
+    app: tauri::AppHandle,
+    session: State<'_, Mutex<WindowSessionState>>,
+    payload: ApplicationUpdateUiBroadcast,
+) -> Result<(), String> {
+    let json = serde_json::to_string(&payload).map_err(|e| e.to_string())?;
+    {
+        let mut guard = session.lock().expect("window session");
+        guard.application_update_ui_json = Some(json);
+    }
+    for (_, window) in app.webview_windows() {
+        let _ = window.emit("application-update-ui-sync", &payload);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn read_focused_window_label(app: tauri::AppHandle) -> Result<String, String> {
+    let app_data = app_data_dir(&app)?;
+    let file = read_open_windows(&app_data)?;
+    Ok(file.focused_label)
+}
+
+#[tauri::command]
+fn is_any_schedule_window_focused(app: tauri::AppHandle) -> bool {
+    any_window_focused(&app)
+}
+
+#[tauri::command]
+fn show_application_update_background_notification(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    body: String,
+) -> Result<(), String> {
+    if any_window_focused(&app) {
+        return Ok(());
+    }
+    let label = window_label(&window);
+    show_peer_os_notification(&app, "schedule-viewer".to_string(), body, label);
+    Ok(())
+}
+
+#[tauri::command]
+fn fetch_beta_release_tags() -> Result<Vec<String>, String> {
+    beta_installer::fetch_beta_release_tags()
+}
+
+#[tauri::command]
+async fn save_beta_installer(
+    window: tauri::Window,
+    version: String,
+) -> Result<Option<String>, String> {
+    let default_name = beta_installer::default_installer_file_name(&version)?;
+    let picked = window
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_file_name(&default_name)
+        .blocking_save_file();
+    let Some(file_path) = picked else {
+        return Ok(None);
+    };
+    let path = file_path.into_path().map_err(|e| e.to_string())?;
+    beta_installer::download_beta_installer_to_path(&version, &path)?;
+    Ok(Some(path.to_string_lossy().into_owned()))
 }
 
 #[tauri::command]
@@ -1767,9 +1871,16 @@ pub fn run() {
             cancel_application_quit,
             report_startup_settled,
             request_application_update,
+            begin_application_update_install,
             accept_application_update,
             complete_application_update_recovery,
             cancel_application_update,
+            sync_application_update_ui,
+            read_focused_window_label,
+            is_any_schedule_window_focused,
+            show_application_update_background_notification,
+            fetch_beta_release_tags,
+            save_beta_installer,
             json_skill_home_dirs,
             pick_json_skill_folder,
             install_json_skills,

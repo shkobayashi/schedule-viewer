@@ -32,6 +32,8 @@ type UseTimelinePointerOptions = {
   selectedTaskId: ScheduleId | null;
   clipTop: number;
   onChartPointer: (pointer: ChartPointer) => void;
+  /** チャートのパン中は、本体の外でも追随線の終点用にクライアント座標を追う。 */
+  panTrackActive?: boolean;
 };
 
 export function useTimelinePointer({
@@ -48,6 +50,7 @@ export function useTimelinePointer({
   selectedTaskId,
   clipTop,
   onChartPointer,
+  panTrackActive = false,
 }: UseTimelinePointerOptions): {
   bodyRef: RefObject<HTMLDivElement | null>;
   bandRef: RefObject<HTMLDivElement | null>;
@@ -153,6 +156,7 @@ export function useTimelinePointer({
     };
     const onLeave = (event: Event) => {
       if (!(event instanceof globalThis.MouseEvent)) return;
+      if (panTrackActive) return;
       const next = event.relatedTarget;
       const band = bandRef.current;
       const body = bodyRef.current;
@@ -178,14 +182,20 @@ export function useTimelinePointer({
     add(bandRef.current);
     add(bodyRef.current);
     if (linkMode) add(document.querySelector(".sidebar"));
+    if (panTrackActive) {
+      window.addEventListener("mousemove", onMove);
+    }
     return () => {
       for (const node of targets) {
         node.removeEventListener("mousemove", onMove);
         node.removeEventListener("mouseleave", onLeave);
       }
+      if (panTrackActive) {
+        window.removeEventListener("mousemove", onMove);
+      }
       if (frame != null) window.cancelAnimationFrame(frame);
     };
-  }, [linkMode]);
+  }, [linkMode, panTrackActive]);
 
   const onChartPointerRef = useRef(onChartPointer);
   onChartPointerRef.current = onChartPointer;

@@ -48,10 +48,11 @@ flowchart TD
 | `AppMenu.tsx` | ☰ メニュー |
 | `ContextMenu.tsx` | タスク、マイルストン、左のマイルストングループ名の行、カテゴリ、グループ、チャートの空きの右クリックメニュー。区切り、危険色の削除、Lucide アイコン、ショートカット表示。タスクは編集、複製、確度、ノート、系統、削除。マイルストングループ行は非表示と、条件付きのこの行だけ表示。カテゴリは名前の変更、下へのカテゴリ追加、グループ追加、条件付きの削除。グループは名前の変更、下へのグループ追加、条件付きの削除。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す。位置はクリック座標と `offsetWidth` / `offsetHeight` から `anchoredMenu.ts` の `menuShiftForRect` で一度だけ決める |
 | `TaskDetailPanel.tsx` | 選択中タスクの右パネル。`applyTaskPatch` で項目ごとに履歴。フォーカス中は外部反映を止める。保存は呼び出し時点の文書を土台に、利用者が変えた項目だけ上書きする。開始日と終了日は日付欄を変えたときだけ含める |
+| `MilestoneField.tsx` | 詳細パネルとタスク複製ダイアログの「対応マイルストン」。`milestoneField.ts` で候補と強調行を組み立てる |
 | `StatusBar.tsx` | 画面下端。未保存のクリックで差分ダイアログ |
 | `Toolbar.tsx` | 見出し、検索、絞り込みパネル、系統、線を引く、追加、マイルストン追加、削除、取り消し、やり直し、今日と日・週・月・全体、操作の案内、ショートカット一覧 |
 | `ActiveFilterBar.tsx` | 効いている絞り込みと系統の札 |
-| `FilterPanel.tsx` | 絞り込みの選択欄 |
+| `FilterPanel.tsx` | 絞り込みの選択欄。タグとマイルストンは候補を絞る入力欄 |
 | `GuideDialog.tsx` | 操作の案内（`guideContent.ts` の文） |
 | `ShortcutsDialog.tsx` | ショートカット一覧 |
 | `CommandPalette.tsx` | ⌘/Ctrl+K のコマンドパレット |
@@ -90,6 +91,7 @@ flowchart TD
 | 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`tasks.ts`、`taskOrder.ts`、`categoryOrder.ts`、`groupOrder.ts` |
 | 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`dates.ts`、`monthHeader.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
 | 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
+| 対応マイルストン欄と絞り込みのマイルストン欄 | `milestoneField.ts` の `buildMilestoneFieldList`、`buildMilestoneFilterList`、`initialMilestoneFieldActiveIndex`、`initialMilestoneFilterActiveIndex` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
 | 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffLoad.ts` |
 | MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`mcpRegistration.ts` |
@@ -173,7 +175,7 @@ flowchart TD
 
 ### 別ウィンドウ
 
-デスクトップ版の自動更新は `tauri-plugin-updater` と `tauri-plugin-process` が担う。エンドポイントと公開鍵は [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) の `plugins.updater` に置く。起動時にオンだったかは `readAutoUpdateEnabled`（`src/model/autoUpdate.ts`）が起動直後に一度だけ読む。`useAppAutoUpdate` が、起動復旧のあと `report_startup_settled` で各ウィンドウの起動時のオンオフを渡し、開いているウィンドウがすべて揃ったときだけ一度だけ `application-run-update-check` を送る。ウィンドウが閉じて揃いが変わったときも同じ判断をもう一度行う。受け取ったウィンドウだけが `check` で新しい版を調べる。`latest.json` に今の OS が無いときは失敗の知らせを出さない。更新があるときは `request_application_update` が全ウィンドウへ `application-update-requested` を送る。サンプルの未保存は破棄確認を出し、確定かキャンセルを待ってから `accept_application_update` する。すべて揃ったあと、終了と同じくパスごとの控えの書き手を固定し、全ウィンドウへ `application-update-write-recovery` を送って控えを書く。書き終えたあと、確認を取ったウィンドウだけが `application-update-proceed` を受け取り、`downloadAndInstall` して `relaunch` する。再起動で閉じるときは破棄確認を出さない。`downloadAndInstall` が処理を戻して失敗したときは、失敗の知らせはダウンロードまたは入れ直しの失敗だけに出す。Release 用の署名付き `latest.json` は CI が各 Release に添付する。設定の「更新」は [src/components/SettingsChangelogHistory.tsx](../src/components/SettingsChangelogHistory.tsx) が、同梱の `CHANGELOG.md` を `parseBundledChangelogVersions` で読んで欄内に出す。起動時には出さない。
+デスクトップ版の自動更新は `tauri-plugin-updater` と `tauri-plugin-process` が担う。エンドポイントと公開鍵は [src-tauri/tauri.conf.json](../src-tauri/tauri.conf.json) の `plugins.updater` に置く。確認先は入っている版のメジャー `X` 用の `updater-X` Release が載せる `latest.json` 1 件である。`npm run version:bump` は [scripts/project-version-files.ts](../scripts/project-version-files.ts) が同じ URL を書く。起動時にオンだったかは `readAutoUpdateEnabled`（`src/model/autoUpdate.ts`）が起動直後に一度だけ読む。`useAppUpdateFlow`（`src/hooks/useAppAutoUpdate.ts`）が、起動復旧のあと `report_startup_settled` で各ウィンドウの起動時のオンオフを渡し、開いているウィンドウがすべて揃ったときだけ一度だけ `check` する。ウィンドウが閉じて揃いが変わったときも同じ判断をもう一度行う。受け取ったウィンドウだけが `check` で新しい版を調べ、`Update` オブジェクトはそのウィンドウの JS に残る。`shouldAcceptAutoUpdate` が、同じメジャーのより新しい安定版だけを入れ直し対象にする。外れるときは `Update.close` して終わり、知らせは出さない。起動時の失敗表示は `shouldIgnoreUpdateCheckError` が、更新なしと同様の失敗を出さない。手動確認の文言分けは `classifyUpdateCheckError` が担う。入れ直す版があるときは `sync_application_update_ui` と `application-update-ui-sync` で全ウィンドウの UI 状態を揃え、前面ウィンドウの隅または設定の「更新」欄に知らせを出す。ユーザーが「入れ直す」を選んだあとだけ `request_application_update` が全ウィンドウへ `application-update-requested` を送る。サンプルの未保存は破棄確認を出し、確定かキャンセルを待ってから `accept_application_update` する。すべて揃ったあと、終了と同じくパスごとの控えの書き手を固定し、全ウィンドウへ `application-update-write-recovery` を送って控えを書く。書き終えたあと、`check` したウィンドウラベルへ `application-update-proceed` を送り、そのウィンドウだけが `downloadAndInstall` して `relaunch` する。持つウィンドウを閉じたあとに「入れ直す」を押したときは、残ったウィンドウがもう一度 `check` する。再起動で閉じるときは破棄確認を出さない。`downloadAndInstall` が処理を戻して失敗したときは、失敗の知らせだけを出す。背面のときの OS 通知は `show_application_update_background_notification` が、既存の peer 通知と同じ経路で1回出す。ベータのインストーラ保存は、フロントの `pickSaveableBetaVersion`（`src/model/betaRelease.ts`）が GitHub API で取ったタグから版を選び、`fetch_beta_release_tags` と `save_beta_installer`（`src-tauri/src/beta_installer.rs`）が一覧取得、保存ダイアログ、ダウンロードを行う。アップデータの `check` も `downloadAndInstall` も使わない。安定版の Release 用の署名付き `latest.json` は CI が各 Release に添付する。同じメジャー用の `updater-X` は Pre-release で、`latest.json` だけを載せる。[scripts/prepare-stable-github-release.ts](../scripts/prepare-stable-github-release.ts) が安定版の GitHub Release をビルド前に作る。タグの対象は `GITHUB_SHA` である。より大きいメジャーの安定版があるときは Latest を外す。[scripts/publish-updater-channel.ts](../scripts/publish-updater-channel.ts) が `shouldUpdateUpdaterChannel` で `updater-X` を上書きする。既存の `updater-X` で `latest.json` の `version` が読めないときは失敗する。[scripts/finalize-stable-github-release-latest.ts](../scripts/finalize-stable-github-release-latest.ts) が、資産と `updater-X` の更新のあと、`shouldMarkGitHubReleaseLatest` が true のときだけ Latest を付ける。設定の「更新」は [src/components/SettingsChangelogHistory.tsx](../src/components/SettingsChangelogHistory.tsx) が、同梱の `CHANGELOG.md` を `parseBundledChangelogVersions` で読んで欄内に出す。起動時には出さない。
 
 設定ダイアログの下に出す今の版は、デスクトップ版では `@tauri-apps/api/app` の `getVersion`（権限 `core:app:allow-version`）を、ブラウザ版では `package.json` の `version` を、設定を初めて開いたときに 1 回だけ読む。整形した 1 行は [src/components/SettingsDialog.tsx](../src/components/SettingsDialog.tsx) のモジュール内に残し、閉じたあとも取り直さない。新しい Tauri 命令は足さない。
 
@@ -253,10 +255,17 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `accept_application_quit` | このウィンドウは終了してよい | — | 同上 | 同上 |
 | `cancel_application_quit` | 終了を取りやめる | — | 同上 | 同上 |
 | `report_startup_settled` | 起動復旧完了と起動時の自動更新オンオフを記録し、全ウィンドウが揃ったか返す | — | 同上 | `windowSession.ts` |
-| `request_application_update` | 全ウィンドウへ更新前確認を送る | — | 同上 | 同上 |
+| `request_application_update` | 全ウィンドウへ更新前確認を送る。入れ直しを始めるウィンドウは呼び出し元 | — | 同上 | 同上 |
+| `begin_application_update_install` | 指定したウィンドウを入れ直しの開始窓にして、全ウィンドウへ更新前確認を送る | 指定ラベルのウィンドウが無い | 同上 | 同上 |
 | `accept_application_update` | このウィンドウは更新してよい | — | 同上 | 同上 |
 | `complete_application_update_recovery` | 更新前の控えの書き込みが終わった | — | 同上 | 同上 |
 | `cancel_application_update` | 更新を取りやめる | — | 同上 | 同上 |
+| `sync_application_update_ui` | 更新 UI の状態 JSON を記録し、全ウィンドウへ同期イベントを送る | — | 同上 | `windowSession.ts` |
+| `read_focused_window_label` | `open-windows.json` の前面ラベル | — | 同上 | 同上 |
+| `is_any_schedule_window_focused` | いずれかのウィンドウが前面か | — | 同上 | 同上 |
+| `show_application_update_background_notification` | アプリが背面のとき、更新知らせ用の OS 通知を1回出す | — | 同上 | 同上 |
+| `fetch_beta_release_tags` | 公開 GitHub Releases からベータタグ一覧 | API 失敗 | 同上 | 同上 |
+| `save_beta_installer` | 版を指定してインストーラを別名保存。キャンセルは `null` | ダウンロード失敗 | 同上 | 同上 |
 | `recovery_live_action` | 前面なら書き込みか削除 | — | 同上 | 同上 |
 | `recovery_close_action` | 閉じるときと終了時の控えの扱い | — | 同上 | 同上 |
 | `release_schedule_recovery` | 別ファイルを開いたあとの、元パスの控え | — | 同上 | 同上 |
@@ -301,7 +310,7 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 
 前後の線は `dependencies.ts` の `linkPoints` である。間隔があるときは先行の右端から 12px 右で折れ、後続の左端へ入る。右へ出る余地が頭の長さより狭いときは、先行バーの外側を回ってから左端の手前で右を向く。最後の区間は右向きで、頭（`LINK_POINTER_LENGTH`）が後続バーの外に残る。画面の Arrow と書き出しの marker はその長さを共有する。線はバーより先に描く。
 
-線を引くモードでは、起点バーの右端からポインタまで、確定した矢印と同じ `linkPoints` の折れ線を通常色で描く。クリックは受けない。タスクバーの上ではそのバーの左端まで、左の一覧の上ではチャートの左端まで、それ以外はポインタの位置で終わる。スクロールで起点が動くと始点も動く。モードが終わると消える。後続にできるタスクバーだけ、選択や状態色とは別の `linkTargetStroke` で囲む。
+線を引くモードでは、起点バーの右端からポインタまで、確定した矢印と同じ `linkPoints` の折れ線を通常色で描く。タスクバーの上ではそのバーの左端まで、左の一覧の上ではチャートの左端まで、それ以外はポインタの位置で終わる。スクロールで起点が動くと始点も動く。モードが終わると消える。後続にできるタスクバーだけ、選択や状態色とは別の `linkTargetStroke` で囲む。モード中のドラッグは `resolveLinkModeGesture` で分ける。空きと親バーは `CHART_PAN_THRESHOLD_PX`（3px）、タスクバーの主ボタンは `TASK_DRAG_THRESHOLD_PX`（8px）を超えたら `commitLinkScrollPan` でスクロールする。押した位置を原点に、しきい値までの移動を一度だけビューへ入れ、パン自身の 3px は重ねない。8px 未満で同じバーの上で離したときだけ `onLinkTargetClick` する。ダブルクリックの 2 回目と `pointercancel` では足さない。スペースと中ボタンは 3px でスクロールする。空きの押下は `onBodyMouseDown`、タスクバーは `linkBarPointerDown` が監視する。タスクバーの `pointerdown` が始めた監視を、本体の `mousedown` が置き換えない。モード中は期間端の幾何当たりで空きのパンを止めない。パン中は `.panning` で閉じた手になる。待機中は `.linking` の矢印のままである。パン中は `useTimelinePointer` の `panTrackActive` で、チャートの外でも追随の終点を残す。
 
 見えている線の当たりは、描画とは別の座標計算である。`chartHitTest.ts` がタスクバー、マイルストン、線の順で一つに決める。バー本体の移動と端の期間変更は `TASK_DRAG_THRESHOLD_PX`（8px）を超えてから始まる。本体の移動は Konva のドラッグではなく、ステージのキャンバスでポインタを取り、`pointerup` で日数を一度だけ確定する。`pointercancel` と Escape は離す前の位置へ戻し、履歴に積まない。期間の端は Konva のハンドルのドラッグのままである。端の当たりは `taskBarResizeEdgeAt` と `hitTaskResizeEdge` でポインタ位置から判定し、選択前のバーにも付く。見えるハンドルは選択中だけである。期間ドラッグ専用の Konva 当たりは、見た目より広い。バーの外へ 12px、中へは最大 16px、上下はバーの高さである。短いバーは中央に 8px のクリック幅を残す。クリック、ダブルクリック、タップ、右クリック、バー移動、パンを止める判定は、イベント対象のノード名を使わず、同じポインタ位置の判定を使う。この当たりは期間のドラッグだけを受ける。カーソルはチャートの `grab` のままにし、端で切り替えない。マイルストンの当たりは `milestoneMarkHit` で、ひし形の円（見た目の半径に 2px）と、名前の矩形と、そのあいだの隙間である。名前の幅は画面上に出している切り詰め後の文字列から `milestoneLabelWidth` で求め、左端は描画と同じくひし形の半径に 5px を足した位置、上下は円の直径と文字の高さのうち広い方である。名前幅が 0 のときは円だけである。帯の y はレイアウトの `centerYById` を使う。帯のクリック、ドラッグ、右クリックは `MilestoneBand.tsx` が、同じ形の Konva の当たりで受ける。線は `nearestLinkHit` が閾値 8px 以内で一番近い 1 本を返す。選択中バーは端のハンドルの幅だけ当たりを広げる。線を引くモードでは広げない。右クリックの線も同じタスクの当たりを使う。線のレイヤはクリックを受けない。タスクバーとマイルストンが先である。日付ヘッダー、マイルストン帯の空き、チャート本体の空き（親バーと、固定段より上を含む）の右クリックは「マイルストンを追加」だけを出す。新しい当たり図形は足さない。日付は `dates.ts` の `isoDateAtChartX` で、ポインタの横位置が含まれる暦日である。日の左端を含み、次の日の左端は含まない。表示期間の外は出さない。印とタスクバーは先に受け、空きの項目は出さない。線を引くモードでは出さない。
 
@@ -350,9 +359,9 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 
 Vite は、ブラウザ版の `npm run dev` ではポート 5173、`tauri dev` ではポート 1420 を使い、`src-tauri` の変更では再起動しない。Vitest は `src/**/*.test.ts` を Node 上で実行する。TypeScript は `strict` で、`npm run build` の `tsc` が型を見る。ESLint は `dist`、`src-tauri`、`mockup`、`.cursor` を見ない。
 
-Rust は 1.98.1 で、CI は `cargo clippy -- -D warnings` と `cargo test --locked` を実行する。バージョン番号は `package.json`、`package-lock.json`、`tauri.conf.json`、`Cargo.toml`、`Cargo.lock` を `scripts/check-version-sync.ts` で揃える。形式は `X.Y.Z` または `X.Y.Z-beta.N` である。各数字と `N` は 1 桁なら `0` を許し、2 桁以上の先頭 `0` は付けない。`postinstall` は、その OS 向けの Tauri CLI があることを確認する。
+Rust は 1.98.1 で、CI は `cargo clippy -- -D warnings` と `cargo test --locked` を実行する。バージョン番号は `package.json`、`package-lock.json`、`tauri.conf.json`、`Cargo.toml`、`Cargo.lock` を `scripts/check-version-sync.ts` で揃える。同じ検査で `plugins.updater.endpoints` がその版のメジャー用 `updater-X` を指すことも見る。形式は `X.Y.Z` または `X.Y.Z-beta.N` である。各数字と `N` は 1 桁なら `0` を許し、2 桁以上の先頭 `0` は付けない。`postinstall` は、その OS 向けの Tauri CLI があることを確認する。
 
-安定版の Release 本文は CHANGELOG から組み立てる。ベータ（Pre-release）の本文は [scripts/release-body-beta.md](../scripts/release-body-beta.md) の短い文だけである。安定版の組み立ては [src/model/releaseNotes.ts](../src/model/releaseNotes.ts) と [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) が担う。版とブランチとタグの検査は [src/model/releaseVersion.ts](../src/model/releaseVersion.ts) と [scripts/check-release-push.ts](../scripts/check-release-push.ts) が担う。検査ジョブはタグを取得してから判定する。
+安定版の Release 本文は CHANGELOG から組み立てる。ベータ（Pre-release）の本文は [scripts/release-body-beta.md](../scripts/release-body-beta.md) の短い文だけである。安定版の組み立ては [src/model/releaseNotes.ts](../src/model/releaseNotes.ts) と [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) が担う。版とブランチとタグの検査は [src/model/releaseVersion.ts](../src/model/releaseVersion.ts) と [scripts/check-release-push.ts](../scripts/check-release-push.ts) が担う。検査ジョブはタグを取得してから判定する。安定版ではビルド前に GitHub Release を作る。Latest は `latest.json` と `updater-X` を載せたあとに付ける。`checksums` が `updater-X` を更新する。
 
 npm スクリプトと CI の分岐は [開発ガイド](development.md#npm-スクリプト) にある。
 

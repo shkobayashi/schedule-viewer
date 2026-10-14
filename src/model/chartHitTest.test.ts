@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
+  CHART_PAN_THRESHOLD_PX,
   hitMilestoneDiamond,
   hitTaskResizeEdge,
   hitTaskAnchor,
+  linkModeScrollThresholdPx,
   linkPreviewEnd,
   resolveChartHover,
+  resolveLinkModeGesture,
   resizeExclusiveInside,
   taskBarEdgeAt,
   taskBarResizeEdgeAt,
   RESIZE_BODY_CLICK_PX,
   RESIZE_EXCLUSIVE_INSIDE_PX,
   RESIZE_EXCLUSIVE_OUTSIDE_PX,
+  TASK_DRAG_THRESHOLD_PX,
   TASK_HANDLE_WIDTH,
 } from "./chartHitTest";
 import type { LinkPolyline } from "./dependencies";
@@ -281,5 +285,89 @@ describe("chartHitTest", () => {
       );
     expect(hitAt(10, 12)).toBe(true);
     expect(hitAt(10, 9)).toBe(false);
+  });
+
+  it("uses 3px on empty and 8px on task bars for primary drags in link mode", () => {
+    expect(linkModeScrollThresholdPx("chartEmpty", "primary")).toBe(
+      CHART_PAN_THRESHOLD_PX,
+    );
+    expect(linkModeScrollThresholdPx("taskBar", "primary")).toBe(
+      TASK_DRAG_THRESHOLD_PX,
+    );
+    expect(linkModeScrollThresholdPx("taskBar", "middle")).toBe(
+      CHART_PAN_THRESHOLD_PX,
+    );
+  });
+
+  it("resolves link mode drags to scroll, link click, or none", () => {
+    const base = {
+      surface: "taskBar" as const,
+      button: "primary" as const,
+      releaseOnSameTaskBar: true,
+      scrollCommitted: false,
+    };
+    expect(
+      resolveLinkModeGesture({
+        ...base,
+        phase: "move",
+        distancePx: TASK_DRAG_THRESHOLD_PX - 1,
+      }),
+    ).toEqual({ kind: "pending" });
+    expect(
+      resolveLinkModeGesture({
+        ...base,
+        phase: "move",
+        distancePx: TASK_DRAG_THRESHOLD_PX,
+      }),
+    ).toEqual({ kind: "scroll" });
+    expect(
+      resolveLinkModeGesture({
+        ...base,
+        phase: "release",
+        distancePx: 2,
+      }),
+    ).toEqual({ kind: "linkClick" });
+    expect(
+      resolveLinkModeGesture({
+        ...base,
+        phase: "release",
+        distancePx: 2,
+        releaseOnSameTaskBar: false,
+      }),
+    ).toEqual({ kind: "none" });
+    expect(
+      resolveLinkModeGesture({
+        ...base,
+        phase: "release",
+        distancePx: TASK_DRAG_THRESHOLD_PX,
+        scrollCommitted: true,
+      }),
+    ).toEqual({ kind: "none" });
+    expect(
+      resolveLinkModeGesture({
+        surface: "chartEmpty",
+        button: "primary",
+        releaseOnSameTaskBar: false,
+        scrollCommitted: false,
+        phase: "release",
+        distancePx: 2,
+      }),
+    ).toEqual({ kind: "none" });
+    expect(
+      resolveLinkModeGesture({
+        ...base,
+        button: "middle",
+        phase: "release",
+        distancePx: 2,
+      }),
+    ).toEqual({ kind: "none" });
+    expect(
+      resolveLinkModeGesture({
+        ...base,
+        button: "spacePan",
+        phase: "release",
+        distancePx: 2,
+      }),
+    ).toEqual({ kind: "linkClick" });
   });
 });

@@ -62,6 +62,8 @@ import {
 } from "../model/readScreenSkill";
 import { normalizeVersionLabel } from "../model/releaseNotes";
 import { fetchMcpConfigJson } from "../model/mcpRegistration";
+import { UpdateOfferNotice } from "./UpdateOfferNotice";
+import type { ApplicationUpdateUiPhase } from "../model/appUpdateUi";
 
 function formatAppVersionLine(raw: string): string {
   const normalized = normalizeVersionLabel(raw);
@@ -122,7 +124,26 @@ type SettingsDialogProps = {
   onDeleteCalendar: () => Promise<void>;
   autoUpdateEnabled?: boolean;
   onAutoUpdateChange?: (enabled: boolean) => void;
+  onCheckForUpdates?: () => void;
+  updateUiPhase?: ApplicationUpdateUiPhase;
+  updateUiMessage?: string | null;
+  onUpdateLater?: () => void;
+  onUpdateInstall?: () => void;
+  updateOfferLiveAnnouncementKey?: string;
+  registerOfferAnnouncement?: (key: string) => boolean;
+  markOfferAnnounced?: (key: string) => void;
+  showBetaInstallerSave?: boolean;
+  onSaveBetaInstaller?: () => void;
+  betaInstallerStatusLine?: string | null;
 };
+
+function betaInstallerPlatform(): "windows" | "linux" | null {
+  if (!settingsDesktopOnly()) return null;
+  const ua = navigator.userAgent;
+  if (/Win/i.test(ua)) return "windows";
+  if (/Linux/i.test(ua)) return "linux";
+  return null;
+}
 
 export type SettingsSection =
   | "display"
@@ -157,6 +178,17 @@ export function SettingsDialog({
   onDeleteCalendar,
   autoUpdateEnabled = false,
   onAutoUpdateChange,
+  onCheckForUpdates,
+  updateUiPhase = "idle",
+  updateUiMessage = null,
+  onUpdateLater,
+  onUpdateInstall,
+  updateOfferLiveAnnouncementKey,
+  registerOfferAnnouncement,
+  markOfferAnnounced,
+  showBetaInstallerSave = betaInstallerPlatform() != null,
+  onSaveBetaInstaller,
+  betaInstallerStatusLine = null,
 }: SettingsDialogProps) {
   const displayScaleShortcut = usesCommandKey(
     navigator.platform || navigator.userAgent,
@@ -1009,7 +1041,7 @@ export function SettingsDialog({
               <>
                 <p className="settings-note">
                   オンにすると、次回の起動から GitHub Releases
-                  の新しい版を確認し、あれば入れ直します。初回はオフです。オンにした直後は確認しません。
+                  の新しい版を確認します。新しい版があれば、入れ直すかを聞きます。初回はオフです。オンにした直後は確認しません。
                 </p>
                 <label className="settings-field settings-field-check">
                   <input
@@ -1022,6 +1054,73 @@ export function SettingsDialog({
                   />
                   <span>起動時に更新を確認する</span>
                 </label>
+                <div className="settings-actions">
+                  <button
+                    type="button"
+                    className="toolbar-btn"
+                    onClick={() => onCheckForUpdates?.()}
+                  >
+                    更新を確認
+                  </button>
+                </div>
+                {updateUiPhase === "checking" ? (
+                  <p
+                    className="settings-update-status"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    確認しています
+                  </p>
+                ) : null}
+                {updateUiPhase === "offer" && updateUiMessage ? (
+                  <UpdateOfferNotice
+                    embedded
+                    message={updateUiMessage}
+                    mode="offer"
+                    onLater={onUpdateLater}
+                    onInstall={onUpdateInstall}
+                    liveAnnouncementKey={updateOfferLiveAnnouncementKey}
+                    shouldAnnounceOffer={registerOfferAnnouncement}
+                    onOfferAnnounced={markOfferAnnounced}
+                  />
+                ) : null}
+                {updateUiPhase === "installing" && updateUiMessage ? (
+                  <UpdateOfferNotice
+                    embedded
+                    message={updateUiMessage}
+                    mode="installing"
+                  />
+                ) : null}
+                {updateUiPhase === "info" && updateUiMessage ? (
+                  <p
+                    className="settings-update-status"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {updateUiMessage}
+                  </p>
+                ) : null}
+                {showBetaInstallerSave ? (
+                  <>
+                    <p className="settings-note">
+                      公開中のベータを、この OS のインストーラとして保存します。
+                    </p>
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={() => onSaveBetaInstaller?.()}
+                      >
+                        インストーラを保存
+                      </button>
+                    </div>
+                    {betaInstallerStatusLine ? (
+                      <p className="settings-update-status" role="status">
+                        {betaInstallerStatusLine}
+                      </p>
+                    ) : null}
+                  </>
+                ) : null}
                 <SettingsChangelogHistory active={section === "updates"} />
               </>
             ) : null}

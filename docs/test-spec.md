@@ -22,7 +22,7 @@
 | スケジュール検証 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` |
 | カレンダー検証 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` |
 | メンバー検証 | `npm run check:members` | 引数なしなら `examples/playground.members.json` |
-| バージョン | `npm run version:check` | 5ファイルのバージョン番号と `X.Y.Z` / `X.Y.Z-beta.N` の形 |
+| バージョン | `npm run version:check` | 5ファイルのバージョン番号と `X.Y.Z` / `X.Y.Z-beta.N` の形、`tauri.conf.json` の `plugins.updater.endpoints` がそのメジャー用 `updater-X` を指すこと |
 | スキル同梱物 | `npm run build:validate-skill` のあと、CI と同じパスで `git diff --exit-code` | スキーマコピーと検証 bundle の差分 |
 
 画面用のテストランナー（jsdom、Testing Library、Playwright）は入っていない。
@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`。最後に集約ジョブ `ci` が成功する |
 | `.github/workflows/pages.yml` | `main` への push（操作マニュアルとサイトビルドの入力）または `workflow_dispatch` | `npm ci` のあと `build:manual-site` を GitHub Pages へ公開する |
-| `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Windows NSIS、`latest-linux-x86_64.json` と `latest-windows-x86_64.json`、それらをまとめた `latest.json`、Windows コード署名用の `schedule-viewer-codesign.cer`、`SHA256SUMS` を GitHub Release へ出す。`main` は安定版で CHANGELOG から本文を組み立てる。`release/X.Y.Z` は Pre-release で短い確認用の本文 |
+| `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Windows NSIS、`latest-linux-x86_64.json` と `latest-windows-x86_64.json`、それらをまとめた `latest.json`、Windows コード署名用の `schedule-viewer-codesign.cer`、`SHA256SUMS` を GitHub Release へ出す。`main` は安定版で CHANGELOG から本文を組み立てる。安定版ではビルド前に GitHub Release を作り、`checksums` が同じメジャー用の Pre-release `updater-X` の `latest.json` を更新し、より大きいメジャーが無いときだけ Latest を付ける。`release/X.Y.Z` は Pre-release で短い確認用の本文 |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更（操作マニュアル以外）ではフロントと Rust と `manual` はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
@@ -172,6 +172,15 @@
 | `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
 | `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
 | 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
+| `milestoneField.test.ts` | `prepends none and keeps array order without date sort` | EDIT-04, EDIT-14 |
+| 同上 | `caps milestones at 50 and none does not count` | EDIT-04, EDIT-14 |
+| 同上 | `returns -1 when current is beyond first 50 with empty query` | EDIT-04, EDIT-14 |
+| 同上 | `returns -1 when current id is not in the milestone list with empty query` | EDIT-04 |
+| 同上 | `prepends all and none when query is empty` | FILTER-07 |
+| 同上 | `omits all and none when query is non-empty` | FILTER-07 |
+| 同上 | `caps milestones at 50 and all or none do not count` | FILTER-07 |
+| 同上 | `highlights all or none when query empty` | FILTER-07 |
+| 同上 | `highlights current milestone when in shown list` | FILTER-07 |
 | `taskTags.test.ts` | `matches substrings case-sensitively after trim` | FILTER-12 |
 | 同上 | `keeps only tags that still exist, in document order` | FILTER-12 |
 | `serialize.test.ts` | `writes tags after milestoneId and before note` | FILE-02 |
@@ -436,7 +445,8 @@
 | 同上 | `hits the milestone name and the gap, and misses past the name and lane padding` | EDIT-07, EDIT-11 |
 | 同上 | `extends the name hit to the text height when that is taller than the circle` | EDIT-07 |
 | `colorScheme.test.ts` | `accepts light and dark` | SET-04 |
-| `autoUpdate.test.ts` | `treats on as enabled`、localStorage の読み書き、更新確認の失敗を出さない条件 | SET-06 |
+| `autoUpdate.test.ts` | `treats on as enabled`、localStorage の読み書き、更新確認の失敗を出さない条件、`classifyUpdateCheckError` | SET-06 |
+| `betaRelease.test.ts` | `updater-X` の除外、一覧から最新ベータを選ぶ、入っている版より新しいときだけ保存対象、OS に合うファイル名 | SET-06 |
 | 同上 | `stores fixed schemes and clears key for system` | SET-04 |
 | 同上 | `falls back to system for missing or invalid values` | SET-04 |
 | 同上 | `uses OS preference when set to system` | SET-04 |
@@ -659,6 +669,13 @@
 | TC-FILTER-06 | FILTER-06 | 破綻している組と、していない組 | 「前後: 破綻のみ」を選ぶ | 破綻している線の両端だけが残る |
 | TC-FILTER-07 | FILTER-07 | マイルストン付きと無しが混在 | 「なし」を選ぶ | 対応が無いタスクだけが残る |
 | TC-FILTER-07b | FILTER-07 | 同上 | 特定のマイルストンを選ぶ | それを指すタスクだけが残る |
+| TC-FILTER-07c | FILTER-07 | マイルストンが複数ある JSON | 名前の一部と日付の一部で候補を絞る。検索語が空のとき「すべて」と「なし」が先頭にあることを見る | 大文字小文字を区別する。空のときだけ先頭に「すべて」と「なし」 |
+| TC-FILTER-07d | FILTER-07 | タスクを選択している | 文字を入れるだけではチャートが変わらない。一覧からマイルストンを選ぶ | 選んだ条件だけが残る。タスクの選択は外れる。パネルは開いたまま一覧は閉じる |
+| TC-FILTER-07e | FILTER-07 | 同上 | 一覧が開いている Escape。もう一度 Escape。一致が無い文字で Enter。変換中の矢印 | 1 回目は一覧だけ閉じる。2 回目でパネル。一致が無い Enter では条件は変わらない。変換中の矢印では強調は動かない |
+| TC-FILTER-07f | FILTER-07 | 長い名前のマイルストンがある、または 51 件以上 | 候補の折り返しと 50 件、「さらに絞り込んでください」を見る | 長い名前は折り返す。50 件まで。文言は一覧をスクロールしなくても見える |
+| TC-FILTER-07g | FILTER-07 | 同上 | Escape のあと文字を入れる | 閉じた表示を置き換えて検索を始める |
+| TC-FILTER-07h | FILTER-07 | マイルストンで絞り、タスクを選択している | 同じマイルストンをもう一度選ぶ。別のマイルストンを選ぶ | 同じ行ではタスクの選択が残る。別の行では条件が変わり、タスクの選択は外れる |
+| TC-FILTER-07i | FILTER-07 | マイルストンがある JSON | 一致が無い文字を入れる。51 件以上で上限の文言を見る | 一致が無いときは文言だけで、枠付きの一覧は無い。上限の文言は一覧をスクロールしなくても見える |
 | TC-FILTER-08 | FILTER-08 | 枝分かれした前後関係 | 枝の途中を選んで「系統」を押す | その起点の先行と後続だけが残る。起点を通らない枝は出ない。もう一度で解除する |
 | TC-FILTER-08b | FILTER-08 | 系統を表示している | 別のタスクを右クリックし、「系統を表示」を選ぶ | 起点がそのタスクに切り替わる。同じタスクなら「系統を解除」で外れる |
 | TC-FILTER-09 | FILTER-09 | あるグループのタスクがすべて完了 | 「完了以外」を選ぶ | そのグループの行も消える。追加ダイアログでは、そのグループをまだ選べる |
@@ -673,6 +690,8 @@
 | TC-FILTER-12j | FILTER-12 | タグがある JSON | 矢印で現在行を動かし Enter でオンオフする。Space を押す。Escape で一覧を閉じ、欄を押す。一覧が閉じている Enter を押す。変換中に矢印を押す。Escape をもう一度押す。Tab で隣へ移る。パネルを開いた直後のフォーカスを見る | 一覧は開いたまま残る。Space は文字として入る。Escape は 1 回目で一覧、欄を押すと一覧が開く。一覧が閉じている Enter では選択が変わらない。変換中の矢印では現在行が動かない。2 回目の Escape でパネル。Tab は候補を飛ばして隣へ移り一覧が閉じる。開いた直後はタグ欄にフォーカスしない。変換中の Enter ではオンにならない |
 | TC-FILTER-12g | FILTER-12 | タグで絞っている | 選んだタグを文書から消す（詳細パネルで外すなど） | 消えたタグだけ選択から外れる。ほかに選んだタグがあれば残る |
 | TC-FILTER-12h | FILTER-12 | サンプルにタグ付きとタグ無しのタスクがある | 「タグ」は一つもオンにしない | タグでは絞らない。タグの無いタスクも残る |
+| TC-FILTER-12k | FILTER-12 | タグが複数ある JSON | 表示サイズを 100%、75%、50% で試す。各倍率で、タグを一つ目をオンにしたときの入力欄の位置を見る。タグを二つ以上オンにし、担当など別の条件と欄の検索文字も入れる。「選択を外す」を押す。取り消しを試す。一覧が開いているときにマウスで押す。キーボードで押したあとのフォーカスも見る | 一つ目のタグをオンにしても入力欄は動かない。タグの選択だけが空になる。ほかの条件、検索文字、パネルは残る。札が消え、絞り込みボタンの数からタグの分が減る。取り消しではタグの選択は戻らない。マウスでは一覧は開いたままチェックが外れる。キーボードではタグ欄にフォーカスが戻り、一覧が開く |
+| TC-FILTER-12l | FILTER-12 | タグがある JSON。タグが無い JSON | タグを一つもオンにしていないときと、タグが無いファイルで「絞り込み」を開く | 「選択を外す」は出ない |
 | TC-VIEW-12 | VIEW-12 | サンプル | 未確定と確定のバーを、ライトとダークで見る。超過もある未確定を見る。サンプルの「本番リリース」も見る | 未確定は斜線で、確定はベタ塗り。色はステータスと期限超過のまま。一覧に「未確定」は出ない。超過があるときは「超過」だけ出る。本番リリースのひし形は斜線で、他のマイルストンは塗りつぶし |
 | TC-EDIT-01 | EDIT-01 | サンプル | バーをクリックし、次に左のタスク行をクリックし、背景をクリックする | バーと左の行で選択され端のハンドルが出る。背景で外れる |
 | TC-EDIT-01c | EDIT-01, NAV-01 | 見えているタスクが複数ある。行が画面より多い | ↑↓で選択を移す。見えている行を選んだあと、左の行をクリックして選び直す。端で止まる | カテゴリ行とグループ行は飛ばす。見えている行では縦位置は変わらない。画面外の行へ移したときだけ、入るところまでスクロールする |
@@ -689,6 +708,12 @@
 | TC-EDIT-04c | EDIT-04 | タスクを選択している | Enter を押す | 詳細パネルの名前欄にフォーカスが移る。検索欄にフォーカスがあるときは移らない |
 | TC-EDIT-04d | EDIT-04, EDIT-10 | タスクを選択している | 詳細パネルで確度を変え、取り消す | 確度だけが変わり、日付は動かない。取り消し 1 回で戻る |
 | TC-EDIT-04e | EDIT-04, EDIT-10, FILTER-12 | タスクを選択している | 詳細パネルでタグを足し、外し、取り消しとやり直しをする | 未保存になる。取り消しとやり直しでタグが戻る。タグの絞り込みの選択は戻らない |
+| TC-EDIT-04f | EDIT-04, EDIT-10 | 対応マイルストンが未設定のタスク | 詳細パネルで「対応マイルストン」にフォーカスする。文字が全選択され、先頭が「なし」であることを見る。Enter を押す。別途、名前で絞って別のマイルストンを選び、同じマイルストンをもう一度選び、「なし」を選び、取り消す | 一覧が開き、全選択される。最初の Enter では未設定のまま、取り消しは増えない。選んだときだけ反映し、同じ選び直しでは取り消しは増えない。取り消し 1 回で戻る。「なし」で対応が外れる |
+| TC-EDIT-04g | EDIT-04, EDIT-14 | マイルストンが51件以上ある、または一致が無い文字を入れる | 詳細パネルと複製ダイアログで候補を開く。51件目以降を設定済みのとき Enter を押す。一致が無いとき Enter を押す。複製では「追加」も押さない。選ばずにフォーカスを外し、一覧を Escape で閉じる。Escape のあと文字を入れて検索を始める | 50件まで出る。「さらに絞り込んでください」が一覧をスクロールしなくても見える。一致が無いときは枠付きの一覧は出ない。51件目の Enter では外れない。一致が無い Enter では変わらない。複製では追加されない。外すと表示と値が戻る。Escape で一覧だけ閉じ、複製ダイアログは残る。Escape のあとの最初の文字は閉じた表示を置き換えて検索を始める |
+| TC-EDIT-04h | EDIT-04 | 一覧に無い ID を指すタスクがある | 詳細パネルで「なし」と出ることを見る。フォーカスで一覧を開き、強調が無いことを見る。Enter を押す。「なし」を選び、取り消す | 選ぶまで ID は残る。検索語が空の Enter では値は変わらない。取り消しは増えない。「なし」で外れ、取り消し 1 回で ID が戻る |
+| TC-EDIT-04i | EDIT-04, EDIT-10 | 対応マイルストンが設定済みのタスク。51件未満で一覧の下の方にあるマイルストンを選べる | 詳細パネルで「対応マイルストン」にフォーカスする。強調行が見える位置にあることを見る。先頭が一瞬強調されてから飛び移らないことも見る。矢印で先頭へ戻しても、その行が見える。Enter を押す | その行が強調される。見えない位置なら見えるところへ送られる。Enter では値は変わらず、取り消しは増えない |
+| TC-EDIT-04j | EDIT-04, FILTER-11 | 帯の線がオフのグループのマイルストンがある | 詳細パネルで「対応マイルストン」を開き、名前と日付で絞る。文字を入れてもマイルストン件数が増えないことを見る | 帯の線がオフのマイルストンも候補に出る。入力ではマイルストンを足さない |
+| TC-EDIT-04k | EDIT-04, EDIT-14 | 複製ダイアログ | 対応マイルストンを変えてキャンセルする。再度開き、変えて「追加」する。一覧を閉じたあと Escape を押す。変換中の Enter を試す | キャンセルでは文書は変わらない。「追加」で選んだ対応が付く。一覧を閉じたあとの Escape でダイアログが閉じる。変換中の Enter では選ばない |
 | TC-EDIT-08d | EDIT-08, FILTER-12 | タグで絞っている | タスクを追加する | タグの選択は無くなる |
 | TC-EDIT-14d | EDIT-14, FILTER-12 | タグ付きタスクをタグで絞っている | そのタスクを複製する | タグの絞り込みは残り、複製が見える |
 | TC-EDIT-05 | EDIT-05 | 3件以上のタスク | 編集で、自分を先行にしようとする。次に、循環する先行を保存する | 自分は候補に出ない。循環は保存されず、理由が出る |
@@ -750,9 +775,9 @@
 | TC-UI-02c | NAV-08 | デスクトップ版 | 案内を開く | 外部ファイルの反映と自動更新の文が出る |
 | TC-EDIT-12b | EDIT-12 | 線を引くモード | カーソルを動かし、タスクバー、左の一覧、それ以外へ乗せる | 起点の右端から折れ線が追随する。バーの上ではその左端まで、一覧の上ではチャートの左端まで伸びる。乗ったタスクバーだけ別の輪郭になる。起点、親バー、ひし形は強調されない。モードを終えると線は消える |
 | TC-EDIT-12c | EDIT-12 | 線を引くモード | 別のタスクバーをクリックする。続けて Esc、起点の再クリック、「線を引く」、⌘/Ctrl+L を試す。親バー、ひし形、背景もクリックする | クリックで線が 1 本加わる。取り消しの 1 ステップで戻り、モードは残る。Esc、起点、ボタン、⌘/Ctrl+L では結ばずに終わる。親バー、ひし形、背景では終わらない |
-| TC-EDIT-12d | EDIT-12 | 線を引くモード | チャートをドラッグする。ホイールの縦と横、Shift+ホイール、⌘ または Ctrl と矢印で動かす | ドラッグではスクロールも移動も期間変更もひし形の日付変更もしない。ホイールの縦と横と矢印ではスクロールし、追随する線も動く。ダブルクリックと Enter では詳細パネルの名前欄にフォーカスが移らない |
+| TC-EDIT-12d | EDIT-12 | 線を引くモード | 空きを 3px 未満で離す。同じバーを 8px 未満で離す。バーで 8px 以上動かして離す。押して 8px 未満のまま空きか別のバーで離す。親バー、スペース、中ボタンでドラッグする。バーの端の外 12px 付近も試す。同じバーをすばやく 2 回押す。スクロール中にチャートの外へ出す。ドラッグ中に Esc。ホイールの縦と横、Shift+ホイール、⌘ または Ctrl と矢印も試す | 空きを 3px 未満で離すと線もビューも変わらない。3px ほど動かすとその時点でスクロールし、閉じた手が出る。8px 未満で同じバーを離すと後続になる。スペースのまま 3px 未満で同じバーを離すと後続になる。8px 以上のドラッグはスクロールし、離した場所がバーでも線は増えない。閉じた手はスクロール中だけで、離すと矢印に戻る。その直後の短いクリックで線が 1 本増える。8px 未満のまま空きか別のバーで離すと線もスクロールも起きない。親バー、スペース、中ボタンは 3px でスクロールする。中ボタンでは線が増えない。端の外でも 3px でスクロールする。すばやい 2 回押しでは線は 1 本で、名前欄へ移らない。スクロール中に外へ出ても追随する線が残る。Esc でモードと追随する線が消え、閉じた手も消える。ビューは Esc の時点の位置のまま。移動、期間変更、ひし形の日付変更はしない。ホイールと矢印ではスクロールし、追随する線も動く。モードは残る。ダブルクリックと Enter では詳細パネルの名前欄にフォーカスが移らない |
 | TC-EDIT-12e | EDIT-12 | すでに結ばれている組と、循環する組 | そのタスクをクリックする | 保存されない。詳細パネルと同じ理由が出る。モードは残る |
-| TC-EDIT-12f | EDIT-12 | 折りたたみか絞り込みで見えていないタスクがある | 線を引くモードで、見えているタスクだけをクリックする | 見えていない相手へは引けない。詳細パネルの先行と後続は今どおり足せる |
+| TC-EDIT-12f | EDIT-12 | 折りたたみか絞り込みで見えていないタスクがある | 線を引くモードでスクロールしてから、見えていないタスクをクリックする。見えているタスクだけをクリックする操作も試す | スクロールして見えた相手へは引ける。画面の外を指して結ぶ操作はない。詳細パネルの先行と後続は今どおり足せる |
 | TC-EDIT-12g | EDIT-12 | 見えている線がある | 線にカーソルを合わせて Delete または Backspace を押す。別の線を右クリックして「線を外す」を選ぶ。バーの上でも Delete を押す | 線は 1 本だけ消え、確認は出ない。取り消しの 1 ステップで戻る。タスクは残る。バーやひし形の上ではタスクの削除確認が開く。ツールバーの「削除」はタスクを消す |
 | TC-EDIT-10 | EDIT-10 | バーを動かした直後 | ⌘/Ctrl+Z を押し、続けてやり直す | 移動が戻り、やり直しで再度動く。検索欄にフォーカスがあるときは動かない |
 | TC-EDIT-10b | EDIT-10 | 取り消しできる編集がある | 別のファイルを開く | 取り消しできなくなる |
@@ -777,12 +802,22 @@
 | TC-SET-06b | SET-06 | デスクトップ版、初回起動 | 設定の「更新」を見る | 「起動時に更新を確認する」はオフである |
 | TC-SET-06c | SET-06 | デスクトップ版、2つのウィンドウ | 片方で自動更新をオンにする | もう一方もオンになる。オンにした直後は更新を確認しない |
 | TC-SET-06d | SET-06 | 自動更新オフ | 起動する | 更新を確認しない |
-| TC-SET-06e | SET-06 | 自動更新オン、Release に新しい版がある | 起動する | 起動復旧のあと入れ直す。失敗したときは隅に短く出て、今の版のまま使える。起動時に変更履歴のダイアログは出ない |
+| TC-SET-06e | SET-06 | 自動更新オン、同じメジャーの `updater-X` により新しい安定版がある | 起動する | 起動復旧のあと、入れ直す前の知らせが出る。「入れ直す」で入れ直す。失敗したときは隅に短く出て、今の版のまま使える。起動時に変更履歴のダイアログは出ない |
+| TC-SET-06k | SET-06 | 自動更新オン、リモートが別メジャーだけ、または `updater-X` が無い | 起動する | 入れ直さない。隅の知らせも出ない |
 | TC-SET-06f | SET-06 | 自動更新オン、サンプルが未保存 | 新しい版で入れ直す流れでキャンセルする | その起動では入れ直さない |
 | TC-SET-06g | SET-06 | 自動更新オン、パスのあるファイルが未保存 | 新しい版で入れ直す | 確認は出ず、再起動後に控えが戻る |
 | TC-SET-06h | SET-06 | 自動更新オン、同じパスを2つのウィンドウで開き、前面で未保存 | 新しい版で入れ直す | 確認は出ず、再起動後に前面の控えが戻る |
 | TC-SET-06i | SET-06 | デスクトップ版、自動更新オフ | 設定の「更新」を開く。表示サイズ 100% と 200%、ライトとダーク、ウィンドウを低くした状態でも見る | 同梱の版が新しい順に並ぶ。`[Unreleased]` と冒頭の説明は無い。版番号、項目、Issue の札が欠けない。Issue 番号のリンクが開く。欄の中だけがスクロールし、チェックはダイアログの中に見える |
 | TC-SET-06j | SET-06 | デスクトップ版 | 起動直後の画面を見る | 変更履歴のダイアログは出ない。入れ直しに失敗したあとの起動でも出ない |
+| TC-SET-06l | SET-06 | ブラウザ版 | ☰ を開く | 「更新を確認」が無い |
+| TC-SET-06m | SET-06 | デスクトップ版、入れ直す版が無い（確認先の `updater-X` がまだ無いときを含む） | 「更新を確認」する | 「この版が最新です」が出る |
+| TC-SET-06m2 | SET-06 | デスクトップ版、入れ直す版がある | 「更新を確認」する | 起動時と同じ知らせと「あとで」「入れ直す」が出る |
+| TC-SET-06m3 | SET-06 | デスクトップ版、更新の確認が通信などで失敗する | 「更新を確認」する | 「更新の確認に失敗しました」が出る |
+| TC-SET-06m4 | SET-06 | macOS の手元ビルド、デスクトップ版 | 「更新を確認」する | 「この Mac でビルドしたアプリは、更新の確認の対象外です」が出る |
+| TC-SET-06n | SET-06 | デスクトップ版、知らせが出ている | 設定を開き「更新」以外を見る | 隅の知らせは出ない。「更新」に戻すと同じ知らせが見える |
+| TC-SET-06o | SET-06 | Windows または Ubuntu、入っている版 `1.0.0`、公開ベータ `1.0.0-beta.1` だけ | 設定の「更新」で「インストーラを保存」 | 「公開中のベータはありません」 |
+| TC-SET-06p | SET-06 | 同上、公開ベータ `1.0.1-beta.1` がある | 同上 | 保存先を選べ、欄にパスが出る。インストーラは起動しない |
+| TC-SET-06q | SET-06 | macOS のデスクトップ版 | 設定の「更新」を見る | ベータの保存ボタンと説明が無い |
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
@@ -812,5 +847,6 @@ TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu�
 11. Ubuntu では deb のインストールと起動を見る。Windows では Release の NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
 12. `SHA256SUMS` に deb、NSIS、`.cer`、`latest.json` が含まれ、各ファイルのハッシュが一致することを見る。`latest.json` に `linux-x86_64` と `windows-x86_64` があることを見る
 13. 安定版の Release 本文にダウンロード手順とその版の CHANGELOG 節の本体（版見出しは無い）があり、項目の Issue 番号がリンクになっていることを見る。CHANGELOG にその版の節が無いとき、または項目に Issue 番号が無いときは本文ジョブが失敗し、本文はダウンロード手順のまま残る。`[Unreleased]` と前の版の節は載らない。Pre-release の本文は確認用の短い文だけで、CHANGELOG 節は無い
-14. TC-SET-06b から TC-SET-06j で自動更新と設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
+14. TC-SET-06b から TC-SET-06q で自動更新、手動確認、ベータ保存、設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
 15. この仕組みを初めて使うベータでは、Windows にベータを入れたあと、接尾辞を外した安定版の NSIS を上書きして入れることを確認する
+16. 安定版の Release 後、`updater-X` が Pre-release で `latest.json` だけを載せていることを見る。タグ `updater-X` は初回の位置のままである。より大きいメジャーの安定版が無いときだけ、その版が Latest になる

@@ -27,7 +27,8 @@ export type CommandPaletteCommandId =
   | "lineage"
   | "addTask"
   | "addMilestone"
-  | "duplicateTask";
+  | "duplicateTask"
+  | "checkForUpdates";
 
 export type CommandPaletteItem = {
   id: CommandPaletteCommandId;
@@ -113,6 +114,12 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
     label: "設定",
     keywords: "settings 設定",
     enabled: () => true,
+  },
+  {
+    id: "checkForUpdates",
+    label: "更新を確認",
+    keywords: "update 更新 確認",
+    enabled: (ctx) => ctx.isTauriDesktop,
   },
   {
     id: "guide",
@@ -235,9 +242,12 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
 export function buildCommandPaletteItems(
   context: CommandPaletteContext,
 ): CommandPaletteItem[] {
-  return BASE_ITEMS.filter(
-    (item) => item.id !== "openNewWindow" || context.isTauriDesktop,
-  ).map((item) => ({
+  return BASE_ITEMS.filter((item) => {
+    if (item.id === "openNewWindow" || item.id === "checkForUpdates") {
+      return context.isTauriDesktop;
+    }
+    return true;
+  }).map((item) => ({
     id: item.id,
     label: typeof item.label === "function" ? item.label(context) : item.label,
     keywords: item.keywords,

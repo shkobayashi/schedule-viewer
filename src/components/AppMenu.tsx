@@ -18,6 +18,7 @@ type AppMenuProps = {
   onOpenSettings: () => void;
   onOpenGuide: () => void;
   onOpenShortcuts: () => void;
+  onCheckForUpdates?: () => void;
 };
 
 export function AppMenu({
@@ -33,6 +34,7 @@ export function AppMenu({
   onOpenSettings,
   onOpenGuide,
   onOpenShortcuts,
+  onCheckForUpdates,
 }: AppMenuProps) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -204,6 +206,15 @@ export function AppMenu({
       <button type="button" role="menuitem" onClick={() => run(onOpenShortcuts)}>
         ショートカット一覧
       </button>
+      {onCheckForUpdates ? (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => run(onCheckForUpdates)}
+        >
+          更新を確認
+        </button>
+      ) : null}
       <button type="button" role="menuitem" onClick={() => run(onOpenSettings)}>
         設定
       </button>

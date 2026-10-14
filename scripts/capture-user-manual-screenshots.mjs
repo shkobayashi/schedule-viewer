@@ -386,6 +386,20 @@ async function captureDesktopChromeShots(page) {
     path: path.join(outDir, "ui-peer-notice.png"),
     fullPage: false,
   });
+
+  await page.evaluate(() => {
+    window.__manualScreenshotHidePeerNotice?.();
+  });
+  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    window.__manualScreenshotShowUpdateOffer?.();
+  });
+  await page.waitForSelector(".app-update-offer");
+  await page.waitForTimeout(300);
+  await page.screenshot({
+    path: path.join(outDir, "ui-update-offer.png"),
+    fullPage: false,
+  });
 }
 
 async function main() {

@@ -106,6 +106,12 @@ export async function requestApplicationUpdateViaTauri(): Promise<void> {
   await invoke("request_application_update");
 }
 
+export async function beginApplicationUpdateInstallViaTauri(
+  installLabel: string,
+): Promise<void> {
+  await invoke("begin_application_update_install", { installLabel });
+}
+
 export async function acceptApplicationUpdateViaTauri(): Promise<void> {
   await invoke("accept_application_update");
 }
@@ -116,6 +122,44 @@ export async function completeApplicationUpdateRecoveryViaTauri(): Promise<void>
 
 export async function cancelApplicationUpdateViaTauri(): Promise<void> {
   await invoke("cancel_application_update");
+}
+
+export type ApplicationUpdateUiBroadcast = {
+  phase: string;
+  version?: string;
+  message?: string;
+  infoEphemeral?: boolean;
+  checkLabel?: string;
+};
+
+export async function syncApplicationUpdateUiViaTauri(
+  payload: ApplicationUpdateUiBroadcast,
+): Promise<void> {
+  await invoke("sync_application_update_ui", { payload });
+}
+
+export async function readFocusedWindowLabelViaTauri(): Promise<string> {
+  return invoke<string>("read_focused_window_label");
+}
+
+export async function isAnyScheduleWindowFocusedViaTauri(): Promise<boolean> {
+  return invoke<boolean>("is_any_schedule_window_focused");
+}
+
+export async function showApplicationUpdateBackgroundNotificationViaTauri(
+  body: string,
+): Promise<void> {
+  await invoke("show_application_update_background_notification", { body });
+}
+
+export async function fetchBetaReleaseTagsViaTauri(): Promise<string[]> {
+  return invoke<string[]>("fetch_beta_release_tags");
+}
+
+export async function saveBetaInstallerViaTauri(
+  version: string,
+): Promise<string | null> {
+  return invoke<string | null>("save_beta_installer", { version });
 }
 
 export async function recoveryLiveActionViaTauri(
