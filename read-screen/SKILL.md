@@ -2,7 +2,7 @@
 name: read-screen
 description: >-
   schedule-viewer の前面ウィンドウから、差分・選択中のタスク・絞り込み結果を読み取る。
-  MCP の schedule_diff / selected_task / filtered_tasks が使えないときは、同梱のコマンドを使う。
+  MCP の schedule_diff / selected_task / selected_tasks / filtered_tasks が使えないときは、同梱のコマンドを使う。
   write-schedule など JSON 作成用スキルとは別である。
 ---
 
@@ -12,19 +12,20 @@ schedule-viewer の**画面の状態**を LLM に渡すためのスキルです�
 
 ## 渡すもの（MCP と同じ）
 
-必要なものだけ使います。3 つをまとめて呼ぶ必要はありません。
+必要なものだけ使います。4 つをまとめて呼ぶ必要はありません。
 
 | 目的 | MCP ツール名 | コマンドの引数 |
 | --- | --- | --- |
 | 差分テキスト | `schedule_diff` | `--screen schedule_diff` |
-| 選択中のタスク | `selected_task` | `--screen selected_task` |
+| 選択が1件のときのタスク（「このタスク」） | `selected_task` | `--screen selected_task` |
+| 編集の選択（「これらのタスク」） | `selected_tasks` | `--screen selected_tasks` |
 | オンな絞り込みと残るタスク | `filtered_tasks` | `--screen filtered_tasks` |
 
 絞り込みをスキル側でやり直さないでください。画面が使っている条件のまま返します。
 
 ## MCP が使えるとき
 
-クライアントが MCP を使えるときは、上の 3 ツールを呼びます。このスキルのコマンドは使いません。
+クライアントが MCP を使えるときは、上の 4 ツールを呼びます。このスキルのコマンドは使いません。
 
 ## MCP が使えないとき
 

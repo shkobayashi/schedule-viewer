@@ -1208,6 +1208,7 @@ function App() {
     lineageIds: schedule.lineageIds,
     hiddenMilestoneGroupIds: schedule.hiddenMilestoneGroupIds,
     selectedTaskId: schedule.selectedTaskId,
+    selectedTaskIds: schedule.selectedTaskIds,
     today: schedule.today,
     memberMap: memberCatalogState.memberMap,
     scheduleFilePath: scheduleFile.filePath,

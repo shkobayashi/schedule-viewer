@@ -3,9 +3,10 @@ use std::io::{self, Write};
 
 use crate::mcp_bridge::call_tool_via_bridge;
 
-pub const SCREEN_TOOL_NAMES: [&str; 3] = [
+pub const SCREEN_TOOL_NAMES: [&str; 4] = [
     "schedule_diff",
     "selected_task",
+    "selected_tasks",
     "filtered_tasks",
 ];
 
@@ -73,6 +74,10 @@ mod tests {
         assert!(parse_screen_tool(&["--screen".to_string()]).is_none());
         assert!(
             parse_screen_tool(&["--screen".to_string(), "schedule_diff".to_string()])
+                .is_some()
+        );
+        assert!(
+            parse_screen_tool(&["--screen".to_string(), "selected_tasks".to_string()])
                 .is_some()
         );
         assert!(
