@@ -12,6 +12,61 @@ export const TASK_HANDLE_WIDTH = 8;
 /** バー移動・期間変更を始めるポインタの移動量。 */
 export const TASK_DRAG_THRESHOLD_PX = 8;
 
+/** 空白ドラッグでスクロールを始めるポインタの移動量。NAV-01 と同じ。 */
+export const CHART_PAN_THRESHOLD_PX = 3;
+
+export type LinkModePressSurface = "chartEmpty" | "taskBar";
+
+export type LinkModePointerButton = "primary" | "middle" | "spacePan";
+
+/** 線を引くモードで、ドラッグがスクロールになるまでの移動量。 */
+export function linkModeScrollThresholdPx(
+  surface: LinkModePressSurface,
+  button: LinkModePointerButton,
+): number {
+  if (button === "middle" || button === "spacePan") {
+    return CHART_PAN_THRESHOLD_PX;
+  }
+  return surface === "taskBar"
+    ? TASK_DRAG_THRESHOLD_PX
+    : CHART_PAN_THRESHOLD_PX;
+}
+
+export type LinkModeGesturePhase = "move" | "release";
+
+export type LinkModeGestureResolution =
+  | { kind: "pending" }
+  | { kind: "scroll" }
+  | { kind: "linkClick" }
+  | { kind: "none" };
+
+/** 線を引くモードのドラッグが、スクロール・クリック・何もしないのどれになるか。 */
+export function resolveLinkModeGesture(input: {
+  phase: LinkModeGesturePhase;
+  distancePx: number;
+  surface: LinkModePressSurface;
+  button: LinkModePointerButton;
+  releaseOnSameTaskBar: boolean;
+  scrollCommitted: boolean;
+}): LinkModeGestureResolution {
+  const threshold = linkModeScrollThresholdPx(input.surface, input.button);
+  if (input.phase === "move") {
+    if (input.distancePx >= threshold) return { kind: "scroll" };
+    return { kind: "pending" };
+  }
+  if (input.scrollCommitted || input.distancePx >= threshold) {
+    return { kind: "none" };
+  }
+  if (
+    input.surface === "taskBar" &&
+    input.releaseOnSameTaskBar &&
+    (input.button === "primary" || input.button === "spacePan")
+  ) {
+    return { kind: "linkClick" };
+  }
+  return { kind: "none" };
+}
+
 /** 期間ドラッグ専用の当たりが、バーの外へ出る幅。 */
 export const RESIZE_EXCLUSIVE_OUTSIDE_PX = 12;
 
