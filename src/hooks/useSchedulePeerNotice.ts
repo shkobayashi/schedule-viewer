@@ -13,6 +13,7 @@ import {
 declare global {
   interface Window {
     __manualScreenshotShowPeerNotice?: () => void;
+    __manualScreenshotHidePeerNotice?: () => void;
     __manualScreenshotApplyOpen?: (pick: {
       path: string;
       contents: string;
@@ -124,8 +125,12 @@ export function useSchedulePeerNotice({
         targetLabel: "schedule-window-2",
       });
     };
+    window.__manualScreenshotHidePeerNotice = () => {
+      setPeerNotice(null);
+    };
     return () => {
       delete window.__manualScreenshotShowPeerNotice;
+      delete window.__manualScreenshotHidePeerNotice;
     };
   }, []);
 

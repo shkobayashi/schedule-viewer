@@ -65,6 +65,7 @@ pub struct WindowSessionState {
     pub update_install_label: Option<String>,
     pub updating: bool,
     pub update_recovery_owners: HashMap<String, String>,
+    pub application_update_ui_json: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

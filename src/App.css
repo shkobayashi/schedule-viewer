@@ -2265,6 +2265,51 @@ button:focus-visible,
   text-underline-offset: 2px;
 }
 
+.app-update-offer {
+  position: fixed;
+  right: calc(12px * var(--s));
+  bottom: calc(36px * var(--s));
+  z-index: 45;
+  max-width: calc(100vw - 24px * var(--s));
+  max-height: calc(100vh - 36px * var(--s) - 8px * var(--s));
+  overflow: hidden;
+  padding: calc(8px * var(--s)) calc(12px * var(--s));
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--elevation-menu);
+  font-size: calc(13px * var(--s));
+  color: var(--text);
+}
+
+.app-update-offer--status {
+  margin: 0;
+  font-size: calc(12px * var(--s));
+}
+
+.app-update-offer--embedded {
+  position: static;
+  max-width: none;
+  box-shadow: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.app-update-offer-message {
+  margin: 0 0 calc(8px * var(--s));
+}
+
+.app-update-offer-actions {
+  margin: 0;
+}
+
+.settings-update-status {
+  margin: calc(8px * var(--s)) 0 0;
+  font-size: calc(12px * var(--s));
+  color: var(--text);
+}
+
 .app-toast {
   position: fixed;
   right: calc(12px * var(--s));
@@ -2286,9 +2331,12 @@ button:focus-visible,
   text-align: left;
 }
 
-.app-toast--action + .app-toast,
-.app-toast + .app-toast--action {
+.app-toast--stacked {
   bottom: calc(72px * var(--s));
+}
+
+.app-toast--stacked-high {
+  bottom: calc(144px * var(--s));
 }
 
 @media (prefers-reduced-motion: reduce) {

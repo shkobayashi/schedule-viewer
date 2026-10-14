@@ -3,6 +3,8 @@ import {
   AUTO_UPDATE_LS_KEY,
   parseAutoUpdateEnabled,
   readAutoUpdateEnabled,
+  classifyUpdateCheckError,
+  manualUpdateCheckInfoMessage,
   shouldAcceptAutoUpdate,
   shouldIgnoreUpdateCheckError,
   writeAutoUpdateEnabled,
@@ -42,6 +44,26 @@ describe("shouldIgnoreUpdateCheckError", () => {
   });
 });
 
+describe("classifyUpdateCheckError", () => {
+  it("marks missing platform on mac as unsupported", () => {
+    expect(
+      classifyUpdateCheckError(
+        "the platform `darwin-aarch64` was not found in the response `platforms` object",
+        true,
+      ),
+    ).toBe("unsupported_mac");
+  });
+
+  it("marks missing platform on other OS as fail", () => {
+    expect(
+      classifyUpdateCheckError(
+        "the platform `linux-x86_64` was not found in the response `platforms` object",
+        false,
+      ),
+    ).toBe("fail");
+  });
+});
+
 describe("shouldAcceptAutoUpdate", () => {
   it("accepts newer stable in the same major", () => {
     expect(shouldAcceptAutoUpdate("1.4.1", "1.4.2")).toBe(true);
@@ -55,6 +77,23 @@ describe("shouldAcceptAutoUpdate", () => {
     expect(shouldAcceptAutoUpdate("1.4.2", "1.4.2")).toBe(false);
     expect(shouldAcceptAutoUpdate("1.4.2", "1.4.1")).toBe(false);
     expect(shouldAcceptAutoUpdate("bad", "1.4.2")).toBe(false);
+  });
+});
+
+describe("manualUpdateCheckInfoMessage", () => {
+  it("treats release json fetch failure as fail for manual check", () => {
+    expect(
+      manualUpdateCheckInfoMessage(
+        "Could not fetch a valid release JSON from the remote",
+        false,
+      ),
+    ).toBe("更新の確認に失敗しました");
+  });
+
+  it("treats no update as latest for manual check", () => {
+    expect(manualUpdateCheckInfoMessage("No update available", false)).toBe(
+      "この版が最新です",
+    );
   });
 });
 

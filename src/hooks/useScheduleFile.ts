@@ -82,6 +82,8 @@ export function useScheduleFile({
   const [baselineJson, setBaselineJson] = useState(initialBaselineJson);
   const [errorMessageText, setErrorMessageText] = useState<string | null>(null);
   const [discardPromptOpen, setDiscardPromptOpen] = useState(false);
+  const discardPromptOpenRef = useRef(discardPromptOpen);
+  discardPromptOpenRef.current = discardPromptOpen;
   const [pendingOpen, setPendingOpen] = useState(false);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [closePromptForUpdate, setClosePromptForUpdate] = useState(false);
@@ -180,6 +182,8 @@ export function useScheduleFile({
     clearExternalReloadPromptRef,
     clearInvalidDiskHashRef,
   });
+  const externalChangeOpenRef = useRef(externalChangeOpen);
+  externalChangeOpenRef.current = externalChangeOpen;
 
   const notifyPeersRef = useRef<(status: "applied" | "pending" | "cleared") => void>(
     () => {},
@@ -623,8 +627,25 @@ export function useScheduleFile({
     };
   }, []);
 
+  const waitForBlockingFileDialogs = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      const tick = () => {
+        if (
+          !discardPromptOpenRef.current &&
+          !externalChangeOpenRef.current
+        ) {
+          resolve();
+          return;
+        }
+        window.setTimeout(tick, 50);
+      };
+      tick();
+    });
+  }, []);
+
   const prepareForApplicationUpdate = useCallback(async (): Promise<boolean> => {
     if (!isTauri()) return false;
+    await waitForBlockingFileDialogs();
     if (!filePathRef.current && isDirtyRef.current) {
       return await new Promise<boolean>((resolve) => {
         updatePrepareResolverRef.current = resolve;
@@ -634,7 +655,7 @@ export function useScheduleFile({
       });
     }
     return true;
-  }, []);
+  }, [waitForBlockingFileDialogs]);
 
   const onUpdatePromptCancel = useCallback(() => {
     applicationUpdatingRef.current = false;

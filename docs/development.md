@@ -500,7 +500,7 @@ Release ワークフローは、安定版では各 OS のビルドが同じダ�
 
 1. `develop` から `release/X.Y.Z` を切る
 2. 今の番号が出したい安定版と同じなら `npm run version:bump -- beta` だけで `X.Y.Z-beta.1` にする。違うときは、目的の番号になるまで `npm run version:bump -- major`（または `minor`、`patch`）を実行してから `beta` を実行する
-3. インストーラが要るコミットをこのブランチへ push する。検査のあと環境 `release` の承認を経て、deb と NSIS が Pre-release として出る。タグは `vX.Y.Z-beta.N` である。ベータを使ってよい人は、その Release のページからインストーラを取る
+3. インストーラが要るコミットをこのブランチへ push する。検査のあと環境 `release` の承認を経て、deb と NSIS が Pre-release として出る。タグは `vX.Y.Z-beta.N` である。ベータを使ってよい人は、その Release のページからインストーラを取る。Windows と Ubuntu のデスクトップ版では、設定の「更新」から、入っている版より新しい公開ベータの、この OS 用インストーラを別名保存できる
 4. ベータのあいだに直す不具合は `release/X.Y.Z` に入れる。直すたびに `npm run version:bump -- beta` で `N` を増やして push する。`develop` で進めた別の機能は、そのベータに混ぜない
 5. 確認が終わったら `npm run version:bump -- stable` で接尾辞を外し、[CHANGELOG.md](../CHANGELOG.md) の版の節を今の手順で書く。この push では Release ワークフローが失敗する（`release/X.Y.Z` に安定版の番号は載せない）
 6. `release/X.Y.Z` を `main` へマージする。`main` への push が安定版になり、Latest と自動更新の対象になる
