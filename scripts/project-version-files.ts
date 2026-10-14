@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { updaterEndpointForVersion } from "../src/model/releaseVersion.ts";
 
 export function readPackageJsonVersion(): string {
   const pkg = JSON.parse(readFileSync("package.json", "utf8")) as {
@@ -77,8 +78,18 @@ export function writeProjectVersion(next: string): void {
 
   const tauriConf = JSON.parse(
     readFileSync("src-tauri/tauri.conf.json", "utf8"),
-  ) as { version: string };
+  ) as {
+    version: string;
+    plugins?: { updater?: { endpoints?: string[] } };
+  };
   tauriConf.version = next;
+  const updater = tauriConf.plugins?.updater;
+  if (!updater?.endpoints || updater.endpoints.length !== 1) {
+    throw new Error(
+      "src-tauri/tauri.conf.json must have exactly one plugins.updater.endpoints entry",
+    );
+  }
+  updater.endpoints[0] = updaterEndpointForVersion(next);
   writeFileSync(
     "src-tauri/tauri.conf.json",
     `${JSON.stringify(tauriConf, null, 2)}\n`,

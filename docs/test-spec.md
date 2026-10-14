@@ -22,7 +22,7 @@
 | スケジュール検証 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` |
 | カレンダー検証 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` |
 | メンバー検証 | `npm run check:members` | 引数なしなら `examples/playground.members.json` |
-| バージョン | `npm run version:check` | 5ファイルのバージョン番号と `X.Y.Z` / `X.Y.Z-beta.N` の形 |
+| バージョン | `npm run version:check` | 5ファイルのバージョン番号と `X.Y.Z` / `X.Y.Z-beta.N` の形、`tauri.conf.json` の `plugins.updater.endpoints` がそのメジャー用 `updater-X` を指すこと |
 | スキル同梱物 | `npm run build:validate-skill` のあと、CI と同じパスで `git diff --exit-code` | スキーマコピーと検証 bundle の差分 |
 
 画面用のテストランナー（jsdom、Testing Library、Playwright）は入っていない。
@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`。最後に集約ジョブ `ci` が成功する |
 | `.github/workflows/pages.yml` | `main` への push（操作マニュアルとサイトビルドの入力）または `workflow_dispatch` | `npm ci` のあと `build:manual-site` を GitHub Pages へ公開する |
-| `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Windows NSIS、`latest-linux-x86_64.json` と `latest-windows-x86_64.json`、それらをまとめた `latest.json`、Windows コード署名用の `schedule-viewer-codesign.cer`、`SHA256SUMS` を GitHub Release へ出す。`main` は安定版で CHANGELOG から本文を組み立てる。`release/X.Y.Z` は Pre-release で短い確認用の本文 |
+| `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Windows NSIS、`latest-linux-x86_64.json` と `latest-windows-x86_64.json`、それらをまとめた `latest.json`、Windows コード署名用の `schedule-viewer-codesign.cer`、`SHA256SUMS` を GitHub Release へ出す。`main` は安定版で CHANGELOG から本文を組み立てる。安定版ではビルド前に GitHub Release を作り、`checksums` が同じメジャー用の Pre-release `updater-X` の `latest.json` を更新し、より大きいメジャーが無いときだけ Latest を付ける。`release/X.Y.Z` は Pre-release で短い確認用の本文 |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更（操作マニュアル以外）ではフロントと Rust と `manual` はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
@@ -801,7 +801,8 @@
 | TC-SET-06b | SET-06 | デスクトップ版、初回起動 | 設定の「更新」を見る | 「起動時に更新を確認する」はオフである |
 | TC-SET-06c | SET-06 | デスクトップ版、2つのウィンドウ | 片方で自動更新をオンにする | もう一方もオンになる。オンにした直後は更新を確認しない |
 | TC-SET-06d | SET-06 | 自動更新オフ | 起動する | 更新を確認しない |
-| TC-SET-06e | SET-06 | 自動更新オン、Release に新しい版がある | 起動する | 起動復旧のあと入れ直す。失敗したときは隅に短く出て、今の版のまま使える。起動時に変更履歴のダイアログは出ない |
+| TC-SET-06e | SET-06 | 自動更新オン、同じメジャーの `updater-X` により新しい安定版がある | 起動する | 起動復旧のあと入れ直す。失敗したときは隅に短く出て、今の版のまま使える。起動時に変更履歴のダイアログは出ない |
+| TC-SET-06k | SET-06 | 自動更新オン、リモートが別メジャーだけ、または `updater-X` が無い | 起動する | 入れ直さない。隅の知らせも出ない |
 | TC-SET-06f | SET-06 | 自動更新オン、サンプルが未保存 | 新しい版で入れ直す流れでキャンセルする | その起動では入れ直さない |
 | TC-SET-06g | SET-06 | 自動更新オン、パスのあるファイルが未保存 | 新しい版で入れ直す | 確認は出ず、再起動後に控えが戻る |
 | TC-SET-06h | SET-06 | 自動更新オン、同じパスを2つのウィンドウで開き、前面で未保存 | 新しい版で入れ直す | 確認は出ず、再起動後に前面の控えが戻る |
@@ -836,5 +837,6 @@ TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu�
 11. Ubuntu では deb のインストールと起動を見る。Windows では Release の NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
 12. `SHA256SUMS` に deb、NSIS、`.cer`、`latest.json` が含まれ、各ファイルのハッシュが一致することを見る。`latest.json` に `linux-x86_64` と `windows-x86_64` があることを見る
 13. 安定版の Release 本文にダウンロード手順とその版の CHANGELOG 節の本体（版見出しは無い）があり、項目の Issue 番号がリンクになっていることを見る。CHANGELOG にその版の節が無いとき、または項目に Issue 番号が無いときは本文ジョブが失敗し、本文はダウンロード手順のまま残る。`[Unreleased]` と前の版の節は載らない。Pre-release の本文は確認用の短い文だけで、CHANGELOG 節は無い
-14. TC-SET-06b から TC-SET-06j で自動更新と設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
+14. TC-SET-06b から TC-SET-06k で自動更新と設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
 15. この仕組みを初めて使うベータでは、Windows にベータを入れたあと、接尾辞を外した安定版の NSIS を上書きして入れることを確認する
+16. 安定版の Release 後、`updater-X` が Pre-release で `latest.json` だけを載せていることを見る。タグ `updater-X` は初回の位置のままである。より大きいメジャーの安定版が無いときだけ、その版が Latest になる

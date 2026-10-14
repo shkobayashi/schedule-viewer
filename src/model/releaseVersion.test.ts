@@ -4,10 +4,14 @@ import {
   bumpMajor,
   bumpMinor,
   bumpPatch,
+  compareReleaseVersions,
   evaluateReleasePush,
   isValidReleaseVersion,
   parseReleaseVersion,
+  shouldMarkGitHubReleaseLatest,
+  shouldUpdateUpdaterChannel,
   stripBetaSuffix,
+  updaterEndpointForVersion,
 } from "./releaseVersion";
 
 describe("isValidReleaseVersion", () => {
@@ -62,6 +66,62 @@ describe("bump helpers", () => {
   it("strips beta suffix", () => {
     expect(stripBetaSuffix("1.5.0-beta.2")).toBe("1.5.0");
     expect(() => stripBetaSuffix("1.5.0")).toThrow();
+  });
+});
+
+describe("updaterEndpointForVersion", () => {
+  it("uses major in updater tag", () => {
+    expect(updaterEndpointForVersion("1.4.1")).toBe(
+      "https://github.com/shkobayashi/schedule-viewer/releases/download/updater-1/latest.json",
+    );
+    expect(updaterEndpointForVersion("2.0.0-beta.1")).toBe(
+      "https://github.com/shkobayashi/schedule-viewer/releases/download/updater-2/latest.json",
+    );
+  });
+});
+
+describe("compareReleaseVersions", () => {
+  it("orders stable and beta", () => {
+    expect(compareReleaseVersions("1.4.1", "1.4.2")).toBe(-1);
+    expect(compareReleaseVersions("1.4.2", "1.5.0")).toBe(-1);
+    expect(compareReleaseVersions("1.4.2-beta.1", "1.4.2")).toBe(-1);
+    expect(compareReleaseVersions("1.4.2", "1.4.2")).toBe(0);
+  });
+});
+
+describe("shouldMarkGitHubReleaseLatest", () => {
+  it("is false when a larger major stable exists", () => {
+    expect(shouldMarkGitHubReleaseLatest("1.4.2", ["2.0.0", "1.3.0"])).toBe(
+      false,
+    );
+  });
+
+  it("is true when no larger major stable exists", () => {
+    expect(shouldMarkGitHubReleaseLatest("1.4.2", ["1.3.0", "1.4.1"])).toBe(
+      true,
+    );
+    expect(shouldMarkGitHubReleaseLatest("2.0.0", ["1.4.2"])).toBe(true);
+  });
+});
+
+describe("shouldUpdateUpdaterChannel", () => {
+  it("updates when channel is missing or older", () => {
+    expect(shouldUpdateUpdaterChannel("1.4.2", null)).toBe(true);
+    expect(shouldUpdateUpdaterChannel("1.4.2", "1.4.1")).toBe(true);
+    expect(shouldUpdateUpdaterChannel("1.5.0", "1.4.2")).toBe(true);
+  });
+
+  it("skips when channel is same or newer", () => {
+    expect(shouldUpdateUpdaterChannel("1.4.2", "1.4.2")).toBe(false);
+    expect(shouldUpdateUpdaterChannel("1.4.1", "1.4.2")).toBe(false);
+  });
+
+  it("returns null for invalid manifest version", () => {
+    expect(shouldUpdateUpdaterChannel("not-a-version", "1.4.1")).toBe(null);
+  });
+
+  it("returns null when channel version cannot be parsed", () => {
+    expect(shouldUpdateUpdaterChannel("1.4.2", "not-a-version")).toBe(null);
   });
 });
 

@@ -77,6 +77,76 @@ export function releaseTagForVersion(version: string): string {
   return `v${version}`;
 }
 
+const DEFAULT_UPDATER_REPO = "shkobayashi/schedule-viewer";
+
+export function updaterTagForMajor(major: number): string {
+  return `updater-${major}`;
+}
+
+export function updaterEndpointForVersion(
+  version: string,
+  repo: string = DEFAULT_UPDATER_REPO,
+): string {
+  const parsed = parseReleaseVersion(version);
+  if (!parsed) {
+    throw new Error(`Invalid version for updater endpoint: ${version}`);
+  }
+  const tag = updaterTagForMajor(parsed.major);
+  return `https://github.com/${repo}/releases/download/${tag}/latest.json`;
+}
+
+/** Negative if a is older than b, positive if newer, zero if equal. */
+export function compareReleaseVersions(a: string, b: string): number | null {
+  const left = parseReleaseVersion(a);
+  const right = parseReleaseVersion(b);
+  if (!left || !right) return null;
+  if (left.major !== right.major) {
+    return left.major < right.major ? -1 : 1;
+  }
+  if (left.minor !== right.minor) {
+    return left.minor < right.minor ? -1 : 1;
+  }
+  if (left.patch !== right.patch) {
+    return left.patch < right.patch ? -1 : 1;
+  }
+  const leftBeta = left.kind === "beta" ? left.beta : null;
+  const rightBeta = right.kind === "beta" ? right.beta : null;
+  if (leftBeta === null && rightBeta === null) return 0;
+  if (leftBeta !== null && rightBeta === null) return -1;
+  if (leftBeta === null && rightBeta !== null) return 1;
+  if (leftBeta! < rightBeta!) return -1;
+  if (leftBeta! > rightBeta!) return 1;
+  return 0;
+}
+
+export function shouldMarkGitHubReleaseLatest(
+  releaseVersion: string,
+  existingStableVersions: string[],
+): boolean | null {
+  const parsed = parseReleaseVersion(releaseVersion);
+  if (!parsed || parsed.kind !== "stable") return null;
+  for (const existing of existingStableVersions) {
+    const other = parseReleaseVersion(existing);
+    if (!other || other.kind !== "stable") continue;
+    if (other.major > parsed.major) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function shouldUpdateUpdaterChannel(
+  releaseVersion: string,
+  channelVersion: string | null,
+): boolean | null {
+  const parsed = parseReleaseVersion(releaseVersion);
+  if (!parsed || parsed.kind !== "stable") return null;
+  if (channelVersion === null) return true;
+  const cmp = compareReleaseVersions(channelVersion, releaseVersion);
+  if (cmp === null) return null;
+  return cmp < 0;
+}
+
 export function bumpMajor(version: string): string {
   const parsed = parseReleaseVersion(version);
   if (!parsed || parsed.kind !== "stable") {
