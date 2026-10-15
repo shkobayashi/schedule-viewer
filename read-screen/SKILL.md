@@ -21,6 +21,8 @@ schedule-viewer の**画面の状態**を LLM に渡すためのスキルです�
 | 編集の選択（「これらのタスク」） | `selected_tasks` | `--screen selected_tasks` |
 | オンな絞り込みと残るタスク | `filtered_tasks` | `--screen filtered_tasks` |
 
+`selected_tasks` は、選択が1件でも配列で返します。選択が無いときは空の配列です。選択数が不明なときは `selected_tasks` を使います。`selected_task` は、選択がちょうど1件のときだけそのタスクを返し、0件と2件以上は null です。
+
 絞り込みをスキル側でやり直さないでください。画面が使っている条件のまま返します。
 
 ## MCP が使えるとき
@@ -29,17 +31,8 @@ schedule-viewer の**画面の状態**を LLM に渡すためのスキルです�
 
 ## MCP が使えないとき
 
-次の実行ファイルを、引数 `--screen` とツール名だけで起動します。標準出力に JSON テキストが出ます。終了コードが 0 以外のときは標準エラーに理由が出ます。
+引数は `--screen` とツール名だけです。標準出力に JSON テキストが出ます。終了コードが 0 以外のときは標準エラーに理由が出ます。
 
-実行ファイル:
-
-{{SCHEDULE_VIEWER_EXECUTABLE}}
-
-例（差分だけ欲しいとき。1行目が実行ファイル、2行目が引数です）:
-
-```
-{{SCHEDULE_VIEWER_EXECUTABLE}}
---screen schedule_diff
-```
+{{SCHEDULE_VIEWER_INVOCATION}}
 
 スケジュールのウィンドウが開いていないとき、前面のウィンドウが応答しないときは失敗します。ウィンドウが複数あるときは前面だけです。

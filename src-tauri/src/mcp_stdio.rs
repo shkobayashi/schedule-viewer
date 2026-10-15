@@ -95,7 +95,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "selected_task",
-                "description": "前面ウィンドウで選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。4つのツールをまとめて呼ぶ必要はありません。",
+                "description": "前面ウィンドウで選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。4つのツールをまとめて呼ぶ必要はありません。",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -104,7 +104,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "selected_tasks",
-                "description": "前面ウィンドウの編集の選択を、タスクの配列で返します。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。4つのツールをまとめて呼ぶ必要はありません。",
+                "description": "前面ウィンドウの編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。4つのツールをまとめて呼ぶ必要はありません。",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -212,5 +212,17 @@ mod tests {
             ]
         );
         assert!(!names.contains(&"screen_context"));
+        let description = |name: &str| {
+            tools
+                .iter()
+                .find(|t| t.get("name").and_then(|n| n.as_str()) == Some(name))
+                .and_then(|t| t.get("description").and_then(|d| d.as_str()))
+                .unwrap_or("")
+        };
+        let selected_tasks = description("selected_tasks");
+        assert!(selected_tasks.contains("選択が1件のときも要素が1つの配列です"));
+        assert!(selected_tasks.contains("選択数が不明なときはこのツールを使います"));
+        let selected_task = description("selected_task");
+        assert!(selected_task.contains("選択数が不明なときは selected_tasks を使います"));
     }
 }
