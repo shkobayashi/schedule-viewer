@@ -29,6 +29,7 @@ export const MCP_TOOL_BASELINE_DIFFS = "baseline_diffs";
 export const MCP_TOOL_SELECTED_TASK = "selected_task";
 export const MCP_TOOL_SELECTED_TASKS = "selected_tasks";
 export const MCP_TOOL_FILTERED_TASKS = "filtered_tasks";
+export const MCP_TOOL_REPLACE_SCHEDULE = "replace_schedule";
 
 export type ScreenContextTask = {
   id: ScheduleId;

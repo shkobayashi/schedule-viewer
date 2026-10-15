@@ -80,7 +80,7 @@ flowchart TD
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
 | `useAppCalendar` | カレンダーの読み込み |
-| `useMcpScreenBridge` | デスクトップ版だけ。`mcp-screen-request` を受け、ツール名で `schedule_diff`（`scheduleDiffLoad` だけ）、`baseline_diffs`（`baselineDiffsLoad`、プレーンテキスト）、`selected_task`、`selected_tasks`、`filtered_tasks`（`screenContext`）を組み立てて `mcp_reply` する |
+| `useMcpScreenBridge` | デスクトップ版だけ。`mcp-screen-request` を受け、読み取り 5 ツールを組み立てる。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・操作中）と引数を検証し、`useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
 
 ### モデル
 
@@ -100,7 +100,7 @@ flowchart TD
 | 外部更新時の非衝突合成と判定 | `baselineMerge.ts`（`assessBaselineMerge`、`buildNonConflictingMergedDocument` は `baselineDiffs.ts`） |
 | 外部更新確認の一覧表示 | `baselineMergeReview.ts`（`buildBaselineMergeReview`） |
 | 反映の取り消しで帯を戻す判定 | `baselineMergeDeferred.ts` |
-| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`mcpRegistration.ts` |
+| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
@@ -187,7 +187,7 @@ flowchart TD
 
 `create_schedule_window` が追加ウィンドウを作り、検証済みの内容を pending として預ける。ウィンドウを作れなかったときは、一覧と pending を戻す。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出す。引数が `--mcp` だけ、または `--screen` とツール名だけの起動は `main` で分岐し、この処理には含めない。
 
-MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をローカル待ち受けへ送る。Unix はアプリデータの `mcp.sock`（所有者のみ）。Windows は `\\.\pipe\com.collabcentral.schedule-viewer-<SID>` の名前付きパイプで、アプリデータにファイルは置かない。パイプのセキュリティ記述子は待ち受けスレッドの中で作る。応答を書いたあと、クライアントが接続を閉じるまで待ってからパイプを切る。使用中の接続があるときは、クライアントは応答待ちと同じ 5 秒まで接続を試し直す。待ち受けが次のパイプを作るあいだに名前が消えても、その秒数まではウィンドウが無い旨にしない。待ち受けの 1 回の失敗ではスレッドを終えず、短い待ちのあと次のパイプを作る。GUI は `setup` で待ち受けを始め、`read_open_windows` の `focused_label` の webview だけへ `mcp-screen-request` を送る。応答は `mcp_reply` で返す。応答待ちを過ぎた相関 id は pending から外し、遅れた `mcp_reply` は捨てる。ウィンドウごとの世代番号でも遅れた応答を捨てる。判定はフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけである。表示状態は変えず、スケジュール JSON にも書かない。
+MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をローカル待ち受けへ送る。Unix はアプリデータの `mcp.sock`（所有者のみ）。Windows は `\\.\pipe\com.collabcentral.schedule-viewer-<SID>` の名前付きパイプで、アプリデータにファイルは置かない。パイプのセキュリティ記述子は待ち受けスレッドの中で作る。応答を書いたあと、クライアントが接続を閉じるまで待ってからパイプを切る。使用中の接続があるときは、クライアントは応答待ちと同じ 5 秒まで接続を試し直す。待ち受けが次のパイプを作るあいだに名前が消えても、その秒数まではウィンドウが無い旨にしない。待ち受けの 1 回の失敗ではスレッドを終えず、短い待ちのあと次のパイプを作る。GUI は `setup` で待ち受けを始め、`read_open_windows` の `focused_label` の webview だけへ `mcp-screen-request` を送る。応答は `mcp_reply` で返す。応答待ちを過ぎた相関 id は pending から外し、遅れた `mcp_reply` は捨てる。ウィンドウごとの世代番号でも遅れた応答を捨てる。読み取り 5 ツールはフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけで組み立て、画面とファイルは変えない。`replace_schedule` は `replaceSchedule.ts` と `useSchedule.replaceScheduleDocument` で前面の文書だけを変え、ファイルには書かない。`--screen replace_schedule` は標準入力の JSON を `screen_cli.rs` で読み、10MB を超えたら待ち受けへ送らない。
 
 保存は、外部更新の確認を待つあいだも一つの処理だけが進む。確認を出して戻ったあとに、上書きや別名保存を続ける。
 
@@ -308,7 +308,7 @@ JSON 作成スキルの配置は `install_json_skills` だけが行う。外す�
 
 MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_dir` が同じときだけ GUI が始める。Unix のソケットは所有者のみが読み書きできる。接続元の UID を確認し、本人以外は拒否する。Windows の名前付きパイプは現在のユーザーの SID を名前に含め、セキュリティ記述子でそのユーザーだけに許可し、リモート接続は拒否する。`--mcp` プロセスはファイルを直接読まず、前面 webview の読み取りだけを使う。応答は前面 1 ウィンドウ分で、スケジュール読み込み上限 10MB を超えたらエラーにする。待ち受け TCP ポートは持たない。
 
-同じ OS ユーザーの別プロセスは、前面ウィンドウの絞り込み結果、絞り込み条件、選択、FILE-07 の差分テキストを読める。未保存の内容も、差分に入っていれば読める。差分見出しの `ファイル:` はパス区切りを含まない末尾だけである。タスク名やノートに利用者が書いたパスは、本文としてそのまま返る。接続元を MCP の子プロセスだけに限るトークンや PID の照合、本文中のパスらしき文字列の伏字、接続数の制限、監査ログ、ソケット通信の暗号化は入れない。
+同じ OS ユーザーの別プロセスは、前面ウィンドウの絞り込み結果、絞り込み条件、選択、FILE-07 の差分テキストを読める。未保存の内容も、差分に入っていれば読める。`replace_schedule` で前面のスケジュール JSON を置き換えられる。ディスクのファイルは変えない。差分見出しの `ファイル:` はパス区切りを含まない末尾だけである。タスク名やノートに利用者が書いたパスは、本文としてそのまま返る。接続元を MCP の子プロセスだけに限るトークンや PID の照合、本文中のパスらしき文字列の伏字、接続数の制限、監査ログ、ソケット通信の暗号化は入れない。
 
 ## 描画
 

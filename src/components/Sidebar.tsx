@@ -87,6 +87,7 @@ type SidebarProps = {
     insertIndex: number,
   ) => void;
   onCancelReorder: () => void;
+  onReorderDragActiveChange?: (active: boolean) => void;
   milestoneBandHeight: number;
   milestoneBandLayout: import("../model/milestones").MilestoneBandLayout;
   milestones: Milestone[];
@@ -142,6 +143,7 @@ export function Sidebar({
   onPreviewGroupReorder,
   onCommitGroupReorder,
   onCancelReorder,
+  onReorderDragActiveChange,
   milestoneBandHeight,
   milestoneBandLayout,
   milestones,
@@ -454,8 +456,12 @@ export function Sidebar({
   ) => {
     const drag = rowDragRef.current;
     if (!drag || drag.pointerId !== pointerId) return;
+    const wasReorder = drag.mode === "reorder";
     drag.detach();
     rowDragRef.current = null;
+    if (wasReorder) {
+      onReorderDragActiveChange?.(false);
+    }
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
     setDragGhost(null);
@@ -511,6 +517,7 @@ export function Sidebar({
       if (gesture === "pending") return;
       drag.mode = gesture;
       if (gesture !== "reorder") return;
+      onReorderDragActiveChange?.(true);
       document.body.style.cursor = "grabbing";
       const viewport = viewportRef.current;
       if (viewport != null) {

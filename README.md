@@ -22,7 +22,7 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 - 画面と開いている JSON の差分を表示・コピーし、変更だけを渡せる（状態バーの未保存、⌘/Ctrl+Shift+D、コマンドパレット）
 - 左のタスク一覧の幅を、チャートとの境界をドラッグして変えられる
 - 設定画面での、メンバー一覧と稼働日カレンダーの取り込み、表示サイズと配色（ライト・ダーク）の変更、今の版の表示、デスクトップ版での同じメジャーの安定版だけを入れ直す自動更新（既定オフ）と、同梱 CHANGELOG の変更履歴の表示
-- デスクトップ版で、開いている画面の差分・起点との分類・選択・絞り込みを、同じバイナリの MCP 入口（`--mcp`）から LLM に渡す（`schedule_diff` / `baseline_diffs` / `selected_task` / `selected_tasks` / `filtered_tasks`。設定の「画面の状態を渡す」で mcp.json に貼る JSON をコピー）
+- デスクトップ版で、開いている前面ウィンドウの差分・起点との分類・選択・絞り込みの読み取りと、未保存の置き換えを、同じバイナリの MCP 入口（`--mcp`）から行う（`schedule_diff` / `baseline_diffs` / `selected_task` / `selected_tasks` / `filtered_tasks` / `replace_schedule`。設定の「画面の状態を渡す」で mcp.json に貼る JSON をコピー）
 - 開いている JSON がほかのプログラムに書き換えられたときの反映と、前回開いたファイルと未保存の編集の次回起動時の復元
 
 操作の手順は [操作マニュアル](docs/user-manual.md)（公開版は https://shkobayashi.github.io/schedule-viewer/ ）、挙動の定義は [外部仕様](docs/external-spec.md) を参照。

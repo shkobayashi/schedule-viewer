@@ -319,6 +319,7 @@ function App() {
   });
   const [hoveredTaskId, setHoveredTaskId] = useState<ScheduleId | null>(null);
   const [detailPanelEditing, setDetailPanelEditing] = useState(false);
+  const [sidebarReorderDragging, setSidebarReorderDragging] = useState(false);
   const [bulkDiscardNotice, setBulkDiscardNotice] = useState<string | null>(null);
   const detailPanelRef = useRef<TaskDetailPanelHandle>(null);
   const bulkHadDraftRef = useRef(false);
@@ -543,6 +544,8 @@ function App() {
     (landed) => externalReloadHistoryRedoRef.current(landed),
   );
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
+  const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
+  replaceScheduleDocumentRef.current = schedule.replaceScheduleDocument;
   const {
     redo,
     undo,
@@ -725,6 +728,39 @@ function App() {
     setToastMessage(message);
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
+
+  const showReplaceScreenToast = useCallback(() => {
+    setToastMessage("画面を置き換えました");
+    window.setTimeout(() => setToastMessage(null), 4000);
+  }, []);
+
+  const mcpReplaceUiBlocking = useCallback(() => {
+    if (scheduleFile.fileBusy) return true;
+    if (detailPanelEditing) return true;
+    if (
+      schedule.editingNoteTask != null ||
+      schedule.editingMilestone != null ||
+      schedule.editingHierarchyTarget != null ||
+      schedule.addingHierarchyTarget != null ||
+      schedule.deletingHierarchyTarget != null
+    ) {
+      return true;
+    }
+    if (schedule.reorderPreview != null) return true;
+    if (sidebarReorderDragging) return true;
+    if (document.querySelector('[role="dialog"]') != null) return true;
+    return false;
+  }, [
+    detailPanelEditing,
+    schedule.addingHierarchyTarget,
+    schedule.deletingHierarchyTarget,
+    schedule.editingHierarchyTarget,
+    schedule.editingMilestone,
+    schedule.editingNoteTask,
+    schedule.reorderPreview,
+    scheduleFile.fileBusy,
+    sidebarReorderDragging,
+  ]);
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
@@ -1265,6 +1301,15 @@ function App() {
     scheduleFilePath: scheduleFile.filePath,
     scheduleCurrentJson: scheduleFile.currentJson,
     scheduleBaselineJson: scheduleFile.baselineJson,
+    startupSettled: scheduleFile.startupSettled,
+    startupRecoveryDialogOpen:
+      scheduleFile.recoveryConflictOpen ||
+      scheduleFile.missingScheduleLabel != null ||
+      scheduleFile.recoveryInvalidOpen,
+    mcpReplaceUiBlocking,
+    replaceScheduleDocument: (document) =>
+      replaceScheduleDocumentRef.current(document),
+    onReplaceScheduleApplied: showReplaceScreenToast,
   });
 
   const announceDiffStrip = useCallback((kind: DiffStripContentKind, text: string) => {
@@ -2281,6 +2326,7 @@ function App() {
           onPreviewGroupReorder={schedule.previewGroupReorder}
           onCommitGroupReorder={schedule.commitGroupReorder}
           onCancelReorder={schedule.cancelReorder}
+          onReorderDragActiveChange={setSidebarReorderDragging}
           milestoneBandHeight={milestoneBandHeight}
           milestoneBandLayout={milestoneBandLayout}
           milestones={schedule.milestones}
