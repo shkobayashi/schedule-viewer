@@ -1,9 +1,12 @@
 ---
 name: write-schedule
 description: >-
-  Creates or updates schedule JSON for schedule-viewer (WBS/Gantt viewer).
-  Use when the user asks to write スケジュール JSON, schedule-viewer 用 JSON,
-  ガント用データ, or to export tasks/milestones into the schedule-viewer format.
+  Creates schedule JSON files for schedule-viewer (WBS/Gantt viewer). Writes a
+  file only for a new schedule, when the desktop app is not running, or when
+  the user explicitly asks to write a file. While the desktop app is running,
+  do not write files to update an open schedule; use MCP replace_schedule with
+  this skill's output shape instead. Use for スケジュール JSON, schedule-viewer 用
+  JSON, ガント用データ, or exporting tasks/milestones into the schedule-viewer format.
 ---
 
 # write-schedule（schedule-viewer 用 JSON）
@@ -73,13 +76,19 @@ description: >-
 
 ## 手順
 
-開いている schedule-viewer の画面があるときは、そのファイルを上書きせず、`read-screen` の画面連携の手順に従う。`baseline_diffs` で衝突と判定されたときは、その対応に従い、人の返事の前にスケジュール全体を作らない。
+依頼を次のどれかに分ける。特別な指示が無い限り、ファイルを書くのは **新しいスケジュールファイルを作る**、**デスクトップ版が起動していない**（ブラウザ版も同じ）、**人がファイルへ書くと明示した** のときだけである。
+
+- **新規ファイル**: 起動中でも新しい JSON ファイルを書く。開いている画面は置き換えない
+- **起動中の更新**: デスクトップ版が起動している（MCP の `baseline_diffs` が返る）とき、開いているスケジュールを変える依頼は、このスキルではファイルを書かない。出力形と入力条件だけを使い、MCP の `replace_schedule` へ渡す。MCP を呼べないときは `read-screen` の画面連携の手順に従う。`write-schedule` のファイルを書く手順（手順 4 の検証付き書き込み）は実行しない
+- **未起動・明示のファイル書き**: 上記のどちらでもないときは、JSON ファイルを書き、検証する
+
+`baseline_diffs` で衝突と判定されたときは、その対応に従い、人の返事の前にスケジュール全体を作らない。
 
 1. 入力をカテゴリ・グループ・タスクの木に整理する（WBS のまま写す）
 2. 新規のカテゴリ、グループ、タスク、マイルストン、マイルストングループには `crypto.randomUUID()` 相当の UUID v4 を付与する。既存 JSON を更新する場合は既存 `id` を維持する
 3. `schemaVersion: 7` を付ける
-4. 開いている前面の画面が無いときだけ、JSON ファイルを書き、このスキルフォルダで `node scripts/validate-schedule.mjs <file>` を実行して検証する。画面があるときはファイルを書かず、検証用に一時ファイルを使っても、開いているファイルは上書きしない
-5. エラーがあれば修正して再検証し、通ってからユーザーに渡す
+4. **新規ファイル**、**未起動・明示のファイル書き** のときだけ、JSON ファイルを書き、このスキルフォルダで `node scripts/validate-schedule.mjs <file>` を実行して検証する。**起動中の更新** のときはファイルを書かず、検証用に一時ファイルを使っても、開いているファイルは上書きしない
+5. エラーがあれば修正して再検証し、通ってからユーザーに渡す（起動中の更新では、検証済み JSON を `replace_schedule` に渡す）
 
 ## 画面にないものは入れない
 

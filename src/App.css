@@ -1446,7 +1446,10 @@ button:focus-visible,
   white-space: pre-wrap;
 }
 
-.sidebar-row.task.hovered:not(.selected) {
+.sidebar-row.task.hovered:not(.selected),
+.sidebar-row.category.hovered,
+.sidebar-row.group.hovered,
+.sidebar-milestones.hovered {
   background: var(--hover-row);
 }
 
@@ -2639,6 +2642,109 @@ button:focus-visible,
 .diff-strip-textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+.diff-strip-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+  padding: calc(4px * var(--s)) 0;
+  outline: none;
+}
+
+.diff-strip-list:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.diff-strip-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.diff-strip-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--s));
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 calc(8px * var(--s));
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.diff-strip-row--active {
+  background: var(--selected-row);
+}
+
+.diff-strip-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.diff-strip-badge {
+  flex: 0 0 auto;
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+}
+
+.diff-strip-badge--delete {
+  color: var(--danger-text);
+}
+
+.diff-strip-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(12px * var(--s));
+}
+
+.diff-strip-row-place {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+}
+
+.diff-strip-row-place--probe {
+  position: absolute;
+  width: auto;
+  max-width: none;
+  visibility: hidden;
+  pointer-events: none;
+  flex: 0 0 auto;
+}
+
+.diff-strip-row-body {
+  margin: 0;
+  padding: calc(4px * var(--s)) calc(12px * var(--s)) calc(8px * var(--s));
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: calc(11px * var(--s));
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+.diff-strip-row-status {
+  margin: 0;
+  padding: 0 calc(12px * var(--s)) calc(8px * var(--s));
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+}
+
+.toolbar-title-text.diff-title-marked {
+  box-shadow: inset 0 calc(-2px * var(--s)) 0 var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {

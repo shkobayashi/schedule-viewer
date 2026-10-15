@@ -31,6 +31,7 @@ export type { SearchField } from "../model/scheduleFilterPersistence";
 
 type ToolbarProps = {
   title: string;
+  titleDiffMarked?: boolean;
   filters: ScheduleFilters;
   searchField: SearchField;
   onSearchFieldChange: (field: SearchField) => void;
@@ -77,6 +78,7 @@ type ToolbarProps = {
 
 export function Toolbar({
   title,
+  titleDiffMarked = false,
   filters,
   searchField,
   onSearchFieldChange,
@@ -209,7 +211,11 @@ export function Toolbar({
         onCheckForUpdates={onCheckForUpdates}
       />
       <h1 className="toolbar-title">
-        <span className="toolbar-title-text">{title}</span>
+        <span
+          className={`toolbar-title-text${titleDiffMarked ? " diff-title-marked" : ""}`}
+        >
+          {title}
+        </span>
       </h1>
       <div className="toolbar-search">
         <select

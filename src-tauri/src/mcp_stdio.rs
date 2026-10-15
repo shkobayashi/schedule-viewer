@@ -131,7 +131,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "replace_schedule",
-                "description": "前面ウィンドウのスケジュールを、検証済みの JSON 全体で未保存として置き換えます。成功時は FILE-07 と同じ差分テキストだけを返します。ファイルには書きません。",
+                "description": "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。前面ウィンドウのスケジュールを、検証済みの JSON 全体で未保存として置き換えます。成功時は FILE-07 と同じ差分テキストだけを返します。ファイルには書きません。",
                 "inputSchema": {
                     "type": "object",
                     "description": "schedule-viewer のスケジュール JSON 全体（schemaVersion 7）",
@@ -243,5 +243,8 @@ mod tests {
         assert!(selected_tasks.contains("選択数が不明なときはこのツールを使います"));
         let selected_task = description("selected_task");
         assert!(selected_task.contains("選択数が不明なときは selected_tasks を使います"));
+        let replace_schedule = description("replace_schedule");
+        assert!(replace_schedule.contains("開いているスケジュールの更新はこのツールへ渡します"));
+        assert!(replace_schedule.contains("新しいスケジュールファイルの作成"));
     }
 }

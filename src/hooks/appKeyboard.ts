@@ -97,6 +97,7 @@ export function decideAppKey(input: {
   canReorderInGroup: boolean;
   taskIndexInGroup: number | null;
   groupTaskCount: number;
+  diffStripListFocused: boolean;
 }): AppKeyDecision {
   const { event } = input;
   const targetFields = input.target ?? {
@@ -150,6 +151,16 @@ export function decideAppKey(input: {
       closeMenu: true,
       action: { type: "openShortcuts" },
     };
+  }
+  if (input.diffStripListFocused && !input.dialogOpen) {
+    if (matchDiffCopy(event, { dialogOpen: false, fileBusy: input.fileBusy })) {
+      return {
+        preventDefault: true,
+        closeMenu: true,
+        action: { type: "openDiffCopy" },
+      };
+    }
+    return { preventDefault: false, closeMenu: false, action: { type: "none" } };
   }
   if (
     !input.dialogOpen &&

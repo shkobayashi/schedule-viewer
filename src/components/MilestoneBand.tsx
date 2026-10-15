@@ -37,6 +37,8 @@ type MilestoneBandProps = {
   colorScheme: ResolvedColorScheme;
   containerRef?: Ref<HTMLDivElement>;
   onHoverMilestone: (hover: MilestoneHoverState | null) => void;
+  diffMarkedMilestoneId?: ScheduleId | null;
+  diffMarkStrokeWidth?: number;
 };
 
 export function MilestoneBand({
@@ -58,6 +60,8 @@ export function MilestoneBand({
   colorScheme,
   containerRef,
   onHoverMilestone,
+  diffMarkedMilestoneId = null,
+  diffMarkStrokeWidth = 3,
 }: MilestoneBandProps) {
   return (
     <div className="milestone-band" style={{ height }} ref={containerRef}>
@@ -108,6 +112,8 @@ export function MilestoneBand({
                     diamondSize={diamondSize}
                     fontSize={fontSize}
                     pxPerDay={pxPerDay}
+                    diffMarked={diffMarkedMilestoneId === milestone.id}
+                    diffMarkStrokeWidth={diffMarkStrokeWidth}
                     onMove={(delta) => onMove(milestone.id, delta)}
                     onOpenEdit={() => onOpenEdit(milestone.id)}
                     onContextMenu={(clientX, clientY) =>
@@ -149,6 +155,8 @@ function MilestoneMark({
   linkMode,
   chart,
   colorScheme,
+  diffMarked,
+  diffMarkStrokeWidth,
 }: {
   milestone: Milestone;
   displayName: string;
@@ -157,6 +165,8 @@ function MilestoneMark({
   diamondSize: number;
   fontSize: number;
   pxPerDay: number;
+  diffMarked: boolean;
+  diffMarkStrokeWidth: number;
   onMove: (deltaDays: number) => void;
   onOpenEdit: () => void;
   onContextMenu: (x: number, y: number) => void;
@@ -243,7 +253,7 @@ function MilestoneMark({
         }
         fillPatternRepeat="repeat"
         stroke={chart.milestoneDiamondStroke}
-        strokeWidth={1}
+        strokeWidth={diffMarked ? diffMarkStrokeWidth : 1}
         listening={false}
       />
       <Text

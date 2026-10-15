@@ -50,7 +50,7 @@ flowchart TD
 | `TaskDetailPanel.tsx` | 選択が1件のときの右パネル。`applyTaskPatch` で項目ごとに履歴。フォーカス中は外部反映を止める。保存は呼び出し時点の文書を土台に、利用者が変えた項目だけ上書きする。開始日と終了日は日付欄を変えたときだけ含める |
 | `BulkTaskDetailPanel.tsx` | 選択が2件以上のときの右パネル。共通値の表示と下書き。「件数に適用」で `applyBulkTaskDraft` を一度だけ呼ぶ。下書きがあるあいだは外部反映を止める |
 | `MilestoneField.tsx` | 詳細パネルとタスク複製ダイアログの「対応マイルストン」。`milestoneField.ts` で候補と強調行を組み立てる |
-| `DiffStrip.tsx` | チャート右の差分列。畳んだ取っ手と、開いた本文。空の結果だけ閉じる |
+| `DiffStrip.tsx` | チャート右の差分列。畳んだ取っ手と、開いた変更の一覧。空の結果だけ閉じる |
 | `StatusBar.tsx` | 画面下端。未保存のクリックで差分列を開く |
 | `Toolbar.tsx` | 見出し、検索、絞り込みパネル、系統、線を引く、追加、マイルストン追加、削除、取り消し、やり直し、今日と日・週・月・全体、操作の案内、ショートカット一覧 |
 | `ActiveFilterBar.tsx` | 効いている絞り込みと系統の札 |
@@ -95,7 +95,7 @@ flowchart TD
 | 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
 | 対応マイルストン欄と絞り込みのマイルストン欄 | `milestoneField.ts` の `buildMilestoneFieldList`、`buildMilestoneFilterList`、`initialMilestoneFieldActiveIndex`、`initialMilestoneFilterActiveIndex` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
-| 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffLoad.ts`、`diffStripVisibility.ts` |
+| 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffEntry.ts`、`diffNavigation.ts`、`scheduleDiffLoad.ts`、`diffStripVisibility.ts` |
 | 起点・画面・ファイルの差分と分類 | `baselineDiffs.ts`、`baselineDiffsLoad.ts` |
 | 外部更新時の非衝突合成と判定 | `baselineMerge.ts`（`assessBaselineMerge`、`buildNonConflictingMergedDocument` は `baselineDiffs.ts`） |
 | 外部更新確認の一覧表示 | `baselineMergeReview.ts`（`buildBaselineMergeReview`） |
@@ -169,7 +169,7 @@ flowchart TD
 
 ### 差分
 
-「差分を表示」は、画面の保存形式と、`read_open_schedule_file` で読んだ開いているファイルを `formatScheduleDiff` に渡す。カテゴリ、グループ、タスク、マイルストンは id で対応づける。グループは、別のカテゴリへ移っていても同じ id なら変更である。結果はチャート右の差分列に出す。未保存で差の本文があるあいだは、列は畳み、右端の取っ手だけ出す。☰ の「差分を表示」と状態バーの「未保存」は列を開く。列の開閉は `App` の `diffPanelExpanded` で持ち、ファイルには書かない。列が消えたら開閉も忘れる。開いたあとの自動読み直しは開いたまま、畳んだあとは畳んだまま、本文だけ更新する。パスが無い、またはブラウザ版のときはファイルを読まず、「比べるファイルがありません」と列に出す。検証に失敗したときは列に書かず、☰、「未保存」、コピーキーでは読み込みエラーを出す。⌘ または Ctrl+Shift+D は列を開かず全文を写す。自動の読み直しで失敗したときはエラーダイアログを出さない。読んだ内容は保存しない。`content_hash` は変えない。
+「差分を表示」は、画面の保存形式と、`read_open_schedule_file` で読んだ開いているファイルを `formatScheduleDiff` に渡す。カテゴリ、グループ、タスク、マイルストンは id で対応づける。グループは、別のカテゴリへ移っていても同じ id なら変更である。`collectScheduleDiffEntries` は同じブロックに移動先を付け、一覧の行を押したときの寄せ先は `diffNavigation.ts` が決める。結果はチャート右の差分列の一覧に出す。コピー用の全文は `formatScheduleDiff` の文字列のままである。未保存で差があるあいだは、列は畳み、右端の取っ手だけ出す。☰ の「差分を表示」と状態バーの「未保存」は列を開く。列の開閉は `App` の `diffPanelExpanded` で持ち、ファイルには書かない。列が消えたら開閉も忘れる。開いたあとの自動読み直しは開いたまま、畳んだあとは畳んだまま、一覧だけ更新する。一覧にフォーカスがあるあいだは、`appKeyboard.ts` の `decideAppKey` がガント向けのキーを止める。一覧の札と名前と場所は `collectScheduleDiffEntries` がブロックごとに付ける。縦の寄せは `scrollYToShowSelectedTask` を使い、見えている行では `scrollY` を変えない。マイルストンの印は `diffNavigationMark.chartMilestoneId` を `MilestoneBand` が、帯の行の印は `diffNavigationMark.milestoneGroupId` を `Sidebar` が描く。寄せた行の印は `App` の `diffNavigationMark` で持ち、タスクの選択とは別である。パスが無い、またはブラウザ版のときはファイルを読まず、「比べるファイルがありません」と列に出す。検証に失敗したときは列に書かず、☰、「未保存」、コピーキーでは読み込みエラーを出す。⌘ または Ctrl+Shift+D は列を開かず全文を写す。自動の読み直しで失敗したときはエラーダイアログを出さない。読んだ内容は保存しない。`content_hash` は変えない。
 
 ### 前回のファイルと控え
 
