@@ -3,8 +3,9 @@ use std::io::{self, Write};
 
 use crate::mcp_bridge::call_tool_via_bridge;
 
-pub const SCREEN_TOOL_NAMES: [&str; 4] = [
+pub const SCREEN_TOOL_NAMES: [&str; 5] = [
     "schedule_diff",
+    "baseline_diffs",
     "selected_task",
     "selected_tasks",
     "filtered_tasks",

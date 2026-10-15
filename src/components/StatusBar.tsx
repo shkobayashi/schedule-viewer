@@ -63,7 +63,7 @@ export function StatusBar({
       </div>
       {showDeferredReload ? (
         <button type="button" className="status-bar-action" onClick={onDeferredReload}>
-          ファイルに更新あり — 読み直す
+          ファイルに更新あり — 確認する
         </button>
       ) : null}
       {membersCatalogError ? (

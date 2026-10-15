@@ -126,7 +126,7 @@ import {
   taskBarWidthPx,
 } from "./model/timeline";
 import { extraTimelineDaysForRightEdge } from "./model/timelineRightPadding";
-import type { ScheduleId, Task } from "./model/types";
+import type { ScheduleDocument, ScheduleId, Task } from "./model/types";
 import {
   AUTO_UPDATE_LS_KEY,
   readAutoUpdateEnabled,
@@ -499,6 +499,17 @@ function App() {
   }, []);
 
   const blockDocumentEditsRef = useRef(false);
+  const applyMergedDocumentRef = useRef<
+    (
+      document: ScheduleDocument,
+    ) => { before: import("./model/history").DocumentSnapshot; after: import("./model/history").DocumentSnapshot } | null
+  >(() => null);
+  const externalReloadHistoryUndoRef = useRef<
+    (landed: import("./model/history").DocumentSnapshot) => void
+  >(() => {});
+  const externalReloadHistoryRedoRef = useRef<
+    (landed: import("./model/history").DocumentSnapshot) => void
+  >(() => {});
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
@@ -508,7 +519,10 @@ function App() {
     memberCatalogState.members,
     !memberCatalogState.loading,
     blockDocumentEditsRef,
+    (landed) => externalReloadHistoryUndoRef.current(landed),
+    (landed) => externalReloadHistoryRedoRef.current(landed),
   );
+  applyMergedDocumentRef.current = schedule.applyMergedDocument;
   const {
     redo,
     undo,
@@ -665,6 +679,7 @@ function App() {
     milestoneGroups: schedule.milestoneGroups,
     milestones: schedule.milestones,
     replaceDocument: schedule.replaceDocument,
+    applyMergedDocument: (document) => applyMergedDocumentRef.current(document),
     reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
     onAfterOpen: onAfterOpenFile,
     initialBaselineJson: INITIAL_BASELINE_JSON,
@@ -681,6 +696,8 @@ function App() {
     knownMemberIds: schedule.knownMemberIds,
     memberCatalogSettled: !memberCatalogState.loading,
   });
+  externalReloadHistoryUndoRef.current = scheduleFile.onHistoryUndoApplied;
+  externalReloadHistoryRedoRef.current = scheduleFile.onHistoryRedoApplied;
 
   useWindowTitle(scheduleFile.displayFileName, scheduleFile.isDirty);
 
@@ -775,6 +792,13 @@ function App() {
     const timer = window.setTimeout(() => setToastMessage(null), 4000);
     return () => window.clearTimeout(timer);
   }, [scheduleFile.reloadNotice]);
+
+  useEffect(() => {
+    if (!scheduleFile.mergeNotice) return;
+    setToastMessage("両方の変更を画面へ反映しました");
+    const timer = window.setTimeout(() => setToastMessage(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [scheduleFile.mergeNotice]);
 
   const peerNoticeMessage = useMemo(() => {
     const notice = scheduleFile.peerNotice.peerNotice;
@@ -1213,6 +1237,7 @@ function App() {
     memberMap: memberCatalogState.memberMap,
     scheduleFilePath: scheduleFile.filePath,
     scheduleCurrentJson: scheduleFile.currentJson,
+    scheduleBaselineJson: scheduleFile.baselineJson,
   });
 
   const showScheduleDiff = useCallback(() => {
@@ -2140,7 +2165,7 @@ function App() {
         visibleTaskCount={visibleTaskCount}
         totalTaskCount={totalTaskCount}
         showDeferredReload={scheduleFile.showDeferredReload}
-        onDeferredReload={scheduleFile.requestDeferredReload}
+        onDeferredReload={scheduleFile.requestDeferredConfirm}
         onOpenSettingsMembers={() => {
           setSettingsSection("members");
           setSettingsOpen(true);
@@ -2478,10 +2503,25 @@ function App() {
           onCancel={scheduleFile.cancelExternalChange}
         />
       ) : null}
-      {scheduleFile.externalReloadOpen ? (
+      {scheduleFile.externalReloadOpen && scheduleFile.externalReloadAssessment ? (
         <ExternalReloadDialog
+          assessment={scheduleFile.externalReloadAssessment}
+          review={scheduleFile.externalReloadReview}
+          hasOpenEditDialog={
+            detailPanelEditing ||
+            schedule.editingNoteTask != null ||
+            schedule.editingMilestone != null ||
+            schedule.editingHierarchyTarget != null ||
+            schedule.addingHierarchyTarget != null ||
+            schedule.deletingHierarchyTarget != null
+          }
+          diskUpdatedAgain={scheduleFile.diskUpdatedAgain}
           onReload={scheduleFile.confirmExternalReload}
           onKeepLocal={scheduleFile.keepLocalEditsOnExternalReload}
+          onApplyMerge={() => {
+            setDetailPanelEditing(false);
+            scheduleFile.confirmBaselineMerge();
+          }}
         />
       ) : null}
       {scheduleFile.errorMessage ? (

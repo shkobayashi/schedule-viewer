@@ -249,6 +249,28 @@
 | 同上 | `shows task order when a new task is inserted before the end` | FILE-07 |
 | 同上 | `omits task order for trailing append when existing order is unchanged` | FILE-07 |
 | 同上 | `excludes trailing new tasks from the order line when reorder and append happen together` | FILE-07 |
+| `baselineDiffs.test.ts` | `reports no changes when baseline, screen, and file match` | MCP-01 |
+| 同上 | `classifies screen-only name change` | MCP-01 |
+| 同上 | `classifies file-only end date change` | MCP-01 |
+| 同上 | `classifies screen name and file end on the same task as one 異なる line` | MCP-01 |
+| 同上 | `classifies predecessor set differences as 異なる on the task` | MCP-01 |
+| 同上 | `classifies screen delete and file change on the same id as 削除と変更` | MCP-01 |
+| 同上 | `classifies trailing append in classification when diff body omits order` | MCP-01 |
+| `baselineMerge.test.ts` | `merges screen name and file end on different tasks` | SYNC-01 |
+| 同上 | `blocks same task with screen name and file end` | SYNC-01 |
+| 同上 | `blocks different trailing appends on both sides` | SYNC-01 |
+| 同上 | `merges screen-only task reorder` | SYNC-01 |
+| 同上 | `returns sameOnly when both sides made the same end date change` | SYNC-01 |
+| 同上 | `blocks screen delete and file change on the same id` | SYNC-01 |
+| `baselineMergeDeferred.test.ts` | `restores the banner only when undo lands on the pre-merge document` | SYNC-01 |
+| 同上 | `clears the banner only when redo lands on the post-merge document` | SYNC-01 |
+| `baselineMergeReview.test.ts` | `puts screen name and file end in separate sections` | SYNC-01 |
+| 同上 | `matches file-only name change by task id` | SYNC-01 |
+| 同上 | `wraps add blocks in detail lines` | SYNC-01 |
+| 同上 | `deduplicates plain location subheadings within a section` | SYNC-01 |
+| 同上 | `lists same changes without field lines` | SYNC-01 |
+| 同上 | `shows order preview when diff has order body` | SYNC-01 |
+| 同上 | `strips uuid from visible text and localizes assignee and status` | SYNC-01 |
 | `taskOrder.test.ts` | `stays pending until movement passes the threshold` | EDIT-15 |
 | 同上 | `reorders when either axis passes the threshold` | EDIT-15, EDIT-16, EDIT-17 |
 | 同上 | `ignores movement when reorder is not allowed` | EDIT-15 |
@@ -535,7 +557,7 @@
 | `install_without_replace_leaves_existing`（`read_screen_skill.rs`） | 置き換えを確認するまでは既存を残し、何も書かない | MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_three_read_tools` | `tools/list` が `schedule_diff` / `selected_task` / `selected_tasks` / `filtered_tasks` のみで、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
+| `tools_list_exposes_three_read_tools` | `tools/list` が `schedule_diff` / `baseline_diffs` / `selected_task` / `selected_tasks` / `filtered_tasks` のみで、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
 | `mcp_socket_lives_in_app_data` | Unix のソケットはアプリデータ直下 | MCP-01 |
 | `mcp_pipe_name_includes_identifier_and_sid` | Windows のパイプ名に identifier と SID が入る | MCP-01 |
 | `pipe_roundtrips_length_prefixed_frame` | Windows の名前付きパイプで長さ付き JSON が往復する | MCP-01 |
@@ -622,7 +644,14 @@
 | TC-FILE-07k | FILE-07 | パスのあるファイルを開き、未保存にする | 状態バーの「未保存」を押す | 差分ダイアログが開く |
 | TC-FILE-07l | FILE-07 | パスのあるファイルを開き、編集する | ⌘/Ctrl+Shift+D を押す | 差分の全文がコピーされる。開く、保存、別名保存の途中は効かない |
 | TC-SYNC-01 | SYNC-01 | デスクトップ版でファイルを開き、未保存は無い | 別のエディタでその JSON を保存する | 約1.5秒以内に画面に反映し、「ファイルを反映しました」と出る |
-| TC-SYNC-01b | SYNC-01 | 未保存の編集がある | 別のエディタでファイルを保存する | 「読み直す」か「画面の編集を残す」かを聞く。残すと「ファイルに更新あり — 読み直す」が出る |
+| TC-SYNC-01b | SYNC-01 | 未保存の編集がある | 別のエディタでファイルを保存する | 「ファイルが更新されています」が開く。残すと「ファイルに更新あり — 確認する」が出る |
+| TC-SYNC-01e | SYNC-01 | 未保存と外部更新。画面とファイルが別タスクだけ変わる | 確認を開く | 「画面」と「ファイル」の節に分かれ、変わった項目が見える |
+| TC-SYNC-01e2 | SYNC-01 | TC-SYNC-01e のあと | 「両方を画面へ反映」→保存 | 両方の変更が画面に入り、保存後にファイルと一致する |
+| TC-SYNC-01f | SYNC-01 | 未保存と外部更新。同じタスクで画面とファイルがぶつかる | 確認を開く | 「依頼文をコピー」があり、「両方を画面へ反映」は無い |
+| TC-SYNC-01g | SYNC-01 | TC-SYNC-01e のあと取り消し | — | 「ファイルに更新あり — 確認する」が戻る |
+| TC-SYNC-01h | SYNC-01 | TC-SYNC-01e2 のあと、別の編集をして取り消し | — | 確認の帯は出ない |
+| TC-SYNC-01i | SYNC-01 | TC-SYNC-01g のあとやり直し | — | 確認の帯が消える |
+| TC-SYNC-01j | SYNC-01 | 反映のあと保存してから取り消し | — | 確認の帯は戻らない |
 | TC-SYNC-01c | SYNC-01 | ブラウザ版でファイルを開く | 別のエディタでファイルを保存する | 画面は変わらない |
 | TC-SYNC-02 | SYNC-02 | 開いたあと、別のエディタでファイルを変える | 「保存」を押す | 「上書き保存」「別名保存」「取り消し」が出る。取り消しではファイルも画面も変わらない |
 | TC-SYNC-03 | SYNC-03 | TC-FILE-05b のあと、ファイルは変えない | アプリを起動する | 同じファイルが未保存のまま開く |
@@ -849,11 +878,12 @@
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
-| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`selected_task`、`selected_tasks`、`filtered_tasks` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。画面の絞り込みは変わらない |
+| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。画面の絞り込みは変わらない |
+| TC-MCP-01e | MCP-01 | デスクトップ版、画面の未保存とファイルの外部更新が同時にある | `baseline_diffs` を1回呼ぶ | `画面:` に起点から画面への差分、`ファイル:` に起点からファイルへの差分、`分類:` に画面のみ・ファイルのみ・異なるなどが id ごとに出る。`schedule_diff` の混ざった差分だけでは分類しない |
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
 | TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |
 | TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
-| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen schedule_diff`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks` をそれぞれ 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。終了コード 0。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
+| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks` をそれぞれ 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。終了コード 0。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 
 TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 4 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。

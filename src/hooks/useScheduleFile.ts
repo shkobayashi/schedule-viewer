@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import type { DocumentSnapshot } from "../model/history";
 import type {
   Category,
   Milestone,
@@ -46,6 +47,9 @@ type UseScheduleFileOptions = {
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
   replaceDocument: (document: ScheduleDocument) => void;
+  applyMergedDocument: (
+    document: ScheduleDocument,
+  ) => { before: DocumentSnapshot; after: DocumentSnapshot } | null;
   reloadDocumentFromDisk: (document: ScheduleDocument) => void;
   onAfterOpen: () => void;
   initialBaselineJson: string;
@@ -67,6 +71,7 @@ export function useScheduleFile({
   milestoneGroups,
   milestones,
   replaceDocument,
+  applyMergedDocument,
   reloadDocumentFromDisk,
   onAfterOpen,
   initialBaselineJson,
@@ -201,6 +206,8 @@ export function useScheduleFile({
 
   const {
     reloadNotice,
+    mergeNotice,
+    diskUpdatedAgain,
     showDeferredReload,
     externalReloadOpen,
     clearExternalReloadPrompt,
@@ -210,12 +217,20 @@ export function useScheduleFile({
     setDeferredExternalContents,
     confirmExternalReload,
     keepLocalEditsOnExternalReload,
-    requestDeferredReload,
+    requestDeferredConfirm,
+    confirmBaselineMerge,
+    buildExternalReloadAssessment,
+    buildExternalReloadReview,
+    onHistoryUndoApplied,
+    onHistoryRedoApplied,
   } = useScheduleExternalReload({
     filePath,
     reloadDocumentFromDisk,
+    applyMergedDocument,
     setBaselineJson,
     setErrorMessageText,
+    baselineJson,
+    currentJson,
     baselineJsonRef,
     isDirtyRef,
     hasOpenEditDialogRef,
@@ -225,6 +240,13 @@ export function useScheduleFile({
     requestMissingFileOpenRef,
     notifyPeersRef,
   });
+
+  const externalReloadAssessment = externalReloadOpen
+    ? buildExternalReloadAssessment()
+    : null;
+  const externalReloadReview = externalReloadOpen
+    ? buildExternalReloadReview()
+    : null;
   clearExternalReloadPromptRef.current = clearExternalReloadPrompt;
   clearInvalidDiskHashRef.current = clearInvalidDiskHash;
 
@@ -732,6 +754,10 @@ export function useScheduleFile({
     saveStatusLabel,
     statusLabel,
     reloadNotice,
+    mergeNotice,
+    diskUpdatedAgain,
+    externalReloadAssessment,
+    externalReloadReview,
     showDeferredReload,
     isDirty,
     fileBusy,
@@ -767,9 +793,13 @@ export function useScheduleFile({
     cancelExternalChange,
     confirmExternalReload,
     keepLocalEditsOnExternalReload,
-    requestDeferredReload,
+    requestDeferredConfirm,
+    confirmBaselineMerge,
+    onHistoryUndoApplied,
+    onHistoryRedoApplied,
     dismissError,
     currentJson,
+    baselineJson,
     peerNotice,
   };
 }
