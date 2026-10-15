@@ -73,6 +73,23 @@
 | 同上 | `stops a resized start from passing the end` | EDIT-03 |
 | 同上 | `recolors only the link touched by the dragged task` | VIEW-08, EDIT-02 |
 | 同上 | `uses the successor start when that task is dragged` | VIEW-08 |
+| 同上 | `returns a preview per selected visible task` | EDIT-02 |
+| 同上 | `recolors when either endpoint is in the override map` | VIEW-08, EDIT-02 |
+| `taskSelection.test.ts` | `selects a range with shift+click` | EDIT-01 |
+| 同上 | `toggles with meta+click` | EDIT-01 |
+| 同上 | `does not toggle with ctrl+click on Mac` | EDIT-01 |
+| 同上 | `shrinks range when extending back with shift+arrow` | EDIT-01 |
+| 同上 | `extends selection with shift+arrow` | EDIT-01 |
+| `bulkTaskEdit.test.ts` | `returns null when two tasks are selected` | EDIT-01, EDIT-04 |
+| `bulkTaskEdit.test.ts` | `applies status to all selected tasks` | EDIT-04 |
+| 同上 | `rejects when end is before start for any task` | EDIT-04 |
+| 同上 | `rejects draft with end before start using the first task name` | EDIT-04 |
+| 同上 | `skips existing predecessor links` | EDIT-04, EDIT-05 |
+| 同上 | `rejects when all tasks already have the tag` | EDIT-04 |
+| 同上 | `adds tag only to tasks that do not have it` | EDIT-04 |
+| 同上 | `rejects a cycle for the whole apply` | EDIT-04, EDIT-05 |
+| `appKeyboard.test.ts` | `shifts dates when multiple tasks are selected without a primary id` | EDIT-03, EDIT-04 |
+| 同上 | `deletes when multiple tasks are selected` | EDIT-01, EDIT-09 |
 | `dependencies.test.ts` | `keeps a right elbow when the gap fits the arrow` | VIEW-08 |
 | 同上 | `approaches from the left when the gap is shorter than the arrow` | VIEW-08 |
 | 同上 | `routes around a bar that starts before the predecessor ends` | VIEW-08 |
@@ -199,6 +216,12 @@
 | `screenContext.test.ts` | `keeps broken-link endpoints only when relation is broken` | MCP-01 |
 | 同上 | `keeps unassigned and unknown assignee when assignee filter is unassigned` | MCP-01, FILTER-03 |
 | 同上 | `respects lineage and still returns selected task outside filter` | MCP-01, FILTER-08, EDIT-01 |
+| 同上 | `returns null when selection is not exactly one task` | MCP-01, EDIT-01 |
+| 同上 | `returns empty array when nothing is selected`（`buildSelectedTasksPayload`） | MCP-01, EDIT-01 |
+| 同上 | `matches single-task payload for one selection` | MCP-01, EDIT-01 |
+| 同上 | `orders by document order not selection order` | MCP-01, EDIT-01 |
+| 同上 | `includes tasks outside any filter because it does not use filters` | MCP-01, EDIT-01 |
+| 同上 | `omits ids that are not tasks in the document` | MCP-01, EDIT-01 |
 | `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |
 | 同上 | `keeps spaces and quotes inside the JSON command string` | MCP-01 |
 | 同上 | `keeps a macOS path with spaces as the command string` | MCP-01 |
@@ -504,13 +527,15 @@
 | `screen_tool_rejects_unknown_name`（`screen_cli.rs`） | 未知のツール名は待ち受けへ繋がない | MCP-02 |
 | `extract_tool_output_splits_success_and_error`（`screen_cli.rs`） | ツール結果の `isError` で標準出力と標準エラーを分ける | MCP-02 |
 | `render_replaces_executable_placeholder`（`read_screen_skill.rs`） | テンプレートの実行ファイル置き換え | MCP-02 |
+| `render_uses_localappdata_command_when_path_is_under_it`（`read_screen_skill.rs`） | Local AppData 配下は `"$LOCALAPPDATA/"` と `--screen` の1行にし、`AppData` を残さない | MCP-02 |
+| `render_keeps_absolute_path_on_separate_lines_outside_localappdata`（`read_screen_skill.rs`） | Local AppData 配下でない絶対パスは、引用せず引数と別の行に書く | MCP-02 |
 | `render_fails_when_executable_path_is_empty`（`read_screen_skill.rs`） | 実行ファイルのパスが空なら置かない | MCP-02 |
 | `render_fails_when_placeholder_remains_after_replace`（`read_screen_skill.rs`） | 置換後にプレースホルダが残るなら置かない | MCP-02 |
 | `destinations_are_user_skill_dirs_only`（`read_screen_skill.rs`） | read-screen の置き先はユーザー全体だけ | MCP-02 |
 | `install_without_replace_leaves_existing`（`read_screen_skill.rs`） | 置き換えを確認するまでは既存を残し、何も書かない | MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_three_read_tools` | `tools/list` が `schedule_diff` / `selected_task` / `filtered_tasks` のみで、`screen_context` が無い | MCP-01 |
+| `tools_list_exposes_three_read_tools` | `tools/list` が `schedule_diff` / `selected_task` / `selected_tasks` / `filtered_tasks` のみで、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
 | `mcp_socket_lives_in_app_data` | Unix のソケットはアプリデータ直下 | MCP-01 |
 | `mcp_pipe_name_includes_identifier_and_sid` | Windows のパイプ名に identifier と SID が入る | MCP-01 |
 | `pipe_roundtrips_length_prefixed_frame` | Windows の名前付きパイプで長さ付き JSON が往復する | MCP-01 |
@@ -697,6 +722,9 @@
 | TC-EDIT-01c | EDIT-01, NAV-01 | 見えているタスクが複数ある。行が画面より多い | ↑↓で選択を移す。見えている行を選んだあと、左の行をクリックして選び直す。端で止まる | カテゴリ行とグループ行は飛ばす。見えている行では縦位置は変わらない。画面外の行へ移したときだけ、入るところまでスクロールする |
 | TC-EDIT-01d | EDIT-01, NAV-01 | 横にスクロールした状態で、バーが画面にかかっているタスクがある | そのバーをクリックする。次に、横に見えていないタスクを選ぶ | かかっているバーを選んでも横位置は変わらない。見えていないバーを選ぶと、開始の手前が見える位置へ寄る |
 | TC-EDIT-01b | EDIT-01 | タスクを選択している | 絞り込みを変える | 選択が外れる |
+| TC-EDIT-01e | EDIT-01, EDIT-04 | 見えているタスクが複数ある | ⌘ または Ctrl+クリックで2件選ぶ。一括パネルで担当だけ変えて適用する。取り消す | 2件とも担当が変わる。取り消し1回で戻る |
+| TC-EDIT-01f | EDIT-01, EDIT-02 | 2件以上選んでいる | 選択中の1本を横にドラッグする | 選択中の全部が同じ日数だけ動く。ドラッグ中は選んだバーすべてに日付が出る |
+| TC-EDIT-01g | EDIT-01, EDIT-11 | 2件以上選んでいる | タスクを右クリックする | メニューは削除だけ |
 | TC-EDIT-02 | EDIT-02 | タスクを選択できる | バー本体を横へドラッグして離す。⌘ または Ctrl 付きでも同じ。詳細パネルが開いているときも同じ | 8px を超えたら開始と終了が同じ日数だけ動く。他のバーや日付は動かない。空きやスペースキー付きドラッグはスクロールのまま |
 | TC-EDIT-02b | EDIT-02 | タスクを選択できる | バー本体を横へドラッグし、離す前に日付を見る。離したあと、空きをドラッグする。左の名前と、ひし形のドラッグもする | ドラッグ中は開始日と終了日が月/日で、棒と重ならずに出る。離すと消える。スクロール、左の名前、ひし形では出ない |
 | TC-EDIT-02d | EDIT-02 | タスクを選択できる | バー本体を動かし、離す前に Escape を押す | 押したときの日付に戻り、履歴には積まれない |
@@ -821,14 +849,14 @@
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
-| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`selected_task`、`filtered_tasks` をそれぞれ1回呼ぶ | 差分は差分テキストだけ。選択は選択タスクだけ。絞り込みはオン条件と残るタスクだけ。画面の絞り込みは変わらない |
+| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`selected_task`、`selected_tasks`、`filtered_tasks` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。画面の絞り込みは変わらない |
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
 | TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |
 | TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
-| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen schedule_diff`、`--screen selected_task`、`--screen filtered_tasks` をそれぞれ 1 回起動する | MCP-01 と同じ内容が標準出力に出る。終了コード 0 |
+| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen schedule_diff`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks` をそれぞれ 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。終了コード 0。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 
-TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 3 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。
+TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 4 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。
 
 ## リリース前確認
 

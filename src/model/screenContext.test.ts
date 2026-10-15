@@ -6,6 +6,7 @@ import {
   buildScheduleDiffPayload,
   buildScreenContextPayload,
   buildSelectedTaskPayload,
+  buildSelectedTasksPayload,
   mcpPayloadToToolBody,
 } from "./screenContext";
 import { listTasksMatchingFilter } from "./rows";
@@ -38,6 +39,30 @@ function categoryWithTasks(tasks: Task[]): Category[] {
           id: "00000000-0000-4000-8000-000000000020",
           name: "Grp",
           tasks,
+        },
+      ],
+    },
+  ];
+}
+
+function categoryWithTwoGroups(
+  firstGroupTasks: Task[],
+  secondGroupTasks: Task[],
+): Category[] {
+  return [
+    {
+      id: "00000000-0000-4000-8000-000000000010",
+      name: "Cat",
+      groups: [
+        {
+          id: "00000000-0000-4000-8000-000000000020",
+          name: "Grp1",
+          tasks: firstGroupTasks,
+        },
+        {
+          id: "00000000-0000-4000-8000-000000000021",
+          name: "Grp2",
+          tasks: secondGroupTasks,
         },
       ],
     },
@@ -244,6 +269,123 @@ describe("buildSelectedTaskPayload", () => {
     });
     expect(payload.selectedTask?.id).toBe(c.id);
   });
+
+  it("returns null when selection is not exactly one task", () => {
+    const payload = buildSelectedTaskPayload({
+      categories: [],
+      filters,
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      selectedTaskId: null,
+    });
+    expect(payload.selectedTask).toBeNull();
+  });
+});
+
+function taskFixture(id: string, name: string): Task {
+  return {
+    id,
+    name,
+    start: "2026-01-01",
+    end: "2026-01-02",
+    assigneeId: null,
+    status: "not-started",
+    progress: 0,
+    confidence: "committed",
+    predecessors: [],
+    milestoneId: null,
+  };
+}
+
+describe("buildSelectedTasksPayload", () => {
+  it("returns empty array when nothing is selected", () => {
+    const payload = buildSelectedTasksPayload({
+      categories: categoryWithTasks([taskFixture("a", "A")]),
+      selectedTaskIds: [],
+    });
+    expect(payload.selectedTasks).toEqual([]);
+  });
+
+  it("matches single-task payload for one selection", () => {
+    const t = taskFixture(
+      "00000000-0000-4000-8000-000000000099",
+      "Only",
+    );
+    const categories = categoryWithTasks([t]);
+    const single = buildSelectedTaskPayload({
+      categories,
+      filters,
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: null,
+      selectedTaskId: t.id,
+    });
+    const multi = buildSelectedTasksPayload({
+      categories,
+      selectedTaskIds: [t.id],
+    });
+    expect(multi.selectedTasks).toEqual([single.selectedTask]);
+  });
+
+  it("orders by document order not selection order", () => {
+    const inFirst = taskFixture(
+      "00000000-0000-4000-8000-000000000001",
+      "FirstGrp",
+    );
+    const inSecond = taskFixture(
+      "00000000-0000-4000-8000-000000000002",
+      "SecondGrp",
+    );
+    const categories = categoryWithTwoGroups([inFirst], [inSecond]);
+    const payload = buildSelectedTasksPayload({
+      categories,
+      selectedTaskIds: [inSecond.id, inFirst.id],
+    });
+    expect(payload.selectedTasks.map((t) => t.id)).toEqual([
+      inFirst.id,
+      inSecond.id,
+    ]);
+  });
+
+  it("includes tasks outside any filter because it does not use filters", () => {
+    const done = taskFixture("00000000-0000-4000-8000-000000000004", "Done");
+    done.status = "done";
+    done.progress = 100;
+    const categories = categoryWithTasks([done]);
+    const statusFilters = { ...filters, status: "not-started" as const };
+    expect(
+      listTasksMatchingFilter(
+        categories,
+        statusFilters,
+        "2026-01-15",
+        null,
+        null,
+      ),
+    ).toHaveLength(0);
+    const payload = buildSelectedTasksPayload({
+      categories,
+      selectedTaskIds: [done.id],
+    });
+    expect(payload.selectedTasks).toHaveLength(1);
+    expect(payload.selectedTasks[0]!.id).toBe(done.id);
+  });
+
+  it("omits ids that are not tasks in the document", () => {
+    const a = taskFixture("00000000-0000-4000-8000-000000000005", "A");
+    const categories = categoryWithTasks([a]);
+    const milestoneOnlyId = "00000000-0000-4000-8000-0000000000aa";
+    const payload = buildSelectedTasksPayload({
+      categories,
+      selectedTaskIds: [
+        a.id,
+        milestoneOnlyId,
+        "00000000-0000-4000-8000-0000000000ff",
+        "00000000-0000-4000-8000-0000000000ee",
+      ],
+    });
+    expect(payload.selectedTasks.map((t) => t.id)).toEqual([a.id]);
+  });
 });
 
 describe("buildActiveFilterConditions", () => {
@@ -301,6 +443,18 @@ describe("split MCP payloads", () => {
     expect(selectedText).toHaveProperty("selectedTaskId");
     expect(selectedText).not.toHaveProperty("scheduleDiff");
     expect(selectedText).not.toHaveProperty("activeConditions");
+
+    const selectedMany = buildSelectedTasksPayload({
+      categories: [],
+      selectedTaskIds: [],
+    });
+    const selectedManyText = JSON.parse(
+      (mcpPayloadToToolBody(selectedMany) as { content: { text: string }[] })
+        .content[0].text,
+    );
+    expect(selectedManyText).toEqual({ selectedTasks: [] });
+    expect(selectedManyText).not.toHaveProperty("selectedTaskId");
+    expect(selectedManyText).not.toHaveProperty("scheduleDiff");
   });
 });
 

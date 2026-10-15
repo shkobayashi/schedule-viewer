@@ -101,8 +101,8 @@
 
 ## 決定（MCP を使えないときの画面の状態）
 
-- コマンドは `--screen` とツール名（`schedule_diff`、`selected_task`、`filtered_tasks`）だけ。引数はこの 2 つだけ
-- スキル名は `read-screen`。同梱テンプレートの実行ファイルパスを、置くときにこのパソコンの絶対パスへ書き込む
+- コマンドは `--screen` とツール名（`schedule_diff`、`selected_task`、`selected_tasks`、`filtered_tasks`）だけ。引数はこの 2 つだけ
+- スキル名は `read-screen`。同梱テンプレートの実行ファイルの呼び方を、置くときにこのパソコンのものへ書き込む。Windows で Local AppData 配下のときは `"$LOCALAPPDATA/"` から続く1行にし、それ以外は絶対パスを引数と別の行に書く
 - 置き先はユーザー全体（`~/.cursor/skills/read-screen/` と `~/.claude/skills/read-screen/`）だけ。指定フォルダは出さない
 - 設定の「画面の状態を渡す」に、mcp.json 登録とスキル置きを並べる。どちらか一方を終えても、もう一方は終わらない
 

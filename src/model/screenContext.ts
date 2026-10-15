@@ -26,6 +26,7 @@ export const MCP_SCREEN_CONTEXT_MAX_BYTES = 10 * 1024 * 1024;
 
 export const MCP_TOOL_SCHEDULE_DIFF = "schedule_diff";
 export const MCP_TOOL_SELECTED_TASK = "selected_task";
+export const MCP_TOOL_SELECTED_TASKS = "selected_tasks";
 export const MCP_TOOL_FILTERED_TASKS = "filtered_tasks";
 
 export type ScreenContextTask = {
@@ -66,6 +67,10 @@ export type FilteredTasksMcpPayload = {
 export type SelectedTaskMcpPayload = {
   selectedTaskId: ScheduleId | null;
   selectedTask: ScreenContextTask | null;
+};
+
+export type SelectedTasksMcpPayload = {
+  selectedTasks: ScreenContextTask[];
 };
 
 export type ScheduleDiffMcpPayload = {
@@ -311,6 +316,33 @@ export function buildSelectedTaskPayload(input: {
     selectedTaskId: input.selectedTaskId,
     selectedTask,
   };
+}
+
+export function buildSelectedTasksPayload(input: {
+  categories: Category[];
+  selectedTaskIds: readonly ScheduleId[];
+}): SelectedTasksMcpPayload {
+  const selected = new Set(input.selectedTaskIds);
+  if (selected.size === 0) {
+    return { selectedTasks: [] };
+  }
+  const selectedTasks: ScreenContextTask[] = [];
+  for (const cat of input.categories) {
+    for (const group of cat.groups) {
+      for (const task of group.tasks) {
+        if (selected.has(task.id)) {
+          selectedTasks.push(
+            taskToContext({
+              task,
+              category: cat.name,
+              group: group.name,
+            }),
+          );
+        }
+      }
+    }
+  }
+  return { selectedTasks };
 }
 
 export function buildScheduleDiffPayload(input: {

@@ -33,6 +33,7 @@ function decide(
     fileBusy: false,
     pointer,
     selectedTaskId: null,
+    selectedTaskCount: 0,
     rowHeight: 32,
     startupSettled: true,
     canReorderInGroup: false,
@@ -49,6 +50,23 @@ describe("decideAppKey", () => {
       type: "none",
     });
     expect(decide({ menuOpen: true }).preventDefault).toBe(false);
+  });
+
+  it("shifts dates when multiple tasks are selected without a primary id", () => {
+    expect(
+      decide({
+        event: {
+          key: "ArrowRight",
+          ctrlKey: false,
+          metaKey: false,
+          shiftKey: false,
+          altKey: true,
+          repeat: false,
+        },
+        selectedTaskId: null,
+        selectedTaskCount: 2,
+      }).action,
+    ).toEqual({ type: "shiftTaskDates", deltaDays: 1 });
   });
 
   it("deletes the hovered link before the selected task", () => {
@@ -79,6 +97,24 @@ describe("decideAppKey", () => {
         },
         pointer: { overTask: true, overMilestone: false, link, hoverTaskId: null },
         selectedTaskId: "task-a",
+        selectedTaskCount: 1,
+      }).action,
+    ).toEqual({ type: "deleteTask" });
+  });
+
+  it("deletes when multiple tasks are selected", () => {
+    expect(
+      decide({
+        event: {
+          key: "Delete",
+          ctrlKey: false,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          repeat: false,
+        },
+        selectedTaskId: null,
+        selectedTaskCount: 3,
       }).action,
     ).toEqual({ type: "deleteTask" });
   });

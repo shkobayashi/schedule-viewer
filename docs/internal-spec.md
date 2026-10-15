@@ -47,7 +47,8 @@ flowchart TD
 | --- | --- |
 | `AppMenu.tsx` | ☰ メニュー |
 | `ContextMenu.tsx` | タスク、マイルストン、左のマイルストングループ名の行、カテゴリ、グループ、チャートの空きの右クリックメニュー。区切り、危険色の削除、Lucide アイコン、ショートカット表示。タスクは編集、複製、確度、ノート、系統、削除。マイルストングループ行は非表示と、条件付きのこの行だけ表示。カテゴリは名前の変更、下へのカテゴリ追加、グループ追加、条件付きの削除。グループは名前の変更、下へのグループ追加、条件付きの削除。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す。位置はクリック座標と `offsetWidth` / `offsetHeight` から `anchoredMenu.ts` の `menuShiftForRect` で一度だけ決める |
-| `TaskDetailPanel.tsx` | 選択中タスクの右パネル。`applyTaskPatch` で項目ごとに履歴。フォーカス中は外部反映を止める。保存は呼び出し時点の文書を土台に、利用者が変えた項目だけ上書きする。開始日と終了日は日付欄を変えたときだけ含める |
+| `TaskDetailPanel.tsx` | 選択が1件のときの右パネル。`applyTaskPatch` で項目ごとに履歴。フォーカス中は外部反映を止める。保存は呼び出し時点の文書を土台に、利用者が変えた項目だけ上書きする。開始日と終了日は日付欄を変えたときだけ含める |
+| `BulkTaskDetailPanel.tsx` | 選択が2件以上のときの右パネル。共通値の表示と下書き。「件数に適用」で `applyBulkTaskDraft` を一度だけ呼ぶ。下書きがあるあいだは外部反映を止める |
 | `MilestoneField.tsx` | 詳細パネルとタスク複製ダイアログの「対応マイルストン」。`milestoneField.ts` で候補と強調行を組み立てる |
 | `StatusBar.tsx` | 画面下端。未保存のクリックで差分ダイアログ |
 | `Toolbar.tsx` | 見出し、検索、絞り込みパネル、系統、線を引く、追加、マイルストン追加、削除、取り消し、やり直し、今日と日・週・月・全体、操作の案内、ショートカット一覧 |
@@ -69,7 +70,7 @@ flowchart TD
 
 | フック | 持つもの |
 | --- | --- |
-| `useSchedule` | 文書、取り消し、絞り込み、選択、折りたたみ、系統、編集対象、複製元、タスクとカテゴリの並べ替えのプレビュー |
+| `useSchedule` | 文書、取り消し、絞り込み、選択（`taskSelection` の id 配列と `anchorId` / `activeId`。履歴に入れない）、折りたたみ、系統、編集対象、複製元、一括下書き、タスクとカテゴリの並べ替えのプレビュー |
 | `useMacOSAppMenu` | macOS のデスクトップ版だけ、画面上部のアプリメニューを組み立てる |
 | `useScheduleFile` | パス、未保存の基準、開く、閉じる確認。保存、控え、外部更新、起動復旧は `src/hooks/scheduleFile/` に分け、戻り値はここがまとめる |
 | `useAppKeyboard` | ウィンドウのキー。押した結果の判断は `appKeyboard.ts` |
@@ -78,7 +79,7 @@ flowchart TD
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
 | `useAppCalendar` | カレンダーの読み込み |
-| `useMcpScreenBridge` | デスクトップ版だけ。`mcp-screen-request` を受け、ツール名で `schedule_diff`（`scheduleDiffLoad` だけ）、`selected_task`、`filtered_tasks`（`screenContext`）を組み立てて `mcp_reply` する |
+| `useMcpScreenBridge` | デスクトップ版だけ。`mcp-screen-request` を受け、ツール名で `schedule_diff`（`scheduleDiffLoad` だけ）、`selected_task`、`selected_tasks`、`filtered_tasks`（`screenContext`）を組み立てて `mcp_reply` する |
 
 ### モデル
 
@@ -94,7 +95,7 @@ flowchart TD
 | 対応マイルストン欄と絞り込みのマイルストン欄 | `milestoneField.ts` の `buildMilestoneFieldList`、`buildMilestoneFilterList`、`initialMilestoneFieldActiveIndex`、`initialMilestoneFilterActiveIndex` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
 | 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffLoad.ts` |
-| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`mcpRegistration.ts` |
+| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`mcpRegistration.ts` |
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
@@ -275,7 +276,7 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `uninstall_json_skills` | ツール、範囲、プロジェクトフォルダ。外したパスと無かったパス | パス不正 | 同上 | 同上 |
 | `get_executable_path` | 引数なし。実行ファイルの絶対パス | — | `mcp.toml` | `mcpRegistration.ts` |
 | `mcp_reply` | 相関 id、世代、MCP ツール結果の JSON | — | 同上 | `useMcpScreenBridge.ts` |
-| `install_read_screen_skill` | ツール、置き換え。置いたパス、既存パス、書き込んだ実行ファイルのパス | 同梱テンプレート欠落、パス不正 | `read-screen-skill.toml` | `readScreenSkill.ts` |
+| `install_read_screen_skill` | ツール、置き換え。置いたパス、既存パス、検出した実行ファイルのパス | 同梱テンプレート欠落、パス不正 | `read-screen-skill.toml` | `readScreenSkill.ts` |
 | `uninstall_read_screen_skill` | ツール。外したパスと無かったパス | パス不正 | 同上 | 同上 |
 
 ダイアログで選んだだけでは `ScheduleFileState` は更新されない。検証に通したあと `accept_opened_schedule` を呼ぶ。
@@ -298,7 +299,7 @@ capability はメインウィンドウと `schedule-*` ウィンドウに、`cor
 
 JSON 作成スキルの配置は `install_json_skills` だけが行う。外すのは `uninstall_json_skills` だけである。書けるのは、ログイン中のユーザーのホーム配下の `~/.cursor/skills/<name>/` と `~/.claude/skills/<name>/`、または利用者がフォルダダイアログで選んだ絶対パス配下の `.cursor/skills/<name>/` と `.claude/skills/<name>/` だけである。外すのも同じ `<name>` の3つだけである。`<name>` は `write-schedule`、`write-members`、`write-calendar` の3つだけ。プロジェクトフォルダはシンボリックリンクを拒否する。宛先がシンボリックリンクのときはリンクだけ外し、リンク先は消さない。`.cursor` と `.claude` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。中身はバンドル内 `json-skills/` からコピーする。外すときは skills フォルダや別名のスキルは残す。スキルフォルダの中にあるシンボリックリンクの先は消さない。
 
-画面の状態を読む `read-screen` は `install_read_screen_skill` だけが置き、`uninstall_read_screen_skill` だけが外す。テンプレートはバンドル内 `read-screen/SKILL.md` から読み、実行ファイルのパスを置き換えて、ユーザー全体の `~/.cursor/skills/read-screen/` と `~/.claude/skills/read-screen/` だけへ書く。指定したプロジェクトフォルダへは書かない。`.cursor` と `.claude` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。外すのは `read-screen` だけである。skills フォルダや別名のスキルは残す。
+画面の状態を読む `read-screen` は `install_read_screen_skill` だけが置き、`uninstall_read_screen_skill` だけが外す。テンプレートはバンドル内 `read-screen/SKILL.md` から読み、実行ファイルの呼び方を置き換えて、ユーザー全体の `~/.cursor/skills/read-screen/` と `~/.claude/skills/read-screen/` だけへ書く。Windows で実行ファイルが Local AppData 配下のときは、`$LOCALAPPDATA` から続く1行のコマンド例に置き換える。それ以外は絶対パスを、引数と別の行に書く。指定したプロジェクトフォルダへは書かない。`.cursor` と `.claude` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。外すのは `read-screen` だけである。skills フォルダや別名のスキルは残す。
 
 MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_dir` が同じときだけ GUI が始める。Unix のソケットは所有者のみが読み書きできる。接続元の UID を確認し、本人以外は拒否する。Windows の名前付きパイプは現在のユーザーの SID を名前に含め、セキュリティ記述子でそのユーザーだけに許可し、リモート接続は拒否する。`--mcp` プロセスはファイルを直接読まず、前面 webview の読み取りだけを使う。応答は前面 1 ウィンドウ分で、スケジュール読み込み上限 10MB を超えたらエラーにする。待ち受け TCP ポートは持たない。
 
@@ -318,7 +319,9 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 
 タスクの追加、マイルストンの追加、複製、同じグループでの並べ替えは `shortcuts.ts` の `matchAddTaskShortcut`、`matchAddMilestoneShortcut`、`matchDuplicateTaskShortcut`、`matchReorderTaskShortcut` である。`decideAppKey` が押下を決め、ダイアログが開いているあいだと線を引くモードのあいだは実行しない。検索欄、入力欄、選択欄、編集できる領域では操作しない。ボタンでは操作し、実行しないときも入力欄以外では `preventDefault` する。右クリックメニューと ☰ と追加の種類のメニューを閉じる。実行するときはフックが `App.tsx` の開く処理と `useSchedule` の `commitTaskReorder` を呼ぶ。
 
-キーを押したときの編集、削除、ファイル操作、取り消しは `appKeyboard.ts` の `decideAppKey` が決める。浮動メニューを閉じるときは `schedule-viewer:close-menus` を `Toolbar` と `AppMenu` が受け取る。`menuFocus.ts` は修飾キー付きの矢印をメニューの項目移動に使わない。↑↓ のタスク選択は `taskSelection.ts` の `adjacentVisibleTaskId`。Alt+←→ と Shift+Alt+←→ は `useSchedule` の日付ずらし。⌘/Ctrl+Shift+D は `copyScheduleDiff` で差分全文をコピーする。ショートカット一覧は `shortcuts.ts` の `matchOpenShortcutsHelp` が ? と F1 で開き、ダイアログ、検索欄、入力欄、選択欄、ボタンでは開かない。コマンドパレットは `matchOpenCommandPalette` が ⌘/Ctrl+K で開き、ほかのダイアログが開いているあいだは開かない。候補は `commandPalette.ts` が絞る。実行は `CommandPalette.tsx` から `App.tsx` の既存操作を呼ぶ。macOS のデスクトップ版だけ `useMacOSAppMenu` が画面上部のメニューを置く。⌘ または Ctrl と L は `matchAppShortcut` の `link` で、線を引くモードの開始と終了である。修飾キーの無い L では始まらない。ダイアログ、検索欄、入力欄、選択欄では効かない。ボタンにフォーカスがあっても効く。⌘ または Ctrl と N は `note` で、選択中のタスクのノートダイアログを開く。効く場所は L と同じである。選択が無いときと線を引くモードでは開かない。キーのリピートでは開かない。右クリックメニューは閉じる。Shift も Alt も無い ⌘/Ctrl+N は `blocksBrowserShortcut` が真で、開かないときもブラウザに渡さない。Shift 付きは渡す。⌘ または Ctrl と +、=、− は `matchDisplayScale` で、`stepDisplayScale` が表示サイズを一段進める。押し続けは keydown のリピートである。ダイアログ、検索欄、入力欄、選択欄、ボタンでも `preventDefault` してページズームを止め、右クリックメニューを閉じる。線を引くモードは終わらせない。固定の端で段が変わらないときは保存値を変えない。自動は解決済みの倍率を小数第2位で段と比べ、固定の段にして保存する。自動で 200% の拡大は 200% を保存する。
+タスクのクリック選択と Shift+クリック、⌘ または Ctrl+クリック、↑↓、Shift+↑↓ は `taskSelection.ts` の純関数と `useSchedule` が受け、見えている行の id だけを対象にする。Mac では Ctrl+クリックはトグルに使わない。2件以上選ぶと線を引くモードは終わる。MCP の `selected_task` は `selectedTaskId` が非 null のときだけ組み立てる。MCP の `selected_tasks` は `taskSelection.ids` を文書順に並べたタスクの配列で組み立てる。
+
+キーを押したときの編集、削除、ファイル操作、取り消しは `appKeyboard.ts` の `decideAppKey` が決める。浮動メニューを閉じるときは `schedule-viewer:close-menus` を `Toolbar` と `AppMenu` が受け取る。`menuFocus.ts` は修飾キー付きの矢印をメニューの項目移動に使わない。↑↓ のタスク選択は `taskSelection.ts` の `adjacentVisibleTaskId` と `navigateTaskSelection` である。移動後の `activeId` に対して `App.tsx` の `revealTaskRow` を呼び、行が縦に画面外なら入るところまでスクロールする。Alt+←→ は選択件数が1以上のとき `useSchedule` の `moveSelectedTasksByDays` で選択中のすべてを同じ日数だけ動かす。Shift+Alt+←→ は1件のときだけ終了日をずらす。Delete と Backspace、コマンドパレットの削除は選択件数が1以上のとき有効である。`useAppKeyboard` の effect の依存に `selectedTaskIds`、`navigateTaskSelection`、`moveSelectedTasksByDays` を含める。⌘/Ctrl+Shift+D は `copyScheduleDiff` で差分全文をコピーする。ショートカット一覧は `shortcuts.ts` の `matchOpenShortcutsHelp` が ? と F1 で開き、ダイアログ、検索欄、入力欄、選択欄、ボタンでは開かない。コマンドパレットは `matchOpenCommandPalette` が ⌘/Ctrl+K で開き、ほかのダイアログが開いているあいだは開かない。候補は `commandPalette.ts` が絞る。実行は `CommandPalette.tsx` から `App.tsx` の既存操作を呼ぶ。macOS のデスクトップ版だけ `useMacOSAppMenu` が画面上部のメニューを置く。⌘ または Ctrl と L は `matchAppShortcut` の `link` で、線を引くモードの開始と終了である。修飾キーの無い L では始まらない。ダイアログ、検索欄、入力欄、選択欄では効かない。ボタンにフォーカスがあっても効く。⌘ または Ctrl と N は `note` で、選択中のタスクのノートダイアログを開く。効く場所は L と同じである。選択が無いときと線を引くモードでは開かない。キーのリピートでは開かない。右クリックメニューは閉じる。Shift も Alt も無い ⌘/Ctrl+N は `blocksBrowserShortcut` が真で、開かないときもブラウザに渡さない。Shift 付きは渡す。⌘ または Ctrl と +、=、− は `matchDisplayScale` で、`stepDisplayScale` が表示サイズを一段進める。押し続けは keydown のリピートである。ダイアログ、検索欄、入力欄、選択欄、ボタンでも `preventDefault` してページズームを止め、右クリックメニューを閉じる。線を引くモードは終わらせない。固定の端で段が変わらないときは保存値を変えない。自動は解決済みの倍率を小数第2位で段と比べ、固定の段にして保存する。自動で 200% の拡大は 200% を保存する。
 
 座標の基準は `pxPerDay` である。日付から x を計算し、ズームのたびに描き直す。CSS の拡大は使わない。表示期間の基準は、全タスクと全マイルストンのうち、最も早い日付の6日前から最も遅い日付の7日後までである（`computeTimelineRange`）。`useTimelineView` は、その日数に `timelineRightPadding.ts` の `extraTimelineDaysForRightEdge` で足した日数を加える。帯に出ているマイルストン名（画面は全角24文字まで）と、月表示の右端の年月ラベルが内容の右端に収まるまで延ばす。FILTER-11 で隠したグループの名前では延ばさない。`fitPxPerDayToViewport` は全体表示で、延ばした日数を含めて幅に収まる `pxPerDay` を求める。最も早い日が後ろへ動いて、左端のスクロールでは同じ日を保てないときは、`resolveTimelineOrigin` が描画の原点を据え置く。他のバーは動かない。ファイルを開くと原点はデータの期間に戻る。書き出しは、見えている行から同じ余白で決め直し、右は書き出すマイルストン名の全文と年月ラベルまで延ばす。
 

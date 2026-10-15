@@ -33,6 +33,7 @@ import { RelationField } from "./TaskEditDialog";
 
 export type TaskDetailPanelHandle = {
   focusName: () => void;
+  focusPanelHeading: () => void;
 };
 
 type TaskDetailPanelProps = {
@@ -84,6 +85,7 @@ export function TaskDetailPanel({
   const [tagStatus, setTagStatus] = useState<string | null>(null);
   const tagStatusRef = useRef<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const panelHeadingRef = useRef<HTMLHeadingElement>(null);
   const rootRef = useRef<HTMLElement>(null);
 
   const announceTagStatus = useCallback((message: string) => {
@@ -129,6 +131,9 @@ export function TaskDetailPanel({
       if (!input) return;
       input.focus();
       input.select();
+    },
+    focusPanelHeading: () => {
+      panelHeadingRef.current?.focus();
     },
   }));
 
@@ -259,7 +264,13 @@ export function TaskDetailPanel({
       onBlurCapture={onFocusOut}
     >
       <section className="detail-section">
-        <h2 className="detail-section-title">名前とノート</h2>
+        <h2
+          ref={panelHeadingRef}
+          className="detail-section-title"
+          tabIndex={-1}
+        >
+          名前とノート
+        </h2>
         <div className="field">
           <label htmlFor="detailName">タスク名</label>
           <input

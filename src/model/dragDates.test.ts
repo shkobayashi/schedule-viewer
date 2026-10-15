@@ -8,8 +8,10 @@ import {
   dragDateRectsClear,
   dragMoveDeltaDays,
   layoutDragDateChips,
+  buildMoveDragPreviews,
   previewDatesForDrag,
   previewLinkBroken,
+  previewLinkBrokenWithOverrides,
   resizeEndIso,
   type Rect,
 } from "./dragDates";
@@ -189,6 +191,64 @@ describe("previewDatesForDrag", () => {
     expect(
       datesResizedFromStart({ end: "2026-09-03" }, timelineStart, xToDate, 50),
     ).toEqual({ start: "2026-09-06", end: "2026-09-06" });
+  });
+});
+
+describe("buildMoveDragPreviews", () => {
+  it("returns a preview per selected visible task", () => {
+    const geometry = {
+      taskId: "a",
+      kind: "move" as const,
+      barLeft: 120,
+      barWidth: 40,
+      barTop: 10,
+      originX: 100,
+    };
+    const rows = [
+      {
+        task: { id: "a", start: "2026-09-01", end: "2026-09-05" },
+        y: 20,
+      },
+      {
+        task: { id: "b", start: "2026-09-10", end: "2026-09-12" },
+        y: 44,
+      },
+    ];
+    const selected = new Set(["a", "b"]);
+    const pxPerDay = 10;
+    const timelineOrigin = Date.UTC(2026, 8, 1);
+    const dateToX = (d: Date) =>
+      ((d.getTime() - timelineOrigin) / 86400000) * pxPerDay;
+    const previews = buildMoveDragPreviews(
+      geometry,
+      rows,
+      selected,
+      pxPerDay,
+      dateToX,
+      0,
+      24,
+      12,
+      () => 40,
+    );
+    expect(previews).toHaveLength(2);
+    expect(previews[0].start).toBe("2026-09-03");
+    expect(previews[1].start).toBe("2026-09-12");
+    expect(previews[0].barLeft).toBe(120);
+  });
+});
+
+describe("previewLinkBrokenWithOverrides", () => {
+  it("recolors when either endpoint is in the override map", () => {
+    const tasks = new Map([
+      ["a", { start: "2026-09-01", end: "2026-09-05" }],
+      ["b", { start: "2026-09-10", end: "2026-09-12" }],
+    ]);
+    const link = { fromId: "a", toId: "b", broken: false };
+    const overrides = new Map([
+      ["a", { start: "2026-09-06", end: "2026-09-11" }],
+      ["b", { start: "2026-09-10", end: "2026-09-12" }],
+    ]);
+    expect(previewLinkBrokenWithOverrides(link, tasks, overrides)).toBe(true);
   });
 });
 

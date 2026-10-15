@@ -53,9 +53,12 @@ type SidebarProps = {
   scrollY: number;
   viewportHeight: number;
   rowHeight: number;
-  selectedTaskId: ScheduleId | null;
+  selectedTaskIds: ReadonlySet<ScheduleId>;
   hoveredTaskId: ScheduleId | null;
-  onSelectTask: (taskId: ScheduleId) => void;
+  onSelectTask: (
+    taskId: ScheduleId,
+    mod: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean },
+  ) => void;
   reorderingTaskId: ScheduleId | null;
   reorderingCategoryId: ScheduleId | null;
   reorderingGroupId: ScheduleId | null;
@@ -124,7 +127,7 @@ export function Sidebar({
   scrollY,
   viewportHeight,
   rowHeight,
-  selectedTaskId,
+  selectedTaskIds,
   hoveredTaskId,
   onSelectTask,
   reorderingTaskId,
@@ -628,12 +631,18 @@ export function Sidebar({
                 task={row.task}
                 top={row.y}
                 rowHeight={rowHeight}
-                selected={row.task.id === selectedTaskId}
+                selected={selectedTaskIds.has(row.task.id)}
                 hovered={row.task.id === hoveredTaskId}
                 reordering={
                   row.task.id === reorderingTaskId || isRowHiddenByDragGhost(row)
                 }
-                onSelect={() => onSelectTask(row.task.id)}
+                onSelect={(event) =>
+                  onSelectTask(row.task.id, {
+                    shiftKey: event.shiftKey,
+                    metaKey: event.metaKey,
+                    ctrlKey: event.ctrlKey,
+                  })
+                }
                 canReorder={reorderAllowed("task", row.task.id)}
                 today={today}
                 milestones={milestones}
@@ -710,7 +719,7 @@ export function Sidebar({
             rows={rows}
             rowHeight={rowHeight}
             assigneeChars={assigneeChars}
-            selectedTaskId={selectedTaskId}
+            selectedTaskIds={selectedTaskIds}
             today={today}
             milestones={milestones}
             memberCatalog={memberCatalog}
@@ -1070,7 +1079,7 @@ function TaskSidebarRow({
   sidebarColumns: SidebarColumnsPreference;
   onOpenTaskNote: () => void;
   onTaskContextMenu: (x: number, y: number) => void;
-  onSelect: () => void;
+  onSelect: (event: React.MouseEvent<HTMLDivElement>) => void;
   onGripPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
   const assigneeDisplay = resolveAssigneeDisplay(task.assigneeId, memberCatalog);
@@ -1100,10 +1109,11 @@ function TaskSidebarRow({
       className={`sidebar-row task${selected ? " selected" : ""}${hovered ? " hovered" : ""}${rowClass}${reordering ? " reordering" : ""}`}
       style={rowStyle}
       title={exceededTitle}
+      aria-selected={selected}
       onClick={(event) => {
         const target = event.target as HTMLElement;
         if (target.closest("button, .row-grip")) return;
-        onSelect();
+        onSelect(event);
       }}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -1178,7 +1188,7 @@ function SidebarDragGhost({
   rows,
   rowHeight,
   assigneeChars,
-  selectedTaskId,
+  selectedTaskIds,
   today,
   milestones,
   memberCatalog,
@@ -1188,7 +1198,7 @@ function SidebarDragGhost({
   rows: VisibleRow[];
   rowHeight: number;
   assigneeChars: number;
-  selectedTaskId: ScheduleId | null;
+  selectedTaskIds: ReadonlySet<ScheduleId>;
   today: string;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
@@ -1254,7 +1264,7 @@ function SidebarDragGhost({
             task={row.task}
             top={top}
             rowHeight={rowHeight}
-            selected={row.task.id === selectedTaskId}
+            selected={selectedTaskIds.has(row.task.id)}
             hovered={false}
             reordering={false}
             canReorder

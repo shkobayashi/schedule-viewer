@@ -7,9 +7,11 @@ import {
   buildFilteredTasksPayload,
   buildScheduleDiffPayload,
   buildSelectedTaskPayload,
+  buildSelectedTasksPayload,
   MCP_TOOL_FILTERED_TASKS,
   MCP_TOOL_SCHEDULE_DIFF,
   MCP_TOOL_SELECTED_TASK,
+  MCP_TOOL_SELECTED_TASKS,
   mcpPayloadToToolBody,
   mcpToolErrorBody,
 } from "../model/screenContext";
@@ -38,6 +40,7 @@ type UseMcpScreenBridgeInput = {
   lineageIds: ReadonlySet<ScheduleId> | null;
   hiddenMilestoneGroupIds: ScheduleId[];
   selectedTaskId: ScheduleId | null;
+  selectedTaskIds: readonly ScheduleId[];
   today: string;
   memberMap: Map<MemberId, Member> | null;
   scheduleFilePath: string | null;
@@ -87,6 +90,13 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             memberCatalog: snap.memberMap,
             lineageIds: snap.lineageIds,
             selectedTaskId: snap.selectedTaskId,
+          });
+          break;
+        }
+        case MCP_TOOL_SELECTED_TASKS: {
+          toolPayload = buildSelectedTasksPayload({
+            categories: snap.categories,
+            selectedTaskIds: snap.selectedTaskIds,
           });
           break;
         }

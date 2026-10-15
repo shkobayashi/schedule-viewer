@@ -339,6 +339,12 @@ export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow
     { action: "やり直し", keys: redoShortcutHint(commandKey) },
     { action: "表示サイズ", keys: displayScaleShortcutHint(commandKey) },
     { action: "チャートのスクロール", keys: chartScrollShortcutHint(commandKey) },
+    {
+      action: "タスクを追加選択",
+      keys: commandKey ? "⌘+クリック" : "Ctrl+クリック",
+    },
+    { action: "タスクを範囲選択", keys: "Shift+クリック" },
+    { action: "選択を伸ばす", keys: "Shift+↑↓" },
     { action: "ショートカット一覧", keys: "? / F1" },
     { action: "コマンドパレット", keys: commandPaletteShortcutHint(commandKey) },
     {

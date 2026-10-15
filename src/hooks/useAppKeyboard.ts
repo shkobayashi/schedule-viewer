@@ -4,7 +4,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { requestApplicationQuitViaTauri } from "../model/windowSession";
 import { decideAppKey, type AppKeyTarget } from "./appKeyboard";
 import type { ChartPointer } from "../model/chartHitTest";
-import { adjacentVisibleTaskId } from "../model/taskSelection";
 import { canReorderTaskInGroup, taskIndexInGroup } from "../model/taskOrder";
 import { findTaskOwner } from "../model/tasks";
 import type { Category, ScheduleId, VisibleRow } from "../model/types";
@@ -24,6 +23,7 @@ type UseAppKeyboardOptions = {
   requestOpenInNewWindow: () => void;
   categories: Category[];
   selectedTaskId: ScheduleId | null;
+  selectedTaskIds: readonly ScheduleId[];
   linkSourceId: ScheduleId | null;
   startupSettled: boolean;
   toggleLinkMode: () => void;
@@ -42,9 +42,17 @@ type UseAppKeyboardOptions = {
   onOpenShortcuts: () => void;
   visibleRows: VisibleRow[];
   selectTask: (taskId: ScheduleId) => void;
+  navigateTaskSelection: (
+    rows: VisibleRow[],
+    direction: "prev" | "next",
+    extend: boolean,
+    onAfter?: (activeId: ScheduleId | null) => void,
+  ) => void;
   moveTaskByDays: (taskId: ScheduleId, deltaDays: number) => void;
+  moveSelectedTasksByDays: (taskIds: readonly ScheduleId[], deltaDays: number) => void;
   shiftTaskEndByDays: (taskId: ScheduleId, deltaDays: number) => void;
   focusDetailName: () => void;
+  revealTaskRow: (taskId: ScheduleId) => void;
   copyScheduleDiff: () => void;
   commandPaletteOpen: boolean;
   onOpenCommandPalette: () => void;
@@ -77,6 +85,7 @@ export function useAppKeyboard({
   requestOpenInNewWindow,
   categories,
   selectedTaskId,
+  selectedTaskIds,
   linkSourceId,
   startupSettled,
   toggleLinkMode,
@@ -98,9 +107,12 @@ export function useAppKeyboard({
   onCloseCommandPalette,
   visibleRows,
   selectTask,
+  navigateTaskSelection,
   moveTaskByDays,
+  moveSelectedTasksByDays,
   shiftTaskEndByDays,
   focusDetailName,
+  revealTaskRow,
   copyScheduleDiff,
   onAddTask,
   onAddMilestone,
@@ -150,6 +162,7 @@ export function useAppKeyboard({
         fileBusy,
         pointer: chartPointerRef.current,
         selectedTaskId,
+        selectedTaskCount: selectedTaskIds.length,
         rowHeight,
         startupSettled,
         canReorderInGroup,
@@ -199,16 +212,27 @@ export function useAppKeyboard({
         return;
       }
       if (action.type === "selectTaskPrev" || action.type === "selectTaskNext") {
-        const next = adjacentVisibleTaskId(
-          visibleRows,
-          selectedTaskId,
-          action.type === "selectTaskPrev" ? "prev" : "next",
-        );
-        if (next != null) selectTask(next);
+        const direction = action.type === "selectTaskPrev" ? "prev" : "next";
+        navigateTaskSelection(visibleRows, direction, false, (activeId) => {
+          if (activeId != null) revealTaskRow(activeId);
+        });
+        return;
+      }
+      if (
+        action.type === "selectTaskPrevExtend" ||
+        action.type === "selectTaskNextExtend"
+      ) {
+        const direction =
+          action.type === "selectTaskPrevExtend" ? "prev" : "next";
+        navigateTaskSelection(visibleRows, direction, true, (activeId) => {
+          if (activeId != null) revealTaskRow(activeId);
+        });
         return;
       }
       if (action.type === "shiftTaskDates") {
-        if (selectedTaskId != null) {
+        if (selectedTaskIds.length > 1) {
+          moveSelectedTasksByDays(selectedTaskIds, action.deltaDays);
+        } else if (selectedTaskId != null) {
           moveTaskByDays(selectedTaskId, action.deltaDays);
         }
         return;
@@ -287,6 +311,7 @@ export function useAppKeyboard({
     save,
     scrollBy,
     selectedTaskId,
+    selectedTaskIds,
     startupSettled,
     taskSearchRef,
     openTaskNote,
@@ -301,9 +326,12 @@ export function useAppKeyboard({
     onCloseCommandPalette,
     visibleRows,
     selectTask,
+    navigateTaskSelection,
     moveTaskByDays,
+    moveSelectedTasksByDays,
     shiftTaskEndByDays,
     focusDetailName,
+    revealTaskRow,
     copyScheduleDiff,
   ]);
 }

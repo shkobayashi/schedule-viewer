@@ -9,6 +9,7 @@ use crate::json_skills::{
 
 pub const READ_SCREEN_SKILL_NAME: &str = "read-screen";
 pub const EXECUTABLE_PLACEHOLDER: &str = "{{SCHEDULE_VIEWER_EXECUTABLE}}";
+pub const INVOCATION_PLACEHOLDER: &str = "{{SCHEDULE_VIEWER_INVOCATION}}";
 const RESOURCE_TEMPLATE_DIR: &str = "read-screen";
 
 #[derive(Deserialize)]
@@ -62,12 +63,75 @@ fn bundled_template_path(resource_dir: &Path) -> PathBuf {
     resource_dir.join(RESOURCE_TEMPLATE_DIR).join("SKILL.md")
 }
 
-pub fn render_read_screen_skill(template: &str, executable_path: &str) -> Result<String, String> {
+fn normalize_path_slashes(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
+fn trim_trailing_slashes(path: &str) -> &str {
+    path.trim_end_matches('/')
+}
+
+/// Local AppData 配下なら `"$LOCALAPPDATA/相対パス"` を返す。それ以外は None。
+pub fn read_screen_local_app_data_token(
+    executable_path: &str,
+    local_app_data: Option<&str>,
+) -> Option<String> {
+    let prefix_raw = local_app_data?;
+    let exe = normalize_path_slashes(executable_path);
+    let prefix_owned = normalize_path_slashes(prefix_raw);
+    let prefix = trim_trailing_slashes(&prefix_owned);
+    if prefix.is_empty() {
+        return None;
+    }
+    let exe_lower = exe.to_ascii_lowercase();
+    let prefix_lower = prefix.to_ascii_lowercase();
+    if !exe_lower.starts_with(&prefix_lower) {
+        return None;
+    }
+    let after = &exe_lower[prefix_lower.len()..];
+    if !after.starts_with('/') {
+        return None;
+    }
+    let relative = &exe[prefix.len() + 1..];
+    if relative.is_empty() {
+        return None;
+    }
+    Some(format!("\"$LOCALAPPDATA/{relative}\""))
+}
+
+pub fn read_screen_invocation_block(executable_path: &str, local_app_data: Option<&str>) -> String {
+    if let Some(token) = read_screen_local_app_data_token(executable_path, local_app_data) {
+        format!(
+            "次の1行を、`$LOCALAPPDATA` を展開せずに実行します。\n\n```\n{token} --screen schedule_diff\n```\n\nツール名は `schedule_diff`、`selected_task`、`selected_tasks`、`filtered_tasks` に置き換えます。\n"
+        )
+    } else {
+        format!(
+            "次の実行ファイルを起動します。\n\n実行ファイル:\n\n{executable_path}\n\n例（差分だけ欲しいとき。1行目が実行ファイル、2行目が引数です）:\n\n```\n{executable_path}\n--screen schedule_diff\n```\n"
+        )
+    }
+}
+
+pub fn render_read_screen_skill(
+    template: &str,
+    executable_path: &str,
+    local_app_data: Option<&str>,
+) -> Result<String, String> {
     if executable_path.is_empty() {
         return Err("実行ファイルの場所を取得できません。".to_string());
     }
-    let rendered = template.replace(EXECUTABLE_PLACEHOLDER, executable_path);
-    if rendered.contains(EXECUTABLE_PLACEHOLDER) {
+    let token = read_screen_local_app_data_token(executable_path, local_app_data)
+        .unwrap_or_else(|| executable_path.to_string());
+    if token.contains(EXECUTABLE_PLACEHOLDER) || token.contains(INVOCATION_PLACEHOLDER) {
+        return Err("スキル本文を書き込めません。".to_string());
+    }
+    let invocation = read_screen_invocation_block(executable_path, local_app_data);
+    if invocation.contains(EXECUTABLE_PLACEHOLDER) || invocation.contains(INVOCATION_PLACEHOLDER) {
+        return Err("スキル本文を書き込めません。".to_string());
+    }
+    let rendered = template
+        .replace(INVOCATION_PLACEHOLDER, &invocation)
+        .replace(EXECUTABLE_PLACEHOLDER, &token);
+    if rendered.contains(INVOCATION_PLACEHOLDER) || rendered.contains(EXECUTABLE_PLACEHOLDER) {
         return Err("スキル本文を書き込めません。".to_string());
     }
     Ok(rendered)
@@ -78,12 +142,13 @@ pub fn install_read_screen_skill_to_disk(
     home: &Path,
     tools: JsonSkillTool,
     executable_path: &str,
+    local_app_data: Option<&str>,
     replace: bool,
 ) -> Result<InstallReadScreenSkillResult, String> {
     let template_path = bundled_template_path(resource_dir);
     let template = fs::read_to_string(&template_path)
         .map_err(|_| "同梱スキルが見つかりません。".to_string())?;
-    let rendered = render_read_screen_skill(&template, executable_path)?;
+    let rendered = render_read_screen_skill(&template, executable_path, local_app_data)?;
 
     let destinations = read_screen_destinations(home, tools);
     let existing_paths = existing_skill_paths(&destinations);
@@ -150,14 +215,27 @@ pub fn install_read_screen_skill(
     let executable_path = std::env::current_exe()
         .map(|path| path.to_string_lossy().into_owned())
         .map_err(|e| format!("実行ファイルの場所を取得できません: {e}"))?;
+    let local_app_data = local_app_data_prefix();
 
     install_read_screen_skill_to_disk(
         &resource_dir,
         &home,
         tools,
         &executable_path,
+        local_app_data.as_deref(),
         params.replace,
     )
+}
+
+fn local_app_data_prefix() -> Option<String> {
+    #[cfg(windows)]
+    {
+        std::env::var("LOCALAPPDATA").ok()
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
 }
 
 #[tauri::command]
@@ -180,7 +258,7 @@ mod tests {
     #[test]
     fn render_replaces_executable_placeholder() {
         let template = "exe:\n{{SCHEDULE_VIEWER_EXECUTABLE}}\n";
-        let out = render_read_screen_skill(template, "/app/bin").unwrap();
+        let out = render_read_screen_skill(template, "/app/bin", None).unwrap();
         assert_eq!(out, "exe:\n/app/bin\n");
         assert!(!out.contains(EXECUTABLE_PLACEHOLDER));
     }
@@ -188,14 +266,73 @@ mod tests {
     #[test]
     fn render_fails_when_executable_path_is_empty() {
         let template = "{{SCHEDULE_VIEWER_EXECUTABLE}}";
-        assert!(render_read_screen_skill(template, "").is_err());
+        assert!(render_read_screen_skill(template, "", None).is_err());
     }
 
     #[test]
     fn render_fails_when_placeholder_remains_after_replace() {
         let template = "path: {{SCHEDULE_VIEWER_EXECUTABLE}}";
         let executable_path = "/bin/{{SCHEDULE_VIEWER_EXECUTABLE}}";
-        assert!(render_read_screen_skill(template, executable_path).is_err());
+        assert!(render_read_screen_skill(template, executable_path, None).is_err());
+    }
+
+    #[test]
+    fn render_uses_localappdata_command_when_path_is_under_it() {
+        let template = "body\n{{SCHEDULE_VIEWER_INVOCATION}}\n";
+        let executable_path = r"C:\Users\me\AppData\Local\schedule-viewer\schedule-viewer.exe";
+        let local_app_data = r"C:\Users\me\AppData\Local";
+        let out =
+            render_read_screen_skill(template, executable_path, Some(local_app_data)).unwrap();
+        assert!(out.contains(
+            "\"$LOCALAPPDATA/schedule-viewer/schedule-viewer.exe\" --screen schedule_diff"
+        ));
+        assert!(!out.contains("AppData"));
+        assert!(!out.contains(executable_path));
+
+        let forward = render_read_screen_skill(
+            template,
+            "C:/Users/me/AppData/Local/schedule-viewer/schedule-viewer.exe",
+            Some("C:/Users/me/AppData/Local/"),
+        )
+        .unwrap();
+        assert!(forward.contains(
+            "\"$LOCALAPPDATA/schedule-viewer/schedule-viewer.exe\" --screen schedule_diff"
+        ));
+
+        let different_case = render_read_screen_skill(
+            template,
+            r"c:\users\me\appdata\local\schedule-viewer\schedule-viewer.exe",
+            Some(r"C:\Users\me\AppData\Local"),
+        )
+        .unwrap();
+        assert!(different_case.contains(
+            "\"$LOCALAPPDATA/schedule-viewer/schedule-viewer.exe\" --screen schedule_diff"
+        ));
+
+        let not_prefix = render_read_screen_skill(
+            template,
+            r"C:\Users\me\AppData\LocalExtra\schedule-viewer.exe",
+            Some(local_app_data),
+        )
+        .unwrap();
+        assert!(not_prefix.contains(r"C:\Users\me\AppData\LocalExtra\schedule-viewer.exe"));
+        assert!(!not_prefix.contains("$LOCALAPPDATA"));
+    }
+
+    #[test]
+    fn render_keeps_absolute_path_on_separate_lines_outside_localappdata() {
+        let template = "{{SCHEDULE_VIEWER_INVOCATION}}";
+        let executable_path = "/Applications/schedule-viewer.app/Contents/MacOS/schedule-viewer";
+        let out = render_read_screen_skill(
+            template,
+            executable_path,
+            Some(r"C:\Users\me\AppData\Local"),
+        )
+        .unwrap();
+        let fence = format!("{executable_path}\n--screen schedule_diff");
+        assert!(out.contains(&fence));
+        assert!(!out.contains(&format!("\"{executable_path}\"")));
+        assert!(!out.contains("$LOCALAPPDATA"));
     }
 
     #[test]
@@ -212,8 +349,12 @@ mod tests {
         let dir = tempfile::tempdir().expect("temp dir");
         let home = dir.path().join("home");
         let resource = dir.path().join("resources");
-        fs::create_dir_all(home.join(".cursor").join("skills").join(READ_SCREEN_SKILL_NAME))
-            .expect("mkdir");
+        fs::create_dir_all(
+            home.join(".cursor")
+                .join("skills")
+                .join(READ_SCREEN_SKILL_NAME),
+        )
+        .expect("mkdir");
         fs::create_dir_all(resource.join(RESOURCE_TEMPLATE_DIR)).expect("mkdir resource");
         fs::write(
             resource.join(RESOURCE_TEMPLATE_DIR).join("SKILL.md"),
@@ -226,6 +367,7 @@ mod tests {
             &home,
             JsonSkillTool::Cursor,
             "/bin/schedule-viewer",
+            None,
             false,
         )
         .expect("install");
@@ -253,15 +395,14 @@ mod tests {
                 &home,
                 JsonSkillTool::Cursor,
                 "/bin/schedule-viewer",
+                None,
                 true,
             );
             assert!(result.is_err());
-            assert!(
-                result
-                    .err()
-                    .expect("error message")
-                    .contains("シンボリックリンク")
-            );
+            assert!(result
+                .err()
+                .expect("error message")
+                .contains("シンボリックリンク"));
         }
     }
 }

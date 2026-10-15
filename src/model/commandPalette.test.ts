@@ -11,6 +11,7 @@ const idle = {
   canUndo: true,
   canRedo: false,
   selectedTaskId: "t1",
+  selectedTaskCount: 1,
   linkSourceId: null,
   lineageActive: false,
 };
@@ -58,7 +59,11 @@ describe("buildCommandPaletteItems", () => {
     expect(linked.find((item) => item.id === "addTask")?.enabled).toBe(false);
     expect(linked.find((item) => item.id === "addMilestone")?.enabled).toBe(false);
     expect(linked.find((item) => item.id === "duplicateTask")?.enabled).toBe(false);
-    const noSelection = buildCommandPaletteItems({ ...idle, selectedTaskId: null });
+    const noSelection = buildCommandPaletteItems({
+      ...idle,
+      selectedTaskId: null,
+      selectedTaskCount: 0,
+    });
     expect(noSelection.find((item) => item.id === "duplicateTask")?.enabled).toBe(false);
     expect(noSelection.find((item) => item.id === "addTask")?.enabled).toBe(true);
   });
