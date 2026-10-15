@@ -2447,7 +2447,7 @@ button:focus-visible,
 
 .app-update-offer {
   position: fixed;
-  right: calc(12px * var(--s));
+  right: calc(12px * var(--s) + var(--diff-panel-inset, 0px));
   bottom: calc(36px * var(--s));
   z-index: 45;
   max-width: calc(100vw - 24px * var(--s));
@@ -2492,7 +2492,7 @@ button:focus-visible,
 
 .app-toast {
   position: fixed;
-  right: calc(12px * var(--s));
+  right: calc(12px * var(--s) + var(--diff-panel-inset, 0px));
   bottom: calc(36px * var(--s));
   z-index: 60;
   padding: calc(8px * var(--s)) calc(12px * var(--s));
@@ -2517,6 +2517,128 @@ button:focus-visible,
 
 .app-toast--stacked-high {
   bottom: calc(144px * var(--s));
+}
+
+.diff-strip {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  align-self: stretch;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+}
+
+.diff-strip--open {
+  width: calc(320px * var(--s));
+}
+
+.diff-strip--collapsed {
+  width: calc(28px * var(--s));
+}
+
+.diff-strip-handle {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  padding: calc(8px * var(--s)) calc(6px * var(--s));
+  box-sizing: border-box;
+  border: none;
+  background: var(--panel);
+  color: var(--text-secondary);
+  font-size: calc(12px * var(--s));
+  font-family: inherit;
+  writing-mode: vertical-rl;
+  cursor: pointer;
+}
+
+.diff-strip-handle:hover {
+  color: var(--text);
+}
+
+.diff-strip-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.diff-strip--empty {
+  max-height: none;
+}
+
+.diff-strip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8px * var(--s));
+  padding: calc(6px * var(--s)) calc(12px * var(--s));
+  flex-shrink: 0;
+}
+
+.diff-strip-title {
+  margin: 0;
+  font-size: calc(14px * var(--s));
+  font-weight: 600;
+  color: var(--text);
+}
+
+.diff-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--s));
+  flex-shrink: 0;
+}
+
+.diff-strip-btn {
+  padding: calc(6px * var(--s)) calc(14px * var(--s));
+  font-size: calc(12px * var(--s));
+  border-radius: var(--radius-md);
+  border: 1px solid var(--text-secondary);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.diff-strip-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.diff-strip-btn:disabled {
+  color: var(--text-secondary);
+  background: var(--surface);
+  cursor: not-allowed;
+  appearance: none;
+  -webkit-text-fill-color: var(--text-secondary);
+}
+
+.diff-strip-textarea {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  padding: calc(8px * var(--s)) calc(12px * var(--s));
+  box-sizing: border-box;
+  resize: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: calc(12px * var(--s));
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow: auto;
+}
+
+.diff-strip--empty .diff-strip-textarea {
+  flex: 0 0 auto;
+  min-height: calc(1.45em + calc(16px * var(--s)));
+}
+
+.diff-strip-textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

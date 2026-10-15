@@ -22,7 +22,7 @@ import { ExternalReloadDialog } from "./components/ExternalReloadDialog";
 import { MissingScheduleFileDialog } from "./components/MissingScheduleFileDialog";
 import { RecoveryConflictDialog } from "./components/RecoveryConflictDialog";
 import { RecoveryInvalidDialog } from "./components/RecoveryInvalidDialog";
-import { DiffDialog } from "./components/DiffDialog";
+import { DiffStrip } from "./components/DiffStrip";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneAddDialog } from "./components/MilestoneAddDialog";
@@ -78,6 +78,14 @@ import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
 import { NO_OPEN_SCHEDULE_FILE_MESSAGE } from "./model/scheduleDiff";
 import { loadScheduleDiffText as loadScheduleDiffTextCore } from "./model/scheduleDiffLoad";
+import {
+  type DiffStripContentKind,
+  type DiffStripView,
+  diffStripAriaStatus,
+  resolveStripAfterAutoLoad,
+  resolveStripAfterExplicitLoad,
+  shouldDeferBodyUpdate,
+} from "./model/diffStripVisibility";
 import { useMcpScreenBridge } from "./hooks/useMcpScreenBridge";
 import {
   isTauri,
@@ -269,9 +277,21 @@ function App() {
     setShortcutsOpen(true);
   }, []);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [diffText, setDiffText] = useState<string | null>(null);
+  const [diffStrip, setDiffStrip] = useState<DiffStripView>({ visible: false });
+  const [diffPanelExpanded, setDiffPanelExpanded] = useState(false);
+  const [diffLiveStatus, setDiffLiveStatus] = useState<string | null>(null);
+  const [diffSelectAllOnMount, setDiffSelectAllOnMount] = useState(false);
+  const [explicitEmptyPinned, setExplicitEmptyPinned] = useState(false);
+  const explicitEmptyPinnedRef = useRef(false);
+  explicitEmptyPinnedRef.current = explicitEmptyPinned;
   const [diffError, setDiffError] = useState<string | null>(null);
   const diffRequestRef = useRef(0);
+  const diffStripFocusedRef = useRef(false);
+  const pendingDiffBodyRef = useRef<string | null>(null);
+  const diffTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const prevDiffStripKindRef = useRef<DiffStripContentKind | null>(null);
+  const diffStripRef = useRef<DiffStripView>({ visible: false });
+  diffStripRef.current = diffStrip;
   const [addOpen, setAddOpen] = useState(false);
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
   const [addMilestoneInitialDate, setAddMilestoneInitialDate] = useState<
@@ -811,17 +831,24 @@ function App() {
     showCornerNotice && updateOfferHeight > 0
       ? `calc(36px * var(--s) + ${updateOfferHeight}px + 8px * var(--s))`
       : showCornerNotice
-        ? "calc(110px * var(--s))"
+        ? `calc(110px * var(--s))`
         : peerNoticeMessage
-          ? "calc(72px * var(--s))"
+          ? `calc(72px * var(--s))`
           : undefined;
 
   const peerToastBottom =
     showCornerNotice && updateOfferHeight > 0 && toastMessage
       ? `calc(36px * var(--s) + ${updateOfferHeight}px + 8px * var(--s) + 40px * var(--s))`
       : showCornerNotice
-        ? "calc(110px * var(--s))"
-        : "calc(72px * var(--s))";
+        ? `calc(110px * var(--s))`
+        : `calc(72px * var(--s))`;
+
+  const diffPanelInset =
+    !diffStrip.visible
+      ? "0px"
+      : diffPanelExpanded || diffStrip.kind === "empty"
+        ? `calc(320px * var(--s))`
+        : `calc(28px * var(--s))`;
 
   const { visibleTaskCount, totalTaskCount } = useMemo(() => {
     const total = listTasks(schedule.categories).length;
@@ -1240,27 +1267,212 @@ function App() {
     scheduleBaselineJson: scheduleFile.baselineJson,
   });
 
+  const announceDiffStrip = useCallback((kind: DiffStripContentKind, text: string) => {
+    const message = diffStripAriaStatus(kind, text);
+    setDiffLiveStatus(null);
+    window.requestAnimationFrame(() => setDiffLiveStatus(message));
+  }, []);
+
+  const commitDiffStripView = useCallback(
+    (next: DiffStripView, announce: boolean) => {
+      if (!next.visible) {
+        if (!diffStripRef.current.visible) {
+          return;
+        }
+        setDiffStrip({ visible: false });
+        setDiffPanelExpanded(false);
+        prevDiffStripKindRef.current = null;
+        pendingDiffBodyRef.current = null;
+        return;
+      }
+      if (
+        shouldDeferBodyUpdate(
+          diffStripRef.current,
+          next,
+          diffStripFocusedRef.current,
+        )
+      ) {
+        pendingDiffBodyRef.current = next.text;
+        return;
+      }
+      const area = diffTextareaRef.current;
+      const prevScroll = area?.scrollTop ?? 0;
+      const prev = diffStripRef.current;
+      const prevText = prev.visible && prev.kind === "body" ? prev.text : null;
+      const wasVisible = prev.visible;
+      const prevStatus =
+        prev.visible ? diffStripAriaStatus(prev.kind, prev.text) : null;
+      const nextStatus = diffStripAriaStatus(next.kind, next.text);
+      if (
+        prev.visible &&
+        prev.kind === next.kind &&
+        prev.text === next.text &&
+        prev.showClose === next.showClose
+      ) {
+        return;
+      }
+      if (next.kind === "empty") {
+        setDiffPanelExpanded(true);
+      }
+      setDiffStrip(next);
+      prevDiffStripKindRef.current = next.kind;
+      if (announce && (!wasVisible || prevStatus !== nextStatus)) {
+        announceDiffStrip(next.kind, next.text);
+      }
+      if (
+        next.kind === "body" &&
+        area &&
+        prevText != null &&
+        prevText !== next.text
+      ) {
+        requestAnimationFrame(() => {
+          const el = diffTextareaRef.current;
+          if (!el) return;
+          el.scrollTop = Math.min(prevScroll, el.scrollHeight - el.clientHeight);
+        });
+      }
+    },
+    [announceDiffStrip],
+  );
+
+  const closeDiffStrip = useCallback(() => {
+    setExplicitEmptyPinned(false);
+    commitDiffStripView({ visible: false }, false);
+  }, [commitDiffStripView]);
+
+  const copyDiffStripText = useCallback(async () => {
+    if (scheduleFile.fileBusy) return;
+    const strip = diffStripRef.current;
+    if (!strip.visible) return;
+    try {
+      await navigator.clipboard.writeText(strip.text);
+      setToastMessage("差分をコピーしました");
+      window.setTimeout(() => setToastMessage(null), 3000);
+    } catch {
+      setDiffPanelExpanded(true);
+      setDiffSelectAllOnMount(true);
+      diffTextareaRef.current?.focus();
+      diffTextareaRef.current?.select();
+    }
+  }, [scheduleFile.fileBusy]);
+
+  const processDiffLoadResult = useCallback(
+    (
+      result:
+        | { ok: true; text: string }
+        | { ok: false; message: string; showDialog: boolean },
+      source: "auto" | "explicit",
+    ) => {
+      if (!result.ok) {
+        if (result.showDialog) {
+          if (source === "auto") return;
+          setDiffError(null);
+          setExplicitEmptyPinned(true);
+          setDiffPanelExpanded(true);
+          commitDiffStripView(
+            resolveStripAfterExplicitLoad(result.message),
+            true,
+          );
+          return;
+        }
+        if (source === "auto") return;
+        setDiffError(result.message);
+        return;
+      }
+      setDiffError(null);
+      if (source === "auto") {
+        const wasVisible = diffStripRef.current.visible;
+        const view = resolveStripAfterAutoLoad(
+          result.text,
+          explicitEmptyPinnedRef.current,
+        );
+        if (view == null) {
+          return;
+        }
+        if (view.visible && view.kind === "body") {
+          setExplicitEmptyPinned(false);
+          if (!wasVisible) {
+            setDiffPanelExpanded(false);
+          }
+        }
+        commitDiffStripView(view, true);
+        return;
+      }
+      const explicitView = resolveStripAfterExplicitLoad(result.text);
+      const strip = diffStripRef.current;
+      if (
+        strip.visible &&
+        strip.kind === "body" &&
+        explicitView.kind === "body" &&
+        result.text === strip.text
+      ) {
+        return;
+      }
+      const view = explicitView;
+      setExplicitEmptyPinned(view.kind === "empty");
+      setDiffPanelExpanded(true);
+      if (view.kind === "body") {
+        setDiffSelectAllOnMount(true);
+      }
+      commitDiffStripView(view, true);
+    },
+    [commitDiffStripView],
+  );
+
+  useEffect(() => {
+    setExplicitEmptyPinned(false);
+    commitDiffStripView({ visible: false }, false);
+  }, [commitDiffStripView, scheduleFile.filePath]);
+
+  useEffect(() => {
+    if (!scheduleFile.isDirty) {
+      commitDiffStripView({ visible: false }, false);
+      setExplicitEmptyPinned(false);
+    }
+  }, [commitDiffStripView, scheduleFile.isDirty]);
+
+  useEffect(() => {
+    if (scheduleFile.filePath || explicitEmptyPinned) return;
+    commitDiffStripView({ visible: false }, false);
+  }, [commitDiffStripView, explicitEmptyPinned, scheduleFile.filePath]);
+
+  useEffect(() => {
+    if (scheduleFile.fileBusy || !scheduleFile.isDirty || !scheduleFile.filePath) {
+      diffRequestRef.current += 1;
+      return;
+    }
+    const requestId = diffRequestRef.current + 1;
+    diffRequestRef.current = requestId;
+    void loadScheduleDiffText().then((result) => {
+      if (diffRequestRef.current !== requestId) return;
+      processDiffLoadResult(result, "auto");
+    });
+  }, [
+    loadScheduleDiffText,
+    processDiffLoadResult,
+    scheduleFile.currentJson,
+    scheduleFile.fileBusy,
+    scheduleFile.filePath,
+    scheduleFile.isDirty,
+  ]);
+
   const showScheduleDiff = useCallback(() => {
     if (scheduleFile.fileBusy) return;
+    setDiffPanelExpanded(true);
+    if (
+      diffStripRef.current.visible &&
+      diffStripRef.current.kind === "body"
+    ) {
+      setDiffSelectAllOnMount(true);
+    }
     const requestId = diffRequestRef.current + 1;
     diffRequestRef.current = requestId;
     const stillCurrent = () => diffRequestRef.current === requestId;
     void loadScheduleDiffText().then((result) => {
       if (!stillCurrent()) return;
-      if (!result.ok) {
-        if (result.showDialog) {
-          setDiffError(null);
-          setDiffText(result.message);
-        } else {
-          setDiffText(null);
-          setDiffError(result.message);
-        }
-        return;
-      }
-      setDiffError(null);
-      setDiffText(result.text);
+      processDiffLoadResult(result, "explicit");
     });
-  }, [loadScheduleDiffText, scheduleFile.fileBusy]);
+  }, [loadScheduleDiffText, processDiffLoadResult, scheduleFile.fileBusy]);
 
   const copyScheduleDiff = useCallback(() => {
     if (scheduleFile.fileBusy) return;
@@ -1268,9 +1480,13 @@ function App() {
       if (!result.ok) {
         if (result.showDialog) {
           setDiffError(null);
-          setDiffText(result.message);
+          setExplicitEmptyPinned(true);
+          setDiffPanelExpanded(true);
+          commitDiffStripView(
+            resolveStripAfterExplicitLoad(result.message),
+            true,
+          );
         } else {
-          setDiffText(null);
           setDiffError(result.message);
         }
         return;
@@ -1281,10 +1497,52 @@ function App() {
         window.setTimeout(() => setToastMessage(null), 3000);
       } catch {
         setDiffError(null);
-        setDiffText(result.text);
+        const view = resolveStripAfterExplicitLoad(result.text);
+        setDiffPanelExpanded(true);
+        if (view.kind === "body") {
+          setDiffSelectAllOnMount(true);
+        }
+        commitDiffStripView(view, false);
       }
     });
-  }, [loadScheduleDiffText, scheduleFile.fileBusy]);
+  }, [commitDiffStripView, loadScheduleDiffText, scheduleFile.fileBusy]);
+
+  const onDiffStripFocus = useCallback(() => {
+    diffStripFocusedRef.current = true;
+  }, []);
+
+  const onDiffStripBlur = useCallback(() => {
+    diffStripFocusedRef.current = false;
+    const pending = pendingDiffBodyRef.current;
+    if (pending == null) return;
+    pendingDiffBodyRef.current = null;
+    commitDiffStripView(
+      {
+        visible: true,
+        text: pending,
+        kind: "body",
+        showClose: false,
+      },
+      false,
+    );
+  }, [commitDiffStripView]);
+
+  const collapseDiffPanel = useCallback(() => {
+    setDiffPanelExpanded(false);
+    timelineAreaRef.current?.focus();
+  }, []);
+
+  const expandDiffPanelFromPointer = useCallback(() => {
+    setDiffPanelExpanded(true);
+    timelineAreaRef.current?.focus();
+  }, []);
+
+  const expandDiffPanelFromKeyboard = useCallback(() => {
+    setDiffPanelExpanded(true);
+    window.requestAnimationFrame(() => {
+      diffTextareaRef.current?.focus();
+    });
+  }, []);
 
   const commandPaletteContext = useMemo(
     () => ({
@@ -1912,6 +2170,7 @@ function App() {
       style={{
         ["--s" as string]: uiScale,
         ["--sidebar-w" as string]: sidebarWidth,
+        ["--diff-panel-inset" as string]: diffPanelInset,
       }}
     >
       <Toolbar
@@ -2151,8 +2410,28 @@ function App() {
             }}
           />
         ) : null}
+        {diffStrip.visible ? (
+          <DiffStrip
+            view={diffStrip}
+            expanded={diffPanelExpanded || diffStrip.kind === "empty"}
+            onExpandFromPointer={expandDiffPanelFromPointer}
+            onExpandFromKeyboard={expandDiffPanelFromKeyboard}
+            onCollapse={collapseDiffPanel}
+            onClose={closeDiffStrip}
+            onCopy={() => void copyDiffStripText()}
+            copyDisabled={scheduleFile.fileBusy}
+            textareaRef={diffTextareaRef}
+            onFocus={onDiffStripFocus}
+            onBlur={onDiffStripBlur}
+            selectAllOnMount={diffSelectAllOnMount}
+            onSelectAllDone={() => setDiffSelectAllOnMount(false)}
+          />
+        ) : null}
         </div>
       </div>
+      <p className="filter-panel-sr-only" role="status" aria-live="polite">
+        {diffLiveStatus ?? ""}
+      </p>
       <StatusBar
         fileName={scheduleFile.displayFileName}
         saveStatus={scheduleFile.saveStatusLabel}
@@ -2446,11 +2725,6 @@ function App() {
         json={jsonOpen ? scheduleFile.currentJson : ""}
         open={jsonOpen}
         onClose={() => setJsonOpen(false)}
-      />
-      <DiffDialog
-        text={diffText ?? ""}
-        open={diffText != null}
-        onClose={() => setDiffText(null)}
       />
       {scheduleFile.discardPromptOpen ? (
         <DiscardChangesDialog
