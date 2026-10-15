@@ -5,6 +5,7 @@ mod mcp_bridge;
 pub mod mcp_stdio;
 mod read_screen_skill;
 pub mod screen_cli;
+mod window_diag;
 mod window_session;
 
 use json_skills::{
@@ -25,16 +26,18 @@ use mcp_bridge::{
     cleanup_mcp_socket, mcp_reply, start_mcp_bridge_server, McpBridgeState,
 };
 use std::sync::Arc;
+use window_diag::window_diag_log;
 use window_session::{
-    all_windows_startup_settled, any_startup_auto_update_enabled, create_schedule_webview,
-    delete_filter_for_path, delete_recovery_for_path, forget_startup_settlement,
-    forget_window_focus,
-    migrate_legacy_session, next_schedule_window_label, note_window_focus, read_open_windows,
+    all_windows_startup_settled, any_startup_auto_update_enabled, append_open_window_entry,
+    create_schedule_webview_on_main_thread, delete_filter_for_path, delete_recovery_for_path,
+    forget_startup_settlement, forget_window_focus, migrate_legacy_session,
+    next_schedule_window_label, note_main_thread, note_window_focus, read_open_windows,
     read_filter_for_path, read_recovery_for_path, recovery_close_persist, recovery_live_persist,
     recovery_owner_label,
-    recovery_owners_by_path, remove_window_label, set_focused_label, sha256_hex,
+    recovery_owners_by_path, remove_window_label,
+    should_remove_open_window_label_after_destroy, set_focused_label, sha256_hex,
     spawn_startup_windows, store_pending_open, take_pending_open, upsert_window_path,
-    write_filter_for_path, write_open_windows, write_recovery_for_path, OpenWindowEntry,
+    write_filter_for_path, write_recovery_for_path,
     WindowSessionState,
     WindowStartupRead,
 };
@@ -1018,28 +1021,22 @@ fn create_schedule_window(
     }
     let label = next_schedule_window_label(&app)?;
     let app_data = app_data_dir(&app)?;
-    let mut file = read_open_windows(&app_data)?;
-    file.windows.push(OpenWindowEntry {
-        label: label.clone(),
-        path: Some(path.clone()),
-        sample: false,
-    });
-    file.focused_label = label.clone();
-    write_open_windows(&app_data, &file)?;
     {
         let mut guard = session.lock().expect("window session");
         store_pending_open(&mut guard, label.clone(), path.clone(), contents.clone());
         note_window_focus(&mut guard, &label);
     }
-    if let Err(error) = create_schedule_webview(&app, &label, "schedule-viewer") {
+    if let Err(error) =
+        create_schedule_webview_on_main_thread(&app, &app_data, &label, "schedule-viewer")
+    {
         {
             let mut guard = session.lock().expect("window session");
             let _ = take_pending_open(&mut guard, &label);
             forget_window_focus(&mut guard, &label);
         }
-        let _ = remove_window_label(&app_data, &label);
         return Err(error);
     }
+    append_open_window_entry(&app_data, &label, &path)?;
     let mut guard = states.lock().expect("schedule file states");
     let state = guard.by_label.entry(label.clone()).or_default();
     state.path = Some(PathBuf::from(path));
@@ -1062,7 +1059,9 @@ fn register_window_focus(
         let mut guard = session.lock().expect("window session");
         note_window_focus(&mut guard, &label);
     }
-    set_focused_label(&app_data_dir(&app)?, &label)
+    let app_data = app_data_dir(&app)?;
+    window_diag_log(&app_data, &format!("register_window_focus label={}", label));
+    set_focused_label(&app_data, &label)
 }
 
 #[tauri::command]
@@ -1799,6 +1798,7 @@ pub fn run() {
             }
         }))
         .setup(|app| {
+            note_main_thread();
             let handle = app.handle().clone();
             if let Ok(dir) = app_data_dir(&handle) {
                 let _ = migrate_legacy_session(&dir);
@@ -1819,10 +1819,60 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if matches!(event, tauri::WindowEvent::Destroyed) {
-                if let Some(state) = window.try_state::<Arc<McpBridgeState>>() {
-                    state.bump_generation(window.label());
+            match event {
+                tauri::WindowEvent::Destroyed => {
+                    let app = window.app_handle();
+                    let label = window.label().to_string();
+                    if let Some(state) = window.try_state::<Arc<McpBridgeState>>() {
+                        state.bump_generation(&label);
+                    }
+                    let quitting = app
+                        .try_state::<Mutex<WindowSessionState>>()
+                        .map(|session| session.lock().expect("window session").quitting)
+                        .unwrap_or(false);
+                    let remaining = app.webview_windows().len();
+                    if let Ok(app_data) = app_data_dir(app) {
+                        window_diag_log(
+                            &app_data,
+                            &format!(
+                                "window_destroyed label={} remaining={} quitting={}",
+                                label, remaining, quitting
+                            ),
+                        );
+                        if should_remove_open_window_label_after_destroy(quitting, remaining) {
+                            let _ = remove_window_label(&app_data, &label);
+                        }
+                    }
+                    if let Some(session) = app.try_state::<Mutex<WindowSessionState>>() {
+                        let mut guard = session.lock().expect("window session");
+                        forget_startup_settlement(&mut guard, &label);
+                        forget_window_focus(&mut guard, &label);
+                    }
+                    if let Some(states) = app.try_state::<Mutex<ScheduleFileStates>>() {
+                        states
+                            .lock()
+                            .expect("schedule file states")
+                            .by_label
+                            .remove(&label);
+                    }
                 }
+                tauri::WindowEvent::Focused(focused) => {
+                    let app = window.app_handle();
+                    let label = window.label().to_string();
+                    if let Ok(app_data) = app_data_dir(app) {
+                        if *focused {
+                            window_diag_log(&app_data, &format!("window_focused label={}", label));
+                            if let Some(session) = app.try_state::<Mutex<WindowSessionState>>() {
+                                let mut guard = session.lock().expect("window session");
+                                note_window_focus(&mut guard, &label);
+                            }
+                            let _ = set_focused_label(&app_data, &label);
+                        } else {
+                            window_diag_log(&app_data, &format!("window_blurred label={}", label));
+                        }
+                    }
+                }
+                _ => {}
             }
         })
         .invoke_handler(tauri::generate_handler![

@@ -7,12 +7,15 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 #[cfg(unix)]
 use std::{fs, thread};
-use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+use tauri::{AppHandle, Emitter, EventTarget, Manager, WebviewWindow};
 use uuid::Uuid;
 
 #[cfg(unix)]
 use crate::mcp_app_data::mcp_socket_path;
-use crate::window_session::read_open_windows;
+use crate::window_diag::window_diag_log;
+use crate::window_session::{
+    read_open_windows, resolve_mcp_screen_window_label, WindowSessionState,
+};
 
 #[cfg(windows)]
 #[path = "mcp_bridge_windows.rs"]
@@ -269,13 +272,68 @@ fn dispatch_to_front_window(
     state: &Arc<McpBridgeState>,
     request: BridgeRequest,
 ) -> Result<BridgeResponse, String> {
-    let focused = read_open_windows(&state.app_data)
+    let recorded_focused = read_open_windows(&state.app_data)
         .map(|file| file.focused_label)
         .unwrap_or_else(|_| "main".to_string());
-    let window = app.get_webview_window(&focused);
-    let window = match window {
+    let live_labels: Vec<String> = app.webview_windows().keys().cloned().collect();
+    let focus_order = app
+        .try_state::<Mutex<WindowSessionState>>()
+        .map(|session| session.lock().expect("window session").focus_order.clone())
+        .unwrap_or_default();
+    let os_focused = app
+        .webview_windows()
+        .iter()
+        .find_map(|(label, webview)| {
+            webview
+                .is_focused()
+                .ok()
+                .filter(|focused| *focused)
+                .map(|_| label.clone())
+        });
+    let mut os_labels: Vec<String> = app
+        .webview_windows()
+        .iter()
+        .filter_map(|(label, webview)| {
+            webview
+                .is_focused()
+                .ok()
+                .filter(|focused| *focused)
+                .map(|_| label.clone())
+        })
+        .collect();
+    os_labels.sort();
+    let os_text = if os_labels.is_empty() {
+        "none".to_string()
+    } else {
+        os_labels.join(",")
+    };
+    let order_text = if focus_order.is_empty() {
+        "none".to_string()
+    } else {
+        focus_order.join(",")
+    };
+    let target_label = resolve_mcp_screen_window_label(
+        &recorded_focused,
+        &live_labels,
+        &focus_order,
+        os_focused.as_deref(),
+    );
+    window_diag_log(
+        &state.app_data,
+        &format!(
+            "mcp_dispatch tool={} recorded={} target={} os={} order={} live_count={}",
+            request.tool,
+            recorded_focused,
+            target_label.as_deref().unwrap_or("none"),
+            os_text,
+            order_text,
+            live_labels.len()
+        ),
+    );
+    let window = match target_label.and_then(|label| app.get_webview_window(&label)) {
         Some(w) => w,
         None => {
+            window_diag_log(&state.app_data, "mcp_dispatch_error=no-window");
             return Ok(BridgeResponse {
                 v: BRIDGE_VERSION,
                 id: request.id,
@@ -306,7 +364,14 @@ fn dispatch_to_front_window(
         "tool": request.tool,
         "arguments": request.arguments,
     });
-    if window.emit("mcp-screen-request", payload).is_err() {
+    if window
+        .emit_to(
+            EventTarget::webview_window(label.clone()),
+            "mcp-screen-request",
+            payload,
+        )
+        .is_err()
+    {
         state.pending.lock().expect("mcp pending").remove(&request.id);
         return Ok(BridgeResponse {
             v: BRIDGE_VERSION,
@@ -343,6 +408,21 @@ fn dispatch_to_front_window(
     })
 }
 
+fn take_pending_reply_for_window(
+    pending: &mut HashMap<String, PendingReply>,
+    id: &str,
+    reply_label: &str,
+) -> Option<PendingReply> {
+    let matches = pending
+        .get(id)
+        .is_some_and(|entry| entry.window_label == reply_label);
+    if matches {
+        pending.remove(id)
+    } else {
+        None
+    }
+}
+
 #[tauri::command]
 pub fn mcp_reply(
     id: String,
@@ -357,8 +437,14 @@ pub fn mcp_reply(
     }
     let entry = {
         let mut pending = state.pending.lock().expect("mcp pending");
-        pending.remove(&id)
+        take_pending_reply_for_window(&mut pending, &id, &label)
     };
+    if entry.is_none() {
+        window_diag_log(
+            &state.app_data,
+            &format!("mcp_reply_ignored label={label} id={id}"),
+        );
+    }
     if let Some(entry) = entry {
         if entry.generation != generation {
             return Ok(());
@@ -473,5 +559,33 @@ pub fn cleanup_mcp_socket(app_data: &Path) {
     #[cfg(not(unix))]
     {
         let _ = app_data;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pending(label: &str) -> PendingReply {
+        PendingReply {
+            window_label: label.to_string(),
+            generation: 0,
+            notify: Arc::new((Mutex::new(false), Condvar::new())),
+            result: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    #[test]
+    fn reply_from_other_window_keeps_pending() {
+        let mut pending_map = HashMap::new();
+        pending_map.insert("id".to_string(), pending("schedule-2"));
+        assert!(take_pending_reply_for_window(&mut pending_map, "id", "schedule-3").is_none());
+        assert!(pending_map.contains_key("id"));
+        let taken = take_pending_reply_for_window(&mut pending_map, "id", "schedule-2");
+        assert_eq!(
+            taken.as_ref().map(|entry| entry.window_label.as_str()),
+            Some("schedule-2")
+        );
+        assert!(!pending_map.contains_key("id"));
     }
 }
