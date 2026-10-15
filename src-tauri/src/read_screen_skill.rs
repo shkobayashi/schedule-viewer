@@ -102,7 +102,7 @@ pub fn read_screen_local_app_data_token(
 pub fn read_screen_invocation_block(executable_path: &str, local_app_data: Option<&str>) -> String {
     if let Some(token) = read_screen_local_app_data_token(executable_path, local_app_data) {
         format!(
-            "次の1行を、`$LOCALAPPDATA` を展開せずに実行します。\n\n```\n{token} --screen schedule_diff\n```\n\nツール名は `schedule_diff`、`selected_task`、`selected_tasks`、`filtered_tasks` に置き換えます。\n"
+            "次の1行を、`$LOCALAPPDATA` を展開せずに実行します。\n\n```\n{token} --screen schedule_diff\n```\n\n読み取りのツール名は `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` に置き換えます。`replace_schedule` は標準入力にスケジュール JSON 全体を渡します。\n"
         )
     } else {
         format!(

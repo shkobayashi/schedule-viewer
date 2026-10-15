@@ -122,6 +122,8 @@ type TimelineProps = {
   onMoveMilestone: (id: ScheduleId, deltaDays: number) => void;
   onOpenMilestone: (id: ScheduleId) => void;
   onMilestoneContextMenu: (id: ScheduleId, x: number, y: number) => void;
+  diffMarkedMilestoneId?: ScheduleId | null;
+  diffMarkStrokeWidth?: number;
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
   calendar: CalendarDocument | null;
@@ -1463,6 +1465,8 @@ export function Timeline({
   onMoveMilestone,
   onOpenMilestone,
   onMilestoneContextMenu,
+  diffMarkedMilestoneId = null,
+  diffMarkStrokeWidth = 3,
   today,
   memberCatalog,
   calendar,
@@ -2565,6 +2569,8 @@ export function Timeline({
           chart={chart}
           colorScheme={colorScheme}
           onHoverMilestone={onHoverMilestone}
+          diffMarkedMilestoneId={diffMarkedMilestoneId}
+          diffMarkStrokeWidth={diffMarkStrokeWidth}
         />
       ) : null}
       <MilestoneHoverOverlay

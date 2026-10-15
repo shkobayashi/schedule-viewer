@@ -43,6 +43,8 @@ import {
   type ScheduleFilterViewState,
   type SearchField,
 } from "../model/scheduleFilterPersistence";
+import type { ReplaceScheduleDocumentResult } from "../model/replaceSchedule";
+import { serializeScheduleDocument } from "../model/scheduleFile";
 import {
   appendMilestone,
   applyMilestoneEdit,
@@ -1368,6 +1370,56 @@ export function useSchedule(
     [commitCategories],
   );
 
+  const snapshotCanonicalJson = useCallback((snap: DocumentSnapshot) => {
+    return serializeScheduleDocument(
+      snap.title,
+      snap.categories,
+      snap.milestoneGroups,
+      snap.milestones,
+    );
+  }, []);
+
+  const replaceScheduleDocument = useCallback(
+    (document: ScheduleDocument): ReplaceScheduleDocumentResult => {
+      const current = documentRef.current;
+      const currentJson = snapshotCanonicalJson(current);
+      if (blockDocumentEditsRef?.current) {
+        return { outcome: "rejected" };
+      }
+      const next = initialSnapshot(
+        document.title,
+        document.categories,
+        document.milestoneGroups,
+        document.milestones,
+      );
+      const pushed = pushDocumentHistory(historyRef.current, current, next);
+      if (!pushed) {
+        return { outcome: "unchanged", screenJson: currentJson };
+      }
+      historyRef.current = pushed.history;
+      syncHistoryUi();
+      if (!pushed.applied) {
+        return { outcome: "unchanged", screenJson: currentJson };
+      }
+      documentRef.current = pushed.applied;
+      setTitle(pushed.applied.title);
+      setCategories(pushed.applied.categories);
+      setMilestoneGroups(pushed.applied.milestoneGroups);
+      setMilestones(pushed.applied.milestones);
+      pruneUiForDocument(pushed.applied);
+      return {
+        outcome: "applied",
+        screenJson: snapshotCanonicalJson(pushed.applied),
+      };
+    },
+    [
+      blockDocumentEditsRef,
+      pruneUiForDocument,
+      snapshotCanonicalJson,
+      syncHistoryUi,
+    ],
+  );
+
   const applyMergedDocument = useCallback(
     (
       document: ScheduleDocument,
@@ -1687,6 +1739,7 @@ export function useSchedule(
     addMilestone,
     deleteMilestone,
     replaceDocument,
+    replaceScheduleDocument,
     applyMergedDocument,
     reloadDocumentFromDisk,
     diskEpoch,

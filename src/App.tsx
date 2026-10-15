@@ -79,6 +79,15 @@ import { useTimelineView } from "./hooks/useTimelineView";
 import { NO_OPEN_SCHEDULE_FILE_MESSAGE } from "./model/scheduleDiff";
 import { loadScheduleDiffText as loadScheduleDiffTextCore } from "./model/scheduleDiffLoad";
 import {
+  emptyDiffNavigationMark,
+  resolveDiffNavigation,
+  type DiffNavigationMark,
+  type DiffRevealPlan,
+} from "./model/diffNavigation";
+import type { ScheduleDiffEntry } from "./model/scheduleDiffEntry";
+import { collapsedSetFromIds } from "./model/scheduleFilterPersistence";
+import { scrollXToRevealTask } from "./model/chartScroll";
+import {
   type DiffStripContentKind,
   type DiffStripView,
   diffStripAriaStatus,
@@ -280,7 +289,16 @@ function App() {
   const [diffStrip, setDiffStrip] = useState<DiffStripView>({ visible: false });
   const [diffPanelExpanded, setDiffPanelExpanded] = useState(false);
   const [diffLiveStatus, setDiffLiveStatus] = useState<string | null>(null);
-  const [diffSelectAllOnMount, setDiffSelectAllOnMount] = useState(false);
+  const [diffFocusListOnMount, setDiffFocusListOnMount] = useState(false);
+  const [diffEntries, setDiffEntries] = useState<ScheduleDiffEntry[]>([]);
+  const [diffActiveIndex, setDiffActiveIndex] = useState(0);
+  const [diffRowStatus, setDiffRowStatus] = useState<string | null>(null);
+  const [diffNavigationMark, setDiffNavigationMark] =
+    useState<DiffNavigationMark>(emptyDiffNavigationMark());
+  const clearDiffNavigationMark = useCallback(() => {
+    setDiffNavigationMark(emptyDiffNavigationMark());
+    setDiffRowStatus(null);
+  }, []);
   const [explicitEmptyPinned, setExplicitEmptyPinned] = useState(false);
   const explicitEmptyPinnedRef = useRef(false);
   explicitEmptyPinnedRef.current = explicitEmptyPinned;
@@ -288,7 +306,8 @@ function App() {
   const diffRequestRef = useRef(0);
   const diffStripFocusedRef = useRef(false);
   const pendingDiffBodyRef = useRef<string | null>(null);
-  const diffTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingDiffEntriesRef = useRef<ScheduleDiffEntry[] | null>(null);
+  const diffListRef = useRef<HTMLDivElement>(null);
   const prevDiffStripKindRef = useRef<DiffStripContentKind | null>(null);
   const diffStripRef = useRef<DiffStripView>({ visible: false });
   diffStripRef.current = diffStrip;
@@ -319,6 +338,7 @@ function App() {
   });
   const [hoveredTaskId, setHoveredTaskId] = useState<ScheduleId | null>(null);
   const [detailPanelEditing, setDetailPanelEditing] = useState(false);
+  const [sidebarReorderDragging, setSidebarReorderDragging] = useState(false);
   const [bulkDiscardNotice, setBulkDiscardNotice] = useState<string | null>(null);
   const detailPanelRef = useRef<TaskDetailPanelHandle>(null);
   const bulkHadDraftRef = useRef(false);
@@ -543,6 +563,8 @@ function App() {
     (landed) => externalReloadHistoryRedoRef.current(landed),
   );
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
+  const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
+  replaceScheduleDocumentRef.current = schedule.replaceScheduleDocument;
   const {
     redo,
     undo,
@@ -725,6 +747,39 @@ function App() {
     setToastMessage(message);
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
+
+  const showReplaceScreenToast = useCallback(() => {
+    setToastMessage("画面を置き換えました");
+    window.setTimeout(() => setToastMessage(null), 4000);
+  }, []);
+
+  const mcpReplaceUiBlocking = useCallback(() => {
+    if (scheduleFile.fileBusy) return true;
+    if (detailPanelEditing) return true;
+    if (
+      schedule.editingNoteTask != null ||
+      schedule.editingMilestone != null ||
+      schedule.editingHierarchyTarget != null ||
+      schedule.addingHierarchyTarget != null ||
+      schedule.deletingHierarchyTarget != null
+    ) {
+      return true;
+    }
+    if (schedule.reorderPreview != null) return true;
+    if (sidebarReorderDragging) return true;
+    if (document.querySelector('[role="dialog"]') != null) return true;
+    return false;
+  }, [
+    detailPanelEditing,
+    schedule.addingHierarchyTarget,
+    schedule.deletingHierarchyTarget,
+    schedule.editingHierarchyTarget,
+    schedule.editingMilestone,
+    schedule.editingNoteTask,
+    schedule.reorderPreview,
+    scheduleFile.fileBusy,
+    sidebarReorderDragging,
+  ]);
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
@@ -1015,6 +1070,7 @@ function App() {
       taskId: ScheduleId,
       mod: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean },
     ) => {
+      clearDiffNavigationMark();
       schedule.selectTaskWithClick(
         taskId,
         mod,
@@ -1023,7 +1079,7 @@ function App() {
       );
       revealTaskRow(taskId);
     },
-    [commandKey, revealTaskRow, schedule, visibleRows],
+    [clearDiffNavigationMark, commandKey, revealTaskRow, schedule, visibleRows],
   );
 
   const handleMoveTask = useCallback(
@@ -1232,14 +1288,15 @@ function App() {
   );
 
   const loadScheduleDiffText = useCallback(async (): Promise<
-    { ok: true; text: string } | { ok: false; message: string; showDialog: boolean }
+    | { ok: true; text: string; entries: ScheduleDiffEntry[] }
+    | { ok: false; message: string; showDialog: boolean }
   > => {
     const result = await loadScheduleDiffTextCore(
       scheduleFile.filePath,
       scheduleFile.currentJson,
     );
     if (result.ok) {
-      return { ok: true, text: result.text };
+      return { ok: true, text: result.text, entries: result.entries };
     }
     return {
       ok: false,
@@ -1265,6 +1322,15 @@ function App() {
     scheduleFilePath: scheduleFile.filePath,
     scheduleCurrentJson: scheduleFile.currentJson,
     scheduleBaselineJson: scheduleFile.baselineJson,
+    startupSettled: scheduleFile.startupSettled,
+    startupRecoveryDialogOpen:
+      scheduleFile.recoveryConflictOpen ||
+      scheduleFile.missingScheduleLabel != null ||
+      scheduleFile.recoveryInvalidOpen,
+    mcpReplaceUiBlocking,
+    replaceScheduleDocument: (document) =>
+      replaceScheduleDocumentRef.current(document),
+    onReplaceScheduleApplied: showReplaceScreenToast,
   });
 
   const announceDiffStrip = useCallback((kind: DiffStripContentKind, text: string) => {
@@ -1273,8 +1339,46 @@ function App() {
     window.requestAnimationFrame(() => setDiffLiveStatus(message));
   }, []);
 
+  const applyDiffReveal = useCallback(
+    (plan: DiffRevealPlan) => {
+      switch (plan.kind) {
+        case "task":
+          reveal(plan.scrollXDate, plan.scrollY, plan.barWidthPx);
+          break;
+        case "category":
+        case "group":
+          view.scrollBy(0, plan.scrollY - view.scrollY);
+          break;
+        case "milestoneGroup":
+          break;
+        case "milestone": {
+          const nextX = scrollXToRevealTask(
+            plan.scrollXDate,
+            12,
+            view.scrollX,
+            view.timelineStart,
+            view.totalDays,
+            view.pxPerDay,
+            timelineWidth,
+          );
+          view.scrollBy(nextX - view.scrollX, 0);
+          break;
+        }
+        case "title":
+          break;
+        default:
+          break;
+      }
+    },
+    [reveal, timelineWidth, view],
+  );
+
   const commitDiffStripView = useCallback(
-    (next: DiffStripView, announce: boolean) => {
+    (
+      next: DiffStripView,
+      announce: boolean,
+      entries?: ScheduleDiffEntry[],
+    ) => {
       if (!next.visible) {
         if (!diffStripRef.current.visible) {
           return;
@@ -1283,6 +1387,9 @@ function App() {
         setDiffPanelExpanded(false);
         prevDiffStripKindRef.current = null;
         pendingDiffBodyRef.current = null;
+        pendingDiffEntriesRef.current = null;
+        setDiffEntries([]);
+        clearDiffNavigationMark();
         return;
       }
       if (
@@ -1293,12 +1400,12 @@ function App() {
         )
       ) {
         pendingDiffBodyRef.current = next.text;
+        if (entries != null) {
+          pendingDiffEntriesRef.current = entries;
+        }
         return;
       }
-      const area = diffTextareaRef.current;
-      const prevScroll = area?.scrollTop ?? 0;
       const prev = diffStripRef.current;
-      const prevText = prev.visible && prev.kind === "body" ? prev.text : null;
       const wasVisible = prev.visible;
       const prevStatus =
         prev.visible ? diffStripAriaStatus(prev.kind, prev.text) : null;
@@ -1314,25 +1421,17 @@ function App() {
       if (next.kind === "empty") {
         setDiffPanelExpanded(true);
       }
+      if (entries != null) {
+        setDiffEntries(entries);
+        setDiffActiveIndex(0);
+      }
       setDiffStrip(next);
       prevDiffStripKindRef.current = next.kind;
       if (announce && (!wasVisible || prevStatus !== nextStatus)) {
         announceDiffStrip(next.kind, next.text);
       }
-      if (
-        next.kind === "body" &&
-        area &&
-        prevText != null &&
-        prevText !== next.text
-      ) {
-        requestAnimationFrame(() => {
-          const el = diffTextareaRef.current;
-          if (!el) return;
-          el.scrollTop = Math.min(prevScroll, el.scrollHeight - el.clientHeight);
-        });
-      }
     },
-    [announceDiffStrip],
+    [announceDiffStrip, clearDiffNavigationMark],
   );
 
   const closeDiffStrip = useCallback(() => {
@@ -1350,16 +1449,79 @@ function App() {
       window.setTimeout(() => setToastMessage(null), 3000);
     } catch {
       setDiffPanelExpanded(true);
-      setDiffSelectAllOnMount(true);
-      diffTextareaRef.current?.focus();
-      diffTextareaRef.current?.select();
+      setDiffFocusListOnMount(true);
+      diffListRef.current?.focus();
     }
   }, [scheduleFile.fileBusy]);
+
+  const onDiffActiveIndexChange = useCallback(
+    (index: number, navigate: boolean) => {
+      setDiffActiveIndex(index);
+      if (!navigate) {
+        const entry = diffEntries[index];
+        if (entry?.nav.kind === "title") {
+          setDiffNavigationMark({
+            sidebar: null,
+            chartMilestoneId: null,
+            milestoneGroupId: null,
+            title: true,
+          });
+        } else {
+          clearDiffNavigationMark();
+        }
+        setDiffRowStatus(null);
+        return;
+      }
+      const entry = diffEntries[index];
+      if (!entry) return;
+      const filterState = schedule.getFilterViewState();
+      const collapsed = collapsedSetFromIds(
+        filterState.collapsedCategoryIds,
+        filterState.collapsedGroupIds,
+      );
+      const outcome = resolveDiffNavigation(entry, {
+        visibleRows: schedule.visibleRows,
+        categories: schedule.categories,
+        collapsed,
+        filters: schedule.filters,
+        today: schedule.today,
+        memberMap: memberCatalogState.memberMap,
+        lineageIds: schedule.lineageIds,
+        hiddenMilestoneGroupIds: new Set(schedule.hiddenMilestoneGroupIds),
+        milestones: schedule.milestones,
+        scrollY: view.scrollY,
+        rowHeight,
+        bodyHeight,
+        dateToX: view.dateToX,
+        pxPerDay: view.pxPerDay,
+        taskBarWidthPx: (task) =>
+          taskBarWidthPx(task, view.dateToX, view.pxPerDay),
+      });
+      if (outcome.status === "blocked") {
+        clearDiffNavigationMark();
+        setDiffRowStatus(outcome.message || null);
+        return;
+      }
+      setDiffRowStatus(null);
+      setDiffNavigationMark(outcome.mark);
+      applyDiffReveal(outcome.reveal);
+    },
+    [
+      applyDiffReveal,
+      bodyHeight,
+      clearDiffNavigationMark,
+      diffEntries,
+      memberCatalogState.memberMap,
+      rowHeight,
+      schedule,
+      view,
+    ],
+  );
 
   const processDiffLoadResult = useCallback(
     (
       result:
-        | { ok: true; text: string }
+        | { ok: true; text: string; entries: ScheduleDiffEntry[] }
         | { ok: false; message: string; showDialog: boolean },
       source: "auto" | "explicit",
     ) => {
@@ -1395,7 +1557,7 @@ function App() {
             setDiffPanelExpanded(false);
           }
         }
-        commitDiffStripView(view, true);
+        commitDiffStripView(view, true, result.entries);
         return;
       }
       const explicitView = resolveStripAfterExplicitLoad(result.text);
@@ -1412,9 +1574,9 @@ function App() {
       setExplicitEmptyPinned(view.kind === "empty");
       setDiffPanelExpanded(true);
       if (view.kind === "body") {
-        setDiffSelectAllOnMount(true);
+        setDiffFocusListOnMount(true);
       }
-      commitDiffStripView(view, true);
+      commitDiffStripView(view, true, result.entries);
     },
     [commitDiffStripView],
   );
@@ -1463,7 +1625,7 @@ function App() {
       diffStripRef.current.visible &&
       diffStripRef.current.kind === "body"
     ) {
-      setDiffSelectAllOnMount(true);
+      setDiffFocusListOnMount(true);
     }
     const requestId = diffRequestRef.current + 1;
     diffRequestRef.current = requestId;
@@ -1500,9 +1662,9 @@ function App() {
         const view = resolveStripAfterExplicitLoad(result.text);
         setDiffPanelExpanded(true);
         if (view.kind === "body") {
-          setDiffSelectAllOnMount(true);
+          setDiffFocusListOnMount(true);
         }
-        commitDiffStripView(view, false);
+        commitDiffStripView(view, false, result.entries);
       }
     });
   }, [commitDiffStripView, loadScheduleDiffText, scheduleFile.fileBusy]);
@@ -1514,8 +1676,11 @@ function App() {
   const onDiffStripBlur = useCallback(() => {
     diffStripFocusedRef.current = false;
     const pending = pendingDiffBodyRef.current;
-    if (pending == null) return;
+    const pendingEntries = pendingDiffEntriesRef.current;
+    if (pending == null && pendingEntries == null) return;
     pendingDiffBodyRef.current = null;
+    pendingDiffEntriesRef.current = null;
+    if (pending == null) return;
     commitDiffStripView(
       {
         visible: true,
@@ -1524,6 +1689,7 @@ function App() {
         showClose: false,
       },
       false,
+      pendingEntries ?? undefined,
     );
   }, [commitDiffStripView]);
 
@@ -1540,7 +1706,7 @@ function App() {
   const expandDiffPanelFromKeyboard = useCallback(() => {
     setDiffPanelExpanded(true);
     window.requestAnimationFrame(() => {
-      diffTextareaRef.current?.focus();
+      diffListRef.current?.focus();
     });
   }, []);
 
@@ -1742,11 +1908,15 @@ function App() {
     onCloseCommandPalette: () => setCommandPaletteOpen(false),
     visibleRows,
     selectTask: (taskId) => {
+      clearDiffNavigationMark();
       schedule.selectTask(taskId);
       revealTaskRow(taskId);
     },
     selectedTaskIds: schedule.selectedTaskIds,
-    navigateTaskSelection,
+    navigateTaskSelection: (rows, direction, extend, onAfter) => {
+      clearDiffNavigationMark();
+      navigateTaskSelection(rows, direction, extend, onAfter);
+    },
     moveTaskByDays,
     moveSelectedTasksByDays: schedule.moveSelectedTasksByDays,
     shiftTaskEndByDays,
@@ -2175,6 +2345,7 @@ function App() {
     >
       <Toolbar
         title={schedule.title}
+        titleDiffMarked={diffNavigationMark.title}
         filters={schedule.filters}
         searchField={schedule.searchField}
         onSearchFieldChange={schedule.setSearchField}
@@ -2256,6 +2427,8 @@ function App() {
           rowHeight={rowHeight}
           selectedTaskIds={selectedTaskIdSet}
           hoveredTaskId={hoveredTaskId}
+          diffMarkedSidebar={diffNavigationMark.sidebar}
+          diffMarkedMilestoneGroupId={diffNavigationMark.milestoneGroupId}
           onSelectTask={handleSelectTask}
           reorderingTaskId={
             schedule.reorderPreview?.kind === "task"
@@ -2281,6 +2454,7 @@ function App() {
           onPreviewGroupReorder={schedule.previewGroupReorder}
           onCommitGroupReorder={schedule.commitGroupReorder}
           onCancelReorder={schedule.cancelReorder}
+          onReorderDragActiveChange={setSidebarReorderDragging}
           milestoneBandHeight={milestoneBandHeight}
           milestoneBandLayout={milestoneBandLayout}
           milestones={schedule.milestones}
@@ -2360,6 +2534,8 @@ function App() {
             onMoveMilestone={schedule.moveMilestoneByDays}
             onOpenMilestone={schedule.openMilestoneEdit}
             onMilestoneContextMenu={openMilestoneContextMenu}
+            diffMarkedMilestoneId={diffNavigationMark.chartMilestoneId}
+            diffMarkStrokeWidth={Math.max(2, Math.round(3 * uiScale))}
             today={schedule.today}
             memberCatalog={memberCatalogState.memberMap}
             calendar={appCalendarState.calendar}
@@ -2413,18 +2589,23 @@ function App() {
         {diffStrip.visible ? (
           <DiffStrip
             view={diffStrip}
+            entries={diffEntries}
             expanded={diffPanelExpanded || diffStrip.kind === "empty"}
+            activeIndex={diffActiveIndex}
+            rowStatus={diffRowStatus}
             onExpandFromPointer={expandDiffPanelFromPointer}
             onExpandFromKeyboard={expandDiffPanelFromKeyboard}
             onCollapse={collapseDiffPanel}
             onClose={closeDiffStrip}
             onCopy={() => void copyDiffStripText()}
             copyDisabled={scheduleFile.fileBusy}
-            textareaRef={diffTextareaRef}
+            listRef={diffListRef}
             onFocus={onDiffStripFocus}
             onBlur={onDiffStripBlur}
-            selectAllOnMount={diffSelectAllOnMount}
-            onSelectAllDone={() => setDiffSelectAllOnMount(false)}
+            onActiveIndexChange={onDiffActiveIndexChange}
+            focusListOnMount={diffFocusListOnMount}
+            onFocusListDone={() => setDiffFocusListOnMount(false)}
+            rowHeight={rowHeight}
           />
         ) : null}
         </div>

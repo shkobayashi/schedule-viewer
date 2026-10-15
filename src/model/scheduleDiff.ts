@@ -1,4 +1,9 @@
 import { daysBetween, parseDate } from "./dates";
+import {
+  buildScheduleDiffEntryDisplay,
+  type DiffNavTarget,
+  type ScheduleDiffEntry,
+} from "./scheduleDiffEntry";
 import { normalizeTaskNote } from "./taskNote";
 import { formatTaskTagsForDiff, taskTagsEqualForDiff } from "./taskTags";
 import type {
@@ -54,11 +59,23 @@ export function collectScheduleDiffBlocks(
   right: ScheduleDocument,
   left: ScheduleDocument,
 ): string[] {
+  return collectScheduleDiffEntries(right, left).map((entry) => entry.text);
+}
+
+/** 第一引数が右辺、第二引数が左辺（FILE-07 の → の向き） */
+export function collectScheduleDiffEntries(
+  right: ScheduleDocument,
+  left: ScheduleDocument,
+): ScheduleDiffEntry[] {
   return diffBlocks(right, left);
 }
 
-function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] {
-  const blocks: string[] = [];
+function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): ScheduleDiffEntry[] {
+  const blocks: ScheduleDiffEntry[] = [];
+  const push = (text: string, nav: DiffNavTarget) => {
+    const display = buildScheduleDiffEntryDisplay(text);
+    blocks.push({ text, nav, ...display });
+  };
   const screenTasks = indexTasks(screen);
   const fileTasks = indexTasks(file);
   const screenTaskNames = nameMap(screenTasks);
@@ -73,7 +90,7 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
   const fileGroups = indexGroups(file);
 
   if (screen.title !== file.title) {
-    blocks.push(`title: ${file.title} → ${screen.title}`);
+    push(`title: ${file.title} → ${screen.title}`, { kind: "title" });
   }
 
   const categoryOrder = orderBlock(
@@ -83,18 +100,22 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
     (id) => namedId(fileCategories.get(id)?.name, id),
     (id) => namedId(screenCategories.get(id)?.name, id),
   );
-  if (categoryOrder) blocks.push(categoryOrder);
+  if (categoryOrder) push(categoryOrder, { kind: "order" });
 
   for (const category of screen.categories) {
     const fileCategory = fileCategories.get(category.id);
     if (!fileCategory) {
-      blocks.push(`追加 カテゴリ ${namedId(category.name, category.id)}`);
+      push(`追加 カテゴリ ${namedId(category.name, category.id)}`, {
+        kind: "category",
+        categoryId: category.id,
+      });
     } else if (fileCategory.name !== category.name) {
-      blocks.push(
+      push(
         [
           `変更 カテゴリ ${namedId(category.name, category.id)}`,
           `  name: ${fileCategory.name} → ${category.name}`,
         ].join("\n"),
+        { kind: "category", categoryId: category.id },
       );
     }
     if (fileCategory) {
@@ -105,13 +126,16 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
         (id) => namedId(fileCategory.groups.find((group) => group.id === id)?.name, id),
         (id) => namedId(category.groups.find((group) => group.id === id)?.name, id),
       );
-      if (groupOrder) blocks.push(groupOrder);
+      if (groupOrder) push(groupOrder, { kind: "order" });
     }
 
     for (const group of category.groups) {
       const fileGroupPlace = fileGroups.get(group.id);
       if (!fileGroupPlace) {
-        blocks.push(`追加 グループ ${place(category.name, group.name)} (${group.id})`);
+        push(`追加 グループ ${place(category.name, group.name)} (${group.id})`, {
+          kind: "group",
+          groupId: group.id,
+        });
       } else {
         const fileGroup = fileGroupPlace.group;
         const parentChanged = fileGroupPlace.category.id !== category.id;
@@ -128,7 +152,7 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
           if (nameChanged) {
             lines.push(`  name: ${fileGroup.name} → ${group.name}`);
           }
-          blocks.push(lines.join("\n"));
+          push(lines.join("\n"), { kind: "group", groupId: group.id });
         }
         const taskOrder = taskOrderBlock(
           `並び タスク ${category.name} / ${group.name}`,
@@ -137,14 +161,15 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
           (id) => namedId(taskNameIn(fileGroup.tasks, id), id),
           (id) => namedId(taskNameIn(group.tasks, id), id),
         );
-        if (taskOrder) blocks.push(taskOrder);
+        if (taskOrder) push(taskOrder, { kind: "order" });
       }
 
       for (const task of group.tasks) {
         const filePlace = fileTasks.get(task.id);
         if (!filePlace) {
-          blocks.push(
+          push(
             addedTaskBlock(category.name, group.name, task, screenTaskNames, screenMilestoneNames),
+            { kind: "task", taskId: task.id },
           );
           continue;
         }
@@ -162,7 +187,7 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
           fileMilestoneNames,
           screenMilestoneNames,
         );
-        if (changed) blocks.push(changed);
+        if (changed) push(changed, { kind: "task", taskId: task.id });
       }
     }
   }
@@ -187,17 +212,21 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
     (id) => namedId(fileMilestoneGroups.get(id)?.name, id),
     (id) => namedId(screenMilestoneGroups.get(id)?.name, id),
   );
-  if (milestoneGroupOrder) blocks.push(milestoneGroupOrder);
+  if (milestoneGroupOrder) push(milestoneGroupOrder, { kind: "order" });
 
   for (const group of screen.milestoneGroups) {
     const fileGroup = fileMilestoneGroups.get(group.id);
     if (!fileGroup) {
-      blocks.push(`追加 マイルストングループ ${group.name} (${group.id})`);
+      push(`追加 マイルストングループ ${group.name} (${group.id})`, {
+        kind: "milestoneGroup",
+        milestoneGroupId: group.id,
+      });
       continue;
     }
     if (fileGroup.name !== group.name) {
-      blocks.push(
+      push(
         `変更 マイルストングループ ${group.name} (${group.id})\n  name: ${fileGroup.name} → ${group.name}`,
+        { kind: "milestoneGroup", milestoneGroupId: group.id },
       );
     }
   }
@@ -209,14 +238,15 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
     (id) => namedId(fileMilestones.get(id)?.name, id),
     (id) => namedId(screenMilestones.get(id)?.name, id),
   );
-  if (milestoneOrder) blocks.push(milestoneOrder);
+  if (milestoneOrder) push(milestoneOrder, { kind: "order" });
 
   for (const milestone of screen.milestones) {
     const fileMilestone = fileMilestones.get(milestone.id);
     if (!fileMilestone) {
-      blocks.push(
-        addedMilestoneBlock(milestone, screenMilestoneGroupNames),
-      );
+      push(addedMilestoneBlock(milestone, screenMilestoneGroupNames), {
+        kind: "milestone",
+        milestoneId: milestone.id,
+      });
       continue;
     }
     const changed = changedMilestoneBlock(
@@ -225,22 +255,28 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
       fileMilestoneGroupNames,
       screenMilestoneGroupNames,
     );
-    if (changed) blocks.push(changed);
+    if (changed) push(changed, { kind: "milestone", milestoneId: milestone.id });
   }
 
   for (const category of file.categories) {
     const screenCategory = screenCategories.get(category.id);
     if (!screenCategory) {
-      blocks.push(`削除 カテゴリ ${namedId(category.name, category.id)}`);
+      push(`削除 カテゴリ ${namedId(category.name, category.id)}`, {
+        kind: "deleteCategory",
+      });
     }
     for (const group of category.groups) {
       if (!screenGroups.has(group.id)) {
-        blocks.push(`削除 グループ ${place(category.name, group.name)} (${group.id})`);
+        push(`削除 グループ ${place(category.name, group.name)} (${group.id})`, {
+          kind: "deleteGroup",
+          categoryId: category.id,
+        });
       }
       for (const task of group.tasks) {
         if (!screenTasks.has(task.id)) {
-          blocks.push(
+          push(
             deletedTaskBlock(category.name, group.name, task, fileTaskNames, fileMilestoneNames),
+            { kind: "deleteTask", groupId: group.id },
           );
         }
       }
@@ -249,15 +285,20 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] 
 
   for (const group of file.milestoneGroups) {
     if (!screenMilestoneGroups.has(group.id)) {
-      blocks.push(`削除 マイルストングループ ${group.name} (${group.id})`);
+      push(`削除 マイルストングループ ${group.name} (${group.id})`, {
+        kind: "deleteMilestoneGroup",
+      });
     }
   }
 
   for (const milestone of file.milestones) {
     if (!screenMilestones.has(milestone.id)) {
-      blocks.push(
-        deletedMilestoneBlock(milestone, fileMilestoneGroupNames),
-      );
+      push(deletedMilestoneBlock(milestone, fileMilestoneGroupNames), {
+        kind: "deleteMilestone",
+        milestoneId: milestone.id,
+        date: milestone.date,
+        groupId: milestone.groupId,
+      });
     }
   }
 

@@ -260,8 +260,10 @@ async function captureDesktopChromeShots(page) {
   await page.waitForTimeout(400);
   await page.locator(".diff-strip-handle").click();
   await page.waitForFunction(() => {
-    const area = document.querySelector(".diff-strip-textarea");
-    return area instanceof HTMLTextAreaElement && area.value.includes("→");
+    const list = document.querySelector(".diff-strip-list");
+    const body = document.querySelector(".diff-strip-row-body");
+    const text = `${list?.textContent ?? ""}${body?.textContent ?? ""}`;
+    return text.includes("→");
   });
   await page.getByRole("heading", { name: "差分", level: 2 }).waitFor();
   await page.waitForTimeout(300);

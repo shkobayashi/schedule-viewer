@@ -123,13 +123,17 @@ export function useAppKeyboard({
     const macAppQuit =
       isTauri() && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
     const onKeyDown = (event: KeyboardEvent) => {
+      const targetElement =
+        event.target instanceof HTMLElement ? event.target : null;
       const target: AppKeyTarget =
-        event.target instanceof HTMLElement
+        targetElement != null
           ? {
-              tagName: event.target.tagName,
-              isContentEditable: event.target.isContentEditable,
+              tagName: targetElement.tagName,
+              isContentEditable: targetElement.isContentEditable,
             }
           : null;
+      const diffStripListFocused =
+        targetElement?.closest(".diff-strip-list") != null;
       const owner =
         selectedTaskId != null
           ? findTaskOwner(categories, selectedTaskId)
@@ -168,6 +172,7 @@ export function useAppKeyboard({
         canReorderInGroup,
         taskIndexInGroup: taskIndex,
         groupTaskCount: groupCount,
+        diffStripListFocused,
       });
       if (decision.preventDefault) event.preventDefault();
       if (decision.closeMenu) closeFloatingMenus();

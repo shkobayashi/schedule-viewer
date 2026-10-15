@@ -552,6 +552,12 @@
 | `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
 | `screen_tool_requires_exactly_two_args`（`screen_cli.rs`） | `--screen` はツール名とセットで 2 引数だけ | MCP-02 |
 | `screen_tool_rejects_unknown_name`（`screen_cli.rs`） | 未知のツール名は待ち受けへ繋がない | MCP-02 |
+| `screen_tool_accepts_replace_schedule`（`screen_cli.rs`） | `--screen replace_schedule` を受け付ける | MCP-02 |
+| `replace_schedule_stdin_rejects_over_max_bytes`（`screen_cli.rs`） | 標準入力が 10MB を1バイト超えると拒否する | MCP-02 |
+| `replace_schedule_stdin_rejects_empty`（`screen_cli.rs`） | 空の標準入力は拒否する | MCP-02 |
+| `replace_schedule_stdin_rejects_invalid_json`（`screen_cli.rs`） | 壊れた JSON は拒否する | MCP-02 |
+| `replace_schedule_stdin_accepts_json_object`（`screen_cli.rs`） | オブジェクト JSON を受け付ける | MCP-02 |
+| `replace_schedule_stdin_strips_bom_before_parse`（`screen_cli.rs`） | UTF-8 BOM を外してから解釈する | MCP-02 |
 | `extract_tool_output_splits_success_and_error`（`screen_cli.rs`） | ツール結果の `isError` で標準出力と標準エラーを分ける | MCP-02 |
 | `render_replaces_executable_placeholder`（`read_screen_skill.rs`） | テンプレートの実行ファイル置き換え | MCP-02 |
 | `render_uses_localappdata_command_when_path_is_under_it`（`read_screen_skill.rs`） | Local AppData 配下は `"$LOCALAPPDATA/"` と `--screen` の1行にし、`AppData` を残さない | MCP-02 |
@@ -562,7 +568,7 @@
 | `install_without_replace_leaves_existing`（`read_screen_skill.rs`） | 置き換えを確認するまでは既存を残し、何も書かない | MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_three_read_tools` | `tools/list` が `schedule_diff` / `baseline_diffs` / `selected_task` / `selected_tasks` / `filtered_tasks` のみで、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
+| `tools_list_exposes_screen_tools` | `tools/list` が読み取り 5 ツールと `replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
 | `mcp_socket_lives_in_app_data` | Unix のソケットはアプリデータ直下 | MCP-01 |
 | `mcp_pipe_name_includes_identifier_and_sid` | Windows のパイプ名に identifier と SID が入る | MCP-01 |
 | `pipe_roundtrips_length_prefixed_frame` | Windows の名前付きパイプで長さ付き JSON が往復する | MCP-01 |
@@ -643,11 +649,15 @@
 | TC-FILE-07n | FILE-07 | サンプルで「比べるファイルがありません」を列に出す | ファイルを開く | 列がしまう |
 | TC-FILE-07o | FILE-07 | 絞り込みでタスクを隠し、見えているタスクだけ日付をずらす | 列を開き本文を見る | 絞り込みで隠れている変更も本文に残る |
 | TC-FILE-07p | FILE-07 | 差分の取っ手が出ている | 取っ手で列を開く。「畳む」で取っ手に戻す。⌘/Ctrl+Shift+D を押す | 畳んでも一覧とチャートを操作できる。コピーキーで全文が写り、列は開かない |
-| TC-FILE-07q | FILE-07 | パスのあるファイルを開き、差分の本文が列の高さを超える | 列を開き、本文をスクロールする | 見出しの下の本文だけが縦にスクロールする |
+| TC-FILE-07q | FILE-07 | パスのあるファイルを開き、差分の一覧が列の高さを超える | 列を開き、一覧をスクロールする | 見出しの下の一覧だけが縦にスクロールする |
 | TC-FILE-07r | FILE-07 | タスクを選び詳細パネルが開いている。差分の取っ手が出ている | 取っ手で差分列を開く | チャートの幅は、詳細パネルと差分列を除いた残りになる |
-| TC-FILE-07s | FILE-07 | 差分列に差の本文が出ている | 本文をクリックしてフォーカスする。↑↓を押す。チャートをクリックしてフォーカスを戻す。↑↓を押す | 本文にフォーカスがあるあいだは↑↓でタスク選択が動かない。チャートに戻すと↑↓で選択が動く |
+| TC-FILE-07s | FILE-07 | 差分列に差の一覧が出ている | 一覧をクリックしてフォーカスする。↑↓を押す。行を押して寄せる。チャートをクリックしてフォーカスを戻す。↑↓を押す | 一覧にフォーカスがあるあいだは↑↓でタスク選択が動かない。↑↓で差分の行が移り、開いた行の本文が替わる。行を押したときだけチャートが寄る。チャートに戻すと↑↓で選択が動く |
+| TC-FILE-07v | FILE-07 | パスのあるファイルを開き、差分の一覧が出ている。タスクを変更した。別のタスクを2件以上選択している | 変更の行を押す | 一覧の行が開き、対象へ寄る。選択件数と一括パネルは変わらない |
+| TC-FILE-07w | FILE-07 | パスのあるファイルを開き、タスクを削除して差分の一覧を出す | 削除の行を押す | 画面に残っている親のグループ行へ寄り、親の行に薄い帯が付く。消えたタスクのバーは出ない |
+| TC-FILE-07x | FILE-07 | 差分の一覧が出ている。変更対象が折りたたみまたは絞り込みで見えない | その行を押す | チャートは動かず、行に「折りたたみで隠れています」または「絞り込みで出ていません」が出る |
+| TC-FILE-07y | FILE-07 | 差分の一覧が出ている。マイルストンまたはマイルストングループの変更で、帯の線がオフ | その行を押す | チャートは動かず、行に「帯の線がオフ」が出る |
 | TC-FILE-07t | FILE-07 | 差分列が開いている | 列の「コピー」を押す | 隅の知らせは差分列の左に出る。列の上に重ならない |
-| TC-FILE-07u | FILE-07 | 差分の取っ手が出ている | 取っ手にフォーカスし Enter で列を開く。畳む。取っ手をクリックで開く | Enter で開いたあとは本文にフォーカスする。クリックで開いたあとはチャートにフォーカスが戻る |
+| TC-FILE-07u | FILE-07 | 差分の取っ手が出ている | 取っ手にフォーカスし Enter で列を開く。畳む。取っ手をクリックで開く | Enter で開いたあとは一覧にフォーカスする。クリックで開いたあとはチャートにフォーカスが戻る |
 | TC-FILE-07d | FILE-07 | パスのあるファイルを開いている | タスクを追加する | 場所と全フィールドが出て、兄弟の並びは出ない |
 | TC-FILE-07j | FILE-07 | パスのあるファイルを開いている | 新しいタスクを、既存のタスクのあいだに追加する | 追加のブロックと、並びの行が出る。右辺に新しいタスクが含まれる |
 | TC-FILE-07e | FILE-07 | 先行を持つタスクがある | その先行タスクを削除する | 削除したタスクと、先行から外れた残りのタスクの変更が出る。空のグループは削除にならない |
@@ -897,7 +907,9 @@
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
 | TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |
 | TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
-| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks` をそれぞれ 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。終了コード 0。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
+| TC-MCP-01f | MCP-01 | デスクトップ版、ファイルを開き、絞り込み・折りたたみ・選択・系統を変えた状態 | `write-schedule` で検証済みの JSON 全体を作り、`replace_schedule` を 1 回呼ぶ。同じ保存形式の JSON をもう一度呼ぶ。詳細パネルにフォーカスがある状態でも呼ぶ。起動復旧の衝突・ファイル無し・不正控えのダイアログが出ている状態でも呼ぶ | 1 回目は未保存になり、隅に「画面を置き換えました」が約 4 秒出る。ファイルの内容は変わらない。絞り込み・折りたたみ・ズーム・スクロール・系統は変わらない。選択は新文書に残るタスクだけ残る。⌘/Ctrl+Z で置き換え前に戻る。2 回目は未保存も履歴も変わらないが差分テキストは成功で返る。詳細のフォーカス中は「画面の操作が途中なので、置き換えられません。」起動復旧のダイアログ中は「起動の復旧が終わっていないので、置き換えられません。」確認ダイアログは出ない |
+| TC-MCP-01g | MCP-01 | デスクトップ版。パス無しのサンプル、外部更新の帯、同じファイルの2ウィンドウ、開く・保存の途中、並べ替えの握りドラッグ中、10MB超・壊れたJSON・検証失敗の入力、差分が応答上限を超える置き換え | 各条件で `replace_schedule` を呼ぶか `--screen replace_schedule` で標準入力を渡す | パス無しの成功は「比べるファイルがありません」で失敗にしない。JSON として読めない・検証失敗・10MB 超はそれぞれの文で拒否し画面も履歴も変えない。差分が大きすぎても置き換えは残り「差分が大きすぎるため、差分テキストは返せません。」は失敗にしない。「ファイルに更新あり — 確認する」は消えない。背面ウィンドウの文書は変わらない。ダイアログ・ファイル操作中・並べ替えドラッグ中は「画面の操作が途中なので、置き換えられません。」 |
+| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 
 TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 4 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。

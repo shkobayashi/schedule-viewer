@@ -45,6 +45,7 @@ import {
   classifyHandleDrag,
   resolveTaskDropTarget,
 } from "../model/taskOrder";
+import type { DiffSidebarMark } from "../model/diffNavigation";
 import type { Category, Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
 type SidebarProps = {
   categories: Category[];
@@ -55,6 +56,8 @@ type SidebarProps = {
   rowHeight: number;
   selectedTaskIds: ReadonlySet<ScheduleId>;
   hoveredTaskId: ScheduleId | null;
+  diffMarkedSidebar: DiffSidebarMark | null;
+  diffMarkedMilestoneGroupId: ScheduleId | null;
   onSelectTask: (
     taskId: ScheduleId,
     mod: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean },
@@ -87,6 +90,7 @@ type SidebarProps = {
     insertIndex: number,
   ) => void;
   onCancelReorder: () => void;
+  onReorderDragActiveChange?: (active: boolean) => void;
   milestoneBandHeight: number;
   milestoneBandLayout: import("../model/milestones").MilestoneBandLayout;
   milestones: Milestone[];
@@ -129,6 +133,8 @@ export function Sidebar({
   rowHeight,
   selectedTaskIds,
   hoveredTaskId,
+  diffMarkedSidebar,
+  diffMarkedMilestoneGroupId,
   onSelectTask,
   reorderingTaskId,
   reorderingCategoryId,
@@ -142,6 +148,7 @@ export function Sidebar({
   onPreviewGroupReorder,
   onCommitGroupReorder,
   onCancelReorder,
+  onReorderDragActiveChange,
   milestoneBandHeight,
   milestoneBandLayout,
   milestones,
@@ -454,8 +461,12 @@ export function Sidebar({
   ) => {
     const drag = rowDragRef.current;
     if (!drag || drag.pointerId !== pointerId) return;
+    const wasReorder = drag.mode === "reorder";
     drag.detach();
     rowDragRef.current = null;
+    if (wasReorder) {
+      onReorderDragActiveChange?.(false);
+    }
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
     setDragGhost(null);
@@ -511,6 +522,7 @@ export function Sidebar({
       if (gesture === "pending") return;
       drag.mode = gesture;
       if (gesture !== "reorder") return;
+      onReorderDragActiveChange?.(true);
       document.body.style.cursor = "grabbing";
       const viewport = viewportRef.current;
       if (viewport != null) {
@@ -552,7 +564,7 @@ export function Sidebar({
           {milestoneBandLayout.blocks.map((block) => (
             <div
               key={block.group.id}
-              className="sidebar-milestones"
+              className={`sidebar-milestones${diffMarkedMilestoneGroupId === block.group.id ? " hovered" : ""}`}
               style={{ height: block.height }}
               onContextMenu={(event) => {
                 event.preventDefault();
@@ -594,6 +606,10 @@ export function Sidebar({
                   row={row}
                   top={row.y}
                   rowHeight={rowHeight}
+                  hovered={
+                    diffMarkedSidebar?.type === "category" &&
+                    diffMarkedSidebar.id === row.id
+                  }
                   reordering={
                     row.id === reorderingCategoryId || isRowHiddenByDragGhost(row)
                   }
@@ -614,6 +630,10 @@ export function Sidebar({
                   row={row}
                   top={row.y}
                   rowHeight={rowHeight}
+                  hovered={
+                    diffMarkedSidebar?.type === "group" &&
+                    diffMarkedSidebar.id === row.id
+                  }
                   reordering={
                     row.id === reorderingGroupId || isRowHiddenByDragGhost(row)
                   }
@@ -632,7 +652,11 @@ export function Sidebar({
                 top={row.y}
                 rowHeight={rowHeight}
                 selected={selectedTaskIds.has(row.task.id)}
-                hovered={row.task.id === hoveredTaskId}
+                hovered={
+                  row.task.id === hoveredTaskId ||
+                  (diffMarkedSidebar?.type === "task" &&
+                    diffMarkedSidebar.id === row.task.id)
+                }
                 reordering={
                   row.task.id === reorderingTaskId || isRowHiddenByDragGhost(row)
                 }
@@ -681,6 +705,7 @@ export function Sidebar({
                     row={row}
                     top={top}
                     rowHeight={rowHeight}
+                    hovered={false}
                     reordering={
                     row.id === reorderingCategoryId || isRowHiddenByDragGhost(row)
                   }
@@ -697,6 +722,7 @@ export function Sidebar({
                     row={row}
                     top={top}
                     rowHeight={rowHeight}
+                    hovered={false}
                     reordering={
                     row.id === reorderingGroupId || isRowHiddenByDragGhost(row)
                   }
@@ -929,6 +955,7 @@ function CategorySidebarRow({
   row,
   top,
   rowHeight,
+  hovered,
   reordering,
   canReorder,
   onToggleCollapse,
@@ -939,6 +966,7 @@ function CategorySidebarRow({
   row: Extract<VisibleRow, { type: "category" }>;
   top: number;
   rowHeight: number;
+  hovered: boolean;
   reordering: boolean;
   canReorder: boolean;
   onToggleCollapse: (key: string) => void;
@@ -953,7 +981,7 @@ function CategorySidebarRow({
 }) {
   return (
     <div
-      className={`sidebar-row category${reordering ? " reordering" : ""}`}
+      className={`sidebar-row category${hovered ? " hovered" : ""}${reordering ? " reordering" : ""}`}
       style={{
         position: "absolute",
         left: 0,
@@ -991,6 +1019,7 @@ function HierarchySidebarRow({
   row,
   top,
   rowHeight,
+  hovered,
   reordering,
   canReorder,
   onToggleCollapse,
@@ -1001,6 +1030,7 @@ function HierarchySidebarRow({
   row: Extract<VisibleRow, { type: "group" }>;
   top: number;
   rowHeight: number;
+  hovered: boolean;
   reordering: boolean;
   canReorder: boolean;
   onToggleCollapse: (key: string) => void;
@@ -1015,7 +1045,7 @@ function HierarchySidebarRow({
 }) {
   return (
     <div
-      className={`sidebar-row group${reordering ? " reordering" : ""}`}
+      className={`sidebar-row group${hovered ? " hovered" : ""}${reordering ? " reordering" : ""}`}
       style={{
         position: "absolute",
         left: 0,
@@ -1233,6 +1263,7 @@ function SidebarDragGhost({
               row={row}
               top={top}
               rowHeight={rowHeight}
+              hovered={false}
               reordering={false}
               canReorder
               onToggleCollapse={() => {}}
@@ -1249,6 +1280,7 @@ function SidebarDragGhost({
               row={row}
               top={top}
               rowHeight={rowHeight}
+              hovered={false}
               reordering={false}
               canReorder
               onToggleCollapse={() => {}}

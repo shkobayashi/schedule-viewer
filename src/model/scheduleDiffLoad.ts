@@ -1,8 +1,10 @@
 import { errorMessage } from "./errors";
 import {
   NO_OPEN_SCHEDULE_FILE_MESSAGE,
+  collectScheduleDiffEntries,
   formatScheduleDiff,
 } from "./scheduleDiff";
+import type { ScheduleDiffEntry } from "./scheduleDiffEntry";
 import {
   isTauri,
   parseScheduleText,
@@ -11,7 +13,7 @@ import {
 } from "./scheduleFile";
 
 export type ScheduleDiffLoadResult =
-  | { ok: true; text: string }
+  | { ok: true; text: string; entries: ScheduleDiffEntry[] }
   | { ok: false; message: string; isError: boolean };
 
 export async function loadScheduleDiffText(
@@ -53,13 +55,12 @@ export async function loadScheduleDiffText(
         isError: true,
       };
     }
+    const screenDoc = screenParsed.document;
+    const fileDoc = fileParsed.document;
     return {
       ok: true,
-      text: formatScheduleDiff(
-        screenParsed.document,
-        fileParsed.document,
-        filename,
-      ),
+      text: formatScheduleDiff(screenDoc, fileDoc, filename),
+      entries: collectScheduleDiffEntries(screenDoc, fileDoc),
     };
   } catch (error: unknown) {
     return {
