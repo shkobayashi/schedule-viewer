@@ -952,7 +952,7 @@ export function SettingsDialog({
                 </div>
                 <h3 className="settings-changelog-heading">MCP を使えないときに渡す</h3>
                 <p className="settings-note">
-                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルのパスをスキルへ書き込みます。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 3 つは「JSON作成スキルを置く」にあります。
+                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、$LOCALAPPDATA から続く1行にします。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 3 つは「JSON作成スキルを置く」にあります。
                 </p>
                 <fieldset className="settings-field" disabled={busy}>
                   <legend>置く先</legend>
@@ -1024,7 +1024,7 @@ export function SettingsDialog({
                 ) : null}
                 {readScreenExecutablePath ? (
                   <p className="settings-note">
-                    スキルへ書き込んだ実行ファイル: {readScreenExecutablePath}
+                    検出した実行ファイル: {readScreenExecutablePath}
                   </p>
                 ) : null}
                 {mcpPanelMessage ? (

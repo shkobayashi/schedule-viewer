@@ -527,13 +527,15 @@
 | `screen_tool_rejects_unknown_name`（`screen_cli.rs`） | 未知のツール名は待ち受けへ繋がない | MCP-02 |
 | `extract_tool_output_splits_success_and_error`（`screen_cli.rs`） | ツール結果の `isError` で標準出力と標準エラーを分ける | MCP-02 |
 | `render_replaces_executable_placeholder`（`read_screen_skill.rs`） | テンプレートの実行ファイル置き換え | MCP-02 |
+| `render_uses_localappdata_command_when_path_is_under_it`（`read_screen_skill.rs`） | Local AppData 配下は `"$LOCALAPPDATA/"` と `--screen` の1行にし、`AppData` を残さない | MCP-02 |
+| `render_keeps_absolute_path_on_separate_lines_outside_localappdata`（`read_screen_skill.rs`） | Local AppData 配下でない絶対パスは、引用せず引数と別の行に書く | MCP-02 |
 | `render_fails_when_executable_path_is_empty`（`read_screen_skill.rs`） | 実行ファイルのパスが空なら置かない | MCP-02 |
 | `render_fails_when_placeholder_remains_after_replace`（`read_screen_skill.rs`） | 置換後にプレースホルダが残るなら置かない | MCP-02 |
 | `destinations_are_user_skill_dirs_only`（`read_screen_skill.rs`） | read-screen の置き先はユーザー全体だけ | MCP-02 |
 | `install_without_replace_leaves_existing`（`read_screen_skill.rs`） | 置き換えを確認するまでは既存を残し、何も書かない | MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_three_read_tools` | `tools/list` が `schedule_diff` / `selected_task` / `selected_tasks` / `filtered_tasks` のみで、`screen_context` が無い | MCP-01 |
+| `tools_list_exposes_three_read_tools` | `tools/list` が `schedule_diff` / `selected_task` / `selected_tasks` / `filtered_tasks` のみで、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
 | `mcp_socket_lives_in_app_data` | Unix のソケットはアプリデータ直下 | MCP-01 |
 | `mcp_pipe_name_includes_identifier_and_sid` | Windows のパイプ名に identifier と SID が入る | MCP-01 |
 | `pipe_roundtrips_length_prefixed_frame` | Windows の名前付きパイプで長さ付き JSON が往復する | MCP-01 |
@@ -851,7 +853,7 @@
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
 | TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |
 | TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
-| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen schedule_diff`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks` をそれぞれ 1 回起動する | MCP-01 と同じ内容が標準出力に出る。終了コード 0 |
+| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen schedule_diff`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks` をそれぞれ 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。終了コード 0。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 
 TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 4 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。

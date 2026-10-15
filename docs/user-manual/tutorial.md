@@ -67,8 +67,8 @@ write-schedule スキルに従い、schedule-viewer 用のスケジュール JSO
 | ツール名 | 渡す内容 |
 | --- | --- |
 | `schedule_diff` | 今の画面と開いているファイルとの差分テキスト（「差分を表示」と同じ内容） |
-| `selected_task` | 選択がちょうど1件のときのタスク。選択が無いときと2件以上のときは null |
-| `selected_tasks` | 編集の選択をタスクの配列で返す。選択が無いときは空の配列 |
+| `selected_task` | 選択がちょうど1件のときのタスク。選択が無いときと2件以上のときは null。選択数が不明なときは `selected_tasks` を使う |
+| `selected_tasks` | 編集の選択をタスクの配列で返す。選択が1件でも配列である。選択が無いときは空の配列。選択数が不明なときはこのツールを使う |
 | `filtered_tasks` | オンになっている絞り込み条件と、それで残るタスク |
 
 ウィンドウが複数あるときは前面だけです。スケジュールのウィンドウが開いていないときは渡せません。ブラウザ版には「画面の状態を渡す」欄はありません。
@@ -76,7 +76,7 @@ write-schedule スキルに従い、schedule-viewer 用のスケジュール JSO
 画面で直したあと、次のような文で JSON の一部だけを更新させます。ファイルパスは開いているスケジュール JSON に合わせます。
 
 ```text
-schedule-viewer の MCP で schedule_diff と selected_task を読んでください。
+schedule-viewer の MCP で schedule_diff と selected_tasks を読んでください。
 
 画面で動かしたタスクと、その変更に当たる後続タスクだけを、開いているスケジュール JSON を write-schedule スキルで更新してください。ほかのタスクの id と日付は維持し、既存の id は変えません。検証スクリプトを通してから保存してください。
 ```
