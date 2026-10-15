@@ -21,6 +21,7 @@ function snapshot(name: string, note?: string): DocumentSnapshot {
     milestoneId: null,
   };
   return {
+    title: "計画",
     categories: [
       {
         id: "c1000001-0000-4000-8000-000000000001",

@@ -1,5 +1,6 @@
 import {
   type ReactNode,
+  type RefObject,
   useEffect,
   useId,
   useLayoutEffect,
@@ -18,6 +19,8 @@ type ModalDialogProps = {
   className?: string;
   /** 最初のフォーカスをパネル本体に置く（一覧の先頭ボタンへ飛ばさない） */
   initialFocusOnPanel?: boolean;
+  /** 最初のフォーカスをこの要素に置く */
+  initialFocusRef?: RefObject<HTMLElement | null>;
 };
 
 export function ModalDialog({
@@ -26,6 +29,7 @@ export function ModalDialog({
   children,
   className = "modal",
   initialFocusOnPanel = false,
+  initialFocusRef,
 }: ModalDialogProps) {
   const titleId = useId();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -41,15 +45,17 @@ export function ModalDialog({
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement | null;
-    const focusTarget = initialFocusOnPanel
-      ? panelRef.current
-      : (panelRef.current?.querySelector<HTMLElement>(FOCUSABLE) ??
-        panelRef.current);
+    const focusTarget =
+      initialFocusRef?.current ??
+      (initialFocusOnPanel
+        ? panelRef.current
+        : (panelRef.current?.querySelector<HTMLElement>(FOCUSABLE) ??
+          panelRef.current));
     focusTarget?.focus();
     return () => {
       previousFocusRef.current?.focus();
     };
-  }, [initialFocusOnPanel]);
+  }, [initialFocusOnPanel, initialFocusRef]);
 
   const trapTab = (event: React.KeyboardEvent) => {
     if (event.key !== "Tab" || !panelRef.current) return;

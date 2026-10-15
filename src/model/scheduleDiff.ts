@@ -12,6 +12,8 @@ import type {
 
 export const NO_OPEN_SCHEDULE_FILE_MESSAGE = "比べるファイルがありません";
 
+export const SCHEDULE_DIFF_NO_CHANGES = "差はありません";
+
 const HEADER = "差分（今の画面 − 開いているファイル）";
 
 type TaskPlace = {
@@ -28,11 +30,31 @@ export function formatScheduleDiff(
   filename: string,
 ): string {
   const header = `${HEADER}\nファイル: ${filename}`;
-  const blocks = diffBlocks(screen, file);
-  if (blocks.length === 0) {
-    return `${header}\n差はありません`;
+  const body = formatScheduleDocumentDiffBody(screen, file);
+  if (body === SCHEDULE_DIFF_NO_CHANGES) {
+    return `${header}\n${SCHEDULE_DIFF_NO_CHANGES}`;
   }
-  return `${header}\n\n${blocks.join("\n\n")}`;
+  return `${header}\n\n${body}`;
+}
+
+/** 第一引数が右辺、第二引数が左辺（FILE-07 の → の向き） */
+export function formatScheduleDocumentDiffBody(
+  right: ScheduleDocument,
+  left: ScheduleDocument,
+): string {
+  const blocks = collectScheduleDiffBlocks(right, left);
+  if (blocks.length === 0) {
+    return SCHEDULE_DIFF_NO_CHANGES;
+  }
+  return blocks.join("\n\n");
+}
+
+/** 第一引数が右辺、第二引数が左辺（FILE-07 の → の向き） */
+export function collectScheduleDiffBlocks(
+  right: ScheduleDocument,
+  left: ScheduleDocument,
+): string[] {
+  return diffBlocks(right, left);
 }
 
 function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): string[] {

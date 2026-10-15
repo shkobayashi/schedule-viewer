@@ -5,6 +5,7 @@ import type { Category, Milestone, MilestoneGroup } from "./types";
 export const HISTORY_MAX = 100;
 
 export type DocumentSnapshot = {
+  title: string;
   categories: Category[];
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
@@ -12,6 +13,7 @@ export type DocumentSnapshot = {
 
 export function cloneSnapshot(snapshot: DocumentSnapshot): DocumentSnapshot {
   return {
+    title: snapshot.title,
     categories: cloneCategories(snapshot.categories),
     milestoneGroups: snapshot.milestoneGroups.map((group) => ({ ...group })),
     milestones: snapshot.milestones.map((milestone) => ({ ...milestone })),
@@ -21,7 +23,7 @@ export function cloneSnapshot(snapshot: DocumentSnapshot): DocumentSnapshot {
 function snapshotKey(snapshot: DocumentSnapshot): string {
   return JSON.stringify(
     scheduleToJson(
-      "",
+      snapshot.title,
       snapshot.categories,
       snapshot.milestoneGroups,
       snapshot.milestones,

@@ -15,7 +15,7 @@ fn main() {
     }
     if schedule_viewer_lib::screen_cli::is_screen_flag(&args) {
         eprintln!(
-            "使えるのは --screen schedule_diff、--screen selected_task、--screen selected_tasks、--screen filtered_tasks だけです。"
+            "使えるのは --screen schedule_diff、--screen baseline_diffs、--screen selected_task、--screen selected_tasks、--screen filtered_tasks だけです。"
         );
         std::process::exit(1);
     }

@@ -131,11 +131,13 @@ import {
 } from "../model/taskSelection";
 
 function initialSnapshot(
+  title: string,
   categories: Category[],
   milestoneGroups: MilestoneGroup[],
   milestones: Milestone[],
 ): DocumentSnapshot {
   return {
+    title,
     categories: cloneCategories(categories),
     milestoneGroups: milestoneGroups.map((group) => ({ ...group })),
     milestones: milestones.map((milestone) => ({ ...milestone })),
@@ -191,9 +193,12 @@ export function useSchedule(
   memberCatalog: Member[] | null,
   memberCatalogSettled: boolean,
   blockDocumentEditsRef?: { current: boolean },
+  onHistoryUndoApplied?: (landed: DocumentSnapshot) => void,
+  onHistoryRedoApplied?: (landed: DocumentSnapshot) => void,
 ) {
   const documentRef = useRef<DocumentSnapshot>(
     initialSnapshot(
+      initialTitle,
       initialCategories,
       initialMilestoneGroups,
       initialMilestones,
@@ -313,6 +318,7 @@ export function useSchedule(
     (snapshot: DocumentSnapshot) => {
       const cloned = cloneSnapshot(snapshot);
       documentRef.current = cloned;
+      setTitle(cloned.title);
       setCategories(cloned.categories);
       setMilestoneGroups(cloned.milestoneGroups);
       setMilestones(cloned.milestones);
@@ -1362,10 +1368,54 @@ export function useSchedule(
     [commitCategories],
   );
 
+  const applyMergedDocument = useCallback(
+    (
+      document: ScheduleDocument,
+    ): { before: DocumentSnapshot; after: DocumentSnapshot } | null => {
+      if (blockDocumentEditsRef?.current) return null;
+      const before = documentRef.current;
+      const next = initialSnapshot(
+        document.title,
+        document.categories,
+        document.milestoneGroups,
+        document.milestones,
+      );
+      const pushed = pushDocumentHistory(historyRef.current, before, next);
+      if (!pushed) return null;
+      historyRef.current = pushed.history;
+      syncHistoryUi();
+      if (!pushed.applied) return null;
+      documentRef.current = pushed.applied;
+      setTitle(pushed.applied.title);
+      setCategories(pushed.applied.categories);
+      setMilestoneGroups(pushed.applied.milestoneGroups);
+      setMilestones(pushed.applied.milestones);
+      setTaskSelection((current) =>
+        pruneTaskSelection(pushed.applied!.categories, current),
+      );
+      setDuplicatingTaskId(null);
+      setEditingNoteTaskId(null);
+      setEditingMilestoneId(null);
+      setEditingHierarchy(null);
+      setAddingHierarchy(null);
+      setDeletingHierarchy(null);
+      setReorderPreview(null);
+      pruneUiForDocument(pushed.applied);
+      return { before, after: pushed.applied };
+    },
+    [
+      blockDocumentEditsRef,
+      pruneUiForDocument,
+      setReorderPreview,
+      syncHistoryUi,
+    ],
+  );
+
   const replaceDocument = useCallback(
     (document: ScheduleDocument) => {
       historyRef.current = createDocumentHistory();
       const snapshot = initialSnapshot(
+        document.title,
         document.categories,
         document.milestoneGroups,
         document.milestones,
@@ -1396,6 +1446,7 @@ export function useSchedule(
     (document: ScheduleDocument) => {
       historyRef.current = createDocumentHistory();
       const snapshot = initialSnapshot(
+        document.title,
         document.categories,
         document.milestoneGroups,
         document.milestones,
@@ -1425,7 +1476,13 @@ export function useSchedule(
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
     syncHistoryUi();
-  }, [applySnapshot, blockDocumentEditsRef, syncHistoryUi]);
+    onHistoryUndoApplied?.(result.snapshot);
+  }, [
+    applySnapshot,
+    blockDocumentEditsRef,
+    onHistoryUndoApplied,
+    syncHistoryUi,
+  ]);
 
   const redo = useCallback(() => {
     if (blockDocumentEditsRef?.current) return;
@@ -1434,7 +1491,13 @@ export function useSchedule(
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
     syncHistoryUi();
-  }, [applySnapshot, blockDocumentEditsRef, syncHistoryUi]);
+    onHistoryRedoApplied?.(result.snapshot);
+  }, [
+    applySnapshot,
+    blockDocumentEditsRef,
+    onHistoryRedoApplied,
+    syncHistoryUi,
+  ]);
 
   const duplicatingTask = useMemo(
     () => findTaskById(categories, duplicatingTaskId),
@@ -1624,6 +1687,7 @@ export function useSchedule(
     addMilestone,
     deleteMilestone,
     replaceDocument,
+    applyMergedDocument,
     reloadDocumentFromDisk,
     diskEpoch,
     undo,

@@ -2,17 +2,20 @@ import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Member, MemberId } from "../model/memberTypes";
+import { loadBaselineDiffsText } from "../model/baselineDiffsLoad";
 import { loadScheduleDiffText } from "../model/scheduleDiffLoad";
 import {
   buildFilteredTasksPayload,
   buildScheduleDiffPayload,
   buildSelectedTaskPayload,
   buildSelectedTasksPayload,
+  MCP_TOOL_BASELINE_DIFFS,
   MCP_TOOL_FILTERED_TASKS,
   MCP_TOOL_SCHEDULE_DIFF,
   MCP_TOOL_SELECTED_TASK,
   MCP_TOOL_SELECTED_TASKS,
   mcpPayloadToToolBody,
+  mcpPlainTextToolBody,
   mcpToolErrorBody,
 } from "../model/screenContext";
 import { isTauri } from "../model/scheduleFile";
@@ -45,6 +48,7 @@ type UseMcpScreenBridgeInput = {
   memberMap: Map<MemberId, Member> | null;
   scheduleFilePath: string | null;
   scheduleCurrentJson: string;
+  scheduleBaselineJson: string;
 };
 
 export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
@@ -81,6 +85,29 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             scheduleDiffIsError,
           });
           break;
+        }
+        case MCP_TOOL_BASELINE_DIFFS: {
+          const baselineJson = snap.scheduleBaselineJson;
+          const screenJson = snap.scheduleCurrentJson;
+          const result = await loadBaselineDiffsText(
+            snap.scheduleFilePath,
+            baselineJson,
+            screenJson,
+          );
+          const body = mcpPlainTextToolBody(
+            result.ok ? result.text : result.message,
+            !result.ok && result.isError,
+          );
+          if ("tooLarge" in body) {
+            await reply(
+              payload.id,
+              payload.generation,
+              mcpToolErrorBody("応答が大きすぎるため、渡せません。"),
+            );
+            return;
+          }
+          await reply(payload.id, payload.generation, body);
+          return;
         }
         case MCP_TOOL_SELECTED_TASK: {
           toolPayload = buildSelectedTaskPayload({
