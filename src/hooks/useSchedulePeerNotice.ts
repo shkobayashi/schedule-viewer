@@ -45,16 +45,22 @@ export function useSchedulePeerNotice({
 
   useEffect(() => {
     if (!isTauri()) return;
-    const onFocus = () => {
-      void registerWindowFocusViaTauri()
-        .then(() => {
-          onWindowFocusedRef.current?.();
-        })
-        .catch(() => undefined);
+    let unlisten: (() => void) | undefined;
+    void getCurrentWindow()
+      .onFocusChanged(({ payload: focused }) => {
+        if (!focused) return;
+        void registerWindowFocusViaTauri()
+          .then(() => {
+            onWindowFocusedRef.current?.();
+          })
+          .catch(() => undefined);
+      })
+      .then((fn) => {
+        unlisten = fn;
+      });
+    return () => {
+      unlisten?.();
     };
-    window.addEventListener("focus", onFocus);
-    onFocus();
-    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   useEffect(() => {

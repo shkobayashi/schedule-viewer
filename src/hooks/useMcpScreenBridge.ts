@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Member, MemberId } from "../model/memberTypes";
 import { loadBaselineDiffsText } from "../model/baselineDiffsLoad";
 import { loadScheduleDiffText } from "../model/scheduleDiffLoad";
@@ -246,9 +247,13 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
     }
 
     let unlisten: (() => void) | undefined;
-    void listen<McpScreenRequest>("mcp-screen-request", (event) => {
-      void handleRequest(event.payload);
-    }).then((off) => {
+    void listen<McpScreenRequest>(
+      "mcp-screen-request",
+      (event) => {
+        void handleRequest(event.payload);
+      },
+      { target: getCurrentWindow().label },
+    ).then((off) => {
       unlisten = off;
     });
     return () => {
