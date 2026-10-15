@@ -50,7 +50,8 @@ flowchart TD
 | `TaskDetailPanel.tsx` | 選択が1件のときの右パネル。`applyTaskPatch` で項目ごとに履歴。フォーカス中は外部反映を止める。保存は呼び出し時点の文書を土台に、利用者が変えた項目だけ上書きする。開始日と終了日は日付欄を変えたときだけ含める |
 | `BulkTaskDetailPanel.tsx` | 選択が2件以上のときの右パネル。共通値の表示と下書き。「件数に適用」で `applyBulkTaskDraft` を一度だけ呼ぶ。下書きがあるあいだは外部反映を止める |
 | `MilestoneField.tsx` | 詳細パネルとタスク複製ダイアログの「対応マイルストン」。`milestoneField.ts` で候補と強調行を組み立てる |
-| `StatusBar.tsx` | 画面下端。未保存のクリックで差分ダイアログ |
+| `DiffStrip.tsx` | 状態バー直上の差分帯。スクロールする本文とコピー。空の結果だけ閉じる |
+| `StatusBar.tsx` | 画面下端。未保存のクリックで差分帯 |
 | `Toolbar.tsx` | 見出し、検索、絞り込みパネル、系統、線を引く、追加、マイルストン追加、削除、取り消し、やり直し、今日と日・週・月・全体、操作の案内、ショートカット一覧 |
 | `ActiveFilterBar.tsx` | 効いている絞り込みと系統の札 |
 | `FilterPanel.tsx` | 絞り込みの選択欄。タグとマイルストンは候補を絞る入力欄 |
@@ -94,7 +95,7 @@ flowchart TD
 | 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
 | 対応マイルストン欄と絞り込みのマイルストン欄 | `milestoneField.ts` の `buildMilestoneFieldList`、`buildMilestoneFilterList`、`initialMilestoneFieldActiveIndex`、`initialMilestoneFilterActiveIndex` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
-| 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffLoad.ts` |
+| 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffLoad.ts`、`diffStripVisibility.ts` |
 | 起点・画面・ファイルの差分と分類 | `baselineDiffs.ts`、`baselineDiffsLoad.ts` |
 | 外部更新時の非衝突合成と判定 | `baselineMerge.ts`（`assessBaselineMerge`、`buildNonConflictingMergedDocument` は `baselineDiffs.ts`） |
 | 外部更新確認の一覧表示 | `baselineMergeReview.ts`（`buildBaselineMergeReview`） |
@@ -168,7 +169,7 @@ flowchart TD
 
 ### 差分
 
-「差分を表示」は、画面の保存形式と、`read_open_schedule_file` で読んだ開いているファイルを `formatScheduleDiff` に渡す。カテゴリ、グループ、タスク、マイルストンは id で対応づける。グループは、別のカテゴリへ移っていても同じ id なら変更である。パスが無い、またはブラウザ版のときはファイルを読まず、「比べるファイルがありません」と出す。検証に失敗したときは差分ダイアログを出さない。読んだ内容は保存しない。`content_hash` は変えない。
+「差分を表示」は、画面の保存形式と、`read_open_schedule_file` で読んだ開いているファイルを `formatScheduleDiff` に渡す。カテゴリ、グループ、タスク、マイルストンは id で対応づける。グループは、別のカテゴリへ移っていても同じ id なら変更である。結果は状態バー直上の差分帯に出す。パスが無い、またはブラウザ版のときはファイルを読まず、「比べるファイルがありません」と帯に出す。検証に失敗したときは帯に書かず、☰、「未保存」、コピーキーでは読み込みエラーを出す。自動の読み直しで失敗したときはエラーダイアログを出さない。読んだ内容は保存しない。`content_hash` は変えない。
 
 ### 前回のファイルと控え
 

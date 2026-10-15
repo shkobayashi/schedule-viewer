@@ -225,6 +225,11 @@
 | `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |
 | 同上 | `keeps spaces and quotes inside the JSON command string` | MCP-01 |
 | 同上 | `keeps a macOS path with spaces as the command string` | MCP-01 |
+| `diffStripVisibility.test.ts` | `treats no open file message as empty` | FILE-07 |
+| 同上 | `shows close for empty results` | FILE-07 |
+| 同上 | `shows body only`（`resolveStripAfterAutoLoad`） | FILE-07 |
+| 同上 | `keeps strip when explicit empty is pinned` | FILE-07 |
+| 同上 | `defers only body to body while focused` | FILE-07 |
 | `scheduleDiff.test.ts` | `says there is no difference when the documents match` | FILE-07 |
 | 同上 | `shows tag changes and distinguishes comma inside a tag from separate tags` | FILE-07 |
 | 同上 | `shows calendar-day shifts for start and end` | FILE-07 |
@@ -631,18 +636,21 @@
 | TC-FILE-05b | FILE-05 | パスがあるファイルを未保存のままにする | ウィンドウを閉じる | 確認なしで閉じ、次回その未保存を戻せる |
 | TC-FILE-05c | FILE-05 | サンプルが未保存のウィンドウと、別の保存済みウィンドウ | 終了を選び、サンプルの確認をキャンセルする | どちらのウィンドウも閉じない |
 | TC-FILE-06 | FILE-06 | タスク名を変えた直後 | 「JSON を表示」を開く | 保存と同じ形で、変えた名前が見える。ファイルは増えない |
-| TC-FILE-07 | FILE-07 | パスのあるファイルを開き、タスクの日付をずらす | 「差分を表示」を開く | そのタスクの start と end の旧値、新値、暦日の差が出る |
-| TC-FILE-07b | FILE-07 | 差分ダイアログが開いている | 「コピー」を押す | ダイアログの全文が写る。ファイルは増えない |
-| TC-FILE-07c | FILE-07 | 差分の出る編集をしたあと保存する | 「差分を表示」を開く | 「差はありません」になる |
+| TC-FILE-07 | FILE-07 | パスのあるファイルを開き、タスクの日付をずらす | 何も押さない。帯を見る | 差分帯にそのタスクの start と end の旧値、新値、暦日の差が出る。一覧とチャートを操作できる |
+| TC-FILE-07b | FILE-07 | 差分帯に差の本文が出ている | 帯の「コピー」を押す | 帯の全文が写る。ファイルは増えない |
+| TC-FILE-07c | FILE-07 | 差分の出る編集をしたあと保存する | 「差分を表示」を押す | 帯に「差はありません」が出る。「閉じる」で帯がしまう。保存直後は帯は出ない |
+| TC-FILE-07m | FILE-07 | パスのあるファイルを開き、「差はありません」を帯に出す | 差の出る編集をする | 帯が差の本文になり、「閉じる」が無い |
+| TC-FILE-07n | FILE-07 | サンプルで「比べるファイルがありません」を帯に出す | ファイルを開く | 帯がしまう |
+| TC-FILE-07o | FILE-07 | 絞り込みでタスクを隠し、見えているタスクだけ日付をずらす | 帯の本文を見る | 絞り込みで隠れている変更も本文に残る |
 | TC-FILE-07d | FILE-07 | パスのあるファイルを開いている | タスクを追加する | 場所と全フィールドが出て、兄弟の並びは出ない |
 | TC-FILE-07j | FILE-07 | パスのあるファイルを開いている | 新しいタスクを、既存のタスクのあいだに追加する | 追加のブロックと、並びの行が出る。右辺に新しいタスクが含まれる |
 | TC-FILE-07e | FILE-07 | 先行を持つタスクがある | その先行タスクを削除する | 削除したタスクと、先行から外れた残りのタスクの変更が出る。空のグループは削除にならない |
 | TC-FILE-07f | FILE-07 | パスのあるファイルを開いている | タスクを削除し、同じ名前で追加する | 削除と追加の二つになる |
 | TC-FILE-07g | FILE-07 | 未保存の編集を残したまま、外部の更新を「画面の編集を残す」にした | 「差分を表示」を開く | 今のファイルとの差が出る |
-| TC-FILE-07h | FILE-07 | サンプル、またはブラウザ版 | 「差分を表示」を開く | 「比べるファイルがありません」と出る |
+| TC-FILE-07h | FILE-07 | サンプル、またはブラウザ版 | 「差分を表示」を押す | 帯に「比べるファイルがありません」が出る。「閉じる」で帯がしまう |
 | TC-FILE-07i | FILE-07 | 開いているパスのファイルを、検証に失敗する内容へ変える | 「差分を表示」を開く | 差分は出ず、読み込みエラーになる |
-| TC-FILE-07k | FILE-07 | パスのあるファイルを開き、未保存にする | 状態バーの「未保存」を押す | 差分ダイアログが開く |
-| TC-FILE-07l | FILE-07 | パスのあるファイルを開き、編集する | ⌘/Ctrl+Shift+D を押す | 差分の全文がコピーされる。開く、保存、別名保存の途中は効かない |
+| TC-FILE-07k | FILE-07 | パスのあるファイルを開き、未保存にする | 状態バーの「未保存」を押す | 差分帯に結果が出る。ダイアログは開かない |
+| TC-FILE-07l | FILE-07 | パスのあるファイルを開き、編集する | ⌘/Ctrl+Shift+D を押す | 差分の全文がコピーされる。帯は開かない。開く、保存、別名保存の途中は効かない |
 | TC-SYNC-01 | SYNC-01 | デスクトップ版でファイルを開き、未保存は無い | 別のエディタでその JSON を保存する | 約1.5秒以内に画面に反映し、「ファイルを反映しました」と出る |
 | TC-SYNC-01b | SYNC-01 | 未保存の編集がある | 別のエディタでファイルを保存する | 「ファイルが更新されています」が開く。残すと「ファイルに更新あり — 確認する」が出る |
 | TC-SYNC-01e | SYNC-01 | 未保存と外部更新。画面とファイルが別タスクだけ変わる | 確認を開く | 「画面」と「ファイル」の節に分かれ、変わった項目が見える |
