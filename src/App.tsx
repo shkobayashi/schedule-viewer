@@ -278,7 +278,7 @@ function App() {
   }, []);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [diffStrip, setDiffStrip] = useState<DiffStripView>({ visible: false });
-  const [diffStripHeight, setDiffStripHeight] = useState(0);
+  const [diffPanelExpanded, setDiffPanelExpanded] = useState(false);
   const [diffLiveStatus, setDiffLiveStatus] = useState<string | null>(null);
   const [diffSelectAllOnMount, setDiffSelectAllOnMount] = useState(false);
   const [explicitEmptyPinned, setExplicitEmptyPinned] = useState(false);
@@ -829,19 +829,26 @@ function App() {
 
   const ephemeralToastBottom =
     showCornerNotice && updateOfferHeight > 0
-      ? `calc(36px * var(--s) + var(--diff-strip-h, 0px) + var(--diff-strip-gap, 0px) + ${updateOfferHeight}px + 8px * var(--s))`
+      ? `calc(36px * var(--s) + ${updateOfferHeight}px + 8px * var(--s))`
       : showCornerNotice
-        ? `calc(110px * var(--s) + var(--diff-strip-h, 0px) + var(--diff-strip-gap, 0px))`
+        ? `calc(110px * var(--s))`
         : peerNoticeMessage
-          ? `calc(72px * var(--s) + var(--diff-strip-h, 0px) + var(--diff-strip-gap, 0px))`
+          ? `calc(72px * var(--s))`
           : undefined;
 
   const peerToastBottom =
     showCornerNotice && updateOfferHeight > 0 && toastMessage
-      ? `calc(36px * var(--s) + var(--diff-strip-h, 0px) + var(--diff-strip-gap, 0px) + ${updateOfferHeight}px + 8px * var(--s) + 40px * var(--s))`
+      ? `calc(36px * var(--s) + ${updateOfferHeight}px + 8px * var(--s) + 40px * var(--s))`
       : showCornerNotice
-        ? `calc(110px * var(--s) + var(--diff-strip-h, 0px) + var(--diff-strip-gap, 0px))`
-        : `calc(72px * var(--s) + var(--diff-strip-h, 0px) + var(--diff-strip-gap, 0px))`;
+        ? `calc(110px * var(--s))`
+        : `calc(72px * var(--s))`;
+
+  const diffPanelInset =
+    !diffStrip.visible
+      ? "0px"
+      : diffPanelExpanded || diffStrip.kind === "empty"
+        ? `calc(320px * var(--s))`
+        : `calc(28px * var(--s))`;
 
   const { visibleTaskCount, totalTaskCount } = useMemo(() => {
     const total = listTasks(schedule.categories).length;
@@ -1273,7 +1280,7 @@ function App() {
           return;
         }
         setDiffStrip({ visible: false });
-        setDiffStripHeight(0);
+        setDiffPanelExpanded(false);
         prevDiffStripKindRef.current = null;
         pendingDiffBodyRef.current = null;
         return;
@@ -1303,6 +1310,9 @@ function App() {
         prev.showClose === next.showClose
       ) {
         return;
+      }
+      if (next.kind === "empty") {
+        setDiffPanelExpanded(true);
       }
       setDiffStrip(next);
       prevDiffStripKindRef.current = next.kind;
@@ -1339,6 +1349,7 @@ function App() {
       setToastMessage("差分をコピーしました");
       window.setTimeout(() => setToastMessage(null), 3000);
     } catch {
+      setDiffPanelExpanded(true);
       setDiffSelectAllOnMount(true);
       diffTextareaRef.current?.focus();
       diffTextareaRef.current?.select();
@@ -1357,6 +1368,7 @@ function App() {
           if (source === "auto") return;
           setDiffError(null);
           setExplicitEmptyPinned(true);
+          setDiffPanelExpanded(true);
           commitDiffStripView(
             resolveStripAfterExplicitLoad(result.message),
             true,
@@ -1369,6 +1381,7 @@ function App() {
       }
       setDiffError(null);
       if (source === "auto") {
+        const wasVisible = diffStripRef.current.visible;
         const view = resolveStripAfterAutoLoad(
           result.text,
           explicitEmptyPinnedRef.current,
@@ -1378,6 +1391,9 @@ function App() {
         }
         if (view.visible && view.kind === "body") {
           setExplicitEmptyPinned(false);
+          if (!wasVisible) {
+            setDiffPanelExpanded(false);
+          }
         }
         commitDiffStripView(view, true);
         return;
@@ -1394,6 +1410,10 @@ function App() {
       }
       const view = explicitView;
       setExplicitEmptyPinned(view.kind === "empty");
+      setDiffPanelExpanded(true);
+      if (view.kind === "body") {
+        setDiffSelectAllOnMount(true);
+      }
       commitDiffStripView(view, true);
     },
     [commitDiffStripView],
@@ -1438,6 +1458,13 @@ function App() {
 
   const showScheduleDiff = useCallback(() => {
     if (scheduleFile.fileBusy) return;
+    setDiffPanelExpanded(true);
+    if (
+      diffStripRef.current.visible &&
+      diffStripRef.current.kind === "body"
+    ) {
+      setDiffSelectAllOnMount(true);
+    }
     const requestId = diffRequestRef.current + 1;
     diffRequestRef.current = requestId;
     const stillCurrent = () => diffRequestRef.current === requestId;
@@ -1454,6 +1481,7 @@ function App() {
         if (result.showDialog) {
           setDiffError(null);
           setExplicitEmptyPinned(true);
+          setDiffPanelExpanded(true);
           commitDiffStripView(
             resolveStripAfterExplicitLoad(result.message),
             true,
@@ -1470,6 +1498,7 @@ function App() {
       } catch {
         setDiffError(null);
         const view = resolveStripAfterExplicitLoad(result.text);
+        setDiffPanelExpanded(true);
         if (view.kind === "body") {
           setDiffSelectAllOnMount(true);
         }
@@ -1497,6 +1526,23 @@ function App() {
       false,
     );
   }, [commitDiffStripView]);
+
+  const collapseDiffPanel = useCallback(() => {
+    setDiffPanelExpanded(false);
+    timelineAreaRef.current?.focus();
+  }, []);
+
+  const expandDiffPanelFromPointer = useCallback(() => {
+    setDiffPanelExpanded(true);
+    timelineAreaRef.current?.focus();
+  }, []);
+
+  const expandDiffPanelFromKeyboard = useCallback(() => {
+    setDiffPanelExpanded(true);
+    window.requestAnimationFrame(() => {
+      diffTextareaRef.current?.focus();
+    });
+  }, []);
 
   const commandPaletteContext = useMemo(
     () => ({
@@ -2124,9 +2170,7 @@ function App() {
       style={{
         ["--s" as string]: uiScale,
         ["--sidebar-w" as string]: sidebarWidth,
-        ["--diff-strip-h" as string]: `${diffStripHeight}px`,
-        ["--diff-strip-gap" as string]:
-          diffStripHeight > 0 ? `calc(8px * var(--s))` : "0px",
+        ["--diff-panel-inset" as string]: diffPanelInset,
       }}
     >
       <Toolbar
@@ -2366,22 +2410,25 @@ function App() {
             }}
           />
         ) : null}
+        {diffStrip.visible ? (
+          <DiffStrip
+            view={diffStrip}
+            expanded={diffPanelExpanded || diffStrip.kind === "empty"}
+            onExpandFromPointer={expandDiffPanelFromPointer}
+            onExpandFromKeyboard={expandDiffPanelFromKeyboard}
+            onCollapse={collapseDiffPanel}
+            onClose={closeDiffStrip}
+            onCopy={() => void copyDiffStripText()}
+            copyDisabled={scheduleFile.fileBusy}
+            textareaRef={diffTextareaRef}
+            onFocus={onDiffStripFocus}
+            onBlur={onDiffStripBlur}
+            selectAllOnMount={diffSelectAllOnMount}
+            onSelectAllDone={() => setDiffSelectAllOnMount(false)}
+          />
+        ) : null}
         </div>
       </div>
-      {diffStrip.visible ? (
-        <DiffStrip
-          view={diffStrip}
-          onClose={closeDiffStrip}
-          onCopy={() => void copyDiffStripText()}
-          copyDisabled={scheduleFile.fileBusy}
-          onHeightChange={setDiffStripHeight}
-          textareaRef={diffTextareaRef}
-          onFocus={onDiffStripFocus}
-          onBlur={onDiffStripBlur}
-          selectAllOnMount={diffSelectAllOnMount}
-          onSelectAllDone={() => setDiffSelectAllOnMount(false)}
-        />
-      ) : null}
       <p className="filter-panel-sr-only" role="status" aria-live="polite">
         {diffLiveStatus ?? ""}
       </p>

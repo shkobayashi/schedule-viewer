@@ -3,10 +3,13 @@ import type { DiffStripView } from "../model/diffStripVisibility";
 
 type DiffStripProps = {
   view: Extract<DiffStripView, { visible: true }>;
+  expanded: boolean;
+  onExpandFromPointer: () => void;
+  onExpandFromKeyboard: () => void;
+  onCollapse: () => void;
   onClose: () => void;
   onCopy: () => void;
   copyDisabled: boolean;
-  onHeightChange: (height: number) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   onFocus: () => void;
   onBlur: () => void;
@@ -16,10 +19,13 @@ type DiffStripProps = {
 
 export function DiffStrip({
   view,
+  expanded,
+  onExpandFromPointer,
+  onExpandFromKeyboard,
+  onCollapse,
   onClose,
   onCopy,
   copyDisabled,
-  onHeightChange,
   textareaRef,
   onFocus,
   onBlur,
@@ -27,33 +33,45 @@ export function DiffStrip({
   onSelectAllDone,
 }: DiffStripProps) {
   const headingId = useId();
-  const rootRef = useRef<HTMLElement>(null);
+  const handleRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const node = rootRef.current;
-    if (!node) return;
-    const report = () => onHeightChange(node.offsetHeight);
-    report();
-    const observer = new ResizeObserver(report);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [onHeightChange, view.text, view.kind, view.showClose]);
-
-  useEffect(() => {
-    if (!selectAllOnMount) return;
+    if (!selectAllOnMount || !expanded) return;
     const area = textareaRef.current;
     if (!area) return;
     area.focus();
     area.select();
     onSelectAllDone();
-  }, [onSelectAllDone, selectAllOnMount, textareaRef]);
+  }, [expanded, onSelectAllDone, selectAllOnMount, textareaRef, view.text]);
 
   const compact = view.kind === "empty";
+  const showCollapsedHandle = !expanded && view.kind === "body";
+
+  if (showCollapsedHandle) {
+    return (
+      <aside className="diff-strip diff-strip--collapsed">
+        <button
+          ref={handleRef}
+          type="button"
+          className="diff-strip-handle"
+          title="差分を開く"
+          aria-expanded={false}
+          onClick={onExpandFromPointer}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            onExpandFromKeyboard();
+          }}
+        >
+          差分
+        </button>
+      </aside>
+    );
+  }
 
   return (
     <section
-      ref={rootRef}
-      className={`diff-strip${compact ? " diff-strip--empty" : ""}`}
+      className={`diff-strip diff-strip--open${compact ? " diff-strip--empty" : ""}`}
       role="region"
       aria-labelledby={headingId}
     >
@@ -72,7 +90,16 @@ export function DiffStrip({
             <button type="button" className="diff-strip-btn" onClick={onClose}>
               閉じる
             </button>
-          ) : null}
+          ) : (
+            <button
+              type="button"
+              className="diff-strip-btn"
+              onClick={onCollapse}
+              aria-expanded={true}
+            >
+              畳む
+            </button>
+          )}
         </div>
       </div>
       <textarea

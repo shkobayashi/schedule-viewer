@@ -258,6 +258,7 @@ async function captureDesktopChromeShots(page) {
   await page.locator("#detailName").fill("進行中（青・差分用）");
   await page.locator("#detailName").blur();
   await page.waitForTimeout(400);
+  await page.locator(".diff-strip-handle").click();
   await page.waitForFunction(() => {
     const area = document.querySelector(".diff-strip-textarea");
     return area instanceof HTMLTextAreaElement && area.value.includes("→");
