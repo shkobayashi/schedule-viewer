@@ -12,7 +12,6 @@ use uuid::Uuid;
 
 #[cfg(unix)]
 use crate::mcp_app_data::mcp_socket_path;
-use crate::window_diag::window_diag_log;
 use crate::window_session::{
     read_open_windows, resolve_mcp_screen_window_label, WindowSessionState,
 };
@@ -290,50 +289,15 @@ fn dispatch_to_front_window(
                 .filter(|focused| *focused)
                 .map(|_| label.clone())
         });
-    let mut os_labels: Vec<String> = app
-        .webview_windows()
-        .iter()
-        .filter_map(|(label, webview)| {
-            webview
-                .is_focused()
-                .ok()
-                .filter(|focused| *focused)
-                .map(|_| label.clone())
-        })
-        .collect();
-    os_labels.sort();
-    let os_text = if os_labels.is_empty() {
-        "none".to_string()
-    } else {
-        os_labels.join(",")
-    };
-    let order_text = if focus_order.is_empty() {
-        "none".to_string()
-    } else {
-        focus_order.join(",")
-    };
     let target_label = resolve_mcp_screen_window_label(
         &recorded_focused,
         &live_labels,
         &focus_order,
         os_focused.as_deref(),
     );
-    window_diag_log(
-        &state.app_data,
-        &format!(
-            "mcp_dispatch tool={} recorded={} target={} os={} order={} live_count={}",
-            request.tool,
-            recorded_focused,
-            target_label.as_deref().unwrap_or("none"),
-            os_text,
-            order_text,
-            live_labels.len()
-        ),
-    );
     let window = match target_label.and_then(|label| app.get_webview_window(&label)) {
         Some(w) => w,
         None => {
-            window_diag_log(&state.app_data, "mcp_dispatch_error=no-window");
             return Ok(BridgeResponse {
                 v: BRIDGE_VERSION,
                 id: request.id,
@@ -439,12 +403,6 @@ pub fn mcp_reply(
         let mut pending = state.pending.lock().expect("mcp pending");
         take_pending_reply_for_window(&mut pending, &id, &label)
     };
-    if entry.is_none() {
-        window_diag_log(
-            &state.app_data,
-            &format!("mcp_reply_ignored label={label} id={id}"),
-        );
-    }
     if let Some(entry) = entry {
         if entry.generation != generation {
             return Ok(());

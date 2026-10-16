@@ -7,7 +7,6 @@ use std::sync::{mpsc, OnceLock};
 use std::thread;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
-use crate::window_diag::window_diag_log;
 use crate::{
     read_utf8, read_utf8_limited, write_utf8_atomic, MAX_SCHEDULE_BYTES, SCHEDULE_FILE_NOT_FOUND,
 };
@@ -515,43 +514,33 @@ fn on_main_thread() -> bool {
 
 pub fn create_schedule_webview_on_main_thread(
     app: &AppHandle,
-    app_data: &Path,
     label: &str,
     title: &str,
 ) -> Result<(), String> {
-    window_diag_log(
-        app_data,
-        &format!(
-            "create_webview_start label={} on_main={}",
-            label,
-            on_main_thread()
-        ),
-    );
-    let result = if on_main_thread() {
-        create_schedule_webview(app, label, title)
-    } else {
+    let label_owned = label.to_string();
+    let title_owned = title.to_string();
+    let app = app.clone();
+    let build_on_main_thread = move || -> Result<(), String> {
         let (tx, rx) = mpsc::channel();
-        let label_owned = label.to_string();
-        let title_owned = title.to_string();
+        let label = label_owned.clone();
+        let title = title_owned.clone();
         let app = app.clone();
         app.clone()
             .run_on_main_thread(move || {
-                let result = create_schedule_webview(&app, &label_owned, &title_owned);
+                let result = create_schedule_webview(&app, &label, &title);
                 let _ = tx.send(result);
             })
-        .map_err(|e| format!("ウィンドウを開けません: {}", e))?;
+            .map_err(|e| format!("ウィンドウを開けません: {}", e))?;
         rx.recv()
             .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
     };
-    window_diag_log(
-        app_data,
-        &format!(
-            "create_webview_done label={} ok={}",
-            label,
-            result.is_ok()
-        ),
-    );
-    result
+    if on_main_thread() {
+        thread::spawn(build_on_main_thread)
+            .join()
+            .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
+    } else {
+        build_on_main_thread()
+    }
 }
 
 pub fn append_open_window_entry(
@@ -567,15 +556,6 @@ pub fn append_open_window_entry(
     });
     file.focused_label = label.to_string();
     write_open_windows(app_data, &file)?;
-    window_diag_log(
-        app_data,
-        &format!(
-            "open_windows_append label={} focused={} count={}",
-            label,
-            label,
-            file.windows.len()
-        ),
-    );
     Ok(())
 }
 
@@ -644,7 +624,6 @@ pub fn spawn_startup_windows(app: &AppHandle, app_data: &Path) -> Result<(), Str
     }
     if close_default_main {
         if let Some(main) = app.get_webview_window("main") {
-            window_diag_log(app_data, "close_default_main");
             let _ = main.close();
         }
     }
