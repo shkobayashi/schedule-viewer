@@ -1009,7 +1009,7 @@ fn take_pending_schedule_window_open(
 }
 
 #[tauri::command]
-fn create_schedule_window(
+async fn create_schedule_window(
     app: tauri::AppHandle,
     session: State<'_, Mutex<WindowSessionState>>,
     states: State<'_, Mutex<ScheduleFileStates>>,

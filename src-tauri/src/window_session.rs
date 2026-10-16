@@ -527,21 +527,29 @@ pub fn create_schedule_webview_on_main_thread(
             on_main_thread()
         ),
     );
-    let result = if on_main_thread() {
-        create_schedule_webview(app, label, title)
-    } else {
+    let label_owned = label.to_string();
+    let title_owned = title.to_string();
+    let app = app.clone();
+    let build_on_main_thread = move || -> Result<(), String> {
         let (tx, rx) = mpsc::channel();
-        let label_owned = label.to_string();
-        let title_owned = title.to_string();
+        let label = label_owned.clone();
+        let title = title_owned.clone();
         let app = app.clone();
         app.clone()
             .run_on_main_thread(move || {
-                let result = create_schedule_webview(&app, &label_owned, &title_owned);
+                let result = create_schedule_webview(&app, &label, &title);
                 let _ = tx.send(result);
             })
-        .map_err(|e| format!("ウィンドウを開けません: {}", e))?;
+            .map_err(|e| format!("ウィンドウを開けません: {}", e))?;
         rx.recv()
             .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
+    };
+    let result = if on_main_thread() {
+        thread::spawn(build_on_main_thread)
+            .join()
+            .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
+    } else {
+        build_on_main_thread()
     };
     window_diag_log(
         app_data,
