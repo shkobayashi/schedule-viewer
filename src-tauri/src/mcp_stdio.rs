@@ -86,7 +86,16 @@ fn tools_list_result() -> Value {
         "tools": [
             {
                 "name": "schedule_diff",
-                "description": "開いているファイルと画面の編集内容の差分テキスト（FILE-07 と同じ）だけを返します。人が直したあとに前後関係を見直すときに使います。タスク一覧は含みません。4つのツールをまとめて呼ぶ必要はありません。",
+                "description": "開いているファイルと画面の編集内容の差分テキスト（FILE-07 と同じ）だけを返します。人が直したあとに前後関係を見直すときに使います。タスク一覧は含みません。6つのツールをまとめて呼ぶ必要はありません。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false,
+                }
+            },
+            {
+                "name": "baseline_diffs",
+                "description": "起点（最後に開いた・保存した・読み直した内容）と、画面とファイルの差分と、id ごとの分類を返します。画面とファイルの両方が動いたときに使います。6つのツールをまとめて呼ぶ必要はありません。",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -95,7 +104,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "selected_task",
-                "description": "前面ウィンドウで選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。4つのツールをまとめて呼ぶ必要はありません。",
+                "description": "前面ウィンドウで選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。6つのツールをまとめて呼ぶ必要はありません。",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -104,7 +113,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "selected_tasks",
-                "description": "前面ウィンドウの編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。4つのツールをまとめて呼ぶ必要はありません。",
+                "description": "前面ウィンドウの編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。6つのツールをまとめて呼ぶ必要はありません。",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -113,11 +122,19 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "filtered_tasks",
-                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。4つのツールをまとめて呼ぶ必要はありません。",
+                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。6つのツールをまとめて呼ぶ必要はありません。",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
                     "additionalProperties": false,
+                }
+            },
+            {
+                "name": "replace_schedule",
+                "description": "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。前面ウィンドウのスケジュールを、検証済みの JSON 全体で未保存として置き換えます。成功時は FILE-07 と同じ差分テキストだけを返します。ファイルには書きません。",
+                "inputSchema": {
+                    "type": "object",
+                    "description": "schedule-viewer のスケジュール JSON 全体（schemaVersion 7）",
                 }
             }
         ]
@@ -192,7 +209,7 @@ mod tests {
     }
 
     #[test]
-    fn tools_list_exposes_three_read_tools() {
+    fn tools_list_exposes_screen_tools() {
         let result = tools_list_result();
         let tools = result
             .get("tools")
@@ -206,9 +223,11 @@ mod tests {
             names,
             [
                 "schedule_diff",
+                "baseline_diffs",
                 "selected_task",
                 "selected_tasks",
                 "filtered_tasks",
+                "replace_schedule",
             ]
         );
         assert!(!names.contains(&"screen_context"));
@@ -224,5 +243,8 @@ mod tests {
         assert!(selected_tasks.contains("選択数が不明なときはこのツールを使います"));
         let selected_task = description("selected_task");
         assert!(selected_task.contains("選択数が不明なときは selected_tasks を使います"));
+        let replace_schedule = description("replace_schedule");
+        assert!(replace_schedule.contains("開いているスケジュールの更新はこのツールへ渡します"));
+        assert!(replace_schedule.contains("新しいスケジュールファイルの作成"));
     }
 }

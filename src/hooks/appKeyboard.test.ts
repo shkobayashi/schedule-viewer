@@ -39,6 +39,7 @@ function decide(
     canReorderInGroup: false,
     taskIndexInGroup: null,
     groupTaskCount: 0,
+    diffStripListFocused: false,
     ...overrides,
   });
 }
@@ -395,6 +396,32 @@ describe("decideAppKey", () => {
     });
     expect(linkButton.action).toEqual({ type: "none" });
     expect(linkButton.preventDefault).toBe(true);
+  });
+
+  it("does not move task selection while the diff list is focused", () => {
+    const down = {
+      key: "ArrowDown",
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      repeat: false,
+    };
+    expect(
+      decide({
+        event: down,
+        diffStripListFocused: true,
+        selectedTaskId: "task-a",
+        selectedTaskCount: 1,
+      }).action,
+    ).toEqual({ type: "none" });
+    expect(
+      decide({
+        event: down,
+        selectedTaskId: "task-a",
+        selectedTaskCount: 1,
+      }).action,
+    ).toEqual({ type: "selectTaskNext" });
   });
 
   it("ignores undo and redo in a dialog or text field", () => {

@@ -25,9 +25,11 @@ import {
 export const MCP_SCREEN_CONTEXT_MAX_BYTES = 10 * 1024 * 1024;
 
 export const MCP_TOOL_SCHEDULE_DIFF = "schedule_diff";
+export const MCP_TOOL_BASELINE_DIFFS = "baseline_diffs";
 export const MCP_TOOL_SELECTED_TASK = "selected_task";
 export const MCP_TOOL_SELECTED_TASKS = "selected_tasks";
 export const MCP_TOOL_FILTERED_TASKS = "filtered_tasks";
+export const MCP_TOOL_REPLACE_SCHEDULE = "replace_schedule";
 
 export type ScreenContextTask = {
   id: ScheduleId;
@@ -361,13 +363,20 @@ export function mcpPayloadToToolBody(
   payload: unknown,
 ): McpToolResultBody | { tooLarge: true } {
   const text = JSON.stringify(payload, null, 2);
+  return mcpPlainTextToolBody(text);
+}
+
+export function mcpPlainTextToolBody(
+  text: string,
+  isError = false,
+): McpToolResultBody | { tooLarge: true } {
   const bytes = new TextEncoder().encode(text).length;
   if (bytes > MCP_SCREEN_CONTEXT_MAX_BYTES) {
     return { tooLarge: true };
   }
   return {
     content: [{ type: "text", text }],
-    isError: false,
+    isError,
   };
 }
 

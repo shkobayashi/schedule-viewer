@@ -1,13 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createBaselineMergeDeferredTracking,
+  shouldClearExternalReloadBanner,
+  shouldRestoreExternalReloadBanner,
+  type BaselineMergeDeferredTracking,
+} from "../../model/baselineMergeDeferred";
+import type { DocumentSnapshot } from "../../model/history";
 import type { ScheduleDocument } from "../../model/types";
+import type { BaselineMergeAssessment } from "../../model/baselineMerge";
+import { assessBaselineMerge } from "../../model/baselineMerge";
+import {
+  buildBaselineMergeReview,
+  type BaselineMergeReviewView,
+} from "../../model/baselineMergeReview";
 import { decideExternalReload } from "../../model/scheduleExternalReload";
 import {
   acknowledgeScheduleFileContentsViaTauri,
   hashTextSha256,
   isTauri,
   parseScheduleText,
+  type ParseScheduleResult,
   pollScheduleFileUpdateViaTauri,
 } from "../../model/scheduleFile";
+
+function parseScheduleErrorMessage(
+  baselineParsed: ParseScheduleResult,
+  screenParsed: ParseScheduleResult,
+  fileParsed: ParseScheduleResult,
+): string {
+  if (!fileParsed.ok) return fileParsed.message;
+  if (!screenParsed.ok) return screenParsed.message;
+  if (!baselineParsed.ok) return baselineParsed.message;
+  return "スケジュールを読み込めません。";
+}
 import { EXTERNAL_RELOAD_POLL_MS, RELOAD_NOTICE_MS } from "./constants";
 import {
   recordPollReadFailure,
@@ -19,8 +44,13 @@ import {
 type UseScheduleExternalReloadOptions = {
   filePath: string | null;
   reloadDocumentFromDisk: (document: ScheduleDocument) => void;
+  applyMergedDocument: (
+    document: ScheduleDocument,
+  ) => { before: DocumentSnapshot; after: DocumentSnapshot } | null;
   setBaselineJson: (json: string) => void;
   setErrorMessageText: (message: string | null) => void;
+  baselineJson: string;
+  currentJson: string;
   baselineJsonRef: { current: string };
   isDirtyRef: { current: boolean };
   hasOpenEditDialogRef: { current: boolean };
@@ -34,8 +64,11 @@ type UseScheduleExternalReloadOptions = {
 export function useScheduleExternalReload({
   filePath,
   reloadDocumentFromDisk,
+  applyMergedDocument,
   setBaselineJson,
   setErrorMessageText,
+  baselineJson,
+  currentJson,
   baselineJsonRef,
   isDirtyRef,
   hasOpenEditDialogRef,
@@ -53,6 +86,12 @@ export function useScheduleExternalReload({
     string | null
   >(null);
   const [reloadNotice, setReloadNotice] = useState(false);
+  const [mergeNotice, setMergeNotice] = useState(false);
+  const [diskUpdatedAgain, setDiskUpdatedAgain] = useState(false);
+  const mergeDeferredTrackingRef = useRef<BaselineMergeDeferredTracking | null>(
+    null,
+  );
+  const mergeNoticeTimerRef = useRef<number | null>(null);
   const externalReloadOpenRef = useRef(externalReloadOpen);
   externalReloadOpenRef.current = externalReloadOpen;
   const lastInvalidDiskHashRef = useRef<string | null>(null);
@@ -65,8 +104,14 @@ export function useScheduleExternalReload({
     setPendingExternalContents(null);
     setDeferredExternalContents(null);
     setExternalReloadOpen(false);
+    setDiskUpdatedAgain(false);
     suppressedDiskRef.current = null;
+    mergeDeferredTrackingRef.current = null;
   }, []);
+
+  useEffect(() => {
+    mergeDeferredTrackingRef.current = null;
+  }, [baselineJson]);
 
   const clearInvalidDiskHash = useCallback(() => {
     lastInvalidDiskHashRef.current = null;
@@ -93,10 +138,24 @@ export function useScheduleExternalReload({
     }, RELOAD_NOTICE_MS);
   }, []);
 
+  const flashMergeNotice = useCallback(() => {
+    if (mergeNoticeTimerRef.current != null) {
+      window.clearTimeout(mergeNoticeTimerRef.current);
+    }
+    setMergeNotice(true);
+    mergeNoticeTimerRef.current = window.setTimeout(() => {
+      setMergeNotice(false);
+      mergeNoticeTimerRef.current = null;
+    }, RELOAD_NOTICE_MS);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (reloadNoticeTimerRef.current != null) {
         window.clearTimeout(reloadNoticeTimerRef.current);
+      }
+      if (mergeNoticeTimerRef.current != null) {
+        window.clearTimeout(mergeNoticeTimerRef.current);
       }
     };
   }, []);
@@ -112,6 +171,7 @@ export function useScheduleExternalReload({
       canonicalJson: string,
       document: ScheduleDocument,
     ) => {
+      mergeDeferredTrackingRef.current = null;
       reloadDocumentFromDisk(document);
       setBaselineJson(canonicalJson);
       setDeferredExternalContents(null);
@@ -199,6 +259,9 @@ export function useScheduleExternalReload({
       }
 
       if (diskContents === suppressedDiskRef.current) return;
+      if (externalReloadOpenRef.current) {
+        setDiskUpdatedAgain(true);
+      }
       setPendingExternalContents(diskContents);
       if (!externalReloadOpenRef.current) {
         notifyPeersRef?.current("pending");
@@ -315,19 +378,160 @@ export function useScheduleExternalReload({
     });
   }, [acknowledgeDisk, notifyPeersRef, pendingExternalContents]);
 
-  const requestDeferredReload = useCallback(() => {
+  const requestDeferredConfirm = useCallback(() => {
     const diskContents = deferredExternalContents;
     if (!diskContents) return;
-    const parsed = parseScheduleText(diskContents);
-    if (!parsed.ok) {
-      setErrorMessageText(parsed.message);
+    setPendingExternalContents(diskContents);
+    setDiskUpdatedAgain(false);
+    notifyPeersRef?.current("pending");
+    setExternalReloadOpen(true);
+  }, [deferredExternalContents, notifyPeersRef]);
+
+  const applyBaselineMerge = useCallback(
+    (document: ScheduleDocument, diskContents: string) => {
+      const merged = applyMergedDocument(document);
+      if (!merged) return;
+      isDirtyRef.current = true;
+      mergeDeferredTrackingRef.current = createBaselineMergeDeferredTracking(
+        merged.before,
+        merged.after,
+        diskContents,
+      );
+      setDeferredExternalContents(null);
+      setPendingExternalContents(null);
+      setExternalReloadOpen(false);
+      setDiskUpdatedAgain(false);
+      lastInvalidDiskHashRef.current = null;
+      suppressedDiskRef.current = null;
+      flashMergeNotice();
+      notifyPeersRef?.current("cleared");
+      void acknowledgeDisk(diskContents);
+    },
+    [
+      acknowledgeDisk,
+      applyMergedDocument,
+      flashMergeNotice,
+      isDirtyRef,
+      notifyPeersRef,
+    ],
+  );
+
+  const confirmBaselineMerge = useCallback(() => {
+    const diskContents = pendingExternalContents ?? deferredExternalContents;
+    if (!diskContents) return;
+    const baselineParsed = parseScheduleText(baselineJson);
+    const screenParsed = parseScheduleText(currentJson);
+    const fileParsed = parseScheduleText(diskContents);
+    if (!baselineParsed.ok || !screenParsed.ok || !fileParsed.ok) {
+      setErrorMessageText(
+        parseScheduleErrorMessage(baselineParsed, screenParsed, fileParsed),
+      );
       return;
     }
-    void applyExternalReload(diskContents, parsed.canonicalJson, parsed.document);
-  }, [applyExternalReload, deferredExternalContents, setErrorMessageText]);
+    const assessment = assessBaselineMerge(
+      baselineParsed.document,
+      screenParsed.document,
+      fileParsed.document,
+    );
+    if (assessment.kind !== "mergeable") return;
+    applyBaselineMerge(assessment.document, diskContents);
+  }, [
+    applyBaselineMerge,
+    baselineJson,
+    currentJson,
+    deferredExternalContents,
+    pendingExternalContents,
+    setErrorMessageText,
+  ]);
+
+  const getExternalReloadDocuments = useCallback(() => {
+    const diskContents = pendingExternalContents ?? deferredExternalContents;
+    if (!diskContents) return null;
+    const baselineParsed = parseScheduleText(baselineJson);
+    const screenParsed = parseScheduleText(currentJson);
+    const fileParsed = parseScheduleText(diskContents);
+    if (!baselineParsed.ok || !screenParsed.ok || !fileParsed.ok) {
+      return {
+        ok: false as const,
+        baselineParsed,
+        screenParsed,
+        fileParsed,
+      };
+    }
+    return {
+      ok: true as const,
+      baseline: baselineParsed.document,
+      screen: screenParsed.document,
+      file: fileParsed.document,
+    };
+  }, [baselineJson, currentJson, deferredExternalContents, pendingExternalContents]);
+
+  const buildExternalReloadAssessment = useCallback((): BaselineMergeAssessment | null => {
+    const parsed = getExternalReloadDocuments();
+    if (!parsed) return null;
+    if (!parsed.ok) {
+      return {
+        kind: "blocked",
+        lines: [],
+        counts: {
+          screenOnly: 0,
+          fileOnly: 0,
+          same: 0,
+          conflicts: 0,
+        },
+        conflictLines: [],
+        nonConflictCount: 0,
+        validationMessage: parseScheduleErrorMessage(
+          parsed.baselineParsed,
+          parsed.screenParsed,
+          parsed.fileParsed,
+        ),
+      };
+    }
+    return assessBaselineMerge(parsed.baseline, parsed.screen, parsed.file);
+  }, [getExternalReloadDocuments]);
+
+  const buildExternalReloadReview = useCallback((): BaselineMergeReviewView | null => {
+    const assessment = buildExternalReloadAssessment();
+    const parsed = getExternalReloadDocuments();
+    if (!assessment || assessment.kind !== "mergeable" || !parsed?.ok) {
+      return null;
+    }
+    return buildBaselineMergeReview(
+      parsed.baseline,
+      parsed.screen,
+      parsed.file,
+      assessment.lines,
+    );
+  }, [buildExternalReloadAssessment, getExternalReloadDocuments]);
+
+  const onHistoryUndoApplied = useCallback(
+    (landed: DocumentSnapshot) => {
+      const tracking = mergeDeferredTrackingRef.current;
+      if (!shouldRestoreExternalReloadBanner(tracking, landed)) return;
+      const disk = tracking!.diskContents;
+      setDeferredExternalContents(disk);
+      suppressedDiskRef.current = disk;
+      void acknowledgeDisk(disk).finally(() => {
+        if (suppressedDiskRef.current === disk) {
+          suppressedDiskRef.current = null;
+        }
+      });
+    },
+    [acknowledgeDisk],
+  );
+
+  const onHistoryRedoApplied = useCallback((landed: DocumentSnapshot) => {
+    if (!shouldClearExternalReloadBanner(mergeDeferredTrackingRef.current, landed)) {
+      return;
+    }
+    setDeferredExternalContents(null);
+  }, []);
 
   return {
     reloadNotice,
+    mergeNotice,
+    diskUpdatedAgain,
     showDeferredReload: deferredExternalContents != null,
     externalReloadOpen,
     clearExternalReloadPrompt,
@@ -337,6 +541,11 @@ export function useScheduleExternalReload({
     setDeferredExternalContents,
     confirmExternalReload,
     keepLocalEditsOnExternalReload,
-    requestDeferredReload,
+    requestDeferredConfirm,
+    confirmBaselineMerge,
+    buildExternalReloadAssessment,
+    buildExternalReloadReview,
+    onHistoryUndoApplied,
+    onHistoryRedoApplied,
   };
 }

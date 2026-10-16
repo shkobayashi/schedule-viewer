@@ -149,7 +149,7 @@ export async function saveScheduleViaTauri(
   });
 }
 
-const MAX_SCHEDULE_BYTES = 10 * 1024 * 1024;
+export const MAX_SCHEDULE_BYTES = 10 * 1024 * 1024;
 
 export function openScheduleViaBrowserInput(): Promise<ScheduleFilePick | null> {
   return new Promise((resolve, reject) => {

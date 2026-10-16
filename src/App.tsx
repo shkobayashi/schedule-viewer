@@ -22,7 +22,7 @@ import { ExternalReloadDialog } from "./components/ExternalReloadDialog";
 import { MissingScheduleFileDialog } from "./components/MissingScheduleFileDialog";
 import { RecoveryConflictDialog } from "./components/RecoveryConflictDialog";
 import { RecoveryInvalidDialog } from "./components/RecoveryInvalidDialog";
-import { DiffDialog } from "./components/DiffDialog";
+import { DiffStrip } from "./components/DiffStrip";
 import { JsonDialog } from "./components/JsonDialog";
 import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneAddDialog } from "./components/MilestoneAddDialog";
@@ -78,6 +78,23 @@ import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
 import { NO_OPEN_SCHEDULE_FILE_MESSAGE } from "./model/scheduleDiff";
 import { loadScheduleDiffText as loadScheduleDiffTextCore } from "./model/scheduleDiffLoad";
+import {
+  emptyDiffNavigationMark,
+  resolveDiffNavigation,
+  type DiffNavigationMark,
+  type DiffRevealPlan,
+} from "./model/diffNavigation";
+import type { ScheduleDiffEntry } from "./model/scheduleDiffEntry";
+import { collapsedSetFromIds } from "./model/scheduleFilterPersistence";
+import { scrollXToRevealTask } from "./model/chartScroll";
+import {
+  type DiffStripContentKind,
+  type DiffStripView,
+  diffStripAriaStatus,
+  resolveStripAfterAutoLoad,
+  resolveStripAfterExplicitLoad,
+  shouldDeferBodyUpdate,
+} from "./model/diffStripVisibility";
 import { useMcpScreenBridge } from "./hooks/useMcpScreenBridge";
 import {
   isTauri,
@@ -126,7 +143,7 @@ import {
   taskBarWidthPx,
 } from "./model/timeline";
 import { extraTimelineDaysForRightEdge } from "./model/timelineRightPadding";
-import type { ScheduleId, Task } from "./model/types";
+import type { ScheduleDocument, ScheduleId, Task } from "./model/types";
 import {
   AUTO_UPDATE_LS_KEY,
   readAutoUpdateEnabled,
@@ -269,9 +286,31 @@ function App() {
     setShortcutsOpen(true);
   }, []);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [diffText, setDiffText] = useState<string | null>(null);
+  const [diffStrip, setDiffStrip] = useState<DiffStripView>({ visible: false });
+  const [diffPanelExpanded, setDiffPanelExpanded] = useState(false);
+  const [diffLiveStatus, setDiffLiveStatus] = useState<string | null>(null);
+  const [diffFocusListOnMount, setDiffFocusListOnMount] = useState(false);
+  const [diffEntries, setDiffEntries] = useState<ScheduleDiffEntry[]>([]);
+  const [diffActiveIndex, setDiffActiveIndex] = useState(0);
+  const [diffRowStatus, setDiffRowStatus] = useState<string | null>(null);
+  const [diffNavigationMark, setDiffNavigationMark] =
+    useState<DiffNavigationMark>(emptyDiffNavigationMark());
+  const clearDiffNavigationMark = useCallback(() => {
+    setDiffNavigationMark(emptyDiffNavigationMark());
+    setDiffRowStatus(null);
+  }, []);
+  const [explicitEmptyPinned, setExplicitEmptyPinned] = useState(false);
+  const explicitEmptyPinnedRef = useRef(false);
+  explicitEmptyPinnedRef.current = explicitEmptyPinned;
   const [diffError, setDiffError] = useState<string | null>(null);
   const diffRequestRef = useRef(0);
+  const diffStripFocusedRef = useRef(false);
+  const pendingDiffBodyRef = useRef<string | null>(null);
+  const pendingDiffEntriesRef = useRef<ScheduleDiffEntry[] | null>(null);
+  const diffListRef = useRef<HTMLDivElement>(null);
+  const prevDiffStripKindRef = useRef<DiffStripContentKind | null>(null);
+  const diffStripRef = useRef<DiffStripView>({ visible: false });
+  diffStripRef.current = diffStrip;
   const [addOpen, setAddOpen] = useState(false);
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
   const [addMilestoneInitialDate, setAddMilestoneInitialDate] = useState<
@@ -299,6 +338,7 @@ function App() {
   });
   const [hoveredTaskId, setHoveredTaskId] = useState<ScheduleId | null>(null);
   const [detailPanelEditing, setDetailPanelEditing] = useState(false);
+  const [sidebarReorderDragging, setSidebarReorderDragging] = useState(false);
   const [bulkDiscardNotice, setBulkDiscardNotice] = useState<string | null>(null);
   const detailPanelRef = useRef<TaskDetailPanelHandle>(null);
   const bulkHadDraftRef = useRef(false);
@@ -499,6 +539,17 @@ function App() {
   }, []);
 
   const blockDocumentEditsRef = useRef(false);
+  const applyMergedDocumentRef = useRef<
+    (
+      document: ScheduleDocument,
+    ) => { before: import("./model/history").DocumentSnapshot; after: import("./model/history").DocumentSnapshot } | null
+  >(() => null);
+  const externalReloadHistoryUndoRef = useRef<
+    (landed: import("./model/history").DocumentSnapshot) => void
+  >(() => {});
+  const externalReloadHistoryRedoRef = useRef<
+    (landed: import("./model/history").DocumentSnapshot) => void
+  >(() => {});
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
@@ -508,7 +559,12 @@ function App() {
     memberCatalogState.members,
     !memberCatalogState.loading,
     blockDocumentEditsRef,
+    (landed) => externalReloadHistoryUndoRef.current(landed),
+    (landed) => externalReloadHistoryRedoRef.current(landed),
   );
+  applyMergedDocumentRef.current = schedule.applyMergedDocument;
+  const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
+  replaceScheduleDocumentRef.current = schedule.replaceScheduleDocument;
   const {
     redo,
     undo,
@@ -665,6 +721,7 @@ function App() {
     milestoneGroups: schedule.milestoneGroups,
     milestones: schedule.milestones,
     replaceDocument: schedule.replaceDocument,
+    applyMergedDocument: (document) => applyMergedDocumentRef.current(document),
     reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
     onAfterOpen: onAfterOpenFile,
     initialBaselineJson: INITIAL_BASELINE_JSON,
@@ -681,6 +738,8 @@ function App() {
     knownMemberIds: schedule.knownMemberIds,
     memberCatalogSettled: !memberCatalogState.loading,
   });
+  externalReloadHistoryUndoRef.current = scheduleFile.onHistoryUndoApplied;
+  externalReloadHistoryRedoRef.current = scheduleFile.onHistoryRedoApplied;
 
   useWindowTitle(scheduleFile.displayFileName, scheduleFile.isDirty);
 
@@ -688,6 +747,39 @@ function App() {
     setToastMessage(message);
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
+
+  const showReplaceScreenToast = useCallback(() => {
+    setToastMessage("画面を置き換えました");
+    window.setTimeout(() => setToastMessage(null), 4000);
+  }, []);
+
+  const mcpReplaceUiBlocking = useCallback(() => {
+    if (scheduleFile.fileBusy) return true;
+    if (detailPanelEditing) return true;
+    if (
+      schedule.editingNoteTask != null ||
+      schedule.editingMilestone != null ||
+      schedule.editingHierarchyTarget != null ||
+      schedule.addingHierarchyTarget != null ||
+      schedule.deletingHierarchyTarget != null
+    ) {
+      return true;
+    }
+    if (schedule.reorderPreview != null) return true;
+    if (sidebarReorderDragging) return true;
+    if (document.querySelector('[role="dialog"]') != null) return true;
+    return false;
+  }, [
+    detailPanelEditing,
+    schedule.addingHierarchyTarget,
+    schedule.deletingHierarchyTarget,
+    schedule.editingHierarchyTarget,
+    schedule.editingMilestone,
+    schedule.editingNoteTask,
+    schedule.reorderPreview,
+    scheduleFile.fileBusy,
+    sidebarReorderDragging,
+  ]);
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
@@ -776,6 +868,13 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [scheduleFile.reloadNotice]);
 
+  useEffect(() => {
+    if (!scheduleFile.mergeNotice) return;
+    setToastMessage("両方の変更を画面へ反映しました");
+    const timer = window.setTimeout(() => setToastMessage(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [scheduleFile.mergeNotice]);
+
   const peerNoticeMessage = useMemo(() => {
     const notice = scheduleFile.peerNotice.peerNotice;
     if (!notice) return null;
@@ -787,17 +886,24 @@ function App() {
     showCornerNotice && updateOfferHeight > 0
       ? `calc(36px * var(--s) + ${updateOfferHeight}px + 8px * var(--s))`
       : showCornerNotice
-        ? "calc(110px * var(--s))"
+        ? `calc(110px * var(--s))`
         : peerNoticeMessage
-          ? "calc(72px * var(--s))"
+          ? `calc(72px * var(--s))`
           : undefined;
 
   const peerToastBottom =
     showCornerNotice && updateOfferHeight > 0 && toastMessage
       ? `calc(36px * var(--s) + ${updateOfferHeight}px + 8px * var(--s) + 40px * var(--s))`
       : showCornerNotice
-        ? "calc(110px * var(--s))"
-        : "calc(72px * var(--s))";
+        ? `calc(110px * var(--s))`
+        : `calc(72px * var(--s))`;
+
+  const diffPanelInset =
+    !diffStrip.visible
+      ? "0px"
+      : diffPanelExpanded || diffStrip.kind === "empty"
+        ? `calc(320px * var(--s))`
+        : `calc(28px * var(--s))`;
 
   const { visibleTaskCount, totalTaskCount } = useMemo(() => {
     const total = listTasks(schedule.categories).length;
@@ -964,6 +1070,7 @@ function App() {
       taskId: ScheduleId,
       mod: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean },
     ) => {
+      clearDiffNavigationMark();
       schedule.selectTaskWithClick(
         taskId,
         mod,
@@ -972,7 +1079,7 @@ function App() {
       );
       revealTaskRow(taskId);
     },
-    [commandKey, revealTaskRow, schedule, visibleRows],
+    [clearDiffNavigationMark, commandKey, revealTaskRow, schedule, visibleRows],
   );
 
   const handleMoveTask = useCallback(
@@ -1181,14 +1288,15 @@ function App() {
   );
 
   const loadScheduleDiffText = useCallback(async (): Promise<
-    { ok: true; text: string } | { ok: false; message: string; showDialog: boolean }
+    | { ok: true; text: string; entries: ScheduleDiffEntry[] }
+    | { ok: false; message: string; showDialog: boolean }
   > => {
     const result = await loadScheduleDiffTextCore(
       scheduleFile.filePath,
       scheduleFile.currentJson,
     );
     if (result.ok) {
-      return { ok: true, text: result.text };
+      return { ok: true, text: result.text, entries: result.entries };
     }
     return {
       ok: false,
@@ -1213,29 +1321,320 @@ function App() {
     memberMap: memberCatalogState.memberMap,
     scheduleFilePath: scheduleFile.filePath,
     scheduleCurrentJson: scheduleFile.currentJson,
+    scheduleBaselineJson: scheduleFile.baselineJson,
+    startupSettled: scheduleFile.startupSettled,
+    startupRecoveryDialogOpen:
+      scheduleFile.recoveryConflictOpen ||
+      scheduleFile.missingScheduleLabel != null ||
+      scheduleFile.recoveryInvalidOpen,
+    mcpReplaceUiBlocking,
+    replaceScheduleDocument: (document) =>
+      replaceScheduleDocumentRef.current(document),
+    onReplaceScheduleApplied: showReplaceScreenToast,
   });
+
+  const announceDiffStrip = useCallback((kind: DiffStripContentKind, text: string) => {
+    const message = diffStripAriaStatus(kind, text);
+    setDiffLiveStatus(null);
+    window.requestAnimationFrame(() => setDiffLiveStatus(message));
+  }, []);
+
+  const applyDiffReveal = useCallback(
+    (plan: DiffRevealPlan) => {
+      switch (plan.kind) {
+        case "task":
+          reveal(plan.scrollXDate, plan.scrollY, plan.barWidthPx);
+          break;
+        case "category":
+        case "group":
+          view.scrollBy(0, plan.scrollY - view.scrollY);
+          break;
+        case "milestoneGroup":
+          break;
+        case "milestone": {
+          const nextX = scrollXToRevealTask(
+            plan.scrollXDate,
+            12,
+            view.scrollX,
+            view.timelineStart,
+            view.totalDays,
+            view.pxPerDay,
+            timelineWidth,
+          );
+          view.scrollBy(nextX - view.scrollX, 0);
+          break;
+        }
+        case "title":
+          break;
+        default:
+          break;
+      }
+    },
+    [reveal, timelineWidth, view],
+  );
+
+  const commitDiffStripView = useCallback(
+    (
+      next: DiffStripView,
+      announce: boolean,
+      entries?: ScheduleDiffEntry[],
+    ) => {
+      if (!next.visible) {
+        if (!diffStripRef.current.visible) {
+          return;
+        }
+        setDiffStrip({ visible: false });
+        setDiffPanelExpanded(false);
+        prevDiffStripKindRef.current = null;
+        pendingDiffBodyRef.current = null;
+        pendingDiffEntriesRef.current = null;
+        setDiffEntries([]);
+        clearDiffNavigationMark();
+        return;
+      }
+      if (
+        shouldDeferBodyUpdate(
+          diffStripRef.current,
+          next,
+          diffStripFocusedRef.current,
+        )
+      ) {
+        pendingDiffBodyRef.current = next.text;
+        if (entries != null) {
+          pendingDiffEntriesRef.current = entries;
+        }
+        return;
+      }
+      const prev = diffStripRef.current;
+      const wasVisible = prev.visible;
+      const prevStatus =
+        prev.visible ? diffStripAriaStatus(prev.kind, prev.text) : null;
+      const nextStatus = diffStripAriaStatus(next.kind, next.text);
+      if (
+        prev.visible &&
+        prev.kind === next.kind &&
+        prev.text === next.text &&
+        prev.showClose === next.showClose
+      ) {
+        return;
+      }
+      if (next.kind === "empty") {
+        setDiffPanelExpanded(true);
+      }
+      if (entries != null) {
+        setDiffEntries(entries);
+        setDiffActiveIndex(0);
+      }
+      setDiffStrip(next);
+      prevDiffStripKindRef.current = next.kind;
+      if (announce && (!wasVisible || prevStatus !== nextStatus)) {
+        announceDiffStrip(next.kind, next.text);
+      }
+    },
+    [announceDiffStrip, clearDiffNavigationMark],
+  );
+
+  const closeDiffStrip = useCallback(() => {
+    setExplicitEmptyPinned(false);
+    commitDiffStripView({ visible: false }, false);
+  }, [commitDiffStripView]);
+
+  const copyDiffStripText = useCallback(async () => {
+    if (scheduleFile.fileBusy) return;
+    const strip = diffStripRef.current;
+    if (!strip.visible) return;
+    try {
+      await navigator.clipboard.writeText(strip.text);
+      setToastMessage("差分をコピーしました");
+      window.setTimeout(() => setToastMessage(null), 3000);
+    } catch {
+      setDiffPanelExpanded(true);
+      setDiffFocusListOnMount(true);
+      diffListRef.current?.focus();
+    }
+  }, [scheduleFile.fileBusy]);
+
+  const onDiffActiveIndexChange = useCallback(
+    (index: number, navigate: boolean) => {
+      setDiffActiveIndex(index);
+      if (!navigate) {
+        const entry = diffEntries[index];
+        if (entry?.nav.kind === "title") {
+          setDiffNavigationMark({
+            sidebar: null,
+            chartMilestoneId: null,
+            milestoneGroupId: null,
+            title: true,
+          });
+        } else {
+          clearDiffNavigationMark();
+        }
+        setDiffRowStatus(null);
+        return;
+      }
+      const entry = diffEntries[index];
+      if (!entry) return;
+      const filterState = schedule.getFilterViewState();
+      const collapsed = collapsedSetFromIds(
+        filterState.collapsedCategoryIds,
+        filterState.collapsedGroupIds,
+      );
+      const outcome = resolveDiffNavigation(entry, {
+        visibleRows: schedule.visibleRows,
+        categories: schedule.categories,
+        collapsed,
+        filters: schedule.filters,
+        today: schedule.today,
+        memberMap: memberCatalogState.memberMap,
+        lineageIds: schedule.lineageIds,
+        hiddenMilestoneGroupIds: new Set(schedule.hiddenMilestoneGroupIds),
+        milestones: schedule.milestones,
+        scrollY: view.scrollY,
+        rowHeight,
+        bodyHeight,
+        dateToX: view.dateToX,
+        pxPerDay: view.pxPerDay,
+        taskBarWidthPx: (task) =>
+          taskBarWidthPx(task, view.dateToX, view.pxPerDay),
+      });
+      if (outcome.status === "blocked") {
+        clearDiffNavigationMark();
+        setDiffRowStatus(outcome.message || null);
+        return;
+      }
+      setDiffRowStatus(null);
+      setDiffNavigationMark(outcome.mark);
+      applyDiffReveal(outcome.reveal);
+    },
+    [
+      applyDiffReveal,
+      bodyHeight,
+      clearDiffNavigationMark,
+      diffEntries,
+      memberCatalogState.memberMap,
+      rowHeight,
+      schedule,
+      view,
+    ],
+  );
+
+  const processDiffLoadResult = useCallback(
+    (
+      result:
+        | { ok: true; text: string; entries: ScheduleDiffEntry[] }
+        | { ok: false; message: string; showDialog: boolean },
+      source: "auto" | "explicit",
+    ) => {
+      if (!result.ok) {
+        if (result.showDialog) {
+          if (source === "auto") return;
+          setDiffError(null);
+          setExplicitEmptyPinned(true);
+          setDiffPanelExpanded(true);
+          commitDiffStripView(
+            resolveStripAfterExplicitLoad(result.message),
+            true,
+          );
+          return;
+        }
+        if (source === "auto") return;
+        setDiffError(result.message);
+        return;
+      }
+      setDiffError(null);
+      if (source === "auto") {
+        const wasVisible = diffStripRef.current.visible;
+        const view = resolveStripAfterAutoLoad(
+          result.text,
+          explicitEmptyPinnedRef.current,
+        );
+        if (view == null) {
+          return;
+        }
+        if (view.visible && view.kind === "body") {
+          setExplicitEmptyPinned(false);
+          if (!wasVisible) {
+            setDiffPanelExpanded(false);
+          }
+        }
+        commitDiffStripView(view, true, result.entries);
+        return;
+      }
+      const explicitView = resolveStripAfterExplicitLoad(result.text);
+      const strip = diffStripRef.current;
+      if (
+        strip.visible &&
+        strip.kind === "body" &&
+        explicitView.kind === "body" &&
+        result.text === strip.text
+      ) {
+        return;
+      }
+      const view = explicitView;
+      setExplicitEmptyPinned(view.kind === "empty");
+      setDiffPanelExpanded(true);
+      if (view.kind === "body") {
+        setDiffFocusListOnMount(true);
+      }
+      commitDiffStripView(view, true, result.entries);
+    },
+    [commitDiffStripView],
+  );
+
+  useEffect(() => {
+    setExplicitEmptyPinned(false);
+    commitDiffStripView({ visible: false }, false);
+  }, [commitDiffStripView, scheduleFile.filePath]);
+
+  useEffect(() => {
+    if (!scheduleFile.isDirty) {
+      commitDiffStripView({ visible: false }, false);
+      setExplicitEmptyPinned(false);
+    }
+  }, [commitDiffStripView, scheduleFile.isDirty]);
+
+  useEffect(() => {
+    if (scheduleFile.filePath || explicitEmptyPinned) return;
+    commitDiffStripView({ visible: false }, false);
+  }, [commitDiffStripView, explicitEmptyPinned, scheduleFile.filePath]);
+
+  useEffect(() => {
+    if (scheduleFile.fileBusy || !scheduleFile.isDirty || !scheduleFile.filePath) {
+      diffRequestRef.current += 1;
+      return;
+    }
+    const requestId = diffRequestRef.current + 1;
+    diffRequestRef.current = requestId;
+    void loadScheduleDiffText().then((result) => {
+      if (diffRequestRef.current !== requestId) return;
+      processDiffLoadResult(result, "auto");
+    });
+  }, [
+    loadScheduleDiffText,
+    processDiffLoadResult,
+    scheduleFile.currentJson,
+    scheduleFile.fileBusy,
+    scheduleFile.filePath,
+    scheduleFile.isDirty,
+  ]);
 
   const showScheduleDiff = useCallback(() => {
     if (scheduleFile.fileBusy) return;
+    setDiffPanelExpanded(true);
+    if (
+      diffStripRef.current.visible &&
+      diffStripRef.current.kind === "body"
+    ) {
+      setDiffFocusListOnMount(true);
+    }
     const requestId = diffRequestRef.current + 1;
     diffRequestRef.current = requestId;
     const stillCurrent = () => diffRequestRef.current === requestId;
     void loadScheduleDiffText().then((result) => {
       if (!stillCurrent()) return;
-      if (!result.ok) {
-        if (result.showDialog) {
-          setDiffError(null);
-          setDiffText(result.message);
-        } else {
-          setDiffText(null);
-          setDiffError(result.message);
-        }
-        return;
-      }
-      setDiffError(null);
-      setDiffText(result.text);
+      processDiffLoadResult(result, "explicit");
     });
-  }, [loadScheduleDiffText, scheduleFile.fileBusy]);
+  }, [loadScheduleDiffText, processDiffLoadResult, scheduleFile.fileBusy]);
 
   const copyScheduleDiff = useCallback(() => {
     if (scheduleFile.fileBusy) return;
@@ -1243,9 +1642,13 @@ function App() {
       if (!result.ok) {
         if (result.showDialog) {
           setDiffError(null);
-          setDiffText(result.message);
+          setExplicitEmptyPinned(true);
+          setDiffPanelExpanded(true);
+          commitDiffStripView(
+            resolveStripAfterExplicitLoad(result.message),
+            true,
+          );
         } else {
-          setDiffText(null);
           setDiffError(result.message);
         }
         return;
@@ -1256,10 +1659,56 @@ function App() {
         window.setTimeout(() => setToastMessage(null), 3000);
       } catch {
         setDiffError(null);
-        setDiffText(result.text);
+        const view = resolveStripAfterExplicitLoad(result.text);
+        setDiffPanelExpanded(true);
+        if (view.kind === "body") {
+          setDiffFocusListOnMount(true);
+        }
+        commitDiffStripView(view, false, result.entries);
       }
     });
-  }, [loadScheduleDiffText, scheduleFile.fileBusy]);
+  }, [commitDiffStripView, loadScheduleDiffText, scheduleFile.fileBusy]);
+
+  const onDiffStripFocus = useCallback(() => {
+    diffStripFocusedRef.current = true;
+  }, []);
+
+  const onDiffStripBlur = useCallback(() => {
+    diffStripFocusedRef.current = false;
+    const pending = pendingDiffBodyRef.current;
+    const pendingEntries = pendingDiffEntriesRef.current;
+    if (pending == null && pendingEntries == null) return;
+    pendingDiffBodyRef.current = null;
+    pendingDiffEntriesRef.current = null;
+    if (pending == null) return;
+    commitDiffStripView(
+      {
+        visible: true,
+        text: pending,
+        kind: "body",
+        showClose: false,
+      },
+      false,
+      pendingEntries ?? undefined,
+    );
+  }, [commitDiffStripView]);
+
+  const collapseDiffPanel = useCallback(() => {
+    setDiffPanelExpanded(false);
+    timelineAreaRef.current?.focus();
+  }, []);
+
+  const expandDiffPanelFromPointer = useCallback(() => {
+    setDiffPanelExpanded(true);
+    timelineAreaRef.current?.focus();
+  }, []);
+
+  const expandDiffPanelFromKeyboard = useCallback(() => {
+    setDiffPanelExpanded(true);
+    window.requestAnimationFrame(() => {
+      diffListRef.current?.focus();
+    });
+  }, []);
 
   const commandPaletteContext = useMemo(
     () => ({
@@ -1459,11 +1908,15 @@ function App() {
     onCloseCommandPalette: () => setCommandPaletteOpen(false),
     visibleRows,
     selectTask: (taskId) => {
+      clearDiffNavigationMark();
       schedule.selectTask(taskId);
       revealTaskRow(taskId);
     },
     selectedTaskIds: schedule.selectedTaskIds,
-    navigateTaskSelection,
+    navigateTaskSelection: (rows, direction, extend, onAfter) => {
+      clearDiffNavigationMark();
+      navigateTaskSelection(rows, direction, extend, onAfter);
+    },
     moveTaskByDays,
     moveSelectedTasksByDays: schedule.moveSelectedTasksByDays,
     shiftTaskEndByDays,
@@ -1887,10 +2340,12 @@ function App() {
       style={{
         ["--s" as string]: uiScale,
         ["--sidebar-w" as string]: sidebarWidth,
+        ["--diff-panel-inset" as string]: diffPanelInset,
       }}
     >
       <Toolbar
         title={schedule.title}
+        titleDiffMarked={diffNavigationMark.title}
         filters={schedule.filters}
         searchField={schedule.searchField}
         onSearchFieldChange={schedule.setSearchField}
@@ -1972,6 +2427,8 @@ function App() {
           rowHeight={rowHeight}
           selectedTaskIds={selectedTaskIdSet}
           hoveredTaskId={hoveredTaskId}
+          diffMarkedSidebar={diffNavigationMark.sidebar}
+          diffMarkedMilestoneGroupId={diffNavigationMark.milestoneGroupId}
           onSelectTask={handleSelectTask}
           reorderingTaskId={
             schedule.reorderPreview?.kind === "task"
@@ -1997,6 +2454,7 @@ function App() {
           onPreviewGroupReorder={schedule.previewGroupReorder}
           onCommitGroupReorder={schedule.commitGroupReorder}
           onCancelReorder={schedule.cancelReorder}
+          onReorderDragActiveChange={setSidebarReorderDragging}
           milestoneBandHeight={milestoneBandHeight}
           milestoneBandLayout={milestoneBandLayout}
           milestones={schedule.milestones}
@@ -2076,6 +2534,8 @@ function App() {
             onMoveMilestone={schedule.moveMilestoneByDays}
             onOpenMilestone={schedule.openMilestoneEdit}
             onMilestoneContextMenu={openMilestoneContextMenu}
+            diffMarkedMilestoneId={diffNavigationMark.chartMilestoneId}
+            diffMarkStrokeWidth={Math.max(2, Math.round(3 * uiScale))}
             today={schedule.today}
             memberCatalog={memberCatalogState.memberMap}
             calendar={appCalendarState.calendar}
@@ -2126,8 +2586,33 @@ function App() {
             }}
           />
         ) : null}
+        {diffStrip.visible ? (
+          <DiffStrip
+            view={diffStrip}
+            entries={diffEntries}
+            expanded={diffPanelExpanded || diffStrip.kind === "empty"}
+            activeIndex={diffActiveIndex}
+            rowStatus={diffRowStatus}
+            onExpandFromPointer={expandDiffPanelFromPointer}
+            onExpandFromKeyboard={expandDiffPanelFromKeyboard}
+            onCollapse={collapseDiffPanel}
+            onClose={closeDiffStrip}
+            onCopy={() => void copyDiffStripText()}
+            copyDisabled={scheduleFile.fileBusy}
+            listRef={diffListRef}
+            onFocus={onDiffStripFocus}
+            onBlur={onDiffStripBlur}
+            onActiveIndexChange={onDiffActiveIndexChange}
+            focusListOnMount={diffFocusListOnMount}
+            onFocusListDone={() => setDiffFocusListOnMount(false)}
+            rowHeight={rowHeight}
+          />
+        ) : null}
         </div>
       </div>
+      <p className="filter-panel-sr-only" role="status" aria-live="polite">
+        {diffLiveStatus ?? ""}
+      </p>
       <StatusBar
         fileName={scheduleFile.displayFileName}
         saveStatus={scheduleFile.saveStatusLabel}
@@ -2140,7 +2625,7 @@ function App() {
         visibleTaskCount={visibleTaskCount}
         totalTaskCount={totalTaskCount}
         showDeferredReload={scheduleFile.showDeferredReload}
-        onDeferredReload={scheduleFile.requestDeferredReload}
+        onDeferredReload={scheduleFile.requestDeferredConfirm}
         onOpenSettingsMembers={() => {
           setSettingsSection("members");
           setSettingsOpen(true);
@@ -2422,11 +2907,6 @@ function App() {
         open={jsonOpen}
         onClose={() => setJsonOpen(false)}
       />
-      <DiffDialog
-        text={diffText ?? ""}
-        open={diffText != null}
-        onClose={() => setDiffText(null)}
-      />
       {scheduleFile.discardPromptOpen ? (
         <DiscardChangesDialog
           onConfirm={scheduleFile.confirmDiscardAndOpen}
@@ -2478,10 +2958,25 @@ function App() {
           onCancel={scheduleFile.cancelExternalChange}
         />
       ) : null}
-      {scheduleFile.externalReloadOpen ? (
+      {scheduleFile.externalReloadOpen && scheduleFile.externalReloadAssessment ? (
         <ExternalReloadDialog
+          assessment={scheduleFile.externalReloadAssessment}
+          review={scheduleFile.externalReloadReview}
+          hasOpenEditDialog={
+            detailPanelEditing ||
+            schedule.editingNoteTask != null ||
+            schedule.editingMilestone != null ||
+            schedule.editingHierarchyTarget != null ||
+            schedule.addingHierarchyTarget != null ||
+            schedule.deletingHierarchyTarget != null
+          }
+          diskUpdatedAgain={scheduleFile.diskUpdatedAgain}
           onReload={scheduleFile.confirmExternalReload}
           onKeepLocal={scheduleFile.keepLocalEditsOnExternalReload}
+          onApplyMerge={() => {
+            setDetailPanelEditing(false);
+            scheduleFile.confirmBaselineMerge();
+          }}
         />
       ) : null}
       {scheduleFile.errorMessage ? (

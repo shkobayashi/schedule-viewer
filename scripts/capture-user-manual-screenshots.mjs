@@ -258,19 +258,19 @@ async function captureDesktopChromeShots(page) {
   await page.locator("#detailName").fill("進行中（青・差分用）");
   await page.locator("#detailName").blur();
   await page.waitForTimeout(400);
-  await page.getByRole("button", { name: "メニュー" }).click();
-  await page.getByRole("menuitem", { name: "差分を表示" }).click();
-  await page.getByRole("heading", { name: "差分" }).waitFor();
+  await page.locator(".diff-strip-handle").click();
   await page.waitForFunction(() => {
-    const area = document.querySelector(".modal.wide textarea");
-    return area instanceof HTMLTextAreaElement && area.value.includes("→");
+    const list = document.querySelector(".diff-strip-list");
+    const body = document.querySelector(".diff-strip-row-body");
+    const text = `${list?.textContent ?? ""}${body?.textContent ?? ""}`;
+    return text.includes("→");
   });
+  await page.getByRole("heading", { name: "差分", level: 2 }).waitFor();
   await page.waitForTimeout(300);
   await page.screenshot({
     path: path.join(outDir, "ui-diff.png"),
     fullPage: false,
   });
-  await page.getByRole("button", { name: "閉じる" }).click();
   await page.waitForTimeout(300);
 
   await applyDesktopOpen(page, colorsSchedule);

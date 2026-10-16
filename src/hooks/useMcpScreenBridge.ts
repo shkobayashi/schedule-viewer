@@ -1,18 +1,30 @@
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Member, MemberId } from "../model/memberTypes";
+import { loadBaselineDiffsText } from "../model/baselineDiffsLoad";
 import { loadScheduleDiffText } from "../model/scheduleDiffLoad";
+import {
+  REPLACE_SCHEDULE_UI_BUSY,
+  assessReplaceScheduleGate,
+  capReplaceScheduleDiffText,
+  parseReplaceScheduleArguments,
+  type ReplaceScheduleDocumentResult,
+} from "../model/replaceSchedule";
 import {
   buildFilteredTasksPayload,
   buildScheduleDiffPayload,
   buildSelectedTaskPayload,
   buildSelectedTasksPayload,
+  MCP_TOOL_BASELINE_DIFFS,
   MCP_TOOL_FILTERED_TASKS,
+  MCP_TOOL_REPLACE_SCHEDULE,
   MCP_TOOL_SCHEDULE_DIFF,
   MCP_TOOL_SELECTED_TASK,
   MCP_TOOL_SELECTED_TASKS,
   mcpPayloadToToolBody,
+  mcpPlainTextToolBody,
   mcpToolErrorBody,
 } from "../model/screenContext";
 import { isTauri } from "../model/scheduleFile";
@@ -20,6 +32,7 @@ import type {
   Category,
   Milestone,
   MilestoneGroup,
+  ScheduleDocument,
   ScheduleFilters,
   ScheduleId,
 } from "../model/types";
@@ -45,6 +58,14 @@ type UseMcpScreenBridgeInput = {
   memberMap: Map<MemberId, Member> | null;
   scheduleFilePath: string | null;
   scheduleCurrentJson: string;
+  scheduleBaselineJson: string;
+  startupSettled: boolean;
+  startupRecoveryDialogOpen: boolean;
+  mcpReplaceUiBlocking: () => boolean;
+  replaceScheduleDocument: (
+    document: ScheduleDocument,
+  ) => ReplaceScheduleDocumentResult;
+  onReplaceScheduleApplied?: () => void;
 };
 
 export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
@@ -65,8 +86,76 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       await invoke("mcp_reply", { id, generation, body });
     }
 
+    async function handleReplaceSchedule(
+      payload: McpScreenRequest,
+      snap: UseMcpScreenBridgeInput,
+    ) {
+      const gate = assessReplaceScheduleGate({
+        startupSettled: snap.startupSettled,
+        startupRecoveryDialogOpen: snap.startupRecoveryDialogOpen,
+        uiBlocking: snap.mcpReplaceUiBlocking(),
+      });
+      if (!gate.ok) {
+        await reply(
+          payload.id,
+          payload.generation,
+          mcpToolErrorBody(gate.message),
+        );
+        return;
+      }
+      const parsed = parseReplaceScheduleArguments(payload.arguments);
+      if (!parsed.ok) {
+        await reply(
+          payload.id,
+          payload.generation,
+          mcpToolErrorBody(parsed.message),
+        );
+        return;
+      }
+      const replaceResult = snap.replaceScheduleDocument(parsed.document);
+      if (replaceResult.outcome === "rejected") {
+        await reply(
+          payload.id,
+          payload.generation,
+          mcpToolErrorBody(REPLACE_SCHEDULE_UI_BUSY),
+        );
+        return;
+      }
+      if (replaceResult.outcome === "applied") {
+        snap.onReplaceScheduleApplied?.();
+      }
+      const diff = await loadScheduleDiffText(
+        snap.scheduleFilePath,
+        replaceResult.screenJson,
+      );
+      const diffText = diff.ok ? diff.text : diff.message;
+      if (!diff.ok && diff.isError) {
+        await reply(
+          payload.id,
+          payload.generation,
+          mcpToolErrorBody(diffText),
+        );
+        return;
+      }
+      const capped = capReplaceScheduleDiffText(diffText);
+      const body = mcpPlainTextToolBody(capped.text, false);
+      if ("tooLarge" in body) {
+        await reply(
+          payload.id,
+          payload.generation,
+          mcpToolErrorBody("応答が大きすぎるため、渡せません。"),
+        );
+        return;
+      }
+      await reply(payload.id, payload.generation, body);
+    }
+
     async function handleRequest(payload: McpScreenRequest) {
       const snap = inputRef.current;
+      if (payload.tool === MCP_TOOL_REPLACE_SCHEDULE) {
+        await handleReplaceSchedule(payload, snap);
+        return;
+      }
       let toolPayload: unknown;
       switch (payload.tool) {
         case MCP_TOOL_SCHEDULE_DIFF: {
@@ -81,6 +170,29 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             scheduleDiffIsError,
           });
           break;
+        }
+        case MCP_TOOL_BASELINE_DIFFS: {
+          const baselineJson = snap.scheduleBaselineJson;
+          const screenJson = snap.scheduleCurrentJson;
+          const result = await loadBaselineDiffsText(
+            snap.scheduleFilePath,
+            baselineJson,
+            screenJson,
+          );
+          const body = mcpPlainTextToolBody(
+            result.ok ? result.text : result.message,
+            !result.ok && result.isError,
+          );
+          if ("tooLarge" in body) {
+            await reply(
+              payload.id,
+              payload.generation,
+              mcpToolErrorBody("応答が大きすぎるため、渡せません。"),
+            );
+            return;
+          }
+          await reply(payload.id, payload.generation, body);
+          return;
         }
         case MCP_TOOL_SELECTED_TASK: {
           toolPayload = buildSelectedTaskPayload({
@@ -135,9 +247,13 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
     }
 
     let unlisten: (() => void) | undefined;
-    void listen<McpScreenRequest>("mcp-screen-request", (event) => {
-      void handleRequest(event.payload);
-    }).then((off) => {
+    void listen<McpScreenRequest>(
+      "mcp-screen-request",
+      (event) => {
+        void handleRequest(event.payload);
+      },
+      { target: getCurrentWindow().label },
+    ).then((off) => {
       unlisten = off;
     });
     return () => {

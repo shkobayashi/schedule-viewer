@@ -3,6 +3,8 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{mpsc, OnceLock};
+use std::thread;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::{
@@ -498,6 +500,103 @@ pub fn next_schedule_window_label(app: &AppHandle) -> Result<String, String> {
     }
 }
 
+static MAIN_THREAD_ID: OnceLock<thread::ThreadId> = OnceLock::new();
+
+pub fn note_main_thread() {
+    let _ = MAIN_THREAD_ID.set(thread::current().id());
+}
+
+fn on_main_thread() -> bool {
+    MAIN_THREAD_ID
+        .get()
+        .is_none_or(|id| *id == thread::current().id())
+}
+
+pub fn create_schedule_webview_on_main_thread(
+    app: &AppHandle,
+    label: &str,
+    title: &str,
+) -> Result<(), String> {
+    let label_owned = label.to_string();
+    let title_owned = title.to_string();
+    let app = app.clone();
+    let build_on_main_thread = move || -> Result<(), String> {
+        let (tx, rx) = mpsc::channel();
+        let label = label_owned.clone();
+        let title = title_owned.clone();
+        let app = app.clone();
+        app.clone()
+            .run_on_main_thread(move || {
+                let result = create_schedule_webview(&app, &label, &title);
+                let _ = tx.send(result);
+            })
+            .map_err(|e| format!("ウィンドウを開けません: {}", e))?;
+        rx.recv()
+            .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
+    };
+    if on_main_thread() {
+        thread::spawn(build_on_main_thread)
+            .join()
+            .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
+    } else {
+        build_on_main_thread()
+    }
+}
+
+pub fn append_open_window_entry(
+    app_data: &Path,
+    label: &str,
+    path: &str,
+) -> Result<(), String> {
+    let mut file = read_open_windows(app_data)?;
+    file.windows.push(OpenWindowEntry {
+        label: label.to_string(),
+        path: Some(path.to_string()),
+        sample: false,
+    });
+    file.focused_label = label.to_string();
+    write_open_windows(app_data, &file)?;
+    Ok(())
+}
+
+pub fn should_close_default_main_window(file: &OpenWindowsFile) -> bool {
+    let has_main = file.windows.iter().any(|entry| entry.label == "main");
+    !has_main && !file.windows.is_empty()
+}
+
+pub fn should_remove_open_window_label_after_destroy(
+    quitting: bool,
+    remaining_webviews: usize,
+) -> bool {
+    !quitting && remaining_webviews >= 1
+}
+
+pub fn resolve_mcp_screen_window_label(
+    recorded_focused: &str,
+    live_labels: &[String],
+    focus_order_newest_last: &[String],
+    os_focused_label: Option<&str>,
+) -> Option<String> {
+    if live_labels.is_empty() {
+        return None;
+    }
+    let live = |label: &str| live_labels.iter().any(|item| item == label);
+    if live(recorded_focused) {
+        return Some(recorded_focused.to_string());
+    }
+    if let Some(label) = os_focused_label {
+        if live(label) {
+            return Some(label.to_string());
+        }
+    }
+    for label in focus_order_newest_last.iter().rev() {
+        if live(label) {
+            return Some(label.clone());
+        }
+    }
+    live_labels.first().cloned()
+}
+
 pub fn create_schedule_webview(app: &AppHandle, label: &str, title: &str) -> Result<(), String> {
     if app.get_webview_window(label).is_some() {
         return Err("同じウィンドウが既に開いています。".to_string());
@@ -513,6 +612,7 @@ pub fn create_schedule_webview(app: &AppHandle, label: &str, title: &str) -> Res
 pub fn spawn_startup_windows(app: &AppHandle, app_data: &Path) -> Result<(), String> {
     let file = dedupe_open_windows(read_open_windows(app_data)?);
     write_open_windows(app_data, &file)?;
+    let close_default_main = should_close_default_main_window(&file);
     for entry in &file.windows {
         if entry.label == "main" {
             continue;
@@ -521,6 +621,11 @@ pub fn spawn_startup_windows(app: &AppHandle, app_data: &Path) -> Result<(), Str
             continue;
         }
         create_schedule_webview(app, &entry.label, "schedule-viewer")?;
+    }
+    if close_default_main {
+        if let Some(main) = app.get_webview_window("main") {
+            let _ = main.close();
+        }
     }
     if let Some(window) = app.get_webview_window(&file.focused_label) {
         let _ = window.set_focus();
@@ -689,6 +794,60 @@ mod tests {
         assert_eq!(
             owners.get("/tmp/other.json").map(String::as_str),
             Some("schedule-3"),
+        );
+    }
+
+    #[test]
+    fn should_close_default_main_when_main_not_recorded() {
+        let file = OpenWindowsFile {
+            focused_label: "schedule-2".to_string(),
+            windows: vec![OpenWindowEntry {
+                label: "schedule-2".to_string(),
+                path: Some("/tmp/plan.json".to_string()),
+                sample: false,
+            }],
+        };
+        assert!(should_close_default_main_window(&file));
+        let with_main = OpenWindowsFile {
+            focused_label: "main".to_string(),
+            windows: vec![
+                OpenWindowEntry {
+                    label: "main".to_string(),
+                    path: Some("/tmp/plan.json".to_string()),
+                    sample: false,
+                },
+                OpenWindowEntry {
+                    label: "schedule-2".to_string(),
+                    path: Some("/tmp/other.json".to_string()),
+                    sample: false,
+                },
+            ],
+        };
+        assert!(!should_close_default_main_window(&with_main));
+    }
+
+    #[test]
+    fn should_remove_label_after_destroy_when_another_window_remains() {
+        assert!(should_remove_open_window_label_after_destroy(false, 1));
+        assert!(!should_remove_open_window_label_after_destroy(false, 0));
+        assert!(!should_remove_open_window_label_after_destroy(true, 1));
+    }
+
+    #[test]
+    fn resolve_mcp_label_prefers_recorded_then_os_then_focus_order() {
+        let live = vec!["main".to_string(), "schedule-2".to_string()];
+        let order = vec!["main".to_string(), "schedule-2".to_string()];
+        assert_eq!(
+            resolve_mcp_screen_window_label("schedule-2", &live, &order, None).as_deref(),
+            Some("schedule-2")
+        );
+        assert_eq!(
+            resolve_mcp_screen_window_label("schedule-9", &live, &order, Some("main")).as_deref(),
+            Some("main")
+        );
+        assert_eq!(
+            resolve_mcp_screen_window_label("schedule-9", &live, &order, None).as_deref(),
+            Some("schedule-2")
         );
     }
 
