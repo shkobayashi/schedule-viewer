@@ -73,7 +73,7 @@ flowchart TD
 | --- | --- |
 | `useSchedule` | 文書、取り消し、絞り込み、選択（`taskSelection` の id 配列と `anchorId` / `activeId`。履歴に入れない）、折りたたみ、系統、編集対象、複製元、一括下書き、タスクとカテゴリの並べ替えのプレビュー |
 | `useMacOSAppMenu` | macOS のデスクトップ版だけ、画面上部のアプリメニューを組み立てる |
-| `useScheduleFile` | パス、未保存の基準、開く、閉じる確認。保存、控え、外部更新、起動復旧は `src/hooks/scheduleFile/` に分け、戻り値はここがまとめる |
+| `useScheduleFile` | パス、未保存の基準、開く、ドロップで開く、閉じる確認。保存、控え、外部更新、起動復旧は `src/hooks/scheduleFile/` に分け、戻り値はここがまとめる |
 | `useAppKeyboard` | ウィンドウのキー。押した結果の判断は `appKeyboard.ts` |
 | `useTimelinePointer` | チャートとマイルストン帯のホバー、線を引くときの追随。当たりは `chartHitTest.ts` |
 | `useTimelineView` | 1日あたりの幅、スクロール、ホイール。キーの `scrollBy` は `useAppKeyboard` から呼ぶ |
@@ -148,6 +148,8 @@ flowchart TD
 
 ブラウザ版はダイアログの代わりにファイル選択を使い、`accept_opened_schedule` は呼ばない。
 
+FILE-08 はデスクトップ版だけが Tauri の `DragDrop` を受け、`useScheduleDropOpen` が `classifyDroppedSchedulePaths` と `scheduleDropBlockedReason` で仕分けと門を見る。門はファイル操作の確認ダイアログと、その時点で開いている `role="dialog"` も見る。1件の `.json` は `read_dropped_schedule_file` で読み、検証後に `accept_opened_schedule` と `replaceDocument` の既存経路で開く。WIN-04 は `schedule_drop.rs` が起動引数、`RunEvent::Opened`、`tauri-plugin-single-instance` の引数を `ExternalDropQueue` に載せる。2つ目のプロセスの引数は先頭の実行ファイルを除き、フォルダは件数に残す。キュー内の同じ束だけ重複を捨てる。全ウィンドウの起動復旧が `report_startup_settled` で揃い、復旧の確認ダイアログを閉じたあと `report_external_schedule_drop_ready` で揃ったときだけ `schedule-external-drop` を前面ウィンドウへ送る。待ちのあいだは拒否文を出さず、キューも進めない。ルートは `routeExternalScheduleDrop` が決め、同じ正規化パスなら `focus_schedule_window`、パス無し1枚ならそのウィンドウで開く、それ以外は `create_schedule_window` または `forward_schedule_external_drop` である。`ack_external_schedule_drop` は配りを受けたウィンドウだけが送る。ブラウザ版は `main.tsx` が `dragover` と `drop` で `preventDefault` するだけである。
+
 ### 保存
 
 `save_schedule_file` は、上書きのとき開いているパスと要求パスが一致することを見る。パスが無いときは、フロントが別名保存として保存ダイアログを開く。`skip_disk_hash_check` が無いときは、記憶している SHA-256 とディスクを比べ、違えば `DISK_HASH_MISMATCH` を返す。フロントはこのとき SYNC-02 の確認を出す。確認の待ち時間にも保存は一つだけである。この直列化は `useScheduleSave` が持つ。書き込みは一時ファイルへ書いてから置き換える。
@@ -185,7 +187,7 @@ flowchart TD
 
 設定ダイアログの下に出す今の版は、デスクトップ版では `@tauri-apps/api/app` の `getVersion`（権限 `core:app:allow-version`）を、ブラウザ版では `package.json` の `version` を、設定を初めて開いたときに 1 回だけ読む。整形した 1 行は [src/components/SettingsDialog.tsx](../src/components/SettingsDialog.tsx) のモジュール内に残し、閉じたあとも取り直さない。新しい Tauri 命令は足さない。
 
-`create_schedule_window` は async コマンドで、検証済みの内容を pending に載せたあと `run_on_main_thread` で WebView を作り、成功したあとだけ `open-windows.json` に足す。呼び出し元がメインスレッドのときは、作成の待ちを別スレッドで行う。作れなかったときは pending だけ戻す。起動時の追加分は `spawn_startup_windows` が同じビルダーで作る。記録に `main` が無く他のラベルだけがあるときは、設定で作った空の `main` を起動直後に閉じる。複数ウィンドウのうち1枚を閉じたあと、別のウィンドウが残るときは `unregister_window_session` と `WindowEvent::Destroyed` のどちらかで一覧からそのラベルを外す。前面ラベルはウィンドウの `Focused` と `register_window_focus` で更新し、起動時にフロントが無条件で前面を書くことはしない。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出す。引数が `--mcp` だけ、または `--screen` とツール名だけの起動は `main` で分岐し、この処理には含めない。
+`create_schedule_window` は async コマンドで、検証済みの内容を pending に載せたあと `run_on_main_thread` で WebView を作り、成功したあとだけ `open-windows.json` に足す。呼び出し元がメインスレッドのときは、作成の待ちを別スレッドで行う。作れなかったときは pending だけ戻す。起動時の追加分は `spawn_startup_windows` が同じビルダーで作る。記録に `main` が無く他のラベルだけがあるときは、設定で作った空の `main` を起動直後に閉じる。複数ウィンドウのうち1枚を閉じたあと、別のウィンドウが残るときは `unregister_window_session` と `WindowEvent::Destroyed` のどちらかで一覧からそのラベルを外す。前面ラベルはウィンドウの `Focused` と `register_window_focus` で更新し、起動時にフロントが無条件で前面を書くことはしない。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出し、スケジュール用のパス引数があれば `ExternalDropQueue` に載せる。引数が `--mcp` だけ、または `--screen` とツール名だけの起動は `main` で分岐し、この処理には含めない。macOS の `RunEvent::Opened` も同じキューへ入れ、同一バッチの重複は捨てる。
 
 MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をローカル待ち受けへ送る。Unix はアプリデータの `mcp.sock`（所有者のみ）。Windows は `\\.\pipe\com.collabcentral.schedule-viewer-<SID>` の名前付きパイプで、アプリデータにファイルは置かない。パイプのセキュリティ記述子は待ち受けスレッドの中で作る。応答を書いたあと、クライアントが接続を閉じるまで待ってからパイプを切る。使用中の接続があるときは、クライアントは応答待ちと同じ 5 秒まで接続を試し直す。待ち受けが次のパイプを作るあいだに名前が消えても、その秒数まではウィンドウが無い旨にしない。待ち受けの 1 回の失敗ではスレッドを終えず、短い待ちのあと次のパイプを作る。GUI は `setup` で待ち受けを始め、`read_open_windows` の `focused_label` に生きている webview が無いときは、OS で前面のウィンドウ、無ければ直近の前面順のラベルへ `mcp-screen-request` を、そのウィンドウだけへ送る。各ウィンドウは自ラベルのイベントだけを受ける。応答は `mcp_reply` で返す。送り先と違うウィンドウの応答は pending を外さず捨てる。応答待ちを過ぎた相関 id は pending から外し、遅れた `mcp_reply` は捨てる。ウィンドウごとの世代番号でも遅れた応答を捨てる。読み取り 5 ツールはフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけで組み立て、画面とファイルは変えない。`replace_schedule` は `replaceSchedule.ts` と `useSchedule.replaceScheduleDocument` で前面の文書だけを変え、ファイルには書かない。`--screen replace_schedule` は標準入力の JSON を `screen_cli.rs` で読み、10MB を超えたら待ち受けへ送らない。
 
@@ -249,6 +251,10 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `read_last_schedule_file` | 互換用。覚えたパスと本文 | 記録の形式 | 同上 | 同上 |
 | `clear_last_schedule_path` | なし | — | 同上 | 同上 |
 | `read_window_startup` | ウィンドウラベル。起動用のパスと控え | — | 同上 | `windowSession.ts` |
+| `read_dropped_schedule_file` | パス。本文 | 10MB、UTF-8 | `dropped-schedule.toml` | `windowSession.ts` |
+| `read_open_windows_snapshot` | 開いているウィンドウのラベル、パス、サンプルか、前面順 | — | 同上 | 同上 |
+| `ack_external_schedule_drop` | 外部ドロップのキューを1件進める | — | 同上 | 同上 |
+| `forward_schedule_external_drop` | 対象ラベルとパス一覧。`schedule-external-drop-target` を送る | ウィンドウ無し | 同上 | 同上 |
 | `create_schedule_window` | パスと本文 | 10MB | 同上 | 同上 |
 | `take_pending_schedule_window_open` | ウィンドウラベル。pending のパスと本文 | — | 同上 | 同上 |
 | `register_window_focus` | なし | — | 同上 | 同上 |
@@ -261,6 +267,7 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `accept_application_quit` | このウィンドウは終了してよい | — | 同上 | 同上 |
 | `cancel_application_quit` | 終了を取りやめる | — | 同上 | 同上 |
 | `report_startup_settled` | 起動復旧完了と起動時の自動更新オンオフを記録し、全ウィンドウが揃ったか返す | — | 同上 | `windowSession.ts` |
+| `report_external_schedule_drop_ready` | 復旧の確認ダイアログを閉じ、外部ドロップを受け付けられる状態を記録し、揃ったらキューを配る | — | 同上 | `windowSession.ts` |
 | `request_application_update` | 全ウィンドウへ更新前確認を送る。入れ直しを始めるウィンドウは呼び出し元 | — | 同上 | 同上 |
 | `begin_application_update_install` | 指定したウィンドウを入れ直しの開始窓にして、全ウィンドウへ更新前確認を送る | 指定ラベルのウィンドウが無い | 同上 | 同上 |
 | `accept_application_update` | このウィンドウは更新してよい | — | 同上 | 同上 |

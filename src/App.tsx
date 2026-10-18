@@ -737,6 +737,7 @@ function App() {
     getFilterViewState: schedule.getFilterViewState,
     knownMemberIds: schedule.knownMemberIds,
     memberCatalogSettled: !memberCatalogState.loading,
+    sidebarReorderDragging,
   });
   externalReloadHistoryUndoRef.current = scheduleFile.onHistoryUndoApplied;
   externalReloadHistoryRedoRef.current = scheduleFile.onHistoryRedoApplied;

@@ -20,6 +20,7 @@ commands.allow = [
   "accept_application_quit",
   "cancel_application_quit",
   "report_startup_settled",
+  "report_external_schedule_drop_ready",
   "request_application_update",
   "begin_application_update_install",
   "accept_application_update",

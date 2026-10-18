@@ -35,9 +35,12 @@ import {
   cancelApplicationUpdateViaTauri,
   completeApplicationUpdateRecoveryViaTauri,
   createScheduleWindowViaTauri,
+  readDroppedScheduleFileViaTauri,
   recoveryCloseActionViaTauri,
   releaseScheduleRecoveryViaTauri,
+  reportExternalScheduleDropReadyViaTauri,
 } from "../model/windowSession";
+import { useScheduleDropOpen } from "./scheduleFile/useScheduleDropOpen";
 
 export type FileStatusTag = "sample" | "saved" | "unsaved";
 
@@ -59,6 +62,7 @@ type UseScheduleFileOptions = {
   getFilterViewState: () => ScheduleFilterViewState;
   knownMemberIds: ReadonlySet<string>;
   memberCatalogSettled: boolean;
+  sidebarReorderDragging: boolean;
 };
 
 export type ApplyOpenedFileOptions = {
@@ -81,6 +85,7 @@ export function useScheduleFile({
   getFilterViewState,
   knownMemberIds,
   memberCatalogSettled,
+  sidebarReorderDragging,
 }: UseScheduleFileOptions) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [browserFileLabel, setBrowserFileLabel] = useState<string | null>(null);
@@ -90,6 +95,7 @@ export function useScheduleFile({
   const discardPromptOpenRef = useRef(discardPromptOpen);
   discardPromptOpenRef.current = discardPromptOpen;
   const [pendingOpen, setPendingOpen] = useState(false);
+  const pendingDropPathRef = useRef<string | null>(null);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [closePromptForUpdate, setClosePromptForUpdate] = useState(false);
   const [fileBusy, setFileBusy] = useState(false);
@@ -326,6 +332,42 @@ export function useScheduleFile({
     ],
   );
 
+  const runOpenFromPath = useCallback(
+    async (path: string) => {
+      if (fileBusy || !startupSettledRef.current) return;
+      setFileBusy(true);
+      try {
+        const contents = await readDroppedScheduleFileViaTauri(path);
+        const parsed = parseScheduleText(contents);
+        if (!parsed.ok) {
+          setErrorMessageText(parsed.message);
+          return;
+        }
+        await acceptOpenedScheduleViaTauri(path, contents);
+        await applyOpenedFile({ path, contents });
+      } catch (error) {
+        setErrorMessageText(errorMessage(error, "ファイルを開けませんでした。"));
+      } finally {
+        setFileBusy(false);
+      }
+    },
+    [applyOpenedFile, fileBusy],
+  );
+
+  const beginOpenFromDroppedPath = useCallback(
+    (path: string) => {
+      if (fileBusyRef.current || !startupSettledRef.current) return;
+      if (isDirtyRef.current) {
+        pendingDropPathRef.current = path;
+        setPendingOpen(false);
+        setDiscardPromptOpen(true);
+        return;
+      }
+      void runOpenFromPath(path);
+    },
+    [runOpenFromPath],
+  );
+
   const runOpen = useCallback(async () => {
     if (fileBusy || !startupSettledRef.current) return;
     const initialDirectory = initialDirectoryRef.current;
@@ -406,16 +448,51 @@ export function useScheduleFile({
 
   const confirmDiscardAndOpen = useCallback(() => {
     setDiscardPromptOpen(false);
+    const dropPath = pendingDropPathRef.current;
+    if (dropPath) {
+      pendingDropPathRef.current = null;
+      void runOpenFromPath(dropPath);
+      return;
+    }
     if (!pendingOpen) return;
     setPendingOpen(false);
     void runOpen();
-  }, [pendingOpen, runOpen]);
+  }, [pendingOpen, runOpen, runOpenFromPath]);
 
   const cancelDiscard = useCallback(() => {
     initialDirectoryRef.current = null;
+    pendingDropPathRef.current = null;
     setDiscardPromptOpen(false);
     setPendingOpen(false);
   }, []);
+
+  const readAndValidateDroppedPath = useCallback(async (path: string) => {
+    try {
+      const contents = await readDroppedScheduleFileViaTauri(path);
+      const parsed = parseScheduleText(contents);
+      if (!parsed.ok) {
+        return { ok: false as const, message: parsed.message };
+      }
+      return { ok: true as const, contents };
+    } catch (error) {
+      return {
+        ok: false as const,
+        message: errorMessage(error, "ファイルを開けませんでした。"),
+      };
+    }
+  }, []);
+
+  const openDroppedScheduleInNewWindow = useCallback(
+    async (path: string, contents: string) => {
+      const parsed = parseScheduleText(contents);
+      if (!parsed.ok) {
+        setErrorMessageText(parsed.message);
+        return;
+      }
+      await createScheduleWindowViaTauri(path, contents);
+    },
+    [],
+  );
 
   const startup = useScheduleStartupRecovery({
     replaceDocument,
@@ -747,6 +824,36 @@ export function useScheduleFile({
   }, []);
 
   const dismissError = useCallback(() => setErrorMessageText(null), []);
+
+  const startupRecoveryDialogOpen =
+    startup.recoveryConflictOpen ||
+    startup.recoveryInvalidOpen ||
+    startup.missingScheduleLabel != null;
+
+  useEffect(() => {
+    if (!isTauri() || !startupSettled || startupRecoveryDialogOpen) return;
+    void reportExternalScheduleDropReadyViaTauri();
+  }, [startupSettled, startupRecoveryDialogOpen]);
+
+  useScheduleDropOpen({
+    dropGate: {
+      startupSettled,
+      startupRecoveryDialogOpen,
+      fileBusy,
+      dialogOpen:
+        discardPromptOpen ||
+        closePromptOpen ||
+        externalChangeOpen ||
+        externalReloadOpen,
+      reorderDragging: sidebarReorderDragging,
+    },
+    handlers: {
+      beginOpenFromDroppedPath,
+      openDroppedScheduleInNewWindow,
+      setDropErrorMessage: setErrorMessageText,
+      readAndValidateDroppedPath,
+    },
+  });
 
   return {
     filePath,

@@ -39,6 +39,7 @@
     "allow-delete-schedule-filter",
     "allow-release-schedule-filter",
     "allow-read-schedule-file-at-path",
+    "allow-dropped-schedule",
     "allow-read-last-schedule-file",
     "allow-clear-last-schedule-path",
     "allow-read-window-startup",

@@ -5,6 +5,7 @@ mod mcp_bridge;
 pub mod mcp_stdio;
 mod read_screen_skill;
 pub mod screen_cli;
+mod schedule_drop;
 mod window_session;
 
 use json_skills::{
@@ -26,7 +27,8 @@ use mcp_bridge::{
 };
 use std::sync::Arc;
 use window_session::{
-    all_windows_startup_settled, any_startup_auto_update_enabled, append_open_window_entry,
+    all_windows_external_drop_ready, all_windows_startup_settled,
+    any_startup_auto_update_enabled, append_open_window_entry,
     create_schedule_webview_on_main_thread, delete_filter_for_path, delete_recovery_for_path,
     forget_startup_settlement, forget_window_focus, migrate_legacy_session,
     next_schedule_window_label, note_main_thread, note_window_focus, read_open_windows,
@@ -37,7 +39,7 @@ use window_session::{
     spawn_startup_windows, store_pending_open, take_pending_open, upsert_window_path,
     write_filter_for_path, write_recovery_for_path,
     WindowSessionState,
-    WindowStartupRead,
+    OpenWindowEntry, WindowStartupRead,
 };
 
 const MAX_SCHEDULE_BYTES: u64 = 10 * 1024 * 1024;
@@ -930,6 +932,111 @@ fn recovery_close_action(
 }
 
 #[tauri::command]
+fn enqueue_external_schedule_paths(
+    session: &Mutex<WindowSessionState>,
+    paths: Vec<String>,
+) {
+    if paths.is_empty() {
+        return;
+    }
+    let mut guard = session.lock().expect("window session");
+    guard.external_drop_queue.enqueue(paths);
+}
+
+fn try_dispatch_external_schedule_drop(
+    app: &tauri::AppHandle,
+    session: &Mutex<WindowSessionState>,
+) {
+    let app_data = match app_data_dir(app) {
+        Ok(dir) => dir,
+        Err(_) => return,
+    };
+    let (batch, focused_label) = {
+        let guard = session.lock().expect("window session");
+        if !all_windows_startup_settled(app, &guard.startup_settled_labels) {
+            return;
+        }
+        if !all_windows_external_drop_ready(app, &guard.external_drop_ready_labels) {
+            return;
+        }
+        let batch = guard.external_drop_queue.peek().map(|paths| paths.to_vec());
+        let focused_label = read_open_windows(&app_data)
+            .map(|file| file.focused_label)
+            .unwrap_or_else(|_| "main".to_string());
+        (batch, focused_label)
+    };
+    if let Some(paths) = batch {
+        let window = app
+            .get_webview_window(&focused_label)
+            .or_else(|| app.get_webview_window("main"));
+        if let Some(window) = window {
+            let _ = window.emit("schedule-external-drop", paths);
+        }
+    }
+}
+
+#[tauri::command]
+fn forward_schedule_external_drop(
+    app: tauri::AppHandle,
+    target_label: String,
+    paths: Vec<String>,
+) -> Result<(), String> {
+    let window = app
+        .get_webview_window(&target_label)
+        .ok_or_else(|| "ウィンドウが見つかりません。".to_string())?;
+    window
+        .emit("schedule-external-drop-target", paths)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn ack_external_schedule_drop(
+    app: tauri::AppHandle,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<(), String> {
+    {
+        let mut guard = session.lock().expect("window session");
+        guard.external_drop_queue.pop_front();
+    }
+    try_dispatch_external_schedule_drop(&app, session.inner());
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct OpenWindowsSnapshot {
+    #[serde(rename = "focusedLabel")]
+    focused_label: String,
+    windows: Vec<OpenWindowEntry>,
+    #[serde(rename = "focusOrder")]
+    focus_order: Vec<String>,
+}
+
+#[tauri::command]
+fn read_open_windows_snapshot(
+    app: tauri::AppHandle,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<OpenWindowsSnapshot, String> {
+    let app_data = app_data_dir(&app)?;
+    let file = read_open_windows(&app_data)?;
+    let focus_order = session.lock().expect("window session").focus_order.clone();
+    Ok(OpenWindowsSnapshot {
+        focused_label: file.focused_label,
+        windows: file.windows,
+        focus_order,
+    })
+}
+
+#[tauri::command]
+fn read_dropped_schedule_file(path: String) -> Result<String, String> {
+    let path_buf = PathBuf::from(&path);
+    if !path_buf.is_file() {
+        return Err(SCHEDULE_FILE_NOT_FOUND.to_string());
+    }
+    read_utf8(&path_buf, MAX_SCHEDULE_BYTES)
+}
+
+#[tauri::command]
 fn read_schedule_file_at_path(app: tauri::AppHandle, path: String) -> Result<String, String> {
     let app_data = app_data_dir(&app)?;
     if read_recovery_for_path(&app_data, &path)?.is_none() {
@@ -1565,6 +1672,27 @@ fn report_startup_settled(
     Ok(StartupSettledResult { all_settled })
 }
 
+#[tauri::command]
+fn report_external_schedule_drop_ready(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    {
+        let mut guard = session.lock().expect("window session");
+        if !guard
+            .external_drop_ready_labels
+            .iter()
+            .any(|item| item == &label)
+        {
+            guard.external_drop_ready_labels.push(label);
+        }
+    }
+    try_dispatch_external_schedule_drop(&app, session.inner());
+    Ok(())
+}
+
 fn start_application_update_flow(
     app: &tauri::AppHandle,
     session: &Mutex<WindowSessionState>,
@@ -1772,7 +1900,11 @@ pub fn run() {
         .manage(Mutex::new(WindowSessionState::default()))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if let Some(session) = app.try_state::<Mutex<WindowSessionState>>() {
+                let paths = schedule_drop::paths_from_single_instance_args(&args);
+                enqueue_external_schedule_paths(session.inner(), paths);
+            }
             let file = app
                 .path()
                 .app_data_dir()
@@ -1786,12 +1918,13 @@ pub fn run() {
                 let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
-                return;
-            }
-            if let Some(window) = app.get_webview_window("main") {
+            } else if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
+            }
+            if let Some(session) = app.try_state::<Mutex<WindowSessionState>>() {
+                try_dispatch_external_schedule_drop(app, session.inner());
             }
         }))
         .setup(|app| {
@@ -1806,11 +1939,16 @@ pub fn run() {
                     let _ = start_mcp_bridge_server(handle.clone(), bridge);
                 }
                 let session = handle.state::<Mutex<WindowSessionState>>();
-                let mut guard = session.lock().expect("window session");
-                if !guard.startup_spawned {
-                    guard.startup_spawned = true;
-                    drop(guard);
-                    let _ = spawn_startup_windows(&handle, &dir);
+                let launch_args: Vec<String> = std::env::args().skip(1).collect();
+                {
+                    let mut guard = session.lock().expect("window session");
+                    let paths = schedule_drop::paths_from_launch_args(&launch_args);
+                    guard.external_drop_queue.enqueue(paths);
+                    if !guard.startup_spawned {
+                        guard.startup_spawned = true;
+                        drop(guard);
+                        let _ = spawn_startup_windows(&handle, &dir);
+                    }
                 }
             }
             Ok(())
@@ -1891,6 +2029,10 @@ pub fn run() {
             recovery_live_action,
             recovery_close_action,
             read_schedule_file_at_path,
+            read_dropped_schedule_file,
+            read_open_windows_snapshot,
+            ack_external_schedule_drop,
+            forward_schedule_external_drop,
             read_last_schedule_file,
             read_window_startup,
             clear_last_schedule_path,
@@ -1907,6 +2049,7 @@ pub fn run() {
             accept_application_quit,
             cancel_application_quit,
             report_startup_settled,
+            report_external_schedule_drop_ready,
             request_application_update,
             begin_application_update_install,
             accept_application_update,
@@ -1930,6 +2073,13 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
+            if let tauri::RunEvent::Opened { urls } = &event {
+                if let Some(session) = app.try_state::<Mutex<WindowSessionState>>() {
+                    let paths = schedule_drop::paths_from_opened_urls(urls);
+                    enqueue_external_schedule_paths(session.inner(), paths);
+                    try_dispatch_external_schedule_drop(app, session.inner());
+                }
+            }
             if matches!(event, tauri::RunEvent::Exit) {
                 if let Ok(dir) = app_data_dir(app) {
                     cleanup_mcp_socket(&dir);

@@ -1,0 +1,14 @@
+{
+  "bundle": {
+    "fileAssociations": [
+      {
+        "ext": ["json"],
+        "mimeType": "application/json",
+        "name": "JSON",
+        "description": "JSON document",
+        "role": "Viewer",
+        "rank": "None"
+      }
+    ]
+  }
+}

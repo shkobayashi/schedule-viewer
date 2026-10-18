@@ -6,6 +6,13 @@ import "./App.css";
 
 applyResolvedColorScheme(readResolvedColorScheme());
 
+const preventBrowserFileNavigation = (event: DragEvent) => {
+  event.preventDefault();
+};
+
+window.addEventListener("dragover", preventBrowserFileNavigation);
+window.addEventListener("drop", preventBrowserFileNavigation);
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <App />

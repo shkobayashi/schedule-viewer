@@ -8,7 +8,8 @@ use std::thread;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::{
-    read_utf8, read_utf8_limited, write_utf8_atomic, MAX_SCHEDULE_BYTES, SCHEDULE_FILE_NOT_FOUND,
+    read_utf8, read_utf8_limited, schedule_drop::ExternalDropQueue, write_utf8_atomic,
+    MAX_SCHEDULE_BYTES, SCHEDULE_FILE_NOT_FOUND,
 };
 
 const OPEN_WINDOWS_FILE: &str = "open-windows.json";
@@ -68,6 +69,9 @@ pub struct WindowSessionState {
     pub updating: bool,
     pub update_recovery_owners: HashMap<String, String>,
     pub application_update_ui_json: Option<String>,
+    pub external_drop_queue: ExternalDropQueue,
+    /// 起動復旧の確認ダイアログを閉じ、外部ドロップを受け付けられるウィンドウ。
+    pub external_drop_ready_labels: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -132,12 +136,20 @@ pub fn recovery_owners_by_path(
     owners
 }
 
-pub fn all_windows_startup_settled(app: &AppHandle, settled: &[String]) -> bool {
-    let labels: Vec<String> = app.webview_windows().keys().cloned().collect();
-    if labels.is_empty() {
+pub fn all_webview_windows_listed(app: &AppHandle, labels: &[String]) -> bool {
+    let open: Vec<String> = app.webview_windows().keys().cloned().collect();
+    if open.is_empty() {
         return false;
     }
-    labels.iter().all(|label| settled.iter().any(|item| item == label))
+    open.iter().all(|label| labels.iter().any(|item| item == label))
+}
+
+pub fn all_windows_startup_settled(app: &AppHandle, settled: &[String]) -> bool {
+    all_webview_windows_listed(app, settled)
+}
+
+pub fn all_windows_external_drop_ready(app: &AppHandle, ready: &[String]) -> bool {
+    all_webview_windows_listed(app, ready)
 }
 
 pub fn any_startup_auto_update_enabled(
@@ -152,6 +164,9 @@ pub fn any_startup_auto_update_enabled(
 pub fn forget_startup_settlement(state: &mut WindowSessionState, label: &str) {
     state
         .startup_settled_labels
+        .retain(|existing| existing != label);
+    state
+        .external_drop_ready_labels
         .retain(|existing| existing != label);
     state.startup_auto_update_at_startup.remove(label);
 }
