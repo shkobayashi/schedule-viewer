@@ -175,6 +175,8 @@ npm run dev
 npm run tauri dev
 ```
 
+FILE-08 のブラウザ版は、`npm run dev` で開き、Finder などから JSON をウィンドウへ落としても、ブラウザがそのファイルを開こうとしないことを見る。ウィンドウや Dock へのドロップは `npm run tauri dev` で手元の OS 上で見る。macOS と Linux の `fileAssociations` は `src-tauri/tauri.macos.conf.json` と `src-tauri/tauri.linux.conf.json` にあり、同じ OS で `npm run tauri build` すると Tauri がマージする。Windows は関連付けを登録しない。インストーラでの関連付けと、動いているあいだに OS がパスを渡さない件は、この Mac では見ない。
+
 ## DevContainer
 
 DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1.98.1 を使う。VS Code / Cursor で「Reopen in Container」を選ぶ。コンテナ内でも `npm run tauri build` で Linux 向けパッケージは作れる。ウィンドウを開いての動作確認は、ディスプレイがあるホスト OS 側で行う。

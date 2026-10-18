@@ -1,6 +1,6 @@
 # テスト仕様
 
-何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
+何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
 
 ## 方針
 
@@ -323,6 +323,20 @@
 | 同上 | `covers the full category stack` | EDIT-16 |
 | 同上 | `places the marker at the category boundary` | EDIT-16 |
 | 同上 | `finds the category index` | EDIT-16 |
+| `droppedSchedulePaths.test.ts` | `accepts a single json path` | FILE-08, WIN-04 |
+| 同上 | `accepts json extension case-insensitively` | FILE-08, WIN-04 |
+| 同上 | `rejects two json files` | FILE-08, WIN-04 |
+| 同上 | `rejects a non-json file` | FILE-08, WIN-04 |
+| 同上 | `rejects json with an extra path` | FILE-08, WIN-04 |
+| 同上 | `rejects a folder path only` | FILE-08, WIN-04 |
+| `droppedScheduleExternalDispatch.test.ts` | `returns busy before invalid selection` | FILE-08, WIN-04 |
+| 同上 | `returns invalid for a folder path only` | FILE-08, WIN-04 |
+| `droppedScheduleOpenRoute.test.ts` | `focuses the newest window that already has the same path` | WIN-04 |
+| 同上 | `opens in the only pathless window` | WIN-04 |
+| 同上 | `opens a new window when every window already has a path` | WIN-04 |
+| 同上 | `opens in the sole pathless window among several` | WIN-04 |
+| `droppedScheduleOpenGate.test.ts` | `returns busy when reordering` | FILE-08, WIN-04 |
+| 同上 | `returns null when ready` | FILE-08, WIN-04 |
 | `scheduleExternalReload.test.ts` | `returns invalid for broken JSON` | SYNC-01 |
 | 同上 | `returns noop when canonical matches baseline` | SYNC-01, FILE-04 |
 | 同上 | `returns confirm when dirty and content differs` | SYNC-01 |
@@ -522,6 +536,12 @@
 
 | テスト | 確認すること | 機能 ID |
 | --- | --- | --- |
+| `skips_mcp_launch` | `--mcp` だけの起動ではパスを開かない | WIN-04 |
+| `skips_screen_launch` | `--screen` だけの起動ではパスを開かない | WIN-04 |
+| `collects_absolute_paths_from_launch` | 起動引数からパスだけを集める | WIN-04 |
+| `skips_executable_in_single_instance_args` | 2つ目のプロセスの先頭の実行ファイルを数えない | WIN-04 |
+| `dedupes_identical_batches_in_queue` | キューに残っている同じパス束の重複を捨てる | WIN-04 |
+| `accepts_same_batch_after_pop` | 処理したあと同じパス束をもう一度入れられる | WIN-04 |
 | `sanitize_export_filename_removes_path_separators` | パス区切りを除く | EXPORT-04 |
 | `sanitize_export_filename_uses_default_for_empty` | 空なら `schedule.html` | EXPORT-04 |
 | `sanitize_export_filename_adds_extension` | 拡張子を足す | EXPORT-04, FILE-02 |
@@ -636,6 +656,13 @@
 | TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 7 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
 | TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 7 になる |
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 7 になる。タグを付けていないタスクに `tags` は無い |
+| TC-FILE-08 | FILE-08 | デスクトップ版。検証済みの JSON がある | その JSON をウィンドウへ1つ落とす | 「開く」と同じ内容になる。ファイルダイアログは出ない |
+| TC-FILE-08b | FILE-08 | 未保存の編集がある | 別の検証済み JSON を同じウィンドウへ落とす | 破棄の確認が出る |
+| TC-FILE-08c | FILE-08 | サンプル | JSON を2つ、またはフォルダと JSON をまとめて落とす | 開かず「スケジュールの JSON を1つだけ落としてください。」が出る |
+| TC-FILE-08d | FILE-08 | 開くダイアログを開いている | JSON を1つ落とす | 開かず「画面の操作が途中なので、開けません。」が出る |
+| TC-FILE-08e | FILE-08 | ブラウザ版、`npm run dev` | JSON をページへ落とす | ファイルは開かず、ブラウザがそのファイルへ移らない |
+| TC-FILE-08f | FILE-08 | デスクトップ版。設定またはタスク編集のダイアログを開いている | JSON をウィンドウへ1つ落とす | 開かず「画面の操作が途中なので、開けません。」が出る |
+| TC-FILE-08g | FILE-08 | デスクトップ版 | タスクバーの上と並べ替えの握りの上へ JSON を通して落とす | チャートの移動と並べ替えは始まらない |
 | TC-FILE-02 | FILE-02 | ファイルを開き、バーを動かして未保存にする | 「保存」を押す | 見出しから「未保存」が消え、ファイルの内容が画面と一致する |
 | TC-FILE-02c | FILE-02 | 同上 | ⌘/Ctrl+S を押す。検索欄にフォーカスがあるときも押す | 「保存」と同じように保存される。モーダルダイアログが開いているときは保存されない |
 | TC-FILE-03 | FILE-03 | サンプルを編集する | 「別名保存」で新しいパスを選ぶ | そのパスに JSON ができ、次の「保存」はそのパスへ書く |
@@ -709,6 +736,13 @@
 | TC-WIN-02 | WIN-02 | 同じファイルを2つのウィンドウで開く。片方は未保存 | 未保存の側で外部更新を「画面の編集を残す」にする | もう一方の隅に「確認待ち」が出て、確認が終わるまで残る。押すと、確認を出したウィンドウが前面になる。確認を終えると知らせは消える |
 | TC-WIN-02b | WIN-02 | 同じファイルを2つ開く。両方保存済み | 片方で外部更新を即時反映する | もう一方の隅に「反映した」が数秒出る |
 | TC-WIN-03 | SET-02, SET-01, SET-04 | 2つのウィンドウを開く | 片方でメンバー、表示サイズ、配色、一覧の幅、行の密度、イナズマ線、一覧の列を変える | もう一方も同じ設定になる |
+| TC-WIN-04 | WIN-04 | デスクトップ版。アプリを終了している。検証済みの JSON がある | JSON を Dock またはアプリのショートカットへ落とす | 起動と復元のあとそのファイルが開く |
+| TC-WIN-04b | WIN-04 | 起動済み。同じ JSON を2つのウィンドウで開いている。片方だけ未保存 | その JSON を Dock へ落とす | 前面順の新しいウィンドウが前面になる。読み直さず未保存も残る |
+| TC-WIN-04c | WIN-04 | 起動済み。別ファイルを開いている | 別の検証済み JSON を Dock へ落とす | 新しいウィンドウで開く。元のウィンドウの未保存確認は出ない |
+| TC-WIN-04d | WIN-04 | 起動済み。開くダイアログを開いている | JSON を Dock へ落とす | 前面に出るが開かず「画面の操作が途中なので、開けません。」が出る |
+| TC-WIN-04e | WIN-04, SYNC-03 | 起動時に復旧の確認が出る状態。検証済みの JSON がある | JSON を Dock へ落とす | 確認が閉じるまで開かない。忙しい旨は出ない。閉じたあとそのファイルが開く |
+| TC-WIN-04f | WIN-04 | 起動済み。同じ JSON をすでに開いている | その JSON をもう一度 Dock へ落とす | 同じパスのウィンドウが前面になる。読み直さない |
+| TC-WIN-04g | WIN-04 | 起動済み | フォルダだけ、またはフォルダと JSON を Dock へ落とす | 開かず「スケジュールの JSON を1つだけ落としてください。」が出る |
 | TC-FILE-02d | FILE-02, SYNC-02 | 開いたあと、別のエディタでファイルを変える | 「ファイルが更新されています」が出るまで ⌘/Ctrl+S を続けて押す | 確認は一つだけ出る。上書きは一回だけ行われる |
 | TC-SYNC-01d | SYNC-01 | デスクトップ版でファイルを開いている | そのファイルを消し、連続して読めなくなるまで待つ | ファイルダイアログが出る。読み取り失敗の汎用メッセージは出ない。キャンセルすると見出しのファイル名は残る。上書き保存はできず、別名保存はできる |
 | TC-VIEW-01 | VIEW-01 | サンプル | 左の行を上から見る | カテゴリ、グループ、タスクの順で、JSON の配列順に並ぶ |
@@ -934,7 +968,7 @@ TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu�
 6. TC-SET-02 でメンバー名が出ることを見る
 7. TC-SET-03 で非稼働日が塗られることを見る
 8. TC-SYNC-01 で、別のエディタで保存した内容が画面に反映されることを見る
-9. TC-SYNC-03 で未保存の復元を、TC-SYNC-03d で保存済みの開き直しを見る。TC-WIN-01 で別ウィンドウ、TC-WIN-02 で他ウィンドウの知らせ、TC-WIN-03 で設定の共有を見る
+9. TC-SYNC-03 で未保存の復元を、TC-SYNC-03d で保存済みの開き直しを見る。TC-WIN-01 で別ウィンドウ、TC-WIN-02 で他ウィンドウの知らせ、TC-WIN-03 で設定の共有を見る。TC-FILE-08 と TC-WIN-04 は手元の OS で `npm run tauri dev` を使って見る
 10. TC-VIEW-05 と TC-VIEW-07 で赤とイナズマ線を見る
 11. Ubuntu では deb のインストールと起動を見る。Windows では Release の NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
 12. `SHA256SUMS` に deb、NSIS、`.cer`、`latest.json` が含まれ、各ファイルのハッシュが一致することを見る。`latest.json` に `linux-x86_64` と `windows-x86_64` があることを見る

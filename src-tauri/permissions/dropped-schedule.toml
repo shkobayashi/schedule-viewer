@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-dropped-schedule"
+description = "Allows reading schedule files from drag-and-drop and external open."
+commands.allow = [
+  "read_dropped_schedule_file",
+  "read_open_windows_snapshot",
+  "ack_external_schedule_drop",
+  "forward_schedule_external_drop",
+]
