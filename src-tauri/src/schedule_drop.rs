@@ -45,6 +45,7 @@ fn path_argument(arg: &str) -> bool {
         || path.extension().is_some()
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn paths_from_opened_urls(urls: &[url::Url]) -> Vec<String> {
     urls.iter()
         .filter_map(|url| url.to_file_path().ok())
