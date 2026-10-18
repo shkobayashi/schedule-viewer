@@ -592,7 +592,16 @@
 | `install_without_replace_leaves_existing`（`read_screen_skill.rs`） | 置き換えを確認するまでは既存を残し、何も書かない | MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_screen_tools` | `tools/list` が読み取り 5 ツールと `replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
+| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 5 ツール（省略できる `window`）、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
+| `build_mcp_open_windows_orders_live_and_sets_front`（`window_session.rs`） | 生きているラベルだけを記録順に並べ、`file`・`folder`・`front` を付け、絶対パスを含めない | MCP-01 |
+| `build_mcp_open_windows_omits_home_path_segments`（`window_session.rs`） | ホーム配下のパスでも `file`・`folder` は末尾と親だけ。JSON に `/Users` などを含めない | MCP-01 |
+| `resolve_mcp_label_with_override_absent_matches_front_resolution`（`window_session.rs`） | `window` 省略時の送り先は `resolve_mcp_screen_window_label` と同じ | MCP-01 |
+| `resolve_mcp_label_with_override_ignores_front`（`window_session.rs`） | `window` 指定時は前面でなくそのラベル。無いラベルは前面へ倒さない | MCP-01 |
+| `screen_tool_parses_window_on_open_windows_for_rejection`（`screen_cli.rs`） | `open_windows` に `--window` を解析し、失敗文を返す | MCP-02 |
+| `screen_tool_parses_window_on_replace_schedule_for_rejection`（`screen_cli.rs`） | `replace_schedule` に `--window` を解析し、失敗文を返す | MCP-02 |
+| `screen_tool_accepts_read_window_flag`（`screen_cli.rs`） | `--screen <読み取り> --window <label>` を受け付ける | MCP-02 |
+| `screen_tool_rejects_window_on_open_windows`（`screen_cli.rs`） | `open_windows` に `--window` は付けない | MCP-02 |
+| `screen_tool_rejects_window_on_replace_schedule`（`screen_cli.rs`） | `replace_schedule` に `--window` は付けない | MCP-02 |
 | `mcp_socket_lives_in_app_data` | Unix のソケットはアプリデータ直下 | MCP-01 |
 | `mcp_pipe_name_includes_identifier_and_sid` | Windows のパイプ名に identifier と SID が入る | MCP-01 |
 | `pipe_roundtrips_length_prefixed_frame` | Windows の名前付きパイプで長さ付き JSON が往復する | MCP-01 |
@@ -948,10 +957,11 @@
 | TC-MCP-01e | MCP-01 | デスクトップ版、画面の未保存とファイルの外部更新が同時にある | `baseline_diffs` を1回呼ぶ | `画面:` に起点から画面への差分、`ファイル:` に起点からファイルへの差分、`分類:` に画面のみ・ファイルのみ・異なるなどが id ごとに出る。`schedule_diff` の混ざった差分だけでは分類しない |
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
 | TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |
+| TC-MCP-01h | MCP-01, MCP-02 | 別ファイルを2ウィンドウで開き、それぞれ別タスクを1件選択。背面を前面にしない | 引数なしの `selected_task`。`open_windows`。背面の `label` を `window` に渡した `selected_task`。無い `label`。`--screen selected_task --window <背面の label>`。`--screen replace_schedule --window <label>` | 引数なしは前面の選択。一覧は両方の `file` と `folder`、絶対パスなし、`front` は前面1件。`window` 指定は背面の選択で前面は変わらない。無いラベルは指定したウィンドウが開いていない旨。CLI の `--window` も背面。`replace_schedule` に `--window` は待ち受けへ送らず、標準エラーに「replace_schedule は前面ウィンドウだけを置き換えます。--window は使えません。」、終了コード 1 |
 | TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
 | TC-MCP-01f | MCP-01 | デスクトップ版、ファイルを開き、絞り込み・折りたたみ・選択・系統を変えた状態 | `write-schedule` で検証済みの JSON 全体を作り、`replace_schedule` を 1 回呼ぶ。同じ保存形式の JSON をもう一度呼ぶ。詳細パネルにフォーカスがある状態でも呼ぶ。起動復旧の衝突・ファイル無し・不正控えのダイアログが出ている状態でも呼ぶ | 1 回目は未保存になり、隅に「画面を置き換えました」が約 4 秒出る。ファイルの内容は変わらない。絞り込み・折りたたみ・ズーム・スクロール・系統は変わらない。選択は新文書に残るタスクだけ残る。⌘/Ctrl+Z で置き換え前に戻る。2 回目は未保存も履歴も変わらないが差分テキストは成功で返る。詳細のフォーカス中は「画面の操作が途中なので、置き換えられません。」起動復旧のダイアログ中は「起動の復旧が終わっていないので、置き換えられません。」確認ダイアログは出ない |
 | TC-MCP-01g | MCP-01 | デスクトップ版。パス無しのサンプル、外部更新の帯、同じファイルの2ウィンドウ、開く・保存の途中、並べ替えの握りドラッグ中、10MB超・壊れたJSON・検証失敗の入力、差分が応答上限を超える置き換え | 各条件で `replace_schedule` を呼ぶか `--screen replace_schedule` で標準入力を渡す | パス無しの成功は「比べるファイルがありません」で失敗にしない。JSON として読めない・検証失敗・10MB 超はそれぞれの文で拒否し画面も履歴も変えない。差分が大きすぎても置き換えは残り「差分が大きすぎるため、差分テキストは返せません。」は失敗にしない。「ファイルに更新あり — 確認する」は消えない。背面ウィンドウの文書は変わらない。ダイアログ・ファイル操作中・並べ替えドラッグ中は「画面の操作が途中なので、置き換えられません。」 |
-| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
+| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen open_windows`、`--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 
 TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 4 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。
