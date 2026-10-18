@@ -30,7 +30,7 @@ flowchart TD
 | `src/sample/` | 起動時のサンプル |
 | `src-tauri/src/lib.rs` | ダイアログ、一時ファイルを使った安全な置き換え、アプリデータ、内容ハッシュ、MCP 待ち受け |
 | `src-tauri/src/mcp_stdio.rs` | `--mcp` 起動の標準入出力 JSON-RPC（`initialize`、`tools/list`、`tools/call`） |
-| `src-tauri/src/mcp_bridge.rs` | アプリデータのローカルソケットと、前面 webview への `mcp-screen-request` |
+| `src-tauri/src/mcp_bridge.rs` | アプリデータのローカルソケットと、送り先 webview への `mcp-screen-request`。`open_windows` は Rust だけで一覧を返す |
 | `src-tauri/src/mcp_app_data.rs` | Tauri を起動せずにアプリデータディレクトリと `mcp.sock` のパスを決める。Windows の名前付きパイプ名も組み立てる |
 | `src-tauri/src/mcp_bridge_windows.rs` | Windows の名前付きパイプ待ち受けと `--mcp` からの接続 |
 | `scripts/` | 検証器の生成、サンプル検査、バージョン同期、操作マニュアルの GitHub Pages 用サイトビルド |
@@ -80,7 +80,7 @@ flowchart TD
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
 | `useAppCalendar` | カレンダーの読み込み |
-| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 5 ツールを組み立てる。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・操作中）と引数を検証し、`useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
+| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 5 ツールを組み立てる（`window` は橋渡しで外れる）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・操作中）と引数を検証し、`useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
 
 ### モデル
 
@@ -189,7 +189,7 @@ flowchart TD
 
 `create_schedule_window` は async コマンドで、検証済みの内容を pending に載せたあと `run_on_main_thread` で WebView を作り、成功したあとだけ `open-windows.json` に足す。呼び出し元がメインスレッドのときは、作成の待ちを別スレッドで行う。作れなかったときは pending だけ戻す。起動時の追加分は `spawn_startup_windows` が同じビルダーで作る。記録に `main` が無く他のラベルだけがあるときは、設定で作った空の `main` を起動直後に閉じる。複数ウィンドウのうち1枚を閉じたあと、別のウィンドウが残るときは `unregister_window_session` と `WindowEvent::Destroyed` のどちらかで一覧からそのラベルを外す。前面ラベルはウィンドウの `Focused` と `register_window_focus` で更新し、起動時にフロントが無条件で前面を書くことはしない。新しいウィンドウは起動復旧より先に `take_pending_schedule_window_open` で内容を受け取る。`emit_schedule_peer_notice` が他ウィンドウへ `schedule-peer-notice` を送る。どのウィンドウも前面に無いときは、同じ内容の OS 通知を1回出す。Linux では通知のクリックで対象ウィンドウを前面にする。`useSchedulePeerNotice` が隅の知らせを出し、「反映した」は数秒で消す。`focus_schedule_window` で前面化する。終了は `request_application_quit` が全ウィンドウへ確認を送り、すべてが受け入れてから閉じる。キャンセルしたときは閉じない。最後のウィンドウを閉じるときと終了時は、`open-windows.json` からその記録を外さない。2つ目のプロセスは `tauri-plugin-single-instance` で既存のアプリを前面に出し、スケジュール用のパス引数があれば `ExternalDropQueue` に載せる。引数が `--mcp` だけ、または `--screen` とツール名だけの起動は `main` で分岐し、この処理には含めない。macOS の `RunEvent::Opened` も同じキューへ入れ、同一バッチの重複は捨てる。
 
-MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をローカル待ち受けへ送る。Unix はアプリデータの `mcp.sock`（所有者のみ）。Windows は `\\.\pipe\com.collabcentral.schedule-viewer-<SID>` の名前付きパイプで、アプリデータにファイルは置かない。パイプのセキュリティ記述子は待ち受けスレッドの中で作る。応答を書いたあと、クライアントが接続を閉じるまで待ってからパイプを切る。使用中の接続があるときは、クライアントは応答待ちと同じ 5 秒まで接続を試し直す。待ち受けが次のパイプを作るあいだに名前が消えても、その秒数まではウィンドウが無い旨にしない。待ち受けの 1 回の失敗ではスレッドを終えず、短い待ちのあと次のパイプを作る。GUI は `setup` で待ち受けを始め、`read_open_windows` の `focused_label` に生きている webview が無いときは、OS で前面のウィンドウ、無ければ直近の前面順のラベルへ `mcp-screen-request` を、そのウィンドウだけへ送る。各ウィンドウは自ラベルのイベントだけを受ける。応答は `mcp_reply` で返す。送り先と違うウィンドウの応答は pending を外さず捨てる。応答待ちを過ぎた相関 id は pending から外し、遅れた `mcp_reply` は捨てる。ウィンドウごとの世代番号でも遅れた応答を捨てる。読み取り 5 ツールはフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけで組み立て、画面とファイルは変えない。`replace_schedule` は `replaceSchedule.ts` と `useSchedule.replaceScheduleDocument` で前面の文書だけを変え、ファイルには書かない。`--screen replace_schedule` は標準入力の JSON を `screen_cli.rs` で読み、10MB を超えたら待ち受けへ送らない。
+MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をローカル待ち受けへ送る。Unix はアプリデータの `mcp.sock`（所有者のみ）。Windows は `\\.\pipe\com.collabcentral.schedule-viewer-<SID>` の名前付きパイプで、アプリデータにファイルは置かない。パイプのセキュリティ記述子は待ち受けスレッドの中で作る。応答を書いたあと、クライアントが接続を閉じるまで待ってからパイプを切る。使用中の接続があるときは、クライアントは応答待ちと同じ 5 秒まで接続を試し直す。待ち受けが次のパイプを作るあいだに名前が消えても、その秒数まではウィンドウが無い旨にしない。待ち受けの 1 回の失敗ではスレッドを終えず、短い待ちのあと次のパイプを作る。GUI は `setup` で待ち受けを始める。`open_windows` は `window_session::build_mcp_open_windows_list` で生きている webview の一覧だけを返し、webview へ回さない。それ以外の読み取りは、`window` 引数が無いとき記録の前面、OS の前面、直近の前面順の順でラベルを決め、あるときはそのラベルの生きている webview へ `mcp-screen-request` を送る。読み取り 5 つだけ、webview へ渡す直前に `window` を引数から外す。`replace_schedule` の引数に `window` キーがあるときは webview へ送らず失敗する。各ウィンドウは自ラベルのイベントだけを受ける。応答は `mcp_reply` で返す。送り先と違うウィンドウの応答は pending を外さず捨てる。応答待ちを過ぎた相関 id は pending から外し、遅れた `mcp_reply` は捨てる。ウィンドウごとの世代番号でも遅れた応答を捨てる。読み取り 5 ツールはフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけで組み立て、画面とファイルは変えない。`replace_schedule` は `replaceSchedule.ts` と `useSchedule.replaceScheduleDocument` で前面の文書だけを変え、ファイルには書かない。`--screen` は `screen_cli.rs` が `--screen <tool>` または読み取り 5 つに `--window <label>` を解析する。`--screen replace_schedule` は標準入力の JSON を読み、10MB を超えたら待ち受けへ送らない。
 
 保存は、外部更新の確認を待つあいだも一つの処理だけが進む。確認を出して戻ったあとに、上書きや別名保存を続ける。
 
@@ -313,9 +313,9 @@ JSON 作成スキルの配置は `install_json_skills` だけが行う。外す�
 
 画面の状態を読む `read-screen` は `install_read_screen_skill` だけが置き、`uninstall_read_screen_skill` だけが外す。テンプレートはバンドル内 `read-screen/SKILL.md` から読み、実行ファイルの呼び方を置き換えて、ユーザー全体の `~/.cursor/skills/read-screen/` と `~/.claude/skills/read-screen/` だけへ書く。Windows で実行ファイルが Local AppData 配下のときは、`$LOCALAPPDATA` から続く1行のコマンド例に置き換える。それ以外は絶対パスを、引数と別の行に書く。指定したプロジェクトフォルダへは書かない。`.cursor` と `.claude` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。外すのは `read-screen` だけである。skills フォルダや別名のスキルは残す。
 
-MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_dir` が同じときだけ GUI が始める。Unix のソケットは所有者のみが読み書きできる。接続元の UID を確認し、本人以外は拒否する。Windows の名前付きパイプは現在のユーザーの SID を名前に含め、セキュリティ記述子でそのユーザーだけに許可し、リモート接続は拒否する。`--mcp` プロセスはファイルを直接読まず、前面 webview の読み取りだけを使う。応答は前面 1 ウィンドウ分で、スケジュール読み込み上限 10MB を超えたらエラーにする。待ち受け TCP ポートは持たない。
+MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_dir` が同じときだけ GUI が始める。Unix のソケットは所有者のみが読み書きできる。接続元の UID を確認し、本人以外は拒否する。Windows の名前付きパイプは現在のユーザーの SID を名前に含め、セキュリティ記述子でそのユーザーだけに許可し、リモート接続は拒否する。`--mcp` プロセスはファイルを直接読まず、webview の読み取りと `open_windows` の一覧だけを使う。応答は送り先 1 ウィンドウ分（一覧は絶対パスを含めない）で、スケジュール読み込み上限 10MB を超えたらエラーにする。待ち受け TCP ポートは持たない。
 
-同じ OS ユーザーの別プロセスは、前面ウィンドウの絞り込み結果、絞り込み条件、選択、FILE-07 の差分テキストを読める。未保存の内容も、差分に入っていれば読める。`replace_schedule` で前面のスケジュール JSON を置き換えられる。ディスクのファイルは変えない。差分見出しの `ファイル:` はパス区切りを含まない末尾だけである。タスク名やノートに利用者が書いたパスは、本文としてそのまま返る。接続元を MCP の子プロセスだけに限るトークンや PID の照合、本文中のパスらしき文字列の伏字、接続数の制限、監査ログ、ソケット通信の暗号化は入れない。
+同じ OS ユーザーの別プロセスは、`window` を省略した前面ウィンドウと、`window` で指定した背面ウィンドウの絞り込み結果、絞り込み条件、選択、FILE-07 の差分テキストを読める。`open_windows` でファイル名と親フォルダ名だけの一覧を読める。未保存の内容も、差分に入っていれば読める。`replace_schedule` で前面のスケジュール JSON を置き換えられる。ディスクのファイルは変えない。差分見出しの `ファイル:` はパス区切りを含まない末尾だけである。タスク名やノートに利用者が書いたパスは、本文としてそのまま返る。接続元を MCP の子プロセスだけに限るトークンや PID の照合、本文中のパスらしき文字列の伏字、接続数の制限、監査ログ、ソケット通信の暗号化は入れない。
 
 ## 描画
 

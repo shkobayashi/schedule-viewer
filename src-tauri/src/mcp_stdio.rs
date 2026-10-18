@@ -81,57 +81,60 @@ fn initialize_result() -> Value {
     })
 }
 
+fn read_tool_window_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "window": {
+                "type": "string",
+                "description": "開いているウィンドウの内部ラベル（open_windows の label）。省略時は前面ウィンドウ。ファイル名やフォルダ名はここでは使えません。利用者がファイル名などでウィンドウを指したときは、先に open_windows で一覧を取り、省略した言い方を file と folder へ当て、一意に当たったときだけこの引数に label を渡します。0 件または 2 件以上に当たるときは前面の内容で代用せず、file・folder・どちらが前面かだけを伝えて尋ねます（絶対パスは書きません）。「後ろ」「背面」だけでファイル名が無いときは、front が false の行が 1 件ならそれ、複数なら尋ねます。読んでもそのウィンドウは前面にしません。",
+            }
+        },
+        "additionalProperties": false,
+    })
+}
+
 fn tools_list_result() -> Value {
+    let read_schema = read_tool_window_schema();
     json!({
         "tools": [
             {
-                "name": "schedule_diff",
-                "description": "開いているファイルと画面の編集内容の差分テキスト（FILE-07 と同じ）だけを返します。人が直したあとに前後関係を見直すときに使います。タスク一覧は含みません。6つのツールをまとめて呼ぶ必要はありません。",
+                "name": "open_windows",
+                "description": "開いているスケジュールウィンドウの一覧を JSON 配列で返します。各要素は label、file（パス末尾またはサンプル表示名）、folder（親フォルダ名。無いとき null）、front（引数なしの読み取りが向くウィンドウだけ true）です。絶対パスは含みません。利用者がファイル名や親フォルダ、背面のウィンドウを指したときに、省略した言い方を file と folder へ当てるために使います。一意に当たったときだけ読み取りの window に label を渡します。0 件または 2 件以上のときは前面で代用せず尋ねます。「後ろ」「背面」だけでファイル名が無いときは front が false の 1 件、複数なら尋ねます。ウィンドウもファイルも指していない依頼では呼びません。",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
                     "additionalProperties": false,
                 }
+            },
+            {
+                "name": "schedule_diff",
+                "description": "開いているファイルと画面の編集内容の差分テキスト（FILE-07 と同じ）だけを返します。人が直したあとに前後関係を見直すときに使います。タスク一覧は含みません。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "inputSchema": read_schema.clone(),
             },
             {
                 "name": "baseline_diffs",
-                "description": "起点（最後に開いた・保存した・読み直した内容）と、画面とファイルの差分と、id ごとの分類を返します。画面とファイルの両方が動いたときに使います。6つのツールをまとめて呼ぶ必要はありません。",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": false,
-                }
+                "description": "起点（最後に開いた・保存した・読み直した内容）と、画面とファイルの差分と、id ごとの分類を返します。画面とファイルの両方が動いたときに使います。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "inputSchema": read_schema.clone(),
             },
             {
                 "name": "selected_task",
-                "description": "前面ウィンドウで選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。6つのツールをまとめて呼ぶ必要はありません。",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": false,
-                }
+                "description": "選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "inputSchema": read_schema.clone(),
             },
             {
                 "name": "selected_tasks",
-                "description": "前面ウィンドウの編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。6つのツールをまとめて呼ぶ必要はありません。",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": false,
-                }
+                "description": "編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "inputSchema": read_schema.clone(),
             },
             {
                 "name": "filtered_tasks",
-                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。6つのツールをまとめて呼ぶ必要はありません。",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {},
-                    "additionalProperties": false,
-                }
+                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "inputSchema": read_schema.clone(),
             },
             {
                 "name": "replace_schedule",
-                "description": "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。前面ウィンドウのスケジュールを、検証済みの JSON 全体で未保存として置き換えます。成功時は FILE-07 と同じ差分テキストだけを返します。ファイルには書きません。",
+                "description": "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。前面ウィンドウのスケジュールだけを、検証済みの JSON 全体で未保存として置き換えます。背面のウィンドウは置き換えません。利用者が前面と違うウィンドウの更新だけを指しているときは、このツールを呼び出さずその旨を伝えます。成功時は FILE-07 と同じ差分テキストだけを返します。ファイルには書きません。",
                 "inputSchema": {
                     "type": "object",
                     "description": "schedule-viewer のスケジュール JSON 全体（schemaVersion 7）",
@@ -222,6 +225,7 @@ mod tests {
         assert_eq!(
             names,
             [
+                "open_windows",
                 "schedule_diff",
                 "baseline_diffs",
                 "selected_task",
@@ -230,6 +234,16 @@ mod tests {
                 "replace_schedule",
             ]
         );
+        let schedule_diff = tools
+            .iter()
+            .find(|t| t.get("name").and_then(|n| n.as_str()) == Some("schedule_diff"))
+            .expect("schedule_diff");
+        let props = schedule_diff
+            .get("inputSchema")
+            .and_then(|s| s.get("properties"))
+            .and_then(|p| p.get("window"))
+            .expect("window property");
+        assert_eq!(props.get("type").and_then(|t| t.as_str()), Some("string"));
         assert!(!names.contains(&"screen_context"));
         let description = |name: &str| {
             tools
@@ -243,8 +257,27 @@ mod tests {
         assert!(selected_tasks.contains("選択数が不明なときはこのツールを使います"));
         let selected_task = description("selected_task");
         assert!(selected_task.contains("選択数が不明なときは selected_tasks を使います"));
+        let open_windows = description("open_windows");
+        assert!(open_windows.contains("一意に当たったときだけ"));
+        assert!(open_windows.contains("0 件または 2 件以上"));
+        let window_prop = schedule_diff
+            .get("inputSchema")
+            .and_then(|s| s.get("properties"))
+            .and_then(|p| p.get("window"))
+            .and_then(|w| w.get("description"))
+            .and_then(|d| d.as_str())
+            .unwrap_or("");
+        assert!(window_prop.contains("絶対パスは書きません"));
+        assert!(window_prop.contains("front が false"));
         let replace_schedule = description("replace_schedule");
         assert!(replace_schedule.contains("開いているスケジュールの更新はこのツールへ渡します"));
         assert!(replace_schedule.contains("新しいスケジュールファイルの作成"));
+        assert!(replace_schedule.contains("前面と違うウィンドウ"));
+        let replace_schema = tools
+            .iter()
+            .find(|t| t.get("name").and_then(|n| n.as_str()) == Some("replace_schedule"))
+            .and_then(|t| t.get("inputSchema"))
+            .expect("replace_schedule schema");
+        assert!(replace_schema.get("properties").and_then(|p| p.get("window")).is_none());
     }
 }

@@ -12,8 +12,13 @@ use uuid::Uuid;
 
 #[cfg(unix)]
 use crate::mcp_app_data::mcp_socket_path;
+use crate::screen_cli::{
+    OPEN_WINDOWS_TOOL_NAME, REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED, SCREEN_READ_TOOLS_WITH_WINDOW,
+    SCREEN_REPLACE_TOOL_NAME,
+};
 use crate::window_session::{
-    read_open_windows, resolve_mcp_screen_window_label, WindowSessionState,
+    build_mcp_open_windows_list, read_open_windows,
+    resolve_mcp_screen_window_label_with_override, McpWindowOverrideError, WindowSessionState,
 };
 
 #[cfg(windows)]
@@ -27,12 +32,16 @@ const RESPONSE_TIMEOUT: Duration = MCP_PIPE_CONNECT_TIMEOUT;
 const MSG_NO_GUI: &str = "スケジュールのウィンドウが開いていないので、渡せません。";
 const MSG_NO_WINDOW: &str = "前面のウィンドウが開いていないので、渡せません。";
 const MSG_STALE: &str = "前面のウィンドウが応答しなかったので、渡せません。";
+const MSG_SPECIFIED_NO_WINDOW: &str = "指定したウィンドウが開いていないので、渡せません。";
+const MSG_SPECIFIED_STALE: &str = "指定したウィンドウが応答しなかったので、渡せません。";
 
 #[derive(Debug)]
 pub enum McpBridgeError {
     NoGui,
     NoWindow,
     Stale,
+    SpecifiedNoWindow,
+    SpecifiedStale,
     Io(()),
 }
 
@@ -42,6 +51,8 @@ impl McpBridgeError {
             McpBridgeError::NoGui => MSG_NO_GUI.to_string(),
             McpBridgeError::NoWindow => MSG_NO_WINDOW.to_string(),
             McpBridgeError::Stale => MSG_STALE.to_string(),
+            McpBridgeError::SpecifiedNoWindow => MSG_SPECIFIED_NO_WINDOW.to_string(),
+            McpBridgeError::SpecifiedStale => MSG_SPECIFIED_STALE.to_string(),
             McpBridgeError::Io(_) => MSG_NO_GUI.to_string(),
         }
     }
@@ -261,12 +272,64 @@ pub(crate) fn handle_bridge_connection_io<R: Read + Write>(
         Ok(value) => value,
         Err(_) => return Ok(()),
     };
-    let response = dispatch_to_front_window(app, state, request)?;
+    let response = dispatch_tool_request(app, state, request)?;
     write_frame(stream, &response)?;
     Ok(())
 }
 
-fn dispatch_to_front_window(
+#[derive(PartialEq, Eq)]
+enum WindowArgument {
+    Absent,
+    Label(String),
+    Invalid,
+}
+
+fn window_argument_from_tool(tool: &str, arguments: &Value) -> WindowArgument {
+    if tool == OPEN_WINDOWS_TOOL_NAME || tool == SCREEN_REPLACE_TOOL_NAME {
+        return WindowArgument::Absent;
+    }
+    match arguments.get("window") {
+        None => WindowArgument::Absent,
+        Some(value) => match value.as_str() {
+            Some(label) if !label.is_empty() => WindowArgument::Label(label.to_string()),
+            _ => WindowArgument::Invalid,
+        },
+    }
+}
+
+fn webview_arguments_for_read_tool(arguments: Value) -> Value {
+    match arguments {
+        Value::Object(mut map) => {
+            map.remove("window");
+            if map.is_empty() {
+                json!({})
+            } else {
+                Value::Object(map)
+            }
+        }
+        _ => json!({}),
+    }
+}
+
+fn arguments_contain_window_key(arguments: &Value) -> bool {
+    arguments
+        .as_object()
+        .is_some_and(|map| map.contains_key("window"))
+}
+
+fn bridge_tool_error_response(id: String, text: &str) -> BridgeResponse {
+    BridgeResponse {
+        v: BRIDGE_VERSION,
+        id,
+        body: Some(json!({
+            "content": [{ "type": "text", "text": text }],
+            "isError": true,
+        })),
+        error: None,
+    }
+}
+
+fn dispatch_tool_request(
     app: &AppHandle,
     state: &Arc<McpBridgeState>,
     request: BridgeRequest,
@@ -289,20 +352,103 @@ fn dispatch_to_front_window(
                 .filter(|focused| *focused)
                 .map(|_| label.clone())
         });
-    let target_label = resolve_mcp_screen_window_label(
+    if request.tool == SCREEN_REPLACE_TOOL_NAME && arguments_contain_window_key(&request.arguments)
+    {
+        return Ok(bridge_tool_error_response(
+            request.id,
+            REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED,
+        ));
+    }
+
+    let window_override = window_argument_from_tool(&request.tool, &request.arguments);
+    if window_override == WindowArgument::Invalid {
+        return Ok(BridgeResponse {
+            v: BRIDGE_VERSION,
+            id: request.id,
+            body: None,
+            error: Some("specified-no-window".to_string()),
+        });
+    }
+    let window_label = match window_override {
+        WindowArgument::Label(label) => Some(label),
+        WindowArgument::Absent | WindowArgument::Invalid => None,
+    };
+    let specified = window_label.is_some();
+    let front_label = resolve_mcp_screen_window_label_with_override(
+        None,
         &recorded_focused,
         &live_labels,
         &focus_order,
         os_focused.as_deref(),
-    );
-    let window = match target_label.and_then(|label| app.get_webview_window(&label)) {
+    )
+    .ok()
+    .flatten()
+    .unwrap_or_else(|| recorded_focused.clone());
+
+    if request.tool == OPEN_WINDOWS_TOOL_NAME {
+        let list = build_mcp_open_windows_list(
+            &read_open_windows(&state.app_data).unwrap_or_else(|_| {
+                crate::window_session::OpenWindowsFile {
+                    focused_label: recorded_focused.clone(),
+                    windows: vec![],
+                }
+            }),
+            &live_labels,
+            &front_label,
+        );
+        let text = serde_json::to_string(&list).map_err(|e| e.to_string())?;
+        return Ok(BridgeResponse {
+            v: BRIDGE_VERSION,
+            id: request.id,
+            body: Some(json!({
+                "content": [{ "type": "text", "text": text }],
+                "isError": false,
+            })),
+            error: None,
+        });
+    }
+
+    let target_label = match resolve_mcp_screen_window_label_with_override(
+        window_label.as_deref(),
+        &recorded_focused,
+        &live_labels,
+        &focus_order,
+        os_focused.as_deref(),
+    ) {
+        Ok(Some(label)) => label,
+        Ok(None) => {
+            return Ok(BridgeResponse {
+                v: BRIDGE_VERSION,
+                id: request.id,
+                body: None,
+                error: Some(if specified {
+                    "specified-no-window".to_string()
+                } else {
+                    "no-window".to_string()
+                }),
+            });
+        }
+        Err(McpWindowOverrideError::NotOpen) => {
+            return Ok(BridgeResponse {
+                v: BRIDGE_VERSION,
+                id: request.id,
+                body: None,
+                error: Some("specified-no-window".to_string()),
+            });
+        }
+    };
+    let window = match app.get_webview_window(&target_label) {
         Some(w) => w,
         None => {
             return Ok(BridgeResponse {
                 v: BRIDGE_VERSION,
                 id: request.id,
                 body: None,
-                error: Some("no-window".to_string()),
+                error: Some(if specified {
+                    "specified-no-window".to_string()
+                } else {
+                    "no-window".to_string()
+                }),
             });
         }
     };
@@ -322,11 +468,19 @@ fn dispatch_to_front_window(
             },
         );
     }
+    let webview_arguments = if SCREEN_READ_TOOLS_WITH_WINDOW
+        .iter()
+        .any(|name| *name == request.tool)
+    {
+        webview_arguments_for_read_tool(request.arguments)
+    } else {
+        request.arguments
+    };
     let payload = json!({
         "id": request.id,
         "generation": generation,
         "tool": request.tool,
-        "arguments": request.arguments,
+        "arguments": webview_arguments,
     });
     if window
         .emit_to(
@@ -341,7 +495,11 @@ fn dispatch_to_front_window(
             v: BRIDGE_VERSION,
             id: request.id,
             body: None,
-            error: Some("no-window".to_string()),
+            error: Some(if specified {
+                "specified-stale".to_string()
+            } else {
+                "no-window".to_string()
+            }),
         });
     }
     let (lock, cvar) = &*notify;
@@ -368,7 +526,11 @@ fn dispatch_to_front_window(
         v: BRIDGE_VERSION,
         id: request.id,
         body: None,
-        error: Some("stale".to_string()),
+        error: Some(if specified {
+            "specified-stale".to_string()
+        } else {
+            "stale".to_string()
+        }),
     })
 }
 
@@ -472,6 +634,8 @@ fn map_bridge_error(code: &str) -> McpBridgeError {
     match code {
         "no-window" => McpBridgeError::NoWindow,
         "stale" => McpBridgeError::Stale,
+        "specified-no-window" => McpBridgeError::SpecifiedNoWindow,
+        "specified-stale" => McpBridgeError::SpecifiedStale,
         _ => McpBridgeError::Stale,
     }
 }

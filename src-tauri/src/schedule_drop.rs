@@ -7,7 +7,7 @@ pub fn should_open_paths_from_launch(args: &[String]) -> bool {
     if mcp_stdio::is_mcp_stdio_mode(args) {
         return false;
     }
-    if screen_cli::parse_screen_tool(args).is_some() {
+    if screen_cli::parse_screen_cli(args).is_some() {
         return false;
     }
     if screen_cli::is_screen_flag(args) {
