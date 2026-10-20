@@ -9,7 +9,7 @@ fn is_windows_msix_package() -> bool {
     use windows_sys::Win32::Storage::Packaging::Appx::GetCurrentPackageFullName;
 
     let mut length: u32 = 0;
-    let result = GetCurrentPackageFullName(&mut length, std::ptr::null_mut());
+    let result = unsafe { GetCurrentPackageFullName(&mut length, std::ptr::null_mut()) };
     result == ERROR_INSUFFICIENT_BUFFER || result == ERROR_SUCCESS
 }
 
