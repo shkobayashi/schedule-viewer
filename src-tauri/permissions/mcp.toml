@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "allow-mcp"
 description = "Allows MCP screen context replies and executable path for registration."
-commands.allow = ["mcp_reply", "get_executable_path"]
+commands.allow = ["mcp_reply", "get_executable_path", "is_store_distribution"]

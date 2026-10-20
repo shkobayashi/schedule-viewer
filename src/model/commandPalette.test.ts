@@ -8,6 +8,7 @@ import {
 const idle = {
   fileBusy: false,
   isTauriDesktop: false,
+  storeDistribution: false,
   canUndo: true,
   canRedo: false,
   selectedTaskId: "t1",

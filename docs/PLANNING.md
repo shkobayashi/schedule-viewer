@@ -62,7 +62,7 @@
 ```
 
 - **バージョン固定（Phase 0）**: Node.js 24、Rust 1.98.1（`rust-toolchain.toml` / `.nvmrc`）
-- Tauri アプリ identifier: `com.collabcentral.schedule-viewer`
+- Tauri アプリ identifier: `io.github.shkobayashi.schedule-viewer`（Microsoft Store の MSIX は Partner Center の `s-kob.schedule-viewer`）
 - 開発はVSCode + Claude Codeで実施
 - DevContainerでNode.js + Rust(Tauri CLI)+ Linux向け依存(webkit2gtk等)を用意し、可搬性を確保する
   - **注意点**: DevContainerはコード編集・型チェック・ビルドまでは快適に行えるが、Tauriアプリの実際のウィンドウを起動しての動作確認はコンテナにディスプレイがないためホストOS側で行う必要がある(WSL2+WSLgやX11転送で多少緩和はできるが、基本はホスト実行が前提になる)

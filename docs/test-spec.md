@@ -34,6 +34,7 @@
 | `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`。最後に集約ジョブ `ci` が成功する |
 | `.github/workflows/pages.yml` | `main` への push（操作マニュアルとサイトビルドの入力）または `workflow_dispatch` | `npm ci` のあと `build:manual-site` を GitHub Pages へ公開する |
 | `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Windows NSIS、`latest-linux-x86_64.json` と `latest-windows-x86_64.json`、それらをまとめた `latest.json`、Windows コード署名用の `schedule-viewer-codesign.cer`、`SHA256SUMS` を GitHub Release へ出す。`main` は安定版で CHANGELOG から本文を組み立てる。安定版ではビルド前に GitHub Release を作り、`checksums` が同じメジャー用の Pre-release `updater-X` の `latest.json` を更新し、より大きいメジャーが無いときだけ Latest を付ける。`release/X.Y.Z` は Pre-release で短い確認用の本文 |
+| `.github/workflows/msix-store.yml` | `workflow_dispatch` | 安定版の Windows ビルドから署名しない MSIX を成果物にする |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更（操作マニュアル以外）ではフロントと Rust と `manual` はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
@@ -510,6 +511,7 @@
 | 同上 | `extends the name hit to the text height when that is taller than the circle` | EDIT-07 |
 | `colorScheme.test.ts` | `accepts light and dark` | SET-04 |
 | `autoUpdate.test.ts` | `treats on as enabled`、localStorage の読み書き、更新確認の失敗を出さない条件、`classifyUpdateCheckError` | SET-06 |
+| `storeDistribution.test.ts` | `readStoreDistribution` が Tauri で `is_store_distribution` を呼ぶ | SET-06 |
 | `betaRelease.test.ts` | `updater-X` の除外、一覧から最新ベータを選ぶ、入っている版より新しいときだけ保存対象、OS に合うファイル名 | SET-06 |
 | 同上 | `stores fixed schemes and clears key for system` | SET-04 |
 | 同上 | `falls back to system for missing or invalid values` | SET-04 |
@@ -950,6 +952,8 @@
 | TC-SET-06o | SET-06 | Windows または Ubuntu、入っている版 `1.0.0`、公開ベータ `1.0.0-beta.1` だけ | 設定の「更新」で「インストーラを保存」 | 「公開中のベータはありません」 |
 | TC-SET-06p | SET-06 | 同上、公開ベータ `1.0.1-beta.1` がある | 同上 | 保存先を選べ、欄にパスが出る。インストーラは起動しない |
 | TC-SET-06q | SET-06 | macOS のデスクトップ版 | 設定の「更新」を見る | ベータの保存ボタンと説明が無い |
+| TC-SET-06r | SET-06 | Microsoft Store の MSIX 版、Windows | 起動する。☰ と設定の「更新」を見る | 起動時の入れ直し知らせが出ない。「更新を確認」が無い。設定の「更新」に Windows が更新する旨と変更履歴だけがある。「起動時に更新を確認する」とベータ保存が無い |
+| TC-SET-06s | SET-06 | 旧 `com.collabcentral.schedule-viewer` にメンバーと控えがある、新 identifier のディレクトリが無い | NSIS 版を一度起動する | 新ディレクトリに内容が移る。旧ディレクトリは残る。2回目の起動で上書きしない |
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |

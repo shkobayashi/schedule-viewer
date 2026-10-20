@@ -1,0 +1,45 @@
+name: Build Store MSIX
+
+on:
+  workflow_dispatch:
+
+jobs:
+  msix:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Verify updater signing secret
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY must be set in repository secrets" >&2
+            exit 1
+          fi
+
+      - name: Build Windows release (no installer bundle)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          npm run tauri build -- --bundles none --config src-tauri/tauri.release.json
+
+      - name: Package unsigned MSIX for Microsoft Store
+        shell: pwsh
+        run: ./packaging/msix/build-msix.ps1
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: schedule-viewer-msix
+          path: dist-msix/*.msix
+          if-no-files-found: error

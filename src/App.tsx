@@ -65,6 +65,7 @@ import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useAppUpdateFlow } from "./hooks/useAppAutoUpdate";
+import { readStoreDistribution } from "./model/storeDistribution";
 import { UpdateOfferNotice } from "./components/UpdateOfferNotice";
 import { getVersion } from "@tauri-apps/api/app";
 import { pickSaveableBetaVersion } from "./model/betaRelease";
@@ -274,6 +275,7 @@ function App() {
   const [betaInstallerStatusLine, setBetaInstallerStatusLine] = useState<
     string | null
   >(null);
+  const [storeDistribution, setStoreDistribution] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -800,6 +802,7 @@ function App() {
     startupSettled: scheduleFile.startupSettled,
     settingsOpen,
     settingsSection,
+    storeDistribution,
     onCloseSettings: closeSettings,
     onUpdateToast: showUpdateToast,
     prepareForApplicationUpdate: scheduleFile.prepareForApplicationUpdate,
@@ -817,6 +820,11 @@ function App() {
     setSettingsOpen(false);
   }, [dismissUpdateInfo, settingsSection, updateUiState]);
 
+  useEffect(() => {
+    if (!isTauri()) return;
+    void readStoreDistribution().then(setStoreDistribution);
+  }, []);
+
   const handleCheckForUpdates = useCallback(
     (inSettings = false) => {
       requestManualUpdateCheck(inSettings);
@@ -825,7 +833,7 @@ function App() {
   );
 
   const handleSaveBetaInstaller = useCallback(async () => {
-    if (!isTauri()) return;
+    if (!isTauri() || storeDistribution) return;
     if (updateUiState.phase === "installing") return;
     const previousLine = betaInstallerStatusLine;
     setBetaInstallerStatusLine(null);
@@ -848,7 +856,7 @@ function App() {
     } catch {
       setBetaInstallerStatusLine("ベータの取得に失敗しました");
     }
-  }, [betaInstallerStatusLine, updateUiState.phase]);
+  }, [betaInstallerStatusLine, storeDistribution, updateUiState.phase]);
 
   const updateCornerMessage =
     updateUiState.phase === "checking"
@@ -1715,6 +1723,7 @@ function App() {
     () => ({
       fileBusy: scheduleFile.fileBusy || !scheduleFile.startupSettled,
       isTauriDesktop: isTauri(),
+      storeDistribution,
       canUndo: schedule.canUndo,
       canRedo: schedule.canRedo,
       selectedTaskId: schedule.selectedTaskId,
@@ -1733,6 +1742,7 @@ function App() {
       schedule.selectedTaskIds.length,
       scheduleFile.fileBusy,
       scheduleFile.startupSettled,
+      storeDistribution,
     ],
   );
 
@@ -1949,7 +1959,9 @@ function App() {
       setSettingsSection("display");
       setSettingsOpen(true);
     },
-    onCheckForUpdates: () => handleCheckForUpdates(false),
+    onCheckForUpdates: storeDistribution
+      ? undefined
+      : () => handleCheckForUpdates(false),
     onGoToday: scrollToToday,
     onSetTier: setTierZoom,
     onFit: fitToWidth,
@@ -2388,7 +2400,9 @@ function App() {
           setSettingsOpen(true);
         }}
         onCheckForUpdates={
-          isTauri() ? () => handleCheckForUpdates(false) : undefined
+          isTauri() && !storeDistribution
+            ? () => handleCheckForUpdates(false)
+            : undefined
         }
         onExportHtml={() => setExportOpen(true)}
         canDelete={schedule.selectedTaskIds.length > 0}
@@ -2886,6 +2900,7 @@ function App() {
           markOfferAnnounced={markOfferAnnounced}
           onSaveBetaInstaller={() => void handleSaveBetaInstaller()}
           betaInstallerStatusLine={betaInstallerStatusLine}
+          storeDistribution={storeDistribution}
         />
       ) : null}
       <GuideDialog

@@ -8,7 +8,7 @@
 
 - **Node.js**: 24（`.nvmrc`。`package.json` の `engines` は `>=24 <25`）
 - **Rust**: 1.98.1（`rust-toolchain.toml`）
-- Tauri identifier: `com.collabcentral.schedule-viewer`
+- Tauri identifier: `io.github.shkobayashi.schedule-viewer`
 
 `npm run dev` は Node.js だけで動く。`npm run tauri dev` と `npm run tauri build` には、Rust と、下の各 OS の追加パッケージも必要である。
 
@@ -211,6 +211,7 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `develop` または `main` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルドを分け、集約ジョブ `ci` で結果をまとめる |
 | `main` への push（操作マニュアルとサイトビルドの入力） | Pages（`.github/workflows/pages.yml`） | `npm run build:manual-site` のあと GitHub Pages へ公開。URL は https://shkobayashi.github.io/schedule-viewer/ 。`workflow_dispatch` でも動く |
 | `main` または `release/**` への push | Release（`.github/workflows/release.yml`） | 版とブランチを検査したあと、環境 `release` の承認のあと、Ubuntu (deb) と Windows (NSIS) をビルドし GitHub Release へ公開。`main` は安定版、`release/X.Y.Z` は Pre-release |
+| `workflow_dispatch` | Store MSIX（`.github/workflows/msix-store.yml`） | 安定版の Windows リリースビルドから署名しない MSIX を作り、Actions の成果物として保存する。`release.yml` には混ぜない。Partner Center への `msstore publish` は別途 |
 
 `develop` への push だけでは CI は動かない。CI が動くのは `develop` または `main` 向けの pull request のときである。
 
@@ -623,6 +624,19 @@ ARM の Windows では `x64` の部分が `arm64` になる。インストーラ
 手元の `npm run tauri build` ではインストーラへ署名しない。署名するのは GitHub Release の NSIS である。公開用証明書の入れ方は、上の「Release 後に証明書を入れる」にある。
 
 MSI の作成で `failed to run light.exe` と出たときは、Windows のオプション機能で VBSCRIPT を有効にする。
+
+### Microsoft Store 用 MSIX
+
+Partner Center の Product identity と同じ名前で、安定版だけ MSIX を作る。Tauri は MSIX を出さない。[packaging/msix/build-msix.ps1](../packaging/msix/build-msix.ps1) が `MakeAppx` で署名しないパッケージを作る。WebView2 は同梱せず、マニフェストの依存に書く。Store への提出は Partner Center または、公開後の `msstore publish` で行う（`release.yml` には混ぜない）。
+
+手元（Windows、Windows SDK の `makeappx.exe` が PATH 上にあること）:
+
+```powershell
+npm run tauri build -- --bundles none --config src-tauri/tauri.release.json
+pwsh ./packaging/msix/build-msix.ps1
+```
+
+成果物は `dist-msix/schedule-viewer_X.Y.Z.0_x64.msix` である。GitHub Actions では `.github/workflows/msix-store.yml` を `workflow_dispatch` で実行し、成果物をダウンロードする。Store ID は Partner Center の Product identity にある（マニフェストには入れない）。プライバシーポリシーの URL は https://shkobayashi.github.io/schedule-viewer/privacy.html である。
 
 ## スキーマを変えるとき
 

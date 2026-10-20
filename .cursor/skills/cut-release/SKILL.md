@@ -34,6 +34,7 @@ description: >-
 6. `gh release create` で `vX.Y.Z` と `updater-X` を新規作るときは `--target` にワークフローの `GITHUB_SHA` を渡す。無いときは失敗させる。再実行の `release edit` ではタグは動かさない
 7. Latest は資産を載せ、`updater-X` を更新したあと、[scripts/finalize-stable-github-release-latest.ts](../../../scripts/finalize-stable-github-release-latest.ts) で付ける。ビルド前の [scripts/prepare-stable-github-release.ts](../../../scripts/prepare-stable-github-release.ts) では、より大きいメジャーがあるときだけ Latest を外す
 8. 既存の `updater-X` で `latest.json` の `version` が読めないときは、[scripts/publish-updater-channel.ts](../../../scripts/publish-updater-channel.ts) を失敗させ、上書きしない。安定版一覧は `gh api --paginate` で集める
+9. Microsoft Store 用 MSIX は [.github/workflows/msix-store.yml](../../../.github/workflows/msix-store.yml) の `workflow_dispatch` だけである。`release.yml` に MSIX ジョブを足さない。公開後の `msstore publish` は別の手順である
 
 ## 文書
 

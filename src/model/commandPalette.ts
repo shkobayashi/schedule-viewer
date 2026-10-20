@@ -40,6 +40,7 @@ export type CommandPaletteItem = {
 export type CommandPaletteContext = {
   fileBusy: boolean;
   isTauriDesktop: boolean;
+  storeDistribution: boolean;
   canUndo: boolean;
   canRedo: boolean;
   selectedTaskId: string | null;
@@ -120,7 +121,7 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
     id: "checkForUpdates",
     label: "更新を確認",
     keywords: "update 更新 確認",
-    enabled: (ctx) => ctx.isTauriDesktop,
+    enabled: (ctx) => ctx.isTauriDesktop && !ctx.storeDistribution,
   },
   {
     id: "guide",
@@ -244,8 +245,11 @@ export function buildCommandPaletteItems(
   context: CommandPaletteContext,
 ): CommandPaletteItem[] {
   return BASE_ITEMS.filter((item) => {
-    if (item.id === "openNewWindow" || item.id === "checkForUpdates") {
+    if (item.id === "openNewWindow") {
       return context.isTauriDesktop;
+    }
+    if (item.id === "checkForUpdates") {
+      return context.isTauriDesktop && !context.storeDistribution;
     }
     return true;
   }).map((item) => ({

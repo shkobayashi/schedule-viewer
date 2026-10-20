@@ -19,9 +19,9 @@ description: >-
 
 ## 載せる範囲
 
-1. 載せる Markdown は [docs/user-manual.md](../../../docs/user-manual.md)、[docs/user-manual/getting-started.md](../../../docs/user-manual/getting-started.md)、[docs/user-manual/tutorial.md](../../../docs/user-manual/tutorial.md)、[docs/user-manual/features.md](../../../docs/user-manual/features.md) と `docs/user-manual/images/` だけである
+1. 載せる Markdown は [docs/user-manual.md](../../../docs/user-manual.md)、[docs/user-manual/getting-started.md](../../../docs/user-manual/getting-started.md)、[docs/user-manual/tutorial.md](../../../docs/user-manual/tutorial.md)、[docs/user-manual/features.md](../../../docs/user-manual/features.md)、[docs/user-manual/privacy.md](../../../docs/user-manual/privacy.md) と `docs/user-manual/images/` だけである
 2. マニュアルの Markdown 本文は、GitHub 上で読める形を保つ。リンクの付け替えはビルド時だけ行う
-3. マニュアル同士のリンクは `site/` 直下の HTML（`index.html`、`getting-started.html`、`tutorial.html`、`features.html`）へ向ける
+3. マニュアル同士のリンクは `site/` 直下の HTML（`index.html`、`getting-started.html`、`tutorial.html`、`features.html`、`privacy.html`）へ向ける
 4. 外部仕様、データ仕様、開発ガイドなど `docs/` のほかの文書へのリンクは `https://github.com/shkobayashi/schedule-viewer/blob/main/docs/...` に付け替える。fragment は残す
 5. 見出しの `id` は `github-slugger` で付ける。ページごとに slugger をリセットする。Jekyll の見出し id は使わない
 

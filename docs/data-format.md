@@ -156,13 +156,13 @@
 
 ## アプリデータ
 
-デスクトップ版は、Tauri が用意するアプリデータ用のディレクトリ（app data ディレクトリ）を使う。identifier は `com.collabcentral.schedule-viewer` である。
+デスクトップ版は、Tauri が用意するアプリデータ用のディレクトリ（app data ディレクトリ）を使う。identifier は `io.github.shkobayashi.schedule-viewer` である。以前の `com.collabcentral.schedule-viewer` にデータがあるときは、新しい identifier のディレクトリがまだ無ければ、初回起動時に丸ごと移す。
 
 | OS | 場所 |
 | --- | --- |
-| Linux | `$XDG_DATA_HOME/com.collabcentral.schedule-viewer`。未設定なら `~/.local/share/com.collabcentral.schedule-viewer` |
-| macOS | `~/Library/Application Support/com.collabcentral.schedule-viewer` |
-| Windows | `%APPDATA%\com.collabcentral.schedule-viewer` |
+| Linux | `$XDG_DATA_HOME/io.github.shkobayashi.schedule-viewer`。未設定なら `~/.local/share/io.github.shkobayashi.schedule-viewer` |
+| macOS | `~/Library/Application Support/io.github.shkobayashi.schedule-viewer` |
+| Windows | `%APPDATA%\io.github.shkobayashi.schedule-viewer`（GitHub Releases の NSIS 版）。Microsoft Store の MSIX 版はパッケージ内に閉じる場合があり、NSIS 版と分かれることがある |
 
 中のファイルは次のとおりである。
 

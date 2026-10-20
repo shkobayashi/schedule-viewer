@@ -5,6 +5,7 @@ mod mcp_bridge;
 pub mod mcp_stdio;
 mod read_screen_skill;
 pub mod screen_cli;
+mod store_distribution;
 mod schedule_drop;
 mod window_session;
 
@@ -1560,6 +1561,9 @@ fn try_finalize_startup_update_check(
     app: &tauri::AppHandle,
     session: &Mutex<WindowSessionState>,
 ) {
+    if store_distribution::is_store_distribution() {
+        return;
+    }
     let should_run = {
         let mut guard = session.lock().expect("window session");
         if guard.update_check_claimed {
@@ -1868,6 +1872,9 @@ async fn save_beta_installer(
     window: tauri::Window,
     version: String,
 ) -> Result<Option<String>, String> {
+    if store_distribution::is_store_distribution() {
+        return Err("Microsoft Store 版ではベータのインストーラを保存できません。".to_string());
+    }
     let default_name = beta_installer::default_installer_file_name(&version)?;
     let picked = window
         .dialog()
@@ -1885,9 +1892,12 @@ async fn save_beta_installer(
 
 #[tauri::command]
 fn get_executable_path() -> Result<String, String> {
-    std::env::current_exe()
-        .map(|path| path.to_string_lossy().into_owned())
-        .map_err(|e| format!("実行ファイルの場所を取得できません: {}", e))
+    store_distribution::mcp_executable_command_path()
+}
+
+#[tauri::command]
+fn is_store_distribution() -> bool {
+    store_distribution::is_store_distribution()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1929,6 +1939,7 @@ pub fn run() {
         }))
         .setup(|app| {
             note_main_thread();
+            let _ = mcp_app_data::migrate_legacy_app_data_if_needed();
             let handle = app.handle().clone();
             if let Ok(dir) = app_data_dir(&handle) {
                 let _ = migrate_legacy_session(&dir);
@@ -2068,6 +2079,7 @@ pub fn run() {
             install_read_screen_skill,
             uninstall_read_screen_skill,
             get_executable_path,
+            is_store_distribution,
             mcp_reply,
         ])
         .build(tauri::generate_context!())

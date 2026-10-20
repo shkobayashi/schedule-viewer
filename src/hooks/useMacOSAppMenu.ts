@@ -17,7 +17,7 @@ export type MacOSAppMenuHandlers = {
   onOpenGuide: () => void;
   onOpenShortcuts: () => void;
   onOpenSettings: () => void;
-  onCheckForUpdates: () => void;
+  onCheckForUpdates?: () => void;
   onGoToday: () => void;
   onSetTier: (tier: GridTier) => void;
   onFit: () => void;
@@ -69,12 +69,16 @@ export function useMacOSAppMenu(handlers: MacOSAppMenuHandlers): void {
           await PredefinedMenuItem.new({ item: "HideOthers" }),
           await PredefinedMenuItem.new({ item: "ShowAll" }),
           await PredefinedMenuItem.new({ item: "Separator" }),
-          await MenuItem.new({
-            id: "app-check-updates",
-            text: "更新を確認",
-            action: () => h().onCheckForUpdates(),
-          }),
-          await PredefinedMenuItem.new({ item: "Separator" }),
+          ...(h().onCheckForUpdates
+            ? [
+                await MenuItem.new({
+                  id: "app-check-updates",
+                  text: "更新を確認",
+                  action: () => h().onCheckForUpdates?.(),
+                }),
+                await PredefinedMenuItem.new({ item: "Separator" }),
+              ]
+            : []),
           await MenuItem.new({
             id: "app-quit",
             text: "schedule-viewer を終了",
