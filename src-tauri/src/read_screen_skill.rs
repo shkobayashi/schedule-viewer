@@ -6,6 +6,7 @@ use tauri::Manager;
 use crate::json_skills::{
     existing_skill_paths, parse_tools, place_staged_skill, remove_at_path, JsonSkillTool,
 };
+use crate::store_distribution::{STORE_EXECUTABLE_ALIAS, mcp_executable_command_path};
 
 pub const READ_SCREEN_SKILL_NAME: &str = "read-screen";
 pub const EXECUTABLE_PLACEHOLDER: &str = "{{SCHEDULE_VIEWER_EXECUTABLE}}";
@@ -100,6 +101,11 @@ pub fn read_screen_local_app_data_token(
 }
 
 pub fn read_screen_invocation_block(executable_path: &str, local_app_data: Option<&str>) -> String {
+    if executable_path.eq_ignore_ascii_case(STORE_EXECUTABLE_ALIAS) {
+        return format!(
+            "次の1行を実行します。\n\n```\n{executable_path} --screen schedule_diff\n```\n\n読み取りのツール名は `open_windows`、`schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` に置き換えます。背面のウィンドウを読むときは、先に `--screen open_windows` で一覧を取り、当たった `label` を `--screen <読み取り> --window <label>` に付けます（同じ1行のうしろに `--window` とラベルを足します）。`replace_schedule` は標準入力にスケジュール JSON 全体を渡し、前面ウィンドウだけを置き換えます。`replace_schedule` と `open_windows` に `--window` は付けません。\n"
+        );
+    }
     if let Some(token) = read_screen_local_app_data_token(executable_path, local_app_data) {
         format!(
             "次の1行を、`$LOCALAPPDATA` を展開せずに実行します。\n\n```\n{token} --screen schedule_diff\n```\n\n読み取りのツール名は `open_windows`、`schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` に置き換えます。背面のウィンドウを読むときは、先に `--screen open_windows` で一覧を取り、当たった `label` を `--screen <読み取り> --window <label>` に付けます（同じ1行のうしろに `--window` とラベルを足します）。`replace_schedule` は標準入力にスケジュール JSON 全体を渡し、前面ウィンドウだけを置き換えます。`replace_schedule` と `open_windows` に `--window` は付けません。\n"
@@ -212,10 +218,12 @@ pub fn install_read_screen_skill(
         .path()
         .resource_dir()
         .map_err(|_| "同梱スキルが見つかりません。".to_string())?;
-    let executable_path = std::env::current_exe()
-        .map(|path| path.to_string_lossy().into_owned())
-        .map_err(|e| format!("実行ファイルの場所を取得できません: {e}"))?;
-    let local_app_data = local_app_data_prefix();
+    let executable_path = mcp_executable_command_path()?;
+    let local_app_data = if executable_path.eq_ignore_ascii_case(STORE_EXECUTABLE_ALIAS) {
+        None
+    } else {
+        local_app_data_prefix()
+    };
 
     install_read_screen_skill_to_disk(
         &resource_dir,
@@ -254,6 +262,13 @@ pub fn uninstall_read_screen_skill(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn store_alias_invocation_is_one_line() {
+        let block = read_screen_invocation_block("schedule-viewer.exe", None);
+        assert!(block.contains("schedule-viewer.exe --screen schedule_diff"));
+        assert!(!block.contains("$LOCALAPPDATA"));
+    }
 
     #[test]
     fn render_replaces_executable_placeholder() {

@@ -70,6 +70,7 @@ type UseAppUpdateFlowOptions = {
   startupSettled: boolean;
   settingsOpen: boolean;
   settingsSection: string;
+  storeDistribution: boolean;
   onCloseSettings: () => void;
   onUpdateToast: (message: string) => void;
   prepareForApplicationUpdate: () => Promise<boolean>;
@@ -81,6 +82,7 @@ export function useAppUpdateFlow({
   startupSettled,
   settingsOpen,
   settingsSection,
+  storeDistribution,
   onCloseSettings,
   onUpdateToast,
   prepareForApplicationUpdate,
@@ -193,7 +195,7 @@ export function useAppUpdateFlow({
 
   const runCheck = useCallback(
     async (manual: boolean, inSettings = false) => {
-      if (!isTauri() || checkInFlightRef.current) return;
+      if (!isTauri() || storeDistribution || checkInFlightRef.current) return;
       const current = uiStateRef.current;
       if (!manual && startupCheckStartedRef.current) return;
       if (manual && !canStartUpdateCheck(current)) {
@@ -299,7 +301,12 @@ export function useAppUpdateFlow({
         checkInFlightRef.current = false;
       }
     },
-    [maybeShowBackgroundNotification, onUpdateToast, setUiStateSynced],
+    [
+      maybeShowBackgroundNotification,
+      onUpdateToast,
+      setUiStateSynced,
+      storeDistribution,
+    ],
   );
 
   const requestManualUpdateCheck = useCallback(
@@ -520,6 +527,7 @@ export function useAppUpdateFlow({
 
   const showCornerNotice =
     (isTauri() || import.meta.env.MODE === "manual-screenshot") &&
+    !storeDistribution &&
     !settingsOpen &&
     focusedLabel === selfLabelRef.current &&
     (uiState.phase === "offer" ||
@@ -528,6 +536,7 @@ export function useAppUpdateFlow({
       (uiState.phase === "info" && Boolean(uiState.infoEphemeral)));
 
   const showSettingsUpdatePanel =
+    !storeDistribution &&
     settingsOpen &&
     settingsSection === "updates" &&
     (uiState.phase === "checking" ||

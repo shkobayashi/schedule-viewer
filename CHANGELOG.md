@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### 変更
+
+- Tauri の identifier を `io.github.shkobayashi.schedule-viewer` に変え、旧 `com.collabcentral.schedule-viewer` のアプリデータを初回起動時に移す (#269)
+- Microsoft Store 用の MSIX パッケージを `workflow_dispatch` で作れる。Store 版はアプリ内の入れ直しを出さず、MCP と read-screen は `schedule-viewer.exe` の実行エイリアスを書く (#269)
+
 ## [1.8.0] - 2026-10-20
 
 ### 追加

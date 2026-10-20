@@ -1,6 +1,33 @@
 use std::path::PathBuf;
 
-pub const APP_IDENTIFIER: &str = "com.collabcentral.schedule-viewer";
+pub const APP_IDENTIFIER: &str = "io.github.shkobayashi.schedule-viewer";
+
+pub const LEGACY_APP_IDENTIFIER: &str = "com.collabcentral.schedule-viewer";
+
+/// 旧 identifier のアプリデータを新しい場所へ移す。新ディレクトリが既にあるときは何もしない。
+pub fn migrate_legacy_app_data_if_needed() -> Result<(), String> {
+    let parent = dirs::data_dir().ok_or_else(|| "データディレクトリを開けません。".to_string())?;
+    migrate_legacy_app_data_under(&parent)
+}
+
+pub fn migrate_legacy_app_data_under(parent: &std::path::Path) -> Result<(), String> {
+    let new_dir = parent.join(APP_IDENTIFIER);
+    if new_dir.exists() {
+        return Ok(());
+    }
+    let old_dir = parent.join(LEGACY_APP_IDENTIFIER);
+    if !old_dir.is_dir() {
+        return Ok(());
+    }
+    std::fs::rename(&old_dir, &new_dir).map_err(|e| {
+        format!(
+            "アプリデータを移せません（{} から {}）: {}",
+            old_dir.display(),
+            new_dir.display(),
+            e
+        )
+    })
+}
 
 #[cfg_attr(not(unix), allow(dead_code))]
 pub const MCP_SOCKET_FILE: &str = "mcp.sock";
@@ -108,5 +135,55 @@ mod tests {
         assert!(name.starts_with(r"\\.\pipe\"));
         assert!(name.contains(APP_IDENTIFIER));
         assert!(name.ends_with("S-1-5-21-1234-5678"));
+    }
+
+    #[test]
+    fn migrate_legacy_moves_when_new_missing() {
+        let parent = std::env::temp_dir().join(format!(
+            "sv-migrate-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&parent);
+        std::fs::create_dir_all(&parent).expect("temp parent");
+        let old_dir = parent.join(LEGACY_APP_IDENTIFIER);
+        std::fs::create_dir_all(&old_dir).expect("old dir");
+        std::fs::write(old_dir.join("marker.txt"), "ok").expect("marker");
+
+        migrate_legacy_app_data_under(&parent).expect("migrate");
+
+        let new_dir = parent.join(APP_IDENTIFIER);
+        assert!(new_dir.is_dir());
+        assert!(!old_dir.exists());
+        assert_eq!(
+            std::fs::read_to_string(new_dir.join("marker.txt")).unwrap(),
+            "ok"
+        );
+
+        let _ = std::fs::remove_dir_all(&parent);
+    }
+
+    #[test]
+    fn migrate_legacy_skips_when_new_exists() {
+        let parent = std::env::temp_dir().join(format!(
+            "sv-migrate-skip-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&parent);
+        std::fs::create_dir_all(&parent).expect("temp parent");
+        let old_dir = parent.join(LEGACY_APP_IDENTIFIER);
+        std::fs::create_dir_all(&old_dir).expect("old dir");
+        let new_dir = parent.join(APP_IDENTIFIER);
+        std::fs::create_dir_all(&new_dir).expect("new dir");
+        std::fs::write(new_dir.join("keep.txt"), "new").expect("keep");
+
+        migrate_legacy_app_data_under(&parent).expect("migrate");
+
+        assert!(old_dir.is_dir());
+        assert_eq!(
+            std::fs::read_to_string(new_dir.join("keep.txt")).unwrap(),
+            "new"
+        );
+
+        let _ = std::fs::remove_dir_all(&parent);
     }
 }
