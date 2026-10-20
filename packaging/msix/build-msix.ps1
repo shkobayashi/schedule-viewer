@@ -71,10 +71,6 @@ $manifest = @"
   </Resources>
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
-    <PackageDependency
-      Name="Microsoft.WebView2Runtime"
-      Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
-      MinVersion="120.0.2210.91" />
   </Dependencies>
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
