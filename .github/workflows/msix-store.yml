@@ -3,6 +3,9 @@ name: Build Store MSIX
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   msix:
     runs-on: windows-latest

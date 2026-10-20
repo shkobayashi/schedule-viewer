@@ -5,12 +5,12 @@ pub fn is_store_distribution() -> bool {
 
 #[cfg(windows)]
 fn is_windows_msix_package() -> bool {
-    use windows_sys::Win32::Foundation::ERROR_INSUFFICIENT_BUFFER;
-    use windows_sys::Win32::System::ApplicationInstallationAndServicing::GetCurrentPackageFullName;
+    use windows_sys::Win32::Foundation::{ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS};
+    use windows_sys::Win32::Storage::Packaging::Appx::GetCurrentPackageFullName;
 
     let mut length: u32 = 0;
     let result = GetCurrentPackageFullName(&mut length, std::ptr::null_mut());
-    result == ERROR_INSUFFICIENT_BUFFER as i32 || result == 0
+    result == ERROR_INSUFFICIENT_BUFFER || result == ERROR_SUCCESS
 }
 
 #[cfg(not(windows))]
