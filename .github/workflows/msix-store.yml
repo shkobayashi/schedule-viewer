@@ -35,7 +35,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          npm run tauri build -- --bundles none --config src-tauri/tauri.release.json
+          npm run tauri build -- --no-bundle --config src-tauri/tauri.release.json
 
       - name: Package unsigned MSIX for Microsoft Store
         shell: pwsh

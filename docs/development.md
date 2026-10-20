@@ -632,7 +632,7 @@ Partner Center の Product identity と同じ名前で、安定版だけ MSIX �
 手元（Windows、Windows SDK の `makeappx.exe` が PATH 上にあること）:
 
 ```powershell
-npm run tauri build -- --bundles none --config src-tauri/tauri.release.json
+npm run tauri build -- --no-bundle --config src-tauri/tauri.release.json
 pwsh ./packaging/msix/build-msix.ps1
 ```
 
