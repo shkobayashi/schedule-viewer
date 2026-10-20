@@ -1,6 +1,6 @@
 [package]
 name = "schedule-viewer"
-version = "1.7.0"
+version = "1.8.0"
 description = "WBS schedule viewer"
 authors = ["schedule-viewer"]
 edition = "2021"
@@ -31,6 +31,7 @@ tempfile = "3"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 tauri-plugin-opener = "2"
 tauri-plugin-process = "2"
+url = "2"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

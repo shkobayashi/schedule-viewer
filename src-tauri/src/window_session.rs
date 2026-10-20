@@ -8,7 +8,8 @@ use std::thread;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::{
-    read_utf8, read_utf8_limited, write_utf8_atomic, MAX_SCHEDULE_BYTES, SCHEDULE_FILE_NOT_FOUND,
+    read_utf8, read_utf8_limited, schedule_drop::ExternalDropQueue, write_utf8_atomic,
+    MAX_SCHEDULE_BYTES, SCHEDULE_FILE_NOT_FOUND,
 };
 
 const OPEN_WINDOWS_FILE: &str = "open-windows.json";
@@ -68,6 +69,9 @@ pub struct WindowSessionState {
     pub updating: bool,
     pub update_recovery_owners: HashMap<String, String>,
     pub application_update_ui_json: Option<String>,
+    pub external_drop_queue: ExternalDropQueue,
+    /// 起動復旧の確認ダイアログを閉じ、外部ドロップを受け付けられるウィンドウ。
+    pub external_drop_ready_labels: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -132,12 +136,20 @@ pub fn recovery_owners_by_path(
     owners
 }
 
-pub fn all_windows_startup_settled(app: &AppHandle, settled: &[String]) -> bool {
-    let labels: Vec<String> = app.webview_windows().keys().cloned().collect();
-    if labels.is_empty() {
+pub fn all_webview_windows_listed(app: &AppHandle, labels: &[String]) -> bool {
+    let open: Vec<String> = app.webview_windows().keys().cloned().collect();
+    if open.is_empty() {
         return false;
     }
-    labels.iter().all(|label| settled.iter().any(|item| item == label))
+    open.iter().all(|label| labels.iter().any(|item| item == label))
+}
+
+pub fn all_windows_startup_settled(app: &AppHandle, settled: &[String]) -> bool {
+    all_webview_windows_listed(app, settled)
+}
+
+pub fn all_windows_external_drop_ready(app: &AppHandle, ready: &[String]) -> bool {
+    all_webview_windows_listed(app, ready)
 }
 
 pub fn any_startup_auto_update_enabled(
@@ -152,6 +164,9 @@ pub fn any_startup_auto_update_enabled(
 pub fn forget_startup_settlement(state: &mut WindowSessionState, label: &str) {
     state
         .startup_settled_labels
+        .retain(|existing| existing != label);
+    state
+        .external_drop_ready_labels
         .retain(|existing| existing != label);
     state.startup_auto_update_at_startup.remove(label);
 }
@@ -571,6 +586,79 @@ pub fn should_remove_open_window_label_after_destroy(
     !quitting && remaining_webviews >= 1
 }
 
+pub const MCP_WINDOW_SAMPLE_DISPLAY: &str = "サンプルデータ";
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+pub struct McpOpenWindowEntry {
+    pub label: String,
+    pub file: String,
+    pub folder: Option<String>,
+    pub front: bool,
+}
+
+pub fn schedule_path_basename(path: &str) -> String {
+    let parts: Vec<&str> = path.split(['/', '\\']).collect();
+    if let Some(last) = parts.last().filter(|segment| !segment.is_empty()) {
+        last.to_string()
+    } else {
+        "schedule.json".to_string()
+    }
+}
+
+pub fn schedule_path_parent_folder(path: &str) -> Option<String> {
+    Path::new(path)
+        .parent()
+        .and_then(|parent| parent.file_name())
+        .map(|name| name.to_string_lossy().into_owned())
+}
+
+pub fn build_mcp_open_windows_list(
+    file: &OpenWindowsFile,
+    live_labels: &[String],
+    front_label: &str,
+) -> Vec<McpOpenWindowEntry> {
+    let live: std::collections::HashSet<&str> =
+        live_labels.iter().map(|label| label.as_str()).collect();
+    let mut ordered: Vec<String> = Vec::new();
+    for entry in &file.windows {
+        if live.contains(entry.label.as_str()) && !ordered.contains(&entry.label) {
+            ordered.push(entry.label.clone());
+        }
+    }
+    for label in live_labels {
+        if !ordered.contains(label) {
+            ordered.push(label.clone());
+        }
+    }
+    let by_label: HashMap<&str, &OpenWindowEntry> = file
+        .windows
+        .iter()
+        .map(|entry| (entry.label.as_str(), entry))
+        .collect();
+    ordered
+        .into_iter()
+        .map(|label| {
+            let (file_name, folder) = match by_label.get(label.as_str()) {
+                Some(entry) if entry.sample || entry.path.is_none() => {
+                    (MCP_WINDOW_SAMPLE_DISPLAY.to_string(), None)
+                }
+                Some(entry) if let Some(path) = entry.path.as_deref() => (
+                    schedule_path_basename(path),
+                    schedule_path_parent_folder(path),
+                ),
+                _ => (MCP_WINDOW_SAMPLE_DISPLAY.to_string(), None),
+            };
+            let is_front = label == front_label;
+            McpOpenWindowEntry {
+                label,
+                file: file_name,
+                folder,
+                front: is_front,
+            }
+        })
+        .collect()
+}
+
 pub fn resolve_mcp_screen_window_label(
     recorded_focused: &str,
     live_labels: &[String],
@@ -595,6 +683,36 @@ pub fn resolve_mcp_screen_window_label(
         }
     }
     live_labels.first().cloned()
+}
+
+/// `override_label` があるときは生きているラベルと一致する場合だけ返す。
+pub fn resolve_mcp_screen_window_label_with_override(
+    override_label: Option<&str>,
+    recorded_focused: &str,
+    live_labels: &[String],
+    focus_order_newest_last: &[String],
+    os_focused_label: Option<&str>,
+) -> Result<Option<String>, McpWindowOverrideError> {
+    if let Some(label) = override_label {
+        if label.is_empty() {
+            return Err(McpWindowOverrideError::NotOpen);
+        }
+        if live_labels.iter().any(|live| live == label) {
+            return Ok(Some(label.to_string()));
+        }
+        return Err(McpWindowOverrideError::NotOpen);
+    }
+    Ok(resolve_mcp_screen_window_label(
+        recorded_focused,
+        live_labels,
+        focus_order_newest_last,
+        os_focused_label,
+    ))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum McpWindowOverrideError {
+    NotOpen,
 }
 
 pub fn create_schedule_webview(app: &AppHandle, label: &str, title: &str) -> Result<(), String> {
@@ -831,6 +949,99 @@ mod tests {
         assert!(should_remove_open_window_label_after_destroy(false, 1));
         assert!(!should_remove_open_window_label_after_destroy(false, 0));
         assert!(!should_remove_open_window_label_after_destroy(true, 1));
+    }
+
+    #[test]
+    fn build_mcp_open_windows_orders_live_and_sets_front() {
+        let file = OpenWindowsFile {
+            focused_label: "schedule-2".to_string(),
+            windows: vec![
+                OpenWindowEntry {
+                    label: "main".to_string(),
+                    path: Some("/tmp/projects/plan.json".to_string()),
+                    sample: false,
+                },
+                OpenWindowEntry {
+                    label: "schedule-2".to_string(),
+                    path: Some("/tmp/other/roadmap.json".to_string()),
+                    sample: false,
+                },
+            ],
+        };
+        let live = vec!["schedule-2".to_string(), "schedule-3".to_string()];
+        let list = build_mcp_open_windows_list(&file, &live, "schedule-2");
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].label, "schedule-2");
+        assert_eq!(list[0].file, "roadmap.json");
+        assert_eq!(list[0].folder.as_deref(), Some("other"));
+        assert!(list[0].front);
+        assert_eq!(list[1].label, "schedule-3");
+        assert_eq!(list[1].file, MCP_WINDOW_SAMPLE_DISPLAY);
+        assert!(!list[1].front);
+        let serialized = serde_json::to_string(&list).unwrap();
+        assert!(!serialized.contains("/tmp"));
+    }
+
+    #[test]
+    fn resolve_mcp_label_with_override_absent_matches_front_resolution() {
+        let live = vec!["main".to_string(), "schedule-2".to_string()];
+        let order = vec!["main".to_string(), "schedule-2".to_string()];
+        let recorded = "schedule-2";
+        let os = Some("main");
+        assert_eq!(
+            resolve_mcp_screen_window_label_with_override(None, recorded, &live, &order, os)
+                .unwrap()
+                .as_deref(),
+            resolve_mcp_screen_window_label(recorded, &live, &order, os).as_deref()
+        );
+    }
+
+    #[test]
+    fn build_mcp_open_windows_omits_home_path_segments() {
+        let file = OpenWindowsFile {
+            focused_label: "main".to_string(),
+            windows: vec![OpenWindowEntry {
+                label: "main".to_string(),
+                path: Some("/Users/alice/docs/plan.json".to_string()),
+                sample: false,
+            }],
+        };
+        let live = vec!["main".to_string()];
+        let list = build_mcp_open_windows_list(&file, &live, "main");
+        assert_eq!(list[0].file, "plan.json");
+        assert_eq!(list[0].folder.as_deref(), Some("docs"));
+        let serialized = serde_json::to_string(&list).unwrap();
+        assert!(!serialized.contains("/Users"));
+        assert!(!serialized.contains("alice"));
+    }
+
+    #[test]
+    fn resolve_mcp_label_with_override_ignores_front() {
+        let live = vec!["main".to_string(), "schedule-2".to_string()];
+        let order = vec!["main".to_string(), "schedule-2".to_string()];
+        assert_eq!(
+            resolve_mcp_screen_window_label_with_override(
+                Some("schedule-2"),
+                "main",
+                &live,
+                &order,
+                Some("main"),
+            )
+            .unwrap()
+            .as_deref(),
+            Some("schedule-2")
+        );
+        assert_eq!(
+            resolve_mcp_screen_window_label_with_override(
+                Some("missing"),
+                "main",
+                &live,
+                &order,
+                Some("main"),
+            )
+            .unwrap_err(),
+            McpWindowOverrideError::NotOpen
+        );
     }
 
     #[test]

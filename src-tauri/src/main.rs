@@ -10,12 +10,12 @@ fn main() {
         }
         return;
     }
-    if let Some(tool) = schedule_viewer_lib::screen_cli::parse_screen_tool(&args) {
-        std::process::exit(schedule_viewer_lib::screen_cli::run_screen_cli(tool));
+    if let Some(invocation) = schedule_viewer_lib::screen_cli::parse_screen_cli(&args) {
+        std::process::exit(schedule_viewer_lib::screen_cli::run_screen_cli(&invocation));
     }
     if schedule_viewer_lib::screen_cli::is_screen_flag(&args) {
         eprintln!(
-            "使えるのは --screen schedule_diff、--screen baseline_diffs、--screen selected_task、--screen selected_tasks、--screen filtered_tasks、--screen replace_schedule だけです。"
+            "使えるのは --screen schedule_diff、--screen baseline_diffs、--screen selected_task、--screen selected_tasks、--screen filtered_tasks、--screen open_windows、--screen replace_schedule、または読み取り 5 つに --window <label> を付ける形だけです。"
         );
         std::process::exit(1);
     }

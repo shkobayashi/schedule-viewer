@@ -13,6 +13,16 @@ export type PendingScheduleWindowOpen = {
   contents: string;
 };
 
+export type OpenWindowsSnapshot = {
+  focusedLabel: string;
+  windows: {
+    label: string;
+    path: string | null;
+    sample: boolean;
+  }[];
+  focusOrder: string[];
+};
+
 export type SchedulePeerNotice = {
   targetLabel: string;
   fileName: string;
@@ -23,6 +33,27 @@ export type RecoveryPersistAction = "write" | "delete" | "skip";
 
 export async function readWindowStartupViaTauri(): Promise<WindowStartupRead> {
   return invoke<WindowStartupRead>("read_window_startup");
+}
+
+export async function readOpenWindowsSnapshotViaTauri(): Promise<OpenWindowsSnapshot> {
+  return invoke<OpenWindowsSnapshot>("read_open_windows_snapshot");
+}
+
+export async function readDroppedScheduleFileViaTauri(
+  path: string,
+): Promise<string> {
+  return invoke<string>("read_dropped_schedule_file", { path });
+}
+
+export async function ackExternalScheduleDropViaTauri(): Promise<void> {
+  await invoke("ack_external_schedule_drop");
+}
+
+export async function forwardScheduleExternalDropViaTauri(
+  targetLabel: string,
+  paths: string[],
+): Promise<void> {
+  await invoke("forward_schedule_external_drop", { targetLabel, paths });
 }
 
 export async function takePendingScheduleWindowOpenViaTauri(): Promise<PendingScheduleWindowOpen | null> {
@@ -100,6 +131,10 @@ export async function reportStartupSettledViaTauri(
   return invoke<StartupSettledResult>("report_startup_settled", {
     autoUpdateAtStartup,
   });
+}
+
+export async function reportExternalScheduleDropReadyViaTauri(): Promise<void> {
+  await invoke("report_external_schedule_drop_ready");
 }
 
 export async function requestApplicationUpdateViaTauri(): Promise<void> {

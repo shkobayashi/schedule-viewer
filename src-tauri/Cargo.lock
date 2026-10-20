@@ -3384,7 +3384,7 @@ dependencies = [
 
 [[package]]
 name = "schedule-viewer"
-version = "1.7.0"
+version = "1.8.0"
 dependencies = [
  "dirs 6.0.0",
  "libc",
@@ -3402,6 +3402,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "tempfile",
+ "url",
  "uuid",
  "windows-sys 0.59.0",
 ]

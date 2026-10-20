@@ -3,7 +3,18 @@ use std::io::{self, Read, Write};
 
 use crate::mcp_bridge::call_tool_via_bridge;
 
-pub const SCREEN_READ_TOOL_NAMES: [&str; 5] = [
+pub const OPEN_WINDOWS_TOOL_NAME: &str = "open_windows";
+
+pub const SCREEN_READ_TOOL_NAMES: [&str; 6] = [
+    "schedule_diff",
+    "baseline_diffs",
+    "selected_task",
+    "selected_tasks",
+    "filtered_tasks",
+    OPEN_WINDOWS_TOOL_NAME,
+];
+
+pub const SCREEN_READ_TOOLS_WITH_WINDOW: [&str; 5] = [
     "schedule_diff",
     "baseline_diffs",
     "selected_task",
@@ -19,24 +30,77 @@ const REPLACE_SCHEDULE_TOO_LARGE: &str =
     "スケジュールが大きすぎるため、置き換えられません。";
 const REPLACE_SCHEDULE_INVALID_JSON: &str =
     "スケジュールの JSON として読めないので、置き換えられません。";
+pub const REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED: &str =
+    "replace_schedule は前面ウィンドウだけを置き換えます。--window は使えません。";
+pub const OPEN_WINDOWS_WINDOW_NOT_SUPPORTED: &str =
+    "open_windows は --window を受け付けません。";
 
-pub const SCREEN_TOOL_NAMES: [&str; 6] = [
+pub const SCREEN_TOOL_NAMES: [&str; 7] = [
     "schedule_diff",
     "baseline_diffs",
     "selected_task",
     "selected_tasks",
     "filtered_tasks",
+    OPEN_WINDOWS_TOOL_NAME,
     "replace_schedule",
 ];
 
-/// `--screen <tool>` のときだけツール名を返す。引数が不正なときは `None`。
-pub fn parse_screen_tool(args: &[String]) -> Option<&str> {
-    if args.len() != 2 || args[0] != "--screen" {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScreenCliInvocation {
+    pub tool: String,
+    pub window: Option<String>,
+}
+
+/// `--screen <tool>` または `--screen <読み取り> --window <label>` のときだけ返す。
+pub fn parse_screen_cli(args: &[String]) -> Option<ScreenCliInvocation> {
+    if args.is_empty() || args[0] != "--screen" {
         return None;
     }
-    let name = args[1].as_str();
-    if SCREEN_TOOL_NAMES.contains(&name) {
-        Some(name)
+    if args.len() == 2 {
+        let name = args[1].as_str();
+        if SCREEN_TOOL_NAMES.contains(&name) {
+            return Some(ScreenCliInvocation {
+                tool: name.to_string(),
+                window: None,
+            });
+        }
+        return None;
+    }
+    if args.len() == 4 && args[2] == "--window" {
+        let name = args[1].as_str();
+        if SCREEN_READ_TOOLS_WITH_WINDOW.contains(&name)
+            || name == OPEN_WINDOWS_TOOL_NAME
+            || name == SCREEN_REPLACE_TOOL_NAME
+        {
+            return Some(ScreenCliInvocation {
+                tool: name.to_string(),
+                window: Some(args[3].clone()),
+            });
+        }
+    }
+    None
+}
+
+/// `--window` が付いているが使えないツールのとき、標準エラーへ出す文。
+pub fn screen_cli_window_rejection_message(
+    tool: &str,
+    window: Option<&str>,
+) -> Option<&'static str> {
+    if window.is_none() {
+        None
+    } else if tool == SCREEN_REPLACE_TOOL_NAME {
+        Some(REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED)
+    } else if tool == OPEN_WINDOWS_TOOL_NAME {
+        Some(OPEN_WINDOWS_WINDOW_NOT_SUPPORTED)
+    } else {
+        None
+    }
+}
+
+/// 後方互換のため、ツール名だけ返す（`parse_screen_cli` が成功したとき）。
+pub fn parse_screen_tool(args: &[String]) -> Option<&str> {
+    if parse_screen_cli(args).is_some() {
+        args.get(1).map(|name| name.as_str())
     } else {
         None
     }
@@ -75,8 +139,14 @@ fn read_replace_schedule_stdin() -> Result<Value, String> {
     parse_replace_schedule_stdin_bytes(&buf)
 }
 
-pub fn run_screen_cli(tool: &str) -> i32 {
-    let arguments = if tool == SCREEN_REPLACE_TOOL_NAME {
+pub fn run_screen_cli(invocation: &ScreenCliInvocation) -> i32 {
+    if let Some(message) =
+        screen_cli_window_rejection_message(&invocation.tool, invocation.window.as_deref())
+    {
+        eprintln!("{message}");
+        return 1;
+    }
+    let arguments = if invocation.tool == SCREEN_REPLACE_TOOL_NAME {
         match read_replace_schedule_stdin() {
             Ok(value) => value,
             Err(message) => {
@@ -84,10 +154,12 @@ pub fn run_screen_cli(tool: &str) -> i32 {
                 return 1;
             }
         }
+    } else if let Some(label) = &invocation.window {
+        json!({ "window": label })
     } else {
         json!({})
     };
-    match call_tool_via_bridge(tool, arguments) {
+    match call_tool_via_bridge(&invocation.tool, arguments) {
         Ok(body) => match extract_tool_output(&body) {
             Ok(text) => {
                 if let Err(err) = writeln!(io::stdout(), "{text}") {
@@ -130,17 +202,23 @@ mod tests {
 
     #[test]
     fn screen_tool_requires_exactly_two_args() {
-        assert!(parse_screen_tool(&["--screen".to_string()]).is_none());
-        assert!(
-            parse_screen_tool(&["--screen".to_string(), "schedule_diff".to_string()])
-                .is_some()
+        assert!(parse_screen_cli(&["--screen".to_string()]).is_none());
+        assert_eq!(
+            parse_screen_cli(&["--screen".to_string(), "schedule_diff".to_string()]),
+            Some(ScreenCliInvocation {
+                tool: "schedule_diff".to_string(),
+                window: None,
+            })
+        );
+        assert_eq!(
+            parse_screen_cli(&["--screen".to_string(), "open_windows".to_string()]),
+            Some(ScreenCliInvocation {
+                tool: "open_windows".to_string(),
+                window: None,
+            })
         );
         assert!(
-            parse_screen_tool(&["--screen".to_string(), "selected_tasks".to_string()])
-                .is_some()
-        );
-        assert!(
-            parse_screen_tool(&[
+            parse_screen_cli(&[
                 "--screen".to_string(),
                 "schedule_diff".to_string(),
                 "extra".to_string(),
@@ -150,15 +228,74 @@ mod tests {
     }
 
     #[test]
+    fn screen_tool_accepts_read_window_flag() {
+        assert_eq!(
+            parse_screen_cli(&[
+                "--screen".to_string(),
+                "selected_tasks".to_string(),
+                "--window".to_string(),
+                "schedule-2".to_string(),
+            ]),
+            Some(ScreenCliInvocation {
+                tool: "selected_tasks".to_string(),
+                window: Some("schedule-2".to_string()),
+            })
+        );
+    }
+
+    #[test]
+    fn screen_tool_parses_window_on_open_windows_for_rejection() {
+        assert_eq!(
+            parse_screen_cli(&[
+                "--screen".to_string(),
+                "open_windows".to_string(),
+                "--window".to_string(),
+                "schedule-2".to_string(),
+            ]),
+            Some(ScreenCliInvocation {
+                tool: "open_windows".to_string(),
+                window: Some("schedule-2".to_string()),
+            })
+        );
+        assert_eq!(
+            screen_cli_window_rejection_message("open_windows", Some("schedule-2")),
+            Some(OPEN_WINDOWS_WINDOW_NOT_SUPPORTED)
+        );
+    }
+
+    #[test]
+    fn screen_tool_parses_window_on_replace_schedule_for_rejection() {
+        assert_eq!(
+            parse_screen_cli(&[
+                "--screen".to_string(),
+                "replace_schedule".to_string(),
+                "--window".to_string(),
+                "schedule-2".to_string(),
+            ]),
+            Some(ScreenCliInvocation {
+                tool: "replace_schedule".to_string(),
+                window: Some("schedule-2".to_string()),
+            })
+        );
+        assert_eq!(
+            screen_cli_window_rejection_message("replace_schedule", Some("schedule-2")),
+            Some(REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED)
+        );
+    }
+
+    #[test]
     fn screen_tool_rejects_unknown_name() {
-        assert!(parse_screen_tool(&["--screen".to_string(), "screen_context".to_string()]).is_none());
+        assert!(parse_screen_cli(&["--screen".to_string(), "screen_context".to_string()]).is_none());
     }
 
     #[test]
     fn screen_tool_accepts_replace_schedule() {
         assert_eq!(
-            parse_screen_tool(&["--screen".to_string(), "replace_schedule".to_string()]),
-            Some("replace_schedule")
+            parse_screen_cli(&["--screen".to_string(), "replace_schedule".to_string()]),
+            Some(ScreenCliInvocation {
+                tool: "replace_schedule".to_string(),
+                window: None,
+            })
         );
     }
 
