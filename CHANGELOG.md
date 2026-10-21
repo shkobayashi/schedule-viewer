@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 修正
+
+- Store 版で、設定から JSON 作成スキルと read-screen を置けるようにする。MSIX に `json-skills/` と `read-screen/` を同梱する (#277)
+
 ### 変更
 
 - Tauri の identifier を `io.github.shkobayashi.schedule-viewer` に変え、旧 `com.collabcentral.schedule-viewer` のアプリデータを初回起動時に移す (#269)

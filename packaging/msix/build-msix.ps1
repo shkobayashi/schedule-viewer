@@ -46,6 +46,29 @@ Get-ChildItem -Path $releaseFull -Filter "*.dll" | ForEach-Object {
   Copy-Item $_.FullName (Join-Path $staging $_.Name)
 }
 
+$bundledDirs = @("json-skills", "read-screen")
+foreach ($dirName in $bundledDirs) {
+  $sourceDir = Join-Path $releaseFull $dirName
+  if (-not (Test-Path $sourceDir)) {
+    throw "同梱スキル用のフォルダが見つかりません: $sourceDir"
+  }
+  $destDir = Join-Path $staging $dirName
+  Copy-Item -Path $sourceDir -Destination $destDir -Recurse
+}
+
+$requiredSkillFiles = @(
+  "json-skills\write-schedule\SKILL.md",
+  "json-skills\write-members\SKILL.md",
+  "json-skills\write-calendar\SKILL.md",
+  "read-screen\SKILL.md"
+)
+foreach ($relativePath in $requiredSkillFiles) {
+  $fullPath = Join-Path $staging $relativePath
+  if (-not (Test-Path $fullPath)) {
+    throw "同梱スキルが見つかりません: $relativePath"
+  }
+}
+
 $manifest = @"
 <?xml version="1.0" encoding="utf-8"?>
 <Package
