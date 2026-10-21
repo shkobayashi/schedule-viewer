@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-10-21
+
+### 修正
+
+- 安定版 Release の Microsoft Store 提出で、MSIX 用タスクバーロゴの四隅チェックが PowerShell で落ちるのを直す
+- 安定版 Release で Apple Silicon の更新用 `.app.tar.gz` が出ず `checksums` が進まないのを直す。`release-dmg` で `app` バンドルを作る
+
 ## [1.9.0] - 2026-10-21
 
 ### 追加
