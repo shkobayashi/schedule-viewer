@@ -14,6 +14,7 @@
 | 構成、状態、Tauri コマンド、描画 | [docs/internal-spec.md](docs/internal-spec.md) |
 | 自動テストと手動テスト | [docs/test-spec.md](docs/test-spec.md) |
 | 環境構築、起動、CI、リリース、配布用ビルド | [docs/development.md](docs/development.md) |
+| 1.x を出しながら次のメジャーを進めるブランチ | [docs/development.md](docs/development.md)（1.x を出しながら次のメジャーを進める）。実装は implement-change、`next` を切る作業とリリースは cut-release |
 | 目的、決定事項、経緯、ロードマップ | [docs/PLANNING.md](docs/PLANNING.md) |
 | 概要と文書の入口 | [README.md](README.md) |
 | 計画に沿ってアプリを実装する | [.cursor/skills/implement-change/SKILL.md](.cursor/skills/implement-change/SKILL.md) |
@@ -48,6 +49,8 @@ GitHub の Issue を見る、コメントする、作る、更新するときは
 ## スキルの使い方と保守
 
 計画を書いて実装に渡すときは、実装が読むスキル名と、その中の節を計画に書く。アプリの実装（画面、状態、モデル、Tauri、描画と、それに伴う文書とテスト）は [implement-change](.cursor/skills/implement-change/SKILL.md)、リリース、CI、配布用ビルドは [cut-release](.cursor/skills/cut-release/SKILL.md)、操作マニュアルの GitHub Pages は [publish-user-manual](.cursor/skills/publish-user-manual/SKILL.md)、プロジェクト全体のレビューは [review-project](.cursor/skills/review-project/SKILL.md) である。スケジュール、メンバー、カレンダーの JSON を作るときは `write-schedule`、`write-members`、`write-calendar`。スケジュール JSON の形を変えるときは `update-schedule-schema`。
+
+1.x を出しながら次のメジャーを進める手順は [docs/development.md](docs/development.md) にある。この作業用のスキルは作らない。実装の計画は implement-change だけを読み、載せるブランチは着手前で決める。`next` を切る作業と次メジャーのリリースは、cut-release の「1.x と次のメジャー」を読む。
 
 計画を実装する前に、計画が名指ししたスキルの `SKILL.md` を読む。名指しが無いときは、`description` がこの作業に合うスキルを1つ読む。`implement-change` は、指定された節と、節の指定にかかわらず「着手前」を読む。
 
