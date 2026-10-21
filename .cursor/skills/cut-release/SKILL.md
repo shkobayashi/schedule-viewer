@@ -34,11 +34,13 @@ description: >-
 6. `gh release create` で `vX.Y.Z` と `updater-X` を新規作るときは `--target` にワークフローの `GITHUB_SHA` を渡す。無いときは失敗させる。再実行の `release edit` ではタグは動かさない
 7. Latest は資産を載せ、`updater-X` を更新したあと、[scripts/finalize-stable-github-release-latest.ts](../../../scripts/finalize-stable-github-release-latest.ts) で付ける。ビルド前の [scripts/prepare-stable-github-release.ts](../../../scripts/prepare-stable-github-release.ts) では、より大きいメジャーがあるときだけ Latest を外す
 8. 既存の `updater-X` で `latest.json` の `version` が読めないときは、[scripts/publish-updater-channel.ts](../../../scripts/publish-updater-channel.ts) を失敗させ、上書きしない。安定版一覧は `gh api --paginate` で集める
-9. Microsoft Store 用 MSIX は [.github/workflows/msix-store.yml](../../../.github/workflows/msix-store.yml) の `workflow_dispatch` だけである。`release.yml` に MSIX ジョブを足さない。公開後の `msstore publish` は別の手順である。このワークフロー全体の `permissions` は `contents: read` にする。実行ファイルだけ出すビルドは `tauri build --no-bundle` を使う。`--bundles none` は受け付けない。Store 用 MSIX は WebView2 を同梱せず、マニフェストの `PackageDependency` にも書かない
+9. 安定版の Windows は [.github/workflows/release.yml](../../../.github/workflows/release.yml) の `release-windows-store` が `tauri build --no-bundle` のあと [packaging/msix/build-msix.ps1](../../../packaging/msix/build-msix.ps1) で署名しない MSIX を作り、Microsoft Store Developer CLI で Store ID `9PP41TRJ8ZT8` へ提出する。secret は `MSSTORE_TENANT_ID`、`MSSTORE_CLIENT_ID`、`MSSTORE_CLIENT_SECRET`、`MSSTORE_SELLER_ID` である。ベータの Windows は `release-windows-nsis` が NSIS と公開用 `.cer` を出す。安定版の GitHub Release には NSIS と `latest-windows-x86_64.json` を載せない。安定版の `checksums` は `latest-linux-x86_64.json` だけを `latest.json` にする。`checksums` は `release-deb` の成功だけを待ち、`release-windows-store` の成否では止まらない。Store 用 MSIX は WebView2 を同梱せず、マニフェストの `PackageDependency` にも書かない
 
 ## 文書
 
 [AGENTS.md](../../../AGENTS.md) の「変更したら文書も更新する」に従う。リリース手順は [docs/development.md](../../../docs/development.md)。配布の方針は [docs/PLANNING.md](../../../docs/PLANNING.md)。入手先は [README.md](../../../README.md) と [docs/user-manual.md](../../../docs/user-manual.md)。動作環境は [docs/external-spec.md](../../../docs/external-spec.md)。CI の説明は [docs/test-spec.md](../../../docs/test-spec.md)。Release 本文の組み立ては [docs/internal-spec.md](../../../docs/internal-spec.md)
+
+配布の経路を変えたあとは、`NSIS の上書き`、`msix-store`、`workflow_dispatch` で MSIX、安定版の GitHub NSIS など、古い経路の語が [docs/development.md](../../../docs/development.md)、[docs/external-spec.md](../../../docs/external-spec.md)、[docs/user-manual/features.md](../../../docs/user-manual/features.md)、[CHANGELOG.md](../../../CHANGELOG.md) に残っていないかを検索して直す
 
 自動更新の版比較は semver である。Ubuntu の deb の版比較は Debian の規則である。文書では、この 2 つを 1 つの「進む」にまとめない。デスクトップ版は入っている版のメジャー用 `updater-X` の `latest.json` を見る。同じメジャーのより新しい安定版だけ入れる。ベータを入れたあとも同じメジャーの `updater-X` を見る。判定上、接尾辞を外した安定版はベータより新しいが、Ubuntu では `dpkg` がダウングレードとして拒否する。手で `apt install` するときも、先にベータの deb を外す
 
@@ -46,7 +48,7 @@ description: >-
 
 1. [src/model/releaseVersion.test.ts](../../../src/model/releaseVersion.test.ts) に判定と bump を足す
 2. `npm run build`、`npm run lint`、`npm test` を通す
-3. GitHub 上の Pre-release と Windows の上書きは、最初のベータを出したときに手で見る
+3. GitHub 上の Pre-release と、安定版の Store 提出は、最初の該当 Release を出したときに手で見る
 
 ## 完了条件
 

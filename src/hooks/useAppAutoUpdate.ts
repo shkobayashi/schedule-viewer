@@ -41,6 +41,22 @@ function isMacDesktop(): boolean {
   return /Mac|iPhone|iPad|iPod/i.test(platform);
 }
 
+function isWindowsDesktop(): boolean {
+  if (!isTauri()) return false;
+  const platform = navigator.platform || navigator.userAgent;
+  return /Win/i.test(platform);
+}
+
+function updateCheckDesktopContext(): {
+  isMacDesktop: boolean;
+  isWindowsDesktop: boolean;
+} {
+  return {
+    isMacDesktop: isMacDesktop(),
+    isWindowsDesktop: isWindowsDesktop(),
+  };
+}
+
 function broadcastFromState(state: ApplicationUpdateUiState): void {
   if (!isTauri()) return;
   const payload: ApplicationUpdateUiBroadcast = {
@@ -272,8 +288,15 @@ export function useAppUpdateFlow({
           error instanceof Error ? error.message : String(error);
         checkInFlightRef.current = false;
         if (!manual) {
-          const kind = classifyUpdateCheckError(errorMessage, isMacDesktop());
-          if (kind === "ignore" || kind === "unsupported_mac") {
+          const kind = classifyUpdateCheckError(
+            errorMessage,
+            updateCheckDesktopContext(),
+          );
+          if (
+            kind === "ignore" ||
+            kind === "unsupported_mac" ||
+            kind === "windows_store_redirect"
+          ) {
             setUiStateSynced(IDLE_UPDATE_UI_STATE);
             return;
           }
@@ -283,7 +306,7 @@ export function useAppUpdateFlow({
         }
         const failMessage = manualUpdateCheckInfoMessage(
           errorMessage,
-          isMacDesktop(),
+          updateCheckDesktopContext(),
         );
         setUiStateSynced({
           phase: "info",
