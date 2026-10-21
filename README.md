@@ -46,8 +46,9 @@ Ubuntu の安定版は [GitHub Releases](https://github.com/shkobayashi/schedule
 
 - **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`
 - **Windows (x64)**: [Microsoft Store](https://apps.microsoft.com/detail/9PP41TRJ8ZT8) から入手する。更新は Windows が行う
+- **macOS (Apple Silicon)**: Latest の `schedule-viewer_X.Y.Z_aarch64.dmg` をダウンロードし、アプリケーションフォルダへ入れる。初回起動の手順は Release 本文を参照する
 
-macOS 用の自動ビルドはまだない。必要なときは、[開発ガイドの配布用ビルド](docs/development.md#配布用ビルド) の手順で、使う Mac の上でビルドする。
+Intel Mac では、[開発ガイドの配布用ビルド](docs/development.md#配布用ビルド) の手順で、使う Mac の上でビルドする。
 
 ## 使い始める
 

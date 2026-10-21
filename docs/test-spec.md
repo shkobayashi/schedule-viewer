@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | `develop` または `main` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`。最後に集約ジョブ `ci` が成功する |
 | `.github/workflows/pages.yml` | `main` への push（操作マニュアルとサイトビルドの入力）または `workflow_dispatch` | `npm ci` のあと `build:manual-site` を GitHub Pages へ公開する |
-| `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb を GitHub Release へ出す。安定版では Windows が署名しない MSIX を Microsoft Store（`9PP41TRJ8ZT8`）へ提出する。ベータでは Windows NSIS と `schedule-viewer-codesign.cer` と `latest-windows-x86_64.json` を出す。`latest-linux-x86_64.json` と、安定版では `linux-x86_64` だけの `latest.json`、ベータでは両 OS をまとめた `latest.json`、`SHA256SUMS` を載せる。安定版の `checksums` は deb の成功だけを待ち、Store 提出の成否では止まらない。`main` は安定版で CHANGELOG から本文を組み立てる。安定版ではビルド前に GitHub Release を作り、`checksums` が同じメジャー用の Pre-release `updater-X` の `latest.json` を更新し、より大きいメジャーが無いときだけ Latest を付ける。`release/X.Y.Z` は Pre-release で短い確認用の本文 |
+| `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Apple Silicon の dmg を GitHub Release へ出す。安定版では Windows が署名しない MSIX を Microsoft Store（`9PP41TRJ8ZT8`）へ提出する。ベータでは Windows NSIS と `schedule-viewer-codesign.cer` と `latest-windows-x86_64.json` を出す。`latest-linux-x86_64.json`、`latest-darwin-aarch64.json` と、安定版では `linux-x86_64` と `darwin-aarch64` の `latest.json`、ベータでは `windows-x86_64` も含む `latest.json`、`SHA256SUMS` を載せる。安定版の `checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。`main` は安定版で CHANGELOG から本文を組み立てる。安定版ではビルド前に GitHub Release を作り、`checksums` が同じメジャー用の Pre-release `updater-X` の `latest.json` を更新し、より大きいメジャーが無いときだけ Latest を付ける。`release/X.Y.Z` は Pre-release で短い確認用の本文 |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更（操作マニュアル以外）ではフロントと Rust と `manual` はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
@@ -946,7 +946,9 @@
 | TC-SET-06m | SET-06 | デスクトップ版、入れ直す版が無い（確認先の `updater-X` がまだ無いときを含む） | 「更新を確認」する | 「この版が最新です」が出る |
 | TC-SET-06m2 | SET-06 | デスクトップ版、入れ直す版がある | 「更新を確認」する | 起動時と同じ知らせと「あとで」「入れ直す」が出る |
 | TC-SET-06m3 | SET-06 | デスクトップ版、更新の確認が通信などで失敗する | 「更新を確認」する | 「更新の確認に失敗しました」が出る |
-| TC-SET-06m4 | SET-06 | macOS の手元ビルド、デスクトップ版 | 「更新を確認」する | 「この Mac でビルドしたアプリは、更新の確認の対象外です」が出る |
+| TC-SET-06m4 | SET-06 | GitHub Releases の Apple Silicon 版、デスクトップ版、その版が最新 | 「更新を確認」する | 「この版が最新です」が出る |
+| TC-SET-06u | SET-06 | この変更を含む版の安定版 Release の `schedule-viewer_*_aarch64.dmg` | Release から dmg を落とし、アプリケーションフォルダへ入れ、Release 本文の手順で起動する。スケジュールを開く。`SHA256SUMS` の値と dmg の SHA-256 が一致することを見る。安定版の `latest.json` と `updater-X` の `latest.json` に `darwin-aarch64` があることを見る | 起動できる。スケジュールを開ける。ハッシュが一致する。`darwin-aarch64` がある |
+| TC-SET-06v | SET-06 | TC-SET-06u のあと、次の安定版が公開され、自動更新がオン | 起動時の知らせまたは「更新を確認」で「入れ直す」を選ぶ | 再起動後に版が進む。その起動で Gatekeeper の警告は出ない |
 | TC-SET-06t | SET-06 | GitHub Releases の Windows 版、確認先の `latest.json` に `windows-x86_64` が無い（安定版の `updater-X` を見ている） | 起動時の自動確認のあと、「更新を確認」する | 起動時は入れ直しの知らせが出ない。手動では「Windows の安定版は Microsoft Store で入手・更新します。」が欄または隅に出る |
 | TC-SET-06n | SET-06 | デスクトップ版、知らせが出ている | 設定を開き「更新」以外を見る | 隅の知らせは出ない。「更新」に戻すと同じ知らせが見える |
 | TC-SET-06o | SET-06 | Windows または Ubuntu、入っている版 `1.0.0`、公開ベータ `1.0.0-beta.1` だけ | 設定の「更新」で「インストーラを保存」 | 「公開中のベータはありません」 |
@@ -972,7 +974,7 @@ TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu�
 
 ## リリース前確認
 
-各 OS の配布物で、次を上から実行する。macOS は、確認に使う Mac の上でビルドしたアプリで同じ項目を見る。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外にする。
+各 OS の配布物で、次を上から実行する。macOS（Apple Silicon）は GitHub Releases の dmg で同じ項目を見る。Intel Mac や開発中は、確認に使う Mac の上でビルドしたアプリでも同じ項目を見る。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外にする。
 
 1. TC-FILE-01 でサンプル以外を開く
 2. TC-EDIT-02 で移動し、TC-EDIT-10 で戻す
@@ -984,8 +986,8 @@ TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu�
 8. TC-SYNC-01 で、別のエディタで保存した内容が画面に反映されることを見る
 9. TC-SYNC-03 で未保存の復元を、TC-SYNC-03d で保存済みの開き直しを見る。TC-WIN-01 で別ウィンドウ、TC-WIN-02 で他ウィンドウの知らせ、TC-WIN-03 で設定の共有を見る。TC-FILE-08 と TC-WIN-04 は手元の OS で `npm run tauri dev` を使って見る
 10. TC-VIEW-05 と TC-VIEW-07 で赤とイナズマ線を見る
-11. Ubuntu では deb のインストールと起動を見る。安定版の Release 後、Windows では Store の更新、実行エイリアス、更新欄、MCP のエイリアスを見る。ベータの Pre-release では NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
-12. 安定版の `SHA256SUMS` に deb と `latest.json` が含まれ、各ファイルのハッシュが一致することを見る。安定版の `latest.json` に `linux-x86_64` だけがあることを見る。ベータでは `windows-x86_64` も含まれる
+11. Ubuntu では deb のインストールと起動を見る。Apple Silicon の Mac では dmg のインストールと起動を見る（TC-SET-06u）。安定版の Release 後、Windows では Store の更新、実行エイリアス、更新欄、MCP のエイリアスを見る。ベータの Pre-release では NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
+12. 安定版の `SHA256SUMS` に deb、dmg、`latest.json` など Release のファイルが含まれ、各ファイルのハッシュが一致することを見る。安定版の `latest.json` に `linux-x86_64` と `darwin-aarch64` があることを見る。ベータでは `windows-x86_64` も含まれる
 13. 安定版の Release 本文にダウンロード手順とその版の CHANGELOG 節の本体（版見出しは無い）があり、項目の Issue 番号がリンクになっていることを見る。CHANGELOG にその版の節が無いとき、または項目に Issue 番号が無いときは本文ジョブが失敗し、本文はダウンロード手順のまま残る。`[Unreleased]` と前の版の節は載らない。Pre-release の本文は確認用の短い文だけで、CHANGELOG 節は無い
 14. TC-SET-06b から TC-SET-06q で自動更新、手動確認、ベータ保存、設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
 15. この仕組みを初めて使うベータでは、Windows にベータを入れたあと、安定版は Microsoft Store から入れ直すことを確認する

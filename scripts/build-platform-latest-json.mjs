@@ -42,6 +42,11 @@ if (platform === "linux-x86_64") {
   const found = findSigAndBundle(nsisDir, /-setup\.exe$/, ".sig");
   bundleName = found.bundleName;
   signature = readFileSync(join(nsisDir, found.sigName), "utf8").trim();
+} else if (platform === "darwin-aarch64") {
+  const macosDir = join(bundleRoot, "macos");
+  const found = findSigAndBundle(macosDir, /\.app\.tar\.gz$/, ".sig");
+  bundleName = found.bundleName;
+  signature = readFileSync(join(macosDir, found.sigName), "utf8").trim();
 } else {
   throw new Error(`unsupported platform ${platform}`);
 }
