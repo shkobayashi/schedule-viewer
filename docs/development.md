@@ -284,8 +284,9 @@ Ubuntu の安定版は [GitHub Releases](https://github.com/shkobayashi/schedule
 
 - **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`。ベータの deb を入れたあとに安定版へ移すときは、先にベータの deb を外す
 - **Windows (x64)**: [Microsoft Store](https://apps.microsoft.com/detail/9PP41TRJ8ZT8) から入手する
+- **macOS (Apple Silicon)**: `schedule-viewer_X.Y.Z_aarch64.dmg` をダウンロードし、アプリケーションフォルダへ入れる。初回起動の手順は Release 本文を参照する
 
-macOS 用の自動ビルドはまだない。必要なときは下の「配布用ビルド」でローカルビルドする。
+Intel Mac では、下の「配布用ビルド」でローカルビルドする。
 
 ### Windows のコード署名（ベータの NSIS）
 
@@ -472,7 +473,7 @@ gh secret list
 rm -f "$HOME/schedule-viewer-updater/schedule-viewer-updater.key" "$HOME/schedule-viewer-updater/schedule-viewer-updater.key.pub"
 ```
 
-Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。パスワード用の環境変数は渡さない。安定版では、各 OS のビルドの前に `prepare-stable-github-release` が GitHub Release を作る。タグは push したコミット（`GITHUB_SHA`）を指す。より大きいメジャーの安定版が既にあるときは、ビルド前に Latest を外す。`release-deb` は `latest-linux-x86_64.json` を Release に載せる。ベータの `release-windows-nsis` は `latest-windows-x86_64.json` と `.cer` を載せる。安定版の `checksums` は `latest-linux-x86_64.json` だけを `latest.json` にし、同じメジャー用の Pre-release `updater-X` の `latest.json` も更新し、より大きいメジャーが無いときだけ `finalize-stable-github-release-latest` で Latest を付ける。`checksums` は deb の成功だけを待ち、Store 提出の成否では止まらない。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
+Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。`bundle.macOS.signingIdentity` は `-` で ad-hoc 署名のみである。パスワード用の環境変数は渡さない。安定版では、各 OS のビルドの前に `prepare-stable-github-release` が GitHub Release を作る。タグは push したコミット（`GITHUB_SHA`）を指す。より大きいメジャーの安定版が既にあるときは、ビルド前に Latest を外す。`release-deb` は `latest-linux-x86_64.json` を Release に載せる。`release-dmg` は Apple Silicon の dmg、`latest-darwin-aarch64.json`、更新用の `.app.tar.gz` と `.sig` を載せる。ベータの `release-windows-nsis` は `latest-windows-x86_64.json` と `.cer` を載せる。安定版の `checksums` は `latest-linux-x86_64.json` と `latest-darwin-aarch64.json` を `latest.json` にまとめ、同じメジャー用の Pre-release `updater-X` の `latest.json` も更新し、より大きいメジャーが無いときだけ `finalize-stable-github-release-latest` で Latest を付ける。`checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
 
 デスクトップ版の自動更新は、入っている版のメジャー用 `updater-X` の `latest.json` を見る。確認先の URL は `tauri.conf.json` にビルドごとに入る。この確認先を含む版を入れたあとから効く。それより前の版は `releases/latest` を見るため、次のメジャーへ自動で進み得る。次のメジャーを出す前に、今のメジャーの安定版として `updater-X` を配る。
 
@@ -603,7 +604,7 @@ open src-tauri/target/release/bundle/macos/schedule-viewer.app
 - Apple Silicon: `src-tauri/target/release/bundle/dmg/schedule-viewer_X.Y.Z_aarch64.dmg`
 - Intel: `src-tauri/target/release/bundle/dmg/schedule-viewer_X.Y.Z_x64.dmg`
 
-別の Mac へ渡すには、Apple の署名と公証が必要になる。ビルドした Mac 上の `.app` はそのまま開ける。
+GitHub Releases の dmg は Developer ID による署名と公証をしない。初回起動では Gatekeeper の警告が出ることがある。手順は [scripts/release-body-prefix.md](../scripts/release-body-prefix.md) と同じである。手元ビルドの `.app` はビルドした Mac 上ではそのまま開ける。別の Mac へ手元ビルドの dmg を渡すときも、Release 本文と同じ初回起動の手順で開く。
 
 ### Windows
 

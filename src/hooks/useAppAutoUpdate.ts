@@ -35,24 +35,14 @@ import {
   syncApplicationUpdateUiViaTauri,
 } from "../model/windowSession";
 
-function isMacDesktop(): boolean {
-  if (!isTauri()) return false;
-  const platform = navigator.platform || navigator.userAgent;
-  return /Mac|iPhone|iPad|iPod/i.test(platform);
-}
-
 function isWindowsDesktop(): boolean {
   if (!isTauri()) return false;
   const platform = navigator.platform || navigator.userAgent;
   return /Win/i.test(platform);
 }
 
-function updateCheckDesktopContext(): {
-  isMacDesktop: boolean;
-  isWindowsDesktop: boolean;
-} {
+function updateCheckDesktopContext(): { isWindowsDesktop: boolean } {
   return {
-    isMacDesktop: isMacDesktop(),
     isWindowsDesktop: isWindowsDesktop(),
   };
 }
@@ -292,11 +282,7 @@ export function useAppUpdateFlow({
             errorMessage,
             updateCheckDesktopContext(),
           );
-          if (
-            kind === "ignore" ||
-            kind === "unsupported_mac" ||
-            kind === "windows_store_redirect"
-          ) {
+          if (kind === "ignore" || kind === "windows_store_redirect") {
             setUiStateSynced(IDLE_UPDATE_UI_STATE);
             return;
           }
