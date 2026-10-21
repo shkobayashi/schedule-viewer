@@ -10,6 +10,7 @@
 
 ### 修正
 
+- Store 版のタスクバーで、角丸アイコンの外側を透明のまま出す (#280)
 - Store 版で、設定から JSON 作成スキルと read-screen を置けるようにする。MSIX に `json-skills/` と `read-screen/` を同梱する (#277)
 
 ### 変更

@@ -541,7 +541,7 @@ Import-Certificate -FilePath $cer -CertStoreLocation Cert:\LocalMachine\TrustedP
 
 ## アプリアイコン
 
-ランチャー用の原画は `src-tauri/icons/icon.svg`（1024px）である。Mac、Windows、Ubuntu は同じ絵を使う。地は画面のインディゴ（`#4C5FD5`）の角丸で、キャンバスの端までは塗らない。白い横棒はガントの一行、その上を横切る短いコーラル（`#E2542A`）は今日の線である。文字と目盛りは入れない。光は左上からだけにして、面に薄いハイライトを乗せる。
+ランチャー用の原画は `src-tauri/icons/icon.svg`（1024px）である。Mac、Windows、Ubuntu は同じ絵を使う。地は画面のインディゴ（`#4C5FD5`）の角丸で、キャンバスの端までは塗らない。白い横棒はガントの一行、その上を横切る短いコーラル（`#E2542A`）は今日の線である。文字と目盛りは入れない。光は左上からだけにして、面に薄いハイライトを乗せる。Store 版のタスクバーで角の外を透明にするファイルは、下の「Microsoft Store 用 MSIX」でパッケージに入れる。
 
 絵を変えたときは、リポジトリ直下で次を実行する。
 
@@ -629,7 +629,9 @@ MSI の作成で `failed to run light.exe` と出たときは、Windows のオ�
 
 Partner Center の Product identity と同じ名前で、安定版だけ MSIX を作る。Tauri は MSIX を出さない。[packaging/msix/build-msix.ps1](../packaging/msix/build-msix.ps1) が `MakeAppx` で署名しないパッケージを作る。スクリプトは `target/release` の `json-skills/` と `read-screen/` を実行ファイルの隣へ入れる。`json-skills/write-schedule/SKILL.md`、`json-skills/write-members/SKILL.md`、`json-skills/write-calendar/SKILL.md`、`read-screen/SKILL.md` のどれかが無いときは、MakeAppx の前に失敗し、MSIX を作らない。WebView2 は同梱しない。マニフェストの `PackageDependency` にも書かない。Windows 11 には WebView2 が入っている。Windows 10 で入っていない場合は、上の「Windows の開発環境」のとおり Evergreen Bootstrapper を入れる。
 
-手元（Windows、Windows SDK の `makeappx.exe` が PATH 上にあること）:
+`Square44x44Logo.png` だけを置くと、Windows はタスクバーでロゴを色付きの板の上に縮小して描く。板の色は `#0078D4` で、角丸の外に出る。スクリプトは `icon.png` から、16、20、24、30、32、36、40、48、60、64、72、80、96、256 の各辺について、`Square44x44Logo.targetsize-<px>.png` と、同じ絵の `_altform-unplated`、`_altform-lightunplated` を作る。四隅は透明である。明るいテーマのタスクバーは `lightunplated`、暗いテーマは `unplated` を使う。続けて Windows SDK の `makepri.exe` で `resources.pri` を作り、これらの名前をパッケージのリソースに載せる。ファイルを置いただけではタスクバーは板のままである。`makepri.exe` が無いとき、または `resources.pri` に 24px、暗いテーマ用のプレートなし、明るいテーマ用のプレートなしのどれかが無いときは、MakeAppx の前に失敗する。`BackgroundColor` は `transparent` のままである。`makeappx.exe` と `makepri.exe` は Windows SDK の x64 から、新しいものを使う。
+
+手元（Windows。Windows SDK に `makeappx.exe` と `makepri.exe` があること）:
 
 ```powershell
 npm run tauri build -- --no-bundle --config src-tauri/tauri.release.json
