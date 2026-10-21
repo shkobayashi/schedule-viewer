@@ -238,7 +238,7 @@ jobs:
           releaseBody: ${{ steps.release_prefix.outputs.body }}
           releaseDraft: false
           prerelease: ${{ needs.validate-release-push.outputs.prerelease == 'true' }}
-          args: --bundles dmg --config src-tauri/tauri.release.json
+          args: --bundles app,dmg --config src-tauri/tauri.release.json
 
       - name: Upload platform updater manifest
         shell: bash

@@ -12,11 +12,14 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Assert-TransparentCorners([System.Drawing.Bitmap]$Bitmap, [string]$Label) {
+  # 入れ子の @() 内の - は配列の引き算と解釈されるため、座標は先に変数へ入れる。
+  $maxX = $Bitmap.Width - 1
+  $maxY = $Bitmap.Height - 1
   $points = @(
     @(0, 0),
-    @($Bitmap.Width - 1, 0),
-    @(0, $Bitmap.Height - 1),
-    @($Bitmap.Width - 1, $Bitmap.Height - 1)
+    @($maxX, 0),
+    @(0, $maxY),
+    @($maxX, $maxY)
   )
   foreach ($point in $points) {
     $color = $Bitmap.GetPixel($point[0], $point[1])
