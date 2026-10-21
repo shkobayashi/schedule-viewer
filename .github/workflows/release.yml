@@ -57,22 +57,13 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: npx tsx scripts/prepare-stable-github-release.ts
 
-  release:
+  release-deb:
     needs: [validate-release-push, prepare-stable-github-release]
     if: always() && needs.validate-release-push.result == 'success' && (needs.validate-release-push.outputs.prerelease == 'true' || needs.prepare-stable-github-release.result == 'success')
     permissions:
       contents: write
     environment: release
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: ubuntu-22.04
-            bundles: deb
-          - platform: windows-latest
-            bundles: nsis
-
-    runs-on: ${{ matrix.platform }}
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -101,7 +92,6 @@ jobs:
           components: ${{ steps.rust-toolchain.outputs.components }}
 
       - name: Install Linux packages for Tauri
-        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -129,8 +119,98 @@ jobs:
             exit 1
           fi
 
+      - name: Load release body prefix
+        id: release_prefix
+        shell: bash
+        env:
+          PRERELEASE: ${{ needs.validate-release-push.outputs.prerelease }}
+        run: |
+          repo="${{ github.repository }}"
+          if [ "$PRERELEASE" = "true" ]; then
+            body=$(cat scripts/release-body-beta.md)
+          else
+            body=$(sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md)
+          fi
+          {
+            echo 'body<<EOF'
+            printf '%s\n' "$body"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        with:
+          tagName: v__VERSION__
+          releaseName: schedule-viewer v__VERSION__
+          releaseBody: ${{ steps.release_prefix.outputs.body }}
+          releaseDraft: false
+          prerelease: ${{ needs.validate-release-push.outputs.prerelease == 'true' }}
+          args: --bundles deb --config src-tauri/tauri.release.json
+
+      - name: Upload platform updater manifest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          node scripts/build-platform-latest-json.mjs \
+            linux-x86_64 \
+            "$version" \
+            "src-tauri/target/release/bundle" \
+            "${{ github.repository }}" \
+            "latest-linux-x86_64.json"
+          gh release upload "$tag" "latest-linux-x86_64.json" --clobber
+
+  release-windows-nsis:
+    needs: validate-release-push
+    if: needs.validate-release-push.outputs.prerelease == 'true'
+    permissions:
+      contents: write
+    environment: release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - id: rust-toolchain
+        name: Read rust-toolchain.toml
+        shell: bash
+        run: |
+          channel=$(sed -n 's/^channel = "\([^"]*\)"/\1/p' rust-toolchain.toml)
+          components=$(sed -n 's/^components = \[\(.*\)\]/\1/p' rust-toolchain.toml | tr -d ' "')
+          if [ -z "$channel" ] || [ -z "$components" ]; then
+            echo "rust-toolchain.toml must set channel and components" >&2
+            exit 1
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "components=$components" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master 2026-09-12
+        with:
+          toolchain: ${{ steps.rust-toolchain.outputs.channel }}
+          components: ${{ steps.rust-toolchain.outputs.components }}
+
+      - run: npm ci
+
+      - name: Verify updater signing secret
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY must be set in repository secrets" >&2
+            exit 1
+          fi
+
       - name: Import Windows code signing certificate
-        if: matrix.platform == 'windows-latest'
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -165,15 +245,9 @@ jobs:
       - name: Load release body prefix
         id: release_prefix
         shell: bash
-        env:
-          PRERELEASE: ${{ needs.validate-release-push.outputs.prerelease }}
         run: |
           repo="${{ github.repository }}"
-          if [ "$PRERELEASE" = "true" ]; then
-            body=$(cat scripts/release-body-beta.md)
-          else
-            body=$(sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md)
-          fi
+          body=$(cat scripts/release-body-beta.md)
           {
             echo 'body<<EOF'
             printf '%s\n' "$body"
@@ -189,8 +263,8 @@ jobs:
           releaseName: schedule-viewer v__VERSION__
           releaseBody: ${{ steps.release_prefix.outputs.body }}
           releaseDraft: false
-          prerelease: ${{ needs.validate-release-push.outputs.prerelease == 'true' }}
-          args: ${{ matrix.platform == 'windows-latest' && env.TAURI_CLI_ARGS || format('--bundles {0} --config src-tauri/tauri.release.json', matrix.bundles) }}
+          prerelease: true
+          args: ${{ env.TAURI_CLI_ARGS }}
 
       - name: Upload platform updater manifest
         shell: bash
@@ -199,21 +273,15 @@ jobs:
         run: |
           version="$(node -p "require('./package.json').version")"
           tag="v${version}"
-          if [ "${{ matrix.platform }}" = "ubuntu-22.04" ]; then
-            platform=linux-x86_64
-          else
-            platform=windows-x86_64
-          fi
           node scripts/build-platform-latest-json.mjs \
-            "$platform" \
+            windows-x86_64 \
             "$version" \
             "src-tauri/target/release/bundle" \
             "${{ github.repository }}" \
-            "latest-${platform}.json"
-          gh release upload "$tag" "latest-${platform}.json" --clobber
+            "latest-windows-x86_64.json"
+          gh release upload "$tag" "latest-windows-x86_64.json" --clobber
 
       - name: Upload code signing certificate to Release
-        if: matrix.platform == 'windows-latest'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -221,8 +289,120 @@ jobs:
           version="$(node -p "require('./package.json').version")"
           gh release upload "v${version}" schedule-viewer-codesign.cer --clobber
 
+  release-windows-store:
+    needs: [validate-release-push, prepare-stable-github-release]
+    if: needs.validate-release-push.outputs.prerelease != 'true' && needs.prepare-stable-github-release.result == 'success'
+    permissions:
+      contents: read
+    environment: release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - id: rust-toolchain
+        name: Read rust-toolchain.toml
+        shell: bash
+        run: |
+          channel=$(sed -n 's/^channel = "\([^"]*\)"/\1/p' rust-toolchain.toml)
+          components=$(sed -n 's/^components = \[\(.*\)\]/\1/p' rust-toolchain.toml | tr -d ' "')
+          if [ -z "$channel" ] || [ -z "$components" ]; then
+            echo "rust-toolchain.toml must set channel and components" >&2
+            exit 1
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "components=$components" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master 2026-09-12
+        with:
+          toolchain: ${{ steps.rust-toolchain.outputs.channel }}
+          components: ${{ steps.rust-toolchain.outputs.components }}
+
+      - run: npm ci
+
+      - name: Verify updater signing secret
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY must be set in repository secrets" >&2
+            exit 1
+          fi
+
+      - name: Verify Microsoft Store secrets
+        shell: bash
+        env:
+          MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+          MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+        run: |
+          if [ -z "$MSSTORE_TENANT_ID" ]; then
+            echo "MSSTORE_TENANT_ID must be set in repository secrets" >&2
+            exit 1
+          fi
+          if [ -z "$MSSTORE_CLIENT_ID" ]; then
+            echo "MSSTORE_CLIENT_ID must be set in repository secrets" >&2
+            exit 1
+          fi
+          if [ -z "$MSSTORE_CLIENT_SECRET" ]; then
+            echo "MSSTORE_CLIENT_SECRET must be set in repository secrets" >&2
+            exit 1
+          fi
+          if [ -z "$MSSTORE_SELLER_ID" ]; then
+            echo "MSSTORE_SELLER_ID must be set in repository secrets" >&2
+            exit 1
+          fi
+
+      - name: Build Windows release (no installer bundle)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          npm run tauri build -- --no-bundle --config src-tauri/tauri.release.json
+
+      - name: Package unsigned MSIX for Microsoft Store
+        shell: pwsh
+        run: ./packaging/msix/build-msix.ps1
+
+      - uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
+
+      - name: Publish MSIX to Microsoft Store
+        shell: pwsh
+        env:
+          MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+          MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+        run: |
+          msstore reconfigure `
+            --tenantId $env:MSSTORE_TENANT_ID `
+            --sellerId $env:MSSTORE_SELLER_ID `
+            --clientId $env:MSSTORE_CLIENT_ID `
+            --clientSecret $env:MSSTORE_CLIENT_SECRET
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $msixVersion = "$version.0"
+          $msixPath = Join-Path $PWD "dist-msix/schedule-viewer_${msixVersion}_x64.msix"
+          if (-not (Test-Path $msixPath)) {
+            throw "MSIX not found: $msixPath"
+          }
+          msstore publish $msixPath -id 9PP41TRJ8ZT8
+
   checksums:
-    needs: [validate-release-push, release]
+    needs:
+      - validate-release-push
+      - release-deb
+      - release-windows-nsis
+    if: >-
+      always() &&
+      needs.validate-release-push.result == 'success' &&
+      needs.release-deb.result == 'success' &&
+      (needs.release-windows-nsis.result == 'success' || needs.release-windows-nsis.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -246,10 +426,14 @@ jobs:
           repo="${{ github.repository }}"
           mkdir -p dist-release
           gh release download "$tag" --dir dist-release --clobber
-          node scripts/merge-latest-json.mjs \
-            dist-release/latest-linux-x86_64.json \
-            dist-release/latest-windows-x86_64.json \
-            dist-release/latest.json
+          if [ "$PRERELEASE" = "true" ]; then
+            node scripts/merge-latest-json.mjs \
+              dist-release/latest-linux-x86_64.json \
+              dist-release/latest-windows-x86_64.json \
+              dist-release/latest.json
+          else
+            cp dist-release/latest-linux-x86_64.json dist-release/latest.json
+          fi
           gh release upload "$tag" dist-release/latest.json --clobber
           rm -f dist-release/SHA256SUMS
           (cd dist-release && sha256sum -- * > SHA256SUMS)
