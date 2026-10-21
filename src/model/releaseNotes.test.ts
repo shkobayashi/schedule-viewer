@@ -8,7 +8,6 @@ import {
   parseBundledChangelogVersions,
   parseReleaseNotesForVersion,
   parseVersionHeadingLine,
-  validateVersionSectionBullets,
 } from "./releaseNotes";
 
 const SAMPLE = `# Changelog
@@ -56,18 +55,6 @@ describe("extractVersionSectionBody", () => {
   });
 });
 
-describe("validateVersionSectionBullets", () => {
-  it("accepts bullets with issue numbers", () => {
-    const body = extractVersionSectionBody(SAMPLE, "2.0.0")!;
-    expect(validateVersionSectionBullets(body)).toEqual({ ok: true });
-  });
-
-  it("rejects bullets without issue numbers", () => {
-    const body = extractVersionSectionBody(SAMPLE, "1.0.0")!;
-    expect(validateVersionSectionBullets(body).ok).toBe(false);
-  });
-});
-
 describe("linkifyIssueReferencesInLine", () => {
   it("turns parenthesized refs into markdown links", () => {
     expect(
@@ -104,6 +91,35 @@ describe("buildFullReleaseBody", () => {
     expect(() =>
       buildFullReleaseBody("prefix", SAMPLE, "9.9.9", "o/r"),
     ).toThrow(/節がありません/);
+  });
+
+  it("succeeds when bullets have no issue numbers", () => {
+    const body = buildFullReleaseBody(
+      "## ダウンロード\n\n手順",
+      SAMPLE,
+      "1.0.0",
+      "o/r",
+    );
+    expect(body).toContain("- 初版");
+    expect(body).not.toMatch(/\[#\d+\]\(/);
+  });
+
+  it("linkifies only bullets that have issue refs in a mixed section", () => {
+    const changelog = `# Changelog
+
+## [1.9.1] - 2026-10-21
+
+### 修正
+
+- CI のみの直し
+- 画面の不具合 (#288)
+`;
+    const body = buildFullReleaseBody("prefix", changelog, "1.9.1", "o/r");
+    expect(body).toContain("- CI のみの直し");
+    expect(body).toContain(
+      "[#288](https://github.com/o/r/issues/288)",
+    );
+    expect(body).not.toContain("- CI のみの直し (#");
   });
 });
 
