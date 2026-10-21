@@ -44,21 +44,34 @@ describe("shouldIgnoreUpdateCheckError", () => {
   });
 });
 
+const macContext = { isWindowsDesktop: false };
+const linuxContext = { isWindowsDesktop: false };
+const windowsContext = { isWindowsDesktop: true };
+
 describe("classifyUpdateCheckError", () => {
-  it("marks missing platform on mac as unsupported", () => {
+  it("marks missing platform on mac as fail", () => {
     expect(
       classifyUpdateCheckError(
         "the platform `darwin-aarch64` was not found in the response `platforms` object",
-        true,
+        macContext,
       ),
-    ).toBe("unsupported_mac");
+    ).toBe("fail");
+  });
+
+  it("marks missing windows platform on Windows as store redirect", () => {
+    expect(
+      classifyUpdateCheckError(
+        "the platform `windows-x86_64` was not found in the response `platforms` object",
+        windowsContext,
+      ),
+    ).toBe("windows_store_redirect");
   });
 
   it("marks missing platform on other OS as fail", () => {
     expect(
       classifyUpdateCheckError(
         "the platform `linux-x86_64` was not found in the response `platforms` object",
-        false,
+        linuxContext,
       ),
     ).toBe("fail");
   });
@@ -85,21 +98,39 @@ describe("manualUpdateCheckInfoMessage", () => {
     expect(
       manualUpdateCheckInfoMessage(
         "Could not fetch a valid release JSON from the remote",
-        false,
+        linuxContext,
       ),
     ).toBe("この版が最新です");
   });
 
   it("treats no update as latest for manual check", () => {
-    expect(manualUpdateCheckInfoMessage("No update available", false)).toBe(
-      "この版が最新です",
-    );
+    expect(
+      manualUpdateCheckInfoMessage("No update available", linuxContext),
+    ).toBe("この版が最新です");
+  });
+
+  it("treats missing windows platform on Windows as store message", () => {
+    expect(
+      manualUpdateCheckInfoMessage(
+        "the platform `windows-x86_64` was not found in the response `platforms` object",
+        windowsContext,
+      ),
+    ).toBe("Windows の安定版は Microsoft Store で入手・更新します。");
   });
 
   it("treats network failure as fail for manual check", () => {
-    expect(manualUpdateCheckInfoMessage("network error", false)).toBe(
+    expect(manualUpdateCheckInfoMessage("network error", linuxContext)).toBe(
       "更新の確認に失敗しました",
     );
+  });
+
+  it("treats missing darwin platform on mac as fail for manual check", () => {
+    expect(
+      manualUpdateCheckInfoMessage(
+        "the platform `darwin-aarch64` was not found in the response `platforms` object",
+        macContext,
+      ),
+    ).toBe("更新の確認に失敗しました");
   });
 });
 

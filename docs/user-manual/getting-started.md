@@ -6,11 +6,13 @@
 
 ## 入手と起動
 
-入手先は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) の Latest（安定版）です。使う OS 用のファイルを、そこからダウンロードします。Pre-release は実機確認用であり、自動更新では届きません。配布物の SHA-256 は `SHA256SUMS` で確認できます。Ubuntu でベータの deb を入れたあとに安定版へ移すときは、先にベータの deb を外してください。
+Ubuntu の安定版は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) の Latest から入手します。Windows の安定版は [Microsoft Store](https://apps.microsoft.com/detail/9PP41TRJ8ZT8) から入手します。Pre-release は実機確認用であり、自動更新では届きません。GitHub の Release では配布物の SHA-256 を `SHA256SUMS` で確認できます。Ubuntu でベータの deb を入れたあとに安定版へ移すときは、先にベータの deb を外してください。
 
-Ubuntu 22.04 以降で使うファイルは `schedule-viewer_X.Y.Z_amd64.deb` です。導入は `sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb` で行います。起動コマンドは `schedule-viewer` です。Windows の配布物は `schedule-viewer_X.Y.Z_x64-setup.exe` です。Windows ではそのファイルを実行してください。起動場所はスタートメニューです。
+Ubuntu 22.04 以降で使うファイルは `schedule-viewer_X.Y.Z_amd64.deb` です。導入は `sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb` で行います。起動コマンドは `schedule-viewer` です。Windows では Microsoft Store から schedule-viewer を入れ、スタートメニューから起動します。更新は Windows が行います。
 
-macOS 用の自動ビルドはまだありません。使う Mac の上でアプリをビルドする必要があります。手順の場所は [開発ガイド](../development.md#配布用ビルド) です。
+Apple Silicon の Mac では、Latest の `schedule-viewer_X.Y.Z_aarch64.dmg` をダウンロードし、ディスクイメージを開いて schedule-viewer をアプリケーションフォルダへ入れます。dmg の中の .app からは起動しません。初回は Gatekeeper が止めることがあります。Release 本文の手順に従って開きます。
+
+Intel Mac では、使う Mac の上でビルドする必要があります。手順の場所は [開発ガイド](../development.md#配布用ビルド) です。
 
 ふだん使うのは、上の手順で入れるデスクトップ版です。ブラウザ版は開発中の確認用で、リポジトリで `npm run dev` を実行して開きます。ブラウザ版で違うのは、ファイルの開き方や保存のしかたです。違いは [全機能の「困ったとき」](features.md#ブラウザ版とデスクトップ版の違い) にまとめてあります。
 

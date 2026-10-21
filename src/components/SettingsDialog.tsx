@@ -135,6 +135,7 @@ type SettingsDialogProps = {
   showBetaInstallerSave?: boolean;
   onSaveBetaInstaller?: () => void;
   betaInstallerStatusLine?: string | null;
+  storeDistribution?: boolean;
 };
 
 function betaInstallerPlatform(): "windows" | "linux" | null {
@@ -186,7 +187,8 @@ export function SettingsDialog({
   updateOfferLiveAnnouncementKey,
   registerOfferAnnouncement,
   markOfferAnnounced,
-  showBetaInstallerSave = betaInstallerPlatform() != null,
+  storeDistribution = false,
+  showBetaInstallerSave = betaInstallerPlatform() != null && !storeDistribution,
   onSaveBetaInstaller,
   betaInstallerStatusLine = null,
 }: SettingsDialogProps) {
@@ -1038,6 +1040,15 @@ export function SettingsDialog({
               </>
             ) : null}
             {section === "updates" && settingsDesktopOnly() ? (
+              storeDistribution ? (
+                <>
+                  <p className="settings-note">
+                    Microsoft Store から入れた版は、Windows
+                    が更新します。アプリ内では入れ直しを確認しません。
+                  </p>
+                  <SettingsChangelogHistory active={section === "updates"} />
+                </>
+              ) : (
               <>
                 <p className="settings-note">
                   オンにすると、次回の起動から GitHub Releases
@@ -1123,6 +1134,7 @@ export function SettingsDialog({
                 ) : null}
                 <SettingsChangelogHistory active={section === "updates"} />
               </>
+              )
             ) : null}
             {section === "jsonSkills" ? (
               <>

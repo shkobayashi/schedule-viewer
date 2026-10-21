@@ -1,7 +1,7 @@
 {
   "name": "schedule-viewer",
   "private": true,
-  "version": "1.8.0",
+  "version": "1.9.0",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -18,7 +18,7 @@
     "check:schedule": "tsx scripts/check-schedule.ts",
     "check:calendar": "tsx scripts/check-calendar.ts",
     "check:members": "tsx scripts/check-members.ts",
-    "test": "node scripts/compile-validators.mjs && vitest run",
+    "test": "node scripts/compile-validators.mjs && node --test scripts/*.test.mjs && vitest run",
     "lint": "eslint .",
     "build:validate-skill": "node scripts/build-validate-skill.mjs",
     "version:check": "tsx scripts/check-version-sync.ts",

@@ -43,16 +43,29 @@ export function shouldIgnoreUpdateCheckError(message: string): boolean {
   return false;
 }
 
-export type UpdateCheckErrorKind = "ignore" | "unsupported_mac" | "fail";
+export type UpdateCheckErrorKind =
+  | "ignore"
+  | "windows_store_redirect"
+  | "fail";
+
+export type UpdateCheckDesktopContext = {
+  isWindowsDesktop: boolean;
+};
+
+export const WINDOWS_STABLE_STORE_UPDATE_MESSAGE =
+  "Windows の安定版は Microsoft Store で入手・更新します。";
 
 /** 起動時の自動確認と手動確認で、画面に出す失敗の種類を分ける */
 export function classifyUpdateCheckError(
   message: string,
-  isMacDesktop: boolean,
+  context: UpdateCheckDesktopContext,
 ): UpdateCheckErrorKind {
   if (message.includes("was not found in the response `platforms` object")) {
-    if (isMacDesktop) {
-      return "unsupported_mac";
+    if (
+      context.isWindowsDesktop &&
+      message.includes("`windows-x86_64`")
+    ) {
+      return "windows_store_redirect";
     }
     return "fail";
   }
@@ -63,11 +76,11 @@ export function classifyUpdateCheckError(
 /** 手動の「更新を確認」で欄または隅に出す文言 */
 export function manualUpdateCheckInfoMessage(
   errorMessage: string,
-  isMacDesktop: boolean,
+  context: UpdateCheckDesktopContext,
 ): string {
-  const kind = classifyUpdateCheckError(errorMessage, isMacDesktop);
-  if (kind === "unsupported_mac") {
-    return "この Mac でビルドしたアプリは、更新の確認の対象外です";
+  const kind = classifyUpdateCheckError(errorMessage, context);
+  if (kind === "windows_store_redirect") {
+    return WINDOWS_STABLE_STORE_UPDATE_MESSAGE;
   }
   if (kind === "fail") {
     return "更新の確認に失敗しました";

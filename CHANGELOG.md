@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-21
+
+### 追加
+
+- Apple Silicon 向けの安定版とベータを GitHub Releases の dmg で配布する。自動更新の `latest.json` に `darwin-aarch64` を載せ、Ubuntu と同じ条件で入れ直せる (#278)
+
+### 修正
+
+- Store 版のタスクバーで、角丸アイコンの外側を透明のまま出す (#280)
+- Store 版で、設定から JSON 作成スキルと read-screen を置けるようにする。MSIX に `json-skills/` と `read-screen/` を同梱する (#277)
+
+### 変更
+
+- Tauri の identifier を `io.github.shkobayashi.schedule-viewer` に変え、旧 `com.collabcentral.schedule-viewer` のアプリデータを初回起動時に移す (#269)
+- Store 版はアプリ内の入れ直しを出さず、MCP と read-screen は `schedule-viewer.exe` の実行エイリアスを書く (#269)
+- Windows の安定版の入手先を Microsoft Store に統一する。安定版の Release ワークフローが署名しない MSIX を Store へ提出する。GitHub Releases の安定版には Ubuntu の deb だけを載せ、自動更新の `latest.json` は `linux-x86_64` だけを指す。ベータの Windows は引き続き NSIS を Pre-release で配る (#269)
+
 ## [1.8.0] - 2026-10-20
 
 ### 追加

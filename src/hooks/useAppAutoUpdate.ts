@@ -35,10 +35,16 @@ import {
   syncApplicationUpdateUiViaTauri,
 } from "../model/windowSession";
 
-function isMacDesktop(): boolean {
+function isWindowsDesktop(): boolean {
   if (!isTauri()) return false;
   const platform = navigator.platform || navigator.userAgent;
-  return /Mac|iPhone|iPad|iPod/i.test(platform);
+  return /Win/i.test(platform);
+}
+
+function updateCheckDesktopContext(): { isWindowsDesktop: boolean } {
+  return {
+    isWindowsDesktop: isWindowsDesktop(),
+  };
 }
 
 function broadcastFromState(state: ApplicationUpdateUiState): void {
@@ -70,6 +76,7 @@ type UseAppUpdateFlowOptions = {
   startupSettled: boolean;
   settingsOpen: boolean;
   settingsSection: string;
+  storeDistribution: boolean;
   onCloseSettings: () => void;
   onUpdateToast: (message: string) => void;
   prepareForApplicationUpdate: () => Promise<boolean>;
@@ -81,6 +88,7 @@ export function useAppUpdateFlow({
   startupSettled,
   settingsOpen,
   settingsSection,
+  storeDistribution,
   onCloseSettings,
   onUpdateToast,
   prepareForApplicationUpdate,
@@ -193,7 +201,7 @@ export function useAppUpdateFlow({
 
   const runCheck = useCallback(
     async (manual: boolean, inSettings = false) => {
-      if (!isTauri() || checkInFlightRef.current) return;
+      if (!isTauri() || storeDistribution || checkInFlightRef.current) return;
       const current = uiStateRef.current;
       if (!manual && startupCheckStartedRef.current) return;
       if (manual && !canStartUpdateCheck(current)) {
@@ -270,8 +278,11 @@ export function useAppUpdateFlow({
           error instanceof Error ? error.message : String(error);
         checkInFlightRef.current = false;
         if (!manual) {
-          const kind = classifyUpdateCheckError(errorMessage, isMacDesktop());
-          if (kind === "ignore" || kind === "unsupported_mac") {
+          const kind = classifyUpdateCheckError(
+            errorMessage,
+            updateCheckDesktopContext(),
+          );
+          if (kind === "ignore" || kind === "windows_store_redirect") {
             setUiStateSynced(IDLE_UPDATE_UI_STATE);
             return;
           }
@@ -281,7 +292,7 @@ export function useAppUpdateFlow({
         }
         const failMessage = manualUpdateCheckInfoMessage(
           errorMessage,
-          isMacDesktop(),
+          updateCheckDesktopContext(),
         );
         setUiStateSynced({
           phase: "info",
@@ -299,7 +310,12 @@ export function useAppUpdateFlow({
         checkInFlightRef.current = false;
       }
     },
-    [maybeShowBackgroundNotification, onUpdateToast, setUiStateSynced],
+    [
+      maybeShowBackgroundNotification,
+      onUpdateToast,
+      setUiStateSynced,
+      storeDistribution,
+    ],
   );
 
   const requestManualUpdateCheck = useCallback(
@@ -520,6 +536,7 @@ export function useAppUpdateFlow({
 
   const showCornerNotice =
     (isTauri() || import.meta.env.MODE === "manual-screenshot") &&
+    !storeDistribution &&
     !settingsOpen &&
     focusedLabel === selfLabelRef.current &&
     (uiState.phase === "offer" ||
@@ -528,6 +545,7 @@ export function useAppUpdateFlow({
       (uiState.phase === "info" && Boolean(uiState.infoEphemeral)));
 
   const showSettingsUpdatePanel =
+    !storeDistribution &&
     settingsOpen &&
     settingsSection === "updates" &&
     (uiState.phase === "checking" ||

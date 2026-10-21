@@ -42,12 +42,13 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 
 ## インストール
 
-メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) の Latest（安定版）から取得する。Pre-release は実機確認用であり、自動更新では届かない。Release には配布物の SHA-256（`SHA256SUMS`）が付く。Ubuntu でベータの deb を入れたあとに安定版へ移すときは、先にベータの deb を外す。
+Ubuntu の安定版は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) の Latest から取得する。Windows の安定版は [Microsoft Store](https://apps.microsoft.com/detail/9PP41TRJ8ZT8) から入手する。Pre-release は実機確認用であり、自動更新では届かない。GitHub の Release には配布物の SHA-256（`SHA256SUMS`）が付く。Ubuntu でベータの deb を入れたあとに安定版へ移すときは、先にベータの deb を外す。
 
 - **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`
-- **Windows (x64)**: `schedule-viewer_X.Y.Z_x64-setup.exe` を実行する。インストーラは自己署名である。同じ Release の `schedule-viewer-codesign.cer` を入れた PC では発行元が `schedule-viewer` と表示される。入れていない PC では SmartScreen の確認が出ることがある（[開発ガイド](docs/development.md#release-後に証明書を入れる)）
+- **Windows (x64)**: [Microsoft Store](https://apps.microsoft.com/detail/9PP41TRJ8ZT8) から入手する。更新は Windows が行う
+- **macOS (Apple Silicon)**: Latest の `schedule-viewer_X.Y.Z_aarch64.dmg` をダウンロードし、アプリケーションフォルダへ入れる。初回起動の手順は Release 本文を参照する
 
-macOS 用の自動ビルドはまだない。必要なときは、[開発ガイドの配布用ビルド](docs/development.md#配布用ビルド) の手順で、使う Mac の上でビルドする。
+Intel Mac では、[開発ガイドの配布用ビルド](docs/development.md#配布用ビルド) の手順で、使う Mac の上でビルドする。
 
 ## 使い始める
 

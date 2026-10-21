@@ -40,6 +40,12 @@ const PAGES = [
     nav: "features",
     title: "全機能",
   },
+  {
+    source: path.join(manualDir, "privacy.md"),
+    out: "privacy.html",
+    nav: "privacy",
+    title: "プライバシーポリシー",
+  },
 ];
 
 const EXTERNAL_DOC_SLUG_SOURCES = [
@@ -53,6 +59,7 @@ const NAV_ITEMS = [
   { href: "getting-started.html", nav: "getting-started", label: "はじめに" },
   { href: "tutorial.html", nav: "tutorial", label: "チュートリアル" },
   { href: "features.html", nav: "features", label: "全機能" },
+  { href: "privacy.html", nav: "privacy", label: "プライバシーポリシー" },
 ];
 
 function buildSlugSet(markdown) {

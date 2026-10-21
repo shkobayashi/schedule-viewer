@@ -8,7 +8,7 @@
 
 - **Node.js**: 24（`.nvmrc`。`package.json` の `engines` は `>=24 <25`）
 - **Rust**: 1.98.1（`rust-toolchain.toml`）
-- Tauri identifier: `com.collabcentral.schedule-viewer`
+- Tauri identifier: `io.github.shkobayashi.schedule-viewer`
 
 `npm run dev` は Node.js だけで動く。`npm run tauri dev` と `npm run tauri build` には、Rust と、下の各 OS の追加パッケージも必要である。
 
@@ -210,7 +210,7 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | --- | --- | --- |
 | `develop` または `main` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルドを分け、集約ジョブ `ci` で結果をまとめる |
 | `main` への push（操作マニュアルとサイトビルドの入力） | Pages（`.github/workflows/pages.yml`） | `npm run build:manual-site` のあと GitHub Pages へ公開。URL は https://shkobayashi.github.io/schedule-viewer/ 。`workflow_dispatch` でも動く |
-| `main` または `release/**` への push | Release（`.github/workflows/release.yml`） | 版とブランチを検査したあと、環境 `release` の承認のあと、Ubuntu (deb) と Windows (NSIS) をビルドし GitHub Release へ公開。`main` は安定版、`release/X.Y.Z` は Pre-release |
+| `main` または `release/**` への push | Release（`.github/workflows/release.yml`） | 版とブランチを検査したあと、環境 `release` の承認のあと、Ubuntu (deb) を GitHub Release へ公開する。`main` の安定版では Windows が署名しない MSIX を Microsoft Store へ提出する。`release/X.Y.Z` の Pre-release では Windows (NSIS) も出す |
 
 `develop` への push だけでは CI は動かない。CI が動くのは `develop` または `main` 向けの pull request のときである。
 
@@ -280,16 +280,17 @@ gh repo edit shkobayashi/schedule-viewer --visibility public
 
 ### ダウンロード
 
-メンバー向けの配布物は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から取得する。ふだんは Latest（安定版）である。Pre-release は実機確認用である。
+Ubuntu の安定版は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) の Latest から取得する。Windows の安定版は [Microsoft Store](https://apps.microsoft.com/detail/9PP41TRJ8ZT8) から入手する。Pre-release は実機確認用である。
 
 - **Ubuntu 22.04 以降 (amd64)**: `schedule-viewer_X.Y.Z_amd64.deb` をダウンロードし、`sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb`。ベータの deb を入れたあとに安定版へ移すときは、先にベータの deb を外す
-- **Windows (x64)**: `schedule-viewer_X.Y.Z_x64-setup.exe` を実行
+- **Windows (x64)**: [Microsoft Store](https://apps.microsoft.com/detail/9PP41TRJ8ZT8) から入手する
+- **macOS (Apple Silicon)**: `schedule-viewer_X.Y.Z_aarch64.dmg` をダウンロードし、アプリケーションフォルダへ入れる。初回起動の手順は Release 本文を参照する
 
-macOS 用の自動ビルドはまだない。必要なときは下の「配布用ビルド」でローカルビルドする。
+Intel Mac では、下の「配布用ビルド」でローカルビルドする。
 
-### Windows のコード署名
+### Windows のコード署名（ベータの NSIS）
 
-GitHub Release の Windows インストーラ（NSIS）へ、自己署名とタイムスタンプを付ける。秘密鍵はリポジトリに置かず、GitHub の secret に置く。公開用の証明書（`.cer`）は各 Release に添付する。知り合いの PC で発行元を示すための手順である。有料のコード署名証明書は使わない。
+Pre-release の Windows インストーラ（NSIS）へ、自己署名とタイムスタンプを付ける。秘密鍵はリポジトリに置かず、GitHub の secret に置く。公開用の証明書（`.cer`）はその Pre-release に添付する。知り合いの PC で発行元を示すための手順である。有料のコード署名証明書は使わない。安定版の Windows は Microsoft Store が署名する。
 
 初回だけ、次の手順を上から順に実行する。証明書を作るのは、使っている OS の見出しだけを選び、もう一方は飛ばす。
 
@@ -472,7 +473,7 @@ gh secret list
 rm -f "$HOME/schedule-viewer-updater/schedule-viewer-updater.key" "$HOME/schedule-viewer-updater/schedule-viewer-updater.key.pub"
 ```
 
-Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。パスワード用の環境変数は渡さない。安定版では、各 OS のビルドの前に `prepare-stable-github-release` が GitHub Release を作る。タグは push したコミット（`GITHUB_SHA`）を指す。より大きいメジャーの安定版が既にあるときは、ビルド前に Latest を外す。各 OS ジョブは `latest-linux-x86_64.json` または `latest-windows-x86_64.json` を Release に載せ、`checksums` ジョブが `latest.json` にまとめる。安定版の `checksums` は、同じメジャー用の Pre-release `updater-X` の `latest.json` も更新し、より大きいメジャーが無いときだけ `finalize-stable-github-release-latest` で Latest を付ける。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
+Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。`bundle.macOS.signingIdentity` は `-` で ad-hoc 署名のみである。パスワード用の環境変数は渡さない。安定版では、各 OS のビルドの前に `prepare-stable-github-release` が GitHub Release を作る。タグは push したコミット（`GITHUB_SHA`）を指す。より大きいメジャーの安定版が既にあるときは、ビルド前に Latest を外す。`release-deb` は `latest-linux-x86_64.json` を Release に載せる。`release-dmg` は Apple Silicon の dmg、`latest-darwin-aarch64.json`、更新用の `.app.tar.gz` と `.sig` を載せる。ベータの `release-windows-nsis` は `latest-windows-x86_64.json` と `.cer` を載せる。安定版の `checksums` は `latest-linux-x86_64.json` と `latest-darwin-aarch64.json` を `latest.json` にまとめ、同じメジャー用の Pre-release `updater-X` の `latest.json` も更新し、より大きいメジャーが無いときだけ `finalize-stable-github-release-latest` で Latest を付ける。`checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
 
 デスクトップ版の自動更新は、入っている版のメジャー用 `updater-X` の `latest.json` を見る。確認先の URL は `tauri.conf.json` にビルドごとに入る。この確認先を含む版を入れたあとから効く。それより前の版は `releases/latest` を見るため、次のメジャーへ自動で進み得る。次のメジャーを出す前に、今のメジャーの安定版として `updater-X` を配る。
 
@@ -480,7 +481,7 @@ Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が�
 
 ### `main` に載せる前のバージョン上げ
 
-Windows の NSIS を署名する変更を `main` に載せるときは、先に「Windows のコード署名」の secret 登録が終わっていること。自動更新を含む変更を載せるときは、「更新用の署名鍵」の secret 登録も終わっていること。
+ベータの Windows NSIS を出す変更を `release/**` に載せるときは、先に「Windows のコード署名」の secret 登録が終わっていること。安定版を `main` に載せるときは、「Microsoft Store への自動提出」の secret 登録が終わっていること。自動更新を含む変更を載せるときは、「更新用の署名鍵」の secret 登録も終わっていること。
 
 実機で Windows または Ubuntu のインストーラを見てから配りたい版は、下の「ベータリリース」で Pre-release として出す。実機確認が要らない変更は、今までどおり `develop` から `main` へ載せる。
 
@@ -516,15 +517,15 @@ Release ワークフローは、安定版では各 OS のビルドが同じダ�
 - ブランチの番号と版から接尾辞を外した番号が違う
 - 同じタグが別のコミットを指している版を、もう一度新規に作ろうとしたとき
 
-ベータを手で入れたあとも、同じメジャーの `updater-X` を見る。入っている版より古い安定版へは進まない。次のメジャーへは自動では進まない。次の `beta.N` は自動では入らない。自動更新の版比較は semver である。接尾辞を外した安定版が出て、自動更新がオンなら、判定上はベータより新しい版として入れ直しが始まる。Windows では NSIS の上書きで進む。この仕組みを初めて使うベータでは、その上書きを手で確認する。より大きいメジャーの安定版を出したあとに、小さいメジャーの安定版を出しても、GitHub の Latest は大きいメジャーのままである。
+ベータを手で入れたあとも、同じメジャーの `updater-X` を見る。入っている版より古い安定版へは進まない。次のメジャーへは自動では進まない。次の `beta.N` は自動では入らない。自動更新の版比較は semver である。接尾辞を外した安定版が出て、自動更新がオンなら、判定上はベータより新しい版として入れ直しが始まる。Ubuntu では deb の入れ直しで進む。Windows の GitHub 版（入っている NSIS とベータ）は、安定版へは Microsoft Store から入れ直す。より大きいメジャーの安定版を出したあとに、小さいメジャーの安定版を出しても、GitHub の Latest は大きいメジャーのままである。
 
 Ubuntu では deb の版比較は Debian の規則である。`X.Y.Z-beta.N` は同じ番号の `X.Y.Z` より新しいため、ベータの deb が入っている状態で安定版の deb を `apt install` すると、`dpkg` がダウングレードとして拒否する。手で安定版へ移すときは、先にベータの deb を外してから安定版を入れる。
 
-### Release 後に証明書を入れる
+### Release 後に証明書を入れる（ベータの NSIS）
 
-`main` への push で Release ができたあと、知り合いの Windows PC で次を上から順に実行する。証明書を入れた PC だけで、インストーラの発行元が `schedule-viewer` と表示される。入れていない PC では、これまでどおり SmartScreen の確認が出る。
+Pre-release で Windows インストーラを出したあと、知り合いの Windows PC で次を上から順に実行する。証明書を入れた PC だけで、インストーラの発行元が `schedule-viewer` と表示される。入れていない PC では、これまでどおり SmartScreen の確認が出る。安定版の Windows は Microsoft Store から入れる。
 
-1. [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から、対象の版を開き、`schedule-viewer-codesign.cer` をダウンロードする。
+1. [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) から、対象の Pre-release を開き、`schedule-viewer-codesign.cer` をダウンロードする。
 
 2. 管理者の PowerShell で、ダウンロードした `.cer` を「信頼されたルート証明機関」と「信頼された発行元」の両方へ入れる。
 
@@ -540,7 +541,7 @@ Import-Certificate -FilePath $cer -CertStoreLocation Cert:\LocalMachine\TrustedP
 
 ## アプリアイコン
 
-ランチャー用の原画は `src-tauri/icons/icon.svg`（1024px）である。Mac、Windows、Ubuntu は同じ絵を使う。地は画面のインディゴ（`#4C5FD5`）の角丸で、キャンバスの端までは塗らない。白い横棒はガントの一行、その上を横切る短いコーラル（`#E2542A`）は今日の線である。文字と目盛りは入れない。光は左上からだけにして、面に薄いハイライトを乗せる。
+ランチャー用の原画は `src-tauri/icons/icon.svg`（1024px）である。Mac、Windows、Ubuntu は同じ絵を使う。地は画面のインディゴ（`#4C5FD5`）の角丸で、キャンバスの端までは塗らない。白い横棒はガントの一行、その上を横切る短いコーラル（`#E2542A`）は今日の線である。文字と目盛りは入れない。光は左上からだけにして、面に薄いハイライトを乗せる。Store 版のタスクバーで角の外を透明にするファイルは、下の「Microsoft Store 用 MSIX」でパッケージに入れる。
 
 絵を変えたときは、リポジトリ直下で次を実行する。
 
@@ -603,7 +604,7 @@ open src-tauri/target/release/bundle/macos/schedule-viewer.app
 - Apple Silicon: `src-tauri/target/release/bundle/dmg/schedule-viewer_X.Y.Z_aarch64.dmg`
 - Intel: `src-tauri/target/release/bundle/dmg/schedule-viewer_X.Y.Z_x64.dmg`
 
-別の Mac へ渡すには、Apple の署名と公証が必要になる。ビルドした Mac 上の `.app` はそのまま開ける。
+GitHub Releases の dmg は Developer ID による署名と公証をしない。初回起動では Gatekeeper の警告が出ることがある。手順は [scripts/release-body-prefix.md](../scripts/release-body-prefix.md) と同じである。手元ビルドの `.app` はビルドした Mac 上ではそのまま開ける。別の Mac へ手元ビルドの dmg を渡すときも、Release 本文と同じ初回起動の手順で開く。
 
 ### Windows
 
@@ -623,6 +624,42 @@ ARM の Windows では `x64` の部分が `arm64` になる。インストーラ
 手元の `npm run tauri build` ではインストーラへ署名しない。署名するのは GitHub Release の NSIS である。公開用証明書の入れ方は、上の「Release 後に証明書を入れる」にある。
 
 MSI の作成で `failed to run light.exe` と出たときは、Windows のオプション機能で VBSCRIPT を有効にする。
+
+### Microsoft Store 用 MSIX
+
+Partner Center の Product identity と同じ名前で、安定版だけ MSIX を作る。Tauri は MSIX を出さない。[packaging/msix/build-msix.ps1](../packaging/msix/build-msix.ps1) が `MakeAppx` で署名しないパッケージを作る。スクリプトは `target/release` の `json-skills/` と `read-screen/` を実行ファイルの隣へ入れる。`json-skills/write-schedule/SKILL.md`、`json-skills/write-members/SKILL.md`、`json-skills/write-calendar/SKILL.md`、`read-screen/SKILL.md` のどれかが無いときは、MakeAppx の前に失敗し、MSIX を作らない。WebView2 は同梱しない。マニフェストの `PackageDependency` にも書かない。Windows 11 には WebView2 が入っている。Windows 10 で入っていない場合は、上の「Windows の開発環境」のとおり Evergreen Bootstrapper を入れる。
+
+`Square44x44Logo.png` だけを置くと、Windows はタスクバーでロゴを色付きの板の上に縮小して描く。板の色は `#0078D4` で、角丸の外に出る。スクリプトは `icon.png` から、16、20、24、30、32、36、40、48、60、64、72、80、96、256 の各辺について、`Square44x44Logo.targetsize-<px>.png` と、同じ絵の `_altform-unplated`、`_altform-lightunplated` を作る。四隅は透明である。明るいテーマのタスクバーは `lightunplated`、暗いテーマは `unplated` を使う。続けて Windows SDK の `makepri.exe` で `resources.pri` を作り、これらの名前をパッケージのリソースに載せる。ファイルを置いただけではタスクバーは板のままである。`makepri.exe` が無いとき、または `resources.pri` に 24px、暗いテーマ用のプレートなし、明るいテーマ用のプレートなしのどれかが無いときは、MakeAppx の前に失敗する。`BackgroundColor` は `transparent` のままである。`makeappx.exe` と `makepri.exe` は Windows SDK の x64 から、新しいものを使う。
+
+手元（Windows。Windows SDK に `makeappx.exe` と `makepri.exe` があること）:
+
+```powershell
+npm run tauri build -- --no-bundle --config src-tauri/tauri.release.json
+pwsh ./packaging/msix/build-msix.ps1
+```
+
+成果物は `dist-msix/schedule-viewer_X.Y.Z.0_x64.msix` である。安定版の `main` への push では、Release ワークフローの `release-windows-store` が同じ手順のあと Microsoft Store Developer CLI で Store ID `9PP41TRJ8ZT8` へ提出する。プライバシーポリシーの URL は https://shkobayashi.github.io/schedule-viewer/privacy.html である。
+
+### Microsoft Store への自動提出
+
+Microsoft Store Developer CLI は、Partner Center で一度掲載したアプリの更新に使う。未掲載のまま `msstore publish` しても申請は始まらない。
+
+安定版の Release で Store へ MSIX を出すときは、次の secret をリポジトリに登録する。いずれかが空のときは `release-windows-store` が失敗する。`checksums` は deb が成功したあと進む。Store 提出が失敗しても、Ubuntu の `latest.json` と `updater-X` の更新は止まらない。
+
+| secret | 内容 |
+| --- | --- |
+| `MSSTORE_TENANT_ID` | Entra ID のテナント ID |
+| `MSSTORE_CLIENT_ID` | Partner Center API に使うアプリのクライアント ID |
+| `MSSTORE_CLIENT_SECRET` | 上記アプリのクライアントシークレット |
+| `MSSTORE_SELLER_ID` | Partner Center の販売者 ID |
+
+初回だけ、次の手順を上から順に実行する。
+
+1. [Microsoft Entra 管理センター](https://entra.microsoft.com/) でアプリを登録し、クライアントシークレットを作る。Partner Center の「ユーザー管理」で、そのアプリに開発者ロールを付ける。
+2. Partner Center の「アカウント設定」→「ユーザー管理」で、上記アプリが Store の提出 API を使えることを確認する。
+3. リポジトリのルートで、GitHub CLI が `shkobayashi/schedule-viewer` を指していることを確認する。上の 4 つを `gh secret set` で登録する。
+
+同じ版の Release ワークフローを再実行したとき、Partner Center が同じパッケージ版を拒否することがある。そのときはジョブが失敗する。Partner Center の提出状態を見てから再実行する。審査が終わるまで、Store 上の更新は始まらない。
 
 ## スキーマを変えるとき
 

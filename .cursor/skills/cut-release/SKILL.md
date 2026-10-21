@@ -34,10 +34,13 @@ description: >-
 6. `gh release create` で `vX.Y.Z` と `updater-X` を新規作るときは `--target` にワークフローの `GITHUB_SHA` を渡す。無いときは失敗させる。再実行の `release edit` ではタグは動かさない
 7. Latest は資産を載せ、`updater-X` を更新したあと、[scripts/finalize-stable-github-release-latest.ts](../../../scripts/finalize-stable-github-release-latest.ts) で付ける。ビルド前の [scripts/prepare-stable-github-release.ts](../../../scripts/prepare-stable-github-release.ts) では、より大きいメジャーがあるときだけ Latest を外す
 8. 既存の `updater-X` で `latest.json` の `version` が読めないときは、[scripts/publish-updater-channel.ts](../../../scripts/publish-updater-channel.ts) を失敗させ、上書きしない。安定版一覧は `gh api --paginate` で集める
+9. 安定版の Windows は [.github/workflows/release.yml](../../../.github/workflows/release.yml) の `release-windows-store` が `tauri build --no-bundle` のあと [packaging/msix/build-msix.ps1](../../../packaging/msix/build-msix.ps1) で署名しない MSIX を作り、Microsoft Store Developer CLI で Store ID `9PP41TRJ8ZT8` へ提出する。secret は `MSSTORE_TENANT_ID`、`MSSTORE_CLIENT_ID`、`MSSTORE_CLIENT_SECRET`、`MSSTORE_SELLER_ID` である。ベータの Windows は `release-windows-nsis` が NSIS と公開用 `.cer` を出す。Apple Silicon の Mac は `release-dmg` が dmg と `latest-darwin-aarch64.json` を出す。`src-tauri/tauri.release.json` の `bundle.macOS.signingIdentity` は `-` で ad-hoc 署名のみである。安定版の GitHub Release には NSIS と `latest-windows-x86_64.json` を載せない。Intel 用 dmg は Release に載せない。安定版の `checksums` は [scripts/merge-latest-json.mjs](../../../scripts/merge-latest-json.mjs) で `latest-linux-x86_64.json` と `latest-darwin-aarch64.json` を `latest.json` にまとめる。呼び出しは `--require` で必須のプラットフォームキーを渡す。安定版は `linux-x86_64` と `darwin-aarch64`、ベータはこれに `windows-x86_64` を足す。マージ結果に必須キーが無いときは失敗する。ベータの `latest.json` は `windows-x86_64` も含める。`checksums` は `release-deb` と `release-dmg` の成功を待ち、`release-windows-store` の成否では止まらない。Store 用 MSIX は WebView2 を同梱せず、マニフェストの `PackageDependency` にも書かない。`build-msix.ps1` は `target/release` の `json-skills/` と `read-screen/` を実行ファイルの隣へ入れる。4 つの `SKILL.md`（`write-schedule`、`write-members`、`write-calendar`、`read-screen`）のどれかが無いときは MakeAppx の前に失敗し、MSIX を作らない。マニフェストの機能宣言は `runFullTrust` のままにする。`icon.png` からタスクバー用の target size を作り、`Square44x44Logo.targetsize-*` と `_altform-unplated` と `_altform-lightunplated` を `resources.pri` に載せる。`makepri.exe` が無いとき、またはダンプに `targetsize-24` と `lightunplated` と、明るいテーマ用ではない `unplated` が無いときは、MakeAppx の前に失敗する。これを欠くと、タスクバーは角丸の外に `#0078D4` の板を敷く
 
 ## 文書
 
 [AGENTS.md](../../../AGENTS.md) の「変更したら文書も更新する」に従う。リリース手順は [docs/development.md](../../../docs/development.md)。配布の方針は [docs/PLANNING.md](../../../docs/PLANNING.md)。入手先は [README.md](../../../README.md) と [docs/user-manual.md](../../../docs/user-manual.md)。動作環境は [docs/external-spec.md](../../../docs/external-spec.md)。CI の説明は [docs/test-spec.md](../../../docs/test-spec.md)。Release 本文の組み立ては [docs/internal-spec.md](../../../docs/internal-spec.md)
+
+配布の経路を変えたあとは、`NSIS の上書き`、`msix-store`、`workflow_dispatch` で MSIX、安定版の GitHub NSIS など、古い経路の語が [docs/development.md](../../../docs/development.md)、[docs/external-spec.md](../../../docs/external-spec.md)、[docs/user-manual/features.md](../../../docs/user-manual/features.md)、[CHANGELOG.md](../../../CHANGELOG.md) に残っていないかを検索して直す
 
 自動更新の版比較は semver である。Ubuntu の deb の版比較は Debian の規則である。文書では、この 2 つを 1 つの「進む」にまとめない。デスクトップ版は入っている版のメジャー用 `updater-X` の `latest.json` を見る。同じメジャーのより新しい安定版だけ入れる。ベータを入れたあとも同じメジャーの `updater-X` を見る。判定上、接尾辞を外した安定版はベータより新しいが、Ubuntu では `dpkg` がダウングレードとして拒否する。手で `apt install` するときも、先にベータの deb を外す
 
@@ -45,7 +48,7 @@ description: >-
 
 1. [src/model/releaseVersion.test.ts](../../../src/model/releaseVersion.test.ts) に判定と bump を足す
 2. `npm run build`、`npm run lint`、`npm test` を通す
-3. GitHub 上の Pre-release と Windows の上書きは、最初のベータを出したときに手で見る
+3. GitHub 上の Pre-release と、安定版の Store 提出は、最初の該当 Release を出したときに手で見る
 
 ## 完了条件
 
