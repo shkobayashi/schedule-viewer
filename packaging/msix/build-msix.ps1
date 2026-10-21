@@ -10,6 +10,96 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+function Assert-TransparentCorners([System.Drawing.Bitmap]$Bitmap, [string]$Label) {
+  $points = @(
+    @(0, 0),
+    @($Bitmap.Width - 1, 0),
+    @(0, $Bitmap.Height - 1),
+    @($Bitmap.Width - 1, $Bitmap.Height - 1)
+  )
+  foreach ($point in $points) {
+    $color = $Bitmap.GetPixel($point[0], $point[1])
+    if ($color.A -ne 0) {
+      throw "$Label の四隅が透明ではありません (alpha=$($color.A))"
+    }
+  }
+}
+
+function Add-TaskbarLogos([string]$SourcePng, [string]$ImagesDir) {
+  if (-not (Test-Path $SourcePng)) {
+    throw "タスクバー用の原画が見つかりません: $SourcePng"
+  }
+  Add-Type -AssemblyName System.Drawing
+  $sizes = @(16, 20, 24, 30, 32, 36, 40, 48, 60, 64, 72, 80, 96, 256)
+  $source = [System.Drawing.Bitmap]::FromFile((Resolve-Path $SourcePng))
+  try {
+    Assert-TransparentCorners $source $SourcePng
+    foreach ($size in $sizes) {
+      $bitmap = New-Object System.Drawing.Bitmap $size, $size, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+      try {
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        try {
+          $graphics.Clear([System.Drawing.Color]::Transparent)
+          $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+          $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+          $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+          $attributes = New-Object System.Drawing.Imaging.ImageAttributes
+          try {
+            $attributes.SetWrapMode([System.Drawing.Drawing2D.WrapMode]::TileFlipXY)
+            $rect = New-Object System.Drawing.Rectangle 0, 0, $size, $size
+            $graphics.DrawImage(
+              $source,
+              $rect,
+              0, 0, $source.Width, $source.Height,
+              [System.Drawing.GraphicsUnit]::Pixel,
+              $attributes)
+          } finally {
+            $attributes.Dispose()
+          }
+        } finally {
+          $graphics.Dispose()
+        }
+        # 原画の角丸は端から 128/1024 だけ内側にある。縮小の補間がこの余白へ色をにじませても、角は透明のままにする。
+        $inset = [Math]::Floor($size * 128 / 1024)
+        $clear = [Math]::Max(0, $inset - 1)
+        if ($clear -gt 0) {
+          $transparent = [System.Drawing.Color]::Transparent
+          for ($y = 0; $y -lt $size; $y++) {
+            for ($x = 0; $x -lt $size; $x++) {
+              $onMargin = ($x -lt $clear) -or ($y -lt $clear) -or ($x -ge ($size - $clear)) -or ($y -ge ($size - $clear))
+              if ($onMargin) {
+                $bitmap.SetPixel($x, $y, $transparent)
+              }
+            }
+          }
+        }
+        $plain = Join-Path $ImagesDir "Square44x44Logo.targetsize-$size.png"
+        Assert-TransparentCorners $bitmap $plain
+        $bitmap.Save($plain, [System.Drawing.Imaging.ImageFormat]::Png)
+      } finally {
+        $bitmap.Dispose()
+      }
+      Copy-Item $plain (Join-Path $ImagesDir "Square44x44Logo.targetsize-${size}_altform-unplated.png")
+      Copy-Item $plain (Join-Path $ImagesDir "Square44x44Logo.targetsize-${size}_altform-lightunplated.png")
+    }
+  } finally {
+    $source.Dispose()
+  }
+}
+
+function Get-WindowsSdkTool([string]$Name) {
+  $pattern = '\\x64\\' + [regex]::Escape($Name) + '$'
+  $tool = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter $Name -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match $pattern } |
+    Sort-Object FullName -Descending |
+    Select-Object -First 1
+  if (-not $tool) {
+    throw "$Name が見つかりません。Windows SDK をインストールしてください。"
+  }
+  return $tool.FullName
+}
+
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
 if (-not $Version) {
@@ -40,6 +130,7 @@ $iconDir = Join-Path $root "src-tauri/icons"
 Copy-Item (Join-Path $iconDir "StoreLogo.png") (Join-Path $imagesDir "StoreLogo.png")
 Copy-Item (Join-Path $iconDir "Square44x44Logo.png") (Join-Path $imagesDir "Square44x44Logo.png")
 Copy-Item (Join-Path $iconDir "Square150x150Logo.png") (Join-Path $imagesDir "Square150x150Logo.png")
+Add-TaskbarLogos -SourcePng (Join-Path $iconDir "icon.png") -ImagesDir $imagesDir
 Copy-Item $exePath (Join-Path $staging $exeName)
 $releaseFull = Join-Path $root $ReleaseDir
 Get-ChildItem -Path $releaseFull -Filter "*.dll" | ForEach-Object {
@@ -117,14 +208,47 @@ $manifest = @"
   </Applications>
 </Package>
 "@
-Set-Content -Path (Join-Path $staging "AppxManifest.xml") -Value $manifest -Encoding utf8NoBOM
+$manifestPath = Join-Path $staging "AppxManifest.xml"
+Set-Content -Path $manifestPath -Value $manifest -Encoding utf8NoBOM
 
-$makeappx = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter "makeappx.exe" -ErrorAction SilentlyContinue |
-  Where-Object { $_.FullName -match "\\x64\\makeappx\.exe$" } |
-  Sort-Object FullName -Descending |
-  Select-Object -First 1
-if (-not $makeappx) {
-  throw "makeappx.exe が見つかりません。Windows SDK をインストールしてください。"
+$makeappx = Get-WindowsSdkTool "makeappx.exe"
+$makepri = Join-Path (Split-Path $makeappx) "makepri.exe"
+if (-not (Test-Path $makepri)) {
+  throw "makepri.exe が見つかりません。Windows SDK をインストールしてください。"
+}
+
+$priRoot = Join-Path $env:TEMP "schedule-viewer-msix-pri"
+if (Test-Path $priRoot) {
+  Remove-Item -Recurse -Force $priRoot
+}
+New-Item -ItemType Directory -Path (Join-Path $priRoot "images") | Out-Null
+Copy-Item $manifestPath $priRoot
+Copy-Item (Join-Path $imagesDir "*") (Join-Path $priRoot "images")
+$priConfig = Join-Path $env:TEMP "schedule-viewer-priconfig.xml"
+& $makepri createconfig /cf $priConfig /dq lang-ja-jp /o | Out-Host
+if ($LASTEXITCODE -ne 0) {
+  throw "makepri createconfig が失敗しました (exit $LASTEXITCODE)"
+}
+$priFile = Join-Path $staging "resources.pri"
+& $makepri new /pr $priRoot /cf $priConfig /mn (Join-Path $priRoot "AppxManifest.xml") /of $priFile /o | Out-Host
+if ($LASTEXITCODE -ne 0) {
+  throw "makepri new が失敗しました (exit $LASTEXITCODE)"
+}
+$priDump = Join-Path $env:TEMP "schedule-viewer-pri-dump.xml"
+& $makepri dump /if $priFile /of $priDump /o | Out-Host
+if ($LASTEXITCODE -ne 0) {
+  throw "makepri dump が失敗しました (exit $LASTEXITCODE)"
+}
+$priText = Get-Content $priDump -Raw
+if ($priText -notmatch "targetsize-24") {
+  throw "resources.pri に targetsize-24 がありません"
+}
+if ($priText -notmatch "lightunplated") {
+  throw "resources.pri に altform-lightunplated がありません"
+}
+# lightunplated の一部として unplated が含まれるので、明るいテーマ用とは別に暗いテーマ用を見る。
+if ($priText -notmatch "(?<!light)unplated") {
+  throw "resources.pri に altform-unplated がありません"
 }
 
 $outRoot = Join-Path $root $OutputDir
@@ -134,7 +258,7 @@ if (Test-Path $msixFile) {
   Remove-Item -Force $msixFile
 }
 
-& $makeappx.FullName pack /d $staging /p $msixFile /nv | Out-Host
+& $makeappx pack /d $staging /p $msixFile /nv | Out-Host
 if ($LASTEXITCODE -ne 0) {
   throw "MakeAppx が失敗しました (exit $LASTEXITCODE)"
 }
