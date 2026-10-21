@@ -493,9 +493,9 @@ Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が�
 
 `npm run version:check` で `package.json` / `package-lock.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` / `src-tauri/Cargo.lock` の番号が揃っていることを確認してから、そのコミットを `develop` に入れて `main` にマージする。`main` へ push されると `vX.Y.Z` タグ付きの安定版 Release が作られる。同じバージョンのタグが別のコミットを指している場合は、先にバージョンを上げてから再度マージする。タグが同じコミットを指しているときは、失敗した Release ジョブを同じタグのまま再実行できる。
 
-変更の要約は、そのバージョン上げのコミットで [CHANGELOG.md](../CHANGELOG.md) に書く。公開する版の節へ移すときは、各項目の末尾に対応する Issue 番号を `(#番号)` の形で書く。番号が複数あるときは `(#155) (#156)` のように並べる。`[Unreleased]` の項目には書かなくてよい。
+変更の要約は、そのバージョン上げのコミットで [CHANGELOG.md](../CHANGELOG.md) に書く。公開する版の節へ移すときは、対応する Issue がある項目の末尾に `(#番号)` を書く。番号が複数あるときは `(#155) (#156)` のように並べる。対応する Issue が無い項目は番号を書かない。`[Unreleased]` の項目には書かなくてよい。
 
-Release ワークフローは、安定版では各 OS のビルドが同じダウンロード手順だけを `releaseBody` に載せる。`checksums` ジョブが [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) で接頭文のあとにその版の CHANGELOG 節を足し、`gh release edit` で本文を確定する。CHANGELOG にその版の節が無いとき、または節の項目に Issue 番号が無いときはジョブが失敗し、本文はダウンロード手順のまま残る。Pre-release では CHANGELOG を読まず、[scripts/release-body-beta.md](../scripts/release-body-beta.md) の短い文だけを載せる。
+Release ワークフローは、安定版では各 OS のビルドが同じダウンロード手順だけを `releaseBody` に載せる。`checksums` ジョブが [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) で接頭文のあとにその版の CHANGELOG 節を足し、`gh release edit` で本文を確定する。CHANGELOG にその版の節が無いときはジョブが失敗し、本文はダウンロード手順のまま残る。番号が無い項目があっても本文は作り、番号がある項目だけ GitHub のリンクにする。Pre-release では CHANGELOG を読まず、[scripts/release-body-beta.md](../scripts/release-body-beta.md) の短い文だけを載せる。
 
 ### ベータリリース
 

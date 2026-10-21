@@ -63,25 +63,6 @@ export function collectIssueNumbersFromBulletLine(line: string): number[] {
   return numbers;
 }
 
-export type ValidateSectionResult =
-  | { ok: true }
-  | { ok: false; message: string };
-
-export function validateVersionSectionBullets(sectionBody: string): ValidateSectionResult {
-  const lines = sectionBody.split(/\r?\n/);
-  for (const line of lines) {
-    if (!line.startsWith("- ")) continue;
-    const issues = collectIssueNumbersFromBulletLine(line);
-    if (issues.length === 0) {
-      return {
-        ok: false,
-        message: `CHANGELOG の項目に Issue 番号がありません: ${line}`,
-      };
-    }
-  }
-  return { ok: true };
-}
-
 export function linkifyIssueReferencesInLine(
   line: string,
   repo: string,
@@ -115,10 +96,6 @@ export function buildFullReleaseBody(
     throw new Error(
       `CHANGELOG にバージョン ${normalizeVersionLabel(version)} の節がありません`,
     );
-  }
-  const validation = validateVersionSectionBullets(sectionBody);
-  if (!validation.ok) {
-    throw new Error(validation.message);
   }
   const linked = buildReleaseNotesMarkdownSection(sectionBody, repo);
   const trimmedPrefix = prefix.trimEnd();
