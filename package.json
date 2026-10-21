@@ -34,7 +34,7 @@
     "@tauri-apps/cli-linux-riscv64-gnu": "2.12.1",
     "@tauri-apps/cli-linux-x64-gnu": "2.12.1",
     "@tauri-apps/cli-linux-x64-musl": "2.12.1",
-    "@tauri-apps/cli-win32-arm64-msvc": "2.12.1",
+    "@tauri-apps/cli-win32-arm64-msvc": "2.12.3",
     "@tauri-apps/cli-win32-ia32-msvc": "2.12.1",
     "@tauri-apps/cli-win32-x64-msvc": "2.12.1"
   },
