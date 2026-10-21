@@ -1,7 +1,7 @@
 {
   "name": "schedule-viewer",
   "private": true,
-  "version": "1.9.2-beta.1",
+  "version": "1.9.2-beta.2",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -42,7 +42,7 @@
     "@tauri-apps/api": "2.12.1",
     "@tauri-apps/plugin-opener": "^2.7.0",
     "@tauri-apps/plugin-process": "^2.4.0",
-    "@tauri-apps/plugin-updater": "^2.13.2",
+    "@tauri-apps/plugin-updater": "^2.14.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "konva": "^10.9.0",
