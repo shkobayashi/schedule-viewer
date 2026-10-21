@@ -10,7 +10,9 @@ Ubuntu の安定版は [GitHub Releases](https://github.com/shkobayashi/schedule
 
 Ubuntu 22.04 以降で使うファイルは `schedule-viewer_X.Y.Z_amd64.deb` です。導入は `sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb` で行います。起動コマンドは `schedule-viewer` です。Windows では Microsoft Store から schedule-viewer を入れ、スタートメニューから起動します。更新は Windows が行います。
 
-macOS 用の自動ビルドはまだありません。使う Mac の上でアプリをビルドする必要があります。手順の場所は [開発ガイド](../development.md#配布用ビルド) です。
+Apple Silicon の Mac では、Latest の `schedule-viewer_X.Y.Z_aarch64.dmg` をダウンロードし、ディスクイメージを開いて schedule-viewer をアプリケーションフォルダへ入れます。dmg の中の .app からは起動しません。初回は Gatekeeper が止めることがあります。Release 本文の手順に従って開きます。
+
+Intel Mac では、使う Mac の上でビルドする必要があります。手順の場所は [開発ガイド](../development.md#配布用ビルド) です。
 
 ふだん使うのは、上の手順で入れるデスクトップ版です。ブラウザ版は開発中の確認用で、リポジトリで `npm run dev` を実行して開きます。ブラウザ版で違うのは、ファイルの開き方や保存のしかたです。違いは [全機能の「困ったとき」](features.md#ブラウザ版とデスクトップ版の違い) にまとめてあります。
 

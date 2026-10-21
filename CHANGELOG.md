@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 追加
+
+- Apple Silicon 向けの安定版とベータを GitHub Releases の dmg で配布する。自動更新の `latest.json` に `darwin-aarch64` を載せ、Ubuntu と同じ条件で入れ直せる (#278)
+
 ### 修正
 
 - Store 版で、設定から JSON 作成スキルと read-screen を置けるようにする。MSIX に `json-skills/` と `read-screen/` を同梱する (#277)

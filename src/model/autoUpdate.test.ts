@@ -44,18 +44,18 @@ describe("shouldIgnoreUpdateCheckError", () => {
   });
 });
 
-const macContext = { isMacDesktop: true, isWindowsDesktop: false };
-const linuxContext = { isMacDesktop: false, isWindowsDesktop: false };
-const windowsContext = { isMacDesktop: false, isWindowsDesktop: true };
+const macContext = { isWindowsDesktop: false };
+const linuxContext = { isWindowsDesktop: false };
+const windowsContext = { isWindowsDesktop: true };
 
 describe("classifyUpdateCheckError", () => {
-  it("marks missing platform on mac as unsupported", () => {
+  it("marks missing platform on mac as fail", () => {
     expect(
       classifyUpdateCheckError(
         "the platform `darwin-aarch64` was not found in the response `platforms` object",
         macContext,
       ),
-    ).toBe("unsupported_mac");
+    ).toBe("fail");
   });
 
   it("marks missing windows platform on Windows as store redirect", () => {
@@ -122,6 +122,15 @@ describe("manualUpdateCheckInfoMessage", () => {
     expect(manualUpdateCheckInfoMessage("network error", linuxContext)).toBe(
       "更新の確認に失敗しました",
     );
+  });
+
+  it("treats missing darwin platform on mac as fail for manual check", () => {
+    expect(
+      manualUpdateCheckInfoMessage(
+        "the platform `darwin-aarch64` was not found in the response `platforms` object",
+        macContext,
+      ),
+    ).toBe("更新の確認に失敗しました");
   });
 });
 

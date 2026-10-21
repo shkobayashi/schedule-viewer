@@ -164,6 +164,107 @@ jobs:
             "latest-linux-x86_64.json"
           gh release upload "$tag" "latest-linux-x86_64.json" --clobber
 
+  release-dmg:
+    needs: [validate-release-push, prepare-stable-github-release]
+    if: always() && needs.validate-release-push.result == 'success' && (needs.validate-release-push.outputs.prerelease == 'true' || needs.prepare-stable-github-release.result == 'success')
+    permissions:
+      contents: write
+    environment: release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - id: rust-toolchain
+        name: Read rust-toolchain.toml
+        shell: bash
+        run: |
+          channel=$(sed -n 's/^channel = "\([^"]*\)"/\1/p' rust-toolchain.toml)
+          components=$(sed -n 's/^components = \[\(.*\)\]/\1/p' rust-toolchain.toml | tr -d ' "')
+          if [ -z "$channel" ] || [ -z "$components" ]; then
+            echo "rust-toolchain.toml must set channel and components" >&2
+            exit 1
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "components=$components" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master 2026-09-12
+        with:
+          toolchain: ${{ steps.rust-toolchain.outputs.channel }}
+          components: ${{ steps.rust-toolchain.outputs.components }}
+
+      - run: npm ci
+
+      - name: Verify updater signing secret
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY must be set in repository secrets" >&2
+            exit 1
+          fi
+
+      - name: Load release body prefix
+        id: release_prefix
+        shell: bash
+        env:
+          PRERELEASE: ${{ needs.validate-release-push.outputs.prerelease }}
+        run: |
+          repo="${{ github.repository }}"
+          if [ "$PRERELEASE" = "true" ]; then
+            body=$(cat scripts/release-body-beta.md)
+          else
+            body=$(sed "s|shkobayashi/schedule-viewer|${repo}|g" scripts/release-body-prefix.md)
+          fi
+          {
+            echo 'body<<EOF'
+            printf '%s\n' "$body"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        with:
+          tagName: v__VERSION__
+          releaseName: schedule-viewer v__VERSION__
+          releaseBody: ${{ steps.release_prefix.outputs.body }}
+          releaseDraft: false
+          prerelease: ${{ needs.validate-release-push.outputs.prerelease == 'true' }}
+          args: --bundles dmg --config src-tauri/tauri.release.json
+
+      - name: Upload platform updater manifest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          bundle_root="src-tauri/target/release/bundle"
+          macos_dir="${bundle_root}/macos"
+          node scripts/build-platform-latest-json.mjs \
+            darwin-aarch64 \
+            "$version" \
+            "$bundle_root" \
+            "${{ github.repository }}" \
+            "latest-darwin-aarch64.json"
+          gh release upload "$tag" "latest-darwin-aarch64.json" --clobber
+          for f in "${macos_dir}"/*.app.tar.gz; do
+            [ -f "$f" ] || continue
+            gh release upload "$tag" "$f" --clobber
+            sig="${f}.sig"
+            if [ -f "$sig" ]; then
+              gh release upload "$tag" "$sig" --clobber
+            fi
+          done
+
   release-windows-nsis:
     needs: validate-release-push
     if: needs.validate-release-push.outputs.prerelease == 'true'
@@ -397,11 +498,13 @@ jobs:
     needs:
       - validate-release-push
       - release-deb
+      - release-dmg
       - release-windows-nsis
     if: >-
       always() &&
       needs.validate-release-push.result == 'success' &&
       needs.release-deb.result == 'success' &&
+      needs.release-dmg.result == 'success' &&
       (needs.release-windows-nsis.result == 'success' || needs.release-windows-nsis.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
@@ -428,11 +531,20 @@ jobs:
           gh release download "$tag" --dir dist-release --clobber
           if [ "$PRERELEASE" = "true" ]; then
             node scripts/merge-latest-json.mjs \
+              --require linux-x86_64 \
+              --require darwin-aarch64 \
+              --require windows-x86_64 \
               dist-release/latest-linux-x86_64.json \
+              dist-release/latest-darwin-aarch64.json \
               dist-release/latest-windows-x86_64.json \
               dist-release/latest.json
           else
-            cp dist-release/latest-linux-x86_64.json dist-release/latest.json
+            node scripts/merge-latest-json.mjs \
+              --require linux-x86_64 \
+              --require darwin-aarch64 \
+              dist-release/latest-linux-x86_64.json \
+              dist-release/latest-darwin-aarch64.json \
+              dist-release/latest.json
           fi
           gh release upload "$tag" dist-release/latest.json --clobber
           rm -f dist-release/SHA256SUMS

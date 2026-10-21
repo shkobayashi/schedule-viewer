@@ -45,12 +45,10 @@ export function shouldIgnoreUpdateCheckError(message: string): boolean {
 
 export type UpdateCheckErrorKind =
   | "ignore"
-  | "unsupported_mac"
   | "windows_store_redirect"
   | "fail";
 
 export type UpdateCheckDesktopContext = {
-  isMacDesktop: boolean;
   isWindowsDesktop: boolean;
 };
 
@@ -63,9 +61,6 @@ export function classifyUpdateCheckError(
   context: UpdateCheckDesktopContext,
 ): UpdateCheckErrorKind {
   if (message.includes("was not found in the response `platforms` object")) {
-    if (context.isMacDesktop) {
-      return "unsupported_mac";
-    }
     if (
       context.isWindowsDesktop &&
       message.includes("`windows-x86_64`")
@@ -84,9 +79,6 @@ export function manualUpdateCheckInfoMessage(
   context: UpdateCheckDesktopContext,
 ): string {
   const kind = classifyUpdateCheckError(errorMessage, context);
-  if (kind === "unsupported_mac") {
-    return "この Mac でビルドしたアプリは、更新の確認の対象外です";
-  }
   if (kind === "windows_store_redirect") {
     return WINDOWS_STABLE_STORE_UPDATE_MESSAGE;
   }
