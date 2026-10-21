@@ -26,7 +26,7 @@
     "postinstall": "node scripts/ensure-tauri-cli-native.mjs"
   },
   "optionalDependencies": {
-    "@tauri-apps/cli-darwin-arm64": "2.12.1",
+    "@tauri-apps/cli-darwin-arm64": "2.12.3",
     "@tauri-apps/cli-darwin-x64": "2.12.1",
     "@tauri-apps/cli-linux-arm-gnueabihf": "2.12.1",
     "@tauri-apps/cli-linux-arm64-gnu": "2.12.1",
