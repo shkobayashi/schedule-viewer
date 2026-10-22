@@ -104,7 +104,7 @@ flowchart TD
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
-| 書き出し | `exportHtml.ts`、`exportView.ts`、`exportFilename.ts` |
+| 書き出し | `exportHtml.ts`、`exportExcel.ts`、`exportView.ts`、`exportFilename.ts` |
 | 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts` |
 | キーボードショートカット | `shortcuts.ts` |
 | 操作の案内の文 | `guideContent.ts` |
@@ -197,7 +197,7 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 
 ### 書き出し
 
-`exportView.ts` が見える行からマイルストンと期間を決め、`exportHtml.ts` が SVG を組み立てる。月表示の月ラベルの出し分けは `monthHeader.ts` と画面で共有する。デスクトップ版は `save_html_file`、ブラウザ版はダウンロードである。
+`exportView.ts` が見える行からマイルストンと期間を決める。HTML と SVG は `exportHtml.ts` が組み立て、デスクトップ版は `save_html_file`、ブラウザ版はダウンロードである。Excel は `exportExcel.ts` が表と図形の位置を JSON にまとめ、`export_xlsx.rs` が `rust_xlsxwriter` でブックを作り、デスクトップ版だけ `save_excel_export` で保存する。月表示の月ラベルの出し分けは `monthHeader.ts` と画面で共有する。
 
 ## 検証の流れ
 
@@ -233,6 +233,7 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `acknowledge_schedule_file_contents` | 本文。ハッシュを更新 | ファイルを開いていない | `poll-schedule-file-update.toml` | 同上 |
 | `save_schedule_file` | 本文、別名か、提案名、期待パス、ハッシュ確認を飛ばすか。保存したパス | 10MB、`DISK_HASH_MISMATCH`、パス不一致、拡張子 | `save-schedule-file.toml` | 同上 |
 | `save_html_file` | 本文、提案名、拡張子 | 10MB | `save-html-file.toml` | `exportHtml.ts` |
+| `save_excel_export` | 書き出し用 JSON、提案名。保存したパス | 10MB | `save-excel-export.toml` | `exportExcel.ts` |
 | `get_members_settings` | カタログ一覧と選択中 ID | — | `members-app-data.toml` | `memberAppData.ts` |
 | `read_member_catalog` | カタログ ID。本文 | 2MB | 同上 | 同上 |
 | `import_member_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |

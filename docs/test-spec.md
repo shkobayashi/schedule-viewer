@@ -107,6 +107,9 @@
 | 同上 | `scales the gap with display size` | NAV-02 |
 | 同上 | `estimates width from each label font size` | NAV-02 |
 | 同上 | `hides the next label when the previous label uses a larger font size` | NAV-02 |
+| `exportExcel.test.ts` | `builds day columns for each day in the span` | EXPORT-05 |
+| 同上 | `spans a task bar across start and end day columns in day view` | EXPORT-05 |
+| 同上 | `puts visible task rows and shapes into the payload` | EXPORT-02, EXPORT-05 |
 | `exportHtml.test.ts` | `puts the active filter into HTML and SVG` | EXPORT-01, EXPORT-02 |
 | 同上 | `omits overlapping month header labels in month export but keeps grid lines` | NAV-02, EXPORT-02 |
 | 同上 | `hatches tentative bars and labels them, and leaves committed bars solid` | VIEW-12, EXPORT-01 |
@@ -546,6 +549,7 @@
 | `sanitize_export_filename_removes_path_separators` | パス区切りを除く | EXPORT-04 |
 | `sanitize_export_filename_uses_default_for_empty` | 空なら `schedule.html` | EXPORT-04 |
 | `sanitize_export_filename_adds_extension` | 拡張子を足す | EXPORT-04, FILE-02 |
+| `export_xlsx::write_excel_bytes_produces_xlsx` | xlsx の先頭が ZIP である | EXPORT-05 |
 | `require_active_save_path_accepts_matching_path` | 開いているパスと一致すれば上書きできる | FILE-02 |
 | `require_active_save_path_rejects_mismatch_and_missing` | パスの不一致と、ファイルを開いていない状態は拒否する | FILE-02 |
 | `should_close_default_main_when_main_not_recorded` | 記録に `main` が無いときだけ、起動時に空の `main` を閉じる | SYNC-03, WIN-01 |
@@ -918,6 +922,7 @@
 | TC-EXPORT-02 | EXPORT-02 | タスク名で数件に絞る | HTML で書き出す | 絞り込みで残った行だけが入り、絞り込みで隠したタスクは入らない。画面の外にスクロールしている行も入る |
 | TC-EXPORT-03 | EXPORT-03 | 書き出しの行が 10,000 を超えるデータ | 「書き出し」を実行する | ファイルを作らず、行数の上限を理由に出す |
 | TC-EXPORT-04 | EXPORT-04 | タイトルに `/` や `:` がある | 書き出しの保存ダイアログを開く | 提案名からそれらの文字が除かれ、選んだ形式の拡張子が付く |
+| TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く | Excel を選んで保存する | `.xlsx` ができ、左の列と日付の列に見えている行が入る。キャンセルではできない |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |

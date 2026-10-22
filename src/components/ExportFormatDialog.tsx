@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isTauri } from "@tauri-apps/api/core";
 import type { ScheduleExportFormat } from "../model/exportHtml";
 import { ModalDialog } from "./ModalDialog";
 
@@ -9,6 +10,7 @@ type ExportFormatDialogProps = {
 
 export function ExportFormatDialog({ onExport, onCancel }: ExportFormatDialogProps) {
   const [format, setFormat] = useState<ScheduleExportFormat>("html");
+  const desktop = isTauri();
 
   return (
     <ModalDialog title="書き出し" onClose={onCancel}>
@@ -37,6 +39,18 @@ export function ExportFormatDialog({ onExport, onCancel }: ExportFormatDialogPro
           />
           SVG
         </label>
+        {desktop ? (
+          <label>
+            <input
+              type="radio"
+              name="export-format"
+              value="xlsx"
+              checked={format === "xlsx"}
+              onChange={() => setFormat("xlsx")}
+            />
+            Excel
+          </label>
+        ) : null}
       </fieldset>
       <div className="modal-actions">
         <button type="button" className="btn" onClick={onCancel}>
