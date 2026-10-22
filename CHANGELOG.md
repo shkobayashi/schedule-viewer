@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-10-22
+
+### 修正
+
+- CHANGELOG に Issue 番号が無い項目でも、安定版 Release の本文を作れる (#288)
+- npm の `@tauri-apps/plugin-updater` を Rust の `tauri-plugin-updater` 2.14.0 に合わせ、版の不一致で止まっていた配布ビルドを通す
+
 ## [1.9.1] - 2026-10-21
 
 ### 修正
