@@ -21,7 +21,7 @@
 | リリース、CI、配布用ビルド | [.cursor/skills/cut-release/SKILL.md](.cursor/skills/cut-release/SKILL.md) |
 | 操作マニュアルの GitHub Pages 公開 | [.cursor/skills/publish-user-manual/SKILL.md](.cursor/skills/publish-user-manual/SKILL.md) |
 | プロジェクト全体をレビューする | [.cursor/skills/review-project/SKILL.md](.cursor/skills/review-project/SKILL.md) |
-| 日本語の文章の書き方 | [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc)。書く直前に yomiyasuのSKILL.mdを読む |
+| 日本語の文章の書き方 | [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) |
 
 フィールド定義の正本は各 JSON Schema である。挙動の正本はソースコードである。文書とソースが食い違ったときは、ソースに合わせて文書を直す。
 
@@ -54,7 +54,9 @@ GitHub の Issue を見る、コメントする、作る、更新するときは
 
 計画を実装する前に、計画が名指ししたスキルの `SKILL.md` を読む。名指しが無いときは、`description` がこの作業に合うスキルを1つ読む。`implement-change` は、指定された節と、節の指定にかかわらず「着手前」を読む。
 
-日本語の文章を書くときは、作業用のスキルとは別に yomiyasuのSKILL.mdを読む。対象と、書き直し用の見出しを出さない条件は [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) にある。
+日本語の文章の書き方は [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) に従う。
+
+仕様や方向の相談は、利用者が consult を指定したときに [.cursor/skills/consult/SKILL.md](.cursor/skills/consult/SKILL.md) に従う。セッションの終わりまで相談のままにする条件は [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) にある。
 
 スキルの作成、本文の更新、分割してよいかの判断は、エージェントが同じ作業の中で行う。
 
