@@ -208,11 +208,11 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 
 | トリガー | ワークフロー | 内容 |
 | --- | --- | --- |
-| `develop` または `main` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルドを分け、集約ジョブ `ci` で結果をまとめる |
+| `develop`、`main`、`next` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルドを分け、集約ジョブ `ci` で結果をまとめる |
 | `main` への push（操作マニュアルとサイトビルドの入力） | Pages（`.github/workflows/pages.yml`） | `npm run build:manual-site` のあと GitHub Pages へ公開。URL は https://shkobayashi.github.io/schedule-viewer/ 。`workflow_dispatch` でも動く |
 | `main` または `release/**` への push | Release（`.github/workflows/release.yml`） | 版とブランチを検査したあと、環境 `release` の承認のあと、Ubuntu (deb) を GitHub Release へ公開する。`main` の安定版では Windows が署名しない MSIX を Microsoft Store へ提出する。`release/X.Y.Z` の Pre-release では Windows (NSIS) も出す |
 
-`develop` への push だけでは CI は動かない。CI が動くのは `develop` または `main` 向けの pull request のときである。
+`develop` への push だけでは CI は動かない。CI が動くのは `develop`、`main`、`next` 向けの pull request のときである。
 
 CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。読み取りステップは `shell: bash` にする。Release の Windows ランナーの既定シェルは PowerShell で、bash のまま書くと構文エラーになる。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
