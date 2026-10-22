@@ -1,4 +1,5 @@
 mod beta_installer;
+mod excel_drawing_patch;
 mod export_xlsx;
 mod json_skills;
 mod mcp_app_data;

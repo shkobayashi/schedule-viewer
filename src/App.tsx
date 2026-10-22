@@ -109,6 +109,7 @@ import {
   type ScheduleExportFormat,
 } from "./model/exportHtml";
 import { exportScheduleExcel } from "./model/exportExcel";
+import { DEFAULT_EXCEL_EXPORT_COLUMNS } from "./model/excelExportColumns";
 import { forEachTask } from "./model/tasks";
 import {
   describeActiveFilters,
@@ -1177,7 +1178,10 @@ function App() {
   );
 
   const runScheduleExport = useCallback(
-    (format: ScheduleExportFormat) => {
+    (
+      format: ScheduleExportFormat,
+      excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
+    ) => {
       const milestones = milestonesForExport(
         schedule.filters.milestone,
         schedule.milestoneGroups,
@@ -1285,6 +1289,7 @@ function App() {
           milestoneGroups: schedule.milestoneGroups,
           taskNames,
           exportedAtIso: new Date().toISOString(),
+          excelColumns: excelColumns ?? DEFAULT_EXCEL_EXPORT_COLUMNS,
         }).catch(onExportError);
         return;
       }
@@ -3019,9 +3024,9 @@ function App() {
       {exportOpen ? (
         <ExportFormatDialog
           onCancel={() => setExportOpen(false)}
-          onExport={(format) => {
+          onExport={(format, excelColumns) => {
             setExportOpen(false);
-            void runScheduleExport(format);
+            void runScheduleExport(format, excelColumns);
           }}
         />
       ) : null}

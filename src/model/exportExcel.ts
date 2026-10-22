@@ -29,13 +29,21 @@ import type {
 } from "./types";
 import type { GridTier } from "./timeline";
 import { paletteFor } from "./palette";
+import { normalizeTaskNote } from "./taskNote";
+import {
+  EXCEL_EXPORT_COLUMN_ORDER,
+  excelLeftHeaders,
+  excelNoteColumnIndex,
+  type ExcelExportColumnsPreference,
+} from "./excelExportColumns";
 
-export const EXCEL_LEFT_COLUMNS = 7;
 export const EXCEL_DATE_COLUMN_WIDTH_PX = 48;
+export const EXCEL_DATE_COLUMN_WIDTH_MONTH_PX = 96;
 export const EXCEL_ROW_HEIGHT_PX = 22;
 export const EXCEL_BAR_HEIGHT_PX = 14;
 export const EXCEL_MAX_DATE_COLUMNS = 2_000;
 export const EXCEL_MAX_SHAPES = 5_000;
+const EXCEL_LINK_ELBOW_PX = 12;
 export const EXCEL_MAX_BYTES = 10 * 1024 * 1024;
 
 const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
@@ -43,16 +51,6 @@ const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   "in-progress": "進行中",
   done: "完了",
 };
-
-const LEFT_HEADERS = [
-  "名前",
-  "担当",
-  "開始",
-  "終了",
-  "ステータス",
-  "先行",
-  "進捗",
-] as const;
 
 export type ExcelTimeColumn = {
   startIso: string;
@@ -71,6 +69,9 @@ export type ExcelExportShape = {
   fillRgb: string;
   pattern: "solid" | "tentative";
   patternForeRgb: string | null;
+  fillTransparency?: number;
+  text?: string;
+  textRgb?: string;
 };
 
 export type ExcelExportRow = {
@@ -84,6 +85,24 @@ export type ExcelMilestoneRow = {
   marks: { colIndex: number }[];
 };
 
+export type ExcelExportConnector = {
+  fromShapeIndex: number;
+  toShapeIndex: number;
+  strokeRgb: string;
+  broken: boolean;
+  straight: boolean;
+  /** bentConnector3 の adj1（幅に対する千分率一パーセント、0〜100000） */
+  bentAdj1: number;
+};
+
+export type ExcelExportTodayLine = {
+  row: number;
+  anchorCol: number;
+  xOffsetPx: number;
+  heightPx: number;
+  strokeRgb: string;
+};
+
 export type ExcelExportPayload = {
   sheetTitle: string;
   preamble: string;
@@ -94,12 +113,18 @@ export type ExcelExportPayload = {
   milestoneRows: ExcelMilestoneRow[];
   rows: ExcelExportRow[];
   shapes: ExcelExportShape[];
+  connectors: ExcelExportConnector[];
+  todayLine: ExcelExportTodayLine | null;
   milestoneMarks: { row: number; colIndex: number; character: string }[];
   headerGrayRgb: string;
   nonWorkingFillRgb: string;
-  headingFillRgb: string;
+  categoryHeadingFillRgb: string;
+  groupHeadingFillRgb: string;
+  headingTextRgb: string;
   overdueNameRgb: string;
   grayHeaderOnly: boolean;
+  noteWrapColumnIndex: number | null;
+  dateColumnWidthPx: number;
 };
 
 export type ScheduleExcelInput = ScheduleExportInput & {
@@ -107,7 +132,14 @@ export type ScheduleExcelInput = ScheduleExportInput & {
   milestoneGroups: MilestoneGroup[];
   taskNames: ReadonlyMap<ScheduleId, string>;
   exportedAtIso: string;
+  excelColumns: ExcelExportColumnsPreference;
 };
+
+export function excelDateColumnWidthPx(tier: GridTier): number {
+  return tier === "month"
+    ? EXCEL_DATE_COLUMN_WIDTH_MONTH_PX
+    : EXCEL_DATE_COLUMN_WIDTH_PX;
+}
 
 function mondayOnOrBefore(d: Date): Date {
   const day = d.getUTCDay();
@@ -188,17 +220,22 @@ export function barPixelsInDateColumns(
   endExclusiveIso: string,
   columns: ExcelTimeColumn[],
   tier: GridTier,
+  dateColumnWidthPx: number,
 ): { anchorColIndex: number; xOffsetPx: number; widthPx: number } {
-  const colWidth = EXCEL_DATE_COLUMN_WIDTH_PX;
   if (columns.length === 0) {
-    return { anchorColIndex: 0, xOffsetPx: 0, widthPx: colWidth };
+    return { anchorColIndex: 0, xOffsetPx: 0, widthPx: dateColumnWidthPx };
   }
-  const start = parseDate(startIso);
-  const endExclusive = parseDate(endExclusiveIso);
   if (tier === "day") {
     const startIdx = columnIndexForDate(columns, startIso);
-    const endIdx = columnIndexForDate(columns, isoDate(addDays(endExclusive, -1)));
-    const widthPx = Math.max(colWidth, (endIdx - startIdx + 1) * colWidth);
+    const endExclusive = parseDate(endExclusiveIso);
+    const endIdx = columnIndexForDate(
+      columns,
+      isoDate(addDays(endExclusive, -1)),
+    );
+    const widthPx = Math.max(
+      dateColumnWidthPx,
+      (endIdx - startIdx + 1) * dateColumnWidthPx,
+    );
     return { anchorColIndex: startIdx, xOffsetPx: 0, widthPx };
   }
   const totalMs = columns.reduce(
@@ -222,36 +259,99 @@ export function barPixelsInDateColumns(
     }
     return totalMs;
   };
-  const startPos = posMs(start);
-  const endPos = posMs(endExclusive);
-  const chartWidth = (totalMs / (totalMs || 1)) * columns.length * colWidth;
+  const startPos = posMs(parseDate(startIso));
+  const endPos = posMs(parseDate(endExclusiveIso));
+  const chartWidth = columns.length * dateColumnWidthPx;
   const leftPx = (startPos / (totalMs || 1)) * chartWidth;
   const rightPx = (endPos / (totalMs || 1)) * chartWidth;
   const widthPx = Math.max(1, rightPx - leftPx);
-  let anchorColIndex = 0;
   let walked = 0;
   for (let i = 0; i < columns.length; i += 1) {
-    const col = columns[i]!;
-    const colWidthPx =
-      ((parseDate(col.endExclusiveIso).getTime() -
-        parseDate(col.startIso).getTime()) /
-        (totalMs || 1)) *
-      chartWidth;
-    if (leftPx < walked + colWidthPx) {
-      anchorColIndex = i;
+    if (leftPx < walked + dateColumnWidthPx) {
       return {
-        anchorColIndex,
+        anchorColIndex: i,
         xOffsetPx: Math.max(0, Math.round(leftPx - walked)),
         widthPx: Math.max(1, Math.round(widthPx)),
       };
     }
-    walked += colWidthPx;
+    walked += dateColumnWidthPx;
   }
   return {
     anchorColIndex: columns.length - 1,
     xOffsetPx: 0,
     widthPx: Math.max(1, Math.round(widthPx)),
   };
+}
+
+function dateAreaLeftPx(
+  iso: string,
+  columns: ExcelTimeColumn[],
+  tier: GridTier,
+  dateColumnWidthPx: number,
+): number {
+  const next = isoDate(addDays(parseDate(iso), 1));
+  const bar = barPixelsInDateColumns(
+    iso,
+    next,
+    columns,
+    tier,
+    dateColumnWidthPx,
+  );
+  return bar.anchorColIndex * dateColumnWidthPx + bar.xOffsetPx;
+}
+
+function dateAreaRightPx(
+  startIso: string,
+  endExclusiveIso: string,
+  columns: ExcelTimeColumn[],
+  tier: GridTier,
+  dateColumnWidthPx: number,
+): number {
+  const bar = barPixelsInDateColumns(
+    startIso,
+    endExclusiveIso,
+    columns,
+    tier,
+    dateColumnWidthPx,
+  );
+  return (
+    bar.anchorColIndex * dateColumnWidthPx + bar.xOffsetPx + bar.widthPx
+  );
+}
+
+function shapeAnchorAtDateAreaPx(
+  xDateArea: number,
+  yDateArea: number,
+  leftColCount: number,
+  bodyStartRow: number,
+  dateColumnWidthPx: number,
+): { row: number; anchorCol: number; xOffsetPx: number; yOffsetPx: number } {
+  const rowOffset = Math.max(0, Math.floor(yDateArea / EXCEL_ROW_HEIGHT_PX));
+  const row = bodyStartRow + rowOffset;
+  const yOffsetPx = Math.max(
+    0,
+    Math.round(yDateArea - rowOffset * EXCEL_ROW_HEIGHT_PX),
+  );
+  const colOffset = Math.max(0, Math.floor(xDateArea / dateColumnWidthPx));
+  const anchorCol = leftColCount + colOffset;
+  const xOffsetPx = Math.max(
+    0,
+    Math.round(xDateArea - colOffset * dateColumnWidthPx),
+  );
+  return { row, anchorCol, xOffsetPx, yOffsetPx };
+}
+
+function bentConnectorAdj1(fromRight: number, toLeft: number): number {
+  const left = Math.min(fromRight, toLeft);
+  const right = Math.max(fromRight, toLeft);
+  const width = Math.max(1, right - left);
+  let elbowX: number;
+  if (toLeft - fromRight >= EXCEL_LINK_ELBOW_PX) {
+    elbowX = Math.min(fromRight + EXCEL_LINK_ELBOW_PX, toLeft);
+  } else {
+    elbowX = left + width / 2;
+  }
+  return Math.round(((elbowX - left) / width) * 100_000);
 }
 
 function formatPredecessors(
@@ -262,6 +362,55 @@ function formatPredecessors(
   return task.predecessors
     .map((id) => taskNames.get(id) ?? id)
     .join("、");
+}
+
+function emptyCellsForColumns(
+  excelColumns: ExcelExportColumnsPreference,
+): string[] {
+  return EXCEL_EXPORT_COLUMN_ORDER.filter((id) => excelColumns[id]).map(
+    () => "",
+  );
+}
+
+function taskCellsForColumns(
+  task: Task,
+  excelColumns: ExcelExportColumnsPreference,
+  taskNames: ReadonlyMap<ScheduleId, string>,
+  memberCatalog: ScheduleExportInput["memberCatalog"],
+): string[] {
+  const assignee = assigneeSidebarLabel(
+    resolveAssigneeDisplay(task.assigneeId, memberCatalog),
+  );
+  const cells: string[] = [];
+  for (const id of EXCEL_EXPORT_COLUMN_ORDER) {
+    if (!excelColumns[id]) continue;
+    switch (id) {
+      case "assignee":
+        cells.push(assignee);
+        break;
+      case "start":
+        cells.push(fmtMonthDay(task.start));
+        break;
+      case "end":
+        cells.push(fmtMonthDay(task.end));
+        break;
+      case "status":
+        cells.push(TASK_STATUS_LABEL[task.status]);
+        break;
+      case "predecessors":
+        cells.push(formatPredecessors(task, taskNames));
+        break;
+      case "progress":
+        cells.push(`${task.progress}%`);
+        break;
+      case "note":
+        cells.push(normalizeTaskNote(task.note) ?? "");
+        break;
+      default:
+        break;
+    }
+  }
+  return cells;
 }
 
 function scopeSentence(input: ScheduleExcelInput): string {
@@ -282,7 +431,11 @@ function assertExcelLimits(payload: ExcelExportPayload): void {
       `日付の列数が上限（${EXCEL_MAX_DATE_COLUMNS} 列）を超えています。表示期間を短くするか、ズームを広げてください。`,
     );
   }
-  if (payload.shapes.length > EXCEL_MAX_SHAPES) {
+  const drawingCount =
+    payload.shapes.length +
+    payload.connectors.length +
+    (payload.todayLine ? 1 : 0);
+  if (drawingCount > EXCEL_MAX_SHAPES) {
     throw new ScheduleExportTooLargeError(
       `図形の数が上限（${EXCEL_MAX_SHAPES} 個）を超えています。絞り込みや折りたたみで行数を減らしてください。`,
     );
@@ -300,8 +453,16 @@ function shapeForSpan(
   patternForeRgb: string | null,
   colorScheme: ScheduleExportInput["colorScheme"],
   confidence: "tentative" | "committed",
+  leftColCount: number,
+  dateColumnWidthPx: number,
 ): ExcelExportShape {
-  const bar = barPixelsInDateColumns(startIso, endExclusiveIso, columns, tier);
+  const bar = barPixelsInDateColumns(
+    startIso,
+    endExclusiveIso,
+    columns,
+    tier,
+    dateColumnWidthPx,
+  );
   const yOffsetPx = Math.max(
     0,
     Math.round((EXCEL_ROW_HEIGHT_PX - EXCEL_BAR_HEIGHT_PX) / 2),
@@ -309,7 +470,7 @@ function shapeForSpan(
   const tentative = confidence === "tentative";
   return {
     row,
-    anchorCol: EXCEL_LEFT_COLUMNS + bar.anchorColIndex,
+    anchorCol: leftColCount + bar.anchorColIndex,
     xOffsetPx: bar.xOffsetPx,
     yOffsetPx,
     widthPx: bar.widthPx,
@@ -324,14 +485,20 @@ export function buildExcelExportPayload(
   input: ScheduleExcelInput,
 ): ExcelExportPayload {
   const { chart, css } = paletteFor(input.colorScheme);
+  const leftHeaders = excelLeftHeaders(input.excelColumns);
+  const leftColCount = leftHeaders.length;
+  const noteWrapColumnIndex = excelNoteColumnIndex(input.excelColumns);
   const columns = buildExcelTimeColumns(
     input.timelineStart,
     input.timelineEnd,
     input.tier,
     input.calendar,
   );
+  const dateColumnWidthPx = excelDateColumnWidthPx(input.tier);
   const rows: ExcelExportRow[] = [];
   const shapes: ExcelExportShape[] = [];
+  const connectors: ExcelExportConnector[] = [];
+  const taskShapeIndexById = new Map<ScheduleId, number>();
   const milestoneMarks: ExcelExportPayload["milestoneMarks"] = [];
   const visibleGroupIds = new Set(
     input.milestoneBandLayout.blocks.map((block) => block.group.id),
@@ -355,7 +522,7 @@ export function buildExcelExportPayload(
       });
     }
     milestoneRows.push({
-      name: groupMilestones.map((m) => m.name).join("、"),
+      name: group.name,
       marks,
     });
     milestoneRowIndex += 1;
@@ -364,12 +531,15 @@ export function buildExcelExportPayload(
   const headerRowIndex = 1 + milestoneRows.length;
   const bodyStartRow = headerRowIndex + 1;
 
+  const taskRowById = new Map<ScheduleId, number>();
+  const taskById = new Map<ScheduleId, Task>();
+
   let bodyRow = bodyStartRow;
   for (const visible of input.visibleRows) {
     if (visible.type === "category") {
       rows.push({
         kind: "category",
-        cells: [visible.label, "", "", "", "", "", ""],
+        cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
         nameOverdue: false,
       });
       if (visible.summary) {
@@ -385,6 +555,8 @@ export function buildExcelExportPayload(
             null,
             input.colorScheme,
             "committed",
+            leftColCount,
+            dateColumnWidthPx,
           ),
         );
       }
@@ -394,7 +566,7 @@ export function buildExcelExportPayload(
     if (visible.type === "group") {
       rows.push({
         kind: "group",
-        cells: [visible.label, "", "", "", "", "", ""],
+        cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
         nameOverdue: false,
       });
       if (visible.summary) {
@@ -410,6 +582,8 @@ export function buildExcelExportPayload(
             null,
             input.colorScheme,
             "committed",
+            leftColCount,
+            dateColumnWidthPx,
           ),
         );
       }
@@ -417,24 +591,24 @@ export function buildExcelExportPayload(
       continue;
     }
     const task = visible.task;
-    const assignee = assigneeSidebarLabel(
-      resolveAssigneeDisplay(task.assigneeId, input.memberCatalog),
-    );
+    taskRowById.set(task.id, bodyRow);
+    taskById.set(task.id, task);
     const overdue = isOverdue(task, input.today);
     rows.push({
       kind: "task",
       cells: [
         task.name,
-        assignee,
-        fmtMonthDay(task.start),
-        fmtMonthDay(task.end),
-        TASK_STATUS_LABEL[task.status],
-        formatPredecessors(task, input.taskNames),
-        `${task.progress}%`,
+        ...taskCellsForColumns(
+          task,
+          input.excelColumns,
+          input.taskNames,
+          input.memberCatalog,
+        ),
       ],
       nameOverdue: overdue,
     });
     const colors = barColors(task, input.today, input.colorScheme);
+    taskShapeIndexById.set(task.id, shapes.length);
     shapes.push(
       shapeForSpan(
         bodyRow,
@@ -447,27 +621,111 @@ export function buildExcelExportPayload(
         null,
         input.colorScheme,
         task.confidence,
+        leftColCount,
+        dateColumnWidthPx,
       ),
     );
     bodyRow += 1;
+  }
+
+  for (const link of input.links) {
+    const fromRow = taskRowById.get(link.fromId);
+    const toRow = taskRowById.get(link.toId);
+    const fromTask = taskById.get(link.fromId);
+    const toTask = taskById.get(link.toId);
+    if (
+      fromRow == null ||
+      toRow == null ||
+      fromTask == null ||
+      toTask == null
+    ) {
+      continue;
+    }
+    const fromRight = dateAreaRightPx(
+      fromTask.start,
+      isoDate(taskBarExclusiveEnd(fromTask)),
+      columns,
+      input.tier,
+      dateColumnWidthPx,
+    );
+    const toLeft = dateAreaLeftPx(
+      toTask.start,
+      columns,
+      input.tier,
+      dateColumnWidthPx,
+    );
+    const fromShapeIndex = taskShapeIndexById.get(link.fromId);
+    const toShapeIndex = taskShapeIndexById.get(link.toId);
+    if (fromShapeIndex == null || toShapeIndex == null) continue;
+    const strokeRgb = (link.broken ? chart.linkBroken : chart.linkOk).replace(
+      "#",
+      "",
+    );
+    const straight = fromRow === toRow;
+    connectors.push({
+      fromShapeIndex,
+      toShapeIndex,
+      strokeRgb,
+      broken: link.broken,
+      straight,
+      bentAdj1: straight
+        ? 50_000
+        : bentConnectorAdj1(fromRight, toLeft),
+    });
+  }
+
+  let todayLine: ExcelExportTodayLine | null = null;
+  if (input.showLightningLine && rows.length > 0) {
+    const todayTime = parseDate(input.today).getTime();
+    const rangeStart = input.timelineStart.getTime();
+    const rangeEnd = input.timelineEnd.getTime();
+    if (todayTime >= rangeStart && todayTime < rangeEnd) {
+      const x = dateAreaLeftPx(
+        input.today,
+        columns,
+        input.tier,
+        dateColumnWidthPx,
+      );
+      const heightPx = rows.length * EXCEL_ROW_HEIGHT_PX;
+      const anchor = shapeAnchorAtDateAreaPx(
+        x,
+        0,
+        leftColCount,
+        bodyStartRow,
+        dateColumnWidthPx,
+      );
+      todayLine = {
+        row: anchor.row,
+        anchorCol: anchor.anchorCol,
+        xOffsetPx: anchor.xOffsetPx,
+        heightPx,
+        strokeRgb: chart.lightning.replace("#", ""),
+      };
+    }
   }
 
   const payload: ExcelExportPayload = {
     sheetTitle: input.title,
     preamble: scopeSentence(input),
     freezeRow: headerRowIndex + 1,
-    freezeCol: EXCEL_LEFT_COLUMNS,
-    leftHeaders: [...LEFT_HEADERS],
+    freezeCol: leftColCount,
+    leftHeaders,
     dateColumns: columns,
     milestoneRows,
     rows,
     shapes,
+    connectors,
+    todayLine,
     milestoneMarks,
     headerGrayRgb: chart.nonWorking.replace("#", ""),
     nonWorkingFillRgb: chart.nonWorking.replace("#", ""),
-    headingFillRgb: chart.categoryRow.replace("#", ""),
+    categoryHeadingFillRgb: chart.categoryRow.replace("#", ""),
+    groupHeadingFillRgb: chart.groupRow.replace("#", ""),
+    headingTextRgb: chart.textPrimary.replace("#", ""),
     overdueNameRgb: css.dangerText.replace("#", ""),
     grayHeaderOnly: input.tier === "day",
+    noteWrapColumnIndex,
+    dateColumnWidthPx,
   };
   assertExcelLimits(payload);
   return payload;

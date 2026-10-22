@@ -197,7 +197,7 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 
 ### 書き出し
 
-`exportView.ts` が見える行からマイルストンと期間を決める。HTML と SVG は `exportHtml.ts` が組み立て、デスクトップ版は `save_html_file`、ブラウザ版はダウンロードである。Excel は `exportExcel.ts` が表と図形の位置を JSON にまとめ、`export_xlsx.rs` が `rust_xlsxwriter` でブックを作り、デスクトップ版だけ `save_excel_export` で保存する。月表示の月ラベルの出し分けは `monthHeader.ts` と画面で共有する。
+`exportView.ts` が見える行からマイルストンと期間を決める。HTML と SVG は `exportHtml.ts` が組み立て、デスクトップ版は `save_html_file`、ブラウザ版はダウンロードである。Excel は `excelExportColumns.ts` が左の列の選び方を localStorage で持ち、`exportExcel.ts` が表と図形の位置を JSON にまとめる。日付列の幅は表示単位ごとに payload の `dateColumnWidthPx` に載せ、週・月のバーと線は等幅の列のうち期間に対する割合で置く。前後の線は payload の `connectors` に載せ、先行バー図形の右中央（接続点 3）から後続バー図形の左中央（接続点 1）へ、カギ線または直線の矢印コネクタでつなぐ。折れ位置の調整値は日付列のピクセル座標から決める。イナズマ線は payload の `todayLine` で、本文の上端から下端までの縦線 1 本を線の幅で描く。`export_xlsx.rs` が `rust_xlsxwriter` でブックとタスクバーなどのテキストボックスを作り、列幅と先頭文・マイルストン行の結合、カテゴリとグループ行の地を塗る。図形の幅と高さは、5px 未満の辺を 5px に繰り上げてから渡す。それ未満を渡すとライブラリは既定の 192×120 になる。コネクタと今日の縦線は `excel_drawing_patch.rs` が `xl/drawings/drawing1.xml` に足す。コネクタの `twoCellAnchor` は、先行の右辺の中央と後続の左辺の中央を対角にした箱で、後続の位置に合わせて `flipH` と `flipV` を付ける。図形数の上限にはバーとコネクタと今日の縦線を合わせて数える。デスクトップ版だけ `save_excel_export` で保存する。月表示の月ラベルの出し分けは `monthHeader.ts` と画面で共有する。
 
 ## 検証の流れ
 
