@@ -988,7 +988,7 @@ TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu�
 10. TC-VIEW-05 と TC-VIEW-07 で赤とイナズマ線を見る
 11. Ubuntu では deb のインストールと起動を見る。Apple Silicon の Mac では dmg のインストールと起動を見る（TC-SET-06u）。安定版の Release 後、Windows では Store の更新、実行エイリアス、更新欄、MCP のエイリアスを見る。ベータの Pre-release では NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
 12. 安定版の `SHA256SUMS` に deb、dmg、`latest.json` など Release のファイルが含まれ、各ファイルのハッシュが一致することを見る。安定版の `latest.json` に `linux-x86_64` と `darwin-aarch64` があることを見る。ベータでは `windows-x86_64` も含まれる
-13. 安定版の Release 本文にダウンロード手順とその版の CHANGELOG 節の本体（版見出しは無い）があり、項目の Issue 番号がリンクになっていることを見る。CHANGELOG にその版の節が無いとき、または項目に Issue 番号が無いときは本文ジョブが失敗し、本文はダウンロード手順のまま残る。`[Unreleased]` と前の版の節は載らない。Pre-release の本文は確認用の短い文だけで、CHANGELOG 節は無い
+13. 安定版の Release 本文にダウンロード手順とその版の CHANGELOG 節の本体（版見出しは無い）があり、番号がある項目の `(#番号)` がリンクになっていることを見る。番号が無い項目は本文のまま載る。CHANGELOG にその版の節が無いときは本文ジョブが失敗し、本文はダウンロード手順のまま残る。`[Unreleased]` と前の版の節は載らない。Pre-release の本文は確認用の短い文だけで、CHANGELOG 節は無い
 14. TC-SET-06b から TC-SET-06q で自動更新、手動確認、ベータ保存、設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
 15. この仕組みを初めて使うベータでは、Windows にベータを入れたあと、安定版は Microsoft Store から入れ直すことを確認する
 16. 安定版の Release 後、`updater-X` が Pre-release で `latest.json` だけを載せていることを見る。タグ `updater-X` は初回の位置のままである。より大きいメジャーの安定版が無いときだけ、その版が Latest になる
