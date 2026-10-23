@@ -56,7 +56,7 @@ GitHub の Issue を見る、コメントする、作る、更新するときは
 
 日本語の文章の書き方は [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) に従う。
 
-仕様や方向の相談は、利用者が consult を指定したときに [.cursor/skills/consult/SKILL.md](.cursor/skills/consult/SKILL.md) に従う。セッションの終わりまで相談のままにする条件は [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) にある。
+仕様や方向の相談は、利用者が `/consult` または consult スキルで始めたときに [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) の返し方に従う。入口は [.cursor/skills/consult/SKILL.md](.cursor/skills/consult/SKILL.md) である。
 
 スキルの作成、本文の更新、分割してよいかの判断は、エージェントが同じ作業の中で行う。
 
