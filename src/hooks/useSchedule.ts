@@ -46,6 +46,10 @@ import {
 import type { ReplaceScheduleDocumentResult } from "../model/replaceSchedule";
 import { serializeScheduleDocument } from "../model/scheduleFile";
 import {
+  resolveScheduleTitleCommit,
+  type ScheduleTitleCommitResult,
+} from "../model/scheduleTitleEdit";
+import {
   appendMilestone,
   applyMilestoneEdit,
   ensureMilestoneGroupForAdd,
@@ -367,6 +371,38 @@ export function useSchedule(
     },
     [commitDocument],
   );
+
+  const commitTitle = useCallback(
+    (rawInput: string): ScheduleTitleCommitResult => {
+      const resolved = resolveScheduleTitleCommit(
+        documentRef.current.title,
+        rawInput,
+      );
+      if (resolved.kind !== "changed") {
+        return resolved;
+      }
+      if (blockDocumentEditsRef?.current) {
+        return { kind: "unchanged" };
+      }
+      commitDocument((current) => ({ ...current, title: resolved.title }));
+      setTitle(resolved.title);
+      return resolved;
+    },
+    [blockDocumentEditsRef, commitDocument],
+  );
+
+  const getCanonicalJson = useCallback(
+    () =>
+      serializeScheduleDocument(
+        documentRef.current.title,
+        documentRef.current.categories,
+        documentRef.current.milestoneGroups,
+        documentRef.current.milestones,
+      ),
+    [],
+  );
+
+  const getDocumentTitle = useCallback(() => documentRef.current.title, []);
 
   const memberMap = useMemo(
     () => memberMapFromList(memberCatalog),
@@ -1742,6 +1778,9 @@ export function useSchedule(
     replaceScheduleDocument,
     applyMergedDocument,
     reloadDocumentFromDisk,
+    commitTitle,
+    getCanonicalJson,
+    getDocumentTitle,
     diskEpoch,
     undo,
     redo,

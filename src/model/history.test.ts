@@ -99,6 +99,15 @@ describe("document history", () => {
     expect(taskName(undone!.snapshot)).toBe("100");
   });
 
+  it("undo restores a title change in one step", () => {
+    const current = { ...snapshot("Alpha"), title: "Alpha" };
+    const next = { ...current, title: "Beta" };
+    const pushed = pushDocumentHistory(createDocumentHistory(), current, next);
+    expect(pushed?.applied?.title).toBe("Beta");
+    const undone = undoDocumentHistory(pushed!.history, pushed!.applied!);
+    expect(undone?.snapshot.title).toBe("Alpha");
+  });
+
   it("undo and redo restore the document", () => {
     const pushed = pushDocumentHistory(
       createDocumentHistory(),

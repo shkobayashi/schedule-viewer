@@ -50,6 +50,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import type { CommandPaletteCommandId } from "./model/commandPalette";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
+import type { ScheduleToolbarTitleHandle } from "./components/ScheduleToolbarTitle";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
 import {
   deleteShortcutHint,
@@ -343,6 +344,10 @@ function App() {
   });
   const [hoveredTaskId, setHoveredTaskId] = useState<ScheduleId | null>(null);
   const [detailPanelEditing, setDetailPanelEditing] = useState(false);
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [titleEditRequestToken, setTitleEditRequestToken] = useState(0);
+  const [titleBlankNotice, setTitleBlankNotice] = useState<string | null>(null);
+  const titleEditHandleRef = useRef<ScheduleToolbarTitleHandle | null>(null);
   const [sidebarReorderDragging, setSidebarReorderDragging] = useState(false);
   const [bulkDiscardNotice, setBulkDiscardNotice] = useState<string | null>(null);
   const detailPanelRef = useRef<TaskDetailPanelHandle>(null);
@@ -573,6 +578,9 @@ function App() {
   const {
     redo,
     undo,
+    commitTitle,
+    getCanonicalJson,
+    getDocumentTitle,
     setTaskStart,
     setTaskEnd,
     visibleRows,
@@ -720,6 +728,22 @@ function App() {
     setPendingFit(false);
   }, [fitToWidth, pendingFit, range.totalDays]);
 
+  const flushTitleEdit = useCallback(() => {
+    titleEditHandleRef.current?.commitIfEditing();
+  }, []);
+
+  const showTitleBlankNotice = useCallback(() => {
+    setTitleBlankNotice(null);
+    requestAnimationFrame(() =>
+      setTitleBlankNotice("タイトルは変更していません"),
+    );
+  }, []);
+
+  const onCommitTitle = useCallback(
+    (raw: string) => commitTitle(raw),
+    [commitTitle],
+  );
+
   const scheduleFile = useScheduleFile({
     title: schedule.title,
     categories: schedule.categories,
@@ -731,6 +755,7 @@ function App() {
     onAfterOpen: onAfterOpenFile,
     initialBaselineJson: INITIAL_BASELINE_JSON,
     hasOpenEditDialog:
+      titleEditing ||
       detailPanelEditing ||
       schedule.editingNoteTask != null ||
       schedule.editingMilestone != null ||
@@ -743,6 +768,8 @@ function App() {
     knownMemberIds: schedule.knownMemberIds,
     memberCatalogSettled: !memberCatalogState.loading,
     sidebarReorderDragging,
+    getCanonicalJson,
+    getDocumentTitle,
   });
   externalReloadHistoryUndoRef.current = scheduleFile.onHistoryUndoApplied;
   externalReloadHistoryRedoRef.current = scheduleFile.onHistoryRedoApplied;
@@ -761,6 +788,7 @@ function App() {
 
   const mcpReplaceUiBlocking = useCallback(() => {
     if (scheduleFile.fileBusy) return true;
+    if (titleEditing) return true;
     if (detailPanelEditing) return true;
     if (
       schedule.editingNoteTask != null ||
@@ -777,6 +805,7 @@ function App() {
     return false;
   }, [
     detailPanelEditing,
+    titleEditing,
     schedule.addingHierarchyTarget,
     schedule.deletingHierarchyTarget,
     schedule.editingHierarchyTarget,
@@ -940,6 +969,24 @@ function App() {
     setMilestoneConfidence,
   } = schedule;
   const { fileBusy, requestOpen, requestOpenInNewWindow, save } = scheduleFile;
+
+  const requestOpenWithTitleFlush = useCallback(() => {
+    flushTitleEdit();
+    requestOpen();
+  }, [flushTitleEdit, requestOpen]);
+
+  const requestOpenInNewWindowWithTitleFlush = useCallback(() => {
+    flushTitleEdit();
+    requestOpenInNewWindow();
+  }, [flushTitleEdit, requestOpenInNewWindow]);
+
+  const saveWithTitleFlush = useCallback(
+    (saveAs: boolean) => {
+      flushTitleEdit();
+      void save(saveAs);
+    },
+    [flushTitleEdit, save],
+  );
 
   useEffect(() => {
     if (linkSourceId == null) return;
@@ -1182,6 +1229,7 @@ function App() {
       format: ScheduleExportFormat,
       excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
     ) => {
+      flushTitleEdit();
       const milestones = milestonesForExport(
         schedule.filters.milestone,
         schedule.milestoneGroups,
@@ -1235,7 +1283,7 @@ function App() {
           (option) => option.id === schedule.filters.assignee,
         )?.label ?? null;
       const exportInput = {
-        title: schedule.title,
+        title: getDocumentTitle(),
         tierLabel,
         lineageName: schedule.lineageTask?.name ?? null,
         visibleRows: schedule.visibleRows,
@@ -1312,6 +1360,8 @@ function App() {
       tierLabel,
       uiScale,
       resolvedColorScheme,
+      flushTitleEdit,
+      getDocumentTitle,
       showLightningLine,
     ],
   );
@@ -1322,7 +1372,7 @@ function App() {
   > => {
     const result = await loadScheduleDiffTextCore(
       scheduleFile.filePath,
-      scheduleFile.currentJson,
+      getCanonicalJson(),
     );
     if (result.ok) {
       return { ok: true, text: result.text, entries: result.entries };
@@ -1334,7 +1384,7 @@ function App() {
         !result.isError &&
         result.message === NO_OPEN_SCHEDULE_FILE_MESSAGE,
     };
-  }, [scheduleFile.currentJson, scheduleFile.filePath]);
+  }, [getCanonicalJson, scheduleFile.filePath]);
 
   useMcpScreenBridge({
     categories: schedule.categories,
@@ -1649,6 +1699,7 @@ function App() {
 
   const showScheduleDiff = useCallback(() => {
     if (scheduleFile.fileBusy) return;
+    flushTitleEdit();
     setDiffPanelExpanded(true);
     if (
       diffStripRef.current.visible &&
@@ -1663,10 +1714,16 @@ function App() {
       if (!stillCurrent()) return;
       processDiffLoadResult(result, "explicit");
     });
-  }, [loadScheduleDiffText, processDiffLoadResult, scheduleFile.fileBusy]);
+  }, [
+    flushTitleEdit,
+    loadScheduleDiffText,
+    processDiffLoadResult,
+    scheduleFile.fileBusy,
+  ]);
 
   const copyScheduleDiff = useCallback(() => {
     if (scheduleFile.fileBusy) return;
+    flushTitleEdit();
     void loadScheduleDiffText().then(async (result) => {
       if (!result.ok) {
         if (result.showDialog) {
@@ -1696,7 +1753,12 @@ function App() {
         commitDiffStripView(view, false, result.entries);
       }
     });
-  }, [commitDiffStripView, loadScheduleDiffText, scheduleFile.fileBusy]);
+  }, [
+    commitDiffStripView,
+    flushTitleEdit,
+    loadScheduleDiffText,
+    scheduleFile.fileBusy,
+  ]);
 
   const onDiffStripFocus = useCallback(() => {
     diffStripFocusedRef.current = true;
@@ -1785,16 +1847,23 @@ function App() {
         handleDisplayScaleChange(next);
       };
       switch (id) {
+        case "editTitle":
+          setTitleEditRequestToken((token) => token + 1);
+          break;
         case "open":
+          flushTitleEdit();
           scheduleFile.requestOpen();
           break;
         case "openNewWindow":
+          flushTitleEdit();
           scheduleFile.requestOpenInNewWindow();
           break;
         case "save":
+          flushTitleEdit();
           void scheduleFile.save(false);
           break;
         case "saveAs":
+          flushTitleEdit();
           void scheduleFile.save(true);
           break;
         case "find":
@@ -1808,9 +1877,11 @@ function App() {
           copyScheduleDiff();
           break;
         case "showJson":
+          flushTitleEdit();
           setJsonOpen(true);
           break;
         case "export":
+          flushTitleEdit();
           setExportOpen(true);
           break;
         case "settings":
@@ -1891,6 +1962,7 @@ function App() {
     [
       copyScheduleDiff,
       fitToWidth,
+      flushTitleEdit,
       focusDetailName,
       handleCheckForUpdates,
       handleDisplayScaleChange,
@@ -1913,9 +1985,9 @@ function App() {
     rowHeight,
     scrollBy,
     fileBusy,
-    save,
-    requestOpen,
-    requestOpenInNewWindow,
+    save: saveWithTitleFlush,
+    requestOpen: requestOpenWithTitleFlush,
+    requestOpenInNewWindow: requestOpenInNewWindowWithTitleFlush,
     categories,
     selectedTaskId,
     linkSourceId,
@@ -1966,12 +2038,18 @@ function App() {
 
   useMacOSAppMenu({
     fileBusy: () => scheduleFile.fileBusy || !scheduleFile.startupSettled,
-    onOpen: scheduleFile.requestOpen,
-    onOpenInNewWindow: scheduleFile.requestOpenInNewWindow,
-    onSave: () => void scheduleFile.save(false),
-    onSaveAs: () => void scheduleFile.save(true),
-    onExportHtml: () => setExportOpen(true),
-    onShowJson: () => setJsonOpen(true),
+    onOpen: requestOpenWithTitleFlush,
+    onOpenInNewWindow: requestOpenInNewWindowWithTitleFlush,
+    onSave: () => saveWithTitleFlush(false),
+    onSaveAs: () => saveWithTitleFlush(true),
+    onExportHtml: () => {
+      flushTitleEdit();
+      setExportOpen(true);
+    },
+    onShowJson: () => {
+      flushTitleEdit();
+      setJsonOpen(true);
+    },
     onShowDiff: showScheduleDiff,
     onOpenGuide: openGuide,
     onOpenShortcuts: openShortcuts,
@@ -2376,6 +2454,9 @@ function App() {
         ["--diff-panel-inset" as string]: diffPanelInset,
       }}
     >
+      <p className="filter-panel-sr-only" role="status" aria-live="polite">
+        {titleBlankNotice}
+      </p>
       <Toolbar
         title={schedule.title}
         titleDiffMarked={diffNavigationMark.title}
@@ -2409,12 +2490,32 @@ function App() {
         canRedo={schedule.canRedo}
         onOpenGuide={openGuide}
         onOpenShortcuts={openShortcuts}
-        onShowJson={() => setJsonOpen(true)}
+        onShowJson={() => {
+          flushTitleEdit();
+          setJsonOpen(true);
+        }}
         onShowDiff={showScheduleDiff}
-        onOpen={scheduleFile.requestOpen}
-        onOpenInNewWindow={scheduleFile.requestOpenInNewWindow}
-        onSave={() => void scheduleFile.save(false)}
-        onSaveAs={() => void scheduleFile.save(true)}
+        onOpen={() => {
+          flushTitleEdit();
+          scheduleFile.requestOpen();
+        }}
+        onOpenInNewWindow={() => {
+          flushTitleEdit();
+          scheduleFile.requestOpenInNewWindow();
+        }}
+        onSave={() => {
+          flushTitleEdit();
+          void scheduleFile.save(false);
+        }}
+        onSaveAs={() => {
+          flushTitleEdit();
+          void scheduleFile.save(true);
+        }}
+        onCommitTitle={onCommitTitle}
+        onTitleEditingChange={setTitleEditing}
+        onTitleBlankCommit={showTitleBlankNotice}
+        titleEditHandleRef={titleEditHandleRef}
+        titleEditRequestToken={titleEditRequestToken}
         onOpenSettings={() => {
           setSettingsSection("display");
           setSettingsOpen(true);
@@ -2424,7 +2525,10 @@ function App() {
             ? () => handleCheckForUpdates(false)
             : undefined
         }
-        onExportHtml={() => setExportOpen(true)}
+        onExportHtml={() => {
+          flushTitleEdit();
+          setExportOpen(true);
+        }}
         canDelete={schedule.selectedTaskIds.length > 0}
         onAdd={() => setAddOpen(true)}
         onAddMilestone={() => {
@@ -2939,7 +3043,7 @@ function App() {
         onRun={runCommandPalette}
       />
       <JsonDialog
-        json={jsonOpen ? scheduleFile.currentJson : ""}
+        json={jsonOpen ? getCanonicalJson() : ""}
         open={jsonOpen}
         onClose={() => setJsonOpen(false)}
       />
@@ -2999,6 +3103,7 @@ function App() {
           assessment={scheduleFile.externalReloadAssessment}
           review={scheduleFile.externalReloadReview}
           hasOpenEditDialog={
+            titleEditing ||
             detailPanelEditing ||
             schedule.editingNoteTask != null ||
             schedule.editingMilestone != null ||
