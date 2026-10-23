@@ -1,4 +1,8 @@
 mod beta_installer;
+mod excel_drawing_patch;
+mod export_xlsx;
+#[cfg(test)]
+mod excel_book;
 mod json_skills;
 mod mcp_app_data;
 mod mcp_bridge;
@@ -6,6 +10,7 @@ pub mod mcp_stdio;
 mod read_screen_skill;
 pub mod screen_cli;
 mod store_distribution;
+mod recent_files;
 mod schedule_drop;
 mod window_session;
 
@@ -183,7 +188,7 @@ fn read_utf8_limited(path: &Path, max_bytes: u64, too_large: &str) -> Result<Str
     String::from_utf8(bytes).map_err(|_| "UTF-8 以外の文字コードのファイルです".to_string())
 }
 
-fn write_utf8_atomic(path: &Path, contents: &str) -> Result<(), String> {
+pub(crate) fn write_utf8_atomic(path: &Path, contents: &str) -> Result<(), String> {
     let parent = path
         .parent()
         .ok_or_else(|| "保存先のパスが不正です".to_string())?;
@@ -508,6 +513,41 @@ async fn save_html_file(
     };
     write_utf8_atomic(&target, &contents)?;
     Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+async fn save_excel_export(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    payload: export_xlsx::ExcelExportPayload,
+    suggested_name: String,
+) -> Result<Option<String>, String> {
+    let bytes = export_xlsx::write_excel_bytes(&payload)?;
+    let default_name = sanitize_export_filename(&suggested_name, "xlsx");
+    let picked = app
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_file_name(&default_name)
+        .add_filter("Excel", &["xlsx"])
+        .blocking_save_file();
+    let target = match picked {
+        Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
+        None => return Ok(None),
+    };
+    write_bytes_atomic(&target, &bytes)?;
+    Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+fn write_bytes_atomic(target: &Path, bytes: &[u8]) -> Result<(), String> {
+    let parent = target
+        .parent()
+        .ok_or_else(|| "保存先のパスが不正です。".to_string())?;
+    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    let temp = target.with_extension("tmp");
+    fs::write(&temp, bytes).map_err(|e| e.to_string())?;
+    fs::rename(&temp, target).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -1026,6 +1066,28 @@ fn read_open_windows_snapshot(
         windows: file.windows,
         focus_order,
     })
+}
+
+#[tauri::command]
+fn read_recent_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let app_data = app_data_dir(&app)?;
+    Ok(recent_files::read_recent_files(&app_data))
+}
+
+#[tauri::command]
+fn record_recent_files(
+    app: tauri::AppHandle,
+    expected_paths: Vec<String>,
+    next_paths: Vec<String>,
+) -> Result<Vec<String>, String> {
+    let app_data = app_data_dir(&app)?;
+    recent_files::record_recent_files(&app_data, expected_paths, next_paths)
+}
+
+#[tauri::command]
+fn clear_recent_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let app_data = app_data_dir(&app)?;
+    recent_files::clear_recent_files(&app_data)
 }
 
 #[tauri::command]
@@ -2020,6 +2082,7 @@ pub fn run() {
             acknowledge_schedule_file_contents,
             save_schedule_file,
             save_html_file,
+            save_excel_export,
             get_members_settings,
             read_member_catalog,
             import_member_catalog,
@@ -2040,6 +2103,9 @@ pub fn run() {
             recovery_live_action,
             recovery_close_action,
             read_schedule_file_at_path,
+            read_recent_files,
+            record_recent_files,
+            clear_recent_files,
             read_dropped_schedule_file,
             read_open_windows_snapshot,
             ack_external_schedule_drop,
