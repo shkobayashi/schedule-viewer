@@ -1,9 +1,25 @@
+function pushMenuItem(items: HTMLButtonElement[], candidate: Element): void {
+  if (!(candidate instanceof HTMLButtonElement)) return;
+  if (candidate.getAttribute("role") !== "menuitem") return;
+  if (candidate.disabled) return;
+  items.push(candidate);
+}
+
 export function menuItems(menu: ParentNode): HTMLButtonElement[] {
-  return [
-    ...menu.querySelectorAll<HTMLButtonElement>(
-      '[role="menuitem"]:not(:disabled)',
-    ),
-  ];
+  if (!(menu instanceof Element)) return [];
+  const items: HTMLButtonElement[] = [];
+  for (const child of menu.children) {
+    if (child instanceof HTMLButtonElement) {
+      pushMenuItem(items, child);
+      continue;
+    }
+    if (child.getAttribute("data-menu-item-host") === "true") {
+      for (const nested of child.children) {
+        pushMenuItem(items, nested);
+      }
+    }
+  }
+  return items;
 }
 
 function focusMenuItem(item: HTMLButtonElement | undefined): void {

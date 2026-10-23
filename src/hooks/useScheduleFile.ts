@@ -18,6 +18,7 @@ import {
   scheduleJsonFilename,
   scheduleParentDirectory,
   serializeScheduleDocument,
+  SCHEDULE_FILE_NOT_FOUND,
 } from "../model/scheduleFile";
 import { useScheduleExternalReload } from "./scheduleFile/useScheduleExternalReload";
 import { useScheduleRecoveryDraft } from "./scheduleFile/useScheduleRecoveryDraft";
@@ -41,6 +42,7 @@ import {
   reportExternalScheduleDropReadyViaTauri,
 } from "../model/windowSession";
 import { useScheduleDropOpen } from "./scheduleFile/useScheduleDropOpen";
+import { recordRecentFileViaTauri } from "../model/recentFilesAppData";
 
 export type FileStatusTag = "sample" | "saved" | "unsaved";
 
@@ -65,10 +67,12 @@ type UseScheduleFileOptions = {
   sidebarReorderDragging: boolean;
   getCanonicalJson?: () => string;
   getDocumentTitle?: () => string;
+  onRecentFilesUpdated?: (paths: string[]) => void;
 };
 
 export type ApplyOpenedFileOptions = {
   restoreFilters?: boolean;
+  recordRecent?: boolean;
 };
 
 export function useScheduleFile({
@@ -90,6 +94,7 @@ export function useScheduleFile({
   sidebarReorderDragging,
   getCanonicalJson,
   getDocumentTitle,
+  onRecentFilesUpdated,
 }: UseScheduleFileOptions) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [browserFileLabel, setBrowserFileLabel] = useState<string | null>(null);
@@ -100,6 +105,7 @@ export function useScheduleFile({
   discardPromptOpenRef.current = discardPromptOpen;
   const [pendingOpen, setPendingOpen] = useState(false);
   const pendingDropPathRef = useRef<string | null>(null);
+  const pendingRecentPathRef = useRef<string | null>(null);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [closePromptForUpdate, setClosePromptForUpdate] = useState(false);
   const [fileBusy, setFileBusy] = useState(false);
@@ -327,12 +333,18 @@ export function useScheduleFile({
       if (options?.restoreFilters && pick.path) {
         await restoreFiltersForPathRef.current(pick.path, parsed.document);
       }
+      if (options?.recordRecent && pick.path && isTauri()) {
+        void recordRecentFileViaTauri(pick.path)
+          .then((paths) => onRecentFilesUpdated?.(paths))
+          .catch(() => {});
+      }
       return true;
     },
     [
       baselineJsonRef,
       clearExternalReloadPrompt,
       onAfterOpen,
+      onRecentFilesUpdated,
       replaceDocument,
       resetPollTracking,
     ],
@@ -350,9 +362,17 @@ export function useScheduleFile({
           return;
         }
         await acceptOpenedScheduleViaTauri(path, contents);
-        await applyOpenedFile({ path, contents });
+        await applyOpenedFile(
+          { path, contents },
+          { recordRecent: true },
+        );
       } catch (error) {
-        setErrorMessageText(errorMessage(error, "ファイルを開けませんでした。"));
+        const message = errorMessage(error, "ファイルを開けませんでした。");
+        setErrorMessageText(
+          message === SCHEDULE_FILE_NOT_FOUND
+            ? "ファイルを開けませんでした。"
+            : message,
+        );
       } finally {
         setFileBusy(false);
       }
@@ -360,11 +380,29 @@ export function useScheduleFile({
     [applyOpenedFile, fileBusy],
   );
 
-  const beginOpenFromDroppedPath = useCallback(
+  const beginOpenFromPath = useCallback(
     (path: string) => {
       if (fileBusyRef.current || !startupSettledRef.current) return;
       if (isDirtyRef.current) {
+        pendingRecentPathRef.current = null;
         pendingDropPathRef.current = path;
+        setPendingOpen(false);
+        setDiscardPromptOpen(true);
+        return;
+      }
+      void runOpenFromPath(path);
+    },
+    [runOpenFromPath],
+  );
+
+  const beginOpenFromDroppedPath = beginOpenFromPath;
+
+  const beginOpenFromRecentPath = useCallback(
+    (path: string) => {
+      if (fileBusyRef.current || !startupSettledRef.current) return;
+      if (isDirtyRef.current) {
+        pendingDropPathRef.current = null;
+        pendingRecentPathRef.current = path;
         setPendingOpen(false);
         setDiscardPromptOpen(true);
         return;
@@ -392,7 +430,9 @@ export function useScheduleFile({
       if (isTauri() && pick.path) {
         await acceptOpenedScheduleViaTauri(pick.path, pick.contents);
       }
-      applyOpenedFile(pick);
+      await applyOpenedFile(pick, {
+        recordRecent: Boolean(isTauri() && pick.path),
+      });
     } catch (error) {
       setErrorMessageText(errorMessage(error, "ファイルを開けませんでした。"));
     } finally {
@@ -454,6 +494,12 @@ export function useScheduleFile({
 
   const confirmDiscardAndOpen = useCallback(() => {
     setDiscardPromptOpen(false);
+    const recentPath = pendingRecentPathRef.current;
+    if (recentPath) {
+      pendingRecentPathRef.current = null;
+      void runOpenFromPath(recentPath);
+      return;
+    }
     const dropPath = pendingDropPathRef.current;
     if (dropPath) {
       pendingDropPathRef.current = null;
@@ -468,6 +514,7 @@ export function useScheduleFile({
   const cancelDiscard = useCallback(() => {
     initialDirectoryRef.current = null;
     pendingDropPathRef.current = null;
+    pendingRecentPathRef.current = null;
     setDiscardPromptOpen(false);
     setPendingOpen(false);
   }, []);
@@ -895,6 +942,7 @@ export function useScheduleFile({
     dismissRecoveryInvalid: startup.dismissRecoveryInvalid,
     discardRecoveryDraft: startup.discardRecoveryDraft,
     requestOpen,
+    requestOpenFromRecent: beginOpenFromRecentPath,
     requestOpenInNewWindow,
     save,
     confirmDiscardAndOpen,
@@ -911,6 +959,7 @@ export function useScheduleFile({
     onHistoryUndoApplied,
     onHistoryRedoApplied,
     dismissError,
+    showError: setErrorMessageText,
     currentJson,
     baselineJson,
     peerNotice,

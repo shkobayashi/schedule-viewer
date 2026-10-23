@@ -4,17 +4,19 @@ import { acquireBackgroundInert } from "./backgroundInert";
 import {
   buildCommandPaletteItems,
   commandPaletteActiveIndex,
+  commandPaletteItemKey,
+  commandPaletteRunTarget,
   filterCommandPaletteItems,
   moveCommandPaletteHighlight,
-  type CommandPaletteCommandId,
   type CommandPaletteContext,
+  type CommandPaletteRunTarget,
 } from "../model/commandPalette";
 
 type CommandPaletteProps = {
   open: boolean;
   context: CommandPaletteContext;
   onClose: () => void;
-  onRun: (id: CommandPaletteCommandId) => void;
+  onRun: (target: CommandPaletteRunTarget) => void;
 };
 
 export function CommandPalette({
@@ -43,9 +45,10 @@ export function CommandPalette({
     if (!open) return;
     setQuery("");
     setHighlight(0);
+    context.refreshRecentFiles?.();
     const timer = window.setTimeout(() => inputRef.current?.focus(), 0);
     return () => window.clearTimeout(timer);
-  }, [open]);
+  }, [open, context.refreshRecentFiles]);
 
   useEffect(() => {
     if (!open) return;
@@ -65,15 +68,17 @@ export function CommandPalette({
 
   if (!open) return null;
 
-  const runCommand = (id: CommandPaletteCommandId) => {
+  const runTarget = (target: CommandPaletteRunTarget) => {
     onClose();
-    window.setTimeout(() => onRun(id), 0);
+    window.setTimeout(() => onRun(target), 0);
   };
 
   const runHighlighted = () => {
     const item = items[activeIndex];
-    if (item == null || !item.enabled) return;
-    runCommand(item.id);
+    if (item == null) return;
+    const target = commandPaletteRunTarget(item);
+    if (target == null) return;
+    runTarget(target);
   };
 
   return createPortal(
@@ -164,7 +169,7 @@ export function CommandPalette({
             <li className="command-palette-empty">一致するコマンドがありません</li>
           ) : (
             items.map((item, index) => (
-              <li key={item.id}>
+              <li key={commandPaletteItemKey(item)}>
                 <button
                   type="button"
                   id={`${titleId}-item-${index}`}
@@ -174,8 +179,9 @@ export function CommandPalette({
                   disabled={!item.enabled}
                   onMouseEnter={() => setHighlight(index)}
                   onClick={() => {
-                    if (!item.enabled) return;
-                    runCommand(item.id);
+                    const target = commandPaletteRunTarget(item);
+                    if (target == null) return;
+                    runTarget(target);
                   }}
                 >
                   {item.label}

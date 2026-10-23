@@ -47,7 +47,7 @@ import { AppToast } from "./components/AppToast";
 import { GuideDialog } from "./components/GuideDialog";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { CommandPalette } from "./components/CommandPalette";
-import type { CommandPaletteCommandId } from "./model/commandPalette";
+import type { CommandPaletteRunTarget } from "./model/commandPalette";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
 import type { ScheduleToolbarTitleHandle } from "./components/ScheduleToolbarTitle";
@@ -61,6 +61,7 @@ import {
 } from "./model/shortcuts";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
 import { useMacOSAppMenu } from "./hooks/useMacOSAppMenu";
+import { useRecentFiles } from "./hooks/useRecentFiles";
 import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
@@ -744,6 +745,14 @@ function App() {
     [commitTitle],
   );
 
+  const reportFileErrorRef = useRef<(message: string) => void>(() => {});
+  const {
+    recentFilePaths,
+    setRecentFilePaths,
+    refreshRecentFiles,
+    clearRecentHistory,
+  } = useRecentFiles((message) => reportFileErrorRef.current(message));
+
   const scheduleFile = useScheduleFile({
     title: schedule.title,
     categories: schedule.categories,
@@ -770,7 +779,9 @@ function App() {
     sidebarReorderDragging,
     getCanonicalJson,
     getDocumentTitle,
+    onRecentFilesUpdated: setRecentFilePaths,
   });
+  reportFileErrorRef.current = scheduleFile.showError;
   externalReloadHistoryUndoRef.current = scheduleFile.onHistoryUndoApplied;
   externalReloadHistoryRedoRef.current = scheduleFile.onHistoryRedoApplied;
 
@@ -968,17 +979,35 @@ function App() {
     setTaskConfidence,
     setMilestoneConfidence,
   } = schedule;
-  const { fileBusy, requestOpen, requestOpenInNewWindow, save } = scheduleFile;
+  const {
+    fileBusy,
+    requestOpen,
+    requestOpenFromRecent,
+    requestOpenInNewWindow,
+    save,
+  } = scheduleFile;
 
   const requestOpenWithTitleFlush = useCallback(() => {
     flushTitleEdit();
     requestOpen();
   }, [flushTitleEdit, requestOpen]);
 
+  const requestOpenFromRecentWithTitleFlush = useCallback(
+    (path: string) => {
+      flushTitleEdit();
+      requestOpenFromRecent(path);
+    },
+    [flushTitleEdit, requestOpenFromRecent],
+  );
+
   const requestOpenInNewWindowWithTitleFlush = useCallback(() => {
     flushTitleEdit();
     requestOpenInNewWindow();
   }, [flushTitleEdit, requestOpenInNewWindow]);
+
+  const handleClearRecentHistory = useCallback(() => {
+    void clearRecentHistory();
+  }, [clearRecentHistory]);
 
   const saveWithTitleFlush = useCallback(
     (saveAs: boolean) => {
@@ -1805,6 +1834,8 @@ function App() {
     () => ({
       fileBusy: scheduleFile.fileBusy || !scheduleFile.startupSettled,
       isTauriDesktop: isTauri(),
+      recentFilePaths,
+      refreshRecentFiles: isTauri() ? refreshRecentFiles : undefined,
       storeDistribution,
       canUndo: schedule.canUndo,
       canRedo: schedule.canRedo,
@@ -1824,12 +1855,14 @@ function App() {
       schedule.selectedTaskIds.length,
       scheduleFile.fileBusy,
       scheduleFile.startupSettled,
+      recentFilePaths,
+      refreshRecentFiles,
       storeDistribution,
     ],
   );
 
   const runCommandPalette = useCallback(
-    (id: CommandPaletteCommandId) => {
+    (target: CommandPaletteRunTarget) => {
       const stepScale = (direction: "in" | "out") => {
         const next = stepDisplayScale(
           displayScalePreferenceRef.current,
@@ -1846,7 +1879,14 @@ function App() {
         writeDisplayScalePreference(next);
         handleDisplayScaleChange(next);
       };
-      switch (id) {
+      if (target.type === "openRecent") {
+        requestOpenFromRecentWithTitleFlush(target.path);
+        return;
+      }
+      switch (target.id) {
+        case "clearRecentHistory":
+          handleClearRecentHistory();
+          break;
         case "editTitle":
           setTitleEditRequestToken((token) => token + 1);
           break;
@@ -1965,12 +2005,14 @@ function App() {
       flushTitleEdit,
       focusDetailName,
       handleCheckForUpdates,
+      handleClearRecentHistory,
       handleDisplayScaleChange,
       openDuplicateDialog,
       openGuide,
       openShortcuts,
       redo,
       requestDeleteTask,
+      requestOpenFromRecentWithTitleFlush,
       schedule,
       scheduleFile,
       scrollToToday,
@@ -2036,9 +2078,12 @@ function App() {
     commitTaskReorder: schedule.commitTaskReorder,
   });
 
-  useMacOSAppMenu({
+  useMacOSAppMenu(
+    {
     fileBusy: () => scheduleFile.fileBusy || !scheduleFile.startupSettled,
     onOpen: requestOpenWithTitleFlush,
+    onOpenRecent: requestOpenFromRecentWithTitleFlush,
+    onClearRecentHistory: handleClearRecentHistory,
     onOpenInNewWindow: requestOpenInNewWindowWithTitleFlush,
     onSave: () => saveWithTitleFlush(false),
     onSaveAs: () => saveWithTitleFlush(true),
@@ -2065,7 +2110,9 @@ function App() {
     onFit: fitToWidth,
     onUndo: undo,
     onRedo: redo,
-  });
+  },
+    recentFilePaths,
+  );
 
   useEffect(() => {
     if (contextMenu == null) return;
@@ -2499,6 +2546,10 @@ function App() {
           flushTitleEdit();
           scheduleFile.requestOpen();
         }}
+        recentFilePaths={recentFilePaths}
+        onRefreshRecentFiles={refreshRecentFiles}
+        onOpenRecent={requestOpenFromRecentWithTitleFlush}
+        onClearRecentHistory={handleClearRecentHistory}
         onOpenInNewWindow={() => {
           flushTitleEdit();
           scheduleFile.requestOpenInNewWindow();

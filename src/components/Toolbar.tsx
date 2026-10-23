@@ -67,6 +67,10 @@ type ToolbarProps = {
   onShowDiff: () => void;
   onExportHtml: () => void;
   onOpen: () => void;
+  recentFilePaths?: string[];
+  onRefreshRecentFiles?: () => void;
+  onOpenRecent?: (path: string) => void;
+  onClearRecentHistory?: () => void;
   onOpenInNewWindow?: () => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -119,6 +123,10 @@ export function Toolbar({
   onShowDiff,
   onExportHtml,
   onOpen,
+  recentFilePaths,
+  onRefreshRecentFiles,
+  onOpenRecent,
+  onClearRecentHistory,
   onOpenInNewWindow,
   onSave,
   onSaveAs,
@@ -215,6 +223,10 @@ export function Toolbar({
         fileBusy={fileBusy}
         startupSettled={startupSettled}
         onOpen={onOpen}
+        recentFilePaths={recentFilePaths}
+        onRefreshRecentFiles={onRefreshRecentFiles}
+        onOpenRecent={onOpenRecent}
+        onClearRecentHistory={onClearRecentHistory}
         onOpenInNewWindow={onOpenInNewWindow}
         onSave={onSave}
         onSaveAs={onSaveAs}
