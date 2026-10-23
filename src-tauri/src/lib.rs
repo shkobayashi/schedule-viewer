@@ -10,6 +10,7 @@ pub mod mcp_stdio;
 mod read_screen_skill;
 pub mod screen_cli;
 mod store_distribution;
+mod recent_files;
 mod schedule_drop;
 mod window_session;
 
@@ -187,7 +188,7 @@ fn read_utf8_limited(path: &Path, max_bytes: u64, too_large: &str) -> Result<Str
     String::from_utf8(bytes).map_err(|_| "UTF-8 以外の文字コードのファイルです".to_string())
 }
 
-fn write_utf8_atomic(path: &Path, contents: &str) -> Result<(), String> {
+pub(crate) fn write_utf8_atomic(path: &Path, contents: &str) -> Result<(), String> {
     let parent = path
         .parent()
         .ok_or_else(|| "保存先のパスが不正です".to_string())?;
@@ -1065,6 +1066,28 @@ fn read_open_windows_snapshot(
         windows: file.windows,
         focus_order,
     })
+}
+
+#[tauri::command]
+fn read_recent_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let app_data = app_data_dir(&app)?;
+    Ok(recent_files::read_recent_files(&app_data))
+}
+
+#[tauri::command]
+fn record_recent_files(
+    app: tauri::AppHandle,
+    expected_paths: Vec<String>,
+    next_paths: Vec<String>,
+) -> Result<Vec<String>, String> {
+    let app_data = app_data_dir(&app)?;
+    recent_files::record_recent_files(&app_data, expected_paths, next_paths)
+}
+
+#[tauri::command]
+fn clear_recent_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let app_data = app_data_dir(&app)?;
+    recent_files::clear_recent_files(&app_data)
 }
 
 #[tauri::command]
@@ -2080,6 +2103,9 @@ pub fn run() {
             recovery_live_action,
             recovery_close_action,
             read_schedule_file_at_path,
+            read_recent_files,
+            record_recent_files,
+            clear_recent_files,
             read_dropped_schedule_file,
             read_open_windows_snapshot,
             ack_external_schedule_drop,

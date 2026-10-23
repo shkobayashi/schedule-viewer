@@ -1,6 +1,6 @@
 # テスト仕様
 
-何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
+何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
 
 ## 方針
 
@@ -396,6 +396,9 @@
 | 同上 | `treats trim-equal title as unchanged` | EDIT-20 |
 | 同上 | `keeps internal spaces and reports changed title` | EDIT-20 |
 | `history.test.ts` | `undo restores a title change in one step` | EDIT-10, EDIT-20 |
+| `recentFiles.test.ts` | `appendRecentFile` など | FILE-09 |
+| `commandPalette.test.ts` | `inserts recent files after open on desktop` など | FILE-09, NAV-07 |
+| `recent_files.rs` | `writes_only_when_expected_matches` など | FILE-09 |
 | `commandPalette.test.ts` | `includes edit title command` | NAV-07, EDIT-20 |
 | `hierarchyRename.test.ts` | `trims the name and keeps the id` | EDIT-13 |
 | 同上 | `keeps the original name when the input is blank` | EDIT-13 |
@@ -725,6 +728,12 @@
 | TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 7 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
 | TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 7 になる |
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 7 になる。タグを付けていないタスクに `tags` は無い |
+| TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューに新しい順で並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
+| TC-FILE-09b | FILE-09 | 上記のあと6件目を開く。同名のファイル名を2つのフォルダから開く | 一覧の件数と親フォルダの付き方を見る | 5件を超えた古いものが消える。同じファイル名が2件以上のときだけ親フォルダ名が付く |
+| TC-FILE-09c | FILE-09 | 履歴にパスがある | 存在しないパスを選ぶ。未保存のあいだに履歴から開き、キャンセルする | 画面と保存先は残る。サンプルに戻らない。項目は残る。キャンセルでは順番が変わらない |
+| TC-FILE-09d | FILE-09 | 履歴がある | ☰ または macOS のファイルメニューで「最近開いたファイル」から「履歴を消す」を押す。ファイル操作の途中でサブメニューから開く操作を試す | パスだけ消える。開いているスケジュールと次回起動のウィンドウ・控え・絞り込みは残る。操作中は履歴から開けず、「履歴を消す」は押せる。消したあと、☰ と macOS のファイルメニューに「最近開いたファイル」の行は残り、押せず、サブメニューは開かない |
+| TC-FILE-09e | FILE-09 | 履歴から開く、または `recent-files.json` を壊す | 絞り込み・折りたたみ・系統・選択を変えたあと履歴から開く。別ウィンドウでも一覧を見る。壊れて一覧が空のとき ☰ を開く | 絞り込みなどが初期状態になり Fit する。壊れた JSON では一覧が空で知らせは出ない。別ウィンドウでも同じ一覧。一覧が空のとき、☰ と macOS のファイルメニューに「最近開いたファイル」の行は残り、押せず、サブメニューは開かない |
+| TC-FILE-09f | FILE-09 | ブラウザ版、`npm run dev` | ☰ と ⌘/Ctrl+K を開く | 最近開いたファイルも「履歴を消す」も出ない |
 | TC-FILE-08 | FILE-08 | デスクトップ版。検証済みの JSON がある | その JSON をウィンドウへ1つ落とす | 「開く」と同じ内容になる。ファイルダイアログは出ない |
 | TC-FILE-08b | FILE-08 | 未保存の編集がある | 別の検証済み JSON を同じウィンドウへ落とす | 破棄の確認が出る |
 | TC-FILE-08c | FILE-08 | サンプル | JSON を2つ、またはフォルダと JSON をまとめて落とす | 開かず「スケジュールの JSON を1つだけ落としてください。」が出る |

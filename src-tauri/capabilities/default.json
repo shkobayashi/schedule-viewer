@@ -40,6 +40,8 @@
     "allow-delete-schedule-filter",
     "allow-release-schedule-filter",
     "allow-read-schedule-file-at-path",
+    "allow-read-recent-files",
+    "allow-write-recent-files",
     "allow-dropped-schedule",
     "allow-read-last-schedule-file",
     "allow-clear-last-schedule-path",
