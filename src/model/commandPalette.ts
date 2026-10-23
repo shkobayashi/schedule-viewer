@@ -1,9 +1,16 @@
+import {
+  recentFileCommandPaletteLabel,
+  recentFileMenuEntries,
+} from "./recentFiles";
+
 export type CommandPaletteCommandId =
   | "open"
+  | "clearRecentHistory"
   | "openNewWindow"
   | "save"
   | "saveAs"
   | "find"
+  | "editTitle"
   | "showDiff"
   | "copyDiff"
   | "showJson"
@@ -30,16 +37,31 @@ export type CommandPaletteCommandId =
   | "duplicateTask"
   | "checkForUpdates";
 
-export type CommandPaletteItem = {
-  id: CommandPaletteCommandId;
-  label: string;
-  keywords: string;
-  enabled: boolean;
-};
+export type CommandPaletteItem =
+  | {
+      kind: "command";
+      id: CommandPaletteCommandId;
+      label: string;
+      keywords: string;
+      enabled: boolean;
+    }
+  | {
+      kind: "openRecent";
+      path: string;
+      label: string;
+      keywords: string;
+      enabled: boolean;
+    };
+
+export type CommandPaletteRunTarget =
+  | { type: "command"; id: CommandPaletteCommandId }
+  | { type: "openRecent"; path: string };
 
 export type CommandPaletteContext = {
   fileBusy: boolean;
   isTauriDesktop: boolean;
+  recentFilePaths: string[];
+  refreshRecentFiles?: () => void;
   storeDistribution: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -86,6 +108,12 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
     label: "検索へ移る",
     keywords: "find search 検索",
     enabled: () => true,
+  },
+  {
+    id: "editTitle",
+    label: "タイトルを変更",
+    keywords: "title タイトル 名前",
+    enabled: (ctx) => !ctx.fileBusy,
   },
   {
     id: "showDiff",
@@ -241,10 +269,23 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
   },
 ];
 
+function mapBaseItem(
+  item: CommandPaletteTemplate,
+  context: CommandPaletteContext,
+): CommandPaletteItem {
+  return {
+    kind: "command",
+    id: item.id,
+    label: typeof item.label === "function" ? item.label(context) : item.label,
+    keywords: item.keywords,
+    enabled: item.enabled(context),
+  };
+}
+
 export function buildCommandPaletteItems(
   context: CommandPaletteContext,
 ): CommandPaletteItem[] {
-  return BASE_ITEMS.filter((item) => {
+  const filtered = BASE_ITEMS.filter((item) => {
     if (item.id === "openNewWindow") {
       return context.isTauriDesktop;
     }
@@ -252,12 +293,62 @@ export function buildCommandPaletteItems(
       return context.isTauriDesktop && !context.storeDistribution;
     }
     return true;
-  }).map((item) => ({
-    id: item.id,
-    label: typeof item.label === "function" ? item.label(context) : item.label,
-    keywords: item.keywords,
-    enabled: item.enabled(context),
-  }));
+  });
+
+  const mapped = filtered.map((item) => mapBaseItem(item, context));
+  const openIndex = mapped.findIndex(
+    (item) => item.kind === "command" && item.id === "open",
+  );
+  if (openIndex < 0) return mapped;
+
+  const beforeOpen = mapped.slice(0, openIndex + 1);
+  const afterOpen = mapped.slice(openIndex + 1);
+  const openNewIndex = afterOpen.findIndex(
+    (item) => item.kind === "command" && item.id === "openNewWindow",
+  );
+  const openNewWindow =
+    openNewIndex >= 0 ? afterOpen.splice(openNewIndex, 1)[0] : null;
+  const rest = afterOpen;
+
+  const recentBlock: CommandPaletteItem[] = [];
+  if (context.isTauriDesktop && context.recentFilePaths.length > 0) {
+    for (const entry of recentFileMenuEntries(context.recentFilePaths)) {
+      recentBlock.push({
+        kind: "openRecent",
+        path: entry.path,
+        label: recentFileCommandPaletteLabel(entry.label),
+        keywords: `${entry.label} recent 最近 ファイル`,
+        enabled: !context.fileBusy,
+      });
+    }
+    recentBlock.push({
+      kind: "command",
+      id: "clearRecentHistory",
+      label: "履歴を消す",
+      keywords: "recent clear 履歴",
+      enabled: true,
+    });
+  }
+
+  const tail: CommandPaletteItem[] = [];
+  if (openNewWindow) tail.push(openNewWindow);
+  tail.push(...rest);
+  return [...beforeOpen, ...recentBlock, ...tail];
+}
+
+export function commandPaletteItemKey(item: CommandPaletteItem): string {
+  if (item.kind === "openRecent") return `recent:${item.path}`;
+  return `command:${item.id}`;
+}
+
+export function commandPaletteRunTarget(
+  item: CommandPaletteItem,
+): CommandPaletteRunTarget | null {
+  if (!item.enabled) return null;
+  if (item.kind === "openRecent") {
+    return { type: "openRecent", path: item.path };
+  }
+  return { type: "command", id: item.id };
 }
 
 function normalizeQuery(query: string): string {

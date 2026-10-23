@@ -2,12 +2,15 @@ import { useEffect, useRef } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { recentFileMenuEntries } from "../model/recentFiles";
 import { requestApplicationQuitViaTauri } from "../model/windowSession";
 import type { GridTier } from "../model/timeline";
 
 export type MacOSAppMenuHandlers = {
   fileBusy: () => boolean;
   onOpen: () => void;
+  onOpenRecent: (path: string) => void;
+  onClearRecentHistory: () => void;
   onOpenInNewWindow: () => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -37,7 +40,10 @@ function isTextFieldTarget(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
-export function useMacOSAppMenu(handlers: MacOSAppMenuHandlers): void {
+export function useMacOSAppMenu(
+  handlers: MacOSAppMenuHandlers,
+  recentFilePaths: string[],
+): void {
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
 
@@ -90,10 +96,39 @@ export function useMacOSAppMenu(handlers: MacOSAppMenuHandlers): void {
         ],
       });
 
+      const recentEntries = recentFileMenuEntries(recentFilePaths);
+      const recentMenuSlot =
+        recentEntries.length > 0
+          ? await Submenu.new({
+              text: "最近開いたファイル",
+              items: [
+                ...(await Promise.all(
+                  recentEntries.map((entry, index) =>
+                    fileItem(
+                      `file-recent-${index}`,
+                      entry.label,
+                      () => h().onOpenRecent(entry.path),
+                    ),
+                  ),
+                )),
+                await PredefinedMenuItem.new({ item: "Separator" }),
+                await MenuItem.new({
+                  id: "file-clear-recent",
+                  text: "履歴を消す",
+                  action: () => h().onClearRecentHistory(),
+                }),
+              ],
+            })
+          : await MenuItem.new({
+              id: "file-recent-empty",
+              text: "最近開いたファイル",
+              enabled: false,
+            });
       const fileSubmenu = await Submenu.new({
         text: "ファイル",
         items: [
           await fileItem("file-open", "開く", () => h().onOpen()),
+          recentMenuSlot,
           await fileItem(
             "file-open-new",
             "新しいウィンドウで開く",
@@ -216,5 +251,5 @@ export function useMacOSAppMenu(handlers: MacOSAppMenuHandlers): void {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [recentFilePaths]);
 }

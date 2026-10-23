@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ApplyOpenedFileOptions } from "../useScheduleFile";
 import type { ScheduleDocument } from "../../model/types";
 import { errorMessage } from "../../model/errors";
 import {
@@ -60,7 +61,7 @@ type UseScheduleStartupRecoveryOptions = {
       displayName?: string | null;
       contents: string;
     },
-    options?: { restoreFilters?: boolean },
+    options?: ApplyOpenedFileOptions,
   ) => Promise<boolean>;
   restoreFiltersForPath: (
     path: string,
@@ -187,10 +188,13 @@ export function useScheduleStartupRecovery({
         const pending = await takePendingScheduleWindowOpenViaTauri();
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (pending) {
-          await applyOpenedFileRef.current({
-            path: pending.path,
-            contents: pending.contents,
-          });
+          await applyOpenedFileRef.current(
+            {
+              path: pending.path,
+              contents: pending.contents,
+            },
+            { recordRecent: true },
+          );
           releaseStartupBusy();
           return;
         }

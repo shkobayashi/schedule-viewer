@@ -1,5 +1,9 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { scheduleHtmlFilename, scheduleSvgFilename } from "./exportFilename";
+import {
+  scheduleHtmlFilename,
+  scheduleSvgFilename,
+  scheduleXlsxFilename,
+} from "./exportFilename";
 import { addDays, addUtcMonths, daysBetween, fmtShort, parseDate, utcMonthStart } from "./dates";
 import { LAYOUT_HEADER_HEIGHT } from "./layoutSizes";
 import { LINK_POINTER_LENGTH, linkPoints, type DependencyLink } from "./dependencies";
@@ -61,7 +65,7 @@ export type ScheduleExportInput = {
   showLightningLine: boolean;
 };
 
-export type ScheduleExportFormat = "html" | "svg";
+export type ScheduleExportFormat = "html" | "svg" | "xlsx";
 
 function palettes(input: ScheduleExportInput) {
   return paletteFor(input.colorScheme);
@@ -104,7 +108,9 @@ export function scheduleExportFilename(
   title: string,
   format: ScheduleExportFormat = "html",
 ): string {
-  return format === "svg" ? scheduleSvgFilename(title) : scheduleHtmlFilename(title);
+  if (format === "svg") return scheduleSvgFilename(title);
+  if (format === "xlsx") return scheduleXlsxFilename(title);
+  return scheduleHtmlFilename(title);
 }
 
 function tentativeHatchPatterns(input: ScheduleExportInput): string {
@@ -279,6 +285,9 @@ export async function exportSchedule(
   input: ScheduleExportInput,
   format: ScheduleExportFormat,
 ): Promise<string | null> {
+  if (format === "xlsx") {
+    throw new Error("Excel の書き出しは exportScheduleExcel を使います。");
+  }
   const contents = format === "svg" ? buildScheduleSvg(input) : buildScheduleHtml(input);
   const suggestedName = scheduleExportFilename(input.title, format);
   if (isTauri()) {
