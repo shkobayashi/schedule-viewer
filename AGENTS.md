@@ -56,9 +56,11 @@ GitHub の Issue を見る、コメントする、作る、更新するときは
 
 日本語の文章の書き方は [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) に従う。
 
-仕様や方向の相談は、利用者が `/consult` または consult スキルで始めたときに [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) の返し方に従う。入口は [.cursor/skills/consult/SKILL.md](.cursor/skills/consult/SKILL.md) である。
+仕様や方向の相談は、利用者が `/consult` または「相談モード」で始めたときに [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) に従う。返し方と終わりの条件はこのルールにある。[.cursor/skills/consult/SKILL.md](.cursor/skills/consult/SKILL.md) は `/consult` で始めるための入口である。
 
 スキルの作成、本文の更新、分割してよいかの判断は、エージェントが同じ作業の中で行う。
+
+スキルやルールの本文からほかのファイルへリンクするときは、そのファイルからの相対パスで書く。たとえば SKILL.md から `AGENTS.md` へは `../../../AGENTS.md` と書く。
 
 実装のレビューで直したときも、プロジェクト全体のレビューと同じである。計画と仕上がりがずれた箇所を直すときは、再発を防ぐ手順を該当スキルの該当する節へ同じ変更で必ず足す。足した節を結果に書く。足さない判断だけを書いて完了にしない。その計画だけの指摘は足さない。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使うので、アプリ実装の手順はそこへ書かない。
 
