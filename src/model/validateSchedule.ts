@@ -6,6 +6,7 @@ import {
   migrateScheduleV4ToV5,
   migrateScheduleV5ToV6,
   migrateScheduleV6ToV7,
+  migrateScheduleV7ToV8,
 } from "./scheduleMigrate";
 import {
   validateDependencyCycles,
@@ -38,16 +39,18 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
         {
           path: "/schemaVersion",
           message:
-            "schemaVersion 2（担当者名 assignee）は読み込めません。assigneeId と confidence を使う schemaVersion 7 に更新してください。",
+            "schemaVersion 2（担当者名 assignee）は読み込めません。assigneeId と confidence を使う schemaVersion 8 に更新してください。",
         },
       ],
     };
   }
 
-  const migrated = migrateScheduleV6ToV7(
-    migrateScheduleV5ToV6(
-      fillMissingMilestoneConfidence(
-        migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1)),
+  const migrated = migrateScheduleV7ToV8(
+    migrateScheduleV6ToV7(
+      migrateScheduleV5ToV6(
+        fillMissingMilestoneConfidence(
+          migrateScheduleV4ToV5(migrateScheduleV3ToV4(afterV1)),
+        ),
       ),
     ),
   );

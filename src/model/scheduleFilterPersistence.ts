@@ -46,14 +46,6 @@ export type ParsedScheduleFilterPersistence =
   | { ok: true; data: ScheduleFilterPersistenceFile }
   | { ok: false };
 
-const STATUS_VALUES: readonly StatusFilter[] = [
-  "all",
-  "not-done",
-  "not-started",
-  "in-progress",
-  "done",
-];
-
 const CONFIDENCE_VALUES: readonly ConfidenceFilter[] = [
   "all",
   "tentative",
@@ -96,7 +88,7 @@ function parseFiltersRecord(record: Record<string, unknown>): ScheduleFilters | 
   const search = record.search;
   const noteSearch = record.noteSearch;
   if (typeof assignee !== "string") return null;
-  if (!STATUS_VALUES.includes(status as StatusFilter)) return null;
+  if (!isNonEmptyString(status)) return null;
   if (!CONFIDENCE_VALUES.includes(confidence as ConfidenceFilter)) return null;
   if (!OVERDUE_VALUES.includes(overdue as OverdueFilter)) return null;
   if (!RELATION_VALUES.includes(relation as RelationFilter)) return null;

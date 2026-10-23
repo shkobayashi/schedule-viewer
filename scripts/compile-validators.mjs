@@ -6,6 +6,7 @@ import addFormats from "ajv-formats";
 import standaloneCode from "ajv/dist/standalone/index.js";
 import scheduleSchema from "../docs/schedule.schema.json" with { type: "json" };
 import membersSchema from "../docs/members.schema.json" with { type: "json" };
+import statusesSchema from "../docs/statuses.schema.json" with { type: "json" };
 import calendarSchema from "../docs/calendar.schema.json" with { type: "json" };
 
 const outDir = join(
@@ -60,3 +61,4 @@ writeFileSync(
 writeFileSync(join(outDir, "membersValidator.js"), compile(membersSchema));
 writeFileSync(join(outDir, "calendarValidator.js"), compile(calendarSchema));
 console.log("Compiled standalone validators");
+writeFileSync(join(outDir, "statusesValidator.js"), compile(statusesSchema));

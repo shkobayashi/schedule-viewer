@@ -1,3 +1,7 @@
+import {
+  SettingsStatusesSection,
+  type SettingsStatusesSectionProps,
+} from "./SettingsStatusesSection";
 import { useEffect, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
@@ -116,6 +120,7 @@ type SettingsDialogProps = {
   sidebarColumns: SidebarColumnsPreference;
   onSidebarColumnsChange: (value: SidebarColumnsPreference) => void;
   initialSection?: SettingsSection;
+  statusCatalog: SettingsStatusesSectionProps;
   onClose: () => void;
   onImport: (catalogId: string, contents: string, overwrite: boolean) => Promise<void>;
   onSelectCatalog: (catalogId: string | null) => Promise<void>;
@@ -149,6 +154,7 @@ function betaInstallerPlatform(): "windows" | "linux" | null {
 export type SettingsSection =
   | "display"
   | "members"
+  | "statuses"
   | "calendar"
   | "updates"
   | "mcp"
@@ -156,6 +162,7 @@ export type SettingsSection =
 
 export function SettingsDialog({
   open,
+  statusCatalog,
   settings,
   selectedCatalogLabel,
   calendarLabel,
@@ -652,6 +659,14 @@ export function SettingsDialog({
             </button>
             <button
               type="button"
+              className={section === "statuses" ? "active" : undefined}
+              aria-current={section === "statuses" ? "true" : undefined}
+              onClick={() => setSection("statuses")}
+            >
+              ステータス
+            </button>
+            <button
+              type="button"
               className={section === "calendar" ? "active" : undefined}
               aria-current={section === "calendar" ? "true" : undefined}
               onClick={() => setSection("calendar")}
@@ -866,6 +881,9 @@ export function SettingsDialog({
                   </button>
                 ) : null}
               </>
+            ) : null}
+            {section === "statuses" ? (
+              <SettingsStatusesSection {...statusCatalog} />
             ) : null}
             {section === "calendar" ? (
               <>

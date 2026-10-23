@@ -516,6 +516,32 @@ async fn save_html_file(
 }
 
 #[tauri::command]
+async fn save_statuses_json(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    contents: String,
+    suggested_name: String,
+) -> Result<Option<String>, String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let default_name = sanitize_export_filename(&suggested_name, "json");
+    let picked = app
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_file_name(&default_name)
+        .add_filter("JSON", &["json"])
+        .blocking_save_file();
+    let target = match picked {
+        Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
+        None => return Ok(None),
+    };
+    write_utf8_atomic(&target, &contents)?;
+    Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
 async fn save_excel_export(
     window: tauri::Window,
     app: tauri::AppHandle,
@@ -556,6 +582,8 @@ struct AppSettingsFile {
     selected_members_catalog_id: Option<String>,
     #[serde(rename = "calendarLabel", default)]
     calendar_label: Option<String>,
+    #[serde(rename = "selectedStatusesCatalogId", default)]
+    selected_statuses_catalog_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -580,6 +608,12 @@ fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 fn members_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let dir = app_data_dir(app)?.join("members");
     fs::create_dir_all(&dir).map_err(|e| format!("メンバーデータを準備できません: {}", e))?;
+    Ok(dir)
+}
+
+fn statuses_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app_data_dir(app)?.join("statuses");
+    fs::create_dir_all(&dir).map_err(|e| format!("ステータスデータを準備できません: {}", e))?;
     Ok(dir)
 }
 
@@ -618,11 +652,14 @@ fn sanitize_catalog_id(id: &str) -> Result<String, String> {
 }
 
 fn list_catalog_entries(app: &tauri::AppHandle) -> Result<Vec<MemberCatalogEntry>, String> {
-    let dir = members_dir(app)?;
+    list_catalog_entries_in(&members_dir(app)?)
+}
+
+fn list_catalog_entries_in(dir: &Path) -> Result<Vec<MemberCatalogEntry>, String> {
     let mut entries = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|e| format!("メンバー一覧を読めません: {}", e))?
+    for entry in fs::read_dir(dir).map_err(|e| format!("カタログ一覧を読めません: {}", e))?
     {
-        let entry = entry.map_err(|e| format!("メンバー一覧を読めません: {}", e))?;
+        let entry = entry.map_err(|e| format!("カタログ一覧を読めません: {}", e))?;
         let path = entry.path();
         if !path.is_file() {
             continue;
@@ -710,6 +747,75 @@ fn set_selected_member_catalog(
 ) -> Result<(), String> {
     let mut settings = read_settings(&app)?;
     settings.selected_members_catalog_id = match catalog_id {
+        None => None,
+        Some(id) => Some(sanitize_catalog_id(&id)?),
+    };
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn get_statuses_settings(app: tauri::AppHandle) -> Result<MembersSettingsResult, String> {
+    let settings = read_settings(&app)?;
+    let catalogs = list_catalog_entries_in(&statuses_dir(&app)?)?;
+    Ok(MembersSettingsResult {
+        selected_catalog_id: settings.selected_statuses_catalog_id,
+        catalogs,
+    })
+}
+
+#[tauri::command]
+fn read_status_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+) -> Result<Option<String>, String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = statuses_dir(&app)?.join(format!("{}.json", id));
+    if !path.exists() {
+        return Ok(None);
+    }
+    Ok(Some(read_utf8(&path, MAX_MEMBERS_BYTES)?))
+}
+
+#[tauri::command]
+fn import_status_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+    contents: String,
+    overwrite: bool,
+) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("ステータスファイルが大きすぎます（上限 2 MB）".to_string());
+    }
+    let path = statuses_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() && !overwrite {
+        return Err("同じ名前のカタログが既にあります".to_string());
+    }
+    write_utf8_atomic(&path, &contents)
+}
+
+#[tauri::command]
+fn delete_status_catalog(app: tauri::AppHandle, catalog_id: String) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = statuses_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| format!("カタログを削除できません: {}", e))?;
+    }
+    let mut settings = read_settings(&app)?;
+    if settings.selected_statuses_catalog_id.as_deref() == Some(id.as_str()) {
+        settings.selected_statuses_catalog_id = None;
+        write_settings(&app, &settings)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn set_selected_status_catalog(
+    app: tauri::AppHandle,
+    catalog_id: Option<String>,
+) -> Result<(), String> {
+    let mut settings = read_settings(&app)?;
+    settings.selected_statuses_catalog_id = match catalog_id {
         None => None,
         Some(id) => Some(sanitize_catalog_id(&id)?),
     };
@@ -2082,12 +2188,18 @@ pub fn run() {
             acknowledge_schedule_file_contents,
             save_schedule_file,
             save_html_file,
+            save_statuses_json,
             save_excel_export,
             get_members_settings,
             read_member_catalog,
             import_member_catalog,
             delete_member_catalog,
             set_selected_member_catalog,
+            get_statuses_settings,
+            read_status_catalog,
+            import_status_catalog,
+            delete_status_catalog,
+            set_selected_status_catalog,
             get_calendar_state,
             read_app_calendar,
             import_app_calendar,

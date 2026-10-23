@@ -1,3 +1,4 @@
+import { BUILTIN_STATUS_ITEMS, defaultStatusId, type StatusItem } from "../model/statusCatalog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToday } from "./useToday";
 import {
@@ -201,6 +202,8 @@ export function useSchedule(
   blockDocumentEditsRef?: { current: boolean },
   onHistoryUndoApplied?: (landed: DocumentSnapshot) => void,
   onHistoryRedoApplied?: (landed: DocumentSnapshot) => void,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  statusCatalogSettled = true,
 ) {
   const documentRef = useRef<DocumentSnapshot>(
     initialSnapshot(
@@ -446,8 +449,9 @@ export function useSchedule(
         memberMap,
         rowHeight,
         lineageIds,
+        statuses,
       ),
-    [categories, collapsed, filters, lineageIds, memberMap, rowHeight, today],
+    [categories, collapsed, filters, lineageIds, memberMap, rowHeight, statuses, today],
   );
 
   const displayCategories = useMemo(() => {
@@ -493,6 +497,7 @@ export function useSchedule(
         memberMap,
         rowHeight,
         lineageIds,
+        statuses,
       ),
     [
       collapsed,
@@ -501,6 +506,7 @@ export function useSchedule(
       lineageIds,
       memberMap,
       rowHeight,
+      statuses,
       today,
     ],
   );
@@ -644,6 +650,18 @@ export function useSchedule(
       groupRows,
     );
   }, [displayCategories, reorderPreview, rowHeight, visibleRows]);
+
+  useEffect(() => {
+    if (!statusCatalogSettled) return;
+    if (
+      filters.status === "all" ||
+      filters.status === "not-done" ||
+      statuses.some((item) => item.id === filters.status)
+    ) {
+      return;
+    }
+    setFilters((prev) => ({ ...prev, status: "all" }));
+  }, [filters.status, statusCatalogSettled, statuses]);
 
   useEffect(() => {
     if (!memberCatalogSettled) return;
@@ -1255,7 +1273,7 @@ export function useSchedule(
         start: input.start,
         end: input.end,
         assigneeId: null,
-        status: "not-started",
+        status: defaultStatusId(statuses),
         progress: 0,
         confidence: "tentative",
         predecessors: [],
@@ -1272,14 +1290,14 @@ export function useSchedule(
         return next;
       });
       setFilters((prev) =>
-        relaxFiltersForNewTask(prev, task, today, memberMap),
+        relaxFiltersForNewTask(prev, task, today, memberMap, undefined, statuses),
       );
       setLineageTaskId(null);
       setTaskSelection(singleTaskSelection(id));
       setDuplicatingTaskId(null);
       return id;
     },
-    [commitCategories, memberMap, today],
+    [commitCategories, memberMap, statuses, today],
   );
 
   const duplicateTask = useCallback(
@@ -1331,6 +1349,7 @@ export function useSchedule(
             today,
             memberMap,
             brokenLinkTaskIds(result.categories),
+            statuses,
           ),
         );
       }
@@ -1339,7 +1358,7 @@ export function useSchedule(
       setDuplicatingTaskId(null);
       return { ok: true, id };
     },
-    [commitCategories, duplicatingTaskId, memberMap, title, today],
+    [commitCategories, duplicatingTaskId, memberMap, statuses, title, today],
   );
 
   const addPredecessorLink = useCallback(

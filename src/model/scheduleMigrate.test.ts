@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { migrateScheduleV7ToV8 } from "./scheduleMigrate";
 import { parseScheduleText } from "./scheduleFile";
 import { validateSchedule } from "./validateSchedule";
 import { HIERARCHY_ID_NAMESPACE, uuidV5 } from "./uuidV5";
@@ -116,16 +117,16 @@ describe("validateSchedule v4", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("reads a v3 task without confidence as committed and canonicalizes to v7", () => {
+  it("reads a v3 task without confidence as committed and canonicalizes to v8", () => {
     const raw = JSON.stringify(document(3, [task()]));
     const parsed = parseScheduleText(raw);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(parsed.document.schemaVersion).toBe(7);
+    expect(parsed.document.schemaVersion).toBe(8);
     expect(parsed.document.categories[0]?.groups[0]?.tasks[0]?.confidence).toBe(
       "committed",
     );
-    expect(parsed.canonicalJson).toContain('"schemaVersion": 7');
+    expect(parsed.canonicalJson).toContain('"schemaVersion": 8');
     expect(parsed.canonicalJson).toContain('"confidence": "committed"');
     const again = parseScheduleText(parsed.canonicalJson);
     expect(again.ok).toBe(true);
@@ -356,7 +357,7 @@ describe("migrateScheduleV5ToV6", () => {
     );
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(parsed.document.schemaVersion).toBe(7);
+    expect(parsed.document.schemaVersion).toBe(8);
     expect(parsed.document.milestoneGroups).toEqual([]);
     const again = parseScheduleText(parsed.canonicalJson);
     expect(again.ok).toBe(true);
@@ -418,7 +419,7 @@ describe("migrateScheduleV5ToV6", () => {
 
   it("rejects a duplicated milestone group name", () => {
     const result = validateSchedule({
-      schemaVersion: 7,
+      schemaVersion: 8,
       title: "t",
       milestoneGroups: [
         { id: "e1000001-0000-4000-8000-000000000001", name: "同じ" },
@@ -434,5 +435,20 @@ describe("migrateScheduleV5ToV6", () => {
         (issue) => issue.message === "マイルストングループ名が重複しています",
       ),
     ).toBe(true);
+  });
+});
+
+describe("migrateScheduleV7ToV8", () => {
+  it("raises the version and leaves status values as they are", () => {
+    const result = migrateScheduleV7ToV8({
+      schemaVersion: 7,
+      categories: [{ groups: [{ tasks: [{ status: "in-progress" }] }] }],
+    }) as { schemaVersion: number; categories: unknown };
+    expect(result.schemaVersion).toBe(8);
+    expect(JSON.stringify(result.categories)).toContain('"in-progress"');
+  });
+
+  it("leaves other versions alone", () => {
+    expect(migrateScheduleV7ToV8({ schemaVersion: 8 })).toEqual({ schemaVersion: 8 });
   });
 });

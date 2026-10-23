@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 8,
+  "title": "ステータスの確認用",
+  "milestoneGroups": [],
+  "milestones": [],
+  "categories": [
+    {
+      "id": "e3000001-0000-4000-8000-000000000001",
+      "name": "確認",
+      "groups": [
+        {
+          "id": "e4000001-0000-4000-8000-000000000001",
+          "name": "ステータス",
+          "tasks": [
+            {
+              "id": "e5000001-0000-4000-8000-000000000001",
+              "name": "進行中・超過（枠だけ赤）",
+              "start": "2026-10-01",
+              "end": "2026-10-09",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 40,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "e5000001-0000-4000-8000-000000000002",
+              "name": "確認待ち・未来開始",
+              "start": "2026-11-02",
+              "end": "2026-11-13",
+              "assigneeId": null,
+              "status": "review",
+              "progress": 60,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "e5000001-0000-4000-8000-000000000003",
+              "name": "完了・過去（超過にしない）",
+              "start": "2026-10-01",
+              "end": "2026-10-08",
+              "assigneeId": null,
+              "status": "done",
+              "progress": 100,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "e5000001-0000-4000-8000-000000000004",
+              "name": "中止・過去（帯なし）",
+              "start": "2026-10-02",
+              "end": "2026-10-12",
+              "assigneeId": null,
+              "status": "dropped",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "e5000001-0000-4000-8000-000000000005",
+              "name": "一覧に無い id（灰・超過）",
+              "start": "2026-10-03",
+              "end": "2026-10-10",
+              "assigneeId": null,
+              "status": "shelved",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "e5000001-0000-4000-8000-000000000006",
+              "name": "未着手・未来（帯なし）",
+              "start": "2026-11-16",
+              "end": "2026-11-27",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

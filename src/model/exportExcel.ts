@@ -8,7 +8,8 @@ import {
 } from "./exportHtml";
 import { scheduleXlsxFilename } from "./exportFilename";
 import { isOverdue, taskBarExclusiveEnd } from "./timeline";
-import type { Milestone, MilestoneGroup, ScheduleId, Task, TaskStatus } from "./types";
+import { BUILTIN_STATUS_ITEMS, statusLabel, type StatusItem } from "./statusCatalog";
+import type { Milestone, MilestoneGroup, ScheduleId, Task } from "./types";
 import type { GridTier } from "./timeline";
 import { paletteFor } from "./palette";
 import { normalizeTaskNote } from "./taskNote";
@@ -61,12 +62,6 @@ export type { ExcelTimeColumn } from "./excelTimeColumns";
 export const EXCEL_MAX_DATE_COLUMNS = 2_000;
 export const EXCEL_MAX_SHAPES = 5_000;
 export const EXCEL_MAX_BYTES = 10 * 1024 * 1024;
-
-const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
-  "not-started": "未着手",
-  "in-progress": "進行中",
-  done: "完了",
-};
 
 export type ExcelExportShape = {
   row: number;
@@ -178,6 +173,7 @@ function taskCellsForColumns(
   excelColumns: ExcelExportColumnsPreference,
   taskNames: ReadonlyMap<ScheduleId, string>,
   memberCatalog: ScheduleExportInput["memberCatalog"],
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): string[] {
   const assignee = assigneeSidebarLabel(
     resolveAssigneeDisplay(task.assigneeId, memberCatalog),
@@ -196,7 +192,7 @@ function taskCellsForColumns(
         cells.push(fmtMonthDay(task.end));
         break;
       case "status":
-        cells.push(TASK_STATUS_LABEL[task.status]);
+        cells.push(statusLabel(statuses, task.status));
         break;
       case "predecessors":
         cells.push(formatPredecessors(task, taskNames));
@@ -385,7 +381,7 @@ export function buildExcelExportPayload(
     const task = visible.task;
     taskRowById.set(task.id, bodyRow);
     taskById.set(task.id, task);
-    const overdue = isOverdue(task, input.today);
+    const overdue = isOverdue(task, input.today, input.statuses);
     rows.push({
       kind: "task",
       cells: [
@@ -395,6 +391,7 @@ export function buildExcelExportPayload(
           input.excelColumns,
           input.taskNames,
           input.memberCatalog,
+          input.statuses,
         ),
       ],
       nameOverdue: overdue,
@@ -410,7 +407,7 @@ export function buildExcelExportPayload(
         isoDate(taskBarExclusiveEnd(task)),
         columns,
         input.tier,
-        excelTaskBarFillStyle(task, input.today, input.colorScheme),
+        excelTaskBarFillStyle(task, input.today, input.colorScheme, input.statuses),
         leftColCount,
         dateColumnWidthPx,
         bodyRowHeightPx,

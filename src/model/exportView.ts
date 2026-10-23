@@ -1,3 +1,4 @@
+import { BUILTIN_STATUS_ITEMS, type StatusItem } from "./statusCatalog";
 import { addDays, daysBetween, parseDate } from "./dates";
 import { activeFilterChips } from "./filterChips";
 import {
@@ -98,6 +99,7 @@ export function describeActiveFilters(
   milestoneGroups: MilestoneGroup[] = [],
   hiddenMilestoneGroupIds: readonly ScheduleId[] = [],
   scheduleTags: readonly string[] = [],
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): string {
   return activeFilterChips(
     filters,
@@ -107,6 +109,7 @@ export function describeActiveFilters(
     milestoneGroups,
     hiddenMilestoneGroupIds,
     scheduleTags,
+    statuses,
   )
     .filter((chip) => chip.kind !== "lineage")
     .map((chip) => chip.label)

@@ -1,6 +1,13 @@
 import { addDays, clamp, daysBetween, parseDate, todayIso } from "./dates";
 import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "./palette";
 import { forEachTask } from "./tasks";
+import {
+  BUILTIN_STATUS_ITEMS,
+  isClosedStatus,
+  labelColorOn,
+  statusColorFor,
+  type StatusItem,
+} from "./statusCatalog";
 import type { Category, Milestone } from "./types";
 
 export {
@@ -125,64 +132,70 @@ export function resolveTimelineOrigin(input: {
   return { pinnedStart: input.dataStart, scrollX: desired };
 }
 
-export function statusColors(
-  status: string,
-  chart: ChartPalette = paletteFor("light").chart,
-): {
+export type StatusBarColors = {
   bg: string;
   fill: string | null;
   border: string;
-} {
-  if (status === "done") return chart.statusDone;
-  if (status === "in-progress") return chart.statusInProgress;
-  return chart.statusNotStarted;
+};
+
+/**
+ * 一覧の色から引く。進捗の帯は枠と同じ色で、どのステータスでも出す。
+ * 超過でも地と帯は置き換えず、枠だけを超過の色にする。
+ */
+export function statusColors(
+  status: string,
+  chart: ChartPalette = paletteFor("light").chart,
+  scheme: ResolvedColorScheme = "light",
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+): StatusBarColors {
+  void chart;
+  const color = statusColorFor(statuses, status, scheme);
+  return { bg: color.bg, fill: color.border, border: color.border };
 }
 
 /**
- * 本日線を折る日付。進捗率は見ない。
- * 期限超過は終了日（本日より左）。着手済みで開始日が今日より後なら、その開始日（右）まで伸ばす。
+ * 本日線を折る日付。進捗率とステータスは見ない。
+ * 期限超過は終了日（本日より左）。それ以外は今日の位置。
  */
 export function lightningDate(
   task: { status: string; start: string; end: string },
   today: string,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): string {
-  if (isOverdue(task, today)) return task.end;
-  if (task.status !== "not-started" && task.start > today) return task.start;
+  if (isOverdue(task, today, statuses)) return task.end;
   return today;
 }
 
-/** 完了以外で、終了日が今日より前のタスク。終了日が今日のタスクは期限当日なので超過にしない。 */
+/** 完了として扱う項目以外で、終了日が今日より前のタスク。終了日が今日のタスクは期限当日なので超過にしない。 */
 export function isOverdue(
   task: { status: string; end: string },
   today: string,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): boolean {
-  return task.status !== "done" && task.end < today;
+  return !isClosedStatus(statuses, task.status) && task.end < today;
 }
 
 export function barColors(
   task: { status: string; end: string },
   today: string,
   scheme: ResolvedColorScheme = "light",
-): {
-  bg: string;
-  fill: string | null;
-  border: string;
-} {
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+): StatusBarColors {
   const chart = paletteFor(scheme).chart;
-  if (!isOverdue(task, today)) return statusColors(task.status, chart);
-  if (task.status === "in-progress") return chart.overdueInProgress;
-  return chart.overdueOther;
+  const colors = statusColors(task.status, chart, scheme, statuses);
+  if (!isOverdue(task, today, statuses)) return colors;
+  return { ...colors, border: chart.overdueOther.border };
 }
 
-/** バー内ラベルの文字色。 */
+/** バー内ラベルの文字色。地の色に合わせて白か暗色を選ぶ。 */
 export function barLabelFill(
   task: { status: string; end: string },
   today: string,
   scheme: ResolvedColorScheme = "light",
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): string {
+  void today;
   const chart = paletteFor(scheme).chart;
-  if (task.status === "done") return chart.barLabelOnFill;
-  if (isOverdue(task, today)) return chart.barLabelOnFill;
-  if (task.status === "in-progress") return chart.barLabelMuted;
-  return chart.barLabelMuted;
+  const bg = statusColorFor(statuses, task.status, scheme).bg;
+  return labelColorOn(bg, chart.barLabelOnFill, chart.barLabelMuted);
 }

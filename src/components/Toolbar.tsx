@@ -1,3 +1,4 @@
+import type { StatusItem } from "../model/statusCatalog";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import type {
@@ -46,6 +47,7 @@ type ToolbarProps = {
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
   assigneeFilterOptions: AssigneeFilterOption[];
   scheduleTags: string[];
+  statuses: readonly StatusItem[];
   tier: GridTier;
   lineageName: string | null;
   canStartLineage: boolean;
@@ -102,6 +104,7 @@ export function Toolbar({
   onMilestoneGroupVisible,
   assigneeFilterOptions,
   scheduleTags,
+  statuses,
   tier,
   lineageName,
   canStartLineage,
@@ -295,6 +298,7 @@ export function Toolbar({
           onMilestoneGroupVisible={onMilestoneGroupVisible}
           assigneeFilterOptions={assigneeFilterOptions}
           scheduleTags={scheduleTags}
+          statuses={statuses}
           onFiltersChange={onFiltersChange}
         />
       </div>

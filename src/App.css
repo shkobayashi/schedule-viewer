@@ -609,6 +609,57 @@ body {
   color: var(--text-secondary);
 }
 
+.settings-status-editor {
+  margin-top: 16px;
+}
+
+.settings-status-editor h4 {
+  margin: 0 0 6px;
+}
+
+.settings-status-items {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.settings-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+}
+
+.settings-status-row label,
+.settings-status-description {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: calc(12px * var(--s));
+}
+
+.settings-status-row label.settings-status-closed {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+.settings-status-description textarea {
+  resize: vertical;
+}
+
 .settings-message {
   color: var(--warning-text);
   font-size: calc(12px * var(--s));

@@ -1,3 +1,5 @@
+import { StatusOptions } from "./StatusOptions";
+import type { StatusItem } from "../model/statusCatalog";
 import {
   useEffect,
   useId,
@@ -622,6 +624,7 @@ type FilterPanelProps = {
   hiddenMilestoneGroupIds: ScheduleId[];
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
   assigneeFilterOptions: AssigneeFilterOption[];
+  statuses: readonly StatusItem[];
   scheduleTags: string[];
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
 };
@@ -636,6 +639,7 @@ export function FilterPanel({
   hiddenMilestoneGroupIds,
   onMilestoneGroupVisible,
   assigneeFilterOptions,
+  statuses,
   scheduleTags,
   onFiltersChange,
 }: FilterPanelProps) {
@@ -727,9 +731,7 @@ export function FilterPanel({
           >
             <option value="all">すべて</option>
             <option value="not-done">完了以外</option>
-            <option value="not-started">未着手</option>
-            <option value="in-progress">進行中</option>
-            <option value="done">完了</option>
+            <StatusOptions statuses={statuses} current={filters.status === "all" || filters.status === "not-done" ? undefined : filters.status} />
           </select>
         </label>
         <label className="filter-panel-field">

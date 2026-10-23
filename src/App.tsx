@@ -64,6 +64,7 @@ import { useMacOSAppMenu } from "./hooks/useMacOSAppMenu";
 import { useRecentFiles } from "./hooks/useRecentFiles";
 import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
+import { useStatusCatalog } from "./hooks/useStatusCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useSchedule } from "./hooks/useSchedule";
 import { useAppUpdateFlow } from "./hooks/useAppAutoUpdate";
@@ -499,14 +500,17 @@ function App() {
   );
 
   const memberCatalogState = useMemberCatalog();
+  const statusCatalogState = useStatusCatalog();
   const appCalendarState = useAppCalendar();
 
   const refreshMemberCatalog = memberCatalogState.refresh;
+  const refreshStatusCatalog = statusCatalogState.refresh;
   const refreshAppCalendar = appCalendarState.refresh;
   const refreshSharedSettings = useCallback((key: string | null) => {
     const all = key == null;
     if (all || key === SETTINGS_REVISION_KEY) {
       void refreshMemberCatalog();
+      void refreshStatusCatalog();
       void refreshAppCalendar();
     }
     if (all || key === DISPLAY_SCALE_LS_KEY || key === SETTINGS_REVISION_KEY) {
@@ -534,7 +538,7 @@ function App() {
     if (all || key === AUTO_UPDATE_LS_KEY) {
       setAutoUpdateEnabled(readAutoUpdateEnabled());
     }
-  }, [refreshAppCalendar, refreshMemberCatalog]);
+  }, [refreshAppCalendar, refreshMemberCatalog, refreshStatusCatalog]);
 
   useSharedSettingsRevision(refreshSharedSettings);
 
@@ -572,6 +576,8 @@ function App() {
     blockDocumentEditsRef,
     (landed) => externalReloadHistoryUndoRef.current(landed),
     (landed) => externalReloadHistoryRedoRef.current(landed),
+    statusCatalogState.statuses,
+    !statusCatalogState.loading,
   );
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
   const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
@@ -1333,6 +1339,7 @@ function App() {
         milestoneFontSize,
         labelScale: uiScale,
         today: schedule.today,
+        statuses: statusCatalogState.statuses,
         memberCatalog: memberCatalogState.memberMap,
         calendar: appCalendarState.calendar,
         filterSummary: describeActiveFilters(
@@ -1342,6 +1349,7 @@ function App() {
           schedule.milestoneGroups,
           schedule.hiddenMilestoneGroupIds,
           schedule.scheduleTags,
+          statusCatalogState.statuses,
         ),
         colorScheme: resolvedColorScheme,
         showLightningLine,
@@ -1374,6 +1382,7 @@ function App() {
     },
     [
       appCalendarState.calendar,
+      statusCatalogState.statuses,
       headerHeight,
       links,
       memberCatalogState.memberMap,
@@ -1416,6 +1425,7 @@ function App() {
   }, [getCanonicalJson, scheduleFile.filePath]);
 
   useMcpScreenBridge({
+    statuses: statusCatalogState.statuses,
     categories: schedule.categories,
     milestones: schedule.milestones,
     milestoneGroups: schedule.milestoneGroups,
@@ -2507,6 +2517,7 @@ function App() {
       <Toolbar
         title={schedule.title}
         titleDiffMarked={diffNavigationMark.title}
+        statuses={statusCatalogState.statuses}
         filters={schedule.filters}
         searchField={schedule.searchField}
         onSearchFieldChange={schedule.setSearchField}
@@ -2595,6 +2606,7 @@ function App() {
         taskSearchRef={taskSearchRef}
       />
       <ActiveFilterBar
+        statuses={statusCatalogState.statuses}
         filters={schedule.filters}
         milestones={schedule.milestones}
         milestoneGroups={schedule.milestoneGroups}
@@ -2609,6 +2621,7 @@ function App() {
       />
       <div ref={mainRef} className="main">
         <Sidebar
+          statuses={statusCatalogState.statuses}
           categories={schedule.categories}
           rows={schedule.visibleRows}
           reorderBaseRows={schedule.baseVisibleRows}
@@ -2687,6 +2700,7 @@ function App() {
             </div>
           ) : null}
           <Timeline
+            statuses={statusCatalogState.statuses}
             visibleRows={schedule.visibleRows}
             width={Math.max(200, timelineWidth)}
             rowHeight={rowHeight}
@@ -2744,6 +2758,7 @@ function App() {
         </div>
         {selectedDetailTask ? (
           <TaskDetailPanel
+            statuses={statusCatalogState.statuses}
             key={`${selectedDetailTask.id}:${schedule.diskEpoch}`}
             panelRef={detailPanelRef}
             task={selectedDetailTask}
@@ -2762,6 +2777,7 @@ function App() {
           />
         ) : bulkDetailTasks.length > 1 ? (
           <BulkTaskDetailPanel
+            statuses={statusCatalogState.statuses}
             key={`bulk:${schedule.selectedTaskIds.join(",")}:${schedule.diskEpoch}`}
             tasks={bulkDetailTasks}
             selectedIds={schedule.selectedTaskIds}
@@ -2880,6 +2896,7 @@ function App() {
       ) : null}
       {schedule.duplicatingTask ? (
         <TaskEditDialog
+          statuses={statusCatalogState.statuses}
           key={`duplicate-${schedule.duplicatingTask.id}:${schedule.diskEpoch}`}
           mode="duplicate"
           task={schedule.duplicatingTask}
@@ -3039,6 +3056,14 @@ function App() {
       {settingsOpen ? (
         <SettingsDialog
           open={settingsOpen}
+          statusCatalog={{
+            settings: statusCatalogState.settings,
+            selectedCatalogLabel: statusCatalogState.selectedCatalogLabel,
+            statuses: statusCatalogState.statuses,
+            onImport: statusCatalogState.importCatalog,
+            onSelectCatalog: statusCatalogState.selectCatalog,
+            onDeleteCatalog: statusCatalogState.removeCatalog,
+          }}
           settings={memberCatalogState.settings}
           selectedCatalogLabel={memberCatalogState.selectedCatalogLabel}
           displayScalePreference={displayScalePreference}

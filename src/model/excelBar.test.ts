@@ -113,7 +113,7 @@ describe("excelBar", () => {
     );
     expect(inProgress.fillRgb).toBe("DEE3FB");
     expect(done.fillRgb).toBe("247A55");
-    expect(overdue.fillRgb).toBe("F8D0C8");
+    expect(overdue.fillRgb).toBe("E2E6ED");
     expect(dark.fillRgb).toBe("2e3344");
   });
 

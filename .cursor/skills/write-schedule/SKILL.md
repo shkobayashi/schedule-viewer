@@ -29,6 +29,9 @@ description: >-
 
 - 各タスク: `name`, `start`, `end`, `assigneeId`（未割当は `null`）, `status`, `progress`, `confidence`（日付を合意したなら `committed`、まだなら `tentative`）, `predecessors`, `milestoneId`（なしは `null`）。任意で `tags`（説明用タグの配列。ユーザーから渡されたときだけ書く）, `note`（補足説明。ユーザーから渡されたときだけ書く）
 - タスクとマイルストンの `confidence` が入力から分からなければ、JSON を書かず不足として返す。未確定を既定にしない
+- `status` には、ユーザーから渡された **ステータス一覧** の `id` だけを使う。一覧は、アプリの MCP の読み取りツール（`selected_task`、`selected_tasks`、`filtered_tasks`）の応答の先頭にある `statuses`（`id`、`name`、`closed`、`description`）で渡される。`description` を読んで、タスクの状態に合う項目を選ぶ。`closed` が `true` の項目は完了として扱われる
+- 一覧が渡されていないときだけ、下の組み込みの三件（`not-started` 未着手、`in-progress` 着手済みで未完、`done` 終わった）から選ぶ
+- 合う項目が一覧に無いときは、`id` を作らず、JSON を書かずに不足として返す。項目の追加は、ユーザーが頼んだときだけ提案する（設定の「ステータス」で足す）
 - 担当を付けるタスクには、ユーザーから渡された **メンバー id 一覧** に含まれる id だけを使う。一覧に無い人がいる場合は JSON を書かず、不足として返す
 
 日付・担当・期間を推測で埋めない。メンバー JSON ファイル自体はこの Skill では生成しない（`write-members` で作り、アプリ側で取り込む）。
@@ -37,7 +40,7 @@ description: >-
 
 ```json
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "title": "プロジェクト名",
   "milestoneGroups": [{ "id": "<uuid>", "name": "マイルストン" }],
   "milestones": [{ "id": "<uuid>", "name": "...", "date": "YYYY-MM-DD", "confidence": "committed", "groupId": "<milestone-group-uuid>" }],
@@ -64,7 +67,7 @@ description: >-
 }
 ```
 
-- `status`: `not-started` | `in-progress` | `done`
+- `status`: ステータス一覧の `id`（上の規則）。一覧が無いときは `not-started` | `in-progress` | `done`
 - `progress`: 0〜100 の整数
 - `confidence`: タスクとマイルストンの `tentative`（未確定）| `committed`（確定）。着手や進捗とは独立。日付を合意したかどうかが分からなければ書かない
 - `predecessors`: 先行タスクの `id` の配列（後続は各タスクの `predecessors` から導かれる）
@@ -86,7 +89,7 @@ description: >-
 
 1. 入力をカテゴリ・グループ・タスクの木に整理する（WBS のまま写す）
 2. 新規のカテゴリ、グループ、タスク、マイルストン、マイルストングループには `crypto.randomUUID()` 相当の UUID v4 を付与する。既存 JSON を更新する場合は既存 `id` を維持する
-3. `schemaVersion: 7` を付ける
+3. `schemaVersion: 8` を付ける
 4. **新規ファイル**、**未起動・明示のファイル書き** のときだけ、JSON ファイルを書き、このスキルフォルダで `node scripts/validate-schedule.mjs <file>` を実行して検証する。**起動中の更新** のときはファイルを書かず、検証用に一時ファイルを使っても、開いているファイルは上書きしない
 5. エラーがあれば修正して再検証し、通ってからユーザーに渡す（起動中の更新では、検証済み JSON を `replace_schedule` に渡す）
 

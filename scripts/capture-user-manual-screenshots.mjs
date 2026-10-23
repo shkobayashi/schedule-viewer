@@ -223,6 +223,7 @@ async function captureDesktopChromeShots(page) {
   for (const name of [
     "表示",
     "メンバー",
+    "ステータス",
     "稼働日",
     "更新",
     "画面の状態を渡す",
@@ -339,6 +340,12 @@ async function captureDesktopChromeShots(page) {
   await page.waitForTimeout(400);
   await page.screenshot({
     path: path.join(outDir, "ui-settings-members.png"),
+    fullPage: false,
+  });
+  await clickSettingsNav(page, "ステータス");
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: path.join(outDir, "ui-settings-statuses.png"),
     fullPage: false,
   });
   await clickSettingsNav(page, "稼働日");

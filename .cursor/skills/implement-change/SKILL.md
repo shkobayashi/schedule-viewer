@@ -20,8 +20,9 @@ description: >-
 1. [AGENTS.md](../../../AGENTS.md) の表で、この変更に合う文書を読み、場所を絞ってからソースを開く
 2. 機能 ID がある変更は、[docs/external-spec.md](../../../docs/external-spec.md) のその節に合わせる
 3. 画面の組み立て、状態、モデル、Tauri、描画のどれを触るかを決める。依存はコンポーネントからフック、フックからモデルである。モデルはコンポーネントを参照しない。Rust は JSON の意味を解釈しない
-4. 計画がスキルの節番号を列挙していても、計画本文の出し入れ、主語の掛かり、手動テストの各条件は照合する。照合結果は実装の結果に残す
-5. `next` があるとき、変更を載せる統合ブランチは [docs/development.md](../../../docs/development.md#1x-を出しながら次のメジャーを進める) の「1.x を出しながら次のメジャーを進める」で決める。1.x のまま出せる変更は `develop`、公開する契約を壊す変更は `next` である。計画がブランチを書いていても、この節と照合し、結果は実装の結果に残す
+4. 計画が後の子を「やらないこと」に書いているときは、その子の内容（設定の編集、MCP など）を同じ変更に入れない。先の子の作業ツリーに入れてしまったら、入れた時点で結果に書く
+5. 計画がスキルの節番号を列挙していても、計画本文の出し入れ、主語の掛かり、手動テストの各条件は照合する。照合結果は実装の結果に残す
+6. `next` があるとき、変更を載せる統合ブランチは [docs/development.md](../../../docs/development.md#1x-を出しながら次のメジャーを進める) の「1.x を出しながら次のメジャーを進める」で決める。1.x のまま出せる変更は `develop`、公開する契約を壊す変更は `next` である。計画がブランチを書いていても、この節と照合し、結果は実装の結果に残す
 
 ## 画面と操作
 
@@ -57,7 +58,7 @@ description: >-
 28. ダイアログの一部だけをスクロールして、外の操作やチェックを画面内に残すときは、`max-height` をビューポートからの引き算だけで決めない。表示倍率が大きいと式が 0 以下になり、ダイアログ全体が伸びる。ダイアログを縦の flex にし、見出しの下を `flex: 1` と `min-height: 0` で縮め、スクロールする要素だけ `overflow: auto` にする。段階的に出す項目は、まだ見えないものを `inert` にし、ダイアログのフォーカストラップの対象から `inert` の内側を外す。出現の待ちは JavaScript と CSS の二重に掛けない
 29. ショートカットを抑止するときも、検索欄、入力欄、選択欄、編集できる領域では操作しない。それ以外では `preventDefault` する。ダイアログが開いているあいだと線を引くモードのあいだは、開く処理と並べ替えを実行しない
 30. [docs/internal-spec.md](../../../docs/internal-spec.md) のキーボードの節へ文を挿入するときは、うしろの「このキー」が前の操作のまま残るように、文を分ける
-31. 操作マニュアルの 19 図（`docs/user-manual/images/` の `ui-overview.png`、`ui-menu.png`、`ui-filter.png`、`ui-colors.png`、`ui-task-detail.png`、`ui-settings.png`、`ui-peer-notice.png`、`ui-update-offer.png`、`ui-diff.png`、`ui-export.png`、`ui-context-menu.png`、`ui-task-duplicate.png`、`ui-task-note.png`、`ui-task-add.png`、`ui-settings-members.png`、`ui-settings-calendar.png`、`ui-settings-updates.png`、`ui-settings-mcp.png`、`ui-settings-skills.png`）のどれかに写る見た目が変わるときは、同じ変更で `npm run capture:manual-screenshots` を実行し、出た PNG を含める。図の説明文が画面とずれたときは、[docs/user-manual/getting-started.md](../../../docs/user-manual/getting-started.md)（`ui-overview.png`）または [docs/user-manual/features.md](../../../docs/user-manual/features.md)（そのほか 18 図）のその文も直す。撮り直した図の説明が、図に無い部品を言っていないか見る。マニュアルの文章だけを直す変更や、18 図に写らない操作だけの変更では撮影しない。撮影スクリプトのボタン名や待いの要素が画面と合わなくなったときは、スクリプトを直してから撮影する。図を増やす、図をやめる、節への配置を変えることは、計画がそれを指定したときだけ行う。ポート 5173 か 5174 が使用中で Vite が起動できないときは、その開発サーバを止めてから実行する。撮影できなかったときは、理由を結果に書く。続けて複数の図を撮るときは、前の図のために出した要素を消してから次を撮る。撮影スクリプトが複数の図をまとめて書き出すときは、この変更で写る見た目が変わった図だけをコミットに残し、それ以外の PNG は元に戻す
+31. 操作マニュアルの 20 図（`docs/user-manual/images/` の `ui-overview.png`、`ui-menu.png`、`ui-filter.png`、`ui-colors.png`、`ui-task-detail.png`、`ui-settings.png`、`ui-peer-notice.png`、`ui-update-offer.png`、`ui-diff.png`、`ui-export.png`、`ui-context-menu.png`、`ui-task-duplicate.png`、`ui-task-note.png`、`ui-task-add.png`、`ui-settings-members.png`、`ui-settings-statuses.png`、`ui-settings-calendar.png`、`ui-settings-updates.png`、`ui-settings-mcp.png`、`ui-settings-skills.png`）のどれかに写る見た目が変わるときは、同じ変更で `npm run capture:manual-screenshots` を実行し、出た PNG を含める。図の説明文が画面とずれたときは、[docs/user-manual/getting-started.md](../../../docs/user-manual/getting-started.md)（`ui-overview.png`）または [docs/user-manual/features.md](../../../docs/user-manual/features.md)（そのほか 19 図）のその文も直す。撮り直した図の説明が、図に無い部品を言っていないか見る。マニュアルの文章だけを直す変更や、20 図に写らない操作だけの変更では撮影しない。撮影スクリプトのボタン名や待いの要素が画面と合わなくなったときは、スクリプトを直してから撮影する。図を増やす、図をやめる、節への配置を変えることは、計画がそれを指定したときだけ行う。ポート 5173 か 5174 が使用中で Vite が起動できないときは、その開発サーバを止めてから実行する。撮影できなかったときは、理由を結果に書く。続けて複数の図を撮るときは、前の図のために出した要素を消してから次を撮る。撮影スクリプトが複数の図をまとめて書き出すときは、この変更で写る見た目が変わった図だけをコミットに残し、それ以外の PNG は元に戻す
 32. 出ていないあいだも高さを残すときは、その部品の外寸を `min-height` にし、別の行の高さを流用しない。padding が `--s` に掛からない部品は、表示倍率の下限でも隣の欄がずれないことをブラウザ版で見る
 33. 別のしきい値を超えてから既存のパンを始めるときは、パン自身の 3px を重ねない。確定した位置は、押した位置を原点に今のパンの差分へ一度入れ、閉じた手もその時点で出す。確定と同じ操作で離したとき、パンの `window` 監視が付く前でもパンを終える。`pointercancel` でも終える
 34. しきい値未満のクリックを `pointerup` で発火するときは、既存の `click` が `detail` で捨てる 2 回目も捨てる。`pointercancel` では線を足さない
@@ -113,6 +114,7 @@ description: >-
 27. 計画がツールの引数を触らないと書いたときは、別ツール用の引数整形（例: 読み取りの `window` を外す）をそのツールへ掛けない
 28. 計画が同じ規則を MCP のツール説明とスキルの両方に書くと書いたときは、両方に置く。MCP だけに書いてスキルに無いと、MCP 利用時に規則が欠ける
 29. Windows API を `windows-sys` で呼ぶときは、`Cargo.toml` に書いた版のクレートで、その関数があるモジュールと feature を見てから使う。別の版にあるモジュール名だけで feature を足さない。`#[cfg(windows)]` の中は macOS の Clippy ではコンパイルされない。unsafe な関数は unsafe ブロックで呼び、Windows の `cargo clippy -- -D warnings` が通る形にする
+30. Tauri コマンドを足したら、`src-tauri/permissions/*.toml` に許可を足し、`src-tauri/capabilities/default.json` の一覧へ入れる。`cargo check` は通っても、足さないと画面からの呼び出しが実行時に拒否される。MCP のツール説明が書くスキーマ版（`mcp_stdio.rs`）も、スキーマ版を上げたときに揃える
 
 ## 文書
 

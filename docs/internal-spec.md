@@ -81,12 +81,13 @@ flowchart TD
 | `useTimelineView` | 1日あたりの幅、スクロール、ホイール。キーの `scrollBy` は `useAppKeyboard` から呼ぶ |
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
+| `useStatusCatalog` | ステータス一覧の読み込みと選択。無いときは組み込みの三件 |
 | `useAppCalendar` | カレンダーの読み込み |
 | `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 5 ツールを組み立てる（`window` は橋渡しで外れる）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・操作中）と引数を検証し、`useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
 
 ### モデル
 
-純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` と `sidebarWidth.ts` の localStorage だけである。
+純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`statusAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` と `sidebarWidth.ts` の localStorage だけである。
 
 | 関心 | ファイル |
 | --- | --- |
@@ -106,7 +107,7 @@ flowchart TD
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
-| アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
+| アプリデータ | `memberAppData.ts`、`statusAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportExcel.ts`、`exportView.ts`、`exportFilename.ts` |
 | 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts` |
 | キーボードショートカット | `shortcuts.ts` |
@@ -217,10 +218,11 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 5. schemaVersion 5 のマイルストンに確度が無いときは `committed` を足す。既にある `confidence` はそのまま残す
 6. schemaVersion 5 なら、マイルストンが1件以上あるときは名前「マイルストン」の `milestoneGroups` を1つ足し、全部のマイルストンに `groupId` を付けて schemaVersion 6 にする。その ID は名前から決まり、カテゴリ、グループ、タスク、マイルストンの ID とぶつかったときだけ別にする。マイルストンが0件なら `milestoneGroups` は空のままである
 7. schemaVersion 6 なら schemaVersion 7 にする。タグは付けない
-8. JSON Schema（schemaVersion 7）
-9. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）。ID はカテゴリ、グループ、タスク、マイルストン、マイルストングループを通して重複できない
+8. schemaVersion 7 なら schemaVersion 8 にする。`status` の値は変えない
+9. JSON Schema（schemaVersion 8）
+10. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）。ID はカテゴリ、グループ、タスク、マイルストン、マイルストングループを通して重複できない
 
-メンバーとカレンダーも、JSON Schema のあとに意味規則を見る。`validationMessages.ts` は、エラーの場所を示す JSON Pointer をカテゴリやタスクの名前に置き換えて、エラー文言を作る。
+メンバー、ステータス一覧、カレンダーも、JSON Schema のあとに意味規則を見る。ステータス一覧は `validateStatuses.ts` が見る。`validationMessages.ts` は、エラーの場所を示す JSON Pointer をカテゴリやタスクの名前に置き換えて、エラー文言を作る。
 
 `write-schedule`、`write-calendar`、`write-members` に同梱する検証スクリプトは、`scripts/build-validate-skill.mjs` が同じ検証を1ファイルにまとめて作る。このスクリプトは、スキーマもスキルのフォルダへコピーする。CI は、その結果がコミット済みと一致するかを見る。手順は [開発ガイド](development.md#スキーマを変えるとき) にある。
 
@@ -244,6 +246,12 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `import_member_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
 | `delete_member_catalog` | ID | — | 同上 | 同上 |
 | `set_selected_member_catalog` | ID または無し | — | 同上 | 同上 |
+| `get_statuses_settings` | 一覧の一覧と選択中 ID | — | `statuses-app-data.toml` | `statusAppData.ts` |
+| `read_status_catalog` | 一覧 ID。本文 | 2MB | 同上 | 同上 |
+| `import_status_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
+| `delete_status_catalog` | ID | — | 同上 | 同上 |
+| `set_selected_status_catalog` | ID または無し | — | 同上 | 同上 |
+| `save_statuses_json` | 本文、提案名。保存したパス | 2MB | 同上 | `statusAppData.ts` の `exportStatusesJson` |
 | `get_calendar_state` | 表示名 | — | `calendar-app-data.toml` | `calendarAppData.ts` |
 | `read_app_calendar` | 本文 | 2MB | 同上 | 同上 |
 | `import_app_calendar` | 表示名と本文 | 2MB | 同上 | 同上 |
@@ -373,8 +381,10 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 | ドラッグ中の日付 | `dragDates.ts` の `layoutDragDateChips` と `previewDatesForDrag` | 開始と終了を月/日で、棒と互いの地と他の棒を避けて置く。離したときに入る日に数字を合わせる |
 | ドラッグ中の線の色 | `dragDates.ts` の `previewLinkBroken` | 触っているタスクが端の線だけ、preview の日付で破綻を見る |
 | 親バー | `summary.ts` の `summarizeSpans` | 開始順に並べ、次が前の終了の翌日以前ならつなぐ。1日空くと分ける |
-| イナズマ線 | `timeline.ts` の `lightningDate` | 期限超過なら終了日。着手済みで開始が今日より後なら開始日。それ以外は今日 |
-| 期限超過 | `timeline.ts` の `isOverdue` | 完了以外で終了日が今日より前 |
+| イナズマ線 | `timeline.ts` の `lightningDate` | 期限超過なら終了日。それ以外は今日 |
+| 期限超過 | `timeline.ts` の `isOverdue` | 一覧で `closed` でない項目で、終了日が今日より前。一覧に無い `id` は `closed` でない |
+| ステータスの編集 | `statusEdit.ts` | 項目の追加、更新、並べ替え、削除（最後の1件は外さない）、一覧 ID の採番、保存前の検証。画面は `SettingsStatusesEditor.tsx` が下書きを持ち、保存は取り込みと同じ経路で上書きする |
+| ステータスの色 | `statusCatalog.ts` の `statusColorFor` と `timeline.ts` の `barColors` | 一覧の項目の色。無い `id` は中立色。期限超過は枠だけ赤。文字色は `labelColorOn` が地の明るさで決める |
 | マイルストン超過 | `milestones.ts` の `milestonesExceededBy` | 終了日が対応マイルストンの日付より後 |
 | マイルストンの編集 | `milestones.ts` の `applyMilestoneEdit` | 名前、日付、確度、`groupId` を1件だけ書く。配列の位置と `id` は残す。未知の `groupId` は元のまま |
 | 帯の縦位置のグループ | `milestones.ts` の `milestoneGroupIdAtBandY` | 見えている帯ブロックの `offsetY` と `height` で、右クリック追加の初期グループを決める |
@@ -398,6 +408,6 @@ npm スクリプトと CI の分岐は [開発ガイド](development.md#npm-ス�
 - `rows.ts` の `ROW_HEIGHT` と `layoutSizes.ts` の `LAYOUT_ROW_HEIGHT` は、どちらも 32 で二重に定義されている。画面が使うのは、`App.tsx` が `scaledLayoutSizes` から渡す高さである
 - 書き出しは、表示中の Konva を撮るのではなく、モデルから SVG を組み立て直す。見た目は近づけるが、別の実装である
 - `mockup/schedule-viewer-mockup.html` は初期の検証用で、アプリからは参照しない。ESLint の対象外である
-- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。schemaVersion 5 のマイルストンに確度が無いときは `committed` を足し、続けて schemaVersion 7 に上げる。schemaVersion 6 はタグなしのまま 7 に上げる。未保存の比較は、その schemaVersion 7 の保存形式である。実際に開けるのは 3〜7 である
+- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。schemaVersion 5 のマイルストンに確度が無いときは `committed` を足し、続けて schemaVersion 7 に上げる。schemaVersion 6 はタグなしのまま 7 に上げる。schemaVersion 7 は `status` の値を変えずに 8 に上げる。未保存の比較は、その schemaVersion 8 の保存形式である。実際に開けるのは 3〜8 である
 - 取り消しはドラッグの途中では積まない。離したときの確定が1ステップである
 - タスクの並べ替えと別グループへの移動は `tasks.ts` の `reorderTaskInGroup` と `moveTaskToGroup`、`taskOrder.ts` の `resolveTaskDropTarget` が挿入位置と兄弟の可視性を決める。同じグループの挿入位置は、動かしているタスクを除いたあとである。折りたたんだグループ行は候補にしない。グループの並べ替えと別カテゴリへの移動は `tasks.ts` の `moveGroupToCategory` と `groupOrder.ts` の `resolveGroupDropTarget` が挿入位置と、同じカテゴリのグループが全部行に出ているかを決める。名前が重なる位置と、元のカテゴリのグループが無くなる位置は候補にしない。カテゴリとグループの追加と削除は `tasks.ts` の純粋関数と `useSchedule` が確定する。カテゴリの並べ替えは `tasks.ts` の `reorderCategories` と `categoryOrder.ts` が挿入位置と、行に出ているカテゴリが全部かを決める。ドラッグ中は `useSchedule` が `reorderPreview` で行だけを仮表示し、離したときに `commitCategories` で1件積む。並べ替えを始めるのは各行の左端の握りだけで、`taskOrder.ts` の `classifyHandleDrag` が 3px を超えたかを見る。方向は問わない。3px 以内で離した握りは何もせず、選択を変えない。握りの右クリックも `RowGrip` が止める。並べ替え中は、`rows.ts` の `reorderDragBlockRows` が、いま見えている行の並びから半透明の塊を決め、`Sidebar.tsx` がその塊をポインタの縦位置に描く。タスクは1行、グループは見えている配下のタスク行まで、カテゴリは見えている配下のグループ行とタスク行まで含める。左の一覧の仮の位置では、塊に入った行の中身は出さない。

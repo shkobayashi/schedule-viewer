@@ -25,6 +25,7 @@ import {
   reorderDragBlockRows,
   rowInReorderDragBlock,
 } from "../model/rows";
+import type { StatusItem } from "../model/statusCatalog";
 import { isOverdue } from "../model/timeline";
 import { TaskNoteButton } from "./TaskNoteButton";
 import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
@@ -95,6 +96,7 @@ type SidebarProps = {
   milestoneBandLayout: import("../model/milestones").MilestoneBandLayout;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
+  statuses: readonly StatusItem[];
   onToggleCollapse: (key: string) => void;
   onOpenTaskNote: (taskId: ScheduleId) => void;
   onTaskContextMenu: (taskId: ScheduleId, x: number, y: number) => void;
@@ -153,6 +155,7 @@ export function Sidebar({
   milestoneBandLayout,
   milestones,
   memberCatalog,
+  statuses,
   onToggleCollapse,
   onOpenTaskNote,
   onTaskContextMenu,
@@ -671,6 +674,7 @@ export function Sidebar({
                 today={today}
                 milestones={milestones}
                 memberCatalog={memberCatalog}
+                statuses={statuses}
                 onOpenTaskNote={() => onOpenTaskNote(row.task.id)}
                 onTaskContextMenu={(x, y) => onTaskContextMenu(row.task.id, x, y)}
                 onGripPointerDown={(event) => beginRowDrag("task", row.task.id, event)}
@@ -749,6 +753,7 @@ export function Sidebar({
             today={today}
             milestones={milestones}
             memberCatalog={memberCatalog}
+            statuses={statuses}
             sidebarColumns={sidebarColumns}
           />
         ) : null}
@@ -1090,6 +1095,7 @@ function TaskSidebarRow({
   today,
   milestones,
   memberCatalog,
+  statuses,
   onOpenTaskNote,
   onTaskContextMenu,
   onSelect,
@@ -1106,6 +1112,7 @@ function TaskSidebarRow({
   today: string;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
+  statuses: readonly StatusItem[];
   sidebarColumns: SidebarColumnsPreference;
   onOpenTaskNote: () => void;
   onTaskContextMenu: (x: number, y: number) => void;
@@ -1157,7 +1164,7 @@ function TaskSidebarRow({
       />
       <div className="sidebar-row-body">
       <TaskNoteButton task={task} onOpen={onOpenTaskNote} />
-      <NameLabel text={task.name} overdue={isOverdue(task, today)} />
+      <NameLabel text={task.name} overdue={isOverdue(task, today, statuses)} />
       <span className="sidebar-trail">
         {sidebarColumns.start ||
         sidebarColumns.end ||
@@ -1222,6 +1229,7 @@ function SidebarDragGhost({
   today,
   milestones,
   memberCatalog,
+  statuses,
   sidebarColumns,
 }: {
   ghost: { kind: "category" | "group" | "task"; id: ScheduleId; top: number };
@@ -1232,6 +1240,7 @@ function SidebarDragGhost({
   today: string;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
+  statuses: readonly StatusItem[];
   sidebarColumns: SidebarColumnsPreference;
 }) {
   const block = useMemo(
@@ -1303,6 +1312,7 @@ function SidebarDragGhost({
             today={today}
             milestones={milestones}
             memberCatalog={memberCatalog}
+            statuses={statuses}
             onOpenTaskNote={() => {}}
             onTaskContextMenu={() => {}}
             onSelect={() => {}}

@@ -1,3 +1,4 @@
+import type { StatusItem } from "../model/statusCatalog";
 import {
   activeFilterChips,
   DEFAULT_FILTERS,
@@ -24,6 +25,7 @@ type ActiveFilterBarProps = {
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
   onShowAllMilestoneGroups: () => void;
   scheduleTags: string[];
+  statuses: readonly StatusItem[];
 };
 
 export function ActiveFilterBar({
@@ -38,6 +40,7 @@ export function ActiveFilterBar({
   onMilestoneGroupVisible,
   onShowAllMilestoneGroups,
   scheduleTags,
+  statuses,
 }: ActiveFilterBarProps) {
   const chips = activeFilterChips(
     filters,
@@ -47,6 +50,7 @@ export function ActiveFilterBar({
     milestoneGroups,
     hiddenMilestoneGroupIds,
     scheduleTags,
+    statuses,
   );
   if (chips.length === 0) return null;
 

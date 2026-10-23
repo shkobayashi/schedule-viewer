@@ -119,25 +119,25 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "selected_task",
-                "description": "選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": "選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。応答の先頭の statuses は、使用中のステータス一覧（id、name、closed、description）です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
                 "inputSchema": read_schema.clone(),
             },
             {
                 "name": "selected_tasks",
-                "description": "編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": "編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。応答の先頭の statuses は、使用中のステータス一覧（id、name、closed、description）です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
                 "inputSchema": read_schema.clone(),
             },
             {
                 "name": "filtered_tasks",
-                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。応答の先頭の statuses は、使用中のステータス一覧（id、name、closed、description）です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
                 "inputSchema": read_schema.clone(),
             },
             {
                 "name": "replace_schedule",
-                "description": "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。前面ウィンドウのスケジュールだけを、検証済みの JSON 全体で未保存として置き換えます。背面のウィンドウは置き換えません。利用者が前面と違うウィンドウの更新だけを指しているときは、このツールを呼び出さずその旨を伝えます。成功時は FILE-07 と同じ差分テキストだけを返します。ファイルには書きません。",
+                "description": "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。タスクの status には、読み取りツールの応答の先頭にある statuses の id だけを書き、description で選びます。合う項目が無いときは id を作らず、利用者に尋ねます。前面ウィンドウのスケジュールだけを、検証済みの JSON 全体で未保存として置き換えます。背面のウィンドウは置き換えません。利用者が前面と違うウィンドウの更新だけを指しているときは、このツールを呼び出さずその旨を伝えます。成功時は FILE-07 と同じ差分テキストだけを返します。ファイルには書きません。",
                 "inputSchema": {
                     "type": "object",
-                    "description": "schedule-viewer のスケジュール JSON 全体（schemaVersion 7）",
+                    "description": "schedule-viewer のスケジュール JSON 全体（schemaVersion 8）",
                 }
             }
         ]
@@ -257,6 +257,8 @@ mod tests {
         assert!(selected_tasks.contains("選択数が不明なときはこのツールを使います"));
         let selected_task = description("selected_task");
         assert!(selected_task.contains("選択数が不明なときは selected_tasks を使います"));
+        assert!(selected_task.contains("statuses"));
+        assert!(description("filtered_tasks").contains("statuses"));
         let open_windows = description("open_windows");
         assert!(open_windows.contains("一意に当たったときだけ"));
         assert!(open_windows.contains("0 件または 2 件以上"));
@@ -273,6 +275,7 @@ mod tests {
         assert!(replace_schedule.contains("開いているスケジュールの更新はこのツールへ渡します"));
         assert!(replace_schedule.contains("新しいスケジュールファイルの作成"));
         assert!(replace_schedule.contains("前面と違うウィンドウ"));
+        assert!(replace_schedule.contains("statuses の id だけ"));
         let replace_schema = tools
             .iter()
             .find(|t| t.get("name").and_then(|n| n.as_str()) == Some("replace_schedule"))
