@@ -1,4 +1,8 @@
 mod beta_installer;
+mod excel_drawing_patch;
+mod export_xlsx;
+#[cfg(test)]
+mod excel_book;
 mod json_skills;
 mod mcp_app_data;
 mod mcp_bridge;
@@ -508,6 +512,41 @@ async fn save_html_file(
     };
     write_utf8_atomic(&target, &contents)?;
     Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+async fn save_excel_export(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    payload: export_xlsx::ExcelExportPayload,
+    suggested_name: String,
+) -> Result<Option<String>, String> {
+    let bytes = export_xlsx::write_excel_bytes(&payload)?;
+    let default_name = sanitize_export_filename(&suggested_name, "xlsx");
+    let picked = app
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_file_name(&default_name)
+        .add_filter("Excel", &["xlsx"])
+        .blocking_save_file();
+    let target = match picked {
+        Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
+        None => return Ok(None),
+    };
+    write_bytes_atomic(&target, &bytes)?;
+    Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+fn write_bytes_atomic(target: &Path, bytes: &[u8]) -> Result<(), String> {
+    let parent = target
+        .parent()
+        .ok_or_else(|| "保存先のパスが不正です。".to_string())?;
+    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    let temp = target.with_extension("tmp");
+    fs::write(&temp, bytes).map_err(|e| e.to_string())?;
+    fs::rename(&temp, target).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -2020,6 +2059,7 @@ pub fn run() {
             acknowledge_schedule_file_contents,
             save_schedule_file,
             save_html_file,
+            save_excel_export,
             get_members_settings,
             read_member_catalog,
             import_member_catalog,

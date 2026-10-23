@@ -190,6 +190,7 @@
 | `schedule-viewer/color-scheme` | 配色。`light` または `dark`。システム設定に合わせるときはキーを消す |
 | `schedule-viewer/sidebar-width` | 左一覧の基準幅。表示倍率 1 のときの px。既定の 190 のときはキーを消す |
 | `schedule-viewer/auto-update` | 自動更新。`on` のときだけ起動時に確認する。オフのときはキーを消す |
+| `schedule-viewer/excel-export-columns` | Excel 書き出しの左の列。担当、開始、終了、ステータス、先行、進捗、ノートのオンオフ。名前は常に含む |
 
 表示サイズ、配色、左一覧の幅、自動更新のオンオフはデスクトップ版でも localStorage に置く。メンバーとカレンダーは、デスクトップ版ではアプリデータだけに置く。
 

@@ -68,7 +68,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         text:
-          "絞り込みや折りたたみで残した行は、☰ の「書き出し」で HTML または SVG にできる",
+          "絞り込みや折りたたみで残した行は、☰ の「書き出し」で HTML、SVG、または Excel（デスクトップ版）にできる",
       },
       {
         text:

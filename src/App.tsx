@@ -108,6 +108,9 @@ import {
   ScheduleExportTooLargeError,
   type ScheduleExportFormat,
 } from "./model/exportHtml";
+import { exportScheduleExcel } from "./model/exportExcel";
+import { DEFAULT_EXCEL_EXPORT_COLUMNS } from "./model/excelExportColumns";
+import { forEachTask } from "./model/tasks";
 import {
   describeActiveFilters,
   exportTimelineRange,
@@ -1175,7 +1178,10 @@ function App() {
   );
 
   const runScheduleExport = useCallback(
-    (format: ScheduleExportFormat) => {
+    (
+      format: ScheduleExportFormat,
+      excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
+    ) => {
       const milestones = milestonesForExport(
         schedule.filters.milestone,
         schedule.milestoneGroups,
@@ -1228,44 +1234,42 @@ function App() {
         schedule.assigneeFilterOptions.find(
           (option) => option.id === schedule.filters.assignee,
         )?.label ?? null;
-      void exportSchedule(
-        {
-          title: schedule.title,
-          tierLabel,
-          lineageName: schedule.lineageTask?.name ?? null,
-          visibleRows: schedule.visibleRows,
-          milestones: schedule.milestones,
-          milestoneBandLayout: exportedBandLayout,
-          links,
-          timelineStart: exportedRange.timelineStart,
-          timelineEnd: exportedRange.timelineEnd,
-          totalDays: exportedRange.totalDays,
-          pxPerDay,
-          tier,
-          headerHeight,
-          rowHeight,
-          barHeight,
-          milestoneBandHeight: exportedBandHeight,
-          milestoneLaneHeight,
-          milestoneDiamondSize,
-          milestoneFontSize,
-          labelScale: uiScale,
-          today: schedule.today,
-          memberCatalog: memberCatalogState.memberMap,
-          calendar: appCalendarState.calendar,
-          filterSummary: describeActiveFilters(
-            schedule.filters,
-            schedule.milestones,
-            assigneeLabel,
-            schedule.milestoneGroups,
-            schedule.hiddenMilestoneGroupIds,
-            schedule.scheduleTags,
-          ),
-          colorScheme: resolvedColorScheme,
-          showLightningLine,
-        },
-        format,
-      ).catch((error: unknown) => {
+      const exportInput = {
+        title: schedule.title,
+        tierLabel,
+        lineageName: schedule.lineageTask?.name ?? null,
+        visibleRows: schedule.visibleRows,
+        milestones: schedule.milestones,
+        milestoneBandLayout: exportedBandLayout,
+        links,
+        timelineStart: exportedRange.timelineStart,
+        timelineEnd: exportedRange.timelineEnd,
+        totalDays: exportedRange.totalDays,
+        pxPerDay,
+        tier,
+        headerHeight,
+        rowHeight,
+        barHeight,
+        milestoneBandHeight: exportedBandHeight,
+        milestoneLaneHeight,
+        milestoneDiamondSize,
+        milestoneFontSize,
+        labelScale: uiScale,
+        today: schedule.today,
+        memberCatalog: memberCatalogState.memberMap,
+        calendar: appCalendarState.calendar,
+        filterSummary: describeActiveFilters(
+          schedule.filters,
+          schedule.milestones,
+          assigneeLabel,
+          schedule.milestoneGroups,
+          schedule.hiddenMilestoneGroupIds,
+          schedule.scheduleTags,
+        ),
+        colorScheme: resolvedColorScheme,
+        showLightningLine,
+      };
+      const onExportError = (error: unknown) => {
         if (error instanceof ScheduleExportTooLargeError) {
           setExportError(error.message);
           return;
@@ -1273,7 +1277,23 @@ function App() {
         setExportError(
           error instanceof Error ? error.message : "書き出せませんでした。",
         );
-      });
+      };
+      if (format === "xlsx") {
+        const taskNames = new Map<string, string>();
+        forEachTask(schedule.categories, (task) => {
+          taskNames.set(task.id, task.name);
+        });
+        void exportScheduleExcel({
+          ...exportInput,
+          exportMilestones: milestones,
+          milestoneGroups: schedule.milestoneGroups,
+          taskNames,
+          exportedAtIso: new Date().toISOString(),
+          excelColumns: excelColumns ?? DEFAULT_EXCEL_EXPORT_COLUMNS,
+        }).catch(onExportError);
+        return;
+      }
+      void exportSchedule(exportInput, format).catch(onExportError);
     },
     [
       appCalendarState.calendar,
@@ -3004,9 +3024,9 @@ function App() {
       {exportOpen ? (
         <ExportFormatDialog
           onCancel={() => setExportOpen(false)}
-          onExport={(format) => {
+          onExport={(format, excelColumns) => {
             setExportOpen(false);
-            void runScheduleExport(format);
+            void runScheduleExport(format, excelColumns);
           }}
         />
       ) : null}

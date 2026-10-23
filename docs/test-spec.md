@@ -107,6 +107,42 @@
 | 同上 | `scales the gap with display size` | NAV-02 |
 | 同上 | `estimates width from each label font size` | NAV-02 |
 | 同上 | `hides the next label when the previous label uses a larger font size` | NAV-02 |
+| `excelTimeColumns.ts`（`exportExcel.test.ts` 経由） | `builds day columns for each day in the span` | EXPORT-05 |
+| `excelBar.test.ts` | `scales bar width with date column width` | EXPORT-05 |
+| 同上 | `centers bar vertically from body row height only` | EXPORT-05 |
+| 同上 | `uses solid fill for committed tasks` | EXPORT-05 |
+| 同上 | `uses hatch foreground for tentative tasks` | EXPORT-05 |
+| 同上 | `changes fill with status, overdue, and color scheme` | EXPORT-05 |
+| 同上 | `does not change fill when only dates change` | EXPORT-05 |
+| `excelConnector.test.ts` | `uses straight connector on the same row` | EXPORT-05 |
+| 同上 | `picks stroke color from broken flag only` | EXPORT-05 |
+| 同上 | `places bent elbow 12px from the predecessor when the gap is wide enough` | EXPORT-05 |
+| 同上 | `places bent elbow at the midpoint when the gap is narrower than 12px` | EXPORT-05 |
+| 同上 | `descriptor uses straight geometry on the same row` | EXPORT-05 |
+| 同上 | `descriptor uses bent geometry across rows` | EXPORT-05 |
+| `excelLightning.test.ts` | `returns null when the lightning line is off` | EXPORT-05 |
+| 同上 | `returns null when today is outside the timeline` | EXPORT-05 |
+| 同上 | `returns null when there are no body rows` | EXPORT-05 |
+| 同上 | `places today line on the today column with lightning color` | EXPORT-05 |
+| 同上 | `scales height with body row count and row height only` | EXPORT-05 |
+| `excelLayout.test.ts` | `uses 28px header when date columns are 96px or wider` | EXPORT-05 |
+| 同上 | `uses 22px header when date columns are narrower than 96px` | EXPORT-05 |
+| `excelMilestone.test.ts` | `puts group name and diamond column` | EXPORT-05 |
+| 同上 | `joins same-day milestones in one cell` | EXPORT-05 |
+| 同上 | `keeps same-day milestone names in document order` | EXPORT-05 |
+| `excelDateColumnBorder.test.ts` | `uses one light border color for all tiers` | EXPORT-05 |
+| `excelSummaryBar.test.ts` | `splits covered spans and adds gap lines between them` | EXPORT-05 |
+| `exportExcel.test.ts` | `spans a task bar across start and end day columns in day view` | EXPORT-05 |
+| 同上 | `puts visible task rows and shapes into the payload` | EXPORT-02, EXPORT-05 |
+| 同上 | `uses 28px header and 22px body rows for month export columns` | EXPORT-05 |
+| 同上 | `offsets bars within equal-width month columns` | EXPORT-05 |
+| 同上 | `puts dependency connectors and today line into the payload` | EXPORT-05 |
+| 同上 | `assigns name indent and summary decorations by row kind` | EXPORT-05 |
+| 同上 | `uses black task names and group-row gray for holidays` | EXPORT-05 |
+| 同上 | `uses light group and overdue name colors on a white sheet` | EXPORT-05 |
+| 同上 | `uses milestone group name on milestone rows` | EXPORT-05 |
+| `excelExportColumns.test.ts` | `uses default columns when storage is empty` | EXPORT-01, EXPORT-05 |
+| 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
 | `exportHtml.test.ts` | `puts the active filter into HTML and SVG` | EXPORT-01, EXPORT-02 |
 | 同上 | `omits overlapping month header labels in month export but keeps grid lines` | NAV-02, EXPORT-02 |
 | 同上 | `hatches tentative bars and labels them, and leaves committed bars solid` | VIEW-12, EXPORT-01 |
@@ -546,6 +582,24 @@
 | `sanitize_export_filename_removes_path_separators` | パス区切りを除く | EXPORT-04 |
 | `sanitize_export_filename_uses_default_for_empty` | 空なら `schedule.html` | EXPORT-04 |
 | `sanitize_export_filename_adds_extension` | 拡張子を足す | EXPORT-04, FILE-02 |
+| `export_xlsx::write_excel_bytes_produces_xlsx` | xlsx の先頭が ZIP である | EXPORT-05 |
+| 同上 | `screen_gridlines_are_off` | シートの `showGridLines` が 0 である | EXPORT-05 |
+| 同上 | `shape_pixel_dimensions_clamps_thin_lines` | EXPORT-05 |
+| 同上 | `thin_shape_in_xlsx_is_not_default_textbox_size` | 実ブックのバー図形が 5×40px の EMU で、192×120 既定にならない | EXPORT-05 |
+| 同上 | `bar_anchor_matches_payload_pixels` | バーの `twoCellAnchor` と幅・高さの EMU が payload の図形と一致する | EXPORT-05 |
+| 同上 | `bar_tentative_pattern_in_xlsx` | 未確定バーに `pct20` と前景色がある | EXPORT-05 |
+| 同上 | `connector_snaps_straight_between_two_bars` | 直線コネクタの接続点と bounds が実ブックのバー辺の中央と一致する | EXPORT-05 |
+| 同上 | `connector_snaps_bent_between_two_rows` | カギ線コネクタの bounds と `flipH` / `flipV` がバーアンカーから求めた値と一致する | EXPORT-05 |
+| 同上 | `connector_omitted_when_bar_anchor_is_missing` | スナップできないときコネクタが付かない | EXPORT-05 |
+| 同上 | `today_line_matches_payload` | `prst="line"` の列・色・高さが payload の `todayLine` と一致する | EXPORT-05 |
+| 同上 | `today_line_absent_when_payload_has_none` | `todayLine` が無いとき `line` 図形が無い | EXPORT-05 |
+| 同上 | `milestone_group_merge_and_diamond_column` | マイルストン行の左結合にグループ名があり、日付列のセルに ◆ と名前がある | EXPORT-05 |
+| 同上 | `column_width_change_moves_bar_width_only` | 列幅だけ違う二つのブックでバー幅だけが変わる | EXPORT-05 |
+| 同上 | `row_height_change_moves_vertical_offsets_only` | 行高だけ違う二つのブックで縦位置と今日の線の高さだけが変わる | EXPORT-05 |
+| 同上 | `stroke_color_change_updates_connector_rgb_only` | 色だけ違う二つのブックでコネクタの `srgbClr` だけが変わる | EXPORT-05 |
+| 同上 | `summary_gap_line_spans_date_columns` | 親バーの点線が列をまたぎ、角が `rtTriangle` で、追加図形の id がバーと重ならない | EXPORT-05 |
+| `excel_drawing_patch` | `connector_anchors_use_edge_centers_same_row` など | 辺の中央へのスナップと `flipH` / `flipV` | EXPORT-05 |
+| 同上 | `horizontal_span_end_advances_columns_by_width` | 日付列幅で終端列と列内オフセットを進める | EXPORT-05 |
 | `require_active_save_path_accepts_matching_path` | 開いているパスと一致すれば上書きできる | FILE-02 |
 | `require_active_save_path_rejects_mismatch_and_missing` | パスの不一致と、ファイルを開いていない状態は拒否する | FILE-02 |
 | `should_close_default_main_when_main_not_recorded` | 記録に `main` が無いときだけ、起動時に空の `main` を閉じる | SYNC-03, WIN-01 |
@@ -918,6 +972,7 @@
 | TC-EXPORT-02 | EXPORT-02 | タスク名で数件に絞る | HTML で書き出す | 絞り込みで残った行だけが入り、絞り込みで隠したタスクは入らない。画面の外にスクロールしている行も入る |
 | TC-EXPORT-03 | EXPORT-03 | 書き出しの行が 10,000 を超えるデータ | 「書き出し」を実行する | ファイルを作らず、行数の上限を理由に出す |
 | TC-EXPORT-04 | EXPORT-04 | タイトルに `/` や `:` がある | 書き出しの保存ダイアログを開く | 提案名からそれらの文字が除かれ、選んだ形式の拡張子が付く |
+| TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。グループ名と遅延のタスク名は、画面がダークでもライト配色の文字色で読める。カテゴリの塗りは左の列だけである。マイルストンは「◆ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |

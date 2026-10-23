@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-save-excel-export"
+description = "Allows exporting the visible schedule as Excel via native save dialog."
+commands.allow = ["save_excel_export"]
