@@ -18,8 +18,13 @@ import {
 } from "../model/shortcuts";
 import type { GridTier } from "../model/timeline";
 import type { SearchField } from "../model/scheduleFilterPersistence";
+import type { ScheduleTitleCommitResult } from "../model/scheduleTitleEdit";
 import { AppMenu } from "./AppMenu";
 import { FilterPanel } from "./FilterPanel";
+import {
+  ScheduleToolbarTitle,
+  type ScheduleToolbarTitleHandle,
+} from "./ScheduleToolbarTitle";
 import { anchorBelowRect, menuViewportShift } from "./anchoredMenu";
 
 export type AssigneeFilterOption = {
@@ -62,6 +67,10 @@ type ToolbarProps = {
   onShowDiff: () => void;
   onExportHtml: () => void;
   onOpen: () => void;
+  recentFilePaths?: string[];
+  onRefreshRecentFiles?: () => void;
+  onOpenRecent?: (path: string) => void;
+  onClearRecentHistory?: () => void;
   onOpenInNewWindow?: () => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -74,6 +83,11 @@ type ToolbarProps = {
   fileBusy?: boolean;
   startupSettled?: boolean;
   taskSearchRef?: RefObject<HTMLInputElement | null>;
+  onCommitTitle: (raw: string) => ScheduleTitleCommitResult;
+  onTitleEditingChange: (editing: boolean) => void;
+  onTitleBlankCommit: () => void;
+  titleEditHandleRef?: RefObject<ScheduleToolbarTitleHandle | null>;
+  titleEditRequestToken: number;
 };
 
 export function Toolbar({
@@ -109,6 +123,10 @@ export function Toolbar({
   onShowDiff,
   onExportHtml,
   onOpen,
+  recentFilePaths,
+  onRefreshRecentFiles,
+  onOpenRecent,
+  onClearRecentHistory,
   onOpenInNewWindow,
   onSave,
   onSaveAs,
@@ -121,7 +139,13 @@ export function Toolbar({
   fileBusy = false,
   startupSettled = true,
   taskSearchRef,
+  onCommitTitle,
+  onTitleEditingChange,
+  onTitleBlankCommit,
+  titleEditHandleRef,
+  titleEditRequestToken,
 }: ToolbarProps) {
+  const titleEditDisabled = fileBusy || !startupSettled;
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
   const linkKey = linkShortcutHint(commandKey);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -199,6 +223,10 @@ export function Toolbar({
         fileBusy={fileBusy}
         startupSettled={startupSettled}
         onOpen={onOpen}
+        recentFilePaths={recentFilePaths}
+        onRefreshRecentFiles={onRefreshRecentFiles}
+        onOpenRecent={onOpenRecent}
+        onClearRecentHistory={onClearRecentHistory}
         onOpenInNewWindow={onOpenInNewWindow}
         onSave={onSave}
         onSaveAs={onSaveAs}
@@ -210,13 +238,16 @@ export function Toolbar({
         onOpenShortcuts={onOpenShortcuts}
         onCheckForUpdates={onCheckForUpdates}
       />
-      <h1 className="toolbar-title">
-        <span
-          className={`toolbar-title-text${titleDiffMarked ? " diff-title-marked" : ""}`}
-        >
-          {title}
-        </span>
-      </h1>
+      <ScheduleToolbarTitle
+        title={title}
+        titleDiffMarked={titleDiffMarked}
+        titleEditDisabled={titleEditDisabled}
+        onCommitTitle={onCommitTitle}
+        onEditingChange={onTitleEditingChange}
+        onBlankCommit={onTitleBlankCommit}
+        titleEditHandleRef={titleEditHandleRef}
+        editRequestToken={titleEditRequestToken}
+      />
       <div className="toolbar-search">
         <select
           className="search-field-toggle"

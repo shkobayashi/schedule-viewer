@@ -1,6 +1,6 @@
 # テスト仕様
 
-何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
+何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
 
 ## 方針
 
@@ -107,6 +107,42 @@
 | 同上 | `scales the gap with display size` | NAV-02 |
 | 同上 | `estimates width from each label font size` | NAV-02 |
 | 同上 | `hides the next label when the previous label uses a larger font size` | NAV-02 |
+| `excelTimeColumns.ts`（`exportExcel.test.ts` 経由） | `builds day columns for each day in the span` | EXPORT-05 |
+| `excelBar.test.ts` | `scales bar width with date column width` | EXPORT-05 |
+| 同上 | `centers bar vertically from body row height only` | EXPORT-05 |
+| 同上 | `uses solid fill for committed tasks` | EXPORT-05 |
+| 同上 | `uses hatch foreground for tentative tasks` | EXPORT-05 |
+| 同上 | `changes fill with status, overdue, and color scheme` | EXPORT-05 |
+| 同上 | `does not change fill when only dates change` | EXPORT-05 |
+| `excelConnector.test.ts` | `uses straight connector on the same row` | EXPORT-05 |
+| 同上 | `picks stroke color from broken flag only` | EXPORT-05 |
+| 同上 | `places bent elbow 12px from the predecessor when the gap is wide enough` | EXPORT-05 |
+| 同上 | `places bent elbow at the midpoint when the gap is narrower than 12px` | EXPORT-05 |
+| 同上 | `descriptor uses straight geometry on the same row` | EXPORT-05 |
+| 同上 | `descriptor uses bent geometry across rows` | EXPORT-05 |
+| `excelLightning.test.ts` | `returns null when the lightning line is off` | EXPORT-05 |
+| 同上 | `returns null when today is outside the timeline` | EXPORT-05 |
+| 同上 | `returns null when there are no body rows` | EXPORT-05 |
+| 同上 | `places today line on the today column with lightning color` | EXPORT-05 |
+| 同上 | `scales height with body row count and row height only` | EXPORT-05 |
+| `excelLayout.test.ts` | `uses 28px header when date columns are 96px or wider` | EXPORT-05 |
+| 同上 | `uses 22px header when date columns are narrower than 96px` | EXPORT-05 |
+| `excelMilestone.test.ts` | `puts group name and diamond column` | EXPORT-05 |
+| 同上 | `joins same-day milestones in one cell` | EXPORT-05 |
+| 同上 | `keeps same-day milestone names in document order` | EXPORT-05 |
+| `excelDateColumnBorder.test.ts` | `uses one light border color for all tiers` | EXPORT-05 |
+| `excelSummaryBar.test.ts` | `splits covered spans and adds gap lines between them` | EXPORT-05 |
+| `exportExcel.test.ts` | `spans a task bar across start and end day columns in day view` | EXPORT-05 |
+| 同上 | `puts visible task rows and shapes into the payload` | EXPORT-02, EXPORT-05 |
+| 同上 | `uses 28px header and 22px body rows for month export columns` | EXPORT-05 |
+| 同上 | `offsets bars within equal-width month columns` | EXPORT-05 |
+| 同上 | `puts dependency connectors and today line into the payload` | EXPORT-05 |
+| 同上 | `assigns name indent and summary decorations by row kind` | EXPORT-05 |
+| 同上 | `uses black task names and group-row gray for holidays` | EXPORT-05 |
+| 同上 | `uses light group and overdue name colors on a white sheet` | EXPORT-05 |
+| 同上 | `uses milestone group name on milestone rows` | EXPORT-05 |
+| `excelExportColumns.test.ts` | `uses default columns when storage is empty` | EXPORT-01, EXPORT-05 |
+| 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
 | `exportHtml.test.ts` | `puts the active filter into HTML and SVG` | EXPORT-01, EXPORT-02 |
 | 同上 | `omits overlapping month header labels in month export but keeps grid lines` | NAV-02, EXPORT-02 |
 | 同上 | `hatches tentative bars and labels them, and leaves committed bars solid` | VIEW-12, EXPORT-01 |
@@ -356,6 +392,14 @@
 | 同上 | `rejects a group id that duplicates its category id` | FILE-01 |
 | 同上 | `rejects a category id that duplicates a task id` | FILE-01 |
 | `uuidV5.test.ts` | `matches the RFC 4122 DNS example` | FILE-01 |
+| `scheduleTitleEdit.test.ts` | `treats blank-only input as blank` | EDIT-20 |
+| 同上 | `treats trim-equal title as unchanged` | EDIT-20 |
+| 同上 | `keeps internal spaces and reports changed title` | EDIT-20 |
+| `history.test.ts` | `undo restores a title change in one step` | EDIT-10, EDIT-20 |
+| `recentFiles.test.ts` | `appendRecentFile` など | FILE-09 |
+| `commandPalette.test.ts` | `inserts recent files after open on desktop` など | FILE-09, NAV-07 |
+| `recent_files.rs` | `writes_only_when_expected_matches` など | FILE-09 |
+| `commandPalette.test.ts` | `includes edit title command` | NAV-07, EDIT-20 |
 | `hierarchyRename.test.ts` | `trims the name and keeps the id` | EDIT-13 |
 | 同上 | `keeps the original name when the input is blank` | EDIT-13 |
 | 同上 | `rejects a duplicate category name` | EDIT-13 |
@@ -546,6 +590,24 @@
 | `sanitize_export_filename_removes_path_separators` | パス区切りを除く | EXPORT-04 |
 | `sanitize_export_filename_uses_default_for_empty` | 空なら `schedule.html` | EXPORT-04 |
 | `sanitize_export_filename_adds_extension` | 拡張子を足す | EXPORT-04, FILE-02 |
+| `export_xlsx::write_excel_bytes_produces_xlsx` | xlsx の先頭が ZIP である | EXPORT-05 |
+| 同上 | `screen_gridlines_are_off` | シートの `showGridLines` が 0 である | EXPORT-05 |
+| 同上 | `shape_pixel_dimensions_clamps_thin_lines` | EXPORT-05 |
+| 同上 | `thin_shape_in_xlsx_is_not_default_textbox_size` | 実ブックのバー図形が 5×40px の EMU で、192×120 既定にならない | EXPORT-05 |
+| 同上 | `bar_anchor_matches_payload_pixels` | バーの `twoCellAnchor` と幅・高さの EMU が payload の図形と一致する | EXPORT-05 |
+| 同上 | `bar_tentative_pattern_in_xlsx` | 未確定バーに `pct20` と前景色がある | EXPORT-05 |
+| 同上 | `connector_snaps_straight_between_two_bars` | 直線コネクタの接続点と bounds が実ブックのバー辺の中央と一致する | EXPORT-05 |
+| 同上 | `connector_snaps_bent_between_two_rows` | カギ線コネクタの bounds と `flipH` / `flipV` がバーアンカーから求めた値と一致する | EXPORT-05 |
+| 同上 | `connector_omitted_when_bar_anchor_is_missing` | スナップできないときコネクタが付かない | EXPORT-05 |
+| 同上 | `today_line_matches_payload` | `prst="line"` の列・色・高さが payload の `todayLine` と一致する | EXPORT-05 |
+| 同上 | `today_line_absent_when_payload_has_none` | `todayLine` が無いとき `line` 図形が無い | EXPORT-05 |
+| 同上 | `milestone_group_merge_and_diamond_column` | マイルストン行の左結合にグループ名があり、日付列のセルに ◆ と名前がある | EXPORT-05 |
+| 同上 | `column_width_change_moves_bar_width_only` | 列幅だけ違う二つのブックでバー幅だけが変わる | EXPORT-05 |
+| 同上 | `row_height_change_moves_vertical_offsets_only` | 行高だけ違う二つのブックで縦位置と今日の線の高さだけが変わる | EXPORT-05 |
+| 同上 | `stroke_color_change_updates_connector_rgb_only` | 色だけ違う二つのブックでコネクタの `srgbClr` だけが変わる | EXPORT-05 |
+| 同上 | `summary_gap_line_spans_date_columns` | 親バーの点線が列をまたぎ、角が `rtTriangle` で、追加図形の id がバーと重ならない | EXPORT-05 |
+| `excel_drawing_patch` | `connector_anchors_use_edge_centers_same_row` など | 辺の中央へのスナップと `flipH` / `flipV` | EXPORT-05 |
+| 同上 | `horizontal_span_end_advances_columns_by_width` | 日付列幅で終端列と列内オフセットを進める | EXPORT-05 |
 | `require_active_save_path_accepts_matching_path` | 開いているパスと一致すれば上書きできる | FILE-02 |
 | `require_active_save_path_rejects_mismatch_and_missing` | パスの不一致と、ファイルを開いていない状態は拒否する | FILE-02 |
 | `should_close_default_main_when_main_not_recorded` | 記録に `main` が無いときだけ、起動時に空の `main` を閉じる | SYNC-03, WIN-01 |
@@ -659,13 +721,19 @@
 
 | ID | 機能 | 前提 | 手順 | 期待結果 |
 | --- | --- | --- | --- | --- |
-| TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しがファイル名になる |
+| TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しのタイトルは JSON の `title` になる。ファイル名は状態バーとウィンドウタイトルに出る |
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01f | FILE-01 | サンプル | ☰ を開き、下、上、Home、End を押す | 最初の項目にフォーカスが移る。キーで項目を移動できる。Escape で閉じる |
 | TC-FILE-01b | FILE-01 | schemaVersion 2 の JSON がある | 「開く」で選ぶ | 開かず、理由が出る。それまでの保存先は変わらない |
 | TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 7 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
 | TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 7 になる |
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 7 になる。タグを付けていないタスクに `tags` は無い |
+| TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューに新しい順で並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
+| TC-FILE-09b | FILE-09 | 上記のあと6件目を開く。同名のファイル名を2つのフォルダから開く | 一覧の件数と親フォルダの付き方を見る | 5件を超えた古いものが消える。同じファイル名が2件以上のときだけ親フォルダ名が付く |
+| TC-FILE-09c | FILE-09 | 履歴にパスがある | 存在しないパスを選ぶ。未保存のあいだに履歴から開き、キャンセルする | 画面と保存先は残る。サンプルに戻らない。項目は残る。キャンセルでは順番が変わらない |
+| TC-FILE-09d | FILE-09 | 履歴がある | ☰ または macOS のファイルメニューで「最近開いたファイル」から「履歴を消す」を押す。ファイル操作の途中でサブメニューから開く操作を試す | パスだけ消える。開いているスケジュールと次回起動のウィンドウ・控え・絞り込みは残る。操作中は履歴から開けず、「履歴を消す」は押せる。消したあと、☰ と macOS のファイルメニューに「最近開いたファイル」の行は残り、押せず、サブメニューは開かない |
+| TC-FILE-09e | FILE-09 | 履歴から開く、または `recent-files.json` を壊す | 絞り込み・折りたたみ・系統・選択を変えたあと履歴から開く。別ウィンドウでも一覧を見る。壊れて一覧が空のとき ☰ を開く | 絞り込みなどが初期状態になり Fit する。壊れた JSON では一覧が空で知らせは出ない。別ウィンドウでも同じ一覧。一覧が空のとき、☰ と macOS のファイルメニューに「最近開いたファイル」の行は残り、押せず、サブメニューは開かない |
+| TC-FILE-09f | FILE-09 | ブラウザ版、`npm run dev` | ☰ と ⌘/Ctrl+K を開く | 最近開いたファイルも「履歴を消す」も出ない |
 | TC-FILE-08 | FILE-08 | デスクトップ版。検証済みの JSON がある | その JSON をウィンドウへ1つ落とす | 「開く」と同じ内容になる。ファイルダイアログは出ない |
 | TC-FILE-08b | FILE-08 | 未保存の編集がある | 別の検証済み JSON を同じウィンドウへ落とす | 破棄の確認が出る |
 | TC-FILE-08c | FILE-08 | サンプル | JSON を2つ、またはフォルダと JSON をまとめて落とす | 開かず「スケジュールの JSON を1つだけ落としてください。」が出る |
@@ -734,8 +802,8 @@
 | TC-SYNC-03m | SYNC-03 | 同じパスを2つのウィンドウで開き、前面だけ条件を変えて閉じる | 起動する | 前面の条件だけが戻る |
 | TC-SYNC-03n | SYNC-03 | ブラウザ版で絞り込みを変えて閉じる | ページを開き直す | 絞り込みは戻らない |
 | TC-SYNC-03e | SYNC-03 | 保存して閉じたあと、そのファイルを消す | アプリを起動する | 見つからないと知らせてサンプルになる。ファイルダイアログは出ない。その状態で閉じると、次はサンプルのままである |
-| TC-SYNC-03f | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、見出しがファイル名になるまでバーをドラッグする | 復旧が終わるまで日付は変わらない。終わったあとはドラッグできる |
-| TC-SYNC-03g | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、見出しがファイル名になる前に別のエディタでその JSON を保存する。ファイル名になったあと少し待つ | 変えた内容が画面に出る。起動が終わったあとはバーをドラッグできる |
+| TC-SYNC-03f | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前にバーをドラッグする | 復旧が終わるまで日付は変わらない。終わったあとはドラッグできる |
+| TC-SYNC-03g | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前に別のエディタでその JSON を保存する。復旧が終わったあと少し待つ | 変えた内容が画面に出る。起動が終わったあとはバーをドラッグできる |
 | TC-WIN-01 | WIN-01 | デスクトップ版。検証済みの JSON がある | 「新しいウィンドウで開く」で選ぶ | 元のウィンドウは残り、新しいウィンドウにその内容が開く。Windows では新しい窓が白いまま止まらず、元の窓も操作できる |
 | TC-WIN-01b | WIN-01 | 同上 | ⌘/Ctrl+Shift+O で選ぶ | 同上。ブラウザ版ではブラウザのショートカットになる |
 | TC-WIN-01c | WIN-01 | 未保存の編集がある | 「新しいウィンドウで開く」 | 破棄の確認は出ず、新しいウィンドウだけ開く |
@@ -901,6 +969,7 @@
 | TC-EDIT-11b | EDIT-11 | マイルストンがある | ひし形の右の名前を右クリックし、「編集」を選ぶ。線を引くモードでは名前を右クリックする | 「編集」、確度の切り替え、「削除」が出る。選択は変わらない。編集を選ぶと名前、日付、確度の編集が開く。線を引くモードではメニューは出ない |
 | TC-EDIT-13 | EDIT-13, EDIT-10 | サンプルで、カテゴリを折りたたむ | 左のカテゴリ行をダブルクリックし、名前を変えて保存する。同じ名前のカテゴリへも変えてみる。空白だけでも保存する。取り消す | 折りたたみは残る。重複する名前は保存されない。空白だけなら元の名前のまま閉じる。取り消し 1 回で名前が戻る。グループ行も同じである |
 | TC-EDIT-13b | EDIT-13 | 別のカテゴリに同じグループ名がある | そのグループを、別カテゴリと同じ名前に変える | 保存できる。同じカテゴリの中の既存名には変えられない |
+| TC-EDIT-20 | EDIT-20, EDIT-10, FILE-04, FILE-07, NAV-07, SYNC-01 | サンプル。ファイルを開いているときは別名保存したあともよい | 鉛筆で編集を始める。見出しのクリック、ドラッグ、ダブルクリックでは始まらない。全文選択と先頭スクロールを見る。Enter、外クリック、Tab、Shift+Tab で確定し、Escape では戻る。変換中の Enter と Escape では閉じない。前後の空白だけ除き途中の空白は残す。空白だけは元のまま閉じ、「タイトルは変更していません」と一度読む。同じ文字なら履歴も読み上げも無い。変わった確定は取り消し 1 回で戻る。入力中の取り消しは文字入力に効く。確定前は差分と未保存に入らない。入力中に外部ファイルのタイトルは入力へ書き込まれない。FILE-07 で title の行を開いているあいだ、下線は休止中の見出しだけにつく。☰、⌘/Ctrl+O、⌘/Ctrl+S、⌘/Ctrl+Shift+S、書き出し、差分を表示、差分をコピー、JSON を表示の前に確定する。macOS のデスクトップ版では、画面上部のファイルメニューから開く、保存、別名保存、書き出し、JSON を表示も同じ。⌘/Ctrl+K でパレットを開くと確定し、「タイトルを変更」で確定後の文字で開き直す。パレットで開いたあと確定しても、入力は再び開かない。ファイル操作の途中は鉛筆もコマンドも押せない。ファイル名、ウィンドウタイトル、状態バーはタイトルと連動しない。デスクトップ版では入力中に外部更新を止め、確定か Escape のあと続く | 計画どおりに動く |
 | TC-EDIT-12 | EDIT-12 | 見えているタスクを選択 | 「線を引く」または ⌘/Ctrl+L を押す。L だけも押す | モードに入る。ボタンに起点の名前が出る。チャート上端の帯は「次にクリックしたタスクを後続にします。Esc で中止」になる。選択が無いときと、L だけでは入らない |
 | TC-UI-01 | NAV-02 | サンプル | ? と F1 を押す。☰ の「ショートカット一覧」も開く | 一覧ダイアログが開き、Escape で閉じる。検索欄にフォーカスがあるときは ? でも F1 でも開かない |
 | TC-UI-02 | NAV-08 | サンプル | 起動直後は案内が出ないことを見る。上段の「案内」、☰ の「操作の案内」、⌘ または Ctrl+K で「操作の案内」を開く | 見出し「スケジュールの作り方」「画面」「タグ」「気づきにくい操作」「色と線」が出る。スキルの2文はブラウザ版でも出る。本文にフォーカスしたままキーで末尾までスクロールできる。Escape で閉じる。中の「ショートカット一覧」で案内が閉じ、ショートカット一覧が開く。? と F1 は一覧を開く |
@@ -918,6 +987,7 @@
 | TC-EXPORT-02 | EXPORT-02 | タスク名で数件に絞る | HTML で書き出す | 絞り込みで残った行だけが入り、絞り込みで隠したタスクは入らない。画面の外にスクロールしている行も入る |
 | TC-EXPORT-03 | EXPORT-03 | 書き出しの行が 10,000 を超えるデータ | 「書き出し」を実行する | ファイルを作らず、行数の上限を理由に出す |
 | TC-EXPORT-04 | EXPORT-04 | タイトルに `/` や `:` がある | 書き出しの保存ダイアログを開く | 提案名からそれらの文字が除かれ、選んだ形式の拡張子が付く |
+| TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。グループ名と遅延のタスク名は、画面がダークでもライト配色の文字色で読める。カテゴリの塗りは左の列だけである。マイルストンは「◆ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |

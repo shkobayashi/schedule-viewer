@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-read-recent-files"
+description = "Allows reading recently opened schedule paths."
+commands.allow = ["read_recent_files"]
+
+[[permission]]
+identifier = "allow-write-recent-files"
+description = "Allows updating recently opened schedule paths."
+commands.allow = ["record_recent_files", "clear_recent_files"]

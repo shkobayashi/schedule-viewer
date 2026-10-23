@@ -1,14 +1,21 @@
 import { isTauri } from "@tauri-apps/api/core";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { recentFileMenuEntries } from "../model/recentFiles";
 import { fileShortcutHint, usesCommandKey } from "../model/shortcuts";
 import { anchorBelowRect, menuShiftForRect } from "./anchoredMenu";
 import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
+
+const RECENT_SUBMENU_CLOSE_DELAY_MS = 200;
 
 type AppMenuProps = {
   fileBusy?: boolean;
   startupSettled?: boolean;
   onOpen: () => void;
+  recentFilePaths?: string[];
+  onRefreshRecentFiles?: () => void;
+  onOpenRecent?: (path: string) => void;
+  onClearRecentHistory?: () => void;
   onOpenInNewWindow?: () => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -25,6 +32,10 @@ export function AppMenu({
   fileBusy = false,
   startupSettled = true,
   onOpen,
+  recentFilePaths = [],
+  onRefreshRecentFiles,
+  onOpenRecent,
+  onClearRecentHistory,
   onOpenInNewWindow,
   onSave,
   onSaveAs,
@@ -37,23 +48,66 @@ export function AppMenu({
   onCheckForUpdates,
 }: AppMenuProps) {
   const [open, setOpen] = useState(false);
+  const [recentSubmenuOpen, setRecentSubmenuOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const recentRowRef = useRef<HTMLButtonElement>(null);
+  const recentSubmenuRef = useRef<HTMLDivElement>(null);
+  const recentSubmenuCloseTimerRef = useRef<number | null>(null);
   const [position, setPosition] = useState({ left: 0, top: 0 });
   const [shift, setShift] = useState({ x: 0, y: 0 });
+  const [recentSubmenuPosition, setRecentSubmenuPosition] = useState({
+    left: 0,
+    top: 0,
+  });
+  const [recentSubmenuShift, setRecentSubmenuShift] = useState({ x: 0, y: 0 });
   const [menuFileActionsLocked, setMenuFileActionsLocked] = useState(false);
   const fileBusyRef = useRef(fileBusy);
   const startupSettledRef = useRef(startupSettled);
   fileBusyRef.current = fileBusy;
   startupSettledRef.current = startupSettled;
 
+  const cancelRecentSubmenuClose = useCallback(() => {
+    if (recentSubmenuCloseTimerRef.current !== null) {
+      window.clearTimeout(recentSubmenuCloseTimerRef.current);
+      recentSubmenuCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleRecentSubmenuClose = useCallback(() => {
+    cancelRecentSubmenuClose();
+    recentSubmenuCloseTimerRef.current = window.setTimeout(() => {
+      recentSubmenuCloseTimerRef.current = null;
+      setRecentSubmenuOpen(false);
+    }, RECENT_SUBMENU_CLOSE_DELAY_MS);
+  }, [cancelRecentSubmenuClose]);
+
+  const openRecentSubmenu = useCallback(() => {
+    if (recentFilePaths.length === 0) return;
+    cancelRecentSubmenuClose();
+    setRecentSubmenuOpen(true);
+  }, [cancelRecentSubmenuClose, recentFilePaths.length]);
+
+  useLayoutEffect(() => {
+    if (recentFilePaths.length === 0) {
+      setRecentSubmenuOpen(false);
+      cancelRecentSubmenuClose();
+    }
+  }, [recentFilePaths.length, cancelRecentSubmenuClose]);
+
   useLayoutEffect(() => {
     if (open) {
       setMenuFileActionsLocked(
         fileBusyRef.current || !startupSettledRef.current,
       );
+      if (isTauri()) {
+        onRefreshRecentFiles?.();
+      }
+    } else {
+      setRecentSubmenuOpen(false);
+      cancelRecentSubmenuClose();
     }
-  }, [open]);
+  }, [open, onRefreshRecentFiles, cancelRecentSubmenuClose]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -81,6 +135,34 @@ export function AppMenu({
     );
   }, [open, position.left, position.top]);
 
+  useLayoutEffect(() => {
+    if (!open || !recentSubmenuOpen || !recentRowRef.current) return;
+    const row = recentRowRef.current.getBoundingClientRect();
+    setRecentSubmenuPosition({ left: row.right + 4, top: row.top });
+    setRecentSubmenuShift({ x: 0, y: 0 });
+  }, [open, recentSubmenuOpen, recentFilePaths.length]);
+
+  useLayoutEffect(() => {
+    if (!open || !recentSubmenuOpen) return;
+    const submenu = recentSubmenuRef.current;
+    if (!submenu) return;
+    const next = menuShiftForRect(
+      recentSubmenuPosition.left,
+      recentSubmenuPosition.top,
+      submenu.offsetWidth,
+      submenu.offsetHeight,
+    );
+    setRecentSubmenuShift((prev) =>
+      prev.x === next.x && prev.y === next.y ? prev : next,
+    );
+  }, [
+    open,
+    recentSubmenuOpen,
+    recentSubmenuPosition.left,
+    recentSubmenuPosition.top,
+    recentFilePaths.length,
+  ]);
+
   useEffect(() => {
     const onCloseMenus = () => setOpen(false);
     document.addEventListener("schedule-viewer:close-menus", onCloseMenus);
@@ -88,6 +170,10 @@ export function AppMenu({
       document.removeEventListener("schedule-viewer:close-menus", onCloseMenus);
     };
   }, []);
+
+  useEffect(() => {
+    return () => cancelRecentSubmenuClose();
+  }, [cancelRecentSubmenuClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -101,13 +187,60 @@ export function AppMenu({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        if (recentSubmenuOpen) {
+          setRecentSubmenuOpen(false);
+          recentRowRef.current?.focus({ preventScroll: true });
+          return;
+        }
         setOpen(false);
         return;
       }
-      const menu = panelRef.current;
-      if (!menu) return;
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      const active = document.activeElement;
+      const submenu = recentSubmenuRef.current;
+      const onRecentRow = active === recentRowRef.current;
+
       if (
-        moveMenuFocus(menu, event.key, {
+        event.key === "ArrowRight" &&
+        onRecentRow &&
+        !event.altKey &&
+        !event.shiftKey &&
+        !event.ctrlKey &&
+        !event.metaKey
+      ) {
+        event.preventDefault();
+        openRecentSubmenu();
+        window.requestAnimationFrame(() => {
+          if (recentSubmenuRef.current) {
+            focusMenuEdge(recentSubmenuRef.current, "first");
+          }
+        });
+        return;
+      }
+
+      if (
+        event.key === "ArrowLeft" &&
+        submenu?.contains(active) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        !event.ctrlKey &&
+        !event.metaKey
+      ) {
+        event.preventDefault();
+        setRecentSubmenuOpen(false);
+        recentRowRef.current?.focus({ preventScroll: true });
+        return;
+      }
+
+      const focusMenu =
+        submenu && active instanceof Node && submenu.contains(active)
+          ? submenu
+          : panel;
+
+      if (
+        moveMenuFocus(focusMenu, event.key, {
           altKey: event.altKey,
           shiftKey: event.shiftKey,
           ctrlKey: event.ctrlKey,
@@ -124,7 +257,7 @@ export function AppMenu({
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+  }, [open, recentSubmenuOpen, openRecentSubmenu]);
 
   const run = (action: () => void) => {
     setOpen(false);
@@ -132,6 +265,18 @@ export function AppMenu({
   };
 
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
+  const recentEntries =
+    isTauri() && onOpenRecent
+      ? recentFileMenuEntries(recentFilePaths)
+      : [];
+  const showRecentDesktopRow =
+    isTauri() &&
+    onOpenRecent !== undefined &&
+    onClearRecentHistory !== undefined;
+  const showRecentSubmenu =
+    showRecentDesktopRow && recentEntries.length > 0;
+  const showRecentDisabled =
+    showRecentDesktopRow && recentEntries.length === 0;
 
   const panel = open ? (
     <div
@@ -152,6 +297,66 @@ export function AppMenu({
         <span>開く</span>
         <span className="menu-shortcut">{fileShortcutHint("open", commandKey)}</span>
       </button>
+      {showRecentSubmenu ? (
+        <div
+          className="app-menu-submenu-host"
+          data-menu-item-host="true"
+          onMouseEnter={openRecentSubmenu}
+          onMouseLeave={scheduleRecentSubmenuClose}
+        >
+          <button
+            ref={recentRowRef}
+            type="button"
+            role="menuitem"
+            aria-haspopup="menu"
+            aria-expanded={recentSubmenuOpen}
+            onMouseEnter={openRecentSubmenu}
+            onClick={openRecentSubmenu}
+          >
+            <span>最近開いたファイル</span>
+            <span className="app-menu-submenu-chevron" aria-hidden="true">
+              ›
+            </span>
+          </button>
+          {recentSubmenuOpen ? (
+            <div
+              ref={recentSubmenuRef}
+              className="app-menu-submenu-panel"
+              role="menu"
+              style={{
+                left: recentSubmenuPosition.left + recentSubmenuShift.x,
+                top: recentSubmenuPosition.top + recentSubmenuShift.y,
+              }}
+              onMouseEnter={openRecentSubmenu}
+            >
+              {recentEntries.map((entry) => (
+                <button
+                  key={entry.path}
+                  type="button"
+                  role="menuitem"
+                  disabled={menuFileActionsLocked}
+                  title={entry.path}
+                  onClick={() => run(() => onOpenRecent?.(entry.path))}
+                >
+                  <span>{entry.label}</span>
+                </button>
+              ))}
+              <hr />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => run(onClearRecentHistory)}
+              >
+                履歴を消す
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : showRecentDisabled ? (
+        <button type="button" role="menuitem" disabled>
+          <span>最近開いたファイル</span>
+        </button>
+      ) : null}
       {isTauri() && onOpenInNewWindow ? (
         <button
           type="button"

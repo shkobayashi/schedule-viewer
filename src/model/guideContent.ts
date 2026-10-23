@@ -60,6 +60,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         text:
+          "見出しの右の鉛筆で、スケジュールのタイトル（JSON の title）をその場で変えられる。ファイル名は変わらない",
+      },
+      {
+        text:
           "タスクを選んで「系統」を押すと、その前後につながるタスクだけが残る。もう一度押すと戻る",
       },
       {
@@ -68,7 +72,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
       {
         text:
-          "絞り込みや折りたたみで残した行は、☰ の「書き出し」で HTML または SVG にできる",
+          "絞り込みや折りたたみで残した行は、☰ の「書き出し」で HTML、SVG、または Excel（デスクトップ版）にできる",
       },
       {
         text:

@@ -13,6 +13,8 @@ import { withSaveFlight } from "./saveFlight";
 
 type UseScheduleSaveOptions = {
   currentJson: string;
+  getCanonicalJson?: () => string;
+  getDocumentTitle?: () => string;
   title: string;
   filePath: string | null;
   setFilePath: (path: string | null) => void;
@@ -29,6 +31,8 @@ type UseScheduleSaveOptions = {
 
 export function useScheduleSave({
   currentJson,
+  getCanonicalJson,
+  getDocumentTitle,
   title,
   filePath,
   setFilePath,
@@ -50,14 +54,16 @@ export function useScheduleSave({
   const performSave = useCallback(
     async (saveAs: boolean, skipExternalCheck = false) => {
       await withSaveFlight(saveInFlightRef, fileBusyRef.current, async () => {
-        const parsed = parseScheduleText(currentJson);
+        const parsed = parseScheduleText(getCanonicalJson?.() ?? currentJson);
         if (!parsed.ok) {
           setErrorMessageText(parsed.message);
           if (skipExternalCheck) pausePollRef.current = false;
           return;
         }
         const contents = parsed.canonicalJson;
-        const suggested = suggestedJsonFilename(title);
+        const suggested = suggestedJsonFilename(
+          getDocumentTitle?.() ?? title,
+        );
         pausePollRef.current = true;
         let holdPause = false;
 
@@ -135,6 +141,8 @@ export function useScheduleSave({
       currentJson,
       fileBusyRef,
       filePath,
+      getCanonicalJson,
+      getDocumentTitle,
       setBaselineJson,
       setBrowserFileLabel,
       setErrorMessageText,
