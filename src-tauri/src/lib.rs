@@ -1,6 +1,8 @@
 mod beta_installer;
 mod excel_drawing_patch;
 mod export_xlsx;
+#[cfg(test)]
+mod excel_book;
 mod json_skills;
 mod mcp_app_data;
 mod mcp_bridge;

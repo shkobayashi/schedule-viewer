@@ -107,9 +107,30 @@
 | 同上 | `scales the gap with display size` | NAV-02 |
 | 同上 | `estimates width from each label font size` | NAV-02 |
 | 同上 | `hides the next label when the previous label uses a larger font size` | NAV-02 |
-| `exportExcel.test.ts` | `builds day columns for each day in the span` | EXPORT-05 |
-| 同上 | `spans a task bar across start and end day columns in day view` | EXPORT-05 |
+| `excelTimeColumns.ts`（`exportExcel.test.ts` 経由） | `builds day columns for each day in the span` | EXPORT-05 |
+| `excelBar.test.ts` | `scales bar width with date column width` | EXPORT-05 |
+| 同上 | `centers bar vertically from body row height only` | EXPORT-05 |
+| 同上 | `uses solid fill for committed tasks` | EXPORT-05 |
+| 同上 | `uses hatch foreground for tentative tasks` | EXPORT-05 |
+| 同上 | `changes fill with status, overdue, and color scheme` | EXPORT-05 |
+| 同上 | `does not change fill when only dates change` | EXPORT-05 |
+| `excelConnector.test.ts` | `uses straight connector on the same row` | EXPORT-05 |
+| 同上 | `picks stroke color from broken flag only` | EXPORT-05 |
+| 同上 | `places bent elbow 12px from the predecessor when the gap is wide enough` | EXPORT-05 |
+| 同上 | `places bent elbow at the midpoint when the gap is narrower than 12px` | EXPORT-05 |
+| 同上 | `descriptor uses straight geometry on the same row` | EXPORT-05 |
+| 同上 | `descriptor uses bent geometry across rows` | EXPORT-05 |
+| `excelLightning.test.ts` | `returns null when the lightning line is off` | EXPORT-05 |
+| 同上 | `returns null when today is outside the timeline` | EXPORT-05 |
+| 同上 | `returns null when there are no body rows` | EXPORT-05 |
+| 同上 | `places today line on the today column with lightning color` | EXPORT-05 |
+| 同上 | `scales height with body row count and row height only` | EXPORT-05 |
+| `excelLayout.test.ts` | `uses 28px header when date columns are 96px or wider` | EXPORT-05 |
+| 同上 | `uses 22px header when date columns are narrower than 96px` | EXPORT-05 |
+| `excelMilestone.test.ts` | `puts group name and diamond column` | EXPORT-05 |
+| `exportExcel.test.ts` | `spans a task bar across start and end day columns in day view` | EXPORT-05 |
 | 同上 | `puts visible task rows and shapes into the payload` | EXPORT-02, EXPORT-05 |
+| 同上 | `uses 28px header and 22px body rows for month export columns` | EXPORT-05 |
 | 同上 | `offsets bars within equal-width month columns` | EXPORT-05 |
 | 同上 | `puts dependency connectors and today line into the payload` | EXPORT-05 |
 | 同上 | `uses milestone group name on milestone rows` | EXPORT-05 |
@@ -556,8 +577,19 @@
 | `sanitize_export_filename_adds_extension` | 拡張子を足す | EXPORT-04, FILE-02 |
 | `export_xlsx::write_excel_bytes_produces_xlsx` | xlsx の先頭が ZIP である | EXPORT-05 |
 | 同上 | `shape_pixel_dimensions_clamps_thin_lines` | EXPORT-05 |
-| 同上 | `thin_shape_in_xlsx_is_not_default_textbox_size` | EXPORT-05 |
-| 同上 | `connector_and_today_line_in_drawing_xml` | EXPORT-05 |
+| 同上 | `thin_shape_in_xlsx_is_not_default_textbox_size` | 実ブックのバー図形が 5×40px の EMU で、192×120 既定にならない | EXPORT-05 |
+| 同上 | `bar_anchor_matches_payload_pixels` | バーの `twoCellAnchor` と幅・高さの EMU が payload の図形と一致する | EXPORT-05 |
+| 同上 | `bar_tentative_pattern_in_xlsx` | 未確定バーに `pct20` と前景色がある | EXPORT-05 |
+| 同上 | `connector_snaps_straight_between_two_bars` | 直線コネクタの接続点と bounds が実ブックのバー辺の中央と一致する | EXPORT-05 |
+| 同上 | `connector_snaps_bent_between_two_rows` | カギ線コネクタの bounds と `flipH` / `flipV` がバーアンカーから求めた値と一致する | EXPORT-05 |
+| 同上 | `connector_omitted_when_bar_anchor_is_missing` | スナップできないときコネクタが付かない | EXPORT-05 |
+| 同上 | `today_line_matches_payload` | `prst="line"` の列・色・高さが payload の `todayLine` と一致する | EXPORT-05 |
+| 同上 | `today_line_absent_when_payload_has_none` | `todayLine` が無いとき `line` 図形が無い | EXPORT-05 |
+| 同上 | `milestone_group_merge_and_diamond_column` | マイルストン行の左結合にグループ名があり、◆ が日付列のセルにある | EXPORT-05 |
+| 同上 | `column_width_change_moves_bar_width_only` | 列幅だけ違う二つのブックでバー幅だけが変わる | EXPORT-05 |
+| 同上 | `row_height_change_moves_vertical_offsets_only` | 行高だけ違う二つのブックで縦位置と今日の線の高さだけが変わる | EXPORT-05 |
+| 同上 | `stroke_color_change_updates_connector_rgb_only` | 色だけ違う二つのブックでコネクタの `srgbClr` だけが変わる | EXPORT-05 |
+| `excel_drawing_patch` | `connector_anchors_use_edge_centers_same_row` など | 辺の中央へのスナップと `flipH` / `flipV` | EXPORT-05 |
 | `require_active_save_path_accepts_matching_path` | 開いているパスと一致すれば上書きできる | FILE-02 |
 | `require_active_save_path_rejects_mismatch_and_missing` | パスの不一致と、ファイルを開いていない状態は拒否する | FILE-02 |
 | `should_close_default_main_when_main_not_recorded` | 記録に `main` が無いときだけ、起動時に空の `main` を閉じる | SYNC-03, WIN-01 |

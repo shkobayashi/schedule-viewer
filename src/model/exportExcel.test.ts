@@ -102,7 +102,7 @@ describe("exportExcel", () => {
       EXCEL_DATE_COLUMN_WIDTH_PX,
     );
     expect(bar.anchorColIndex).toBe(1);
-    expect(bar.widthPx).toBe(96);
+    expect(bar.widthPx).toBe(2 * EXCEL_DATE_COLUMN_WIDTH_PX);
   });
 
   it("puts visible task rows and shapes into the payload", () => {
@@ -114,6 +114,19 @@ describe("exportExcel", () => {
     expect(payload.shapes[0]?.anchorCol).toBe(5);
     expect(payload.preamble).toContain("見えている行だけ");
     expect(payload.dateColumnWidthPx).toBe(EXCEL_DATE_COLUMN_WIDTH_PX);
+    expect(payload.bodyRowHeightPx).toBe(22);
+    expect(payload.headerRowHeightPx).toBe(22);
+  });
+
+  it("uses 28px header and 22px body rows for month export columns", () => {
+    const input = baseInput();
+    input.tier = "month";
+    input.timelineStart = parseDate("2026-09-01");
+    input.timelineEnd = parseDate("2026-11-01");
+    const payload = buildExcelExportPayload(input);
+    expect(payload.dateColumnWidthPx).toBe(EXCEL_DATE_COLUMN_WIDTH_MONTH_PX);
+    expect(payload.headerRowHeightPx).toBe(28);
+    expect(payload.bodyRowHeightPx).toBe(22);
   });
 
   it("offsets bars within equal-width month columns", () => {

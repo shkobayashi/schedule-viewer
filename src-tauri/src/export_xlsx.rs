@@ -110,6 +110,8 @@ pub struct ExcelExportPayload {
     pub gray_header_only: bool,
     pub note_wrap_column_index: Option<u32>,
     pub date_column_width_px: u32,
+    pub body_row_height_px: u32,
+    pub header_row_height_px: u32,
 }
 
 /// `rust_xlsxwriter` は 5px 未満の幅・高さを無視し、既定の 192×120 になる。
@@ -214,7 +216,7 @@ pub fn write_excel_bytes(payload: &ExcelExportPayload) -> Result<Vec<u8>, String
     let header_row = row;
     let header_format = Format::new().set_bold();
     worksheet
-        .set_row_height_pixels(header_row, if date_col_width >= 96 { 28 } else { 22 })
+        .set_row_height_pixels(header_row, payload.header_row_height_px)
         .map_err(|e| e.to_string())?;
     for (col, label) in payload.left_headers.iter().enumerate() {
         worksheet
@@ -235,7 +237,7 @@ pub fn write_excel_bytes(payload: &ExcelExportPayload) -> Result<Vec<u8>, String
 
     for export_row in &payload.rows {
         worksheet
-            .set_row_height_pixels(row, 22)
+            .set_row_height_pixels(row, payload.body_row_height_px)
             .map_err(|e| e.to_string())?;
         let heading = export_row.kind == "category" || export_row.kind == "group";
         let heading_fill = if export_row.kind == "group" {
@@ -394,6 +396,13 @@ fn truncate_sheet_title(title: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::excel_book::{
+        anchor_block_xml, anchor_from_inner, anchor_to_inner, bar_anchor_blocks,
+        connector_anchor_blocks, connector_end_cxn_idx, connector_flip_h_v,
+        connector_st_cxn_idx, drawing_xml, emu, line_anchor_blocks, milestone_merge_refs,
+        parse_ext_cx_cy, parse_two_cell_anchors, sheet_xml, workbook_contains_text,
+    };
+    use crate::excel_drawing_patch::connector_snap_bounds_from_bar_blocks;
 
     fn minimal_payload() -> ExcelExportPayload {
         ExcelExportPayload {
@@ -450,6 +459,8 @@ mod tests {
             gray_header_only: true,
             note_wrap_column_index: Some(3),
             date_column_width_px: 48,
+            body_row_height_px: 22,
+            header_row_height_px: 22,
         }
     }
 
@@ -487,52 +498,277 @@ mod tests {
             text_rgb: None,
         }];
         let bytes = write_excel_bytes(&payload).expect("write");
-        let cursor = std::io::Cursor::new(bytes);
-        let mut archive = zip::ZipArchive::new(cursor).expect("zip");
-        let mut drawing = archive
-            .by_name("xl/drawings/drawing1.xml")
-            .expect("drawing");
-        let mut xml = String::new();
-        std::io::Read::read_to_string(&mut drawing, &mut xml).expect("read");
-        // 5px and 40px in EMU (9525 per px), not the 192×120 default (1828800×1143000).
-        assert!(xml.contains("cx=\"47625\""));
-        assert!(xml.contains("cy=\"381000\""));
-        assert!(!xml.contains("cx=\"1828800\""));
+        let xml = drawing_xml(&bytes);
+        let bar_xml = anchor_block_xml(&xml, 0).expect("bar anchor");
+        assert!(bar_xml.contains("cx=\"47625\""));
+        assert!(bar_xml.contains("cy=\"381000\""));
+        assert!(!bar_xml.contains("cx=\"1828800\""));
+    }
+
+    fn second_task_shape() -> ExcelExportShape {
+        ExcelExportShape {
+            row: 3,
+            anchor_col: 5,
+            x_offset_px: 0,
+            y_offset_px: 4,
+            width_px: 48,
+            height_px: 14,
+            fill_rgb: "8A94A6".into(),
+            pattern: "solid".into(),
+            pattern_fore_rgb: None,
+            fill_transparency: None,
+            text: None,
+            text_rgb: None,
+        }
+    }
+
+    fn two_task_payload(straight: bool) -> ExcelExportPayload {
+        let mut payload = minimal_payload();
+        payload.rows.push(ExcelExportRow {
+            kind: "task".into(),
+            cells: vec!["Next".into(), "01/02".into(), "01/02".into(), "".into()],
+            name_overdue: false,
+        });
+        payload.shapes.push(second_task_shape());
+        payload.connectors.push(ExcelExportConnector {
+            from_shape_index: 0,
+            to_shape_index: 1,
+            stroke_rgb: "8A94A6".into(),
+            broken: false,
+            straight,
+            bent_adj1: 50_000,
+        });
+        payload
     }
 
     #[test]
-    fn connector_and_today_line_in_drawing_xml() {
+    fn bar_anchor_matches_payload_pixels() {
+        let payload = minimal_payload();
+        let shape = &payload.shapes[0];
+        let bytes = write_excel_bytes(&payload).expect("write");
+        let xml = drawing_xml(&bytes);
+        let bar_block = bar_anchor_blocks(&xml).into_iter().next().expect("bar");
+        let bar = parse_two_cell_anchors(&xml)
+            .into_iter()
+            .find(|a| a.is_bar)
+            .expect("bar anchor");
+        assert_eq!(bar.from_col, shape.anchor_col);
+        assert_eq!(bar.from_row, shape.row);
+        assert_eq!(bar.from_col_off, emu(shape.x_offset_px));
+        assert_eq!(bar.from_row_off, emu(shape.y_offset_px));
+        let (cx, cy) = parse_ext_cx_cy(&bar_block).expect("ext");
+        assert_eq!(cx, emu(shape.width_px));
+        assert_eq!(cy, emu(shape.height_px));
+        assert!(!bar.dotted_pattern);
+        assert!(bar_block.contains(&format!("val=\"{}\"", shape.fill_rgb)));
+    }
+
+    #[test]
+    fn bar_tentative_pattern_in_xlsx() {
+        let mut payload = minimal_payload();
+        payload.shapes[0].pattern = "tentative".into();
+        payload.shapes[0].pattern_fore_rgb = Some("818492".into());
+        let bytes = write_excel_bytes(&payload).expect("write");
+        let bar_block = bar_anchor_blocks(&drawing_xml(&bytes))
+            .into_iter()
+            .next()
+            .expect("bar");
+        assert!(bar_block.contains("pct20"));
+        assert!(bar_block.contains("val=\"818492\""));
+    }
+
+    #[test]
+    fn connector_snaps_straight_between_two_bars() {
+        let payload = two_task_payload(true);
+        let bytes = write_excel_bytes(&payload).expect("write");
+        let xml = drawing_xml(&bytes);
+        let bars = bar_anchor_blocks(&xml);
+        assert_eq!(bars.len(), 2);
+        let connectors = connector_anchor_blocks(&xml);
+        assert_eq!(connectors.len(), 1);
+        let connector = &connectors[0];
+        assert_eq!(connector_st_cxn_idx(connector), Some(3));
+        assert_eq!(connector_end_cxn_idx(connector), Some(1));
+        assert!(connector.contains("straightConnector1"));
+        assert!(connector.contains("type=\"triangle\""));
+        let (exp_from, exp_to, flip_h, flip_v) =
+            connector_snap_bounds_from_bar_blocks(&bars[0], &bars[1], payload.body_row_height_px)
+                .expect("snap");
+        assert_eq!(connector_flip_h_v(connector), (flip_h, flip_v));
+        assert_eq!(anchor_from_inner(connector).as_deref(), Some(exp_from.as_str()));
+        assert_eq!(anchor_to_inner(connector).as_deref(), Some(exp_to.as_str()));
+    }
+
+    #[test]
+    fn connector_snaps_bent_between_two_rows() {
+        let payload = two_task_payload(false);
+        let bytes = write_excel_bytes(&payload).expect("write");
+        let xml = drawing_xml(&bytes);
+        let bars = bar_anchor_blocks(&xml);
+        let connectors = connector_anchor_blocks(&xml);
+        assert_eq!(connectors.len(), 1);
+        let connector = &connectors[0];
+        assert!(connector.contains("bentConnector3"));
+        let (exp_from, exp_to, exp_flip_h, exp_flip_v) =
+            connector_snap_bounds_from_bar_blocks(&bars[0], &bars[1], payload.body_row_height_px)
+                .expect("snap");
+        assert_eq!(anchor_from_inner(connector).as_deref(), Some(exp_from.as_str()));
+        assert_eq!(anchor_to_inner(connector).as_deref(), Some(exp_to.as_str()));
+        assert_eq!(connector_flip_h_v(connector), (exp_flip_h, exp_flip_v));
+    }
+
+    #[test]
+    fn connector_omitted_when_bar_anchor_is_missing() {
         let mut payload = minimal_payload();
         payload.connectors.push(ExcelExportConnector {
             from_shape_index: 0,
-            to_shape_index: 0,
-            stroke_rgb: "3366CC".into(),
+            to_shape_index: 3,
+            stroke_rgb: "8A94A6".into(),
             broken: false,
             straight: true,
             bent_adj1: 50_000,
         });
-        payload.today_line = Some(ExcelExportTodayLine {
+        let bytes = write_excel_bytes(&payload).expect("write");
+        assert!(connector_anchor_blocks(&drawing_xml(&bytes)).is_empty());
+    }
+
+    #[test]
+    fn today_line_matches_payload() {
+        let mut payload = minimal_payload();
+        let line = ExcelExportTodayLine {
             row: 2,
             anchor_col: 4,
             x_offset_px: 10,
             height_px: 22,
             stroke_rgb: "E07B20".into(),
+        };
+        payload.today_line = Some(line);
+        let line = payload.today_line.as_ref().expect("line");
+        let bytes = write_excel_bytes(&payload).expect("write");
+        let xml = drawing_xml(&bytes);
+        let blocks = line_anchor_blocks(&xml);
+        assert_eq!(blocks.len(), 1);
+        let block = &blocks[0];
+        let from = anchor_from_inner(block).expect("from");
+        assert!(from.contains(&format!("<xdr:col>{}</xdr:col>", line.anchor_col)));
+        assert!(from.contains(&format!(
+            "<xdr:colOff>{}</xdr:colOff>",
+            emu(line.x_offset_px)
+        )));
+        assert!(from.contains(&format!("<xdr:row>{}</xdr:row>", line.row)));
+        assert!(block.contains(&format!("val=\"{}\"", line.stroke_rgb)));
+        let (_, cy) = parse_ext_cx_cy(block).expect("ext");
+        assert_eq!(cy, emu(line.height_px));
+    }
+
+    #[test]
+    fn today_line_absent_when_payload_has_none() {
+        let payload = minimal_payload();
+        let bytes = write_excel_bytes(&payload).expect("write");
+        assert!(line_anchor_blocks(&drawing_xml(&bytes)).is_empty());
+    }
+
+    #[test]
+    fn milestone_group_merge_and_diamond_column() {
+        let mut payload = minimal_payload();
+        let group = "ReleaseMilestone".to_string();
+        payload.milestone_rows.push(ExcelMilestoneRow {
+            name: group.clone(),
+            marks: vec![MilestoneMark { col_index: 0 }],
+        });
+        payload.milestone_marks.push(MilestoneMarkCell {
+            row: 1,
+            col_index: 0,
+            character: "◆".into(),
         });
         let bytes = write_excel_bytes(&payload).expect("write");
-        let cursor = std::io::Cursor::new(bytes);
-        let mut archive = zip::ZipArchive::new(cursor).expect("zip");
-        let mut drawing = archive
-            .by_name("xl/drawings/drawing1.xml")
-            .expect("drawing");
-        let mut xml = String::new();
-        std::io::Read::read_to_string(&mut drawing, &mut xml).expect("read");
-        assert!(xml.contains("xdr:cxnSp"));
-        assert!(xml.contains("straightConnector1"));
-        assert!(xml.contains("idx=\"3\""));
-        assert!(xml.contains("idx=\"1\""));
-        assert!(xml.contains("type=\"triangle\""));
-        assert!(xml.contains("prst=\"line\""));
-        // Bar y 4px + height 14px → vertical center 11px from row top.
-        assert!(xml.contains("<xdr:rowOff>104775</xdr:rowOff>"));
+        assert!(workbook_contains_text(&bytes, &group));
+        let sheet = sheet_xml(&bytes);
+        let merges = milestone_merge_refs(&sheet);
+        assert_eq!(merges.len(), 1);
+        assert!(merges[0].starts_with("A2:"));
+        assert!(sheet.contains("r=\"E2\""));
+    }
+
+    #[test]
+    fn column_width_change_moves_bar_width_only() {
+        let mut narrow = minimal_payload();
+        narrow.date_column_width_px = 48;
+        narrow.shapes[0].width_px = 48;
+        let mut wide = minimal_payload();
+        wide.date_column_width_px = 80;
+        wide.shapes[0].width_px = 80;
+        let narrow_xml = drawing_xml(&write_excel_bytes(&narrow).expect("write"));
+        let wide_xml = drawing_xml(&write_excel_bytes(&wide).expect("write"));
+        let narrow_bar = bar_anchor_blocks(&narrow_xml)[0].clone();
+        let wide_bar = bar_anchor_blocks(&wide_xml)[0].clone();
+        let (narrow_cx, narrow_cy) = parse_ext_cx_cy(&narrow_bar).expect("cx");
+        let (wide_cx, wide_cy) = parse_ext_cx_cy(&wide_bar).expect("cx");
+        assert_ne!(narrow_cx, wide_cx);
+        assert_eq!(narrow_cy, wide_cy);
+        assert_eq!(line_anchor_blocks(&narrow_xml).len(), line_anchor_blocks(&wide_xml).len());
+    }
+
+    #[test]
+    fn row_height_change_moves_vertical_offsets_only() {
+        let mut short = minimal_payload();
+        short.body_row_height_px = 22;
+        short.shapes[0].y_offset_px = 4;
+        let mut tall = minimal_payload();
+        tall.body_row_height_px = 30;
+        tall.shapes[0].y_offset_px = 8;
+        tall.today_line = Some(ExcelExportTodayLine {
+            row: 2,
+            anchor_col: 4,
+            x_offset_px: 0,
+            height_px: 30,
+            stroke_rgb: "E07B20".into(),
+        });
+        short.today_line = Some(ExcelExportTodayLine {
+            row: 2,
+            anchor_col: 4,
+            x_offset_px: 0,
+            height_px: 22,
+            stroke_rgb: "E07B20".into(),
+        });
+        let short_xml = drawing_xml(&write_excel_bytes(&short).expect("write"));
+        let tall_xml = drawing_xml(&write_excel_bytes(&tall).expect("write"));
+        let short_bar = parse_two_cell_anchors(&short_xml)
+            .into_iter()
+            .find(|a| a.is_bar)
+            .expect("bar");
+        let tall_bar = parse_two_cell_anchors(&tall_xml)
+            .into_iter()
+            .find(|a| a.is_bar)
+            .expect("bar");
+        assert_ne!(short_bar.from_row_off, tall_bar.from_row_off);
+        let short_line = line_anchor_blocks(&short_xml)[0].clone();
+        let tall_line = line_anchor_blocks(&tall_xml)[0].clone();
+        let (_, short_cy) = parse_ext_cx_cy(&short_line).expect("cy");
+        let (_, tall_cy) = parse_ext_cx_cy(&tall_line).expect("cy");
+        assert_ne!(short_cy, tall_cy);
+        let (short_cx, _) = parse_ext_cx_cy(&bar_anchor_blocks(&short_xml)[0]).expect("cx");
+        let (tall_cx, _) = parse_ext_cx_cy(&bar_anchor_blocks(&tall_xml)[0]).expect("cx");
+        assert_eq!(short_cx, tall_cx);
+    }
+
+    #[test]
+    fn stroke_color_change_updates_connector_rgb_only() {
+        let mut a = two_task_payload(true);
+        let mut b = two_task_payload(true);
+        a.connectors[0].stroke_rgb = "AABBCC".into();
+        b.connectors[0].stroke_rgb = "112233".into();
+        let a_block = connector_anchor_blocks(&drawing_xml(
+            &write_excel_bytes(&a).expect("write"),
+        ))[0]
+            .clone();
+        let b_block = connector_anchor_blocks(&drawing_xml(
+            &write_excel_bytes(&b).expect("write"),
+        ))[0]
+            .clone();
+        assert!(a_block.contains("val=\"AABBCC\""));
+        assert!(b_block.contains("val=\"112233\""));
+        assert_eq!(connector_st_cxn_idx(&a_block), connector_st_cxn_idx(&b_block));
+        assert_eq!(connector_end_cxn_idx(&a_block), connector_end_cxn_idx(&b_block));
     }
 }

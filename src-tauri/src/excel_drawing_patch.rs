@@ -10,8 +10,6 @@ use crate::export_xlsx::{
 };
 
 const EMU_PER_PX: u64 = 9525;
-const BODY_ROW_HEIGHT_PX: u64 = 22;
-const BODY_ROW_HEIGHT_EMU: u64 = BODY_ROW_HEIGHT_PX * EMU_PER_PX;
 const CONNECTOR_STYLE: &str = r#"<xdr:style><a:lnRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:lnRef><a:fillRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:fillRef><a:effectRef idx="0"><a:scrgbClr r="0" g="0" b="0"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></xdr:style>"#;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -69,23 +67,35 @@ fn format_anchor(corner: AnchorCorner) -> String {
     )
 }
 
-fn row_y(corner: AnchorCorner) -> u64 {
-    corner.row as u64 * BODY_ROW_HEIGHT_EMU + corner.row_off
+fn emu_per_body_row(body_row_height_px: u32) -> u64 {
+    u64::from(body_row_height_px.max(1)) * EMU_PER_PX
 }
 
-fn y_to_row_off(y: u64) -> (u32, u64) {
-    let row = (y / BODY_ROW_HEIGHT_EMU) as u32;
-    let row_off = y % BODY_ROW_HEIGHT_EMU;
+fn row_y(corner: AnchorCorner, body_row_height_emu: u64) -> u64 {
+    corner.row as u64 * body_row_height_emu + corner.row_off
+}
+
+fn y_to_row_off(y: u64, body_row_height_emu: u64) -> (u32, u64) {
+    let row = (y / body_row_height_emu) as u32;
+    let row_off = y % body_row_height_emu;
     (row, row_off)
 }
 
-fn shape_vertical_mid(top: AnchorCorner, bottom: AnchorCorner) -> (u32, u64) {
-    let mid = (row_y(top) + row_y(bottom)) / 2;
-    y_to_row_off(mid)
+fn shape_vertical_mid(
+    top: AnchorCorner,
+    bottom: AnchorCorner,
+    body_row_height_emu: u64,
+) -> (u32, u64) {
+    let mid = (row_y(top, body_row_height_emu) + row_y(bottom, body_row_height_emu)) / 2;
+    y_to_row_off(mid, body_row_height_emu)
 }
 
-fn right_edge_center(top: AnchorCorner, bottom: AnchorCorner) -> AnchorCorner {
-    let (row, row_off) = shape_vertical_mid(top, bottom);
+fn right_edge_center(
+    top: AnchorCorner,
+    bottom: AnchorCorner,
+    body_row_height_emu: u64,
+) -> AnchorCorner {
+    let (row, row_off) = shape_vertical_mid(top, bottom, body_row_height_emu);
     AnchorCorner {
         col: bottom.col,
         col_off: bottom.col_off,
@@ -94,8 +104,12 @@ fn right_edge_center(top: AnchorCorner, bottom: AnchorCorner) -> AnchorCorner {
     }
 }
 
-fn left_edge_center(top: AnchorCorner, bottom: AnchorCorner) -> AnchorCorner {
-    let (row, row_off) = shape_vertical_mid(top, bottom);
+fn left_edge_center(
+    top: AnchorCorner,
+    bottom: AnchorCorner,
+    body_row_height_emu: u64,
+) -> AnchorCorner {
+    let (row, row_off) = shape_vertical_mid(top, bottom, body_row_height_emu);
     AnchorCorner {
         col: top.col,
         col_off: top.col_off,
@@ -113,6 +127,7 @@ fn horizontal_cmp(a: AnchorCorner, b: AnchorCorner) -> std::cmp::Ordering {
 fn connector_bounds(
     start: AnchorCorner,
     end: AnchorCorner,
+    body_row_height_emu: u64,
 ) -> (AnchorCorner, AnchorCorner) {
     let (left_col, left_off, right_col, right_off) =
         if horizontal_cmp(start, end) != std::cmp::Ordering::Greater {
@@ -120,11 +135,11 @@ fn connector_bounds(
         } else {
             (end.col, end.col_off, start.col, start.col_off)
         };
-    let sy = row_y(start);
-    let ey = row_y(end);
+    let sy = row_y(start, body_row_height_emu);
+    let ey = row_y(end, body_row_height_emu);
     let (top_y, bottom_y) = if sy <= ey { (sy, ey) } else { (ey, sy) };
-    let (top_row, top_off) = y_to_row_off(top_y);
-    let (bottom_row, bottom_off) = y_to_row_off(bottom_y);
+    let (top_row, top_off) = y_to_row_off(top_y, body_row_height_emu);
+    let (bottom_row, bottom_off) = y_to_row_off(bottom_y, body_row_height_emu);
     (
         AnchorCorner {
             col: left_col,
@@ -146,16 +161,17 @@ fn connector_anchors_from_shapes(
     to_a: &str,
     from_b: &str,
     to_b: &str,
+    body_row_height_emu: u64,
 ) -> Option<(String, String, bool, bool)> {
     let a_from = parse_anchor(from_a)?;
     let a_to = parse_anchor(to_a)?;
     let b_from = parse_anchor(from_b)?;
     let b_to = parse_anchor(to_b)?;
-    let start = right_edge_center(a_from, a_to);
-    let end = left_edge_center(b_from, b_to);
+    let start = right_edge_center(a_from, a_to, body_row_height_emu);
+    let end = left_edge_center(b_from, b_to, body_row_height_emu);
     let flip_h = horizontal_cmp(end, start) == std::cmp::Ordering::Less;
-    let flip_v = row_y(end) < row_y(start);
-    let (from, to) = connector_bounds(start, end);
+    let flip_v = row_y(end, body_row_height_emu) < row_y(start, body_row_height_emu);
+    let (from, to) = connector_bounds(start, end, body_row_height_emu);
     Some((
         format_anchor(from),
         format_anchor(to),
@@ -214,11 +230,18 @@ fn build_connector_anchor(
     connector: &ExcelExportConnector,
     drawing_xml: &str,
     drawing_index: u32,
+    body_row_height_px: u32,
 ) -> Option<String> {
+    let body_row_height_emu = emu_per_body_row(body_row_height_px);
     let (from_a, to_a) = shape_anchor_blocks(drawing_xml, connector.from_shape_index)?;
     let (from_b, to_b) = shape_anchor_blocks(drawing_xml, connector.to_shape_index)?;
-    let (from, to, flip_h, flip_v) =
-        connector_anchors_from_shapes(&from_a, &to_a, &from_b, &to_b)?;
+    let (from, to, flip_h, flip_v) = connector_anchors_from_shapes(
+        &from_a,
+        &to_a,
+        &from_b,
+        &to_b,
+        body_row_height_emu,
+    )?;
     let flip_h_attr = if flip_h { "1" } else { "0" };
     let flip_v_attr = if flip_v { "1" } else { "0" };
     let from_shape_id = connector.from_shape_index as u32 + 2;
@@ -245,16 +268,22 @@ fn today_line_width_emu() -> u64 {
     (1.5 * EMU_PER_PX as f64).round() as u64
 }
 
-fn build_today_line_anchor(line: &ExcelExportTodayLine, drawing_index: u32) -> String {
+fn build_today_line_anchor(
+    line: &ExcelExportTodayLine,
+    drawing_index: u32,
+    body_row_height_px: u32,
+) -> String {
     let col_off = u64::from(line.x_offset_px) * EMU_PER_PX;
     let width = today_line_width_emu();
     let height = u64::from(line.height_px) * EMU_PER_PX;
-    let body_rows = line.height_px.div_ceil(22);
+    let row_h = body_row_height_px.max(1);
+    let body_rows = line.height_px.div_ceil(row_h);
     let end_row = line.row + body_rows.saturating_sub(1);
+    let row_h_emu = emu_per_body_row(row_h);
     let end_row_off = if body_rows <= 1 {
         height
     } else {
-        22u64 * EMU_PER_PX
+        row_h_emu
     };
     let cnv_id = drawing_index + 1;
     let rgb = line.stroke_rgb.trim_start_matches('#');
@@ -274,17 +303,44 @@ fn build_today_line_anchor(line: &ExcelExportTodayLine, drawing_index: u32) -> S
     )
 }
 
+#[cfg(test)]
+pub(crate) fn connector_snap_bounds_from_bar_blocks(
+    bar0_block: &str,
+    bar1_block: &str,
+    body_row_height_px: u32,
+) -> Option<(String, String, bool, bool)> {
+    let from_a = anchor_from_xml(bar0_block)?;
+    let to_a = anchor_to_xml(bar0_block)?;
+    let from_b = anchor_from_xml(bar1_block)?;
+    let to_b = anchor_to_xml(bar1_block)?;
+    let body_row_height_emu = emu_per_body_row(body_row_height_px);
+    let (from, to, flip_h, flip_v) = connector_anchors_from_shapes(
+        &from_a,
+        &to_a,
+        &from_b,
+        &to_b,
+        body_row_height_emu,
+    )?;
+    Some((from, to, flip_h, flip_v))
+}
+
 fn patch_drawing_xml(drawing_xml: &str, payload: &ExcelExportPayload) -> String {
     let mut extra = String::new();
     let base_index = payload.shapes.len() as u32;
+    let body_row_height_px = payload.body_row_height_px;
     for (i, connector) in payload.connectors.iter().enumerate() {
-        if let Some(block) = build_connector_anchor(connector, drawing_xml, base_index + i as u32) {
+        if let Some(block) = build_connector_anchor(
+            connector,
+            drawing_xml,
+            base_index + i as u32,
+            body_row_height_px,
+        ) {
             extra.push_str(&block);
         }
     }
     if let Some(line) = &payload.today_line {
         let idx = base_index + payload.connectors.len() as u32;
-        extra.push_str(&build_today_line_anchor(line, idx));
+        extra.push_str(&build_today_line_anchor(line, idx, body_row_height_px));
     }
     if extra.is_empty() {
         return drawing_xml.to_string();
@@ -460,8 +516,15 @@ mod tests {
             col_off: emu(40),
             row_off: emu(18),
         });
-        let (from, _to, flip_h, flip_v) =
-            connector_anchors_from_shapes(&from_a, &to_a, &from_b, &to_b).unwrap();
+        let body_emu = emu_per_body_row(22);
+        let (from, _to, flip_h, flip_v) = connector_anchors_from_shapes(
+            &from_a,
+            &to_a,
+            &from_b,
+            &to_b,
+            body_emu,
+        )
+        .unwrap();
         assert!(!flip_h);
         assert!(!flip_v);
         assert!(from.contains(&format!("<xdr:colOff>{}</xdr:colOff>", emu(58))));
@@ -494,8 +557,15 @@ mod tests {
             col_off: emu(40),
             row_off: emu(18),
         });
-        let (_, _, flip_h, flip_v) =
-            connector_anchors_from_shapes(&from_a, &to_a, &from_b, &to_b).unwrap();
+        let body_emu = emu_per_body_row(22);
+        let (_, _, flip_h, flip_v) = connector_anchors_from_shapes(
+            &from_a,
+            &to_a,
+            &from_b,
+            &to_b,
+            body_emu,
+        )
+        .unwrap();
         assert!(!flip_h);
         assert!(flip_v);
     }
@@ -526,8 +596,15 @@ mod tests {
             col_off: emu(40),
             row_off: emu(18),
         });
-        let (_, _, flip_h, flip_v) =
-            connector_anchors_from_shapes(&from_a, &to_a, &from_b, &to_b).unwrap();
+        let body_emu = emu_per_body_row(22);
+        let (_, _, flip_h, flip_v) = connector_anchors_from_shapes(
+            &from_a,
+            &to_a,
+            &from_b,
+            &to_b,
+            body_emu,
+        )
+        .unwrap();
         assert!(flip_h);
         assert!(!flip_v);
     }
@@ -576,7 +653,7 @@ mod tests {
             straight: false,
             bent_adj1: 50_000,
         };
-        let block = build_connector_anchor(&connector, &drawing_xml, 0).unwrap();
+        let block = build_connector_anchor(&connector, &drawing_xml, 0, 22).unwrap();
         assert!(block.contains("flipH=\"0\""));
         assert!(block.contains("flipV=\"1\""));
         assert!(block.contains("idx=\"3\""));
