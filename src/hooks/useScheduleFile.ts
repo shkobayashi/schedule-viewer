@@ -63,6 +63,8 @@ type UseScheduleFileOptions = {
   knownMemberIds: ReadonlySet<string>;
   memberCatalogSettled: boolean;
   sidebarReorderDragging: boolean;
+  getCanonicalJson?: () => string;
+  getDocumentTitle?: () => string;
 };
 
 export type ApplyOpenedFileOptions = {
@@ -86,6 +88,8 @@ export function useScheduleFile({
   knownMemberIds,
   memberCatalogSettled,
   sidebarReorderDragging,
+  getCanonicalJson,
+  getDocumentTitle,
 }: UseScheduleFileOptions) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [browserFileLabel, setBrowserFileLabel] = useState<string | null>(null);
@@ -180,6 +184,8 @@ export function useScheduleFile({
     cancelExternalChange,
   } = useScheduleSave({
     currentJson,
+    getCanonicalJson,
+    getDocumentTitle,
     title,
     filePath,
     setFilePath,

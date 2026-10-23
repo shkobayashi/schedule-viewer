@@ -4,6 +4,7 @@ export type CommandPaletteCommandId =
   | "save"
   | "saveAs"
   | "find"
+  | "editTitle"
   | "showDiff"
   | "copyDiff"
   | "showJson"
@@ -86,6 +87,12 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
     label: "検索へ移る",
     keywords: "find search 検索",
     enabled: () => true,
+  },
+  {
+    id: "editTitle",
+    label: "タイトルを変更",
+    keywords: "title タイトル 名前",
+    enabled: (ctx) => !ctx.fileBusy,
   },
   {
     id: "showDiff",

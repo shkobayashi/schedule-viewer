@@ -52,7 +52,15 @@ describe("buildCommandPaletteItems", () => {
   it("disables file commands when busy", () => {
     const items = buildCommandPaletteItems({ ...idle, fileBusy: true });
     expect(items.find((item) => item.id === "open")?.enabled).toBe(false);
+    expect(items.find((item) => item.id === "editTitle")?.enabled).toBe(false);
     expect(items.find((item) => item.id === "find")?.enabled).toBe(true);
+  });
+
+  it("includes edit title command", () => {
+    const items = buildCommandPaletteItems(idle);
+    expect(items.find((item) => item.id === "editTitle")?.label).toBe(
+      "タイトルを変更",
+    );
   });
 
   it("disables add and duplicate commands in link mode without selection", () => {
