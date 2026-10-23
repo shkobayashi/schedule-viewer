@@ -834,6 +834,40 @@ mod tests {
     }
 
     #[test]
+    fn summary_gap_line_spans_date_columns() {
+        let mut payload = minimal_payload();
+        payload.summary_gap_lines.push(ExcelExportSummaryGapLine {
+            row: 2,
+            anchor_col: 4,
+            x_offset_px: 0,
+            y_offset_px: 10,
+            width_px: 240,
+            stroke_rgb: "D5DBE3".into(),
+        });
+        payload.summary_caps.push(ExcelExportSummaryCap {
+            row: 2,
+            anchor_col: 8,
+            x_offset_px: 43,
+            y_offset_px: 12,
+            size_px: 5,
+            side: "right".into(),
+            fill_rgb: "8A94A6".into(),
+        });
+        let bytes = write_excel_bytes(&payload).expect("write");
+        let xml = drawing_xml(&bytes);
+        let gap = xml
+            .split("Summary gap")
+            .nth(1)
+            .expect("gap anchor");
+        assert!(gap.contains("<xdr:col>9</xdr:col>"));
+        assert!(gap.contains("cx=\"2286000\""));
+        assert!(xml.contains("prst=\"rtTriangle\""));
+        assert!(xml.contains("id=\"3\""));
+        assert!(xml.contains("id=\"4\""));
+        assert!(!xml.contains("id=\"2\" name=\"Summary"));
+    }
+
+    #[test]
     fn stroke_color_change_updates_connector_rgb_only() {
         let mut a = two_task_payload(true);
         let mut b = two_task_payload(true);

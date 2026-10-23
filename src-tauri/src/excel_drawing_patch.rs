@@ -269,59 +269,80 @@ fn today_line_width_emu() -> u64 {
     (1.5 * EMU_PER_PX as f64).round() as u64
 }
 
+/// 等幅の日付列のうち、列内オフセットと幅から終端の列と列内オフセット（px）を求める。
+pub(crate) fn horizontal_span_end_px(
+    start_col: u32,
+    start_col_off_px: u32,
+    span_width_px: u32,
+    date_col_width_px: u32,
+) -> (u32, u32) {
+    let col_w = u64::from(date_col_width_px.max(1));
+    let mut col = start_col;
+    let mut x2 = u64::from(start_col_off_px) + u64::from(span_width_px.max(1));
+    while x2 >= col_w {
+        x2 -= col_w;
+        col += 1;
+    }
+    (col, x2 as u32)
+}
+
 fn build_summary_gap_line_anchor(
     line: &ExcelExportSummaryGapLine,
     drawing_index: u32,
-    body_row_height_px: u32,
+    date_col_width_px: u32,
 ) -> String {
+    let (end_col, end_col_off_px) = horizontal_span_end_px(
+        line.anchor_col,
+        line.x_offset_px,
+        line.width_px,
+        date_col_width_px,
+    );
     let col_off_start = u64::from(line.x_offset_px) * EMU_PER_PX;
-    let col_off_end = col_off_start + u64::from(line.width_px.max(1)) * EMU_PER_PX;
+    let col_off_end = u64::from(end_col_off_px) * EMU_PER_PX;
     let row_off = u64::from(line.y_offset_px) * EMU_PER_PX;
-    let row_h = body_row_height_px.max(1);
-    let row_h_emu = emu_per_body_row(row_h);
-    let end_row = if row_off + EMU_PER_PX > row_h_emu {
-        line.row + 1
-    } else {
-        line.row
-    };
-    let end_row_off = if end_row == line.row {
-        row_off + EMU_PER_PX
-    } else {
-        row_off + EMU_PER_PX - row_h_emu
-    };
+    let width_emu = u64::from(line.width_px.max(1)) * EMU_PER_PX;
+    let height_emu = EMU_PER_PX;
     let cnv_id = drawing_index + 1;
     let rgb = line.stroke_rgb.trim_start_matches('#');
     format!(
-        r#"<xdr:twoCellAnchor><xdr:from><xdr:col>{col}</xdr:col><xdr:colOff>{col_off_start}</xdr:colOff><xdr:row>{row}</xdr:row><xdr:rowOff>{row_off}</xdr:rowOff></xdr:from><xdr:to><xdr:col>{col}</xdr:col><xdr:colOff>{col_off_end}</xdr:colOff><xdr:row>{end_row}</xdr:row><xdr:rowOff>{end_row_off}</xdr:rowOff></xdr:to><xdr:sp macro="" textlink=""><xdr:nvSpPr><xdr:cNvPr id="{cnv_id}" name="Summary gap {drawing_index}"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm><a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:ln w="9525"><a:solidFill><a:srgbClr val="{rgb}"/></a:solidFill><a:prstDash val="dash"/></a:ln><a:noFill/></xdr:spPr>{CONNECTOR_STYLE}<xdr:txBody><a:bodyPr rtlCol="0" anchor="ctr"/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></xdr:txBody></xdr:sp><xdr:clientData/></xdr:twoCellAnchor>"#,
+        r#"<xdr:twoCellAnchor><xdr:from><xdr:col>{col}</xdr:col><xdr:colOff>{col_off_start}</xdr:colOff><xdr:row>{row}</xdr:row><xdr:rowOff>{row_off}</xdr:rowOff></xdr:from><xdr:to><xdr:col>{end_col}</xdr:col><xdr:colOff>{col_off_end}</xdr:colOff><xdr:row>{row}</xdr:row><xdr:rowOff>{row_off}</xdr:rowOff></xdr:to><xdr:sp macro="" textlink=""><xdr:nvSpPr><xdr:cNvPr id="{cnv_id}" name="Summary gap {drawing_index}"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="{width_emu}" cy="{height_emu}"/></a:xfrm><a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:ln w="9525"><a:solidFill><a:srgbClr val="{rgb}"/></a:solidFill><a:prstDash val="dash"/></a:ln><a:noFill/></xdr:spPr>{CONNECTOR_STYLE}<xdr:txBody><a:bodyPr rtlCol="0" anchor="ctr"/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></xdr:txBody></xdr:sp><xdr:clientData/></xdr:twoCellAnchor>"#,
         col = line.anchor_col,
         row = line.row,
         col_off_start = col_off_start,
+        end_col = end_col,
         col_off_end = col_off_end,
         row_off = row_off,
-        end_row = end_row,
-        end_row_off = end_row_off,
+        width_emu = width_emu,
+        height_emu = height_emu,
         cnv_id = cnv_id,
         rgb = rgb,
         drawing_index = drawing_index,
     )
 }
 
-fn build_summary_cap_anchor(cap: &ExcelExportSummaryCap, drawing_index: u32) -> String {
-    let size = u64::from(cap.size_px.max(1)) * EMU_PER_PX;
+fn build_summary_cap_anchor(
+    cap: &ExcelExportSummaryCap,
+    drawing_index: u32,
+    date_col_width_px: u32,
+) -> String {
+    let size_px = cap.size_px.max(1);
+    let (end_col, end_col_off_px) =
+        horizontal_span_end_px(cap.anchor_col, cap.x_offset_px, size_px, date_col_width_px);
+    let size = u64::from(size_px) * EMU_PER_PX;
     let col_off = u64::from(cap.x_offset_px) * EMU_PER_PX;
+    let col_off_end = u64::from(end_col_off_px) * EMU_PER_PX;
     let row_off = u64::from(cap.y_offset_px) * EMU_PER_PX;
     let flip_h = if cap.side == "right" { "1" } else { "0" };
     let cnv_id = drawing_index + 1;
     let rgb = cap.fill_rgb.trim_start_matches('#');
     format!(
-        r#"<xdr:twoCellAnchor><xdr:from><xdr:col>{col}</xdr:col><xdr:colOff>{col_off}</xdr:colOff><xdr:row>{row}</xdr:row><xdr:rowOff>{row_off}</xdr:rowOff></xdr:from><xdr:to><xdr:col>{col}</xdr:col><xdr:colOff>{col_off_end}</xdr:colOff><xdr:row>{end_row}</xdr:row><xdr:rowOff>{row_off_end}</xdr:rowOff></xdr:to><xdr:sp macro="" textlink=""><xdr:nvSpPr><xdr:cNvPr id="{cnv_id}" name="Summary cap {drawing_index}"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr><a:xfrm flipH="{flip_h}" flipV="1"><a:off x="0" y="0"/><a:ext cx="{size}" cy="{size}"/></a:xfrm><a:prstGeom prst="triangle"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="{rgb}"/></a:solidFill><a:ln><a:noFill/></a:ln></xdr:spPr>{CONNECTOR_STYLE}<xdr:txBody><a:bodyPr rtlCol="0" anchor="ctr"/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></xdr:txBody></xdr:sp><xdr:clientData/></xdr:twoCellAnchor>"#,
+        r#"<xdr:twoCellAnchor><xdr:from><xdr:col>{col}</xdr:col><xdr:colOff>{col_off}</xdr:colOff><xdr:row>{row}</xdr:row><xdr:rowOff>{row_off}</xdr:rowOff></xdr:from><xdr:to><xdr:col>{end_col}</xdr:col><xdr:colOff>{col_off_end}</xdr:colOff><xdr:row>{row}</xdr:row><xdr:rowOff>{row_off}</xdr:rowOff></xdr:to><xdr:sp macro="" textlink=""><xdr:nvSpPr><xdr:cNvPr id="{cnv_id}" name="Summary cap {drawing_index}"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr><a:xfrm flipH="{flip_h}"><a:off x="0" y="0"/><a:ext cx="{size}" cy="{size}"/></a:xfrm><a:prstGeom prst="rtTriangle"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="{rgb}"/></a:solidFill><a:ln><a:noFill/></a:ln></xdr:spPr>{CONNECTOR_STYLE}<xdr:txBody><a:bodyPr rtlCol="0" anchor="ctr"/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></xdr:txBody></xdr:sp><xdr:clientData/></xdr:twoCellAnchor>"#,
         col = cap.anchor_col,
         col_off = col_off,
         row = cap.row,
         row_off = row_off,
-        col_off_end = col_off + size,
-        end_row = cap.row,
-        row_off_end = row_off + size,
+        end_col = end_col,
+        col_off_end = col_off_end,
         flip_h = flip_h,
         size = size,
         cnv_id = cnv_id,
@@ -388,8 +409,10 @@ pub(crate) fn connector_snap_bounds_from_bar_blocks(
 
 fn patch_drawing_xml(drawing_xml: &str, payload: &ExcelExportPayload) -> String {
     let mut extra = String::new();
-    let base_index = payload.shapes.len() as u32;
+    // rust_xlsxwriter の図形 id は 2 から n+1。追加図形は n+2 から。
+    let base_index = payload.shapes.len() as u32 + 1;
     let body_row_height_px = payload.body_row_height_px;
+    let date_col_width_px = payload.date_column_width_px;
     for (i, connector) in payload.connectors.iter().enumerate() {
         if let Some(block) = build_connector_anchor(
             connector,
@@ -409,12 +432,16 @@ fn patch_drawing_xml(drawing_xml: &str, payload: &ExcelExportPayload) -> String 
         extra.push_str(&build_summary_gap_line_anchor(
             gap,
             next_index + i as u32,
-            body_row_height_px,
+            date_col_width_px,
         ));
     }
     next_index += payload.summary_gap_lines.len() as u32;
     for (i, cap) in payload.summary_caps.iter().enumerate() {
-        extra.push_str(&build_summary_cap_anchor(cap, next_index + i as u32));
+        extra.push_str(&build_summary_cap_anchor(
+            cap,
+            next_index + i as u32,
+            date_col_width_px,
+        ));
     }
     if extra.is_empty() {
         return drawing_xml.to_string();
@@ -569,6 +596,16 @@ mod tests {
 
     fn emu(px: u64) -> u64 {
         px * EMU_PER_PX
+    }
+
+    #[test]
+    fn horizontal_span_end_advances_columns_by_width() {
+        let (col, off) = horizontal_span_end_px(4, 0, 240, 48);
+        assert_eq!(col, 9);
+        assert_eq!(off, 0);
+        let (col2, off2) = horizontal_span_end_px(4, 10, 50, 48);
+        assert_eq!(col2, 5);
+        assert_eq!(off2, 12);
     }
 
     #[test]

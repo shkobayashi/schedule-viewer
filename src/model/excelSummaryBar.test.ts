@@ -38,7 +38,11 @@ describe("excelSummaryBar", () => {
     expect(deco.shapes.every((s) => s.heightPx === EXCEL_SUMMARY_BAR_HEIGHT_PX)).toBe(
       true,
     );
-    expect(deco.gapLines.length).toBeGreaterThan(0);
+    const gapWidths = deco.gapLines.map((line) => line.widthPx).sort((a, b) => a - b);
+    expect(gapWidths).toEqual([192, 240]);
     expect(deco.caps).toHaveLength(2);
+    const rightCap = deco.caps.find((cap) => cap.side === "right");
+    expect(rightCap?.xOffsetPx).toBe(43);
+    expect(rightCap?.sizePx).toBe(5);
   });
 });

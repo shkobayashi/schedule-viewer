@@ -70,4 +70,36 @@ describe("excelMilestone", () => {
     expect(milestoneMarks[0]?.colIndex).toBe(col);
     expect(milestoneMarks[0]?.character).toBe("◆ A、B");
   });
+
+  it("keeps same-day milestone names in document order", () => {
+    const columns = buildExcelTimeColumns(
+      parseDate("2026-09-01"),
+      parseDate("2026-11-01"),
+      "day",
+      null,
+    );
+    const date = "2026-10-15";
+    const { milestoneMarks } = excelMilestoneExport(
+      [{ id: "mg1", name: "デモ" }],
+      [
+        {
+          id: "m-z",
+          name: "先",
+          date,
+          confidence: "committed",
+          groupId: "mg1",
+        },
+        {
+          id: "m-a",
+          name: "後",
+          date,
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      new Set(["mg1"]),
+      columns,
+    );
+    expect(milestoneMarks[0]?.character).toBe("◆ 先、後");
+  });
 });

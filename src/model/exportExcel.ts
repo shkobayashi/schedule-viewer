@@ -284,7 +284,10 @@ function shapeForSpan(
 export function buildExcelExportPayload(
   input: ScheduleExcelInput,
 ): ExcelExportPayload {
-  const { chart, css } = paletteFor(input.colorScheme);
+  const { chart } = paletteFor(input.colorScheme);
+  const { css: lightCss } = paletteFor("light");
+  const excelGroupNameRgb = lightCss.groupText.replace("#", "");
+  const excelOverdueNameRgb = lightCss.dangerText.replace("#", "");
   const leftHeaders = excelLeftHeaders(input.excelColumns);
   const leftColCount = leftHeaders.length;
   const noteWrapColumnIndex = excelNoteColumnIndex(input.excelColumns);
@@ -359,7 +362,7 @@ export function buildExcelExportPayload(
         nameOverdue: false,
         nameIndent: 1,
         nameBold: true,
-        nameTextRgb: css.groupText.replace("#", ""),
+        nameTextRgb: excelGroupNameRgb,
       });
       if (visible.summary) {
         const deco = excelSummaryBarDecorations(
@@ -493,7 +496,7 @@ export function buildExcelExportPayload(
     tableBorderRgb: EXCEL_SHEET_BORDER_RGB,
     summaryGapLines,
     summaryCaps,
-    overdueNameRgb: css.dangerText.replace("#", ""),
+    overdueNameRgb: excelOverdueNameRgb,
     grayHeaderOnly: input.tier === "day",
     noteWrapColumnIndex,
     dateColumnWidthPx,

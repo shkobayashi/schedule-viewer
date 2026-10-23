@@ -14,9 +14,14 @@ export type ExcelMilestoneMarkCell = {
 };
 
 function sortMilestones(milestones: Milestone[]): Milestone[] {
-  return [...milestones].sort(
-    (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
-  );
+  return milestones
+    .map((milestone, index) => ({ milestone, index }))
+    .sort(
+      (a, b) =>
+        a.milestone.date.localeCompare(b.milestone.date) ||
+        a.index - b.index,
+    )
+    .map(({ milestone }) => milestone);
 }
 
 export function excelMilestoneExport(

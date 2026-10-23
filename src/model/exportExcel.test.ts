@@ -239,6 +239,45 @@ describe("exportExcel", () => {
     expect(dark.headerGrayRgb).toBe(groupRow);
   });
 
+  it("uses light group and overdue name colors on a white sheet", () => {
+    const lightPalette = paletteFor("light").css;
+    const group: VisibleRow = {
+      type: "group",
+      y: 0,
+      id: "g1",
+      categoryId: "c1",
+      category: "要件",
+      label: "設計",
+      collapsed: false,
+      summary: null,
+    };
+    const overdueTask: VisibleRow = {
+      type: "task",
+      y: 28,
+      task: {
+        id: "t1",
+        name: "遅れ",
+        start: "2026-01-06",
+        end: "2026-01-06",
+        assigneeId: null,
+        status: "in-progress",
+        progress: 0,
+        confidence: "committed",
+        predecessors: [],
+        milestoneId: null,
+      },
+    };
+    const input = baseInput();
+    input.today = "2026-01-10";
+    input.visibleRows = [group, overdueTask];
+    const dark = buildExcelExportPayload({ ...input, colorScheme: "dark" });
+    expect(dark.rows[0]?.nameTextRgb).toBe(
+      lightPalette.groupText.replace("#", ""),
+    );
+    expect(dark.overdueNameRgb).toBe(lightPalette.dangerText.replace("#", ""));
+    expect(dark.rows[1]?.nameOverdue).toBe(true);
+  });
+
   it("uses milestone group name on milestone rows", () => {
     const input = baseInput();
     input.tier = "month";
