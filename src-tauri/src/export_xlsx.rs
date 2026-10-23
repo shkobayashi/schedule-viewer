@@ -1,6 +1,6 @@
 use rust_xlsxwriter::{
-    Color, Format, ObjectMovement, Shape, ShapeFont, ShapeFormat, ShapePatternFill,
-    ShapePatternFillType, ShapeSolidFill, Workbook, Worksheet, XlsxError,
+    Color, Format, FormatBorder, ObjectMovement, Shape, ShapeFont, ShapeFormat,
+    ShapePatternFill, ShapePatternFillType, ShapeSolidFill, Workbook, Worksheet, XlsxError,
 };
 use serde::Deserialize;
 
@@ -14,6 +14,30 @@ pub struct ExcelTimeColumn {
     pub end_exclusive_iso: String,
     pub header_label: String,
     pub non_working: bool,
+    pub left_border_rgb: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExcelExportSummaryGapLine {
+    pub row: u32,
+    pub anchor_col: u32,
+    pub x_offset_px: u32,
+    pub y_offset_px: u32,
+    pub width_px: u32,
+    pub stroke_rgb: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExcelExportSummaryCap {
+    pub row: u32,
+    pub anchor_col: u32,
+    pub x_offset_px: u32,
+    pub y_offset_px: u32,
+    pub size_px: u32,
+    pub side: String,
+    pub fill_rgb: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,6 +84,9 @@ pub struct ExcelExportRow {
     pub kind: String,
     pub cells: Vec<String>,
     pub name_overdue: bool,
+    pub name_indent: u8,
+    pub name_bold: bool,
+    pub name_text_rgb: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -104,8 +131,9 @@ pub struct ExcelExportPayload {
     pub header_gray_rgb: String,
     pub non_working_fill_rgb: String,
     pub category_heading_fill_rgb: String,
-    pub group_heading_fill_rgb: String,
-    pub heading_text_rgb: String,
+    pub table_border_rgb: String,
+    pub summary_gap_lines: Vec<ExcelExportSummaryGapLine>,
+    pub summary_caps: Vec<ExcelExportSummaryCap>,
     pub overdue_name_rgb: String,
     pub gray_header_only: bool,
     pub note_wrap_column_index: Option<u32>,
@@ -133,6 +161,34 @@ pub(crate) fn shape_pixel_dimensions(width_px: u32, height_px: u32) -> (u32, u32
     }
 }
 
+fn with_left_table_borders(format: Format, border: Color) -> Format {
+    format
+        .set_border_top(FormatBorder::Thin)
+        .set_border_top_color(border)
+        .set_border_bottom(FormatBorder::Thin)
+        .set_border_bottom_color(border)
+        .set_border_left(FormatBorder::Thin)
+        .set_border_left_color(border)
+        .set_border_right(FormatBorder::Thin)
+        .set_border_right_color(border)
+}
+
+fn date_vertical_borders(
+    format: Format,
+    left: Color,
+    right: Option<Color>,
+) -> Format {
+    let mut f = format
+        .set_border_left(FormatBorder::Thin)
+        .set_border_left_color(left);
+    if let Some(color) = right {
+        f = f
+            .set_border_right(FormatBorder::Thin)
+            .set_border_right_color(color);
+    }
+    f
+}
+
 fn parse_color(hex: &str) -> Color {
     let trimmed = hex.trim_start_matches('#');
     if trimmed.len() == 6 {
@@ -150,13 +206,13 @@ pub fn write_excel_bytes(payload: &ExcelExportPayload) -> Result<Vec<u8>, String
     worksheet
         .set_name(&sheet_name)
         .map_err(|e| e.to_string())?;
+    worksheet.set_screen_gridlines(false);
 
     let left_count = payload.left_headers.len();
     let date_count = payload.date_columns.len();
     let non_working = parse_color(&payload.non_working_fill_rgb);
     let category_heading_fill = parse_color(&payload.category_heading_fill_rgb);
-    let group_heading_fill = parse_color(&payload.group_heading_fill_rgb);
-    let heading_text = parse_color(&payload.heading_text_rgb);
+    let table_border = parse_color(&payload.table_border_rgb);
     let overdue = parse_color(&payload.overdue_name_rgb);
     let note_wrap = payload.note_wrap_column_index;
     let date_col_width = payload.date_column_width_px.max(1);
@@ -200,32 +256,47 @@ pub fn write_excel_bytes(payload: &ExcelExportPayload) -> Result<Vec<u8>, String
         .map_err(|e| e.to_string())?;
 
     let mut row = 1u32;
+    let milestone_format = Format::new();
     for milestone in &payload.milestone_rows {
         if left_count > 1 {
             worksheet
-                .merge_range(row, 0, row, left_last_col, &milestone.name, &Format::new())
+                .merge_range(
+                    row,
+                    0,
+                    row,
+                    left_last_col,
+                    &milestone.name,
+                    &milestone_format,
+                )
                 .map_err(|e| e.to_string())?;
         } else {
             worksheet
-                .write_string(row, 0, &milestone.name)
+                .write_string_with_format(row, 0, &milestone.name, &milestone_format)
                 .map_err(|e| e.to_string())?;
         }
         row += 1;
     }
 
     let header_row = row;
-    let header_format = Format::new().set_bold();
+    let header_left_format =
+        with_left_table_borders(Format::new().set_bold(), table_border);
     worksheet
         .set_row_height_pixels(header_row, payload.header_row_height_px)
         .map_err(|e| e.to_string())?;
     for (col, label) in payload.left_headers.iter().enumerate() {
         worksheet
-            .write_string_with_format(header_row, col as u16, label, &header_format)
+            .write_string_with_format(header_row, col as u16, label, &header_left_format)
             .map_err(|e| e.to_string())?;
     }
     for (index, column) in payload.date_columns.iter().enumerate() {
         let col = left_count + index;
-        let mut format = Format::new().set_bold();
+        let left = parse_color(&column.left_border_rgb);
+        let right = if index + 1 == date_count {
+            Some(left)
+        } else {
+            None
+        };
+        let mut format = date_vertical_borders(Format::new().set_bold(), left, right);
         if payload.gray_header_only && column.non_working {
             format = format.set_background_color(non_working);
         }
@@ -239,22 +310,23 @@ pub fn write_excel_bytes(payload: &ExcelExportPayload) -> Result<Vec<u8>, String
         worksheet
             .set_row_height_pixels(row, payload.body_row_height_px)
             .map_err(|e| e.to_string())?;
-        let heading = export_row.kind == "category" || export_row.kind == "group";
-        let heading_fill = if export_row.kind == "group" {
-            group_heading_fill
-        } else {
-            category_heading_fill
-        };
+        let is_category = export_row.kind == "category";
+        let name_color = parse_color(&export_row.name_text_rgb);
         for (col, value) in export_row.cells.iter().enumerate() {
-            let mut format = Format::new();
-            if heading {
-                format = format
-                    .set_background_color(heading_fill)
-                    .set_bold()
-                    .set_font_color(heading_text);
+            let mut format = with_left_table_borders(Format::new(), table_border);
+            if is_category {
+                format = format.set_background_color(category_heading_fill);
             }
-            if col == 0 && export_row.name_overdue {
-                format = format.set_font_color(overdue);
+            if col == 0 {
+                format = format
+                    .set_indent(export_row.name_indent)
+                    .set_font_color(name_color);
+                if export_row.name_bold {
+                    format = format.set_bold();
+                }
+                if export_row.name_overdue {
+                    format = format.set_font_color(overdue);
+                }
             }
             if note_wrap == Some(col as u32) {
                 format = format.set_text_wrap();
@@ -263,27 +335,21 @@ pub fn write_excel_bytes(payload: &ExcelExportPayload) -> Result<Vec<u8>, String
                 .write_string_with_format(row, col as u16, value, &format)
                 .map_err(|e| e.to_string())?;
         }
-        if heading {
-            for index in 0..date_count {
-                let col = left_count + index;
-                let format = Format::new()
-                    .set_background_color(heading_fill)
-                    .set_bold()
-                    .set_font_color(heading_text);
-                worksheet
-                    .write_string_with_format(row, col as u16, "", &format)
-                    .map_err(|e| e.to_string())?;
+        for (index, column) in payload.date_columns.iter().enumerate() {
+            let col = left_count + index;
+            let left = parse_color(&column.left_border_rgb);
+            let right = if index + 1 == date_count {
+                Some(left)
+            } else {
+                None
+            };
+            let mut format = date_vertical_borders(Format::new(), left, right);
+            if payload.gray_header_only && column.non_working {
+                format = format.set_background_color(non_working);
             }
-        } else if payload.gray_header_only {
-            for (index, column) in payload.date_columns.iter().enumerate() {
-                if column.non_working {
-                    let col = left_count + index;
-                    let format = Format::new().set_background_color(non_working);
-                    worksheet
-                        .write_string_with_format(row, col as u16, "", &format)
-                        .map_err(|e| e.to_string())?;
-                }
-            }
+            worksheet
+                .write_string_with_format(row, col as u16, "", &format)
+                .map_err(|e| e.to_string())?;
         }
         row += 1;
     }
@@ -291,7 +357,7 @@ pub fn write_excel_bytes(payload: &ExcelExportPayload) -> Result<Vec<u8>, String
     for mark in &payload.milestone_marks {
         let col = left_count + mark.col_index as usize;
         worksheet
-            .write_string(mark.row, col as u16, &mark.character)
+            .write_string_with_format(mark.row, col as u16, &mark.character, &Format::new())
             .map_err(|e| e.to_string())?;
     }
 
@@ -421,6 +487,7 @@ mod tests {
                 end_exclusive_iso: "2026-01-02".into(),
                 header_label: "1/1".into(),
                 non_working: false,
+                left_border_rgb: "D8DCE3".into(),
             }],
             milestone_rows: vec![],
             rows: vec![ExcelExportRow {
@@ -432,6 +499,9 @@ mod tests {
                     "".into(),
                 ],
                 name_overdue: false,
+                name_indent: 2,
+                name_bold: false,
+                name_text_rgb: "1F2937".into(),
             }],
             connectors: vec![],
             today_line: None,
@@ -453,8 +523,9 @@ mod tests {
             header_gray_rgb: "F4F5F8".into(),
             non_working_fill_rgb: "F4F5F8".into(),
             category_heading_fill_rgb: "F8F9FB".into(),
-            group_heading_fill_rgb: "F3F5F8".into(),
-            heading_text_rgb: "1F2937".into(),
+            table_border_rgb: "E3E6EB".into(),
+            summary_gap_lines: vec![],
+            summary_caps: vec![],
             overdue_name_rgb: "C4351A".into(),
             gray_header_only: true,
             note_wrap_column_index: Some(3),
@@ -470,6 +541,13 @@ mod tests {
         assert!(bytes.len() > 100);
         assert_eq!(bytes[0], 0x50);
         assert_eq!(bytes[1], 0x4b);
+    }
+
+    #[test]
+    fn screen_gridlines_are_off() {
+        let bytes = write_excel_bytes(&minimal_payload()).expect("write");
+        let sheet = sheet_xml(&bytes);
+        assert!(sheet.contains("showGridLines=\"0\""));
     }
 
     #[test]
@@ -528,6 +606,9 @@ mod tests {
             kind: "task".into(),
             cells: vec!["Next".into(), "01/02".into(), "01/02".into(), "".into()],
             name_overdue: false,
+            name_indent: 2,
+            name_bold: false,
+            name_text_rgb: "1F2937".into(),
         });
         payload.shapes.push(second_task_shape());
         payload.connectors.push(ExcelExportConnector {
@@ -679,7 +760,7 @@ mod tests {
         payload.milestone_marks.push(MilestoneMarkCell {
             row: 1,
             col_index: 0,
-            character: "◆".into(),
+            character: "◆ Release".into(),
         });
         let bytes = write_excel_bytes(&payload).expect("write");
         assert!(workbook_contains_text(&bytes, &group));

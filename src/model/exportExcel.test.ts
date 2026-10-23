@@ -9,8 +9,13 @@ import {
   type ScheduleExcelInput,
 } from "./exportExcel";
 import { DEFAULT_EXCEL_EXPORT_COLUMNS } from "./excelExportColumns";
+import {
+  EXCEL_SHEET_BORDER_RGB,
+  EXCEL_SHEET_NON_WORKING_RGB,
+} from "./excelSheetColors";
 import type { ScheduleExportInput } from "./exportHtml";
 import { parseDate } from "./dates";
+import { paletteFor } from "./palette";
 import type { VisibleRow } from "./types";
 
 function baseInput(): ScheduleExcelInput {
@@ -179,6 +184,59 @@ describe("exportExcel", () => {
     expect(payload.shapes.some((s) => s.text === "▶")).toBe(false);
     expect(payload.todayLine).not.toBeNull();
     expect(payload.todayLine?.strokeRgb).toMatch(/^[0-9A-Fa-f]{6}$/);
+  });
+
+  it("assigns name indent and summary decorations by row kind", () => {
+    const category: VisibleRow = {
+      type: "category",
+      y: 0,
+      id: "c1",
+      label: "要件定義",
+      collapsed: false,
+      summary: {
+        start: "2026-01-07",
+        end: "2026-01-08",
+        covered: [{ start: "2026-01-07", end: "2026-01-08" }],
+      },
+    };
+    const group: VisibleRow = {
+      type: "group",
+      y: 28,
+      id: "g1",
+      categoryId: "c1",
+      category: "要件定義",
+      label: "設計",
+      collapsed: false,
+      summary: null,
+    };
+    const input = baseInput();
+    input.visibleRows = [category, group, input.visibleRows[0]!];
+    const payload = buildExcelExportPayload(input);
+    expect(payload.rows[0]?.nameIndent).toBe(0);
+    expect(payload.rows[0]?.nameBold).toBe(true);
+    expect(payload.rows[1]?.nameIndent).toBe(1);
+    expect(payload.rows[2]?.nameIndent).toBe(2);
+    expect(payload.rows[2]?.nameBold).toBe(false);
+    expect(payload.summaryCaps.length).toBe(2);
+    expect(payload.dateColumns[0]?.leftBorderRgb).toBe(EXCEL_SHEET_BORDER_RGB);
+    expect(payload.nonWorkingFillRgb).toBe(EXCEL_SHEET_NON_WORKING_RGB);
+    expect(payload.tableBorderRgb).toBe(EXCEL_SHEET_BORDER_RGB);
+  });
+
+  it("uses black task names and group-row gray for holidays", () => {
+    const groupRow = paletteFor("light").chart.groupRow.replace("#", "");
+    const light = buildExcelExportPayload(baseInput());
+    const dark = buildExcelExportPayload({
+      ...baseInput(),
+      colorScheme: "dark",
+    });
+    expect(groupRow).toBe("F3F5F8");
+    expect(light.rows[0]?.nameTextRgb).toBe("000000");
+    expect(dark.rows[0]?.nameTextRgb).toBe("000000");
+    expect(light.nonWorkingFillRgb).toBe(groupRow);
+    expect(dark.nonWorkingFillRgb).toBe(groupRow);
+    expect(light.headerGrayRgb).toBe(groupRow);
+    expect(dark.headerGrayRgb).toBe(groupRow);
   });
 
   it("uses milestone group name on milestone rows", () => {

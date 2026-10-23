@@ -13,6 +13,12 @@ export type ExcelMilestoneMarkCell = {
   character: string;
 };
 
+function sortMilestones(milestones: Milestone[]): Milestone[] {
+  return [...milestones].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
+  );
+}
+
 export function excelMilestoneExport(
   milestoneGroups: MilestoneGroup[],
   exportMilestones: Milestone[],
@@ -31,14 +37,24 @@ export function excelMilestoneExport(
       (m) => m.groupId === group.id,
     );
     if (groupMilestones.length === 0) continue;
-    const marks = groupMilestones.map((milestone) => ({
-      colIndex: columnIndexForDate(columns, milestone.date),
-    }));
-    for (const milestone of groupMilestones) {
+    const sorted = sortMilestones(groupMilestones);
+    const byCol = new Map<number, Milestone[]>();
+    for (const milestone of sorted) {
+      const colIndex = columnIndexForDate(columns, milestone.date);
+      const list = byCol.get(colIndex) ?? [];
+      list.push(milestone);
+      byCol.set(colIndex, list);
+    }
+    const colIndices = [...byCol.keys()].sort((a, b) => a - b);
+    const marks = colIndices.map((colIndex) => ({ colIndex }));
+    for (const colIndex of colIndices) {
+      const names = (byCol.get(colIndex) ?? [])
+        .map((milestone) => milestone.name)
+        .join("、");
       milestoneMarks.push({
         row: milestoneRowIndex,
-        colIndex: columnIndexForDate(columns, milestone.date),
-        character: "◆",
+        colIndex,
+        character: `◆ ${names}`,
       });
     }
     milestoneRows.push({

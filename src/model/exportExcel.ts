@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { addDays, fmtMonthDay, isoDate, parseDate } from "./dates";
+import { fmtMonthDay, isoDate } from "./dates";
 import { assigneeSidebarLabel, resolveAssigneeDisplay } from "./assigneeDisplay";
 import {
   EXPORT_MAX_ROWS,
@@ -27,9 +27,22 @@ import {
   dateAreaLeftPx,
   dateAreaRightPx,
   excelBarShapePlacement,
-  excelSummaryBarFillRgb,
   excelTaskBarFillStyle,
 } from "./excelBar";
+import {
+  excelDateColumnsWithBorders,
+  type ExcelTimeColumnWithBorder,
+} from "./excelDateColumnBorder";
+import {
+  EXCEL_SHEET_BORDER_RGB,
+  EXCEL_SHEET_NON_WORKING_RGB,
+  EXCEL_TASK_NAME_RGB,
+} from "./excelSheetColors";
+import {
+  excelSummaryBarDecorations,
+  type ExcelExportSummaryCap,
+  type ExcelExportSummaryGapLine,
+} from "./excelSummaryBar";
 import { excelConnectorDescriptor } from "./excelConnector";
 import { excelTodayLineDescriptor } from "./excelLightning";
 import { excelMilestoneExport } from "./excelMilestone";
@@ -74,6 +87,9 @@ export type ExcelExportRow = {
   kind: "category" | "group" | "task";
   cells: string[];
   nameOverdue: boolean;
+  nameIndent: number;
+  nameBold: boolean;
+  nameTextRgb: string;
 };
 
 export type ExcelMilestoneRow = {
@@ -104,7 +120,7 @@ export type ExcelExportPayload = {
   freezeRow: number;
   freezeCol: number;
   leftHeaders: string[];
-  dateColumns: ExcelTimeColumn[];
+  dateColumns: ExcelTimeColumnWithBorder[];
   milestoneRows: ExcelMilestoneRow[];
   rows: ExcelExportRow[];
   shapes: ExcelExportShape[];
@@ -114,8 +130,9 @@ export type ExcelExportPayload = {
   headerGrayRgb: string;
   nonWorkingFillRgb: string;
   categoryHeadingFillRgb: string;
-  groupHeadingFillRgb: string;
-  headingTextRgb: string;
+  tableBorderRgb: string;
+  summaryGapLines: ExcelExportSummaryGapLine[];
+  summaryCaps: ExcelExportSummaryCap[];
   overdueNameRgb: string;
   grayHeaderOnly: boolean;
   noteWrapColumnIndex: number | null;
@@ -218,7 +235,9 @@ function assertExcelLimits(payload: ExcelExportPayload): void {
   const drawingCount =
     payload.shapes.length +
     payload.connectors.length +
-    (payload.todayLine ? 1 : 0);
+    (payload.todayLine ? 1 : 0) +
+    payload.summaryGapLines.length +
+    payload.summaryCaps.length;
   if (drawingCount > EXCEL_MAX_SHAPES) {
     throw new ScheduleExportTooLargeError(
       `図形の数が上限（${EXCEL_MAX_SHAPES} 個）を超えています。絞り込みや折りたたみで行数を減らしてください。`,
@@ -269,17 +288,23 @@ export function buildExcelExportPayload(
   const leftHeaders = excelLeftHeaders(input.excelColumns);
   const leftColCount = leftHeaders.length;
   const noteWrapColumnIndex = excelNoteColumnIndex(input.excelColumns);
-  const columns = buildExcelTimeColumns(
-    input.timelineStart,
-    input.timelineEnd,
+  const columns = excelDateColumnsWithBorders(
+    buildExcelTimeColumns(
+      input.timelineStart,
+      input.timelineEnd,
+      input.tier,
+      input.calendar,
+    ),
     input.tier,
-    input.calendar,
+    chart,
   );
   const dateColumnWidthPx = excelDateColumnWidthPx(input.tier);
   const bodyRowHeightPx = EXCEL_DEFAULT_BODY_ROW_HEIGHT_PX;
   const headerRowHeightPx = excelHeaderRowHeightPx(dateColumnWidthPx);
   const rows: ExcelExportRow[] = [];
   const shapes: ExcelExportShape[] = [];
+  const summaryGapLines: ExcelExportSummaryGapLine[] = [];
+  const summaryCaps: ExcelExportSummaryCap[] = [];
   const connectors: ExcelExportConnector[] = [];
   const taskShapeIndexById = new Map<ScheduleId, number>();
   const visibleGroupIds = new Set(
@@ -305,21 +330,24 @@ export function buildExcelExportPayload(
         kind: "category",
         cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
         nameOverdue: false,
+        nameIndent: 0,
+        nameBold: true,
+        nameTextRgb: chart.textPrimary.replace("#", ""),
       });
       if (visible.summary) {
-        shapes.push(
-          shapeForSpan(
-            bodyRow,
-            visible.summary.start,
-            isoDate(addDays(parseDate(visible.summary.end), 1)),
-            columns,
-            input.tier,
-            excelSummaryBarFillRgb(chart.summaryCovered),
-            leftColCount,
-            dateColumnWidthPx,
-            bodyRowHeightPx,
-          ),
+        const deco = excelSummaryBarDecorations(
+          bodyRow,
+          visible.summary,
+          columns,
+          input.tier,
+          chart,
+          leftColCount,
+          dateColumnWidthPx,
+          bodyRowHeightPx,
         );
+        shapes.push(...deco.shapes);
+        summaryGapLines.push(...deco.gapLines);
+        summaryCaps.push(...deco.caps);
       }
       bodyRow += 1;
       continue;
@@ -329,21 +357,24 @@ export function buildExcelExportPayload(
         kind: "group",
         cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
         nameOverdue: false,
+        nameIndent: 1,
+        nameBold: true,
+        nameTextRgb: css.groupText.replace("#", ""),
       });
       if (visible.summary) {
-        shapes.push(
-          shapeForSpan(
-            bodyRow,
-            visible.summary.start,
-            isoDate(addDays(parseDate(visible.summary.end), 1)),
-            columns,
-            input.tier,
-            excelSummaryBarFillRgb(chart.summaryCovered),
-            leftColCount,
-            dateColumnWidthPx,
-            bodyRowHeightPx,
-          ),
+        const deco = excelSummaryBarDecorations(
+          bodyRow,
+          visible.summary,
+          columns,
+          input.tier,
+          chart,
+          leftColCount,
+          dateColumnWidthPx,
+          bodyRowHeightPx,
         );
+        shapes.push(...deco.shapes);
+        summaryGapLines.push(...deco.gapLines);
+        summaryCaps.push(...deco.caps);
       }
       bodyRow += 1;
       continue;
@@ -364,6 +395,9 @@ export function buildExcelExportPayload(
         ),
       ],
       nameOverdue: overdue,
+      nameIndent: 2,
+      nameBold: false,
+      nameTextRgb: EXCEL_TASK_NAME_RGB,
     });
     taskShapeIndexById.set(task.id, shapes.length);
     shapes.push(
@@ -453,11 +487,12 @@ export function buildExcelExportPayload(
     connectors,
     todayLine,
     milestoneMarks,
-    headerGrayRgb: chart.nonWorking.replace("#", ""),
-    nonWorkingFillRgb: chart.nonWorking.replace("#", ""),
+    headerGrayRgb: EXCEL_SHEET_NON_WORKING_RGB,
+    nonWorkingFillRgb: EXCEL_SHEET_NON_WORKING_RGB,
     categoryHeadingFillRgb: chart.categoryRow.replace("#", ""),
-    groupHeadingFillRgb: chart.groupRow.replace("#", ""),
-    headingTextRgb: chart.textPrimary.replace("#", ""),
+    tableBorderRgb: EXCEL_SHEET_BORDER_RGB,
+    summaryGapLines,
+    summaryCaps,
     overdueNameRgb: css.dangerText.replace("#", ""),
     grayHeaderOnly: input.tier === "day",
     noteWrapColumnIndex,

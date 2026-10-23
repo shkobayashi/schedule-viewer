@@ -31,8 +31,43 @@ describe("excelMilestone", () => {
     );
     expect(milestoneRows).toHaveLength(1);
     expect(milestoneRows[0]?.name).toBe("リリース");
-    expect(milestoneMarks[0]?.character).toBe("◆");
+    expect(milestoneMarks[0]?.character).toBe("◆ α");
     expect(milestoneMarks[0]?.colIndex).toBe(expectedCol);
     expect(milestoneRows[0]?.marks[0]?.colIndex).toBe(expectedCol);
+  });
+
+  it("joins same-day milestones in one cell", () => {
+    const columns = buildExcelTimeColumns(
+      parseDate("2026-09-01"),
+      parseDate("2026-11-01"),
+      "day",
+      null,
+    );
+    const date = "2026-10-15";
+    const col = columnIndexForDate(columns, date);
+    const { milestoneMarks } = excelMilestoneExport(
+      [{ id: "mg1", name: "デモ" }],
+      [
+        {
+          id: "m1",
+          name: "A",
+          date,
+          confidence: "committed",
+          groupId: "mg1",
+        },
+        {
+          id: "m2",
+          name: "B",
+          date,
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      new Set(["mg1"]),
+      columns,
+    );
+    expect(milestoneMarks).toHaveLength(1);
+    expect(milestoneMarks[0]?.colIndex).toBe(col);
+    expect(milestoneMarks[0]?.character).toBe("◆ A、B");
   });
 });

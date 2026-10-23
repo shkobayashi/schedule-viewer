@@ -128,11 +128,16 @@
 | `excelLayout.test.ts` | `uses 28px header when date columns are 96px or wider` | EXPORT-05 |
 | 同上 | `uses 22px header when date columns are narrower than 96px` | EXPORT-05 |
 | `excelMilestone.test.ts` | `puts group name and diamond column` | EXPORT-05 |
+| 同上 | `joins same-day milestones in one cell` | EXPORT-05 |
+| `excelDateColumnBorder.test.ts` | `uses one light border color for all tiers` | EXPORT-05 |
+| `excelSummaryBar.test.ts` | `splits covered spans and adds gap lines between them` | EXPORT-05 |
 | `exportExcel.test.ts` | `spans a task bar across start and end day columns in day view` | EXPORT-05 |
 | 同上 | `puts visible task rows and shapes into the payload` | EXPORT-02, EXPORT-05 |
 | 同上 | `uses 28px header and 22px body rows for month export columns` | EXPORT-05 |
 | 同上 | `offsets bars within equal-width month columns` | EXPORT-05 |
 | 同上 | `puts dependency connectors and today line into the payload` | EXPORT-05 |
+| 同上 | `assigns name indent and summary decorations by row kind` | EXPORT-05 |
+| 同上 | `uses black task names and group-row gray for holidays` | EXPORT-05 |
 | 同上 | `uses milestone group name on milestone rows` | EXPORT-05 |
 | `excelExportColumns.test.ts` | `uses default columns when storage is empty` | EXPORT-01, EXPORT-05 |
 | 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
@@ -576,6 +581,7 @@
 | `sanitize_export_filename_uses_default_for_empty` | 空なら `schedule.html` | EXPORT-04 |
 | `sanitize_export_filename_adds_extension` | 拡張子を足す | EXPORT-04, FILE-02 |
 | `export_xlsx::write_excel_bytes_produces_xlsx` | xlsx の先頭が ZIP である | EXPORT-05 |
+| 同上 | `screen_gridlines_are_off` | シートの `showGridLines` が 0 である | EXPORT-05 |
 | 同上 | `shape_pixel_dimensions_clamps_thin_lines` | EXPORT-05 |
 | 同上 | `thin_shape_in_xlsx_is_not_default_textbox_size` | 実ブックのバー図形が 5×40px の EMU で、192×120 既定にならない | EXPORT-05 |
 | 同上 | `bar_anchor_matches_payload_pixels` | バーの `twoCellAnchor` と幅・高さの EMU が payload の図形と一致する | EXPORT-05 |
@@ -585,7 +591,7 @@
 | 同上 | `connector_omitted_when_bar_anchor_is_missing` | スナップできないときコネクタが付かない | EXPORT-05 |
 | 同上 | `today_line_matches_payload` | `prst="line"` の列・色・高さが payload の `todayLine` と一致する | EXPORT-05 |
 | 同上 | `today_line_absent_when_payload_has_none` | `todayLine` が無いとき `line` 図形が無い | EXPORT-05 |
-| 同上 | `milestone_group_merge_and_diamond_column` | マイルストン行の左結合にグループ名があり、◆ が日付列のセルにある | EXPORT-05 |
+| 同上 | `milestone_group_merge_and_diamond_column` | マイルストン行の左結合にグループ名があり、日付列のセルに ◆ と名前がある | EXPORT-05 |
 | 同上 | `column_width_change_moves_bar_width_only` | 列幅だけ違う二つのブックでバー幅だけが変わる | EXPORT-05 |
 | 同上 | `row_height_change_moves_vertical_offsets_only` | 行高だけ違う二つのブックで縦位置と今日の線の高さだけが変わる | EXPORT-05 |
 | 同上 | `stroke_color_change_updates_connector_rgb_only` | 色だけ違う二つのブックでコネクタの `srgbClr` だけが変わる | EXPORT-05 |
@@ -962,7 +968,7 @@
 | TC-EXPORT-02 | EXPORT-02 | タスク名で数件に絞る | HTML で書き出す | 絞り込みで残った行だけが入り、絞り込みで隠したタスクは入らない。画面の外にスクロールしている行も入る |
 | TC-EXPORT-03 | EXPORT-03 | 書き出しの行が 10,000 を超えるデータ | 「書き出し」を実行する | ファイルを作らず、行数の上限を理由に出す |
 | TC-EXPORT-04 | EXPORT-04 | タイトルに `/` や `:` がある | 書き出しの保存ダイアログを開く | 提案名からそれらの文字が除かれ、選んだ形式の拡張子が付く |
-| TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く | Excel を選び、左の列を変えて保存する | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。ノート列は折り返される。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
+| TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く | Excel を選び、左の列を変えて保存する | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。カテゴリの塗りは左の列だけである。マイルストンは「◆ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |

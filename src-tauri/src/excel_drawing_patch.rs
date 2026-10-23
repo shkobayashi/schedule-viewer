@@ -6,7 +6,8 @@ use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
 
 use crate::export_xlsx::{
-    ExcelExportConnector, ExcelExportPayload, ExcelExportTodayLine,
+    ExcelExportConnector, ExcelExportPayload, ExcelExportSummaryCap,
+    ExcelExportSummaryGapLine, ExcelExportTodayLine,
 };
 
 const EMU_PER_PX: u64 = 9525;
@@ -268,6 +269,67 @@ fn today_line_width_emu() -> u64 {
     (1.5 * EMU_PER_PX as f64).round() as u64
 }
 
+fn build_summary_gap_line_anchor(
+    line: &ExcelExportSummaryGapLine,
+    drawing_index: u32,
+    body_row_height_px: u32,
+) -> String {
+    let col_off_start = u64::from(line.x_offset_px) * EMU_PER_PX;
+    let col_off_end = col_off_start + u64::from(line.width_px.max(1)) * EMU_PER_PX;
+    let row_off = u64::from(line.y_offset_px) * EMU_PER_PX;
+    let row_h = body_row_height_px.max(1);
+    let row_h_emu = emu_per_body_row(row_h);
+    let end_row = if row_off + EMU_PER_PX > row_h_emu {
+        line.row + 1
+    } else {
+        line.row
+    };
+    let end_row_off = if end_row == line.row {
+        row_off + EMU_PER_PX
+    } else {
+        row_off + EMU_PER_PX - row_h_emu
+    };
+    let cnv_id = drawing_index + 1;
+    let rgb = line.stroke_rgb.trim_start_matches('#');
+    format!(
+        r#"<xdr:twoCellAnchor><xdr:from><xdr:col>{col}</xdr:col><xdr:colOff>{col_off_start}</xdr:colOff><xdr:row>{row}</xdr:row><xdr:rowOff>{row_off}</xdr:rowOff></xdr:from><xdr:to><xdr:col>{col}</xdr:col><xdr:colOff>{col_off_end}</xdr:colOff><xdr:row>{end_row}</xdr:row><xdr:rowOff>{end_row_off}</xdr:rowOff></xdr:to><xdr:sp macro="" textlink=""><xdr:nvSpPr><xdr:cNvPr id="{cnv_id}" name="Summary gap {drawing_index}"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm><a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:ln w="9525"><a:solidFill><a:srgbClr val="{rgb}"/></a:solidFill><a:prstDash val="dash"/></a:ln><a:noFill/></xdr:spPr>{CONNECTOR_STYLE}<xdr:txBody><a:bodyPr rtlCol="0" anchor="ctr"/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></xdr:txBody></xdr:sp><xdr:clientData/></xdr:twoCellAnchor>"#,
+        col = line.anchor_col,
+        row = line.row,
+        col_off_start = col_off_start,
+        col_off_end = col_off_end,
+        row_off = row_off,
+        end_row = end_row,
+        end_row_off = end_row_off,
+        cnv_id = cnv_id,
+        rgb = rgb,
+        drawing_index = drawing_index,
+    )
+}
+
+fn build_summary_cap_anchor(cap: &ExcelExportSummaryCap, drawing_index: u32) -> String {
+    let size = u64::from(cap.size_px.max(1)) * EMU_PER_PX;
+    let col_off = u64::from(cap.x_offset_px) * EMU_PER_PX;
+    let row_off = u64::from(cap.y_offset_px) * EMU_PER_PX;
+    let flip_h = if cap.side == "right" { "1" } else { "0" };
+    let cnv_id = drawing_index + 1;
+    let rgb = cap.fill_rgb.trim_start_matches('#');
+    format!(
+        r#"<xdr:twoCellAnchor><xdr:from><xdr:col>{col}</xdr:col><xdr:colOff>{col_off}</xdr:colOff><xdr:row>{row}</xdr:row><xdr:rowOff>{row_off}</xdr:rowOff></xdr:from><xdr:to><xdr:col>{col}</xdr:col><xdr:colOff>{col_off_end}</xdr:colOff><xdr:row>{end_row}</xdr:row><xdr:rowOff>{row_off_end}</xdr:rowOff></xdr:to><xdr:sp macro="" textlink=""><xdr:nvSpPr><xdr:cNvPr id="{cnv_id}" name="Summary cap {drawing_index}"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr><a:xfrm flipH="{flip_h}" flipV="1"><a:off x="0" y="0"/><a:ext cx="{size}" cy="{size}"/></a:xfrm><a:prstGeom prst="triangle"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="{rgb}"/></a:solidFill><a:ln><a:noFill/></a:ln></xdr:spPr>{CONNECTOR_STYLE}<xdr:txBody><a:bodyPr rtlCol="0" anchor="ctr"/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></xdr:txBody></xdr:sp><xdr:clientData/></xdr:twoCellAnchor>"#,
+        col = cap.anchor_col,
+        col_off = col_off,
+        row = cap.row,
+        row_off = row_off,
+        col_off_end = col_off + size,
+        end_row = cap.row,
+        row_off_end = row_off + size,
+        flip_h = flip_h,
+        size = size,
+        cnv_id = cnv_id,
+        rgb = rgb,
+        drawing_index = drawing_index,
+    )
+}
+
 fn build_today_line_anchor(
     line: &ExcelExportTodayLine,
     drawing_index: u32,
@@ -338,9 +400,21 @@ fn patch_drawing_xml(drawing_xml: &str, payload: &ExcelExportPayload) -> String 
             extra.push_str(&block);
         }
     }
+    let mut next_index = base_index + payload.connectors.len() as u32;
     if let Some(line) = &payload.today_line {
-        let idx = base_index + payload.connectors.len() as u32;
-        extra.push_str(&build_today_line_anchor(line, idx, body_row_height_px));
+        extra.push_str(&build_today_line_anchor(line, next_index, body_row_height_px));
+        next_index += 1;
+    }
+    for (i, gap) in payload.summary_gap_lines.iter().enumerate() {
+        extra.push_str(&build_summary_gap_line_anchor(
+            gap,
+            next_index + i as u32,
+            body_row_height_px,
+        ));
+    }
+    next_index += payload.summary_gap_lines.len() as u32;
+    for (i, cap) in payload.summary_caps.iter().enumerate() {
+        extra.push_str(&build_summary_cap_anchor(cap, next_index + i as u32));
     }
     if extra.is_empty() {
         return drawing_xml.to_string();
@@ -421,7 +495,12 @@ fn rewrite_zip(
     let patched = patch_drawing_xml(&drawing_xml, payload);
     files.insert(drawing_key.to_string(), patched.into_bytes());
 
-    if !had_drawing && (!payload.connectors.is_empty() || payload.today_line.is_some()) {
+    if !had_drawing
+        && (!payload.connectors.is_empty()
+            || payload.today_line.is_some()
+            || !payload.summary_gap_lines.is_empty()
+            || !payload.summary_caps.is_empty())
+    {
         files.insert(
             "xl/drawings/_rels/drawing1.xml.rels".to_string(),
             br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>"#
@@ -466,7 +545,11 @@ fn rewrite_zip(
 }
 
 pub fn patch_excel_drawings(bytes: Vec<u8>, payload: &ExcelExportPayload) -> Result<Vec<u8>, String> {
-    if payload.connectors.is_empty() && payload.today_line.is_none() {
+    if payload.connectors.is_empty()
+        && payload.today_line.is_none()
+        && payload.summary_gap_lines.is_empty()
+        && payload.summary_caps.is_empty()
+    {
         return Ok(bytes);
     }
     rewrite_zip(&bytes, payload)
