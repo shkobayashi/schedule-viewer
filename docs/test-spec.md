@@ -396,7 +396,13 @@
 | 同上 | `treats trim-equal title as unchanged` | EDIT-20 |
 | 同上 | `keeps internal spaces and reports changed title` | EDIT-20 |
 | `history.test.ts` | `undo restores a title change in one step` | EDIT-10, EDIT-20 |
-| `recentFiles.test.ts` | `appendRecentFile` など | FILE-09 |
+| `recentFiles.test.ts` | `appendRecentFile` など、スケジュールと設定ファイルの二系統 | FILE-09 |
+| `recentFilesMenu.test.ts` | 見出し付きの二グループとコマンドパレットの接頭辞 | FILE-09 |
+| `workspaceLoad.test.ts` | 設定ファイル束縛の表示ラベル | FILE-10, SET-02 |
+| `workspacePath.test.ts` | 相対パスの受理と拒否 | FILE-10 |
+| `workspaceJson.test.ts` | 開き分けと検証、末尾区切りの拒否 | FILE-10 |
+| `workspace::export_tests`（Rust） | 空でないフォルダの拒否、シンボリックリンク、部分書き出し後の文言 | FILE-11 |
+| `droppedScheduleOpenRoute.test.ts` | `routeExternalWorkspaceDrop` | FILE-10, WIN-04 |
 | `commandPalette.test.ts` | `inserts recent files after open on desktop` など | FILE-09, NAV-07 |
 | `recent_files.rs` | `writes_only_when_expected_matches` など | FILE-09 |
 | `commandPalette.test.ts` | `includes edit title command` | NAV-07, EDIT-20 |
@@ -625,7 +631,7 @@
 | `filter_path_uses_same_hash_as_recovery` | 絞り込みのファイル名のハッシュは控えと同じ | SYNC-03 |
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 | `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
-| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの3スキルに限る | SET-05 |
+| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの4スキルに限る | SET-05 |
 | `install_without_replace_leaves_existing` | 置き換えを確認するまでは既存を残し、何も書かない | SET-05 |
 | `install_creates_real_parent_directories` | 無い `.cursor/skills` を実ディレクトリとして作る | SET-05 |
 | `install_without_replace_treats_symlink_as_existing` | 壊れたシンボリックリンクも既存として、確認前は書かない | SET-05 |
@@ -633,7 +639,7 @@
 | `install_does_not_write_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら置かない | SET-05 |
 | `place_staged_skill_restores_original_when_copy_fails` | 入れ替えのコピーに失敗したら元のフォルダを残す | SET-05 |
 | `install_keeps_earlier_skill_when_a_later_copy_fails` | 後続のコピーに失敗しても、先に置けたスキルは残る | SET-05 |
-| `uninstall_removes_only_bundled_skill_folders` | 外すのは3スキルだけで、別名のスキルは残す | SET-05 |
+| `uninstall_removes_only_bundled_skill_folders` | 外すのは4スキルだけで、別名のスキルは残す | SET-05 |
 | `uninstall_does_not_remove_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら外さない | SET-05 |
 | `uninstall_removes_broken_symlink_at_destination` | 宛先の壊れたシンボリックリンクはリンクだけ外す | SET-05 |
 | `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
@@ -728,7 +734,9 @@
 | TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 7 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
 | TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 7 になる |
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 7 になる。タグを付けていないタスクに `tags` は無い |
-| TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューに新しい順で並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
+| TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバーとカレンダーがファイル由来になる。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとカレンダーだけ読み直す。起動し直すと設定ファイルのまま戻る |
+| TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとカレンダーを選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
+| TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューにスケジュールと設定ファイルを別グループで新しい順に並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
 | TC-FILE-09b | FILE-09 | 上記のあと6件目を開く。同名のファイル名を2つのフォルダから開く | 一覧の件数と親フォルダの付き方を見る | 5件を超えた古いものが消える。同じファイル名が2件以上のときだけ親フォルダ名が付く |
 | TC-FILE-09c | FILE-09 | 履歴にパスがある | 存在しないパスを選ぶ。未保存のあいだに履歴から開き、キャンセルする | 画面と保存先は残る。サンプルに戻らない。項目は残る。キャンセルでは順番が変わらない |
 | TC-FILE-09d | FILE-09 | 履歴がある | ☰ または macOS のファイルメニューで「最近開いたファイル」から「履歴を消す」を押す。ファイル操作の途中でサブメニューから開く操作を試す | パスだけ消える。開いているスケジュールと次回起動のウィンドウ・控え・絞り込みは残る。操作中は履歴から開けず、「履歴を消す」は押せる。消したあと、☰ と macOS のファイルメニューに「最近開いたファイル」の行は残り、押せず、サブメニューは開かない |
@@ -996,11 +1004,11 @@
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
-| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar が `~/.cursor/skills/` に置かれ、パスが示される |
+| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace が `~/.cursor/skills/` に置かれ、パスが示される |
 | TC-SET-05b | SET-05 | 上記のいずれかが既にある | もう一度「置く」 | 上書き確認が出る。上書き後、置いたパスが示される |
 | TC-SET-05c | SET-05 | 指定フォルダへ Claude Code を置く。`~/.claude/skills/` に同名がある | 「置く」 | 置いたあと、個人用が先に使われる旨が出る |
 | TC-SET-05d | SET-05 | ブラウザ版 | 設定の「JSON作成スキルを置く」を開く | デスクトップ版でのみ置ける旨が出て、「置く」は押せない |
-| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に3つがある | 「外す」で確認のあと外す | 3つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に4つがある | 「外す」で確認のあと外す | 4つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
 | TC-SET-06 | SET-06 | ブラウザ版 | 設定を開く | 「更新」の欄が無い |
 | TC-SET-06b | SET-06 | デスクトップ版、初回起動 | 設定の「更新」を見る | 「起動時に更新を確認する」はオフである |
 | TC-SET-06c | SET-06 | デスクトップ版、2つのウィンドウ | 片方で自動更新をオンにする | もう一方もオンになる。オンにした直後は更新を確認しない |

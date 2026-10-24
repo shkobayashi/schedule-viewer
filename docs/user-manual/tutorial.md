@@ -8,7 +8,7 @@
 
 ![設定の「JSON作成スキルを置く」欄。置く先と範囲の選択が見える](images/ui-settings-skills.png)
 
-デスクトップ版の設定「JSON作成スキルを置く」で、Cursor または Claude Code のどちらへ置くか、ユーザー全体か指定したフォルダかを選び、write-schedule、write-members、write-calendar の 3 つをまとめて置けます。手で `.cursor/skills/` などへコピーして使うこともできます。
+デスクトップ版の設定「JSON作成スキルを置く」で、Cursor または Claude Code のどちらへ置くか、ユーザー全体か指定したフォルダかを選び、write-schedule、write-members、write-calendar、write-workspace の 4 つをまとめて置けます。手で `.cursor/skills/` などへコピーして使うこともできます。
 
 上書きの確認、外す、シンボリックリンクのときの扱いは [全機能の「設定」](features.md#設定) にあります。
 
@@ -43,6 +43,8 @@ write-schedule スキルに従い、schedule-viewer 用のスケジュール JSO
 スキルは書いたあとに同梱の検証スクリプトで中身を確かめます。形式の詳細は [データ仕様](../data-format.md) にあります。
 
 できたファイルを、アプリの ☰ の「開く」で読み込みます。開き方は [全機能](features.md#ファイルを開く保存する) と [はじめに](getting-started.md#ファイルを開く保存する) にあります。
+
+スケジュール、メンバー、カレンダーを同じフォルダに置いてまとめて開くときは、`write-workspace` で `workspace.json` を作ります。`write-schedule` にその設定ファイルのパスを渡せば、アプリを起動しなくても `schedule` の相対パス先へ書けます。`members` があるときは、そのファイルの id を担当の一覧に使います。アプリの ☰ の「設定ファイルを新しいフォルダへ書き出す」は、今の画面の写しを空のフォルダへ作る操作であり、開いている設定ファイルは更新しません。
 
 ![左の一覧、上のツールバー、右のチャート、下の状態バーが並ぶ画面全体（サンプルと同じレイアウトの見本）](images/ui-overview.png)
 

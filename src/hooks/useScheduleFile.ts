@@ -42,7 +42,21 @@ import {
   reportExternalScheduleDropReadyViaTauri,
 } from "../model/windowSession";
 import { useScheduleDropOpen } from "./scheduleFile/useScheduleDropOpen";
-import { recordRecentFileViaTauri } from "../model/recentFilesAppData";
+import {
+  recordRecentScheduleViaTauri,
+  recordRecentWorkspaceViaTauri,
+} from "../model/recentFilesAppData";
+import { classifyOpenedJson } from "../model/workspaceJson";
+import {
+  acceptOpenedWorkspaceViaTauri,
+  openWorkspaceFromFile,
+  reloadWorkspaceFromDisk,
+  WORKSPACE_DESKTOP_ONLY_DIALOG_TITLE,
+  WORKSPACE_DESKTOP_ONLY_MESSAGE,
+  type WorkspaceOpened,
+} from "../model/workspaceLoad";
+import type { WorkspaceWindowBinding } from "../model/workspaceTypes";
+import type { RecentFilesStore } from "../model/recentFiles";
 
 export type FileStatusTag = "sample" | "saved" | "unsaved";
 
@@ -67,7 +81,8 @@ type UseScheduleFileOptions = {
   sidebarReorderDragging: boolean;
   getCanonicalJson?: () => string;
   getDocumentTitle?: () => string;
-  onRecentFilesUpdated?: (paths: string[]) => void;
+  onRecentFilesStoreUpdated?: (store: RecentFilesStore) => void;
+  onWorkspaceBindingChange?: (binding: WorkspaceWindowBinding | null) => void;
 };
 
 export type ApplyOpenedFileOptions = {
@@ -94,18 +109,23 @@ export function useScheduleFile({
   sidebarReorderDragging,
   getCanonicalJson,
   getDocumentTitle,
-  onRecentFilesUpdated,
+  onRecentFilesStoreUpdated,
+  onWorkspaceBindingChange,
 }: UseScheduleFileOptions) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [browserFileLabel, setBrowserFileLabel] = useState<string | null>(null);
   const [baselineJson, setBaselineJson] = useState(initialBaselineJson);
   const [errorMessageText, setErrorMessageText] = useState<string | null>(null);
+  const [errorDialogTitle, setErrorDialogTitle] = useState<string | undefined>(
+    undefined,
+  );
   const [discardPromptOpen, setDiscardPromptOpen] = useState(false);
   const discardPromptOpenRef = useRef(discardPromptOpen);
   discardPromptOpenRef.current = discardPromptOpen;
   const [pendingOpen, setPendingOpen] = useState(false);
   const pendingDropPathRef = useRef<string | null>(null);
   const pendingRecentPathRef = useRef<string | null>(null);
+  const pendingWorkspaceReloadRef = useRef<WorkspaceOpened | null>(null);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [closePromptForUpdate, setClosePromptForUpdate] = useState(false);
   const [fileBusy, setFileBusy] = useState(false);
@@ -334,8 +354,8 @@ export function useScheduleFile({
         await restoreFiltersForPathRef.current(pick.path, parsed.document);
       }
       if (options?.recordRecent && pick.path && isTauri()) {
-        void recordRecentFileViaTauri(pick.path)
-          .then((paths) => onRecentFilesUpdated?.(paths))
+        void recordRecentScheduleViaTauri(pick.path)
+          .then((store) => onRecentFilesStoreUpdated?.(store))
           .catch(() => {});
       }
       return true;
@@ -344,7 +364,7 @@ export function useScheduleFile({
       baselineJsonRef,
       clearExternalReloadPrompt,
       onAfterOpen,
-      onRecentFilesUpdated,
+      onRecentFilesStoreUpdated,
       replaceDocument,
       resetPollTracking,
     ],
@@ -356,6 +376,40 @@ export function useScheduleFile({
       setFileBusy(true);
       try {
         const contents = await readDroppedScheduleFileViaTauri(path);
+        let data: unknown;
+        try {
+          data = JSON.parse(contents.replace(/^\uFEFF/, ""));
+        } catch {
+          setErrorMessageText("JSON の形式が正しくありません。");
+          return;
+        }
+        const kind = classifyOpenedJson(data);
+        if (kind === "workspace") {
+          const opened = await openWorkspaceFromFile(path, contents);
+          if (!opened.ok) {
+            setErrorMessageText(opened.message);
+            return;
+          }
+          await acceptOpenedWorkspaceViaTauri(
+            path,
+            opened.schedulePath,
+            opened.scheduleContents,
+          );
+          onWorkspaceBindingChange?.(opened.binding);
+          await applyOpenedFile(
+            { path: opened.schedulePath, contents: opened.scheduleContents },
+            { recordRecent: false },
+          );
+          void recordRecentWorkspaceViaTauri(path)
+            .then((store) => onRecentFilesStoreUpdated?.(store))
+            .catch(() => {});
+          return;
+        }
+        if (kind === "unsupported") {
+          setErrorMessageText("スケジュールの JSON を1つだけ開いてください。");
+          return;
+        }
+        onWorkspaceBindingChange?.(null);
         const parsed = parseScheduleText(contents);
         if (!parsed.ok) {
           setErrorMessageText(parsed.message);
@@ -377,7 +431,12 @@ export function useScheduleFile({
         setFileBusy(false);
       }
     },
-    [applyOpenedFile, fileBusy],
+    [
+      applyOpenedFile,
+      fileBusy,
+      onRecentFilesStoreUpdated,
+      onWorkspaceBindingChange,
+    ],
   );
 
   const beginOpenFromPath = useCallback(
@@ -422,6 +481,45 @@ export function useScheduleFile({
         ? await openScheduleViaTauri(initialDirectory)
         : await openScheduleViaBrowserInput();
       if (!pick) return;
+      let data: unknown;
+      try {
+        data = JSON.parse(pick.contents.replace(/^\uFEFF/, ""));
+      } catch {
+        setErrorMessageText("JSON の形式が正しくありません。");
+        return;
+      }
+      const kind = classifyOpenedJson(data);
+      if (kind === "workspace") {
+        if (!isTauri() || !pick.path) {
+          setErrorDialogTitle(WORKSPACE_DESKTOP_ONLY_DIALOG_TITLE);
+          setErrorMessageText(WORKSPACE_DESKTOP_ONLY_MESSAGE);
+          return;
+        }
+        const opened = await openWorkspaceFromFile(pick.path, pick.contents);
+        if (!opened.ok) {
+          setErrorMessageText(opened.message);
+          return;
+        }
+        await acceptOpenedWorkspaceViaTauri(
+          pick.path,
+          opened.schedulePath,
+          opened.scheduleContents,
+        );
+        onWorkspaceBindingChange?.(opened.binding);
+        await applyOpenedFile(
+          { path: opened.schedulePath, contents: opened.scheduleContents },
+          { recordRecent: false },
+        );
+        void recordRecentWorkspaceViaTauri(pick.path)
+          .then((store) => onRecentFilesStoreUpdated?.(store))
+          .catch(() => {});
+        return;
+      }
+      if (kind === "unsupported") {
+        setErrorMessageText("スケジュールの JSON を1つだけ開いてください。");
+        return;
+      }
+      onWorkspaceBindingChange?.(null);
       const parsed = parseScheduleText(pick.contents);
       if (!parsed.ok) {
         setErrorMessageText(parsed.message);
@@ -438,7 +536,12 @@ export function useScheduleFile({
     } finally {
       setFileBusy(false);
     }
-  }, [applyOpenedFile, fileBusy]);
+  }, [
+    applyOpenedFile,
+    fileBusy,
+    onRecentFilesStoreUpdated,
+    onWorkspaceBindingChange,
+  ]);
 
   const beginOpen = useCallback(
     (initialDirectory: string | null) => {
@@ -492,8 +595,55 @@ export function useScheduleFile({
     beginOpen(null);
   }, [beginOpen]);
 
+  const applyWorkspaceOpenResult = useCallback(
+    async (opened: WorkspaceOpened) => {
+      await acceptOpenedWorkspaceViaTauri(
+        opened.binding.workspacePath,
+        opened.schedulePath,
+        opened.scheduleContents,
+      );
+      onWorkspaceBindingChange?.(opened.binding);
+      await applyOpenedFile(
+        { path: opened.schedulePath, contents: opened.scheduleContents },
+        { recordRecent: false },
+      );
+    },
+    [applyOpenedFile, onWorkspaceBindingChange],
+  );
+
+  const handleWorkspaceBindingReload = useCallback(
+    async (workspacePath: string) => {
+      const result = await reloadWorkspaceFromDisk(
+        workspacePath,
+        filePathRef.current,
+      );
+      if (result.kind === "error") {
+        setErrorDialogTitle(undefined);
+        setErrorMessageText(result.message);
+        return;
+      }
+      if (result.kind === "bindingOnly") {
+        onWorkspaceBindingChange?.(result.binding);
+        return;
+      }
+      if (isDirtyRef.current) {
+        pendingWorkspaceReloadRef.current = result.opened;
+        setDiscardPromptOpen(true);
+        return;
+      }
+      await applyWorkspaceOpenResult(result.opened);
+    },
+    [applyWorkspaceOpenResult, onWorkspaceBindingChange],
+  );
+
   const confirmDiscardAndOpen = useCallback(() => {
     setDiscardPromptOpen(false);
+    const workspaceOpened = pendingWorkspaceReloadRef.current;
+    if (workspaceOpened) {
+      pendingWorkspaceReloadRef.current = null;
+      void applyWorkspaceOpenResult(workspaceOpened);
+      return;
+    }
     const recentPath = pendingRecentPathRef.current;
     if (recentPath) {
       pendingRecentPathRef.current = null;
@@ -515,6 +665,7 @@ export function useScheduleFile({
     initialDirectoryRef.current = null;
     pendingDropPathRef.current = null;
     pendingRecentPathRef.current = null;
+    pendingWorkspaceReloadRef.current = null;
     setDiscardPromptOpen(false);
     setPendingOpen(false);
   }, []);
@@ -522,11 +673,27 @@ export function useScheduleFile({
   const readAndValidateDroppedPath = useCallback(async (path: string) => {
     try {
       const contents = await readDroppedScheduleFileViaTauri(path);
+      let data: unknown;
+      try {
+        data = JSON.parse(contents.replace(/^\uFEFF/, ""));
+      } catch {
+        return { ok: false as const, message: "JSON の形式が正しくありません。" };
+      }
+      const kind = classifyOpenedJson(data);
+      if (kind === "workspace") {
+        return { ok: true as const, kind: "workspace" as const, contents };
+      }
+      if (kind === "unsupported") {
+        return {
+          ok: false as const,
+          message: "スケジュールの JSON を1つだけ開いてください。",
+        };
+      }
       const parsed = parseScheduleText(contents);
       if (!parsed.ok) {
         return { ok: false as const, message: parsed.message };
       }
-      return { ok: true as const, contents };
+      return { ok: true as const, kind: "schedule" as const, contents };
     } catch (error) {
       return {
         ok: false as const,
@@ -536,7 +703,24 @@ export function useScheduleFile({
   }, []);
 
   const openDroppedScheduleInNewWindow = useCallback(
-    async (path: string, contents: string) => {
+    async (
+      path: string,
+      contents: string,
+      kind: "schedule" | "workspace" = "schedule",
+    ) => {
+      if (kind === "workspace") {
+        const opened = await openWorkspaceFromFile(path, contents);
+        if (!opened.ok) {
+          setErrorMessageText(opened.message);
+          return;
+        }
+        await createScheduleWindowViaTauri(
+          opened.schedulePath,
+          opened.scheduleContents,
+          path,
+        );
+        return;
+      }
       const parsed = parseScheduleText(contents);
       if (!parsed.ok) {
         setErrorMessageText(parsed.message);
@@ -569,6 +753,7 @@ export function useScheduleFile({
     beginOpen,
     applyOpenedFile,
     restoreFiltersForPath: filterPersistence.restoreFiltersForPath,
+    onWorkspaceBindingChange,
   });
 
   useEffect(() => {
@@ -876,7 +1061,15 @@ export function useScheduleFile({
     void cancelApplicationQuitViaTauri();
   }, []);
 
-  const dismissError = useCallback(() => setErrorMessageText(null), []);
+  const dismissError = useCallback(() => {
+    setErrorMessageText(null);
+    setErrorDialogTitle(undefined);
+  }, []);
+
+  const showError = useCallback((message: string, title?: string) => {
+    setErrorDialogTitle(title);
+    setErrorMessageText(message);
+  }, []);
 
   const startupRecoveryDialogOpen =
     startup.recoveryConflictOpen ||
@@ -923,6 +1116,7 @@ export function useScheduleFile({
     fileBusy,
     startupSettled,
     errorMessage: errorMessageText,
+    errorDialogTitle,
     discardPromptOpen,
     closePromptOpen,
     closePromptForUpdate,
@@ -959,7 +1153,8 @@ export function useScheduleFile({
     onHistoryUndoApplied,
     onHistoryRedoApplied,
     dismissError,
-    showError: setErrorMessageText,
+    showError,
+    handleWorkspaceBindingReload,
     currentJson,
     baselineJson,
     peerNotice,

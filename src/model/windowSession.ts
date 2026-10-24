@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type WindowStartupRead = {
   path: string | null;
+  workspacePath: string | null;
   sample: boolean;
   contents: string | null;
   error: string | null;
@@ -18,6 +19,7 @@ export type OpenWindowsSnapshot = {
   windows: {
     label: string;
     path: string | null;
+    workspacePath?: string | null;
     sample: boolean;
   }[];
   focusOrder: string[];
@@ -65,8 +67,20 @@ export async function takePendingScheduleWindowOpenViaTauri(): Promise<PendingSc
 export async function createScheduleWindowViaTauri(
   path: string,
   contents: string,
+  workspacePath?: string | null,
 ): Promise<string> {
-  return invoke<string>("create_schedule_window", { path, contents });
+  return invoke<string>("create_schedule_window", {
+    path,
+    contents,
+    workspacePath: workspacePath ?? null,
+  });
+}
+
+export async function emitWorkspaceReloadViaTauri(
+  targetLabel: string,
+  workspacePath: string,
+): Promise<void> {
+  await invoke("emit_workspace_reload", { targetLabel, workspacePath });
 }
 
 export async function registerWindowFocusViaTauri(): Promise<void> {

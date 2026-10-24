@@ -65,6 +65,19 @@ import { useRecentFiles } from "./hooks/useRecentFiles";
 import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useAppCalendar } from "./hooks/useAppCalendar";
+import { useWorkspaceBinding } from "./hooks/useWorkspaceBinding";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
+import { exportWorkspaceBundleViaTauri } from "./model/workspaceExport";
+import { safeScheduleJsonFilename } from "./model/scheduleFile";
+import { memberMapFromList } from "./model/assigneeDisplay";
+import {
+  workspaceCalendarError,
+  workspaceCalendarForDisplay,
+  workspaceMemberCatalogLabel,
+  workspaceMemberError,
+  workspaceMembersForDisplay,
+} from "./model/workspaceLoad";
 import { useSchedule } from "./hooks/useSchedule";
 import { useAppUpdateFlow } from "./hooks/useAppAutoUpdate";
 import { readStoreDistribution } from "./model/storeDistribution";
@@ -500,6 +513,44 @@ function App() {
 
   const memberCatalogState = useMemberCatalog();
   const appCalendarState = useAppCalendar();
+  const {
+    workspaceBinding,
+    setWorkspaceBinding,
+    clearWorkspaceBinding,
+  } = useWorkspaceBinding();
+  const workspaceBindingRef = useRef(workspaceBinding);
+  workspaceBindingRef.current = workspaceBinding;
+
+  const displayMembers = useMemo(() => {
+    if (workspaceBinding) {
+      return workspaceMembersForDisplay(workspaceBinding.members);
+    }
+    return memberCatalogState.members;
+  }, [workspaceBinding, memberCatalogState.members]);
+
+  const displayMemberMap = useMemo(
+    () => memberMapFromList(displayMembers),
+    [displayMembers],
+  );
+
+  const displayCalendar = useMemo(() => {
+    if (workspaceBinding) {
+      return workspaceCalendarForDisplay(workspaceBinding.calendar);
+    }
+    return appCalendarState.calendar;
+  }, [workspaceBinding, appCalendarState.calendar]);
+
+  const membersCatalogLabel = workspaceBinding
+    ? workspaceMemberCatalogLabel(workspaceBinding.members)
+    : memberCatalogState.selectedCatalogLabel;
+
+  const membersCatalogError = workspaceBinding
+    ? workspaceMemberError(workspaceBinding.members)
+    : memberCatalogState.error;
+
+  const calendarDisplayError = workspaceBinding
+    ? workspaceCalendarError(workspaceBinding.calendar)
+    : appCalendarState.error;
 
   const refreshMemberCatalog = memberCatalogState.refresh;
   const refreshAppCalendar = appCalendarState.refresh;
@@ -567,7 +618,7 @@ function App() {
     sampleMilestoneGroups,
     sampleMilestones,
     rowHeight,
-    memberCatalogState.members,
+    displayMembers,
     !memberCatalogState.loading,
     blockDocumentEditsRef,
     (landed) => externalReloadHistoryUndoRef.current(landed),
@@ -747,8 +798,8 @@ function App() {
 
   const reportFileErrorRef = useRef<(message: string) => void>(() => {});
   const {
-    recentFilePaths,
-    setRecentFilePaths,
+    recentFilesStore,
+    setRecentFilesStore,
     refreshRecentFiles,
     clearRecentHistory,
   } = useRecentFiles((message) => reportFileErrorRef.current(message));
@@ -779,11 +830,35 @@ function App() {
     sidebarReorderDragging,
     getCanonicalJson,
     getDocumentTitle,
-    onRecentFilesUpdated: setRecentFilePaths,
+    onRecentFilesStoreUpdated: setRecentFilesStore,
+    onWorkspaceBindingChange: (binding) => {
+      if (binding) setWorkspaceBinding(binding);
+      else clearWorkspaceBinding();
+    },
   });
   reportFileErrorRef.current = scheduleFile.showError;
   externalReloadHistoryUndoRef.current = scheduleFile.onHistoryUndoApplied;
   externalReloadHistoryRedoRef.current = scheduleFile.onHistoryRedoApplied;
+
+  const handleWorkspaceBindingReloadRef = useRef(
+    scheduleFile.handleWorkspaceBindingReload,
+  );
+  handleWorkspaceBindingReloadRef.current =
+    scheduleFile.handleWorkspaceBindingReload;
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let unlisten: (() => void) | undefined;
+    void listen<string>("workspace-reload", (event) => {
+      if (workspaceBindingRef.current?.workspacePath !== event.payload) return;
+      void handleWorkspaceBindingReloadRef.current(event.payload);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, []);
 
   useWindowTitle(scheduleFile.displayFileName, scheduleFile.isDirty);
 
@@ -791,6 +866,73 @@ function App() {
     setToastMessage(message);
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
+
+  const handleExportWorkspace = useCallback(async () => {
+    if (!isTauri() || workspaceBinding) return;
+    try {
+      const scheduleContents = getCanonicalJson();
+      const scheduleFileName = safeScheduleJsonFilename(scheduleFile.filePath);
+      let membersContents: string | null = null;
+      let membersFileName: string | null = null;
+      const selectedId = memberCatalogState.settings.selectedCatalogId;
+      if (selectedId) {
+        const text = await invoke<string | null>("read_member_catalog", {
+          catalogId: selectedId,
+        });
+        if (text) {
+          membersContents = text.endsWith("\n") ? text : `${text}\n`;
+          const label =
+            memberCatalogState.selectedCatalogLabel ?? selectedId;
+          membersFileName = `${label}.members.json`;
+        }
+      }
+      let calendarContents: string | null = null;
+      let calendarFileName: string | null = null;
+      if (appCalendarState.label) {
+        const text = await invoke<string | null>("read_app_calendar");
+        if (text) {
+          calendarContents = text.endsWith("\n") ? text : `${text}\n`;
+          calendarFileName = appCalendarState.label.endsWith(".json")
+            ? appCalendarState.label
+            : `${appCalendarState.label}.calendar.json`;
+        }
+      }
+      await exportWorkspaceBundleViaTauri({
+        scheduleContents,
+        scheduleFileName,
+        membersContents,
+        membersFileName,
+        calendarContents,
+        calendarFileName,
+      });
+      const parts = [
+        "設定ファイルを書き出しました。このウィンドウはアプリの設定のままです。",
+      ];
+      if (!membersContents) {
+        parts.push("メンバーは未選択のため書いていません。");
+      }
+      if (!calendarContents) {
+        parts.push("稼働日は未設定のため書いていません。");
+      }
+      showUpdateToast(parts.join(" "));
+    } catch (error) {
+      const message =
+        typeof error === "string"
+          ? error
+          : error instanceof Error
+            ? error.message
+            : "書き出しに失敗しました。";
+      scheduleFile.showError(message, "書き出しに失敗しました");
+    }
+  }, [
+    appCalendarState.label,
+    getCanonicalJson,
+    memberCatalogState.selectedCatalogLabel,
+    memberCatalogState.settings.selectedCatalogId,
+    scheduleFile,
+    showUpdateToast,
+    workspaceBinding,
+  ]);
 
   const showReplaceScreenToast = useCallback(() => {
     setToastMessage("画面を置き換えました");
@@ -1333,8 +1475,8 @@ function App() {
         milestoneFontSize,
         labelScale: uiScale,
         today: schedule.today,
-        memberCatalog: memberCatalogState.memberMap,
-        calendar: appCalendarState.calendar,
+        memberCatalog: displayMemberMap,
+        calendar: displayCalendar,
         filterSummary: describeActiveFilters(
           schedule.filters,
           schedule.milestones,
@@ -1373,10 +1515,10 @@ function App() {
       void exportSchedule(exportInput, format).catch(onExportError);
     },
     [
-      appCalendarState.calendar,
+      displayCalendar,
       headerHeight,
       links,
-      memberCatalogState.memberMap,
+      displayMemberMap,
       milestoneDiamondSize,
       milestoneFontSize,
       milestoneLaneHeight,
@@ -1426,7 +1568,7 @@ function App() {
     selectedTaskId: schedule.selectedTaskId,
     selectedTaskIds: schedule.selectedTaskIds,
     today: schedule.today,
-    memberMap: memberCatalogState.memberMap,
+    memberMap: displayMemberMap,
     scheduleFilePath: scheduleFile.filePath,
     scheduleCurrentJson: scheduleFile.currentJson,
     scheduleBaselineJson: scheduleFile.baselineJson,
@@ -1593,7 +1735,7 @@ function App() {
         collapsed,
         filters: schedule.filters,
         today: schedule.today,
-        memberMap: memberCatalogState.memberMap,
+        memberMap: displayMemberMap,
         lineageIds: schedule.lineageIds,
         hiddenMilestoneGroupIds: new Set(schedule.hiddenMilestoneGroupIds),
         milestones: schedule.milestones,
@@ -1619,7 +1761,7 @@ function App() {
       bodyHeight,
       clearDiffNavigationMark,
       diffEntries,
-      memberCatalogState.memberMap,
+      displayMemberMap,
       rowHeight,
       schedule,
       view,
@@ -1834,7 +1976,7 @@ function App() {
     () => ({
       fileBusy: scheduleFile.fileBusy || !scheduleFile.startupSettled,
       isTauriDesktop: isTauri(),
-      recentFilePaths,
+      recentFilesStore,
       refreshRecentFiles: isTauri() ? refreshRecentFiles : undefined,
       storeDistribution,
       canUndo: schedule.canUndo,
@@ -1855,7 +1997,7 @@ function App() {
       schedule.selectedTaskIds.length,
       scheduleFile.fileBusy,
       scheduleFile.startupSettled,
-      recentFilePaths,
+      recentFilesStore,
       refreshRecentFiles,
       storeDistribution,
     ],
@@ -2091,6 +2233,10 @@ function App() {
       flushTitleEdit();
       setExportOpen(true);
     },
+    onExportWorkspace: workspaceBinding ? undefined : () => {
+      flushTitleEdit();
+      void handleExportWorkspace();
+    },
     onShowJson: () => {
       flushTitleEdit();
       setJsonOpen(true);
@@ -2111,7 +2257,7 @@ function App() {
     onUndo: undo,
     onRedo: redo,
   },
-    recentFilePaths,
+    recentFilesStore,
   );
 
   useEffect(() => {
@@ -2546,7 +2692,7 @@ function App() {
           flushTitleEdit();
           scheduleFile.requestOpen();
         }}
-        recentFilePaths={recentFilePaths}
+        recentFilesStore={recentFilesStore}
         onRefreshRecentFiles={refreshRecentFiles}
         onOpenRecent={requestOpenFromRecentWithTitleFlush}
         onClearRecentHistory={handleClearRecentHistory}
@@ -2580,6 +2726,9 @@ function App() {
           flushTitleEdit();
           setExportOpen(true);
         }}
+        onExportWorkspace={
+          isTauri() && !workspaceBinding ? handleExportWorkspace : undefined
+        }
         canDelete={schedule.selectedTaskIds.length > 0}
         onAdd={() => setAddOpen(true)}
         onAddMilestone={() => {
@@ -2655,7 +2804,7 @@ function App() {
           onMilestoneGroupContextMenu={openMilestoneGroupContextMenu}
           onHierarchyDoubleClick={openHierarchyEdit}
           today={schedule.today}
-          memberCatalog={memberCatalogState.memberMap}
+          memberCatalog={displayMemberMap}
           uiScale={uiScale}
           sidebarWidth={sidebarWidth}
           preferredSidebarWidth={preferredSidebarWidth}
@@ -2727,8 +2876,8 @@ function App() {
             diffMarkedMilestoneId={diffNavigationMark.chartMilestoneId}
             diffMarkStrokeWidth={Math.max(2, Math.round(3 * uiScale))}
             today={schedule.today}
-            memberCatalog={memberCatalogState.memberMap}
-            calendar={appCalendarState.calendar}
+            memberCatalog={displayMemberMap}
+            calendar={displayCalendar}
             colorScheme={resolvedColorScheme}
             linkSourceId={linkSourceId}
             onLinkTargetClick={onLinkTargetClick}
@@ -2748,7 +2897,7 @@ function App() {
             panelRef={detailPanelRef}
             task={selectedDetailTask}
             members={memberCatalogState.members ?? []}
-            memberCatalog={memberCatalogState.memberMap}
+            memberCatalog={displayMemberMap}
             tasks={taskRefs}
             milestones={schedule.milestones}
             successorIds={selectedDetailSuccessors}
@@ -2808,9 +2957,9 @@ function App() {
         saveStatus={scheduleFile.saveStatusLabel}
         saveStatusClickable={scheduleFile.isDirty}
         onSaveStatusClick={showScheduleDiff}
-        membersCatalogLabel={memberCatalogState.selectedCatalogLabel}
-        membersCatalogError={memberCatalogState.error}
-        calendarError={appCalendarState.error}
+        membersCatalogLabel={membersCatalogLabel}
+        membersCatalogError={membersCatalogError}
+        calendarError={calendarDisplayError}
         tier={tier}
         visibleTaskCount={visibleTaskCount}
         totalTaskCount={totalTaskCount}
@@ -2884,7 +3033,7 @@ function App() {
           mode="duplicate"
           task={schedule.duplicatingTask}
           members={memberCatalogState.members ?? []}
-          memberCatalog={memberCatalogState.memberMap}
+          memberCatalog={displayMemberMap}
           tasks={taskRefs}
           milestones={schedule.milestones}
           successorIds={[]}
@@ -3060,6 +3209,7 @@ function App() {
           calendarError={appCalendarState.error}
           onImportCalendar={appCalendarState.importCalendar}
           onDeleteCalendar={appCalendarState.removeCalendar}
+          workspaceBinding={workspaceBinding}
           autoUpdateEnabled={autoUpdateEnabled}
           onAutoUpdateChange={(enabled) => {
             writeAutoUpdateEnabled(enabled);
@@ -3173,6 +3323,7 @@ function App() {
       ) : null}
       {scheduleFile.errorMessage ? (
         <ScheduleErrorDialog
+          title={scheduleFile.errorDialogTitle}
           message={scheduleFile.errorMessage}
           onClose={scheduleFile.dismissError}
         />

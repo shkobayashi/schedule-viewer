@@ -64,6 +64,13 @@ import { normalizeVersionLabel } from "../model/releaseNotes";
 import { fetchMcpConfigJson } from "../model/mcpRegistration";
 import { UpdateOfferNotice } from "./UpdateOfferNotice";
 import type { ApplicationUpdateUiPhase } from "../model/appUpdateUi";
+import type { WorkspaceWindowBinding } from "../model/workspaceTypes";
+import { workspaceFileDisplayLabel } from "../model/workspaceDisplay";
+import {
+  workspaceBindingSummary,
+  workspaceCalendarError,
+  workspaceMemberError,
+} from "../model/workspaceLoad";
 
 function formatAppVersionLine(raw: string): string {
   const normalized = normalizeVersionLabel(raw);
@@ -136,6 +143,7 @@ type SettingsDialogProps = {
   onSaveBetaInstaller?: () => void;
   betaInstallerStatusLine?: string | null;
   storeDistribution?: boolean;
+  workspaceBinding?: WorkspaceWindowBinding | null;
 };
 
 function betaInstallerPlatform(): "windows" | "linux" | null {
@@ -191,6 +199,7 @@ export function SettingsDialog({
   showBetaInstallerSave = betaInstallerPlatform() != null && !storeDistribution,
   onSaveBetaInstaller,
   betaInstallerStatusLine = null,
+  workspaceBinding = null,
 }: SettingsDialogProps) {
   const displayScaleShortcut = usesCommandKey(
     navigator.platform || navigator.userAgent,
@@ -198,10 +207,19 @@ export function SettingsDialog({
     ? "⌘+ と ⌘−"
     : "Ctrl++ と Ctrl+-";
   const [section, setSection] = useState<SettingsSection>(initialSection);
+  const workspaceMembersNoteRef = useRef<HTMLParagraphElement>(null);
+  const workspaceCalendarNoteRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     if (open) setSection(initialSection);
   }, [initialSection, open]);
+
+  const workspaceNoteFocusRef =
+    section === "members"
+      ? workspaceMembersNoteRef
+      : section === "calendar"
+        ? workspaceCalendarNoteRef
+        : undefined;
 
   useEffect(() => {
     setMessage(null);
@@ -626,6 +644,11 @@ export function SettingsDialog({
     <ModalDialog
       title="設定"
       onClose={onClose}
+      initialFocusRef={
+        workspaceBinding && (section === "members" || section === "calendar")
+          ? workspaceNoteFocusRef
+          : undefined
+      }
       className={
         section === "updates"
           ? "modal settings-dialog settings-dialog--updates"
@@ -791,6 +814,34 @@ export function SettingsDialog({
             ) : null}
             {section === "members" ? (
               <>
+                {workspaceBinding ? (
+                  <>
+                    <p
+                      ref={workspaceMembersNoteRef}
+                      className="settings-note"
+                      tabIndex={-1}
+                    >
+                      {workspaceMemberError(workspaceBinding.members)
+                        ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。メンバーはここでは変更できません。`
+                        : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。メンバーは設定ファイルの指定どおり表示します。ここでは変更できません。`}
+                    </p>
+                    <p
+                      className="settings-current"
+                      title={
+                        workspaceBinding.resolved.membersPath ??
+                        workspaceBinding.workspacePath
+                      }
+                    >
+                      使用中: {workspaceBindingSummary(workspaceBinding).membersLabel}
+                    </p>
+                    {workspaceMemberError(workspaceBinding.members) ? (
+                      <p className="settings-message" role="alert">
+                        {workspaceMemberError(workspaceBinding.members)} 担当はメンバー不明のままです。
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
                 <p className="settings-note">
                   メンバー JSON をアプリデータへ取り込み、表示に使うカタログを選びます。スケジュール
                   JSON には含めません。
@@ -865,10 +916,40 @@ export function SettingsDialog({
                     選択を解除
                   </button>
                 ) : null}
+                  </>
+                )}
               </>
             ) : null}
             {section === "calendar" ? (
               <>
+                {workspaceBinding ? (
+                  <>
+                    <p
+                      ref={workspaceCalendarNoteRef}
+                      className="settings-note"
+                      tabIndex={-1}
+                    >
+                      {workspaceCalendarError(workspaceBinding.calendar)
+                        ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。稼働日はここでは変更できません。`
+                        : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。稼働日は設定ファイルの指定どおり表示します。ここでは変更できません。`}
+                    </p>
+                    <p
+                      className="settings-current"
+                      title={
+                        workspaceBinding.resolved.calendarPath ??
+                        workspaceBinding.workspacePath
+                      }
+                    >
+                      使用中: {workspaceBindingSummary(workspaceBinding).calendarLabel}
+                    </p>
+                    {workspaceCalendarError(workspaceBinding.calendar) ? (
+                      <p className="settings-message" role="alert">
+                        {workspaceCalendarError(workspaceBinding.calendar)} 表示は土日のみに戻しています。
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
                 <p className="settings-note">
                   稼働日カレンダー JSON を1件だけ取り込み、非稼働日をタイムラインに薄く表示します。タスクの移動・期間は暦日のままです。スケジュール
                   JSON には含めません。
@@ -910,6 +991,8 @@ export function SettingsDialog({
                     </button>
                   ) : null}
                 </div>
+                  </>
+                )}
               </>
             ) : null}
             {section === "mcp" && settingsDesktopOnly() ? (
@@ -954,7 +1037,7 @@ export function SettingsDialog({
                 </div>
                 <h3 className="settings-changelog-heading">MCP を使えないときに渡す</h3>
                 <p className="settings-note">
-                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、$LOCALAPPDATA から続く1行にします。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 3 つは「JSON作成スキルを置く」にあります。
+                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、$LOCALAPPDATA から続く1行にします。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 4 つは「JSON作成スキルを置く」にあります。
                 </p>
                 <fieldset className="settings-field" disabled={busy}>
                   <legend>置く先</legend>
@@ -1139,8 +1222,8 @@ export function SettingsDialog({
             {section === "jsonSkills" ? (
               <>
                 <p className="settings-note">
-                  write-schedule、write-members、write-calendar
-                  の3つをまとめて置きます。中身はマージしません。git
+                  write-schedule、write-members、write-calendar、write-workspace
+                  の4つをまとめて置きます。中身はマージしません。git
                   には入れず、置いたパスだけを使います。検証スクリプトは Node.js
                   で動かします。画面の状態を渡す手順は、設定の「画面の状態を渡す」にあります。
                 </p>
@@ -1448,8 +1531,8 @@ export function SettingsDialog({
         {section === "jsonSkills" && confirmJsonSkillUninstall ? (
           <div className="settings-confirm">
             <p>
-              選んだ場所から write-schedule、write-members、write-calendar
-              の3つを外します。ほかのスキルや skills フォルダ自体は残します。
+              選んだ場所から write-schedule、write-members、write-calendar、write-workspace
+              の4つを外します。ほかのスキルや skills フォルダ自体は残します。
             </p>
             <div className="modal-actions">
               <button

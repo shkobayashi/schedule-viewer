@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collabcentral.example/schedule-viewer/workspace.schema.json",
+  "title": "Schedule viewer workspace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "schedule"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "schedule": {
+      "type": "string",
+      "minLength": 1
+    },
+    "members": {
+      "type": "string",
+      "minLength": 1
+    },
+    "calendar": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
