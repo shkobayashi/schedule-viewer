@@ -18,6 +18,12 @@ import {
   readWindowStartupViaTauri,
   takePendingScheduleWindowOpenViaTauri,
 } from "../../model/windowSession";
+import {
+  openWorkspaceFromFile,
+  readJsonFileLimitedViaTauri,
+  WORKSPACE_STARTUP_FAILED_MESSAGE,
+} from "../../model/workspaceLoad";
+import type { WorkspaceWindowBinding } from "../../model/workspaceTypes";
 import { applyAfterAccept } from "./recoveryApply";
 
 type RecoveryConflictPayload = {
@@ -67,6 +73,7 @@ type UseScheduleStartupRecoveryOptions = {
     path: string,
     document: ScheduleDocument,
   ) => Promise<void>;
+  onWorkspaceBindingChange?: (binding: WorkspaceWindowBinding | null) => void;
 };
 
 export function useScheduleStartupRecovery({
@@ -91,6 +98,7 @@ export function useScheduleStartupRecovery({
   beginOpen,
   applyOpenedFile,
   restoreFiltersForPath,
+  onWorkspaceBindingChange,
 }: UseScheduleStartupRecoveryOptions) {
   const [recoveryConflictOpen, setRecoveryConflictOpen] = useState(false);
   const [recoveryInvalidOpen, setRecoveryInvalidOpen] = useState(false);
@@ -164,6 +172,31 @@ export function useScheduleStartupRecovery({
 
   const applyOpenedFileRef = useRef(applyOpenedFile);
   applyOpenedFileRef.current = applyOpenedFile;
+  const onWorkspaceBindingChangeRef = useRef(onWorkspaceBindingChange);
+  onWorkspaceBindingChangeRef.current = onWorkspaceBindingChange;
+
+  const restoreWorkspaceBinding = useCallback(
+    async (workspacePath: string | null): Promise<boolean> => {
+      if (!workspacePath) {
+        onWorkspaceBindingChangeRef.current?.(null);
+        return true;
+      }
+      try {
+        const text = await readJsonFileLimitedViaTauri(workspacePath, 64 * 1024);
+        const opened = await openWorkspaceFromFile(workspacePath, text);
+        if (opened.ok) {
+          onWorkspaceBindingChangeRef.current?.(opened.binding);
+          return true;
+        }
+        onWorkspaceBindingChangeRef.current?.(null);
+        return false;
+      } catch {
+        onWorkspaceBindingChangeRef.current?.(null);
+        return false;
+      }
+    },
+    [],
+  );
   const applyRecoverySessionRef = useRef(applyRecoverySession);
   applyRecoverySessionRef.current = applyRecoverySession;
 
@@ -199,6 +232,14 @@ export function useScheduleStartupRecovery({
           return;
         }
         const startup = await readWindowStartupViaTauri();
+        const workspaceStartupOk = await restoreWorkspaceBinding(
+          startup.workspacePath,
+        );
+        if (startup.workspacePath && !workspaceStartupOk) {
+          setErrorMessageText(WORKSPACE_STARTUP_FAILED_MESSAGE);
+          releaseStartupBusy();
+          return;
+        }
         const last =
           startup.path != null
             ? {

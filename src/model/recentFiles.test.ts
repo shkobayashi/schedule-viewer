@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   appendRecentFile,
+  appendRecentWorkspace,
   parseRecentFilesJson,
+  parseRecentFilesStore,
   recentFileMenuEntries,
 } from "./recentFiles";
 
@@ -43,6 +45,34 @@ describe("appendRecentFile", () => {
   it("ignores empty and relative paths", () => {
     expect(appendRecentFile(["/a.json"], "")).toEqual(["/a.json"]);
     expect(appendRecentFile(["/a.json"], "relative.json")).toEqual(["/a.json"]);
+  });
+});
+
+describe("parseRecentFilesStore", () => {
+  it("reads legacy array as schedules only", () => {
+    expect(parseRecentFilesStore('["/a.json"]')).toEqual({
+      schedules: ["/a.json"],
+      workspaces: [],
+    });
+  });
+
+  it("reads split object", () => {
+    expect(
+      parseRecentFilesStore(
+        '{"schedules":["/a.json"],"workspaces":["/w.json"]}',
+      ),
+    ).toEqual({
+      schedules: ["/a.json"],
+      workspaces: ["/w.json"],
+    });
+  });
+
+  it("tracks workspaces separately", () => {
+    const store = appendRecentWorkspace(
+      { schedules: [], workspaces: ["/old.json"] },
+      "/new.json",
+    );
+    expect(store.workspaces).toEqual(["/new.json", "/old.json"]);
   });
 });
 

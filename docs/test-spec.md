@@ -396,7 +396,13 @@
 | 同上 | `treats trim-equal title as unchanged` | EDIT-20 |
 | 同上 | `keeps internal spaces and reports changed title` | EDIT-20 |
 | `history.test.ts` | `undo restores a title change in one step` | EDIT-10, EDIT-20 |
-| `recentFiles.test.ts` | `appendRecentFile` など | FILE-09 |
+| `recentFiles.test.ts` | `appendRecentFile` など、スケジュールと設定ファイルの二系統 | FILE-09 |
+| `recentFilesMenu.test.ts` | 見出し付きの二グループとコマンドパレットの接頭辞 | FILE-09 |
+| `workspaceLoad.test.ts` | 設定ファイル束縛の表示ラベル | FILE-10, SET-02 |
+| `workspacePath.test.ts` | 相対パスの受理と拒否 | FILE-10 |
+| `workspaceJson.test.ts` | 開き分けと検証、末尾区切りの拒否 | FILE-10 |
+| `workspace::export_tests`（Rust） | 空でないフォルダの拒否、シンボリックリンク、部分書き出し後の文言 | FILE-11 |
+| `droppedScheduleOpenRoute.test.ts` | `routeExternalWorkspaceDrop` | FILE-10, WIN-04 |
 | `commandPalette.test.ts` | `inserts recent files after open on desktop` など | FILE-09, NAV-07 |
 | `recent_files.rs` | `writes_only_when_expected_matches` など | FILE-09 |
 | `commandPalette.test.ts` | `includes edit title command` | NAV-07, EDIT-20 |
@@ -728,7 +734,9 @@
 | TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 7 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
 | TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 7 になる |
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 7 になる。タグを付けていないタスクに `tags` は無い |
-| TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューに新しい順で並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
+| TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバーとカレンダーがファイル由来になる。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとカレンダーだけ読み直す。起動し直すと設定ファイルのまま戻る |
+| TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとカレンダーを選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
+| TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューにスケジュールと設定ファイルを別グループで新しい順に並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
 | TC-FILE-09b | FILE-09 | 上記のあと6件目を開く。同名のファイル名を2つのフォルダから開く | 一覧の件数と親フォルダの付き方を見る | 5件を超えた古いものが消える。同じファイル名が2件以上のときだけ親フォルダ名が付く |
 | TC-FILE-09c | FILE-09 | 履歴にパスがある | 存在しないパスを選ぶ。未保存のあいだに履歴から開き、キャンセルする | 画面と保存先は残る。サンプルに戻らない。項目は残る。キャンセルでは順番が変わらない |
 | TC-FILE-09d | FILE-09 | 履歴がある | ☰ または macOS のファイルメニューで「最近開いたファイル」から「履歴を消す」を押す。ファイル操作の途中でサブメニューから開く操作を試す | パスだけ消える。開いているスケジュールと次回起動のウィンドウ・控え・絞り込みは残る。操作中は履歴から開けず、「履歴を消す」は押せる。消したあと、☰ と macOS のファイルメニューに「最近開いたファイル」の行は残り、押せず、サブメニューは開かない |

@@ -392,6 +392,13 @@ body {
   margin: 4px 0;
 }
 
+.app-menu-submenu-heading {
+  padding: calc(4px * var(--s)) calc(10px * var(--s));
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+  user-select: none;
+}
+
 .context-menu {
   position: fixed;
   z-index: 40;

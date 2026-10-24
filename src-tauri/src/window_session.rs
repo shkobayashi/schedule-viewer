@@ -25,6 +25,12 @@ pub struct OpenWindowEntry {
     pub label: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
+    #[serde(
+        rename = "workspacePath",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub workspace_path: Option<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub sample: bool,
 }
@@ -234,6 +240,7 @@ pub fn read_open_windows(app_data: &Path) -> Result<OpenWindowsFile, String> {
             windows: vec![OpenWindowEntry {
                 label: "main".to_string(),
                 path: None,
+                workspace_path: None,
                 sample: true,
             }],
         });
@@ -278,6 +285,7 @@ pub fn dedupe_open_windows(file: OpenWindowsFile) -> OpenWindowsFile {
         kept.push(OpenWindowEntry {
             label: "main".to_string(),
             path: None,
+            workspace_path: None,
             sample: true,
         });
     }
@@ -344,12 +352,14 @@ pub fn migrate_legacy_session(app_data: &Path) -> Result<(), String> {
         OpenWindowEntry {
             label: "main".to_string(),
             path: Some(path),
+            workspace_path: None,
             sample: false,
         }
     } else {
         OpenWindowEntry {
             label: "main".to_string(),
             path: None,
+            workspace_path: None,
             sample: true,
         }
     };
@@ -374,16 +384,19 @@ pub fn upsert_window_path(
     app_data: &Path,
     label: &str,
     path: Option<&str>,
+    workspace_path: Option<&str>,
     sample: bool,
 ) -> Result<(), String> {
     let mut file = read_open_windows(app_data)?;
     if let Some(entry) = file.windows.iter_mut().find(|e| e.label == label) {
         entry.path = path.map(str::to_string);
+        entry.workspace_path = workspace_path.map(str::to_string);
         entry.sample = sample && path.is_none();
     } else {
         file.windows.push(OpenWindowEntry {
             label: label.to_string(),
             path: path.map(str::to_string),
+            workspace_path: workspace_path.map(str::to_string),
             sample: sample && path.is_none(),
         });
     }
@@ -404,6 +417,7 @@ pub fn remove_window_label(app_data: &Path, label: &str) -> Result<(), String> {
         file.windows.push(OpenWindowEntry {
             label: "main".to_string(),
             path: None,
+            workspace_path: None,
             sample: true,
         });
         file.focused_label = "main".to_string();
@@ -567,6 +581,7 @@ pub fn append_open_window_entry(
     file.windows.push(OpenWindowEntry {
         label: label.to_string(),
         path: Some(path.to_string()),
+        workspace_path: None,
         sample: false,
     });
     file.focused_label = label.to_string();
@@ -754,6 +769,8 @@ pub fn spawn_startup_windows(app: &AppHandle, app_data: &Path) -> Result<(), Str
 #[derive(Serialize)]
 pub struct WindowStartupRead {
     pub path: Option<String>,
+    #[serde(rename = "workspacePath")]
+    pub workspace_path: Option<String>,
     pub sample: bool,
     pub contents: Option<String>,
     pub error: Option<String>,
@@ -765,6 +782,7 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
     let Some(entry) = entry_for_label(&file, label) else {
         return Ok(WindowStartupRead {
             path: None,
+            workspace_path: None,
             sample: true,
             contents: None,
             error: None,
@@ -774,18 +792,21 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
     if entry.sample || entry.path.is_none() {
         return Ok(WindowStartupRead {
             path: None,
+            workspace_path: None,
             sample: true,
             contents: None,
             error: None,
             draft_text: None,
         });
     }
+    let workspace_path = entry.workspace_path.clone();
     let path = entry.path.clone().unwrap_or_default();
     let draft_text = read_recovery_for_path(app_data, &path)?;
     let path_buf = PathBuf::from(&path);
     if !path_buf.is_file() {
         return Ok(WindowStartupRead {
             path: Some(path),
+            workspace_path,
             sample: false,
             contents: None,
             error: Some(SCHEDULE_FILE_NOT_FOUND.to_string()),
@@ -795,6 +816,7 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
     match read_utf8(&path_buf, MAX_SCHEDULE_BYTES) {
         Ok(contents) => Ok(WindowStartupRead {
             path: Some(path),
+            workspace_path,
             sample: false,
             contents: Some(contents),
             error: None,
@@ -802,6 +824,7 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
         }),
         Err(message) => Ok(WindowStartupRead {
             path: Some(path),
+            workspace_path,
             sample: false,
             contents: None,
             error: Some(message),
@@ -860,11 +883,13 @@ mod tests {
                 OpenWindowEntry {
                     label: "main".to_string(),
                     path: Some("/tmp/plan.json".to_string()),
+                    workspace_path: None,
                     sample: false,
                 },
                 OpenWindowEntry {
                     label: "schedule-2".to_string(),
                     path: Some("/tmp/plan.json".to_string()),
+                    workspace_path: None,
                     sample: false,
                 },
             ],
@@ -922,6 +947,7 @@ mod tests {
             windows: vec![OpenWindowEntry {
                 label: "schedule-2".to_string(),
                 path: Some("/tmp/plan.json".to_string()),
+                workspace_path: None,
                 sample: false,
             }],
         };
@@ -932,11 +958,13 @@ mod tests {
                 OpenWindowEntry {
                     label: "main".to_string(),
                     path: Some("/tmp/plan.json".to_string()),
+                    workspace_path: None,
                     sample: false,
                 },
                 OpenWindowEntry {
                     label: "schedule-2".to_string(),
                     path: Some("/tmp/other.json".to_string()),
+                    workspace_path: None,
                     sample: false,
                 },
             ],
@@ -959,11 +987,13 @@ mod tests {
                 OpenWindowEntry {
                     label: "main".to_string(),
                     path: Some("/tmp/projects/plan.json".to_string()),
+                    workspace_path: None,
                     sample: false,
                 },
                 OpenWindowEntry {
                     label: "schedule-2".to_string(),
                     path: Some("/tmp/other/roadmap.json".to_string()),
+                    workspace_path: None,
                     sample: false,
                 },
             ],
@@ -1003,6 +1033,7 @@ mod tests {
             windows: vec![OpenWindowEntry {
                 label: "main".to_string(),
                 path: Some("/Users/alice/docs/plan.json".to_string()),
+                workspace_path: None,
                 sample: false,
             }],
         };

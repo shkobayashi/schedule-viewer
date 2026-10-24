@@ -1,7 +1,12 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { recentFileMenuEntries } from "../model/recentFiles";
+import type { RecentFilesStore } from "../model/recentFiles";
+import {
+  hasRecentMenuItems,
+  recentMenuItemAriaLabel,
+  recentMenuSections,
+} from "../model/recentFilesMenu";
 import { fileShortcutHint, usesCommandKey } from "../model/shortcuts";
 import { anchorBelowRect, menuShiftForRect } from "./anchoredMenu";
 import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
@@ -12,14 +17,15 @@ type AppMenuProps = {
   fileBusy?: boolean;
   startupSettled?: boolean;
   onOpen: () => void;
-  recentFilePaths?: string[];
+  recentFilesStore?: RecentFilesStore;
   onRefreshRecentFiles?: () => void;
-  onOpenRecent?: (path: string) => void;
+  onOpenRecent?: (path: string, kind: "schedule" | "workspace") => void;
   onClearRecentHistory?: () => void;
   onOpenInNewWindow?: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   onExportHtml: () => void;
+  onExportWorkspace?: () => void;
   onShowJson: () => void;
   onShowDiff: () => void;
   onOpenSettings: () => void;
@@ -32,7 +38,7 @@ export function AppMenu({
   fileBusy = false,
   startupSettled = true,
   onOpen,
-  recentFilePaths = [],
+  recentFilesStore = { schedules: [], workspaces: [] },
   onRefreshRecentFiles,
   onOpenRecent,
   onClearRecentHistory,
@@ -40,6 +46,7 @@ export function AppMenu({
   onSave,
   onSaveAs,
   onExportHtml,
+  onExportWorkspace,
   onShowJson,
   onShowDiff,
   onOpenSettings,
@@ -83,17 +90,17 @@ export function AppMenu({
   }, [cancelRecentSubmenuClose]);
 
   const openRecentSubmenu = useCallback(() => {
-    if (recentFilePaths.length === 0) return;
+    if (!hasRecentMenuItems(recentFilesStore)) return;
     cancelRecentSubmenuClose();
     setRecentSubmenuOpen(true);
-  }, [cancelRecentSubmenuClose, recentFilePaths.length]);
+  }, [cancelRecentSubmenuClose, recentFilesStore]);
 
   useLayoutEffect(() => {
-    if (recentFilePaths.length === 0) {
+    if (!hasRecentMenuItems(recentFilesStore)) {
       setRecentSubmenuOpen(false);
       cancelRecentSubmenuClose();
     }
-  }, [recentFilePaths.length, cancelRecentSubmenuClose]);
+  }, [recentFilesStore, cancelRecentSubmenuClose]);
 
   useLayoutEffect(() => {
     if (open) {
@@ -140,7 +147,7 @@ export function AppMenu({
     const row = recentRowRef.current.getBoundingClientRect();
     setRecentSubmenuPosition({ left: row.right + 4, top: row.top });
     setRecentSubmenuShift({ x: 0, y: 0 });
-  }, [open, recentSubmenuOpen, recentFilePaths.length]);
+  }, [open, recentSubmenuOpen, recentFilesStore]);
 
   useLayoutEffect(() => {
     if (!open || !recentSubmenuOpen) return;
@@ -160,7 +167,7 @@ export function AppMenu({
     recentSubmenuOpen,
     recentSubmenuPosition.left,
     recentSubmenuPosition.top,
-    recentFilePaths.length,
+    hasRecentMenuItems(recentFilesStore),
   ]);
 
   useEffect(() => {
@@ -265,18 +272,16 @@ export function AppMenu({
   };
 
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
-  const recentEntries =
-    isTauri() && onOpenRecent
-      ? recentFileMenuEntries(recentFilePaths)
-      : [];
+  const recentSections =
+    isTauri() && onOpenRecent ? recentMenuSections(recentFilesStore) : [];
   const showRecentDesktopRow =
     isTauri() &&
     onOpenRecent !== undefined &&
     onClearRecentHistory !== undefined;
   const showRecentSubmenu =
-    showRecentDesktopRow && recentEntries.length > 0;
+    showRecentDesktopRow && recentSections.length > 0;
   const showRecentDisabled =
-    showRecentDesktopRow && recentEntries.length === 0;
+    showRecentDesktopRow && recentSections.length === 0;
 
   const panel = open ? (
     <div
@@ -329,17 +334,28 @@ export function AppMenu({
               }}
               onMouseEnter={openRecentSubmenu}
             >
-              {recentEntries.map((entry) => (
-                <button
-                  key={entry.path}
-                  type="button"
-                  role="menuitem"
-                  disabled={menuFileActionsLocked}
-                  title={entry.path}
-                  onClick={() => run(() => onOpenRecent?.(entry.path))}
-                >
-                  <span>{entry.label}</span>
-                </button>
+              {recentSections.map((section, sectionIndex) => (
+                <div key={section.heading} role="group" aria-label={section.heading}>
+                  {sectionIndex > 0 ? <hr /> : null}
+                  <div className="app-menu-submenu-heading" role="presentation">
+                    {section.heading}
+                  </div>
+                  {section.items.map((entry) => (
+                    <button
+                      key={entry.path}
+                      type="button"
+                      role="menuitem"
+                      disabled={menuFileActionsLocked}
+                      title={entry.path}
+                      aria-label={recentMenuItemAriaLabel(entry)}
+                      onClick={() =>
+                        run(() => onOpenRecent?.(entry.path, entry.kind))
+                      }
+                    >
+                      <span>{entry.label}</span>
+                    </button>
+                  ))}
+                </div>
               ))}
               <hr />
               <button
@@ -393,6 +409,16 @@ export function AppMenu({
       <button type="button" role="menuitem" onClick={() => run(onExportHtml)}>
         書き出し
       </button>
+      {isTauri() && onExportWorkspace ? (
+        <button
+          type="button"
+          role="menuitem"
+          disabled={menuFileActionsLocked}
+          onClick={() => run(onExportWorkspace)}
+        >
+          設定ファイルを新しいフォルダへ書き出す
+        </button>
+      ) : null}
       <button type="button" role="menuitem" onClick={() => run(onShowJson)}>
         JSON を表示
       </button>

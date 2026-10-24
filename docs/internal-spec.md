@@ -149,7 +149,7 @@ flowchart TD
   accept --> replace
 ```
 
-開く成功のあと、デスクトップ版だけ `record_recent_files` で `recent-files.json` を更新する。起動時に前回のウィンドウを載せるとき、前面化だけのとき、`replace_schedule` では足さない。履歴から開くときも `runOpenFromPath` と `applyOpenedFile` の既存経路を使う。
+開く成功のあと、デスクトップ版だけ `record_recent_files` で `recent-files.json` を更新する。スケジュールと設定ファイルは別配列である。起動時に前回のウィンドウを載せるとき、前面化だけのとき、`replace_schedule` では足さない。履歴から開くときも `runOpenFromPath` と `applyOpenedFile` の既存経路を使う。設定ファイルは `classifyOpenedJson` で開き分け、`accept_opened_workspace` で `open-windows.json` に `workspacePath` を書き、`loadWorkspaceBinding` が相対パス先を読む。表示は `useWorkspaceBinding` と `App.tsx` の `displayMembers` / `displayCalendar` が束縛を優先する。`export_workspace_bundle` がフォルダ書き出しを行う。
 
 ブラウザ版はダイアログの代わりにファイル選択を使い、`accept_opened_schedule` は呼ばない。
 

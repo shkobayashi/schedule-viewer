@@ -8,7 +8,7 @@ import {
 const idle = {
   fileBusy: false,
   isTauriDesktop: false,
-  recentFilePaths: [],
+  recentFilesStore: { schedules: [], workspaces: [] },
   storeDistribution: false,
   canUndo: true,
   canRedo: false,
@@ -116,13 +116,16 @@ describe("buildCommandPaletteItems", () => {
     const items = buildCommandPaletteItems({
       ...idle,
       isTauriDesktop: true,
-      recentFilePaths: ["/x/a.json", "/y/b.json"],
+      recentFilesStore: {
+        schedules: ["/x/a.json", "/y/b.json"],
+        workspaces: [],
+      },
     });
     const labels = items.map((item) => item.label);
     expect(labels.slice(0, 4)).toEqual([
       "開く",
-      "最近開いたファイル a.json",
-      "最近開いたファイル b.json",
+      "最近開いたファイル スケジュール a.json",
+      "最近開いたファイル スケジュール b.json",
       "履歴を消す",
     ]);
     expect(labels[4]).toBe("新しいウィンドウで開く");
@@ -133,7 +136,7 @@ describe("buildCommandPaletteItems", () => {
       ...idle,
       isTauriDesktop: true,
       fileBusy: true,
-      recentFilePaths: ["/x/a.json"],
+      recentFilesStore: { schedules: ["/x/a.json"], workspaces: [] },
     });
     expect(
       items.find((item) => item.kind === "openRecent")?.enabled,
@@ -150,13 +153,13 @@ describe("buildCommandPaletteItems", () => {
       buildCommandPaletteItems({
         ...idle,
         isTauriDesktop: true,
-        recentFilePaths: [],
+        recentFilesStore: { schedules: [], workspaces: [] },
       }).some((item) => item.kind === "openRecent"),
     ).toBe(false);
     expect(
       buildCommandPaletteItems({
         ...idle,
-        recentFilePaths: ["/a.json"],
+        recentFilesStore: { schedules: ["/a.json"], workspaces: [] },
       }).some((item) => item.kind === "openRecent"),
     ).toBe(false);
   });
