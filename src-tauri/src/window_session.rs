@@ -572,23 +572,6 @@ pub fn create_schedule_webview_on_main_thread(
     }
 }
 
-pub fn append_open_window_entry(
-    app_data: &Path,
-    label: &str,
-    path: &str,
-) -> Result<(), String> {
-    let mut file = read_open_windows(app_data)?;
-    file.windows.push(OpenWindowEntry {
-        label: label.to_string(),
-        path: Some(path.to_string()),
-        workspace_path: None,
-        sample: false,
-    });
-    file.focused_label = label.to_string();
-    write_open_windows(app_data, &file)?;
-    Ok(())
-}
-
 pub fn should_close_default_main_window(file: &OpenWindowsFile) -> bool {
     let has_main = file.windows.iter().any(|entry| entry.label == "main");
     !has_main && !file.windows.is_empty()

@@ -408,13 +408,10 @@ async fn export_workspace_bundle(
         None => return Ok(()),
     };
     workspace::ensure_export_folder_ready(&folder)?;
-    let mut wrote_any = false;
     let schedule_name = sanitize_export_filename(&schedule_file_name, "json");
     let schedule_path = folder.join(&schedule_name);
-    if let Err(error) = write_utf8_atomic(&schedule_path, &schedule_contents) {
-        return Err(error);
-    }
-    wrote_any = true;
+    write_utf8_atomic(&schedule_path, &schedule_contents)?;
+    let mut wrote_any = true;
     let mut workspace = serde_json::json!({
         "schemaVersion": 1,
         "schedule": schedule_name,
