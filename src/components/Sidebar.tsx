@@ -876,6 +876,24 @@ function SidebarResizer({
   );
 }
 
+function HierarchyNameWithRollup({
+  label,
+  rollupPercent,
+}: {
+  label: string;
+  rollupPercent: number | null;
+}) {
+  if (rollupPercent == null) {
+    return <NameLabel text={label} />;
+  }
+  return (
+    <span className="hierarchy-row-title">
+      <NameLabel text={label} />
+      <span className="row-rollup-percent">{rollupPercent}%</span>
+    </span>
+  );
+}
+
 function NameLabel({ text, overdue }: { text: string; overdue?: boolean }) {
   const clipRef = useRef<HTMLSpanElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
@@ -1009,7 +1027,10 @@ function CategorySidebarRow({
           collapsed={row.collapsed}
           onClick={() => onToggleCollapse(categoryCollapseKey(row.id))}
         />
-        <NameLabel text={row.label} />
+        <HierarchyNameWithRollup
+          label={row.label}
+          rollupPercent={row.rollupPercent}
+        />
       </div>
     </div>
   );
@@ -1073,7 +1094,10 @@ function HierarchySidebarRow({
           collapsed={row.collapsed}
           onClick={() => onToggleCollapse(groupCollapseKey(row.id))}
         />
-        <NameLabel text={row.label} />
+        <HierarchyNameWithRollup
+          label={row.label}
+          rollupPercent={row.rollupPercent}
+        />
       </div>
     </div>
   );

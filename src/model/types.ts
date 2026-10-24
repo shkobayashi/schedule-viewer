@@ -109,6 +109,8 @@ export type VisibleRow =
       y: number;
       collapsed: boolean;
       summary: SummarySpan | null;
+      /** 配下タスクの平均進捗（整数）。タスクが無いときは null。 */
+      rollupPercent: number | null;
     }
   | {
       type: "group";
@@ -119,5 +121,7 @@ export type VisibleRow =
       y: number;
       collapsed: boolean;
       summary: SummarySpan | null;
+      /** 配下タスクの平均進捗（整数）。タスクが無いときは null。 */
+      rollupPercent: number | null;
     }
   | { type: "task"; task: Task; y: number };
