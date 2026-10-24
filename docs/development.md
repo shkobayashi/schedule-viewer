@@ -158,7 +158,7 @@ npm install
 それでも直らないときは、次を試す。
 
 ```bash
-npm install @tauri-apps/cli-darwin-arm64@2.12.1
+npm install @tauri-apps/cli-darwin-arm64@2.12.4
 ```
 
 （Apple Silicon 以外の Mac では `cli-darwin-x64` に読み替える。）
@@ -287,7 +287,7 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 
 公開したあと、ruleset で `develop` と `main` に pull request 必須、コードオーナーのレビュー、必須ステータスチェック `ci`、force push と削除の禁止を入れる。タグ `v*` は更新と削除を禁止する。詳細はリポジトリの **Settings → Rules → Rulesets** である。非公開の Free プランでは ruleset を作れない。公開の直後に設定する。
 
-Dependabot は [`.github/dependabot.yml`](../.github/dependabot.yml) で npm、cargo、github-actions を週次に見る。脆弱性の報告は [SECURITY.md](../SECURITY.md) に従う。
+Dependabot は [`.github/dependabot.yml`](../.github/dependabot.yml) で npm、cargo、github-actions を週次に見る。`@tauri-apps/cli` の配下のバイナリが本体と別の版になると、ビルドが読むのは本体側のままなので、`@tauri-apps/cli` と `@tauri-apps/cli-*` は一つのグループにして同じ pull request で上げる。脆弱性の報告は [SECURITY.md](../SECURITY.md) に従う。
 
 Release ワークフローは GitHub 環境 `release` を使う。環境は **Settings → Environments → release** で作る。Required reviewers は、プランによっては非公開リポジトリでは使えない。使えないときは承認なしで Release が走る。使えるときは管理者を Required reviewers に入れ、Actions が自分で承認できない設定にする。
 
