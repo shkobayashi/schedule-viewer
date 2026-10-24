@@ -249,6 +249,18 @@
 | 同上 | `shows empty groups and categories when filters and lineage are clear` | VIEW-01, VIEW-03, FILTER-09 |
 | 同上 | `hides empty groups when a filter is set` | FILTER-09 |
 | 同上 | `hides empty groups when lineage is set` | FILTER-09 |
+| 同上 | `includes filtered-out tasks in category and group rollup` | VIEW-03 |
+| 同上 | `includes collapsed tasks in rollup` | VIEW-03 |
+| 同上 | `includes lineage-hidden tasks in rollup` | VIEW-03 |
+| 同上 | `keeps parent bar summary on visible tasks only` | VIEW-03 |
+| 同上 | `sets rollupPercent null on empty hierarchy rows` | VIEW-03 |
+| `progressRollup.test.ts` | `does not weight by schedule duration` | VIEW-03 |
+| 同上 | `counts done as 100 without changing stored progress` | VIEW-03 |
+| 同上 | `uses not-started progress as-is` | VIEW-03 |
+| 同上 | `uses in-progress progress from the field` | VIEW-03 |
+| 同上 | `rounds to an integer and keeps zero` | VIEW-03 |
+| 同上 | `averages tasks not group percents` | VIEW-03 |
+| 同上 | `includes tasks in groups that would not appear as rows` | VIEW-03 |
 | `screenContext.test.ts` | `keeps broken-link endpoints only when relation is broken` | MCP-01 |
 | 同上 | `keeps unassigned and unknown assignee when assignee filter is unassigned` | MCP-01, FILTER-03 |
 | 同上 | `respects lineage and still returns selected task outside filter` | MCP-01, FILTER-08, EDIT-01 |
@@ -834,6 +846,7 @@
 | TC-VIEW-01 | VIEW-01 | サンプル | 左の行を上から見る | カテゴリ、グループ、タスクの順で、JSON の配列順に並ぶ |
 | TC-VIEW-02 | VIEW-02 | 進行中のタスクがある | そのバーを見る | 薄青の地に、進捗率の濃い部分がある。完了は緑、未着手は灰 |
 | TC-VIEW-03 | VIEW-03 | 子の期間が離れているグループ | 親の行を見る。HTML で書き出す | タスクバーより細い帯で、途切れた期間は点線、つながる期間は塗り。両端に下向きの角がある。書き出しも同じ |
+| TC-VIEW-03b | VIEW-03 | カテゴリとグループにタスクがある JSON。進捗 0% のタスクと完了タスクがある。設定の表示で左の追加列の進捗をオンにする | ブラウザ版で左のカテゴリ行とグループ行を見る。一覧の幅を最小幅まで狭める。絞り込みか折りたたみか系統で一部のタスクを隠す。タスクが無い空のグループ行も見る | 名前の直後に整数のパーセントが出る。最小幅でもパーセントが切れない。0% も出る。タスクが無い行には出ない。追加列の進捗はタスク行だけ。隠れたタスクも平均に入るので、見えているバーだけを足した数字や親バーの長さとずれてよい |
 | TC-VIEW-04 | VIEW-04 | playground または長い名前のマイルストンがある JSON | 右端まで横スクロールする。月表示でも見る。全角24文字を超える名前にカーソルを乗せる。近いひし形の手前で切れる名前も見る。日・週・月を切り替える | 右端まで送ったとき、次のひし形が無い名前と年月が最後まで読める。全角24文字を超える名前は「…」になり、ホバーでチャート内に全文が読める。近いひし形の手前で切れることと、日・週・月の切り替えは今までどおり。グループごとに帯が積まれる。ひし形が重なるときだけ段が増える。左はグループ名。チャート全体の縦線は無い |
 | TC-FILTER-11 | FILTER-11 | マイルストングループが2つ以上ある JSON | 絞り込みの帯の線で1つをオフにする。書き出す | 帯と書き出しからその線が消える。タスク行は変わらない。札とすべて解除で戻る |
 | TC-FILTER-11b | FILTER-11, EDIT-11 | マイルストングループが2つ以上あり、各グループにマイルストンがある JSON | 左のマイルストングループ名の行の空きを右クリックし「非表示」を選ぶ。札を押す。別の行で「この行だけ表示」を選ぶ。残った1行を右クリックし、メニューを見る。そのあと最後の1行も非表示にする。書き出す | 帯と左の行が消える。札でそのグループだけ戻る。「この行だけ表示」で他がオフになり、オフしたグループごとに札が出る。帯に別のグループ行が無くなったあとは、「この行だけ表示」は出ない。全部オフで帯の高さは0。ひし形の右クリックメニューは今どおり。線を引くモードと見出しではメニューが出ない。タスクの選択は変わらない |

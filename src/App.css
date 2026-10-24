@@ -1704,6 +1704,27 @@ button:focus-visible,
   font-weight: 600;
 }
 
+.hierarchy-row-title {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.hierarchy-row-title .row-label {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.row-rollup-percent {
+  flex: 0 0 auto;
+  margin-left: calc(6px * var(--s));
+  font-weight: inherit;
+  user-select: none;
+}
+
 .confidence-tentative {
   flex-shrink: 0;
   margin-left: 6px;
