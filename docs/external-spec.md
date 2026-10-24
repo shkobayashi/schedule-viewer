@@ -901,7 +901,7 @@ Tauri で作ったデスクトップアプリをデスクトップ版、`npm run
 
 コマンドは、次の 2 形だけを受け付ける。`--screen` とツール名、または読み取り 5 つに `--window` と内部ラベル。使えるツール名は `open_windows`、`schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks`、`replace_schedule` である。`open_windows` と `replace_schedule` に `--window` は付けない。`--screen open_windows --window` と `--screen replace_schedule --window` を付けたときは待ち受けへ送らず、標準エラーに「open_windows は --window を受け付けません。」または「replace_schedule は前面ウィンドウだけを置き換えます。--window は使えません。」を出し、終了コードは 1 である。`replace_schedule` は引数に `--screen replace_schedule` だけを渡し、スケジュール JSON 全体は標準入力から読む。背面を読むときは `--screen <読み取り5つ> --window <label>` とする。Windows で実行ファイルが Local AppData 配下のときは、1 行のコマンド例のうしろに `--window` とラベルを足す。それ以外は、実行ファイルの行、`--screen` とツール名の行に続け、`--window` とラベルを別の行に書く。中身は MCP-01 と同じ待ち受けへ送り、成功時はツール結果のテキストを標準出力へ出す。`isError` のときはその文を標準エラーへ出し、終了コードは 1 である。形が合わないとき、またはツール名が上のどれでもないときは待ち受けへ繋がない。標準入力が 10MB を超えるときは、待ち受けへ送る前に拒否する。
 
-**制約** ブラウザ版には「画面の状態を渡す」欄が無い。指定したプロジェクトフォルダへは置かない。MCP-01 の登録を終えても、このスキル置きは終わらない。逆も同じである。スケジュール JSON を作る SET-05 の 3 スキルとは別である。絞り込みの別実装はスキルに書かない。
+**制約** ブラウザ版には「画面の状態を渡す」欄が無い。指定したプロジェクトフォルダへは置かない。MCP-01 の登録を終えても、このスキル置きは終わらない。逆も同じである。スケジュール JSON を作る SET-05 の 4 スキルとは別である。絞り込みの別実装はスキルに書かない。
 
 ## ダイアログ
 

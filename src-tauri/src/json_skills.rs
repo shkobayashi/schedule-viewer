@@ -555,7 +555,7 @@ mod tests {
         let project = PathBuf::from("/tmp/project");
         let user_cursor =
             skill_destinations(&home, JsonSkillTool::Cursor, JsonSkillScope::User, None).unwrap();
-        assert_eq!(user_cursor.len(), 3);
+        assert_eq!(user_cursor.len(), JSON_SKILL_NAMES.len());
         assert!(user_cursor
             .iter()
             .all(|p| p.starts_with("/home/me/.cursor/skills")));
@@ -567,7 +567,7 @@ mod tests {
             Some(&project),
         )
         .unwrap();
-        assert_eq!(project_both.len(), 6);
+        assert_eq!(project_both.len(), JSON_SKILL_NAMES.len() * 2);
     }
 
     #[test]
@@ -640,7 +640,7 @@ mod tests {
             true,
         )
         .expect("install");
-        assert_eq!(result.installed_paths.len(), 3);
+        assert_eq!(result.installed_paths.len(), JSON_SKILL_NAMES.len());
         assert!(real.exists());
         assert!(dest.join("SKILL.md").exists());
         assert!(!dest.symlink_metadata().unwrap().file_type().is_symlink());
@@ -663,7 +663,7 @@ mod tests {
         )
         .expect("uninstall");
         assert_eq!(result.removed_paths.len(), 1);
-        assert_eq!(result.missing_paths.len(), 2);
+        assert_eq!(result.missing_paths.len(), JSON_SKILL_NAMES.len() - 1);
         assert!(!skills.join("write-schedule").exists());
         assert!(skills.join("other-skill").exists());
     }
@@ -693,7 +693,7 @@ mod tests {
             false,
         )
         .expect("install");
-        assert_eq!(result.installed_paths.len(), 3);
+        assert_eq!(result.installed_paths.len(), JSON_SKILL_NAMES.len());
         let cursor = home.join(".cursor");
         assert!(!cursor.symlink_metadata().unwrap().file_type().is_symlink());
         assert!(cursor
@@ -902,7 +902,7 @@ mod tests {
         )
         .expect("uninstall");
         assert_eq!(result.removed_paths.len(), 1);
-        assert_eq!(result.missing_paths.len(), 2);
+        assert_eq!(result.missing_paths.len(), JSON_SKILL_NAMES.len() - 1);
         assert!(fs::symlink_metadata(&dest).is_err());
         assert!(fs::symlink_metadata(&target).is_err());
     }

@@ -631,7 +631,7 @@
 | `filter_path_uses_same_hash_as_recovery` | 絞り込みのファイル名のハッシュは控えと同じ | SYNC-03 |
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 | `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
-| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの3スキルに限る | SET-05 |
+| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの4スキルに限る | SET-05 |
 | `install_without_replace_leaves_existing` | 置き換えを確認するまでは既存を残し、何も書かない | SET-05 |
 | `install_creates_real_parent_directories` | 無い `.cursor/skills` を実ディレクトリとして作る | SET-05 |
 | `install_without_replace_treats_symlink_as_existing` | 壊れたシンボリックリンクも既存として、確認前は書かない | SET-05 |
@@ -639,7 +639,7 @@
 | `install_does_not_write_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら置かない | SET-05 |
 | `place_staged_skill_restores_original_when_copy_fails` | 入れ替えのコピーに失敗したら元のフォルダを残す | SET-05 |
 | `install_keeps_earlier_skill_when_a_later_copy_fails` | 後続のコピーに失敗しても、先に置けたスキルは残る | SET-05 |
-| `uninstall_removes_only_bundled_skill_folders` | 外すのは3スキルだけで、別名のスキルは残す | SET-05 |
+| `uninstall_removes_only_bundled_skill_folders` | 外すのは4スキルだけで、別名のスキルは残す | SET-05 |
 | `uninstall_does_not_remove_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら外さない | SET-05 |
 | `uninstall_removes_broken_symlink_at_destination` | 宛先の壊れたシンボリックリンクはリンクだけ外す | SET-05 |
 | `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
@@ -1004,11 +1004,11 @@
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
-| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar が `~/.cursor/skills/` に置かれ、パスが示される |
+| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace が `~/.cursor/skills/` に置かれ、パスが示される |
 | TC-SET-05b | SET-05 | 上記のいずれかが既にある | もう一度「置く」 | 上書き確認が出る。上書き後、置いたパスが示される |
 | TC-SET-05c | SET-05 | 指定フォルダへ Claude Code を置く。`~/.claude/skills/` に同名がある | 「置く」 | 置いたあと、個人用が先に使われる旨が出る |
 | TC-SET-05d | SET-05 | ブラウザ版 | 設定の「JSON作成スキルを置く」を開く | デスクトップ版でのみ置ける旨が出て、「置く」は押せない |
-| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に3つがある | 「外す」で確認のあと外す | 3つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に4つがある | 「外す」で確認のあと外す | 4つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
 | TC-SET-06 | SET-06 | ブラウザ版 | 設定を開く | 「更新」の欄が無い |
 | TC-SET-06b | SET-06 | デスクトップ版、初回起動 | 設定の「更新」を見る | 「起動時に更新を確認する」はオフである |
 | TC-SET-06c | SET-06 | デスクトップ版、2つのウィンドウ | 片方で自動更新をオンにする | もう一方もオンになる。オンにした直後は更新を確認しない |

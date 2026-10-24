@@ -1223,7 +1223,7 @@ export function SettingsDialog({
               <>
                 <p className="settings-note">
                   write-schedule、write-members、write-calendar、write-workspace
-                  の3つをまとめて置きます。中身はマージしません。git
+                  の4つをまとめて置きます。中身はマージしません。git
                   には入れず、置いたパスだけを使います。検証スクリプトは Node.js
                   で動かします。画面の状態を渡す手順は、設定の「画面の状態を渡す」にあります。
                 </p>
@@ -1532,7 +1532,7 @@ export function SettingsDialog({
           <div className="settings-confirm">
             <p>
               選んだ場所から write-schedule、write-members、write-calendar、write-workspace
-              の3つを外します。ほかのスキルや skills フォルダ自体は残します。
+              の4つを外します。ほかのスキルや skills フォルダ自体は残します。
             </p>
             <div className="modal-actions">
               <button

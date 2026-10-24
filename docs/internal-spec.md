@@ -35,7 +35,7 @@ flowchart TD
 | `src-tauri/src/mcp_bridge_windows.rs` | Windows の名前付きパイプ待ち受けと `--mcp` からの接続 |
 | `scripts/` | 検証器の生成、サンプル検査、バージョン同期、操作マニュアルの GitHub Pages 用サイトビルド |
 | `docs/*.schema.json` | JSON Schema の正本 |
-| `.cursor/skills/` | LLM 用のスキル。`implement-change` はこのリポジトリの実装手順、`review-project` は全体レビューの手順。`update-schedule-schema` はスケジュール JSON の形を変えるとき。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使う |
+| `.cursor/skills/` | LLM 用のスキル。`implement-change` はこのリポジトリの実装手順、`review-project` は全体レビューの手順。`update-schedule-schema` はスケジュール JSON の形を変えるとき。`write-schedule`、`write-members`、`write-calendar`、`write-workspace` は他のリポジトリへコピーして使う |
 
 依存は上の図の向きだけである。コンポーネントは、モデルの純粋関数を直接呼ぶことがある。`model` はコンポーネントを参照しない。
 
@@ -320,7 +320,7 @@ capability はメインウィンドウと `schedule-*` ウィンドウに、`cor
 
 上書きは、開いているパスとフロントが渡したパスが一致するときだけ行う。任意のパスを読めるコマンドは無く、`read_last_schedule_file` は覚えたパス（無ければ控えのパス）だけを読む。`read_schedule_file_at_path` は控えに書いたパスだけを読む。`read_open_schedule_file` は呼び出し元からパスを受け取らず、`ScheduleFileState` が覚えている開いているパスだけを読む。保存するファイル名は、区切り文字、制御文字、Windows の予約名を除く。カタログ ID も、パスに使えない文字を拒否する。
 
-JSON 作成スキルの配置は `install_json_skills` だけが行う。外すのは `uninstall_json_skills` だけである。書けるのは、ログイン中のユーザーのホーム配下の `~/.cursor/skills/<name>/` と `~/.claude/skills/<name>/`、または利用者がフォルダダイアログで選んだ絶対パス配下の `.cursor/skills/<name>/` と `.claude/skills/<name>/` だけである。外すのも同じ `<name>` の3つだけである。`<name>` は `write-schedule`、`write-members`、`write-calendar` の3つだけ。プロジェクトフォルダはシンボリックリンクを拒否する。宛先がシンボリックリンクのときはリンクだけ外し、リンク先は消さない。`.cursor` と `.claude` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。中身はバンドル内 `json-skills/` からコピーする。外すときは skills フォルダや別名のスキルは残す。スキルフォルダの中にあるシンボリックリンクの先は消さない。
+JSON 作成スキルの配置は `install_json_skills` だけが行う。外すのは `uninstall_json_skills` だけである。書けるのは、ログイン中のユーザーのホーム配下の `~/.cursor/skills/<name>/` と `~/.claude/skills/<name>/`、または利用者がフォルダダイアログで選んだ絶対パス配下の `.cursor/skills/<name>/` と `.claude/skills/<name>/` だけである。外すのも同じ `<name>` の4つだけである。`<name>` は `write-schedule`、`write-members`、`write-calendar`、`write-workspace` の4つだけ。プロジェクトフォルダはシンボリックリンクを拒否する。宛先がシンボリックリンクのときはリンクだけ外し、リンク先は消さない。`.cursor` と `.claude` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。中身はバンドル内 `json-skills/` からコピーする。外すときは skills フォルダや別名のスキルは残す。スキルフォルダの中にあるシンボリックリンクの先は消さない。
 
 画面の状態を読む `read-screen` は `install_read_screen_skill` だけが置き、`uninstall_read_screen_skill` だけが外す。テンプレートはバンドル内 `read-screen/SKILL.md` から読み、実行ファイルの呼び方を置き換えて、ユーザー全体の `~/.cursor/skills/read-screen/` と `~/.claude/skills/read-screen/` だけへ書く。Windows で実行ファイルが Local AppData 配下のときは、`$LOCALAPPDATA` から続く1行のコマンド例に置き換える。それ以外は絶対パスを、引数と別の行に書く。指定したプロジェクトフォルダへは書かない。`.cursor` と `.claude` と、その中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。外すのは `read-screen` だけである。skills フォルダや別名のスキルは残す。
 
