@@ -13,6 +13,7 @@
 - 通常のウィンドウでは、☰ から今の画面のスケジュールと選択中のメンバー・カレンダーを新しいフォルダへ書き出し、設定ファイルを置ける (#311)
 - 最近開いたファイルをスケジュールと設定ファイルの二系統に分け、次回起動で設定ファイルのウィンドウを戻す (#311)
 - JSON 作成スキルに `write-workspace` を足し、設定の「JSON作成スキルを置く」で 4 つまとめて置ける (#311)
+- 設定の「JSON作成スキルを置く」を GitHub Copilot（ユーザー全体の `~/.copilot/skills/` と指定フォルダの `.github/skills/`）へも置ける。設定の「画面の状態を渡す」の read-screen を GitHub Copilot（`~/.copilot/skills/read-screen/` だけ）へも置ける。Cursor、Claude Code、GitHub Copilot を同時に選べる (#348)
 
 ## [1.10.0] - 2026-10-23
 
