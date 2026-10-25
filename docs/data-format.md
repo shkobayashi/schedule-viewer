@@ -86,6 +86,21 @@
 - 未保存の比較元は、3〜6 を 7 にしたあとの保存形式である。ディスク上の文字列とそのまま比べない。開いただけでは未保存にならない。保存すると schemaVersion 7 になる
 - マイルストンに `confidence` が無い 3、4、5 は、そのマイルストンを `committed` として読む。既にある値はそのまま残す。schemaVersion 5 の読み込みでは、そのあと 7 に上げる
 
+## 設定ファイル（workspace、schemaVersion 1）
+
+正本は [workspace.schema.json](workspace.schema.json)。スケジュール JSON への相対パスを必須で書き、メンバー JSON とカレンダー JSON への相対パスは省略できる。設定ファイルから見た相対パスだけを書く。絶対パス、空、ディレクトリは拒否する。`..` を含む相対パスは許可する。
+
+```json
+{
+  "schemaVersion": 1,
+  "schedule": "plan.json",
+  "members": "team.members.json",
+  "calendar": "jp-2026.calendar.json"
+}
+```
+
+アプリが書き出す既定のファイル名は `workspace.json` である。別名でも、中身がこの形なら開ける。
+
 ## メンバー JSON（schemaVersion 1）
 
 正本は [members.schema.json](members.schema.json)。意味規則は [src/model/membersSemantics.ts](../src/model/membersSemantics.ts) にある。
@@ -173,8 +188,8 @@
 | `calendar.json` | 取り込んだカレンダー JSON の本文 | 2MB |
 | `schedule-recovery/<ハッシュ>.json` | 未保存の控え。パスごとに1ファイル。`path`、`baselineJson`、`documentJson` | 10MB |
 | `schedule-filters/<ハッシュ>.json` | パスごとの絞り込みと折りたたみ。`version`（1）、`path`、絞り込みの各値、検索欄の対象（`name` または `note`）、帯の線をオフにしたマイルストングループの id、折りたたんだカテゴリ id の配列、折りたたんだグループ id の配列。配列が無い古いファイルは、折りたたみなしとして読む | 64KB |
-| `open-windows.json` | 開いていたウィンドウの順、`focusedLabel`、各ウィンドウの `label` と `path` またはサンプル | — |
-| `recent-files.json` | 最近開いたスケジュールの絶対パスの配列。新しいものが先頭、最大 5 件 | 64KB |
+| `open-windows.json` | 開いていたウィンドウの順、`focusedLabel`、各ウィンドウの `label` と `path` またはサンプル。設定ファイルで開いたウィンドウは任意の `workspacePath` を含む | — |
+| `recent-files.json` | `schedules` と `workspaces` の二つの配列。それぞれ最近開いたスケジュールと設定ファイルの絶対パス。新しいものが先頭、各最大 5 件。旧形式の単一配列は `schedules` だけとして読む | 64KB |
 
 控えの `path` は開いているスケジュールの絶対パスである。`baselineJson` は最後に開いた・保存した・読み直したときの内容、`documentJson` は画面の内容で、この2つはどちらも上の保存形式の文字列である。絞り込みの `path` も同じ絶対パスである。ハッシュは控えと同じ。初期値のときは絞り込みのファイルを置かない。サンプル（パスが無い）では控えも絞り込みも作らない。同じパスを複数のウィンドウで開いているとき、控えと絞り込みを書くのはそのパスを開いているウィンドウのうち前面のものだけである。`open-windows.json` は、ほかのウィンドウが残っているときに1枚閉じると、そのウィンドウだけ外す。最後の1枚を閉じるときと、アプリの終了時は、開いていた記録を残す。古い `last-schedule.json` と `schedule-recovery.json` は、初回起動時に上の形へ移してから消す。読めなかった古い控えは消さず、次回の起動で移し直す。ブラウザ版は控えもウィンドウ一覧も作らない。
 

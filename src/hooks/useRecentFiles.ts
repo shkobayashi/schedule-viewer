@@ -1,23 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isTauri } from "../model/scheduleFile";
+import type { RecentFilesStore } from "../model/recentFiles";
 import {
   clearRecentFilesViaTauri,
   readRecentFilesViaTauri,
 } from "../model/recentFilesAppData";
 
+const EMPTY_STORE: RecentFilesStore = { schedules: [], workspaces: [] };
+
 export function useRecentFiles(onClearError: (message: string) => void) {
-  const [recentFilePaths, setRecentFilePaths] = useState<string[]>([]);
+  const [recentFilesStore, setRecentFilesStore] =
+    useState<RecentFilesStore>(EMPTY_STORE);
 
   const refreshRecentFiles = useCallback(async () => {
     if (!isTauri()) {
-      setRecentFilePaths([]);
+      setRecentFilesStore(EMPTY_STORE);
       return;
     }
     try {
-      setRecentFilePaths(await readRecentFilesViaTauri());
+      setRecentFilesStore(await readRecentFilesViaTauri());
     } catch {
-      setRecentFilePaths([]);
+      setRecentFilesStore(EMPTY_STORE);
     }
   }, []);
 
@@ -43,7 +47,7 @@ export function useRecentFiles(onClearError: (message: string) => void) {
   const clearRecentHistory = useCallback(async () => {
     if (!isTauri()) return;
     try {
-      setRecentFilePaths(await clearRecentFilesViaTauri());
+      setRecentFilesStore(await clearRecentFilesViaTauri());
     } catch (error) {
       onClearError(
         error instanceof Error
@@ -54,8 +58,8 @@ export function useRecentFiles(onClearError: (message: string) => void) {
   }, [onClearError]);
 
   return {
-    recentFilePaths,
-    setRecentFilePaths,
+    recentFilesStore,
+    setRecentFilesStore,
     refreshRecentFiles,
     clearRecentHistory,
   };

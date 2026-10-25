@@ -47,6 +47,7 @@ function rowsFrom(specs: readonly RowSpec[]): VisibleRow[] {
         y,
         collapsed: spec.collapsed ?? false,
         summary,
+        rollupPercent: null,
       };
     }
     if (spec.kind === "group") {
@@ -59,6 +60,7 @@ function rowsFrom(specs: readonly RowSpec[]): VisibleRow[] {
         y,
         collapsed: spec.collapsed ?? false,
         summary,
+        rollupPercent: null,
       };
     }
     return { type: "task", task: taskAt(index), y };

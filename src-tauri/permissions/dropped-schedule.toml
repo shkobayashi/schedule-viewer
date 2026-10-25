@@ -6,4 +6,5 @@ commands.allow = [
   "read_open_windows_snapshot",
   "ack_external_schedule_drop",
   "forward_schedule_external_drop",
+  "emit_workspace_reload",
 ]
