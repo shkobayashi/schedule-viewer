@@ -644,6 +644,16 @@
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 | `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
 | `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの4スキルに限る | SET-05 |
+| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の4スキルだけ | SET-05 |
+| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は12パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各4つは `JSON_SKILL_NAMES` の順 | SET-05 |
+| `parse_tool_selection_requires_at_least_one` | ツール未選択は「ツールを1つ以上選んでください。」 | SET-05, MCP-02 |
+| `claude_user_shadows_only_when_claude_project_scope` | Copilot だけの指定フォルダでは Claude の個人用優先警告を出さない | SET-05 |
+| `install_creates_copilot_parent_directories` | 無い `~/.copilot/skills` を実ディレクトリとして作る | SET-05 |
+| `install_does_not_write_through_github_symlink` | `.github` がシンボリックリンクなら Copilot の指定フォルダへ置かない | SET-05 |
+| `install_and_uninstall_skip_when_user_copilot_dir_is_symlink` | ユーザー全体の `.copilot` がシンボリックリンクなら Copilot へ置かず、外さない | SET-05 |
+| `uninstall_does_not_remove_through_github_symlink` | 指定フォルダの `.github` がシンボリックリンクなら Copilot を外さない | SET-05 |
+| `install_and_uninstall_skip_when_user_copilot_skills_is_symlink` | ユーザー全体の `.copilot/skills` がシンボリックリンクなら Copilot へ置かず、外さない | SET-05 |
+| `install_and_uninstall_skip_when_project_github_skills_is_symlink` | 指定フォルダの `.github/skills` がシンボリックリンクなら Copilot へ置かず、外さない | SET-05 |
 | `install_without_replace_leaves_existing` | 置き換えを確認するまでは既存を残し、何も書かない | SET-05 |
 | `install_creates_real_parent_directories` | 無い `.cursor/skills` を実ディレクトリとして作る | SET-05 |
 | `install_without_replace_treats_symlink_as_existing` | 壊れたシンボリックリンクも既存として、確認前は書かない | SET-05 |
@@ -669,8 +679,15 @@
 | `render_keeps_absolute_path_on_separate_lines_outside_localappdata`（`read_screen_skill.rs`） | Local AppData 配下でない絶対パスは、引用せず引数と別の行に書く | MCP-02 |
 | `render_fails_when_executable_path_is_empty`（`read_screen_skill.rs`） | 実行ファイルのパスが空なら置かない | MCP-02 |
 | `render_fails_when_placeholder_remains_after_replace`（`read_screen_skill.rs`） | 置換後にプレースホルダが残るなら置かない | MCP-02 |
-| `destinations_are_user_skill_dirs_only`（`read_screen_skill.rs`） | read-screen の置き先はユーザー全体だけ | MCP-02 |
+| `destinations_are_user_skill_dirs_only`（`read_screen_skill.rs`） | read-screen の置き先はユーザー全体の `.cursor`、`.claude`、`.copilot` だけ。`.github` と指定フォルダは含まない | MCP-02 |
 | `install_without_replace_leaves_existing`（`read_screen_skill.rs`） | 置き換えを確認するまでは既存を残し、何も書かない | MCP-02 |
+| `install_writes_copilot_skill_with_same_invocation_rules` | Copilot へ置く read-screen も、Local AppData 配下でないときは実行ファイルの行と `--screen` の行に分ける | MCP-02 |
+| `install_writes_copilot_skill_with_localappdata_one_line` | Copilot へ置く read-screen も、Local AppData 配下は `"$LOCALAPPDATA/"` と `--screen` の1行にし、`AppData` を残さない | MCP-02 |
+| `parse_tool_selection_requires_at_least_one_for_read_screen` | ツール未選択は「ツールを1つ以上選んでください。」で失敗 | MCP-02 |
+| `install_and_uninstall_skip_copilot_when_dot_copilot_is_symlink`（`read_screen_skill.rs`） | read-screen は `.copilot` がシンボリックリンクなら置かず、外さない | MCP-02 |
+| `install_and_uninstall_skip_copilot_when_skills_under_copilot_is_symlink`（`read_screen_skill.rs`） | read-screen は `.copilot/skills` がシンボリックリンクなら置かず、外さない | MCP-02 |
+| `uninstall_with_symlink_copilot_does_not_remove_cursor_read_screen`（`read_screen_skill.rs`） | Copilot の親がシンボリックリンクで外すのが失敗したとき、先に置いた Cursor の read-screen は残る | MCP-02 |
+| `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` と `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
 | `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 5 ツール（省略できる `window`）、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
@@ -1022,6 +1039,14 @@
 | TC-SET-05c | SET-05 | 指定フォルダへ Claude Code を置く。`~/.claude/skills/` に同名がある | 「置く」 | 置いたあと、個人用が先に使われる旨が出る |
 | TC-SET-05d | SET-05 | ブラウザ版 | 設定の「JSON作成スキルを置く」を開く | デスクトップ版でのみ置ける旨が出て、「置く」は押せない |
 | TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に4つがある | 「外す」で確認のあと外す | 4つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05f | SET-05 | デスクトップ版、置き先に同名が無い | GitHub Copilot、ユーザー全体を選び「置く」 | 4つが `~/.copilot/skills/` に置かれ、パスが示される。`~/.copilot` が無くても作られる |
+| TC-SET-05g | SET-05 | デスクトップ版 | GitHub Copilot、指定したフォルダを選び「置く」 | 4つが `<フォルダ>/.github/skills/` に置かれ、パスが示される。git には入れない |
+| TC-SET-05h | SET-05 | デスクトップ版 | Cursor、Claude Code、GitHub Copilot をすべて選び、ユーザー全体で「置く」 | 12パスが示される。中身は同じ4つ |
+| TC-SET-05i | SET-05 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
+| TC-SET-05j | SET-05 | デスクトップ版、ユーザー全体の Copilot に4つがある | 「外す」で確認のあと外す | 4つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-MCP-02c | MCP-02 | デスクトップ版 | 「MCP を使えないときに渡す」で GitHub Copilot を選び「置く」 | `read-screen` が `~/.copilot/skills/read-screen/` に置かれ、パスと実行ファイルのパスが示される |
+| TC-MCP-02d | MCP-02 | デスクトップ版、Copilot に read-screen がある | 同じ欄で GitHub Copilot を選び「外す」 | その1つだけ消え、外したパスが示される |
+| TC-MCP-02e | MCP-02 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
 | TC-SET-06 | SET-06 | ブラウザ版 | 設定を開く | 「更新」の欄が無い |
 | TC-SET-06b | SET-06 | デスクトップ版、初回起動 | 設定の「更新」を見る | 「起動時に更新を確認する」はオフである |
 | TC-SET-06c | SET-06 | デスクトップ版、2つのウィンドウ | 片方で自動更新をオンにする | もう一方もオンになる。オンにした直後は更新を確認しない |

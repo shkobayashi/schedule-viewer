@@ -214,13 +214,13 @@ GitHub Releases から入れた Ubuntu 版と Apple Silicon の Mac 版には「
 
 「mcp.json に登録する」では、JSON をコピーして Cursor または Claude の mcp.json へ貼ります。MCP を使えるクライアント向けです。スケジュールのウィンドウが開いているときだけ連携できます。読み取りは `open_windows`（開いているウィンドウ一覧。ファイル名と親フォルダ名だけ。絶対パスは含みません）、`schedule_diff`（差分テキスト）、`baseline_diffs`（起点・画面・ファイルの差分と分類）、`selected_task`（選択が1件のときのタスク。選択数が不明なときは使わない）、`selected_tasks`（編集の選択。1件でも配列。選択数が不明なときはこちら）、`filtered_tasks`（オンな絞り込みと残るタスク）です。読み取りは引数を省略すると前面のウィンドウです。別のウィンドウを読むときは、一覧の `label` を `window` に渡します。`replace_schedule` で、起動中に開いているスケジュールを変える依頼を、スケジュール JSON 全体の未保存として前面だけ置き換えられます。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。ファイルには書きません。必要なツールだけ呼べます。設定からプロセスは起動しません。
 
-「MCP を使えないときに渡す」では、`read-screen` スキルを Cursor または Claude Code のユーザー用フォルダへ置きます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、`$LOCALAPPDATA` から続く1行にします。スキルは、読み取り 6 つをコマンド（`--screen` とツール名。背面は `--window` と label）で渡す手順と、画面の更新手順（`replace_schedule` 相当）を持ちます。上の mcp.json 登録を終えても、このスキル置きは終わりません。
+「MCP を使えないときに渡す」では、`read-screen` スキルを Cursor、Claude Code、GitHub Copilot のユーザー用フォルダへ置きます。GitHub Copilot は `~/.copilot/skills/read-screen/` だけです。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、`$LOCALAPPDATA` から続く1行にします。スキルは、読み取り 6 つをコマンド（`--screen` とツール名。背面は `--window` と label）で渡す手順と、画面の更新手順（`replace_schedule` 相当）を持ちます。上の mcp.json 登録を終えても、このスキル置きは終わりません。
 
 同じファイル名のカタログや、すでにあるカレンダーを取り込むときは、上書きしてよいかを聞きます。
 
 ![設定の「JSON作成スキルを置く」欄。置く先と範囲の選択が見える](images/ui-settings-skills.png)
 
-「JSON作成スキルを置く」では、write-schedule、write-members、write-calendar、write-workspace の4つをまとめて置けます。Cursor と Claude Code のどちらへ置くか、ユーザー全体か指定したフォルダかを選びます。自分の作業ならユーザー全体、チームで同じ手順をリポジトリに残すなら指定したフォルダを使います。置いたパスだけを示し、git には入れません。同名フォルダがあるときは上書きを確認します。「外す」で、同じ選び方の場所から4つだけ削除できます。デスクトップ版だけ使えます。ブラウザ版では同じ欄に、デスクトップ版で置く旨だけ出ます。`.cursor` と `.claude` と `skills` がシンボリックリンクのときは置けません。外すときも、リンクの先は消しません。
+「JSON作成スキルを置く」では、write-schedule、write-members、write-calendar、write-workspace の4つをまとめて置けます。Cursor、Claude Code、GitHub Copilot のうち置く先を1つ以上選び、ユーザー全体か指定したフォルダかを選びます。自分の作業ならユーザー全体、チームで同じ手順をリポジトリに残すなら指定したフォルダを使います。GitHub Copilot はユーザー全体なら `~/.copilot/skills/`、指定したフォルダなら `.github/skills/` です。置いたパスだけを示し、git には入れません。同名フォルダがあるときは上書きを確認します。「外す」で、同じ選び方の場所から4つだけ削除できます。デスクトップ版だけ使えます。ブラウザ版では同じ欄に、デスクトップ版で置く旨だけ出ます。`.cursor` と `.claude` と `.copilot` と `.github` と、それぞれの `skills` がシンボリックリンクのときは置けません。外すときも、リンクの先は消しません。
 
 ## ほかのプログラムがファイルを書き換えたとき
 

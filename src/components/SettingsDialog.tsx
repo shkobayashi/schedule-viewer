@@ -48,13 +48,14 @@ import {
   writeSidebarColumns,
 } from "../model/viewPreferences";
 import {
-  defaultJsonSkillTools,
+  defaultJsonSkillToolSelection,
   fetchJsonSkillHomeDirs,
+  hasJsonSkillToolSelection,
   installJsonSkills,
   pickJsonSkillFolder,
   uninstallJsonSkills,
   type JsonSkillScope,
-  type JsonSkillTools,
+  type JsonSkillToolSelection,
 } from "../model/jsonSkills";
 import {
   installReadScreenSkill,
@@ -239,7 +240,9 @@ export function SettingsDialog({
     kind: "status" | "alert";
   } | null>(null);
   const [mcpConfig, setMcpConfig] = useState("");
-  const [readScreenTools, setReadScreenTools] = useState<JsonSkillTools>("both");
+  const [readScreenTools, setReadScreenTools] = useState<JsonSkillToolSelection>(
+    () => ({ cursor: true, claude: true, copilot: true }),
+  );
   const [readScreenInstalledPaths, setReadScreenInstalledPaths] = useState<
     string[] | null
   >(null);
@@ -268,7 +271,9 @@ export function SettingsDialog({
     label: string;
     contents: string;
   } | null>(null);
-  const [jsonSkillTools, setJsonSkillTools] = useState<JsonSkillTools>("both");
+  const [jsonSkillTools, setJsonSkillTools] = useState<JsonSkillToolSelection>(
+    () => ({ cursor: true, claude: true, copilot: true }),
+  );
   const [jsonSkillScope, setJsonSkillScope] = useState<JsonSkillScope>("user");
   const [jsonSkillProjectFolder, setJsonSkillProjectFolder] = useState<
     string | null
@@ -318,17 +323,28 @@ export function SettingsDialog({
     }
     if (!settingsDesktopOnly()) return;
     let cancelled = false;
+    const allTools: JsonSkillToolSelection = {
+      cursor: true,
+      claude: true,
+      copilot: true,
+    };
     void fetchJsonSkillHomeDirs()
       .then((homeDirs) => {
-        if (cancelled || jsonSkillToolsTouched.current) return;
-        setJsonSkillTools(defaultJsonSkillTools(homeDirs));
+        if (cancelled) return;
+        if (!jsonSkillToolsTouched.current) {
+          setJsonSkillTools(defaultJsonSkillToolSelection(homeDirs));
+        }
         if (!readScreenToolsTouched.current) {
-          setReadScreenTools(defaultJsonSkillTools(homeDirs));
+          setReadScreenTools(defaultJsonSkillToolSelection(homeDirs));
         }
       })
       .catch(() => {
-        if (!cancelled && !jsonSkillToolsTouched.current) {
-          setJsonSkillTools("both");
+        if (cancelled) return;
+        if (!jsonSkillToolsTouched.current) {
+          setJsonSkillTools(allTools);
+        }
+        if (!readScreenToolsTouched.current) {
+          setReadScreenTools(allTools);
         }
       });
     return () => {
@@ -336,10 +352,18 @@ export function SettingsDialog({
     };
   }, [open]);
 
-  const chooseJsonSkillTools = (tools: JsonSkillTools) => {
+  const toggleJsonSkillTool = (key: keyof JsonSkillToolSelection) => {
     jsonSkillToolsTouched.current = true;
-    setJsonSkillTools(tools);
+    setJsonSkillTools((current) => ({ ...current, [key]: !current[key] }));
   };
+
+  const toggleReadScreenTool = (key: keyof JsonSkillToolSelection) => {
+    readScreenToolsTouched.current = true;
+    setReadScreenTools((current) => ({ ...current, [key]: !current[key] }));
+  };
+
+  const jsonSkillToolsReady = hasJsonSkillToolSelection(jsonSkillTools);
+  const readScreenToolsReady = hasJsonSkillToolSelection(readScreenTools);
 
   if (!open) return null;
 
@@ -467,7 +491,7 @@ export function SettingsDialog({
     setMessage(null);
     try {
       const result = await installJsonSkills({
-        tools: jsonSkillTools,
+        ...jsonSkillTools,
         scope: jsonSkillScope,
         projectFolder: jsonSkillProjectFolder,
         replace,
@@ -517,17 +541,12 @@ export function SettingsDialog({
     setConfirmJsonSkillUninstall(true);
   };
 
-  const chooseReadScreenTools = (tools: JsonSkillTools) => {
-    readScreenToolsTouched.current = true;
-    setReadScreenTools(tools);
-  };
-
   const runReadScreenInstall = async (replace: boolean) => {
     setBusy(true);
     setMcpPanelMessage(null);
     try {
       const result = await installReadScreenSkill({
-        tools: readScreenTools,
+        ...readScreenTools,
         replace,
       });
       if (!replace && result.existingPaths.length > 0) {
@@ -564,7 +583,7 @@ export function SettingsDialog({
     setBusy(true);
     setMcpPanelMessage(null);
     try {
-      const result = await uninstallReadScreenSkill({ tools: readScreenTools });
+      const result = await uninstallReadScreenSkill({ ...readScreenTools });
       setReadScreenRemovedPaths(result.removedPaths);
       setReadScreenInstalledPaths((current) =>
         current?.filter((path) => !result.removedPaths.includes(path)) ?? null,
@@ -603,7 +622,7 @@ export function SettingsDialog({
     setMessage(null);
     try {
       const result = await uninstallJsonSkills({
-        tools: jsonSkillTools,
+        ...jsonSkillTools,
         scope: jsonSkillScope,
         projectFolder: jsonSkillProjectFolder,
       });
@@ -1043,37 +1062,34 @@ export function SettingsDialog({
                   <legend>置く先</legend>
                   <label className="settings-field-check">
                     <input
-                      type="radio"
-                      name="readScreenTools"
-                      checked={readScreenTools === "cursor"}
-                      onChange={() => chooseReadScreenTools("cursor")}
+                      type="checkbox"
+                      checked={readScreenTools.cursor}
+                      onChange={() => toggleReadScreenTool("cursor")}
                     />
                     <span>Cursor</span>
                   </label>
                   <label className="settings-field-check">
                     <input
-                      type="radio"
-                      name="readScreenTools"
-                      checked={readScreenTools === "claude"}
-                      onChange={() => chooseReadScreenTools("claude")}
+                      type="checkbox"
+                      checked={readScreenTools.claude}
+                      onChange={() => toggleReadScreenTool("claude")}
                     />
                     <span>Claude Code</span>
                   </label>
                   <label className="settings-field-check">
                     <input
-                      type="radio"
-                      name="readScreenTools"
-                      checked={readScreenTools === "both"}
-                      onChange={() => chooseReadScreenTools("both")}
+                      type="checkbox"
+                      checked={readScreenTools.copilot}
+                      onChange={() => toggleReadScreenTool("copilot")}
                     />
-                    <span>両方（同じ内容を置く）</span>
+                    <span>GitHub Copilot</span>
                   </label>
                 </fieldset>
                 <div className="settings-actions">
                   <button
                     type="button"
                     className="toolbar-btn"
-                    disabled={busy}
+                    disabled={busy || !readScreenToolsReady}
                     onClick={() => void runReadScreenInstall(false)}
                   >
                     置く
@@ -1081,7 +1097,7 @@ export function SettingsDialog({
                   <button
                     type="button"
                     className="toolbar-btn"
-                    disabled={busy}
+                    disabled={busy || !readScreenToolsReady}
                     onClick={() => requestReadScreenUninstall()}
                   >
                     外す
@@ -1236,30 +1252,27 @@ export function SettingsDialog({
                   <legend>置く先</legend>
                   <label className="settings-field-check">
                     <input
-                      type="radio"
-                      name="jsonSkillTools"
-                      checked={jsonSkillTools === "cursor"}
-                      onChange={() => chooseJsonSkillTools("cursor")}
+                      type="checkbox"
+                      checked={jsonSkillTools.cursor}
+                      onChange={() => toggleJsonSkillTool("cursor")}
                     />
                     <span>Cursor</span>
                   </label>
                   <label className="settings-field-check">
                     <input
-                      type="radio"
-                      name="jsonSkillTools"
-                      checked={jsonSkillTools === "claude"}
-                      onChange={() => chooseJsonSkillTools("claude")}
+                      type="checkbox"
+                      checked={jsonSkillTools.claude}
+                      onChange={() => toggleJsonSkillTool("claude")}
                     />
                     <span>Claude Code</span>
                   </label>
                   <label className="settings-field-check">
                     <input
-                      type="radio"
-                      name="jsonSkillTools"
-                      checked={jsonSkillTools === "both"}
-                      onChange={() => chooseJsonSkillTools("both")}
+                      type="checkbox"
+                      checked={jsonSkillTools.copilot}
+                      onChange={() => toggleJsonSkillTool("copilot")}
                     />
-                    <span>両方（同じ内容を置く）</span>
+                    <span>GitHub Copilot</span>
                   </label>
                 </fieldset>
                 <fieldset className="settings-field" disabled={busy || !settingsDesktopOnly()}>
@@ -1310,6 +1323,7 @@ export function SettingsDialog({
                     disabled={
                       busy ||
                       !settingsDesktopOnly() ||
+                      !jsonSkillToolsReady ||
                       confirmJsonSkillReplace ||
                       confirmJsonSkillUninstall
                     }
@@ -1323,6 +1337,7 @@ export function SettingsDialog({
                     disabled={
                       busy ||
                       !settingsDesktopOnly() ||
+                      !jsonSkillToolsReady ||
                       confirmJsonSkillReplace ||
                       confirmJsonSkillUninstall
                     }
