@@ -1244,6 +1244,53 @@ button:focus-visible,
   flex-shrink: 0;
 }
 
+.catalog-mismatch-banner {
+  font-size: calc(13px * var(--s));
+  color: var(--unknown-text);
+  font-weight: 600;
+  padding: 8px 12px 8px 9px;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid var(--unknown-text);
+  background: var(--unknown-bg);
+  flex-shrink: 0;
+}
+
+.sidebar-col.status {
+  width: calc(var(--status-chars, 3) * 1ch + 14px);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-col.status-col-unknown {
+  display: inline-flex;
+  justify-content: flex-end;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.sidebar-row .status-unknown-badge {
+  flex-shrink: 1;
+  min-width: 0;
+  color: var(--unknown-text);
+  background: var(--unknown-bg);
+  border-radius: var(--radius-md);
+  padding: 1px 7px;
+  font-weight: 700;
+  font-size: calc(10px * var(--s));
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-row.selected .status-unknown-badge,
+.sidebar-row.task.hovered .status-unknown-badge {
+  color: var(--unknown-text);
+  background: var(--unknown-bg);
+}
+
 .hint-error {
   color: var(--overdue);
   margin-top: 2px;
@@ -1579,6 +1626,7 @@ button:focus-visible,
 .sidebar-drag-ghost .sidebar-row .assignee.unassigned,
 .sidebar-drag-ghost .sidebar-row .assignee.unknown-member,
 .sidebar-drag-ghost .sidebar-row .assignee .assignee-badge,
+.sidebar-drag-ghost .sidebar-row .status-unknown-badge,
 .sidebar-drag-ghost .milestone-alert-icon {
   background: transparent;
   color: var(--text);

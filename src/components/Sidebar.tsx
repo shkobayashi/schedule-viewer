@@ -26,6 +26,11 @@ import {
   rowInReorderDragBlock,
 } from "../model/rows";
 import type { StatusItem } from "../model/statusCatalog";
+import {
+  resolveStatusSidebarDisplay,
+  statusColumnChars,
+  statusSidebarColumnLabel,
+} from "../model/statusDisplay";
 import { isOverdue } from "../model/timeline";
 import { TaskNoteButton } from "./TaskNoteButton";
 import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
@@ -201,6 +206,18 @@ export function Sidebar({
         }),
       ),
     [memberCatalog, rows],
+  );
+
+  const statusChars = useMemo(
+    () =>
+      statusColumnChars(
+        rows.flatMap((row) => {
+          if (row.type !== "task") return [];
+          const display = resolveStatusSidebarDisplay(statuses, row.task.status);
+          return [statusSidebarColumnLabel(display)];
+        }),
+      ),
+    [rows, statuses],
   );
 
   const contentHeight = useMemo(
@@ -599,6 +616,7 @@ export function Sidebar({
             height: contentHeight,
             transform: `translateY(${-scrollY}px)`,
             "--assignee-chars": String(assigneeChars),
+            "--status-chars": String(statusChars),
           } as CSSProperties}
         >
           {visibleRows.map((row) => {
@@ -749,6 +767,7 @@ export function Sidebar({
             rows={rows}
             rowHeight={rowHeight}
             assigneeChars={assigneeChars}
+            statusChars={statusChars}
             selectedTaskIds={selectedTaskIds}
             today={today}
             milestones={milestones}
@@ -1193,7 +1212,8 @@ function TaskSidebarRow({
         {sidebarColumns.start ||
         sidebarColumns.end ||
         sidebarColumns.duration ||
-        sidebarColumns.progress ? (
+        sidebarColumns.progress ||
+        sidebarColumns.status ? (
           <span className="sidebar-cols">
             {sidebarColumns.start ? (
               <span className="sidebar-col start" title="開始">
@@ -1214,6 +1234,9 @@ function TaskSidebarRow({
               <span className="sidebar-col progress" title="進捗">
                 {task.progress}%
               </span>
+            ) : null}
+            {sidebarColumns.status ? (
+              <StatusSidebarCell statuses={statuses} statusId={task.status} />
             ) : null}
           </span>
         ) : null}
@@ -1244,11 +1267,37 @@ function TaskSidebarRow({
   );
 }
 
+function StatusSidebarCell({
+  statuses,
+  statusId,
+}: {
+  statuses: readonly StatusItem[];
+  statusId: string;
+}) {
+  const display = resolveStatusSidebarDisplay(statuses, statusId);
+  if (display.kind === "known") {
+    return (
+      <span className="sidebar-col status" title={display.label}>
+        {display.label}
+      </span>
+    );
+  }
+  const label = `一覧に無いステータス、${display.id}`;
+  return (
+    <span className="sidebar-col status status-col-unknown" title={display.id}>
+      <span className="status-unknown-badge" aria-label={label}>
+        {display.id}
+      </span>
+    </span>
+  );
+}
+
 function SidebarDragGhost({
   ghost,
   rows,
   rowHeight,
   assigneeChars,
+  statusChars,
   selectedTaskIds,
   today,
   milestones,
@@ -1260,6 +1309,7 @@ function SidebarDragGhost({
   rows: VisibleRow[];
   rowHeight: number;
   assigneeChars: number;
+  statusChars: number;
   selectedTaskIds: ReadonlySet<ScheduleId>;
   today: string;
   milestones: Milestone[];
@@ -1283,6 +1333,7 @@ function SidebarDragGhost({
           top: ghost.top,
           height: block.length * rowHeight,
           "--assignee-chars": String(assigneeChars),
+          "--status-chars": String(statusChars),
         } as CSSProperties
       }
       aria-hidden="true"

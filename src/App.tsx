@@ -72,6 +72,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { exportWorkspaceBundleViaTauri } from "./model/workspaceExport";
 import { safeScheduleJsonFilename } from "./model/scheduleFile";
 import { memberMapFromList } from "./model/assigneeDisplay";
+import {
+  catalogMismatchBannerText,
+  catalogMismatchKind,
+  CATALOG_MISMATCH_CLEARED_ANNOUNCEMENT,
+  type CatalogMismatchKind,
+} from "./model/catalogMismatch";
 import { BUILTIN_STATUS_ITEMS } from "./model/statusCatalog";
 import {
   workspaceCalendarError,
@@ -663,6 +669,37 @@ function App() {
     showOnlyMilestoneGroup,
     visibleMilestoneGroupIds,
   } = schedule;
+
+  const catalogMismatch = useMemo(() => {
+    const tasks: import("./model/types").Task[] = [];
+    forEachTask(schedule.categories, (task) => {
+      tasks.push(task);
+    });
+    return catalogMismatchKind(tasks, displayStatuses, displayMemberMap);
+  }, [schedule.categories, displayStatuses, displayMemberMap]);
+
+  const catalogMismatchText = catalogMismatchBannerText(catalogMismatch);
+
+  const catalogMismatchPrevRef = useRef<CatalogMismatchKind | undefined>(undefined);
+  const [catalogMismatchAnnouncement, setCatalogMismatchAnnouncement] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    const prev = catalogMismatchPrevRef.current;
+    if (prev === catalogMismatch) return;
+    catalogMismatchPrevRef.current = catalogMismatch;
+    if (catalogMismatch != null) {
+      setCatalogMismatchAnnouncement(catalogMismatchBannerText(catalogMismatch));
+      return;
+    }
+    if (prev != null) {
+      setCatalogMismatchAnnouncement(CATALOG_MISMATCH_CLEARED_ANNOUNCEMENT);
+      return;
+    }
+    setCatalogMismatchAnnouncement(null);
+  }, [catalogMismatch]);
+
   const range = useMemo(
     () =>
       computeTimelineRange(
@@ -2876,6 +2913,18 @@ function App() {
           tabIndex={-1}
           aria-label="スケジュールチャート"
         >
+          <p
+            className="filter-panel-sr-only"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {catalogMismatchAnnouncement ?? ""}
+          </p>
+          {catalogMismatchText ? (
+            <div className="catalog-mismatch-banner">
+              <div>{catalogMismatchText}</div>
+            </div>
+          ) : null}
           {linkSourceId != null ? (
             <div className="link-banner" role="status">
               <div>次にクリックしたタスクを後続にします。Esc で中止</div>

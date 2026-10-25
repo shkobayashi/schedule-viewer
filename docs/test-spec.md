@@ -43,6 +43,18 @@
 
 | ファイル | ケース | 機能 ID |
 | --- | --- | --- |
+| `catalogMismatch.test.ts` | `reports status only when a task has an id missing from the catalog` | VIEW-13 |
+| 同上 | `reports assignee only when a task has an id missing from the member catalog` | VIEW-13 |
+| 同上 | `reports both when status and assignee are missing from their catalogs` | VIEW-13 |
+| 同上 | `does not treat unassigned assignee as a mismatch` | VIEW-13 |
+| 同上 | `treats any assignee id as unknown when no catalog is selected` | VIEW-13 |
+| 同上 | `returns null when every status and assignee resolves` | VIEW-13 |
+| 同上 | `scans the whole task list, not only tasks that would pass a filter` | VIEW-13 |
+| `statusDisplay.test.ts` | `uses at least three characters and caps at eight` | VIEW-13 |
+| 同上 | `shows the display name for a known id` | VIEW-13 |
+| 同上 | `shows the raw id for an unknown id` | VIEW-13 |
+| `viewPreferences.test.ts` | `treats a missing status key as off` | SET-01, VIEW-13 |
+| 同上 | `reads status when explicitly true` | SET-01, VIEW-13 |
 | `assigneeDisplay.test.ts` | `keeps null as unassigned` | VIEW-10 |
 | 同上 | `resolves a known id to the display name` | VIEW-10 |
 | 同上 | `marks an id missing from the catalog, including when none is selected` | VIEW-10 |
@@ -1058,7 +1070,8 @@
 | TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。グループ名と遅延のタスク名は、画面がダークでもライト配色の文字色で読める。カテゴリの塗りは左の列だけである。マイルストンは「◆ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
-| TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
+| TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、ステータス、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
+| TC-VIEW-13 | VIEW-13 | 一覧に無い `status` またはメンバーに無い `assigneeId` があるファイル。ステータス列はオフ | 帯の文を見る。絞り込みで該当行を隠しても帯が残ることを確かめる。右下の一時的な知らせを出しても帯が残ることを確かめる。設定でステータス列をオンにし、一覧に無い `id` の札と、メンバー不明の札を縦に見る。線を引くモード中は帯がその上にある。ライトとダークで、札の文字と帯の文字・左線のコントラストを見る | 帯は三つの文のいずれかだけ。`id` も件数も出ない。列は見えているタスク行だけ。未割当だけのときは帯は出ない。不一致が無くなると帯は消える。トーストが出ても帯は消えない。札の文字は 4.5:1 以上、帯の左線は 3:1 以上である |
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
