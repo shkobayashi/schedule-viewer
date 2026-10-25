@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type Ref } from "react";
 import type { StatusCatalogInfo } from "../model/statusCatalog";
 import type {
   DiscardPrompt,
@@ -42,6 +42,7 @@ export type StatusCatalogEditorOverlayProps = {
   onRequestCopyList: (contents: string) => void;
   onSaveApp: (catalogId: string, contents: string) => Promise<void>;
   onSaveWorkspace: (contents: string) => Promise<void>;
+  editorPanelRef?: Ref<StatusCatalogEditorPanelHandle>;
 };
 
 export function StatusCatalogEditorOverlay({
@@ -74,6 +75,7 @@ export function StatusCatalogEditorOverlay({
   onRequestCopyList,
   onSaveApp,
   onSaveWorkspace,
+  editorPanelRef,
 }: StatusCatalogEditorOverlayProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -169,6 +171,30 @@ export function StatusCatalogEditorOverlay({
           }
           return;
         }
+        const composing =
+          event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229;
+        if (!composing) {
+          const mod = event.metaKey || event.ctrlKey;
+          if (mod && event.key === "z" && !event.altKey) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.shiftKey) editorRef.current?.redo();
+            else editorRef.current?.undo();
+            return;
+          }
+          if (
+            event.key === "y" &&
+            event.ctrlKey &&
+            !event.metaKey &&
+            !event.shiftKey &&
+            !event.altKey
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            editorRef.current?.redo();
+            return;
+          }
+        }
         if (event.key === "Escape") {
           event.stopPropagation();
           onRequestClose();
@@ -259,7 +285,14 @@ export function StatusCatalogEditorOverlay({
         ) : null}
         <section className="status-catalog-editor-body" aria-label="項目の編集">
           <StatusCatalogEditorPanel
-            ref={editorRef}
+            ref={(handle) => {
+              editorRef.current = handle;
+              if (typeof editorPanelRef === "function") {
+                editorPanelRef(handle);
+              } else if (editorPanelRef) {
+                editorPanelRef.current = handle;
+              }
+            }}
             key={`${editingCatalogId ?? "none"}:${itemsRevision}`}
             mode={mode}
             editingCatalogId={editingCatalogId}

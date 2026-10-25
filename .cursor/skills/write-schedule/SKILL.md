@@ -29,8 +29,7 @@ description: >-
 
 - 各タスク: `name`, `start`, `end`, `assigneeId`（未割当は `null`）, `status`, `progress`, `confidence`（日付を合意したなら `committed`、まだなら `tentative`）, `predecessors`, `milestoneId`（なしは `null`）。任意で `tags`（説明用タグの配列。ユーザーから渡されたときだけ書く）, `note`（補足説明。ユーザーから渡されたときだけ書く）
 - タスクとマイルストンの `confidence` が入力から分からなければ、JSON を書かず不足として返す。未確定を既定にしない
-- `status` には、ユーザーから渡された **ステータス一覧** の `id` だけを使う。一覧は次の順で探す。(1) 設定ファイルに `statuses` のパスがあるときは、その JSON を読み、各項目の `id`、`name`、`role`、`description` を使う。`schemaVersion` が 1 のときは、アプリと同じ規則で `closed` を `role` に読み替える（`not-started`・`in-progress`・`done` の `id` は `closed` より先。それ以外は `closed` が true なら `done`、false なら `started`）。(2) 設定ファイルはあるが `statuses` が無いときは、組み込みの三件（`not-started` 未着手、`in-progress` 着手済み、`done` 完了）を使う。起動中でも MCP の一覧は使わない。(3) 設定ファイルが無いときは、起動中のデスクトップ版の MCP 読み取り（`selected_task`、`selected_tasks`、`filtered_tasks`）の応答の先頭にある `statuses`。(4) どちらも無いときだけ、同じ三件から選ぶ。`description` を読んで、タスクの状態に合う項目を選ぶ。`role` が `done` の項目は完了扱いである
-- 合う項目が一覧に無いときは、`id` を作らず、JSON を書かずに不足として返す。項目の追加は、ユーザーが頼んだときだけ提案する（設定の「ステータス」で足す）
+- `status` には、ユーザーから渡された **ステータス一覧** の `id` だけを使う。一覧は次の順で探す。(1) 設定ファイルに `statuses` のパスがあるときは、その JSON を読み、各項目の `id`、`name`、`role`、`description`、任意の `instruction` を使う。`schemaVersion` が 1 のときは、アプリと同じ規則で `closed` を `role` に読み替える（`not-started`・`in-progress`・`done` の `id` は `closed` より先。それ以外は `closed` が true なら `done`、false なら `started`）。(2) 設定ファイルはあるが `statuses` が無いときは、組み込みの三件（`not-started` 未着手、`in-progress` 着手済み、`done` 完了）を使う。起動中でも MCP の一覧は使わない。(3) 設定ファイルが無いときは、起動中のデスクトップ版の MCP 読み取り（`selected_task`、`selected_tasks`、`filtered_tasks`）の応答の先頭にある `statuses`。(4) どちらも無いときだけ、同じ三件から選ぶ。選ぶ材料は `description` である。`name` は画面の名前であり、選ぶ定義にはしない。`role` はアプリの描き方である。同じ `role` の項目は複数あってよい。`role` が `done` だから完了、とは選ばない。二つの `description` が同じ依頼に合うときは `id` を選ばず尋ねる。合う項目が一覧に無いときは、`id` を作らず、JSON を書かずに不足として返す。項目の追加は、ユーザーが頼んだときだけ提案する（設定の「ステータス」で足す）。`instruction` が無い項目のために進捗や確認を足さない。`instruction` があるときは、選んだあとにそこに書いてあることだけを守る。進捗の数値が書いてあればその値にし、移す前に確認すると書いてあれば、移る前の項目と移った先の項目のどちらに書いてあっても、スケジュールを書く前に利用者へ尋ね、答えがあるまで書かない。`description` と `instruction` はタスクへコピーしない。チームごとの文はステータス一覧の項目にあり、スキル本文には足さない
 - 担当を付けるタスクには、ユーザーから渡された **メンバー id 一覧** に含まれる id だけを使う。一覧に無い人がいる場合は JSON を書かず、不足として返す
 
 日付・担当・期間を推測で埋めない。メンバー JSON ファイル自体はこの Skill では生成しない（`write-members` で作り、アプリ側で取り込む）。
@@ -90,7 +89,7 @@ description: >-
 }
 ```
 
-設定ファイルのパスが渡されたときは、`schedule` の相対パスを**スケジュールの書き先**にする。`members` があるときは、そのファイルを読み、各 `id` を担当の一覧にする。`statuses` があるときは、そのファイルを読み、各項目の `id` だけをステータスに使う。意味は JSON の `description` にあり、スキル本文には足さない。`statuses` が無いときは組み込みの三件を使う。アプリの起動も、アプリへの取り込みも要らない。`members` が無い状態で担当を付ける依頼は、JSON を書かず不足として返す。`calendar` のパスはスケジュール JSON には使わない。日付の前後はアプリが計算するため、カレンダーを読んで日付を動かさない。
+設定ファイルのパスが渡されたときは、`schedule` の相対パスを**スケジュールの書き先**にする。`members` があるときは、そのファイルを読み、各 `id` を担当の一覧にする。`statuses` があるときは、そのファイルを読み、各項目の `id` だけをステータスに使う。選ぶ材料は JSON の `description` にあり、選んだあとの守り方は任意の `instruction` にあり、スキル本文には足さない。`statuses` が無いときは組み込みの三件を使う。アプリの起動も、アプリへの取り込みも要らない。`members` が無い状態で担当を付ける依頼は、JSON を書かず不足として返す。`calendar` のパスはスケジュール JSON には使わない。日付の前後はアプリが計算するため、カレンダーを読んで日付を動かさない。
 
 ## 手順
 

@@ -336,4 +336,31 @@ describe("validateStatuses", () => {
       validateStatuses({ schemaVersion: 2, statuses: [noDescription] }).ok,
     ).toBe(false);
   });
+
+  it("accepts instruction and drops a blank instruction on intake", () => {
+    const result = validateStatuses({
+      schemaVersion: 2,
+      statuses: [{ ...review, instruction: "進捗は 100 にする。" }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.document.statuses[0].instruction).toBe("進捗は 100 にする。");
+    }
+    const blank = validateStatuses({
+      schemaVersion: 2,
+      statuses: [{ ...review, instruction: "   " }],
+    });
+    expect(blank.ok).toBe(true);
+    if (blank.ok) {
+      expect(blank.document.statuses[0].instruction).toBeUndefined();
+    }
+    const empty = validateStatuses({
+      schemaVersion: 2,
+      statuses: [{ ...review, instruction: "" }],
+    });
+    expect(empty.ok).toBe(true);
+    if (empty.ok) {
+      expect(empty.document.statuses[0]).not.toHaveProperty("instruction");
+    }
+  });
 });

@@ -67,6 +67,7 @@ import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useStatusCatalog } from "./hooks/useStatusCatalog";
 import { useStatusCatalogEditorOverlay } from "./hooks/useStatusCatalogEditorOverlay";
 import { StatusCatalogEditorOverlay } from "./components/StatusCatalogEditorOverlay";
+import type { StatusCatalogEditorPanelHandle } from "./components/StatusCatalogEditorPanel";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useWorkspaceBinding } from "./hooks/useWorkspaceBinding";
 import { listen } from "@tauri-apps/api/event";
@@ -285,6 +286,9 @@ function App() {
   const statusEditorOverlayRef = useRef<
     ReturnType<typeof useStatusCatalogEditorOverlay> | null
   >(null);
+  const statusCatalogEditorPanelRef = useRef<StatusCatalogEditorPanelHandle | null>(
+    null,
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
     | "display"
@@ -2419,8 +2423,38 @@ function App() {
     onGoToday: scrollToToday,
     onSetTier: setTierZoom,
     onFit: fitToWidth,
-    onUndo: undo,
-    onRedo: redo,
+    statusCatalogEditorBlocksDocumentUndo: () =>
+      statusEditorOverlayRef.current?.open ?? false,
+    onUndo: () => {
+      const overlay = statusEditorOverlayRef.current;
+      if (overlay?.open) {
+        if (
+          overlay.discardPrompt ||
+          overlay.copyConfirmOpen ||
+          overlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        statusCatalogEditorPanelRef.current?.undo();
+        return;
+      }
+      undo();
+    },
+    onRedo: () => {
+      const overlay = statusEditorOverlayRef.current;
+      if (overlay?.open) {
+        if (
+          overlay.discardPrompt ||
+          overlay.copyConfirmOpen ||
+          overlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        statusCatalogEditorPanelRef.current?.redo();
+        return;
+      }
+      redo();
+    },
   },
     recentFilesStore,
   );
@@ -3178,6 +3212,7 @@ function App() {
             onRequestCopyList={statusEditorOverlay.requestCopyList}
             onSaveApp={statusEditorOverlay.save}
             onSaveWorkspace={statusEditorOverlay.saveWorkspace}
+            editorPanelRef={statusCatalogEditorPanelRef}
           />
         ) : null}
       </div>

@@ -1,8 +1,8 @@
 import {
   NEUTRAL_STATUS_COLOR,
   STATUSES_SCHEMA_VERSION,
+  normalizeStatusItem,
   type StatusItem,
-  type StatusesDocument,
 } from "./statusCatalog";
 import {
   formatStatusesValidationErrors,
@@ -22,8 +22,23 @@ export function newStatusItem(items: readonly StatusItem[]): StatusItem {
       dark: { ...NEUTRAL_STATUS_COLOR.dark },
     },
     role: "started",
-    description: "着手済みで、まだ終わっていない。",
+    description: "",
   };
+}
+
+function serializeStatusItem(item: StatusItem): Record<string, unknown> {
+  const normalized = normalizeStatusItem(item);
+  const payload: Record<string, unknown> = {
+    id: normalized.id,
+    name: normalized.name,
+    color: normalized.color,
+    role: normalized.role,
+    description: normalized.description,
+  };
+  if (normalized.instruction) {
+    payload.instruction = normalized.instruction;
+  }
+  return payload;
 }
 
 export function updateStatusItem(
@@ -86,9 +101,9 @@ export function nextStatusCatalogId(
 }
 
 export function statusesToJson(items: readonly StatusItem[]): string {
-  const doc: StatusesDocument = {
+  const doc = {
     schemaVersion: STATUSES_SCHEMA_VERSION,
-    statuses: [...items],
+    statuses: items.map((item) => serializeStatusItem(item)),
   };
   return `${JSON.stringify(doc, null, 2)}\n`;
 }
@@ -106,5 +121,15 @@ export function sameStatusItems(
   a: readonly StatusItem[],
   b: readonly StatusItem[],
 ): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return statusesToJson(a) === statusesToJson(b);
+}
+
+/** 説明が空白のとき、保存と書き出しを止める理由。 */
+export function statusDescriptionErrorAt(
+  items: readonly StatusItem[],
+  index: number,
+): string | null {
+  const item = items[index];
+  if (!item || item.description.trim().length > 0) return null;
+  return "説明は空白にできません";
 }

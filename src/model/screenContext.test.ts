@@ -12,6 +12,7 @@ import {
 } from "./screenContext";
 import { listTasksMatchingFilter } from "./rows";
 import { BUILTIN_STATUS_ITEMS, type StatusItem } from "./statusCatalog";
+import { updateStatusItem } from "./statusEdit";
 import {
   UNASSIGNED_FILTER,
   type Category,
@@ -507,6 +508,27 @@ describe("status catalog in MCP payloads", () => {
       value: "review",
       label: "確認待ち",
     });
+  });
+
+  it("includes instruction only when it is non-blank", () => {
+    const withInstruction: StatusItem[] = [
+      ...BUILTIN_STATUS_ITEMS,
+      {
+        id: "review",
+        name: "確認待ち",
+        color: BUILTIN_STATUS_ITEMS[0].color,
+        role: "started",
+        description: "作業は終わり、確認を待っている。",
+        instruction: "進捗は 100 にする。",
+      },
+    ];
+    const entries = statusEntriesForMcp(withInstruction);
+    expect(entries[3].instruction).toBe("進捗は 100 にする。");
+    expect(entries[0]).not.toHaveProperty("instruction");
+    const blankInstruction = statusEntriesForMcp(
+      updateStatusItem(withInstruction, 3, { instruction: "  " }),
+    );
+    expect(blankInstruction[3]).not.toHaveProperty("instruction");
   });
 
   it("starts the filtered tasks payload with the catalog", () => {

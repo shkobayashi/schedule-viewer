@@ -64,6 +64,24 @@ describe("statusEdit", () => {
     expect(validateStatuses(parsed).ok).toBe(true);
   });
 
+  it("omits a blank instruction and keeps a non-blank one", () => {
+    const withInstruction = updateStatusItem(BUILTIN_STATUS_ITEMS, 1, {
+      instruction: "進捗は 100 にする。",
+    });
+    const parsed = JSON.parse(statusesToJson(withInstruction));
+    expect(parsed.statuses[1].instruction).toBe("進捗は 100 にする。");
+    expect(parsed.statuses[0]).not.toHaveProperty("instruction");
+    const blank = updateStatusItem(withInstruction, 1, { instruction: "   " });
+    const parsedBlank = JSON.parse(statusesToJson(blank));
+    expect(parsedBlank.statuses[1]).not.toHaveProperty("instruction");
+  });
+
+  it("starts a new item with an empty description", () => {
+    const item = newStatusItem(BUILTIN_STATUS_ITEMS);
+    expect(item.description).toBe("");
+    expect(item.instruction).toBeUndefined();
+  });
+
   it("reports a blank name and a duplicate id", () => {
     expect(statusDraftError(updateStatusItem(BUILTIN_STATUS_ITEMS, 0, { name: " " }))).not.toBeNull();
     expect(statusDraftError(updateStatusItem(BUILTIN_STATUS_ITEMS, 0, { id: "done" }))).not.toBeNull();

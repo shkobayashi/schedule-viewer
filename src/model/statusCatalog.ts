@@ -13,8 +13,10 @@ export type StatusItem = {
   name: string;
   color: { light: StatusColor; dark: StatusColor };
   role: StatusRole;
-  /** 意味と、どの状態のタスクに付けるか。LLM が `id` を選ぶ手がかり。 */
+  /** その `id` を選ぶ状態だけ。LLM が `id` を選ぶ手がかり。 */
   description: string;
+  /** その `id` を選んだあとに LLM が守ること。空なら持たない。 */
+  instruction?: string;
 };
 
 export type StatusesDocument = {
@@ -51,7 +53,7 @@ export const BUILTIN_STATUS_ITEMS: readonly StatusItem[] = [
       dark: { bg: "#454b5c", border: "#8a94a6" },
     },
     role: "not-started",
-    description: "まだ着手していない。開始日が来ていても、手を付けていなければこれにする。",
+    description: "開始日が来ていても、手を付けていなければこれにする。",
   },
   {
     id: "in-progress",
@@ -61,7 +63,7 @@ export const BUILTIN_STATUS_ITEMS: readonly StatusItem[] = [
       dark: { bg: "#2e3344", border: "#7b8cff" },
     },
     role: "started",
-    description: "着手済みで、まだ終わっていない。",
+    description: "手を付けていて、作業が残っている。",
   },
   {
     id: "done",
@@ -71,9 +73,22 @@ export const BUILTIN_STATUS_ITEMS: readonly StatusItem[] = [
       dark: { bg: "#3d9a72", border: "#4cb088" },
     },
     role: "done",
-    description: "終わった。以後の作業は残っていない。",
+    description: "作業は終わり、再開も確認も残っていない。",
   },
 ];
+
+/** 空白だけの `instruction` を外す。 */
+export function normalizeStatusItem(item: StatusItem): StatusItem {
+  const instruction = item.instruction?.trim();
+  if (!instruction) {
+    if (item.instruction === undefined) return item;
+    const { instruction: _removed, ...rest } = item;
+    void _removed;
+    return rest;
+  }
+  if (item.instruction === instruction) return item;
+  return { ...item, instruction };
+}
 
 export const BUILTIN_STATUSES: StatusesDocument = {
   schemaVersion: STATUSES_SCHEMA_VERSION,

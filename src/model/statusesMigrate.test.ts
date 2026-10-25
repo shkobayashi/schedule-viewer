@@ -44,6 +44,7 @@ describe("migrateStatusesV1ToV2", () => {
       ["in-progress", "started"],
       ["done", "done"],
     ]);
+    expect(migrated?.statuses.every((s) => s.instruction === undefined)).toBe(true);
   });
 });
 

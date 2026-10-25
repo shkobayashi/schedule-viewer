@@ -195,6 +195,18 @@ body {
   font-size: calc(13px * var(--s));
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .status-catalog-editor-body {
   flex: 1;
   min-height: 0;
@@ -206,11 +218,130 @@ body {
   overflow: hidden;
 }
 
+.status-catalog-editor-workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: calc(10px * var(--s));
+  min-width: 0;
+}
+
+.status-catalog-editor-list-pane {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.status-catalog-editor-detail-slot {
+  flex: 0 0 calc(320px * var(--s));
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  padding-left: calc(10px * var(--s));
+}
+
+.status-catalog-editor-detail {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--s));
+  overflow: auto;
+  padding: calc(4px * var(--s)) 0;
+}
+
+.status-catalog-editor-detail-title {
+  margin: 0;
+  font-size: calc(14px * var(--s));
+  font-weight: 600;
+  color: var(--text);
+}
+
+.status-catalog-editor-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4px * var(--s));
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+  min-width: 0;
+}
+
+.status-catalog-editor-field-hint {
+  font-size: calc(11px * var(--s));
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.status-catalog-editor-field-error {
+  font-size: calc(12px * var(--s));
+  color: var(--danger);
+}
+
+.status-catalog-editor-textarea {
+  width: 100%;
+  min-width: 0;
+  resize: none;
+  font-size: calc(13px * var(--s));
+  color: var(--text);
+  line-height: 1.35;
+  padding: calc(6px * var(--s)) calc(8px * var(--s));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-sizing: border-box;
+}
+
+.status-catalog-editor-textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.status-catalog-editor-item-selected {
+  background: var(--selected-row);
+  box-shadow: inset calc(3px * var(--s)) 0 0 var(--accent);
+}
+
+.status-catalog-editor-item-description {
+  margin: calc(4px * var(--s)) 0 0;
+  font-size: calc(12px * var(--s));
+  line-height: 1.35;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .status-catalog-editor-scroll {
   flex: 1;
   min-height: 0;
   overflow: auto;
   padding: calc(12px * var(--s));
+}
+
+@media (max-width: 900px) {
+  .status-catalog-editor-workspace {
+    flex-direction: column;
+  }
+
+  .status-catalog-editor-detail-slot {
+    flex: 0 0 auto;
+    max-height: min(calc(240px * var(--s)), 38vh);
+    border-left: none;
+    border-bottom: 1px solid var(--border);
+    padding-left: 0;
+    padding-bottom: calc(8px * var(--s));
+  }
+
+  .status-catalog-editor-list-pane {
+    flex: 1 1 auto;
+    min-height: calc(120px * var(--s));
+  }
 }
 
 .status-catalog-editor-hint {
@@ -240,6 +371,9 @@ body {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: calc(8px * var(--s)) calc(12px * var(--s));
+  padding-bottom: calc(
+    4px * var(--s) + 2 * 1.35 * calc(11px * var(--s))
+  );
 }
 
 .status-catalog-editor-field {
@@ -272,8 +406,11 @@ body {
 }
 
 .status-catalog-editor-field-role {
+  position: relative;
   flex: 0 0 auto;
   flex-shrink: 0;
+  min-width: min(32em, 100%);
+  max-width: 100%;
 }
 
 .status-catalog-editor-field-label {
@@ -284,7 +421,7 @@ body {
 .status-catalog-editor-role-options {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: calc(6px * var(--s));
   align-items: center;
 }
@@ -320,10 +457,21 @@ body {
 }
 
 .status-catalog-editor-role-hint {
-  margin: calc(6px * var(--s)) 0 0;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px * var(--s));
+  width: 32em;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
   font-size: calc(11px * var(--s));
   color: var(--text-secondary);
   line-height: 1.35;
+  height: calc(2 * 1.35 * 1em);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .status-catalog-editor-colors {

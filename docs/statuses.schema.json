@@ -63,7 +63,12 @@
         "description": {
           "type": "string",
           "minLength": 1,
-          "description": "意味と、どの状態のタスクに付けるか。LLM が id を選ぶ手がかりにする。"
+          "description": "その id を選ぶ状態だけ。LLM が id を選ぶ手がかりにする。"
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1,
+          "description": "その id を選んだあとに LLM が守ること。空ならキーを書かない。"
         }
       }
     }

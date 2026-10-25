@@ -204,6 +204,13 @@
 | 同上 | `picks a free catalog id` | SET-08 |
 | 同上 | `writes JSON that validates` | SET-08 |
 | 同上 | `reports a blank name and a duplicate id` | SET-08 |
+| `statusCatalogEditHistory.test.ts` | `undoes one character at a time` | SET-08 |
+| 同上 | `coalesces identical snapshots` | SET-08 |
+| 同上 | `undoes a role change in one step` | SET-08 |
+| 同上 | `clears redo after a new edit` | SET-08 |
+| 同上 | `drops the oldest entry past the max` | SET-08 |
+| 同上 | `restores selection when undoing a delete` | SET-08 |
+| 同上 | `redoes after undo` | SET-08 |
 | `statusCatalogEditSession.test.ts` | `closes when the open catalog is removed` | SET-08 |
 | 同上 | `reloads when another window overwrites the open catalog` | SET-08 |
 | 同上 | `ignores self save reload` | SET-08 |
@@ -1091,7 +1098,8 @@
 | TC-SET-08 | SET-08, VIEW-02 | 初回起動のデスクトップ版またはブラウザ版 | 設定の「ステータス」を見る。`examples/playground.statuses.json` を取り込んで使用中にする | 「standard」が使用中で、三件の色は従来と同じである。取り込み後は、詳細パネルと絞り込みの選択肢が一覧の順に変わり、バーの色が項目の色になる |
 | TC-SET-08b | SET-08, VIEW-05 | 扱いが完了の項目が複数ある一覧を使用中にし、終了日が過去のタスクがその項目と他の項目にある | バーを見る。絞り込みで「完了以外」を選ぶ | 期限超過は未着手と着手済みだけで、バーは地の色のまま枠だけ赤い。「完了以外」は扱いが完了の項目をすべて外す。管理外は残る |
 | TC-SET-08c | SET-08 | 一覧に無い `status` の `id` を持つタスクがある | チャートと詳細パネルを見る | `id` のまま出て、バーは中立の灰である。終了が過去でも枠は赤くならない。イナズマ線は今日のまま。「完了以外」には残る |
-| TC-SET-08d | SET-08 | 一覧を使用中にしている | 設定の「項目を編集…」で覆いを開き、使用中の一覧を選んで「項目を足す」で足し、表示名と説明を書き、色を変えて「保存」する。詳細パネルの選択肢を見て、そのステータスをタスクに付ける | 選択肢の末尾に出て、バーがその色になる。再起動後も残る。保存した項目の `id` は編集できない |
+| TC-SET-08d | SET-08 | 一覧を使用中にしている | 設定の「項目を編集…」で覆いを開き、使用中の一覧を選んで「項目を足す」で足し、行を選んで右の説明と指示を書き、色を変えて「保存」する。詳細パネルの選択肢を見て、そのステータスをタスクに付ける | 選択肢の末尾に出て、バーがその色になる。再起動後も説明と指示が残る。保存した項目の `id` は編集できない |
+| TC-SET-08o | SET-08 | 覆いで一覧を編集している | 行を選び、右の説明を書き、指示を空にして保存する。扱いを押してもその行が選ばれること、行に説明が1行出ること、扱いの説明がチップの直下で2行であること、扱いを乗せ替えても色と操作の位置が動かないこと、右に上の項目と下の項目の説明が無いことを見る。説明欄に焦点がある ⌘/Ctrl+Z で説明と扱いが戻ること、色を変えて ⌘/Ctrl+Z で1段で戻ること、下書きを捨てる確認が出ているあいだは戻らないことを見る。macOS では編集メニューの取り消しも同じ履歴を使うこと。幅を極端に狭めても扱いの説明が3行にならず末尾が省略されることを見る。ライトとダークで、説明とヒントの文字が 4.5:1 以上、左の帯が 3:1 以上であることを見る。覆いを閉じて開き直す | 説明は残り、指示はキーが無い。選んでいる行は左の帯で分かる。狭い幅で覆いを開き、一覧が2行以上見え、足元の操作が残る |
 | TC-SET-08e | SET-08 | 同上 | 説明を空にする。`id` を既存と同じにする。項目が1件になるまで「削除」する | 保存と書き出しができず、理由が出る。最後の1件の「削除」は押せない。外した `id` を持つタスクは `id` のまま灰色で出る |
 | TC-SET-08f | SET-08 | 同上 | 「上へ」「下へ」で並びを変え、「JSON を書き出す」で保存し、`npm run check:statuses -- <ファイル>` を通す。「コピーして作る」で一覧を足す | 選択肢の順が変わる。書き出したファイルは検証を通る。使用中の一覧は変わらない |
 | TC-SET-08h | SET-08 | 覆いで一覧を編集している | 下書きがあるときに「閉じる」を押し、「やめる」を選ぶ。続けて「捨てる」を選ぶ。「新しい一覧」で一覧を足し、使用中が変わらないことを見る | やめるときは覆いが残る。捨てるときは閉じる。新しい一覧を作っても使用中は変わらない |
@@ -1146,7 +1154,7 @@
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
 | TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。画面の絞り込みは変わらない |
-| TC-MCP-01i | MCP-01, SET-08 | 項目を足した一覧を使用中にしている | `filtered_tasks` と `selected_tasks` を呼ぶ。足した項目のステータスを付けたタスクを `replace_schedule` で足すよう LLM に頼む | どちらの応答も先頭に `statuses` があり、足した項目の `id`、`name`、`role`、`description` が入る。LLM はその `id` を使い、合う項目が無ければ尋ねる |
+| TC-MCP-01i | MCP-01, SET-08 | 項目を足した一覧を使用中にしている。任意の項目に指示を書いて保存している | `filtered_tasks` と `selected_tasks` を呼ぶ。足した項目のステータスを付けたタスクを `replace_schedule` で足すよう LLM に頼む | どちらの応答も先頭に `statuses` があり、足した項目の `id`、`name`、`role`、`description` が入る。指示を書いた項目だけ `instruction` が入り、空の項目には無い。LLM は `description` でその `id` を選び、合う項目が無ければ尋ねる |
 | TC-MCP-01e | MCP-01 | デスクトップ版、画面の未保存とファイルの外部更新が同時にある | `baseline_diffs` を1回呼ぶ | `画面:` に起点から画面への差分、`ファイル:` に起点からファイルへの差分、`分類:` に画面のみ・ファイルのみ・異なるなどが id ごとに出る。`schedule_diff` の混ざった差分だけでは分類しない |
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
 | TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |

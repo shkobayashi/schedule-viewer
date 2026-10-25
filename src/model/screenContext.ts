@@ -2,6 +2,7 @@ import type { SearchField } from "./scheduleFilterPersistence";
 import { resolveAssigneeDisplay } from "./assigneeDisplay";
 import {
   BUILTIN_STATUS_ITEMS,
+  normalizeStatusItem,
   statusLabel,
   type StatusItem,
 } from "./statusCatalog";
@@ -72,17 +73,18 @@ export type McpStatusEntry = {
   name: string;
   role: StatusItem["role"];
   description: string;
+  instruction?: string;
 };
 
 export function statusEntriesForMcp(
   statuses: readonly StatusItem[],
 ): McpStatusEntry[] {
-  return statuses.map(({ id, name, role, description }) => ({
-    id,
-    name,
-    role,
-    description,
-  }));
+  return statuses.map((item) => {
+    const { id, name, role, description, instruction } = normalizeStatusItem(item);
+    const entry: McpStatusEntry = { id, name, role, description };
+    if (instruction) entry.instruction = instruction;
+    return entry;
+  });
 }
 
 export type FilteredTasksMcpPayload = {

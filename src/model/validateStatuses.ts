@@ -1,6 +1,7 @@
 import validateSchema from "./generated/statusesValidator.js";
 import {
   STATUSES_SCHEMA_VERSION,
+  normalizeStatusItem,
   type StatusesDocument,
 } from "./statusCatalog";
 import { migrateStatusesV1ToV2 } from "./statusesMigrate";
@@ -61,10 +62,34 @@ export function validateStatusesSemantics(doc: StatusesDocument): StatusesIssue[
   return issues;
 }
 
+function normalizeStatusesDocument(document: StatusesDocument): StatusesDocument {
+  return {
+    schemaVersion: document.schemaVersion,
+    statuses: document.statuses.map((item) => normalizeStatusItem(item)),
+  };
+}
+
+/** 空や空白だけの `instruction` を外してからスキーマ検証する。 */
+function normalizeStatusesInputForSchema(data: unknown): unknown {
+  if (!isRecord(data) || !Array.isArray(data.statuses)) return data;
+  const statuses = data.statuses.map((entry) => {
+    if (!isRecord(entry) || !("instruction" in entry)) return entry;
+    const instruction = entry.instruction;
+    if (typeof instruction !== "string" || instruction.trim().length > 0) {
+      return entry;
+    }
+    const { instruction: _removed, ...rest } = entry;
+    void _removed;
+    return rest;
+  });
+  return { ...data, statuses };
+}
+
 function validateV2Document(document: StatusesDocument): ValidateStatusesResult {
-  const errors = validateStatusesSemantics(document);
+  const normalized = normalizeStatusesDocument(document);
+  const errors = validateStatusesSemantics(normalized);
   if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, document };
+  return { ok: true, document: normalized };
 }
 
 export function validateStatuses(data: unknown): ValidateStatusesResult {
@@ -81,8 +106,12 @@ export function validateStatuses(data: unknown): ValidateStatusesResult {
         ],
       };
     }
-    if (!validateSchema(migrated)) {
-      return { ok: false, errors: formatAjvErrors(migrated, validateSchema.errors) };
+    const migratedForSchema = normalizeStatusesInputForSchema(migrated);
+    if (!validateSchema(migratedForSchema)) {
+      return {
+        ok: false,
+        errors: formatAjvErrors(migratedForSchema, validateSchema.errors),
+      };
     }
     return validateV2Document(migrated as StatusesDocument);
   }
@@ -92,8 +121,9 @@ export function validateStatuses(data: unknown): ValidateStatusesResult {
     return { ok: false, errors: closedIssue };
   }
 
-  if (!validateSchema(data)) {
-    return { ok: false, errors: formatAjvErrors(data, validateSchema.errors) };
+  const dataForSchema = normalizeStatusesInputForSchema(data);
+  if (!validateSchema(dataForSchema)) {
+    return { ok: false, errors: formatAjvErrors(dataForSchema, validateSchema.errors) };
   }
   const document = data as StatusesDocument;
   if (document.schemaVersion !== STATUSES_SCHEMA_VERSION) {

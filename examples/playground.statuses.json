@@ -9,7 +9,7 @@
         "dark": { "bg": "#454b5c", "border": "#8a94a6" }
       },
       "role": "not-started",
-      "description": "まだ着手していない。開始日が来ていても、手を付けていなければこれにする。"
+      "description": "開始日が来ていても、手を付けていなければこれにする。"
     },
     {
       "id": "in-progress",
@@ -19,7 +19,7 @@
         "dark": { "bg": "#2e3344", "border": "#7b8cff" }
       },
       "role": "started",
-      "description": "着手済みで、まだ終わっていない。"
+      "description": "手を付けていて、作業が残っている。"
     },
     {
       "id": "done",
@@ -29,7 +29,7 @@
         "dark": { "bg": "#3d9a72", "border": "#4cb088" }
       },
       "role": "done",
-      "description": "終わった。以後の作業は残っていない。"
+      "description": "作業は終わり、再開も確認も残っていない。"
     }
   ]
 }
