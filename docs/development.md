@@ -720,7 +720,7 @@ Microsoft Store Developer CLI は、Partner Center で一度掲載したアプ�
 | 変えたもの | 直す文書 |
 | --- | --- |
 | 画面の操作や見た目 | [外部仕様](external-spec.md) と [操作マニュアル](user-manual.md) |
-| スケジュール、メンバー、カレンダーの JSON | [データ仕様](data-format.md) と、対応するスキル（`write-schedule`、`write-members`、`write-calendar`） |
+| スケジュール、メンバー、ステータス一覧、カレンダー、設定ファイルの JSON | [データ仕様](data-format.md) と、対応するスキル（`write-schedule`、`write-members`、`write-calendar`、`write-workspace`） |
 | Tauri コマンド、状態の持ち方、ディレクトリ構成 | [内部仕様](internal-spec.md) |
 | 自動テストや手動で確かめる手順 | [テスト仕様](test-spec.md) |
 | 開発環境、起動、CI、リリース | この文書 |
