@@ -13,6 +13,7 @@ mod store_distribution;
 mod recent_files;
 mod workspace;
 mod schedule_drop;
+mod status_catalog_edit;
 mod window_session;
 
 use json_skills::{
@@ -33,6 +34,10 @@ use mcp_bridge::{
     cleanup_mcp_socket, mcp_reply, start_mcp_bridge_server, McpBridgeState,
 };
 use std::sync::Arc;
+use status_catalog_edit::{
+    claim_status_catalog_edit, release_all_status_catalog_edits_for_label,
+    release_status_catalog_edit, StatusCatalogEditState,
+};
 use window_session::{
     all_windows_external_drop_ready, all_windows_startup_settled,
     any_startup_auto_update_enabled,
@@ -662,6 +667,68 @@ async fn save_statuses_json(
     };
     write_utf8_atomic(&target, &contents)?;
     Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+fn broadcast_workspace_reload(app: &tauri::AppHandle, workspace_path: &str) -> Result<(), String> {
+    let app_data = app_data_dir(app)?;
+    let file = read_open_windows(&app_data)?;
+    for entry in &file.windows {
+        if entry.workspace_path.as_deref() == Some(workspace_path) {
+            if let Some(window) = app.get_webview_window(&entry.label) {
+                let _ = window.emit("workspace-reload", workspace_path);
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn write_statuses_at_path(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    path: String,
+    contents: String,
+    workspace_path: Option<String>,
+) -> Result<(), String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let workspace_path = workspace_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    let app_data = app_data_dir(&app)?;
+    let file = read_open_windows(&app_data)?;
+    let label = window_label(&window);
+    let entry = file
+        .windows
+        .iter()
+        .find(|item| item.label == label)
+        .ok_or_else(|| "ウィンドウの記録が見つかりません。".to_string())?;
+    let bound_workspace = entry
+        .workspace_path
+        .as_deref()
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    if bound_workspace.trim() != workspace_path {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    let workspace_file = PathBuf::from(workspace_path);
+    let expected = workspace::read_workspace_statuses_path(&workspace_file)?
+        .ok_or_else(|| "設定ファイルに statuses がありません。".to_string())?;
+    let target = PathBuf::from(path.trim());
+    if !target.is_absolute() {
+        return Err("保存先のパスが不正です。".to_string());
+    }
+    if !is_json_path(&target) {
+        return Err("JSON ファイル以外には保存できません".to_string());
+    }
+    if !workspace::paths_denote_same_file(&target, &expected) {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    write_utf8_atomic(&target, &contents)?;
+    broadcast_workspace_reload(&app, workspace_path)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -2221,6 +2288,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Mutex::new(ScheduleFileStates::default()))
         .manage(Mutex::new(WindowSessionState::default()))
+        .manage(Mutex::new(StatusCatalogEditState::default()))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -2307,6 +2375,10 @@ pub fn run() {
                             .by_label
                             .remove(&label);
                     }
+                    if let Some(edit_state) = app.try_state::<Mutex<StatusCatalogEditState>>() {
+                        let mut guard = edit_state.lock().expect("status catalog edit");
+                        release_all_status_catalog_edits_for_label(&mut guard, &label);
+                    }
                 }
                 tauri::WindowEvent::Focused(focused) => {
                     let app = window.app_handle();
@@ -2337,6 +2409,7 @@ pub fn run() {
             save_schedule_file,
             save_html_file,
             save_statuses_json,
+            write_statuses_at_path,
             save_excel_export,
             get_members_settings,
             read_member_catalog,
@@ -2348,6 +2421,8 @@ pub fn run() {
             import_status_catalog,
             delete_status_catalog,
             set_selected_status_catalog,
+            claim_status_catalog_edit,
+            release_status_catalog_edit,
             get_calendar_state,
             read_app_calendar,
             import_app_calendar,

@@ -151,6 +151,7 @@ type SettingsDialogProps = {
   betaInstallerStatusLine?: string | null;
   storeDistribution?: boolean;
   workspaceBinding?: WorkspaceWindowBinding | null;
+  workspaceStatusEditor?: { onOpenEditor: () => void };
 };
 
 function betaInstallerPlatform(): "windows" | "linux" | null {
@@ -209,6 +210,7 @@ export function SettingsDialog({
   onSaveBetaInstaller,
   betaInstallerStatusLine = null,
   workspaceBinding = null,
+  workspaceStatusEditor,
 }: SettingsDialogProps) {
   const displayScaleShortcut = usesCommandKey(
     navigator.platform || navigator.userAgent,
@@ -971,7 +973,9 @@ export function SettingsDialog({
                   >
                     {workspaceStatusesError(workspaceBinding.statuses)
                       ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスはここでは変更できません。`
-                      : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスは設定ファイルの指定どおり表示します。ここでは変更できません。`}
+                      : workspaceStatusEditor
+                        ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスは設定ファイルの指定どおり表示します。「項目を編集…」で、このファイルの項目だけを直せます。`
+                        : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスは設定ファイルの指定どおり表示します。ここでは変更できません。`}
                   </p>
                   <p
                     className="settings-current"
@@ -982,6 +986,17 @@ export function SettingsDialog({
                   >
                     使用中: {workspaceBindingSummary(workspaceBinding).statusesLabel}
                   </p>
+                  {workspaceStatusEditor ? (
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={workspaceStatusEditor.onOpenEditor}
+                      >
+                        項目を編集…
+                      </button>
+                    </div>
+                  ) : null}
                   {workspaceStatusesError(workspaceBinding.statuses) ? (
                     <p className="settings-error" role="alert">
                       {workspaceStatusesError(workspaceBinding.statuses)}{" "}

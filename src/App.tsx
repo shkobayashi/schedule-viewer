@@ -65,6 +65,8 @@ import { useRecentFiles } from "./hooks/useRecentFiles";
 import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useStatusCatalog } from "./hooks/useStatusCatalog";
+import { useStatusCatalogEditorOverlay } from "./hooks/useStatusCatalogEditorOverlay";
+import { StatusCatalogEditorOverlay } from "./components/StatusCatalogEditorOverlay";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useWorkspaceBinding } from "./hooks/useWorkspaceBinding";
 import { listen } from "@tauri-apps/api/event";
@@ -280,6 +282,9 @@ function App() {
   const [uiScale, setUiScale] = useState(readUiScale);
   const uiScaleRef = useRef(uiScale);
   uiScaleRef.current = uiScale;
+  const statusEditorOverlayRef = useRef<
+    ReturnType<typeof useStatusCatalogEditorOverlay> | null
+  >(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
     | "display"
@@ -527,6 +532,7 @@ function App() {
     workspaceBinding,
     setWorkspaceBinding,
     clearWorkspaceBinding,
+    reloadWorkspaceBinding,
   } = useWorkspaceBinding();
   const workspaceBindingRef = useRef(workspaceBinding);
   workspaceBindingRef.current = workspaceBinding;
@@ -571,6 +577,18 @@ function App() {
 
   const statusesReady = workspaceBinding ? true : !statusCatalogState.loading;
 
+  const workspaceStatusEditTarget = useMemo(() => {
+    if (!workspaceBinding) return null;
+    if (workspaceBinding.statuses.kind !== "loaded") return null;
+    if (!workspaceBinding.resolved.statusesPath) return null;
+    return {
+      statusesPath: workspaceBinding.resolved.statusesPath,
+      workspacePath: workspaceBinding.workspacePath,
+      items: workspaceBinding.statuses.items,
+      fileLabel: workspaceBinding.statuses.label,
+    };
+  }, [workspaceBinding]);
+
   const refreshMemberCatalog = memberCatalogState.refresh;
   const refreshStatusCatalog = statusCatalogState.refresh;
   const refreshAppCalendar = appCalendarState.refresh;
@@ -578,7 +596,12 @@ function App() {
     const all = key == null;
     if (all || key === SETTINGS_REVISION_KEY) {
       void refreshMemberCatalog();
-      void refreshStatusCatalog();
+      void refreshStatusCatalog().then(() => {
+        const overlay = statusEditorOverlayRef.current;
+        if (overlay?.open && overlay.editingCatalogId) {
+          overlay.notifyExternalCatalogImport(overlay.editingCatalogId);
+        }
+      });
       void refreshAppCalendar();
     }
     if (all || key === DISPLAY_SCALE_LS_KEY || key === SETTINGS_REVISION_KEY) {
@@ -920,6 +943,41 @@ function App() {
     setToastMessage(message);
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
+
+  const statusEditorOverlay = useStatusCatalogEditorOverlay({
+    settings: statusCatalogState.settings,
+    appliedCatalogId: workspaceBinding
+      ? null
+      : statusCatalogState.settings.selectedCatalogId,
+    saveCatalog: statusCatalogState.saveCatalog,
+    removeCatalog: statusCatalogState.removeCatalog,
+    workspaceTarget: workspaceStatusEditTarget,
+    onWorkspaceStatusesWritten: async () => {
+      await reloadWorkspaceBinding();
+    },
+    onRemovedWhileEditing: () => {
+      showUpdateToast(
+        "編集していた一覧が設定で外されたため、編集を閉じました。",
+      );
+    },
+  });
+  statusEditorOverlayRef.current = statusEditorOverlay;
+
+  const handleStatusCatalogImport = useCallback(
+    async (catalogId: string, contents: string, overwrite: boolean) => {
+      await statusCatalogState.importCatalog(catalogId, contents, overwrite);
+      statusEditorOverlayRef.current?.notifyExternalCatalogImport(catalogId);
+    },
+    [statusCatalogState.importCatalog],
+  );
+
+  const handleStatusCatalogDelete = useCallback(
+    async (catalogId: string) => {
+      await statusCatalogState.removeCatalog(catalogId);
+      statusEditorOverlayRef.current?.notifyExternalCatalogRemoved(catalogId);
+    },
+    [statusCatalogState.removeCatalog],
+  );
 
   const handleExportWorkspace = useCallback(async () => {
     if (!isTauri() || workspaceBinding) return;
@@ -2731,6 +2789,11 @@ function App() {
       <p className="filter-panel-sr-only" role="status" aria-live="polite">
         {titleBlankNotice}
       </p>
+      <div className="app-workspace">
+        <div
+          className="app-workspace-content"
+          inert={statusEditorOverlay.open ? true : undefined}
+        >
       <Toolbar
         title={schedule.title}
         titleDiffMarked={diffNavigationMark.title}
@@ -3048,6 +3111,43 @@ function App() {
         ) : null}
         </div>
       </div>
+        </div>
+        {statusEditorOverlay.open ? (
+          <StatusCatalogEditorOverlay
+            mode={statusEditorOverlay.mode}
+            catalogs={statusEditorOverlay.catalogs}
+            editingCatalogId={statusEditorOverlay.editingCatalogId}
+            editingItems={statusEditorOverlay.editingItems}
+            itemsRevision={statusEditorOverlay.itemsRevision}
+            appliedCatalogId={statusEditorOverlay.appliedCatalogId}
+            workspaceFileLabel={statusEditorOverlay.workspaceFileLabel}
+            workspaceAppliedNote={statusEditorOverlay.workspaceAppliedNote}
+            busy={statusEditorOverlay.busy}
+            message={statusEditorOverlay.message}
+            setMessage={statusEditorOverlay.setMessage}
+            onDirtyChange={statusEditorOverlay.setDirty}
+            discardPrompt={statusEditorOverlay.discardPrompt}
+            copyConfirmOpen={statusEditorOverlay.copyConfirmOpen}
+            removeConfirmOpen={statusEditorOverlay.removeConfirmOpen}
+            dirty={statusEditorOverlay.dirty}
+            onConfirmDiscard={() => void statusEditorOverlay.confirmDiscard()}
+            onCancelDiscard={statusEditorOverlay.cancelDiscard}
+            onConfirmCopy={statusEditorOverlay.confirmCopy}
+            onCancelCopy={statusEditorOverlay.cancelCopy}
+            onRequestRemoveCatalog={statusEditorOverlay.requestRemoveCatalog}
+            onConfirmRemoveCatalog={() =>
+              void statusEditorOverlay.confirmRemoveCatalog()
+            }
+            onCancelRemoveCatalog={statusEditorOverlay.cancelRemoveCatalog}
+            onSelectCatalog={statusEditorOverlay.selectCatalog}
+            onRequestClose={statusEditorOverlay.requestClose}
+            onRequestNewList={statusEditorOverlay.requestNewList}
+            onRequestCopyList={statusEditorOverlay.requestCopyList}
+            onSaveApp={statusEditorOverlay.save}
+            onSaveWorkspace={statusEditorOverlay.saveWorkspace}
+          />
+        ) : null}
+      </div>
       <p className="filter-panel-sr-only" role="status" aria-live="polite">
         {diffLiveStatus ?? ""}
       </p>
@@ -3291,10 +3391,13 @@ function App() {
           statusCatalog={{
             settings: statusCatalogState.settings,
             selectedCatalogLabel: statusCatalogState.selectedCatalogLabel,
-            statuses: displayStatuses,
-            onImport: statusCatalogState.importCatalog,
+            onImport: handleStatusCatalogImport,
             onSelectCatalog: statusCatalogState.selectCatalog,
-            onDeleteCatalog: statusCatalogState.removeCatalog,
+            onDeleteCatalog: handleStatusCatalogDelete,
+            onOpenEditor: () => {
+              setSettingsOpen(false);
+              statusEditorOverlay.openEditor();
+            },
           }}
           settings={memberCatalogState.settings}
           selectedCatalogLabel={memberCatalogState.selectedCatalogLabel}
@@ -3318,6 +3421,16 @@ function App() {
           onImportCalendar={appCalendarState.importCalendar}
           onDeleteCalendar={appCalendarState.removeCalendar}
           workspaceBinding={workspaceBinding}
+          workspaceStatusEditor={
+            workspaceStatusEditTarget
+              ? {
+                  onOpenEditor: () => {
+                    setSettingsOpen(false);
+                    statusEditorOverlay.openEditor();
+                  },
+                }
+              : undefined
+          }
           autoUpdateEnabled={autoUpdateEnabled}
           onAutoUpdateChange={(enabled) => {
             writeAutoUpdateEnabled(enabled);

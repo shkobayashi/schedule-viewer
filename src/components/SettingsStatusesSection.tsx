@@ -1,7 +1,5 @@
 import { useState } from "react";
 import type { AppStatusesSettings } from "../model/statusAppData";
-import type { StatusItem } from "../model/statusCatalog";
-import { SettingsStatusesEditor } from "./SettingsStatusesEditor";
 import {
   pickStatusesJsonFile,
   statusCatalogIdFromFilename,
@@ -14,21 +12,20 @@ import {
 export type SettingsStatusesSectionProps = {
   settings: AppStatusesSettings;
   selectedCatalogLabel: string | null;
-  /** 使用中の一覧の項目。 */
-  statuses: readonly StatusItem[];
   onImport: (catalogId: string, contents: string, overwrite: boolean) => Promise<void>;
   onSelectCatalog: (catalogId: string | null) => Promise<void>;
   onDeleteCatalog: (catalogId: string) => Promise<void>;
+  onOpenEditor: () => void;
 };
 
 /** 設定の「ステータス」欄。一覧 JSON の取り込み、選択、外すを行う。 */
 export function SettingsStatusesSection({
   settings,
   selectedCatalogLabel,
-  statuses,
   onImport,
   onSelectCatalog,
   onDeleteCatalog,
+  onOpenEditor,
 }: SettingsStatusesSectionProps) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -114,6 +111,14 @@ export function SettingsStatusesSection({
         >
           取り込み…
         </button>
+        <button
+          type="button"
+          className="toolbar-btn"
+          disabled={busy}
+          onClick={onOpenEditor}
+        >
+          項目を編集…
+        </button>
       </div>
       {pending ? (
         <div className="settings-confirm" role="alertdialog" aria-label="上書きの確認">
@@ -188,15 +193,6 @@ export function SettingsStatusesSection({
           選択を解除
         </button>
       ) : null}
-      <SettingsStatusesEditor
-        key={`${settings.selectedCatalogId ?? ""}:${JSON.stringify(statuses)}`}
-        items={statuses}
-        selectedCatalogId={settings.selectedCatalogId}
-        catalogIds={settings.catalogs.map((c) => c.id)}
-        busy={busy}
-        onSave={onImport}
-        onMessage={setMessage}
-      />
       {message ? (
         <p className="settings-message" role="status">
           {message}

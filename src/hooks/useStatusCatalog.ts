@@ -86,6 +86,15 @@ export function useStatusCatalog() {
     [refresh],
   );
 
+  const saveCatalog = useCallback(
+    async (catalogId: string, contents: string, overwrite: boolean) => {
+      await importStatusCatalog(catalogId, contents, overwrite);
+      await refresh();
+      bumpSharedSettingsRevision();
+    },
+    [refresh],
+  );
+
   const removeCatalog = useCallback(
     async (catalogId: string) => {
       await deleteStatusCatalog(catalogId);
@@ -117,6 +126,7 @@ export function useStatusCatalog() {
     refresh,
     selectCatalog,
     importCatalog,
+    saveCatalog,
     removeCatalog,
   };
 }

@@ -251,7 +251,10 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `import_status_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
 | `delete_status_catalog` | ID | — | 同上 | 同上 |
 | `set_selected_status_catalog` | ID または無し | — | 同上 | 同上 |
+| `claim_status_catalog_edit` | 一覧 ID または設定ファイルの `statuses` の絶対パス。取得できたか、他ウィンドウのラベル | — | `status-catalog-edit.toml` | `statusAppData.ts` |
+| `release_status_catalog_edit` | 一覧 ID または無し（無しはこのウィンドウのすべて） | — | 同上 | 同上 |
 | `save_statuses_json` | 本文、提案名。保存したパス | 2MB | 同上 | `statusAppData.ts` の `exportStatusesJson` |
+| `write_statuses_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `statuses` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致 | `write-statuses-at-path.toml` | `statusAppData.ts` の `writeStatusesAtPath` |
 | `get_calendar_state` | 表示名 | — | `calendar-app-data.toml` | `calendarAppData.ts` |
 | `read_app_calendar` | 本文 | 2MB | 同上 | 同上 |
 | `import_app_calendar` | 表示名と本文 | 2MB | 同上 | 同上 |
@@ -384,7 +387,7 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 | 左の行の進捗 | `progressRollup.ts` の `categoryRollupPercent` と `groupRollupPercent` | 配下タスクを同じ重さで平均し四捨五入。完了は 100。絞り込み・折りたたみ・系統で隠れたタスクも含む。親バーとは別 |
 | イナズマ線 | `timeline.ts` の `lightningDate` | 期限超過なら終了日。それ以外は今日 |
 | 期限超過 | `timeline.ts` の `isOverdue` | 一覧で `closed` でない項目で、終了日が今日より前。一覧に無い `id` は `closed` でない |
-| ステータスの編集 | `statusEdit.ts` | 項目の追加、更新、並べ替え、削除（最後の1件は外さない）、一覧 ID の採番、保存前の検証。画面は `SettingsStatusesEditor.tsx` が下書きを持ち、保存は取り込みと同じ経路で上書きする |
+| ステータスの編集 | `statusEdit.ts` と `useStatusCatalogEditorOverlay` | 項目の追加、更新、並べ替え、削除（最後の1件は外さない）、一覧 ID の採番、保存前の検証。覆いの `StatusCatalogEditorPanel` が下書きを持つ。保存と「新しい一覧」「コピーして作る」は `saveCatalog` でアプリデータへ書く。「外す」は `removeCatalog` でアプリデータから消す。覆いからの外しでは覆いを閉じず、残った一覧の先頭を開く。設定の外しと他ウィンドウの外しでは、編集中の一覧が消えたときに覆いを閉じる。使用中の切り替えは変えない。設定ファイルモードは `writeStatusesAtPath` |
 | ステータスの色 | `statusCatalog.ts` の `statusColorFor` と `timeline.ts` の `barColors` | 一覧の項目の色。無い `id` は中立色。期限超過は枠だけ赤。文字色は `labelColorOn` が地の明るさで決める |
 | マイルストン超過 | `milestones.ts` の `milestonesExceededBy` | 終了日が対応マイルストンの日付より後 |
 | マイルストンの編集 | `milestones.ts` の `applyMilestoneEdit` | 名前、日付、確度、`groupId` を1件だけ書く。配列の位置と `id` は残す。未知の `groupId` は元のまま |

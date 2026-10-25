@@ -154,6 +154,31 @@ export async function deleteStatusCatalog(catalogId: string): Promise<void> {
   }
 }
 
+export type ClaimStatusCatalogEditResult = {
+  claimed: boolean;
+  holderLabel?: string;
+};
+
+export async function claimStatusCatalogEdit(
+  catalogId: string,
+): Promise<ClaimStatusCatalogEditResult> {
+  if (!isTauri()) {
+    return { claimed: true };
+  }
+  return invoke<ClaimStatusCatalogEditResult>("claim_status_catalog_edit", {
+    catalogId,
+  });
+}
+
+export async function releaseStatusCatalogEdit(
+  catalogId?: string | null,
+): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("release_status_catalog_edit", {
+    catalogId: catalogId ?? null,
+  });
+}
+
 export async function setSelectedStatusCatalog(
   catalogId: string | null,
 ): Promise<void> {
@@ -241,6 +266,22 @@ export async function seedBuiltinStatusCatalogOnce(
 }
 
 /** 一覧を JSON として書き出す。デスクトップ版は保存ダイアログ、ブラウザ版はダウンロード。キャンセルは null。 */
+export async function writeStatusesAtPath(
+  path: string,
+  contents: string,
+  workspacePath: string | null,
+): Promise<void> {
+  if (!isTauri()) {
+    throw new Error("この操作はデスクトップ版だけ使えます。");
+  }
+  const body = stripUtf8Bom(contents);
+  await invoke("write_statuses_at_path", {
+    path,
+    contents: body,
+    workspacePath,
+  });
+}
+
 export async function exportStatusesJson(
   contents: string,
   suggestedName: string,
