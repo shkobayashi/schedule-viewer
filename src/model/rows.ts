@@ -1,7 +1,7 @@
 import { brokenLinkTaskIds } from "./dependencies";
 import { normalizeTaskNote } from "./taskNote";
 import { taskHasAnySelectedTag } from "./taskTags";
-import { BUILTIN_STATUS_ITEMS, isClosedStatus, type StatusItem } from "./statusCatalog";
+import { BUILTIN_STATUS_ITEMS, isDoneStatus, type StatusItem } from "./statusCatalog";
 import { isOverdue } from "./timeline";
 import {
   categoryRollupPercent,
@@ -124,7 +124,7 @@ export function taskMatchesFilter(
   ) {
     return false;
   }
-  if (filters.status === "not-done" && isClosedStatus(statuses, task.status)) {
+  if (filters.status === "not-done" && isDoneStatus(statuses, task.status)) {
     return false;
   }
   if (

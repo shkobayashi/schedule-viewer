@@ -350,6 +350,7 @@ async function captureDesktopChromeShots(page) {
   });
   await page.getByRole("button", { name: "項目を編集…" }).click();
   await page.getByRole("heading", { name: "ステータス一覧の項目を編集" }).waitFor();
+  await page.setViewportSize({ width: 1440, height: 1680 });
   await page.waitForTimeout(400);
   await page.screenshot({
     path: path.join(outDir, "ui-status-editor.png"),

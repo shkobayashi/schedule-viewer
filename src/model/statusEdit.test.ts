@@ -19,7 +19,7 @@ describe("statusEdit", () => {
     ];
     const next = newStatusItem(items);
     expect(items.map((i) => i.id)).not.toContain(next.id);
-    expect(statusDraftError([...items, next])).not.toBeNull();
+    expect(statusDraftError([...items, { ...next, description: "" }])).not.toBeNull();
     expect(
       statusDraftError([...items, { ...next, description: "確認を待っている。" }]),
     ).toBeNull();

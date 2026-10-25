@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "schedule": "schedule.json",
+  "statuses": "statuses.json"
+}

@@ -1,0 +1,314 @@
+{
+  "schemaVersion": 8,
+  "title": "イナズマ線の確認用",
+  "milestoneGroups": [],
+  "milestones": [],
+  "categories": [
+    {
+      "id": "a1000001-0000-4000-8000-000000000001",
+      "name": "イナズマ線",
+      "groups": [
+        {
+          "id": "a2000001-0000-4000-8000-000000000001",
+          "name": "未着手",
+          "tasks": [
+            {
+              "id": "a3000001-0000-4000-8000-000000000001",
+              "name": "未着手・開始前",
+              "start": "2026-11-04",
+              "end": "2026-11-18",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000002",
+              "name": "未着手・期間中",
+              "start": "2026-10-06",
+              "end": "2026-11-06",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000003",
+              "name": "未着手・終了後",
+              "start": "2026-10-01",
+              "end": "2026-10-16",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "a2000001-0000-4000-8000-000000000002",
+          "name": "着手済み",
+          "tasks": [
+            {
+              "id": "a3000001-0000-4000-8000-000000000004",
+              "name": "着手済み・開始前",
+              "start": "2026-11-04",
+              "end": "2026-11-18",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 40,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000005",
+              "name": "確認待ち・開始前",
+              "start": "2026-11-04",
+              "end": "2026-11-18",
+              "assigneeId": null,
+              "status": "review",
+              "progress": 60,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000006",
+              "name": "着手済み・期間中",
+              "start": "2026-10-06",
+              "end": "2026-11-06",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 40,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000007",
+              "name": "着手済み・終了後・進捗20",
+              "start": "2026-10-01",
+              "end": "2026-10-16",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 20,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000008",
+              "name": "着手済み・終了後・進捗80",
+              "start": "2026-10-01",
+              "end": "2026-10-16",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 80,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "a2000001-0000-4000-8000-000000000003",
+          "name": "完了",
+          "tasks": [
+            {
+              "id": "a3000001-0000-4000-8000-000000000009",
+              "name": "完了・開始前",
+              "start": "2026-11-04",
+              "end": "2026-11-18",
+              "assigneeId": null,
+              "status": "done",
+              "progress": 100,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000010",
+              "name": "完了・期間中",
+              "start": "2026-10-06",
+              "end": "2026-11-06",
+              "assigneeId": null,
+              "status": "done",
+              "progress": 100,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000011",
+              "name": "完了・終了後",
+              "start": "2026-10-01",
+              "end": "2026-10-16",
+              "assigneeId": null,
+              "status": "done",
+              "progress": 100,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000012",
+              "name": "中止・終了後",
+              "start": "2026-10-01",
+              "end": "2026-10-16",
+              "assigneeId": null,
+              "status": "dropped",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "a2000001-0000-4000-8000-000000000004",
+          "name": "管理外",
+          "tasks": [
+            {
+              "id": "a3000001-0000-4000-8000-000000000013",
+              "name": "管理外・開始前",
+              "start": "2026-11-04",
+              "end": "2026-11-18",
+              "assigneeId": null,
+              "status": "unmanaged",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000014",
+              "name": "管理外・期間中",
+              "start": "2026-10-06",
+              "end": "2026-11-06",
+              "assigneeId": null,
+              "status": "unmanaged",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000015",
+              "name": "管理外・終了後",
+              "start": "2026-10-01",
+              "end": "2026-10-16",
+              "assigneeId": null,
+              "status": "unmanaged",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "a2000001-0000-4000-8000-000000000005",
+          "name": "一覧に無い id",
+          "tasks": [
+            {
+              "id": "a3000001-0000-4000-8000-000000000016",
+              "name": "一覧に無い・開始前",
+              "start": "2026-11-04",
+              "end": "2026-11-18",
+              "assigneeId": null,
+              "status": "shelved",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000017",
+              "name": "一覧に無い・終了後",
+              "start": "2026-10-01",
+              "end": "2026-10-16",
+              "assigneeId": null,
+              "status": "shelved",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "a2000001-0000-4000-8000-000000000006",
+          "name": "終了が今日",
+          "tasks": [
+            {
+              "id": "a3000001-0000-4000-8000-000000000018",
+              "name": "未着手・終了が今日",
+              "start": "2026-10-20",
+              "end": "2026-10-25",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000019",
+              "name": "着手済み・終了が今日",
+              "start": "2026-10-20",
+              "end": "2026-10-25",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 50,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000020",
+              "name": "完了・終了が今日",
+              "start": "2026-10-20",
+              "end": "2026-10-25",
+              "assigneeId": null,
+              "status": "done",
+              "progress": 100,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000021",
+              "name": "管理外・終了が今日",
+              "start": "2026-10-20",
+              "end": "2026-10-25",
+              "assigneeId": null,
+              "status": "unmanaged",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "a3000001-0000-4000-8000-000000000022",
+              "name": "一覧に無い・終了が今日",
+              "start": "2026-10-20",
+              "end": "2026-10-25",
+              "assigneeId": null,
+              "status": "shelved",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -119,17 +119,17 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "selected_task",
-                "description": "選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。応答の先頭の statuses は、使用中のステータス一覧（id、name、closed、description）です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": "選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。応答の先頭の statuses は、使用中のステータス一覧（id、name、role、description）です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
                 "inputSchema": read_schema.clone(),
             },
             {
                 "name": "selected_tasks",
-                "description": "編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。応答の先頭の statuses は、使用中のステータス一覧（id、name、closed、description）です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": "編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。応答の先頭の statuses は、使用中のステータス一覧（id、name、role、description）です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
                 "inputSchema": read_schema.clone(),
             },
             {
                 "name": "filtered_tasks",
-                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。応答の先頭の statuses は、使用中のステータス一覧（id、name、closed、description）です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。応答の先頭の statuses は、使用中のステータス一覧（id、name、role、description）です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
                 "inputSchema": read_schema.clone(),
             },
             {

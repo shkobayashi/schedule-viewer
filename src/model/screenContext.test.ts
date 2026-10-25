@@ -470,7 +470,7 @@ describe("status catalog in MCP payloads", () => {
       id: "review",
       name: "確認待ち",
       color: BUILTIN_STATUS_ITEMS[0].color,
-      closed: false,
+      role: "started",
       description: "作業は終わり、確認を待っている。",
     },
   ];
@@ -485,7 +485,7 @@ describe("status catalog in MCP payloads", () => {
     expect(payload.statuses[payload.statuses.length - 1]).toEqual({
       id: "review",
       name: "確認待ち",
-      closed: false,
+      role: "started",
       description: "作業は終わり、確認を待っている。",
     });
     expect(payload.statuses[0]).not.toHaveProperty("color");

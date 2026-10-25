@@ -21,8 +21,8 @@ export function newStatusItem(items: readonly StatusItem[]): StatusItem {
       light: { ...NEUTRAL_STATUS_COLOR.light },
       dark: { ...NEUTRAL_STATUS_COLOR.dark },
     },
-    closed: false,
-    description: "",
+    role: "started",
+    description: "着手済みで、まだ終わっていない。",
   };
 }
 

@@ -8,7 +8,7 @@
   "properties": {
     "schemaVersion": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "statuses": {
       "type": "array",
@@ -21,6 +21,11 @@
       "type": "string",
       "minLength": 1,
       "description": "タスクの status に書く値。作ったあと変えない。"
+    },
+    "statusRole": {
+      "type": "string",
+      "enum": ["not-started", "started", "done", "unmanaged"],
+      "description": "未着手、着手済み、完了、管理外のいずれか。"
     },
     "hexColor": {
       "type": "string",
@@ -41,7 +46,7 @@
     "status": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "color", "closed", "description"],
+      "required": ["id", "name", "color", "role", "description"],
       "properties": {
         "id": { "$ref": "#/$defs/statusId" },
         "name": { "type": "string", "minLength": 1 },
@@ -54,10 +59,7 @@
             "dark": { "$ref": "#/$defs/barColor" }
           }
         },
-        "closed": {
-          "type": "boolean",
-          "description": "完了として扱うか。期限超過と「完了以外」の絞り込みから外れる。"
-        },
+        "role": { "$ref": "#/$defs/statusRole" },
         "description": {
           "type": "string",
           "minLength": 1,

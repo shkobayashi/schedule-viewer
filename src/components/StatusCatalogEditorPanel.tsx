@@ -6,7 +6,12 @@ import {
   useState,
 } from "react";
 import { exportStatusesJson } from "../model/statusAppData";
-import type { StatusItem } from "../model/statusCatalog";
+import {
+  STATUS_ROLE_HINTS,
+  STATUS_ROLE_LABELS,
+  type StatusItem,
+  type StatusRole,
+} from "../model/statusCatalog";
 import type { StatusEditorOverlayMode } from "../hooks/useStatusCatalogEditorOverlay";
 import {
   moveStatusItem,
@@ -33,12 +38,171 @@ export type StatusCatalogEditorPanelProps = {
   onDirtyChange?: (dirty: boolean) => void;
 };
 
+const STATUS_ROLES: readonly StatusRole[] = [
+  "not-started",
+  "started",
+  "done",
+  "unmanaged",
+];
+
 const COLOR_FIELDS = [
   { scheme: "light", key: "bg", label: "ライト 地" },
   { scheme: "light", key: "border", label: "ライト 枠" },
   { scheme: "dark", key: "bg", label: "ダーク 地" },
   { scheme: "dark", key: "border", label: "ダーク 枠" },
 ] as const;
+
+type StatusCatalogEditorItemRowProps = {
+  item: StatusItem;
+  index: number;
+  itemKey: string;
+  savedIds: Set<string>;
+  canEditItems: boolean;
+  busy: boolean;
+  draftLength: number;
+  onChange: (next: StatusItem[]) => void;
+  draft: readonly StatusItem[];
+};
+
+function StatusCatalogEditorItemRow({
+  item,
+  index,
+  itemKey,
+  savedIds,
+  canEditItems,
+  busy,
+  draftLength,
+  onChange,
+  draft,
+}: StatusCatalogEditorItemRowProps) {
+  const [previewRole, setPreviewRole] = useState<StatusRole | null>(null);
+  const roleGroupLabelId = `status-role-label-${itemKey}`;
+  const hintRole = previewRole ?? item.role;
+
+  const changeItem = (patch: Partial<StatusItem>) => {
+    onChange(updateStatusItem(draft, index, patch));
+  };
+
+  return (
+    <li className="status-catalog-editor-item">
+      <div className="status-catalog-editor-item-main">
+        <label className="status-catalog-editor-field status-catalog-editor-field-id">
+          id
+          <input
+            type="text"
+            value={item.id}
+            readOnly={savedIds.has(item.id)}
+            disabled={!canEditItems || busy}
+            onChange={(e) => changeItem({ id: e.target.value })}
+          />
+        </label>
+        <label className="status-catalog-editor-field status-catalog-editor-field-name">
+          表示名
+          <input
+            type="text"
+            value={item.name}
+            disabled={!canEditItems || busy}
+            onChange={(e) => changeItem({ name: e.target.value })}
+          />
+        </label>
+        <div className="status-catalog-editor-field status-catalog-editor-field-role">
+          <span className="status-catalog-editor-field-label" id={roleGroupLabelId}>
+            扱い
+          </span>
+          <div
+            className="status-catalog-editor-role-options"
+            role="radiogroup"
+            aria-labelledby={roleGroupLabelId}
+            onMouseLeave={() => setPreviewRole(null)}
+          >
+            {STATUS_ROLES.map((role) => (
+              <label
+                key={role}
+                className="status-catalog-editor-role-option"
+                onMouseEnter={() => setPreviewRole(role)}
+              >
+                <input
+                  type="radio"
+                  name={`status-role-${itemKey}`}
+                  checked={item.role === role}
+                  disabled={!canEditItems || busy}
+                  aria-label={`${STATUS_ROLE_LABELS[role]}。${STATUS_ROLE_HINTS[role]}`}
+                  onChange={() => changeItem({ role })}
+                  onFocus={() => setPreviewRole(role)}
+                  onBlur={(e) => {
+                    const group = e.currentTarget.closest('[role="radiogroup"]');
+                    if (group?.contains(e.relatedTarget)) return;
+                    setPreviewRole(null);
+                  }}
+                />
+                {STATUS_ROLE_LABELS[role]}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="status-catalog-editor-colors">
+          {COLOR_FIELDS.map(({ scheme, key, label }) => (
+            <label key={`${scheme}-${key}`} className="status-catalog-editor-color">
+              <span className="status-catalog-editor-color-label">{label}</span>
+              <input
+                type="color"
+                value={item.color[scheme][key]}
+                disabled={!canEditItems || busy}
+                aria-label={`${item.name} ${label}`}
+                onChange={(e) =>
+                  changeItem({
+                    color: { [scheme]: { [key]: e.target.value } },
+                  })
+                }
+              />
+            </label>
+          ))}
+        </div>
+        <label className="status-catalog-editor-field status-catalog-editor-field-desc">
+          説明
+          <input
+            type="text"
+            value={item.description}
+            disabled={!canEditItems || busy}
+            onChange={(e) => changeItem({ description: e.target.value })}
+          />
+        </label>
+        <div className="status-catalog-editor-item-actions">
+          <button
+            type="button"
+            className="toolbar-btn"
+            aria-label={`${item.name}を上へ`}
+            disabled={!canEditItems || busy || index === 0}
+            onClick={() => onChange(moveStatusItem(draft, index, -1))}
+          >
+            上へ
+          </button>
+          <button
+            type="button"
+            className="toolbar-btn"
+            aria-label={`${item.name}を下へ`}
+            disabled={!canEditItems || busy || index === draftLength - 1}
+            onClick={() => onChange(moveStatusItem(draft, index, 1))}
+          >
+            下へ
+          </button>
+          <button
+            type="button"
+            className="toolbar-btn"
+            aria-label={`${item.name}を削除`}
+            disabled={!canEditItems || busy || draftLength <= 1}
+            onClick={() => onChange(removeStatusItem(draft, index))}
+          >
+            削除
+          </button>
+        </div>
+      </div>
+      <p className="status-catalog-editor-role-hint" aria-live="polite">
+        {STATUS_ROLE_HINTS[hintRole]}
+      </p>
+    </li>
+  );
+}
 
 export const StatusCatalogEditorPanel = forwardRef<
   StatusCatalogEditorPanelHandle,
@@ -128,115 +292,23 @@ export const StatusCatalogEditorPanel = forwardRef<
           <code>id</code> を持つタスクは変わりません。
         </p>
         <ul className="status-catalog-editor-items">
-          {draft.map((item, index) => (
-            <li
-              key={savedIds.has(item.id) ? item.id : `new-${index}`}
-              className="status-catalog-editor-item"
-            >
-              <div className="status-catalog-editor-item-main">
-                <label className="status-catalog-editor-field status-catalog-editor-field-id">
-                  id
-                  <input
-                    type="text"
-                    value={item.id}
-                    readOnly={savedIds.has(item.id)}
-                    disabled={!canEditItems || busy}
-                    onChange={(e) =>
-                      change(updateStatusItem(draft, index, { id: e.target.value }))
-                    }
-                  />
-                </label>
-                <label className="status-catalog-editor-field status-catalog-editor-field-name">
-                  表示名
-                  <input
-                    type="text"
-                    value={item.name}
-                    disabled={!canEditItems || busy}
-                    onChange={(e) =>
-                      change(updateStatusItem(draft, index, { name: e.target.value }))
-                    }
-                  />
-                </label>
-                <label className="settings-status-closed status-catalog-editor-closed">
-                  <input
-                    type="checkbox"
-                    checked={item.closed}
-                    disabled={!canEditItems || busy}
-                    onChange={(e) =>
-                      change(
-                        updateStatusItem(draft, index, { closed: e.target.checked }),
-                      )
-                    }
-                  />
-                  完了
-                </label>
-                <div className="status-catalog-editor-colors">
-                  {COLOR_FIELDS.map(({ scheme, key, label }) => (
-                    <label key={`${scheme}-${key}`} className="status-catalog-editor-color">
-                      <span className="status-catalog-editor-color-label">{label}</span>
-                      <input
-                        type="color"
-                        value={item.color[scheme][key]}
-                        disabled={!canEditItems || busy}
-                        aria-label={`${item.name} ${label}`}
-                        onChange={(e) =>
-                          change(
-                            updateStatusItem(draft, index, {
-                              color: { [scheme]: { [key]: e.target.value } },
-                            }),
-                          )
-                        }
-                      />
-                    </label>
-                  ))}
-                </div>
-                <label className="status-catalog-editor-field status-catalog-editor-field-desc">
-                  説明
-                  <input
-                    type="text"
-                    value={item.description}
-                    disabled={!canEditItems || busy}
-                    onChange={(e) =>
-                      change(
-                        updateStatusItem(draft, index, {
-                          description: e.target.value,
-                        }),
-                      )
-                    }
-                  />
-                </label>
-                <div className="status-catalog-editor-item-actions">
-                  <button
-                    type="button"
-                    className="toolbar-btn"
-                    aria-label={`${item.name}を上へ`}
-                    disabled={!canEditItems || busy || index === 0}
-                    onClick={() => change(moveStatusItem(draft, index, -1))}
-                  >
-                    上へ
-                  </button>
-                  <button
-                    type="button"
-                    className="toolbar-btn"
-                    aria-label={`${item.name}を下へ`}
-                    disabled={!canEditItems || busy || index === draft.length - 1}
-                    onClick={() => change(moveStatusItem(draft, index, 1))}
-                  >
-                    下へ
-                  </button>
-                  <button
-                    type="button"
-                    className="toolbar-btn"
-                    aria-label={`${item.name}を削除`}
-                    disabled={!canEditItems || busy || draft.length <= 1}
-                    onClick={() => change(removeStatusItem(draft, index))}
-                  >
-                    削除
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
+          {draft.map((item, index) => {
+            const itemKey = savedIds.has(item.id) ? item.id : `new-${index}`;
+            return (
+              <StatusCatalogEditorItemRow
+                key={itemKey}
+                item={item}
+                index={index}
+                itemKey={itemKey}
+                savedIds={savedIds}
+                canEditItems={canEditItems}
+                busy={busy}
+                draftLength={draft.length}
+                onChange={change}
+                draft={draft}
+              />
+            );
+          })}
         </ul>
         {error && dirty ? (
           <p className="settings-message" role="status">

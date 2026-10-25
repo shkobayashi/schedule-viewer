@@ -1,6 +1,9 @@
 import type { ResolvedColorScheme } from "./palette";
 
-export const STATUSES_SCHEMA_VERSION = 1;
+export const STATUSES_SCHEMA_VERSION = 2;
+
+/** イナズマ線と期限超過の扱い。タスクの `status` には書かない。 */
+export type StatusRole = "not-started" | "started" | "done" | "unmanaged";
 
 /** バーの地と枠の色。進捗の帯は枠と同じ色で描く。 */
 export type StatusColor = { bg: string; border: string };
@@ -9,8 +12,7 @@ export type StatusItem = {
   id: string;
   name: string;
   color: { light: StatusColor; dark: StatusColor };
-  /** 完了として扱う。期限超過と「完了以外」の絞り込みから外れる。 */
-  closed: boolean;
+  role: StatusRole;
   /** 意味と、どの状態のタスクに付けるか。LLM が `id` を選ぶ手がかり。 */
   description: string;
 };
@@ -22,6 +24,24 @@ export type StatusesDocument = {
 
 export type StatusCatalogInfo = { id: string; label: string };
 
+export const STATUS_ROLE_LABELS: Record<StatusRole, string> = {
+  "not-started": "未着手",
+  started: "着手済み",
+  done: "完了",
+  unmanaged: "管理外",
+};
+
+export const STATUS_ROLE_HINTS: Record<StatusRole, string> = {
+  "not-started":
+    "開始日を過ぎると線は開始日へ折れ、終了日を過ぎると終了日へ折れて赤くなる。",
+  started:
+    "開始日より前は線が開始日まで右へ折れ、終了日を過ぎると終了日へ折れて赤くなる。",
+  done:
+    "終了日より前は線が終了日まで右へ折れる。終了日を過ぎると線は今日に戻り、赤くならない。「完了以外」からは外れる。",
+  unmanaged:
+    "線は今日のままである。終了日を過ぎても赤くならない。「完了以外」には残る。",
+};
+
 export const BUILTIN_STATUS_ITEMS: readonly StatusItem[] = [
   {
     id: "not-started",
@@ -30,7 +50,7 @@ export const BUILTIN_STATUS_ITEMS: readonly StatusItem[] = [
       light: { bg: "#E2E6ED", border: "#7d8799" },
       dark: { bg: "#454b5c", border: "#8a94a6" },
     },
-    closed: false,
+    role: "not-started",
     description: "まだ着手していない。開始日が来ていても、手を付けていなければこれにする。",
   },
   {
@@ -40,7 +60,7 @@ export const BUILTIN_STATUS_ITEMS: readonly StatusItem[] = [
       light: { bg: "#DEE3FB", border: "#4C5FD5" },
       dark: { bg: "#2e3344", border: "#7b8cff" },
     },
-    closed: false,
+    role: "started",
     description: "着手済みで、まだ終わっていない。",
   },
   {
@@ -50,7 +70,7 @@ export const BUILTIN_STATUS_ITEMS: readonly StatusItem[] = [
       light: { bg: "#247A55", border: "#1F6B4A" },
       dark: { bg: "#3d9a72", border: "#4cb088" },
     },
-    closed: true,
+    role: "done",
     description: "終わった。以後の作業は残っていない。",
   },
 ];
@@ -78,9 +98,19 @@ export function statusLabel(statuses: readonly StatusItem[], id: string): string
   return findStatusItem(statuses, id)?.name ?? id;
 }
 
-/** 一覧に無い `id` は完了として扱わない。 */
-export function isClosedStatus(statuses: readonly StatusItem[], id: string): boolean {
-  return findStatusItem(statuses, id)?.closed === true;
+/**
+ * 一覧の項目の扱い。一覧に無い `id` は null（四つのどれにもしない）。
+ */
+export function statusRoleFor(
+  statuses: readonly StatusItem[],
+  id: string,
+): StatusRole | null {
+  return findStatusItem(statuses, id)?.role ?? null;
+}
+
+/** 「完了以外」から外すのは完了だけ。一覧に無い `id` は残る。 */
+export function isDoneStatus(statuses: readonly StatusItem[], id: string): boolean {
+  return statusRoleFor(statuses, id) === "done";
 }
 
 export function statusColorFor(
@@ -98,7 +128,7 @@ export function statusColorFor(
  */
 export function defaultStatusId(statuses: readonly StatusItem[]): string {
   if (findStatusItem(statuses, "not-started")) return "not-started";
-  const open = statuses.find((item) => !item.closed);
+  const open = statuses.find((item) => item.role !== "done");
   return (open ?? statuses[0])?.id ?? "not-started";
 }
 

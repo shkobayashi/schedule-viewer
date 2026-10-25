@@ -3,10 +3,11 @@ import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "./palet
 import { forEachTask } from "./tasks";
 import {
   BUILTIN_STATUS_ITEMS,
-  isClosedStatus,
   labelColorOn,
   statusColorFor,
+  statusRoleFor,
   type StatusItem,
+  type StatusRole,
 } from "./statusCatalog";
 import type { Category, Milestone } from "./types";
 
@@ -153,26 +154,60 @@ export function statusColors(
   return { bg: color.bg, fill: color.border, border: color.border };
 }
 
-/**
- * 本日線を折る日付。進捗率とステータスは見ない。
- * 期限超過は終了日（本日より左）。それ以外は今日の位置。
- */
-export function lightningDate(
-  task: { status: string; start: string; end: string },
+type TaskDates = { status: string; start: string; end: string };
+
+function taskDatePeriod(
+  task: TaskDates,
   today: string,
-  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+): "beforeStart" | "inRange" | "afterEnd" {
+  if (today < task.start) return "beforeStart";
+  if (task.end < today) return "afterEnd";
+  return "inRange";
+}
+
+function lightningDateForRole(
+  role: StatusRole | null,
+  task: TaskDates,
+  today: string,
 ): string {
-  if (isOverdue(task, today, statuses)) return task.end;
+  if (role === null || role === "unmanaged") return today;
+  const period = taskDatePeriod(task, today);
+  if (role === "not-started") {
+    if (period === "beforeStart") return today;
+    if (period === "inRange") return task.start;
+    return task.end;
+  }
+  if (role === "started") {
+    if (period === "beforeStart") return task.start;
+    if (period === "inRange") return today;
+    return task.end;
+  }
+  if (period === "beforeStart" || period === "inRange") return task.end;
   return today;
 }
 
-/** 完了として扱う項目以外で、終了日が今日より前のタスク。終了日が今日のタスクは期限当日なので超過にしない。 */
+/**
+ * 本日線を折る日付。進捗率は見ない。一覧の扱いと日付から決める。
+ */
+export function lightningDate(
+  task: TaskDates,
+  today: string,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+): string {
+  const role = statusRoleFor(statuses, task.status);
+  return lightningDateForRole(role, task, today);
+}
+
+/** 未着手と着手済みで、終了日が今日より前のタスク。一覧に無い id と管理外は超過にしない。 */
 export function isOverdue(
   task: { status: string; end: string },
   today: string,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): boolean {
-  return !isClosedStatus(statuses, task.status) && task.end < today;
+  if (task.end >= today) return false;
+  const role = statusRoleFor(statuses, task.status);
+  if (role === null || role === "unmanaged") return false;
+  return role === "not-started" || role === "started";
 }
 
 export function barColors(

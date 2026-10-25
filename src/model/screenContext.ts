@@ -70,17 +70,17 @@ export type McpActiveFilterCondition =
 export type McpStatusEntry = {
   id: string;
   name: string;
-  closed: boolean;
+  role: StatusItem["role"];
   description: string;
 };
 
 export function statusEntriesForMcp(
   statuses: readonly StatusItem[],
 ): McpStatusEntry[] {
-  return statuses.map(({ id, name, closed, description }) => ({
+  return statuses.map(({ id, name, role, description }) => ({
     id,
     name,
-    closed,
+    role,
     description,
   }));
 }

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "statuses": [
     {
       "id": "not-started",
@@ -8,7 +8,7 @@
         "light": { "bg": "#E2E6ED", "border": "#7d8799" },
         "dark": { "bg": "#454b5c", "border": "#8a94a6" }
       },
-      "closed": false,
+      "role": "not-started",
       "description": "まだ着手していない。開始日が来ていても、手を付けていなければこれにする。"
     },
     {
@@ -18,7 +18,7 @@
         "light": { "bg": "#DEE3FB", "border": "#4C5FD5" },
         "dark": { "bg": "#2e3344", "border": "#7b8cff" }
       },
-      "closed": false,
+      "role": "started",
       "description": "着手済みで、まだ終わっていない。"
     },
     {
@@ -28,7 +28,7 @@
         "light": { "bg": "#FFF3C4", "border": "#B58900" },
         "dark": { "bg": "#4a4020", "border": "#d9b43a" }
       },
-      "closed": false,
+      "role": "started",
       "description": "作業は終わり、確認を待っている。"
     },
     {
@@ -38,7 +38,7 @@
         "light": { "bg": "#247A55", "border": "#1F6B4A" },
         "dark": { "bg": "#3d9a72", "border": "#4cb088" }
       },
-      "closed": true,
+      "role": "done",
       "description": "終わった。以後の作業は残っていない。"
     },
     {
@@ -48,7 +48,7 @@
         "light": { "bg": "#E8D8C4", "border": "#7A4E2A" },
         "dark": { "bg": "#4a3a2a", "border": "#c49a6c" }
       },
-      "closed": true,
+      "role": "done",
       "description": "作業をやめた。再開しない。"
     }
   ]

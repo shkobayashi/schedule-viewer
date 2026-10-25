@@ -3,6 +3,7 @@ import {
   STATUSES_SCHEMA_VERSION,
   type StatusesDocument,
 } from "./statusCatalog";
+import { migrateStatusesV1ToV2 } from "./statusesMigrate";
 import {
   formatAjvErrors,
   formatValidationErrors as formatIssues,
@@ -13,6 +14,29 @@ export type StatusesIssue = { path: string; message: string };
 export type ValidateStatusesResult =
   | { ok: true; document: StatusesDocument }
   | { ok: false; errors: StatusesIssue[] };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** schemaVersion 2 の項目に `closed` が残っていないか。 */
+function rejectClosedInV2(data: unknown): StatusesIssue[] | null {
+  if (!isRecord(data) || data.schemaVersion !== 2 || !Array.isArray(data.statuses)) {
+    return null;
+  }
+  for (let i = 0; i < data.statuses.length; i += 1) {
+    const item = data.statuses[i];
+    if (isRecord(item) && "closed" in item) {
+      return [
+        {
+          path: `/statuses/${i}/closed`,
+          message: "schemaVersion 2 の項目には closed を書けません。role を使います。",
+        },
+      ];
+    }
+  }
+  return null;
+}
 
 export function validateStatusesSemantics(doc: StatusesDocument): StatusesIssue[] {
   const issues: StatusesIssue[] = [];
@@ -37,7 +61,37 @@ export function validateStatusesSemantics(doc: StatusesDocument): StatusesIssue[
   return issues;
 }
 
+function validateV2Document(document: StatusesDocument): ValidateStatusesResult {
+  const errors = validateStatusesSemantics(document);
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, document };
+}
+
 export function validateStatuses(data: unknown): ValidateStatusesResult {
+  if (isRecord(data) && data.schemaVersion === 1) {
+    const migrated = migrateStatusesV1ToV2(data);
+    if (!migrated) {
+      return {
+        ok: false,
+        errors: [
+          {
+            path: "/",
+            message: "ステータス JSON（schemaVersion 1）を読み取れませんでした。",
+          },
+        ],
+      };
+    }
+    if (!validateSchema(migrated)) {
+      return { ok: false, errors: formatAjvErrors(migrated, validateSchema.errors) };
+    }
+    return validateV2Document(migrated as StatusesDocument);
+  }
+
+  const closedIssue = rejectClosedInV2(data);
+  if (closedIssue) {
+    return { ok: false, errors: closedIssue };
+  }
+
   if (!validateSchema(data)) {
     return { ok: false, errors: formatAjvErrors(data, validateSchema.errors) };
   }
@@ -53,9 +107,7 @@ export function validateStatuses(data: unknown): ValidateStatusesResult {
       ],
     };
   }
-  const errors = validateStatusesSemantics(document);
-  if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, document };
+  return validateV2Document(document);
 }
 
 export function formatStatusesValidationErrors(errors: StatusesIssue[]): string {

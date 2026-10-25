@@ -129,6 +129,7 @@ type SidebarProps = {
   onWheelRows: (event: WheelEvent) => void;
   sticky: StickyLayout;
   sidebarColumns: SidebarColumnsPreference;
+  chartTopBannerHeight: number;
 };
 
 export function Sidebar({
@@ -179,6 +180,7 @@ export function Sidebar({
   onWheelRows,
   sticky,
   sidebarColumns,
+  chartTopBannerHeight,
 }: SidebarProps) {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -575,6 +577,13 @@ export function Sidebar({
 
   return (
     <div className="sidebar" ref={sidebarRef}>
+      {chartTopBannerHeight > 0 ? (
+        <div
+          className="sidebar-chart-banner-spacer"
+          style={{ height: chartTopBannerHeight }}
+          aria-hidden="true"
+        />
+      ) : null}
       <div className="sidebar-header">WBS / タスク</div>
       {milestoneBandHeight > 0 ? (
         <div

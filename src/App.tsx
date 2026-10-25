@@ -364,6 +364,8 @@ function App() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [linkSourceId, setLinkSourceId] = useState<ScheduleId | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const chartTopBannersRef = useRef<HTMLDivElement>(null);
+  const [chartTopBannerHeight, setChartTopBannerHeight] = useState(0);
   const chartPointerRef = useRef<ChartPointer>({
     overTask: false,
     overMilestone: false,
@@ -723,6 +725,24 @@ function App() {
     setCatalogMismatchAnnouncement(null);
   }, [catalogMismatch]);
 
+  const showChartTopBanners =
+    catalogMismatchText != null || linkSourceId != null;
+
+  useLayoutEffect(() => {
+    const node = chartTopBannersRef.current;
+    if (!node) {
+      setChartTopBannerHeight(0);
+      return;
+    }
+    const measure = () => {
+      setChartTopBannerHeight(node.getBoundingClientRect().height);
+    };
+    measure();
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [showChartTopBanners, catalogMismatchText, linkSourceId, linkError]);
+
   const range = useMemo(
     () =>
       computeTimelineRange(
@@ -779,7 +799,10 @@ function App() {
         milestoneDiamondSize,
         milestoneLaneHeight,
       );
-      const body = Math.max(120, timelineSlotHeight - headerHeight - band);
+      const body = Math.max(
+        120,
+        timelineSlotHeight - headerHeight - band - chartTopBannerHeight,
+      );
       const rows = schedule.visibleRows;
       const contentHeight =
         rows.length === 0 ? 0 : rows[rows.length - 1].y + rowHeight;
@@ -815,7 +838,10 @@ function App() {
   const milestoneBandHeight = milestoneBandLayout.totalHeight;
   const bodyHeight = Math.max(
     120,
-    timelineSlotHeight - headerHeight - milestoneBandHeight,
+    timelineSlotHeight -
+      headerHeight -
+      milestoneBandHeight -
+      chartTopBannerHeight,
   );
 
   const {
@@ -2963,6 +2989,7 @@ function App() {
           onWheelRows={onWheelSidebar}
           sticky={stickyLayout}
           sidebarColumns={sidebarColumns}
+          chartTopBannerHeight={chartTopBannerHeight}
         />
         <div className="chart-detail">
         {bulkDiscardNotice ? (
@@ -2983,15 +3010,21 @@ function App() {
           >
             {catalogMismatchAnnouncement ?? ""}
           </p>
-          {catalogMismatchText ? (
-            <div className="catalog-mismatch-banner">
-              <div>{catalogMismatchText}</div>
-            </div>
-          ) : null}
-          {linkSourceId != null ? (
-            <div className="link-banner" role="status">
-              <div>次にクリックしたタスクを後続にします。Esc で中止</div>
-              {linkError ? <div className="hint-error">{linkError}</div> : null}
+          {showChartTopBanners ? (
+            <div ref={chartTopBannersRef} className="chart-top-banners">
+              {catalogMismatchText ? (
+                <div className="catalog-mismatch-banner">
+                  <div>{catalogMismatchText}</div>
+                </div>
+              ) : null}
+              {linkSourceId != null ? (
+                <div className="link-banner" role="status">
+                  <div>次にクリックしたタスクを後続にします。Esc で中止</div>
+                  {linkError ? (
+                    <div className="hint-error">{linkError}</div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
           <Timeline

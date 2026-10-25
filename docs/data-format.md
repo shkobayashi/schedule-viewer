@@ -64,7 +64,7 @@
 | `name` | 1文字以上。空白だけは不可 |
 | `date` / `start` / `end` | `YYYY-MM-DD`。実在する日。`end` はその日を含む。`end` は `start` 以降の日付にする。同じ日なら1日のタスクになる |
 | `assigneeId` | メンバー JSON の `id`。割り当てなしは `null`。UUID である必要はない。スケジュール側ではメンバーの実在を検査しない |
-| `status` | ステータス一覧の項目の `id`。1文字以上。既定の一覧は `not-started`、`in-progress`、`done`。スケジュール側では一覧の実在を検査しない。一覧に無い `id` は、画面で `id` をそのまま出し、色は中立にし、完了として扱わない |
+| `status` | ステータス一覧の項目の `id`。1文字以上。既定の一覧は `not-started`、`in-progress`、`done`。スケジュール側では一覧の実在を検査しない。一覧に無い `id` は、画面で `id` をそのまま出し、色は中立にし、イナズマ線と期限超過は管理外と同じ（今日のまま、赤くしない）。「完了以外」には残る |
 | `progress` | 0 以上 100 以下の整数 |
 | `confidence` | タスクとマイルストンの確度。`tentative`（未確定）か `committed`（確定）。日付を合意したかどうかで、着手や進捗とは独立 |
 | `predecessors` | 先行タスクの `id`。重複しない。自分自身は指定できない。存在しない ID は不可。循環も不可。後続は各タスクの `predecessors` から導く |
@@ -122,13 +122,27 @@
 - `id` は配列内で重複できない。`name` は重複してよい。画面では、同じ表示名が複数あるときだけ ID を添える
 - 先頭の UTF-8 BOM は取り込み時に取り除く
 
-## ステータス一覧 JSON（schemaVersion 1）
+## ステータス一覧 JSON（schemaVersion 2）
 
-正本は [statuses.schema.json](statuses.schema.json)。意味規則は [src/model/validateStatuses.ts](../src/model/validateStatuses.ts) にある。タスクの `status` が書く `id` の意味、色、完了として扱うかを、チームで共有する一覧に置く。スケジュール JSON には含めない。
+正本は [statuses.schema.json](statuses.schema.json)。意味規則は [src/model/validateStatuses.ts](../src/model/validateStatuses.ts) にある。タスクの `status` が書く `id` の意味、色、扱いを、チームで共有する一覧に置く。スケジュール JSON には含めない。schemaVersion 1 は取り込み時に 2 へ移す。移し方は [src/model/statusesMigrate.ts](../src/model/statusesMigrate.ts) と同じである。
+
+### schemaVersion 1 から 2 への移し方
+
+項目ごとに `closed` を `role` に置き換える。表示名は見ない。
+
+- `id` が `not-started` なら未着手（`not-started`）
+- `id` が `in-progress` なら着手済み（`started`）
+- `id` が `done` なら完了（`done`）
+- 上記以外で `closed` が true なら完了（`done`）
+- 上記以外で `closed` が false なら着手済み（`started`）
+
+管理外（`unmanaged`）は移行では付けない。利用者が項目に付ける。
+
+読み込みと取り込みの検証では、移した結果を schemaVersion 2 として扱う。ディスク上の JSON を 2 に書き換えるのは、設定の「項目を編集…」で一覧を保存したときだけである。取り込みのたびにファイルを書き換えない。
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "statuses": [
     {
       "id": "review",
@@ -137,7 +151,7 @@
         "light": { "bg": "#FFF3C4", "border": "#B58900" },
         "dark": { "bg": "#4a4020", "border": "#d9b43a" }
       },
-      "closed": false,
+      "role": "started",
       "description": "作業は終わり、確認を待っている。"
     }
   ]
@@ -147,9 +161,9 @@
 - `statuses` は1件以上。`id` は1文字以上で、一覧の中で重複しない。作ったあとは変えない
 - `name` は画面に出す名前。空白だけは不可
 - `color` は、ライトとダークのそれぞれで `bg`（バーの地）と `border`（バーの枠と、進捗の帯の色）を `#RRGGBB` で持つ。進行中専用の色は無い。進捗の帯は `border` の色で、どのステータスでも進捗率の幅で出す
-- `closed` は、完了として扱うか。`true` の項目は、期限超過と絞り込みの「完了以外」から外れる。`true` の項目は複数あってよい
+- `role` は、未着手（`not-started`）、着手済み（`started`）、完了（`done`）、管理外（`unmanaged`）のいずれか一つ。イナズマ線の折れ位置と期限超過と「完了以外」に使う。同じ `role` の項目は複数あってよい
 - `description` は、意味と、どの状態のタスクに付けるか。空白だけは不可。LLM が `id` を選ぶ手がかりにする
-- 組み込みの三件は `not-started`（未着手）、`in-progress`（進行中）、`done`（完了、`closed`）である。一覧を選んでいないときも、この三件で動く。初回の起動で、この三件を `standard` として取り込んで選ぶ。外したあとは自動では戻さない
+- 組み込みの三件は `not-started`（未着手）、`in-progress`（進行中、着手済み）、`done`（完了）である。一覧を選んでいないときも、この三件で動く。初回の起動で、この三件を `standard` として取り込んで選ぶ。外したあとは自動では戻さない
 
 期限超過、後続が先行の終了より前に始まること、今日の位置、非稼働日は、アプリが計算して描く。この一覧には含めない。
 
@@ -260,6 +274,12 @@
 - `npm run check:statuses` は、引数なしなら [examples/playground.statuses.json](../examples/playground.statuses.json) を検証する
 - 置いたスキルでは、各スキルフォルダで `node scripts/validate-schedule.mjs <file>`、`node scripts/validate-calendar.mjs <file>`、`node scripts/validate-members.mjs <file>` を使う
 
-[examples/review.statuses.json](../examples/review.statuses.json) と [examples/review.schedule.json](../examples/review.schedule.json) は、ステータスの見え方を手で確かめる組である。一覧は既定の三件に「確認待ち」（`review`）と、完了として扱う「中止」（`dropped`）を足してある。スケジュールは、超過の枠、帯の有無、完了として扱う項目の非超過、一覧に無い `id`（`shelved`）、イナズマ線の位置を、今日が 2026-10-23 から 2026-11-01 のあいだに見られるように日付を置いてある。引数なしの `check:statuses` の対象は変えない。
+[examples/review.statuses.json](../examples/review.statuses.json) と [examples/review.schedule.json](../examples/review.schedule.json) は、ステータスの見え方を手で確かめる組である。一覧は既定の三件に「確認待ち」（`review`、着手済み）と、扱いが完了の「中止」（`dropped`）を足してある。スケジュールは、超過の枠、帯の有無、完了の非超過、一覧に無い `id`（`shelved`）、イナズマ線の位置を、今日が 2026-10-23 から 2026-11-01 のあいだに見られるように日付を置いてある。引数なしの `check:statuses` の対象は変えない。
+
+[examples/lightning/workspace.json](../examples/lightning/workspace.json) は、四つの扱いと一覧に無い `id` の折れと赤を、同じ日付で見比べる組である。`schedule.json` と `statuses.json` を指す。一覧は確認用に、確認待ち（着手済み）、中止（完了）、管理外を足してある。スケジュールの開始前は 2026-11-04 から 2026-11-18、期間中は 2026-10-06 から 2026-11-06、終了後は 2026-10-01 から 2026-10-16 である。
+
+今日が 2026-10-23 から 2026-11-01 のあいだなら、折れ先は扱いと期間で決まる。未着手は、開始前が今日、期間中が開始日、終了後が終了日である。着手済みは、開始前が開始日、期間中が今日、終了後が終了日である。確認待ちも同じ位置へ折れる。完了は、開始前と期間中が終了日、終了後が今日である。管理外と一覧に無い `shelved` は、どの期間でも今日である。終了後の着手済みは、進捗 20 と 80 で折れ先が同じである。
+
+枠が赤くなるのは、終了後の未着手と着手済みだけである。完了と中止と管理外と `shelved` は赤くならない。「完了以外」では完了と中止が消え、管理外と `shelved` は残る。終了が 2026-10-25 の行は、今日がその日のときだけ終了列で止まり、その日は赤くならない。
 
 `examples/playground.schedule.json` は手で開く例であり、引数なしの `check:schedule` では検証しない。内容は `src/sample/playgroundSchedule.ts` から `tsx scripts/write-playground-schedule.ts` で書き出す。
