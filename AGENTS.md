@@ -21,6 +21,7 @@
 | リリース、CI、配布用ビルド | [.cursor/skills/cut-release/SKILL.md](.cursor/skills/cut-release/SKILL.md) |
 | 操作マニュアルの GitHub Pages 公開 | [.cursor/skills/publish-user-manual/SKILL.md](.cursor/skills/publish-user-manual/SKILL.md) |
 | プロジェクト全体をレビューする | [.cursor/skills/review-project/SKILL.md](.cursor/skills/review-project/SKILL.md) |
+| 計画を実装したあとのレビュー | [.cursor/skills/review-implementation/SKILL.md](.cursor/skills/review-implementation/SKILL.md) |
 | 日本語の文章の書き方 | [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) |
 
 フィールド定義の正本は各 JSON Schema である。挙動の正本はソースコードである。文書とソースが食い違ったときは、ソースに合わせて文書を直す。
@@ -48,7 +49,7 @@ GitHub の Issue を見る、コメントする、作る、更新するときは
 
 ## スキルの使い方と保守
 
-計画を書いて実装に渡すときは、実装が読むスキル名と、その中の節を計画に書く。アプリの実装（画面、状態、モデル、Tauri、描画と、それに伴う文書とテスト）は [implement-change](.cursor/skills/implement-change/SKILL.md)、リリース、CI、配布用ビルドは [cut-release](.cursor/skills/cut-release/SKILL.md)、操作マニュアルの GitHub Pages は [publish-user-manual](.cursor/skills/publish-user-manual/SKILL.md)、プロジェクト全体のレビューは [review-project](.cursor/skills/review-project/SKILL.md) である。スケジュール、メンバー、カレンダーの JSON を作るときは `write-schedule`、`write-members`、`write-calendar`。スケジュール JSON の形を変えるときは `update-schedule-schema`。
+計画を書いて実装に渡すときは、実装が読むスキル名と、その中の節を計画に書く。アプリの実装（画面、状態、モデル、Tauri、描画と、それに伴う文書とテスト）は [implement-change](.cursor/skills/implement-change/SKILL.md)、リリース、CI、配布用ビルドは [cut-release](.cursor/skills/cut-release/SKILL.md)、操作マニュアルの GitHub Pages は [publish-user-manual](.cursor/skills/publish-user-manual/SKILL.md)、プロジェクト全体のレビューは [review-project](.cursor/skills/review-project/SKILL.md)、計画を実装したあとのレビューは [review-implementation](.cursor/skills/review-implementation/SKILL.md) である。スケジュール、メンバー、カレンダーの JSON を作るときは `write-schedule`、`write-members`、`write-calendar`。スケジュール JSON の形を変えるときは `update-schedule-schema`。
 
 1.x を出しながら次のメジャーを進める手順は [docs/development.md](docs/development.md) にある。この作業用のスキルは作らない。実装の計画は implement-change だけを読み、載せるブランチは着手前で決める。`next` を切る作業と次メジャーのリリースは、cut-release の「1.x と次のメジャー」を読む。
 
@@ -62,6 +63,6 @@ GitHub の Issue を見る、コメントする、作る、更新するときは
 
 スキルやルールの本文からほかのファイルへリンクするときは、そのファイルからの相対パスで書く。たとえば SKILL.md から `AGENTS.md` へは `../../../AGENTS.md` と書く。
 
-実装のレビューで直したときも、プロジェクト全体のレビューと同じである。計画と仕上がりがずれた箇所を直すときは、再発を防ぐ手順を該当スキルの該当する節へ同じ変更で必ず足す。足した節を結果に書く。足さない判断だけを書いて完了にしない。その計画だけの指摘は足さない。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使うので、アプリ実装の手順はそこへ書かない。
+計画を実装したあとのレビューは [review-implementation](.cursor/skills/review-implementation/SKILL.md) に従い、その場ではファイルを直さない。計画と仕上がりがずれた箇所を直すときは、再発を防ぐ手順を該当スキルの該当する節へ同じ変更で必ず足す。足した節を結果に書く。足さない判断だけを書いて完了にしない。その計画だけの指摘は足さない。`write-schedule`、`write-members`、`write-calendar` は他のリポジトリへコピーして使うので、アプリ実装の手順はそこへ書かない。
 
 ある種類の計画で、既存スキルの手順のうち使わないものが半分を超えるときは、その種類用のスキルに分ける。リリース、CI、配布用ビルドは、画面の実装と手順が重ならなくなったときに分ける。スキーマの変更は `update-schedule-schema` のままにする。毎回の計画が実装用スキルを2つ読めとしているときは、1つに戻す。
