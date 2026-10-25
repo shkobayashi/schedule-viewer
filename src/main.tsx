@@ -3,10 +3,8 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { applyResolvedColorScheme, readResolvedColorScheme } from "./model/colorScheme";
 import "./App.css";
-import { installMouseTracePageListeners } from "./mouseTrace";
 
 applyResolvedColorScheme(readResolvedColorScheme());
-installMouseTracePageListeners();
 
 const preventBrowserFileNavigation = (event: DragEvent) => {
   event.preventDefault();

@@ -175,30 +175,6 @@ npm run dev
 npm run tauri dev
 ```
 
-### macOS で左クリックが Mac 全体で効かなくなるとき
-
-`npm run tauri dev` の前後で、ときどき左クリックが他のアプリでも効かなくなることがある。毎回ではない。カーソルは動いたままである。右クリックは、その位置の左クリックになるときと、メニューは出て左クリックだけが効かないときがある。
-
-Esc を押しても、schedule-viewer を終了しても戻らない。戻るのは、その USB マウスをポートから抜いて挿し直したときである。ボタンを押したままにしているのは、このプロセスではない。挿し直しでそのマウスのボタン報告が最初からやり直されるので、残っているのはそのマウスか、そのマウスを見ている macOS の入力の側である。
-
-原因を切り分けるときは、環境変数 `SV_MOUSE_TRACE=1` を付けて起動する。`tauri dev` でも `tauri build` の成果物でも同じである。
-
-```bash
-SV_MOUSE_TRACE=1 npm run tauri dev
-```
-
-ログは `~/Library/Logs/schedule-viewer/mouse-trace.log` に追記される。起動のたびに、直前の `mouse-trace.log` は同じフォルダへタイムスタンプ付きで退避される。変数を付けないときは、記録用の処理は動かず、画面の挙動も変わらない。
-
-左クリックが死んだら、抜き挿しで戻す前にログを残す。行の意味は次のとおりである。
-
-- `page` で始まる行は、WebView 内の押下、離放、キャンセル、`dragstart`、ページを離れる直前、Vite の再読み込み直前である。
-- `hid` の行は、macOS が見ている左右ボタンの状態である。`pageL=0` なのに `hid L=1` が続き、行末に `!!` が付くときは、画面は左を押していないのにシステムだけ左が押されたままである。
-- `alive` は数十秒ごとの生存行である。異常が続くときは `!!` 付きの `hid` 行が代わりに出る。
-
-ログの抜粋はチャットなど手元用に使い、GitHub Issue には載せない。調査が終わったら、記録用のコードとこの手順は外す。
-
-`npm run build` の配布物で試すときは、同じ変数を付けて `.app` を起動する。未発生のままでは、配布ビルドでは起きないとは判断しない。
-
 FILE-08 のブラウザ版は、`npm run dev` で開き、Finder などから JSON をウィンドウへ落としても、ブラウザがそのファイルを開こうとしないことを見る。ウィンドウや Dock へのドロップは `npm run tauri dev` で手元の OS 上で見る。macOS と Linux の `fileAssociations` は `src-tauri/tauri.macos.conf.json` と `src-tauri/tauri.linux.conf.json` にあり、同じ OS で `npm run tauri build` すると Tauri がマージする。Windows は関連付けを登録しない。インストーラでの関連付けと、動いているあいだに OS がパスを渡さない件は、この Mac では見ない。
 
 ## DevContainer
