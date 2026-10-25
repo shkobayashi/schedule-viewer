@@ -3,6 +3,7 @@ import { lineageTaskIds } from "./dependencies";
 import {
   buildActiveFilterConditions,
   buildFilteredTasksPayload,
+  statusEntriesForMcp,
   buildScheduleDiffPayload,
   buildScreenContextPayload,
   buildSelectedTaskPayload,
@@ -10,6 +11,8 @@ import {
   mcpPayloadToToolBody,
 } from "./screenContext";
 import { listTasksMatchingFilter } from "./rows";
+import { BUILTIN_STATUS_ITEMS, type StatusItem } from "./statusCatalog";
+import { updateStatusItem } from "./statusEdit";
 import {
   UNASSIGNED_FILTER,
   type Category,
@@ -452,9 +455,97 @@ describe("split MCP payloads", () => {
       (mcpPayloadToToolBody(selectedMany) as { content: { text: string }[] })
         .content[0].text,
     );
-    expect(selectedManyText).toEqual({ selectedTasks: [] });
+    expect(selectedManyText).toEqual({
+      statuses: statusEntriesForMcp(BUILTIN_STATUS_ITEMS),
+      selectedTasks: [],
+    });
     expect(selectedManyText).not.toHaveProperty("selectedTaskId");
     expect(selectedManyText).not.toHaveProperty("scheduleDiff");
+  });
+});
+
+describe("status catalog in MCP payloads", () => {
+  const custom: StatusItem[] = [
+    ...BUILTIN_STATUS_ITEMS,
+    {
+      id: "review",
+      name: "確認待ち",
+      color: BUILTIN_STATUS_ITEMS[0].color,
+      role: "started",
+      description: "作業は終わり、確認を待っている。",
+    },
+  ];
+
+  it("puts the catalog first, once, without colors", () => {
+    const payload = buildSelectedTasksPayload({
+      categories: [],
+      selectedTaskIds: [],
+      statuses: custom,
+    });
+    expect(Object.keys(payload)[0]).toBe("statuses");
+    expect(payload.statuses[payload.statuses.length - 1]).toEqual({
+      id: "review",
+      name: "確認待ち",
+      role: "started",
+      description: "作業は終わり、確認を待っている。",
+    });
+    expect(payload.statuses[0]).not.toHaveProperty("color");
+  });
+
+  it("names the status filter from the catalog", () => {
+    const conditions = buildActiveFilterConditions({
+      filters: { ...filters, status: "review" },
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      lineageTaskId: null,
+      categories: [],
+      memberCatalog: null,
+      statuses: custom,
+    });
+    expect(conditions).toContainEqual({
+      type: "status",
+      value: "review",
+      label: "確認待ち",
+    });
+  });
+
+  it("includes instruction only when it is non-blank", () => {
+    const withInstruction: StatusItem[] = [
+      ...BUILTIN_STATUS_ITEMS,
+      {
+        id: "review",
+        name: "確認待ち",
+        color: BUILTIN_STATUS_ITEMS[0].color,
+        role: "started",
+        description: "作業は終わり、確認を待っている。",
+        instruction: "進捗は 100 にする。",
+      },
+    ];
+    const entries = statusEntriesForMcp(withInstruction);
+    expect(entries[3].instruction).toBe("進捗は 100 にする。");
+    expect(entries[0]).not.toHaveProperty("instruction");
+    const blankInstruction = statusEntriesForMcp(
+      updateStatusItem(withInstruction, 3, { instruction: "  " }),
+    );
+    expect(blankInstruction[3]).not.toHaveProperty("instruction");
+  });
+
+  it("starts the filtered tasks payload with the catalog", () => {
+    const payload = buildFilteredTasksPayload({
+      categories: [],
+      filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      statuses: custom,
+    });
+    expect(Object.keys(payload)[0]).toBe("statuses");
+    expect(payload.statuses).toHaveLength(4);
   });
 });
 

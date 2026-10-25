@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 8,
+  "title": "一覧不一致の確認用（VIEW-13）",
+  "milestoneGroups": [],
+  "milestones": [],
+  "categories": [
+    {
+      "id": "f3000001-0000-4000-8000-000000000001",
+      "name": "帯と左列の確認",
+      "groups": [
+        {
+          "id": "f4000001-0000-4000-8000-000000000001",
+          "name": "期待どおりの行",
+          "tasks": [
+            {
+              "id": "f5000001-0000-4000-8000-000000000001",
+              "name": "正常（帯の原因にならない）",
+              "start": "2026-10-20",
+              "end": "2026-10-31",
+              "assigneeId": "tanaka",
+              "status": "in-progress",
+              "progress": 50,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000002",
+              "name": "未割当（担当の帯は出ない）",
+              "start": "2026-10-21",
+              "end": "2026-11-05",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000003",
+              "name": "一覧に無いステータス（orphan-status）",
+              "start": "2026-10-22",
+              "end": "2026-11-06",
+              "assigneeId": "sato",
+              "status": "orphan-status",
+              "progress": 10,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000004",
+              "name": "一覧に無い担当（ghost-member）",
+              "start": "2026-10-23",
+              "end": "2026-11-07",
+              "assigneeId": "ghost-member",
+              "status": "in-progress",
+              "progress": 20,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

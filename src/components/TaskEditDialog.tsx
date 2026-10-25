@@ -1,3 +1,5 @@
+import { StatusOptions } from "./StatusOptions";
+import { defaultStatusId, type StatusItem } from "../model/statusCatalog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TaskRef } from "../model/dependencies";
 import {
@@ -30,6 +32,7 @@ type TaskEditDialogProps = {
   successorIds: ScheduleId[];
   /** 候補から除く ID。複製では元タスクも候補に残すため null。 */
   excludeTaskId?: ScheduleId | null;
+  statuses: readonly StatusItem[];
   onClose: () => void;
   onSave: (patch: {
     name: string;
@@ -71,6 +74,7 @@ export function TaskEditDialog({
   milestones,
   successorIds,
   excludeTaskId,
+  statuses,
   onClose,
   onSave,
 }: TaskEditDialogProps) {
@@ -79,7 +83,7 @@ export function TaskEditDialog({
   const [end, setEnd] = useState(task.end);
   const [assigneeId, setAssigneeId] = useState<string>(task.assigneeId ?? "");
   const [status, setStatus] = useState<TaskStatus>(() =>
-    mode === "duplicate" ? "not-started" : task.status,
+    mode === "duplicate" ? defaultStatusId(statuses) : task.status,
   );
   const [progress, setProgress] = useState(() =>
     mode === "duplicate" ? 0 : task.progress,
@@ -191,9 +195,7 @@ export function TaskEditDialog({
             value={status}
             onChange={(e) => setStatus(e.target.value as TaskStatus)}
           >
-            <option value="not-started">未着手</option>
-            <option value="in-progress">進行中</option>
-            <option value="done">完了</option>
+            <StatusOptions statuses={statuses} current={status} />
           </select>
         </div>
         <div className="field">

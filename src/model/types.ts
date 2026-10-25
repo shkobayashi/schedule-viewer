@@ -3,7 +3,7 @@ import type { MemberId } from "./memberTypes";
 
 export type ScheduleId = string;
 
-export const SCHEDULE_SCHEMA_VERSION = 7;
+export const SCHEDULE_SCHEMA_VERSION = 8;
 
 /** マイルストン帯の行。タスクのカテゴリ・グループとは別。 */
 export type MilestoneGroup = {
@@ -11,7 +11,8 @@ export type MilestoneGroup = {
   name: string;
 };
 
-export type TaskStatus = "not-started" | "in-progress" | "done";
+/** ステータス一覧の項目の `id`。一覧に無い値も文書には書ける。 */
+export type TaskStatus = string;
 
 /** 日付を合意したかどうか。着手や進捗とは独立。 */
 export type TaskConfidence = "tentative" | "committed";
@@ -66,7 +67,8 @@ export type Category = {
   groups: TaskGroup[];
 };
 
-export type StatusFilter = "all" | "not-done" | TaskStatus;
+/** "all"、"not-done"（完了以外）、またはステータスの `id`。 */
+export type StatusFilter = string;
 
 export type ConfidenceFilter = "all" | TaskConfidence;
 

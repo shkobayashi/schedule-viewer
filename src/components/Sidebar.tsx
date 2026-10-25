@@ -25,6 +25,12 @@ import {
   reorderDragBlockRows,
   rowInReorderDragBlock,
 } from "../model/rows";
+import type { StatusItem } from "../model/statusCatalog";
+import {
+  resolveStatusSidebarDisplay,
+  statusColumnChars,
+  statusSidebarColumnLabel,
+} from "../model/statusDisplay";
 import { isOverdue } from "../model/timeline";
 import { TaskNoteButton } from "./TaskNoteButton";
 import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
@@ -95,6 +101,7 @@ type SidebarProps = {
   milestoneBandLayout: import("../model/milestones").MilestoneBandLayout;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
+  statuses: readonly StatusItem[];
   onToggleCollapse: (key: string) => void;
   onOpenTaskNote: (taskId: ScheduleId) => void;
   onTaskContextMenu: (taskId: ScheduleId, x: number, y: number) => void;
@@ -122,6 +129,7 @@ type SidebarProps = {
   onWheelRows: (event: WheelEvent) => void;
   sticky: StickyLayout;
   sidebarColumns: SidebarColumnsPreference;
+  chartTopBannerHeight: number;
 };
 
 export function Sidebar({
@@ -153,6 +161,7 @@ export function Sidebar({
   milestoneBandLayout,
   milestones,
   memberCatalog,
+  statuses,
   onToggleCollapse,
   onOpenTaskNote,
   onTaskContextMenu,
@@ -171,6 +180,7 @@ export function Sidebar({
   onWheelRows,
   sticky,
   sidebarColumns,
+  chartTopBannerHeight,
 }: SidebarProps) {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -198,6 +208,18 @@ export function Sidebar({
         }),
       ),
     [memberCatalog, rows],
+  );
+
+  const statusChars = useMemo(
+    () =>
+      statusColumnChars(
+        rows.flatMap((row) => {
+          if (row.type !== "task") return [];
+          const display = resolveStatusSidebarDisplay(statuses, row.task.status);
+          return [statusSidebarColumnLabel(display)];
+        }),
+      ),
+    [rows, statuses],
   );
 
   const contentHeight = useMemo(
@@ -555,6 +577,13 @@ export function Sidebar({
 
   return (
     <div className="sidebar" ref={sidebarRef}>
+      {chartTopBannerHeight > 0 ? (
+        <div
+          className="sidebar-chart-banner-spacer"
+          style={{ height: chartTopBannerHeight }}
+          aria-hidden="true"
+        />
+      ) : null}
       <div className="sidebar-header">WBS / タスク</div>
       {milestoneBandHeight > 0 ? (
         <div
@@ -596,6 +625,7 @@ export function Sidebar({
             height: contentHeight,
             transform: `translateY(${-scrollY}px)`,
             "--assignee-chars": String(assigneeChars),
+            "--status-chars": String(statusChars),
           } as CSSProperties}
         >
           {visibleRows.map((row) => {
@@ -671,6 +701,7 @@ export function Sidebar({
                 today={today}
                 milestones={milestones}
                 memberCatalog={memberCatalog}
+                statuses={statuses}
                 onOpenTaskNote={() => onOpenTaskNote(row.task.id)}
                 onTaskContextMenu={(x, y) => onTaskContextMenu(row.task.id, x, y)}
                 onGripPointerDown={(event) => beginRowDrag("task", row.task.id, event)}
@@ -745,10 +776,12 @@ export function Sidebar({
             rows={rows}
             rowHeight={rowHeight}
             assigneeChars={assigneeChars}
+            statusChars={statusChars}
             selectedTaskIds={selectedTaskIds}
             today={today}
             milestones={milestones}
             memberCatalog={memberCatalog}
+            statuses={statuses}
             sidebarColumns={sidebarColumns}
           />
         ) : null}
@@ -1114,6 +1147,7 @@ function TaskSidebarRow({
   today,
   milestones,
   memberCatalog,
+  statuses,
   onOpenTaskNote,
   onTaskContextMenu,
   onSelect,
@@ -1130,6 +1164,7 @@ function TaskSidebarRow({
   today: string;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
+  statuses: readonly StatusItem[];
   sidebarColumns: SidebarColumnsPreference;
   onOpenTaskNote: () => void;
   onTaskContextMenu: (x: number, y: number) => void;
@@ -1181,12 +1216,13 @@ function TaskSidebarRow({
       />
       <div className="sidebar-row-body">
       <TaskNoteButton task={task} onOpen={onOpenTaskNote} />
-      <NameLabel text={task.name} overdue={isOverdue(task, today)} />
+      <NameLabel text={task.name} overdue={isOverdue(task, today, statuses)} />
       <span className="sidebar-trail">
         {sidebarColumns.start ||
         sidebarColumns.end ||
         sidebarColumns.duration ||
-        sidebarColumns.progress ? (
+        sidebarColumns.progress ||
+        sidebarColumns.status ? (
           <span className="sidebar-cols">
             {sidebarColumns.start ? (
               <span className="sidebar-col start" title="開始">
@@ -1207,6 +1243,9 @@ function TaskSidebarRow({
               <span className="sidebar-col progress" title="進捗">
                 {task.progress}%
               </span>
+            ) : null}
+            {sidebarColumns.status ? (
+              <StatusSidebarCell statuses={statuses} statusId={task.status} />
             ) : null}
           </span>
         ) : null}
@@ -1237,25 +1276,54 @@ function TaskSidebarRow({
   );
 }
 
+function StatusSidebarCell({
+  statuses,
+  statusId,
+}: {
+  statuses: readonly StatusItem[];
+  statusId: string;
+}) {
+  const display = resolveStatusSidebarDisplay(statuses, statusId);
+  if (display.kind === "known") {
+    return (
+      <span className="sidebar-col status" title={display.label}>
+        {display.label}
+      </span>
+    );
+  }
+  const label = `一覧に無いステータス、${display.id}`;
+  return (
+    <span className="sidebar-col status status-col-unknown" title={display.id}>
+      <span className="status-unknown-badge" aria-label={label}>
+        {display.id}
+      </span>
+    </span>
+  );
+}
+
 function SidebarDragGhost({
   ghost,
   rows,
   rowHeight,
   assigneeChars,
+  statusChars,
   selectedTaskIds,
   today,
   milestones,
   memberCatalog,
+  statuses,
   sidebarColumns,
 }: {
   ghost: { kind: "category" | "group" | "task"; id: ScheduleId; top: number };
   rows: VisibleRow[];
   rowHeight: number;
   assigneeChars: number;
+  statusChars: number;
   selectedTaskIds: ReadonlySet<ScheduleId>;
   today: string;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
+  statuses: readonly StatusItem[];
   sidebarColumns: SidebarColumnsPreference;
 }) {
   const block = useMemo(
@@ -1274,6 +1342,7 @@ function SidebarDragGhost({
           top: ghost.top,
           height: block.length * rowHeight,
           "--assignee-chars": String(assigneeChars),
+          "--status-chars": String(statusChars),
         } as CSSProperties
       }
       aria-hidden="true"
@@ -1327,6 +1396,7 @@ function SidebarDragGhost({
             today={today}
             milestones={milestones}
             memberCatalog={memberCatalog}
+            statuses={statuses}
             onOpenTaskNote={() => {}}
             onTaskContextMenu={() => {}}
             onSelect={() => {}}

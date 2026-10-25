@@ -1,5 +1,6 @@
 import { addDays, isoDate, parseDate } from "./dates";
 import { hatchStripeColor } from "./hatch";
+import type { StatusItem } from "./statusCatalog";
 import { barColors } from "./timeline";
 import type { ResolvedColorScheme } from "./palette";
 import type { Task } from "./types";
@@ -137,8 +138,9 @@ export function excelTaskBarFillStyle(
   task: Task,
   today: string,
   colorScheme: ResolvedColorScheme,
+  statuses?: readonly StatusItem[],
 ): ExcelBarFillStyle {
-  const colors = barColors(task, today, colorScheme);
+  const colors = barColors(task, today, colorScheme, statuses);
   const tentative = task.confidence === "tentative";
   return {
     fillRgb: colors.bg.replace("#", ""),

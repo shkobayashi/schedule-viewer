@@ -1,5 +1,11 @@
 import type { SearchField } from "./scheduleFilterPersistence";
 import { resolveAssigneeDisplay } from "./assigneeDisplay";
+import {
+  BUILTIN_STATUS_ITEMS,
+  normalizeStatusItem,
+  statusLabel,
+  type StatusItem,
+} from "./statusCatalog";
 import type { Member, MemberId } from "./memberTypes";
 import {
   findTaskById,
@@ -61,17 +67,40 @@ export type McpActiveFilterCondition =
   | { type: "searchNote"; query: string }
   | { type: "lineage"; taskId: ScheduleId; taskName: string };
 
+/** タスクの `status` が書く `id` の意味。LLM が `id` を選ぶ手がかり。 */
+export type McpStatusEntry = {
+  id: string;
+  name: string;
+  role: StatusItem["role"];
+  description: string;
+  instruction?: string;
+};
+
+export function statusEntriesForMcp(
+  statuses: readonly StatusItem[],
+): McpStatusEntry[] {
+  return statuses.map((item) => {
+    const { id, name, role, description, instruction } = normalizeStatusItem(item);
+    const entry: McpStatusEntry = { id, name, role, description };
+    if (instruction) entry.instruction = instruction;
+    return entry;
+  });
+}
+
 export type FilteredTasksMcpPayload = {
+  statuses: McpStatusEntry[];
   activeConditions: McpActiveFilterCondition[];
   tasks: ScreenContextTask[];
 };
 
 export type SelectedTaskMcpPayload = {
+  statuses: McpStatusEntry[];
   selectedTaskId: ScheduleId | null;
   selectedTask: ScreenContextTask | null;
 };
 
 export type SelectedTasksMcpPayload = {
+  statuses: McpStatusEntry[];
   selectedTasks: ScreenContextTask[];
 };
 
@@ -85,13 +114,6 @@ export type ScheduleDiffMcpPayload = {
 export type McpToolResultBody = {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;
-};
-
-const STATUS_LABELS: Record<Exclude<StatusFilter, "all">, string> = {
-  "not-done": "完了以外",
-  "not-started": "未着手",
-  "in-progress": "進行中",
-  done: "完了",
 };
 
 const CONFIDENCE_LABELS: Record<Exclude<ConfidenceFilter, "all">, string> = {
@@ -127,6 +149,7 @@ export function buildActiveFilterConditions(input: {
   lineageTaskId: ScheduleId | null;
   categories: Category[];
   memberCatalog: Map<MemberId, Member> | null;
+  statuses?: readonly StatusItem[];
 }): McpActiveFilterCondition[] {
   const conditions: McpActiveFilterCondition[] = [];
   const { filters } = input;
@@ -155,7 +178,10 @@ export function buildActiveFilterConditions(input: {
     conditions.push({
       type: "status",
       value: filters.status,
-      label: STATUS_LABELS[filters.status],
+      label:
+        filters.status === "not-done"
+          ? "完了以外"
+          : statusLabel(input.statuses ?? BUILTIN_STATUS_ITEMS, filters.status),
     });
   }
 
@@ -272,15 +298,19 @@ export function buildFilteredTasksPayload(input: {
   today: string;
   memberCatalog: Map<MemberId, Member> | null;
   lineageIds: ReadonlySet<ScheduleId> | null;
+  statuses?: readonly StatusItem[];
 }): FilteredTasksMcpPayload {
+  const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
   const matched = listTasksMatchingFilter(
     input.categories,
     input.filters,
     input.today,
     input.memberCatalog,
     input.lineageIds,
+    statuses,
   );
   return {
+    statuses: statusEntriesForMcp(statuses),
     activeConditions: buildActiveFilterConditions({
       filters: input.filters,
       hiddenMilestoneGroupIds: input.hiddenMilestoneGroupIds,
@@ -289,6 +319,7 @@ export function buildFilteredTasksPayload(input: {
       lineageTaskId: input.lineageTaskId,
       categories: input.categories,
       memberCatalog: input.memberCatalog,
+      statuses,
     }),
     tasks: matched.map(taskToContext),
   };
@@ -301,13 +332,16 @@ export function buildSelectedTaskPayload(input: {
   memberCatalog: Map<MemberId, Member> | null;
   lineageIds: ReadonlySet<ScheduleId> | null;
   selectedTaskId: ScheduleId | null;
+  statuses?: readonly StatusItem[];
 }): SelectedTaskMcpPayload {
+  const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
   const matched = listTasksMatchingFilter(
     input.categories,
     input.filters,
     input.today,
     input.memberCatalog,
     input.lineageIds,
+    statuses,
   );
   const selectedTask = resolveSelectedTask(
     input.categories,
@@ -315,6 +349,7 @@ export function buildSelectedTaskPayload(input: {
     input.selectedTaskId,
   );
   return {
+    statuses: statusEntriesForMcp(statuses),
     selectedTaskId: input.selectedTaskId,
     selectedTask,
   };
@@ -323,10 +358,14 @@ export function buildSelectedTaskPayload(input: {
 export function buildSelectedTasksPayload(input: {
   categories: Category[];
   selectedTaskIds: readonly ScheduleId[];
+  statuses?: readonly StatusItem[];
 }): SelectedTasksMcpPayload {
+  const statusEntries = statusEntriesForMcp(
+    input.statuses ?? BUILTIN_STATUS_ITEMS,
+  );
   const selected = new Set(input.selectedTaskIds);
   if (selected.size === 0) {
-    return { selectedTasks: [] };
+    return { statuses: statusEntries, selectedTasks: [] };
   }
   const selectedTasks: ScreenContextTask[] = [];
   for (const cat of input.categories) {
@@ -344,7 +383,7 @@ export function buildSelectedTasksPayload(input: {
       }
     }
   }
-  return { selectedTasks };
+  return { statuses: statusEntries, selectedTasks };
 }
 
 export function buildScheduleDiffPayload(input: {

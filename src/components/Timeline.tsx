@@ -42,6 +42,7 @@ import {
   type LinkPolyline,
 } from "../model/dependencies";
 import { useTimelinePointer } from "../hooks/useTimelinePointer";
+import type { StatusItem } from "../model/statusCatalog";
 import {
   barColors,
   barLabelFill,
@@ -125,6 +126,7 @@ type TimelineProps = {
   diffMarkedMilestoneId?: ScheduleId | null;
   diffMarkStrokeWidth?: number;
   today: string;
+  statuses: readonly StatusItem[];
   memberCatalog: Map<MemberId, Member> | null;
   calendar: CalendarDocument | null;
   colorScheme: ResolvedColorScheme;
@@ -299,6 +301,7 @@ function TaskBar({
   dragWidth,
   chart,
   today,
+  statuses,
   memberCatalog,
   colorScheme,
   tier,
@@ -334,6 +337,7 @@ function TaskBar({
   dragWidth?: number;
   chart: ChartPalette;
   today: string;
+  statuses: readonly StatusItem[];
   memberCatalog: Map<MemberId, Member> | null;
   colorScheme: ResolvedColorScheme;
   tier: "day" | "week" | "month";
@@ -343,14 +347,14 @@ function TaskBar({
   const x = dragLeft ?? dateToX(start);
   const w = dragWidth ?? taskBarWidthPx(task, dateToX, pxPerDay);
   const barY = y + (rowHeight - barHeight) / 2;
-  const colors = barColors(task, today, colorScheme);
+  const colors = barColors(task, today, colorScheme, statuses);
   const assigneeDisplay = resolveAssigneeDisplay(task.assigneeId, memberCatalog);
   const assigneeLabel = assigneeSidebarLabel(assigneeDisplay);
   const stroke = colors.border;
   const fontSize = Math.max(10, Math.round(barHeight * 0.55));
   const labelInside =
     w >= 72 && tier !== "month"
-      ? `${task.name}${task.status === "in-progress" ? ` ${task.progress}%` : ""}`
+      ? `${task.name}${task.progress > 0 ? ` ${task.progress}%` : ""}`
       : null;
   const labelOutside =
     tier === "month" || w < 72
@@ -668,7 +672,7 @@ function TaskBar({
         fillPatternRepeat="repeat"
         cornerRadius={4}
       />
-      {task.status === "in-progress" && colors.fill ? (
+      {task.progress > 0 && colors.fill ? (
         <Rect
           width={w * (task.progress / 100)}
           height={barHeight}
@@ -715,7 +719,7 @@ function TaskBar({
           text={labelInside}
           fontSize={fontSize}
           fontFamily={KONVA_FONT_FAMILY}
-          fill={barLabelFill(task, today, colorScheme)}
+          fill={barLabelFill(task, today, colorScheme, statuses)}
           wrap="none"
           ellipsis
           listening={false}
@@ -966,11 +970,11 @@ function ResizeHandles({
 
   const syncFillWidth = useCallback(
     (barWidth: number) => {
-      if (task.status === "in-progress" && fillRef.current) {
+      if (task.progress > 0 && fillRef.current) {
         fillRef.current.width(barWidth * (task.progress / 100));
       }
     },
-    [task.progress, task.status],
+    [task.progress],
   );
 
   const cancelSelectedResize = useCallback(() => {
@@ -1003,7 +1007,7 @@ function ResizeHandles({
       }}
     >
       <Rect ref={bgRef} width={w} height={barHeight} visible={false} />
-      {task.status === "in-progress" ? (
+      {task.progress > 0 ? (
         <Rect
           ref={(node) => {
             fillRef.current = node;
@@ -1468,6 +1472,7 @@ export function Timeline({
   diffMarkedMilestoneId = null,
   diffMarkStrokeWidth = 3,
   today,
+  statuses,
   memberCatalog,
   calendar,
   colorScheme,
@@ -1967,13 +1972,13 @@ export function Timeline({
       const y = row.y - scrollY + rowHeight / 2;
       const x =
         row.type === "task"
-          ? dateToX(parseDate(lightningDate(row.task, today)))
+          ? dateToX(parseDate(lightningDate(row.task, today, statuses)))
           : tx;
       points.push(x, y);
     }
     points.push(tx, bodyHeight);
     return points;
-  }, [bodyHeight, dateToX, rowHeight, scrollY, today, todayDate, visibleRows]);
+  }, [bodyHeight, dateToX, rowHeight, scrollY, statuses, today, todayDate, visibleRows]);
 
   const soleSelectedId =
     selectedTaskIds.size === 1 ? selectedTaskIds.values().next().value : null;
@@ -2796,6 +2801,7 @@ export function Timeline({
                     )?.barWidth
                   }
                   today={today}
+                  statuses={statuses}
                   memberCatalog={memberCatalog}
                   colorScheme={colorScheme}
                   tier={tier}

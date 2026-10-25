@@ -21,6 +21,10 @@
     "calendar": {
       "type": "string",
       "minLength": 1
+    },
+    "statuses": {
+      "type": "string",
+      "minLength": 1
     }
   }
 }

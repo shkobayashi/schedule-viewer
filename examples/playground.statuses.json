@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 2,
+  "statuses": [
+    {
+      "id": "not-started",
+      "name": "未着手",
+      "color": {
+        "light": { "bg": "#E2E6ED", "border": "#7d8799" },
+        "dark": { "bg": "#454b5c", "border": "#8a94a6" }
+      },
+      "role": "not-started",
+      "description": "開始日が来ていても、手を付けていなければこれにする。"
+    },
+    {
+      "id": "in-progress",
+      "name": "進行中",
+      "color": {
+        "light": { "bg": "#DEE3FB", "border": "#4C5FD5" },
+        "dark": { "bg": "#2e3344", "border": "#7b8cff" }
+      },
+      "role": "started",
+      "description": "手を付けていて、作業が残っている。"
+    },
+    {
+      "id": "done",
+      "name": "完了",
+      "color": {
+        "light": { "bg": "#247A55", "border": "#1F6B4A" },
+        "dark": { "bg": "#3d9a72", "border": "#4cb088" }
+      },
+      "role": "done",
+      "description": "作業は終わり、再開も確認も残っていない。"
+    }
+  ]
+}

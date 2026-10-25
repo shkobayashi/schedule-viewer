@@ -81,12 +81,13 @@ flowchart TD
 | `useTimelineView` | 1日あたりの幅、スクロール、ホイール。キーの `scrollBy` は `useAppKeyboard` から呼ぶ |
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
+| `useStatusCatalog` | ステータス一覧の読み込みと選択。無いときは組み込みの三件 |
 | `useAppCalendar` | カレンダーの読み込み |
 | `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 5 ツールを組み立てる（`window` は橋渡しで外れる）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・操作中）と引数を検証し、`useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
 
 ### モデル
 
-純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` と `sidebarWidth.ts` の localStorage だけである。
+純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`statusAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` と `sidebarWidth.ts` の localStorage だけである。
 
 | 関心 | ファイル |
 | --- | --- |
@@ -106,7 +107,7 @@ flowchart TD
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
-| アプリデータ | `memberAppData.ts`、`calendarAppData.ts` |
+| アプリデータ | `memberAppData.ts`、`statusAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportExcel.ts`、`exportView.ts`、`exportFilename.ts` |
 | 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts` |
 | キーボードショートカット | `shortcuts.ts` |
@@ -149,7 +150,7 @@ flowchart TD
   accept --> replace
 ```
 
-開く成功のあと、デスクトップ版だけ `record_recent_files` で `recent-files.json` を更新する。スケジュールと設定ファイルは別配列である。起動時に前回のウィンドウを載せるとき、前面化だけのとき、`replace_schedule` では足さない。履歴から開くときも `runOpenFromPath` と `applyOpenedFile` の既存経路を使う。設定ファイルは `classifyOpenedJson` で開き分け、`accept_opened_workspace` で `open-windows.json` に `workspacePath` を書き、`loadWorkspaceBinding` が相対パス先を読む。表示は `useWorkspaceBinding` と `App.tsx` の `displayMembers` / `displayCalendar` が束縛を優先する。`export_workspace_bundle` がフォルダ書き出しを行う。
+開く成功のあと、デスクトップ版だけ `record_recent_files` で `recent-files.json` を更新する。スケジュールと設定ファイルは別配列である。起動時に前回のウィンドウを載せるとき、前面化だけのとき、`replace_schedule` では足さない。履歴から開くときも `runOpenFromPath` と `applyOpenedFile` の既存経路を使う。設定ファイルは `classifyOpenedJson` で開き分け、`accept_opened_workspace` で `open-windows.json` に `workspacePath` を書き、`loadWorkspaceBinding` が相対パス先を読む。表示は `useWorkspaceBinding` と `App.tsx` の `displayMembers` / `displayStatuses` / `displayCalendar` が束縛を優先する。`export_workspace_bundle` がフォルダ書き出しを行う。
 
 ブラウザ版はダイアログの代わりにファイル選択を使い、`accept_opened_schedule` は呼ばない。
 
@@ -217,10 +218,11 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 5. schemaVersion 5 のマイルストンに確度が無いときは `committed` を足す。既にある `confidence` はそのまま残す
 6. schemaVersion 5 なら、マイルストンが1件以上あるときは名前「マイルストン」の `milestoneGroups` を1つ足し、全部のマイルストンに `groupId` を付けて schemaVersion 6 にする。その ID は名前から決まり、カテゴリ、グループ、タスク、マイルストンの ID とぶつかったときだけ別にする。マイルストンが0件なら `milestoneGroups` は空のままである
 7. schemaVersion 6 なら schemaVersion 7 にする。タグは付けない
-8. JSON Schema（schemaVersion 7）
-9. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）。ID はカテゴリ、グループ、タスク、マイルストン、マイルストングループを通して重複できない
+8. schemaVersion 7 なら schemaVersion 8 にする。`status` の値は変えない
+9. JSON Schema（schemaVersion 8）
+10. 意味規則（ID の重複、先行の実在、循環など、スキーマでは表せない規則）。ID はカテゴリ、グループ、タスク、マイルストン、マイルストングループを通して重複できない
 
-メンバーとカレンダーも、JSON Schema のあとに意味規則を見る。`validationMessages.ts` は、エラーの場所を示す JSON Pointer をカテゴリやタスクの名前に置き換えて、エラー文言を作る。
+メンバー、ステータス一覧、カレンダーも、JSON Schema のあとに意味規則を見る。ステータス一覧は `validateStatuses.ts` が見る。`validationMessages.ts` は、エラーの場所を示す JSON Pointer をカテゴリやタスクの名前に置き換えて、エラー文言を作る。
 
 `write-schedule`、`write-calendar`、`write-members` に同梱する検証スクリプトは、`scripts/build-validate-skill.mjs` が同じ検証を1ファイルにまとめて作る。このスクリプトは、スキーマもスキルのフォルダへコピーする。CI は、その結果がコミット済みと一致するかを見る。手順は [開発ガイド](development.md#スキーマを変えるとき) にある。
 
@@ -244,6 +246,15 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `import_member_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
 | `delete_member_catalog` | ID | — | 同上 | 同上 |
 | `set_selected_member_catalog` | ID または無し | — | 同上 | 同上 |
+| `get_statuses_settings` | 一覧の一覧と選択中 ID | — | `statuses-app-data.toml` | `statusAppData.ts` |
+| `read_status_catalog` | 一覧 ID。本文 | 2MB | 同上 | 同上 |
+| `import_status_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
+| `delete_status_catalog` | ID | — | 同上 | 同上 |
+| `set_selected_status_catalog` | ID または無し | — | 同上 | 同上 |
+| `claim_status_catalog_edit` | 一覧 ID または設定ファイルの `statuses` の絶対パス。取得できたか、他ウィンドウのラベル | — | `status-catalog-edit.toml` | `statusAppData.ts` |
+| `release_status_catalog_edit` | 一覧 ID または無し（無しはこのウィンドウのすべて） | — | 同上 | 同上 |
+| `save_statuses_json` | 本文、提案名。保存したパス | 2MB | 同上 | `statusAppData.ts` の `exportStatusesJson` |
+| `write_statuses_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `statuses` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致 | `write-statuses-at-path.toml` | `statusAppData.ts` の `writeStatusesAtPath` |
 | `get_calendar_state` | 表示名 | — | `calendar-app-data.toml` | `calendarAppData.ts` |
 | `read_app_calendar` | 本文 | 2MB | 同上 | 同上 |
 | `import_app_calendar` | 表示名と本文 | 2MB | 同上 | 同上 |
@@ -332,7 +343,7 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 
 ## 描画
 
-`Timeline.tsx` は日付ヘッダー、本体、前後の線、親バー、タスクバー、イナズマ線を Konva で描く。月表示の日付ヘッダーは、左端の固定ラベルと各月1日のラベルを描き、横に重なる月の文字だけを `monthHeader.ts` の `visibleMonthHeaderLabels` で省く。月の縦線は残す。未確定のタスクバーの地は、`hatch.ts` の斜線パターンである。確定はベタ塗りである。進捗の濃い帯は斜線の上にベタで描く。書き出しの SVG も同じ定数の `pattern` を使う。マイルストン帯は `MilestoneBand.tsx` で、`milestoneGroups` の順にグループごとに積む。段は `milestones.ts` の `layoutMilestoneBand` が決める。未確定のひし形も同じ斜線で、確定は塗りつぶす。左の名前と追加列は DOM の `Sidebar.tsx` で、縦位置だけをチャートと揃える。追加列の月日は `dates.ts` の `fmtMonthDay` で `09/19` にする。担当列の文字数は `assigneeDisplay.ts` の `assigneeColumnChars` で、見えているタスクのラベルから決める。超過の有無で列は動かさない。左の一覧の行の上のホイールは、`useTimelineView` の `handleWheel` をチャート本体と同じく呼ぶ。縦横の量の分け方は `wheelScroll.ts` の `resolveWheelScroll` である。ズームの基準はチャートの左端である。`Sidebar.tsx` は `passive: false` で受け、既定のスクロールは止める。縦スクロールで残すカテゴリとグループは `stickyRows.ts` の `layoutStickyHeaders` が決める。左は、その行をスクロール層から外し、ビューポート上端のオーバーレイに同じ行として描く。右は、スクロールする本体を `clipTop` より下だけ描き、固定層には同じ地、非稼働日、縦格子、下端の線、親バーを、その行のクリップ矩形の中だけ描く。親バーの x は `dateToX` のままである。ポインタの y が `clipTop` 未満のときは、`resolveChartHover` がタスクと線に当てない。書き出しは行の y も並びも変えない。一覧の幅は `--sidebar-w` に、希望の基準幅をチャート余白で縮めた値を入れ、表示倍率を掛けて描く。右端の境界をドラッグすると希望の基準幅が変わる。表示が動かないドラッグでは希望幅を変えない。境界にフォーカスがあるとき、修飾キーの無い左右キーは幅を変える。⌘ または Ctrl がある左右は幅を変えず、チャートの横スクロールになる。そこに Shift または Alt も一緒のときは、幅もスクロールも変えない。
+`Timeline.tsx` は日付ヘッダー、本体、前後の線、親バー、タスクバー、イナズマ線を Konva で描く。月表示の日付ヘッダーは、左端の固定ラベルと各月1日のラベルを描き、横に重なる月の文字だけを `monthHeader.ts` の `visibleMonthHeaderLabels` で省く。月の縦線は残す。未確定のタスクバーの地は、`hatch.ts` の斜線パターンである。確定はベタ塗りである。進捗の濃い帯は斜線の上にベタで描く。書き出しの SVG も同じ定数の `pattern` を使う。マイルストン帯は `MilestoneBand.tsx` で、`milestoneGroups` の順にグループごとに積む。段は `milestones.ts` の `layoutMilestoneBand` が決める。未確定のひし形も同じ斜線で、確定は塗りつぶす。左の名前と追加列は DOM の `Sidebar.tsx` で、縦位置だけをチャートと揃える。追加列の月日は `dates.ts` の `fmtMonthDay` で `09/19` にする。担当列の文字数は `assigneeDisplay.ts` の `assigneeColumnChars` で、見えているタスクのラベルから決める。ステータス列の文字数は `statusDisplay.ts` の `statusColumnChars` で、行に出ているタスクの表示名または `id` から決める。超過の有無で列は動かさない。一覧に無いステータスと担当の判定は `catalogMismatch.ts` の `catalogMismatchKind` が、文書の全タスクと、画面に渡しているステータス一覧とメンバー Map から行う。帯の文は `catalogMismatchBannerText` である。帯の地と文字は `--unknown-bg` と `--unknown-text` である。支援技術向けの読み上げは、画面に出さない `aria-live` 領域を常時置き、不一致の種類が変わったときだけ文を差し替える。帯は `App.tsx` の `.chart-top-banners` にまとめ、`.timeline-slot` の先頭に置く。不一致の帯は線を引く `.link-banner` より上である。その実高さを `ResizeObserver` で測り、`Sidebar.tsx` の見出しの上に同じ高さの空きを置き、チャート本体の高さと最大縦スクロールからも引く。帯が無いときは空きも 0 である。ステータス列の幅は文字数に札の左右余白を足し、札は列の内側で省略する。左の一覧の行の上のホイールは、`useTimelineView` の `handleWheel` をチャート本体と同じく呼ぶ。縦横の量の分け方は `wheelScroll.ts` の `resolveWheelScroll` である。ズームの基準はチャートの左端である。`Sidebar.tsx` は `passive: false` で受け、既定のスクロールは止める。縦スクロールで残すカテゴリとグループは `stickyRows.ts` の `layoutStickyHeaders` が決める。左は、その行をスクロール層から外し、ビューポート上端のオーバーレイに同じ行として描く。右は、スクロールする本体を `clipTop` より下だけ描き、固定層には同じ地、非稼働日、縦格子、下端の線、親バーを、その行のクリップ矩形の中だけ描く。親バーの x は `dateToX` のままである。ポインタの y が `clipTop` 未満のときは、`resolveChartHover` がタスクと線に当てない。書き出しは行の y も並びも変えない。一覧の幅は `--sidebar-w` に、希望の基準幅をチャート余白で縮めた値を入れ、表示倍率を掛けて描く。右端の境界をドラッグすると希望の基準幅が変わる。表示が動かないドラッグでは希望幅を変えない。境界にフォーカスがあるとき、修飾キーの無い左右キーは幅を変える。⌘ または Ctrl がある左右は幅を変えず、チャートの横スクロールになる。そこに Shift または Alt も一緒のときは、幅もスクロールも変えない。
 
 前後の線は `dependencies.ts` の `linkPoints` である。間隔があるときは先行の右端から 12px 右で折れ、後続の左端へ入る。右へ出る余地が頭の長さより狭いときは、先行バーの外側を回ってから左端の手前で右を向く。最後の区間は右向きで、頭（`LINK_POINTER_LENGTH`）が後続バーの外に残る。画面の Arrow と書き出しの marker はその長さを共有する。線はバーより先に描く。
 
@@ -373,9 +384,11 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 | ドラッグ中の日付 | `dragDates.ts` の `layoutDragDateChips` と `previewDatesForDrag` | 開始と終了を月/日で、棒と互いの地と他の棒を避けて置く。離したときに入る日に数字を合わせる |
 | ドラッグ中の線の色 | `dragDates.ts` の `previewLinkBroken` | 触っているタスクが端の線だけ、preview の日付で破綻を見る |
 | 親バー | `summary.ts` の `summarizeSpans` | 開始順に並べ、次が前の終了の翌日以前ならつなぐ。1日空くと分ける。見えているタスクだけを渡す |
-| 左の行の進捗 | `progressRollup.ts` の `categoryRollupPercent` と `groupRollupPercent` | 配下タスクを同じ重さで平均し四捨五入。完了は 100。絞り込み・折りたたみ・系統で隠れたタスクも含む。親バーとは別 |
-| イナズマ線 | `timeline.ts` の `lightningDate` | 期限超過なら終了日。着手済みで開始が今日より後なら開始日。それ以外は今日 |
-| 期限超過 | `timeline.ts` の `isOverdue` | 完了以外で終了日が今日より前 |
+| 左の行の進捗 | `progressRollup.ts` の `categoryRollupPercent` と `groupRollupPercent` | 配下タスクを同じ重さで平均し四捨五入。`status` が `done` のタスクは 100。それ以外は進捗欄の数字。絞り込み・折りたたみ・系統で隠れたタスクも含む。親バーとは別 |
+| イナズマ線 | `timeline.ts` の `lightningDate` | 項目の `role` と開始・終了・今日。一覧に無い `id` はどの期間でも今日 |
+| 期限超過 | `timeline.ts` の `isOverdue` | 未着手と着手済みで終了が今日より前。完了、管理外、一覧に無い `id` は超過にしない |
+| ステータスの編集 | `statusEdit.ts`、`statusCatalogEditHistory.ts` と `useStatusCatalogEditorOverlay` | 項目の追加、更新、並べ替え、削除（最後の1件は外さない）、一覧 ID の採番、保存前の検証。覆いの `StatusCatalogEditorPanel` が下書きを持つ。覆いを開いてから閉じるまでの取り消しは `statusCatalogEditHistory.ts` が項目の配列と選んでいる `id` を最大 100 段で持つ。色の連続変更は離すまで 1 段にまとめる。保存と「新しい一覧」「コピーして作る」は `saveCatalog` でアプリデータへ書く。「外す」は `removeCatalog` でアプリデータから消す。覆いからの外しでは覆いを閉じず、残った一覧の先頭を開く。設定の外しと他ウィンドウの外しでは、編集中の一覧が消えたときに覆いを閉じる。使用中の切り替えは変えない。設定ファイルモードは `writeStatusesAtPath` |
+| ステータスの色 | `statusCatalog.ts` の `statusColorFor` と `timeline.ts` の `barColors` | 一覧の項目の色。無い `id` は中立色。期限超過は枠だけ赤。文字色は `labelColorOn` が地の明るさで決める |
 | マイルストン超過 | `milestones.ts` の `milestonesExceededBy` | 終了日が対応マイルストンの日付より後 |
 | マイルストンの編集 | `milestones.ts` の `applyMilestoneEdit` | 名前、日付、確度、`groupId` を1件だけ書く。配列の位置と `id` は残す。未知の `groupId` は元のまま |
 | 帯の縦位置のグループ | `milestones.ts` の `milestoneGroupIdAtBandY` | 見えている帯ブロックの `offsetY` と `height` で、右クリック追加の初期グループを決める |
@@ -399,6 +412,6 @@ npm スクリプトと CI の分岐は [開発ガイド](development.md#npm-ス�
 - `rows.ts` の `ROW_HEIGHT` と `layoutSizes.ts` の `LAYOUT_ROW_HEIGHT` は、どちらも 32 で二重に定義されている。画面が使うのは、`App.tsx` が `scaledLayoutSizes` から渡す高さである
 - 書き出しは、表示中の Konva を撮るのではなく、モデルから SVG を組み立て直す。見た目は近づけるが、別の実装である
 - `mockup/schedule-viewer-mockup.html` は初期の検証用で、アプリからは参照しない。ESLint の対象外である
-- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。schemaVersion 5 のマイルストンに確度が無いときは `committed` を足し、続けて schemaVersion 7 に上げる。schemaVersion 6 はタグなしのまま 7 に上げる。未保存の比較は、その schemaVersion 7 の保存形式である。実際に開けるのは 3〜7 である
+- schemaVersion 1 の移行関数はあるが、移行結果の 2 は必ず拒否する。schemaVersion 3 は確度が無いタスクを `committed` にしてから、schemaVersion 4 と同じくカテゴリとグループへ名前から決まる ID を付ける。schemaVersion 5 のマイルストンに確度が無いときは `committed` を足し、続けて schemaVersion 7 に上げる。schemaVersion 6 はタグなしのまま 7 に上げる。schemaVersion 7 は `status` の値を変えずに 8 に上げる。未保存の比較は、その schemaVersion 8 の保存形式である。実際に開けるのは 3〜8 である
 - 取り消しはドラッグの途中では積まない。離したときの確定が1ステップである
 - タスクの並べ替えと別グループへの移動は `tasks.ts` の `reorderTaskInGroup` と `moveTaskToGroup`、`taskOrder.ts` の `resolveTaskDropTarget` が挿入位置と兄弟の可視性を決める。同じグループの挿入位置は、動かしているタスクを除いたあとである。折りたたんだグループ行は候補にしない。グループの並べ替えと別カテゴリへの移動は `tasks.ts` の `moveGroupToCategory` と `groupOrder.ts` の `resolveGroupDropTarget` が挿入位置と、同じカテゴリのグループが全部行に出ているかを決める。名前が重なる位置と、元のカテゴリのグループが無くなる位置は候補にしない。カテゴリとグループの追加と削除は `tasks.ts` の純粋関数と `useSchedule` が確定する。カテゴリの並べ替えは `tasks.ts` の `reorderCategories` と `categoryOrder.ts` が挿入位置と、行に出ているカテゴリが全部かを決める。ドラッグ中は `useSchedule` が `reorderPreview` で行だけを仮表示し、離したときに `commitCategories` で1件積む。並べ替えを始めるのは各行の左端の握りだけで、`taskOrder.ts` の `classifyHandleDrag` が 3px を超えたかを見る。方向は問わない。3px 以内で離した握りは何もせず、選択を変えない。握りの右クリックも `RowGrip` が止める。並べ替え中は、`rows.ts` の `reorderDragBlockRows` が、いま見えている行の並びから半透明の塊を決め、`Sidebar.tsx` がその塊をポインタの縦位置に描く。タスクは1行、グループは見えている配下のタスク行まで、カテゴリは見えている配下のグループ行とタスク行まで含める。左の一覧の仮の位置では、塊に入った行の中身は出さない。

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "schedule": "mismatch.schedule.json",
+  "members": "mismatch.members.json",
+  "statuses": "mismatch.statuses.json"
+}

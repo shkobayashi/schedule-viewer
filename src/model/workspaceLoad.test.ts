@@ -12,9 +12,11 @@ function binding(
       schedulePath: "/proj/client/plan.json",
       membersPath: null,
       calendarPath: null,
+      statusesPath: null,
     },
     members: { kind: "unset" },
     calendar: { kind: "unset" },
+    statuses: { kind: "unset" },
     ...partial,
   };
 }
@@ -24,5 +26,6 @@ describe("workspaceBindingSummary", () => {
     const summary = workspaceBindingSummary(binding({}));
     expect(summary.membersLabel).toBe("未選択");
     expect(summary.calendarLabel).toBe("未設定（土日を塗る）");
+    expect(summary.statusesLabel).toBe("組み込みの三件");
   });
 });

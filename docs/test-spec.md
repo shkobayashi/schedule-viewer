@@ -43,6 +43,18 @@
 
 | ファイル | ケース | 機能 ID |
 | --- | --- | --- |
+| `catalogMismatch.test.ts` | `reports status only when a task has an id missing from the catalog` | VIEW-13 |
+| 同上 | `reports assignee only when a task has an id missing from the member catalog` | VIEW-13 |
+| 同上 | `reports both when status and assignee are missing from their catalogs` | VIEW-13 |
+| 同上 | `does not treat unassigned assignee as a mismatch` | VIEW-13 |
+| 同上 | `treats any assignee id as unknown when no catalog is selected` | VIEW-13 |
+| 同上 | `returns null when every status and assignee resolves` | VIEW-13 |
+| 同上 | `scans the whole task list, not only tasks that would pass a filter` | VIEW-13 |
+| `statusDisplay.test.ts` | `uses at least three characters and caps at eight` | VIEW-13 |
+| 同上 | `shows the display name for a known id` | VIEW-13 |
+| 同上 | `shows the raw id for an unknown id` | VIEW-13 |
+| `viewPreferences.test.ts` | `treats a missing status key as off` | SET-01, VIEW-13 |
+| 同上 | `reads status when explicitly true` | SET-01, VIEW-13 |
 | `assigneeDisplay.test.ts` | `keeps null as unassigned` | VIEW-10 |
 | 同上 | `resolves a known id to the display name` | VIEW-10 |
 | 同上 | `marks an id missing from the catalog, including when none is selected` | VIEW-10 |
@@ -158,6 +170,55 @@
 | 同上 | `drops the oldest entry after 100 steps` | EDIT-10 |
 | 同上 | `undo and redo restore the document` | EDIT-10 |
 | 同上 | `clears the redo stack after a new edit` | EDIT-10 |
+| `statusesMigrate.test.ts` | `maps built-in ids before closed` | SET-08 |
+| 同上 | `maps other ids from closed` | SET-08 |
+| 同上 | `migrates schemaVersion 1 documents` | SET-08 |
+| 同上 | `accepts v1 and returns v2 roles` | SET-08 |
+| 同上 | `rejects v2 with closed` | SET-08 |
+| `statusCatalog.test.ts` | `keeps the ids and roles of the old three values` | SET-08, VIEW-02 |
+| 同上 | `validates as a statuses document` | SET-08 |
+| 同上 | `shows the id of an unknown status and treats it as neutral` | SET-08, VIEW-02 |
+| 同上 | `reads done from the item role` | VIEW-05 |
+| 同上 | `picks not-started as the default, else the first non-done item` | SET-08 |
+| 同上 | `picks the label color with the higher contrast` | VIEW-02 |
+| 同上 | `marks only not-started and started overdue after end` | VIEW-05 |
+| 同上 | `does not mark a task ending today overdue` | VIEW-05 |
+| 同上 | `keeps the status fill when overdue and only reddens the border` | VIEW-05 |
+| 同上 | `chooses a readable label color from the fill` | VIEW-02 |
+| 同上 | `folds by role and period` | VIEW-07 |
+| 同上 | `keeps unknown ids at today in every period` | VIEW-07 |
+| 同上 | `ignores progress` | VIEW-07 |
+| 同上 | `folds started tasks with a future start to the start date` | VIEW-07 |
+| 同上 | `does not place lightning past end when end is today` | VIEW-07 |
+| 同上 | `drops only done items for not-done` | FILTER-04 |
+| 同上 | `matches one id exactly, including ids added to the list` | FILTER-04 |
+| 同上 | `relaxes a status filter that hides a new task` | FILTER-04 |
+| 同上 | `computes visible rows with the catalog` | FILTER-04 |
+| 同上 | `rejects a duplicate id` | SET-08 |
+| 同上 | `rejects a color that is not a 6 digit hex value` | SET-08 |
+| 同上 | `rejects an empty list and a missing description` | SET-08 |
+| `statusEdit.test.ts` | `adds an item whose id does not collide` | SET-08 |
+| 同上 | `updates one item and keeps the other color scheme` | SET-08 |
+| 同上 | `moves an item and ignores moves past either end` | SET-08 |
+| 同上 | `never removes the last item` | SET-08 |
+| 同上 | `picks a free catalog id` | SET-08 |
+| 同上 | `writes JSON that validates` | SET-08 |
+| 同上 | `reports a blank name and a duplicate id` | SET-08 |
+| `statusCatalogEditHistory.test.ts` | `undoes one character at a time` | SET-08 |
+| 同上 | `coalesces identical snapshots` | SET-08 |
+| 同上 | `undoes a role change in one step` | SET-08 |
+| 同上 | `clears redo after a new edit` | SET-08 |
+| 同上 | `drops the oldest entry past the max` | SET-08 |
+| 同上 | `restores selection when undoing a delete` | SET-08 |
+| 同上 | `redoes after undo` | SET-08 |
+| `statusCatalogEditSession.test.ts` | `closes when the open catalog is removed` | SET-08 |
+| 同上 | `reloads when another window overwrites the open catalog` | SET-08 |
+| 同上 | `ignores self save reload` | SET-08 |
+| 同上 | `skips reload when saved and loaded items match` | SET-08 |
+| 同上 | `reloads when an item name changed` | SET-08 |
+| `screenContext.test.ts` | `puts the catalog first, once, without colors` | MCP-01 |
+| 同上 | `names the status filter from the catalog` | MCP-01 |
+| 同上 | `starts the filtered tasks payload with the catalog` | MCP-01 |
 | `memberAppData.test.ts` | `drops a leading BOM and leaves other text unchanged` | SET-02 |
 | 同上 | `stores imported JSON without a BOM and reads it back` | SET-02 |
 | 同上 | `imports the sample only once when two seeds overlap` | SET-02 |
@@ -713,7 +774,7 @@
 | モジュール | 状態 |
 | --- | --- |
 | `dependencies.ts` | 破綻の境界と系統は未テスト。線の追加、除去、当たりはテストしている。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でもテストしている |
-| `timeline.ts` | 期限超過、イナズマ線、ズーム段階は未テスト |
+| `timeline.ts` | ズーム段階は未テスト。期限超過とイナズマ線は `statusCatalog.test.ts` から `isOverdue` と `lightningDate` を間接的にテストしている |
 | `milestones.ts` | マイルストン超過と段の割り当ては未テスト。追加と削除はテストしている |
 | `rows.ts` | ノート、マイルストン、確度以外の絞り込み、`computeVisibleRows`、折りたたみは未テスト。追加と複製で外す絞り込みはテストしている |
 | `exportFilename.ts` | 未テスト。Rust 側が似たファイル名処理をテストしている |
@@ -728,7 +789,7 @@
 足すなら、手間のわりに効果が大きい次の順がよい。
 
 1. `dependencies.ts`。破綻の境界（同じ日は破綻でない）と系統
-2. `timeline.ts`。期限超過とイナズマ線
+2. `timeline.ts`。ズーム段階（期限超過とイナズマ線は `statusCatalog.test.ts` で一部あり）
 3. `rows.ts`。担当、ステータス、期限、破綻の組み合わせ
 4. `tasks.ts`。追加時に外す絞り込みと、削除時の先行の除去
 
@@ -747,6 +808,7 @@
 | `examples/playground.schedule.json` | サンプルと同じタスク構成（ノート無し）。マイルストン帯は3グループ・長い名前・同日重なり用。`tsx scripts/write-playground-schedule.ts` で再生成 | 引数なしの `check:schedule` では見ない |
 | `examples/playground.members.json` | サンプルと同じ4人 | `npm run check:members` |
 | `examples/jp-2026.calendar.json` | 土日と、非稼働日 18件。振替出勤は空 | `npm run check:calendar` |
+| `examples/lightning/workspace.json` | 四つの扱いと一覧に無い `id` の折れと赤。開始前・期間中・終了後は今日が 2026-10-23 から 2026-11-01 のあいだ。終了が今日の行は 2026-10-25 | 引数なしの check では見ない |
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
 
@@ -760,11 +822,11 @@
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01f | FILE-01 | サンプル | ☰ を開き、下、上、Home、End を押す | 最初の項目にフォーカスが移る。キーで項目を移動できる。Escape で閉じる |
 | TC-FILE-01b | FILE-01 | schemaVersion 2 の JSON がある | 「開く」で選ぶ | 開かず、理由が出る。それまでの保存先は変わらない |
-| TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 7 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
-| TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 7 になる |
-| TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 7 になる。タグを付けていないタスクに `tags` は無い |
-| TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバーとカレンダーがファイル由来になる。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとカレンダーだけ読み直す。起動し直すと設定ファイルのまま戻る |
-| TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとカレンダーを選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
+| TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 8 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
+| TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 8 になる |
+| TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 8 になる。タグを付けていないタスクに `tags` は無い |
+| TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある。任意で `statuses` を書く | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバー、ステータス一覧、カレンダーがファイル由来になる（`statuses` が無いときは組み込みの三件）。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとステータス一覧とカレンダーだけ読み直す。起動し直すと設定ファイルのまま戻る |
+| TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとステータス一覧とカレンダーを選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、組み込みの三件のときは `statuses` を書かない。今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
 | TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューにスケジュールと設定ファイルを別グループで新しい順に並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
 | TC-FILE-09b | FILE-09 | 上記のあと6件目を開く。同名のファイル名を2つのフォルダから開く | 一覧の件数と親フォルダの付き方を見る | 5件を超えた古いものが消える。同じファイル名が2件以上のときだけ親フォルダ名が付く |
 | TC-FILE-09c | FILE-09 | 履歴にパスがある | 存在しないパスを選ぶ。未保存のあいだに履歴から開き、キャンセルする | 画面と保存先は残る。サンプルに戻らない。項目は残る。キャンセルでは順番が変わらない |
@@ -868,9 +930,9 @@
 | TC-FILTER-11 | FILTER-11 | マイルストングループが2つ以上ある JSON | 絞り込みの帯の線で1つをオフにする。書き出す | 帯と書き出しからその線が消える。タスク行は変わらない。札とすべて解除で戻る |
 | TC-FILTER-11b | FILTER-11, EDIT-11 | マイルストングループが2つ以上あり、各グループにマイルストンがある JSON | 左のマイルストングループ名の行の空きを右クリックし「非表示」を選ぶ。札を押す。別の行で「この行だけ表示」を選ぶ。残った1行を右クリックし、メニューを見る。そのあと最後の1行も非表示にする。書き出す | 帯と左の行が消える。札でそのグループだけ戻る。「この行だけ表示」で他がオフになり、オフしたグループごとに札が出る。帯に別のグループ行が無くなったあとは、「この行だけ表示」は出ない。全部オフで帯の高さは0。ひし形の右クリックメニューは今どおり。線を引くモードと見出しではメニューが出ない。タスクの選択は変わらない |
 | TC-VIEW-04b | VIEW-04, VIEW-12 | 未確定と確定のマイルストンがある | ひし形を、ライトとダークで見る。HTML と SVG に書き出す | 未確定は斜線、確定は塗りつぶし。書き出しも同じ |
-| TC-VIEW-05 | VIEW-05 | 終了日が昨日の未完了タスクと、終了日が今日の未完了タスク | 両方のバーを見る | 昨日で終わるものだけが赤い |
+| TC-VIEW-05 | VIEW-05 | `examples/lightning/workspace.json` を開く。終了後の行は今日が 2026-10-23 から 2026-11-01 のあいだ。終了が今日の行は今日が 2026-10-25 | 終了後と、終了が今日のバーを見る | 終了後の未着手と着手済みだけ枠が赤い。完了と中止と管理外と一覧に無い `id` は赤くならない。終了が今日の行は赤くならない |
 | TC-VIEW-06 | VIEW-06 | 対応マイルストンより終了日が後のタスクと、当日で終わるタスク | 行を見る | 後のタスクだけ、右が半透明の赤になり「超過」が出る |
-| TC-VIEW-07 | VIEW-07 | 期限超過の行と、進行中で開始日が明日の行 | 橙の線を見る | 超過の行では終了日まで左へ、未来に開始する着手済みの行では開始日まで右へ折れる |
+| TC-VIEW-07 | VIEW-07 | `examples/lightning/workspace.json` を開く。開始前・期間中・終了後は今日が 2026-10-23 から 2026-11-01 のあいだ。終了が今日の行は今日が 2026-10-25 | 橙の線を見る | 未着手は今日・開始・終了、着手済みは開始・今日・終了、完了は終了・終了・今日、管理外と一覧に無い `id` はどの期間でも今日。確認待ちは着手済みと同じ位置へ折れる。進捗 20 と 80 の終了後は折れ先が同じ。終了日が今日の行は終了より先へ折れない |
 | TC-VIEW-08 | VIEW-08 | 後続の開始が先行の終了より前の組と、同じ日に始まる組 | 線を見る | 先行の終了より前に始まる組の線だけが赤い。どちらかを折りたたむと線は消える |
 | TC-VIEW-08b | VIEW-08 | 先行と後続が見えている | 後続の開始を超えるまで先行の終了を延ばし、離す前に線を見る。同じ日まで戻してから離す | 離す前に赤く太くなる。同じ日では赤くならない。離してから「前後: 破綻のみ」に入る |
 | TC-VIEW-08c | VIEW-08 | 先行の終了と後続の開始が数日以内の組 | 月表示まで縮小して線を見る。週表示でも見る | どちらの表示でも矢印の頭が後続バーの左の外にあり、後続の行へ向かう線が分かる |
@@ -1008,7 +1070,7 @@
 | TC-EDIT-13 | EDIT-13, EDIT-10 | サンプルで、カテゴリを折りたたむ | 左のカテゴリ行をダブルクリックし、名前を変えて保存する。同じ名前のカテゴリへも変えてみる。空白だけでも保存する。取り消す | 折りたたみは残る。重複する名前は保存されない。空白だけなら元の名前のまま閉じる。取り消し 1 回で名前が戻る。グループ行も同じである |
 | TC-EDIT-13b | EDIT-13 | 別のカテゴリに同じグループ名がある | そのグループを、別カテゴリと同じ名前に変える | 保存できる。同じカテゴリの中の既存名には変えられない |
 | TC-EDIT-20 | EDIT-20, EDIT-10, FILE-04, FILE-07, NAV-07, SYNC-01 | サンプル。ファイルを開いているときは別名保存したあともよい | 鉛筆で編集を始める。見出しのクリック、ドラッグ、ダブルクリックでは始まらない。全文選択と先頭スクロールを見る。Enter、外クリック、Tab、Shift+Tab で確定し、Escape では戻る。変換中の Enter と Escape では閉じない。前後の空白だけ除き途中の空白は残す。空白だけは元のまま閉じ、「タイトルは変更していません」と一度読む。同じ文字なら履歴も読み上げも無い。変わった確定は取り消し 1 回で戻る。入力中の取り消しは文字入力に効く。確定前は差分と未保存に入らない。入力中に外部ファイルのタイトルは入力へ書き込まれない。FILE-07 で title の行を開いているあいだ、下線は休止中の見出しだけにつく。☰、⌘/Ctrl+O、⌘/Ctrl+S、⌘/Ctrl+Shift+S、書き出し、差分を表示、差分をコピー、JSON を表示の前に確定する。macOS のデスクトップ版では、画面上部のファイルメニューから開く、保存、別名保存、書き出し、JSON を表示も同じ。⌘/Ctrl+K でパレットを開くと確定し、「タイトルを変更」で確定後の文字で開き直す。パレットで開いたあと確定しても、入力は再び開かない。ファイル操作の途中は鉛筆もコマンドも押せない。ファイル名、ウィンドウタイトル、状態バーはタイトルと連動しない。デスクトップ版では入力中に外部更新を止め、確定か Escape のあと続く | 計画どおりに動く |
-| TC-EDIT-12 | EDIT-12 | 見えているタスクを選択 | 「線を引く」または ⌘/Ctrl+L を押す。L だけも押す | モードに入る。ボタンに起点の名前が出る。チャート上端の帯は「次にクリックしたタスクを後続にします。Esc で中止」になる。選択が無いときと、L だけでは入らない |
+| TC-EDIT-12 | EDIT-12 | 見えているタスクを選択 | 「線を引く」または ⌘/Ctrl+L を押す。L だけも押す。帯のあいだ、左のタスク名とバーが同じ行に揃うこと、見出しの下端が揃うこと、縦スクロールと表示サイズを変えても揃うことを見る | モードに入る。ボタンに起点の名前が出る。チャート上端の帯は「次にクリックしたタスクを後続にします。Esc で中止」になる。選択が無いときと、L だけでは入らない。モードを終えると左の空きも消える |
 | TC-UI-01 | NAV-02 | サンプル | ? と F1 を押す。☰ の「ショートカット一覧」も開く | 一覧ダイアログが開き、Escape で閉じる。検索欄にフォーカスがあるときは ? でも F1 でも開かない |
 | TC-UI-02 | NAV-08 | サンプル | 起動直後は案内が出ないことを見る。上段の「案内」、☰ の「操作の案内」、⌘ または Ctrl+K で「操作の案内」を開く | 見出し「スケジュールの作り方」「画面」「タグ」「気づきにくい操作」「色と線」が出る。スキルの2文はブラウザ版でも出る。本文にフォーカスしたままキーで末尾までスクロールできる。Escape で閉じる。中の「ショートカット一覧」で案内が閉じ、ショートカット一覧が開く。? と F1 は一覧を開く |
 | TC-UI-02b | NAV-08 | ブラウザ版 | 案内を開く | 「気づきにくい操作」に、外部ファイルの反映と自動更新の文が無い |
@@ -1028,10 +1090,26 @@
 | TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。グループ名と遅延のタスク名は、画面がダークでもライト配色の文字色で読める。カテゴリの塗りは左の列だけである。マイルストンは「◆ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
-| TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
+| TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、ステータス、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
+| TC-VIEW-13 | VIEW-13 | 一覧に無い `status` またはメンバーに無い `assigneeId` があるファイル。ステータス列はオフ | 帯の文を見る。左のタスク名とバーが同じ行に揃うこと、見出しの下端が揃うことを見る。絞り込みで該当行を隠しても帯が残ることを確かめる。右下の一時的な知らせを出しても帯が残ることを確かめる。設定でステータス列をオンにし、一覧に無い `id` の札と、メンバー不明の札を縦に見る。線を引くモード中は帯がその上にあり、両方の帯でも揃うことを見る。縦スクロールと表示サイズを変えても揃うことを見る。ライトとダークで、札の文字と帯の文字・左線のコントラストを見る | 帯は三つの文のいずれかだけ。`id` も件数も出ない。列は見えているタスク行だけ。未割当だけのときは帯は出ない。不一致が無くなると帯は消え、左の空きも消える。トーストが出ても帯は消えない。札の文字は 4.5:1 以上、帯の左線は 3:1 以上である |
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
+| TC-SET-08 | SET-08, VIEW-02 | 初回起動のデスクトップ版またはブラウザ版 | 設定の「ステータス」を見る。`examples/playground.statuses.json` を取り込んで使用中にする | 「standard」が使用中で、三件の色は従来と同じである。取り込み後は、詳細パネルと絞り込みの選択肢が一覧の順に変わり、バーの色が項目の色になる |
+| TC-SET-08b | SET-08, VIEW-05 | 扱いが完了の項目が複数ある一覧を使用中にし、終了日が過去のタスクがその項目と他の項目にある | バーを見る。絞り込みで「完了以外」を選ぶ | 期限超過は未着手と着手済みだけで、バーは地の色のまま枠だけ赤い。「完了以外」は扱いが完了の項目をすべて外す。管理外は残る |
+| TC-SET-08c | SET-08 | 一覧に無い `status` の `id` を持つタスクがある | チャートと詳細パネルを見る | `id` のまま出て、バーは中立の灰である。終了が過去でも枠は赤くならない。イナズマ線は今日のまま。「完了以外」には残る |
+| TC-SET-08d | SET-08 | 一覧を使用中にしている | 設定の「項目を編集…」で覆いを開き、使用中の一覧を選んで「項目を足す」で足し、行を選んで右の説明と指示を書き、色を変えて「保存」する。詳細パネルの選択肢を見て、そのステータスをタスクに付ける | 選択肢の末尾に出て、バーがその色になる。再起動後も説明と指示が残る。保存した項目の `id` は編集できない |
+| TC-SET-08o | SET-08 | 覆いで一覧を編集している | 行を選び、右の説明を書き、指示を空にして保存する。扱いを押してもその行が選ばれること、行に説明が1行出ること、扱いの説明がチップの直下で2行であること、扱いを乗せ替えても色と操作の位置が動かないこと、右に上の項目と下の項目の説明が無いことを見る。説明欄に焦点がある ⌘/Ctrl+Z で説明と扱いが戻ること、色を変えて ⌘/Ctrl+Z で1段で戻ること、下書きを捨てる確認が出ているあいだは戻らないことを見る。macOS では編集メニューの取り消しも同じ履歴を使うこと。幅を極端に狭めても扱いの説明が3行にならず末尾が省略されることを見る。ライトとダークで、説明とヒントの文字が 4.5:1 以上、左の帯が 3:1 以上であることを見る。覆いを閉じて開き直す | 説明は残り、指示はキーが無い。選んでいる行は左の帯で分かる。狭い幅で覆いを開き、一覧が2行以上見え、足元の操作が残る |
+| TC-SET-08e | SET-08 | 同上 | 説明を空にする。`id` を既存と同じにする。項目が1件になるまで「削除」する | 保存と書き出しができず、理由が出る。最後の1件の「削除」は押せない。外した `id` を持つタスクは `id` のまま灰色で出る |
+| TC-SET-08f | SET-08 | 同上 | 「上へ」「下へ」で並びを変え、「JSON を書き出す」で保存し、`npm run check:statuses -- <ファイル>` を通す。「コピーして作る」で一覧を足す | 選択肢の順が変わる。書き出したファイルは検証を通る。使用中の一覧は変わらない |
+| TC-SET-08h | SET-08 | 覆いで一覧を編集している | 下書きがあるときに「閉じる」を押し、「やめる」を選ぶ。続けて「捨てる」を選ぶ。「新しい一覧」で一覧を足し、使用中が変わらないことを見る | やめるときは覆いが残る。捨てるときは閉じる。新しい一覧を作っても使用中は変わらない |
+| TC-SET-08k | SET-08 | 覆いを開いている | 「新しい一覧」で `custom` が増えることを見る。「JSON を書き出す」の保存ダイアログでキャンセルする | 新しい一覧ではダイアログは出ない。書き出しをキャンセルしても取り込み済みの件数は変わらない |
+| TC-SET-08l | SET-08, FILE-10 | 設定ファイルで `statuses` を読めている | 設定の「項目を編集…」で覆いを開き、色を変えて「保存」する | このウィンドウのバーが変わる。アプリの使用中一覧は変わらない |
+| TC-SET-08n | SET-08 | 覆いで一覧を2件以上選べる。使用中の一覧と、使用中でない一覧の両方で試す | 「外す」で「やめる」を選ぶ。下書きがある一覧でも同様に試す。続けて「外す」で進める。最後の1件だけ残して外す。使用中の一覧を外す | やめるときは一覧が残り、下書きも残る。外したあとも覆いは開いたまま。残りがあれば先頭の一覧を開く。最後の1件を外すと取り込み済みが無い表示になる。使用中を外すと未選択になり、チャートは組み込みの三件になる |
+| TC-SET-08m | SET-08, FILE-10 | 設定ファイルで `statuses` が無い、または読めない | 設定の「ステータス」を見る | 「項目を編集…」は出ない |
+| TC-SET-08i | SET-08 | デスクトップ版で同じ一覧を2つのウィンドウが開ける | 一方で覆いを開いて一覧を選ぶ。もう一方で同じ一覧を選ぶ | 編集中のウィンドウが前面になり、もう一方では一覧が選ばれない |
+| TC-SET-08j | SET-08 | 覆いで一覧を編集中 | 設定でその一覧を「外す」。続けて別ウィンドウから同じ一覧を取り込み上書きする | 外したときは覆いが閉じ、知らせが出る。上書き取り込みのあとは覆いが開いたまま、内容が入れ替わる |
+| TC-SET-08g | SET-08, VIEW-02, VIEW-05, VIEW-07, FILTER-04 | 今日が 2026-10-23 から 2026-11-01 のあいだ | 設定の「ステータス」で `examples/review.statuses.json` を取り込んで使用中にし、`examples/review.schedule.json` を開く。絞り込みで「完了以外」を選ぶ | 確認待ちが黄で、帯が出る。進行中は地が青のまま枠だけ赤く、帯が出る。完了と中止は終了が過去でも超過にならず、中止は帯が無い。一覧に無い `shelved` は `shelved` の表示で灰色になり、超過にならず線は今日のまま。未着手は帯が無い。イナズマ線は扱いどおり折れ、未来開始の着手済みは開始日へ折れる。終了日が今日の行は終了より先へ折れない。「完了以外」で完了と中止が消え、一覧に無い `id` は残る |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
 | TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace が `~/.cursor/skills/` に置かれ、パスが示される |
@@ -1076,6 +1154,7 @@
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
 | TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。画面の絞り込みは変わらない |
+| TC-MCP-01i | MCP-01, SET-08 | 項目を足した一覧を使用中にしている。任意の項目に指示を書いて保存している | `filtered_tasks` と `selected_tasks` を呼ぶ。足した項目のステータスを付けたタスクを `replace_schedule` で足すよう LLM に頼む | どちらの応答も先頭に `statuses` があり、足した項目の `id`、`name`、`role`、`description` が入る。指示を書いた項目だけ `instruction` が入り、空の項目には無い。LLM は `description` でその `id` を選び、合う項目が無ければ尋ねる |
 | TC-MCP-01e | MCP-01 | デスクトップ版、画面の未保存とファイルの外部更新が同時にある | `baseline_diffs` を1回呼ぶ | `画面:` に起点から画面への差分、`ファイル:` に起点からファイルへの差分、`分類:` に画面のみ・ファイルのみ・異なるなどが id ごとに出る。`schedule_diff` の混ざった差分だけでは分類しない |
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
 | TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |
@@ -1097,7 +1176,7 @@ TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu�
 3. TC-FILE-02 で保存する
 4. TC-FILTER-01 と TC-FILTER-08 で絞る
 5. TC-EXPORT-01 で SVG を保存し、そのファイルを開いて行が描かれていることを見る
-6. TC-SET-02 でメンバー名が出ることを見る
+6. TC-SET-02 でメンバー名が出ることを見る。TC-SET-08 でステータス一覧が効くことを見る
 7. TC-SET-03 で非稼働日が塗られることを見る
 8. TC-SYNC-01 で、別のエディタで保存した内容が画面に反映されることを見る
 9. TC-SYNC-03 で未保存の復元を、TC-SYNC-03d で保存済みの開き直しを見る。TC-WIN-01 で別ウィンドウ、TC-WIN-02 で他ウィンドウの知らせ、TC-WIN-03 で設定の共有を見る。TC-FILE-08 と TC-WIN-04 は手元の OS で `npm run tauri dev` を使って見る

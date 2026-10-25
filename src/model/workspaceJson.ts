@@ -18,6 +18,7 @@ export function classifyOpenedJson(data: unknown): OpenedJsonKind {
     return "schedule";
   }
   if (Array.isArray(record.members)) return "unsupported";
+  if (Array.isArray(record.statuses)) return "unsupported";
   if (Array.isArray(record.weekends)) return "unsupported";
   if (
     record.schemaVersion === 1 &&
@@ -76,10 +77,16 @@ export function resolveWorkspacePaths(
       ? resolveWorkspaceRelativePath(workspaceFilePath, document.calendar)
       : null;
   if (document.calendar != null && !calendarPath) return null;
+  const statusesPath =
+    document.statuses != null
+      ? resolveWorkspaceRelativePath(workspaceFilePath, document.statuses)
+      : null;
+  if (document.statuses != null && !statusesPath) return null;
   return {
     schedulePath,
     membersPath,
     calendarPath,
+    statusesPath,
   };
 }
 
@@ -96,5 +103,6 @@ export function serializeWorkspaceDocument(
   };
   if (document.members != null) payload.members = document.members;
   if (document.calendar != null) payload.calendar = document.calendar;
+  if (document.statuses != null) payload.statuses = document.statuses;
   return `${JSON.stringify(payload, null, 2)}\n`;
 }

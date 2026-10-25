@@ -28,6 +28,8 @@ export type MacOSAppMenuHandlers = {
   onFit: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  /** ステータス編集の覆いが開いているあいだは、文字欄でも `onUndo` / `onRedo` だけを使う。 */
+  statusCatalogEditorBlocksDocumentUndo?: () => boolean;
 };
 
 function isMacPlatform(): boolean {
@@ -184,12 +186,17 @@ export function useMacOSAppMenu(
             text: "取り消し",
             accelerator: "Command+Z",
             action: () => {
+              const handlers = h();
+              if (handlers.statusCatalogEditorBlocksDocumentUndo?.()) {
+                handlers.onUndo();
+                return;
+              }
               const active = document.activeElement;
               if (isTextFieldTarget(active)) {
                 document.execCommand("undo");
                 return;
               }
-              h().onUndo();
+              handlers.onUndo();
             },
           }),
           await MenuItem.new({
@@ -197,12 +204,17 @@ export function useMacOSAppMenu(
             text: "やり直し",
             accelerator: "Shift+Command+Z",
             action: () => {
+              const handlers = h();
+              if (handlers.statusCatalogEditorBlocksDocumentUndo?.()) {
+                handlers.onRedo();
+                return;
+              }
               const active = document.activeElement;
               if (isTextFieldTarget(active)) {
                 document.execCommand("redo");
                 return;
               }
-              h().onRedo();
+              handlers.onRedo();
             },
           }),
           await PredefinedMenuItem.new({ item: "Separator" }),

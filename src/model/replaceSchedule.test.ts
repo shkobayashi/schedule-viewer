@@ -16,7 +16,7 @@ import {
 import { MAX_SCHEDULE_BYTES, serializeScheduleDocument } from "./scheduleFile";
 
 const validScheduleJson = JSON.stringify({
-  schemaVersion: 7,
+  schemaVersion: 8,
   title: "テスト",
   milestoneGroups: [{ id: "e1000001-0000-4000-8000-000000000011", name: "M" }],
   milestones: [

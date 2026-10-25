@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { StatusOptions } from "./StatusOptions";
+import type { StatusItem } from "../model/statusCatalog";
 import type { TaskRef } from "../model/dependencies";
 import {
   duplicateMemberNames,
@@ -128,6 +130,7 @@ type BulkTaskDetailPanelProps = {
   onApply: (taskIds: readonly ScheduleId[], draft: BulkTaskDraft) => string | null;
   onEditingChange: (editing: boolean) => void;
   onPanelFocus?: () => void;
+  statuses: readonly StatusItem[];
 };
 
 export function BulkTaskDetailPanel({
@@ -140,6 +143,7 @@ export function BulkTaskDetailPanel({
   onApply,
   onEditingChange,
   onPanelFocus,
+  statuses,
 }: BulkTaskDetailPanelProps) {
   const [local, setLocal] = useState<LocalDraft>(() => emptyLocalDraft());
   const [formError, setFormError] = useState<string | null>(null);
@@ -334,9 +338,7 @@ export function BulkTaskDetailPanel({
             }
           >
             <option value="">変更しない</option>
-            <option value="not-started">未着手</option>
-            <option value="in-progress">進行中</option>
-            <option value="done">完了</option>
+            <StatusOptions statuses={statuses} />
           </select>
         </div>
         <div className="field">

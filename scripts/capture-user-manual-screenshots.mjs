@@ -223,6 +223,7 @@ async function captureDesktopChromeShots(page) {
   for (const name of [
     "表示",
     "メンバー",
+    "ステータス",
     "稼働日",
     "更新",
     "画面の状態を渡す",
@@ -341,6 +342,23 @@ async function captureDesktopChromeShots(page) {
     path: path.join(outDir, "ui-settings-members.png"),
     fullPage: false,
   });
+  await clickSettingsNav(page, "ステータス");
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: path.join(outDir, "ui-settings-statuses.png"),
+    fullPage: false,
+  });
+  await page.getByRole("button", { name: "項目を編集…" }).click();
+  await page.getByRole("heading", { name: "ステータス一覧の項目を編集" }).waitFor();
+  await page.setViewportSize({ width: 1440, height: 1680 });
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: path.join(outDir, "ui-status-editor.png"),
+    fullPage: false,
+  });
+  await page.getByRole("button", { name: "閉じる" }).click();
+  await page.waitForTimeout(300);
+  await openSettings(page);
   await clickSettingsNav(page, "稼働日");
   await page.waitForTimeout(400);
   await page.screenshot({

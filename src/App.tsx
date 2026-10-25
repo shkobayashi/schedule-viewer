@@ -64,6 +64,10 @@ import { useMacOSAppMenu } from "./hooks/useMacOSAppMenu";
 import { useRecentFiles } from "./hooks/useRecentFiles";
 import { useWindowTitle } from "./hooks/useWindowTitle";
 import { useMemberCatalog } from "./hooks/useMemberCatalog";
+import { useStatusCatalog } from "./hooks/useStatusCatalog";
+import { useStatusCatalogEditorOverlay } from "./hooks/useStatusCatalogEditorOverlay";
+import { StatusCatalogEditorOverlay } from "./components/StatusCatalogEditorOverlay";
+import type { StatusCatalogEditorPanelHandle } from "./components/StatusCatalogEditorPanel";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useWorkspaceBinding } from "./hooks/useWorkspaceBinding";
 import { listen } from "@tauri-apps/api/event";
@@ -72,11 +76,19 @@ import { exportWorkspaceBundleViaTauri } from "./model/workspaceExport";
 import { safeScheduleJsonFilename } from "./model/scheduleFile";
 import { memberMapFromList } from "./model/assigneeDisplay";
 import {
+  catalogMismatchBannerText,
+  catalogMismatchKind,
+  CATALOG_MISMATCH_CLEARED_ANNOUNCEMENT,
+  type CatalogMismatchKind,
+} from "./model/catalogMismatch";
+import { BUILTIN_STATUS_ITEMS } from "./model/statusCatalog";
+import {
   workspaceCalendarError,
   workspaceCalendarForDisplay,
   workspaceMemberCatalogLabel,
   workspaceMemberError,
   workspaceMembersForDisplay,
+  workspaceStatusesForDisplay,
 } from "./model/workspaceLoad";
 import { useSchedule } from "./hooks/useSchedule";
 import { useAppUpdateFlow } from "./hooks/useAppAutoUpdate";
@@ -271,6 +283,12 @@ function App() {
   const [uiScale, setUiScale] = useState(readUiScale);
   const uiScaleRef = useRef(uiScale);
   uiScaleRef.current = uiScale;
+  const statusEditorOverlayRef = useRef<
+    ReturnType<typeof useStatusCatalogEditorOverlay> | null
+  >(null);
+  const statusCatalogEditorPanelRef = useRef<StatusCatalogEditorPanelHandle | null>(
+    null,
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
     | "display"
@@ -350,6 +368,8 @@ function App() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [linkSourceId, setLinkSourceId] = useState<ScheduleId | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const chartTopBannersRef = useRef<HTMLDivElement>(null);
+  const [chartTopBannerHeight, setChartTopBannerHeight] = useState(0);
   const chartPointerRef = useRef<ChartPointer>({
     overTask: false,
     overMilestone: false,
@@ -512,11 +532,13 @@ function App() {
   );
 
   const memberCatalogState = useMemberCatalog();
+  const statusCatalogState = useStatusCatalog();
   const appCalendarState = useAppCalendar();
   const {
     workspaceBinding,
     setWorkspaceBinding,
     clearWorkspaceBinding,
+    reloadWorkspaceBinding,
   } = useWorkspaceBinding();
   const workspaceBindingRef = useRef(workspaceBinding);
   workspaceBindingRef.current = workspaceBinding;
@@ -552,12 +574,40 @@ function App() {
     ? workspaceCalendarError(workspaceBinding.calendar)
     : appCalendarState.error;
 
+  const displayStatuses = useMemo(() => {
+    if (!workspaceBinding) return statusCatalogState.statuses;
+    const fromFile = workspaceStatusesForDisplay(workspaceBinding.statuses);
+    if (fromFile) return fromFile;
+    return BUILTIN_STATUS_ITEMS;
+  }, [workspaceBinding, statusCatalogState.statuses]);
+
+  const statusesReady = workspaceBinding ? true : !statusCatalogState.loading;
+
+  const workspaceStatusEditTarget = useMemo(() => {
+    if (!workspaceBinding) return null;
+    if (workspaceBinding.statuses.kind !== "loaded") return null;
+    if (!workspaceBinding.resolved.statusesPath) return null;
+    return {
+      statusesPath: workspaceBinding.resolved.statusesPath,
+      workspacePath: workspaceBinding.workspacePath,
+      items: workspaceBinding.statuses.items,
+      fileLabel: workspaceBinding.statuses.label,
+    };
+  }, [workspaceBinding]);
+
   const refreshMemberCatalog = memberCatalogState.refresh;
+  const refreshStatusCatalog = statusCatalogState.refresh;
   const refreshAppCalendar = appCalendarState.refresh;
   const refreshSharedSettings = useCallback((key: string | null) => {
     const all = key == null;
     if (all || key === SETTINGS_REVISION_KEY) {
       void refreshMemberCatalog();
+      void refreshStatusCatalog().then(() => {
+        const overlay = statusEditorOverlayRef.current;
+        if (overlay?.open && overlay.editingCatalogId) {
+          overlay.notifyExternalCatalogImport(overlay.editingCatalogId);
+        }
+      });
       void refreshAppCalendar();
     }
     if (all || key === DISPLAY_SCALE_LS_KEY || key === SETTINGS_REVISION_KEY) {
@@ -585,7 +635,7 @@ function App() {
     if (all || key === AUTO_UPDATE_LS_KEY) {
       setAutoUpdateEnabled(readAutoUpdateEnabled());
     }
-  }, [refreshAppCalendar, refreshMemberCatalog]);
+  }, [refreshAppCalendar, refreshMemberCatalog, refreshStatusCatalog]);
 
   useSharedSettingsRevision(refreshSharedSettings);
 
@@ -623,6 +673,8 @@ function App() {
     blockDocumentEditsRef,
     (landed) => externalReloadHistoryUndoRef.current(landed),
     (landed) => externalReloadHistoryRedoRef.current(landed),
+    displayStatuses,
+    statusesReady,
   );
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
   const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
@@ -646,6 +698,55 @@ function App() {
     showOnlyMilestoneGroup,
     visibleMilestoneGroupIds,
   } = schedule;
+
+  const catalogMismatch = useMemo(() => {
+    const tasks: import("./model/types").Task[] = [];
+    forEachTask(schedule.categories, (task) => {
+      tasks.push(task);
+    });
+    return catalogMismatchKind(tasks, displayStatuses, displayMemberMap);
+  }, [schedule.categories, displayStatuses, displayMemberMap]);
+
+  const catalogMismatchText = catalogMismatchBannerText(catalogMismatch);
+
+  const catalogMismatchPrevRef = useRef<CatalogMismatchKind | undefined>(undefined);
+  const [catalogMismatchAnnouncement, setCatalogMismatchAnnouncement] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    const prev = catalogMismatchPrevRef.current;
+    if (prev === catalogMismatch) return;
+    catalogMismatchPrevRef.current = catalogMismatch;
+    if (catalogMismatch != null) {
+      setCatalogMismatchAnnouncement(catalogMismatchBannerText(catalogMismatch));
+      return;
+    }
+    if (prev != null) {
+      setCatalogMismatchAnnouncement(CATALOG_MISMATCH_CLEARED_ANNOUNCEMENT);
+      return;
+    }
+    setCatalogMismatchAnnouncement(null);
+  }, [catalogMismatch]);
+
+  const showChartTopBanners =
+    catalogMismatchText != null || linkSourceId != null;
+
+  useLayoutEffect(() => {
+    const node = chartTopBannersRef.current;
+    if (!node) {
+      setChartTopBannerHeight(0);
+      return;
+    }
+    const measure = () => {
+      setChartTopBannerHeight(node.getBoundingClientRect().height);
+    };
+    measure();
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [showChartTopBanners, catalogMismatchText, linkSourceId, linkError]);
+
   const range = useMemo(
     () =>
       computeTimelineRange(
@@ -702,7 +803,10 @@ function App() {
         milestoneDiamondSize,
         milestoneLaneHeight,
       );
-      const body = Math.max(120, timelineSlotHeight - headerHeight - band);
+      const body = Math.max(
+        120,
+        timelineSlotHeight - headerHeight - band - chartTopBannerHeight,
+      );
       const rows = schedule.visibleRows;
       const contentHeight =
         rows.length === 0 ? 0 : rows[rows.length - 1].y + rowHeight;
@@ -738,7 +842,10 @@ function App() {
   const milestoneBandHeight = milestoneBandLayout.totalHeight;
   const bodyHeight = Math.max(
     120,
-    timelineSlotHeight - headerHeight - milestoneBandHeight,
+    timelineSlotHeight -
+      headerHeight -
+      milestoneBandHeight -
+      chartTopBannerHeight,
   );
 
   const {
@@ -867,6 +974,41 @@ function App() {
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
 
+  const statusEditorOverlay = useStatusCatalogEditorOverlay({
+    settings: statusCatalogState.settings,
+    appliedCatalogId: workspaceBinding
+      ? null
+      : statusCatalogState.settings.selectedCatalogId,
+    saveCatalog: statusCatalogState.saveCatalog,
+    removeCatalog: statusCatalogState.removeCatalog,
+    workspaceTarget: workspaceStatusEditTarget,
+    onWorkspaceStatusesWritten: async () => {
+      await reloadWorkspaceBinding();
+    },
+    onRemovedWhileEditing: () => {
+      showUpdateToast(
+        "編集していた一覧が設定で外されたため、編集を閉じました。",
+      );
+    },
+  });
+  statusEditorOverlayRef.current = statusEditorOverlay;
+
+  const handleStatusCatalogImport = useCallback(
+    async (catalogId: string, contents: string, overwrite: boolean) => {
+      await statusCatalogState.importCatalog(catalogId, contents, overwrite);
+      statusEditorOverlayRef.current?.notifyExternalCatalogImport(catalogId);
+    },
+    [statusCatalogState.importCatalog],
+  );
+
+  const handleStatusCatalogDelete = useCallback(
+    async (catalogId: string) => {
+      await statusCatalogState.removeCatalog(catalogId);
+      statusEditorOverlayRef.current?.notifyExternalCatalogRemoved(catalogId);
+    },
+    [statusCatalogState.removeCatalog],
+  );
+
   const handleExportWorkspace = useCallback(async () => {
     if (!isTauri() || workspaceBinding) return;
     try {
@@ -897,6 +1039,22 @@ function App() {
             : `${appCalendarState.label}.calendar.json`;
         }
       }
+      let statusesContents: string | null = null;
+      let statusesFileName: string | null = null;
+      const selectedStatusId = statusCatalogState.settings.selectedCatalogId;
+      if (selectedStatusId) {
+        const text = await invoke<string | null>("read_status_catalog", {
+          catalogId: selectedStatusId,
+        });
+        if (text) {
+          statusesContents = text.endsWith("\n") ? text : `${text}\n`;
+          const label =
+            statusCatalogState.selectedCatalogLabel ?? selectedStatusId;
+          statusesFileName = label.endsWith(".json")
+            ? label
+            : `${label}.statuses.json`;
+        }
+      }
       await exportWorkspaceBundleViaTauri({
         scheduleContents,
         scheduleFileName,
@@ -904,6 +1062,8 @@ function App() {
         membersFileName,
         calendarContents,
         calendarFileName,
+        statusesContents,
+        statusesFileName,
       });
       const parts = [
         "設定ファイルを書き出しました。このウィンドウはアプリの設定のままです。",
@@ -913,6 +1073,9 @@ function App() {
       }
       if (!calendarContents) {
         parts.push("稼働日は未設定のため書いていません。");
+      }
+      if (!statusesContents) {
+        parts.push("ステータスは組み込みの三件のため書いていません。");
       }
       showUpdateToast(parts.join(" "));
     } catch (error) {
@@ -929,6 +1092,8 @@ function App() {
     getCanonicalJson,
     memberCatalogState.selectedCatalogLabel,
     memberCatalogState.settings.selectedCatalogId,
+    statusCatalogState.selectedCatalogLabel,
+    statusCatalogState.settings.selectedCatalogId,
     scheduleFile,
     showUpdateToast,
     workspaceBinding,
@@ -1475,6 +1640,7 @@ function App() {
         milestoneFontSize,
         labelScale: uiScale,
         today: schedule.today,
+        statuses: displayStatuses,
         memberCatalog: displayMemberMap,
         calendar: displayCalendar,
         filterSummary: describeActiveFilters(
@@ -1484,6 +1650,7 @@ function App() {
           schedule.milestoneGroups,
           schedule.hiddenMilestoneGroupIds,
           schedule.scheduleTags,
+          displayStatuses,
         ),
         colorScheme: resolvedColorScheme,
         showLightningLine,
@@ -1516,6 +1683,7 @@ function App() {
     },
     [
       displayCalendar,
+      displayStatuses,
       headerHeight,
       links,
       displayMemberMap,
@@ -1558,6 +1726,7 @@ function App() {
   }, [getCanonicalJson, scheduleFile.filePath]);
 
   useMcpScreenBridge({
+    statuses: displayStatuses,
     categories: schedule.categories,
     milestones: schedule.milestones,
     milestoneGroups: schedule.milestoneGroups,
@@ -2254,8 +2423,38 @@ function App() {
     onGoToday: scrollToToday,
     onSetTier: setTierZoom,
     onFit: fitToWidth,
-    onUndo: undo,
-    onRedo: redo,
+    statusCatalogEditorBlocksDocumentUndo: () =>
+      statusEditorOverlayRef.current?.open ?? false,
+    onUndo: () => {
+      const overlay = statusEditorOverlayRef.current;
+      if (overlay?.open) {
+        if (
+          overlay.discardPrompt ||
+          overlay.copyConfirmOpen ||
+          overlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        statusCatalogEditorPanelRef.current?.undo();
+        return;
+      }
+      undo();
+    },
+    onRedo: () => {
+      const overlay = statusEditorOverlayRef.current;
+      if (overlay?.open) {
+        if (
+          overlay.discardPrompt ||
+          overlay.copyConfirmOpen ||
+          overlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        statusCatalogEditorPanelRef.current?.redo();
+        return;
+      }
+      redo();
+    },
   },
     recentFilesStore,
   );
@@ -2650,9 +2849,15 @@ function App() {
       <p className="filter-panel-sr-only" role="status" aria-live="polite">
         {titleBlankNotice}
       </p>
+      <div className="app-workspace">
+        <div
+          className="app-workspace-content"
+          inert={statusEditorOverlay.open ? true : undefined}
+        >
       <Toolbar
         title={schedule.title}
         titleDiffMarked={diffNavigationMark.title}
+        statuses={displayStatuses}
         filters={schedule.filters}
         searchField={schedule.searchField}
         onSearchFieldChange={schedule.setSearchField}
@@ -2744,6 +2949,7 @@ function App() {
         taskSearchRef={taskSearchRef}
       />
       <ActiveFilterBar
+        statuses={displayStatuses}
         filters={schedule.filters}
         milestones={schedule.milestones}
         milestoneGroups={schedule.milestoneGroups}
@@ -2758,6 +2964,7 @@ function App() {
       />
       <div ref={mainRef} className="main">
         <Sidebar
+          statuses={displayStatuses}
           categories={schedule.categories}
           rows={schedule.visibleRows}
           reorderBaseRows={schedule.baseVisibleRows}
@@ -2816,6 +3023,7 @@ function App() {
           onWheelRows={onWheelSidebar}
           sticky={stickyLayout}
           sidebarColumns={sidebarColumns}
+          chartTopBannerHeight={chartTopBannerHeight}
         />
         <div className="chart-detail">
         {bulkDiscardNotice ? (
@@ -2829,13 +3037,32 @@ function App() {
           tabIndex={-1}
           aria-label="スケジュールチャート"
         >
-          {linkSourceId != null ? (
-            <div className="link-banner" role="status">
-              <div>次にクリックしたタスクを後続にします。Esc で中止</div>
-              {linkError ? <div className="hint-error">{linkError}</div> : null}
+          <p
+            className="filter-panel-sr-only"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {catalogMismatchAnnouncement ?? ""}
+          </p>
+          {showChartTopBanners ? (
+            <div ref={chartTopBannersRef} className="chart-top-banners">
+              {catalogMismatchText ? (
+                <div className="catalog-mismatch-banner">
+                  <div>{catalogMismatchText}</div>
+                </div>
+              ) : null}
+              {linkSourceId != null ? (
+                <div className="link-banner" role="status">
+                  <div>次にクリックしたタスクを後続にします。Esc で中止</div>
+                  {linkError ? (
+                    <div className="hint-error">{linkError}</div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
           <Timeline
+            statuses={displayStatuses}
             visibleRows={schedule.visibleRows}
             width={Math.max(200, timelineWidth)}
             rowHeight={rowHeight}
@@ -2893,6 +3120,7 @@ function App() {
         </div>
         {selectedDetailTask ? (
           <TaskDetailPanel
+            statuses={displayStatuses}
             key={`${selectedDetailTask.id}:${schedule.diskEpoch}`}
             panelRef={detailPanelRef}
             task={selectedDetailTask}
@@ -2911,6 +3139,7 @@ function App() {
           />
         ) : bulkDetailTasks.length > 1 ? (
           <BulkTaskDetailPanel
+            statuses={displayStatuses}
             key={`bulk:${schedule.selectedTaskIds.join(",")}:${schedule.diskEpoch}`}
             tasks={bulkDetailTasks}
             selectedIds={schedule.selectedTaskIds}
@@ -2948,6 +3177,44 @@ function App() {
           />
         ) : null}
         </div>
+      </div>
+        </div>
+        {statusEditorOverlay.open ? (
+          <StatusCatalogEditorOverlay
+            mode={statusEditorOverlay.mode}
+            catalogs={statusEditorOverlay.catalogs}
+            editingCatalogId={statusEditorOverlay.editingCatalogId}
+            editingItems={statusEditorOverlay.editingItems}
+            itemsRevision={statusEditorOverlay.itemsRevision}
+            appliedCatalogId={statusEditorOverlay.appliedCatalogId}
+            workspaceFileLabel={statusEditorOverlay.workspaceFileLabel}
+            workspaceAppliedNote={statusEditorOverlay.workspaceAppliedNote}
+            busy={statusEditorOverlay.busy}
+            message={statusEditorOverlay.message}
+            setMessage={statusEditorOverlay.setMessage}
+            onDirtyChange={statusEditorOverlay.setDirty}
+            discardPrompt={statusEditorOverlay.discardPrompt}
+            copyConfirmOpen={statusEditorOverlay.copyConfirmOpen}
+            removeConfirmOpen={statusEditorOverlay.removeConfirmOpen}
+            dirty={statusEditorOverlay.dirty}
+            onConfirmDiscard={() => void statusEditorOverlay.confirmDiscard()}
+            onCancelDiscard={statusEditorOverlay.cancelDiscard}
+            onConfirmCopy={statusEditorOverlay.confirmCopy}
+            onCancelCopy={statusEditorOverlay.cancelCopy}
+            onRequestRemoveCatalog={statusEditorOverlay.requestRemoveCatalog}
+            onConfirmRemoveCatalog={() =>
+              void statusEditorOverlay.confirmRemoveCatalog()
+            }
+            onCancelRemoveCatalog={statusEditorOverlay.cancelRemoveCatalog}
+            onSelectCatalog={statusEditorOverlay.selectCatalog}
+            onRequestClose={statusEditorOverlay.requestClose}
+            onRequestNewList={statusEditorOverlay.requestNewList}
+            onRequestCopyList={statusEditorOverlay.requestCopyList}
+            onSaveApp={statusEditorOverlay.save}
+            onSaveWorkspace={statusEditorOverlay.saveWorkspace}
+            editorPanelRef={statusCatalogEditorPanelRef}
+          />
+        ) : null}
       </div>
       <p className="filter-panel-sr-only" role="status" aria-live="polite">
         {diffLiveStatus ?? ""}
@@ -3029,6 +3296,7 @@ function App() {
       ) : null}
       {schedule.duplicatingTask ? (
         <TaskEditDialog
+          statuses={displayStatuses}
           key={`duplicate-${schedule.duplicatingTask.id}:${schedule.diskEpoch}`}
           mode="duplicate"
           task={schedule.duplicatingTask}
@@ -3188,6 +3456,17 @@ function App() {
       {settingsOpen ? (
         <SettingsDialog
           open={settingsOpen}
+          statusCatalog={{
+            settings: statusCatalogState.settings,
+            selectedCatalogLabel: statusCatalogState.selectedCatalogLabel,
+            onImport: handleStatusCatalogImport,
+            onSelectCatalog: statusCatalogState.selectCatalog,
+            onDeleteCatalog: handleStatusCatalogDelete,
+            onOpenEditor: () => {
+              setSettingsOpen(false);
+              statusEditorOverlay.openEditor();
+            },
+          }}
           settings={memberCatalogState.settings}
           selectedCatalogLabel={memberCatalogState.selectedCatalogLabel}
           displayScalePreference={displayScalePreference}
@@ -3210,6 +3489,16 @@ function App() {
           onImportCalendar={appCalendarState.importCalendar}
           onDeleteCalendar={appCalendarState.removeCalendar}
           workspaceBinding={workspaceBinding}
+          workspaceStatusEditor={
+            workspaceStatusEditTarget
+              ? {
+                  onOpenEditor: () => {
+                    setSettingsOpen(false);
+                    statusEditorOverlay.openEditor();
+                  },
+                }
+              : undefined
+          }
           autoUpdateEnabled={autoUpdateEnabled}
           onAutoUpdateChange={(enabled) => {
             writeAutoUpdateEnabled(enabled);

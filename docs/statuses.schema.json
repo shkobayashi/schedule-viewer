@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collabcentral.example/schedule-viewer/statuses.schema.json",
+  "title": "Status catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "statuses"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 2
+    },
+    "statuses": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/status" }
+    }
+  },
+  "$defs": {
+    "statusId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "タスクの status に書く値。作ったあと変えない。"
+    },
+    "statusRole": {
+      "type": "string",
+      "enum": ["not-started", "started", "done", "unmanaged"],
+      "description": "未着手、着手済み、完了、管理外のいずれか。"
+    },
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "barColor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bg", "border"],
+      "properties": {
+        "bg": { "$ref": "#/$defs/hexColor", "description": "バーの地。" },
+        "border": {
+          "$ref": "#/$defs/hexColor",
+          "description": "バーの枠と、進捗の帯の色。"
+        }
+      }
+    },
+    "status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "color", "role", "description"],
+      "properties": {
+        "id": { "$ref": "#/$defs/statusId" },
+        "name": { "type": "string", "minLength": 1 },
+        "color": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["light", "dark"],
+          "properties": {
+            "light": { "$ref": "#/$defs/barColor" },
+            "dark": { "$ref": "#/$defs/barColor" }
+          }
+        },
+        "role": { "$ref": "#/$defs/statusRole" },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "その id を選ぶ状態だけ。LLM が id を選ぶ手がかりにする。"
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1,
+          "description": "その id を選んだあとに LLM が守ること。空ならキーを書かない。"
+        }
+      }
+    }
+  }
+}

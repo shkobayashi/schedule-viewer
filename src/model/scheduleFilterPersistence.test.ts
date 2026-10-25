@@ -71,11 +71,22 @@ describe("parseScheduleFilterPersistence", () => {
     expect(parseScheduleFilterPersistence(text, PATH).ok).toBe(false);
   });
 
-  it("rejects invalid status", () => {
+  it("accepts a status id that is not in the built-in list", () => {
     const text = JSON.stringify({
       version: 1,
       path: PATH,
-      filters: { ...defaultScheduleFilterViewState().filters, status: "bogus" },
+      filters: { ...defaultScheduleFilterViewState().filters, status: "review" },
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+    });
+    expect(parseScheduleFilterPersistence(text, PATH).ok).toBe(true);
+  });
+
+  it("rejects an empty status", () => {
+    const text = JSON.stringify({
+      version: 1,
+      path: PATH,
+      filters: { ...defaultScheduleFilterViewState().filters, status: "" },
       searchField: "name",
       hiddenMilestoneGroupIds: [],
     });

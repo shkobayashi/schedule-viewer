@@ -1,3 +1,4 @@
+import { BUILTIN_STATUS_ITEMS, statusLabel, type StatusItem } from "./statusCatalog";
 import {
   NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
@@ -28,12 +29,9 @@ export type FilterChip = {
   tagName?: string;
 };
 
-const STATUS_LABEL: Record<Exclude<ScheduleFilters["status"], "all">, string> = {
-  "not-done": "完了以外",
-  "not-started": "未着手",
-  "in-progress": "進行中",
-  done: "完了",
-};
+function statusFilterLabel(statuses: readonly StatusItem[], value: string): string {
+  return value === "not-done" ? "完了以外" : statusLabel(statuses, value);
+}
 
 const CONFIDENCE_LABEL: Record<
   Exclude<ScheduleFilters["confidence"], "all">,
@@ -92,6 +90,7 @@ export function activeFilterChips(
   milestoneGroups: MilestoneGroup[] = [],
   hiddenMilestoneGroupIds: readonly ScheduleId[] = [],
   scheduleTags: readonly string[] = [],
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): FilterChip[] {
   const chips: FilterChip[] = [];
   if (filters.assignee === UNASSIGNED_FILTER) {
@@ -105,7 +104,7 @@ export function activeFilterChips(
   if (filters.status !== "all") {
     chips.push({
       kind: "status",
-      label: `ステータス: ${STATUS_LABEL[filters.status]}`,
+      label: `ステータス: ${statusFilterLabel(statuses, filters.status)}`,
     });
   }
   if (filters.confidence !== "all") {

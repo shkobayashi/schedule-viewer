@@ -1,3 +1,7 @@
+import {
+  SettingsStatusesSection,
+  type SettingsStatusesSectionProps,
+} from "./SettingsStatusesSection";
 import { useEffect, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
@@ -71,6 +75,7 @@ import {
   workspaceBindingSummary,
   workspaceCalendarError,
   workspaceMemberError,
+  workspaceStatusesError,
 } from "../model/workspaceLoad";
 
 function formatAppVersionLine(raw: string): string {
@@ -124,6 +129,7 @@ type SettingsDialogProps = {
   sidebarColumns: SidebarColumnsPreference;
   onSidebarColumnsChange: (value: SidebarColumnsPreference) => void;
   initialSection?: SettingsSection;
+  statusCatalog: SettingsStatusesSectionProps;
   onClose: () => void;
   onImport: (catalogId: string, contents: string, overwrite: boolean) => Promise<void>;
   onSelectCatalog: (catalogId: string | null) => Promise<void>;
@@ -145,6 +151,7 @@ type SettingsDialogProps = {
   betaInstallerStatusLine?: string | null;
   storeDistribution?: boolean;
   workspaceBinding?: WorkspaceWindowBinding | null;
+  workspaceStatusEditor?: { onOpenEditor: () => void };
 };
 
 function betaInstallerPlatform(): "windows" | "linux" | null {
@@ -158,6 +165,7 @@ function betaInstallerPlatform(): "windows" | "linux" | null {
 export type SettingsSection =
   | "display"
   | "members"
+  | "statuses"
   | "calendar"
   | "updates"
   | "mcp"
@@ -165,6 +173,7 @@ export type SettingsSection =
 
 export function SettingsDialog({
   open,
+  statusCatalog,
   settings,
   selectedCatalogLabel,
   calendarLabel,
@@ -201,6 +210,7 @@ export function SettingsDialog({
   onSaveBetaInstaller,
   betaInstallerStatusLine = null,
   workspaceBinding = null,
+  workspaceStatusEditor,
 }: SettingsDialogProps) {
   const displayScaleShortcut = usesCommandKey(
     navigator.platform || navigator.userAgent,
@@ -210,6 +220,7 @@ export function SettingsDialog({
   const [section, setSection] = useState<SettingsSection>(initialSection);
   const workspaceMembersNoteRef = useRef<HTMLParagraphElement>(null);
   const workspaceCalendarNoteRef = useRef<HTMLParagraphElement>(null);
+  const workspaceStatusesNoteRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     if (open) setSection(initialSection);
@@ -220,7 +231,9 @@ export function SettingsDialog({
       ? workspaceMembersNoteRef
       : section === "calendar"
         ? workspaceCalendarNoteRef
-        : undefined;
+        : section === "statuses"
+          ? workspaceStatusesNoteRef
+          : undefined;
 
   useEffect(() => {
     setMessage(null);
@@ -664,7 +677,10 @@ export function SettingsDialog({
       title="設定"
       onClose={onClose}
       initialFocusRef={
-        workspaceBinding && (section === "members" || section === "calendar")
+        workspaceBinding &&
+        (section === "members" ||
+          section === "calendar" ||
+          section === "statuses")
           ? workspaceNoteFocusRef
           : undefined
       }
@@ -691,6 +707,14 @@ export function SettingsDialog({
               onClick={() => setSection("members")}
             >
               メンバー
+            </button>
+            <button
+              type="button"
+              className={section === "statuses" ? "active" : undefined}
+              aria-current={section === "statuses" ? "true" : undefined}
+              onClick={() => setSection("statuses")}
+            >
+              ステータス
             </button>
             <button
               type="button"
@@ -938,6 +962,51 @@ export function SettingsDialog({
                   </>
                 )}
               </>
+            ) : null}
+            {section === "statuses" ? (
+              workspaceBinding ? (
+                <>
+                  <p
+                    ref={workspaceStatusesNoteRef}
+                    className="settings-note"
+                    tabIndex={-1}
+                  >
+                    {workspaceStatusesError(workspaceBinding.statuses)
+                      ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスはここでは変更できません。`
+                      : workspaceStatusEditor
+                        ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスは設定ファイルの指定どおり表示します。「項目を編集…」で、このファイルの項目だけを直せます。`
+                        : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスは設定ファイルの指定どおり表示します。ここでは変更できません。`}
+                  </p>
+                  <p
+                    className="settings-current"
+                    title={
+                      workspaceBinding.resolved.statusesPath ??
+                      workspaceBinding.workspacePath
+                    }
+                  >
+                    使用中: {workspaceBindingSummary(workspaceBinding).statusesLabel}
+                  </p>
+                  {workspaceStatusEditor ? (
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={workspaceStatusEditor.onOpenEditor}
+                      >
+                        項目を編集…
+                      </button>
+                    </div>
+                  ) : null}
+                  {workspaceStatusesError(workspaceBinding.statuses) ? (
+                    <p className="settings-error" role="alert">
+                      {workspaceStatusesError(workspaceBinding.statuses)}{" "}
+                      バーの色と選択肢は組み込みの三件に戻しています。
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <SettingsStatusesSection {...statusCatalog} />
+              )
             ) : null}
             {section === "calendar" ? (
               <>

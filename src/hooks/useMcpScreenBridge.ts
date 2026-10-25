@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Member, MemberId } from "../model/memberTypes";
+import type { StatusItem } from "../model/statusCatalog";
 import { loadBaselineDiffsText } from "../model/baselineDiffsLoad";
 import { loadScheduleDiffText } from "../model/scheduleDiffLoad";
 import {
@@ -56,6 +57,7 @@ type UseMcpScreenBridgeInput = {
   selectedTaskIds: readonly ScheduleId[];
   today: string;
   memberMap: Map<MemberId, Member> | null;
+  statuses: readonly StatusItem[];
   scheduleFilePath: string | null;
   scheduleCurrentJson: string;
   scheduleBaselineJson: string;
@@ -202,6 +204,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             memberCatalog: snap.memberMap,
             lineageIds: snap.lineageIds,
             selectedTaskId: snap.selectedTaskId,
+            statuses: snap.statuses,
           });
           break;
         }
@@ -209,6 +212,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           toolPayload = buildSelectedTasksPayload({
             categories: snap.categories,
             selectedTaskIds: snap.selectedTaskIds,
+            statuses: snap.statuses,
           });
           break;
         }
@@ -223,6 +227,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             today: snap.today,
             memberCatalog: snap.memberMap,
             lineageIds: snap.lineageIds,
+            statuses: snap.statuses,
           });
           break;
         }

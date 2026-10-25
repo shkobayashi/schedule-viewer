@@ -1,6 +1,7 @@
 import { brokenLinkTaskIds } from "./dependencies";
 import { normalizeTaskNote } from "./taskNote";
 import { taskHasAnySelectedTag } from "./taskTags";
+import { BUILTIN_STATUS_ITEMS, isDoneStatus, type StatusItem } from "./statusCatalog";
 import { isOverdue } from "./timeline";
 import {
   categoryRollupPercent,
@@ -75,6 +76,7 @@ export function listTasksMatchingFilter(
   today: string,
   memberCatalog: Map<MemberId, Member> | null,
   lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): FilteredTaskRef[] {
   const brokenIds = brokenIdsForFilter(categories, filters);
   const matched: FilteredTaskRef[] = [];
@@ -89,6 +91,7 @@ export function listTasksMatchingFilter(
             memberCatalog,
             brokenIds,
             lineageIds,
+            statuses,
           )
         ) {
           matched.push({
@@ -110,6 +113,7 @@ export function taskMatchesFilter(
   memberCatalog: Map<MemberId, Member> | null,
   brokenIds?: ReadonlySet<ScheduleId>,
   lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): boolean {
   if (lineageIds && !lineageIds.has(task.id)) return false;
   if (filters.assignee === UNASSIGNED_FILTER) {
@@ -120,7 +124,7 @@ export function taskMatchesFilter(
   ) {
     return false;
   }
-  if (filters.status === "not-done" && task.status === "done") {
+  if (filters.status === "not-done" && isDoneStatus(statuses, task.status)) {
     return false;
   }
   if (
@@ -136,7 +140,7 @@ export function taskMatchesFilter(
   ) {
     return false;
   }
-  if (filters.overdue === "overdue" && !isOverdue(task, today)) {
+  if (filters.overdue === "overdue" && !isOverdue(task, today, statuses)) {
     return false;
   }
   if (filters.relation === "broken" && !brokenIds?.has(task.id)) {
@@ -174,6 +178,7 @@ export function relaxFiltersForNewTask(
   today: string,
   memberCatalog: Map<MemberId, Member> | null,
   brokenIds?: ReadonlySet<ScheduleId>,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): ScheduleFilters {
   const open: ScheduleFilters = {
     assignee: "all",
@@ -194,6 +199,7 @@ export function relaxFiltersForNewTask(
       memberCatalog,
       brokenIds,
       null,
+      statuses,
     );
   return {
     ...filters,
@@ -244,6 +250,7 @@ export function computeVisibleRows(
   memberCatalog: Map<MemberId, Member> | null,
   rowHeight = ROW_HEIGHT,
   lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): VisibleRow[] {
   const brokenIds = brokenIdsForFilter(categories, filters);
   const showEmpty = showEmptyHierarchyRows(filters, lineageIds);
@@ -261,6 +268,7 @@ export function computeVisibleRows(
             memberCatalog,
             brokenIds,
             lineageIds,
+            statuses,
           ),
         ),
       }))

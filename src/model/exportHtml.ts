@@ -1,3 +1,4 @@
+import type { StatusItem } from "./statusCatalog";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
   scheduleHtmlFilename,
@@ -57,6 +58,8 @@ export type ScheduleExportInput = {
   milestoneFontSize: number;
   labelScale: number;
   today: string;
+  /** ステータスの一覧。無いときは組み込みの三件。 */
+  statuses?: readonly StatusItem[];
   memberCatalog: Map<MemberId, Member> | null;
   calendar: CalendarDocument | null;
   /** 初期値以外の絞り込み。空なら絞り込みなし。 */
@@ -117,7 +120,7 @@ function tentativeHatchPatterns(input: ScheduleExportInput): string {
   const colors = new Set<string>();
   for (const row of input.visibleRows) {
     if (row.type !== "task" || row.task.confidence !== "tentative") continue;
-    colors.add(barColors(row.task, input.today, input.colorScheme).bg);
+    colors.add(barColors(row.task, input.today, input.colorScheme, input.statuses).bg);
   }
   const drawnTentative = input.milestoneBandLayout.blocks.some((block) =>
     block.milestones.some((milestone) => milestone.confidence === "tentative"),
@@ -450,7 +453,7 @@ function renderSvgLabelRow(
   const assigneeDisplay = resolveAssigneeDisplay(row.task.assigneeId, input.memberCatalog);
   const unassigned = assigneeDisplay.kind === "unassigned";
   const unknownMember = assigneeDisplay.kind === "unknown";
-  const overdue = isOverdue(row.task, input.today);
+  const overdue = isOverdue(row.task, input.today, input.statuses);
   const exceeded = milestonesExceededBy(row.task, input.milestones);
   const nameSize = 12 * input.labelScale;
   let x = 26 * input.labelScale;
@@ -552,7 +555,7 @@ function renderLabelRow(row: VisibleRow, input: ScheduleExportInput): string {
   );
   const unassigned = assigneeDisplay.kind === "unassigned";
   const unknownMember = assigneeDisplay.kind === "unknown";
-  const overdue = isOverdue(row.task, input.today);
+  const overdue = isOverdue(row.task, input.today, input.statuses);
   const exceeded = milestonesExceededBy(row.task, input.milestones);
   const tentative =
     row.task.confidence === "tentative"
@@ -895,7 +898,7 @@ function renderTaskBar(
   const x = dateToX(parseDate(task.start));
   const w = taskBarWidthPx(task, dateToX, input.pxPerDay);
   const barY = y + (input.rowHeight - input.barHeight) / 2;
-  const colors = barColors(task, input.today, input.colorScheme);
+  const colors = barColors(task, input.today, input.colorScheme, input.statuses);
   const assigneeDisplay = resolveAssigneeDisplay(
     task.assigneeId,
     input.memberCatalog,
@@ -917,7 +920,7 @@ function renderTaskBar(
     `<rect x="${n(x)}" y="${n(barY)}" width="${n(w)}" height="${n(input.barHeight)}" rx="4" fill="none" stroke="${colors.border}" stroke-width="1"/>`,
   );
   const fontSize = Math.max(10, Math.round(input.barHeight * 0.55));
-  const labelFill = barLabelFill(task, input.today, input.colorScheme);
+  const labelFill = barLabelFill(task, input.today, input.colorScheme, input.statuses);
   const labelInside =
     w >= 72 && input.tier !== "month"
       ? `${task.name}${task.status === "in-progress" ? ` ${task.progress}%` : ""}`
@@ -967,7 +970,7 @@ function renderLightning(
     const y = bodyTop + row.y + input.rowHeight / 2;
     const x =
       row.type === "task"
-        ? dateToX(parseDate(lightningDate(row.task, input.today)))
+        ? dateToX(parseDate(lightningDate(row.task, input.today, input.statuses)))
         : todayX;
     points.push(x, y);
   }

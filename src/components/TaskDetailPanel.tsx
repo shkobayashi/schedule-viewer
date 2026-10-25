@@ -17,6 +17,8 @@ import {
 } from "../model/assigneeDisplay";
 import { daysBetween, parseDate } from "../model/dates";
 import type { Member } from "../model/memberTypes";
+import { StatusOptions } from "./StatusOptions";
+import type { StatusItem } from "../model/statusCatalog";
 import type { MemberId } from "../model/memberTypes";
 import type { TaskEditPatch } from "../model/tasks";
 import { validateTaskEdit } from "../model/tasks";
@@ -48,6 +50,7 @@ type TaskDetailPanelProps = {
   onAddTag: (tag: string) => string | null;
   onRemoveTag: (tag: string) => void;
   onEditingChange: (editing: boolean) => void;
+  statuses: readonly StatusItem[];
   panelRef?: Ref<TaskDetailPanelHandle>;
 };
 
@@ -63,6 +66,7 @@ export function TaskDetailPanel({
   onAddTag,
   onRemoveTag,
   onEditingChange,
+  statuses,
   panelRef,
 }: TaskDetailPanelProps) {
   const [name, setName] = useState(task.name);
@@ -416,9 +420,7 @@ export function TaskDetailPanel({
               commitWith({ status: next });
             }}
           >
-            <option value="not-started">未着手</option>
-            <option value="in-progress">進行中</option>
-            <option value="done">完了</option>
+            <StatusOptions statuses={statuses} current={status} />
           </select>
         </div>
         <div className="field">
