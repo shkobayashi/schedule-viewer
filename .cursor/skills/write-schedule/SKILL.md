@@ -29,8 +29,7 @@ description: >-
 
 - 各タスク: `name`, `start`, `end`, `assigneeId`（未割当は `null`）, `status`, `progress`, `confidence`（日付を合意したなら `committed`、まだなら `tentative`）, `predecessors`, `milestoneId`（なしは `null`）。任意で `tags`（説明用タグの配列。ユーザーから渡されたときだけ書く）, `note`（補足説明。ユーザーから渡されたときだけ書く）
 - タスクとマイルストンの `confidence` が入力から分からなければ、JSON を書かず不足として返す。未確定を既定にしない
-- `status` には、ユーザーから渡された **ステータス一覧** の `id` だけを使う。一覧は、アプリの MCP の読み取りツール（`selected_task`、`selected_tasks`、`filtered_tasks`）の応答の先頭にある `statuses`（`id`、`name`、`closed`、`description`）で渡される。`description` を読んで、タスクの状態に合う項目を選ぶ。`closed` が `true` の項目は完了として扱われる
-- 一覧が渡されていないときだけ、下の組み込みの三件（`not-started` 未着手、`in-progress` 着手済みで未完、`done` 終わった）から選ぶ
+- `status` には、ユーザーから渡された **ステータス一覧** の `id` だけを使う。一覧は次の順で探す。(1) 設定ファイルに `statuses` のパスがあるときは、その JSON を読み、各項目の `id`、`name`、`closed`、`description` を使う。(2) 無いときは、起動中のデスクトップ版の MCP 読み取り（`selected_task`、`selected_tasks`、`filtered_tasks`）の応答の先頭にある `statuses`。(3) どちらも無いときだけ、下の組み込みの三件（`not-started` 未着手、`in-progress` 着手済みで未完、`done` 終わった）から選ぶ。`description` を読んで、タスクの状態に合う項目を選ぶ。`closed` が `true` の項目は完了として扱われる
 - 合う項目が一覧に無いときは、`id` を作らず、JSON を書かずに不足として返す。項目の追加は、ユーザーが頼んだときだけ提案する（設定の「ステータス」で足す）
 - 担当を付けるタスクには、ユーザーから渡された **メンバー id 一覧** に含まれる id だけを使う。一覧に無い人がいる場合は JSON を書かず、不足として返す
 
@@ -79,18 +78,19 @@ description: >-
 
 ## 設定ファイル（workspace.json）があるとき
 
-設定ファイルは `schemaVersion: 1` で、必須の `schedule` にスケジュール JSON への**相対パス**を書く。任意で `members` と `calendar` に相対パスを書く。形の正本は次のとおり。
+設定ファイルは `schemaVersion: 1` で、必須の `schedule` にスケジュール JSON への**相対パス**を書く。任意で `members`、`statuses`、`calendar` に相対パスを書く。形の正本は次のとおり。
 
 ```json
 {
   "schemaVersion": 1,
   "schedule": "plan.json",
   "members": "team.members.json",
+  "statuses": "team.statuses.json",
   "calendar": "jp-2026.calendar.json"
 }
 ```
 
-設定ファイルのパスが渡されたときは、`schedule` の相対パスを**スケジュールの書き先**にする。`members` があるときは、そのファイルを読み、各 `id` を担当の一覧にする。アプリの起動も、アプリへの取り込みも要らない。`members` が無い状態で担当を付ける依頼は、JSON を書かず不足として返す。`calendar` のパスはスケジュール JSON には使わない。
+設定ファイルのパスが渡されたときは、`schedule` の相対パスを**スケジュールの書き先**にする。`members` があるときは、そのファイルを読み、各 `id` を担当の一覧にする。`statuses` があるときは、そのファイルを読み、各項目の `id` だけをステータスに使う。意味は JSON の `description` にあり、スキル本文には足さない。`statuses` が無いときは組み込みの三件を使う。アプリの起動も、アプリへの取り込みも要らない。`members` が無い状態で担当を付ける依頼は、JSON を書かず不足として返す。`calendar` のパスはスケジュール JSON には使わない。日付の前後はアプリが計算するため、カレンダーを読んで日付を動かさない。
 
 ## 手順
 

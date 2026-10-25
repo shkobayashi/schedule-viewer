@@ -9,9 +9,14 @@ import {
   resolveWorkspacePaths,
   workspaceSidecarLabel,
 } from "./workspaceJson";
+import {
+  formatStatusesValidationErrors,
+  validateStatuses,
+} from "./validateStatuses";
 import type {
   WorkspaceCalendarState,
   WorkspaceMemberState,
+  WorkspaceStatusesState,
   WorkspaceWindowBinding,
 } from "./workspaceTypes";
 import {
@@ -27,6 +32,7 @@ import { errorMessage } from "./errors";
 
 export const WORKSPACE_MEMBERS_MAX_BYTES = 2 * 1024 * 1024;
 export const WORKSPACE_CALENDAR_MAX_BYTES = 2 * 1024 * 1024;
+export const WORKSPACE_STATUSES_MAX_BYTES = 2 * 1024 * 1024;
 
 export const WORKSPACE_STARTUP_FAILED_MESSAGE =
   "設定ファイルを読み込めませんでした。中のスケジュールは開いていません。";
@@ -41,6 +47,20 @@ function mapMembersReadError(error: unknown): string {
   }
   if (message.startsWith("Unexpected token") || message.startsWith("JSON")) {
     return "メンバー JSON の形式が正しくありません。";
+  }
+  return message;
+}
+
+function mapStatusesReadError(error: unknown): string {
+  const message = errorMessage(error, "ステータス設定を読み込めませんでした。");
+  if (message === SCHEDULE_FILE_NOT_FOUND) {
+    return "ステータス設定を読み込めませんでした。";
+  }
+  if (error instanceof SyntaxError) {
+    return "ステータス JSON の形式が正しくありません。";
+  }
+  if (message.startsWith("Unexpected token") || message.startsWith("JSON")) {
+    return "ステータス JSON の形式が正しくありません。";
   }
   return message;
 }
@@ -116,6 +136,49 @@ async function loadMembersAtPath(path: string): Promise<WorkspaceMemberState> {
   }
 }
 
+async function loadStatusesAtPath(
+  path: string,
+): Promise<WorkspaceStatusesState> {
+  if (!isTauri()) {
+    return {
+      kind: "error",
+      message: "ステータス設定を読み込めませんでした。",
+    };
+  }
+  try {
+    const text = await readJsonFileLimitedViaTauri(
+      path,
+      WORKSPACE_STATUSES_MAX_BYTES,
+    );
+    let data: unknown;
+    try {
+      data = JSON.parse(stripUtf8Bom(text));
+    } catch {
+      return {
+        kind: "error",
+        message: "ステータス JSON の形式が正しくありません。",
+      };
+    }
+    const result = validateStatuses(data);
+    if (!result.ok) {
+      return {
+        kind: "error",
+        message: formatStatusesValidationErrors(result.errors),
+      };
+    }
+    return {
+      kind: "loaded",
+      label: scheduleJsonFilename(path) ?? path,
+      items: result.document.statuses,
+    };
+  } catch (error) {
+    return {
+      kind: "error",
+      message: mapStatusesReadError(error),
+    };
+  }
+}
+
 async function loadCalendarAtPath(path: string): Promise<WorkspaceCalendarState> {
   if (!isTauri()) {
     return { kind: "error", message: "カレンダー設定を読み込めませんでした。" };
@@ -185,6 +248,17 @@ export async function loadWorkspaceBinding(
       calendar = { kind: "error", message: "カレンダー設定を読み込めませんでした。" };
     }
   }
+  let statuses: WorkspaceStatusesState = { kind: "unset" };
+  if (parsed.document.statuses != null) {
+    if (resolved.statusesPath) {
+      statuses = await loadStatusesAtPath(resolved.statusesPath);
+    } else {
+      statuses = {
+        kind: "error",
+        message: "ステータス設定を読み込めませんでした。",
+      };
+    }
+  }
   return {
     ok: true,
     binding: {
@@ -193,6 +267,7 @@ export async function loadWorkspaceBinding(
       resolved,
       members,
       calendar,
+      statuses,
     },
   };
 }
@@ -227,6 +302,27 @@ export function workspaceCalendarError(
   calendar: WorkspaceCalendarState,
 ): string | null {
   return calendar.kind === "error" ? calendar.message : null;
+}
+
+export function workspaceStatusesForDisplay(
+  statuses: WorkspaceStatusesState,
+): import("./statusCatalog").StatusItem[] | null {
+  if (statuses.kind === "loaded") return [...statuses.items];
+  return null;
+}
+
+export function workspaceStatusesCatalogLabel(
+  statuses: WorkspaceStatusesState,
+): string | null {
+  if (statuses.kind === "loaded") return statuses.label;
+  if (statuses.kind === "unset") return null;
+  return null;
+}
+
+export function workspaceStatusesError(
+  statuses: WorkspaceStatusesState,
+): string | null {
+  return statuses.kind === "error" ? statuses.message : null;
 }
 
 export type WorkspaceOpened = {
@@ -322,6 +418,7 @@ export const WORKSPACE_DESKTOP_ONLY_DIALOG_TITLE = "設定ファイルは開け�
 export function workspaceBindingSummary(binding: WorkspaceWindowBinding): {
   membersLabel: string;
   calendarLabel: string;
+  statusesLabel: string;
 } {
   const membersLabel =
     binding.members.kind === "loaded" && binding.resolved.membersPath
@@ -339,5 +436,13 @@ export function workspaceBindingSummary(binding: WorkspaceWindowBinding): {
         : binding.document.calendar == null
           ? "未設定（土日を塗る）"
           : workspaceSidecarLabel(binding.document.calendar);
-  return { membersLabel, calendarLabel };
+  const statusesLabel =
+    binding.statuses.kind === "loaded" && binding.resolved.statusesPath
+      ? workspaceFileDisplayLabel(binding.resolved.statusesPath)
+      : binding.statuses.kind === "loaded"
+        ? binding.statuses.label
+        : binding.document.statuses == null
+          ? "組み込みの三件"
+          : workspaceSidecarLabel(binding.document.statuses);
+  return { membersLabel, calendarLabel, statusesLabel };
 }

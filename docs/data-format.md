@@ -90,13 +90,14 @@
 
 ## 設定ファイル（workspace、schemaVersion 1）
 
-正本は [workspace.schema.json](workspace.schema.json)。スケジュール JSON への相対パスを必須で書き、メンバー JSON とカレンダー JSON への相対パスは省略できる。設定ファイルから見た相対パスだけを書く。絶対パス、空、ディレクトリは拒否する。`..` を含む相対パスは許可する。
+正本は [workspace.schema.json](workspace.schema.json)。スケジュール JSON への相対パスを必須で書き、メンバー JSON、ステータス一覧 JSON、カレンダー JSON への相対パスは省略できる。設定ファイルから見た相対パスだけを書く。絶対パス、空、ディレクトリは拒否する。`..` を含む相対パスは許可する。
 
 ```json
 {
   "schemaVersion": 1,
   "schedule": "plan.json",
   "members": "team.members.json",
+  "statuses": "team.statuses.json",
   "calendar": "jp-2026.calendar.json"
 }
 ```

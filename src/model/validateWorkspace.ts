@@ -15,7 +15,7 @@ function schemaIssues(data: unknown): ValidationIssue[] {
 
 function relativePathIssues(
   value: string,
-  field: "schedule" | "members" | "calendar",
+  field: "schedule" | "members" | "calendar" | "statuses",
 ): ValidationIssue | null {
   if (!isWorkspaceRelativePath(value)) {
     return {
@@ -42,6 +42,10 @@ export function validateWorkspace(data: unknown): ValidateWorkspaceResult {
   if (doc.calendar != null) {
     const calendarIssue = relativePathIssues(doc.calendar, "calendar");
     if (calendarIssue) errors.push(calendarIssue);
+  }
+  if (doc.statuses != null) {
+    const statusesIssue = relativePathIssues(doc.statuses, "statuses");
+    if (statusesIssue) errors.push(statusesIssue);
   }
   if (errors.length > 0) {
     return { ok: false, errors };

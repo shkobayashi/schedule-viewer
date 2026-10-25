@@ -56,6 +56,17 @@ describe("workspaceJson", () => {
       schedulePath: "/data/ws/plan.json",
       membersPath: "/data/ws/team.json",
       calendarPath: null,
+      statusesPath: null,
     });
+  });
+
+  it("resolves optional statuses path", () => {
+    const doc = {
+      schemaVersion: 1 as const,
+      schedule: "plan.json",
+      statuses: "team.statuses.json",
+    };
+    const resolved = resolveWorkspacePaths("/data/ws/workspace.json", doc);
+    expect(resolved?.statusesPath).toBe("/data/ws/team.statuses.json");
   });
 });

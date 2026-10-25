@@ -8,6 +8,8 @@ export async function exportWorkspaceBundleViaTauri(input: {
   membersFileName: string | null;
   calendarContents: string | null;
   calendarFileName: string | null;
+  statusesContents: string | null;
+  statusesFileName: string | null;
 }): Promise<void> {
   if (!isTauri()) return;
   await invoke("export_workspace_bundle", {
@@ -21,5 +23,9 @@ export async function exportWorkspaceBundleViaTauri(input: {
       ? safeScheduleJsonFilename(input.calendarFileName)
       : null,
     calendarContents: input.calendarContents,
+    statusesFileName: input.statusesFileName
+      ? safeScheduleJsonFilename(input.statusesFileName)
+      : null,
+    statusesContents: input.statusesContents,
   });
 }

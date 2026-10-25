@@ -75,6 +75,7 @@ import {
   workspaceBindingSummary,
   workspaceCalendarError,
   workspaceMemberError,
+  workspaceStatusesError,
 } from "../model/workspaceLoad";
 
 function formatAppVersionLine(raw: string): string {
@@ -217,6 +218,7 @@ export function SettingsDialog({
   const [section, setSection] = useState<SettingsSection>(initialSection);
   const workspaceMembersNoteRef = useRef<HTMLParagraphElement>(null);
   const workspaceCalendarNoteRef = useRef<HTMLParagraphElement>(null);
+  const workspaceStatusesNoteRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     if (open) setSection(initialSection);
@@ -227,7 +229,9 @@ export function SettingsDialog({
       ? workspaceMembersNoteRef
       : section === "calendar"
         ? workspaceCalendarNoteRef
-        : undefined;
+        : section === "statuses"
+          ? workspaceStatusesNoteRef
+          : undefined;
 
   useEffect(() => {
     setMessage(null);
@@ -671,7 +675,10 @@ export function SettingsDialog({
       title="設定"
       onClose={onClose}
       initialFocusRef={
-        workspaceBinding && (section === "members" || section === "calendar")
+        workspaceBinding &&
+        (section === "members" ||
+          section === "calendar" ||
+          section === "statuses")
           ? workspaceNoteFocusRef
           : undefined
       }
@@ -955,7 +962,36 @@ export function SettingsDialog({
               </>
             ) : null}
             {section === "statuses" ? (
-              <SettingsStatusesSection {...statusCatalog} />
+              workspaceBinding ? (
+                <>
+                  <p
+                    ref={workspaceStatusesNoteRef}
+                    className="settings-note"
+                    tabIndex={-1}
+                  >
+                    {workspaceStatusesError(workspaceBinding.statuses)
+                      ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスはここでは変更できません。`
+                      : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ステータスは設定ファイルの指定どおり表示します。ここでは変更できません。`}
+                  </p>
+                  <p
+                    className="settings-current"
+                    title={
+                      workspaceBinding.resolved.statusesPath ??
+                      workspaceBinding.workspacePath
+                    }
+                  >
+                    使用中: {workspaceBindingSummary(workspaceBinding).statusesLabel}
+                  </p>
+                  {workspaceStatusesError(workspaceBinding.statuses) ? (
+                    <p className="settings-error" role="alert">
+                      {workspaceStatusesError(workspaceBinding.statuses)}{" "}
+                      バーの色と選択肢は組み込みの三件に戻しています。
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <SettingsStatusesSection {...statusCatalog} />
+              )
             ) : null}
             {section === "calendar" ? (
               <>

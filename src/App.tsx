@@ -72,12 +72,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { exportWorkspaceBundleViaTauri } from "./model/workspaceExport";
 import { safeScheduleJsonFilename } from "./model/scheduleFile";
 import { memberMapFromList } from "./model/assigneeDisplay";
+import { BUILTIN_STATUS_ITEMS } from "./model/statusCatalog";
 import {
   workspaceCalendarError,
   workspaceCalendarForDisplay,
   workspaceMemberCatalogLabel,
   workspaceMemberError,
   workspaceMembersForDisplay,
+  workspaceStatusesForDisplay,
 } from "./model/workspaceLoad";
 import { useSchedule } from "./hooks/useSchedule";
 import { useAppUpdateFlow } from "./hooks/useAppAutoUpdate";
@@ -554,6 +556,15 @@ function App() {
     ? workspaceCalendarError(workspaceBinding.calendar)
     : appCalendarState.error;
 
+  const displayStatuses = useMemo(() => {
+    if (!workspaceBinding) return statusCatalogState.statuses;
+    const fromFile = workspaceStatusesForDisplay(workspaceBinding.statuses);
+    if (fromFile) return fromFile;
+    return BUILTIN_STATUS_ITEMS;
+  }, [workspaceBinding, statusCatalogState.statuses]);
+
+  const statusesReady = workspaceBinding ? true : !statusCatalogState.loading;
+
   const refreshMemberCatalog = memberCatalogState.refresh;
   const refreshStatusCatalog = statusCatalogState.refresh;
   const refreshAppCalendar = appCalendarState.refresh;
@@ -627,8 +638,8 @@ function App() {
     blockDocumentEditsRef,
     (landed) => externalReloadHistoryUndoRef.current(landed),
     (landed) => externalReloadHistoryRedoRef.current(landed),
-    statusCatalogState.statuses,
-    !statusCatalogState.loading,
+    displayStatuses,
+    statusesReady,
   );
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
   const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
@@ -903,6 +914,22 @@ function App() {
             : `${appCalendarState.label}.calendar.json`;
         }
       }
+      let statusesContents: string | null = null;
+      let statusesFileName: string | null = null;
+      const selectedStatusId = statusCatalogState.settings.selectedCatalogId;
+      if (selectedStatusId) {
+        const text = await invoke<string | null>("read_status_catalog", {
+          catalogId: selectedStatusId,
+        });
+        if (text) {
+          statusesContents = text.endsWith("\n") ? text : `${text}\n`;
+          const label =
+            statusCatalogState.selectedCatalogLabel ?? selectedStatusId;
+          statusesFileName = label.endsWith(".json")
+            ? label
+            : `${label}.statuses.json`;
+        }
+      }
       await exportWorkspaceBundleViaTauri({
         scheduleContents,
         scheduleFileName,
@@ -910,6 +937,8 @@ function App() {
         membersFileName,
         calendarContents,
         calendarFileName,
+        statusesContents,
+        statusesFileName,
       });
       const parts = [
         "設定ファイルを書き出しました。このウィンドウはアプリの設定のままです。",
@@ -919,6 +948,9 @@ function App() {
       }
       if (!calendarContents) {
         parts.push("稼働日は未設定のため書いていません。");
+      }
+      if (!statusesContents) {
+        parts.push("ステータスは組み込みの三件のため書いていません。");
       }
       showUpdateToast(parts.join(" "));
     } catch (error) {
@@ -935,6 +967,8 @@ function App() {
     getCanonicalJson,
     memberCatalogState.selectedCatalogLabel,
     memberCatalogState.settings.selectedCatalogId,
+    statusCatalogState.selectedCatalogLabel,
+    statusCatalogState.settings.selectedCatalogId,
     scheduleFile,
     showUpdateToast,
     workspaceBinding,
@@ -1481,7 +1515,7 @@ function App() {
         milestoneFontSize,
         labelScale: uiScale,
         today: schedule.today,
-        statuses: statusCatalogState.statuses,
+        statuses: displayStatuses,
         memberCatalog: displayMemberMap,
         calendar: displayCalendar,
         filterSummary: describeActiveFilters(
@@ -1491,7 +1525,7 @@ function App() {
           schedule.milestoneGroups,
           schedule.hiddenMilestoneGroupIds,
           schedule.scheduleTags,
-          statusCatalogState.statuses,
+          displayStatuses,
         ),
         colorScheme: resolvedColorScheme,
         showLightningLine,
@@ -1524,7 +1558,7 @@ function App() {
     },
     [
       displayCalendar,
-      statusCatalogState.statuses,
+      displayStatuses,
       headerHeight,
       links,
       displayMemberMap,
@@ -1567,7 +1601,7 @@ function App() {
   }, [getCanonicalJson, scheduleFile.filePath]);
 
   useMcpScreenBridge({
-    statuses: statusCatalogState.statuses,
+    statuses: displayStatuses,
     categories: schedule.categories,
     milestones: schedule.milestones,
     milestoneGroups: schedule.milestoneGroups,
@@ -2663,7 +2697,7 @@ function App() {
       <Toolbar
         title={schedule.title}
         titleDiffMarked={diffNavigationMark.title}
-        statuses={statusCatalogState.statuses}
+        statuses={displayStatuses}
         filters={schedule.filters}
         searchField={schedule.searchField}
         onSearchFieldChange={schedule.setSearchField}
@@ -2755,7 +2789,7 @@ function App() {
         taskSearchRef={taskSearchRef}
       />
       <ActiveFilterBar
-        statuses={statusCatalogState.statuses}
+        statuses={displayStatuses}
         filters={schedule.filters}
         milestones={schedule.milestones}
         milestoneGroups={schedule.milestoneGroups}
@@ -2770,7 +2804,7 @@ function App() {
       />
       <div ref={mainRef} className="main">
         <Sidebar
-          statuses={statusCatalogState.statuses}
+          statuses={displayStatuses}
           categories={schedule.categories}
           rows={schedule.visibleRows}
           reorderBaseRows={schedule.baseVisibleRows}
@@ -2849,7 +2883,7 @@ function App() {
             </div>
           ) : null}
           <Timeline
-            statuses={statusCatalogState.statuses}
+            statuses={displayStatuses}
             visibleRows={schedule.visibleRows}
             width={Math.max(200, timelineWidth)}
             rowHeight={rowHeight}
@@ -2907,7 +2941,7 @@ function App() {
         </div>
         {selectedDetailTask ? (
           <TaskDetailPanel
-            statuses={statusCatalogState.statuses}
+            statuses={displayStatuses}
             key={`${selectedDetailTask.id}:${schedule.diskEpoch}`}
             panelRef={detailPanelRef}
             task={selectedDetailTask}
@@ -2926,7 +2960,7 @@ function App() {
           />
         ) : bulkDetailTasks.length > 1 ? (
           <BulkTaskDetailPanel
-            statuses={statusCatalogState.statuses}
+            statuses={displayStatuses}
             key={`bulk:${schedule.selectedTaskIds.join(",")}:${schedule.diskEpoch}`}
             tasks={bulkDetailTasks}
             selectedIds={schedule.selectedTaskIds}
@@ -3045,7 +3079,7 @@ function App() {
       ) : null}
       {schedule.duplicatingTask ? (
         <TaskEditDialog
-          statuses={statusCatalogState.statuses}
+          statuses={displayStatuses}
           key={`duplicate-${schedule.duplicatingTask.id}:${schedule.diskEpoch}`}
           mode="duplicate"
           task={schedule.duplicatingTask}
@@ -3208,7 +3242,7 @@ function App() {
           statusCatalog={{
             settings: statusCatalogState.settings,
             selectedCatalogLabel: statusCatalogState.selectedCatalogLabel,
-            statuses: statusCatalogState.statuses,
+            statuses: displayStatuses,
             onImport: statusCatalogState.importCatalog,
             onSelectCatalog: statusCatalogState.selectCatalog,
             onDeleteCatalog: statusCatalogState.removeCatalog,

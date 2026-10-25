@@ -19,6 +19,7 @@ description: >-
 
 - `schedule` の相対パス（必須）
 - `members` の相対パス（任意。書かないときはアプリでメンバー未選択）
+- `statuses` の相対パス（任意。書かないときは組み込みの三件のステータス）
 - `calendar` の相対パス（任意。書かないときは土日を塗る）
 
 パスは設定ファイルからの相対で、絶対パスは不可。`..` は使える。
@@ -30,6 +31,7 @@ description: >-
   "schemaVersion": 1,
   "schedule": "plan.json",
   "members": "team.members.json",
+  "statuses": "team.statuses.json",
   "calendar": "jp-2026.calendar.json"
 }
 ```
@@ -37,7 +39,7 @@ description: >-
 ## 手順
 
 1. 置くフォルダと、そこから見た各 JSON の相対パスを決める
-2. `schemaVersion: 1` と `schedule` を書き、必要なら `members` と `calendar` を足す
+2. `schemaVersion: 1` と `schedule` を書き、必要なら `members`、`statuses`、`calendar` を足す
 3. `node scripts/validate-workspace.mjs <file>` で検証する
 4. エラーがあれば修正して再検証し、通ってからユーザーに渡す
 

@@ -374,6 +374,7 @@ fn read_json_file_limited(path: String, max_bytes: u64) -> Result<String, String
     read_utf8(&path_buf, max_bytes)
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 async fn export_workspace_bundle(
     window: tauri::Window,
@@ -383,6 +384,8 @@ async fn export_workspace_bundle(
     members_contents: Option<String>,
     calendar_file_name: Option<String>,
     calendar_contents: Option<String>,
+    statuses_file_name: Option<String>,
+    statuses_contents: Option<String>,
 ) -> Result<(), String> {
     if schedule_contents.len() as u64 > MAX_SCHEDULE_BYTES {
         return Err("スケジュールが大きすぎます（上限 10 MB）".to_string());
@@ -395,6 +398,11 @@ async fn export_workspace_bundle(
     if let Some(contents) = &calendar_contents {
         if contents.len() as u64 > MAX_CALENDAR_BYTES {
             return Err("カレンダー JSON が大きすぎます（上限 2 MB）".to_string());
+        }
+    }
+    if let Some(contents) = &statuses_contents {
+        if contents.len() as u64 > MAX_MEMBERS_BYTES {
+            return Err("ステータス JSON が大きすぎます（上限 2 MB）".to_string());
         }
     }
     let picked = window
@@ -431,6 +439,14 @@ async fn export_workspace_bundle(
         }
         wrote_any = true;
         workspace["calendar"] = serde_json::Value::String(calendar_name);
+    }
+    if let (Some(name), Some(contents)) = (&statuses_file_name, &statuses_contents) {
+        let statuses_name = sanitize_export_filename(name, "json");
+        if let Err(error) = write_utf8_atomic(&folder.join(&statuses_name), contents) {
+            return Err(workspace::export_error_with_partial(error, wrote_any));
+        }
+        wrote_any = true;
+        workspace["statuses"] = serde_json::Value::String(statuses_name);
     }
     let workspace_text = serde_json::to_string_pretty(&workspace)
         .map_err(|e| format!("JSON を書けません: {}", e))?;
