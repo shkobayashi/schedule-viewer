@@ -3,6 +3,7 @@ import { schedulePathKey } from "./schedulePathKey";
 export type OpenWindowSnapshotEntry = {
   label: string;
   path: string | null;
+  workspacePath?: string | null;
   sample: boolean;
 };
 
@@ -44,5 +45,34 @@ export function routeExternalScheduleDrop(
     return { action: "openInWindow", label: pathlessWindows[0].label };
   }
 
+  return { action: "openNewWindow" };
+}
+
+export function routeExternalWorkspaceDrop(
+  workspacePath: string,
+  windows: readonly OpenWindowSnapshotEntry[],
+  focusOrder: readonly string[],
+): ExternalScheduleDropRoute {
+  const key = schedulePathKey(workspacePath);
+  const matchingLabels: string[] = [];
+  for (const label of [...focusOrder].reverse()) {
+    const entry = windows.find((window) => window.label === label);
+    if (
+      entry?.workspacePath != null &&
+      schedulePathKey(entry.workspacePath) === key
+    ) {
+      matchingLabels.push(label);
+    }
+  }
+  for (const entry of windows) {
+    if (entry.workspacePath == null) continue;
+    if (schedulePathKey(entry.workspacePath) !== key) continue;
+    if (!matchingLabels.includes(entry.label)) {
+      matchingLabels.push(entry.label);
+    }
+  }
+  if (matchingLabels.length > 0) {
+    return { action: "focusExisting", label: matchingLabels[0] };
+  }
   return { action: "openNewWindow" };
 }

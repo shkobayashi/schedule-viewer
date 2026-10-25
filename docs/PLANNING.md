@@ -203,12 +203,12 @@ LLMとのコミュニケーションは、現時点では計画しない。
 
 - コマンドは `--screen` とツール名、または読み取り 5 つに `--window` と内部ラベル。ツール名に `open_windows` を含む。`open_windows` と `replace_schedule` に `--window` は付けない。`replace_schedule` は標準入力にスケジュール JSON 全体
 - スキル名は `read-screen`。同梱テンプレートの実行ファイルの呼び方を、置くときにこのパソコンのものへ書き込む。Windows で Local AppData 配下のときは `"$LOCALAPPDATA/"` から続く1行にし、それ以外は絶対パスを引数と別の行に書く
-- 置き先はユーザー全体（`~/.cursor/skills/read-screen/` と `~/.claude/skills/read-screen/`）だけ。指定フォルダは出さない
+- 置き先はユーザー全体（`~/.cursor/skills/read-screen/`、`~/.claude/skills/read-screen/`、`~/.copilot/skills/read-screen/`）だけ。指定フォルダは出さない
 - 設定の「画面の状態を渡す」に、mcp.json 登録とスキル置きを並べる。どちらか一方を終えても、もう一方は終わらない
 
 ## 決定（JSON 作成スキルの配置）
 
-- `write-schedule`、`write-members`、`write-calendar` は配布ビルドに同梱する。利用者が置く操作はデスクトップ版の設定から行う
+- `write-schedule`、`write-members`、`write-calendar`、`write-workspace` は配布ビルドに同梱する。利用者が置く操作はデスクトップ版の設定から行う
 - deb や NSIS などのインストーラーは、ホームやプロジェクトへスキルをコピーしない。初回起動でも勝手に書かない
 
 ## 既知の課題

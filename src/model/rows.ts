@@ -3,6 +3,10 @@ import { normalizeTaskNote } from "./taskNote";
 import { taskHasAnySelectedTag } from "./taskTags";
 import { BUILTIN_STATUS_ITEMS, isClosedStatus, type StatusItem } from "./statusCatalog";
 import { isOverdue } from "./timeline";
+import {
+  categoryRollupPercent,
+  groupRollupPercent,
+} from "./progressRollup";
 import { summarizeSpans } from "./summary";
 import {
   matchesUnassignedFilter,
@@ -286,6 +290,7 @@ export function computeVisibleRows(
       y,
       collapsed: categoryCollapsed,
       summary: categorySummary,
+      rollupPercent: categoryRollupPercent(cat),
     });
     y += rowHeight;
     if (categoryCollapsed) continue;
@@ -303,6 +308,7 @@ export function computeVisibleRows(
         y,
         collapsed: groupCollapsed,
         summary: groupSummary,
+        rollupPercent: groupRollupPercent(group),
       });
       y += rowHeight;
       if (groupCollapsed) continue;

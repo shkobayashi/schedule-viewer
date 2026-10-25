@@ -76,7 +76,12 @@ export function StatusBar({
           メンバー設定エラー
         </button>
       ) : membersCatalogLabel ? (
-        <span className="status-bar-item">{membersCatalogLabel}</span>
+        <span
+          className="status-bar-item status-bar-file"
+          title={membersCatalogLabel}
+        >
+          {membersCatalogLabel}
+        </span>
       ) : null}
       {calendarError ? (
         <button

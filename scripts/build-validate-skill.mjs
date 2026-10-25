@@ -52,6 +52,23 @@ copyFileSync(
   ".cursor/skills/write-members/members.schema.json",
 );
 
+buildSync({
+  entryPoints: ["scripts/validate-workspace-cli.ts"],
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  outfile:
+    ".cursor/skills/write-workspace/scripts/validate-workspace.bundle.mjs",
+  banner: {
+    js: "#!/usr/bin/env node",
+  },
+});
+
+copyFileSync(
+  "docs/workspace.schema.json",
+  ".cursor/skills/write-workspace/workspace.schema.json",
+);
+
 console.log(
-  "Built validate-schedule.bundle.mjs, validate-calendar.bundle.mjs, and validate-members.bundle.mjs",
+  "Built validate-schedule.bundle.mjs, validate-calendar.bundle.mjs, validate-members.bundle.mjs, and validate-workspace.bundle.mjs",
 );

@@ -1,9 +1,8 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
-import type { JsonSkillTools } from "./jsonSkills";
+import type { JsonSkillToolSelection } from "./jsonSkills";
 
-export type InstallReadScreenSkillParams = {
-  tools: JsonSkillTools;
+export type InstallReadScreenSkillParams = JsonSkillToolSelection & {
   replace: boolean;
 };
 
@@ -13,9 +12,7 @@ export type InstallReadScreenSkillResult = {
   executablePath: string;
 };
 
-export type UninstallReadScreenSkillParams = {
-  tools: JsonSkillTools;
-};
+export type UninstallReadScreenSkillParams = JsonSkillToolSelection;
 
 export type UninstallReadScreenSkillResult = {
   removedPaths: string[];
