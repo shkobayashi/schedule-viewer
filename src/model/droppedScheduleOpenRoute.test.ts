@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { routeExternalScheduleDrop } from "./droppedScheduleOpenRoute";
+import {
+  routeExternalScheduleDrop,
+  routeExternalWorkspaceDrop,
+} from "./droppedScheduleOpenRoute";
 
 describe("routeExternalScheduleDrop", () => {
   it("focuses the newest window that already has the same path", () => {
@@ -45,5 +48,29 @@ describe("routeExternalScheduleDrop", () => {
       ["main", "schedule-2"],
     );
     expect(route).toEqual({ action: "openInWindow", label: "schedule-2" });
+  });
+});
+
+describe("routeExternalWorkspaceDrop", () => {
+  it("focuses the newest window that already has the same workspace path", () => {
+    const route = routeExternalWorkspaceDrop(
+      "/proj/workspace.json",
+      [
+        {
+          label: "main",
+          path: "/proj/plan.json",
+          workspacePath: "/proj/workspace.json",
+          sample: false,
+        },
+        {
+          label: "schedule-2",
+          path: "/proj/plan.json",
+          workspacePath: "/proj/workspace.json",
+          sample: false,
+        },
+      ],
+      ["main", "schedule-2"],
+    );
+    expect(route).toEqual({ action: "focusExisting", label: "schedule-2" });
   });
 });

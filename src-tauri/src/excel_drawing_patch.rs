@@ -506,7 +506,10 @@ fn rewrite_zip(
     let mut files: HashMap<String, Vec<u8>> = HashMap::new();
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
-        let name = file.name().to_string();
+        let name = file
+            .name()
+            .map_err(|e| e.to_string())?
+            .into_owned();
         let mut data = Vec::new();
         file.read_to_end(&mut data).map_err(|e| e.to_string())?;
         files.insert(name, data);

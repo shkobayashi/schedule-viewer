@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { recentFileMenuEntries } from "../model/recentFiles";
+import type { RecentFilesStore } from "../model/recentFiles";
+import { recentMenuSections } from "../model/recentFilesMenu";
 import { requestApplicationQuitViaTauri } from "../model/windowSession";
 import type { GridTier } from "../model/timeline";
 
@@ -15,6 +16,7 @@ export type MacOSAppMenuHandlers = {
   onSave: () => void;
   onSaveAs: () => void;
   onExportHtml: () => void;
+  onExportWorkspace?: () => void;
   onShowJson: () => void;
   onShowDiff: () => void;
   onOpenGuide: () => void;
@@ -42,7 +44,7 @@ function isTextFieldTarget(target: EventTarget | null): boolean {
 
 export function useMacOSAppMenu(
   handlers: MacOSAppMenuHandlers,
-  recentFilePaths: string[],
+  recentFilesStore: RecentFilesStore,
 ): void {
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
@@ -96,21 +98,43 @@ export function useMacOSAppMenu(
         ],
       });
 
-      const recentEntries = recentFileMenuEntries(recentFilePaths);
+      const recentSections = recentMenuSections(recentFilesStore);
+      const recentMenuItems: (
+        | Awaited<ReturnType<typeof MenuItem.new>>
+        | Awaited<ReturnType<typeof PredefinedMenuItem.new>>
+      )[] = [];
+      let recentIndex = 0;
+      for (let sectionIndex = 0; sectionIndex < recentSections.length; sectionIndex++) {
+        const section = recentSections[sectionIndex];
+        if (sectionIndex > 0) {
+          recentMenuItems.push(
+            await PredefinedMenuItem.new({ item: "Separator" }),
+          );
+        }
+        recentMenuItems.push(
+          await MenuItem.new({
+            id: `file-recent-heading-${sectionIndex}`,
+            text: section.heading,
+            enabled: false,
+          }),
+        );
+        for (const entry of section.items) {
+          const index = recentIndex++;
+          recentMenuItems.push(
+            await fileItem(
+              `file-recent-${index}`,
+              entry.label,
+              () => h().onOpenRecent(entry.path),
+            ),
+          );
+        }
+      }
       const recentMenuSlot =
-        recentEntries.length > 0
+        recentSections.length > 0
           ? await Submenu.new({
               text: "最近開いたファイル",
               items: [
-                ...(await Promise.all(
-                  recentEntries.map((entry, index) =>
-                    fileItem(
-                      `file-recent-${index}`,
-                      entry.label,
-                      () => h().onOpenRecent(entry.path),
-                    ),
-                  ),
-                )),
+                ...recentMenuItems,
                 await PredefinedMenuItem.new({ item: "Separator" }),
                 await MenuItem.new({
                   id: "file-clear-recent",
@@ -138,6 +162,15 @@ export function useMacOSAppMenu(
           await fileItem("file-save-as", "別名保存", () => h().onSaveAs()),
           await PredefinedMenuItem.new({ item: "Separator" }),
           await fileItem("file-export", "書き出し", () => h().onExportHtml(), false),
+          ...(h().onExportWorkspace
+            ? [
+                await fileItem(
+                  "file-export-workspace",
+                  "設定ファイルを新しいフォルダへ書き出す",
+                  () => h().onExportWorkspace?.(),
+                ),
+              ]
+            : []),
           await fileItem("file-json", "JSON を表示", () => h().onShowJson(), false),
           await fileItem("file-diff", "差分を表示", () => h().onShowDiff()),
         ],
@@ -251,5 +284,5 @@ export function useMacOSAppMenu(
     return () => {
       cancelled = true;
     };
-  }, [recentFilePaths]);
+  }, [recentFilesStore]);
 }

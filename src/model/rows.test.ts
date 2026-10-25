@@ -430,6 +430,158 @@ describe("computeVisibleRows empty hierarchy", () => {
   });
 });
 
+describe("computeVisibleRows rollupPercent", () => {
+  const catId = "00000000-0000-4000-8000-0000000000e1";
+  const groupId = "00000000-0000-4000-8000-0000000000e2";
+  const hiddenGroupId = "00000000-0000-4000-8000-0000000000e3";
+  const visibleTask: Task = {
+    ...baseTask,
+    id: "00000000-0000-4000-8000-0000000000f1",
+    name: "Visible",
+    start: "2026-01-01",
+    end: "2026-01-02",
+    progress: 0,
+  };
+  const filteredHiddenInGroup: Task = {
+    ...baseTask,
+    id: "00000000-0000-4000-8000-0000000000f3",
+    name: "HiddenInGroup",
+    start: "2026-01-01",
+    end: "2026-01-31",
+    status: "in-progress",
+    progress: 100,
+  };
+  const hiddenTask: Task = {
+    ...baseTask,
+    id: "00000000-0000-4000-8000-0000000000f2",
+    name: "HiddenOnly",
+    status: "in-progress",
+    progress: 100,
+  };
+
+  const rollupCategories: Category[] = [
+    {
+      id: catId,
+      name: "Cat",
+      groups: [
+        { id: groupId, name: "G", tasks: [visibleTask] },
+        { id: hiddenGroupId, name: "Hidden", tasks: [hiddenTask] },
+      ],
+    },
+  ];
+
+  const rollupCategoriesSameGroup: Category[] = [
+    {
+      id: catId,
+      name: "Cat",
+      groups: [
+        {
+          id: groupId,
+          name: "G",
+          tasks: [visibleTask, filteredHiddenInGroup],
+        },
+      ],
+    },
+  ];
+
+  it("includes filtered-out tasks in category and group rollup", () => {
+    const rows = computeVisibleRows(
+      rollupCategoriesSameGroup,
+      { ...filters, search: "Visible" },
+      new Set(),
+      "2026-04-01",
+      null,
+    );
+    const category = rows.find((row) => row.type === "category");
+    const group = rows.find((row) => row.type === "group" && row.id === groupId);
+    expect(category?.type === "category" ? category.rollupPercent : undefined).toBe(
+      50,
+    );
+    expect(group?.type === "group" ? group.rollupPercent : undefined).toBe(50);
+    expect(rows.some((row) => row.type === "task" && row.task.id === visibleTask.id)).toBe(
+      true,
+    );
+    expect(
+      rows.some((row) => row.type === "task" && row.task.id === filteredHiddenInGroup.id),
+    ).toBe(false);
+    expect(
+      rows.some((row) => row.type === "group" && row.id === hiddenGroupId),
+    ).toBe(false);
+  });
+
+  it("includes collapsed tasks in rollup", () => {
+    const rows = computeVisibleRows(
+      rollupCategories,
+      filters,
+      new Set([`category:${catId}`]),
+      "2026-04-01",
+      null,
+    );
+    const category = rows.find((row) => row.type === "category");
+    expect(category?.type === "category" ? category.rollupPercent : undefined).toBe(
+      50,
+    );
+    expect(rows.some((row) => row.type === "task")).toBe(false);
+  });
+
+  it("includes lineage-hidden tasks in rollup", () => {
+    const rows = computeVisibleRows(
+      rollupCategories,
+      filters,
+      new Set(),
+      "2026-04-01",
+      null,
+      32,
+      new Set([visibleTask.id]),
+    );
+    const category = rows.find((row) => row.type === "category");
+    const group = rows.find((row) => row.type === "group" && row.id === groupId);
+    expect(category?.type === "category" ? category.rollupPercent : undefined).toBe(
+      50,
+    );
+    expect(group?.type === "group" ? group.rollupPercent : undefined).toBe(0);
+  });
+
+  it("keeps parent bar summary on visible tasks only", () => {
+    const rows = computeVisibleRows(
+      rollupCategoriesSameGroup,
+      { ...filters, search: "Visible" },
+      new Set(),
+      "2026-04-01",
+      null,
+    );
+    const category = rows.find((row) => row.type === "category");
+    const summary =
+      category?.type === "category" ? category.summary : undefined;
+    expect(summary).not.toBeNull();
+    expect(summary?.end).toBe(visibleTask.end);
+    expect(summary?.end).not.toBe(filteredHiddenInGroup.end);
+    expect(category?.type === "category" ? category.rollupPercent : undefined).toBe(
+      50,
+    );
+  });
+
+  it("sets rollupPercent null on empty hierarchy rows", () => {
+    const rows = computeVisibleRows(
+      [
+        {
+          id: catId,
+          name: "Cat",
+          groups: [{ id: groupId, name: "Empty", tasks: [] }],
+        },
+      ],
+      filters,
+      new Set(),
+      "2026-04-01",
+      null,
+    );
+    const category = rows.find((row) => row.type === "category");
+    const group = rows.find((row) => row.type === "group");
+    expect(category?.type === "category" ? category.rollupPercent : undefined).toBeNull();
+    expect(group?.type === "group" ? group.rollupPercent : undefined).toBeNull();
+  });
+});
+
 describe("reorderDragBlockRows", () => {
   const catId = "00000000-0000-4000-8000-0000000000c1";
   const cat2Id = "00000000-0000-4000-8000-0000000000c2";

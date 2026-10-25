@@ -1,7 +1,9 @@
+import { recentFileCommandPaletteLabel } from "./recentFiles";
 import {
-  recentFileCommandPaletteLabel,
-  recentFileMenuEntries,
-} from "./recentFiles";
+  recentMenuCommandPalettePrefix,
+  recentMenuSections,
+} from "./recentFilesMenu";
+import type { RecentFilesStore } from "./recentFiles";
 
 export type CommandPaletteCommandId =
   | "open"
@@ -60,7 +62,7 @@ export type CommandPaletteRunTarget =
 export type CommandPaletteContext = {
   fileBusy: boolean;
   isTauriDesktop: boolean;
-  recentFilePaths: string[];
+  recentFilesStore: RecentFilesStore;
   refreshRecentFiles?: () => void;
   storeDistribution: boolean;
   canUndo: boolean;
@@ -311,15 +313,22 @@ export function buildCommandPaletteItems(
   const rest = afterOpen;
 
   const recentBlock: CommandPaletteItem[] = [];
-  if (context.isTauriDesktop && context.recentFilePaths.length > 0) {
-    for (const entry of recentFileMenuEntries(context.recentFilePaths)) {
-      recentBlock.push({
+  if (
+    context.isTauriDesktop &&
+    (context.recentFilesStore.schedules.length > 0 ||
+      context.recentFilesStore.workspaces.length > 0)
+  ) {
+    for (const section of recentMenuSections(context.recentFilesStore)) {
+      for (const entry of section.items) {
+        const prefix = recentMenuCommandPalettePrefix(entry.kind);
+        recentBlock.push({
         kind: "openRecent",
         path: entry.path,
-        label: recentFileCommandPaletteLabel(entry.label),
-        keywords: `${entry.label} recent 最近 ファイル`,
+        label: recentFileCommandPaletteLabel(`${prefix}${entry.label}`),
+        keywords: `${entry.label} recent 最近 ファイル ${entry.kind}`,
         enabled: !context.fileBusy,
       });
+      }
     }
     recentBlock.push({
       kind: "command",

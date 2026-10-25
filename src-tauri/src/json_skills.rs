@@ -4,7 +4,12 @@ use std::path::{Component, Path, PathBuf};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
-pub const JSON_SKILL_NAMES: [&str; 3] = ["write-schedule", "write-members", "write-calendar"];
+pub const JSON_SKILL_NAMES: [&str; 4] = [
+    "write-schedule",
+    "write-members",
+    "write-calendar",
+    "write-workspace",
+];
 
 const RESOURCE_SKILLS_DIR: &str = "json-skills";
 
@@ -13,12 +18,33 @@ const RESOURCE_SKILLS_DIR: &str = "json-skills";
 pub struct JsonSkillHomeDirsResult {
     pub cursor: bool,
     pub claude: bool,
+    pub copilot: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct JsonSkillToolSelection {
+    pub cursor: bool,
+    pub claude: bool,
+    pub copilot: bool,
+}
+
+pub fn parse_tool_selection(cursor: bool, claude: bool, copilot: bool) -> Result<JsonSkillToolSelection, String> {
+    if !cursor && !claude && !copilot {
+        return Err("ツールを1つ以上選んでください。".to_string());
+    }
+    Ok(JsonSkillToolSelection {
+        cursor,
+        claude,
+        copilot,
+    })
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallJsonSkillsParams {
-    pub tools: String,
+    pub cursor: bool,
+    pub claude: bool,
+    pub copilot: bool,
     pub scope: String,
     pub project_folder: Option<String>,
     pub replace: bool,
@@ -35,7 +61,9 @@ pub struct InstallJsonSkillsResult {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UninstallJsonSkillsParams {
-    pub tools: String,
+    pub cursor: bool,
+    pub claude: bool,
+    pub copilot: bool,
     pub scope: String,
     pub project_folder: Option<String>,
 }
@@ -48,25 +76,9 @@ pub struct UninstallJsonSkillsResult {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum JsonSkillTool {
-    Cursor,
-    Claude,
-    Both,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum JsonSkillScope {
     User,
     Project,
-}
-
-pub fn parse_tools(raw: &str) -> Result<JsonSkillTool, String> {
-    match raw {
-        "cursor" => Ok(JsonSkillTool::Cursor),
-        "claude" => Ok(JsonSkillTool::Claude),
-        "both" => Ok(JsonSkillTool::Both),
-        _ => Err("ツールの指定が不正です。".to_string()),
-    }
 }
 
 pub fn parse_scope(raw: &str) -> Result<JsonSkillScope, String> {
@@ -95,28 +107,34 @@ pub fn validate_project_folder(path: &str) -> Result<PathBuf, String> {
 
 pub fn skill_destinations(
     home: &Path,
-    tools: JsonSkillTool,
+    tools: JsonSkillToolSelection,
     scope: JsonSkillScope,
     project_folder: Option<&Path>,
 ) -> Result<Vec<PathBuf>, String> {
     let mut bases: Vec<PathBuf> = Vec::new();
     match scope {
         JsonSkillScope::User => {
-            if matches!(tools, JsonSkillTool::Cursor | JsonSkillTool::Both) {
+            if tools.cursor {
                 bases.push(home.join(".cursor").join("skills"));
             }
-            if matches!(tools, JsonSkillTool::Claude | JsonSkillTool::Both) {
+            if tools.claude {
                 bases.push(home.join(".claude").join("skills"));
+            }
+            if tools.copilot {
+                bases.push(home.join(".copilot").join("skills"));
             }
         }
         JsonSkillScope::Project => {
             let project = project_folder
                 .ok_or_else(|| "プロジェクトのフォルダを選んでください。".to_string())?;
-            if matches!(tools, JsonSkillTool::Cursor | JsonSkillTool::Both) {
+            if tools.cursor {
                 bases.push(project.join(".cursor").join("skills"));
             }
-            if matches!(tools, JsonSkillTool::Claude | JsonSkillTool::Both) {
+            if tools.claude {
                 bases.push(project.join(".claude").join("skills"));
+            }
+            if tools.copilot {
+                bases.push(project.join(".github").join("skills"));
             }
         }
     }
@@ -156,12 +174,12 @@ pub fn existing_skill_paths(paths: &[PathBuf]) -> Vec<String> {
 pub fn claude_user_shadow_paths(
     home: &Path,
     scope: JsonSkillScope,
-    tools: JsonSkillTool,
+    tools: JsonSkillToolSelection,
 ) -> Vec<String> {
     if scope != JsonSkillScope::Project {
         return Vec::new();
     }
-    if !matches!(tools, JsonSkillTool::Claude | JsonSkillTool::Both) {
+    if !tools.claude {
         return Vec::new();
     }
     let base = home.join(".claude").join("skills");
@@ -247,7 +265,7 @@ fn ensure_real_dir(path: &Path, create: bool, removing: bool) -> Result<(), Stri
     }
 }
 
-fn ensure_skill_parents(
+pub(crate) fn ensure_skill_parents(
     dest: &Path,
     create: bool,
     removing: bool,
@@ -342,7 +360,7 @@ fn bundled_skill_dir(resource_dir: &Path, skill_name: &str) -> Result<PathBuf, S
 pub fn install_json_skills_to_disk(
     resource_dir: &Path,
     home: &Path,
-    tools: JsonSkillTool,
+    tools: JsonSkillToolSelection,
     scope: JsonSkillScope,
     project_folder: Option<&Path>,
     replace: bool,
@@ -393,7 +411,7 @@ pub fn install_json_skills_to_disk(
 
 pub fn uninstall_json_skills_from_disk(
     home: &Path,
-    tools: JsonSkillTool,
+    tools: JsonSkillToolSelection,
     scope: JsonSkillScope,
     project_folder: Option<&Path>,
 ) -> Result<UninstallJsonSkillsResult, String> {
@@ -426,11 +444,13 @@ pub fn uninstall_json_skills_from_disk(
 }
 
 fn resolve_json_skill_params(
-    tools: &str,
+    cursor: bool,
+    claude: bool,
+    copilot: bool,
     scope: &str,
     project_folder: Option<&str>,
-) -> Result<(JsonSkillTool, JsonSkillScope, Option<PathBuf>), String> {
-    let tools = parse_tools(tools)?;
+) -> Result<(JsonSkillToolSelection, JsonSkillScope, Option<PathBuf>), String> {
+    let tools = parse_tool_selection(cursor, claude, copilot)?;
     let scope = parse_scope(scope)?;
     let project_folder = match scope {
         JsonSkillScope::User => None,
@@ -447,6 +467,7 @@ pub fn json_skill_home_dirs_at(home: &Path) -> JsonSkillHomeDirsResult {
     JsonSkillHomeDirsResult {
         cursor: home.join(".cursor").is_dir(),
         claude: home.join(".claude").is_dir(),
+        copilot: home.join(".copilot").is_dir(),
     }
 }
 
@@ -486,7 +507,9 @@ pub fn install_json_skills(
     params: InstallJsonSkillsParams,
 ) -> Result<InstallJsonSkillsResult, String> {
     let (tools, scope, project_folder) = resolve_json_skill_params(
-        &params.tools,
+        params.cursor,
+        params.claude,
+        params.copilot,
         &params.scope,
         params.project_folder.as_deref(),
     )?;
@@ -516,7 +539,9 @@ pub fn uninstall_json_skills(
     params: UninstallJsonSkillsParams,
 ) -> Result<UninstallJsonSkillsResult, String> {
     let (tools, scope, project_folder) = resolve_json_skill_params(
-        &params.tools,
+        params.cursor,
+        params.claude,
+        params.copilot,
         &params.scope,
         params.project_folder.as_deref(),
     )?;
@@ -530,6 +555,46 @@ pub fn uninstall_json_skills(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn selection_cursor_only() -> JsonSkillToolSelection {
+        JsonSkillToolSelection {
+            cursor: true,
+            claude: false,
+            copilot: false,
+        }
+    }
+
+    fn selection_claude_only() -> JsonSkillToolSelection {
+        JsonSkillToolSelection {
+            cursor: false,
+            claude: true,
+            copilot: false,
+        }
+    }
+
+    fn selection_copilot_only() -> JsonSkillToolSelection {
+        JsonSkillToolSelection {
+            cursor: false,
+            claude: false,
+            copilot: true,
+        }
+    }
+
+    fn selection_cursor_and_claude() -> JsonSkillToolSelection {
+        JsonSkillToolSelection {
+            cursor: true,
+            claude: true,
+            copilot: false,
+        }
+    }
+
+    fn selection_all_tools() -> JsonSkillToolSelection {
+        JsonSkillToolSelection {
+            cursor: true,
+            claude: true,
+            copilot: true,
+        }
+    }
 
     #[test]
     fn validate_project_folder_rejects_relative_and_symlink() {
@@ -549,20 +614,102 @@ mod tests {
         let home = PathBuf::from("/home/me");
         let project = PathBuf::from("/tmp/project");
         let user_cursor =
-            skill_destinations(&home, JsonSkillTool::Cursor, JsonSkillScope::User, None).unwrap();
-        assert_eq!(user_cursor.len(), 3);
+            skill_destinations(&home, selection_cursor_only(), JsonSkillScope::User, None)
+                .unwrap();
+        assert_eq!(user_cursor.len(), JSON_SKILL_NAMES.len());
         assert!(user_cursor
             .iter()
             .all(|p| p.starts_with("/home/me/.cursor/skills")));
 
         let project_both = skill_destinations(
             &home,
-            JsonSkillTool::Both,
+            selection_cursor_and_claude(),
             JsonSkillScope::Project,
             Some(&project),
         )
         .unwrap();
-        assert_eq!(project_both.len(), 6);
+        assert_eq!(project_both.len(), JSON_SKILL_NAMES.len() * 2);
+    }
+
+    #[test]
+    fn skill_destinations_copilot_user_and_project() {
+        let home = PathBuf::from("/home/me");
+        let project = PathBuf::from("/tmp/project");
+        let user_copilot = skill_destinations(
+            &home,
+            selection_copilot_only(),
+            JsonSkillScope::User,
+            None,
+        )
+        .unwrap();
+        assert_eq!(user_copilot.len(), JSON_SKILL_NAMES.len());
+        assert!(user_copilot
+            .iter()
+            .all(|p| p.starts_with("/home/me/.copilot/skills")));
+        assert!(user_copilot.iter().all(|p| !p.to_string_lossy().contains(".github")));
+        assert!(user_copilot.iter().all(|p| !p.to_string_lossy().contains(".cursor")));
+
+        let project_copilot = skill_destinations(
+            &home,
+            selection_copilot_only(),
+            JsonSkillScope::Project,
+            Some(&project),
+        )
+        .unwrap();
+        assert_eq!(project_copilot.len(), JSON_SKILL_NAMES.len());
+        assert!(project_copilot
+            .iter()
+            .all(|p| p.starts_with("/tmp/project/.github/skills")));
+        assert!(project_copilot
+            .iter()
+            .all(|p| !p.to_string_lossy().contains(".copilot")));
+    }
+
+    #[test]
+    fn skill_destinations_all_tools_user_scope() {
+        let home = PathBuf::from("/home/me");
+        let all = skill_destinations(&home, selection_all_tools(), JsonSkillScope::User, None)
+            .unwrap();
+        let mut expected = Vec::new();
+        for tool_dir in [".cursor", ".claude", ".copilot"] {
+            for name in JSON_SKILL_NAMES {
+                expected.push(home.join(tool_dir).join("skills").join(name));
+            }
+        }
+        assert_eq!(all, expected);
+    }
+
+    #[test]
+    fn parse_tool_selection_requires_at_least_one() {
+        assert!(parse_tool_selection(false, false, false).is_err());
+        let err = parse_tool_selection(false, false, false)
+            .err()
+            .expect("error");
+        assert!(err.contains("ツールを1つ以上"));
+    }
+
+    #[test]
+    fn claude_user_shadows_only_when_claude_project_scope() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        fs::create_dir_all(home.join(".claude").join("skills").join("write-schedule"))
+            .expect("mkdir");
+        let project = dir.path().join("project");
+        fs::create_dir_all(&project).expect("project");
+
+        let shadows = claude_user_shadow_paths(
+            &home,
+            JsonSkillScope::Project,
+            selection_copilot_only(),
+        );
+        assert!(shadows.is_empty());
+
+        let shadows = claude_user_shadow_paths(
+            &home,
+            JsonSkillScope::Project,
+            selection_claude_only(),
+        );
+        assert_eq!(shadows.len(), 1);
     }
 
     #[test]
@@ -592,7 +739,7 @@ mod tests {
         let result = install_json_skills_to_disk(
             &resource,
             &home,
-            JsonSkillTool::Cursor,
+            selection_cursor_only(),
             JsonSkillScope::User,
             None,
             false,
@@ -629,13 +776,13 @@ mod tests {
         let result = install_json_skills_to_disk(
             &resource,
             &home,
-            JsonSkillTool::Cursor,
+            selection_cursor_only(),
             JsonSkillScope::User,
             None,
             true,
         )
         .expect("install");
-        assert_eq!(result.installed_paths.len(), 3);
+        assert_eq!(result.installed_paths.len(), JSON_SKILL_NAMES.len());
         assert!(real.exists());
         assert!(dest.join("SKILL.md").exists());
         assert!(!dest.symlink_metadata().unwrap().file_type().is_symlink());
@@ -652,13 +799,13 @@ mod tests {
 
         let result = uninstall_json_skills_from_disk(
             &home,
-            JsonSkillTool::Cursor,
+            selection_cursor_only(),
             JsonSkillScope::User,
             None,
         )
         .expect("uninstall");
         assert_eq!(result.removed_paths.len(), 1);
-        assert_eq!(result.missing_paths.len(), 2);
+        assert_eq!(result.missing_paths.len(), JSON_SKILL_NAMES.len() - 1);
         assert!(!skills.join("write-schedule").exists());
         assert!(skills.join("other-skill").exists());
     }
@@ -682,13 +829,13 @@ mod tests {
         let result = install_json_skills_to_disk(
             &resource,
             &home,
-            JsonSkillTool::Cursor,
+            selection_cursor_only(),
             JsonSkillScope::User,
             None,
             false,
         )
         .expect("install");
-        assert_eq!(result.installed_paths.len(), 3);
+        assert_eq!(result.installed_paths.len(), JSON_SKILL_NAMES.len());
         let cursor = home.join(".cursor");
         assert!(!cursor.symlink_metadata().unwrap().file_type().is_symlink());
         assert!(cursor
@@ -696,6 +843,71 @@ mod tests {
             .join("write-schedule")
             .join("SKILL.md")
             .is_file());
+    }
+
+    #[test]
+    fn install_creates_copilot_parent_directories() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let resource = dir.path().join("resources");
+        write_bundled_skills(&resource);
+
+        let result = install_json_skills_to_disk(
+            &resource,
+            &home,
+            selection_copilot_only(),
+            JsonSkillScope::User,
+            None,
+            false,
+        )
+        .expect("install");
+        assert_eq!(result.installed_paths.len(), JSON_SKILL_NAMES.len());
+        let copilot = home.join(".copilot");
+        assert!(!copilot.symlink_metadata().unwrap().file_type().is_symlink());
+        assert!(copilot
+            .join("skills")
+            .join("write-schedule")
+            .join("SKILL.md")
+            .is_file());
+    }
+
+    #[test]
+    fn install_does_not_write_through_github_symlink() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        let project = dir.path().join("project");
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(&home).expect("home");
+        fs::create_dir_all(&project).expect("project");
+        fs::create_dir_all(outside.join("skills")).expect("outside");
+        fs::write(outside.join("skills").join("marker"), "keep").expect("marker");
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(&outside, project.join(".github")).expect("symlink");
+        }
+        #[cfg(not(unix))]
+        {
+            return;
+        }
+        let resource = dir.path().join("resources");
+        write_bundled_skills(&resource);
+
+        let error = install_json_skills_to_disk(
+            &resource,
+            &home,
+            selection_copilot_only(),
+            JsonSkillScope::Project,
+            Some(&project),
+            true,
+        )
+        .err()
+        .expect("symlink parent");
+        assert!(error.contains("シンボリックリンク"), "{error}");
+        assert_eq!(
+            fs::read_to_string(outside.join("skills").join("marker")).unwrap(),
+            "keep"
+        );
     }
 
     #[test]
@@ -717,7 +929,7 @@ mod tests {
         let result = install_json_skills_to_disk(
             dir.path(),
             &home,
-            JsonSkillTool::Cursor,
+            selection_cursor_only(),
             JsonSkillScope::User,
             None,
             false,
@@ -752,7 +964,7 @@ mod tests {
         let error = install_json_skills_to_disk(
             &resource,
             &home,
-            JsonSkillTool::Cursor,
+            selection_cursor_only(),
             JsonSkillScope::Project,
             Some(&project),
             true,
@@ -816,7 +1028,7 @@ mod tests {
         let error = install_json_skills_to_disk(
             &resource,
             &home,
-            JsonSkillTool::Cursor,
+            selection_cursor_only(),
             JsonSkillScope::User,
             None,
             false,
@@ -862,7 +1074,7 @@ mod tests {
 
         let error = uninstall_json_skills_from_disk(
             &home,
-            JsonSkillTool::Cursor,
+            selection_cursor_only(),
             JsonSkillScope::User,
             None,
         )
@@ -891,13 +1103,13 @@ mod tests {
 
         let result = uninstall_json_skills_from_disk(
             &home,
-            JsonSkillTool::Cursor,
+            selection_cursor_only(),
             JsonSkillScope::User,
             None,
         )
         .expect("uninstall");
         assert_eq!(result.removed_paths.len(), 1);
-        assert_eq!(result.missing_paths.len(), 2);
+        assert_eq!(result.missing_paths.len(), JSON_SKILL_NAMES.len() - 1);
         assert!(fs::symlink_metadata(&dest).is_err());
         assert!(fs::symlink_metadata(&target).is_err());
     }
@@ -920,12 +1132,186 @@ mod tests {
             return;
         }
 
-        uninstall_json_skills_from_disk(&home, JsonSkillTool::Cursor, JsonSkillScope::User, None)
+        uninstall_json_skills_from_disk(&home, selection_cursor_only(), JsonSkillScope::User, None)
             .expect("uninstall");
         assert_eq!(
             fs::read_to_string(outside.join("keep.txt")).unwrap(),
             "keep"
         );
         assert!(!skill.exists());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn install_and_uninstall_skip_when_user_copilot_dir_is_symlink() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(outside.join("skills").join("write-schedule")).expect("skill");
+        fs::write(outside.join("skills").join("write-schedule").join("SKILL.md"), "keep")
+            .expect("write");
+        fs::create_dir_all(&home).expect("home");
+        std::os::unix::fs::symlink(&outside, home.join(".copilot")).expect("symlink");
+        let resource = dir.path().join("resources");
+        write_bundled_skills(&resource);
+
+        let install_err = install_json_skills_to_disk(
+            &resource,
+            &home,
+            selection_copilot_only(),
+            JsonSkillScope::User,
+            None,
+            true,
+        )
+        .err()
+        .expect("install fails");
+        assert!(install_err.contains("シンボリックリンク"), "{install_err}");
+        assert_eq!(
+            fs::read_to_string(
+                outside
+                    .join("skills")
+                    .join("write-schedule")
+                    .join("SKILL.md"),
+            )
+            .unwrap(),
+            "keep"
+        );
+
+        let uninstall_err = uninstall_json_skills_from_disk(
+            &home,
+            selection_copilot_only(),
+            JsonSkillScope::User,
+            None,
+        )
+        .err()
+        .expect("uninstall fails");
+        assert!(uninstall_err.contains("シンボリックリンク"), "{uninstall_err}");
+        assert_eq!(
+            fs::read_to_string(
+                outside
+                    .join("skills")
+                    .join("write-schedule")
+                    .join("SKILL.md"),
+            )
+            .unwrap(),
+            "keep"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn uninstall_does_not_remove_through_github_symlink() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        let project = dir.path().join("project");
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(&home).expect("home");
+        fs::create_dir_all(&project).expect("project");
+        fs::create_dir_all(outside.join("skills").join("write-schedule")).expect("skill");
+        fs::write(outside.join("skills").join("write-schedule").join("SKILL.md"), "keep")
+            .expect("write");
+        std::os::unix::fs::symlink(&outside, project.join(".github")).expect("symlink");
+
+        let error = uninstall_json_skills_from_disk(
+            &home,
+            selection_copilot_only(),
+            JsonSkillScope::Project,
+            Some(&project),
+        )
+        .err()
+        .expect("symlink parent");
+        assert!(error.contains("シンボリックリンク"), "{error}");
+        assert_eq!(
+            fs::read_to_string(
+                outside
+                    .join("skills")
+                    .join("write-schedule")
+                    .join("SKILL.md"),
+            )
+            .unwrap(),
+            "keep"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn install_and_uninstall_skip_when_user_copilot_skills_is_symlink() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(outside.join("write-schedule")).expect("skill");
+        fs::write(outside.join("write-schedule").join("SKILL.md"), "keep").expect("write");
+        fs::create_dir_all(home.join(".copilot")).expect("copilot");
+        std::os::unix::fs::symlink(&outside, home.join(".copilot").join("skills")).expect("symlink");
+        let resource = dir.path().join("resources");
+        write_bundled_skills(&resource);
+
+        let install_err = install_json_skills_to_disk(
+            &resource,
+            &home,
+            selection_copilot_only(),
+            JsonSkillScope::User,
+            None,
+            true,
+        )
+        .err()
+        .expect("install fails");
+        assert!(install_err.contains("シンボリックリンク"), "{install_err}");
+
+        let uninstall_err = uninstall_json_skills_from_disk(
+            &home,
+            selection_copilot_only(),
+            JsonSkillScope::User,
+            None,
+        )
+        .err()
+        .expect("uninstall fails");
+        assert!(uninstall_err.contains("シンボリックリンク"), "{uninstall_err}");
+        assert_eq!(
+            fs::read_to_string(outside.join("write-schedule").join("SKILL.md")).unwrap(),
+            "keep"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn install_and_uninstall_skip_when_project_github_skills_is_symlink() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        let project = dir.path().join("project");
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(outside.join("write-schedule")).expect("skill");
+        fs::write(outside.join("write-schedule").join("SKILL.md"), "keep").expect("write");
+        fs::create_dir_all(project.join(".github")).expect("github");
+        std::os::unix::fs::symlink(&outside, project.join(".github").join("skills"))
+            .expect("symlink");
+        let resource = dir.path().join("resources");
+        write_bundled_skills(&resource);
+
+        let install_err = install_json_skills_to_disk(
+            &resource,
+            &home,
+            selection_copilot_only(),
+            JsonSkillScope::Project,
+            Some(&project),
+            true,
+        )
+        .err()
+        .expect("install fails");
+        assert!(install_err.contains("シンボリックリンク"), "{install_err}");
+
+        let uninstall_err = uninstall_json_skills_from_disk(
+            &home,
+            selection_copilot_only(),
+            JsonSkillScope::Project,
+            Some(&project),
+        )
+        .err()
+        .expect("uninstall fails");
+        assert!(uninstall_err.contains("シンボリックリンク"), "{uninstall_err}");
+        assert_eq!(
+            fs::read_to_string(outside.join("write-schedule").join("SKILL.md")).unwrap(),
+            "keep"
+        );
     }
 }
