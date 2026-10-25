@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 use tauri::Manager;
 
 use crate::json_skills::{
-    existing_skill_paths, parse_tools, place_staged_skill, remove_at_path, JsonSkillTool,
+    ensure_skill_parents, existing_skill_paths, parse_tool_selection, place_staged_skill,
+    remove_at_path, JsonSkillToolSelection,
 };
 use crate::store_distribution::{STORE_EXECUTABLE_ALIAS, mcp_executable_command_path};
 
@@ -16,7 +17,9 @@ const RESOURCE_TEMPLATE_DIR: &str = "read-screen";
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallReadScreenSkillParams {
-    pub tools: String,
+    pub cursor: bool,
+    pub claude: bool,
+    pub copilot: bool,
     pub replace: bool,
 }
 
@@ -31,7 +34,9 @@ pub struct InstallReadScreenSkillResult {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UninstallReadScreenSkillParams {
-    pub tools: String,
+    pub cursor: bool,
+    pub claude: bool,
+    pub copilot: bool,
 }
 
 #[derive(Serialize)]
@@ -41,18 +46,25 @@ pub struct UninstallReadScreenSkillResult {
     pub missing_paths: Vec<String>,
 }
 
-pub fn read_screen_destinations(home: &Path, tools: JsonSkillTool) -> Vec<PathBuf> {
+pub fn read_screen_destinations(home: &Path, tools: JsonSkillToolSelection) -> Vec<PathBuf> {
     let mut out = Vec::new();
-    if matches!(tools, JsonSkillTool::Cursor | JsonSkillTool::Both) {
+    if tools.cursor {
         out.push(
             home.join(".cursor")
                 .join("skills")
                 .join(READ_SCREEN_SKILL_NAME),
         );
     }
-    if matches!(tools, JsonSkillTool::Claude | JsonSkillTool::Both) {
+    if tools.claude {
         out.push(
             home.join(".claude")
+                .join("skills")
+                .join(READ_SCREEN_SKILL_NAME),
+        );
+    }
+    if tools.copilot {
+        out.push(
+            home.join(".copilot")
                 .join("skills")
                 .join(READ_SCREEN_SKILL_NAME),
         );
@@ -146,7 +158,7 @@ pub fn render_read_screen_skill(
 pub fn install_read_screen_skill_to_disk(
     resource_dir: &Path,
     home: &Path,
-    tools: JsonSkillTool,
+    tools: JsonSkillToolSelection,
     executable_path: &str,
     local_app_data: Option<&str>,
     replace: bool,
@@ -185,17 +197,25 @@ pub fn install_read_screen_skill_to_disk(
 
 pub fn uninstall_read_screen_skill_from_disk(
     home: &Path,
-    tools: JsonSkillTool,
+    tools: JsonSkillToolSelection,
 ) -> Result<UninstallReadScreenSkillResult, String> {
     let destinations = read_screen_destinations(home, tools);
+    for dest in &destinations {
+        ensure_skill_parents(dest, false, true, false)?;
+    }
     let mut removed_paths = Vec::new();
     let mut missing_paths = Vec::new();
     for dest in destinations {
-        if fs::symlink_metadata(&dest).is_ok() {
-            remove_at_path(&dest, "スキルを外せません")?;
-            removed_paths.push(dest.to_string_lossy().into_owned());
-        } else {
-            missing_paths.push(dest.to_string_lossy().into_owned());
+        ensure_skill_parents(&dest, false, true, false)?;
+        match fs::symlink_metadata(&dest) {
+            Ok(_) => {
+                remove_at_path(&dest, "スキルを外せません")?;
+                removed_paths.push(dest.to_string_lossy().into_owned());
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                missing_paths.push(dest.to_string_lossy().into_owned());
+            }
+            Err(error) => return Err(format!("スキルを外せません: {error}")),
         }
     }
     Ok(UninstallReadScreenSkillResult {
@@ -209,7 +229,7 @@ pub fn install_read_screen_skill(
     app: tauri::AppHandle,
     params: InstallReadScreenSkillParams,
 ) -> Result<InstallReadScreenSkillResult, String> {
-    let tools = parse_tools(&params.tools)?;
+    let tools = parse_tool_selection(params.cursor, params.claude, params.copilot)?;
     let home = app
         .path()
         .home_dir()
@@ -251,7 +271,7 @@ pub fn uninstall_read_screen_skill(
     app: tauri::AppHandle,
     params: UninstallReadScreenSkillParams,
 ) -> Result<UninstallReadScreenSkillResult, String> {
-    let tools = parse_tools(&params.tools)?;
+    let tools = parse_tool_selection(params.cursor, params.claude, params.copilot)?;
     let home = app
         .path()
         .home_dir()
@@ -353,10 +373,50 @@ mod tests {
     #[test]
     fn destinations_are_user_skill_dirs_only() {
         let home = PathBuf::from("/home/me");
-        let both = read_screen_destinations(home.as_path(), JsonSkillTool::Both);
-        assert_eq!(both.len(), 2);
-        assert!(both[0].ends_with(".cursor/skills/read-screen"));
-        assert!(both[1].ends_with(".claude/skills/read-screen"));
+        let cursor_claude = read_screen_destinations(
+            home.as_path(),
+            JsonSkillToolSelection {
+                cursor: true,
+                claude: true,
+                copilot: false,
+            },
+        );
+        assert_eq!(cursor_claude.len(), 2);
+        assert!(cursor_claude[0].ends_with(".cursor/skills/read-screen"));
+        assert!(cursor_claude[1].ends_with(".claude/skills/read-screen"));
+
+        let copilot_only = read_screen_destinations(
+            home.as_path(),
+            JsonSkillToolSelection {
+                cursor: false,
+                claude: false,
+                copilot: true,
+            },
+        );
+        assert_eq!(copilot_only.len(), 1);
+        assert!(copilot_only[0].ends_with(".copilot/skills/read-screen"));
+        assert!(!copilot_only[0].to_string_lossy().contains(".github"));
+
+        let all = read_screen_destinations(
+            home.as_path(),
+            JsonSkillToolSelection {
+                cursor: true,
+                claude: true,
+                copilot: true,
+            },
+        );
+        assert_eq!(all.len(), 3);
+        assert!(all[0].ends_with(".cursor/skills/read-screen"));
+        assert!(all[1].ends_with(".claude/skills/read-screen"));
+        assert!(all[2].ends_with(".copilot/skills/read-screen"));
+    }
+
+    #[test]
+    fn parse_tool_selection_requires_at_least_one_for_read_screen() {
+        let err = parse_tool_selection(false, false, false)
+            .err()
+            .expect("error");
+        assert!(err.contains("ツールを1つ以上"));
     }
 
     #[test]
@@ -380,7 +440,11 @@ mod tests {
         let result = install_read_screen_skill_to_disk(
             &resource,
             &home,
-            JsonSkillTool::Cursor,
+            JsonSkillToolSelection {
+                cursor: true,
+                claude: false,
+                copilot: false,
+            },
             "/bin/schedule-viewer",
             None,
             false,
@@ -388,6 +452,89 @@ mod tests {
         .expect("install");
         assert!(result.existing_paths.len() == 1);
         assert!(result.installed_paths.is_empty());
+    }
+
+    #[test]
+    fn install_writes_copilot_skill_with_same_invocation_rules() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let resource = dir.path().join("resources");
+        fs::create_dir_all(resource.join(RESOURCE_TEMPLATE_DIR)).expect("mkdir resource");
+        fs::write(
+            resource.join(RESOURCE_TEMPLATE_DIR).join("SKILL.md"),
+            "inv:\n{{SCHEDULE_VIEWER_INVOCATION}}\n",
+        )
+        .expect("write");
+
+        let result = install_read_screen_skill_to_disk(
+            &resource,
+            &home,
+            JsonSkillToolSelection {
+                cursor: false,
+                claude: false,
+                copilot: true,
+            },
+            "/Applications/schedule-viewer.app/Contents/MacOS/schedule-viewer",
+            None,
+            false,
+        )
+        .expect("install");
+        assert_eq!(result.installed_paths.len(), 1);
+        let skill_md = home
+            .join(".copilot")
+            .join("skills")
+            .join(READ_SCREEN_SKILL_NAME)
+            .join("SKILL.md");
+        let body = fs::read_to_string(skill_md).expect("read");
+        let executable_path =
+            "/Applications/schedule-viewer.app/Contents/MacOS/schedule-viewer";
+        let fence = format!("{executable_path}\n--screen schedule_diff");
+        assert!(body.contains(&fence));
+        assert!(!body.contains(&format!("\"{executable_path}\"")));
+    }
+
+    #[test]
+    fn install_writes_copilot_skill_with_localappdata_one_line() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let resource = dir.path().join("resources");
+        fs::create_dir_all(resource.join(RESOURCE_TEMPLATE_DIR)).expect("mkdir resource");
+        fs::write(
+            resource.join(RESOURCE_TEMPLATE_DIR).join("SKILL.md"),
+            "inv:\n{{SCHEDULE_VIEWER_INVOCATION}}\n",
+        )
+        .expect("write");
+        let executable_path = r"C:\Users\me\AppData\Local\schedule-viewer\schedule-viewer.exe";
+        let local_app_data = r"C:\Users\me\AppData\Local";
+
+        install_read_screen_skill_to_disk(
+            &resource,
+            &home,
+            JsonSkillToolSelection {
+                cursor: false,
+                claude: false,
+                copilot: true,
+            },
+            executable_path,
+            Some(local_app_data),
+            false,
+        )
+        .expect("install");
+
+        let body = fs::read_to_string(
+            home.join(".copilot")
+                .join("skills")
+                .join(READ_SCREEN_SKILL_NAME)
+                .join("SKILL.md"),
+        )
+        .expect("read");
+        assert!(body.contains(
+            "\"$LOCALAPPDATA/schedule-viewer/schedule-viewer.exe\" --screen schedule_diff"
+        ));
+        assert!(!body.contains("AppData"));
+        assert!(!body.contains(executable_path));
     }
 
     #[test]
@@ -408,7 +555,11 @@ mod tests {
             let result = install_read_screen_skill_to_disk(
                 &resource,
                 &home,
-                JsonSkillTool::Cursor,
+                JsonSkillToolSelection {
+                    cursor: true,
+                    claude: false,
+                    copilot: false,
+                },
                 "/bin/schedule-viewer",
                 None,
                 true,
@@ -419,5 +570,140 @@ mod tests {
                 .expect("error message")
                 .contains("シンボリックリンク"));
         }
+    }
+
+    #[cfg(unix)]
+    fn write_minimal_read_screen_template(resource: &Path) {
+        fs::create_dir_all(resource.join(RESOURCE_TEMPLATE_DIR)).expect("mkdir resource");
+        fs::write(
+            resource.join(RESOURCE_TEMPLATE_DIR).join("SKILL.md"),
+            "{{SCHEDULE_VIEWER_EXECUTABLE}}",
+        )
+        .expect("write");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn install_and_uninstall_skip_copilot_when_dot_copilot_is_symlink() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        let outside = dir.path().join("outside");
+        let skill = outside
+            .join("skills")
+            .join(READ_SCREEN_SKILL_NAME);
+        fs::create_dir_all(&skill).expect("skill");
+        fs::write(skill.join("SKILL.md"), "keep").expect("write");
+        fs::create_dir_all(&home).expect("home");
+        std::os::unix::fs::symlink(&outside, home.join(".copilot")).expect("symlink");
+        let resource = dir.path().join("resources");
+        write_minimal_read_screen_template(&resource);
+        let tools = JsonSkillToolSelection {
+            cursor: false,
+            claude: false,
+            copilot: true,
+        };
+
+        let install_err = install_read_screen_skill_to_disk(
+            &resource,
+            &home,
+            tools,
+            "/bin/schedule-viewer",
+            None,
+            true,
+        )
+        .err()
+        .expect("install fails");
+        assert!(install_err.contains("シンボリックリンク"), "{install_err}");
+        assert_eq!(fs::read_to_string(skill.join("SKILL.md")).unwrap(), "keep");
+
+        let uninstall_err =
+            uninstall_read_screen_skill_from_disk(&home, tools).err().expect("uninstall fails");
+        assert!(uninstall_err.contains("シンボリックリンク"), "{uninstall_err}");
+        assert_eq!(fs::read_to_string(skill.join("SKILL.md")).unwrap(), "keep");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn install_and_uninstall_skip_copilot_when_skills_under_copilot_is_symlink() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        let outside = dir.path().join("outside");
+        let skill = outside.join(READ_SCREEN_SKILL_NAME);
+        fs::create_dir_all(&skill).expect("skill");
+        fs::write(skill.join("SKILL.md"), "keep").expect("write");
+        fs::create_dir_all(home.join(".copilot")).expect("copilot");
+        std::os::unix::fs::symlink(&outside, home.join(".copilot").join("skills")).expect("symlink");
+        let resource = dir.path().join("resources");
+        write_minimal_read_screen_template(&resource);
+        let tools = JsonSkillToolSelection {
+            cursor: false,
+            claude: false,
+            copilot: true,
+        };
+
+        let install_err = install_read_screen_skill_to_disk(
+            &resource,
+            &home,
+            tools,
+            "/bin/schedule-viewer",
+            None,
+            true,
+        )
+        .err()
+        .expect("install fails");
+        assert!(install_err.contains("シンボリックリンク"), "{install_err}");
+        assert_eq!(fs::read_to_string(skill.join("SKILL.md")).unwrap(), "keep");
+
+        let uninstall_err =
+            uninstall_read_screen_skill_from_disk(&home, tools).err().expect("uninstall fails");
+        assert!(uninstall_err.contains("シンボリックリンク"), "{uninstall_err}");
+        assert_eq!(fs::read_to_string(skill.join("SKILL.md")).unwrap(), "keep");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn uninstall_with_symlink_copilot_does_not_remove_cursor_read_screen() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(&home).expect("home");
+        fs::create_dir_all(outside.join("skills")).expect("outside");
+        std::os::unix::fs::symlink(&outside, home.join(".copilot")).expect("symlink");
+        let resource = dir.path().join("resources");
+        write_minimal_read_screen_template(&resource);
+
+        install_read_screen_skill_to_disk(
+            &resource,
+            &home,
+            JsonSkillToolSelection {
+                cursor: true,
+                claude: false,
+                copilot: false,
+            },
+            "/bin/schedule-viewer",
+            None,
+            false,
+        )
+        .expect("install cursor");
+
+        let cursor_skill = home
+            .join(".cursor")
+            .join("skills")
+            .join(READ_SCREEN_SKILL_NAME)
+            .join("SKILL.md");
+        assert!(cursor_skill.is_file());
+
+        let uninstall_err = uninstall_read_screen_skill_from_disk(
+            &home,
+            JsonSkillToolSelection {
+                cursor: true,
+                claude: false,
+                copilot: true,
+            },
+        )
+        .err()
+        .expect("uninstall fails on copilot symlink");
+        assert!(uninstall_err.contains("シンボリックリンク"), "{uninstall_err}");
+        assert!(cursor_skill.is_file());
     }
 }

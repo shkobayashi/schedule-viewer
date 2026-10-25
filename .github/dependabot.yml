@@ -4,6 +4,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      tauri-cli:
+        patterns:
+          - "@tauri-apps/cli"
+          - "@tauri-apps/cli-*"
   - package-ecosystem: cargo
     directory: /src-tauri
     schedule:

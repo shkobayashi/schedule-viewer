@@ -198,6 +198,7 @@ describe("exportExcel", () => {
         end: "2026-01-08",
         covered: [{ start: "2026-01-07", end: "2026-01-08" }],
       },
+      rollupPercent: 50,
     };
     const group: VisibleRow = {
       type: "group",
@@ -208,6 +209,7 @@ describe("exportExcel", () => {
       label: "設計",
       collapsed: false,
       summary: null,
+      rollupPercent: null,
     };
     const input = baseInput();
     input.visibleRows = [category, group, input.visibleRows[0]!];
@@ -250,6 +252,7 @@ describe("exportExcel", () => {
       label: "設計",
       collapsed: false,
       summary: null,
+      rollupPercent: 30,
     };
     const overdueTask: VisibleRow = {
       type: "task",

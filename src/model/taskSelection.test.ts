@@ -33,6 +33,7 @@ const rows: VisibleRow[] = [
     y: 0,
     collapsed: false,
     summary: null,
+    rollupPercent: null,
   },
   { type: "task", y: 32, task: task("t1") },
   { type: "task", y: 64, task: task("t2") },

@@ -3,6 +3,11 @@ import { schedulePathKey } from "./schedulePathKey";
 
 export const RECENT_FILES_MAX = 5;
 
+export type RecentFilesStore = {
+  schedules: string[];
+  workspaces: string[];
+};
+
 export function isAbsoluteSchedulePath(path: string): boolean {
   const trimmed = path.trim();
   if (!trimmed) return false;
@@ -12,38 +17,90 @@ export function isAbsoluteSchedulePath(path: string): boolean {
   return trimmed.startsWith("/");
 }
 
-/** 壊れた JSON や上限超過は空配列にする。 */
-export function parseRecentFilesJson(text: string): string[] {
-  const trimmed = text.trim();
-  if (!trimmed) return [];
-  let data: unknown;
-  try {
-    data = JSON.parse(trimmed);
-  } catch {
-    return [];
-  }
+function parsePathList(data: unknown): string[] | null {
   if (!Array.isArray(data) || data.length > RECENT_FILES_MAX) {
-    return [];
+    return null;
   }
   const result: string[] = [];
   for (const item of data) {
     if (typeof item !== "string" || !isAbsoluteSchedulePath(item)) {
-      return [];
+      return null;
     }
     result.push(item);
   }
   return result;
 }
 
-export function serializeRecentFiles(paths: string[]): string {
-  return JSON.stringify(paths);
+/** 壊れた JSON や上限超過は空にする。旧形式の配列は schedules だけに読む。 */
+export function parseRecentFilesStore(text: string): RecentFilesStore {
+  const empty: RecentFilesStore = { schedules: [], workspaces: [] };
+  const trimmed = text.trim();
+  if (!trimmed) return empty;
+  let data: unknown;
+  try {
+    data = JSON.parse(trimmed);
+  } catch {
+    return empty;
+  }
+  if (Array.isArray(data)) {
+    const schedules = parsePathList(data);
+    return schedules ? { schedules, workspaces: [] } : empty;
+  }
+  if (data == null || typeof data !== "object") return empty;
+  const record = data as Record<string, unknown>;
+  const schedules = parsePathList(record.schedules);
+  const workspaces = parsePathList(record.workspaces);
+  if (!schedules || !workspaces) return empty;
+  return { schedules, workspaces };
 }
 
-export function appendRecentFile(paths: string[], openedPath: string): string[] {
+/** @deprecated parseRecentFilesStore を使う */
+export function parseRecentFilesJson(text: string): string[] {
+  return parseRecentFilesStore(text).schedules;
+}
+
+export function serializeRecentFilesStore(store: RecentFilesStore): string {
+  return JSON.stringify(store);
+}
+
+/** @deprecated serializeRecentFilesStore を使う */
+export function serializeRecentFiles(paths: string[]): string {
+  return serializeRecentFilesStore({ schedules: paths, workspaces: [] });
+}
+
+function appendPath(paths: string[], openedPath: string): string[] {
   if (!isAbsoluteSchedulePath(openedPath)) return paths;
   const key = schedulePathKey(openedPath);
   const without = paths.filter((p) => schedulePathKey(p) !== key);
   return [openedPath, ...without].slice(0, RECENT_FILES_MAX);
+}
+
+export function appendRecentSchedule(
+  store: RecentFilesStore,
+  openedPath: string,
+): RecentFilesStore {
+  return {
+    ...store,
+    schedules: appendPath(store.schedules, openedPath),
+  };
+}
+
+export function appendRecentWorkspace(
+  store: RecentFilesStore,
+  openedPath: string,
+): RecentFilesStore {
+  return {
+    ...store,
+    workspaces: appendPath(store.workspaces, openedPath),
+  };
+}
+
+/** @deprecated appendRecentSchedule を使う */
+export function appendRecentFile(paths: string[], openedPath: string): string[] {
+  return appendRecentSchedule(
+    { schedules: paths, workspaces: [] },
+    openedPath,
+  ).schedules;
 }
 
 export type RecentFileMenuEntry = {

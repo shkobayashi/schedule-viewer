@@ -66,10 +66,11 @@ type ToolbarProps = {
   onShowJson: () => void;
   onShowDiff: () => void;
   onExportHtml: () => void;
+  onExportWorkspace?: () => void;
   onOpen: () => void;
-  recentFilePaths?: string[];
+  recentFilesStore?: import("../model/recentFiles").RecentFilesStore;
   onRefreshRecentFiles?: () => void;
-  onOpenRecent?: (path: string) => void;
+  onOpenRecent?: (path: string, kind: "schedule" | "workspace") => void;
   onClearRecentHistory?: () => void;
   onOpenInNewWindow?: () => void;
   onSave: () => void;
@@ -122,8 +123,9 @@ export function Toolbar({
   onShowJson,
   onShowDiff,
   onExportHtml,
+  onExportWorkspace,
   onOpen,
-  recentFilePaths,
+  recentFilesStore,
   onRefreshRecentFiles,
   onOpenRecent,
   onClearRecentHistory,
@@ -223,7 +225,7 @@ export function Toolbar({
         fileBusy={fileBusy}
         startupSettled={startupSettled}
         onOpen={onOpen}
-        recentFilePaths={recentFilePaths}
+        recentFilesStore={recentFilesStore}
         onRefreshRecentFiles={onRefreshRecentFiles}
         onOpenRecent={onOpenRecent}
         onClearRecentHistory={onClearRecentHistory}
@@ -231,6 +233,7 @@ export function Toolbar({
         onSave={onSave}
         onSaveAs={onSaveAs}
         onExportHtml={onExportHtml}
+        onExportWorkspace={onExportWorkspace}
         onShowJson={onShowJson}
         onShowDiff={onShowDiff}
         onOpenSettings={onOpenSettings}

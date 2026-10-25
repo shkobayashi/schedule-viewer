@@ -12,9 +12,13 @@ import {
 } from "../../model/droppedScheduleMessages";
 import { resolveScheduleExternalDrop } from "../../model/droppedScheduleExternalDispatch";
 import { classifyDroppedSchedulePaths } from "../../model/droppedSchedulePaths";
-import { routeExternalScheduleDrop } from "../../model/droppedScheduleOpenRoute";
+import {
+  routeExternalScheduleDrop,
+  routeExternalWorkspaceDrop,
+} from "../../model/droppedScheduleOpenRoute";
 import {
   ackExternalScheduleDropViaTauri,
+  emitWorkspaceReloadViaTauri,
   focusScheduleWindowViaTauri,
   forwardScheduleExternalDropViaTauri,
   readOpenWindowsSnapshotViaTauri,
@@ -22,11 +26,19 @@ import {
 
 export type ScheduleDropOpenHandlers = {
   beginOpenFromDroppedPath: (path: string) => void;
-  openDroppedScheduleInNewWindow: (path: string, contents: string) => Promise<void>;
+  openDroppedScheduleInNewWindow: (
+    path: string,
+    contents: string,
+    kind?: "schedule" | "workspace",
+  ) => Promise<void>;
   setDropErrorMessage: (message: string) => void;
   readAndValidateDroppedPath: (
     path: string,
-  ) => Promise<{ ok: true; contents: string } | { ok: false; message: string }>;
+  ) => Promise<
+    | { ok: true; kind: "schedule"; contents: string }
+    | { ok: true; kind: "workspace"; contents: string }
+    | { ok: false; message: string }
+  >;
 };
 
 export type UseScheduleDropOpenOptions = {
@@ -101,14 +113,24 @@ export function useScheduleDropOpen({
 
         const snapshot = await readOpenWindowsSnapshotViaTauri();
         const selfLabel = getCurrentWindow().label;
-        const route = routeExternalScheduleDrop(
-          resolution.path,
-          snapshot.windows,
-          snapshot.focusOrder,
-        );
+        const route =
+          readResult.kind === "workspace"
+            ? routeExternalWorkspaceDrop(
+                resolution.path,
+                snapshot.windows,
+                snapshot.focusOrder,
+              )
+            : routeExternalScheduleDrop(
+                resolution.path,
+                snapshot.windows,
+                snapshot.focusOrder,
+              );
 
         if (route.action === "focusExisting") {
           await focusScheduleWindowViaTauri(route.label);
+          if (readResult.kind === "workspace") {
+            await emitWorkspaceReloadViaTauri(route.label, resolution.path);
+          }
           if (options.shouldAck) {
             await ackExternalScheduleDropViaTauri();
           }
@@ -119,6 +141,7 @@ export function useScheduleDropOpen({
           await handlersRef.current.openDroppedScheduleInNewWindow(
             resolution.path,
             readResult.contents,
+            readResult.kind,
           );
           if (options.shouldAck) {
             await ackExternalScheduleDropViaTauri();

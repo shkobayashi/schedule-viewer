@@ -11,6 +11,7 @@ mod read_screen_skill;
 pub mod screen_cli;
 mod store_distribution;
 mod recent_files;
+mod workspace;
 mod schedule_drop;
 mod window_session;
 
@@ -34,7 +35,7 @@ use mcp_bridge::{
 use std::sync::Arc;
 use window_session::{
     all_windows_external_drop_ready, all_windows_startup_settled,
-    any_startup_auto_update_enabled, append_open_window_entry,
+    any_startup_auto_update_enabled,
     create_schedule_webview_on_main_thread, delete_filter_for_path, delete_recovery_for_path,
     forget_startup_settlement, forget_window_focus, migrate_legacy_session,
     next_schedule_window_label, note_main_thread, note_window_focus, read_open_windows,
@@ -276,6 +277,7 @@ fn record_open(
         &app_data,
         label,
         Some(path.to_string_lossy().as_ref()),
+        None,
         false,
     )?;
     let mut guard = states.lock().expect("schedule file states");
@@ -333,6 +335,111 @@ fn accept_opened_schedule(
         PathBuf::from(path),
         &contents,
     )
+}
+
+#[tauri::command]
+fn accept_opened_workspace(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    state: State<'_, Mutex<ScheduleFileStates>>,
+    workspace_path: String,
+    schedule_path: String,
+    schedule_contents: String,
+) -> Result<(), String> {
+    if schedule_contents.len() as u64 > MAX_SCHEDULE_BYTES {
+        return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
+    }
+    let app_data = app_data_dir(&app)?;
+    let label = window_label(&window);
+    upsert_window_path(
+        &app_data,
+        &label,
+        Some(&schedule_path),
+        Some(&workspace_path),
+        false,
+    )?;
+    let mut guard = state.lock().expect("schedule file states");
+    let entry = guard.by_label.entry(label).or_default();
+    entry.path = Some(PathBuf::from(schedule_path));
+    entry.content_hash = Some(hash_contents(&schedule_contents));
+    Ok(())
+}
+
+#[tauri::command]
+fn read_json_file_limited(path: String, max_bytes: u64) -> Result<String, String> {
+    let path_buf = PathBuf::from(&path);
+    if !path_buf.is_file() {
+        return Err(SCHEDULE_FILE_NOT_FOUND.to_string());
+    }
+    read_utf8(&path_buf, max_bytes)
+}
+
+#[tauri::command]
+async fn export_workspace_bundle(
+    window: tauri::Window,
+    schedule_file_name: String,
+    schedule_contents: String,
+    members_file_name: Option<String>,
+    members_contents: Option<String>,
+    calendar_file_name: Option<String>,
+    calendar_contents: Option<String>,
+) -> Result<(), String> {
+    if schedule_contents.len() as u64 > MAX_SCHEDULE_BYTES {
+        return Err("スケジュールが大きすぎます（上限 10 MB）".to_string());
+    }
+    if let Some(contents) = &members_contents {
+        if contents.len() as u64 > MAX_MEMBERS_BYTES {
+            return Err("メンバー JSON が大きすぎます（上限 2 MB）".to_string());
+        }
+    }
+    if let Some(contents) = &calendar_contents {
+        if contents.len() as u64 > MAX_CALENDAR_BYTES {
+            return Err("カレンダー JSON が大きすぎます（上限 2 MB）".to_string());
+        }
+    }
+    let picked = window
+        .dialog()
+        .file()
+        .set_title("書き出し先のフォルダ")
+        .set_parent(&window)
+        .blocking_pick_folder();
+    let folder = match picked {
+        Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
+        None => return Ok(()),
+    };
+    workspace::ensure_export_folder_ready(&folder)?;
+    let schedule_name = sanitize_export_filename(&schedule_file_name, "json");
+    let schedule_path = folder.join(&schedule_name);
+    write_utf8_atomic(&schedule_path, &schedule_contents)?;
+    let mut wrote_any = true;
+    let mut workspace = serde_json::json!({
+        "schemaVersion": 1,
+        "schedule": schedule_name,
+    });
+    if let (Some(name), Some(contents)) = (&members_file_name, &members_contents) {
+        let members_name = sanitize_export_filename(name, "json");
+        if let Err(error) = write_utf8_atomic(&folder.join(&members_name), contents) {
+            return Err(workspace::export_error_with_partial(error, wrote_any));
+        }
+        wrote_any = true;
+        workspace["members"] = serde_json::Value::String(members_name);
+    }
+    if let (Some(name), Some(contents)) = (&calendar_file_name, &calendar_contents) {
+        let calendar_name = sanitize_export_filename(name, "json");
+        if let Err(error) = write_utf8_atomic(&folder.join(&calendar_name), contents) {
+            return Err(workspace::export_error_with_partial(error, wrote_any));
+        }
+        wrote_any = true;
+        workspace["calendar"] = serde_json::Value::String(calendar_name);
+    }
+    let workspace_text = serde_json::to_string_pretty(&workspace)
+        .map_err(|e| format!("JSON を書けません: {}", e))?;
+    if let Err(error) =
+        write_utf8_atomic(&folder.join("workspace.json"), &format!("{}\n", workspace_text))
+    {
+        return Err(workspace::export_error_with_partial(error, wrote_any));
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1069,7 +1176,7 @@ fn read_open_windows_snapshot(
 }
 
 #[tauri::command]
-fn read_recent_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+fn read_recent_files(app: tauri::AppHandle) -> Result<recent_files::RecentFilesStore, String> {
     let app_data = app_data_dir(&app)?;
     Ok(recent_files::read_recent_files(&app_data))
 }
@@ -1077,15 +1184,15 @@ fn read_recent_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
 #[tauri::command]
 fn record_recent_files(
     app: tauri::AppHandle,
-    expected_paths: Vec<String>,
-    next_paths: Vec<String>,
-) -> Result<Vec<String>, String> {
+    expected: recent_files::RecentFilesStore,
+    next: recent_files::RecentFilesStore,
+) -> Result<recent_files::RecentFilesStore, String> {
     let app_data = app_data_dir(&app)?;
-    recent_files::record_recent_files(&app_data, expected_paths, next_paths)
+    recent_files::record_recent_files(&app_data, expected, next)
 }
 
 #[tauri::command]
-fn clear_recent_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+fn clear_recent_files(app: tauri::AppHandle) -> Result<recent_files::RecentFilesStore, String> {
     let app_data = app_data_dir(&app)?;
     recent_files::clear_recent_files(&app_data)
 }
@@ -1151,7 +1258,7 @@ fn read_last_schedule_file(
 fn clear_last_schedule_path(app: tauri::AppHandle, window: tauri::Window) -> Result<(), String> {
     let label = window_label(&window);
     let app_data = app_data_dir(&app)?;
-    upsert_window_path(&app_data, &label, None, true)?;
+    upsert_window_path(&app_data, &label, None, None, true)?;
     Ok(())
 }
 
@@ -1183,6 +1290,7 @@ async fn create_schedule_window(
     states: State<'_, Mutex<ScheduleFileStates>>,
     path: String,
     contents: String,
+    workspace_path: Option<String>,
 ) -> Result<String, String> {
     if contents.len() as u64 > MAX_SCHEDULE_BYTES {
         return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
@@ -1204,7 +1312,13 @@ async fn create_schedule_window(
         }
         return Err(error);
     }
-    append_open_window_entry(&app_data, &label, &path)?;
+    upsert_window_path(
+        &app_data,
+        &label,
+        Some(&path),
+        workspace_path.as_deref(),
+        false,
+    )?;
     let mut guard = states.lock().expect("schedule file states");
     let state = guard.by_label.entry(label.clone()).or_default();
     state.path = Some(PathBuf::from(path));
@@ -1405,6 +1519,21 @@ async fn show_schedule_peer_notification(
         return Ok(());
     }
     show_peer_os_notification(&app, title, body, target_label);
+    Ok(())
+}
+
+#[tauri::command]
+fn emit_workspace_reload(
+    app: tauri::AppHandle,
+    target_label: String,
+    workspace_path: String,
+) -> Result<(), String> {
+    let window = app
+        .get_webview_window(&target_label)
+        .ok_or_else(|| "ウィンドウが見つかりません。".to_string())?;
+    window
+        .emit("workspace-reload", workspace_path)
+        .map_err(|e| format!("設定ファイルの再読み込みを送れません: {}", e))?;
     Ok(())
 }
 
@@ -2076,6 +2205,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_schedule_file,
             accept_opened_schedule,
+            accept_opened_workspace,
+            read_json_file_limited,
+            export_workspace_bundle,
             check_schedule_file_changed,
             poll_schedule_file_update,
             read_open_schedule_file,
@@ -2119,6 +2251,7 @@ pub fn run() {
             unregister_window_session,
             emit_schedule_peer_notice,
             show_schedule_peer_notification,
+            emit_workspace_reload,
             focus_schedule_window,
             list_open_window_labels,
             close_other_schedule_windows,

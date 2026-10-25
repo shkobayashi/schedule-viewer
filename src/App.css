@@ -392,6 +392,13 @@ body {
   margin: 4px 0;
 }
 
+.app-menu-submenu-heading {
+  padding: calc(4px * var(--s)) calc(10px * var(--s));
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+  user-select: none;
+}
+
 .context-menu {
   position: fixed;
   z-index: 40;
@@ -1695,6 +1702,27 @@ button:focus-visible,
 .row-label.overdue {
   color: var(--overdue);
   font-weight: 600;
+}
+
+.hierarchy-row-title {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.hierarchy-row-title .row-label {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.row-rollup-percent {
+  flex: 0 0 auto;
+  margin-left: calc(6px * var(--s));
+  font-weight: inherit;
+  user-select: none;
 }
 
 .confidence-tentative {

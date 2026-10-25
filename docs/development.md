@@ -158,7 +158,7 @@ npm install
 それでも直らないときは、次を試す。
 
 ```bash
-npm install @tauri-apps/cli-darwin-arm64@2.12.1
+npm install @tauri-apps/cli-darwin-arm64@2.12.4
 ```
 
 （Apple Silicon 以外の Mac では `cli-darwin-x64` に読み替える。）
@@ -197,7 +197,7 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
-| `npm run build:validate-skill` | `write-schedule`、`write-calendar`、`write-members` に同梱する検証スクリプトと、スキーマのコピーを作り直す |
+| `npm run build:validate-skill` | `write-schedule`、`write-calendar`、`write-members`、`write-workspace` に同梱する検証スクリプトと、スキーマのコピーを作り直す |
 | `npm run version:check` | バージョン番号が5ファイルで揃っていることと、`X.Y.Z` または `X.Y.Z-beta.N` の形であることを確認する |
 | `npm run version:bump` | バージョンを上げる。`major`、`minor`、`patch`、`beta`、`stable` を引数にする |
 | `postinstall` | `@tauri-apps/cli` のその OS 向けバイナリがあることを確認する |
@@ -287,7 +287,7 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 
 公開したあと、ruleset で `develop` と `main` に pull request 必須、コードオーナーのレビュー、必須ステータスチェック `ci`、force push と削除の禁止を入れる。タグ `v*` は更新と削除を禁止する。詳細はリポジトリの **Settings → Rules → Rulesets** である。非公開の Free プランでは ruleset を作れない。公開の直後に設定する。
 
-Dependabot は [`.github/dependabot.yml`](../.github/dependabot.yml) で npm、cargo、github-actions を週次に見る。脆弱性の報告は [SECURITY.md](../SECURITY.md) に従う。
+Dependabot は [`.github/dependabot.yml`](../.github/dependabot.yml) で npm、cargo、github-actions を週次に見る。`@tauri-apps/cli` の配下のバイナリが本体と別の版になると、ビルドが読むのは本体側のままなので、`@tauri-apps/cli` と `@tauri-apps/cli-*` は一つのグループにして同じ pull request で上げる。脆弱性の報告は [SECURITY.md](../SECURITY.md) に従う。
 
 Release ワークフローは GitHub 環境 `release` を使う。環境は **Settings → Environments → release** で作る。Required reviewers は、プランによっては非公開リポジトリでは使えない。使えないときは承認なしで Release が走る。使えるときは管理者を Required reviewers に入れ、Actions が自分で承認できない設定にする。
 
@@ -609,7 +609,7 @@ npm run tauri build
 
 成果物は `src-tauri/target/release/bundle/` に出る。ファイル名に入るバージョンは [`npm run version:check`](#main-に載せる前のバージョン上げ) で揃えている番号である。初回は依存のコンパイルで時間がかかる。
 
-配布パッケージには `.cursor/skills/write-schedule/`、`.cursor/skills/write-members/`、`.cursor/skills/write-calendar/` が `json-skills/` として同梱される。deb や NSIS などのインストーラーは、これらをホームやプロジェクトへコピーしない。利用者が置くのは、デスクトップ版の設定「JSON作成スキルを置く」からである。
+配布パッケージには `.cursor/skills/write-schedule/`、`.cursor/skills/write-members/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-workspace/` が `json-skills/` として同梱される。deb や NSIS などのインストーラーは、これらをホームやプロジェクトへコピーしない。利用者が置くのは、デスクトップ版の設定「JSON作成スキルを置く」からである。
 
 ### Ubuntu
 
@@ -671,7 +671,7 @@ MSI の作成で `failed to run light.exe` と出たときは、Windows のオ�
 
 ### Microsoft Store 用 MSIX
 
-Partner Center の Product identity と同じ名前で、安定版だけ MSIX を作る。Tauri は MSIX を出さない。[packaging/msix/build-msix.ps1](../packaging/msix/build-msix.ps1) が `MakeAppx` で署名しないパッケージを作る。スクリプトは `target/release` の `json-skills/` と `read-screen/` を実行ファイルの隣へ入れる。`json-skills/write-schedule/SKILL.md`、`json-skills/write-members/SKILL.md`、`json-skills/write-calendar/SKILL.md`、`read-screen/SKILL.md` のどれかが無いときは、MakeAppx の前に失敗し、MSIX を作らない。WebView2 は同梱しない。マニフェストの `PackageDependency` にも書かない。Windows 11 には WebView2 が入っている。Windows 10 で入っていない場合は、上の「Windows の開発環境」のとおり Evergreen Bootstrapper を入れる。
+Partner Center の Product identity と同じ名前で、安定版だけ MSIX を作る。Tauri は MSIX を出さない。[packaging/msix/build-msix.ps1](../packaging/msix/build-msix.ps1) が `MakeAppx` で署名しないパッケージを作る。スクリプトは `target/release` の `json-skills/` と `read-screen/` を実行ファイルの隣へ入れる。`json-skills/write-schedule/SKILL.md`、`json-skills/write-members/SKILL.md`、`json-skills/write-calendar/SKILL.md`、`json-skills/write-workspace/SKILL.md`、`read-screen/SKILL.md` のどれかが無いときは、MakeAppx の前に失敗し、MSIX を作らない。WebView2 は同梱しない。マニフェストの `PackageDependency` にも書かない。Windows 11 には WebView2 が入っている。Windows 10 で入っていない場合は、上の「Windows の開発環境」のとおり Evergreen Bootstrapper を入れる。
 
 `Square44x44Logo.png` だけを置くと、Windows はタスクバーでロゴを色付きの板の上に縮小して描く。板の色は `#0078D4` で、角丸の外に出る。スクリプトは `icon.png` から、16、20、24、30、32、36、40、48、60、64、72、80、96、256 の各辺について、`Square44x44Logo.targetsize-<px>.png` と、同じ絵の `_altform-unplated`、`_altform-lightunplated` を作る。四隅は透明である。明るいテーマのタスクバーは `lightunplated`、暗いテーマは `unplated` を使う。続けて Windows SDK の `makepri.exe` で `resources.pri` を作り、これらの名前をパッケージのリソースに載せる。ファイルを置いただけではタスクバーは板のままである。`makepri.exe` が無いとき、または `resources.pri` に 24px、暗いテーマ用のプレートなし、明るいテーマ用のプレートなしのどれかが無いときは、MakeAppx の前に失敗する。`BackgroundColor` は `transparent` のままである。`makeappx.exe` と `makepri.exe` は Windows SDK の x64 から、新しいものを使う。
 

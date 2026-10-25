@@ -249,6 +249,18 @@
 | 同上 | `shows empty groups and categories when filters and lineage are clear` | VIEW-01, VIEW-03, FILTER-09 |
 | 同上 | `hides empty groups when a filter is set` | FILTER-09 |
 | 同上 | `hides empty groups when lineage is set` | FILTER-09 |
+| 同上 | `includes filtered-out tasks in category and group rollup` | VIEW-03 |
+| 同上 | `includes collapsed tasks in rollup` | VIEW-03 |
+| 同上 | `includes lineage-hidden tasks in rollup` | VIEW-03 |
+| 同上 | `keeps parent bar summary on visible tasks only` | VIEW-03 |
+| 同上 | `sets rollupPercent null on empty hierarchy rows` | VIEW-03 |
+| `progressRollup.test.ts` | `does not weight by schedule duration` | VIEW-03 |
+| 同上 | `counts done as 100 without changing stored progress` | VIEW-03 |
+| 同上 | `uses not-started progress as-is` | VIEW-03 |
+| 同上 | `uses in-progress progress from the field` | VIEW-03 |
+| 同上 | `rounds to an integer and keeps zero` | VIEW-03 |
+| 同上 | `averages tasks not group percents` | VIEW-03 |
+| 同上 | `includes tasks in groups that would not appear as rows` | VIEW-03 |
 | `screenContext.test.ts` | `keeps broken-link endpoints only when relation is broken` | MCP-01 |
 | 同上 | `keeps unassigned and unknown assignee when assignee filter is unassigned` | MCP-01, FILTER-03 |
 | 同上 | `respects lineage and still returns selected task outside filter` | MCP-01, FILTER-08, EDIT-01 |
@@ -396,7 +408,13 @@
 | 同上 | `treats trim-equal title as unchanged` | EDIT-20 |
 | 同上 | `keeps internal spaces and reports changed title` | EDIT-20 |
 | `history.test.ts` | `undo restores a title change in one step` | EDIT-10, EDIT-20 |
-| `recentFiles.test.ts` | `appendRecentFile` など | FILE-09 |
+| `recentFiles.test.ts` | `appendRecentFile` など、スケジュールと設定ファイルの二系統 | FILE-09 |
+| `recentFilesMenu.test.ts` | 見出し付きの二グループとコマンドパレットの接頭辞 | FILE-09 |
+| `workspaceLoad.test.ts` | 設定ファイル束縛の表示ラベル | FILE-10, SET-02 |
+| `workspacePath.test.ts` | 相対パスの受理と拒否 | FILE-10 |
+| `workspaceJson.test.ts` | 開き分けと検証、末尾区切りの拒否 | FILE-10 |
+| `workspace::export_tests`（Rust） | 空でないフォルダの拒否、シンボリックリンク、部分書き出し後の文言 | FILE-11 |
+| `droppedScheduleOpenRoute.test.ts` | `routeExternalWorkspaceDrop` | FILE-10, WIN-04 |
 | `commandPalette.test.ts` | `inserts recent files after open on desktop` など | FILE-09, NAV-07 |
 | `recent_files.rs` | `writes_only_when_expected_matches` など | FILE-09 |
 | `commandPalette.test.ts` | `includes edit title command` | NAV-07, EDIT-20 |
@@ -625,7 +643,17 @@
 | `filter_path_uses_same_hash_as_recovery` | 絞り込みのファイル名のハッシュは控えと同じ | SYNC-03 |
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 | `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
-| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの3スキルに限る | SET-05 |
+| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの4スキルに限る | SET-05 |
+| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の4スキルだけ | SET-05 |
+| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は12パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各4つは `JSON_SKILL_NAMES` の順 | SET-05 |
+| `parse_tool_selection_requires_at_least_one` | ツール未選択は「ツールを1つ以上選んでください。」 | SET-05, MCP-02 |
+| `claude_user_shadows_only_when_claude_project_scope` | Copilot だけの指定フォルダでは Claude の個人用優先警告を出さない | SET-05 |
+| `install_creates_copilot_parent_directories` | 無い `~/.copilot/skills` を実ディレクトリとして作る | SET-05 |
+| `install_does_not_write_through_github_symlink` | `.github` がシンボリックリンクなら Copilot の指定フォルダへ置かない | SET-05 |
+| `install_and_uninstall_skip_when_user_copilot_dir_is_symlink` | ユーザー全体の `.copilot` がシンボリックリンクなら Copilot へ置かず、外さない | SET-05 |
+| `uninstall_does_not_remove_through_github_symlink` | 指定フォルダの `.github` がシンボリックリンクなら Copilot を外さない | SET-05 |
+| `install_and_uninstall_skip_when_user_copilot_skills_is_symlink` | ユーザー全体の `.copilot/skills` がシンボリックリンクなら Copilot へ置かず、外さない | SET-05 |
+| `install_and_uninstall_skip_when_project_github_skills_is_symlink` | 指定フォルダの `.github/skills` がシンボリックリンクなら Copilot へ置かず、外さない | SET-05 |
 | `install_without_replace_leaves_existing` | 置き換えを確認するまでは既存を残し、何も書かない | SET-05 |
 | `install_creates_real_parent_directories` | 無い `.cursor/skills` を実ディレクトリとして作る | SET-05 |
 | `install_without_replace_treats_symlink_as_existing` | 壊れたシンボリックリンクも既存として、確認前は書かない | SET-05 |
@@ -633,7 +661,7 @@
 | `install_does_not_write_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら置かない | SET-05 |
 | `place_staged_skill_restores_original_when_copy_fails` | 入れ替えのコピーに失敗したら元のフォルダを残す | SET-05 |
 | `install_keeps_earlier_skill_when_a_later_copy_fails` | 後続のコピーに失敗しても、先に置けたスキルは残る | SET-05 |
-| `uninstall_removes_only_bundled_skill_folders` | 外すのは3スキルだけで、別名のスキルは残す | SET-05 |
+| `uninstall_removes_only_bundled_skill_folders` | 外すのは4スキルだけで、別名のスキルは残す | SET-05 |
 | `uninstall_does_not_remove_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら外さない | SET-05 |
 | `uninstall_removes_broken_symlink_at_destination` | 宛先の壊れたシンボリックリンクはリンクだけ外す | SET-05 |
 | `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
@@ -651,8 +679,15 @@
 | `render_keeps_absolute_path_on_separate_lines_outside_localappdata`（`read_screen_skill.rs`） | Local AppData 配下でない絶対パスは、引用せず引数と別の行に書く | MCP-02 |
 | `render_fails_when_executable_path_is_empty`（`read_screen_skill.rs`） | 実行ファイルのパスが空なら置かない | MCP-02 |
 | `render_fails_when_placeholder_remains_after_replace`（`read_screen_skill.rs`） | 置換後にプレースホルダが残るなら置かない | MCP-02 |
-| `destinations_are_user_skill_dirs_only`（`read_screen_skill.rs`） | read-screen の置き先はユーザー全体だけ | MCP-02 |
+| `destinations_are_user_skill_dirs_only`（`read_screen_skill.rs`） | read-screen の置き先はユーザー全体の `.cursor`、`.claude`、`.copilot` だけ。`.github` と指定フォルダは含まない | MCP-02 |
 | `install_without_replace_leaves_existing`（`read_screen_skill.rs`） | 置き換えを確認するまでは既存を残し、何も書かない | MCP-02 |
+| `install_writes_copilot_skill_with_same_invocation_rules` | Copilot へ置く read-screen も、Local AppData 配下でないときは実行ファイルの行と `--screen` の行に分ける | MCP-02 |
+| `install_writes_copilot_skill_with_localappdata_one_line` | Copilot へ置く read-screen も、Local AppData 配下は `"$LOCALAPPDATA/"` と `--screen` の1行にし、`AppData` を残さない | MCP-02 |
+| `parse_tool_selection_requires_at_least_one_for_read_screen` | ツール未選択は「ツールを1つ以上選んでください。」で失敗 | MCP-02 |
+| `install_and_uninstall_skip_copilot_when_dot_copilot_is_symlink`（`read_screen_skill.rs`） | read-screen は `.copilot` がシンボリックリンクなら置かず、外さない | MCP-02 |
+| `install_and_uninstall_skip_copilot_when_skills_under_copilot_is_symlink`（`read_screen_skill.rs`） | read-screen は `.copilot/skills` がシンボリックリンクなら置かず、外さない | MCP-02 |
+| `uninstall_with_symlink_copilot_does_not_remove_cursor_read_screen`（`read_screen_skill.rs`） | Copilot の親がシンボリックリンクで外すのが失敗したとき、先に置いた Cursor の read-screen は残る | MCP-02 |
+| `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` と `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
 | `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 5 ツール（省略できる `window`）、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
@@ -728,7 +763,9 @@
 | TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 7 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
 | TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 7 になる |
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 7 になる。タグを付けていないタスクに `tags` は無い |
-| TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューに新しい順で並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
+| TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバーとカレンダーがファイル由来になる。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとカレンダーだけ読み直す。起動し直すと設定ファイルのまま戻る |
+| TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとカレンダーを選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
+| TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューにスケジュールと設定ファイルを別グループで新しい順に並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
 | TC-FILE-09b | FILE-09 | 上記のあと6件目を開く。同名のファイル名を2つのフォルダから開く | 一覧の件数と親フォルダの付き方を見る | 5件を超えた古いものが消える。同じファイル名が2件以上のときだけ親フォルダ名が付く |
 | TC-FILE-09c | FILE-09 | 履歴にパスがある | 存在しないパスを選ぶ。未保存のあいだに履歴から開き、キャンセルする | 画面と保存先は残る。サンプルに戻らない。項目は残る。キャンセルでは順番が変わらない |
 | TC-FILE-09d | FILE-09 | 履歴がある | ☰ または macOS のファイルメニューで「最近開いたファイル」から「履歴を消す」を押す。ファイル操作の途中でサブメニューから開く操作を試す | パスだけ消える。開いているスケジュールと次回起動のウィンドウ・控え・絞り込みは残る。操作中は履歴から開けず、「履歴を消す」は押せる。消したあと、☰ と macOS のファイルメニューに「最近開いたファイル」の行は残り、押せず、サブメニューは開かない |
@@ -826,6 +863,7 @@
 | TC-VIEW-01 | VIEW-01 | サンプル | 左の行を上から見る | カテゴリ、グループ、タスクの順で、JSON の配列順に並ぶ |
 | TC-VIEW-02 | VIEW-02 | 進行中のタスクがある | そのバーを見る | 薄青の地に、進捗率の濃い部分がある。完了は緑、未着手は灰 |
 | TC-VIEW-03 | VIEW-03 | 子の期間が離れているグループ | 親の行を見る。HTML で書き出す | タスクバーより細い帯で、途切れた期間は点線、つながる期間は塗り。両端に下向きの角がある。書き出しも同じ |
+| TC-VIEW-03b | VIEW-03 | カテゴリとグループにタスクがある JSON。進捗 0% のタスクと完了タスクがある。設定の表示で左の追加列の進捗をオンにする | ブラウザ版で左のカテゴリ行とグループ行を見る。一覧の幅を最小幅まで狭める。絞り込みか折りたたみか系統で一部のタスクを隠す。タスクが無い空のグループ行も見る | 名前の直後に整数のパーセントが出る。最小幅でもパーセントが切れない。0% も出る。タスクが無い行には出ない。追加列の進捗はタスク行だけ。隠れたタスクも平均に入るので、見えているバーだけを足した数字や親バーの長さとずれてよい |
 | TC-VIEW-04 | VIEW-04 | playground または長い名前のマイルストンがある JSON | 右端まで横スクロールする。月表示でも見る。全角24文字を超える名前にカーソルを乗せる。近いひし形の手前で切れる名前も見る。日・週・月を切り替える | 右端まで送ったとき、次のひし形が無い名前と年月が最後まで読める。全角24文字を超える名前は「…」になり、ホバーでチャート内に全文が読める。近いひし形の手前で切れることと、日・週・月の切り替えは今までどおり。グループごとに帯が積まれる。ひし形が重なるときだけ段が増える。左はグループ名。チャート全体の縦線は無い |
 | TC-FILTER-11 | FILTER-11 | マイルストングループが2つ以上ある JSON | 絞り込みの帯の線で1つをオフにする。書き出す | 帯と書き出しからその線が消える。タスク行は変わらない。札とすべて解除で戻る |
 | TC-FILTER-11b | FILTER-11, EDIT-11 | マイルストングループが2つ以上あり、各グループにマイルストンがある JSON | 左のマイルストングループ名の行の空きを右クリックし「非表示」を選ぶ。札を押す。別の行で「この行だけ表示」を選ぶ。残った1行を右クリックし、メニューを見る。そのあと最後の1行も非表示にする。書き出す | 帯と左の行が消える。札でそのグループだけ戻る。「この行だけ表示」で他がオフになり、オフしたグループごとに札が出る。帯に別のグループ行が無くなったあとは、「この行だけ表示」は出ない。全部オフで帯の高さは0。ひし形の右クリックメニューは今どおり。線を引くモードと見出しではメニューが出ない。タスクの選択は変わらない |
@@ -996,11 +1034,19 @@
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
-| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar が `~/.cursor/skills/` に置かれ、パスが示される |
+| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace が `~/.cursor/skills/` に置かれ、パスが示される |
 | TC-SET-05b | SET-05 | 上記のいずれかが既にある | もう一度「置く」 | 上書き確認が出る。上書き後、置いたパスが示される |
 | TC-SET-05c | SET-05 | 指定フォルダへ Claude Code を置く。`~/.claude/skills/` に同名がある | 「置く」 | 置いたあと、個人用が先に使われる旨が出る |
 | TC-SET-05d | SET-05 | ブラウザ版 | 設定の「JSON作成スキルを置く」を開く | デスクトップ版でのみ置ける旨が出て、「置く」は押せない |
-| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に3つがある | 「外す」で確認のあと外す | 3つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に4つがある | 「外す」で確認のあと外す | 4つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05f | SET-05 | デスクトップ版、置き先に同名が無い | GitHub Copilot、ユーザー全体を選び「置く」 | 4つが `~/.copilot/skills/` に置かれ、パスが示される。`~/.copilot` が無くても作られる |
+| TC-SET-05g | SET-05 | デスクトップ版 | GitHub Copilot、指定したフォルダを選び「置く」 | 4つが `<フォルダ>/.github/skills/` に置かれ、パスが示される。git には入れない |
+| TC-SET-05h | SET-05 | デスクトップ版 | Cursor、Claude Code、GitHub Copilot をすべて選び、ユーザー全体で「置く」 | 12パスが示される。中身は同じ4つ |
+| TC-SET-05i | SET-05 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
+| TC-SET-05j | SET-05 | デスクトップ版、ユーザー全体の Copilot に4つがある | 「外す」で確認のあと外す | 4つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-MCP-02c | MCP-02 | デスクトップ版 | 「MCP を使えないときに渡す」で GitHub Copilot を選び「置く」 | `read-screen` が `~/.copilot/skills/read-screen/` に置かれ、パスと実行ファイルのパスが示される |
+| TC-MCP-02d | MCP-02 | デスクトップ版、Copilot に read-screen がある | 同じ欄で GitHub Copilot を選び「外す」 | その1つだけ消え、外したパスが示される |
+| TC-MCP-02e | MCP-02 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
 | TC-SET-06 | SET-06 | ブラウザ版 | 設定を開く | 「更新」の欄が無い |
 | TC-SET-06b | SET-06 | デスクトップ版、初回起動 | 設定の「更新」を見る | 「起動時に更新を確認する」はオフである |
 | TC-SET-06c | SET-06 | デスクトップ版、2つのウィンドウ | 片方で自動更新をオンにする | もう一方もオンになる。オンにした直後は更新を確認しない |
