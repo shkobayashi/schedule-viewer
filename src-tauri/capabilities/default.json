@@ -65,6 +65,7 @@
     "allow-install-read-screen-skill",
     "allow-uninstall-read-screen-skill",
     "allow-mcp",
+    "allow-mouse-trace",
     "updater:default",
     "opener:default",
     "process:allow-restart"

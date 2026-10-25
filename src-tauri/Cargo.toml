@@ -35,6 +35,9 @@ url = "2"
 rust_xlsxwriter = "0.101"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = "0.25"
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 

@@ -4,6 +4,9 @@ mod export_xlsx;
 #[cfg(test)]
 mod excel_book;
 mod json_skills;
+mod mouse_trace;
+#[cfg(target_os = "macos")]
+mod mouse_trace_mac;
 mod mcp_app_data;
 mod mcp_bridge;
 pub mod mcp_stdio;
@@ -2280,6 +2283,12 @@ fn is_store_distribution() -> bool {
     store_distribution::is_store_distribution()
 }
 
+#[tauri::command]
+fn note_mouse_trace_page_event(event: String, detail: Option<String>) -> Result<(), String> {
+    mouse_trace::note_page_event(&event, detail.as_deref());
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -2320,6 +2329,7 @@ pub fn run() {
         }))
         .setup(|app| {
             note_main_thread();
+            mouse_trace::spawn_if_enabled();
             let _ = mcp_app_data::migrate_legacy_app_data_if_needed();
             let handle = app.handle().clone();
             if let Ok(dir) = app_data_dir(&handle) {
@@ -2482,6 +2492,7 @@ pub fn run() {
             uninstall_read_screen_skill,
             get_executable_path,
             is_store_distribution,
+            note_mouse_trace_page_event,
             mcp_reply,
         ])
         .build(tauri::generate_context!())

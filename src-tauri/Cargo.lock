@@ -3398,6 +3398,7 @@ dependencies = [
 name = "schedule-viewer"
 version = "1.11.0"
 dependencies = [
+ "core-graphics",
  "dirs",
  "libc",
  "notify-rust",

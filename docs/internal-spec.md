@@ -312,6 +312,7 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `mcp_reply` | 相関 id、世代、MCP ツール結果の JSON | — | 同上 | `useMcpScreenBridge.ts` |
 | `install_read_screen_skill` | Cursor、Claude Code、GitHub Copilot の各真偽値、置き換え。置いたパス、既存パス、検出した実行ファイルのパス | 同梱テンプレート欠落、パス不正、ツール未選択 | `read-screen-skill.toml` | `readScreenSkill.ts` |
 | `uninstall_read_screen_skill` | 上と同じツールの真偽値。外したパスと無かったパス | パス不正、ツール未選択 | 同上 | 同上 |
+| `note_mouse_trace_page_event` | 調査用。`event` と任意の `detail`。環境変数 `SV_MOUSE_TRACE=1` のときだけ macOS で `~/Library/Logs/schedule-viewer/mouse-trace.log` に追記する | 変数が無いときは何もしない | `mouse-trace.toml` | `mouseTrace.ts` |
 
 ダイアログで選んだだけでは `ScheduleFileState` は更新されない。検証に通したあと `accept_opened_schedule` を呼ぶ。
 
