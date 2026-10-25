@@ -64,11 +64,11 @@ pub fn resolve_workspace_relative_path(
     };
     let parent_str = parent.to_string_lossy();
     let parent_parts: Vec<&str> = parent_str
-        .split(|c| c == '/' || c == '\\')
+        .split(['/', '\\'])
         .filter(|part| !part.is_empty())
         .collect();
     let relative_parts: Vec<&str> = relative
-        .split(|c| c == '/' || c == '\\')
+        .split(['/', '\\'])
         .filter(|part| !part.is_empty())
         .collect();
     let mut stack = parent_parts;
