@@ -48,6 +48,10 @@ export function layoutStickyHeaders(
   const contentHeight = rows[rows.length - 1].y + rowHeight;
   if (contentHeight <= viewportHeight) return EMPTY_LAYOUT;
 
+  if (rows.some((row) => row.type === "hierarchy")) {
+    return layoutStickyHierarchyHeaders(rows, scrollY, rowHeight, viewportHeight);
+  }
+
   const category = currentCategory(rows, scrollY, rowHeight);
   if (category == null) return EMPTY_LAYOUT;
 
@@ -179,6 +183,107 @@ export function scrollYToShowSelectedTask(
 
 function clampScrollY(scrollY: number, maxScrollY: number): number {
   return Math.max(0, Math.min(scrollY, maxScrollY));
+}
+
+function isStickyHeaderRow(
+  row: VisibleRow,
+): row is Extract<VisibleRow, { type: "category" | "group" | "hierarchy" }> {
+  return (
+    row.type === "category" ||
+    row.type === "group" ||
+    row.type === "hierarchy"
+  );
+}
+
+function hierarchyHeaderSectionEnd(
+  rows: readonly VisibleRow[],
+  startIndex: number,
+): number {
+  const start = rows[startIndex];
+  if (start == null) return rows.length;
+  if (!isStickyHeaderRow(start)) return rows.length;
+  if (start.type === "category") return sectionEnd(rows, startIndex);
+  if (start.type === "group") {
+    for (let index = startIndex + 1; index < rows.length; index += 1) {
+      const row = rows[index];
+      if (row.type === "category" || row.type === "group") return index;
+    }
+    return rows.length;
+  }
+  if (start.type !== "hierarchy") return rows.length;
+  const levelIndex = start.levelIndex;
+  for (let index = startIndex + 1; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (!isStickyHeaderRow(row)) continue;
+    if (row.type === "hierarchy" && row.levelIndex <= levelIndex) return index;
+    if (row.type === "category") return index;
+  }
+  return rows.length;
+}
+
+function layoutStickyHierarchyHeaders(
+  rows: readonly VisibleRow[],
+  scrollY: number,
+  rowHeight: number,
+  _viewportHeight: number,
+): StickyLayout {
+  const levelCount = rows.reduce(
+    (max, row) =>
+      row.type === "hierarchy" ? Math.max(max, row.levelIndex + 1) : max,
+    0,
+  );
+  if (levelCount <= 1) return EMPTY_LAYOUT;
+
+  let innerIndex: number | null = null;
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (!isStickyHeaderRow(row)) continue;
+    if (row.collapsed) continue;
+    const end = hierarchyHeaderSectionEnd(rows, index);
+    const lastBottom = rows[end - 1].y + rowHeight;
+    if (lastBottom <= scrollY) continue;
+    if (row.y > scrollY) break;
+    innerIndex = index;
+  }
+  if (innerIndex == null) return EMPTY_LAYOUT;
+
+  const chain: number[] = [];
+  const innerRow = rows[innerIndex]!;
+  if (innerRow.type === "hierarchy") {
+    for (const ancestorId of innerRow.ancestorIds) {
+      const ancestorIndex = rows.findIndex((candidate) => {
+        if (!isStickyHeaderRow(candidate)) return false;
+        return candidate.id === ancestorId;
+      });
+      if (ancestorIndex >= 0) chain.push(ancestorIndex);
+    }
+    chain.push(innerIndex);
+  } else if (innerRow.type === "group") {
+    for (let index = innerIndex - 1; index >= 0; index -= 1) {
+      if (rows[index].type === "category") {
+        chain.push(index, innerIndex);
+        break;
+      }
+    }
+    if (chain.length === 0) chain.push(innerIndex);
+  } else {
+    chain.push(innerIndex);
+  }
+
+  const slots = chain.slice(-2);
+  const draws: StickyDraw[] = [];
+  const hiddenIndexes: number[] = [];
+  for (let slot = 0; slot < slots.length; slot += 1) {
+    pushSlot(
+      draws,
+      hiddenIndexes,
+      slots[slot]!,
+      slot * rowHeight,
+      (slot + 1) * rowHeight,
+    );
+  }
+  const clipTop = draws.reduce((max, draw) => Math.max(max, draw.clipBottom), 0);
+  return { draws, hiddenIndexes, clipTop };
 }
 
 function pushSlot(

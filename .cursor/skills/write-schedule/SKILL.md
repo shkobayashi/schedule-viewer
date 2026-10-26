@@ -25,7 +25,7 @@ description: >-
 - プロジェクト `title`
 - `milestoneGroups`: 帯の行。各 `id`（UUID v4）と `name`。タスクのカテゴリ・グループとは別
 - `milestones`: 各 `name`, `date`, `confidence`（日付を合意したなら `committed`、まだなら `tentative`。新規なら `id` は UUID v4）, `groupId`（`milestoneGroups` のいずれか）
-- `categories` → `groups` → `tasks` の階層と並び（並び替えフィールドはない。配列順＝画面の並び）。カテゴリとグループにも `id`（新規なら UUID v4）
+- `categories` → `groups` → `tasks` の階層と並び（並び替えフィールドはない。配列順＝画面の並び）。カテゴリとグループにも `id`（新規なら UUID v4）。このスキルでは `levels` と `outline` と `meaning` は書かず、従来の3段の `categories` だけを出力する
 
 - 各タスク: `name`, `start`, `end`, `assigneeId`（未割当は `null`）, `status`, `progress`, `confidence`（日付を合意したなら `committed`、まだなら `tentative`）, `predecessors`, `milestoneId`（なしは `null`）。任意で `tags`（説明用タグの配列。ユーザーから渡されたときだけ書く）, `note`（補足説明。ユーザーから渡されたときだけ書く）
 - タスクとマイルストンの `confidence` が入力から分からなければ、JSON を書かず不足として返す。未確定を既定にしない

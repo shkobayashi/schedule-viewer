@@ -112,9 +112,15 @@ export function lineageTaskIds(
 
 /** 破綻した線の先行または後続になっているタスク。 */
 export function brokenLinkTaskIds(categories: Category[]): Set<ScheduleId> {
-  const byId = tasksById(categories);
+  return brokenLinkTaskIdsFromTasks([...tasksById(categories).values()]);
+}
+
+export function brokenLinkTaskIdsFromTasks(
+  tasks: readonly Task[],
+): Set<ScheduleId> {
+  const byId = new Map(tasks.map((task) => [task.id, task]));
   const ids = new Set<ScheduleId>();
-  for (const task of byId.values()) {
+  for (const task of tasks) {
     for (const predecessorId of task.predecessors) {
       const predecessor = byId.get(predecessorId);
       if (!predecessor || !isBrokenLink(predecessor, task)) continue;

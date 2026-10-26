@@ -5,7 +5,9 @@ import type {
   Category,
   Milestone,
   MilestoneGroup,
+  OutlineRoot,
   ScheduleDocument,
+  ScheduleLevelDef,
 } from "../model/types";
 import { errorMessage } from "../model/errors";
 import {
@@ -65,6 +67,8 @@ type UseScheduleFileOptions = {
   categories: Category[];
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
+  levels?: ScheduleLevelDef[];
+  outline?: OutlineRoot;
   replaceDocument: (document: ScheduleDocument) => void;
   applyMergedDocument: (
     document: ScheduleDocument,
@@ -95,6 +99,8 @@ export function useScheduleFile({
   categories,
   milestoneGroups,
   milestones,
+  levels,
+  outline,
   replaceDocument,
   applyMergedDocument,
   reloadDocumentFromDisk,
@@ -140,8 +146,15 @@ export function useScheduleFile({
 
   const currentJson = useMemo(
     () =>
-      serializeScheduleDocument(title, categories, milestoneGroups, milestones),
-    [categories, milestoneGroups, milestones, title],
+      serializeScheduleDocument(
+        title,
+        categories,
+        milestoneGroups,
+        milestones,
+        levels,
+        outline,
+      ),
+    [categories, levels, milestoneGroups, milestones, outline, title],
   );
 
   const isDirty = currentJson !== baselineJson;

@@ -1702,6 +1702,33 @@ button:focus-visible,
   opacity: 0.9;
 }
 
+.hierarchy-banner {
+  flex: 0 0 auto;
+  padding: calc(6px * var(--s)) calc(10px * var(--s));
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+}
+
+.hierarchy-banner-mismatch {
+  color: var(--danger-text);
+  background: var(--danger-bg);
+}
+
+.sidebar-row.hierarchy.hierarchy-middle {
+  font-weight: 600;
+}
+
+.sidebar-row.hierarchy.hierarchy-middle .sidebar-row-body,
+.sidebar-row.hierarchy.hierarchy-middle .hierarchy-indent {
+  padding-left: var(--hierarchy-indent, calc(22px * var(--s)));
+}
+
+.sidebar-row.hierarchy.hierarchy-middle .hierarchy-indent {
+  padding-left: var(--hierarchy-indent, calc(22px * var(--s)));
+}
+
 .link-banner {
   font-size: calc(11px * var(--s));
   color: var(--text-secondary);

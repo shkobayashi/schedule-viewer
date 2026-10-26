@@ -102,6 +102,11 @@ import {
   saveBetaInstallerViaTauri,
 } from "./model/windowSession";
 import { useScheduleFile } from "./hooks/useScheduleFile";
+import {
+  canExportWithLegacyPipeline,
+  HIERARCHY_EXPORT_UNSUPPORTED_MESSAGE,
+  HIERARCHY_MISMATCH_MESSAGE,
+} from "./model/hierarchy";
 import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
 import { NO_OPEN_SCHEDULE_FILE_MESSAGE } from "./model/scheduleDiff";
@@ -174,7 +179,12 @@ import {
   taskBarWidthPx,
 } from "./model/timeline";
 import { extraTimelineDaysForRightEdge } from "./model/timelineRightPadding";
-import type { ScheduleDocument, ScheduleId, Task } from "./model/types";
+import {
+  SCHEDULE_SCHEMA_VERSION,
+  type ScheduleDocument,
+  type ScheduleId,
+  type Task,
+} from "./model/types";
 import {
   AUTO_UPDATE_LS_KEY,
   readAutoUpdateEnabled,
@@ -728,8 +738,19 @@ function App() {
     setCatalogMismatchAnnouncement(null);
   }, [catalogMismatch]);
 
+  const hierarchyTopBanner =
+    schedule.levels != null &&
+    schedule.levels.length > 0 &&
+    !schedule.hierarchyLayout.aligned
+      ? "mismatch"
+      : schedule.hierarchyLevelBanner
+        ? "levels"
+        : null;
+
   const showChartTopBanners =
-    catalogMismatchText != null || linkSourceId != null;
+    catalogMismatchText != null ||
+    linkSourceId != null ||
+    hierarchyTopBanner != null;
 
   useLayoutEffect(() => {
     const node = chartTopBannersRef.current;
@@ -744,7 +765,14 @@ function App() {
     const observer = new ResizeObserver(() => measure());
     observer.observe(node);
     return () => observer.disconnect();
-  }, [showChartTopBanners, catalogMismatchText, linkSourceId, linkError]);
+  }, [
+    showChartTopBanners,
+    catalogMismatchText,
+    hierarchyTopBanner,
+    schedule.hierarchyLevelBanner,
+    linkSourceId,
+    linkError,
+  ]);
 
   const range = useMemo(
     () =>
@@ -909,6 +937,8 @@ function App() {
     categories: schedule.categories,
     milestoneGroups: schedule.milestoneGroups,
     milestones: schedule.milestones,
+    levels: schedule.levels,
+    outline: schedule.outline,
     replaceDocument: schedule.replaceDocument,
     applyMergedDocument: (document) => applyMergedDocumentRef.current(document),
     reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
@@ -1559,6 +1589,19 @@ function App() {
       excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
     ) => {
       flushTitleEdit();
+      const exportDoc: ScheduleDocument = {
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title: schedule.title,
+        categories: schedule.categories,
+        milestoneGroups: schedule.milestoneGroups,
+        milestones: schedule.milestones,
+        levels: schedule.levels,
+        outline: schedule.outline,
+      };
+      if (!canExportWithLegacyPipeline(exportDoc)) {
+        setExportError(HIERARCHY_EXPORT_UNSUPPORTED_MESSAGE);
+        return;
+      }
       const milestones = milestonesForExport(
         schedule.filters.milestone,
         schedule.milestoneGroups,
@@ -2959,6 +3002,10 @@ function App() {
         <Sidebar
           statuses={displayStatuses}
           categories={schedule.categories}
+          outline={schedule.outline}
+          levelCount={schedule.hierarchyLayout.levelCount}
+          usesOutlineStorage={schedule.usesOutlineStorage}
+          allowCrossParentTaskMove={schedule.allowCrossParentTaskMove}
           rows={schedule.visibleRows}
           reorderBaseRows={schedule.baseVisibleRows}
           scrollY={scrollY}
@@ -3039,6 +3086,15 @@ function App() {
           </p>
           {showChartTopBanners ? (
             <div ref={chartTopBannersRef} className="chart-top-banners">
+              {hierarchyTopBanner === "mismatch" ? (
+                <div className="hierarchy-banner hierarchy-banner-mismatch" role="status">
+                  <div>{HIERARCHY_MISMATCH_MESSAGE}</div>
+                </div>
+              ) : hierarchyTopBanner === "levels" ? (
+                <div className="hierarchy-banner" role="status">
+                  <div>{schedule.hierarchyLevelBanner}</div>
+                </div>
+              ) : null}
               {catalogMismatchText ? (
                 <div className="catalog-mismatch-banner">
                   <div>{catalogMismatchText}</div>
@@ -3368,6 +3424,12 @@ function App() {
       {addOpen ? (
         <TaskAddDialog
           categories={schedule.categories}
+          parentBranches={
+            schedule.taskParentBranches.length > 0
+              ? schedule.taskParentBranches
+              : undefined
+          }
+          initialParentBranchId={schedule.taskParentBranches[0]?.id ?? null}
           initialCategory={
             (schedule.selectedTaskId
               ? findTaskPlace(schedule.categories, schedule.selectedTaskId)
@@ -3394,7 +3456,10 @@ function App() {
           }
           onClose={() => setAddOpen(false)}
           onSave={(input) => {
-            const id = schedule.addTask(input);
+            const id = schedule.addTask({
+              ...input,
+              parentBranchId: input.parentBranchId,
+            });
             setAddOpen(false);
             if (id != null) setFocusTaskId(id);
           }}

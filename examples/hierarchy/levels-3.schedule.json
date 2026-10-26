@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 7,
+  "milestoneGroups": [
+    {
+      "id": "a1000001-0000-4000-8000-000000000001",
+      "name": "マイルストン"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "b1000001-0000-4000-8000-000000000001",
+      "name": "中間確認",
+      "date": "2026-10-20",
+      "confidence": "committed",
+      "groupId": "a1000001-0000-4000-8000-000000000001"
+    }
+  ],
+  "title": "階層サンプル（3段）",
+  "levels": [
+    {
+      "name": "工程",
+      "meaning": "工程の意味（画面には出さない）。"
+    },
+    {
+      "name": "機能",
+      "meaning": "機能の意味。"
+    },
+    {
+      "name": "タスク",
+      "meaning": "タスクの意味。"
+    }
+  ],
+  "categories": [
+    {
+      "id": "c3000001-0000-4000-8000-000000000001",
+      "name": "要件",
+      "groups": [
+        {
+          "id": "d3000001-0000-4000-8000-000000000001",
+          "name": "ヒアリング",
+          "tasks": [
+            {
+              "id": "e3000001-0000-4000-8000-000000000001",
+              "name": "訪問1",
+              "start": "2026-10-01",
+              "end": "2026-10-03",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": "b1000001-0000-4000-8000-000000000001"
+            },
+            {
+              "id": "e3000001-0000-4000-8000-000000000002",
+              "name": "整理",
+              "start": "2026-10-04",
+              "end": "2026-10-07",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": "b1000001-0000-4000-8000-000000000001"
+            }
+          ]
+        },
+        {
+          "id": "d3000001-0000-4000-8000-000000000002",
+          "name": "定義",
+          "tasks": [
+            {
+              "id": "e3000001-0000-4000-8000-000000000003",
+              "name": "草案",
+              "start": "2026-10-08",
+              "end": "2026-10-12",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": "b1000001-0000-4000-8000-000000000001"
+            },
+            {
+              "id": "e3000001-0000-4000-8000-000000000004",
+              "name": "レビュー",
+              "start": "2026-10-13",
+              "end": "2026-10-17",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": "b1000001-0000-4000-8000-000000000001"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "c3000001-0000-4000-8000-000000000002",
+      "name": "実装",
+      "groups": [
+        {
+          "id": "d3000001-0000-4000-8000-000000000003",
+          "name": "基盤",
+          "tasks": [
+            {
+              "id": "e3000001-0000-4000-8000-000000000005",
+              "name": "骨組み",
+              "start": "2026-10-18",
+              "end": "2026-10-22",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": "b1000001-0000-4000-8000-000000000001"
+            },
+            {
+              "id": "e3000001-0000-4000-8000-000000000006",
+              "name": "結合",
+              "start": "2026-10-23",
+              "end": "2026-10-28",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": "b1000001-0000-4000-8000-000000000001"
+            }
+          ]
+        },
+        {
+          "id": "d3000001-0000-4000-8000-000000000004",
+          "name": "画面",
+          "tasks": [
+            {
+              "id": "e3000001-0000-4000-8000-000000000007",
+              "name": "一覧",
+              "start": "2026-10-29",
+              "end": "2026-11-02",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": "b1000001-0000-4000-8000-000000000001"
+            },
+            {
+              "id": "e3000001-0000-4000-8000-000000000008",
+              "name": "詳細",
+              "start": "2026-11-03",
+              "end": "2026-11-08",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 30,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": "b1000001-0000-4000-8000-000000000001"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

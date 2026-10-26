@@ -1,10 +1,13 @@
+import { documentHasLevels, documentUsesOutlineStorage } from "./hierarchy";
 import { normalizeTaskNote } from "./taskNote";
 import { normalizeTaskTags } from "./taskTags";
 import type {
   Category,
   Milestone,
   MilestoneGroup,
+  OutlineRoot,
   ScheduleDocument,
+  ScheduleLevelDef,
   Task,
 } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
@@ -28,13 +31,28 @@ function taskToJson(task: Task): Task {
   return note !== undefined ? { ...withTags, note } : withTags;
 }
 
+function outlineToJson(nodes: OutlineRoot): OutlineRoot {
+  return nodes.map((node) => {
+    if ("start" in node && "end" in node) {
+      return taskToJson(node);
+    }
+    return {
+      id: node.id,
+      name: node.name,
+      children: outlineToJson(node.children),
+    };
+  });
+}
+
 export function scheduleToJson(
   title: string,
   categories: Category[],
   milestoneGroups: MilestoneGroup[],
   milestones: Milestone[],
+  levels?: ScheduleLevelDef[] | null,
+  outline?: OutlineRoot | null,
 ): ScheduleDocument {
-  return {
+  const base: ScheduleDocument = {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title,
     milestoneGroups: milestoneGroups.map((group) => ({
@@ -48,6 +66,62 @@ export function scheduleToJson(
       confidence: milestone.confidence,
       groupId: milestone.groupId,
     })),
+    categories: [],
+  };
+
+  const hasLevels = levels != null && levels.length > 0;
+  if (!hasLevels) {
+    return {
+      ...base,
+      categories: categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        groups: category.groups.map((group) => ({
+          id: group.id,
+          name: group.name,
+          tasks: group.tasks.map((task) => taskToJson(task)),
+        })),
+      })),
+    };
+  }
+
+  const levelDefs = levels.map((level) => ({
+    name: level.name,
+    meaning: level.meaning,
+  }));
+
+  const useCategories =
+    levels.length === 3 &&
+    categories.length > 0 &&
+    (outline == null || outline.length === 0);
+
+  if (useCategories) {
+    return {
+      ...base,
+      levels: levelDefs,
+      categories: categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        groups: category.groups.map((group) => ({
+          id: group.id,
+          name: group.name,
+          tasks: group.tasks.map((task) => taskToJson(task)),
+        })),
+      })),
+    };
+  }
+
+  if (outline != null && outline.length > 0) {
+    return {
+      ...base,
+      levels: levelDefs,
+      outline: outlineToJson(outline),
+    };
+  }
+
+  return {
+    ...base,
+    levels: levelDefs,
     categories: categories.map((category) => ({
       id: category.id,
       name: category.name,
@@ -58,4 +132,50 @@ export function scheduleToJson(
       })),
     })),
   };
+}
+
+export function documentToJson(
+  doc: ScheduleDocument | import("./history").DocumentSnapshot,
+): ScheduleDocument {
+  return scheduleToJson(
+    doc.title,
+    doc.categories,
+    doc.milestoneGroups,
+    doc.milestones,
+    doc.levels,
+    doc.outline,
+  );
+}
+
+export function documentToJsonString(doc: ScheduleDocument): string {
+  const json = documentToJson(doc);
+  const ordered = orderScheduleKeys(json);
+  return JSON.stringify(ordered, null, 2);
+}
+
+function orderScheduleKeys(doc: ScheduleDocument): Record<string, unknown> {
+  const result: Record<string, unknown> = {
+    schemaVersion: doc.schemaVersion,
+    title: doc.title,
+    milestoneGroups: doc.milestoneGroups,
+    milestones: doc.milestones,
+  };
+  if (documentHasLevels(doc)) {
+    result.levels = doc.levels;
+  }
+  if (
+    documentHasLevels(doc) &&
+    doc.levels!.length === 3 &&
+    doc.categories.length > 0 &&
+    !documentUsesOutlineStorage(doc)
+  ) {
+    result.categories = doc.categories;
+  } else if (!documentHasLevels(doc)) {
+    result.categories = doc.categories;
+  } else if (doc.outline != null && doc.outline.length > 0) {
+    result.outline = doc.outline;
+  } else if (doc.categories.length > 0) {
+    result.categories = doc.categories;
+  }
+  return result;
 }

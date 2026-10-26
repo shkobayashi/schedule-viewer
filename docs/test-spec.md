@@ -485,6 +485,7 @@
 | 同上 | `rejects a duplicate name in the same category` | EDIT-13 |
 | 同上 | `allows the same group name in another category` | EDIT-13 |
 | 同上 | `keeps the original name when the input is blank` | EDIT-13 |
+| `hierarchy.test.ts` | `keeps keys unchanged when saving without levels` など | FILE-04, VIEW-03 |
 | `hierarchyCrud.test.ts` | `inserts a category with an empty default group` | EDIT-18 |
 | 同上 | `rejects a blank category name` | EDIT-18 |
 | 同上 | `rejects duplicate category names on add` | EDIT-18 |
@@ -813,6 +814,9 @@
 | `examples/playground.members.json` | サンプルと同じ4人 | `npm run check:members` |
 | `examples/jp-2026.calendar.json` | 土日と、非稼働日 18件。振替出勤は空 | `npm run check:calendar` |
 | `examples/lightning/workspace.json` | 四つの扱いと一覧に無い `id` の折れと赤。開始前・期間中・終了後は今日が 2026-10-23 から 2026-11-01 のあいだ。終了が今日の行は 2026-10-25 | 引数なしの check では見ない |
+| `examples/hierarchy/levels-2.schedule.json` | 2段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-2.schedule.json` |
+| `examples/hierarchy/levels-3.schedule.json` | 3段の `levels` と `categories` | `npm run check:schedule -- examples/hierarchy/levels-3.schedule.json` |
+| `examples/hierarchy/levels-5.schedule.json` | 5段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-5.schedule.json` |
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
 
@@ -822,6 +826,9 @@
 
 | ID | 機能 | 前提 | 手順 | 期待結果 |
 | --- | --- | --- | --- | --- |
+| TC-HIER-01 | VIEW-03 | `examples/hierarchy/levels-2.schedule.json` など定義の無いファイル | 開いて保存する | 定義の無いファイルは保存後も `levels` と `outline` が付かない。2段・3段・5段のサンプルは帯の上に定義名が並び、段数どおりの行になる |
+| TC-HIER-02 | VIEW-03 | 定義と入れ子の段数が合わない JSON | 開く | 「階層の定義と入れ子の数が違います。」が出て、行の組み立ては変わらない |
+| TC-HIER-03 | VIEW-03, FILE-01 | `examples/hierarchy/levels-3.schedule.json` | ワークスペースで開く。同じ JSON を直接開く | 階層の見え方が同じである |
 | TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しのタイトルは JSON の `title` になる。ファイル名は状態バーとウィンドウタイトルに出る |
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01f | FILE-01 | サンプル | ☰ を開き、下、上、Home、End を押す | 最初の項目にフォーカスが移る。キーで項目を移動できる。Escape で閉じる |

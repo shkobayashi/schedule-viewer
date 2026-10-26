@@ -62,7 +62,11 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
     };
   }
 
-  const document = migrated as ScheduleDocument;
+  const raw = migrated as ScheduleDocument;
+  const document: ScheduleDocument = {
+    ...raw,
+    categories: raw.categories ?? [],
+  };
   const errors = [
     ...validateScheduleSemantics(document),
     ...validatePredecessorRefs(document),

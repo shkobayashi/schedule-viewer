@@ -21,6 +21,7 @@ import { daysBetween, fmtMonthDay, parseDate } from "../model/dates";
 import type { Member, MemberId } from "../model/memberTypes";
 import {
   categoryCollapseKey,
+  hierarchyCollapseKey,
   groupCollapseKey,
   reorderDragBlockRows,
   rowInReorderDragBlock,
@@ -51,10 +52,25 @@ import {
   classifyHandleDrag,
   resolveTaskDropTarget,
 } from "../model/taskOrder";
+import {
+  canReorderTaskInOutlineParent,
+  resolveTaskDropTargetWithOutline,
+} from "../model/outlineTaskOrder";
 import type { DiffSidebarMark } from "../model/diffNavigation";
-import type { Category, Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
+import type {
+  Category,
+  Milestone,
+  OutlineRoot,
+  ScheduleId,
+  Task,
+  VisibleRow,
+} from "../model/types";
 type SidebarProps = {
   categories: Category[];
+  outline?: OutlineRoot;
+  levelCount: number;
+  usesOutlineStorage: boolean;
+  allowCrossParentTaskMove: boolean;
   rows: VisibleRow[];
   reorderBaseRows: VisibleRow[];
   scrollY: number;
@@ -134,6 +150,10 @@ type SidebarProps = {
 
 export function Sidebar({
   categories,
+  outline,
+  levelCount,
+  usesOutlineStorage,
+  allowCrossParentTaskMove,
   rows,
   reorderBaseRows,
   scrollY,
@@ -279,20 +299,29 @@ export function Sidebar({
     ): { targetGroupId: ScheduleId; insertIndex: number } | null => {
       if (pointerOnStickyHeader(clientX, clientY)) return null;
       const contentY = contentYFromPointer(clientY);
-      return resolveTaskDropTarget(
+      return resolveTaskDropTargetWithOutline(
         contentY,
         rowHeight,
         taskId,
         categories,
         reorderBaseRows,
+        outline,
+        levelCount,
+        usesOutlineStorage,
+        allowCrossParentTaskMove,
+        resolveTaskDropTarget,
       );
     },
     [
+      allowCrossParentTaskMove,
       categories,
       contentYFromPointer,
+      levelCount,
+      outline,
       pointerOnStickyHeader,
       reorderBaseRows,
       rowHeight,
+      usesOutlineStorage,
     ],
   );
 
@@ -384,6 +413,14 @@ export function Sidebar({
     }
     if (kind === "group") {
       return canReorderGroup(categories, id, reorderBaseRows, rowHeight);
+    }
+    if (usesOutlineStorage && outline != null) {
+      return canReorderTaskInOutlineParent(
+        outline,
+        levelCount,
+        id,
+        reorderBaseRows,
+      );
     }
     return canReorderTaskInGroup(categories, id, reorderBaseRows);
   };
@@ -653,6 +690,19 @@ export function Sidebar({
                 />
               );
             }
+            if (row.type === "hierarchy") {
+              return (
+                <OutlineHierarchySidebarRow
+                  key={`hierarchy-${row.id}`}
+                  row={row}
+                  top={row.y}
+                  rowHeight={rowHeight}
+                  reordering={isRowHiddenByDragGhost(row)}
+                  canReorder={false}
+                  onToggleCollapse={onToggleCollapse}
+                />
+              );
+            }
             if (row.type === "group") {
               return (
                 <HierarchySidebarRow
@@ -720,7 +770,12 @@ export function Sidebar({
         <div className="sidebar-sticky">
           {sticky.draws.map((draw) => {
             const row = rows[draw.index];
-            if (row == null || (row.type !== "category" && row.type !== "group")) {
+            if (
+              row == null ||
+              (row.type !== "category" &&
+                row.type !== "group" &&
+                row.type !== "hierarchy")
+            ) {
               return null;
             }
             const clipHeight = draw.clipBottom - draw.clipTop;
@@ -731,7 +786,16 @@ export function Sidebar({
                 className="sidebar-sticky-clip"
                 style={{ top: draw.clipTop, height: clipHeight }}
               >
-                {row.type === "category" ? (
+                {row.type === "hierarchy" ? (
+                  <OutlineHierarchySidebarRow
+                    row={row}
+                    top={top}
+                    rowHeight={rowHeight}
+                    reordering={isRowHiddenByDragGhost(row)}
+                    canReorder={false}
+                    onToggleCollapse={onToggleCollapse}
+                  />
+                ) : row.type === "category" ? (
                   <CategorySidebarRow
                     row={row}
                     top={top}
@@ -998,6 +1062,63 @@ function RowGrip({
       }}
     >
       <GripVertical size={14} strokeWidth={2.25} aria-hidden="true" />
+    </div>
+  );
+}
+
+function OutlineHierarchySidebarRow({
+  row,
+  top,
+  rowHeight,
+  reordering,
+  canReorder,
+  onToggleCollapse,
+}: {
+  row: Extract<VisibleRow, { type: "hierarchy" }>;
+  top: number;
+  rowHeight: number;
+  reordering: boolean;
+  canReorder: boolean;
+  onToggleCollapse: (key: string) => void;
+}) {
+  const indent =
+    row.depth <= 0
+      ? 6
+      : 6 + row.depth * 16;
+  const rowClass =
+    row.rowKind === "top" || row.alsoTaskParent
+      ? "category"
+      : row.rowKind === "taskParent"
+        ? "group"
+        : "hierarchy-middle";
+  return (
+    <div
+      className={`sidebar-row hierarchy ${rowClass}${reordering ? " reordering" : ""}`}
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        top,
+        height: rowHeight,
+        ["--hierarchy-indent" as string]: `calc(${indent}px * var(--s))`,
+      }}
+    >
+      <RowGrip
+        canReorder={canReorder}
+        label="階層を並べ替える"
+        onPointerDown={() => {}}
+      />
+      <div className="sidebar-row-body hierarchy-indent">
+        <CollapseButton
+          label={row.label}
+          collapsed={row.collapsed}
+          onClick={() => onToggleCollapse(hierarchyCollapseKey(row.id))}
+        />
+        <HierarchyNameWithRollup
+          label={row.label}
+          rollupPercent={row.rollupPercent}
+        />
+      </div>
     </div>
   );
 }
@@ -1383,6 +1504,7 @@ function SidebarDragGhost({
             />
           );
         }
+        if (row.type !== "task") return null;
         return (
           <TaskSidebarRow
             key={`task-${row.task.id}`}

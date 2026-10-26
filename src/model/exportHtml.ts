@@ -341,14 +341,22 @@ function svgLabelWidth(input: ScheduleExportInput): number {
     width = Math.max(width, estimateTextWidth("マイルストン", 11 * scale) + 24 * scale);
   }
   for (const row of input.visibleRows) {
-    if (row.type === "category" || row.type === "group") {
-      const indent = row.type === "category" ? 6 : 22;
+    if (
+      row.type === "category" ||
+      row.type === "group" ||
+      row.type === "hierarchy"
+    ) {
+      const indent =
+        row.type === "category" || (row.type === "hierarchy" && row.rowKind === "top")
+          ? 6
+          : 22;
       width = Math.max(
         width,
         indent * scale + 20 * scale + estimateTextWidth(row.label, 12 * scale) + 12 * scale,
       );
       continue;
     }
+    if (row.type !== "task") continue;
     const assigneeDisplay = resolveAssigneeDisplay(
       row.task.assigneeId,
       input.memberCatalog,
@@ -437,10 +445,25 @@ function renderSvgLabelRow(
   const { css: c, chart } = palettes(input);
   const height = input.rowHeight;
   const mid = y + height / 2;
-  if (row.type === "category" || row.type === "group") {
-    const fill = row.type === "category" ? chart.categoryRow : chart.groupRow;
-    const color = row.type === "category" ? chart.textPrimary : c.groupText;
-    const indent = (row.type === "category" ? 6 : 22) * input.labelScale;
+  if (
+    row.type === "category" ||
+    row.type === "group" ||
+    row.type === "hierarchy"
+  ) {
+    const fill =
+      row.type === "category" || (row.type === "hierarchy" && row.rowKind === "top")
+        ? chart.categoryRow
+        : row.type === "hierarchy" && row.rowKind === "middle"
+          ? c.bg
+          : chart.groupRow;
+    const color =
+      row.type === "category" || (row.type === "hierarchy" && row.rowKind === "top")
+        ? chart.textPrimary
+        : c.groupText;
+    const indent =
+      (row.type === "category" || (row.type === "hierarchy" && row.rowKind === "top")
+        ? 6
+        : 22) * input.labelScale;
     const size = 12 * input.labelScale;
     const mark = row.collapsed ? "▶" : "▼";
     return [
@@ -450,6 +473,7 @@ function renderSvgLabelRow(
       `<line x1="0" y1="${n(y + height)}" x2="${n(labelWidth)}" y2="${n(y + height)}" stroke="${chart.rowBorder}" stroke-width="1"/>`,
     ].join("\n    ");
   }
+  if (row.type !== "task") return "";
   const assigneeDisplay = resolveAssigneeDisplay(row.task.assigneeId, input.memberCatalog);
   const unassigned = assigneeDisplay.kind === "unassigned";
   const unknownMember = assigneeDisplay.kind === "unknown";
@@ -545,10 +569,23 @@ function renderLabels(input: ScheduleExportInput): string {
 
 function renderLabelRow(row: VisibleRow, input: ScheduleExportInput): string {
   const height = `style="height:${input.rowHeight}px"`;
-  if (row.type === "category" || row.type === "group") {
+  if (
+    row.type === "category" ||
+    row.type === "group" ||
+    row.type === "hierarchy"
+  ) {
     const mark = row.collapsed ? "▶" : "▼";
-    return `<div class="label ${row.type}" ${height}><span class="twist">${mark}</span>${esc(row.label)}</div>`;
+    const className =
+      row.type === "hierarchy"
+        ? row.rowKind === "top" || row.alsoTaskParent
+          ? "category"
+          : row.rowKind === "taskParent"
+            ? "group"
+            : "hierarchy-middle"
+        : row.type;
+    return `<div class="label ${className}" ${height}><span class="twist">${mark}</span>${esc(row.label)}</div>`;
   }
+  if (row.type !== "task") return "";
   const assigneeDisplay = resolveAssigneeDisplay(
     row.task.assigneeId,
     input.memberCatalog,

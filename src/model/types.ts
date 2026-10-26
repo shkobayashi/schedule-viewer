@@ -1,6 +1,23 @@
 import type { SummarySpan } from "./summary";
 import type { MemberId } from "./memberTypes";
 
+export type ScheduleLevelDef = {
+  name: string;
+  meaning: string;
+};
+
+export type OutlineBranch = {
+  id: ScheduleId;
+  name: string;
+  children: OutlineChild[];
+};
+
+export type OutlineChild = OutlineBranch | Task;
+
+export type OutlineRoot = OutlineChild[];
+
+export type HierarchyRowKind = "top" | "middle" | "taskParent";
+
 export type ScheduleId = string;
 
 export const SCHEDULE_SCHEMA_VERSION = 8;
@@ -52,6 +69,8 @@ export type ScheduleDocument = {
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
   categories: Category[];
+  levels?: ScheduleLevelDef[];
+  outline?: OutlineRoot;
 };
 
 /** カテゴリとタスクの間。日付は持たず、配下タスクのまとまり。 */
@@ -125,5 +144,20 @@ export type VisibleRow =
       summary: SummarySpan | null;
       /** 配下タスクの平均進捗（整数）。タスクが無いときは null。 */
       rollupPercent: number | null;
+    }
+  | {
+      type: "hierarchy";
+      id: ScheduleId;
+      label: string;
+      y: number;
+      collapsed: boolean;
+      summary: SummarySpan | null;
+      rollupPercent: number | null;
+      levelIndex: number;
+      depth: number;
+      rowKind: HierarchyRowKind;
+      ancestorIds: ScheduleId[];
+      /** 2 段のとき、地と帯の両方を付ける行 */
+      alsoTaskParent?: boolean;
     }
   | { type: "task"; task: Task; y: number };

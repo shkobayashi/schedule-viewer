@@ -378,6 +378,44 @@ export function buildExcelExportPayload(
       bodyRow += 1;
       continue;
     }
+    if (visible.type === "hierarchy") {
+      const indent =
+        visible.rowKind === "top" || visible.alsoTaskParent ? 0 : visible.depth;
+      rows.push({
+        kind: visible.rowKind === "top" ? "category" : "group",
+        cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
+        nameOverdue: false,
+        nameIndent: indent,
+        nameBold: true,
+        nameTextRgb:
+          visible.rowKind === "top"
+            ? chart.textPrimary.replace("#", "")
+            : excelGroupNameRgb,
+      });
+      if (
+        visible.summary &&
+        (visible.rowKind === "top" ||
+          visible.rowKind === "taskParent" ||
+          visible.alsoTaskParent)
+      ) {
+        const deco = excelSummaryBarDecorations(
+          bodyRow,
+          visible.summary,
+          columns,
+          input.tier,
+          chart,
+          leftColCount,
+          dateColumnWidthPx,
+          bodyRowHeightPx,
+        );
+        shapes.push(...deco.shapes);
+        summaryGapLines.push(...deco.gapLines);
+        summaryCaps.push(...deco.caps);
+      }
+      bodyRow += 1;
+      continue;
+    }
+    if (visible.type !== "task") continue;
     const task = visible.task;
     taskRowById.set(task.id, bodyRow);
     taskById.set(task.id, task);

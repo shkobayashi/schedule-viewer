@@ -1,0 +1,799 @@
+{
+  "schemaVersion": 7,
+  "milestoneGroups": [
+    {
+      "id": "a1000001-0000-4000-8000-000000000001",
+      "name": "マイルストン"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "b1000001-0000-4000-8000-000000000001",
+      "name": "中間確認",
+      "date": "2026-10-20",
+      "confidence": "committed",
+      "groupId": "a1000001-0000-4000-8000-000000000001"
+    }
+  ],
+  "title": "階層サンプル（5段）",
+  "levels": [
+    {
+      "name": "事業",
+      "meaning": "事業単位。"
+    },
+    {
+      "name": "工程",
+      "meaning": "工程。"
+    },
+    {
+      "name": "機能",
+      "meaning": "機能。"
+    },
+    {
+      "name": "作業",
+      "meaning": "作業束。"
+    },
+    {
+      "name": "タスク",
+      "meaning": "タスク。"
+    }
+  ],
+  "outline": [
+    {
+      "id": "f5000001-0000-4000-8000-000000000001",
+      "name": "事業甲",
+      "children": [
+        {
+          "id": "f5000001-0000-4000-8000-000000000001a",
+          "name": "事業甲-工程1",
+          "children": [
+            {
+              "id": "f5000001-0000-4000-8000-000000000001aa",
+              "name": "事業甲-工程1-機能1",
+              "children": [
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000001aaa",
+                  "name": "事業甲-工程1-機能1-作業A",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-01",
+                      "end": "2026-10-03",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-04",
+                      "end": "2026-10-06",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-07",
+                      "end": "2026-11-10",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                },
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000001aab",
+                  "name": "事業甲-工程1-機能1-作業B",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-03",
+                      "end": "2026-10-05",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-06",
+                      "end": "2026-10-08",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-09",
+                      "end": "2026-11-12",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000001ab",
+              "name": "事業甲-工程1-機能2",
+              "children": [
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000001aba",
+                  "name": "事業甲-工程1-機能2-作業A",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-05",
+                      "end": "2026-10-07",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-08",
+                      "end": "2026-10-10",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-11",
+                      "end": "2026-11-14",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                },
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000001abb",
+                  "name": "事業甲-工程1-機能2-作業B",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-07",
+                      "end": "2026-10-09",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-10",
+                      "end": "2026-10-12",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-13",
+                      "end": "2026-11-16",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "f5000001-0000-4000-8000-000000000001b",
+          "name": "事業甲-工程2",
+          "children": [
+            {
+              "id": "f5000001-0000-4000-8000-000000000001ba",
+              "name": "事業甲-工程2-機能1",
+              "children": [
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000001baa",
+                  "name": "事業甲-工程2-機能1-作業A",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-01",
+                      "end": "2026-10-03",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-04",
+                      "end": "2026-10-06",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-07",
+                      "end": "2026-11-10",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                },
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000001bab",
+                  "name": "事業甲-工程2-機能1-作業B",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-03",
+                      "end": "2026-10-05",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-06",
+                      "end": "2026-10-08",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-09",
+                      "end": "2026-11-12",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000001bb",
+              "name": "事業甲-工程2-機能2",
+              "children": [
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000001bba",
+                  "name": "事業甲-工程2-機能2-作業A",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-05",
+                      "end": "2026-10-07",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-08",
+                      "end": "2026-10-10",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-11",
+                      "end": "2026-11-14",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                },
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000001bbb",
+                  "name": "事業甲-工程2-機能2-作業B",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-07",
+                      "end": "2026-10-09",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-10",
+                      "end": "2026-10-12",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-13",
+                      "end": "2026-11-16",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f5000001-0000-4000-8000-000000000002",
+      "name": "事業乙",
+      "children": [
+        {
+          "id": "f5000001-0000-4000-8000-000000000002a",
+          "name": "事業乙-工程1",
+          "children": [
+            {
+              "id": "f5000001-0000-4000-8000-000000000002aa",
+              "name": "事業乙-工程1-機能1",
+              "children": [
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000002aaa",
+                  "name": "事業乙-工程1-機能1-作業A",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-01",
+                      "end": "2026-10-03",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-04",
+                      "end": "2026-10-06",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-07",
+                      "end": "2026-11-10",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                },
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000002aab",
+                  "name": "事業乙-工程1-機能1-作業B",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-03",
+                      "end": "2026-10-05",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-06",
+                      "end": "2026-10-08",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-09",
+                      "end": "2026-11-12",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000002ab",
+              "name": "事業乙-工程1-機能2",
+              "children": [
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000002aba",
+                  "name": "事業乙-工程1-機能2-作業A",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-05",
+                      "end": "2026-10-07",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-08",
+                      "end": "2026-10-10",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-11",
+                      "end": "2026-11-14",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                },
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000002abb",
+                  "name": "事業乙-工程1-機能2-作業B",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-07",
+                      "end": "2026-10-09",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-10",
+                      "end": "2026-10-12",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-13",
+                      "end": "2026-11-16",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "f5000001-0000-4000-8000-000000000002b",
+          "name": "事業乙-工程2",
+          "children": [
+            {
+              "id": "f5000001-0000-4000-8000-000000000002ba",
+              "name": "事業乙-工程2-機能1",
+              "children": [
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000002baa",
+                  "name": "事業乙-工程2-機能1-作業A",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-01",
+                      "end": "2026-10-03",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-04",
+                      "end": "2026-10-06",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-07",
+                      "end": "2026-11-10",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                },
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000002bab",
+                  "name": "事業乙-工程2-機能1-作業B",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-03",
+                      "end": "2026-10-05",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-06",
+                      "end": "2026-10-08",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-09",
+                      "end": "2026-11-12",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000002bb",
+              "name": "事業乙-工程2-機能2",
+              "children": [
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000002bba",
+                  "name": "事業乙-工程2-機能2-作業A",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-05",
+                      "end": "2026-10-07",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-08",
+                      "end": "2026-10-10",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-11",
+                      "end": "2026-11-14",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                },
+                {
+                  "id": "d5000001-0000-4000-8000-0000000000f5000001-0000-4000-8000-000000000002bbb",
+                  "name": "事業乙-工程2-機能2-作業B",
+                  "children": [
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000151",
+                      "name": "作業15-1",
+                      "start": "2026-10-07",
+                      "end": "2026-10-09",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000152",
+                      "name": "作業15-2",
+                      "start": "2026-10-10",
+                      "end": "2026-10-12",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    },
+                    {
+                      "id": "e5000001-0000-4000-8000-0000000000153",
+                      "name": "作業15-3",
+                      "start": "2026-10-13",
+                      "end": "2026-11-16",
+                      "assigneeId": null,
+                      "status": "in-progress",
+                      "progress": 30,
+                      "confidence": "committed",
+                      "predecessors": [],
+                      "milestoneId": "b1000001-0000-4000-8000-000000000001"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

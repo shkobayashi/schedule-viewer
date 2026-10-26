@@ -2710,6 +2710,13 @@ export function Timeline({
             )}
             {visibleRows.map((row, index) => {
               if (row.type === "task" || stickyHidden.has(index)) return null;
+              if (
+                row.type === "hierarchy" &&
+                row.rowKind === "middle" &&
+                !row.alsoTaskParent
+              ) {
+                return null;
+              }
               const y = row.y - scrollY;
               if (y + rowHeight < 0 || y > bodyHeight) return null;
               if (row.summary == null) return null;

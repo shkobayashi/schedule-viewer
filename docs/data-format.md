@@ -21,7 +21,7 @@
 
 正本は [schedule.schema.json](schedule.schema.json)。追加の意味規則は [src/model/scheduleSemantics.ts](../src/model/scheduleSemantics.ts) にある。
 
-ルートは `schemaVersion`、`title`、`milestoneGroups`、`milestones`、`categories` だけを持つ。知らないプロパティは拒否する。
+ルートは `schemaVersion`、`title`、`milestoneGroups`、`milestones` を必ず持つ。タスクの入れ子は `categories` か、任意の `levels` と `outline` の組み合わせで書く。知らないプロパティは拒否する。
 
 ```json
 {
@@ -58,7 +58,9 @@
 | `title` | 1文字以上。空白だけは不可 |
 | `milestoneGroups` | マイルストン帯の行。空でもよい。タスクのカテゴリ・グループとは別 |
 | `milestones` | マイルストンの配列。空でもよい |
-| `categories` | 1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
+| `categories` | 定義が無いとき、または `levels` が3段で `outline` を書かないときは1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
+| `levels` | 任意。1〜5段。各要素は `name` と `meaning`（いずれも1文字以上）。`meaning` は保存するが画面には出さない |
+| `outline` | 任意。`levels` の段数に合う入れ子。3段以外では `categories` の代わりに使う。枝は `id`、`name`、`children`。最下段はタスク |
 | `id` | カテゴリ、グループ、タスク、マイルストン、マイルストングループの UUID。1つのスケジュールの中で、この5種を通して重複しない |
 | `groupId`（マイルストン） | 属する `milestoneGroups` の `id`。存在しない ID は不可 |
 | `name` | 1文字以上。空白だけは不可 |
@@ -284,3 +286,5 @@
 枠が赤くなるのは、終了後の未着手と着手済みだけである。完了と中止と管理外と `shelved` は赤くならない。「完了以外」では完了と中止が消え、管理外と `shelved` は残る。終了が 2026-10-25 の行は、今日がその日のときだけ終了列で止まり、その日は赤くならない。
 
 `examples/playground.schedule.json` は手で開く例であり、引数なしの `check:schedule` では検証しない。内容は `src/sample/playgroundSchedule.ts` から `tsx scripts/write-playground-schedule.ts` で書き出す。
+
+階層の手動確認用は [examples/hierarchy/](../examples/hierarchy/) に置く。2段は [levels-2.schedule.json](../examples/hierarchy/levels-2.schedule.json)（帯の上に「まとまり / タスク」、まとまり行に地と帯）。3段は [levels-3.schedule.json](../examples/hierarchy/levels-3.schedule.json)（`categories` のまま、見た目は従来のカテゴリとグループ）。5段は [levels-5.schedule.json](../examples/hierarchy/levels-5.schedule.json)（帯の上に五つの定義名、固定行は近い2行）。各ファイルは `npm run check:schedule -- examples/hierarchy/<file>` で検証する。

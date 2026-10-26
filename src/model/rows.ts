@@ -1,4 +1,11 @@
-import { brokenLinkTaskIds } from "./dependencies";
+import { brokenLinkTaskIds, brokenLinkTaskIdsFromTasks } from "./dependencies";
+import {
+  hierarchyRowKind,
+  isOutlineBranch,
+  isTaskNode,
+  tasksUnderOutlineBranch,
+} from "./hierarchy";
+import { averageTaskProgress } from "./progressRollup";
 import { normalizeTaskNote } from "./taskNote";
 import { taskHasAnySelectedTag } from "./taskTags";
 import { BUILTIN_STATUS_ITEMS, isDoneStatus, type StatusItem } from "./statusCatalog";
@@ -16,8 +23,10 @@ import {
   NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
   type Category,
+  type OutlineRoot,
   type ScheduleFilters,
   type ScheduleId,
+  type ScheduleLevelDef,
   type Task,
   type VisibleRow,
 } from "./types";
@@ -30,6 +39,10 @@ export function categoryCollapseKey(id: ScheduleId): string {
 
 export function groupCollapseKey(id: ScheduleId): string {
   return `group:${id}`;
+}
+
+export function hierarchyCollapseKey(id: ScheduleId): string {
+  return `hierarchy:${id}`;
 }
 
 export function filtersAreDefault(filters: ScheduleFilters): boolean {
@@ -242,6 +255,138 @@ export function relaxFiltersForNewTask(
   };
 }
 
+function computeFlatTaskVisibleRows(
+  outline: OutlineRoot,
+  filters: ScheduleFilters,
+  _collapsed: ReadonlySet<string>,
+  today: string,
+  memberCatalog: Map<MemberId, Member> | null,
+  rowHeight: number,
+  lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+): VisibleRow[] {
+  const brokenIds = brokenIdsForOutline(outline, filters);
+  const rows: VisibleRow[] = [];
+  let y = 0;
+  for (const node of outline) {
+    if (!isTaskNode(node)) continue;
+    if (
+      !taskMatchesFilter(
+        node,
+        filters,
+        today,
+        memberCatalog,
+        brokenIds ?? undefined,
+        lineageIds,
+        statuses,
+      )
+    ) {
+      continue;
+    }
+    rows.push({ type: "task", task: node, y });
+    y += rowHeight;
+  }
+  return rows;
+}
+
+function brokenIdsForOutline(
+  outline: OutlineRoot,
+  filters: ScheduleFilters,
+): Set<ScheduleId> | null {
+  if (filters.relation !== "broken") return null;
+  const tasks: Task[] = [];
+  const walk = (nodes: OutlineRoot) => {
+    for (const node of nodes) {
+      if (isTaskNode(node)) tasks.push(node);
+      else walk(node.children);
+    }
+  };
+  walk(outline);
+  return brokenLinkTaskIdsFromTasks(tasks);
+}
+
+function computeOutlineVisibleRows(
+  outline: OutlineRoot,
+  levelCount: number,
+  filters: ScheduleFilters,
+  collapsed: ReadonlySet<string>,
+  today: string,
+  memberCatalog: Map<MemberId, Member> | null,
+  rowHeight: number,
+  lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+): VisibleRow[] {
+  const brokenIds = brokenIdsForOutline(outline, filters);
+  const showEmpty = showEmptyHierarchyRows(filters, lineageIds);
+  const rows: VisibleRow[] = [];
+  let y = 0;
+
+  const walk = (
+    nodes: OutlineRoot,
+    levelIndex: number,
+    depth: number,
+    ancestorIds: ScheduleId[],
+  ) => {
+    for (const node of nodes) {
+      if (isTaskNode(node)) {
+        if (
+          taskMatchesFilter(
+            node,
+            filters,
+            today,
+            memberCatalog,
+            brokenIds ?? undefined,
+            lineageIds,
+            statuses,
+          )
+        ) {
+          rows.push({ type: "task", task: node, y });
+          y += rowHeight;
+        }
+        continue;
+      }
+      if (!isOutlineBranch(node)) continue;
+      const allTasks = tasksUnderOutlineBranch(node);
+      const matched = allTasks.filter((task) =>
+        taskMatchesFilter(
+          task,
+          filters,
+          today,
+          memberCatalog,
+          brokenIds ?? undefined,
+          lineageIds,
+          statuses,
+        ),
+      );
+      if (matched.length === 0 && !(showEmpty && allTasks.length === 0)) continue;
+      const summary = matched.length > 0 ? summarizeSpans(matched) : null;
+      if (!summary && !showEmpty) continue;
+      const nodeCollapsed = collapsed.has(hierarchyCollapseKey(node.id));
+      const rowKind = hierarchyRowKind(levelIndex, levelCount);
+      rows.push({
+        type: "hierarchy",
+        id: node.id,
+        label: node.name,
+        y,
+        collapsed: nodeCollapsed,
+        summary,
+        rollupPercent: averageTaskProgress(allTasks),
+        levelIndex,
+        depth,
+        rowKind,
+        ancestorIds: [...ancestorIds],
+        alsoTaskParent: levelCount === 2 && levelIndex === 0,
+      });
+      y += rowHeight;
+      if (nodeCollapsed) continue;
+      walk(node.children, levelIndex + 1, depth + 1, [...ancestorIds, node.id]);
+    }
+  };
+
+  walk(outline, 0, 0, []);
+  return rows;
+}
+
 export function computeVisibleRows(
   categories: Category[],
   filters: ScheduleFilters,
@@ -251,7 +396,49 @@ export function computeVisibleRows(
   rowHeight = ROW_HEIGHT,
   lineageIds?: ReadonlySet<ScheduleId> | null,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  hierarchy?: {
+    levels: ScheduleLevelDef[] | null;
+    outline: OutlineRoot | null | undefined;
+    useLegacyCategoryRows: boolean;
+    levelCount: number;
+  },
 ): VisibleRow[] {
+  if (
+    hierarchy?.levels != null &&
+    hierarchy.levels.length === 1 &&
+    hierarchy.outline != null &&
+    hierarchy.outline.length > 0
+  ) {
+    return computeFlatTaskVisibleRows(
+      hierarchy.outline,
+      filters,
+      collapsed,
+      today,
+      memberCatalog,
+      rowHeight,
+      lineageIds,
+      statuses,
+    );
+  }
+  if (
+    hierarchy?.levels != null &&
+    hierarchy.levels.length > 0 &&
+    !hierarchy.useLegacyCategoryRows &&
+    hierarchy.outline != null &&
+    hierarchy.outline.length > 0
+  ) {
+    return computeOutlineVisibleRows(
+      hierarchy.outline,
+      hierarchy.levelCount,
+      filters,
+      collapsed,
+      today,
+      memberCatalog,
+      rowHeight,
+      lineageIds,
+      statuses,
+    );
+  }
   const brokenIds = brokenIdsForFilter(categories, filters);
   const showEmpty = showEmptyHierarchyRows(filters, lineageIds);
   const rows: VisibleRow[] = [];
@@ -326,6 +513,14 @@ export type ReorderDragKind = "category" | "group" | "task";
 export function visibleRowIdentityKey(row: VisibleRow): string {
   if (row.type === "task") return `task:${row.task.id}`;
   return `${row.type}:${row.id}`;
+}
+
+export function isHierarchyHeaderRow(row: VisibleRow): boolean {
+  return (
+    row.type === "category" ||
+    row.type === "group" ||
+    row.type === "hierarchy"
+  );
 }
 
 /** 並べ替えドラッグの半透明塊に含める、いま見えている行（上から順）。 */
