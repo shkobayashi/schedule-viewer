@@ -1314,4 +1314,46 @@ mod tests {
             "keep"
         );
     }
+
+    #[test]
+    fn bundled_skill_lists_match_json_skill_names_in_tauri_and_msix() {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let tauri_conf =
+            fs::read_to_string(manifest_dir.join("tauri.conf.json")).expect("tauri.conf.json");
+        let conf: serde_json::Value =
+            serde_json::from_str(&tauri_conf).expect("tauri.conf.json parse");
+        let resources = conf
+            .pointer("/bundle/resources")
+            .and_then(|v| v.as_object())
+            .expect("bundle.resources");
+        let resource_targets: Vec<&str> = resources
+            .values()
+            .filter_map(|v| v.as_str())
+            .collect();
+        for name in JSON_SKILL_NAMES {
+            let expected = format!("json-skills/{name}/");
+            assert!(
+                resource_targets.iter().any(|t| *t == expected),
+                "tauri.conf.json missing bundle resource target {expected}"
+            );
+        }
+        assert!(
+            resource_targets.iter().any(|t| *t == "read-screen/"),
+            "tauri.conf.json missing read-screen/"
+        );
+
+        let msix_script = fs::read_to_string(manifest_dir.join("../packaging/msix/build-msix.ps1"))
+            .expect("build-msix.ps1");
+        for name in JSON_SKILL_NAMES {
+            let needle = format!("json-skills\\{name}\\SKILL.md");
+            assert!(
+                msix_script.contains(&needle),
+                "build-msix.ps1 missing {needle}"
+            );
+        }
+        assert!(
+            msix_script.contains("read-screen\\SKILL.md"),
+            "build-msix.ps1 missing read-screen\\SKILL.md"
+        );
+    }
 }

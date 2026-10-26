@@ -649,6 +649,7 @@
 | `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの4スキルに限る | SET-05 |
 | `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の4スキルだけ | SET-05 |
 | `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は12パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各4つは `JSON_SKILL_NAMES` の順 | SET-05 |
+| `bundled_skill_lists_match_json_skill_names_in_tauri_and_msix` | `JSON_SKILL_NAMES` の各名前が `tauri.conf.json` の `json-skills/<name>/` と MSIX の `json-skills\<name>\SKILL.md` にある。`read-screen/` と `read-screen\SKILL.md` もある | SET-05 |
 | `parse_tool_selection_requires_at_least_one` | ツール未選択は「ツールを1つ以上選んでください。」 | SET-05, MCP-02 |
 | `claude_user_shadows_only_when_claude_project_scope` | Copilot だけの指定フォルダでは Claude の個人用優先警告を出さない | SET-05 |
 | `install_creates_copilot_parent_directories` | 無い `~/.copilot/skills` を実ディレクトリとして作る | SET-05 |

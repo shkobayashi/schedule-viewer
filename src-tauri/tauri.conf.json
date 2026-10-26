@@ -28,6 +28,7 @@
       "../.cursor/skills/write-schedule/": "json-skills/write-schedule/",
       "../.cursor/skills/write-members/": "json-skills/write-members/",
       "../.cursor/skills/write-calendar/": "json-skills/write-calendar/",
+      "../.cursor/skills/write-workspace/": "json-skills/write-workspace/",
       "../read-screen/": "read-screen/"
     },
     "icon": [
