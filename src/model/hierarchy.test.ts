@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import levels5Sample from "../../examples/hierarchy/levels-5.schedule.json";
+import levels3Sample from "../../examples/hierarchy/levels-3.schedule.json";
 import {
+  addTopLevelMenuLabel,
   assessHierarchyAlignment,
+  hierarchyLayoutContext,
   HIERARCHY_MISMATCH_MESSAGE,
   hierarchyRowKind,
   levelBannerText,
@@ -9,7 +12,7 @@ import {
 } from "./hierarchy";
 import { computeVisibleRows } from "./rows";
 import { documentToJson, scheduleToJson } from "./serialize";
-import type { Category, ScheduleDocument, Task } from "./types";
+import type { Category, OutlineRoot, ScheduleDocument, ScheduleLevelDef, Task } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 import { validateScheduleSemantics } from "./scheduleSemantics";
 import { validateSchedule } from "./validateSchedule";
@@ -56,16 +59,47 @@ describe("hierarchy storage", () => {
     expect(json.categories).toHaveLength(1);
   });
 
-  it("round-trips three levels with categories only", () => {
+  it("round-trips three levels with outline only", () => {
     const levels = [
       { name: "工程", meaning: "工程の意味" },
       { name: "機能", meaning: "機能の意味" },
       { name: "タスク", meaning: "タスクの意味" },
     ];
-    const doc = scheduleToJson("P", legacyCategories(), [], [], levels);
-    expect(doc.outline).toBeUndefined();
-    expect(doc.categories).toHaveLength(1);
+    const outline = [
+      {
+        id: "c1000001-0000-4000-8000-000000000001",
+        name: "設計",
+        children: [
+          {
+            id: "d1000001-0000-4000-8000-000000000001",
+            name: "上流",
+            children: [
+              task("e1000001-0000-4000-8000-000000000001", "2026-10-01", "2026-10-05"),
+            ],
+          },
+        ],
+      },
+    ];
+    const doc = scheduleToJson("P", [], [], [], levels, outline);
+    expect(doc.categories).toHaveLength(0);
+    expect(doc.outline).toHaveLength(1);
     expect(doc.levels).toEqual(levels);
+  });
+
+  it("rejects levels with categories storage", () => {
+    const doc: ScheduleDocument = {
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: "P",
+      milestoneGroups: [],
+      milestones: [],
+      categories: legacyCategories(),
+      levels: [
+        { name: "工程", meaning: "工程" },
+        { name: "機能", meaning: "機能" },
+        { name: "タスク", meaning: "タスク" },
+      ],
+    };
+    expect(assessHierarchyAlignment(doc, 3).aligned).toBe(false);
   });
 
   it("rejects level length 0 and 6 in semantics", () => {
@@ -149,7 +183,7 @@ describe("hierarchy visible rows", () => {
     expect(rows.every((row) => row.type === "task")).toBe(true);
   });
 
-  it("uses category and group summary bars for aligned three levels", () => {
+  it("uses category and group summary bars for legacy three levels without levels", () => {
     const rows = computeVisibleRows(
       legacyCategories(),
       {
@@ -170,11 +204,7 @@ describe("hierarchy visible rows", () => {
       null,
       undefined,
       {
-        levels: [
-          { name: "工程", meaning: "工程" },
-          { name: "機能", meaning: "機能" },
-          { name: "タスク", meaning: "タスク" },
-        ],
+        levels: null,
         outline: undefined,
         useLegacyCategoryRows: true,
         levelCount: 3,
@@ -224,9 +254,89 @@ describe("hierarchy visible rows", () => {
   });
 });
 
+describe("addTopLevelMenuLabel", () => {
+  it("returns category label without levels and heading label with outline levels", () => {
+    const legacy = hierarchyLayoutContext({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: "P",
+      milestoneGroups: [],
+      milestones: [],
+      categories: legacyCategories(),
+    });
+    expect(addTopLevelMenuLabel(legacy)).toBe("見出しを追加");
+
+    const twoLevel: ScheduleDocument = {
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: "P",
+      milestoneGroups: [],
+      milestones: [],
+      categories: [],
+      levels: [
+        { name: "まとまり", meaning: "m" },
+        { name: "タスク", meaning: "t" },
+      ],
+      outline: [
+        {
+          id: "a1",
+          name: "A",
+          children: [task("t1", "2026-10-01", "2026-10-02")],
+        },
+      ],
+    };
+    expect(addTopLevelMenuLabel(hierarchyLayoutContext(twoLevel))).toBe(
+      "見出しを追加",
+    );
+
+    const threeLevel: ScheduleDocument = {
+      ...(levels3Sample as unknown as ScheduleDocument),
+      categories: [],
+    };
+    expect(addTopLevelMenuLabel(hierarchyLayoutContext(threeLevel))).toBe(
+      "見出しを追加",
+    );
+
+    const misaligned: ScheduleDocument = {
+      ...threeLevel,
+      categories: legacyCategories(),
+    };
+    expect(addTopLevelMenuLabel(hierarchyLayoutContext(misaligned))).toBeNull();
+
+    const fiveLevel: ScheduleDocument = {
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: "P",
+      milestoneGroups: [],
+      milestones: [],
+      categories: [],
+      levels: levels5Sample.levels as ScheduleLevelDef[],
+      outline: levels5Sample.outline as OutlineRoot,
+    };
+    expect(addTopLevelMenuLabel(hierarchyLayoutContext(fiveLevel))).toBe(
+      "見出しを追加",
+    );
+
+    const oneLevel: ScheduleDocument = {
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: "P",
+      milestoneGroups: [],
+      milestones: [],
+      categories: [],
+      levels: [{ name: "タスク", meaning: "t" }],
+      outline: [
+        task("e1000001-0000-4000-8000-000000000001", "2026-10-01", "2026-10-02"),
+      ],
+    };
+    expect(addTopLevelMenuLabel(hierarchyLayoutContext(oneLevel))).toBeNull();
+  });
+});
+
 describe("hierarchy examples", () => {
   it("validates the five-level sample schedule file", () => {
     const result = validateSchedule(levels5Sample);
+    expect(result.ok).toBe(true);
+  });
+
+  it("validates the three-level sample schedule file", () => {
+    const result = validateSchedule(levels3Sample);
     expect(result.ok).toBe(true);
   });
 });

@@ -130,7 +130,7 @@ type SidebarProps = {
   onOpenTaskNote: (taskId: ScheduleId) => void;
   onTaskContextMenu: (taskId: ScheduleId, x: number, y: number) => void;
   onHierarchyContextMenu: (
-    kind: "category" | "group",
+    kind: "category" | "group" | "outline",
     id: ScheduleId,
     x: number,
     y: number,
@@ -140,7 +140,10 @@ type SidebarProps = {
     x: number,
     y: number,
   ) => void;
-  onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
+  onHierarchyDoubleClick: (
+    kind: "category" | "group" | "outline",
+    id: ScheduleId,
+  ) => void;
   today: string;
   uiScale: number;
   sidebarWidth: number;
@@ -719,6 +722,8 @@ export function Sidebar({
                   reordering={isRowHiddenByDragGhost(row)}
                   canReorder={false}
                   onToggleCollapse={onToggleCollapse}
+                  onHierarchyContextMenu={onHierarchyContextMenu}
+                  onHierarchyDoubleClick={onHierarchyDoubleClick}
                 />
               );
             }
@@ -816,6 +821,8 @@ export function Sidebar({
                     reordering={isRowHiddenByDragGhost(row)}
                     canReorder={false}
                     onToggleCollapse={onToggleCollapse}
+                    onHierarchyContextMenu={onHierarchyContextMenu}
+                    onHierarchyDoubleClick={onHierarchyDoubleClick}
                   />
                 ) : row.type === "category" ? (
                   <CategorySidebarRow
@@ -1098,6 +1105,8 @@ function OutlineHierarchySidebarRow({
   reordering,
   canReorder,
   onToggleCollapse,
+  onHierarchyContextMenu,
+  onHierarchyDoubleClick,
 }: {
   row: Extract<VisibleRow, { type: "hierarchy" }>;
   guideSpec: HierarchyGuideSpec;
@@ -1106,6 +1115,16 @@ function OutlineHierarchySidebarRow({
   reordering: boolean;
   canReorder: boolean;
   onToggleCollapse: (key: string) => void;
+  onHierarchyContextMenu: (
+    kind: "category" | "group" | "outline",
+    id: ScheduleId,
+    x: number,
+    y: number,
+  ) => void;
+  onHierarchyDoubleClick: (
+    kind: "category" | "group" | "outline",
+    id: ScheduleId,
+  ) => void;
 }) {
   const rowClass =
     row.rowKind === "top" || row.alsoTaskParent
@@ -1122,6 +1141,14 @@ function OutlineHierarchySidebarRow({
         right: 0,
         top,
         height: rowHeight,
+      }}
+      onDoubleClick={(event) => {
+        event.preventDefault();
+        onHierarchyDoubleClick("outline", row.id);
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onHierarchyContextMenu("outline", row.id, event.clientX, event.clientY);
       }}
     >
       <RowGrip
@@ -1169,12 +1196,15 @@ function CategorySidebarRow({
   canReorder: boolean;
   onToggleCollapse: (key: string) => void;
   onHierarchyContextMenu: (
-    kind: "category" | "group",
+    kind: "category" | "group" | "outline",
     id: ScheduleId,
     x: number,
     y: number,
   ) => void;
-  onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
+  onHierarchyDoubleClick: (
+    kind: "category" | "group" | "outline",
+    id: ScheduleId,
+  ) => void;
   onGripPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
   return (
@@ -1241,12 +1271,15 @@ function HierarchySidebarRow({
   canReorder: boolean;
   onToggleCollapse: (key: string) => void;
   onHierarchyContextMenu: (
-    kind: "category" | "group",
+    kind: "category" | "group" | "outline",
     id: ScheduleId,
     x: number,
     y: number,
   ) => void;
-  onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
+  onHierarchyDoubleClick: (
+    kind: "category" | "group" | "outline",
+    id: ScheduleId,
+  ) => void;
   onGripPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
   return (
@@ -1561,6 +1594,8 @@ function SidebarDragGhost({
               reordering={false}
               canReorder={false}
               onToggleCollapse={() => {}}
+              onHierarchyContextMenu={() => {}}
+              onHierarchyDoubleClick={() => {}}
             />
           );
         }

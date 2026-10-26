@@ -1508,15 +1508,6 @@ function validate32(data2, { instancePath = "", parentData, parentDataProperty, 
     if (data2.children !== void 0) {
       let data22 = data2.children;
       if (Array.isArray(data22)) {
-        if (data22.length < 1) {
-          const err8 = { instancePath: instancePath + "/children", schemaPath: "#/properties/children/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
-          if (vErrors === null) {
-            vErrors = [err8];
-          } else {
-            vErrors.push(err8);
-          }
-          errors++;
-        }
         const len0 = data22.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (!wrapper0.validate(data22[i0], { instancePath: instancePath + "/children/" + i0, parentData: data22, parentDataProperty: i0, rootData, dynamicAnchors })) {
@@ -1525,21 +1516,21 @@ function validate32(data2, { instancePath = "", parentData, parentDataProperty, 
           }
         }
       } else {
-        const err9 = { instancePath: instancePath + "/children", schemaPath: "#/properties/children/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err8 = { instancePath: instancePath + "/children", schemaPath: "#/properties/children/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err9];
+          vErrors = [err8];
         } else {
-          vErrors.push(err9);
+          vErrors.push(err8);
         }
         errors++;
       }
     }
   } else {
-    const err10 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err9 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err10];
+      vErrors = [err9];
     } else {
-      vErrors.push(err10);
+      vErrors.push(err9);
     }
     errors++;
   }
@@ -2420,6 +2411,8 @@ function validateScheduleSemantics(doc) {
       ...validateOutlineSemantics(
         doc.outline,
         "/outline",
+        0,
+        doc.levels?.length ?? 0,
         taskIds,
         milestoneIds,
         milestoneGroupIds,
@@ -2501,13 +2494,21 @@ function validateScheduleSemantics(doc) {
   }
   return issues;
 }
-function validateOutlineSemantics(nodes, basePath, taskIds, milestoneIds, milestoneGroupIds, categoryIds, groupIds, branchIds) {
+function validateOutlineSemantics(nodes, basePath, levelIndex, levelCount, taskIds, milestoneIds, milestoneGroupIds, categoryIds, groupIds, branchIds) {
   const issues = [];
   const siblingNames = /* @__PURE__ */ new Set();
+  const taskParentIndex = levelCount <= 1 ? -1 : Math.max(0, levelCount - 2);
+  const expectedTaskLevelIndex = levelCount === 1 ? 0 : taskParentIndex + 1;
   for (let i = 0; i < nodes.length; i += 1) {
     const node = nodes[i];
     const nodePath = `${basePath}/${i}`;
     if (isTaskNode(node)) {
+      if (levelCount > 0 && levelIndex !== expectedTaskLevelIndex) {
+        issues.push({
+          path: nodePath,
+          message: "\u30BF\u30B9\u30AF\u306E\u968E\u5C64\u304C\u5B9A\u7FA9\u3068\u4E00\u81F4\u3057\u307E\u305B\u3093"
+        });
+      }
       issues.push(
         ...validateTaskSemantics(
           node,
@@ -2522,6 +2523,12 @@ function validateOutlineSemantics(nodes, basePath, taskIds, milestoneIds, milest
       continue;
     }
     if (!isOutlineBranch(node)) continue;
+    if (levelCount > 0 && levelIndex > taskParentIndex) {
+      issues.push({
+        path: nodePath,
+        message: "\u968E\u5C64\u306E\u6DF1\u3055\u304C\u5B9A\u7FA9\u3068\u4E00\u81F4\u3057\u307E\u305B\u3093"
+      });
+    }
     const nameIssue = nonEmptyName(node.name, "\u968E\u5C64\u306E\u540D\u524D", `${nodePath}/name`);
     if (nameIssue) issues.push(nameIssue);
     if (siblingNames.has(node.name)) {
@@ -2546,10 +2553,35 @@ function validateOutlineSemantics(nodes, basePath, taskIds, milestoneIds, milest
     }
     branchIds.add(node.id);
     categoryIds.add(node.id);
+    if (levelCount > 0) {
+      if (levelIndex === taskParentIndex) {
+        if (node.children.some((child) => !isTaskNode(child))) {
+          issues.push({
+            path: `${nodePath}/children`,
+            message: "\u30BF\u30B9\u30AF\u306E\u4E00\u3064\u4E0A\u306E\u968E\u5C64\u306E\u4E0B\u306B\u306F\u30BF\u30B9\u30AF\u3060\u3051\u3092\u7F6E\u3051\u307E\u3059"
+          });
+        }
+      } else if (levelIndex < taskParentIndex) {
+        if (node.children.length === 0) {
+          issues.push({
+            path: `${nodePath}/children`,
+            message: "\u5B50\u306E\u968E\u5C64\u304C\u5FC5\u8981\u3067\u3059"
+          });
+        }
+        if (node.children.some((child) => isTaskNode(child))) {
+          issues.push({
+            path: `${nodePath}/children`,
+            message: "\u3053\u306E\u968E\u5C64\u306E\u4E0B\u306B\u306F\u898B\u51FA\u3057\u3060\u3051\u3092\u7F6E\u3051\u307E\u3059"
+          });
+        }
+      }
+    }
     issues.push(
       ...validateOutlineSemantics(
         node.children,
         `${nodePath}/children`,
+        levelIndex + 1,
+        levelCount,
         taskIds,
         milestoneIds,
         milestoneGroupIds,

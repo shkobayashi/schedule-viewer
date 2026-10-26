@@ -20,11 +20,20 @@ export const HIERARCHY_MISMATCH_MESSAGE =
 export const HIERARCHY_EXPORT_UNSUPPORTED_MESSAGE =
   "この階層はまだ書き出せません。";
 
+/** `levels` が無い文書の暗黙の3段定義（画面の見出し追加用。JSONには書かない）。 */
+export const LEGACY_THREE_LEVEL_DEFS: ScheduleLevelDef[] = [
+  { name: "カテゴリ", meaning: "最上段の見出し。" },
+  { name: "グループ", meaning: "タスクの一つ上の見出し。" },
+  { name: "タスク", meaning: "最下段。" },
+];
+
+export const LEGACY_THREE_LEVEL_COUNT = LEGACY_THREE_LEVEL_DEFS.length;
+
 export type HierarchyLayoutContext = {
   levelCount: number;
   levels: ScheduleLevelDef[] | null;
   aligned: boolean;
-  /** 3 段で categories を使うときは true */
+  /** 定義が無く categories だけのときは true */
   useLegacyCategoryRows: boolean;
 };
 
@@ -57,11 +66,8 @@ export function hierarchyLayoutContext(
   const aligned = levels == null
     ? true
     : assessHierarchyAlignment(doc, levels.length).aligned;
-  const useLegacyCategoryRows =
-    levels == null ||
-    (levels.length === 3 &&
-      !documentUsesOutlineStorage(doc) &&
-      doc.categories.length > 0);
+  const categoryCount = doc.categories?.length ?? 0;
+  const useLegacyCategoryRows = levels == null && categoryCount > 0;
   return { levelCount, levels, aligned, useLegacyCategoryRows };
 }
 
@@ -74,7 +80,7 @@ export function assessHierarchyAlignment(
   doc: ScheduleDocument,
   levelCount: number,
 ): HierarchyAlignment {
-  const hasCategories = doc.categories.length > 0;
+  const hasCategories = (doc.categories?.length ?? 0) > 0;
   const hasOutline = doc.outline != null && doc.outline.length > 0;
   if (hasCategories && hasOutline) {
     return { aligned: false, reason: "both" };
@@ -82,24 +88,11 @@ export function assessHierarchyAlignment(
   if (!hasCategories && !hasOutline) {
     return { aligned: false, reason: "neither" };
   }
-  if (levelCount === 3 && hasCategories) {
-    const depthOk = doc.categories.every((category) =>
-      category.groups.every(
-        (group) =>
-          group.tasks.every((task) => isTaskNode(task)) &&
-          category.groups.length > 0,
-      ),
-    );
-    return depthOk
-      ? { aligned: true }
-      : { aligned: false, reason: "categories-depth" };
+  if (hasCategories) {
+    return { aligned: false, reason: "storage" };
   }
   if (hasOutline && doc.outline != null) {
-    const check = outlineMatchesLevelCount(doc.outline, levelCount);
-    return check;
-  }
-  if (levelCount === 3 && !hasCategories && hasOutline) {
-    return { aligned: false, reason: "missing-categories" };
+    return outlineMatchesLevelCount(doc.outline, levelCount);
   }
   return { aligned: false, reason: "storage" };
 }
@@ -135,6 +128,9 @@ function branchDepthMatches(
     return { aligned: false, reason: "outline-depth" };
   }
   if (node.children.length === 0) {
+    if (depth === levelCount - 1) {
+      return { aligned: true };
+    }
     return { aligned: false, reason: "empty-branch" };
   }
   for (const child of node.children) {
@@ -169,6 +165,26 @@ export function hierarchyLevelLabel(
 
 export function levelBannerText(levels: ScheduleLevelDef[]): string {
   return levels.map((level) => level.name).join(" / ");
+}
+
+/** ツールバー「追加」プルダウンの見出し追加ラベル。 */
+export function legacyCategoryParentSelectOptions(
+  categories: Category[],
+): { id: ScheduleId; label: string }[] {
+  return categories.map((category) => ({
+    id: category.id,
+    label: category.name,
+  }));
+}
+
+export function addTopLevelMenuLabel(
+  layout: Pick<HierarchyLayoutContext, "aligned" | "levels">,
+): string | null {
+  if (!layout.aligned) return null;
+  const levels = layout.levels;
+  if (levels == null) return "見出しを追加";
+  if (levels.length <= 1) return null;
+  return "見出しを追加";
 }
 
 /** 全タスクを文書から集める。 */
@@ -260,7 +276,7 @@ function searchOutlinePath(
 export function categoriesForSemantics(
   doc: ScheduleDocument,
 ): Category[] {
-  if (doc.categories.length > 0) return doc.categories;
+  if ((doc.categories?.length ?? 0) > 0) return doc.categories;
   return [];
 }
 
@@ -303,7 +319,7 @@ export function outlineToCategories(outline: OutlineRoot): Category[] {
 
 /** 編集用に categories または outline からカテゴリ形を得る。 */
 export function categoriesForEditing(doc: ScheduleDocument): Category[] {
-  if (doc.categories.length > 0) return doc.categories;
+  if ((doc.categories?.length ?? 0) > 0) return doc.categories;
   const ctx = hierarchyLayoutContext(doc);
   if (doc.outline != null && ctx.levelCount === 3) {
     return outlineToCategories(doc.outline);
@@ -367,7 +383,7 @@ export function scheduleStoresTasksInOutline(
     title: "",
     milestoneGroups: [],
     milestones: [],
-    categories: doc.categories,
+    categories: doc.categories ?? [],
     levels: doc.levels,
     outline: doc.outline,
   });

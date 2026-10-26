@@ -1717,6 +1717,7 @@ button:focus-visible,
 }
 
 .sidebar-row.hierarchy.hierarchy-middle {
+  background: var(--bg);
   font-weight: 600;
 }
 

@@ -249,6 +249,123 @@ describe("layoutStickyHeaders", () => {
   });
 });
 
+type HierarchySpec = {
+  levelIndex: number;
+  depth: number;
+  ancestorIds: string[];
+  rowKind: "top" | "middle" | "taskParent";
+  collapsed?: boolean;
+  alsoTaskParent?: boolean;
+};
+
+function hierarchyRowsFrom(
+  specs: readonly (HierarchySpec | { kind: "task" })[],
+): VisibleRow[] {
+  const rows: VisibleRow[] = [];
+  for (let index = 0; index < specs.length; index += 1) {
+    const spec = specs[index]!;
+    const y = index * H;
+    if ("kind" in spec && spec.kind === "task") {
+      rows.push({ type: "task", task: taskAt(index), y });
+      continue;
+    }
+    const h = spec as HierarchySpec;
+    rows.push({
+      type: "hierarchy",
+      id: `h-${index}`,
+      label: `h-${index}`,
+      y,
+      collapsed: h.collapsed ?? false,
+      summary,
+      rollupPercent: null,
+      levelIndex: h.levelIndex,
+      depth: h.depth,
+      rowKind: h.rowKind,
+      ancestorIds: h.ancestorIds,
+      alsoTaskParent: h.alsoTaskParent ?? false,
+    });
+  }
+  return rows;
+}
+
+/** 4段見出し + 各段に子。深いタスクは index 8。 */
+const hierarchyDeep = hierarchyRowsFrom([
+  { levelIndex: 0, depth: 0, ancestorIds: [], rowKind: "top" },
+  { levelIndex: 1, depth: 1, ancestorIds: ["h-0"], rowKind: "middle" },
+  { levelIndex: 2, depth: 2, ancestorIds: ["h-0", "h-1"], rowKind: "middle" },
+  { levelIndex: 3, depth: 3, ancestorIds: ["h-0", "h-1", "h-2"], rowKind: "taskParent" },
+  { kind: "task" },
+  { kind: "task" },
+  { levelIndex: 1, depth: 1, ancestorIds: ["h-0"], rowKind: "middle" },
+  { levelIndex: 2, depth: 2, ancestorIds: ["h-0", "h-6"], rowKind: "middle" },
+  { levelIndex: 3, depth: 3, ancestorIds: ["h-0", "h-6", "h-7"], rowKind: "taskParent" },
+  { kind: "task" },
+]);
+
+describe("layoutStickyHeaders (hierarchy)", () => {
+  it("sticks all ancestor headers when scrolled into a deep task", () => {
+    const scrollY = 128;
+    const layout = layoutStickyHeaders(hierarchyDeep, scrollY, H, VIEWPORT);
+    expect(layout.draws.map((draw) => draw.index)).toEqual([0, 1, 2, 3]);
+    expect(layout.clipTop).toBe(4 * H);
+    expect(layout.hiddenIndexes).toEqual([0, 1, 2, 3]);
+  });
+
+  it("sticks a single heading level when outline has one header row", () => {
+    const rows = hierarchyRowsFrom([
+      { levelIndex: 0, depth: 0, ancestorIds: [], rowKind: "top", alsoTaskParent: true },
+      { kind: "task" },
+      { kind: "task" },
+      { kind: "task" },
+      { kind: "task" },
+      { kind: "task" },
+      { kind: "task" },
+      { kind: "task" },
+    ]);
+    const layout = layoutStickyHeaders(rows, 16, H, VIEWPORT);
+    expect(layout.draws.map((draw) => draw.index)).toEqual([0]);
+    expect(layout.clipTop).toBe(H);
+  });
+
+  it("slides the next sibling into its level slot", () => {
+    const scrollY = 144;
+    const layout = layoutStickyHeaders(hierarchyDeep, scrollY, H, VIEWPORT);
+    expect(layout.draws).toEqual([
+      { index: 0, top: 0, clipTop: 0, clipBottom: 32 },
+      { index: 1, top: 16, clipTop: 32, clipBottom: 48 },
+      { index: 6, top: 48, clipTop: 48, clipBottom: 80 },
+      { index: 2, top: 64, clipTop: 64, clipBottom: 96 },
+      { index: 3, top: 96, clipTop: 96, clipBottom: 128 },
+    ]);
+    expect(layout.clipTop).toBe(4 * H);
+    expect(layout.hiddenIndexes).toEqual([0, 1, 6, 2, 3]);
+  });
+
+  it("skips a collapsed hierarchy header", () => {
+    const rows = hierarchyRowsFrom([
+      { levelIndex: 0, depth: 0, ancestorIds: [], rowKind: "top" },
+      { levelIndex: 1, depth: 1, ancestorIds: ["h-0"], rowKind: "middle", collapsed: true },
+      { levelIndex: 1, depth: 1, ancestorIds: ["h-0"], rowKind: "middle" },
+      { levelIndex: 2, depth: 2, ancestorIds: ["h-0", "h-2"], rowKind: "taskParent" },
+      { kind: "task" },
+      { kind: "task" },
+      { kind: "task" },
+      { kind: "task" },
+    ]);
+    const layout = layoutStickyHeaders(rows, 80, H, VIEWPORT);
+    expect(layout.draws.map((draw) => draw.index)).toEqual([0, 2]);
+    expect(layout.hiddenIndexes).not.toContain(1);
+  });
+
+  it("places a task just below the full sticky band", () => {
+    const taskY = hierarchyDeep[9].y;
+    const scrollY = scrollYToRevealTask(hierarchyDeep, taskY, H, VIEWPORT);
+    const layout = layoutStickyHeaders(hierarchyDeep, scrollY, H, VIEWPORT);
+    expect(taskY - scrollY).toBeGreaterThanOrEqual(layout.clipTop);
+    expect(taskY - scrollY).toBe(layout.clipTop);
+  });
+});
+
 describe("scrollYToRevealTask", () => {
   it("scrolls a task to just under the sticky headers", () => {
     expect(scrollYToRevealTask(sample, 64, H, VIEWPORT)).toBe(0);

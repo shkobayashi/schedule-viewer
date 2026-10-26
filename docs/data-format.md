@@ -58,9 +58,9 @@
 | `title` | 1文字以上。空白だけは不可 |
 | `milestoneGroups` | マイルストン帯の行。空でもよい。タスクのカテゴリ・グループとは別 |
 | `milestones` | マイルストンの配列。空でもよい |
-| `categories` | 定義が無いとき、または `levels` が3段で `outline` を書かないときは1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
+| `categories` | `levels` が無いときは1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
 | `levels` | 任意。1〜5段。各要素は `name` と `meaning`（いずれも1文字以上）。`meaning` は保存するが画面には出さない |
-| `outline` | 任意。`levels` の段数に合う入れ子。3段以外では `categories` の代わりに使う。枝は `id`、`name`、`children`。最下段はタスク |
+| `outline` | `levels` があるときは、段数に合う入れ子をここに書く。枝は `id`、`name`、`children`。最下段はタスク。タスクの一つ上の枝だけ `children` を空にできる。それより上の枝は子を1件以上持つ |
 | `id` | カテゴリ、グループ、タスク、マイルストン、マイルストングループの UUID。1つのスケジュールの中で、この5種を通して重複しない |
 | `groupId`（マイルストン） | 属する `milestoneGroups` の `id`。存在しない ID は不可 |
 | `name` | 1文字以上。空白だけは不可 |
@@ -287,4 +287,4 @@
 
 `examples/playground.schedule.json` は手で開く例であり、引数なしの `check:schedule` では検証しない。内容は `src/sample/playgroundSchedule.ts` から `tsx scripts/write-playground-schedule.ts` で書き出す。
 
-階層の手動確認用は [examples/hierarchy/](../examples/hierarchy/) に置く。2段は [levels-2.schedule.json](../examples/hierarchy/levels-2.schedule.json)（帯の上に「まとまり / タスク」、まとまり行に地と帯）。3段は [levels-3.schedule.json](../examples/hierarchy/levels-3.schedule.json)（`categories` のまま、見た目は従来のカテゴリとグループ）。5段は [levels-5.schedule.json](../examples/hierarchy/levels-5.schedule.json)（帯の上に五つの定義名、固定行は近い2行）。各ファイルは `npm run check:schedule -- examples/hierarchy/<file>` で検証する。
+階層の手動確認用は [examples/hierarchy/](../examples/hierarchy/) に置く。2段は [levels-2.schedule.json](../examples/hierarchy/levels-2.schedule.json)（帯の上に「まとまり / タスク」、まとまり行に地と帯）。3段は [levels-3.schedule.json](../examples/hierarchy/levels-3.schedule.json)（帯の上に三つの定義名、`outline` で工程・機能・タスク）。4段は [levels-4.schedule.json](../examples/hierarchy/levels-4.schedule.json)（帯の上に四つの定義名、同じ段の枝が複数ある追加先の確認用）。5段は [levels-5.schedule.json](../examples/hierarchy/levels-5.schedule.json)（帯の上に五つの定義名、縦スクロールで見出しは祖先を段の数だけ固定）。各ファイルは `npm run check:schedule -- examples/hierarchy/<file>` で検証する。

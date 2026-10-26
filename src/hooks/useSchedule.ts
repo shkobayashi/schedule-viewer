@@ -41,6 +41,16 @@ import {
   collectOutlineIds,
 } from "../model/outlineTasks";
 import {
+  appendOutlineChildBranch,
+  appendOutlineHeadingAtLevel,
+  canDeleteOutlineBranch,
+  findOutlineBranchLevelIndex,
+  findOutlineBranchName,
+  insertOutlineSiblingAfter,
+  removeOutlineBranch,
+  renameOutlineBranch,
+} from "../model/outlineCrud";
+import {
   categoryCollapseKey,
   computeVisibleRows,
   findTaskById,
@@ -90,6 +100,8 @@ import {
   removeTask,
   renameCategory,
   renameGroup,
+  appendCategoryAtEnd,
+  appendLegacyHeadingFromToolbar,
   appendGroupToCategory,
   canDeleteCategory,
   canDeleteGroup,
@@ -186,31 +198,74 @@ function initialSnapshot(
   });
 }
 
-type EditingHierarchy = { kind: "category" | "group"; id: ScheduleId };
+type EditingHierarchy =
+  | { kind: "category" | "group" | "outline"; id: ScheduleId };
 
 export type AddingHierarchy =
   | { kind: "category"; afterCategoryId: ScheduleId }
-  | { kind: "group"; categoryId: ScheduleId; afterGroupId: ScheduleId | null };
+  | { kind: "category-end" }
+  | { kind: "group"; categoryId: ScheduleId; afterGroupId: ScheduleId | null }
+  | { kind: "outline-toolbar" }
+  | { kind: "outline-sibling"; afterBranchId: ScheduleId }
+  | { kind: "outline-child"; parentBranchId: ScheduleId };
+
+function collectTakenIds(snapshot: DocumentSnapshot): Set<ScheduleId> {
+  const taken = collectScheduleIds(
+    snapshot.categories,
+    snapshot.milestoneGroups,
+    snapshot.milestones,
+  );
+  if (snapshot.outline != null) {
+    for (const id of collectOutlineIds(snapshot.outline)) {
+      taken.add(id);
+    }
+  }
+  return taken;
+}
+
+function hierarchyLevelLabel(
+  levels: ScheduleLevelDef[] | undefined,
+  levelIndex: number | null,
+  fallback: string,
+): string {
+  if (levels == null || levelIndex == null) return fallback;
+  return levels[levelIndex]?.name ?? fallback;
+}
 
 function findDeletingHierarchyTarget(
   categories: Category[],
-  deleting: { kind: "category" | "group"; id: ScheduleId } | null,
-): { kind: "category" | "group"; name: string } | null {
+  outline: OutlineRoot | undefined,
+  levels: ScheduleLevelDef[] | undefined,
+  deleting: { kind: "category" | "group" | "outline"; id: ScheduleId } | null,
+): { label: string; name: string } | null {
   if (deleting == null) return null;
   if (deleting.kind === "category") {
     const category = categories.find((item) => item.id === deleting.id);
     if (!category) return null;
-    return { kind: "category", name: category.name };
+    return { label: "カテゴリ", name: category.name };
+  }
+  if (deleting.kind === "outline") {
+    const name = outline ? findOutlineBranchName(outline, deleting.id) : null;
+    if (!name) return null;
+    const levelIndex = outline
+      ? findOutlineBranchLevelIndex(outline, deleting.id)
+      : null;
+    return {
+      label: hierarchyLevelLabel(levels, levelIndex, "階層"),
+      name,
+    };
   }
   for (const category of categories) {
     const group = category.groups.find((item) => item.id === deleting.id);
-    if (group) return { kind: "group", name: group.name };
+    if (group) return { label: "グループ", name: group.name };
   }
   return null;
 }
 
 function findHierarchyTarget(
   categories: Category[],
+  outline: OutlineRoot | undefined,
+  levels: ScheduleLevelDef[] | undefined,
   editing: EditingHierarchy | null,
 ): { title: string; name: string } | null {
   if (editing == null) return null;
@@ -218,6 +273,15 @@ function findHierarchyTarget(
     const category = categories.find((item) => item.id === editing.id);
     if (!category) return null;
     return { title: "カテゴリ名", name: category.name };
+  }
+  if (editing.kind === "outline") {
+    const name = outline ? findOutlineBranchName(outline, editing.id) : null;
+    if (!name) return null;
+    const levelIndex = outline
+      ? findOutlineBranchLevelIndex(outline, editing.id)
+      : null;
+    const label = hierarchyLevelLabel(levels, levelIndex, "階層");
+    return { title: `${label}名`, name };
   }
   for (const category of categories) {
     const group = category.groups.find((item) => item.id === editing.id);
@@ -286,7 +350,7 @@ export function useSchedule(
     null,
   );
   const [deletingHierarchy, setDeletingHierarchy] = useState<
-    { kind: "category" | "group"; id: ScheduleId } | null
+    { kind: "category" | "group" | "outline"; id: ScheduleId } | null
   >(null);
   const [taskSelection, setTaskSelection] = useState<TaskSelectionState>(
     () => emptyTaskSelection(),
@@ -1142,7 +1206,7 @@ export function useSchedule(
   );
 
   const openHierarchyEdit = useCallback(
-    (kind: "category" | "group", id: ScheduleId) => {
+    (kind: "category" | "group" | "outline", id: ScheduleId) => {
       setEditingHierarchy({ kind, id });
     },
     [],
@@ -1155,6 +1219,21 @@ export function useSchedule(
   const saveHierarchyName = useCallback(
     (rawName: string): string | null => {
       if (editingHierarchy == null) return "名前を保存できませんでした";
+      if (editingHierarchy.kind === "outline") {
+        const current = documentRef.current;
+        if (current.outline == null) return "名前を保存できませんでした";
+        const result = renameOutlineBranch(
+          current.outline,
+          editingHierarchy.id,
+          rawName,
+        );
+        if (result.error) return result.error;
+        if (result.changed) {
+          commitDocument((doc) => ({ ...doc, outline: result.outline }));
+        }
+        setEditingHierarchy(null);
+        return null;
+      }
       const current = documentRef.current.categories;
       const result =
         editingHierarchy.kind === "category"
@@ -1167,7 +1246,7 @@ export function useSchedule(
       setEditingHierarchy(null);
       return null;
     },
-    [commitCategories, editingHierarchy],
+    [commitCategories, commitDocument, editingHierarchy],
   );
 
   const addingHierarchyTarget = useMemo((): {
@@ -1175,14 +1254,52 @@ export function useSchedule(
     initialName: string;
   } | null => {
     if (addingHierarchy == null) return null;
-    if (addingHierarchy.kind === "category") {
+    if (addingHierarchy.kind === "outline-toolbar") return null;
+    if (addingHierarchy.kind === "category" || addingHierarchy.kind === "category-end") {
       return { title: "カテゴリを追加", initialName: "" };
     }
-    return { title: "グループを追加", initialName: "" };
-  }, [addingHierarchy]);
+    if (addingHierarchy.kind === "group") {
+      return { title: "グループを追加", initialName: "" };
+    }
+    if (addingHierarchy.kind === "outline-sibling" && outline != null) {
+      const levelIndex = findOutlineBranchLevelIndex(
+        outline,
+        addingHierarchy.afterBranchId,
+      );
+      const label = hierarchyLevelLabel(levels, levelIndex, "階層");
+      return { title: `${label}を追加`, initialName: "" };
+    }
+    if (addingHierarchy.kind === "outline-child" && outline != null) {
+      const parentIndex = findOutlineBranchLevelIndex(
+        outline,
+        addingHierarchy.parentBranchId,
+      );
+      const childIndex =
+        parentIndex == null ? null : parentIndex + 1;
+      const label = hierarchyLevelLabel(levels, childIndex, "階層");
+      return { title: `${label}を追加`, initialName: "" };
+    }
+    return { title: "階層を追加", initialName: "" };
+  }, [addingHierarchy, levels, outline]);
 
   const openAddCategoryAfter = useCallback((afterCategoryId: ScheduleId) => {
     setAddingHierarchy({ kind: "category", afterCategoryId });
+  }, []);
+
+  const openAddCategoryAtEnd = useCallback(() => {
+    setAddingHierarchy({ kind: "category-end" });
+  }, []);
+
+  const openAddOutlineHeadingFromToolbar = useCallback(() => {
+    setAddingHierarchy({ kind: "outline-toolbar" });
+  }, []);
+
+  const openAddOutlineSiblingAfter = useCallback((afterBranchId: ScheduleId) => {
+    setAddingHierarchy({ kind: "outline-sibling", afterBranchId });
+  }, []);
+
+  const openAddOutlineChild = useCallback((parentBranchId: ScheduleId) => {
+    setAddingHierarchy({ kind: "outline-child", parentBranchId });
   }, []);
 
   const openAddGroupToCategory = useCallback((categoryId: ScheduleId) => {
@@ -1209,16 +1326,55 @@ export function useSchedule(
   const saveHierarchyAdd = useCallback(
     (rawName: string): string | null => {
       if (addingHierarchy == null) return "追加できませんでした";
+      if (addingHierarchy.kind === "outline-toolbar") {
+        return "追加できませんでした";
+      }
       const current = documentRef.current;
-      const taken = collectScheduleIds(
-        current.categories,
-        current.milestoneGroups,
-        current.milestones,
-      );
+      const taken = collectTakenIds(current);
+      const allocateId = () => {
+        const id = uniqueScheduleId(taken);
+        taken.add(id);
+        return id;
+      };
+      if (
+        addingHierarchy.kind === "outline-sibling" ||
+        addingHierarchy.kind === "outline-child"
+      ) {
+        if (current.outline == null || levels == null || levels.length <= 1) {
+          return "追加できませんでした";
+        }
+        const levelCount = levels.length;
+        const newBranchId = allocateId();
+        const result =
+          addingHierarchy.kind === "outline-sibling"
+            ? insertOutlineSiblingAfter(
+                current.outline,
+                addingHierarchy.afterBranchId,
+                levelCount,
+                levels,
+                rawName,
+                newBranchId,
+                allocateId,
+              )
+            : appendOutlineChildBranch(
+                current.outline,
+                addingHierarchy.parentBranchId,
+                levelCount,
+                levels,
+                rawName,
+                newBranchId,
+                allocateId,
+              );
+        if (result.error) return result.error;
+        if (result.changed) {
+          commitDocument((doc) => ({ ...doc, outline: result.outline }));
+        }
+        setAddingHierarchy(null);
+        return null;
+      }
       if (addingHierarchy.kind === "category") {
-        const newCategoryId = uniqueScheduleId(taken);
-        taken.add(newCategoryId);
-        const newGroupId = uniqueScheduleId(taken);
+        const newCategoryId = allocateId();
+        const newGroupId = allocateId();
         const result = insertCategoryAfter(
           current.categories,
           addingHierarchy.afterCategoryId,
@@ -1233,33 +1389,116 @@ export function useSchedule(
         setAddingHierarchy(null);
         return null;
       }
-      const newGroupId = uniqueScheduleId(taken);
-      const result =
-        addingHierarchy.afterGroupId == null
-          ? appendGroupToCategory(
-              current.categories,
-              addingHierarchy.categoryId,
-              rawName,
-              newGroupId,
-            )
-          : insertGroupAfter(
-              current.categories,
-              addingHierarchy.afterGroupId,
-              rawName,
-              newGroupId,
-            );
+      if (addingHierarchy.kind === "category-end") {
+        const newCategoryId = allocateId();
+        const newGroupId = allocateId();
+        const result = appendCategoryAtEnd(
+          current.categories,
+          rawName,
+          newCategoryId,
+          newGroupId,
+        );
+        if (result.error) return result.error;
+        if (result.changed) {
+          commitCategories(() => result.categories);
+        }
+        setAddingHierarchy(null);
+        return null;
+      }
+      if (addingHierarchy.kind === "group") {
+        const newGroupId = allocateId();
+        const result =
+          addingHierarchy.afterGroupId == null
+            ? appendGroupToCategory(
+                current.categories,
+                addingHierarchy.categoryId,
+                rawName,
+                newGroupId,
+              )
+            : insertGroupAfter(
+                current.categories,
+                addingHierarchy.afterGroupId,
+                rawName,
+                newGroupId,
+              );
+        if (result.error) return result.error;
+        if (result.changed) {
+          commitCategories(() => result.categories);
+        }
+        setAddingHierarchy(null);
+        return null;
+      }
+      return "追加できませんでした";
+    },
+    [addingHierarchy, commitCategories, commitDocument, levels],
+  );
+
+  const outlineHeadingAddOpen = addingHierarchy?.kind === "outline-toolbar";
+
+  const saveOutlineHeadingAdd = useCallback(
+    (
+      levelIndex: number,
+      parentBranchId: ScheduleId | null,
+      rawName: string,
+    ): string | null => {
+      const current = documentRef.current;
+      if (hierarchyLayout.useLegacyCategoryRows) {
+        const taken = collectTakenIds(current);
+        const allocateId = () => {
+          const id = uniqueScheduleId(taken);
+          taken.add(id);
+          return id;
+        };
+        const newCategoryId = allocateId();
+        const newGroupId = allocateId();
+        const result = appendLegacyHeadingFromToolbar(
+          current.categories,
+          levelIndex,
+          parentBranchId,
+          rawName,
+          newCategoryId,
+          newGroupId,
+        );
+        if (result.error) return result.error;
+        if (result.changed) {
+          commitCategories(() => result.categories);
+        }
+        setAddingHierarchy(null);
+        return null;
+      }
+      if (current.outline == null || levels == null || levels.length <= 1) {
+        return "追加できませんでした";
+      }
+      const levelCount = levels.length;
+      const taken = collectTakenIds(current);
+      const allocateId = () => {
+        const id = uniqueScheduleId(taken);
+        taken.add(id);
+        return id;
+      };
+      const newBranchId = allocateId();
+      const result = appendOutlineHeadingAtLevel(
+        current.outline,
+        levelCount,
+        levels,
+        levelIndex,
+        parentBranchId,
+        rawName,
+        newBranchId,
+        allocateId,
+      );
       if (result.error) return result.error;
       if (result.changed) {
-        commitCategories(() => result.categories);
+        commitDocument((doc) => ({ ...doc, outline: result.outline }));
       }
       setAddingHierarchy(null);
       return null;
     },
-    [addingHierarchy, commitCategories],
+    [commitCategories, commitDocument, hierarchyLayout.useLegacyCategoryRows, levels],
   );
 
   const openDeleteHierarchy = useCallback(
-    (kind: "category" | "group", id: ScheduleId) => {
+    (kind: "category" | "group" | "outline", id: ScheduleId) => {
       setDeletingHierarchy({ kind, id });
     },
     [],
@@ -1269,21 +1508,32 @@ export function useSchedule(
     setDeletingHierarchy(null);
   }, []);
 
-  const deletingHierarchyTarget = findDeletingHierarchyTarget(
-    categories,
-    deletingHierarchy,
+  const deletingHierarchyTarget = useMemo(
+    () =>
+      findDeletingHierarchyTarget(categories, outline, levels, deletingHierarchy),
+    [categories, deletingHierarchy, levels, outline],
   );
 
   const confirmDeleteHierarchy = useCallback(() => {
     if (deletingHierarchy == null) return;
     const { kind, id } = deletingHierarchy;
     setDeletingHierarchy(null);
+    if (kind === "outline") {
+      commitDocument((doc) => {
+        if (doc.outline == null) return doc;
+        return { ...doc, outline: removeOutlineBranch(doc.outline, id) };
+      });
+      return;
+    }
     commitCategories((prev) =>
       kind === "category" ? removeCategory(prev, id) : removeGroup(prev, id),
     );
-  }, [commitCategories, deletingHierarchy]);
+  }, [commitCategories, commitDocument, deletingHierarchy]);
 
-  const editingHierarchyTarget = findHierarchyTarget(categories, editingHierarchy);
+  const editingHierarchyTarget = useMemo(
+    () => findHierarchyTarget(categories, outline, levels, editingHierarchy),
+    [categories, editingHierarchy, levels, outline],
+  );
 
   const setTaskEnd = useCallback(
     (taskId: ScheduleId, end: string) => {
@@ -2053,12 +2303,20 @@ export function useSchedule(
     saveHierarchyName,
     addingHierarchyTarget,
     openAddCategoryAfter,
+    openAddCategoryAtEnd,
     openAddGroupToCategory,
     openAddGroupAfter,
+    openAddOutlineHeadingFromToolbar,
+    outlineHeadingAddOpen,
+    openAddOutlineSiblingAfter,
+    openAddOutlineChild,
     closeAddingHierarchy,
     saveHierarchyAdd,
+    saveOutlineHeadingAdd,
     canDeleteCategory: (id: ScheduleId) => canDeleteCategory(categories, id),
     canDeleteGroup: (id: ScheduleId) => canDeleteGroup(categories, id),
+    canDeleteOutlineBranch: (id: ScheduleId) =>
+      outline != null && canDeleteOutlineBranch(outline, id),
     openDeleteHierarchy,
     closeDeleteHierarchy,
     deletingHierarchyTarget,

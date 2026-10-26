@@ -28,6 +28,7 @@ import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneAddDialog } from "./components/MilestoneAddDialog";
 import { DeleteHierarchyDialog } from "./components/DeleteHierarchyDialog";
 import { HierarchyNameDialog } from "./components/HierarchyNameDialog";
+import { OutlineHeadingAddDialog } from "./components/OutlineHeadingAddDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
@@ -103,6 +104,10 @@ import {
 } from "./model/windowSession";
 import { useScheduleFile } from "./hooks/useScheduleFile";
 import {
+  addTopLevelMenuLabel as addTopLevelMenuLabelFromLayout,
+  LEGACY_THREE_LEVEL_COUNT,
+  LEGACY_THREE_LEVEL_DEFS,
+  legacyCategoryParentSelectOptions,
   canExportWithLegacyPipeline,
   HIERARCHY_EXPORT_UNSUPPORTED_MESSAGE,
   HIERARCHY_MISMATCH_MESSAGE,
@@ -164,6 +169,10 @@ import {
   scrollYToRevealTask,
   scrollYToShowSelectedTask,
 } from "./model/stickyRows";
+import {
+  findOutlineBranchLevelIndex,
+  taskParentLevelIndex,
+} from "./model/outlineCrud";
 import {
   canDeleteCategory,
   canDeleteGroup,
@@ -254,6 +263,7 @@ type ContextMenuState =
   | { kind: "milestone"; milestoneId: ScheduleId; x: number; y: number }
   | { kind: "category"; id: ScheduleId; x: number; y: number }
   | { kind: "group"; id: ScheduleId; x: number; y: number }
+  | { kind: "hierarchy"; id: ScheduleId; x: number; y: number }
   | {
       kind: "link";
       fromId: ScheduleId;
@@ -952,6 +962,7 @@ function App() {
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null ||
       schedule.addingHierarchyTarget != null ||
+      schedule.outlineHeadingAddOpen ||
       schedule.deletingHierarchyTarget != null,
     blockDocumentEditsRef,
     setFilterViewState: schedule.setFilterViewState,
@@ -1137,6 +1148,7 @@ function App() {
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null ||
       schedule.addingHierarchyTarget != null ||
+      schedule.outlineHeadingAddOpen ||
       schedule.deletingHierarchyTarget != null
     ) {
       return true;
@@ -1149,6 +1161,7 @@ function App() {
     detailPanelEditing,
     titleEditing,
     schedule.addingHierarchyTarget,
+    schedule.outlineHeadingAddOpen,
     schedule.deletingHierarchyTarget,
     schedule.editingHierarchyTarget,
     schedule.editingMilestone,
@@ -1309,7 +1322,18 @@ function App() {
     removePredecessorLink,
     setTaskConfidence,
     setMilestoneConfidence,
+    openAddOutlineSiblingAfter,
+    openAddOutlineChild,
+    canDeleteOutlineBranch,
+    levels,
+    outline,
+    hierarchyLayout,
   } = schedule;
+
+  const addTopLevelMenuLabel = useMemo(
+    () => addTopLevelMenuLabelFromLayout(schedule.hierarchyLayout),
+    [schedule.hierarchyLayout],
+  );
   const {
     fileBusy,
     requestOpen,
@@ -2535,15 +2559,24 @@ function App() {
   );
 
   const openHierarchyContextMenu = useCallback(
-    (kind: "category" | "group", id: ScheduleId, x: number, y: number) => {
+    (
+      kind: "category" | "group" | "outline",
+      id: ScheduleId,
+      x: number,
+      y: number,
+    ) => {
       if (linkSourceId != null) return;
+      if (kind === "outline") {
+        setContextMenu({ kind: "hierarchy", id, x, y });
+        return;
+      }
       setContextMenu({ kind, id, x, y });
     },
     [linkSourceId],
   );
 
   const openHierarchyEdit = useCallback(
-    (kind: "category" | "group", id: ScheduleId) => {
+    (kind: "category" | "group" | "outline", id: ScheduleId) => {
       if (linkSourceId != null) return;
       schedule.openHierarchyEdit(kind, id);
     },
@@ -2765,6 +2798,52 @@ function App() {
       }
       return items;
     }
+    if (contextMenu.kind === "hierarchy") {
+      if (!hierarchyLayout.aligned || levels == null || outline == null) {
+        return [];
+      }
+      const { id } = contextMenu;
+      const levelIndex = findOutlineBranchLevelIndex(outline, id);
+      if (levelIndex == null) return [];
+      const levelName = levels[levelIndex]?.name ?? "階層";
+      const items: ContextMenuItem[] = [
+        {
+          type: "item",
+          id: "rename",
+          label: "名前を変更",
+          onSelect: () => openHierarchyEdit("outline", id),
+        },
+        {
+          type: "item",
+          id: "add-sibling",
+          label: `下に${levelName}を追加`,
+          onSelect: () => openAddOutlineSiblingAfter(id),
+        },
+      ];
+      if (levelIndex < taskParentLevelIndex(levels.length)) {
+        const childName = levels[levelIndex + 1]?.name ?? "階層";
+        items.push({
+          type: "item",
+          id: "add-child",
+          label: `${childName}を追加`,
+          onSelect: () => openAddOutlineChild(id),
+        });
+      }
+      if (canDeleteOutlineBranch(id)) {
+        items.push(
+          { type: "separator", id: "hierarchy-sep" },
+          {
+            type: "item",
+            id: "delete",
+            label: "削除",
+            danger: true,
+            icon: <Trash2 size={14} strokeWidth={2} />,
+            onSelect: () => openDeleteHierarchy("outline", id),
+          },
+        );
+      }
+      return items;
+    }
     const taskId = contextMenu.taskId;
     const task = findTaskById(categories, taskId);
     const multiCount = schedule.selectedTaskIds.length;
@@ -2866,7 +2945,13 @@ function App() {
     openAddCategoryAfter,
     openAddGroupToCategory,
     openAddGroupAfter,
+    openAddOutlineSiblingAfter,
+    openAddOutlineChild,
     openDeleteHierarchy,
+    canDeleteOutlineBranch,
+    hierarchyLayout.aligned,
+    levels,
+    outline,
     setMilestoneGroupVisible,
     showOnlyMilestoneGroup,
     visibleMilestoneGroupIds,
@@ -2977,6 +3062,15 @@ function App() {
           setAddMilestoneInitialDate(null);
           setAddMilestoneInitialGroupId(null);
           setAddMilestoneOpen(true);
+        }}
+        addTopLevelMenuLabel={addTopLevelMenuLabel}
+        onAddTopLevel={() => {
+          if (
+            schedule.hierarchyLayout.useLegacyCategoryRows ||
+            schedule.usesOutlineStorage
+          ) {
+            schedule.openAddOutlineHeadingFromToolbar();
+          }
         }}
         onDelete={() => {
           if (schedule.selectedTaskIds.length > 0) setDeleteOpen(true);
@@ -3393,9 +3487,34 @@ function App() {
           onSave={schedule.saveHierarchyAdd}
         />
       ) : null}
+      {schedule.outlineHeadingAddOpen &&
+      (schedule.hierarchyLayout.useLegacyCategoryRows ||
+        (schedule.outline != null && schedule.levels != null)) ? (
+        <OutlineHeadingAddDialog
+          key={`outline-heading:${schedule.diskEpoch}`}
+          levels={
+            schedule.hierarchyLayout.useLegacyCategoryRows
+              ? LEGACY_THREE_LEVEL_DEFS
+              : schedule.levels!
+          }
+          outline={schedule.outline}
+          categoryParentOptions={
+            schedule.hierarchyLayout.useLegacyCategoryRows
+              ? legacyCategoryParentSelectOptions(schedule.categories)
+              : undefined
+          }
+          levelCount={
+            schedule.hierarchyLayout.useLegacyCategoryRows
+              ? LEGACY_THREE_LEVEL_COUNT
+              : schedule.levels!.length
+          }
+          onClose={schedule.closeAddingHierarchy}
+          onSave={schedule.saveOutlineHeadingAdd}
+        />
+      ) : null}
       {schedule.deletingHierarchyTarget ? (
         <DeleteHierarchyDialog
-          kind={schedule.deletingHierarchyTarget.kind}
+          label={schedule.deletingHierarchyTarget.label}
           name={schedule.deletingHierarchyTarget.name}
           onClose={schedule.closeDeleteHierarchy}
           onConfirm={schedule.confirmDeleteHierarchy}
@@ -3658,6 +3777,7 @@ function App() {
             schedule.editingMilestone != null ||
             schedule.editingHierarchyTarget != null ||
             schedule.addingHierarchyTarget != null ||
+            schedule.outlineHeadingAddOpen ||
             schedule.deletingHierarchyTarget != null
           }
           diskUpdatedAgain={scheduleFile.diskUpdatedAgain}

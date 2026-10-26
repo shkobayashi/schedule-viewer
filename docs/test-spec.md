@@ -269,6 +269,11 @@
 | 同上 | `skips a collapsed category` | NAV-01 |
 | 同上 | `sticks only the category when every group is collapsed` | NAV-01 |
 | 同上 | `returns no draws for an empty list` | NAV-01 |
+| 同上 | `sticks all ancestor headers when scrolled into a deep task` | NAV-01 |
+| 同上 | `sticks a single heading level when outline has one header row` | NAV-01 |
+| 同上 | `slides the next sibling into its level slot` | NAV-01 |
+| 同上 | `skips a collapsed hierarchy header` | NAV-01 |
+| 同上 | `places a task just below the full sticky band` | NAV-01, EDIT-01, EDIT-14 |
 | 同上 | `scrolls a task to just under the sticky headers` | NAV-01, EDIT-01, EDIT-14 |
 | 同上 | `returns the task offset when the list fits` | NAV-01, EDIT-01, EDIT-14 |
 | `rows.test.ts` | `relaxes filters that would hide a newly added task` | EDIT-08, EDIT-14 |
@@ -486,6 +491,9 @@
 | 同上 | `allows the same group name in another category` | EDIT-13 |
 | 同上 | `keeps the original name when the input is blank` | EDIT-13 |
 | `hierarchy.test.ts` | `keeps keys unchanged when saving without levels` など | FILE-04, VIEW-03 |
+| 同上 | `rejects levels with categories storage`、`addTopLevelMenuLabel` | EDIT-18 |
+| `hierarchyCrud.test.ts` | `appendLegacyHeadingFromToolbar` | EDIT-18 |
+| `outlineCrud.test.ts` | `appendOutlineHeadingAtLevel three and four levels` | EDIT-18 |
 | `hierarchyGuide.test.ts` | 5段タスクの線の本数、折りたたみ、絞り込み後の親線、ドラッグ塊の深さ0 | VIEW-01 |
 | 同上 | `validates the five-level sample schedule file` | FILE-04 |
 | `hierarchyCrud.test.ts` | `inserts a category with an empty default group` | EDIT-18 |
@@ -818,7 +826,8 @@
 | `examples/jp-2026.calendar.json` | 土日と、非稼働日 18件。振替出勤は空 | `npm run check:calendar` |
 | `examples/lightning/workspace.json` | 四つの扱いと一覧に無い `id` の折れと赤。開始前・期間中・終了後は今日が 2026-10-23 から 2026-11-01 のあいだ。終了が今日の行は 2026-10-25 | 引数なしの check では見ない |
 | `examples/hierarchy/levels-2.schedule.json` | 2段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-2.schedule.json` |
-| `examples/hierarchy/levels-3.schedule.json` | 3段の `levels` と `categories` | `npm run check:schedule -- examples/hierarchy/levels-3.schedule.json` |
+| `examples/hierarchy/levels-3.schedule.json` | 3段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-3.schedule.json` |
+| `examples/hierarchy/levels-4.schedule.json` | 4段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-4.schedule.json` |
 | `examples/hierarchy/levels-5.schedule.json` | 5段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-5.schedule.json` |
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
@@ -829,10 +838,17 @@
 
 | ID | 機能 | 前提 | 手順 | 期待結果 |
 | --- | --- | --- | --- | --- |
-| TC-HIER-01 | VIEW-03 | `examples/hierarchy/levels-2.schedule.json` など定義の無いファイル | 開いて保存する | 定義の無いファイルは保存後も `levels` と `outline` が付かない。2段・3段・5段のサンプルは帯の上に定義名が並び、段数どおりの行になる |
+| TC-HIER-01 | VIEW-03 | `examples/hierarchy/levels-2.schedule.json` など定義の無いファイル | 開いて保存する | 定義の無いファイルは保存後も `levels` と `outline` が付かない。2段・3段・4段・5段のサンプルは帯の上に定義名が並び、段数どおりの行になる |
 | TC-HIER-02 | VIEW-03 | 定義と入れ子の段数が合わない JSON | 開く | 「階層の定義と入れ子の数が違います。」が出て、行の組み立ては変わらない |
 | TC-HIER-03 | VIEW-03, FILE-01 | `examples/hierarchy/levels-3.schedule.json` | ワークスペースで開く。同じ JSON を直接開く | 階層の見え方が同じである |
 | TC-HIER-04 | VIEW-01 | `examples/hierarchy/levels-5.schedule.json` と従来の3段サンプル | ブラウザ版で開く。折りたたみ、絞り込み、系統、カテゴリの並べ替えドラッグを試す | 名前の左端が行の種類にかかわらず揃う。縦線は最大4本でレール幅は段で変わらない。行の境で縦線が切れず、枝の最後の行では中央より下に線が伸びない。折りたたんだ行から下に線が続かない。絞り込みと系統で消えた枝の線が残らない。ドラッグの塊の名前は一覧と同じ列で、塊の外に線が残らない。固定見出しの線と下の行が横で揃う。ライトとダークで線が見える |
+| TC-HIER-05 | EDIT-18, EDIT-11 | `examples/hierarchy/levels-2.schedule.json` | 最上段の見出しを右クリックし同じ段を追加する。プルダウンが「見出しを追加」であること。開き、段の選択が無いこと。1件追加する。取り消す | 定義名の下の見出しが自動でつながり、タスクは付かない。一覧の末尾に足る。取り消し1回で戻る |
+| TC-HIER-05b | EDIT-18 | `examples/hierarchy/levels-5.schedule.json` | プルダウンが「見出しを追加」1行であること。開き、段は最上段で追加先が無いこと。段を工程にし、追加先が文書順の最後の事業になること。名前を入れて追加する。段をタスクの一つ上にして同様に1件追加する。見出し行の右クリックが従来どおりであること。取り消す | 下の見出しが定義名でつながり、タスクは付かない。タスクの一つ上の枝は子が空である。取り消し1回で戻る |
+| TC-HIER-05c | EDIT-18, EDIT-11 | `examples/hierarchy/levels-3.schedule.json` | プルダウンが「見出しを追加」1行であること。開き、段は工程で追加先が無いこと。名前を入れて1件追加する。段を機能にし、追加先が文書順の最後の工程になること。名前を入れて1件追加する。見出し行の右クリックが「下に工程を追加」と「機能を追加」であること。保存する。取り消す | 最上段の追加の下は定義名の「機能」でタスクは付かない。保存後も `categories` にはならない。取り消し1回で戻る |
+| TC-HIER-05e | EDIT-18 | サンプル（定義なし） | プルダウンが「見出しを追加」であること。開き、段はカテゴリで追加先が無いこと。名前を入れて1件追加する。段をグループにし、追加先が文書順の最後のカテゴリになること。名前を入れて1件追加する。保存する。取り消す | カテゴリ追加の直後に空の「グループ」ができる。グループは選んだカテゴリの末尾に足る。保存後も `levels` と `outline` が付かない。取り消し1回で戻る |
+| TC-HIER-05d | EDIT-18, EDIT-11 | `examples/hierarchy/levels-4.schedule.json` | プルダウンが「見出しを追加」であること。段はタスクを除く3つ。最上段を1件追加する。タスクの一つ上の段でも1件追加する。見出し行の右クリックが定義名のままであること。取り消す | 下の見出しが定義名でつながり、タスクは付かない。取り消し1回で戻る |
+| TC-HIER-06 | EDIT-18 | 上記の追加後 | 保存する | タスクの一つ上の枝だけ `children` が空でも検証に通る |
+| TC-HIER-02b | VIEW-03 | 中間枝だけ子が空の JSON を手で用意する | 開く | 「階層の定義と入れ子の数が違います。」が出る。見出しの追加メニューは出ない |
 | TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しのタイトルは JSON の `title` になる。ファイル名は状態バーとウィンドウタイトルに出る |
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01f | FILE-01 | サンプル | ☰ を開き、下、上、Home、End を押す | 最初の項目にフォーカスが移る。キーで項目を移動できる。Escape で閉じる |
@@ -959,6 +975,7 @@
 | TC-NAV-01b | NAV-01 | 期間が画面より広く、行が画面より多い | ⌘ または Ctrl を押しながら上下左右を押す。押し続ける。端まで押す | 上で縦に戻り、下で進む。左で過去、右で未来へ動く。縦は左の一覧と一緒に動く。上下は 1 行分、左右も同じ画面上の距離である。押しているあいだは連続して動き、端で止まる |
 | TC-NAV-01c | NAV-01 | 検索欄、選択欄、またはボタンにフォーカスがある。別途、ダイアログと右クリックメニューを開く | 矢印キーだけを押し、続けて ⌘ または Ctrl と矢印を押す | 矢印キーだけではその欄の操作のままである。⌘ または Ctrl と矢印ではチャートが動く。ダイアログが開いているあいだは動かない。右クリックメニューは、この操作で閉じる |
 | TC-NAV-01d | NAV-01 | 行が画面より多い。別途、一覧が画面に収まるスケジュールと、折りたたんだカテゴリまたはグループ | 縦にスクロールする。次の見出しが上へ来るまで進める。折りたたんだ行の下も見る。一覧が画面に収まるときはスクロールしない | 展開中のカテゴリとグループが、日付ヘッダーとマイルストン帯の下に残る。次の見出しで入れ替わる。折りたたんだ行は残らない。一覧が画面に収まるときは残らない |
+| TC-NAV-01f | NAV-01 | `examples/hierarchy/levels-5.schedule.json` を開き、各段を展開する | スクロールする前に、階層2と3の見出し行の左の名前と右の親バーを見る。設定でライトとダークを切り替える。深いタスクのあいだまで縦にスクロールする。同じ段の次の見出しが来る位置も見る | スクロールしていない中間の見出しにも、見えている子があるときは最上段と同じ親バーが出る。見ている枝の見出しが浅い方から段の数だけ残る。残した見出しにも、見えている子があるときは親バーが出る。中間の見出しの左の名前の地は、固定していないときも固定したときも、ライトとダークの両方で透けない。同じ段の次の見出しで、その段だけ入れ替わる。固定見出しの縦線と下の行が横で揃う |
 | TC-NAV-01e | NAV-01, NAV-02 | 行が画面より多く、期間が画面より広い | 左の名前の一覧の上で、クリックせず二本指を横へ滑らせる。ホイールと Shift+ホイールを試す。さらに Ctrl または ⌘ とホイールを回す | ホイールの縦で左の一覧とチャートが一緒に上下へ動く。横の量では左右へ動く。Shift+ホイールでは横へ動く。Ctrl または ⌘ とホイールでは、チャートの左端の日付を保って拡大・縮小する |
 | TC-NAV-02 | NAV-02 | 週表示 | Ctrl または ⌘ を押してホイールを回す | ポインタの位置を保ったまま拡大し、十分拡大すると「日表示」、縮小すると「月表示」になる |
 | TC-NAV-02b | NAV-02 | サンプル | 「日」「週」「月」を順に押す | 1日あたりの幅が 40px、22px、8px になり、見出しの表示単位が切り替わる |

@@ -1,4 +1,4 @@
-import { documentHasLevels, documentUsesOutlineStorage } from "./hierarchy";
+import { documentHasLevels } from "./hierarchy";
 import { normalizeTaskNote } from "./taskNote";
 import { normalizeTaskTags } from "./taskTags";
 import type {
@@ -90,27 +90,6 @@ export function scheduleToJson(
     meaning: level.meaning,
   }));
 
-  const useCategories =
-    levels.length === 3 &&
-    categories.length > 0 &&
-    (outline == null || outline.length === 0);
-
-  if (useCategories) {
-    return {
-      ...base,
-      levels: levelDefs,
-      categories: categories.map((category) => ({
-        id: category.id,
-        name: category.name,
-        groups: category.groups.map((group) => ({
-          id: group.id,
-          name: group.name,
-          tasks: group.tasks.map((task) => taskToJson(task)),
-        })),
-      })),
-    };
-  }
-
   if (outline != null && outline.length > 0) {
     return {
       ...base,
@@ -122,15 +101,6 @@ export function scheduleToJson(
   return {
     ...base,
     levels: levelDefs,
-    categories: categories.map((category) => ({
-      id: category.id,
-      name: category.name,
-      groups: category.groups.map((group) => ({
-        id: group.id,
-        name: group.name,
-        tasks: group.tasks.map((task) => taskToJson(task)),
-      })),
-    })),
   };
 }
 
@@ -163,19 +133,10 @@ function orderScheduleKeys(doc: ScheduleDocument): Record<string, unknown> {
   if (documentHasLevels(doc)) {
     result.levels = doc.levels;
   }
-  if (
-    documentHasLevels(doc) &&
-    doc.levels!.length === 3 &&
-    doc.categories.length > 0 &&
-    !documentUsesOutlineStorage(doc)
-  ) {
-    result.categories = doc.categories;
-  } else if (!documentHasLevels(doc)) {
+  if (!documentHasLevels(doc)) {
     result.categories = doc.categories;
   } else if (doc.outline != null && doc.outline.length > 0) {
     result.outline = doc.outline;
-  } else if (doc.categories.length > 0) {
-    result.categories = doc.categories;
   }
   return result;
 }

@@ -595,6 +595,53 @@ export function removeGroup(
   }));
 }
 
+/** 定義の無い3段で、ツールバーの見出し追加と同じ規則で categories に足す。 */
+export function appendLegacyHeadingFromToolbar(
+  categories: Category[],
+  levelIndex: number,
+  parentCategoryId: ScheduleId | null,
+  rawName: string,
+  newCategoryId: ScheduleId,
+  newGroupId: ScheduleId,
+): HierarchyRenameResult {
+  if (levelIndex === 0) {
+    return appendCategoryAtEnd(
+      categories,
+      rawName,
+      newCategoryId,
+      newGroupId,
+    );
+  }
+  if (levelIndex === 1) {
+    if (parentCategoryId == null) {
+      return { categories, error: "追加先を選んでください", changed: false };
+    }
+    return appendGroupToCategory(
+      categories,
+      parentCategoryId,
+      rawName,
+      newGroupId,
+    );
+  }
+  return { categories, error: "追加できませんでした", changed: false };
+}
+
+export function appendCategoryAtEnd(
+  categories: Category[],
+  rawName: string,
+  newCategoryId: ScheduleId,
+  newGroupId: ScheduleId,
+): HierarchyRenameResult {
+  const lastId = categories[categories.length - 1]?.id ?? "";
+  return insertCategoryAfter(
+    categories,
+    lastId,
+    rawName,
+    newCategoryId,
+    newGroupId,
+  );
+}
+
 export function insertCategoryAfter(
   categories: Category[],
   afterCategoryId: ScheduleId,

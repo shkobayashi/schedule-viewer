@@ -82,6 +82,8 @@ type ToolbarProps = {
   canDelete: boolean;
   onAdd: () => void;
   onAddMilestone: () => void;
+  addTopLevelMenuLabel?: string | null;
+  onAddTopLevel?: () => void;
   onDelete: () => void;
   fileBusy?: boolean;
   startupSettled?: boolean;
@@ -140,6 +142,8 @@ export function Toolbar({
   canDelete,
   onAdd,
   onAddMilestone,
+  addTopLevelMenuLabel = null,
+  onAddTopLevel,
   onDelete,
   fileBusy = false,
   startupSettled = true,
@@ -428,6 +432,18 @@ export function Toolbar({
             >
               タスクを追加
             </button>
+            {addTopLevelMenuLabel && onAddTopLevel ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  closeAddMenu();
+                  onAddTopLevel();
+                }}
+              >
+                {addTopLevelMenuLabel}
+              </button>
+            ) : null}
             <button
               type="button"
               role="menuitem"

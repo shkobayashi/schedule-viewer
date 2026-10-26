@@ -392,12 +392,7 @@ export function buildExcelExportPayload(
             ? chart.textPrimary.replace("#", "")
             : excelGroupNameRgb,
       });
-      if (
-        visible.summary &&
-        (visible.rowKind === "top" ||
-          visible.rowKind === "taskParent" ||
-          visible.alsoTaskParent)
-      ) {
+      if (visible.summary) {
         const deco = excelSummaryBarDecorations(
           bodyRow,
           visible.summary,

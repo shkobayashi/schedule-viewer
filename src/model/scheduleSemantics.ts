@@ -138,6 +138,8 @@ export function validateScheduleSemantics(
       ...validateOutlineSemantics(
         doc.outline,
         "/outline",
+        0,
+        doc.levels?.length ?? 0,
         taskIds,
         milestoneIds,
         milestoneGroupIds,
@@ -227,6 +229,8 @@ export function validateScheduleSemantics(
 function validateOutlineSemantics(
   nodes: OutlineRoot,
   basePath: string,
+  levelIndex: number,
+  levelCount: number,
   taskIds: Set<ScheduleId>,
   milestoneIds: Set<ScheduleId>,
   milestoneGroupIds: Set<ScheduleId>,
@@ -236,11 +240,21 @@ function validateOutlineSemantics(
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const siblingNames = new Set<string>();
+  const taskParentIndex =
+    levelCount <= 1 ? -1 : Math.max(0, levelCount - 2);
+  const expectedTaskLevelIndex =
+    levelCount === 1 ? 0 : taskParentIndex + 1;
 
   for (let i = 0; i < nodes.length; i += 1) {
     const node = nodes[i];
     const nodePath = `${basePath}/${i}`;
     if (isTaskNode(node)) {
+      if (levelCount > 0 && levelIndex !== expectedTaskLevelIndex) {
+        issues.push({
+          path: nodePath,
+          message: "タスクの階層が定義と一致しません",
+        });
+      }
       issues.push(
         ...validateTaskSemantics(
           node,
@@ -255,6 +269,12 @@ function validateOutlineSemantics(
       continue;
     }
     if (!isOutlineBranch(node)) continue;
+    if (levelCount > 0 && levelIndex > taskParentIndex) {
+      issues.push({
+        path: nodePath,
+        message: "階層の深さが定義と一致しません",
+      });
+    }
     const nameIssue = nonEmptyName(node.name, "階層の名前", `${nodePath}/name`);
     if (nameIssue) issues.push(nameIssue);
     if (siblingNames.has(node.name)) {
@@ -279,10 +299,35 @@ function validateOutlineSemantics(
     }
     branchIds.add(node.id);
     categoryIds.add(node.id);
+    if (levelCount > 0) {
+      if (levelIndex === taskParentIndex) {
+        if (node.children.some((child) => !isTaskNode(child))) {
+          issues.push({
+            path: `${nodePath}/children`,
+            message: "タスクの一つ上の階層の下にはタスクだけを置けます",
+          });
+        }
+      } else if (levelIndex < taskParentIndex) {
+        if (node.children.length === 0) {
+          issues.push({
+            path: `${nodePath}/children`,
+            message: "子の階層が必要です",
+          });
+        }
+        if (node.children.some((child) => isTaskNode(child))) {
+          issues.push({
+            path: `${nodePath}/children`,
+            message: "この階層の下には見出しだけを置けます",
+          });
+        }
+      }
+    }
     issues.push(
       ...validateOutlineSemantics(
         node.children,
         `${nodePath}/children`,
+        levelIndex + 1,
+        levelCount,
         taskIds,
         milestoneIds,
         milestoneGroupIds,
