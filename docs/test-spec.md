@@ -550,6 +550,9 @@
 | 同上 | `ignores deltaX for zoom and scroll` | NAV-01, NAV-02 |
 | `chartScroll.test.ts` | `keeps scrollX when the task bar is already visible` | NAV-01, EDIT-01 |
 | `timeline.test.ts` | `keeps the origin when a later start would scroll past the left edge` | EDIT-02, NAV-01 |
+| 同上 | `fitViewAfterOpen` の `returns null when viewport width is zero or negative` | FILE-01, NAV-03 |
+| 同上 | `fits with zero prefix days and resets scroll positions` | FILE-01, NAV-03 |
+| 同上 | `does not include prefix days unlike fit with a positive prefix` | FILE-01, NAV-03 |
 | 同上 | `adopts a later start when the scroll can keep the same day in place` | EDIT-02, NAV-01 |
 | 同上 | `adopts an earlier start and increases scroll` | EDIT-02, NAV-01 |
 | 同上 | `includes extra days when fitting to the viewport width` | NAV-01, VIEW-04 |
@@ -763,6 +766,7 @@
 | TC-FILE-01d | FILE-01, FILE-04 | schemaVersion 3 で、確度の無い JSON がある | 「開く」で選ぶ。見出しを見てから保存する | 開く。バーと、確度の無いマイルストンのひし形はベタ塗りで、見出しは未保存にならない。保存すると schemaVersion 7 になり、全部のタスクとマイルストンに `confidence` があり、カテゴリとグループに `id` がある。マイルストンがあるときは `milestoneGroups` と `groupId` もある |
 | TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 7 になる |
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 7 になる。タグを付けていないタスクに `tags` は無い |
+| TC-FILE-01h | FILE-01, NAV-03 | 期間の短いスケジュールを開き、一覧を下へ送ったあと、同じウィンドウで期間の長いスケジュールを開く。開始が前の原点より後ろのスケジュールも開く | 1日幅は新しい期間が幅に入る値になる。横位置は先頭。一覧は上端から見える。後ろの開始でも、前の原点の空き日の分だけバーが右へ寄らない |
 | TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバーとカレンダーがファイル由来になる。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとカレンダーだけ読み直す。起動し直すと設定ファイルのまま戻る |
 | TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとカレンダーを選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
 | TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューにスケジュールと設定ファイルを別グループで新しい順に並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
@@ -887,6 +891,7 @@
 | TC-NAV-02c | NAV-02 | 今日が期間内 | 「今日」を押す | 縦位置と選択は変わらず、横スクロールだけが今日が見える位置へ動く |
 | TC-NAV-02d | NAV-02 | 期間が複数月にまたがる | 月表示にする。左端が前の月のまま、次の月の1日が左へ寄る位置まで横スクロールする。表示サイズを 50% と 200% にし、隣の月と左端の固定月のあいだに隙間が残ることを確かめる。表示サイズを大きくし、1日の幅を 3px まで縮める。日表示と週表示にも切り替える | 重なる月の文字だけが消え、左端の固定月と月の区切り線は残る。50% と 200% では隣の月の文字のあいだに隙間が残る。縮小して隣の月が重なるときも同じ。日表示と週表示の見出しは変わらない |
 | TC-NAV-03 | NAV-03 | 横にスクロールした状態 | 「全体」を押す | 期間が幅に入り、横位置が先頭に戻る |
+| TC-NAV-03b | NAV-03, FILE-01 | TC-FILE-01h のあと、一覧を下へ送る | 「全体」を押す | 1日幅と横位置は Fit のまま。一覧の縦位置は動かない |
 | TC-NAV-07 | NAV-07 | サンプルを開く | ⌘/Ctrl+K で「今日」を実行する。ほかのダイアログを開いたあいだ ⌘/Ctrl+K を押す | 今日が見える位置へ横が動く。パレットは開かない |
 | TC-NAV-07b | NAV-07 | 未保存にする | コマンドパレットで「差分をコピー」を実行する | 差分がコピーされる |
 | TC-NAV-07c | NAV-07 | macOS のデスクトップ版 | メニューバーの「ファイル」から「保存」を選ぶ | ☰ と同じ保存が走る |

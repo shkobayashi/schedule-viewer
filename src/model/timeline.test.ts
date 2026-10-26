@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseDate } from "./dates";
-import { fitPxPerDayToViewport, resolveTimelineOrigin } from "./timeline";
+import {
+  fitPxPerDayToViewport,
+  fitViewAfterOpen,
+  resolveTimelineOrigin,
+} from "./timeline";
 
 describe("resolveTimelineOrigin", () => {
   const pinned = parseDate("2026-09-08");
@@ -39,6 +43,29 @@ describe("resolveTimelineOrigin", () => {
     });
     expect(next.pinnedStart.getTime()).toBe(dataStart.getTime());
     expect(next.scrollX).toBe(10 + 2 * pxPerDay);
+  });
+});
+
+describe("fitViewAfterOpen", () => {
+  it("returns null when viewport width is zero or negative", () => {
+    expect(fitViewAfterOpen(0, 100, () => 0)).toBeNull();
+    expect(fitViewAfterOpen(-1, 100, () => 0)).toBeNull();
+  });
+
+  it("fits with zero prefix days and resets scroll positions", () => {
+    const baseTotalDays = 100;
+    const fit = fitViewAfterOpen(800, baseTotalDays, () => 0);
+    expect(fit).not.toBeNull();
+    expect(fit!.scrollX).toBe(0);
+    expect(fit!.scrollY).toBe(0);
+    expect(fit!.pxPerDay).toBeCloseTo(800 / baseTotalDays, 1);
+  });
+
+  it("does not include prefix days unlike fit with a positive prefix", () => {
+    const baseTotalDays = 100;
+    const withPrefix = fitPxPerDayToViewport(800, 10, baseTotalDays, () => 0);
+    const afterOpen = fitViewAfterOpen(800, baseTotalDays, () => 0);
+    expect(afterOpen!.pxPerDay).toBeGreaterThan(withPrefix);
   });
 });
 
