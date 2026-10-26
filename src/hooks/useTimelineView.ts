@@ -5,6 +5,7 @@ import { resolveWheelScroll } from "../model/wheelScroll";
 import {
   DEFAULT_PX_PER_DAY,
   fitPxPerDayToViewport,
+  fitViewAfterOpen,
   gridTier,
   type GridTier,
   MAX_PX_PER_DAY,
@@ -24,7 +25,8 @@ export function useTimelineView(
   viewportWidth: number,
   maxScrollYFor: (pxPerDay: number) => number,
   todayIso: string,
-  resetKey: string | number = 0,
+  openEpoch: number = 0,
+  diskEpoch: number = 0,
   extraDaysForPxPerDay: (px: number) => number = () => 0,
 ) {
   const [pxPerDay, setPxPerDay] = useState(DEFAULT_PX_PER_DAY);
@@ -36,7 +38,9 @@ export function useTimelineView(
   const dataTotalDays = baseTotalDays + extraDays;
   const [pinnedStart, setPinnedStart] = useState(dataStart);
   const pinnedRef = useRef(dataStart);
-  const resetRef = useRef(resetKey);
+  const openEpochRef = useRef(openEpoch);
+  const diskEpochRef = useRef(diskEpoch);
+  const pendingOpenFitRef = useRef(false);
   const drawStart =
     dataStart.getTime() < pinnedStart.getTime() ? dataStart : pinnedStart;
   const dataEnd = addDays(dataStart, dataTotalDays);
@@ -54,12 +58,37 @@ export function useTimelineView(
   }, [maxScrollX]);
 
   useLayoutEffect(() => {
-    if (resetRef.current !== resetKey) {
-      resetRef.current = resetKey;
+    const openChanged = openEpochRef.current !== openEpoch;
+    const diskChanged = diskEpochRef.current !== diskEpoch;
+
+    if (openChanged) {
+      openEpochRef.current = openEpoch;
+      diskEpochRef.current = diskEpoch;
+      pinnedRef.current = dataStart;
+      setPinnedStart(dataStart);
+      setScrollX(0);
+      setScrollY(0);
+      const fit = fitViewAfterOpen(
+        viewportWidth,
+        baseTotalDays,
+        extraDaysForPxPerDay,
+      );
+      if (fit) {
+        setPxPerDay(fit.pxPerDay);
+        pendingOpenFitRef.current = false;
+      } else {
+        pendingOpenFitRef.current = true;
+      }
+      return;
+    }
+
+    if (diskChanged) {
+      diskEpochRef.current = diskEpoch;
       pinnedRef.current = dataStart;
       setPinnedStart(dataStart);
       return;
     }
+
     const dataEndInEffect = addDays(dataStart, dataTotalDays);
     setScrollX((sx) => {
       const next = resolveTimelineOrigin({
@@ -76,7 +105,29 @@ export function useTimelineView(
       const nextMax = Math.max(0, nextTotal * pxPerDay - viewportWidth);
       return clamp(next.scrollX, 0, nextMax);
     });
-  }, [dataStart, dataTotalDays, pxPerDay, resetKey, viewportWidth]);
+  }, [
+    baseTotalDays,
+    dataStart,
+    dataTotalDays,
+    diskEpoch,
+    extraDaysForPxPerDay,
+    openEpoch,
+    pxPerDay,
+    viewportWidth,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!pendingOpenFitRef.current) return;
+    const fit = fitViewAfterOpen(
+      viewportWidth,
+      baseTotalDays,
+      extraDaysForPxPerDay,
+    );
+    if (!fit) return;
+    setPxPerDay(fit.pxPerDay);
+    setScrollX(0);
+    pendingOpenFitRef.current = false;
+  }, [baseTotalDays, extraDaysForPxPerDay, openEpoch, viewportWidth]);
 
   const dateToX = useCallback(
     (d: Date) => daysBetween(drawStart, d) * pxPerDay - scrollX,

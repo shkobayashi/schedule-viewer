@@ -23,6 +23,7 @@ import {
   formatMembersValidationErrors,
   validateMembers,
 } from "../model/validateMembers";
+import { errorMessage } from "../model/errors";
 
 function settingsDesktopOnly(): boolean {
   return isTauri() || import.meta.env.MODE === "manual-screenshot";
@@ -521,9 +522,7 @@ export function SettingsDialog({
       setPendingJsonSkillExisting(null);
       setMessage("JSON作成スキルを置きました。");
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "スキルを置けませんでした。",
-      );
+      setMessage(errorMessage(error, "スキルを置けませんでした。"));
     } finally {
       setBusy(false);
     }
@@ -578,8 +577,7 @@ export function SettingsDialog({
       });
     } catch (error) {
       setMcpPanelMessage({
-        text:
-          error instanceof Error ? error.message : "スキルを置けませんでした。",
+        text: errorMessage(error, "スキルを置けませんでした。"),
         kind: "alert",
       });
     } finally {
@@ -616,8 +614,7 @@ export function SettingsDialog({
       });
     } catch (error) {
       setMcpPanelMessage({
-        text:
-          error instanceof Error ? error.message : "スキルを外せませんでした。",
+        text: errorMessage(error, "スキルを外せませんでした。"),
         kind: "alert",
       });
     } finally {
@@ -653,9 +650,7 @@ export function SettingsDialog({
       }
       setMessage("JSON作成スキルを外しました。");
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "スキルを外せませんでした。",
-      );
+      setMessage(errorMessage(error, "スキルを外せませんでした。"));
     } finally {
       setBusy(false);
     }
