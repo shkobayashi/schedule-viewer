@@ -7,6 +7,7 @@ import {
   type StatusItem,
 } from "./statusCatalog";
 import type { Member, MemberId } from "./memberTypes";
+import { mcpLevelsFromDocument, type McpLevelEntry } from "./hierarchyLevelEdit";
 import {
   findTaskById,
   listTasksMatchingFilter,
@@ -24,6 +25,7 @@ import {
   type RelationFilter,
   type ScheduleFilters,
   type ScheduleId,
+  type ScheduleLevelDef,
   type StatusFilter,
   type Task,
 } from "./types";
@@ -35,6 +37,7 @@ export const MCP_TOOL_BASELINE_DIFFS = "baseline_diffs";
 export const MCP_TOOL_SELECTED_TASK = "selected_task";
 export const MCP_TOOL_SELECTED_TASKS = "selected_tasks";
 export const MCP_TOOL_FILTERED_TASKS = "filtered_tasks";
+export const MCP_TOOL_CURRENT_SCHEDULE = "current_schedule";
 export const MCP_TOOL_REPLACE_SCHEDULE = "replace_schedule";
 
 export type ScreenContextTask = {
@@ -88,21 +91,30 @@ export function statusEntriesForMcp(
 }
 
 export type FilteredTasksMcpPayload = {
+  levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
   activeConditions: McpActiveFilterCondition[];
   tasks: ScreenContextTask[];
 };
 
 export type SelectedTaskMcpPayload = {
+  levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
   selectedTaskId: ScheduleId | null;
   selectedTask: ScreenContextTask | null;
 };
 
 export type SelectedTasksMcpPayload = {
+  levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
   selectedTasks: ScreenContextTask[];
 };
+
+function levelsForMcpPayload(levels?: readonly ScheduleLevelDef[] | null) {
+  return mcpLevelsFromDocument({
+    levels: levels?.length ? [...levels] : undefined,
+  });
+}
 
 export type ScheduleDiffMcpPayload = {
   scheduleDiff: {
@@ -299,8 +311,10 @@ export function buildFilteredTasksPayload(input: {
   memberCatalog: Map<MemberId, Member> | null;
   lineageIds: ReadonlySet<ScheduleId> | null;
   statuses?: readonly StatusItem[];
+  levels?: readonly ScheduleLevelDef[] | null;
 }): FilteredTasksMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
+  const levelEntries = levelsForMcpPayload(input.levels);
   const matched = listTasksMatchingFilter(
     input.categories,
     input.filters,
@@ -310,6 +324,7 @@ export function buildFilteredTasksPayload(input: {
     statuses,
   );
   return {
+    levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
     activeConditions: buildActiveFilterConditions({
       filters: input.filters,
@@ -333,8 +348,10 @@ export function buildSelectedTaskPayload(input: {
   lineageIds: ReadonlySet<ScheduleId> | null;
   selectedTaskId: ScheduleId | null;
   statuses?: readonly StatusItem[];
+  levels?: readonly ScheduleLevelDef[] | null;
 }): SelectedTaskMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
+  const levelEntries = levelsForMcpPayload(input.levels);
   const matched = listTasksMatchingFilter(
     input.categories,
     input.filters,
@@ -349,6 +366,7 @@ export function buildSelectedTaskPayload(input: {
     input.selectedTaskId,
   );
   return {
+    levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
     selectedTaskId: input.selectedTaskId,
     selectedTask,
@@ -359,13 +377,15 @@ export function buildSelectedTasksPayload(input: {
   categories: Category[];
   selectedTaskIds: readonly ScheduleId[];
   statuses?: readonly StatusItem[];
+  levels?: readonly ScheduleLevelDef[] | null;
 }): SelectedTasksMcpPayload {
   const statusEntries = statusEntriesForMcp(
     input.statuses ?? BUILTIN_STATUS_ITEMS,
   );
+  const levelEntries = levelsForMcpPayload(input.levels);
   const selected = new Set(input.selectedTaskIds);
   if (selected.size === 0) {
-    return { statuses: statusEntries, selectedTasks: [] };
+    return { levels: levelEntries, statuses: statusEntries, selectedTasks: [] };
   }
   const selectedTasks: ScreenContextTask[] = [];
   for (const cat of input.categories) {
@@ -383,7 +403,7 @@ export function buildSelectedTasksPayload(input: {
       }
     }
   }
-  return { statuses: statusEntries, selectedTasks };
+  return { levels: levelEntries, statuses: statusEntries, selectedTasks };
 }
 
 export function buildScheduleDiffPayload(input: {

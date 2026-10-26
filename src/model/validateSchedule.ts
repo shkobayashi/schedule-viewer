@@ -25,6 +25,26 @@ export type ValidateScheduleResult =
   | { ok: true; document: ScheduleDocument }
   | { ok: false; errors: ValidationIssue[] };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** 空や空白だけの `instruction` を外してからスキーマ検証する。 */
+function normalizeScheduleLevelsInputForSchema(data: unknown): unknown {
+  if (!isRecord(data) || !Array.isArray(data.levels)) return data;
+  const levels = data.levels.map((entry) => {
+    if (!isRecord(entry) || !("instruction" in entry)) return entry;
+    const instruction = entry.instruction;
+    if (typeof instruction !== "string" || instruction.trim().length > 0) {
+      return entry;
+    }
+    const { instruction: _removed, ...rest } = entry;
+    void _removed;
+    return rest;
+  });
+  return { ...data, levels };
+}
+
 export function validateSchedule(data: unknown): ValidateScheduleResult {
   const afterV1 = migrateScheduleToV2(data);
   if (
@@ -55,14 +75,16 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
     ),
   );
 
-  if (!validateSchema(migrated)) {
+  const forSchema = normalizeScheduleLevelsInputForSchema(migrated);
+
+  if (!validateSchema(forSchema)) {
     return {
       ok: false,
-      errors: formatAjvErrors(migrated, validateSchema.errors),
+      errors: formatAjvErrors(forSchema, validateSchema.errors),
     };
   }
 
-  const raw = migrated as ScheduleDocument;
+  const raw = forSchema as ScheduleDocument;
   const document: ScheduleDocument = {
     ...raw,
     categories: raw.categories ?? [],

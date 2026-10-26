@@ -490,6 +490,12 @@
 | 同上 | `rejects a duplicate name in the same category` | EDIT-13 |
 | 同上 | `allows the same group name in another category` | EDIT-13 |
 | 同上 | `keeps the original name when the input is blank` | EDIT-13 |
+| `baselineDiffsOutline.test.ts` | `classifies file-only task end on outline storage`、`merges file-only task change into outline document`、`blocks when screen adds a level and file changes a task` | SYNC-01, EDIT-21 |
+| `hierarchyLevelEdit.test.ts` | `keepsLegacyShapeWhenDefinitionUnchanged`、`acceptsAlignedIncomingWhenLevelCountDiffers`、`rejectsLegacyIncomingWhenScreenIsNotThreeLevels`、`rejectsMisalignedIncomingWhenLevelCountDiffers` | EDIT-21, FILE-02, MCP-01 |
+| 同上 | `renamesWithoutMovingRows` | EDIT-21 |
+| 同上 | `refusesSaveWhenCountMismatches` | EDIT-21, FILE-02 |
+| 同上 | `prefixesLevelsOnce` | MCP-01 |
+| 同上 | `rejectsReplaceWhenDepthDiffers` | MCP-01 |
 | `hierarchy.test.ts` | `keeps keys unchanged when saving without levels` など | FILE-04, VIEW-03 |
 | 同上 | `rejects levels with categories storage`、`addTopLevelMenuLabel` | EDIT-18 |
 | `hierarchyCrud.test.ts` | `appendLegacyHeadingFromToolbar` | EDIT-18 |
@@ -767,7 +773,7 @@
 | `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` と `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 5 ツール（省略できる `window`）、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
+| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
 | `build_mcp_open_windows_orders_live_and_sets_front`（`window_session.rs`） | 生きているラベルだけを記録順に並べ、`file`・`folder`・`front` を付け、絶対パスを含めない | MCP-01 |
 | `build_mcp_open_windows_omits_home_path_segments`（`window_session.rs`） | ホーム配下のパスでも `file`・`folder` は末尾と親だけ。JSON に `/Users` などを含めない | MCP-01 |
 | `resolve_mcp_label_with_override_absent_matches_front_resolution`（`window_session.rs`） | `window` 省略時の送り先は `resolve_mcp_screen_window_label` と同じ | MCP-01 |
@@ -849,6 +855,8 @@
 | TC-HIER-05d | EDIT-18, EDIT-11 | `examples/hierarchy/levels-4.schedule.json` | プルダウンが「見出しを追加」であること。段はタスクを除く3つ。最上段を1件追加する。タスクの一つ上の段でも1件追加する。見出し行の右クリックが定義名のままであること。取り消す | 下の見出しが定義名でつながり、タスクは付かない。取り消し1回で戻る |
 | TC-HIER-06 | EDIT-18 | 上記の追加後 | 保存する | タスクの一つ上の枝だけ `children` が空でも検証に通る |
 | TC-HIER-02b | VIEW-03 | 中間枝だけ子が空の JSON を手で用意する | 開く | 「階層の定義と入れ子の数が違います。」が出る。見出しの追加メニューは出ない |
+| TC-HIER-06b | EDIT-21, FILE-02 | サンプルまたは `levels-3.schedule.json` | ブラウザ版で入口の「階層編集」が枠付きであることを見る。「階層編集」を開き、全段で名前・意味・指示の欄の左端が揃い、最下段の操作列に「タスク」が出ることを見る。見出しの段で「上へ」「下へ」が効くことを見る。名前だけ変えて閉じる。指示だけ書いて閉じ、保存してキーが残ることを見る。段を1つ足して閉じ、保存を試す。意味を空にして閉じられるか試す | 名前だけの変更で行は動く。上下は閉じるまで文書は動かない。段数だけ変えたあとは保存が拒否され、ダイアログの見出しは「保存できません」で本文に階層の理由が出る。空の意味では閉じられない。空の指示ではキーを書かない |
+| TC-HIER-06c | EDIT-21, SYNC-01 | デスクトップ版で `levels-2.schedule.json` を開く | 「階層編集」を開き、意味の下書きを入れる。別端末で同じファイルのタスク終了日だけを変えて保存する。即時反映せず確認が出ること。下書きが残ること。読み直す。再度「階層編集」を開き下書きを入れ、今度はファイル側だけの変更で「両方を画面へ反映」する | 開いているあいだは即時反映しない。読み直しと反映のあと、閉じたダイアログの下書きは文書へ入らない。反映後は `levels` と `outline` が残る |
 | TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しのタイトルは JSON の `title` になる。ファイル名は状態バーとウィンドウタイトルに出る |
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01f | FILE-01 | サンプル | ☰ を開き、下、上、Home、End を押す | 最初の項目にフォーカスが移る。キーで項目を移動できる。Escape で閉じる |
@@ -1187,7 +1195,7 @@
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
-| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。画面の絞り込みは変わらない |
+| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks`、`current_schedule` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。`current_schedule` は画面のスケジュール JSON 全体で、未保存の内容と一致する。画面の絞り込みは変わらない |
 | TC-MCP-01i | MCP-01, SET-08 | 項目を足した一覧を使用中にしている。任意の項目に指示を書いて保存している | `filtered_tasks` と `selected_tasks` を呼ぶ。足した項目のステータスを付けたタスクを `replace_schedule` で足すよう LLM に頼む | どちらの応答も先頭に `statuses` があり、足した項目の `id`、`name`、`role`、`description` が入る。指示を書いた項目だけ `instruction` が入り、空の項目には無い。LLM は `description` でその `id` を選び、合う項目が無ければ尋ねる |
 | TC-MCP-01e | MCP-01 | デスクトップ版、画面の未保存とファイルの外部更新が同時にある | `baseline_diffs` を1回呼ぶ | `画面:` に起点から画面への差分、`ファイル:` に起点からファイルへの差分、`分類:` に画面のみ・ファイルのみ・異なるなどが id ごとに出る。`schedule_diff` の混ざった差分だけでは分類しない |
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
@@ -1196,7 +1204,7 @@
 | TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
 | TC-MCP-01f | MCP-01 | デスクトップ版、ファイルを開き、絞り込み・折りたたみ・選択・系統を変えた状態 | `write-schedule` で検証済みの JSON 全体を作り、`replace_schedule` を 1 回呼ぶ。同じ保存形式の JSON をもう一度呼ぶ。詳細パネルにフォーカスがある状態でも呼ぶ。起動復旧の衝突・ファイル無し・不正控えのダイアログが出ている状態でも呼ぶ | 1 回目は未保存になり、隅に「画面を置き換えました」が約 4 秒出る。ファイルの内容は変わらない。絞り込み・折りたたみ・ズーム・スクロール・系統は変わらない。選択は新文書に残るタスクだけ残る。⌘/Ctrl+Z で置き換え前に戻る。2 回目は未保存も履歴も変わらないが差分テキストは成功で返る。詳細のフォーカス中は「画面の操作が途中なので、置き換えられません。」起動復旧のダイアログ中は「起動の復旧が終わっていないので、置き換えられません。」確認ダイアログは出ない |
 | TC-MCP-01g | MCP-01 | デスクトップ版。パス無しのサンプル、外部更新の帯、同じファイルの2ウィンドウ、開く・保存の途中、並べ替えの握りドラッグ中、10MB超・壊れたJSON・検証失敗の入力、差分が応答上限を超える置き換え | 各条件で `replace_schedule` を呼ぶか `--screen replace_schedule` で標準入力を渡す | パス無しの成功は「比べるファイルがありません」で失敗にしない。JSON として読めない・検証失敗・10MB 超はそれぞれの文で拒否し画面も履歴も変えない。差分が大きすぎても置き換えは残り「差分が大きすぎるため、差分テキストは返せません。」は失敗にしない。「ファイルに更新あり — 確認する」は消えない。背面ウィンドウの文書は変わらない。ダイアログ・ファイル操作中・並べ替えドラッグ中は「画面の操作が途中なので、置き換えられません。」 |
-| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen open_windows`、`--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
+| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen open_windows`、`--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks`、`--screen current_schedule` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`current_schedule` はスケジュール JSON 全体が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 
 TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 4 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。

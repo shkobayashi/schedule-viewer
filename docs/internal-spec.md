@@ -53,7 +53,8 @@ flowchart TD
 | `DiffStrip.tsx` | チャート右の差分列。畳んだ取っ手と、開いた変更の一覧。空の結果だけ閉じる |
 | `StatusBar.tsx` | 画面下端。未保存のクリックで差分列を開く |
 | `Toolbar.tsx` | `ScheduleToolbarTitle`、検索、絞り込みパネル、系統、線を引く、追加、マイルストン追加、削除、取り消し、やり直し、今日と日・週・月・全体、操作の案内、ショートカット一覧 |
-| `ScheduleToolbarTitle.tsx` | 見出しのタイトル表示、鉛筆による EDIT-20 のその場編集。パレットの要求番号だけで編集を始める |
+| `ScheduleToolbarTitle.tsx` | 見出しのタイトル表示、鉛筆による EDIT-20 のその場編集、鉛筆の右の EDIT-21「階層編集」入口。パレットの要求番号だけで編集を始める |
+| `HierarchyLevelsDialog.tsx` | EDIT-21。段ごとの名前・意味・指示、見出し段の上下と削除、段の追加、不一致時の alert、閉じるで `useSchedule.commitLevelDefinitions` |
 | `ActiveFilterBar.tsx` | 効いている絞り込みと系統の札 |
 | `FilterPanel.tsx` | 絞り込みの選択欄。タグとマイルストンは候補を絞る入力欄 |
 | `GuideDialog.tsx` | 操作の案内（`guideContent.ts` の文） |
@@ -83,7 +84,7 @@ flowchart TD
 | `useMemberCatalog` | カタログの読み込みと選択 |
 | `useStatusCatalog` | ステータス一覧の読み込みと選択。無いときは組み込みの三件 |
 | `useAppCalendar` | カレンダーの読み込み |
-| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 5 ツールを組み立てる（`window` は橋渡しで外れる）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・操作中）と引数を検証し、`useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
+| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 6 ツールを組み立てる（`current_schedule` は `scheduleCurrentJson` を返す。`window` は橋渡しで外れる。文書の `levels` を `screenContext` に渡す）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・操作中）と引数を検証し、`assessReplaceScheduleLevelCount` で渡した JSON の段数と入れ子を見てから `useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
 
 ### モデル
 
@@ -99,11 +100,11 @@ flowchart TD
 | 対応マイルストン欄と絞り込みのマイルストン欄 | `milestoneField.ts` の `buildMilestoneFieldList`、`buildMilestoneFilterList`、`initialMilestoneFieldActiveIndex`、`initialMilestoneFilterActiveIndex` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
 | 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffEntry.ts`、`diffNavigation.ts`、`scheduleDiffLoad.ts`、`diffStripVisibility.ts` |
-| 起点・画面・ファイルの差分と分類 | `baselineDiffs.ts`、`baselineDiffsLoad.ts` |
-| 外部更新時の非衝突合成と判定 | `baselineMerge.ts`（`assessBaselineMerge`、`buildNonConflictingMergedDocument` は `baselineDiffs.ts`） |
+| 起点・画面・ファイルの差分と分類 | `baselineDiffs.ts`、`baselineDiffsOutline.ts`（`levels` と `outline` の分類と合成）、`baselineDiffsLoad.ts` |
+| 外部更新時の非衝突合成と判定 | `baselineMerge.ts`（`assessBaselineMerge`、`buildNonConflictingMergedDocument` は `baselineDiffs.ts`。合成の検証は `documentToJson`） |
 | 外部更新確認の一覧表示 | `baselineMergeReview.ts`（`buildBaselineMergeReview`） |
 | 反映の取り消しで帯を戻す判定 | `baselineMergeDeferred.ts` |
-| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
+| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks` / `current_schedule`。タスク系の応答の先頭は `levels`、続けて `statuses`）、`hierarchyLevelEdit.ts`（階層ダイアログの確定、保存前の `assessHierarchySave`、`replace_schedule` 前の `assessReplaceScheduleLevelCount`）、`scheduleDiffLoad.ts`（`schedule_diff`）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
@@ -158,7 +159,7 @@ FILE-08 はデスクトップ版だけが Tauri の `DragDrop` を受け、`useS
 
 ### 保存
 
-`save_schedule_file` は、上書きのとき開いているパスと要求パスが一致することを見る。パスが無いときは、フロントが別名保存として保存ダイアログを開く。`skip_disk_hash_check` が無いときは、記憶している SHA-256 とディスクを比べ、違えば `DISK_HASH_MISMATCH` を返す。フロントはこのとき SYNC-02 の確認を出す。確認の待ち時間にも保存は一つだけである。この直列化は `useScheduleSave` が持つ。書き込みは一時ファイルへ書いてから置き換える。
+`save_schedule_file` は、上書きのとき開いているパスと要求パスが一致することを見る。パスが無いときは、フロントが別名保存として保存ダイアログを開く。`skip_disk_hash_check` が無いときは、記憶している SHA-256 とディスクを比べ、違えば `DISK_HASH_MISMATCH` を返す。フロントはこのとき SYNC-02 の確認を出す。確認の待ち時間にも保存は一つだけである。この直列化は `useScheduleSave` が持つ。保存の前に `hierarchyLevelEdit.ts` の `assessHierarchySave` が、`levels` があるとき入れ子の深さと段数を見る。一致しないときはファイルを書かず、外部仕様の文言で知らせる。書き込みは一時ファイルへ書いてから置き換える。
 
 ### 外部更新
 
@@ -173,7 +174,7 @@ flowchart TD
   decide -->|confirm| ask[読み直すか画面の編集を残すか]
 ```
 
-判断は `scheduleExternalReload.ts` の純粋関数である。自分の保存のあとは `acknowledge_schedule_file_contents` でハッシュを更新し、直後の監視を外部更新とみなさない。監視の開始、停止、5回連続の読み取り失敗は `useScheduleExternalReload` が持つ。ファイル操作中と保存の確認中は、読んだ内容を反映しない。監視は、ロック中にパスと期待ハッシュだけを取り、ファイルの読み込みとハッシュ計算はロックの外で行う。読み終わったときにパスが違っていたら、その結果は使わずにもう一度読む。未保存の確認では `assessBaselineMerge` で分類し、衝突が無いときは `useSchedule` の `applyMergedDocument` が履歴付きで画面へ置く。取り消しで反映の直前の文書に戻ったときだけ、`baselineMergeDeferred.ts` の判定で保留のディスク内容を状態バーへ戻す。やり直しで反映の直後の文書に進んだときだけ帯を消す。起点が変わったあとは、覚えていたディスク内容を捨てる。
+判断は `scheduleExternalReload.ts` の純粋関数である。自分の保存のあとは `acknowledge_schedule_file_contents` でハッシュを更新し、直後の監視を外部更新とみなさない。監視の開始、停止、5回連続の読み取り失敗は `useScheduleExternalReload` が持つ。ファイル操作中と保存の確認中は、読んだ内容を反映しない。監視は、ロック中にパスと期待ハッシュだけを取り、ファイルの読み込みとハッシュ計算はロックの外で行う。読み終わったときにパスが違っていたら、その結果は使わずにもう一度読む。未保存の確認では `assessBaselineMerge` で分類し、衝突が無いときは `useSchedule` の `applyMergedDocument` が履歴付きで画面へ置く。編集中の判定には、階層の編集ダイアログ（`hierarchyLevelsOpen`）も含める。読み直しと「両方を画面へ反映」の前に、そのダイアログは確定せず閉じる。取り消しで反映の直前の文書に戻ったときだけ、`baselineMergeDeferred.ts` の判定で保留のディスク内容を状態バーへ戻す。やり直しで反映の直後の文書に進んだときだけ帯を消す。起点が変わったあとは、覚えていたディスク内容を捨てる。
 
 ### 差分
 
@@ -197,7 +198,7 @@ flowchart TD
 
 起動時の `setup` は、`mcp_app_data::migrate_legacy_app_data_if_needed` で旧 identifier のアプリデータを移してから `app_data_dir` を使う。Microsoft Store の MSIX かどうかは [src-tauri/src/store_distribution.rs](../src-tauri/src/store_distribution.rs) の `is_store_distribution`（Tauri 命令 `is_store_distribution`）で見る。Store 版では起動時の自動更新確認を Rust 側で始めない。
 
-MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をローカル待ち受けへ送る。Unix はアプリデータの `mcp.sock`（所有者のみ）。Windows は `\\.\pipe\io.github.shkobayashi.schedule-viewer-<SID>` の名前付きパイプで、アプリデータにファイルは置かない。パイプのセキュリティ記述子は待ち受けスレッドの中で作る。応答を書いたあと、クライアントが接続を閉じるまで待ってからパイプを切る。使用中の接続があるときは、クライアントは応答待ちと同じ 5 秒まで接続を試し直す。待ち受けが次のパイプを作るあいだに名前が消えても、その秒数まではウィンドウが無い旨にしない。待ち受けの 1 回の失敗ではスレッドを終えず、短い待ちのあと次のパイプを作る。GUI は `setup` で待ち受けを始める。`open_windows` は `window_session::build_mcp_open_windows_list` で生きている webview の一覧だけを返し、webview へ回さない。それ以外の読み取りは、`window` 引数が無いとき記録の前面、OS の前面、直近の前面順の順でラベルを決め、あるときはそのラベルの生きている webview へ `mcp-screen-request` を送る。読み取り 5 つだけ、webview へ渡す直前に `window` を引数から外す。`replace_schedule` の引数に `window` キーがあるときは webview へ送らず失敗する。各ウィンドウは自ラベルのイベントだけを受ける。応答は `mcp_reply` で返す。送り先と違うウィンドウの応答は pending を外さず捨てる。応答待ちを過ぎた相関 id は pending から外し、遅れた `mcp_reply` は捨てる。ウィンドウごとの世代番号でも遅れた応答を捨てる。読み取り 5 ツールはフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけで組み立て、画面とファイルは変えない。`replace_schedule` は `replaceSchedule.ts` と `useSchedule.replaceScheduleDocument` で前面の文書だけを変え、ファイルには書かない。`--screen` は `screen_cli.rs` が `--screen <tool>` または読み取り 5 つに `--window <label>` を解析する。`--screen replace_schedule` は標準入力の JSON を読み、10MB を超えたら待ち受けへ送らない。Store 版の `get_executable_path` と read-screen スキルは `schedule-viewer.exe` の実行エイリアスを書き、WindowsApps 配下の絶対パスは書かない。
+MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` をローカル待ち受けへ送る。Unix はアプリデータの `mcp.sock`（所有者のみ）。Windows は `\\.\pipe\io.github.shkobayashi.schedule-viewer-<SID>` の名前付きパイプで、アプリデータにファイルは置かない。パイプのセキュリティ記述子は待ち受けスレッドの中で作る。応答を書いたあと、クライアントが接続を閉じるまで待ってからパイプを切る。使用中の接続があるときは、クライアントは応答待ちと同じ 5 秒まで接続を試し直す。待ち受けが次のパイプを作るあいだに名前が消えても、その秒数まではウィンドウが無い旨にしない。待ち受けの 1 回の失敗ではスレッドを終えず、短い待ちのあと次のパイプを作る。GUI は `setup` で待ち受けを始める。`open_windows` は `window_session::build_mcp_open_windows_list` で生きている webview の一覧だけを返し、webview へ回さない。それ以外の読み取りは、`window` 引数が無いとき記録の前面、OS の前面、直近の前面順の順でラベルを決め、あるときはそのラベルの生きている webview へ `mcp-screen-request` を送る。読み取り 6 つだけ、webview へ渡す直前に `window` を引数から外す。`replace_schedule` の引数に `window` キーがあるときは webview へ送らず失敗する。各ウィンドウは自ラベルのイベントだけを受ける。応答は `mcp_reply` で返す。送り先と違うウィンドウの応答は pending を外さず捨てる。応答待ちを過ぎた相関 id は pending から外し、遅れた `mcp_reply` は捨てる。ウィンドウごとの世代番号でも遅れた応答を捨てる。読み取り 6 ツールはフロントの `taskMatchesFilter`、`formatScheduleDiff` など既存の純粋関数だけで組み立て、`current_schedule` は `scheduleCurrentJson` を返し、画面とファイルは変えない。`replace_schedule` は `replaceSchedule.ts` と `useSchedule.replaceScheduleDocument` で前面の文書だけを変え、ファイルには書かない。`--screen` は `screen_cli.rs` が `--screen <tool>` または読み取り 6 つに `--window <label>` を解析する。`--screen replace_schedule` は標準入力の JSON を読み、10MB を超えたら待ち受けへ送らない。Store 版の `get_executable_path` と read-screen スキルは `schedule-viewer.exe` の実行エイリアスを書き、WindowsApps 配下の絶対パスは書かない。
 
 保存は、外部更新の確認を待つあいだも一つの処理だけが進む。確認を出して戻ったあとに、上書きや別名保存を続ける。
 

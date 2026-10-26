@@ -24,7 +24,10 @@ import {
 } from "../model/scheduleFile";
 import { useScheduleExternalReload } from "./scheduleFile/useScheduleExternalReload";
 import { useScheduleRecoveryDraft } from "./scheduleFile/useScheduleRecoveryDraft";
-import { useScheduleSave } from "./scheduleFile/useScheduleSave";
+import {
+  SCHEDULE_SAVE_ERROR_DIALOG_TITLE,
+  useScheduleSave,
+} from "./scheduleFile/useScheduleSave";
 import { useScheduleFilterPersistence } from "./scheduleFile/useScheduleFilterPersistence";
 import { useScheduleStartupRecovery } from "./scheduleFile/useScheduleStartupRecovery";
 import type { ScheduleFilterViewState } from "../model/scheduleFilterPersistence";
@@ -202,6 +205,11 @@ export function useScheduleFile({
   const syncLiveFilterRef = useRef(filterPersistence.syncLiveFilter);
   syncLiveFilterRef.current = filterPersistence.syncLiveFilter;
 
+  const reportSaveError = useCallback((message: string) => {
+    setErrorDialogTitle(SCHEDULE_SAVE_ERROR_DIALOG_TITLE);
+    setErrorMessageText(message);
+  }, []);
+
   const { clearRecoveryDraft, writeRecoveryDraftNow, syncLiveRecovery } =
     useScheduleRecoveryDraft({
     filePath,
@@ -233,7 +241,7 @@ export function useScheduleFile({
     baselineJsonRef,
     fileBusyRef,
     setFileBusy,
-    setErrorMessageText,
+    reportSaveError,
     clearRecoveryDraft,
     clearExternalReloadPromptRef,
     clearInvalidDiskHashRef,

@@ -1,3 +1,10 @@
+import {
+  anyUsesOutlineBaseline,
+  appendOutlineHierarchyClassification,
+  buildOutlineNonConflictingMergedDocument,
+  outlineTaskPlaceMap,
+} from "./baselineDiffsOutline";
+import { documentUsesOutlineStorage } from "./hierarchy";
 import { normalizeTaskNote } from "./taskNote";
 import { taskTagsEqualForDiff } from "./taskTags";
 import {
@@ -103,6 +110,10 @@ function buildClassificationLines(
     });
   }
 
+  const outlinePath = anyUsesOutlineBaseline(baseline, screen, file);
+  if (outlinePath) {
+    appendOutlineHierarchyClassification(lines, baseline, screen, file);
+  } else {
   pushOrderLine(
     lines,
     "並び カテゴリ",
@@ -211,6 +222,7 @@ function buildClassificationLines(
       sGroup?.group.tasks.map((t) => t.id) ?? [],
       fGroup?.group.tasks.map((t) => t.id) ?? [],
     );
+  }
   }
 
   const baselineTasks = taskMap(baseline);
@@ -763,6 +775,9 @@ function groupMap(
 }
 
 function taskMap(doc: ScheduleDocument): Map<ScheduleId, TaskPlace> {
+  if (documentUsesOutlineStorage(doc)) {
+    return outlineTaskPlaceMap(doc);
+  }
   const map = new Map<ScheduleId, TaskPlace>();
   for (const category of doc.categories) {
     for (const group of category.groups) {
@@ -1148,6 +1163,16 @@ export function buildNonConflictingMergedDocument(
   for (const milestoneId of msIds) {
     const merged = mergeMilestone(baseline, screen, file, milestoneId);
     if (merged) milestones.push(merged);
+  }
+
+  if (anyUsesOutlineBaseline(baseline, screen, file)) {
+    return buildOutlineNonConflictingMergedDocument(
+      baseline,
+      screen,
+      file,
+      milestoneGroups,
+      milestones,
+    );
   }
 
   const categoryOrderLabel = classifyOrder(

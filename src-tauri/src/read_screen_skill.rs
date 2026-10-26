@@ -115,16 +115,16 @@ pub fn read_screen_local_app_data_token(
 pub fn read_screen_invocation_block(executable_path: &str, local_app_data: Option<&str>) -> String {
     if executable_path.eq_ignore_ascii_case(STORE_EXECUTABLE_ALIAS) {
         return format!(
-            "次の1行を実行します。\n\n```\n{executable_path} --screen schedule_diff\n```\n\n読み取りのツール名は `open_windows`、`schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` に置き換えます。背面のウィンドウを読むときは、先に `--screen open_windows` で一覧を取り、当たった `label` を `--screen <読み取り> --window <label>` に付けます（同じ1行のうしろに `--window` とラベルを足します）。`replace_schedule` は標準入力にスケジュール JSON 全体を渡し、前面ウィンドウだけを置き換えます。`replace_schedule` と `open_windows` に `--window` は付けません。\n"
+            "次の1行を実行します。\n\n```\n{executable_path} --screen schedule_diff\n```\n\n読み取りのツール名は `open_windows`、`schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks`、`current_schedule` に置き換えます。背面のウィンドウを読むときは、先に `--screen open_windows` で一覧を取り、当たった `label` を `--screen <読み取り> --window <label>` に付けます（同じ1行のうしろに `--window` とラベルを足します）。`replace_schedule` は標準入力にスケジュール JSON 全体を渡し、前面ウィンドウだけを置き換えます。`replace_schedule` と `open_windows` に `--window` は付けません。\n"
         );
     }
     if let Some(token) = read_screen_local_app_data_token(executable_path, local_app_data) {
         format!(
-            "次の1行を、`$LOCALAPPDATA` を展開せずに実行します。\n\n```\n{token} --screen schedule_diff\n```\n\n読み取りのツール名は `open_windows`、`schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` に置き換えます。背面のウィンドウを読むときは、先に `--screen open_windows` で一覧を取り、当たった `label` を `--screen <読み取り> --window <label>` に付けます（同じ1行のうしろに `--window` とラベルを足します）。`replace_schedule` は標準入力にスケジュール JSON 全体を渡し、前面ウィンドウだけを置き換えます。`replace_schedule` と `open_windows` に `--window` は付けません。\n"
+            "次の1行を、`$LOCALAPPDATA` を展開せずに実行します。\n\n```\n{token} --screen schedule_diff\n```\n\n読み取りのツール名は `open_windows`、`schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks`、`current_schedule` に置き換えます。背面のウィンドウを読むときは、先に `--screen open_windows` で一覧を取り、当たった `label` を `--screen <読み取り> --window <label>` に付けます（同じ1行のうしろに `--window` とラベルを足します）。`replace_schedule` は標準入力にスケジュール JSON 全体を渡し、前面ウィンドウだけを置き換えます。`replace_schedule` と `open_windows` に `--window` は付けません。\n"
         )
     } else {
         format!(
-            "次の実行ファイルを起動します。\n\n実行ファイル:\n\n{executable_path}\n\n例（差分だけ欲しいとき。1行目が実行ファイル、2行目が引数です）:\n\n```\n{executable_path}\n--screen schedule_diff\n```\n\n背面のウィンドウを読むときは、先に `--screen open_windows` を実行し、当たった `label` を次のように渡します（3行目と4行目です）。\n\n```\n{executable_path}\n--screen selected_task\n--window schedule-2\n```\n\n読み取りのツール名は `open_windows`、`schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` に置き換えます。`replace_schedule` は標準入力にスケジュール JSON 全体を渡し、前面ウィンドウだけを置き換えます。\n"
+            "次の実行ファイルを起動します。\n\n実行ファイル:\n\n{executable_path}\n\n例（差分だけ欲しいとき。1行目が実行ファイル、2行目が引数です）:\n\n```\n{executable_path}\n--screen schedule_diff\n```\n\n背面のウィンドウを読むときは、先に `--screen open_windows` を実行し、当たった `label` を次のように渡します（3行目と4行目です）。\n\n```\n{executable_path}\n--screen selected_task\n--window schedule-2\n```\n\n読み取りのツール名は `open_windows`、`schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks`、`current_schedule` に置き換えます。`replace_schedule` は標準入力にスケジュール JSON 全体を渡し、前面ウィンドウだけを置き換えます。\n"
         )
     }
 }

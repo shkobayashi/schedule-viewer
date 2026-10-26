@@ -20,6 +20,9 @@ type ScheduleToolbarTitleProps = {
   title: string;
   titleDiffMarked: boolean;
   titleEditDisabled: boolean;
+  hierarchyEditDisabled?: boolean;
+  onOpenHierarchy?: () => void;
+  hierarchyButtonRef?: RefObject<HTMLButtonElement | null>;
   onCommitTitle: (raw: string) => ScheduleTitleCommitResult;
   onEditingChange: (editing: boolean) => void;
   onBlankCommit: () => void;
@@ -68,6 +71,9 @@ export function ScheduleToolbarTitle({
   title,
   titleDiffMarked,
   titleEditDisabled,
+  hierarchyEditDisabled = false,
+  onOpenHierarchy,
+  hierarchyButtonRef,
   onCommitTitle,
   onEditingChange,
   onBlankCommit,
@@ -247,6 +253,19 @@ export function ScheduleToolbarTitle({
           }}
         />
       </button>
+      {onOpenHierarchy ? (
+        <button
+          ref={hierarchyButtonRef}
+          type="button"
+          className="toolbar-title-hierarchy-btn"
+          aria-label="階層の名前、意味、指示"
+          title="階層の名前、意味、指示"
+          disabled={hierarchyEditDisabled}
+          onClick={onOpenHierarchy}
+        >
+          階層編集
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { documentHasLevels } from "./hierarchy";
+import { normalizeLevelDefinition } from "./hierarchyLevelEdit";
 import { normalizeTaskNote } from "./taskNote";
 import { normalizeTaskTags } from "./taskTags";
 import type {
@@ -85,10 +86,7 @@ export function scheduleToJson(
     };
   }
 
-  const levelDefs = levels.map((level) => ({
-    name: level.name,
-    meaning: level.meaning,
-  }));
+  const levelDefs = levels.map((level) => normalizeLevelDefinition(level));
 
   if (outline != null && outline.length > 0) {
     return {

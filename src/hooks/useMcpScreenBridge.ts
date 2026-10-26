@@ -6,6 +6,7 @@ import type { Member, MemberId } from "../model/memberTypes";
 import type { StatusItem } from "../model/statusCatalog";
 import { loadBaselineDiffsText } from "../model/baselineDiffsLoad";
 import { loadScheduleDiffText } from "../model/scheduleDiffLoad";
+import { assessReplaceScheduleLevelCount } from "../model/hierarchyLevelEdit";
 import {
   REPLACE_SCHEDULE_UI_BUSY,
   assessReplaceScheduleGate,
@@ -19,6 +20,7 @@ import {
   buildSelectedTaskPayload,
   buildSelectedTasksPayload,
   MCP_TOOL_BASELINE_DIFFS,
+  MCP_TOOL_CURRENT_SCHEDULE,
   MCP_TOOL_FILTERED_TASKS,
   MCP_TOOL_REPLACE_SCHEDULE,
   MCP_TOOL_SCHEDULE_DIFF,
@@ -58,6 +60,7 @@ type UseMcpScreenBridgeInput = {
   today: string;
   memberMap: Map<MemberId, Member> | null;
   statuses: readonly StatusItem[];
+  levels?: import("../model/types").ScheduleLevelDef[] | null;
   scheduleFilePath: string | null;
   scheduleCurrentJson: string;
   scheduleBaselineJson: string;
@@ -111,6 +114,18 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           payload.id,
           payload.generation,
           mcpToolErrorBody(parsed.message),
+        );
+        return;
+      }
+      const levelGate = assessReplaceScheduleLevelCount(
+        { levels: snap.levels ?? undefined },
+        parsed.document,
+      );
+      if (!levelGate.ok) {
+        await reply(
+          payload.id,
+          payload.generation,
+          mcpToolErrorBody(levelGate.message),
         );
         return;
       }
@@ -205,6 +220,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             lineageIds: snap.lineageIds,
             selectedTaskId: snap.selectedTaskId,
             statuses: snap.statuses,
+            levels: snap.levels,
           });
           break;
         }
@@ -213,8 +229,22 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             categories: snap.categories,
             selectedTaskIds: snap.selectedTaskIds,
             statuses: snap.statuses,
+            levels: snap.levels,
           });
           break;
+        }
+        case MCP_TOOL_CURRENT_SCHEDULE: {
+          const body = mcpPlainTextToolBody(snap.scheduleCurrentJson);
+          if ("tooLarge" in body) {
+            await reply(
+              payload.id,
+              payload.generation,
+              mcpToolErrorBody("応答が大きすぎるため、渡せません。"),
+            );
+            return;
+          }
+          await reply(payload.id, payload.generation, body);
+          return;
         }
         case MCP_TOOL_FILTERED_TASKS: {
           toolPayload = buildFilteredTasksPayload({
@@ -228,6 +258,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             memberCatalog: snap.memberMap,
             lineageIds: snap.lineageIds,
             statuses: snap.statuses,
+            levels: snap.levels,
           });
           break;
         }

@@ -59,7 +59,12 @@
       "required": ["name", "meaning"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
-        "meaning": { "type": "string", "minLength": 1 }
+        "meaning": { "type": "string", "minLength": 1 },
+        "instruction": {
+          "type": "string",
+          "minLength": 1,
+          "description": "その段に置いたあとに LLM が守ること。空ならキーを書かない。"
+        }
       }
     },
     "milestoneGroup": {

@@ -30,6 +30,11 @@ import {
   taskParentBranchesInOutline,
 } from "../model/hierarchy";
 import {
+  applyLevelEditorCommit,
+  documentHasExplicitLevels,
+  levelDefsForEditor,
+} from "../model/hierarchyLevelEdit";
+import {
   findOutlineTaskOwner,
   insertTaskInOutline,
   mapAllTasksInOutline,
@@ -388,6 +393,8 @@ export function useSchedule(
     | null
   >(null);
   const [diskEpoch, setDiskEpoch] = useState(0);
+  const [hierarchyEditorRelaxedMismatch, setHierarchyEditorRelaxedMismatch] =
+    useState(false);
   const today = useToday();
 
   const pruneUiForDocument = useCallback((snapshot: DocumentSnapshot) => {
@@ -486,6 +493,27 @@ export function useSchedule(
     [commitDocument],
   );
 
+  const getDocumentSnapshot = useCallback(
+    (): DocumentSnapshot => documentRef.current,
+    [],
+  );
+
+  const commitLevelDefinitions = useCallback(
+    (draft: ScheduleLevelDef[], hadDocumentLevels: boolean) => {
+      if (blockDocumentEditsRef?.current) return;
+      commitDocument((current) => {
+        const result = applyLevelEditorCommit(
+          current,
+          draft,
+          hadDocumentLevels,
+        );
+        setHierarchyEditorRelaxedMismatch(result.editorRelaxedMismatch);
+        return result.next;
+      });
+    },
+    [blockDocumentEditsRef, commitDocument],
+  );
+
   const commitTitle = useCallback(
     (rawInput: string): ScheduleTitleCommitResult => {
       const resolved = resolveScheduleTitleCommit(
@@ -531,6 +559,20 @@ export function useSchedule(
       }),
     [categories, levels, milestoneGroups, milestones, outline, title],
   );
+
+  const hierarchyLayoutForMenus = useMemo(
+    () =>
+      hierarchyEditorRelaxedMismatch
+        ? { ...hierarchyLayout, aligned: true }
+        : hierarchyLayout,
+    [hierarchyEditorRelaxedMismatch, hierarchyLayout],
+  );
+
+  useEffect(() => {
+    if (hierarchyLayout.aligned) {
+      setHierarchyEditorRelaxedMismatch(false);
+    }
+  }, [hierarchyLayout.aligned]);
 
   const hierarchyRowOptions = useMemo(
     () => ({
@@ -2403,9 +2445,16 @@ export function useSchedule(
     levels,
     outline,
     hierarchyLayout,
+    hierarchyLayoutForMenus,
     hierarchyLevelBanner,
     usesOutlineStorage,
     taskParentBranches,
-    allowCrossParentTaskMove: hierarchyLayout.aligned,
+    allowCrossParentTaskMove: hierarchyLayoutForMenus.aligned,
+    commitLevelDefinitions,
+    getDocumentSnapshot,
+    levelDefsForEditor: () =>
+      levelDefsForEditor({ levels: documentRef.current.levels }),
+    documentHasExplicitLevels: () =>
+      documentHasExplicitLevels(documentRef.current),
   };
 }

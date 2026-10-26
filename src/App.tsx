@@ -46,6 +46,7 @@ import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { ActiveFilterBar } from "./components/ActiveFilterBar";
 import { AppToast } from "./components/AppToast";
 import { GuideDialog } from "./components/GuideDialog";
+import { HierarchyLevelsDialog } from "./components/HierarchyLevelsDialog";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import type { CommandPaletteRunTarget } from "./model/commandPalette";
@@ -401,6 +402,10 @@ function App() {
   const [titleEditRequestToken, setTitleEditRequestToken] = useState(0);
   const [titleBlankNotice, setTitleBlankNotice] = useState<string | null>(null);
   const titleEditHandleRef = useRef<ScheduleToolbarTitleHandle | null>(null);
+  const hierarchyButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [hierarchyLevelsOpen, setHierarchyLevelsOpen] = useState(false);
+  const [hierarchyHadDocumentLevels, setHierarchyHadDocumentLevels] =
+    useState(false);
   const [sidebarReorderDragging, setSidebarReorderDragging] = useState(false);
   const [bulkDiscardNotice, setBulkDiscardNotice] = useState<string | null>(null);
   const detailPanelRef = useRef<TaskDetailPanelHandle>(null);
@@ -958,6 +963,7 @@ function App() {
     hasOpenEditDialog:
       titleEditing ||
       detailPanelEditing ||
+      hierarchyLevelsOpen ||
       schedule.editingNoteTask != null ||
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null ||
@@ -1331,8 +1337,8 @@ function App() {
   } = schedule;
 
   const addTopLevelMenuLabel = useMemo(
-    () => addTopLevelMenuLabelFromLayout(schedule.hierarchyLayout),
-    [schedule.hierarchyLayout],
+    () => addTopLevelMenuLabelFromLayout(schedule.hierarchyLayoutForMenus),
+    [schedule.hierarchyLayoutForMenus],
   );
   const {
     fileBusy,
@@ -1799,6 +1805,7 @@ function App() {
     selectedTaskIds: schedule.selectedTaskIds,
     today: schedule.today,
     memberMap: displayMemberMap,
+    levels: schedule.levels,
     scheduleFilePath: scheduleFile.filePath,
     scheduleCurrentJson: scheduleFile.currentJson,
     scheduleBaselineJson: scheduleFile.baselineJson,
@@ -3040,6 +3047,15 @@ function App() {
         onTitleBlankCommit={showTitleBlankNotice}
         titleEditHandleRef={titleEditHandleRef}
         titleEditRequestToken={titleEditRequestToken}
+        hierarchyEditDisabled={
+          scheduleFile.fileBusy || !scheduleFile.startupSettled
+        }
+        hierarchyButtonRef={hierarchyButtonRef}
+        onOpenHierarchy={() => {
+          flushTitleEdit();
+          setHierarchyHadDocumentLevels(schedule.documentHasExplicitLevels());
+          setHierarchyLevelsOpen(true);
+        }}
         onOpenSettings={() => {
           setSettingsSection("display");
           setSettingsOpen(true);
@@ -3695,6 +3711,19 @@ function App() {
           storeDistribution={storeDistribution}
         />
       ) : null}
+      <HierarchyLevelsDialog
+        open={hierarchyLevelsOpen}
+        initialLevels={schedule.levelDefsForEditor()}
+        hadDocumentLevels={hierarchyHadDocumentLevels}
+        snapshot={schedule.getDocumentSnapshot()}
+        onClose={() => {
+          setHierarchyLevelsOpen(false);
+          hierarchyButtonRef.current?.focus();
+        }}
+        onCommit={(levels) => {
+          schedule.commitLevelDefinitions(levels, hierarchyHadDocumentLevels);
+        }}
+      />
       <GuideDialog
         open={guideOpen}
         onClose={() => setGuideOpen(false)}
@@ -3773,6 +3802,7 @@ function App() {
           hasOpenEditDialog={
             titleEditing ||
             detailPanelEditing ||
+            hierarchyLevelsOpen ||
             schedule.editingNoteTask != null ||
             schedule.editingMilestone != null ||
             schedule.editingHierarchyTarget != null ||
@@ -3781,10 +3811,14 @@ function App() {
             schedule.deletingHierarchyTarget != null
           }
           diskUpdatedAgain={scheduleFile.diskUpdatedAgain}
-          onReload={scheduleFile.confirmExternalReload}
+          onReload={() => {
+            setHierarchyLevelsOpen(false);
+            scheduleFile.confirmExternalReload();
+          }}
           onKeepLocal={scheduleFile.keepLocalEditsOnExternalReload}
           onApplyMerge={() => {
             setDetailPanelEditing(false);
+            setHierarchyLevelsOpen(false);
             scheduleFile.confirmBaselineMerge();
           }}
         />

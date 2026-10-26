@@ -4,6 +4,7 @@ import type { MemberId } from "./memberTypes";
 export type ScheduleLevelDef = {
   name: string;
   meaning: string;
+  instruction?: string;
 };
 
 export type OutlineBranch = {

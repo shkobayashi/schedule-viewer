@@ -93,6 +93,9 @@ type ToolbarProps = {
   onTitleBlankCommit: () => void;
   titleEditHandleRef?: RefObject<ScheduleToolbarTitleHandle | null>;
   titleEditRequestToken: number;
+  hierarchyEditDisabled?: boolean;
+  hierarchyButtonRef?: RefObject<HTMLButtonElement | null>;
+  onOpenHierarchy?: () => void;
 };
 
 export function Toolbar({
@@ -153,6 +156,9 @@ export function Toolbar({
   onTitleBlankCommit,
   titleEditHandleRef,
   titleEditRequestToken,
+  hierarchyEditDisabled = false,
+  hierarchyButtonRef,
+  onOpenHierarchy,
 }: ToolbarProps) {
   const titleEditDisabled = fileBusy || !startupSettled;
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
@@ -252,6 +258,9 @@ export function Toolbar({
         title={title}
         titleDiffMarked={titleDiffMarked}
         titleEditDisabled={titleEditDisabled}
+        hierarchyEditDisabled={hierarchyEditDisabled}
+        hierarchyButtonRef={hierarchyButtonRef}
+        onOpenHierarchy={onOpenHierarchy}
         onCommitTitle={onCommitTitle}
         onEditingChange={onTitleEditingChange}
         onBlankCommit={onTitleBlankCommit}

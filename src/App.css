@@ -586,7 +586,7 @@ body {
   min-width: 0;
   flex: 0 1 auto;
   max-width: min(56vw, 480px);
-  gap: 2px;
+  gap: calc(4px * var(--s));
 }
 
 .toolbar-title-heading {
@@ -657,6 +657,197 @@ body {
   color: var(--text-secondary);
   -webkit-text-fill-color: var(--text-secondary);
   cursor: not-allowed;
+}
+
+.toolbar-title-hierarchy-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(26px * var(--s));
+  padding: 0 calc(8px * var(--s));
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: calc(13px * var(--s));
+  font-weight: 500;
+  cursor: pointer;
+  appearance: none;
+  -webkit-text-fill-color: var(--text);
+}
+
+.toolbar-title-hierarchy-btn:hover:not(:disabled),
+.toolbar-title-hierarchy-btn:focus-visible:not(:disabled) {
+  background: var(--panel);
+  border-color: var(--border);
+}
+
+.toolbar-title-hierarchy-btn:disabled {
+  color: var(--text-secondary);
+  background: var(--surface);
+  border-color: var(--border);
+  -webkit-text-fill-color: var(--text-secondary);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.modal.wide.hierarchy-levels-dialog {
+  width: min(calc(880px * var(--s)), calc(100vw - calc(48px * var(--s))));
+  max-height: calc(100vh - calc(48px * var(--s)));
+  display: flex;
+  flex-direction: column;
+  padding: calc(16px * var(--s));
+  box-sizing: border-box;
+}
+
+.hierarchy-levels-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: calc(8px * var(--s));
+}
+
+.hierarchy-levels-list-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.hierarchy-levels-hints {
+  flex-shrink: 0;
+  margin: 0;
+  padding: calc(8px * var(--s)) calc(10px * var(--s)) 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(4px * var(--s));
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.hierarchy-levels-hints strong {
+  font-weight: 600;
+  margin-right: calc(4px * var(--s));
+  color: var(--text-secondary);
+}
+
+.hierarchy-levels-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: calc(8px * var(--s));
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--s));
+}
+
+.hierarchy-levels-row {
+  display: grid;
+  grid-template-columns:
+    calc(20px * var(--s))
+    minmax(0, 1fr)
+    calc(148px * var(--s));
+  align-items: start;
+  gap: calc(8px * var(--s)) calc(12px * var(--s));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  padding: calc(8px * var(--s)) calc(10px * var(--s));
+}
+
+.hierarchy-levels-index {
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+  font-weight: 600;
+  line-height: calc(26px * var(--s));
+  padding-top: calc(18px * var(--s));
+}
+
+.hierarchy-levels-fields {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+  min-width: 0;
+}
+
+.hierarchy-levels-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2px * var(--s));
+  margin: 0;
+  min-width: 0;
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+}
+
+.hierarchy-levels-field label {
+  display: block;
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+}
+
+.hierarchy-levels-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: calc(26px * var(--s));
+  padding: 0 calc(6px * var(--s));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: calc(13px * var(--s));
+}
+
+.hierarchy-levels-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: calc(4px * var(--s));
+  padding-top: calc(18px * var(--s));
+  min-width: 0;
+}
+
+.hierarchy-levels-task-badge {
+  align-self: center;
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+  font-weight: 600;
+  line-height: calc(26px * var(--s));
+  text-align: center;
+}
+
+.hierarchy-levels-move {
+  width: 100%;
+  justify-content: center;
+}
+
+.hierarchy-levels-remove {
+  width: 100%;
+  justify-content: center;
+}
+
+.hierarchy-levels-alert {
+  margin: 0;
+  flex-shrink: 0;
+  font-size: calc(12px * var(--s));
+  color: var(--danger-text);
+}
+
+.hierarchy-levels-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  padding-top: calc(10px * var(--s));
+  gap: calc(8px * var(--s));
 }
 
 .toolbar-title-editing {

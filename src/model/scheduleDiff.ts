@@ -601,6 +601,39 @@ function indexGroups(
 
 function indexTasks(doc: ScheduleDocument): Map<ScheduleId, TaskPlace> {
   const map = new Map<ScheduleId, TaskPlace>();
+  if (doc.outline != null && doc.outline.length > 0) {
+    const walk = (
+      nodes: import("./types").OutlineChild[],
+      ancestors: { category: string; group: string; categoryId: ScheduleId; groupId: ScheduleId }[],
+    ) => {
+      for (const node of nodes) {
+        if ("start" in node && "end" in node) {
+          const parent = ancestors[ancestors.length - 1];
+          const root = ancestors[0];
+          map.set(node.id, {
+            categoryId: root?.categoryId ?? parent?.categoryId ?? node.id,
+            groupId: parent?.groupId ?? root?.groupId ?? node.id,
+            category: root?.category ?? parent?.category ?? "",
+            group: parent?.group ?? root?.group ?? "",
+            task: node,
+          });
+        } else {
+          const nextAncestors = [
+            ...ancestors,
+            {
+              categoryId: ancestors[0]?.categoryId ?? node.id,
+              groupId: node.id,
+              category: ancestors[0]?.category ?? node.name,
+              group: node.name,
+            },
+          ];
+          walk(node.children, nextAncestors);
+        }
+      }
+    };
+    walk(doc.outline, []);
+    return map;
+  }
   for (const category of doc.categories) {
     for (const group of category.groups) {
       for (const task of group.tasks) {

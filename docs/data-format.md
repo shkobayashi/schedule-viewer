@@ -59,7 +59,7 @@
 | `milestoneGroups` | マイルストン帯の行。空でもよい。タスクのカテゴリ・グループとは別 |
 | `milestones` | マイルストンの配列。空でもよい |
 | `categories` | `levels` が無いときは1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
-| `levels` | 任意。1〜5段。各要素は `name` と `meaning`（いずれも1文字以上）。`meaning` は保存するが画面には出さない |
+| `levels` | 任意。1〜5段。各要素は `name` と `meaning`（いずれも1文字以上）。任意の `instruction` は、その段に置いたあとに LLM が守ること。空ならキーを書かない |
 | `outline` | `levels` があるときは、段数に合う入れ子をここに書く。枝は `id`、`name`、`children`。最下段はタスク。タスクの一つ上の枝だけ `children` を空にできる。それより上の枝は子を1件以上持つ |
 | `id` | カテゴリ、グループ、タスク、マイルストン、マイルストングループの UUID。1つのスケジュールの中で、この5種を通して重複しない |
 | `groupId`（マイルストン） | 属する `milestoneGroups` の `id`。存在しない ID は不可 |
