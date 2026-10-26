@@ -57,7 +57,7 @@
 /src-tauri        Rust側 (ファイルI/Oなど薄いコマンドのみ)
 /.devcontainer    DevContainer定義
 /docs             計画・ADR・JSONスキーマ定義など
-/.cursor/skills   LLM用スキル（implement-change はこのリポジトリの実装手順。write-schedule / write-members / write-calendar は他プロジェクトへコピー可）
+/.cursor/skills   LLM用スキル（implement-change はこのリポジトリの実装手順。write-schedule / write-members / write-calendar / write-workspace は他プロジェクトへコピー可）
 /mockup           Konva単体プロトタイプ（Phase 1 移植の参照）
 ```
 
@@ -191,7 +191,7 @@ LLMとのコミュニケーションは、現時点では計画しない。
 
 - 2.0 でも、今開けるファイルを開けることが望ましい。
 - 既に置いてある古いスキルは、極力そのまま使えるようにする。コマンドが少なく、スキーマが古いコピーは、1.x 相当の使い方になる。
-- 2.0 に時間をかけるあいだ、1.x のまま出せる変更は 1.10.0 として `develop` から出す。公開する契約を壊す変更は `next` に置く。手順は [development.md](development.md#1x-を出しながら次のメジャーを進める)。
+- 2.0 に時間をかけるあいだ、1.x のまま出せる変更は `develop` から出す。公開する契約を壊す変更は `next` に置く。手順は [development.md](development.md#1x-を出しながら次のメジャーを進める)。
 
 挙動を仕様に書く段階では、次へ渡す。開ける版は [data-format.md](data-format.md)、開く操作は [external-spec.md](external-spec.md)。古いスキルの同梱と配置は [development.md](development.md)。互換の約束はアプリ側の文書に書く。置いたスキルのコピーは、アプリを更新しても置き換わらない。
 
