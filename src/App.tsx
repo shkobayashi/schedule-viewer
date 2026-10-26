@@ -109,8 +109,9 @@ import {
   LEGACY_THREE_LEVEL_COUNT,
   LEGACY_THREE_LEVEL_DEFS,
   legacyCategoryParentSelectOptions,
-  canExportWithLegacyPipeline,
-  HIERARCHY_EXPORT_UNSUPPORTED_MESSAGE,
+  collectTasksFromDocument,
+  findTaskInDocument,
+  listTaskRefsFromDocument,
   HIERARCHY_MISMATCH_MESSAGE,
 } from "./model/hierarchy";
 import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
@@ -139,7 +140,11 @@ import {
   isTauri,
   serializeScheduleDocument,
 } from "./model/scheduleFile";
-import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
+import {
+  dependencyCountFromTasks,
+  successorIdsFromTasks,
+  visibleLinksFromTasks,
+} from "./model/dependencies";
 import { milestoneLinkedByAnyTask } from "./model/milestones";
 import {
   exportSchedule,
@@ -148,7 +153,6 @@ import {
 } from "./model/exportHtml";
 import { exportScheduleExcel } from "./model/exportExcel";
 import { DEFAULT_EXCEL_EXPORT_COLUMNS } from "./model/excelExportColumns";
-import { forEachTask } from "./model/tasks";
 import {
   describeActiveFilters,
   exportTimelineRange,
@@ -164,7 +168,6 @@ import {
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
 import { hasOtherVisibleMilestoneBandGroup } from "./model/filterChips";
-import { findTaskById } from "./model/rows";
 import {
   layoutStickyHeaders,
   scrollYToRevealTask,
@@ -724,12 +727,26 @@ function App() {
   } = schedule;
 
   const catalogMismatch = useMemo(() => {
-    const tasks: import("./model/types").Task[] = [];
-    forEachTask(schedule.categories, (task) => {
-      tasks.push(task);
+    const tasks = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
     });
     return catalogMismatchKind(tasks, displayStatuses, displayMemberMap);
-  }, [schedule.categories, displayStatuses, displayMemberMap]);
+  }, [
+    displayMemberMap,
+    displayStatuses,
+    schedule.categories,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+  ]);
 
   const catalogMismatchText = catalogMismatchBannerText(catalogMismatch);
 
@@ -1308,10 +1325,47 @@ function App() {
         : `calc(28px * var(--s))`;
 
   const { visibleTaskCount, totalTaskCount } = useMemo(() => {
-    const total = listTasks(schedule.categories).length;
+    const total = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
+    }).length;
     const visible = schedule.visibleRows.filter((row) => row.type === "task").length;
     return { visibleTaskCount: visible, totalTaskCount: total };
-  }, [schedule.categories, schedule.visibleRows]);
+  }, [
+    schedule.categories,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+    schedule.visibleRows,
+  ]);
+
+  const documentTasks = useMemo(
+    () =>
+      collectTasksFromDocument({
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title: schedule.title,
+        categories: schedule.categories,
+        milestoneGroups: schedule.milestoneGroups,
+        milestones: schedule.milestones,
+        levels: schedule.levels,
+        outline: schedule.outline,
+      }),
+    [
+      schedule.categories,
+      schedule.levels,
+      schedule.milestoneGroups,
+      schedule.milestones,
+      schedule.outline,
+      schedule.title,
+    ],
+  );
 
   const {
     categories,
@@ -1468,8 +1522,24 @@ function App() {
   );
 
   const taskRefs = useMemo(
-    () => listTasks(schedule.categories),
-    [schedule.categories],
+    () =>
+      listTaskRefsFromDocument({
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title: schedule.title,
+        categories: schedule.categories,
+        milestoneGroups: schedule.milestoneGroups,
+        milestones: schedule.milestones,
+        levels: schedule.levels,
+        outline: schedule.outline,
+      }),
+    [
+      schedule.categories,
+      schedule.levels,
+      schedule.milestoneGroups,
+      schedule.milestones,
+      schedule.outline,
+      schedule.title,
+    ],
   );
   const selectedTaskIdSet = useMemo(
     () => new Set(schedule.selectedTaskIds),
@@ -1479,15 +1549,21 @@ function App() {
     () =>
       schedule.selectedTaskId == null
         ? null
-        : findTaskById(schedule.categories, schedule.selectedTaskId),
-    [schedule.categories, schedule.selectedTaskId],
+        : findTaskInDocument(
+            schedule.categories,
+            schedule.outline,
+            schedule.selectedTaskId,
+          ),
+    [schedule.categories, schedule.outline, schedule.selectedTaskId],
   );
   const bulkDetailTasks = useMemo(() => {
     if (schedule.selectedTaskIds.length <= 1) return [];
     return schedule.selectedTaskIds
-      .map((id) => findTaskById(schedule.categories, id))
+      .map((id) =>
+        findTaskInDocument(schedule.categories, schedule.outline, id),
+      )
       .filter((task): task is NonNullable<typeof task> => task != null);
-  }, [schedule.categories, schedule.selectedTaskIds]);
+  }, [schedule.categories, schedule.outline, schedule.selectedTaskIds]);
 
   const handleBulkEditingChange = useCallback((editing: boolean) => {
     bulkHadDraftRef.current = editing;
@@ -1560,23 +1636,55 @@ function App() {
     [openTaskForEdit, schedule.selectedTaskIds.length],
   );
 
-  const selectedDetailSuccessors = useMemo(
-    () =>
-      selectedDetailTask
-        ? successorIds(schedule.categories, selectedDetailTask.id)
-        : [],
-    [schedule.categories, selectedDetailTask],
-  );
+  const selectedDetailSuccessors = useMemo(() => {
+    if (!selectedDetailTask) return [];
+    const tasks = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
+    });
+    return successorIdsFromTasks(tasks, selectedDetailTask.id);
+  }, [
+    selectedDetailTask,
+    schedule.categories,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+  ]);
   const links = useMemo(() => {
     const visibleIds = new Set(
       schedule.visibleRows.flatMap((row) =>
         row.type === "task" ? [row.task.id] : [],
       ),
     );
-    const links = visibleLinks(schedule.categories, visibleIds);
+    const tasks = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
+    });
+    const links = visibleLinksFromTasks(tasks, visibleIds);
     if (schedule.filters.relation !== "broken") return links;
     return links.filter((link) => link.broken);
-  }, [schedule.categories, schedule.filters.relation, schedule.visibleRows]);
+  }, [
+    schedule.categories,
+    schedule.filters.relation,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+    schedule.visibleRows,
+  ]);
 
   const handleResizeStart = useCallback(
     (taskId: ScheduleId, groupX: number) => {
@@ -1620,19 +1728,6 @@ function App() {
       excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
     ) => {
       flushTitleEdit();
-      const exportDoc: ScheduleDocument = {
-        schemaVersion: SCHEDULE_SCHEMA_VERSION,
-        title: schedule.title,
-        categories: schedule.categories,
-        milestoneGroups: schedule.milestoneGroups,
-        milestones: schedule.milestones,
-        levels: schedule.levels,
-        outline: schedule.outline,
-      };
-      if (!canExportWithLegacyPipeline(exportDoc)) {
-        setExportError(HIERARCHY_EXPORT_UNSUPPORTED_MESSAGE);
-        return;
-      }
       const milestones = milestonesForExport(
         schedule.filters.milestone,
         schedule.milestoneGroups,
@@ -1732,10 +1827,18 @@ function App() {
         );
       };
       if (format === "xlsx") {
-        const taskNames = new Map<string, string>();
-        forEachTask(schedule.categories, (task) => {
-          taskNames.set(task.id, task.name);
+        const exportTasks = collectTasksFromDocument({
+          schemaVersion: SCHEDULE_SCHEMA_VERSION,
+          title: schedule.title,
+          categories: schedule.categories,
+          milestoneGroups: schedule.milestoneGroups,
+          milestones: schedule.milestones,
+          levels: schedule.levels,
+          outline: schedule.outline,
         });
+        const taskNames = new Map(
+          exportTasks.map((task) => [task.id, task.name]),
+        );
         void exportScheduleExcel({
           ...exportInput,
           exportMilestones: milestones,
@@ -1795,6 +1898,8 @@ function App() {
   useMcpScreenBridge({
     statuses: displayStatuses,
     categories: schedule.categories,
+    outline: schedule.outline,
+    title: schedule.title,
     milestones: schedule.milestones,
     milestoneGroups: schedule.milestoneGroups,
     filters: schedule.filters,
@@ -2852,7 +2957,7 @@ function App() {
       return items;
     }
     const taskId = contextMenu.taskId;
-    const task = findTaskById(categories, taskId);
+    const task = findTaskInDocument(categories, outline, taskId);
     const multiCount = schedule.selectedTaskIds.length;
     if (multiCount > 1) {
       return [
@@ -2940,6 +3045,7 @@ function App() {
     clearLineage,
     contextMenu,
     lineageTask?.id,
+    outline,
     milestones,
     openDuplicateDialog,
     openTaskForEdit,
@@ -3003,7 +3109,11 @@ function App() {
         linkSourceName={
           linkSourceId == null
             ? null
-            : (findTaskById(schedule.categories, linkSourceId)?.name ?? null)
+            : (findTaskInDocument(
+                schedule.categories,
+                schedule.outline,
+                linkSourceId,
+              )?.name ?? null)
         }
         canStartLink={schedule.selectedTaskId != null}
         onToggleLink={toggleLinkMode}
@@ -3583,12 +3693,18 @@ function App() {
             ""
           }
           initialStart={
-            findTaskById(schedule.categories, schedule.selectedTaskId)?.start ??
-            schedule.today
+            findTaskInDocument(
+              schedule.categories,
+              schedule.outline,
+              schedule.selectedTaskId,
+            )?.start ?? schedule.today
           }
           initialEnd={
-            findTaskById(schedule.categories, schedule.selectedTaskId)?.end ??
-            schedule.today
+            findTaskInDocument(
+              schedule.categories,
+              schedule.outline,
+              schedule.selectedTaskId,
+            )?.end ?? schedule.today
           }
           onClose={() => setAddOpen(false)}
           onSave={(input) => {
@@ -3622,8 +3738,9 @@ function App() {
         <DeleteTaskDialog
           taskName={
             schedule.selectedTaskIds.length === 1
-              ? (findTaskById(
+              ? (findTaskInDocument(
                   schedule.categories,
+                  schedule.outline,
                   schedule.selectedTaskIds[0]!,
                 )?.name ?? "このタスク")
               : undefined
@@ -3634,7 +3751,7 @@ function App() {
               : undefined
           }
           hasDependencies={schedule.selectedTaskIds.some(
-            (id) => dependencyCount(schedule.categories, id) > 0,
+            (id) => dependencyCountFromTasks(documentTasks, id) > 0,
           )}
           onClose={() => setDeleteOpen(false)}
           onConfirm={() => {

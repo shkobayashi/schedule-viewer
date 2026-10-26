@@ -201,7 +201,7 @@
 
 アプリが書くスケジュール JSON は [src/model/serialize.ts](../src/model/serialize.ts) のキー順で、2スペースのインデントである（[src/model/scheduleFile.ts](../src/model/scheduleFile.ts) の `serializeScheduleDocument`）。
 
-キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones`、`categories` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、タグがあるときだけ `tags` を付け、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
+キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones` のあと、階層の定義が無いときは `categories`、あるときは `levels` と `outline` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、タグがあるときだけ `tags` を付け、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
 
 未保存かどうかは、この形にした文字列と、最後に開いた・保存した・読み直したときの文字列を比べて決める。インデントやキー順だけが違うファイルは、同じ内容として扱う。
 
@@ -209,7 +209,7 @@
 
 「書き出し」は、絞り込み・折りたたみ・系統のあとで見えている行を、単一の HTML または SVG にする。チャートはどちらも SVG で、画面の Canvas を撮ったものではない。生成は [src/model/exportHtml.ts](../src/model/exportHtml.ts) と [src/model/exportView.ts](../src/model/exportView.ts) で行う。
 
-入るものは、見えている行の名前、タスクバー、カテゴリとグループの親バー、前後の線、イナズマ線、非稼働日、マイルストン、使っている絞り込みの一覧である。用紙へのページ割りはしない。ズームの粒度（1日あたりの幅）は画面と同じで、期間は見えている行と書き出すマイルストンから決め直す。
+入るものは、見えている行の名前、タスクバー、見出し行の親バー（定義の無いカテゴリとグループ、および `levels` の見出し）、前後の線、イナズマ線、非稼働日、マイルストン、使っている絞り込みの一覧である。左の名前の縦線と行の地、Excel の字下げは [外部仕様](external-spec.md) の VIEW-01 と EXPORT-02・EXPORT-05 に合わせる。階層の定義の形は [スケジュール JSON](#スケジュール-json) を見る。用紙へのページ割りはしない。ズームの粒度（1日あたりの幅）は画面と同じで、期間は見えている行と書き出すマイルストンから決め直す。
 
 書き出すマイルストンは次のとおりである。
 

@@ -111,6 +111,8 @@
 | 同上 | `rejects a duplicate with the same message as a repeated predecessor id` | EDIT-12 |
 | 同上 | `rejects a cycle with the edit dialog message` | EDIT-12, EDIT-05 |
 | 同上 | `removes only that predecessor id` | EDIT-12 |
+| 同上 | `links outline tasks when both ends are visible` | EXPORT-02 |
+| 同上 | `omits links when a task is not visible` | EXPORT-02 |
 | `monthHeader.test.ts` | `formats year and month in Japanese` | NAV-02 |
 | 同上 | `shows distant month labels` | NAV-02 |
 | 同上 | `hides a month label that overlaps a fixed label` | NAV-02 |
@@ -153,12 +155,18 @@
 | 同上 | `uses black task names and group-row gray for holidays` | EXPORT-05 |
 | 同上 | `uses light group and overdue name colors on a white sheet` | EXPORT-05 |
 | 同上 | `uses milestone group name on milestone rows` | EXPORT-05 |
+| 同上 | `keeps task indent 0 for task-only visible rows` | EXPORT-05 |
+| 同上 | `indents two-level hierarchy like top heading and task` | EXPORT-05 |
+| 同上 | `indents five-level hierarchy through depth 4 on tasks` | EXPORT-05 |
+| 同上 | `matches legacy category group task indents for three-level outline headings` | EXPORT-05 |
 | `excelExportColumns.test.ts` | `uses default columns when storage is empty` | EXPORT-01, EXPORT-05 |
 | 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
 | `exportHtml.test.ts` | `puts the active filter into HTML and SVG` | EXPORT-01, EXPORT-02 |
+| 同上 | `escapes font-family in SVG attributes but not in HTML CSS` | EXPORT-01 |
 | 同上 | `omits overlapping month header labels in month export but keeps grid lines` | NAV-02, EXPORT-02 |
 | 同上 | `hatches tentative bars and labels them, and leaves committed bars solid` | VIEW-12, EXPORT-01 |
 | 同上 | `hatches a tentative milestone and leaves a committed one solid` | VIEW-04, VIEW-12, EXPORT-01 |
+| 同上 | `fills hierarchy chart rows like the sidebar` | EXPORT-02, VIEW-01 |
 | `exportView.test.ts` | `keeps milestones inside the visible span and referenced ones outside it` | EXPORT-02 |
 | 同上 | `keeps only the selected milestone` | EXPORT-02 |
 | 同上 | `drops milestones when the filter is none` | EXPORT-02 |
@@ -795,7 +803,7 @@
 
 | モジュール | 状態 |
 | --- | --- |
-| `dependencies.ts` | 破綻の境界と系統は未テスト。線の追加、除去、当たりはテストしている。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でもテストしている |
+| `dependencies.ts` | 破綻の境界と系統は未テスト。線の追加、除去、当たり、見えている行のリンク（`outline` のタスク含む）はテストしている。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でもテストしている |
 | `timeline.ts` | ズーム段階は未テスト。期限超過とイナズマ線は `statusCatalog.test.ts` から `isOverdue` と `lightningDate` を間接的にテストしている |
 | `milestones.ts` | マイルストン超過と段の割り当ては未テスト。追加と削除はテストしている |
 | `rows.ts` | ノート、マイルストン、確度以外の絞り込み、`computeVisibleRows`、折りたたみは未テスト。追加と複製で外す絞り込みはテストしている |
@@ -847,7 +855,7 @@
 | TC-HIER-01 | VIEW-03 | `examples/hierarchy/levels-2.schedule.json` など定義の無いファイル | 開いて保存する | 定義の無いファイルは保存後も `levels` と `outline` が付かない。2段・3段・4段・5段のサンプルは帯の上に定義名が並び、段数どおりの行になる |
 | TC-HIER-02 | VIEW-03 | 定義と入れ子の段数が合わない JSON | 開く | 「階層の定義と入れ子の数が違います。」が出て、行の組み立ては変わらない |
 | TC-HIER-03 | VIEW-03, FILE-01 | `examples/hierarchy/levels-3.schedule.json` | ワークスペースで開く。同じ JSON を直接開く | 階層の見え方が同じである |
-| TC-HIER-04 | VIEW-01 | `examples/hierarchy/levels-5.schedule.json` と従来の3段サンプル | ブラウザ版で開く。折りたたみ、絞り込み、系統、カテゴリの並べ替えドラッグを試す | 名前の左端が行の種類にかかわらず揃う。縦線は最大4本でレール幅は段で変わらない。行の境で縦線が切れず、枝の最後の行では中央より下に線が伸びない。折りたたんだ行から下に線が続かない。絞り込みと系統で消えた枝の線が残らない。ドラッグの塊の名前は一覧と同じ列で、塊の外に線が残らない。固定見出しの線と下の行が横で揃う。ライトとダークで線が見える |
+| TC-HIER-04 | VIEW-01 | `examples/hierarchy/levels-5.schedule.json` と従来の3段サンプル | ブラウザ版で開く。折りたたみ、絞り込み、系統、カテゴリの並べ替えドラッグを試す | 名前の左端が行の種類にかかわらず揃う。縦線は最大4本でレール幅は段で変わらない。行の境で縦線が切れず、枝の最後の行では中央より下に線が伸びない。折りたたんだ行から下に線が続かない。絞り込みと系統で消えた枝の線が残らない。5段で系統を出すと、起点の先行と後続だけが残る。ドラッグの塊の名前は一覧と同じ列で、塊の外に線が残らない。固定見出しの線と下の行が横で揃う。ライトとダークで線が見える |
 | TC-HIER-05 | EDIT-18, EDIT-11 | `examples/hierarchy/levels-2.schedule.json` | 最上段の見出しを右クリックし同じ段を追加する。プルダウンが「見出しを追加」であること。開き、段の選択が無いこと。1件追加する。取り消す | 定義名の下の見出しが自動でつながり、タスクは付かない。一覧の末尾に足る。取り消し1回で戻る |
 | TC-HIER-05b | EDIT-18 | `examples/hierarchy/levels-5.schedule.json` | プルダウンが「見出しを追加」1行であること。開き、段は最上段で追加先が無いこと。段を工程にし、追加先が文書順の最後の事業になること。名前を入れて追加する。段をタスクの一つ上にして同様に1件追加する。見出し行の右クリックが従来どおりであること。取り消す | 下の見出しが定義名でつながり、タスクは付かない。タスクの一つ上の枝は子が空である。取り消し1回で戻る |
 | TC-HIER-05c | EDIT-18, EDIT-11 | `examples/hierarchy/levels-3.schedule.json` | プルダウンが「見出しを追加」1行であること。開き、段は工程で追加先が無いこと。名前を入れて1件追加する。段を機能にし、追加先が文書順の最後の工程になること。名前を入れて1件追加する。見出し行の右クリックが「下に工程を追加」と「機能を追加」であること。保存する。取り消す | 最上段の追加の下は定義名の「機能」でタスクは付かない。保存後も `categories` にはならない。取り消し1回で戻る |
@@ -855,8 +863,9 @@
 | TC-HIER-05d | EDIT-18, EDIT-11 | `examples/hierarchy/levels-4.schedule.json` | プルダウンが「見出しを追加」であること。段はタスクを除く3つ。最上段を1件追加する。タスクの一つ上の段でも1件追加する。見出し行の右クリックが定義名のままであること。取り消す | 下の見出しが定義名でつながり、タスクは付かない。取り消し1回で戻る |
 | TC-HIER-06 | EDIT-18 | 上記の追加後 | 保存する | タスクの一つ上の枝だけ `children` が空でも検証に通る |
 | TC-HIER-02b | VIEW-03 | 中間枝だけ子が空の JSON を手で用意する | 開く | 「階層の定義と入れ子の数が違います。」が出る。見出しの追加メニューは出ない |
-| TC-HIER-06b | EDIT-21, FILE-02 | サンプルまたは `levels-3.schedule.json` | ブラウザ版で入口の「階層編集」が枠付きであることを見る。「階層編集」を開き、全段で名前・意味・指示の欄の左端が揃い、最下段の操作列に「タスク」が出ることを見る。見出しの段で「上へ」「下へ」が効くことを見る。名前だけ変えて閉じる。指示だけ書いて閉じ、保存してキーが残ることを見る。段を1つ足して閉じ、保存を試す。意味を空にして閉じられるか試す | 名前だけの変更で行は動く。上下は閉じるまで文書は動かない。段数だけ変えたあとは保存が拒否され、ダイアログの見出しは「保存できません」で本文に階層の理由が出る。空の意味では閉じられない。空の指示ではキーを書かない |
+| TC-HIER-06b | EDIT-21, FILE-02 | サンプルまたは `levels-3.schedule.json` | ブラウザ版で入口の「階層編集」が枠付きであることを見る。「階層編集」を開き、全段で名前・意味・指示の欄の左端が揃い、最下段の操作列に「タスク」が出ることを見る。見出しの段で「上へ」「下へ」が効くことを見る。名前だけ変えて閉じる。指示だけ書いて閉じ、保存してキーが残ることを見る。段を1つ足して閉じ、保存を試す。意味を空にして閉じられるか試す | 名前か意味だけの変更で段数が同じときは行は動かない。上下は閉じるまで文書は動かない。段数だけ変えたあとは保存が拒否され、ダイアログの見出しは「保存できません」で本文に階層の理由が出る。空の意味では閉じられない。空の指示ではキーを書かない |
 | TC-HIER-06c | EDIT-21, SYNC-01 | デスクトップ版で `levels-2.schedule.json` を開く | 「階層編集」を開き、意味の下書きを入れる。別端末で同じファイルのタスク終了日だけを変えて保存する。即時反映せず確認が出ること。下書きが残ること。読み直す。再度「階層編集」を開き下書きを入れ、今度はファイル側だけの変更で「両方を画面へ反映」する | 開いているあいだは即時反映しない。読み直しと反映のあと、閉じたダイアログの下書きは文書へ入らない。反映後は `levels` と `outline` が残る |
+| TC-HIER-07 | EXPORT-02, EXPORT-05, VIEW-01 | `examples/hierarchy/levels-2.schedule.json`、`levels-3.schedule.json`、`levels-5.schedule.json` と定義の無いサンプル | 各ファイルを開き、HTML と Excel で書き出す。画面と並べ、左の縦線と行の地、チャートの親バー、Excel の字下げと一番上だけの塗りを見る | 2段は見出しの字下げ 0 とタスク 1、塗りは見出しの左列だけ。3段の `outline` は字下げ 0・1・2 で定義の無い3段と同じ。5段はタスクが字下げ 4。中間の見出しにも親バーが出る。HTML のチャート側の行の地は、一番上・タスクのすぐ上・あいだで分かれる |
 | TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しのタイトルは JSON の `title` になる。ファイル名は状態バーとウィンドウタイトルに出る |
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01f | FILE-01 | サンプル | ☰ を開き、下、上、Home、End を押す | 最初の項目にフォーカスが移る。キーで項目を移動できる。Escape で閉じる |

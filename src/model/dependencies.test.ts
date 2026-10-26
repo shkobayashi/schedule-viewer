@@ -6,6 +6,7 @@ import {
   linkPoints,
   nearestLinkHit,
   tryAddPredecessorLink,
+  visibleLinksFromTasks,
   type LinkPolyline,
 } from "./dependencies";
 import {
@@ -156,6 +157,34 @@ describe("tryAddPredecessorLink", () => {
     const result = tryAddPredecessorLink(current, TASK_C, TASK_A);
     expect(result).toEqual({ ok: false, message: dialogMessage(next) });
     expect(dialogMessage(next)).toContain("循環");
+  });
+});
+
+describe("visibleLinksFromTasks", () => {
+  it("links outline tasks when both ends are visible", () => {
+    const predecessor = {
+      ...task(TASK_A),
+      name: "先行タスク",
+    };
+    const successor = {
+      ...task(TASK_B, [TASK_A]),
+      name: "後続タスク",
+      start: "2026-01-04",
+      end: "2026-01-06",
+    };
+    const visibleIds = new Set([TASK_A, TASK_B]);
+    const links = visibleLinksFromTasks([predecessor, successor], visibleIds);
+    expect(links).toEqual([
+      { fromId: TASK_A, toId: TASK_B, broken: false },
+    ]);
+  });
+
+  it("omits links when a task is not visible", () => {
+    const predecessor = task(TASK_A);
+    const successor = task(TASK_B, [TASK_A]);
+    expect(
+      visibleLinksFromTasks([predecessor, successor], new Set([TASK_B])),
+    ).toEqual([]);
   });
 });
 

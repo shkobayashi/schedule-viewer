@@ -3,6 +3,8 @@ import {
   hierarchyRowKind,
   isOutlineBranch,
   isTaskNode,
+  scheduleStoresTasksInOutline,
+  taskHierarchyLabels,
   tasksUnderOutlineBranch,
 } from "./hierarchy";
 import { averageTaskProgress } from "./progressRollup";
@@ -24,6 +26,7 @@ import {
   UNASSIGNED_FILTER,
   type Category,
   type OutlineRoot,
+  type ScheduleDocument,
   type ScheduleFilters,
   type ScheduleId,
   type ScheduleLevelDef,
@@ -117,6 +120,91 @@ export function listTasksMatchingFilter(
     }
   }
   return matched;
+}
+
+export function listTasksMatchingFilterInDocument(
+  doc: Pick<
+    ScheduleDocument,
+    | "schemaVersion"
+    | "title"
+    | "categories"
+    | "outline"
+    | "levels"
+    | "milestoneGroups"
+    | "milestones"
+  >,
+  filters: ScheduleFilters,
+  today: string,
+  memberCatalog: Map<MemberId, Member> | null,
+  lineageIds?: ReadonlySet<ScheduleId> | null,
+  statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+): FilteredTaskRef[] {
+  const categories = doc.categories ?? [];
+  if (
+    !scheduleStoresTasksInOutline({
+      categories,
+      levels: doc.levels,
+      outline: doc.outline,
+    })
+  ) {
+    return listTasksMatchingFilter(
+      categories,
+      filters,
+      today,
+      memberCatalog,
+      lineageIds,
+      statuses,
+    );
+  }
+  const outline = doc.outline ?? [];
+  const brokenIds =
+    filters.relation === "broken"
+      ? brokenLinkTaskIdsFromTasks(collectOutlineTasks(outline))
+      : undefined;
+  const matched: FilteredTaskRef[] = [];
+  const walk = (nodes: OutlineRoot) => {
+    for (const node of nodes) {
+      if (isTaskNode(node)) {
+        if (
+          taskMatchesFilter(
+            node,
+            filters,
+            today,
+            memberCatalog,
+            brokenIds,
+            lineageIds,
+            statuses,
+          )
+        ) {
+          const labels = taskHierarchyLabels(
+            doc as ScheduleDocument,
+            node.id,
+          );
+          matched.push({
+            task: node,
+            category: labels.category,
+            group: labels.group,
+          });
+        }
+        continue;
+      }
+      if (isOutlineBranch(node)) walk(node.children);
+    }
+  };
+  walk(outline);
+  return matched;
+}
+
+function collectOutlineTasks(outline: OutlineRoot): Task[] {
+  const tasks: Task[] = [];
+  const walk = (nodes: OutlineRoot) => {
+    for (const node of nodes) {
+      if (isTaskNode(node)) tasks.push(node);
+      else if (isOutlineBranch(node)) walk(node.children);
+    }
+  };
+  walk(outline);
+  return tasks;
 }
 
 export function taskMatchesFilter(

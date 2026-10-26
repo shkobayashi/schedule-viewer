@@ -8,8 +8,9 @@ import {
 } from "../model/dates";
 import {
   brokenLinkTaskIds,
+  brokenLinkTaskIdsFromTasks,
   dropPredecessorLink,
-  lineageTaskIds,
+  lineageTaskIdsFromTasks,
   tryAddPredecessorLink,
 } from "../model/dependencies";
 import {
@@ -23,6 +24,7 @@ import {
 } from "../model/history";
 import {
   cloneOutlineRoot,
+  collectTasksFromDocument,
   findTaskInDocument,
   hierarchyLayoutContext,
   levelBannerText,
@@ -39,11 +41,16 @@ import {
   insertTaskInOutline,
   mapAllTasksInOutline,
   moveTaskToOutlineParent,
+  addTaskTagInOutline,
+  dropPredecessorLinkInOutline,
+  outlineAfterDuplicate,
   outlineAfterTaskEdit,
   removeTaskFromOutline,
+  removeTaskTagInOutline,
   reorderTaskInOutlineParent,
   tasksInOutlineParent,
   collectOutlineIds,
+  tryAddPredecessorLinkInOutline,
 } from "../model/outlineTasks";
 import {
   appendOutlineChildBranch,
@@ -64,7 +71,7 @@ import {
 } from "../model/rows";
 import { applyTaskNote } from "../model/taskNote";
 import {
-  collectTagsInDocumentOrder,
+  collectTagsFromTasks,
   pruneSelectedTags,
 } from "../model/taskTags";
 import {
@@ -160,6 +167,7 @@ import {
 } from "../model/assigneeDisplay";
 import {
   applyBulkTaskEdit,
+  applyBulkTaskEditOutline,
   type BulkTaskDraft,
 } from "../model/bulkTaskEdit";
 import {
@@ -399,7 +407,7 @@ export function useSchedule(
 
   const pruneUiForDocument = useCallback((snapshot: DocumentSnapshot) => {
     setTaskSelection((current) =>
-      pruneTaskSelection(snapshot.categories, current),
+      pruneTaskSelection(snapshot.categories, snapshot.outline, current),
     );
     setDuplicatingTaskId((current) =>
       current != null &&
@@ -415,7 +423,16 @@ export function useSchedule(
     );
     setLineageTaskId((current) => {
       if (current == null) return null;
-      return lineageTaskIds(snapshot.categories, current) ? current : null;
+      const tasks = collectTasksFromDocument({
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title: snapshot.title,
+        categories: snapshot.categories,
+        milestoneGroups: snapshot.milestoneGroups,
+        milestones: snapshot.milestones,
+        levels: snapshot.levels,
+        outline: snapshot.outline,
+      });
+      return lineageTaskIdsFromTasks(tasks, current) ? current : null;
     });
     setEditingMilestoneId((current) =>
       current != null &&
@@ -632,13 +649,27 @@ export function useSchedule(
     [milestones],
   );
 
-  const lineageIds = useMemo(
-    () =>
-      lineageTaskId == null
-        ? null
-        : lineageTaskIds(categories, lineageTaskId),
-    [categories, lineageTaskId],
-  );
+  const lineageIds = useMemo(() => {
+    if (lineageTaskId == null) return null;
+    const tasks = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title,
+      categories,
+      milestoneGroups,
+      milestones,
+      levels,
+      outline,
+    });
+    return lineageTaskIdsFromTasks(tasks, lineageTaskId);
+  }, [
+    categories,
+    lineageTaskId,
+    levels,
+    milestoneGroups,
+    milestones,
+    outline,
+    title,
+  ]);
 
   const baseVisibleRows = useMemo(
     () =>
@@ -996,10 +1027,18 @@ export function useSchedule(
     setFilters((prev) => ({ ...prev, milestone: "all" }));
   }, [filters.milestone, knownMilestoneIds]);
 
-  const scheduleTags = useMemo(
-    () => collectTagsInDocumentOrder(categories),
-    [categories],
-  );
+  const scheduleTags = useMemo(() => {
+    const tasks = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title,
+      categories,
+      milestoneGroups,
+      milestones,
+      levels,
+      outline,
+    });
+    return collectTagsFromTasks(tasks);
+  }, [categories, levels, milestoneGroups, milestones, outline, title]);
   useEffect(() => {
     const pruned = pruneSelectedTags(filters.tags, scheduleTags);
     if (
@@ -1715,9 +1754,22 @@ export function useSchedule(
 
   const applyBulkTaskDraft = useCallback(
     (taskIds: readonly ScheduleId[], draft: BulkTaskDraft): string | null => {
+      const current = documentRef.current;
+      if (usesOutlineStorage && current.outline != null) {
+        const result = applyBulkTaskEditOutline(
+          current.outline,
+          current.milestones,
+          title,
+          taskIds,
+          draft,
+        );
+        if (!result.ok) return result.message;
+        commitDocument((doc) => ({ ...doc, outline: result.outline }));
+        return null;
+      }
       const result = applyBulkTaskEdit(
-        documentRef.current.categories,
-        documentRef.current.milestones,
+        current.categories,
+        current.milestones,
         title,
         taskIds,
         draft,
@@ -1726,11 +1778,22 @@ export function useSchedule(
       commitCategories(() => result.categories);
       return null;
     },
-    [commitCategories, title],
+    [commitCategories, commitDocument, title, usesOutlineStorage],
   );
 
   const appendTaskTag = useCallback(
     (taskId: ScheduleId, rawTag: string): string | null => {
+      const current = documentRef.current;
+      if (usesOutlineStorage && current.outline != null) {
+        let duplicate = false;
+        commitDocument((doc) => {
+          const result = addTaskTagInOutline(doc.outline ?? [], taskId, rawTag);
+          duplicate = result.duplicate;
+          return { ...doc, outline: result.outline };
+        });
+        if (duplicate) return "このタスクには、同じタグが付いています。";
+        return null;
+      }
       let duplicate = false;
       commitCategories((prev) => {
         const result = addTaskTag(prev, taskId, rawTag);
@@ -1740,14 +1803,22 @@ export function useSchedule(
       if (duplicate) return "このタスクには、同じタグが付いています。";
       return null;
     },
-    [commitCategories],
+    [commitCategories, commitDocument, usesOutlineStorage],
   );
 
   const dropTaskTag = useCallback(
     (taskId: ScheduleId, tag: string) => {
+      const current = documentRef.current;
+      if (usesOutlineStorage && current.outline != null) {
+        commitDocument((doc) => ({
+          ...doc,
+          outline: removeTaskTagInOutline(doc.outline ?? [], taskId, tag),
+        }));
+        return;
+      }
       commitCategories((prev) => removeTaskTag(prev, taskId, tag));
     },
-    [commitCategories],
+    [commitCategories, commitDocument, usesOutlineStorage],
   );
 
   const addMilestone = useCallback(
@@ -1935,13 +2006,64 @@ export function useSchedule(
       });
       if (fieldError) return { ok: false, error: fieldError };
       const current = documentRef.current;
-      const id = uniqueScheduleId(
-        collectScheduleIds(
-          current.categories,
-          current.milestoneGroups,
-          current.milestones,
-        ),
+      const taken = collectScheduleIds(
+        current.categories,
+        current.milestoneGroups,
+        current.milestones,
       );
+      if (current.outline != null) {
+        for (const outlineId of collectOutlineIds(current.outline)) {
+          taken.add(outlineId);
+        }
+      }
+      const id = uniqueScheduleId(taken);
+      if (
+        usesOutlineStorage &&
+        current.outline != null &&
+        current.levels != null
+      ) {
+        const result = outlineAfterDuplicate(
+          current.outline,
+          current.milestones,
+          title,
+          duplicatingTaskId,
+          id,
+          { ...patch, progress: roundedProgress },
+          current.levels.length,
+        );
+        if (!result.ok) return { ok: false, error: result.message };
+        const saved = findTaskInDocument(
+          current.categories,
+          result.outline,
+          id,
+        );
+        commitDocument((doc) => ({ ...doc, outline: result.outline }));
+        if (saved) {
+          const tasks = collectTasksFromDocument({
+            schemaVersion: SCHEDULE_SCHEMA_VERSION,
+            title,
+            categories: current.categories,
+            milestoneGroups: current.milestoneGroups,
+            milestones: current.milestones,
+            levels: current.levels,
+            outline: result.outline,
+          });
+          setFilters((prev) =>
+            relaxFiltersForNewTask(
+              prev,
+              saved,
+              today,
+              memberMap,
+              brokenLinkTaskIdsFromTasks(tasks),
+              statuses,
+            ),
+          );
+        }
+        setLineageTaskId(null);
+        setTaskSelection(singleTaskSelection(id));
+        setDuplicatingTaskId(null);
+        return { ok: true, id };
+      }
       const result = categoriesAfterDuplicate(
         current.categories,
         current.milestones,
@@ -1979,13 +2101,35 @@ export function useSchedule(
       setDuplicatingTaskId(null);
       return { ok: true, id };
     },
-    [commitCategories, duplicatingTaskId, memberMap, statuses, title, today],
+    [
+      commitCategories,
+      commitDocument,
+      duplicatingTaskId,
+      memberMap,
+      statuses,
+      title,
+      today,
+      usesOutlineStorage,
+    ],
   );
 
   const addPredecessorLink = useCallback(
     (predecessorId: ScheduleId, successorId: ScheduleId): string | null => {
+      const current = documentRef.current;
+      if (usesOutlineStorage && current.outline != null) {
+        const result = tryAddPredecessorLinkInOutline(
+          current.outline,
+          current.milestones,
+          title,
+          predecessorId,
+          successorId,
+        );
+        if (!result.ok) return result.message;
+        commitDocument((doc) => ({ ...doc, outline: result.outline }));
+        return null;
+      }
       const result = tryAddPredecessorLink(
-        documentRef.current.categories,
+        current.categories,
         predecessorId,
         successorId,
       );
@@ -1993,16 +2137,28 @@ export function useSchedule(
       commitCategories(() => result.categories);
       return null;
     },
-    [commitCategories],
+    [commitCategories, commitDocument, title, usesOutlineStorage],
   );
 
   const removePredecessorLink = useCallback(
     (predecessorId: ScheduleId, successorId: ScheduleId) => {
+      const current = documentRef.current;
+      if (usesOutlineStorage && current.outline != null) {
+        commitDocument((doc) => ({
+          ...doc,
+          outline: dropPredecessorLinkInOutline(
+            doc.outline ?? [],
+            predecessorId,
+            successorId,
+          ),
+        }));
+        return;
+      }
       commitCategories((prev) =>
         dropPredecessorLink(prev, predecessorId, successorId),
       );
     },
-    [commitCategories],
+    [commitCategories, commitDocument, usesOutlineStorage],
   );
 
   const deleteTask = useCallback(
@@ -2132,7 +2288,11 @@ export function useSchedule(
       setLevels(pushed.applied.levels);
       setOutline(pushed.applied.outline);
       setTaskSelection((current) =>
-        pruneTaskSelection(pushed.applied!.categories, current),
+        pruneTaskSelection(
+          pushed.applied!.categories,
+          pushed.applied!.outline,
+          current,
+        ),
       );
       setDuplicatingTaskId(null);
       setEditingNoteTaskId(null);
@@ -2236,17 +2396,17 @@ export function useSchedule(
 
   const duplicatingTask = useMemo(
     () => findTaskInDocument(categories, outline, duplicatingTaskId),
-    [categories, duplicatingTaskId],
+    [categories, duplicatingTaskId, outline],
   );
 
   const editingNoteTask = useMemo(
     () => findTaskInDocument(categories, outline, editingNoteTaskId),
-    [categories, editingNoteTaskId],
+    [categories, editingNoteTaskId, outline],
   );
 
   const lineageTask = useMemo(
     () => findTaskInDocument(categories, outline, lineageTaskId),
-    [categories, lineageTaskId],
+    [categories, lineageTaskId, outline],
   );
 
   const prunedHiddenMilestoneGroupIds = useMemo(

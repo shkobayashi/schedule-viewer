@@ -72,6 +72,20 @@ export function filterTagsByQuery(
   return tagsInDocumentOrder.filter((tag) => tag.includes(needle));
 }
 
+/** タスク列を前から見て、タグの初出順で一覧する。 */
+export function collectTagsFromTasks(tasks: readonly Task[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const task of tasks) {
+    for (const tag of task.tags ?? []) {
+      if (seen.has(tag)) continue;
+      seen.add(tag);
+      out.push(tag);
+    }
+  }
+  return out;
+}
+
 /** 文書を前から見て、タグの初出順で一覧する。 */
 export function collectTagsInDocumentOrder(categories: Category[]): string[] {
   const seen = new Set<string>();

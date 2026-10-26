@@ -121,7 +121,7 @@ description: >-
 29. Windows API を `windows-sys` で呼ぶときは、`Cargo.toml` に書いた版のクレートで、その関数があるモジュールと feature を見てから使う。別の版にあるモジュール名だけで feature を足さない。`#[cfg(windows)]` の中は macOS の Clippy ではコンパイルされない。unsafe な関数は unsafe ブロックで呼び、Windows の `cargo clippy -- -D warnings` が通る形にする
 30. Tauri コマンドを足したら、`src-tauri/permissions/*.toml` に許可を足し、`src-tauri/capabilities/default.json` の一覧へ入れる。`cargo check` は通っても、足さないと画面からの呼び出しが実行時に拒否される。MCP のツール説明が書くスキーマ版（`mcp_stdio.rs`）も、スキーマ版を上げたときに揃える
 31. ステータス編集の覆いで、共有の設定 revision や取り込み通知から一覧を読み直すときは、保存済みの項目と読んだ項目が違うときだけ下書きを捨てる。下書きを捨てる確認のあと、一覧の切り替えや新しい一覧の作成が失敗したときは、下書きありのままにする
-32. タスクが `categories` 以外の入れ子（`outline` など）にもあるとき、全タスクの日付を見る関数はそちらも読む。`collectTasksFromDocument` を使うか、同じ集合を歩く。テストは、`categories` が空でも期間がタスクに合う入力にする
+32. タスクが `categories` 以外の入れ子（`outline` など）にもあるとき、画面に見えているタスクと同じ集合を、詳細と複製、前後の追加と削除、系統、件数、カタログ不一致、タグ、一括編集、選択の prune、MCP の `filtered_tasks`・`selected_task`・`selected_tasks` でも読む。`collectTasksFromDocument`、`findTaskInDocument`、`taskHierarchyLabels` を使うか、同じ集合を歩く。テストは、`categories` が空の `outline` 文書を入力にする
 
 ## 文書
 

@@ -6,6 +6,7 @@ import {
 } from "./scheduleSemantics";
 import { formatValidationErrors } from "./validateSchedule";
 import { applyTaskNote } from "./taskNote";
+import { applyTaskTags } from "./taskTags";
 import type {
   Milestone,
   OutlineBranch,
@@ -423,4 +424,142 @@ export function moveTaskToOutlineParent(
     insertIndex,
     levelCount,
   );
+}
+
+export function insertTaskAfterInOutline(
+  outline: OutlineRoot,
+  task: Task,
+  afterId: ScheduleId,
+  levelCount: number,
+): OutlineRoot | null {
+  const owner = findOutlineTaskOwner(outline, afterId, levelCount);
+  if (owner == null) return null;
+  const siblings = tasksInOutlineParent(outline, owner.parentBranchId, levelCount);
+  const index = siblings.findIndex((item) => item.id === afterId);
+  if (index < 0) return null;
+  const nextSiblings = siblings.map((item) => ({
+    ...item,
+    predecessors: [...item.predecessors],
+  }));
+  nextSiblings.splice(index + 1, 0, {
+    ...task,
+    predecessors: [...task.predecessors],
+  });
+  return replaceTasksInParent(
+    cloneOutlineRoot(outline),
+    owner.parentBranchId,
+    nextSiblings,
+    levelCount,
+  );
+}
+
+export function outlineAfterDuplicate(
+  outline: OutlineRoot,
+  milestones: Milestone[],
+  title: string,
+  sourceId: ScheduleId,
+  newId: ScheduleId,
+  patch: TaskEditPatch,
+  levelCount: number,
+): OutlineTaskGraphResult {
+  const source = findTaskInOutline(outline, sourceId);
+  if (source == null) {
+    return { ok: false, message: "複製元のタスクがありません。" };
+  }
+  const inserted = insertTaskAfterInOutline(
+    outline,
+    {
+      id: newId,
+      name: patch.name.trim(),
+      start: patch.start,
+      end: patch.end,
+      assigneeId: patch.assigneeId,
+      status: patch.status,
+      progress: patch.progress,
+      confidence: patch.confidence,
+      predecessors: [],
+      milestoneId: null,
+      ...(source.tags ? { tags: [...source.tags] } : {}),
+    },
+    sourceId,
+    levelCount,
+  );
+  if (inserted == null) {
+    return { ok: false, message: "複製元のタスクがありません。" };
+  }
+  return outlineAfterTaskEdit(inserted, milestones, title, newId, patch);
+}
+
+export type OutlinePredecessorLinkResult =
+  | { ok: true; outline: OutlineRoot }
+  | { ok: false; message: string };
+
+export function tryAddPredecessorLinkInOutline(
+  outline: OutlineRoot,
+  milestones: Milestone[],
+  title: string,
+  predecessorId: ScheduleId,
+  successorId: ScheduleId,
+): OutlinePredecessorLinkResult {
+  if (findTaskInOutline(outline, successorId) == null) {
+    return { ok: false, message: "後続のタスクがありません。" };
+  }
+  const next = mapAllTasksInOutline(outline, (task) => {
+    if (task.id !== successorId) return task;
+    if (task.predecessors.includes(predecessorId)) return task;
+    return { ...task, predecessors: [...task.predecessors, predecessorId] };
+  });
+  const message = rejectOutlineTaskGraph(next, milestones, title);
+  if (message) return { ok: false, message };
+  return { ok: true, outline: next };
+}
+
+export function dropPredecessorLinkInOutline(
+  outline: OutlineRoot,
+  predecessorId: ScheduleId,
+  successorId: ScheduleId,
+): OutlineRoot {
+  return mapAllTasksInOutline(outline, (task) => {
+    if (task.id !== successorId) return task;
+    if (!task.predecessors.includes(predecessorId)) return task;
+    return {
+      ...task,
+      predecessors: task.predecessors.filter((id) => id !== predecessorId),
+    };
+  });
+}
+
+export function addTaskTagInOutline(
+  outline: OutlineRoot,
+  taskId: ScheduleId,
+  rawTag: string,
+): { outline: OutlineRoot; duplicate: boolean } {
+  const trimmed = rawTag.trim();
+  if (trimmed.length === 0) {
+    return { outline, duplicate: false };
+  }
+  let duplicate = false;
+  const next = mapAllTasksInOutline(outline, (task) => {
+    if (task.id !== taskId) return task;
+    const existing = task.tags ?? [];
+    if (existing.includes(trimmed)) {
+      duplicate = true;
+      return task;
+    }
+    return applyTaskTags(task, [...existing, trimmed]);
+  });
+  return { outline: next, duplicate };
+}
+
+export function removeTaskTagInOutline(
+  outline: OutlineRoot,
+  taskId: ScheduleId,
+  tag: string,
+): OutlineRoot {
+  return mapAllTasksInOutline(outline, (task) => {
+    if (task.id !== taskId) return task;
+    const existing = task.tags;
+    if (!existing?.includes(tag)) return task;
+    return applyTaskTags(task, existing.filter((item) => item !== tag));
+  });
 }

@@ -1,3 +1,4 @@
+import type { TaskRef } from "./dependencies";
 import {
   SCHEDULE_SCHEMA_VERSION,
   type Category,
@@ -16,9 +17,6 @@ export type { HierarchyRowKind, OutlineBranch, OutlineChild, OutlineRoot, Schedu
 
 export const HIERARCHY_MISMATCH_MESSAGE =
   "階層の定義と入れ子の数が違います。";
-
-export const HIERARCHY_EXPORT_UNSUPPORTED_MESSAGE =
-  "この階層はまだ書き出せません。";
 
 /** `levels` が無い文書の暗黙の3段定義（画面の見出し追加用。JSONには書かない）。 */
 export const LEGACY_THREE_LEVEL_DEFS: ScheduleLevelDef[] = [
@@ -188,6 +186,19 @@ export function addTopLevelMenuLabel(
 }
 
 /** 全タスクを文書から集める。 */
+/** MCP と詳細の先行候補用。階層ラベルは `taskHierarchyLabels` に合わせる。 */
+export function listTaskRefsFromDocument(doc: ScheduleDocument): TaskRef[] {
+  return collectTasksFromDocument(doc).map((task) => {
+    const labels = taskHierarchyLabels(doc, task.id);
+    return {
+      id: task.id,
+      name: task.name,
+      category: labels.category,
+      group: labels.group,
+    };
+  });
+}
+
 export function collectTasksFromDocument(doc: ScheduleDocument): Task[] {
   const tasks: Task[] = [];
   if (documentUsesOutlineStorage(doc) && doc.outline != null) {
@@ -325,11 +336,6 @@ export function categoriesForEditing(doc: ScheduleDocument): Category[] {
     return outlineToCategories(doc.outline);
   }
   return [];
-}
-
-export function canExportWithLegacyPipeline(doc: ScheduleDocument): boolean {
-  const ctx = hierarchyLayoutContext(doc);
-  return ctx.useLegacyCategoryRows && ctx.aligned;
 }
 
 export function tasksUnderOutlineBranch(branch: OutlineBranch): Task[] {

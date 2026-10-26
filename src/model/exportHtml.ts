@@ -147,6 +147,35 @@ type ChartGraphic = {
   svgHeight: number;
 };
 
+export function exportHierarchyHeadingIndent(
+  row: Extract<VisibleRow, { type: "hierarchy" }>,
+): number {
+  return row.rowKind === "top" || row.alsoTaskParent ? 0 : row.depth;
+}
+
+export function exportHierarchyHeadingKind(
+  row: Extract<VisibleRow, { type: "hierarchy" }>,
+): "category" | "group" {
+  return row.rowKind === "top" || row.alsoTaskParent ? "category" : "group";
+}
+
+/** チャート本体の行の地。タスク行は null。 */
+export function exportChartRowFill(
+  row: VisibleRow,
+  chart: ReturnType<typeof paletteFor>["chart"],
+  pageBg: string,
+): string | null {
+  if (row.type === "task") return null;
+  if (row.type === "category") return chart.categoryRow;
+  if (row.type === "group") return chart.groupRow;
+  if (row.type === "hierarchy") {
+    if (row.rowKind === "top" || row.alsoTaskParent) return chart.categoryRow;
+    if (row.rowKind === "taskParent") return chart.groupRow;
+    return pageBg;
+  }
+  return null;
+}
+
 function buildChartGraphic(input: ScheduleExportInput): ChartGraphic {
   assertExportFits(input);
   const chartWidth = Math.max(input.pxPerDay, input.totalDays * input.pxPerDay);
@@ -188,7 +217,7 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
   const chart = buildChartGraphic(input);
   const { css: c, chart: chartPalette } = palettes(input);
   const labelGuideRailEnd = exportLabelRowBorderStartPx(input.labelScale);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${n(chart.chartWidth)}" height="${n(chart.svgHeight)}" font-family="${FONT}">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${n(chart.chartWidth)}" height="${n(chart.svgHeight)}" font-family="${SVG_FONT_FAMILY}">
   ${chart.inner}
 </svg>`;
   const meta = esc(scopeSentence(input));
@@ -263,7 +292,7 @@ export function buildScheduleSvg(input: ScheduleExportInput): string {
         text(pad, metaY + index * (metaSize + 4), line, metaSize, c.textSecondary, false),
     )
     .join("\n  ");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${n(width)}" height="${n(height)}" font-family="${FONT}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${n(width)}" height="${n(height)}" font-family="${SVG_FONT_FAMILY}">
   <rect width="100%" height="100%" fill="${chart.exportBg}"/>
   ${text(pad, titleY, input.title, titleSize, chart.textPrimary, true)}
   ${metaTexts}
@@ -492,9 +521,13 @@ function renderSvgLabelRow(
           ? c.bg
           : chart.groupRow;
     const color =
-      row.type === "category" || (row.type === "hierarchy" && row.rowKind === "top")
+      row.type === "category" ||
+      (row.type === "hierarchy" &&
+        (row.rowKind === "top" || row.alsoTaskParent))
         ? chart.textPrimary
-        : c.groupText;
+        : row.type === "hierarchy" && row.rowKind === "middle"
+          ? chart.textPrimary
+          : c.groupText;
     const size = 12 * scale;
     const mark = row.collapsed ? "▶" : "▼";
     return [
@@ -812,12 +845,12 @@ function renderBody(
   bodyTop: number,
   dateToX: (d: Date) => number,
 ): string {
-  const { chart } = palettes(input);
+  const { chart, css: c } = palettes(input);
   const marks: string[] = [];
   for (const row of input.visibleRows) {
-    if (row.type === "task") continue;
+    const fill = exportChartRowFill(row, chart, c.bg);
+    if (fill == null) continue;
     const y = bodyTop + row.y;
-    const fill = row.type === "category" ? chart.categoryRow : chart.groupRow;
     marks.push(
       `<rect x="0" y="${n(y)}" width="${n(chartWidth)}" height="${n(input.rowHeight)}" fill="${fill}"/>`,
     );
@@ -1020,11 +1053,11 @@ function renderTaskBar(
         : null;
   if (labelInside) {
     parts.push(
-      `<text x="${n(x + 6)}" y="${n(barY + input.barHeight / 2 + fontSize * 0.35)}" font-family="${FONT}" font-size="${n(fontSize)}" fill="${labelFill}">${escapeXmlText(labelInside)}</text>`,
+      `<text x="${n(x + 6)}" y="${n(barY + input.barHeight / 2 + fontSize * 0.35)}" font-family="${SVG_FONT_FAMILY}" font-size="${n(fontSize)}" fill="${labelFill}">${escapeXmlText(labelInside)}</text>`,
     );
   } else if (labelOutside) {
     parts.push(
-      `<text x="${n(x + w + 4)}" y="${n(barY + input.barHeight / 2 + fontSize * 0.35)}" font-family="${FONT}" font-size="${n(fontSize)}" fill="${chart.textSecondary}">${escapeXmlText(labelOutside)}</text>`,
+      `<text x="${n(x + w + 4)}" y="${n(barY + input.barHeight / 2 + fontSize * 0.35)}" font-family="${SVG_FONT_FAMILY}" font-size="${n(fontSize)}" fill="${chart.textSecondary}">${escapeXmlText(labelOutside)}</text>`,
     );
   }
   const exceeded = milestonesExceededBy(task, input.milestones);
@@ -1129,3 +1162,6 @@ function esc(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+/** SVG 属性の font-family。CSS の FONT と同じ並びで、引用符は XML 用に逃がす。 */
+const SVG_FONT_FAMILY = esc(FONT);

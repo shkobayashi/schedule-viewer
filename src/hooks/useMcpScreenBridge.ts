@@ -35,9 +35,11 @@ import type {
   Category,
   Milestone,
   MilestoneGroup,
+  OutlineRoot,
   ScheduleDocument,
   ScheduleFilters,
   ScheduleId,
+  ScheduleLevelDef,
 } from "../model/types";
 
 type McpScreenRequest = {
@@ -49,6 +51,8 @@ type McpScreenRequest = {
 
 type UseMcpScreenBridgeInput = {
   categories: Category[];
+  outline?: OutlineRoot | undefined;
+  title: string;
   milestones: Milestone[];
   milestoneGroups: MilestoneGroup[];
   filters: ScheduleFilters;
@@ -60,7 +64,7 @@ type UseMcpScreenBridgeInput = {
   today: string;
   memberMap: Map<MemberId, Member> | null;
   statuses: readonly StatusItem[];
-  levels?: import("../model/types").ScheduleLevelDef[] | null;
+  levels?: ScheduleLevelDef[] | null;
   scheduleFilePath: string | null;
   scheduleCurrentJson: string;
   scheduleBaselineJson: string;
@@ -214,6 +218,10 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         case MCP_TOOL_SELECTED_TASK: {
           toolPayload = buildSelectedTaskPayload({
             categories: snap.categories,
+            outline: snap.outline,
+            title: snap.title,
+            milestoneGroups: snap.milestoneGroups,
+            milestones: snap.milestones,
             filters: snap.filters,
             today: snap.today,
             memberCatalog: snap.memberMap,
@@ -227,6 +235,10 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         case MCP_TOOL_SELECTED_TASKS: {
           toolPayload = buildSelectedTasksPayload({
             categories: snap.categories,
+            outline: snap.outline,
+            title: snap.title,
+            milestoneGroups: snap.milestoneGroups,
+            milestones: snap.milestones,
             selectedTaskIds: snap.selectedTaskIds,
             statuses: snap.statuses,
             levels: snap.levels,
@@ -249,6 +261,8 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         case MCP_TOOL_FILTERED_TASKS: {
           toolPayload = buildFilteredTasksPayload({
             categories: snap.categories,
+            outline: snap.outline,
+            title: snap.title,
             filters: snap.filters,
             lineageTaskId: snap.lineageTaskId,
             hiddenMilestoneGroupIds: snap.hiddenMilestoneGroupIds,
