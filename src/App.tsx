@@ -364,7 +364,6 @@ function App() {
   const [focusTaskId, setFocusTaskId] = useState<ScheduleId | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
-  const [pendingFit, setPendingFit] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [linkSourceId, setLinkSourceId] = useState<ScheduleId | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -813,7 +812,8 @@ function App() {
       return Math.max(0, contentHeight - body);
     },
     schedule.today,
-    `${timelineEpoch}:${schedule.diskEpoch}`,
+    timelineEpoch,
+    schedule.diskEpoch,
     extraDaysForPxPerDay,
   );
 
@@ -877,15 +877,8 @@ function App() {
   );
 
   const onAfterOpenFile = useCallback(() => {
-    setPendingFit(true);
     setTimelineEpoch((epoch) => epoch + 1);
   }, []);
-
-  useEffect(() => {
-    if (!pendingFit) return;
-    fitToWidth();
-    setPendingFit(false);
-  }, [fitToWidth, pendingFit, range.totalDays]);
 
   const flushTitleEdit = useCallback(() => {
     titleEditHandleRef.current?.commitIfEditing();
