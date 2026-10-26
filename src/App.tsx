@@ -780,8 +780,9 @@ function App() {
         schedule.categories,
         schedule.milestones,
         schedule.today,
+        schedule.outline,
       ),
-    [schedule.categories, schedule.milestones, schedule.today],
+    [schedule.categories, schedule.milestones, schedule.today, schedule.outline],
   );
 
   const monthHeaderFontSize = 12 * (headerHeight / LAYOUT_HEADER_HEIGHT);

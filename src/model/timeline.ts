@@ -1,6 +1,6 @@
 import { addDays, clamp, daysBetween, parseDate, todayIso } from "./dates";
 import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "./palette";
-import { forEachTask } from "./tasks";
+import { collectTasksFromDocument } from "./hierarchy";
 import {
   BUILTIN_STATUS_ITEMS,
   labelColorOn,
@@ -9,7 +9,7 @@ import {
   type StatusItem,
   type StatusRole,
 } from "./statusCatalog";
-import type { Category, Milestone } from "./types";
+import type { Category, Milestone, OutlineRoot } from "./types";
 
 export {
   LAYOUT_BAR_HEIGHT,
@@ -63,6 +63,7 @@ export function computeTimelineRange(
   categories: Category[],
   milestones: Milestone[] = [],
   today = todayIso(),
+  outline?: OutlineRoot,
 ): {
   timelineStart: Date;
   timelineEnd: Date;
@@ -74,10 +75,17 @@ export function computeTimelineRange(
     if (!minDate || date < minDate) minDate = date;
     if (!maxDate || date > maxDate) maxDate = date;
   };
-  forEachTask(categories, (task) => {
+  for (const task of collectTasksFromDocument({
+    schemaVersion: 8,
+    title: "",
+    milestoneGroups: [],
+    milestones: [],
+    categories,
+    outline,
+  })) {
     consider(parseDate(task.start));
     consider(parseDate(task.end));
-  });
+  }
   for (const milestone of milestones) {
     consider(parseDate(milestone.date));
   }

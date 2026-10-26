@@ -25,6 +25,14 @@ import {
 import { resolveAssigneeDisplay, assigneeSidebarLabel } from "./assigneeDisplay";
 import { hasTaskNote, normalizeTaskNote } from "./taskNote";
 import type { Member, MemberId } from "./memberTypes";
+import {
+  HIERARCHY_GUIDE_RAIL_WIDTH_PX,
+  exportLabelRowBorderStartPx,
+  hierarchyGuideNameStartPx,
+  hierarchyGuideSpecsForRows,
+  renderHierarchyGuideSvg,
+  type HierarchyGuideSpec,
+} from "./hierarchyGuide";
 import type { Milestone, ScheduleId, Task, VisibleRow } from "./types";
 import type { CalendarDocument } from "./calendarTypes";
 import { hatchPatternId, hatchPatternMarkup } from "./hatch";
@@ -179,6 +187,7 @@ function scopeSentence(input: ScheduleExportInput): string {
 export function buildScheduleHtml(input: ScheduleExportInput): string {
   const chart = buildChartGraphic(input);
   const { css: c, chart: chartPalette } = palettes(input);
+  const labelGuideRailEnd = exportLabelRowBorderStartPx(input.labelScale);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${n(chart.chartWidth)}" height="${n(chart.svgHeight)}" font-family="${FONT}">
   ${chart.inner}
 </svg>`;
@@ -195,13 +204,16 @@ export function buildScheduleHtml(input: ScheduleExportInput): string {
   .meta { color: ${c.textSecondary}; font-size: 12px; margin: 0 0 12px; }
   .sheet { display: flex; align-items: flex-start; border: 1px solid ${c.border}; width: max-content; }
   .labels { flex: 0 0 auto; background: ${c.bg}; }
-  .label { box-sizing: border-box; display: flex; align-items: center; white-space: nowrap; border-bottom: 1px solid ${c.rowBorder}; }
-  .label.header { color: ${c.textSecondary}; font-weight: 600; background: ${c.panel}; border-bottom-color: ${c.border}; padding: 0 ${px(12, input.labelScale)}; font-size: ${px(11, input.labelScale)}; }
-  .label.milestones { background: ${c.milestoneSidebar}; color: ${c.milestoneSidebarText}; font-weight: 700; border-bottom-color: ${c.border}; padding: 0 ${px(12, input.labelScale)}; font-size: ${px(11, input.labelScale)}; }
-  .label.category { background: ${c.panel}; font-weight: 600; padding-left: ${px(6, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
-  .label.group { background: ${c.groupBg}; font-weight: 600; color: ${c.groupText}; padding-left: ${px(22, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
-  .label.task { padding-left: ${px(26, input.labelScale)}; font-size: ${px(12, input.labelScale)}; }
-  .note-icon { flex: 0 0 auto; display: inline-flex; margin-right: ${px(4, input.labelScale)}; line-height: 0; }
+  .label { box-sizing: border-box; display: flex; align-items: center; white-space: nowrap; }
+  .label.header { color: ${c.textSecondary}; font-weight: 600; background: ${c.panel}; border-bottom: 1px solid ${c.border}; padding: 0 ${px(12, input.labelScale)}; font-size: ${px(11, input.labelScale)}; }
+  .label.milestones { background: ${c.milestoneSidebar}; color: ${c.milestoneSidebarText}; font-weight: 700; border-bottom: 1px solid ${c.border}; padding: 0 ${px(12, input.labelScale)}; font-size: ${px(11, input.labelScale)}; }
+  .label.category, .label.group, .label.hierarchy-middle, .label.task { position: relative; font-size: ${px(12, input.labelScale)}; }
+  .label.category { background: ${c.panel}; font-weight: 600; }
+  .label.group { background: ${c.groupBg}; font-weight: 600; color: ${c.groupText}; }
+  .label.hierarchy-middle { font-weight: 600; }
+  .label.category::after, .label.group::after, .label.hierarchy-middle::after, .label.task::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none; background: linear-gradient(to right, transparent 0, transparent ${n(labelGuideRailEnd)}px, ${c.rowBorder} ${n(labelGuideRailEnd)}px, ${c.rowBorder} 100%); }
+  .label-guide { flex: 0 0 auto; display: block; margin-right: ${px(2, input.labelScale)}; }
+  .note-icon { flex: 0 0 auto; display: inline-flex; width: ${px(24, input.labelScale)}; justify-content: center; margin-right: ${px(4, input.labelScale)}; line-height: 0; }
   .note-icon svg { display: block; }
   .label.task.unassigned { box-shadow: inset 3px 0 0 ${c.unassignedAccent}; }
   .twist { width: ${px(16, input.labelScale)}; margin-right: ${px(4, input.labelScale)}; color: ${c.twist}; font-size: ${px(9, input.labelScale)}; }
@@ -340,19 +352,16 @@ function svgLabelWidth(input: ScheduleExportInput): number {
   if (input.milestoneBandHeight > 0) {
     width = Math.max(width, estimateTextWidth("マイルストン", 11 * scale) + 24 * scale);
   }
+  const nameStart = hierarchyGuideNameStartPx(scale);
   for (const row of input.visibleRows) {
     if (
       row.type === "category" ||
       row.type === "group" ||
       row.type === "hierarchy"
     ) {
-      const indent =
-        row.type === "category" || (row.type === "hierarchy" && row.rowKind === "top")
-          ? 6
-          : 22;
       width = Math.max(
         width,
-        indent * scale + 20 * scale + estimateTextWidth(row.label, 12 * scale) + 12 * scale,
+        nameStart + estimateTextWidth(row.label, 12 * scale) + 12 * scale,
       );
       continue;
     }
@@ -375,8 +384,7 @@ function svgLabelWidth(input: ScheduleExportInput): number {
     }
     width = Math.max(
       width,
-      26 * scale +
-        18 * scale +
+      nameStart +
         estimateTextWidth(row.task.name, 12 * scale) +
         badges +
         16 +
@@ -411,8 +419,18 @@ function renderSvgLabels(
     );
   }
   const bodyTop = input.headerHeight + input.milestoneBandHeight;
-  for (const row of input.visibleRows) {
-    marks.push(renderSvgLabelRow(row, input, labelWidth, bodyTop + row.y));
+  const guideSpecs = hierarchyGuideSpecsForRows(input.visibleRows);
+  for (let index = 0; index < input.visibleRows.length; index += 1) {
+    const row = input.visibleRows[index]!;
+    marks.push(
+      renderSvgLabelRow(
+        row,
+        input,
+        labelWidth,
+        bodyTop + row.y,
+        guideSpecs[index]!,
+      ),
+    );
   }
   return marks.join("\n    ");
 }
@@ -436,15 +454,32 @@ function renderSvgLabelBand(
   ].join("\n    ");
 }
 
+function labelRowBorderSvgLine(
+  y: number,
+  height: number,
+  labelWidth: number,
+  scale: number,
+  color: string,
+): string {
+  const x1 = exportLabelRowBorderStartPx(scale);
+  return `<line x1="${n(x1)}" y1="${n(y + height)}" x2="${n(labelWidth)}" y2="${n(y + height)}" stroke="${color}" stroke-width="1"/>`;
+}
+
 function renderSvgLabelRow(
   row: VisibleRow,
   input: ScheduleExportInput,
   labelWidth: number,
   y: number,
+  guideSpec: HierarchyGuideSpec,
 ): string {
   const { css: c, chart } = palettes(input);
   const height = input.rowHeight;
   const mid = y + height / 2;
+  const scale = input.labelScale;
+  const guideMarkup = renderHierarchyGuideSvg(guideSpec, scale, y, height, c.twist);
+  const twistX =
+    (12 + 2 + (24 - 16) / 2) * scale;
+  const nameX = hierarchyGuideNameStartPx(scale);
   if (
     row.type === "category" ||
     row.type === "group" ||
@@ -460,17 +495,14 @@ function renderSvgLabelRow(
       row.type === "category" || (row.type === "hierarchy" && row.rowKind === "top")
         ? chart.textPrimary
         : c.groupText;
-    const indent =
-      (row.type === "category" || (row.type === "hierarchy" && row.rowKind === "top")
-        ? 6
-        : 22) * input.labelScale;
-    const size = 12 * input.labelScale;
+    const size = 12 * scale;
     const mark = row.collapsed ? "▶" : "▼";
     return [
       `<rect x="0" y="${n(y)}" width="${n(labelWidth)}" height="${n(height)}" fill="${fill}"/>`,
-      text(indent, mid - size / 2, mark, 9 * input.labelScale, c.twist, false),
-      text(indent + 20 * input.labelScale, mid - size / 2, row.label, size, color, true),
-      `<line x1="0" y1="${n(y + height)}" x2="${n(labelWidth)}" y2="${n(y + height)}" stroke="${chart.rowBorder}" stroke-width="1"/>`,
+      guideMarkup,
+      text(twistX, mid - size / 2, mark, 9 * scale, c.twist, false),
+      text(nameX, mid - size / 2, row.label, size, color, true),
+      labelRowBorderSvgLine(y, height, labelWidth, scale, chart.rowBorder),
     ].join("\n    ");
   }
   if (row.type !== "task") return "";
@@ -479,10 +511,12 @@ function renderSvgLabelRow(
   const unknownMember = assigneeDisplay.kind === "unknown";
   const overdue = isOverdue(row.task, input.today, input.statuses);
   const exceeded = milestonesExceededBy(row.task, input.milestones);
-  const nameSize = 12 * input.labelScale;
-  let x = 26 * input.labelScale;
+  const nameSize = 12 * scale;
+  const iconX = (12 + 2) * scale;
+  let x = nameX;
   const parts = [
     `<rect x="0" y="${n(y)}" width="${n(labelWidth)}" height="${n(height)}" fill="${c.bg}"/>`,
+    guideMarkup,
   ];
   if (unassigned) {
     parts.push(
@@ -498,9 +532,8 @@ function renderSvgLabelRow(
   const iconColor = hasTaskNote(row.task) ? c.accent : c.noteEmpty;
   const title = note ? `<title>${esc(note)}</title>` : "";
   parts.push(
-    `<g transform="translate(${n(x)},${n(mid - iconSize / 2)}) scale(${n(iconSize / 16)})">${title}<path fill="${iconColor}" d="M3 1.5h7l3.5 3.5V13.5A1.5 1.5 0 0 1 12 15H3A1.5 1.5 0 0 1 1.5 13.5v-11A1.5 1.5 0 0 1 3 1.5zm6.5 0V5H13L9.5 1.5zM4 7.25h8v1H4v-1zm0 2.5h8v1H4v-1zm0 2.5h5v1H4v-1z"/></g>`,
+    `<g transform="translate(${n(iconX + (24 * scale - iconSize) / 2)},${n(mid - iconSize / 2)}) scale(${n(iconSize / 16)})">${title}<path fill="${iconColor}" d="M3 1.5h7l3.5 3.5V13.5A1.5 1.5 0 0 1 12 15H3A1.5 1.5 0 0 1 1.5 13.5v-11A1.5 1.5 0 0 1 3 1.5zm6.5 0V5H13L9.5 1.5zM4 7.25h8v1H4v-1zm0 2.5h8v1H4v-1zm0 2.5h5v1H4v-1z"/></g>`,
   );
-  x += iconSize + 4 * input.labelScale;
   parts.push(
     text(
       x,
@@ -546,9 +579,7 @@ function renderSvgLabelRow(
   } else {
     parts.push(text(x, mid - assigneeSize / 2, assignee, assigneeSize, c.textSecondary, false));
   }
-  parts.push(
-    `<line x1="0" y1="${n(y + height)}" x2="${n(labelWidth)}" y2="${n(y + height)}" stroke="${chart.rowBorder}" stroke-width="1"/>`,
-  );
+  parts.push(labelRowBorderSvgLine(y, height, labelWidth, scale, chart.rowBorder));
   return parts.join("\n    ");
 }
 
@@ -561,14 +592,33 @@ function renderLabels(input: ScheduleExportInput): string {
       `<div class="label milestones" style="height:${block.height}px">${esc(block.group.name)}</div>`,
     );
   }
-  for (const row of input.visibleRows) {
-    rows.push(renderLabelRow(row, input));
+  const guideSpecs = hierarchyGuideSpecsForRows(input.visibleRows);
+  for (let index = 0; index < input.visibleRows.length; index += 1) {
+    rows.push(renderLabelRow(input.visibleRows[index]!, input, guideSpecs[index]!));
   }
   return rows.join("\n        ");
 }
 
-function renderLabelRow(row: VisibleRow, input: ScheduleExportInput): string {
+function renderLabelGuideSvg(
+  spec: HierarchyGuideSpec,
+  input: ScheduleExportInput,
+  color: string,
+): string {
+  const scale = input.labelScale;
+  const height = input.rowHeight;
+  const width = HIERARCHY_GUIDE_RAIL_WIDTH_PX * scale;
+  const inner = renderHierarchyGuideSvg(spec, scale, 0, height, color);
+  return `<svg class="label-guide" width="${n(width)}" height="${n(height)}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner}</svg>`;
+}
+
+function renderLabelRow(
+  row: VisibleRow,
+  input: ScheduleExportInput,
+  guideSpec: HierarchyGuideSpec,
+): string {
   const height = `style="height:${input.rowHeight}px"`;
+  const { css: c } = palettes(input);
+  const guide = renderLabelGuideSvg(guideSpec, input, c.twist);
   if (
     row.type === "category" ||
     row.type === "group" ||
@@ -583,7 +633,7 @@ function renderLabelRow(row: VisibleRow, input: ScheduleExportInput): string {
             ? "group"
             : "hierarchy-middle"
         : row.type;
-    return `<div class="label ${className}" ${height}><span class="twist">${mark}</span>${esc(row.label)}</div>`;
+    return `<div class="label ${className}" ${height}>${guide}<span class="twist">${mark}</span>${esc(row.label)}</div>`;
   }
   if (row.type !== "task") return "";
   const assigneeDisplay = resolveAssigneeDisplay(
@@ -609,7 +659,7 @@ function renderLabelRow(row: VisibleRow, input: ScheduleExportInput): string {
       ? " unknown-member"
       : "";
   const noteIcon = renderExportNoteIcon(row.task, input.labelScale, input.colorScheme);
-  return `<div class="label task${extraClass}" ${height}>${noteIcon}<span class="name${overdue ? " overdue" : ""}">${esc(row.task.name)}</span>${tentative}${alert}<span class="assignee${extraClass}">${esc(assignee)}</span></div>`;
+  return `<div class="label task${extraClass}" ${height}>${guide}${noteIcon}<span class="name${overdue ? " overdue" : ""}">${esc(row.task.name)}</span>${tentative}${alert}<span class="assignee${extraClass}">${esc(assignee)}</span></div>`;
 }
 
 function renderExportNoteIcon(

@@ -225,8 +225,9 @@ function layoutStickyHierarchyHeaders(
   rows: readonly VisibleRow[],
   scrollY: number,
   rowHeight: number,
-  _viewportHeight: number,
+  viewportHeight: number,
 ): StickyLayout {
+  void viewportHeight;
   const levelCount = rows.reduce(
     (max, row) =>
       row.type === "hierarchy" ? Math.max(max, row.levelIndex + 1) : max,

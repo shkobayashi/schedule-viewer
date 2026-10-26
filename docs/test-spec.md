@@ -486,6 +486,8 @@
 | 同上 | `allows the same group name in another category` | EDIT-13 |
 | 同上 | `keeps the original name when the input is blank` | EDIT-13 |
 | `hierarchy.test.ts` | `keeps keys unchanged when saving without levels` など | FILE-04, VIEW-03 |
+| `hierarchyGuide.test.ts` | 5段タスクの線の本数、折りたたみ、絞り込み後の親線、ドラッグ塊の深さ0 | VIEW-01 |
+| 同上 | `validates the five-level sample schedule file` | FILE-04 |
 | `hierarchyCrud.test.ts` | `inserts a category with an empty default group` | EDIT-18 |
 | 同上 | `rejects a blank category name` | EDIT-18 |
 | 同上 | `rejects duplicate category names on add` | EDIT-18 |
@@ -611,7 +613,8 @@
 | 同上 | `zooms out from positive deltaY with meta` | NAV-01, NAV-02 |
 | 同上 | `ignores deltaX for zoom and scroll` | NAV-01, NAV-02 |
 | `chartScroll.test.ts` | `keeps scrollX when the task bar is already visible` | NAV-01, EDIT-01 |
-| `timeline.test.ts` | `keeps the origin when a later start would scroll past the left edge` | EDIT-02, NAV-01 |
+| `timeline.test.ts` | `uses outline task dates when categories are empty` | VIEW-04 |
+| 同上 | `keeps the origin when a later start would scroll past the left edge` | EDIT-02, NAV-01 |
 | 同上 | `fitViewAfterOpen` の `returns null when viewport width is zero or negative` | FILE-01, NAV-03 |
 | 同上 | `fits with zero prefix days and resets scroll positions` | FILE-01, NAV-03 |
 | 同上 | `does not include prefix days unlike fit with a positive prefix` | FILE-01, NAV-03 |
@@ -829,6 +832,7 @@
 | TC-HIER-01 | VIEW-03 | `examples/hierarchy/levels-2.schedule.json` など定義の無いファイル | 開いて保存する | 定義の無いファイルは保存後も `levels` と `outline` が付かない。2段・3段・5段のサンプルは帯の上に定義名が並び、段数どおりの行になる |
 | TC-HIER-02 | VIEW-03 | 定義と入れ子の段数が合わない JSON | 開く | 「階層の定義と入れ子の数が違います。」が出て、行の組み立ては変わらない |
 | TC-HIER-03 | VIEW-03, FILE-01 | `examples/hierarchy/levels-3.schedule.json` | ワークスペースで開く。同じ JSON を直接開く | 階層の見え方が同じである |
+| TC-HIER-04 | VIEW-01 | `examples/hierarchy/levels-5.schedule.json` と従来の3段サンプル | ブラウザ版で開く。折りたたみ、絞り込み、系統、カテゴリの並べ替えドラッグを試す | 名前の左端が行の種類にかかわらず揃う。縦線は最大4本でレール幅は段で変わらない。行の境で縦線が切れず、枝の最後の行では中央より下に線が伸びない。折りたたんだ行から下に線が続かない。絞り込みと系統で消えた枝の線が残らない。ドラッグの塊の名前は一覧と同じ列で、塊の外に線が残らない。固定見出しの線と下の行が横で揃う。ライトとダークで線が見える |
 | TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しのタイトルは JSON の `title` になる。ファイル名は状態バーとウィンドウタイトルに出る |
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01f | FILE-01 | サンプル | ☰ を開き、下、上、Home、End を押す | 最初の項目にフォーカスが移る。キーで項目を移動できる。Escape で閉じる |

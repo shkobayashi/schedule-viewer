@@ -1720,13 +1720,50 @@ button:focus-visible,
   font-weight: 600;
 }
 
-.sidebar-row.hierarchy.hierarchy-middle .sidebar-row-body,
-.sidebar-row.hierarchy.hierarchy-middle .hierarchy-indent {
-  padding-left: var(--hierarchy-indent, calc(22px * var(--s)));
+.hierarchy-guide-rail {
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(var(--guide-rail) * 1px * var(--s));
+  height: 100%;
+  margin-right: calc(2px * var(--s));
 }
 
-.sidebar-row.hierarchy.hierarchy-middle .hierarchy-indent {
-  padding-left: var(--hierarchy-indent, calc(22px * var(--s)));
+.hierarchy-guide-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--guide-index) * var(--guide-step) * 1px * var(--s));
+  width: calc(1px * var(--s));
+  background: var(--twist);
+  pointer-events: none;
+}
+
+.hierarchy-guide-line.stem {
+  top: 50%;
+}
+
+.hierarchy-guide-line.half {
+  bottom: 50%;
+}
+
+.hierarchy-guide-elbow {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--guide-elbow-from) * var(--guide-step) * 1px * var(--s));
+  right: 0;
+  height: calc(1px * var(--s));
+  background: var(--twist);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.sidebar-row-icon-slot {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(24px * var(--s));
+  margin-right: calc(4px * var(--s));
 }
 
 .link-banner {
@@ -2008,10 +2045,34 @@ button:focus-visible,
   padding: 0 calc(12px * var(--s)) 0 0;
   font-size: calc(12px * var(--s));
   color: var(--text);
-  border-bottom: 1px solid var(--row-border);
   white-space: nowrap;
   overflow: hidden;
   user-select: none;
+}
+
+.sidebar-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(1px * var(--s));
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    var(--row-border) 0,
+    var(--row-border) calc(var(--sidebar-grip-width, 20) * 1px * var(--s)),
+    transparent calc(var(--sidebar-grip-width, 20) * 1px * var(--s)),
+    transparent
+      calc(
+        (var(--sidebar-grip-width, 20) + var(--guide-rail, 20)) * 1px * var(--s)
+      ),
+    var(--row-border)
+      calc(
+        (var(--sidebar-grip-width, 20) + var(--guide-rail, 20)) * 1px * var(--s)
+      ),
+    var(--row-border) 100%
+  );
 }
 
 .sidebar-row-body {
@@ -2056,7 +2117,7 @@ button:focus-visible,
 }
 
 .sidebar-row.category .sidebar-row-body {
-  padding-left: calc(6px * var(--s));
+  padding-left: 0;
 }
 
 .sidebar-row.category.reordering {
@@ -2071,7 +2132,7 @@ button:focus-visible,
 }
 
 .sidebar-row.group .sidebar-row-body {
-  padding-left: calc(22px * var(--s));
+  padding-left: 0;
 }
 
 .sidebar-row.group.reordering {
@@ -2151,7 +2212,7 @@ button:focus-visible,
 }
 
 .sidebar-row.task .sidebar-row-body {
-  padding-left: calc(20px * var(--s));
+  padding-left: 0;
 }
 
 .task-note-btn {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import levels5Sample from "../../examples/hierarchy/levels-5.schedule.json";
 import {
   assessHierarchyAlignment,
   HIERARCHY_MISMATCH_MESSAGE,
@@ -11,6 +12,7 @@ import { documentToJson, scheduleToJson } from "./serialize";
 import type { Category, ScheduleDocument, Task } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 import { validateScheduleSemantics } from "./scheduleSemantics";
+import { validateSchedule } from "./validateSchedule";
 
 const MS_GROUP = "a1000001-0000-4000-8000-000000000001";
 
@@ -219,5 +221,12 @@ describe("hierarchy visible rows", () => {
       ],
     };
     expect(scheduleStoresTasksInOutline(doc)).toBe(true);
+  });
+});
+
+describe("hierarchy examples", () => {
+  it("validates the five-level sample schedule file", () => {
+    const result = validateSchedule(levels5Sample);
+    expect(result.ok).toBe(true);
   });
 });
