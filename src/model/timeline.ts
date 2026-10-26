@@ -104,6 +104,28 @@ export function fitPxPerDayToViewport(
   return px;
 }
 
+export type FitViewAfterOpen = {
+  pxPerDay: number;
+  scrollX: number;
+  scrollY: number;
+};
+
+/** ファイルを開いた直後の Fit。前の原点の空き日は含めない。 */
+export function fitViewAfterOpen(
+  viewportWidth: number,
+  baseTotalDays: number,
+  extraDaysForPx: (px: number) => number,
+): FitViewAfterOpen | null {
+  if (viewportWidth <= 0 || baseTotalDays <= 0) return null;
+  const pxPerDay = fitPxPerDayToViewport(
+    viewportWidth,
+    0,
+    baseTotalDays,
+    extraDaysForPx,
+  );
+  return { pxPerDay, scrollX: 0, scrollY: 0 };
+}
+
 /**
  * データの開始が動いたとき、同じ日が同じ位置に残る原点とスクロールを返す。
  * 左端より前には戻せないので、そのときは原点を据え置く。
