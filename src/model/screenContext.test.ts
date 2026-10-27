@@ -159,7 +159,7 @@ describe("buildFilteredTasksPayload", () => {
     ).toBe(2);
   });
 
-  it("filters outline tasks by fieldFilters when fields are on the document", () => {
+  it("filters outline tasks by fieldFilters when field defs are supplied", () => {
     const taskId = "e2000001-0000-4000-8000-000000000001";
     const doc = JSON.parse(
       JSON.stringify(levels2Sample),
@@ -169,7 +169,6 @@ describe("buildFilteredTasksPayload", () => {
     const fields: ScheduleFieldDef[] = [
       { key: "memo", name: "メモ", type: "text" },
     ];
-    doc.fields = fields;
     const outline = patchOutlineTaskFieldValues(doc.outline ?? [], taskId, {
       memo: "レビュー",
     });

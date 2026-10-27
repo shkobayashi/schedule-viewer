@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { workspaceBindingSummary } from "./workspaceLoad";
+import {
+  workspaceBindingSummary,
+  workspaceMergedFieldExtensionsForDisplay,
+} from "./workspaceLoad";
 import type { WorkspaceWindowBinding } from "./workspaceTypes";
 
 function binding(
@@ -13,10 +16,14 @@ function binding(
       membersPath: null,
       calendarPath: null,
       statusesPath: null,
+      fieldExtensionPaths: [],
+      editableFieldExtensionPath: null,
     },
     members: { kind: "unset" },
     calendar: { kind: "unset" },
     statuses: { kind: "unset" },
+    fieldExtensions: { kind: "unset" },
+    editableFieldExtension: { kind: "unset" },
     ...partial,
   };
 }
@@ -27,5 +34,63 @@ describe("workspaceBindingSummary", () => {
     expect(summary.membersLabel).toBe("未選択");
     expect(summary.calendarLabel).toBe("未設定（土日を塗る）");
     expect(summary.statusesLabel).toBe("組み込みの三件");
+  });
+});
+
+describe("workspaceMergedFieldExtensionsForDisplay", () => {
+  const pinnedDoc = {
+    schemaVersion: 1 as const,
+    id: "risk",
+    name: "リスク",
+    fields: [{ id: "score", name: "点数", type: "number" as const }],
+  };
+  const editableDoc = {
+    schemaVersion: 1 as const,
+    id: "custom",
+    name: "編集用",
+    fields: [{ id: "note", name: "メモ", type: "text" as const }],
+  };
+
+  it("returns pinned only when editable is unset", () => {
+    const merged = workspaceMergedFieldExtensionsForDisplay(
+      {
+        kind: "loaded",
+        documents: [pinnedDoc],
+        paths: ["/proj/client/risk.fields.json"],
+      },
+      { kind: "unset" },
+    );
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe("risk");
+  });
+
+  it("appends editable after pinned when loaded", () => {
+    const merged = workspaceMergedFieldExtensionsForDisplay(
+      {
+        kind: "loaded",
+        documents: [pinnedDoc],
+        paths: ["/proj/client/risk.fields.json"],
+      },
+      {
+        kind: "loaded",
+        document: editableDoc,
+        path: "/proj/client/custom.fields.json",
+        relativePath: "custom.fields.json",
+      },
+    );
+    expect(merged.map((d) => d.id)).toEqual(["risk", "custom"]);
+  });
+
+  it("keeps pinned when editable failed to load", () => {
+    const merged = workspaceMergedFieldExtensionsForDisplay(
+      {
+        kind: "loaded",
+        documents: [pinnedDoc],
+        paths: ["/proj/client/risk.fields.json"],
+      },
+      { kind: "error", message: "読み込めません" },
+    );
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe("risk");
   });
 });

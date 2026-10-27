@@ -249,14 +249,14 @@ describe("scheduleToJson fields", () => {
     },
   ];
 
-  it("orders root keys with fields after milestones and before categories", () => {
+  it("does not write fields on the schedule document", () => {
     const json = documentToJsonString(
       scheduleToJson("P", categories, [], [], null, null, fieldDefs),
     );
     const parsed = JSON.parse(json) as Record<string, unknown>;
+    expect(parsed).not.toHaveProperty("fields");
     const keys = Object.keys(parsed);
-    expect(keys.indexOf("fields")).toBe(keys.indexOf("milestones") + 1);
-    expect(keys.indexOf("categories")).toBe(keys.indexOf("fields") + 1);
+    expect(keys.indexOf("categories")).toBe(keys.indexOf("milestones") + 1);
   });
 
   it("orders task fieldValues after tags and before note in fields key order", () => {
@@ -276,7 +276,6 @@ describe("scheduleToJson fields", () => {
 
   it("omits fields when definitions are absent", () => {
     const sample = sampleScheduleDocument();
-    expect(sample.fields).toBeUndefined();
     const json = documentToJsonString(sample);
     const parsed = JSON.parse(json) as Record<string, unknown>;
     expect(parsed).not.toHaveProperty("fields");

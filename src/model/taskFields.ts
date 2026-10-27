@@ -1,5 +1,13 @@
 import { isIsoDateString } from "./dates";
-import type { OutlineRoot, ScheduleFieldDef, Task, TaskFieldValues } from "./types";
+import { collectTasksFromDocument } from "./hierarchy";
+import type {
+  OutlineRoot,
+  ScheduleDocument,
+  ScheduleFieldDef,
+  Task,
+  TaskFieldValues,
+} from "./types";
+import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
 export function fieldDefinitionKeys(
   fields: readonly ScheduleFieldDef[] | undefined,
@@ -13,6 +21,48 @@ export function fieldDefByKey(
   key: string,
 ): ScheduleFieldDef | undefined {
   return fields?.find((field) => field.key === key);
+}
+
+export function isTaskFieldValueEmpty(
+  task: Task,
+  field: ScheduleFieldDef,
+): boolean {
+  const raw = task.fieldValues?.[field.key];
+  if (raw === undefined) return true;
+  return normalizeStoredFieldValue(field, raw) === undefined;
+}
+
+export function assessRequiredFieldValuesSave(
+  doc: Pick<
+    ScheduleDocument,
+    | "categories"
+    | "levels"
+    | "milestoneGroups"
+    | "milestones"
+    | "outline"
+    | "title"
+  >,
+  fieldDefs: readonly ScheduleFieldDef[] = [],
+): { ok: true } | { ok: false; message: string } {
+  const fields = [...fieldDefs];
+  if (fields.length === 0) return { ok: true };
+  const tasks = collectTasksFromDocument({
+    ...doc,
+    schemaVersion: SCHEDULE_SCHEMA_VERSION,
+  });
+  const emptyNames: string[] = [];
+  for (const field of fields) {
+    if (field.required !== true) continue;
+    if (tasks.some((task) => isTaskFieldValueEmpty(task, field))) {
+      emptyNames.push(field.name);
+    }
+  }
+  if (emptyNames.length === 0) return { ok: true };
+  const quoted = emptyNames.map((name) => `「${name}」`).join("");
+  return {
+    ok: false,
+    message: `必須の${quoted}が空のタスクがあるので、保存できません。`,
+  };
 }
 
 function hasNewline(value: string): boolean {
@@ -83,23 +133,33 @@ export function normalizeTaskFieldValues(
   task: Task,
   fields: readonly ScheduleFieldDef[] | undefined,
 ): TaskFieldValues | undefined {
-  if (fields == null || fields.length === 0) return undefined;
   const raw = task.fieldValues;
   if (raw == null) return undefined;
+  const knownKeys = new Set((fields ?? []).map((field) => field.key));
 
   const ordered: TaskFieldValues = {};
-  for (const def of fields) {
-    const value = raw[def.key];
-    if (value === undefined) continue;
-    const normalized = normalizeStoredFieldValue(def, value);
-    if (normalized !== undefined) {
-      ordered[def.key] = normalized;
+  if (fields != null) {
+    for (const def of fields) {
+      const value = raw[def.key];
+      if (value === undefined) continue;
+      const normalized = normalizeStoredFieldValue(def, value);
+      if (normalized !== undefined) {
+        ordered[def.key] = normalized;
+      }
+    }
+  }
+  for (const [key, value] of Object.entries(raw)) {
+    if (knownKeys.has(key)) continue;
+    if (typeof value === "string" && value.length > 0 && !hasNewline(value)) {
+      ordered[key] = value;
+    } else if (typeof value === "number" && Number.isFinite(value)) {
+      ordered[key] = value;
     }
   }
   return Object.keys(ordered).length > 0 ? ordered : undefined;
 }
 
-function normalizeStoredFieldValue(
+export function normalizeStoredFieldValue(
   def: ScheduleFieldDef,
   value: string | number,
 ): string | number | undefined {
@@ -388,26 +448,40 @@ export function validateTaskFieldValuesSemantics(
   task: Task,
   taskPath: string,
   fields: ScheduleFieldDef[] | undefined,
+  extensionFields: readonly ScheduleFieldDef[] = [],
 ): FieldValidationIssue[] {
   const issues: FieldValidationIssue[] = [];
   const values = task.fieldValues;
   if (values == null) return issues;
-  if (fields == null || fields.length === 0) {
-    issues.push({
-      path: `${taskPath}/fieldValues`,
-      message: "定義の無いファイルに追加項目の値は書けません",
-    });
-    return issues;
-  }
-  const defsByKey = new Map(fields.map((field) => [field.key, field]));
+  const allDefs = [...(fields ?? []), ...extensionFields];
+  const defsByKey = new Map(allDefs.map((field) => [field.key, field]));
   for (const key of Object.keys(values)) {
     const valuePath = `${taskPath}/fieldValues/${key}`;
     const def = defsByKey.get(key);
     if (def == null) {
-      issues.push({
-        path: valuePath,
-        message: "定義に無いキーです",
-      });
+      const value = values[key];
+      if (
+        typeof value !== "string" &&
+        typeof value !== "number"
+      ) {
+        issues.push({
+          path: valuePath,
+          message: "値の型が正しくありません",
+        });
+      } else if (
+        typeof value === "string" &&
+        (value.length === 0 || hasNewline(value))
+      ) {
+        issues.push({
+          path: valuePath,
+          message: "値の型が正しくありません",
+        });
+      } else if (typeof value === "number" && !Number.isFinite(value)) {
+        issues.push({
+          path: valuePath,
+          message: "値の型が正しくありません",
+        });
+      }
       continue;
     }
     const normalized = normalizeStoredFieldValue(def, values[key]);

@@ -34,7 +34,6 @@ function outlineDoc(taskExtras: Record<string, unknown>): ScheduleDocument {
     title: "P",
     milestoneGroups: [],
     milestones: [],
-    fields: fieldDefs,
     categories: [],
     levels: [{ name: "段", meaning: "見出し" }, { name: "タスク", meaning: "作業" }],
     outline,
@@ -47,51 +46,26 @@ describe("scheduleSemantics fieldValues on outline", () => {
     expect(validateSchedule(doc).ok).toBe(true);
   });
 
-  it("rejects unknown field value keys on outline-only tasks", () => {
+  it("accepts unknown field value keys when the value type is valid", () => {
     const doc = outlineDoc({ fieldValues: { other: "x" } });
+    expect(validateSchedule(doc).ok).toBe(true);
+  });
+
+  it("rejects unknown field value keys with invalid value types", () => {
+    const doc = outlineDoc({
+      fieldValues: { other: { nested: true } as unknown as string },
+    });
     expect(validateSchedule(doc).ok).toBe(false);
   });
 
-  it("rejects fieldValues when fields are missing", () => {
+  it("rejects schedule JSON that still has fields", () => {
     const doc = outlineDoc({ fieldValues: { memo: "x" } });
-    delete (doc as { fields?: ScheduleFieldDef[] }).fields;
+    (doc as ScheduleDocument & { fields: ScheduleFieldDef[] }).fields = fieldDefs;
     expect(validateSchedule(doc).ok).toBe(false);
   });
 
-  it("rejects datetime blank text and invalid choice on outline-only tasks", () => {
-    const fieldDefsDate: ScheduleFieldDef[] = [
-      { key: "memo", name: "メモ", type: "text" },
-      { key: "due", name: "確認日", type: "date" },
-      {
-        key: "lane",
-        name: "区分",
-        type: "choice",
-        choices: ["内製", "外注"],
-      },
-      { key: "score", name: "点数", type: "number" },
-    ];
-    const withDefs = (extras: Record<string, unknown>) => {
-      const doc = outlineDoc(extras);
-      doc.fields = fieldDefsDate;
-      return doc;
-    };
-
-    expect(
-      validateSchedule(withDefs({ fieldValues: { due: "2026-05-01T00:00:00" } }))
-        .ok,
-    ).toBe(false);
-    expect(validateSchedule(withDefs({ fieldValues: { memo: "   " } })).ok).toBe(
-      false,
-    );
-    expect(validateSchedule(withDefs({ fieldValues: { memo: "a\n" } })).ok).toBe(
-      false,
-    );
-    expect(
-      validateSchedule(withDefs({ fieldValues: { score: "x" as unknown as number } }))
-        .ok,
-    ).toBe(false);
-    expect(
-      validateSchedule(withDefs({ fieldValues: { lane: "外部" } })).ok,
-    ).toBe(false);
+  it("accepts fieldValues shape without extension definitions in file validation", () => {
+    const doc = outlineDoc({ fieldValues: { lane: "外部" } });
+    expect(validateSchedule(doc).ok).toBe(true);
   });
 });

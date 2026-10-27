@@ -76,10 +76,11 @@ description: >-
 - `assigneeId` はメンバー一覧の `id`（UUID である必要はない）
 - `tags` はユーザーから渡されたタグがあるときだけタスクに足す。各要素は1文字以上。空文字や空白だけは含めず、0件ならプロパティ自体を書かない
 - `note` はユーザーから渡された補足があるときだけタスクに足す。空文字や空白だけはプロパティ自体を書かない
+- 拡張項目の値は、使用中の拡張の合成キー `プラグインID_項目ID` を `fieldValues` に書く。スケジュール JSON に `fields` は書かない。定義は拡張 JSON（`write-fields`）に置く。定義に無いキーは型が正しければ残る
 
 ## 設定ファイル（workspace.json）があるとき
 
-設定ファイルは `schemaVersion: 1` で、必須の `schedule` にスケジュール JSON への**相対パス**を書く。任意で `members`、`statuses`、`calendar` に相対パスを書く。形の正本は次のとおり。
+設定ファイルは `schemaVersion: 1` で、必須の `schedule` にスケジュール JSON への**相対パス**を書く。任意で `members`、`statuses`、`calendar`、`fieldExtensions` に相対パスを書く。形の正本は次のとおり。
 
 ```json
 {

@@ -154,6 +154,7 @@ export function useScheduleFilterPersistence({
         const restoreContext = pruneContextFromScheduleDocument(
           document,
           memberCatalogSettled ? pruneContext.knownMemberIds : new Set(),
+          pruneContext.fields,
         );
         const pruned = pruneScheduleFilterViewState(view, restoreContext, {
           pruneAssignee: memberCatalogSettled,

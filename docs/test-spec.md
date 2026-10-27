@@ -49,6 +49,7 @@
 | 同上 | `does not treat unassigned assignee as a mismatch` | VIEW-13 |
 | 同上 | `treats any assignee id as unknown when no catalog is selected` | VIEW-13 |
 | 同上 | `returns null when every status and assignee resolves` | VIEW-13 |
+| 同上 | `reports unknown field values` | VIEW-13 |
 | 同上 | `scans the whole task list, not only tasks that would pass a filter` | VIEW-13 |
 | `statusDisplay.test.ts` | `uses at least three characters and caps at eight` | VIEW-13 |
 | 同上 | `shows the display name for a known id` | VIEW-13 |
@@ -313,10 +314,14 @@
 | `taskTags.test.ts` | `matches substrings case-sensitively after trim` | FILTER-12 |
 | 同上 | `keeps only tags that still exist, in document order` | FILTER-12 |
 | `serialize.test.ts` | `writes tags after milestoneId and before note` | FILE-02 |
-| `serialize.test.ts` | `orders root keys with fields after milestones and before categories` | FILE-02 |
+| `serialize.test.ts` | `does not write fields on the schedule document` | FILE-02 |
 | `serialize.test.ts` | `orders task fieldValues after tags and before note in fields key order` | FILE-02 |
 | `serialize.test.ts` | `omits fields when definitions are absent` | FILE-02 |
 | `taskFields.test.ts` | 定義なし・五型・拒否・1キー更新・複製・`normalizeScheduleFieldsForValidation` | EDIT-04, FILE-02 |
+| 同上 | `defaultFieldValuesForNewTask includes only keys with defaults` | SET-10, EDIT-04 |
+| `fieldDefinitionEdit.test.ts` | キー採番・削除で値落下・候補の揃えと型変更・閉じる検証 | SET-10, FILE-02 |
+| `fieldExtensionMerge.test.ts` | 合成キーと拡張同士の衝突 | SET-10 |
+| `fieldExtensionEdit.test.ts` | 新規拡張の検証通過・プラグイン ID 拒否・項目 ID の反映 | SET-10 |
 | `scheduleSemantics.test.ts` | `fieldValues on outline-only tasks` | EDIT-04, FILE-02 |
 | `taskTodos.test.ts` | `floors fractional progress` など | EDIT-22 |
 | `taskTodos.test.ts` | `canonicalizes progress from todo count on load` | EDIT-22, FILE-01 |
@@ -499,7 +504,7 @@
 | `workspaceLoad.test.ts` | 設定ファイル束縛の表示ラベル | FILE-10, SET-02 |
 | `workspacePath.test.ts` | 相対パスの受理と拒否 | FILE-10 |
 | `workspaceJson.test.ts` | 開き分けと検証、末尾区切りの拒否 | FILE-10 |
-| `workspace::export_tests`（Rust） | 空でないフォルダの拒否、シンボリックリンク、部分書き出し後の文言 | FILE-11 |
+| `workspace::export_tests`（Rust） | 空でないフォルダの拒否、シンボリックリンク、部分書き出し後の文言、拡張ファイル名の重複回避 | FILE-11 |
 | `droppedScheduleOpenRoute.test.ts` | `routeExternalWorkspaceDrop` | FILE-10, WIN-04 |
 | `commandPalette.test.ts` | `inserts recent files after open on desktop` など | FILE-09, NAV-07 |
 | `recent_files.rs` | `writes_only_when_expected_matches` など | FILE-09 |
@@ -747,9 +752,9 @@
 | `filter_path_uses_same_hash_as_recovery` | 絞り込みのファイル名のハッシュは控えと同じ | SYNC-03 |
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 | `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
-| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの4スキルに限る | SET-05 |
-| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の4スキルだけ | SET-05 |
-| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は12パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各4つは `JSON_SKILL_NAMES` の順 | SET-05 |
+| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの5スキルに限る | SET-05 |
+| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の5スキルだけ | SET-05 |
+| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は15パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各5つは `JSON_SKILL_NAMES` の順 | SET-05 |
 | `bundled_skill_lists_match_json_skill_names_in_tauri_and_msix` | `JSON_SKILL_NAMES` の各名前が `tauri.conf.json` の `json-skills/<name>/` と MSIX の `json-skills\<name>\SKILL.md` にある。`read-screen/` と `read-screen\SKILL.md` もある | SET-05 |
 | `parse_tool_selection_requires_at_least_one` | ツール未選択は「ツールを1つ以上選んでください。」 | SET-05, MCP-02 |
 | `claude_user_shadows_only_when_claude_project_scope` | Copilot だけの指定フォルダでは Claude の個人用優先警告を出さない | SET-05 |
@@ -857,7 +862,9 @@
 | `examples/hierarchy/levels-3.schedule.json` | 3段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-3.schedule.json` |
 | `examples/hierarchy/levels-4.schedule.json` | 4段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-4.schedule.json` |
 | `examples/hierarchy/levels-5.schedule.json` | 5段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-5.schedule.json` |
-| `examples/fields.schedule.json` | 追加項目の定義 5 件（文章、数値、パーセント数値、日付、候補2つ）。タスク 2 件（値あり・値なし） | `npm run check:schedule -- examples/fields.schedule.json` |
+| `examples/fields.schedule.json` | 合成キー `sample_*` の値。タスク 2 件（値あり・値なし） | `npm run check:schedule -- examples/fields.schedule.json` |
+| `examples/fields/sample.fields.json` | プラグイン ID `sample` の定義 5 件 | `npm run check:schedule -- examples/fields/sample.fields.json` |
+| `examples/fields/workspace.json` | 上記スケジュールと拡張を束ねる設定ファイル | 手動（FILE-10） |
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
 
@@ -890,7 +897,7 @@
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 8 になる。タグを付けていないタスクに `tags` は無い |
 | TC-FILE-01h | FILE-01, NAV-03 | 期間の短いスケジュールを開き、一覧を下へ送ったあと、同じウィンドウで期間の長いスケジュールを開く。開始が前の原点より後ろのスケジュールも開く | 1日幅は新しい期間が幅に入る値になる。横位置は先頭。一覧は上端から見える。後ろの開始でも、前の原点の空き日の分だけバーが右へ寄らない |
 | TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある。任意で `statuses` を書く | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバー、ステータス一覧、カレンダーがファイル由来になる（`statuses` が無いときは組み込みの三件）。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとステータス一覧とカレンダーだけ読み直す。起動し直すと設定ファイルのまま戻る |
-| TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとステータス一覧とカレンダーを選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、組み込みの三件のときは `statuses` を書かない。今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
+| TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとステータス一覧とカレンダーと拡張項目を選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、組み込みの三件のときは `statuses` を書かない。選んだ拡張は `fieldExtensions` に選んだ順で並び、各 `プラグインID.fields.json` が同じフォルダにある。拡張を選んでいないときは `fieldExtensions` を書かず、知らせにその旨が出る。今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
 | TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューにスケジュールと設定ファイルを別グループで新しい順に並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
 | TC-FILE-09b | FILE-09 | 上記のあと6件目を開く。同名のファイル名を2つのフォルダから開く | 一覧の件数と親フォルダの付き方を見る | 5件を超えた古いものが消える。同じファイル名が2件以上のときだけ親フォルダ名が付く |
 | TC-FILE-09c | FILE-09 | 履歴にパスがある | 存在しないパスを選ぶ。未保存のあいだに履歴から開き、キャンセルする | 画面と保存先は残る。サンプルに戻らない。項目は残る。キャンセルでは順番が変わらない |
@@ -1169,7 +1176,7 @@
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、ステータス、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
-| TC-VIEW-13 | VIEW-13 | 一覧に無い `status` またはメンバーに無い `assigneeId` があるファイル。ステータス列はオフ | 帯の文を見る。左のタスク名とバーが同じ行に揃うこと、見出しの下端が揃うことを見る。絞り込みで該当行を隠しても帯が残ることを確かめる。右下の一時的な知らせを出しても帯が残ることを確かめる。設定でステータス列をオンにし、一覧に無い `id` の札と、メンバー不明の札を縦に見る。線を引くモード中は帯がその上にあり、両方の帯でも揃うことを見る。縦スクロールと表示サイズを変えても揃うことを見る。ライトとダークで、札の文字と帯の文字・左線のコントラストを見る | 帯は三つの文のいずれかだけ。`id` も件数も出ない。列は見えているタスク行だけ。未割当だけのときは帯は出ない。不一致が無くなると帯は消え、左の空きも消える。トーストが出ても帯は消えない。札の文字は 4.5:1 以上、帯の左線は 3:1 以上である |
+| TC-VIEW-13 | VIEW-13 | 一覧に無い `status`、メンバーに無い `assigneeId`、または定義に無い `fieldValues` キーがあるファイル。ステータス列はオフ | 帯の文を見る。定義に無い追加項目は詳細で編集できないことを見る。左のタスク名とバーが同じ行に揃うこと、見出しの下端が揃うことを見る。絞り込みで該当行を隠しても帯が残ることを確かめる。右下の一時的な知らせを出しても帯が残ることを確かめる。設定でステータス列をオンにし、一覧に無い `id` の札と、メンバー不明の札を縦に見る。線を引くモード中は帯がその上にあり、両方の帯でも揃うことを見る。縦スクロールと表示サイズを変えても揃うことを見る。ライトとダークで、札の文字と帯の文字・左線のコントラストを見る | 帯は三つの文のいずれかだけ。`id` も件数も出ない。列は見えているタスク行だけ。未割当だけのときは帯は出ない。不一致が無くなると帯は消え、左の空きも消える。トーストが出ても帯は消えない。札の文字は 4.5:1 以上、帯の左線は 3:1 以上である |
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
@@ -1188,18 +1195,33 @@
 | TC-SET-08i | SET-08 | デスクトップ版で同じ一覧を2つのウィンドウが開ける | 一方で覆いを開いて一覧を選ぶ。もう一方で同じ一覧を選ぶ | 編集中のウィンドウが前面になり、もう一方では一覧が選ばれない |
 | TC-SET-08j | SET-08 | 覆いで一覧を編集中 | 設定でその一覧を「外す」。続けて別ウィンドウから同じ一覧を取り込み上書きする | 外したときは覆いが閉じ、知らせが出る。上書き取り込みのあとは覆いが開いたまま、内容が入れ替わる |
 | TC-SET-08g | SET-08, VIEW-02, VIEW-05, VIEW-07, FILTER-04 | 今日が 2026-10-23 から 2026-11-01 のあいだ | 設定の「ステータス」で `examples/review.statuses.json` を取り込んで使用中にし、`examples/review.schedule.json` を開く。絞り込みで「完了以外」を選ぶ | 確認待ちが黄で、帯が出る。進行中は地が青のまま枠だけ赤く、帯が出る。完了と中止は終了が過去でも超過にならず、中止は帯が無い。一覧に無い `shelved` は `shelved` の表示で灰色になり、超過にならず線は今日のまま。未着手は帯が無い。イナズマ線は扱いどおり折れ、未来開始の着手済みは開始日へ折れる。終了日が今日の行は終了より先へ折れない。「完了以外」で完了と中止が消え、一覧に無い `id` は残る |
+| TC-SET-10a | SET-10, EDIT-04, FILE-02 | `examples/fields.schedule.json` だけを開く | 詳細の追加項目を見る | 値は未登録の追加項目として見え、型どおり編集できない |
+| TC-SET-10b | SET-10, EDIT-04, FILE-10 | `examples/fields/workspace.json` で開く | 値ありタスクの詳細と絞り込みの追加項目を見る | 定義どおり編集でき、絞り込みに候補が出る |
+| TC-SET-10c | SET-10, EDIT-04, FILE-02 | 拡張を取り込み使用中 | 設定の「項目を編集…」で必須・デフォルトを設定して保存。スケジュールを保存せず開き直す | 拡張 JSON に定義が残る。スケジュールの `fieldValues` は変わらない |
+| TC-SET-10d | SET-10, EDIT-04, FILE-02 | 同上、必須の項目がある | 値が空のタスクでスケジュールを保存する。詳細のラベルを見る | 保存できず「保存できません」。空のときだけ「空欄」 |
+| TC-SET-10e | SET-10, EDIT-04 | デフォルト付きの拡張を使用中 | 新規タスクを足す。既存を複製する | 新規だけデフォルトが入る |
+| TC-SET-10f | SET-10, SYNC-01 | 覆いを開いている | 外部で同じ拡張ファイルを更新する。読み直しを選ぶ | 即時反映しない。読み直し前に覆いが閉じ、下書きは確定しない |
+| TC-SET-10g | SET-10 | ブラウザ版 | 設定から覆いを開き、幅 900px 未満で見る | 見出しの右に「閉じる」が一つだけある。右欄が下へ移り、足元の「項目を足す」「保存」「編集を戻す」「JSON を書き出す」が画面内に残る |
+| TC-SET-10h | SET-10 | 拡張を1件以上取り込み済み | 覆いで「新しい拡張」を押す。別の拡張のラジオを選んでから戻す。もう一度「新しい拡張」を押す | 新しい拡張が選ばれ、項目が1件ある。ラジオにすぐ出る。戻れる。2回目は別 ID のラジオが増える。失敗のときは理由が出る |
+| TC-SET-10k | SET-10 | 拡張を1件以上取り込み済み | 覆いで「コピーして作る」を押す。別の拡張のラジオを選んでから戻す | コピーが選ばれる。ラジオにすぐ出る。戻れる。失敗のときは理由が出る |
+| TC-SET-10i | SET-10 | 覆いで拡張を編集中 | プラグイン ID を変えて保存する。覆いを閉じる | 新しい ID のファイルに保存される。設定の「拡張項目」が開き、一覧に新 ID が出る |
+| TC-SET-10j | SET-10 | 覆いを開いたあと | 「閉じる」または Escape で覆いを閉じる | 設定の「拡張項目」に戻る |
+| TC-SET-10l | SET-10, FILE-10 | `examples/fields/workspace.json` で開く。編集用が無い | 設定の「拡張項目」を見る | ピン留めだけ表示され、「項目を編集…」は出ない。「編集用の拡張を作る」が出る |
+| TC-SET-10m | SET-10, FILE-10 | 同上 | 「編集用の拡張を作る」を押す | フォルダに `custom.fields.json` ができ、`workspace.json` に `editableFieldExtension` が書かれる。アプリデータの取り込み一覧は増えない。「項目を編集…」と「消す」が出る |
+| TC-SET-10n | SET-10, FILE-10 | 編集用がある | 覆いで保存する。ピン留めと同じプラグイン ID に変えて保存する | 編集用のファイルだけ上書きされる。ピン留めと同じ ID は保存できない |
+| TC-SET-10o | SET-10, FILE-10 | 編集用がある | 「消す」で「やめる」を選ぶ。続けて「消す」で進める | やめるときはファイルと項目が残る。進めたあとは `editableFieldExtension` とファイルが消え、ピン留めは残る。タスクの値は未登録の追加項目として残る |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
-| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace が `~/.cursor/skills/` に置かれ、パスが示される |
+| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace、write-fields が `~/.cursor/skills/` に置かれ、パスが示される |
 | TC-SET-05b | SET-05 | 上記のいずれかが既にある | もう一度「置く」 | 上書き確認が出る。上書き後、置いたパスが示される |
 | TC-SET-05c | SET-05 | 指定フォルダへ Claude Code を置く。`~/.claude/skills/` に同名がある | 「置く」 | 置いたあと、個人用が先に使われる旨が出る |
 | TC-SET-05d | SET-05 | ブラウザ版 | 設定の「JSON作成スキルを置く」を開く | デスクトップ版でのみ置ける旨が出て、「置く」は押せない |
-| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に4つがある | 「外す」で確認のあと外す | 4つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
-| TC-SET-05f | SET-05 | デスクトップ版、置き先に同名が無い | GitHub Copilot、ユーザー全体を選び「置く」 | 4つが `~/.copilot/skills/` に置かれ、パスが示される。`~/.copilot` が無くても作られる |
-| TC-SET-05g | SET-05 | デスクトップ版 | GitHub Copilot、指定したフォルダを選び「置く」 | 4つが `<フォルダ>/.github/skills/` に置かれ、パスが示される。git には入れない |
-| TC-SET-05h | SET-05 | デスクトップ版 | Cursor、Claude Code、GitHub Copilot をすべて選び、ユーザー全体で「置く」 | 12パスが示される。中身は同じ4つ |
+| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に5つがある | 「外す」で確認のあと外す | 5つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05f | SET-05 | デスクトップ版、置き先に同名が無い | GitHub Copilot、ユーザー全体を選び「置く」 | 5つが `~/.copilot/skills/` に置かれ、パスが示される。`~/.copilot` が無くても作られる |
+| TC-SET-05g | SET-05 | デスクトップ版 | GitHub Copilot、指定したフォルダを選び「置く」 | 5つが `<フォルダ>/.github/skills/` に置かれ、パスが示される。git には入れない |
+| TC-SET-05h | SET-05 | デスクトップ版 | Cursor、Claude Code、GitHub Copilot をすべて選び、ユーザー全体で「置く」 | 15パスが示される。中身は同じ5つ |
 | TC-SET-05i | SET-05 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
-| TC-SET-05j | SET-05 | デスクトップ版、ユーザー全体の Copilot に4つがある | 「外す」で確認のあと外す | 4つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05j | SET-05 | デスクトップ版、ユーザー全体の Copilot に5つがある | 「外す」で確認のあと外す | 5つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
 | TC-MCP-02c | MCP-02 | デスクトップ版 | 「MCP を使えないときに渡す」で GitHub Copilot を選び「置く」 | `read-screen` が `~/.copilot/skills/read-screen/` に置かれ、パスと実行ファイルのパスが示される |
 | TC-MCP-02d | MCP-02 | デスクトップ版、Copilot に read-screen がある | 同じ欄で GitHub Copilot を選び「外す」 | その1つだけ消え、外したパスが示される |
 | TC-MCP-02e | MCP-02 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |

@@ -1,6 +1,6 @@
 # データ仕様
 
-スケジュール、メンバー、ステータス一覧、稼働日カレンダーの JSON と、アプリが自分で書くファイルの形を定める。フィールドの正本は各 JSON Schema である。ID の重複や前後関係の循環のように、スキーマでは表せない規則は `src/model/` の検証コードで確かめる。この文書では、これを意味規則と呼ぶ。画面での見え方は [外部仕様](external-spec.md) を参照する。
+スケジュール、メンバー、ステータス一覧、稼働日カレンダー、拡張項目の JSON と、アプリが自分で書くファイルの形を定める。フィールドの正本は各 JSON Schema である。ID の重複や前後関係の循環のように、スキーマでは表せない規則は `src/model/` の検証コードで確かめる。この文書では、これを意味規則と呼ぶ。画面での見え方は [外部仕様](external-spec.md) を参照する。
 
 スキーマファイルは `scripts/` と CI がパスを直接参照している。場所は変えない。
 
@@ -12,6 +12,7 @@
 | メンバー JSON | 利用者が用意し、設定の「メンバー」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には含めない |
 | ステータス一覧 JSON | 利用者が用意し、設定の「ステータス」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には含めない |
 | 稼働日カレンダー JSON | 利用者が用意し、設定の「稼働日」から取り込む | 取り込み後はアプリデータに1件。スケジュール JSON には含めない |
+| 拡張項目 JSON | 利用者が用意し、設定の「拡張項目」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には定義を写さない。値は `fieldValues` に `プラグインID_項目ID` で書く |
 | HTML / SVG | アプリの「書き出し」 | 利用者が選んだパス、またはブラウザのダウンロード |
 | アプリデータ | アプリだけ | 下の「アプリデータ」 |
 
@@ -58,7 +59,6 @@
 | `title` | 1文字以上。空白だけは不可 |
 | `milestoneGroups` | マイルストン帯の行。空でもよい。タスクのカテゴリ・グループとは別 |
 | `milestones` | マイルストンの配列。空でもよい |
-| `fields` | 任意。タスク全体で共有する追加項目の定義。1件以上あるときだけ書く。空配列は拒否する。各要素は `key`（値の JSON キー。定義内で重複不可。前後の空白不可）、`name`（画面の名前）、`type`（`text`、`number`、`date`、`choice` のいずれか）、任意の `meaning`（1文字以上。空ならキーを書かない）、任意の `instruction`（1文字以上。空ならキーを書かない）、任意の `required`（真のときだけ `true` を書く。`false` は書けない）、任意の `default`（型に合うときだけ）、`number` でパーセント表示するときだけ `percent: true`（`false` は書けない）、`choice` では必須の `choices`（1文字以上の文字列。重複不可。前後の空白不可） |
 | `categories` | `levels` が無いときは1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
 | `levels` | 任意。1〜5段。各要素は `name` と `meaning`（いずれも1文字以上）。任意の `instruction` は、その段に置いたあとに LLM が守ること。空ならキーを書かない |
 | `outline` | `levels` があるときは、段数に合う入れ子をここに書く。枝は `id`、`name`、`children`。最下段はタスク。タスクの一つ上の枝だけ `children` を空にできる。それより上の枝は子を1件以上持つ |
@@ -74,7 +74,7 @@
 | `predecessors` | 先行タスクの `id`。重複しない。自分自身は指定できない。存在しない ID は不可。循環も不可。後続は各タスクの `predecessors` から導く |
 | `milestoneId` | 対応するマイルストンの `id`。未設定は `null`。存在しない ID は不可 |
 | `tags` | 任意。説明用の文字列の配列。各要素は1文字以上。前後の空白だけは不可。同一タスク内で、空白を除いた文字列が重複したら拒否する。大文字小文字は区別する。0件のときはプロパティを書かない |
-| `fieldValues` | 任意。追加項目の値。`fields` の `key` だけをプロパティ名にする。`fields` が無い文書では書けない。1件以上あるときだけ書く。`text` は1文字以上の文字列（改行不可）。`number` は有限の数値。`date` は実在する `YYYY-MM-DD`。`choice` は `choices` のいずれか。定義に無いキーは拒否する |
+| `fieldValues` | 任意。追加項目の値。プロパティ名は使用中の拡張項目の合成キー `プラグインID_項目ID` である。1件以上あるときだけ書く。`text` は1文字以上の文字列（改行不可）。`number` は有限の数値。`date` は実在する `YYYY-MM-DD`。`choice` は `choices` のいずれか。定義に無いキーは開ける。値の型だけ検査し、保存しても消さない。型と必須の検査は、使用中の拡張に一致したキーだけを見る |
 | `note` | 任意。1文字以上。空文字や空白だけはプロパティ自体を書かない |
 
 カテゴリ名は1つのスケジュールの中で重複できない。グループ名は同じカテゴリの中で重複できない。別のカテゴリに同じグループ名があってもよい。名前は表示であり、対応づけは `id` で行う。並び替え用のフィールドはない。配列の順が画面の並びになる。
@@ -95,7 +95,7 @@
 
 ## 設定ファイル（workspace、schemaVersion 1）
 
-正本は [workspace.schema.json](workspace.schema.json)。スケジュール JSON への相対パスを必須で書き、メンバー JSON、ステータス一覧 JSON、カレンダー JSON への相対パスは省略できる。設定ファイルから見た相対パスだけを書く。絶対パス、空、ディレクトリは拒否する。`..` を含む相対パスは許可する。
+正本は [workspace.schema.json](workspace.schema.json)。スケジュール JSON への相対パスを必須で書き、メンバー JSON、ステータス一覧 JSON、カレンダー JSON、拡張項目 JSON への相対パスは省略できる。`fieldExtensions` はピン留めした拡張の相対パスの配列である。`editableFieldExtension` は、このプロジェクト用に画面から作る編集用拡張の相対パスを一つだけ書く。`fieldExtensions` と同じ相対パスは書けない。同じプラグイン ID のファイルを二つ書くことはできない。設定ファイルから見た相対パスだけを書く。絶対パス、空、ディレクトリは拒否する。`..` を含む相対パスは許可する。
 
 ```json
 {
@@ -103,11 +103,27 @@
   "schedule": "plan.json",
   "members": "team.members.json",
   "statuses": "team.statuses.json",
-  "calendar": "jp-2026.calendar.json"
+  "calendar": "jp-2026.calendar.json",
+  "fieldExtensions": ["risk.fields.json"]
 }
 ```
 
 アプリが書き出す既定のファイル名は `workspace.json` である。別名でも、中身がこの形なら開ける。
+
+## 拡張項目 JSON（schemaVersion 1）
+
+正本は [field-extensions.schema.json](field-extensions.schema.json)。意味規則は [src/model/validateFieldExtensions.ts](../src/model/validateFieldExtensions.ts) にある。追加項目の定義はここに書き、スケジュール JSON には載せない。`id` がプラグイン ID である。空白と `_` はプラグイン ID と項目 ID に使えない。値のキーは `プラグインID_項目ID` である。
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "risk",
+  "name": "リスク管理",
+  "fields": [
+    { "id": "score", "name": "点数", "type": "number" }
+  ]
+}
+```
 
 ## メンバー JSON（schemaVersion 1）
 
@@ -204,7 +220,7 @@
 
 アプリが書くスケジュール JSON は [src/model/serialize.ts](../src/model/serialize.ts) のキー順で、2スペースのインデントである（[src/model/scheduleFile.ts](../src/model/scheduleFile.ts) の `serializeScheduleDocument`）。
 
-キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones` のあと、追加項目の定義があるときだけ `fields`、階層の定義が無いときは `categories`、あるときは `levels` と `outline` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、項目があるときだけ `todos` を付け、タグがあるときだけ `tags` を付け、値があるときだけ `fieldValues` を付け、ノートがあるときだけ最後に `note` を付ける。`fieldValues` のキー順は `fields` の並びに合わせる。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。定義の無いファイルを保存しても `fields` は足さない。
+キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones` のあと、階層の定義が無いときは `categories`、あるときは `levels` と `outline` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、項目があるときだけ `todos` を付け、タグがあるときだけ `tags` を付け、値があるときだけ `fieldValues` を付け、ノートがあるときだけ最後に `note` を付ける。`fieldValues` のキー順は、使用中の拡張項目の定義の並びに合わせる。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
 
 未保存かどうかは、この形にした文字列と、最後に開いた・保存した・読み直したときの文字列を比べて決める。インデントやキー順だけが違うファイルは、同じ内容として扱う。
 
@@ -237,8 +253,9 @@
 
 | パス | 内容 | 上限 |
 | --- | --- | --- |
-| `settings.json` | `selectedMembersCatalogId`、`selectedStatusesCatalogId`、`calendarLabel`。どれも無くてよい | — |
+| `settings.json` | `selectedMembersCatalogId`、`selectedStatusesCatalogId`、`selectedFieldExtensionCatalogIds`、`calendarLabel`。どれも無くてよい | — |
 | `members/<catalogId>.json` | 取り込んだメンバー JSON の本文 | 2MB |
+| `field-extensions/<catalogId>.json` | 取り込んだ拡張項目 JSON の本文 | 2MB |
 | `statuses/<catalogId>.json` | 取り込んだステータス一覧 JSON の本文 | 2MB |
 | `calendar.json` | 取り込んだカレンダー JSON の本文 | 2MB |
 | `schedule-recovery/<ハッシュ>.json` | 未保存の控え。パスごとに1ファイル。`path`、`baselineJson`、`documentJson` | 10MB |

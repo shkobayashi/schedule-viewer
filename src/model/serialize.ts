@@ -1,9 +1,6 @@
 import { documentHasLevels } from "./hierarchy";
 import { normalizeLevelDefinition } from "./hierarchyLevelEdit";
-import {
-  normalizeScheduleFieldDefinitions,
-  taskFieldValuesToJson,
-} from "./taskFields";
+import { taskFieldValuesToJson } from "./taskFields";
 import { normalizeTaskNote } from "./taskNote";
 import { normalizeTaskTags } from "./taskTags";
 import { normalizeTaskTodos, progressFromTodoItems } from "./taskTodos";
@@ -71,11 +68,12 @@ export function scheduleToJson(
   milestones: Milestone[],
   levels?: ScheduleLevelDef[] | null,
   outline?: OutlineRoot | null,
-  fields?: ScheduleFieldDef[] | null,
+  fieldDefsForValues?: ScheduleFieldDef[] | null,
 ): ScheduleDocument {
-  const normalizedFields = normalizeScheduleFieldDefinitions(
-    fields != null && fields.length > 0 ? [...fields] : undefined,
-  );
+  const valueFieldDefs =
+    fieldDefsForValues != null && fieldDefsForValues.length > 0
+      ? fieldDefsForValues
+      : undefined;
   const base: ScheduleDocument = {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title,
@@ -92,20 +90,18 @@ export function scheduleToJson(
     })),
     categories: [],
   };
-  const withFields =
-    normalizedFields != null ? { ...base, fields: normalizedFields } : base;
 
   const hasLevels = levels != null && levels.length > 0;
   if (!hasLevels) {
     return {
-      ...withFields,
+      ...base,
       categories: categories.map((category) => ({
         id: category.id,
         name: category.name,
         groups: category.groups.map((group) => ({
           id: group.id,
           name: group.name,
-          tasks: group.tasks.map((task) => taskToJson(task, normalizedFields)),
+          tasks: group.tasks.map((task) => taskToJson(task, valueFieldDefs)),
         })),
       })),
     };
@@ -115,14 +111,14 @@ export function scheduleToJson(
 
   if (outline != null && outline.length > 0) {
     return {
-      ...withFields,
+      ...base,
       levels: levelDefs,
-      outline: outlineToJson(outline, normalizedFields),
+      outline: outlineToJson(outline, valueFieldDefs),
     };
   }
 
   return {
-    ...withFields,
+    ...base,
     levels: levelDefs,
   };
 }
@@ -137,7 +133,7 @@ export function documentToJson(
     doc.milestones,
     doc.levels,
     doc.outline,
-    doc.fields,
+    undefined,
   );
 }
 
@@ -210,17 +206,17 @@ function orderOutlineJson(
   });
 }
 
-function orderScheduleKeys(doc: ScheduleDocument): Record<string, unknown> {
-  const fields = doc.fields;
+function orderScheduleKeys(
+  doc: ScheduleDocument,
+  fieldDefsForValues?: ScheduleFieldDef[],
+): Record<string, unknown> {
+  const fields = fieldDefsForValues;
   const result: Record<string, unknown> = {
     schemaVersion: doc.schemaVersion,
     title: doc.title,
     milestoneGroups: doc.milestoneGroups,
     milestones: doc.milestones,
   };
-  if (fields != null && fields.length > 0) {
-    result.fields = fields;
-  }
   if (documentHasLevels(doc)) {
     result.levels = doc.levels;
   }

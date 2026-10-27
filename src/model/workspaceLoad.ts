@@ -13,12 +13,19 @@ import {
   formatStatusesValidationErrors,
   validateStatuses,
 } from "./validateStatuses";
+import {
+  formatFieldExtensionsValidationErrors,
+  validateFieldExtensions,
+} from "./validateFieldExtensions";
 import type {
   WorkspaceCalendarState,
+  WorkspaceEditableFieldExtensionState,
+  WorkspaceFieldExtensionsState,
   WorkspaceMemberState,
   WorkspaceStatusesState,
   WorkspaceWindowBinding,
 } from "./workspaceTypes";
+import type { FieldExtensionDocument } from "./fieldExtensionTypes";
 import {
   MAX_SCHEDULE_BYTES,
   parseScheduleText,
@@ -33,6 +40,7 @@ import { errorMessage } from "./errors";
 export const WORKSPACE_MEMBERS_MAX_BYTES = 2 * 1024 * 1024;
 export const WORKSPACE_CALENDAR_MAX_BYTES = 2 * 1024 * 1024;
 export const WORKSPACE_STATUSES_MAX_BYTES = 2 * 1024 * 1024;
+export const WORKSPACE_FIELD_EXTENSIONS_MAX_BYTES = 2 * 1024 * 1024;
 
 export const WORKSPACE_STARTUP_FAILED_MESSAGE =
   "設定ファイルを読み込めませんでした。中のスケジュールは開いていません。";
@@ -179,6 +187,125 @@ async function loadStatusesAtPath(
   }
 }
 
+async function loadFieldExtensionsAtPaths(
+  paths: readonly string[],
+): Promise<WorkspaceFieldExtensionsState> {
+  if (paths.length === 0) {
+    return { kind: "unset" };
+  }
+  if (!isTauri()) {
+    return {
+      kind: "error",
+      message: "拡張項目を読み込めませんでした。",
+    };
+  }
+  const documents: FieldExtensionDocument[] = [];
+  const loadedPaths: string[] = [];
+  const seenPluginIds = new Set<string>();
+  try {
+    for (const path of paths) {
+      const text = await readJsonFileLimitedViaTauri(
+        path,
+        WORKSPACE_FIELD_EXTENSIONS_MAX_BYTES,
+      );
+      let data: unknown;
+      try {
+        data = JSON.parse(stripUtf8Bom(text));
+      } catch {
+        return {
+          kind: "error",
+          message: "拡張項目 JSON の形式が正しくありません。",
+        };
+      }
+      const result = validateFieldExtensions(data);
+      if (!result.ok) {
+        return {
+          kind: "error",
+          message: formatFieldExtensionsValidationErrors(result.errors),
+        };
+      }
+      if (seenPluginIds.has(result.document.id)) {
+        return {
+          kind: "error",
+          message: "設定ファイルに同じプラグイン ID の拡張が複数あります。",
+        };
+      }
+      seenPluginIds.add(result.document.id);
+      documents.push(result.document);
+      loadedPaths.push(path);
+    }
+    return { kind: "loaded", documents, paths: loadedPaths };
+  } catch (error) {
+    return {
+      kind: "error",
+      message: errorMessage(error, "拡張項目を読み込めませんでした。"),
+    };
+  }
+}
+
+async function loadSingleFieldExtensionAtPath(
+  path: string,
+): Promise<
+  | { ok: true; document: FieldExtensionDocument }
+  | { ok: false; message: string }
+> {
+  if (!isTauri()) {
+    return { ok: false, message: "拡張項目を読み込めませんでした。" };
+  }
+  try {
+    const text = await readJsonFileLimitedViaTauri(
+      path,
+      WORKSPACE_FIELD_EXTENSIONS_MAX_BYTES,
+    );
+    let data: unknown;
+    try {
+      data = JSON.parse(stripUtf8Bom(text));
+    } catch {
+      return {
+        ok: false,
+        message: "拡張項目 JSON の形式が正しくありません。",
+      };
+    }
+    const result = validateFieldExtensions(data);
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: formatFieldExtensionsValidationErrors(result.errors),
+      };
+    }
+    return { ok: true, document: result.document };
+  } catch (error) {
+    return {
+      ok: false,
+      message: errorMessage(error, "拡張項目を読み込めませんでした。"),
+    };
+  }
+}
+
+async function loadEditableFieldExtension(
+  path: string,
+  relativePath: string,
+  pinnedPluginIds: ReadonlySet<string>,
+): Promise<WorkspaceEditableFieldExtensionState> {
+  const loaded = await loadSingleFieldExtensionAtPath(path);
+  if (!loaded.ok) {
+    return { kind: "error", message: loaded.message };
+  }
+  if (pinnedPluginIds.has(loaded.document.id)) {
+    return {
+      kind: "error",
+      message:
+        "編集用の拡張のプラグイン ID が、ピン留めの拡張と重なっています。",
+    };
+  }
+  return {
+    kind: "loaded",
+    document: loaded.document,
+    path,
+    relativePath,
+  };
+}
+
 async function loadCalendarAtPath(path: string): Promise<WorkspaceCalendarState> {
   if (!isTauri()) {
     return { kind: "error", message: "カレンダー設定を読み込めませんでした。" };
@@ -259,6 +386,37 @@ export async function loadWorkspaceBinding(
       };
     }
   }
+  let fieldExtensions: WorkspaceFieldExtensionsState = { kind: "unset" };
+  if (
+    parsed.document.fieldExtensions != null &&
+    parsed.document.fieldExtensions.length > 0
+  ) {
+    fieldExtensions = await loadFieldExtensionsAtPaths(
+      resolved.fieldExtensionPaths,
+    );
+  }
+  const pinnedPluginIds = new Set<string>(
+    fieldExtensions.kind === "loaded"
+      ? fieldExtensions.documents.map((doc) => doc.id)
+      : [],
+  );
+  let editableFieldExtension: WorkspaceEditableFieldExtensionState = {
+    kind: "unset",
+  };
+  if (parsed.document.editableFieldExtension != null) {
+    if (resolved.editableFieldExtensionPath) {
+      editableFieldExtension = await loadEditableFieldExtension(
+        resolved.editableFieldExtensionPath,
+        parsed.document.editableFieldExtension,
+        pinnedPluginIds,
+      );
+    } else {
+      editableFieldExtension = {
+        kind: "error",
+        message: "拡張項目を読み込めませんでした。",
+      };
+    }
+  }
   return {
     ok: true,
     binding: {
@@ -268,6 +426,8 @@ export async function loadWorkspaceBinding(
       members,
       calendar,
       statuses,
+      fieldExtensions,
+      editableFieldExtension,
     },
   };
 }
@@ -323,6 +483,43 @@ export function workspaceStatusesError(
   statuses: WorkspaceStatusesState,
 ): string | null {
   return statuses.kind === "error" ? statuses.message : null;
+}
+
+export function workspaceFieldExtensionsForDisplay(
+  fieldExtensions: WorkspaceFieldExtensionsState,
+): FieldExtensionDocument[] | null {
+  if (fieldExtensions.kind === "loaded") return [...fieldExtensions.documents];
+  return null;
+}
+
+export function workspaceMergedFieldExtensionsForDisplay(
+  fieldExtensions: WorkspaceFieldExtensionsState,
+  editable: WorkspaceEditableFieldExtensionState,
+): FieldExtensionDocument[] {
+  const pinned = workspaceFieldExtensionsForDisplay(fieldExtensions) ?? [];
+  if (editable.kind === "loaded") {
+    return [...pinned, editable.document];
+  }
+  return pinned;
+}
+
+export function workspaceFieldExtensionsError(
+  fieldExtensions: WorkspaceFieldExtensionsState,
+): string | null {
+  return fieldExtensions.kind === "error" ? fieldExtensions.message : null;
+}
+
+export function workspaceEditableFieldExtensionError(
+  editable: WorkspaceEditableFieldExtensionState,
+): string | null {
+  return editable.kind === "error" ? editable.message : null;
+}
+
+export function workspacePinnedFieldExtensionPluginIds(
+  fieldExtensions: WorkspaceFieldExtensionsState,
+): readonly string[] {
+  if (fieldExtensions.kind !== "loaded") return [];
+  return fieldExtensions.documents.map((doc) => doc.id);
 }
 
 export type WorkspaceOpened = {
@@ -419,6 +616,8 @@ export function workspaceBindingSummary(binding: WorkspaceWindowBinding): {
   membersLabel: string;
   calendarLabel: string;
   statusesLabel: string;
+  fieldExtensionsLabel: string;
+  editableFieldExtensionLabel: string;
 } {
   const membersLabel =
     binding.members.kind === "loaded" && binding.resolved.membersPath
@@ -444,5 +643,26 @@ export function workspaceBindingSummary(binding: WorkspaceWindowBinding): {
         : binding.document.statuses == null
           ? "組み込みの三件"
           : workspaceSidecarLabel(binding.document.statuses);
-  return { membersLabel, calendarLabel, statusesLabel };
+  const fieldExtensionsLabel =
+    binding.fieldExtensions.kind === "loaded"
+      ? binding.fieldExtensions.documents.map((doc) => doc.name).join("、")
+      : binding.document.fieldExtensions == null ||
+          binding.document.fieldExtensions.length === 0
+        ? "なし"
+        : binding.document.fieldExtensions
+            .map((relative) => workspaceSidecarLabel(relative))
+            .join("、");
+  const editableFieldExtensionLabel =
+    binding.editableFieldExtension.kind === "loaded"
+      ? binding.editableFieldExtension.document.name
+      : binding.document.editableFieldExtension == null
+        ? "未作成"
+        : workspaceSidecarLabel(binding.document.editableFieldExtension);
+  return {
+    membersLabel,
+    calendarLabel,
+    statusesLabel,
+    fieldExtensionsLabel,
+    editableFieldExtensionLabel,
+  };
 }

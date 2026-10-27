@@ -5,10 +5,13 @@ import { documentToJsonString } from "./serialize";
 import { sampleScheduleDocument } from "../sample/schedule";
 import {
   applyTaskFieldValue,
+  assessRequiredFieldValuesSave,
   normalizeScheduleFieldsForValidation,
   parseTaskFieldInput,
   setTaskFieldValueOnCategories,
+  validateTaskFieldValuesSemantics,
 } from "./taskFields";
+import { defaultFieldValuesForNewTask } from "./fieldDefinitionEdit";
 import type { ScheduleDocument, ScheduleFieldDef, Task } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 import { categoriesAfterDuplicate, insertTask } from "./tasks";
@@ -48,7 +51,6 @@ function docWithFields(task: Task, extra?: Partial<ScheduleDocument>): ScheduleD
     title: "P",
     milestoneGroups: [],
     milestones: [],
-    fields: fieldDefs,
     categories: [
       {
         id: "a1000001-0000-4000-8000-000000000001",
@@ -115,12 +117,14 @@ describe("taskFields", () => {
     };
     expect(validateSchedule(percentFalse).ok).toBe(false);
 
-    const percentOnText = docWithFields(baseTask(), {
+    const percentOnText = {
+      ...docWithFields(baseTask()),
       fields: [{ key: "memo", name: "メモ", type: "text", percent: true }],
-    });
+    };
     expect(validateSchedule(percentOnText).ok).toBe(false);
 
-    const choicesOnNumber = docWithFields(baseTask(), {
+    const choicesOnNumber = {
+      ...docWithFields(baseTask()),
       fields: [
         {
           key: "score",
@@ -129,25 +133,33 @@ describe("taskFields", () => {
           choices: ["1"],
         },
       ],
-    });
+    };
     expect(validateSchedule(choicesOnNumber).ok).toBe(false);
   });
 
-  it("rejects datetime blank text and newline in field values", () => {
-    const datetime = docWithFields(
-      baseTask({ fieldValues: { due: "2026-05-01T12:00:00" } }),
-    );
-    expect(validateSchedule(datetime).ok).toBe(false);
-
-    const blankText = docWithFields(
-      baseTask({ fieldValues: { memo: "   " } }),
-    );
-    expect(validateSchedule(blankText).ok).toBe(false);
-
-    const newline = docWithFields(
-      baseTask({ fieldValues: { memo: "a\nb" } }),
-    );
-    expect(validateSchedule(newline).ok).toBe(false);
+  it("rejects datetime blank text and newline in field values when defs apply", () => {
+    const path = "/categories/0/groups/0/tasks/0";
+    expect(
+      validateTaskFieldValuesSemantics(
+        baseTask({ fieldValues: { due: "2026-05-01T12:00:00" } }),
+        path,
+        fieldDefs,
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      validateTaskFieldValuesSemantics(
+        baseTask({ fieldValues: { memo: "   " } }),
+        path,
+        fieldDefs,
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      validateTaskFieldValuesSemantics(
+        baseTask({ fieldValues: { memo: "a\nb" } }),
+        path,
+        fieldDefs,
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it("rejects empty meaning on schema without stripping", () => {
@@ -175,9 +187,7 @@ describe("taskFields", () => {
   });
 
   it("does not apply field default to tasks on load", () => {
-    const doc = docWithFields(baseTask(), {
-      fields: [{ key: "memo", name: "メモ", type: "text", default: "既定" }],
-    });
+    const doc = docWithFields(baseTask());
     const result = validateSchedule(doc);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -186,18 +196,21 @@ describe("taskFields", () => {
   });
 
   it("keeps field values when definition name changes", () => {
-    const doc = docWithFields(
-      baseTask({ fieldValues: { memo: "keep" } }),
-      {
-        fields: [{ key: "memo", name: "メモ（改名後）", type: "text" }],
-      },
-    );
+    const doc = docWithFields(baseTask({ fieldValues: { memo: "keep" } }));
     const result = validateSchedule(doc);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.document.categories[0].groups[0].tasks[0].fieldValues).toEqual({
       memo: "keep",
     });
+  });
+
+  it("defaultFieldValuesForNewTask includes only keys with defaults", () => {
+    const values = defaultFieldValuesForNewTask([
+      { key: "memo", name: "メモ", type: "text", default: "既定" },
+      { key: "score", name: "点数", type: "number" },
+    ]);
+    expect(values).toEqual({ memo: "既定" });
   });
 
   it("new inserted task has no fieldValues", () => {
@@ -219,7 +232,6 @@ describe("taskFields", () => {
       title: "P",
       milestoneGroups: [],
       milestones: [],
-      fields: fieldDefs,
       categories: [],
       levels: [
         { name: "段", meaning: "見出し" },
@@ -277,41 +289,51 @@ describe("taskFields", () => {
     const unknownValueKey = docWithFields(
       baseTask({ fieldValues: { unknown: "x" } }),
     );
-    expect(validateSchedule(unknownValueKey).ok).toBe(false);
+    expect(validateSchedule(unknownValueKey).ok).toBe(true);
 
-    const badChoice = docWithFields(
-      baseTask({ fieldValues: { lane: "外部" } }),
-    );
-    expect(validateSchedule(badChoice).ok).toBe(false);
-
-    const badNumber = docWithFields(
-      baseTask({ fieldValues: { score: "x" as unknown as number } }),
-    );
-    expect(validateSchedule(badNumber).ok).toBe(false);
+    const path = "/categories/0/groups/0/tasks/0";
+    expect(
+      validateTaskFieldValuesSemantics(
+        baseTask({ fieldValues: { lane: "外部" } }),
+        path,
+        fieldDefs,
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      validateTaskFieldValuesSemantics(
+        baseTask({ fieldValues: { score: "x" as unknown as number } }),
+        path,
+        fieldDefs,
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
-  it("allows required true with missing values and rejects invalid default", () => {
-    const required = docWithFields(baseTask(), {
-      fields: [{ key: "memo", name: "メモ", type: "text", required: true }],
-    });
-    expect(validateSchedule(required).ok).toBe(true);
-
-    const badDefault = {
-      ...docWithFields(baseTask()),
-      fields: [{ key: "score", name: "点数", type: "number", default: "x" }],
-    };
-    expect(validateSchedule(badDefault).ok).toBe(false);
+  it("allows required true with missing values in file validation", () => {
+    expect(validateSchedule(docWithFields(baseTask())).ok).toBe(true);
   });
 
-  it("strips empty meaning before schema validation", () => {
-    const raw = {
+  it("rejects save when required field values are missing", () => {
+    const defs: ScheduleFieldDef[] = [
+      { key: "memo", name: "メモ", type: "text", required: true },
+    ];
+    const doc = docWithFields(baseTask());
+    const gate = assessRequiredFieldValuesSave(doc, defs);
+    expect(gate.ok).toBe(false);
+    if (!gate.ok) {
+      expect(gate.message).toBe(
+        "必須の「メモ」が空のタスクがあるので、保存できません。",
+      );
+    }
+    const filled = docWithFields(baseTask({ fieldValues: { memo: "ok" } }));
+    expect(assessRequiredFieldValuesSave(filled, defs).ok).toBe(true);
+  });
+
+  it("rejects schedule JSON that includes fields definitions", () => {
+    const doc = {
       ...docWithFields(baseTask()),
-      fields: [{ key: "memo", name: "メモ", type: "text", meaning: "  " }],
+      fields: [{ key: "memo", name: "メモ", type: "text" }],
     };
-    const normalized = normalizeScheduleFieldsForValidation(
-      raw as Record<string, unknown>,
-    );
-    expect(validateSchedule(normalized).ok).toBe(true);
+    expect(validateSchedule(doc).ok).toBe(false);
   });
 
   it("updates one key and removes fieldValues when last value cleared", () => {

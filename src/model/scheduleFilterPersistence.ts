@@ -262,16 +262,17 @@ export type PruneScheduleFilterOptions = {
 export function pruneContextFromScheduleDocument(
   document: Pick<
     ScheduleDocument,
-    "categories" | "milestones" | "milestoneGroups" | "fields"
+    "categories" | "milestones" | "milestoneGroups"
   >,
   knownMemberIds: ReadonlySet<string>,
+  fieldDefs?: readonly ScheduleFieldDef[],
 ): PruneFiltersContext {
   return {
     categories: document.categories,
     milestones: document.milestones,
     milestoneGroups: document.milestoneGroups,
     knownMemberIds,
-    fields: document.fields,
+    fields: fieldDefs,
   };
 }
 

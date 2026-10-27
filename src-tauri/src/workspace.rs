@@ -1,4 +1,7 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+
+use super::sanitize_export_filename;
 
 pub const MAX_WORKSPACE_BYTES: u64 = 64 * 1024;
 
@@ -45,6 +48,35 @@ pub fn export_error_with_partial(error: String, wrote_any: bool) -> String {
     } else {
         error
     }
+}
+
+/// 書き出し先フォルダ内で、既に使っているファイル名と重ならない名前を返す。
+pub fn unique_export_filename(
+    proposed: &str,
+    default_ext: &str,
+    used: &mut HashSet<String>,
+) -> String {
+    let base = sanitize_export_filename(proposed, default_ext);
+    if used.insert(base.clone()) {
+        return base;
+    }
+    let (stem, suffix) = if base.ends_with(".fields.json") {
+        (
+            base.strip_suffix(".fields.json").unwrap_or(&base),
+            ".fields.json",
+        )
+    } else if base.ends_with(".json") {
+        (base.strip_suffix(".json").unwrap_or(&base), ".json")
+    } else {
+        (base.as_str(), "")
+    };
+    for n in 2.. {
+        let candidate = format!("{}-{}{}", stem, n, suffix);
+        if used.insert(candidate.clone()) {
+            return candidate;
+        }
+    }
+    unreachable!()
 }
 
 fn schedule_parent_directory(workspace_file: &Path) -> Option<PathBuf> {
@@ -127,6 +159,118 @@ pub fn paths_denote_same_file(left: &Path, right: &Path) -> bool {
     }
 }
 
+#[allow(dead_code)]
+pub fn read_workspace_field_extension_paths(
+    workspace_file: &Path,
+) -> Result<Vec<PathBuf>, String> {
+    if !workspace_file.is_absolute() {
+        return Err("設定ファイルのパスが不正です。".to_string());
+    }
+    if !workspace_file.is_file() {
+        return Err("設定ファイルを開けません。".to_string());
+    }
+    let text = std::fs::read_to_string(workspace_file)
+        .map_err(|e| format!("設定ファイルを開けません: {}", e))?;
+    if text.len() as u64 > MAX_WORKSPACE_BYTES {
+        return Err("設定ファイルが大きすぎます（上限 64 KB）".to_string());
+    }
+    let value: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|_| "設定ファイルの形式が正しくありません".to_string())?;
+    let entries = value
+        .get("fieldExtensions")
+        .and_then(|entry| entry.as_array())
+        .map(|array| {
+            array
+                .iter()
+                .filter_map(|item| item.as_str().map(str::trim))
+                .filter(|item| !item.is_empty())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let mut paths = Vec::new();
+    for relative in entries {
+        let resolved = resolve_workspace_relative_path(workspace_file, relative)
+            .ok_or_else(|| "設定ファイルのパスを解決できません。".to_string())?;
+        paths.push(resolved);
+    }
+    Ok(paths)
+}
+
+pub fn read_workspace_editable_field_extension_path(
+    workspace_file: &Path,
+) -> Result<Option<PathBuf>, String> {
+    if !workspace_file.is_absolute() {
+        return Err("設定ファイルのパスが不正です。".to_string());
+    }
+    if !workspace_file.is_file() {
+        return Err("設定ファイルを開けません。".to_string());
+    }
+    let text = std::fs::read_to_string(workspace_file)
+        .map_err(|e| format!("設定ファイルを開けません: {}", e))?;
+    if text.len() as u64 > MAX_WORKSPACE_BYTES {
+        return Err("設定ファイルが大きすぎます（上限 64 KB）".to_string());
+    }
+    let value: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|_| "設定ファイルの形式が正しくありません".to_string())?;
+    let relative = value
+        .get("editableFieldExtension")
+        .and_then(|entry| entry.as_str())
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty());
+    match relative {
+        None => Ok(None),
+        Some(relative) => resolve_workspace_relative_path(workspace_file, relative)
+            .map(Some)
+            .ok_or_else(|| "設定ファイルのパスを解決できません。".to_string()),
+    }
+}
+
+fn read_workspace_json_value(workspace_file: &Path) -> Result<serde_json::Value, String> {
+    if !workspace_file.is_absolute() {
+        return Err("設定ファイルのパスが不正です。".to_string());
+    }
+    if !workspace_file.is_file() {
+        return Err("設定ファイルを開けません。".to_string());
+    }
+    let text = std::fs::read_to_string(workspace_file)
+        .map_err(|e| format!("設定ファイルを開けません: {}", e))?;
+    if text.len() as u64 > MAX_WORKSPACE_BYTES {
+        return Err("設定ファイルが大きすぎます（上限 64 KB）".to_string());
+    }
+    serde_json::from_str(&text).map_err(|_| "設定ファイルの形式が正しくありません".to_string())
+}
+
+pub fn write_workspace_json_value(
+    workspace_file: &Path,
+    value: &serde_json::Value,
+) -> Result<(), String> {
+    let text = serde_json::to_string_pretty(value)
+        .map_err(|e| format!("JSON を書けません: {}", e))?;
+    super::write_utf8_atomic(workspace_file, &format!("{}\n", text))
+}
+
+pub fn set_workspace_editable_field_extension_relative(
+    workspace_file: &Path,
+    relative: Option<&str>,
+) -> Result<(), String> {
+    let mut value = read_workspace_json_value(workspace_file)?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| "設定ファイルの形式が正しくありません".to_string())?;
+    match relative {
+        Some(path) => {
+            object.insert(
+                "editableFieldExtension".to_string(),
+                serde_json::Value::String(path.to_string()),
+            );
+        }
+        None => {
+            object.remove("editableFieldExtension");
+        }
+    }
+    write_workspace_json_value(workspace_file, &value)
+}
+
 pub fn read_workspace_statuses_path(workspace_file: &Path) -> Result<Option<PathBuf>, String> {
     if !workspace_file.is_absolute() {
         return Err("設定ファイルのパスが不正です。".to_string());
@@ -196,6 +340,21 @@ mod export_tests {
     }
 
     #[test]
+    fn unique_export_filename_avoids_collision_with_fields_suffix() {
+        let mut used = HashSet::from(["sample.fields.json".to_string()]);
+        let name = unique_export_filename("sample.fields.json", "json", &mut used);
+        assert_eq!(name, "sample-2.fields.json");
+        assert!(used.contains("sample-2.fields.json"));
+    }
+
+    #[test]
+    fn unique_export_filename_returns_sanitized_first() {
+        let mut used = HashSet::new();
+        let name = unique_export_filename("risk.fields.json", "json", &mut used);
+        assert_eq!(name, "risk.fields.json");
+    }
+
+    #[test]
     fn resolves_statuses_path_next_to_workspace() {
         let dir = tempdir().expect("tempdir");
         let workspace = dir.path().join("ws").join("workspace.json");
@@ -207,6 +366,46 @@ mod export_tests {
         let resolved =
             read_workspace_statuses_path(&workspace).expect("read").expect("path");
         assert!(paths_denote_same_file(&resolved, &statuses));
+    }
+
+    #[test]
+    fn resolves_editable_field_extension_path() {
+        let dir = tempdir().expect("tempdir");
+        let workspace = dir.path().join("workspace.json");
+        fs::write(
+            &workspace,
+            r#"{"schemaVersion":1,"schedule":"p.json","editableFieldExtension":"custom.fields.json"}"#,
+        )
+        .expect("write");
+        let extension = dir.path().join("custom.fields.json");
+        fs::write(&extension, "{}").expect("write extension");
+        let resolved = read_workspace_editable_field_extension_path(&workspace)
+            .expect("read")
+            .expect("path");
+        assert!(paths_denote_same_file(&resolved, &extension));
+    }
+
+    #[test]
+    fn set_and_clear_editable_field_extension_relative() {
+        let dir = tempdir().expect("tempdir");
+        let workspace = dir.path().join("workspace.json");
+        fs::write(
+            &workspace,
+            r#"{"schemaVersion":1,"schedule":"p.json"}"#,
+        )
+        .expect("write");
+        set_workspace_editable_field_extension_relative(&workspace, Some("custom.fields.json"))
+            .expect("set");
+        let path = read_workspace_editable_field_extension_path(&workspace)
+            .expect("read")
+            .expect("path");
+        assert_eq!(path.file_name().unwrap().to_str(), Some("custom.fields.json"));
+        set_workspace_editable_field_extension_relative(&workspace, None).expect("clear");
+        assert!(
+            read_workspace_editable_field_extension_path(&workspace)
+                .expect("read")
+                .is_none()
+        );
     }
 
     #[test]

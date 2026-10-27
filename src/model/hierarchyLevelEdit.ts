@@ -147,7 +147,6 @@ function snapshotAsDocument(
     title: snapshot.title,
     milestoneGroups: snapshot.milestoneGroups,
     milestones: snapshot.milestones,
-    fields: snapshot.fields,
     categories: snapshot.categories,
     levels: snapshot.levels,
     outline: snapshot.outline,

@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type FocusEvent,
+  type ReactNode,
   type Ref,
 } from "react";
 import type { TaskRef } from "../model/dependencies";
@@ -26,7 +27,10 @@ import {
   hasTaskTodos,
   taskTodoCountLabel,
 } from "../model/taskTodos";
-import { fieldValueDisplayString } from "../model/taskFields";
+import {
+  fieldValueDisplayString,
+  normalizeStoredFieldValue,
+} from "../model/taskFields";
 import {
   UNASSIGNED_LABEL,
   type Milestone,
@@ -46,6 +50,27 @@ export type TaskDetailPanelHandle = {
   focusName: () => void;
   focusPanelHeading: () => void;
 };
+
+function taskFieldValueIsEmpty(task: Task, field: ScheduleFieldDef): boolean {
+  const raw = task.fieldValues?.[field.key];
+  if (raw === undefined) return true;
+  return normalizeStoredFieldValue(field, raw) === undefined;
+}
+
+function fieldLabelContent(
+  field: ScheduleFieldDef,
+  task: Task,
+): ReactNode {
+  if (field.required === true && taskFieldValueIsEmpty(task, field)) {
+    return (
+      <>
+        {field.name}
+        <span className="detail-field-empty-mark"> 空欄</span>
+      </>
+    );
+  }
+  return field.name;
+}
 
 type TaskDetailPanelProps = {
   task: Task;
@@ -805,7 +830,9 @@ export function TaskDetailPanel({
                 current === undefined ? TASK_FIELD_NONE_VALUE : String(current);
               return (
                 <div className="field" key={field.key}>
-                  <label htmlFor={inputId}>{field.name}</label>
+                  <label htmlFor={inputId}>
+                    {fieldLabelContent(field, task)}
+                  </label>
                   <select
                     id={inputId}
                     value={selectValue}
@@ -829,7 +856,9 @@ export function TaskDetailPanel({
             if (field.type === "date") {
               return (
                 <div className="field" key={field.key}>
-                  <label htmlFor={inputId}>{field.name}</label>
+                  <label htmlFor={inputId}>
+                    {fieldLabelContent(field, task)}
+                  </label>
                   <DateInput
                     id={inputId}
                     value={draft}
@@ -847,7 +876,9 @@ export function TaskDetailPanel({
             if (field.type === "number") {
               return (
                 <div className="field" key={field.key}>
-                  <label htmlFor={inputId}>{field.name}</label>
+                  <label htmlFor={inputId}>
+                    {fieldLabelContent(field, task)}
+                  </label>
                   <div className="detail-number-line">
                     <input
                       id={inputId}
@@ -870,7 +901,9 @@ export function TaskDetailPanel({
             }
             return (
               <div className="field" key={field.key}>
-                <label htmlFor={inputId}>{field.name}</label>
+                <label htmlFor={inputId}>
+                  {fieldLabelContent(field, task)}
+                </label>
                 <input
                   id={inputId}
                   type="text"
@@ -894,6 +927,26 @@ export function TaskDetailPanel({
           })}
         </section>
       ) : null}
+      {(() => {
+        const editableKeys = new Set(
+          (scheduleFields ?? []).map((field) => field.key),
+        );
+        const orphans = Object.entries(task.fieldValues ?? {}).filter(
+          ([key]) => !editableKeys.has(key),
+        );
+        if (orphans.length === 0) return null;
+        return (
+          <section className="detail-section">
+            <h2 className="detail-section-title">未登録の追加項目</h2>
+            {orphans.map(([key, value]) => (
+              <div className="field" key={key}>
+                <span className="field-label">{key}</span>
+                <p className="field-readonly-value">{String(value)}</p>
+              </div>
+            ))}
+          </section>
+        );
+      })()}
       {formError ? (
         <p className="form-error" role="alert">{formError}</p>
       ) : null}

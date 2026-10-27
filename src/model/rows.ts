@@ -145,15 +145,15 @@ export function listTasksMatchingFilterInDocument(
     | "levels"
     | "milestoneGroups"
     | "milestones"
-    | "fields"
   >,
   filters: ScheduleFilters,
   today: string,
   memberCatalog: Map<MemberId, Member> | null,
   lineageIds?: ReadonlySet<ScheduleId> | null,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fieldDefs?: readonly ScheduleFieldDef[],
 ): FilteredTaskRef[] {
-  const fields = doc.fields;
+  const fields = fieldDefs;
   const categories = doc.categories ?? [];
   if (
     !scheduleStoresTasksInOutline({

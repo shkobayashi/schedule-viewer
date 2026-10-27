@@ -95,8 +95,6 @@ export type ScheduleDocument = {
   title: string;
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
-  /** タスク全体で共有する追加項目の定義。無いときはキーを書かない。 */
-  fields?: ScheduleFieldDef[];
   categories: Category[];
   levels?: ScheduleLevelDef[];
   outline?: OutlineRoot;

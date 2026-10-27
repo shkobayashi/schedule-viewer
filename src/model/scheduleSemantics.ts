@@ -1,9 +1,6 @@
 import { isIsoDateString } from "./dates";
 import { collectTasksFromDocument, isOutlineBranch, isTaskNode } from "./hierarchy";
-import {
-  validateDocumentFieldDefinitions,
-  validateTaskFieldValuesSemantics,
-} from "./taskFields";
+import { validateTaskFieldValuesSemantics } from "./taskFields";
 import type {
   OutlineRoot,
   ScheduleDocument,
@@ -99,8 +96,7 @@ export function validateScheduleSemantics(
     }
   }
 
-  const fieldDefs = doc.fields;
-  issues.push(...validateDocumentFieldDefinitions(fieldDefs));
+  const fieldDefs: ScheduleFieldDef[] | undefined = undefined;
 
   if (doc.levels != null) {
     if (doc.levels.length < 1 || doc.levels.length > 5) {

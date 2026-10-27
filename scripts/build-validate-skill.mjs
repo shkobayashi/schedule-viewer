@@ -69,6 +69,23 @@ copyFileSync(
   ".cursor/skills/write-workspace/workspace.schema.json",
 );
 
+buildSync({
+  entryPoints: ["scripts/validate-field-extensions-cli.ts"],
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  outfile:
+    ".cursor/skills/write-fields/scripts/validate-field-extensions.bundle.mjs",
+  banner: {
+    js: "#!/usr/bin/env node",
+  },
+});
+
+copyFileSync(
+  "docs/field-extensions.schema.json",
+  ".cursor/skills/write-fields/field-extensions.schema.json",
+);
+
 console.log(
-  "Built validate-schedule.bundle.mjs, validate-calendar.bundle.mjs, validate-members.bundle.mjs, and validate-workspace.bundle.mjs",
+  "Built validate-schedule.bundle.mjs, validate-calendar.bundle.mjs, validate-members.bundle.mjs, validate-workspace.bundle.mjs, and validate-field-extensions.bundle.mjs",
 );

@@ -72,7 +72,6 @@ type UseScheduleFileOptions = {
   milestones: Milestone[];
   levels?: ScheduleLevelDef[];
   outline?: OutlineRoot;
-  fields?: import("../model/types").ScheduleFieldDef[];
   replaceDocument: (document: ScheduleDocument) => void;
   applyMergedDocument: (
     document: ScheduleDocument,
@@ -86,6 +85,7 @@ type UseScheduleFileOptions = {
   getFilterViewState: () => ScheduleFilterViewState;
   knownMemberIds: ReadonlySet<string>;
   memberCatalogSettled: boolean;
+  extraFieldDefs?: import("../model/types").ScheduleFieldDef[];
   sidebarReorderDragging: boolean;
   getCanonicalJson?: () => string;
   getDocumentTitle?: () => string;
@@ -105,7 +105,6 @@ export function useScheduleFile({
   milestones,
   levels,
   outline,
-  fields,
   replaceDocument,
   applyMergedDocument,
   reloadDocumentFromDisk,
@@ -117,6 +116,7 @@ export function useScheduleFile({
   getFilterViewState,
   knownMemberIds,
   memberCatalogSettled,
+  extraFieldDefs = [],
   sidebarReorderDragging,
   getCanonicalJson,
   getDocumentTitle,
@@ -158,9 +158,9 @@ export function useScheduleFile({
         milestones,
         levels,
         outline,
-        fields,
+        extraFieldDefs.length > 0 ? [...extraFieldDefs] : undefined,
       ),
-    [categories, fields, levels, milestoneGroups, milestones, outline, title],
+    [categories, extraFieldDefs, levels, milestoneGroups, milestones, outline, title],
   );
 
   const isDirty = currentJson !== baselineJson;
@@ -186,9 +186,9 @@ export function useScheduleFile({
       milestones,
       milestoneGroups,
       knownMemberIds,
-      fields,
+      fields: extraFieldDefs,
     }),
-    [categories, fields, knownMemberIds, milestoneGroups, milestones],
+    [categories, extraFieldDefs, knownMemberIds, milestoneGroups, milestones],
   );
 
   const filterPersistence = useScheduleFilterPersistence({
@@ -249,6 +249,7 @@ export function useScheduleFile({
     clearRecoveryDraft,
     clearExternalReloadPromptRef,
     clearInvalidDiskHashRef,
+    extraFieldDefs,
   });
   const externalChangeOpenRef = useRef(externalChangeOpen);
   externalChangeOpenRef.current = externalChangeOpen;

@@ -6,7 +6,6 @@ import type {
   Milestone,
   MilestoneGroup,
   OutlineRoot,
-  ScheduleFieldDef,
   ScheduleLevelDef,
 } from "./types";
 
@@ -17,7 +16,6 @@ export type DocumentSnapshot = {
   categories: Category[];
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
-  fields?: ScheduleFieldDef[];
   levels?: ScheduleLevelDef[];
   outline?: OutlineRoot;
 };
@@ -28,10 +26,6 @@ export function cloneSnapshot(snapshot: DocumentSnapshot): DocumentSnapshot {
     categories: cloneCategories(snapshot.categories),
     milestoneGroups: snapshot.milestoneGroups.map((group) => ({ ...group })),
     milestones: snapshot.milestones.map((milestone) => ({ ...milestone })),
-    fields: snapshot.fields?.map((field) => ({
-      ...field,
-      ...(field.choices != null ? { choices: [...field.choices] } : {}),
-    })),
     levels: snapshot.levels?.map((level) => ({ ...level })),
     outline:
       snapshot.outline != null ? cloneOutlineRoot(snapshot.outline) : undefined,

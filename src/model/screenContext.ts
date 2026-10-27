@@ -162,7 +162,6 @@ function scheduleDocumentForMcpTasks(
     milestones: input.milestones ?? [],
     levels: input.levels?.length ? [...input.levels] : undefined,
     outline: input.outline,
-    fields: input.fields?.length ? [...input.fields] : undefined,
   };
 }
 
@@ -376,6 +375,7 @@ export function buildFilteredTasksPayload(
     input.memberCatalog,
     input.lineageIds,
     statuses,
+    input.fields,
   );
   return {
     levels: levelEntries,
@@ -417,6 +417,7 @@ export function buildSelectedTaskPayload(
     input.memberCatalog,
     input.lineageIds,
     statuses,
+    input.fields,
   );
   const selectedTask = resolveSelectedTask(
     doc,
