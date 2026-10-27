@@ -52,11 +52,34 @@ export function dependencyCount(categories: Category[], taskId: ScheduleId): num
   return count;
 }
 
+export function dependencyCountFromTasks(
+  tasks: readonly Task[],
+  taskId: ScheduleId,
+): number {
+  let count = 0;
+  for (const task of tasks) {
+    if (task.id === taskId) count += task.predecessors.length;
+    else if (task.predecessors.includes(taskId)) count += 1;
+  }
+  return count;
+}
+
 export function successorIds(categories: Category[], taskId: ScheduleId): ScheduleId[] {
   const ids: ScheduleId[] = [];
   forEachTask(categories, (task) => {
     if (task.predecessors.includes(taskId)) ids.push(task.id);
   });
+  return ids;
+}
+
+export function successorIdsFromTasks(
+  tasks: readonly Task[],
+  taskId: ScheduleId,
+): ScheduleId[] {
+  const ids: ScheduleId[] = [];
+  for (const task of tasks) {
+    if (task.predecessors.includes(taskId)) ids.push(task.id);
+  }
   return ids;
 }
 
@@ -72,14 +95,14 @@ function tasksById(categories: Category[]): Map<ScheduleId, Task> {
  * 起点から predecessors を遡った先行と、後続を末端まで辿ったタスク。
  * 起点を通らない枝は含めない。起点が無ければ null。
  */
-export function lineageTaskIds(
-  categories: Category[],
+export function lineageTaskIdsFromTasks(
+  tasks: readonly Task[],
   rootId: ScheduleId,
 ): Set<ScheduleId> | null {
   const predecessors = new Map<ScheduleId, ScheduleId[]>();
   const successors = new Map<ScheduleId, ScheduleId[]>();
   let rootExists = false;
-  forEachTask(categories, (task) => {
+  for (const task of tasks) {
     if (task.id === rootId) rootExists = true;
     predecessors.set(task.id, task.predecessors);
     for (const predId of task.predecessors) {
@@ -87,7 +110,7 @@ export function lineageTaskIds(
       if (next) next.push(task.id);
       else successors.set(predId, [task.id]);
     }
-  });
+  }
   if (!rootExists) return null;
 
   const ids = new Set<ScheduleId>([rootId]);
@@ -110,11 +133,28 @@ export function lineageTaskIds(
   return ids;
 }
 
+export function lineageTaskIds(
+  categories: Category[],
+  rootId: ScheduleId,
+): Set<ScheduleId> | null {
+  const tasks: Task[] = [];
+  forEachTask(categories, (task) => {
+    tasks.push(task);
+  });
+  return lineageTaskIdsFromTasks(tasks, rootId);
+}
+
 /** 破綻した線の先行または後続になっているタスク。 */
 export function brokenLinkTaskIds(categories: Category[]): Set<ScheduleId> {
-  const byId = tasksById(categories);
+  return brokenLinkTaskIdsFromTasks([...tasksById(categories).values()]);
+}
+
+export function brokenLinkTaskIdsFromTasks(
+  tasks: readonly Task[],
+): Set<ScheduleId> {
+  const byId = new Map(tasks.map((task) => [task.id, task]));
   const ids = new Set<ScheduleId>();
-  for (const task of byId.values()) {
+  for (const task of tasks) {
     for (const predecessorId of task.predecessors) {
       const predecessor = byId.get(predecessorId);
       if (!predecessor || !isBrokenLink(predecessor, task)) continue;
@@ -126,14 +166,14 @@ export function brokenLinkTaskIds(categories: Category[]): Set<ScheduleId> {
 }
 
 /** フィルタ後の行に先行・後続の両方がいるリンクだけ返す。 */
-export function visibleLinks(
-  categories: Category[],
+export function visibleLinksFromTasks(
+  tasks: readonly Task[],
   visibleIds: ReadonlySet<ScheduleId>,
 ): DependencyLink[] {
-  const byId = tasksById(categories);
+  const byId = new Map(tasks.map((task) => [task.id, task]));
   const links: DependencyLink[] = [];
-  forEachTask(categories, (task) => {
-    if (!visibleIds.has(task.id)) return;
+  for (const task of tasks) {
+    if (!visibleIds.has(task.id)) continue;
     for (const predecessorId of task.predecessors) {
       if (!visibleIds.has(predecessorId)) continue;
       const predecessor = byId.get(predecessorId);
@@ -143,8 +183,20 @@ export function visibleLinks(
         broken: predecessor ? isBrokenLink(predecessor, task) : false,
       });
     }
-  });
+  }
   return links;
+}
+
+/** フィルタ後の行に先行・後続の両方がいるリンクだけ返す。 */
+export function visibleLinks(
+  categories: Category[],
+  visibleIds: ReadonlySet<ScheduleId>,
+): DependencyLink[] {
+  const tasks: Task[] = [];
+  forEachTask(categories, (task) => {
+    tasks.push(task);
+  });
+  return visibleLinksFromTasks(tasks, visibleIds);
 }
 
 /** 矢印の頭の長さ。画面の Arrow と書き出しの marker と揃える。 */

@@ -281,6 +281,116 @@ describe("exportExcel", () => {
     expect(dark.rows[1]?.nameOverdue).toBe(true);
   });
 
+  const summarySpan = {
+    start: "2026-01-07",
+    end: "2026-01-08",
+    covered: [{ start: "2026-01-07", end: "2026-01-08" }],
+  };
+
+  it("keeps task indent 0 for task-only visible rows", () => {
+    const payload = buildExcelExportPayload(baseInput());
+    expect(payload.rows).toHaveLength(1);
+    expect(payload.rows[0]?.nameIndent).toBe(0);
+    expect(payload.rows[0]?.kind).toBe("task");
+    expect(payload.summaryCaps).toHaveLength(0);
+  });
+
+  it("indents two-level hierarchy like top heading and task", () => {
+    const heading: VisibleRow = {
+      type: "hierarchy",
+      id: "h0",
+      label: "まとまり",
+      y: 0,
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 50,
+      levelIndex: 0,
+      depth: 0,
+      rowKind: "top",
+      ancestorIds: [],
+      alsoTaskParent: true,
+    };
+    const input = baseInput();
+    input.visibleRows = [heading, input.visibleRows[0]!];
+    const payload = buildExcelExportPayload(input);
+    expect(payload.rows[0]?.kind).toBe("category");
+    expect(payload.rows[0]?.nameIndent).toBe(0);
+    expect(payload.rows[1]?.nameIndent).toBe(1);
+    expect(payload.summaryCaps.length).toBeGreaterThan(0);
+  });
+
+  it("indents five-level hierarchy through depth 4 on tasks", () => {
+    const mkHeading = (
+      levelIndex: number,
+      depth: number,
+      rowKind: "top" | "middle" | "taskParent",
+      y: number,
+      ancestorIds: string[],
+    ): VisibleRow => ({
+      type: "hierarchy",
+      id: `h-${levelIndex}`,
+      label: `L${levelIndex}`,
+      y,
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 10,
+      levelIndex,
+      depth,
+      rowKind,
+      ancestorIds,
+    });
+    const headings = [
+      mkHeading(0, 0, "top", 0, []),
+      mkHeading(1, 1, "middle", 28, ["h-0"]),
+      mkHeading(2, 2, "middle", 56, ["h-0", "h-1"]),
+      mkHeading(3, 3, "taskParent", 84, ["h-0", "h-1", "h-2"]),
+    ];
+    const input = baseInput();
+    input.visibleRows[0]!.y = 112;
+    input.visibleRows = [...headings, input.visibleRows[0]!];
+    const payload = buildExcelExportPayload(input);
+    expect(payload.rows.map((row) => row.nameIndent)).toEqual([0, 1, 2, 3, 4]);
+    expect(payload.rows[0]?.kind).toBe("category");
+    expect(payload.rows[3]?.kind).toBe("group");
+    expect(payload.summaryCaps.length).toBeGreaterThan(2);
+  });
+
+  it("matches legacy category group task indents for three-level outline headings", () => {
+    const top: VisibleRow = {
+      type: "hierarchy",
+      id: "h0",
+      label: "工程",
+      y: 0,
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 40,
+      levelIndex: 0,
+      depth: 0,
+      rowKind: "top",
+      ancestorIds: [],
+    };
+    const parent: VisibleRow = {
+      type: "hierarchy",
+      id: "h1",
+      label: "機能",
+      y: 28,
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 30,
+      levelIndex: 1,
+      depth: 1,
+      rowKind: "taskParent",
+      ancestorIds: ["h0"],
+    };
+    const input = baseInput();
+    input.visibleRows[0]!.y = 56;
+    input.visibleRows = [top, parent, input.visibleRows[0]!];
+    const payload = buildExcelExportPayload(input);
+    expect(payload.rows.map((row) => row.nameIndent)).toEqual([0, 1, 2]);
+    expect(payload.rows[0]?.kind).toBe("category");
+    expect(payload.rows[1]?.kind).toBe("group");
+  });
+
   it("uses milestone group name on milestone rows", () => {
     const input = baseInput();
     input.tier = "month";

@@ -21,7 +21,7 @@
 
 正本は [schedule.schema.json](schedule.schema.json)。追加の意味規則は [src/model/scheduleSemantics.ts](../src/model/scheduleSemantics.ts) にある。
 
-ルートは `schemaVersion`、`title`、`milestoneGroups`、`milestones`、`categories` だけを持つ。知らないプロパティは拒否する。
+ルートは `schemaVersion`、`title`、`milestoneGroups`、`milestones` を必ず持つ。タスクの入れ子は `categories` か、任意の `levels` と `outline` の組み合わせで書く。知らないプロパティは拒否する。
 
 ```json
 {
@@ -58,7 +58,9 @@
 | `title` | 1文字以上。空白だけは不可 |
 | `milestoneGroups` | マイルストン帯の行。空でもよい。タスクのカテゴリ・グループとは別 |
 | `milestones` | マイルストンの配列。空でもよい |
-| `categories` | 1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
+| `categories` | `levels` が無いときは1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
+| `levels` | 任意。1〜5段。各要素は `name` と `meaning`（いずれも1文字以上）。任意の `instruction` は、その段に置いたあとに LLM が守ること。空ならキーを書かない |
+| `outline` | `levels` があるときは、段数に合う入れ子をここに書く。枝は `id`、`name`、`children`。最下段はタスク。タスクの一つ上の枝だけ `children` を空にできる。それより上の枝は子を1件以上持つ |
 | `id` | カテゴリ、グループ、タスク、マイルストン、マイルストングループの UUID。1つのスケジュールの中で、この5種を通して重複しない |
 | `groupId`（マイルストン） | 属する `milestoneGroups` の `id`。存在しない ID は不可 |
 | `name` | 1文字以上。空白だけは不可 |
@@ -199,7 +201,7 @@
 
 アプリが書くスケジュール JSON は [src/model/serialize.ts](../src/model/serialize.ts) のキー順で、2スペースのインデントである（[src/model/scheduleFile.ts](../src/model/scheduleFile.ts) の `serializeScheduleDocument`）。
 
-キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones`、`categories` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、タグがあるときだけ `tags` を付け、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
+キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones` のあと、階層の定義が無いときは `categories`、あるときは `levels` と `outline` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、タグがあるときだけ `tags` を付け、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
 
 未保存かどうかは、この形にした文字列と、最後に開いた・保存した・読み直したときの文字列を比べて決める。インデントやキー順だけが違うファイルは、同じ内容として扱う。
 
@@ -207,7 +209,7 @@
 
 「書き出し」は、絞り込み・折りたたみ・系統のあとで見えている行を、単一の HTML または SVG にする。チャートはどちらも SVG で、画面の Canvas を撮ったものではない。生成は [src/model/exportHtml.ts](../src/model/exportHtml.ts) と [src/model/exportView.ts](../src/model/exportView.ts) で行う。
 
-入るものは、見えている行の名前、タスクバー、カテゴリとグループの親バー、前後の線、イナズマ線、非稼働日、マイルストン、使っている絞り込みの一覧である。用紙へのページ割りはしない。ズームの粒度（1日あたりの幅）は画面と同じで、期間は見えている行と書き出すマイルストンから決め直す。
+入るものは、見えている行の名前、タスクバー、見出し行の親バー（定義の無いカテゴリとグループ、および `levels` の見出し）、前後の線、イナズマ線、非稼働日、マイルストン、使っている絞り込みの一覧である。左の名前の縦線と行の地、Excel の字下げは [外部仕様](external-spec.md) の VIEW-01 と EXPORT-02・EXPORT-05 に合わせる。階層の定義の形は [スケジュール JSON](#スケジュール-json) を見る。用紙へのページ割りはしない。ズームの粒度（1日あたりの幅）は画面と同じで、期間は見えている行と書き出すマイルストンから決め直す。
 
 書き出すマイルストンは次のとおりである。
 
@@ -284,3 +286,5 @@
 枠が赤くなるのは、終了後の未着手と着手済みだけである。完了と中止と管理外と `shelved` は赤くならない。「完了以外」では完了と中止が消え、管理外と `shelved` は残る。終了が 2026-10-25 の行は、今日がその日のときだけ終了列で止まり、その日は赤くならない。
 
 `examples/playground.schedule.json` は手で開く例であり、引数なしの `check:schedule` では検証しない。内容は `src/sample/playgroundSchedule.ts` から `tsx scripts/write-playground-schedule.ts` で書き出す。
+
+階層の手動確認用は [examples/hierarchy/](../examples/hierarchy/) に置く。2段は [levels-2.schedule.json](../examples/hierarchy/levels-2.schedule.json)（帯の上に「まとまり / タスク」、まとまり行に地と帯）。3段は [levels-3.schedule.json](../examples/hierarchy/levels-3.schedule.json)（帯の上に三つの定義名、`outline` で工程・機能・タスク）。4段は [levels-4.schedule.json](../examples/hierarchy/levels-4.schedule.json)（帯の上に四つの定義名、同じ段の枝が複数ある追加先の確認用）。5段は [levels-5.schedule.json](../examples/hierarchy/levels-5.schedule.json)（帯の上に五つの定義名、縦スクロールで見出しは祖先を段の数だけ固定）。各ファイルは `npm run check:schedule -- examples/hierarchy/<file>` で検証する。

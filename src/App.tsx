@@ -28,6 +28,7 @@ import { ScheduleErrorDialog } from "./components/ScheduleErrorDialog";
 import { MilestoneAddDialog } from "./components/MilestoneAddDialog";
 import { DeleteHierarchyDialog } from "./components/DeleteHierarchyDialog";
 import { HierarchyNameDialog } from "./components/HierarchyNameDialog";
+import { OutlineHeadingAddDialog } from "./components/OutlineHeadingAddDialog";
 import { MilestoneEditDialog } from "./components/MilestoneEditDialog";
 import { TaskAddDialog } from "./components/TaskAddDialog";
 import { Sidebar } from "./components/Sidebar";
@@ -45,6 +46,7 @@ import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { ActiveFilterBar } from "./components/ActiveFilterBar";
 import { AppToast } from "./components/AppToast";
 import { GuideDialog } from "./components/GuideDialog";
+import { HierarchyLevelsDialog } from "./components/HierarchyLevelsDialog";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import type { CommandPaletteRunTarget } from "./model/commandPalette";
@@ -102,6 +104,16 @@ import {
   saveBetaInstallerViaTauri,
 } from "./model/windowSession";
 import { useScheduleFile } from "./hooks/useScheduleFile";
+import {
+  addTopLevelMenuLabel as addTopLevelMenuLabelFromLayout,
+  LEGACY_THREE_LEVEL_COUNT,
+  LEGACY_THREE_LEVEL_DEFS,
+  legacyCategoryParentSelectOptions,
+  collectTasksFromDocument,
+  findTaskInDocument,
+  listTaskRefsFromDocument,
+  HIERARCHY_MISMATCH_MESSAGE,
+} from "./model/hierarchy";
 import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
 import { NO_OPEN_SCHEDULE_FILE_MESSAGE } from "./model/scheduleDiff";
@@ -128,7 +140,11 @@ import {
   isTauri,
   serializeScheduleDocument,
 } from "./model/scheduleFile";
-import { dependencyCount, listTasks, successorIds, visibleLinks } from "./model/dependencies";
+import {
+  dependencyCountFromTasks,
+  successorIdsFromTasks,
+  visibleLinksFromTasks,
+} from "./model/dependencies";
 import { milestoneLinkedByAnyTask } from "./model/milestones";
 import {
   exportSchedule,
@@ -137,7 +153,6 @@ import {
 } from "./model/exportHtml";
 import { exportScheduleExcel } from "./model/exportExcel";
 import { DEFAULT_EXCEL_EXPORT_COLUMNS } from "./model/excelExportColumns";
-import { forEachTask } from "./model/tasks";
 import {
   describeActiveFilters,
   exportTimelineRange,
@@ -153,12 +168,15 @@ import {
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
 import { hasOtherVisibleMilestoneBandGroup } from "./model/filterChips";
-import { findTaskById } from "./model/rows";
 import {
   layoutStickyHeaders,
   scrollYToRevealTask,
   scrollYToShowSelectedTask,
 } from "./model/stickyRows";
+import {
+  findOutlineBranchLevelIndex,
+  taskParentLevelIndex,
+} from "./model/outlineCrud";
 import {
   canDeleteCategory,
   canDeleteGroup,
@@ -174,7 +192,12 @@ import {
   taskBarWidthPx,
 } from "./model/timeline";
 import { extraTimelineDaysForRightEdge } from "./model/timelineRightPadding";
-import type { ScheduleDocument, ScheduleId, Task } from "./model/types";
+import {
+  SCHEDULE_SCHEMA_VERSION,
+  type ScheduleDocument,
+  type ScheduleId,
+  type Task,
+} from "./model/types";
 import {
   AUTO_UPDATE_LS_KEY,
   readAutoUpdateEnabled,
@@ -244,6 +267,7 @@ type ContextMenuState =
   | { kind: "milestone"; milestoneId: ScheduleId; x: number; y: number }
   | { kind: "category"; id: ScheduleId; x: number; y: number }
   | { kind: "group"; id: ScheduleId; x: number; y: number }
+  | { kind: "hierarchy"; id: ScheduleId; x: number; y: number }
   | {
       kind: "link";
       fromId: ScheduleId;
@@ -381,6 +405,10 @@ function App() {
   const [titleEditRequestToken, setTitleEditRequestToken] = useState(0);
   const [titleBlankNotice, setTitleBlankNotice] = useState<string | null>(null);
   const titleEditHandleRef = useRef<ScheduleToolbarTitleHandle | null>(null);
+  const hierarchyButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [hierarchyLevelsOpen, setHierarchyLevelsOpen] = useState(false);
+  const [hierarchyHadDocumentLevels, setHierarchyHadDocumentLevels] =
+    useState(false);
   const [sidebarReorderDragging, setSidebarReorderDragging] = useState(false);
   const [bulkDiscardNotice, setBulkDiscardNotice] = useState<string | null>(null);
   const detailPanelRef = useRef<TaskDetailPanelHandle>(null);
@@ -699,12 +727,26 @@ function App() {
   } = schedule;
 
   const catalogMismatch = useMemo(() => {
-    const tasks: import("./model/types").Task[] = [];
-    forEachTask(schedule.categories, (task) => {
-      tasks.push(task);
+    const tasks = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
     });
     return catalogMismatchKind(tasks, displayStatuses, displayMemberMap);
-  }, [schedule.categories, displayStatuses, displayMemberMap]);
+  }, [
+    displayMemberMap,
+    displayStatuses,
+    schedule.categories,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+  ]);
 
   const catalogMismatchText = catalogMismatchBannerText(catalogMismatch);
 
@@ -728,8 +770,19 @@ function App() {
     setCatalogMismatchAnnouncement(null);
   }, [catalogMismatch]);
 
+  const hierarchyTopBanner =
+    schedule.levels != null &&
+    schedule.levels.length > 0 &&
+    !schedule.hierarchyLayout.aligned
+      ? "mismatch"
+      : schedule.hierarchyLevelBanner
+        ? "levels"
+        : null;
+
   const showChartTopBanners =
-    catalogMismatchText != null || linkSourceId != null;
+    catalogMismatchText != null ||
+    linkSourceId != null ||
+    hierarchyTopBanner != null;
 
   useLayoutEffect(() => {
     const node = chartTopBannersRef.current;
@@ -744,7 +797,14 @@ function App() {
     const observer = new ResizeObserver(() => measure());
     observer.observe(node);
     return () => observer.disconnect();
-  }, [showChartTopBanners, catalogMismatchText, linkSourceId, linkError]);
+  }, [
+    showChartTopBanners,
+    catalogMismatchText,
+    hierarchyTopBanner,
+    schedule.hierarchyLevelBanner,
+    linkSourceId,
+    linkError,
+  ]);
 
   const range = useMemo(
     () =>
@@ -752,8 +812,9 @@ function App() {
         schedule.categories,
         schedule.milestones,
         schedule.today,
+        schedule.outline,
       ),
-    [schedule.categories, schedule.milestones, schedule.today],
+    [schedule.categories, schedule.milestones, schedule.today, schedule.outline],
   );
 
   const monthHeaderFontSize = 12 * (headerHeight / LAYOUT_HEADER_HEIGHT);
@@ -909,6 +970,8 @@ function App() {
     categories: schedule.categories,
     milestoneGroups: schedule.milestoneGroups,
     milestones: schedule.milestones,
+    levels: schedule.levels,
+    outline: schedule.outline,
     replaceDocument: schedule.replaceDocument,
     applyMergedDocument: (document) => applyMergedDocumentRef.current(document),
     reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
@@ -917,10 +980,12 @@ function App() {
     hasOpenEditDialog:
       titleEditing ||
       detailPanelEditing ||
+      hierarchyLevelsOpen ||
       schedule.editingNoteTask != null ||
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null ||
       schedule.addingHierarchyTarget != null ||
+      schedule.outlineHeadingAddOpen ||
       schedule.deletingHierarchyTarget != null,
     blockDocumentEditsRef,
     setFilterViewState: schedule.setFilterViewState,
@@ -1106,6 +1171,7 @@ function App() {
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null ||
       schedule.addingHierarchyTarget != null ||
+      schedule.outlineHeadingAddOpen ||
       schedule.deletingHierarchyTarget != null
     ) {
       return true;
@@ -1118,6 +1184,7 @@ function App() {
     detailPanelEditing,
     titleEditing,
     schedule.addingHierarchyTarget,
+    schedule.outlineHeadingAddOpen,
     schedule.deletingHierarchyTarget,
     schedule.editingHierarchyTarget,
     schedule.editingMilestone,
@@ -1258,10 +1325,47 @@ function App() {
         : `calc(28px * var(--s))`;
 
   const { visibleTaskCount, totalTaskCount } = useMemo(() => {
-    const total = listTasks(schedule.categories).length;
+    const total = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
+    }).length;
     const visible = schedule.visibleRows.filter((row) => row.type === "task").length;
     return { visibleTaskCount: visible, totalTaskCount: total };
-  }, [schedule.categories, schedule.visibleRows]);
+  }, [
+    schedule.categories,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+    schedule.visibleRows,
+  ]);
+
+  const documentTasks = useMemo(
+    () =>
+      collectTasksFromDocument({
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title: schedule.title,
+        categories: schedule.categories,
+        milestoneGroups: schedule.milestoneGroups,
+        milestones: schedule.milestones,
+        levels: schedule.levels,
+        outline: schedule.outline,
+      }),
+    [
+      schedule.categories,
+      schedule.levels,
+      schedule.milestoneGroups,
+      schedule.milestones,
+      schedule.outline,
+      schedule.title,
+    ],
+  );
 
   const {
     categories,
@@ -1278,7 +1382,18 @@ function App() {
     removePredecessorLink,
     setTaskConfidence,
     setMilestoneConfidence,
+    openAddOutlineSiblingAfter,
+    openAddOutlineChild,
+    canDeleteOutlineBranch,
+    levels,
+    outline,
+    hierarchyLayout,
   } = schedule;
+
+  const addTopLevelMenuLabel = useMemo(
+    () => addTopLevelMenuLabelFromLayout(schedule.hierarchyLayoutForMenus),
+    [schedule.hierarchyLayoutForMenus],
+  );
   const {
     fileBusy,
     requestOpen,
@@ -1407,8 +1522,24 @@ function App() {
   );
 
   const taskRefs = useMemo(
-    () => listTasks(schedule.categories),
-    [schedule.categories],
+    () =>
+      listTaskRefsFromDocument({
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title: schedule.title,
+        categories: schedule.categories,
+        milestoneGroups: schedule.milestoneGroups,
+        milestones: schedule.milestones,
+        levels: schedule.levels,
+        outline: schedule.outline,
+      }),
+    [
+      schedule.categories,
+      schedule.levels,
+      schedule.milestoneGroups,
+      schedule.milestones,
+      schedule.outline,
+      schedule.title,
+    ],
   );
   const selectedTaskIdSet = useMemo(
     () => new Set(schedule.selectedTaskIds),
@@ -1418,15 +1549,21 @@ function App() {
     () =>
       schedule.selectedTaskId == null
         ? null
-        : findTaskById(schedule.categories, schedule.selectedTaskId),
-    [schedule.categories, schedule.selectedTaskId],
+        : findTaskInDocument(
+            schedule.categories,
+            schedule.outline,
+            schedule.selectedTaskId,
+          ),
+    [schedule.categories, schedule.outline, schedule.selectedTaskId],
   );
   const bulkDetailTasks = useMemo(() => {
     if (schedule.selectedTaskIds.length <= 1) return [];
     return schedule.selectedTaskIds
-      .map((id) => findTaskById(schedule.categories, id))
+      .map((id) =>
+        findTaskInDocument(schedule.categories, schedule.outline, id),
+      )
       .filter((task): task is NonNullable<typeof task> => task != null);
-  }, [schedule.categories, schedule.selectedTaskIds]);
+  }, [schedule.categories, schedule.outline, schedule.selectedTaskIds]);
 
   const handleBulkEditingChange = useCallback((editing: boolean) => {
     bulkHadDraftRef.current = editing;
@@ -1499,23 +1636,55 @@ function App() {
     [openTaskForEdit, schedule.selectedTaskIds.length],
   );
 
-  const selectedDetailSuccessors = useMemo(
-    () =>
-      selectedDetailTask
-        ? successorIds(schedule.categories, selectedDetailTask.id)
-        : [],
-    [schedule.categories, selectedDetailTask],
-  );
+  const selectedDetailSuccessors = useMemo(() => {
+    if (!selectedDetailTask) return [];
+    const tasks = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
+    });
+    return successorIdsFromTasks(tasks, selectedDetailTask.id);
+  }, [
+    selectedDetailTask,
+    schedule.categories,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+  ]);
   const links = useMemo(() => {
     const visibleIds = new Set(
       schedule.visibleRows.flatMap((row) =>
         row.type === "task" ? [row.task.id] : [],
       ),
     );
-    const links = visibleLinks(schedule.categories, visibleIds);
+    const tasks = collectTasksFromDocument({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: schedule.title,
+      categories: schedule.categories,
+      milestoneGroups: schedule.milestoneGroups,
+      milestones: schedule.milestones,
+      levels: schedule.levels,
+      outline: schedule.outline,
+    });
+    const links = visibleLinksFromTasks(tasks, visibleIds);
     if (schedule.filters.relation !== "broken") return links;
     return links.filter((link) => link.broken);
-  }, [schedule.categories, schedule.filters.relation, schedule.visibleRows]);
+  }, [
+    schedule.categories,
+    schedule.filters.relation,
+    schedule.levels,
+    schedule.milestoneGroups,
+    schedule.milestones,
+    schedule.outline,
+    schedule.title,
+    schedule.visibleRows,
+  ]);
 
   const handleResizeStart = useCallback(
     (taskId: ScheduleId, groupX: number) => {
@@ -1658,10 +1827,18 @@ function App() {
         );
       };
       if (format === "xlsx") {
-        const taskNames = new Map<string, string>();
-        forEachTask(schedule.categories, (task) => {
-          taskNames.set(task.id, task.name);
+        const exportTasks = collectTasksFromDocument({
+          schemaVersion: SCHEDULE_SCHEMA_VERSION,
+          title: schedule.title,
+          categories: schedule.categories,
+          milestoneGroups: schedule.milestoneGroups,
+          milestones: schedule.milestones,
+          levels: schedule.levels,
+          outline: schedule.outline,
         });
+        const taskNames = new Map(
+          exportTasks.map((task) => [task.id, task.name]),
+        );
         void exportScheduleExcel({
           ...exportInput,
           exportMilestones: milestones,
@@ -1721,6 +1898,8 @@ function App() {
   useMcpScreenBridge({
     statuses: displayStatuses,
     categories: schedule.categories,
+    outline: schedule.outline,
+    title: schedule.title,
     milestones: schedule.milestones,
     milestoneGroups: schedule.milestoneGroups,
     filters: schedule.filters,
@@ -1731,6 +1910,7 @@ function App() {
     selectedTaskIds: schedule.selectedTaskIds,
     today: schedule.today,
     memberMap: displayMemberMap,
+    levels: schedule.levels,
     scheduleFilePath: scheduleFile.filePath,
     scheduleCurrentJson: scheduleFile.currentJson,
     scheduleBaselineJson: scheduleFile.baselineJson,
@@ -2491,15 +2671,24 @@ function App() {
   );
 
   const openHierarchyContextMenu = useCallback(
-    (kind: "category" | "group", id: ScheduleId, x: number, y: number) => {
+    (
+      kind: "category" | "group" | "outline",
+      id: ScheduleId,
+      x: number,
+      y: number,
+    ) => {
       if (linkSourceId != null) return;
+      if (kind === "outline") {
+        setContextMenu({ kind: "hierarchy", id, x, y });
+        return;
+      }
       setContextMenu({ kind, id, x, y });
     },
     [linkSourceId],
   );
 
   const openHierarchyEdit = useCallback(
-    (kind: "category" | "group", id: ScheduleId) => {
+    (kind: "category" | "group" | "outline", id: ScheduleId) => {
       if (linkSourceId != null) return;
       schedule.openHierarchyEdit(kind, id);
     },
@@ -2721,8 +2910,54 @@ function App() {
       }
       return items;
     }
+    if (contextMenu.kind === "hierarchy") {
+      if (!hierarchyLayout.aligned || levels == null || outline == null) {
+        return [];
+      }
+      const { id } = contextMenu;
+      const levelIndex = findOutlineBranchLevelIndex(outline, id);
+      if (levelIndex == null) return [];
+      const levelName = levels[levelIndex]?.name ?? "階層";
+      const items: ContextMenuItem[] = [
+        {
+          type: "item",
+          id: "rename",
+          label: "名前を変更",
+          onSelect: () => openHierarchyEdit("outline", id),
+        },
+        {
+          type: "item",
+          id: "add-sibling",
+          label: `下に${levelName}を追加`,
+          onSelect: () => openAddOutlineSiblingAfter(id),
+        },
+      ];
+      if (levelIndex < taskParentLevelIndex(levels.length)) {
+        const childName = levels[levelIndex + 1]?.name ?? "階層";
+        items.push({
+          type: "item",
+          id: "add-child",
+          label: `${childName}を追加`,
+          onSelect: () => openAddOutlineChild(id),
+        });
+      }
+      if (canDeleteOutlineBranch(id)) {
+        items.push(
+          { type: "separator", id: "hierarchy-sep" },
+          {
+            type: "item",
+            id: "delete",
+            label: "削除",
+            danger: true,
+            icon: <Trash2 size={14} strokeWidth={2} />,
+            onSelect: () => openDeleteHierarchy("outline", id),
+          },
+        );
+      }
+      return items;
+    }
     const taskId = contextMenu.taskId;
-    const task = findTaskById(categories, taskId);
+    const task = findTaskInDocument(categories, outline, taskId);
     const multiCount = schedule.selectedTaskIds.length;
     if (multiCount > 1) {
       return [
@@ -2810,6 +3045,7 @@ function App() {
     clearLineage,
     contextMenu,
     lineageTask?.id,
+    outline,
     milestones,
     openDuplicateDialog,
     openTaskForEdit,
@@ -2822,7 +3058,13 @@ function App() {
     openAddCategoryAfter,
     openAddGroupToCategory,
     openAddGroupAfter,
+    openAddOutlineSiblingAfter,
+    openAddOutlineChild,
     openDeleteHierarchy,
+    canDeleteOutlineBranch,
+    hierarchyLayout.aligned,
+    levels,
+    outline,
     setMilestoneGroupVisible,
     showOnlyMilestoneGroup,
     visibleMilestoneGroupIds,
@@ -2867,7 +3109,11 @@ function App() {
         linkSourceName={
           linkSourceId == null
             ? null
-            : (findTaskById(schedule.categories, linkSourceId)?.name ?? null)
+            : (findTaskInDocument(
+                schedule.categories,
+                schedule.outline,
+                linkSourceId,
+              )?.name ?? null)
         }
         canStartLink={schedule.selectedTaskId != null}
         onToggleLink={toggleLinkMode}
@@ -2911,6 +3157,15 @@ function App() {
         onTitleBlankCommit={showTitleBlankNotice}
         titleEditHandleRef={titleEditHandleRef}
         titleEditRequestToken={titleEditRequestToken}
+        hierarchyEditDisabled={
+          scheduleFile.fileBusy || !scheduleFile.startupSettled
+        }
+        hierarchyButtonRef={hierarchyButtonRef}
+        onOpenHierarchy={() => {
+          flushTitleEdit();
+          setHierarchyHadDocumentLevels(schedule.documentHasExplicitLevels());
+          setHierarchyLevelsOpen(true);
+        }}
         onOpenSettings={() => {
           setSettingsSection("display");
           setSettingsOpen(true);
@@ -2933,6 +3188,15 @@ function App() {
           setAddMilestoneInitialDate(null);
           setAddMilestoneInitialGroupId(null);
           setAddMilestoneOpen(true);
+        }}
+        addTopLevelMenuLabel={addTopLevelMenuLabel}
+        onAddTopLevel={() => {
+          if (
+            schedule.hierarchyLayout.useLegacyCategoryRows ||
+            schedule.usesOutlineStorage
+          ) {
+            schedule.openAddOutlineHeadingFromToolbar();
+          }
         }}
         onDelete={() => {
           if (schedule.selectedTaskIds.length > 0) setDeleteOpen(true);
@@ -2959,6 +3223,10 @@ function App() {
         <Sidebar
           statuses={displayStatuses}
           categories={schedule.categories}
+          outline={schedule.outline}
+          levelCount={schedule.hierarchyLayout.levelCount}
+          usesOutlineStorage={schedule.usesOutlineStorage}
+          allowCrossParentTaskMove={schedule.allowCrossParentTaskMove}
           rows={schedule.visibleRows}
           reorderBaseRows={schedule.baseVisibleRows}
           scrollY={scrollY}
@@ -3039,6 +3307,15 @@ function App() {
           </p>
           {showChartTopBanners ? (
             <div ref={chartTopBannersRef} className="chart-top-banners">
+              {hierarchyTopBanner === "mismatch" ? (
+                <div className="hierarchy-banner hierarchy-banner-mismatch" role="status">
+                  <div>{HIERARCHY_MISMATCH_MESSAGE}</div>
+                </div>
+              ) : hierarchyTopBanner === "levels" ? (
+                <div className="hierarchy-banner" role="status">
+                  <div>{schedule.hierarchyLevelBanner}</div>
+                </div>
+              ) : null}
               {catalogMismatchText ? (
                 <div className="catalog-mismatch-banner">
                   <div>{catalogMismatchText}</div>
@@ -3336,9 +3613,34 @@ function App() {
           onSave={schedule.saveHierarchyAdd}
         />
       ) : null}
+      {schedule.outlineHeadingAddOpen &&
+      (schedule.hierarchyLayout.useLegacyCategoryRows ||
+        (schedule.outline != null && schedule.levels != null)) ? (
+        <OutlineHeadingAddDialog
+          key={`outline-heading:${schedule.diskEpoch}`}
+          levels={
+            schedule.hierarchyLayout.useLegacyCategoryRows
+              ? LEGACY_THREE_LEVEL_DEFS
+              : schedule.levels!
+          }
+          outline={schedule.outline}
+          categoryParentOptions={
+            schedule.hierarchyLayout.useLegacyCategoryRows
+              ? legacyCategoryParentSelectOptions(schedule.categories)
+              : undefined
+          }
+          levelCount={
+            schedule.hierarchyLayout.useLegacyCategoryRows
+              ? LEGACY_THREE_LEVEL_COUNT
+              : schedule.levels!.length
+          }
+          onClose={schedule.closeAddingHierarchy}
+          onSave={schedule.saveOutlineHeadingAdd}
+        />
+      ) : null}
       {schedule.deletingHierarchyTarget ? (
         <DeleteHierarchyDialog
-          kind={schedule.deletingHierarchyTarget.kind}
+          label={schedule.deletingHierarchyTarget.label}
           name={schedule.deletingHierarchyTarget.name}
           onClose={schedule.closeDeleteHierarchy}
           onConfirm={schedule.confirmDeleteHierarchy}
@@ -3368,6 +3670,12 @@ function App() {
       {addOpen ? (
         <TaskAddDialog
           categories={schedule.categories}
+          parentBranches={
+            schedule.taskParentBranches.length > 0
+              ? schedule.taskParentBranches
+              : undefined
+          }
+          initialParentBranchId={schedule.taskParentBranches[0]?.id ?? null}
           initialCategory={
             (schedule.selectedTaskId
               ? findTaskPlace(schedule.categories, schedule.selectedTaskId)
@@ -3385,16 +3693,25 @@ function App() {
             ""
           }
           initialStart={
-            findTaskById(schedule.categories, schedule.selectedTaskId)?.start ??
-            schedule.today
+            findTaskInDocument(
+              schedule.categories,
+              schedule.outline,
+              schedule.selectedTaskId,
+            )?.start ?? schedule.today
           }
           initialEnd={
-            findTaskById(schedule.categories, schedule.selectedTaskId)?.end ??
-            schedule.today
+            findTaskInDocument(
+              schedule.categories,
+              schedule.outline,
+              schedule.selectedTaskId,
+            )?.end ?? schedule.today
           }
           onClose={() => setAddOpen(false)}
           onSave={(input) => {
-            const id = schedule.addTask(input);
+            const id = schedule.addTask({
+              ...input,
+              parentBranchId: input.parentBranchId,
+            });
             setAddOpen(false);
             if (id != null) setFocusTaskId(id);
           }}
@@ -3421,8 +3738,9 @@ function App() {
         <DeleteTaskDialog
           taskName={
             schedule.selectedTaskIds.length === 1
-              ? (findTaskById(
+              ? (findTaskInDocument(
                   schedule.categories,
+                  schedule.outline,
                   schedule.selectedTaskIds[0]!,
                 )?.name ?? "このタスク")
               : undefined
@@ -3433,7 +3751,7 @@ function App() {
               : undefined
           }
           hasDependencies={schedule.selectedTaskIds.some(
-            (id) => dependencyCount(schedule.categories, id) > 0,
+            (id) => dependencyCountFromTasks(documentTasks, id) > 0,
           )}
           onClose={() => setDeleteOpen(false)}
           onConfirm={() => {
@@ -3510,6 +3828,19 @@ function App() {
           storeDistribution={storeDistribution}
         />
       ) : null}
+      <HierarchyLevelsDialog
+        open={hierarchyLevelsOpen}
+        initialLevels={schedule.levelDefsForEditor()}
+        hadDocumentLevels={hierarchyHadDocumentLevels}
+        snapshot={schedule.getDocumentSnapshot()}
+        onClose={() => {
+          setHierarchyLevelsOpen(false);
+          hierarchyButtonRef.current?.focus();
+        }}
+        onCommit={(levels) => {
+          schedule.commitLevelDefinitions(levels, hierarchyHadDocumentLevels);
+        }}
+      />
       <GuideDialog
         open={guideOpen}
         onClose={() => setGuideOpen(false)}
@@ -3588,17 +3919,23 @@ function App() {
           hasOpenEditDialog={
             titleEditing ||
             detailPanelEditing ||
+            hierarchyLevelsOpen ||
             schedule.editingNoteTask != null ||
             schedule.editingMilestone != null ||
             schedule.editingHierarchyTarget != null ||
             schedule.addingHierarchyTarget != null ||
+            schedule.outlineHeadingAddOpen ||
             schedule.deletingHierarchyTarget != null
           }
           diskUpdatedAgain={scheduleFile.diskUpdatedAgain}
-          onReload={scheduleFile.confirmExternalReload}
+          onReload={() => {
+            setHierarchyLevelsOpen(false);
+            scheduleFile.confirmExternalReload();
+          }}
           onKeepLocal={scheduleFile.keepLocalEditsOnExternalReload}
           onApplyMerge={() => {
             setDetailPanelEditing(false);
+            setHierarchyLevelsOpen(false);
             scheduleFile.confirmBaselineMerge();
           }}
         />

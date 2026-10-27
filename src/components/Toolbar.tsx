@@ -82,6 +82,8 @@ type ToolbarProps = {
   canDelete: boolean;
   onAdd: () => void;
   onAddMilestone: () => void;
+  addTopLevelMenuLabel?: string | null;
+  onAddTopLevel?: () => void;
   onDelete: () => void;
   fileBusy?: boolean;
   startupSettled?: boolean;
@@ -91,6 +93,9 @@ type ToolbarProps = {
   onTitleBlankCommit: () => void;
   titleEditHandleRef?: RefObject<ScheduleToolbarTitleHandle | null>;
   titleEditRequestToken: number;
+  hierarchyEditDisabled?: boolean;
+  hierarchyButtonRef?: RefObject<HTMLButtonElement | null>;
+  onOpenHierarchy?: () => void;
 };
 
 export function Toolbar({
@@ -140,6 +145,8 @@ export function Toolbar({
   canDelete,
   onAdd,
   onAddMilestone,
+  addTopLevelMenuLabel = null,
+  onAddTopLevel,
   onDelete,
   fileBusy = false,
   startupSettled = true,
@@ -149,6 +156,9 @@ export function Toolbar({
   onTitleBlankCommit,
   titleEditHandleRef,
   titleEditRequestToken,
+  hierarchyEditDisabled = false,
+  hierarchyButtonRef,
+  onOpenHierarchy,
 }: ToolbarProps) {
   const titleEditDisabled = fileBusy || !startupSettled;
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
@@ -248,6 +258,9 @@ export function Toolbar({
         title={title}
         titleDiffMarked={titleDiffMarked}
         titleEditDisabled={titleEditDisabled}
+        hierarchyEditDisabled={hierarchyEditDisabled}
+        hierarchyButtonRef={hierarchyButtonRef}
+        onOpenHierarchy={onOpenHierarchy}
         onCommitTitle={onCommitTitle}
         onEditingChange={onTitleEditingChange}
         onBlankCommit={onTitleBlankCommit}
@@ -428,6 +441,18 @@ export function Toolbar({
             >
               タスクを追加
             </button>
+            {addTopLevelMenuLabel && onAddTopLevel ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  closeAddMenu();
+                  onAddTopLevel();
+                }}
+              >
+                {addTopLevelMenuLabel}
+              </button>
+            ) : null}
             <button
               type="button"
               role="menuitem"

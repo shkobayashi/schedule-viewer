@@ -5,7 +5,9 @@ import type {
   Category,
   Milestone,
   MilestoneGroup,
+  OutlineRoot,
   ScheduleDocument,
+  ScheduleLevelDef,
 } from "../model/types";
 import { errorMessage } from "../model/errors";
 import {
@@ -22,7 +24,10 @@ import {
 } from "../model/scheduleFile";
 import { useScheduleExternalReload } from "./scheduleFile/useScheduleExternalReload";
 import { useScheduleRecoveryDraft } from "./scheduleFile/useScheduleRecoveryDraft";
-import { useScheduleSave } from "./scheduleFile/useScheduleSave";
+import {
+  SCHEDULE_SAVE_ERROR_DIALOG_TITLE,
+  useScheduleSave,
+} from "./scheduleFile/useScheduleSave";
 import { useScheduleFilterPersistence } from "./scheduleFile/useScheduleFilterPersistence";
 import { useScheduleStartupRecovery } from "./scheduleFile/useScheduleStartupRecovery";
 import type { ScheduleFilterViewState } from "../model/scheduleFilterPersistence";
@@ -65,6 +70,8 @@ type UseScheduleFileOptions = {
   categories: Category[];
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
+  levels?: ScheduleLevelDef[];
+  outline?: OutlineRoot;
   replaceDocument: (document: ScheduleDocument) => void;
   applyMergedDocument: (
     document: ScheduleDocument,
@@ -95,6 +102,8 @@ export function useScheduleFile({
   categories,
   milestoneGroups,
   milestones,
+  levels,
+  outline,
   replaceDocument,
   applyMergedDocument,
   reloadDocumentFromDisk,
@@ -140,8 +149,15 @@ export function useScheduleFile({
 
   const currentJson = useMemo(
     () =>
-      serializeScheduleDocument(title, categories, milestoneGroups, milestones),
-    [categories, milestoneGroups, milestones, title],
+      serializeScheduleDocument(
+        title,
+        categories,
+        milestoneGroups,
+        milestones,
+        levels,
+        outline,
+      ),
+    [categories, levels, milestoneGroups, milestones, outline, title],
   );
 
   const isDirty = currentJson !== baselineJson;
@@ -189,6 +205,11 @@ export function useScheduleFile({
   const syncLiveFilterRef = useRef(filterPersistence.syncLiveFilter);
   syncLiveFilterRef.current = filterPersistence.syncLiveFilter;
 
+  const reportSaveError = useCallback((message: string) => {
+    setErrorDialogTitle(SCHEDULE_SAVE_ERROR_DIALOG_TITLE);
+    setErrorMessageText(message);
+  }, []);
+
   const { clearRecoveryDraft, writeRecoveryDraftNow, syncLiveRecovery } =
     useScheduleRecoveryDraft({
     filePath,
@@ -220,7 +241,7 @@ export function useScheduleFile({
     baselineJsonRef,
     fileBusyRef,
     setFileBusy,
-    setErrorMessageText,
+    reportSaveError,
     clearRecoveryDraft,
     clearExternalReloadPromptRef,
     clearInvalidDiskHashRef,

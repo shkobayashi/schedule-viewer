@@ -21,6 +21,7 @@ import { daysBetween, fmtMonthDay, parseDate } from "../model/dates";
 import type { Member, MemberId } from "../model/memberTypes";
 import {
   categoryCollapseKey,
+  hierarchyCollapseKey,
   groupCollapseKey,
   reorderDragBlockRows,
   rowInReorderDragBlock,
@@ -32,6 +33,14 @@ import {
   statusSidebarColumnLabel,
 } from "../model/statusDisplay";
 import { isOverdue } from "../model/timeline";
+import {
+  HIERARCHY_GUIDE_RAIL_WIDTH_PX,
+  SIDEBAR_ROW_GRIP_WIDTH_PX,
+  hierarchyGuideSpecsForDragBlock,
+  hierarchyGuideSpecsForRows,
+} from "../model/hierarchyGuide";
+import type { HierarchyGuideSpec } from "../model/hierarchyGuide";
+import { HierarchyGuideRail } from "./HierarchyGuideRail";
 import { TaskNoteButton } from "./TaskNoteButton";
 import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
 import {
@@ -51,10 +60,25 @@ import {
   classifyHandleDrag,
   resolveTaskDropTarget,
 } from "../model/taskOrder";
+import {
+  canReorderTaskInOutlineParent,
+  resolveTaskDropTargetWithOutline,
+} from "../model/outlineTaskOrder";
 import type { DiffSidebarMark } from "../model/diffNavigation";
-import type { Category, Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
+import type {
+  Category,
+  Milestone,
+  OutlineRoot,
+  ScheduleId,
+  Task,
+  VisibleRow,
+} from "../model/types";
 type SidebarProps = {
   categories: Category[];
+  outline?: OutlineRoot;
+  levelCount: number;
+  usesOutlineStorage: boolean;
+  allowCrossParentTaskMove: boolean;
   rows: VisibleRow[];
   reorderBaseRows: VisibleRow[];
   scrollY: number;
@@ -106,7 +130,7 @@ type SidebarProps = {
   onOpenTaskNote: (taskId: ScheduleId) => void;
   onTaskContextMenu: (taskId: ScheduleId, x: number, y: number) => void;
   onHierarchyContextMenu: (
-    kind: "category" | "group",
+    kind: "category" | "group" | "outline",
     id: ScheduleId,
     x: number,
     y: number,
@@ -116,7 +140,10 @@ type SidebarProps = {
     x: number,
     y: number,
   ) => void;
-  onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
+  onHierarchyDoubleClick: (
+    kind: "category" | "group" | "outline",
+    id: ScheduleId,
+  ) => void;
   today: string;
   uiScale: number;
   sidebarWidth: number;
@@ -134,6 +161,10 @@ type SidebarProps = {
 
 export function Sidebar({
   categories,
+  outline,
+  levelCount,
+  usesOutlineStorage,
+  allowCrossParentTaskMove,
   rows,
   reorderBaseRows,
   scrollY,
@@ -185,15 +216,19 @@ export function Sidebar({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const hiddenIndexes = sticky.hiddenIndexes;
-  const visibleRows = useMemo(() => {
+  const guideSpecs = useMemo(() => hierarchyGuideSpecsForRows(rows), [rows]);
+
+  const visibleRowEntries = useMemo(() => {
     const margin = rowHeight;
     const minY = scrollY - margin;
     const maxY = scrollY + viewportHeight + margin;
     const hidden = new Set(hiddenIndexes);
-    return rows.filter((row, index) => {
-      if (hidden.has(index)) return false;
-      return row.y + rowHeight >= minY && row.y <= maxY;
-    });
+    return rows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row, index }) => {
+        if (hidden.has(index)) return false;
+        return row.y + rowHeight >= minY && row.y <= maxY;
+      });
   }, [hiddenIndexes, rows, rowHeight, scrollY, viewportHeight]);
 
   const assigneeChars = useMemo(
@@ -279,20 +314,29 @@ export function Sidebar({
     ): { targetGroupId: ScheduleId; insertIndex: number } | null => {
       if (pointerOnStickyHeader(clientX, clientY)) return null;
       const contentY = contentYFromPointer(clientY);
-      return resolveTaskDropTarget(
+      return resolveTaskDropTargetWithOutline(
         contentY,
         rowHeight,
         taskId,
         categories,
         reorderBaseRows,
+        outline,
+        levelCount,
+        usesOutlineStorage,
+        allowCrossParentTaskMove,
+        resolveTaskDropTarget,
       );
     },
     [
+      allowCrossParentTaskMove,
       categories,
       contentYFromPointer,
+      levelCount,
+      outline,
       pointerOnStickyHeader,
       reorderBaseRows,
       rowHeight,
+      usesOutlineStorage,
     ],
   );
 
@@ -384,6 +428,14 @@ export function Sidebar({
     }
     if (kind === "group") {
       return canReorderGroup(categories, id, reorderBaseRows, rowHeight);
+    }
+    if (usesOutlineStorage && outline != null) {
+      return canReorderTaskInOutlineParent(
+        outline,
+        levelCount,
+        id,
+        reorderBaseRows,
+      );
     }
     return canReorderTaskInGroup(categories, id, reorderBaseRows);
   };
@@ -612,6 +664,10 @@ export function Sidebar({
       <div
         className="sidebar-viewport"
         ref={viewportRef}
+        style={{
+          ["--guide-rail" as string]: String(HIERARCHY_GUIDE_RAIL_WIDTH_PX),
+          ["--sidebar-grip-width" as string]: String(SIDEBAR_ROW_GRIP_WIDTH_PX),
+        }}
         onLostPointerCapture={(event) => {
           if (event.target !== event.currentTarget) return;
           if (rowDragRef.current?.mode === "reorder") return;
@@ -628,12 +684,14 @@ export function Sidebar({
             "--status-chars": String(statusChars),
           } as CSSProperties}
         >
-          {visibleRows.map((row) => {
+          {visibleRowEntries.map(({ row, index }) => {
+            const guideSpec = guideSpecs[index]!;
             if (row.type === "category") {
               return (
                 <CategorySidebarRow
                   key={`category-${row.id}`}
                   row={row}
+                  guideSpec={guideSpec}
                   top={row.y}
                   rowHeight={rowHeight}
                   hovered={
@@ -653,11 +711,28 @@ export function Sidebar({
                 />
               );
             }
+            if (row.type === "hierarchy") {
+              return (
+                <OutlineHierarchySidebarRow
+                  key={`hierarchy-${row.id}`}
+                  row={row}
+                  guideSpec={guideSpec}
+                  top={row.y}
+                  rowHeight={rowHeight}
+                  reordering={isRowHiddenByDragGhost(row)}
+                  canReorder={false}
+                  onToggleCollapse={onToggleCollapse}
+                  onHierarchyContextMenu={onHierarchyContextMenu}
+                  onHierarchyDoubleClick={onHierarchyDoubleClick}
+                />
+              );
+            }
             if (row.type === "group") {
               return (
                 <HierarchySidebarRow
                   key={`group-${row.id}`}
                   row={row}
+                  guideSpec={guideSpec}
                   top={row.y}
                   rowHeight={rowHeight}
                   hovered={
@@ -679,6 +754,7 @@ export function Sidebar({
               <TaskSidebarRow
                 key={`task-${row.task.id}`}
                 task={row.task}
+                guideSpec={guideSpec}
                 top={row.y}
                 rowHeight={rowHeight}
                 selected={selectedTaskIds.has(row.task.id)}
@@ -720,7 +796,12 @@ export function Sidebar({
         <div className="sidebar-sticky">
           {sticky.draws.map((draw) => {
             const row = rows[draw.index];
-            if (row == null || (row.type !== "category" && row.type !== "group")) {
+            if (
+              row == null ||
+              (row.type !== "category" &&
+                row.type !== "group" &&
+                row.type !== "hierarchy")
+            ) {
               return null;
             }
             const clipHeight = draw.clipBottom - draw.clipTop;
@@ -731,9 +812,22 @@ export function Sidebar({
                 className="sidebar-sticky-clip"
                 style={{ top: draw.clipTop, height: clipHeight }}
               >
-                {row.type === "category" ? (
+                {row.type === "hierarchy" ? (
+                  <OutlineHierarchySidebarRow
+                    row={row}
+                    guideSpec={guideSpecs[draw.index]!}
+                    top={top}
+                    rowHeight={rowHeight}
+                    reordering={isRowHiddenByDragGhost(row)}
+                    canReorder={false}
+                    onToggleCollapse={onToggleCollapse}
+                    onHierarchyContextMenu={onHierarchyContextMenu}
+                    onHierarchyDoubleClick={onHierarchyDoubleClick}
+                  />
+                ) : row.type === "category" ? (
                   <CategorySidebarRow
                     row={row}
+                    guideSpec={guideSpecs[draw.index]!}
                     top={top}
                     rowHeight={rowHeight}
                     hovered={false}
@@ -751,6 +845,7 @@ export function Sidebar({
                 ) : (
                   <HierarchySidebarRow
                     row={row}
+                    guideSpec={guideSpecs[draw.index]!}
                     top={top}
                     rowHeight={rowHeight}
                     hovered={false}
@@ -1002,8 +1097,86 @@ function RowGrip({
   );
 }
 
+function OutlineHierarchySidebarRow({
+  row,
+  guideSpec,
+  top,
+  rowHeight,
+  reordering,
+  canReorder,
+  onToggleCollapse,
+  onHierarchyContextMenu,
+  onHierarchyDoubleClick,
+}: {
+  row: Extract<VisibleRow, { type: "hierarchy" }>;
+  guideSpec: HierarchyGuideSpec;
+  top: number;
+  rowHeight: number;
+  reordering: boolean;
+  canReorder: boolean;
+  onToggleCollapse: (key: string) => void;
+  onHierarchyContextMenu: (
+    kind: "category" | "group" | "outline",
+    id: ScheduleId,
+    x: number,
+    y: number,
+  ) => void;
+  onHierarchyDoubleClick: (
+    kind: "category" | "group" | "outline",
+    id: ScheduleId,
+  ) => void;
+}) {
+  const rowClass =
+    row.rowKind === "top" || row.alsoTaskParent
+      ? "category"
+      : row.rowKind === "taskParent"
+        ? "group"
+        : "hierarchy-middle";
+  return (
+    <div
+      className={`sidebar-row hierarchy ${rowClass}${reordering ? " reordering" : ""}`}
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        top,
+        height: rowHeight,
+      }}
+      onDoubleClick={(event) => {
+        event.preventDefault();
+        onHierarchyDoubleClick("outline", row.id);
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onHierarchyContextMenu("outline", row.id, event.clientX, event.clientY);
+      }}
+    >
+      <RowGrip
+        canReorder={canReorder}
+        label="階層を並べ替える"
+        onPointerDown={() => {}}
+      />
+      <div className="sidebar-row-body">
+        <HierarchyGuideRail spec={guideSpec} />
+        <div className="sidebar-row-icon-slot">
+          <CollapseButton
+            label={row.label}
+            collapsed={row.collapsed}
+            onClick={() => onToggleCollapse(hierarchyCollapseKey(row.id))}
+          />
+        </div>
+        <HierarchyNameWithRollup
+          label={row.label}
+          rollupPercent={row.rollupPercent}
+        />
+      </div>
+    </div>
+  );
+}
+
 function CategorySidebarRow({
   row,
+  guideSpec,
   top,
   rowHeight,
   hovered,
@@ -1015,6 +1188,7 @@ function CategorySidebarRow({
   onGripPointerDown,
 }: {
   row: Extract<VisibleRow, { type: "category" }>;
+  guideSpec: HierarchyGuideSpec;
   top: number;
   rowHeight: number;
   hovered: boolean;
@@ -1022,12 +1196,15 @@ function CategorySidebarRow({
   canReorder: boolean;
   onToggleCollapse: (key: string) => void;
   onHierarchyContextMenu: (
-    kind: "category" | "group",
+    kind: "category" | "group" | "outline",
     id: ScheduleId,
     x: number,
     y: number,
   ) => void;
-  onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
+  onHierarchyDoubleClick: (
+    kind: "category" | "group" | "outline",
+    id: ScheduleId,
+  ) => void;
   onGripPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
   return (
@@ -1055,11 +1232,14 @@ function CategorySidebarRow({
         onPointerDown={onGripPointerDown}
       />
       <div className="sidebar-row-body">
-        <CollapseButton
-          label={row.label}
-          collapsed={row.collapsed}
-          onClick={() => onToggleCollapse(categoryCollapseKey(row.id))}
-        />
+        <HierarchyGuideRail spec={guideSpec} />
+        <div className="sidebar-row-icon-slot">
+          <CollapseButton
+            label={row.label}
+            collapsed={row.collapsed}
+            onClick={() => onToggleCollapse(categoryCollapseKey(row.id))}
+          />
+        </div>
         <HierarchyNameWithRollup
           label={row.label}
           rollupPercent={row.rollupPercent}
@@ -1071,6 +1251,7 @@ function CategorySidebarRow({
 
 function HierarchySidebarRow({
   row,
+  guideSpec,
   top,
   rowHeight,
   hovered,
@@ -1082,6 +1263,7 @@ function HierarchySidebarRow({
   onGripPointerDown,
 }: {
   row: Extract<VisibleRow, { type: "group" }>;
+  guideSpec: HierarchyGuideSpec;
   top: number;
   rowHeight: number;
   hovered: boolean;
@@ -1089,12 +1271,15 @@ function HierarchySidebarRow({
   canReorder: boolean;
   onToggleCollapse: (key: string) => void;
   onHierarchyContextMenu: (
-    kind: "category" | "group",
+    kind: "category" | "group" | "outline",
     id: ScheduleId,
     x: number,
     y: number,
   ) => void;
-  onHierarchyDoubleClick: (kind: "category" | "group", id: ScheduleId) => void;
+  onHierarchyDoubleClick: (
+    kind: "category" | "group" | "outline",
+    id: ScheduleId,
+  ) => void;
   onGripPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
   return (
@@ -1122,11 +1307,14 @@ function HierarchySidebarRow({
         onPointerDown={onGripPointerDown}
       />
       <div className="sidebar-row-body">
-        <CollapseButton
-          label={row.label}
-          collapsed={row.collapsed}
-          onClick={() => onToggleCollapse(groupCollapseKey(row.id))}
-        />
+        <HierarchyGuideRail spec={guideSpec} />
+        <div className="sidebar-row-icon-slot">
+          <CollapseButton
+            label={row.label}
+            collapsed={row.collapsed}
+            onClick={() => onToggleCollapse(groupCollapseKey(row.id))}
+          />
+        </div>
         <HierarchyNameWithRollup
           label={row.label}
           rollupPercent={row.rollupPercent}
@@ -1138,6 +1326,7 @@ function HierarchySidebarRow({
 
 function TaskSidebarRow({
   task,
+  guideSpec,
   top,
   rowHeight,
   selected,
@@ -1155,6 +1344,7 @@ function TaskSidebarRow({
   sidebarColumns,
 }: {
   task: Task;
+  guideSpec: HierarchyGuideSpec;
   top: number;
   rowHeight: number;
   selected: boolean;
@@ -1215,8 +1405,11 @@ function TaskSidebarRow({
         onPointerDown={onGripPointerDown}
       />
       <div className="sidebar-row-body">
-      <TaskNoteButton task={task} onOpen={onOpenTaskNote} />
-      <NameLabel text={task.name} overdue={isOverdue(task, today, statuses)} />
+        <HierarchyGuideRail spec={guideSpec} />
+        <div className="sidebar-row-icon-slot">
+          <TaskNoteButton task={task} onOpen={onOpenTaskNote} />
+        </div>
+        <NameLabel text={task.name} overdue={isOverdue(task, today, statuses)} />
       <span className="sidebar-trail">
         {sidebarColumns.start ||
         sidebarColumns.end ||
@@ -1330,6 +1523,10 @@ function SidebarDragGhost({
     () => reorderDragBlockRows(rows, ghost.kind, ghost.id),
     [rows, ghost.kind, ghost.id],
   );
+  const blockGuideSpecs = useMemo(
+    () => hierarchyGuideSpecsForDragBlock(block),
+    [block],
+  );
   if (block.length === 0) return null;
 
   const gripDown = () => {};
@@ -1349,11 +1546,13 @@ function SidebarDragGhost({
     >
       {block.map((row, index) => {
         const top = index * rowHeight;
+        const guideSpec = blockGuideSpecs[index]!;
         if (row.type === "category") {
           return (
             <CategorySidebarRow
               key={`category-${row.id}`}
               row={row}
+              guideSpec={guideSpec}
               top={top}
               rowHeight={rowHeight}
               hovered={false}
@@ -1371,6 +1570,7 @@ function SidebarDragGhost({
             <HierarchySidebarRow
               key={`group-${row.id}`}
               row={row}
+              guideSpec={guideSpec}
               top={top}
               rowHeight={rowHeight}
               hovered={false}
@@ -1383,10 +1583,28 @@ function SidebarDragGhost({
             />
           );
         }
+        if (row.type === "hierarchy") {
+          return (
+            <OutlineHierarchySidebarRow
+              key={`hierarchy-${row.id}`}
+              row={row}
+              guideSpec={guideSpec}
+              top={top}
+              rowHeight={rowHeight}
+              reordering={false}
+              canReorder={false}
+              onToggleCollapse={() => {}}
+              onHierarchyContextMenu={() => {}}
+              onHierarchyDoubleClick={() => {}}
+            />
+          );
+        }
+        if (row.type !== "task") return null;
         return (
           <TaskSidebarRow
             key={`task-${row.task.id}`}
             task={row.task}
+            guideSpec={guideSpec}
             top={top}
             rowHeight={rowHeight}
             selected={selectedTaskIds.has(row.task.id)}

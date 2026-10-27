@@ -1890,11 +1890,21 @@ export function Timeline({
   const stickyContent = useMemo(() => {
     return sticky.draws.map((draw) => {
       const row = visibleRows[draw.index];
-      if (row == null || (row.type !== "category" && row.type !== "group")) {
+      if (
+        row == null ||
+        (row.type !== "category" &&
+          row.type !== "group" &&
+          row.type !== "hierarchy")
+      ) {
         return null;
       }
       const clipHeight = draw.clipBottom - draw.clipTop;
       if (clipHeight <= 0) return null;
+      const showSummary =
+        row.summary != null &&
+        (row.type === "category" ||
+          row.type === "group" ||
+          row.type === "hierarchy");
       return (
         <Group
           key={`sticky-${draw.index}`}
@@ -1933,9 +1943,9 @@ export function Timeline({
             strokeWidth={1}
             listening={false}
           />
-          {row.summary != null ? (
+          {showSummary ? (
             <SummaryBar
-              summary={row.summary}
+              summary={row.summary!}
               y={draw.top}
               rowHeight={rowHeight}
               barHeight={barHeight}

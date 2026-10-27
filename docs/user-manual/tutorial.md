@@ -74,6 +74,7 @@ write-schedule スキルに従い、schedule-viewer 用のスケジュール JSO
 | `selected_task` | 選択がちょうど1件のときのタスク。選択が無いときと2件以上のときは null。選択数が不明なときは `selected_tasks` を使う |
 | `selected_tasks` | 編集の選択をタスクの配列で返す。選択が1件でも配列である。選択が無いときは空の配列。選択数が不明なときはこのツールを使う |
 | `filtered_tasks` | オンになっている絞り込み条件と、それで残るタスク |
+| `current_schedule` | 画面のスケジュール JSON 全体 |
 | `replace_schedule` | デスクトップ版が起動しているとき、開いているスケジュールの更新用。スケジュール JSON 全体で前面の未保存を置き換える。成功時は差分テキストだけ返す。新しいファイルの作成には使わない |
 
 引数を省略した読み取りは前面のウィンドウです。別のウィンドウを読むときは `open_windows` で一覧を取り、`window` に `label` を渡します。置き換えは前面だけです。スケジュールのウィンドウが開いていないときは渡せません。ブラウザ版には「画面の状態を渡す」欄はありません。
@@ -81,7 +82,7 @@ write-schedule スキルに従い、schedule-viewer 用のスケジュール JSO
 チャットで起動中のスケジュールを更新するときは、`baseline_diffs` で衝突が無いことを確かめ、JSON の形は `write-schedule` の出力形に従って全体を組み立て、`replace_schedule` で未保存を置き換えます。ファイルは書きません。戻った差分を見て、よければそのまま未保存のままにし、違えば ⌘/Ctrl+Z で取り消すか、画面を手直しします。保存はこの手順ではしません。
 
 ```text
-schedule-viewer の MCP で baseline_diffs、selected_tasks、filtered_tasks を読み、衝突が無ければ write-schedule の出力形に従ってスケジュール全体を組み立て、replace_schedule で前面の未保存を置き換えてください。ファイルは書きません。戻った差分を見て、更新内容を説明してください。保存はしません。
+schedule-viewer の MCP で baseline_diffs、current_schedule、selected_tasks、filtered_tasks を読み、衝突が無ければ write-schedule の出力形に従ってスケジュール全体を組み立て、replace_schedule で前面の未保存を置き換えてください。ファイルは書きません。戻った差分を見て、更新内容を説明してください。保存はしません。
 ```
 
 ## 取り込み直す

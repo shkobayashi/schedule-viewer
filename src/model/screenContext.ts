@@ -8,22 +8,31 @@ import {
 } from "./statusCatalog";
 import type { Member, MemberId } from "./memberTypes";
 import {
-  findTaskById,
-  listTasksMatchingFilter,
+  collectTasksFromDocument,
+  findTaskInDocument,
+  taskHierarchyLabels,
+} from "./hierarchy";
+import { mcpLevelsFromDocument, type McpLevelEntry } from "./hierarchyLevelEdit";
+import {
+  listTasksMatchingFilterInDocument,
   type FilteredTaskRef,
 } from "./rows";
 import {
   NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
   UNASSIGNED_LABEL,
+  SCHEDULE_SCHEMA_VERSION,
   type Category,
   type ConfidenceFilter,
   type Milestone,
   type MilestoneGroup,
+  type OutlineRoot,
   type OverdueFilter,
   type RelationFilter,
+  type ScheduleDocument,
   type ScheduleFilters,
   type ScheduleId,
+  type ScheduleLevelDef,
   type StatusFilter,
   type Task,
 } from "./types";
@@ -35,6 +44,7 @@ export const MCP_TOOL_BASELINE_DIFFS = "baseline_diffs";
 export const MCP_TOOL_SELECTED_TASK = "selected_task";
 export const MCP_TOOL_SELECTED_TASKS = "selected_tasks";
 export const MCP_TOOL_FILTERED_TASKS = "filtered_tasks";
+export const MCP_TOOL_CURRENT_SCHEDULE = "current_schedule";
 export const MCP_TOOL_REPLACE_SCHEDULE = "replace_schedule";
 
 export type ScreenContextTask = {
@@ -88,21 +98,30 @@ export function statusEntriesForMcp(
 }
 
 export type FilteredTasksMcpPayload = {
+  levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
   activeConditions: McpActiveFilterCondition[];
   tasks: ScreenContextTask[];
 };
 
 export type SelectedTaskMcpPayload = {
+  levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
   selectedTaskId: ScheduleId | null;
   selectedTask: ScreenContextTask | null;
 };
 
 export type SelectedTasksMcpPayload = {
+  levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
   selectedTasks: ScreenContextTask[];
 };
+
+function levelsForMcpPayload(levels?: readonly ScheduleLevelDef[] | null) {
+  return mcpLevelsFromDocument({
+    levels: levels?.length ? [...levels] : undefined,
+  });
+}
 
 export type ScheduleDiffMcpPayload = {
   scheduleDiff: {
@@ -115,6 +134,29 @@ export type McpToolResultBody = {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;
 };
+
+export type McpScheduleTasksContext = {
+  categories: Category[];
+  outline?: OutlineRoot | undefined;
+  levels?: readonly ScheduleLevelDef[] | null;
+  title?: string;
+  milestoneGroups?: MilestoneGroup[];
+  milestones?: Milestone[];
+};
+
+function scheduleDocumentForMcpTasks(
+  input: McpScheduleTasksContext,
+): ScheduleDocument {
+  return {
+    schemaVersion: SCHEDULE_SCHEMA_VERSION,
+    title: input.title ?? "",
+    categories: input.categories,
+    milestoneGroups: input.milestoneGroups ?? [],
+    milestones: input.milestones ?? [],
+    levels: input.levels?.length ? [...input.levels] : undefined,
+    outline: input.outline,
+  };
+}
 
 const CONFIDENCE_LABELS: Record<Exclude<ConfidenceFilter, "all">, string> = {
   tentative: "未確定",
@@ -148,6 +190,7 @@ export function buildActiveFilterConditions(input: {
   milestones: Milestone[];
   lineageTaskId: ScheduleId | null;
   categories: Category[];
+  outline?: OutlineRoot | undefined;
   memberCatalog: Map<MemberId, Member> | null;
   statuses?: readonly StatusItem[];
 }): McpActiveFilterCondition[] {
@@ -251,7 +294,11 @@ export function buildActiveFilterConditions(input: {
   }
 
   if (input.lineageTaskId != null) {
-    const task = findTaskById(input.categories, input.lineageTaskId);
+    const task = findTaskInDocument(
+      input.categories,
+      input.outline,
+      input.lineageTaskId,
+    );
     conditions.push({
       type: "lineage",
       taskId: input.lineageTaskId,
@@ -263,46 +310,46 @@ export function buildActiveFilterConditions(input: {
 }
 
 function resolveSelectedTask(
-  categories: Category[],
+  doc: ScheduleDocument,
   matched: FilteredTaskRef[],
   selectedTaskId: ScheduleId | null,
 ): ScreenContextTask | null {
   if (selectedTaskId == null) return null;
-  const selected = findTaskById(categories, selectedTaskId);
+  const selected = findTaskInDocument(
+    doc.categories,
+    doc.outline,
+    selectedTaskId,
+  );
   if (!selected) return null;
   const place = matched.find((ref) => ref.task.id === selected.id);
   if (place) {
     return taskToContext(place);
   }
-  for (const cat of categories) {
-    for (const group of cat.groups) {
-      if (group.tasks.some((t) => t.id === selected.id)) {
-        return taskToContext({
-          task: selected,
-          category: cat.name,
-          group: group.name,
-        });
-      }
-    }
-  }
-  return null;
+  const labels = taskHierarchyLabels(doc, selected.id);
+  return taskToContext({
+    task: selected,
+    category: labels.category,
+    group: labels.group,
+  });
 }
 
-export function buildFilteredTasksPayload(input: {
-  categories: Category[];
-  filters: ScheduleFilters;
-  lineageTaskId: ScheduleId | null;
-  hiddenMilestoneGroupIds: ScheduleId[];
-  milestoneGroups: MilestoneGroup[];
-  milestones: Milestone[];
-  today: string;
-  memberCatalog: Map<MemberId, Member> | null;
-  lineageIds: ReadonlySet<ScheduleId> | null;
-  statuses?: readonly StatusItem[];
-}): FilteredTasksMcpPayload {
+export function buildFilteredTasksPayload(
+  input: McpScheduleTasksContext & {
+    filters: ScheduleFilters;
+    lineageTaskId: ScheduleId | null;
+    hiddenMilestoneGroupIds: ScheduleId[];
+    today: string;
+    memberCatalog: Map<MemberId, Member> | null;
+    lineageIds: ReadonlySet<ScheduleId> | null;
+    statuses?: readonly StatusItem[];
+    levels?: readonly ScheduleLevelDef[] | null;
+  },
+): FilteredTasksMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
-  const matched = listTasksMatchingFilter(
-    input.categories,
+  const levelEntries = levelsForMcpPayload(input.levels);
+  const doc = scheduleDocumentForMcpTasks(input);
+  const matched = listTasksMatchingFilterInDocument(
+    doc,
     input.filters,
     input.today,
     input.memberCatalog,
@@ -310,14 +357,16 @@ export function buildFilteredTasksPayload(input: {
     statuses,
   );
   return {
+    levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
     activeConditions: buildActiveFilterConditions({
       filters: input.filters,
       hiddenMilestoneGroupIds: input.hiddenMilestoneGroupIds,
-      milestoneGroups: input.milestoneGroups,
-      milestones: input.milestones,
+      milestoneGroups: input.milestoneGroups ?? [],
+      milestones: input.milestones ?? [],
       lineageTaskId: input.lineageTaskId,
       categories: input.categories,
+      outline: input.outline,
       memberCatalog: input.memberCatalog,
       statuses,
     }),
@@ -325,18 +374,22 @@ export function buildFilteredTasksPayload(input: {
   };
 }
 
-export function buildSelectedTaskPayload(input: {
-  categories: Category[];
-  filters: ScheduleFilters;
-  today: string;
-  memberCatalog: Map<MemberId, Member> | null;
-  lineageIds: ReadonlySet<ScheduleId> | null;
-  selectedTaskId: ScheduleId | null;
-  statuses?: readonly StatusItem[];
-}): SelectedTaskMcpPayload {
+export function buildSelectedTaskPayload(
+  input: McpScheduleTasksContext & {
+    filters: ScheduleFilters;
+    today: string;
+    memberCatalog: Map<MemberId, Member> | null;
+    lineageIds: ReadonlySet<ScheduleId> | null;
+    selectedTaskId: ScheduleId | null;
+    statuses?: readonly StatusItem[];
+    levels?: readonly ScheduleLevelDef[] | null;
+  },
+): SelectedTaskMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
-  const matched = listTasksMatchingFilter(
-    input.categories,
+  const levelEntries = levelsForMcpPayload(input.levels);
+  const doc = scheduleDocumentForMcpTasks(input);
+  const matched = listTasksMatchingFilterInDocument(
+    doc,
     input.filters,
     input.today,
     input.memberCatalog,
@@ -344,46 +397,47 @@ export function buildSelectedTaskPayload(input: {
     statuses,
   );
   const selectedTask = resolveSelectedTask(
-    input.categories,
+    doc,
     matched,
     input.selectedTaskId,
   );
   return {
+    levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
     selectedTaskId: input.selectedTaskId,
     selectedTask,
   };
 }
 
-export function buildSelectedTasksPayload(input: {
-  categories: Category[];
-  selectedTaskIds: readonly ScheduleId[];
-  statuses?: readonly StatusItem[];
-}): SelectedTasksMcpPayload {
+export function buildSelectedTasksPayload(
+  input: McpScheduleTasksContext & {
+    selectedTaskIds: readonly ScheduleId[];
+    statuses?: readonly StatusItem[];
+    levels?: readonly ScheduleLevelDef[] | null;
+  },
+): SelectedTasksMcpPayload {
   const statusEntries = statusEntriesForMcp(
     input.statuses ?? BUILTIN_STATUS_ITEMS,
   );
+  const levelEntries = levelsForMcpPayload(input.levels);
   const selected = new Set(input.selectedTaskIds);
   if (selected.size === 0) {
-    return { statuses: statusEntries, selectedTasks: [] };
+    return { levels: levelEntries, statuses: statusEntries, selectedTasks: [] };
   }
+  const doc = scheduleDocumentForMcpTasks(input);
   const selectedTasks: ScreenContextTask[] = [];
-  for (const cat of input.categories) {
-    for (const group of cat.groups) {
-      for (const task of group.tasks) {
-        if (selected.has(task.id)) {
-          selectedTasks.push(
-            taskToContext({
-              task,
-              category: cat.name,
-              group: group.name,
-            }),
-          );
-        }
-      }
-    }
+  for (const task of collectTasksFromDocument(doc)) {
+    if (!selected.has(task.id)) continue;
+    const labels = taskHierarchyLabels(doc, task.id);
+    selectedTasks.push(
+      taskToContext({
+        task,
+        category: labels.category,
+        group: labels.group,
+      }),
+    );
   }
-  return { statuses: statusEntries, selectedTasks };
+  return { levels: levelEntries, statuses: statusEntries, selectedTasks };
 }
 
 export function buildScheduleDiffPayload(input: {
@@ -462,6 +516,7 @@ export function buildScreenContextPayload(input: {
 }): ScreenContextPayload {
   const filtered = buildFilteredTasksPayload({
     categories: input.categories,
+    title: "",
     filters: input.filters,
     lineageTaskId: input.lineageTaskId,
     hiddenMilestoneGroupIds: input.hiddenMilestoneGroupIds,
@@ -473,6 +528,9 @@ export function buildScreenContextPayload(input: {
   });
   const selected = buildSelectedTaskPayload({
     categories: input.categories,
+    title: "",
+    milestoneGroups: [],
+    milestones: [],
     filters: input.filters,
     today: input.today,
     memberCatalog: input.memberCatalog,

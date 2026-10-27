@@ -1,10 +1,60 @@
 import { describe, expect, it } from "vitest";
-import { parseDate } from "./dates";
+import { addDays, parseDate } from "./dates";
 import {
+  computeTimelineRange,
   fitPxPerDayToViewport,
   fitViewAfterOpen,
   resolveTimelineOrigin,
 } from "./timeline";
+import type { Milestone, OutlineRoot } from "./types";
+
+describe("computeTimelineRange", () => {
+  const ms: Milestone = {
+    id: "b1000001-0000-4000-8000-000000000001",
+    name: "中間確認",
+    date: "2026-10-20",
+    confidence: "committed",
+    groupId: "a1000001-0000-4000-8000-000000000001",
+  };
+
+  it("uses outline task dates when categories are empty", () => {
+    const outline: OutlineRoot = [
+      {
+        id: "f2000001-0000-4000-8000-000000000001",
+        name: "北",
+        children: [
+          {
+            id: "e2000001-0000-4000-8000-000000000001",
+            name: "早い",
+            start: "2026-10-01",
+            end: "2026-10-04",
+            assigneeId: null,
+            status: "in-progress",
+            progress: 0,
+            confidence: "committed",
+            predecessors: [],
+            milestoneId: null,
+          },
+          {
+            id: "e2000001-0000-4000-8000-000000000006",
+            name: "遅い",
+            start: "2026-10-19",
+            end: "2026-11-05",
+            assigneeId: null,
+            status: "in-progress",
+            progress: 0,
+            confidence: "committed",
+            predecessors: [],
+            milestoneId: null,
+          },
+        ],
+      },
+    ];
+    const range = computeTimelineRange([], [ms], "2026-10-15", outline);
+    expect(range.timelineStart).toEqual(addDays(parseDate("2026-10-01"), -6));
+    expect(range.timelineEnd).toEqual(addDays(parseDate("2026-11-05"), 7));
+  });
+});
 
 describe("resolveTimelineOrigin", () => {
   const pinned = parseDate("2026-09-08");

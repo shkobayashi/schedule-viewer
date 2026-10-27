@@ -10,7 +10,8 @@ import {
   validateSchedule,
 } from "./validateSchedule";
 import { scheduleJsonFilename as jsonFilenameFromTitle } from "./exportFilename";
-import { scheduleToJson } from "./serialize";
+import { documentToJsonString, scheduleToJson } from "./serialize";
+import type { OutlineRoot, ScheduleLevelDef } from "./types";
 
 export type ScheduleFilePick = {
   path: string | null;
@@ -42,11 +43,19 @@ export function serializeScheduleDocument(
   categories: Category[],
   milestoneGroups: MilestoneGroup[],
   milestones: Milestone[],
+  levels?: ScheduleLevelDef[] | null,
+  outline?: OutlineRoot | null,
 ): string {
-  return JSON.stringify(
-    scheduleToJson(title, categories, milestoneGroups, milestones),
-    null,
-  2);
+  return documentToJsonString(
+    scheduleToJson(
+      title,
+      categories,
+      milestoneGroups,
+      milestones,
+      levels,
+      outline,
+    ),
+  );
 }
 
 export function parseScheduleText(text: string): ParseScheduleResult {
@@ -66,12 +75,7 @@ export function parseScheduleText(text: string): ParseScheduleResult {
     };
   }
 
-  const canonicalJson = serializeScheduleDocument(
-    result.document.title,
-    result.document.categories,
-    result.document.milestoneGroups,
-    result.document.milestones,
-  );
+  const canonicalJson = documentToJsonString(result.document);
   return { ok: true, document: result.document, canonicalJson };
 }
 

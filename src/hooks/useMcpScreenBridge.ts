@@ -6,6 +6,7 @@ import type { Member, MemberId } from "../model/memberTypes";
 import type { StatusItem } from "../model/statusCatalog";
 import { loadBaselineDiffsText } from "../model/baselineDiffsLoad";
 import { loadScheduleDiffText } from "../model/scheduleDiffLoad";
+import { assessReplaceScheduleLevelCount } from "../model/hierarchyLevelEdit";
 import {
   REPLACE_SCHEDULE_UI_BUSY,
   assessReplaceScheduleGate,
@@ -19,6 +20,7 @@ import {
   buildSelectedTaskPayload,
   buildSelectedTasksPayload,
   MCP_TOOL_BASELINE_DIFFS,
+  MCP_TOOL_CURRENT_SCHEDULE,
   MCP_TOOL_FILTERED_TASKS,
   MCP_TOOL_REPLACE_SCHEDULE,
   MCP_TOOL_SCHEDULE_DIFF,
@@ -33,9 +35,11 @@ import type {
   Category,
   Milestone,
   MilestoneGroup,
+  OutlineRoot,
   ScheduleDocument,
   ScheduleFilters,
   ScheduleId,
+  ScheduleLevelDef,
 } from "../model/types";
 
 type McpScreenRequest = {
@@ -47,6 +51,8 @@ type McpScreenRequest = {
 
 type UseMcpScreenBridgeInput = {
   categories: Category[];
+  outline?: OutlineRoot | undefined;
+  title: string;
   milestones: Milestone[];
   milestoneGroups: MilestoneGroup[];
   filters: ScheduleFilters;
@@ -58,6 +64,7 @@ type UseMcpScreenBridgeInput = {
   today: string;
   memberMap: Map<MemberId, Member> | null;
   statuses: readonly StatusItem[];
+  levels?: ScheduleLevelDef[] | null;
   scheduleFilePath: string | null;
   scheduleCurrentJson: string;
   scheduleBaselineJson: string;
@@ -111,6 +118,18 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           payload.id,
           payload.generation,
           mcpToolErrorBody(parsed.message),
+        );
+        return;
+      }
+      const levelGate = assessReplaceScheduleLevelCount(
+        { levels: snap.levels ?? undefined },
+        parsed.document,
+      );
+      if (!levelGate.ok) {
+        await reply(
+          payload.id,
+          payload.generation,
+          mcpToolErrorBody(levelGate.message),
         );
         return;
       }
@@ -199,26 +218,51 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         case MCP_TOOL_SELECTED_TASK: {
           toolPayload = buildSelectedTaskPayload({
             categories: snap.categories,
+            outline: snap.outline,
+            title: snap.title,
+            milestoneGroups: snap.milestoneGroups,
+            milestones: snap.milestones,
             filters: snap.filters,
             today: snap.today,
             memberCatalog: snap.memberMap,
             lineageIds: snap.lineageIds,
             selectedTaskId: snap.selectedTaskId,
             statuses: snap.statuses,
+            levels: snap.levels,
           });
           break;
         }
         case MCP_TOOL_SELECTED_TASKS: {
           toolPayload = buildSelectedTasksPayload({
             categories: snap.categories,
+            outline: snap.outline,
+            title: snap.title,
+            milestoneGroups: snap.milestoneGroups,
+            milestones: snap.milestones,
             selectedTaskIds: snap.selectedTaskIds,
             statuses: snap.statuses,
+            levels: snap.levels,
           });
           break;
+        }
+        case MCP_TOOL_CURRENT_SCHEDULE: {
+          const body = mcpPlainTextToolBody(snap.scheduleCurrentJson);
+          if ("tooLarge" in body) {
+            await reply(
+              payload.id,
+              payload.generation,
+              mcpToolErrorBody("応答が大きすぎるため、渡せません。"),
+            );
+            return;
+          }
+          await reply(payload.id, payload.generation, body);
+          return;
         }
         case MCP_TOOL_FILTERED_TASKS: {
           toolPayload = buildFilteredTasksPayload({
             categories: snap.categories,
+            outline: snap.outline,
+            title: snap.title,
             filters: snap.filters,
             lineageTaskId: snap.lineageTaskId,
             hiddenMilestoneGroupIds: snap.hiddenMilestoneGroupIds,
@@ -228,6 +272,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             memberCatalog: snap.memberMap,
             lineageIds: snap.lineageIds,
             statuses: snap.statuses,
+            levels: snap.levels,
           });
           break;
         }

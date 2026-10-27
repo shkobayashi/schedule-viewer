@@ -111,6 +111,8 @@
 | 同上 | `rejects a duplicate with the same message as a repeated predecessor id` | EDIT-12 |
 | 同上 | `rejects a cycle with the edit dialog message` | EDIT-12, EDIT-05 |
 | 同上 | `removes only that predecessor id` | EDIT-12 |
+| 同上 | `links outline tasks when both ends are visible` | EXPORT-02 |
+| 同上 | `omits links when a task is not visible` | EXPORT-02 |
 | `monthHeader.test.ts` | `formats year and month in Japanese` | NAV-02 |
 | 同上 | `shows distant month labels` | NAV-02 |
 | 同上 | `hides a month label that overlaps a fixed label` | NAV-02 |
@@ -153,12 +155,18 @@
 | 同上 | `uses black task names and group-row gray for holidays` | EXPORT-05 |
 | 同上 | `uses light group and overdue name colors on a white sheet` | EXPORT-05 |
 | 同上 | `uses milestone group name on milestone rows` | EXPORT-05 |
+| 同上 | `keeps task indent 0 for task-only visible rows` | EXPORT-05 |
+| 同上 | `indents two-level hierarchy like top heading and task` | EXPORT-05 |
+| 同上 | `indents five-level hierarchy through depth 4 on tasks` | EXPORT-05 |
+| 同上 | `matches legacy category group task indents for three-level outline headings` | EXPORT-05 |
 | `excelExportColumns.test.ts` | `uses default columns when storage is empty` | EXPORT-01, EXPORT-05 |
 | 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
 | `exportHtml.test.ts` | `puts the active filter into HTML and SVG` | EXPORT-01, EXPORT-02 |
+| 同上 | `escapes font-family in SVG attributes but not in HTML CSS` | EXPORT-01 |
 | 同上 | `omits overlapping month header labels in month export but keeps grid lines` | NAV-02, EXPORT-02 |
 | 同上 | `hatches tentative bars and labels them, and leaves committed bars solid` | VIEW-12, EXPORT-01 |
 | 同上 | `hatches a tentative milestone and leaves a committed one solid` | VIEW-04, VIEW-12, EXPORT-01 |
+| 同上 | `fills hierarchy chart rows like the sidebar` | EXPORT-02, VIEW-01 |
 | `exportView.test.ts` | `keeps milestones inside the visible span and referenced ones outside it` | EXPORT-02 |
 | 同上 | `keeps only the selected milestone` | EXPORT-02 |
 | 同上 | `drops milestones when the filter is none` | EXPORT-02 |
@@ -269,6 +277,11 @@
 | 同上 | `skips a collapsed category` | NAV-01 |
 | 同上 | `sticks only the category when every group is collapsed` | NAV-01 |
 | 同上 | `returns no draws for an empty list` | NAV-01 |
+| 同上 | `sticks all ancestor headers when scrolled into a deep task` | NAV-01 |
+| 同上 | `sticks a single heading level when outline has one header row` | NAV-01 |
+| 同上 | `slides the next sibling into its level slot` | NAV-01 |
+| 同上 | `skips a collapsed hierarchy header` | NAV-01 |
+| 同上 | `places a task just below the full sticky band` | NAV-01, EDIT-01, EDIT-14 |
 | 同上 | `scrolls a task to just under the sticky headers` | NAV-01, EDIT-01, EDIT-14 |
 | 同上 | `returns the task offset when the list fits` | NAV-01, EDIT-01, EDIT-14 |
 | `rows.test.ts` | `relaxes filters that would hide a newly added task` | EDIT-08, EDIT-14 |
@@ -485,6 +498,18 @@
 | 同上 | `rejects a duplicate name in the same category` | EDIT-13 |
 | 同上 | `allows the same group name in another category` | EDIT-13 |
 | 同上 | `keeps the original name when the input is blank` | EDIT-13 |
+| `baselineDiffsOutline.test.ts` | `classifies file-only task end on outline storage`、`merges file-only task change into outline document`、`blocks when screen adds a level and file changes a task` | SYNC-01, EDIT-21 |
+| `hierarchyLevelEdit.test.ts` | `keepsLegacyShapeWhenDefinitionUnchanged`、`acceptsAlignedIncomingWhenLevelCountDiffers`、`rejectsLegacyIncomingWhenScreenIsNotThreeLevels`、`rejectsMisalignedIncomingWhenLevelCountDiffers` | EDIT-21, FILE-02, MCP-01 |
+| 同上 | `renamesWithoutMovingRows` | EDIT-21 |
+| 同上 | `refusesSaveWhenCountMismatches` | EDIT-21, FILE-02 |
+| 同上 | `prefixesLevelsOnce` | MCP-01 |
+| 同上 | `rejectsReplaceWhenDepthDiffers` | MCP-01 |
+| `hierarchy.test.ts` | `keeps keys unchanged when saving without levels` など | FILE-04, VIEW-03 |
+| 同上 | `rejects levels with categories storage`、`addTopLevelMenuLabel` | EDIT-18 |
+| `hierarchyCrud.test.ts` | `appendLegacyHeadingFromToolbar` | EDIT-18 |
+| `outlineCrud.test.ts` | `appendOutlineHeadingAtLevel three and four levels` | EDIT-18 |
+| `hierarchyGuide.test.ts` | 5段タスクの線の本数、折りたたみ、絞り込み後の親線、ドラッグ塊の深さ0 | VIEW-01 |
+| 同上 | `validates the five-level sample schedule file` | FILE-04 |
 | `hierarchyCrud.test.ts` | `inserts a category with an empty default group` | EDIT-18 |
 | 同上 | `rejects a blank category name` | EDIT-18 |
 | 同上 | `rejects duplicate category names on add` | EDIT-18 |
@@ -610,7 +635,8 @@
 | 同上 | `zooms out from positive deltaY with meta` | NAV-01, NAV-02 |
 | 同上 | `ignores deltaX for zoom and scroll` | NAV-01, NAV-02 |
 | `chartScroll.test.ts` | `keeps scrollX when the task bar is already visible` | NAV-01, EDIT-01 |
-| `timeline.test.ts` | `keeps the origin when a later start would scroll past the left edge` | EDIT-02, NAV-01 |
+| `timeline.test.ts` | `uses outline task dates when categories are empty` | VIEW-04 |
+| 同上 | `keeps the origin when a later start would scroll past the left edge` | EDIT-02, NAV-01 |
 | 同上 | `fitViewAfterOpen` の `returns null when viewport width is zero or negative` | FILE-01, NAV-03 |
 | 同上 | `fits with zero prefix days and resets scroll positions` | FILE-01, NAV-03 |
 | 同上 | `does not include prefix days unlike fit with a positive prefix` | FILE-01, NAV-03 |
@@ -755,7 +781,7 @@
 | `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` と `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 5 ツール（省略できる `window`）、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
+| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
 | `build_mcp_open_windows_orders_live_and_sets_front`（`window_session.rs`） | 生きているラベルだけを記録順に並べ、`file`・`folder`・`front` を付け、絶対パスを含めない | MCP-01 |
 | `build_mcp_open_windows_omits_home_path_segments`（`window_session.rs`） | ホーム配下のパスでも `file`・`folder` は末尾と親だけ。JSON に `/Users` などを含めない | MCP-01 |
 | `resolve_mcp_label_with_override_absent_matches_front_resolution`（`window_session.rs`） | `window` 省略時の送り先は `resolve_mcp_screen_window_label` と同じ | MCP-01 |
@@ -777,7 +803,7 @@
 
 | モジュール | 状態 |
 | --- | --- |
-| `dependencies.ts` | 破綻の境界と系統は未テスト。線の追加、除去、当たりはテストしている。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でもテストしている |
+| `dependencies.ts` | 破綻の境界と系統は未テスト。線の追加、除去、当たり、見えている行のリンク（`outline` のタスク含む）はテストしている。循環の検出は、`taskEditCycles.test.ts` が `scheduleSemantics.ts` 側でもテストしている |
 | `timeline.ts` | ズーム段階は未テスト。期限超過とイナズマ線は `statusCatalog.test.ts` から `isOverdue` と `lightningDate` を間接的にテストしている |
 | `milestones.ts` | マイルストン超過と段の割り当ては未テスト。追加と削除はテストしている |
 | `rows.ts` | ノート、マイルストン、確度以外の絞り込み、`computeVisibleRows`、折りたたみは未テスト。追加と複製で外す絞り込みはテストしている |
@@ -813,6 +839,10 @@
 | `examples/playground.members.json` | サンプルと同じ4人 | `npm run check:members` |
 | `examples/jp-2026.calendar.json` | 土日と、非稼働日 18件。振替出勤は空 | `npm run check:calendar` |
 | `examples/lightning/workspace.json` | 四つの扱いと一覧に無い `id` の折れと赤。開始前・期間中・終了後は今日が 2026-10-23 から 2026-11-01 のあいだ。終了が今日の行は 2026-10-25 | 引数なしの check では見ない |
+| `examples/hierarchy/levels-2.schedule.json` | 2段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-2.schedule.json` |
+| `examples/hierarchy/levels-3.schedule.json` | 3段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-3.schedule.json` |
+| `examples/hierarchy/levels-4.schedule.json` | 4段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-4.schedule.json` |
+| `examples/hierarchy/levels-5.schedule.json` | 5段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-5.schedule.json` |
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
 
@@ -822,6 +852,20 @@
 
 | ID | 機能 | 前提 | 手順 | 期待結果 |
 | --- | --- | --- | --- | --- |
+| TC-HIER-01 | VIEW-03 | `examples/hierarchy/levels-2.schedule.json` など定義の無いファイル | 開いて保存する | 定義の無いファイルは保存後も `levels` と `outline` が付かない。2段・3段・4段・5段のサンプルは帯の上に定義名が並び、段数どおりの行になる |
+| TC-HIER-02 | VIEW-03 | 定義と入れ子の段数が合わない JSON | 開く | 「階層の定義と入れ子の数が違います。」が出て、行の組み立ては変わらない |
+| TC-HIER-03 | VIEW-03, FILE-01 | `examples/hierarchy/levels-3.schedule.json` | ワークスペースで開く。同じ JSON を直接開く | 階層の見え方が同じである |
+| TC-HIER-04 | VIEW-01 | `examples/hierarchy/levels-5.schedule.json` と従来の3段サンプル | ブラウザ版で開く。折りたたみ、絞り込み、系統、カテゴリの並べ替えドラッグを試す | 名前の左端が行の種類にかかわらず揃う。縦線は最大4本でレール幅は段で変わらない。行の境で縦線が切れず、枝の最後の行では中央より下に線が伸びない。折りたたんだ行から下に線が続かない。絞り込みと系統で消えた枝の線が残らない。5段で系統を出すと、起点の先行と後続だけが残る。ドラッグの塊の名前は一覧と同じ列で、塊の外に線が残らない。固定見出しの線と下の行が横で揃う。ライトとダークで線が見える |
+| TC-HIER-05 | EDIT-18, EDIT-11 | `examples/hierarchy/levels-2.schedule.json` | 最上段の見出しを右クリックし同じ段を追加する。プルダウンが「見出しを追加」であること。開き、段の選択が無いこと。1件追加する。取り消す | 定義名の下の見出しが自動でつながり、タスクは付かない。一覧の末尾に足る。取り消し1回で戻る |
+| TC-HIER-05b | EDIT-18 | `examples/hierarchy/levels-5.schedule.json` | プルダウンが「見出しを追加」1行であること。開き、段は最上段で追加先が無いこと。段を工程にし、追加先が文書順の最後の事業になること。名前を入れて追加する。段をタスクの一つ上にして同様に1件追加する。見出し行の右クリックが従来どおりであること。取り消す | 下の見出しが定義名でつながり、タスクは付かない。タスクの一つ上の枝は子が空である。取り消し1回で戻る |
+| TC-HIER-05c | EDIT-18, EDIT-11 | `examples/hierarchy/levels-3.schedule.json` | プルダウンが「見出しを追加」1行であること。開き、段は工程で追加先が無いこと。名前を入れて1件追加する。段を機能にし、追加先が文書順の最後の工程になること。名前を入れて1件追加する。見出し行の右クリックが「下に工程を追加」と「機能を追加」であること。保存する。取り消す | 最上段の追加の下は定義名の「機能」でタスクは付かない。保存後も `categories` にはならない。取り消し1回で戻る |
+| TC-HIER-05e | EDIT-18 | サンプル（定義なし） | プルダウンが「見出しを追加」であること。開き、段はカテゴリで追加先が無いこと。名前を入れて1件追加する。段をグループにし、追加先が文書順の最後のカテゴリになること。名前を入れて1件追加する。保存する。取り消す | カテゴリ追加の直後に空の「グループ」ができる。グループは選んだカテゴリの末尾に足る。保存後も `levels` と `outline` が付かない。取り消し1回で戻る |
+| TC-HIER-05d | EDIT-18, EDIT-11 | `examples/hierarchy/levels-4.schedule.json` | プルダウンが「見出しを追加」であること。段はタスクを除く3つ。最上段を1件追加する。タスクの一つ上の段でも1件追加する。見出し行の右クリックが定義名のままであること。取り消す | 下の見出しが定義名でつながり、タスクは付かない。取り消し1回で戻る |
+| TC-HIER-06 | EDIT-18 | 上記の追加後 | 保存する | タスクの一つ上の枝だけ `children` が空でも検証に通る |
+| TC-HIER-02b | VIEW-03 | 中間枝だけ子が空の JSON を手で用意する | 開く | 「階層の定義と入れ子の数が違います。」が出る。見出しの追加メニューは出ない |
+| TC-HIER-06b | EDIT-21, FILE-02 | サンプルまたは `levels-3.schedule.json` | ブラウザ版で入口の「階層編集」が枠付きであることを見る。「階層編集」を開き、全段で名前・意味・指示の欄の左端が揃い、最下段の操作列に「タスク」が出ることを見る。見出しの段で「上へ」「下へ」が効くことを見る。名前だけ変えて閉じる。指示だけ書いて閉じ、保存してキーが残ることを見る。段を1つ足して閉じ、保存を試す。意味を空にして閉じられるか試す | 名前か意味だけの変更で段数が同じときは行は動かない。上下は閉じるまで文書は動かない。段数だけ変えたあとは保存が拒否され、ダイアログの見出しは「保存できません」で本文に階層の理由が出る。空の意味では閉じられない。空の指示ではキーを書かない |
+| TC-HIER-06c | EDIT-21, SYNC-01 | デスクトップ版で `levels-2.schedule.json` を開く | 「階層編集」を開き、意味の下書きを入れる。別端末で同じファイルのタスク終了日だけを変えて保存する。即時反映せず確認が出ること。下書きが残ること。読み直す。再度「階層編集」を開き下書きを入れ、今度はファイル側だけの変更で「両方を画面へ反映」する | 開いているあいだは即時反映しない。読み直しと反映のあと、閉じたダイアログの下書きは文書へ入らない。反映後は `levels` と `outline` が残る |
+| TC-HIER-07 | EXPORT-02, EXPORT-05, VIEW-01 | `examples/hierarchy/levels-2.schedule.json`、`levels-3.schedule.json`、`levels-5.schedule.json` と定義の無いサンプル | 各ファイルを開き、HTML と Excel で書き出す。画面と並べ、左の縦線と行の地、チャートの親バー、Excel の字下げと一番上だけの塗りを見る | 2段は見出しの字下げ 0 とタスク 1、塗りは見出しの左列だけ。3段の `outline` は字下げ 0・1・2 で定義の無い3段と同じ。5段はタスクが字下げ 4。中間の見出しにも親バーが出る。HTML のチャート側の行の地は、一番上・タスクのすぐ上・あいだで分かれる |
 | TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しのタイトルは JSON の `title` になる。ファイル名は状態バーとウィンドウタイトルに出る |
 | TC-FILE-01c | FILE-01 | 検証済みの JSON がある | ⌘/Ctrl+O でそのファイルを選ぶ | 「開く」と同じように開く。ダイアログが開いているときは効かない |
 | TC-FILE-01f | FILE-01 | サンプル | ☰ を開き、下、上、Home、End を押す | 最初の項目にフォーカスが移る。キーで項目を移動できる。Escape で閉じる |
@@ -948,6 +992,7 @@
 | TC-NAV-01b | NAV-01 | 期間が画面より広く、行が画面より多い | ⌘ または Ctrl を押しながら上下左右を押す。押し続ける。端まで押す | 上で縦に戻り、下で進む。左で過去、右で未来へ動く。縦は左の一覧と一緒に動く。上下は 1 行分、左右も同じ画面上の距離である。押しているあいだは連続して動き、端で止まる |
 | TC-NAV-01c | NAV-01 | 検索欄、選択欄、またはボタンにフォーカスがある。別途、ダイアログと右クリックメニューを開く | 矢印キーだけを押し、続けて ⌘ または Ctrl と矢印を押す | 矢印キーだけではその欄の操作のままである。⌘ または Ctrl と矢印ではチャートが動く。ダイアログが開いているあいだは動かない。右クリックメニューは、この操作で閉じる |
 | TC-NAV-01d | NAV-01 | 行が画面より多い。別途、一覧が画面に収まるスケジュールと、折りたたんだカテゴリまたはグループ | 縦にスクロールする。次の見出しが上へ来るまで進める。折りたたんだ行の下も見る。一覧が画面に収まるときはスクロールしない | 展開中のカテゴリとグループが、日付ヘッダーとマイルストン帯の下に残る。次の見出しで入れ替わる。折りたたんだ行は残らない。一覧が画面に収まるときは残らない |
+| TC-NAV-01f | NAV-01 | `examples/hierarchy/levels-5.schedule.json` を開き、各段を展開する | スクロールする前に、階層2と3の見出し行の左の名前と右の親バーを見る。設定でライトとダークを切り替える。深いタスクのあいだまで縦にスクロールする。同じ段の次の見出しが来る位置も見る | スクロールしていない中間の見出しにも、見えている子があるときは最上段と同じ親バーが出る。見ている枝の見出しが浅い方から段の数だけ残る。残した見出しにも、見えている子があるときは親バーが出る。中間の見出しの左の名前の地は、固定していないときも固定したときも、ライトとダークの両方で透けない。同じ段の次の見出しで、その段だけ入れ替わる。固定見出しの縦線と下の行が横で揃う |
 | TC-NAV-01e | NAV-01, NAV-02 | 行が画面より多く、期間が画面より広い | 左の名前の一覧の上で、クリックせず二本指を横へ滑らせる。ホイールと Shift+ホイールを試す。さらに Ctrl または ⌘ とホイールを回す | ホイールの縦で左の一覧とチャートが一緒に上下へ動く。横の量では左右へ動く。Shift+ホイールでは横へ動く。Ctrl または ⌘ とホイールでは、チャートの左端の日付を保って拡大・縮小する |
 | TC-NAV-02 | NAV-02 | 週表示 | Ctrl または ⌘ を押してホイールを回す | ポインタの位置を保ったまま拡大し、十分拡大すると「日表示」、縮小すると「月表示」になる |
 | TC-NAV-02b | NAV-02 | サンプル | 「日」「週」「月」を順に押す | 1日あたりの幅が 40px、22px、8px になり、見出しの表示単位が切り替わる |
@@ -1159,7 +1204,7 @@
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
-| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。画面の絞り込みは変わらない |
+| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks`、`current_schedule` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。`current_schedule` は画面のスケジュール JSON 全体で、未保存の内容と一致する。画面の絞り込みは変わらない |
 | TC-MCP-01i | MCP-01, SET-08 | 項目を足した一覧を使用中にしている。任意の項目に指示を書いて保存している | `filtered_tasks` と `selected_tasks` を呼ぶ。足した項目のステータスを付けたタスクを `replace_schedule` で足すよう LLM に頼む | どちらの応答も先頭に `statuses` があり、足した項目の `id`、`name`、`role`、`description` が入る。指示を書いた項目だけ `instruction` が入り、空の項目には無い。LLM は `description` でその `id` を選び、合う項目が無ければ尋ねる |
 | TC-MCP-01e | MCP-01 | デスクトップ版、画面の未保存とファイルの外部更新が同時にある | `baseline_diffs` を1回呼ぶ | `画面:` に起点から画面への差分、`ファイル:` に起点からファイルへの差分、`分類:` に画面のみ・ファイルのみ・異なるなどが id ごとに出る。`schedule_diff` の混ざった差分だけでは分類しない |
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
@@ -1168,7 +1213,7 @@
 | TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
 | TC-MCP-01f | MCP-01 | デスクトップ版、ファイルを開き、絞り込み・折りたたみ・選択・系統を変えた状態 | `write-schedule` で検証済みの JSON 全体を作り、`replace_schedule` を 1 回呼ぶ。同じ保存形式の JSON をもう一度呼ぶ。詳細パネルにフォーカスがある状態でも呼ぶ。起動復旧の衝突・ファイル無し・不正控えのダイアログが出ている状態でも呼ぶ | 1 回目は未保存になり、隅に「画面を置き換えました」が約 4 秒出る。ファイルの内容は変わらない。絞り込み・折りたたみ・ズーム・スクロール・系統は変わらない。選択は新文書に残るタスクだけ残る。⌘/Ctrl+Z で置き換え前に戻る。2 回目は未保存も履歴も変わらないが差分テキストは成功で返る。詳細のフォーカス中は「画面の操作が途中なので、置き換えられません。」起動復旧のダイアログ中は「起動の復旧が終わっていないので、置き換えられません。」確認ダイアログは出ない |
 | TC-MCP-01g | MCP-01 | デスクトップ版。パス無しのサンプル、外部更新の帯、同じファイルの2ウィンドウ、開く・保存の途中、並べ替えの握りドラッグ中、10MB超・壊れたJSON・検証失敗の入力、差分が応答上限を超える置き換え | 各条件で `replace_schedule` を呼ぶか `--screen replace_schedule` で標準入力を渡す | パス無しの成功は「比べるファイルがありません」で失敗にしない。JSON として読めない・検証失敗・10MB 超はそれぞれの文で拒否し画面も履歴も変えない。差分が大きすぎても置き換えは残り「差分が大きすぎるため、差分テキストは返せません。」は失敗にしない。「ファイルに更新あり — 確認する」は消えない。背面ウィンドウの文書は変わらない。ダイアログ・ファイル操作中・並べ替えドラッグ中は「画面の操作が途中なので、置き換えられません。」 |
-| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen open_windows`、`--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
+| TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen open_windows`、`--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks`、`--screen current_schedule` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`current_schedule` はスケジュール JSON 全体が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 
 TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 4 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。

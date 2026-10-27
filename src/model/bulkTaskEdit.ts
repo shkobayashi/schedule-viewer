@@ -1,4 +1,9 @@
 import { tryAddPredecessorLink } from "./dependencies";
+import {
+  findTaskInOutline,
+  mapAllTasksInOutline,
+  tryAddPredecessorLinkInOutline,
+} from "./outlineTasks";
 import { findTaskById } from "./rows";
 import {
   validateDependencyCycles,
@@ -12,6 +17,7 @@ import { mapTasks } from "./tasks";
 import type {
   Category,
   Milestone,
+  OutlineRoot,
   ScheduleDocument,
   ScheduleId,
   Task,
@@ -36,6 +42,10 @@ export type BulkTaskDraft = {
 
 export type BulkApplyResult =
   | { ok: true; categories: Category[] }
+  | { ok: false; message: string };
+
+export type BulkApplyOutlineResult =
+  | { ok: true; outline: OutlineRoot }
   | { ok: false; message: string };
 
 function rejectGraph(
@@ -190,6 +200,140 @@ export function applyBulkTaskEdit(
   }
 
   return { ok: true, categories: next };
+}
+
+function rejectOutlineGraph(
+  outline: OutlineRoot,
+  milestones: Milestone[],
+  title: string,
+): string | null {
+  const candidate: ScheduleDocument = {
+    schemaVersion: SCHEDULE_SCHEMA_VERSION,
+    title,
+    milestoneGroups: [],
+    milestones,
+    categories: [],
+    outline,
+  };
+  const issues = [
+    ...validateDependencyCycles(candidate),
+    ...validatePredecessorRefs(candidate),
+  ];
+  if (issues.length === 0) return null;
+  return formatValidationErrors(issues);
+}
+
+export function applyBulkTaskEditOutline(
+  outline: OutlineRoot,
+  milestones: Milestone[],
+  title: string,
+  taskIds: readonly ScheduleId[],
+  draft: BulkTaskDraft,
+): BulkApplyOutlineResult {
+  if (taskIds.length === 0) {
+    return { ok: false, message: "タスクが選択されていません。" };
+  }
+  if (
+    draft.start !== undefined &&
+    draft.end !== undefined &&
+    draft.end < draft.start
+  ) {
+    const first = findTaskInOutline(outline, taskIds[0]!);
+    const suffix = first ? `（${first.name}）` : "";
+    return {
+      ok: false,
+      message: `終了日は開始日以降にしてください${suffix}`,
+    };
+  }
+
+  const idSet = new Set(taskIds);
+  const beforeKey = JSON.stringify(outline);
+  let next = outline;
+  for (const taskId of taskIds) {
+    const task = findTaskInOutline(next, taskId);
+    if (!task) {
+      return { ok: false, message: "選択したタスクがありません。" };
+    }
+    const { task: patched, error } = taskAfterScalarDraft(task, draft);
+    if (error) return { ok: false, message: error };
+    next = mapAllTasksInOutline(next, (item) =>
+      item.id === taskId ? patched : item,
+    );
+  }
+
+  const milestoneIdSet = new Set(milestones.map((m) => m.id));
+  if (draft.milestoneId !== undefined && draft.milestoneId !== "unchanged") {
+    const mid = draft.milestoneId;
+    next = mapAllTasksInOutline(next, (task) => {
+      if (!idSet.has(task.id)) return task;
+      return {
+        ...task,
+        milestoneId:
+          mid != null && milestoneIdSet.has(mid) ? mid : null,
+      };
+    });
+  }
+
+  const preds = draft.addPredecessorIds ?? [];
+  for (const taskId of taskIds) {
+    for (const predId of preds) {
+      const successor = findTaskInOutline(next, taskId);
+      if (!successor) {
+        return { ok: false, message: "選択したタスクがありません。" };
+      }
+      if (successor.predecessors.includes(predId)) continue;
+      const result = tryAddPredecessorLinkInOutline(
+        next,
+        milestones,
+        title,
+        predId,
+        taskId,
+      );
+      if (!result.ok) return { ok: false, message: result.message };
+      next = result.outline;
+    }
+  }
+
+  const succs = draft.addSuccessorIds ?? [];
+  for (const succId of succs) {
+    for (const taskId of taskIds) {
+      const successor = findTaskInOutline(next, succId);
+      if (!successor) {
+        return { ok: false, message: "後続のタスクがありません。" };
+      }
+      if (successor.predecessors.includes(taskId)) continue;
+      const result = tryAddPredecessorLinkInOutline(
+        next,
+        milestones,
+        title,
+        taskId,
+        succId,
+      );
+      if (!result.ok) return { ok: false, message: result.message };
+      next = result.outline;
+    }
+  }
+
+  const graphMessage = rejectOutlineGraph(next, milestones, title);
+  if (graphMessage) return { ok: false, message: graphMessage };
+
+  if (JSON.stringify(next) === beforeKey) {
+    if (draft.addTags && draft.addTags.length > 0) {
+      return {
+        ok: false,
+        message: "選択中のタスクには、すでにこのタグがあります。",
+      };
+    }
+    if (preds.length > 0 || succs.length > 0) {
+      return {
+        ok: false,
+        message: "選択中のタスクには、すでにこの前後関係があります。",
+      };
+    }
+    return { ok: false, message: "変更する項目がありません。" };
+  }
+
+  return { ok: true, outline: next };
 }
 
 export function commonStringField(

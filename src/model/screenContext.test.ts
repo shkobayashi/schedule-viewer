@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lineageTaskIds } from "./dependencies";
+import { mcpLevelsFromDocument } from "./hierarchyLevelEdit";
 import {
   buildActiveFilterConditions,
   buildFilteredTasksPayload,
@@ -456,6 +457,7 @@ describe("split MCP payloads", () => {
         .content[0].text,
     );
     expect(selectedManyText).toEqual({
+      levels: mcpLevelsFromDocument({}),
       statuses: statusEntriesForMcp(BUILTIN_STATUS_ITEMS),
       selectedTasks: [],
     });
@@ -482,7 +484,7 @@ describe("status catalog in MCP payloads", () => {
       selectedTaskIds: [],
       statuses: custom,
     });
-    expect(Object.keys(payload)[0]).toBe("statuses");
+    expect(Object.keys(payload)[0]).toBe("levels");
     expect(payload.statuses[payload.statuses.length - 1]).toEqual({
       id: "review",
       name: "確認待ち",
@@ -544,7 +546,7 @@ describe("status catalog in MCP payloads", () => {
       lineageIds: null,
       statuses: custom,
     });
-    expect(Object.keys(payload)[0]).toBe("statuses");
+    expect(Object.keys(payload)[0]).toBe("levels");
     expect(payload.statuses).toHaveLength(4);
   });
 });

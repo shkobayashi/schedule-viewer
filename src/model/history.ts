@@ -1,6 +1,13 @@
-import { scheduleToJson } from "./serialize";
+import { cloneOutlineRoot } from "./hierarchy";
+import { documentToJson } from "./serialize";
 import { cloneCategories } from "./tasks";
-import type { Category, Milestone, MilestoneGroup } from "./types";
+import type {
+  Category,
+  Milestone,
+  MilestoneGroup,
+  OutlineRoot,
+  ScheduleLevelDef,
+} from "./types";
 
 export const HISTORY_MAX = 100;
 
@@ -9,6 +16,8 @@ export type DocumentSnapshot = {
   categories: Category[];
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
+  levels?: ScheduleLevelDef[];
+  outline?: OutlineRoot;
 };
 
 export function cloneSnapshot(snapshot: DocumentSnapshot): DocumentSnapshot {
@@ -17,18 +26,14 @@ export function cloneSnapshot(snapshot: DocumentSnapshot): DocumentSnapshot {
     categories: cloneCategories(snapshot.categories),
     milestoneGroups: snapshot.milestoneGroups.map((group) => ({ ...group })),
     milestones: snapshot.milestones.map((milestone) => ({ ...milestone })),
+    levels: snapshot.levels?.map((level) => ({ ...level })),
+    outline:
+      snapshot.outline != null ? cloneOutlineRoot(snapshot.outline) : undefined,
   };
 }
 
 function snapshotKey(snapshot: DocumentSnapshot): string {
-  return JSON.stringify(
-    scheduleToJson(
-      snapshot.title,
-      snapshot.categories,
-      snapshot.milestoneGroups,
-      snapshot.milestones,
-    ),
-  );
+  return JSON.stringify(documentToJson(snapshot));
 }
 
 export function snapshotsEqual(

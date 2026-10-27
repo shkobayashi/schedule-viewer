@@ -1,5 +1,6 @@
 import { isIsoDateString } from "./dates";
-import type { ScheduleDocument, ScheduleId, Task } from "./types";
+import { collectTasksFromDocument, isOutlineBranch, isTaskNode } from "./hierarchy";
+import type { OutlineRoot, ScheduleDocument, ScheduleId, Task } from "./types";
 
 export type ValidationIssue = {
   path: string;
@@ -88,10 +89,66 @@ export function validateScheduleSemantics(
     }
   }
 
+  if (doc.levels != null) {
+    if (doc.levels.length < 1 || doc.levels.length > 5) {
+      issues.push({
+        path: "/levels",
+        message: "階層の数は1から5までです",
+      });
+    }
+    for (let li = 0; li < doc.levels.length; li += 1) {
+      const level = doc.levels[li];
+      const base = `/levels/${li}`;
+      const nameIssue = nonEmptyName(level.name, "階層名", `${base}/name`);
+      if (nameIssue) issues.push(nameIssue);
+      const meaningIssue = nonEmptyName(level.meaning, "階層の意味", `${base}/meaning`);
+      if (meaningIssue) issues.push(meaningIssue);
+    }
+  }
+
+  const hasCategories = doc.categories.length > 0;
+  const hasOutline = doc.outline != null && doc.outline.length > 0;
+  if (doc.levels == null && !hasCategories) {
+    issues.push({
+      path: "/categories",
+      message: "categories が1件以上必要です",
+    });
+  }
+  if (hasCategories && hasOutline) {
+    issues.push({
+      path: "/outline",
+      message: "categories と outline は同時に書けません",
+    });
+  }
+  if (doc.levels != null && !hasCategories && !hasOutline) {
+    issues.push({
+      path: "/categories",
+      message: "入れ子の categories または outline が必要です",
+    });
+  }
+
   const taskIds = new Set<ScheduleId>();
   const categoryIds = new Set<ScheduleId>();
   const groupIds = new Set<ScheduleId>();
   const categoryNames = new Set<string>();
+  const branchIds = new Set<ScheduleId>();
+
+  if (hasOutline && doc.outline != null) {
+    issues.push(
+      ...validateOutlineSemantics(
+        doc.outline,
+        "/outline",
+        0,
+        doc.levels?.length ?? 0,
+        taskIds,
+        milestoneIds,
+        milestoneGroupIds,
+        categoryIds,
+        groupIds,
+        branchIds,
+      ),
+    );
+  }
 
   for (let ci = 0; ci < doc.categories.length; ci += 1) {
     const category = doc.categories[ci];
@@ -166,6 +223,120 @@ export function validateScheduleSemantics(
     }
   }
 
+  return issues;
+}
+
+function validateOutlineSemantics(
+  nodes: OutlineRoot,
+  basePath: string,
+  levelIndex: number,
+  levelCount: number,
+  taskIds: Set<ScheduleId>,
+  milestoneIds: Set<ScheduleId>,
+  milestoneGroupIds: Set<ScheduleId>,
+  categoryIds: Set<ScheduleId>,
+  groupIds: Set<ScheduleId>,
+  branchIds: Set<ScheduleId>,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const siblingNames = new Set<string>();
+  const taskParentIndex =
+    levelCount <= 1 ? -1 : Math.max(0, levelCount - 2);
+  const expectedTaskLevelIndex =
+    levelCount === 1 ? 0 : taskParentIndex + 1;
+
+  for (let i = 0; i < nodes.length; i += 1) {
+    const node = nodes[i];
+    const nodePath = `${basePath}/${i}`;
+    if (isTaskNode(node)) {
+      if (levelCount > 0 && levelIndex !== expectedTaskLevelIndex) {
+        issues.push({
+          path: nodePath,
+          message: "タスクの階層が定義と一致しません",
+        });
+      }
+      issues.push(
+        ...validateTaskSemantics(
+          node,
+          nodePath,
+          taskIds,
+          milestoneIds,
+          milestoneGroupIds,
+          categoryIds,
+          groupIds,
+        ),
+      );
+      continue;
+    }
+    if (!isOutlineBranch(node)) continue;
+    if (levelCount > 0 && levelIndex > taskParentIndex) {
+      issues.push({
+        path: nodePath,
+        message: "階層の深さが定義と一致しません",
+      });
+    }
+    const nameIssue = nonEmptyName(node.name, "階層の名前", `${nodePath}/name`);
+    if (nameIssue) issues.push(nameIssue);
+    if (siblingNames.has(node.name)) {
+      issues.push({
+        path: `${nodePath}/name`,
+        message: "同じ階層内で名前が重複しています",
+      });
+    }
+    siblingNames.add(node.name);
+    const branchConflict = hierarchyIdConflict(
+      "グループ",
+      node.id,
+      branchIds,
+      milestoneIds,
+      milestoneGroupIds,
+      categoryIds,
+      groupIds,
+      taskIds,
+    );
+    if (branchConflict) {
+      issues.push({ path: `${nodePath}/id`, message: branchConflict });
+    }
+    branchIds.add(node.id);
+    categoryIds.add(node.id);
+    if (levelCount > 0) {
+      if (levelIndex === taskParentIndex) {
+        if (node.children.some((child) => !isTaskNode(child))) {
+          issues.push({
+            path: `${nodePath}/children`,
+            message: "タスクの一つ上の階層の下にはタスクだけを置けます",
+          });
+        }
+      } else if (levelIndex < taskParentIndex) {
+        if (node.children.length === 0) {
+          issues.push({
+            path: `${nodePath}/children`,
+            message: "子の階層が必要です",
+          });
+        }
+        if (node.children.some((child) => isTaskNode(child))) {
+          issues.push({
+            path: `${nodePath}/children`,
+            message: "この階層の下には見出しだけを置けます",
+          });
+        }
+      }
+    }
+    issues.push(
+      ...validateOutlineSemantics(
+        node.children,
+        `${nodePath}/children`,
+        levelIndex + 1,
+        levelCount,
+        taskIds,
+        milestoneIds,
+        milestoneGroupIds,
+        categoryIds,
+        groupIds,
+        branchIds,
+      ),
+    );
+  }
   return issues;
 }
 
@@ -324,12 +495,8 @@ function taskLocations(doc: ScheduleDocument): Map<ScheduleId, TaskLocation> {
 export function validateDependencyCycles(doc: ScheduleDocument): ValidationIssue[] {
   const byId = new Map<ScheduleId, ScheduleId[]>();
   const locations = taskLocations(doc);
-  for (const category of doc.categories) {
-    for (const group of category.groups) {
-      for (const task of group.tasks) {
-        byId.set(task.id, task.predecessors);
-      }
-    }
+  for (const task of collectTasksFromDocument(doc)) {
+    byId.set(task.id, task.predecessors);
   }
 
   const issues: ValidationIssue[] = [];
@@ -370,15 +537,39 @@ export function validateDependencyCycles(doc: ScheduleDocument): ValidationIssue
 /** predecessors が実在タスクを指しているか（taskIds 収集後に呼ぶ）。 */
 export function validatePredecessorRefs(doc: ScheduleDocument): ValidationIssue[] {
   const taskIds = new Set<ScheduleId>();
-  for (const category of doc.categories) {
-    for (const group of category.groups) {
-      for (const task of group.tasks) {
-        taskIds.add(task.id);
-      }
-    }
+  for (const task of collectTasksFromDocument(doc)) {
+    taskIds.add(task.id);
   }
 
   const issues: ValidationIssue[] = [];
+  const walkOutline = (
+    nodes: OutlineRoot,
+    basePath: string,
+  ): void => {
+    for (let i = 0; i < nodes.length; i += 1) {
+      const node = nodes[i]!;
+      const path = `${basePath}/${i}`;
+      if (isTaskNode(node)) {
+        for (let pi = 0; pi < node.predecessors.length; pi += 1) {
+          const predId = node.predecessors[pi];
+          if (!taskIds.has(predId)) {
+            issues.push({
+              path: `${path}/predecessors/${pi}`,
+              message: "存在しないタスク ID です",
+            });
+          }
+        }
+        continue;
+      }
+      walkOutline(node.children, `${path}/children`);
+    }
+  };
+
+  if (doc.outline != null && doc.outline.length > 0) {
+    walkOutline(doc.outline, "/outline");
+    return issues;
+  }
+
   for (let ci = 0; ci < doc.categories.length; ci += 1) {
     const category = doc.categories[ci];
     for (let gi = 0; gi < category.groups.length; gi += 1) {

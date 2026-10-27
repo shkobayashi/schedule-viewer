@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildScheduleHtml, buildScheduleSvg, type ScheduleExportInput } from "./exportHtml";
+import {
+  buildScheduleHtml,
+  buildScheduleSvg,
+  exportChartRowFill,
+  type ScheduleExportInput,
+} from "./exportHtml";
+import { paletteFor } from "./palette";
+import type { VisibleRow } from "./types";
 import { layoutMilestoneBand } from "./milestones";
 import { hatchPatternId, hatchStripeColor } from "./hatch";
 import {
@@ -97,6 +104,17 @@ describe("schedule export documents", () => {
     expect(svg.startsWith("<svg ")).toBe(true);
     expect(html).not.toContain("<pattern ");
     expect(svg).not.toContain("<pattern ");
+  });
+
+  it("escapes font-family in SVG attributes but not in HTML CSS", () => {
+    const html = buildScheduleHtml(input());
+    const svg = buildScheduleSvg(input());
+    const escapedAttr =
+      'font-family="system-ui, -apple-system, &quot;Segoe UI&quot;, &quot;Hiragino Sans&quot;, &quot;Yu Gothic UI&quot;, Meiryo, &quot;Noto Sans CJK JP&quot;, sans-serif"';
+    expect(svg).toContain(escapedAttr);
+    expect(html).toContain(escapedAttr);
+    expect(html).toContain('font-family: system-ui, -apple-system, "Segoe UI"');
+    expect(svg).not.toMatch(/font-family="[^"]*"[^>]*Segoe UI/);
   });
 
   it("hatches tentative bars and labels them, and leaves committed bars solid", () => {
@@ -303,5 +321,64 @@ describe("schedule export documents", () => {
     const svg = buildScheduleSvg({ ...input(), colorScheme: "dark" });
     expect(svg).toContain('fill="#1c1f26"');
     expect(svg).toContain('fill="#a8b0bf"');
+  });
+
+  it("fills hierarchy chart rows like the sidebar", () => {
+    const { chart, css } = paletteFor("light");
+    const summary = {
+      start: "2026-04-01",
+      end: "2026-04-03",
+      covered: [{ start: "2026-04-01", end: "2026-04-03" }],
+    };
+    const top: VisibleRow = {
+      type: "hierarchy",
+      id: "h0",
+      label: "工程",
+      y: 0,
+      collapsed: false,
+      summary,
+      rollupPercent: 10,
+      levelIndex: 0,
+      depth: 0,
+      rowKind: "top",
+      ancestorIds: [],
+    };
+    const middle: VisibleRow = {
+      type: "hierarchy",
+      id: "h1",
+      label: "機能",
+      y: 32,
+      collapsed: false,
+      summary: null,
+      rollupPercent: null,
+      levelIndex: 1,
+      depth: 1,
+      rowKind: "middle",
+      ancestorIds: ["h0"],
+    };
+    const parent: VisibleRow = {
+      type: "hierarchy",
+      id: "h2",
+      label: "作業",
+      y: 64,
+      collapsed: false,
+      summary,
+      rollupPercent: 20,
+      levelIndex: 2,
+      depth: 2,
+      rowKind: "taskParent",
+      ancestorIds: ["h0", "h1"],
+    };
+    expect(exportChartRowFill(top, chart, css.bg)).toBe(chart.categoryRow);
+    expect(exportChartRowFill(middle, chart, css.bg)).toBe(css.bg);
+    expect(exportChartRowFill(parent, chart, css.bg)).toBe(chart.groupRow);
+
+    const svg = buildScheduleSvg({
+      ...input(),
+      visibleRows: [top, middle, parent, { type: "task", task, y: 96 }],
+    });
+    expect(svg).toContain(`fill="${chart.categoryRow}"`);
+    expect(svg).toContain(`fill="${chart.groupRow}"`);
+    expect(svg).toContain(`fill="${css.bg}"`);
   });
 });

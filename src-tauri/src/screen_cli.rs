@@ -5,21 +5,23 @@ use crate::mcp_bridge::call_tool_via_bridge;
 
 pub const OPEN_WINDOWS_TOOL_NAME: &str = "open_windows";
 
-pub const SCREEN_READ_TOOL_NAMES: [&str; 6] = [
+pub const SCREEN_READ_TOOL_NAMES: [&str; 7] = [
     "schedule_diff",
     "baseline_diffs",
     "selected_task",
     "selected_tasks",
     "filtered_tasks",
+    "current_schedule",
     OPEN_WINDOWS_TOOL_NAME,
 ];
 
-pub const SCREEN_READ_TOOLS_WITH_WINDOW: [&str; 5] = [
+pub const SCREEN_READ_TOOLS_WITH_WINDOW: [&str; 6] = [
     "schedule_diff",
     "baseline_diffs",
     "selected_task",
     "selected_tasks",
     "filtered_tasks",
+    "current_schedule",
 ];
 
 pub const SCREEN_REPLACE_TOOL_NAME: &str = "replace_schedule";
@@ -35,12 +37,13 @@ pub const REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED: &str =
 pub const OPEN_WINDOWS_WINDOW_NOT_SUPPORTED: &str =
     "open_windows は --window を受け付けません。";
 
-pub const SCREEN_TOOL_NAMES: [&str; 7] = [
+pub const SCREEN_TOOL_NAMES: [&str; 8] = [
     "schedule_diff",
     "baseline_diffs",
     "selected_task",
     "selected_tasks",
     "filtered_tasks",
+    "current_schedule",
     OPEN_WINDOWS_TOOL_NAME,
     "replace_schedule",
 ];

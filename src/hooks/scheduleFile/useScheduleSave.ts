@@ -9,7 +9,10 @@ import {
   saveScheduleViaTauri,
   suggestedJsonFilename,
 } from "../../model/scheduleFile";
+import { assessHierarchySave } from "../../model/hierarchyLevelEdit";
 import { withSaveFlight } from "./saveFlight";
+
+export const SCHEDULE_SAVE_ERROR_DIALOG_TITLE = "保存できません";
 
 type UseScheduleSaveOptions = {
   currentJson: string;
@@ -23,7 +26,7 @@ type UseScheduleSaveOptions = {
   baselineJsonRef: { current: string };
   fileBusyRef: { current: boolean };
   setFileBusy: (busy: boolean) => void;
-  setErrorMessageText: (message: string | null) => void;
+  reportSaveError: (message: string) => void;
   clearRecoveryDraft: () => Promise<void>;
   clearExternalReloadPromptRef: { current: () => void };
   clearInvalidDiskHashRef: { current: () => void };
@@ -41,7 +44,7 @@ export function useScheduleSave({
   baselineJsonRef,
   fileBusyRef,
   setFileBusy,
-  setErrorMessageText,
+  reportSaveError,
   clearRecoveryDraft,
   clearExternalReloadPromptRef,
   clearInvalidDiskHashRef,
@@ -56,7 +59,13 @@ export function useScheduleSave({
       await withSaveFlight(saveInFlightRef, fileBusyRef.current, async () => {
         const parsed = parseScheduleText(getCanonicalJson?.() ?? currentJson);
         if (!parsed.ok) {
-          setErrorMessageText(parsed.message);
+          reportSaveError(parsed.message);
+          if (skipExternalCheck) pausePollRef.current = false;
+          return;
+        }
+        const hierarchyGate = assessHierarchySave(parsed.document);
+        if (!hierarchyGate.ok) {
+          reportSaveError(hierarchyGate.message);
           if (skipExternalCheck) pausePollRef.current = false;
           return;
         }
@@ -80,7 +89,7 @@ export function useScheduleSave({
                   return;
                 }
               } catch (error) {
-                setErrorMessageText(
+                reportSaveError(
                   errorMessage(error, "ファイルの状態を確認できませんでした。"),
                 );
                 return;
@@ -111,7 +120,7 @@ export function useScheduleSave({
                 holdPause = true;
                 return;
               }
-              setErrorMessageText(message);
+              reportSaveError(message);
             } finally {
               setFileBusy(false);
             }
@@ -145,7 +154,7 @@ export function useScheduleSave({
       getDocumentTitle,
       setBaselineJson,
       setBrowserFileLabel,
-      setErrorMessageText,
+      reportSaveError,
       setFileBusy,
       setFilePath,
       title,

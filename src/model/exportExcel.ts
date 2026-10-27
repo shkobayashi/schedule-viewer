@@ -3,6 +3,8 @@ import { fmtMonthDay, isoDate } from "./dates";
 import { assigneeSidebarLabel, resolveAssigneeDisplay } from "./assigneeDisplay";
 import {
   EXPORT_MAX_ROWS,
+  exportHierarchyHeadingIndent,
+  exportHierarchyHeadingKind,
   ScheduleExportTooLargeError,
   type ScheduleExportInput,
 } from "./exportHtml";
@@ -323,8 +325,10 @@ export function buildExcelExportPayload(
   const taskById = new Map<ScheduleId, Task>();
 
   let bodyRow = bodyStartRow;
+  let taskNameIndent = 0;
   for (const visible of input.visibleRows) {
     if (visible.type === "category") {
+      taskNameIndent = 1;
       rows.push({
         kind: "category",
         cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
@@ -352,6 +356,7 @@ export function buildExcelExportPayload(
       continue;
     }
     if (visible.type === "group") {
+      taskNameIndent = 2;
       rows.push({
         kind: "group",
         cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
@@ -378,6 +383,40 @@ export function buildExcelExportPayload(
       bodyRow += 1;
       continue;
     }
+    if (visible.type === "hierarchy") {
+      const indent = exportHierarchyHeadingIndent(visible);
+      const kind = exportHierarchyHeadingKind(visible);
+      taskNameIndent = indent + 1;
+      rows.push({
+        kind,
+        cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
+        nameOverdue: false,
+        nameIndent: indent,
+        nameBold: true,
+        nameTextRgb:
+          kind === "category"
+            ? chart.textPrimary.replace("#", "")
+            : excelGroupNameRgb,
+      });
+      if (visible.summary) {
+        const deco = excelSummaryBarDecorations(
+          bodyRow,
+          visible.summary,
+          columns,
+          input.tier,
+          chart,
+          leftColCount,
+          dateColumnWidthPx,
+          bodyRowHeightPx,
+        );
+        shapes.push(...deco.shapes);
+        summaryGapLines.push(...deco.gapLines);
+        summaryCaps.push(...deco.caps);
+      }
+      bodyRow += 1;
+      continue;
+    }
+    if (visible.type !== "task") continue;
     const task = visible.task;
     taskRowById.set(task.id, bodyRow);
     taskById.set(task.id, task);
@@ -395,7 +434,7 @@ export function buildExcelExportPayload(
         ),
       ],
       nameOverdue: overdue,
-      nameIndent: 2,
+      nameIndent: taskNameIndent,
       nameBold: false,
       nameTextRgb: EXCEL_TASK_NAME_RGB,
     });

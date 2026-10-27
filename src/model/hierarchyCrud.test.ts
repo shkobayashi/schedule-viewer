@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { formatScheduleDiff } from "./scheduleDiff";
+import { documentToJson } from "./serialize";
 import {
   appendGroupToCategory,
+  appendLegacyHeadingFromToolbar,
   canDeleteCategory,
   canDeleteGroup,
   insertCategoryAfter,
@@ -11,6 +13,7 @@ import {
   removeGroup,
 } from "./tasks";
 import type { Category, ScheduleDocument, Task } from "./types";
+import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
 const CAT_A = "c1000001-0000-4000-8000-000000000001";
 const CAT_B = "c1000001-0000-4000-8000-000000000002";
@@ -199,5 +202,92 @@ describe("appendGroupToCategory", () => {
       "詳細",
       "新規",
     ]);
+  });
+});
+
+describe("appendLegacyHeadingFromToolbar", () => {
+  it("appends a category with a default group at document end", () => {
+    const categories = baseCategories();
+    const result = appendLegacyHeadingFromToolbar(
+      categories,
+      0,
+      null,
+      "新カテゴリ",
+      "new-cat",
+      "new-grp",
+    );
+    expect(result.error).toBeNull();
+    expect(result.categories).toHaveLength(3);
+    const added = result.categories[2];
+    expect(added).toMatchObject({
+      name: "新カテゴリ",
+      groups: [{ name: "グループ", tasks: [] }],
+    });
+    const json = documentToJson({
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: "P",
+      milestoneGroups: [],
+      milestones: [],
+      categories: result.categories,
+    });
+    expect(json).not.toHaveProperty("levels");
+    expect(json).not.toHaveProperty("outline");
+  });
+
+  it("appends a group under the chosen category", () => {
+    const result = appendLegacyHeadingFromToolbar(
+      baseCategories(),
+      1,
+      CAT_B,
+      "新規",
+      "unused-cat",
+      "new-grp",
+    );
+    expect(result.error).toBeNull();
+    const catB = result.categories.find((item) => item.id === CAT_B);
+    expect(catB?.groups.map((group) => group.name)).toContain("新規");
+  });
+
+  it("rejects missing parent, blank name, and duplicates", () => {
+    const categories = baseCategories();
+    const noParent = appendLegacyHeadingFromToolbar(
+      categories,
+      1,
+      null,
+      "新規",
+      "c1",
+      "g1",
+    );
+    expect(noParent.error).toBe("追加先を選んでください");
+
+    const blank = appendLegacyHeadingFromToolbar(
+      categories,
+      0,
+      null,
+      "  ",
+      "c2",
+      "g2",
+    );
+    expect(blank.error).toBe("名前を入力してください");
+
+    const dupCategory = appendLegacyHeadingFromToolbar(
+      categories,
+      0,
+      null,
+      "設計",
+      "c3",
+      "g3",
+    );
+    expect(dupCategory.error).toBe("カテゴリ名が重複しています");
+
+    const dupGroup = appendLegacyHeadingFromToolbar(
+      categories,
+      1,
+      CAT_A,
+      "上流",
+      "c4",
+      "g4",
+    );
+    expect(dupGroup.error).toBe("同じカテゴリ内でグループ名が重複しています");
   });
 });

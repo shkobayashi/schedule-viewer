@@ -6,7 +6,7 @@ import {
   isBaselineConflictLabel,
 } from "./baselineDiffs";
 import { formatValidationErrors, validateSchedule } from "./validateSchedule";
-import { scheduleToJson } from "./serialize";
+import { documentToJson } from "./serialize";
 import type { ScheduleDocument } from "./types";
 
 export const BASELINE_MERGE_LLM_PROMPT = `schedule-viewer の MCP または read-screen スキルを使って、baseline_diffs を読んでください。
@@ -103,14 +103,7 @@ export function assessBaselineMerge(
     };
   }
 
-  const validation = validateSchedule(
-    scheduleToJson(
-      merged.title,
-      merged.categories,
-      merged.milestoneGroups,
-      merged.milestones,
-    ),
-  );
+  const validation = validateSchedule(documentToJson(merged));
   if (!validation.ok) {
     return {
       kind: "blocked",
