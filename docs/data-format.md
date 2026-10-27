@@ -242,7 +242,7 @@
 | `statuses/<catalogId>.json` | 取り込んだステータス一覧 JSON の本文 | 2MB |
 | `calendar.json` | 取り込んだカレンダー JSON の本文 | 2MB |
 | `schedule-recovery/<ハッシュ>.json` | 未保存の控え。パスごとに1ファイル。`path`、`baselineJson`、`documentJson` | 10MB |
-| `schedule-filters/<ハッシュ>.json` | パスごとの絞り込みと折りたたみ。`version`（1 または 2）、`path`、絞り込みの各値（`filters` の中に `fieldFilters` を含む。`version` 1 のファイルは追加項目の条件を持たず、読み込み時は空にする）、検索欄の対象（`name` または `note`）、帯の線をオフにしたマイルストングループの id、折りたたんだカテゴリ id の配列、折りたたんだグループ id の配列。配列が無い古いファイルは、折りたたみなしとして読む | 64KB |
+| `schedule-filters/<ハッシュ>.json` | パスごとの絞り込みと折りたたみ。`version`（1 または 2）、`path`、絞り込みの各値（`filters` の中に `fieldFilters` を含む。`version` 1 のファイルは追加項目の条件を持たず、読み込み時は空にする。`version` 2 では `fieldFilters` がオブジェクトでないときは記録全体を初期値にする。オブジェクトのときは、型が合わないキーだけ外し、ほかの条件は戻す）、検索欄の対象（`name` または `note`）、帯の線をオフにしたマイルストングループの id、折りたたんだカテゴリ id の配列、折りたたんだグループ id の配列。配列が無い古いファイルは、折りたたみなしとして読む | 64KB |
 | `open-windows.json` | 開いていたウィンドウの順、`focusedLabel`、各ウィンドウの `label` と `path` またはサンプル。設定ファイルで開いたウィンドウは任意の `workspacePath` を含む | — |
 | `recent-files.json` | `schedules` と `workspaces` の二つの配列。それぞれ最近開いたスケジュールと設定ファイルの絶対パス。新しいものが先頭、各最大 5 件。旧形式の単一配列は `schedules` だけとして読む | 64KB |
 

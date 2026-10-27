@@ -223,8 +223,6 @@ export function FilterFieldFiltersSection({
   const inputRef = useRef<HTMLInputElement>(null);
   const comboRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const prevFieldFiltersRef = useRef(filters.fieldFilters);
-
   const fieldByKey = useMemo(() => {
     const map = new Map<string, ScheduleFieldDef>();
     for (const def of scheduleFields) map.set(def.key, def);
@@ -265,21 +263,9 @@ export function FilterFieldFiltersSection({
   };
 
   useEffect(() => {
-    const prev = prevFieldFiltersRef.current ?? {};
     const next = filters.fieldFilters ?? {};
-    setVisibleKeys((keys) =>
-      keys.filter((key) => {
-        const def = fieldByKey.get(key);
-        if (!def) return false;
-        const wasActive =
-          prev[key] != null && isFieldFilterActive(def, prev[key]);
-        const stillThere = next[key] != null;
-        if (wasActive && !stillThere) return false;
-        return true;
-      }),
-    );
-    prevFieldFiltersRef.current = next;
-  }, [fieldByKey, filters.fieldFilters]);
+    setVisibleKeys((keys) => keys.filter((key) => next[key] != null));
+  }, [filters.fieldFilters]);
 
   const updateListMaxHeight = () => {
     const input = inputRef.current;

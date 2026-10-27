@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  activeFieldFilterCount,
+  applyFieldFilterPatch,
   fieldFilterChipLabel,
   filterFieldsByQuery,
+  parseFieldFiltersFromPersistence,
   parseFieldFiltersRecord,
   pruneFieldFilters,
   relaxFieldFiltersForNewTask,
   taskMatchesFieldFilters,
 } from "./fieldFilters";
-import { activeFilterChips, activeFilterCount } from "./filterChips";
-import { DEFAULT_FILTERS } from "./filterChips";
+import { activeFilterChips, activeFilterCount, DEFAULT_FILTERS } from "./filterChips";
 import { buildActiveFilterConditions } from "./screenContext";
 import { taskMatchesFilter } from "./rows";
 import type { ScheduleFieldDef, ScheduleFilters, Task } from "./types";
@@ -168,6 +170,10 @@ describe("fieldFilterChipLabel", () => {
 });
 
 describe("activeFilterCount and chips", () => {
+  it("counts zero field filters after clear all defaults", () => {
+    expect(activeFilterCount(DEFAULT_FILTERS, false, 0, fields)).toBe(0);
+  });
+
   const filters: ScheduleFilters = {
     ...DEFAULT_FILTERS,
     fieldFilters: {
@@ -210,7 +216,41 @@ describe("filterFieldsByQuery", () => {
   });
 });
 
+describe("applyFieldFilterPatch", () => {
+  it("keeps inactive draft conditions in state", () => {
+    const next = applyFieldFilterPatch(
+      { fieldFilters: { memo: { empty: "any", text: "レビュー" } } },
+      fields[0],
+      { text: "" },
+    );
+    expect(next.memo).toEqual({ empty: "any", text: "" });
+    expect(activeFieldFilterCount(fields, next)).toBe(0);
+  });
+});
+
+describe("parseFieldFiltersFromPersistence", () => {
+  it("skips invalid entries and keeps valid keys", () => {
+    const parsed = parseFieldFiltersFromPersistence({
+      memo: { empty: "any", text: "ok" },
+      score: { empty: "bad" },
+    });
+    expect(parsed).toEqual({ memo: { empty: "any", text: "ok" } });
+  });
+
+  it("rejects non-object fieldFilters", () => {
+    expect(parseFieldFiltersFromPersistence([])).toBeNull();
+    expect(parseFieldFiltersFromPersistence("x")).toBeNull();
+  });
+});
+
 describe("pruneFieldFilters", () => {
+  it("keeps inactive drafts for the panel unless activeOnly", () => {
+    const input = { memo: { empty: "any" as const, text: "" } };
+    const pruned = pruneFieldFilters(fields, input);
+    expect(pruned.memo).toEqual(input.memo);
+    expect(pruneFieldFilters(fields, input, { activeOnly: true })).toEqual({});
+  });
+
   it("drops unknown keys and invalid choices", () => {
     const pruned = pruneFieldFilters(fields, {
       memo: { empty: "any", text: "x" },

@@ -231,6 +231,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             selectedTaskId: snap.selectedTaskId,
             statuses: snap.statuses,
             levels: snap.levels,
+            fields: snap.fields,
           });
           break;
         }

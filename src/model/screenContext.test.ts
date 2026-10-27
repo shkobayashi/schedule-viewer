@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
+import levels2Sample from "../../examples/hierarchy/levels-2.schedule.json";
 import { lineageTaskIds } from "./dependencies";
+import {
+  isOutlineBranch,
+  isTaskNode,
+  type OutlineRoot,
+} from "./hierarchy";
 import { mcpLevelsFromDocument } from "./hierarchyLevelEdit";
 import {
   buildActiveFilterConditions,
@@ -15,11 +21,15 @@ import { listTasksMatchingFilter } from "./rows";
 import { BUILTIN_STATUS_ITEMS, type StatusItem } from "./statusCatalog";
 import { updateStatusItem } from "./statusEdit";
 import {
+  SCHEDULE_SCHEMA_VERSION,
   UNASSIGNED_FILTER,
   type Category,
+  type ScheduleDocument,
+  type ScheduleFieldDef,
   type ScheduleFilters,
   type Task,
 } from "./types";
+import { DEFAULT_FILTERS } from "./filterChips";
 
 const filters: ScheduleFilters = {
   assignee: "all",
@@ -32,6 +42,29 @@ const filters: ScheduleFilters = {
   search: "",
   noteSearch: "",
 };
+
+function patchOutlineTaskFieldValues(
+  outline: OutlineRoot,
+  taskId: string,
+  fieldValues: Record<string, string>,
+): OutlineRoot {
+  return outline.map((node) => {
+    if (isTaskNode(node)) {
+      if (node.id !== taskId) return node;
+      return {
+        ...node,
+        fieldValues: { ...node.fieldValues, ...fieldValues },
+      };
+    }
+    if (isOutlineBranch(node)) {
+      return {
+        ...node,
+        children: patchOutlineTaskFieldValues(node.children, taskId, fieldValues),
+      };
+    }
+    return node;
+  });
+}
 
 function categoryWithTasks(tasks: Task[]): Category[] {
   return [
@@ -124,6 +157,40 @@ describe("buildFilteredTasksPayload", () => {
         null,
       ).length,
     ).toBe(2);
+  });
+
+  it("filters outline tasks by fieldFilters when fields are on the document", () => {
+    const taskId = "e2000001-0000-4000-8000-000000000001";
+    const doc = JSON.parse(
+      JSON.stringify(levels2Sample),
+    ) as ScheduleDocument;
+    doc.schemaVersion = SCHEDULE_SCHEMA_VERSION;
+    doc.categories = [];
+    const fields: ScheduleFieldDef[] = [
+      { key: "memo", name: "メモ", type: "text" },
+    ];
+    doc.fields = fields;
+    const outline = patchOutlineTaskFieldValues(doc.outline ?? [], taskId, {
+      memo: "レビュー",
+    });
+    const fieldFilters = {
+      memo: { empty: "any" as const, text: "レビュー" },
+    };
+    const payload = buildFilteredTasksPayload({
+      categories: [],
+      outline,
+      levels: doc.levels,
+      fields,
+      filters: { ...DEFAULT_FILTERS, fieldFilters },
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: doc.milestoneGroups,
+      milestones: doc.milestones,
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: null,
+    });
+    expect(payload.tasks.map((t) => t.id)).toEqual([taskId]);
   });
 
   it("keeps unassigned and unknown assignee when assignee filter is unassigned", () => {

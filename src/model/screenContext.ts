@@ -148,6 +148,7 @@ export type McpScheduleTasksContext = {
   title?: string;
   milestoneGroups?: MilestoneGroup[];
   milestones?: Milestone[];
+  fields?: readonly ScheduleFieldDef[];
 };
 
 function scheduleDocumentForMcpTasks(
@@ -161,6 +162,7 @@ function scheduleDocumentForMcpTasks(
     milestones: input.milestones ?? [],
     levels: input.levels?.length ? [...input.levels] : undefined,
     outline: input.outline,
+    fields: input.fields?.length ? [...input.fields] : undefined,
   };
 }
 

@@ -181,13 +181,7 @@ export function applyFieldFilterPatch(
   const current =
     filters.fieldFilters?.[def.key] ?? defaultFieldFilterCondition();
   const next: FieldFilterCondition = { ...current, ...patch };
-  const merged = { ...(filters.fieldFilters ?? {}), [def.key]: next };
-  if (!isFieldFilterActive(def, next)) {
-    const rest = { ...merged };
-    delete rest[def.key];
-    return rest;
-  }
-  return merged;
+  return { ...(filters.fieldFilters ?? {}), [def.key]: next };
 }
 
 export function taskMatchesFieldFilters(
@@ -402,17 +396,31 @@ export function filterFieldsByQuery(
   return fieldsInDefinitionOrder.filter((def) => def.name.includes(needle));
 }
 
+export type PruneFieldFiltersOptions = {
+  /** 記録へ書くときは効いている条件だけ残す。 */
+  activeOnly?: boolean;
+};
+
 export function pruneFieldFilters(
   fields: readonly ScheduleFieldDef[] | undefined,
   fieldFilters: FieldFiltersState,
+  options?: PruneFieldFiltersOptions,
 ): FieldFiltersState {
+  const activeOnly = options?.activeOnly === true;
   if (fields == null || fields.length === 0) return emptyFieldFiltersState();
   const next: FieldFiltersState = {};
   for (const def of fields) {
     const condition = fieldFilters[def.key];
     if (!condition) continue;
     const parsed = parseFieldFilterCondition(def, condition);
-    if (!parsed || !isFieldFilterActive(def, parsed)) continue;
+    if (!parsed) continue;
+    if (!isFieldFilterActive(def, parsed)) {
+      if (activeOnly) continue;
+      next[def.key] = fieldFilterConditionsEqual(def, condition, parsed)
+        ? condition
+        : parsed;
+      continue;
+    }
     if (fieldFilterConditionsEqual(def, condition, parsed)) {
       next[def.key] = condition;
     } else {
@@ -461,48 +469,56 @@ export function serializeFieldFiltersForPersistence(
   fields: readonly ScheduleFieldDef[] | undefined,
   fieldFilters: FieldFiltersState,
 ): FieldFiltersState | undefined {
-  const pruned = pruneFieldFilters(fields, fieldFilters);
+  const pruned = pruneFieldFilters(fields, fieldFilters, { activeOnly: true });
   if (Object.keys(pruned).length === 0) return undefined;
   return pruned;
+}
+
+function parseFieldFilterEntryFromPersistence(
+  entry: unknown,
+): FieldFilterCondition | null {
+  if (typeof entry !== "object" || entry == null) return null;
+  const item = entry as Record<string, unknown>;
+  const empty = item.empty;
+  if (empty !== "any" && empty !== "keep" && empty !== "exclude") return null;
+  const condition: FieldFilterCondition = { empty };
+  if (item.text !== undefined) {
+    if (typeof item.text !== "string") return null;
+    condition.text = item.text;
+  }
+  if (item.min !== undefined) {
+    if (typeof item.min !== "number" || !Number.isFinite(item.min)) return null;
+    condition.min = item.min;
+  }
+  if (item.max !== undefined) {
+    if (typeof item.max !== "number" || !Number.isFinite(item.max)) return null;
+    condition.max = item.max;
+  }
+  if (item.from !== undefined) {
+    if (typeof item.from !== "string") return null;
+    condition.from = item.from;
+  }
+  if (item.to !== undefined) {
+    if (typeof item.to !== "string") return null;
+    condition.to = item.to;
+  }
+  if (item.choice !== undefined) {
+    if (typeof item.choice !== "string") return null;
+    condition.choice = item.choice;
+  }
+  return condition;
 }
 
 export function parseFieldFiltersFromPersistence(
   raw: unknown,
 ): FieldFiltersState | null {
   if (raw === undefined) return emptyFieldFiltersState();
-  if (typeof raw !== "object" || raw == null) return null;
+  if (typeof raw !== "object" || raw == null || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
   const result: FieldFiltersState = {};
   for (const [key, entry] of Object.entries(record)) {
-    if (typeof entry !== "object" || entry == null) return null;
-    const item = entry as Record<string, unknown>;
-    const empty = item.empty;
-    if (empty !== "any" && empty !== "keep" && empty !== "exclude") return null;
-    const condition: FieldFilterCondition = { empty };
-    if (item.text !== undefined) {
-      if (typeof item.text !== "string") return null;
-      condition.text = item.text;
-    }
-    if (item.min !== undefined) {
-      if (typeof item.min !== "number" || !Number.isFinite(item.min)) return null;
-      condition.min = item.min;
-    }
-    if (item.max !== undefined) {
-      if (typeof item.max !== "number" || !Number.isFinite(item.max)) return null;
-      condition.max = item.max;
-    }
-    if (item.from !== undefined) {
-      if (typeof item.from !== "string") return null;
-      condition.from = item.from;
-    }
-    if (item.to !== undefined) {
-      if (typeof item.to !== "string") return null;
-      condition.to = item.to;
-    }
-    if (item.choice !== undefined) {
-      if (typeof item.choice !== "string") return null;
-      condition.choice = item.choice;
-    }
+    const condition = parseFieldFilterEntryFromPersistence(entry);
+    if (!condition) continue;
     result[key] = condition;
   }
   return result;

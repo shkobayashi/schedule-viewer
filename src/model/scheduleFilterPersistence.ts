@@ -212,6 +212,7 @@ export function serializeScheduleFilterPersistence(
   const prunedFieldFilters = pruneFieldFilters(
     fields,
     state.filters.fieldFilters ?? {},
+    { activeOnly: true },
   );
   const filters: ScheduleFilters = {
     ...state.filters,

@@ -122,7 +122,7 @@ description: >-
 29. Windows API を `windows-sys` で呼ぶときは、`Cargo.toml` に書いた版のクレートで、その関数があるモジュールと feature を見てから使う。別の版にあるモジュール名だけで feature を足さない。`#[cfg(windows)]` の中は macOS の Clippy ではコンパイルされない。unsafe な関数は unsafe ブロックで呼び、Windows の `cargo clippy -- -D warnings` が通る形にする
 30. Tauri コマンドを足したら、`src-tauri/permissions/*.toml` に許可を足し、`src-tauri/capabilities/default.json` の一覧へ入れる。`cargo check` は通っても、足さないと画面からの呼び出しが実行時に拒否される。MCP のツール説明が書くスキーマ版（`mcp_stdio.rs`）も、スキーマ版を上げたときに揃える
 31. ステータス編集の覆いで、共有の設定 revision や取り込み通知から一覧を読み直すときは、保存済みの項目と読んだ項目が違うときだけ下書きを捨てる。下書きを捨てる確認のあと、一覧の切り替えや新しい一覧の作成が失敗したときは、下書きありのままにする
-32. タスクが `categories` 以外の入れ子（`outline` など）にもあるとき、画面に見えているタスクと同じ集合を、詳細と複製、前後の追加と削除、系統、件数、カタログ不一致、タグ、一括編集、選択の prune、MCP の `filtered_tasks`・`selected_task`・`selected_tasks` でも読む。`collectTasksFromDocument`、`findTaskInDocument`、`taskHierarchyLabels` を使うか、同じ集合を歩く。テストは、`categories` が空の `outline` 文書を入力にする
+32. タスクが `categories` 以外の入れ子（`outline` など）にもあるとき、画面に見えているタスクと同じ集合を、詳細と複製、前後の追加と削除、系統、件数、カタログ不一致、タグ、一括編集、選択の prune、MCP の `filtered_tasks`・`selected_task`・`selected_tasks` でも読む。`collectTasksFromDocument`、`findTaskInDocument`、`taskHierarchyLabels` を使うか、同じ集合を歩く。絞り込みが追加項目の定義を引数に取るときは、MCP が組む文書にもその定義を載せ、`filtered_tasks` のタスクが画面と揃う。テストは、`categories` が空の `outline` 文書を入力にする
 
 ## 文書
 
@@ -156,6 +156,7 @@ description: >-
 12. 計画が、二つのグループ、空のフォルダ、失敗時に残す旨、今と同じエラー文のように、画面で区別できる条件を書いたときは、配列を分けたことやコマンドを呼んだことだけでは満たしたことにしない。見出し、拒否、知らせの文が戻り値か仕様の文に残っているかを照合し、その文のテストを置く
 13. 同梱する JSON 作成スキルの名前を増減したときは、`JSON_SKILL_NAMES` の件数を期待値にしている Rust のテストと、テスト仕様と画面に書いてある個数を同じ変更で揃える。名前の一覧だけ増やして、件数の期待値を古い数のままにしない。同じ変更で [src-tauri/tauri.conf.json](../../../src-tauri/tauri.conf.json) の `bundle.resources` の `json-skills/<name>/` と、[packaging/msix/build-msix.ps1](../../../packaging/msix/build-msix.ps1) の必須 `SKILL.md` も揃える。個数の期待値だけでは同梱リストの漏れを防げない
 14. 計画が `npm run check:schedule` に渡すファイルを名指ししたときは、そのコマンドが成功するまで完了にしない
+15. `activeConditions` だけ、または `taskMatchesFilter` にタスクを直接渡すだけでは、計画が名指しした絞り込みのケースを書いたことにしない。`filtered_tasks` の `tasks` 配列や、`listTasksMatchingFilterInDocument` を通すテストを置く。記録の `fieldFilters` で1件だけを捨てると計画が書いたときは、ファイル全体を読む関数にその1件を渡し、ほかの条件が残ることを確かめる。部品の関数だけが正しくても、呼び出し元が記録全体を初期値にするなら満たしたことにしない
 
 ## 完了条件
 

@@ -299,8 +299,8 @@
 | `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
 | `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
 | 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
-| `fieldFilters.test.ts` | 四型の一致、値が無いの残すと除く、札、件数、定義なし、`relaxFieldFiltersForNewTask`、`activeConditions` の並び | FILTER-13 |
-| `scheduleFilterPersistence.test.ts` | `version` 2 の `fieldFilters`、`version` 1 は追加項目が空 | FILTER-13, SYNC-03 |
+| `fieldFilters.test.ts` | 四型の一致、値が無いの残すと除く、札、件数、定義なし、記録の1件だけ型不一致、下書き行の保持、`relaxFieldFiltersForNewTask`、`activeConditions` の並び、`filtered_tasks` の outline | FILTER-13 |
+| `scheduleFilterPersistence.test.ts` | `version` 2 の `fieldFilters`、`version` 1 は追加項目が空、ほかの条件は戻る、`fieldFilters` 全体が壊れたときは初期値 | FILTER-13, SYNC-03 |
 | `milestoneField.test.ts` | `prepends none and keeps array order without date sort` | EDIT-04, EDIT-14 |
 | 同上 | `caps milestones at 50 and none does not count` | EDIT-04, EDIT-14 |
 | 同上 | `returns -1 when current is beyond first 50 with empty query` | EDIT-04, EDIT-14 |
@@ -1056,7 +1056,7 @@
 | TC-FILTER-12h | FILTER-12 | サンプルにタグ付きとタグ無しのタスクがある | 「タグ」は一つもオンにしない | タグでは絞らない。タグの無いタスクも残る |
 | TC-FILTER-12k | FILTER-12 | タグが複数ある JSON | 表示サイズを 100%、75%、50% で試す。各倍率で、タグを一つ目をオンにしたときの入力欄の位置を見る。タグを二つ以上オンにし、担当など別の条件と欄の検索文字も入れる。「選択を外す」を押す。取り消しを試す。一覧が開いているときにマウスで押す。キーボードで押したあとのフォーカスも見る | 一つ目のタグをオンにしても入力欄は動かない。タグの選択だけが空になる。ほかの条件、検索文字、パネルは残る。札が消え、絞り込みボタンの数からタグの分が減る。取り消しではタグの選択は戻らない。マウスでは一覧は開いたままチェックが外れる。キーボードではタグ欄にフォーカスが戻り、一覧が開く |
 | TC-FILTER-12l | FILTER-12 | タグがある JSON。タグが無い JSON | タグを一つもオンにしていないときと、タグが無いファイルで「絞り込み」を開く | 「選択を外す」は出ない |
-| TC-FILTER-13 | FILTER-13 | `examples/fields.schedule.json` | 「項目名で検索」で項目を選び、文章・数値・パーセント・日付・候補で絞る。「値が無い」の残すと除くを試す。候補が多いときは候補一覧だけスクロールする。行の「外す」と「選択を外す」。札と「すべて解除」。日付のカレンダーで Escape と日付選択。ライトとダークで文字と枠の見え方を見る。デスクトップ版では「区分」で「内製」を選んだ瞬間も条件行が残ることを見る | 型ごとの条件が効く。候補の値を選んだ瞬間に条件行が残り、その値に合うタスクだけが見える。札の文言が仕様どおり。系統は「すべて解除」で残る |
+| TC-FILTER-13 | FILTER-13 | `examples/fields.schedule.json` | 「項目名で検索」で項目を選び、文章・数値・パーセント・日付・候補で絞る。「値が無い」の残すと除くを試す。値の条件を空に戻しても、パネルを開いているあいだは条件行が残ることを見る。候補が多いときは候補一覧だけスクロールする。行の「外す」と「選択を外す」。札と「すべて解除」。日付のカレンダーで Escape と日付選択。ライトとダークで文字と枠の見え方を見る。デスクトップ版では「区分」で「内製」を選んだ瞬間も条件行が残ることを見る | 型ごとの条件が効く。候補の値を選んだ瞬間に条件行が残り、その値に合うタスクだけが見える。「値が無い」で残すときは値が無いタスクも残り、除くときは値があるタスクだけが残る。値を空に戻したあともパネルを開いているあいだは行が残る。札の文言が仕様どおり。系統は「すべて解除」で残る |
 | TC-FILTER-13b | FILTER-13 | 追加項目の定義が無いサンプル | 「絞り込み」を開く | 「追加項目」は出ない |
 | TC-FILTER-13c | FILTER-13 | `examples/fields.schedule.json` | 窓を低くする。「項目名で検索」で追加項目の条件行を複数出す。パネル内をスクロールして一番下の行まで届く。項目名の候補一覧を開く。日付欄のカレンダーを開く | パネルは窓の外へ出ない。下の条件行までスクロールできる。候補一覧は欄の下に重なり、パネルの高さは増えない。カレンダーは選べる |
 | TC-VIEW-12 | VIEW-12 | サンプル | 未確定と確定のバーを、ライトとダークで見る。超過もある未確定を見る。サンプルの「本番リリース」も見る | 未確定は斜線で、確定はベタ塗り。色はステータスと期限超過のまま。一覧に「未確定」は出ない。超過があるときは「超過」だけ出る。本番リリースのひし形は斜線で、他のマイルストンは塗りつぶし |
