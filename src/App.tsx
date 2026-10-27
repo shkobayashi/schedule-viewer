@@ -972,6 +972,7 @@ function App() {
     milestones: schedule.milestones,
     levels: schedule.levels,
     outline: schedule.outline,
+    fields: schedule.fields,
     replaceDocument: schedule.replaceDocument,
     applyMergedDocument: (document) => applyMergedDocumentRef.current(document),
     reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
@@ -3407,6 +3408,10 @@ function App() {
             onRemoveTag={(tag) => schedule.dropTaskTag(selectedDetailTask.id, tag)}
             onUpdateTodos={(items) =>
               schedule.setTaskTodos(selectedDetailTask.id, items)
+            }
+            scheduleFields={schedule.fields}
+            onSetTaskField={(fieldKey, raw) =>
+              schedule.setTaskFieldValue(selectedDetailTask.id, fieldKey, raw)
             }
             onEditingChange={setDetailPanelEditing}
           />

@@ -14,6 +14,10 @@ import {
   validateScheduleSemantics,
   type ValidationIssue,
 } from "./scheduleSemantics";
+import {
+  normalizeScheduleFieldDefinitions,
+  normalizeScheduleFieldsForValidation,
+} from "./taskFields";
 import { normalizeScheduleDocument } from "./taskTodos";
 import type { ScheduleDocument } from "./types";
 import {
@@ -76,7 +80,9 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
     ),
   );
 
-  const forSchema = normalizeScheduleLevelsInputForSchema(migrated);
+  const forSchema = normalizeScheduleFieldsForValidation(
+    normalizeScheduleLevelsInputForSchema(migrated) as Record<string, unknown>,
+  );
 
   if (!validateSchema(forSchema)) {
     return {
@@ -89,9 +95,14 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
   const document: ScheduleDocument = {
     ...raw,
     categories: raw.categories ?? [],
+    fields: normalizeScheduleFieldDefinitions(raw.fields),
+  };
+  const semanticsInput: ScheduleDocument = {
+    ...document,
+    fields: raw.fields,
   };
   const errors = [
-    ...validateScheduleSemantics(document),
+    ...validateScheduleSemantics(semanticsInput),
     ...validatePredecessorRefs(document),
     ...validateDependencyCycles(document),
   ];

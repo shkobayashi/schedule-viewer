@@ -311,6 +311,11 @@
 | `taskTags.test.ts` | `matches substrings case-sensitively after trim` | FILTER-12 |
 | 同上 | `keeps only tags that still exist, in document order` | FILTER-12 |
 | `serialize.test.ts` | `writes tags after milestoneId and before note` | FILE-02 |
+| `serialize.test.ts` | `orders root keys with fields after milestones and before categories` | FILE-02 |
+| `serialize.test.ts` | `orders task fieldValues after tags and before note in fields key order` | FILE-02 |
+| `serialize.test.ts` | `omits fields when definitions are absent` | FILE-02 |
+| `taskFields.test.ts` | 定義なし・五型・拒否・1キー更新・複製・`normalizeScheduleFieldsForValidation` | EDIT-04, FILE-02 |
+| `scheduleSemantics.test.ts` | `fieldValues on outline-only tasks` | EDIT-04, FILE-02 |
 | `taskTodos.test.ts` | `floors fractional progress` など | EDIT-22 |
 | `taskTodos.test.ts` | `canonicalizes progress from todo count on load` | EDIT-22, FILE-01 |
 | `taskTodos.test.ts` | `canonicalizes progress from todo count for outline-only tasks` | EDIT-22, FILE-01 |
@@ -850,6 +855,7 @@
 | `examples/hierarchy/levels-3.schedule.json` | 3段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-3.schedule.json` |
 | `examples/hierarchy/levels-4.schedule.json` | 4段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-4.schedule.json` |
 | `examples/hierarchy/levels-5.schedule.json` | 5段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-5.schedule.json` |
+| `examples/fields.schedule.json` | 追加項目の定義 5 件（文章、数値、パーセント数値、日付、候補2つ）。タスク 2 件（値あり・値なし） | `npm run check:schedule -- examples/fields.schedule.json` |
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
 
@@ -1073,6 +1079,7 @@
 | TC-EDIT-04i | EDIT-04, EDIT-10 | 対応マイルストンが設定済みのタスク。51件未満で一覧の下の方にあるマイルストンを選べる | 詳細パネルで「対応マイルストン」にフォーカスする。強調行が見える位置にあることを見る。先頭が一瞬強調されてから飛び移らないことも見る。矢印で先頭へ戻しても、その行が見える。Enter を押す | その行が強調される。見えない位置なら見えるところへ送られる。Enter では値は変わらず、取り消しは増えない |
 | TC-EDIT-04j | EDIT-04, FILTER-11 | 帯の線がオフのグループのマイルストンがある | 詳細パネルで「対応マイルストン」を開き、名前と日付で絞る。文字を入れてもマイルストン件数が増えないことを見る | 帯の線がオフのマイルストンも候補に出る。入力ではマイルストンを足さない |
 | TC-EDIT-04k | EDIT-04, EDIT-14 | 複製ダイアログ | 対応マイルストンを変えてキャンセルする。再度開き、変えて「追加」する。一覧を閉じたあと Escape を押す。変換中の Enter を試す | キャンセルでは文書は変わらない。「追加」で選んだ対応が付く。一覧を閉じたあとの Escape でダイアログが閉じる。変換中の Enter では選ばない |
+| TC-EDIT-04l | EDIT-04, FILE-02 | ブラウザ版。起動サンプルと `examples/fields.schedule.json` | 起動サンプルでタスクを選び、詳細に「追加項目」が無いことを見る。`examples/fields.schedule.json` を開き、定義の順でメモ、点数、消化率（`%`）、確認日、区分のプルダウンが見える。点数と消化率の幅をメモと比べる。確認日がパネルの下の方にある状態でカレンダーを開く。点数だけ変えて保存する。値の無いタスクを開いて保存する。文章を空にする。数値に文字を入れてフォーカスを外す。ライトとダークで文字が読める | 起動サンプルに追加項目は出ない。点数はメモと同じ幅で、消化率もそれに近く横に `%` がある。カレンダーは画面の中に収まる。保存後も `schemaVersion` は 8。点数のキーだけ変わる。値の無いタスクは保存できる。空の文章はキーが消える。数値でない入力は反映されず理由が出る |
 | TC-EDIT-08d | EDIT-08, FILTER-12 | タグで絞っている | タスクを追加する | タグの選択は無くなる |
 | TC-EDIT-14d | EDIT-14, FILTER-12 | タグ付きタスクをタグで絞っている | そのタスクを複製する | タグの絞り込みは残り、複製が見える |
 | TC-EDIT-05 | EDIT-05 | 3件以上のタスク | 編集で、自分を先行にしようとする。次に、循環する先行を保存する | 自分は候補に出ない。循環は保存されず、理由が出る |

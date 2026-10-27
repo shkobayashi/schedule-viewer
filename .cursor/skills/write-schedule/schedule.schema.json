@@ -23,6 +23,11 @@
       "type": "array",
       "items": { "$ref": "#/$defs/milestone" }
     },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/scheduleFieldDefinition" }
+    },
     "levels": {
       "type": "array",
       "minItems": 1,
@@ -52,6 +57,47 @@
       "type": "string",
       "minLength": 1,
       "description": "ステータス一覧の項目の id。既定の一覧は not-started、in-progress、done。"
+    },
+    "scheduleFieldDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name", "type"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["text", "number", "date", "choice"]
+        },
+        "meaning": { "type": "string", "minLength": 1 },
+        "instruction": { "type": "string", "minLength": 1 },
+        "required": { "const": true },
+        "default": {},
+        "percent": { "const": true },
+        "choices": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "choice" } },
+            "required": ["type"]
+          },
+          "then": { "required": ["choices"] }
+        }
+      ]
+    },
+    "taskFieldValues": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string", "minLength": 1 },
+          { "type": "number" }
+        ]
+      }
     },
     "levelDefinition": {
       "type": "object",
@@ -158,6 +204,10 @@
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "description": "説明用の任意タグ。画面では絞り込みに使う。"
+        },
+        "fieldValues": {
+          "$ref": "#/$defs/taskFieldValues",
+          "description": "追加項目の値。定義の key だけ。1件以上あるときだけ書く。"
         },
         "note": {
           "type": "string",

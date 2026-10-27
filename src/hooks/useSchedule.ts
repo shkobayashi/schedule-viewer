@@ -75,6 +75,12 @@ import {
   setTaskTodosOnCategories,
 } from "../model/taskTodos";
 import {
+  fieldDefByKey,
+  parseTaskFieldInput,
+  setTaskFieldValueInOutline,
+  setTaskFieldValueOnCategories,
+} from "../model/taskFields";
+import {
   collectTagsFromTasks,
   pruneSelectedTags,
 } from "../model/taskTags";
@@ -195,6 +201,10 @@ function snapshotFromDocument(doc: ScheduleDocument): DocumentSnapshot {
     categories: cloneCategories(doc.categories ?? []),
     milestoneGroups: doc.milestoneGroups.map((group) => ({ ...group })),
     milestones: doc.milestones.map((milestone) => ({ ...milestone })),
+    fields: doc.fields?.map((field) => ({
+      ...field,
+      ...(field.choices != null ? { choices: [...field.choices] } : {}),
+    })),
     levels: doc.levels?.map((level) => ({ ...level })),
     outline:
       doc.outline != null ? cloneOutlineRoot(doc.outline) : undefined,
@@ -349,6 +359,9 @@ export function useSchedule(
   const [milestones, setMilestones] = useState(
     () => documentRef.current.milestones,
   );
+  const [fields, setFields] = useState(
+    () => documentRef.current.fields,
+  );
   const [levels, setLevels] = useState<ScheduleLevelDef[] | undefined>(
     () => documentRef.current.levels,
   );
@@ -467,6 +480,7 @@ export function useSchedule(
       setCategories(cloned.categories);
       setMilestoneGroups(cloned.milestoneGroups);
       setMilestones(cloned.milestones);
+      setFields(cloned.fields);
       setLevels(cloned.levels);
       setOutline(cloned.outline);
       setReorderPreview(null);
@@ -489,6 +503,7 @@ export function useSchedule(
       setCategories(pushed.applied.categories);
       setMilestoneGroups(pushed.applied.milestoneGroups);
       setMilestones(pushed.applied.milestones);
+      setFields(pushed.applied.fields);
       setLevels(pushed.applied.levels);
       setOutline(pushed.applied.outline);
     },
@@ -564,6 +579,7 @@ export function useSchedule(
         documentRef.current.milestones,
         documentRef.current.levels,
         documentRef.current.outline,
+        documentRef.current.fields,
       ),
     [],
   );
@@ -1811,6 +1827,45 @@ export function useSchedule(
     [commitCategories, commitDocument, usesOutlineStorage],
   );
 
+  const setTaskFieldValue = useCallback(
+    (taskId: ScheduleId, fieldKey: string, raw: string): string | null => {
+      const current = documentRef.current;
+      const def = fieldDefByKey(current.fields, fieldKey);
+      if (def == null) {
+        return "追加項目の定義がありません";
+      }
+      const parsed = parseTaskFieldInput(def, raw);
+      if (!parsed.ok) return parsed.message;
+      const task = findTaskInDocument(
+        current.categories,
+        current.outline,
+        taskId,
+      );
+      if (task == null) return "タスクがありません";
+      const currentValue = task.fieldValues?.[fieldKey];
+      const nextValue = parsed.value;
+      if (currentValue === nextValue) return null;
+      if (currentValue === undefined && nextValue === undefined) return null;
+      if (usesOutlineStorage && current.outline != null) {
+        commitDocument((doc) => ({
+          ...doc,
+          outline: setTaskFieldValueInOutline(
+            doc.outline ?? [],
+            taskId,
+            def,
+            nextValue,
+          ),
+        }));
+        return null;
+      }
+      commitCategories((prev) =>
+        setTaskFieldValueOnCategories(prev, taskId, def, nextValue),
+      );
+      return null;
+    },
+    [commitCategories, commitDocument, usesOutlineStorage],
+  );
+
   const setTaskTodos = useCallback(
     (taskId: ScheduleId, items: TaskTodoItem[]) => {
       const current = documentRef.current;
@@ -2250,6 +2305,7 @@ export function useSchedule(
       snap.milestones,
       snap.levels,
       snap.outline,
+      snap.fields,
     );
   }, []);
 
@@ -2275,6 +2331,7 @@ export function useSchedule(
       setCategories(pushed.applied.categories);
       setMilestoneGroups(pushed.applied.milestoneGroups);
       setMilestones(pushed.applied.milestones);
+      setFields(pushed.applied.fields);
       setLevels(pushed.applied.levels);
       setOutline(pushed.applied.outline);
       pruneUiForDocument(pushed.applied);
@@ -2308,6 +2365,7 @@ export function useSchedule(
       setCategories(pushed.applied.categories);
       setMilestoneGroups(pushed.applied.milestoneGroups);
       setMilestones(pushed.applied.milestones);
+      setFields(pushed.applied.fields);
       setLevels(pushed.applied.levels);
       setOutline(pushed.applied.outline);
       setTaskSelection((current) =>
@@ -2344,6 +2402,7 @@ export function useSchedule(
       setCategories(snapshot.categories);
       setMilestoneGroups(snapshot.milestoneGroups);
       setMilestones(snapshot.milestones);
+      setFields(snapshot.fields);
       setLevels(snapshot.levels);
       setOutline(snapshot.outline);
       setHiddenMilestoneGroupIds([]);
@@ -2372,6 +2431,7 @@ export function useSchedule(
       setCategories(snapshot.categories);
       setMilestoneGroups(snapshot.milestoneGroups);
       setMilestones(snapshot.milestones);
+      setFields(snapshot.fields);
       setLevels(snapshot.levels);
       setOutline(snapshot.outline);
       setHiddenMilestoneGroupIds((hidden) =>
@@ -2599,6 +2659,8 @@ export function useSchedule(
     appendTaskTag,
     dropTaskTag,
     setTaskTodos,
+    setTaskFieldValue,
+    fields,
     scheduleTags,
     duplicateTask,
     setTaskConfidence,

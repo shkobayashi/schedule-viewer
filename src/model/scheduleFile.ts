@@ -4,6 +4,7 @@ import type {
   Milestone,
   MilestoneGroup,
   ScheduleDocument,
+  ScheduleFieldDef,
 } from "./types";
 import {
   formatValidationErrors,
@@ -45,6 +46,7 @@ export function serializeScheduleDocument(
   milestones: Milestone[],
   levels?: ScheduleLevelDef[] | null,
   outline?: OutlineRoot | null,
+  fields?: ScheduleFieldDef[] | null,
 ): string {
   return documentToJsonString(
     scheduleToJson(
@@ -54,6 +56,7 @@ export function serializeScheduleDocument(
       milestones,
       levels,
       outline,
+      fields,
     ),
   );
 }

@@ -58,6 +58,7 @@
 | `title` | 1文字以上。空白だけは不可 |
 | `milestoneGroups` | マイルストン帯の行。空でもよい。タスクのカテゴリ・グループとは別 |
 | `milestones` | マイルストンの配列。空でもよい |
+| `fields` | 任意。タスク全体で共有する追加項目の定義。1件以上あるときだけ書く。空配列は拒否する。各要素は `key`（値の JSON キー。定義内で重複不可。前後の空白不可）、`name`（画面の名前）、`type`（`text`、`number`、`date`、`choice` のいずれか）、任意の `meaning`（1文字以上。空ならキーを書かない）、任意の `instruction`（1文字以上。空ならキーを書かない）、任意の `required`（真のときだけ `true` を書く）、任意の `default`（型に合うときだけ）、`number` でパーセント表示するときだけ `percent: true`、`choice` では必須の `choices`（1文字以上の文字列。重複不可。前後の空白不可） |
 | `categories` | `levels` が無いときは1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
 | `levels` | 任意。1〜5段。各要素は `name` と `meaning`（いずれも1文字以上）。任意の `instruction` は、その段に置いたあとに LLM が守ること。空ならキーを書かない |
 | `outline` | `levels` があるときは、段数に合う入れ子をここに書く。枝は `id`、`name`、`children`。最下段はタスク。タスクの一つ上の枝だけ `children` を空にできる。それより上の枝は子を1件以上持つ |
@@ -73,6 +74,7 @@
 | `predecessors` | 先行タスクの `id`。重複しない。自分自身は指定できない。存在しない ID は不可。循環も不可。後続は各タスクの `predecessors` から導く |
 | `milestoneId` | 対応するマイルストンの `id`。未設定は `null`。存在しない ID は不可 |
 | `tags` | 任意。説明用の文字列の配列。各要素は1文字以上。前後の空白だけは不可。同一タスク内で、空白を除いた文字列が重複したら拒否する。大文字小文字は区別する。0件のときはプロパティを書かない |
+| `fieldValues` | 任意。追加項目の値。`fields` の `key` だけをプロパティ名にする。`fields` が無い文書では書けない。1件以上あるときだけ書く。`text` は1文字以上の文字列（改行不可）。`number` は有限の数値。`date` は実在する `YYYY-MM-DD`。`choice` は `choices` のいずれか。定義に無いキーは拒否する |
 | `note` | 任意。1文字以上。空文字や空白だけはプロパティ自体を書かない |
 
 カテゴリ名は1つのスケジュールの中で重複できない。グループ名は同じカテゴリの中で重複できない。別のカテゴリに同じグループ名があってもよい。名前は表示であり、対応づけは `id` で行う。並び替え用のフィールドはない。配列の順が画面の並びになる。
@@ -202,7 +204,7 @@
 
 アプリが書くスケジュール JSON は [src/model/serialize.ts](../src/model/serialize.ts) のキー順で、2スペースのインデントである（[src/model/scheduleFile.ts](../src/model/scheduleFile.ts) の `serializeScheduleDocument`）。
 
-キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones` のあと、階層の定義が無いときは `categories`、あるときは `levels` と `outline` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、項目があるときだけ `todos` を付け、タグがあるときだけ `tags` を付け、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
+キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones` のあと、追加項目の定義があるときだけ `fields`、階層の定義が無いときは `categories`、あるときは `levels` と `outline` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、項目があるときだけ `todos` を付け、タグがあるときだけ `tags` を付け、値があるときだけ `fieldValues` を付け、ノートがあるときだけ最後に `note` を付ける。`fieldValues` のキー順は `fields` の並びに合わせる。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。定義の無いファイルを保存しても `fields` は足さない。
 
 未保存かどうかは、この形にした文字列と、最後に開いた・保存した・読み直したときの文字列を比べて決める。インデントやキー順だけが違うファイルは、同じ内容として扱う。
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, isoDate, parseDate } from "../model/dates";
 import { validateNewTask } from "../model/tasks";
 import { ModalDialog } from "./ModalDialog";
+import { DateInput } from "./DateInput";
 import type { Category, ScheduleId } from "../model/types";
 
 type TaskAddDialogProps = {
@@ -191,20 +192,18 @@ export function TaskAddDialog({
         </div>
         <div className="field">
           <label htmlFor="addTaskStart">開始日</label>
-          <input
+          <DateInput
             id="addTaskStart"
-            type="date"
             value={start}
-            onChange={(e) => setStart(e.target.value)}
+            onChange={setStart}
           />
         </div>
         <div className="field">
           <label htmlFor="addTaskEnd">終了日（この日を含む）</label>
-          <input
+          <DateInput
             id="addTaskEnd"
-            type="date"
             value={end}
-            onChange={(e) => setEnd(e.target.value)}
+            onChange={setEnd}
           />
         </div>
         {error ? <p className="form-error" role="alert">{error}</p> : null}

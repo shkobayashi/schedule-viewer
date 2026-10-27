@@ -72,6 +72,7 @@ type UseScheduleFileOptions = {
   milestones: Milestone[];
   levels?: ScheduleLevelDef[];
   outline?: OutlineRoot;
+  fields?: import("../model/types").ScheduleFieldDef[];
   replaceDocument: (document: ScheduleDocument) => void;
   applyMergedDocument: (
     document: ScheduleDocument,
@@ -104,6 +105,7 @@ export function useScheduleFile({
   milestones,
   levels,
   outline,
+  fields,
   replaceDocument,
   applyMergedDocument,
   reloadDocumentFromDisk,
@@ -156,8 +158,9 @@ export function useScheduleFile({
         milestones,
         levels,
         outline,
+        fields,
       ),
-    [categories, levels, milestoneGroups, milestones, outline, title],
+    [categories, fields, levels, milestoneGroups, milestones, outline, title],
   );
 
   const isDirty = currentJson !== baselineJson;

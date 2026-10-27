@@ -26,15 +26,19 @@ import {
   hasTaskTodos,
   taskTodoCountLabel,
 } from "../model/taskTodos";
+import { fieldValueDisplayString } from "../model/taskFields";
 import {
   UNASSIGNED_LABEL,
   type Milestone,
+  type ScheduleFieldDef,
   type ScheduleId,
   type Task,
   type TaskConfidence,
   type TaskStatus,
   type TaskTodoItem,
 } from "../model/types";
+import { DateInput } from "./DateInput";
+import { isDatePopoverTarget } from "./datePopover";
 import { MilestoneField } from "./MilestoneField";
 import { RelationField } from "./TaskEditDialog";
 
@@ -55,10 +59,14 @@ type TaskDetailPanelProps = {
   onAddTag: (tag: string) => string | null;
   onRemoveTag: (tag: string) => void;
   onUpdateTodos: (items: TaskTodoItem[]) => string | null;
+  scheduleFields?: readonly ScheduleFieldDef[];
+  onSetTaskField: (fieldKey: string, raw: string) => string | null;
   onEditingChange: (editing: boolean) => void;
   statuses: readonly StatusItem[];
   panelRef?: Ref<TaskDetailPanelHandle>;
 };
+
+const TASK_FIELD_NONE_VALUE = "__none__";
 
 export function TaskDetailPanel({
   task,
@@ -72,6 +80,8 @@ export function TaskDetailPanel({
   onAddTag,
   onRemoveTag,
   onUpdateTodos,
+  scheduleFields,
+  onSetTaskField,
   onEditingChange,
   statuses,
   panelRef,
@@ -99,6 +109,9 @@ export function TaskDetailPanel({
   );
   const [pendingTodoText, setPendingTodoText] = useState("");
   const [showPendingTodo, setShowPendingTodo] = useState(false);
+  const [customFieldDrafts, setCustomFieldDrafts] = useState<Record<string, string>>(
+    {},
+  );
   const tagStatusRef = useRef<string | null>(null);
   const skipPendingTodoBlurRef = useRef(false);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -143,7 +156,19 @@ export function TaskDetailPanel({
     setTodoItems(task.todos ?? []);
     setPendingTodoText("");
     setShowPendingTodo(false);
-  }, [successorIds, task]);
+    if (scheduleFields != null) {
+      const drafts: Record<string, string> = {};
+      for (const field of scheduleFields) {
+        drafts[field.key] = fieldValueDisplayString(
+          field,
+          task.fieldValues?.[field.key],
+        );
+      }
+      setCustomFieldDrafts(drafts);
+    } else {
+      setCustomFieldDrafts({});
+    }
+  }, [scheduleFields, successorIds, task]);
 
   const todosActive = hasTaskTodos(task);
   const todoFraction = taskTodoCountLabel(task);
@@ -322,6 +347,7 @@ export function TaskDetailPanel({
     const root = rootRef.current;
     const next = event.relatedTarget;
     if (root && next instanceof Node && root.contains(next)) return;
+    if (isDatePopoverTarget(next)) return;
     onEditingChange(false);
     const overrides = dirtyPatch();
     if (overrides) commitWith(overrides);
@@ -424,12 +450,10 @@ export function TaskDetailPanel({
         <div className="detail-date-row">
           <div className="field">
             <label htmlFor="detailStart">開始</label>
-            <input
+            <DateInput
               id="detailStart"
-              type="date"
               value={start}
-              onChange={(e) => {
-                const next = e.target.value;
+              onChange={(next) => {
                 setStart(next);
                 commitWith({ start: next });
               }}
@@ -437,12 +461,10 @@ export function TaskDetailPanel({
           </div>
           <div className="field">
             <label htmlFor="detailEnd">終了</label>
-            <input
+            <DateInput
               id="detailEnd"
-              type="date"
               value={end}
-              onChange={(e) => {
-                const next = e.target.value;
+              onChange={(next) => {
                 setEnd(next);
                 commitWith({ end: next });
               }}
@@ -763,6 +785,115 @@ export function TaskDetailPanel({
           }}
         />
       </section>
+      {scheduleFields != null && scheduleFields.length > 0 ? (
+        <section className="detail-section">
+          <h2 className="detail-section-title">追加項目</h2>
+          {scheduleFields.map((field) => {
+            const inputId = `detailField-${field.key}`;
+            const draft = customFieldDrafts[field.key] ?? "";
+            const commitField = (raw: string) => {
+              const saveError = onSetTaskField(field.key, raw);
+              if (saveError) {
+                setFormError(saveError);
+                return;
+              }
+              setFormError(null);
+            };
+            if (field.type === "choice") {
+              const current = task.fieldValues?.[field.key];
+              const selectValue =
+                current === undefined ? TASK_FIELD_NONE_VALUE : String(current);
+              return (
+                <div className="field" key={field.key}>
+                  <label htmlFor={inputId}>{field.name}</label>
+                  <select
+                    id={inputId}
+                    value={selectValue}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      const raw =
+                        next === TASK_FIELD_NONE_VALUE ? "" : next;
+                      commitField(raw);
+                    }}
+                  >
+                    <option value={TASK_FIELD_NONE_VALUE}>値なし</option>
+                    {(field.choices ?? []).map((choice) => (
+                      <option key={choice} value={choice}>
+                        {choice}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            }
+            if (field.type === "date") {
+              return (
+                <div className="field" key={field.key}>
+                  <label htmlFor={inputId}>{field.name}</label>
+                  <DateInput
+                    id={inputId}
+                    value={draft}
+                    onChange={(next) => {
+                      setCustomFieldDrafts((prev) => ({
+                        ...prev,
+                        [field.key]: next,
+                      }));
+                      commitField(next);
+                    }}
+                  />
+                </div>
+              );
+            }
+            if (field.type === "number") {
+              return (
+                <div className="field" key={field.key}>
+                  <label htmlFor={inputId}>{field.name}</label>
+                  <div className="detail-number-line">
+                    <input
+                      id={inputId}
+                      type="number"
+                      value={draft}
+                      onChange={(e) => {
+                        setCustomFieldDrafts((prev) => ({
+                          ...prev,
+                          [field.key]: e.target.value,
+                        }));
+                      }}
+                      onBlur={() => commitField(draft)}
+                    />
+                    {field.percent === true ? (
+                      <span className="detail-number-suffix">%</span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="field" key={field.key}>
+                <label htmlFor={inputId}>{field.name}</label>
+                <input
+                  id={inputId}
+                  type="text"
+                  value={draft}
+                  onChange={(e) => {
+                    setCustomFieldDrafts((prev) => ({
+                      ...prev,
+                      [field.key]: e.target.value,
+                    }));
+                  }}
+                  onBlur={() => commitField(draft)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                    e.preventDefault();
+                    commitField(draft);
+                  }}
+                />
+              </div>
+            );
+          })}
+        </section>
+      ) : null}
       {formError ? (
         <p className="form-error" role="alert">{formError}</p>
       ) : null}
