@@ -9,7 +9,7 @@ import {
   normalizeTaskWithTodos,
   formatTaskTodosForExcel,
 } from "./taskTodos";
-import { isTaskNode } from "./hierarchy";
+import { isOutlineBranch, isTaskNode } from "./hierarchy";
 
 function task(overrides: Partial<Task> = {}): Task {
   return {
@@ -130,9 +130,11 @@ describe("normalizeScheduleDocument todos", () => {
       ],
     };
     const normalized = normalizeScheduleDocument(doc);
-    const outlineTask = normalized.outline![0].children.find((node) =>
-      isTaskNode(node),
-    );
+    const root = normalized.outline?.[0];
+    const outlineTask =
+      root && isOutlineBranch(root)
+        ? root.children.find((node) => isTaskNode(node))
+        : undefined;
     expect(outlineTask && "progress" in outlineTask ? outlineTask.progress : null).toBe(
       0,
     );

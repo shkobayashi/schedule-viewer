@@ -129,7 +129,6 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): ScheduleD
       push,
       screen,
       file,
-      screenTasks,
       fileTasks,
       screenTaskNames,
       fileTaskNames,
@@ -137,7 +136,6 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): ScheduleD
       fileMilestoneNames,
       screenCategories,
       fileCategories,
-      screenGroups,
       fileGroups,
     );
   }
@@ -279,7 +277,6 @@ function appendCategoriesStorageDiff(
   push: DiffPush,
   screen: ScheduleDocument,
   file: ScheduleDocument,
-  screenTasks: Map<ScheduleId, TaskPlace>,
   fileTasks: Map<ScheduleId, TaskPlace>,
   screenTaskNames: Map<ScheduleId, string>,
   fileTaskNames: Map<ScheduleId, string>,
@@ -287,7 +284,6 @@ function appendCategoriesStorageDiff(
   fileMilestoneNames: Map<ScheduleId, string>,
   screenCategories: Map<ScheduleId, Category>,
   fileCategories: Map<ScheduleId, Category>,
-  screenGroups: Map<ScheduleId, { category: Category; group: TaskGroup }>,
   fileGroups: Map<ScheduleId, { category: Category; group: TaskGroup }>,
 ): void {
   const categoryOrder = orderBlock(
