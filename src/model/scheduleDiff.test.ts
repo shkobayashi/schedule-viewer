@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import levels2 from "../../examples/hierarchy/levels-2.schedule.json";
 import { formatScheduleDiff } from "./scheduleDiff";
 import type {
   Category,
@@ -634,5 +635,131 @@ describe("formatScheduleDiff", () => {
     const file = doc(design([task({ id: TASK_A, name: "基本設計", note: "メモ" })]));
     const screen = doc(design([task({ id: TASK_A, name: "基本設計" })]));
     expect(formatScheduleDiff(screen, file, "plan.json")).toContain("  note: メモ → （なし）");
+  });
+
+  it("shows todo list changes with markers", () => {
+    const file = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          todos: [{ text: "a", done: false }],
+        }),
+      ]),
+    );
+    const screen = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          todos: [{ text: "a", done: true }],
+        }),
+      ]),
+    );
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
+      "  todos: [ ] a → [x] a",
+    );
+  });
+
+  it("writes missing todos as （なし）", () => {
+    const file = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          todos: [{ text: "a", done: false }],
+        }),
+      ]),
+    );
+    const screen = doc(design([task({ id: TASK_A, name: "基本設計" })]));
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
+      "  todos: [ ] a → （なし）",
+    );
+  });
+
+  it("omits todos when unchanged", () => {
+    const withTodos = task({
+      id: TASK_A,
+      name: "基本設計",
+      todos: [{ text: "a", done: false }],
+    });
+    const document = doc(design([withTodos]));
+    expect(formatScheduleDiff(document, document, "plan.json")).not.toContain("  todos:");
+  });
+});
+
+const OUTLINE_TASK_A = "e2000001-0000-4000-8000-000000000001";
+
+function outlineDoc(mutateTask?: (task: Task) => Task): ScheduleDocument {
+  const cloned = JSON.parse(JSON.stringify(levels2)) as ScheduleDocument;
+  cloned.schemaVersion = SCHEDULE_SCHEMA_VERSION;
+  cloned.categories = [];
+  if (mutateTask && cloned.outline) {
+    const walk = (nodes: ScheduleDocument["outline"]) => {
+      if (!nodes) return;
+      for (const node of nodes) {
+        if ("start" in node && "end" in node && node.id === OUTLINE_TASK_A) {
+          Object.assign(node, mutateTask(node as Task));
+        } else if ("children" in node) {
+          walk(node.children);
+        }
+      }
+    };
+    walk(cloned.outline);
+  }
+  return cloned;
+}
+
+describe("formatScheduleDiff outline storage", () => {
+  it("shows todo list changes for outline tasks", () => {
+    const file = outlineDoc();
+    const screen = outlineDoc((task) => ({
+      ...task,
+      todos: [{ text: "ヒアリング項目", done: false }],
+      progress: 0,
+    }));
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
+      "  todos: （なし） → [ ] ヒアリング項目",
+    );
+  });
+
+  it("omits todos when outline task todos match", () => {
+    const withTodos = outlineDoc((task) => ({
+      ...task,
+      todos: [{ text: "a", done: false }],
+      progress: 0,
+    }));
+    expect(formatScheduleDiff(withTodos, withTodos, "plan.json")).not.toContain("  todos:");
+  });
+
+  it("shows full todos on added outline task", () => {
+    const file = outlineDoc();
+    const screen = JSON.parse(JSON.stringify(file)) as ScheduleDocument;
+    const newTask = task({
+      id: TASK_D,
+      name: "追加タスク",
+      todos: [{ text: "new", done: true }],
+      progress: 100,
+    });
+    const branch = screen.outline?.[0];
+    if (branch && "children" in branch) {
+      branch.children.push(newTask);
+    }
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
+      "  todos: [x] new",
+    );
+  });
+
+  it("shows hierarchy definition changes", () => {
+    const file = outlineDoc();
+    const screen = JSON.parse(JSON.stringify(file)) as ScheduleDocument;
+    screen.levels = [
+      { name: "まとまり", meaning: "変更後の意味" },
+      { name: "タスク", meaning: "最下段の作業単位。" },
+    ];
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain("階層の定義");
+    expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
+      "meaning: 画面ではノード名を行に出す。定義名は帯の上だけ。 → 変更後の意味",
+    );
   });
 });

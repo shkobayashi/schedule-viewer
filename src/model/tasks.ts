@@ -1,10 +1,11 @@
-import { clamp, isIsoDateString } from "./dates";
+import { isIsoDateString } from "./dates";
 import type { MemberId } from "./memberTypes";
 import {
   validateDependencyCycles,
   validatePredecessorRefs,
 } from "./scheduleSemantics";
 import { applyTaskNote } from "./taskNote";
+import { resolveTaskEditProgress } from "./taskTodos";
 import { applyTaskTags } from "./taskTags";
 import {
   SCHEDULE_SCHEMA_VERSION,
@@ -342,7 +343,6 @@ export function applyTaskEdit(
   patch: TaskEditPatch,
   milestoneIds: ReadonlySet<ScheduleId>,
 ): Category[] {
-  const progress = clamp(Math.round(patch.progress), 0, 100);
   const predecessors = [
     ...new Set(patch.predecessors.filter((id) => id !== taskId)),
   ];
@@ -351,6 +351,7 @@ export function applyTaskEdit(
   );
   return mapTasks(categories, (task) => {
     if (task.id === taskId) {
+      const progress = resolveTaskEditProgress(task, patch.progress);
       return applyTaskNote(
         {
           ...task,

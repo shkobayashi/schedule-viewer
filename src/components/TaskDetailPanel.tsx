@@ -23,12 +23,17 @@ import type { MemberId } from "../model/memberTypes";
 import type { TaskEditPatch } from "../model/tasks";
 import { validateTaskEdit } from "../model/tasks";
 import {
+  hasTaskTodos,
+  taskTodoCountLabel,
+} from "../model/taskTodos";
+import {
   UNASSIGNED_LABEL,
   type Milestone,
   type ScheduleId,
   type Task,
   type TaskConfidence,
   type TaskStatus,
+  type TaskTodoItem,
 } from "../model/types";
 import { MilestoneField } from "./MilestoneField";
 import { RelationField } from "./TaskEditDialog";
@@ -49,6 +54,7 @@ type TaskDetailPanelProps = {
   documentTags: string[];
   onAddTag: (tag: string) => string | null;
   onRemoveTag: (tag: string) => void;
+  onUpdateTodos: (items: TaskTodoItem[]) => string | null;
   onEditingChange: (editing: boolean) => void;
   statuses: readonly StatusItem[];
   panelRef?: Ref<TaskDetailPanelHandle>;
@@ -65,6 +71,7 @@ export function TaskDetailPanel({
   documentTags,
   onAddTag,
   onRemoveTag,
+  onUpdateTodos,
   onEditingChange,
   statuses,
   panelRef,
@@ -87,7 +94,13 @@ export function TaskDetailPanel({
   const [formError, setFormError] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState("");
   const [tagStatus, setTagStatus] = useState<string | null>(null);
+  const [todoItems, setTodoItems] = useState<TaskTodoItem[]>(
+    () => task.todos ?? [],
+  );
+  const [pendingTodoText, setPendingTodoText] = useState("");
+  const [showPendingTodo, setShowPendingTodo] = useState(false);
   const tagStatusRef = useRef<string | null>(null);
+  const skipPendingTodoBlurRef = useRef(false);
   const nameRef = useRef<HTMLInputElement>(null);
   const panelHeadingRef = useRef<HTMLHeadingElement>(null);
   const rootRef = useRef<HTMLElement>(null);
@@ -127,7 +140,57 @@ export function TaskDetailPanel({
     setFormError(null);
     setTagInput("");
     setTagStatus(null);
+    setTodoItems(task.todos ?? []);
+    setPendingTodoText("");
+    setShowPendingTodo(false);
   }, [successorIds, task]);
+
+  const todosActive = hasTaskTodos(task);
+  const todoFraction = taskTodoCountLabel(task);
+
+  const commitTodos = useCallback(
+    (items: TaskTodoItem[]) => {
+      const saveError = onUpdateTodos(items);
+      if (saveError) {
+        setFormError(saveError);
+        return;
+      }
+      setFormError(null);
+      setTodoItems(items);
+    },
+    [onUpdateTodos],
+  );
+
+  const commitPendingTodo = useCallback(() => {
+    const trimmed = pendingTodoText.trim();
+    if (trimmed.length === 0) {
+      setShowPendingTodo(false);
+      setPendingTodoText("");
+      return;
+    }
+    if (/[\r\n]/.test(pendingTodoText)) {
+      setFormError("TODOの文に改行は使えません");
+      return;
+    }
+    const next = [...todoItems, { text: trimmed, done: false }];
+    commitTodos(next);
+    setPendingTodoText("");
+    setShowPendingTodo(false);
+  }, [commitTodos, pendingTodoText, todoItems]);
+
+  const cancelPendingTodo = useCallback(() => {
+    skipPendingTodoBlurRef.current = true;
+    setShowPendingTodo(false);
+    setPendingTodoText("");
+    queueMicrotask(() => {
+      skipPendingTodoBlurRef.current = false;
+    });
+  }, []);
+
+  const handlePendingTodoBlur = useCallback(() => {
+    if (skipPendingTodoBlurRef.current) return;
+    commitPendingTodo();
+  }, [commitPendingTodo]);
 
   useImperativeHandle(panelRef, () => ({
     focusName: () => {
@@ -209,7 +272,12 @@ export function TaskDetailPanel({
       patch.assigneeId = nextAssignee;
     }
     if (status !== task.status) patch.status = status;
-    if (Math.round(progress) !== task.progress) patch.progress = progress;
+    if (
+      !hasTaskTodos(task) &&
+      Math.round(progress) !== task.progress
+    ) {
+      patch.progress = progress;
+    }
     if (confidence !== task.confidence) patch.confidence = confidence;
     if (milestoneId !== task.milestoneId) patch.milestoneId = milestoneId;
     const predKey = [...predecessors].sort().join("\0");
@@ -424,32 +492,197 @@ export function TaskDetailPanel({
           </select>
         </div>
         <div className="field">
-          <label htmlFor="detailProgress">進捗率</label>
-          <div className="detail-progress">
-            <input
-              id="detailProgress"
-              type="range"
-              min={0}
-              max={100}
-              value={progress}
-              onChange={(e) => setProgress(Number(e.target.value))}
-              onMouseUp={() => commitProgressIfDirty()}
-              onPointerUp={() => commitProgressIfDirty()}
-              onBlur={() => commitProgressIfDirty()}
-            />
-            <input
-              type="number"
-              min={0}
-              max={100}
-              className="detail-progress-num"
-              value={progress}
-              onChange={(e) => {
-                setProgress(Number(e.target.value) || 0);
-              }}
-              onBlur={() => commitProgressIfDirty()}
-            />
-            <span>%</span>
-          </div>
+          <label htmlFor={todosActive ? undefined : "detailProgress"}>
+            進捗率
+          </label>
+          {todosActive ? (
+            <div className="detail-progress detail-progress-linked">
+              <span
+                id="detailProgress"
+                className="detail-progress-readonly"
+                aria-live="polite"
+              >
+                {task.progress}%
+              </span>
+              {todoFraction ? (
+                <span className="detail-todo-fraction">{todoFraction}</span>
+              ) : null}
+            </div>
+          ) : (
+            <div className="detail-progress">
+              <input
+                id="detailProgress"
+                type="range"
+                min={0}
+                max={100}
+                value={progress}
+                onChange={(e) => setProgress(Number(e.target.value))}
+                onMouseUp={() => commitProgressIfDirty()}
+                onPointerUp={() => commitProgressIfDirty()}
+                onBlur={() => commitProgressIfDirty()}
+              />
+              <input
+                type="number"
+                min={0}
+                max={100}
+                className="detail-progress-num"
+                value={progress}
+                onChange={(e) => {
+                  setProgress(Number(e.target.value) || 0);
+                }}
+                onBlur={() => commitProgressIfDirty()}
+              />
+              <span>%</span>
+            </div>
+          )}
+        </div>
+        <div className="field detail-todo-field">
+          {todosActive ? (
+            <span className="detail-todo-label" id="detailTodoListLabel">
+              TODO
+            </span>
+          ) : null}
+          {todosActive ? (
+            <ul
+              className="detail-todo-list"
+              aria-labelledby="detailTodoListLabel"
+            >
+              {todoItems.map((item, index) => (
+                <li key={`todo-${index}`} className="detail-todo-row">
+                  <input
+                    type="checkbox"
+                    checked={item.done}
+                    aria-label={`${item.text}を済みにする`}
+                    onChange={() => {
+                      const next = todoItems.map((row, rowIndex) =>
+                        rowIndex === index
+                          ? { ...row, done: !row.done }
+                          : row,
+                      );
+                      commitTodos(next);
+                    }}
+                  />
+                  <input
+                    type="text"
+                    className="detail-todo-text"
+                    value={item.text}
+                    onChange={(e) => {
+                      const next = [...todoItems];
+                      next[index] = { ...next[index], text: e.target.value };
+                      setTodoItems(next);
+                    }}
+                    onBlur={() => {
+                      const trimmed = todoItems[index].text.trim();
+                      if (trimmed.length === 0) {
+                        const next = todoItems.filter(
+                          (_, rowIndex) => rowIndex !== index,
+                        );
+                        commitTodos(next);
+                        return;
+                      }
+                      if (/[\r\n]/.test(todoItems[index].text)) {
+                        setFormError("TODOの文に改行は使えません");
+                        setTodoItems(task.todos ?? []);
+                        return;
+                      }
+                      if (trimmed !== todoItems[index].text) {
+                        const next = [...todoItems];
+                        next[index] = { ...next[index], text: trimmed };
+                        commitTodos(next);
+                        return;
+                      }
+                      if (
+                        trimmed !== (task.todos ?? [])[index]?.text ||
+                        item.done !== (task.todos ?? [])[index]?.done
+                      ) {
+                        commitTodos(todoItems);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                      e.preventDefault();
+                      (e.target as HTMLInputElement).blur();
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn detail-todo-remove"
+                    aria-label={`${item.text}を削除`}
+                    onClick={() => {
+                      const next = todoItems.filter(
+                        (_, rowIndex) => rowIndex !== index,
+                      );
+                      commitTodos(next);
+                    }}
+                  >
+                    削除
+                  </button>
+                </li>
+              ))}
+              {showPendingTodo ? (
+                <li className="detail-todo-row detail-todo-row-pending">
+                  <span className="detail-todo-pending-spacer" aria-hidden="true" />
+                  <input
+                    type="text"
+                    className="detail-todo-text"
+                    value={pendingTodoText}
+                    autoFocus
+                    placeholder="TODOの文"
+                    aria-label="新しいTODOの文"
+                    onChange={(e) => setPendingTodoText(e.target.value)}
+                    onBlur={handlePendingTodoBlur}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                        e.preventDefault();
+                        commitPendingTodo();
+                        return;
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        cancelPendingTodo();
+                      }
+                    }}
+                  />
+                </li>
+              ) : null}
+            </ul>
+          ) : null}
+          {showPendingTodo && !todosActive ? (
+            <div className="detail-todo-row detail-todo-row-pending">
+              <span className="detail-todo-pending-spacer" aria-hidden="true" />
+              <input
+                type="text"
+                className="detail-todo-text"
+                value={pendingTodoText}
+                autoFocus
+                placeholder="TODOの文"
+                aria-label="新しいTODOの文"
+                onChange={(e) => setPendingTodoText(e.target.value)}
+                onBlur={handlePendingTodoBlur}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                    e.preventDefault();
+                    commitPendingTodo();
+                    return;
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelPendingTodo();
+                  }
+                }}
+              />
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className="btn detail-todo-add"
+            onClick={() => setShowPendingTodo(true)}
+          >
+            TODOを追加
+          </button>
         </div>
         <div className="field">
           <label htmlFor="detailConfidence">確度</label>

@@ -17,6 +17,7 @@ import {
   listTasksMatchingFilterInDocument,
   type FilteredTaskRef,
 } from "./rows";
+import { hasTaskTodos } from "./taskTodos";
 import {
   NO_MILESTONE_FILTER,
   UNASSIGNED_FILTER,
@@ -35,6 +36,7 @@ import {
   type ScheduleLevelDef,
   type StatusFilter,
   type Task,
+  type TaskTodoItem,
 } from "./types";
 
 export const MCP_SCREEN_CONTEXT_MAX_BYTES = 10 * 1024 * 1024;
@@ -60,6 +62,7 @@ export type ScreenContextTask = {
   confidence: Task["confidence"];
   predecessors: ScheduleId[];
   milestoneId: ScheduleId | null;
+  todos?: TaskTodoItem[];
   note?: string;
   tags: string[];
 };
@@ -178,6 +181,7 @@ function taskToContext(ref: FilteredTaskRef): ScreenContextTask {
     confidence: task.confidence,
     predecessors: [...task.predecessors],
     milestoneId: task.milestoneId,
+    ...(hasTaskTodos(task) ? { todos: task.todos!.map((item) => ({ ...item })) } : {}),
     ...(task.note !== undefined ? { note: task.note } : {}),
     tags: [...(task.tags ?? [])],
   };

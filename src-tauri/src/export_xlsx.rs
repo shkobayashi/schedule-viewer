@@ -137,6 +137,7 @@ pub struct ExcelExportPayload {
     pub overdue_name_rgb: String,
     pub gray_header_only: bool,
     pub note_wrap_column_index: Option<u32>,
+    pub todos_wrap_column_index: Option<u32>,
     pub date_column_width_px: u32,
     pub body_row_height_px: u32,
     pub header_row_height_px: u32,
@@ -215,6 +216,7 @@ pub fn write_excel_bytes(payload: &ExcelExportPayload) -> Result<Vec<u8>, String
     let table_border = parse_color(&payload.table_border_rgb);
     let overdue = parse_color(&payload.overdue_name_rgb);
     let note_wrap = payload.note_wrap_column_index;
+    let todos_wrap = payload.todos_wrap_column_index;
     let date_col_width = payload.date_column_width_px.max(1);
     let last_col = if left_count + date_count == 0 {
         0u16
@@ -328,7 +330,7 @@ pub fn write_excel_bytes(payload: &ExcelExportPayload) -> Result<Vec<u8>, String
                     format = format.set_font_color(overdue);
                 }
             }
-            if note_wrap == Some(col as u32) {
+            if note_wrap == Some(col as u32) || todos_wrap == Some(col as u32) {
                 format = format.set_text_wrap();
             }
             worksheet
@@ -529,6 +531,7 @@ mod tests {
             overdue_name_rgb: "C4351A".into(),
             gray_header_only: true,
             note_wrap_column_index: Some(3),
+            todos_wrap_column_index: None,
             date_column_width_px: 48,
             body_row_height_px: 22,
             header_row_height_px: 22,

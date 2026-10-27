@@ -94,7 +94,7 @@ flowchart TD
 | --- | --- |
 | 型 | `types.ts`、`memberTypes.ts`、`calendarTypes.ts` |
 | 検証 | `validateSchedule.ts`、`validateMembers.ts`、`validateCalendar.ts`、`*Semantics.ts`、`scheduleMigrate.ts`、`uuidV5.ts`、`validationMessages.ts`、`generated/` |
-| 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`progressRollup.ts`、`tasks.ts`、`taskOrder.ts`、`categoryOrder.ts`、`groupOrder.ts` |
+| 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`progressRollup.ts`、`taskTodos.ts`、`tasks.ts`、`taskOrder.ts`、`categoryOrder.ts`、`groupOrder.ts` |
 | 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`dates.ts`、`monthHeader.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
 | 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
 | 対応マイルストン欄と絞り込みのマイルストン欄 | `milestoneField.ts` の `buildMilestoneFieldList`、`buildMilestoneFilterList`、`initialMilestoneFieldActiveIndex`、`initialMilestoneFilterActiveIndex` |
@@ -386,6 +386,7 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 | ドラッグ中の線の色 | `dragDates.ts` の `previewLinkBroken` | 触っているタスクが端の線だけ、preview の日付で破綻を見る |
 | 親バー | `summary.ts` の `summarizeSpans`、`Timeline.tsx` の `SummaryBar` | 開始順に並べ、次が前の終了の翌日以前ならつなぐ。1日空くと分ける。見えているタスクだけを渡す。カテゴリ、グループ、`levels` の見出し行のいずれも、`summary` があるとき親バーを描く |
 | 左の行の進捗 | `progressRollup.ts` の `categoryRollupPercent` と `groupRollupPercent` | 配下タスクを同じ重さで平均し四捨五入。`status` が `done` のタスクは 100。それ以外は進捗欄の数字。絞り込み・折りたたみ・系統で隠れたタスクも含む。親バーとは別 |
+| タスクの項目と進捗 | `taskTodos.ts` の `normalizeScheduleDocument`、`progressFromTodoItems`、`normalizeTaskWithTodos` | 読み込みと保存で `todos` があるタスクの `progress` を件数で上書き。左のタスク行の `3/6` は `taskTodoCountLabel`。詳細は EDIT-22 |
 | イナズマ線 | `timeline.ts` の `lightningDate` | 項目の `role` と開始・終了・今日。一覧に無い `id` はどの期間でも今日 |
 | 期限超過 | `timeline.ts` の `isOverdue` | 未着手と着手済みで終了が今日より前。完了、管理外、一覧に無い `id` は超過にしない |
 | ステータスの編集 | `statusEdit.ts`、`statusCatalogEditHistory.ts` と `useStatusCatalogEditorOverlay` | 項目の追加、更新、並べ替え、削除（最後の1件は外さない）、一覧 ID の採番、保存前の検証。覆いの `StatusCatalogEditorPanel` が下書きを持つ。覆いを開いてから閉じるまでの取り消しは `statusCatalogEditHistory.ts` が項目の配列と選んでいる `id` を最大 100 段で持つ。色の連続変更は離すまで 1 段にまとめる。保存と「新しい一覧」「コピーして作る」は `saveCatalog` でアプリデータへ書く。「外す」は `removeCatalog` でアプリデータから消す。覆いからの外しでは覆いを閉じず、残った一覧の先頭を開く。設定の外しと他ウィンドウの外しでは、編集中の一覧が消えたときに覆いを閉じる。使用中の切り替えは変えない。設定ファイルモードは `writeStatusesAtPath` |

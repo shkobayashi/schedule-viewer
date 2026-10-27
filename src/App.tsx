@@ -3405,6 +3405,9 @@ function App() {
             documentTags={schedule.scheduleTags}
             onAddTag={(tag) => schedule.appendTaskTag(selectedDetailTask.id, tag)}
             onRemoveTag={(tag) => schedule.dropTaskTag(selectedDetailTask.id, tag)}
+            onUpdateTodos={(items) =>
+              schedule.setTaskTodos(selectedDetailTask.id, items)
+            }
             onEditingChange={setDetailPanelEditing}
           />
         ) : bulkDetailTasks.length > 1 ? (

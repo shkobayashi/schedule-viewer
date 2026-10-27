@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import levels2 from "../../examples/hierarchy/levels-2.schedule.json";
 import { collectBaselineClassificationLines } from "./baselineDiffs";
 import { buildBaselineMergeReview } from "./baselineMergeReview";
 import type { Category, ScheduleDocument, Task } from "./types";
@@ -184,5 +185,67 @@ describe("buildBaselineMergeReview", () => {
     }
     expect(block?.visibleHeadline).not.toMatch(/[0-9a-f-]{36}/i);
     expect(block?.accessibleHeadline).toContain(TASK_A);
+  });
+});
+
+const OUTLINE_TASK_A = "e2000001-0000-4000-8000-000000000001";
+
+function outlineReviewDoc(mutateTask?: (task: Task) => Task): ScheduleDocument {
+  const cloned = JSON.parse(JSON.stringify(levels2)) as ScheduleDocument;
+  cloned.schemaVersion = SCHEDULE_SCHEMA_VERSION;
+  cloned.categories = [];
+  if (mutateTask && cloned.outline) {
+    const walk = (nodes: ScheduleDocument["outline"]) => {
+      if (!nodes) return;
+      for (const node of nodes) {
+        if ("start" in node && "end" in node && node.id === OUTLINE_TASK_A) {
+          Object.assign(node, mutateTask(node as Task));
+        } else if ("children" in node) {
+          walk(node.children);
+        }
+      }
+    };
+    walk(cloned.outline);
+  }
+  return cloned;
+}
+
+describe("buildBaselineMergeReview outline storage", () => {
+  it("shows todo fields for screen-only outline change", () => {
+    const baseline = outlineReviewDoc();
+    const screen = outlineReviewDoc((task) => ({
+      ...task,
+      todos: [{ text: "項目", done: false }],
+      progress: 0,
+    }));
+    const file = baseline;
+    const view = review(baseline, screen, file);
+    expect(view.screen?.count).toBe(1);
+    const block = view.screen?.blocks[0];
+    expect(block?.kind).toBe("change");
+    if (block?.kind === "change") {
+      const todoField = block.fields.find((field) => field.label === "TODO");
+      expect(todoField?.visible).toContain("[ ] 項目");
+    }
+  });
+
+  it("shows conflicting todo values in screen and file sections", () => {
+    const baseline = outlineReviewDoc();
+    const screen = outlineReviewDoc((task) => ({
+      ...task,
+      todos: [{ text: "画面側", done: false }],
+      progress: 0,
+    }));
+    const file = outlineReviewDoc((task) => ({
+      ...task,
+      todos: [{ text: "ファイル側", done: false }],
+      progress: 0,
+    }));
+    const lines = collectBaselineClassificationLines(baseline, screen, file);
+    const conflict = lines.find((line) => line.label === "異なる");
+    expect(conflict?.headline).toContain("調査A");
+    const view = review(baseline, screen, file);
+    expect(view.screen).toBeUndefined();
+    expect(view.file).toBeUndefined();
   });
 });

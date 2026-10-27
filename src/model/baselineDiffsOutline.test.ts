@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import levels2 from "../../examples/hierarchy/levels-2.schedule.json";
 import { assessBaselineMerge } from "./baselineMerge";
 import { formatBaselineDiffsText } from "./baselineDiffs";
+import { formatScheduleDocumentDiffBody } from "./scheduleDiff";
 import type { ScheduleDocument, Task } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
@@ -44,6 +45,52 @@ describe("outline baseline merge", () => {
     const text = formatBaselineDiffsText(baseline, screen, file, "plan.json");
     expect(text).toContain("ファイルのみ 変更 調査A");
     expect(text).not.toContain("削除 カテゴリ");
+    expect(formatScheduleDocumentDiffBody(file, baseline)).toContain("  end:");
+    expect(formatScheduleDocumentDiffBody(screen, baseline)).toBe("差はありません");
+  });
+
+  it("classifies screen-only todos with diff body", () => {
+    const baseline = outlineDoc(undefined, undefined);
+    const screen = outlineDoc(undefined, undefined, (task) => ({
+      ...task,
+      todos: [{ text: "項目", done: false }],
+      progress: 0,
+    }));
+    const file = baseline;
+    const text = formatBaselineDiffsText(baseline, screen, file, "plan.json");
+    expect(text).toContain("画面のみ 変更 調査A");
+    expect(formatScheduleDocumentDiffBody(screen, baseline)).toContain("  todos:");
+  });
+
+  it("classifies conflicting todos as 異なる and blocks merge", () => {
+    const baseline = outlineDoc(undefined, undefined);
+    const screen = outlineDoc(undefined, undefined, (task) => ({
+      ...task,
+      todos: [{ text: "画面", done: false }],
+      progress: 0,
+    }));
+    const file = outlineDoc(undefined, undefined, (task) => ({
+      ...task,
+      todos: [{ text: "ファイル", done: false }],
+      progress: 0,
+    }));
+    const text = formatBaselineDiffsText(baseline, screen, file, "plan.json");
+    expect(text).toContain("異なる 変更 調査A");
+    const result = assessBaselineMerge(baseline, screen, file);
+    expect(result.kind).toBe("blocked");
+  });
+
+  it("classifies matching todo changes as 同じ", () => {
+    const baseline = outlineDoc(undefined, undefined);
+    const changed = outlineDoc(undefined, undefined, (task) => ({
+      ...task,
+      todos: [{ text: "共通", done: true }],
+      progress: 100,
+    }));
+    const text = formatBaselineDiffsText(baseline, changed, changed, "plan.json");
+    expect(text).toContain("同じ 変更 調査A");
+    const result = assessBaselineMerge(baseline, changed, changed);
+    expect(result.kind).toBe("sameOnly");
   });
 
   it("merges file-only task change into outline document", () => {

@@ -311,6 +311,9 @@
 | `taskTags.test.ts` | `matches substrings case-sensitively after trim` | FILTER-12 |
 | 同上 | `keeps only tags that still exist, in document order` | FILTER-12 |
 | `serialize.test.ts` | `writes tags after milestoneId and before note` | FILE-02 |
+| `taskTodos.test.ts` | `floors fractional progress` など | EDIT-22 |
+| `taskTodos.test.ts` | `canonicalizes progress from todo count on load` | EDIT-22, FILE-01 |
+| `taskTodos.test.ts` | `canonicalizes progress from todo count for outline-only tasks` | EDIT-22, FILE-01 |
 | `taskTags.test.ts` | `bumps schemaVersion from 6 to 7` | FILE-01 |
 | 同上 | `quotes each tag for display` | FILE-07 |
 | 同上 | `rejects whitespace-only, padded, and duplicate tags` | FILE-01 |
@@ -353,6 +356,8 @@
 | 同上 | `keeps strip when explicit empty is pinned` | FILE-07 |
 | 同上 | `defers only body to body while focused` | FILE-07 |
 | `scheduleDiff.test.ts` | `says there is no difference when the documents match` | FILE-07 |
+| `scheduleDiff.test.ts` | `shows todo list changes with markers` | EDIT-22, FILE-07 |
+| `scheduleDiff.test.ts` | `formatScheduleDiff outline storage`（`shows todo list changes for outline tasks`、`omits todos when outline task todos match`、`shows full todos on added outline task`、`shows hierarchy definition changes`） | EDIT-22, FILE-07 |
 | 同上 | `shows tag changes and distinguishes comma inside a tag from separate tags` | FILE-07 |
 | 同上 | `shows calendar-day shifts for start and end` | FILE-07 |
 | 同上 | `lists every field of an added task and skips sibling order` | FILE-07 |
@@ -499,6 +504,8 @@
 | 同上 | `allows the same group name in another category` | EDIT-13 |
 | 同上 | `keeps the original name when the input is blank` | EDIT-13 |
 | `baselineDiffsOutline.test.ts` | `classifies file-only task end on outline storage`、`merges file-only task change into outline document`、`blocks when screen adds a level and file changes a task` | SYNC-01, EDIT-21 |
+| 同上 | `classifies screen-only todos with diff body`、`classifies conflicting todos as 異なる and blocks merge`、`classifies matching todo changes as 同じ` | EDIT-22, FILE-07, SYNC-01, MCP-01 |
+| `baselineMergeReview.test.ts` | `buildBaselineMergeReview outline storage`（`shows todo fields for screen-only outline change`、`shows conflicting todo values in screen and file sections`） | EDIT-22, SYNC-01 |
 | `hierarchyLevelEdit.test.ts` | `keepsLegacyShapeWhenDefinitionUnchanged`、`acceptsAlignedIncomingWhenLevelCountDiffers`、`rejectsLegacyIncomingWhenScreenIsNotThreeLevels`、`rejectsMisalignedIncomingWhenLevelCountDiffers` | EDIT-21, FILE-02, MCP-01 |
 | 同上 | `renamesWithoutMovingRows` | EDIT-21 |
 | 同上 | `refusesSaveWhenCountMismatches` | EDIT-21, FILE-02 |
@@ -1089,6 +1096,8 @@
 | TC-EDIT-14e | EDIT-14, FILTER-01 | 進行中のタスクがあり、ステータスで「進行中」に絞っている | そのタスクを複製して追加する | 複製は未着手のため、ステータスの絞り込みは「すべて」に戻り、複製が見える |
 | TC-EDIT-14b | EDIT-14 | 複製ダイアログ | キャンセル、または Escape を押す。別途、終了日を開始日より前にして追加する | タスクは増えない。日付が不正なときはダイアログが開いたまま |
 | TC-EDIT-14c | EDIT-14, FILTER-10 | 確定のタスクがあり、確度を「未確定」で絞っている | そのタスクを複製して追加する。次に確度を「確定」に絞り、確定のタスクを複製する | 未確定で絞っているときは「すべて」に戻り、複製が見える。確定で絞っているときは「確定」のまま、複製が見える |
+| TC-EDIT-22 | EDIT-22 | 進行中のタスクを1件選ぶ。親のグループ行に進捗が出ている | 詳細パネルで「TODOを追加」から TODO を2件足し、1件にチェックを付ける。既存 TODO の文を続けて打って確定する。進捗率を手で変えられないことを見る。左の行に `1/2` が名前の直後に出ることを見る。チェックを外して進捗が下がることを見る。チェックの付け外しでステータスの選択値が変わらないことを見る。グループ行の進捗率が下がることを見る。絞り込み欄に TODO の条件が無いことを見る。マイルストンを選び、詳細に TODO 欄が無いことを見る。TODO をすべて削除し、直前の進捗が残ってスライダーが戻ることを見る。複製したタスクに TODO が無いことを見る | 件数と進捗が連動する。行の下にチェックは無い。ステータスは変わらない。ステータス色は変わらない。HTML・SVG に TODO は無い |
+| TC-EDIT-22b | EDIT-22, EXPORT-05 | 項目付きタスクがある | Excel 書き出しを開き、TODO 列が初期でオフであることを見る。TODO 列をオンにして書き出す | 初期は開始・終了・ノートだけがオンで、TODO 列はオフである。タスク行の TODO セルに `[x]` と `[ ]` の平文と改行がある。ノート列に混ざらない。チェックボックスではない |
 | TC-EDIT-15 | EDIT-15, EDIT-10 | 同じグループにタスクが3件以上ある | 真ん中のタスク行の左端の握りをドラッグして、別の位置で離す。取り消す | ドラッグ中は半透明のタスク行がポインタに付く。離すと左の一覧とチャートの順が変わる。日付と先行は変わらない。取り消し 1 回で戻る |
 | TC-EDIT-15b | EDIT-15, NAV-05 | 名前が幅に収まらないタスクがある | その名前をドラッグする。次に左端の握りをドラッグして順を変える | 名前は動かない。マウスを乗せると全文が出る。握りをドラッグすると並べ替えになる |
 | TC-EDIT-15c | EDIT-15, FILTER-01 | 同じグループにタスクが複数ある | タスク名で1件だけ残す絞り込みをかけ、行の左端の握りをドラッグする | 並べ替えは始まらない |

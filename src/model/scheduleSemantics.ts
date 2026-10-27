@@ -422,6 +422,30 @@ function validateTaskSemantics(
     issues.push({ path: `${taskPath}/note`, message: "ノートは空白にできません" });
   }
 
+  if (task.todos != null) {
+    for (let ti = 0; ti < task.todos.length; ti += 1) {
+      const item = task.todos[ti];
+      const itemPath = `${taskPath}/todos/${ti}`;
+      const trimmed = item.text.trim();
+      if (trimmed.length === 0) {
+        issues.push({ path: `${itemPath}/text`, message: "項目の文は空白にできません" });
+        continue;
+      }
+      if (item.text !== trimmed) {
+        issues.push({
+          path: `${itemPath}/text`,
+          message: "項目の文の前後に空白は書けません",
+        });
+      }
+      if (/[\r\n]/.test(item.text)) {
+        issues.push({
+          path: `${itemPath}/text`,
+          message: "項目の文に改行は書けません",
+        });
+      }
+    }
+  }
+
   if (task.tags != null) {
     const tagSeen = new Set<string>();
     for (let ti = 0; ti < task.tags.length; ti += 1) {

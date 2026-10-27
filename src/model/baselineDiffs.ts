@@ -7,6 +7,7 @@ import {
 import { documentUsesOutlineStorage } from "./hierarchy";
 import { normalizeTaskNote } from "./taskNote";
 import { taskTagsEqualForDiff } from "./taskTags";
+import { taskTodosEqualForDiff } from "./taskTodos";
 import {
   SCHEDULE_DIFF_NO_CHANGES,
   formatScheduleDocumentDiffBody,
@@ -719,6 +720,7 @@ function taskContentEquals(a: Task, b: Task): boolean {
     a.confidence === b.confidence &&
     predecessorSetEqual(a.predecessors, b.predecessors) &&
     a.milestoneId === b.milestoneId &&
+    taskTodosEqualForDiff(a, b) &&
     taskTagsEqualForDiff(a, b) &&
     normalizeTaskNote(a.note) === normalizeTaskNote(b.note)
   );

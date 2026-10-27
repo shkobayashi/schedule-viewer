@@ -67,7 +67,8 @@
 | `date` / `start` / `end` | `YYYY-MM-DD`。実在する日。`end` はその日を含む。`end` は `start` 以降の日付にする。同じ日なら1日のタスクになる |
 | `assigneeId` | メンバー JSON の `id`。割り当てなしは `null`。UUID である必要はない。スケジュール側ではメンバーの実在を検査しない |
 | `status` | ステータス一覧の項目の `id`。1文字以上。既定の一覧は `not-started`、`in-progress`、`done`。スケジュール側では一覧の実在を検査しない。一覧に無い `id` は、画面で `id` をそのまま出し、色は中立にし、イナズマ線と期限超過は管理外と同じ（今日のまま、赤くしない）。「完了以外」には残る |
-| `progress` | 0 以上 100 以下の整数 |
+| `progress` | 0 以上 100 以下の整数。`todos` が無いタスクは手で置く。`todos` があるタスクは、読み込みと保存のたびに済んだ件数を全体で割った整数（切り捨て、全部済んだときだけ 100）に置き換える |
+| `todos` | 任意。`text`（1文字以上、改行なし）と `done`（真偽）の配列。1件以上あるときだけ書く。進捗は件数から決める |
 | `confidence` | タスクとマイルストンの確度。`tentative`（未確定）か `committed`（確定）。日付を合意したかどうかで、着手や進捗とは独立 |
 | `predecessors` | 先行タスクの `id`。重複しない。自分自身は指定できない。存在しない ID は不可。循環も不可。後続は各タスクの `predecessors` から導く |
 | `milestoneId` | 対応するマイルストンの `id`。未設定は `null`。存在しない ID は不可 |
@@ -201,7 +202,7 @@
 
 アプリが書くスケジュール JSON は [src/model/serialize.ts](../src/model/serialize.ts) のキー順で、2スペースのインデントである（[src/model/scheduleFile.ts](../src/model/scheduleFile.ts) の `serializeScheduleDocument`）。
 
-キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones` のあと、階層の定義が無いときは `categories`、あるときは `levels` と `outline` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、タグがあるときだけ `tags` を付け、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
+キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones` のあと、階層の定義が無いときは `categories`、あるときは `levels` と `outline` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、項目があるときだけ `todos` を付け、タグがあるときだけ `tags` を付け、ノートがあるときだけ最後に `note` を付ける。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
 
 未保存かどうかは、この形にした文字列と、最後に開いた・保存した・読み直したときの文字列を比べて決める。インデントやキー順だけが違うファイルは、同じ内容として扱う。
 
@@ -261,7 +262,7 @@
 | `schedule-viewer/color-scheme` | 配色。`light` または `dark`。システム設定に合わせるときはキーを消す |
 | `schedule-viewer/sidebar-width` | 左一覧の基準幅。表示倍率 1 のときの px。既定の 190 のときはキーを消す |
 | `schedule-viewer/auto-update` | 自動更新。`on` のときだけ起動時に確認する。オフのときはキーを消す |
-| `schedule-viewer/excel-export-columns` | Excel 書き出しの左の列。担当、開始、終了、ステータス、先行、進捗、ノートのオンオフ。名前は常に含む |
+| `schedule-viewer/excel-export-columns` | Excel 書き出しの左の列。担当、開始、終了、ステータス、先行、進捗、TODO、ノートのオンオフ。名前は常に含む |
 
 表示サイズ、配色、左一覧の幅、自動更新のオンオフはデスクトップ版でも localStorage に置く。メンバー、ステータス一覧、カレンダーは、デスクトップ版ではアプリデータだけに置く。
 

@@ -1,4 +1,3 @@
-import { clamp } from "./dates";
 import { cloneOutlineRoot, isOutlineBranch, isTaskNode } from "./hierarchy";
 import {
   validateDependencyCycles,
@@ -6,6 +5,7 @@ import {
 } from "./scheduleSemantics";
 import { formatValidationErrors } from "./validateSchedule";
 import { applyTaskNote } from "./taskNote";
+import { resolveTaskEditProgress } from "./taskTodos";
 import { applyTaskTags } from "./taskTags";
 import type {
   Milestone,
@@ -222,7 +222,6 @@ export function applyTaskEditInOutline(
   patch: TaskEditPatch,
   milestoneIds: ReadonlySet<ScheduleId>,
 ): OutlineRoot {
-  const progress = clamp(Math.round(patch.progress), 0, 100);
   const predecessors = [
     ...new Set(patch.predecessors.filter((id) => id !== taskId)),
   ];
@@ -231,6 +230,7 @@ export function applyTaskEditInOutline(
   );
   return mapAllTasksInOutline(outline, (task) => {
     if (task.id === taskId) {
+      const progress = resolveTaskEditProgress(task, patch.progress);
       return applyTaskNote(
         {
           ...task,
