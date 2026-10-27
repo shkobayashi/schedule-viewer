@@ -1397,6 +1397,43 @@ input[type="number"] {
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--elevation-menu);
+  box-sizing: border-box;
+}
+
+.filter-panel--scrollable {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.filter-panel-scroll {
+  min-height: 0;
+}
+
+.filter-panel--scrollable .filter-panel-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.filter-panel-combo-dropdown {
+  z-index: 50;
+}
+
+.filter-panel-combo-dropdown .filter-panel-tag-options {
+  position: static;
+  left: auto;
+  right: auto;
+  top: auto;
+}
+
+.filter-panel-combo-dropdown.filter-panel-milestone-dropdown {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--elevation-menu);
 }
 
 .filter-panel-grid {
@@ -1415,6 +1452,131 @@ input[type="number"] {
 
 .filter-panel-field-span {
   grid-column: 1 / -1;
+}
+
+.filter-panel-field-filters {
+  position: relative;
+  z-index: 1;
+}
+
+.filter-panel-field-option {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--s));
+  padding: calc(2px * var(--s)) calc(6px * var(--s));
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: calc(13px * var(--s));
+  color: var(--text);
+}
+
+.filter-panel-field-option-active,
+.filter-panel-field-option:hover {
+  background: var(--hover);
+}
+
+.filter-panel-field-option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-field-rows {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--s));
+  margin-top: calc(4px * var(--s));
+}
+
+.filter-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
+.filter-field-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8px * var(--s));
+  min-width: 0;
+}
+
+.filter-field-name {
+  font-size: calc(11px * var(--s));
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.filter-field-remove {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+  cursor: pointer;
+  appearance: none;
+}
+
+.filter-field-remove:hover {
+  color: var(--text);
+}
+
+.filter-field-row-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: calc(8px * var(--s)) calc(10px * var(--s));
+}
+
+.filter-field-control {
+  flex: 1 1 calc(120px * var(--s));
+  min-width: calc(100px * var(--s));
+  margin: 0;
+}
+
+.filter-field-control-number {
+  flex: 0 1 auto;
+  min-width: calc(88px * var(--s));
+}
+
+.filter-field-control-number input[type="number"] {
+  width: calc(72px * var(--s));
+  box-sizing: border-box;
+}
+
+.filter-field-number-range,
+.filter-field-date-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: calc(8px * var(--s)) calc(10px * var(--s));
+  flex: 1 1 100%;
+}
+
+.filter-field-control-date {
+  flex: 1 1 calc(140px * var(--s));
+  min-width: calc(120px * var(--s));
+}
+
+.filter-field-control-date .date-input {
+  min-width: 0;
+}
+
+.filter-field-control-date .date-input-button {
+  height: calc(26px * var(--s));
+  font-size: calc(13px * var(--s));
+}
+
+.filter-field-empty-control {
+  flex: 1 1 calc(120px * var(--s));
+  min-width: calc(100px * var(--s));
 }
 
 .filter-panel-checks {

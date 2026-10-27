@@ -9,6 +9,11 @@ import {
 } from "./hierarchy";
 import { averageTaskProgress } from "./progressRollup";
 import { normalizeTaskNote } from "./taskNote";
+import {
+  activeFieldFilterCount,
+  relaxFieldFiltersForNewTask,
+  taskMatchesFieldFilters,
+} from "./fieldFilters";
 import { taskHasAnySelectedTag } from "./taskTags";
 import { BUILTIN_STATUS_ITEMS, isDoneStatus, type StatusItem } from "./statusCatalog";
 import { isOverdue } from "./timeline";
@@ -27,6 +32,7 @@ import {
   type Category,
   type OutlineRoot,
   type ScheduleDocument,
+  type ScheduleFieldDef,
   type ScheduleFilters,
   type ScheduleId,
   type ScheduleLevelDef,
@@ -48,7 +54,10 @@ export function hierarchyCollapseKey(id: ScheduleId): string {
   return `hierarchy:${id}`;
 }
 
-export function filtersAreDefault(filters: ScheduleFilters): boolean {
+export function filtersAreDefault(
+  filters: ScheduleFilters,
+  fields?: readonly ScheduleFieldDef[],
+): boolean {
   return (
     filters.assignee === "all" &&
     filters.status === "all" &&
@@ -58,7 +67,8 @@ export function filtersAreDefault(filters: ScheduleFilters): boolean {
     filters.milestone === "all" &&
     filters.tags.length === 0 &&
     filters.search.trim() === "" &&
-    filters.noteSearch.trim() === ""
+    filters.noteSearch.trim() === "" &&
+    activeFieldFilterCount(fields, filters.fieldFilters ?? {}) === 0
   );
 }
 
@@ -66,8 +76,9 @@ export function filtersAreDefault(filters: ScheduleFilters): boolean {
 export function showEmptyHierarchyRows(
   filters: ScheduleFilters,
   lineageIds?: ReadonlySet<ScheduleId> | null,
+  fields?: readonly ScheduleFieldDef[],
 ): boolean {
-  return filtersAreDefault(filters) && lineageIds == null;
+  return filtersAreDefault(filters, fields) && lineageIds == null;
 }
 
 export function brokenIdsForFilter(
@@ -93,6 +104,7 @@ export function listTasksMatchingFilter(
   memberCatalog: Map<MemberId, Member> | null,
   lineageIds?: ReadonlySet<ScheduleId> | null,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fields?: readonly ScheduleFieldDef[],
 ): FilteredTaskRef[] {
   const brokenIds = brokenIdsForFilter(categories, filters);
   const matched: FilteredTaskRef[] = [];
@@ -108,6 +120,7 @@ export function listTasksMatchingFilter(
             brokenIds,
             lineageIds,
             statuses,
+            fields,
           )
         ) {
           matched.push({
@@ -132,6 +145,7 @@ export function listTasksMatchingFilterInDocument(
     | "levels"
     | "milestoneGroups"
     | "milestones"
+    | "fields"
   >,
   filters: ScheduleFilters,
   today: string,
@@ -139,6 +153,7 @@ export function listTasksMatchingFilterInDocument(
   lineageIds?: ReadonlySet<ScheduleId> | null,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): FilteredTaskRef[] {
+  const fields = doc.fields;
   const categories = doc.categories ?? [];
   if (
     !scheduleStoresTasksInOutline({
@@ -154,6 +169,7 @@ export function listTasksMatchingFilterInDocument(
       memberCatalog,
       lineageIds,
       statuses,
+      fields,
     );
   }
   const outline = doc.outline ?? [];
@@ -174,6 +190,7 @@ export function listTasksMatchingFilterInDocument(
             brokenIds,
             lineageIds,
             statuses,
+            fields,
           )
         ) {
           const labels = taskHierarchyLabels(
@@ -215,6 +232,7 @@ export function taskMatchesFilter(
   brokenIds?: ReadonlySet<ScheduleId>,
   lineageIds?: ReadonlySet<ScheduleId> | null,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fields?: readonly ScheduleFieldDef[],
 ): boolean {
   if (lineageIds && !lineageIds.has(task.id)) return false;
   if (filters.assignee === UNASSIGNED_FILTER) {
@@ -269,6 +287,9 @@ export function taskMatchesFilter(
       return false;
     }
   }
+  if (!taskMatchesFieldFilters(task, fields, filters.fieldFilters ?? {})) {
+    return false;
+  }
   return true;
 }
 
@@ -280,6 +301,7 @@ export function relaxFiltersForNewTask(
   memberCatalog: Map<MemberId, Member> | null,
   brokenIds?: ReadonlySet<ScheduleId>,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fields?: readonly ScheduleFieldDef[],
 ): ScheduleFilters {
   const open: ScheduleFilters = {
     assignee: "all",
@@ -291,19 +313,27 @@ export function relaxFiltersForNewTask(
     tags: [],
     search: "",
     noteSearch: "",
+    fieldFilters: {},
   };
   const hides = (partial: Partial<ScheduleFilters>) =>
     !taskMatchesFilter(
       task,
-      { ...open, ...partial },
+      { ...open, ...partial, fieldFilters: partial.fieldFilters ?? {} },
       today,
       memberCatalog,
       brokenIds,
       null,
       statuses,
+      fields,
     );
+  const relaxedFieldFilters = relaxFieldFiltersForNewTask(
+    filters.fieldFilters ?? {},
+    fields,
+    task,
+  );
   return {
     ...filters,
+    fieldFilters: relaxedFieldFilters,
     assignee:
       filters.assignee !== "all" && hides({ assignee: filters.assignee })
         ? "all"
@@ -352,6 +382,7 @@ function computeFlatTaskVisibleRows(
   rowHeight: number,
   lineageIds?: ReadonlySet<ScheduleId> | null,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fields?: readonly ScheduleFieldDef[],
 ): VisibleRow[] {
   const brokenIds = brokenIdsForOutline(outline, filters);
   const rows: VisibleRow[] = [];
@@ -367,6 +398,7 @@ function computeFlatTaskVisibleRows(
         brokenIds ?? undefined,
         lineageIds,
         statuses,
+        fields,
       )
     ) {
       continue;
@@ -403,9 +435,10 @@ function computeOutlineVisibleRows(
   rowHeight: number,
   lineageIds?: ReadonlySet<ScheduleId> | null,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  fields?: readonly ScheduleFieldDef[],
 ): VisibleRow[] {
   const brokenIds = brokenIdsForOutline(outline, filters);
-  const showEmpty = showEmptyHierarchyRows(filters, lineageIds);
+  const showEmpty = showEmptyHierarchyRows(filters, lineageIds, fields);
   const rows: VisibleRow[] = [];
   let y = 0;
 
@@ -426,6 +459,7 @@ function computeOutlineVisibleRows(
             brokenIds ?? undefined,
             lineageIds,
             statuses,
+            fields,
           )
         ) {
           rows.push({ type: "task", task: node, y });
@@ -444,6 +478,7 @@ function computeOutlineVisibleRows(
           brokenIds ?? undefined,
           lineageIds,
           statuses,
+          fields,
         ),
       );
       if (matched.length === 0 && !(showEmpty && allTasks.length === 0)) continue;
@@ -490,6 +525,7 @@ export function computeVisibleRows(
     useLegacyCategoryRows: boolean;
     levelCount: number;
   },
+  fields?: readonly ScheduleFieldDef[],
 ): VisibleRow[] {
   if (
     hierarchy?.levels != null &&
@@ -506,6 +542,7 @@ export function computeVisibleRows(
       rowHeight,
       lineageIds,
       statuses,
+      fields,
     );
   }
   if (
@@ -525,10 +562,11 @@ export function computeVisibleRows(
       rowHeight,
       lineageIds,
       statuses,
+      fields,
     );
   }
   const brokenIds = brokenIdsForFilter(categories, filters);
-  const showEmpty = showEmptyHierarchyRows(filters, lineageIds);
+  const showEmpty = showEmptyHierarchyRows(filters, lineageIds, fields);
   const rows: VisibleRow[] = [];
   let y = 0;
   for (const cat of categories) {
@@ -544,6 +582,7 @@ export function computeVisibleRows(
             brokenIds,
             lineageIds,
             statuses,
+            fields,
           ),
         ),
       }))

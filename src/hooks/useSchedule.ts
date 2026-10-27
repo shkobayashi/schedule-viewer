@@ -85,6 +85,11 @@ import {
   pruneSelectedTags,
 } from "../model/taskTags";
 import {
+  applyFieldFilterPatch,
+  pruneFieldFilters,
+  type FieldFilterCondition,
+} from "../model/fieldFilters";
+import {
   hiddenMilestoneGroupIdsForShowOnly,
   pruneHiddenMilestoneGroupIds,
 } from "../model/filterChips";
@@ -164,6 +169,7 @@ import {
   type MilestoneGroup,
   type OutlineRoot,
   type ScheduleDocument,
+  type ScheduleFieldDef,
   type ScheduleFilters,
   type ScheduleId,
   type ScheduleLevelDef,
@@ -704,10 +710,12 @@ export function useSchedule(
         lineageIds,
         statuses,
         hierarchyRowOptions,
+        fields,
       ),
     [
       categories,
       collapsed,
+      fields,
       filters,
       hierarchyRowOptions,
       lineageIds,
@@ -812,10 +820,12 @@ export function useSchedule(
         lineageIds,
         statuses,
         hierarchyRowOptionsForDisplay,
+        fields,
       ),
     [
       collapsed,
       displayCategories,
+      fields,
       filters,
       hierarchyRowOptionsForDisplay,
       lineageIds,
@@ -1071,6 +1081,17 @@ export function useSchedule(
     setFilters((prev) => ({ ...prev, tags: pruned }));
   }, [filters.tags, scheduleTags]);
 
+  useEffect(() => {
+    const current = filters.fieldFilters ?? {};
+    const pruned = pruneFieldFilters(fields, current);
+    if (pruned === current) return;
+    const same =
+      Object.keys(pruned).length === Object.keys(current).length &&
+      Object.entries(pruned).every(([key, value]) => current[key] === value);
+    if (same) return;
+    setFilters((prev) => ({ ...prev, fieldFilters: pruned }));
+  }, [fields, filters.fieldFilters]);
+
   const toggleCollapsed = useCallback((key: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -1084,6 +1105,26 @@ export function useSchedule(
     setFilters((prev) => ({ ...prev, ...patch }));
     setTaskSelection(emptyTaskSelection());
   }, []);
+
+  const updateFieldFilters = useCallback(
+    (
+      build: (prev: ScheduleFilters) => ScheduleFilters["fieldFilters"],
+    ) => {
+      setFilters((prev) => ({
+        ...prev,
+        fieldFilters: build(prev),
+      }));
+      setTaskSelection(emptyTaskSelection());
+    },
+    [],
+  );
+
+  const patchFieldFilter = useCallback(
+    (def: ScheduleFieldDef, patch: Partial<FieldFilterCondition>) => {
+      updateFieldFilters((prev) => applyFieldFilterPatch(prev, def, patch));
+    },
+    [updateFieldFilters],
+  );
 
   const selectTask = useCallback((id: ScheduleId | null) => {
     setTaskSelection(id == null ? emptyTaskSelection() : singleTaskSelection(id));
@@ -2021,7 +2062,7 @@ export function useSchedule(
           ),
         }));
         setFilters((prev) =>
-          relaxFiltersForNewTask(prev, task, today, memberMap, undefined, statuses),
+          relaxFiltersForNewTask(prev, task, today, memberMap, undefined, statuses, fields),
         );
         setLineageTaskId(null);
         setTaskSelection(singleTaskSelection(id));
@@ -2060,14 +2101,14 @@ export function useSchedule(
         return next;
       });
       setFilters((prev) =>
-        relaxFiltersForNewTask(prev, task, today, memberMap, undefined, statuses),
+        relaxFiltersForNewTask(prev, task, today, memberMap, undefined, statuses, fields),
       );
       setLineageTaskId(null);
       setTaskSelection(singleTaskSelection(id));
       setDuplicatingTaskId(null);
       return id;
     },
-    [commitCategories, commitDocument, memberMap, statuses, today, usesOutlineStorage],
+    [commitCategories, commitDocument, fields, memberMap, statuses, today, usesOutlineStorage],
   );
 
   const duplicateTask = useCallback(
@@ -2134,6 +2175,7 @@ export function useSchedule(
               memberMap,
               brokenLinkTaskIdsFromTasks(tasks),
               statuses,
+              fields,
             ),
           );
         }
@@ -2171,6 +2213,7 @@ export function useSchedule(
             memberMap,
             brokenLinkTaskIds(result.categories),
             statuses,
+            fields,
           ),
         );
       }
@@ -2631,6 +2674,8 @@ export function useSchedule(
     getFilterViewState,
     knownMemberIds,
     updateFilters,
+    patchFieldFilter,
+    updateFieldFilters,
     taskSelection,
     selectedTaskIds,
     selectedTaskId,

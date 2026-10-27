@@ -35,13 +35,48 @@ describe("parseScheduleFilterPersistence", () => {
 
   it("rejects wrong version", () => {
     const text = JSON.stringify({
-      version: 2,
+      version: 3,
       path: PATH,
       filters: defaultScheduleFilterViewState().filters,
       searchField: "name",
       hiddenMilestoneGroupIds: [],
     });
     expect(parseScheduleFilterPersistence(text, PATH).ok).toBe(false);
+  });
+
+  it("accepts version 2 with fieldFilters", () => {
+    const text = JSON.stringify({
+      version: 2,
+      path: PATH,
+      filters: {
+        ...defaultScheduleFilterViewState().filters,
+        fieldFilters: {
+          memo: { empty: "any", text: "レビュー" },
+        },
+      },
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+    });
+    const parsed = parseScheduleFilterPersistence(text, PATH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.data.version).toBe(2);
+    expect(parsed.data.filters.fieldFilters?.memo?.text).toBe("レビュー");
+  });
+
+  it("loads version 1 without fieldFilters as empty", () => {
+    const text = JSON.stringify({
+      version: 1,
+      path: PATH,
+      filters: defaultScheduleFilterViewState().filters,
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+    });
+    const parsed = parseScheduleFilterPersistence(text, PATH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const view = viewStateFromPersistence(parsed.data);
+    expect(view.filters.fieldFilters).toEqual({});
   });
 
   it("accepts a file without collapse arrays", () => {

@@ -1912,6 +1912,7 @@ function App() {
     today: schedule.today,
     memberMap: displayMemberMap,
     levels: schedule.levels,
+    fields: schedule.fields,
     scheduleFilePath: scheduleFile.filePath,
     scheduleCurrentJson: scheduleFile.currentJson,
     scheduleBaselineJson: scheduleFile.baselineJson,
@@ -3103,6 +3104,7 @@ function App() {
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
         scheduleTags={schedule.scheduleTags}
+        scheduleFields={schedule.fields}
         tier={tier}
         lineageName={schedule.lineageTask?.name ?? null}
         canStartLineage={schedule.selectedTaskId != null}
@@ -3119,6 +3121,8 @@ function App() {
         canStartLink={schedule.selectedTaskId != null}
         onToggleLink={toggleLinkMode}
         onFiltersChange={schedule.updateFilters}
+        onPatchFieldFilter={schedule.patchFieldFilter}
+        onUpdateFieldFilters={schedule.updateFieldFilters}
         onGoToday={scrollToToday}
         onSetTier={setTierZoom}
         onFit={fitToWidth}
@@ -3219,6 +3223,7 @@ function App() {
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
         onShowAllMilestoneGroups={schedule.showAllMilestoneGroups}
         scheduleTags={schedule.scheduleTags}
+        scheduleFields={schedule.fields}
       />
       <div ref={mainRef} className="main">
         <Sidebar

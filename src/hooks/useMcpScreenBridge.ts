@@ -39,6 +39,7 @@ import type {
   ScheduleDocument,
   ScheduleFilters,
   ScheduleId,
+  ScheduleFieldDef,
   ScheduleLevelDef,
 } from "../model/types";
 
@@ -65,6 +66,7 @@ type UseMcpScreenBridgeInput = {
   memberMap: Map<MemberId, Member> | null;
   statuses: readonly StatusItem[];
   levels?: ScheduleLevelDef[] | null;
+  fields?: readonly ScheduleFieldDef[] | undefined;
   scheduleFilePath: string | null;
   scheduleCurrentJson: string;
   scheduleBaselineJson: string;
@@ -273,6 +275,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             lineageIds: snap.lineageIds,
             statuses: snap.statuses,
             levels: snap.levels,
+            fields: snap.fields,
           });
           break;
         }

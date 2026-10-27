@@ -1,3 +1,4 @@
+import type { FieldFiltersState } from "./fieldFilters";
 import type { SummarySpan } from "./summary";
 import type { MemberId } from "./memberTypes";
 
@@ -148,6 +149,8 @@ export type ScheduleFilters = {
   tags: string[];
   search: string;
   noteSearch: string;
+  /** 追加項目の key ごとの条件。効いているキーだけを持つ */
+  fieldFilters?: FieldFiltersState;
 };
 
 export type VisibleRow =

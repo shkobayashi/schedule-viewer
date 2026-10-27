@@ -71,6 +71,7 @@ describe("taskFields", () => {
     const sample = sampleScheduleDocument();
     const result = validateSchedule(sample);
     expect(result.ok).toBe(true);
+    if (!result.ok) return;
     const json = documentToJsonString(result.document);
     const parsed = JSON.parse(json) as Record<string, unknown>;
     expect(parsed.schemaVersion).toBe(8);
@@ -370,8 +371,9 @@ describe("taskFields", () => {
       },
     );
     expect(result.ok).toBe(true);
+    if (!result.ok) return;
     const copied = result.categories[0].groups[0].tasks.find(
-      (t) => t.id === "a1000001-0000-4000-8000-000000000099",
+      (t: { id: string }) => t.id === "a1000001-0000-4000-8000-000000000099",
     );
     expect(copied?.fieldValues).toEqual({ memo: "copy" });
   });

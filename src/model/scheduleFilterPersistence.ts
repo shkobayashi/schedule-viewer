@@ -1,3 +1,8 @@
+import {
+  emptyFieldFiltersState,
+  parseFieldFiltersFromPersistence,
+  pruneFieldFilters,
+} from "./fieldFilters";
 import { DEFAULT_FILTERS, pruneHiddenMilestoneGroupIds } from "./filterChips";
 import {
   categoryCollapseKey,
@@ -12,6 +17,7 @@ import {
   type Milestone,
   type MilestoneGroup,
   type ScheduleDocument,
+  type ScheduleFieldDef,
   type ScheduleFilters,
   type ScheduleId,
   type StatusFilter,
@@ -20,7 +26,9 @@ import {
   type RelationFilter,
 } from "./types";
 
-export const SCHEDULE_FILTER_PERSISTENCE_VERSION = 1;
+export const SCHEDULE_FILTER_PERSISTENCE_VERSION = 2;
+
+const SUPPORTED_SCHEDULE_FILTER_PERSISTENCE_VERSIONS = [1, 2] as const;
 
 export type SearchField = "name" | "note";
 
@@ -33,7 +41,7 @@ export type ScheduleFilterViewState = {
 };
 
 export type ScheduleFilterPersistenceFile = {
-  version: typeof SCHEDULE_FILTER_PERSISTENCE_VERSION;
+  version: 1 | typeof SCHEDULE_FILTER_PERSISTENCE_VERSION;
   path: string;
   filters: ScheduleFilters;
   searchField: SearchField;
@@ -97,6 +105,10 @@ function parseFiltersRecord(record: Record<string, unknown>): ScheduleFilters | 
     return null;
   }
   if (typeof search !== "string" || typeof noteSearch !== "string") return null;
+  const fieldFiltersRaw = record.fieldFilters;
+  const parsedFieldFilters = parseFieldFiltersFromPersistence(fieldFiltersRaw);
+  if (parsedFieldFilters == null) return null;
+  const fieldFilters = parsedFieldFilters;
   return {
     assignee,
     status: status as StatusFilter,
@@ -107,6 +119,7 @@ function parseFiltersRecord(record: Record<string, unknown>): ScheduleFilters | 
     tags: [...tags],
     search,
     noteSearch,
+    fieldFilters,
   };
 }
 
@@ -125,7 +138,11 @@ export function parseScheduleFilterPersistence(
     return { ok: false };
   }
   const record = data as Record<string, unknown>;
-  if (record.version !== SCHEDULE_FILTER_PERSISTENCE_VERSION) {
+  const version = record.version;
+  if (
+    version !== 1 &&
+    version !== SUPPORTED_SCHEDULE_FILTER_PERSISTENCE_VERSIONS[1]
+  ) {
     return { ok: false };
   }
   const path = record.path;
@@ -157,12 +174,17 @@ export function parseScheduleFilterPersistence(
   if (collapsedGroupIds == null) {
     return { ok: false };
   }
+  const filtersWithFields =
+    version === 1
+      ? { ...filters, fieldFilters: emptyFieldFiltersState() }
+      : filters;
   return {
     ok: true,
     data: {
-      version: SCHEDULE_FILTER_PERSISTENCE_VERSION,
+      version:
+        version === 1 ? 1 : SCHEDULE_FILTER_PERSISTENCE_VERSION,
       path,
-      filters,
+      filters: filtersWithFields,
       searchField,
       hiddenMilestoneGroupIds: [...hidden],
       collapsedCategoryIds,
@@ -173,8 +195,9 @@ export function parseScheduleFilterPersistence(
 
 export function isDefaultScheduleFilterViewState(
   state: ScheduleFilterViewState,
+  fields?: readonly ScheduleFieldDef[],
 ): boolean {
-  if (!filtersAreDefault(state.filters)) return false;
+  if (!filtersAreDefault(state.filters, fields)) return false;
   if (state.hiddenMilestoneGroupIds.length > 0) return false;
   if (state.collapsedCategoryIds.length > 0) return false;
   if (state.collapsedGroupIds.length > 0) return false;
@@ -184,11 +207,26 @@ export function isDefaultScheduleFilterViewState(
 export function serializeScheduleFilterPersistence(
   path: string,
   state: ScheduleFilterViewState,
+  fields?: readonly ScheduleFieldDef[],
 ): string {
+  const prunedFieldFilters = pruneFieldFilters(
+    fields,
+    state.filters.fieldFilters ?? {},
+  );
+  const filters: ScheduleFilters = {
+    ...state.filters,
+    fieldFilters: prunedFieldFilters,
+  };
+  const fieldFiltersForJson =
+    Object.keys(prunedFieldFilters).length > 0 ? prunedFieldFilters : undefined;
+  const filtersRecord = {
+    ...filters,
+    fieldFilters: fieldFiltersForJson ?? {},
+  };
   const file: ScheduleFilterPersistenceFile = {
     version: SCHEDULE_FILTER_PERSISTENCE_VERSION,
     path,
-    filters: state.filters,
+    filters: filtersRecord as ScheduleFilters,
     searchField: state.searchField,
     hiddenMilestoneGroupIds: state.hiddenMilestoneGroupIds,
     collapsedCategoryIds: sortedIds(state.collapsedCategoryIds),
@@ -212,6 +250,7 @@ export type PruneFiltersContext = {
   milestones: Milestone[];
   milestoneGroups: MilestoneGroup[];
   knownMemberIds: ReadonlySet<string>;
+  fields?: readonly ScheduleFieldDef[];
 };
 
 export type PruneScheduleFilterOptions = {
@@ -220,7 +259,10 @@ export type PruneScheduleFilterOptions = {
 };
 
 export function pruneContextFromScheduleDocument(
-  document: Pick<ScheduleDocument, "categories" | "milestones" | "milestoneGroups">,
+  document: Pick<
+    ScheduleDocument,
+    "categories" | "milestones" | "milestoneGroups" | "fields"
+  >,
   knownMemberIds: ReadonlySet<string>,
 ): PruneFiltersContext {
   return {
@@ -228,6 +270,7 @@ export function pruneContextFromScheduleDocument(
     milestones: document.milestones,
     milestoneGroups: document.milestoneGroups,
     knownMemberIds,
+    fields: document.fields,
   };
 }
 
@@ -260,6 +303,16 @@ export function pruneScheduleFilterViewState(
     prunedTags.some((tag, index) => tag !== filters.tags[index])
   ) {
     filters = { ...filters, tags: prunedTags };
+  }
+  const fieldFilters = filters.fieldFilters ?? {};
+  const prunedFieldFilters = pruneFieldFilters(context.fields, fieldFilters);
+  if (
+    Object.keys(prunedFieldFilters).length !== Object.keys(fieldFilters).length ||
+    Object.entries(prunedFieldFilters).some(
+      ([key, value]) => fieldFilters[key] !== value,
+    )
+  ) {
+    filters = { ...filters, fieldFilters: prunedFieldFilters };
   }
   const hiddenMilestoneGroupIds = pruneHiddenMilestoneGroupIds(
     state.hiddenMilestoneGroupIds,

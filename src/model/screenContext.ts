@@ -12,6 +12,7 @@ import {
   findTaskInDocument,
   taskHierarchyLabels,
 } from "./hierarchy";
+import { fieldFilterChipLabel, isFieldFilterActive } from "./fieldFilters";
 import { mcpLevelsFromDocument, type McpLevelEntry } from "./hierarchyLevelEdit";
 import {
   listTasksMatchingFilterInDocument,
@@ -31,6 +32,7 @@ import {
   type OverdueFilter,
   type RelationFilter,
   type ScheduleDocument,
+  type ScheduleFieldDef,
   type ScheduleFilters,
   type ScheduleId,
   type ScheduleLevelDef,
@@ -78,6 +80,7 @@ export type McpActiveFilterCondition =
   | { type: "milestoneBandHidden"; groups: Array<{ id: ScheduleId; name: string }> }
   | { type: "searchName"; query: string }
   | { type: "searchNote"; query: string }
+  | { type: "fieldFilter"; key: string; label: string }
   | { type: "lineage"; taskId: ScheduleId; taskName: string };
 
 /** タスクの `status` が書く `id` の意味。LLM が `id` を選ぶ手がかり。 */
@@ -197,6 +200,7 @@ export function buildActiveFilterConditions(input: {
   outline?: OutlineRoot | undefined;
   memberCatalog: Map<MemberId, Member> | null;
   statuses?: readonly StatusItem[];
+  fields?: readonly ScheduleFieldDef[];
 }): McpActiveFilterCondition[] {
   const conditions: McpActiveFilterCondition[] = [];
   const { filters } = input;
@@ -287,6 +291,16 @@ export function buildActiveFilterConditions(input: {
     conditions.push({ type: "milestoneBandHidden", groups: hidden });
   }
 
+  if (input.fields != null) {
+    for (const def of input.fields) {
+      const condition = filters.fieldFilters?.[def.key];
+      if (!condition || !isFieldFilterActive(def, condition)) continue;
+      const label = fieldFilterChipLabel(def, condition);
+      if (!label) continue;
+      conditions.push({ type: "fieldFilter", key: def.key, label });
+    }
+  }
+
   const searchName = filters.search.trim();
   if (searchName) {
     conditions.push({ type: "searchName", query: searchName });
@@ -347,6 +361,7 @@ export function buildFilteredTasksPayload(
     lineageIds: ReadonlySet<ScheduleId> | null;
     statuses?: readonly StatusItem[];
     levels?: readonly ScheduleLevelDef[] | null;
+    fields?: readonly ScheduleFieldDef[];
   },
 ): FilteredTasksMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
@@ -373,6 +388,7 @@ export function buildFilteredTasksPayload(
       outline: input.outline,
       memberCatalog: input.memberCatalog,
       statuses,
+      fields: input.fields,
     }),
     tasks: matched.map(taskToContext),
   };

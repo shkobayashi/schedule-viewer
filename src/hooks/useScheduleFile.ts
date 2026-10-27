@@ -186,8 +186,9 @@ export function useScheduleFile({
       milestones,
       milestoneGroups,
       knownMemberIds,
+      fields,
     }),
-    [categories, knownMemberIds, milestoneGroups, milestones],
+    [categories, fields, knownMemberIds, milestoneGroups, milestones],
   );
 
   const filterPersistence = useScheduleFilterPersistence({

@@ -38,6 +38,7 @@ const filters: ScheduleFilters = {
   tags: [],
   search: "",
   noteSearch: "",
+  fieldFilters: {},
 };
 
 describe("taskMatchesFilter noteSearch", () => {
@@ -223,6 +224,7 @@ describe("relaxFiltersForNewTask", () => {
       tags: [],
       search: "",
       noteSearch: "",
+      fieldFilters: {},
     });
     expect(
       relaxFiltersForNewTask(
@@ -256,6 +258,7 @@ describe("relaxFiltersForNewTask", () => {
       tags: [],
       search: "新しい",
       noteSearch: "",
+      fieldFilters: {},
     };
     expect(
       relaxFiltersForNewTask(kept, addedTask, "2026-09-30", null),
@@ -291,6 +294,7 @@ describe("relaxFiltersForNewTask", () => {
       tags: [],
       search: "複製",
       noteSearch: "引き継",
+      fieldFilters: {},
     };
     expect(
       relaxFiltersForNewTask(
