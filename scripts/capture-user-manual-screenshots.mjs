@@ -155,9 +155,15 @@ async function captureBrowserShots(page) {
 
   await page.getByText("進行中（青）", { exact: true }).click();
   await page.waitForSelector('[aria-label="タスクの詳細"]');
+  await page.getByRole("button", { name: "TODOを追加" }).click();
+  await page.getByLabel("新しいTODOの文").fill("設計レビュー");
+  await page.getByLabel("新しいTODOの文").press("Enter");
+  await page.getByRole("button", { name: "TODOを追加" }).click();
+  await page.getByLabel("新しいTODOの文").fill("結合テスト");
+  await page.getByLabel("新しいTODOの文").press("Enter");
   const detail = page.locator('[aria-label="タスクの詳細"]');
   await detail.evaluate((el) => {
-    el.scrollTop = 280;
+    el.scrollTop = 400;
   });
   await page.waitForTimeout(400);
   await page.setViewportSize({ width: 1440, height: 1080 });

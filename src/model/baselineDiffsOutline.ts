@@ -9,6 +9,9 @@ import type {
   BaselineClassificationLine,
   BaselineDiffClassification,
 } from "./baselineDiffs";
+import { normalizeTaskNote } from "./taskNote";
+import { taskTagsEqualForDiff } from "./taskTags";
+import { taskTodosEqualForDiff } from "./taskTodos";
 import type {
   Milestone,
   MilestoneGroup,
@@ -507,6 +510,9 @@ function taskContentEquals(a: Task, b: Task): boolean {
     a.confidence === b.confidence &&
     a.predecessors.length === b.predecessors.length &&
     a.predecessors.every((id) => b.predecessors.includes(id)) &&
-    a.milestoneId === b.milestoneId
+    a.milestoneId === b.milestoneId &&
+    taskTodosEqualForDiff(a, b) &&
+    taskTagsEqualForDiff(a, b) &&
+    normalizeTaskNote(a.note) === normalizeTaskNote(b.note)
   );
 }

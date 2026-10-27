@@ -35,6 +35,11 @@ export type TaskStatus = string;
 /** 日付を合意したかどうか。着手や進捗とは独立。 */
 export type TaskConfidence = "tentative" | "committed";
 
+export type TaskTodoItem = {
+  text: string;
+  done: boolean;
+};
+
 export type Task = {
   id: ScheduleId;
   name: string;
@@ -48,6 +53,8 @@ export type Task = {
   predecessors: ScheduleId[];
   /** このタスクが間に合わせるマイルストン。未設定なら超過判定しない。 */
   milestoneId: ScheduleId | null;
+  /** 進捗を件数で決める任意の項目。1件以上あるときだけ JSON に含める。 */
+  todos?: TaskTodoItem[];
   /** 説明用の任意タグ。未設定または空のときは JSON に含めない。 */
   tags?: string[];
   /** 補足説明。未設定または空白のみのときは JSON に含めない。 */

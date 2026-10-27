@@ -33,6 +33,7 @@ import {
   statusSidebarColumnLabel,
 } from "../model/statusDisplay";
 import { isOverdue } from "../model/timeline";
+import { taskTodoCountLabel } from "../model/taskTodos";
 import {
   HIERARCHY_GUIDE_RAIL_WIDTH_PX,
   SIDEBAR_ROW_GRIP_WIDTH_PX,
@@ -1022,6 +1023,25 @@ function HierarchyNameWithRollup({
   );
 }
 
+function TaskNameWithTodoCount({
+  task,
+  overdue,
+}: {
+  task: Task;
+  overdue?: boolean;
+}) {
+  const count = taskTodoCountLabel(task);
+  if (!count) {
+    return <NameLabel text={task.name} overdue={overdue} />;
+  }
+  return (
+    <span className="task-row-title">
+      <NameLabel text={task.name} overdue={overdue} />
+      <span className="task-todo-count">{count}</span>
+    </span>
+  );
+}
+
 function NameLabel({ text, overdue }: { text: string; overdue?: boolean }) {
   const clipRef = useRef<HTMLSpanElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
@@ -1409,7 +1429,10 @@ function TaskSidebarRow({
         <div className="sidebar-row-icon-slot">
           <TaskNoteButton task={task} onOpen={onOpenTaskNote} />
         </div>
-        <NameLabel text={task.name} overdue={isOverdue(task, today, statuses)} />
+        <TaskNameWithTodoCount
+          task={task}
+          overdue={isOverdue(task, today, statuses)}
+        />
       <span className="sidebar-trail">
         {sidebarColumns.start ||
         sidebarColumns.end ||

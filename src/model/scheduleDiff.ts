@@ -1,16 +1,32 @@
 import { daysBetween, parseDate } from "./dates";
 import {
+  documentUsesOutlineStorage,
+  isOutlineBranch,
+  isTaskNode,
+} from "./hierarchy";
+import {
+  levelDefsEqual,
+  normalizeLevelDefinition,
+} from "./hierarchyLevelEdit";
+import {
   buildScheduleDiffEntryDisplay,
   type DiffNavTarget,
   type ScheduleDiffEntry,
 } from "./scheduleDiffEntry";
 import { normalizeTaskNote } from "./taskNote";
 import { formatTaskTagsForDiff, taskTagsEqualForDiff } from "./taskTags";
+import {
+  formatTaskTodosForDiff,
+  taskTodosEqualForDiff,
+} from "./taskTodos";
 import type {
   Category,
   Milestone,
+  OutlineChild,
+  OutlineRoot,
   ScheduleDocument,
   ScheduleId,
+  ScheduleLevelDef,
   Task,
   TaskGroup,
 } from "./types";
@@ -93,6 +109,187 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): ScheduleD
     push(`title: ${file.title} → ${screen.title}`, { kind: "title" });
   }
 
+  const screenUsesOutline = documentUsesOutlineStorage(screen);
+  const fileUsesOutline = documentUsesOutlineStorage(file);
+
+  if (screenUsesOutline || fileUsesOutline) {
+    appendOutlineStorageDiff(
+      push,
+      screen,
+      file,
+      screenTasks,
+      fileTasks,
+      screenTaskNames,
+      fileTaskNames,
+      screenMilestoneNames,
+      fileMilestoneNames,
+    );
+  } else {
+    appendCategoriesStorageDiff(
+      push,
+      screen,
+      file,
+      screenTasks,
+      fileTasks,
+      screenTaskNames,
+      fileTaskNames,
+      screenMilestoneNames,
+      fileMilestoneNames,
+      screenCategories,
+      fileCategories,
+      screenGroups,
+      fileGroups,
+    );
+  }
+
+  const screenMilestoneGroups = new Map(
+    screen.milestoneGroups.map((group) => [group.id, group]),
+  );
+  const fileMilestoneGroups = new Map(
+    file.milestoneGroups.map((group) => [group.id, group]),
+  );
+  const screenMilestoneGroupNames = new Map(
+    screen.milestoneGroups.map((group) => [group.id, group.name]),
+  );
+  const fileMilestoneGroupNames = new Map(
+    file.milestoneGroups.map((group) => [group.id, group.name]),
+  );
+
+  const milestoneGroupOrder = orderBlock(
+    "並び マイルストングループ",
+    file.milestoneGroups.map((group) => group.id),
+    screen.milestoneGroups.map((group) => group.id),
+    (id) => namedId(fileMilestoneGroups.get(id)?.name, id),
+    (id) => namedId(screenMilestoneGroups.get(id)?.name, id),
+  );
+  if (milestoneGroupOrder) push(milestoneGroupOrder, { kind: "order" });
+
+  for (const group of screen.milestoneGroups) {
+    const fileGroup = fileMilestoneGroups.get(group.id);
+    if (!fileGroup) {
+      push(`追加 マイルストングループ ${group.name} (${group.id})`, {
+        kind: "milestoneGroup",
+        milestoneGroupId: group.id,
+      });
+      continue;
+    }
+    if (fileGroup.name !== group.name) {
+      push(
+        `変更 マイルストングループ ${group.name} (${group.id})\n  name: ${fileGroup.name} → ${group.name}`,
+        { kind: "milestoneGroup", milestoneGroupId: group.id },
+      );
+    }
+  }
+
+  const milestoneOrder = orderBlock(
+    "並び マイルストン",
+    file.milestones.map((milestone) => milestone.id),
+    screen.milestones.map((milestone) => milestone.id),
+    (id) => namedId(fileMilestones.get(id)?.name, id),
+    (id) => namedId(screenMilestones.get(id)?.name, id),
+  );
+  if (milestoneOrder) push(milestoneOrder, { kind: "order" });
+
+  for (const milestone of screen.milestones) {
+    const fileMilestone = fileMilestones.get(milestone.id);
+    if (!fileMilestone) {
+      push(addedMilestoneBlock(milestone, screenMilestoneGroupNames), {
+        kind: "milestone",
+        milestoneId: milestone.id,
+      });
+      continue;
+    }
+    const changed = changedMilestoneBlock(
+      fileMilestone,
+      milestone,
+      fileMilestoneGroupNames,
+      screenMilestoneGroupNames,
+    );
+    if (changed) push(changed, { kind: "milestone", milestoneId: milestone.id });
+  }
+
+  if (!screenUsesOutline && !fileUsesOutline) {
+    for (const category of file.categories) {
+      const screenCategory = screenCategories.get(category.id);
+      if (!screenCategory) {
+        push(`削除 カテゴリ ${namedId(category.name, category.id)}`, {
+          kind: "deleteCategory",
+        });
+      }
+      for (const group of category.groups) {
+        if (!screenGroups.has(group.id)) {
+          push(`削除 グループ ${place(category.name, group.name)} (${group.id})`, {
+            kind: "deleteGroup",
+            categoryId: category.id,
+          });
+        }
+        for (const task of group.tasks) {
+          if (!screenTasks.has(task.id)) {
+            push(
+              deletedTaskBlock(
+                category.name,
+                group.name,
+                task,
+                fileTaskNames,
+                fileMilestoneNames,
+              ),
+              { kind: "deleteTask", groupId: group.id },
+            );
+          }
+        }
+      }
+    }
+  } else {
+    appendOutlineStorageDeletions(
+      push,
+      screen,
+      file,
+      screenTasks,
+      fileTasks,
+      fileTaskNames,
+      fileMilestoneNames,
+    );
+  }
+
+  for (const group of file.milestoneGroups) {
+    if (!screenMilestoneGroups.has(group.id)) {
+      push(`削除 マイルストングループ ${group.name} (${group.id})`, {
+        kind: "deleteMilestoneGroup",
+      });
+    }
+  }
+
+  for (const milestone of file.milestones) {
+    if (!screenMilestones.has(milestone.id)) {
+      push(deletedMilestoneBlock(milestone, fileMilestoneGroupNames), {
+        kind: "deleteMilestone",
+        milestoneId: milestone.id,
+        date: milestone.date,
+        groupId: milestone.groupId,
+      });
+    }
+  }
+
+  return blocks;
+}
+
+type DiffPush = (text: string, nav: DiffNavTarget) => void;
+
+function appendCategoriesStorageDiff(
+  push: DiffPush,
+  screen: ScheduleDocument,
+  file: ScheduleDocument,
+  screenTasks: Map<ScheduleId, TaskPlace>,
+  fileTasks: Map<ScheduleId, TaskPlace>,
+  screenTaskNames: Map<ScheduleId, string>,
+  fileTaskNames: Map<ScheduleId, string>,
+  screenMilestoneNames: Map<ScheduleId, string>,
+  fileMilestoneNames: Map<ScheduleId, string>,
+  screenCategories: Map<ScheduleId, Category>,
+  fileCategories: Map<ScheduleId, Category>,
+  screenGroups: Map<ScheduleId, { category: Category; group: TaskGroup }>,
+  fileGroups: Map<ScheduleId, { category: Category; group: TaskGroup }>,
+): void {
   const categoryOrder = orderBlock(
     "並び カテゴリ",
     file.categories.map((category) => category.id),
@@ -191,118 +388,234 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): ScheduleD
       }
     }
   }
+}
 
-  const screenMilestoneGroups = new Map(
-    screen.milestoneGroups.map((group) => [group.id, group]),
-  );
-  const fileMilestoneGroups = new Map(
-    file.milestoneGroups.map((group) => [group.id, group]),
-  );
-  const screenMilestoneGroupNames = new Map(
-    screen.milestoneGroups.map((group) => [group.id, group.name]),
-  );
-  const fileMilestoneGroupNames = new Map(
-    file.milestoneGroups.map((group) => [group.id, group.name]),
-  );
+type OutlineBranchMeta = {
+  name: string;
+  parentId: ScheduleId | null;
+};
 
-  const milestoneGroupOrder = orderBlock(
-    "並び マイルストングループ",
-    file.milestoneGroups.map((group) => group.id),
-    screen.milestoneGroups.map((group) => group.id),
-    (id) => namedId(fileMilestoneGroups.get(id)?.name, id),
-    (id) => namedId(screenMilestoneGroups.get(id)?.name, id),
-  );
-  if (milestoneGroupOrder) push(milestoneGroupOrder, { kind: "order" });
+function outlineBranchMetaMap(
+  doc: ScheduleDocument,
+): Map<ScheduleId, OutlineBranchMeta> {
+  const map = new Map<ScheduleId, OutlineBranchMeta>();
+  if (!doc.outline) return map;
+  const walk = (nodes: OutlineChild[], parentId: ScheduleId | null) => {
+    for (const node of nodes) {
+      if (!isOutlineBranch(node)) continue;
+      map.set(node.id, { name: node.name, parentId });
+      walk(node.children, node.id);
+    }
+  };
+  walk(doc.outline, null);
+  return map;
+}
 
-  for (const group of screen.milestoneGroups) {
-    const fileGroup = fileMilestoneGroups.get(group.id);
-    if (!fileGroup) {
-      push(`追加 マイルストングループ ${group.name} (${group.id})`, {
-        kind: "milestoneGroup",
-        milestoneGroupId: group.id,
-      });
+function unionScheduleIds(...lists: ScheduleId[][]): ScheduleId[] {
+  const seen = new Set<ScheduleId>();
+  const result: ScheduleId[] = [];
+  for (const list of lists) {
+    for (const id of list) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      result.push(id);
+    }
+  }
+  return result;
+}
+
+function directTaskIdsByBranch(outline: OutlineRoot | undefined): Map<ScheduleId, ScheduleId[]> {
+  const map = new Map<ScheduleId, ScheduleId[]>();
+  if (!outline) return map;
+  const walk = (nodes: OutlineChild[]) => {
+    for (const node of nodes) {
+      if (!isOutlineBranch(node)) continue;
+      const taskIds = node.children.filter(isTaskNode).map((task) => task.id);
+      if (taskIds.length > 0) {
+        map.set(node.id, taskIds);
+      }
+      walk(node.children);
+    }
+  };
+  walk(outline);
+  return map;
+}
+
+function levelsDiffBlock(
+  fileLevels: ScheduleLevelDef[],
+  screenLevels: ScheduleLevelDef[],
+): string | null {
+  if (levelDefsEqual(fileLevels, screenLevels)) return null;
+  const lines: string[] = ["階層の定義"];
+  const maxLen = Math.max(fileLevels.length, screenLevels.length);
+  for (let index = 0; index < maxLen; index += 1) {
+    const fileLevel = fileLevels[index];
+    const screenLevel = screenLevels[index];
+    if (!fileLevel && screenLevel) {
+      lines.push(
+        `  [${index + 1}] 追加: ${screenLevel.name} / ${screenLevel.meaning}`,
+      );
       continue;
     }
-    if (fileGroup.name !== group.name) {
+    if (fileLevel && !screenLevel) {
+      lines.push(`  [${index + 1}] 削除: ${fileLevel.name}`);
+      continue;
+    }
+    if (!fileLevel || !screenLevel) continue;
+    const normalizedFile = normalizeLevelDefinition(fileLevel);
+    const normalizedScreen = normalizeLevelDefinition(screenLevel);
+    if (normalizedFile.name !== normalizedScreen.name) {
+      lines.push(
+        `  [${index + 1}] name: ${normalizedFile.name} → ${normalizedScreen.name}`,
+      );
+    }
+    if (normalizedFile.meaning !== normalizedScreen.meaning) {
+      lines.push(
+        `  [${index + 1}] meaning: ${normalizedFile.meaning} → ${normalizedScreen.meaning}`,
+      );
+    }
+    const fileInstruction = normalizedFile.instruction ?? "（なし）";
+    const screenInstruction = normalizedScreen.instruction ?? "（なし）";
+    if (fileInstruction !== screenInstruction) {
+      lines.push(
+        `  [${index + 1}] instruction: ${fileInstruction} → ${screenInstruction}`,
+      );
+    }
+  }
+  if (lines.length === 1) return null;
+  return lines.join("\n");
+}
+
+function appendOutlineStorageDiff(
+  push: DiffPush,
+  screen: ScheduleDocument,
+  file: ScheduleDocument,
+  screenTasks: Map<ScheduleId, TaskPlace>,
+  fileTasks: Map<ScheduleId, TaskPlace>,
+  screenTaskNames: Map<ScheduleId, string>,
+  fileTaskNames: Map<ScheduleId, string>,
+  screenMilestoneNames: Map<ScheduleId, string>,
+  fileMilestoneNames: Map<ScheduleId, string>,
+): void {
+  const fileLevels = (file.levels ?? []).map((level) => normalizeLevelDefinition(level));
+  const screenLevels = (screen.levels ?? []).map((level) =>
+    normalizeLevelDefinition(level),
+  );
+  const levelsBlock = levelsDiffBlock(fileLevels, screenLevels);
+  if (levelsBlock) {
+    push(levelsBlock, { kind: "order" });
+  }
+
+  const screenBranches = outlineBranchMetaMap(screen);
+  const fileBranches = outlineBranchMetaMap(file);
+  const branchIds = unionScheduleIds(
+    [...screenBranches.keys()],
+    [...fileBranches.keys()],
+  );
+
+  for (const branchId of branchIds) {
+    const inScreen = screenBranches.has(branchId);
+    const inFile = fileBranches.has(branchId);
+    const displayName =
+      screenBranches.get(branchId)?.name ??
+      fileBranches.get(branchId)?.name ??
+      branchId;
+    if (!inFile && inScreen) {
+      push(`追加 見出し ${displayName}`, { kind: "group", groupId: branchId });
+      continue;
+    }
+    if (inFile && !inScreen) {
+      continue;
+    }
+    const fileName = fileBranches.get(branchId)?.name;
+    const screenName = screenBranches.get(branchId)?.name;
+    if (fileName !== screenName && fileName != null && screenName != null) {
       push(
-        `変更 マイルストングループ ${group.name} (${group.id})\n  name: ${fileGroup.name} → ${group.name}`,
-        { kind: "milestoneGroup", milestoneGroupId: group.id },
+        `変更 見出し ${displayName}: ${fileName} → ${screenName}`,
+        { kind: "group", groupId: branchId },
       );
     }
   }
 
-  const milestoneOrder = orderBlock(
-    "並び マイルストン",
-    file.milestones.map((milestone) => milestone.id),
-    screen.milestones.map((milestone) => milestone.id),
-    (id) => namedId(fileMilestones.get(id)?.name, id),
-    (id) => namedId(screenMilestones.get(id)?.name, id),
+  const screenTaskOrder = directTaskIdsByBranch(screen.outline);
+  const fileTaskOrder = directTaskIdsByBranch(file.outline);
+  const parentIds = unionScheduleIds(
+    [...screenTaskOrder.keys()],
+    [...fileTaskOrder.keys()],
   );
-  if (milestoneOrder) push(milestoneOrder, { kind: "order" });
+  for (const parentId of parentIds) {
+    const screenIds = screenTaskOrder.get(parentId) ?? [];
+    const fileIds = fileTaskOrder.get(parentId) ?? [];
+    const samplePlace = screenTasks.get(screenIds[0] ?? "") ?? fileTasks.get(fileIds[0] ?? "");
+    if (!samplePlace) continue;
+    const orderTitle = `並び タスク ${samplePlace.category} / ${samplePlace.group}`;
+    const order = taskOrderBlock(
+      orderTitle,
+      fileIds,
+      screenIds,
+      (id) => namedId(fileTaskNames.get(id), id),
+      (id) => namedId(screenTaskNames.get(id), id),
+    );
+    if (order) push(order, { kind: "order" });
+  }
 
-  for (const milestone of screen.milestones) {
-    const fileMilestone = fileMilestones.get(milestone.id);
-    if (!fileMilestone) {
-      push(addedMilestoneBlock(milestone, screenMilestoneGroupNames), {
-        kind: "milestone",
-        milestoneId: milestone.id,
-      });
+  for (const [taskId, screenPlace] of screenTasks) {
+    const filePlace = fileTasks.get(taskId);
+    if (!filePlace) {
+      push(
+        addedTaskBlock(
+          screenPlace.category,
+          screenPlace.group,
+          screenPlace.task,
+          screenTaskNames,
+          screenMilestoneNames,
+        ),
+        { kind: "task", taskId },
+      );
       continue;
     }
-    const changed = changedMilestoneBlock(
-      fileMilestone,
-      milestone,
-      fileMilestoneGroupNames,
-      screenMilestoneGroupNames,
+    const changed = changedTaskBlock(
+      filePlace,
+      screenPlace,
+      fileTaskNames,
+      screenTaskNames,
+      fileMilestoneNames,
+      screenMilestoneNames,
     );
-    if (changed) push(changed, { kind: "milestone", milestoneId: milestone.id });
+    if (changed) push(changed, { kind: "task", taskId });
   }
+}
 
-  for (const category of file.categories) {
-    const screenCategory = screenCategories.get(category.id);
-    if (!screenCategory) {
-      push(`削除 カテゴリ ${namedId(category.name, category.id)}`, {
-        kind: "deleteCategory",
-      });
-    }
-    for (const group of category.groups) {
-      if (!screenGroups.has(group.id)) {
-        push(`削除 グループ ${place(category.name, group.name)} (${group.id})`, {
-          kind: "deleteGroup",
-          categoryId: category.id,
-        });
-      }
-      for (const task of group.tasks) {
-        if (!screenTasks.has(task.id)) {
-          push(
-            deletedTaskBlock(category.name, group.name, task, fileTaskNames, fileMilestoneNames),
-            { kind: "deleteTask", groupId: group.id },
-          );
-        }
-      }
+function appendOutlineStorageDeletions(
+  push: DiffPush,
+  screen: ScheduleDocument,
+  file: ScheduleDocument,
+  screenTasks: Map<ScheduleId, TaskPlace>,
+  fileTasks: Map<ScheduleId, TaskPlace>,
+  fileTaskNames: Map<ScheduleId, string>,
+  fileMilestoneNames: Map<ScheduleId, string>,
+): void {
+  const screenBranches = outlineBranchMetaMap(screen);
+  const fileBranches = outlineBranchMetaMap(file);
+  for (const [branchId, meta] of fileBranches) {
+    if (!screenBranches.has(branchId)) {
+      push(`削除 見出し ${meta.name}`, { kind: "deleteGroup", categoryId: branchId });
     }
   }
 
-  for (const group of file.milestoneGroups) {
-    if (!screenMilestoneGroups.has(group.id)) {
-      push(`削除 マイルストングループ ${group.name} (${group.id})`, {
-        kind: "deleteMilestoneGroup",
-      });
-    }
+  for (const [taskId, filePlace] of fileTasks) {
+    if (screenTasks.has(taskId)) continue;
+    push(
+      deletedTaskBlock(
+        filePlace.category,
+        filePlace.group,
+        filePlace.task,
+        fileTaskNames,
+        fileMilestoneNames,
+      ),
+      { kind: "deleteTask", groupId: filePlace.groupId },
+    );
   }
-
-  for (const milestone of file.milestones) {
-    if (!screenMilestones.has(milestone.id)) {
-      push(deletedMilestoneBlock(milestone, fileMilestoneGroupNames), {
-        kind: "deleteMilestone",
-        milestoneId: milestone.id,
-        date: milestone.date,
-        groupId: milestone.groupId,
-      });
-    }
-  }
-
-  return blocks;
 }
 
 function addedTaskBlock(
@@ -348,6 +661,7 @@ function taskFieldLines(
     `  confidence: ${task.confidence}`,
     `  predecessors: ${formatPredecessorList(task.predecessors, taskNames)}`,
     `  milestoneId: ${formatMilestoneRef(task.milestoneId, milestoneNames)}`,
+    `  todos: ${formatTaskTodosForDiff(task)}`,
     `  tags: ${formatTaskTagsForDiff(task)}`,
     `  note: ${noteOf(task) ?? "（なし）"}`,
   ];
@@ -402,6 +716,11 @@ function changedTaskBlock(
   if (fileTask.milestoneId !== screenTask.milestoneId) {
     lines.push(
       `  milestoneId: ${formatMilestoneRef(fileTask.milestoneId, fileMilestoneNames)} → ${formatMilestoneRef(screenTask.milestoneId, screenMilestoneNames)}`,
+    );
+  }
+  if (!taskTodosEqualForDiff(fileTask, screenTask)) {
+    lines.push(
+      `  todos: ${formatTaskTodosForDiff(fileTask)} → ${formatTaskTodosForDiff(screenTask)}`,
     );
   }
   if (!taskTagsEqualForDiff(fileTask, screenTask)) {

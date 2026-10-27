@@ -14,6 +14,7 @@ import {
   validateScheduleSemantics,
   type ValidationIssue,
 } from "./scheduleSemantics";
+import { normalizeScheduleDocument } from "./taskTodos";
 import type { ScheduleDocument } from "./types";
 import {
   formatAjvErrors,
@@ -103,7 +104,7 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
       })),
     };
   }
-  return { ok: true, document };
+  return { ok: true, document: normalizeScheduleDocument(document) };
 }
 
 export function formatValidationErrors(errors: ValidationIssue[]): string {

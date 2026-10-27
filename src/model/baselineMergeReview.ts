@@ -83,6 +83,7 @@ const FIELD_LABELS: Record<string, string> = {
   confidence: "確度",
   predecessors: "先行",
   milestoneId: "対応マイルストン",
+  todos: "TODO",
   tags: "タグ",
   note: "ノート",
   date: "日付",

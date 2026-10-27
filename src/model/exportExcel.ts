@@ -19,8 +19,10 @@ import {
   EXCEL_EXPORT_COLUMN_ORDER,
   excelLeftHeaders,
   excelNoteColumnIndex,
+  excelTodosColumnIndex,
   type ExcelExportColumnsPreference,
 } from "./excelExportColumns";
+import { formatTaskTodosForExcel } from "./taskTodos";
 import {
   EXCEL_DEFAULT_BODY_ROW_HEIGHT_PX,
   excelHeaderRowHeightPx,
@@ -133,6 +135,7 @@ export type ExcelExportPayload = {
   overdueNameRgb: string;
   grayHeaderOnly: boolean;
   noteWrapColumnIndex: number | null;
+  todosWrapColumnIndex: number | null;
   dateColumnWidthPx: number;
   bodyRowHeightPx: number;
   headerRowHeightPx: number;
@@ -201,6 +204,9 @@ function taskCellsForColumns(
         break;
       case "progress":
         cells.push(`${task.progress}%`);
+        break;
+      case "todos":
+        cells.push(formatTaskTodosForExcel(task));
         break;
       case "note":
         cells.push(normalizeTaskNote(task.note) ?? "");
@@ -289,6 +295,7 @@ export function buildExcelExportPayload(
   const leftHeaders = excelLeftHeaders(input.excelColumns);
   const leftColCount = leftHeaders.length;
   const noteWrapColumnIndex = excelNoteColumnIndex(input.excelColumns);
+  const todosWrapColumnIndex = excelTodosColumnIndex(input.excelColumns);
   const columns = excelDateColumnsWithBorders(
     buildExcelTimeColumns(
       input.timelineStart,
@@ -535,6 +542,7 @@ export function buildExcelExportPayload(
     overdueNameRgb: excelOverdueNameRgb,
     grayHeaderOnly: input.tier === "day",
     noteWrapColumnIndex,
+    todosWrapColumnIndex,
     dateColumnWidthPx,
     bodyRowHeightPx,
     headerRowHeightPx,

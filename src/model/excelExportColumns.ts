@@ -5,6 +5,7 @@ export type ExcelExportColumnId =
   | "status"
   | "predecessors"
   | "progress"
+  | "todos"
   | "note";
 
 export type ExcelExportColumnsPreference = Record<
@@ -23,6 +24,7 @@ export const EXCEL_EXPORT_COLUMN_LABELS: Record<ExcelExportColumnId, string> =
     status: "ステータス",
     predecessors: "先行",
     progress: "進捗",
+    todos: "TODO",
     note: "ノート",
   };
 
@@ -33,6 +35,7 @@ export const EXCEL_EXPORT_COLUMN_ORDER: readonly ExcelExportColumnId[] = [
   "status",
   "predecessors",
   "progress",
+  "todos",
   "note",
 ];
 
@@ -43,6 +46,7 @@ export const DEFAULT_EXCEL_EXPORT_COLUMNS: ExcelExportColumnsPreference = {
   status: false,
   predecessors: false,
   progress: false,
+  todos: false,
   note: true,
 };
 
@@ -104,6 +108,19 @@ export function excelNoteColumnIndex(
     if (columns[id]) {
       index += 1;
       if (id === "note") return index;
+    }
+  }
+  return null;
+}
+
+export function excelTodosColumnIndex(
+  columns: ExcelExportColumnsPreference,
+): number | null {
+  let index = 0;
+  for (const id of EXCEL_EXPORT_COLUMN_ORDER) {
+    if (columns[id]) {
+      index += 1;
+      if (id === "todos") return index;
     }
   }
   return null;

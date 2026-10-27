@@ -2155,6 +2155,77 @@ button:focus-visible,
   flex: 0 0 auto;
 }
 
+.detail-progress-linked {
+  flex-wrap: wrap;
+}
+
+.detail-progress-readonly {
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-todo-fraction {
+  color: var(--text-secondary);
+  font-size: calc(12px * var(--s));
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-todo-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--s));
+}
+
+.detail-todo-label {
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+}
+
+.detail-todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
+.detail-todo-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: calc(6px * var(--s));
+  min-width: 0;
+}
+
+.detail-todo-row input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.detail-todo-pending-spacer {
+  width: calc(16px * var(--s));
+  flex-shrink: 0;
+}
+
+.detail-todo-row-pending {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.detail-todo-text {
+  width: 100%;
+  min-width: 0;
+}
+
+.detail-todo-remove {
+  flex-shrink: 0;
+  font-size: calc(12px * var(--s));
+  padding: calc(2px * var(--s)) calc(6px * var(--s));
+}
+
+.detail-todo-add {
+  align-self: flex-start;
+}
+
 .timeline-slot > .timeline {
   flex: 1;
   min-height: 0;
@@ -2558,6 +2629,27 @@ button:focus-visible,
 .row-label.overdue {
   color: var(--overdue);
   font-weight: 600;
+}
+
+.task-row-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(6px * var(--s));
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.task-row-title .row-label {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.task-todo-count {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: calc(12px * var(--s));
+  font-variant-numeric: tabular-nums;
 }
 
 .hierarchy-row-title {

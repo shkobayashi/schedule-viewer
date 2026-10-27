@@ -76,6 +76,15 @@
         "name": { "type": "string", "minLength": 1 }
       }
     },
+    "taskTodoItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "done"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "done": { "type": "boolean" }
+      }
+    },
     "milestone": {
       "type": "object",
       "additionalProperties": false,
@@ -138,6 +147,12 @@
             { "$ref": "#/$defs/scheduleId" },
             { "type": "null" }
           ]
+        },
+        "todos": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/taskTodoItem" },
+          "description": "進捗を件数で決める任意の項目。1件以上あるときだけ書く。"
         },
         "tags": {
           "type": "array",

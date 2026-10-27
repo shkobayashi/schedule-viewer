@@ -71,6 +71,10 @@ import {
 } from "../model/rows";
 import { applyTaskNote } from "../model/taskNote";
 import {
+  setTaskTodosInOutline,
+  setTaskTodosOnCategories,
+} from "../model/taskTodos";
+import {
   collectTagsFromTasks,
   pruneSelectedTags,
 } from "../model/taskTags";
@@ -158,6 +162,7 @@ import {
   type ScheduleId,
   type ScheduleLevelDef,
   type Task,
+  type TaskTodoItem,
   type VisibleRow,
 } from "../model/types";
 import {
@@ -1806,6 +1811,24 @@ export function useSchedule(
     [commitCategories, commitDocument, usesOutlineStorage],
   );
 
+  const setTaskTodos = useCallback(
+    (taskId: ScheduleId, items: TaskTodoItem[]) => {
+      const current = documentRef.current;
+      if (usesOutlineStorage && current.outline != null) {
+        commitDocument((doc) => ({
+          ...doc,
+          outline: setTaskTodosInOutline(doc.outline ?? [], taskId, items),
+        }));
+        return null;
+      }
+      commitCategories((prev) =>
+        setTaskTodosOnCategories(prev, taskId, items),
+      );
+      return null;
+    },
+    [commitCategories, commitDocument, usesOutlineStorage],
+  );
+
   const dropTaskTag = useCallback(
     (taskId: ScheduleId, tag: string) => {
       const current = documentRef.current;
@@ -2575,6 +2598,7 @@ export function useSchedule(
     applyBulkTaskDraft,
     appendTaskTag,
     dropTaskTag,
+    setTaskTodos,
     scheduleTags,
     duplicateTask,
     setTaskConfidence,

@@ -2,6 +2,7 @@ import { documentHasLevels } from "./hierarchy";
 import { normalizeLevelDefinition } from "./hierarchyLevelEdit";
 import { normalizeTaskNote } from "./taskNote";
 import { normalizeTaskTags } from "./taskTags";
+import { normalizeTaskTodos, progressFromTodoItems } from "./taskTodos";
 import type {
   Category,
   Milestone,
@@ -16,6 +17,9 @@ import { SCHEDULE_SCHEMA_VERSION } from "./types";
 function taskToJson(task: Task): Task {
   const note = normalizeTaskNote(task.note);
   const tags = normalizeTaskTags(task.tags);
+  const todos = normalizeTaskTodos(task.todos);
+  const progress =
+    todos !== undefined ? progressFromTodoItems(todos) : task.progress;
   const base = {
     id: task.id,
     name: task.name,
@@ -23,12 +27,13 @@ function taskToJson(task: Task): Task {
     end: task.end,
     assigneeId: task.assigneeId,
     status: task.status,
-    progress: task.progress,
+    progress,
     confidence: task.confidence,
     predecessors: [...task.predecessors],
     milestoneId: task.milestoneId,
   };
-  const withTags = tags !== undefined ? { ...base, tags } : base;
+  const withTodos = todos !== undefined ? { ...base, todos } : base;
+  const withTags = tags !== undefined ? { ...withTodos, tags } : withTodos;
   return note !== undefined ? { ...withTags, note } : withTags;
 }
 
