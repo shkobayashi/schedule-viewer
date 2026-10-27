@@ -277,6 +277,25 @@ describe("pruneScheduleFilterViewState", () => {
   ];
   const milestoneGroups = [{ id: "mg1", name: "MG" }, { id: "mg2", name: "MG2" }];
 
+  it("keeps field filters when pruneFieldFilters is false and definitions are empty", () => {
+    const state = defaultScheduleFilterViewState();
+    state.filters.fieldFilters = {
+      memo: { empty: "any", text: "レビュー" },
+    };
+    const pruned = pruneScheduleFilterViewState(
+      state,
+      {
+        categories,
+        milestones,
+        milestoneGroups,
+        knownMemberIds: new Set(),
+        fields: [],
+      },
+      { pruneFieldFilters: false },
+    );
+    expect(pruned.filters.fieldFilters?.memo?.text).toBe("レビュー");
+  });
+
   it("clears unknown assignee", () => {
     const state = defaultScheduleFilterViewState();
     state.filters.assignee = "gone";

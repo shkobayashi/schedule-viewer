@@ -13,6 +13,7 @@ mod store_distribution;
 mod recent_files;
 mod workspace;
 mod schedule_drop;
+mod field_extension_edit;
 mod status_catalog_edit;
 mod window_session;
 
@@ -34,6 +35,10 @@ use mcp_bridge::{
     cleanup_mcp_socket, mcp_reply, start_mcp_bridge_server, McpBridgeState,
 };
 use std::sync::Arc;
+use field_extension_edit::{
+    claim_field_extension_edit, release_all_field_extension_edits_for_label,
+    release_field_extension_edit, FieldExtensionEditState,
+};
 use status_catalog_edit::{
     claim_status_catalog_edit, release_all_status_catalog_edits_for_label,
     release_status_catalog_edit, StatusCatalogEditState,
@@ -842,6 +847,21 @@ fn create_workspace_editable_field_extension(
     if workspace::read_workspace_editable_field_extension_path(&workspace_file)?.is_some() {
         return Err("編集用の拡張は既にあります。".to_string());
     }
+    let workspace_json = workspace::read_workspace_json_value(&workspace_file)?;
+    if let Some(array) = workspace_json
+        .get("fieldExtensions")
+        .and_then(|entry| entry.as_array())
+    {
+        for item in array {
+            if let Some(pinned) = item.as_str() {
+                if pinned.trim() == relative {
+                    return Err(
+                        "ピン留めした拡張と同じファイルは編集用に使えません。".to_string(),
+                    );
+                }
+            }
+        }
+    }
     let parent = workspace_file
         .parent()
         .ok_or_else(|| "設定ファイルのパスが不正です。".to_string())?;
@@ -850,7 +870,24 @@ fn create_workspace_editable_field_extension(
         return Err("同じ名前のファイルが既にあります。".to_string());
     }
     write_utf8_atomic(&target, &contents)?;
-    workspace::set_workspace_editable_field_extension_relative(&workspace_file, Some(relative))?;
+    if let Err(error) =
+        workspace::set_workspace_editable_field_extension_relative(&workspace_file, Some(relative))
+    {
+        let _ = std::fs::remove_file(&target);
+        return Err(error);
+    }
+    broadcast_workspace_reload(&app, workspace_path.trim())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_workspace_editable_field_extension(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    workspace_path: String,
+) -> Result<(), String> {
+    let workspace_file = workspace_file_for_bound_window(&window, &app, &workspace_path)?;
+    workspace::set_workspace_editable_field_extension_relative(&workspace_file, None)?;
     broadcast_workspace_reload(&app, workspace_path.trim())?;
     Ok(())
 }
@@ -865,10 +902,11 @@ fn delete_workspace_editable_field_extension(
     let target = workspace::read_workspace_editable_field_extension_path(&workspace_file)?
         .ok_or_else(|| "編集用の拡張はありません。".to_string())?;
     workspace::set_workspace_editable_field_extension_relative(&workspace_file, None)?;
-    if let Err(error) = std::fs::remove_file(&target) {
+    let remove_result = std::fs::remove_file(&target);
+    broadcast_workspace_reload(&app, workspace_path.trim())?;
+    if let Err(error) = remove_result {
         return Err(format!("拡張ファイルを消せません: {}", error));
     }
-    broadcast_workspace_reload(&app, workspace_path.trim())?;
     Ok(())
 }
 
@@ -2568,6 +2606,7 @@ pub fn run() {
         .manage(Mutex::new(ScheduleFileStates::default()))
         .manage(Mutex::new(WindowSessionState::default()))
         .manage(Mutex::new(StatusCatalogEditState::default()))
+        .manage(Mutex::new(FieldExtensionEditState::default()))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -2658,6 +2697,10 @@ pub fn run() {
                         let mut guard = edit_state.lock().expect("status catalog edit");
                         release_all_status_catalog_edits_for_label(&mut guard, &label);
                     }
+                    if let Some(edit_state) = app.try_state::<Mutex<FieldExtensionEditState>>() {
+                        let mut guard = edit_state.lock().expect("field extension edit");
+                        release_all_field_extension_edits_for_label(&mut guard, &label);
+                    }
                 }
                 tauri::WindowEvent::Focused(focused) => {
                     let app = window.app_handle();
@@ -2703,7 +2746,10 @@ pub fn run() {
             save_field_extension_json,
             write_field_extension_at_path,
             create_workspace_editable_field_extension,
+            clear_workspace_editable_field_extension,
             delete_workspace_editable_field_extension,
+            claim_field_extension_edit,
+            release_field_extension_edit,
             get_statuses_settings,
             read_status_catalog,
             import_status_catalog,

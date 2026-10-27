@@ -65,6 +65,44 @@ export function assessRequiredFieldValuesSave(
   };
 }
 
+export function assessFieldValuesConformanceSave(
+  doc: Pick<
+    ScheduleDocument,
+    | "categories"
+    | "levels"
+    | "milestoneGroups"
+    | "milestones"
+    | "outline"
+    | "title"
+  >,
+  fieldDefs: readonly ScheduleFieldDef[] = [],
+): { ok: true } | { ok: false; message: string } {
+  const fields = [...fieldDefs];
+  if (fields.length === 0) return { ok: true };
+  const tasks = collectTasksFromDocument({
+    ...doc,
+    schemaVersion: SCHEDULE_SCHEMA_VERSION,
+  });
+  const mismatchNames = new Set<string>();
+  for (const task of tasks) {
+    const raw = task.fieldValues;
+    if (raw == null) continue;
+    for (const field of fields) {
+      const value = raw[field.key];
+      if (value === undefined) continue;
+      if (normalizeStoredFieldValue(field, value) === undefined) {
+        mismatchNames.add(field.name);
+      }
+    }
+  }
+  if (mismatchNames.size === 0) return { ok: true };
+  const quoted = [...mismatchNames].map((name) => `「${name}」`).join("");
+  return {
+    ok: false,
+    message: `${quoted}の値が定義と合わないタスクがあるので、保存できません。`,
+  };
+}
+
 function hasNewline(value: string): boolean {
   return /[\r\n]/.test(value);
 }
@@ -193,6 +231,34 @@ export function taskFieldValuesToJson(
   fields: readonly ScheduleFieldDef[] | undefined,
 ): TaskFieldValues | undefined {
   return normalizeTaskFieldValues(task, fields);
+}
+
+/** 保存用。定義に合わない既知キーと未知キーもそのまま残す。 */
+export function taskFieldValuesForSerialization(
+  task: Task,
+  fields: readonly ScheduleFieldDef[] | undefined,
+): TaskFieldValues | undefined {
+  const raw = task.fieldValues;
+  if (raw == null) return undefined;
+  const knownKeys = new Set((fields ?? []).map((field) => field.key));
+  const ordered: TaskFieldValues = {};
+  if (fields != null) {
+    for (const def of fields) {
+      const value = raw[def.key];
+      if (value !== undefined) {
+        ordered[def.key] = value;
+      }
+    }
+  }
+  for (const [key, value] of Object.entries(raw)) {
+    if (knownKeys.has(key)) continue;
+    if (typeof value === "string" && value.length > 0 && !hasNewline(value)) {
+      ordered[key] = value;
+    } else if (typeof value === "number" && Number.isFinite(value)) {
+      ordered[key] = value;
+    }
+  }
+  return Object.keys(ordered).length > 0 ? ordered : undefined;
 }
 
 export type ParseTaskFieldInputResult =

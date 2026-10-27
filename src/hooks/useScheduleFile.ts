@@ -85,6 +85,7 @@ type UseScheduleFileOptions = {
   getFilterViewState: () => ScheduleFilterViewState;
   knownMemberIds: ReadonlySet<string>;
   memberCatalogSettled: boolean;
+  fieldExtensionCatalogSettled: boolean;
   extraFieldDefs?: import("../model/types").ScheduleFieldDef[];
   sidebarReorderDragging: boolean;
   getCanonicalJson?: () => string;
@@ -116,6 +117,7 @@ export function useScheduleFile({
   getFilterViewState,
   knownMemberIds,
   memberCatalogSettled,
+  fieldExtensionCatalogSettled,
   extraFieldDefs = [],
   sidebarReorderDragging,
   getCanonicalJson,
@@ -195,6 +197,7 @@ export function useScheduleFile({
     filePath,
     startupSettled,
     memberCatalogSettled,
+    fieldExtensionCatalogSettled,
     pruneContext,
     getFilterViewState: () => getFilterViewStateRef.current(),
     setFilterViewState,

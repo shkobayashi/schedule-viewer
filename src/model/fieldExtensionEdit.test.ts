@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  collisionAfterExtensionSave,
   extensionDocumentFromDrafts,
   newEmptyExtensionDocument,
 } from "./fieldExtensionEdit";
+import type { FieldExtensionDocument } from "./fieldExtensionTypes";
 import { fieldDraftsFromFields } from "./fieldDefinitionEdit";
 import { scheduleDefsFromExtension } from "./fieldExtensionMerge";
 import { validateFieldExtensions } from "./validateFieldExtensions";
@@ -36,5 +38,24 @@ describe("extensionDocumentFromDrafts", () => {
     if (built.ok) {
       expect(built.document.fields[0]?.id).toBe("memo");
     }
+  });
+});
+
+describe("collisionAfterExtensionSave", () => {
+  it("reports composite key overlap with other selected extensions", () => {
+    const ambig: FieldExtensionDocument = {
+      schemaVersion: 1,
+      id: "a_b",
+      name: "A",
+      fields: [{ id: "c", name: "C", type: "text" }],
+    };
+    const ambig2: FieldExtensionDocument = {
+      schemaVersion: 1,
+      id: "a",
+      name: "B",
+      fields: [{ id: "b_c", name: "BC", type: "text" }],
+    };
+    const message = collisionAfterExtensionSave(ambig, [ambig2]);
+    expect(message).toContain("a_b_c");
   });
 });

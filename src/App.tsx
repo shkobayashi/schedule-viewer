@@ -69,9 +69,13 @@ import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useStatusCatalog } from "./hooks/useStatusCatalog";
 import { useStatusCatalogEditorOverlay } from "./hooks/useStatusCatalogEditorOverlay";
 import { StatusCatalogEditorOverlay } from "./components/StatusCatalogEditorOverlay";
-import { FieldExtensionEditorOverlay } from "./components/FieldExtensionEditorOverlay";
+import {
+  FieldExtensionEditorOverlay,
+  type FieldExtensionEditorOverlayHandle,
+} from "./components/FieldExtensionEditorOverlay";
 import { useFieldExtensionEditorOverlay } from "./hooks/useFieldExtensionEditorOverlay";
 import {
+  clearWorkspaceEditableFieldExtension,
   createWorkspaceEditableFieldExtension,
   deleteWorkspaceEditableFieldExtension,
   saveFieldExtensionJson,
@@ -345,6 +349,8 @@ function App() {
   const statusCatalogEditorPanelRef = useRef<StatusCatalogEditorPanelHandle | null>(
     null,
   );
+  const fieldExtensionEditorPanelRef =
+    useRef<FieldExtensionEditorOverlayHandle | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
     | "display"
@@ -645,6 +651,9 @@ function App() {
 
   const statusesReady = workspaceBinding ? true : !statusCatalogState.loading;
 
+  const fieldExtensionCatalogSettled =
+    workspaceBinding != null || !fieldExtensionCatalogState.loading;
+
   const extensionFieldDefs = useMemo(() => {
     if (workspaceBinding) {
       const docs = workspaceMergedFieldExtensionsForDisplay(
@@ -802,6 +811,7 @@ function App() {
     displayStatuses,
     statusesReady,
     extensionFieldDefs,
+    fieldExtensionCatalogSettled,
   );
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
   const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
@@ -1121,6 +1131,7 @@ function App() {
     getFilterViewState: schedule.getFilterViewState,
     knownMemberIds: schedule.knownMemberIds,
     memberCatalogSettled: !memberCatalogState.loading,
+    fieldExtensionCatalogSettled,
     extraFieldDefs: extensionFieldDefs,
     sidebarReorderDragging,
     getCanonicalJson,
@@ -1209,6 +1220,12 @@ function App() {
   const handleDeleteWorkspaceEditableFieldExtension = useCallback(async () => {
     if (!workspaceBinding) return;
     await deleteWorkspaceEditableFieldExtension(workspaceBinding.workspacePath);
+    await reloadWorkspaceBinding();
+  }, [reloadWorkspaceBinding, workspaceBinding]);
+
+  const handleClearWorkspaceEditableFieldExtension = useCallback(async () => {
+    if (!workspaceBinding) return;
+    await clearWorkspaceEditableFieldExtension(workspaceBinding.workspacePath);
     await reloadWorkspaceBinding();
   }, [reloadWorkspaceBinding, workspaceBinding]);
 
@@ -2778,6 +2795,13 @@ function App() {
       (statusEditorOverlayRef.current?.open ?? false) ||
       fieldExtensionEditorOverlay.open,
     onUndo: () => {
+      if (fieldExtensionEditorOverlay.open) {
+        if (fieldExtensionEditorOverlay.discardPrompt) {
+          return;
+        }
+        fieldExtensionEditorPanelRef.current?.undo();
+        return;
+      }
       const overlay = statusEditorOverlayRef.current;
       if (overlay?.open) {
         if (
@@ -2793,6 +2817,13 @@ function App() {
       undo();
     },
     onRedo: () => {
+      if (fieldExtensionEditorOverlay.open) {
+        if (fieldExtensionEditorOverlay.discardPrompt) {
+          return;
+        }
+        fieldExtensionEditorPanelRef.current?.redo();
+        return;
+      }
       const overlay = statusEditorOverlayRef.current;
       if (overlay?.open) {
         if (
@@ -3643,7 +3674,10 @@ function App() {
         </div>
       </div>
         </div>
-        <FieldExtensionEditorOverlay state={fieldExtensionEditorOverlay} />
+        <FieldExtensionEditorOverlay
+          ref={fieldExtensionEditorPanelRef}
+          state={fieldExtensionEditorOverlay}
+        />
         {statusEditorOverlay.open ? (
           <StatusCatalogEditorOverlay
             mode={statusEditorOverlay.mode}
@@ -4069,6 +4103,13 @@ function App() {
             workspaceBinding &&
             workspaceBinding.editableFieldExtension.kind === "loaded"
               ? () => handleDeleteWorkspaceEditableFieldExtension()
+              : undefined
+          }
+          onClearWorkspaceEditableFieldExtension={
+            workspaceBinding &&
+            workspaceBinding.document.editableFieldExtension != null &&
+            workspaceBinding.editableFieldExtension.kind === "error"
+              ? () => handleClearWorkspaceEditableFieldExtension()
               : undefined
           }
           workspaceFieldExtensionEditor={

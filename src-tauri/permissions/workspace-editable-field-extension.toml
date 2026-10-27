@@ -7,3 +7,8 @@ commands.allow = ["create_workspace_editable_field_extension"]
 identifier = "allow-delete-workspace-editable-field-extension"
 description = "Allows deleting a workspace editable field extension file."
 commands.allow = ["delete_workspace_editable_field_extension"]
+
+[[permission]]
+identifier = "allow-clear-workspace-editable-field-extension"
+description = "Allows clearing editableFieldExtension from workspace.json without deleting the file."
+commands.allow = ["clear_workspace_editable_field_extension"]

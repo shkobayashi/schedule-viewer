@@ -10,7 +10,10 @@ import {
   suggestedJsonFilename,
 } from "../../model/scheduleFile";
 import { assessHierarchySave } from "../../model/hierarchyLevelEdit";
-import { assessRequiredFieldValuesSave } from "../../model/taskFields";
+import {
+  assessFieldValuesConformanceSave,
+  assessRequiredFieldValuesSave,
+} from "../../model/taskFields";
 import type { ScheduleFieldDef } from "../../model/types";
 import { withSaveFlight } from "./saveFlight";
 
@@ -79,6 +82,15 @@ export function useScheduleSave({
         );
         if (!requiredGate.ok) {
           reportSaveError(requiredGate.message);
+          if (skipExternalCheck) pausePollRef.current = false;
+          return;
+        }
+        const conformanceGate = assessFieldValuesConformanceSave(
+          parsed.document,
+          extraFieldDefs,
+        );
+        if (!conformanceGate.ok) {
+          reportSaveError(conformanceGate.message);
           if (skipExternalCheck) pausePollRef.current = false;
           return;
         }

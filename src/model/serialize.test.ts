@@ -274,6 +274,37 @@ describe("scheduleToJson fields", () => {
     expect(Object.keys(task.fieldValues as object)).toEqual(["memo", "score"]);
   });
 
+  it("keeps field values that do not match definitions", () => {
+    const mismatchCategories: Category[] = [
+      {
+        ...categories[0],
+        groups: [
+          {
+            ...categories[0].groups[0],
+            tasks: [
+              {
+                ...categories[0].groups[0].tasks[0],
+                fieldValues: { lane: "外部", orphan_key: "x" },
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const laneDefs = [
+      { key: "lane", name: "区分", type: "choice" as const, choices: ["内製", "外注"] },
+    ];
+    const json = documentToJsonString(
+      scheduleToJson("P", mismatchCategories, [], [], null, null, laneDefs),
+    );
+    const task = (
+      JSON.parse(json) as {
+        categories: { groups: { tasks: { fieldValues?: Record<string, unknown> }[] }[] }[];
+      }
+    ).categories[0].groups[0].tasks[0];
+    expect(task.fieldValues).toEqual({ lane: "外部", orphan_key: "x" });
+  });
+
   it("omits fields when definitions are absent", () => {
     const sample = sampleScheduleDocument();
     const json = documentToJsonString(sample);

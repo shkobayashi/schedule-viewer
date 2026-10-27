@@ -196,6 +196,42 @@ export async function deleteWorkspaceEditableFieldExtension(
   });
 }
 
+export async function clearWorkspaceEditableFieldExtension(
+  workspacePath: string,
+): Promise<void> {
+  if (!isTauri()) {
+    throw new Error("ブラウザ版では操作できません。");
+  }
+  await invoke("clear_workspace_editable_field_extension", {
+    workspacePath,
+  });
+}
+
+export type ClaimFieldExtensionEditResult = {
+  claimed: boolean;
+  holderLabel?: string;
+};
+
+export async function claimFieldExtensionEdit(
+  editKey: string,
+): Promise<ClaimFieldExtensionEditResult> {
+  if (!isTauri()) {
+    return { claimed: true };
+  }
+  return invoke<ClaimFieldExtensionEditResult>("claim_field_extension_edit", {
+    editKey,
+  });
+}
+
+export async function releaseFieldExtensionEdit(
+  editKey?: string | null,
+): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("release_field_extension_edit", {
+    editKey: editKey ?? null,
+  });
+}
+
 export async function saveFieldExtensionJson(
   contents: string,
   suggestedName: string,

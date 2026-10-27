@@ -1210,6 +1210,10 @@
 | TC-SET-10m | SET-10, FILE-10 | 同上 | 「編集用の拡張を作る」を押す | フォルダに `custom.fields.json` ができ、`workspace.json` に `editableFieldExtension` が書かれる。アプリデータの取り込み一覧は増えない。「項目を編集…」と「消す」が出る |
 | TC-SET-10n | SET-10, FILE-10 | 編集用がある | 覆いで保存する。ピン留めと同じプラグイン ID に変えて保存する | 編集用のファイルだけ上書きされる。ピン留めと同じ ID は保存できない |
 | TC-SET-10o | SET-10, FILE-10 | 編集用がある | 「消す」で「やめる」を選ぶ。続けて「消す」で進める | やめるときはファイルと項目が残る。進めたあとは `editableFieldExtension` とファイルが消え、ピン留めは残る。タスクの値は未登録の追加項目として残る |
+| TC-SET-10p | SET-10 | （自動）`taskFields.test.ts` | 型や候補が合わない既知キーがある文書で保存判定を呼ぶ | 拒否され、シリアライズ用の値はファイルから消えない |
+| TC-SET-10q | SET-10 | （自動）`scheduleFilterPersistence.test.ts` | 定義が空のとき `pruneFieldFilters: false` で復元を呼ぶ | 記録の項目条件が残る |
+| TC-SET-10r | SET-10, FILE-10 | （自動）`validateWorkspace.test.ts` | 編集用パスだけの設定、絶対パス、空白 | 相対だけ通り、絶対と空白は拒否する。ピン留めと同じパスは `workspaceJson.test.ts` |
+| TC-SET-10s | SET-10 | （自動）`fieldExtensionEdit.test.ts` | 合成キーが重なる拡張を保存前に判定する | 理由に合成キーが含まれる |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
 | TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace、write-fields が `~/.cursor/skills/` に置かれ、パスが示される |

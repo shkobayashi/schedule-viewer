@@ -5,7 +5,9 @@ import { documentToJsonString } from "./serialize";
 import { sampleScheduleDocument } from "../sample/schedule";
 import {
   applyTaskFieldValue,
+  assessFieldValuesConformanceSave,
   assessRequiredFieldValuesSave,
+  taskFieldValuesForSerialization,
   normalizeScheduleFieldsForValidation,
   parseTaskFieldInput,
   setTaskFieldValueOnCategories,
@@ -310,6 +312,33 @@ describe("taskFields", () => {
 
   it("allows required true with missing values in file validation", () => {
     expect(validateSchedule(docWithFields(baseTask())).ok).toBe(true);
+  });
+
+  it("rejects save when known field values do not match definition", () => {
+    const defs: ScheduleFieldDef[] = [
+      { key: "lane", name: "区分", type: "choice", choices: ["内製", "外注"] },
+    ];
+    const doc = docWithFields(baseTask({ fieldValues: { lane: "外部" } }));
+    const gate = assessFieldValuesConformanceSave(doc, defs);
+    expect(gate.ok).toBe(false);
+    if (!gate.ok) {
+      expect(gate.message).toBe(
+        "「区分」の値が定義と合わないタスクがあるので、保存できません。",
+      );
+    }
+  });
+
+  it("keeps mismatched known keys in serialization output", () => {
+    const defs: ScheduleFieldDef[] = [
+      { key: "lane", name: "区分", type: "choice", choices: ["内製", "外注"] },
+    ];
+    const task = baseTask({
+      fieldValues: { lane: "外部", orphan_key: "x" },
+    });
+    expect(taskFieldValuesForSerialization(task, defs)).toEqual({
+      lane: "外部",
+      orphan_key: "x",
+    });
   });
 
   it("rejects save when required field values are missing", () => {

@@ -26,6 +26,7 @@ type UseScheduleFilterPersistenceOptions = {
   filePath: string | null;
   startupSettled: boolean;
   memberCatalogSettled: boolean;
+  fieldExtensionCatalogSettled: boolean;
   pruneContext: PruneFiltersContext;
   getFilterViewState: () => ScheduleFilterViewState;
   setFilterViewState: (state: ScheduleFilterViewState) => void;
@@ -38,6 +39,7 @@ export function useScheduleFilterPersistence({
   filePath,
   startupSettled,
   memberCatalogSettled,
+  fieldExtensionCatalogSettled,
   pruneContext,
   getFilterViewState,
   setFilterViewState,
@@ -158,6 +160,7 @@ export function useScheduleFilterPersistence({
         );
         const pruned = pruneScheduleFilterViewState(view, restoreContext, {
           pruneAssignee: memberCatalogSettled,
+          pruneFieldFilters: fieldExtensionCatalogSettled,
         });
         restoredView = pruned;
         filterViewSnapshotRef.current = JSON.stringify(pruned);
@@ -171,6 +174,7 @@ export function useScheduleFilterPersistence({
       endPersistSuppress,
       filePathRef,
       memberCatalogSettled,
+      fieldExtensionCatalogSettled,
       pruneContext,
       setFilterViewState,
     ],
@@ -200,7 +204,13 @@ export function useScheduleFilterPersistence({
   ]);
 
   useEffect(() => {
-    if (!isTauri() || !memberCatalogSettled || !startupSettled || !filePath) {
+    if (
+      !isTauri() ||
+      !memberCatalogSettled ||
+      !fieldExtensionCatalogSettled ||
+      !startupSettled ||
+      !filePath
+    ) {
       return;
     }
     const before = getFilterViewState();
@@ -213,6 +223,7 @@ export function useScheduleFilterPersistence({
     filePath,
     getFilterViewState,
     memberCatalogSettled,
+    fieldExtensionCatalogSettled,
     pruneContext,
     setFilterViewState,
     startupSettled,

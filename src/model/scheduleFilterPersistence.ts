@@ -257,6 +257,7 @@ export type PruneFiltersContext = {
 export type PruneScheduleFilterOptions = {
   pruneAssignee?: boolean;
   pruneCollapse?: boolean;
+  pruneFieldFilters?: boolean;
 };
 
 export function pruneContextFromScheduleDocument(
@@ -306,15 +307,18 @@ export function pruneScheduleFilterViewState(
   ) {
     filters = { ...filters, tags: prunedTags };
   }
-  const fieldFilters = filters.fieldFilters ?? {};
-  const prunedFieldFilters = pruneFieldFilters(context.fields, fieldFilters);
-  if (
-    Object.keys(prunedFieldFilters).length !== Object.keys(fieldFilters).length ||
-    Object.entries(prunedFieldFilters).some(
-      ([key, value]) => fieldFilters[key] !== value,
-    )
-  ) {
-    filters = { ...filters, fieldFilters: prunedFieldFilters };
+  const pruneFieldFilterConditions = options?.pruneFieldFilters ?? true;
+  if (pruneFieldFilterConditions) {
+    const fieldFilters = filters.fieldFilters ?? {};
+    const prunedFieldFilters = pruneFieldFilters(context.fields, fieldFilters);
+    if (
+      Object.keys(prunedFieldFilters).length !== Object.keys(fieldFilters).length ||
+      Object.entries(prunedFieldFilters).some(
+        ([key, value]) => fieldFilters[key] !== value,
+      )
+    ) {
+      filters = { ...filters, fieldFilters: prunedFieldFilters };
+    }
   }
   const hiddenMilestoneGroupIds = pruneHiddenMilestoneGroupIds(
     state.hiddenMilestoneGroupIds,

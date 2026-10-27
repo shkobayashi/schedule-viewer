@@ -1,6 +1,6 @@
 import { documentHasLevels } from "./hierarchy";
 import { normalizeLevelDefinition } from "./hierarchyLevelEdit";
-import { taskFieldValuesToJson } from "./taskFields";
+import { taskFieldValuesForSerialization } from "./taskFields";
 import { normalizeTaskNote } from "./taskNote";
 import { normalizeTaskTags } from "./taskTags";
 import { normalizeTaskTodos, progressFromTodoItems } from "./taskTodos";
@@ -39,7 +39,7 @@ function taskToJson(
   };
   const withTodos = todos !== undefined ? { ...base, todos } : base;
   const withTags = tags !== undefined ? { ...withTodos, tags } : withTodos;
-  const fieldValues = taskFieldValuesToJson(task, fields);
+  const fieldValues = taskFieldValuesForSerialization(task, fields);
   const withFields =
     fieldValues !== undefined ? { ...withTags, fieldValues } : withTags;
   return note !== undefined ? { ...withFields, note } : withFields;
@@ -147,13 +147,20 @@ function orderTaskFieldValues(
   fieldValues: Task["fieldValues"],
   fields: ScheduleFieldDef[] | undefined,
 ): Record<string, string | number> | undefined {
-  if (fieldValues == null || fields == null) return fieldValues;
+  if (fieldValues == null) return undefined;
+  const knownKeys = new Set((fields ?? []).map((field) => field.key));
   const ordered: Record<string, string | number> = {};
-  for (const field of fields) {
-    const value = fieldValues[field.key];
-    if (value !== undefined) {
-      ordered[field.key] = value;
+  if (fields != null) {
+    for (const field of fields) {
+      const value = fieldValues[field.key];
+      if (value !== undefined) {
+        ordered[field.key] = value;
+      }
     }
+  }
+  for (const [key, value] of Object.entries(fieldValues)) {
+    if (knownKeys.has(key)) continue;
+    ordered[key] = value;
   }
   return Object.keys(ordered).length > 0 ? ordered : undefined;
 }

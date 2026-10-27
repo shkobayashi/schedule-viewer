@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import {
   collisionAfterExtensionSave,
@@ -9,9 +9,12 @@ import {
   nextFieldExtensionCatalogId,
 } from "../model/fieldExtensionEdit";
 import {
+  claimFieldExtensionEdit,
   importFieldExtensionCatalog,
   readFieldExtensionCatalog,
+  releaseFieldExtensionEdit,
 } from "../model/fieldExtensionAppData";
+import { focusScheduleWindowViaTauri } from "../model/windowSession";
 import type {
   AppFieldExtensionsSettings,
   FieldExtensionDocument,
@@ -78,6 +81,34 @@ export function useFieldExtensionEditorOverlay({
   const [pendingCatalogId, setPendingCatalogId] = useState<string | null>(null);
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const workspaceSavePathRef = useRef<string | null>(null);
+  const editingClaimKeyRef = useRef<string | null>(null);
+  const overlayGenerationRef = useRef(0);
+
+  const bumpOverlayGeneration = () => {
+    overlayGenerationRef.current += 1;
+    return overlayGenerationRef.current;
+  };
+
+  const isOverlayStale = (generation: number) =>
+    generation !== overlayGenerationRef.current;
+
+  const releaseClaim = useCallback(async (key: string | null) => {
+    if (key == null) return;
+    await releaseFieldExtensionEdit(key);
+    if (editingClaimKeyRef.current === key) {
+      editingClaimKeyRef.current = null;
+    }
+  }, []);
+
+  const setClaimKey = useCallback((key: string | null) => {
+    editingClaimKeyRef.current = key;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      void releaseFieldExtensionEdit(editingClaimKeyRef.current);
+    };
+  }, []);
 
   const applyOpeningItemIds = useCallback((document: FieldExtensionDocument) => {
     setOpeningItemIds(new Set(document.fields.map((field) => field.id)));
@@ -113,6 +144,7 @@ export function useFieldExtensionEditorOverlay({
 
   const closeOverlay = useCallback(
     (options?: { notifyUser?: boolean }) => {
+      void releaseClaim(editingClaimKeyRef.current);
       setOpen(false);
       setEditingCatalogId(null);
       setDrafts([]);
@@ -125,18 +157,45 @@ export function useFieldExtensionEditorOverlay({
         onClosedByUser?.();
       }
     },
-    [onClosedByUser],
+    [onClosedByUser, releaseClaim],
   );
 
   const openEditor = useCallback(
     async (catalogId?: string | null) => {
+      await releaseClaim(editingClaimKeyRef.current);
       if (workspaceTarget) {
+        const generation = bumpOverlayGeneration();
         setMode("workspace");
         setEditingCatalogId(workspaceTarget.pluginId);
         workspaceSavePathRef.current = workspaceTarget.path;
         setWorkspacePath(workspaceTarget.workspacePath);
         loadDocument(workspaceTarget.document);
         setOpen(true);
+        setClaimKey(workspaceTarget.path);
+        setMessage(null);
+        if (!isTauri()) return;
+        setBusy(true);
+        try {
+          const claim = await claimFieldExtensionEdit(workspaceTarget.path);
+          if (isOverlayStale(generation)) {
+            if (claim.claimed) {
+              await releaseClaim(workspaceTarget.path);
+            }
+            return;
+          }
+          if (!claim.claimed) {
+            if (claim.holderLabel) {
+              await focusScheduleWindowViaTauri(claim.holderLabel);
+            }
+            setMessage("別のウィンドウで同じファイルを編集しています。");
+            setOpen(false);
+            setClaimKey(null);
+          }
+        } finally {
+          if (!isOverlayStale(generation)) {
+            setBusy(false);
+          }
+        }
         return;
       }
       setMode("app");
@@ -151,16 +210,43 @@ export function useFieldExtensionEditorOverlay({
         setMessage("取り込んだ拡張がありません。");
         return;
       }
-      const doc = await readFieldExtensionCatalog(targetId);
-      if (doc == null) {
-        setMessage("拡張を読み込めませんでした。");
-        return;
+      const generation = bumpOverlayGeneration();
+      setBusy(true);
+      setMessage(null);
+      try {
+        if (isTauri()) {
+          const claim = await claimFieldExtensionEdit(targetId);
+          if (isOverlayStale(generation)) {
+            if (claim.claimed) {
+              await releaseClaim(targetId);
+            }
+            return;
+          }
+          if (!claim.claimed) {
+            if (claim.holderLabel) {
+              await focusScheduleWindowViaTauri(claim.holderLabel);
+            }
+            setMessage("別のウィンドウで同じ拡張を編集しています。");
+            return;
+          }
+        }
+        const doc = await readFieldExtensionCatalog(targetId);
+        if (doc == null) {
+          setMessage("拡張を読み込めませんでした。");
+          await releaseClaim(targetId);
+          return;
+        }
+        setEditingCatalogId(targetId);
+        setClaimKey(targetId);
+        loadDocument(doc);
+        setOpen(true);
+      } finally {
+        if (!isOverlayStale(generation)) {
+          setBusy(false);
+        }
       }
-      setEditingCatalogId(targetId);
-      loadDocument(doc);
-      setOpen(true);
     },
-    [loadDocument, settings.catalogs, settings.selectedCatalogIds, workspaceTarget],
+    [loadDocument, releaseClaim, setClaimKey, settings.catalogs, settings.selectedCatalogIds, workspaceTarget],
   );
 
   const requestClose = useCallback(() => {
@@ -179,15 +265,47 @@ export function useFieldExtensionEditorOverlay({
 
   const adoptCatalog = useCallback(
     async (catalogId: string) => {
-      const doc = await readFieldExtensionCatalog(catalogId);
-      if (doc == null) {
-        setMessage("拡張を読み込めませんでした。");
-        return;
+      const generation = overlayGenerationRef.current;
+      setBusy(true);
+      setMessage(null);
+      try {
+        if (isTauri()) {
+          const claim = await claimFieldExtensionEdit(catalogId);
+          if (isOverlayStale(generation)) {
+            if (claim.claimed) {
+              await releaseClaim(catalogId);
+            }
+            return;
+          }
+          if (!claim.claimed) {
+            if (claim.holderLabel) {
+              await focusScheduleWindowViaTauri(claim.holderLabel);
+            }
+            setMessage("別のウィンドウで同じ拡張を編集しています。");
+            return;
+          }
+        }
+        await releaseClaim(editingClaimKeyRef.current);
+        if (isOverlayStale(generation)) {
+          await releaseClaim(catalogId);
+          return;
+        }
+        const doc = await readFieldExtensionCatalog(catalogId);
+        if (doc == null) {
+          setMessage("拡張を読み込めませんでした。");
+          await releaseClaim(catalogId);
+          return;
+        }
+        setEditingCatalogId(catalogId);
+        setClaimKey(catalogId);
+        loadDocument(doc);
+      } finally {
+        if (!isOverlayStale(generation)) {
+          setBusy(false);
+        }
       }
-      setEditingCatalogId(catalogId);
-      loadDocument(doc);
     },
-    [loadDocument],
+    [loadDocument, releaseClaim, setClaimKey],
   );
 
   const runCreateNew = useCallback(async () => {
@@ -331,7 +449,7 @@ export function useFieldExtensionEditorOverlay({
       }
       bumpSharedSettingsRevision();
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "保存できませんでした。");
+      setMessage(errorMessage(err, "保存できませんでした。"));
     } finally {
       setBusy(false);
     }
@@ -435,6 +553,7 @@ export function useFieldExtensionEditorOverlay({
     setDrafts,
     openingDrafts,
     openingDisplayName,
+    openingPluginId,
     selectedIndex,
     setSelectedIndex,
     dirty,

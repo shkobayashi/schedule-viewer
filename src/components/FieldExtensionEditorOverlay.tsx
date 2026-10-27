@@ -1,10 +1,21 @@
-import { useEffect, useId, useMemo, useRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from "react";
 import type { useFieldExtensionEditorOverlay } from "../hooks/useFieldExtensionEditorOverlay";
 import {
   FieldDefinitionEditorPanel,
   removeFieldDefinitionDraft,
 } from "./FieldDefinitionEditorPanel";
-import { cloneFieldDefinitionDrafts } from "../model/fieldDefinitionEdit";
+import {
+  cloneFieldDefinitionDrafts,
+  type FieldDefinitionDraft,
+} from "../model/fieldDefinitionEdit";
 import { extensionDocumentFromDrafts } from "../model/fieldExtensionEdit";
 import {
   createFieldDefinitionEditHistory,
@@ -26,17 +37,39 @@ const emptySnapshot = {
   milestones: [],
 };
 
-export function FieldExtensionEditorOverlay({ state }: { state: OverlayState }) {
+export type FieldExtensionEditorOverlayHandle = {
+  undo: () => void;
+  redo: () => void;
+};
+
+function snapshotMatchesOpening(
+  snapshot: FieldDefinitionEditSnapshot,
+  opening: {
+    drafts: readonly FieldDefinitionDraft[];
+    displayName: string;
+    pluginId: string;
+  },
+): boolean {
+  return (
+    JSON.stringify(snapshot.drafts) === JSON.stringify(opening.drafts) &&
+    snapshot.displayName === opening.displayName &&
+    (snapshot.pluginId ?? opening.pluginId) === opening.pluginId
+  );
+}
+
+export const FieldExtensionEditorOverlay = forwardRef<
+  FieldExtensionEditorOverlayHandle,
+  { state: OverlayState }
+>(function FieldExtensionEditorOverlay({ state }, ref) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef(createFieldDefinitionEditHistory());
 
   useEffect(() => {
-    if (state.open) {
-      historyRef.current = createFieldDefinitionEditHistory();
-      panelRef.current?.focus();
-    }
-  }, [state.open]);
+    if (!state.open) return;
+    historyRef.current = createFieldDefinitionEditHistory();
+    panelRef.current?.focus();
+  }, [state.editingCatalogId, state.open]);
 
   const modalOpen = state.discardPrompt != null;
 
@@ -54,7 +87,12 @@ export function FieldExtensionEditorOverlay({ state }: { state: OverlayState }) 
     if (snapshot.pluginId !== undefined) {
       state.setPluginId(snapshot.pluginId);
     }
-    state.setDirty(true);
+    const matches = snapshotMatchesOpening(snapshot, {
+      drafts: state.openingDrafts,
+      displayName: state.openingDisplayName,
+      pluginId: state.openingPluginId,
+    });
+    state.setDirty(!matches);
   };
 
   const pushSnapshot = (next: FieldDefinitionEditSnapshot) => {
@@ -102,7 +140,7 @@ export function FieldExtensionEditorOverlay({ state }: { state: OverlayState }) 
     });
   };
 
-  const undo = () => {
+  const undo = useCallback(() => {
     const result = undoFieldDefinitionEditHistory(
       historyRef.current,
       currentSnapshot(),
@@ -110,9 +148,9 @@ export function FieldExtensionEditorOverlay({ state }: { state: OverlayState }) 
     if (!result) return;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
-  };
+  }, [state]);
 
-  const redo = () => {
+  const redo = useCallback(() => {
     const result = redoFieldDefinitionEditHistory(
       historyRef.current,
       currentSnapshot(),
@@ -120,7 +158,9 @@ export function FieldExtensionEditorOverlay({ state }: { state: OverlayState }) 
     if (!result) return;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
-  };
+  }, [state]);
+
+  useImperativeHandle(ref, () => ({ undo, redo }), [redo, undo]);
 
   const builtDocument = useMemo(() => {
     if (state.editingCatalogId == null && state.mode !== "workspace") {
@@ -398,4 +438,4 @@ export function FieldExtensionEditorOverlay({ state }: { state: OverlayState }) 
       ) : null}
     </div>
   );
-}
+});

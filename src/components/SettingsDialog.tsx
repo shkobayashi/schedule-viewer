@@ -163,6 +163,7 @@ type SettingsDialogProps = {
   workspaceEditableFieldExtensionError?: string | null;
   onCreateWorkspaceEditableFieldExtension?: () => Promise<void>;
   onDeleteWorkspaceEditableFieldExtension?: () => Promise<void>;
+  onClearWorkspaceEditableFieldExtension?: () => Promise<void>;
   fieldExtensionEditor?: { onOpenEditor: () => void };
   fieldExtensionSettings?: AppFieldExtensionsSettings;
   fieldExtensionSelectedLabels?: string[];
@@ -246,6 +247,7 @@ export function SettingsDialog({
   workspaceEditableFieldExtensionError = null,
   onCreateWorkspaceEditableFieldExtension,
   onDeleteWorkspaceEditableFieldExtension,
+  onClearWorkspaceEditableFieldExtension,
   fieldExtensionEditor,
 }: SettingsDialogProps) {
   const displayScaleShortcut = usesCommandKey(
@@ -431,7 +433,7 @@ export function SettingsDialog({
     try {
       await action();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : failure);
+      setMessage(errorMessage(error, failure));
     } finally {
       setBusy(false);
     }
@@ -1087,6 +1089,24 @@ export function SettingsDialog({
                     <p className="settings-message" role="alert">
                       {workspaceEditableFieldExtensionError}
                     </p>
+                  ) : null}
+                  {onClearWorkspaceEditableFieldExtension &&
+                  workspaceBinding.document.editableFieldExtension != null ? (
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        disabled={busy}
+                        onClick={() =>
+                          void runAction(
+                            onClearWorkspaceEditableFieldExtension,
+                            "編集用の拡張を設定ファイルから外せませんでした。",
+                          )
+                        }
+                      >
+                        編集用の参照を外す
+                      </button>
+                    </div>
                   ) : null}
                   <div className="settings-actions">
                     {onCreateWorkspaceEditableFieldExtension ? (

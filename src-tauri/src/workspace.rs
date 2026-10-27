@@ -225,7 +225,7 @@ pub fn read_workspace_editable_field_extension_path(
     }
 }
 
-fn read_workspace_json_value(workspace_file: &Path) -> Result<serde_json::Value, String> {
+pub fn read_workspace_json_value(workspace_file: &Path) -> Result<serde_json::Value, String> {
     if !workspace_file.is_absolute() {
         return Err("設定ファイルのパスが不正です。".to_string());
     }

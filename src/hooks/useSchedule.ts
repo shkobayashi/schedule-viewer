@@ -335,6 +335,7 @@ export function useSchedule(
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
   statusCatalogSettled = true,
   effectiveFieldDefs: readonly import("../model/types").ScheduleFieldDef[] = [],
+  fieldExtensionCatalogSettled = true,
 ) {
   const documentRef = useRef<DocumentSnapshot>(
     initialSnapshot(
@@ -1075,6 +1076,7 @@ export function useSchedule(
   }, [filters.tags, scheduleTags]);
 
   useEffect(() => {
+    if (!fieldExtensionCatalogSettled) return;
     const current = filters.fieldFilters ?? {};
     const pruned = pruneFieldFilters(effectiveFieldDefs, current);
     if (pruned === current) return;
@@ -1083,7 +1085,7 @@ export function useSchedule(
       Object.entries(pruned).every(([key, value]) => current[key] === value);
     if (same) return;
     setFilters((prev) => ({ ...prev, fieldFilters: pruned }));
-  }, [effectiveFieldDefs, filters.fieldFilters]);
+  }, [effectiveFieldDefs, fieldExtensionCatalogSettled, filters.fieldFilters]);
 
   const toggleCollapsed = useCallback((key: string) => {
     setCollapsed((prev) => {
@@ -1897,7 +1899,7 @@ export function useSchedule(
       );
       return null;
     },
-    [commitCategories, commitDocument, usesOutlineStorage],
+    [commitCategories, commitDocument, effectiveFieldDefs, usesOutlineStorage],
   );
 
   const setTaskTodos = useCallback(
