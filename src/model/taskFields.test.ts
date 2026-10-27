@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { validateSchedule } from "./validateSchedule";
+import validateSchema from "./generated/scheduleValidator.js";
 import { documentToJsonString } from "./serialize";
 import { sampleScheduleDocument } from "../sample/schedule";
 import {
@@ -10,7 +11,7 @@ import {
 } from "./taskFields";
 import type { ScheduleDocument, ScheduleFieldDef, Task } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
-import { categoriesAfterDuplicate } from "./tasks";
+import { categoriesAfterDuplicate, insertTask } from "./tasks";
 
 const fieldDefs: ScheduleFieldDef[] = [
   { key: "memo", name: "メモ", type: "text" },
@@ -96,6 +97,161 @@ describe("taskFields", () => {
       }),
     );
     expect(validateSchedule(filled).ok).toBe(true);
+  });
+
+  it("rejects required false percent false and choices on number via schema", () => {
+    const requiredFalse = {
+      ...docWithFields(baseTask()),
+      fields: [{ key: "memo", name: "メモ", type: "text", required: false }],
+    };
+    expect(validateSchedule(requiredFalse).ok).toBe(false);
+
+    const percentFalse = {
+      ...docWithFields(baseTask()),
+      fields: [
+        { key: "ratio", name: "消化率", type: "number", percent: false },
+      ],
+    };
+    expect(validateSchedule(percentFalse).ok).toBe(false);
+
+    const percentOnText = docWithFields(baseTask(), {
+      fields: [{ key: "memo", name: "メモ", type: "text", percent: true }],
+    });
+    expect(validateSchedule(percentOnText).ok).toBe(false);
+
+    const choicesOnNumber = docWithFields(baseTask(), {
+      fields: [
+        {
+          key: "score",
+          name: "点数",
+          type: "number",
+          choices: ["1"],
+        },
+      ],
+    });
+    expect(validateSchedule(choicesOnNumber).ok).toBe(false);
+  });
+
+  it("rejects datetime blank text and newline in field values", () => {
+    const datetime = docWithFields(
+      baseTask({ fieldValues: { due: "2026-05-01T12:00:00" } }),
+    );
+    expect(validateSchedule(datetime).ok).toBe(false);
+
+    const blankText = docWithFields(
+      baseTask({ fieldValues: { memo: "   " } }),
+    );
+    expect(validateSchedule(blankText).ok).toBe(false);
+
+    const newline = docWithFields(
+      baseTask({ fieldValues: { memo: "a\nb" } }),
+    );
+    expect(validateSchedule(newline).ok).toBe(false);
+  });
+
+  it("rejects empty meaning on schema without stripping", () => {
+    const raw = {
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: "P",
+      milestoneGroups: [],
+      milestones: [],
+      fields: [{ key: "memo", name: "メモ", type: "text", meaning: "" }],
+      categories: [
+        {
+          id: "a1000001-0000-4000-8000-000000000001",
+          name: "C",
+          groups: [
+            {
+              id: "a1000001-0000-4000-8000-000000000002",
+              name: "G",
+              tasks: [baseTask()],
+            },
+          ],
+        },
+      ],
+    };
+    expect(validateSchema(raw)).toBe(false);
+  });
+
+  it("does not apply field default to tasks on load", () => {
+    const doc = docWithFields(baseTask(), {
+      fields: [{ key: "memo", name: "メモ", type: "text", default: "既定" }],
+    });
+    const result = validateSchedule(doc);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const task = result.document.categories[0].groups[0].tasks[0];
+    expect(task.fieldValues).toBeUndefined();
+  });
+
+  it("keeps field values when definition name changes", () => {
+    const doc = docWithFields(
+      baseTask({ fieldValues: { memo: "keep" } }),
+      {
+        fields: [{ key: "memo", name: "メモ（改名後）", type: "text" }],
+      },
+    );
+    const result = validateSchedule(doc);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.categories[0].groups[0].tasks[0].fieldValues).toEqual({
+      memo: "keep",
+    });
+  });
+
+  it("new inserted task has no fieldValues", () => {
+    const categories = docWithFields(
+      baseTask({ fieldValues: { memo: "a" } }),
+    ).categories;
+    const newId = "a1000001-0000-4000-8000-000000000099";
+    const next = insertTask(categories, baseTask({ id: newId }), {
+      category: "C",
+      group: "G",
+    });
+    const added = next[0].groups[0].tasks.find((t) => t.id === newId);
+    expect(added?.fieldValues).toBeUndefined();
+  });
+
+  it("strips empty fieldValues on outline when categories array is present", () => {
+    const raw = {
+      schemaVersion: SCHEDULE_SCHEMA_VERSION,
+      title: "P",
+      milestoneGroups: [],
+      milestones: [],
+      fields: fieldDefs,
+      categories: [],
+      levels: [
+        { name: "段", meaning: "見出し" },
+        { name: "タスク", meaning: "作業" },
+      ],
+      outline: [
+        {
+          id: "a1000001-0000-4000-8000-000000000001",
+          name: "H",
+          children: [
+            {
+              id: "a1000001-0000-4000-8000-000000000002",
+              name: "T",
+              start: "2026-04-01",
+              end: "2026-04-03",
+              assigneeId: null,
+              status: "not-started",
+              progress: 0,
+              confidence: "committed",
+              predecessors: [],
+              milestoneId: null,
+              fieldValues: {},
+            },
+          ],
+        },
+      ],
+    };
+    const normalized = normalizeScheduleFieldsForValidation(
+      raw as Record<string, unknown>,
+    );
+    const outline = normalized.outline as { children: Record<string, unknown>[] }[];
+    const task = outline[0].children[0];
+    expect(task.fieldValues).toBeUndefined();
   });
 
   it("rejects unknown properties empty fields duplicate keys and invalid values", () => {

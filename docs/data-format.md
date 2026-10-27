@@ -58,7 +58,7 @@
 | `title` | 1文字以上。空白だけは不可 |
 | `milestoneGroups` | マイルストン帯の行。空でもよい。タスクのカテゴリ・グループとは別 |
 | `milestones` | マイルストンの配列。空でもよい |
-| `fields` | 任意。タスク全体で共有する追加項目の定義。1件以上あるときだけ書く。空配列は拒否する。各要素は `key`（値の JSON キー。定義内で重複不可。前後の空白不可）、`name`（画面の名前）、`type`（`text`、`number`、`date`、`choice` のいずれか）、任意の `meaning`（1文字以上。空ならキーを書かない）、任意の `instruction`（1文字以上。空ならキーを書かない）、任意の `required`（真のときだけ `true` を書く）、任意の `default`（型に合うときだけ）、`number` でパーセント表示するときだけ `percent: true`、`choice` では必須の `choices`（1文字以上の文字列。重複不可。前後の空白不可） |
+| `fields` | 任意。タスク全体で共有する追加項目の定義。1件以上あるときだけ書く。空配列は拒否する。各要素は `key`（値の JSON キー。定義内で重複不可。前後の空白不可）、`name`（画面の名前）、`type`（`text`、`number`、`date`、`choice` のいずれか）、任意の `meaning`（1文字以上。空ならキーを書かない）、任意の `instruction`（1文字以上。空ならキーを書かない）、任意の `required`（真のときだけ `true` を書く。`false` は書けない）、任意の `default`（型に合うときだけ）、`number` でパーセント表示するときだけ `percent: true`（`false` は書けない）、`choice` では必須の `choices`（1文字以上の文字列。重複不可。前後の空白不可） |
 | `categories` | `levels` が無いときは1件以上。中の `groups` も1件以上。`tasks` は空でもよい |
 | `levels` | 任意。1〜5段。各要素は `name` と `meaning`（いずれも1文字以上）。任意の `instruction` は、その段に置いたあとに LLM が守ること。空ならキーを書かない |
 | `outline` | `levels` があるときは、段数に合う入れ子をここに書く。枝は `id`、`name`、`children`。最下段はタスク。タスクの一つ上の枝だけ `children` を空にできる。それより上の枝は子を1件以上持つ |

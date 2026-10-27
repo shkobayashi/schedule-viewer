@@ -446,12 +446,6 @@ export function normalizeScheduleFieldsForValidation(
           delete cleaned.default;
         }
       }
-      if (cleaned.required !== true) {
-        delete cleaned.required;
-      }
-      if (cleaned.percent !== true) {
-        delete cleaned.percent;
-      }
       return cleaned;
     });
   }
@@ -461,21 +455,22 @@ export function normalizeScheduleFieldsForValidation(
 function normalizeTaskFieldValuesInTree(
   data: Record<string, unknown>,
 ): Record<string, unknown> {
-  if (Array.isArray(data.categories)) {
-    return {
-      ...data,
-      categories: data.categories.map((category) =>
+  let result = data;
+  if (Array.isArray(result.categories)) {
+    result = {
+      ...result,
+      categories: result.categories.map((category) =>
         normalizeCategoryFieldValues(category),
       ),
     };
   }
-  if (Array.isArray(data.outline)) {
-    return {
-      ...data,
-      outline: data.outline.map((node) => normalizeOutlineFieldValues(node)),
+  if (Array.isArray(result.outline)) {
+    result = {
+      ...result,
+      outline: result.outline.map((node) => normalizeOutlineFieldValues(node)),
     };
   }
-  return data;
+  return result;
 }
 
 function normalizeCategoryFieldValues(category: unknown): unknown {

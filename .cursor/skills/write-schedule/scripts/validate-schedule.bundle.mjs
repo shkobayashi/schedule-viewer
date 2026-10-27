@@ -3052,33 +3052,28 @@ function normalizeScheduleFieldsForValidation(data2) {
           delete cleaned.default;
         }
       }
-      if (cleaned.required !== true) {
-        delete cleaned.required;
-      }
-      if (cleaned.percent !== true) {
-        delete cleaned.percent;
-      }
       return cleaned;
     });
   }
   return normalizeTaskFieldValuesInTree(next);
 }
 function normalizeTaskFieldValuesInTree(data2) {
-  if (Array.isArray(data2.categories)) {
-    return {
-      ...data2,
-      categories: data2.categories.map(
+  let result2 = data2;
+  if (Array.isArray(result2.categories)) {
+    result2 = {
+      ...result2,
+      categories: result2.categories.map(
         (category) => normalizeCategoryFieldValues(category)
       )
     };
   }
-  if (Array.isArray(data2.outline)) {
-    return {
-      ...data2,
-      outline: data2.outline.map((node) => normalizeOutlineFieldValues(node))
+  if (Array.isArray(result2.outline)) {
+    result2 = {
+      ...result2,
+      outline: result2.outline.map((node) => normalizeOutlineFieldValues(node))
     };
   }
-  return data2;
+  return result2;
 }
 function normalizeCategoryFieldValues(category) {
   if (category == null || typeof category !== "object" || Array.isArray(category)) {

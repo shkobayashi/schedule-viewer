@@ -57,4 +57,41 @@ describe("scheduleSemantics fieldValues on outline", () => {
     delete (doc as { fields?: ScheduleFieldDef[] }).fields;
     expect(validateSchedule(doc).ok).toBe(false);
   });
+
+  it("rejects datetime blank text and invalid choice on outline-only tasks", () => {
+    const fieldDefsDate: ScheduleFieldDef[] = [
+      { key: "memo", name: "メモ", type: "text" },
+      { key: "due", name: "確認日", type: "date" },
+      {
+        key: "lane",
+        name: "区分",
+        type: "choice",
+        choices: ["内製", "外注"],
+      },
+      { key: "score", name: "点数", type: "number" },
+    ];
+    const withDefs = (extras: Record<string, unknown>) => {
+      const doc = outlineDoc(extras);
+      doc.fields = fieldDefsDate;
+      return doc;
+    };
+
+    expect(
+      validateSchedule(withDefs({ fieldValues: { due: "2026-05-01T00:00:00" } }))
+        .ok,
+    ).toBe(false);
+    expect(validateSchedule(withDefs({ fieldValues: { memo: "   " } })).ok).toBe(
+      false,
+    );
+    expect(validateSchedule(withDefs({ fieldValues: { memo: "a\n" } })).ok).toBe(
+      false,
+    );
+    expect(
+      validateSchedule(withDefs({ fieldValues: { score: "x" as unknown as number } }))
+        .ok,
+    ).toBe(false);
+    expect(
+      validateSchedule(withDefs({ fieldValues: { lane: "外部" } })).ok,
+    ).toBe(false);
+  });
 });
