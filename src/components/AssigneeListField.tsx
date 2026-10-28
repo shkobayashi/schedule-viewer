@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import {
   duplicateMemberNames,
   formatUnknownAssigneeOption,
+  isUnknownAssigneeId,
   memberOptionLabel,
   segmentLabelForAssigneeId,
 } from "../model/assigneeDisplay";
@@ -31,7 +32,6 @@ export function AssigneeListField({
     () => duplicateMemberNames(members),
     [members],
   );
-  const memberIds = useMemo(() => new Set(members.map((m) => m.id)), [members]);
   const addOptions = members.filter((member) => !assigneeIds.includes(member.id));
 
   return (
@@ -39,9 +39,9 @@ export function AssigneeListField({
       {assigneeIds.length > 0 ? (
         <ul className="assignee-list" aria-label="担当者">
           {assigneeIds.map((id, index) => {
-            const label = memberIds.has(id)
-              ? segmentLabelForAssigneeId(id, memberCatalog, duplicateNames)
-              : formatUnknownAssigneeOption(id);
+            const label = isUnknownAssigneeId(id, memberCatalog)
+              ? formatUnknownAssigneeOption(id)
+              : segmentLabelForAssigneeId(id, memberCatalog, duplicateNames);
             return (
               <li key={`${index}-${id}`} className="assignee-list-row">
                 <span className="assignee-list-label">{label}</span>
