@@ -6,6 +6,7 @@ import {
 } from "./baselineDiffsOutline";
 import { documentUsesOutlineStorage } from "./hierarchy";
 import { normalizeTaskNote } from "./taskNote";
+import { fieldValuesEqualForDiff } from "./fieldValuesDiff";
 import { taskTagsEqualForDiff } from "./taskTags";
 import { taskTodosEqualForDiff } from "./taskTodos";
 import {
@@ -18,6 +19,7 @@ import type {
   MilestoneGroup,
   ScheduleDocument,
   ScheduleId,
+  ScheduleFieldDef,
   Task,
   TaskGroup,
 } from "./types";
@@ -66,9 +68,10 @@ export function formatBaselineDiffsText(
   screen: ScheduleDocument,
   file: ScheduleDocument,
   filename: string,
+  fields?: readonly ScheduleFieldDef[],
 ): string {
-  const screenBody = formatScheduleDocumentDiffBody(screen, baseline);
-  const fileBody = formatScheduleDocumentDiffBody(file, baseline);
+  const screenBody = formatScheduleDocumentDiffBody(screen, baseline, fields);
+  const fileBody = formatScheduleDocumentDiffBody(file, baseline, fields);
   const classificationLines = buildClassificationLines(baseline, screen, file);
 
   const parts = [
@@ -722,7 +725,8 @@ function taskContentEquals(a: Task, b: Task): boolean {
     a.milestoneId === b.milestoneId &&
     taskTodosEqualForDiff(a, b) &&
     taskTagsEqualForDiff(a, b) &&
-    normalizeTaskNote(a.note) === normalizeTaskNote(b.note)
+    normalizeTaskNote(a.note) === normalizeTaskNote(b.note) &&
+    fieldValuesEqualForDiff(a, b)
   );
 }
 

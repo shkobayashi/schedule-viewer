@@ -47,6 +47,8 @@ schedule-viewer のデスクトップ版ウィンドウと連携するスキル�
 
 絞り込みをスキル側でやり直さないでください。画面が使っている条件のまま返します。
 
+`selected_task`、`selected_tasks`、`filtered_tasks` の応答には、`levels` と `statuses` のあとに `fields`（使用中の追加項目の定義。定義が無いときは空の配列）が一度だけ出ます。各タスクには、値があるときだけ `fieldValues`（合成キーと値）が出ます。`current_schedule` はスケジュール JSON 全体であり、定義は足しません。値は各タスクの `fieldValues` にあります。
+
 ## 開いている画面の更新手順
 
 デスクトップ版で schedule-viewer のウィンドウが開いているときは、スケジュール JSON をファイルに上書きせず、次の手順に従います。衝突（`baseline_diffs` の分類が「異なる」「削除と変更」「追加と削除」のいずれか）があるときは、その対応に従い、人の返事の前にスケジュール全体を作らず、`replace_schedule` もファイルへの書き込みもしません。

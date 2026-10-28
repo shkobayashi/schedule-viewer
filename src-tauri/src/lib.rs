@@ -1772,6 +1772,8 @@ fn clear_last_schedule_path(app: tauri::AppHandle, window: tauri::Window) -> Res
 struct PendingScheduleWindowOpen {
     path: String,
     contents: String,
+    #[serde(rename = "workspacePath")]
+    workspace_path: Option<String>,
 }
 
 #[tauri::command]
@@ -1785,6 +1787,7 @@ fn take_pending_schedule_window_open(
         take_pending_open(&mut guard, &label).map(|pending| PendingScheduleWindowOpen {
             path: pending.path,
             contents: pending.contents,
+            workspace_path: pending.workspace_path,
         }),
     )
 }
@@ -1805,7 +1808,13 @@ async fn create_schedule_window(
     let app_data = app_data_dir(&app)?;
     {
         let mut guard = session.lock().expect("window session");
-        store_pending_open(&mut guard, label.clone(), path.clone(), contents.clone());
+        store_pending_open(
+            &mut guard,
+            label.clone(),
+            path.clone(),
+            contents.clone(),
+            workspace_path.clone(),
+        );
         note_window_focus(&mut guard, &label);
     }
     if let Err(error) =

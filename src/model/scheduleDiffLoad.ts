@@ -5,6 +5,7 @@ import {
   formatScheduleDiff,
 } from "./scheduleDiff";
 import type { ScheduleDiffEntry } from "./scheduleDiffEntry";
+import type { ScheduleFieldDef } from "./types";
 import {
   isTauri,
   parseScheduleText,
@@ -19,6 +20,7 @@ export type ScheduleDiffLoadResult =
 export async function loadScheduleDiffText(
   filePath: string | null,
   screenJson: string,
+  fields?: readonly ScheduleFieldDef[],
 ): Promise<ScheduleDiffLoadResult> {
   const canCompareOnDisk =
     filePath != null &&
@@ -59,8 +61,8 @@ export async function loadScheduleDiffText(
     const fileDoc = fileParsed.document;
     return {
       ok: true,
-      text: formatScheduleDiff(screenDoc, fileDoc, filename),
-      entries: collectScheduleDiffEntries(screenDoc, fileDoc),
+      text: formatScheduleDiff(screenDoc, fileDoc, filename, fields),
+      entries: collectScheduleDiffEntries(screenDoc, fileDoc, fields),
     };
   } catch (error: unknown) {
     return {

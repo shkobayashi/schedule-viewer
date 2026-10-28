@@ -50,6 +50,7 @@ pub struct OpenWindowsFile {
 pub struct PendingWindowOpen {
     pub path: String,
     pub contents: String,
+    pub workspace_path: Option<String>,
 }
 
 #[derive(Default)]
@@ -147,7 +148,8 @@ pub fn all_webview_windows_listed(app: &AppHandle, labels: &[String]) -> bool {
     if open.is_empty() {
         return false;
     }
-    open.iter().all(|label| labels.iter().any(|item| item == label))
+    open.iter()
+        .all(|label| labels.iter().any(|item| item == label))
 }
 
 pub fn all_windows_startup_settled(app: &AppHandle, settled: &[String]) -> bool {
@@ -560,13 +562,14 @@ pub fn create_schedule_webview_on_main_thread(
                 let _ = tx.send(result);
             })
             .map_err(|e| format!("ウィンドウを開けません: {}", e))?;
-        rx.recv()
-            .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
+        rx.recv().map_err(|_| {
+            "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string()
+        })?
     };
     if on_main_thread() {
-        thread::spawn(build_on_main_thread)
-            .join()
-            .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
+        thread::spawn(build_on_main_thread).join().map_err(|_| {
+            "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string()
+        })?
     } else {
         build_on_main_thread()
     }
@@ -825,10 +828,16 @@ pub fn store_pending_open(
     label: String,
     path: String,
     contents: String,
+    workspace_path: Option<String>,
 ) {
-    state
-        .pending_opens
-        .insert(label, PendingWindowOpen { path, contents });
+    state.pending_opens.insert(
+        label,
+        PendingWindowOpen {
+            path,
+            contents,
+            workspace_path,
+        },
+    );
 }
 
 #[cfg(test)]
@@ -856,6 +865,23 @@ mod tests {
             filter_path_for(&app_data, schedule).file_name(),
             recovery_path_for(&app_data, schedule).file_name(),
         );
+    }
+
+    #[test]
+    fn pending_open_roundtrips_workspace_path() {
+        let mut state = WindowSessionState::default();
+        store_pending_open(
+            &mut state,
+            "schedule-2".to_string(),
+            "/tmp/plan.json".to_string(),
+            "{}".to_string(),
+            Some("/tmp/workspace.json".to_string()),
+        );
+        let taken = take_pending_open(&mut state, "schedule-2").expect("pending");
+        assert_eq!(taken.path, "/tmp/plan.json");
+        assert_eq!(taken.contents, "{}");
+        assert_eq!(taken.workspace_path.as_deref(), Some("/tmp/workspace.json"),);
+        assert!(take_pending_open(&mut state, "schedule-2").is_none());
     }
 
     #[test]

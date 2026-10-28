@@ -38,6 +38,7 @@ import {
   type ScheduleLevelDef,
   type StatusFilter,
   type Task,
+  type TaskFieldValues,
   type TaskTodoItem,
 } from "./types";
 
@@ -67,6 +68,7 @@ export type ScreenContextTask = {
   todos?: TaskTodoItem[];
   note?: string;
   tags: string[];
+  fieldValues?: TaskFieldValues;
 };
 
 export type McpActiveFilterCondition =
@@ -92,6 +94,48 @@ export type McpStatusEntry = {
   instruction?: string;
 };
 
+/** タスクの `fieldValues` のキーと型。LLM が値を書く手がかり。 */
+export type McpFieldEntry = {
+  key: string;
+  name: string;
+  type: ScheduleFieldDef["type"];
+  meaning?: string;
+  instruction?: string;
+  required?: true;
+  percent?: true;
+  choices?: string[];
+  default?: string | number;
+};
+
+export function fieldEntriesForMcp(
+  fields: readonly ScheduleFieldDef[],
+): McpFieldEntry[] {
+  return fields.map((field) => {
+    const entry: McpFieldEntry = {
+      key: field.key,
+      name: field.name,
+      type: field.type,
+    };
+    const meaning = field.meaning?.trim();
+    const instruction = field.instruction?.trim();
+    if (meaning) entry.meaning = meaning;
+    if (instruction) entry.instruction = instruction;
+    if (field.required === true) entry.required = true;
+    if (field.percent === true) entry.percent = true;
+    if (field.choices != null && field.choices.length > 0) {
+      entry.choices = [...field.choices];
+    }
+    if (field.default !== undefined) {
+      if (typeof field.default === "string") {
+        if (field.default.length > 0) entry.default = field.default;
+      } else {
+        entry.default = field.default;
+      }
+    }
+    return entry;
+  });
+}
+
 export function statusEntriesForMcp(
   statuses: readonly StatusItem[],
 ): McpStatusEntry[] {
@@ -106,6 +150,7 @@ export function statusEntriesForMcp(
 export type FilteredTasksMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
+  fields: McpFieldEntry[];
   activeConditions: McpActiveFilterCondition[];
   tasks: ScreenContextTask[];
 };
@@ -113,6 +158,7 @@ export type FilteredTasksMcpPayload = {
 export type SelectedTaskMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
+  fields: McpFieldEntry[];
   selectedTaskId: ScheduleId | null;
   selectedTask: ScreenContextTask | null;
 };
@@ -120,6 +166,7 @@ export type SelectedTaskMcpPayload = {
 export type SelectedTasksMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
+  fields: McpFieldEntry[];
   selectedTasks: ScreenContextTask[];
 };
 
@@ -188,6 +235,9 @@ function taskToContext(ref: FilteredTaskRef): ScreenContextTask {
     ...(hasTaskTodos(task) ? { todos: task.todos!.map((item) => ({ ...item })) } : {}),
     ...(task.note !== undefined ? { note: task.note } : {}),
     tags: [...(task.tags ?? [])],
+    ...(task.fieldValues != null && Object.keys(task.fieldValues).length > 0
+      ? { fieldValues: { ...task.fieldValues } }
+      : {}),
   };
 }
 
@@ -366,6 +416,7 @@ export function buildFilteredTasksPayload(
   },
 ): FilteredTasksMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
+  const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const doc = scheduleDocumentForMcpTasks(input);
   const matched = listTasksMatchingFilterInDocument(
@@ -380,6 +431,7 @@ export function buildFilteredTasksPayload(
   return {
     levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
+    fields: fieldEntries,
     activeConditions: buildActiveFilterConditions({
       filters: input.filters,
       hiddenMilestoneGroupIds: input.hiddenMilestoneGroupIds,
@@ -405,9 +457,11 @@ export function buildSelectedTaskPayload(
     selectedTaskId: ScheduleId | null;
     statuses?: readonly StatusItem[];
     levels?: readonly ScheduleLevelDef[] | null;
+    fields?: readonly ScheduleFieldDef[];
   },
 ): SelectedTaskMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
+  const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const doc = scheduleDocumentForMcpTasks(input);
   const matched = listTasksMatchingFilterInDocument(
@@ -427,6 +481,7 @@ export function buildSelectedTaskPayload(
   return {
     levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
+    fields: fieldEntries,
     selectedTaskId: input.selectedTaskId,
     selectedTask,
   };
@@ -437,15 +492,22 @@ export function buildSelectedTasksPayload(
     selectedTaskIds: readonly ScheduleId[];
     statuses?: readonly StatusItem[];
     levels?: readonly ScheduleLevelDef[] | null;
+    fields?: readonly ScheduleFieldDef[];
   },
 ): SelectedTasksMcpPayload {
   const statusEntries = statusEntriesForMcp(
     input.statuses ?? BUILTIN_STATUS_ITEMS,
   );
+  const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const selected = new Set(input.selectedTaskIds);
   if (selected.size === 0) {
-    return { levels: levelEntries, statuses: statusEntries, selectedTasks: [] };
+    return {
+      levels: levelEntries,
+      statuses: statusEntries,
+      fields: fieldEntries,
+      selectedTasks: [],
+    };
   }
   const doc = scheduleDocumentForMcpTasks(input);
   const selectedTasks: ScreenContextTask[] = [];
@@ -460,7 +522,12 @@ export function buildSelectedTasksPayload(
       }),
     );
   }
-  return { levels: levelEntries, statuses: statusEntries, selectedTasks };
+  return {
+    levels: levelEntries,
+    statuses: statusEntries,
+    fields: fieldEntries,
+    selectedTasks,
+  };
 }
 
 export function buildScheduleDiffPayload(input: {

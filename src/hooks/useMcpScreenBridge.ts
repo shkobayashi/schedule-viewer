@@ -150,6 +150,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       const diff = await loadScheduleDiffText(
         snap.scheduleFilePath,
         replaceResult.screenJson,
+        snap.fields,
       );
       const diffText = diff.ok ? diff.text : diff.message;
       if (!diff.ok && diff.isError) {
@@ -185,6 +186,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           const diff = await loadScheduleDiffText(
             snap.scheduleFilePath,
             snap.scheduleCurrentJson,
+            snap.fields,
           );
           const scheduleDiffText = diff.ok ? diff.text : diff.message;
           const scheduleDiffIsError = !diff.ok && diff.isError;
@@ -201,6 +203,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             snap.scheduleFilePath,
             baselineJson,
             screenJson,
+            snap.fields,
           );
           const body = mcpPlainTextToolBody(
             result.ok ? result.text : result.message,
@@ -245,6 +248,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             selectedTaskIds: snap.selectedTaskIds,
             statuses: snap.statuses,
             levels: snap.levels,
+            fields: snap.fields,
           });
           break;
         }

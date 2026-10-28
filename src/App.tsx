@@ -2076,6 +2076,7 @@ function App() {
     const result = await loadScheduleDiffTextCore(
       scheduleFile.filePath,
       getCanonicalJson(),
+      editableFieldDefs,
     );
     if (result.ok) {
       return { ok: true, text: result.text, entries: result.entries };
@@ -2087,7 +2088,7 @@ function App() {
         !result.isError &&
         result.message === NO_OPEN_SCHEDULE_FILE_MESSAGE,
     };
-  }, [getCanonicalJson, scheduleFile.filePath]);
+  }, [editableFieldDefs, getCanonicalJson, scheduleFile.filePath]);
 
   useMcpScreenBridge({
     statuses: displayStatuses,

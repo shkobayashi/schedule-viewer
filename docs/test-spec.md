@@ -368,6 +368,23 @@
 | 同上 | `keeps strip when explicit empty is pinned` | FILE-07 |
 | 同上 | `defers only body to body while focused` | FILE-07 |
 | `scheduleDiff.test.ts` | `says there is no difference when the documents match` | FILE-07 |
+| `scheduleDiff.test.ts` | `formatScheduleDiff fieldValues` の `shows changed field values in definition order when lexicographic order differs` | FILE-07 |
+| 同上 | `omits unchanged field value keys from the change block` | FILE-07 |
+| 同上 | `shows unknown keys after defined keys on change` | FILE-07 |
+| 同上 | `shows field values on added task only when values exist` | FILE-07 |
+| 同上 | `says no difference when only field values match` | FILE-07 |
+| 同上 | `shows field value changes for outline tasks` | FILE-07 |
+| `fieldValuesDiff.test.ts` | `orders changed keys by definition order, not lexicographic` | FILE-07 |
+| 同上 | `omits unchanged keys from change lines` | FILE-07 |
+| 同上 | `places unknown keys after defined keys in lexicographic order` | FILE-07 |
+| 同上 | `uses missing label and JSON values` | FILE-07 |
+| 同上 | `snapshot lines skip empty keys` | FILE-07 |
+| 同上 | `treats matching fieldValues as equal` | FILE-07 |
+| `screenContext.test.ts` | `field catalog in MCP payloads` | MCP-01 |
+| 同上 | `includes fields and fieldValues on selected_task` | MCP-01 |
+| 同上 | `includes fields and fieldValues on selected_tasks` | MCP-01 |
+| 同上 | `omits empty choices and empty default from field entries` | MCP-01 |
+| 同上 | `current_schedule JSON shape` の `has no top-level fields property` | MCP-01 |
 | `scheduleDiff.test.ts` | `shows todo list changes with markers` | EDIT-22, FILE-07 |
 | `scheduleDiff.test.ts` | `formatScheduleDiff outline storage`（`shows todo list changes for outline tasks`、`omits todos when outline task todos match`、`shows full todos on added outline task`、`shows hierarchy definition changes`） | EDIT-22, FILE-07 |
 | 同上 | `shows tag changes and distinguishes comma inside a tag from separate tags` | FILE-07 |
@@ -395,6 +412,8 @@
 | 同上 | `excludes trailing new tasks from the order line when reorder and append happen together` | FILE-07 |
 | `baselineDiffs.test.ts` | `reports no changes when baseline, screen, and file match` | MCP-01 |
 | 同上 | `classifies screen-only name change` | MCP-01 |
+| 同上 | `classifies file-only fieldValues change` | MCP-01 |
+| 同上 | `classifies conflicting fieldValues as 異なる` | MCP-01 |
 | 同上 | `classifies file-only end date change` | MCP-01 |
 | 同上 | `classifies screen name and file end on the same task as one 異なる line` | MCP-01 |
 | 同上 | `classifies predecessor set differences as 異なる on the task` | MCP-01 |
@@ -742,6 +761,7 @@
 | `resolve_mcp_label_prefers_recorded_then_os_then_focus_order` | MCP の送り先は記録の前面、OS の前面、直近の前面順の順で決める | MCP-01, WIN-01 |
 | `reply_from_other_window_keeps_pending` | 送り先と違うウィンドウの応答は pending を外さない | MCP-01, WIN-01 |
 | `dedupe_keeps_focused_path` | 同じパスが複数あるとき、前面のウィンドウの未保存を残す | SYNC-03, WIN-01 |
+| `pending_open_roundtrips_workspace_path`（`window_session.rs`） | 新しいウィンドウ用の pending が設定ファイルのパスを往復する | WIN-01, FILE-10 |
 | `recovery_owner_is_latest_focused_window_for_path` | 同じパスでは、最後に前面だったウィンドウが控えの書き手になる | SYNC-03, WIN-01 |
 | `recovery_owner_falls_back_to_first_window` | 前面の記録が無いときは、一覧の最初のウィンドウが書き手になる | SYNC-03 |
 | `recovery_owners_are_fixed_per_path` | 終了前の前面を、パスごとに控えの書き手として固定する | FILE-05, SYNC-03 |
@@ -981,6 +1001,7 @@
 | TC-WIN-01e | WIN-01, SYNC-03 | 2 ウィンドウ。追加した側だけ残して終了 | 起動する | 記録どおり 1 枚だけ開く |
 | TC-WIN-01f | WIN-01, SYNC-03 | 2 ウィンドウ。元の `main` を閉じ、追加側だけ残して終了 | 起動する | 空の `main` は一緒に開かず、残したウィンドウだけ開く |
 | TC-WIN-01g | WIN-01, MCP-01 | 別々のファイルを 2 ウィンドウで開き、それぞれ別のタスクを 1 件選んでから、返す側を前面にする | `selected_task` を呼ぶ | 前面の選択タスクが返る。背面の選択は返らない |
+| TC-WIN-01h | WIN-01, FILE-10 | デスクトップ版。設定ファイルと schemaVersion 6 のスケジュールを束ねた例がある | 「新しいウィンドウで開く」で設定ファイルを選ぶ。続けて schemaVersion 6 のスケジュール JSON を選ぶ | 元のウィンドウは残る。新しいウィンドウは設定ファイルの束縛で開き、メンバーとステータスとカレンダーと拡張がそのウィンドウだけに効く。履歴に設定ファイルだけが足り、スケジュールパスは足らない。もう一つの新しいウィンドウは schemaVersion 6 を移行して開き、未保存にならない |
 | TC-WIN-02 | WIN-02 | 同じファイルを2つのウィンドウで開く。片方は未保存 | 未保存の側で外部更新を「画面の編集を残す」にする | もう一方の隅に「確認待ち」が出て、確認が終わるまで残る。押すと、確認を出したウィンドウが前面になる。確認を終えると知らせは消える |
 | TC-WIN-02b | WIN-02 | 同じファイルを2つ開く。両方保存済み | 片方で外部更新を即時反映する | もう一方の隅に「反映した」が数秒出る |
 | TC-WIN-03 | SET-02, SET-01, SET-04 | 2つのウィンドウを開く | 片方でメンバー、表示サイズ、配色、一覧の幅、行の密度、イナズマ線、一覧の列を変える | もう一方も同じ設定になる |

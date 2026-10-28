@@ -6,6 +6,7 @@ import type {
   Milestone,
   MilestoneGroup,
   ScheduleDocument,
+  ScheduleFieldDef,
   Task,
 } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
@@ -760,6 +761,91 @@ describe("formatScheduleDiff outline storage", () => {
     expect(formatScheduleDiff(screen, file, "plan.json")).toContain("階層の定義");
     expect(formatScheduleDiff(screen, file, "plan.json")).toContain(
       "meaning: 画面ではノード名を行に出す。定義名は帯の上だけ。 → 変更後の意味",
+    );
+  });
+});
+
+describe("formatScheduleDiff fieldValues", () => {
+  const fields: ScheduleFieldDef[] = [
+    { key: "z_memo", name: "メモ", type: "text" },
+    { key: "a_score", name: "点数", type: "number" },
+  ];
+
+  it("shows changed field values in definition order when lexicographic order differs", () => {
+    const base = task({ id: TASK_A, name: "基本設計" });
+    const file = doc(
+      design([{ ...base, fieldValues: { z_memo: "old", a_score: 1 } }]),
+    );
+    const screen = doc(
+      design([{ ...base, fieldValues: { z_memo: "new", a_score: 2 } }]),
+    );
+    const text = formatScheduleDiff(screen, file, "plan.json", fields);
+    expect(text).toContain('  z_memo: "old" → "new"');
+    expect(text).toContain("  a_score: 1 → 2");
+    expect(text.indexOf("z_memo")).toBeLessThan(text.indexOf("a_score"));
+  });
+
+  it("omits unchanged field value keys from the change block", () => {
+    const base = task({ id: TASK_A, name: "基本設計" });
+    const file = doc(
+      design([{ ...base, fieldValues: { z_memo: "same", a_score: 1 } }]),
+    );
+    const screen = doc(
+      design([{ ...base, fieldValues: { z_memo: "same", a_score: 9 } }]),
+    );
+    const text = formatScheduleDiff(screen, file, "plan.json", fields);
+    expect(text).toContain("  a_score: 1 → 9");
+    expect(text).not.toContain("z_memo");
+  });
+
+  it("shows unknown keys after defined keys on change", () => {
+    const base = task({ id: TASK_A, name: "基本設計" });
+    const file = doc(design([{ ...base, fieldValues: { orphan: 1 } }]));
+    const screen = doc(design([{ ...base, fieldValues: { orphan: 2, a_score: 3 } }]));
+    const text = formatScheduleDiff(screen, file, "plan.json", fields);
+    const scorePos = text.indexOf("a_score");
+    const orphanPos = text.indexOf("orphan");
+    expect(scorePos).toBeGreaterThan(-1);
+    expect(orphanPos).toBeGreaterThan(scorePos);
+  });
+
+  it("shows field values on added task only when values exist", () => {
+    const file = doc(design([task({ id: TASK_A, name: "基本設計" })]));
+    const screen = doc(
+      design([
+        task({ id: TASK_A, name: "基本設計" }),
+        task({
+          id: TASK_B,
+          name: "詳細設計",
+          fieldValues: { a_score: 5 },
+        }),
+      ]),
+    );
+    const text = formatScheduleDiff(screen, file, "plan.json", fields);
+    expect(text).toContain("追加 詳細設計");
+    expect(text).toContain("  a_score: 5");
+  });
+
+  it("says no difference when only field values match", () => {
+    const base = task({
+      id: TASK_A,
+      name: "基本設計",
+      fieldValues: { a_score: 3 },
+    });
+    const document = doc(design([base]));
+    expect(formatScheduleDiff(document, document, "plan.json", fields)).toContain(
+      "差はありません",
+    );
+  });
+
+  it("shows field value changes for outline tasks", () => {
+    const file = outlineDoc();
+    const screen = outlineDoc((row) => ({
+      ...row,
+      fieldValues: { a_score: 10 },
+    }));
+    expect(formatScheduleDiff(screen, file, "plan.json", fields)).toContain(
+      "  a_score: （なし） → 10",
     );
   });
 });

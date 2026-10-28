@@ -600,6 +600,39 @@ export function useScheduleFile({
     try {
       const pick = await openScheduleViaTauri(initialDirectory);
       if (!pick?.path) return;
+      let data: unknown;
+      try {
+        data = JSON.parse(pick.contents.replace(/^\uFEFF/, ""));
+      } catch {
+        setErrorMessageText("JSON の形式が正しくありません。");
+        return;
+      }
+      const kind = classifyOpenedJson(data);
+      if (kind === "workspace") {
+        const opened = await openWorkspaceFromFile(pick.path, pick.contents);
+        if (!opened.ok) {
+          setErrorMessageText(opened.message);
+          return;
+        }
+        const parsed = parseScheduleText(opened.scheduleContents);
+        if (!parsed.ok) {
+          setErrorMessageText(parsed.message);
+          return;
+        }
+        await createScheduleWindowViaTauri(
+          opened.schedulePath,
+          opened.scheduleContents,
+          pick.path,
+        );
+        void recordRecentWorkspaceViaTauri(pick.path)
+          .then((store) => onRecentFilesStoreUpdated?.(store))
+          .catch(() => {});
+        return;
+      }
+      if (kind === "unsupported") {
+        setErrorMessageText("スケジュールの JSON を1つだけ開いてください。");
+        return;
+      }
       const parsed = parseScheduleText(pick.contents);
       if (!parsed.ok) {
         setErrorMessageText(parsed.message);
@@ -613,7 +646,7 @@ export function useScheduleFile({
     } finally {
       setFileBusy(false);
     }
-  }, [fileBusy]);
+  }, [fileBusy, onRecentFilesStoreUpdated]);
 
   const requestOpenInNewWindow = useCallback(() => {
     if (fileBusyRef.current || !isTauri()) return;
@@ -748,6 +781,9 @@ export function useScheduleFile({
           opened.scheduleContents,
           path,
         );
+        void recordRecentWorkspaceViaTauri(path)
+          .then((store) => onRecentFilesStoreUpdated?.(store))
+          .catch(() => {});
         return;
       }
       const parsed = parseScheduleText(contents);
@@ -757,7 +793,7 @@ export function useScheduleFile({
       }
       await createScheduleWindowViaTauri(path, contents);
     },
-    [],
+    [onRecentFilesStoreUpdated],
   );
 
   const startup = useScheduleStartupRecovery({
@@ -783,6 +819,7 @@ export function useScheduleFile({
     applyOpenedFile,
     restoreFiltersForPath: filterPersistence.restoreFiltersForPath,
     onWorkspaceBindingChange,
+    onRecentFilesStoreUpdated,
   });
 
   useEffect(() => {
