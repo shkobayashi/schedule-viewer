@@ -36,6 +36,10 @@ type UseScheduleSaveOptions = {
   clearExternalReloadPromptRef: { current: () => void };
   clearInvalidDiskHashRef: { current: () => void };
   extraFieldDefs?: readonly ScheduleFieldDef[];
+  onScheduleSavePathChanged?: (
+    previousPath: string | null,
+    newPath: string,
+  ) => void;
 };
 
 export function useScheduleSave({
@@ -55,6 +59,7 @@ export function useScheduleSave({
   clearExternalReloadPromptRef,
   clearInvalidDiskHashRef,
   extraFieldDefs = [],
+  onScheduleSavePathChanged,
 }: UseScheduleSaveOptions) {
   const saveInFlightRef = useRef(false);
   const pausePollRef = useRef(false);
@@ -130,12 +135,16 @@ export function useScheduleSave({
                 skipExternalCheck,
               );
               if (!writtenPath) return;
+              const previousPath = filePath;
               setFilePath(writtenPath);
               setBrowserFileLabel(null);
               setBaselineJson(contents);
               baselineJsonRef.current = contents;
               clearExternalReloadPromptRef.current();
               clearInvalidDiskHashRef.current();
+              if (previousPath !== writtenPath) {
+                onScheduleSavePathChanged?.(previousPath, writtenPath);
+              }
               await clearRecoveryDraft();
             } catch (error) {
               const message = errorMessage(error, "ファイルに保存できませんでした。");
@@ -184,6 +193,7 @@ export function useScheduleSave({
       setFilePath,
       title,
       extraFieldDefs,
+      onScheduleSavePathChanged,
     ],
   );
 

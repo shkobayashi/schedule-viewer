@@ -77,6 +77,8 @@ function baseInput(): ScheduleExcelInput {
     taskNames: new Map([["t1", "設計"]]),
     exportedAtIso: "2026-01-07T12:00:00.000Z",
     excelColumns: DEFAULT_EXCEL_EXPORT_COLUMNS,
+    fieldDefs: [],
+    excelFieldColumns: {},
   };
 }
 
@@ -435,5 +437,72 @@ describe("exportExcel", () => {
     expect(payload.dateColumnWidthPx).toBe(
       excelDateColumnWidthPx("month"),
     );
+  });
+
+  it("leaves field columns off by default", () => {
+    const input = baseInput();
+    input.fieldDefs = [
+      { key: "score", name: "点数", type: "number" },
+      { key: "memo", name: "メモ", type: "text" },
+    ];
+    input.excelFieldColumns = { score: false, memo: false };
+    const taskRow = input.visibleRows[0];
+    if (taskRow.type === "task") {
+      taskRow.task.fieldValues = { score: 10, memo: "hi" };
+    }
+    const payload = buildExcelExportPayload(input);
+    expect(payload.leftHeaders).toEqual(["名前", "開始", "終了", "ノート"]);
+    expect(payload.rows[0]?.cells).toEqual(["設計", "01/07", "01/08", ""]);
+  });
+
+  it("formats enabled field columns before note", () => {
+    const input = baseInput();
+    input.fieldDefs = [
+      { key: "score", name: "点数", type: "number" },
+      { key: "ratio", name: "消化率", type: "number", percent: true },
+      { key: "due", name: "確認日", type: "date" },
+      { key: "lane", name: "区分", type: "choice", choices: ["内製"] },
+      { key: "memo", name: "メモ", type: "text" },
+    ];
+    input.excelFieldColumns = {
+      score: true,
+      ratio: true,
+      due: true,
+      lane: true,
+      memo: true,
+    };
+    const taskRow = input.visibleRows[0];
+    if (taskRow.type === "task") {
+      taskRow.task.fieldValues = {
+        score: 3,
+        ratio: 30,
+        due: "2026-03-01",
+        lane: "内製",
+        memo: "本文",
+      };
+    }
+    const payload = buildExcelExportPayload(input);
+    expect(payload.leftHeaders).toEqual([
+      "名前",
+      "開始",
+      "終了",
+      "点数",
+      "消化率",
+      "確認日",
+      "区分",
+      "メモ",
+      "ノート",
+    ]);
+    expect(payload.rows[0]?.cells).toEqual([
+      "設計",
+      "01/07",
+      "01/08",
+      "3",
+      "30%",
+      "2026-03-01",
+      "内製",
+      "本文",
+      "",
+    ]);
   });
 });

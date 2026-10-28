@@ -21,7 +21,11 @@ import {
   excelNoteColumnIndex,
   excelTodosColumnIndex,
   type ExcelExportColumnsPreference,
+  type ExcelExportFieldColumnsPreference,
+  type ExcelLeftColumnLayoutInput,
 } from "./excelExportColumns";
+import { formatFieldValueForExcel } from "./taskFields";
+import type { ScheduleFieldDef } from "./types";
 import { formatTaskTodosForExcel } from "./taskTodos";
 import {
   EXCEL_DEFAULT_BODY_ROW_HEIGHT_PX,
@@ -147,6 +151,8 @@ export type ScheduleExcelInput = ScheduleExportInput & {
   taskNames: ReadonlyMap<ScheduleId, string>;
   exportedAtIso: string;
   excelColumns: ExcelExportColumnsPreference;
+  fieldDefs: readonly ScheduleFieldDef[];
+  excelFieldColumns: ExcelExportFieldColumnsPreference;
 };
 
 export function excelDateColumnWidthPx(tier: GridTier): number {
@@ -165,17 +171,22 @@ function formatPredecessors(
     .join("、");
 }
 
-function emptyCellsForColumns(
-  excelColumns: ExcelExportColumnsPreference,
-): string[] {
-  return EXCEL_EXPORT_COLUMN_ORDER.filter((id) => excelColumns[id]).map(
-    () => "",
-  );
+function excelLeftLayout(input: ScheduleExcelInput): ExcelLeftColumnLayoutInput {
+  return {
+    excelColumns: input.excelColumns,
+    fieldDefs: input.fieldDefs,
+    excelFieldColumns: input.excelFieldColumns,
+  };
+}
+
+function emptyCellsForColumns(layout: ExcelLeftColumnLayoutInput): string[] {
+  const count = excelLeftHeaders(layout).length - 1;
+  return Array.from({ length: count }, () => "");
 }
 
 function taskCellsForColumns(
   task: Task,
-  excelColumns: ExcelExportColumnsPreference,
+  layout: ExcelLeftColumnLayoutInput,
   taskNames: ReadonlyMap<ScheduleId, string>,
   memberCatalog: ScheduleExportInput["memberCatalog"],
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
@@ -185,7 +196,8 @@ function taskCellsForColumns(
   );
   const cells: string[] = [];
   for (const id of EXCEL_EXPORT_COLUMN_ORDER) {
-    if (!excelColumns[id]) continue;
+    if (id === "note") continue;
+    if (!layout.excelColumns[id]) continue;
     switch (id) {
       case "assignee":
         cells.push(assignee);
@@ -208,12 +220,16 @@ function taskCellsForColumns(
       case "todos":
         cells.push(formatTaskTodosForExcel(task));
         break;
-      case "note":
-        cells.push(normalizeTaskNote(task.note) ?? "");
-        break;
       default:
         break;
     }
+  }
+  for (const def of layout.fieldDefs) {
+    if (!layout.excelFieldColumns[def.key]) continue;
+    cells.push(formatFieldValueForExcel(def, task.fieldValues?.[def.key]));
+  }
+  if (layout.excelColumns.note) {
+    cells.push(normalizeTaskNote(task.note) ?? "");
   }
   return cells;
 }
@@ -292,10 +308,11 @@ export function buildExcelExportPayload(
   const { css: lightCss } = paletteFor("light");
   const excelGroupNameRgb = lightCss.groupText.replace("#", "");
   const excelOverdueNameRgb = lightCss.dangerText.replace("#", "");
-  const leftHeaders = excelLeftHeaders(input.excelColumns);
+  const leftLayout = excelLeftLayout(input);
+  const leftHeaders = excelLeftHeaders(leftLayout);
   const leftColCount = leftHeaders.length;
-  const noteWrapColumnIndex = excelNoteColumnIndex(input.excelColumns);
-  const todosWrapColumnIndex = excelTodosColumnIndex(input.excelColumns);
+  const noteWrapColumnIndex = excelNoteColumnIndex(leftLayout);
+  const todosWrapColumnIndex = excelTodosColumnIndex(leftLayout);
   const columns = excelDateColumnsWithBorders(
     buildExcelTimeColumns(
       input.timelineStart,
@@ -338,7 +355,7 @@ export function buildExcelExportPayload(
       taskNameIndent = 1;
       rows.push({
         kind: "category",
-        cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
+        cells: [visible.label, ...emptyCellsForColumns(leftLayout)],
         nameOverdue: false,
         nameIndent: 0,
         nameBold: true,
@@ -366,7 +383,7 @@ export function buildExcelExportPayload(
       taskNameIndent = 2;
       rows.push({
         kind: "group",
-        cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
+        cells: [visible.label, ...emptyCellsForColumns(leftLayout)],
         nameOverdue: false,
         nameIndent: 1,
         nameBold: true,
@@ -396,7 +413,7 @@ export function buildExcelExportPayload(
       taskNameIndent = indent + 1;
       rows.push({
         kind,
-        cells: [visible.label, ...emptyCellsForColumns(input.excelColumns)],
+        cells: [visible.label, ...emptyCellsForColumns(leftLayout)],
         nameOverdue: false,
         nameIndent: indent,
         nameBold: true,
@@ -434,7 +451,7 @@ export function buildExcelExportPayload(
         task.name,
         ...taskCellsForColumns(
           task,
-          input.excelColumns,
+          leftLayout,
           input.taskNames,
           input.memberCatalog,
           input.statuses,

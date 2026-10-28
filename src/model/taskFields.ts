@@ -370,6 +370,17 @@ export function fieldValueDisplayString(
   return String(value);
 }
 
+export function formatFieldValueForExcel(
+  def: ScheduleFieldDef,
+  value: string | number | undefined,
+): string {
+  if (value === undefined) return "";
+  if (def.type === "number" && def.percent === true) {
+    return `${value}%`;
+  }
+  return String(value);
+}
+
 export type FieldValidationIssue = {
   path: string;
   message: string;

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatBaselineDiffsText } from "./baselineDiffs";
+import {
+  buildNonConflictingMergedDocument,
+  collectBaselineClassificationLines,
+  formatBaselineDiffsText,
+} from "./baselineDiffs";
 import type { Category, ScheduleDocument, ScheduleFieldDef, Task } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
@@ -241,5 +245,48 @@ describe("formatBaselineDiffsText", () => {
     expect(text).toContain("画面のみ 追加 基本設計");
     expect(text).toContain("ファイルのみ 追加 詳細設計");
     expect(text).toContain("異なる 並び タスク 設計 / 上流");
+  });
+
+  it("classifies same key with number on screen and string on file as 異なる", () => {
+    const baseline = doc(
+      design([task({ id: TASK_A, name: "基本設計", fieldValues: { demo_score: 1 } })]),
+    );
+    const screen = baseline;
+    const file = doc(
+      design([
+        task({ id: TASK_A, name: "基本設計", fieldValues: { demo_score: "1" } }),
+      ]),
+    );
+    const lines = collectBaselineClassificationLines(baseline, screen, file);
+    expect(lines.some((line) => line.label === "異なる")).toBe(true);
+    expect(lines.some((line) => line.label === "ファイルのみ")).toBe(false);
+    expect(buildNonConflictingMergedDocument(baseline, screen, file)).toBeNull();
+  });
+
+  it("keeps unchanged field values when merging a file-only field change", () => {
+    const baseline = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          fieldValues: { demo_score: 1, demo_memo: "keep" },
+        }),
+      ]),
+    );
+    const screen = baseline;
+    const file = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          fieldValues: { demo_score: 2, demo_memo: "keep" },
+        }),
+      ]),
+    );
+    const merged = buildNonConflictingMergedDocument(baseline, screen, file);
+    expect(merged).not.toBeNull();
+    const mergedTask = merged!.categories[0]!.groups[0]!.tasks[0]!;
+    expect(mergedTask.fieldValues).toEqual({ demo_score: 2, demo_memo: "keep" });
+    expect(mergedTask.fieldValues).not.toBe(file.categories[0]!.groups[0]!.tasks[0]!.fieldValues);
   });
 });

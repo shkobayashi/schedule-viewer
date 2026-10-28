@@ -11,6 +11,7 @@ import {
   headlineForDisplay,
 } from "../model/baselineMerge";
 import type {
+  BaselineMergeConflictItem,
   BaselineMergeReviewBlock,
   BaselineMergeReviewSection,
   BaselineMergeReviewView,
@@ -20,6 +21,7 @@ import { ModalDialog } from "./ModalDialog";
 export type ExternalReloadDialogProps = {
   assessment: BaselineMergeAssessment;
   review: BaselineMergeReviewView | null;
+  conflictReview: BaselineMergeConflictItem[] | null;
   hasOpenEditDialog: boolean;
   diskUpdatedAgain: boolean;
   onReload: () => void;
@@ -46,7 +48,7 @@ function buildSummary(
     if (conflictCount > 0) {
       text = `同じ箇所の変更が${conflictCount}件あります。この画面では一つにまとめません。Cursor または Claude のチャットで、baseline_diffs を読んでまとめるよう頼んでください。`;
       if (assessment.nonConflictCount > 0) {
-        text += `ぶつかっていない変更は${assessment.nonConflictCount}件あります。頼んだチャットが、起点から書きます。`;
+        text += `ぶつかっていない変更は${assessment.nonConflictCount}件あります。頼んだチャットが、起点から画面の未保存へ書きます。`;
       }
     } else {
       text = "この画面では変更を画面へ反映できません。";
@@ -241,6 +243,7 @@ function ReviewSection({ section }: { section: BaselineMergeReviewSection }) {
 export function ExternalReloadDialog({
   assessment,
   review,
+  conflictReview,
   hasOpenEditDialog,
   diskUpdatedAgain,
   onReload,
@@ -350,9 +353,29 @@ export function ExternalReloadDialog({
           tabIndex={-1}
         >
           <ul className="external-reload-conflicts">
-            {assessment.conflictLines.map((line) => (
-              <li key={`${line.label}-${line.headline}`} title={line.headline}>
-                {line.label} {headlineForDisplay(line.headline)}
+            {(conflictReview ?? assessment.conflictLines.map((line) => ({
+              visibleHeadline: `${line.label} ${headlineForDisplay(line.headline)}`,
+              accessibleHeadline: `${line.label} ${line.headline}`,
+              fields: [],
+            }))).map((item) => (
+              <li
+                key={item.accessibleHeadline}
+                title={item.accessibleHeadline}
+                className="external-reload-block"
+              >
+                <div className="external-reload-block-headline">
+                  {item.visibleHeadline}
+                </div>
+                {item.fields.length > 0 ? (
+                  <ul className="external-reload-detail-body">
+                    {item.fields.map((field) => (
+                      <li key={field.label} className="external-reload-field">
+                        <span>{field.label}</span>
+                        <span title={field.title}>{field.visible}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             ))}
           </ul>

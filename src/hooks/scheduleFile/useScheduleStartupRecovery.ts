@@ -136,7 +136,10 @@ export function useScheduleStartupRecovery({
           recoveryStartupRef.current !== startupId ||
           filePathRef.current != null ||
           isDirtyRef.current,
-        accept: () => acceptOpenedScheduleViaTauri(session.path, session.diskContents),
+        accept: () =>
+          acceptOpenedScheduleViaTauri(session.path, session.diskContents, {
+            preserveWorkspaceBinding: true,
+          }),
         apply: () => {
           replaceDocument(session.document);
           filePathRef.current = session.path;
@@ -442,7 +445,9 @@ export function useScheduleStartupRecovery({
     void (async () => {
       try {
         await clearRecoveryDraft();
-        await acceptOpenedScheduleViaTauri(payload.path, diskContents);
+        await acceptOpenedScheduleViaTauri(payload.path, diskContents, {
+          preserveWorkspaceBinding: true,
+        });
         void applyOpenedFile({
           path: payload.path,
           contents: diskContents,

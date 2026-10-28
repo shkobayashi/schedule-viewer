@@ -96,6 +96,12 @@ import {
   fieldExtensionExportTooLargeMessage,
 } from "./model/workspaceFieldExtensionExport";
 import { safeScheduleJsonFilename } from "./model/scheduleFile";
+import {
+  REPLACE_SCHEDULE_APPLIED_BASELINE_SAME_TOAST,
+  REPLACE_SCHEDULE_APPLIED_TOAST,
+  assessMcpReplaceUiBlocking,
+  type ReplaceScheduleDocumentResult,
+} from "./model/replaceSchedule";
 import { memberMapFromList } from "./model/assigneeDisplay";
 import {
   catalogMismatchBannerText,
@@ -188,7 +194,11 @@ import {
   type ScheduleExportFormat,
 } from "./model/exportHtml";
 import { exportScheduleExcel } from "./model/exportExcel";
-import { DEFAULT_EXCEL_EXPORT_COLUMNS } from "./model/excelExportColumns";
+import {
+  DEFAULT_EXCEL_EXPORT_COLUMNS,
+  readExcelExportFieldColumns,
+  type ExcelExportFieldColumnsPreference,
+} from "./model/excelExportColumns";
 import {
   describeActiveFilters,
   exportTimelineRange,
@@ -1356,24 +1366,34 @@ function App() {
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
 
+  const completeReplaceDuringConflictReloadRef = useRef(
+    scheduleFile.completeReplaceDuringConflictReload,
+  );
+  completeReplaceDuringConflictReloadRef.current =
+    scheduleFile.completeReplaceDuringConflictReload;
+
   const mcpReplaceUiBlocking = useCallback(() => {
-    if (scheduleFile.fileBusy) return true;
-    if (titleEditing) return true;
-    if (detailPanelEditing) return true;
-    if (
-      schedule.editingNoteTask != null ||
-      schedule.editingMilestone != null ||
-      schedule.editingHierarchyTarget != null ||
-      schedule.addingHierarchyTarget != null ||
-      schedule.outlineHeadingAddOpen ||
-      schedule.deletingHierarchyTarget != null
-    ) {
-      return true;
-    }
-    if (schedule.reorderPreview != null) return true;
-    if (sidebarReorderDragging) return true;
-    if (document.querySelector('[role="dialog"]') != null) return true;
-    return false;
+    const assessment = scheduleFile.externalReloadAssessment;
+    const externalReloadConflictDialogOpen =
+      scheduleFile.externalReloadOpen &&
+      assessment?.kind === "blocked" &&
+      assessment.conflictLines.length > 0;
+    return assessMcpReplaceUiBlocking({
+      fileBusy: scheduleFile.fileBusy,
+      titleEditing,
+      detailPanelEditing,
+      scheduleInlineEditing:
+        schedule.editingNoteTask != null ||
+        schedule.editingMilestone != null ||
+        schedule.editingHierarchyTarget != null ||
+        schedule.addingHierarchyTarget != null ||
+        schedule.outlineHeadingAddOpen ||
+        schedule.deletingHierarchyTarget != null,
+      reorderDragging: schedule.reorderPreview != null,
+      sidebarReorderDragging,
+      modalDialogOpen: document.querySelector('[role="dialog"]') != null,
+      externalReloadConflictDialogOpen,
+    });
   }, [
     detailPanelEditing,
     titleEditing,
@@ -1384,9 +1404,43 @@ function App() {
     schedule.editingMilestone,
     schedule.editingNoteTask,
     schedule.reorderPreview,
+    scheduleFile.externalReloadAssessment,
+    scheduleFile.externalReloadOpen,
     scheduleFile.fileBusy,
     sidebarReorderDragging,
   ]);
+
+  const onReplaceScheduleApplied = useCallback(
+    (result: ReplaceScheduleDocumentResult) => {
+      if (result.outcome !== "applied") return;
+      const assessment = scheduleFile.externalReloadAssessment;
+      const conflictOpen =
+        scheduleFile.externalReloadOpen &&
+        assessment?.kind === "blocked" &&
+        assessment.conflictLines.length > 0;
+      if (conflictOpen) {
+        completeReplaceDuringConflictReloadRef.current({
+          before: result.before,
+          after: result.after,
+        });
+        const sameAsBaseline = result.screenJson === scheduleFile.baselineJson;
+        setToastMessage(
+          sameAsBaseline
+            ? REPLACE_SCHEDULE_APPLIED_BASELINE_SAME_TOAST
+            : REPLACE_SCHEDULE_APPLIED_TOAST,
+        );
+        window.setTimeout(() => setToastMessage(null), 4000);
+        return;
+      }
+      showReplaceScreenToast();
+    },
+    [
+      scheduleFile.baselineJson,
+      scheduleFile.externalReloadAssessment,
+      scheduleFile.externalReloadOpen,
+      showReplaceScreenToast,
+    ],
+  );
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
@@ -1920,6 +1974,7 @@ function App() {
     (
       format: ScheduleExportFormat,
       excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
+      excelFieldColumns?: ExcelExportFieldColumnsPreference,
     ) => {
       flushTitleEdit();
       const milestones = milestonesForExport(
@@ -2040,6 +2095,10 @@ function App() {
           taskNames,
           exportedAtIso: new Date().toISOString(),
           excelColumns: excelColumns ?? DEFAULT_EXCEL_EXPORT_COLUMNS,
+          fieldDefs: editableFieldDefs,
+          excelFieldColumns:
+            excelFieldColumns ??
+            readExcelExportFieldColumns(editableFieldDefs),
         }).catch(onExportError);
         return;
       }
@@ -2066,6 +2125,7 @@ function App() {
       flushTitleEdit,
       getDocumentTitle,
       showLightningLine,
+      editableFieldDefs,
     ],
   );
 
@@ -2118,7 +2178,7 @@ function App() {
     mcpReplaceUiBlocking,
     replaceScheduleDocument: (document) =>
       replaceScheduleDocumentRef.current(document),
-    onReplaceScheduleApplied: showReplaceScreenToast,
+    onReplaceScheduleApplied,
   });
 
   const announceDiffStrip = useCallback((kind: DiffStripContentKind, text: string) => {
@@ -4223,6 +4283,7 @@ function App() {
         <ExternalReloadDialog
           assessment={scheduleFile.externalReloadAssessment}
           review={scheduleFile.externalReloadReview}
+          conflictReview={scheduleFile.externalReloadConflictReview}
           hasOpenEditDialog={
             titleEditing ||
             detailPanelEditing ||
@@ -4259,10 +4320,11 @@ function App() {
       ) : null}
       {exportOpen ? (
         <ExportFormatDialog
+          fieldDefs={editableFieldDefs}
           onCancel={() => setExportOpen(false)}
-          onExport={(format, excelColumns) => {
+          onExport={(format, excelColumns, excelFieldColumns) => {
             setExportOpen(false);
-            void runScheduleExport(format, excelColumns);
+            void runScheduleExport(format, excelColumns, excelFieldColumns);
           }}
         />
       ) : null}

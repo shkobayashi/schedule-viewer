@@ -6,11 +6,13 @@ import {
   type BaselineMergeDeferredTracking,
 } from "../../model/baselineMergeDeferred";
 import type { DocumentSnapshot } from "../../model/history";
-import type { ScheduleDocument } from "../../model/types";
+import type { ScheduleDocument, ScheduleFieldDef } from "../../model/types";
 import type { BaselineMergeAssessment } from "../../model/baselineMerge";
 import { assessBaselineMerge } from "../../model/baselineMerge";
 import {
+  buildBaselineMergeConflictReview,
   buildBaselineMergeReview,
+  type BaselineMergeConflictItem,
   type BaselineMergeReviewView,
 } from "../../model/baselineMergeReview";
 import { decideExternalReload } from "../../model/scheduleExternalReload";
@@ -59,6 +61,7 @@ type UseScheduleExternalReloadOptions = {
   clearRecoveryDraft: () => Promise<void>;
   requestMissingFileOpenRef: { current: () => void };
   notifyPeersRef?: { current: (status: "applied" | "pending" | "cleared") => void };
+  scheduleFieldDefs?: readonly ScheduleFieldDef[];
 };
 
 export function useScheduleExternalReload({
@@ -77,6 +80,7 @@ export function useScheduleExternalReload({
   clearRecoveryDraft,
   requestMissingFileOpenRef,
   notifyPeersRef,
+  scheduleFieldDefs = [],
 }: UseScheduleExternalReloadOptions) {
   const [externalReloadOpen, setExternalReloadOpen] = useState(false);
   const [pendingExternalContents, setPendingExternalContents] = useState<
@@ -502,8 +506,38 @@ export function useScheduleExternalReload({
       parsed.screen,
       parsed.file,
       assessment.lines,
+      scheduleFieldDefs,
     );
-  }, [buildExternalReloadAssessment, getExternalReloadDocuments]);
+  }, [
+    buildExternalReloadAssessment,
+    getExternalReloadDocuments,
+    scheduleFieldDefs,
+  ]);
+
+  const buildExternalReloadConflictReview = useCallback(():
+    | BaselineMergeConflictItem[]
+    | null => {
+    const assessment = buildExternalReloadAssessment();
+    const parsed = getExternalReloadDocuments();
+    if (
+      !assessment ||
+      assessment.kind !== "blocked" ||
+      !parsed?.ok ||
+      assessment.conflictLines.length === 0
+    ) {
+      return null;
+    }
+    return buildBaselineMergeConflictReview(
+      parsed.screen,
+      parsed.file,
+      assessment.conflictLines,
+      scheduleFieldDefs,
+    );
+  }, [
+    buildExternalReloadAssessment,
+    getExternalReloadDocuments,
+    scheduleFieldDefs,
+  ]);
 
   const onHistoryUndoApplied = useCallback(
     (landed: DocumentSnapshot) => {
@@ -528,6 +562,32 @@ export function useScheduleExternalReload({
     setDeferredExternalContents(null);
   }, []);
 
+  const completeReplaceDuringConflictReload = useCallback(
+    (merged: { before: DocumentSnapshot; after: DocumentSnapshot }) => {
+      const diskContents = pendingExternalContents ?? deferredExternalContents;
+      if (!diskContents) return;
+      mergeDeferredTrackingRef.current = createBaselineMergeDeferredTracking(
+        merged.before,
+        merged.after,
+        diskContents,
+      );
+      setDeferredExternalContents(null);
+      setPendingExternalContents(null);
+      setExternalReloadOpen(false);
+      setDiskUpdatedAgain(false);
+      lastInvalidDiskHashRef.current = null;
+      suppressedDiskRef.current = null;
+      notifyPeersRef?.current("cleared");
+      void acknowledgeDisk(diskContents);
+    },
+    [
+      acknowledgeDisk,
+      deferredExternalContents,
+      notifyPeersRef,
+      pendingExternalContents,
+    ],
+  );
+
   return {
     reloadNotice,
     mergeNotice,
@@ -545,7 +605,9 @@ export function useScheduleExternalReload({
     confirmBaselineMerge,
     buildExternalReloadAssessment,
     buildExternalReloadReview,
+    buildExternalReloadConflictReview,
     onHistoryUndoApplied,
     onHistoryRedoApplied,
+    completeReplaceDuringConflictReload,
   };
 }

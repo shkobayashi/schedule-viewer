@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import levels2 from "../../examples/hierarchy/levels-2.schedule.json";
 import { assessBaselineMerge } from "./baselineMerge";
-import { formatBaselineDiffsText } from "./baselineDiffs";
+import {
+  buildNonConflictingMergedDocument,
+  collectBaselineClassificationLines,
+  formatBaselineDiffsText,
+} from "./baselineDiffs";
 import { formatScheduleDocumentDiffBody } from "./scheduleDiff";
 import type { ScheduleDocument, Task } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
@@ -127,5 +131,21 @@ describe("outline baseline merge", () => {
     expect(result.kind).toBe("blocked");
     const text = formatBaselineDiffsText(baseline, screen, file, "plan.json");
     expect(text).toContain("階層の入れ子が画面とファイルで違う");
+  });
+
+  it("classifies same key with number on screen and string on file as 異なる", () => {
+    const baseline = outlineDoc(undefined, undefined, (task) => ({
+      ...task,
+      fieldValues: { demo_score: 1 },
+    }));
+    const screen = baseline;
+    const file = outlineDoc(undefined, undefined, (task) => ({
+      ...task,
+      fieldValues: { demo_score: "1" },
+    }));
+    const lines = collectBaselineClassificationLines(baseline, screen, file);
+    expect(lines.some((line) => line.label === "異なる")).toBe(true);
+    expect(lines.some((line) => line.label === "ファイルのみ")).toBe(false);
+    expect(buildNonConflictingMergedDocument(baseline, screen, file)).toBeNull();
   });
 });

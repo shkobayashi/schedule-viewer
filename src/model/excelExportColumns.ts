@@ -1,3 +1,5 @@
+import type { ScheduleFieldDef } from "./types";
+
 export type ExcelExportColumnId =
   | "assignee"
   | "start"
@@ -13,8 +15,13 @@ export type ExcelExportColumnsPreference = Record<
   boolean
 >;
 
+export type ExcelExportFieldColumnsPreference = Record<string, boolean>;
+
 export const EXCEL_EXPORT_COLUMNS_LS_KEY =
   "schedule-viewer/excel-export-columns";
+
+export const EXCEL_EXPORT_FIELD_COLUMNS_LS_KEY =
+  "schedule-viewer/excel-export-field-columns";
 
 export const EXCEL_EXPORT_COLUMN_LABELS: Record<ExcelExportColumnId, string> =
   {
@@ -88,40 +95,148 @@ export function writeExcelExportColumns(
   }
 }
 
-export function excelLeftHeaders(
-  columns: ExcelExportColumnsPreference,
-): string[] {
+function defaultExcelExportFieldColumns(
+  fieldKeys: readonly string[],
+): ExcelExportFieldColumnsPreference {
+  const next: ExcelExportFieldColumnsPreference = {};
+  for (const key of fieldKeys) {
+    next[key] = false;
+  }
+  return next;
+}
+
+function parseExcelExportFieldColumns(
+  raw: string | null,
+  fieldKeys: readonly string[],
+): ExcelExportFieldColumnsPreference {
+  const next = defaultExcelExportFieldColumns(fieldKeys);
+  if (!raw) return next;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    for (const key of fieldKeys) {
+      if (typeof parsed[key] === "boolean") {
+        next[key] = parsed[key] as boolean;
+      }
+    }
+    return next;
+  } catch {
+    return next;
+  }
+}
+
+export function readExcelExportFieldColumns(
+  fieldDefs: readonly Pick<ScheduleFieldDef, "key">[],
+): ExcelExportFieldColumnsPreference {
+  const keys = fieldDefs.map((field) => field.key);
+  try {
+    return parseExcelExportFieldColumns(
+      localStorage.getItem(EXCEL_EXPORT_FIELD_COLUMNS_LS_KEY),
+      keys,
+    );
+  } catch {
+    return defaultExcelExportFieldColumns(keys);
+  }
+}
+
+export function writeExcelExportFieldColumns(
+  value: ExcelExportFieldColumnsPreference,
+): void {
+  try {
+    localStorage.setItem(
+      EXCEL_EXPORT_FIELD_COLUMNS_LS_KEY,
+      JSON.stringify(value),
+    );
+  } catch {
+    // ignore
+  }
+}
+
+export function excelFieldHeaderLabel(
+  field: { key: string; name: string },
+  duplicateNames: ReadonlySet<string>,
+): string {
+  if (duplicateNames.has(field.name)) {
+    return `${field.name} (${field.key})`;
+  }
+  return field.name;
+}
+
+export function excelDuplicateFieldNames(
+  fieldDefs: readonly { key: string; name: string }[],
+  excelFieldColumns: ExcelExportFieldColumnsPreference,
+): Set<string> {
+  const counts = new Map<string, number>();
+  for (const field of fieldDefs) {
+    if (!excelFieldColumns[field.key]) continue;
+    counts.set(field.name, (counts.get(field.name) ?? 0) + 1);
+  }
+  const duplicates = new Set<string>();
+  for (const [name, count] of counts) {
+    if (count > 1) duplicates.add(name);
+  }
+  return duplicates;
+}
+
+export type ExcelLeftColumnLayoutInput = {
+  excelColumns: ExcelExportColumnsPreference;
+  fieldDefs: readonly ScheduleFieldDef[];
+  excelFieldColumns: ExcelExportFieldColumnsPreference;
+};
+
+export function excelLeftHeaders(input: ExcelLeftColumnLayoutInput): string[] {
+  const duplicateNames = excelDuplicateFieldNames(
+    input.fieldDefs,
+    input.excelFieldColumns,
+  );
   const headers = ["名前"];
   for (const id of EXCEL_EXPORT_COLUMN_ORDER) {
-    if (columns[id]) {
+    if (id === "note") continue;
+    if (input.excelColumns[id]) {
       headers.push(EXCEL_EXPORT_COLUMN_LABELS[id]);
     }
+  }
+  for (const field of input.fieldDefs) {
+    if (input.excelFieldColumns[field.key]) {
+      headers.push(excelFieldHeaderLabel(field, duplicateNames));
+    }
+  }
+  if (input.excelColumns.note) {
+    headers.push(EXCEL_EXPORT_COLUMN_LABELS.note);
   }
   return headers;
 }
 
+export function excelLeftColumnCount(input: ExcelLeftColumnLayoutInput): number {
+  return excelLeftHeaders(input).length;
+}
+
 export function excelNoteColumnIndex(
-  columns: ExcelExportColumnsPreference,
+  input: ExcelLeftColumnLayoutInput,
 ): number | null {
+  if (!input.excelColumns.note) return null;
   let index = 0;
   for (const id of EXCEL_EXPORT_COLUMN_ORDER) {
-    if (columns[id]) {
-      index += 1;
-      if (id === "note") return index;
-    }
+    if (id === "note") break;
+    if (input.excelColumns[id]) index += 1;
   }
-  return null;
+  for (const field of input.fieldDefs) {
+    if (input.excelFieldColumns[field.key]) index += 1;
+  }
+  index += 1;
+  return index;
 }
 
 export function excelTodosColumnIndex(
-  columns: ExcelExportColumnsPreference,
+  input: ExcelLeftColumnLayoutInput,
 ): number | null {
+  if (!input.excelColumns.todos) return null;
   let index = 0;
   for (const id of EXCEL_EXPORT_COLUMN_ORDER) {
-    if (columns[id]) {
+    if (id === "note") break;
+    if (input.excelColumns[id]) {
       index += 1;
       if (id === "todos") return index;
     }
   }
-  return null;
+  return index;
 }

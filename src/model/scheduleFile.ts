@@ -104,8 +104,13 @@ export async function openScheduleViaTauri(
 export async function acceptOpenedScheduleViaTauri(
   path: string,
   contents: string,
+  options?: { preserveWorkspaceBinding?: boolean },
 ): Promise<void> {
-  await invoke("accept_opened_schedule", { path, contents });
+  await invoke("accept_opened_schedule", {
+    path,
+    contents,
+    preserveWorkspaceBinding: options?.preserveWorkspaceBinding ?? false,
+  });
 }
 
 export const DISK_HASH_MISMATCH = "DISK_HASH_MISMATCH";

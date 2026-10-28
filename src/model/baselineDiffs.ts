@@ -6,7 +6,10 @@ import {
 } from "./baselineDiffsOutline";
 import { documentUsesOutlineStorage } from "./hierarchy";
 import { normalizeTaskNote } from "./taskNote";
-import { fieldValuesEqualForDiff } from "./fieldValuesDiff";
+import {
+  fieldValuesEqualForDiff,
+  upgradeTaskDiffClassification,
+} from "./fieldValuesDiff";
 import { taskTagsEqualForDiff } from "./taskTags";
 import { taskTodosEqualForDiff } from "./taskTodos";
 import {
@@ -242,7 +245,7 @@ function buildClassificationLines(
     const inB = baselineTasks.has(taskId);
     const inS = screenTasks.has(taskId);
     const inF = fileTasks.has(taskId);
-    const label = classifyPresence(
+    let label = classifyPresence(
       inB,
       inS,
       inF,
@@ -255,6 +258,11 @@ function buildClassificationLines(
       inS && inF
         ? taskPlaceEquals(screenTasks.get(taskId)!, fileTasks.get(taskId)!)
         : true,
+    );
+    label = upgradeTaskDiffClassification(
+      label,
+      inS ? screenTasks.get(taskId)?.task : undefined,
+      inF ? fileTasks.get(taskId)?.task : undefined,
     );
     if (!label) continue;
     const headline = taskHeadline(
@@ -812,6 +820,7 @@ function cloneTask(task: Task): Task {
     ...task,
     predecessors: [...task.predecessors],
     tags: task.tags ? [...task.tags] : undefined,
+    fieldValues: task.fieldValues ? { ...task.fieldValues } : undefined,
   };
 }
 

@@ -381,4 +381,22 @@ describe("schedule export documents", () => {
     expect(svg).toContain(`fill="${chart.groupRow}"`);
     expect(svg).toContain(`fill="${css.bg}"`);
   });
+
+  it("omits fieldValues from HTML and SVG export", () => {
+    const marker = "追加項目の値は書き出さない";
+    const taskWithFields: Task = {
+      ...task,
+      fieldValues: { demo_score: 42, demo_memo: marker },
+    };
+    const exp = {
+      ...input(),
+      visibleRows: [{ type: "task" as const, task: taskWithFields, y: 0 }],
+    };
+    const html = buildScheduleHtml(exp);
+    const svg = buildScheduleSvg(exp);
+    expect(html).not.toContain(marker);
+    expect(html).not.toContain("demo_score");
+    expect(svg).not.toContain(marker);
+    expect(svg).not.toContain("demo_score");
+  });
 });

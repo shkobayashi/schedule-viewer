@@ -76,7 +76,7 @@ type UseMcpScreenBridgeInput = {
   replaceScheduleDocument: (
     document: ScheduleDocument,
   ) => ReplaceScheduleDocumentResult;
-  onReplaceScheduleApplied?: () => void;
+  onReplaceScheduleApplied?: (result: ReplaceScheduleDocumentResult) => void;
 };
 
 export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
@@ -145,7 +145,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         return;
       }
       if (replaceResult.outcome === "applied") {
-        snap.onReplaceScheduleApplied?.();
+        snap.onReplaceScheduleApplied?.(replaceResult);
       }
       const diff = await loadScheduleDiffText(
         snap.scheduleFilePath,

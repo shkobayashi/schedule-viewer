@@ -253,6 +253,11 @@ export function useScheduleFile({
     clearExternalReloadPromptRef,
     clearInvalidDiskHashRef,
     extraFieldDefs,
+    onScheduleSavePathChanged: (previousPath, newPath) => {
+      if (previousPath !== newPath) {
+        onWorkspaceBindingChange?.(null);
+      }
+    },
   });
   const externalChangeOpenRef = useRef(externalChangeOpen);
   externalChangeOpenRef.current = externalChangeOpen;
@@ -288,8 +293,10 @@ export function useScheduleFile({
     confirmBaselineMerge,
     buildExternalReloadAssessment,
     buildExternalReloadReview,
+    buildExternalReloadConflictReview,
     onHistoryUndoApplied,
     onHistoryRedoApplied,
+    completeReplaceDuringConflictReload,
   } = useScheduleExternalReload({
     filePath,
     reloadDocumentFromDisk,
@@ -306,6 +313,7 @@ export function useScheduleFile({
     clearRecoveryDraft,
     requestMissingFileOpenRef,
     notifyPeersRef,
+    scheduleFieldDefs: extraFieldDefs,
   });
 
   const externalReloadAssessment = externalReloadOpen
@@ -313,6 +321,9 @@ export function useScheduleFile({
     : null;
   const externalReloadReview = externalReloadOpen
     ? buildExternalReloadReview()
+    : null;
+  const externalReloadConflictReview = externalReloadOpen
+    ? buildExternalReloadConflictReview()
     : null;
   clearExternalReloadPromptRef.current = clearExternalReloadPrompt;
   clearInvalidDiskHashRef.current = clearInvalidDiskHash;
@@ -1177,6 +1188,7 @@ export function useScheduleFile({
     diskUpdatedAgain,
     externalReloadAssessment,
     externalReloadReview,
+    externalReloadConflictReview,
     showDeferredReload,
     isDirty,
     fileBusy,
@@ -1218,6 +1230,7 @@ export function useScheduleFile({
     confirmBaselineMerge,
     onHistoryUndoApplied,
     onHistoryRedoApplied,
+    completeReplaceDuringConflictReload,
     dismissError,
     showError,
     handleWorkspaceBindingReload,

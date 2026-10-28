@@ -14,7 +14,7 @@ export const BASELINE_MERGE_LLM_PROMPT = `schedule-viewer の MCP または read
 分類が異なる、削除と変更、追加と削除の箇所は、起点のまま残して、どれを採るか聞いてください。
 先行は和集合にしないでください。
 日付と担当は、差分に無い値を作らないでください。
-ファイルへ保存するのは、聞いたあとにしてください。`;
+聞いたあと、write-schedule の出力形に従ってスケジュール全体を組み立て、replace_schedule で前面の未保存を置き換えてください。ファイルは書きません。置き換えたあと、内容を確認して問題なければ保存するよう利用者に促してください。`;
 
 export type BaselineMergeCounts = {
   screenOnly: number;

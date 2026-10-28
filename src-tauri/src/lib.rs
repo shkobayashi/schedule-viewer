@@ -54,7 +54,8 @@ use window_session::{
     recovery_owners_by_path, remove_window_label,
     should_remove_open_window_label_after_destroy, set_focused_label, sha256_hex,
     spawn_startup_windows, store_pending_open, take_pending_open, upsert_window_path,
-    write_filter_for_path, write_recovery_for_path,
+    workspace_path_for_schedule_record, write_filter_for_path, write_recovery_for_path,
+    entry_for_label,
     WindowSessionState,
     OpenWindowEntry, WindowStartupRead,
 };
@@ -275,19 +276,28 @@ pub(crate) fn require_active_save_path(
     Ok(active.to_path_buf())
 }
 
-fn record_open(
+fn record_schedule_open(
     app: &tauri::AppHandle,
     states: &Mutex<ScheduleFileStates>,
     label: &str,
     path: PathBuf,
     contents: &str,
+    preserve_workspace_binding: bool,
 ) -> Result<(), String> {
     let app_data = app_data_dir(app)?;
+    let path_text = path.to_string_lossy();
+    let file = read_open_windows(&app_data)?;
+    let existing = entry_for_label(&file, label);
+    let workspace_path = workspace_path_for_schedule_record(
+        existing,
+        path_text.as_ref(),
+        preserve_workspace_binding,
+    );
     upsert_window_path(
         &app_data,
         label,
-        Some(path.to_string_lossy().as_ref()),
-        None,
+        Some(path_text.as_ref()),
+        workspace_path.as_deref(),
         false,
     )?;
     let mut guard = states.lock().expect("schedule file states");
@@ -334,16 +344,18 @@ fn accept_opened_schedule(
     state: State<'_, Mutex<ScheduleFileStates>>,
     path: String,
     contents: String,
+    preserve_workspace_binding: Option<bool>,
 ) -> Result<(), String> {
     if contents.len() as u64 > MAX_SCHEDULE_BYTES {
         return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
     }
-    record_open(
+    record_schedule_open(
         &app,
         state.inner(),
         &window_label(&window),
         PathBuf::from(path),
         &contents,
+        preserve_workspace_binding.unwrap_or(false),
     )
 }
 
@@ -633,12 +645,13 @@ async fn save_schedule_file(
     }
 
     write_utf8_atomic(&target, &contents)?;
-    record_open(
+    record_schedule_open(
         window.app_handle(),
         state.inner(),
         &window_label(&window),
         target.clone(),
         &contents,
+        true,
     )?;
     Ok(Some(target.to_string_lossy().into_owned()))
 }

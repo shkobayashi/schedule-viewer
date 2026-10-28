@@ -35,6 +35,49 @@ function valueAt(values: TaskFieldValues | undefined, key: string): string | num
   return values[key];
 }
 
+const BASELINE_CONFLICT_LABELS = new Set([
+  "異なる",
+  "削除と変更",
+  "追加と削除",
+]);
+
+export function upgradeTaskDiffClassification<L extends string | null>(
+  label: L,
+  screenTask: Task | undefined,
+  fileTask: Task | undefined,
+): L | "異なる" {
+  if (
+    label == null ||
+    (typeof label === "string" && BASELINE_CONFLICT_LABELS.has(label))
+  ) {
+    return label;
+  }
+  if (!screenTask || !fileTask) {
+    return label;
+  }
+  if (fieldValuesHaveStorageTypeConflict(screenTask, fileTask)) {
+    return "異なる";
+  }
+  return label;
+}
+
+export function fieldValuesHaveStorageTypeConflict(a: Task, b: Task): boolean {
+  const keys = new Set<string>();
+  if (a.fieldValues) {
+    for (const key of Object.keys(a.fieldValues)) keys.add(key);
+  }
+  if (b.fieldValues) {
+    for (const key of Object.keys(b.fieldValues)) keys.add(key);
+  }
+  for (const key of keys) {
+    const left = a.fieldValues?.[key];
+    const right = b.fieldValues?.[key];
+    if (left === undefined || right === undefined) continue;
+    if (typeof left !== typeof right) return true;
+  }
+  return false;
+}
+
 export function fieldValuesEqualForDiff(a: Task, b: Task): boolean {
   const keys = orderedFieldValueKeysForDiff(undefined, a.fieldValues, b.fieldValues);
   for (const key of keys) {

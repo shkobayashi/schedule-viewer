@@ -4188,6 +4188,15 @@ button:focus-visible,
   font-size: 13px;
 }
 
+.export-format-field-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(240px, 40vh);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .form-error {
   margin: 0;
   font-size: 12px;

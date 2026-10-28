@@ -382,6 +382,25 @@ pub fn entry_for_label<'a>(file: &'a OpenWindowsFile, label: &str) -> Option<&'a
     file.windows.iter().find(|entry| entry.label == label)
 }
 
+/// スケジュールのパスを記録し直すときの設定ファイルのパス。
+/// 直接開いたときは常に外す。同じスケジュールパスなら既存の束縛を残す。
+pub fn workspace_path_for_schedule_record(
+    existing: Option<&OpenWindowEntry>,
+    new_schedule_path: &str,
+    preserve_workspace_binding: bool,
+) -> Option<String> {
+    if !preserve_workspace_binding {
+        return None;
+    }
+    let entry = existing?;
+    let workspace = entry.workspace_path.as_ref()?;
+    if entry.path.as_deref() == Some(new_schedule_path) {
+        Some(workspace.clone())
+    } else {
+        None
+    }
+}
+
 pub fn upsert_window_path(
     app_data: &Path,
     label: &str,
@@ -865,6 +884,76 @@ mod tests {
             filter_path_for(&app_data, schedule).file_name(),
             recovery_path_for(&app_data, schedule).file_name(),
         );
+    }
+
+    #[test]
+    fn workspace_path_for_schedule_record_preserves_on_same_path() {
+        let entry = OpenWindowEntry {
+            label: "main".to_string(),
+            path: Some("/tmp/plan.json".to_string()),
+            workspace_path: Some("/tmp/workspace.json".to_string()),
+            sample: false,
+        };
+        assert_eq!(
+            workspace_path_for_schedule_record(Some(&entry), "/tmp/plan.json", true).as_deref(),
+            Some("/tmp/workspace.json"),
+        );
+    }
+
+    #[test]
+    fn workspace_path_for_schedule_record_clears_on_direct_open() {
+        let entry = OpenWindowEntry {
+            label: "main".to_string(),
+            path: Some("/tmp/plan.json".to_string()),
+            workspace_path: Some("/tmp/workspace.json".to_string()),
+            sample: false,
+        };
+        assert!(workspace_path_for_schedule_record(Some(&entry), "/tmp/plan.json", false).is_none());
+    }
+
+    #[test]
+    fn workspace_path_for_schedule_record_clears_on_different_path() {
+        let entry = OpenWindowEntry {
+            label: "main".to_string(),
+            path: Some("/tmp/plan.json".to_string()),
+            workspace_path: Some("/tmp/workspace.json".to_string()),
+            sample: false,
+        };
+        assert!(workspace_path_for_schedule_record(Some(&entry), "/tmp/other.json", true).is_none());
+    }
+
+    #[test]
+    fn upsert_schedule_record_preserves_workspace_path_in_file() {
+        let app_data = std::env::temp_dir().join("schedule-viewer-workspace-record-test");
+        let _ = fs::remove_dir_all(&app_data);
+        let file = OpenWindowsFile {
+            focused_label: "main".to_string(),
+            windows: vec![OpenWindowEntry {
+                label: "main".to_string(),
+                path: Some("/tmp/plan.json".to_string()),
+                workspace_path: Some("/tmp/workspace.json".to_string()),
+                sample: false,
+            }],
+        };
+        write_open_windows(&app_data, &file).expect("write");
+        let read = read_open_windows(&app_data).expect("read");
+        let existing = entry_for_label(&read, "main");
+        let workspace = workspace_path_for_schedule_record(existing, "/tmp/plan.json", true);
+        upsert_window_path(
+            &app_data,
+            "main",
+            Some("/tmp/plan.json"),
+            workspace.as_deref(),
+            false,
+        )
+        .expect("upsert");
+        let read = read_open_windows(&app_data).expect("read again");
+        let entry = entry_for_label(&read, "main").expect("entry");
+        assert_eq!(
+            entry.workspace_path.as_deref(),
+            Some("/tmp/workspace.json"),
+        );
+        let _ = fs::remove_dir_all(&app_data);
     }
 
     #[test]

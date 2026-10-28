@@ -162,7 +162,11 @@
 | 同上 | `matches legacy category group task indents for three-level outline headings` | EXPORT-05 |
 | `excelExportColumns.test.ts` | `uses default columns when storage is empty` | EXPORT-01, EXPORT-05 |
 | 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
-| `exportHtml.test.ts` | `puts the active filter into HTML and SVG` | EXPORT-01, EXPORT-02 |
+| 同上 | `defaults field columns to off`、`inserts enabled field columns before note`、`disambiguates duplicate names only among enabled field columns` | EXPORT-01, EXPORT-05 |
+| `exportExcel.test.ts` | `leaves field columns off by default`、`formats enabled field columns before note` | EXPORT-05 |
+| `baselineDiffs.test.ts` | `classifies same key with number on screen and string on file as 異なる`、`keeps unchanged field values when merging a file-only field change` | SYNC-01, FILE-07 |
+| `baselineMergeReview.test.ts` | `orders extension fields by definition in change blocks`、`orders extension fields by definition under conflict headlines` | SYNC-01, FILE-07 |
+| `exportHtml.test.ts` | `puts the active filter into HTML and SVG`、`omits fieldValues from HTML and SVG export` | EXPORT-01, EXPORT-02 |
 | 同上 | `escapes font-family in SVG attributes but not in HTML CSS` | EXPORT-01 |
 | 同上 | `omits overlapping month header labels in month export but keeps grid lines` | NAV-02, EXPORT-02 |
 | 同上 | `hatches tentative bars and labels them, and leaves committed bars solid` | VIEW-12, EXPORT-01 |
@@ -534,7 +538,7 @@
 | 同上 | `rejects a duplicate name in the same category` | EDIT-13 |
 | 同上 | `allows the same group name in another category` | EDIT-13 |
 | 同上 | `keeps the original name when the input is blank` | EDIT-13 |
-| `baselineDiffsOutline.test.ts` | `classifies file-only task end on outline storage`、`merges file-only task change into outline document`、`blocks when screen adds a level and file changes a task` | SYNC-01, EDIT-21 |
+| `baselineDiffsOutline.test.ts` | `classifies file-only task end on outline storage`、`merges file-only task change into outline document`、`blocks when screen adds a level and file changes a task`、`classifies same key with number on screen and string on file as 異なる` | SYNC-01, EDIT-21 |
 | 同上 | `classifies screen-only todos with diff body`、`classifies conflicting todos as 異なる and blocks merge`、`classifies matching todo changes as 同じ` | EDIT-22, FILE-07, SYNC-01, MCP-01 |
 | `baselineMergeReview.test.ts` | `buildBaselineMergeReview outline storage`（`shows todo fields for screen-only outline change`、`shows conflicting todo values in screen and file sections`） | EDIT-22, SYNC-01 |
 | `hierarchyLevelEdit.test.ts` | `keepsLegacyShapeWhenDefinitionUnchanged`、`acceptsAlignedIncomingWhenLevelCountDiffers`、`rejectsLegacyIncomingWhenScreenIsNotThreeLevels`、`rejectsMisalignedIncomingWhenLevelCountDiffers` | EDIT-21, FILE-02, MCP-01 |
@@ -762,6 +766,7 @@
 | `reply_from_other_window_keeps_pending` | 送り先と違うウィンドウの応答は pending を外さない | MCP-01, WIN-01 |
 | `dedupe_keeps_focused_path` | 同じパスが複数あるとき、前面のウィンドウの未保存を残す | SYNC-03, WIN-01 |
 | `pending_open_roundtrips_workspace_path`（`window_session.rs`） | 新しいウィンドウ用の pending が設定ファイルのパスを往復する | WIN-01, FILE-10 |
+| `workspace_path_for_schedule_record_*` と `upsert_schedule_record_preserves_workspace_path_in_file`（`window_session.rs`） | 同じスケジュールパスの記録し直しで `workspacePath` を残し、直接開きと別パスでは外す | FILE-10, SYNC-03 |
 | `recovery_owner_is_latest_focused_window_for_path` | 同じパスでは、最後に前面だったウィンドウが控えの書き手になる | SYNC-03, WIN-01 |
 | `recovery_owner_falls_back_to_first_window` | 前面の記録が無いときは、一覧の最初のウィンドウが書き手になる | SYNC-03 |
 | `recovery_owners_are_fixed_per_path` | 終了前の前面を、パスごとに控えの書き手として固定する | FILE-05, SYNC-03 |
@@ -916,7 +921,7 @@
 | TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 8 になる |
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 8 になる。タグを付けていないタスクに `tags` は無い |
 | TC-FILE-01h | FILE-01, NAV-03 | 期間の短いスケジュールを開き、一覧を下へ送ったあと、同じウィンドウで期間の長いスケジュールを開く。開始が前の原点より後ろのスケジュールも開く | 1日幅は新しい期間が幅に入る値になる。横位置は先頭。一覧は上端から見える。後ろの開始でも、前の原点の空き日の分だけバーが右へ寄らない |
-| TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある。任意で `statuses` を書く | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバー、ステータス一覧、カレンダーがファイル由来になる（`statuses` が無いときは組み込みの三件）。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとステータス一覧とカレンダーだけ読み直す。起動し直すと設定ファイルのまま戻る |
+| TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある。任意で `statuses` と `fieldExtensions` を書く | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバー、ステータス一覧、カレンダー、拡張項目がファイル由来になる（`statuses` が無いときは組み込みの三件）。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとステータス一覧とカレンダーだけ読み直す。保存して終了し、起動し直すと設定ファイルのまま戻り、拡張項目も設定ファイルの定義どおりである |
 | TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとステータス一覧とカレンダーと拡張項目を選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、組み込みの三件のときは `statuses` を書かない。選んだ拡張は `fieldExtensions` に選んだ順で並び、各 `プラグインID.fields.json` が同じフォルダにある。拡張を選んでいないときは `fieldExtensions` を書かず、知らせにその旨が出る。今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
 | TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューにスケジュールと設定ファイルを別グループで新しい順に並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
 | TC-FILE-09b | FILE-09 | 上記のあと6件目を開く。同名のファイル名を2つのフォルダから開く | 一覧の件数と親フォルダの付き方を見る | 5件を超えた古いものが消える。同じファイル名が2件以上のときだけ親フォルダ名が付く |
@@ -971,6 +976,7 @@
 | TC-SYNC-01e | SYNC-01 | 未保存と外部更新。画面とファイルが別タスクだけ変わる | 確認を開く | 「画面」と「ファイル」の節に分かれ、変わった項目が見える |
 | TC-SYNC-01e2 | SYNC-01 | TC-SYNC-01e のあと | 「両方を画面へ反映」→保存 | 両方の変更が画面に入り、保存後にファイルと一致する |
 | TC-SYNC-01f | SYNC-01 | 未保存と外部更新。同じタスクで画面とファイルがぶつかる | 確認を開く | 「依頼文をコピー」があり、「両方を画面へ反映」は無い |
+| TC-SYNC-01k | SYNC-01, MCP-01 | TC-SYNC-01f の確認を開いたまま | `replace_schedule` で検証済み JSON 全体を置き換える。同じ内容でもう一度呼ぶ。取り消しする | 1 回目は確認が閉じ、未保存になり、約 4 秒「画面に反映しました。内容を確認して、問題なければ保存してください。」が出る。ファイルは変わらない。「ファイルに更新あり — 確認する」は出ない。2 回目は未保存も履歴も変わらないが差分テキストは成功で返る。取り消しで「ファイルに更新あり — 確認する」が戻る |
 | TC-SYNC-01g | SYNC-01 | TC-SYNC-01e のあと取り消し | — | 「ファイルに更新あり — 確認する」が戻る |
 | TC-SYNC-01h | SYNC-01 | TC-SYNC-01e2 のあと、別の編集をして取り消し | — | 確認の帯は出ない |
 | TC-SYNC-01i | SYNC-01 | TC-SYNC-01g のあとやり直し | — | 確認の帯が消える |
@@ -1144,6 +1150,7 @@
 | TC-EDIT-14c | EDIT-14, FILTER-10 | 確定のタスクがあり、確度を「未確定」で絞っている | そのタスクを複製して追加する。次に確度を「確定」に絞り、確定のタスクを複製する | 未確定で絞っているときは「すべて」に戻り、複製が見える。確定で絞っているときは「確定」のまま、複製が見える |
 | TC-EDIT-22 | EDIT-22 | 進行中のタスクを1件選ぶ。親のグループ行に進捗が出ている | 詳細パネルで「TODOを追加」から TODO を2件足し、1件にチェックを付ける。既存 TODO の文を続けて打って確定する。進捗率を手で変えられないことを見る。左の行に `1/2` が名前の直後に出ることを見る。チェックを外して進捗が下がることを見る。チェックの付け外しでステータスの選択値が変わらないことを見る。グループ行の進捗率が下がることを見る。絞り込み欄に TODO の条件が無いことを見る。マイルストンを選び、詳細に TODO 欄が無いことを見る。TODO をすべて削除し、直前の進捗が残ってスライダーが戻ることを見る。複製したタスクに TODO が無いことを見る | 件数と進捗が連動する。行の下にチェックは無い。ステータスは変わらない。ステータス色は変わらない。HTML・SVG に TODO は無い |
 | TC-EDIT-22b | EDIT-22, EXPORT-05 | 項目付きタスクがある | Excel 書き出しを開き、TODO 列が初期でオフであることを見る。TODO 列をオンにして書き出す | 初期は開始・終了・ノートだけがオンで、TODO 列はオフである。タスク行の TODO セルに `[x]` と `[ ]` の平文と改行がある。ノート列に混ざらない。チェックボックスではない |
+| TC-EDIT-20f | SET-10, FILTER-13, EXPORT-05, SYNC-01 | 拡張項目を選び、タスクに値を入れている。同じタスクにキーを2つ以上入れ、片方だけファイル側で変えて衝突を起こす準備もする | 絞り込みで型ごとに絞れることを見る。Excel で追加項目の列が初期オフで、オンにした項目だけノートの前に出ることを見る。セルが文字・数値・日付で、チェックやプルダウンではないことを見る。パーセント列は `%` 付きであることを見る。HTML と SVG に追加項目が無いことを見る。同じキーで画面が数値・ファイルが文字列の衝突では自動で決まらず、衝突一覧に追加項目が定義順で出ることを見る。ファイルのみの変更で合成したあと、触っていないキーの値が残ることを見る | 操作マニュアルの追加項目の流れと一致する。ステータス色・進捗・TODO は追加項目の説明と混ぜない。操作マニュアルに、項目の意味・LLM 向け指示・型ごとの図を置いていない |
 | TC-EDIT-15 | EDIT-15, EDIT-10 | 同じグループにタスクが3件以上ある | 真ん中のタスク行の左端の握りをドラッグして、別の位置で離す。取り消す | ドラッグ中は半透明のタスク行がポインタに付く。離すと左の一覧とチャートの順が変わる。日付と先行は変わらない。取り消し 1 回で戻る |
 | TC-EDIT-15b | EDIT-15, NAV-05 | 名前が幅に収まらないタスクがある | その名前をドラッグする。次に左端の握りをドラッグして順を変える | 名前は動かない。マウスを乗せると全文が出る。握りをドラッグすると並べ替えになる |
 | TC-EDIT-15c | EDIT-15, FILTER-01 | 同じグループにタスクが複数ある | タスク名で1件だけ残す絞り込みをかけ、行の左端の握りをドラッグする | 並べ替えは始まらない |
@@ -1286,7 +1293,7 @@
 | TC-MCP-01h | MCP-01, MCP-02 | 別ファイルを2ウィンドウで開き、それぞれ別タスクを1件選択。背面を前面にしない | 引数なしの `selected_task`。`open_windows`。背面の `label` を `window` に渡した `selected_task`。無い `label`。`--screen selected_task --window <背面の label>`。`--screen replace_schedule --window <label>` | 引数なしは前面の選択。一覧は両方の `file` と `folder`、絶対パスなし、`front` は前面1件。`window` 指定は背面の選択で前面は変わらない。無いラベルは指定したウィンドウが開いていない旨。CLI の `--window` も背面。`replace_schedule` に `--window` は待ち受けへ送らず、標準エラーに「replace_schedule は前面ウィンドウだけを置き換えます。--window は使えません。」、終了コード 1 |
 | TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
 | TC-MCP-01f | MCP-01 | デスクトップ版、ファイルを開き、絞り込み・折りたたみ・選択・系統を変えた状態 | `write-schedule` で検証済みの JSON 全体を作り、`replace_schedule` を 1 回呼ぶ。同じ保存形式の JSON をもう一度呼ぶ。詳細パネルにフォーカスがある状態でも呼ぶ。起動復旧の衝突・ファイル無し・不正控えのダイアログが出ている状態でも呼ぶ | 1 回目は未保存になり、隅に「画面を置き換えました」が約 4 秒出る。ファイルの内容は変わらない。絞り込み・折りたたみ・ズーム・スクロール・系統は変わらない。選択は新文書に残るタスクだけ残る。⌘/Ctrl+Z で置き換え前に戻る。2 回目は未保存も履歴も変わらないが差分テキストは成功で返る。詳細のフォーカス中は「画面の操作が途中なので、置き換えられません。」起動復旧のダイアログ中は「起動の復旧が終わっていないので、置き換えられません。」確認ダイアログは出ない |
-| TC-MCP-01g | MCP-01 | デスクトップ版。パス無しのサンプル、外部更新の帯、同じファイルの2ウィンドウ、開く・保存の途中、並べ替えの握りドラッグ中、10MB超・壊れたJSON・検証失敗の入力、差分が応答上限を超える置き換え | 各条件で `replace_schedule` を呼ぶか `--screen replace_schedule` で標準入力を渡す | パス無しの成功は「比べるファイルがありません」で失敗にしない。JSON として読めない・検証失敗・10MB 超はそれぞれの文で拒否し画面も履歴も変えない。差分が大きすぎても置き換えは残り「差分が大きすぎるため、差分テキストは返せません。」は失敗にしない。「ファイルに更新あり — 確認する」は消えない。背面ウィンドウの文書は変わらない。ダイアログ・ファイル操作中・並べ替えドラッグ中は「画面の操作が途中なので、置き換えられません。」 |
+| TC-MCP-01g | MCP-01 | デスクトップ版。パス無しのサンプル、外部更新の帯、同じファイルの2ウィンドウ、開く・保存の途中、並べ替えの握りドラッグ中、10MB超・壊れたJSON・検証失敗の入力、差分が応答上限を超える置き換え | 各条件で `replace_schedule` を呼ぶか `--screen replace_schedule` で標準入力を渡す | パス無しの成功は「比べるファイルがありません」で失敗にしない。JSON として読めない・検証失敗・10MB 超はそれぞれの文で拒否し画面も履歴も変えない。差分が大きすぎても置き換えは残り「差分が大きすぎるため、差分テキストは返せません。」は失敗にしない。「ファイルに更新あり — 確認する」は消えない。背面ウィンドウの文書は変わらない。衝突が無い外部更新の確認、設定など別のダイアログ、ファイル操作中・並べ替えドラッグ中は「画面の操作が途中なので、置き換えられません。」SYNC-01 の衝突確認だけ開いているときは置き換えられ、確認は閉じる（TC-SYNC-01k） |
 | TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen open_windows`、`--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks`、`--screen current_schedule` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`current_schedule` はスケジュール JSON 全体が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 

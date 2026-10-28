@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import levels2 from "../../examples/hierarchy/levels-2.schedule.json";
 import { collectBaselineClassificationLines } from "./baselineDiffs";
-import { buildBaselineMergeReview } from "./baselineMergeReview";
+import { buildBaselineMergeReview, buildBaselineMergeConflictReview } from "./baselineMergeReview";
 import type { Category, ScheduleDocument, Task } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
@@ -42,9 +42,10 @@ function review(
   baseline: ScheduleDocument,
   screen: ScheduleDocument,
   file: ScheduleDocument,
+  fields: import("./types").ScheduleFieldDef[] = [],
 ) {
   const lines = collectBaselineClassificationLines(baseline, screen, file);
-  return buildBaselineMergeReview(baseline, screen, file, lines);
+  return buildBaselineMergeReview(baseline, screen, file, lines, fields);
 }
 
 describe("buildBaselineMergeReview", () => {
@@ -105,6 +106,81 @@ describe("buildBaselineMergeReview", () => {
       expect(block.detailLines.length).toBeGreaterThan(0);
       expect(block.detailLines.some((line) => line.label === "開始")).toBe(true);
     }
+  });
+
+  it("orders extension fields by definition in change blocks", () => {
+    const fields = [
+      { key: "z_field", name: "Z", type: "number" as const },
+      { key: "a_field", name: "A", type: "text" as const },
+    ];
+    const baseline = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          fieldValues: { z_field: 1, a_field: "x" },
+        }),
+      ]),
+    );
+    const screen = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          fieldValues: { z_field: 2, a_field: "x" },
+        }),
+      ]),
+    );
+    const file = baseline;
+    const view = review(baseline, screen, file, fields);
+    const block = view.screen?.blocks[0];
+    expect(block?.kind).toBe("change");
+    if (block?.kind === "change") {
+      const keys = block.fields.map((field) => field.label);
+      expect(keys).toEqual(["z_field"]);
+    }
+  });
+
+  it("orders extension fields by definition under conflict headlines", () => {
+    const fields = [
+      { key: "z_field", name: "Z", type: "number" as const },
+      { key: "a_field", name: "A", type: "text" as const },
+    ];
+    const baseline = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          fieldValues: { z_field: 1, a_field: "x" },
+        }),
+      ]),
+    );
+    const screen = baseline;
+    const file = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          fieldValues: { z_field: "1", a_field: "y" },
+        }),
+      ]),
+    );
+    const conflictLines = collectBaselineClassificationLines(
+      baseline,
+      screen,
+      file,
+    ).filter((line) => line.label === "異なる");
+    expect(conflictLines.length).toBeGreaterThan(0);
+    const items = buildBaselineMergeConflictReview(
+      screen,
+      file,
+      conflictLines,
+      fields,
+    );
+    expect(items[0]?.fields.map((field) => field.label)).toEqual([
+      "z_field",
+      "a_field",
+    ]);
   });
 
   it("deduplicates plain location subheadings within a section", () => {

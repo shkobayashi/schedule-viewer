@@ -6,6 +6,7 @@ import {
   REPLACE_SCHEDULE_STARTUP_NOT_SETTLED,
   REPLACE_SCHEDULE_TOO_LARGE,
   REPLACE_SCHEDULE_UI_BUSY,
+  assessMcpReplaceUiBlocking,
   assessReplaceScheduleGate,
   capReplaceScheduleDiffText,
   canonicalJsonEqual,
@@ -54,6 +55,46 @@ const validScheduleJson = JSON.stringify({
       ],
     },
   ],
+});
+
+describe("assessMcpReplaceUiBlocking", () => {
+  const idle = {
+    fileBusy: false,
+    titleEditing: false,
+    detailPanelEditing: false,
+    scheduleInlineEditing: false,
+    reorderDragging: false,
+    sidebarReorderDragging: false,
+    modalDialogOpen: false,
+    externalReloadConflictDialogOpen: false,
+  };
+
+  it("blocks when a modal dialog is open", () => {
+    expect(
+      assessMcpReplaceUiBlocking({ ...idle, modalDialogOpen: true }),
+    ).toBe(true);
+  });
+
+  it("does not block for modal when only external reload conflict dialog is open", () => {
+    expect(
+      assessMcpReplaceUiBlocking({
+        ...idle,
+        modalDialogOpen: true,
+        externalReloadConflictDialogOpen: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("still blocks other editing while external reload conflict dialog is open", () => {
+    expect(
+      assessMcpReplaceUiBlocking({
+        ...idle,
+        modalDialogOpen: true,
+        externalReloadConflictDialogOpen: true,
+        detailPanelEditing: true,
+      }),
+    ).toBe(true);
+  });
 });
 
 describe("assessReplaceScheduleGate", () => {

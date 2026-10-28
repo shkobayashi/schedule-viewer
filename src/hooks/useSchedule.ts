@@ -2379,6 +2379,8 @@ export function useSchedule(
       return {
         outcome: "applied",
         screenJson: snapshotCanonicalJson(pushed.applied),
+        before: current,
+        after: pushed.applied,
       };
     },
     [

@@ -87,7 +87,7 @@ flowchart TD
 | `useMemberCatalog` | カタログの読み込みと選択 |
 | `useStatusCatalog` | ステータス一覧の読み込みと選択。無いときは組み込みの三件 |
 | `useAppCalendar` | カレンダーの読み込み |
-| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 6 ツールを組み立てる（`current_schedule` は `scheduleCurrentJson` を返す。`window` は橋渡しで外れる。文書の `levels` と使用中の追加項目定義 `fields` を `screenContext` に渡す）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・操作中）と引数を検証し、`assessReplaceScheduleLevelCount` で渡した JSON の段数と入れ子を見てから `useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
+| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 6 ツールを組み立てる（`current_schedule` は `scheduleCurrentJson` を返す。`window` は橋渡しで外れる。文書の `levels` と使用中の追加項目定義 `fields` を `screenContext` に渡す）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・`assessMcpReplaceUiBlocking` の操作中。SYNC-01 の衝突確認だけ開いているときは除く）と引数を検証し、`assessReplaceScheduleLevelCount` で渡した JSON の段数と入れ子を見てから `useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。衝突確認のあいだに置き換えたときは `useScheduleExternalReload` の `completeReplaceDuringConflictReload` で確認を閉じ、帯用の追跡を残す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
 
 ### モデル
 
@@ -105,7 +105,7 @@ flowchart TD
 | 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffEntry.ts`、`diffNavigation.ts`、`scheduleDiffLoad.ts`、`diffStripVisibility.ts` |
 | 起点・画面・ファイルの差分と分類 | `baselineDiffs.ts`、`baselineDiffsOutline.ts`（`levels` と `outline` の分類と合成）、`baselineDiffsLoad.ts` |
 | 外部更新時の非衝突合成と判定 | `baselineMerge.ts`（`assessBaselineMerge`、`buildNonConflictingMergedDocument` は `baselineDiffs.ts`。合成の検証は `documentToJson`） |
-| 外部更新確認の一覧表示 | `baselineMergeReview.ts`（`buildBaselineMergeReview`） |
+| 外部更新確認の一覧表示 | `baselineMergeReview.ts`（`buildBaselineMergeReview`、`buildBaselineMergeConflictReview`。`collectScheduleDiffBlocks` と衝突一覧の追加項目に使用中の定義を渡す） |
 | 反映の取り消しで帯を戻す判定 | `baselineMergeDeferred.ts` |
 | MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks` / `current_schedule`。タスク系の応答の先頭は `levels`、続けて `statuses`、続けて `fields`。タスクには値があるときだけ `fieldValues`）、`fieldValuesDiff.ts`（差分テキストの追加項目行）、`hierarchyLevelEdit.ts`（階層ダイアログの確定、保存前の `assessHierarchySave`、`replace_schedule` 前の `assessReplaceScheduleLevelCount`）、`scheduleDiffLoad.ts`（`schedule_diff`。使用中の定義を渡して FILE-07 の追加項目行を出す）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
@@ -185,11 +185,11 @@ flowchart TD
 
 ### 前回のファイルと控え
 
-開く成功と保存の成功で、ウィンドウ一覧とそのウィンドウのパスを `open-windows.json` に書く。前面のウィンドウのラベルも更新する。未保存でパスがあるとき、そのパスの前面のウィンドウだけが、変更から約1秒後に `write_schedule_recovery` を呼ぶ。前面が保存済みなら、そのパスの控えは消す。終了で閉じ始める直前の前面を、その終了の控えの書き手として固定する。控えはパスごとに `schedule-recovery/<ハッシュ>.json` へ書く。後ろのウィンドウからの書き込みと削除は、Rust が捨てる。
+開く成功と保存の成功で、ウィンドウ一覧とそのウィンドウのパスを `open-windows.json` に書く。設定ファイルで開いたウィンドウは、同じスケジュールパスを記録し直すとき（起動復旧の `accept_opened_schedule` と上書き保存）に `workspacePath` を残す。スケジュール JSON を直接開いたとき、別名保存で保存先が変わったときは外す。前面のウィンドウのラベルも更新する。未保存でパスがあるとき、そのパスの前面のウィンドウだけが、変更から約1秒後に `write_schedule_recovery` を呼ぶ。前面が保存済みなら、そのパスの控えは消す。終了で閉じ始める直前の前面を、その終了の控えの書き手として固定する。控えはパスごとに `schedule-recovery/<ハッシュ>.json` へ書く。後ろのウィンドウからの書き込みと削除は、Rust が捨てる。
 
 絞り込みは `useScheduleFilterPersistence` が、前面のウィンドウだけから約1秒後に `write_schedule_filter` を呼ぶ。初期値なら `delete_schedule_filter` する。閉じるときと終了・更新前の控えの書き込みと同じタイミングで、待たずに書く。書き手の決め方は控えと同じ `recovery_live_action` と `recovery_close_action` で、未保存の代わりに初期値でないかを渡す。起動で文書を載せたあと、`read_schedule_filter` で読み、`scheduleFilterPersistence.ts` で検証して `useSchedule` の表示状態へ入れる。戻すときに無くなった参照を外すのは、いま載せた文書のカテゴリ、グループ、マイルストン、マイルストングループを使う。React の state がまだ前の文書のとき、画面の `pruneContext` だけに頼らない。絞り込みを変えたあと画面の `pruneContext` で整理するときも、いまの文書の追加項目の定義を含める。含めないと、効いている追加項目の条件は定義が無いものとして外される。メンバー一覧の初回読み込みが終わるまで、戻す処理では担当者を外さない。編集中にカテゴリやグループを消したあとも、折りたたみの id は画面の集合からは外さない。次回起動の戻しだけ、文書に無い id を外す。書き込みを止めているあいだに戻した組は、その組をそのまま書く。`replaceDocument` が初期値に戻した直後の `getFilterViewState` で消さない。メンバー一覧の初回読み込みが終わるまで、担当者の参照を外す effect は動かない。パスを替えたときは `release_schedule_filter` で後始末する。
 
-起動時の判断と画面への反映は `useScheduleStartupRecovery`、控えの書き込みと削除は `useScheduleRecoveryDraft` が行う。起動時は `read_window_startup` が、ウィンドウごとのパス、控え、サンプルかを返す。追加ウィンドウは、その前に `take_pending_schedule_window_open` の内容を載せる。古い `last-schedule.json` と `schedule-recovery.json` は `window_session.rs` が初回に移す。読めなかった古い控えは残し、`open-windows.json` はまだ作らない。`decideRecoveryStartup` が、保存済みで開く、未保存の復元、競合、ファイル無し、不正を返す。ファイルが無く未保存があるときは、先にその内容を画面へ載せてから警告する。この起動でファイル無しを知らせたあとは、そのパスが再び読めるまで監視のファイルダイアログを出さない。`read_schedule_file_at_path` は、控えがあるパスと一致するファイルだけを読む。起動復旧が終わるまでだけ、文書の変更、取り消し、やり直しは受け付けない。終わったあとは受け付ける。開き終わる前にディスクが変わっていれば、開いたあと通常の外部更新として読む。ファイルの書き込みは止めない。画面へ載せる前に、パスも未保存も無いかを見てから `accept_opened_schedule` する。そのあと起動の世代が変わっていたら、文書は置き換えない。
+起動時の判断と画面への反映は `useScheduleStartupRecovery`、控えの書き込みと削除は `useScheduleRecoveryDraft` が行う。起動時は `read_window_startup` が、ウィンドウごとのパス、控え、サンプルかを返す。追加ウィンドウは、その前に `take_pending_schedule_window_open` の内容を載せる。古い `last-schedule.json` と `schedule-recovery.json` は `window_session.rs` が初回に移す。読めなかった古い控えは残し、`open-windows.json` はまだ作らない。`decideRecoveryStartup` が、保存済みで開く、未保存の復元、競合、ファイル無し、不正を返す。ファイルが無く未保存があるときは、先にその内容を画面へ載せてから警告する。この起動でファイル無しを知らせたあとは、そのパスが再び読めるまで監視のファイルダイアログを出さない。`read_schedule_file_at_path` は、控えがあるパスと一致するファイルだけを読む。起動復旧が終わるまでだけ、文書の変更、取り消し、やり直しは受け付けない。終わったあとは受け付ける。開き終わる前にディスクが変わっていれば、開いたあと通常の外部更新として読む。ファイルの書き込みは止めない。画面へ載せる前に、パスも未保存も無いかを見てから `accept_opened_schedule` する。起動復旧では `preserveWorkspaceBinding` を true にし、同じスケジュールパスなら `workspacePath` を残す。スケジュール JSON を直接開くときは false にする。そのあと起動の世代が変わっていたら、文書は置き換えない。
 
 ### 別ウィンドウ
 
@@ -237,7 +237,7 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | コマンド | 引数と戻り値 | 失敗と上限 | permission | TS |
 | --- | --- | --- | --- | --- |
 | `open_schedule_file` | ダイアログ。任意の初期ディレクトリ。パスと本文、または取り消し | 10MB、UTF-8 | `open-schedule-file.toml` | `scheduleFile.ts` |
-| `accept_opened_schedule` | パスと本文。状態を記録 | 10MB | 同上 | 同上 |
+| `accept_opened_schedule` | パスと本文。任意の `preserveWorkspaceBinding`（既定 false）。状態を記録 | 10MB | 同上 | 同上 |
 | `check_schedule_file_changed` | ディスクのハッシュが記憶と違うか | ファイルを開いていない | `check-schedule-file-changed.toml` | 同上 |
 | `poll_schedule_file_update` | 変化したときだけ本文 | 同上 | `poll-schedule-file-update.toml` | 同上 |
 | `read_open_schedule_file` | 引数なし。開いているパスの本文 | ファイルを開いていない、10MB、UTF-8 以外 | `read-open-schedule-file.toml` | 同上 |
