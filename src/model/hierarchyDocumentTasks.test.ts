@@ -95,7 +95,7 @@ describe("hierarchy document task lookups and writes", () => {
         name: "調査Aコピー",
         start: "2026-10-01",
         end: "2026-10-04",
-        assigneeId: null,
+        assigneeIds: [],
         status: "in-progress",
         progress: 0,
         confidence: "committed",

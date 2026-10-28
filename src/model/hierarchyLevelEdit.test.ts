@@ -34,7 +34,7 @@ function task(id: string): Task {
     name: "作業",
     start: "2026-10-01",
     end: "2026-10-02",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 0,
     confidence: "committed",
@@ -205,7 +205,7 @@ describe("replaceScheduleLevelCount", () => {
       ...levels2Sample,
       schemaVersion: SCHEDULE_SCHEMA_VERSION,
       categories: [],
-    } as ScheduleDocument;
+    } as unknown as ScheduleDocument;
     const result = assessReplaceScheduleLevelCount(screen, incoming);
     expect(result.ok).toBe(true);
   });

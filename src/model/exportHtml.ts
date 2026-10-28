@@ -22,7 +22,7 @@ import {
   taskBarExclusiveEnd,
   taskBarWidthPx,
 } from "./timeline";
-import { resolveAssigneeDisplay, assigneeSidebarLabel } from "./assigneeDisplay";
+import { resolveAssigneeRowDisplay, assigneeSidebarLabel, duplicateMemberNamesFromCatalog } from "./assigneeDisplay";
 import { hasTaskNote, normalizeTaskNote } from "./taskNote";
 import type { Member, MemberId } from "./memberTypes";
 import {
@@ -80,6 +80,17 @@ export type ScheduleExportFormat = "html" | "svg" | "xlsx";
 
 function palettes(input: ScheduleExportInput) {
   return paletteFor(input.colorScheme);
+}
+
+function resolveExportAssigneeDisplay(
+  assigneeIds: readonly MemberId[],
+  input: ScheduleExportInput,
+) {
+  return resolveAssigneeRowDisplay(
+    assigneeIds,
+    input.memberCatalog,
+    duplicateMemberNamesFromCatalog(input.memberCatalog),
+  );
 }
 
 export const EXPORT_MAX_WIDTH_PX = 200_000;
@@ -395,13 +406,10 @@ function svgLabelWidth(input: ScheduleExportInput): number {
       continue;
     }
     if (row.type !== "task") continue;
-    const assigneeDisplay = resolveAssigneeDisplay(
-      row.task.assigneeId,
-      input.memberCatalog,
-    );
+    const assigneeDisplay = resolveExportAssigneeDisplay(row.task.assigneeIds, input);
     const assignee = assigneeSidebarLabel(assigneeDisplay);
     const assigneeWidth =
-      assigneeDisplay.kind === "unassigned" || assigneeDisplay.kind === "unknown"
+      assigneeDisplay.kind === "unassigned" || assigneeDisplay.kind === "allUnknown"
         ? estimateTextWidth(assignee, 10 * scale) + 14
         : estimateTextWidth(assignee, 10 * scale);
     let badges = 0;
@@ -539,9 +547,9 @@ function renderSvgLabelRow(
     ].join("\n    ");
   }
   if (row.type !== "task") return "";
-  const assigneeDisplay = resolveAssigneeDisplay(row.task.assigneeId, input.memberCatalog);
+  const assigneeDisplay = resolveExportAssigneeDisplay(row.task.assigneeIds, input);
   const unassigned = assigneeDisplay.kind === "unassigned";
-  const unknownMember = assigneeDisplay.kind === "unknown";
+  const unknownMember = assigneeDisplay.kind === "allUnknown";
   const overdue = isOverdue(row.task, input.today, input.statuses);
   const exceeded = milestonesExceededBy(row.task, input.milestones);
   const nameSize = 12 * scale;
@@ -669,12 +677,9 @@ function renderLabelRow(
     return `<div class="label ${className}" ${height}>${guide}<span class="twist">${mark}</span>${esc(row.label)}</div>`;
   }
   if (row.type !== "task") return "";
-  const assigneeDisplay = resolveAssigneeDisplay(
-    row.task.assigneeId,
-    input.memberCatalog,
-  );
+  const assigneeDisplay = resolveExportAssigneeDisplay(row.task.assigneeIds, input);
   const unassigned = assigneeDisplay.kind === "unassigned";
-  const unknownMember = assigneeDisplay.kind === "unknown";
+  const unknownMember = assigneeDisplay.kind === "allUnknown";
   const overdue = isOverdue(row.task, input.today, input.statuses);
   const exceeded = milestonesExceededBy(row.task, input.milestones);
   const tentative =
@@ -1019,10 +1024,7 @@ function renderTaskBar(
   const w = taskBarWidthPx(task, dateToX, input.pxPerDay);
   const barY = y + (input.rowHeight - input.barHeight) / 2;
   const colors = barColors(task, input.today, input.colorScheme, input.statuses);
-  const assigneeDisplay = resolveAssigneeDisplay(
-    task.assigneeId,
-    input.memberCatalog,
-  );
+  const assigneeDisplay = resolveExportAssigneeDisplay(task.assigneeIds, input);
   const assigneeLabel = assigneeSidebarLabel(assigneeDisplay);
   const fill =
     task.confidence === "tentative"

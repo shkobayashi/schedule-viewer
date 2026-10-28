@@ -3673,7 +3673,7 @@ function App() {
             key={`${selectedDetailTask.id}:${schedule.diskEpoch}`}
             panelRef={detailPanelRef}
             task={selectedDetailTask}
-            members={memberCatalogState.members ?? []}
+            members={displayMembers ?? []}
             memberCatalog={displayMemberMap}
             tasks={taskRefs}
             milestones={schedule.milestones}
@@ -3699,7 +3699,8 @@ function App() {
             key={`bulk:${schedule.selectedTaskIds.join(",")}:${schedule.diskEpoch}`}
             tasks={bulkDetailTasks}
             selectedIds={schedule.selectedTaskIds}
-            members={memberCatalogState.members ?? []}
+            members={displayMembers ?? []}
+            memberCatalog={displayMemberMap}
             taskRefs={taskRefs}
             milestones={schedule.milestones}
             documentTags={schedule.scheduleTags}
@@ -3860,7 +3861,7 @@ function App() {
           key={`duplicate-${schedule.duplicatingTask.id}:${schedule.diskEpoch}`}
           mode="duplicate"
           task={schedule.duplicatingTask}
-          members={memberCatalogState.members ?? []}
+          members={displayMembers ?? []}
           memberCatalog={displayMemberMap}
           tasks={taskRefs}
           milestones={schedule.milestones}

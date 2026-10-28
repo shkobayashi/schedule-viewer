@@ -62,7 +62,8 @@ export type Task = {
   name: string;
   start: string;
   end: string;
-  assigneeId: MemberId | null;
+  /** 担当メンバー id の並び。空は未割当。 */
+  assigneeIds: MemberId[];
   status: TaskStatus;
   progress: number;
   confidence: TaskConfidence;
@@ -130,8 +131,8 @@ export const UNASSIGNED_LABEL = "割り当てなし";
 /** マイルストン未設定タスクのみに絞るフィルタ値（UUID と区別する）。 */
 export const NO_MILESTONE_FILTER = "none";
 
-export function isNullAssignee(assigneeId: MemberId | null): boolean {
-  return assigneeId == null;
+export function isUnassignedAssignees(assigneeIds: readonly MemberId[]): boolean {
+  return assigneeIds.length === 0;
 }
 
 export type ScheduleFilters = {

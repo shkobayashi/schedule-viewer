@@ -17,7 +17,7 @@ function task(overrides: Partial<Task> = {}): Task {
     name: "T",
     start: "2026-01-01",
     end: "2026-01-01",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 50,
     confidence: "committed",

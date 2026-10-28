@@ -64,7 +64,7 @@ import {
   visibleMonthHeaderLabels,
 } from "../model/monthHeader";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
-import { resolveAssigneeDisplay, assigneeSidebarLabel } from "../model/assigneeDisplay";
+import { resolveAssigneeRowDisplay, assigneeSidebarLabel, duplicateMemberNamesFromCatalog } from "../model/assigneeDisplay";
 import { KONVA_FONT_FAMILY } from "../model/fontStack";
 import type { Member, MemberId } from "../model/memberTypes";
 import type { StickyLayout } from "../model/stickyRows";
@@ -348,7 +348,15 @@ function TaskBar({
   const w = dragWidth ?? taskBarWidthPx(task, dateToX, pxPerDay);
   const barY = y + (rowHeight - barHeight) / 2;
   const colors = barColors(task, today, colorScheme, statuses);
-  const assigneeDisplay = resolveAssigneeDisplay(task.assigneeId, memberCatalog);
+  const assigneeDuplicateNames = useMemo(
+    () => duplicateMemberNamesFromCatalog(memberCatalog),
+    [memberCatalog],
+  );
+  const assigneeDisplay = resolveAssigneeRowDisplay(
+    task.assigneeIds,
+    memberCatalog,
+    assigneeDuplicateNames,
+  );
   const assigneeLabel = assigneeSidebarLabel(assigneeDisplay);
   const stroke = colors.border;
   const fontSize = Math.max(10, Math.round(barHeight * 0.55));

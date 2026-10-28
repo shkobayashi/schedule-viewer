@@ -1,5 +1,6 @@
 import type { SearchField } from "./scheduleFilterPersistence";
-import { resolveAssigneeDisplay } from "./assigneeDisplay";
+import { assigneeIdToJson, taskAssigneeIds } from "./assigneeIds";
+import { duplicateMemberNamesFromCatalog, resolveAssigneeRowDisplay } from "./assigneeDisplay";
 import {
   BUILTIN_STATUS_ITEMS,
   normalizeStatusItem,
@@ -59,7 +60,7 @@ export type ScreenContextTask = {
   group: string;
   start: string;
   end: string;
-  assigneeId: string | null;
+  assigneeId: string | null | MemberId[];
   status: Task["status"];
   progress: number;
   confidence: Task["confidence"];
@@ -226,7 +227,7 @@ function taskToContext(ref: FilteredTaskRef): ScreenContextTask {
     group,
     start: task.start,
     end: task.end,
-    assigneeId: task.assigneeId,
+    assigneeId: assigneeIdToJson(taskAssigneeIds(task)),
     status: task.status,
     progress: task.progress,
     confidence: task.confidence,
@@ -264,9 +265,10 @@ export function buildActiveFilterConditions(input: {
         name: UNASSIGNED_LABEL,
       });
     } else {
-      const display = resolveAssigneeDisplay(
-        filters.assignee,
+      const display = resolveAssigneeRowDisplay(
+        [filters.assignee],
         input.memberCatalog,
+        duplicateMemberNamesFromCatalog(input.memberCatalog),
       );
       conditions.push({
         type: "assignee",

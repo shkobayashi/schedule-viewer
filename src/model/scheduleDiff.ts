@@ -1,4 +1,5 @@
 import { daysBetween, parseDate } from "./dates";
+import { assigneeIdsEqual, formatAssigneeIdsForDiff, taskAssigneeIds } from "./assigneeIds";
 import {
   documentUsesOutlineStorage,
   isOutlineBranch,
@@ -685,7 +686,7 @@ function taskFieldLines(
     `  name: ${task.name}`,
     `  start: ${task.start}`,
     `  end: ${task.end}`,
-    `  assigneeId: ${formatAssignee(task.assigneeId)}`,
+    `  assigneeId: ${formatAssigneeIdsForDiff(taskAssigneeIds(task))}`,
     `  status: ${task.status}`,
     `  progress: ${task.progress}`,
     `  confidence: ${task.confidence}`,
@@ -722,9 +723,9 @@ function changedTaskBlock(
   if (fileTask.end !== screenTask.end) {
     lines.push(`  end: ${formatDayDelta(fileTask.end, screenTask.end)}`);
   }
-  if (fileTask.assigneeId !== screenTask.assigneeId) {
+  if (!assigneeIdsEqual(taskAssigneeIds(fileTask), taskAssigneeIds(screenTask))) {
     lines.push(
-      `  assigneeId: ${formatAssignee(fileTask.assigneeId)} → ${formatAssignee(screenTask.assigneeId)}`,
+      `  assigneeId: ${formatAssigneeIdsForDiff(taskAssigneeIds(fileTask))} → ${formatAssigneeIdsForDiff(taskAssigneeIds(screenTask))}`,
     );
   }
   if (fileTask.status !== screenTask.status) {
@@ -911,10 +912,6 @@ function formatMilestoneRef(
 ): string {
   if (id == null) return "（なし）";
   return namedId(names.get(id), id);
-}
-
-function formatAssignee(id: string | null): string {
-  return id == null ? "null" : id;
 }
 
 function formatDayDelta(from: string, to: string): string {

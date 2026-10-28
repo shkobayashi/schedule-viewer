@@ -10,12 +10,7 @@ import {
   type Ref,
 } from "react";
 import type { TaskRef } from "../model/dependencies";
-import {
-  duplicateMemberNames,
-  formatUnknownAssigneeOption,
-  isUnknownAssignee,
-  memberOptionLabel,
-} from "../model/assigneeDisplay";
+import { AssigneeListField } from "./AssigneeListField";
 import { daysBetween, parseDate } from "../model/dates";
 import type { Member } from "../model/memberTypes";
 import { StatusOptions } from "./StatusOptions";
@@ -32,7 +27,6 @@ import {
   normalizeStoredFieldValue,
 } from "../model/taskFields";
 import {
-  UNASSIGNED_LABEL,
   type Milestone,
   type ScheduleFieldDef,
   type ScheduleId,
@@ -115,7 +109,6 @@ export function TaskDetailPanel({
   const [note, setNote] = useState(task.note ?? "");
   const [start, setStart] = useState(task.start);
   const [end, setEnd] = useState(task.end);
-  const [assigneeId, setAssigneeId] = useState<string>(task.assigneeId ?? "");
   const [status, setStatus] = useState<TaskStatus>(task.status);
   const [progress, setProgress] = useState(task.progress);
   const [confidence, setConfidence] = useState<TaskConfidence>(task.confidence);
@@ -168,7 +161,6 @@ export function TaskDetailPanel({
     setNote(task.note ?? "");
     setStart(task.start);
     setEnd(task.end);
-    setAssigneeId(task.assigneeId ?? "");
     setStatus(task.status);
     setProgress(task.progress);
     setConfidence(task.confidence);
@@ -254,11 +246,6 @@ export function TaskDetailPanel({
     },
   }));
 
-  const duplicateNames = useMemo(
-    () => duplicateMemberNames(members),
-    [members],
-  );
-  const showUnknownOption = isUnknownAssignee(task.assigneeId, memberCatalog);
   const candidates = useMemo(
     () => tasks.filter((item) => item.id !== task.id),
     [task.id, tasks],
@@ -276,7 +263,7 @@ export function TaskDetailPanel({
       name: task.name,
       start: task.start,
       end: task.end,
-      assigneeId: task.assigneeId ?? null,
+      assigneeIds: [...task.assigneeIds],
       status: task.status,
       progress: task.progress,
       confidence: task.confidence,
@@ -317,10 +304,6 @@ export function TaskDetailPanel({
     const noteValue = note.trim();
     const taskNote = (task.note ?? "").trim();
     if (noteValue !== taskNote) patch.note = note;
-    const nextAssignee = assigneeId === "" ? null : assigneeId;
-    if (nextAssignee !== (task.assigneeId ?? null)) {
-      patch.assigneeId = nextAssignee;
-    }
     if (status !== task.status) patch.status = status;
     if (
       !hasTaskTodos(task) &&
@@ -338,7 +321,6 @@ export function TaskDetailPanel({
     if (succKey !== taskSuccKey) patch.successors = successors;
     return Object.keys(patch).length > 0 ? patch : null;
   }, [
-    assigneeId,
     confidence,
     milestoneId,
     name,
@@ -501,28 +483,16 @@ export function TaskDetailPanel({
       <section className="detail-section">
         <h2 className="detail-section-title">担当・状態</h2>
         <div className="field">
-          <label htmlFor="detailAssignee">担当者</label>
-          <select
-            id="detailAssignee"
-            value={assigneeId}
-            onChange={(e) => {
-              const next = e.target.value;
-              setAssigneeId(next);
-              commitWith({ assigneeId: next === "" ? null : next });
-            }}
-          >
-            <option value="">{UNASSIGNED_LABEL}</option>
-            {members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {memberOptionLabel(member, duplicateNames)}
-              </option>
-            ))}
-            {showUnknownOption && task.assigneeId ? (
-              <option value={task.assigneeId}>
-                {formatUnknownAssigneeOption(task.assigneeId)}
-              </option>
-            ) : null}
-          </select>
+          <span className="field-label" id="detailAssigneeLabel">
+            担当者
+          </span>
+          <AssigneeListField
+            idPrefix="detail"
+            assigneeIds={task.assigneeIds}
+            members={members}
+            memberCatalog={memberCatalog}
+            onChange={(next) => commitWith({ assigneeIds: next })}
+          />
         </div>
         <div className="field">
           <label htmlFor="detailStatus">ステータス</label>

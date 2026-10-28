@@ -9,7 +9,7 @@
     "schemaVersion": {
       "type": "integer",
       "const": 8,
-      "description": "8: タスクの status を、ステータス一覧の id を書く文字列にする。任意の levels と outline で階層の段数を定義できる。7 以前は読み込み時に 8 へ移行し、status の値は変えない。7 はタスクに任意の tags（文字列配列）を足せる。マイルストンは milestoneGroups の groupId で帯の行に分ける。カテゴリとグループは id を持つ。タスクとマイルストンの confidence は tentative か committed。担当は assigneeId（未割当は null）。終了日はその日を含む。"
+      "description": "8: タスクの status を、ステータス一覧の id を書く文字列にする。任意の levels と outline で階層の段数を定義できる。7 以前は読み込み時に 8 へ移行し、status の値は変えない。7 はタスクに任意の tags（文字列配列）を足せる。マイルストンは milestoneGroups の groupId で帯の行に分ける。カテゴリとグループは id を持つ。タスクとマイルストンの confidence は tentative か committed。タスクの担当は assigneeId（未割当は null、一人は id の文字列、二人以上は入れた順の id 配列。マイルストンには付けない）。終了日はその日を含む。"
     },
     "title": {
       "type": "string",
@@ -135,9 +135,23 @@
         },
         "assigneeId": {
           "oneOf": [
+            { "type": "null" },
             { "type": "string", "minLength": 1 },
-            { "type": "null" }
-          ]
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            {
+              "type": "array",
+              "minItems": 2,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          ],
+          "description": "未割当は null。一人は id の文字列、または要素1つの配列。二人以上は入れた順の id 配列。"
         },
         "status": { "$ref": "#/$defs/taskStatus" },
         "progress": { "type": "integer", "minimum": 0, "maximum": 100 },

@@ -99,7 +99,7 @@ flowchart TD
 | 検証 | `validateSchedule.ts`、`validateMembers.ts`、`validateCalendar.ts`、`*Semantics.ts`、`scheduleMigrate.ts`、`uuidV5.ts`、`validationMessages.ts`、`generated/` |
 | 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`progressRollup.ts`、`taskTodos.ts`、`tasks.ts`、`taskOrder.ts`、`categoryOrder.ts`、`groupOrder.ts` |
 | 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`dates.ts`、`monthHeader.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
-| 担当とノート | `assigneeDisplay.ts`、`taskNote.ts` |
+| 担当とノート | `assigneeIds.ts`（JSON との変換と意味規則）、`assigneeDisplay.ts`、`taskNote.ts` |
 | 対応マイルストン欄と絞り込みのマイルストン欄 | `milestoneField.ts` の `buildMilestoneFieldList`、`buildMilestoneFilterList`、`initialMilestoneFieldActiveIndex`、`initialMilestoneFilterActiveIndex` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
 | 画面と開いているファイルの差分 | `scheduleDiff.ts`、`scheduleDiffEntry.ts`、`diffNavigation.ts`、`scheduleDiffLoad.ts`、`diffStripVisibility.ts` |
@@ -182,6 +182,8 @@ flowchart TD
 ### 差分
 
 「差分を表示」は、画面の保存形式と、`read_open_schedule_file` で読んだ開いているファイルを `formatScheduleDiff` に渡す。カテゴリ、グループ、タスク、マイルストンは id で対応づける。グループは、別のカテゴリへ移っていても同じ id なら変更である。`collectScheduleDiffEntries` は同じブロックに移動先を付け、一覧の行を押したときの寄せ先は `diffNavigation.ts` が決める。結果はチャート右の差分列の一覧に出す。コピー用の全文は `formatScheduleDiff` の文字列のままである。未保存で差があるあいだは、列は畳み、右端の取っ手だけ出す。☰ の「差分を表示」と状態バーの「未保存」は列を開く。列の開閉は `App` の `diffPanelExpanded` で持ち、ファイルには書かない。列が消えたら開閉も忘れる。開いたあとの自動読み直しは開いたまま、畳んだあとは畳んだまま、一覧だけ更新する。一覧にフォーカスがあるあいだは、`appKeyboard.ts` の `decideAppKey` がガント向けのキーを止める。一覧の札と名前と場所は `collectScheduleDiffEntries` がブロックごとに付ける。縦の寄せは `scrollYToShowSelectedTask` を使い、見えている行では `scrollY` を変えない。マイルストンの印は `diffNavigationMark.chartMilestoneId` を `MilestoneBand` が、帯の行の印は `diffNavigationMark.milestoneGroupId` を `Sidebar` が描く。寄せた行の印は `App` の `diffNavigationMark` で持ち、タスクの選択とは別である。パスが無い、またはブラウザ版のときはファイルを読まず、「比べるファイルがありません」と列に出す。検証に失敗したときは列に書かず、☰、「未保存」、コピーキーでは読み込みエラーを出す。⌘ または Ctrl+Shift+D は列を開かず全文を写す。自動の読み直しで失敗したときはエラーダイアログを出さない。読んだ内容は保存しない。`content_hash` は変えない。
+
+タスクの担当は、メモリ上は `assigneeIds`（空配列が未割当）で持ち、JSON では `assigneeId` に `null`、1人の文字列、2人以上の配列として書く。読み込みは `assigneeIds.ts` で正規化する。差分と衝突の比較は `assigneeIdsEqual` で順番まで見る。差分の1行は `assigneeId` の前後で、空は `null`、複数 id は「, 」区切りである。画面とファイルの id を和集合にしない。外部更新の非衝突合成のあと `documentToJson` 経由で検証するときは、メモリ上の空の `assigneeIds` を未割当として通し、JSON の `assigneeId` の空配列だけを拒む。
 
 ### 前回のファイルと控え
 

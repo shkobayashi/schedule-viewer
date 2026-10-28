@@ -176,7 +176,7 @@ async function captureBrowserShots(page) {
 
 async function openSettings(page) {
   await page.getByRole("button", { name: "メニュー" }).click();
-  await page.getByRole("menuitem", { name: "設定" }).click();
+  await page.getByRole("menuitem", { name: "設定", exact: true }).click();
   await page.waitForSelector(".settings-nav");
   await page.locator(".settings-nav").evaluate((el) => {
     el.scrollTop = 0;

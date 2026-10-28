@@ -1,3 +1,4 @@
+import { assigneeIdToJson, taskAssigneeIds } from "./assigneeIds";
 import { documentHasLevels } from "./hierarchy";
 import { normalizeLevelDefinition } from "./hierarchyLevelEdit";
 import { taskFieldValuesForSerialization } from "./taskFields";
@@ -30,7 +31,7 @@ function taskToJson(
     name: task.name,
     start: task.start,
     end: task.end,
-    assigneeId: task.assigneeId,
+    assigneeIds: [...taskAssigneeIds(task)],
     status: task.status,
     progress,
     confidence: task.confidence,
@@ -174,7 +175,7 @@ function orderTaskJson(
     name: task.name,
     start: task.start,
     end: task.end,
-    assigneeId: task.assigneeId,
+    assigneeId: assigneeIdToJson(taskAssigneeIds(task)),
     status: task.status,
     progress: task.progress,
     confidence: task.confidence,

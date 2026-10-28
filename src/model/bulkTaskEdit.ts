@@ -1,3 +1,4 @@
+import { assigneeIdsEqual } from "./assigneeIds";
 import { tryAddPredecessorLink } from "./dependencies";
 import {
   findTaskInOutline,
@@ -25,13 +26,13 @@ import type {
   TaskStatus,
 } from "./types";
 
-export type BulkFieldAssignee = MemberId | null | "unchanged";
+export type BulkFieldAssignee = readonly MemberId[] | "unchanged";
 export type BulkFieldMilestone = ScheduleId | null | "unchanged";
 
 export type BulkTaskDraft = {
   start?: string;
   end?: string;
-  assigneeId?: BulkFieldAssignee;
+  assigneeIds?: BulkFieldAssignee;
   status?: TaskStatus;
   confidence?: TaskConfidence;
   milestoneId?: BulkFieldMilestone;
@@ -83,8 +84,8 @@ function taskAfterScalarDraft(
     };
   }
   let next: Task = { ...task, start, end };
-  if (draft.assigneeId !== undefined && draft.assigneeId !== "unchanged") {
-    next = { ...next, assigneeId: draft.assigneeId };
+  if (draft.assigneeIds !== undefined && draft.assigneeIds !== "unchanged") {
+    next = { ...next, assigneeIds: [...draft.assigneeIds] };
   }
   if (draft.status !== undefined) next = { ...next, status: draft.status };
   if (draft.confidence !== undefined) {
@@ -348,13 +349,13 @@ export function commonStringField(
   return first;
 }
 
-export function commonAssigneeId(
+export function commonAssigneeIds(
   tasks: readonly Task[],
-): MemberId | null | "mixed" {
+): readonly MemberId[] | "mixed" {
   if (tasks.length === 0) return "mixed";
-  const first = tasks[0]!.assigneeId ?? null;
+  const first = tasks[0]!.assigneeIds;
   for (let i = 1; i < tasks.length; i++) {
-    if ((tasks[i]!.assigneeId ?? null) !== first) return "mixed";
+    if (!assigneeIdsEqual(tasks[i]!.assigneeIds, first)) return "mixed";
   }
   return first;
 }

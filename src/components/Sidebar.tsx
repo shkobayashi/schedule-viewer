@@ -14,7 +14,8 @@ import { milestonesExceededBy } from "../model/milestones";
 import {
   assigneeColumnChars,
   assigneeSidebarLabel,
-  resolveAssigneeDisplay,
+  duplicateMemberNamesFromCatalog,
+  resolveAssigneeRowDisplay,
 } from "../model/assigneeDisplay";
 import type { SidebarColumnsPreference } from "../model/viewPreferences";
 import { daysBetween, fmtMonthDay, parseDate } from "../model/dates";
@@ -218,6 +219,10 @@ export function Sidebar({
   const viewportRef = useRef<HTMLDivElement>(null);
   const hiddenIndexes = sticky.hiddenIndexes;
   const guideSpecs = useMemo(() => hierarchyGuideSpecsForRows(rows), [rows]);
+  const assigneeDuplicateNames = useMemo(
+    () => duplicateMemberNamesFromCatalog(memberCatalog),
+    [memberCatalog],
+  );
 
   const visibleRowEntries = useMemo(() => {
     const margin = rowHeight;
@@ -237,13 +242,17 @@ export function Sidebar({
       assigneeColumnChars(
         rows.flatMap((row) => {
           if (row.type !== "task") return [];
-          const display = resolveAssigneeDisplay(row.task.assigneeId, memberCatalog);
+          const display = resolveAssigneeRowDisplay(
+            row.task.assigneeIds,
+            memberCatalog,
+            assigneeDuplicateNames,
+          );
           return [
             display.kind === "unassigned" ? "未割当" : assigneeSidebarLabel(display),
           ];
         }),
       ),
-    [memberCatalog, rows],
+    [assigneeDuplicateNames, memberCatalog, rows],
   );
 
   const statusChars = useMemo(
@@ -1381,11 +1390,19 @@ function TaskSidebarRow({
   onSelect: (event: React.MouseEvent<HTMLDivElement>) => void;
   onGripPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
-  const assigneeDisplay = resolveAssigneeDisplay(task.assigneeId, memberCatalog);
+  const assigneeDuplicateNames = useMemo(
+    () => duplicateMemberNamesFromCatalog(memberCatalog),
+    [memberCatalog],
+  );
+  const assigneeDisplay = resolveAssigneeRowDisplay(
+    task.assigneeIds,
+    memberCatalog,
+    assigneeDuplicateNames,
+  );
   const assigneeClass =
     assigneeDisplay.kind === "unassigned"
       ? " unassigned"
-      : assigneeDisplay.kind === "unknown"
+      : assigneeDisplay.kind === "allUnknown"
         ? " unknown-member"
         : "";
   const rowClass = assigneeDisplay.kind === "unassigned" ? " unassigned" : "";

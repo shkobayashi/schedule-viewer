@@ -1,3 +1,4 @@
+import { assigneeIdsEqual, normalizeTaskAssignees, taskAssigneeIds } from "./assigneeIds";
 import {
   documentHasLevels,
   documentUsesOutlineStorage,
@@ -438,11 +439,12 @@ function cloneOutlineRoot(nodes: OutlineRoot): OutlineRoot {
 }
 
 function cloneTask(task: Task): Task {
+  const normalized = normalizeTaskAssignees(task);
   return {
-    ...task,
-    predecessors: [...task.predecessors],
-    tags: task.tags ? [...task.tags] : undefined,
-    fieldValues: task.fieldValues ? { ...task.fieldValues } : undefined,
+    ...normalized,
+    predecessors: [...normalized.predecessors],
+    tags: normalized.tags ? [...normalized.tags] : undefined,
+    fieldValues: normalized.fieldValues ? { ...normalized.fieldValues } : undefined,
   };
 }
 
@@ -512,7 +514,7 @@ function taskContentEquals(a: Task, b: Task): boolean {
     a.name === b.name &&
     a.start === b.start &&
     a.end === b.end &&
-    a.assigneeId === b.assigneeId &&
+    assigneeIdsEqual(taskAssigneeIds(a), taskAssigneeIds(b)) &&
     a.status === b.status &&
     a.progress === b.progress &&
     a.confidence === b.confidence &&

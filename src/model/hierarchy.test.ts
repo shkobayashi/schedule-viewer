@@ -25,7 +25,7 @@ function task(id: string, start: string, end: string): Task {
     name: `作業 ${id.slice(0, 4)}`,
     start,
     end,
-    assigneeId: null,
+    assigneeIds: [],
     status: "in-progress",
     progress: 40,
     confidence: "committed",
@@ -308,7 +308,7 @@ describe("addTopLevelMenuLabel", () => {
       milestones: [],
       categories: [],
       levels: levels5Sample.levels as ScheduleLevelDef[],
-      outline: levels5Sample.outline as OutlineRoot,
+      outline: levels5Sample.outline as unknown as OutlineRoot,
     };
     expect(addTopLevelMenuLabel(hierarchyLayoutContext(fiveLevel))).toBe(
       "見出しを追加",

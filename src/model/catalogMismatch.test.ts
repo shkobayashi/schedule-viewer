@@ -16,7 +16,7 @@ function task(partial: Partial<Task> & { id: string }): Task {
     name: partial.name ?? partial.id,
     start: "2026-01-01",
     end: "2026-01-02",
-    assigneeId: partial.assigneeId ?? null,
+    assigneeIds: partial.assigneeIds ?? [],
     status: partial.status ?? "not-started",
     progress: partial.progress ?? 0,
     confidence: partial.confidence ?? "committed",
@@ -42,7 +42,7 @@ describe("catalogMismatchKind", () => {
 
   it("reports missing assignee", () => {
     const flags = catalogMismatchFlags(
-      [task({ id: "a", assigneeId: "ghost" })],
+      [task({ id: "a", assigneeIds: ["ghost"] })],
       statuses,
       catalog,
       new Set(),
@@ -53,12 +53,12 @@ describe("catalogMismatchKind", () => {
 
   it("reports both status and assignee", () => {
     const flags = catalogMismatchFlags(
-      [task({ id: "a", status: "missing", assigneeId: "ghost" })],
+      [task({ id: "a", status: "missing", assigneeIds: ["ghost"] })],
       statuses,
       catalog,
       new Set(),
     );
-    expect(catalogMismatchKind([task({ id: "a", status: "missing", assigneeId: "ghost" })], statuses, catalog)).toBe(
+    expect(catalogMismatchKind([task({ id: "a", status: "missing", assigneeIds: ["ghost"] })], statuses, catalog)).toBe(
       "both",
     );
     expect(catalogMismatchBannerText(flags)).toBe(

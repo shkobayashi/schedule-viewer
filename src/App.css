@@ -2657,6 +2657,47 @@ button:focus-visible,
   color: var(--text);
 }
 
+.assignee-list-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
+.assignee-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(4px * var(--s));
+}
+
+.assignee-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8px * var(--s));
+  font-size: calc(13px * var(--s));
+}
+
+.assignee-list-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignee-list-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: calc(2px * var(--s));
+}
+
+.assignee-list-actions .btn-compact:disabled {
+  color: var(--text-secondary);
+}
+
 .detail-bulk-apply-preview {
   margin: 0 0 calc(8px * var(--s));
   font-size: calc(12px * var(--s));

@@ -14,7 +14,7 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
   return {
     start: "2026-04-01",
     end: "2026-04-10",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 0,
     confidence: "committed",
@@ -234,7 +234,7 @@ describe("buildBaselineMergeReview", () => {
         task({
           id: TASK_A,
           name: "基本設計",
-          assigneeId: null,
+          assigneeIds: [],
           status: "not-started",
         }),
       ]),
@@ -244,7 +244,7 @@ describe("buildBaselineMergeReview", () => {
         task({
           id: TASK_A,
           name: "基本設計",
-          assigneeId: "member-1",
+          assigneeIds: ["member-1"],
           status: "in-progress",
         }),
       ]),

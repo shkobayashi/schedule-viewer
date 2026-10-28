@@ -24,7 +24,7 @@ const task = (patch: Partial<Task>): Task => ({
   name: "Alpha",
   start: "2026-04-01",
   end: "2026-04-10",
-  assigneeId: null,
+  assigneeIds: [],
   status: "not-started",
   progress: 0,
   confidence: "committed",

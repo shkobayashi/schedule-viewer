@@ -18,7 +18,7 @@ const baseTask: Task = {
   name: "Alpha",
   start: "2026-01-01",
   end: "2026-01-02",
-  assigneeId: null,
+  assigneeIds: [],
   status: "not-started",
   progress: 0,
   confidence: "committed",
@@ -183,12 +183,66 @@ describe("taskMatchesFilter confidence", () => {
   });
 });
 
+describe("taskMatchesFilter assignee", () => {
+  const catalog = new Map([
+    ["member-1", { id: "member-1", name: "佐藤" }],
+    ["member-2", { id: "member-2", name: "田中" }],
+  ]);
+
+  it("matches when selected member is anywhere in assigneeIds", () => {
+    const multi = { ...baseTask, assigneeIds: ["member-2", "member-1"] };
+    expect(
+      taskMatchesFilter(
+        multi,
+        { ...filters, assignee: "member-1" },
+        "2026-01-01",
+        catalog,
+      ),
+    ).toBe(true);
+    expect(
+      taskMatchesFilter(
+        { ...baseTask, assigneeIds: ["member-2"] },
+        { ...filters, assignee: "member-1" },
+        "2026-01-01",
+        catalog,
+      ),
+    ).toBe(false);
+  });
+
+  it("unassigned filter keeps empty and unknown-only tasks", () => {
+    expect(
+      taskMatchesFilter(
+        baseTask,
+        { ...filters, assignee: UNASSIGNED_FILTER },
+        "2026-01-01",
+        catalog,
+      ),
+    ).toBe(true);
+    expect(
+      taskMatchesFilter(
+        { ...baseTask, assigneeIds: ["ghost"] },
+        { ...filters, assignee: UNASSIGNED_FILTER },
+        "2026-01-01",
+        catalog,
+      ),
+    ).toBe(true);
+    expect(
+      taskMatchesFilter(
+        { ...baseTask, assigneeIds: ["ghost", "member-1"] },
+        { ...filters, assignee: UNASSIGNED_FILTER },
+        "2026-01-01",
+        catalog,
+      ),
+    ).toBe(false);
+  });
+});
+
 const addedTask: Task = {
   id: "00000000-0000-4000-8000-000000000010",
   name: "新しい作業",
   start: "2026-09-30",
   end: "2026-10-01",
-  assigneeId: null,
+  assigneeIds: [],
   status: "not-started",
   progress: 0,
   confidence: "tentative",
@@ -277,7 +331,7 @@ describe("relaxFiltersForNewTask", () => {
     const copy: Task = {
       ...addedTask,
       name: "確定の複製",
-      assigneeId: "member-1",
+      assigneeIds: ["member-1"],
       status: "in-progress",
       confidence: "committed",
       milestoneId,

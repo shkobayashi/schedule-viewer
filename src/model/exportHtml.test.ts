@@ -22,7 +22,7 @@ const task: Task = {
   name: "見えるタスク",
   start: "2026-04-01",
   end: "2026-04-03",
-  assigneeId: null,
+  assigneeIds: [],
   status: "in-progress",
   progress: 40,
   confidence: "committed",
