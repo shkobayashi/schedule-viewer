@@ -214,13 +214,6 @@ function checkTaskAssigneeIdEmptyArray(
       message: "担当者の配列は空にできません",
     };
   }
-  const ids = task.assigneeIds;
-  if (Array.isArray(ids) && ids.length === 0) {
-    return {
-      path: `${taskPath}/assigneeIds`,
-      message: "担当者の配列は空にできません",
-    };
-  }
   return null;
 }
 

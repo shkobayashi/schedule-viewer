@@ -9,7 +9,7 @@ import {
   validateAssigneeIdsSemantics,
 } from "./assigneeIds";
 import { validateSchedule } from "./validateSchedule";
-import { documentToJsonString } from "./serialize";
+import { documentToJson, documentToJsonString } from "./serialize";
 import { SCHEDULE_SCHEMA_VERSION, type ScheduleDocument } from "./types";
 
 const memberId = "a1000001-0000-4000-8000-000000000020";
@@ -164,6 +164,18 @@ describe("validateSchedule assigneeId json", () => {
       scheduleWithAssigneeId([memberId, memberId]),
     );
     expect(parsed.ok).toBe(false);
+  });
+
+  it("accepts unassigned tasks after documentToJson for baseline merge validation", () => {
+    const parsed = validateSchedule(scheduleWithAssigneeId(null));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const jsonDoc = documentToJson(parsed.document);
+    const merged = validateSchedule(jsonDoc);
+    expect(merged.ok).toBe(true);
+    if (!merged.ok) return;
+    const out = documentToJsonString(merged.document);
+    expect(out).toContain('"assigneeId": null');
   });
 });
 

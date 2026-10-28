@@ -65,7 +65,7 @@
 | 同上 | `matches when id is in the list` | FILTER-03 |
 | 同上 | `appends the id only when the display name is duplicated` | VIEW-10 |
 | 同上 | `matches bar-right label for empty assignees` / `joins all assignees in order with読点` / `appends id only for duplicate display names and marks unknown ids` / `does not truncate long labels` | EXPORT-05 |
-| `assigneeIds.test.ts` | `maps null, string, and array` / `serializes empty, one, and many` / `compares order` / 重複拒否 / 正規化 / `validateSchedule assigneeId json` | FILE-01, FILE-02 |
+| `assigneeIds.test.ts` | `maps null, string, and array` / `serializes empty, one, and many` / `compares order` / 重複拒否 / 正規化 / `validateSchedule assigneeId json` / `accepts unassigned tasks after documentToJson for baseline merge validation` | FILE-01, FILE-02, SYNC-01 |
 | `rows.test.ts` | `taskMatchesFilter assignee` | FILTER-03 |
 | `scheduleDiff.test.ts` | `shows ordered assigneeId for multiple ids and order-only changes` | FILE-07 |
 | `baselineDiffs.test.ts` | `classifies assignee order mismatch as 異なる without merging ids` | FILE-07 |
