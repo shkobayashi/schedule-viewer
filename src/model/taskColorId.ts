@@ -7,7 +7,8 @@ export function applyTaskColorId(
 ): Task {
   if (!("colorId" in patch)) return task;
   if (patch.colorId == null) {
-    const { colorId: _removed, ...rest } = task;
+    const { colorId, ...rest } = task;
+    void colorId;
     return rest;
   }
   return { ...task, colorId: patch.colorId };

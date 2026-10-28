@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Member, MemberId } from "../model/memberTypes";
+import type { ColorItem } from "../model/colorCatalog";
 import type { StatusItem } from "../model/statusCatalog";
 import { loadBaselineDiffsText } from "../model/baselineDiffsLoad";
 import { loadScheduleDiffText } from "../model/scheduleDiffLoad";
@@ -65,6 +66,7 @@ type UseMcpScreenBridgeInput = {
   today: string;
   memberMap: Map<MemberId, Member> | null;
   statuses: readonly StatusItem[];
+  colors: readonly ColorItem[] | null;
   levels?: ScheduleLevelDef[] | null;
   fields?: readonly ScheduleFieldDef[] | undefined;
   scheduleFilePath: string | null;
@@ -233,6 +235,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             lineageIds: snap.lineageIds,
             selectedTaskId: snap.selectedTaskId,
             statuses: snap.statuses,
+            colors: snap.colors,
             levels: snap.levels,
             fields: snap.fields,
           });
@@ -247,6 +250,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             milestones: snap.milestones,
             selectedTaskIds: snap.selectedTaskIds,
             statuses: snap.statuses,
+            colors: snap.colors,
             levels: snap.levels,
             fields: snap.fields,
           });
@@ -279,6 +283,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             memberCatalog: snap.memberMap,
             lineageIds: snap.lineageIds,
             statuses: snap.statuses,
+            colors: snap.colors,
             levels: snap.levels,
             fields: snap.fields,
           });

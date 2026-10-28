@@ -1,6 +1,7 @@
 import type { SearchField } from "./scheduleFilterPersistence";
 import { assigneeIdToJson, taskAssigneeIds } from "./assigneeIds";
 import { duplicateMemberNamesFromCatalog, resolveAssigneeRowDisplay } from "./assigneeDisplay";
+import type { ColorItem } from "./colorCatalog";
 import {
   BUILTIN_STATUS_ITEMS,
   normalizeStatusItem,
@@ -69,6 +70,7 @@ export type ScreenContextTask = {
   todos?: TaskTodoItem[];
   note?: string;
   tags: string[];
+  colorId?: string;
   fieldValues?: TaskFieldValues;
 };
 
@@ -93,6 +95,17 @@ export type McpStatusEntry = {
   role: StatusItem["role"];
   description: string;
   instruction?: string;
+};
+
+/** タスクの `colorId` が指す色。LLM が id を選ぶ手がかり。 */
+export type McpColorEntry = {
+  id: string;
+  name: string;
+  description: string;
+  color: {
+    light: { bg: string };
+    dark: { bg: string };
+  };
 };
 
 /** タスクの `fieldValues` のキーと型。LLM が値を書く手がかり。 */
@@ -148,9 +161,25 @@ export function statusEntriesForMcp(
   });
 }
 
+export function colorEntriesForMcp(
+  colors: readonly ColorItem[] | null | undefined,
+): McpColorEntry[] {
+  if (colors == null || colors.length === 0) return [];
+  return colors.map((item) => ({
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    color: {
+      light: { bg: item.color.light.bg },
+      dark: { bg: item.color.dark.bg },
+    },
+  }));
+}
+
 export type FilteredTasksMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
+  colors: McpColorEntry[];
   fields: McpFieldEntry[];
   activeConditions: McpActiveFilterCondition[];
   tasks: ScreenContextTask[];
@@ -159,6 +188,7 @@ export type FilteredTasksMcpPayload = {
 export type SelectedTaskMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
+  colors: McpColorEntry[];
   fields: McpFieldEntry[];
   selectedTaskId: ScheduleId | null;
   selectedTask: ScreenContextTask | null;
@@ -167,6 +197,7 @@ export type SelectedTaskMcpPayload = {
 export type SelectedTasksMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
+  colors: McpColorEntry[];
   fields: McpFieldEntry[];
   selectedTasks: ScreenContextTask[];
 };
@@ -236,6 +267,9 @@ function taskToContext(ref: FilteredTaskRef): ScreenContextTask {
     ...(hasTaskTodos(task) ? { todos: task.todos!.map((item) => ({ ...item })) } : {}),
     ...(task.note !== undefined ? { note: task.note } : {}),
     tags: [...(task.tags ?? [])],
+    ...(task.colorId != null && task.colorId !== ""
+      ? { colorId: task.colorId }
+      : {}),
     ...(task.fieldValues != null && Object.keys(task.fieldValues).length > 0
       ? { fieldValues: { ...task.fieldValues } }
       : {}),
@@ -413,11 +447,13 @@ export function buildFilteredTasksPayload(
     memberCatalog: Map<MemberId, Member> | null;
     lineageIds: ReadonlySet<ScheduleId> | null;
     statuses?: readonly StatusItem[];
+    colors?: readonly ColorItem[] | null;
     levels?: readonly ScheduleLevelDef[] | null;
     fields?: readonly ScheduleFieldDef[];
   },
 ): FilteredTasksMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
+  const colorEntries = colorEntriesForMcp(input.colors);
   const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const doc = scheduleDocumentForMcpTasks(input);
@@ -433,6 +469,7 @@ export function buildFilteredTasksPayload(
   return {
     levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
+    colors: colorEntries,
     fields: fieldEntries,
     activeConditions: buildActiveFilterConditions({
       filters: input.filters,
@@ -458,11 +495,13 @@ export function buildSelectedTaskPayload(
     lineageIds: ReadonlySet<ScheduleId> | null;
     selectedTaskId: ScheduleId | null;
     statuses?: readonly StatusItem[];
+    colors?: readonly ColorItem[] | null;
     levels?: readonly ScheduleLevelDef[] | null;
     fields?: readonly ScheduleFieldDef[];
   },
 ): SelectedTaskMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
+  const colorEntries = colorEntriesForMcp(input.colors);
   const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const doc = scheduleDocumentForMcpTasks(input);
@@ -483,6 +522,7 @@ export function buildSelectedTaskPayload(
   return {
     levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
+    colors: colorEntries,
     fields: fieldEntries,
     selectedTaskId: input.selectedTaskId,
     selectedTask,
@@ -493,6 +533,7 @@ export function buildSelectedTasksPayload(
   input: McpScheduleTasksContext & {
     selectedTaskIds: readonly ScheduleId[];
     statuses?: readonly StatusItem[];
+    colors?: readonly ColorItem[] | null;
     levels?: readonly ScheduleLevelDef[] | null;
     fields?: readonly ScheduleFieldDef[];
   },
@@ -500,6 +541,7 @@ export function buildSelectedTasksPayload(
   const statusEntries = statusEntriesForMcp(
     input.statuses ?? BUILTIN_STATUS_ITEMS,
   );
+  const colorEntries = colorEntriesForMcp(input.colors);
   const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const selected = new Set(input.selectedTaskIds);
@@ -507,6 +549,7 @@ export function buildSelectedTasksPayload(
     return {
       levels: levelEntries,
       statuses: statusEntries,
+      colors: colorEntries,
       fields: fieldEntries,
       selectedTasks: [],
     };
@@ -527,6 +570,7 @@ export function buildSelectedTasksPayload(
   return {
     levels: levelEntries,
     statuses: statusEntries,
+    colors: colorEntries,
     fields: fieldEntries,
     selectedTasks,
   };

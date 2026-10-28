@@ -399,6 +399,12 @@
 | 同上 | `snapshot lines skip empty keys` | FILE-07 |
 | 同上 | `treats matching fieldValues as equal` | FILE-07 |
 | `screenContext.test.ts` | `field catalog in MCP payloads` | MCP-01 |
+| 同上 | `color catalog in MCP payloads` | MCP-01 |
+| 同上 | `maps catalog entries with light and dark bg only` | MCP-01 |
+| 同上 | `returns empty colors on all three read payloads when unset` | MCP-01 |
+| 同上 | `includes colorId on tasks when set in categories` | MCP-01 |
+| 同上 | `includes colorId on outline tasks when set` | MCP-01 |
+| 同上 | `includes unknown colorId on task when not in catalog` | MCP-01 |
 | 同上 | `includes fields and fieldValues on selected_task` | MCP-01 |
 | 同上 | `includes fields and fieldValues on selected_tasks` | MCP-01 |
 | 同上 | `omits empty choices and empty default from field entries` | MCP-01 |

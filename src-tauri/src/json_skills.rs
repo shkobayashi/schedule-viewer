@@ -4,12 +4,13 @@ use std::path::{Component, Path, PathBuf};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
-pub const JSON_SKILL_NAMES: [&str; 5] = [
+pub const JSON_SKILL_NAMES: [&str; 6] = [
     "write-schedule",
     "write-members",
     "write-calendar",
     "write-workspace",
     "write-fields",
+    "write-colors",
 ];
 
 const RESOURCE_SKILLS_DIR: &str = "json-skills";

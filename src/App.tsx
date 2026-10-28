@@ -2294,6 +2294,7 @@ function App() {
 
   useMcpScreenBridge({
     statuses: displayStatuses,
+    colors: displayColors,
     categories: schedule.categories,
     outline: schedule.outline,
     title: schedule.title,

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "colors": [
+    {
+      "id": "bad",
+      "name": "範囲外",
+      "description": "テスト用。",
+      "color": {
+        "light": { "bg": "#000000" },
+        "dark": { "bg": "#14532D" }
+      }
+    }
+  ]
+}

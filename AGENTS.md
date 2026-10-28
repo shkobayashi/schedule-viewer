@@ -31,7 +31,7 @@
 | 変えたもの | 同じ変更で更新する文書 |
 | --- | --- |
 | 画面の挙動、操作、表示 | [docs/external-spec.md](docs/external-spec.md)。利用者の手順が変わるときは、内容に合う [docs/user-manual/getting-started.md](docs/user-manual/getting-started.md)、[docs/user-manual/tutorial.md](docs/user-manual/tutorial.md)、[docs/user-manual/features.md](docs/user-manual/features.md)。読み方だけ変えるときは [docs/user-manual.md](docs/user-manual.md)。README の機能説明が変わるときは [README.md](README.md) |
-| JSON のフィールドや `schemaVersion` | [docs/data-format.md](docs/data-format.md) と対応する `docs/*.schema.json`。スケジュール JSON は [.cursor/skills/update-schedule-schema/SKILL.md](.cursor/skills/update-schedule-schema/SKILL.md) の手順で、検証、サンプル、`write-schedule` スキルも揃える。カレンダーは `write-calendar`、メンバーは `write-members`、設定ファイルは `write-workspace` を、スキーマとアプリの検証と同じ変更で揃える |
+| JSON のフィールドや `schemaVersion` | [docs/data-format.md](docs/data-format.md) と対応する `docs/*.schema.json`。スケジュール JSON は [.cursor/skills/update-schedule-schema/SKILL.md](.cursor/skills/update-schedule-schema/SKILL.md) の手順で、検証、サンプル、`write-schedule` スキルも揃える。カレンダーは `write-calendar`、メンバーは `write-members`、色の一覧は `write-colors`、設定ファイルは `write-workspace` を、スキーマとアプリの検証と同じ変更で揃える |
 | モジュール構成、状態、Tauri コマンド、描画の流れ | [docs/internal-spec.md](docs/internal-spec.md) |
 | テストの追加、削除、または対応する機能 ID | [docs/test-spec.md](docs/test-spec.md) |
 | 起動手順、依存バージョン、CI、リリース、配布、操作マニュアルの Pages | [docs/development.md](docs/development.md)。利用者向けの導入が変わるときは [README.md](README.md) と [docs/user-manual/getting-started.md](docs/user-manual/getting-started.md)（入手と起動）。LLM 連携の流れが変わるときは [docs/user-manual/tutorial.md](docs/user-manual/tutorial.md)。公開 URL が変わるときは [docs/user-manual.md](docs/user-manual.md) |
@@ -49,7 +49,7 @@ GitHub の Issue を見る、コメントする、作る、更新するときは
 
 ## スキルの使い方と保守
 
-計画を書いて実装に渡すときは、実装が読むスキル名と、その中の節を計画に書く。アプリの実装（画面、状態、モデル、Tauri、描画と、それに伴う文書とテスト）は [implement-change](.cursor/skills/implement-change/SKILL.md)、リリース、CI、配布用ビルドは [cut-release](.cursor/skills/cut-release/SKILL.md)、操作マニュアルの GitHub Pages は [publish-user-manual](.cursor/skills/publish-user-manual/SKILL.md)、プロジェクト全体のレビューは [review-project](.cursor/skills/review-project/SKILL.md)、計画を実装したあとのレビューは [review-implementation](.cursor/skills/review-implementation/SKILL.md) である。スケジュール、メンバー、カレンダーの JSON を作るときは `write-schedule`、`write-members`、`write-calendar`。同じフォルダを `workspace.json` で束ねるときは `write-workspace`。スケジュール JSON の形を変えるときは `update-schedule-schema`。
+計画を書いて実装に渡すときは、実装が読むスキル名と、その中の節を計画に書く。アプリの実装（画面、状態、モデル、Tauri、描画と、それに伴う文書とテスト）は [implement-change](.cursor/skills/implement-change/SKILL.md)、リリース、CI、配布用ビルドは [cut-release](.cursor/skills/cut-release/SKILL.md)、操作マニュアルの GitHub Pages は [publish-user-manual](.cursor/skills/publish-user-manual/SKILL.md)、プロジェクト全体のレビューは [review-project](.cursor/skills/review-project/SKILL.md)、計画を実装したあとのレビューは [review-implementation](.cursor/skills/review-implementation/SKILL.md) である。スケジュール、メンバー、カレンダーの JSON を作るときは `write-schedule`、`write-members`、`write-calendar`。色の一覧 JSON を作るときは `write-colors`。同じフォルダを `workspace.json` で束ねるときは `write-workspace`。スケジュール JSON の形を変えるときは `update-schedule-schema`。
 
 1.x を出しながら次のメジャーを進める手順は [docs/development.md](docs/development.md) にある。この作業用のスキルは作らない。実装の計画は implement-change だけを読み、載せるブランチは着手前で決める。`next` を切る作業と次メジャーのリリースは、cut-release の「1.x と次のメジャー」を読む。
 
@@ -63,6 +63,6 @@ GitHub の Issue を見る、コメントする、作る、更新するときは
 
 スキルやルールの本文からほかのファイルへリンクするときは、そのファイルからの相対パスで書く。たとえば SKILL.md から `AGENTS.md` へは `../../../AGENTS.md` と書く。
 
-計画を実装したあとのレビューは [review-implementation](.cursor/skills/review-implementation/SKILL.md) に従い、その場ではファイルを直さない。計画と仕上がりがずれた箇所を直すときは、再発を防ぐ手順を該当スキルの該当する節へ同じ変更で必ず足す。足した節を結果に書く。足さない判断だけを書いて完了にしない。その計画だけの指摘は足さない。`write-schedule`、`write-members`、`write-calendar`、`write-workspace` は他のリポジトリへコピーして使うので、アプリ実装の手順はそこへ書かない。
+計画を実装したあとのレビューは [review-implementation](.cursor/skills/review-implementation/SKILL.md) に従い、その場ではファイルを直さない。計画と仕上がりがずれた箇所を直すときは、再発を防ぐ手順を該当スキルの該当する節へ同じ変更で必ず足す。足した節を結果に書く。足さない判断だけを書いて完了にしない。その計画だけの指摘は足さない。`write-schedule`、`write-members`、`write-calendar`、`write-workspace`、`write-fields`、`write-colors` は他のリポジトリへコピーして使うので、アプリ実装の手順はそこへ書かない。
 
 ある種類の計画で、既存スキルの手順のうち使わないものが半分を超えるときは、その種類用のスキルに分ける。リリース、CI、配布用ビルドは、画面の実装と手順が重ならなくなったときに分ける。スキーマの変更は `update-schedule-schema` のままにする。毎回の計画が実装用スキルを2つ読めとしているときは、1つに戻す。

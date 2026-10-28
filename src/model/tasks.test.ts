@@ -464,7 +464,8 @@ describe("outlineAfterDuplicate colorId", () => {
         ?.colorId,
     ).toBeUndefined();
 
-    const { colorId: _removed, ...patchWithoutColor } = dupPatch;
+    const { colorId, ...patchWithoutColor } = dupPatch;
+    void colorId;
     const inherited = outlineAfterDuplicate(
       withColor,
       milestones,

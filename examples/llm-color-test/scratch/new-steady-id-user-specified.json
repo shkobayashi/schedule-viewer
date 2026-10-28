@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "colors": [
+    {
+      "id": "steady",
+      "name": "順調",
+      "description": "順調に進んでいる作業。",
+      "color": {
+        "light": { "bg": "#DCFCE7" },
+        "dark": { "bg": "#14532D" }
+      }
+    }
+  ]
+}
