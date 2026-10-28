@@ -64,7 +64,7 @@
 | 同上 | `keeps empty and unknown-only, and drops resolved members` | FILTER-03 |
 | 同上 | `matches when id is in the list` | FILTER-03 |
 | 同上 | `appends the id only when the display name is duplicated` | VIEW-10 |
-| 同上 | `assigneeExcelCellLabel` | VIEW-10 |
+| 同上 | `matches bar-right label for empty assignees` / `joins all assignees in order with読点` / `appends id only for duplicate display names and marks unknown ids` / `does not truncate long labels` | EXPORT-05 |
 | `assigneeIds.test.ts` | `maps null, string, and array` / `serializes empty, one, and many` / `compares order` / 重複拒否 / 正規化 / `validateSchedule assigneeId json` | FILE-01, FILE-02 |
 | `rows.test.ts` | `taskMatchesFilter assignee` | FILTER-03 |
 | `scheduleDiff.test.ts` | `shows ordered assigneeId for multiple ids and order-only changes` | FILE-07 |
@@ -173,6 +173,8 @@
 | 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
 | 同上 | `defaults field columns to off`、`inserts enabled field columns before note`、`disambiguates duplicate names only among enabled field columns` | EXPORT-01, EXPORT-05 |
 | `exportExcel.test.ts` | `leaves field columns off by default`、`formats enabled field columns before note` | EXPORT-05 |
+| 同上 | `puts full assignee text in one column for tasks and leaves headings empty` | EXPORT-05 |
+| 同上 | `does not add assignee cells on milestone rows when the column is on` | EXPORT-05 |
 | `baselineDiffs.test.ts` | `classifies same key with number on screen and string on file as 異なる`、`keeps unchanged field values when merging a file-only field change` | SYNC-01, FILE-07 |
 | `baselineMergeReview.test.ts` | `orders extension fields by definition in change blocks`、`orders extension fields by definition under conflict headlines` | SYNC-01, FILE-07 |
 | `exportHtml.test.ts` | `puts the active filter into HTML and SVG`、`omits fieldValues from HTML and SVG export` | EXPORT-01, EXPORT-02 |
@@ -1212,7 +1214,7 @@
 | TC-EXPORT-02 | EXPORT-02 | タスク名で数件に絞る | HTML で書き出す | 絞り込みで残った行だけが入り、絞り込みで隠したタスクは入らない。画面の外にスクロールしている行も入る |
 | TC-EXPORT-03 | EXPORT-03 | 書き出しの行が 10,000 を超えるデータ | 「書き出し」を実行する | ファイルを作らず、行数の上限を理由に出す |
 | TC-EXPORT-04 | EXPORT-04 | タイトルに `/` や `:` がある | 書き出しの保存ダイアログを開く | 提案名からそれらの文字が除かれ、選んだ形式の拡張子が付く |
-| TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。グループ名と遅延のタスク名は、画面がダークでもライト配色の文字色で読める。カテゴリの塗りは左の列だけである。マイルストンは「◆ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
+| TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。二人以上の担当を付けたタスクがある。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する。担当列をオンにし、複数担当のタスク行と見出し行、マイルストン行を見る | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。担当列は1列のままである。タスク行の担当セルは、棒の右と同じ文字列で、入れた順を「、」でつないですべて入り、8文字では切らない。同名の表示名だけ id が付く。空は「未割当」、一覧に無い id はその位置が「メンバー不明（id）」である。見出し行とマイルストン行の担当列は空である。担当を増やしても行数と日付の図形の数は増えない。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。グループ名と遅延のタスク名は、画面がダークでもライト配色の文字色で読める。カテゴリの塗りは左の列だけである。マイルストンは「◆ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、ステータス、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |

@@ -14,6 +14,7 @@ import {
   EXCEL_SHEET_NON_WORKING_RGB,
 } from "./excelSheetColors";
 import type { ScheduleExportInput } from "./exportHtml";
+import { assigneeExcelCellLabel, memberMapFromList } from "./assigneeDisplay";
 import { parseDate } from "./dates";
 import { paletteFor } from "./palette";
 import type { VisibleRow } from "./types";
@@ -504,5 +505,133 @@ describe("exportExcel", () => {
       "本文",
       "",
     ]);
+  });
+
+  it("puts full assignee text in one column for tasks and leaves headings empty", () => {
+    const members = [
+      { id: "sato", name: "佐藤" },
+      { id: "tanaka", name: "田中" },
+    ];
+    const catalog = memberMapFromList(members);
+    const excelColumns = {
+      ...DEFAULT_EXCEL_EXPORT_COLUMNS,
+      assignee: true,
+    };
+    const category: VisibleRow = {
+      type: "category",
+      y: 0,
+      id: "c1",
+      label: "要件定義",
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 50,
+    };
+    const heading: VisibleRow = {
+      type: "hierarchy",
+      id: "h0",
+      label: "まとまり",
+      y: 0,
+      collapsed: false,
+      summary: summarySpan,
+      rollupPercent: 50,
+      levelIndex: 0,
+      depth: 0,
+      rowKind: "top",
+      ancestorIds: [],
+      alsoTaskParent: true,
+    };
+    const inputMulti = baseInput();
+    inputMulti.excelColumns = excelColumns;
+    inputMulti.memberCatalog = catalog;
+    const taskRow = inputMulti.visibleRows[0]!;
+    if (taskRow.type === "task") {
+      taskRow.task.assigneeIds = ["sato", "tanaka"];
+    }
+    inputMulti.visibleRows = [category, heading, taskRow];
+    const payloadMulti = buildExcelExportPayload(inputMulti);
+    expect(payloadMulti.leftHeaders.filter((h) => h === "担当")).toEqual([
+      "担当",
+    ]);
+    const assigneeIndex = payloadMulti.leftHeaders.indexOf("担当");
+    expect(assigneeIndex).toBe(1);
+    expect(payloadMulti.rows[0]?.kind).toBe("category");
+    expect(payloadMulti.rows[0]?.cells[assigneeIndex]).toBe("");
+    expect(payloadMulti.rows[1]?.cells[assigneeIndex]).toBe("");
+    const taskCells = payloadMulti.rows[2]?.cells;
+    expect(taskCells?.[assigneeIndex]).toBe(
+      assigneeExcelCellLabel(["sato", "tanaka"], catalog),
+    );
+
+    const inputOne = baseInput();
+    inputOne.excelColumns = excelColumns;
+    inputOne.memberCatalog = catalog;
+    const oneTask = inputOne.visibleRows[0]!;
+    if (oneTask.type === "task") {
+      oneTask.task.assigneeIds = ["sato"];
+    }
+    const payloadOne = buildExcelExportPayload(inputOne);
+    expect(payloadMulti.rows.length).toBe(payloadOne.rows.length + 2);
+    expect(payloadMulti.shapes.length).toBeGreaterThan(payloadOne.shapes.length);
+
+    const inputMultiTaskOnly = baseInput();
+    inputMultiTaskOnly.excelColumns = excelColumns;
+    inputMultiTaskOnly.memberCatalog = catalog;
+    const multiTask = inputMultiTaskOnly.visibleRows[0]!;
+    if (multiTask.type === "task") {
+      multiTask.task.assigneeIds = ["sato", "tanaka"];
+    }
+    const payloadMultiTaskOnly = buildExcelExportPayload(inputMultiTaskOnly);
+    expect(payloadMultiTaskOnly.rows.length).toBe(payloadOne.rows.length);
+    expect(payloadMultiTaskOnly.shapes.length).toBe(payloadOne.shapes.length);
+  });
+
+  it("does not add assignee cells on milestone rows when the column is on", () => {
+    const input = baseInput();
+    input.excelColumns = {
+      ...DEFAULT_EXCEL_EXPORT_COLUMNS,
+      assignee: true,
+    };
+    input.memberCatalog = memberMapFromList([{ id: "sato", name: "佐藤" }]);
+    const taskRow = input.visibleRows[0]!;
+    if (taskRow.type === "task") {
+      taskRow.task.assigneeIds = ["sato"];
+    }
+    input.tier = "month";
+    input.timelineStart = parseDate("2026-09-01");
+    input.timelineEnd = parseDate("2026-11-01");
+    input.milestoneGroups = [{ id: "mg1", name: "リリース" }];
+    input.exportMilestones = [
+      {
+        id: "m1",
+        name: "α版",
+        date: "2026-10-01",
+        confidence: "committed",
+        groupId: "mg1",
+      },
+    ];
+    input.milestoneBandLayout = {
+      blocks: [
+        {
+          group: { id: "mg1", name: "リリース" },
+          offsetY: 0,
+          height: 20,
+          milestones: input.exportMilestones,
+          lanes: new Map(),
+          displayLabels: new Map(),
+          centerYById: new Map(),
+        },
+      ],
+      totalHeight: 20,
+      centerYById: new Map(),
+      displayLabels: new Map(),
+    };
+    const payload = buildExcelExportPayload(input);
+    expect(payload.milestoneRows).toHaveLength(1);
+    expect(payload.milestoneRows[0]?.name).toBe("リリース");
+    const assigneeIndex = payload.leftHeaders.indexOf("担当");
+    expect(payload.rows[0]?.cells[assigneeIndex]).toBe("佐藤");
+    expect(
+      payload.milestoneMarks.every((mark) => !mark.character.includes("佐藤")),
+    ).toBe(true);
   });
 });

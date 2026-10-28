@@ -91,19 +91,48 @@ describe("matchesMemberAssigneeFilter", () => {
 
 describe("assigneeExcelCellLabel", () => {
   const catalog = memberMapFromList(members);
+  const duplicateNames = new Set(["田中"]);
 
-  it("uses 割り当てなし for empty and member name without duplicate id suffix", () => {
-    expect(assigneeExcelCellLabel([], catalog)).toBe("割り当てなし");
-    expect(assigneeExcelCellLabel(["sato"], catalog)).toBe("佐藤");
-    expect(assigneeExcelCellLabel(["tanaka"], catalog)).toBe("田中");
-    expect(assigneeExcelCellLabel(["tanaka-2"], catalog)).toBe("田中");
-    expect(assigneeExcelCellLabel(["missing"], catalog)).toBe(
-      "メンバー不明（missing）",
+  it("matches bar-right label for empty assignees", () => {
+    expect(assigneeExcelCellLabel([], catalog)).toBe("未割当");
+    expect(assigneeExcelCellLabel([], null)).toBe("未割当");
+    expect(
+      assigneeExcelCellLabel([], catalog),
+    ).toBe(assigneeSidebarLabel(resolveAssigneeDisplay([], catalog)));
+  });
+
+  it("joins all assignees in order with読点", () => {
+    expect(assigneeExcelCellLabel(["sato", "tanaka"], catalog)).toBe(
+      "佐藤、田中（tanaka）",
+    );
+    expect(assigneeExcelCellLabel(["tanaka", "sato"], catalog)).toBe(
+      "田中（tanaka）、佐藤",
+    );
+    expect(
+      assigneeExcelCellLabel(["sato", "tanaka"], catalog),
+    ).toBe(
+      assigneeSidebarLabel(
+        resolveAssigneeDisplay(["sato", "tanaka"], catalog, duplicateNames),
+      ),
     );
   });
 
-  it("uses only the first id label when multiple assignees", () => {
-    expect(assigneeExcelCellLabel(["sato", "tanaka"], catalog)).toBe("佐藤");
+  it("appends id only for duplicate display names and marks unknown ids", () => {
+    expect(assigneeExcelCellLabel(["sato"], catalog)).toBe("佐藤");
+    expect(assigneeExcelCellLabel(["tanaka-2"], catalog)).toBe("田中（tanaka-2）");
+    expect(assigneeExcelCellLabel(["missing"], catalog)).toBe(
+      "メンバー不明（missing）",
+    );
+    expect(assigneeExcelCellLabel(["sato", "missing"], catalog)).toBe(
+      "佐藤、メンバー不明（missing）",
+    );
+  });
+
+  it("does not truncate long labels", () => {
+    const longName = "あ".repeat(12);
+    const longMembers: Member[] = [{ id: "long", name: longName }];
+    const longCatalog = memberMapFromList(longMembers);
+    expect(assigneeExcelCellLabel(["long"], longCatalog)).toBe(longName);
   });
 });
 

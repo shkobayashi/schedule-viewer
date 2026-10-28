@@ -153,16 +153,18 @@ export function assigneeSidebarLabel(display: AssigneeRowDisplay): string {
   return display.label;
 }
 
-/** Excel 担当列。空は「割り当てなし」。一人と二人以上の先頭は表示名のみ（重複名でも id を足さない）。 */
+/** Excel 担当列。チャートのバー右と同じ文字列（切らない）。 */
 export function assigneeExcelCellLabel(
   assigneeIds: readonly MemberId[],
   catalog: Map<MemberId, Member> | null,
 ): string {
-  if (assigneeIds.length === 0) return UNASSIGNED_LABEL;
-  const id = assigneeIds[0]!;
-  const member = catalog?.get(id);
-  if (member) return member.name;
-  return `${UNKNOWN_MEMBER_LABEL}（${id}）`;
+  const duplicateNames = duplicateMemberNamesFromCatalog(catalog);
+  const display = resolveAssigneeRowDisplay(
+    assigneeIds,
+    catalog,
+    duplicateNames,
+  );
+  return assigneeSidebarLabel(display);
 }
 
 export function formatUnknownAssigneeOption(id: MemberId): string {
