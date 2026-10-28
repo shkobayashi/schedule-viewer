@@ -17,6 +17,29 @@ export type ColorsDocument = {
   colors: ColorItem[];
 };
 
+export type ColorCatalogInfo = { id: string; label: string };
+
+/** 「新しい一覧」の最初の1件の地色。 */
+export const DEFAULT_NEW_COLOR_LIGHT_BG = "#E2E6ED";
+export const DEFAULT_NEW_COLOR_DARK_BG = "#454b5c";
+
+export function starterColorCatalogDocument(): ColorsDocument {
+  return {
+    schemaVersion: COLORS_SCHEMA_VERSION,
+    colors: [
+      {
+        id: "color-1",
+        name: "新しい色",
+        description: "この色にする",
+        color: {
+          light: { bg: DEFAULT_NEW_COLOR_LIGHT_BG },
+          dark: { bg: DEFAULT_NEW_COLOR_DARK_BG },
+        },
+      },
+    ],
+  };
+}
+
 export function findColorItem(
   items: readonly ColorItem[],
   id: string,

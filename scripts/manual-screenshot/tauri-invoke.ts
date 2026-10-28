@@ -8,6 +8,8 @@ const memberCatalogBodies = new Map<string, string>();
 let selectedMemberCatalogId: string | null = null;
 const statusCatalogBodies = new Map<string, string>();
 let selectedStatusCatalogId: string | null = null;
+const colorCatalogBodies = new Map<string, string>();
+let selectedColorCatalogId: string | null = null;
 
 export function setManualScreenshotOpenPick(pick: OpenPick | null): void {
   pendingOpenPick = pick;
@@ -116,6 +118,34 @@ export async function manualScreenshotInvoke(
     case "set_selected_status_catalog": {
       const catalogId = args.catalogId;
       selectedStatusCatalogId =
+        typeof catalogId === "string" && catalogId.length > 0 ? catalogId : null;
+      return null;
+    }
+    case "get_colors_settings":
+      return {
+        selectedCatalogId: selectedColorCatalogId,
+        catalogs: [...colorCatalogBodies.keys()]
+          .sort((a, b) => a.localeCompare(b, "ja"))
+          .map((id) => ({ id, label: id })),
+      };
+    case "import_color_catalog": {
+      const catalogId = String(args.catalogId ?? "").trim();
+      const contents = String(args.contents ?? "");
+      if (catalogId) {
+        colorCatalogBodies.set(catalogId, contents);
+        if (selectedColorCatalogId == null) {
+          selectedColorCatalogId = catalogId;
+        }
+      }
+      return null;
+    }
+    case "read_color_catalog": {
+      const catalogId = String(args.catalogId ?? "");
+      return colorCatalogBodies.get(catalogId) ?? null;
+    }
+    case "set_selected_color_catalog": {
+      const catalogId = args.catalogId;
+      selectedColorCatalogId =
         typeof catalogId === "string" && catalogId.length > 0 ? catalogId : null;
       return null;
     }

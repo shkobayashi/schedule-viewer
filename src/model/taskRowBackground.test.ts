@@ -6,7 +6,7 @@ import {
   taskRowBackgroundFill,
   visibleRowBackgroundFill,
 } from "./taskRowBackground";
-import type { Category, Task, VisibleRow } from "./types";
+import type { Task, VisibleRow } from "./types";
 
 const colors: ColorItem[] = [
   {

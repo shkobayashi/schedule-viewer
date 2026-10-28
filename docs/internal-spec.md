@@ -91,7 +91,7 @@ flowchart TD
 
 ### モデル
 
-純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`statusAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` と `sidebarWidth.ts` の localStorage だけである。
+純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` と `sidebarWidth.ts` の localStorage だけである。
 
 | 関心 | ファイル |
 | --- | --- |
@@ -111,7 +111,7 @@ flowchart TD
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
-| アプリデータ | `memberAppData.ts`、`statusAppData.ts`、`calendarAppData.ts` |
+| アプリデータ | `memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportExcel.ts`、`exportView.ts`、`exportFilename.ts` |
 | 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts` |
 | キーボードショートカット | `shortcuts.ts` |
@@ -247,7 +247,7 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `save_schedule_file` | 本文、別名か、提案名、期待パス、ハッシュ確認を飛ばすか。保存したパス | 10MB、`DISK_HASH_MISMATCH`、パス不一致、拡張子 | `save-schedule-file.toml` | 同上 |
 | `save_html_file` | 本文、提案名、拡張子 | 10MB | `save-html-file.toml` | `exportHtml.ts` |
 | `save_excel_export` | 書き出し用 JSON、提案名。保存したパス | 10MB | `save-excel-export.toml` | `exportExcel.ts` |
-| `export_workspace_bundle` | スケジュールと任意のメンバー、カレンダー、ステータス、拡張項目（ファイル名と本文の配列）を空フォルダへ書き、`workspace.json` を作る | スケジュール 10MB、その他 2MB | `open-schedule-file.toml` | `workspaceExport.ts` |
+| `export_workspace_bundle` | スケジュールと任意のメンバー、カレンダー、ステータス、色の一覧、拡張項目（ファイル名と本文の配列）を空フォルダへ書き、`workspace.json` を作る | スケジュール 10MB、その他 2MB | `open-schedule-file.toml` | `workspaceExport.ts` |
 | `get_members_settings` | カタログ一覧と選択中 ID | — | `members-app-data.toml` | `memberAppData.ts` |
 | `read_member_catalog` | カタログ ID。本文 | 2MB | 同上 | 同上 |
 | `import_member_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
@@ -262,6 +262,16 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `release_status_catalog_edit` | 一覧 ID または無し（無しはこのウィンドウのすべて） | — | 同上 | 同上 |
 | `save_statuses_json` | 本文、提案名。保存したパス | 2MB | 同上 | `statusAppData.ts` の `exportStatusesJson` |
 | `write_statuses_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `statuses` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致 | `write-statuses-at-path.toml` | `statusAppData.ts` の `writeStatusesAtPath` |
+| `get_colors_settings` | 一覧の一覧と選択中 ID | — | `colors-app-data.toml` | `colorAppData.ts` |
+| `read_color_catalog` | 一覧 ID。本文 | 2MB | 同上 | 同上 |
+| `import_color_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
+| `delete_color_catalog` | ID | — | 同上 | 同上 |
+| `set_selected_color_catalog` | ID または無し | — | 同上 | 同上 |
+| `claim_color_catalog_edit` | 一覧 ID または設定ファイルの `colors` の絶対パス。取得できたか、他ウィンドウのラベル | — | `color-catalog-edit.toml` | `colorAppData.ts` |
+| `release_color_catalog_edit` | 一覧 ID または無し（無しはこのウィンドウのすべて） | — | 同上 | 同上 |
+| `save_colors_json` | 本文、提案名。保存したパス | 2MB | 同上 | `colorAppData.ts` の `exportColorsJson` |
+| `write_colors_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `colors` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致 | `write-colors-at-path.toml` | `colorAppData.ts` の `writeColorsAtPath` |
+| `create_workspace_colors_catalog` | 設定ファイルのパス、相対ファイル名、本文。`colors` を書く。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、既に `colors` がある、ファイル名不正 | `workspace-colors-catalog.toml` | `colorAppData.ts` の `createWorkspaceColorsCatalog` |
 | `write_field_extension_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `editableFieldExtension` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致、編集用が無い | `field-extensions-app-data.toml` | `fieldExtensionAppData.ts` の `writeFieldExtensionAtPath` |
 | `create_workspace_editable_field_extension` | 設定ファイルのパス、相対ファイル名、本文。既存ファイルは上書きしない。`editableFieldExtension` を書く。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、既に編集用がある、ファイル名不正、重複 | `workspace-editable-field-extension.toml` | `fieldExtensionAppData.ts` の `createWorkspaceEditableFieldExtension` |
 | `delete_workspace_editable_field_extension` | 設定ファイルのパス。`editableFieldExtension` を外してからファイルを消す。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 編集用が無い、設定ファイルの更新失敗時はファイルを残す | 同上 | `fieldExtensionAppData.ts` の `deleteWorkspaceEditableFieldExtension` |

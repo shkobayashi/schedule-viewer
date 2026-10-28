@@ -371,8 +371,8 @@ describe("outlineAfterTaskEdit colorId", () => {
       status: "in-progress" as const,
       progress: 40,
       confidence: "committed" as const,
-      predecessors: [] as const,
-      successors: [] as const,
+      predecessors: [],
+      successors: [],
       milestoneId: null,
       note: "レビュー待ち",
     };
@@ -406,11 +406,17 @@ describe("outlineAfterTaskEdit colorId", () => {
 
 describe("outlineAfterDuplicate colorId", () => {
   it("uses patch colorId and copies source when patch omits colorId", () => {
+    const branch = outlineTwoLevels[0]!;
+    if (!("children" in branch)) {
+      throw new Error("expected outline branch");
+    }
     const withColor: OutlineRoot = [
       {
-        ...outlineTwoLevels[0]!,
-        children: outlineTwoLevels[0]!.children.map((node) =>
-          node.id === SOURCE ? { ...node, colorId: "focus" } : node,
+        ...branch,
+        children: branch.children.map((node) =>
+          "id" in node && node.id === SOURCE
+            ? { ...node, colorId: "focus" }
+            : node,
         ),
       },
     ];

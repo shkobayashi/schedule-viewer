@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-write-colors-at-path"
+description = "Allows writing a color catalog JSON to an absolute path (workspace binding)."
+commands.allow = ["write_colors_at_path"]

@@ -710,6 +710,7 @@ export function workspaceBindingSummary(binding: WorkspaceWindowBinding): {
   membersLabel: string;
   calendarLabel: string;
   statusesLabel: string;
+  colorsLabel: string;
   fieldExtensionsLabel: string;
   editableFieldExtensionLabel: string;
 } {
@@ -737,6 +738,14 @@ export function workspaceBindingSummary(binding: WorkspaceWindowBinding): {
         : binding.document.statuses == null
           ? "組み込みの三件"
           : workspaceSidecarLabel(binding.document.statuses);
+  const colorsLabel =
+    binding.colors.kind === "loaded" && binding.resolved.colorsPath
+      ? workspaceFileDisplayLabel(binding.resolved.colorsPath)
+      : binding.colors.kind === "loaded"
+        ? binding.colors.label
+        : binding.document.colors == null
+          ? "未選択"
+          : workspaceSidecarLabel(binding.document.colors);
   const fieldExtensionsLabel =
     binding.fieldExtensions.kind === "loaded"
       ? binding.fieldExtensions.documents.map((doc) => doc.name).join("、")
@@ -756,6 +765,7 @@ export function workspaceBindingSummary(binding: WorkspaceWindowBinding): {
     membersLabel,
     calendarLabel,
     statusesLabel,
+    colorsLabel,
     fieldExtensionsLabel,
     editableFieldExtensionLabel,
   };

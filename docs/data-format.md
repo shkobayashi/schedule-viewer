@@ -1,6 +1,6 @@
 # データ仕様
 
-スケジュール、メンバー、ステータス一覧、稼働日カレンダー、拡張項目の JSON と、アプリが自分で書くファイルの形を定める。フィールドの正本は各 JSON Schema である。ID の重複や前後関係の循環のように、スキーマでは表せない規則は `src/model/` の検証コードで確かめる。この文書では、これを意味規則と呼ぶ。画面での見え方は [外部仕様](external-spec.md) を参照する。
+スケジュール、メンバー、ステータス一覧、色の一覧、稼働日カレンダー、拡張項目の JSON と、アプリが自分で書くファイルの形を定める。フィールドの正本は各 JSON Schema である。ID の重複や前後関係の循環のように、スキーマでは表せない規則は `src/model/` の検証コードで確かめる。この文書では、これを意味規則と呼ぶ。画面での見え方は [外部仕様](external-spec.md) を参照する。
 
 スキーマファイルは `scripts/` と CI がパスを直接参照している。場所は変えない。
 
@@ -11,6 +11,7 @@
 | スケジュール JSON | LLM のスキル、またはアプリの「保存」「別名保存」 | 利用者が選んだパス。アプリはパスをスケジュールの中に書かない |
 | メンバー JSON | 利用者が用意し、設定の「メンバー」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には含めない |
 | ステータス一覧 JSON | 利用者が用意し、設定の「ステータス」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には含めない |
+| 色の一覧 JSON | 利用者が用意し、設定の「色」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には含めない |
 | 稼働日カレンダー JSON | 利用者が用意し、設定の「稼働日」から取り込む | 取り込み後はアプリデータに1件。スケジュール JSON には含めない |
 | 拡張項目 JSON | 利用者が用意し、設定の「拡張項目」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には定義を写さない。値は `fieldValues` に `プラグインID_項目ID` で書く |
 | HTML / SVG | アプリの「書き出し」 | 利用者が選んだパス、またはブラウザのダウンロード |
@@ -258,10 +259,11 @@
 
 | パス | 内容 | 上限 |
 | --- | --- | --- |
-| `settings.json` | `selectedMembersCatalogId`、`selectedStatusesCatalogId`、`selectedFieldExtensionCatalogIds`、`calendarLabel`。どれも無くてよい | — |
+| `settings.json` | `selectedMembersCatalogId`、`selectedStatusesCatalogId`、`selectedColorsCatalogId`、`selectedFieldExtensionCatalogIds`、`calendarLabel`。どれも無くてよい | — |
 | `members/<catalogId>.json` | 取り込んだメンバー JSON の本文 | 2MB |
 | `field-extensions/<catalogId>.json` | 取り込んだ拡張項目 JSON の本文 | 2MB |
 | `statuses/<catalogId>.json` | 取り込んだステータス一覧 JSON の本文 | 2MB |
+| `colors/<catalogId>.json` | 取り込んだ色の一覧 JSON の本文 | 2MB |
 | `calendar.json` | 取り込んだカレンダー JSON の本文 | 2MB |
 | `schedule-recovery/<ハッシュ>.json` | 未保存の控え。パスごとに1ファイル。`path`、`baselineJson`、`documentJson` | 10MB |
 | `schedule-filters/<ハッシュ>.json` | パスごとの絞り込みと折りたたみ。`version`（1 または 2）、`path`、絞り込みの各値（`filters` の中に `fieldFilters` を含む。`version` 1 のファイルは追加項目の条件を持たず、読み込み時は空にする。`version` 2 では `fieldFilters` がオブジェクトでないときは記録全体を初期値にする。オブジェクトのときは、型が合わないキーだけ外し、ほかの条件は戻す）、検索欄の対象（`name` または `note`）、帯の線をオフにしたマイルストングループの id、折りたたんだカテゴリ id の配列、折りたたんだグループ id の配列。配列が無い古いファイルは、折りたたみなしとして読む | 64KB |
@@ -280,6 +282,8 @@
 | `schedule-viewer/statuses/catalogs` | ステータス一覧のカタログ ID から本文への対応 |
 | `schedule-viewer/statuses/selected` | 使用中のステータス一覧のカタログ ID |
 | `schedule-viewer/statuses/builtin-seeded` | 組み込みの三件を入れたかどうかの記録 |
+| `schedule-viewer/colors/catalogs` | 色の一覧のカタログ ID から本文への対応 |
+| `schedule-viewer/colors/selected` | 使用中の色の一覧のカタログ ID |
 | `schedule-viewer/calendar/body` | カレンダー JSON の本文 |
 | `schedule-viewer/calendar/label` | カレンダーの表示名 |
 | `schedule-viewer/display-scale` | 表示サイズ。`auto`、`0.5`、`0.75`、`1`、`1.25`、`1.5`、`2` のいずれか |
@@ -289,7 +293,7 @@
 | `schedule-viewer/excel-export-columns` | Excel 書き出しの左の列。担当、開始、終了、ステータス、先行、進捗、TODO、ノートのオンオフ。名前は常に含む |
 | `schedule-viewer/excel-export-field-columns` | Excel 書き出しの追加項目の列。使用中の定義の合成キーごとのオンオフ。初期はすべてオフ |
 
-表示サイズ、配色、左一覧の幅、自動更新のオンオフはデスクトップ版でも localStorage に置く。メンバー、ステータス一覧、カレンダーは、デスクトップ版ではアプリデータだけに置く。
+表示サイズ、配色、左一覧の幅、自動更新のオンオフはデスクトップ版でも localStorage に置く。メンバー、ステータス一覧、色の一覧、カレンダーは、デスクトップ版ではアプリデータだけに置く。
 
 ## 検証のしかた
 
