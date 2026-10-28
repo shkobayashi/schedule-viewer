@@ -33,7 +33,7 @@ write-schedule スキルに従い、schedule-viewer 用のスケジュール JSO
 
 - プロジェクトの title: （例: 〇〇プロジェクト）
 - カテゴリ、グループ、タスクの階層と並び: （WBS の構造を書く）
-- 各タスク: name、start、end、confidence（日付を合意したなら committed、まだなら tentative）、assigneeId（未割当は null）、status、progress、predecessors（先行タスクの id。無ければ空）
+- 各タスク: name、start、end、confidence（日付を合意したなら committed、まだなら tentative）、assigneeId（未割当は null。一人は id の文字列。二人以上は入れた順の id 配列）、status、progress、predecessors（先行タスクの id。無ければ空）
 - 担当者 ID の一覧（assigneeId に使ってよい id だけ）: （メンバー JSON の id を列挙）
 - マイルストン（あれば）: name、date、confidence、groupId
 

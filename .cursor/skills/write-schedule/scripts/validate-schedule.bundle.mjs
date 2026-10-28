@@ -2784,6 +2784,68 @@ function scheduleInputForSchemaValidation(data2) {
   }
   return next;
 }
+function checkTaskAssigneeIdEmptyArray(task, taskPath) {
+  const value = task.assigneeId;
+  if (Array.isArray(value) && value.length === 0) {
+    return {
+      path: `${taskPath}/assigneeId`,
+      message: "\u62C5\u5F53\u8005\u306E\u914D\u5217\u306F\u7A7A\u306B\u3067\u304D\u307E\u305B\u3093"
+    };
+  }
+  return null;
+}
+function collectAssigneeIdInputIssuesInTasks(tasks, taskPathPrefix) {
+  const issues = [];
+  for (let ti = 0; ti < tasks.length; ti += 1) {
+    const task = tasks[ti];
+    if (!isRecord2(task)) continue;
+    const issue = checkTaskAssigneeIdEmptyArray(task, `${taskPathPrefix}/${ti}`);
+    if (issue) issues.push(issue);
+  }
+  return issues;
+}
+function collectAssigneeIdInputIssuesInOutline(nodes, pathPrefix) {
+  const issues = [];
+  for (let ni = 0; ni < nodes.length; ni += 1) {
+    const node = nodes[ni];
+    if (!isRecord2(node)) continue;
+    const nodePath = `${pathPrefix}/${ni}`;
+    if (Array.isArray(node.children)) {
+      issues.push(
+        ...collectAssigneeIdInputIssuesInOutline(node.children, `${nodePath}/children`)
+      );
+    }
+    if ("start" in node && "end" in node) {
+      const issue = checkTaskAssigneeIdEmptyArray(node, nodePath);
+      if (issue) issues.push(issue);
+    }
+  }
+  return issues;
+}
+function validateAssigneeIdInputSemantics(data2) {
+  if (!isRecord2(data2)) return [];
+  const issues = [];
+  if (Array.isArray(data2.categories)) {
+    for (let ci = 0; ci < data2.categories.length; ci += 1) {
+      const category = data2.categories[ci];
+      if (!isRecord2(category) || !Array.isArray(category.groups)) continue;
+      for (let gi = 0; gi < category.groups.length; gi += 1) {
+        const group = category.groups[gi];
+        if (!isRecord2(group) || !Array.isArray(group.tasks)) continue;
+        issues.push(
+          ...collectAssigneeIdInputIssuesInTasks(
+            group.tasks,
+            `/categories/${ci}/groups/${gi}/tasks`
+          )
+        );
+      }
+    }
+  }
+  if (Array.isArray(data2.outline)) {
+    issues.push(...collectAssigneeIdInputIssuesInOutline(data2.outline, "/outline"));
+  }
+  return issues;
+}
 
 // src/model/taskFields.ts
 function hasNewline(value) {
@@ -3716,6 +3778,16 @@ function validateSchedule(data2) {
   const forSchema = normalizeScheduleFieldsForValidation(
     normalizeScheduleLevelsInputForSchema(migrated)
   );
+  const assigneeInputIssues = validateAssigneeIdInputSemantics(forSchema);
+  if (assigneeInputIssues.length > 0) {
+    return {
+      ok: false,
+      errors: assigneeInputIssues.map((issue) => ({
+        ...issue,
+        path: humanizeInstancePath(migrated, issue.path)
+      }))
+    };
+  }
   const forSchemaAssignees = scheduleInputForSchemaValidation(forSchema);
   if (!scheduleValidator_default(forSchemaAssignees)) {
     return {

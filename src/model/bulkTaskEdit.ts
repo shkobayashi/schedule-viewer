@@ -360,17 +360,6 @@ export function commonAssigneeIds(
   return first;
 }
 
-/** @deprecated commonAssigneeIds を使う */
-export function commonAssigneeId(
-  tasks: readonly Task[],
-): MemberId | null | "mixed" {
-  const common = commonAssigneeIds(tasks);
-  if (common === "mixed") return "mixed";
-  if (common.length === 0) return null;
-  if (common.length === 1) return common[0]!;
-  return "mixed";
-}
-
 export function commonMilestoneId(
   tasks: readonly Task[],
 ): ScheduleId | null | "mixed" {

@@ -64,7 +64,7 @@ import {
   visibleMonthHeaderLabels,
 } from "../model/monthHeader";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
-import { resolveAssigneeDisplay, assigneeSidebarLabel, duplicateMemberNamesFromCatalog } from "../model/assigneeDisplay";
+import { resolveAssigneeRowDisplay, assigneeSidebarLabel, duplicateMemberNamesFromCatalog } from "../model/assigneeDisplay";
 import { KONVA_FONT_FAMILY } from "../model/fontStack";
 import type { Member, MemberId } from "../model/memberTypes";
 import type { StickyLayout } from "../model/stickyRows";
@@ -352,7 +352,7 @@ function TaskBar({
     () => duplicateMemberNamesFromCatalog(memberCatalog),
     [memberCatalog],
   );
-  const assigneeDisplay = resolveAssigneeDisplay(
+  const assigneeDisplay = resolveAssigneeRowDisplay(
     task.assigneeIds,
     memberCatalog,
     assigneeDuplicateNames,

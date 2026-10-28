@@ -61,14 +61,6 @@ export function resolveAssigneeRowDisplay(
   return { kind: "text", label };
 }
 
-export function resolveAssigneeDisplay(
-  assigneeIds: readonly MemberId[] | null,
-  catalog: Map<MemberId, Member> | null,
-  duplicateNames: ReadonlySet<string> = new Set(),
-): AssigneeRowDisplay {
-  return resolveAssigneeRowDisplay(assigneeIds ?? [], catalog, duplicateNames);
-}
-
 export function isResolvedAssignee(
   assigneeIds: readonly MemberId[],
   catalog: Map<MemberId, Member> | null,
@@ -89,9 +81,6 @@ export function taskHasUnknownAssignee(
 ): boolean {
   return assigneeIds.some((id) => isUnknownAssigneeId(id, catalog));
 }
-
-/** @deprecated taskHasUnknownAssignee を使う */
-export const isUnknownAssignee = taskHasUnknownAssignee;
 
 /** フィルタ「割り当てなし」: 空、またはカタログに解決できる担当が一人もいない。 */
 export function matchesUnassignedFilter(

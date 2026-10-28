@@ -22,7 +22,7 @@ import {
   taskBarExclusiveEnd,
   taskBarWidthPx,
 } from "./timeline";
-import { resolveAssigneeDisplay, assigneeSidebarLabel, duplicateMemberNamesFromCatalog } from "./assigneeDisplay";
+import { resolveAssigneeRowDisplay, assigneeSidebarLabel, duplicateMemberNamesFromCatalog } from "./assigneeDisplay";
 import { hasTaskNote, normalizeTaskNote } from "./taskNote";
 import type { Member, MemberId } from "./memberTypes";
 import {
@@ -86,7 +86,7 @@ function resolveExportAssigneeDisplay(
   assigneeIds: readonly MemberId[],
   input: ScheduleExportInput,
 ) {
-  return resolveAssigneeDisplay(
+  return resolveAssigneeRowDisplay(
     assigneeIds,
     input.memberCatalog,
     duplicateMemberNamesFromCatalog(input.memberCatalog),

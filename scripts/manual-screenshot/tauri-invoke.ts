@@ -4,6 +4,10 @@ type OpenPick = { path: string; contents: string };
 
 let pendingOpenPick: OpenPick | null = null;
 let openScheduleDiskContents: string | null = null;
+const memberCatalogBodies = new Map<string, string>();
+let selectedMemberCatalogId: string | null = null;
+const statusCatalogBodies = new Map<string, string>();
+let selectedStatusCatalogId: string | null = null;
 
 export function setManualScreenshotOpenPick(pick: OpenPick | null): void {
   pendingOpenPick = pick;
@@ -35,6 +39,12 @@ export async function manualScreenshotInvoke(
       return null;
     case "register_window_focus":
       return null;
+    case "read_focused_window_label":
+      return "main";
+    case "is_store_distribution":
+      return false;
+    case "report_external_schedule_drop_ready":
+      return null;
     case "unregister_window_session":
       return null;
     case "read_schedule_recovery":
@@ -44,6 +54,84 @@ export async function manualScreenshotInvoke(
     case "read_last_schedule_file":
       return null;
     case "clear_last_schedule_path":
+      return null;
+    case "get_members_settings":
+      return {
+        selectedCatalogId: selectedMemberCatalogId,
+        catalogs: [...memberCatalogBodies.keys()]
+          .sort((a, b) => a.localeCompare(b, "ja"))
+          .map((id) => ({ id, label: id })),
+      };
+    case "import_member_catalog": {
+      const catalogId = String(args.catalogId ?? "").trim();
+      const contents = String(args.contents ?? "");
+      if (catalogId) {
+        memberCatalogBodies.set(catalogId, contents);
+        if (selectedMemberCatalogId == null) {
+          selectedMemberCatalogId = catalogId;
+        }
+      }
+      return null;
+    }
+    case "read_member_catalog": {
+      const catalogId = String(args.catalogId ?? "");
+      return memberCatalogBodies.get(catalogId) ?? null;
+    }
+    case "delete_member_catalog": {
+      const catalogId = String(args.catalogId ?? "");
+      memberCatalogBodies.delete(catalogId);
+      if (selectedMemberCatalogId === catalogId) {
+        selectedMemberCatalogId = null;
+      }
+      return null;
+    }
+    case "set_selected_member_catalog": {
+      const catalogId = args.catalogId;
+      selectedMemberCatalogId =
+        typeof catalogId === "string" && catalogId.length > 0 ? catalogId : null;
+      return null;
+    }
+    case "get_statuses_settings":
+      return {
+        selectedCatalogId: selectedStatusCatalogId,
+        catalogs: [...statusCatalogBodies.keys()]
+          .sort((a, b) => a.localeCompare(b, "ja"))
+          .map((id) => ({ id, label: id })),
+      };
+    case "import_status_catalog": {
+      const catalogId = String(args.catalogId ?? "").trim();
+      const contents = String(args.contents ?? "");
+      if (catalogId) {
+        statusCatalogBodies.set(catalogId, contents);
+        if (selectedStatusCatalogId == null) {
+          selectedStatusCatalogId = catalogId;
+        }
+      }
+      return null;
+    }
+    case "read_status_catalog": {
+      const catalogId = String(args.catalogId ?? "");
+      return statusCatalogBodies.get(catalogId) ?? null;
+    }
+    case "set_selected_status_catalog": {
+      const catalogId = args.catalogId;
+      selectedStatusCatalogId =
+        typeof catalogId === "string" && catalogId.length > 0 ? catalogId : null;
+      return null;
+    }
+    case "release_field_extension_edit":
+      return null;
+    case "get_field_extensions_settings":
+      return { selectedCatalogIds: [], catalogs: [] };
+    case "get_calendar_state":
+      return { label: null };
+    case "read_recent_files":
+      return { schedules: [], workspaces: [] };
+    case "clear_recent_files":
+      return { schedules: [], workspaces: [] };
+    case "record_recent_files":
+      return args.store ?? { schedules: [], workspaces: [] };
+    case "read_app_calendar":
       return null;
     case "read_schedule_filter":
       return null;

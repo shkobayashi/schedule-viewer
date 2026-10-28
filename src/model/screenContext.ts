@@ -1,6 +1,6 @@
 import type { SearchField } from "./scheduleFilterPersistence";
 import { assigneeIdToJson, taskAssigneeIds } from "./assigneeIds";
-import { resolveAssigneeDisplay } from "./assigneeDisplay";
+import { duplicateMemberNamesFromCatalog, resolveAssigneeRowDisplay } from "./assigneeDisplay";
 import {
   BUILTIN_STATUS_ITEMS,
   normalizeStatusItem,
@@ -265,9 +265,10 @@ export function buildActiveFilterConditions(input: {
         name: UNASSIGNED_LABEL,
       });
     } else {
-      const display = resolveAssigneeDisplay(
+      const display = resolveAssigneeRowDisplay(
         [filters.assignee],
         input.memberCatalog,
+        duplicateMemberNamesFromCatalog(input.memberCatalog),
       );
       conditions.push({
         type: "assignee",

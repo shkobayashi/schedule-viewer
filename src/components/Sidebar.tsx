@@ -15,7 +15,7 @@ import {
   assigneeColumnChars,
   assigneeSidebarLabel,
   duplicateMemberNamesFromCatalog,
-  resolveAssigneeDisplay,
+  resolveAssigneeRowDisplay,
 } from "../model/assigneeDisplay";
 import type { SidebarColumnsPreference } from "../model/viewPreferences";
 import { daysBetween, fmtMonthDay, parseDate } from "../model/dates";
@@ -242,7 +242,7 @@ export function Sidebar({
       assigneeColumnChars(
         rows.flatMap((row) => {
           if (row.type !== "task") return [];
-          const display = resolveAssigneeDisplay(
+          const display = resolveAssigneeRowDisplay(
             row.task.assigneeIds,
             memberCatalog,
             assigneeDuplicateNames,
@@ -1394,7 +1394,7 @@ function TaskSidebarRow({
     () => duplicateMemberNamesFromCatalog(memberCatalog),
     [memberCatalog],
   );
-  const assigneeDisplay = resolveAssigneeDisplay(
+  const assigneeDisplay = resolveAssigneeRowDisplay(
     task.assigneeIds,
     memberCatalog,
     assigneeDuplicateNames,

@@ -7,7 +7,6 @@ import {
   matchesUnassignedFilter,
   memberOptionLabel,
   assigneeExcelCellLabel,
-  resolveAssigneeDisplay,
   resolveAssigneeRowDisplay,
 } from "./assigneeDisplay";
 import { memberMapFromList } from "./assigneeDisplay";
@@ -27,26 +26,34 @@ describe("assigneeColumnChars", () => {
   });
 });
 
-describe("resolveAssigneeDisplay", () => {
+describe("resolveAssigneeRowDisplay", () => {
   const catalog = memberMapFromList(members);
   const duplicateNames = new Set(["田中"]);
 
   it("keeps empty as unassigned", () => {
-    expect(resolveAssigneeDisplay([], catalog).kind).toBe("unassigned");
+    expect(resolveAssigneeRowDisplay([], catalog, duplicateNames).kind).toBe(
+      "unassigned",
+    );
   });
 
   it("resolves a known id to text label", () => {
-    expect(resolveAssigneeDisplay(["sato"], catalog, duplicateNames)).toEqual({
+    expect(resolveAssigneeRowDisplay(["sato"], catalog, duplicateNames)).toEqual({
       kind: "text",
       label: "佐藤",
     });
   });
 
   it("marks ids missing from the catalog as allUnknown", () => {
-    expect(resolveAssigneeDisplay(["missing"], catalog).kind).toBe("allUnknown");
-    expect(resolveAssigneeDisplay(["sato"], null).kind).toBe("allUnknown");
     expect(
-      assigneeSidebarLabel(resolveAssigneeDisplay(["missing"], null)),
+      resolveAssigneeRowDisplay(["missing"], catalog, duplicateNames).kind,
+    ).toBe("allUnknown");
+    expect(resolveAssigneeRowDisplay(["sato"], null, duplicateNames).kind).toBe(
+      "allUnknown",
+    );
+    expect(
+      assigneeSidebarLabel(
+        resolveAssigneeRowDisplay(["missing"], null, duplicateNames),
+      ),
     ).toBe("メンバー不明（missing）");
   });
 
@@ -98,7 +105,11 @@ describe("assigneeExcelCellLabel", () => {
     expect(assigneeExcelCellLabel([], null)).toBe("未割当");
     expect(
       assigneeExcelCellLabel([], catalog),
-    ).toBe(assigneeSidebarLabel(resolveAssigneeDisplay([], catalog)));
+    ).toBe(
+      assigneeSidebarLabel(
+        resolveAssigneeRowDisplay([], catalog, duplicateNames),
+      ),
+    );
   });
 
   it("joins all assignees in order with読点", () => {
@@ -112,7 +123,7 @@ describe("assigneeExcelCellLabel", () => {
       assigneeExcelCellLabel(["sato", "tanaka"], catalog),
     ).toBe(
       assigneeSidebarLabel(
-        resolveAssigneeDisplay(["sato", "tanaka"], catalog, duplicateNames),
+        resolveAssigneeRowDisplay(["sato", "tanaka"], catalog, duplicateNames),
       ),
     );
   });
