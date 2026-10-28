@@ -19,6 +19,7 @@
     "check:calendar": "tsx scripts/check-calendar.ts",
     "check:members": "tsx scripts/check-members.ts",
     "check:statuses": "tsx scripts/check-statuses.ts",
+    "check:colors": "tsx scripts/check-colors.ts",
     "test": "node scripts/compile-validators.mjs && node --test scripts/*.test.mjs && vitest run",
     "lint": "eslint .",
     "build:validate-skill": "node scripts/build-validate-skill.mjs",

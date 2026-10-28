@@ -4,6 +4,7 @@ import {
   validatePredecessorRefs,
 } from "./scheduleSemantics";
 import { formatValidationErrors } from "./validateSchedule";
+import { applyTaskColorId } from "./taskColorId";
 import { applyTaskNote } from "./taskNote";
 import { resolveTaskEditProgress } from "./taskTodos";
 import { applyTaskTags } from "./taskTags";
@@ -232,21 +233,24 @@ export function applyTaskEditInOutline(
     if (task.id === taskId) {
       const progress = resolveTaskEditProgress(task, patch.progress);
       return applyTaskNote(
-        {
-          ...task,
-          name: patch.name.trim(),
-          start: patch.start,
-          end: patch.end,
-          assigneeIds: patch.assigneeIds,
-          status: patch.status,
-          progress,
-          confidence: patch.confidence,
-          predecessors,
-          milestoneId:
-            patch.milestoneId != null && milestoneIds.has(patch.milestoneId)
-              ? patch.milestoneId
-              : null,
-        },
+        applyTaskColorId(
+          {
+            ...task,
+            name: patch.name.trim(),
+            start: patch.start,
+            end: patch.end,
+            assigneeIds: patch.assigneeIds,
+            status: patch.status,
+            progress,
+            confidence: patch.confidence,
+            predecessors,
+            milestoneId:
+              patch.milestoneId != null && milestoneIds.has(patch.milestoneId)
+                ? patch.milestoneId
+                : null,
+          },
+          patch,
+        ),
         patch.note,
       );
     }
@@ -466,6 +470,14 @@ export function outlineAfterDuplicate(
   if (source == null) {
     return { ok: false, message: "複製元のタスクがありません。" };
   }
+  const colorFromPatch =
+    "colorId" in patch
+      ? patch.colorId != null
+        ? { colorId: patch.colorId }
+        : {}
+      : source.colorId != null
+        ? { colorId: source.colorId }
+        : {};
   const inserted = insertTaskAfterInOutline(
     outline,
     {
@@ -480,6 +492,7 @@ export function outlineAfterDuplicate(
       predecessors: [],
       milestoneId: null,
       ...(source.tags ? { tags: [...source.tags] } : {}),
+      ...colorFromPatch,
       ...(source.fieldValues
         ? { fieldValues: { ...source.fieldValues } }
         : {}),

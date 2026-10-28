@@ -213,6 +213,39 @@ describe("applyBulkTaskEdit", () => {
     if (!cleared.ok) return;
     expect(cleared.categories[0]!.groups[0]!.tasks[0]!.assigneeIds).toEqual([]);
   });
+
+  it("sets and clears colorId on selected tasks only", () => {
+    const withColor = [
+      {
+        id: "c1",
+        name: "C",
+        groups: [
+          {
+            id: "g1",
+            name: "G",
+            tasks: [
+              task("a", { colorId: "focus" }),
+              task("b", { colorId: "wait" }),
+            ],
+          },
+        ],
+      },
+    ];
+    const set = applyBulkTaskEdit(withColor, milestones, "t", ["a"], {
+      colorId: "wait",
+    });
+    expect(set.ok).toBe(true);
+    if (!set.ok) return;
+    expect(set.categories[0]!.groups[0]!.tasks[0]!.colorId).toBe("wait");
+    expect(set.categories[0]!.groups[0]!.tasks[1]!.colorId).toBe("wait");
+    const cleared = applyBulkTaskEdit(withColor, milestones, "t", ["a"], {
+      colorId: null,
+    });
+    expect(cleared.ok).toBe(true);
+    if (!cleared.ok) return;
+    expect(cleared.categories[0]!.groups[0]!.tasks[0]!.colorId).toBeUndefined();
+    expect(cleared.categories[0]!.groups[0]!.tasks[1]!.colorId).toBe("wait");
+  });
 });
 
 const outlineWithAssignees: OutlineRoot = [
@@ -245,6 +278,40 @@ describe("applyBulkTaskEditOutline assigneeIds", () => {
       "m1",
       "m2",
     ]);
+  });
+});
+
+describe("applyBulkTaskEditOutline colorId", () => {
+  const outlineWithColor: OutlineRoot = [
+    {
+      id: "branch-1",
+      name: "G",
+      children: [
+        task("a", { colorId: "focus" }),
+        task("b", { colorId: "wait" }),
+      ],
+    },
+  ];
+
+  it("sets and clears colorId on selected outline tasks only", () => {
+    const set = applyBulkTaskEditOutline(
+      outlineWithColor,
+      milestones,
+      "t",
+      ["a"],
+      { colorId: "wait" },
+    );
+    expect(set.ok).toBe(true);
+    if (!set.ok) return;
+    expect(findTaskInOutline(set.outline, "a")!.colorId).toBe("wait");
+    expect(findTaskInOutline(set.outline, "b")!.colorId).toBe("wait");
+    const cleared = applyBulkTaskEditOutline(outlineWithColor, milestones, "t", ["a"], {
+      colorId: null,
+    });
+    expect(cleared.ok).toBe(true);
+    if (!cleared.ok) return;
+    expect(findTaskInOutline(cleared.outline, "a")!.colorId).toBeUndefined();
+    expect(findTaskInOutline(cleared.outline, "b")!.colorId).toBe("wait");
   });
 });
 

@@ -87,6 +87,8 @@ pub struct ExcelExportRow {
     pub name_indent: u8,
     pub name_bold: bool,
     pub name_text_rgb: String,
+    #[serde(default)]
+    pub row_fill_rgb: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -314,9 +316,15 @@ pub fn write_excel_bytes(payload: &ExcelExportPayload) -> Result<Vec<u8>, String
             .map_err(|e| e.to_string())?;
         let is_category = export_row.kind == "category";
         let name_color = parse_color(&export_row.name_text_rgb);
+        let row_fill = export_row
+            .row_fill_rgb
+            .as_ref()
+            .map(|rgb| parse_color(rgb));
         for (col, value) in export_row.cells.iter().enumerate() {
             let mut format = with_left_table_borders(Format::new(), table_border);
-            if is_category {
+            if let Some(fill) = row_fill {
+                format = format.set_background_color(fill);
+            } else if is_category {
                 format = format.set_background_color(category_heading_fill);
             }
             if col == 0 {
@@ -346,8 +354,12 @@ pub fn write_excel_bytes(payload: &ExcelExportPayload) -> Result<Vec<u8>, String
                 None
             };
             let mut format = date_vertical_borders(Format::new(), left, right);
-            if payload.gray_header_only && column.non_working {
-                format = format.set_background_color(non_working);
+            if column.non_working {
+                if payload.gray_header_only {
+                    format = format.set_background_color(non_working);
+                }
+            } else if let Some(fill) = row_fill {
+                format = format.set_background_color(fill);
             }
             worksheet
                 .write_string_with_format(row, col as u16, "", &format)
@@ -468,7 +480,8 @@ mod tests {
         anchor_block_xml, anchor_from_inner, anchor_to_inner, bar_anchor_blocks,
         connector_anchor_blocks, connector_end_cxn_idx, connector_flip_h_v,
         connector_st_cxn_idx, drawing_xml, emu, line_anchor_blocks, milestone_merge_refs,
-        parse_ext_cx_cy, parse_two_cell_anchors, sheet_xml, workbook_contains_text,
+        parse_ext_cx_cy, parse_two_cell_anchors, read_zip_entry, sheet_xml,
+        workbook_contains_text,
     };
     use crate::excel_drawing_patch::connector_snap_bounds_from_bar_blocks;
 
@@ -504,6 +517,7 @@ mod tests {
                 name_indent: 2,
                 name_bold: false,
                 name_text_rgb: "1F2937".into(),
+                row_fill_rgb: None,
             }],
             connectors: vec![],
             today_line: None,
@@ -544,6 +558,46 @@ mod tests {
         assert!(bytes.len() > 100);
         assert_eq!(bytes[0], 0x50);
         assert_eq!(bytes[1], 0x4b);
+    }
+
+    #[test]
+    fn task_row_fill_rgb_in_styles_and_bar_unchanged() {
+        let mut payload = minimal_payload();
+        payload.rows[0].row_fill_rgb = Some("FEF3C7".into());
+        payload.date_columns = vec![
+            ExcelTimeColumn {
+                start_iso: "2026-01-02".into(),
+                end_exclusive_iso: "2026-01-03".into(),
+                header_label: "1/2".into(),
+                non_working: false,
+                left_border_rgb: "D8DCE3".into(),
+            },
+            ExcelTimeColumn {
+                start_iso: "2026-01-03".into(),
+                end_exclusive_iso: "2026-01-04".into(),
+                header_label: "1/3".into(),
+                non_working: true,
+                left_border_rgb: "D8DCE3".into(),
+            },
+        ];
+        let bytes = write_excel_bytes(&payload).expect("write");
+        let styles = read_zip_entry(&bytes, "xl/styles.xml").expect("styles");
+        assert!(
+            styles.contains("FEF3C7"),
+            "row fill should appear in styles"
+        );
+        assert!(
+            styles.contains("F4F5F8"),
+            "non-working fill should remain in styles"
+        );
+        let bar_block = bar_anchor_blocks(&drawing_xml(&bytes))
+            .into_iter()
+            .next()
+            .expect("bar");
+        assert!(
+            bar_block.contains("8A94A6"),
+            "bar fill should stay status color"
+        );
     }
 
     #[test]
@@ -612,6 +666,7 @@ mod tests {
             name_indent: 2,
             name_bold: false,
             name_text_rgb: "1F2937".into(),
+            row_fill_rgb: None,
         });
         payload.shapes.push(second_task_shape());
         payload.connectors.push(ExcelExportConnector {

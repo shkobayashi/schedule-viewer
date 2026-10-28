@@ -128,6 +128,8 @@ import {
   workspaceMemberError,
   workspaceMembersForDisplay,
   workspaceStatusesForDisplay,
+  workspaceColorsForDisplay,
+  workspaceColorsError,
   workspaceEditableFieldExtensionError,
   workspaceFieldExtensionsError,
   workspaceFieldExtensionsForDisplay,
@@ -659,6 +661,18 @@ function App() {
     return BUILTIN_STATUS_ITEMS;
   }, [workspaceBinding, statusCatalogState.statuses]);
 
+  const displayColors = useMemo(
+    () =>
+      workspaceBinding
+        ? workspaceColorsForDisplay(workspaceBinding.colors)
+        : null,
+    [workspaceBinding],
+  );
+
+  const colorsCatalogError = workspaceBinding
+    ? workspaceColorsError(workspaceBinding.colors)
+    : null;
+
   const statusesReady = workspaceBinding ? true : !statusCatalogState.loading;
 
   const fieldExtensionCatalogSettled =
@@ -868,8 +882,10 @@ function App() {
       displayStatuses,
       displayMemberMap,
       knownFieldKeys,
+      displayColors,
     );
   }, [
+    displayColors,
     displayMemberMap,
     displayStatuses,
     knownFieldKeys,
@@ -894,14 +910,16 @@ function App() {
     const prev = catalogMismatchPrevRef.current;
     const prevActive =
       prev != null &&
-      (prev.status || prev.assignee || prev.fieldValues);
+      (prev.status || prev.assignee || prev.color || prev.fieldValues);
     const active =
       catalogMismatch.status ||
       catalogMismatch.assignee ||
+      catalogMismatch.color ||
       catalogMismatch.fieldValues;
     if (
       prev?.status === catalogMismatch.status &&
       prev?.assignee === catalogMismatch.assignee &&
+      prev?.color === catalogMismatch.color &&
       prev?.fieldValues === catalogMismatch.fieldValues
     ) {
       return;
@@ -2064,6 +2082,7 @@ function App() {
           displayStatuses,
         ),
         colorScheme: resolvedColorScheme,
+        colors: displayColors,
         showLightningLine,
       };
       const onExportError = (error: unknown) => {
@@ -2106,6 +2125,7 @@ function App() {
     },
     [
       displayCalendar,
+      displayColors,
       displayStatuses,
       headerHeight,
       links,
@@ -3501,6 +3521,8 @@ function App() {
       <div ref={mainRef} className="main">
         <Sidebar
           statuses={displayStatuses}
+          rowColors={displayColors}
+          colorScheme={resolvedColorScheme}
           categories={schedule.categories}
           outline={schedule.outline}
           levelCount={schedule.hierarchyLayout.levelCount}
@@ -3612,6 +3634,7 @@ function App() {
           ) : null}
           <Timeline
             statuses={displayStatuses}
+            rowColors={displayColors}
             visibleRows={schedule.visibleRows}
             width={Math.max(200, timelineWidth)}
             rowHeight={rowHeight}
@@ -3670,6 +3693,8 @@ function App() {
         {selectedDetailTask ? (
           <TaskDetailPanel
             statuses={displayStatuses}
+            colors={displayColors}
+            colorScheme={resolvedColorScheme}
             key={`${selectedDetailTask.id}:${schedule.diskEpoch}`}
             panelRef={detailPanelRef}
             task={selectedDetailTask}
@@ -3696,6 +3721,8 @@ function App() {
         ) : bulkDetailTasks.length > 1 ? (
           <BulkTaskDetailPanel
             statuses={displayStatuses}
+            colors={displayColors}
+            colorScheme={resolvedColorScheme}
             key={`bulk:${schedule.selectedTaskIds.join(",")}:${schedule.diskEpoch}`}
             tasks={bulkDetailTasks}
             selectedIds={schedule.selectedTaskIds}
@@ -3788,6 +3815,7 @@ function App() {
         membersCatalogLabel={membersCatalogLabel}
         membersCatalogError={membersCatalogError}
         calendarError={calendarDisplayError}
+        colorsCatalogError={colorsCatalogError}
         tier={tier}
         visibleTaskCount={visibleTaskCount}
         totalTaskCount={totalTaskCount}
@@ -3858,6 +3886,8 @@ function App() {
       {schedule.duplicatingTask ? (
         <TaskEditDialog
           statuses={displayStatuses}
+          colors={displayColors}
+          colorScheme={resolvedColorScheme}
           key={`duplicate-${schedule.duplicatingTask.id}:${schedule.diskEpoch}`}
           mode="duplicate"
           task={schedule.duplicatingTask}

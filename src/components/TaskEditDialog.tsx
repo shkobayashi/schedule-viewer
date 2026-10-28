@@ -1,5 +1,12 @@
 import { StatusOptions } from "./StatusOptions";
+import {
+  COLOR_NONE_VALUE,
+  colorSelectOptionsForTask,
+} from "./ColorOptions";
+import { ColorSelectField } from "./ColorSelectField";
+import type { ResolvedColorScheme } from "../model/palette";
 import { defaultStatusId, type StatusItem } from "../model/statusCatalog";
+import type { ColorItem } from "../model/colorCatalog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TaskRef } from "../model/dependencies";
 import { AssigneeListField } from "./AssigneeListField";
@@ -28,6 +35,8 @@ type TaskEditDialogProps = {
   /** 候補から除く ID。複製では元タスクも候補に残すため null。 */
   excludeTaskId?: ScheduleId | null;
   statuses: readonly StatusItem[];
+  colors?: readonly ColorItem[] | null;
+  colorScheme: ResolvedColorScheme;
   onClose: () => void;
   onSave: (patch: {
     name: string;
@@ -41,6 +50,7 @@ type TaskEditDialogProps = {
     successors: ScheduleId[];
     milestoneId: ScheduleId | null;
     note: string;
+    colorId?: string | null;
   }) => string | null;
 };
 
@@ -70,6 +80,8 @@ export function TaskEditDialog({
   successorIds,
   excludeTaskId,
   statuses,
+  colors = null,
+  colorScheme,
   onClose,
   onSave,
 }: TaskEditDialogProps) {
@@ -81,6 +93,9 @@ export function TaskEditDialog({
   ]);
   const [status, setStatus] = useState<TaskStatus>(() =>
     mode === "duplicate" ? defaultStatusId(statuses) : task.status,
+  );
+  const [colorId, setColorId] = useState<string | null>(() =>
+    task.colorId ?? null,
   );
   const [progress, setProgress] = useState(() =>
     mode === "duplicate" ? 0 : task.progress,
@@ -179,6 +194,21 @@ export function TaskEditDialog({
             <StatusOptions statuses={statuses} current={status} />
           </select>
         </div>
+        {colors != null ? (
+          <div className="field">
+            <label htmlFor="fieldColor">色</label>
+            <ColorSelectField
+              id="fieldColor"
+              value={colorId ?? COLOR_NONE_VALUE}
+              options={colorSelectOptionsForTask(colors, colorId, colorScheme)}
+              onChange={(next) =>
+                setColorId(
+                  next === COLOR_NONE_VALUE ? null : next,
+                )
+              }
+            />
+          </div>
+        ) : null}
         <div className="field">
           <label htmlFor="fieldProgress">進捗率 (%)</label>
           <input
@@ -274,6 +304,7 @@ export function TaskEditDialog({
                 successors,
                 milestoneId,
                 note,
+                ...(colors != null ? { colorId } : {}),
               });
               if (saveError) {
                 setFormError(saveError);

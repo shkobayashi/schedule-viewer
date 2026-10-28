@@ -14,11 +14,16 @@ import {
   validateStatuses,
 } from "./validateStatuses";
 import {
+  formatColorsValidationErrors,
+  validateColors,
+} from "./validateColors";
+import {
   formatFieldExtensionsValidationErrors,
   validateFieldExtensions,
 } from "./validateFieldExtensions";
 import type {
   WorkspaceCalendarState,
+  WorkspaceColorsState,
   WorkspaceEditableFieldExtensionState,
   WorkspaceFieldExtensionsState,
   WorkspaceMemberState,
@@ -40,6 +45,7 @@ import { errorMessage } from "./errors";
 export const WORKSPACE_MEMBERS_MAX_BYTES = 2 * 1024 * 1024;
 export const WORKSPACE_CALENDAR_MAX_BYTES = 2 * 1024 * 1024;
 export const WORKSPACE_STATUSES_MAX_BYTES = 2 * 1024 * 1024;
+export const WORKSPACE_COLORS_MAX_BYTES = 2 * 1024 * 1024;
 export const WORKSPACE_FIELD_EXTENSIONS_MAX_BYTES = 2 * 1024 * 1024;
 
 export const WORKSPACE_STARTUP_FAILED_MESSAGE =
@@ -144,6 +150,20 @@ async function loadMembersAtPath(path: string): Promise<WorkspaceMemberState> {
   }
 }
 
+function mapColorsReadError(error: unknown): string {
+  const message = errorMessage(error, "色の一覧を読み込めませんでした。");
+  if (message === SCHEDULE_FILE_NOT_FOUND) {
+    return "色の一覧を読み込めませんでした。";
+  }
+  if (error instanceof SyntaxError) {
+    return "色の一覧 JSON の形式が正しくありません。";
+  }
+  if (message.startsWith("Unexpected token") || message.startsWith("JSON")) {
+    return "色の一覧 JSON の形式が正しくありません。";
+  }
+  return message;
+}
+
 async function loadStatusesAtPath(
   path: string,
 ): Promise<WorkspaceStatusesState> {
@@ -183,6 +203,47 @@ async function loadStatusesAtPath(
     return {
       kind: "error",
       message: mapStatusesReadError(error),
+    };
+  }
+}
+
+async function loadColorsAtPath(path: string): Promise<WorkspaceColorsState> {
+  if (!isTauri()) {
+    return {
+      kind: "error",
+      message: "色の一覧を読み込めませんでした。",
+    };
+  }
+  try {
+    const text = await readJsonFileLimitedViaTauri(
+      path,
+      WORKSPACE_COLORS_MAX_BYTES,
+    );
+    let data: unknown;
+    try {
+      data = JSON.parse(stripUtf8Bom(text));
+    } catch {
+      return {
+        kind: "error",
+        message: "色の一覧 JSON の形式が正しくありません。",
+      };
+    }
+    const result = validateColors(data);
+    if (!result.ok) {
+      return {
+        kind: "error",
+        message: formatColorsValidationErrors(result.errors),
+      };
+    }
+    return {
+      kind: "loaded",
+      label: scheduleJsonFilename(path) ?? path,
+      items: result.document.colors,
+    };
+  } catch (error) {
+    return {
+      kind: "error",
+      message: mapColorsReadError(error),
     };
   }
 }
@@ -386,6 +447,17 @@ export async function loadWorkspaceBinding(
       };
     }
   }
+  let colors: WorkspaceColorsState = { kind: "unset" };
+  if (parsed.document.colors != null) {
+    if (resolved.colorsPath) {
+      colors = await loadColorsAtPath(resolved.colorsPath);
+    } else {
+      colors = {
+        kind: "error",
+        message: "色の一覧を読み込めませんでした。",
+      };
+    }
+  }
   let fieldExtensions: WorkspaceFieldExtensionsState = { kind: "unset" };
   if (
     parsed.document.fieldExtensions != null &&
@@ -426,6 +498,7 @@ export async function loadWorkspaceBinding(
       members,
       calendar,
       statuses,
+      colors,
       fieldExtensions,
       editableFieldExtension,
     },
@@ -483,6 +556,27 @@ export function workspaceStatusesError(
   statuses: WorkspaceStatusesState,
 ): string | null {
   return statuses.kind === "error" ? statuses.message : null;
+}
+
+export function workspaceColorsForDisplay(
+  colors: WorkspaceColorsState,
+): import("./colorCatalog").ColorItem[] | null {
+  if (colors.kind === "loaded") return [...colors.items];
+  return null;
+}
+
+export function workspaceColorsCatalogLabel(
+  colors: WorkspaceColorsState,
+): string | null {
+  if (colors.kind === "loaded") return colors.label;
+  if (colors.kind === "unset") return null;
+  return null;
+}
+
+export function workspaceColorsError(
+  colors: WorkspaceColorsState,
+): string | null {
+  return colors.kind === "error" ? colors.message : null;
 }
 
 export function workspaceFieldExtensionsForDisplay(

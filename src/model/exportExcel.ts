@@ -11,6 +11,7 @@ import {
 import { scheduleXlsxFilename } from "./exportFilename";
 import { isOverdue, taskBarExclusiveEnd } from "./timeline";
 import { BUILTIN_STATUS_ITEMS, statusLabel, type StatusItem } from "./statusCatalog";
+import { excelRowFillForColorId } from "./colorCatalog";
 import type { Milestone, MilestoneGroup, ScheduleId, Task } from "./types";
 import type { GridTier } from "./timeline";
 import { paletteFor } from "./palette";
@@ -93,6 +94,7 @@ export type ExcelExportRow = {
   nameIndent: number;
   nameBold: boolean;
   nameTextRgb: string;
+  rowFillRgb?: string;
 };
 
 export type ExcelMilestoneRow = {
@@ -443,6 +445,10 @@ export function buildExcelExportPayload(
     taskRowById.set(task.id, bodyRow);
     taskById.set(task.id, task);
     const overdue = isOverdue(task, input.today, input.statuses);
+    const rowFill = excelRowFillForColorId(
+      input.colors ?? null,
+      task.colorId,
+    );
     rows.push({
       kind: "task",
       cells: [
@@ -459,6 +465,9 @@ export function buildExcelExportPayload(
       nameIndent: taskNameIndent,
       nameBold: false,
       nameTextRgb: EXCEL_TASK_NAME_RGB,
+      ...(rowFill != null
+        ? { rowFillRgb: rowFill.replace("#", "") }
+        : {}),
     });
     taskShapeIndexById.set(task.id, shapes.length);
     shapes.push(

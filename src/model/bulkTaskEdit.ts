@@ -1,4 +1,5 @@
 import { assigneeIdsEqual } from "./assigneeIds";
+import { applyTaskColorId } from "./taskColorId";
 import { tryAddPredecessorLink } from "./dependencies";
 import {
   findTaskInOutline,
@@ -39,7 +40,11 @@ export type BulkTaskDraft = {
   addPredecessorIds?: ScheduleId[];
   addSuccessorIds?: ScheduleId[];
   addTags?: string[];
+  colorId?: string | null;
 };
+
+/** 一括パネルで「色なし」を書く `<option>` の value。一覧の id と重ならない。 */
+export const BULK_COLOR_CLEAR = "__bulk_clear_color__";
 
 export type BulkApplyResult =
   | { ok: true; categories: Category[] }
@@ -100,6 +105,9 @@ function taskAfterScalarDraft(
       if (!tags.includes(tag)) tags = [...tags, tag];
     }
     next = applyTaskTags(next, tags);
+  }
+  if ("colorId" in draft) {
+    next = applyTaskColorId(next, draft);
   }
   return { task: next, error: null };
 }
@@ -383,4 +391,15 @@ export function commonConfidence(
   return commonStringField(tasks, (t) => t.confidence) as
     | TaskConfidence
     | "mixed";
+}
+
+export function commonColorId(
+  tasks: readonly Task[],
+): string | null | "mixed" {
+  if (tasks.length === 0) return "mixed";
+  const first = tasks[0]!.colorId ?? null;
+  for (let i = 1; i < tasks.length; i++) {
+    if ((tasks[i]!.colorId ?? null) !== first) return "mixed";
+  }
+  return first;
 }

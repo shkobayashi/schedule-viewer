@@ -65,6 +65,8 @@ export type Task = {
   /** 担当メンバー id の並び。空は未割当。 */
   assigneeIds: MemberId[];
   status: TaskStatus;
+  /** 色の一覧の id。無いときは JSON に含めない。 */
+  colorId?: string;
   progress: number;
   confidence: TaskConfidence;
   /** このタスクの開始前に終わる先行タスク。後続は他タスクの predecessors から導く。 */

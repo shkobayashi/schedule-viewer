@@ -33,6 +33,7 @@ function taskToJson(
     end: task.end,
     assigneeIds: [...taskAssigneeIds(task)],
     status: task.status,
+    ...(task.colorId != null ? { colorId: task.colorId } : {}),
     progress,
     confidence: task.confidence,
     predecessors: [...task.predecessors],
@@ -177,11 +178,16 @@ function orderTaskJson(
     end: task.end,
     assigneeId: assigneeIdToJson(taskAssigneeIds(task)),
     status: task.status,
+  };
+  if (task.colorId != null) {
+    ordered.colorId = task.colorId;
+  }
+  Object.assign(ordered, {
     progress: task.progress,
     confidence: task.confidence,
     predecessors: task.predecessors,
     milestoneId: task.milestoneId,
-  };
+  });
   if (task.todos != null && task.todos.length > 0) {
     ordered.todos = task.todos;
   }

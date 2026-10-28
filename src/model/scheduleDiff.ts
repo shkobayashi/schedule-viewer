@@ -688,6 +688,7 @@ function taskFieldLines(
     `  end: ${task.end}`,
     `  assigneeId: ${formatAssigneeIdsForDiff(taskAssigneeIds(task))}`,
     `  status: ${task.status}`,
+    ...(task.colorId != null ? [`  colorId: ${task.colorId}`] : []),
     `  progress: ${task.progress}`,
     `  confidence: ${task.confidence}`,
     `  predecessors: ${formatPredecessorList(task.predecessors, taskNames)}`,
@@ -730,6 +731,11 @@ function changedTaskBlock(
   }
   if (fileTask.status !== screenTask.status) {
     lines.push(`  status: ${fileTask.status} → ${screenTask.status}`);
+  }
+  if (fileTask.colorId !== screenTask.colorId) {
+    lines.push(
+      `  colorId: ${fileTask.colorId ?? "（なし）"} → ${screenTask.colorId ?? "（なし）"}`,
+    );
   }
   if (fileTask.progress !== screenTask.progress) {
     lines.push(`  progress: ${fileTask.progress} → ${screenTask.progress}`);

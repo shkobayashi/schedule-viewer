@@ -8,6 +8,7 @@ type StatusBarProps = {
   membersCatalogLabel: string | null;
   membersCatalogError: string | null;
   calendarError: string | null;
+  colorsCatalogError: string | null;
   tier: GridTier;
   visibleTaskCount: number;
   totalTaskCount: number;
@@ -32,6 +33,7 @@ export function StatusBar({
   membersCatalogLabel,
   membersCatalogError,
   calendarError,
+  colorsCatalogError,
   tier,
   visibleTaskCount,
   totalTaskCount,
@@ -92,6 +94,15 @@ export function StatusBar({
         >
           カレンダー設定エラー
         </button>
+      ) : null}
+      {colorsCatalogError ? (
+        <span
+          className="status-bar-warning"
+          title={colorsCatalogError}
+          role="status"
+        >
+          色の一覧を読み込めませんでした。
+        </span>
       ) : null}
       <span className="status-bar-item">{tierLabel(tier)}</span>
       <span className="status-bar-item status-bar-count">

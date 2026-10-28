@@ -55,6 +55,7 @@ describe("workspaceJson", () => {
     expect(resolved).toEqual({
       schedulePath: "/data/ws/plan.json",
       membersPath: "/data/ws/team.json",
+      colorsPath: null,
       calendarPath: null,
       statusesPath: null,
       fieldExtensionPaths: [],

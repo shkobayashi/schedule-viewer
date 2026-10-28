@@ -4,11 +4,20 @@ import type { StatusItem } from "../model/statusCatalog";
 import type { TaskRef } from "../model/dependencies";
 import { AssigneeListField } from "./AssigneeListField";
 import {
+  BULK_COLOR_CLEAR,
   commonAssigneeIds,
+  commonColorId,
   commonMilestoneId,
   commonStringField,
   type BulkTaskDraft,
 } from "../model/bulkTaskEdit";
+import type { ColorItem } from "../model/colorCatalog";
+import type { ResolvedColorScheme } from "../model/palette";
+import { ColorSelectField } from "./ColorSelectField";
+import {
+  colorSelectOptionsForBulk,
+  type ColorSelectOption,
+} from "./ColorOptions";
 import { daysBetween, parseDate } from "../model/dates";
 import { DateInput } from "./DateInput";
 import { isDatePopoverTarget } from "./datePopover";
@@ -35,6 +44,7 @@ type LocalDraft = {
   addPredecessors: ScheduleId[];
   addSuccessors: ScheduleId[];
   addTags: string[];
+  colorId: "" | typeof BULK_COLOR_CLEAR | string;
 };
 
 function emptyLocalDraft(): LocalDraft {
@@ -45,6 +55,7 @@ function emptyLocalDraft(): LocalDraft {
     addPredecessors: [],
     addSuccessors: [],
     addTags: [],
+    colorId: "",
   };
 }
 
@@ -85,6 +96,10 @@ function buildBulkDraft(local: LocalDraft): BulkTaskDraft | null {
     draft.addSuccessorIds = local.addSuccessors;
   }
   if (local.addTags.length > 0) draft.addTags = local.addTags;
+  if (local.colorId !== "") {
+    if (local.colorId === BULK_COLOR_CLEAR) draft.colorId = null;
+    else draft.colorId = local.colorId;
+  }
   if (Object.keys(draft).length === 0) return null;
   return draft;
 }
@@ -99,6 +114,7 @@ const FIELD_LABELS: Record<string, string> = {
   addPredecessorIds: "先行",
   addSuccessorIds: "後続",
   addTags: "タグ",
+  colorId: "色",
 };
 
 function draftFieldLabels(draft: BulkTaskDraft): string {
@@ -112,6 +128,7 @@ function draftFieldLabels(draft: BulkTaskDraft): string {
   if (draft.addPredecessorIds?.length) names.push(FIELD_LABELS.addPredecessorIds);
   if (draft.addSuccessorIds?.length) names.push(FIELD_LABELS.addSuccessorIds);
   if (draft.addTags?.length) names.push(FIELD_LABELS.addTags);
+  if (draft.colorId !== undefined) names.push(FIELD_LABELS.colorId);
   return names.join("、");
 }
 
@@ -127,6 +144,8 @@ type BulkTaskDetailPanelProps = {
   onEditingChange: (editing: boolean) => void;
   onPanelFocus?: () => void;
   statuses: readonly StatusItem[];
+  colors?: readonly ColorItem[] | null;
+  colorScheme: ResolvedColorScheme;
 };
 
 export function BulkTaskDetailPanel({
@@ -141,6 +160,8 @@ export function BulkTaskDetailPanel({
   onEditingChange,
   onPanelFocus,
   statuses,
+  colors = null,
+  colorScheme,
 }: BulkTaskDetailPanelProps) {
   const [local, setLocal] = useState<LocalDraft>(() => emptyLocalDraft());
   const [formError, setFormError] = useState<string | null>(null);
@@ -152,6 +173,7 @@ export function BulkTaskDetailPanel({
   const commonEnd = commonStringField(tasks, (t) => t.end);
   const commonAssignee = commonAssigneeIds(tasks);
   const commonMilestone = commonMilestoneId(tasks);
+  const commonColor = commonColorId(tasks);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
@@ -188,6 +210,24 @@ export function BulkTaskDetailPanel({
 
   const milestoneMixed =
     commonMilestone === "mixed" && local.milestone === "unchanged";
+
+  const colorMixed = commonColor === "mixed" && local.colorId === "";
+
+  const displayColorValue =
+    local.colorId !== ""
+      ? local.colorId
+      : commonColor === "mixed"
+        ? ""
+        : commonColor === null
+          ? BULK_COLOR_CLEAR
+          : commonColor;
+
+  const bulkColorOptions = useMemo((): ColorSelectOption[] => {
+    if (colors == null) return [];
+    const commonId =
+      commonColor === "mixed" || commonColor === null ? null : commonColor;
+    return colorSelectOptionsForBulk(colors, commonId, colorScheme);
+  }, [colors, colorScheme, commonColor]);
 
   const milestoneValue =
     local.milestone === "unchanged"
@@ -391,6 +431,34 @@ export function BulkTaskDetailPanel({
             <StatusOptions statuses={statuses} />
           </select>
         </div>
+        {colors != null ? (
+          <div className="field">
+            <label htmlFor="bulkColor">色</label>
+            <ColorSelectField
+              id="bulkColor"
+              value={displayColorValue}
+              options={bulkColorOptions}
+              onChange={(next) => {
+                setLocal((prev) => {
+                  if (next === "") {
+                    return { ...prev, colorId: "" };
+                  }
+                  if (next === BULK_COLOR_CLEAR) {
+                    if (commonColor === null) return { ...prev, colorId: "" };
+                    return { ...prev, colorId: BULK_COLOR_CLEAR };
+                  }
+                  if (commonColor !== "mixed" && next === commonColor) {
+                    return { ...prev, colorId: "" };
+                  }
+                  return { ...prev, colorId: next };
+                });
+              }}
+            />
+            {colorMixed ? (
+              <p className="detail-mixed-hint">複数の値</p>
+            ) : null}
+          </div>
+        ) : null}
         <div className="field">
           <label htmlFor="bulkConfidence">確度</label>
           <select

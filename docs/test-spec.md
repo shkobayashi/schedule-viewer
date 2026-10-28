@@ -69,7 +69,9 @@
 | `rows.test.ts` | `taskMatchesFilter assignee` | FILTER-03 |
 | `scheduleDiff.test.ts` | `shows ordered assigneeId for multiple ids and order-only changes` | FILE-07 |
 | `baselineDiffs.test.ts` | `classifies assignee order mismatch as 異なる without merging ids` | FILE-07 |
-| `bulkTaskEdit.test.ts` | `replaces assigneeIds on all selected tasks including empty` / `applyBulkTaskEditOutline assigneeIds` | EDIT-04 |
+| `bulkTaskEdit.test.ts` | `replaces assigneeIds on all selected tasks including empty` / `applyBulkTaskEditOutline assigneeIds` / `sets and clears colorId on selected tasks only` | EDIT-04 |
+| `taskColorId.test.ts` | `applyTaskColorId` | EDIT-04, EDIT-14, VIEW-14 |
+| `tasks.test.ts` | `categoriesAfterTaskEdit colorId` / duplicate `uses patch colorId` / `clears colorId when patch sets null` | EDIT-04, EDIT-14 |
 | `calendarAppData.test.ts` | `stores imported JSON and reads it back` | SET-03 |
 | 同上 | `clears calendar on delete` | SET-03 |
 | 同上 | `drops a label when the body is missing` | SET-03 |
@@ -163,6 +165,7 @@
 | 同上 | `puts dependency connectors and today line into the payload` | EXPORT-05 |
 | 同上 | `assigns name indent and summary decorations by row kind` | EXPORT-05 |
 | 同上 | `uses black task names and group-row gray for holidays` | EXPORT-05 |
+| 同上 | `includes row fill rgb for colored tasks` | VIEW-14, EXPORT-05 |
 | 同上 | `uses light group and overdue name colors on a white sheet` | EXPORT-05 |
 | 同上 | `uses milestone group name on milestone rows` | EXPORT-05 |
 | 同上 | `keeps task indent 0 for task-only visible rows` | EXPORT-05 |
@@ -1220,6 +1223,7 @@
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、ステータス、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
 | TC-VIEW-13 | VIEW-13 | 一覧に無い `status`、メンバーに無い `assigneeId`、または定義に無い `fieldValues` キーがあるファイル。ステータス列はオフ | 帯の文を見る。定義に無い追加項目は詳細で編集できないことを見る。左のタスク名とバーが同じ行に揃うこと、見出しの下端が揃うことを見る。絞り込みで該当行を隠しても帯が残ることを確かめる。右下の一時的な知らせを出しても帯が残ることを確かめる。設定でステータス列をオンにし、一覧に無い `id` の札と、メンバー不明の札を縦に見る。線を引くモード中は帯がその上にあり、両方の帯でも揃うことを見る。縦スクロールと表示サイズを変えても揃うことを見る。ライトとダークで、札の文字と帯の文字・左線のコントラストを見る | 帯は三つの文のいずれかだけ。`id` も件数も出ない。列は見えているタスク行だけ。未割当だけのときは帯は出ない。不一致が無くなると帯は消え、左の空きも消える。トーストが出ても帯は消えない。札の文字は 4.5:1 以上、帯の左線は 3:1 以上である |
+| TC-VIEW-14 | VIEW-14 | デスクトップ版。`examples/colors/workspace.json` を開く | ライトとダークを切り替える。注力のタスクの詳細で「色」を開き、注力と待ちの名前の左に黄と青の小さな四角があること、候補の行全体は塗られないことを見る。色を「待ち」に変え、地が青になること。同じタスクを複製し、色を「なし」にして追加すると地が付かないこと。注力と待ちの2件を選び、一括で同じ色に適用して両方の地が変わること。注力の地が黄から暗い茶へ変わること、バーの色は変わらないこと、見出しとマイルストンと色なしの行は今の地のままであること、帯が「一覧に無い色があります。」であること、土日の列は灰色のままであることを見る。ダークのまま Excel に書き出し、注力の行の地が暗い茶ではなくライトの黄系であること、バーがステータス色のままであることを見る。ブラウザ版の起動サンプルでは「色」欄が出ないこと | 一覧に無い `colorId` の行は塗らない。一覧にあるだけの `risk` は塗らない |
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |

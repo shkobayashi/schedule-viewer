@@ -4159,6 +4159,84 @@ button:focus-visible,
   border-radius: var(--radius-md);
 }
 
+.color-select-field {
+  position: relative;
+}
+
+.color-select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--s));
+  padding: calc(6px * var(--s)) calc(8px * var(--s));
+  font-size: calc(12px * var(--s));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.color-select-trigger:hover {
+  border-color: var(--text-secondary);
+}
+
+.color-swatch {
+  display: inline-block;
+  width: calc(12px * var(--s));
+  height: calc(12px * var(--s));
+  border: 1px solid var(--border);
+  border-radius: calc(3px * var(--s));
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.color-select-option-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.color-select-dropdown {
+  position: fixed;
+  z-index: 1200;
+  min-width: calc(120px * var(--s));
+  max-width: min(100vw - 16px, calc(280px * var(--s)));
+}
+
+.color-select-options {
+  list-style: none;
+  margin: 0;
+  padding: calc(4px * var(--s)) 0;
+  max-height: calc(160px * var(--s));
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+}
+
+.color-select-option {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--s));
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: calc(6px * var(--s)) calc(8px * var(--s));
+  font-size: calc(12px * var(--s));
+  color: var(--text);
+  cursor: pointer;
+}
+
+.color-select-option.is-active,
+.color-select-option:hover {
+  background: var(--accent-soft);
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

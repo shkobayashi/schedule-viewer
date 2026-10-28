@@ -369,9 +369,9 @@ describe("schedule export documents", () => {
       rowKind: "taskParent",
       ancestorIds: ["h0", "h1"],
     };
-    expect(exportChartRowFill(top, chart, css.bg)).toBe(chart.categoryRow);
-    expect(exportChartRowFill(middle, chart, css.bg)).toBe(css.bg);
-    expect(exportChartRowFill(parent, chart, css.bg)).toBe(chart.groupRow);
+    expect(exportChartRowFill(top, chart, css.bg, null, "light")).toBe(chart.categoryRow);
+    expect(exportChartRowFill(middle, chart, css.bg, null, "light")).toBe(css.bg);
+    expect(exportChartRowFill(parent, chart, css.bg, null, "light")).toBe(chart.groupRow);
 
     const svg = buildScheduleSvg({
       ...input(),
@@ -380,6 +380,27 @@ describe("schedule export documents", () => {
     expect(svg).toContain(`fill="${chart.categoryRow}"`);
     expect(svg).toContain(`fill="${chart.groupRow}"`);
     expect(svg).toContain(`fill="${css.bg}"`);
+  });
+
+  it("paints task row background from colors catalog in SVG", () => {
+    const colored: Task = { ...task, colorId: "focus" };
+    const exp = {
+      ...input(),
+      visibleRows: [{ type: "task" as const, task: colored, y: 0 }],
+      colors: [
+        {
+          id: "focus",
+          name: "注力",
+          description: "x",
+          color: {
+            light: { bg: "#FEF3C7" },
+            dark: { bg: "#78350F" },
+          },
+        },
+      ],
+    };
+    const svg = buildScheduleSvg(exp);
+    expect(svg).toContain('fill="#FEF3C7"');
   });
 
   it("omits fieldValues from HTML and SVG export", () => {

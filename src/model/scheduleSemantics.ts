@@ -438,6 +438,10 @@ function validateTaskSemantics(
     issues.push({ path: `${taskPath}/note`, message: "ノートは空白にできません" });
   }
 
+  if (task.colorId != null && task.colorId.trim().length === 0) {
+    issues.push({ path: `${taskPath}/colorId`, message: "色 ID は空白にできません" });
+  }
+
   const assigneeIssue = validateAssigneeIdsSemantics(taskAssigneeIds(task), taskPath);
   if (assigneeIssue) issues.push(assigneeIssue);
 

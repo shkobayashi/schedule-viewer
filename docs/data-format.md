@@ -68,6 +68,7 @@
 | `date` / `start` / `end` | `YYYY-MM-DD`。実在する日。`end` はその日を含む。`end` は `start` 以降の日付にする。同じ日なら1日のタスクになる |
 | `assigneeId` | メンバー JSON の `id`。割り当てなしは `null`。一人は id の文字列（読み込みでは要素1つの配列も可）。二人以上は、入れた順の id の配列（同じ id は1回だけ）。空の配列は不可。保存では一人は文字列、二人以上は配列。UUID である必要はない。スケジュール側ではメンバーの実在を検査しない |
 | `status` | ステータス一覧の項目の `id`。1文字以上。既定の一覧は `not-started`、`in-progress`、`done`。スケジュール側では一覧の実在を検査しない。一覧に無い `id` は、画面で `id` をそのまま出し、色は中立にし、イナズマ線と期限超過は管理外と同じ（今日のまま、赤くしない）。「完了以外」には残る |
+| `colorId` | 任意。設定ファイルの `colors` が指す色の一覧の `id`。色なしはキーを書かない。空白だけは拒否する。保存では `status` の直後に置く |
 | `progress` | 0 以上 100 以下の整数。`todos` が無いタスクは手で置く。`todos` があるタスクは、読み込みと保存のたびに済んだ件数を全体で割った整数（切り捨て、全部済んだときだけ 100）に置き換える |
 | `todos` | 任意。`text`（1文字以上、改行なし）と `done`（真偽）の配列。1件以上あるときだけ書く。進捗は件数から決める |
 | `confidence` | タスクとマイルストンの確度。`tentative`（未確定）か `committed`（確定）。日付を合意したかどうかで、着手や進捗とは独立 |
@@ -95,7 +96,7 @@
 
 ## 設定ファイル（workspace、schemaVersion 1）
 
-正本は [workspace.schema.json](workspace.schema.json)。スケジュール JSON への相対パスを必須で書き、メンバー JSON、ステータス一覧 JSON、カレンダー JSON、拡張項目 JSON への相対パスは省略できる。`fieldExtensions` はピン留めした拡張の相対パスの配列である。`editableFieldExtension` は、このプロジェクト用に画面から作る編集用拡張の相対パスを一つだけ書く。`fieldExtensions` と同じ相対パスは書けない。同じプラグイン ID のファイルを二つ書くことはできない。設定ファイルから見た相対パスだけを書く。絶対パス、空、ディレクトリは拒否する。`..` を含む相対パスは許可する。
+正本は [workspace.schema.json](workspace.schema.json)。スケジュール JSON への相対パスを必須で書き、メンバー JSON、ステータス一覧 JSON、カレンダー JSON、色の一覧 JSON、拡張項目 JSON への相対パスは省略できる。`fieldExtensions` はピン留めした拡張の相対パスの配列である。`editableFieldExtension` は、このプロジェクト用に画面から作る編集用拡張の相対パスを一つだけ書く。`fieldExtensions` と同じ相対パスは書けない。同じプラグイン ID のファイルを二つ書くことはできない。設定ファイルから見た相対パスだけを書く。絶対パス、空、ディレクトリは拒否する。`..` を含む相対パスは許可する。
 
 ```json
 {
@@ -109,6 +110,10 @@
 ```
 
 アプリが書き出す既定のファイル名は `workspace.json` である。別名でも、中身がこの形なら開ける。
+
+## 色の一覧 JSON（schemaVersion 1）
+
+正本は [colors.schema.json](colors.schema.json)。意味規則は [src/model/validateColors.ts](../src/model/validateColors.ts) にある。`colors` は 1 件以上 8 件まで。各項目は `id`、`name`、`description`、`color.light.bg` と `color.dark.bg`（`#RRGGBB`）を持つ。タスクの `colorId` はこの `id` だけを書く。色の値はスケジュール JSON に書かない。
 
 ## 拡張項目 JSON（schemaVersion 1）
 
