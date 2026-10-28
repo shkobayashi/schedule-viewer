@@ -81,7 +81,7 @@ function task(confidence?: string) {
     name: "task",
     start: "2026-09-01",
     end: "2026-09-01",
-    assigneeId: "m1",
+    assigneeIds: ["m1"],
     status: "not-started",
     progress: 0,
     predecessors: [],
@@ -110,7 +110,7 @@ function document(schemaVersion: number, tasks: Record<string, unknown>[]) {
 }
 
 describe("validateSchedule v4", () => {
-  it("accepts assigneeId and confidence", () => {
+  it("accepts assigneeIds and confidence", () => {
     const result = validateSchedule(
       document(SCHEDULE_SCHEMA_VERSION, [task("committed")]),
     );

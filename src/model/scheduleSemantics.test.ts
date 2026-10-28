@@ -18,7 +18,7 @@ function outlineDoc(taskExtras: Record<string, unknown>): ScheduleDocument {
           name: "T",
           start: "2026-04-01",
           end: "2026-04-03",
-          assigneeId: null,
+          assigneeIds: [],
           status: "not-started",
           progress: 0,
           confidence: "committed",

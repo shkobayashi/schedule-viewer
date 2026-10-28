@@ -26,7 +26,7 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
   return {
     start: "2026-04-01",
     end: "2026-04-10",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 0,
     confidence: "committed",
@@ -98,12 +98,48 @@ describe("formatScheduleDiff", () => {
     );
   });
 
+  it("shows ordered assigneeId for multiple ids and order-only changes", () => {
+    const file = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          assigneeIds: ["member-1", "member-2"],
+        }),
+      ]),
+    );
+    const reordered = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          assigneeIds: ["member-2", "member-1"],
+        }),
+      ]),
+    );
+    expect(formatScheduleDiff(reordered, file, "plan.json")).toContain(
+      "  assigneeId: member-1, member-2 → member-2, member-1",
+    );
+    const addedSecond = doc(
+      design([
+        task({
+          id: TASK_A,
+          name: "基本設計",
+          assigneeIds: ["member-1"],
+        }),
+      ]),
+    );
+    const text = formatScheduleDiff(file, addedSecond, "plan.json");
+    expect(text).toContain("  assigneeId: member-1 → member-1, member-2");
+    expect(text).not.toMatch(/assigneeId:.*\+/);
+  });
+
   it("lists every field of an added task and skips sibling order", () => {
     const existing = task({ id: TASK_A, name: "要件整理" });
     const added = task({
       id: TASK_B,
       name: "基本設計",
-      assigneeId: "member-1",
+      assigneeIds: ["member-1"],
       status: "in-progress",
       progress: 20,
       predecessors: [TASK_A],

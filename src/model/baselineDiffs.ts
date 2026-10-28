@@ -1,3 +1,4 @@
+import { assigneeIdsEqual, taskAssigneeIds } from "./assigneeIds";
 import {
   anyUsesOutlineBaseline,
   appendOutlineHierarchyClassification,
@@ -725,7 +726,7 @@ function taskContentEquals(a: Task, b: Task): boolean {
     a.name === b.name &&
     a.start === b.start &&
     a.end === b.end &&
-    a.assigneeId === b.assigneeId &&
+    assigneeIdsEqual(taskAssigneeIds(a), taskAssigneeIds(b)) &&
     a.status === b.status &&
     a.progress === b.progress &&
     a.confidence === b.confidence &&

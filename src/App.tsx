@@ -3700,6 +3700,7 @@ function App() {
             tasks={bulkDetailTasks}
             selectedIds={schedule.selectedTaskIds}
             members={memberCatalogState.members ?? []}
+            memberCatalog={memberCatalogState.memberMap}
             taskRefs={taskRefs}
             milestones={schedule.milestones}
             documentTags={schedule.scheduleTags}

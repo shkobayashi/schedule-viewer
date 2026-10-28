@@ -322,7 +322,7 @@ export type TaskEditPatch = {
   name: string;
   start: string;
   end: string;
-  assigneeId: MemberId | null;
+  assigneeIds: MemberId[];
   status: TaskStatus;
   progress: number;
   confidence: TaskConfidence;
@@ -358,7 +358,7 @@ export function applyTaskEdit(
           name: patch.name.trim(),
           start: patch.start,
           end: patch.end,
-          assigneeId: patch.assigneeId,
+          assigneeIds: patch.assigneeIds,
           status: patch.status,
           progress,
           confidence: patch.confidence,
@@ -441,7 +441,7 @@ export function categoriesAfterDuplicate(
       name: patch.name.trim(),
       start: patch.start,
       end: patch.end,
-      assigneeId: patch.assigneeId,
+      assigneeIds: patch.assigneeIds,
       status: patch.status,
       progress: patch.progress,
       confidence: patch.confidence,

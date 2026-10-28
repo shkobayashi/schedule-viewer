@@ -1,4 +1,5 @@
 import { isIsoDateString } from "./dates";
+import { validateAssigneeIdsSemantics, taskAssigneeIds } from "./assigneeIds";
 import { collectTasksFromDocument, isOutlineBranch, isTaskNode } from "./hierarchy";
 import { validateTaskFieldValuesSemantics } from "./taskFields";
 import type {
@@ -436,6 +437,9 @@ function validateTaskSemantics(
   if (task.note != null && task.note.trim().length === 0) {
     issues.push({ path: `${taskPath}/note`, message: "ノートは空白にできません" });
   }
+
+  const assigneeIssue = validateAssigneeIdsSemantics(taskAssigneeIds(task), taskPath);
+  if (assigneeIssue) issues.push(assigneeIssue);
 
   if (task.todos != null) {
     for (let ti = 0; ti < task.todos.length; ti += 1) {

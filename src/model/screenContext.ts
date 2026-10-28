@@ -1,4 +1,5 @@
 import type { SearchField } from "./scheduleFilterPersistence";
+import { assigneeIdToJson, taskAssigneeIds } from "./assigneeIds";
 import { resolveAssigneeDisplay } from "./assigneeDisplay";
 import {
   BUILTIN_STATUS_ITEMS,
@@ -59,7 +60,7 @@ export type ScreenContextTask = {
   group: string;
   start: string;
   end: string;
-  assigneeId: string | null;
+  assigneeId: string | null | MemberId[];
   status: Task["status"];
   progress: number;
   confidence: Task["confidence"];
@@ -226,7 +227,7 @@ function taskToContext(ref: FilteredTaskRef): ScreenContextTask {
     group,
     start: task.start,
     end: task.end,
-    assigneeId: task.assigneeId,
+    assigneeId: assigneeIdToJson(taskAssigneeIds(task)),
     status: task.status,
     progress: task.progress,
     confidence: task.confidence,
@@ -265,7 +266,7 @@ export function buildActiveFilterConditions(input: {
       });
     } else {
       const display = resolveAssigneeDisplay(
-        filters.assignee,
+        [filters.assignee],
         input.memberCatalog,
       );
       conditions.push({

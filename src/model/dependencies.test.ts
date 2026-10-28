@@ -26,7 +26,7 @@ function task(id: string, predecessors: string[] = []): Task {
     name: id,
     start: "2026-01-01",
     end: "2026-01-03",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 0,
     confidence: "committed",

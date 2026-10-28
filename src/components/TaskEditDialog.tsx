@@ -2,12 +2,7 @@ import { StatusOptions } from "./StatusOptions";
 import { defaultStatusId, type StatusItem } from "../model/statusCatalog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TaskRef } from "../model/dependencies";
-import {
-  duplicateMemberNames,
-  formatUnknownAssigneeOption,
-  isUnknownAssignee,
-  memberOptionLabel,
-} from "../model/assigneeDisplay";
+import { AssigneeListField } from "./AssigneeListField";
 import type { Member } from "../model/memberTypes";
 import type { MemberId } from "../model/memberTypes";
 import { validateTaskEdit } from "../model/tasks";
@@ -15,7 +10,6 @@ import { MilestoneField } from "./MilestoneField";
 import { DateInput } from "./DateInput";
 import { ModalDialog } from "./ModalDialog";
 import {
-  UNASSIGNED_LABEL,
   type Milestone,
   type ScheduleId,
   type Task,
@@ -39,7 +33,7 @@ type TaskEditDialogProps = {
     name: string;
     start: string;
     end: string;
-    assigneeId: MemberId | null;
+    assigneeIds: MemberId[];
     status: TaskStatus;
     progress: number;
     confidence: TaskConfidence;
@@ -82,7 +76,9 @@ export function TaskEditDialog({
   const [name, setName] = useState(task.name);
   const [start, setStart] = useState(task.start);
   const [end, setEnd] = useState(task.end);
-  const [assigneeId, setAssigneeId] = useState<string>(task.assigneeId ?? "");
+  const [assigneeIds, setAssigneeIds] = useState<MemberId[]>(() => [
+    ...task.assigneeIds,
+  ]);
   const [status, setStatus] = useState<TaskStatus>(() =>
     mode === "duplicate" ? defaultStatusId(statuses) : task.status,
   );
@@ -117,12 +113,6 @@ export function TaskEditDialog({
     () => tasks.filter((item) => item.id !== omittedId),
     [omittedId, tasks],
   );
-
-  const duplicateNames = useMemo(
-    () => duplicateMemberNames(members),
-    [members],
-  );
-  const showUnknownOption = isUnknownAssignee(task.assigneeId, memberCatalog);
 
   return (
     <ModalDialog
@@ -168,24 +158,16 @@ export function TaskEditDialog({
           />
         </div>
         <div className="field">
-          <label htmlFor="fieldAssignee">担当者</label>
-          <select
-            id="fieldAssignee"
-            value={assigneeId}
-            onChange={(e) => setAssigneeId(e.target.value)}
-          >
-            <option value="">{UNASSIGNED_LABEL}</option>
-            {members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {memberOptionLabel(member, duplicateNames)}
-              </option>
-            ))}
-            {showUnknownOption && task.assigneeId ? (
-              <option value={task.assigneeId}>
-                {formatUnknownAssigneeOption(task.assigneeId)}
-              </option>
-            ) : null}
-          </select>
+          <span className="field-label" id="fieldAssigneeLabel">
+            担当者
+          </span>
+          <AssigneeListField
+            idPrefix="field"
+            assigneeIds={assigneeIds}
+            members={members}
+            memberCatalog={memberCatalog}
+            onChange={setAssigneeIds}
+          />
         </div>
         <div className="field">
           <label htmlFor="fieldStatus">ステータス</label>
@@ -284,7 +266,7 @@ export function TaskEditDialog({
                 name,
                 start,
                 end,
-                assigneeId: assigneeId === "" ? null : assigneeId,
+                assigneeIds: [...assigneeIds],
                 status,
                 progress: roundedProgress,
                 confidence,

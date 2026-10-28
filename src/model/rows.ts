@@ -23,6 +23,7 @@ import {
 } from "./progressRollup";
 import { summarizeSpans } from "./summary";
 import {
+  matchesMemberAssigneeFilter,
   matchesUnassignedFilter,
 } from "./assigneeDisplay";
 import type { Member, MemberId } from "./memberTypes";
@@ -236,10 +237,10 @@ export function taskMatchesFilter(
 ): boolean {
   if (lineageIds && !lineageIds.has(task.id)) return false;
   if (filters.assignee === UNASSIGNED_FILTER) {
-    if (!matchesUnassignedFilter(task.assigneeId, memberCatalog)) return false;
+    if (!matchesUnassignedFilter(task.assigneeIds, memberCatalog)) return false;
   } else if (
     filters.assignee !== "all" &&
-    task.assigneeId !== filters.assignee
+    !matchesMemberAssigneeFilter(task.assigneeIds, filters.assignee)
   ) {
     return false;
   }

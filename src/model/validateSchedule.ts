@@ -15,6 +15,7 @@ import {
   type ValidationIssue,
 } from "./scheduleSemantics";
 import { normalizeScheduleFieldsForValidation } from "./taskFields";
+import { normalizeAssigneesInDocument, scheduleInputForSchemaValidation, validateAssigneeIdInputSemantics } from "./assigneeIds";
 import { normalizeScheduleDocument } from "./taskTodos";
 import type { ScheduleDocument } from "./types";
 import {
@@ -81,18 +82,32 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
     normalizeScheduleLevelsInputForSchema(migrated) as Record<string, unknown>,
   );
 
-  if (!validateSchema(forSchema)) {
+  const assigneeInputIssues = validateAssigneeIdInputSemantics(forSchema);
+  if (assigneeInputIssues.length > 0) {
     return {
       ok: false,
-      errors: formatAjvErrors(forSchema, validateSchema.errors),
+      errors: assigneeInputIssues.map((issue) => ({
+        ...issue,
+        path: humanizeInstancePath(migrated, issue.path),
+      })),
     };
   }
 
-  const raw = forSchema as ScheduleDocument;
-  const document: ScheduleDocument = {
+  const forSchemaAssignees = scheduleInputForSchemaValidation(forSchema);
+
+  if (!validateSchema(forSchemaAssignees)) {
+    return {
+      ok: false,
+      errors: formatAjvErrors(forSchemaAssignees, validateSchema.errors),
+    };
+  }
+
+  const raw = forSchemaAssignees as ScheduleDocument;
+  const withCategories: ScheduleDocument = {
     ...raw,
     categories: raw.categories ?? [],
   };
+  const document = normalizeAssigneesInDocument(withCategories);
   const errors = [
     ...validateScheduleSemantics(document),
     ...validatePredecessorRefs(document),

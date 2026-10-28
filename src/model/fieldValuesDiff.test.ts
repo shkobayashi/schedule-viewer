@@ -16,7 +16,7 @@ function task(partial: Partial<Task> & Pick<Task, "id" | "name">): Task {
   return {
     start: "2026-01-01",
     end: "2026-01-01",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 0,
     confidence: "committed",

@@ -65,7 +65,7 @@ function task(
     name: status,
     start,
     end,
-    assigneeId: null,
+    assigneeIds: [],
     status,
     progress,
     confidence: "committed",

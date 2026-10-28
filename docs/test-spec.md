@@ -56,11 +56,20 @@
 | 同上 | `shows the raw id for an unknown id` | VIEW-13 |
 | `viewPreferences.test.ts` | `treats a missing status key as off` | SET-01, VIEW-13 |
 | 同上 | `reads status when explicitly true` | SET-01, VIEW-13 |
-| `assigneeDisplay.test.ts` | `keeps null as unassigned` | VIEW-10 |
-| 同上 | `resolves a known id to the display name` | VIEW-10 |
-| 同上 | `marks an id missing from the catalog, including when none is selected` | VIEW-10 |
-| 同上 | `keeps null and unknown ids, and drops resolved members` | FILTER-03 |
+| `assigneeDisplay.test.ts` | `keeps empty as unassigned` | VIEW-10 |
+| 同上 | `resolves a known id to text label` | VIEW-10 |
+| 同上 | `marks ids missing from the catalog as allUnknown` | VIEW-10 |
+| 同上 | `joins multiple assignees with読点` | VIEW-10 |
+| 同上 | `uses allUnknown badge only when every id is unknown` | VIEW-10 |
+| 同上 | `keeps empty and unknown-only, and drops resolved members` | FILTER-03 |
+| 同上 | `matches when id is in the list` | FILTER-03 |
 | 同上 | `appends the id only when the display name is duplicated` | VIEW-10 |
+| 同上 | `assigneeExcelCellLabel` | VIEW-10 |
+| `assigneeIds.test.ts` | `maps null, string, and array` / `serializes empty, one, and many` / `compares order` / 重複拒否 / 正規化 / `validateSchedule assigneeId json` | FILE-01, FILE-02 |
+| `rows.test.ts` | `taskMatchesFilter assignee` | FILTER-03 |
+| `scheduleDiff.test.ts` | `shows ordered assigneeId for multiple ids and order-only changes` | FILE-07 |
+| `baselineDiffs.test.ts` | `classifies assignee order mismatch as 異なる without merging ids` | FILE-07 |
+| `bulkTaskEdit.test.ts` | `replaces assigneeIds on all selected tasks including empty` / `applyBulkTaskEditOutline assigneeIds` | EDIT-04 |
 | `calendarAppData.test.ts` | `stores imported JSON and reads it back` | SET-03 |
 | 同上 | `clears calendar on delete` | SET-03 |
 | 同上 | `drops a label when the body is missing` | SET-03 |
@@ -1037,6 +1046,9 @@
 | TC-VIEW-09 | VIEW-09 | カレンダー未設定で日表示 | 背景を見る | 土日だけが薄い灰。月表示では日ごとに塗らない |
 | TC-VIEW-10 | VIEW-10 | 使用中カタログがある | 割り当てなし、一致する ID、存在しない ID の行を見る。割り当てなしを選択し、カーソルを乗せる。期限超過の割り当てなし行も見る。ライトとダーク、HTML と SVG の書き出しも確かめる | 一覧では「未割当」は琥珀色の札で切れず、名前付きは薄い文字、一致は表示名、「メンバー不明」と ID は紫の札。選択中とホバーでも札の地色が残る。期限超過でも「未割当」は赤くならない。チャートのバーに破線や上端の色は出ない。書き出しも同じ札である |
 | TC-VIEW-11 | VIEW-11 | ノートがあるタスクと無いタスク | ノートアイコンを押す | 色が違い、本文が出る。無いタスクは「ノートはありません」 |
+| TC-VIEW-10b | VIEW-10, EDIT-04 | 二人以上の担当を付けたタスクがある。同名の表示名を持つメンバーがいる | 左一覧と棒の右の文字列を見る。担当列にマウスを乗せる | 表示名が「、」でつながり、同名のときだけその位置に id が付く。左は先頭8文字までで省略され、マウスで全文が出る。棒の右は切らず、マウスを乗せても全文は出ない |
+| TC-EDIT-04s | EDIT-04 | タスクを1件選ぶ | 詳細で担当を足し、外し、順を変え、それぞれ取り消す | 左一覧と棒の右がその都度変わる。各操作の取り消し1回で戻る |
+| TC-EDIT-04t | EDIT-04 | 担当の並びが違うタスクを2件選ぶ | 「複数の値」と「未割当にする」を見る。未割当にして適用し、取り消す。別途、並びを変えて適用し取り消す | 並びが違うときは人の行は出ず、未割当の下書きで全件が空になる。適用で選んだ作業の担当が置き換わる。取り消し1回で全部戻る |
 | TC-NAV-01 | NAV-01 | 期間が画面より広い | チャートをドラッグする。チャート本体、日付の行、マイルストン帯で、クリックせず二本指を横へ滑らせる。ホイールと Shift+ホイールも試す | ドラッグは縦横。本体ではホイールの縦は上下、横の量は左右。斜めは一緒に動く。日付の行とマイルストン帯では縦と横の量が左右。Shift+ホイールは横。端で止まる |
 | TC-NAV-01b | NAV-01 | 期間が画面より広く、行が画面より多い | ⌘ または Ctrl を押しながら上下左右を押す。押し続ける。端まで押す | 上で縦に戻り、下で進む。左で過去、右で未来へ動く。縦は左の一覧と一緒に動く。上下は 1 行分、左右も同じ画面上の距離である。押しているあいだは連続して動き、端で止まる |
 | TC-NAV-01c | NAV-01 | 検索欄、選択欄、またはボタンにフォーカスがある。別途、ダイアログと右クリックメニューを開く | 矢印キーだけを押し、続けて ⌘ または Ctrl と矢印を押す | 矢印キーだけではその欄の操作のままである。⌘ または Ctrl と矢印ではチャートが動く。ダイアログが開いているあいだは動かない。右クリックメニューは、この操作で閉じる |
@@ -1060,8 +1072,8 @@
 | TC-FILTER-01b | FILTER-01 | サンプル。検索の対象が「名前」 | ⌘/Ctrl+F を押す | 検索欄にフォーカスが移り、入っている文字が選択される |
 | TC-FILTER-01c | FILTER-01, FILTER-03 | サンプル | 担当者を変え、検索も入れる | 札が出る。札を押すとその条件だけ外れる。「すべて解除」で絞り込みだけが初期値に戻り、系統は残る |
 | TC-FILTER-02 | FILTER-02 | ノートがあるタスクと無いタスク | ノートの一部を入れる | ノートにその文字を含むタスクだけが残る |
-| TC-FILTER-03 | FILTER-03 | 割り当てなし、メンバー不明、名前を表示できる担当が混在 | 「割り当てなし」を選ぶ | 割り当てなしとメンバー不明が残り、名前を表示できる担当のタスクは消える |
-| TC-FILTER-03b | FILTER-03 | 同上 | 特定のメンバーを選ぶ | その ID だけが残り、メンバー不明は出ない |
+| TC-FILTER-03 | FILTER-03 | 割り当てなし、メンバー不明、名前を表示できる担当が混在。複数担当のタスクがある | 「割り当てなし」を選ぶ | 割り当てなしと、並びがすべて不明 id のタスクだけが残る。解決できたメンバーが1人でもいるタスクは消える |
+| TC-FILTER-03b | FILTER-03 | 同上 | 特定のメンバーを選ぶ | その id が並びに含まれるタスクが残り、メンバー不明だけのタスクは出ない |
 | TC-FILTER-04 | FILTER-04 | 完了と未完了が混在 | 「完了以外」を選ぶ | 完了のタスクが消える |
 | TC-FILTER-05 | FILTER-05 | 期限超過と期限内が混在 | 「期限超過」を選ぶ | VIEW-05 のタスクだけが残る |
 | TC-FILTER-06 | FILTER-06 | 破綻している組と、していない組 | 「前後: 破綻のみ」を選ぶ | 破綻している線の両端だけが残る |
@@ -1098,7 +1110,7 @@
 | TC-EDIT-01c | EDIT-01, NAV-01 | 見えているタスクが複数ある。行が画面より多い | ↑↓で選択を移す。見えている行を選んだあと、左の行をクリックして選び直す。端で止まる | カテゴリ行とグループ行は飛ばす。見えている行では縦位置は変わらない。画面外の行へ移したときだけ、入るところまでスクロールする |
 | TC-EDIT-01d | EDIT-01, NAV-01 | 横にスクロールした状態で、バーが画面にかかっているタスクがある | そのバーをクリックする。次に、横に見えていないタスクを選ぶ | かかっているバーを選んでも横位置は変わらない。見えていないバーを選ぶと、開始の手前が見える位置へ寄る |
 | TC-EDIT-01b | EDIT-01 | タスクを選択している | 絞り込みを変える | 選択が外れる |
-| TC-EDIT-01e | EDIT-01, EDIT-04 | 見えているタスクが複数ある | ⌘ または Ctrl+クリックで2件選ぶ。一括パネルで担当だけ変えて適用する。取り消す | 2件とも担当が変わる。取り消し1回で戻る |
+| TC-EDIT-01e | EDIT-01, EDIT-04 | 見えているタスクが複数ある | ⌘ または Ctrl+クリックで2件選ぶ。一括パネルで担当の並びを変えて適用する。取り消す | 2件とも担当が置き換わる。取り消し1回で戻る |
 | TC-EDIT-01f | EDIT-01, EDIT-02 | 2件以上選んでいる | 選択中の1本を横にドラッグする | 選択中の全部が同じ日数だけ動く。ドラッグ中は選んだバーすべてに日付が出る |
 | TC-EDIT-01g | EDIT-01, EDIT-11 | 2件以上選んでいる | タスクを右クリックする | メニューは削除だけ |
 | TC-EDIT-02 | EDIT-02 | タスクを選択できる | バー本体を横へドラッグして離す。⌘ または Ctrl 付きでも同じ。詳細パネルが開いているときも同じ | 8px を超えたら開始と終了が同じ日数だけ動く。他のバーや日付は動かない。空きやスペースキー付きドラッグはスクロールのまま |

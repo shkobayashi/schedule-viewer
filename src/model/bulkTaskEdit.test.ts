@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyBulkTaskEdit } from "./bulkTaskEdit";
+import { applyBulkTaskEdit, applyBulkTaskEditOutline } from "./bulkTaskEdit";
 import { findTaskById } from "./rows";
+import { findTaskInOutline } from "./outlineTasks";
 import { primarySelectedTaskId } from "./taskSelection";
-import type { Category, Milestone, Task } from "./types";
+import type { Category, Milestone, OutlineRoot, Task } from "./types";
 
 function task(id: string, overrides: Partial<Task> = {}): Task {
   return {
@@ -10,7 +11,7 @@ function task(id: string, overrides: Partial<Task> = {}): Task {
     name: id,
     start: "2026-01-01",
     end: "2026-01-05",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 0,
     confidence: "tentative",
@@ -173,6 +174,77 @@ describe("applyBulkTaskEdit", () => {
     if (result.ok) return;
     expect(result.message.length).toBeGreaterThan(0);
     expect(findTaskById(cyclic, "a")?.predecessors).toEqual([]);
+  });
+
+  it("replaces assigneeIds on all selected tasks including empty", () => {
+    const withAssignee: Category[] = [
+      {
+        id: "c1",
+        name: "C",
+        groups: [
+          {
+            id: "g1",
+            name: "G",
+            tasks: [
+              task("a", { assigneeIds: ["x"] }),
+              task("b", { assigneeIds: ["y", "z"] }),
+            ],
+          },
+        ],
+      },
+    ];
+    const replaced = applyBulkTaskEdit(withAssignee, milestones, "t", ["a", "b"], {
+      assigneeIds: ["m1", "m2"],
+    });
+    expect(replaced.ok).toBe(true);
+    if (!replaced.ok) return;
+    expect(replaced.categories[0]!.groups[0]!.tasks[0]!.assigneeIds).toEqual([
+      "m1",
+      "m2",
+    ]);
+    expect(replaced.categories[0]!.groups[0]!.tasks[1]!.assigneeIds).toEqual([
+      "m1",
+      "m2",
+    ]);
+    const cleared = applyBulkTaskEdit(withAssignee, milestones, "t", ["a", "b"], {
+      assigneeIds: [],
+    });
+    expect(cleared.ok).toBe(true);
+    if (!cleared.ok) return;
+    expect(cleared.categories[0]!.groups[0]!.tasks[0]!.assigneeIds).toEqual([]);
+  });
+});
+
+const outlineWithAssignees: OutlineRoot = [
+  {
+    id: "branch-1",
+    name: "G",
+    children: [
+      task("a", { assigneeIds: ["x"] }),
+      task("b", { assigneeIds: ["y", "z"] }),
+    ],
+  },
+];
+
+describe("applyBulkTaskEditOutline assigneeIds", () => {
+  it("replaces assigneeIds on selected outline tasks", () => {
+    const result = applyBulkTaskEditOutline(
+      outlineWithAssignees,
+      milestones,
+      "t",
+      ["a", "b"],
+      { assigneeIds: ["m1", "m2"] },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(findTaskInOutline(result.outline, "a")!.assigneeIds).toEqual([
+      "m1",
+      "m2",
+    ]);
+    expect(findTaskInOutline(result.outline, "b")!.assigneeIds).toEqual([
+      "m1",
+      "m2",
+    ]);
   });
 });
 

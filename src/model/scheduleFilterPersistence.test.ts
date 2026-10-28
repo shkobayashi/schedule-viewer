@@ -253,7 +253,7 @@ describe("pruneScheduleFilterViewState", () => {
               name: "T",
               start: "2026-01-01",
               end: "2026-01-02",
-              assigneeId: null,
+              assigneeIds: [],
               status: "not-started" as const,
               progress: 0,
               confidence: "tentative" as const,

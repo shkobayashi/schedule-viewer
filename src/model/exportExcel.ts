@@ -1,6 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { fmtMonthDay, isoDate } from "./dates";
-import { assigneeSidebarLabel, resolveAssigneeDisplay } from "./assigneeDisplay";
+import { assigneeExcelCellLabel } from "./assigneeDisplay";
 import {
   EXPORT_MAX_ROWS,
   exportHierarchyHeadingIndent,
@@ -191,9 +191,7 @@ function taskCellsForColumns(
   memberCatalog: ScheduleExportInput["memberCatalog"],
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): string[] {
-  const assignee = assigneeSidebarLabel(
-    resolveAssigneeDisplay(task.assigneeId, memberCatalog),
-  );
+  const assignee = assigneeExcelCellLabel(task.assigneeIds, memberCatalog);
   const cells: string[] = [];
   for (const id of EXCEL_EXPORT_COLUMN_ORDER) {
     if (id === "note") continue;

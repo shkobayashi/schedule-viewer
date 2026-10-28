@@ -17,7 +17,7 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
   return {
     start: "2026-04-01",
     end: "2026-04-10",
-    assigneeId: null,
+    assigneeIds: [],
     status: "not-started",
     progress: 0,
     confidence: "committed",
@@ -92,6 +92,26 @@ describe("formatBaselineDiffsText", () => {
     expect(text).toContain("異なる 変更 基本設計");
     expect(text).toContain("  demo_score: 1 → 2");
     expect(text).toContain("  demo_score: 1 → 3");
+  });
+
+  it("classifies assignee order mismatch as 異なる without merging ids", () => {
+    const taskBase = {
+      id: TASK_A,
+      name: "基本設計",
+    };
+    const baseline = doc(
+      design([task({ ...taskBase, assigneeIds: ["member-1", "member-2"] })]),
+    );
+    const screen = doc(
+      design([task({ ...taskBase, assigneeIds: ["member-2", "member-1"] })]),
+    );
+    const file = doc(design([task({ ...taskBase, assigneeIds: ["member-1"] })]));
+    const text = formatBaselineDiffsText(baseline, screen, file, "plan.json");
+    expect(text).toContain("異なる 変更 基本設計");
+    expect(text).toContain("assigneeId: member-1, member-2 → member-2, member-1");
+    expect(text).toContain("assigneeId: member-1, member-2 → member-1");
+    const merged = buildNonConflictingMergedDocument(baseline, screen, file);
+    expect(merged).toBeNull();
   });
 
   it("classifies file-only end date change", () => {

@@ -1,4 +1,4 @@
-import { isUnknownAssignee } from "./assigneeDisplay";
+import { taskHasUnknownAssignee } from "./assigneeDisplay";
 import type { Member, MemberId } from "./memberTypes";
 import { findStatusItem, type StatusItem } from "./statusCatalog";
 import type { Task } from "./types";
@@ -22,7 +22,7 @@ export function catalogMismatchFlags(
     if (!status && findStatusItem(statuses, task.status) === undefined) {
       status = true;
     }
-    if (!assignee && isUnknownAssignee(task.assigneeId, memberCatalog)) {
+    if (!assignee && taskHasUnknownAssignee(task.assigneeIds, memberCatalog)) {
       assignee = true;
     }
     if (!fieldValues && task.fieldValues != null) {
