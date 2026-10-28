@@ -10,6 +10,11 @@ import {
   suggestedJsonFilename,
 } from "../../model/scheduleFile";
 import { assessHierarchySave } from "../../model/hierarchyLevelEdit";
+import {
+  assessFieldValuesConformanceSave,
+  assessRequiredFieldValuesSave,
+} from "../../model/taskFields";
+import type { ScheduleFieldDef } from "../../model/types";
 import { withSaveFlight } from "./saveFlight";
 
 export const SCHEDULE_SAVE_ERROR_DIALOG_TITLE = "保存できません";
@@ -30,6 +35,11 @@ type UseScheduleSaveOptions = {
   clearRecoveryDraft: () => Promise<void>;
   clearExternalReloadPromptRef: { current: () => void };
   clearInvalidDiskHashRef: { current: () => void };
+  extraFieldDefs?: readonly ScheduleFieldDef[];
+  onScheduleSavePathChanged?: (
+    previousPath: string | null,
+    newPath: string,
+  ) => void;
 };
 
 export function useScheduleSave({
@@ -48,6 +58,8 @@ export function useScheduleSave({
   clearRecoveryDraft,
   clearExternalReloadPromptRef,
   clearInvalidDiskHashRef,
+  extraFieldDefs = [],
+  onScheduleSavePathChanged,
 }: UseScheduleSaveOptions) {
   const saveInFlightRef = useRef(false);
   const pausePollRef = useRef(false);
@@ -66,6 +78,24 @@ export function useScheduleSave({
         const hierarchyGate = assessHierarchySave(parsed.document);
         if (!hierarchyGate.ok) {
           reportSaveError(hierarchyGate.message);
+          if (skipExternalCheck) pausePollRef.current = false;
+          return;
+        }
+        const requiredGate = assessRequiredFieldValuesSave(
+          parsed.document,
+          extraFieldDefs,
+        );
+        if (!requiredGate.ok) {
+          reportSaveError(requiredGate.message);
+          if (skipExternalCheck) pausePollRef.current = false;
+          return;
+        }
+        const conformanceGate = assessFieldValuesConformanceSave(
+          parsed.document,
+          extraFieldDefs,
+        );
+        if (!conformanceGate.ok) {
+          reportSaveError(conformanceGate.message);
           if (skipExternalCheck) pausePollRef.current = false;
           return;
         }
@@ -105,12 +135,16 @@ export function useScheduleSave({
                 skipExternalCheck,
               );
               if (!writtenPath) return;
+              const previousPath = filePath;
               setFilePath(writtenPath);
               setBrowserFileLabel(null);
               setBaselineJson(contents);
               baselineJsonRef.current = contents;
               clearExternalReloadPromptRef.current();
               clearInvalidDiskHashRef.current();
+              if (previousPath !== writtenPath) {
+                onScheduleSavePathChanged?.(previousPath, writtenPath);
+              }
               await clearRecoveryDraft();
             } catch (error) {
               const message = errorMessage(error, "ファイルに保存できませんでした。");
@@ -158,6 +192,8 @@ export function useScheduleSave({
       setFileBusy,
       setFilePath,
       title,
+      extraFieldDefs,
+      onScheduleSavePathChanged,
     ],
   );
 

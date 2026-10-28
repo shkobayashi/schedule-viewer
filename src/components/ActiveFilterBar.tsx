@@ -9,6 +9,7 @@ import { removeSelectedTag } from "../model/taskTags";
 import type {
   Milestone,
   MilestoneGroup,
+  ScheduleFieldDef,
   ScheduleFilters,
   ScheduleId,
 } from "../model/types";
@@ -25,6 +26,7 @@ type ActiveFilterBarProps = {
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
   onShowAllMilestoneGroups: () => void;
   scheduleTags: string[];
+  scheduleFields?: readonly ScheduleFieldDef[];
   statuses: readonly StatusItem[];
 };
 
@@ -40,6 +42,7 @@ export function ActiveFilterBar({
   onMilestoneGroupVisible,
   onShowAllMilestoneGroups,
   scheduleTags,
+  scheduleFields,
   statuses,
 }: ActiveFilterBarProps) {
   const chips = activeFilterChips(
@@ -51,6 +54,7 @@ export function ActiveFilterBar({
     hiddenMilestoneGroupIds,
     scheduleTags,
     statuses,
+    scheduleFields,
   );
   if (chips.length === 0) return null;
 
@@ -58,6 +62,7 @@ export function ActiveFilterBar({
     kind: FilterChipKind,
     milestoneGroupId?: ScheduleId,
     tagName?: string,
+    fieldKey?: string,
   ) => {
     if (kind === "lineage") {
       onClearLineage();
@@ -69,6 +74,12 @@ export function ActiveFilterBar({
     }
     if (kind === "tag" && tagName != null) {
       onFiltersChange({ tags: removeSelectedTag(filters.tags, tagName) });
+      return;
+    }
+    if (kind === "fieldFilter" && fieldKey != null) {
+      const next = { ...(filters.fieldFilters ?? {}) };
+      delete next[fieldKey];
+      onFiltersChange({ fieldFilters: next });
       return;
     }
     onFiltersChange(filterChipClearPatch(kind));
@@ -89,7 +100,7 @@ export function ActiveFilterBar({
           type="button"
           className="filter-chip"
           onClick={() =>
-            clearChip(chip.kind, chip.milestoneGroupId, chip.tagName)
+            clearChip(chip.kind, chip.milestoneGroupId, chip.tagName, chip.fieldKey)
           }
           title="この条件を外す"
         >

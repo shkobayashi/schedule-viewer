@@ -1,6 +1,7 @@
 import { StatusOptions } from "./StatusOptions";
 import type { StatusItem } from "../model/statusCatalog";
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -34,34 +35,29 @@ import {
   type StatusFilter,
 } from "../model/types";
 import { anchorBelowRect, menuShiftForRect } from "./anchoredMenu";
+import {
+  FilterComboDropdown,
+  FilterPanelScrollRefContext,
+  isFilterComboDropdownTarget,
+} from "./filterComboDropdown";
+import {
+  filterPanelVerticalPaddingPx,
+  filterSearchListMaxHeightPx,
+  readUiScale,
+} from "./filterListMetrics";
+import {
+  filterPanelHeightLayout,
+  filterPanelMaxOuterHeightPx,
+} from "./filterPanelLayout";
+import { FilterFieldFiltersSection } from "./FilterFieldFiltersSection";
 import type { AssigneeFilterOption } from "./Toolbar";
+import type { FieldFilterCondition } from "../model/fieldFilters";
+import type { ScheduleFieldDef } from "../model/types";
 
 const FILTER_TAG_LIST_MAX_ROWS = 6;
 
-function readScale(): number {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue("--s");
-  const parsed = parseFloat(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-}
-
-function filterTagListMaxHeightPx(anchorBottom: number): number {
-  const s = readScale();
-  const row = 18 * s;
-  const gap = 4 * s;
-  const pad = 4 * s;
-  const borderY = 2;
-  const fullMax =
-    pad * 2 +
-    FILTER_TAG_LIST_MAX_ROWS * row +
-    (FILTER_TAG_LIST_MAX_ROWS - 1) * gap +
-    borderY;
-  const oneRow = pad * 2 + row + borderY;
-  const available = window.innerHeight - anchorBottom - 8 * s;
-  return Math.max(oneRow, Math.min(fullMax, available));
-}
-
 function filterMilestoneStatusHeightPx(): number {
-  const s = readScale();
+  const s = readUiScale();
   return 6 * s * 2 + 13 * s * 1.5 + 1;
 }
 
@@ -69,7 +65,10 @@ function filterMilestoneDropdownMaxHeightPx(
   anchorBottom: number,
   listState: MilestoneFilterListState,
 ): number {
-  const listBudget = filterTagListMaxHeightPx(anchorBottom);
+  const listBudget = filterSearchListMaxHeightPx(
+    anchorBottom,
+    FILTER_TAG_LIST_MAX_ROWS,
+  );
   let extra = 0;
   if (listState.noMatches || listState.truncated) {
     extra += filterMilestoneStatusHeightPx();
@@ -121,13 +120,12 @@ function FilterTagField({
   };
 
   const updateListMaxHeight = () => {
-    const combo = comboRef.current;
-    if (!combo) return;
     const input = inputRef.current;
-    const bottom = input
-      ? input.getBoundingClientRect().bottom + 4 * readScale()
-      : combo.getBoundingClientRect().bottom;
-    setListMaxHeight(filterTagListMaxHeightPx(bottom));
+    if (!input) return;
+    const bottom = input.getBoundingClientRect().bottom + 4 * readUiScale();
+    setListMaxHeight(
+      filterSearchListMaxHeightPx(bottom, FILTER_TAG_LIST_MAX_ROWS),
+    );
   };
 
   useLayoutEffect(() => {
@@ -251,7 +249,7 @@ function FilterTagField({
           }}
           onKeyDown={onInputKeyDown}
         />
-        {listOpen ? (
+        <FilterComboDropdown open={listOpen} anchorRef={inputRef}>
           <ul
             id={listId}
             ref={listRef}
@@ -300,7 +298,7 @@ function FilterTagField({
               </li>
             )}
           </ul>
-        ) : null}
+        </FilterComboDropdown>
       </div>
     </div>
   );
@@ -372,12 +370,9 @@ function FilterMilestoneField({
   useLayoutEffect(() => {
     if (!listOpen) return;
     const applyMaxHeight = () => {
-      const combo = comboRef.current;
-      if (!combo) return;
       const input = inputRef.current;
-      const bottom = input
-        ? input.getBoundingClientRect().bottom + 4 * readScale()
-        : combo.getBoundingClientRect().bottom;
+      if (!input) return;
+      const bottom = input.getBoundingClientRect().bottom + 4 * readUiScale();
       setListMaxHeight(
         filterMilestoneDropdownMaxHeightPx(bottom, listState),
       );
@@ -548,67 +543,67 @@ function FilterMilestoneField({
           }}
           onKeyDown={onInputKeyDown}
         />
-        {listOpen ? (
-          <div
-            className="filter-panel-milestone-dropdown"
-            style={
-              listMaxHeight != null ? { maxHeight: listMaxHeight } : undefined
-            }
-          >
-            {listState.options.length > 0 ? (
-              <ul
-                id={listId}
-                ref={listRef}
-                className="filter-panel-milestone-options"
-                role="listbox"
-              >
-                {listState.options.map((option, index) => {
-                  const active = index === activeIndex;
-                  return (
-                    <li key={filterMilestoneOptionKey(option)}>
-                      <button
-                        type="button"
-                        role="option"
-                        id={`${listId}-opt-${index}`}
-                        data-filter-milestone-index={index}
-                        aria-selected={active}
-                        className={
-                          active
-                            ? "filter-panel-milestone-option filter-panel-milestone-option-active"
-                            : "filter-panel-milestone-option"
-                        }
-                        tabIndex={-1}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onMouseEnter={() => setActiveIndex(index)}
-                        onClick={() => commitOption(option)}
-                      >
-                        {filterMilestoneOptionLabel(option)}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
-            {listState.noMatches ? (
-              <p
-                className="filter-panel-milestone-status"
-                role="status"
-                aria-live="polite"
-              >
-                一致するマイルストンがありません
-              </p>
-            ) : null}
-            {listState.truncated ? (
-              <p
-                className="filter-panel-milestone-status"
-                role="status"
-                aria-live="polite"
-              >
-                さらに絞り込んでください
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+        <FilterComboDropdown
+          open={listOpen}
+          anchorRef={inputRef}
+          className="filter-panel-milestone-dropdown"
+          style={
+            listMaxHeight != null ? { maxHeight: listMaxHeight } : undefined
+          }
+        >
+          {listState.options.length > 0 ? (
+            <ul
+              id={listId}
+              ref={listRef}
+              className="filter-panel-milestone-options"
+              role="listbox"
+            >
+              {listState.options.map((option, index) => {
+                const active = index === activeIndex;
+                return (
+                  <li key={filterMilestoneOptionKey(option)}>
+                    <button
+                      type="button"
+                      role="option"
+                      id={`${listId}-opt-${index}`}
+                      data-filter-milestone-index={index}
+                      aria-selected={active}
+                      className={
+                        active
+                          ? "filter-panel-milestone-option filter-panel-milestone-option-active"
+                          : "filter-panel-milestone-option"
+                      }
+                      tabIndex={-1}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onClick={() => commitOption(option)}
+                    >
+                      {filterMilestoneOptionLabel(option)}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+          {listState.noMatches ? (
+            <p
+              className="filter-panel-milestone-status"
+              role="status"
+              aria-live="polite"
+            >
+              一致するマイルストンがありません
+            </p>
+          ) : null}
+          {listState.truncated ? (
+            <p
+              className="filter-panel-milestone-status"
+              role="status"
+              aria-live="polite"
+            >
+              さらに絞り込んでください
+            </p>
+          ) : null}
+        </FilterComboDropdown>
       </div>
     </div>
   );
@@ -626,7 +621,15 @@ type FilterPanelProps = {
   assigneeFilterOptions: AssigneeFilterOption[];
   statuses: readonly StatusItem[];
   scheduleTags: string[];
+  scheduleFields?: readonly ScheduleFieldDef[];
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
+  onPatchFieldFilter: (
+    def: ScheduleFieldDef,
+    patch: Partial<FieldFilterCondition>,
+  ) => void;
+  onUpdateFieldFilters: (
+    build: (prev: ScheduleFilters) => ScheduleFilters["fieldFilters"],
+  ) => void;
 };
 
 export function FilterPanel({
@@ -641,39 +644,115 @@ export function FilterPanel({
   assigneeFilterOptions,
   statuses,
   scheduleTags,
+  scheduleFields,
   onFiltersChange,
+  onPatchFieldFilter,
+  onUpdateFieldFilters,
 }: FilterPanelProps) {
   const hiddenMilestoneGroupSet = new Set(hiddenMilestoneGroupIds);
   const panelRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: 0, top: 0 });
   const [shift, setShift] = useState({ x: 0, y: 0 });
+  const [panelScrolls, setPanelScrolls] = useState(false);
+  const [panelOuterHeight, setPanelOuterHeight] = useState<number | undefined>(
+    undefined,
+  );
+
+  const layoutSignature = useMemo(
+    () =>
+      JSON.stringify({
+        assignee: filters.assignee,
+        status: filters.status,
+        confidence: filters.confidence,
+        overdue: filters.overdue,
+        relation: filters.relation,
+        milestone: filters.milestone,
+        tags: filters.tags,
+        fieldFilters: filters.fieldFilters,
+        milestoneGroupCount: milestoneGroups.length,
+        tagCount: scheduleTags.length,
+        fieldDefCount: scheduleFields?.length ?? 0,
+      }),
+    [
+      filters,
+      milestoneGroups.length,
+      scheduleFields?.length,
+      scheduleTags.length,
+    ],
+  );
 
   useLayoutEffect(() => {
     if (!open || !anchorRef.current) return;
     setPosition(anchorBelowRect(anchorRef.current));
     setShift({ x: 0, y: 0 });
+    setPanelScrolls(false);
+    setPanelOuterHeight(undefined);
   }, [anchorRef, open]);
 
-  useLayoutEffect(() => {
-    if (!open) return;
+  const measurePanelLayout = useCallback(() => {
     const panel = panelRef.current;
-    if (!panel) return;
+    const grid = gridRef.current;
+    if (!panel || !grid || !open) return;
+    const maxOuter = filterPanelMaxOuterHeightPx(
+      position.top,
+      window.innerHeight,
+    );
+    const padding = filterPanelVerticalPaddingPx();
+    const layout = filterPanelHeightLayout(
+      grid.scrollHeight,
+      padding,
+      maxOuter,
+    );
+    setPanelScrolls(layout.scrolls);
+    setPanelOuterHeight(layout.outerHeight);
+    const width = panel.offsetWidth;
     const next = menuShiftForRect(
       position.left,
       position.top,
-      panel.offsetWidth,
-      panel.offsetHeight,
+      width,
+      layout.outerHeight,
     );
     setShift((prev) =>
       prev.x === next.x && prev.y === next.y ? prev : next,
     );
   }, [open, position.left, position.top]);
 
+  useLayoutEffect(() => {
+    if (!open) return;
+    measurePanelLayout();
+    const grid = gridRef.current;
+    if (!grid) return;
+    const observer = new ResizeObserver(() => measurePanelLayout());
+    observer.observe(grid);
+    const onResize = () => measurePanelLayout();
+    window.addEventListener("resize", onResize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", onResize);
+    };
+  }, [layoutSignature, measurePanelLayout, open]);
+
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
+      if (
+        target instanceof Element &&
+        (target.closest(".date-popover") ||
+          isFilterComboDropdownTarget(target))
+      ) {
+        return;
+      }
       if (anchorRef.current?.contains(target) || panelRef.current?.contains(target)) {
+        return;
+      }
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLSelectElement &&
+        panelRef.current?.contains(active)
+      ) {
         return;
       }
       onClose();
@@ -694,16 +773,26 @@ export function FilterPanel({
 
   if (!open) return null;
 
+  const panelClassName = panelScrolls
+    ? "filter-panel filter-panel--fixed filter-panel--scrollable"
+    : "filter-panel filter-panel--fixed";
+
   return createPortal(
-    <div
-      className="filter-panel filter-panel--fixed"
-      ref={panelRef}
-      style={{
-        left: position.left + shift.x,
-        top: position.top + shift.y,
-      }}
-    >
-      <div className="filter-panel-grid">
+    <FilterPanelScrollRefContext.Provider value={scrollRef}>
+      <div
+        className={panelClassName}
+        ref={panelRef}
+        style={{
+          left: position.left + shift.x,
+          top: position.top + shift.y,
+          maxHeight:
+            panelScrolls && panelOuterHeight != null
+              ? panelOuterHeight
+              : undefined,
+        }}
+      >
+        <div className="filter-panel-scroll" ref={scrollRef}>
+          <div className="filter-panel-grid" ref={gridRef}>
         <label className="filter-panel-field">
           <span>担当者</span>
           <select
@@ -812,8 +901,18 @@ export function FilterPanel({
             </div>
           </div>
         ) : null}
+        {scheduleFields != null && scheduleFields.length > 0 ? (
+          <FilterFieldFiltersSection
+            scheduleFields={scheduleFields}
+            filters={filters}
+            onPatchFieldFilter={onPatchFieldFilter}
+            onUpdateFieldFilters={onUpdateFieldFilters}
+          />
+        ) : null}
+          </div>
+        </div>
       </div>
-    </div>,
+    </FilterPanelScrollRefContext.Provider>,
     document.getElementById("root") ?? document.body,
   );
 }

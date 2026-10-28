@@ -1,87 +1,92 @@
 import { describe, expect, it } from "vitest";
-import { memberMapFromList } from "./assigneeDisplay";
 import {
   catalogMismatchBannerText,
+  catalogMismatchFlags,
   catalogMismatchKind,
 } from "./catalogMismatch";
 import { BUILTIN_STATUS_ITEMS } from "./statusCatalog";
-import type { Member } from "./memberTypes";
 import type { Task } from "./types";
 
-const members: Member[] = [{ id: "sato", name: "佐藤" }];
+const statuses = BUILTIN_STATUS_ITEMS;
+const catalog = new Map([["sato", { id: "sato", name: "佐藤" }]]);
 
-function task(overrides: Partial<Task> & Pick<Task, "id">): Task {
+function task(partial: Partial<Task> & { id: string }): Task {
   return {
-    name: "t",
+    id: partial.id,
+    name: partial.name ?? partial.id,
     start: "2026-01-01",
     end: "2026-01-02",
-    status: "not-started",
-    progress: 0,
-    confidence: "tentative",
-    predecessors: [],
-    assigneeId: null,
-    milestoneId: null,
-    tags: [],
-    note: "",
-    ...overrides,
+    assigneeId: partial.assigneeId ?? null,
+    status: partial.status ?? "not-started",
+    progress: partial.progress ?? 0,
+    confidence: partial.confidence ?? "committed",
+    predecessors: partial.predecessors ?? [],
+    milestoneId: partial.milestoneId ?? null,
+    fieldValues: partial.fieldValues,
   };
 }
 
 describe("catalogMismatchKind", () => {
-  const statuses = BUILTIN_STATUS_ITEMS;
-  const catalog = memberMapFromList(members);
-
-  it("reports status only when a task has an id missing from the catalog", () => {
-    expect(
-      catalogMismatchKind([task({ id: "a", status: "missing" })], statuses, catalog),
-    ).toBe("status");
-    expect(catalogMismatchBannerText("status")).toBe("一覧に無いステータスがあります。");
-  });
-
-  it("reports assignee only when a task has an id missing from the member catalog", () => {
-    expect(
-      catalogMismatchKind([task({ id: "a", assigneeId: "ghost" })], statuses, catalog),
-    ).toBe("assignee");
-    expect(catalogMismatchBannerText("assignee")).toBe("一覧に無い担当があります。");
-  });
-
-  it("reports both when status and assignee are missing from their catalogs", () => {
-    expect(
-      catalogMismatchKind(
-        [task({ id: "a", status: "x", assigneeId: "y" })],
-        statuses,
-        catalog,
-      ),
-    ).toBe("both");
-    expect(catalogMismatchBannerText("both")).toBe(
-      "一覧に無いステータスと担当があります。",
+  it("reports missing status", () => {
+    const flags = catalogMismatchFlags(
+      [task({ id: "a", status: "missing" })],
+      statuses,
+      catalog,
+      new Set(),
+    );
+    expect(flags.status).toBe(true);
+    expect(catalogMismatchBannerText(flags)).toBe(
+      "一覧に無いステータスがあります。",
     );
   });
 
-  it("does not treat unassigned assignee as a mismatch", () => {
-    expect(catalogMismatchKind([task({ id: "a" })], statuses, catalog)).toBe(null);
+  it("reports missing assignee", () => {
+    const flags = catalogMismatchFlags(
+      [task({ id: "a", assigneeId: "ghost" })],
+      statuses,
+      catalog,
+      new Set(),
+    );
+    expect(flags.assignee).toBe(true);
+    expect(catalogMismatchBannerText(flags)).toBe("一覧に無い担当があります。");
   });
 
-  it("treats any assignee id as unknown when no catalog is selected", () => {
-    expect(
-      catalogMismatchKind([task({ id: "a", assigneeId: "sato" })], statuses, null),
-    ).toBe("assignee");
+  it("reports both status and assignee", () => {
+    const flags = catalogMismatchFlags(
+      [task({ id: "a", status: "missing", assigneeId: "ghost" })],
+      statuses,
+      catalog,
+      new Set(),
+    );
+    expect(catalogMismatchKind([task({ id: "a", status: "missing", assigneeId: "ghost" })], statuses, catalog)).toBe(
+      "both",
+    );
+    expect(catalogMismatchBannerText(flags)).toBe(
+      "一覧に無いステータスと一覧に無い担当があります。",
+    );
   });
 
-  it("returns null when every status and assignee resolves", () => {
+  it("reports unknown field values", () => {
+    const flags = catalogMismatchFlags(
+      [task({ id: "a", fieldValues: { orphan_key: "x" } })],
+      statuses,
+      catalog,
+      new Set(["known"]),
+    );
+    expect(flags.fieldValues).toBe(true);
+    expect(catalogMismatchBannerText(flags)).toBe(
+      "一覧に無い追加項目があります。",
+    );
+  });
+
+  it("returns null when everything matches", () => {
+    expect(catalogMismatchKind([task({ id: "a" })], statuses, catalog)).toBe(
+      null,
+    );
     expect(
-      catalogMismatchKind(
-        [task({ id: "a", status: "done", assigneeId: "sato" })],
-        statuses,
-        catalog,
+      catalogMismatchBannerText(
+        catalogMismatchFlags([task({ id: "a" })], statuses, catalog, new Set()),
       ),
     ).toBe(null);
-    expect(catalogMismatchBannerText(null)).toBe(null);
-  });
-
-  it("scans the whole task list, not only tasks that would pass a filter", () => {
-    const hidden = task({ id: "hidden", status: "orphan" });
-    const visible = task({ id: "visible", status: "not-started" });
-    expect(catalogMismatchKind([visible, hidden], statuses, catalog)).toBe("status");
   });
 });

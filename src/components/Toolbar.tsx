@@ -4,6 +4,7 @@ import { ChevronDown, Plus } from "lucide-react";
 import type {
   Milestone,
   MilestoneGroup,
+  ScheduleFieldDef,
   ScheduleFilters,
   ScheduleId,
 } from "../model/types";
@@ -18,6 +19,7 @@ import {
   usesCommandKey,
 } from "../model/shortcuts";
 import type { GridTier } from "../model/timeline";
+import type { FieldFilterCondition } from "../model/fieldFilters";
 import type { SearchField } from "../model/scheduleFilterPersistence";
 import type { ScheduleTitleCommitResult } from "../model/scheduleTitleEdit";
 import { AppMenu } from "./AppMenu";
@@ -47,6 +49,7 @@ type ToolbarProps = {
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
   assigneeFilterOptions: AssigneeFilterOption[];
   scheduleTags: string[];
+  scheduleFields?: readonly ScheduleFieldDef[];
   statuses: readonly StatusItem[];
   tier: GridTier;
   lineageName: string | null;
@@ -56,6 +59,13 @@ type ToolbarProps = {
   canStartLink: boolean;
   onToggleLink: () => void;
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
+  onPatchFieldFilter: (
+    def: ScheduleFieldDef,
+    patch: Partial<FieldFilterCondition>,
+  ) => void;
+  onUpdateFieldFilters: (
+    build: (prev: ScheduleFilters) => ScheduleFilters["fieldFilters"],
+  ) => void;
   onGoToday: () => void;
   onSetTier: (tier: GridTier) => void;
   onFit: () => void;
@@ -110,6 +120,7 @@ export function Toolbar({
   onMilestoneGroupVisible,
   assigneeFilterOptions,
   scheduleTags,
+  scheduleFields,
   statuses,
   tier,
   lineageName,
@@ -119,6 +130,8 @@ export function Toolbar({
   canStartLink,
   onToggleLink,
   onFiltersChange,
+  onPatchFieldFilter,
+  onUpdateFieldFilters,
   onGoToday,
   onSetTier,
   onFit,
@@ -174,6 +187,7 @@ export function Toolbar({
     filters,
     false,
     hiddenMilestoneGroupIds.length,
+    scheduleFields,
   );
 
   const showSelectionActions =
@@ -314,8 +328,11 @@ export function Toolbar({
           onMilestoneGroupVisible={onMilestoneGroupVisible}
           assigneeFilterOptions={assigneeFilterOptions}
           scheduleTags={scheduleTags}
+          scheduleFields={scheduleFields}
           statuses={statuses}
           onFiltersChange={onFiltersChange}
+          onPatchFieldFilter={onPatchFieldFilter}
+          onUpdateFieldFilters={onUpdateFieldFilters}
         />
       </div>
       <div className="view-controls">

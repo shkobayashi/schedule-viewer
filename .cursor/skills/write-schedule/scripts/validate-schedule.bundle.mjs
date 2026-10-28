@@ -609,7 +609,7 @@ function validate23(data2, { instancePath = "", parentData, parentDataProperty, 
   return errors === 0;
 }
 validate23.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema43 = { "type": "object", "additionalProperties": false, "required": ["id", "name", "start", "end", "assigneeId", "status", "progress", "confidence", "predecessors", "milestoneId"], "properties": { "id": { "$ref": "#/$defs/scheduleId" }, "name": { "type": "string", "minLength": 1 }, "start": { "$ref": "#/$defs/isoDate" }, "end": { "$ref": "#/$defs/isoDate", "description": "\u7D42\u4E86\u65E5\uFF08\u3053\u306E\u65E5\u3092\u542B\u3080\uFF09\u3002\u958B\u59CB\u65E5\u4EE5\u964D\u3002" }, "assigneeId": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }, "status": { "$ref": "#/$defs/taskStatus" }, "progress": { "type": "integer", "minimum": 0, "maximum": 100 }, "confidence": { "type": "string", "enum": ["tentative", "committed"], "description": "\u65E5\u4ED8\u3092\u5408\u610F\u3057\u305F\u304B\u3069\u3046\u304B\u3002\u7740\u624B\u3084\u9032\u6357\u3068\u306F\u72EC\u7ACB\u3002tentative \u306F\u672A\u78BA\u5B9A\u3001committed \u306F\u78BA\u5B9A\u3002" }, "predecessors": { "type": "array", "items": { "$ref": "#/$defs/scheduleId" }, "uniqueItems": true }, "milestoneId": { "oneOf": [{ "$ref": "#/$defs/scheduleId" }, { "type": "null" }] }, "todos": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/taskTodoItem" }, "description": "\u9032\u6357\u3092\u4EF6\u6570\u3067\u6C7A\u3081\u308B\u4EFB\u610F\u306E\u9805\u76EE\u30021\u4EF6\u4EE5\u4E0A\u3042\u308B\u3068\u304D\u3060\u3051\u66F8\u304F\u3002" }, "tags": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "\u8AAC\u660E\u7528\u306E\u4EFB\u610F\u30BF\u30B0\u3002\u753B\u9762\u3067\u306F\u7D5E\u308A\u8FBC\u307F\u306B\u4F7F\u3046\u3002" }, "note": { "type": "string", "minLength": 1, "description": "\u30BF\u30B9\u30AF\u306E\u88DC\u8DB3\u8AAC\u660E\uFF08\u4EFB\u610F\uFF09\u3002\u753B\u9762\u3067\u306F\u30CE\u30FC\u30C8\u3068\u3057\u3066\u8868\u793A\u3059\u308B\u3002" } } };
+var schema43 = { "type": "object", "additionalProperties": false, "required": ["id", "name", "start", "end", "assigneeId", "status", "progress", "confidence", "predecessors", "milestoneId"], "properties": { "id": { "$ref": "#/$defs/scheduleId" }, "name": { "type": "string", "minLength": 1 }, "start": { "$ref": "#/$defs/isoDate" }, "end": { "$ref": "#/$defs/isoDate", "description": "\u7D42\u4E86\u65E5\uFF08\u3053\u306E\u65E5\u3092\u542B\u3080\uFF09\u3002\u958B\u59CB\u65E5\u4EE5\u964D\u3002" }, "assigneeId": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }, "status": { "$ref": "#/$defs/taskStatus" }, "progress": { "type": "integer", "minimum": 0, "maximum": 100 }, "confidence": { "type": "string", "enum": ["tentative", "committed"], "description": "\u65E5\u4ED8\u3092\u5408\u610F\u3057\u305F\u304B\u3069\u3046\u304B\u3002\u7740\u624B\u3084\u9032\u6357\u3068\u306F\u72EC\u7ACB\u3002tentative \u306F\u672A\u78BA\u5B9A\u3001committed \u306F\u78BA\u5B9A\u3002" }, "predecessors": { "type": "array", "items": { "$ref": "#/$defs/scheduleId" }, "uniqueItems": true }, "milestoneId": { "oneOf": [{ "$ref": "#/$defs/scheduleId" }, { "type": "null" }] }, "todos": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/taskTodoItem" }, "description": "\u9032\u6357\u3092\u4EF6\u6570\u3067\u6C7A\u3081\u308B\u4EFB\u610F\u306E\u9805\u76EE\u30021\u4EF6\u4EE5\u4E0A\u3042\u308B\u3068\u304D\u3060\u3051\u66F8\u304F\u3002" }, "tags": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "\u8AAC\u660E\u7528\u306E\u4EFB\u610F\u30BF\u30B0\u3002\u753B\u9762\u3067\u306F\u7D5E\u308A\u8FBC\u307F\u306B\u4F7F\u3046\u3002" }, "fieldValues": { "$ref": "#/$defs/taskFieldValues", "description": "\u8FFD\u52A0\u9805\u76EE\u306E\u5024\u3002\u5B9A\u7FA9\u306E key \u3060\u3051\u30021\u4EF6\u4EE5\u4E0A\u3042\u308B\u3068\u304D\u3060\u3051\u66F8\u304F\u3002" }, "note": { "type": "string", "minLength": 1, "description": "\u30BF\u30B9\u30AF\u306E\u88DC\u8DB3\u8AAC\u660E\uFF08\u4EFB\u610F\uFF09\u3002\u753B\u9762\u3067\u306F\u30CE\u30FC\u30C8\u3068\u3057\u3066\u8868\u793A\u3059\u308B\u3002" } } };
 var func9 = Object.prototype.hasOwnProperty;
 var func0 = __standaloneValue(import_equal.default, ["default"]);
 function validate27(data2, { instancePath = "", parentData, parentDataProperty, rootData = data2, dynamicAnchors = {} } = {}) {
@@ -1213,34 +1213,116 @@ function validate27(data2, { instancePath = "", parentData, parentDataProperty, 
         errors++;
       }
     }
-    if (data2.note !== void 0) {
-      let data17 = data2.note;
-      if (typeof data17 === "string") {
-        if (func1(data17) < 1) {
-          const err50 = { instancePath: instancePath + "/note", schemaPath: "#/properties/note/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          if (vErrors === null) {
-            vErrors = [err50];
+    if (data2.fieldValues !== void 0) {
+      let data17 = data2.fieldValues;
+      if (data17 && typeof data17 == "object" && !Array.isArray(data17)) {
+        for (const key2 in data17) {
+          let data18 = data17[key2];
+          const _errs57 = errors;
+          let valid20 = false;
+          let passing2 = null;
+          const _errs58 = errors;
+          if (typeof data18 === "string") {
+            if (func1(data18) < 1) {
+              const err50 = { instancePath: instancePath + "/fieldValues/" + key2.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/$defs/taskFieldValues/additionalProperties/oneOf/0/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              if (vErrors === null) {
+                vErrors = [err50];
+              } else {
+                vErrors.push(err50);
+              }
+              errors++;
+            }
           } else {
-            vErrors.push(err50);
+            const err51 = { instancePath: instancePath + "/fieldValues/" + key2.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/$defs/taskFieldValues/additionalProperties/oneOf/0/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err51];
+            } else {
+              vErrors.push(err51);
+            }
+            errors++;
+          }
+          var _valid2 = _errs58 === errors;
+          if (_valid2) {
+            valid20 = true;
+            passing2 = 0;
+          }
+          const _errs60 = errors;
+          if (!(typeof data18 == "number")) {
+            const err52 = { instancePath: instancePath + "/fieldValues/" + key2.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/$defs/taskFieldValues/additionalProperties/oneOf/1/type", keyword: "type", params: { type: "number" }, message: "must be number" };
+            if (vErrors === null) {
+              vErrors = [err52];
+            } else {
+              vErrors.push(err52);
+            }
+            errors++;
+          }
+          var _valid2 = _errs60 === errors;
+          if (_valid2 && valid20) {
+            valid20 = false;
+            passing2 = [passing2, 1];
+          } else {
+            if (_valid2) {
+              valid20 = true;
+              passing2 = 1;
+            }
+          }
+          if (!valid20) {
+            const err53 = { instancePath: instancePath + "/fieldValues/" + key2.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/$defs/taskFieldValues/additionalProperties/oneOf", keyword: "oneOf", params: { passingSchemas: passing2 }, message: "must match exactly one schema in oneOf" };
+            if (vErrors === null) {
+              vErrors = [err53];
+            } else {
+              vErrors.push(err53);
+            }
+            errors++;
+          } else {
+            errors = _errs57;
+            if (vErrors !== null) {
+              if (_errs57) {
+                vErrors.length = _errs57;
+              } else {
+                vErrors = null;
+              }
+            }
+          }
+        }
+      } else {
+        const err54 = { instancePath: instancePath + "/fieldValues", schemaPath: "#/$defs/taskFieldValues/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        if (vErrors === null) {
+          vErrors = [err54];
+        } else {
+          vErrors.push(err54);
+        }
+        errors++;
+      }
+    }
+    if (data2.note !== void 0) {
+      let data19 = data2.note;
+      if (typeof data19 === "string") {
+        if (func1(data19) < 1) {
+          const err55 = { instancePath: instancePath + "/note", schemaPath: "#/properties/note/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          if (vErrors === null) {
+            vErrors = [err55];
+          } else {
+            vErrors.push(err55);
           }
           errors++;
         }
       } else {
-        const err51 = { instancePath: instancePath + "/note", schemaPath: "#/properties/note/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        const err56 = { instancePath: instancePath + "/note", schemaPath: "#/properties/note/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
-          vErrors = [err51];
+          vErrors = [err56];
         } else {
-          vErrors.push(err51);
+          vErrors.push(err56);
         }
         errors++;
       }
     }
   } else {
-    const err52 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err57 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err52];
+      vErrors = [err57];
     } else {
-      vErrors.push(err52);
+      vErrors.push(err57);
     }
     errors++;
   }
@@ -2416,6 +2498,175 @@ function walkOutlineTasks(nodes, out) {
   }
 }
 
+// src/model/taskFields.ts
+function hasNewline(value) {
+  return /[\r\n]/.test(value);
+}
+function normalizeStoredFieldValue(def, value) {
+  switch (def.type) {
+    case "text": {
+      if (typeof value !== "string") return void 0;
+      const trimmed = value.trim();
+      if (trimmed.length === 0 || hasNewline(value)) return void 0;
+      return trimmed;
+    }
+    case "number": {
+      if (typeof value !== "number" || !Number.isFinite(value)) return void 0;
+      return value;
+    }
+    case "date": {
+      if (typeof value !== "string" || !isIsoDateString(value)) return void 0;
+      return value;
+    }
+    case "choice": {
+      if (typeof value !== "string") return void 0;
+      if (def.choices == null || !def.choices.includes(value)) return void 0;
+      return value;
+    }
+    default:
+      return void 0;
+  }
+}
+function validateTaskFieldValuesSemantics(task, taskPath, fields, extensionFields = []) {
+  const issues = [];
+  const values = task.fieldValues;
+  if (values == null) return issues;
+  const allDefs = [...fields ?? [], ...extensionFields];
+  const defsByKey = new Map(allDefs.map((field) => [field.key, field]));
+  for (const key of Object.keys(values)) {
+    const valuePath = `${taskPath}/fieldValues/${key}`;
+    const def = defsByKey.get(key);
+    if (def == null) {
+      const value = values[key];
+      if (typeof value !== "string" && typeof value !== "number") {
+        issues.push({
+          path: valuePath,
+          message: "\u5024\u306E\u578B\u304C\u6B63\u3057\u304F\u3042\u308A\u307E\u305B\u3093"
+        });
+      } else if (typeof value === "string" && (value.length === 0 || hasNewline(value))) {
+        issues.push({
+          path: valuePath,
+          message: "\u5024\u306E\u578B\u304C\u6B63\u3057\u304F\u3042\u308A\u307E\u305B\u3093"
+        });
+      } else if (typeof value === "number" && !Number.isFinite(value)) {
+        issues.push({
+          path: valuePath,
+          message: "\u5024\u306E\u578B\u304C\u6B63\u3057\u304F\u3042\u308A\u307E\u305B\u3093"
+        });
+      }
+      continue;
+    }
+    const normalized = normalizeStoredFieldValue(def, values[key]);
+    if (normalized === void 0) {
+      issues.push({
+        path: valuePath,
+        message: "\u5024\u306E\u578B\u304C\u5B9A\u7FA9\u3068\u4E00\u81F4\u3057\u307E\u305B\u3093"
+      });
+    }
+  }
+  return issues;
+}
+function normalizeScheduleFieldsForValidation(data2) {
+  const next = { ...data2 };
+  if (Array.isArray(next.fields)) {
+    next.fields = next.fields.map((entry) => {
+      if (entry == null || typeof entry !== "object" || Array.isArray(entry)) {
+        return entry;
+      }
+      const field = entry;
+      const cleaned = { ...field };
+      for (const key of ["meaning", "instruction"]) {
+        if (key in cleaned && typeof cleaned[key] === "string") {
+          const trimmed = cleaned[key].trim();
+          if (trimmed.length === 0) {
+            delete cleaned[key];
+          }
+        }
+      }
+      if ("default" in cleaned) {
+        const def = cleaned.default;
+        if (def === "" || typeof def === "string" && def.trim().length === 0) {
+          delete cleaned.default;
+        }
+      }
+      return cleaned;
+    });
+  }
+  return normalizeTaskFieldValuesInTree(next);
+}
+function normalizeTaskFieldValuesInTree(data2) {
+  let result2 = data2;
+  if (Array.isArray(result2.categories)) {
+    result2 = {
+      ...result2,
+      categories: result2.categories.map(
+        (category) => normalizeCategoryFieldValues(category)
+      )
+    };
+  }
+  if (Array.isArray(result2.outline)) {
+    result2 = {
+      ...result2,
+      outline: result2.outline.map((node) => normalizeOutlineFieldValues(node))
+    };
+  }
+  return result2;
+}
+function normalizeCategoryFieldValues(category) {
+  if (category == null || typeof category !== "object" || Array.isArray(category)) {
+    return category;
+  }
+  const cat = category;
+  if (!Array.isArray(cat.groups)) return category;
+  return {
+    ...cat,
+    groups: cat.groups.map((group) => {
+      if (group == null || typeof group !== "object" || Array.isArray(group)) {
+        return group;
+      }
+      const grp = group;
+      if (!Array.isArray(grp.tasks)) return group;
+      return {
+        ...grp,
+        tasks: grp.tasks.map((task) => normalizeTaskFieldValuesRecord(task))
+      };
+    })
+  };
+}
+function normalizeOutlineFieldValues(node) {
+  if (node == null || typeof node !== "object" || Array.isArray(node)) {
+    return node;
+  }
+  const record = node;
+  if ("start" in record && "end" in record) {
+    return normalizeTaskFieldValuesRecord(node);
+  }
+  if (Array.isArray(record.children)) {
+    return {
+      ...record,
+      children: record.children.map((child) => normalizeOutlineFieldValues(child))
+    };
+  }
+  return node;
+}
+function normalizeTaskFieldValuesRecord(task) {
+  if (task == null || typeof task !== "object" || Array.isArray(task)) {
+    return task;
+  }
+  const record = task;
+  const fieldValues = record.fieldValues;
+  if (fieldValues == null || typeof fieldValues !== "object" || Array.isArray(fieldValues)) {
+    return task;
+  }
+  const keys = Object.keys(fieldValues);
+  if (keys.length === 0) {
+    const { fieldValues: _removed, ...rest } = record;
+    void _removed;
+    return rest;
+  }
+  return task;
+}
+
 // src/model/scheduleSemantics.ts
 function nonEmptyName(value, label, path) {
   if (value.trim().length === 0) {
@@ -2491,6 +2742,7 @@ function validateScheduleSemantics(doc) {
       });
     }
   }
+  const fieldDefs = void 0;
   if (doc.levels != null) {
     if (doc.levels.length < 1 || doc.levels.length > 5) {
       issues.push({
@@ -2544,7 +2796,8 @@ function validateScheduleSemantics(doc) {
         milestoneGroupIds,
         categoryIds,
         groupIds,
-        branchIds
+        branchIds,
+        fieldDefs
       )
     );
   }
@@ -2612,7 +2865,8 @@ function validateScheduleSemantics(doc) {
             milestoneIds,
             milestoneGroupIds,
             categoryIds,
-            groupIds
+            groupIds,
+            fieldDefs
           )
         );
       }
@@ -2620,7 +2874,7 @@ function validateScheduleSemantics(doc) {
   }
   return issues;
 }
-function validateOutlineSemantics(nodes, basePath, levelIndex, levelCount, taskIds, milestoneIds, milestoneGroupIds, categoryIds, groupIds, branchIds) {
+function validateOutlineSemantics(nodes, basePath, levelIndex, levelCount, taskIds, milestoneIds, milestoneGroupIds, categoryIds, groupIds, branchIds, fieldDefs) {
   const issues = [];
   const siblingNames = /* @__PURE__ */ new Set();
   const taskParentIndex = levelCount <= 1 ? -1 : Math.max(0, levelCount - 2);
@@ -2643,7 +2897,8 @@ function validateOutlineSemantics(nodes, basePath, levelIndex, levelCount, taskI
           milestoneIds,
           milestoneGroupIds,
           categoryIds,
-          groupIds
+          groupIds,
+          fieldDefs
         )
       );
       continue;
@@ -2713,7 +2968,8 @@ function validateOutlineSemantics(nodes, basePath, levelIndex, levelCount, taskI
         milestoneGroupIds,
         categoryIds,
         groupIds,
-        branchIds
+        branchIds,
+        fieldDefs
       )
     );
   }
@@ -2730,7 +2986,7 @@ function hierarchyIdConflict(kind, id, sameKind, milestoneIds, milestoneGroupIds
   if (taskIds.has(id)) return `${kind} ID \u304C\u30BF\u30B9\u30AF ID \u3068\u91CD\u8907\u3057\u3066\u3044\u307E\u3059`;
   return null;
 }
-function validateTaskSemantics(task, taskPath, taskIds, milestoneIds, milestoneGroupIds, categoryIds, groupIds) {
+function validateTaskSemantics(task, taskPath, taskIds, milestoneIds, milestoneGroupIds, categoryIds, groupIds, fieldDefs) {
   const issues = [];
   const nameIssue = nonEmptyName(task.name, "\u30BF\u30B9\u30AF\u540D", `${taskPath}/name`);
   if (nameIssue) issues.push(nameIssue);
@@ -2837,6 +3093,7 @@ function validateTaskSemantics(task, taskPath, taskIds, milestoneIds, milestoneG
     }
     predSeen.add(predId);
   }
+  issues.push(...validateTaskFieldValuesSemantics(task, taskPath, fieldDefs));
   return issues;
 }
 function taskLocations(doc) {
@@ -3167,7 +3424,9 @@ function validateSchedule(data2) {
       )
     )
   );
-  const forSchema = normalizeScheduleLevelsInputForSchema(migrated);
+  const forSchema = normalizeScheduleFieldsForValidation(
+    normalizeScheduleLevelsInputForSchema(migrated)
+  );
   if (!scheduleValidator_default(forSchema)) {
     return {
       ok: false,

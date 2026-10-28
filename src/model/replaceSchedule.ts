@@ -1,9 +1,43 @@
+import type { DocumentSnapshot } from "./history";
 import { MCP_SCREEN_CONTEXT_MAX_BYTES } from "./screenContext";
 import {
   MAX_SCHEDULE_BYTES,
   parseScheduleText,
 } from "./scheduleFile";
 import type { ScheduleDocument } from "./types";
+
+export const REPLACE_SCHEDULE_APPLIED_TOAST =
+  "画面に反映しました。内容を確認して、問題なければ保存してください。";
+
+export const REPLACE_SCHEDULE_APPLIED_BASELINE_SAME_TOAST =
+  "画面に反映しました。";
+
+export type McpReplaceUiBlockingInput = {
+  fileBusy: boolean;
+  titleEditing: boolean;
+  detailPanelEditing: boolean;
+  scheduleInlineEditing: boolean;
+  reorderDragging: boolean;
+  sidebarReorderDragging: boolean;
+  modalDialogOpen: boolean;
+  externalReloadConflictDialogOpen: boolean;
+};
+
+/** true のとき replace_schedule は「画面の操作が途中」で拒否する。 */
+export function assessMcpReplaceUiBlocking(
+  input: McpReplaceUiBlockingInput,
+): boolean {
+  if (input.fileBusy) return true;
+  if (input.titleEditing) return true;
+  if (input.detailPanelEditing) return true;
+  if (input.scheduleInlineEditing) return true;
+  if (input.reorderDragging) return true;
+  if (input.sidebarReorderDragging) return true;
+  if (input.modalDialogOpen && !input.externalReloadConflictDialogOpen) {
+    return true;
+  }
+  return false;
+}
 
 export const REPLACE_SCHEDULE_STARTUP_NOT_SETTLED =
   "起動の復旧が終わっていないので、置き換えられません。";
@@ -44,7 +78,12 @@ export function assessReplaceScheduleGate(
 }
 
 export type ReplaceScheduleDocumentResult =
-  | { outcome: "applied"; screenJson: string }
+  | {
+      outcome: "applied";
+      screenJson: string;
+      before: DocumentSnapshot;
+      after: DocumentSnapshot;
+    }
   | { outcome: "unchanged"; screenJson: string }
   | { outcome: "rejected" };
 

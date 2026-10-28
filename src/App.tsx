@@ -69,20 +69,57 @@ import { useMemberCatalog } from "./hooks/useMemberCatalog";
 import { useStatusCatalog } from "./hooks/useStatusCatalog";
 import { useStatusCatalogEditorOverlay } from "./hooks/useStatusCatalogEditorOverlay";
 import { StatusCatalogEditorOverlay } from "./components/StatusCatalogEditorOverlay";
+import {
+  FieldExtensionEditorOverlay,
+  type FieldExtensionEditorOverlayHandle,
+} from "./components/FieldExtensionEditorOverlay";
+import { useFieldExtensionEditorOverlay } from "./hooks/useFieldExtensionEditorOverlay";
+import {
+  clearWorkspaceEditableFieldExtension,
+  createWorkspaceEditableFieldExtension,
+  deleteWorkspaceEditableFieldExtension,
+  saveFieldExtensionJson,
+} from "./model/fieldExtensionAppData";
+import {
+  fieldExtensionDocumentToJson,
+  newEmptyExtensionDocument,
+  nextFieldExtensionCatalogId,
+} from "./model/fieldExtensionEdit";
 import type { StatusCatalogEditorPanelHandle } from "./components/StatusCatalogEditorPanel";
 import { useAppCalendar } from "./hooks/useAppCalendar";
 import { useWorkspaceBinding } from "./hooks/useWorkspaceBinding";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { exportWorkspaceBundleViaTauri } from "./model/workspaceExport";
+import {
+  buildFieldExtensionExportFiles,
+  fieldExtensionExportTooLargeMessage,
+} from "./model/workspaceFieldExtensionExport";
 import { safeScheduleJsonFilename } from "./model/scheduleFile";
+import {
+  REPLACE_SCHEDULE_APPLIED_BASELINE_SAME_TOAST,
+  REPLACE_SCHEDULE_APPLIED_TOAST,
+  assessMcpReplaceUiBlocking,
+  type ReplaceScheduleDocumentResult,
+} from "./model/replaceSchedule";
 import { memberMapFromList } from "./model/assigneeDisplay";
 import {
   catalogMismatchBannerText,
-  catalogMismatchKind,
+  catalogMismatchFlags,
   CATALOG_MISMATCH_CLEARED_ANNOUNCEMENT,
-  type CatalogMismatchKind,
+  type CatalogMismatchFlags,
 } from "./model/catalogMismatch";
+import { useFieldExtensionCatalog } from "./hooks/useFieldExtensionCatalog";
+import {
+  firstFieldKeyCollision,
+  formatFieldKeyCollisionMessage,
+  knownFieldKeysFromDefs,
+  mergeExtensionFieldDefs,
+} from "./model/fieldExtensionMerge";
+import {
+  parseFieldExtensionCatalogText,
+  readFieldExtensionDocumentsForIds,
+} from "./model/fieldExtensionAppData";
 import { BUILTIN_STATUS_ITEMS } from "./model/statusCatalog";
 import {
   workspaceCalendarError,
@@ -91,6 +128,11 @@ import {
   workspaceMemberError,
   workspaceMembersForDisplay,
   workspaceStatusesForDisplay,
+  workspaceEditableFieldExtensionError,
+  workspaceFieldExtensionsError,
+  workspaceFieldExtensionsForDisplay,
+  workspaceMergedFieldExtensionsForDisplay,
+  workspacePinnedFieldExtensionPluginIds,
 } from "./model/workspaceLoad";
 import { useSchedule } from "./hooks/useSchedule";
 import { useAppUpdateFlow } from "./hooks/useAppAutoUpdate";
@@ -152,7 +194,11 @@ import {
   type ScheduleExportFormat,
 } from "./model/exportHtml";
 import { exportScheduleExcel } from "./model/exportExcel";
-import { DEFAULT_EXCEL_EXPORT_COLUMNS } from "./model/excelExportColumns";
+import {
+  DEFAULT_EXCEL_EXPORT_COLUMNS,
+  readExcelExportFieldColumns,
+  type ExcelExportFieldColumnsPreference,
+} from "./model/excelExportColumns";
 import {
   describeActiveFilters,
   exportTimelineRange,
@@ -313,10 +359,14 @@ function App() {
   const statusCatalogEditorPanelRef = useRef<StatusCatalogEditorPanelHandle | null>(
     null,
   );
+  const fieldExtensionEditorPanelRef =
+    useRef<FieldExtensionEditorOverlayHandle | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
     | "display"
     | "members"
+    | "fieldExtensions"
+    | "statuses"
     | "calendar"
     | "updates"
     | "mcp"
@@ -559,6 +609,7 @@ function App() {
   );
 
   const memberCatalogState = useMemberCatalog();
+  const fieldExtensionCatalogState = useFieldExtensionCatalog();
   const statusCatalogState = useStatusCatalog();
   const appCalendarState = useAppCalendar();
   const {
@@ -610,6 +661,31 @@ function App() {
 
   const statusesReady = workspaceBinding ? true : !statusCatalogState.loading;
 
+  const fieldExtensionCatalogSettled =
+    workspaceBinding != null || !fieldExtensionCatalogState.loading;
+
+  const extensionFieldDefs = useMemo(() => {
+    if (workspaceBinding) {
+      const docs = workspaceMergedFieldExtensionsForDisplay(
+        workspaceBinding.fieldExtensions,
+        workspaceBinding.editableFieldExtension,
+      );
+      return mergeExtensionFieldDefs(docs);
+    }
+    return fieldExtensionCatalogState.extensionFieldDefs;
+  }, [
+    fieldExtensionCatalogState.extensionFieldDefs,
+    workspaceBinding,
+  ]);
+
+  const fieldExtensionsCatalogError = workspaceBinding
+    ? workspaceFieldExtensionsError(workspaceBinding.fieldExtensions)
+    : fieldExtensionCatalogState.error;
+
+  const workspaceEditableFieldExtensionErrorMessage = workspaceBinding
+    ? workspaceEditableFieldExtensionError(workspaceBinding.editableFieldExtension)
+    : null;
+
   const workspaceStatusEditTarget = useMemo(() => {
     if (!workspaceBinding) return null;
     if (workspaceBinding.statuses.kind !== "loaded") return null;
@@ -621,6 +697,42 @@ function App() {
       fileLabel: workspaceBinding.statuses.label,
     };
   }, [workspaceBinding]);
+
+  const workspaceFieldExtensionEditTarget = useMemo(() => {
+    if (!workspaceBinding) return null;
+    if (workspaceBinding.editableFieldExtension.kind !== "loaded") return null;
+    const { document, path } = workspaceBinding.editableFieldExtension;
+    return {
+      pluginId: document.id,
+      path,
+      workspacePath: workspaceBinding.workspacePath,
+      document,
+      fileLabel: document.name,
+    };
+  }, [workspaceBinding]);
+
+  const workspacePinnedFieldExtensionDocuments = useMemo(() => {
+    if (!workspaceBinding) return [];
+    return workspaceFieldExtensionsForDisplay(workspaceBinding.fieldExtensions) ?? [];
+  }, [workspaceBinding]);
+
+  const fieldExtensionEditorOverlay = useFieldExtensionEditorOverlay({
+    settings: fieldExtensionCatalogState.settings,
+    selectedDocuments: fieldExtensionCatalogState.documents,
+    workspacePinnedDocuments: workspacePinnedFieldExtensionDocuments,
+    saveCatalog: fieldExtensionCatalogState.saveCatalog,
+    removeCatalog: fieldExtensionCatalogState.removeCatalog,
+    refreshCatalogs: fieldExtensionCatalogState.refresh,
+    workspaceTarget: workspaceFieldExtensionEditTarget,
+    onWorkspaceWritten: async () => {
+      await reloadWorkspaceBinding();
+    },
+    exportJson: saveFieldExtensionJson,
+    onClosedByUser: () => {
+      setSettingsSection("fieldExtensions");
+      setSettingsOpen(true);
+    },
+  });
 
   const refreshMemberCatalog = memberCatalogState.refresh;
   const refreshStatusCatalog = statusCatalogState.refresh;
@@ -636,6 +748,7 @@ function App() {
         }
       });
       void refreshAppCalendar();
+      void fieldExtensionCatalogState.refresh();
     }
     if (all || key === DISPLAY_SCALE_LS_KEY || key === SETTINGS_REVISION_KEY) {
       setDisplayScalePreference(readDisplayScalePreference());
@@ -662,7 +775,12 @@ function App() {
     if (all || key === AUTO_UPDATE_LS_KEY) {
       setAutoUpdateEnabled(readAutoUpdateEnabled());
     }
-  }, [refreshAppCalendar, refreshMemberCatalog, refreshStatusCatalog]);
+  }, [
+    fieldExtensionCatalogState.refresh,
+    refreshAppCalendar,
+    refreshMemberCatalog,
+    refreshStatusCatalog,
+  ]);
 
   useSharedSettingsRevision(refreshSharedSettings);
 
@@ -702,6 +820,8 @@ function App() {
     (landed) => externalReloadHistoryRedoRef.current(landed),
     displayStatuses,
     statusesReady,
+    extensionFieldDefs,
+    fieldExtensionCatalogSettled,
   );
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
   const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
@@ -726,6 +846,13 @@ function App() {
     visibleMilestoneGroupIds,
   } = schedule;
 
+  const editableFieldDefs = extensionFieldDefs;
+
+  const knownFieldKeys = useMemo(
+    () => knownFieldKeysFromDefs(editableFieldDefs),
+    [editableFieldDefs],
+  );
+
   const catalogMismatch = useMemo(() => {
     const tasks = collectTasksFromDocument({
       schemaVersion: SCHEDULE_SCHEMA_VERSION,
@@ -736,10 +863,16 @@ function App() {
       levels: schedule.levels,
       outline: schedule.outline,
     });
-    return catalogMismatchKind(tasks, displayStatuses, displayMemberMap);
+    return catalogMismatchFlags(
+      tasks,
+      displayStatuses,
+      displayMemberMap,
+      knownFieldKeys,
+    );
   }, [
     displayMemberMap,
     displayStatuses,
+    knownFieldKeys,
     schedule.categories,
     schedule.levels,
     schedule.milestoneGroups,
@@ -750,20 +883,35 @@ function App() {
 
   const catalogMismatchText = catalogMismatchBannerText(catalogMismatch);
 
-  const catalogMismatchPrevRef = useRef<CatalogMismatchKind | undefined>(undefined);
+  const catalogMismatchPrevRef = useRef<CatalogMismatchFlags | undefined>(
+    undefined,
+  );
   const [catalogMismatchAnnouncement, setCatalogMismatchAnnouncement] = useState<
     string | null
   >(null);
 
   useEffect(() => {
     const prev = catalogMismatchPrevRef.current;
-    if (prev === catalogMismatch) return;
+    const prevActive =
+      prev != null &&
+      (prev.status || prev.assignee || prev.fieldValues);
+    const active =
+      catalogMismatch.status ||
+      catalogMismatch.assignee ||
+      catalogMismatch.fieldValues;
+    if (
+      prev?.status === catalogMismatch.status &&
+      prev?.assignee === catalogMismatch.assignee &&
+      prev?.fieldValues === catalogMismatch.fieldValues
+    ) {
+      return;
+    }
     catalogMismatchPrevRef.current = catalogMismatch;
-    if (catalogMismatch != null) {
+    if (active) {
       setCatalogMismatchAnnouncement(catalogMismatchBannerText(catalogMismatch));
       return;
     }
-    if (prev != null) {
+    if (prevActive) {
       setCatalogMismatchAnnouncement(CATALOG_MISMATCH_CLEARED_ANNOUNCEMENT);
       return;
     }
@@ -981,6 +1129,7 @@ function App() {
       titleEditing ||
       detailPanelEditing ||
       hierarchyLevelsOpen ||
+      fieldExtensionEditorOverlay.open ||
       schedule.editingNoteTask != null ||
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null ||
@@ -992,6 +1141,8 @@ function App() {
     getFilterViewState: schedule.getFilterViewState,
     knownMemberIds: schedule.knownMemberIds,
     memberCatalogSettled: !memberCatalogState.loading,
+    fieldExtensionCatalogSettled,
+    extraFieldDefs: extensionFieldDefs,
     sidebarReorderDragging,
     getCanonicalJson,
     getDocumentTitle,
@@ -1059,6 +1210,35 @@ function App() {
     [statusCatalogState.importCatalog],
   );
 
+  const handleCreateWorkspaceEditableFieldExtension = useCallback(async () => {
+    if (!workspaceBinding) return;
+    if (workspaceBinding.editableFieldExtension.kind !== "unset") return;
+    const usedIds = [
+      ...workspacePinnedFieldExtensionPluginIds(workspaceBinding.fieldExtensions),
+    ];
+    const pluginId = nextFieldExtensionCatalogId(usedIds);
+    const document = newEmptyExtensionDocument(pluginId);
+    const relativeFileName = `${pluginId}.fields.json`;
+    await createWorkspaceEditableFieldExtension(
+      workspaceBinding.workspacePath,
+      relativeFileName,
+      fieldExtensionDocumentToJson(document),
+    );
+    await reloadWorkspaceBinding();
+  }, [reloadWorkspaceBinding, workspaceBinding]);
+
+  const handleDeleteWorkspaceEditableFieldExtension = useCallback(async () => {
+    if (!workspaceBinding) return;
+    await deleteWorkspaceEditableFieldExtension(workspaceBinding.workspacePath);
+    await reloadWorkspaceBinding();
+  }, [reloadWorkspaceBinding, workspaceBinding]);
+
+  const handleClearWorkspaceEditableFieldExtension = useCallback(async () => {
+    if (!workspaceBinding) return;
+    await clearWorkspaceEditableFieldExtension(workspaceBinding.workspacePath);
+    await reloadWorkspaceBinding();
+  }, [reloadWorkspaceBinding, workspaceBinding]);
+
   const handleStatusCatalogDelete = useCallback(
     async (catalogId: string) => {
       await statusCatalogState.removeCatalog(catalogId);
@@ -1113,6 +1293,25 @@ function App() {
             : `${label}.statuses.json`;
         }
       }
+      const selectedExtensionIds =
+        fieldExtensionCatalogState.settings.selectedCatalogIds;
+      const extensionContentsById: Record<string, string | null> = {};
+      for (const catalogId of selectedExtensionIds) {
+        const text = await invoke<string | null>("read_field_extension_catalog", {
+          catalogId,
+        });
+        extensionContentsById[catalogId] = text;
+      }
+      const fieldExtensions = buildFieldExtensionExportFiles(
+        selectedExtensionIds,
+        extensionContentsById,
+      );
+      for (const entry of fieldExtensions) {
+        const tooLarge = fieldExtensionExportTooLargeMessage(entry.contents);
+        if (tooLarge) {
+          throw tooLarge;
+        }
+      }
       await exportWorkspaceBundleViaTauri({
         scheduleContents,
         scheduleFileName,
@@ -1122,6 +1321,7 @@ function App() {
         calendarFileName,
         statusesContents,
         statusesFileName,
+        fieldExtensions,
       });
       const parts = [
         "設定ファイルを書き出しました。このウィンドウはアプリの設定のままです。",
@@ -1134,6 +1334,9 @@ function App() {
       }
       if (!statusesContents) {
         parts.push("ステータスは組み込みの三件のため書いていません。");
+      }
+      if (fieldExtensions.length === 0) {
+        parts.push("拡張項目は選んでいないため書いていません。");
       }
       showUpdateToast(parts.join(" "));
     } catch (error) {
@@ -1152,6 +1355,7 @@ function App() {
     memberCatalogState.settings.selectedCatalogId,
     statusCatalogState.selectedCatalogLabel,
     statusCatalogState.settings.selectedCatalogId,
+    fieldExtensionCatalogState.settings.selectedCatalogIds,
     scheduleFile,
     showUpdateToast,
     workspaceBinding,
@@ -1162,24 +1366,34 @@ function App() {
     window.setTimeout(() => setToastMessage(null), 4000);
   }, []);
 
+  const completeReplaceDuringConflictReloadRef = useRef(
+    scheduleFile.completeReplaceDuringConflictReload,
+  );
+  completeReplaceDuringConflictReloadRef.current =
+    scheduleFile.completeReplaceDuringConflictReload;
+
   const mcpReplaceUiBlocking = useCallback(() => {
-    if (scheduleFile.fileBusy) return true;
-    if (titleEditing) return true;
-    if (detailPanelEditing) return true;
-    if (
-      schedule.editingNoteTask != null ||
-      schedule.editingMilestone != null ||
-      schedule.editingHierarchyTarget != null ||
-      schedule.addingHierarchyTarget != null ||
-      schedule.outlineHeadingAddOpen ||
-      schedule.deletingHierarchyTarget != null
-    ) {
-      return true;
-    }
-    if (schedule.reorderPreview != null) return true;
-    if (sidebarReorderDragging) return true;
-    if (document.querySelector('[role="dialog"]') != null) return true;
-    return false;
+    const assessment = scheduleFile.externalReloadAssessment;
+    const externalReloadConflictDialogOpen =
+      scheduleFile.externalReloadOpen &&
+      assessment?.kind === "blocked" &&
+      assessment.conflictLines.length > 0;
+    return assessMcpReplaceUiBlocking({
+      fileBusy: scheduleFile.fileBusy,
+      titleEditing,
+      detailPanelEditing,
+      scheduleInlineEditing:
+        schedule.editingNoteTask != null ||
+        schedule.editingMilestone != null ||
+        schedule.editingHierarchyTarget != null ||
+        schedule.addingHierarchyTarget != null ||
+        schedule.outlineHeadingAddOpen ||
+        schedule.deletingHierarchyTarget != null,
+      reorderDragging: schedule.reorderPreview != null,
+      sidebarReorderDragging,
+      modalDialogOpen: document.querySelector('[role="dialog"]') != null,
+      externalReloadConflictDialogOpen,
+    });
   }, [
     detailPanelEditing,
     titleEditing,
@@ -1190,9 +1404,43 @@ function App() {
     schedule.editingMilestone,
     schedule.editingNoteTask,
     schedule.reorderPreview,
+    scheduleFile.externalReloadAssessment,
+    scheduleFile.externalReloadOpen,
     scheduleFile.fileBusy,
     sidebarReorderDragging,
   ]);
+
+  const onReplaceScheduleApplied = useCallback(
+    (result: ReplaceScheduleDocumentResult) => {
+      if (result.outcome !== "applied") return;
+      const assessment = scheduleFile.externalReloadAssessment;
+      const conflictOpen =
+        scheduleFile.externalReloadOpen &&
+        assessment?.kind === "blocked" &&
+        assessment.conflictLines.length > 0;
+      if (conflictOpen) {
+        completeReplaceDuringConflictReloadRef.current({
+          before: result.before,
+          after: result.after,
+        });
+        const sameAsBaseline = result.screenJson === scheduleFile.baselineJson;
+        setToastMessage(
+          sameAsBaseline
+            ? REPLACE_SCHEDULE_APPLIED_BASELINE_SAME_TOAST
+            : REPLACE_SCHEDULE_APPLIED_TOAST,
+        );
+        window.setTimeout(() => setToastMessage(null), 4000);
+        return;
+      }
+      showReplaceScreenToast();
+    },
+    [
+      scheduleFile.baselineJson,
+      scheduleFile.externalReloadAssessment,
+      scheduleFile.externalReloadOpen,
+      showReplaceScreenToast,
+    ],
+  );
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
@@ -1726,6 +1974,7 @@ function App() {
     (
       format: ScheduleExportFormat,
       excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
+      excelFieldColumns?: ExcelExportFieldColumnsPreference,
     ) => {
       flushTitleEdit();
       const milestones = milestonesForExport(
@@ -1846,6 +2095,10 @@ function App() {
           taskNames,
           exportedAtIso: new Date().toISOString(),
           excelColumns: excelColumns ?? DEFAULT_EXCEL_EXPORT_COLUMNS,
+          fieldDefs: editableFieldDefs,
+          excelFieldColumns:
+            excelFieldColumns ??
+            readExcelExportFieldColumns(editableFieldDefs),
         }).catch(onExportError);
         return;
       }
@@ -1872,6 +2125,7 @@ function App() {
       flushTitleEdit,
       getDocumentTitle,
       showLightningLine,
+      editableFieldDefs,
     ],
   );
 
@@ -1882,6 +2136,7 @@ function App() {
     const result = await loadScheduleDiffTextCore(
       scheduleFile.filePath,
       getCanonicalJson(),
+      editableFieldDefs,
     );
     if (result.ok) {
       return { ok: true, text: result.text, entries: result.entries };
@@ -1893,7 +2148,7 @@ function App() {
         !result.isError &&
         result.message === NO_OPEN_SCHEDULE_FILE_MESSAGE,
     };
-  }, [getCanonicalJson, scheduleFile.filePath]);
+  }, [editableFieldDefs, getCanonicalJson, scheduleFile.filePath]);
 
   useMcpScreenBridge({
     statuses: displayStatuses,
@@ -1911,6 +2166,7 @@ function App() {
     today: schedule.today,
     memberMap: displayMemberMap,
     levels: schedule.levels,
+    fields: editableFieldDefs,
     scheduleFilePath: scheduleFile.filePath,
     scheduleCurrentJson: scheduleFile.currentJson,
     scheduleBaselineJson: scheduleFile.baselineJson,
@@ -1922,7 +2178,7 @@ function App() {
     mcpReplaceUiBlocking,
     replaceScheduleDocument: (document) =>
       replaceScheduleDocumentRef.current(document),
-    onReplaceScheduleApplied: showReplaceScreenToast,
+    onReplaceScheduleApplied,
   });
 
   const announceDiffStrip = useCallback((kind: DiffStripContentKind, text: string) => {
@@ -2597,8 +2853,16 @@ function App() {
     onSetTier: setTierZoom,
     onFit: fitToWidth,
     statusCatalogEditorBlocksDocumentUndo: () =>
-      statusEditorOverlayRef.current?.open ?? false,
+      (statusEditorOverlayRef.current?.open ?? false) ||
+      fieldExtensionEditorOverlay.open,
     onUndo: () => {
+      if (fieldExtensionEditorOverlay.open) {
+        if (fieldExtensionEditorOverlay.discardPrompt) {
+          return;
+        }
+        fieldExtensionEditorPanelRef.current?.undo();
+        return;
+      }
       const overlay = statusEditorOverlayRef.current;
       if (overlay?.open) {
         if (
@@ -2614,6 +2878,13 @@ function App() {
       undo();
     },
     onRedo: () => {
+      if (fieldExtensionEditorOverlay.open) {
+        if (fieldExtensionEditorOverlay.discardPrompt) {
+          return;
+        }
+        fieldExtensionEditorPanelRef.current?.redo();
+        return;
+      }
       const overlay = statusEditorOverlayRef.current;
       if (overlay?.open) {
         if (
@@ -3087,7 +3358,11 @@ function App() {
       <div className="app-workspace">
         <div
           className="app-workspace-content"
-          inert={statusEditorOverlay.open ? true : undefined}
+          inert={
+            statusEditorOverlay.open || fieldExtensionEditorOverlay.open
+              ? true
+              : undefined
+          }
         >
       <Toolbar
         title={schedule.title}
@@ -3102,6 +3377,7 @@ function App() {
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
         scheduleTags={schedule.scheduleTags}
+        scheduleFields={editableFieldDefs}
         tier={tier}
         lineageName={schedule.lineageTask?.name ?? null}
         canStartLineage={schedule.selectedTaskId != null}
@@ -3118,6 +3394,8 @@ function App() {
         canStartLink={schedule.selectedTaskId != null}
         onToggleLink={toggleLinkMode}
         onFiltersChange={schedule.updateFilters}
+        onPatchFieldFilter={schedule.patchFieldFilter}
+        onUpdateFieldFilters={schedule.updateFieldFilters}
         onGoToday={scrollToToday}
         onSetTier={setTierZoom}
         onFit={fitToWidth}
@@ -3218,6 +3496,7 @@ function App() {
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
         onShowAllMilestoneGroups={schedule.showAllMilestoneGroups}
         scheduleTags={schedule.scheduleTags}
+        scheduleFields={editableFieldDefs}
       />
       <div ref={mainRef} className="main">
         <Sidebar
@@ -3408,6 +3687,10 @@ function App() {
             onUpdateTodos={(items) =>
               schedule.setTaskTodos(selectedDetailTask.id, items)
             }
+            scheduleFields={editableFieldDefs}
+            onSetTaskField={(fieldKey, raw) =>
+              schedule.setTaskFieldValue(selectedDetailTask.id, fieldKey, raw)
+            }
             onEditingChange={setDetailPanelEditing}
           />
         ) : bulkDetailTasks.length > 1 ? (
@@ -3452,6 +3735,10 @@ function App() {
         </div>
       </div>
         </div>
+        <FieldExtensionEditorOverlay
+          ref={fieldExtensionEditorPanelRef}
+          state={fieldExtensionEditorOverlay}
+        />
         {statusEditorOverlay.open ? (
           <StatusCatalogEditorOverlay
             mode={statusEditorOverlay.mode}
@@ -3829,6 +4116,83 @@ function App() {
           onSaveBetaInstaller={() => void handleSaveBetaInstaller()}
           betaInstallerStatusLine={betaInstallerStatusLine}
           storeDistribution={storeDistribution}
+          fieldExtensionSettings={fieldExtensionCatalogState.settings}
+          fieldExtensionSelectedLabels={fieldExtensionCatalogState.selectedLabels}
+          fieldExtensionsError={fieldExtensionsCatalogError}
+          onImportFieldExtension={async (contents, overwrite) => {
+            const doc = parseFieldExtensionCatalogText(contents);
+            const current =
+              fieldExtensionCatalogState.settings.selectedCatalogIds;
+            const nextSelected = current.includes(doc.id)
+              ? current
+              : [...current, doc.id];
+            const documents = await readFieldExtensionDocumentsForIds(
+              nextSelected.filter((id) => id !== doc.id),
+            );
+            documents.push(doc);
+            const collision = firstFieldKeyCollision(documents);
+            if (collision != null) {
+              throw new Error(formatFieldKeyCollisionMessage(collision));
+            }
+            await fieldExtensionCatalogState.importCatalog(contents, overwrite);
+          }}
+          onToggleFieldExtension={async (catalogId, selected) => {
+            const current = fieldExtensionCatalogState.settings.selectedCatalogIds;
+            const next = selected
+              ? [...current, catalogId]
+              : current.filter((id) => id !== catalogId);
+            if (selected) {
+              const documents = await readFieldExtensionDocumentsForIds(next);
+              const collision = firstFieldKeyCollision(documents);
+              if (collision != null) {
+                throw new Error(formatFieldKeyCollisionMessage(collision));
+              }
+            }
+            await fieldExtensionCatalogState.setSelectedCatalogIds(next);
+          }}
+          onDeleteFieldExtension={fieldExtensionCatalogState.removeCatalog}
+          workspaceEditableFieldExtensionError={
+            workspaceEditableFieldExtensionErrorMessage
+          }
+          onCreateWorkspaceEditableFieldExtension={
+            workspaceBinding &&
+            workspaceBinding.editableFieldExtension.kind === "unset"
+              ? () => handleCreateWorkspaceEditableFieldExtension()
+              : undefined
+          }
+          onDeleteWorkspaceEditableFieldExtension={
+            workspaceBinding &&
+            workspaceBinding.editableFieldExtension.kind === "loaded"
+              ? () => handleDeleteWorkspaceEditableFieldExtension()
+              : undefined
+          }
+          onClearWorkspaceEditableFieldExtension={
+            workspaceBinding &&
+            workspaceBinding.document.editableFieldExtension != null &&
+            workspaceBinding.editableFieldExtension.kind === "error"
+              ? () => handleClearWorkspaceEditableFieldExtension()
+              : undefined
+          }
+          workspaceFieldExtensionEditor={
+            workspaceFieldExtensionEditTarget
+              ? {
+                  onOpenEditor: () => {
+                    setSettingsOpen(false);
+                    void fieldExtensionEditorOverlay.openEditor();
+                  },
+                }
+              : undefined
+          }
+          fieldExtensionEditor={
+            !workspaceBinding
+              ? {
+                  onOpenEditor: () => {
+                    setSettingsOpen(false);
+                    void fieldExtensionEditorOverlay.openEditor();
+                  },
+                }
+              : undefined
+          }
         />
       ) : null}
       <HierarchyLevelsDialog
@@ -3919,10 +4283,12 @@ function App() {
         <ExternalReloadDialog
           assessment={scheduleFile.externalReloadAssessment}
           review={scheduleFile.externalReloadReview}
+          conflictReview={scheduleFile.externalReloadConflictReview}
           hasOpenEditDialog={
             titleEditing ||
             detailPanelEditing ||
             hierarchyLevelsOpen ||
+            fieldExtensionEditorOverlay.open ||
             schedule.editingNoteTask != null ||
             schedule.editingMilestone != null ||
             schedule.editingHierarchyTarget != null ||
@@ -3933,12 +4299,14 @@ function App() {
           diskUpdatedAgain={scheduleFile.diskUpdatedAgain}
           onReload={() => {
             setHierarchyLevelsOpen(false);
+            fieldExtensionEditorOverlay.forceClose();
             scheduleFile.confirmExternalReload();
           }}
           onKeepLocal={scheduleFile.keepLocalEditsOnExternalReload}
           onApplyMerge={() => {
             setDetailPanelEditing(false);
             setHierarchyLevelsOpen(false);
+            fieldExtensionEditorOverlay.forceClose();
             scheduleFile.confirmBaselineMerge();
           }}
         />
@@ -3952,10 +4320,11 @@ function App() {
       ) : null}
       {exportOpen ? (
         <ExportFormatDialog
+          fieldDefs={editableFieldDefs}
           onCancel={() => setExportOpen(false)}
-          onExport={(format, excelColumns) => {
+          onExport={(format, excelColumns, excelFieldColumns) => {
             setExportOpen(false);
-            void runScheduleExport(format, excelColumns);
+            void runScheduleExport(format, excelColumns, excelFieldColumns);
           }}
         />
       ) : null}

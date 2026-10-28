@@ -57,7 +57,21 @@ describe("workspaceJson", () => {
       membersPath: "/data/ws/team.json",
       calendarPath: null,
       statusesPath: null,
+      fieldExtensionPaths: [],
+      editableFieldExtensionPath: null,
     });
+  });
+
+  it("rejects editable path duplicated in fieldExtensions", () => {
+    const result = parseWorkspaceText(
+      JSON.stringify({
+        schemaVersion: 1,
+        schedule: "plan.json",
+        fieldExtensions: ["a.fields.json"],
+        editableFieldExtension: "a.fields.json",
+      }),
+    );
+    expect(result.ok).toBe(false);
   });
 
   it("resolves optional statuses path", () => {

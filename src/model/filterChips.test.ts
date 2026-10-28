@@ -19,6 +19,7 @@ const base: ScheduleFilters = {
   tags: [],
   search: "",
   noteSearch: "",
+  fieldFilters: {},
 };
 
 describe("activeFilterChips tag", () => {

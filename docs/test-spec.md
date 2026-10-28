@@ -49,6 +49,7 @@
 | 同上 | `does not treat unassigned assignee as a mismatch` | VIEW-13 |
 | 同上 | `treats any assignee id as unknown when no catalog is selected` | VIEW-13 |
 | 同上 | `returns null when every status and assignee resolves` | VIEW-13 |
+| 同上 | `reports unknown field values` | VIEW-13 |
 | 同上 | `scans the whole task list, not only tasks that would pass a filter` | VIEW-13 |
 | `statusDisplay.test.ts` | `uses at least three characters and caps at eight` | VIEW-13 |
 | 同上 | `shows the display name for a known id` | VIEW-13 |
@@ -161,7 +162,11 @@
 | 同上 | `matches legacy category group task indents for three-level outline headings` | EXPORT-05 |
 | `excelExportColumns.test.ts` | `uses default columns when storage is empty` | EXPORT-01, EXPORT-05 |
 | 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
-| `exportHtml.test.ts` | `puts the active filter into HTML and SVG` | EXPORT-01, EXPORT-02 |
+| 同上 | `defaults field columns to off`、`inserts enabled field columns before note`、`disambiguates duplicate names only among enabled field columns` | EXPORT-01, EXPORT-05 |
+| `exportExcel.test.ts` | `leaves field columns off by default`、`formats enabled field columns before note` | EXPORT-05 |
+| `baselineDiffs.test.ts` | `classifies same key with number on screen and string on file as 異なる`、`keeps unchanged field values when merging a file-only field change` | SYNC-01, FILE-07 |
+| `baselineMergeReview.test.ts` | `orders extension fields by definition in change blocks`、`orders extension fields by definition under conflict headlines` | SYNC-01, FILE-07 |
+| `exportHtml.test.ts` | `puts the active filter into HTML and SVG`、`omits fieldValues from HTML and SVG export` | EXPORT-01, EXPORT-02 |
 | 同上 | `escapes font-family in SVG attributes but not in HTML CSS` | EXPORT-01 |
 | 同上 | `omits overlapping month header labels in month export but keeps grid lines` | NAV-02, EXPORT-02 |
 | 同上 | `hatches tentative bars and labels them, and leaves committed bars solid` | VIEW-12, EXPORT-01 |
@@ -299,6 +304,8 @@
 | `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
 | `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
 | 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
+| `fieldFilters.test.ts` | 四型の一致、値が無いの残すと除く、札、件数、定義なし、記録の1件だけ型不一致、下書き行の保持、`relaxFieldFiltersForNewTask`、`activeConditions` の並び、`filtered_tasks` の outline | FILTER-13 |
+| `scheduleFilterPersistence.test.ts` | `version` 2 の `fieldFilters`、`version` 1 は追加項目が空、ほかの条件は戻る、`fieldFilters` 全体が壊れたときは初期値 | FILTER-13, SYNC-03 |
 | `milestoneField.test.ts` | `prepends none and keeps array order without date sort` | EDIT-04, EDIT-14 |
 | 同上 | `caps milestones at 50 and none does not count` | EDIT-04, EDIT-14 |
 | 同上 | `returns -1 when current is beyond first 50 with empty query` | EDIT-04, EDIT-14 |
@@ -311,6 +318,15 @@
 | `taskTags.test.ts` | `matches substrings case-sensitively after trim` | FILTER-12 |
 | 同上 | `keeps only tags that still exist, in document order` | FILTER-12 |
 | `serialize.test.ts` | `writes tags after milestoneId and before note` | FILE-02 |
+| `serialize.test.ts` | `does not write fields on the schedule document` | FILE-02 |
+| `serialize.test.ts` | `orders task fieldValues after tags and before note in fields key order` | FILE-02 |
+| `serialize.test.ts` | `omits fields when definitions are absent` | FILE-02 |
+| `taskFields.test.ts` | 定義なし・五型・拒否・1キー更新・複製・`normalizeScheduleFieldsForValidation` | EDIT-04, FILE-02 |
+| 同上 | `defaultFieldValuesForNewTask includes only keys with defaults` | SET-10, EDIT-04 |
+| `fieldDefinitionEdit.test.ts` | キー採番・削除で値落下・候補の揃えと型変更・閉じる検証 | SET-10, FILE-02 |
+| `fieldExtensionMerge.test.ts` | 合成キーと拡張同士の衝突 | SET-10 |
+| `fieldExtensionEdit.test.ts` | 新規拡張の検証通過・プラグイン ID 拒否・項目 ID の反映 | SET-10 |
+| `scheduleSemantics.test.ts` | `fieldValues on outline-only tasks` | EDIT-04, FILE-02 |
 | `taskTodos.test.ts` | `floors fractional progress` など | EDIT-22 |
 | `taskTodos.test.ts` | `canonicalizes progress from todo count on load` | EDIT-22, FILE-01 |
 | `taskTodos.test.ts` | `canonicalizes progress from todo count for outline-only tasks` | EDIT-22, FILE-01 |
@@ -356,6 +372,23 @@
 | 同上 | `keeps strip when explicit empty is pinned` | FILE-07 |
 | 同上 | `defers only body to body while focused` | FILE-07 |
 | `scheduleDiff.test.ts` | `says there is no difference when the documents match` | FILE-07 |
+| `scheduleDiff.test.ts` | `formatScheduleDiff fieldValues` の `shows changed field values in definition order when lexicographic order differs` | FILE-07 |
+| 同上 | `omits unchanged field value keys from the change block` | FILE-07 |
+| 同上 | `shows unknown keys after defined keys on change` | FILE-07 |
+| 同上 | `shows field values on added task only when values exist` | FILE-07 |
+| 同上 | `says no difference when only field values match` | FILE-07 |
+| 同上 | `shows field value changes for outline tasks` | FILE-07 |
+| `fieldValuesDiff.test.ts` | `orders changed keys by definition order, not lexicographic` | FILE-07 |
+| 同上 | `omits unchanged keys from change lines` | FILE-07 |
+| 同上 | `places unknown keys after defined keys in lexicographic order` | FILE-07 |
+| 同上 | `uses missing label and JSON values` | FILE-07 |
+| 同上 | `snapshot lines skip empty keys` | FILE-07 |
+| 同上 | `treats matching fieldValues as equal` | FILE-07 |
+| `screenContext.test.ts` | `field catalog in MCP payloads` | MCP-01 |
+| 同上 | `includes fields and fieldValues on selected_task` | MCP-01 |
+| 同上 | `includes fields and fieldValues on selected_tasks` | MCP-01 |
+| 同上 | `omits empty choices and empty default from field entries` | MCP-01 |
+| 同上 | `current_schedule JSON shape` の `has no top-level fields property` | MCP-01 |
 | `scheduleDiff.test.ts` | `shows todo list changes with markers` | EDIT-22, FILE-07 |
 | `scheduleDiff.test.ts` | `formatScheduleDiff outline storage`（`shows todo list changes for outline tasks`、`omits todos when outline task todos match`、`shows full todos on added outline task`、`shows hierarchy definition changes`） | EDIT-22, FILE-07 |
 | 同上 | `shows tag changes and distinguishes comma inside a tag from separate tags` | FILE-07 |
@@ -383,6 +416,8 @@
 | 同上 | `excludes trailing new tasks from the order line when reorder and append happen together` | FILE-07 |
 | `baselineDiffs.test.ts` | `reports no changes when baseline, screen, and file match` | MCP-01 |
 | 同上 | `classifies screen-only name change` | MCP-01 |
+| 同上 | `classifies file-only fieldValues change` | MCP-01 |
+| 同上 | `classifies conflicting fieldValues as 異なる` | MCP-01 |
 | 同上 | `classifies file-only end date change` | MCP-01 |
 | 同上 | `classifies screen name and file end on the same task as one 異なる line` | MCP-01 |
 | 同上 | `classifies predecessor set differences as 異なる on the task` | MCP-01 |
@@ -492,7 +527,7 @@
 | `workspaceLoad.test.ts` | 設定ファイル束縛の表示ラベル | FILE-10, SET-02 |
 | `workspacePath.test.ts` | 相対パスの受理と拒否 | FILE-10 |
 | `workspaceJson.test.ts` | 開き分けと検証、末尾区切りの拒否 | FILE-10 |
-| `workspace::export_tests`（Rust） | 空でないフォルダの拒否、シンボリックリンク、部分書き出し後の文言 | FILE-11 |
+| `workspace::export_tests`（Rust） | 空でないフォルダの拒否、シンボリックリンク、部分書き出し後の文言、拡張ファイル名の重複回避 | FILE-11 |
 | `droppedScheduleOpenRoute.test.ts` | `routeExternalWorkspaceDrop` | FILE-10, WIN-04 |
 | `commandPalette.test.ts` | `inserts recent files after open on desktop` など | FILE-09, NAV-07 |
 | `recent_files.rs` | `writes_only_when_expected_matches` など | FILE-09 |
@@ -503,7 +538,7 @@
 | 同上 | `rejects a duplicate name in the same category` | EDIT-13 |
 | 同上 | `allows the same group name in another category` | EDIT-13 |
 | 同上 | `keeps the original name when the input is blank` | EDIT-13 |
-| `baselineDiffsOutline.test.ts` | `classifies file-only task end on outline storage`、`merges file-only task change into outline document`、`blocks when screen adds a level and file changes a task` | SYNC-01, EDIT-21 |
+| `baselineDiffsOutline.test.ts` | `classifies file-only task end on outline storage`、`merges file-only task change into outline document`、`blocks when screen adds a level and file changes a task`、`classifies same key with number on screen and string on file as 異なる` | SYNC-01, EDIT-21 |
 | 同上 | `classifies screen-only todos with diff body`、`classifies conflicting todos as 異なる and blocks merge`、`classifies matching todo changes as 同じ` | EDIT-22, FILE-07, SYNC-01, MCP-01 |
 | `baselineMergeReview.test.ts` | `buildBaselineMergeReview outline storage`（`shows todo fields for screen-only outline change`、`shows conflicting todo values in screen and file sections`） | EDIT-22, SYNC-01 |
 | `hierarchyLevelEdit.test.ts` | `keepsLegacyShapeWhenDefinitionUnchanged`、`acceptsAlignedIncomingWhenLevelCountDiffers`、`rejectsLegacyIncomingWhenScreenIsNotThreeLevels`、`rejectsMisalignedIncomingWhenLevelCountDiffers` | EDIT-21, FILE-02, MCP-01 |
@@ -730,6 +765,8 @@
 | `resolve_mcp_label_prefers_recorded_then_os_then_focus_order` | MCP の送り先は記録の前面、OS の前面、直近の前面順の順で決める | MCP-01, WIN-01 |
 | `reply_from_other_window_keeps_pending` | 送り先と違うウィンドウの応答は pending を外さない | MCP-01, WIN-01 |
 | `dedupe_keeps_focused_path` | 同じパスが複数あるとき、前面のウィンドウの未保存を残す | SYNC-03, WIN-01 |
+| `pending_open_roundtrips_workspace_path`（`window_session.rs`） | 新しいウィンドウ用の pending が設定ファイルのパスを往復する | WIN-01, FILE-10 |
+| `workspace_path_for_schedule_record_*` と `upsert_schedule_record_preserves_workspace_path_in_file`（`window_session.rs`） | 同じスケジュールパスの記録し直しで `workspacePath` を残し、直接開きと別パスでは外す | FILE-10, SYNC-03 |
 | `recovery_owner_is_latest_focused_window_for_path` | 同じパスでは、最後に前面だったウィンドウが控えの書き手になる | SYNC-03, WIN-01 |
 | `recovery_owner_falls_back_to_first_window` | 前面の記録が無いときは、一覧の最初のウィンドウが書き手になる | SYNC-03 |
 | `recovery_owners_are_fixed_per_path` | 終了前の前面を、パスごとに控えの書き手として固定する | FILE-05, SYNC-03 |
@@ -740,9 +777,9 @@
 | `filter_path_uses_same_hash_as_recovery` | 絞り込みのファイル名のハッシュは控えと同じ | SYNC-03 |
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 | `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
-| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの4スキルに限る | SET-05 |
-| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の4スキルだけ | SET-05 |
-| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は12パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各4つは `JSON_SKILL_NAMES` の順 | SET-05 |
+| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの5スキルに限る | SET-05 |
+| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の5スキルだけ | SET-05 |
+| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は15パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各5つは `JSON_SKILL_NAMES` の順 | SET-05 |
 | `bundled_skill_lists_match_json_skill_names_in_tauri_and_msix` | `JSON_SKILL_NAMES` の各名前が `tauri.conf.json` の `json-skills/<name>/` と MSIX の `json-skills\<name>\SKILL.md` にある。`read-screen/` と `read-screen\SKILL.md` もある | SET-05 |
 | `parse_tool_selection_requires_at_least_one` | ツール未選択は「ツールを1つ以上選んでください。」 | SET-05, MCP-02 |
 | `claude_user_shadows_only_when_claude_project_scope` | Copilot だけの指定フォルダでは Claude の個人用優先警告を出さない | SET-05 |
@@ -850,6 +887,9 @@
 | `examples/hierarchy/levels-3.schedule.json` | 3段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-3.schedule.json` |
 | `examples/hierarchy/levels-4.schedule.json` | 4段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-4.schedule.json` |
 | `examples/hierarchy/levels-5.schedule.json` | 5段の `levels` と `outline` | `npm run check:schedule -- examples/hierarchy/levels-5.schedule.json` |
+| `examples/fields.schedule.json` | 合成キー `sample_*` の値。タスク 2 件（値あり・値なし） | `npm run check:schedule -- examples/fields.schedule.json` |
+| `examples/fields/sample.fields.json` | プラグイン ID `sample` の定義 5 件 | `npm run check:schedule -- examples/fields/sample.fields.json` |
+| `examples/fields/workspace.json` | 上記スケジュールと拡張を束ねる設定ファイル | 手動（FILE-10） |
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
 
@@ -881,8 +921,8 @@
 | TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 8 になる |
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 8 になる。タグを付けていないタスクに `tags` は無い |
 | TC-FILE-01h | FILE-01, NAV-03 | 期間の短いスケジュールを開き、一覧を下へ送ったあと、同じウィンドウで期間の長いスケジュールを開く。開始が前の原点より後ろのスケジュールも開く | 1日幅は新しい期間が幅に入る値になる。横位置は先頭。一覧は上端から見える。後ろの開始でも、前の原点の空き日の分だけバーが右へ寄らない |
-| TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある。任意で `statuses` を書く | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバー、ステータス一覧、カレンダーがファイル由来になる（`statuses` が無いときは組み込みの三件）。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとステータス一覧とカレンダーだけ読み直す。起動し直すと設定ファイルのまま戻る |
-| TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとステータス一覧とカレンダーを選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、組み込みの三件のときは `statuses` を書かない。今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
+| TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある。任意で `statuses` と `fieldExtensions` を書く | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバー、ステータス一覧、カレンダー、拡張項目がファイル由来になる（`statuses` が無いときは組み込みの三件）。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとステータス一覧とカレンダーだけ読み直す。保存して終了し、起動し直すと設定ファイルのまま戻り、拡張項目も設定ファイルの定義どおりである |
+| TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとステータス一覧とカレンダーと拡張項目を選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、組み込みの三件のときは `statuses` を書かない。選んだ拡張は `fieldExtensions` に選んだ順で並び、各 `プラグインID.fields.json` が同じフォルダにある。拡張を選んでいないときは `fieldExtensions` を書かず、知らせにその旨が出る。今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
 | TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューにスケジュールと設定ファイルを別グループで新しい順に並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
 | TC-FILE-09b | FILE-09 | 上記のあと6件目を開く。同名のファイル名を2つのフォルダから開く | 一覧の件数と親フォルダの付き方を見る | 5件を超えた古いものが消える。同じファイル名が2件以上のときだけ親フォルダ名が付く |
 | TC-FILE-09c | FILE-09 | 履歴にパスがある | 存在しないパスを選ぶ。未保存のあいだに履歴から開き、キャンセルする | 画面と保存先は残る。サンプルに戻らない。項目は残る。キャンセルでは順番が変わらない |
@@ -936,6 +976,7 @@
 | TC-SYNC-01e | SYNC-01 | 未保存と外部更新。画面とファイルが別タスクだけ変わる | 確認を開く | 「画面」と「ファイル」の節に分かれ、変わった項目が見える |
 | TC-SYNC-01e2 | SYNC-01 | TC-SYNC-01e のあと | 「両方を画面へ反映」→保存 | 両方の変更が画面に入り、保存後にファイルと一致する |
 | TC-SYNC-01f | SYNC-01 | 未保存と外部更新。同じタスクで画面とファイルがぶつかる | 確認を開く | 「依頼文をコピー」があり、「両方を画面へ反映」は無い |
+| TC-SYNC-01k | SYNC-01, MCP-01 | TC-SYNC-01f の確認を開いたまま | `replace_schedule` で検証済み JSON 全体を置き換える。同じ内容でもう一度呼ぶ。取り消しする | 1 回目は確認が閉じ、未保存になり、約 4 秒「画面に反映しました。内容を確認して、問題なければ保存してください。」が出る。ファイルは変わらない。「ファイルに更新あり — 確認する」は出ない。2 回目は未保存も履歴も変わらないが差分テキストは成功で返る。取り消しで「ファイルに更新あり — 確認する」が戻る |
 | TC-SYNC-01g | SYNC-01 | TC-SYNC-01e のあと取り消し | — | 「ファイルに更新あり — 確認する」が戻る |
 | TC-SYNC-01h | SYNC-01 | TC-SYNC-01e2 のあと、別の編集をして取り消し | — | 確認の帯は出ない |
 | TC-SYNC-01i | SYNC-01 | TC-SYNC-01g のあとやり直し | — | 確認の帯が消える |
@@ -966,6 +1007,7 @@
 | TC-WIN-01e | WIN-01, SYNC-03 | 2 ウィンドウ。追加した側だけ残して終了 | 起動する | 記録どおり 1 枚だけ開く |
 | TC-WIN-01f | WIN-01, SYNC-03 | 2 ウィンドウ。元の `main` を閉じ、追加側だけ残して終了 | 起動する | 空の `main` は一緒に開かず、残したウィンドウだけ開く |
 | TC-WIN-01g | WIN-01, MCP-01 | 別々のファイルを 2 ウィンドウで開き、それぞれ別のタスクを 1 件選んでから、返す側を前面にする | `selected_task` を呼ぶ | 前面の選択タスクが返る。背面の選択は返らない |
+| TC-WIN-01h | WIN-01, FILE-10 | デスクトップ版。設定ファイルと schemaVersion 6 のスケジュールを束ねた例がある | 「新しいウィンドウで開く」で設定ファイルを選ぶ。続けて schemaVersion 6 のスケジュール JSON を選ぶ | 元のウィンドウは残る。新しいウィンドウは設定ファイルの束縛で開き、メンバーとステータスとカレンダーと拡張がそのウィンドウだけに効く。履歴に設定ファイルだけが足り、スケジュールパスは足らない。もう一つの新しいウィンドウは schemaVersion 6 を移行して開き、未保存にならない |
 | TC-WIN-02 | WIN-02 | 同じファイルを2つのウィンドウで開く。片方は未保存 | 未保存の側で外部更新を「画面の編集を残す」にする | もう一方の隅に「確認待ち」が出て、確認が終わるまで残る。押すと、確認を出したウィンドウが前面になる。確認を終えると知らせは消える |
 | TC-WIN-02b | WIN-02 | 同じファイルを2つ開く。両方保存済み | 片方で外部更新を即時反映する | もう一方の隅に「反映した」が数秒出る |
 | TC-WIN-03 | SET-02, SET-01, SET-04 | 2つのウィンドウを開く | 片方でメンバー、表示サイズ、配色、一覧の幅、行の密度、イナズマ線、一覧の列を変える | もう一方も同じ設定になる |
@@ -1048,6 +1090,9 @@
 | TC-FILTER-12h | FILTER-12 | サンプルにタグ付きとタグ無しのタスクがある | 「タグ」は一つもオンにしない | タグでは絞らない。タグの無いタスクも残る |
 | TC-FILTER-12k | FILTER-12 | タグが複数ある JSON | 表示サイズを 100%、75%、50% で試す。各倍率で、タグを一つ目をオンにしたときの入力欄の位置を見る。タグを二つ以上オンにし、担当など別の条件と欄の検索文字も入れる。「選択を外す」を押す。取り消しを試す。一覧が開いているときにマウスで押す。キーボードで押したあとのフォーカスも見る | 一つ目のタグをオンにしても入力欄は動かない。タグの選択だけが空になる。ほかの条件、検索文字、パネルは残る。札が消え、絞り込みボタンの数からタグの分が減る。取り消しではタグの選択は戻らない。マウスでは一覧は開いたままチェックが外れる。キーボードではタグ欄にフォーカスが戻り、一覧が開く |
 | TC-FILTER-12l | FILTER-12 | タグがある JSON。タグが無い JSON | タグを一つもオンにしていないときと、タグが無いファイルで「絞り込み」を開く | 「選択を外す」は出ない |
+| TC-FILTER-13 | FILTER-13 | `examples/fields.schedule.json` | 「項目名で検索」で項目を選び、文章・数値・パーセント・日付・候補で絞る。「値が無い」の残すと除くを試す。値の条件を空に戻しても、パネルを開いているあいだは条件行が残ることを見る。候補が多いときは候補一覧だけスクロールする。行の「外す」と「選択を外す」。札と「すべて解除」。日付のカレンダーで Escape と日付選択。ライトとダークで文字と枠の見え方を見る。デスクトップ版では「区分」で「内製」を選んだ瞬間も条件行が残ることを見る | 型ごとの条件が効く。候補の値を選んだ瞬間に条件行が残り、その値に合うタスクだけが見える。「値が無い」で残すときは値が無いタスクも残り、除くときは値があるタスクだけが残る。値を空に戻したあともパネルを開いているあいだは行が残る。札の文言が仕様どおり。系統は「すべて解除」で残る |
+| TC-FILTER-13b | FILTER-13 | 追加項目の定義が無いサンプル | 「絞り込み」を開く | 「追加項目」は出ない |
+| TC-FILTER-13c | FILTER-13 | `examples/fields.schedule.json` | 窓を低くする。「項目名で検索」で追加項目の条件行を複数出す。パネル内をスクロールして一番下の行まで届く。項目名の候補一覧を開く。日付欄のカレンダーを開く | パネルは窓の外へ出ない。下の条件行までスクロールできる。候補一覧は欄の下に重なり、パネルの高さは増えない。カレンダーは選べる |
 | TC-VIEW-12 | VIEW-12 | サンプル | 未確定と確定のバーを、ライトとダークで見る。超過もある未確定を見る。サンプルの「本番リリース」も見る | 未確定は斜線で、確定はベタ塗り。色はステータスと期限超過のまま。一覧に「未確定」は出ない。超過があるときは「超過」だけ出る。本番リリースのひし形は斜線で、他のマイルストンは塗りつぶし |
 | TC-EDIT-01 | EDIT-01 | サンプル | バーをクリックし、次に左のタスク行をクリックし、背景をクリックする | バーと左の行で選択され端のハンドルが出る。背景で外れる |
 | TC-EDIT-01c | EDIT-01, NAV-01 | 見えているタスクが複数ある。行が画面より多い | ↑↓で選択を移す。見えている行を選んだあと、左の行をクリックして選び直す。端で止まる | カテゴリ行とグループ行は飛ばす。見えている行では縦位置は変わらない。画面外の行へ移したときだけ、入るところまでスクロールする |
@@ -1073,6 +1118,13 @@
 | TC-EDIT-04i | EDIT-04, EDIT-10 | 対応マイルストンが設定済みのタスク。51件未満で一覧の下の方にあるマイルストンを選べる | 詳細パネルで「対応マイルストン」にフォーカスする。強調行が見える位置にあることを見る。先頭が一瞬強調されてから飛び移らないことも見る。矢印で先頭へ戻しても、その行が見える。Enter を押す | その行が強調される。見えない位置なら見えるところへ送られる。Enter では値は変わらず、取り消しは増えない |
 | TC-EDIT-04j | EDIT-04, FILTER-11 | 帯の線がオフのグループのマイルストンがある | 詳細パネルで「対応マイルストン」を開き、名前と日付で絞る。文字を入れてもマイルストン件数が増えないことを見る | 帯の線がオフのマイルストンも候補に出る。入力ではマイルストンを足さない |
 | TC-EDIT-04k | EDIT-04, EDIT-14 | 複製ダイアログ | 対応マイルストンを変えてキャンセルする。再度開き、変えて「追加」する。一覧を閉じたあと Escape を押す。変換中の Enter を試す | キャンセルでは文書は変わらない。「追加」で選んだ対応が付く。一覧を閉じたあとの Escape でダイアログが閉じる。変換中の Enter では選ばない |
+| TC-EDIT-04l | EDIT-04 | ブラウザ版。起動サンプル | タスクを選び、詳細パネルを見る | 「追加項目」の節は出ない |
+| TC-EDIT-04m | EDIT-04, FILE-02 | ブラウザ版。`examples/fields.schedule.json` | 値ありのタスクを選び、詳細の「追加項目」を見る。区分のプルダウンを開く | 定義の順でメモ、点数、消化率、確認日、区分が見える。区分は「値なし」のあと「内製」と「外注」だけである |
+| TC-EDIT-04n | EDIT-04, FILE-02 | 同上 | 点数と消化率の入力の幅をメモの欄と比べる | 点数はメモと同じ幅である。消化率も同じ幅で、その横に `%` がある |
+| TC-EDIT-04o | EDIT-04, FILE-02 | 同上。確認日がパネルの下の方に見える | 確認日のカレンダーを開く | カレンダーは画面の中に収まる |
+| TC-EDIT-04p | EDIT-04, FILE-02 | 同上 | 点数だけ変えて保存する。値の無いタスクを開いて保存する | 保存後も `schemaVersion` は 8 である。点数のキーだけが変わる。値の無いタスクは保存できる |
+| TC-EDIT-04q | EDIT-04, FILE-02 | 同上。値ありのタスク | 文章のメモを空にしてフォーカスを外す。点数に文字を入れてフォーカスを外す | 空の文章では `memo` のキーが消える。数値でない入力は反映されず理由が出る |
+| TC-EDIT-04r | EDIT-04, FILE-02 | 同上 | 配色をライトとダークで切り替え、追加項目の文字を見る | 文字と `%` のコントラスト比が足りる |
 | TC-EDIT-08d | EDIT-08, FILTER-12 | タグで絞っている | タスクを追加する | タグの選択は無くなる |
 | TC-EDIT-14d | EDIT-14, FILTER-12 | タグ付きタスクをタグで絞っている | そのタスクを複製する | タグの絞り込みは残り、複製が見える |
 | TC-EDIT-05 | EDIT-05 | 3件以上のタスク | 編集で、自分を先行にしようとする。次に、循環する先行を保存する | 自分は候補に出ない。循環は保存されず、理由が出る |
@@ -1098,6 +1150,7 @@
 | TC-EDIT-14c | EDIT-14, FILTER-10 | 確定のタスクがあり、確度を「未確定」で絞っている | そのタスクを複製して追加する。次に確度を「確定」に絞り、確定のタスクを複製する | 未確定で絞っているときは「すべて」に戻り、複製が見える。確定で絞っているときは「確定」のまま、複製が見える |
 | TC-EDIT-22 | EDIT-22 | 進行中のタスクを1件選ぶ。親のグループ行に進捗が出ている | 詳細パネルで「TODOを追加」から TODO を2件足し、1件にチェックを付ける。既存 TODO の文を続けて打って確定する。進捗率を手で変えられないことを見る。左の行に `1/2` が名前の直後に出ることを見る。チェックを外して進捗が下がることを見る。チェックの付け外しでステータスの選択値が変わらないことを見る。グループ行の進捗率が下がることを見る。絞り込み欄に TODO の条件が無いことを見る。マイルストンを選び、詳細に TODO 欄が無いことを見る。TODO をすべて削除し、直前の進捗が残ってスライダーが戻ることを見る。複製したタスクに TODO が無いことを見る | 件数と進捗が連動する。行の下にチェックは無い。ステータスは変わらない。ステータス色は変わらない。HTML・SVG に TODO は無い |
 | TC-EDIT-22b | EDIT-22, EXPORT-05 | 項目付きタスクがある | Excel 書き出しを開き、TODO 列が初期でオフであることを見る。TODO 列をオンにして書き出す | 初期は開始・終了・ノートだけがオンで、TODO 列はオフである。タスク行の TODO セルに `[x]` と `[ ]` の平文と改行がある。ノート列に混ざらない。チェックボックスではない |
+| TC-EDIT-20f | SET-10, FILTER-13, EXPORT-05, SYNC-01 | 拡張項目を選び、タスクに値を入れている。同じタスクにキーを2つ以上入れ、片方だけファイル側で変えて衝突を起こす準備もする | 絞り込みで型ごとに絞れることを見る。Excel で追加項目の列が初期オフで、オンにした項目だけノートの前に出ることを見る。セルが文字・数値・日付で、チェックやプルダウンではないことを見る。パーセント列は `%` 付きであることを見る。HTML と SVG に追加項目が無いことを見る。同じキーで画面が数値・ファイルが文字列の衝突では自動で決まらず、衝突一覧に追加項目が定義順で出ることを見る。ファイルのみの変更で合成したあと、触っていないキーの値が残ることを見る | 操作マニュアルの追加項目の流れと一致する。ステータス色・進捗・TODO は追加項目の説明と混ぜない。操作マニュアルに、項目の意味・LLM 向け指示・型ごとの図を置いていない |
 | TC-EDIT-15 | EDIT-15, EDIT-10 | 同じグループにタスクが3件以上ある | 真ん中のタスク行の左端の握りをドラッグして、別の位置で離す。取り消す | ドラッグ中は半透明のタスク行がポインタに付く。離すと左の一覧とチャートの順が変わる。日付と先行は変わらない。取り消し 1 回で戻る |
 | TC-EDIT-15b | EDIT-15, NAV-05 | 名前が幅に収まらないタスクがある | その名前をドラッグする。次に左端の握りをドラッグして順を変える | 名前は動かない。マウスを乗せると全文が出る。握りをドラッグすると並べ替えになる |
 | TC-EDIT-15c | EDIT-15, FILTER-01 | 同じグループにタスクが複数ある | タスク名で1件だけ残す絞り込みをかけ、行の左端の握りをドラッグする | 並べ替えは始まらない |
@@ -1151,7 +1204,7 @@
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、ステータス、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
-| TC-VIEW-13 | VIEW-13 | 一覧に無い `status` またはメンバーに無い `assigneeId` があるファイル。ステータス列はオフ | 帯の文を見る。左のタスク名とバーが同じ行に揃うこと、見出しの下端が揃うことを見る。絞り込みで該当行を隠しても帯が残ることを確かめる。右下の一時的な知らせを出しても帯が残ることを確かめる。設定でステータス列をオンにし、一覧に無い `id` の札と、メンバー不明の札を縦に見る。線を引くモード中は帯がその上にあり、両方の帯でも揃うことを見る。縦スクロールと表示サイズを変えても揃うことを見る。ライトとダークで、札の文字と帯の文字・左線のコントラストを見る | 帯は三つの文のいずれかだけ。`id` も件数も出ない。列は見えているタスク行だけ。未割当だけのときは帯は出ない。不一致が無くなると帯は消え、左の空きも消える。トーストが出ても帯は消えない。札の文字は 4.5:1 以上、帯の左線は 3:1 以上である |
+| TC-VIEW-13 | VIEW-13 | 一覧に無い `status`、メンバーに無い `assigneeId`、または定義に無い `fieldValues` キーがあるファイル。ステータス列はオフ | 帯の文を見る。定義に無い追加項目は詳細で編集できないことを見る。左のタスク名とバーが同じ行に揃うこと、見出しの下端が揃うことを見る。絞り込みで該当行を隠しても帯が残ることを確かめる。右下の一時的な知らせを出しても帯が残ることを確かめる。設定でステータス列をオンにし、一覧に無い `id` の札と、メンバー不明の札を縦に見る。線を引くモード中は帯がその上にあり、両方の帯でも揃うことを見る。縦スクロールと表示サイズを変えても揃うことを見る。ライトとダークで、札の文字と帯の文字・左線のコントラストを見る | 帯は三つの文のいずれかだけ。`id` も件数も出ない。列は見えているタスク行だけ。未割当だけのときは帯は出ない。不一致が無くなると帯は消え、左の空きも消える。トーストが出ても帯は消えない。札の文字は 4.5:1 以上、帯の左線は 3:1 以上である |
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
@@ -1170,18 +1223,37 @@
 | TC-SET-08i | SET-08 | デスクトップ版で同じ一覧を2つのウィンドウが開ける | 一方で覆いを開いて一覧を選ぶ。もう一方で同じ一覧を選ぶ | 編集中のウィンドウが前面になり、もう一方では一覧が選ばれない |
 | TC-SET-08j | SET-08 | 覆いで一覧を編集中 | 設定でその一覧を「外す」。続けて別ウィンドウから同じ一覧を取り込み上書きする | 外したときは覆いが閉じ、知らせが出る。上書き取り込みのあとは覆いが開いたまま、内容が入れ替わる |
 | TC-SET-08g | SET-08, VIEW-02, VIEW-05, VIEW-07, FILTER-04 | 今日が 2026-10-23 から 2026-11-01 のあいだ | 設定の「ステータス」で `examples/review.statuses.json` を取り込んで使用中にし、`examples/review.schedule.json` を開く。絞り込みで「完了以外」を選ぶ | 確認待ちが黄で、帯が出る。進行中は地が青のまま枠だけ赤く、帯が出る。完了と中止は終了が過去でも超過にならず、中止は帯が無い。一覧に無い `shelved` は `shelved` の表示で灰色になり、超過にならず線は今日のまま。未着手は帯が無い。イナズマ線は扱いどおり折れ、未来開始の着手済みは開始日へ折れる。終了日が今日の行は終了より先へ折れない。「完了以外」で完了と中止が消え、一覧に無い `id` は残る |
+| TC-SET-10a | SET-10, EDIT-04, FILE-02 | `examples/fields.schedule.json` だけを開く | 詳細の追加項目を見る | 値は未登録の追加項目として見え、型どおり編集できない |
+| TC-SET-10b | SET-10, EDIT-04, FILE-10 | `examples/fields/workspace.json` で開く | 値ありタスクの詳細と絞り込みの追加項目を見る | 定義どおり編集でき、絞り込みに候補が出る |
+| TC-SET-10c | SET-10, EDIT-04, FILE-02 | 拡張を取り込み使用中 | 設定の「項目を編集…」で必須・デフォルトを設定して保存。スケジュールを保存せず開き直す | 拡張 JSON に定義が残る。スケジュールの `fieldValues` は変わらない |
+| TC-SET-10d | SET-10, EDIT-04, FILE-02 | 同上、必須の項目がある | 値が空のタスクでスケジュールを保存する。詳細のラベルを見る | 保存できず「保存できません」。空のときだけ「空欄」 |
+| TC-SET-10e | SET-10, EDIT-04 | デフォルト付きの拡張を使用中 | 新規タスクを足す。既存を複製する | 新規だけデフォルトが入る |
+| TC-SET-10f | SET-10, SYNC-01 | 覆いを開いている | 外部で同じ拡張ファイルを更新する。読み直しを選ぶ | 即時反映しない。読み直し前に覆いが閉じ、下書きは確定しない |
+| TC-SET-10g | SET-10 | ブラウザ版 | 設定から覆いを開き、幅 900px 未満で見る | 見出しの右に「閉じる」が一つだけある。右欄が下へ移り、足元の「項目を足す」「保存」「編集を戻す」「JSON を書き出す」が画面内に残る |
+| TC-SET-10h | SET-10 | 拡張を1件以上取り込み済み | 覆いで「新しい拡張」を押す。別の拡張のラジオを選んでから戻す。もう一度「新しい拡張」を押す | 新しい拡張が選ばれ、項目が1件ある。ラジオにすぐ出る。戻れる。2回目は別 ID のラジオが増える。失敗のときは理由が出る |
+| TC-SET-10k | SET-10 | 拡張を1件以上取り込み済み | 覆いで「コピーして作る」を押す。別の拡張のラジオを選んでから戻す | コピーが選ばれる。ラジオにすぐ出る。戻れる。失敗のときは理由が出る |
+| TC-SET-10i | SET-10 | 覆いで拡張を編集中 | プラグイン ID を変えて保存する。覆いを閉じる | 新しい ID のファイルに保存される。設定の「拡張項目」が開き、一覧に新 ID が出る |
+| TC-SET-10j | SET-10 | 覆いを開いたあと | 「閉じる」または Escape で覆いを閉じる | 設定の「拡張項目」に戻る |
+| TC-SET-10l | SET-10, FILE-10 | `examples/fields/workspace.json` で開く。編集用が無い | 設定の「拡張項目」を見る | ピン留めだけ表示され、「項目を編集…」は出ない。「編集用の拡張を作る」が出る |
+| TC-SET-10m | SET-10, FILE-10 | 同上 | 「編集用の拡張を作る」を押す | フォルダに `custom.fields.json` ができ、`workspace.json` に `editableFieldExtension` が書かれる。アプリデータの取り込み一覧は増えない。「項目を編集…」と「消す」が出る |
+| TC-SET-10n | SET-10, FILE-10 | 編集用がある | 覆いで保存する。ピン留めと同じプラグイン ID に変えて保存する | 編集用のファイルだけ上書きされる。ピン留めと同じ ID は保存できない |
+| TC-SET-10o | SET-10, FILE-10 | 編集用がある | 「消す」で「やめる」を選ぶ。続けて「消す」で進める | やめるときはファイルと項目が残る。進めたあとは `editableFieldExtension` とファイルが消え、ピン留めは残る。タスクの値は未登録の追加項目として残る |
+| TC-SET-10p | SET-10 | （自動）`taskFields.test.ts` | 型や候補が合わない既知キーがある文書で保存判定を呼ぶ | 拒否され、シリアライズ用の値はファイルから消えない |
+| TC-SET-10q | SET-10 | （自動）`scheduleFilterPersistence.test.ts` | 定義が空のとき `pruneFieldFilters: false` で復元を呼ぶ | 記録の項目条件が残る |
+| TC-SET-10r | SET-10, FILE-10 | （自動）`validateWorkspace.test.ts` | 編集用パスだけの設定、絶対パス、空白 | 相対だけ通り、絶対と空白は拒否する。ピン留めと同じパスは `workspaceJson.test.ts` |
+| TC-SET-10s | SET-10 | （自動）`fieldExtensionEdit.test.ts` | 合成キーが重なる拡張を保存前に判定する | 理由に合成キーが含まれる |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
-| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace が `~/.cursor/skills/` に置かれ、パスが示される |
+| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace、write-fields が `~/.cursor/skills/` に置かれ、パスが示される |
 | TC-SET-05b | SET-05 | 上記のいずれかが既にある | もう一度「置く」 | 上書き確認が出る。上書き後、置いたパスが示される |
 | TC-SET-05c | SET-05 | 指定フォルダへ Claude Code を置く。`~/.claude/skills/` に同名がある | 「置く」 | 置いたあと、個人用が先に使われる旨が出る |
 | TC-SET-05d | SET-05 | ブラウザ版 | 設定の「JSON作成スキルを置く」を開く | デスクトップ版でのみ置ける旨が出て、「置く」は押せない |
-| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に4つがある | 「外す」で確認のあと外す | 4つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
-| TC-SET-05f | SET-05 | デスクトップ版、置き先に同名が無い | GitHub Copilot、ユーザー全体を選び「置く」 | 4つが `~/.copilot/skills/` に置かれ、パスが示される。`~/.copilot` が無くても作られる |
-| TC-SET-05g | SET-05 | デスクトップ版 | GitHub Copilot、指定したフォルダを選び「置く」 | 4つが `<フォルダ>/.github/skills/` に置かれ、パスが示される。git には入れない |
-| TC-SET-05h | SET-05 | デスクトップ版 | Cursor、Claude Code、GitHub Copilot をすべて選び、ユーザー全体で「置く」 | 12パスが示される。中身は同じ4つ |
+| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に5つがある | 「外す」で確認のあと外す | 5つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05f | SET-05 | デスクトップ版、置き先に同名が無い | GitHub Copilot、ユーザー全体を選び「置く」 | 5つが `~/.copilot/skills/` に置かれ、パスが示される。`~/.copilot` が無くても作られる |
+| TC-SET-05g | SET-05 | デスクトップ版 | GitHub Copilot、指定したフォルダを選び「置く」 | 5つが `<フォルダ>/.github/skills/` に置かれ、パスが示される。git には入れない |
+| TC-SET-05h | SET-05 | デスクトップ版 | Cursor、Claude Code、GitHub Copilot をすべて選び、ユーザー全体で「置く」 | 15パスが示される。中身は同じ5つ |
 | TC-SET-05i | SET-05 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
-| TC-SET-05j | SET-05 | デスクトップ版、ユーザー全体の Copilot に4つがある | 「外す」で確認のあと外す | 4つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05j | SET-05 | デスクトップ版、ユーザー全体の Copilot に5つがある | 「外す」で確認のあと外す | 5つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
 | TC-MCP-02c | MCP-02 | デスクトップ版 | 「MCP を使えないときに渡す」で GitHub Copilot を選び「置く」 | `read-screen` が `~/.copilot/skills/read-screen/` に置かれ、パスと実行ファイルのパスが示される |
 | TC-MCP-02d | MCP-02 | デスクトップ版、Copilot に read-screen がある | 同じ欄で GitHub Copilot を選び「外す」 | その1つだけ消え、外したパスが示される |
 | TC-MCP-02e | MCP-02 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
@@ -1221,7 +1293,7 @@
 | TC-MCP-01h | MCP-01, MCP-02 | 別ファイルを2ウィンドウで開き、それぞれ別タスクを1件選択。背面を前面にしない | 引数なしの `selected_task`。`open_windows`。背面の `label` を `window` に渡した `selected_task`。無い `label`。`--screen selected_task --window <背面の label>`。`--screen replace_schedule --window <label>` | 引数なしは前面の選択。一覧は両方の `file` と `folder`、絶対パスなし、`front` は前面1件。`window` 指定は背面の選択で前面は変わらない。無いラベルは指定したウィンドウが開いていない旨。CLI の `--window` も背面。`replace_schedule` に `--window` は待ち受けへ送らず、標準エラーに「replace_schedule は前面ウィンドウだけを置き換えます。--window は使えません。」、終了コード 1 |
 | TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
 | TC-MCP-01f | MCP-01 | デスクトップ版、ファイルを開き、絞り込み・折りたたみ・選択・系統を変えた状態 | `write-schedule` で検証済みの JSON 全体を作り、`replace_schedule` を 1 回呼ぶ。同じ保存形式の JSON をもう一度呼ぶ。詳細パネルにフォーカスがある状態でも呼ぶ。起動復旧の衝突・ファイル無し・不正控えのダイアログが出ている状態でも呼ぶ | 1 回目は未保存になり、隅に「画面を置き換えました」が約 4 秒出る。ファイルの内容は変わらない。絞り込み・折りたたみ・ズーム・スクロール・系統は変わらない。選択は新文書に残るタスクだけ残る。⌘/Ctrl+Z で置き換え前に戻る。2 回目は未保存も履歴も変わらないが差分テキストは成功で返る。詳細のフォーカス中は「画面の操作が途中なので、置き換えられません。」起動復旧のダイアログ中は「起動の復旧が終わっていないので、置き換えられません。」確認ダイアログは出ない |
-| TC-MCP-01g | MCP-01 | デスクトップ版。パス無しのサンプル、外部更新の帯、同じファイルの2ウィンドウ、開く・保存の途中、並べ替えの握りドラッグ中、10MB超・壊れたJSON・検証失敗の入力、差分が応答上限を超える置き換え | 各条件で `replace_schedule` を呼ぶか `--screen replace_schedule` で標準入力を渡す | パス無しの成功は「比べるファイルがありません」で失敗にしない。JSON として読めない・検証失敗・10MB 超はそれぞれの文で拒否し画面も履歴も変えない。差分が大きすぎても置き換えは残り「差分が大きすぎるため、差分テキストは返せません。」は失敗にしない。「ファイルに更新あり — 確認する」は消えない。背面ウィンドウの文書は変わらない。ダイアログ・ファイル操作中・並べ替えドラッグ中は「画面の操作が途中なので、置き換えられません。」 |
+| TC-MCP-01g | MCP-01 | デスクトップ版。パス無しのサンプル、外部更新の帯、同じファイルの2ウィンドウ、開く・保存の途中、並べ替えの握りドラッグ中、10MB超・壊れたJSON・検証失敗の入力、差分が応答上限を超える置き換え | 各条件で `replace_schedule` を呼ぶか `--screen replace_schedule` で標準入力を渡す | パス無しの成功は「比べるファイルがありません」で失敗にしない。JSON として読めない・検証失敗・10MB 超はそれぞれの文で拒否し画面も履歴も変えない。差分が大きすぎても置き換えは残り「差分が大きすぎるため、差分テキストは返せません。」は失敗にしない。「ファイルに更新あり — 確認する」は消えない。背面ウィンドウの文書は変わらない。衝突が無い外部更新の確認、設定など別のダイアログ、ファイル操作中・並べ替えドラッグ中は「画面の操作が途中なので、置き換えられません。」SYNC-01 の衝突確認だけ開いているときは置き換えられ、確認は閉じる（TC-SYNC-01k） |
 | TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen open_windows`、`--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks`、`--screen current_schedule` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`current_schedule` はスケジュール JSON 全体が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 

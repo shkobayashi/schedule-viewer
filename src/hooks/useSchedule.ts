@@ -36,6 +36,7 @@ import {
   documentHasExplicitLevels,
   levelDefsForEditor,
 } from "../model/hierarchyLevelEdit";
+import { defaultFieldValuesForNewTask } from "../model/fieldDefinitionEdit";
 import {
   findOutlineTaskOwner,
   insertTaskInOutline,
@@ -75,9 +76,20 @@ import {
   setTaskTodosOnCategories,
 } from "../model/taskTodos";
 import {
+  fieldDefByKey,
+  parseTaskFieldInput,
+  setTaskFieldValueInOutline,
+  setTaskFieldValueOnCategories,
+} from "../model/taskFields";
+import {
   collectTagsFromTasks,
   pruneSelectedTags,
 } from "../model/taskTags";
+import {
+  applyFieldFilterPatch,
+  pruneFieldFilters,
+  type FieldFilterCondition,
+} from "../model/fieldFilters";
 import {
   hiddenMilestoneGroupIdsForShowOnly,
   pruneHiddenMilestoneGroupIds,
@@ -158,6 +170,7 @@ import {
   type MilestoneGroup,
   type OutlineRoot,
   type ScheduleDocument,
+  type ScheduleFieldDef,
   type ScheduleFilters,
   type ScheduleId,
   type ScheduleLevelDef,
@@ -321,6 +334,8 @@ export function useSchedule(
   onHistoryRedoApplied?: (landed: DocumentSnapshot) => void,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
   statusCatalogSettled = true,
+  effectiveFieldDefs: readonly import("../model/types").ScheduleFieldDef[] = [],
+  fieldExtensionCatalogSettled = true,
 ) {
   const documentRef = useRef<DocumentSnapshot>(
     initialSnapshot(
@@ -564,8 +579,9 @@ export function useSchedule(
         documentRef.current.milestones,
         documentRef.current.levels,
         documentRef.current.outline,
+        effectiveFieldDefs.length > 0 ? [...effectiveFieldDefs] : undefined,
       ),
-    [],
+    [effectiveFieldDefs],
   );
 
   const hierarchyLayout = useMemo(
@@ -688,10 +704,12 @@ export function useSchedule(
         lineageIds,
         statuses,
         hierarchyRowOptions,
+        effectiveFieldDefs,
       ),
     [
       categories,
       collapsed,
+      effectiveFieldDefs,
       filters,
       hierarchyRowOptions,
       lineageIds,
@@ -796,10 +814,12 @@ export function useSchedule(
         lineageIds,
         statuses,
         hierarchyRowOptionsForDisplay,
+        effectiveFieldDefs,
       ),
     [
       collapsed,
       displayCategories,
+      effectiveFieldDefs,
       filters,
       hierarchyRowOptionsForDisplay,
       lineageIds,
@@ -1055,6 +1075,18 @@ export function useSchedule(
     setFilters((prev) => ({ ...prev, tags: pruned }));
   }, [filters.tags, scheduleTags]);
 
+  useEffect(() => {
+    if (!fieldExtensionCatalogSettled) return;
+    const current = filters.fieldFilters ?? {};
+    const pruned = pruneFieldFilters(effectiveFieldDefs, current);
+    if (pruned === current) return;
+    const same =
+      Object.keys(pruned).length === Object.keys(current).length &&
+      Object.entries(pruned).every(([key, value]) => current[key] === value);
+    if (same) return;
+    setFilters((prev) => ({ ...prev, fieldFilters: pruned }));
+  }, [effectiveFieldDefs, fieldExtensionCatalogSettled, filters.fieldFilters]);
+
   const toggleCollapsed = useCallback((key: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -1068,6 +1100,26 @@ export function useSchedule(
     setFilters((prev) => ({ ...prev, ...patch }));
     setTaskSelection(emptyTaskSelection());
   }, []);
+
+  const updateFieldFilters = useCallback(
+    (
+      build: (prev: ScheduleFilters) => ScheduleFilters["fieldFilters"],
+    ) => {
+      setFilters((prev) => ({
+        ...prev,
+        fieldFilters: build(prev),
+      }));
+      setTaskSelection(emptyTaskSelection());
+    },
+    [],
+  );
+
+  const patchFieldFilter = useCallback(
+    (def: ScheduleFieldDef, patch: Partial<FieldFilterCondition>) => {
+      updateFieldFilters((prev) => applyFieldFilterPatch(prev, def, patch));
+    },
+    [updateFieldFilters],
+  );
 
   const selectTask = useCallback((id: ScheduleId | null) => {
     setTaskSelection(id == null ? emptyTaskSelection() : singleTaskSelection(id));
@@ -1811,6 +1863,45 @@ export function useSchedule(
     [commitCategories, commitDocument, usesOutlineStorage],
   );
 
+  const setTaskFieldValue = useCallback(
+    (taskId: ScheduleId, fieldKey: string, raw: string): string | null => {
+      const current = documentRef.current;
+      const def = fieldDefByKey(effectiveFieldDefs, fieldKey);
+      if (def == null) {
+        return "追加項目の定義がありません";
+      }
+      const parsed = parseTaskFieldInput(def, raw);
+      if (!parsed.ok) return parsed.message;
+      const task = findTaskInDocument(
+        current.categories,
+        current.outline,
+        taskId,
+      );
+      if (task == null) return "タスクがありません";
+      const currentValue = task.fieldValues?.[fieldKey];
+      const nextValue = parsed.value;
+      if (currentValue === nextValue) return null;
+      if (currentValue === undefined && nextValue === undefined) return null;
+      if (usesOutlineStorage && current.outline != null) {
+        commitDocument((doc) => ({
+          ...doc,
+          outline: setTaskFieldValueInOutline(
+            doc.outline ?? [],
+            taskId,
+            def,
+            nextValue,
+          ),
+        }));
+        return null;
+      }
+      commitCategories((prev) =>
+        setTaskFieldValueOnCategories(prev, taskId, def, nextValue),
+      );
+      return null;
+    },
+    [commitCategories, commitDocument, effectiveFieldDefs, usesOutlineStorage],
+  );
+
   const setTaskTodos = useCallback(
     (taskId: ScheduleId, items: TaskTodoItem[]) => {
       const current = documentRef.current;
@@ -1944,6 +2035,7 @@ export function useSchedule(
         }
         const name = input.name.trim();
         const id = uniqueScheduleId(taken);
+        const fieldValues = defaultFieldValuesForNewTask(effectiveFieldDefs);
         const task: Task = {
           id,
           name,
@@ -1955,6 +2047,7 @@ export function useSchedule(
           confidence: "tentative",
           predecessors: [],
           milestoneId: null,
+          ...(fieldValues != null ? { fieldValues } : {}),
         };
         commitDocument((doc) => ({
           ...doc,
@@ -1966,7 +2059,7 @@ export function useSchedule(
           ),
         }));
         setFilters((prev) =>
-          relaxFiltersForNewTask(prev, task, today, memberMap, undefined, statuses),
+          relaxFiltersForNewTask(prev, task, today, memberMap, undefined, statuses, effectiveFieldDefs),
         );
         setLineageTaskId(null);
         setTaskSelection(singleTaskSelection(id));
@@ -1982,6 +2075,7 @@ export function useSchedule(
           current.milestones,
         ),
       );
+      const fieldValues = defaultFieldValuesForNewTask(effectiveFieldDefs);
       const task: Task = {
         id,
         name,
@@ -1993,6 +2087,7 @@ export function useSchedule(
         confidence: "tentative",
         predecessors: [],
         milestoneId: null,
+        ...(fieldValues != null ? { fieldValues } : {}),
       };
       const place = { category: input.category, group: input.group };
       const category = currentCategories.find((item) => item.name === place.category);
@@ -2005,14 +2100,14 @@ export function useSchedule(
         return next;
       });
       setFilters((prev) =>
-        relaxFiltersForNewTask(prev, task, today, memberMap, undefined, statuses),
+        relaxFiltersForNewTask(prev, task, today, memberMap, undefined, statuses, effectiveFieldDefs),
       );
       setLineageTaskId(null);
       setTaskSelection(singleTaskSelection(id));
       setDuplicatingTaskId(null);
       return id;
     },
-    [commitCategories, commitDocument, memberMap, statuses, today, usesOutlineStorage],
+    [commitCategories, commitDocument, effectiveFieldDefs, memberMap, statuses, today, usesOutlineStorage],
   );
 
   const duplicateTask = useCallback(
@@ -2079,6 +2174,7 @@ export function useSchedule(
               memberMap,
               brokenLinkTaskIdsFromTasks(tasks),
               statuses,
+              effectiveFieldDefs,
             ),
           );
         }
@@ -2116,6 +2212,7 @@ export function useSchedule(
             memberMap,
             brokenLinkTaskIds(result.categories),
             statuses,
+            effectiveFieldDefs,
           ),
         );
       }
@@ -2250,8 +2347,9 @@ export function useSchedule(
       snap.milestones,
       snap.levels,
       snap.outline,
+      effectiveFieldDefs.length > 0 ? [...effectiveFieldDefs] : undefined,
     );
-  }, []);
+  }, [effectiveFieldDefs]);
 
   const replaceScheduleDocument = useCallback(
     (document: ScheduleDocument): ReplaceScheduleDocumentResult => {
@@ -2281,6 +2379,8 @@ export function useSchedule(
       return {
         outcome: "applied",
         screenJson: snapshotCanonicalJson(pushed.applied),
+        before: current,
+        after: pushed.applied,
       };
     },
     [
@@ -2571,6 +2671,8 @@ export function useSchedule(
     getFilterViewState,
     knownMemberIds,
     updateFilters,
+    patchFieldFilter,
+    updateFieldFilters,
     taskSelection,
     selectedTaskIds,
     selectedTaskId,
@@ -2599,6 +2701,8 @@ export function useSchedule(
     appendTaskTag,
     dropTaskTag,
     setTaskTodos,
+    setTaskFieldValue,
+    fieldDefs: effectiveFieldDefs,
     scheduleTags,
     duplicateTask,
     setTaskConfidence,

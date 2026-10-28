@@ -9,6 +9,7 @@ import membersSchema from "../docs/members.schema.json" with { type: "json" };
 import statusesSchema from "../docs/statuses.schema.json" with { type: "json" };
 import calendarSchema from "../docs/calendar.schema.json" with { type: "json" };
 import workspaceSchema from "../docs/workspace.schema.json" with { type: "json" };
+import fieldExtensionsSchema from "../docs/field-extensions.schema.json" with { type: "json" };
 
 const outDir = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -64,3 +65,7 @@ writeFileSync(join(outDir, "calendarValidator.js"), compile(calendarSchema));
 writeFileSync(join(outDir, "workspaceValidator.js"), compile(workspaceSchema));
 console.log("Compiled standalone validators");
 writeFileSync(join(outDir, "statusesValidator.js"), compile(statusesSchema));
+writeFileSync(
+  join(outDir, "fieldExtensionsValidator.js"),
+  compile(fieldExtensionsSchema),
+);

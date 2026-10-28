@@ -218,6 +218,65 @@ body {
   overflow: hidden;
 }
 
+.field-extension-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  gap: calc(8px * var(--s));
+  border-bottom: 1px solid var(--border);
+}
+
+.field-extension-meta-row .field-extension-display-name {
+  flex: 1 1 calc(200px * var(--s));
+  border-bottom: none;
+}
+
+.field-extension-id-note {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 calc(12px * var(--s)) calc(8px * var(--s));
+}
+
+.status-catalog-editor-body .field-extension-display-name {
+  flex-shrink: 0;
+  margin: 0;
+  padding: calc(10px * var(--s)) calc(12px * var(--s));
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: calc(4px * var(--s));
+  font-size: calc(12px * var(--s));
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.status-catalog-editor-body .field-extension-display-name input {
+  font-weight: normal;
+  font-size: calc(13px * var(--s));
+  color: var(--text);
+  padding: calc(6px * var(--s)) calc(8px * var(--s));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-sizing: border-box;
+}
+
+.status-catalog-editor-body .field-extension-display-name input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.field-definition-editor-panel-extension {
+  flex: 1;
+  min-height: 0;
+}
+
+.field-definition-editor-panel-extension .field-definition-editor-body {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
 .status-catalog-editor-workspace {
   flex: 1;
   min-height: 0;
@@ -538,6 +597,329 @@ body {
   padding: calc(16px * var(--s));
   box-shadow: var(--elevation-modal);
   max-width: min(calc(420px * var(--s)), calc(100vw - calc(48px * var(--s))));
+}
+
+.field-definition-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.field-definition-overlay-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: calc(16px * var(--s));
+  gap: calc(10px * var(--s));
+}
+
+.field-definition-overlay-header {
+  flex-shrink: 0;
+}
+
+.field-definition-overlay-header h2 {
+  margin: 0;
+  font-size: calc(18px * var(--s));
+  font-weight: 600;
+}
+
+.field-definition-overlay-lead {
+  margin: calc(6px * var(--s)) 0 0;
+}
+
+.field-definition-editor-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.field-definition-editor-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.field-definition-editor-workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: calc(10px * var(--s));
+  min-width: 0;
+}
+
+.field-definition-editor-list-pane {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.field-definition-editor-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: calc(12px * var(--s));
+}
+
+.field-definition-editor-detail-slot {
+  flex: 0 0 calc(320px * var(--s));
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  padding-left: calc(10px * var(--s));
+}
+
+.field-definition-editor-detail {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--s));
+  overflow: auto;
+  padding: calc(4px * var(--s)) 0;
+}
+
+.field-definition-editor-detail-title {
+  margin: 0;
+  font-size: calc(14px * var(--s));
+  font-weight: 600;
+  color: var(--text);
+}
+
+.field-definition-editor-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4px * var(--s));
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+  min-width: 0;
+}
+
+.field-definition-editor-field-hint {
+  font-size: calc(11px * var(--s));
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.field-definition-editor-textarea,
+.field-definition-editor-input {
+  width: 100%;
+  min-width: 0;
+  font-size: calc(13px * var(--s));
+  color: var(--text);
+  line-height: 1.35;
+  padding: calc(6px * var(--s)) calc(8px * var(--s));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-sizing: border-box;
+}
+
+.field-definition-editor-textarea {
+  resize: none;
+}
+
+.field-definition-editor-textarea:focus,
+.field-definition-editor-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.field-definition-editor-item-selected {
+  background: var(--selected-row);
+  box-shadow: inset calc(3px * var(--s)) 0 0 var(--accent);
+}
+
+.field-definition-editor-hint {
+  margin: 0 0 calc(10px * var(--s));
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+}
+
+.field-definition-editor-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+  min-width: min-content;
+}
+
+.field-definition-editor-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  padding: calc(8px * var(--s)) calc(10px * var(--s));
+}
+
+.field-definition-editor-item-main {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: calc(8px * var(--s)) calc(12px * var(--s));
+}
+
+.field-definition-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2px * var(--s));
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.field-definition-editor-field input,
+.field-definition-editor-field select {
+  font-size: calc(13px * var(--s));
+  color: var(--text);
+}
+
+.field-definition-editor-field-name {
+  flex: 1 1 calc(140px * var(--s));
+  min-width: calc(100px * var(--s));
+}
+
+.field-definition-editor-field-type {
+  flex: 0 0 calc(88px * var(--s));
+}
+
+.field-definition-editor-field-required {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: calc(4px * var(--s));
+  white-space: nowrap;
+}
+
+.field-definition-editor-field-label {
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+}
+
+.field-definition-editor-item-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: calc(4px * var(--s));
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.field-definition-editor-checkbox-row {
+  flex-direction: row;
+  align-items: center;
+  gap: calc(6px * var(--s));
+}
+
+.field-definition-editor-choices .field-definition-editor-choice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
+.field-definition-editor-key-line {
+  margin: calc(4px * var(--s)) 0 0;
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+}
+
+.field-definition-editor-detail-empty {
+  margin: calc(8px * var(--s)) 0;
+  font-size: calc(13px * var(--s));
+}
+
+.field-definition-editor-status {
+  flex-shrink: 0;
+  margin: 0;
+  padding: calc(6px * var(--s)) calc(12px * var(--s));
+  font-size: calc(12px * var(--s));
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+}
+
+.field-definition-editor-footer {
+  flex-shrink: 0;
+  padding: calc(10px * var(--s)) calc(12px * var(--s));
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: var(--surface);
+}
+
+.field-definition-overlay .toolbar-btn:disabled,
+.field-definition-overlay .toolbar-btn-danger:disabled {
+  opacity: 1;
+  color: var(--text-secondary);
+  background: var(--panel);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+.field-definition-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 41;
+  background: var(--overlay);
+}
+
+.field-definition-discard-dialog {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 42;
+  background: var(--surface);
+  border-radius: calc(10px * var(--s));
+  padding: calc(16px * var(--s));
+  box-shadow: var(--elevation-modal);
+  max-width: min(calc(420px * var(--s)), calc(100vw - calc(48px * var(--s))));
+}
+
+.detail-field-empty-mark {
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+
+@media (max-width: 900px) {
+  .field-definition-editor-workspace {
+    flex-direction: column;
+  }
+
+  .field-definition-editor-detail-slot {
+    flex: 0 0 auto;
+    max-height: min(calc(240px * var(--s)), 38vh);
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-left: 0;
+    padding-top: calc(8px * var(--s));
+  }
+
+  .field-definition-editor-list-pane {
+    flex: 1 1 auto;
+    min-height: calc(120px * var(--s));
+  }
 }
 
 .toolbar {
@@ -1397,6 +1779,43 @@ input[type="number"] {
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--elevation-menu);
+  box-sizing: border-box;
+}
+
+.filter-panel--scrollable {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.filter-panel-scroll {
+  min-height: 0;
+}
+
+.filter-panel--scrollable .filter-panel-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.filter-panel-combo-dropdown {
+  z-index: 50;
+}
+
+.filter-panel-combo-dropdown .filter-panel-tag-options {
+  position: static;
+  left: auto;
+  right: auto;
+  top: auto;
+}
+
+.filter-panel-combo-dropdown.filter-panel-milestone-dropdown {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--elevation-menu);
 }
 
 .filter-panel-grid {
@@ -1415,6 +1834,131 @@ input[type="number"] {
 
 .filter-panel-field-span {
   grid-column: 1 / -1;
+}
+
+.filter-panel-field-filters {
+  position: relative;
+  z-index: 1;
+}
+
+.filter-panel-field-option {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--s));
+  padding: calc(2px * var(--s)) calc(6px * var(--s));
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: calc(13px * var(--s));
+  color: var(--text);
+}
+
+.filter-panel-field-option-active,
+.filter-panel-field-option:hover {
+  background: var(--hover);
+}
+
+.filter-panel-field-option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-field-rows {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--s));
+  margin-top: calc(4px * var(--s));
+}
+
+.filter-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
+.filter-field-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8px * var(--s));
+  min-width: 0;
+}
+
+.filter-field-name {
+  font-size: calc(11px * var(--s));
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.filter-field-remove {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+  cursor: pointer;
+  appearance: none;
+}
+
+.filter-field-remove:hover {
+  color: var(--text);
+}
+
+.filter-field-row-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: calc(8px * var(--s)) calc(10px * var(--s));
+}
+
+.filter-field-control {
+  flex: 1 1 calc(120px * var(--s));
+  min-width: calc(100px * var(--s));
+  margin: 0;
+}
+
+.filter-field-control-number {
+  flex: 0 1 auto;
+  min-width: calc(88px * var(--s));
+}
+
+.filter-field-control-number input[type="number"] {
+  width: calc(72px * var(--s));
+  box-sizing: border-box;
+}
+
+.filter-field-number-range,
+.filter-field-date-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: calc(8px * var(--s)) calc(10px * var(--s));
+  flex: 1 1 100%;
+}
+
+.filter-field-control-date {
+  flex: 1 1 calc(140px * var(--s));
+  min-width: calc(120px * var(--s));
+}
+
+.filter-field-control-date .date-input {
+  min-width: 0;
+}
+
+.filter-field-control-date .date-input-button {
+  height: calc(26px * var(--s));
+  font-size: calc(13px * var(--s));
+}
+
+.filter-field-empty-control {
+  flex: 1 1 calc(120px * var(--s));
+  min-width: calc(100px * var(--s));
 }
 
 .filter-panel-checks {
@@ -2153,6 +2697,160 @@ button:focus-visible,
 .detail-progress input[type="number"].detail-progress-num {
   width: calc(52px * var(--s));
   flex: 0 0 auto;
+}
+
+.detail-number-line {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--s));
+}
+
+.field .detail-number-line input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.detail-number-suffix {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-size: calc(12px * var(--s));
+}
+
+.date-input {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.field .date-input input {
+  width: 100%;
+  padding-right: calc(28px * var(--s));
+}
+
+.date-input-button {
+  position: absolute;
+  top: 50%;
+  right: calc(2px * var(--s));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(24px * var(--s));
+  height: calc(24px * var(--s));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.date-input-button:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.date-input-button svg,
+.date-popover-nav svg {
+  width: calc(14px * var(--s));
+  height: calc(14px * var(--s));
+  pointer-events: none;
+}
+
+.date-popover {
+  position: fixed;
+  z-index: 70;
+  width: calc(252px * var(--s));
+  padding: calc(8px * var(--s));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--elevation-menu);
+  color: var(--text);
+}
+
+.date-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(4px * var(--s));
+  margin-bottom: calc(6px * var(--s));
+}
+
+.date-popover-title {
+  font-size: calc(12px * var(--s));
+  font-weight: 600;
+}
+
+.date-popover-nav,
+.date-popover-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.date-popover-nav {
+  width: calc(28px * var(--s));
+  height: calc(28px * var(--s));
+}
+
+.date-popover-nav:hover,
+.date-popover-day:hover,
+.date-popover-clear:hover {
+  background: var(--accent-soft);
+}
+
+.date-popover-weekdays,
+.date-popover-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.date-popover-weekdays {
+  margin-bottom: calc(2px * var(--s));
+  color: var(--text-secondary);
+  font-size: calc(11px * var(--s));
+  text-align: center;
+}
+
+.date-popover-day {
+  height: calc(28px * var(--s));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font-size: calc(12px * var(--s));
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.date-popover-day.is-today {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.date-popover-day.is-selected,
+.date-popover-day.is-selected:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+  -webkit-text-fill-color: var(--on-accent);
+}
+
+.date-popover-clear {
+  width: 100%;
+  height: calc(28px * var(--s));
+  margin-top: calc(6px * var(--s));
+  font-size: calc(12px * var(--s));
 }
 
 .detail-progress-linked {
@@ -3488,6 +4186,15 @@ button:focus-visible,
   align-items: center;
   gap: 8px;
   font-size: 13px;
+}
+
+.export-format-field-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(240px, 40vh);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .form-error {

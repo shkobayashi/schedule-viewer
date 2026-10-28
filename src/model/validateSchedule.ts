@@ -14,6 +14,7 @@ import {
   validateScheduleSemantics,
   type ValidationIssue,
 } from "./scheduleSemantics";
+import { normalizeScheduleFieldsForValidation } from "./taskFields";
 import { normalizeScheduleDocument } from "./taskTodos";
 import type { ScheduleDocument } from "./types";
 import {
@@ -76,7 +77,9 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
     ),
   );
 
-  const forSchema = normalizeScheduleLevelsInputForSchema(migrated);
+  const forSchema = normalizeScheduleFieldsForValidation(
+    normalizeScheduleLevelsInputForSchema(migrated) as Record<string, unknown>,
+  );
 
   if (!validateSchema(forSchema)) {
     return {

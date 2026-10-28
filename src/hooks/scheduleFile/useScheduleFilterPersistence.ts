@@ -26,6 +26,7 @@ type UseScheduleFilterPersistenceOptions = {
   filePath: string | null;
   startupSettled: boolean;
   memberCatalogSettled: boolean;
+  fieldExtensionCatalogSettled: boolean;
   pruneContext: PruneFiltersContext;
   getFilterViewState: () => ScheduleFilterViewState;
   setFilterViewState: (state: ScheduleFilterViewState) => void;
@@ -38,6 +39,7 @@ export function useScheduleFilterPersistence({
   filePath,
   startupSettled,
   memberCatalogSettled,
+  fieldExtensionCatalogSettled,
   pruneContext,
   getFilterViewState,
   setFilterViewState,
@@ -78,11 +80,15 @@ export function useScheduleFilterPersistence({
       const path = filePathRef.current;
       if (!path) return;
       const view = viewOverride ?? getFilterViewState();
-      if (isDefaultScheduleFilterViewState(view)) {
+      if (isDefaultScheduleFilterViewState(view, pruneContext.fields)) {
         await deleteScheduleFilterViaTauri(path);
         return;
       }
-      const contents = serializeScheduleFilterPersistence(path, view);
+      const contents = serializeScheduleFilterPersistence(
+        path,
+        view,
+        pruneContext.fields,
+      );
       if (
         filterEpochRef.current !== epoch ||
         filePathRef.current !== path
@@ -91,16 +97,22 @@ export function useScheduleFilterPersistence({
       }
       await writeScheduleFilterViaTauri(contents);
     });
-  }, [enqueueFilterIo, filePathRef, getFilterViewState]);
+  }, [enqueueFilterIo, filePathRef, getFilterViewState, pruneContext.fields]);
 
   const syncLiveFilter = useCallback(async (viewOverride?: ScheduleFilterViewState) => {
     if (!isTauri() || !filePathRef.current) return;
     const view = viewOverride ?? getFilterViewState();
-    const nonDefault = !isDefaultScheduleFilterViewState(view);
+    const nonDefault = !isDefaultScheduleFilterViewState(view, pruneContext.fields);
     const action = await recoveryLiveActionViaTauri(nonDefault);
     if (action === "write") await writeFilterNow(view);
     else if (action === "delete") await clearFilterFile();
-  }, [clearFilterFile, filePathRef, getFilterViewState, writeFilterNow]);
+  }, [
+    clearFilterFile,
+    filePathRef,
+    getFilterViewState,
+    pruneContext.fields,
+    writeFilterNow,
+  ]);
 
   const syncLiveFilterRef = useRef(syncLiveFilter);
   syncLiveFilterRef.current = syncLiveFilter;
@@ -144,9 +156,11 @@ export function useScheduleFilterPersistence({
         const restoreContext = pruneContextFromScheduleDocument(
           document,
           memberCatalogSettled ? pruneContext.knownMemberIds : new Set(),
+          pruneContext.fields,
         );
         const pruned = pruneScheduleFilterViewState(view, restoreContext, {
           pruneAssignee: memberCatalogSettled,
+          pruneFieldFilters: fieldExtensionCatalogSettled,
         });
         restoredView = pruned;
         filterViewSnapshotRef.current = JSON.stringify(pruned);
@@ -160,6 +174,7 @@ export function useScheduleFilterPersistence({
       endPersistSuppress,
       filePathRef,
       memberCatalogSettled,
+      fieldExtensionCatalogSettled,
       pruneContext,
       setFilterViewState,
     ],
@@ -189,7 +204,13 @@ export function useScheduleFilterPersistence({
   ]);
 
   useEffect(() => {
-    if (!isTauri() || !memberCatalogSettled || !startupSettled || !filePath) {
+    if (
+      !isTauri() ||
+      !memberCatalogSettled ||
+      !fieldExtensionCatalogSettled ||
+      !startupSettled ||
+      !filePath
+    ) {
       return;
     }
     const before = getFilterViewState();
@@ -202,6 +223,7 @@ export function useScheduleFilterPersistence({
     filePath,
     getFilterViewState,
     memberCatalogSettled,
+    fieldExtensionCatalogSettled,
     pruneContext,
     setFilterViewState,
     startupSettled,
@@ -234,11 +256,17 @@ export function useScheduleFilterPersistence({
   const flushFilterOnClose = useCallback(async () => {
     if (!isTauri() || !filePathRef.current) return;
     const view = getFilterViewState();
-    const nonDefault = !isDefaultScheduleFilterViewState(view);
+    const nonDefault = !isDefaultScheduleFilterViewState(view, pruneContext.fields);
     const action = await recoveryCloseActionViaTauri(nonDefault);
     if (action === "write") await writeFilterNow();
     else if (action === "delete") await clearFilterFile();
-  }, [clearFilterFile, filePathRef, getFilterViewState, writeFilterNow]);
+  }, [
+    clearFilterFile,
+    filePathRef,
+    getFilterViewState,
+    pruneContext.fields,
+    writeFilterNow,
+  ]);
 
   return {
     restoreFiltersForPath,

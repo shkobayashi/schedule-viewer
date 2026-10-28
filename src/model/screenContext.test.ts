@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
+import levels2Sample from "../../examples/hierarchy/levels-2.schedule.json";
 import { lineageTaskIds } from "./dependencies";
+import {
+  isOutlineBranch,
+  isTaskNode,
+  type OutlineRoot,
+} from "./hierarchy";
 import { mcpLevelsFromDocument } from "./hierarchyLevelEdit";
 import {
   buildActiveFilterConditions,
   buildFilteredTasksPayload,
+  fieldEntriesForMcp,
   statusEntriesForMcp,
   buildScheduleDiffPayload,
   buildScreenContextPayload,
@@ -12,14 +19,19 @@ import {
   mcpPayloadToToolBody,
 } from "./screenContext";
 import { listTasksMatchingFilter } from "./rows";
+import { documentToJsonString } from "./serialize";
 import { BUILTIN_STATUS_ITEMS, type StatusItem } from "./statusCatalog";
 import { updateStatusItem } from "./statusEdit";
 import {
+  SCHEDULE_SCHEMA_VERSION,
   UNASSIGNED_FILTER,
   type Category,
+  type ScheduleDocument,
+  type ScheduleFieldDef,
   type ScheduleFilters,
   type Task,
 } from "./types";
+import { DEFAULT_FILTERS } from "./filterChips";
 
 const filters: ScheduleFilters = {
   assignee: "all",
@@ -32,6 +44,29 @@ const filters: ScheduleFilters = {
   search: "",
   noteSearch: "",
 };
+
+function patchOutlineTaskFieldValues(
+  outline: OutlineRoot,
+  taskId: string,
+  fieldValues: Record<string, string>,
+): OutlineRoot {
+  return outline.map((node) => {
+    if (isTaskNode(node)) {
+      if (node.id !== taskId) return node;
+      return {
+        ...node,
+        fieldValues: { ...node.fieldValues, ...fieldValues },
+      };
+    }
+    if (isOutlineBranch(node)) {
+      return {
+        ...node,
+        children: patchOutlineTaskFieldValues(node.children, taskId, fieldValues),
+      };
+    }
+    return node;
+  });
+}
 
 function categoryWithTasks(tasks: Task[]): Category[] {
   return [
@@ -124,6 +159,39 @@ describe("buildFilteredTasksPayload", () => {
         null,
       ).length,
     ).toBe(2);
+  });
+
+  it("filters outline tasks by fieldFilters when field defs are supplied", () => {
+    const taskId = "e2000001-0000-4000-8000-000000000001";
+    const doc = JSON.parse(
+      JSON.stringify(levels2Sample),
+    ) as ScheduleDocument;
+    doc.schemaVersion = SCHEDULE_SCHEMA_VERSION;
+    doc.categories = [];
+    const fields: ScheduleFieldDef[] = [
+      { key: "memo", name: "メモ", type: "text" },
+    ];
+    const outline = patchOutlineTaskFieldValues(doc.outline ?? [], taskId, {
+      memo: "レビュー",
+    });
+    const fieldFilters = {
+      memo: { empty: "any" as const, text: "レビュー" },
+    };
+    const payload = buildFilteredTasksPayload({
+      categories: [],
+      outline,
+      levels: doc.levels,
+      fields,
+      filters: { ...DEFAULT_FILTERS, fieldFilters },
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: doc.milestoneGroups,
+      milestones: doc.milestones,
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: null,
+    });
+    expect(payload.tasks.map((t) => t.id)).toEqual([taskId]);
   });
 
   it("keeps unassigned and unknown assignee when assignee filter is unassigned", () => {
@@ -459,6 +527,7 @@ describe("split MCP payloads", () => {
     expect(selectedManyText).toEqual({
       levels: mcpLevelsFromDocument({}),
       statuses: statusEntriesForMcp(BUILTIN_STATUS_ITEMS),
+      fields: [],
       selectedTasks: [],
     });
     expect(selectedManyText).not.toHaveProperty("selectedTaskId");
@@ -548,6 +617,188 @@ describe("status catalog in MCP payloads", () => {
     });
     expect(Object.keys(payload)[0]).toBe("levels");
     expect(payload.statuses).toHaveLength(4);
+  });
+});
+
+describe("field catalog in MCP payloads", () => {
+  const fields: ScheduleFieldDef[] = [
+    {
+      key: "demo_memo",
+      name: "メモ",
+      type: "text",
+      meaning: "補足",
+      instruction: "短く書く。",
+      required: true,
+    },
+  ];
+
+  it("includes fields once and fieldValues on tasks", () => {
+    const taskRow: Task = {
+      id: "00000000-0000-4000-8000-00000000000a",
+      name: "A",
+      start: "2026-01-01",
+      end: "2026-01-02",
+      assigneeId: null,
+      status: "not-started",
+      progress: 0,
+      confidence: "committed",
+      predecessors: [],
+      milestoneId: null,
+      fieldValues: { demo_memo: "ok" },
+    };
+    const categories = [
+      {
+        id: "c1000001-0000-4000-8000-000000000001",
+        name: "設計",
+        groups: [
+          {
+            id: "d1000001-0000-4000-8000-000000000001",
+            name: "上流",
+            tasks: [taskRow],
+          },
+        ],
+      },
+    ];
+    const payload = buildFilteredTasksPayload({
+      categories,
+      filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      fields,
+    });
+    expect(payload.fields).toEqual(fieldEntriesForMcp(fields));
+    expect(payload.tasks[0].fieldValues).toEqual({ demo_memo: "ok" });
+    expect(Object.keys(payload)).toEqual([
+      "levels",
+      "statuses",
+      "fields",
+      "activeConditions",
+      "tasks",
+    ]);
+  });
+
+  it("returns empty fields array when no definitions", () => {
+    const payload = buildSelectedTaskPayload({
+      categories: [],
+      filters,
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      selectedTaskId: null,
+      fields: [],
+    });
+    expect(payload.fields).toEqual([]);
+  });
+
+  it("includes fields and fieldValues on selected_task", () => {
+    const taskRow: Task = {
+      id: "00000000-0000-4000-8000-00000000000a",
+      name: "A",
+      start: "2026-01-01",
+      end: "2026-01-02",
+      assigneeId: null,
+      status: "not-started",
+      progress: 0,
+      confidence: "committed",
+      predecessors: [],
+      milestoneId: null,
+      fieldValues: { demo_memo: "ok" },
+    };
+    const categories = [
+      {
+        id: "c1000001-0000-4000-8000-000000000001",
+        name: "設計",
+        groups: [
+          {
+            id: "d1000001-0000-4000-8000-000000000001",
+            name: "上流",
+            tasks: [taskRow],
+          },
+        ],
+      },
+    ];
+    const payload = buildSelectedTaskPayload({
+      categories,
+      filters,
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      selectedTaskId: taskRow.id,
+      fields,
+    });
+    expect(payload.fields).toEqual(fieldEntriesForMcp(fields));
+    expect(payload.selectedTask?.fieldValues).toEqual({ demo_memo: "ok" });
+  });
+
+  it("includes fields and fieldValues on selected_tasks", () => {
+    const taskRow: Task = {
+      id: "00000000-0000-4000-8000-00000000000a",
+      name: "A",
+      start: "2026-01-01",
+      end: "2026-01-02",
+      assigneeId: null,
+      status: "not-started",
+      progress: 0,
+      confidence: "committed",
+      predecessors: [],
+      milestoneId: null,
+      fieldValues: { demo_memo: "x" },
+    };
+    const categories = [
+      {
+        id: "c1000001-0000-4000-8000-000000000001",
+        name: "設計",
+        groups: [
+          {
+            id: "d1000001-0000-4000-8000-000000000001",
+            name: "上流",
+            tasks: [taskRow],
+          },
+        ],
+      },
+    ];
+    const payload = buildSelectedTasksPayload({
+      categories,
+      selectedTaskIds: [taskRow.id],
+      fields,
+    });
+    expect(payload.fields).toEqual(fieldEntriesForMcp(fields));
+    expect(payload.selectedTasks[0].fieldValues).toEqual({ demo_memo: "x" });
+  });
+
+  it("omits empty choices and empty default from field entries", () => {
+    const sparse: ScheduleFieldDef[] = [
+      {
+        key: "sparse",
+        name: "S",
+        type: "choice",
+        choices: [],
+        default: "",
+      },
+    ];
+    expect(fieldEntriesForMcp(sparse)).toEqual([
+      { key: "sparse", name: "S", type: "choice" },
+    ]);
+  });
+});
+
+describe("current_schedule JSON shape", () => {
+  it("has no top-level fields property", () => {
+    const json = JSON.parse(
+      documentToJsonString({
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title: "t",
+        milestoneGroups: [],
+        milestones: [],
+        categories: [],
+      }),
+    );
+    expect(json).not.toHaveProperty("fields");
   });
 });
 

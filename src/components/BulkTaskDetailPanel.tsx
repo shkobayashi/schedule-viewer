@@ -12,6 +12,8 @@ import {
   type BulkTaskDraft,
 } from "../model/bulkTaskEdit";
 import { daysBetween, parseDate } from "../model/dates";
+import { DateInput } from "./DateInput";
+import { isDatePopoverTarget } from "./datePopover";
 import type { Member } from "../model/memberTypes";
 import type { MemberId } from "../model/memberTypes";
 import {
@@ -219,6 +221,7 @@ export function BulkTaskDetailPanel({
     const root = rootRef.current;
     const next = event.relatedTarget;
     if (root && next instanceof Node && root.contains(next)) return;
+    if (isDatePopoverTarget(next)) return;
     onEditingChange(bulkDraft != null);
   };
 
@@ -266,13 +269,12 @@ export function BulkTaskDetailPanel({
         <div className="detail-date-row">
           <div className="field">
             <label htmlFor="bulkStart">開始</label>
-            <input
+            <DateInput
               id="bulkStart"
-              type="date"
               value={displayStart}
-              onChange={(e) =>
+              onChange={(next) =>
                 setLocal((prev) =>
-                  setDraftDateField("start", e.target.value, commonStart, prev),
+                  setDraftDateField("start", next, commonStart, prev),
                 )
               }
             />
@@ -282,13 +284,12 @@ export function BulkTaskDetailPanel({
           </div>
           <div className="field">
             <label htmlFor="bulkEnd">終了</label>
-            <input
+            <DateInput
               id="bulkEnd"
-              type="date"
               value={displayEnd}
-              onChange={(e) =>
+              onChange={(next) =>
                 setLocal((prev) =>
-                  setDraftDateField("end", e.target.value, commonEnd, prev),
+                  setDraftDateField("end", next, commonEnd, prev),
                 )
               }
             />

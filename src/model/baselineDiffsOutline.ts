@@ -9,6 +9,8 @@ import type {
   BaselineClassificationLine,
   BaselineDiffClassification,
 } from "./baselineDiffs";
+import { fieldValuesEqualForDiff } from "./fieldValuesDiff";
+import { upgradeTaskDiffClassification } from "./fieldValuesDiff";
 import { normalizeTaskNote } from "./taskNote";
 import { taskTagsEqualForDiff } from "./taskTags";
 import { taskTodosEqualForDiff } from "./taskTodos";
@@ -319,7 +321,7 @@ function mergeOutlineTask(
   const inB = baselineTasks.has(taskId);
   const inS = screenTasks.has(taskId);
   const inF = fileTasks.has(taskId);
-  const label = classifyPresence(
+  let label = classifyPresence(
     inB,
     inS,
     inF,
@@ -332,6 +334,11 @@ function mergeOutlineTask(
     inS && inF
       ? taskContentEquals(screenTasks.get(taskId)!, fileTasks.get(taskId)!)
       : true,
+  );
+  label = upgradeTaskDiffClassification(
+    label,
+    inS ? screenTasks.get(taskId) : undefined,
+    inF ? fileTasks.get(taskId) : undefined,
   );
   if (label != null && isBaselineConflictLabel(label)) {
     return null;
@@ -435,6 +442,7 @@ function cloneTask(task: Task): Task {
     ...task,
     predecessors: [...task.predecessors],
     tags: task.tags ? [...task.tags] : undefined,
+    fieldValues: task.fieldValues ? { ...task.fieldValues } : undefined,
   };
 }
 
@@ -513,6 +521,7 @@ function taskContentEquals(a: Task, b: Task): boolean {
     a.milestoneId === b.milestoneId &&
     taskTodosEqualForDiff(a, b) &&
     taskTagsEqualForDiff(a, b) &&
-    normalizeTaskNote(a.note) === normalizeTaskNote(b.note)
+    normalizeTaskNote(a.note) === normalizeTaskNote(b.note) &&
+    fieldValuesEqualForDiff(a, b)
   );
 }

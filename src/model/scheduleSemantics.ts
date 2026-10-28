@@ -1,6 +1,13 @@
 import { isIsoDateString } from "./dates";
 import { collectTasksFromDocument, isOutlineBranch, isTaskNode } from "./hierarchy";
-import type { OutlineRoot, ScheduleDocument, ScheduleId, Task } from "./types";
+import { validateTaskFieldValuesSemantics } from "./taskFields";
+import type {
+  OutlineRoot,
+  ScheduleDocument,
+  ScheduleFieldDef,
+  ScheduleId,
+  Task,
+} from "./types";
 
 export type ValidationIssue = {
   path: string;
@@ -89,6 +96,8 @@ export function validateScheduleSemantics(
     }
   }
 
+  const fieldDefs: ScheduleFieldDef[] | undefined = undefined;
+
   if (doc.levels != null) {
     if (doc.levels.length < 1 || doc.levels.length > 5) {
       issues.push({
@@ -146,6 +155,7 @@ export function validateScheduleSemantics(
         categoryIds,
         groupIds,
         branchIds,
+        fieldDefs,
       ),
     );
   }
@@ -217,6 +227,7 @@ export function validateScheduleSemantics(
             milestoneGroupIds,
             categoryIds,
             groupIds,
+            fieldDefs,
           ),
         );
       }
@@ -237,6 +248,7 @@ function validateOutlineSemantics(
   categoryIds: Set<ScheduleId>,
   groupIds: Set<ScheduleId>,
   branchIds: Set<ScheduleId>,
+  fieldDefs: ScheduleFieldDef[] | undefined,
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const siblingNames = new Set<string>();
@@ -264,6 +276,7 @@ function validateOutlineSemantics(
           milestoneGroupIds,
           categoryIds,
           groupIds,
+          fieldDefs,
         ),
       );
       continue;
@@ -334,6 +347,7 @@ function validateOutlineSemantics(
         categoryIds,
         groupIds,
         branchIds,
+        fieldDefs,
       ),
     );
   }
@@ -369,6 +383,7 @@ function validateTaskSemantics(
   milestoneGroupIds: Set<ScheduleId>,
   categoryIds: Set<ScheduleId>,
   groupIds: Set<ScheduleId>,
+  fieldDefs: ScheduleFieldDef[] | undefined,
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
@@ -488,6 +503,8 @@ function validateTaskSemantics(
     }
     predSeen.add(predId);
   }
+
+  issues.push(...validateTaskFieldValuesSemantics(task, taskPath, fieldDefs));
 
   return issues;
 }

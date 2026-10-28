@@ -1,7 +1,15 @@
 import type { BaselineClassificationLine } from "./baselineDiffs";
 import { headlineForDisplay } from "./baselineMerge";
+import { fieldValueChangeLinesForDiff } from "./fieldValuesDiff";
+import { collectTasksFromDocument } from "./hierarchy";
 import { collectScheduleDiffBlocks } from "./scheduleDiff";
-import type { ScheduleDocument } from "./types";
+import {
+  SCHEDULE_SCHEMA_VERSION,
+  type ScheduleDocument,
+  type ScheduleFieldDef,
+  type ScheduleId,
+  type Task,
+} from "./types";
 
 export type BaselineMergeReviewField = {
   label: string;
@@ -90,14 +98,21 @@ const FIELD_LABELS: Record<string, string> = {
   groupId: "グループ",
 };
 
+export type BaselineMergeConflictItem = {
+  visibleHeadline: string;
+  accessibleHeadline: string;
+  fields: BaselineMergeReviewField[];
+};
+
 export function buildBaselineMergeReview(
   baseline: ScheduleDocument,
   screen: ScheduleDocument,
   file: ScheduleDocument,
   lines: BaselineClassificationLine[],
+  fields: readonly ScheduleFieldDef[] = [],
 ): BaselineMergeReviewView {
-  const screenBlocks = collectScheduleDiffBlocks(screen, baseline);
-  const fileBlocks = collectScheduleDiffBlocks(file, baseline);
+  const screenBlocks = collectScheduleDiffBlocks(screen, baseline, fields);
+  const fileBlocks = collectScheduleDiffBlocks(file, baseline, fields);
 
   const screenLines = lines.filter((line) => line.label === "画面のみ");
   const fileLines = lines.filter((line) => line.label === "ファイルのみ");
@@ -128,6 +143,50 @@ export function buildBaselineMergeReview(
   }
 
   return view;
+}
+
+export function buildBaselineMergeConflictReview(
+  screen: ScheduleDocument,
+  file: ScheduleDocument,
+  conflictLines: BaselineClassificationLine[],
+  fields: readonly ScheduleFieldDef[] = [],
+): BaselineMergeConflictItem[] {
+  const screenTasks = tasksById(screen);
+  const fileTasks = tasksById(file);
+  const items: BaselineMergeConflictItem[] = [];
+  for (const line of conflictLines) {
+    const visibleHeadline = `${line.label} ${headlineForDisplay(line.headline)}`;
+    const accessibleHeadline = `${line.label} ${line.headline}`;
+    const taskId = extractUuid(line.headline);
+    const reviewFields: BaselineMergeReviewField[] = [];
+    if (taskId && line.headline.startsWith("変更 ")) {
+      const screenTask = screenTasks.get(taskId);
+      const fileTask = fileTasks.get(taskId);
+      if (screenTask && fileTask) {
+        for (const raw of fieldValueChangeLinesForDiff(
+          fileTask,
+          screenTask,
+          fields,
+        )) {
+          reviewFields.push(formatFieldLine(raw));
+        }
+      }
+    }
+    items.push({
+      visibleHeadline,
+      accessibleHeadline,
+      fields: reviewFields,
+    });
+  }
+  return items;
+}
+
+function tasksById(doc: ScheduleDocument): Map<ScheduleId, Task> {
+  const tasks = collectTasksFromDocument({
+    ...doc,
+    schemaVersion: SCHEDULE_SCHEMA_VERSION,
+  });
+  return new Map(tasks.map((task) => [task.id, task]));
 }
 
 function buildSectionBlocks(

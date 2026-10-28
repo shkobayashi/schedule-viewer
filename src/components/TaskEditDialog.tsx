@@ -12,6 +12,7 @@ import type { Member } from "../model/memberTypes";
 import type { MemberId } from "../model/memberTypes";
 import { validateTaskEdit } from "../model/tasks";
 import { MilestoneField } from "./MilestoneField";
+import { DateInput } from "./DateInput";
 import { ModalDialog } from "./ModalDialog";
 import {
   UNASSIGNED_LABEL,
@@ -152,20 +153,18 @@ export function TaskEditDialog({
         </div>
         <div className="field">
           <label htmlFor="fieldStart">開始日</label>
-          <input
+          <DateInput
             id="fieldStart"
-            type="date"
             value={start}
-            onChange={(e) => setStart(e.target.value)}
+            onChange={setStart}
           />
         </div>
         <div className="field">
           <label htmlFor="fieldEnd">終了日（この日を含む）</label>
-          <input
+          <DateInput
             id="fieldEnd"
-            type="date"
             value={end}
-            onChange={(e) => setEnd(e.target.value)}
+            onChange={setEnd}
           />
         </div>
         <div className="field">

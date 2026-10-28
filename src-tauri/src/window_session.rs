@@ -50,6 +50,7 @@ pub struct OpenWindowsFile {
 pub struct PendingWindowOpen {
     pub path: String,
     pub contents: String,
+    pub workspace_path: Option<String>,
 }
 
 #[derive(Default)]
@@ -147,7 +148,8 @@ pub fn all_webview_windows_listed(app: &AppHandle, labels: &[String]) -> bool {
     if open.is_empty() {
         return false;
     }
-    open.iter().all(|label| labels.iter().any(|item| item == label))
+    open.iter()
+        .all(|label| labels.iter().any(|item| item == label))
 }
 
 pub fn all_windows_startup_settled(app: &AppHandle, settled: &[String]) -> bool {
@@ -380,6 +382,25 @@ pub fn entry_for_label<'a>(file: &'a OpenWindowsFile, label: &str) -> Option<&'a
     file.windows.iter().find(|entry| entry.label == label)
 }
 
+/// スケジュールのパスを記録し直すときの設定ファイルのパス。
+/// 直接開いたときは常に外す。同じスケジュールパスなら既存の束縛を残す。
+pub fn workspace_path_for_schedule_record(
+    existing: Option<&OpenWindowEntry>,
+    new_schedule_path: &str,
+    preserve_workspace_binding: bool,
+) -> Option<String> {
+    if !preserve_workspace_binding {
+        return None;
+    }
+    let entry = existing?;
+    let workspace = entry.workspace_path.as_ref()?;
+    if entry.path.as_deref() == Some(new_schedule_path) {
+        Some(workspace.clone())
+    } else {
+        None
+    }
+}
+
 pub fn upsert_window_path(
     app_data: &Path,
     label: &str,
@@ -560,13 +581,14 @@ pub fn create_schedule_webview_on_main_thread(
                 let _ = tx.send(result);
             })
             .map_err(|e| format!("ウィンドウを開けません: {}", e))?;
-        rx.recv()
-            .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
+        rx.recv().map_err(|_| {
+            "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string()
+        })?
     };
     if on_main_thread() {
-        thread::spawn(build_on_main_thread)
-            .join()
-            .map_err(|_| "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string())?
+        thread::spawn(build_on_main_thread).join().map_err(|_| {
+            "ウィンドウを開けません: メインスレッドが応答しませんでした。".to_string()
+        })?
     } else {
         build_on_main_thread()
     }
@@ -825,10 +847,16 @@ pub fn store_pending_open(
     label: String,
     path: String,
     contents: String,
+    workspace_path: Option<String>,
 ) {
-    state
-        .pending_opens
-        .insert(label, PendingWindowOpen { path, contents });
+    state.pending_opens.insert(
+        label,
+        PendingWindowOpen {
+            path,
+            contents,
+            workspace_path,
+        },
+    );
 }
 
 #[cfg(test)]
@@ -856,6 +884,93 @@ mod tests {
             filter_path_for(&app_data, schedule).file_name(),
             recovery_path_for(&app_data, schedule).file_name(),
         );
+    }
+
+    #[test]
+    fn workspace_path_for_schedule_record_preserves_on_same_path() {
+        let entry = OpenWindowEntry {
+            label: "main".to_string(),
+            path: Some("/tmp/plan.json".to_string()),
+            workspace_path: Some("/tmp/workspace.json".to_string()),
+            sample: false,
+        };
+        assert_eq!(
+            workspace_path_for_schedule_record(Some(&entry), "/tmp/plan.json", true).as_deref(),
+            Some("/tmp/workspace.json"),
+        );
+    }
+
+    #[test]
+    fn workspace_path_for_schedule_record_clears_on_direct_open() {
+        let entry = OpenWindowEntry {
+            label: "main".to_string(),
+            path: Some("/tmp/plan.json".to_string()),
+            workspace_path: Some("/tmp/workspace.json".to_string()),
+            sample: false,
+        };
+        assert!(workspace_path_for_schedule_record(Some(&entry), "/tmp/plan.json", false).is_none());
+    }
+
+    #[test]
+    fn workspace_path_for_schedule_record_clears_on_different_path() {
+        let entry = OpenWindowEntry {
+            label: "main".to_string(),
+            path: Some("/tmp/plan.json".to_string()),
+            workspace_path: Some("/tmp/workspace.json".to_string()),
+            sample: false,
+        };
+        assert!(workspace_path_for_schedule_record(Some(&entry), "/tmp/other.json", true).is_none());
+    }
+
+    #[test]
+    fn upsert_schedule_record_preserves_workspace_path_in_file() {
+        let app_data = std::env::temp_dir().join("schedule-viewer-workspace-record-test");
+        let _ = fs::remove_dir_all(&app_data);
+        let file = OpenWindowsFile {
+            focused_label: "main".to_string(),
+            windows: vec![OpenWindowEntry {
+                label: "main".to_string(),
+                path: Some("/tmp/plan.json".to_string()),
+                workspace_path: Some("/tmp/workspace.json".to_string()),
+                sample: false,
+            }],
+        };
+        write_open_windows(&app_data, &file).expect("write");
+        let read = read_open_windows(&app_data).expect("read");
+        let existing = entry_for_label(&read, "main");
+        let workspace = workspace_path_for_schedule_record(existing, "/tmp/plan.json", true);
+        upsert_window_path(
+            &app_data,
+            "main",
+            Some("/tmp/plan.json"),
+            workspace.as_deref(),
+            false,
+        )
+        .expect("upsert");
+        let read = read_open_windows(&app_data).expect("read again");
+        let entry = entry_for_label(&read, "main").expect("entry");
+        assert_eq!(
+            entry.workspace_path.as_deref(),
+            Some("/tmp/workspace.json"),
+        );
+        let _ = fs::remove_dir_all(&app_data);
+    }
+
+    #[test]
+    fn pending_open_roundtrips_workspace_path() {
+        let mut state = WindowSessionState::default();
+        store_pending_open(
+            &mut state,
+            "schedule-2".to_string(),
+            "/tmp/plan.json".to_string(),
+            "{}".to_string(),
+            Some("/tmp/workspace.json".to_string()),
+        );
+        let taken = take_pending_open(&mut state, "schedule-2").expect("pending");
+        assert_eq!(taken.path, "/tmp/plan.json");
+        assert_eq!(taken.contents, "{}");
+        assert_eq!(taken.workspace_path.as_deref(), Some("/tmp/workspace.json"),);
+        assert!(take_pending_open(&mut state, "schedule-2").is_none());
     }
 
     #[test]

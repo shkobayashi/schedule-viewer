@@ -1,5 +1,6 @@
 import { documentHasLevels } from "./hierarchy";
 import { normalizeLevelDefinition } from "./hierarchyLevelEdit";
+import { taskFieldValuesForSerialization } from "./taskFields";
 import { normalizeTaskNote } from "./taskNote";
 import { normalizeTaskTags } from "./taskTags";
 import { normalizeTaskTodos, progressFromTodoItems } from "./taskTodos";
@@ -9,12 +10,16 @@ import type {
   MilestoneGroup,
   OutlineRoot,
   ScheduleDocument,
+  ScheduleFieldDef,
   ScheduleLevelDef,
   Task,
 } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
-function taskToJson(task: Task): Task {
+function taskToJson(
+  task: Task,
+  fields: readonly ScheduleFieldDef[] | undefined,
+): Task {
   const note = normalizeTaskNote(task.note);
   const tags = normalizeTaskTags(task.tags);
   const todos = normalizeTaskTodos(task.todos);
@@ -34,18 +39,24 @@ function taskToJson(task: Task): Task {
   };
   const withTodos = todos !== undefined ? { ...base, todos } : base;
   const withTags = tags !== undefined ? { ...withTodos, tags } : withTodos;
-  return note !== undefined ? { ...withTags, note } : withTags;
+  const fieldValues = taskFieldValuesForSerialization(task, fields);
+  const withFields =
+    fieldValues !== undefined ? { ...withTags, fieldValues } : withTags;
+  return note !== undefined ? { ...withFields, note } : withFields;
 }
 
-function outlineToJson(nodes: OutlineRoot): OutlineRoot {
+function outlineToJson(
+  nodes: OutlineRoot,
+  fields: readonly ScheduleFieldDef[] | undefined,
+): OutlineRoot {
   return nodes.map((node) => {
     if ("start" in node && "end" in node) {
-      return taskToJson(node);
+      return taskToJson(node, fields);
     }
     return {
       id: node.id,
       name: node.name,
-      children: outlineToJson(node.children),
+      children: outlineToJson(node.children, fields),
     };
   });
 }
@@ -57,7 +68,12 @@ export function scheduleToJson(
   milestones: Milestone[],
   levels?: ScheduleLevelDef[] | null,
   outline?: OutlineRoot | null,
+  fieldDefsForValues?: ScheduleFieldDef[] | null,
 ): ScheduleDocument {
+  const valueFieldDefs =
+    fieldDefsForValues != null && fieldDefsForValues.length > 0
+      ? fieldDefsForValues
+      : undefined;
   const base: ScheduleDocument = {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title,
@@ -85,7 +101,7 @@ export function scheduleToJson(
         groups: category.groups.map((group) => ({
           id: group.id,
           name: group.name,
-          tasks: group.tasks.map((task) => taskToJson(task)),
+          tasks: group.tasks.map((task) => taskToJson(task, valueFieldDefs)),
         })),
       })),
     };
@@ -97,7 +113,7 @@ export function scheduleToJson(
     return {
       ...base,
       levels: levelDefs,
-      outline: outlineToJson(outline),
+      outline: outlineToJson(outline, valueFieldDefs),
     };
   }
 
@@ -117,6 +133,7 @@ export function documentToJson(
     doc.milestones,
     doc.levels,
     doc.outline,
+    undefined,
   );
 }
 
@@ -126,7 +143,81 @@ export function documentToJsonString(doc: ScheduleDocument): string {
   return JSON.stringify(ordered, null, 2);
 }
 
-function orderScheduleKeys(doc: ScheduleDocument): Record<string, unknown> {
+function orderTaskFieldValues(
+  fieldValues: Task["fieldValues"],
+  fields: ScheduleFieldDef[] | undefined,
+): Record<string, string | number> | undefined {
+  if (fieldValues == null) return undefined;
+  const knownKeys = new Set((fields ?? []).map((field) => field.key));
+  const ordered: Record<string, string | number> = {};
+  if (fields != null) {
+    for (const field of fields) {
+      const value = fieldValues[field.key];
+      if (value !== undefined) {
+        ordered[field.key] = value;
+      }
+    }
+  }
+  for (const [key, value] of Object.entries(fieldValues)) {
+    if (knownKeys.has(key)) continue;
+    ordered[key] = value;
+  }
+  return Object.keys(ordered).length > 0 ? ordered : undefined;
+}
+
+function orderTaskJson(
+  task: Task,
+  fields: ScheduleFieldDef[] | undefined,
+): Record<string, unknown> {
+  const ordered: Record<string, unknown> = {
+    id: task.id,
+    name: task.name,
+    start: task.start,
+    end: task.end,
+    assigneeId: task.assigneeId,
+    status: task.status,
+    progress: task.progress,
+    confidence: task.confidence,
+    predecessors: task.predecessors,
+    milestoneId: task.milestoneId,
+  };
+  if (task.todos != null && task.todos.length > 0) {
+    ordered.todos = task.todos;
+  }
+  if (task.tags != null && task.tags.length > 0) {
+    ordered.tags = task.tags;
+  }
+  const fieldValues = orderTaskFieldValues(task.fieldValues, fields);
+  if (fieldValues != null) {
+    ordered.fieldValues = fieldValues;
+  }
+  if (task.note != null) {
+    ordered.note = task.note;
+  }
+  return ordered;
+}
+
+function orderOutlineJson(
+  nodes: OutlineRoot,
+  fields: ScheduleFieldDef[] | undefined,
+): unknown[] {
+  return nodes.map((node) => {
+    if ("start" in node && "end" in node) {
+      return orderTaskJson(node, fields);
+    }
+    return {
+      id: node.id,
+      name: node.name,
+      children: orderOutlineJson(node.children, fields),
+    };
+  });
+}
+
+function orderScheduleKeys(
+  doc: ScheduleDocument,
+  fieldDefsForValues?: ScheduleFieldDef[],
+): Record<string, unknown> {
+  const fields = fieldDefsForValues;
   const result: Record<string, unknown> = {
     schemaVersion: doc.schemaVersion,
     title: doc.title,
@@ -137,9 +228,17 @@ function orderScheduleKeys(doc: ScheduleDocument): Record<string, unknown> {
     result.levels = doc.levels;
   }
   if (!documentHasLevels(doc)) {
-    result.categories = doc.categories;
+    result.categories = doc.categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      groups: category.groups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        tasks: group.tasks.map((task) => orderTaskJson(task, fields)),
+      })),
+    }));
   } else if (doc.outline != null && doc.outline.length > 0) {
-    result.outline = doc.outline;
+    result.outline = orderOutlineJson(doc.outline, fields);
   }
   return result;
 }

@@ -9,15 +9,18 @@ import {
 } from "../../model/scheduleRecovery";
 import {
   acceptOpenedScheduleViaTauri,
+  clearLastSchedulePathViaTauri,
   deleteScheduleRecoveryViaTauri,
   isTauri,
   scheduleJsonFilename,
   scheduleParentDirectory,
 } from "../../model/scheduleFile";
+import type { RecentFilesStore } from "../../model/recentFiles";
 import {
   readWindowStartupViaTauri,
   takePendingScheduleWindowOpenViaTauri,
 } from "../../model/windowSession";
+import { recordRecentWorkspaceViaTauri } from "../../model/recentFilesAppData";
 import {
   openWorkspaceFromFile,
   readJsonFileLimitedViaTauri,
@@ -74,6 +77,7 @@ type UseScheduleStartupRecoveryOptions = {
     document: ScheduleDocument,
   ) => Promise<void>;
   onWorkspaceBindingChange?: (binding: WorkspaceWindowBinding | null) => void;
+  onRecentFilesStoreUpdated?: (store: RecentFilesStore) => void;
 };
 
 export function useScheduleStartupRecovery({
@@ -99,6 +103,7 @@ export function useScheduleStartupRecovery({
   applyOpenedFile,
   restoreFiltersForPath,
   onWorkspaceBindingChange,
+  onRecentFilesStoreUpdated,
 }: UseScheduleStartupRecoveryOptions) {
   const [recoveryConflictOpen, setRecoveryConflictOpen] = useState(false);
   const [recoveryInvalidOpen, setRecoveryInvalidOpen] = useState(false);
@@ -131,7 +136,10 @@ export function useScheduleStartupRecovery({
           recoveryStartupRef.current !== startupId ||
           filePathRef.current != null ||
           isDirtyRef.current,
-        accept: () => acceptOpenedScheduleViaTauri(session.path, session.diskContents),
+        accept: () =>
+          acceptOpenedScheduleViaTauri(session.path, session.diskContents, {
+            preserveWorkspaceBinding: true,
+          }),
         apply: () => {
           replaceDocument(session.document);
           filePathRef.current = session.path;
@@ -221,13 +229,38 @@ export function useScheduleStartupRecovery({
         const pending = await takePendingScheduleWindowOpenViaTauri();
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (pending) {
-          await applyOpenedFileRef.current(
-            {
-              path: pending.path,
-              contents: pending.contents,
-            },
-            { recordRecent: true },
-          );
+          const workspacePath = pending.workspacePath?.trim() || null;
+          if (workspacePath) {
+            const workspaceStartupOk =
+              await restoreWorkspaceBinding(workspacePath);
+            if (!workspaceStartupOk) {
+              await clearLastSchedulePathViaTauri().catch(() => {});
+              setErrorMessageText(WORKSPACE_STARTUP_FAILED_MESSAGE);
+              releaseStartupBusy();
+              return;
+            }
+            await applyOpenedFileRef.current(
+              {
+                path: pending.path,
+                contents: pending.contents,
+              },
+              { recordRecent: false },
+            );
+            try {
+              const store = await recordRecentWorkspaceViaTauri(workspacePath);
+              onRecentFilesStoreUpdated?.(store);
+            } catch {
+              // ignore
+            }
+          } else {
+            await applyOpenedFileRef.current(
+              {
+                path: pending.path,
+                contents: pending.contents,
+              },
+              { recordRecent: true },
+            );
+          }
           releaseStartupBusy();
           return;
         }
@@ -412,7 +445,9 @@ export function useScheduleStartupRecovery({
     void (async () => {
       try {
         await clearRecoveryDraft();
-        await acceptOpenedScheduleViaTauri(payload.path, diskContents);
+        await acceptOpenedScheduleViaTauri(payload.path, diskContents, {
+          preserveWorkspaceBinding: true,
+        });
         void applyOpenedFile({
           path: payload.path,
           contents: diskContents,

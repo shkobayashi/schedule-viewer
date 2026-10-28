@@ -53,6 +53,15 @@
       "minLength": 1,
       "description": "ステータス一覧の項目の id。既定の一覧は not-started、in-progress、done。"
     },
+    "taskFieldValues": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string", "minLength": 1 },
+          { "type": "number" }
+        ]
+      }
+    },
     "levelDefinition": {
       "type": "object",
       "additionalProperties": false,
@@ -158,6 +167,10 @@
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "description": "説明用の任意タグ。画面では絞り込みに使う。"
+        },
+        "fieldValues": {
+          "$ref": "#/$defs/taskFieldValues",
+          "description": "追加項目の値。定義の key だけ。1件以上あるときだけ書く。"
         },
         "note": {
           "type": "string",

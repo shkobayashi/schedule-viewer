@@ -13,6 +13,10 @@ import {
   type DiffNavTarget,
   type ScheduleDiffEntry,
 } from "./scheduleDiffEntry";
+import {
+  fieldValueChangeLinesForDiff,
+  fieldValueSnapshotLinesForDiff,
+} from "./fieldValuesDiff";
 import { normalizeTaskNote } from "./taskNote";
 import { formatTaskTagsForDiff, taskTagsEqualForDiff } from "./taskTags";
 import {
@@ -25,6 +29,7 @@ import type {
   OutlineChild,
   OutlineRoot,
   ScheduleDocument,
+  ScheduleFieldDef,
   ScheduleId,
   ScheduleLevelDef,
   Task,
@@ -49,9 +54,10 @@ export function formatScheduleDiff(
   screen: ScheduleDocument,
   file: ScheduleDocument,
   filename: string,
+  fields?: readonly ScheduleFieldDef[],
 ): string {
   const header = `${HEADER}\nファイル: ${filename}`;
-  const body = formatScheduleDocumentDiffBody(screen, file);
+  const body = formatScheduleDocumentDiffBody(screen, file, fields);
   if (body === SCHEDULE_DIFF_NO_CHANGES) {
     return `${header}\n${SCHEDULE_DIFF_NO_CHANGES}`;
   }
@@ -62,8 +68,9 @@ export function formatScheduleDiff(
 export function formatScheduleDocumentDiffBody(
   right: ScheduleDocument,
   left: ScheduleDocument,
+  fields?: readonly ScheduleFieldDef[],
 ): string {
-  const blocks = collectScheduleDiffBlocks(right, left);
+  const blocks = collectScheduleDiffBlocks(right, left, fields);
   if (blocks.length === 0) {
     return SCHEDULE_DIFF_NO_CHANGES;
   }
@@ -74,19 +81,25 @@ export function formatScheduleDocumentDiffBody(
 export function collectScheduleDiffBlocks(
   right: ScheduleDocument,
   left: ScheduleDocument,
+  fields?: readonly ScheduleFieldDef[],
 ): string[] {
-  return collectScheduleDiffEntries(right, left).map((entry) => entry.text);
+  return collectScheduleDiffEntries(right, left, fields).map((entry) => entry.text);
 }
 
 /** 第一引数が右辺、第二引数が左辺（FILE-07 の → の向き） */
 export function collectScheduleDiffEntries(
   right: ScheduleDocument,
   left: ScheduleDocument,
+  fields?: readonly ScheduleFieldDef[],
 ): ScheduleDiffEntry[] {
-  return diffBlocks(right, left);
+  return diffBlocks(right, left, fields);
 }
 
-function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): ScheduleDiffEntry[] {
+function diffBlocks(
+  screen: ScheduleDocument,
+  file: ScheduleDocument,
+  fields?: readonly ScheduleFieldDef[],
+): ScheduleDiffEntry[] {
   const blocks: ScheduleDiffEntry[] = [];
   const push = (text: string, nav: DiffNavTarget) => {
     const display = buildScheduleDiffEntryDisplay(text);
@@ -123,6 +136,7 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): ScheduleD
       fileTaskNames,
       screenMilestoneNames,
       fileMilestoneNames,
+      fields,
     );
   } else {
     appendCategoriesStorageDiff(
@@ -137,6 +151,7 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): ScheduleD
       screenCategories,
       fileCategories,
       fileGroups,
+      fields,
     );
   }
 
@@ -230,6 +245,7 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): ScheduleD
                 task,
                 fileTaskNames,
                 fileMilestoneNames,
+                fields,
               ),
               { kind: "deleteTask", groupId: group.id },
             );
@@ -246,6 +262,7 @@ function diffBlocks(screen: ScheduleDocument, file: ScheduleDocument): ScheduleD
       fileTasks,
       fileTaskNames,
       fileMilestoneNames,
+      fields,
     );
   }
 
@@ -285,6 +302,7 @@ function appendCategoriesStorageDiff(
   screenCategories: Map<ScheduleId, Category>,
   fileCategories: Map<ScheduleId, Category>,
   fileGroups: Map<ScheduleId, { category: Category; group: TaskGroup }>,
+  fields?: readonly ScheduleFieldDef[],
 ): void {
   const categoryOrder = orderBlock(
     "並び カテゴリ",
@@ -361,7 +379,14 @@ function appendCategoriesStorageDiff(
         const filePlace = fileTasks.get(task.id);
         if (!filePlace) {
           push(
-            addedTaskBlock(category.name, group.name, task, screenTaskNames, screenMilestoneNames),
+            addedTaskBlock(
+              category.name,
+              group.name,
+              task,
+              screenTaskNames,
+              screenMilestoneNames,
+              fields,
+            ),
             { kind: "task", taskId: task.id },
           );
           continue;
@@ -379,6 +404,7 @@ function appendCategoriesStorageDiff(
           screenTaskNames,
           fileMilestoneNames,
           screenMilestoneNames,
+          fields,
         );
         if (changed) push(changed, { kind: "task", taskId: task.id });
       }
@@ -492,6 +518,7 @@ function appendOutlineStorageDiff(
   fileTaskNames: Map<ScheduleId, string>,
   screenMilestoneNames: Map<ScheduleId, string>,
   fileMilestoneNames: Map<ScheduleId, string>,
+  fields?: readonly ScheduleFieldDef[],
 ): void {
   const fileLevels = (file.levels ?? []).map((level) => normalizeLevelDefinition(level));
   const screenLevels = (screen.levels ?? []).map((level) =>
@@ -565,6 +592,7 @@ function appendOutlineStorageDiff(
           screenPlace.task,
           screenTaskNames,
           screenMilestoneNames,
+          fields,
         ),
         { kind: "task", taskId },
       );
@@ -577,6 +605,7 @@ function appendOutlineStorageDiff(
       screenTaskNames,
       fileMilestoneNames,
       screenMilestoneNames,
+      fields,
     );
     if (changed) push(changed, { kind: "task", taskId });
   }
@@ -590,6 +619,7 @@ function appendOutlineStorageDeletions(
   fileTasks: Map<ScheduleId, TaskPlace>,
   fileTaskNames: Map<ScheduleId, string>,
   fileMilestoneNames: Map<ScheduleId, string>,
+  fields?: readonly ScheduleFieldDef[],
 ): void {
   const screenBranches = outlineBranchMetaMap(screen);
   const fileBranches = outlineBranchMetaMap(file);
@@ -608,6 +638,7 @@ function appendOutlineStorageDeletions(
         filePlace.task,
         fileTaskNames,
         fileMilestoneNames,
+        fields,
       ),
       { kind: "deleteTask", groupId: filePlace.groupId },
     );
@@ -620,11 +651,12 @@ function addedTaskBlock(
   task: Task,
   taskNames: Map<ScheduleId, string>,
   milestoneNames: Map<ScheduleId, string>,
+  fields?: readonly ScheduleFieldDef[],
 ): string {
   return [
     `追加 ${task.name} (${task.id})`,
     `  場所: ${place(category, group)}`,
-    ...taskFieldLines(task, taskNames, milestoneNames),
+    ...taskFieldLines(task, taskNames, milestoneNames, fields),
   ].join("\n");
 }
 
@@ -634,11 +666,12 @@ function deletedTaskBlock(
   task: Task,
   taskNames: Map<ScheduleId, string>,
   milestoneNames: Map<ScheduleId, string>,
+  fields?: readonly ScheduleFieldDef[],
 ): string {
   return [
     `削除 ${task.name} (${task.id})`,
     `  場所: ${place(category, group)}`,
-    ...taskFieldLines(task, taskNames, milestoneNames),
+    ...taskFieldLines(task, taskNames, milestoneNames, fields),
   ].join("\n");
 }
 
@@ -646,6 +679,7 @@ function taskFieldLines(
   task: Task,
   taskNames: Map<ScheduleId, string>,
   milestoneNames: Map<ScheduleId, string>,
+  fields?: readonly ScheduleFieldDef[],
 ): string[] {
   return [
     `  name: ${task.name}`,
@@ -659,6 +693,7 @@ function taskFieldLines(
     `  milestoneId: ${formatMilestoneRef(task.milestoneId, milestoneNames)}`,
     `  todos: ${formatTaskTodosForDiff(task)}`,
     `  tags: ${formatTaskTagsForDiff(task)}`,
+    ...fieldValueSnapshotLinesForDiff(task, fields),
     `  note: ${noteOf(task) ?? "（なし）"}`,
   ];
 }
@@ -670,6 +705,7 @@ function changedTaskBlock(
   screenTaskNames: Map<ScheduleId, string>,
   fileMilestoneNames: Map<ScheduleId, string>,
   screenMilestoneNames: Map<ScheduleId, string>,
+  fields?: readonly ScheduleFieldDef[],
 ): string | null {
   const fileTask = filePlace.task;
   const screenTask = screenPlace.task;
@@ -724,6 +760,7 @@ function changedTaskBlock(
       `  tags: ${formatTaskTagsForDiff(fileTask)} → ${formatTaskTagsForDiff(screenTask)}`,
     );
   }
+  lines.push(...fieldValueChangeLinesForDiff(fileTask, screenTask, fields));
   const fileNote = noteOf(fileTask);
   const screenNote = noteOf(screenTask);
   if (fileNote !== screenNote) {

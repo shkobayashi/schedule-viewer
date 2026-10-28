@@ -1,3 +1,8 @@
+import {
+  activeFieldFilterCount,
+  fieldFilterChipLabel,
+  isFieldFilterActive,
+} from "./fieldFilters";
 import { BUILTIN_STATUS_ITEMS, statusLabel, type StatusItem } from "./statusCatalog";
 import {
   NO_MILESTONE_FILTER,
@@ -5,6 +10,7 @@ import {
   UNASSIGNED_LABEL,
   type Milestone,
   type MilestoneGroup,
+  type ScheduleFieldDef,
   type ScheduleFilters,
   type ScheduleId,
 } from "./types";
@@ -20,13 +26,15 @@ export type FilterChipKind =
   | "search"
   | "noteSearch"
   | "lineage"
-  | "milestoneGroup";
+  | "milestoneGroup"
+  | "fieldFilter";
 
 export type FilterChip = {
   kind: FilterChipKind;
   label: string;
   milestoneGroupId?: ScheduleId;
   tagName?: string;
+  fieldKey?: string;
 };
 
 function statusFilterLabel(statuses: readonly StatusItem[], value: string): string {
@@ -51,6 +59,7 @@ export const DEFAULT_FILTERS: ScheduleFilters = {
   tags: [],
   search: "",
   noteSearch: "",
+  fieldFilters: {},
 };
 
 export function filterChipClearPatch(
@@ -91,6 +100,7 @@ export function activeFilterChips(
   hiddenMilestoneGroupIds: readonly ScheduleId[] = [],
   scheduleTags: readonly string[] = [],
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
+  scheduleFields: readonly ScheduleFieldDef[] | undefined = undefined,
 ): FilterChip[] {
   const chips: FilterChip[] = [];
   if (filters.assignee === UNASSIGNED_FILTER) {
@@ -153,6 +163,19 @@ export function activeFilterChips(
       milestoneGroupId: group.id,
     });
   }
+  if (scheduleFields != null) {
+    for (const def of scheduleFields) {
+      const condition = filters.fieldFilters?.[def.key];
+      if (!condition || !isFieldFilterActive(def, condition)) continue;
+      const label = fieldFilterChipLabel(def, condition);
+      if (!label) continue;
+      chips.push({
+        kind: "fieldFilter",
+        label,
+        fieldKey: def.key,
+      });
+    }
+  }
   return chips;
 }
 
@@ -194,6 +217,7 @@ export function activeFilterCount(
   filters: ScheduleFilters,
   lineageActive: boolean,
   hiddenMilestoneGroupCount = 0,
+  scheduleFields: readonly ScheduleFieldDef[] | undefined = undefined,
 ): number {
   let count = 0;
   if (filters.assignee !== "all") count += 1;
@@ -207,5 +231,6 @@ export function activeFilterCount(
   if (filters.noteSearch.trim()) count += 1;
   if (lineageActive) count += 1;
   if (hiddenMilestoneGroupCount > 0) count += 1;
+  count += activeFieldFilterCount(scheduleFields, filters.fieldFilters ?? {});
   return count;
 }

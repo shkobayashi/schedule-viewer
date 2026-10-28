@@ -15,7 +15,7 @@ function schemaIssues(data: unknown): ValidationIssue[] {
 
 function relativePathIssues(
   value: string,
-  field: "schedule" | "members" | "calendar" | "statuses",
+  field: string,
 ): ValidationIssue | null {
   if (!isWorkspaceRelativePath(value)) {
     return {
@@ -46,6 +46,30 @@ export function validateWorkspace(data: unknown): ValidateWorkspaceResult {
   if (doc.statuses != null) {
     const statusesIssue = relativePathIssues(doc.statuses, "statuses");
     if (statusesIssue) errors.push(statusesIssue);
+  }
+  if (doc.fieldExtensions != null) {
+    for (let i = 0; i < doc.fieldExtensions.length; i += 1) {
+      const value = doc.fieldExtensions[i];
+      const issue = relativePathIssues(value, `fieldExtensions/${i}`);
+      if (issue) errors.push(issue);
+    }
+  }
+  if (doc.editableFieldExtension != null) {
+    const editableIssue = relativePathIssues(
+      doc.editableFieldExtension,
+      "editableFieldExtension",
+    );
+    if (editableIssue) errors.push(editableIssue);
+    if (
+      doc.fieldExtensions != null &&
+      doc.fieldExtensions.includes(doc.editableFieldExtension)
+    ) {
+      errors.push({
+        path: "/editableFieldExtension",
+        message:
+          "ピン留めした拡張と同じファイルを編集用に指定できません。",
+      });
+    }
   }
   if (errors.length > 0) {
     return { ok: false, errors };

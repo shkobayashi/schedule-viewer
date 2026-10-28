@@ -1,3 +1,4 @@
+import type { FieldFiltersState } from "./fieldFilters";
 import type { SummarySpan } from "./summary";
 import type { MemberId } from "./memberTypes";
 
@@ -40,6 +41,22 @@ export type TaskTodoItem = {
   done: boolean;
 };
 
+export type ScheduleFieldType = "text" | "number" | "date" | "choice";
+
+export type ScheduleFieldDef = {
+  key: string;
+  name: string;
+  type: ScheduleFieldType;
+  meaning?: string;
+  instruction?: string;
+  required?: true;
+  default?: string | number;
+  percent?: true;
+  choices?: string[];
+};
+
+export type TaskFieldValues = Record<string, string | number>;
+
 export type Task = {
   id: ScheduleId;
   name: string;
@@ -59,6 +76,8 @@ export type Task = {
   tags?: string[];
   /** 補足説明。未設定または空白のみのときは JSON に含めない。 */
   note?: string;
+  /** 追加項目の値。定義の key だけ。1件以上あるときだけ JSON に含める。 */
+  fieldValues?: TaskFieldValues;
 };
 
 /** タスクではない到達点。期間は持たず、日付と確度が決まる。 */
@@ -128,6 +147,8 @@ export type ScheduleFilters = {
   tags: string[];
   search: string;
   noteSearch: string;
+  /** 追加項目の key ごとの条件。効いているキーだけを持つ */
+  fieldFilters?: FieldFiltersState;
 };
 
 export type VisibleRow =

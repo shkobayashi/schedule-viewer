@@ -12,6 +12,7 @@ import {
   findTaskInDocument,
   taskHierarchyLabels,
 } from "./hierarchy";
+import { fieldFilterChipLabel, isFieldFilterActive } from "./fieldFilters";
 import { mcpLevelsFromDocument, type McpLevelEntry } from "./hierarchyLevelEdit";
 import {
   listTasksMatchingFilterInDocument,
@@ -31,11 +32,13 @@ import {
   type OverdueFilter,
   type RelationFilter,
   type ScheduleDocument,
+  type ScheduleFieldDef,
   type ScheduleFilters,
   type ScheduleId,
   type ScheduleLevelDef,
   type StatusFilter,
   type Task,
+  type TaskFieldValues,
   type TaskTodoItem,
 } from "./types";
 
@@ -65,6 +68,7 @@ export type ScreenContextTask = {
   todos?: TaskTodoItem[];
   note?: string;
   tags: string[];
+  fieldValues?: TaskFieldValues;
 };
 
 export type McpActiveFilterCondition =
@@ -78,6 +82,7 @@ export type McpActiveFilterCondition =
   | { type: "milestoneBandHidden"; groups: Array<{ id: ScheduleId; name: string }> }
   | { type: "searchName"; query: string }
   | { type: "searchNote"; query: string }
+  | { type: "fieldFilter"; key: string; label: string }
   | { type: "lineage"; taskId: ScheduleId; taskName: string };
 
 /** タスクの `status` が書く `id` の意味。LLM が `id` を選ぶ手がかり。 */
@@ -88,6 +93,48 @@ export type McpStatusEntry = {
   description: string;
   instruction?: string;
 };
+
+/** タスクの `fieldValues` のキーと型。LLM が値を書く手がかり。 */
+export type McpFieldEntry = {
+  key: string;
+  name: string;
+  type: ScheduleFieldDef["type"];
+  meaning?: string;
+  instruction?: string;
+  required?: true;
+  percent?: true;
+  choices?: string[];
+  default?: string | number;
+};
+
+export function fieldEntriesForMcp(
+  fields: readonly ScheduleFieldDef[],
+): McpFieldEntry[] {
+  return fields.map((field) => {
+    const entry: McpFieldEntry = {
+      key: field.key,
+      name: field.name,
+      type: field.type,
+    };
+    const meaning = field.meaning?.trim();
+    const instruction = field.instruction?.trim();
+    if (meaning) entry.meaning = meaning;
+    if (instruction) entry.instruction = instruction;
+    if (field.required === true) entry.required = true;
+    if (field.percent === true) entry.percent = true;
+    if (field.choices != null && field.choices.length > 0) {
+      entry.choices = [...field.choices];
+    }
+    if (field.default !== undefined) {
+      if (typeof field.default === "string") {
+        if (field.default.length > 0) entry.default = field.default;
+      } else {
+        entry.default = field.default;
+      }
+    }
+    return entry;
+  });
+}
 
 export function statusEntriesForMcp(
   statuses: readonly StatusItem[],
@@ -103,6 +150,7 @@ export function statusEntriesForMcp(
 export type FilteredTasksMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
+  fields: McpFieldEntry[];
   activeConditions: McpActiveFilterCondition[];
   tasks: ScreenContextTask[];
 };
@@ -110,6 +158,7 @@ export type FilteredTasksMcpPayload = {
 export type SelectedTaskMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
+  fields: McpFieldEntry[];
   selectedTaskId: ScheduleId | null;
   selectedTask: ScreenContextTask | null;
 };
@@ -117,6 +166,7 @@ export type SelectedTaskMcpPayload = {
 export type SelectedTasksMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
+  fields: McpFieldEntry[];
   selectedTasks: ScreenContextTask[];
 };
 
@@ -145,6 +195,7 @@ export type McpScheduleTasksContext = {
   title?: string;
   milestoneGroups?: MilestoneGroup[];
   milestones?: Milestone[];
+  fields?: readonly ScheduleFieldDef[];
 };
 
 function scheduleDocumentForMcpTasks(
@@ -184,6 +235,9 @@ function taskToContext(ref: FilteredTaskRef): ScreenContextTask {
     ...(hasTaskTodos(task) ? { todos: task.todos!.map((item) => ({ ...item })) } : {}),
     ...(task.note !== undefined ? { note: task.note } : {}),
     tags: [...(task.tags ?? [])],
+    ...(task.fieldValues != null && Object.keys(task.fieldValues).length > 0
+      ? { fieldValues: { ...task.fieldValues } }
+      : {}),
   };
 }
 
@@ -197,6 +251,7 @@ export function buildActiveFilterConditions(input: {
   outline?: OutlineRoot | undefined;
   memberCatalog: Map<MemberId, Member> | null;
   statuses?: readonly StatusItem[];
+  fields?: readonly ScheduleFieldDef[];
 }): McpActiveFilterCondition[] {
   const conditions: McpActiveFilterCondition[] = [];
   const { filters } = input;
@@ -287,6 +342,16 @@ export function buildActiveFilterConditions(input: {
     conditions.push({ type: "milestoneBandHidden", groups: hidden });
   }
 
+  if (input.fields != null) {
+    for (const def of input.fields) {
+      const condition = filters.fieldFilters?.[def.key];
+      if (!condition || !isFieldFilterActive(def, condition)) continue;
+      const label = fieldFilterChipLabel(def, condition);
+      if (!label) continue;
+      conditions.push({ type: "fieldFilter", key: def.key, label });
+    }
+  }
+
   const searchName = filters.search.trim();
   if (searchName) {
     conditions.push({ type: "searchName", query: searchName });
@@ -347,9 +412,11 @@ export function buildFilteredTasksPayload(
     lineageIds: ReadonlySet<ScheduleId> | null;
     statuses?: readonly StatusItem[];
     levels?: readonly ScheduleLevelDef[] | null;
+    fields?: readonly ScheduleFieldDef[];
   },
 ): FilteredTasksMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
+  const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const doc = scheduleDocumentForMcpTasks(input);
   const matched = listTasksMatchingFilterInDocument(
@@ -359,10 +426,12 @@ export function buildFilteredTasksPayload(
     input.memberCatalog,
     input.lineageIds,
     statuses,
+    input.fields,
   );
   return {
     levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
+    fields: fieldEntries,
     activeConditions: buildActiveFilterConditions({
       filters: input.filters,
       hiddenMilestoneGroupIds: input.hiddenMilestoneGroupIds,
@@ -373,6 +442,7 @@ export function buildFilteredTasksPayload(
       outline: input.outline,
       memberCatalog: input.memberCatalog,
       statuses,
+      fields: input.fields,
     }),
     tasks: matched.map(taskToContext),
   };
@@ -387,9 +457,11 @@ export function buildSelectedTaskPayload(
     selectedTaskId: ScheduleId | null;
     statuses?: readonly StatusItem[];
     levels?: readonly ScheduleLevelDef[] | null;
+    fields?: readonly ScheduleFieldDef[];
   },
 ): SelectedTaskMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
+  const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const doc = scheduleDocumentForMcpTasks(input);
   const matched = listTasksMatchingFilterInDocument(
@@ -399,6 +471,7 @@ export function buildSelectedTaskPayload(
     input.memberCatalog,
     input.lineageIds,
     statuses,
+    input.fields,
   );
   const selectedTask = resolveSelectedTask(
     doc,
@@ -408,6 +481,7 @@ export function buildSelectedTaskPayload(
   return {
     levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
+    fields: fieldEntries,
     selectedTaskId: input.selectedTaskId,
     selectedTask,
   };
@@ -418,15 +492,22 @@ export function buildSelectedTasksPayload(
     selectedTaskIds: readonly ScheduleId[];
     statuses?: readonly StatusItem[];
     levels?: readonly ScheduleLevelDef[] | null;
+    fields?: readonly ScheduleFieldDef[];
   },
 ): SelectedTasksMcpPayload {
   const statusEntries = statusEntriesForMcp(
     input.statuses ?? BUILTIN_STATUS_ITEMS,
   );
+  const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const selected = new Set(input.selectedTaskIds);
   if (selected.size === 0) {
-    return { levels: levelEntries, statuses: statusEntries, selectedTasks: [] };
+    return {
+      levels: levelEntries,
+      statuses: statusEntries,
+      fields: fieldEntries,
+      selectedTasks: [],
+    };
   }
   const doc = scheduleDocumentForMcpTasks(input);
   const selectedTasks: ScreenContextTask[] = [];
@@ -441,7 +522,12 @@ export function buildSelectedTasksPayload(
       }),
     );
   }
-  return { levels: levelEntries, statuses: statusEntries, selectedTasks };
+  return {
+    levels: levelEntries,
+    statuses: statusEntries,
+    fields: fieldEntries,
+    selectedTasks,
+  };
 }
 
 export function buildScheduleDiffPayload(input: {

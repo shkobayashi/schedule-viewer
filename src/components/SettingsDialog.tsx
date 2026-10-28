@@ -75,9 +75,15 @@ import { workspaceFileDisplayLabel } from "../model/workspaceDisplay";
 import {
   workspaceBindingSummary,
   workspaceCalendarError,
+  workspaceFieldExtensionsError,
   workspaceMemberError,
   workspaceStatusesError,
 } from "../model/workspaceLoad";
+import {
+  parseFieldExtensionCatalogText,
+  pickFieldExtensionsJsonFile,
+} from "../model/fieldExtensionAppData";
+import type { AppFieldExtensionsSettings } from "../model/fieldExtensionTypes";
 
 function formatAppVersionLine(raw: string): string {
   const normalized = normalizeVersionLabel(raw);
@@ -153,6 +159,24 @@ type SettingsDialogProps = {
   storeDistribution?: boolean;
   workspaceBinding?: WorkspaceWindowBinding | null;
   workspaceStatusEditor?: { onOpenEditor: () => void };
+  workspaceFieldExtensionEditor?: { onOpenEditor: () => void };
+  workspaceEditableFieldExtensionError?: string | null;
+  onCreateWorkspaceEditableFieldExtension?: () => Promise<void>;
+  onDeleteWorkspaceEditableFieldExtension?: () => Promise<void>;
+  onClearWorkspaceEditableFieldExtension?: () => Promise<void>;
+  fieldExtensionEditor?: { onOpenEditor: () => void };
+  fieldExtensionSettings?: AppFieldExtensionsSettings;
+  fieldExtensionSelectedLabels?: string[];
+  fieldExtensionsError?: string | null;
+  onImportFieldExtension?: (
+    contents: string,
+    overwrite: boolean,
+  ) => Promise<void>;
+  onToggleFieldExtension?: (
+    catalogId: string,
+    selected: boolean,
+  ) => Promise<void>;
+  onDeleteFieldExtension?: (catalogId: string) => Promise<void>;
 };
 
 function betaInstallerPlatform(): "windows" | "linux" | null {
@@ -166,6 +190,7 @@ function betaInstallerPlatform(): "windows" | "linux" | null {
 export type SettingsSection =
   | "display"
   | "members"
+  | "fieldExtensions"
   | "statuses"
   | "calendar"
   | "updates"
@@ -211,7 +236,19 @@ export function SettingsDialog({
   onSaveBetaInstaller,
   betaInstallerStatusLine = null,
   workspaceBinding = null,
+  fieldExtensionSettings,
+  fieldExtensionSelectedLabels = [],
+  fieldExtensionsError = null,
+  onImportFieldExtension,
+  onToggleFieldExtension,
+  onDeleteFieldExtension,
   workspaceStatusEditor,
+  workspaceFieldExtensionEditor,
+  workspaceEditableFieldExtensionError = null,
+  onCreateWorkspaceEditableFieldExtension,
+  onDeleteWorkspaceEditableFieldExtension,
+  onClearWorkspaceEditableFieldExtension,
+  fieldExtensionEditor,
 }: SettingsDialogProps) {
   const displayScaleShortcut = usesCommandKey(
     navigator.platform || navigator.userAgent,
@@ -239,6 +276,7 @@ export function SettingsDialog({
   useEffect(() => {
     setMessage(null);
     setMcpPanelMessage(null);
+    setDeleteEditableFieldExtensionConfirm(false);
   }, [section]);
 
   useEffect(() => {
@@ -249,6 +287,10 @@ export function SettingsDialog({
   }, [open, section]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [
+    deleteEditableFieldExtensionConfirm,
+    setDeleteEditableFieldExtensionConfirm,
+  ] = useState(false);
   const [mcpPanelMessage, setMcpPanelMessage] = useState<{
     text: string;
     kind: "status" | "alert";
@@ -280,6 +322,10 @@ export function SettingsDialog({
     catalogId: string;
     contents: string;
   } | null>(null);
+  const [confirmFieldExtensionOverwriteId, setConfirmFieldExtensionOverwriteId] =
+    useState<string | null>(null);
+  const [pendingFieldExtensionImport, setPendingFieldExtensionImport] =
+    useState<string | null>(null);
   const [confirmCalendarOverwrite, setConfirmCalendarOverwrite] = useState(false);
   const [pendingCalendarImport, setPendingCalendarImport] = useState<{
     label: string;
@@ -387,7 +433,7 @@ export function SettingsDialog({
     try {
       await action();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : failure);
+      setMessage(errorMessage(error, failure));
     } finally {
       setBusy(false);
     }
@@ -445,6 +491,60 @@ export function SettingsDialog({
       return;
     }
     await runImport(catalogId, pick.contents, false);
+  };
+
+  const runFieldExtensionImport = async (
+    contents: string,
+    overwrite: boolean,
+  ) => {
+    if (!onImportFieldExtension) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await onImportFieldExtension(contents, overwrite);
+      const doc = parseFieldExtensionCatalogText(contents);
+      setMessage(`「${doc.name}」を取り込みました。`);
+      setConfirmFieldExtensionOverwriteId(null);
+      setPendingFieldExtensionImport(null);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "取り込みに失敗しました。",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleFieldExtensionImportClick = async () => {
+    if (!onImportFieldExtension) return;
+    let pick: Awaited<ReturnType<typeof pickFieldExtensionsJsonFile>>;
+    try {
+      pick = await pickFieldExtensionsJsonFile();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "取り込みに失敗しました。",
+      );
+      return;
+    }
+    if (!pick) return;
+    let doc: ReturnType<typeof parseFieldExtensionCatalogText>;
+    try {
+      doc = parseFieldExtensionCatalogText(pick.contents);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "取り込みに失敗しました。",
+      );
+      return;
+    }
+    const exists = fieldExtensionSettings?.catalogs.some(
+      (catalog) => catalog.id === doc.id,
+    );
+    if (exists) {
+      setPendingFieldExtensionImport(pick.contents);
+      setConfirmFieldExtensionOverwriteId(doc.id);
+      return;
+    }
+    await runFieldExtensionImport(pick.contents, false);
   };
 
   const runCalendarImport = async (label: string, contents: string) => {
@@ -705,6 +805,14 @@ export function SettingsDialog({
             </button>
             <button
               type="button"
+              className={section === "fieldExtensions" ? "active" : undefined}
+              aria-current={section === "fieldExtensions" ? "true" : undefined}
+              onClick={() => setSection("fieldExtensions")}
+            >
+              拡張項目
+            </button>
+            <button
+              type="button"
               className={section === "statuses" ? "active" : undefined}
               aria-current={section === "statuses" ? "true" : undefined}
               onClick={() => setSection("statuses")}
@@ -957,6 +1065,206 @@ export function SettingsDialog({
                   </>
                 )}
               </>
+            ) : null}
+            {section === "fieldExtensions" && fieldExtensionSettings ? (
+              workspaceBinding ? (
+                <>
+                  <p className="settings-note">
+                    {`このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。ピン留めの拡張は設定ファイルの指定どおり表示し、ここでは直しません。編集用の拡張は、このプロジェクト用に一つだけ作って項目を直せます。`}
+                  </p>
+                  <p className="settings-current">
+                    ピン留め:{" "}
+                    {workspaceBindingSummary(workspaceBinding).fieldExtensionsLabel}
+                  </p>
+                  <p className="settings-current">
+                    編集用:{" "}
+                    {workspaceBindingSummary(workspaceBinding).editableFieldExtensionLabel}
+                  </p>
+                  {workspaceFieldExtensionsError(workspaceBinding.fieldExtensions) ? (
+                    <p className="settings-message" role="alert">
+                      {workspaceFieldExtensionsError(workspaceBinding.fieldExtensions)}
+                    </p>
+                  ) : null}
+                  {workspaceEditableFieldExtensionError ? (
+                    <p className="settings-message" role="alert">
+                      {workspaceEditableFieldExtensionError}
+                    </p>
+                  ) : null}
+                  {onClearWorkspaceEditableFieldExtension &&
+                  workspaceBinding.document.editableFieldExtension != null ? (
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        disabled={busy}
+                        onClick={() =>
+                          void runAction(
+                            onClearWorkspaceEditableFieldExtension,
+                            "編集用の拡張を設定ファイルから外せませんでした。",
+                          )
+                        }
+                      >
+                        編集用の参照を外す
+                      </button>
+                    </div>
+                  ) : null}
+                  <div className="settings-actions">
+                    {onCreateWorkspaceEditableFieldExtension ? (
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        disabled={busy}
+                        onClick={() =>
+                          void runAction(
+                            onCreateWorkspaceEditableFieldExtension,
+                            "編集用の拡張を作れませんでした。",
+                          )
+                        }
+                      >
+                        編集用の拡張を作る
+                      </button>
+                    ) : null}
+                    {workspaceFieldExtensionEditor ? (
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={workspaceFieldExtensionEditor.onOpenEditor}
+                      >
+                        項目を編集…
+                      </button>
+                    ) : null}
+                    {onDeleteWorkspaceEditableFieldExtension ? (
+                      deleteEditableFieldExtensionConfirm ? (
+                        <>
+                          <button
+                            type="button"
+                            className="toolbar-btn"
+                            disabled={busy}
+                            onClick={() =>
+                              setDeleteEditableFieldExtensionConfirm(false)
+                            }
+                          >
+                            やめる
+                          </button>
+                          <button
+                            type="button"
+                            className="toolbar-btn toolbar-btn-danger"
+                            disabled={busy}
+                            onClick={() =>
+                              void runAction(async () => {
+                                await onDeleteWorkspaceEditableFieldExtension();
+                                setDeleteEditableFieldExtensionConfirm(false);
+                              }, "編集用の拡張を消せませんでした。")
+                            }
+                          >
+                            消す
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="toolbar-btn toolbar-btn-danger"
+                          disabled={busy}
+                          onClick={() =>
+                            setDeleteEditableFieldExtensionConfirm(true)
+                          }
+                        >
+                          消す
+                        </button>
+                      )
+                    ) : null}
+                  </div>
+                  {deleteEditableFieldExtensionConfirm ? (
+                    <p className="settings-note">
+                      編集用の拡張を設定ファイルから外し、ファイルを消します。タスクの値は残り、定義の無い追加項目になります。
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <p className="settings-note">
+                    拡張項目 JSON を取り込み、使う定義を複数選べます。値のキーは
+                    プラグイン ID と項目 ID を _ でつなぎます。「項目を編集…」で定義を直せます。
+                  </p>
+                  {fieldExtensionSelectedLabels.length > 0 ? (
+                    <p className="settings-current">
+                      使用中: {fieldExtensionSelectedLabels.join("、")}
+                    </p>
+                  ) : (
+                    <p className="settings-current">使用中: 未選択</p>
+                  )}
+                  {fieldExtensionsError ? (
+                    <p className="settings-message" role="alert">
+                      {fieldExtensionsError}
+                    </p>
+                  ) : null}
+                  <div className="settings-actions">
+                    <button
+                      type="button"
+                      className="toolbar-btn"
+                      disabled={busy || !onImportFieldExtension}
+                      onClick={() => void handleFieldExtensionImportClick()}
+                    >
+                      取り込み…
+                    </button>
+                    {fieldExtensionEditor &&
+                    fieldExtensionSettings.catalogs.length > 0 ? (
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={fieldExtensionEditor.onOpenEditor}
+                      >
+                        項目を編集…
+                      </button>
+                    ) : null}
+                  </div>
+                  <ul className="settings-catalog-list">
+                    {fieldExtensionSettings.catalogs.length === 0 ? (
+                      <li className="muted">取り込み済みの拡張はありません。</li>
+                    ) : (
+                      fieldExtensionSettings.catalogs.map((catalog) => (
+                        <li key={catalog.id}>
+                          <label className="settings-catalog-row">
+                            <input
+                              type="checkbox"
+                              checked={fieldExtensionSettings.selectedCatalogIds.includes(
+                                catalog.id,
+                              )}
+                              disabled={busy || !onToggleFieldExtension}
+                              onChange={(e) =>
+                                void runAction(
+                                  () =>
+                                    onToggleFieldExtension!(
+                                      catalog.id,
+                                      e.target.checked,
+                                    ),
+                                  "選択を変えられませんでした。",
+                                )
+                              }
+                            />
+                            <span>
+                              {catalog.label}（{catalog.id}）
+                            </span>
+                          </label>
+                          <button
+                            type="button"
+                            className="toolbar-btn"
+                            disabled={busy || !onDeleteFieldExtension}
+                            onClick={() =>
+                              void runAction(
+                                () => onDeleteFieldExtension!(catalog.id),
+                                "拡張を外せませんでした。",
+                              )
+                            }
+                          >
+                            外す
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </>
+              )
             ) : null}
             {section === "statuses" ? (
               workspaceBinding ? (
@@ -1302,7 +1610,7 @@ export function SettingsDialog({
             {section === "jsonSkills" ? (
               <>
                 <p className="settings-note">
-                  write-schedule、write-members、write-calendar、write-workspace
+                  write-schedule、write-members、write-calendar、write-workspace、write-fields
                   の4つをまとめて置きます。中身はマージしません。git
                   には入れず、置いたパスだけを使います。検証スクリプトは Node.js
                   で動かします。画面の状態を渡す手順は、設定の「画面の状態を渡す」にあります。
@@ -1482,6 +1790,36 @@ export function SettingsDialog({
             </div>
           </div>
         ) : null}
+        {confirmFieldExtensionOverwriteId && pendingFieldExtensionImport ? (
+          <div className="settings-confirm">
+            <p>
+              「{confirmFieldExtensionOverwriteId}」は既にあります。上書きしますか？
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="toolbar-btn"
+                disabled={busy}
+                onClick={() =>
+                  void runFieldExtensionImport(pendingFieldExtensionImport, true)
+                }
+              >
+                上書き
+              </button>
+              <button
+                type="button"
+                className="toolbar-btn"
+                disabled={busy}
+                onClick={() => {
+                  setConfirmFieldExtensionOverwriteId(null);
+                  setPendingFieldExtensionImport(null);
+                }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        ) : null}
         {confirmCalendarOverwrite && pendingCalendarImport ? (
           <div className="settings-confirm">
             <p>既にカレンダーがあります。上書きしますか？</p>
@@ -1610,7 +1948,7 @@ export function SettingsDialog({
         {section === "jsonSkills" && confirmJsonSkillUninstall ? (
           <div className="settings-confirm">
             <p>
-              選んだ場所から write-schedule、write-members、write-calendar、write-workspace
+              選んだ場所から write-schedule、write-members、write-calendar、write-workspace、write-fields
               の4つを外します。ほかのスキルや skills フォルダ自体は残します。
             </p>
             <div className="modal-actions">

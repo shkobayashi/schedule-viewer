@@ -12,6 +12,7 @@ export type WindowStartupRead = {
 export type PendingScheduleWindowOpen = {
   path: string;
   contents: string;
+  workspacePath?: string | null;
 };
 
 export type OpenWindowsSnapshot = {

@@ -480,6 +480,9 @@ export function outlineAfterDuplicate(
       predecessors: [],
       milestoneId: null,
       ...(source.tags ? { tags: [...source.tags] } : {}),
+      ...(source.fieldValues
+        ? { fieldValues: { ...source.fieldValues } }
+        : {}),
     },
     sourceId,
     levelCount,

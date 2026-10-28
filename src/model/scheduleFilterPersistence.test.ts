@@ -35,9 +35,102 @@ describe("parseScheduleFilterPersistence", () => {
 
   it("rejects wrong version", () => {
     const text = JSON.stringify({
-      version: 2,
+      version: 3,
       path: PATH,
       filters: defaultScheduleFilterViewState().filters,
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+    });
+    expect(parseScheduleFilterPersistence(text, PATH).ok).toBe(false);
+  });
+
+  it("accepts version 2 with fieldFilters", () => {
+    const text = JSON.stringify({
+      version: 2,
+      path: PATH,
+      filters: {
+        ...defaultScheduleFilterViewState().filters,
+        fieldFilters: {
+          memo: { empty: "any", text: "レビュー" },
+        },
+      },
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+    });
+    const parsed = parseScheduleFilterPersistence(text, PATH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.data.version).toBe(2);
+    expect(parsed.data.filters.fieldFilters?.memo?.text).toBe("レビュー");
+  });
+
+  it("loads version 1 without fieldFilters as empty", () => {
+    const text = JSON.stringify({
+      version: 1,
+      path: PATH,
+      filters: defaultScheduleFilterViewState().filters,
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+    });
+    const parsed = parseScheduleFilterPersistence(text, PATH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const view = viewStateFromPersistence(parsed.data);
+    expect(view.filters.fieldFilters).toEqual({});
+  });
+
+  it("loads version 1 with other filters while fieldFilters stay empty", () => {
+    const text = JSON.stringify({
+      version: 1,
+      path: PATH,
+      filters: {
+        ...defaultScheduleFilterViewState().filters,
+        status: "in-progress",
+        fieldFilters: { memo: { empty: "any", text: "ignored" } },
+      },
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+    });
+    const parsed = parseScheduleFilterPersistence(text, PATH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const view = viewStateFromPersistence(parsed.data);
+    expect(view.filters.fieldFilters).toEqual({});
+    expect(view.filters.status).toBe("in-progress");
+  });
+
+  it("loads version 2 skipping invalid field filter keys", () => {
+    const text = JSON.stringify({
+      version: 2,
+      path: PATH,
+      filters: {
+        ...defaultScheduleFilterViewState().filters,
+        status: "in-progress",
+        fieldFilters: {
+          memo: { empty: "any", text: "ok" },
+          score: { empty: "bad" },
+        },
+      },
+      searchField: "name",
+      hiddenMilestoneGroupIds: [],
+    });
+    const parsed = parseScheduleFilterPersistence(text, PATH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.data.filters.fieldFilters).toEqual({
+      memo: { empty: "any", text: "ok" },
+    });
+    expect(parsed.data.filters.status).toBe("in-progress");
+  });
+
+  it("rejects filters when fieldFilters is not an object", () => {
+    const text = JSON.stringify({
+      version: 2,
+      path: PATH,
+      filters: {
+        ...defaultScheduleFilterViewState().filters,
+        fieldFilters: [],
+      },
       searchField: "name",
       hiddenMilestoneGroupIds: [],
     });
@@ -183,6 +276,25 @@ describe("pruneScheduleFilterViewState", () => {
     },
   ];
   const milestoneGroups = [{ id: "mg1", name: "MG" }, { id: "mg2", name: "MG2" }];
+
+  it("keeps field filters when pruneFieldFilters is false and definitions are empty", () => {
+    const state = defaultScheduleFilterViewState();
+    state.filters.fieldFilters = {
+      memo: { empty: "any", text: "レビュー" },
+    };
+    const pruned = pruneScheduleFilterViewState(
+      state,
+      {
+        categories,
+        milestones,
+        milestoneGroups,
+        knownMemberIds: new Set(),
+        fields: [],
+      },
+      { pruneFieldFilters: false },
+    );
+    expect(pruned.filters.fieldFilters?.memo?.text).toBe("レビュー");
+  });
 
   it("clears unknown assignee", () => {
     const state = defaultScheduleFilterViewState();
