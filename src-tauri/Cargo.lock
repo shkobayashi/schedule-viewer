@@ -3259,7 +3259,7 @@ version = "0.101.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49aa1d1558e9465f5053bf9fb5361fe75db827c6a4423d5e5fe72096622f8908"
 dependencies = [
- "zip 9.0.5",
+ "zip 9.1.0",
 ]
 
 [[package]]
@@ -3398,7 +3398,7 @@ dependencies = [
 name = "schedule-viewer"
 version = "1.11.1"
 dependencies = [
- "dirs 7.0.0",
+ "dirs",
  "libc",
  "notify-rust",
  "reqwest 0.12.28",
@@ -3418,7 +3418,7 @@ dependencies = [
  "url",
  "uuid",
  "windows-sys 0.61.2",
- "zip 9.0.5",
+ "zip 9.1.0",
 ]
 
 [[package]]
@@ -4053,7 +4053,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "cookie",
- "dirs 7.0.0",
+ "dirs",
  "dunce",
  "embed_plist",
  "getrandom 0.3.4",
@@ -4103,7 +4103,7 @@ checksum = "2eea0b6302f82c574b21af6fc6ae6e86183b9280853c22621d0abf0936911ffc"
 dependencies = [
  "anyhow",
  "cargo_toml",
- "dirs 7.0.0",
+ "dirs",
  "glob",
  "heck 0.5.0",
  "json-patch",
@@ -4290,7 +4290,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7259989d4fe11b2bf51f7d671642249b1837c4ae2da1430dc713ae38f98ceeec"
 dependencies = [
  "base64 0.22.1",
- "dirs 7.0.0",
+ "dirs",
  "flate2",
  "futures-util",
  "http",
@@ -4752,7 +4752,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2b9c52859a94554803ccd4a24b98f74148ebc73b90676d783f3490b1bff9d72"
 dependencies = [
  "crossbeam-channel",
- "dirs 7.0.0",
+ "dirs",
  "libappindicator",
  "muda",
  "objc2",
@@ -4775,9 +4775,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "typed-path"
-version = "0.12.4"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54ec2755506471f54baf5e4bb5499d8e510cc1caf271270e778a736bd2d7336c"
+checksum = "9ce898823d8cd0f028662d2f349694b1af0a5cc9be83f1d213a00d3147445e1e"
 
 [[package]]
 name = "typeid"
@@ -5583,7 +5583,7 @@ dependencies = [
  "block2",
  "cookie",
  "crossbeam-channel",
- "dirs 7.0.0",
+ "dirs",
  "dom_query",
  "dpi",
  "dunce",
@@ -5835,16 +5835,18 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "9.0.5"
+version = "9.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e04976da629d3b04204ba8105b396a193af8ad2583b2c79bfb3ab8af580a11e"
+checksum = "2886b00003a72c4ccee3f42cfc34908d33b2508a74d827dc2a4244706475c704"
 dependencies = [
  "crc32fast",
  "flate2",
+ "getrandom 0.4.3",
  "indexmap 2.14.2",
  "memchr",
  "nix",
  "typed-path",
+ "windows-sys 0.61.2",
  "zopfli",
 ]
 
