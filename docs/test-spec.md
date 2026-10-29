@@ -14,6 +14,7 @@
 
 | 種類 | コマンド | 見ているもの |
 | --- | --- | --- |
+| node:test | `npm test` の中の `node --test scripts/*.test.mjs` | `scripts/*.test.mjs`。操作マニュアルサイトは、同じページ内の `#見出し` をその HTML の見出し id と照合する |
 | Vitest | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
 | Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査 |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外 |
@@ -38,6 +39,12 @@
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更（操作マニュアル以外）ではフロントと Rust と `manual` はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
 ## 自動テスト一覧
+
+### node:test
+
+| ファイル | ケース |
+| --- | --- |
+| `scripts/build-user-manual-site.test.mjs` | 同じページ内の `#見出し` は、その HTML の見出し id と照合する。無いときは HTML ファイル名を出して失敗する |
 
 ### Vitest
 
