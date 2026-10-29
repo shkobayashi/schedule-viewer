@@ -634,4 +634,34 @@ describe("exportExcel", () => {
       payload.milestoneMarks.every((mark) => !mark.character.includes("佐藤")),
     ).toBe(true);
   });
+
+  it("includes row fill rgb for colored tasks", () => {
+    const input = baseInput();
+    const row = input.visibleRows[0];
+    if (row?.type !== "task") throw new Error("expected task row");
+    input.visibleRows = [
+      {
+        ...row,
+        task: { ...row.task, colorId: "focus" },
+      },
+    ];
+    input.colors = [
+      {
+        id: "focus",
+        name: "注力",
+        description: "x",
+        color: {
+          light: { bg: "#FEF3C7" },
+          dark: { bg: "#78350F" },
+        },
+      },
+    ];
+    const payload = buildExcelExportPayload(input);
+    expect(payload.rows[0]?.rowFillRgb).toBe("FEF3C7");
+    const darkPayload = buildExcelExportPayload({
+      ...input,
+      colorScheme: "dark",
+    });
+    expect(darkPayload.rows[0]?.rowFillRgb).toBe("FEF3C7");
+  });
 });

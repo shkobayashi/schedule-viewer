@@ -156,6 +156,7 @@ $requiredSkillFiles = @(
   "json-skills\write-calendar\SKILL.md",
   "json-skills\write-workspace\SKILL.md",
   "json-skills\write-fields\SKILL.md",
+  "json-skills\write-colors\SKILL.md",
   "read-screen\SKILL.md"
 )
 foreach ($relativePath in $requiredSkillFiles) {

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import GithubSlugger from "github-slugger";
 import { Marked } from "marked";
 
@@ -158,6 +158,16 @@ function rewriteMarkdownLinks(markdown, sourceFile) {
   );
 }
 
+function pageOutForSource(sourceFile) {
+  const resolved = path.resolve(sourceFile);
+  for (const page of PAGES) {
+    if (path.resolve(page.source) === resolved) {
+      return page.out;
+    }
+  }
+  return "";
+}
+
 function validateFragment(sourceFile, href, rewritten) {
   const fragment = href.includes("#") ? href.split("#")[1] : "";
   if (!fragment) {
@@ -177,7 +187,7 @@ function validateFragment(sourceFile, href, rewritten) {
     return;
   }
 
-  const htmlFile = rewritten.split("#")[0];
+  const htmlFile = rewritten.split("#")[0] || pageOutForSource(sourceFile);
   const ids = pageSlugSets.get(htmlFile);
   if (!ids?.has(fragment)) {
     throw new Error(
@@ -186,7 +196,7 @@ function validateFragment(sourceFile, href, rewritten) {
   }
 }
 
-function validateLinks(markdown, sourceFile) {
+export function validateLinks(markdown, sourceFile) {
   const re = /(?<!!)\[[^\]]*\]\(([^)]+)\)/g;
   for (const match of markdown.matchAll(re)) {
     const href = match[1];
@@ -360,4 +370,6 @@ function main() {
   console.log(`Wrote ${siteDir}`);
 }
 
-main();
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main();
+}

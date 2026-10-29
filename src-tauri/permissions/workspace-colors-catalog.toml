@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-create-workspace-colors-catalog"
+description = "Allows creating a workspace-bound color catalog file."
+commands.allow = ["create_workspace_colors_catalog"]

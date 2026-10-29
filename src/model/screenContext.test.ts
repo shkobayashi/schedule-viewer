@@ -10,6 +10,7 @@ import { mcpLevelsFromDocument } from "./hierarchyLevelEdit";
 import {
   buildActiveFilterConditions,
   buildFilteredTasksPayload,
+  colorEntriesForMcp,
   fieldEntriesForMcp,
   statusEntriesForMcp,
   buildScheduleDiffPayload,
@@ -21,6 +22,7 @@ import {
 import { listTasksMatchingFilter } from "./rows";
 import { documentToJsonString } from "./serialize";
 import { BUILTIN_STATUS_ITEMS, type StatusItem } from "./statusCatalog";
+import type { ColorItem } from "./colorCatalog";
 import { updateStatusItem } from "./statusEdit";
 import {
   SCHEDULE_SCHEMA_VERSION,
@@ -527,6 +529,7 @@ describe("split MCP payloads", () => {
     expect(selectedManyText).toEqual({
       levels: mcpLevelsFromDocument({}),
       statuses: statusEntriesForMcp(BUILTIN_STATUS_ITEMS),
+      colors: [],
       fields: [],
       selectedTasks: [],
     });
@@ -676,10 +679,24 @@ describe("field catalog in MCP payloads", () => {
     expect(Object.keys(payload)).toEqual([
       "levels",
       "statuses",
+      "colors",
       "fields",
       "activeConditions",
       "tasks",
     ]);
+  });
+
+  it("returns empty colors array when no catalog", () => {
+    const payload = buildSelectedTaskPayload({
+      categories: [],
+      filters,
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      selectedTaskId: null,
+      colors: null,
+    });
+    expect(payload.colors).toEqual([]);
   });
 
   it("returns empty fields array when no definitions", () => {
@@ -784,6 +801,201 @@ describe("field catalog in MCP payloads", () => {
     expect(fieldEntriesForMcp(sparse)).toEqual([
       { key: "sparse", name: "S", type: "choice" },
     ]);
+  });
+});
+
+describe("color catalog in MCP payloads", () => {
+  const sampleColors: ColorItem[] = [
+    {
+      id: "focus",
+      name: "注力",
+      description: "今いちばん手を付ける作業。",
+      color: {
+        light: { bg: "#FEF3C7" },
+        dark: { bg: "#78350F" },
+      },
+    },
+  ];
+
+  it("maps catalog entries with light and dark bg only", () => {
+    expect(colorEntriesForMcp(sampleColors)).toEqual([
+      {
+        id: "focus",
+        name: "注力",
+        description: "今いちばん手を付ける作業。",
+        color: {
+          light: { bg: "#FEF3C7" },
+          dark: { bg: "#78350F" },
+        },
+      },
+    ]);
+    expect(colorEntriesForMcp(sampleColors)[0]).not.toHaveProperty("role");
+  });
+
+  it("returns empty colors on all three read payloads when unset", () => {
+    const base = {
+      categories: [] as Category[],
+      colors: null as ColorItem[] | null,
+    };
+    expect(
+      buildFilteredTasksPayload({
+        ...base,
+        filters,
+        lineageTaskId: null,
+        hiddenMilestoneGroupIds: [],
+        milestoneGroups: [],
+        milestones: [],
+        today: "2026-01-01",
+        memberCatalog: null,
+        lineageIds: null,
+      }).colors,
+    ).toEqual([]);
+    expect(
+      buildSelectedTaskPayload({
+        ...base,
+        filters,
+        today: "2026-01-01",
+        memberCatalog: null,
+        lineageIds: null,
+        selectedTaskId: null,
+      }).colors,
+    ).toEqual([]);
+    expect(
+      buildSelectedTasksPayload({
+        ...base,
+        selectedTaskIds: [],
+      }).colors,
+    ).toEqual([]);
+  });
+
+  it("includes colorId on tasks when set in categories", () => {
+    const taskWith: Task = {
+      id: "00000000-0000-4000-8000-00000000000a",
+      name: "A",
+      start: "2026-01-01",
+      end: "2026-01-02",
+      assigneeIds: [],
+      status: "not-started",
+      progress: 0,
+      confidence: "committed",
+      predecessors: [],
+      milestoneId: null,
+      colorId: "focus",
+    };
+    const taskWithout: Task = {
+      ...taskWith,
+      id: "00000000-0000-4000-8000-00000000000b",
+      name: "B",
+      colorId: undefined,
+    };
+    const categories = [
+      {
+        id: "c1000001-0000-4000-8000-000000000001",
+        name: "設計",
+        groups: [
+          {
+            id: "d1000001-0000-4000-8000-000000000001",
+            name: "上流",
+            tasks: [taskWith, taskWithout],
+          },
+        ],
+      },
+    ];
+    const payload = buildFilteredTasksPayload({
+      categories,
+      colors: sampleColors,
+      filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+    });
+    expect(payload.tasks[0].colorId).toBe("focus");
+    expect(payload.tasks[1]).not.toHaveProperty("colorId");
+  });
+
+  it("includes colorId on outline tasks when set", () => {
+    const outline: OutlineRoot = [
+      {
+        id: "h1",
+        name: "見出し",
+        children: [
+          {
+            id: "00000000-0000-4000-8000-00000000000a",
+            name: "タスク",
+            start: "2026-01-01",
+            end: "2026-01-02",
+            assigneeIds: [],
+            status: "not-started",
+            progress: 0,
+            confidence: "committed",
+            predecessors: [],
+            milestoneId: null,
+            colorId: "focus",
+          },
+          {
+            id: "00000000-0000-4000-8000-00000000000b",
+            name: "色なし",
+            start: "2026-01-01",
+            end: "2026-01-02",
+            assigneeIds: [],
+            status: "not-started",
+            progress: 0,
+            confidence: "committed",
+            predecessors: [],
+            milestoneId: null,
+          },
+        ],
+      },
+    ];
+    const payload = buildSelectedTasksPayload({
+      categories: [],
+      outline,
+      selectedTaskIds: [
+        "00000000-0000-4000-8000-00000000000a",
+        "00000000-0000-4000-8000-00000000000b",
+      ],
+      colors: sampleColors,
+    });
+    expect(payload.selectedTasks[0].colorId).toBe("focus");
+    expect(payload.selectedTasks[1]).not.toHaveProperty("colorId");
+  });
+
+  it("includes unknown colorId on task when not in catalog", () => {
+    const taskRow: Task = {
+      id: "00000000-0000-4000-8000-00000000000a",
+      name: "A",
+      start: "2026-01-01",
+      end: "2026-01-02",
+      assigneeIds: [],
+      status: "not-started",
+      progress: 0,
+      confidence: "committed",
+      predecessors: [],
+      milestoneId: null,
+      colorId: "missing",
+    };
+    const payload = buildSelectedTasksPayload({
+      categories: [
+        {
+          id: "c1",
+          name: "C",
+          groups: [
+            {
+              id: "g1",
+              name: "G",
+              tasks: [taskRow],
+            },
+          ],
+        },
+      ],
+      selectedTaskIds: [taskRow.id],
+      colors: sampleColors,
+    });
+    expect(payload.selectedTasks[0].colorId).toBe("missing");
   });
 });
 

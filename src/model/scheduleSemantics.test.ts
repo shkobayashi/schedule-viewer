@@ -69,3 +69,13 @@ describe("scheduleSemantics fieldValues on outline", () => {
     expect(validateSchedule(doc).ok).toBe(true);
   });
 });
+
+describe("scheduleSemantics colorId", () => {
+  it("rejects blank colorId on outline tasks", () => {
+    const doc = outlineDoc({ colorId: "   " });
+    const result = validateSchedule(doc);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.some((e) => e.path.includes("colorId"))).toBe(true);
+  });
+});

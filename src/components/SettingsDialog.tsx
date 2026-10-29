@@ -2,6 +2,10 @@ import {
   SettingsStatusesSection,
   type SettingsStatusesSectionProps,
 } from "./SettingsStatusesSection";
+import {
+  SettingsColorsSection,
+  type SettingsColorsSectionProps,
+} from "./SettingsColorsSection";
 import { useEffect, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
@@ -78,6 +82,7 @@ import {
   workspaceFieldExtensionsError,
   workspaceMemberError,
   workspaceStatusesError,
+  workspaceColorsError,
 } from "../model/workspaceLoad";
 import {
   parseFieldExtensionCatalogText,
@@ -137,6 +142,7 @@ type SettingsDialogProps = {
   onSidebarColumnsChange: (value: SidebarColumnsPreference) => void;
   initialSection?: SettingsSection;
   statusCatalog: SettingsStatusesSectionProps;
+  colorCatalog: SettingsColorsSectionProps;
   onClose: () => void;
   onImport: (catalogId: string, contents: string, overwrite: boolean) => Promise<void>;
   onSelectCatalog: (catalogId: string | null) => Promise<void>;
@@ -159,6 +165,8 @@ type SettingsDialogProps = {
   storeDistribution?: boolean;
   workspaceBinding?: WorkspaceWindowBinding | null;
   workspaceStatusEditor?: { onOpenEditor: () => void };
+  workspaceColorEditor?: { onOpenEditor: () => void };
+  onCreateWorkspaceColorsCatalog?: () => Promise<void>;
   workspaceFieldExtensionEditor?: { onOpenEditor: () => void };
   workspaceEditableFieldExtensionError?: string | null;
   onCreateWorkspaceEditableFieldExtension?: () => Promise<void>;
@@ -192,6 +200,7 @@ export type SettingsSection =
   | "members"
   | "fieldExtensions"
   | "statuses"
+  | "colors"
   | "calendar"
   | "updates"
   | "mcp"
@@ -200,6 +209,7 @@ export type SettingsSection =
 export function SettingsDialog({
   open,
   statusCatalog,
+  colorCatalog,
   settings,
   selectedCatalogLabel,
   calendarLabel,
@@ -243,6 +253,8 @@ export function SettingsDialog({
   onToggleFieldExtension,
   onDeleteFieldExtension,
   workspaceStatusEditor,
+  workspaceColorEditor,
+  onCreateWorkspaceColorsCatalog,
   workspaceFieldExtensionEditor,
   workspaceEditableFieldExtensionError = null,
   onCreateWorkspaceEditableFieldExtension,
@@ -259,6 +271,7 @@ export function SettingsDialog({
   const workspaceMembersNoteRef = useRef<HTMLParagraphElement>(null);
   const workspaceCalendarNoteRef = useRef<HTMLParagraphElement>(null);
   const workspaceStatusesNoteRef = useRef<HTMLParagraphElement>(null);
+  const workspaceColorsNoteRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     if (open) setSection(initialSection);
@@ -271,7 +284,9 @@ export function SettingsDialog({
         ? workspaceCalendarNoteRef
         : section === "statuses"
           ? workspaceStatusesNoteRef
-          : undefined;
+          : section === "colors"
+            ? workspaceColorsNoteRef
+            : undefined;
 
   useEffect(() => {
     setMessage(null);
@@ -775,7 +790,8 @@ export function SettingsDialog({
         workspaceBinding &&
         (section === "members" ||
           section === "calendar" ||
-          section === "statuses")
+          section === "statuses" ||
+          section === "colors")
           ? workspaceNoteFocusRef
           : undefined
       }
@@ -818,6 +834,14 @@ export function SettingsDialog({
               onClick={() => setSection("statuses")}
             >
               ステータス
+            </button>
+            <button
+              type="button"
+              className={section === "colors" ? "active" : undefined}
+              aria-current={section === "colors" ? "true" : undefined}
+              onClick={() => setSection("colors")}
+            >
+              色
             </button>
             <button
               type="button"
@@ -1311,6 +1335,68 @@ export function SettingsDialog({
                 <SettingsStatusesSection {...statusCatalog} />
               )
             ) : null}
+            {section === "colors" ? (
+              workspaceBinding ? (
+                <>
+                  <p
+                    ref={workspaceColorsNoteRef}
+                    className="settings-note"
+                    tabIndex={-1}
+                  >
+                    {workspaceColorsError(workspaceBinding.colors)
+                      ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。色はここでは変更できません。`
+                      : workspaceColorEditor
+                        ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。色は設定ファイルの指定どおり表示します。「項目を編集…」で、このファイルの項目だけを直せます。`
+                        : onCreateWorkspaceColorsCatalog
+                          ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。色の一覧はまだありません。「色の一覧を作る」で、設定ファイルと同じフォルダに JSON を置き、設定ファイルへパスを足します。`
+                          : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。色は設定ファイルの指定どおり表示します。ここでは変更できません。`}
+                  </p>
+                  <p
+                    className="settings-current"
+                    title={
+                      workspaceBinding.resolved.colorsPath ??
+                      workspaceBinding.workspacePath
+                    }
+                  >
+                    使用中: {workspaceBindingSummary(workspaceBinding).colorsLabel}
+                  </p>
+                  {workspaceColorEditor ? (
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={workspaceColorEditor.onOpenEditor}
+                      >
+                        項目を編集…
+                      </button>
+                    </div>
+                  ) : onCreateWorkspaceColorsCatalog ? (
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="toolbar-btn"
+                        disabled={busy}
+                        onClick={() =>
+                          void runAction(
+                            onCreateWorkspaceColorsCatalog,
+                            "色の一覧を作れませんでした。",
+                          )
+                        }
+                      >
+                        色の一覧を作る
+                      </button>
+                    </div>
+                  ) : null}
+                  {workspaceColorsError(workspaceBinding.colors) ? (
+                    <p className="settings-error" role="alert">
+                      {workspaceColorsError(workspaceBinding.colors)}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <SettingsColorsSection {...colorCatalog} />
+              )
+            ) : null}
             {section === "calendar" ? (
               <>
                 {workspaceBinding ? (
@@ -1428,7 +1514,7 @@ export function SettingsDialog({
                 </div>
                 <h3 className="settings-changelog-heading">MCP を使えないときに渡す</h3>
                 <p className="settings-note">
-                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、$LOCALAPPDATA から続く1行にします。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 4 つは「JSON作成スキルを置く」にあります。
+                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、$LOCALAPPDATA から続く1行にします。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 6 つは「JSON作成スキルを置く」にあります。
                 </p>
                 <fieldset className="settings-field" disabled={busy}>
                   <legend>置く先</legend>
@@ -1610,7 +1696,7 @@ export function SettingsDialog({
             {section === "jsonSkills" ? (
               <>
                 <p className="settings-note">
-                  write-schedule、write-members、write-calendar、write-workspace、write-fields
+                  write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors
                   の4つをまとめて置きます。中身はマージしません。git
                   には入れず、置いたパスだけを使います。検証スクリプトは Node.js
                   で動かします。画面の状態を渡す手順は、設定の「画面の状態を渡す」にあります。
@@ -1948,8 +2034,8 @@ export function SettingsDialog({
         {section === "jsonSkills" && confirmJsonSkillUninstall ? (
           <div className="settings-confirm">
             <p>
-              選んだ場所から write-schedule、write-members、write-calendar、write-workspace、write-fields
-              の4つを外します。ほかのスキルや skills フォルダ自体は残します。
+              選んだ場所から write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors
+              の6つを外します。ほかのスキルや skills フォルダ自体は残します。
             </p>
             <div className="modal-actions">
               <button

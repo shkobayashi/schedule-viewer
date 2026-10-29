@@ -14,7 +14,14 @@ import { AssigneeListField } from "./AssigneeListField";
 import { daysBetween, parseDate } from "../model/dates";
 import type { Member } from "../model/memberTypes";
 import { StatusOptions } from "./StatusOptions";
+import {
+  COLOR_NONE_VALUE,
+  colorSelectOptionsForTask,
+} from "./ColorOptions";
+import { ColorSelectField } from "./ColorSelectField";
+import type { ResolvedColorScheme } from "../model/palette";
 import type { StatusItem } from "../model/statusCatalog";
+import type { ColorItem } from "../model/colorCatalog";
 import type { MemberId } from "../model/memberTypes";
 import type { TaskEditPatch } from "../model/tasks";
 import { validateTaskEdit } from "../model/tasks";
@@ -82,6 +89,8 @@ type TaskDetailPanelProps = {
   onSetTaskField: (fieldKey: string, raw: string) => string | null;
   onEditingChange: (editing: boolean) => void;
   statuses: readonly StatusItem[];
+  colors?: readonly ColorItem[] | null;
+  colorScheme: ResolvedColorScheme;
   panelRef?: Ref<TaskDetailPanelHandle>;
 };
 
@@ -103,6 +112,8 @@ export function TaskDetailPanel({
   onSetTaskField,
   onEditingChange,
   statuses,
+  colors = null,
+  colorScheme,
   panelRef,
 }: TaskDetailPanelProps) {
   const [name, setName] = useState(task.name);
@@ -110,6 +121,7 @@ export function TaskDetailPanel({
   const [start, setStart] = useState(task.start);
   const [end, setEnd] = useState(task.end);
   const [status, setStatus] = useState<TaskStatus>(task.status);
+  const [colorId, setColorId] = useState<string | null>(task.colorId ?? null);
   const [progress, setProgress] = useState(task.progress);
   const [confidence, setConfidence] = useState<TaskConfidence>(task.confidence);
   const [predecessors, setPredecessors] = useState<ScheduleId[]>(
@@ -162,6 +174,7 @@ export function TaskDetailPanel({
     setStart(task.start);
     setEnd(task.end);
     setStatus(task.status);
+    setColorId(task.colorId ?? null);
     setProgress(task.progress);
     setConfidence(task.confidence);
     setPredecessors(task.predecessors);
@@ -271,8 +284,9 @@ export function TaskDetailPanel({
       successors: successorIds,
       milestoneId: task.milestoneId,
       note: task.note ?? "",
+      ...(colors != null ? { colorId } : {}),
     };
-  }, [successorIds, task]);
+  }, [colorId, colors, successorIds, task]);
 
   const commitWith = useCallback(
     (overrides: Partial<TaskEditPatch>) => {
@@ -508,6 +522,22 @@ export function TaskDetailPanel({
             <StatusOptions statuses={statuses} current={status} />
           </select>
         </div>
+        {colors != null ? (
+          <div className="field">
+            <label htmlFor="detailColor">色</label>
+            <ColorSelectField
+              id="detailColor"
+              value={colorId ?? COLOR_NONE_VALUE}
+              options={colorSelectOptionsForTask(colors, colorId, colorScheme)}
+              onChange={(next) => {
+                const id =
+                  next === COLOR_NONE_VALUE ? null : next;
+                setColorId(id);
+                commitWith({ colorId: id });
+              }}
+            />
+          </div>
+        ) : null}
         <div className="field">
           <label htmlFor={todosActive ? undefined : "detailProgress"}>
             進捗率

@@ -8,7 +8,7 @@
 
 ![設定の「JSON作成スキルを置く」欄。置く先と範囲の選択が見える](images/ui-settings-skills.png)
 
-デスクトップ版の設定「JSON作成スキルを置く」で、Cursor、Claude Code、GitHub Copilot のうち置く先を選び、ユーザー全体か指定したフォルダかを選び、write-schedule、write-members、write-calendar、write-workspace の 4 つをまとめて置けます。GitHub Copilot はユーザー全体なら `~/.copilot/skills/`、チームで残すなら指定したフォルダの `.github/skills/` です。手で `.cursor/skills/` などへコピーして使うこともできます。
+デスクトップ版の設定「JSON作成スキルを置く」で、Cursor、Claude Code、GitHub Copilot のうち置く先を選び、ユーザー全体か指定したフォルダかを選び、write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors の 6 つをまとめて置けます。GitHub Copilot はユーザー全体なら `~/.copilot/skills/`、チームで残すなら指定したフォルダの `.github/skills/` です。手で `.cursor/skills/` などへコピーして使うこともできます。
 
 上書きの確認、外す、シンボリックリンクのときの扱いは [全機能の「設定」](features.md#設定) にあります。
 
@@ -21,6 +21,14 @@
 できた JSON は、設定の「メンバー」で取り込みます。使うカタログを 1 つ選ぶと、タスクの担当者 ID が名前で表示されます。`write-schedule` に渡すプロンプトには、使う担当の ID 一覧も書きます。担当が「メンバー不明」になるときの直し方は [全機能の「困ったとき」](features.md#担当がメンバー不明になる) にあります。
 
 休日の塗りだけを変えたいときは、`write-calendar` でカレンダー JSON を作り、設定の「稼働日」で取り込みます。タスクの日付の計算は変わりません。詳細は [全機能の「設定」](features.md#設定) にあります。
+
+## 色の一覧を取り込む
+
+行の地を塗る色の一覧 JSON は `write-colors` スキルで LLM に作らせます。`id` は、利用者が指定したときだけ書き、名前から作りません。各項目の `description` は、その `id` を選ぶ状態だけを書きます。色の名前や十六進の値は説明に書きません。ライトとダークの地色は、スキルの手順どおりの明るさの範囲に収め、範囲外を黙って置き換えません。
+
+できた JSON は、設定の「色」で取り込み、使う一覧を1つ選びます。設定ファイルでまとめて開くときは、`write-workspace` の `colors` に相対パスを書きます。色の一覧は既定では無く、無くてもスケジュールは使えます。
+
+`write-schedule` は、色を付ける依頼のときだけ、各項目の `description` に合う `id` をタスクの `colorId` に書きます。合う項目が無いときは書きません。二つ以上に合いそうなときは尋ね、答えがあるまで書きません。色の話でない更新では、今ある `colorId` を残します。タスクへの色の割り当ては [全機能の「タスクへの色」](features.md#タスクへの色) にあります。
 
 ## スケジュールを作って開く
 
@@ -35,6 +43,7 @@ write-schedule スキルに従い、schedule-viewer 用のスケジュール JSO
 - カテゴリ、グループ、タスクの階層と並び: （WBS の構造を書く）
 - 各タスク: name、start、end、confidence（日付を合意したなら committed、まだなら tentative）、assigneeId（未割当は null。一人は id の文字列。二人以上は入れた順の id 配列）、status、progress、predecessors（先行タスクの id。無ければ空）
 - 担当者 ID の一覧（assigneeId に使ってよい id だけ）: （メンバー JSON の id を列挙）
+- 色の一覧を使うときだけ、各項目の description に合う id を colorId に書く（必須にしない）
 - マイルストン（あれば）: name、date、confidence、groupId
 
 検証スクリプトを通してからファイルを渡してください。
@@ -44,7 +53,7 @@ write-schedule スキルに従い、schedule-viewer 用のスケジュール JSO
 
 できたファイルを、アプリの ☰ の「開く」で読み込みます。開き方は [全機能](features.md#ファイルを開く保存する) と [はじめに](getting-started.md#ファイルを開く保存する) にあります。
 
-スケジュール、メンバー、カレンダーを同じフォルダに置いてまとめて開くときは、`write-workspace` で `workspace.json` を作ります。任意で `statuses` にステータス一覧 JSON への相対パスを書けます。`write-schedule` にその設定ファイルのパスを渡せば、アプリを起動しなくても `schedule` の相対パス先へ書けます。`members` があるときは、そのファイルの id を担当の一覧に使います。`statuses` があるときは、そのファイルの項目の `id` をステータスに使います。`calendar` はスケジュール JSON の日付には使いません。アプリの ☰ の「設定ファイルを新しいフォルダへ書き出す」は、今の画面の写しを空のフォルダへ作る操作であり、開いている設定ファイルは更新しません。設定でチェックしている拡張項目も、同じフォルダに JSON として書き、`workspace.json` の `fieldExtensions` に並べます。`write-schedule` は、その設定ファイルの `fieldExtensions` と任意の `editableFieldExtension` を読み、定義どおりの合成キーで `fieldValues` を書けます。アプリを起動しなくても、スケジュールの追加項目の値を直せます。
+スケジュール、メンバー、カレンダーを同じフォルダに置いてまとめて開くときは、`write-workspace` で `workspace.json` を作ります。任意で `statuses` にステータス一覧 JSON への相対パス、`colors` に色の一覧 JSON への相対パスを書けます。`write-schedule` にその設定ファイルのパスを渡せば、アプリを起動しなくても `schedule` の相対パス先へ書けます。`members` があるときは、そのファイルの id を担当の一覧に使います。`statuses` があるときは、そのファイルの項目の `id` をステータスに使います。`calendar` はスケジュール JSON の日付には使いません。アプリの ☰ の「設定ファイルを新しいフォルダへ書き出す」は、今の画面の写しを空のフォルダへ作る操作であり、開いている設定ファイルは更新しません。設定でチェックしている拡張項目も、同じフォルダに JSON として書き、`workspace.json` の `fieldExtensions` に並べます。`write-schedule` は、その設定ファイルの `fieldExtensions` と任意の `editableFieldExtension` を読み、定義どおりの合成キーで `fieldValues` を書けます。アプリを起動しなくても、スケジュールの追加項目の値を直せます。
 
 ![左の一覧、上のツールバー、右のチャート、下の状態バーが並ぶ画面全体（サンプルと同じレイアウトの見本）](images/ui-overview.png)
 

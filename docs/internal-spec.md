@@ -47,9 +47,9 @@ flowchart TD
 | --- | --- |
 | `AppMenu.tsx` | ☰ メニュー |
 | `ContextMenu.tsx` | タスク、マイルストン、左のマイルストングループ名の行、カテゴリ、グループ、チャートの空きの右クリックメニュー。区切り、危険色の削除、Lucide アイコン、ショートカット表示。タスクは編集、複製、確度、ノート、系統、削除。マイルストングループ行は非表示と、条件付きのこの行だけ表示。カテゴリは名前の変更、下へのカテゴリ追加、グループ追加、条件付きの削除。グループは名前の変更、下へのグループ追加、条件付きの削除。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す。位置はクリック座標と `offsetWidth` / `offsetHeight` から `anchoredMenu.ts` の `menuShiftForRect` で一度だけ決める |
-| `TaskDetailPanel.tsx` | 選択が1件のときの右パネル。`applyTaskPatch` で項目ごとに履歴。`fields` があるときは追加項目を `setTaskFieldValue` で1キーずつ更新する。必須で値が空のときだけラベルに「空欄」を付ける。フォーカス中は外部反映を止める。保存は呼び出し時点の文書を土台に、利用者が変えた項目だけ上書きする。開始日と終了日は日付欄を変えたときだけ含める。日付のカレンダーへフォーカスが移っても、パネル内の編集として扱う |
+| `TaskDetailPanel.tsx` | 選択が1件のときの右パネル。`applyTaskPatch` で項目ごとに履歴。`fields` があるときは追加項目を `setTaskFieldValue` で1キーずつ更新する。必須で値が空のときだけラベルに「空欄」を付ける。フォーカス中は外部反映を止める。保存は呼び出し時点の文書を土台に、利用者が変えた項目だけ上書きする。開始日と終了日は日付欄を変えたときだけ含める。日付のカレンダーへフォーカスが移っても、パネル内の編集として扱う。色の一覧を読めているウィンドウでは `displayColors` と解決済み配色を渡し、ステータスの直後に `ColorSelectField` で「色」を出す。一覧にある色は名前の左に小さな角丸の四角で示す |
 | `DateInput.tsx` | 日付欄。カレンダーは欄の下に空きが足りないとき上に開き、`datePopover.ts` が `anchoredMenu.ts` の `menuShiftForRect` で画面内に収める |
-| `BulkTaskDetailPanel.tsx` | 選択が2件以上のときの右パネル。共通値の表示と下書き。「件数に適用」で `applyBulkTaskDraft` を一度だけ呼ぶ。下書きがあるあいだは外部反映を止める |
+| `BulkTaskDetailPanel.tsx` | 選択が2件以上のときの右パネル。共通値の表示と下書き。「件数に適用」で `applyBulkTaskDraft` を一度だけ呼ぶ。下書きがあるあいだは外部反映を止める。色の一覧を読めているウィンドウでは `displayColors` と解決済み配色を渡し、一括用の `ColorSelectField` で「色」を出す |
 | `MilestoneField.tsx` | 詳細パネルとタスク複製ダイアログの「対応マイルストン」。`milestoneField.ts` で候補と強調行を組み立てる |
 | `DiffStrip.tsx` | チャート右の差分列。畳んだ取っ手と、開いた変更の一覧。空の結果だけ閉じる |
 | `StatusBar.tsx` | 画面下端。未保存のクリックで差分列を開く |
@@ -87,11 +87,11 @@ flowchart TD
 | `useMemberCatalog` | カタログの読み込みと選択 |
 | `useStatusCatalog` | ステータス一覧の読み込みと選択。無いときは組み込みの三件 |
 | `useAppCalendar` | カレンダーの読み込み |
-| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 6 ツールを組み立てる（`current_schedule` は `scheduleCurrentJson` を返す。`window` は橋渡しで外れる。文書の `levels` と使用中の追加項目定義 `fields` を `screenContext` に渡す）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・`assessMcpReplaceUiBlocking` の操作中。SYNC-01 の衝突確認だけ開いているときは除く）と引数を検証し、`assessReplaceScheduleLevelCount` で渡した JSON の段数と入れ子を見てから `useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。衝突確認のあいだに置き換えたときは `useScheduleExternalReload` の `completeReplaceDuringConflictReload` で確認を閉じ、帯用の追跡を残す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
+| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 6 ツールを組み立てる（`current_schedule` は `scheduleCurrentJson` を返す。`window` は橋渡しで外れる。文書の `levels`、使用中のステータス `statuses`、使用中の色 `colors`（`displayColors`）、追加項目定義 `fields` を `screenContext` に渡す）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・`assessMcpReplaceUiBlocking` の操作中。SYNC-01 の衝突確認だけ開いているときは除く）と引数を検証し、`assessReplaceScheduleLevelCount` で渡した JSON の段数と入れ子を見てから `useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。衝突確認のあいだに置き換えたときは `useScheduleExternalReload` の `completeReplaceDuringConflictReload` で確認を閉じ、帯用の追跡を残す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
 
 ### モデル
 
-純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`statusAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` と `sidebarWidth.ts` の localStorage だけである。
+純粋関数が大半である。副作用があるのは、`scheduleFile.ts`、`memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts`、`exportHtml.ts` の保存、`uiScale.ts` と `colorScheme.ts` と `sidebarWidth.ts` の localStorage だけである。
 
 | 関心 | ファイル |
 | --- | --- |
@@ -107,11 +107,11 @@ flowchart TD
 | 外部更新時の非衝突合成と判定 | `baselineMerge.ts`（`assessBaselineMerge`、`buildNonConflictingMergedDocument` は `baselineDiffs.ts`。合成の検証は `documentToJson`） |
 | 外部更新確認の一覧表示 | `baselineMergeReview.ts`（`buildBaselineMergeReview`、`buildBaselineMergeConflictReview`。`collectScheduleDiffBlocks` と衝突一覧の追加項目に使用中の定義を渡す） |
 | 反映の取り消しで帯を戻す判定 | `baselineMergeDeferred.ts` |
-| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks` / `current_schedule`。タスク系の応答の先頭は `levels`、続けて `statuses`、続けて `fields`。タスクには値があるときだけ `fieldValues`）、`fieldValuesDiff.ts`（差分テキストの追加項目行）、`hierarchyLevelEdit.ts`（階層ダイアログの確定、保存前の `assessHierarchySave`、`replace_schedule` 前の `assessReplaceScheduleLevelCount`）、`scheduleDiffLoad.ts`（`schedule_diff`。使用中の定義を渡して FILE-07 の追加項目行を出す）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
+| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks` / `current_schedule`。タスク系の応答の先頭は `levels`、続けて `statuses`、続けて `colors`、続けて `fields`。タスクには `colorId` があるときだけ `colorId`、値があるときだけ `fieldValues`）、`fieldValuesDiff.ts`（差分テキストの追加項目行）、`hierarchyLevelEdit.ts`（階層ダイアログの確定、保存前の `assessHierarchySave`、`replace_schedule` 前の `assessReplaceScheduleLevelCount`）、`scheduleDiffLoad.ts`（`schedule_diff`。使用中の定義を渡して FILE-07 の追加項目行を出す）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
-| アプリデータ | `memberAppData.ts`、`statusAppData.ts`、`calendarAppData.ts` |
+| アプリデータ | `memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportExcel.ts`、`exportView.ts`、`exportFilename.ts` |
 | 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts` |
 | キーボードショートカット | `shortcuts.ts` |
@@ -154,7 +154,7 @@ flowchart TD
   accept --> replace
 ```
 
-開く成功のあと、デスクトップ版だけ `record_recent_files` で `recent-files.json` を更新する。スケジュールと設定ファイルは別配列である。起動時に前回のウィンドウを載せるとき、前面化だけのとき、`replace_schedule` では足さない。履歴から開くときも `runOpenFromPath` と `applyOpenedFile` の既存経路を使う。設定ファイルは `classifyOpenedJson` で開き分け、`accept_opened_workspace` で `open-windows.json` に `workspacePath` を書き、`loadWorkspaceBinding` が相対パス先を読む。`fieldExtensions` はピン留め、`editableFieldExtension` は編集用として別に読む。表示は `useWorkspaceBinding` と `App.tsx` の `displayMembers` / `displayStatuses` / `displayCalendar` が束縛を優先する。`export_workspace_bundle` がフォルダ書き出しを行う。拡張項目はフロントが `read_field_extension_catalog` で読んだ本文の配列を渡し、Rust が `fieldExtensions` に相対パスを書く。各拡張は 2MB 上限である。
+開く成功のあと、デスクトップ版だけ `record_recent_files` で `recent-files.json` を更新する。スケジュールと設定ファイルは別配列である。起動時に前回のウィンドウを載せるとき、前面化だけのとき、`replace_schedule` では足さない。履歴から開くときも `runOpenFromPath` と `applyOpenedFile` の既存経路を使う。設定ファイルは `classifyOpenedJson` で開き分け、`accept_opened_workspace` で `open-windows.json` に `workspacePath` を書き、`loadWorkspaceBinding` が相対パス先を読む。`fieldExtensions` はピン留め、`editableFieldExtension` は編集用として別に読む。表示は `useWorkspaceBinding` と `App.tsx` の `displayMembers` / `displayStatuses` / `displayCalendar` / `displayColors` が束縛を優先する。`export_workspace_bundle` がフォルダ書き出しを行う。拡張項目はフロントが `read_field_extension_catalog` で読んだ本文の配列を渡し、Rust が `fieldExtensions` に相対パスを書く。各拡張は 2MB 上限である。
 
 ブラウザ版はダイアログの代わりにファイル選択を使い、`accept_opened_schedule` は呼ばない。
 
@@ -209,7 +209,7 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 
 ### 書き出し
 
-`exportView.ts` が見える行からマイルストンと期間を決める。画面の前後の線と Excel の先行列の名前は、`hierarchy.ts` の `collectTasksFromDocument` で文書（`categories` または `outline`）から集めたタスクを使い、`dependencies.ts` の `visibleLinksFromTasks` が見えている行のリンクを決める。HTML と SVG は `exportHtml.ts` が組み立て、デスクトップ版は `save_html_file`、ブラウザ版はダウンロードである。Excel は `excelExportColumns.ts` が左の列の選び方を localStorage で持ち、`exportExcel.ts` がペイロードを組み立てる。日付列は `excelTimeColumns.ts`、シートの休日色と罫線色は `excelSheetColors.ts`、日付列の縦罫線の色は `excelDateColumnBorder.ts`、タスクバーの位置と色は `excelBar.ts`、親バーの区間・点線・角は `excelSummaryBar.ts`、前後の種類と色と折れ位置は `excelConnector.ts`、イナズマ線は `excelLightning.ts`、マイルストンの日付セルの文字列とグループ名は `excelMilestone.ts` が決める。行ごとの名前の字下げ・太さ・文字色と、一番上の見出し行の左列だけの塗りは payload の `rows` に載せる。`exportExcel.ts` は見出しを進めながら、直後のタスクの字下げをその見出しの字下げより 1 深くする。1段だけのときは見出しが無く、タスクの字下げは 0 である。`exportHtml.ts` の `exportHierarchyHeadingIndent` と `exportHierarchyHeadingKind` が階層見出しの字下げと Excel の行種別を決め、`exportChartRowFill` が HTML と SVG のチャート側の行の地を左一覧と揃える。本文の行高と日付列の幅は payload の `bodyRowHeightPx` と `dateColumnWidthPx` に載せ、見出し行の高さは `headerRowHeightPx` に載せる（日付列が 96px 以上なら 28、未満なら 22。本文の `bodyRowHeightPx` とは別である）。週・月のバーと線は等幅の列のうち期間に対する割合で置く。前後は payload の `connectors` に載せ、先行バー図形の右中央（接続点 3）から後続バー図形の左中央（接続点 1）へ、カギ線または直線の矢印コネクタでつなぐ。イナズマ線は payload の `todayLine` で、本文の上端から下端までの縦線 1 本を線の幅で描く。`export_xlsx.rs` が `rust_xlsxwriter` でブックとタスクバーなどのテキストボックスを作り、列幅と先頭文・マイルストン行の結合（罫線なし）、見出しと本文の左の表の罫線と日付列の縦罫線、日表示の休日の日付セルの塗り、カテゴリ行の左列だけの塗りを書く。画面の格子は出さない。図形の幅と高さは、5px 未満の辺を 5px に繰り上げてから渡す。それ未満を渡すとライブラリは既定の 192×120 になる。コネクタ、今日の縦線、親バーの点線と角は `excel_drawing_patch.rs` が `xl/drawings/drawing1.xml` に足す。親バーの点線と角の `twoCellAnchor` は、日付列の幅 `dateColumnWidthPx` で列を進めて終端を決める。追加図形の `cNvPr` の id は、ライブラリが書いた図形の id の次（`shapes.len() + 2` から）を使う。スナップの縦の通算は payload の `bodyRowHeightPx` を使う。コネクタの `twoCellAnchor` は、先行の右辺の中央と後続の左辺の中央を対角にした箱で、後続の位置に合わせて `flipH` と `flipV` を付ける。図形数の上限にはバー、コネクタ、今日の縦線、親バーの点線と角を合わせて数える。デスクトップ版だけ `save_excel_export` で保存する。書き出しの XML 契約は Rust のテストが実ブックを読んで確かめる。月表示の月ラベルの出し分けは `monthHeader.ts` と画面で共有する。
+`exportView.ts` が見える行からマイルストンと期間を決める。画面の前後の線と Excel の先行列の名前は、`hierarchy.ts` の `collectTasksFromDocument` で文書（`categories` または `outline`）から集めたタスクを使い、`dependencies.ts` の `visibleLinksFromTasks` が見えている行のリンクを決める。HTML と SVG は `exportHtml.ts` が組み立て、デスクトップ版は `save_html_file`、ブラウザ版はダウンロードである。Excel は `excelExportColumns.ts` が左の列の選び方を localStorage で持ち、`exportExcel.ts` がペイロードを組み立てる。色の一覧で塗るタスク行の地は `excelRowFillForColorId` で常に `light.bg` にする。日付列は `excelTimeColumns.ts`、シートの休日色と罫線色は `excelSheetColors.ts`、日付列の縦罫線の色は `excelDateColumnBorder.ts`、タスクバーの位置と色は `excelBar.ts`、親バーの区間・点線・角は `excelSummaryBar.ts`、前後の種類と色と折れ位置は `excelConnector.ts`、イナズマ線は `excelLightning.ts`、マイルストンの日付セルの文字列とグループ名は `excelMilestone.ts` が決める。行ごとの名前の字下げ・太さ・文字色と、一番上の見出し行の左列だけの塗りは payload の `rows` に載せる。`exportExcel.ts` は見出しを進めながら、直後のタスクの字下げをその見出しの字下げより 1 深くする。1段だけのときは見出しが無く、タスクの字下げは 0 である。`exportHtml.ts` の `exportHierarchyHeadingIndent` と `exportHierarchyHeadingKind` が階層見出しの字下げと Excel の行種別を決め、`exportChartRowFill` が HTML と SVG のチャート側の行の地を左一覧と揃える。本文の行高と日付列の幅は payload の `bodyRowHeightPx` と `dateColumnWidthPx` に載せ、見出し行の高さは `headerRowHeightPx` に載せる（日付列が 96px 以上なら 28、未満なら 22。本文の `bodyRowHeightPx` とは別である）。週・月のバーと線は等幅の列のうち期間に対する割合で置く。前後は payload の `connectors` に載せ、先行バー図形の右中央（接続点 3）から後続バー図形の左中央（接続点 1）へ、カギ線または直線の矢印コネクタでつなぐ。イナズマ線は payload の `todayLine` で、本文の上端から下端までの縦線 1 本を線の幅で描く。`export_xlsx.rs` が `rust_xlsxwriter` でブックとタスクバーなどのテキストボックスを作り、列幅と先頭文・マイルストン行の結合（罫線なし）、見出しと本文の左の表の罫線と日付列の縦罫線、日表示の休日の日付セルの塗り、カテゴリ行の左列だけの塗りを書く。画面の格子は出さない。図形の幅と高さは、5px 未満の辺を 5px に繰り上げてから渡す。それ未満を渡すとライブラリは既定の 192×120 になる。コネクタ、今日の縦線、親バーの点線と角は `excel_drawing_patch.rs` が `xl/drawings/drawing1.xml` に足す。親バーの点線と角の `twoCellAnchor` は、日付列の幅 `dateColumnWidthPx` で列を進めて終端を決める。追加図形の `cNvPr` の id は、ライブラリが書いた図形の id の次（`shapes.len() + 2` から）を使う。スナップの縦の通算は payload の `bodyRowHeightPx` を使う。コネクタの `twoCellAnchor` は、先行の右辺の中央と後続の左辺の中央を対角にした箱で、後続の位置に合わせて `flipH` と `flipV` を付ける。図形数の上限にはバー、コネクタ、今日の縦線、親バーの点線と角を合わせて数える。デスクトップ版だけ `save_excel_export` で保存する。書き出しの XML 契約は Rust のテストが実ブックを読んで確かめる。月表示の月ラベルの出し分けは `monthHeader.ts` と画面で共有する。
 
 ## 検証の流れ
 
@@ -247,7 +247,7 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `save_schedule_file` | 本文、別名か、提案名、期待パス、ハッシュ確認を飛ばすか。保存したパス | 10MB、`DISK_HASH_MISMATCH`、パス不一致、拡張子 | `save-schedule-file.toml` | 同上 |
 | `save_html_file` | 本文、提案名、拡張子 | 10MB | `save-html-file.toml` | `exportHtml.ts` |
 | `save_excel_export` | 書き出し用 JSON、提案名。保存したパス | 10MB | `save-excel-export.toml` | `exportExcel.ts` |
-| `export_workspace_bundle` | スケジュールと任意のメンバー、カレンダー、ステータス、拡張項目（ファイル名と本文の配列）を空フォルダへ書き、`workspace.json` を作る | スケジュール 10MB、その他 2MB | `open-schedule-file.toml` | `workspaceExport.ts` |
+| `export_workspace_bundle` | スケジュールと任意のメンバー、カレンダー、ステータス、色の一覧、拡張項目（ファイル名と本文の配列）を空フォルダへ書き、`workspace.json` を作る | スケジュール 10MB、その他 2MB | `open-schedule-file.toml` | `workspaceExport.ts` |
 | `get_members_settings` | カタログ一覧と選択中 ID | — | `members-app-data.toml` | `memberAppData.ts` |
 | `read_member_catalog` | カタログ ID。本文 | 2MB | 同上 | 同上 |
 | `import_member_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
@@ -262,6 +262,16 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `release_status_catalog_edit` | 一覧 ID または無し（無しはこのウィンドウのすべて） | — | 同上 | 同上 |
 | `save_statuses_json` | 本文、提案名。保存したパス | 2MB | 同上 | `statusAppData.ts` の `exportStatusesJson` |
 | `write_statuses_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `statuses` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致 | `write-statuses-at-path.toml` | `statusAppData.ts` の `writeStatusesAtPath` |
+| `get_colors_settings` | 一覧の一覧と選択中 ID | — | `colors-app-data.toml` | `colorAppData.ts` |
+| `read_color_catalog` | 一覧 ID。本文 | 2MB | 同上 | 同上 |
+| `import_color_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
+| `delete_color_catalog` | ID | — | 同上 | 同上 |
+| `set_selected_color_catalog` | ID または無し | — | 同上 | 同上 |
+| `claim_color_catalog_edit` | 一覧 ID または設定ファイルの `colors` の絶対パス。取得できたか、他ウィンドウのラベル | — | `color-catalog-edit.toml` | `colorAppData.ts` |
+| `release_color_catalog_edit` | 一覧 ID または無し（無しはこのウィンドウのすべて） | — | 同上 | 同上 |
+| `save_colors_json` | 本文、提案名。保存したパス | 2MB | 同上 | `colorAppData.ts` の `exportColorsJson` |
+| `write_colors_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `colors` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致 | `write-colors-at-path.toml` | `colorAppData.ts` の `writeColorsAtPath` |
+| `create_workspace_colors_catalog` | 設定ファイルのパス、相対ファイル名、本文。`colors` を書く。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、既に `colors` がある、ファイル名不正 | `workspace-colors-catalog.toml` | `colorAppData.ts` の `createWorkspaceColorsCatalog` |
 | `write_field_extension_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `editableFieldExtension` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致、編集用が無い | `field-extensions-app-data.toml` | `fieldExtensionAppData.ts` の `writeFieldExtensionAtPath` |
 | `create_workspace_editable_field_extension` | 設定ファイルのパス、相対ファイル名、本文。既存ファイルは上書きしない。`editableFieldExtension` を書く。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、既に編集用がある、ファイル名不正、重複 | `workspace-editable-field-extension.toml` | `fieldExtensionAppData.ts` の `createWorkspaceEditableFieldExtension` |
 | `delete_workspace_editable_field_extension` | 設定ファイルのパス。`editableFieldExtension` を外してからファイルを消す。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 編集用が無い、設定ファイルの更新失敗時はファイルを残す | 同上 | `fieldExtensionAppData.ts` の `deleteWorkspaceEditableFieldExtension` |

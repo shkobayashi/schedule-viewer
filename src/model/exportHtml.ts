@@ -1,4 +1,6 @@
 import type { StatusItem } from "./statusCatalog";
+import type { ColorItem } from "./colorCatalog";
+import { rowFillForColorId } from "./colorCatalog";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
   scheduleHtmlFilename,
@@ -73,6 +75,8 @@ export type ScheduleExportInput = {
   /** 初期値以外の絞り込み。空なら絞り込みなし。 */
   filterSummary: string;
   colorScheme: ResolvedColorScheme;
+  /** 色の一覧。無いときは行の地を塗らない。 */
+  colors?: readonly ColorItem[] | null;
   showLightningLine: boolean;
 };
 
@@ -170,13 +174,17 @@ export function exportHierarchyHeadingKind(
   return row.rowKind === "top" || row.alsoTaskParent ? "category" : "group";
 }
 
-/** チャート本体の行の地。タスク行は null。 */
+/** チャート本体の行の地。 */
 export function exportChartRowFill(
   row: VisibleRow,
   chart: ReturnType<typeof paletteFor>["chart"],
   pageBg: string,
+  colors: readonly ColorItem[] | null,
+  scheme: ResolvedColorScheme,
 ): string | null {
-  if (row.type === "task") return null;
+  if (row.type === "task") {
+    return rowFillForColorId(colors, row.task.colorId, scheme);
+  }
   if (row.type === "category") return chart.categoryRow;
   if (row.type === "group") return chart.groupRow;
   if (row.type === "hierarchy") {
@@ -555,8 +563,11 @@ function renderSvgLabelRow(
   const nameSize = 12 * scale;
   const iconX = (12 + 2) * scale;
   let x = nameX;
+  const rowFill =
+    rowFillForColorId(input.colors ?? null, row.task.colorId, input.colorScheme) ??
+    c.bg;
   const parts = [
-    `<rect x="0" y="${n(y)}" width="${n(labelWidth)}" height="${n(height)}" fill="${c.bg}"/>`,
+    `<rect x="0" y="${n(y)}" width="${n(labelWidth)}" height="${n(height)}" fill="${rowFill}"/>`,
     guideMarkup,
   ];
   if (unassigned) {
@@ -853,7 +864,13 @@ function renderBody(
   const { chart, css: c } = palettes(input);
   const marks: string[] = [];
   for (const row of input.visibleRows) {
-    const fill = exportChartRowFill(row, chart, c.bg);
+    const fill = exportChartRowFill(
+      row,
+      chart,
+      c.bg,
+      input.colors ?? null,
+      input.colorScheme,
+    );
     if (fill == null) continue;
     const y = bodyTop + row.y;
     marks.push(

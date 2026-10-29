@@ -43,6 +43,8 @@ import {
 } from "../model/dependencies";
 import { useTimelinePointer } from "../hooks/useTimelinePointer";
 import type { StatusItem } from "../model/statusCatalog";
+import type { ColorItem } from "../model/colorCatalog";
+import { rowFillForColorId } from "../model/colorCatalog";
 import {
   barColors,
   barLabelFill,
@@ -130,6 +132,7 @@ type TimelineProps = {
   memberCatalog: Map<MemberId, Member> | null;
   calendar: CalendarDocument | null;
   colorScheme: ResolvedColorScheme;
+  rowColors: readonly ColorItem[] | null;
   linkSourceId: ScheduleId | null;
   onLinkTargetClick: (taskId: ScheduleId) => void;
   onLinkContextMenu: (
@@ -1484,6 +1487,7 @@ export function Timeline({
   memberCatalog,
   calendar,
   colorScheme,
+  rowColors,
   linkSourceId,
   onLinkTargetClick,
   onLinkContextMenu,
@@ -1834,11 +1838,22 @@ export function Timeline({
     for (let index = 0; index < visibleRows.length; index += 1) {
       if (stickyHidden.has(index)) continue;
       const row = visibleRows[index];
+      if (row.type !== "task") continue;
+      const fill = rowFillForColorId(rowColors, row.task.colorId, colorScheme);
+      if (fill == null) continue;
       const y = row.y - scrollY;
       if (y + rowHeight < 0 || y > height) continue;
-      if (row.type === "category" || row.type === "group") {
-        continue;
-      }
+      elements.push(
+        <Rect
+          key={`row-fill-${row.task.id}`}
+          x={0}
+          y={y}
+          width={width}
+          height={rowHeight}
+          fill={fill}
+          listening={false}
+        />,
+      );
     }
 
     elements.push(
@@ -1893,6 +1908,8 @@ export function Timeline({
     visibleRows,
     width,
     chart,
+    rowColors,
+    colorScheme,
   ]);
 
   const stickyContent = useMemo(() => {

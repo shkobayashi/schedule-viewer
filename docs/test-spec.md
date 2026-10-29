@@ -14,6 +14,7 @@
 
 | 種類 | コマンド | 見ているもの |
 | --- | --- | --- |
+| node:test | `npm test` の中の `node --test scripts/*.test.mjs` | `scripts/*.test.mjs`。操作マニュアルサイトは、同じページ内の `#見出し` をその HTML の見出し id と照合する |
 | Vitest | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
 | Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査 |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外 |
@@ -38,6 +39,12 @@
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更（操作マニュアル以外）ではフロントと Rust と `manual` はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
 ## 自動テスト一覧
+
+### node:test
+
+| ファイル | ケース |
+| --- | --- |
+| `scripts/build-user-manual-site.test.mjs` | 同じページ内の `#見出し` は、その HTML の見出し id と照合する。無いときは HTML ファイル名を出して失敗する |
 
 ### Vitest
 
@@ -69,7 +76,9 @@
 | `rows.test.ts` | `taskMatchesFilter assignee` | FILTER-03 |
 | `scheduleDiff.test.ts` | `shows ordered assigneeId for multiple ids and order-only changes` | FILE-07 |
 | `baselineDiffs.test.ts` | `classifies assignee order mismatch as 異なる without merging ids` | FILE-07 |
-| `bulkTaskEdit.test.ts` | `replaces assigneeIds on all selected tasks including empty` / `applyBulkTaskEditOutline assigneeIds` | EDIT-04 |
+| `bulkTaskEdit.test.ts` | `replaces assigneeIds on all selected tasks including empty` / `applyBulkTaskEditOutline assigneeIds` / `sets and clears colorId on selected tasks only` | EDIT-04 |
+| `taskColorId.test.ts` | `applyTaskColorId` | EDIT-04, EDIT-14, VIEW-14 |
+| `tasks.test.ts` | `categoriesAfterTaskEdit colorId` / duplicate `uses patch colorId` / `clears colorId when patch sets null` | EDIT-04, EDIT-14 |
 | `calendarAppData.test.ts` | `stores imported JSON and reads it back` | SET-03 |
 | 同上 | `clears calendar on delete` | SET-03 |
 | 同上 | `drops a label when the body is missing` | SET-03 |
@@ -163,6 +172,7 @@
 | 同上 | `puts dependency connectors and today line into the payload` | EXPORT-05 |
 | 同上 | `assigns name indent and summary decorations by row kind` | EXPORT-05 |
 | 同上 | `uses black task names and group-row gray for holidays` | EXPORT-05 |
+| 同上 | `includes row fill rgb for colored tasks` | VIEW-14, EXPORT-05 |
 | 同上 | `uses light group and overdue name colors on a white sheet` | EXPORT-05 |
 | 同上 | `uses milestone group name on milestone rows` | EXPORT-05 |
 | 同上 | `keeps task indent 0 for task-only visible rows` | EXPORT-05 |
@@ -396,6 +406,12 @@
 | 同上 | `snapshot lines skip empty keys` | FILE-07 |
 | 同上 | `treats matching fieldValues as equal` | FILE-07 |
 | `screenContext.test.ts` | `field catalog in MCP payloads` | MCP-01 |
+| 同上 | `color catalog in MCP payloads` | MCP-01 |
+| 同上 | `maps catalog entries with light and dark bg only` | MCP-01 |
+| 同上 | `returns empty colors on all three read payloads when unset` | MCP-01 |
+| 同上 | `includes colorId on tasks when set in categories` | MCP-01 |
+| 同上 | `includes colorId on outline tasks when set` | MCP-01 |
+| 同上 | `includes unknown colorId on task when not in catalog` | MCP-01 |
 | 同上 | `includes fields and fieldValues on selected_task` | MCP-01 |
 | 同上 | `includes fields and fieldValues on selected_tasks` | MCP-01 |
 | 同上 | `omits empty choices and empty default from field entries` | MCP-01 |
@@ -1220,6 +1236,7 @@
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、ステータス、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
 | TC-VIEW-13 | VIEW-13 | 一覧に無い `status`、メンバーに無い `assigneeId`、または定義に無い `fieldValues` キーがあるファイル。ステータス列はオフ | 帯の文を見る。定義に無い追加項目は詳細で編集できないことを見る。左のタスク名とバーが同じ行に揃うこと、見出しの下端が揃うことを見る。絞り込みで該当行を隠しても帯が残ることを確かめる。右下の一時的な知らせを出しても帯が残ることを確かめる。設定でステータス列をオンにし、一覧に無い `id` の札と、メンバー不明の札を縦に見る。線を引くモード中は帯がその上にあり、両方の帯でも揃うことを見る。縦スクロールと表示サイズを変えても揃うことを見る。ライトとダークで、札の文字と帯の文字・左線のコントラストを見る | 帯は三つの文のいずれかだけ。`id` も件数も出ない。列は見えているタスク行だけ。未割当だけのときは帯は出ない。不一致が無くなると帯は消え、左の空きも消える。トーストが出ても帯は消えない。札の文字は 4.5:1 以上、帯の左線は 3:1 以上である |
+| TC-VIEW-14 | VIEW-14 | デスクトップ版。`examples/colors/workspace.json` を開く | ライトとダークを切り替える。注力のタスクの詳細で「色」を開き、注力と待ちの名前の左に黄と青の小さな四角があること、候補の行全体は塗られないことを見る。色を「待ち」に変え、地が青になること。同じタスクを複製し、色を「なし」にして追加すると地が付かないこと。注力と待ちの2件を選び、一括で同じ色に適用して両方の地が変わること。注力の地が黄から暗い茶へ変わること、バーの色は変わらないこと、見出しとマイルストンと色なしの行は今の地のままであること、帯が「一覧に無い色があります。」であること、土日の列は灰色のままであることを見る。ダークのまま Excel に書き出し、注力の行の地が暗い茶ではなくライトの黄系であること、バーがステータス色のままであることを見る。ブラウザ版の起動サンプルでは「色」欄が出ないこと | 一覧に無い `colorId` の行は塗らない。一覧にあるだけの `risk` は塗らない |
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
@@ -1235,6 +1252,14 @@
 | TC-SET-08l | SET-08, FILE-10 | 設定ファイルで `statuses` を読めている | 設定の「項目を編集…」で覆いを開き、色を変えて「保存」する | このウィンドウのバーが変わる。アプリの使用中一覧は変わらない |
 | TC-SET-08n | SET-08 | 覆いで一覧を2件以上選べる。使用中の一覧と、使用中でない一覧の両方で試す | 「外す」で「やめる」を選ぶ。下書きがある一覧でも同様に試す。続けて「外す」で進める。最後の1件だけ残して外す。使用中の一覧を外す | やめるときは一覧が残り、下書きも残る。外したあとも覆いは開いたまま。残りがあれば先頭の一覧を開く。最後の1件を外すと取り込み済みが無い表示になる。使用中を外すと未選択になり、チャートは組み込みの三件になる |
 | TC-SET-08m | SET-08, FILE-10 | 設定ファイルで `statuses` が無い、または読めない | 設定の「ステータス」を見る | 「項目を編集…」は出ない |
+| TC-SET-09 | SET-09, VIEW-14 | 色の一覧 JSON を取り込んで使用中にする。`colorId` 付きタスクがある | 行の地が変わる。詳細・一括・複製に「色」が出る。詳細で色を変えると地が変わる。一括で「変更しない」と「なし」が別であること。未選択に戻すと塗らず「色」も消える |
+| TC-SET-09b | SET-09, VIEW-13 | 使用中の一覧で `colorId` 付きタスクがある | 覆いでその `id` の項目を削除して保存する | タスクの `colorId` が残り、帯が出て行の地は塗らない |
+| TC-SET-09c | SET-09, FILE-10 | 設定ファイルに `colors` が無い | 「色の一覧を作る」で JSON とパスが足り、覆いが開く |
+| TC-SET-09d | SET-09, SYNC-01 | 色の一覧の覆いを開いている | 外部でスケジュール JSON を更新する。読み直しを選ぶ | 即時反映しない。読み直し前に覆いが閉じ、下書きは色の一覧へ書かない |
+| TC-SET-09e | SET-09 | 覆いで色の一覧を編集できる | 「新しい一覧」で一覧を足す | 項目1件（名前「新しい色」、説明「この色にする」）の下書きで覆いが開く。使用中の一覧は変わらない |
+| TC-SET-09f | SET-09 | 覆いで項目が8件 | 「項目を足す」を見る | 押せない |
+| TC-SET-09g | SET-09 | 覆いで項目が1件 | 「削除」を見る | 押せない |
+| TC-SET-09h | SET-09 | 覆いで項目を編集している | 保存済み項目の `id` を変えようとする。名前または説明を空白だけにする。`id` を重複させて保存する | 保存済みの `id` は変えられない。空白や重複では保存できず理由が出る |
 | TC-SET-08i | SET-08 | デスクトップ版で同じ一覧を2つのウィンドウが開ける | 一方で覆いを開いて一覧を選ぶ。もう一方で同じ一覧を選ぶ | 編集中のウィンドウが前面になり、もう一方では一覧が選ばれない |
 | TC-SET-08j | SET-08 | 覆いで一覧を編集中 | 設定でその一覧を「外す」。続けて別ウィンドウから同じ一覧を取り込み上書きする | 外したときは覆いが閉じ、知らせが出る。上書き取り込みのあとは覆いが開いたまま、内容が入れ替わる |
 | TC-SET-08g | SET-08, VIEW-02, VIEW-05, VIEW-07, FILTER-04 | 今日が 2026-10-23 から 2026-11-01 のあいだ | 設定の「ステータス」で `examples/review.statuses.json` を取り込んで使用中にし、`examples/review.schedule.json` を開く。絞り込みで「完了以外」を選ぶ | 確認待ちが黄で、帯が出る。進行中は地が青のまま枠だけ赤く、帯が出る。完了と中止は終了が過去でも超過にならず、中止は帯が無い。一覧に無い `shelved` は `shelved` の表示で灰色になり、超過にならず線は今日のまま。未着手は帯が無い。イナズマ線は扱いどおり折れ、未来開始の着手済みは開始日へ折れる。終了日が今日の行は終了より先へ折れない。「完了以外」で完了と中止が消え、一覧に無い `id` は残る |

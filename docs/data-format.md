@@ -1,6 +1,6 @@
 # データ仕様
 
-スケジュール、メンバー、ステータス一覧、稼働日カレンダー、拡張項目の JSON と、アプリが自分で書くファイルの形を定める。フィールドの正本は各 JSON Schema である。ID の重複や前後関係の循環のように、スキーマでは表せない規則は `src/model/` の検証コードで確かめる。この文書では、これを意味規則と呼ぶ。画面での見え方は [外部仕様](external-spec.md) を参照する。
+スケジュール、メンバー、ステータス一覧、色の一覧、稼働日カレンダー、拡張項目の JSON と、アプリが自分で書くファイルの形を定める。フィールドの正本は各 JSON Schema である。ID の重複や前後関係の循環のように、スキーマでは表せない規則は `src/model/` の検証コードで確かめる。この文書では、これを意味規則と呼ぶ。画面での見え方は [外部仕様](external-spec.md) を参照する。
 
 スキーマファイルは `scripts/` と CI がパスを直接参照している。場所は変えない。
 
@@ -11,6 +11,7 @@
 | スケジュール JSON | LLM のスキル、またはアプリの「保存」「別名保存」 | 利用者が選んだパス。アプリはパスをスケジュールの中に書かない |
 | メンバー JSON | 利用者が用意し、設定の「メンバー」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には含めない |
 | ステータス一覧 JSON | 利用者が用意し、設定の「ステータス」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には含めない |
+| 色の一覧 JSON | 利用者が用意し、設定の「色」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には含めない |
 | 稼働日カレンダー JSON | 利用者が用意し、設定の「稼働日」から取り込む | 取り込み後はアプリデータに1件。スケジュール JSON には含めない |
 | 拡張項目 JSON | 利用者が用意し、設定の「拡張項目」から取り込む | 取り込み後はアプリデータ。スケジュール JSON には定義を写さない。値は `fieldValues` に `プラグインID_項目ID` で書く |
 | HTML / SVG | アプリの「書き出し」 | 利用者が選んだパス、またはブラウザのダウンロード |
@@ -68,6 +69,7 @@
 | `date` / `start` / `end` | `YYYY-MM-DD`。実在する日。`end` はその日を含む。`end` は `start` 以降の日付にする。同じ日なら1日のタスクになる |
 | `assigneeId` | メンバー JSON の `id`。割り当てなしは `null`。一人は id の文字列（読み込みでは要素1つの配列も可）。二人以上は、入れた順の id の配列（同じ id は1回だけ）。空の配列は不可。保存では一人は文字列、二人以上は配列。UUID である必要はない。スケジュール側ではメンバーの実在を検査しない |
 | `status` | ステータス一覧の項目の `id`。1文字以上。既定の一覧は `not-started`、`in-progress`、`done`。スケジュール側では一覧の実在を検査しない。一覧に無い `id` は、画面で `id` をそのまま出し、色は中立にし、イナズマ線と期限超過は管理外と同じ（今日のまま、赤くしない）。「完了以外」には残る |
+| `colorId` | 任意。使用中の色の一覧の `id`。設定ファイルで開いているウィンドウではその `colors` のパス先の一覧、それ以外ではアプリデータで選んだ一覧の `id` だけを書く。色なしはキーを書かない。空白だけは拒否する。色の値はスケジュール JSON に書かない。保存では `status` の直後に置く |
 | `progress` | 0 以上 100 以下の整数。`todos` が無いタスクは手で置く。`todos` があるタスクは、読み込みと保存のたびに済んだ件数を全体で割った整数（切り捨て、全部済んだときだけ 100）に置き換える |
 | `todos` | 任意。`text`（1文字以上、改行なし）と `done`（真偽）の配列。1件以上あるときだけ書く。進捗は件数から決める |
 | `confidence` | タスクとマイルストンの確度。`tentative`（未確定）か `committed`（確定）。日付を合意したかどうかで、着手や進捗とは独立 |
@@ -95,7 +97,7 @@
 
 ## 設定ファイル（workspace、schemaVersion 1）
 
-正本は [workspace.schema.json](workspace.schema.json)。スケジュール JSON への相対パスを必須で書き、メンバー JSON、ステータス一覧 JSON、カレンダー JSON、拡張項目 JSON への相対パスは省略できる。`fieldExtensions` はピン留めした拡張の相対パスの配列である。`editableFieldExtension` は、このプロジェクト用に画面から作る編集用拡張の相対パスを一つだけ書く。`fieldExtensions` と同じ相対パスは書けない。同じプラグイン ID のファイルを二つ書くことはできない。設定ファイルから見た相対パスだけを書く。絶対パス、空、ディレクトリは拒否する。`..` を含む相対パスは許可する。
+正本は [workspace.schema.json](workspace.schema.json)。スケジュール JSON への相対パスを必須で書き、メンバー JSON、ステータス一覧 JSON、カレンダー JSON、色の一覧 JSON、拡張項目 JSON への相対パスは省略できる。`fieldExtensions` はピン留めした拡張の相対パスの配列である。`editableFieldExtension` は、このプロジェクト用に画面から作る編集用拡張の相対パスを一つだけ書く。`fieldExtensions` と同じ相対パスは書けない。同じプラグイン ID のファイルを二つ書くことはできない。設定ファイルから見た相対パスだけを書く。絶対パス、空、ディレクトリは拒否する。`..` を含む相対パスは許可する。
 
 ```json
 {
@@ -104,11 +106,41 @@
   "members": "team.members.json",
   "statuses": "team.statuses.json",
   "calendar": "jp-2026.calendar.json",
+  "colors": "team.colors.json",
   "fieldExtensions": ["risk.fields.json"]
 }
 ```
 
-アプリが書き出す既定のファイル名は `workspace.json` である。別名でも、中身がこの形なら開ける。
+`colors` を省略したとき、そのウィンドウは行の地を塗らない。アプリが書き出す既定のファイル名は `workspace.json` である。別名でも、中身がこの形なら開ける。
+
+## 色の一覧 JSON（schemaVersion 1）
+
+正本は [colors.schema.json](colors.schema.json)。意味規則は [src/model/validateColors.ts](../src/model/validateColors.ts) にある。タスクの行とチャートの地を塗るための一覧である。スケジュール JSON には載せない。タスクが持つのは `colorId` だけで、色の値は書かない。
+
+```json
+{
+  "schemaVersion": 1,
+  "colors": [
+    {
+      "id": "focus",
+      "name": "注力",
+      "description": "今いちばん手を付ける作業。",
+      "color": {
+        "light": { "bg": "#FEF3C7" },
+        "dark": { "bg": "#78350F" }
+      }
+    }
+  ]
+}
+```
+
+- `schemaVersion` は `1`
+- `colors` は 1 件以上 8 件まで。配列の順は、詳細パネルと複製と一括の「色」の選択肢の順である
+- `id` は 1 文字以上で、一覧の中で重複しない。作ったあとは変えない
+- `name` は画面に出す名前。空白だけは不可
+- `color` は、ライトとダークのそれぞれで `bg`（行とチャートの地）を `#RRGGBB` で持つ。枠の色は無い
+- `description` は、その `id` を選ぶ状態だけ。空白だけは不可。LLM が `id` を選ぶ手がかりにする。色の名前や十六進は書かない。選んだあとに LLM が守る指示は無い
+- 組み込みの一覧は置かない。未選択のとき、設定ファイルに `colors` が無いとき、読み込みに失敗したときは行の地を塗らない
 
 ## 拡張項目 JSON（schemaVersion 1）
 
@@ -253,10 +285,11 @@
 
 | パス | 内容 | 上限 |
 | --- | --- | --- |
-| `settings.json` | `selectedMembersCatalogId`、`selectedStatusesCatalogId`、`selectedFieldExtensionCatalogIds`、`calendarLabel`。どれも無くてよい | — |
+| `settings.json` | `selectedMembersCatalogId`、`selectedStatusesCatalogId`、`selectedColorsCatalogId`、`selectedFieldExtensionCatalogIds`、`calendarLabel`。どれも無くてよい | — |
 | `members/<catalogId>.json` | 取り込んだメンバー JSON の本文 | 2MB |
 | `field-extensions/<catalogId>.json` | 取り込んだ拡張項目 JSON の本文 | 2MB |
 | `statuses/<catalogId>.json` | 取り込んだステータス一覧 JSON の本文 | 2MB |
+| `colors/<catalogId>.json` | 取り込んだ色の一覧 JSON の本文 | 2MB |
 | `calendar.json` | 取り込んだカレンダー JSON の本文 | 2MB |
 | `schedule-recovery/<ハッシュ>.json` | 未保存の控え。パスごとに1ファイル。`path`、`baselineJson`、`documentJson` | 10MB |
 | `schedule-filters/<ハッシュ>.json` | パスごとの絞り込みと折りたたみ。`version`（1 または 2）、`path`、絞り込みの各値（`filters` の中に `fieldFilters` を含む。`version` 1 のファイルは追加項目の条件を持たず、読み込み時は空にする。`version` 2 では `fieldFilters` がオブジェクトでないときは記録全体を初期値にする。オブジェクトのときは、型が合わないキーだけ外し、ほかの条件は戻す）、検索欄の対象（`name` または `note`）、帯の線をオフにしたマイルストングループの id、折りたたんだカテゴリ id の配列、折りたたんだグループ id の配列。配列が無い古いファイルは、折りたたみなしとして読む | 64KB |
@@ -275,6 +308,8 @@
 | `schedule-viewer/statuses/catalogs` | ステータス一覧のカタログ ID から本文への対応 |
 | `schedule-viewer/statuses/selected` | 使用中のステータス一覧のカタログ ID |
 | `schedule-viewer/statuses/builtin-seeded` | 組み込みの三件を入れたかどうかの記録 |
+| `schedule-viewer/colors/catalogs` | 色の一覧のカタログ ID から本文への対応 |
+| `schedule-viewer/colors/selected` | 使用中の色の一覧のカタログ ID |
 | `schedule-viewer/calendar/body` | カレンダー JSON の本文 |
 | `schedule-viewer/calendar/label` | カレンダーの表示名 |
 | `schedule-viewer/display-scale` | 表示サイズ。`auto`、`0.5`、`0.75`、`1`、`1.25`、`1.5`、`2` のいずれか |
@@ -284,7 +319,7 @@
 | `schedule-viewer/excel-export-columns` | Excel 書き出しの左の列。担当、開始、終了、ステータス、先行、進捗、TODO、ノートのオンオフ。名前は常に含む |
 | `schedule-viewer/excel-export-field-columns` | Excel 書き出しの追加項目の列。使用中の定義の合成キーごとのオンオフ。初期はすべてオフ |
 
-表示サイズ、配色、左一覧の幅、自動更新のオンオフはデスクトップ版でも localStorage に置く。メンバー、ステータス一覧、カレンダーは、デスクトップ版ではアプリデータだけに置く。
+表示サイズ、配色、左一覧の幅、自動更新のオンオフはデスクトップ版でも localStorage に置く。メンバー、ステータス一覧、色の一覧、カレンダーは、デスクトップ版ではアプリデータだけに置く。
 
 ## 検証のしかた
 

@@ -114,17 +114,17 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "selected_task",
-                "description": "選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。応答の先頭の levels は、階層の名前と意味（instruction がある段だけ instruction も入る。最後の段だけ task: true）を一度だけ載せます。続けて statuses は、使用中のステータス一覧（id、name、role、description。instruction がある項目だけ instruction も入る）です。続けて fields は、使用中の追加項目の定義（key、name、type。meaning、instruction、required、percent、choices、default は空でないときだけ）を一度だけ載せます。定義が無いときは空の配列です。タスクには、値があるときだけ fieldValues（合成キーと値）を載せます。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": "選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。応答の先頭の levels は、階層の名前と意味（instruction がある段だけ instruction も入る。最後の段だけ task: true）を一度だけ載せます。続けて statuses は、使用中のステータス一覧（id、name、role、description。instruction がある項目だけ instruction も入る）です。続けて colors は、使用中の色の一覧（id、name、description、color.light.bg、color.dark.bg。一覧が無いときは空の配列）です。続けて fields は、使用中の追加項目の定義（key、name、type。meaning、instruction、required、percent、choices、default は空でないときだけ）を一度だけ載せます。定義が無いときは空の配列です。タスクには、colorId があるときだけ colorId を載せます。値があるときだけ fieldValues（合成キーと値）を載せます。colorId には色の一覧の id だけを書く。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときはこの応答の colors を使う。それも空なら書かない。色を選ぶ材料は description です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
                 "inputSchema": read_schema.clone(),
             },
             {
                 "name": "selected_tasks",
-                "description": "編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。応答の先頭の levels は、階層の名前と意味（instruction がある段だけ instruction も入る。最後の段だけ task: true）を一度だけ載せます。続けて statuses は、使用中のステータス一覧（id、name、role、description。instruction がある項目だけ instruction も入る）です。続けて fields は、使用中の追加項目の定義（key、name、type。meaning、instruction、required、percent、choices、default は空でないときだけ）を一度だけ載せます。定義が無いときは空の配列です。タスクには、値があるときだけ fieldValues（合成キーと値）を載せます。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": "編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。応答の先頭の levels は、階層の名前と意味（instruction がある段だけ instruction も入る。最後の段だけ task: true）を一度だけ載せます。続けて statuses は、使用中のステータス一覧（id、name、role、description。instruction がある項目だけ instruction も入る）です。続けて colors は、使用中の色の一覧（id、name、description、color.light.bg、color.dark.bg。一覧が無いときは空の配列）です。続けて fields は、使用中の追加項目の定義（key、name、type。meaning、instruction、required、percent、choices、default は空でないときだけ）を一度だけ載せます。定義が無いときは空の配列です。タスクには、colorId があるときだけ colorId を載せます。値があるときだけ fieldValues（合成キーと値）を載せます。colorId には色の一覧の id だけを書く。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときはこの応答の colors を使う。それも空なら書かない。色を選ぶ材料は description です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
                 "inputSchema": read_schema.clone(),
             },
             {
                 "name": "filtered_tasks",
-                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。応答の先頭の levels は、階層の名前と意味（instruction がある段だけ instruction も入る。最後の段だけ task: true）を一度だけ載せます。続けて statuses は、使用中のステータス一覧（id、name、role、description。instruction がある項目だけ instruction も入る）です。続けて fields は、使用中の追加項目の定義（key、name、type。meaning、instruction、required、percent、choices、default は空でないときだけ）を一度だけ載せます。定義が無いときは空の配列です。タスクには、値があるときだけ fieldValues（合成キーと値）を載せます。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。応答の先頭の levels は、階層の名前と意味（instruction がある段だけ instruction も入る。最後の段だけ task: true）を一度だけ載せます。続けて statuses は、使用中のステータス一覧（id、name、role、description。instruction がある項目だけ instruction も入る）です。続けて colors は、使用中の色の一覧（id、name、description、color.light.bg、color.dark.bg。一覧が無いときは空の配列）です。続けて fields は、使用中の追加項目の定義（key、name、type。meaning、instruction、required、percent、choices、default は空でないときだけ）を一度だけ載せます。定義が無いときは空の配列です。タスクには、colorId があるときだけ colorId を載せます。値があるときだけ fieldValues（合成キーと値）を載せます。colorId には色の一覧の id だけを書く。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときはこの応答の colors を使う。それも空なら書かない。色を選ぶ材料は description です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
                 "inputSchema": read_schema.clone(),
             },
             {
@@ -134,7 +134,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "replace_schedule",
-                "description": "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。levels が無い JSON は段数 3 として扱い、画面が 3 段以外のときは置き換えません。levels がある JSON は、渡した段数と入れ子が揃っているときだけ、画面の段数と違っても置き換えます。揃っていないときは置き換えません。タスクの status には、読み取りツールの応答にある statuses の id だけを書きます。選ぶ材料は description です。name は画面の名前であり、選ぶ定義にはしません。role はアプリの描き方です。role が done だから完了、とは選びません。二つの description が同じ依頼に合うときは id を選ばず尋ねます。合う項目が無いときは id を作らず、利用者に尋ねます。instruction が無い項目のために進捗や確認を足しません。instruction があるときは、選んだあとにそこに書いてあることだけを守ります。進捗の数値が書いてあればその値にし、移す前に確認すると書いてあれば、移る前の項目と移った先の項目のどちらに書いてあっても、スケジュールを書く前に利用者へ尋ね、答えがあるまで書きません。description と instruction はタスクへコピーしません。追加項目の fieldValues は、読み取りツールの応答にある fields の key だけを新しく足します。定義に無い key と差分に出ていない key の値は残します。instruction が空の項目は、値が無いときだけ埋め、既にある値は書き換えません。差分に無い値は作りません。todos があるタスクの progress は件数から決める。スキルが書いた progress では置き換えない。todos を消すときは todos キーを省き、残す progress を progress に書く。前面ウィンドウのスケジュールだけを、検証済みの JSON 全体で未保存として置き換えます。背面のウィンドウは置き換えません。利用者が前面と違うウィンドウの更新だけを指しているときは、このツールを呼び出さずその旨を伝えます。外部更新の衝突確認が開いているときも置き換えられ、確認は閉じます。ファイルには書きません。置き換えたあと、内容を確認して問題なければ保存するよう利用者に促してください。成功時は FILE-07 と同じ差分テキストだけを返します。",
+                "description": "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。levels が無い JSON は段数 3 として扱い、画面が 3 段以外のときは置き換えません。levels がある JSON は、渡した段数と入れ子が揃っているときだけ、画面の段数と違っても置き換えます。揃っていないときは置き換えません。タスクの status には、読み取りツールの応答にある statuses の id だけを書きます。選ぶ材料は description です。name は画面の名前であり、選ぶ定義にはしません。role はアプリの描き方です。role が done だから完了、とは選びません。二つの description が同じ依頼に合うときは id を選ばず尋ねます。合う項目が無いときは id を作らず、利用者に尋ねます。instruction が無い項目のために進捗や確認を足しません。instruction があるときは、選んだあとにそこに書いてあることだけを守ります。進捗の数値が書いてあればその値にし、移す前に確認すると書いてあれば、移る前の項目と移った先の項目のどちらに書いてあっても、スケジュールを書く前に利用者へ尋ね、答えがあるまで書きません。description と instruction はタスクへコピーしません。タスクの colorId には、色の一覧の id だけを書きます。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときは読み取りツールの応答にある colors を使う。それも空なら書かない。id は作らない。色を選ぶ材料は description です。name と色の値は選ぶ定義にしません。色を付ける依頼では、文に合う項目が一つならその id を書く。どれにも合わないタスクには colorId を書かず、既に付いていても外す。二つ以上に合いそうなときは id を選ばず尋ね、答えがあるまで書かない。色の話でない更新では今ある colorId を残す。足さないし、消さない。色を外すと頼まれたときだけキーを省く。一覧に無い id を書いた colorId も残します。追加項目の fieldValues は、読み取りツールの応答にある fields の key だけを新しく足します。定義に無い key と差分に出ていない key の値は残します。instruction が空の項目は、値が無いときだけ埋め、既にある値は書き換えません。差分に無い値は作りません。todos があるタスクの progress は件数から決める。スキルが書いた progress では置き換えない。todos を消すときは todos キーを省き、残す progress を progress に書く。前面ウィンドウのスケジュールだけを、検証済みの JSON 全体で未保存として置き換えます。背面のウィンドウは置き換えません。利用者が前面と違うウィンドウの更新だけを指しているときは、このツールを呼び出さずその旨を伝えます。外部更新の衝突確認が開いているときも置き換えられ、確認は閉じます。ファイルには書きません。置き換えたあと、内容を確認して問題なければ保存するよう利用者に促してください。成功時は FILE-07 と同じ差分テキストだけを返します。",
                 "inputSchema": {
                     "type": "object",
                     "description": "schedule-viewer のスケジュール JSON 全体（schemaVersion 8）",
@@ -259,10 +259,19 @@ mod tests {
         let selected_task = description("selected_task");
         assert!(selected_task.contains("選択数が不明なときは selected_tasks を使います"));
         assert!(selected_task.contains("statuses"));
+        assert!(selected_task.contains("colors"));
+        assert!(selected_task.contains("colorId があるときだけ colorId"));
         assert!(selected_task.contains("fields"));
         assert!(selected_task.contains("fieldValues"));
+        assert!(selected_task.contains("起動中でも MCP の一覧は使わない"));
+        assert!(selected_task.contains("色を選ぶ材料は description"));
+        assert!(description("selected_tasks").contains("起動中でも MCP の一覧は使わない"));
+        assert!(description("selected_tasks").contains("色を選ぶ材料は description"));
         assert!(description("filtered_tasks").contains("statuses"));
+        assert!(description("filtered_tasks").contains("colors"));
         assert!(description("filtered_tasks").contains("fields"));
+        assert!(description("filtered_tasks").contains("起動中でも MCP の一覧は使わない"));
+        assert!(description("filtered_tasks").contains("色を選ぶ材料は description"));
         assert!(selected_tasks.contains("fieldValues"));
         let open_windows = description("open_windows");
         assert!(open_windows.contains("一意に当たったときだけ"));
@@ -281,6 +290,9 @@ mod tests {
         assert!(replace_schedule.contains("新しいスケジュールファイルの作成"));
         assert!(replace_schedule.contains("前面と違うウィンドウ"));
         assert!(replace_schedule.contains("statuses の id だけ"));
+        assert!(replace_schedule.contains("起動中でも MCP の一覧は使わない"));
+        assert!(replace_schedule.contains("色を選ぶ材料は description"));
+        assert!(!replace_schedule.contains("colors の id だけ"));
         assert!(replace_schedule.contains("選ぶ材料は description"));
         assert!(replace_schedule.contains("role が done だから完了"));
         assert!(replace_schedule.contains("instruction が無い項目"));

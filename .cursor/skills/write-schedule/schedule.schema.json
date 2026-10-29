@@ -154,6 +154,11 @@
           "description": "未割当は null。一人は id の文字列、または要素1つの配列。二人以上は入れた順の id 配列。"
         },
         "status": { "$ref": "#/$defs/taskStatus" },
+        "colorId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "色の一覧の id。色なしはキーを書かない。"
+        },
         "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
         "confidence": {
           "type": "string",

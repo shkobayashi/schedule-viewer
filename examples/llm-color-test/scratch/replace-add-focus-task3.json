@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 8,
+  "title": "色の一覧で行の地（VIEW-14）",
+  "milestoneGroups": [
+    {
+      "id": "f2000001-0000-4000-8000-000000000001",
+      "name": "マイルストン"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "f3000001-0000-4000-8000-000000000099",
+      "name": "マイルストン（塗らない）",
+      "date": "2026-10-29",
+      "confidence": "committed",
+      "groupId": "f2000001-0000-4000-8000-000000000001"
+    }
+  ],
+  "categories": [
+    {
+      "id": "f3000001-0000-4000-8000-000000000001",
+      "name": "見出し（塗らない）",
+      "groups": [
+        {
+          "id": "f4000001-0000-4000-8000-000000000001",
+          "name": "グループ（塗らない）",
+          "tasks": [
+            {
+              "id": "f5000001-0000-4000-8000-000000000001",
+              "name": "注力（黄の地、進行中のバー）",
+              "start": "2026-10-26",
+              "end": "2026-11-01",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 40,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null,
+              "colorId": "focus"
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000002",
+              "name": "待ち（青の地、完了のバー）",
+              "start": "2026-10-27",
+              "end": "2026-10-30",
+              "assigneeId": null,
+              "status": "done",
+              "progress": 100,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null,
+              "colorId": "wait"
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000003",
+              "name": "色なし（今の地のまま）",
+              "start": "2026-10-28",
+              "end": "2026-10-31",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null,
+              "colorId": "focus"
+            },
+            {
+              "id": "f5000001-0000-4000-8000-000000000004",
+              "name": "一覧に無い色（塗らない）",
+              "start": "2026-10-26",
+              "end": "2026-10-28",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null,
+              "colorId": "missing-color"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

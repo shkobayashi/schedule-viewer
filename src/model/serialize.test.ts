@@ -76,6 +76,61 @@ describe("scheduleToJson note", () => {
     expect(doc.categories[0].groups[0].tasks[0].note).toBe("hello");
   });
 
+  it("writes colorId after status and omits colorId when absent", () => {
+    const categories: Category[] = [
+      {
+        id: "c1000001-0000-4000-8000-000000000001",
+        name: "C",
+        groups: [
+          {
+            id: "d1000001-0000-4000-8000-000000000001",
+            name: "G",
+            tasks: [
+              {
+                id: "00000000-0000-4000-8000-000000000001",
+                name: "T",
+                start: "2026-01-01",
+                end: "2026-01-01",
+                assigneeIds: [],
+                status: "not-started",
+                progress: 0,
+                confidence: "committed",
+                predecessors: [],
+                milestoneId: null,
+                colorId: "focus",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const json = documentToJsonString(
+      scheduleToJson("P", categories, [], []),
+    );
+    const task = (
+      JSON.parse(json) as {
+        categories: { groups: { tasks: Record<string, unknown>[] }[] }[];
+      }
+    ).categories[0]!.groups[0]!.tasks[0]!;
+    const keys = Object.keys(task);
+    expect(keys.indexOf("colorId")).toBe(keys.indexOf("status") + 1);
+    expect(task.colorId).toBe("focus");
+
+    const bare = scheduleToJson("P", categories, [], []).categories[0]!.groups[0]!
+      .tasks[0];
+    const without = { ...bare };
+    delete (without as { colorId?: string }).colorId;
+    const bareJson = documentToJsonString(
+      scheduleToJson("P", [{ ...categories[0]!, groups: [{ ...categories[0]!.groups[0]!, tasks: [without] }] }], [], []),
+    );
+    const bareTask = (
+      JSON.parse(bareJson) as {
+        categories: { groups: { tasks: Record<string, unknown>[] }[] }[];
+      }
+    ).categories[0]!.groups[0]!.tasks[0]!;
+    expect(bareTask).not.toHaveProperty("colorId");
+  });
+
   it("writes confidence after progress", () => {
     const categories: Category[] = [
       {

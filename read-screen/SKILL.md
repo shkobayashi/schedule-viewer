@@ -47,7 +47,7 @@ schedule-viewer のデスクトップ版ウィンドウと連携するスキル�
 
 絞り込みをスキル側でやり直さないでください。画面が使っている条件のまま返します。
 
-`selected_task`、`selected_tasks`、`filtered_tasks` の応答には、`levels` と `statuses` のあとに `fields`（使用中の追加項目の定義。定義が無いときは空の配列）が一度だけ出ます。各タスクには、値があるときだけ `fieldValues`（合成キーと値）が出ます。`current_schedule` はスケジュール JSON 全体であり、定義は足しません。値は各タスクの `fieldValues` にあります。
+`selected_task`、`selected_tasks`、`filtered_tasks` の応答には、`levels` と `statuses` のあとに `colors`（使用中の色の一覧。一覧が無いときは空の配列）、続けて `fields`（使用中の追加項目の定義。定義が無いときは空の配列）が一度だけ出ます。各タスクには、`colorId` があるときだけ `colorId` を載せます。値があるときだけ `fieldValues`（合成キーと値）が出ます。`current_schedule` はスケジュール JSON 全体であり、定義は足しません。値は各タスクの `fieldValues` と `colorId` にあります。`colorId` には、色の一覧の id だけを使います。一覧は次の順で探します。設定ファイルに `colors` のパスがあるときはその JSON を読み、各項目の id、name、description、color を使います。起動中でも MCP の一覧は使いません。設定ファイルはあるが `colors` が無いときは、色の id を書きません。設定ファイルが無いときは、読み取り 3 つの応答にある `colors`（`statuses` の次）。それも空なら、色の id を書きません。id は作りません。色を選ぶ材料は一覧の `description` です。`name` と色の値は選ぶ定義にしません。二つの `description` が同じ依頼に合うときは id を選ばず尋ねます。色を付ける依頼では、文に合う項目が一つならその id を書き、どれにも合わないタスクには `colorId` を書かず、既に付いていても外します。二つ以上に合いそうなときは一つに決めず尋ね、答えがあるまでスケジュールを書きません。色の話でない更新では今ある `colorId` を残します。足しも消しもしません。色を外すと頼まれたときだけキーを省きます。一覧に無い id を書いた `colorId` も残します。アプリは文を評価して塗りません。`description` はタスクへコピーしません。
 
 ## 開いている画面の更新手順
 

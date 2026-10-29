@@ -4,6 +4,7 @@ export type WorkspaceDocument = {
   members?: string;
   calendar?: string;
   statuses?: string;
+  colors?: string;
   fieldExtensions?: string[];
   editableFieldExtension?: string;
 };
@@ -13,6 +14,7 @@ export type WorkspaceResolvedPaths = {
   membersPath: string | null;
   calendarPath: string | null;
   statusesPath: string | null;
+  colorsPath: string | null;
   fieldExtensionPaths: string[];
   editableFieldExtensionPath: string | null;
 };
@@ -59,6 +61,15 @@ export type WorkspaceFieldExtensionsState =
     }
   | { kind: "error"; message: string };
 
+export type WorkspaceColorsState =
+  | { kind: "unset" }
+  | {
+      kind: "loaded";
+      label: string;
+      items: import("./colorCatalog").ColorItem[];
+    }
+  | { kind: "error"; message: string };
+
 export type WorkspaceWindowBinding = {
   workspacePath: string;
   document: WorkspaceDocument;
@@ -66,6 +77,7 @@ export type WorkspaceWindowBinding = {
   members: WorkspaceMemberState;
   calendar: WorkspaceCalendarState;
   statuses: WorkspaceStatusesState;
+  colors: WorkspaceColorsState;
   fieldExtensions: WorkspaceFieldExtensionsState;
   editableFieldExtension: WorkspaceEditableFieldExtensionState;
 };

@@ -15,6 +15,7 @@ mod workspace;
 mod schedule_drop;
 mod field_extension_edit;
 mod status_catalog_edit;
+mod color_catalog_edit;
 mod window_session;
 
 use json_skills::{
@@ -42,6 +43,10 @@ use field_extension_edit::{
 use status_catalog_edit::{
     claim_status_catalog_edit, release_all_status_catalog_edits_for_label,
     release_status_catalog_edit, StatusCatalogEditState,
+};
+use color_catalog_edit::{
+    claim_color_catalog_edit, release_all_color_catalog_edits_for_label,
+    release_color_catalog_edit, ColorCatalogEditState,
 };
 use window_session::{
     all_windows_external_drop_ready, all_windows_startup_settled,
@@ -415,6 +420,8 @@ async fn export_workspace_bundle(
     calendar_contents: Option<String>,
     statuses_file_name: Option<String>,
     statuses_contents: Option<String>,
+    colors_file_name: Option<String>,
+    colors_contents: Option<String>,
     field_extensions: Vec<FieldExtensionExportInput>,
 ) -> Result<(), String> {
     if schedule_contents.len() as u64 > MAX_SCHEDULE_BYTES {
@@ -433,6 +440,11 @@ async fn export_workspace_bundle(
     if let Some(contents) = &statuses_contents {
         if contents.len() as u64 > MAX_MEMBERS_BYTES {
             return Err("ステータス JSON が大きすぎます（上限 2 MB）".to_string());
+        }
+    }
+    if let Some(contents) = &colors_contents {
+        if contents.len() as u64 > MAX_MEMBERS_BYTES {
+            return Err("色の一覧 JSON が大きすぎます（上限 2 MB）".to_string());
         }
     }
     for entry in &field_extensions {
@@ -486,6 +498,15 @@ async fn export_workspace_bundle(
         }
         wrote_any = true;
         workspace["statuses"] = serde_json::Value::String(statuses_name);
+    }
+    if let (Some(name), Some(contents)) = (&colors_file_name, &colors_contents) {
+        let colors_name = sanitize_export_filename(name, "json");
+        used_names.insert(colors_name.clone());
+        if let Err(error) = write_utf8_atomic(&folder.join(&colors_name), contents) {
+            return Err(workspace::export_error_with_partial(error, wrote_any));
+        }
+        wrote_any = true;
+        workspace["colors"] = serde_json::Value::String(colors_name);
     }
     let mut field_extension_paths: Vec<String> = Vec::new();
     for entry in field_extensions {
@@ -695,6 +716,32 @@ async fn save_html_file(
 
 #[tauri::command]
 async fn save_statuses_json(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    contents: String,
+    suggested_name: String,
+) -> Result<Option<String>, String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let default_name = sanitize_export_filename(&suggested_name, "json");
+    let picked = app
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_file_name(&default_name)
+        .add_filter("JSON", &["json"])
+        .blocking_save_file();
+    let target = match picked {
+        Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
+        None => return Ok(None),
+    };
+    write_utf8_atomic(&target, &contents)?;
+    Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+async fn save_colors_json(
     window: tauri::Window,
     app: tauri::AppHandle,
     contents: String,
@@ -973,6 +1020,97 @@ fn write_statuses_at_path(
 }
 
 #[tauri::command]
+fn write_colors_at_path(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    path: String,
+    contents: String,
+    workspace_path: Option<String>,
+) -> Result<(), String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let workspace_path = workspace_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    let app_data = app_data_dir(&app)?;
+    let file = read_open_windows(&app_data)?;
+    let label = window_label(&window);
+    let entry = file
+        .windows
+        .iter()
+        .find(|item| item.label == label)
+        .ok_or_else(|| "ウィンドウの記録が見つかりません。".to_string())?;
+    let bound_workspace = entry
+        .workspace_path
+        .as_deref()
+        .ok_or_else(|| "設定ファイルで開いていないため保存できません。".to_string())?;
+    if bound_workspace.trim() != workspace_path {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    let workspace_file = PathBuf::from(workspace_path);
+    let expected = workspace::read_workspace_colors_path(&workspace_file)?
+        .ok_or_else(|| "設定ファイルに colors がありません。".to_string())?;
+    let target = PathBuf::from(path.trim());
+    if !target.is_absolute() {
+        return Err("保存先のパスが不正です。".to_string());
+    }
+    if !is_json_path(&target) {
+        return Err("JSON ファイル以外には保存できません".to_string());
+    }
+    if !workspace::paths_denote_same_file(&target, &expected) {
+        return Err("保存先のパスが一致しません。ファイルを開き直してください。".to_string());
+    }
+    write_utf8_atomic(&target, &contents)?;
+    broadcast_workspace_reload(&app, workspace_path)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn create_workspace_colors_catalog(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    workspace_path: String,
+    relative_file_name: String,
+    contents: String,
+) -> Result<(), String> {
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("保存する内容が大きすぎます（上限 2 MB）".to_string());
+    }
+    let workspace_file = workspace_file_for_bound_window(&window, &app, &workspace_path)?;
+    let relative = relative_file_name.trim();
+    if relative.is_empty()
+        || relative.contains('/')
+        || relative.contains('\\')
+        || relative.contains("..")
+    {
+        return Err("ファイル名が不正です。".to_string());
+    }
+    if !is_json_path(Path::new(relative)) {
+        return Err("JSON ファイル以外には保存できません".to_string());
+    }
+    if workspace::read_workspace_colors_path(&workspace_file)?.is_some() {
+        return Err("色の一覧は既にあります。".to_string());
+    }
+    let parent = workspace_file
+        .parent()
+        .ok_or_else(|| "設定ファイルのパスが不正です。".to_string())?;
+    let target = parent.join(relative);
+    if target.exists() {
+        return Err("同じ名前のファイルが既にあります。".to_string());
+    }
+    write_utf8_atomic(&target, &contents)?;
+    if let Err(error) = workspace::set_workspace_colors_relative(&workspace_file, Some(relative)) {
+        let _ = std::fs::remove_file(&target);
+        return Err(error);
+    }
+    broadcast_workspace_reload(&app, workspace_path.trim())?;
+    Ok(())
+}
+
+#[tauri::command]
 async fn save_excel_export(
     window: tauri::Window,
     app: tauri::AppHandle,
@@ -1015,6 +1153,8 @@ struct AppSettingsFile {
     calendar_label: Option<String>,
     #[serde(rename = "selectedStatusesCatalogId", default)]
     selected_statuses_catalog_id: Option<String>,
+    #[serde(rename = "selectedColorsCatalogId", default)]
+    selected_colors_catalog_id: Option<String>,
     #[serde(rename = "selectedFieldExtensionCatalogIds", default)]
     selected_field_extension_catalog_ids: Vec<String>,
 }
@@ -1047,6 +1187,12 @@ fn members_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 fn statuses_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let dir = app_data_dir(app)?.join("statuses");
     fs::create_dir_all(&dir).map_err(|e| format!("ステータスデータを準備できません: {}", e))?;
+    Ok(dir)
+}
+
+fn colors_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app_data_dir(app)?.join("colors");
+    fs::create_dir_all(&dir).map_err(|e| format!("色の一覧データを準備できません: {}", e))?;
     Ok(dir)
 }
 
@@ -1336,6 +1482,75 @@ fn set_selected_status_catalog(
 ) -> Result<(), String> {
     let mut settings = read_settings(&app)?;
     settings.selected_statuses_catalog_id = match catalog_id {
+        None => None,
+        Some(id) => Some(sanitize_catalog_id(&id)?),
+    };
+    write_settings(&app, &settings)
+}
+
+#[tauri::command]
+fn get_colors_settings(app: tauri::AppHandle) -> Result<MembersSettingsResult, String> {
+    let settings = read_settings(&app)?;
+    let catalogs = list_catalog_entries_in(&colors_dir(&app)?)?;
+    Ok(MembersSettingsResult {
+        selected_catalog_id: settings.selected_colors_catalog_id,
+        catalogs,
+    })
+}
+
+#[tauri::command]
+fn read_color_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+) -> Result<Option<String>, String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = colors_dir(&app)?.join(format!("{}.json", id));
+    if !path.exists() {
+        return Ok(None);
+    }
+    Ok(Some(read_utf8(&path, MAX_MEMBERS_BYTES)?))
+}
+
+#[tauri::command]
+fn import_color_catalog(
+    app: tauri::AppHandle,
+    catalog_id: String,
+    contents: String,
+    overwrite: bool,
+) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    if contents.len() as u64 > MAX_MEMBERS_BYTES {
+        return Err("色の一覧ファイルが大きすぎます（上限 2 MB）".to_string());
+    }
+    let path = colors_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() && !overwrite {
+        return Err("同じ名前のカタログが既にあります".to_string());
+    }
+    write_utf8_atomic(&path, &contents)
+}
+
+#[tauri::command]
+fn delete_color_catalog(app: tauri::AppHandle, catalog_id: String) -> Result<(), String> {
+    let id = sanitize_catalog_id(&catalog_id)?;
+    let path = colors_dir(&app)?.join(format!("{}.json", id));
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| format!("カタログを削除できません: {}", e))?;
+    }
+    let mut settings = read_settings(&app)?;
+    if settings.selected_colors_catalog_id.as_deref() == Some(id.as_str()) {
+        settings.selected_colors_catalog_id = None;
+        write_settings(&app, &settings)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn set_selected_color_catalog(
+    app: tauri::AppHandle,
+    catalog_id: Option<String>,
+) -> Result<(), String> {
+    let mut settings = read_settings(&app)?;
+    settings.selected_colors_catalog_id = match catalog_id {
         None => None,
         Some(id) => Some(sanitize_catalog_id(&id)?),
     };
@@ -2628,6 +2843,7 @@ pub fn run() {
         .manage(Mutex::new(ScheduleFileStates::default()))
         .manage(Mutex::new(WindowSessionState::default()))
         .manage(Mutex::new(StatusCatalogEditState::default()))
+        .manage(Mutex::new(ColorCatalogEditState::default()))
         .manage(Mutex::new(FieldExtensionEditState::default()))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
@@ -2719,6 +2935,10 @@ pub fn run() {
                         let mut guard = edit_state.lock().expect("status catalog edit");
                         release_all_status_catalog_edits_for_label(&mut guard, &label);
                     }
+                    if let Some(edit_state) = app.try_state::<Mutex<ColorCatalogEditState>>() {
+                        let mut guard = edit_state.lock().expect("color catalog edit");
+                        release_all_color_catalog_edits_for_label(&mut guard, &label);
+                    }
                     if let Some(edit_state) = app.try_state::<Mutex<FieldExtensionEditState>>() {
                         let mut guard = edit_state.lock().expect("field extension edit");
                         release_all_field_extension_edits_for_label(&mut guard, &label);
@@ -2753,7 +2973,10 @@ pub fn run() {
             save_schedule_file,
             save_html_file,
             save_statuses_json,
+            save_colors_json,
             write_statuses_at_path,
+            write_colors_at_path,
+            create_workspace_colors_catalog,
             save_excel_export,
             get_members_settings,
             read_member_catalog,
@@ -2779,6 +3002,13 @@ pub fn run() {
             set_selected_status_catalog,
             claim_status_catalog_edit,
             release_status_catalog_edit,
+            get_colors_settings,
+            read_color_catalog,
+            import_color_catalog,
+            delete_color_catalog,
+            set_selected_color_catalog,
+            claim_color_catalog_edit,
+            release_color_catalog_edit,
             get_calendar_state,
             read_app_calendar,
             import_app_calendar,

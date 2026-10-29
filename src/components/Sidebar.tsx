@@ -28,6 +28,9 @@ import {
   rowInReorderDragBlock,
 } from "../model/rows";
 import type { StatusItem } from "../model/statusCatalog";
+import type { ColorItem } from "../model/colorCatalog";
+import { rowFillForColorId } from "../model/colorCatalog";
+import type { ResolvedColorScheme } from "../model/palette";
 import {
   resolveStatusSidebarDisplay,
   statusColumnChars,
@@ -128,6 +131,8 @@ type SidebarProps = {
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
   statuses: readonly StatusItem[];
+  rowColors: readonly ColorItem[] | null;
+  colorScheme: ResolvedColorScheme;
   onToggleCollapse: (key: string) => void;
   onOpenTaskNote: (taskId: ScheduleId) => void;
   onTaskContextMenu: (taskId: ScheduleId, x: number, y: number) => void;
@@ -195,6 +200,8 @@ export function Sidebar({
   milestones,
   memberCatalog,
   statuses,
+  rowColors,
+  colorScheme,
   onToggleCollapse,
   onOpenTaskNote,
   onTaskContextMenu,
@@ -788,6 +795,8 @@ export function Sidebar({
                 milestones={milestones}
                 memberCatalog={memberCatalog}
                 statuses={statuses}
+                rowColors={rowColors}
+                colorScheme={colorScheme}
                 onOpenTaskNote={() => onOpenTaskNote(row.task.id)}
                 onTaskContextMenu={(x, y) => onTaskContextMenu(row.task.id, x, y)}
                 onGripPointerDown={(event) => beginRowDrag("task", row.task.id, event)}
@@ -887,6 +896,8 @@ export function Sidebar({
             milestones={milestones}
             memberCatalog={memberCatalog}
             statuses={statuses}
+            rowColors={rowColors}
+            colorScheme={colorScheme}
             sidebarColumns={sidebarColumns}
           />
         ) : null}
@@ -1366,6 +1377,8 @@ function TaskSidebarRow({
   milestones,
   memberCatalog,
   statuses,
+  rowColors,
+  colorScheme,
   onOpenTaskNote,
   onTaskContextMenu,
   onSelect,
@@ -1384,6 +1397,8 @@ function TaskSidebarRow({
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
   statuses: readonly StatusItem[];
+  rowColors: readonly ColorItem[] | null;
+  colorScheme: ResolvedColorScheme;
   sidebarColumns: SidebarColumnsPreference;
   onOpenTaskNote: () => void;
   onTaskContextMenu: (x: number, y: number) => void;
@@ -1419,6 +1434,10 @@ function TaskSidebarRow({
     top,
     height: rowHeight,
   };
+  const rowFill = rowFillForColorId(rowColors, task.colorId, colorScheme);
+  if (rowFill != null && !selected && !hovered) {
+    rowStyle.background = rowFill;
+  }
 
   return (
     <div
@@ -1545,6 +1564,8 @@ function SidebarDragGhost({
   milestones,
   memberCatalog,
   statuses,
+  rowColors,
+  colorScheme,
   sidebarColumns,
 }: {
   ghost: { kind: "category" | "group" | "task"; id: ScheduleId; top: number };
@@ -1557,6 +1578,8 @@ function SidebarDragGhost({
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
   statuses: readonly StatusItem[];
+  rowColors: readonly ColorItem[] | null;
+  colorScheme: ResolvedColorScheme;
   sidebarColumns: SidebarColumnsPreference;
 }) {
   const block = useMemo(
@@ -1655,6 +1678,8 @@ function SidebarDragGhost({
             milestones={milestones}
             memberCatalog={memberCatalog}
             statuses={statuses}
+            rowColors={rowColors}
+            colorScheme={colorScheme}
             onOpenTaskNote={() => {}}
             onTaskContextMenu={() => {}}
             onSelect={() => {}}

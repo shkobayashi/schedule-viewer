@@ -9,6 +9,7 @@ import membersSchema from "../docs/members.schema.json" with { type: "json" };
 import statusesSchema from "../docs/statuses.schema.json" with { type: "json" };
 import calendarSchema from "../docs/calendar.schema.json" with { type: "json" };
 import workspaceSchema from "../docs/workspace.schema.json" with { type: "json" };
+import colorsSchema from "../docs/colors.schema.json" with { type: "json" };
 import fieldExtensionsSchema from "../docs/field-extensions.schema.json" with { type: "json" };
 
 const outDir = join(
@@ -69,3 +70,4 @@ writeFileSync(
   join(outDir, "fieldExtensionsValidator.js"),
   compile(fieldExtensionsSchema),
 );
+writeFileSync(join(outDir, "colorsValidator.js"), compile(colorsSchema));

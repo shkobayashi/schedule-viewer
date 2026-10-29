@@ -23,6 +23,7 @@ function task(partial: Partial<Task> & { id: string }): Task {
     predecessors: partial.predecessors ?? [],
     milestoneId: partial.milestoneId ?? null,
     fieldValues: partial.fieldValues,
+    colorId: partial.colorId,
   };
 }
 
@@ -33,6 +34,7 @@ describe("catalogMismatchKind", () => {
       statuses,
       catalog,
       new Set(),
+      null,
     );
     expect(flags.status).toBe(true);
     expect(catalogMismatchBannerText(flags)).toBe(
@@ -46,9 +48,60 @@ describe("catalogMismatchKind", () => {
       statuses,
       catalog,
       new Set(),
+      null,
     );
     expect(flags.assignee).toBe(true);
     expect(catalogMismatchBannerText(flags)).toBe("一覧に無い担当があります。");
+  });
+
+  it("reports missing color when catalog is loaded", () => {
+    const colors = [
+      {
+        id: "focus",
+        name: "注力",
+        description: "x",
+        color: { light: { bg: "#FEF3C7" }, dark: { bg: "#78350F" } },
+      },
+    ];
+    const flags = catalogMismatchFlags(
+      [task({ id: "a", colorId: "ghost-color" })],
+      statuses,
+      catalog,
+      new Set(),
+      colors,
+    );
+    expect(flags.color).toBe(true);
+    expect(catalogMismatchBannerText(flags)).toBe("一覧に無い色があります。");
+  });
+
+  it("does not report color when catalog is unset", () => {
+    const flags = catalogMismatchFlags(
+      [task({ id: "a", colorId: "ghost-color" })],
+      statuses,
+      catalog,
+      new Set(),
+      null,
+    );
+    expect(flags.color).toBe(false);
+  });
+
+  it("does not report color when id exists in catalog", () => {
+    const colors = [
+      {
+        id: "focus",
+        name: "注力",
+        description: "x",
+        color: { light: { bg: "#FEF3C7" }, dark: { bg: "#78350F" } },
+      },
+    ];
+    const flags = catalogMismatchFlags(
+      [task({ id: "a", colorId: "focus" })],
+      statuses,
+      catalog,
+      new Set(),
+      colors,
+    );
+    expect(flags.color).toBe(false);
   });
 
   it("reports both status and assignee", () => {
@@ -57,6 +110,7 @@ describe("catalogMismatchKind", () => {
       statuses,
       catalog,
       new Set(),
+      null,
     );
     expect(catalogMismatchKind([task({ id: "a", status: "missing", assigneeIds: ["ghost"] })], statuses, catalog)).toBe(
       "both",
@@ -72,6 +126,7 @@ describe("catalogMismatchKind", () => {
       statuses,
       catalog,
       new Set(["known"]),
+      null,
     );
     expect(flags.fieldValues).toBe(true);
     expect(catalogMismatchBannerText(flags)).toBe(
@@ -85,7 +140,7 @@ describe("catalogMismatchKind", () => {
     );
     expect(
       catalogMismatchBannerText(
-        catalogMismatchFlags([task({ id: "a" })], statuses, catalog, new Set()),
+        catalogMismatchFlags([task({ id: "a" })], statuses, catalog, new Set(), null),
       ),
     ).toBe(null);
   });

@@ -728,6 +728,7 @@ function taskContentEquals(a: Task, b: Task): boolean {
     a.end === b.end &&
     assigneeIdsEqual(taskAssigneeIds(a), taskAssigneeIds(b)) &&
     a.status === b.status &&
+    a.colorId === b.colorId &&
     a.progress === b.progress &&
     a.confidence === b.confidence &&
     predecessorSetEqual(a.predecessors, b.predecessors) &&

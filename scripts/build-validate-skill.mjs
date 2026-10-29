@@ -86,6 +86,23 @@ copyFileSync(
   ".cursor/skills/write-fields/field-extensions.schema.json",
 );
 
+buildSync({
+  entryPoints: ["scripts/validate-colors-cli.ts"],
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  outfile:
+    ".cursor/skills/write-colors/scripts/validate-colors.bundle.mjs",
+  banner: {
+    js: "#!/usr/bin/env node",
+  },
+});
+
+copyFileSync(
+  "docs/colors.schema.json",
+  ".cursor/skills/write-colors/colors.schema.json",
+);
+
 console.log(
-  "Built validate-schedule.bundle.mjs, validate-calendar.bundle.mjs, validate-members.bundle.mjs, validate-workspace.bundle.mjs, and validate-field-extensions.bundle.mjs",
+  "Built validate-schedule.bundle.mjs, validate-calendar.bundle.mjs, validate-members.bundle.mjs, validate-workspace.bundle.mjs, validate-field-extensions.bundle.mjs, and validate-colors.bundle.mjs",
 );
