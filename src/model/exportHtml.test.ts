@@ -7,14 +7,14 @@ import {
 } from "./exportHtml";
 import { paletteFor } from "./palette";
 import type { VisibleRow } from "./types";
-import { layoutMilestoneBand } from "./milestones";
+import { layoutMilestoneBand, milestoneMarkGuideGeometry } from "./milestones";
 import { hatchPatternId, hatchStripeColor } from "./hatch";
 import {
   MONTH_HEADER_LABEL_GAP_BASE_PX,
   monthHeaderLabelWidth,
 } from "./monthHeader";
 import { LAYOUT_HEADER_HEIGHT } from "./layoutSizes";
-import { daysBetween } from "./dates";
+import { daysBetween, parseDate } from "./dates";
 import type { Task } from "./types";
 
 const task: Task = {
@@ -70,6 +70,7 @@ function input(): ScheduleExportInput {
     filterSummary: "ステータス: 進行中",
     colorScheme: "light",
     showLightningLine: true,
+    milestoneGuideLineIds: new Set(),
   };
 }
 
@@ -194,7 +195,7 @@ describe("schedule export documents", () => {
     expect(column).toBeGreaterThan(labelColumnWidth(solid));
   });
 
-  it("hatches a tentative milestone and leaves a committed one solid", () => {
+  it("renders a hollow tentative milestone and a solid committed one", () => {
     const committedId = "00000000-0000-4000-8000-000000000010";
     const tentativeId = "00000000-0000-4000-8000-000000000011";
     const groupId = "e1000001-0000-4000-8000-000000000001";
@@ -230,8 +231,81 @@ describe("schedule export documents", () => {
       ),
     });
     expect(svg).toContain('fill="#111827"');
-    expect(svg).toContain(`fill="url(#${hatchPatternId("#111827")})"`);
-    expect(svg).toContain("<pattern ");
+    expect(svg).toContain('fill="none"');
+    expect(svg).not.toContain(`fill="url(#${hatchPatternId("#111827")})"`);
+  });
+
+  it("draws guide lines only for milestones in milestoneGuideLineIds", () => {
+    const milestoneId = "00000000-0000-4000-8000-000000000010";
+    const offId = "00000000-0000-4000-8000-000000000011";
+    const groupId = "e1000001-0000-4000-8000-000000000001";
+    const milestones = [
+      {
+        id: milestoneId,
+        name: "オン",
+        date: "2026-04-01",
+        confidence: "committed" as const,
+        groupId,
+      },
+      {
+        id: offId,
+        name: "オフ",
+        date: "2026-04-03",
+        confidence: "committed" as const,
+        groupId,
+      },
+    ];
+    const bandLayout = layoutMilestoneBand(
+      [{ id: groupId, name: "G" }],
+      milestones,
+      new Set([groupId]),
+      22,
+      11,
+      11,
+      26,
+      "export",
+    );
+    const base = input();
+    const headerHeight = 40;
+    const bandHeight = 26;
+    const laneCenterY = 13;
+    const guide = milestoneMarkGuideGeometry(
+      11,
+      11,
+      "オン",
+      laneCenterY,
+      0,
+      bandHeight,
+    );
+    const timelineStart = base.timelineStart;
+    const onX =
+      daysBetween(timelineStart, parseDate("2026-04-01")) * base.pxPerDay;
+    const offX =
+      daysBetween(timelineStart, parseDate("2026-04-03")) * base.pxPerDay;
+    const centerY = headerHeight + laneCenterY;
+    const bandBottomY = centerY + guide.bandVerticalY2;
+    const bandVertical = `<line x1="${onX}" y1="${centerY}" x2="${onX}" y2="${bandBottomY}" stroke="#697586" stroke-width="1" stroke-dasharray="4 3"/>`;
+    const withGuide = buildScheduleSvg({
+      ...base,
+      milestoneBandHeight: bandHeight,
+      milestones,
+      milestoneBandLayout: bandLayout,
+      milestoneGuideLineIds: new Set([milestoneId]),
+    });
+    const withoutGuide = buildScheduleSvg({
+      ...base,
+      milestoneBandHeight: bandHeight,
+      milestones,
+      milestoneBandLayout: bandLayout,
+      milestoneGuideLineIds: new Set(),
+    });
+    expect(withGuide).toContain(bandVertical);
+    expect(withoutGuide).not.toContain(bandVertical);
+    expect(withGuide).not.toMatch(
+      new RegExp(
+        `<line x1="${offX}" y1="${centerY}" x2="${offX}" y2="${bandBottomY}"`,
+      ),
+    );
   });
 
   it("draws the overrun frame when that milestone is left off the band", () => {
