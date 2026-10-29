@@ -14,6 +14,7 @@ import {
   validateScheduleSemantics,
   type ValidationIssue,
 } from "./scheduleSemantics";
+import { validateConnections } from "./connections";
 import { normalizeScheduleFieldsForValidation } from "./taskFields";
 import { normalizeAssigneesInDocument, scheduleInputForSchemaValidation, validateAssigneeIdInputSemantics } from "./assigneeIds";
 import { normalizeScheduleDocument } from "./taskTodos";
@@ -112,6 +113,7 @@ export function validateSchedule(data: unknown): ValidateScheduleResult {
     ...validateScheduleSemantics(document),
     ...validatePredecessorRefs(document),
     ...validateDependencyCycles(document),
+    ...validateConnections(document),
   ];
   if (errors.length > 0) {
     return {

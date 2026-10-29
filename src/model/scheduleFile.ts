@@ -5,6 +5,7 @@ import type {
   MilestoneGroup,
   ScheduleDocument,
   ScheduleFieldDef,
+  TaskConnection,
 } from "./types";
 import {
   formatValidationErrors,
@@ -47,6 +48,7 @@ export function serializeScheduleDocument(
   levels?: ScheduleLevelDef[] | null,
   outline?: OutlineRoot | null,
   fields?: ScheduleFieldDef[] | null,
+  connections?: TaskConnection[] | null,
 ): string {
   return documentToJsonString(
     scheduleToJson(
@@ -57,6 +59,7 @@ export function serializeScheduleDocument(
       levels,
       outline,
       fields,
+      connections,
     ),
   );
 }

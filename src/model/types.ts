@@ -93,11 +93,19 @@ export type Milestone = {
   groupId: ScheduleId;
 };
 
+/** 終わってから始まる前後とは別の、2タスク間の繋がり。 */
+export type TaskConnection = {
+  taskIds: [ScheduleId, ScheduleId];
+  label: string;
+};
+
 export type ScheduleDocument = {
   schemaVersion: typeof SCHEDULE_SCHEMA_VERSION;
   title: string;
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
+  /** 1件以上あるときだけ JSON に含める。 */
+  connections?: TaskConnection[];
   categories: Category[];
   levels?: ScheduleLevelDef[];
   outline?: OutlineRoot;

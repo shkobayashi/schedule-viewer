@@ -124,6 +124,17 @@
 | `dependencies.test.ts` | `keeps a right elbow when the gap fits the arrow` | VIEW-08 |
 | 同上 | `approaches from the left when the gap is shorter than the arrow` | VIEW-08 |
 | 同上 | `routes around a bar that starts before the predecessor ends` | VIEW-08 |
+| `connections.test.ts` | `accepts sample schedule without connections` | VIEW-15 |
+| 同上 | `accepts connections example schedule` | VIEW-15 |
+| 同上 | `rejects duplicate pairs regardless of order` | VIEW-15 |
+| 同上 | `routes above an obstacle bar between rows` | VIEW-15 |
+| 同上 | `keeps default position when nothing overlaps` | VIEW-15 |
+| 同上 | `shifts up when default overlaps` | VIEW-15 |
+| 同上 | `shifts left when default and up overlap` | VIEW-15 |
+| 同上 | `shifts right when other candidates overlap` | VIEW-15 |
+| 同上 | `keeps default when all four candidates overlap` | VIEW-15 |
+| 同上 | `skips up candidate above chart body top` | VIEW-15 |
+| 同上 | `later labels avoid earlier connection labels` | VIEW-15 |
 | 同上 | `hits the segment, the elbow, and the endpoint` | EDIT-12 |
 | 同上 | `picks the closer line and ignores points outside the threshold` | EDIT-12 |
 | 同上 | `appends the predecessor in one list` | EDIT-12 |
@@ -717,6 +728,7 @@
 | 同上 | `includes extra days when fitting to the viewport width` | NAV-01, VIEW-04 |
 | 同上 | `includes prefix days before the data range when fitting` | NAV-01, VIEW-04 |
 | `contrast.test.ts` | `meets text contrast for bar labels` | VIEW-02 |
+| 同上 | `meets contrast for connection arcs` | VIEW-15 |
 | 同上 | `steps a fixed ratio and stays put at the ends` | SET-01 |
 | 同上 | `leaves auto for the neighboring fixed step` | SET-01 |
 | 同上 | `compares auto scale at two decimal places` | SET-01 |
@@ -925,6 +937,8 @@
 | `examples/fields.schedule.json` | 合成キー `sample_*` の値。タスク 2 件（値あり・値なし） | `npm run check:schedule -- examples/fields.schedule.json` |
 | `examples/fields/sample.fields.json` | プラグイン ID `sample` の定義 5 件 | `npm run check:schedule -- examples/fields/sample.fields.json` |
 | `examples/fields/workspace.json` | 上記スケジュールと拡張を束ねる設定ファイル | 手動（FILE-10） |
+| `examples/connections/schedule.json` | VIEW-15 用。重なる組、離れる組、斜め、あいだの棒、一つから複数、塗った行、端が塗ってある組 | `npm run check:schedule -- examples/connections/schedule.json` |
+| `examples/connections/workspace.json` | 上記スケジュールと色の一覧を束ねる設定ファイル | 手動（FILE-10、VIEW-15） |
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
 
@@ -1070,6 +1084,9 @@
 | TC-VIEW-08 | VIEW-08 | 後続の開始が先行の終了より前の組と、同じ日に始まる組 | 線を見る | 先行の終了より前に始まる組の線だけが赤い。どちらかを折りたたむと線は消える |
 | TC-VIEW-08b | VIEW-08 | 先行と後続が見えている | 後続の開始を超えるまで先行の終了を延ばし、離す前に線を見る。同じ日まで戻してから離す | 離す前に赤く太くなる。同じ日では赤くならない。離してから「前後: 破綻のみ」に入る |
 | TC-VIEW-08c | VIEW-08 | 先行の終了と後続の開始が数日以内の組 | 月表示まで縮小して線を見る。週表示でも見る | どちらの表示でも矢印の頭が後続バーの左の外にあり、後続の行へ向かう線が分かる |
+| TC-VIEW-15 | VIEW-15 | `examples/connections/schedule.json` を開く | 「期間が重なる」と「期間が離れる」の組で、前後の矢印と円弧が同時に見えることを見る。「斜め」「一つから複数」の円弧と言葉を見る。「一つから複数」で、近くに空きがある言葉は棒の文字から離れ、空きが無い言葉は重なったままでよい | 円弧は棒の上端同士を結び、矢印が無く、色と太さが前後の線と違う。言葉が見える。期間が重なる組と重ならない組がある。斜めの組ではあいだの棒が障害にならない。一つの起点から複数の円弧が出る |
+| TC-VIEW-15b | VIEW-15 | 同じファイルの「あいだの棒（円弧が上を通る）」の組。塗った行は `examples/connections/workspace.json` をデスクトップ版で開く。「期間が重なる」「期間が離れる」の完了バーに接する端も見る | 円弧があいだの棒の上を通ること、塗った行の地の上でも線と言葉が見えることを見る。完了の緑の棒の端でも、ライトとダークで円弧と言葉が棒から離れて見える | ふくらみは1週間幅まで。どの組も上へふくらむ |
+| TC-VIEW-15c | VIEW-15 | 同じファイル | 繋がりの端のタスクを1件削除し、保存して開き直す | その円弧だけ消え、残った円弧と言葉が JSON に残る。日付は動かない。円弧は赤くならない |
 | TC-VIEW-09 | VIEW-09 | カレンダー未設定で日表示 | 背景を見る | 土日だけが薄い灰。月表示では日ごとに塗らない |
 | TC-VIEW-10 | VIEW-10 | 使用中カタログがある | 割り当てなし、一致する ID、存在しない ID の行を見る。割り当てなしを選択し、カーソルを乗せる。期限超過の割り当てなし行も見る。ライトとダーク、HTML と SVG の書き出しも確かめる | 一覧では「未割当」は琥珀色の札で切れず、名前付きは薄い文字、一致は表示名、「メンバー不明」と ID は紫の札。選択中とホバーでも札の地色が残る。期限超過でも「未割当」は赤くならない。チャートのバーに破線や上端の色は出ない。書き出しも同じ札である |
 | TC-VIEW-11 | VIEW-11 | ノートがあるタスクと無いタスク | ノートアイコンを押す | 色が違い、本文が出る。無いタスクは「ノートはありません」 |

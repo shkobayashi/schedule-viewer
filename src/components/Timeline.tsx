@@ -67,10 +67,20 @@ import {
 } from "../model/monthHeader";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
 import { resolveAssigneeRowDisplay, assigneeSidebarLabel, duplicateMemberNamesFromCatalog } from "../model/assigneeDisplay";
+import {
+  connectionArcGeometry,
+  collectTaskBarLabelObstacles,
+  CONNECTION_HALO_STROKE_WIDTH,
+  CONNECTION_STROKE_WIDTH,
+  layoutConnectionArcLabelsInOrder,
+  taskBarChartLabelStrings,
+  taskBarLabelFontSize,
+  type ConnectionBarObstacle,
+} from "../model/connections";
 import { KONVA_FONT_FAMILY } from "../model/fontStack";
 import type { Member, MemberId } from "../model/memberTypes";
 import type { StickyLayout } from "../model/stickyRows";
-import type { Milestone, ScheduleId, Task, VisibleRow } from "../model/types";
+import type { Milestone, ScheduleId, Task, TaskConnection, VisibleRow } from "../model/types";
 import type { CalendarDocument } from "../model/calendarTypes";
 import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
 import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "../model/palette";
@@ -111,6 +121,7 @@ type TimelineProps = {
   onResizeStart: (taskId: ScheduleId, groupX: number) => void;
   onResizeEnd: (taskId: ScheduleId, groupX: number, barWidth: number) => void;
   links: DependencyLink[];
+  connections: TaskConnection[];
   onOpenEdit: (task: Task) => void;
   onTaskContextMenu: (taskId: ScheduleId, x: number, y: number) => void;
   onWheelBody: (e: Konva.KonvaEventObject<WheelEvent>) => void;
@@ -364,17 +375,13 @@ function TaskBar({
   );
   const assigneeLabel = assigneeSidebarLabel(assigneeDisplay);
   const stroke = colors.border;
-  const fontSize = Math.max(10, Math.round(barHeight * 0.55));
-  const labelInside =
-    w >= 72 && tier !== "month"
-      ? `${task.name}${task.progress > 0 ? ` ${task.progress}%` : ""}`
-      : null;
-  const labelOutside =
-    tier === "month" || w < 72
-      ? `${task.name} ${assigneeLabel}`.trim()
-      : assigneeLabel
-        ? assigneeLabel
-        : null;
+  const fontSize = taskBarLabelFontSize(barHeight);
+  const { inside: labelInside, outside: labelOutside } = taskBarChartLabelStrings(
+    task,
+    w,
+    tier,
+    assigneeLabel,
+  );
   const hatch =
     task.confidence === "tentative"
       ? hatchCanvas(colors.bg, colorScheme)
@@ -1468,6 +1475,7 @@ export function Timeline({
   onResizeStart,
   onResizeEnd,
   links,
+  connections,
   onOpenEdit,
   onTaskContextMenu,
   onWheelBody,
@@ -2190,6 +2198,137 @@ export function Timeline({
     });
   }, [chart, hover.link, linkPolylines]);
 
+  const connectionArcElements = useMemo(() => {
+    if (connections.length === 0) return null;
+    const labelFontSize = Math.max(10, Math.round(11 * (barHeight / 20)));
+    const assigneeDuplicateNames = duplicateMemberNamesFromCatalog(memberCatalog);
+    const barLabelObstacles = collectTaskBarLabelObstacles(
+      visibleRows,
+      scrollY,
+      rowHeight,
+      barHeight,
+      bodyHeight,
+      dateToX,
+      pxPerDay,
+      tier,
+      memberCatalog,
+      assigneeDuplicateNames,
+      liveAnchors,
+    );
+
+    type Prepared = {
+      connection: TaskConnection;
+      taskA: ScheduleId;
+      taskB: ScheduleId;
+      geom: ReturnType<typeof connectionArcGeometry>;
+    };
+    const prepared: Prepared[] = [];
+    for (const connection of connections) {
+      const [taskA, taskB] = connection.taskIds;
+      const skipIds = new Set<ScheduleId>([taskA, taskB]);
+      const obstacles: ConnectionBarObstacle[] = visibleBarObstacles(
+        visibleRows,
+        scrollY,
+        rowHeight,
+        barHeight,
+        bodyHeight,
+        dateToX,
+        pxPerDay,
+        skipIds,
+      ).map((rect) => ({
+        left: rect.x,
+        right: rect.x + rect.width,
+        topY: rect.y,
+      }));
+      const anchorFor = (taskId: ScheduleId) => {
+        const anchor = liveAnchors.get(taskId);
+        if (!anchor) return null;
+        return {
+          left: anchor.x,
+          width: Math.max(anchor.right - anchor.x, 1),
+          centerY: anchor.y,
+        };
+      };
+      const from = anchorFor(taskA);
+      const to = anchorFor(taskB);
+      if (!from || !to) continue;
+      const geom = connectionArcGeometry(
+        from.left,
+        from.width,
+        from.centerY,
+        to.left,
+        to.width,
+        to.centerY,
+        barHeight,
+        pxPerDay,
+        obstacles,
+      );
+      prepared.push({ connection, taskA, taskB, geom });
+    }
+
+    const labelLayouts = layoutConnectionArcLabelsInOrder(
+      prepared.map((item) => ({
+        labelX: item.geom.labelX,
+        labelY: item.geom.labelY,
+        label: item.connection.label,
+      })),
+      barLabelObstacles,
+      labelFontSize,
+      0,
+    );
+
+    return prepared.map((item, index) => {
+      const layout = labelLayouts[index]!;
+      const key = `${item.taskA}-${item.taskB}-${item.connection.label}`;
+      return (
+        <Group key={key} listening={false}>
+          <Line
+            points={item.geom.points}
+            stroke={chart.connectionArcHalo}
+            strokeWidth={CONNECTION_HALO_STROKE_WIDTH}
+            lineCap="round"
+            lineJoin="round"
+            listening={false}
+          />
+          <Line
+            points={item.geom.points}
+            stroke={chart.connectionArc}
+            strokeWidth={CONNECTION_STROKE_WIDTH}
+            lineCap="round"
+            lineJoin="round"
+            listening={false}
+          />
+          <Text
+            x={layout.x}
+            y={layout.y}
+            text={item.connection.label}
+            fontSize={labelFontSize}
+            fontFamily={KONVA_FONT_FAMILY}
+            fill={chart.connectionArcLabel}
+            align="center"
+            offsetX={layout.offsetX}
+            listening={false}
+          />
+        </Group>
+      );
+    });
+  }, [
+    barHeight,
+    bodyHeight,
+    connections,
+    chart.connectionArc,
+    chart.connectionArcHalo,
+    chart.connectionArcLabel,
+    dateToX,
+    liveAnchors,
+    memberCatalog,
+    pxPerDay,
+    rowHeight,
+    scrollY,
+    tier,
+    visibleRows,
+  ]);
+
   const previewPoints = useMemo(() => {
     if (!linkSourceId || !previewEnd) return null;
     const from = liveAnchors.get(linkSourceId);
@@ -2859,6 +2998,17 @@ export function Timeline({
                 />
               );
             })}
+            </Group>
+          </Layer>
+          <Layer listening={false}>
+            <Group
+              clipX={0}
+              clipY={sticky.clipTop}
+              clipWidth={width}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+              listening={false}
+            >
+              {connectionArcElements}
             </Group>
           </Layer>
           <Layer listening={false}>

@@ -23,6 +23,12 @@
       "type": "array",
       "items": { "$ref": "#/$defs/milestone" }
     },
+    "connections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/connection" },
+      "description": "前後ではない繋がり。1件以上あるときだけ書く。"
+    },
     "levels": {
       "type": "array",
       "minItems": 1,
@@ -92,6 +98,26 @@
       "properties": {
         "text": { "type": "string", "minLength": 1 },
         "done": { "type": "boolean" }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taskIds", "label"],
+      "properties": {
+        "taskIds": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/scheduleId" },
+          "description": "つなぐ2つのタスク id。並びは方向ではない。"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "2つのタスクのあいだの関係を示す短い言葉。"
+        }
       }
     },
     "milestone": {

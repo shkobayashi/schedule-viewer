@@ -200,6 +200,7 @@ import {
   successorIdsFromTasks,
   visibleLinksFromTasks,
 } from "./model/dependencies";
+import { visibleConnectionsFromTasks } from "./model/connections";
 import { milestoneLinkedByAnyTask } from "./model/milestones";
 import {
   exportSchedule,
@@ -320,6 +321,9 @@ const INITIAL_BASELINE_JSON = serializeScheduleDocument(
   sampleCategories,
   sampleMilestoneGroups,
   sampleMilestones,
+  null,
+  null,
+  null,
 );
 
 type ContextMenuState =
@@ -2188,6 +2192,15 @@ function App() {
     schedule.visibleRows,
   ]);
 
+  const taskConnections = useMemo(() => {
+    const visibleIds = new Set(
+      schedule.visibleRows.flatMap((row) =>
+        row.type === "task" ? [row.task.id] : [],
+      ),
+    );
+    return visibleConnectionsFromTasks(schedule.connections, visibleIds);
+  }, [schedule.connections, schedule.visibleRows]);
+
   const handleResizeStart = useCallback(
     (taskId: ScheduleId, groupX: number) => {
       setTaskStart(taskId, resizeStartIso(viewStart, xToDate, groupX));
@@ -3953,6 +3966,7 @@ function App() {
             onResizeStart={handleResizeStart}
             onResizeEnd={handleResizeEnd}
             links={links}
+            connections={taskConnections}
             onOpenEdit={openTaskFromChart}
             onTaskContextMenu={openTaskContextMenu}
             onWheelBody={onWheelBody}

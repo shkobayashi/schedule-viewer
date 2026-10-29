@@ -74,6 +74,7 @@
 | `todos` | 任意。`text`（1文字以上、改行なし）と `done`（真偽）の配列。1件以上あるときだけ書く。進捗は件数から決める |
 | `confidence` | タスクとマイルストンの確度。`tentative`（未確定）か `committed`（確定）。日付を合意したかどうかで、着手や進捗とは独立 |
 | `predecessors` | 先行タスクの `id`。重複しない。自分自身は指定できない。存在しない ID は不可。循環も不可。後続は各タスクの `predecessors` から導く |
+| `connections` | 任意。1件以上あるときだけ書く。終わってから始まる前後とは別の、2タスク間の繋がり。各要素は `taskIds`（実在タスクの UUID がちょうど2つ。同じ id は不可。並びは方向ではない）と `label`（1文字以上）。同じ2タスクの組は1回だけ。日の前後は見ない。色・太さ・ふくらみは JSON に書かない |
 | `milestoneId` | 対応するマイルストンの `id`。未設定は `null`。存在しない ID は不可 |
 | `tags` | 任意。説明用の文字列の配列。各要素は1文字以上。前後の空白だけは不可。同一タスク内で、空白を除いた文字列が重複したら拒否する。大文字小文字は区別する。0件のときはプロパティを書かない |
 | `fieldValues` | 任意。追加項目の値。プロパティ名は使用中の拡張項目の合成キー `プラグインID_項目ID` である。1件以上あるときだけ書く。`text` は1文字以上の文字列（改行不可）。`number` は有限の数値。`date` は実在する `YYYY-MM-DD`。`choice` は `choices` のいずれか。定義に無いキーは開ける。値の型だけ検査し、保存しても消さない。型と必須の検査は、使用中の拡張に一致したキーだけを見る |
@@ -254,7 +255,7 @@
 
 アプリが書くスケジュール JSON は [src/model/serialize.ts](../src/model/serialize.ts) のキー順で、2スペースのインデントである（[src/model/scheduleFile.ts](../src/model/scheduleFile.ts) の `serializeScheduleDocument`）。
 
-キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones` のあと、階層の定義が無いときは `categories`、あるときは `levels` と `outline` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、項目があるときだけ `todos` を付け、タグがあるときだけ `tags` を付け、値があるときだけ `fieldValues` を付け、ノートがあるときだけ最後に `note` を付ける。`fieldValues` のキー順は、使用中の拡張項目の定義の並びに合わせる。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
+キーの順は `schemaVersion`、`title`、`milestoneGroups`、`milestones` のあと、繋がりがあるときだけ `connections` を置き、階層の定義が無いときは `categories`、あるときは `levels` と `outline` である。マイルストングループは `id`、`name`。マイルストンは `id`、`name`、`date`、`confidence`、`groupId` の順である。カテゴリは `id`、`name`、`groups`、グループは `id`、`name`、`tasks` の順である。タスクは `id`、`name`、`start`、`end`、`assigneeId`、`status`、`progress`、`confidence`、`predecessors`、`milestoneId` の順で、項目があるときだけ `todos` を付け、タグがあるときだけ `tags` を付け、値があるときだけ `fieldValues` を付け、ノートがあるときだけ最後に `note` を付ける。`fieldValues` のキー順は、使用中の拡張項目の定義の並びに合わせる。空白だけのノートは書かない。保存時は各タグの前後の空白を除き、空は捨て、重複は先のものを残す。
 
 未保存かどうかは、この形にした文字列と、最後に開いた・保存した・読み直したときの文字列を比べて決める。インデントやキー順だけが違うファイルは、同じ内容として扱う。
 
@@ -346,3 +347,5 @@
 `examples/playground.schedule.json` は手で開く例であり、引数なしの `check:schedule` では検証しない。内容は `src/sample/playgroundSchedule.ts` から `tsx scripts/write-playground-schedule.ts` で書き出す。
 
 階層の手動確認用は [examples/hierarchy/](../examples/hierarchy/) に置く。2段は [levels-2.schedule.json](../examples/hierarchy/levels-2.schedule.json)（帯の上に「まとまり / タスク」、まとまり行に地と帯）。3段は [levels-3.schedule.json](../examples/hierarchy/levels-3.schedule.json)（帯の上に三つの定義名、`outline` で工程・機能・タスク）。4段は [levels-4.schedule.json](../examples/hierarchy/levels-4.schedule.json)（帯の上に四つの定義名、同じ段の枝が複数ある追加先の確認用）。5段は [levels-5.schedule.json](../examples/hierarchy/levels-5.schedule.json)（帯の上に五つの定義名、縦スクロールで見出しは祖先を段の数だけ固定）。各ファイルは `npm run check:schedule -- examples/hierarchy/<file>` で検証する。
+
+[examples/connections/](../examples/connections/) は、前後ではない繋がり（VIEW-15）を手で確かめる組である。`schedule.json` に、期間が重なる組と離れる組、斜め、あいだの棒、一つの起点から複数、塗った行の上を通る組、端が塗ってある組を置く。行の地は `workspace.json` が `colors.json` を指すときだけ付く。`npm run check:schedule -- examples/connections/schedule.json` で検証する。

@@ -14,6 +14,10 @@ import {
   tryAddPredecessorLink,
 } from "../model/dependencies";
 import {
+  cloneConnections,
+  removeConnectionsForDeletedTasks,
+} from "../model/connections";
+import {
   cloneSnapshot,
   createDocumentHistory,
   pushDocumentHistory,
@@ -175,6 +179,7 @@ import {
   type ScheduleId,
   type ScheduleLevelDef,
   type Task,
+  type TaskConnection,
   type TaskTodoItem,
   type VisibleRow,
 } from "../model/types";
@@ -208,6 +213,7 @@ function snapshotFromDocument(doc: ScheduleDocument): DocumentSnapshot {
     categories: cloneCategories(doc.categories ?? []),
     milestoneGroups: doc.milestoneGroups.map((group) => ({ ...group })),
     milestones: doc.milestones.map((milestone) => ({ ...milestone })),
+    connections: cloneConnections(doc.connections),
     levels: doc.levels?.map((level) => ({ ...level })),
     outline:
       doc.outline != null ? cloneOutlineRoot(doc.outline) : undefined,
@@ -370,6 +376,9 @@ export function useSchedule(
   const [outline, setOutline] = useState<OutlineRoot | undefined>(
     () => documentRef.current.outline,
   );
+  const [connections, setConnections] = useState<
+    TaskConnection[] | undefined
+  >(() => documentRef.current.connections);
   const [hiddenMilestoneGroupIds, setHiddenMilestoneGroupIds] = useState<
     ScheduleId[]
   >([]);
@@ -484,6 +493,7 @@ export function useSchedule(
       setMilestones(cloned.milestones);
       setLevels(cloned.levels);
       setOutline(cloned.outline);
+      setConnections(cloned.connections);
       setReorderPreview(null);
       pruneUiForDocument(cloned);
     },
@@ -506,6 +516,7 @@ export function useSchedule(
       setMilestones(pushed.applied.milestones);
       setLevels(pushed.applied.levels);
       setOutline(pushed.applied.outline);
+      setConnections(pushed.applied.connections);
     },
     [blockDocumentEditsRef, syncHistoryUi],
   );
@@ -580,6 +591,7 @@ export function useSchedule(
         documentRef.current.levels,
         documentRef.current.outline,
         effectiveFieldDefs.length > 0 ? [...effectiveFieldDefs] : undefined,
+        documentRef.current.connections,
       ),
     [effectiveFieldDefs],
   );
@@ -2283,15 +2295,26 @@ export function useSchedule(
 
   const deleteTask = useCallback(
     (taskId: ScheduleId) => {
+      const deleted = new Set<ScheduleId>([taskId]);
       if (usesOutlineStorage) {
         commitDocument((current) => ({
           ...current,
           outline: removeTaskFromOutline(current.outline ?? [], taskId),
+          connections: removeConnectionsForDeletedTasks(
+            current.connections,
+            deleted,
+          ),
         }));
       } else {
-        commitCategories((prev) => removeTask(prev, taskId));
+        commitDocument((current) => ({
+          ...current,
+          categories: removeTask(current.categories, taskId),
+          connections: removeConnectionsForDeletedTasks(
+            current.connections,
+            deleted,
+          ),
+        }));
       }
-      const deleted = new Set<ScheduleId>([taskId]);
       setTaskSelection((current) =>
         removeDeletedTasksFromSelection(current, deleted),
       );
@@ -2299,7 +2322,7 @@ export function useSchedule(
       setEditingNoteTaskId((current) => (current === taskId ? null : current));
       setLineageTaskId((current) => (current === taskId ? null : current));
     },
-    [commitCategories, commitDocument, usesOutlineStorage],
+    [commitDocument, usesOutlineStorage],
   );
 
   const deleteTasks = useCallback(
@@ -2312,15 +2335,29 @@ export function useSchedule(
           for (const taskId of taskIds) {
             nextOutline = removeTaskFromOutline(nextOutline, taskId);
           }
-          return { ...current, outline: nextOutline };
+          return {
+            ...current,
+            outline: nextOutline,
+            connections: removeConnectionsForDeletedTasks(
+              current.connections,
+              deleted,
+            ),
+          };
         });
       } else {
-        commitCategories((prev) => {
-          let next = prev;
+        commitDocument((current) => {
+          let nextCategories = current.categories;
           for (const taskId of taskIds) {
-            next = removeTask(next, taskId);
+            nextCategories = removeTask(nextCategories, taskId);
           }
-          return next;
+          return {
+            ...current,
+            categories: nextCategories,
+            connections: removeConnectionsForDeletedTasks(
+              current.connections,
+              deleted,
+            ),
+          };
         });
       }
       setTaskSelection((current) =>
@@ -2336,7 +2373,7 @@ export function useSchedule(
         current != null && deleted.has(current) ? null : current,
       );
     },
-    [commitCategories, commitDocument, usesOutlineStorage],
+    [commitDocument, usesOutlineStorage],
   );
 
   const snapshotCanonicalJson = useCallback((snap: DocumentSnapshot) => {
@@ -2348,6 +2385,7 @@ export function useSchedule(
       snap.levels,
       snap.outline,
       effectiveFieldDefs.length > 0 ? [...effectiveFieldDefs] : undefined,
+      snap.connections,
     );
   }, [effectiveFieldDefs]);
 
@@ -2375,6 +2413,7 @@ export function useSchedule(
       setMilestones(pushed.applied.milestones);
       setLevels(pushed.applied.levels);
       setOutline(pushed.applied.outline);
+      setConnections(pushed.applied.connections);
       pruneUiForDocument(pushed.applied);
       return {
         outcome: "applied",
@@ -2410,6 +2449,7 @@ export function useSchedule(
       setMilestones(pushed.applied.milestones);
       setLevels(pushed.applied.levels);
       setOutline(pushed.applied.outline);
+      setConnections(pushed.applied.connections);
       setTaskSelection((current) =>
         pruneTaskSelection(
           pushed.applied!.categories,
@@ -2446,6 +2486,7 @@ export function useSchedule(
       setMilestones(snapshot.milestones);
       setLevels(snapshot.levels);
       setOutline(snapshot.outline);
+      setConnections(snapshot.connections);
       setHiddenMilestoneGroupIds([]);
       setTaskSelection(emptyTaskSelection());
       setLineageTaskId(null);
@@ -2474,6 +2515,7 @@ export function useSchedule(
       setMilestones(snapshot.milestones);
       setLevels(snapshot.levels);
       setOutline(snapshot.outline);
+      setConnections(snapshot.connections);
       setHiddenMilestoneGroupIds((hidden) =>
         hidden.filter((groupId) =>
           snapshot.milestoneGroups.some((group) => group.id === groupId),
@@ -2732,6 +2774,7 @@ export function useSchedule(
     today,
     levels,
     outline,
+    connections,
     hierarchyLayout,
     hierarchyLayoutForMenus,
     hierarchyLevelBanner,
