@@ -65,6 +65,7 @@ type UseMcpScreenBridgeInput = {
   selectedTaskIds: readonly ScheduleId[];
   today: string;
   memberMap: Map<MemberId, Member> | null;
+  mcpMembers: readonly Member[];
   statuses: readonly StatusItem[];
   colors: readonly ColorItem[] | null;
   levels?: ScheduleLevelDef[] | null;
@@ -236,6 +237,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             selectedTaskId: snap.selectedTaskId,
             statuses: snap.statuses,
             colors: snap.colors,
+            mcpMembers: snap.mcpMembers,
             levels: snap.levels,
             fields: snap.fields,
           });
@@ -251,6 +253,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             selectedTaskIds: snap.selectedTaskIds,
             statuses: snap.statuses,
             colors: snap.colors,
+            mcpMembers: snap.mcpMembers,
             levels: snap.levels,
             fields: snap.fields,
           });
@@ -284,6 +287,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             lineageIds: snap.lineageIds,
             statuses: snap.statuses,
             colors: snap.colors,
+            mcpMembers: snap.mcpMembers,
             levels: snap.levels,
             fields: snap.fields,
           });

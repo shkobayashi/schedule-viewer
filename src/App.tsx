@@ -71,6 +71,9 @@ import { useStatusCatalogEditorOverlay } from "./hooks/useStatusCatalogEditorOve
 import { StatusCatalogEditorOverlay } from "./components/StatusCatalogEditorOverlay";
 import { useColorCatalog } from "./hooks/useColorCatalog";
 import { useColorCatalogEditorOverlay } from "./hooks/useColorCatalogEditorOverlay";
+import { useMemberCatalogEditorOverlay } from "./hooks/useMemberCatalogEditorOverlay";
+import { MemberCatalogEditorOverlay } from "./components/MemberCatalogEditorOverlay";
+import type { MemberCatalogEditorPanelHandle } from "./components/MemberCatalogEditorPanel";
 import { ColorCatalogEditorOverlay } from "./components/ColorCatalogEditorOverlay";
 import {
   FieldExtensionEditorOverlay,
@@ -110,6 +113,7 @@ import {
   type ReplaceScheduleDocumentResult,
 } from "./model/replaceSchedule";
 import { memberMapFromList } from "./model/assigneeDisplay";
+import { mcpMembersForReadTools } from "./model/screenContext";
 import {
   catalogMismatchBannerText,
   catalogMismatchFlags,
@@ -369,10 +373,16 @@ function App() {
   const colorEditorOverlayRef = useRef<
     ReturnType<typeof useColorCatalogEditorOverlay> | null
   >(null);
+  const memberEditorOverlayRef = useRef<
+    ReturnType<typeof useMemberCatalogEditorOverlay> | null
+  >(null);
   const statusCatalogEditorPanelRef = useRef<StatusCatalogEditorPanelHandle | null>(
     null,
   );
   const colorCatalogEditorPanelRef = useRef<ColorCatalogEditorPanelHandle | null>(
+    null,
+  );
+  const memberCatalogEditorPanelRef = useRef<MemberCatalogEditorPanelHandle | null>(
     null,
   );
   const fieldExtensionEditorPanelRef =
@@ -752,6 +762,27 @@ function App() {
     };
   }, [workspaceBinding]);
 
+  const workspaceMemberEditTarget = useMemo(() => {
+    if (!workspaceBinding) return null;
+    if (workspaceBinding.members.kind !== "loaded") return null;
+    if (!workspaceBinding.resolved.membersPath) return null;
+    return {
+      membersPath: workspaceBinding.resolved.membersPath,
+      workspacePath: workspaceBinding.workspacePath,
+      items: workspaceBinding.members.members,
+      fileLabel: workspaceBinding.members.label,
+    };
+  }, [workspaceBinding]);
+
+  const mcpMembers = useMemo(() => {
+    return mcpMembersForReadTools({
+      inWorkspace: workspaceBinding != null,
+      workspaceMembers: workspaceBinding?.members ?? null,
+      workspaceMembersPath: workspaceBinding?.resolved.membersPath ?? null,
+      appMembers: memberCatalogState.members,
+    });
+  }, [workspaceBinding, memberCatalogState.members]);
+
   const workspaceFieldExtensionEditTarget = useMemo(() => {
     if (!workspaceBinding) return null;
     if (workspaceBinding.editableFieldExtension.kind !== "loaded") return null;
@@ -795,7 +826,12 @@ function App() {
   const refreshSharedSettings = useCallback((key: string | null) => {
     const all = key == null;
     if (all || key === SETTINGS_REVISION_KEY) {
-      void refreshMemberCatalog();
+      void refreshMemberCatalog().then(() => {
+        const overlay = memberEditorOverlayRef.current;
+        if (overlay?.open && overlay.editingCatalogId) {
+          overlay.notifyExternalCatalogImport(overlay.editingCatalogId);
+        }
+      });
       void refreshStatusCatalog().then(() => {
         const overlay = statusEditorOverlayRef.current;
         if (overlay?.open && overlay.editingCatalogId) {
@@ -1225,7 +1261,9 @@ function App() {
       detailPanelEditing ||
       hierarchyLevelsOpen ||
       fieldExtensionEditorOverlay.open ||
+      (statusEditorOverlayRef.current?.open ?? false) ||
       (colorEditorOverlayRef.current?.open ?? false) ||
+      (memberEditorOverlayRef.current?.open ?? false) ||
       schedule.editingNoteTask != null ||
       schedule.editingMilestone != null ||
       schedule.editingHierarchyTarget != null ||
@@ -1317,6 +1355,25 @@ function App() {
   });
   colorEditorOverlayRef.current = colorEditorOverlay;
 
+  const memberEditorOverlay = useMemberCatalogEditorOverlay({
+    settings: memberCatalogState.settings,
+    appliedCatalogId: workspaceBinding
+      ? null
+      : memberCatalogState.settings.selectedCatalogId,
+    saveCatalog: memberCatalogState.saveCatalog,
+    removeCatalog: memberCatalogState.removeCatalog,
+    workspaceTarget: workspaceMemberEditTarget,
+    onWorkspaceMembersWritten: async () => {
+      await reloadWorkspaceBinding();
+    },
+    onRemovedWhileEditing: () => {
+      showUpdateToast(
+        "編集していた一覧が設定で外されたため、編集を閉じました。",
+      );
+    },
+  });
+  memberEditorOverlayRef.current = memberEditorOverlay;
+
   useEffect(() => {
     if (!openColorCatalogEditorAfterWorkspaceCreate) return;
     if (!workspaceColorEditTarget) return;
@@ -1388,6 +1445,22 @@ function App() {
       colorEditorOverlayRef.current?.notifyExternalCatalogRemoved(catalogId);
     },
     [colorCatalogState.removeCatalog],
+  );
+
+  const handleMemberCatalogImport = useCallback(
+    async (catalogId: string, contents: string, overwrite: boolean) => {
+      await memberCatalogState.importCatalog(catalogId, contents, overwrite);
+      memberEditorOverlayRef.current?.notifyExternalCatalogImport(catalogId);
+    },
+    [memberCatalogState.importCatalog],
+  );
+
+  const handleMemberCatalogDelete = useCallback(
+    async (catalogId: string) => {
+      await memberCatalogState.removeCatalog(catalogId);
+      memberEditorOverlayRef.current?.notifyExternalCatalogRemoved(catalogId);
+    },
+    [memberCatalogState.removeCatalog],
   );
 
   const handleCreateWorkspaceColorsCatalog = useCallback(async () => {
@@ -2351,6 +2424,7 @@ function App() {
     selectedTaskIds: schedule.selectedTaskIds,
     today: schedule.today,
     memberMap: displayMemberMap,
+    mcpMembers,
     levels: schedule.levels,
     fields: editableFieldDefs,
     scheduleFilePath: scheduleFile.filePath,
@@ -3041,6 +3115,7 @@ function App() {
     statusCatalogEditorBlocksDocumentUndo: () =>
       (statusEditorOverlayRef.current?.open ?? false) ||
       (colorEditorOverlayRef.current?.open ?? false) ||
+      (memberEditorOverlayRef.current?.open ?? false) ||
       fieldExtensionEditorOverlay.open,
     onUndo: () => {
       if (fieldExtensionEditorOverlay.open) {
@@ -3060,6 +3135,18 @@ function App() {
           return;
         }
         colorCatalogEditorPanelRef.current?.undo();
+        return;
+      }
+      const memberOverlay = memberEditorOverlayRef.current;
+      if (memberOverlay?.open) {
+        if (
+          memberOverlay.discardPrompt ||
+          memberOverlay.copyConfirmOpen ||
+          memberOverlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        memberCatalogEditorPanelRef.current?.undo();
         return;
       }
       const overlay = statusEditorOverlayRef.current;
@@ -3094,6 +3181,18 @@ function App() {
           return;
         }
         colorCatalogEditorPanelRef.current?.redo();
+        return;
+      }
+      const memberOverlay = memberEditorOverlayRef.current;
+      if (memberOverlay?.open) {
+        if (
+          memberOverlay.discardPrompt ||
+          memberOverlay.copyConfirmOpen ||
+          memberOverlay.removeConfirmOpen
+        ) {
+          return;
+        }
+        memberCatalogEditorPanelRef.current?.redo();
         return;
       }
       const overlay = statusEditorOverlayRef.current;
@@ -3572,6 +3671,7 @@ function App() {
           inert={
             statusEditorOverlay.open ||
             colorEditorOverlay.open ||
+            memberEditorOverlay.open ||
             fieldExtensionEditorOverlay.open
               ? true
               : undefined
@@ -4036,6 +4136,42 @@ function App() {
             editorPanelRef={colorCatalogEditorPanelRef}
           />
         ) : null}
+        {memberEditorOverlay.open ? (
+          <MemberCatalogEditorOverlay
+            mode={memberEditorOverlay.mode}
+            catalogs={memberEditorOverlay.catalogs}
+            editingCatalogId={memberEditorOverlay.editingCatalogId}
+            editingItems={memberEditorOverlay.editingItems}
+            itemsRevision={memberEditorOverlay.itemsRevision}
+            appliedCatalogId={memberEditorOverlay.appliedCatalogId}
+            workspaceFileLabel={memberEditorOverlay.workspaceFileLabel}
+            workspaceAppliedNote={memberEditorOverlay.workspaceAppliedNote}
+            busy={memberEditorOverlay.busy}
+            message={memberEditorOverlay.message}
+            setMessage={memberEditorOverlay.setMessage}
+            onDirtyChange={memberEditorOverlay.setDirty}
+            discardPrompt={memberEditorOverlay.discardPrompt}
+            copyConfirmOpen={memberEditorOverlay.copyConfirmOpen}
+            removeConfirmOpen={memberEditorOverlay.removeConfirmOpen}
+            dirty={memberEditorOverlay.dirty}
+            onConfirmDiscard={() => void memberEditorOverlay.confirmDiscard()}
+            onCancelDiscard={memberEditorOverlay.cancelDiscard}
+            onConfirmCopy={memberEditorOverlay.confirmCopy}
+            onCancelCopy={memberEditorOverlay.cancelCopy}
+            onRequestRemoveCatalog={memberEditorOverlay.requestRemoveCatalog}
+            onConfirmRemoveCatalog={() =>
+              void memberEditorOverlay.confirmRemoveCatalog()
+            }
+            onCancelRemoveCatalog={memberEditorOverlay.cancelRemoveCatalog}
+            onSelectCatalog={memberEditorOverlay.selectCatalog}
+            onRequestClose={memberEditorOverlay.requestClose}
+            onRequestNewList={memberEditorOverlay.requestNewList}
+            onRequestCopyList={memberEditorOverlay.requestCopyList}
+            onSaveApp={memberEditorOverlay.save}
+            onSaveWorkspace={memberEditorOverlay.saveWorkspace}
+            editorPanelRef={memberCatalogEditorPanelRef}
+          />
+        ) : null}
       </div>
       <p className="filter-panel-sr-only" role="status" aria-live="polite">
         {diffLiveStatus ?? ""}
@@ -4343,8 +4479,17 @@ function App() {
               colorEditorOverlay.openEditor();
             },
           }}
-          settings={memberCatalogState.settings}
-          selectedCatalogLabel={memberCatalogState.selectedCatalogLabel}
+          memberCatalog={{
+            settings: memberCatalogState.settings,
+            selectedCatalogLabel: memberCatalogState.selectedCatalogLabel,
+            onImport: handleMemberCatalogImport,
+            onSelectCatalog: memberCatalogState.selectCatalog,
+            onDeleteCatalog: handleMemberCatalogDelete,
+            onOpenEditor: () => {
+              setSettingsOpen(false);
+              memberEditorOverlay.openEditor();
+            },
+          }}
           displayScalePreference={displayScalePreference}
           onDisplayScaleChange={handleDisplayScaleChange}
           colorSchemePreference={colorSchemePreference}
@@ -4357,9 +4502,6 @@ function App() {
           onSidebarColumnsChange={setSidebarColumns}
           initialSection={settingsSection}
           onClose={handleSettingsClose}
-          onImport={memberCatalogState.importCatalog}
-          onSelectCatalog={memberCatalogState.selectCatalog}
-          onDeleteCatalog={memberCatalogState.removeCatalog}
           calendarLabel={appCalendarState.label}
           calendarError={appCalendarState.error}
           onImportCalendar={appCalendarState.importCalendar}
@@ -4381,6 +4523,16 @@ function App() {
                   onOpenEditor: () => {
                     setSettingsOpen(false);
                     colorEditorOverlay.openEditor();
+                  },
+                }
+              : undefined
+          }
+          workspaceMemberEditor={
+            workspaceMemberEditTarget
+              ? {
+                  onOpenEditor: () => {
+                    setSettingsOpen(false);
+                    memberEditorOverlay.openEditor();
                   },
                 }
               : undefined
@@ -4581,7 +4733,9 @@ function App() {
             detailPanelEditing ||
             hierarchyLevelsOpen ||
             fieldExtensionEditorOverlay.open ||
+            statusEditorOverlay.open ||
             colorEditorOverlay.open ||
+            memberEditorOverlay.open ||
             schedule.editingNoteTask != null ||
             schedule.editingMilestone != null ||
             schedule.editingHierarchyTarget != null ||
@@ -4594,6 +4748,7 @@ function App() {
             setHierarchyLevelsOpen(false);
             fieldExtensionEditorOverlay.forceClose();
             colorEditorOverlay.forceClose();
+            memberEditorOverlay.forceClose();
             scheduleFile.confirmExternalReload();
           }}
           onKeepLocal={scheduleFile.keepLocalEditsOnExternalReload}
@@ -4602,6 +4757,7 @@ function App() {
             setHierarchyLevelsOpen(false);
             fieldExtensionEditorOverlay.forceClose();
             colorEditorOverlay.forceClose();
+            memberEditorOverlay.forceClose();
             scheduleFile.confirmBaselineMerge();
           }}
         />

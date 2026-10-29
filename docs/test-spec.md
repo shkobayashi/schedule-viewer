@@ -747,6 +747,11 @@
 | `validateMembers.test.ts` | `allows duplicate display names` | SET-02 |
 | 同上 | `rejects a duplicate id` | SET-02 |
 | 同上 | `rejects a blank name` | SET-02 |
+| 同上 | `rejects a blank description` | SET-02 |
+| 同上 | `rejects empty member id` | SET-02 |
+| `memberEdit.test.ts` | `assigns member-N ids`、`assigns custom catalog ids`、`omits empty description on save json`、`allows empty members array`、`rejects whitespace-only description in draft`、`allows empty string description in draft` | SET-02 |
+| `screenContext.test.ts` | `omits empty member description and orders members after colors in payload`、`does not put member description on task entries`、`orders members after colors on selected_tasks and filtered_tasks` | MCP-01 |
+| 同上 | `mcpMembersForReadTools`（設定ファイル読込成功、パス無し、読込失敗、未選択、通常ウィンドウ） | MCP-01 |
 
 `dates.test.ts` の夏時間のケースは、特定の機能ではなく、日付計算の基礎を確かめるものである。
 
@@ -1244,6 +1249,19 @@
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
+| TC-SET-02c | SET-02 | カタログを使用中にしている | 設定の「項目を編集…」で覆いを開き、説明を書いて「保存」する。詳細の担当候補の順を見る | 覆いのタイトルは「メンバーの項目を編集」。保存後も覆いは開いたまま。再起動後も説明が残る。候補の順が覆いの並びと同じ |
+| TC-SET-02d | SET-02, FILE-10 | 設定ファイルで `members` を読めている | 設定の「項目を編集…」で表示名を変えて「保存」する | このウィンドウの担当表示が変わる。アプリの使用中カタログは変わらない |
+| TC-SET-02e | SET-02, SYNC-01 | メンバーの項目の編集覆いを開いている | 外部でスケジュール JSON を更新する。読み直しを選ぶ | 即時反映しない。読み直し前に覆いが閉じ、下書きはメンバー JSON へ書かない |
+| TC-SET-02f | SET-02, MCP-01 | 説明付きの人がいるカタログを使用中にしている | `selected_tasks` と `filtered_tasks` を呼ぶ | 応答のキー順に `colors` の次 `members` があり、説明がある人だけ `description` が入る。空の説明はキーが無い |
+| TC-SET-02g | SET-02 | デスクトップ版で同じカタログを2つのウィンドウが開ける | 一方で覆いを開いてカタログを選ぶ。もう一方で同じカタログを選ぶ | 編集中のウィンドウが前面になり、もう一方ではカタログが選ばれない |
+| TC-SET-02h | SET-02, FILE-10 | 設定ファイルで `members` が無い、または読めない | 設定の「メンバー」を見る | 「項目を編集…」は出ない |
+| TC-SET-02i | SET-02 | カタログを使用中にしている。デスクトップ版で同じカタログを使うウィンドウを2つ開ける | 一方で覆いを開き、表示名を変えて「保存」する | 保存したウィンドウの担当表示が変わる。もう一方のウィンドウの担当表示も同じ表示名になる |
+| TC-SET-02j | SET-02 | 使用中でないカタログを覆いで編集できる | 表示名を変えて「保存」する | チャートの担当表示は変わらない |
+| TC-SET-02k | SET-02 | 覆いで「新しいカタログ」を作る | 保存前に設定の使用中カタログを見る | 使用中のカタログは変わらない |
+| TC-SET-02l | SET-02 | 覆いでカタログを編集している | 「JSON を書き出す」だけ行う | 使用中のカタログは変わらない |
+| TC-SET-02m | SET-02 | 覆いで人を編集している | 表示名、説明、または `id` を空白だけにする。空の `id` にする。既存の `id` と重複させて「保存」と「JSON を書き出す」を試す | どちらもできず、理由が出る |
+| TC-SET-02n | SET-02, VIEW-10 | タスクに `assigneeId` があるカタログを使用中にしている | 覆いでその人を「削除」して「保存」する | タスクの `assigneeId` は残る。担当はメンバー不明として出る |
+| TC-SET-02o | SET-02 | 説明を書いた人がいるカタログを使用中にしている | 覆いで説明を保存したあと、左一覧・詳細・チャートの担当文字列を見る | 説明はチャートや一覧に出ない。表示名だけが変わる |
 | TC-SET-08 | SET-08, VIEW-02 | 初回起動のデスクトップ版またはブラウザ版 | 設定の「ステータス」を見る。`examples/playground.statuses.json` を取り込んで使用中にする | 「standard」が使用中で、三件の色は従来と同じである。取り込み後は、詳細パネルと絞り込みの選択肢が一覧の順に変わり、バーの色が項目の色になる |
 | TC-SET-08b | SET-08, VIEW-05 | 扱いが完了の項目が複数ある一覧を使用中にし、終了日が過去のタスクがその項目と他の項目にある | バーを見る。絞り込みで「完了以外」を選ぶ | 期限超過は未着手と着手済みだけで、バーは地の色のまま枠だけ赤い。「完了以外」は扱いが完了の項目をすべて外す。管理外は残る |
 | TC-SET-08c | SET-08 | 一覧に無い `status` の `id` を持つタスクがある | チャートと詳細パネルを見る | `id` のまま出て、バーは中立の灰である。終了が過去でも枠は赤くならない。イナズマ線は今日のまま。「完了以外」には残る |
@@ -1329,7 +1347,7 @@
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
-| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks`、`current_schedule` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。`current_schedule` は画面のスケジュール JSON 全体で、未保存の内容と一致する。画面の絞り込みは変わらない |
+| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks`、`current_schedule` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`selected_task`、`selected_tasks`、`filtered_tasks` は `levels`・`statuses` のあと `colors`・`members`・`fields` の順で定義が載る。`current_schedule` は画面のスケジュール JSON 全体で、未保存の内容と一致する。`current_schedule` の先頭に `members` は載らない。画面の絞り込みは変わらない |
 | TC-MCP-01i | MCP-01, SET-08 | 項目を足した一覧を使用中にしている。任意の項目に指示を書いて保存している | `filtered_tasks` と `selected_tasks` を呼ぶ。足した項目のステータスを付けたタスクを `replace_schedule` で足すよう LLM に頼む | どちらの応答も先頭に `statuses` があり、足した項目の `id`、`name`、`role`、`description` が入る。指示を書いた項目だけ `instruction` が入り、空の項目には無い。LLM は `description` でその `id` を選び、合う項目が無ければ尋ねる |
 | TC-MCP-01e | MCP-01 | デスクトップ版、画面の未保存とファイルの外部更新が同時にある | `baseline_diffs` を1回呼ぶ | `画面:` に起点から画面への差分、`ファイル:` に起点からファイルへの差分、`分類:` に画面のみ・ファイルのみ・異なるなどが id ごとに出る。`schedule_diff` の混ざった差分だけでは分類しない |
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |

@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-claim-member-catalog-edit"
+description = "Allows claiming exclusive edit of a member catalog in one window."
+commands.allow = ["claim_member_catalog_edit"]
+
+[[permission]]
+identifier = "allow-release-member-catalog-edit"
+description = "Allows releasing exclusive edit of a member catalog."
+commands.allow = ["release_member_catalog_edit"]

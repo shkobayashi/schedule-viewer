@@ -22,3 +22,8 @@ commands.allow = ["delete_member_catalog"]
 identifier = "allow-set-selected-member-catalog"
 description = "Allows selecting the active member catalog."
 commands.allow = ["set_selected_member_catalog"]
+
+[[permission]]
+identifier = "allow-save-members-json"
+description = "Allows exporting a member catalog as a JSON file via native save dialog."
+commands.allow = ["save_members_json"]

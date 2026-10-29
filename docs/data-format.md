@@ -165,14 +165,16 @@
 {
   "schemaVersion": 1,
   "members": [
-    { "id": "tanaka", "name": "田中" }
+    { "id": "tanaka", "name": "田中", "description": "バックエンド実装" }
   ]
 }
 ```
 
 - `schemaVersion` は `1`
 - `id` と `name` は1文字以上。空白だけは不可
+- `description` は省略できる。書くときは1文字以上で、空白だけは不可。LLM が担当の `id` を選ぶ材料であり、タスクへコピーしない
 - `id` は配列内で重複できない。`name` は重複してよい。画面では、同じ表示名が複数あるときだけ ID を添える
+- `members` は空の配列でもよい
 - 先頭の UTF-8 BOM は取り込み時に取り除く
 
 ## ステータス一覧 JSON（schemaVersion 2）

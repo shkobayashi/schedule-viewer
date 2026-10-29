@@ -57,6 +57,8 @@ flowchart TD
 | `ScheduleToolbarTitle.tsx` | 見出しのタイトル表示、鉛筆による EDIT-20 のその場編集、鉛筆の右の EDIT-21「階層編集」入口。パレットの要求番号だけで編集を始める |
 | `HierarchyLevelsDialog.tsx` | EDIT-21。段ごとの名前・意味・指示、見出し段の上下と削除、段の追加、不一致時の alert、閉じるで `useSchedule.commitLevelDefinitions` |
 | `FieldExtensionEditorOverlay.tsx` | SET-10。主画面の覆い。拡張 JSON の定義を `fieldDefinitionEdit.ts` の下書きで直し、保存で拡張ファイルだけを上書きする |
+| `MemberCatalogEditorOverlay.tsx` | SET-02。主画面の覆い「メンバーの項目を編集」。`MemberCatalogEditorPanel` が下書きを持ち、保存でカタログ JSON または設定ファイルの `members` だけを上書きする |
+| `MemberCatalogEditorPanel.tsx` | 覆いの一覧と右欄。削除確認などは覆いが持つ |
 | `FieldDefinitionEditorPanel.tsx` | 覆いの一覧と右欄。削除確認は覆いが持つ |
 | `ActiveFilterBar.tsx` | 効いている絞り込みと系統の札 |
 | `FilterPanel.tsx` | 絞り込みの選択欄。欄が窓に収まらないときはパネル内だけ縦スクロールする。タグ、マイルストン、追加項目は候補を絞る入力欄で、候補一覧は `body` に固定配置する。`fields` があるときは `FilterFieldFiltersSection` で、選んだ追加項目だけ条件行を出す |
@@ -85,9 +87,10 @@ flowchart TD
 | `useTimelineView` | 1日あたりの幅、スクロール、ホイール。キーの `scrollBy` は `useAppKeyboard` から呼ぶ |
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
+| `useMemberCatalogEditorOverlay` | SET-02 の覆い。編集セッションの取得（`claim_member_catalog_edit`）、下書き、設定ファイルへの `write_members_at_path` |
 | `useStatusCatalog` | ステータス一覧の読み込みと選択。無いときは組み込みの三件 |
 | `useAppCalendar` | カレンダーの読み込み |
-| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 6 ツールを組み立てる（`current_schedule` は `scheduleCurrentJson` を返す。`window` は橋渡しで外れる。文書の `levels`、使用中のステータス `statuses`、使用中の色 `colors`（`displayColors`）、追加項目定義 `fields` を `screenContext` に渡す）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・`assessMcpReplaceUiBlocking` の操作中。SYNC-01 の衝突確認だけ開いているときは除く）と引数を検証し、`assessReplaceScheduleLevelCount` で渡した JSON の段数と入れ子を見てから `useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。衝突確認のあいだに置き換えたときは `useScheduleExternalReload` の `completeReplaceDuringConflictReload` で確認を閉じ、帯用の追跡を残す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
+| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 6 ツールを組み立てる（`current_schedule` は `scheduleCurrentJson` を返す。`window` は橋渡しで外れる。文書の `levels`、使用中のステータス `statuses`、使用中の色 `colors`（`displayColors`）、使用中のメンバー `mcpMembers`（`displayMembers`）、追加項目定義 `fields` を `screenContext` に渡す）。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・`assessMcpReplaceUiBlocking` の操作中。SYNC-01 の衝突確認だけ開いているときは除く）と引数を検証し、`assessReplaceScheduleLevelCount` で渡した JSON の段数と入れ子を見てから `useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。衝突確認のあいだに置き換えたときは `useScheduleExternalReload` の `completeReplaceDuringConflictReload` で確認を閉じ、帯用の追跡を残す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
 
 ### モデル
 
@@ -107,7 +110,7 @@ flowchart TD
 | 外部更新時の非衝突合成と判定 | `baselineMerge.ts`（`assessBaselineMerge`、`buildNonConflictingMergedDocument` は `baselineDiffs.ts`。合成の検証は `documentToJson`） |
 | 外部更新確認の一覧表示 | `baselineMergeReview.ts`（`buildBaselineMergeReview`、`buildBaselineMergeConflictReview`。`collectScheduleDiffBlocks` と衝突一覧の追加項目に使用中の定義を渡す） |
 | 反映の取り消しで帯を戻す判定 | `baselineMergeDeferred.ts` |
-| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks` / `current_schedule`。タスク系の応答の先頭は `levels`、続けて `statuses`、続けて `colors`、続けて `fields`。タスクには `colorId` があるときだけ `colorId`、値があるときだけ `fieldValues`）、`fieldValuesDiff.ts`（差分テキストの追加項目行）、`hierarchyLevelEdit.ts`（階層ダイアログの確定、保存前の `assessHierarchySave`、`replace_schedule` 前の `assessReplaceScheduleLevelCount`）、`scheduleDiffLoad.ts`（`schedule_diff`。使用中の定義を渡して FILE-07 の追加項目行を出す）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
+| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks` / `current_schedule`。タスク系の応答の先頭は `levels`、続けて `statuses`、続けて `colors`、続けて `members`、続けて `fields`。`members` は `memberEntriesForMcp` で `id`・`name` と、空でないときだけ `description`。タスクには `colorId` があるときだけ `colorId`、値があるときだけ `fieldValues`）、`fieldValuesDiff.ts`（差分テキストの追加項目行）、`hierarchyLevelEdit.ts`（階層ダイアログの確定、保存前の `assessHierarchySave`、`replace_schedule` 前の `assessReplaceScheduleLevelCount`）、`scheduleDiffLoad.ts`（`schedule_diff`。使用中の定義を渡して FILE-07 の追加項目行を出す）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
@@ -253,6 +256,10 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `import_member_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
 | `delete_member_catalog` | ID | — | 同上 | 同上 |
 | `set_selected_member_catalog` | ID または無し | — | 同上 | 同上 |
+| `claim_member_catalog_edit` | カタログ ID または設定ファイルの `members` の絶対パス。取得できたか、他ウィンドウのラベル | — | `member-catalog-edit.toml` | `member_catalog_edit.rs` |
+| `release_member_catalog_edit` | カタログ ID または無し（無しはこのウィンドウのすべて） | — | 同上 | 同上 |
+| `save_members_json` | 本文、提案名。保存したパス（覆いの「JSON を書き出す」。アプリデータには書かない） | 2MB | `members-app-data.toml` | `memberAppData.ts` の `exportMembersJson` |
+| `write_members_at_path` | 絶対パス、本文、設定ファイルのパス。呼び出し元ウィンドウの設定ファイルと一致し、設定ファイルの `members` の実パスだけを上書き。同じ設定ファイルの他ウィンドウへ `workspace-reload` | 2MB、JSON のみ、パス不一致 | `write-members-at-path.toml` | `memberAppData.ts` の `writeMembersAtPath` |
 | `get_statuses_settings` | 一覧の一覧と選択中 ID | — | `statuses-app-data.toml` | `statusAppData.ts` |
 | `read_status_catalog` | 一覧 ID。本文 | 2MB | 同上 | 同上 |
 | `import_status_catalog` | ID、本文、上書きするか | 2MB、重複 | 同上 | 同上 |
@@ -409,6 +416,7 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 | イナズマ線 | `timeline.ts` の `lightningDate` | 項目の `role` と開始・終了・今日。一覧に無い `id` はどの期間でも今日 |
 | 期限超過 | `timeline.ts` の `isOverdue` | 未着手と着手済みで終了が今日より前。完了、管理外、一覧に無い `id` は超過にしない |
 | ステータスの編集 | `statusEdit.ts`、`statusCatalogEditHistory.ts` と `useStatusCatalogEditorOverlay` | 項目の追加、更新、並べ替え、削除（最後の1件は外さない）、一覧 ID の採番、保存前の検証。覆いの `StatusCatalogEditorPanel` が下書きを持つ。覆いを開いてから閉じるまでの取り消しは `statusCatalogEditHistory.ts` が項目の配列と選んでいる `id` を最大 100 段で持つ。色の連続変更は離すまで 1 段にまとめる。保存と「新しい一覧」「コピーして作る」は `saveCatalog` でアプリデータへ書く。「外す」は `removeCatalog` でアプリデータから消す。覆いからの外しでは覆いを閉じず、残った一覧の先頭を開く。設定の外しと他ウィンドウの外しでは、編集中の一覧が消えたときに覆いを閉じる。使用中の切り替えは変えない。設定ファイルモードは `writeStatusesAtPath` |
+| メンバーの編集 | `memberEdit.ts`、`memberCatalogEditHistory.ts`、`memberCatalogEditSession.ts` と `useMemberCatalogEditorOverlay` | 人の追加、更新、並べ替え、削除、`id` の採番（`member-N`）、任意の説明、保存前の検証。空の `members` 配列も保存できる。覆いの `MemberCatalogEditorPanel` が下書きを持つ。取り消しは `memberCatalogEditHistory.ts`。保存と「新しいカタログ」「コピーして作る」は `saveCatalog` でアプリデータへ書く。「外す」は `removeCatalog`。同時編集は `claim_member_catalog_edit` / `release_member_catalog_edit`（`member_catalog_edit.rs`）。設定ファイルモードは `writeMembersAtPath`。書き出しだけは `save_members_json` |
 | 拡張項目の定義 | `fieldDefinitionEdit.ts`、`fieldExtensionEdit.ts`、`FieldExtensionEditorOverlay`、`useFieldExtensionEditorOverlay` | 下書きのキー採番、保存前の検証、拡張 JSON の保存と合成キー衝突の拒否。プラグイン ID の変更は `useFieldExtensionCatalog` の `saveCatalog` が新 ID で取り込みしてから古いカタログを消す。「新しい拡張」と「コピーして作る」のあとは `App.tsx` から渡した `refreshCatalogs` でこのウィンドウの一覧を読み直してからラジオを描く。利用者が覆いを閉じたときは `App.tsx` の `onClosedByUser` で設定の「拡張項目」を開き直す。外部読み直しは `forceClose` で設定を開かない。`defaultFieldValuesForNewTask` は `useSchedule` の `addTask` が選んでいる拡張の定義だけを使う。`App.tsx` の `hasOpenEditDialog` に覆いを含め、即時反映と外部更新の読み直し前に覆いを閉じる。覆い中は ⌘/Ctrl+Z をスケジュールへ渡さない。設定ファイルモードでは `fieldExtensions` はピン留めとして読み、`editableFieldExtension` だけを覆いで直す。作成と削除は `create_workspace_editable_field_extension` と `delete_workspace_editable_field_extension`。保存は `write_field_extension_at_path` が編集用のパスだけを許可する |
 | ステータスの色 | `statusCatalog.ts` の `statusColorFor` と `timeline.ts` の `barColors` | 一覧の項目の色。無い `id` は中立色。期限超過は枠だけ赤。文字色は `labelColorOn` が地の明るさで決める |
 | マイルストン超過 | `milestones.ts` の `milestonesExceededBy` | 終了日が対応マイルストンの日付より後 |

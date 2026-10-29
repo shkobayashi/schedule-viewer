@@ -36,4 +36,34 @@ describe("validateMembers", () => {
     });
     expect(result.ok).toBe(false);
   });
+
+  it("allows id and name only", () => {
+    expect(
+      validateMembers({
+        schemaVersion: 1,
+        members: [{ id: "tanaka", name: "田中" }],
+      }).ok,
+    ).toBe(true);
+  });
+
+  it("rejects a blank description", () => {
+    const result = validateMembers({
+      schemaVersion: 1,
+      members: [{ id: "tanaka", name: "田中", description: "  " }],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("allows empty members", () => {
+    expect(validateMembers({ schemaVersion: 1, members: [] }).ok).toBe(true);
+  });
+
+  it("rejects empty member id", () => {
+    expect(
+      validateMembers({
+        schemaVersion: 1,
+        members: [{ id: "", name: "田中" }],
+      }).ok,
+    ).toBe(false);
+  });
 });
