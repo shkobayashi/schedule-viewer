@@ -18,11 +18,12 @@ LLM が生成した WBS / ガントスケジュール（JSON）を表示・フ�
 - デスクトップ版では、同じスケジュールを別ウィンドウでも開ける（⌘/Ctrl+Shift+O）。メンバー、カレンダー、表示設定は開いているウィンドウで共通
 - チャート上で、選んだタスクからクリックで後続の線を足し、線の上で 1 本だけ外す
 - 期限超過、マイルストン超過、前後関係の破綻、未確定の斜線（タスクバーとマイルストン）、今日の進み方を示すイナズマ線、非稼働日の表示
+- 色の一覧 JSON を取り込むと、タスクの `colorId` で左一覧とチャートの行の地を塗れる。タスクバーとマイルストンの色は、ステータス一覧の色のままである
 - 見えている行の HTML、SVG、または Excel（デスクトップ版）への書き出し
 - 画面と開いている JSON の差分を表示・コピーし、変更だけを渡せる（状態バーの未保存、⌘/Ctrl+Shift+D、コマンドパレット）
 - 左のタスク一覧の幅を、チャートとの境界をドラッグして変えられる。設定で、開始・終了・日数・進捗・ステータスの列を出したり隠したりできる
-- 使用中のステータス一覧やメンバー一覧に無い ID があるとき、チャート上端に短い帯を出す
-- 設定画面での、メンバー一覧と稼働日カレンダーの取り込み、表示サイズと配色（ライト・ダーク）の変更、今の版の表示、デスクトップ版での同じメジャーの安定版だけを入れ直す自動更新（既定オフ）と、同梱 CHANGELOG の変更履歴の表示
+- 使用中のステータス一覧やメンバー一覧に無い ID、使用中の色の一覧に無い `colorId`、追加項目の定義に無いキーがあるとき、チャート上端に短い帯を出す
+- 設定画面での、メンバー一覧と稼働日カレンダーと色の一覧の取り込み、表示サイズと配色（ライト・ダーク）の変更、今の版の表示、デスクトップ版での同じメジャーの安定版だけを入れ直す自動更新（既定オフ）と、同梱 CHANGELOG の変更履歴の表示
 - デスクトップ版で、開いているウィンドウの一覧・差分・起点との分類・選択・絞り込み・画面のスケジュール JSON 全体の読み取りと、前面の未保存の置き換えを、同じバイナリの MCP 入口（`--mcp`）から行う（`open_windows` / `schedule_diff` / `baseline_diffs` / `selected_task` / `selected_tasks` / `filtered_tasks` / `current_schedule` / `replace_schedule`。読み取りは引数省略時は前面。設定の「画面の状態を渡す」で mcp.json に貼る JSON をコピー）
 - 開いている JSON がほかのプログラムに書き換えられたときの反映と、前回開いたファイルと未保存の編集の次回起動時の復元
 
@@ -63,14 +64,14 @@ Intel Mac では、[開発ガイドの配布用ビルド](docs/development.md#�
 | --- | --- |
 | [操作マニュアル](docs/user-manual.md) | 利用者向けの手順（[はじめに](docs/user-manual/getting-started.md)、[チュートリアル](docs/user-manual/tutorial.md)、[全機能](docs/user-manual/features.md)） |
 | [外部仕様](docs/external-spec.md) | 画面と機能の挙動。機能 ID の正本 |
-| [データ仕様](docs/data-format.md) | スケジュール、メンバー、カレンダーの JSON とアプリデータ |
+| [データ仕様](docs/data-format.md) | スケジュール、メンバー、カレンダー、色の一覧の JSON とアプリデータ |
 | [内部仕様](docs/internal-spec.md) | 構成、状態、Tauri コマンド、描画 |
 | [テスト仕様](docs/test-spec.md) | 自動テストと手動テスト |
 | [開発ガイド](docs/development.md) | 環境構築、起動、CI、リリース、配布用ビルド |
 | [計画メモ](docs/PLANNING.md) | 目的、決定事項、経緯、ロードマップ |
 | [変更履歴](CHANGELOG.md) | リリースごとの変更 |
 
-JSON スキーマの正本は [`docs/schedule.schema.json`](docs/schedule.schema.json)、[`docs/members.schema.json`](docs/members.schema.json)、[`docs/calendar.schema.json`](docs/calendar.schema.json) である。
+JSON スキーマの正本は [`docs/schedule.schema.json`](docs/schedule.schema.json)、[`docs/members.schema.json`](docs/members.schema.json)、[`docs/calendar.schema.json`](docs/calendar.schema.json)、[`docs/colors.schema.json`](docs/colors.schema.json) である。
 
 ## 開発を始める
 

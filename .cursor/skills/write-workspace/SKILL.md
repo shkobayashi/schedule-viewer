@@ -36,6 +36,7 @@ description: >-
   "members": "team.members.json",
   "statuses": "team.statuses.json",
   "calendar": "jp-2026.calendar.json",
+  "colors": "team.colors.json",
   "fieldExtensions": ["risk.fields.json"]
 }
 ```
@@ -43,7 +44,7 @@ description: >-
 ## 手順
 
 1. 置くフォルダと、そこから見た各 JSON の相対パスを決める
-2. `schemaVersion: 1` と `schedule` を書き、必要なら `members`、`statuses`、`calendar`、`fieldExtensions`、`editableFieldExtension` を足す
+2. `schemaVersion: 1` と `schedule` を書き、必要なら `members`、`statuses`、`calendar`、`colors`、`fieldExtensions`、`editableFieldExtension` を足す
 3. `node scripts/validate-workspace.mjs <file>` で検証する
 4. エラーがあれば修正して再検証し、通ってからユーザーに渡す
 

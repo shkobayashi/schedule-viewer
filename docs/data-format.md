@@ -69,7 +69,7 @@
 | `date` / `start` / `end` | `YYYY-MM-DD`。実在する日。`end` はその日を含む。`end` は `start` 以降の日付にする。同じ日なら1日のタスクになる |
 | `assigneeId` | メンバー JSON の `id`。割り当てなしは `null`。一人は id の文字列（読み込みでは要素1つの配列も可）。二人以上は、入れた順の id の配列（同じ id は1回だけ）。空の配列は不可。保存では一人は文字列、二人以上は配列。UUID である必要はない。スケジュール側ではメンバーの実在を検査しない |
 | `status` | ステータス一覧の項目の `id`。1文字以上。既定の一覧は `not-started`、`in-progress`、`done`。スケジュール側では一覧の実在を検査しない。一覧に無い `id` は、画面で `id` をそのまま出し、色は中立にし、イナズマ線と期限超過は管理外と同じ（今日のまま、赤くしない）。「完了以外」には残る |
-| `colorId` | 任意。設定ファイルの `colors` が指す色の一覧の `id`。色なしはキーを書かない。空白だけは拒否する。保存では `status` の直後に置く |
+| `colorId` | 任意。使用中の色の一覧の `id`。設定ファイルで開いているウィンドウではその `colors` のパス先の一覧、それ以外ではアプリデータで選んだ一覧の `id` だけを書く。色なしはキーを書かない。空白だけは拒否する。色の値はスケジュール JSON に書かない。保存では `status` の直後に置く |
 | `progress` | 0 以上 100 以下の整数。`todos` が無いタスクは手で置く。`todos` があるタスクは、読み込みと保存のたびに済んだ件数を全体で割った整数（切り捨て、全部済んだときだけ 100）に置き換える |
 | `todos` | 任意。`text`（1文字以上、改行なし）と `done`（真偽）の配列。1件以上あるときだけ書く。進捗は件数から決める |
 | `confidence` | タスクとマイルストンの確度。`tentative`（未確定）か `committed`（確定）。日付を合意したかどうかで、着手や進捗とは独立 |
@@ -106,15 +106,41 @@
   "members": "team.members.json",
   "statuses": "team.statuses.json",
   "calendar": "jp-2026.calendar.json",
+  "colors": "team.colors.json",
   "fieldExtensions": ["risk.fields.json"]
 }
 ```
 
-アプリが書き出す既定のファイル名は `workspace.json` である。別名でも、中身がこの形なら開ける。
+`colors` を省略したとき、そのウィンドウは行の地を塗らない。アプリが書き出す既定のファイル名は `workspace.json` である。別名でも、中身がこの形なら開ける。
 
 ## 色の一覧 JSON（schemaVersion 1）
 
-正本は [colors.schema.json](colors.schema.json)。意味規則は [src/model/validateColors.ts](../src/model/validateColors.ts) にある。`colors` は 1 件以上 8 件まで。各項目は `id`、`name`、`description`、`color.light.bg` と `color.dark.bg`（`#RRGGBB`）を持つ。タスクの `colorId` はこの `id` だけを書く。色の値はスケジュール JSON に書かない。
+正本は [colors.schema.json](colors.schema.json)。意味規則は [src/model/validateColors.ts](../src/model/validateColors.ts) にある。タスクの行とチャートの地を塗るための一覧である。スケジュール JSON には載せない。タスクが持つのは `colorId` だけで、色の値は書かない。
+
+```json
+{
+  "schemaVersion": 1,
+  "colors": [
+    {
+      "id": "focus",
+      "name": "注力",
+      "description": "今いちばん手を付ける作業。",
+      "color": {
+        "light": { "bg": "#FEF3C7" },
+        "dark": { "bg": "#78350F" }
+      }
+    }
+  ]
+}
+```
+
+- `schemaVersion` は `1`
+- `colors` は 1 件以上 8 件まで。配列の順は、詳細パネルと複製と一括の「色」の選択肢の順である
+- `id` は 1 文字以上で、一覧の中で重複しない。作ったあとは変えない
+- `name` は画面に出す名前。空白だけは不可
+- `color` は、ライトとダークのそれぞれで `bg`（行とチャートの地）を `#RRGGBB` で持つ。枠の色は無い
+- `description` は、その `id` を選ぶ状態だけ。空白だけは不可。LLM が `id` を選ぶ手がかりにする。色の名前や十六進は書かない。選んだあとに LLM が守る指示は無い
+- 組み込みの一覧は置かない。未選択のとき、設定ファイルに `colors` が無いとき、読み込みに失敗したときは行の地を塗らない
 
 ## 拡張項目 JSON（schemaVersion 1）
 
