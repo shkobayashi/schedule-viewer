@@ -8,7 +8,11 @@ import {
   milestoneFilterAfterDelete,
   milestoneGroupIdAtBandY,
   milestoneLinkedByAnyTask,
+  milestoneMarkGuideGeometry,
+  MILESTONE_LABEL_GAP,
   removeMilestone,
+  toggleMilestoneGuideLinesForGroup,
+  truncateMilestoneLabel,
   validateNewMilestone,
 } from "./milestones";
 import { collectScheduleIds, uniqueScheduleId } from "./tasks";
@@ -464,5 +468,128 @@ describe("layoutMilestoneBand", () => {
     );
     expect(layout.blocks.map((block) => block.group.name)).toEqual(["G"]);
     expect(layout.totalHeight).toBe(26);
+  });
+});
+
+describe("toggleMilestoneGuideLinesForGroup", () => {
+  const OTHER = "00000000-0000-4000-8000-000000000099";
+
+  it("turns on every id in the group when none are on", () => {
+    const prev = new Set<string>([OTHER]);
+    const next = toggleMilestoneGuideLinesForGroup(prev, [MS_A, MS_B]);
+    expect(next.has(MS_A)).toBe(true);
+    expect(next.has(MS_B)).toBe(true);
+    expect(next.has(OTHER)).toBe(true);
+  });
+
+  it("turns off every id in the group when any are on", () => {
+    const prev = new Set([MS_A, OTHER]);
+    const next = toggleMilestoneGuideLinesForGroup(prev, [MS_A, MS_B]);
+    expect(next.has(MS_A)).toBe(false);
+    expect(next.has(MS_B)).toBe(false);
+    expect(next.has(OTHER)).toBe(true);
+  });
+
+  it("turns off every id in the group when all are on", () => {
+    const prev = new Set([MS_A, MS_B]);
+    const next = toggleMilestoneGuideLinesForGroup(prev, [MS_A, MS_B]);
+    expect(next.size).toBe(0);
+  });
+
+  it("returns the same set when the group has no milestones", () => {
+    const prev = new Set([MS_A]);
+    expect(toggleMilestoneGuideLinesForGroup(prev, [])).toBe(prev);
+  });
+});
+
+describe("milestoneMarkGuideGeometry", () => {
+  const diamondSize = 11;
+  const fontSize = 11;
+  const laneHeight = 26;
+  const laneCenterY = laneHeight / 2;
+
+  it("underlines from diamond left through label gap to visible name width", () => {
+    const guide = milestoneMarkGuideGeometry(
+      diamondSize,
+      fontSize,
+      "短い",
+      laneCenterY,
+      0,
+      laneHeight,
+    );
+    expect(guide.underlineX1).toBe(-diamondSize / 2);
+    expect(guide.underlineX2).toBeGreaterThan(
+      diamondSize / 2 + MILESTONE_LABEL_GAP,
+    );
+    expect(guide.underlineY).toBeGreaterThan(diamondSize / 2);
+    expect(guide.bandVerticalY2).toBe(laneHeight - laneCenterY);
+  });
+
+  it("extends band vertical line to the band bottom", () => {
+    const bandTotal = 52;
+    const blockOffset = 26;
+    const guide = milestoneMarkGuideGeometry(
+      diamondSize,
+      fontSize,
+      "下まで",
+      laneCenterY,
+      blockOffset,
+      bandTotal,
+    );
+    expect(guide.bandVerticalY2).toBe(
+      bandTotal - blockOffset - laneCenterY,
+    );
+  });
+
+  it("keeps underline below the diamond vertex and above the lane bottom", () => {
+    const guide = milestoneMarkGuideGeometry(
+      diamondSize,
+      fontSize,
+      "短い",
+      laneCenterY,
+      0,
+      laneHeight,
+    );
+    expect(guide.underlineY).toBeGreaterThan(diamondSize / 2);
+    expect(guide.underlineY).toBeLessThan(laneHeight - laneCenterY);
+  });
+
+  it("does not extend underline past truncated display name", () => {
+    const truncated = truncateMilestoneLabel(
+      "あ".repeat(30),
+      40,
+      fontSize,
+    );
+    expect(truncated.endsWith("…")).toBe(true);
+    const guide = milestoneMarkGuideGeometry(
+      diamondSize,
+      fontSize,
+      truncated,
+      laneCenterY,
+      0,
+      laneHeight,
+    );
+    const fullGuide = milestoneMarkGuideGeometry(
+      diamondSize,
+      fontSize,
+      "あ".repeat(30),
+      laneCenterY,
+      0,
+      laneHeight,
+    );
+    expect(guide.underlineX2).toBeLessThan(fullGuide.underlineX2);
+  });
+
+  it("uses diamond width only when the display name is empty", () => {
+    const guide = milestoneMarkGuideGeometry(
+      diamondSize,
+      fontSize,
+      "",
+      laneCenterY,
+      0,
+      laneHeight,
+    );
+    expect(guide.underlineX1).toBe(-diamondSize / 2);
+    expect(guide.underlineX2).toBe(diamondSize / 2);
   });
 });

@@ -147,6 +147,8 @@ type SidebarProps = {
     x: number,
     y: number,
   ) => void;
+  onToggleMilestoneGroupGuideLines: (groupId: ScheduleId) => void;
+  linkMode: boolean;
   onHierarchyDoubleClick: (
     kind: "category" | "group" | "outline",
     id: ScheduleId,
@@ -207,6 +209,8 @@ export function Sidebar({
   onTaskContextMenu,
   onHierarchyContextMenu,
   onMilestoneGroupContextMenu,
+  onToggleMilestoneGroupGuideLines,
+  linkMode,
   onHierarchyDoubleClick,
   today,
   uiScale,
@@ -664,6 +668,12 @@ export function Sidebar({
               key={block.group.id}
               className={`sidebar-milestones${diffMarkedMilestoneGroupId === block.group.id ? " hovered" : ""}`}
               style={{ height: block.height }}
+              onClick={(event) => {
+                if (linkMode) return;
+                if (event.button !== 0) return;
+                if (event.detail === 2) return;
+                onToggleMilestoneGroupGuideLines(block.group.id);
+              }}
               onContextMenu={(event) => {
                 event.preventDefault();
                 onMilestoneGroupContextMenu(

@@ -70,6 +70,7 @@ function baseInput(): ScheduleExcelInput {
     filterSummary: "",
     colorScheme: "light",
     showLightningLine: false,
+    milestoneGuideLineIds: new Set(),
   };
   return {
     ...exportBase,

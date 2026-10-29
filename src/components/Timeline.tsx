@@ -57,7 +57,7 @@ import {
   summaryBarWidthPx,
   type SummarySpan,
 } from "../model/summary";
-import { milestonesExceededBy } from "../model/milestones";
+import { MILESTONE_GUIDE_DASH, milestonesExceededBy } from "../model/milestones";
 import { resolveMilestoneHover } from "../model/milestoneHoverLabel";
 import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
 import {
@@ -125,6 +125,8 @@ type TimelineProps = {
   onMoveMilestone: (id: ScheduleId, deltaDays: number) => void;
   onOpenMilestone: (id: ScheduleId) => void;
   onMilestoneContextMenu: (id: ScheduleId, x: number, y: number) => void;
+  milestoneGuideLineIds: ReadonlySet<ScheduleId>;
+  onToggleMilestoneGuideLine: (id: ScheduleId) => void;
   diffMarkedMilestoneId?: ScheduleId | null;
   diffMarkStrokeWidth?: number;
   today: string;
@@ -1480,6 +1482,8 @@ export function Timeline({
   onMoveMilestone,
   onOpenMilestone,
   onMilestoneContextMenu,
+  milestoneGuideLineIds,
+  onToggleMilestoneGuideLine,
   diffMarkedMilestoneId = null,
   diffMarkStrokeWidth = 3,
   today,
@@ -1542,6 +1546,17 @@ export function Timeline({
   const onHoverMilestone = useCallback((hover: MilestoneHoverState | null) => {
     setMilestoneHoverId(hover?.id ?? null);
   }, []);
+
+  const bodyGuideLineMilestones = useMemo(
+    () =>
+      milestones.filter(
+        (milestone) =>
+          milestoneGuideLineIds.has(milestone.id) &&
+          milestoneBandLayout.centerYById.has(milestone.id),
+      ),
+    [milestones, milestoneBandLayout.centerYById, milestoneGuideLineIds],
+  );
+
   const [spacePanArmed, setSpacePanArmed] = useState(false);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -2604,11 +2619,12 @@ export function Timeline({
           onMove={onMoveMilestone}
           onOpenEdit={onOpenMilestone}
           onContextMenu={onMilestoneContextMenu}
+          onToggleGuideLine={onToggleMilestoneGuideLine}
           onEmptyContextMenu={onAddMilestoneContextMenu}
           onWheel={onWheelHeader}
           chart={chart}
-          colorScheme={colorScheme}
           onHoverMilestone={onHoverMilestone}
+          milestoneGuideLineIds={milestoneGuideLineIds}
           diffMarkedMilestoneId={diffMarkedMilestoneId}
           diffMarkStrokeWidth={diffMarkStrokeWidth}
         />
@@ -2874,6 +2890,21 @@ export function Timeline({
               clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
               listening={false}
             >
+              {bodyGuideLineMilestones.map((milestone) => (
+                <Line
+                  key={milestone.id}
+                  points={[
+                    dateToX(parseDate(milestone.date)),
+                    sticky.clipTop,
+                    dateToX(parseDate(milestone.date)),
+                    bodyHeight,
+                  ]}
+                  stroke={chart.milestoneGuideLine}
+                  strokeWidth={1}
+                  dash={[...MILESTONE_GUIDE_DASH]}
+                  listening={false}
+                />
+              ))}
               <Line
                 points={[
                   dateToX(todayDate),

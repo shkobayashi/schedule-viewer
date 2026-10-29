@@ -378,6 +378,47 @@ export function layoutMilestones(
   return lanes;
 }
 
+/** 未確定のひし形の輪郭の太さ。 */
+export function milestoneDiamondOutlineWidth(diamondSize: number): number {
+  return Math.max(1, Math.round(diamondSize * 0.18));
+}
+
+/** 点線の破線パターン。画面・書き出しで同じ値。 */
+export const MILESTONE_GUIDE_DASH = [4, 3] as const;
+
+/** マイルストン点線の下線と、帯内縦線。原点はひし形の中心。 */
+export function milestoneMarkGuideGeometry(
+  diamondSize: number,
+  fontSize: number,
+  displayName: string,
+  laneCenterYInBlock: number,
+  blockOffsetY: number,
+  milestoneBandTotalHeight: number,
+): {
+  underlineY: number;
+  underlineX1: number;
+  underlineX2: number;
+  bandVerticalY2: number;
+} {
+  const radius = diamondSize / 2;
+  const underlineGapBelowVertex = Math.max(
+    2,
+    Math.round(diamondSize * 0.12),
+  );
+  const underlineY = radius + underlineGapBelowVertex;
+  const labelWidth = displayName
+    ? milestoneLabelWidth(displayName, fontSize)
+    : 0;
+  const underlineX1 = -radius;
+  const underlineX2 =
+    labelWidth > 0
+      ? radius + MILESTONE_LABEL_GAP + labelWidth
+      : radius;
+  const bandVerticalY2 =
+    milestoneBandTotalHeight - blockOffsetY - laneCenterYInBlock;
+  return { underlineY, underlineX1, underlineX2, bandVerticalY2 };
+}
+
 export function milestoneGroupIdAtBandY(
   blocks: MilestoneBandBlockLayout[],
   y: number,
@@ -388,6 +429,22 @@ export function milestoneGroupIdAtBandY(
     }
   }
   return null;
+}
+
+/** 左のグループ名行の単クリック。全部オフならそのグループを全部オン、一つでもオンなら全部オフ。 */
+export function toggleMilestoneGuideLinesForGroup(
+  guideLineIds: ReadonlySet<ScheduleId>,
+  groupMilestoneIds: readonly ScheduleId[],
+): ReadonlySet<ScheduleId> {
+  if (groupMilestoneIds.length === 0) return guideLineIds;
+  const anyOn = groupMilestoneIds.some((id) => guideLineIds.has(id));
+  const next = new Set(guideLineIds);
+  if (anyOn) {
+    for (const id of groupMilestoneIds) next.delete(id);
+  } else {
+    for (const id of groupMilestoneIds) next.add(id);
+  }
+  return next;
 }
 
 export function applyMilestoneEdit(

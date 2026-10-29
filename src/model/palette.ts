@@ -31,6 +31,7 @@ export type ChartPalette = {
   dragDateStroke: string;
   milestoneDiamond: string;
   milestoneDiamondStroke: string;
+  milestoneGuideLine: string;
   milestoneBandBorder: string;
   unassignedStroke: string;
   unknownStroke: string;
@@ -159,6 +160,7 @@ const LIGHT: AppPalette = {
     dragDateStroke: "#5C6B82",
     milestoneDiamond: "#111827",
     milestoneDiamondStroke: "#FFFFFF",
+    milestoneGuideLine: "#697586",
     milestoneBandBorder: "#E3E6EB",
     unassignedStroke: "#C48A1A",
     unknownStroke: "#7B5EA7",
@@ -243,6 +245,7 @@ const DARK: AppPalette = {
     dragDateStroke: "#c5cad3",
     milestoneDiamond: "#e6e8ee",
     milestoneDiamondStroke: "#1c1f26",
+    milestoneGuideLine: "#a8b0bf",
     milestoneBandBorder: "#3a4050",
     unassignedStroke: "#e8c060",
     unknownStroke: "#a888d8",

@@ -1,17 +1,22 @@
-import { useRef, type Ref } from "react";
+import { useEffect, useRef, type Ref } from "react";
 import { Group, Layer, Line, RegularPolygon, Shape, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { milestoneMarkHit } from "../model/chartHitTest";
 import { parseDate } from "../model/dates";
-import { hatchCanvas } from "../model/hatch";
 import { KONVA_FONT_FAMILY } from "../model/fontStack";
 import {
+  MILESTONE_GUIDE_DASH,
   MILESTONE_LABEL_GAP,
+  milestoneDiamondOutlineWidth,
+  milestoneMarkGuideGeometry,
   type MilestoneBandLayout,
 } from "../model/milestones";
-import type { ChartPalette, ResolvedColorScheme } from "../model/palette";
+import type { ChartPalette } from "../model/palette";
 import type { Milestone, ScheduleId } from "../model/types";
 import type { MilestoneHoverState } from "./MilestoneHoverOverlay";
+
+/** Konva の dblClickWindow と同じ。 */
+const MILESTONE_GUIDE_CLICK_DELAY_MS = 400;
 
 type MilestoneBandProps = {
   bandLayout: MilestoneBandLayout;
@@ -25,6 +30,7 @@ type MilestoneBandProps = {
   onMove: (id: ScheduleId, deltaDays: number) => void;
   onOpenEdit: (id: ScheduleId) => void;
   onContextMenu: (id: ScheduleId, x: number, y: number) => void;
+  onToggleGuideLine: (id: ScheduleId) => void;
   onEmptyContextMenu: (
     chartX: number,
     clientX: number,
@@ -34,9 +40,9 @@ type MilestoneBandProps = {
   onWheel: (e: Konva.KonvaEventObject<WheelEvent>) => void;
   linkMode?: boolean;
   chart: ChartPalette;
-  colorScheme: ResolvedColorScheme;
   containerRef?: Ref<HTMLDivElement>;
   onHoverMilestone: (hover: MilestoneHoverState | null) => void;
+  milestoneGuideLineIds: ReadonlySet<ScheduleId>;
   diffMarkedMilestoneId?: ScheduleId | null;
   diffMarkStrokeWidth?: number;
 };
@@ -53,13 +59,14 @@ export function MilestoneBand({
   onMove,
   onOpenEdit,
   onContextMenu,
+  onToggleGuideLine,
   onEmptyContextMenu,
   onWheel,
   linkMode = false,
   chart,
-  colorScheme,
   containerRef,
   onHoverMilestone,
+  milestoneGuideLineIds,
   diffMarkedMilestoneId = null,
   diffMarkStrokeWidth = 3,
 }: MilestoneBandProps) {
@@ -102,6 +109,7 @@ export function MilestoneBand({
                 const displayName =
                   bandLayout.displayLabels.get(milestone.id) ?? milestone.name;
                 const showHover = displayName !== milestone.name;
+                const guideOn = milestoneGuideLineIds.has(milestone.id);
                 return (
                   <MilestoneMark
                     key={milestone.id}
@@ -109,13 +117,17 @@ export function MilestoneBand({
                     displayName={displayName}
                     x={x}
                     y={y}
+                    blockOffsetY={block.offsetY}
+                    milestoneBandTotalHeight={height}
                     diamondSize={diamondSize}
                     fontSize={fontSize}
                     pxPerDay={pxPerDay}
+                    guideOn={guideOn}
                     diffMarked={diffMarkedMilestoneId === milestone.id}
                     diffMarkStrokeWidth={diffMarkStrokeWidth}
                     onMove={(delta) => onMove(milestone.id, delta)}
                     onOpenEdit={() => onOpenEdit(milestone.id)}
+                    onToggleGuideLine={() => onToggleGuideLine(milestone.id)}
                     onContextMenu={(clientX, clientY) =>
                       onContextMenu(milestone.id, clientX, clientY)
                     }
@@ -128,7 +140,6 @@ export function MilestoneBand({
                     }}
                     linkMode={linkMode}
                     chart={chart}
-                    colorScheme={colorScheme}
                   />
                 );
               })}
@@ -145,16 +156,19 @@ function MilestoneMark({
   displayName,
   x,
   y,
+  blockOffsetY,
+  milestoneBandTotalHeight,
   diamondSize,
   fontSize,
   pxPerDay,
+  guideOn,
   onMove,
   onOpenEdit,
+  onToggleGuideLine,
   onContextMenu,
   onHoverChange,
   linkMode,
   chart,
-  colorScheme,
   diffMarked,
   diffMarkStrokeWidth,
 }: {
@@ -162,26 +176,54 @@ function MilestoneMark({
   displayName: string;
   x: number;
   y: number;
+  blockOffsetY: number;
+  milestoneBandTotalHeight: number;
   diamondSize: number;
   fontSize: number;
   pxPerDay: number;
+  guideOn: boolean;
   diffMarked: boolean;
   diffMarkStrokeWidth: number;
   onMove: (deltaDays: number) => void;
   onOpenEdit: () => void;
+  onToggleGuideLine: () => void;
   onContextMenu: (x: number, y: number) => void;
   onHoverChange: (active: boolean) => void;
   linkMode: boolean;
   chart: ChartPalette;
-  colorScheme: ResolvedColorScheme;
 }) {
   const groupRef = useRef<Konva.Group>(null);
   const originX = useRef(x);
+  const dragMovedRef = useRef(false);
+  const guideClickDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const radius = diamondSize / 2;
-  const hatch =
-    milestone.confidence === "tentative"
-      ? hatchCanvas(chart.milestoneDiamond, colorScheme)
-      : null;
+  const tentative = milestone.confidence === "tentative";
+  const outlineWidth = milestoneDiamondOutlineWidth(diamondSize);
+  const guide = milestoneMarkGuideGeometry(
+    diamondSize,
+    fontSize,
+    displayName,
+    y,
+    blockOffsetY,
+    milestoneBandTotalHeight,
+  );
+
+  const clearGuideClickDelay = () => {
+    if (guideClickDelayRef.current != null) {
+      clearTimeout(guideClickDelayRef.current);
+      guideClickDelayRef.current = null;
+    }
+  };
+
+  const scheduleGuideToggle = () => {
+    clearGuideClickDelay();
+    guideClickDelayRef.current = setTimeout(() => {
+      guideClickDelayRef.current = null;
+      onToggleGuideLine();
+    }, MILESTONE_GUIDE_CLICK_DELAY_MS);
+  };
+
+  useEffect(() => clearGuideClickDelay, []);
 
   return (
     <Group
@@ -203,26 +245,75 @@ function MilestoneMark({
         if (linkMode) return;
         onContextMenu(e.evt.clientX, e.evt.clientY);
       }}
+      onClick={(e) => {
+        if (linkMode) return;
+        if (e.evt.button !== 0) return;
+        if (dragMovedRef.current) {
+          dragMovedRef.current = false;
+          return;
+        }
+        scheduleGuideToggle();
+      }}
+      onTap={() => {
+        if (linkMode) return;
+        if (dragMovedRef.current) {
+          dragMovedRef.current = false;
+          return;
+        }
+        scheduleGuideToggle();
+      }}
       onDblClick={(e) => {
         e.cancelBubble = true;
         if (linkMode) return;
+        clearGuideClickDelay();
         onOpenEdit();
       }}
       onDblTap={(e) => {
         e.cancelBubble = true;
         if (linkMode) return;
+        clearGuideClickDelay();
         onOpenEdit();
       }}
       onDragStart={(e) => {
+        clearGuideClickDelay();
+        dragMovedRef.current = false;
         originX.current = e.target.x();
       }}
       onDragEnd={(e) => {
         const node = e.target;
-        const delta = Math.round((node.x() - originX.current) / pxPerDay);
+        const deltaPx = node.x() - originX.current;
+        const delta = Math.round(deltaPx / pxPerDay);
         node.position({ x: originX.current, y });
-        onMove(delta);
+        if (delta !== 0) {
+          clearGuideClickDelay();
+          dragMovedRef.current = true;
+          onMove(delta);
+        }
       }}
     >
+      {guideOn ? (
+        <>
+          <Line
+            points={[0, 0, 0, guide.bandVerticalY2]}
+            stroke={chart.milestoneGuideLine}
+            strokeWidth={1}
+            dash={[...MILESTONE_GUIDE_DASH]}
+            listening={false}
+          />
+          <Line
+            points={[
+              guide.underlineX1,
+              guide.underlineY,
+              guide.underlineX2,
+              guide.underlineY,
+            ]}
+            stroke={chart.milestoneGuideLine}
+            strokeWidth={1}
+            dash={[...MILESTONE_GUIDE_DASH]}
+            listening={false}
+          />
+        </>
+      ) : null}
       <Shape
         fill="black"
         listening
@@ -246,14 +337,17 @@ function MilestoneMark({
       <RegularPolygon
         sides={4}
         radius={radius}
-        fill={hatch ? undefined : chart.milestoneDiamond}
-        fillPriority={hatch ? "pattern" : "color"}
-        fillPatternImage={
-          hatch ? (hatch as unknown as HTMLImageElement) : undefined
+        fill={tentative ? undefined : chart.milestoneDiamond}
+        stroke={
+          tentative ? chart.milestoneDiamond : chart.milestoneDiamondStroke
         }
-        fillPatternRepeat="repeat"
-        stroke={chart.milestoneDiamondStroke}
-        strokeWidth={diffMarked ? diffMarkStrokeWidth : 1}
+        strokeWidth={
+          diffMarked
+            ? diffMarkStrokeWidth
+            : tentative
+              ? outlineWidth
+              : 1
+        }
         listening={false}
       />
       <Text

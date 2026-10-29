@@ -219,6 +219,7 @@ import {
   layoutMilestoneBand,
   milestoneBandHeightPx,
   milestoneGroupIdAtBandY,
+  toggleMilestoneGuideLinesForGroup,
   type MilestoneBandLayout,
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
@@ -458,6 +459,17 @@ function App() {
   const [exportOpen, setExportOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [linkSourceId, setLinkSourceId] = useState<ScheduleId | null>(null);
+  const [milestoneGuideLineIds, setMilestoneGuideLineIds] = useState<
+    ReadonlySet<ScheduleId>
+  >(() => new Set());
+  const toggleMilestoneGuideLine = useCallback((id: ScheduleId) => {
+    setMilestoneGuideLineIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
   const [linkError, setLinkError] = useState<string | null>(null);
   const chartTopBannersRef = useRef<HTMLDivElement>(null);
   const [chartTopBannerHeight, setChartTopBannerHeight] = useState(0);
@@ -896,6 +908,20 @@ function App() {
     visibleMilestoneGroupIds,
   } = schedule;
 
+  useEffect(() => {
+    const ids = new Set(schedule.milestones.map((milestone) => milestone.id));
+    setMilestoneGuideLineIds((prev) => {
+      let changed = false;
+      const next = new Set<ScheduleId>();
+      for (const id of prev) {
+        if (ids.has(id)) next.add(id);
+        else changed = true;
+      }
+      if (!changed && next.size === prev.size) return prev;
+      return next;
+    });
+  }, [schedule.milestones]);
+
   const editableFieldDefs = extensionFieldDefs;
 
   const knownFieldKeys = useMemo(
@@ -1103,6 +1129,21 @@ function App() {
     ],
   );
   const milestoneBandHeight = milestoneBandLayout.totalHeight;
+  const toggleMilestoneGroupGuideLines = useCallback(
+    (groupId: ScheduleId) => {
+      const block = milestoneBandLayout.blocks.find(
+        (item) => item.group.id === groupId,
+      );
+      if (block == null) return;
+      setMilestoneGuideLineIds((prev) =>
+        toggleMilestoneGuideLinesForGroup(
+          prev,
+          block.milestones.map((milestone) => milestone.id),
+        ),
+      );
+    },
+    [milestoneBandLayout.blocks],
+  );
   const bodyHeight = Math.max(
     120,
     timelineSlotHeight -
@@ -2206,6 +2247,7 @@ function App() {
         colorScheme: resolvedColorScheme,
         colors: displayColors,
         showLightningLine,
+        milestoneGuideLineIds,
       };
       const onExportError = (error: unknown) => {
         if (error instanceof ScheduleExportTooLargeError) {
@@ -2255,6 +2297,7 @@ function App() {
       milestoneDiamondSize,
       milestoneFontSize,
       milestoneLaneHeight,
+      milestoneGuideLineIds,
       monthHeaderFontSize,
       pxPerDay,
       rowHeight,
@@ -3721,6 +3764,8 @@ function App() {
           onTaskContextMenu={openTaskContextMenu}
           onHierarchyContextMenu={openHierarchyContextMenu}
           onMilestoneGroupContextMenu={openMilestoneGroupContextMenu}
+          onToggleMilestoneGroupGuideLines={toggleMilestoneGroupGuideLines}
+          linkMode={linkSourceId != null}
           onHierarchyDoubleClick={openHierarchyEdit}
           today={schedule.today}
           memberCatalog={displayMemberMap}
@@ -3822,6 +3867,8 @@ function App() {
             onMoveMilestone={schedule.moveMilestoneByDays}
             onOpenMilestone={schedule.openMilestoneEdit}
             onMilestoneContextMenu={openMilestoneContextMenu}
+            milestoneGuideLineIds={milestoneGuideLineIds}
+            onToggleMilestoneGuideLine={toggleMilestoneGuideLine}
             diffMarkedMilestoneId={diffNavigationMark.chartMilestoneId}
             diffMarkStrokeWidth={Math.max(2, Math.round(3 * uiScale))}
             today={schedule.today}

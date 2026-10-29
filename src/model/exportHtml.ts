@@ -10,7 +10,13 @@ import {
 import { addDays, addUtcMonths, daysBetween, fmtShort, parseDate, utcMonthStart } from "./dates";
 import { LAYOUT_HEADER_HEIGHT } from "./layoutSizes";
 import { LINK_POINTER_LENGTH, linkPoints, type DependencyLink } from "./dependencies";
-import { MILESTONE_LABEL_GAP, milestonesExceededBy } from "./milestones";
+import {
+  MILESTONE_GUIDE_DASH,
+  MILESTONE_LABEL_GAP,
+  milestoneDiamondOutlineWidth,
+  milestoneMarkGuideGeometry,
+  milestonesExceededBy,
+} from "./milestones";
 import {
   coveredSpanWidthPx,
   summaryBarWidthPx,
@@ -78,6 +84,8 @@ export type ScheduleExportInput = {
   /** 色の一覧。無いときは行の地を塗らない。 */
   colors?: readonly ColorItem[] | null;
   showLightningLine: boolean;
+  /** 画面で点線を出しているマイルストン。書き出しの帯に載る id だけ描く。 */
+  milestoneGuideLineIds: ReadonlySet<ScheduleId>;
 };
 
 export type ScheduleExportFormat = "html" | "svg" | "xlsx";
@@ -144,12 +152,6 @@ function tentativeHatchPatterns(input: ScheduleExportInput): string {
   for (const row of input.visibleRows) {
     if (row.type !== "task" || row.task.confidence !== "tentative") continue;
     colors.add(barColors(row.task, input.today, input.colorScheme, input.statuses).bg);
-  }
-  const drawnTentative = input.milestoneBandLayout.blocks.some((block) =>
-    block.milestones.some((milestone) => milestone.confidence === "tentative"),
-  );
-  if (drawnTentative) {
-    colors.add(palettes(input).chart.milestoneDiamond);
   }
   return [...colors]
     .map((bg) => hatchPatternMarkup(bg, input.colorScheme))
@@ -816,6 +818,7 @@ function renderMilestones(
   if (input.milestoneBandHeight <= 0) return "";
   const { css: c, chart } = palettes(input);
   const top = input.headerHeight;
+  const dash = `${MILESTONE_GUIDE_DASH[0]} ${MILESTONE_GUIDE_DASH[1]}`;
   const marks = [
     `<rect x="0" y="${n(top)}" width="${n(chartWidth)}" height="${n(input.milestoneBandHeight)}" fill="${c.milestoneBand}"/>`,
     line(0, top + input.milestoneBandHeight - 0.5, chartWidth, top + input.milestoneBandHeight - 0.5, chart.milestoneBandBorder, 1),
@@ -836,18 +839,83 @@ function renderMilestones(
     for (const milestone of block.milestones) {
       const lane = block.lanes.get(milestone.id) ?? 0;
       const x = dateToX(parseDate(milestone.date));
-      const y =
-        top + block.offsetY + lane * input.milestoneLaneHeight + input.milestoneLaneHeight / 2;
-    const r = input.milestoneDiamondSize / 2;
-    const fill =
-      milestone.confidence === "tentative"
-        ? `url(#${hatchPatternId(chart.milestoneDiamond)})`
-        : chart.milestoneDiamond;
-    marks.push(
-      `<polygon points="${n(x)},${n(y - r)} ${n(x + r)},${n(y)} ${n(x)},${n(y + r)} ${n(x - r)},${n(y)}" fill="${fill}" stroke="${chart.milestoneDiamondStroke}" stroke-width="1"/>`,
-    );
+      const laneCenterY =
+        lane * input.milestoneLaneHeight + input.milestoneLaneHeight / 2;
+      const y = top + block.offsetY + laneCenterY;
+      const r = input.milestoneDiamondSize / 2;
+      const tentative = milestone.confidence === "tentative";
+      const outline = milestoneDiamondOutlineWidth(input.milestoneDiamondSize);
+      const displayName = milestone.name;
+      const guideOn = input.milestoneGuideLineIds.has(milestone.id);
+      if (guideOn) {
+        const guide = milestoneMarkGuideGeometry(
+          input.milestoneDiamondSize,
+          input.milestoneFontSize,
+          displayName,
+          laneCenterY,
+          block.offsetY,
+          input.milestoneBandHeight,
+        );
+        marks.push(
+          dashLine(
+            x,
+            y,
+            x,
+            y + guide.bandVerticalY2,
+            chart.milestoneGuideLine,
+            1,
+            dash,
+          ),
+          dashLine(
+            x + guide.underlineX1,
+            y + guide.underlineY,
+            x + guide.underlineX2,
+            y + guide.underlineY,
+            chart.milestoneGuideLine,
+            1,
+            dash,
+          ),
+        );
+      }
+      const fill = tentative ? "none" : chart.milestoneDiamond;
+      const stroke = tentative ? chart.milestoneDiamond : chart.milestoneDiamondStroke;
+      const strokeWidth = tentative ? outline : 1;
       marks.push(
-        text(x + r + MILESTONE_LABEL_GAP, y - input.milestoneFontSize / 2, milestone.name, input.milestoneFontSize, chart.milestoneDiamond, true),
+        `<polygon points="${n(x)},${n(y - r)} ${n(x + r)},${n(y)} ${n(x)},${n(y + r)} ${n(x - r)},${n(y)}" fill="${fill}" stroke="${stroke}" stroke-width="${n(strokeWidth)}"/>`,
+      );
+      marks.push(
+        text(x + r + MILESTONE_LABEL_GAP, y - input.milestoneFontSize / 2, displayName, input.milestoneFontSize, chart.milestoneDiamond, true),
+      );
+    }
+  }
+  return marks.join("\n  ");
+}
+
+function renderMilestoneGuideLinesInBody(
+  input: ScheduleExportInput,
+  chartWidth: number,
+  bodyTop: number,
+  contentHeight: number,
+  dateToX: (d: Date) => number,
+): string {
+  const { chart } = palettes(input);
+  const dash = `${MILESTONE_GUIDE_DASH[0]} ${MILESTONE_GUIDE_DASH[1]}`;
+  const marks: string[] = [];
+  for (const block of input.milestoneBandLayout.blocks) {
+    for (const milestone of block.milestones) {
+      if (!input.milestoneGuideLineIds.has(milestone.id)) continue;
+      const x = dateToX(parseDate(milestone.date));
+      if (x < 0 || x > chartWidth) continue;
+      marks.push(
+        dashLine(
+          x,
+          bodyTop,
+          x,
+          bodyTop + contentHeight,
+          chart.milestoneGuideLine,
+          1,
+          dash,
+        ),
       );
     }
   }
@@ -915,6 +983,15 @@ function renderBody(
     const y = bodyTop + row.y + input.rowHeight;
     marks.push(line(0, y, chartWidth, y, chart.rowBorder, 1));
   }
+  marks.push(
+    renderMilestoneGuideLinesInBody(
+      input,
+      chartWidth,
+      bodyTop,
+      contentHeight,
+      dateToX,
+    ),
+  );
   marks.push(renderLinks(input, bodyTop, dateToX));
   for (const row of input.visibleRows) {
     const y = bodyTop + row.y;
@@ -1145,6 +1222,18 @@ function roundedRect(
 
 function line(x1: number, y1: number, x2: number, y2: number, stroke: string, width: number): string {
   return `<line x1="${n(x1)}" y1="${n(y1)}" x2="${n(x2)}" y2="${n(y2)}" stroke="${stroke}" stroke-width="${width}"/>`;
+}
+
+function dashLine(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  stroke: string,
+  width: number,
+  dash: string,
+): string {
+  return `<line x1="${n(x1)}" y1="${n(y1)}" x2="${n(x2)}" y2="${n(y2)}" stroke="${stroke}" stroke-width="${width}" stroke-dasharray="${dash}"/>`;
 }
 
 function text(
