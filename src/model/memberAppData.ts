@@ -168,6 +168,66 @@ export async function setSelectedMemberCatalog(
   writeBrowserSelected(catalogId);
 }
 
+export type ClaimMemberCatalogEditResult = {
+  claimed: boolean;
+  holderLabel?: string;
+};
+
+export async function claimMemberCatalogEdit(
+  catalogId: string,
+): Promise<ClaimMemberCatalogEditResult> {
+  if (!isTauri()) {
+    return { claimed: true };
+  }
+  return invoke<ClaimMemberCatalogEditResult>("claim_member_catalog_edit", {
+    catalogId,
+  });
+}
+
+export async function releaseMemberCatalogEdit(
+  catalogId?: string | null,
+): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("release_member_catalog_edit", {
+    catalogId: catalogId ?? null,
+  });
+}
+
+export async function writeMembersAtPath(
+  path: string,
+  contents: string,
+  workspacePath: string | null,
+): Promise<void> {
+  if (!isTauri()) {
+    throw new Error("この操作はデスクトップ版だけ使えます。");
+  }
+  const body = stripUtf8Bom(contents);
+  await invoke("write_members_at_path", {
+    path,
+    contents: body,
+    workspacePath,
+  });
+}
+
+export async function exportMembersJson(
+  contents: string,
+  suggestedName: string,
+): Promise<string | null> {
+  if (isTauri()) {
+    return invoke<string | null>("save_members_json", { contents, suggestedName });
+  }
+  const blob = new Blob([contents], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${suggestedName}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return null;
+}
+
 export function pickMembersJsonFile(): Promise<{ name: string; contents: string } | null> {
   return new Promise((resolve, reject) => {
     const input = document.createElement("input");

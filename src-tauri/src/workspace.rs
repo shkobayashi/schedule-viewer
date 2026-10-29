@@ -325,6 +325,33 @@ pub fn read_workspace_colors_path(workspace_file: &Path) -> Result<Option<PathBu
     }
 }
 
+pub fn read_workspace_members_path(workspace_file: &Path) -> Result<Option<PathBuf>, String> {
+    if !workspace_file.is_absolute() {
+        return Err("設定ファイルのパスが不正です。".to_string());
+    }
+    if !workspace_file.is_file() {
+        return Err("設定ファイルを開けません。".to_string());
+    }
+    let text = std::fs::read_to_string(workspace_file)
+        .map_err(|e| format!("設定ファイルを開けません: {}", e))?;
+    if text.len() as u64 > MAX_WORKSPACE_BYTES {
+        return Err("設定ファイルが大きすぎます（上限 64 KB）".to_string());
+    }
+    let value: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|_| "設定ファイルの形式が正しくありません".to_string())?;
+    let relative = value
+        .get("members")
+        .and_then(|entry| entry.as_str())
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty());
+    match relative {
+        None => Ok(None),
+        Some(relative) => resolve_workspace_relative_path(workspace_file, relative)
+            .map(Some)
+            .ok_or_else(|| "設定ファイルのパスを解決できません。".to_string()),
+    }
+}
+
 pub fn set_workspace_colors_relative(
     workspace_file: &Path,
     relative: Option<&str>,

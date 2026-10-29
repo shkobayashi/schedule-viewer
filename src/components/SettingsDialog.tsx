@@ -3,6 +3,10 @@ import {
   type SettingsStatusesSectionProps,
 } from "./SettingsStatusesSection";
 import {
+  SettingsMembersSection,
+  type SettingsMembersSectionProps,
+} from "./SettingsMembersSection";
+import {
   SettingsColorsSection,
   type SettingsColorsSectionProps,
 } from "./SettingsColorsSection";
@@ -10,11 +14,6 @@ import { useEffect, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
 import packageJson from "../../package.json";
-import type { AppMembersSettings } from "../model/memberAppData";
-import {
-  catalogIdFromFilename,
-  pickMembersJsonFile,
-} from "../model/memberAppData";
 import {
   calendarLabelFromFilename,
   pickCalendarJsonFile,
@@ -23,10 +22,6 @@ import {
   formatCalendarValidationErrors,
   validateCalendar,
 } from "../model/validateCalendar";
-import {
-  formatMembersValidationErrors,
-  validateMembers,
-} from "../model/validateMembers";
 import { errorMessage } from "../model/errors";
 
 function settingsDesktopOnly(): boolean {
@@ -126,8 +121,6 @@ function fetchAppVersionLineIfNeeded(): Promise<void> {
 
 type SettingsDialogProps = {
   open: boolean;
-  settings: AppMembersSettings;
-  selectedCatalogLabel: string | null;
   calendarLabel: string | null;
   calendarError?: string | null;
   displayScalePreference: DisplayScalePreference;
@@ -141,12 +134,10 @@ type SettingsDialogProps = {
   sidebarColumns: SidebarColumnsPreference;
   onSidebarColumnsChange: (value: SidebarColumnsPreference) => void;
   initialSection?: SettingsSection;
+  memberCatalog: SettingsMembersSectionProps;
   statusCatalog: SettingsStatusesSectionProps;
   colorCatalog: SettingsColorsSectionProps;
   onClose: () => void;
-  onImport: (catalogId: string, contents: string, overwrite: boolean) => Promise<void>;
-  onSelectCatalog: (catalogId: string | null) => Promise<void>;
-  onDeleteCatalog: (catalogId: string) => Promise<void>;
   onImportCalendar: (label: string, contents: string) => Promise<void>;
   onDeleteCalendar: () => Promise<void>;
   autoUpdateEnabled?: boolean;
@@ -166,6 +157,7 @@ type SettingsDialogProps = {
   workspaceBinding?: WorkspaceWindowBinding | null;
   workspaceStatusEditor?: { onOpenEditor: () => void };
   workspaceColorEditor?: { onOpenEditor: () => void };
+  workspaceMemberEditor?: { onOpenEditor: () => void };
   onCreateWorkspaceColorsCatalog?: () => Promise<void>;
   workspaceFieldExtensionEditor?: { onOpenEditor: () => void };
   workspaceEditableFieldExtensionError?: string | null;
@@ -208,10 +200,9 @@ export type SettingsSection =
 
 export function SettingsDialog({
   open,
+  memberCatalog,
   statusCatalog,
   colorCatalog,
-  settings,
-  selectedCatalogLabel,
   calendarLabel,
   calendarError = null,
   displayScalePreference,
@@ -226,9 +217,6 @@ export function SettingsDialog({
   onSidebarColumnsChange,
   initialSection = "display",
   onClose,
-  onImport,
-  onSelectCatalog,
-  onDeleteCatalog,
   onImportCalendar,
   onDeleteCalendar,
   autoUpdateEnabled = false,
@@ -254,6 +242,7 @@ export function SettingsDialog({
   onDeleteFieldExtension,
   workspaceStatusEditor,
   workspaceColorEditor,
+  workspaceMemberEditor,
   onCreateWorkspaceColorsCatalog,
   workspaceFieldExtensionEditor,
   workspaceEditableFieldExtensionError = null,
@@ -330,13 +319,6 @@ export function SettingsDialog({
   const [confirmReadScreenUninstall, setConfirmReadScreenUninstall] =
     useState(false);
   const readScreenToolsTouched = useRef(false);
-  const [confirmOverwriteId, setConfirmOverwriteId] = useState<string | null>(
-    null,
-  );
-  const [pendingImport, setPendingImport] = useState<{
-    catalogId: string;
-    contents: string;
-  } | null>(null);
   const [confirmFieldExtensionOverwriteId, setConfirmFieldExtensionOverwriteId] =
     useState<string | null>(null);
   const [pendingFieldExtensionImport, setPendingFieldExtensionImport] =
@@ -452,60 +434,6 @@ export function SettingsDialog({
     } finally {
       setBusy(false);
     }
-  };
-
-  const runImport = async (
-    catalogId: string,
-    contents: string,
-    overwrite: boolean,
-  ) => {
-    setBusy(true);
-    setMessage(null);
-    try {
-      await onImport(catalogId, contents, overwrite);
-      setMessage(`「${catalogId}」を取り込みました。`);
-      setConfirmOverwriteId(null);
-      setPendingImport(null);
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "取り込みに失敗しました。",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleImportClick = async () => {
-    let pick: Awaited<ReturnType<typeof pickMembersJsonFile>>;
-    try {
-      pick = await pickMembersJsonFile();
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "取り込みに失敗しました。",
-      );
-      return;
-    }
-    if (!pick) return;
-    let data: unknown;
-    try {
-      data = JSON.parse(pick.contents.replace(/^\uFEFF/, ""));
-    } catch {
-      setMessage("JSON の形式が正しくありません。");
-      return;
-    }
-    const parsed = validateMembers(data);
-    if (!parsed.ok) {
-      setMessage(formatMembersValidationErrors(parsed.errors));
-      return;
-    }
-    const catalogId = catalogIdFromFilename(pick.name);
-    const exists = settings.catalogs.some((c) => c.id === catalogId);
-    if (exists) {
-      setPendingImport({ catalogId, contents: pick.contents });
-      setConfirmOverwriteId(catalogId);
-      return;
-    }
-    await runImport(catalogId, pick.contents, false);
   };
 
   const runFieldExtensionImport = async (
@@ -993,7 +921,7 @@ export function SettingsDialog({
                     >
                       {workspaceMemberError(workspaceBinding.members)
                         ? `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。メンバーはここでは変更できません。`
-                        : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。メンバーは設定ファイルの指定どおり表示します。ここでは変更できません。`}
+                        : `このウィンドウは設定ファイル ${workspaceFileDisplayLabel(workspaceBinding.workspacePath)} で開いています。メンバーは設定ファイルの指定どおり表示します。`}
                     </p>
                     <p
                       className="settings-current"
@@ -1009,84 +937,20 @@ export function SettingsDialog({
                         {workspaceMemberError(workspaceBinding.members)} 担当はメンバー不明のままです。
                       </p>
                     ) : null}
-                  </>
-                ) : (
-                  <>
-                <p className="settings-note">
-                  メンバー JSON をアプリデータへ取り込み、表示に使うカタログを選びます。スケジュール
-                  JSON には含めません。
-                </p>
-                {selectedCatalogLabel ? (
-                  <p className="settings-current">
-                    使用中: {selectedCatalogLabel}
-                  </p>
-                ) : (
-                  <p className="settings-current">使用中: 未選択</p>
-                )}
-                <div className="settings-actions">
-                  <button
-                    type="button"
-                    className="toolbar-btn"
-                    disabled={busy}
-                    onClick={() => void handleImportClick()}
-                  >
-                    取り込み…
-                  </button>
-                </div>
-                <ul className="settings-catalog-list">
-                  {settings.catalogs.length === 0 ? (
-                    <li className="muted">取り込み済みのカタログはありません。</li>
-                  ) : (
-                    settings.catalogs.map((catalog) => (
-                      <li key={catalog.id}>
-                        <label className="settings-catalog-row">
-                          <input
-                            type="radio"
-                            name="memberCatalog"
-                            checked={settings.selectedCatalogId === catalog.id}
-                            disabled={busy}
-                            onChange={() =>
-                              void runAction(
-                                () => onSelectCatalog(catalog.id),
-                                "カタログを選択できませんでした。",
-                              )
-                            }
-                          />
-                          <span>{catalog.label}</span>
-                        </label>
+                    {workspaceMemberEditor ? (
+                      <div className="settings-actions">
                         <button
                           type="button"
                           className="toolbar-btn"
-                          disabled={busy}
-                          onClick={() =>
-                            void runAction(
-                              () => onDeleteCatalog(catalog.id),
-                              "カタログを外せませんでした。",
-                            )
-                          }
+                          onClick={workspaceMemberEditor.onOpenEditor}
                         >
-                          外す
+                          項目を編集…
                         </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
-                {settings.catalogs.length > 0 ? (
-                  <button
-                    type="button"
-                    className="toolbar-btn"
-                    disabled={busy || settings.selectedCatalogId == null}
-                    onClick={() =>
-                      void runAction(
-                        () => onSelectCatalog(null),
-                        "選択を解除できませんでした。",
-                      )
-                    }
-                  >
-                    選択を解除
-                  </button>
-                ) : null}
+                      </div>
+                    ) : null}
                   </>
+                ) : (
+                  <SettingsMembersSection {...memberCatalog} />
                 )}
               </>
             ) : null}
@@ -1842,40 +1706,6 @@ export function SettingsDialog({
             ) : null}
           </div>
         </div>
-        {confirmOverwriteId && pendingImport ? (
-          <div className="settings-confirm">
-            <p>
-              「{confirmOverwriteId}」は既にあります。上書きしますか？
-            </p>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="toolbar-btn"
-                disabled={busy}
-                onClick={() =>
-                  void runImport(
-                    pendingImport.catalogId,
-                    pendingImport.contents,
-                    true,
-                  )
-                }
-              >
-                上書き
-              </button>
-              <button
-                type="button"
-                className="toolbar-btn"
-                disabled={busy}
-                onClick={() => {
-                  setConfirmOverwriteId(null);
-                  setPendingImport(null);
-                }}
-              >
-                キャンセル
-              </button>
-            </div>
-          </div>
-        ) : null}
         {confirmFieldExtensionOverwriteId && pendingFieldExtensionImport ? (
           <div className="settings-confirm">
             <p>

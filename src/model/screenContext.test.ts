@@ -11,18 +11,21 @@ import {
   buildActiveFilterConditions,
   buildFilteredTasksPayload,
   colorEntriesForMcp,
+  memberEntriesForMcp,
   fieldEntriesForMcp,
   statusEntriesForMcp,
   buildScheduleDiffPayload,
   buildScreenContextPayload,
   buildSelectedTaskPayload,
   buildSelectedTasksPayload,
+  mcpMembersForReadTools,
   mcpPayloadToToolBody,
 } from "./screenContext";
 import { listTasksMatchingFilter } from "./rows";
 import { documentToJsonString } from "./serialize";
 import { BUILTIN_STATUS_ITEMS, type StatusItem } from "./statusCatalog";
 import type { ColorItem } from "./colorCatalog";
+import type { Member } from "./memberTypes";
 import { updateStatusItem } from "./statusEdit";
 import {
   SCHEDULE_SCHEMA_VERSION,
@@ -530,6 +533,7 @@ describe("split MCP payloads", () => {
       levels: mcpLevelsFromDocument({}),
       statuses: statusEntriesForMcp(BUILTIN_STATUS_ITEMS),
       colors: [],
+      members: [],
       fields: [],
       selectedTasks: [],
     });
@@ -680,6 +684,7 @@ describe("field catalog in MCP payloads", () => {
       "levels",
       "statuses",
       "colors",
+      "members",
       "fields",
       "activeConditions",
       "tasks",
@@ -836,6 +841,7 @@ describe("color catalog in MCP payloads", () => {
     const base = {
       categories: [] as Category[],
       colors: null as ColorItem[] | null,
+      mcpMembers: null as Member[] | null,
     };
     expect(
       buildFilteredTasksPayload({
@@ -849,6 +855,19 @@ describe("color catalog in MCP payloads", () => {
         memberCatalog: null,
         lineageIds: null,
       }).colors,
+    ).toEqual([]);
+    expect(
+      buildFilteredTasksPayload({
+        ...base,
+        filters,
+        lineageTaskId: null,
+        hiddenMilestoneGroupIds: [],
+        milestoneGroups: [],
+        milestones: [],
+        today: "2026-01-01",
+        memberCatalog: null,
+        lineageIds: null,
+      }).members,
     ).toEqual([]);
     expect(
       buildSelectedTaskPayload({
@@ -866,6 +885,107 @@ describe("color catalog in MCP payloads", () => {
         selectedTaskIds: [],
       }).colors,
     ).toEqual([]);
+  });
+
+  it("omits empty member description and orders members after colors in payload", () => {
+    const members: Member[] = [
+      { id: "a", name: "Alice", description: "  backend  " },
+      { id: "b", name: "Bob" },
+    ];
+    const payload = buildSelectedTaskPayload({
+      categories: [],
+      filters,
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      selectedTaskId: null,
+      mcpMembers: members,
+    });
+    expect(payload.members).toEqual([
+      { id: "a", name: "Alice", description: "backend" },
+      { id: "b", name: "Bob" },
+    ]);
+    expect(Object.keys(payload)).toEqual([
+      "levels",
+      "statuses",
+      "colors",
+      "members",
+      "fields",
+      "selectedTaskId",
+      "selectedTask",
+    ]);
+    expect(memberEntriesForMcp(members)).toEqual(payload.members);
+    expect(payload.selectedTask).toBeNull();
+  });
+
+  it("does not put member description on task entries", () => {
+    const members: Member[] = [
+      { id: "a", name: "Alice", description: "backend" },
+    ];
+    const task: Task = {
+      id: "00000000-0000-4000-8000-00000000000a",
+      name: "Task",
+      start: "2026-01-01",
+      end: "2026-01-02",
+      assigneeIds: ["a"],
+      status: "not-started",
+      progress: 0,
+      confidence: "committed",
+      predecessors: [],
+      milestoneId: null,
+    };
+    const categories = [
+      {
+        id: "c1000001-0000-4000-8000-000000000001",
+        name: "設計",
+        groups: [
+          {
+            id: "d1000001-0000-4000-8000-000000000001",
+            name: "上流",
+            tasks: [task],
+          },
+        ],
+      },
+    ];
+    const payload = buildSelectedTaskPayload({
+      categories,
+      filters,
+      today: "2026-01-01",
+      memberCatalog: new Map([["a", members[0]!]]),
+      lineageIds: null,
+      selectedTaskId: task.id,
+      mcpMembers: members,
+    });
+    expect(payload.selectedTask).not.toHaveProperty("description");
+  });
+
+  it("orders members after colors on selected_tasks and filtered_tasks", () => {
+    const members: Member[] = [{ id: "a", name: "Alice" }];
+    const base = {
+      categories: [] as Category[],
+      colors: null as ColorItem[] | null,
+      mcpMembers: members,
+    };
+    expect(
+      Object.keys(
+        buildSelectedTasksPayload({ ...base, selectedTaskIds: [] }),
+      ),
+    ).toEqual(["levels", "statuses", "colors", "members", "fields", "selectedTasks"]);
+    expect(
+      Object.keys(
+        buildFilteredTasksPayload({
+          ...base,
+          filters,
+          lineageTaskId: null,
+          hiddenMilestoneGroupIds: [],
+          milestoneGroups: [],
+          milestones: [],
+          today: "2026-01-01",
+          memberCatalog: null,
+          lineageIds: null,
+        }),
+      ).slice(0, 5),
+    ).toEqual(["levels", "statuses", "colors", "members", "fields"]);
   });
 
   it("includes colorId on tasks when set in categories", () => {
@@ -1031,5 +1151,71 @@ describe("buildScreenContextPayload", () => {
     });
     expect(payload.scheduleDiff.text).toBe("差はありません");
     expect(payload.tasks).toEqual([]);
+  });
+});
+
+describe("mcpMembersForReadTools", () => {
+  const workspaceMembers = [
+    { id: "ws", name: "Workspace" },
+  ] satisfies Member[];
+  const appMembers = [{ id: "app", name: "App" }] satisfies Member[];
+
+  it("uses workspace file when path is set and load succeeded", () => {
+    expect(
+      mcpMembersForReadTools({
+        inWorkspace: true,
+        workspaceMembersPath: "/tmp/team.members.json",
+        workspaceMembers: {
+          kind: "loaded",
+          label: "team.members.json",
+          members: workspaceMembers,
+        },
+        appMembers,
+      }),
+    ).toEqual(workspaceMembers);
+  });
+
+  it("uses app catalog when not in workspace", () => {
+    expect(
+      mcpMembersForReadTools({
+        inWorkspace: false,
+        workspaceMembersPath: null,
+        workspaceMembers: null,
+        appMembers,
+      }),
+    ).toEqual(appMembers);
+  });
+
+  it("uses app catalog when workspace members path is missing", () => {
+    expect(
+      mcpMembersForReadTools({
+        inWorkspace: true,
+        workspaceMembersPath: null,
+        workspaceMembers: { kind: "unset" },
+        appMembers,
+      }),
+    ).toEqual(appMembers);
+  });
+
+  it("uses app catalog when workspace members failed to load", () => {
+    expect(
+      mcpMembersForReadTools({
+        inWorkspace: true,
+        workspaceMembersPath: "/tmp/team.members.json",
+        workspaceMembers: { kind: "error", message: "読めない" },
+        appMembers,
+      }),
+    ).toEqual(appMembers);
+  });
+
+  it("returns empty array when app catalog is unselected", () => {
+    expect(
+      mcpMembersForReadTools({
+        inWorkspace: false,
+        workspaceMembersPath: null,
+        workspaceMembers: null,
+        appMembers: null,
+      }),
+    ).toEqual([]);
   });
 });

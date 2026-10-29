@@ -9,6 +9,7 @@ import {
   type StatusItem,
 } from "./statusCatalog";
 import type { Member, MemberId } from "./memberTypes";
+import type { WorkspaceMemberState } from "./workspaceTypes";
 import {
   collectTasksFromDocument,
   findTaskInDocument,
@@ -176,10 +177,46 @@ export function colorEntriesForMcp(
   }));
 }
 
+export type McpMemberEntry = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
+export function memberEntriesForMcp(
+  members: readonly Member[] | null | undefined,
+): McpMemberEntry[] {
+  if (members == null || members.length === 0) return [];
+  return members.map((member) => {
+    const entry: McpMemberEntry = { id: member.id, name: member.name };
+    const description = member.description?.trim();
+    if (description) entry.description = description;
+    return entry;
+  });
+}
+
+/** MCP 読み取り 3 ツール用のメンバー一覧。チャート表示の解決とは出所が違う。 */
+export function mcpMembersForReadTools(input: {
+  inWorkspace: boolean;
+  workspaceMembers: WorkspaceMemberState | null;
+  workspaceMembersPath: string | null;
+  appMembers: Member[] | null;
+}): Member[] {
+  if (
+    input.inWorkspace &&
+    input.workspaceMembersPath &&
+    input.workspaceMembers?.kind === "loaded"
+  ) {
+    return [...input.workspaceMembers.members];
+  }
+  return input.appMembers ? [...input.appMembers] : [];
+}
+
 export type FilteredTasksMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
   colors: McpColorEntry[];
+  members: McpMemberEntry[];
   fields: McpFieldEntry[];
   activeConditions: McpActiveFilterCondition[];
   tasks: ScreenContextTask[];
@@ -189,6 +226,7 @@ export type SelectedTaskMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
   colors: McpColorEntry[];
+  members: McpMemberEntry[];
   fields: McpFieldEntry[];
   selectedTaskId: ScheduleId | null;
   selectedTask: ScreenContextTask | null;
@@ -198,6 +236,7 @@ export type SelectedTasksMcpPayload = {
   levels: McpLevelEntry[];
   statuses: McpStatusEntry[];
   colors: McpColorEntry[];
+  members: McpMemberEntry[];
   fields: McpFieldEntry[];
   selectedTasks: ScreenContextTask[];
 };
@@ -228,6 +267,8 @@ export type McpScheduleTasksContext = {
   milestoneGroups?: MilestoneGroup[];
   milestones?: Milestone[];
   fields?: readonly ScheduleFieldDef[];
+  /** MCP 用メンバー一覧（チャート解決用 memberCatalog とは別） */
+  mcpMembers?: readonly Member[] | null;
 };
 
 function scheduleDocumentForMcpTasks(
@@ -454,6 +495,7 @@ export function buildFilteredTasksPayload(
 ): FilteredTasksMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
   const colorEntries = colorEntriesForMcp(input.colors);
+  const memberEntries = memberEntriesForMcp(input.mcpMembers);
   const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const doc = scheduleDocumentForMcpTasks(input);
@@ -470,6 +512,7 @@ export function buildFilteredTasksPayload(
     levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
     colors: colorEntries,
+    members: memberEntries,
     fields: fieldEntries,
     activeConditions: buildActiveFilterConditions({
       filters: input.filters,
@@ -502,6 +545,7 @@ export function buildSelectedTaskPayload(
 ): SelectedTaskMcpPayload {
   const statuses = input.statuses ?? BUILTIN_STATUS_ITEMS;
   const colorEntries = colorEntriesForMcp(input.colors);
+  const memberEntries = memberEntriesForMcp(input.mcpMembers);
   const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const doc = scheduleDocumentForMcpTasks(input);
@@ -523,6 +567,7 @@ export function buildSelectedTaskPayload(
     levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
     colors: colorEntries,
+    members: memberEntries,
     fields: fieldEntries,
     selectedTaskId: input.selectedTaskId,
     selectedTask,
@@ -542,6 +587,7 @@ export function buildSelectedTasksPayload(
     input.statuses ?? BUILTIN_STATUS_ITEMS,
   );
   const colorEntries = colorEntriesForMcp(input.colors);
+  const memberEntries = memberEntriesForMcp(input.mcpMembers);
   const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
   const selected = new Set(input.selectedTaskIds);
@@ -550,6 +596,7 @@ export function buildSelectedTasksPayload(
       levels: levelEntries,
       statuses: statusEntries,
       colors: colorEntries,
+      members: memberEntries,
       fields: fieldEntries,
       selectedTasks: [],
     };
@@ -571,6 +618,7 @@ export function buildSelectedTasksPayload(
     levels: levelEntries,
     statuses: statusEntries,
     colors: colorEntries,
+    members: memberEntries,
     fields: fieldEntries,
     selectedTasks,
   };
