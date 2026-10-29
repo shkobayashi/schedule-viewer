@@ -8,6 +8,7 @@ import type {
   OutlineRoot,
   ScheduleDocument,
   ScheduleLevelDef,
+  TaskConnection,
 } from "../model/types";
 import { errorMessage } from "../model/errors";
 import {
@@ -72,6 +73,7 @@ type UseScheduleFileOptions = {
   milestones: Milestone[];
   levels?: ScheduleLevelDef[];
   outline?: OutlineRoot;
+  connections?: TaskConnection[] | null;
   replaceDocument: (document: ScheduleDocument) => void;
   applyMergedDocument: (
     document: ScheduleDocument,
@@ -106,6 +108,7 @@ export function useScheduleFile({
   milestones,
   levels,
   outline,
+  connections,
   replaceDocument,
   applyMergedDocument,
   reloadDocumentFromDisk,
@@ -161,8 +164,18 @@ export function useScheduleFile({
         levels,
         outline,
         extraFieldDefs.length > 0 ? [...extraFieldDefs] : undefined,
+        connections,
       ),
-    [categories, extraFieldDefs, levels, milestoneGroups, milestones, outline, title],
+    [
+      categories,
+      connections,
+      extraFieldDefs,
+      levels,
+      milestoneGroups,
+      milestones,
+      outline,
+      title,
+    ],
   );
 
   const isDirty = currentJson !== baselineJson;

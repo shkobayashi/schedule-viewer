@@ -2,15 +2,19 @@ import { parseDate } from "./dates";
 import {
   categoryCollapseKey,
   groupCollapseKey,
+  hierarchyCollapseKey,
   taskMatchesFilter,
   brokenIdsForFilter,
 } from "./rows";
 import { scrollYToShowSelectedTask } from "./stickyRows";
+import { findTaskInDocument, isOutlineBranch, isTaskNode } from "./hierarchy";
 import type { DiffNavTarget, ScheduleDiffEntry } from "./scheduleDiffEntry";
 import type { Member, MemberId } from "./memberTypes";
 import type {
   Category,
   Milestone,
+  OutlineChild,
+  OutlineRoot,
   ScheduleFilters,
   ScheduleId,
   VisibleRow,
@@ -55,6 +59,7 @@ export type DiffNavigationOutcome =
 export type DiffNavigationContext = {
   visibleRows: VisibleRow[];
   categories: Category[];
+  outline?: OutlineRoot | null;
   collapsed: ReadonlySet<string>;
   filters: ScheduleFilters;
   today: string;
@@ -98,6 +103,8 @@ function resolveNavTarget(
       };
     case "task":
       return revealTask(nav.taskId, ctx);
+    case "connection":
+      return revealConnection(nav.taskIdA, nav.taskIdB, ctx);
     case "category":
       return revealCategory(nav.categoryId, ctx);
     case "group":
@@ -119,6 +126,64 @@ function resolveNavTarget(
     default:
       return { status: "blocked", message: "" };
   }
+}
+
+function collectDocumentTaskOrder(
+  categories: Category[],
+  outline: OutlineRoot | null | undefined,
+): ScheduleId[] {
+  const ids: ScheduleId[] = [];
+  for (const category of categories) {
+    for (const group of category.groups) {
+      for (const task of group.tasks) ids.push(task.id);
+    }
+  }
+  if (ids.length > 0) return ids;
+  if (outline == null) return ids;
+  const walk = (nodes: OutlineChild[]) => {
+    for (const node of nodes) {
+      if (isTaskNode(node)) ids.push(node.id);
+      else if (isOutlineBranch(node)) walk(node.children);
+    }
+  };
+  walk(outline);
+  return ids;
+}
+
+function documentOrderIndex(
+  order: readonly ScheduleId[],
+  taskId: ScheduleId,
+): number {
+  const index = order.indexOf(taskId);
+  return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+function revealConnection(
+  taskIdA: ScheduleId,
+  taskIdB: ScheduleId,
+  ctx: DiffNavigationContext,
+): DiffNavigationOutcome {
+  const order = collectDocumentTaskOrder(ctx.categories, ctx.outline);
+  const visibleA = taskRowInVisible(ctx.visibleRows, taskIdA) != null;
+  const visibleB = taskRowInVisible(ctx.visibleRows, taskIdB) != null;
+
+  if (!visibleA && !visibleB) {
+    const reasonA = taskBlockedReason(taskIdA, ctx);
+    const reasonB = taskBlockedReason(taskIdB, ctx);
+    const message = reasonA ?? reasonB ?? "折りたたみで隠れています";
+    return { status: "blocked", message };
+  }
+
+  let target: ScheduleId;
+  if (visibleA && visibleB) {
+    target =
+      documentOrderIndex(order, taskIdA) <= documentOrderIndex(order, taskIdB)
+        ? taskIdA
+        : taskIdB;
+  } else {
+    target = visibleA ? taskIdA : taskIdB;
+  }
+  return revealTask(target, ctx);
 }
 
 function findTaskInCategories(
@@ -160,11 +225,13 @@ function taskBlockedReason(
   taskId: ScheduleId,
   ctx: DiffNavigationContext,
 ): string | null {
-  const located = findTaskInCategories(ctx.categories, taskId);
-  if (!located) return "画面には無い";
-  const brokenIds = brokenIdsForFilter(ctx.categories, ctx.filters);
-  const task = findTaskObject(ctx.categories, taskId);
+  const task = findTaskInDocument(ctx.categories, ctx.outline ?? undefined, taskId);
   if (!task) return "画面には無い";
+  const located = findTaskInCategories(ctx.categories, taskId);
+  const brokenIds =
+    located != null
+      ? brokenIdsForFilter(ctx.categories, ctx.filters)
+      : null;
   if (
     ctx.lineageIds != null &&
     !ctx.lineageIds.has(taskId)
@@ -177,29 +244,49 @@ function taskBlockedReason(
       ctx.filters,
       ctx.today,
       ctx.memberMap,
-      brokenIds,
+      brokenIds ?? undefined,
       ctx.lineageIds,
     )
   ) {
     return "絞り込みで出ていません";
   }
-  if (ctx.collapsed.has(categoryCollapseKey(located.categoryId))) {
-    return "折りたたみで隠れています";
-  }
-  if (ctx.collapsed.has(groupCollapseKey(located.groupId))) {
-    return "折りたたみで隠れています";
+  if (located) {
+    if (ctx.collapsed.has(categoryCollapseKey(located.categoryId))) {
+      return "折りたたみで隠れています";
+    }
+    if (ctx.collapsed.has(groupCollapseKey(located.groupId))) {
+      return "折りたたみで隠れています";
+    }
+  } else if (ctx.outline != null) {
+    const branchIds = outlineBranchAncestorIds(ctx.outline, taskId);
+    if (branchIds.some((id) => ctx.collapsed.has(hierarchyCollapseKey(id)))) {
+      return "折りたたみで隠れています";
+    }
   }
   return null;
 }
 
-function findTaskObject(categories: Category[], taskId: ScheduleId) {
-  for (const category of categories) {
-    for (const group of category.groups) {
-      const task = group.tasks.find((item) => item.id === taskId);
-      if (task) return task;
+function outlineBranchAncestorIds(
+  outline: OutlineRoot,
+  taskId: ScheduleId,
+): ScheduleId[] {
+  const found: ScheduleId[] = [];
+  const walk = (nodes: OutlineChild[], ancestors: ScheduleId[]): boolean => {
+    for (const node of nodes) {
+      if (isTaskNode(node)) {
+        if (node.id === taskId) {
+          found.push(...ancestors);
+          return true;
+        }
+        continue;
+      }
+      if (!isOutlineBranch(node)) continue;
+      if (walk(node.children, [...ancestors, node.id])) return true;
     }
-  }
-  return null;
+    return false;
+  };
+  walk(outline, []);
+  return found;
 }
 
 function revealTask(
@@ -215,7 +302,10 @@ function revealTask(
     return { status: "blocked", message: "折りたたみで隠れています" };
   }
   const located = findTaskInCategories(ctx.categories, taskId);
-  if (!located) {
+  const task =
+    located?.task ??
+    findTaskInDocument(ctx.categories, ctx.outline ?? undefined, taskId);
+  if (!task) {
     return { status: "blocked", message: "画面には無い" };
   }
   const scrollY = scrollYForRow(row.y, ctx);
@@ -225,8 +315,8 @@ function revealTask(
       kind: "task",
       taskId,
       scrollY,
-      scrollXDate: parseDate(located.task.start),
-      barWidthPx: ctx.taskBarWidthPx(located.task),
+      scrollXDate: parseDate(task.start),
+      barWidthPx: ctx.taskBarWidthPx(task),
     },
     mark: {
       sidebar: { type: "task", id: taskId },

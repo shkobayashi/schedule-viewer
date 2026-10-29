@@ -153,6 +153,7 @@ type TimelineProps = {
     toId: ScheduleId,
     x: number,
     y: number,
+    linkKind: "predecessor" | "connection",
   ) => void;
   onAddMilestoneContextMenu: (
     chartX: number,
@@ -2127,95 +2128,8 @@ export function Timeline({
     visibleRows,
   ]);
 
-  const linkPolylines = useMemo(() => {
-    const dates = new Map<ScheduleId, { start: string; end: string }>();
-    for (const row of visibleRows) {
-      if (row.type === "task") dates.set(row.task.id, row.task);
-    }
-    const polylines: Array<LinkPolyline & { broken: boolean }> = [];
-    for (const link of links) {
-      const from = liveAnchors.get(link.fromId);
-      const to = liveAnchors.get(link.toId);
-      if (!from || !to) continue;
-      polylines.push({
-        fromId: link.fromId,
-        toId: link.toId,
-        broken: previewLinkBrokenWithOverrides(
-          link,
-          dates,
-          dragPreviewOverrides ?? new Map(),
-        ),
-        points: linkPoints(from.linkRight, from.y, to.x, to.y, barHeight),
-      });
-    }
-    return polylines;
-  }, [barHeight, dragPreviewOverrides, links, liveAnchors, visibleRows]);
-
-  const bandMilestones = useMemo(
-    () => milestoneBandLayout.blocks.flatMap((block) => block.milestones),
-    [milestoneBandLayout],
-  );
-
-  const [panSession, setPanSession] = useState(false);
-  const [panning, setPanning] = useState(false);
-
-  const { bodyRef, bandRef, hover, previewEnd } = useTimelinePointer({
-    linkMode,
-    milestones: bandMilestones,
-    milestoneCenterYById: milestoneBandLayout.centerYById,
-    milestoneDisplayLabels: milestoneBandLayout.displayLabels,
-    dateToX,
-    milestoneDiamondSize,
-    milestoneFontSize,
-    liveAnchors,
-    linkPolylines,
-    barHeight,
-    selectedTaskId,
-    clipTop: sticky.clipTop,
-    onChartPointer,
-    panTrackActive: panSession,
-  });
-
-  const linkArrows = useMemo(() => {
-    return linkPolylines.flatMap((link) => {
-      const hovered =
-        hover.link?.fromId === link.fromId &&
-        hover.link.toId === link.toId;
-      const color = link.broken ? chart.linkBroken : chart.linkOk;
-      const strokeWidth = link.broken ? 1.75 : 1.25;
-      return [
-        <Arrow
-          key={`${link.fromId}-${link.toId}`}
-          points={link.points}
-          stroke={color}
-          fill={color}
-          strokeWidth={hovered ? strokeWidth + 1.5 : strokeWidth}
-          pointerLength={LINK_POINTER_LENGTH}
-          pointerWidth={LINK_POINTER_LENGTH}
-          listening={false}
-        />,
-      ];
-    });
-  }, [chart, hover.link, linkPolylines]);
-
-  const connectionArcElements = useMemo(() => {
-    if (connections.length === 0) return null;
-    const labelFontSize = Math.max(10, Math.round(11 * (barHeight / 20)));
-    const assigneeDuplicateNames = duplicateMemberNamesFromCatalog(memberCatalog);
-    const barLabelObstacles = collectTaskBarLabelObstacles(
-      visibleRows,
-      scrollY,
-      rowHeight,
-      barHeight,
-      bodyHeight,
-      dateToX,
-      pxPerDay,
-      tier,
-      memberCatalog,
-      assigneeDuplicateNames,
-      liveAnchors,
-    );
-
+  const preparedConnectionArcs = useMemo(() => {
+    if (connections.length === 0) return [];
     type Prepared = {
       connection: TaskConnection;
       taskA: ScheduleId;
@@ -2265,9 +2179,129 @@ export function Timeline({
       );
       prepared.push({ connection, taskA, taskB, geom });
     }
+    return prepared;
+  }, [
+    barHeight,
+    bodyHeight,
+    connections,
+    dateToX,
+    liveAnchors,
+    pxPerDay,
+    rowHeight,
+    scrollY,
+    visibleRows,
+  ]);
+
+  const linkPolylines = useMemo(() => {
+    const dates = new Map<ScheduleId, { start: string; end: string }>();
+    for (const row of visibleRows) {
+      if (row.type === "task") dates.set(row.task.id, row.task);
+    }
+    const polylines: Array<LinkPolyline & { broken: boolean }> = [];
+    for (const link of links) {
+      const from = liveAnchors.get(link.fromId);
+      const to = liveAnchors.get(link.toId);
+      if (!from || !to) continue;
+      polylines.push({
+        fromId: link.fromId,
+        toId: link.toId,
+        kind: "predecessor",
+        broken: previewLinkBrokenWithOverrides(
+          link,
+          dates,
+          dragPreviewOverrides ?? new Map(),
+        ),
+        points: linkPoints(from.linkRight, from.y, to.x, to.y, barHeight),
+      });
+    }
+    for (const item of preparedConnectionArcs) {
+      polylines.push({
+        fromId: item.taskA,
+        toId: item.taskB,
+        kind: "connection",
+        broken: false,
+        points: item.geom.points,
+      });
+    }
+    return polylines;
+  }, [
+    barHeight,
+    dragPreviewOverrides,
+    links,
+    liveAnchors,
+    preparedConnectionArcs,
+    visibleRows,
+  ]);
+
+  const bandMilestones = useMemo(
+    () => milestoneBandLayout.blocks.flatMap((block) => block.milestones),
+    [milestoneBandLayout],
+  );
+
+  const [panSession, setPanSession] = useState(false);
+  const [panning, setPanning] = useState(false);
+
+  const { bodyRef, bandRef, hover, previewEnd } = useTimelinePointer({
+    linkMode,
+    milestones: bandMilestones,
+    milestoneCenterYById: milestoneBandLayout.centerYById,
+    milestoneDisplayLabels: milestoneBandLayout.displayLabels,
+    dateToX,
+    milestoneDiamondSize,
+    milestoneFontSize,
+    liveAnchors,
+    linkPolylines,
+    barHeight,
+    selectedTaskId,
+    clipTop: sticky.clipTop,
+    onChartPointer,
+    panTrackActive: panSession,
+  });
+
+  const linkArrows = useMemo(() => {
+    return linkPolylines.flatMap((link) => {
+      if ((link.kind ?? "predecessor") !== "predecessor") return [];
+      const hovered =
+        hover.link?.fromId === link.fromId &&
+        hover.link.toId === link.toId &&
+        (hover.link.kind ?? "predecessor") === (link.kind ?? "predecessor");
+      const color = link.broken ? chart.linkBroken : chart.linkOk;
+      const strokeWidth = link.broken ? 1.75 : 1.25;
+      return [
+        <Arrow
+          key={`${link.fromId}-${link.toId}`}
+          points={link.points}
+          stroke={color}
+          fill={color}
+          strokeWidth={hovered ? strokeWidth + 1.5 : strokeWidth}
+          pointerLength={LINK_POINTER_LENGTH}
+          pointerWidth={LINK_POINTER_LENGTH}
+          listening={false}
+        />,
+      ];
+    });
+  }, [chart, hover.link, linkPolylines]);
+
+  const connectionArcElements = useMemo(() => {
+    if (preparedConnectionArcs.length === 0) return null;
+    const labelFontSize = Math.max(10, Math.round(11 * (barHeight / 20)));
+    const assigneeDuplicateNames = duplicateMemberNamesFromCatalog(memberCatalog);
+    const barLabelObstacles = collectTaskBarLabelObstacles(
+      visibleRows,
+      scrollY,
+      rowHeight,
+      barHeight,
+      bodyHeight,
+      dateToX,
+      pxPerDay,
+      tier,
+      memberCatalog,
+      assigneeDuplicateNames,
+      liveAnchors,
+    );
 
     const labelLayouts = layoutConnectionArcLabelsInOrder(
-      prepared.map((item) => ({
+      preparedConnectionArcs.map((item) => ({
         labelX: item.geom.labelX,
         labelY: item.geom.labelY,
         label: item.connection.label,
@@ -2277,15 +2311,20 @@ export function Timeline({
       0,
     );
 
-    return prepared.map((item, index) => {
+    return preparedConnectionArcs.map((item, index) => {
       const layout = labelLayouts[index]!;
+      const hovered =
+        hover.link?.kind === "connection" &&
+        hover.link.fromId === item.taskA &&
+        hover.link.toId === item.taskB;
+      const strokeBoost = hovered ? 1.5 : 0;
       const key = `${item.taskA}-${item.taskB}-${item.connection.label}`;
       return (
         <Group key={key} listening={false}>
           <Line
             points={item.geom.points}
             stroke={chart.connectionArcHalo}
-            strokeWidth={CONNECTION_HALO_STROKE_WIDTH}
+            strokeWidth={CONNECTION_HALO_STROKE_WIDTH + strokeBoost}
             lineCap="round"
             lineJoin="round"
             listening={false}
@@ -2293,7 +2332,7 @@ export function Timeline({
           <Line
             points={item.geom.points}
             stroke={chart.connectionArc}
-            strokeWidth={CONNECTION_STROKE_WIDTH}
+            strokeWidth={CONNECTION_STROKE_WIDTH + strokeBoost}
             lineCap="round"
             lineJoin="round"
             listening={false}
@@ -2315,13 +2354,14 @@ export function Timeline({
   }, [
     barHeight,
     bodyHeight,
-    connections,
     chart.connectionArc,
     chart.connectionArcHalo,
     chart.connectionArcLabel,
     dateToX,
+    hover.link,
     liveAnchors,
     memberCatalog,
+    preparedConnectionArcs,
     pxPerDay,
     rowHeight,
     scrollY,
@@ -2805,7 +2845,13 @@ export function Timeline({
             if (overTask) return;
             const hit = nearestLinkHit(linkPolylines, pos.x, pos.y);
             if (hit) {
-              onLinkContextMenu(hit.fromId, hit.toId, e.evt.clientX, e.evt.clientY);
+              onLinkContextMenu(
+                hit.fromId,
+                hit.toId,
+                e.evt.clientX,
+                e.evt.clientY,
+                hit.kind ?? "predecessor",
+              );
               return;
             }
             if (linkMode) return;

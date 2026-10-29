@@ -200,7 +200,7 @@ import {
   successorIdsFromTasks,
   visibleLinksFromTasks,
 } from "./model/dependencies";
-import { visibleConnectionsFromTasks } from "./model/connections";
+import { visibleConnectionsFromTasks, connectionsForTask } from "./model/connections";
 import { milestoneLinkedByAnyTask } from "./model/milestones";
 import {
   exportSchedule,
@@ -336,6 +336,7 @@ type ContextMenuState =
       kind: "link";
       fromId: ScheduleId;
       toId: ScheduleId;
+      linkKind: "predecessor" | "connection";
       x: number;
       y: number;
     }
@@ -495,6 +496,7 @@ function App() {
   });
   const [hoveredTaskId, setHoveredTaskId] = useState<ScheduleId | null>(null);
   const [detailPanelEditing, setDetailPanelEditing] = useState(false);
+  const [connectionAddDialogOpen, setConnectionAddDialogOpen] = useState(false);
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleEditRequestToken, setTitleEditRequestToken] = useState(0);
   const [titleBlankNotice, setTitleBlankNotice] = useState<string | null>(null);
@@ -1255,6 +1257,7 @@ function App() {
     milestones: schedule.milestones,
     levels: schedule.levels,
     outline: schedule.outline,
+    connections: schedule.connections,
     replaceDocument: schedule.replaceDocument,
     applyMergedDocument: (document) => applyMergedDocumentRef.current(document),
     reloadDocumentFromDisk: schedule.reloadDocumentFromDisk,
@@ -1263,6 +1266,7 @@ function App() {
     hasOpenEditDialog:
       titleEditing ||
       detailPanelEditing ||
+      connectionAddDialogOpen ||
       hierarchyLevelsOpen ||
       fieldExtensionEditorOverlay.open ||
       (statusEditorOverlayRef.current?.open ?? false) ||
@@ -1886,6 +1890,9 @@ function App() {
     lineageTask,
     addPredecessorLink,
     removePredecessorLink,
+    addTaskConnection,
+    updateTaskConnectionLabel,
+    removeTaskConnection,
     setTaskConfidence,
     setMilestoneConfidence,
     openAddOutlineSiblingAfter,
@@ -2070,6 +2077,10 @@ function App() {
       )
       .filter((task): task is NonNullable<typeof task> => task != null);
   }, [schedule.categories, schedule.outline, schedule.selectedTaskIds]);
+
+  useEffect(() => {
+    setConnectionAddDialogOpen(false);
+  }, [schedule.selectedTaskId, schedule.selectedTaskIds.length]);
 
   const handleBulkEditingChange = useCallback((editing: boolean) => {
     bulkHadDraftRef.current = editing;
@@ -2603,6 +2614,7 @@ function App() {
       const outcome = resolveDiffNavigation(entry, {
         visibleRows: schedule.visibleRows,
         categories: schedule.categories,
+        outline: schedule.outline,
         collapsed,
         filters: schedule.filters,
         today: schedule.today,
@@ -3051,6 +3063,7 @@ function App() {
     openTaskNote: schedule.openTaskNoteDialog,
     clearLinkMode,
     removePredecessorLink,
+    removeTaskConnection,
     chartPointerRef,
     closeFloatingMenus,
     requestDeleteTask,
@@ -3290,8 +3303,14 @@ function App() {
   );
 
   const openLinkContextMenu = useCallback(
-    (fromId: ScheduleId, toId: ScheduleId, x: number, y: number) => {
-      setContextMenu({ kind: "link", fromId, toId, x, y });
+    (
+      fromId: ScheduleId,
+      toId: ScheduleId,
+      x: number,
+      y: number,
+      linkKind: "predecessor" | "connection",
+    ) => {
+      setContextMenu({ kind: "link", fromId, toId, linkKind, x, y });
     },
     [],
   );
@@ -3385,13 +3404,16 @@ function App() {
       ];
     }
     if (contextMenu.kind === "link") {
-      const { fromId, toId } = contextMenu;
+      const { fromId, toId, linkKind } = contextMenu;
       return [
         {
           type: "item",
           id: "unlink",
-          label: "線を外す",
-          onSelect: () => removePredecessorLink(fromId, toId),
+          label: linkKind === "connection" ? "繋がりを外す" : "線を外す",
+          onSelect: () =>
+            linkKind === "connection"
+              ? removeTaskConnection(fromId, toId)
+              : removePredecessorLink(fromId, toId),
         },
       ];
     }
@@ -3649,6 +3671,7 @@ function App() {
     openMilestoneEdit,
     openTaskNoteDialog,
     removePredecessorLink,
+    removeTaskConnection,
     openAddCategoryAfter,
     openAddGroupToCategory,
     openAddGroupAfter,
@@ -3707,7 +3730,12 @@ function App() {
         tier={tier}
         lineageName={schedule.lineageTask?.name ?? null}
         canStartLineage={schedule.selectedTaskId != null}
+        canStartLineageWithConnections={schedule.selectedTaskIds.length === 1}
         onToggleLineage={schedule.toggleLineage}
+        onShowLineageWithConnections={() => {
+          const id = schedule.selectedTaskIds[0];
+          if (id != null) schedule.showLineageWithConnections(id);
+        }}
         linkSourceName={
           linkSourceId == null
             ? null
@@ -3817,6 +3845,7 @@ function App() {
         hiddenMilestoneGroupIds={schedule.hiddenMilestoneGroupIds}
         assigneeLabel={filterAssigneeLabel}
         lineageName={schedule.lineageTask?.name ?? null}
+        lineageIncludesConnections={schedule.lineageIncludesConnections}
         onFiltersChange={schedule.updateFilters}
         onClearLineage={schedule.clearLineage}
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
@@ -4028,6 +4057,25 @@ function App() {
               schedule.setTaskFieldValue(selectedDetailTask.id, fieldKey, raw)
             }
             onEditingChange={setDetailPanelEditing}
+            connections={connectionsForTask(
+              schedule.connections,
+              selectedDetailTask.id,
+            )}
+            onAddConnection={(otherTaskId, label) =>
+              addTaskConnection(selectedDetailTask.id, otherTaskId, label)
+            }
+            onUpdateConnectionLabel={(otherTaskId, label) =>
+              updateTaskConnectionLabel(
+                selectedDetailTask.id,
+                otherTaskId,
+                label,
+              )
+            }
+            onRemoveConnection={(otherTaskId) =>
+              removeTaskConnection(selectedDetailTask.id, otherTaskId)
+            }
+            connectionAddDialogOpen={connectionAddDialogOpen}
+            onConnectionAddDialogOpenChange={setConnectionAddDialogOpen}
           />
         ) : bulkDetailTasks.length > 1 ? (
           <BulkTaskDetailPanel
@@ -4745,6 +4793,7 @@ function App() {
           hasOpenEditDialog={
             titleEditing ||
             detailPanelEditing ||
+            connectionAddDialogOpen ||
             hierarchyLevelsOpen ||
             fieldExtensionEditorOverlay.open ||
             statusEditorOverlay.open ||
@@ -4760,6 +4809,7 @@ function App() {
           diskUpdatedAgain={scheduleFile.diskUpdatedAgain}
           onReload={() => {
             setHierarchyLevelsOpen(false);
+            setConnectionAddDialogOpen(false);
             fieldExtensionEditorOverlay.forceClose();
             colorEditorOverlay.forceClose();
             memberEditorOverlay.forceClose();
@@ -4768,6 +4818,7 @@ function App() {
           onKeepLocal={scheduleFile.keepLocalEditsOnExternalReload}
           onApplyMerge={() => {
             setDetailPanelEditing(false);
+            setConnectionAddDialogOpen(false);
             setHierarchyLevelsOpen(false);
             fieldExtensionEditorOverlay.forceClose();
             colorEditorOverlay.forceClose();

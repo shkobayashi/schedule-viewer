@@ -2393,6 +2393,26 @@ input[type="number"] {
   min-width: calc(180px * var(--s));
 }
 
+.lineage-split > .lineage-btn:first-child {
+  border-radius: 6px 0 0 6px;
+  border-right: none;
+  padding-right: calc(8px * var(--s));
+}
+
+.lineage-split > .lineage-btn.add-split-toggle {
+  border-radius: 0 6px 6px 0;
+  border-left: 1px solid var(--border);
+  padding: 0 calc(7px * var(--s));
+  min-width: calc(30px * var(--s));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lineage-split > .lineage-btn.active.add-split-toggle {
+  border-left: 1px solid color-mix(in srgb, var(--on-accent) 28%, transparent);
+}
+
 .toolbar-btn:hover:not(:disabled) {
   background: var(--panel);
 }

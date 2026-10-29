@@ -7,7 +7,10 @@ import {
   connectionPairKey,
   layoutConnectionArcLabel,
   layoutConnectionArcLabelsInOrder,
+  removeConnectionByPair,
   removeConnectionsForDeletedTasks,
+  tryAddConnection,
+  tryUpdateConnectionLabel,
   validateConnections,
   visibleConnectionsFromTasks,
   type TextObstacleRect,
@@ -356,5 +359,36 @@ describe("layoutConnectionArcLabel", () => {
     );
     expect(both[0]!.x).toBe(100 - fontSize * 2);
     expect(both[1]!.x).toBe(100);
+  });
+});
+
+describe("connection edit helpers", () => {
+  it("rejects empty label, self, and duplicate pair", () => {
+    expect(tryAddConnection(undefined, TASK_A, TASK_B, "  ").ok).toBe(false);
+    expect(tryAddConnection(undefined, TASK_A, TASK_A, "x").ok).toBe(false);
+    const first = tryAddConnection(undefined, TASK_A, TASK_B, "同じ");
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const dup = tryAddConnection(first.connections, TASK_A, TASK_B, "別");
+    expect(dup.ok).toBe(false);
+  });
+
+  it("adds, updates label, and removes one pair", () => {
+    const added = tryAddConnection(undefined, TASK_A, TASK_B, "初期");
+    expect(added.ok).toBe(true);
+    if (!added.ok) return;
+    const updated = tryUpdateConnectionLabel(
+      added.connections,
+      TASK_A,
+      TASK_B,
+      "変更後",
+    );
+    expect(updated.ok).toBe(true);
+    if (!updated.ok) return;
+    expect(
+      updated.connections!.find((c) => c.taskIds.includes(TASK_A))?.label,
+    ).toBe("変更後");
+    const removed = removeConnectionByPair(updated.connections!, TASK_A, TASK_B);
+    expect(removed).toBeUndefined();
   });
 });

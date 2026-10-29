@@ -54,7 +54,9 @@ type ToolbarProps = {
   tier: GridTier;
   lineageName: string | null;
   canStartLineage: boolean;
+  canStartLineageWithConnections: boolean;
   onToggleLineage: () => void;
+  onShowLineageWithConnections: () => void;
   linkSourceName: string | null;
   canStartLink: boolean;
   onToggleLink: () => void;
@@ -125,7 +127,9 @@ export function Toolbar({
   tier,
   lineageName,
   canStartLineage,
+  canStartLineageWithConnections,
   onToggleLineage,
+  onShowLineageWithConnections,
   linkSourceName,
   canStartLink,
   onToggleLink,
@@ -179,6 +183,7 @@ export function Toolbar({
   const [filterOpen, setFilterOpen] = useState(false);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const addButtonRef = useRef<HTMLDivElement>(null);
+  const lineageButtonRef = useRef<HTMLDivElement>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [addMenuPos, setAddMenuPos] = useState<{ left: number; top: number } | null>(
     null,
@@ -201,14 +206,35 @@ export function Toolbar({
   };
 
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const [lineageMenuOpen, setLineageMenuOpen] = useState(false);
+  const [lineageMenuPos, setLineageMenuPos] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+  const lineageMenuRef = useRef<HTMLDivElement>(null);
 
   const closeAddMenu = () => {
     setAddOpen(false);
     setAddMenuPos(null);
   };
 
+  const openLineageMenu = () => {
+    const anchor = lineageButtonRef.current;
+    if (!anchor) return;
+    setLineageMenuPos(anchorBelowRect(anchor));
+    setLineageMenuOpen(true);
+  };
+
+  const closeLineageMenu = () => {
+    setLineageMenuOpen(false);
+    setLineageMenuPos(null);
+  };
+
   useEffect(() => {
-    const onCloseMenus = () => closeAddMenu();
+    const onCloseMenus = () => {
+      closeAddMenu();
+      closeLineageMenu();
+    };
     document.addEventListener("schedule-viewer:close-menus", onCloseMenus);
     return () => {
       document.removeEventListener("schedule-viewer:close-menus", onCloseMenus);
@@ -237,6 +263,32 @@ export function Toolbar({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [addOpen]);
+
+  useEffect(() => {
+    if (!lineageMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        lineageButtonRef.current?.contains(target) ||
+        lineageMenuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      closeLineageMenu();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeLineageMenu();
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [lineageMenuOpen]);
 
   const searchValue =
     searchField === "name" ? filters.search : filters.noteSearch;
@@ -375,19 +427,58 @@ export function Toolbar({
       <div className="toolbar-row toolbar-row-actions">
       {showSelectionActions ? (
         <>
-      <button
-        type="button"
-        className={`lineage-btn${lineageName ? " active" : ""}`}
-        disabled={!lineageName && !canStartLineage}
-        title={
-          lineageName
-            ? `${lineageName} の前後の系統を表示中。クリックで解除`
-            : "選択中のタスクについて、前後の最初から最後までを表示"
-        }
-        onClick={onToggleLineage}
-      >
-        {lineageName ? `系統: ${lineageName}` : "系統"}
-      </button>
+      <div className="add-split lineage-split" ref={lineageButtonRef}>
+        <button
+          type="button"
+          className={`lineage-btn${lineageName ? " active" : ""}`}
+          disabled={!lineageName && !canStartLineage}
+          title={
+            lineageName
+              ? `${lineageName} の前後の系統を表示中。クリックで解除`
+              : "選択中のタスクについて、前後の最初から最後までを表示"
+          }
+          onClick={onToggleLineage}
+        >
+          {lineageName ? `系統: ${lineageName}` : "系統"}
+        </button>
+        <button
+          type="button"
+          className={`lineage-btn add-split-toggle${lineageName ? " active" : ""}`}
+          aria-expanded={lineageMenuOpen}
+          aria-label="系統の辿り方"
+          disabled={!canStartLineageWithConnections}
+          onClick={() =>
+            lineageMenuOpen ? closeLineageMenu() : openLineageMenu()
+          }
+        >
+          <ChevronDown size={16} aria-hidden="true" />
+        </button>
+        {lineageMenuOpen && lineageMenuPos ? (
+          <div
+            ref={lineageMenuRef}
+            className="app-menu-panel app-menu-panel--fixed add-split-menu"
+            style={{
+              left: lineageMenuPos.left,
+              top: lineageMenuPos.top,
+              transform: `translate(${menuViewportShift(
+                lineageButtonRef.current!.getBoundingClientRect(),
+              ).x}px, ${menuViewportShift(lineageButtonRef.current!.getBoundingClientRect()).y}px)`,
+            }}
+            role="menu"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                closeLineageMenu();
+                onShowLineageWithConnections();
+              }}
+            >
+              繋がりも辿る
+            </button>
+          </div>
+        ) : null}
+      </div>
       <button
         type="button"
         className={`lineage-btn toolbar-btn-with-shortcut${linkSourceName ? " active" : ""}`}

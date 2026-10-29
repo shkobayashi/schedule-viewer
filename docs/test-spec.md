@@ -121,7 +121,9 @@
 | 同上 | `rejects a cycle for the whole apply` | EDIT-04, EDIT-05 |
 | `appKeyboard.test.ts` | `shifts dates when multiple tasks are selected without a primary id` | EDIT-03, EDIT-04 |
 | 同上 | `deletes when multiple tasks are selected` | EDIT-01, EDIT-09 |
-| `dependencies.test.ts` | `keeps a right elbow when the gap fits the arrow` | VIEW-08 |
+| `baselineDiffsConnections.test.ts` | `classifies screen-only removal as 画面のみ` / `mergeBaselineConnections` の片側削除と両側追加 | SYNC-01, FILE-07 |
+| `diffNavigation.test.ts` | `reveals the earlier task for connection diff rows` | FILE-07 |
+| `dependencies.test.ts` | `includes connection partner reachable through dependencies` | FILTER-08 |
 | 同上 | `approaches from the left when the gap is shorter than the arrow` | VIEW-08 |
 | 同上 | `routes around a bar that starts before the predecessor ends` | VIEW-08 |
 | `connections.test.ts` | `accepts sample schedule without connections` | VIEW-15 |
@@ -1087,6 +1089,10 @@
 | TC-VIEW-15 | VIEW-15 | `examples/connections/schedule.json` を開く | 「期間が重なる」と「期間が離れる」の組で、前後の矢印と円弧が同時に見えることを見る。「斜め」「一つから複数」の円弧と言葉を見る。「一つから複数」で、近くに空きがある言葉は棒の文字から離れ、空きが無い言葉は重なったままでよい | 円弧は棒の上端同士を結び、矢印が無く、色と太さが前後の線と違う。言葉が見える。期間が重なる組と重ならない組がある。斜めの組ではあいだの棒が障害にならない。一つの起点から複数の円弧が出る |
 | TC-VIEW-15b | VIEW-15 | 同じファイルの「あいだの棒（円弧が上を通る）」の組。塗った行は `examples/connections/workspace.json` をデスクトップ版で開く。「期間が重なる」「期間が離れる」の完了バーに接する端も見る | 円弧があいだの棒の上を通ること、塗った行の地の上でも線と言葉が見えることを見る。完了の緑の棒の端でも、ライトとダークで円弧と言葉が棒から離れて見える | ふくらみは1週間幅まで。どの組も上へふくらむ |
 | TC-VIEW-15c | VIEW-15 | 同じファイル | 繋がりの端のタスクを1件削除し、保存して開き直す | その円弧だけ消え、残った円弧と言葉が JSON に残る。日付は動かない。円弧は赤くならない |
+| TC-EDIT-23 | EDIT-23 | `examples/connections/schedule.json` をブラウザ版で開く | 1件選び、詳細の「足す」でダイアログを開く。相手と言葉の欄が最初から両方見える。相手未選択または言葉が空のまま確定すると文書は変わらずダイアログは開いたまま。キャンセルでは足さない。相手と言葉を入れて確定すると1組足る。言葉を空または空白だけにして確定すると理由が出て欄は保存済みの言葉に戻る。言葉を変え、一覧から外す。「線を引く」は前後の線のままである。Delete と Backspace、ツールバーの削除はタスクを消す。円弧の右クリックは確認しない | 操作どおりに JSON が変わり、取り消しが効く |
+| TC-EDIT-23b | EDIT-23 | 同じファイル | 複製ダイアログと一括パネルに繋がりを足す欄が無い。1件に戻し、ダイアログで足せる | 複製と一括では組を足さない |
+| TC-EDIT-23c | EDIT-23 | 同じファイル | 系統の「繋がりも辿る」を試す。札と主ボタンで全部外れること。右クリックの系統は前後だけ | 「前後: 破綻のみ」で円弧は残る。繋がりだけではタスク行は残らない |
+| TC-FILE-07z | FILE-07, EDIT-23 | パスのあるファイルで `connections` がある JSON を開く | 詳細またはチャートで繋がりを1組外す。何も押さず右端の取っ手を見る。取っ手で列を開く | 取っ手が出る。列には外した1組の「削除 繋がり」だけが出る。残した組は出ない |
 | TC-VIEW-09 | VIEW-09 | カレンダー未設定で日表示 | 背景を見る | 土日だけが薄い灰。月表示では日ごとに塗らない |
 | TC-VIEW-10 | VIEW-10 | 使用中カタログがある | 割り当てなし、一致する ID、存在しない ID の行を見る。割り当てなしを選択し、カーソルを乗せる。期限超過の割り当てなし行も見る。ライトとダーク、HTML と SVG の書き出しも確かめる | 一覧では「未割当」は琥珀色の札で切れず、名前付きは薄い文字、一致は表示名、「メンバー不明」と ID は紫の札。選択中とホバーでも札の地色が残る。期限超過でも「未割当」は赤くならない。チャートのバーに破線や上端の色は出ない。書き出しも同じ札である |
 | TC-VIEW-11 | VIEW-11 | ノートがあるタスクと無いタスク | ノートアイコンを押す | 色が違い、本文が出る。無いタスクは「ノートはありません」 |

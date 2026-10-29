@@ -54,7 +54,7 @@ type TaskEditDialogProps = {
   }) => string | null;
 };
 
-function taskRelationLabel(
+export function taskRelationLabel(
   tasks: TaskRef[],
   id: ScheduleId,
 ): { title: string; ancestors: string | null; leaf: string } {
@@ -104,7 +104,9 @@ export function TaskEditDialog({
   const [predecessors, setPredecessors] = useState<ScheduleId[]>(() =>
     mode === "duplicate" ? [] : task.predecessors,
   );
-  const [successors, setSuccessors] = useState<ScheduleId[]>(successorIds);
+  const [successors, setSuccessors] = useState<ScheduleId[]>(() =>
+    mode === "duplicate" ? [] : successorIds,
+  );
   const [milestoneId, setMilestoneId] = useState<ScheduleId | null>(
     task.milestoneId,
   );

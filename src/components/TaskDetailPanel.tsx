@@ -39,6 +39,7 @@ import {
   type ScheduleId,
   type Task,
   type TaskConfidence,
+  type TaskConnection,
   type TaskStatus,
   type TaskTodoItem,
 } from "../model/types";
@@ -46,6 +47,7 @@ import { DateInput } from "./DateInput";
 import { isDatePopoverTarget } from "./datePopover";
 import { MilestoneField } from "./MilestoneField";
 import { RelationField } from "./TaskEditDialog";
+import { TaskConnectionSection } from "./TaskConnectionSection";
 
 export type TaskDetailPanelHandle = {
   focusName: () => void;
@@ -92,6 +94,15 @@ type TaskDetailPanelProps = {
   colors?: readonly ColorItem[] | null;
   colorScheme: ResolvedColorScheme;
   panelRef?: Ref<TaskDetailPanelHandle>;
+  connections?: readonly TaskConnection[];
+  onAddConnection: (otherTaskId: ScheduleId, label: string) => string | null;
+  onUpdateConnectionLabel: (
+    otherTaskId: ScheduleId,
+    label: string,
+  ) => string | null;
+  onRemoveConnection: (otherTaskId: ScheduleId) => void;
+  connectionAddDialogOpen: boolean;
+  onConnectionAddDialogOpenChange: (open: boolean) => void;
 };
 
 const TASK_FIELD_NONE_VALUE = "__none__";
@@ -115,6 +126,12 @@ export function TaskDetailPanel({
   colors = null,
   colorScheme,
   panelRef,
+  connections,
+  onAddConnection,
+  onUpdateConnectionLabel,
+  onRemoveConnection,
+  connectionAddDialogOpen,
+  onConnectionAddDialogOpenChange,
 }: TaskDetailPanelProps) {
   const [name, setName] = useState(task.name);
   const [note, setNote] = useState(task.note ?? "");
@@ -810,6 +827,18 @@ export function TaskDetailPanel({
           }}
         />
       </section>
+      <TaskConnectionSection
+        taskId={task.id}
+        taskName={task.name}
+        connections={connections}
+        tasks={tasks}
+        candidates={candidates}
+        onAdd={onAddConnection}
+        onUpdateLabel={onUpdateConnectionLabel}
+        onRemove={onRemoveConnection}
+        addDialogOpen={connectionAddDialogOpen}
+        onAddDialogOpenChange={onConnectionAddDialogOpenChange}
+      />
       {scheduleFields != null && scheduleFields.length > 0 ? (
         <section className="detail-section">
           <h2 className="detail-section-title">追加項目</h2>

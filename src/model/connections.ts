@@ -395,3 +395,115 @@ export function connectionArcGeometry(
     labelY: cy - CONNECTION_LABEL_DEFAULT_OFFSET_Y,
   };
 }
+
+export function normalizeConnectionLabel(raw: string): string {
+  return raw.trim();
+}
+
+export function connectionIncludesTask(
+  connection: TaskConnection,
+  taskId: ScheduleId,
+): boolean {
+  return connection.taskIds[0] === taskId || connection.taskIds[1] === taskId;
+}
+
+/** 開いているタスクを先、相手を後に並べた組。 */
+export function connectionTaskIdsForAnchor(
+  anchorTaskId: ScheduleId,
+  otherTaskId: ScheduleId,
+): [ScheduleId, ScheduleId] {
+  return [anchorTaskId, otherTaskId];
+}
+
+export function connectionsForTask(
+  connections: readonly TaskConnection[] | undefined,
+  taskId: ScheduleId,
+): TaskConnection[] {
+  if (connections == null) return [];
+  return connections.filter((connection) => connectionIncludesTask(connection, taskId));
+}
+
+export function findConnectionIndexByPair(
+  connections: readonly TaskConnection[] | undefined,
+  a: ScheduleId,
+  b: ScheduleId,
+): number {
+  if (connections == null) return -1;
+  const key = connectionPairKey(a, b);
+  return connections.findIndex(
+    (connection) => connectionPairKey(connection.taskIds[0], connection.taskIds[1]) === key,
+  );
+}
+
+export type ConnectionEditResult =
+  | { ok: true; connections: TaskConnection[] | undefined }
+  | { ok: false; message: string };
+
+function appendConnection(
+  connections: readonly TaskConnection[] | undefined,
+  entry: TaskConnection,
+): TaskConnection[] {
+  return connections != null && connections.length > 0
+    ? [...connections, entry]
+    : [entry];
+}
+
+export function tryAddConnection(
+  connections: readonly TaskConnection[] | undefined,
+  anchorTaskId: ScheduleId,
+  otherTaskId: ScheduleId,
+  rawLabel: string,
+): ConnectionEditResult {
+  if (anchorTaskId === otherTaskId) {
+    return { ok: false, message: "同じタスク同士は指定できません。" };
+  }
+  const label = normalizeConnectionLabel(rawLabel);
+  if (label.length === 0) {
+    return { ok: false, message: "繋がりの言葉を入力してください。" };
+  }
+  if (findConnectionIndexByPair(connections, anchorTaskId, otherTaskId) >= 0) {
+    return { ok: false, message: "同じ2つのタスクの繋がりが既にあります。" };
+  }
+  const entry: TaskConnection = {
+    taskIds: connectionTaskIdsForAnchor(anchorTaskId, otherTaskId),
+    label,
+  };
+  return { ok: true, connections: appendConnection(connections, entry) };
+}
+
+export function tryUpdateConnectionLabel(
+  connections: readonly TaskConnection[] | undefined,
+  anchorTaskId: ScheduleId,
+  otherTaskId: ScheduleId,
+  rawLabel: string,
+): ConnectionEditResult {
+  const label = normalizeConnectionLabel(rawLabel);
+  if (label.length === 0) {
+    return { ok: false, message: "繋がりの言葉を入力してください。" };
+  }
+  const index = findConnectionIndexByPair(connections, anchorTaskId, otherTaskId);
+  if (index < 0) {
+    return { ok: false, message: "繋がりが見つかりません。" };
+  }
+  const current = connections![index]!;
+  if (current.label === label) {
+    return { ok: true, connections: connections != null ? [...connections] : undefined };
+  }
+  const next = [...connections!];
+  next[index] = { taskIds: [...current.taskIds], label };
+  return { ok: true, connections: next };
+}
+
+export function removeConnectionByPair(
+  connections: readonly TaskConnection[] | undefined,
+  a: ScheduleId,
+  b: ScheduleId,
+): TaskConnection[] | undefined {
+  if (connections == null) return undefined;
+  const next = connections.filter(
+    (connection) =>
+      connectionPairKey(connection.taskIds[0], connection.taskIds[1]) !==
+      connectionPairKey(a, b),
+  );
+  return next.length > 0 ? next : undefined;
+}

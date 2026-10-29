@@ -3,6 +3,7 @@ import {
   LINK_ARROW_CLEARANCE,
   LINK_HIT_DISTANCE,
   dropPredecessorLink,
+  lineageTaskIdsFromTasksWithConnections,
   linkPoints,
   nearestLinkHit,
   tryAddPredecessorLink,
@@ -202,5 +203,21 @@ describe("dropPredecessorLink", () => {
       TASK_A,
       TASK_B,
     ]);
+  });
+});
+
+describe("lineageTaskIdsFromTasksWithConnections", () => {
+  const connections = [
+    { taskIds: [TASK_B, TASK_C] as [string, string], label: "関連" },
+  ];
+
+  it("includes connection partner reachable through dependencies", () => {
+    const tasks = [task(TASK_A), task(TASK_B, [TASK_A]), task(TASK_C)];
+    const ids = lineageTaskIdsFromTasksWithConnections(
+      tasks,
+      connections,
+      TASK_A,
+    );
+    expect(ids?.has(TASK_C)).toBe(true);
   });
 });

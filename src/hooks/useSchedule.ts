@@ -11,11 +11,15 @@ import {
   brokenLinkTaskIdsFromTasks,
   dropPredecessorLink,
   lineageTaskIdsFromTasks,
+  lineageTaskIdsFromTasksWithConnections,
   tryAddPredecessorLink,
 } from "../model/dependencies";
 import {
   cloneConnections,
+  removeConnectionByPair,
   removeConnectionsForDeletedTasks,
+  tryAddConnection,
+  tryUpdateConnectionLabel,
 } from "../model/connections";
 import {
   cloneSnapshot,
@@ -400,6 +404,8 @@ export function useSchedule(
   const selectedTaskIds = taskSelection.ids;
   const selectedTaskId = primarySelectedTaskId(taskSelection);
   const [lineageTaskId, setLineageTaskId] = useState<ScheduleId | null>(null);
+  const [lineageIncludesConnections, setLineageIncludesConnections] =
+    useState(false);
   const [filters, setFilters] = useState<ScheduleFilters>(
     () => defaultScheduleFilterViewState().filters,
   );
@@ -461,7 +467,9 @@ export function useSchedule(
         levels: snapshot.levels,
         outline: snapshot.outline,
       });
-      return lineageTaskIdsFromTasks(tasks, current) ? current : null;
+      const ok = lineageTaskIdsFromTasks(tasks, current);
+      if (!ok) setLineageIncludesConnections(false);
+      return ok ? current : null;
     });
     setEditingMilestoneId((current) =>
       current != null &&
@@ -693,9 +701,17 @@ export function useSchedule(
       levels,
       outline,
     });
-    return lineageTaskIdsFromTasks(tasks, lineageTaskId);
+    return lineageIncludesConnections
+      ? lineageTaskIdsFromTasksWithConnections(
+          tasks,
+          documentRef.current.connections,
+          lineageTaskId,
+        )
+      : lineageTaskIdsFromTasks(tasks, lineageTaskId);
   }, [
     categories,
+    connections,
+    lineageIncludesConnections,
     lineageTaskId,
     levels,
     milestoneGroups,
@@ -1178,15 +1194,39 @@ export function useSchedule(
   }, []);
 
   const toggleLineage = useCallback(() => {
-    setLineageTaskId((current) => (current == null ? selectedTaskId : null));
-  }, [selectedTaskId]);
+    if (lineageTaskId != null && lineageIncludesConnections) {
+      setLineageIncludesConnections(false);
+      setLineageTaskId(null);
+      return;
+    }
+    if (lineageTaskId != null) {
+      setLineageTaskId(null);
+      return;
+    }
+    setLineageIncludesConnections(false);
+    setLineageTaskId(selectedTaskId);
+  }, [lineageIncludesConnections, lineageTaskId, selectedTaskId]);
 
   const showLineage = useCallback((taskId: ScheduleId) => {
+    setLineageIncludesConnections(false);
     setLineageTaskId(taskId);
   }, []);
 
+  const showLineageWithConnections = useCallback(
+    (taskId: ScheduleId) => {
+      if (lineageTaskId === taskId) {
+        setLineageIncludesConnections(true);
+        return;
+      }
+      setLineageTaskId(taskId);
+      setLineageIncludesConnections(true);
+    },
+    [lineageTaskId],
+  );
+
   const clearLineage = useCallback(() => {
     setLineageTaskId(null);
+    setLineageIncludesConnections(false);
   }, []);
 
   const moveTaskByDays = useCallback(
@@ -1833,7 +1873,10 @@ export function useSchedule(
           draft,
         );
         if (!result.ok) return result.message;
-        commitDocument((doc) => ({ ...doc, outline: result.outline }));
+        commitDocument((doc) => ({
+          ...doc,
+          outline: result.outline,
+        }));
         return null;
       }
       const result = applyBulkTaskEdit(
@@ -1844,10 +1887,13 @@ export function useSchedule(
         draft,
       );
       if (!result.ok) return result.message;
-      commitCategories(() => result.categories);
+      commitDocument((doc) => ({
+        ...doc,
+        categories: result.categories,
+      }));
       return null;
     },
-    [commitCategories, commitDocument, title, usesOutlineStorage],
+    [commitDocument, title, usesOutlineStorage],
   );
 
   const appendTaskTag = useCallback(
@@ -2167,7 +2213,10 @@ export function useSchedule(
           result.outline,
           id,
         );
-        commitDocument((doc) => ({ ...doc, outline: result.outline }));
+        commitDocument((doc) => ({
+          ...doc,
+          outline: result.outline,
+        }));
         if (saved) {
           const tasks = collectTasksFromDocument({
             schemaVersion: SCHEDULE_SCHEMA_VERSION,
@@ -2206,7 +2255,10 @@ export function useSchedule(
       if (!result.ok) return { ok: false, error: result.message };
       const owner = findTaskOwner(current.categories, duplicatingTaskId);
       const saved = findTaskById(result.categories, id);
-      commitCategories(() => result.categories);
+      commitDocument((doc) => ({
+        ...doc,
+        categories: result.categories,
+      }));
       if (owner) {
         setCollapsed((prev) => {
           const next = new Set(prev);
@@ -2291,6 +2343,54 @@ export function useSchedule(
       );
     },
     [commitCategories, commitDocument, usesOutlineStorage],
+  );
+
+  const addTaskConnection = useCallback(
+    (
+      anchorTaskId: ScheduleId,
+      otherTaskId: ScheduleId,
+      label: string,
+    ): string | null => {
+      const result = tryAddConnection(
+        documentRef.current.connections,
+        anchorTaskId,
+        otherTaskId,
+        label,
+      );
+      if (!result.ok) return result.message;
+      commitDocument((doc) => ({ ...doc, connections: result.connections }));
+      return null;
+    },
+    [commitDocument],
+  );
+
+  const updateTaskConnectionLabel = useCallback(
+    (
+      anchorTaskId: ScheduleId,
+      otherTaskId: ScheduleId,
+      label: string,
+    ): string | null => {
+      const result = tryUpdateConnectionLabel(
+        documentRef.current.connections,
+        anchorTaskId,
+        otherTaskId,
+        label,
+      );
+      if (!result.ok) return result.message;
+      commitDocument((doc) => ({ ...doc, connections: result.connections }));
+      return null;
+    },
+    [commitDocument],
+  );
+
+  const removeTaskConnection = useCallback(
+    (a: ScheduleId, b: ScheduleId) => {
+      commitDocument((doc) => ({
+        ...doc,
+        connections: removeConnectionByPair(doc.connections, a, b),
+      }));
+    },
+    [commitDocument],
   );
 
   const deleteTask = useCallback(
@@ -2725,9 +2825,11 @@ export function useSchedule(
     clearSelection,
     lineageTask,
     lineageTaskId,
+    lineageIncludesConnections,
     lineageIds,
     toggleLineage,
     showLineage,
+    showLineageWithConnections,
     clearLineage,
     moveTaskByDays,
     moveSelectedTasksByDays,
@@ -2755,6 +2857,9 @@ export function useSchedule(
     addTask,
     addPredecessorLink,
     removePredecessorLink,
+    addTaskConnection,
+    updateTaskConnectionLabel,
+    removeTaskConnection,
     deleteTask,
     deleteTasks,
     addMilestone,

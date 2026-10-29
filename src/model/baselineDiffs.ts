@@ -1,5 +1,9 @@
 import { assigneeIdsEqual, taskAssigneeIds } from "./assigneeIds";
 import {
+  appendConnectionBaselineClassification,
+  mergeBaselineConnections,
+} from "./baselineDiffsConnections";
+import {
   anyUsesOutlineBaseline,
   appendOutlineHierarchyClassification,
   buildOutlineNonConflictingMergedDocument,
@@ -385,6 +389,8 @@ function buildClassificationLines(
     );
     if (headline) lines.push({ label, headline });
   }
+
+  appendConnectionBaselineClassification(lines, baseline, screen, file);
 
   return lines;
 }
@@ -1222,5 +1228,6 @@ export function buildNonConflictingMergedDocument(
     milestoneGroups,
     milestones,
     categories,
+    connections: mergeBaselineConnections(baseline, screen, file),
   };
 }

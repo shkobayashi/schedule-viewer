@@ -1,4 +1,5 @@
 import { assigneeIdsEqual, normalizeTaskAssignees, taskAssigneeIds } from "./assigneeIds";
+import { mergeBaselineConnections } from "./baselineDiffsConnections";
 import {
   documentHasLevels,
   documentUsesOutlineStorage,
@@ -214,6 +215,7 @@ export function buildOutlineNonConflictingMergedDocument(
     categories: [],
     milestoneGroups,
     milestones,
+    connections: mergeBaselineConnections(baseline, screen, file),
   };
 }
 

@@ -160,7 +160,11 @@ describe("chartHitTest", () => {
       sidebar: false,
       clipTop: 40,
     });
-    expect(below.hover.link).toEqual({ fromId: "task-a", toId: "task-b" });
+    expect(below.hover.link).toEqual({
+      fromId: "task-a",
+      toId: "task-b",
+      kind: "predecessor",
+    });
   });
 
   it("hits a link only when the pointer misses bars and diamonds", () => {
@@ -175,7 +179,11 @@ describe("chartHitTest", () => {
       selectedTaskId: null,
       sidebar: false,
     });
-    expect(hit.hover.link).toEqual({ fromId: "task-a", toId: "task-b" });
+    expect(hit.hover.link).toEqual({
+      fromId: "task-a",
+      toId: "task-b",
+      kind: "predecessor",
+    });
   });
 
   it("places the link preview at the sidebar, bar start, or pointer", () => {
