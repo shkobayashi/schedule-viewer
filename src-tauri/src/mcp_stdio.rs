@@ -89,8 +89,24 @@ fn read_tool_window_schema() -> Value {
     })
 }
 
+const MCP_CONNECTION_RULES: &str = "繋がりはルートの `connections` である。predecessors とは別で、日の前後は見ない。日程は動かさない。色、太さ、ふくらみは JSON に書かない。各要素は `taskIds`（実在タスクの UUID がちょうど2つ。同じ id は不可。並びは方向ではない）と `label`（前後の空白を除いて1文字以上）である。taskIds の順だけが違うときは同じ組である。同じ組は1つだけである。足すのは、その組が無いときだけである。自分自身とは組まない。相手が一つに定まらないとき、言葉が空または空白だけのときは、JSON を書かず理由を返す。言葉を変えるときは、同じ組の `label` だけを変える。組を外すときはその要素を除く。残が0件ならキーを書かない。空配列は書かない。繋がりの話でない更新では、`current_schedule` にある `connections` をそのまま残す。足さないし、消さないし、taskIds の順も変えない。タスクを消すときは、その id を含む繋がりも外す。残ったタスク同士はつなぎ直さない。キーの位置は `milestones` のあと、`categories` または `levels` の前である。";
+
+const MCP_CURRENT_SCHEDULE_CONNECTION_READ: &str = "繋がりがあるときはルートの `connections` が保存形と同じ位置で入る。1件以上あるときだけキーがある。`selected_task`、`selected_tasks`、`filtered_tasks` には載らない。";
+
 fn tools_list_result() -> Value {
     let read_schema = read_tool_window_schema();
+    let current_schedule_description = [
+        "画面の確定したスケジュール JSON 全体を返します。保存するときと同じ形です。ディスク上のファイルは読みません。未保存の画面を返します。",
+        MCP_CURRENT_SCHEDULE_CONNECTION_READ,
+        " window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+    ]
+    .concat();
+    let replace_schedule_description = [
+        "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。levels が無い JSON は段数 3 として扱い、画面が 3 段以外のときは置き換えません。levels がある JSON は、渡した段数と入れ子が揃っているときだけ、画面の段数と違っても置き換えます。揃っていないときは置き換えません。タスクの status には、読み取りツールの応答にある statuses の id だけを書きます。選ぶ材料は description です。name は画面の名前であり、選ぶ定義にはしません。role はアプリの描き方です。role が done だから完了、とは選びません。二つの description が同じ依頼に合うときは id を選ばず尋ねます。合う項目が無いときは id を作らず、利用者に尋ねます。instruction が無い項目のために進捗や確認を足しません。instruction があるときは、選んだあとにそこに書いてあることだけを守ります。進捗の数値が書いてあればその値にし、移す前に確認すると書いてあれば、移る前の項目と移った先の項目のどちらに書いてあっても、スケジュールを書く前に利用者へ尋ね、答えがあるまで書きません。description と instruction はタスクへコピーしません。タスクの colorId には、色の一覧の id だけを書きます。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときは読み取りツールの応答にある colors を使う。それも空なら書かない。id は作らない。色を選ぶ材料は description です。name と色の値は選ぶ定義にしません。色を付ける依頼では、文に合う項目が一つならその id を書く。どれにも合わないタスクには colorId を書かず、既に付いていても外す。二つ以上に合いそうなときは id を選ばず尋ね、答えがあるまで書かない。色の話でない更新では今ある colorId を残す。足さないし、消さない。色を外すと頼まれたときだけキーを省く。一覧に無い id を書いた colorId も残します。タスクの assigneeId には、メンバー一覧の id だけを書きます。一覧は、設定ファイルに members があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが members が無いとき、担当を付ける依頼は JSON を書かず不足として返す。設定ファイルが無いときは読み取りツールの応答にある members を使う。それも空なら、担当を付ける依頼は不足として返す。id は作らない。仕事の内容から選ぶときは description だけを見る。表示名は、この選び方には使わない。一つに合う人だけを担当にする。二つ以上に合うときと、どれにも合わないときは尋ね、id は作らない。説明が無い人は、名指しされたときだけ担当に使う。名指しが id か表示名で一人に定まるときは、その id を使う。表示名が二人以上に当たるときは尋ねる。名指しされた人は、説明が別の人に合っていても付け替えない。description はタスクへコピーしない。担当は assigneeId だけである。担当の話でない更新では今ある assigneeId を残す。追加項目の fieldValues は、読み取りツールの応答にある fields の key だけを新しく足します。定義に無い key と差分に出ていない key の値は残します。instruction が空の項目は、値が無いときだけ埋め、既にある値は書き換えません。差分に無い値は作りません。todos があるタスクの progress は件数から決める。スキルが書いた progress では置き換えない。todos を消すときは todos キーを省き、残す progress を progress に書く。",
+        MCP_CONNECTION_RULES,
+        " 前面ウィンドウのスケジュールだけを、検証済みの JSON 全体で未保存として置き換えます。背面のウィンドウは置き換えません。利用者が前面と違うウィンドウの更新だけを指しているときは、このツールを呼び出さずその旨を伝えます。外部更新の衝突確認が開いているときも置き換えられ、確認は閉じます。ファイルには書きません。置き換えたあと、内容を確認して問題なければ保存するよう利用者に促してください。成功時は FILE-07 と同じ差分テキストだけを返します。",
+    ]
+    .concat();
     json!({
         "tools": [
             {
@@ -129,12 +145,12 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "current_schedule",
-                "description": "画面の確定したスケジュール JSON 全体を返します。保存するときと同じ形です。ディスク上のファイルは読みません。未保存の画面を返します。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": current_schedule_description,
                 "inputSchema": read_schema.clone(),
             },
             {
                 "name": "replace_schedule",
-                "description": "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。levels が無い JSON は段数 3 として扱い、画面が 3 段以外のときは置き換えません。levels がある JSON は、渡した段数と入れ子が揃っているときだけ、画面の段数と違っても置き換えます。揃っていないときは置き換えません。タスクの status には、読み取りツールの応答にある statuses の id だけを書きます。選ぶ材料は description です。name は画面の名前であり、選ぶ定義にはしません。role はアプリの描き方です。role が done だから完了、とは選びません。二つの description が同じ依頼に合うときは id を選ばず尋ねます。合う項目が無いときは id を作らず、利用者に尋ねます。instruction が無い項目のために進捗や確認を足しません。instruction があるときは、選んだあとにそこに書いてあることだけを守ります。進捗の数値が書いてあればその値にし、移す前に確認すると書いてあれば、移る前の項目と移った先の項目のどちらに書いてあっても、スケジュールを書く前に利用者へ尋ね、答えがあるまで書きません。description と instruction はタスクへコピーしません。タスクの colorId には、色の一覧の id だけを書きます。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときは読み取りツールの応答にある colors を使う。それも空なら書かない。id は作らない。色を選ぶ材料は description です。name と色の値は選ぶ定義にしません。色を付ける依頼では、文に合う項目が一つならその id を書く。どれにも合わないタスクには colorId を書かず、既に付いていても外す。二つ以上に合いそうなときは id を選ばず尋ね、答えがあるまで書かない。色の話でない更新では今ある colorId を残す。足さないし、消さない。色を外すと頼まれたときだけキーを省く。一覧に無い id を書いた colorId も残します。タスクの assigneeId には、メンバー一覧の id だけを書きます。一覧は、設定ファイルに members があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが members が無いとき、担当を付ける依頼は JSON を書かず不足として返す。設定ファイルが無いときは読み取りツールの応答にある members を使う。それも空なら、担当を付ける依頼は不足として返す。id は作らない。仕事の内容から選ぶときは description だけを見る。表示名は、この選び方には使わない。一つに合う人だけを担当にする。二つ以上に合うときと、どれにも合わないときは尋ね、id は作らない。説明が無い人は、名指しされたときだけ担当に使う。名指しが id か表示名で一人に定まるときは、その id を使う。表示名が二人以上に当たるときは尋ねる。名指しされた人は、説明が別の人に合っていても付け替えない。description はタスクへコピーしない。担当は assigneeId だけである。担当の話でない更新では今ある assigneeId を残す。追加項目の fieldValues は、読み取りツールの応答にある fields の key だけを新しく足します。定義に無い key と差分に出ていない key の値は残します。instruction が空の項目は、値が無いときだけ埋め、既にある値は書き換えません。差分に無い値は作りません。todos があるタスクの progress は件数から決める。スキルが書いた progress では置き換えない。todos を消すときは todos キーを省き、残す progress を progress に書く。前面ウィンドウのスケジュールだけを、検証済みの JSON 全体で未保存として置き換えます。背面のウィンドウは置き換えません。利用者が前面と違うウィンドウの更新だけを指しているときは、このツールを呼び出さずその旨を伝えます。外部更新の衝突確認が開いているときも置き換えられ、確認は閉じます。ファイルには書きません。置き換えたあと、内容を確認して問題なければ保存するよう利用者に促してください。成功時は FILE-07 と同じ差分テキストだけを返します。",
+                "description": replace_schedule_description,
                 "inputSchema": {
                     "type": "object",
                     "description": "schedule-viewer のスケジュール JSON 全体（schemaVersion 8）",
@@ -309,6 +325,19 @@ mod tests {
         assert!(replace_schedule.contains("外部更新の衝突確認が開いているときも置き換えられ"));
         assert!(replace_schedule.contains("保存するよう利用者に促してください"));
         assert!(selected_task.contains("instruction がある項目だけ"));
+        assert!(replace_schedule.contains("predecessors とは別"));
+        assert!(replace_schedule.contains("日の前後は見ない"));
+        assert!(replace_schedule.contains("色、太さ、ふくらみは JSON に書かない"));
+        assert!(replace_schedule.contains("taskIds の順だけが違うときは同じ組"));
+        assert!(replace_schedule.contains("言葉が空または空白だけ"));
+        assert!(replace_schedule.contains("繋がりの話でない更新では"));
+        assert!(replace_schedule.contains("taskIds の順も変えない"));
+        assert!(replace_schedule.contains("残ったタスク同士はつなぎ直さない"));
+        let current_schedule = description("current_schedule");
+        assert!(current_schedule.contains("connections"));
+        assert!(current_schedule.contains("selected_task"));
+        assert!(current_schedule.contains("filtered_tasks"));
+        assert!(current_schedule.contains("には載らない"));
         let replace_schema = tools
             .iter()
             .find(|t| t.get("name").and_then(|n| n.as_str()) == Some("replace_schedule"))
