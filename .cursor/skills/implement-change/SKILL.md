@@ -21,7 +21,7 @@ description: >-
 2. 機能 ID がある変更は、[docs/external-spec.md](../../../docs/external-spec.md) のその節に合わせる
 3. 画面の組み立て、状態、モデル、Tauri、描画のどれを触るかを決める。依存はコンポーネントからフック、フックからモデルである。モデルはコンポーネントを参照しない。Rust は JSON の意味を解釈しない
 4. 計画が後の子を「やらないこと」に書いているときは、その子の内容（設定の編集、MCP など）を同じ変更に入れない。先の子の作業ツリーに入れてしまったら、入れた時点で結果に書く
-5. 計画がスキルの節番号を列挙していても、計画本文の出し入れ、主語の掛かり、手動テストの各条件は照合する。照合結果は実装の結果に残す
+5. 計画がスキルの節番号を列挙していても、計画本文の出し入れ、主語の掛かり、手動テストの各条件は照合する。照合結果は実装の結果に残す。既存の「これら」の直前へ文を置いたとき、その「これら」が新しい文まで指していないかを見る。計画が「食い違う文だけ直す」と書いた箇所には、新しい文を足さない。画面と操作の節番号に 8 が無くても、この照合は行う。
 6. `next` があるとき、変更を載せる統合ブランチは [docs/development.md](../../../docs/development.md#1x-を出しながら次のメジャーを進める) の「1.x を出しながら次のメジャーを進める」で決める。1.x のまま出せる変更は `develop`、公開する契約を壊す変更は `next` である。計画がブランチを書いていても、この節と照合し、結果は実装の結果に残す
 
 ## 画面と操作
@@ -58,7 +58,7 @@ description: >-
 28. ダイアログの一部だけをスクロールして、外の操作やチェックを画面内に残すときは、`max-height` をビューポートからの引き算だけで決めない。表示倍率が大きいと式が 0 以下になり、ダイアログ全体が伸びる。ダイアログを縦の flex にし、見出しの下を `flex: 1` と `min-height: 0` で縮め、スクロールする要素だけ `overflow: auto` にする。段階的に出す項目は、まだ見えないものを `inert` にし、ダイアログのフォーカストラップの対象から `inert` の内側を外す。出現の待ちは JavaScript と CSS の二重に掛けない
 29. ショートカットを抑止するときも、検索欄、入力欄、選択欄、編集できる領域では操作しない。それ以外では `preventDefault` する。ダイアログが開いているあいだと線を引くモードのあいだは、開く処理と並べ替えを実行しない
 30. [docs/internal-spec.md](../../../docs/internal-spec.md) のキーボードの節へ文を挿入するときは、うしろの「このキー」が前の操作のまま残るように、文を分ける
-31. 操作マニュアルの 21 図（`docs/user-manual/images/` の `ui-overview.png`、`ui-menu.png`、`ui-filter.png`、`ui-colors.png`、`ui-task-detail.png`、`ui-settings.png`、`ui-peer-notice.png`、`ui-update-offer.png`、`ui-diff.png`、`ui-export.png`、`ui-context-menu.png`、`ui-task-duplicate.png`、`ui-task-note.png`、`ui-task-add.png`、`ui-settings-members.png`、`ui-settings-statuses.png`、`ui-status-editor.png`、`ui-settings-calendar.png`、`ui-settings-updates.png`、`ui-settings-mcp.png`、`ui-settings-skills.png`）のどれかに写る見た目が変わるときは、同じ変更で `npm run capture:manual-screenshots` を実行し、出た PNG を含める。図の説明文が画面とずれたときは、[docs/user-manual/getting-started.md](../../../docs/user-manual/getting-started.md)（`ui-overview.png`）または [docs/user-manual/features.md](../../../docs/user-manual/features.md)（そのほか 20 図）のその文も直す。撮り直した図の説明が、図に無い部品を言っていないか見る。マニュアルの文章だけを直す変更や、21 図に写らない操作だけの変更では撮影しない。撮影スクリプトのボタン名や待いの要素が画面と合わなくなったときは、スクリプトを直してから撮影する。図を増やす、図をやめる、節への配置を変えることは、計画がそれを指定したときだけ行う。ポート 5173 か 5174 が使用中で Vite が起動できないときは、その開発サーバを止めてから実行する。撮影できなかったときは、理由を結果に書く。続けて複数の図を撮るときは、前の図のために出した要素を消してから次を撮る。撮影スクリプトが複数の図をまとめて書き出すときは、この変更で写る見た目が変わった図だけをコミットに残し、それ以外の PNG は元に戻す
+31. 操作マニュアルの 21 図（`docs/user-manual/images/` の `ui-overview.png`、`ui-menu.png`、`ui-filter.png`、`ui-colors.png`、`ui-task-detail.png`、`ui-settings.png`、`ui-peer-notice.png`、`ui-update-offer.png`、`ui-diff.png`、`ui-export.png`、`ui-context-menu.png`、`ui-task-duplicate.png`、`ui-task-note.png`、`ui-task-add.png`、`ui-settings-members.png`、`ui-settings-statuses.png`、`ui-status-editor.png`、`ui-settings-calendar.png`、`ui-settings-updates.png`、`ui-settings-mcp.png`、`ui-settings-skills.png`）のどれかに写る見た目が変わるときは、同じ変更で `npm run capture:manual-screenshots` を実行し、出た PNG を含める。図の説明文が画面とずれたときは、[docs/user-manual/getting-started.md](../../../docs/user-manual/getting-started.md)（`ui-overview.png`）または [docs/user-manual/features.md](../../../docs/user-manual/features.md)（そのほか 20 図）のその文も直す。撮り直した図の説明が、図に無い部品を言っていないか見る。マニュアルの文章だけを直す変更や、21 図に写らない操作だけの変更では撮影しない。撮影スクリプトのボタン名や待いの要素が画面と合わなくなったときは、スクリプトを直してから撮影する。図を増やす、図をやめる、節への配置を変えることは、計画がそれを指定したときだけ行う。ポート 5173 か 5174 が使用中で Vite が起動できないときは、その開発サーバを止めてから実行する。撮影できなかったときは、理由を結果に書く。続けて複数の図を撮るときは、前の図のために出した要素を消してから次を撮る。撮影スクリプトが複数の図をまとめて書き出すときは、この変更で写る見た目が変わった図だけをコミットに残し、それ以外の PNG は元に戻す。撮り直した差分が今日の線や日付だけで、この変更で増えた部品が図に写っていないときは、その PNG は戻す。
 32. 出ていないあいだも高さを残すときは、その部品の外寸を `min-height` にし、別の行の高さを流用しない。padding が `--s` に掛からない部品は、表示倍率の下限でも隣の欄がずれないことをブラウザ版で見る。計画が色の押しっぱなしを1段にまとめると書いたときは、`pointerup` だけで確定しない。色の値はポインタが離れたあとに変わる。色入力がフォーカスを失うまでを1段にし、変わる前の状態から1回だけ積む。別の編集を積む前に、未確定の色の1段を先に積む
 33. 別のしきい値を超えてから既存のパンを始めるときは、パン自身の 3px を重ねない。確定した位置は、押した位置を原点に今のパンの差分へ一度入れ、閉じた手もその時点で出す。確定と同じ操作で離したとき、パンの `window` 監視が付く前でもパンを終える。`pointercancel` でも終える
 34. しきい値未満のクリックを `pointerup` で発火するときは、既存の `click` が `detail` で捨てる 2 回目も捨てる。`pointercancel` では線を足さない
@@ -151,6 +151,8 @@ description: >-
 流れを一文で別の節に足しただけでは、操作の表にその手順が無い状態で終えない。番号付きの一覧から行を消したときは、残りの番号を詰め直す。
 
 同じ文書の別の節が、読み直しや合成の前に確定せず閉じるダイアログを名指しで並べているときは、今回足したダイアログもその列挙に入れる。
+
+利用者向けに挙動を短く書くときは、対応する [docs/external-spec.md](../../../docs/external-spec.md) の挙動にある辿りの繰り返しを、その文から落とさない。
 
 ## テストと確認
 
