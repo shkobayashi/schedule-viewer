@@ -711,7 +711,7 @@ Microsoft Store Developer CLI は、Partner Center で一度掲載したアプ�
 
 カレンダー JSON を変えるときも、`docs/calendar.schema.json`、アプリの検証、`.cursor/skills/write-calendar/` を揃える。メンバー JSON も同様に `docs/members.schema.json`、アプリの検証、`.cursor/skills/write-members/` を揃える。色の一覧 JSON も同様に `docs/colors.schema.json`、アプリの検証、`.cursor/skills/write-colors/` を揃える。
 
-検証器は `scripts/compile-validators.mjs` がスキーマから `src/model/generated/` へ生成する。`npm run dev`、`npm run build`、`npm test` は先にこれを実行する。スキルに同梱する検証スクリプトは `npm run build:validate-skill` で作り直す。CI のフロントジョブは、生成後の `src/model/generated/` とスキル同梱物がコミット済みの内容と一致することを `git diff --exit-code` で見る。
+検証器は `scripts/compile-validators.mjs` がスキーマから `src/model/generated/` へ生成する。`npm run dev`、`npm run build`、`npm test` は先にこれを実行する。スキルに同梱する検証スクリプトは `npm run build:validate-skill` で作り直す。`src/model/` を変えて検証 CLI がそれを取り込むときも、スキーマを変えていなくても同じコマンドで bundle を作り直す。作り直したファイルをコミットしないと、CI のフロントジョブが落ちる。CI は、生成後の `src/model/generated/` とスキル同梱物がコミット済みの内容と一致することを `git diff --exit-code` で見る。
 
 ## ドキュメントの更新ルール
 

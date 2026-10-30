@@ -3752,6 +3752,45 @@ function validatePredecessorRefs(doc) {
   return issues;
 }
 
+// src/model/statusCatalog.ts
+var STATUSES_SCHEMA_VERSION = 2;
+var BUILTIN_STATUS_ITEMS = [
+  {
+    id: "not-started",
+    name: "\u672A\u7740\u624B",
+    color: {
+      light: { bg: "#E2E6ED", border: "#7d8799" },
+      dark: { bg: "#454b5c", border: "#8a94a6" }
+    },
+    role: "not-started",
+    description: "\u958B\u59CB\u65E5\u304C\u6765\u3066\u3044\u3066\u3082\u3001\u624B\u3092\u4ED8\u3051\u3066\u3044\u306A\u3051\u308C\u3070\u3053\u308C\u306B\u3059\u308B\u3002"
+  },
+  {
+    id: "in-progress",
+    name: "\u9032\u884C\u4E2D",
+    color: {
+      light: { bg: "#DEE3FB", border: "#4C5FD5" },
+      dark: { bg: "#2e3344", border: "#7b8cff" }
+    },
+    role: "started",
+    description: "\u624B\u3092\u4ED8\u3051\u3066\u3044\u3066\u3001\u4F5C\u696D\u304C\u6B8B\u3063\u3066\u3044\u308B\u3002"
+  },
+  {
+    id: "done",
+    name: "\u5B8C\u4E86",
+    color: {
+      light: { bg: "#247A55", border: "#1F6B4A" },
+      dark: { bg: "#3d9a72", border: "#4cb088" }
+    },
+    role: "done",
+    description: "\u4F5C\u696D\u306F\u7D42\u308F\u308A\u3001\u518D\u958B\u3082\u78BA\u8A8D\u3082\u6B8B\u3063\u3066\u3044\u306A\u3044\u3002"
+  }
+];
+var BUILTIN_STATUSES = {
+  schemaVersion: STATUSES_SCHEMA_VERSION,
+  statuses: [...BUILTIN_STATUS_ITEMS]
+};
+
 // src/model/connections.ts
 function connectionPairKey(a, b) {
   return a < b ? `${a}\0${b}` : `${b}\0${a}`;
@@ -4055,12 +4094,12 @@ function validateSchedule(data2) {
     ...raw,
     categories: raw.categories ?? []
   };
-  const document = normalizeAssigneesInDocument(withCategories);
+  const document2 = normalizeAssigneesInDocument(withCategories);
   const errors = [
-    ...validateScheduleSemantics(document),
-    ...validatePredecessorRefs(document),
-    ...validateDependencyCycles(document),
-    ...validateConnections(document)
+    ...validateScheduleSemantics(document2),
+    ...validatePredecessorRefs(document2),
+    ...validateDependencyCycles(document2),
+    ...validateConnections(document2)
   ];
   if (errors.length > 0) {
     return {
@@ -4071,7 +4110,7 @@ function validateSchedule(data2) {
       }))
     };
   }
-  return { ok: true, document: normalizeScheduleDocument(document) };
+  return { ok: true, document: normalizeScheduleDocument(document2) };
 }
 function formatValidationErrors(errors) {
   return formatValidationErrors2(errors);
