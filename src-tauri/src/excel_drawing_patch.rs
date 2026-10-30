@@ -6,8 +6,8 @@ use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
 
 use crate::export_xlsx::{
-    ExcelExportConnector, ExcelExportPayload, ExcelExportSummaryCap,
-    ExcelExportSummaryGapLine, ExcelExportTodayLine,
+    ExcelExportConnectionCurve, ExcelExportConnector, ExcelExportPayload,
+    ExcelExportSummaryCap, ExcelExportSummaryGapLine, ExcelExportTodayLine,
 };
 
 const EMU_PER_PX: u64 = 9525;
@@ -119,6 +119,37 @@ fn left_edge_center(
     }
 }
 
+fn x_in_date_area_to_corner(
+    x: u64,
+    left_count: u32,
+    date_col_width_emu: u64,
+    row: u32,
+    row_off: u64,
+) -> AnchorCorner {
+    let w = date_col_width_emu.max(1);
+    let col_delta = (x / w) as u32;
+    AnchorCorner {
+        col: left_count + col_delta,
+        col_off: x % w,
+        row,
+        row_off,
+    }
+}
+
+fn top_edge_center(
+    top_left: AnchorCorner,
+    bottom_right: AnchorCorner,
+    left_count: u32,
+    date_col_width_emu: u64,
+) -> AnchorCorner {
+    let w = date_col_width_emu.max(1);
+    let x_left = (top_left.col.saturating_sub(left_count)) as u64 * w + top_left.col_off;
+    let x_right =
+        (bottom_right.col.saturating_sub(left_count)) as u64 * w + bottom_right.col_off;
+    let x_mid = (x_left + x_right) / 2;
+    x_in_date_area_to_corner(x_mid, left_count, w, top_left.row, top_left.row_off)
+}
+
 fn horizontal_cmp(a: AnchorCorner, b: AnchorCorner) -> std::cmp::Ordering {
     a.col
         .cmp(&b.col)
@@ -225,6 +256,204 @@ fn bent_adj_xml(adj1: u32) -> String {
 
 fn straight_geom_xml() -> &'static str {
     r#"<a:prstGeom prst="straightConnector1"><a:avLst/></a:prstGeom>"#
+}
+
+fn curved_geom_xml() -> &'static str {
+    r#"<a:prstGeom prst="curvedConnector3"><a:avLst/></a:prstGeom>"#
+}
+
+fn connection_curve_line_width_emu() -> u32 {
+    (2.25 * EMU_PER_PX as f64).round() as u32
+}
+
+fn connection_curve_line_xml(stroke_rgb: &str) -> String {
+    let w = connection_curve_line_width_emu();
+    format!(
+        r#"<a:ln w="{w}"><a:solidFill><a:srgbClr val="{stroke_rgb}"/></a:solidFill></a:ln>"#,
+        w = w,
+        stroke_rgb = stroke_rgb.trim_start_matches('#'),
+    )
+}
+
+fn connection_curve_top_center_corners(
+    from_a: &str,
+    to_a: &str,
+    from_b: &str,
+    to_b: &str,
+    left_count: u32,
+    date_col_width_emu: u64,
+) -> Option<(AnchorCorner, AnchorCorner)> {
+    let a_from = parse_anchor(from_a)?;
+    let a_to = parse_anchor(to_a)?;
+    let b_from = parse_anchor(from_b)?;
+    let b_to = parse_anchor(to_b)?;
+    let start = top_edge_center(a_from, a_to, left_count, date_col_width_emu);
+    let end = top_edge_center(b_from, b_to, left_count, date_col_width_emu);
+    Some((start, end))
+}
+
+fn date_area_x(corner: AnchorCorner, left_count: u32, date_col_width_emu: u64) -> u64 {
+    let w = date_col_width_emu.max(1);
+    (corner.col.saturating_sub(left_count)) as u64 * w + corner.col_off
+}
+
+const CONNECTION_LABEL_FONT_SIZE_PT: f64 = 8.0;
+
+fn connection_label_font_size_px() -> f64 {
+    CONNECTION_LABEL_FONT_SIZE_PT * 96.0 / 72.0
+}
+
+fn estimate_connection_label_width_emu(label: &str) -> u64 {
+    let font_size = connection_label_font_size_px();
+    let mut text_width = 0.0;
+    for ch in label.chars() {
+        text_width += if ch as u32 > 0xff {
+            font_size
+        } else {
+            font_size * 0.62
+        };
+    }
+    text_width += font_size * 0.25;
+    (text_width * EMU_PER_PX as f64).round() as u64
+}
+
+fn connection_label_height_emu() -> u64 {
+    (connection_label_font_size_px() * EMU_PER_PX as f64).round() as u64
+}
+
+fn escape_xml_text(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+fn label_box_corners(
+    start: AnchorCorner,
+    end: AnchorCorner,
+    width_emu: u64,
+    height_emu: u64,
+    left_count: u32,
+    date_col_width_emu: u64,
+    body_row_height_emu: u64,
+) -> (AnchorCorner, AnchorCorner) {
+    let w = date_col_width_emu.max(1);
+    let x1 = date_area_x(start, left_count, w);
+    let x2 = date_area_x(end, left_count, w);
+    let y1 = row_y(start, body_row_height_emu);
+    let y2 = row_y(end, body_row_height_emu);
+    let mid_x = (x1 + x2) / 2;
+    let mid_y = (y1 + y2) / 2;
+    let left_x = mid_x.saturating_sub(width_emu / 2);
+    let right_x = left_x + width_emu;
+    let top_y = mid_y.saturating_sub(height_emu / 2);
+    let bottom_y = top_y + height_emu;
+    let (from_row, from_row_off) = y_to_row_off(top_y, body_row_height_emu);
+    let (to_row, to_row_off) = y_to_row_off(bottom_y, body_row_height_emu);
+    let from = x_in_date_area_to_corner(left_x, left_count, w, from_row, from_row_off);
+    let to = x_in_date_area_to_corner(right_x, left_count, w, to_row, to_row_off);
+    (from, to)
+}
+
+fn build_connection_curve_label_anchor(
+    curve: &ExcelExportConnectionCurve,
+    drawing_xml: &str,
+    drawing_index: u32,
+    body_row_height_px: u32,
+    left_count: u32,
+    date_col_width_px: u32,
+) -> Option<String> {
+    let body_row_height_emu = emu_per_body_row(body_row_height_px);
+    let date_col_width_emu = u64::from(date_col_width_px.max(1)) * EMU_PER_PX;
+    let (from_a, to_a) = shape_anchor_blocks(drawing_xml, curve.from_shape_index)?;
+    let (from_b, to_b) = shape_anchor_blocks(drawing_xml, curve.to_shape_index)?;
+    let (start, end) = connection_curve_top_center_corners(
+        &from_a,
+        &to_a,
+        &from_b,
+        &to_b,
+        left_count,
+        date_col_width_emu,
+    )?;
+    let width_emu = estimate_connection_label_width_emu(&curve.label).max(1);
+    let height_emu = connection_label_height_emu().max(1);
+    let (from, to) = label_box_corners(
+        start,
+        end,
+        width_emu,
+        height_emu,
+        left_count,
+        date_col_width_emu,
+        body_row_height_emu,
+    );
+    let cnv_id = drawing_index + 1;
+    let rgb = curve.label_text_rgb.trim_start_matches('#');
+    let label = escape_xml_text(&curve.label);
+    let from_anchor = format_anchor(from);
+    let to_anchor = format_anchor(to);
+    Some(format!(
+        r#"<xdr:twoCellAnchor><xdr:from>{from_anchor}</xdr:from><xdr:to>{to_anchor}</xdr:to><xdr:sp macro="" textlink=""><xdr:nvSpPr><xdr:cNvPr id="{cnv_id}" name="Connection label {drawing_index}"/><xdr:cNvSpPr txBox="1"/></xdr:nvSpPr><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></xdr:spPr>{style}<xdr:txBody><a:bodyPr wrap="none" anchor="ctr" rtlCol="0"/><a:lstStyle/><a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="ja-JP" sz="800" b="0" i="0" u="none" strike="noStrike"><a:solidFill><a:srgbClr val="{rgb}"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/></a:rPr><a:t>{label}</a:t></a:r></a:p></xdr:txBody></xdr:sp><xdr:clientData/></xdr:twoCellAnchor>"#,
+        style = CONNECTOR_STYLE,
+    ))
+}
+
+fn connection_curve_anchors_from_shapes(
+    from_a: &str,
+    to_a: &str,
+    from_b: &str,
+    to_b: &str,
+    body_row_height_emu: u64,
+    left_count: u32,
+    date_col_width_emu: u64,
+) -> Option<(String, String, bool, bool)> {
+    let a_from = parse_anchor(from_a)?;
+    let a_to = parse_anchor(to_a)?;
+    let b_from = parse_anchor(from_b)?;
+    let b_to = parse_anchor(to_b)?;
+    let start = top_edge_center(a_from, a_to, left_count, date_col_width_emu);
+    let end = top_edge_center(b_from, b_to, left_count, date_col_width_emu);
+    let flip_h = horizontal_cmp(end, start) == std::cmp::Ordering::Less;
+    let flip_v = row_y(end, body_row_height_emu) < row_y(start, body_row_height_emu);
+    let (from, to) = connector_bounds(start, end, body_row_height_emu);
+    Some((
+        format_anchor(from),
+        format_anchor(to),
+        flip_h,
+        flip_v,
+    ))
+}
+
+fn build_connection_curve_anchor(
+    curve: &ExcelExportConnectionCurve,
+    drawing_xml: &str,
+    drawing_index: u32,
+    body_row_height_px: u32,
+    left_count: u32,
+    date_col_width_px: u32,
+) -> Option<String> {
+    let body_row_height_emu = emu_per_body_row(body_row_height_px);
+    let date_col_width_emu = u64::from(date_col_width_px.max(1)) * EMU_PER_PX;
+    let (from_a, to_a) = shape_anchor_blocks(drawing_xml, curve.from_shape_index)?;
+    let (from_b, to_b) = shape_anchor_blocks(drawing_xml, curve.to_shape_index)?;
+    let (from, to, flip_h, flip_v) = connection_curve_anchors_from_shapes(
+        &from_a,
+        &to_a,
+        &from_b,
+        &to_b,
+        body_row_height_emu,
+        left_count,
+        date_col_width_emu,
+    )?;
+    let flip_h_attr = if flip_h { "1" } else { "0" };
+    let flip_v_attr = if flip_v { "1" } else { "0" };
+    let from_shape_id = curve.from_shape_index as u32 + 2;
+    let to_shape_id = curve.to_shape_index as u32 + 2;
+    let cnv_id = drawing_index + 1;
+    let line = connection_curve_line_xml(&curve.stroke_rgb);
+    Some(format!(
+        r#"<xdr:twoCellAnchor><xdr:from>{from}</xdr:from><xdr:to>{to}</xdr:to><xdr:cxnSp macro=""><xdr:nvCxnSpPr><xdr:cNvPr id="{cnv_id}" name="Curved Connector {drawing_index}"/><xdr:cNvCxnSpPr><a:stCxn id="{from_shape_id}" idx="0"/><a:endCxn id="{to_shape_id}" idx="0"/></xdr:cNvCxnSpPr></xdr:nvCxnSpPr><xdr:spPr><a:xfrm flipH="{flip_h_attr}" flipV="{flip_v_attr}"><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm>{prst}{line}</xdr:spPr>{style}</xdr:cxnSp><xdr:clientData/></xdr:twoCellAnchor>"#,
+        prst = curved_geom_xml(),
+        style = CONNECTOR_STYLE,
+    ))
 }
 
 fn build_connector_anchor(
@@ -424,6 +653,31 @@ fn patch_drawing_xml(drawing_xml: &str, payload: &ExcelExportPayload) -> String 
         }
     }
     let mut next_index = base_index + payload.connectors.len() as u32;
+    let left_count = payload.freeze_col;
+    for (i, curve) in payload.connection_curves.iter().enumerate() {
+        let curve_index = next_index + (i as u32) * 2;
+        if let Some(block) = build_connection_curve_anchor(
+            curve,
+            drawing_xml,
+            curve_index,
+            body_row_height_px,
+            left_count,
+            date_col_width_px,
+        ) {
+            extra.push_str(&block);
+        }
+        if let Some(block) = build_connection_curve_label_anchor(
+            curve,
+            drawing_xml,
+            curve_index + 1,
+            body_row_height_px,
+            left_count,
+            date_col_width_px,
+        ) {
+            extra.push_str(&block);
+        }
+    }
+    next_index += payload.connection_curves.len() as u32 * 2;
     if let Some(line) = &payload.today_line {
         extra.push_str(&build_today_line_anchor(line, next_index, body_row_height_px));
         next_index += 1;
@@ -527,6 +781,7 @@ fn rewrite_zip(
 
     if !had_drawing
         && (!payload.connectors.is_empty()
+            || !payload.connection_curves.is_empty()
             || payload.today_line.is_some()
             || !payload.summary_gap_lines.is_empty()
             || !payload.summary_caps.is_empty())
@@ -576,6 +831,7 @@ fn rewrite_zip(
 
 pub fn patch_excel_drawings(bytes: Vec<u8>, payload: &ExcelExportPayload) -> Result<Vec<u8>, String> {
     if payload.connectors.is_empty()
+        && payload.connection_curves.is_empty()
         && payload.today_line.is_none()
         && payload.summary_gap_lines.is_empty()
         && payload.summary_caps.is_empty()
@@ -781,5 +1037,108 @@ mod tests {
         assert!(block.contains("flipV=\"1\""));
         assert!(block.contains("idx=\"3\""));
         assert!(block.contains("idx=\"1\""));
+    }
+
+    #[test]
+    fn connection_curve_uses_top_sites_and_default_curve() {
+        let drawing = format!(
+            "{}{}",
+            anchor_block(
+                AnchorCorner {
+                    col: 4,
+                    row: 2,
+                    col_off: emu(10),
+                    row_off: emu(4),
+                },
+                AnchorCorner {
+                    col: 4,
+                    row: 2,
+                    col_off: emu(58),
+                    row_off: emu(18),
+                },
+            ),
+            anchor_block(
+                AnchorCorner {
+                    col: 6,
+                    row: 3,
+                    col_off: emu(0),
+                    row_off: emu(4),
+                },
+                AnchorCorner {
+                    col: 6,
+                    row: 3,
+                    col_off: emu(48),
+                    row_off: emu(18),
+                },
+            ),
+        );
+        let drawing_xml = format!(
+            r#"<?xml version="1.0"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">{drawing}</xdr:wsDr>"#
+        );
+        let curve = ExcelExportConnectionCurve {
+            from_shape_index: 0,
+            to_shape_index: 1,
+            stroke_rgb: "0369A1".into(),
+            label: "斜めの関係".into(),
+            label_text_rgb: "075985".into(),
+        };
+        let block = build_connection_curve_anchor(&curve, &drawing_xml, 2, 22, 4, 48).unwrap();
+        assert!(block.contains("curvedConnector3"));
+        assert!(block.contains("<a:avLst/>"));
+        assert!(block.contains("idx=\"0\""));
+        assert!(!block.contains("type=\"triangle\""));
+        assert!(block.contains("val=\"0369A1\""));
+    }
+
+    #[test]
+    fn connection_curve_label_is_a_separate_textbox() {
+        let drawing = format!(
+            "{}{}",
+            anchor_block(
+                AnchorCorner {
+                    col: 4,
+                    row: 2,
+                    col_off: emu(10),
+                    row_off: emu(4),
+                },
+                AnchorCorner {
+                    col: 4,
+                    row: 2,
+                    col_off: emu(58),
+                    row_off: emu(18),
+                },
+            ),
+            anchor_block(
+                AnchorCorner {
+                    col: 6,
+                    row: 3,
+                    col_off: emu(0),
+                    row_off: emu(4),
+                },
+                AnchorCorner {
+                    col: 6,
+                    row: 3,
+                    col_off: emu(48),
+                    row_off: emu(18),
+                },
+            ),
+        );
+        let drawing_xml = format!(
+            r#"<?xml version="1.0"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">{drawing}</xdr:wsDr>"#
+        );
+        let curve = ExcelExportConnectionCurve {
+            from_shape_index: 0,
+            to_shape_index: 1,
+            stroke_rgb: "0369A1".into(),
+            label: "斜めの関係".into(),
+            label_text_rgb: "075985".into(),
+        };
+        let block = build_connection_curve_label_anchor(&curve, &drawing_xml, 3, 22, 4, 48).unwrap();
+        assert!(block.contains("sz=\"800\""));
+        assert!(block.contains("<a:t>斜めの関係</a:t>"));
+        assert!(block.contains("val=\"075985\""));
+        assert!(block.contains("<xdr:sp macro=\"\""));
+        assert!(!block.contains("<xdr:cxnSp"));
+        assert!(block.contains("<a:noFill/>"));
     }
 }

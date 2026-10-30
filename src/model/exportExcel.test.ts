@@ -3,8 +3,10 @@ import {
   barPixelsInDateColumns,
   buildExcelExportPayload,
   buildExcelTimeColumns,
+  assertExcelLimits,
   EXCEL_DATE_COLUMN_WIDTH_MONTH_PX,
   EXCEL_DATE_COLUMN_WIDTH_PX,
+  EXCEL_MAX_SHAPES,
   excelDateColumnWidthPx,
   type ScheduleExcelInput,
 } from "./exportExcel";
@@ -664,5 +666,96 @@ describe("exportExcel", () => {
       colorScheme: "dark",
     });
     expect(darkPayload.rows[0]?.rowFillRgb).toBe("FEF3C7");
+  });
+
+  it("puts connection curves into the payload", () => {
+    const task2: VisibleRow = {
+      type: "task",
+      y: 28,
+      task: {
+        id: "t2",
+        name: "実装",
+        start: "2026-01-08",
+        end: "2026-01-09",
+        assigneeIds: [],
+        status: "in-progress",
+        progress: 0,
+        confidence: "committed",
+        predecessors: [],
+        milestoneId: null,
+      },
+    };
+    const input = baseInput();
+    input.visibleRows = [input.visibleRows[0]!, task2];
+    input.connections = [
+      { taskIds: ["t1", "t2"], label: "関係" },
+    ];
+    const payload = buildExcelExportPayload(input);
+    expect(payload.connectionCurves).toEqual([
+      {
+        fromShapeIndex: 0,
+        toShapeIndex: 1,
+        strokeRgb: "0369A1",
+        label: "関係",
+        labelTextRgb: "075985",
+      },
+    ]);
+  });
+
+  it("leaves dependency connectors unchanged when a connection is present", () => {
+    const task2: VisibleRow = {
+      type: "task",
+      y: 28,
+      task: {
+        id: "t2",
+        name: "実装",
+        start: "2026-01-08",
+        end: "2026-01-09",
+        assigneeIds: [],
+        status: "in-progress",
+        progress: 0,
+        confidence: "committed",
+        predecessors: ["t1"],
+        milestoneId: null,
+      },
+    };
+    const input = baseInput();
+    input.visibleRows = [input.visibleRows[0]!, task2];
+    input.links = [{ fromId: "t1", toId: "t2", broken: false }];
+    input.connections = [
+      { taskIds: ["t1", "t2"], label: "関係" },
+    ];
+    input.colorScheme = "dark";
+    const payload = buildExcelExportPayload(input);
+    expect(payload.connectors).toHaveLength(1);
+    expect(payload.connectors[0]?.straight).toBe(false);
+    expect(payload.connectors[0]?.strokeRgb).toBe(
+      paletteFor("dark").chart.linkOk.replace("#", ""),
+    );
+    expect(payload.connectionCurves).toHaveLength(1);
+  });
+
+  it("counts connection labels toward the drawing limit", () => {
+    const payload = buildExcelExportPayload(baseInput());
+    const drawingCount =
+      payload.shapes.length +
+      payload.connectors.length +
+      payload.connectionCurves.length * 2 +
+      (payload.todayLine ? 1 : 0) +
+      payload.summaryGapLines.length +
+      payload.summaryCaps.length;
+    const extraCurves = Math.floor((EXCEL_MAX_SHAPES - drawingCount + 1) / 2);
+    expect(() =>
+      assertExcelLimits({
+        ...payload,
+        connectionCurves: Array.from({ length: extraCurves }, () => ({
+          fromShapeIndex: 0,
+          toShapeIndex: 0,
+          strokeRgb: "0369A1",
+          label: "関係",
+          labelTextRgb: "075985",
+        })),
+      }),
+    ).toThrow(/図形の数が上限/);
   });
 });

@@ -53,6 +53,16 @@ pub struct ExcelExportConnector {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ExcelExportConnectionCurve {
+    pub from_shape_index: usize,
+    pub to_shape_index: usize,
+    pub stroke_rgb: String,
+    pub label: String,
+    pub label_text_rgb: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExcelExportTodayLine {
     pub row: u32,
     pub anchor_col: u32,
@@ -127,6 +137,8 @@ pub struct ExcelExportPayload {
     pub rows: Vec<ExcelExportRow>,
     pub shapes: Vec<ExcelExportShape>,
     pub connectors: Vec<ExcelExportConnector>,
+    #[serde(default)]
+    pub connection_curves: Vec<ExcelExportConnectionCurve>,
     pub today_line: Option<ExcelExportTodayLine>,
     pub milestone_marks: Vec<MilestoneMarkCell>,
     #[allow(dead_code)]
@@ -520,6 +532,7 @@ mod tests {
                 row_fill_rgb: None,
             }],
             connectors: vec![],
+            connection_curves: vec![],
             today_line: None,
             shapes: vec![ExcelExportShape {
                 row: 2,

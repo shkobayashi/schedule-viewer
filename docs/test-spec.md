@@ -166,6 +166,11 @@
 | 同上 | `places bent elbow at the midpoint when the gap is narrower than 12px` | EXPORT-05 |
 | 同上 | `descriptor uses straight geometry on the same row` | EXPORT-05 |
 | 同上 | `descriptor uses bent geometry across rows` | EXPORT-05 |
+| `excelConnectionCurve.test.ts` | `includes a visible connection curve` | EXPORT-05 |
+| 同上 | `omits a connection when one task is hidden` | EXPORT-05 |
+| 同上 | `uses light arc color when the app is dark` | EXPORT-05 |
+| 同上 | `includes the connection label` | EXPORT-05 |
+| 同上 | `uses light label color when the app is dark` | EXPORT-05 |
 | `excelLightning.test.ts` | `returns null when the lightning line is off` | EXPORT-05 |
 | 同上 | `returns null when today is outside the timeline` | EXPORT-05 |
 | 同上 | `returns null when there are no body rows` | EXPORT-05 |
@@ -192,6 +197,9 @@
 | 同上 | `indents two-level hierarchy like top heading and task` | EXPORT-05 |
 | 同上 | `indents five-level hierarchy through depth 4 on tasks` | EXPORT-05 |
 | 同上 | `matches legacy category group task indents for three-level outline headings` | EXPORT-05 |
+| 同上 | `puts connection curves into the payload` | EXPORT-05 |
+| 同上 | `leaves dependency connectors unchanged when a connection is present` | EXPORT-05 |
+| 同上 | `counts connection labels toward the drawing limit` | EXPORT-05 |
 | `excelExportColumns.test.ts` | `uses default columns when storage is empty` | EXPORT-01, EXPORT-05 |
 | 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
 | 同上 | `defaults field columns to off`、`inserts enabled field columns before note`、`disambiguates duplicate names only among enabled field columns` | EXPORT-01, EXPORT-05 |
@@ -806,6 +814,8 @@
 | 同上 | `stroke_color_change_updates_connector_rgb_only` | 色だけ違う二つのブックでコネクタの `srgbClr` だけが変わる | EXPORT-05 |
 | 同上 | `summary_gap_line_spans_date_columns` | 親バーの点線が列をまたぎ、角が `rtTriangle` で、追加図形の id がバーと重ならない | EXPORT-05 |
 | `excel_drawing_patch` | `connector_anchors_use_edge_centers_same_row` など | 辺の中央へのスナップと `flipH` / `flipV` | EXPORT-05 |
+| 同上 | `connection_curve_uses_top_sites_and_default_curve` | 上端の接続点 0、`curvedConnector3`、矢印なし、ライトの色 | EXPORT-05 |
+| 同上 | `connection_curve_label_is_a_separate_textbox` | 8pt、言葉の文字列、ライトの文字色、曲線とは別の文字図形 | EXPORT-05 |
 | 同上 | `horizontal_span_end_advances_columns_by_width` | 日付列幅で終端列と列内オフセットを進める | EXPORT-05 |
 | `require_active_save_path_accepts_matching_path` | 開いているパスと一致すれば上書きできる | FILE-02 |
 | `require_active_save_path_rejects_mismatch_and_missing` | パスの不一致と、ファイルを開いていない状態は拒否する | FILE-02 |
@@ -1264,6 +1274,7 @@
 | TC-EXPORT-03 | EXPORT-03 | 書き出しの行が 10,000 を超えるデータ | 「書き出し」を実行する | ファイルを作らず、行数の上限を理由に出す |
 | TC-EXPORT-04 | EXPORT-04 | タイトルに `/` や `:` がある | 書き出しの保存ダイアログを開く | 提案名からそれらの文字が除かれ、選んだ形式の拡張子が付く |
 | TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。二人以上の担当を付けたタスクがある。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する。担当列をオンにし、複数担当のタスク行と見出し行、マイルストン行を見る | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。担当列は1列のままである。タスク行の担当セルは、棒の右と同じ文字列で、入れた順を「、」でつないですべて入り、8文字では切らない。同名の表示名だけ id が付く。空は「未割当」、一覧に無い id はその位置が「メンバー不明（id）」である。見出し行とマイルストン行の担当列は空である。担当を増やしても行数と日付の図形の数は増えない。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。グループ名と遅延のタスク名は、画面がダークでもライト配色の文字色で読める。カテゴリの塗りは左の列だけである。マイルストンは、確定が「◆ 名前」、未確定が「◇ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
+| TC-EXPORT-05b | EXPORT-05, VIEW-15 | デスクトップ版で `examples/connections/schedule.json` を開く。設定をダークにする | Excel に書き出してブックを開く。前後のカギ線と繋がりの曲線、HTML と SVG を見る。片方の端の行を折りたたみまたは絞り込みで隠してから Excel をもう一度書き出す | Excel が修復を出さない。前後は右辺の中央から左辺の中央へのカギ線矢印のままである。繋がりは矢印の無い曲線で、両端が棒の上端の中央に付き、色はライトの青である。各曲線の言葉が 8pt で二つの上端の中央の中点にある。隠した組の曲線と言葉は無い。HTML と SVG には曲線も言葉も無い |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、ステータス、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |

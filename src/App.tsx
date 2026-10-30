@@ -2373,6 +2373,7 @@ function App() {
           exportMilestones: milestones,
           milestoneGroups: schedule.milestoneGroups,
           taskNames,
+          connections: schedule.connections,
           exportedAtIso: new Date().toISOString(),
           excelColumns: excelColumns ?? DEFAULT_EXCEL_EXPORT_COLUMNS,
           fieldDefs: editableFieldDefs,
