@@ -1,4 +1,5 @@
 import { cloneOutlineRoot } from "./hierarchy";
+import { cloneConnections } from "./connections";
 import { documentToJson } from "./serialize";
 import { cloneCategories } from "./tasks";
 import type {
@@ -7,6 +8,7 @@ import type {
   MilestoneGroup,
   OutlineRoot,
   ScheduleLevelDef,
+  TaskConnection,
 } from "./types";
 
 export const HISTORY_MAX = 100;
@@ -16,6 +18,7 @@ export type DocumentSnapshot = {
   categories: Category[];
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
+  connections?: TaskConnection[];
   levels?: ScheduleLevelDef[];
   outline?: OutlineRoot;
 };
@@ -26,6 +29,7 @@ export function cloneSnapshot(snapshot: DocumentSnapshot): DocumentSnapshot {
     categories: cloneCategories(snapshot.categories),
     milestoneGroups: snapshot.milestoneGroups.map((group) => ({ ...group })),
     milestones: snapshot.milestones.map((milestone) => ({ ...milestone })),
+    connections: cloneConnections(snapshot.connections),
     levels: snapshot.levels?.map((level) => ({ ...level })),
     outline:
       snapshot.outline != null ? cloneOutlineRoot(snapshot.outline) : undefined,

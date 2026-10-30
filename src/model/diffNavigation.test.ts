@@ -8,6 +8,7 @@ import { defaultScheduleFilterViewState } from "./scheduleFilterPersistence";
 import { collapsedSetFromIds } from "./scheduleFilterPersistence";
 
 const TASK_A = "00000000-0000-4000-8000-00000000000a";
+const TASK_B = "00000000-0000-4000-8000-00000000000b";
 const CAT_A = "c1000001-0000-4000-8000-000000000001";
 const GRP_A = "d1000001-0000-4000-8000-000000000001";
 
@@ -25,13 +26,18 @@ function task(overrides: Partial<Task> & Pick<Task, "id" | "name">): Task {
   };
 }
 
-function doc(categories: Category[], title = "計画"): ScheduleDocument {
+function doc(
+  categories: Category[],
+  title = "計画",
+  connections?: ScheduleDocument["connections"],
+): ScheduleDocument {
   return {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title,
     milestoneGroups: [],
     milestones: [],
     categories,
+    connections,
   };
 }
 
@@ -291,6 +297,27 @@ describe("resolveDiffNavigation", () => {
       status: "blocked",
       message: "画面には無い",
     });
+  });
+
+  it("reveals the earlier task for connection diff rows", () => {
+    const file = doc(design([task({ id: TASK_A, name: "A" }), task({ id: TASK_B, name: "B" })]));
+    const screen = doc(
+      design([task({ id: TASK_A, name: "A" }), task({ id: TASK_B, name: "B" })]),
+      undefined,
+      [{ taskIds: [TASK_A, TASK_B], label: "新" }],
+    );
+    const connEntry = collectScheduleDiffEntries(screen, file).find(
+      (entry) => entry.nav.kind === "connection",
+    );
+    expect(connEntry).toBeDefined();
+    const outcome = resolveDiffNavigation(connEntry!, baseContext(screen));
+    expect(outcome.status).toBe("ok");
+    if (outcome.status === "ok") {
+      expect(outcome.reveal.kind).toBe("task");
+      if (outcome.reveal.kind === "task") {
+        expect(outcome.reveal.taskId).toBe(TASK_A);
+      }
+    }
   });
 
   it("marks title changes", () => {

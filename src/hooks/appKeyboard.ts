@@ -39,7 +39,7 @@ export type AppKeyAction =
   | { type: "selectTaskNextExtend" }
   | { type: "shiftTaskDates"; deltaDays: number }
   | { type: "shiftTaskEnd"; deltaDays: number }
-  | { type: "deleteLink"; fromId: ScheduleId; toId: ScheduleId }
+  | { type: "deleteLink"; fromId: ScheduleId; toId: ScheduleId; kind: "predecessor" | "connection" }
   | { type: "deleteTask" }
   | { type: "save" }
   | { type: "saveAs" }
@@ -412,6 +412,7 @@ export function decideAppKey(input: {
             type: "deleteLink",
             fromId: hovered.fromId,
             toId: hovered.toId,
+            kind: hovered.kind,
           },
         };
       }

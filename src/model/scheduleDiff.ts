@@ -15,6 +15,10 @@ import {
   type ScheduleDiffEntry,
 } from "./scheduleDiffEntry";
 import {
+  appendConnectionScheduleDiff,
+  deletedTaskIdsFromDiff,
+} from "./connectionScheduleDiff";
+import {
   fieldValueChangeLinesForDiff,
   fieldValueSnapshotLinesForDiff,
 } from "./fieldValuesDiff";
@@ -285,6 +289,16 @@ function diffBlocks(
       });
     }
   }
+
+  const deletedTaskIds = deletedTaskIdsFromDiff(screen, file);
+  appendConnectionScheduleDiff(
+    push,
+    screen,
+    file,
+    screenTaskNames,
+    fileTaskNames,
+    deletedTaskIds,
+  );
 
   return blocks;
 }

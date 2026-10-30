@@ -42,6 +42,7 @@ write-schedule スキルに従い、schedule-viewer 用のスケジュール JSO
 - プロジェクトの title: （例: 〇〇プロジェクト）
 - カテゴリ、グループ、タスクの階層と並び: （WBS の構造を書く）
 - 各タスク: name、start、end、confidence（日付を合意したなら committed、まだなら tentative）、assigneeId（未割当は null。一人は id の文字列。二人以上は入れた順の id 配列）、status、progress、predecessors（先行タスクの id。無ければ空）
+- 任意: ルートの `connections`（2タスク間の繋がり。`predecessors` とは別。各要素は `taskIds` と `label`）
 - 担当者 ID の一覧（assigneeId に使ってよい id だけ）: （メンバー JSON の id を列挙）
 - 色の一覧を使うときだけ、各項目の description に合う id を colorId に書く（必須にしない）
 - マイルストン（あれば）: name、date、confidence、groupId
@@ -114,4 +115,4 @@ MCP を置いていないときは、☰ の「差分を表示」か、状態バ
 
 ## 残した行を書き出す
 
-絞り込みと折りたたみで残した行だけを、☰ の「書き出し」で HTML または SVG にできます。行数と図の大きさの上限、書き出しに入る行の範囲は [全機能の「書き出す」](features.md#書き出す) にあります。
+絞り込みと折りたたみで残した行だけを、☰ の「書き出し」で HTML または SVG にできます。HTML と SVG には、前後の折れ線は入りますが、前後ではない繋がりの円弧と言葉は入りません。行数と図の大きさの上限、書き出しに入る行の範囲は [全機能の「書き出す」](features.md#書き出す) にあります。

@@ -155,5 +155,5 @@ export function normalizeScheduleDocument(
     doc.outline != null
       ? doc.outline.map((node) => normalizeOutlineNode(node))
       : doc.outline;
-  return { ...doc, categories, outline };
+  return { ...doc, categories, outline, connections: doc.connections };
 }

@@ -124,6 +124,7 @@ export function taskBarResizeEdgeAt(
 export type ChartPointerLink = {
   fromId: ScheduleId;
   toId: ScheduleId;
+  kind: "predecessor" | "connection";
 };
 
 export type ChartPointer = {
@@ -312,7 +313,13 @@ export function resolveChartHover(input: {
     hover: {
       overTask,
       overMilestone: input.overMilestone,
-      link: linkHit ? { fromId: linkHit.fromId, toId: linkHit.toId } : null,
+      link: linkHit
+        ? {
+            fromId: linkHit.fromId,
+            toId: linkHit.toId,
+            kind: linkHit.kind ?? "predecessor",
+          }
+        : null,
       hoverTaskId,
     },
     previewEnd: linkPreviewEnd({
@@ -330,7 +337,8 @@ export function chartHoverEquals(prev: ChartHover, next: ChartHover): boolean {
     prev.overMilestone === next.overMilestone &&
     prev.hoverTaskId === next.hoverTaskId &&
     prev.link?.fromId === next.link?.fromId &&
-    prev.link?.toId === next.link?.toId
+    prev.link?.toId === next.link?.toId &&
+    prev.link?.kind === next.link?.kind
   );
 }
 

@@ -121,9 +121,22 @@
 | 同上 | `rejects a cycle for the whole apply` | EDIT-04, EDIT-05 |
 | `appKeyboard.test.ts` | `shifts dates when multiple tasks are selected without a primary id` | EDIT-03, EDIT-04 |
 | 同上 | `deletes when multiple tasks are selected` | EDIT-01, EDIT-09 |
-| `dependencies.test.ts` | `keeps a right elbow when the gap fits the arrow` | VIEW-08 |
+| `baselineDiffsConnections.test.ts` | `classifies screen-only removal as 画面のみ` / `mergeBaselineConnections` の片側削除と両側追加 | SYNC-01, FILE-07 |
+| `diffNavigation.test.ts` | `reveals the earlier task for connection diff rows` | FILE-07 |
+| `dependencies.test.ts` | `includes connection partner reachable through dependencies` | FILTER-08 |
 | 同上 | `approaches from the left when the gap is shorter than the arrow` | VIEW-08 |
 | 同上 | `routes around a bar that starts before the predecessor ends` | VIEW-08 |
+| `connections.test.ts` | `accepts sample schedule without connections` | VIEW-15 |
+| 同上 | `accepts connections example schedule` | VIEW-15 |
+| 同上 | `rejects duplicate pairs regardless of order` | VIEW-15 |
+| 同上 | `routes above an obstacle bar between rows` | VIEW-15 |
+| 同上 | `keeps default position when nothing overlaps` | VIEW-15 |
+| 同上 | `shifts up when default overlaps` | VIEW-15 |
+| 同上 | `shifts left when default and up overlap` | VIEW-15 |
+| 同上 | `shifts right when other candidates overlap` | VIEW-15 |
+| 同上 | `keeps default when all four candidates overlap` | VIEW-15 |
+| 同上 | `skips up candidate above chart body top` | VIEW-15 |
+| 同上 | `later labels avoid earlier connection labels` | VIEW-15 |
 | 同上 | `hits the segment, the elbow, and the endpoint` | EDIT-12 |
 | 同上 | `picks the closer line and ignores points outside the threshold` | EDIT-12 |
 | 同上 | `appends the predecessor in one list` | EDIT-12 |
@@ -153,6 +166,11 @@
 | 同上 | `places bent elbow at the midpoint when the gap is narrower than 12px` | EXPORT-05 |
 | 同上 | `descriptor uses straight geometry on the same row` | EXPORT-05 |
 | 同上 | `descriptor uses bent geometry across rows` | EXPORT-05 |
+| `excelConnectionCurve.test.ts` | `includes a visible connection curve` | EXPORT-05 |
+| 同上 | `omits a connection when one task is hidden` | EXPORT-05 |
+| 同上 | `uses light arc color when the app is dark` | EXPORT-05 |
+| 同上 | `includes the connection label` | EXPORT-05 |
+| 同上 | `uses light label color when the app is dark` | EXPORT-05 |
 | `excelLightning.test.ts` | `returns null when the lightning line is off` | EXPORT-05 |
 | 同上 | `returns null when today is outside the timeline` | EXPORT-05 |
 | 同上 | `returns null when there are no body rows` | EXPORT-05 |
@@ -179,6 +197,9 @@
 | 同上 | `indents two-level hierarchy like top heading and task` | EXPORT-05 |
 | 同上 | `indents five-level hierarchy through depth 4 on tasks` | EXPORT-05 |
 | 同上 | `matches legacy category group task indents for three-level outline headings` | EXPORT-05 |
+| 同上 | `puts connection curves into the payload` | EXPORT-05 |
+| 同上 | `leaves dependency connectors unchanged when a connection is present` | EXPORT-05 |
+| 同上 | `counts connection labels toward the drawing limit` | EXPORT-05 |
 | `excelExportColumns.test.ts` | `uses default columns when storage is empty` | EXPORT-01, EXPORT-05 |
 | 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
 | 同上 | `defaults field columns to off`、`inserts enabled field columns before note`、`disambiguates duplicate names only among enabled field columns` | EXPORT-01, EXPORT-05 |
@@ -717,6 +738,7 @@
 | 同上 | `includes extra days when fitting to the viewport width` | NAV-01, VIEW-04 |
 | 同上 | `includes prefix days before the data range when fitting` | NAV-01, VIEW-04 |
 | `contrast.test.ts` | `meets text contrast for bar labels` | VIEW-02 |
+| 同上 | `meets contrast for connection arcs` | VIEW-15 |
 | 同上 | `steps a fixed ratio and stays put at the ends` | SET-01 |
 | 同上 | `leaves auto for the neighboring fixed step` | SET-01 |
 | 同上 | `compares auto scale at two decimal places` | SET-01 |
@@ -792,6 +814,8 @@
 | 同上 | `stroke_color_change_updates_connector_rgb_only` | 色だけ違う二つのブックでコネクタの `srgbClr` だけが変わる | EXPORT-05 |
 | 同上 | `summary_gap_line_spans_date_columns` | 親バーの点線が列をまたぎ、角が `rtTriangle` で、追加図形の id がバーと重ならない | EXPORT-05 |
 | `excel_drawing_patch` | `connector_anchors_use_edge_centers_same_row` など | 辺の中央へのスナップと `flipH` / `flipV` | EXPORT-05 |
+| 同上 | `connection_curve_uses_top_sites_and_default_curve` | 上端の接続点 0、`curvedConnector3`、矢印なし、ライトの色 | EXPORT-05 |
+| 同上 | `connection_curve_label_is_a_separate_textbox` | 8pt、言葉の文字列、ライトの文字色、曲線とは別の文字図形 | EXPORT-05 |
 | 同上 | `horizontal_span_end_advances_columns_by_width` | 日付列幅で終端列と列内オフセットを進める | EXPORT-05 |
 | `require_active_save_path_accepts_matching_path` | 開いているパスと一致すれば上書きできる | FILE-02 |
 | `require_active_save_path_rejects_mismatch_and_missing` | パスの不一致と、ファイルを開いていない状態は拒否する | FILE-02 |
@@ -860,7 +884,7 @@
 | `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` と `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する | MCP-01 |
+| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する。`replace_schedule` の説明に繋がりの規則（`predecessors とは別`、`繋がりの話でない更新では`、`残ったタスク同士はつなぎ直さない` など）がある。`current_schedule` の説明に `connections` と、タスク読み取りには載らない旨がある | MCP-01 |
 | `build_mcp_open_windows_orders_live_and_sets_front`（`window_session.rs`） | 生きているラベルだけを記録順に並べ、`file`・`folder`・`front` を付け、絶対パスを含めない | MCP-01 |
 | `build_mcp_open_windows_omits_home_path_segments`（`window_session.rs`） | ホーム配下のパスでも `file`・`folder` は末尾と親だけ。JSON に `/Users` などを含めない | MCP-01 |
 | `resolve_mcp_label_with_override_absent_matches_front_resolution`（`window_session.rs`） | `window` 省略時の送り先は `resolve_mcp_screen_window_label` と同じ | MCP-01 |
@@ -925,6 +949,8 @@
 | `examples/fields.schedule.json` | 合成キー `sample_*` の値。タスク 2 件（値あり・値なし） | `npm run check:schedule -- examples/fields.schedule.json` |
 | `examples/fields/sample.fields.json` | プラグイン ID `sample` の定義 5 件 | `npm run check:schedule -- examples/fields/sample.fields.json` |
 | `examples/fields/workspace.json` | 上記スケジュールと拡張を束ねる設定ファイル | 手動（FILE-10） |
+| `examples/connections/schedule.json` | VIEW-15 用。重なる組、離れる組、斜め、あいだの棒、一つから複数、塗った行、端が塗ってある組 | `npm run check:schedule -- examples/connections/schedule.json` |
+| `examples/connections/workspace.json` | 上記スケジュールと色の一覧を束ねる設定ファイル | 手動（FILE-10、VIEW-15） |
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
 
@@ -1070,6 +1096,13 @@
 | TC-VIEW-08 | VIEW-08 | 後続の開始が先行の終了より前の組と、同じ日に始まる組 | 線を見る | 先行の終了より前に始まる組の線だけが赤い。どちらかを折りたたむと線は消える |
 | TC-VIEW-08b | VIEW-08 | 先行と後続が見えている | 後続の開始を超えるまで先行の終了を延ばし、離す前に線を見る。同じ日まで戻してから離す | 離す前に赤く太くなる。同じ日では赤くならない。離してから「前後: 破綻のみ」に入る |
 | TC-VIEW-08c | VIEW-08 | 先行の終了と後続の開始が数日以内の組 | 月表示まで縮小して線を見る。週表示でも見る | どちらの表示でも矢印の頭が後続バーの左の外にあり、後続の行へ向かう線が分かる |
+| TC-VIEW-15 | VIEW-15 | `examples/connections/schedule.json` を開く | 「期間が重なる」と「期間が離れる」の組で、前後の矢印と円弧が同時に見えることを見る。「斜め」「一つから複数」の円弧と言葉を見る。「一つから複数」で、近くに空きがある言葉は棒の文字から離れ、空きが無い言葉は重なったままでよい | 円弧は棒の上端同士を結び、矢印が無く、色と太さが前後の線と違う。言葉が見える。期間が重なる組と重ならない組がある。斜めの組ではあいだの棒が障害にならない。一つの起点から複数の円弧が出る |
+| TC-VIEW-15b | VIEW-15 | 同じファイルの「あいだの棒（円弧が上を通る）」の組。塗った行は `examples/connections/workspace.json` をデスクトップ版で開く。「期間が重なる」「期間が離れる」の完了バーに接する端も見る | 円弧があいだの棒の上を通ること、塗った行の地の上でも線と言葉が見えることを見る。完了の緑の棒の端でも、ライトとダークで円弧と言葉が棒から離れて見える | ふくらみは1週間幅まで。どの組も上へふくらむ |
+| TC-VIEW-15c | VIEW-15 | 同じファイル | 繋がりの端のタスクを1件削除し、保存して開き直す | その円弧だけ消え、残った円弧と言葉が JSON に残る。日付は動かない。円弧は赤くならない |
+| TC-EDIT-23 | EDIT-23 | `examples/connections/schedule.json` をブラウザ版で開く | 1件選び、詳細の「足す」でダイアログを開く。相手と言葉の欄が最初から両方見える。相手未選択または言葉が空のまま確定すると文書は変わらずダイアログは開いたまま。キャンセルでは足さない。相手と言葉を入れて確定すると1組足る。言葉を空または空白だけにして確定すると理由が出て欄は保存済みの言葉に戻る。言葉を変え、一覧から外す。「線を引く」は前後の線のままである。Delete と Backspace、ツールバーの削除はタスクを消す。円弧の右クリックは確認しない | 操作どおりに JSON が変わり、取り消しが効く |
+| TC-EDIT-23b | EDIT-23 | 同じファイル | 複製ダイアログと一括パネルに繋がりを足す欄が無い。1件に戻し、ダイアログで足せる | 複製と一括では組を足さない |
+| TC-EDIT-23c | EDIT-23 | 同じファイル | 系統の「繋がりも辿る」を試す。札と主ボタンで全部外れること。右クリックの系統は前後だけ | 「前後: 破綻のみ」で円弧は残る。繋がりだけではタスク行は残らない |
+| TC-FILE-07z | FILE-07, EDIT-23 | パスのあるファイルで `connections` がある JSON を開く | 詳細またはチャートで繋がりを1組外す。何も押さず右端の取っ手を見る。取っ手で列を開く | 取っ手が出る。列には外した1組の「削除 繋がり」だけが出る。残した組は出ない |
 | TC-VIEW-09 | VIEW-09 | カレンダー未設定で日表示 | 背景を見る | 土日だけが薄い灰。月表示では日ごとに塗らない |
 | TC-VIEW-10 | VIEW-10 | 使用中カタログがある | 割り当てなし、一致する ID、存在しない ID の行を見る。割り当てなしを選択し、カーソルを乗せる。期限超過の割り当てなし行も見る。ライトとダーク、HTML と SVG の書き出しも確かめる | 一覧では「未割当」は琥珀色の札で切れず、名前付きは薄い文字、一致は表示名、「メンバー不明」と ID は紫の札。選択中とホバーでも札の地色が残る。期限超過でも「未割当」は赤くならない。チャートのバーに破線や上端の色は出ない。書き出しも同じ札である |
 | TC-VIEW-11 | VIEW-11 | ノートがあるタスクと無いタスク | ノートアイコンを押す | 色が違い、本文が出る。無いタスクは「ノートはありません」 |
@@ -1241,6 +1274,7 @@
 | TC-EXPORT-03 | EXPORT-03 | 書き出しの行が 10,000 を超えるデータ | 「書き出し」を実行する | ファイルを作らず、行数の上限を理由に出す |
 | TC-EXPORT-04 | EXPORT-04 | タイトルに `/` や `:` がある | 書き出しの保存ダイアログを開く | 提案名からそれらの文字が除かれ、選んだ形式の拡張子が付く |
 | TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。二人以上の担当を付けたタスクがある。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する。担当列をオンにし、複数担当のタスク行と見出し行、マイルストン行を見る | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。担当列は1列のままである。タスク行の担当セルは、棒の右と同じ文字列で、入れた順を「、」でつないですべて入り、8文字では切らない。同名の表示名だけ id が付く。空は「未割当」、一覧に無い id はその位置が「メンバー不明（id）」である。見出し行とマイルストン行の担当列は空である。担当を増やしても行数と日付の図形の数は増えない。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。グループ名と遅延のタスク名は、画面がダークでもライト配色の文字色で読める。カテゴリの塗りは左の列だけである。マイルストンは、確定が「◆ 名前」、未確定が「◇ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
+| TC-EXPORT-05b | EXPORT-05, VIEW-15 | デスクトップ版で `examples/connections/schedule.json` を開く。設定をダークにする | Excel に書き出してブックを開く。前後のカギ線と繋がりの曲線、HTML と SVG を見る。片方の端の行を折りたたみまたは絞り込みで隠してから Excel をもう一度書き出す | Excel が修復を出さない。前後は右辺の中央から左辺の中央へのカギ線矢印のままである。繋がりは矢印の無い曲線で、両端が棒の上端の中央に付き、色はライトの青である。各曲線の言葉が 8pt で二つの上端の中央の中点にある。隠した組の曲線と言葉は無い。HTML と SVG には曲線も言葉も無い |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、ステータス、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
@@ -1356,6 +1390,7 @@
 | TC-MCP-01d | MCP-01 | ブラウザ版 | 設定を開く | 「画面の状態を渡す」の欄が無い |
 | TC-MCP-01f | MCP-01 | デスクトップ版、ファイルを開き、絞り込み・折りたたみ・選択・系統を変えた状態 | `write-schedule` で検証済みの JSON 全体を作り、`replace_schedule` を 1 回呼ぶ。同じ保存形式の JSON をもう一度呼ぶ。詳細パネルにフォーカスがある状態でも呼ぶ。起動復旧の衝突・ファイル無し・不正控えのダイアログが出ている状態でも呼ぶ | 1 回目は未保存になり、隅に「画面を置き換えました」が約 4 秒出る。ファイルの内容は変わらない。絞り込み・折りたたみ・ズーム・スクロール・系統は変わらない。選択は新文書に残るタスクだけ残る。⌘/Ctrl+Z で置き換え前に戻る。2 回目は未保存も履歴も変わらないが差分テキストは成功で返る。詳細のフォーカス中は「画面の操作が途中なので、置き換えられません。」起動復旧のダイアログ中は「起動の復旧が終わっていないので、置き換えられません。」確認ダイアログは出ない |
 | TC-MCP-01g | MCP-01 | デスクトップ版。パス無しのサンプル、外部更新の帯、同じファイルの2ウィンドウ、開く・保存の途中、並べ替えの握りドラッグ中、10MB超・壊れたJSON・検証失敗の入力、差分が応答上限を超える置き換え | 各条件で `replace_schedule` を呼ぶか `--screen replace_schedule` で標準入力を渡す | パス無しの成功は「比べるファイルがありません」で失敗にしない。JSON として読めない・検証失敗・10MB 超はそれぞれの文で拒否し画面も履歴も変えない。差分が大きすぎても置き換えは残り「差分が大きすぎるため、差分テキストは返せません。」は失敗にしない。「ファイルに更新あり — 確認する」は消えない。背面ウィンドウの文書は変わらない。衝突が無い外部更新の確認、設定など別のダイアログ、ファイル操作中・並べ替えドラッグ中は「画面の操作が途中なので、置き換えられません。」SYNC-01 の衝突確認だけ開いているときは置き換えられ、確認は閉じる（TC-SYNC-01k） |
+| TC-MCP-01j | MCP-01 | デスクトップ版、`examples/connections/` を開く | `current_schedule` と `selected_task` を呼ぶ。繋がりと無関係な置き換えのあと、1組足す、同じ組の言葉だけ変える、1組だけ外す、残りが1件になるまで外してからその1件を外す、タスクを消してその端の繋がりも外す JSON をそれぞれ `replace_schedule` で渡す | `current_schedule` にルートの `connections` がある。`selected_task` には無い。無関係な置き換えのあとも組と `taskIds` の順が残る。足す・言葉変更・1組だけ外すが画面に反映され、1組だけ外したあともルートの `connections` は残る。ファイルは変わらず未保存になる。残り1件のあとその1件を外すとキーが無い。タスク削除ではその id を含む組だけ無く、残ったタスク同士の新しい組は無い |
 | TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen open_windows`、`--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks`、`--screen current_schedule` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`current_schedule` はスケジュール JSON 全体が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 

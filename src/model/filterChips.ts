@@ -101,6 +101,7 @@ export function activeFilterChips(
   scheduleTags: readonly string[] = [],
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
   scheduleFields: readonly ScheduleFieldDef[] | undefined = undefined,
+  lineageIncludesConnections = false,
 ): FilterChip[] {
   const chips: FilterChip[] = [];
   if (filters.assignee === UNASSIGNED_FILTER) {
@@ -152,7 +153,12 @@ export function activeFilterChips(
     chips.push({ kind: "noteSearch", label: `ノート: 「${noteSearch}」` });
   }
   if (lineageName) {
-    chips.push({ kind: "lineage", label: `系統: ${lineageName}` });
+    chips.push({
+      kind: "lineage",
+      label: lineageIncludesConnections
+        ? `系統: ${lineageName}（繋がりも）`
+        : `系統: ${lineageName}`,
+    });
   }
   const hidden = new Set(hiddenMilestoneGroupIds);
   for (const group of milestoneGroups) {

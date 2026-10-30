@@ -48,4 +48,19 @@ describe("palette contrast", () => {
       contrastRatio(chart.statusNotStarted.border, chart.nonWorking),
     ).toBeGreaterThanOrEqual(3);
   });
+
+  it("meets contrast for connection arcs", () => {
+    const light = paletteFor("light").chart;
+    const dark = paletteFor("dark").chart;
+    expect(contrastRatio(light.connectionArc, light.exportBg)).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(light.connectionArc, light.nonWorking)).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(light.connectionArcLabel, light.exportBg)).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(light.connectionArcHalo, light.statusDone.bg),
+    ).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(dark.connectionArc, dark.exportBg)).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(dark.connectionArc, dark.nonWorking)).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(dark.connectionArcLabel, dark.exportBg)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(dark.connectionArcHalo, dark.statusDone.bg)).toBeGreaterThanOrEqual(3);
+  });
 });

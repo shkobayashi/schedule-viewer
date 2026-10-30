@@ -5,7 +5,7 @@ import {
   type ValidationIssue,
 } from "./scheduleSemantics";
 import { forEachTask, mapTasks } from "./tasks";
-import { SCHEDULE_SCHEMA_VERSION, type Category, type ScheduleId, type Task } from "./types";
+import { SCHEDULE_SCHEMA_VERSION, type Category, type ScheduleId, type Task, type TaskConnection } from "./types";
 import { formatValidationErrors } from "./validateSchedule";
 
 export type TaskRef = {
@@ -133,6 +133,92 @@ export function lineageTaskIdsFromTasks(
   return ids;
 }
 
+function dependencyReachFromTask(
+  predecessors: Map<ScheduleId, ScheduleId[]>,
+  successors: Map<ScheduleId, ScheduleId[]>,
+  startId: ScheduleId,
+): Set<ScheduleId> | null {
+  if (!predecessors.has(startId)) return null;
+  const ids = new Set<ScheduleId>([startId]);
+  const walkFrom = (
+    root: ScheduleId,
+    nextOf: (id: ScheduleId) => ScheduleId[] | undefined,
+  ) => {
+    const stack = [root];
+    const seen = new Set<ScheduleId>([root]);
+    while (stack.length > 0) {
+      const id = stack.pop();
+      if (id == null) continue;
+      for (const other of nextOf(id) ?? []) {
+        if (seen.has(other) || !predecessors.has(other)) continue;
+        seen.add(other);
+        ids.add(other);
+        stack.push(other);
+      }
+    }
+  };
+  walkFrom(startId, (id) => predecessors.get(id));
+  walkFrom(startId, (id) => successors.get(id));
+  return ids;
+}
+
+/** 起点の前後系統に、繋がりの相手とその前後を届くところまで足す。 */
+export function lineageTaskIdsFromTasksWithConnections(
+  tasks: readonly Task[],
+  connections: readonly TaskConnection[] | undefined,
+  rootId: ScheduleId,
+): Set<ScheduleId> | null {
+  const base = lineageTaskIdsFromTasks(tasks, rootId);
+  if (!base || connections == null || connections.length === 0) return base;
+
+  const predecessors = new Map<ScheduleId, ScheduleId[]>();
+  const successors = new Map<ScheduleId, ScheduleId[]>();
+  for (const task of tasks) {
+    predecessors.set(task.id, task.predecessors);
+    for (const predId of task.predecessors) {
+      const next = successors.get(predId);
+      if (next) next.push(task.id);
+      else successors.set(predId, [task.id]);
+    }
+  }
+
+  const partnersByTask = new Map<ScheduleId, ScheduleId[]>();
+  for (const connection of connections) {
+    const [a, b] = connection.taskIds;
+    const listA = partnersByTask.get(a);
+    if (listA) listA.push(b);
+    else partnersByTask.set(a, [b]);
+    const listB = partnersByTask.get(b);
+    if (listB) listB.push(a);
+    else partnersByTask.set(b, [a]);
+  }
+
+  const ids = new Set(base);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const pending: ScheduleId[] = [];
+    for (const id of ids) {
+      for (const partner of partnersByTask.get(id) ?? []) {
+        if (!ids.has(partner)) pending.push(partner);
+      }
+    }
+    for (const partner of pending) {
+      ids.add(partner);
+      changed = true;
+      const reach = dependencyReachFromTask(predecessors, successors, partner);
+      if (!reach) continue;
+      for (const reached of reach) {
+        if (!ids.has(reached)) {
+          ids.add(reached);
+          changed = true;
+        }
+      }
+    }
+  }
+  return ids;
+}
+
 export function lineageTaskIds(
   categories: Category[],
   rootId: ScheduleId,
@@ -257,6 +343,8 @@ export type LinkPolyline = {
   fromId: ScheduleId;
   toId: ScheduleId;
   points: number[];
+  /** 省略時は終わってから始まる前後の線。 */
+  kind?: "predecessor" | "connection";
 };
 
 function pointToSegmentDistance(

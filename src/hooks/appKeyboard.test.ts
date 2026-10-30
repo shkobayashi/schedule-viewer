@@ -71,7 +71,7 @@ describe("decideAppKey", () => {
   });
 
   it("deletes the hovered link before the selected task", () => {
-    const link = { fromId: "from", toId: "to" };
+    const link = { fromId: "from", toId: "to", kind: "predecessor" as const };
     expect(
       decide({
         event: {
@@ -85,7 +85,12 @@ describe("decideAppKey", () => {
         pointer: { overTask: false, overMilestone: false, link, hoverTaskId: null },
         selectedTaskId: "task-a",
       }).action,
-    ).toEqual({ type: "deleteLink", fromId: "from", toId: "to" });
+    ).toEqual({
+      type: "deleteLink",
+      fromId: "from",
+      toId: "to",
+      kind: "predecessor",
+    });
     expect(
       decide({
         event: {

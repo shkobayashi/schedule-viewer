@@ -30,6 +30,7 @@ type UseAppKeyboardOptions = {
   openTaskNote: (taskId: ScheduleId) => void;
   clearLinkMode: () => void;
   removePredecessorLink: (fromId: ScheduleId, toId: ScheduleId) => void;
+  removeTaskConnection: (a: ScheduleId, b: ScheduleId) => void;
   chartPointerRef: { current: ChartPointer };
   closeFloatingMenus: () => void;
   requestDeleteTask: () => void;
@@ -92,6 +93,7 @@ export function useAppKeyboard({
   openTaskNote,
   clearLinkMode,
   removePredecessorLink,
+  removeTaskConnection,
   chartPointerRef,
   closeFloatingMenus,
   requestDeleteTask,
@@ -249,7 +251,11 @@ export function useAppKeyboard({
         return;
       }
       if (action.type === "deleteLink") {
-        removePredecessorLink(action.fromId, action.toId);
+        if (action.kind === "connection") {
+          removeTaskConnection(action.fromId, action.toId);
+        } else {
+          removePredecessorLink(action.fromId, action.toId);
+        }
         return;
       }
       if (action.type === "deleteTask") {
@@ -309,6 +315,7 @@ export function useAppKeyboard({
     onDuplicateTask,
     redo,
     removePredecessorLink,
+    removeTaskConnection,
     requestDeleteTask,
     requestOpen,
     requestOpenInNewWindow,

@@ -14,6 +14,7 @@ import type {
   ScheduleFieldDef,
   ScheduleLevelDef,
   Task,
+  TaskConnection,
 } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 
@@ -71,11 +72,24 @@ export function scheduleToJson(
   levels?: ScheduleLevelDef[] | null,
   outline?: OutlineRoot | null,
   fieldDefsForValues?: ScheduleFieldDef[] | null,
+  connections?: TaskConnection[] | null,
 ): ScheduleDocument {
   const valueFieldDefs =
     fieldDefsForValues != null && fieldDefsForValues.length > 0
       ? fieldDefsForValues
       : undefined;
+  const connectionJson =
+    connections != null && connections.length > 0
+      ? connections.map((connection) => ({
+          taskIds: [connection.taskIds[0], connection.taskIds[1]] as [
+            string,
+            string,
+          ],
+          label: connection.label,
+        }))
+      : undefined;
+  const withConnections = <T extends ScheduleDocument>(doc: T): T =>
+    connectionJson != null ? { ...doc, connections: connectionJson } : doc;
   const base: ScheduleDocument = {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title,
@@ -95,7 +109,7 @@ export function scheduleToJson(
 
   const hasLevels = levels != null && levels.length > 0;
   if (!hasLevels) {
-    return {
+    return withConnections({
       ...base,
       categories: categories.map((category) => ({
         id: category.id,
@@ -106,23 +120,23 @@ export function scheduleToJson(
           tasks: group.tasks.map((task) => taskToJson(task, valueFieldDefs)),
         })),
       })),
-    };
+    });
   }
 
   const levelDefs = levels.map((level) => normalizeLevelDefinition(level));
 
   if (outline != null && outline.length > 0) {
-    return {
+    return withConnections({
       ...base,
       levels: levelDefs,
       outline: outlineToJson(outline, valueFieldDefs),
-    };
+    });
   }
 
-  return {
+  return withConnections({
     ...base,
     levels: levelDefs,
-  };
+  });
 }
 
 export function documentToJson(
@@ -136,6 +150,7 @@ export function documentToJson(
     doc.levels,
     doc.outline,
     undefined,
+    doc.connections,
   );
 }
 
@@ -231,6 +246,12 @@ function orderScheduleKeys(
     milestoneGroups: doc.milestoneGroups,
     milestones: doc.milestones,
   };
+  if (doc.connections != null && doc.connections.length > 0) {
+    result.connections = doc.connections.map((connection) => ({
+      taskIds: [...connection.taskIds],
+      label: connection.label,
+    }));
+  }
   if (documentHasLevels(doc)) {
     result.levels = doc.levels;
   }

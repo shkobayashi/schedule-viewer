@@ -347,5 +347,8 @@ export function sampleScheduleDocument(): ScheduleDocument {
     sampleCategories,
     sampleMilestoneGroups,
     sampleMilestones,
+    null,
+    null,
+    null,
   );
 }

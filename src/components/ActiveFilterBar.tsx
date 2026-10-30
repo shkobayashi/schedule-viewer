@@ -21,6 +21,7 @@ type ActiveFilterBarProps = {
   hiddenMilestoneGroupIds: ScheduleId[];
   assigneeLabel: string | null;
   lineageName: string | null;
+  lineageIncludesConnections?: boolean;
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
   onClearLineage: () => void;
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
@@ -37,6 +38,7 @@ export function ActiveFilterBar({
   hiddenMilestoneGroupIds,
   assigneeLabel,
   lineageName,
+  lineageIncludesConnections = false,
   onFiltersChange,
   onClearLineage,
   onMilestoneGroupVisible,
@@ -55,6 +57,7 @@ export function ActiveFilterBar({
     scheduleTags,
     statuses,
     scheduleFields,
+    lineageIncludesConnections,
   );
   if (chips.length === 0) return null;
 

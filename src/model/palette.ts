@@ -25,6 +25,9 @@ export type ChartPalette = {
   linkOk: string;
   linkBroken: string;
   linkTargetStroke: string;
+  connectionArc: string;
+  connectionArcHalo: string;
+  connectionArcLabel: string;
   lightning: string;
   resizeHandle: string;
   dragDateFill: string;
@@ -154,6 +157,9 @@ const LIGHT: AppPalette = {
     linkOk: "#8A94A6",
     linkBroken: "#C4351A",
     linkTargetStroke: "#0C7C86",
+    connectionArc: "#0369A1",
+    connectionArcHalo: "#ffffff",
+    connectionArcLabel: "#075985",
     lightning: "#E07B20",
     resizeHandle: "#4C5FD5",
     dragDateFill: "#FFFFFF",
@@ -239,6 +245,9 @@ const DARK: AppPalette = {
     linkOk: "#8a94a6",
     linkBroken: "#f07050",
     linkTargetStroke: "#5ee0e0",
+    connectionArc: "#7DD3FC",
+    connectionArcHalo: "#1c1f26",
+    connectionArcLabel: "#BAE6FD",
     lightning: "#f0a040",
     resizeHandle: "#7b8cff",
     dragDateFill: "#3a4254",

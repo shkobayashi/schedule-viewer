@@ -12,7 +12,14 @@ import { scheduleXlsxFilename } from "./exportFilename";
 import { isOverdue, taskBarExclusiveEnd } from "./timeline";
 import { BUILTIN_STATUS_ITEMS, statusLabel, type StatusItem } from "./statusCatalog";
 import { excelRowFillForColorId } from "./colorCatalog";
-import type { Milestone, MilestoneGroup, ScheduleId, Task } from "./types";
+import { excelConnectionCurvesForExport } from "./excelConnectionCurve";
+import type {
+  Milestone,
+  MilestoneGroup,
+  ScheduleId,
+  Task,
+  TaskConnection,
+} from "./types";
 import type { GridTier } from "./timeline";
 import { paletteFor } from "./palette";
 import { normalizeTaskNote } from "./taskNote";
@@ -111,6 +118,14 @@ export type ExcelExportConnector = {
   bentAdj1: number;
 };
 
+export type ExcelExportConnectionCurve = {
+  fromShapeIndex: number;
+  toShapeIndex: number;
+  strokeRgb: string;
+  label: string;
+  labelTextRgb: string;
+};
+
 export type ExcelExportTodayLine = {
   row: number;
   anchorCol: number;
@@ -130,6 +145,7 @@ export type ExcelExportPayload = {
   rows: ExcelExportRow[];
   shapes: ExcelExportShape[];
   connectors: ExcelExportConnector[];
+  connectionCurves: ExcelExportConnectionCurve[];
   todayLine: ExcelExportTodayLine | null;
   milestoneMarks: { row: number; colIndex: number; character: string }[];
   headerGrayRgb: string;
@@ -151,6 +167,7 @@ export type ScheduleExcelInput = ScheduleExportInput & {
   exportMilestones: Milestone[];
   milestoneGroups: MilestoneGroup[];
   taskNames: ReadonlyMap<ScheduleId, string>;
+  connections?: readonly TaskConnection[];
   exportedAtIso: string;
   excelColumns: ExcelExportColumnsPreference;
   fieldDefs: readonly ScheduleFieldDef[];
@@ -239,7 +256,7 @@ function scopeSentence(input: ScheduleExcelInput): string {
   return `絞り込み・折りたたみで見えている行だけを書き出しています。書き出し: ${exportedAt}`;
 }
 
-function assertExcelLimits(payload: ExcelExportPayload): void {
+export function assertExcelLimits(payload: ExcelExportPayload): void {
   const dataRows =
     payload.rows.length + payload.milestoneRows.length + 1;
   if (dataRows > EXPORT_MAX_ROWS) {
@@ -255,6 +272,7 @@ function assertExcelLimits(payload: ExcelExportPayload): void {
   const drawingCount =
     payload.shapes.length +
     payload.connectors.length +
+    payload.connectionCurves.length * 2 +
     (payload.todayLine ? 1 : 0) +
     payload.summaryGapLines.length +
     payload.summaryCaps.length;
@@ -529,6 +547,17 @@ export function buildExcelExportPayload(
     });
   }
 
+  const visibleTaskIds = new Set(
+    input.visibleRows.flatMap((row) =>
+      row.type === "task" ? [row.task.id] : [],
+    ),
+  );
+  const connectionCurves = excelConnectionCurvesForExport(
+    input.connections,
+    visibleTaskIds,
+    taskShapeIndexById,
+  );
+
   const todayLine = excelTodayLineDescriptor(
     input.showLightningLine,
     input.today,
@@ -555,6 +584,7 @@ export function buildExcelExportPayload(
     rows,
     shapes,
     connectors,
+    connectionCurves,
     todayLine,
     milestoneMarks,
     headerGrayRgb: EXCEL_SHEET_NON_WORKING_RGB,
