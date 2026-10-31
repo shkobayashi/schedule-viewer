@@ -64,6 +64,7 @@ Intel Mac では、[開発ガイドの配布用ビルド](docs/development.md#�
 | --- | --- |
 | [操作マニュアル](docs/user-manual.md) | 利用者向けの手順（[はじめに](docs/user-manual/getting-started.md)、[チュートリアル](docs/user-manual/tutorial.md)、[全機能](docs/user-manual/features.md)） |
 | [外部仕様](docs/external-spec.md) | 画面と機能の挙動。機能 ID の正本 |
+| [機能チェックリスト](docs/feature-checklist.md) | 仕様を足すときに、影響と抜けを見る一覧 |
 | [データ仕様](docs/data-format.md) | スケジュール、メンバー、カレンダー、色の一覧の JSON とアプリデータ |
 | [内部仕様](docs/internal-spec.md) | 構成、状態、Tauri コマンド、描画 |
 | [テスト仕様](docs/test-spec.md) | 自動テストと手動テスト |
