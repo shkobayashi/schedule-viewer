@@ -61,6 +61,7 @@ export type DiffNavigationContext = {
   memberMap: Map<MemberId, Member> | null;
   lineageIds: ReadonlySet<ScheduleId> | null;
   hiddenMilestoneGroupIds: ReadonlySet<ScheduleId>;
+  hiddenMilestoneIds: ReadonlySet<ScheduleId>;
   milestones: Milestone[];
   scrollY: number;
   rowHeight: number;
@@ -329,6 +330,13 @@ function revealMilestone(
   const groupId = milestone?.groupId;
   if (groupId != null && ctx.hiddenMilestoneGroupIds.has(groupId)) {
     return { status: "blocked", message: "帯の線がオフ" };
+  }
+  if (
+    !deleted &&
+    milestone != null &&
+    ctx.hiddenMilestoneIds.has(milestoneId)
+  ) {
+    return { status: "blocked", message: "帯の印がオフ" };
   }
   const date = deleted ? deletedDate ?? milestone?.date : milestone?.date;
   if (!date) {

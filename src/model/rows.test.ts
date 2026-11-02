@@ -112,6 +112,18 @@ describe("taskMatchesFilter milestone", () => {
       ),
     ).toBe(false);
   });
+
+  it("keeps tasks pointing at a hidden milestone mark", () => {
+    const task = { ...baseTask, milestoneId };
+    expect(
+      taskMatchesFilter(
+        task,
+        { ...filters, milestone: "all" },
+        "2026-01-01",
+        null,
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("taskMatchesFilter tag", () => {
