@@ -93,6 +93,10 @@ const MCP_CONNECTION_RULES: &str = "繋がりはルートの `connections` で�
 
 const MCP_CURRENT_SCHEDULE_CONNECTION_READ: &str = "繋がりがあるときはルートの `connections` が保存形と同じ位置で入る。1件以上あるときだけキーがある。`selected_task`、`selected_tasks`、`filtered_tasks` には載らない。";
 
+const MCP_STATUSES_IN_READ_TOOLS: &str = "続けて statuses は、使用中のステータス一覧（id、name、role、description、color.light.bg、color.light.border、color.dark.bg、color.dark.border。instruction がある項目だけ instruction も入る）です。ステータスの色はバーの見た目である。id を選ぶ材料にしない。選ぶ材料は description である。";
+
+const MCP_VIEW_IN_READ_TOOLS: &str = "続けて view は、そのウィンドウの見方（折りたたみ、表示サイズ、行の密度、イナズマ線、左一覧の追加列、配色、稼働日カレンダー）を一度だけ載せます。view.collapsed は今畳んでいる行（kind、id、name）です。折りたたみではタスクを減らさない。filtered_tasks の tasks には畳んだ行のタスクも残ります。displayScale の preference は auto または固定の段、effective は今のウィンドウで効いている倍率です。自動のときは効いている倍率も effective に載せます。colorScheme の preference が system のとき、effective は今効いている light か dark です。システムに合わせているときは効いている方を載せます。スクロール、1 日の幅、日・週・月、左一覧の幅、マイルストンの縦点線、ダイアログの開閉は view に含みません。";
+
 fn tools_list_result() -> Value {
     let read_schema = read_tool_window_schema();
     let current_schedule_description = [
@@ -105,6 +109,29 @@ fn tools_list_result() -> Value {
         "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。levels が無い JSON は段数 3 として扱い、画面が 3 段以外のときは置き換えません。levels がある JSON は、渡した段数と入れ子が揃っているときだけ、画面の段数と違っても置き換えます。揃っていないときは置き換えません。タスクの status には、読み取りツールの応答にある statuses の id だけを書きます。選ぶ材料は description です。name は画面の名前であり、選ぶ定義にはしません。role はアプリの描き方です。role が done だから完了、とは選びません。二つの description が同じ依頼に合うときは id を選ばず尋ねます。合う項目が無いときは id を作らず、利用者に尋ねます。instruction が無い項目のために進捗や確認を足しません。instruction があるときは、選んだあとにそこに書いてあることだけを守ります。進捗の数値が書いてあればその値にし、移す前に確認すると書いてあれば、移る前の項目と移った先の項目のどちらに書いてあっても、スケジュールを書く前に利用者へ尋ね、答えがあるまで書きません。description と instruction はタスクへコピーしません。タスクの colorId には、色の一覧の id だけを書きます。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときは読み取りツールの応答にある colors を使う。それも空なら書かない。id は作らない。色を選ぶ材料は description です。name と色の値は選ぶ定義にしません。色を付ける依頼では、文に合う項目が一つならその id を書く。どれにも合わないタスクには colorId を書かず、既に付いていても外す。二つ以上に合いそうなときは id を選ばず尋ね、答えがあるまで書かない。色の話でない更新では今ある colorId を残す。足さないし、消さない。色を外すと頼まれたときだけキーを省く。一覧に無い id を書いた colorId も残します。タスクの assigneeId には、メンバー一覧の id だけを書きます。一覧は、設定ファイルに members があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが members が無いとき、担当を付ける依頼は JSON を書かず不足として返す。設定ファイルが無いときは読み取りツールの応答にある members を使う。それも空なら、担当を付ける依頼は不足として返す。id は作らない。仕事の内容から選ぶときは description だけを見る。表示名は、この選び方には使わない。一つに合う人だけを担当にする。二つ以上に合うときと、どれにも合わないときは尋ね、id は作らない。説明が無い人は、名指しされたときだけ担当に使う。名指しが id か表示名で一人に定まるときは、その id を使う。表示名が二人以上に当たるときは尋ねる。名指しされた人は、説明が別の人に合っていても付け替えない。description はタスクへコピーしない。担当は assigneeId だけである。担当の話でない更新では今ある assigneeId を残す。追加項目の fieldValues は、読み取りツールの応答にある fields の key だけを新しく足します。定義に無い key と差分に出ていない key の値は残します。instruction が空の項目は、値が無いときだけ埋め、既にある値は書き換えません。差分に無い値は作りません。todos があるタスクの progress は件数から決める。スキルが書いた progress では置き換えない。todos を消すときは todos キーを省き、残す progress を progress に書く。",
         MCP_CONNECTION_RULES,
         " 前面ウィンドウのスケジュールだけを、検証済みの JSON 全体で未保存として置き換えます。背面のウィンドウは置き換えません。利用者が前面と違うウィンドウの更新だけを指しているときは、このツールを呼び出さずその旨を伝えます。外部更新の衝突確認が開いているときも置き換えられ、確認は閉じます。ファイルには書きません。置き換えたあと、内容を確認して問題なければ保存するよう利用者に促してください。成功時は FILE-07 と同じ差分テキストだけを返します。",
+    ]
+    .concat();
+    let read_tools_shared_suffix = [
+        "応答の先頭の levels は、階層の名前と意味（instruction がある段だけ instruction も入る。最後の段だけ task: true）を一度だけ載せます。",
+        MCP_STATUSES_IN_READ_TOOLS,
+        "続けて colors は、使用中の色の一覧（id、name、description、color.light.bg、color.dark.bg。一覧が無いときは空の配列）です。続けて members は、メンバー一覧（id、name。空でない description がある人だけ description も入る。一覧が無いときは空の配列）です。assigneeId には members の id だけを書く。一覧は、設定ファイルに members があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが members が無いとき、担当を付ける依頼は JSON を書かず不足として返す。設定ファイルが無いときはこの応答の members を使う。それも空なら、担当を付ける依頼は不足として返す。id は作らない。仕事の内容から選ぶときは description だけを見る。表示名は、この選び方には使わない。一つに合う人だけを担当にする。二つ以上に合うときと、どれにも合わないときは尋ね、id は作らない。説明が無い人は、名指しされたときだけ担当に使う。名指しが id か表示名で一人に定まるときは、その id を使う。表示名が二人以上に当たるときは尋ねる。名指しされた人は、説明が別の人に合っていても付け替えない。description はタスクへコピーしない。担当は assigneeId だけである。続けて fields は、使用中の追加項目の定義（key、name、type。meaning、instruction、required、percent、choices、default は空でないときだけ）を一度だけ載せます。定義が無いときは空の配列です。タスクには、colorId があるときだけ colorId を載せます。値があるときだけ fieldValues（合成キーと値）を載せます。colorId には色の一覧の id だけを書く。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときはこの応答の colors を使う。それも空なら書かない。色を選ぶ材料は description です。",
+        MCP_VIEW_IN_READ_TOOLS,
+        " window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+    ]
+    .concat();
+    let selected_task_description = [
+        "選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。",
+        read_tools_shared_suffix.as_str(),
+    ]
+    .concat();
+    let selected_tasks_description = [
+        "編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。",
+        read_tools_shared_suffix.as_str(),
+    ]
+    .concat();
+    let filtered_tasks_description = [
+        "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。",
+        read_tools_shared_suffix.as_str(),
     ]
     .concat();
     json!({
@@ -130,17 +157,17 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "selected_task",
-                "description": "選択がちょうど1件のとき、そのタスクだけを返します。分割や詳細化の相談で「このタスク」を指すときに使います。選択が無いときと2件以上のときは null です。複数のうちの1件を代表にはしません。選択数が不明なときは selected_tasks を使います。応答の先頭の levels は、階層の名前と意味（instruction がある段だけ instruction も入る。最後の段だけ task: true）を一度だけ載せます。続けて statuses は、使用中のステータス一覧（id、name、role、description。instruction がある項目だけ instruction も入る）です。続けて colors は、使用中の色の一覧（id、name、description、color.light.bg、color.dark.bg。一覧が無いときは空の配列）です。続けて members は、メンバー一覧（id、name。空でない description がある人だけ description も入る。一覧が無いときは空の配列）です。assigneeId には members の id だけを書く。一覧は、設定ファイルに members があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが members が無いとき、担当を付ける依頼は JSON を書かず不足として返す。設定ファイルが無いときはこの応答の members を使う。それも空なら、担当を付ける依頼は不足として返す。id は作らない。仕事の内容から選ぶときは description だけを見る。表示名は、この選び方には使わない。一つに合う人だけを担当にする。二つ以上に合うときと、どれにも合わないときは尋ね、id は作らない。説明が無い人は、名指しされたときだけ担当に使う。名指しが id か表示名で一人に定まるときは、その id を使う。表示名が二人以上に当たるときは尋ねる。名指しされた人は、説明が別の人に合っていても付け替えない。description はタスクへコピーしない。担当は assigneeId だけである。続けて fields は、使用中の追加項目の定義（key、name、type。meaning、instruction、required、percent、choices、default は空でないときだけ）を一度だけ載せます。定義が無いときは空の配列です。タスクには、colorId があるときだけ colorId を載せます。値があるときだけ fieldValues（合成キーと値）を載せます。colorId には色の一覧の id だけを書く。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときはこの応答の colors を使う。それも空なら書かない。色を選ぶ材料は description です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": selected_task_description,
                 "inputSchema": read_schema.clone(),
             },
             {
                 "name": "selected_tasks",
-                "description": "編集の選択を、タスクの配列で返します。選択が1件のときも要素が1つの配列です。選択数が不明なときはこのツールを使います。一括編集の相談で「これらのタスク」を指すときに使います。選択が無いときは空の配列です。並びはカテゴリ、グループ、タスクの文書順です。応答の先頭の levels は、階層の名前と意味（instruction がある段だけ instruction も入る。最後の段だけ task: true）を一度だけ載せます。続けて statuses は、使用中のステータス一覧（id、name、role、description。instruction がある項目だけ instruction も入る）です。続けて colors は、使用中の色の一覧（id、name、description、color.light.bg、color.dark.bg。一覧が無いときは空の配列）です。続けて members は、メンバー一覧（id、name。空でない description がある人だけ description も入る。一覧が無いときは空の配列）です。assigneeId には members の id だけを書く。一覧は、設定ファイルに members があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが members が無いとき、担当を付ける依頼は JSON を書かず不足として返す。設定ファイルが無いときはこの応答の members を使う。それも空なら、担当を付ける依頼は不足として返す。id は作らない。仕事の内容から選ぶときは description だけを見る。表示名は、この選び方には使わない。一つに合う人だけを担当にする。二つ以上に合うときと、どれにも合わないときは尋ね、id は作らない。説明が無い人は、名指しされたときだけ担当に使う。名指しが id か表示名で一人に定まるときは、その id を使う。表示名が二人以上に当たるときは尋ねる。名指しされた人は、説明が別の人に合っていても付け替えない。description はタスクへコピーしない。担当は assigneeId だけである。続けて fields は、使用中の追加項目の定義（key、name、type。meaning、instruction、required、percent、choices、default は空でないときだけ）を一度だけ載せます。定義が無いときは空の配列です。タスクには、colorId があるときだけ colorId を載せます。値があるときだけ fieldValues（合成キーと値）を載せます。colorId には色の一覧の id だけを書く。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときはこの応答の colors を使う。それも空なら書かない。色を選ぶ材料は description です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": selected_tasks_description,
                 "inputSchema": read_schema.clone(),
             },
             {
                 "name": "filtered_tasks",
-                "description": "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。応答の先頭の levels は、階層の名前と意味（instruction がある段だけ instruction も入る。最後の段だけ task: true）を一度だけ載せます。続けて statuses は、使用中のステータス一覧（id、name、role、description。instruction がある項目だけ instruction も入る）です。続けて colors は、使用中の色の一覧（id、name、description、color.light.bg、color.dark.bg。一覧が無いときは空の配列）です。続けて members は、メンバー一覧（id、name。空でない description がある人だけ description も入る。一覧が無いときは空の配列）です。assigneeId には members の id だけを書く。一覧は、設定ファイルに members があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが members が無いとき、担当を付ける依頼は JSON を書かず不足として返す。設定ファイルが無いときはこの応答の members を使う。それも空なら、担当を付ける依頼は不足として返す。id は作らない。仕事の内容から選ぶときは description だけを見る。表示名は、この選び方には使わない。一つに合う人だけを担当にする。二つ以上に合うときと、どれにも合わないときは尋ね、id は作らない。説明が無い人は、名指しされたときだけ担当に使う。名指しが id か表示名で一人に定まるときは、その id を使う。表示名が二人以上に当たるときは尋ねる。名指しされた人は、説明が別の人に合っていても付け替えない。description はタスクへコピーしない。担当は assigneeId だけである。続けて fields は、使用中の追加項目の定義（key、name、type。meaning、instruction、required、percent、choices、default は空でないときだけ）を一度だけ載せます。定義が無いときは空の配列です。タスクには、colorId があるときだけ colorId を載せます。値があるときだけ fieldValues（合成キーと値）を載せます。colorId には色の一覧の id だけを書く。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときはこの応答の colors を使う。それも空なら書かない。色を選ぶ材料は description です。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": filtered_tasks_description,
                 "inputSchema": read_schema.clone(),
             },
             {
@@ -280,6 +307,33 @@ mod tests {
         assert!(selected_task.contains("colorId があるときだけ colorId"));
         assert!(selected_task.contains("fields"));
         assert!(selected_task.contains("fieldValues"));
+        let view_rule_phrases = [
+            "折りたたみではタスクを減らさない",
+            "自動のときは効いている倍率",
+            "システムに合わせているときは効いている",
+        ];
+        let read_screen_skill = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../read-screen/SKILL.md"),
+        )
+        .expect("read-screen SKILL.md");
+        for phrase in view_rule_phrases {
+            assert!(
+                read_screen_skill.contains(phrase),
+                "read-screen SKILL.md missing {phrase}"
+            );
+        }
+        for tool in ["selected_task", "selected_tasks", "filtered_tasks"] {
+            let desc = description(tool);
+            assert!(desc.contains("view"), "{tool} missing view");
+            for phrase in view_rule_phrases {
+                assert!(
+                    desc.contains(phrase),
+                    "{tool} description missing {phrase}"
+                );
+            }
+        }
+        assert!(selected_task.contains("ステータスの色はバーの見た目"));
+        assert!(selected_task.contains("id を選ぶ材料にしない"));
         assert!(selected_task.contains("起動中でも MCP の一覧は使わない"));
         assert!(selected_task.contains("色を選ぶ材料は description"));
         assert!(selected_task.contains("名指し"));

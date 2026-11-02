@@ -272,7 +272,7 @@
 | 同上 | `ignores self save reload` | SET-08 |
 | 同上 | `skips reload when saved and loaded items match` | SET-08 |
 | 同上 | `reloads when an item name changed` | SET-08 |
-| `screenContext.test.ts` | `puts the catalog first, once, without colors` | MCP-01 |
+| `screenContext.test.ts` | `puts the catalog first, once, with status bar colors` | MCP-01 |
 | 同上 | `names the status filter from the catalog` | MCP-01 |
 | 同上 | `starts the filtered tasks payload with the catalog` | MCP-01 |
 | `memberAppData.test.ts` | `drops a leading BOM and leaves other text unchanged` | SET-02 |
@@ -408,6 +408,22 @@
 | 同上 | `orders by document order not selection order` | MCP-01, EDIT-01 |
 | 同上 | `includes tasks outside any filter because it does not use filters` | MCP-01, EDIT-01 |
 | 同上 | `omits ids that are not tasks in the document` | MCP-01, EDIT-01 |
+| 同上 | `lists collapsed category id and name while filtered_tasks keeps its tasks` | MCP-01 |
+| 同上 | `lists collapsed group id and name` | MCP-01 |
+| 同上 | `lists collapsed outline heading as heading kind` | MCP-01 |
+| 同上 | `uses an empty collapsed array when nothing is folded` | MCP-01 |
+| 同上 | `omits collapsed ids that are not in the document` | MCP-01 |
+| 同上 | `puts effective scale when preference is auto and it is not a fixed step` | MCP-01 |
+| 同上 | `matches effective scale to a fixed preference step` | MCP-01 |
+| 同上 | `sets row density to compact` | MCP-01 |
+| 同上 | `sets lightning to false when the line is off` | MCP-01 |
+| 同上 | `keeps all five column keys and only status on` | MCP-01 |
+| 同上 | `resolves color scheme to dark when preference is system` | MCP-01 |
+| 同上 | `keeps light for both preference and effective when light is chosen` | MCP-01 |
+| 同上 | `uses default weekends and empty dated arrays when calendar is unset` | MCP-01 |
+| 同上 | `loads calendar weekends and named non-working days without path or schemaVersion` | MCP-01 |
+| 同上 | `includes view on the three read payloads but not on schedule diff` | MCP-01 |
+| 同上 | `does not put scroll, zoom, or dialog flags on view` | MCP-01 |
 | `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |
 | 同上 | `keeps spaces and quotes inside the JSON command string` | MCP-01 |
 | 同上 | `keeps a macOS path with spaces as the command string` | MCP-01 |
@@ -884,7 +900,7 @@
 | `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` と `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する。`replace_schedule` の説明に繋がりの規則（`predecessors とは別`、`繋がりの話でない更新では`、`残ったタスク同士はつなぎ直さない` など）がある。`current_schedule` の説明に `connections` と、タスク読み取りには載らない旨がある | MCP-01 |
+| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する。読み取り 3 ツールの説明に `view`、折りたたみでタスクを減らさない旨、自動表示サイズの effective、システム配色の effective、ステータス色を id の材料にしない旨がある。`replace_schedule` の説明に繋がりの規則（`predecessors とは別`、`繋がりの話でない更新では`、`残ったタスク同士はつなぎ直さない` など）がある。`current_schedule` の説明に `connections` と、タスク読み取りには載らない旨がある | MCP-01 |
 | `build_mcp_open_windows_orders_live_and_sets_front`（`window_session.rs`） | 生きているラベルだけを記録順に並べ、`file`・`folder`・`front` を付け、絶対パスを含めない | MCP-01 |
 | `build_mcp_open_windows_omits_home_path_segments`（`window_session.rs`） | ホーム配下のパスでも `file`・`folder` は末尾と親だけ。JSON に `/Users` などを含めない | MCP-01 |
 | `resolve_mcp_label_with_override_absent_matches_front_resolution`（`window_session.rs`） | `window` 省略時の送り先は `resolve_mcp_screen_window_label` と同じ | MCP-01 |
@@ -1391,10 +1407,17 @@
 | TC-MCP-01f | MCP-01 | デスクトップ版、ファイルを開き、絞り込み・折りたたみ・選択・系統を変えた状態 | `write-schedule` で検証済みの JSON 全体を作り、`replace_schedule` を 1 回呼ぶ。同じ保存形式の JSON をもう一度呼ぶ。詳細パネルにフォーカスがある状態でも呼ぶ。起動復旧の衝突・ファイル無し・不正控えのダイアログが出ている状態でも呼ぶ | 1 回目は未保存になり、隅に「画面を置き換えました」が約 4 秒出る。ファイルの内容は変わらない。絞り込み・折りたたみ・ズーム・スクロール・系統は変わらない。選択は新文書に残るタスクだけ残る。⌘/Ctrl+Z で置き換え前に戻る。2 回目は未保存も履歴も変わらないが差分テキストは成功で返る。詳細のフォーカス中は「画面の操作が途中なので、置き換えられません。」起動復旧のダイアログ中は「起動の復旧が終わっていないので、置き換えられません。」確認ダイアログは出ない |
 | TC-MCP-01g | MCP-01 | デスクトップ版。パス無しのサンプル、外部更新の帯、同じファイルの2ウィンドウ、開く・保存の途中、並べ替えの握りドラッグ中、10MB超・壊れたJSON・検証失敗の入力、差分が応答上限を超える置き換え | 各条件で `replace_schedule` を呼ぶか `--screen replace_schedule` で標準入力を渡す | パス無しの成功は「比べるファイルがありません」で失敗にしない。JSON として読めない・検証失敗・10MB 超はそれぞれの文で拒否し画面も履歴も変えない。差分が大きすぎても置き換えは残り「差分が大きすぎるため、差分テキストは返せません。」は失敗にしない。「ファイルに更新あり — 確認する」は消えない。背面ウィンドウの文書は変わらない。衝突が無い外部更新の確認、設定など別のダイアログ、ファイル操作中・並べ替えドラッグ中は「画面の操作が途中なので、置き換えられません。」SYNC-01 の衝突確認だけ開いているときは置き換えられ、確認は閉じる（TC-SYNC-01k） |
 | TC-MCP-01j | MCP-01 | デスクトップ版、`examples/connections/` を開く | `current_schedule` と `selected_task` を呼ぶ。繋がりと無関係な置き換えのあと、1組足す、同じ組の言葉だけ変える、1組だけ外す、残りが1件になるまで外してからその1件を外す、タスクを消してその端の繋がりも外す JSON をそれぞれ `replace_schedule` で渡す | `current_schedule` にルートの `connections` がある。`selected_task` には無い。無関係な置き換えのあとも組と `taskIds` の順が残る。足す・言葉変更・1組だけ外すが画面に反映され、1組だけ外したあともルートの `connections` は残る。ファイルは変わらず未保存になる。残り1件のあとその1件を外すとキーが無い。タスク削除ではその id を含む組だけ無く、残ったタスク同士の新しい組は無い |
+| TC-MCP-01k | MCP-01 | デスクトップ版。Cursor にこのアプリの MCP を登録してある。サンプルを前面で開き、折りたたみは無い | Cursor のチャットに「今、折りたたんでいる行はあるか。あるなら種類と名前を答えて。」と送る。左の三角でカテゴリ「要件定義」を畳み、「折りたたんでいる行の種類と名前は何か。配下のタスクは読み取りから消えたか。」と送る。カテゴリを開き、グループ「現状把握」だけを畳み、同じ質問を送る。`examples/hierarchy/levels-5.schedule.json` を開き、見出し「事業甲」を畳む。「折りたたんでいる行の種類と名前は何か。その中のタスクは読み取りのタスク一覧から消えたか。画面に見えているタスクだけを挙げるなら、畳んだ中は除くか。」と送る | 最初は無いと答える。カテゴリを畳んだあとは種類が category、名前は「要件定義」だけである。配下の「現状業務ヒアリング」などは読み取りのタスクに残ると答える。グループだけ畳んだあとは種類が group、名前は「現状把握」である。カテゴリ名は畳んだ行に入れない。見出しを畳んだあとは種類が heading、名前は「事業甲」である。「作業15-1」は読み取りのタスクに残る。見えているタスクだけを挙げるときは、事業甲の配下を除く。画面に無い行を足さない。チャットのあと、画面の折りたたみは変わらない |
+| TC-MCP-01l | MCP-01, SET-01 | デスクトップ版。Cursor に MCP を登録してある。サンプルを開いている | 設定の「表示」で、表示サイズを「自動」、行の密度を「詰める」、イナズマ線をオフ、左一覧の列は「ステータス」だけオン、配色を「システム設定に合わせる」にする。ウィンドウを幅 1100px・高さ 780px より大きくして設定を閉じる。チャートを月表示まで縮小し、左一覧の境界をドラッグして幅を変える。Cursor に「表示サイズは設定で何を選んでいて、今のウィンドウでは何倍か。行の密度、イナズマ線、左一覧の追加列、配色の選択と今効いている明暗を教えて。日・週・月と、左一覧の幅は分かるか。」と送る。続けて表示サイズを 125%、配色を「ライト」にし、「選択と、今効いている値は何か。」と送る | 自動のとき、選択は自動、効いている倍率は 1 より大きく 2 以下である。行の密度は詰める。イナズマ線はオフ。追加列はステータスだけオンで、開始、終了、日数、進捗はオフである。配色の選択はシステム設定に合わせる、効いている明暗は今のシステムのライトかダークと一致する。日・週・月と一覧の幅は分からないと答え、数値や表示単位を作らない。125% とライトのあとは、選択も効いている値も 125%（1.25）とライトである |
+| TC-MCP-01m | MCP-01, SET-03 | デスクトップ版。Cursor に MCP を登録してある。サンプルを開き、設定の稼働日は外してある | 「稼働日は何を使っているか。週末と、名前の付いた休みの日を教えて。ファイルのパスは分かるか。」と送る。設定の「稼働日」で `examples/jp-2026.calendar.json` を取り込み、同じ質問を送る | 取り込む前は未設定である。週末は土日。名前の付いた休みは無い。パスと schemaVersion は答えない。取り込んだあとは読み込み済みである。週末は土日。2026-01-01 は元日である。パスと schemaVersion は答えない |
+| TC-MCP-01n | MCP-01, SET-08 | デスクトップ版。Cursor に MCP を登録してある。ステータスは組み込みの三件。配色はライト | 「進行中のバーの地と枠は、今のライトで何色か。色の値だけ答えて。」と送る。続けて「バーが緑だから、という理由だけで完了のステータスに変えて。」と送る | 地は `#DEE3FB`、枠は `#4C5FD5` と、読み取った値で答える。完了の緑を進行中の色として答えない。二つ目では色を選ぶ理由にせず、スケジュールを書かない。画面のステータスは変わらない |
+| TC-MCP-01o | MCP-01 | デスクトップ版。Cursor に MCP を登録してある。サンプルでカテゴリ「要件定義」を畳む。別ファイルのウィンドウを背面で開き、背面は畳まない。背面は前面にしない。マイルストンの点線を1件オンにする。タスクの詳細で名前を打ち始め、確定しない | 「折りたたみや表示サイズは、スケジュール全体と、画面とファイルの差分にも入っているか。入っていないなら、どの読み取りに入るか。」と送る。「マイルストンの縦の点線のオンオフと、まだ確定していない名前は分かるか。」と送る。「前面で折りたたんでいる行は何か。もう一方のウィンドウでは何か。」と送る | スケジュール全体、`schedule_diff`、`baseline_diffs` には無い。`selected_task`、`selected_tasks`、`filtered_tasks` の `view` にある。点線のオンオフと、確定前の名前は分からないと答え、値を作らない。前面は「要件定義」。背面は畳んでいない。前面のウィンドウは前面のままである |
 | TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen open_windows`、`--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks`、`--screen current_schedule` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`current_schedule` はスケジュール JSON 全体が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 
 TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 4 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。
+
+TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。スケジュールの画面を操作したあと、Cursor のチャットへ書いた文の答えで判定する。答えが画面と違う、渡していないズームや点線や確定前の入力を埋める、ステータスの色だけで id を選ぶ、のどれかなら失敗である。
 
 ## リリース前確認
 

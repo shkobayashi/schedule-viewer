@@ -2806,6 +2806,7 @@ export function useSchedule(
     commitGroupReorder,
     cancelReorder,
     toggleCollapsed,
+    collapsed,
     filters,
     searchField,
     setSearchField,
