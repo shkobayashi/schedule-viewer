@@ -5,6 +5,7 @@ type StatusBarProps = {
   saveStatus: string;
   saveStatusClickable: boolean;
   onSaveStatusClick: () => void;
+  hideFileStatus?: boolean;
   membersCatalogLabel: string | null;
   membersCatalogError: string | null;
   calendarError: string | null;
@@ -29,6 +30,7 @@ export function StatusBar({
   saveStatus,
   saveStatusClickable,
   onSaveStatusClick,
+  hideFileStatus = false,
   membersCatalogLabel,
   membersCatalogError,
   calendarError,
@@ -44,21 +46,25 @@ export function StatusBar({
   return (
     <footer className="status-bar" role="contentinfo">
       <div className="status-bar-group">
-        <span className="status-bar-item status-bar-file">{fileName}</span>
-        <span className="status-bar-sep" aria-hidden="true">
-          ·
-        </span>
-        {saveStatusClickable ? (
-          <button
-            type="button"
-            className="status-bar-link status-bar-unsaved"
-            onClick={onSaveStatusClick}
-            title="差分を表示"
-          >
-            {saveStatus}
-          </button>
-        ) : (
-          <span className="status-bar-item">{saveStatus}</span>
+        {hideFileStatus ? null : (
+          <>
+            <span className="status-bar-item status-bar-file">{fileName}</span>
+            <span className="status-bar-sep" aria-hidden="true">
+              ·
+            </span>
+            {saveStatusClickable ? (
+              <button
+                type="button"
+                className="status-bar-link status-bar-unsaved"
+                onClick={onSaveStatusClick}
+                title="差分を表示"
+              >
+                {saveStatus}
+              </button>
+            ) : (
+              <span className="status-bar-item">{saveStatus}</span>
+            )}
+          </>
         )}
       </div>
       {showDeferredReload ? (
@@ -94,9 +100,11 @@ export function StatusBar({
         </button>
       ) : null}
       <span className="status-bar-item">{tierLabel(tier)}</span>
-      <span className="status-bar-item status-bar-count">
-        {totalTaskCount}件中{visibleTaskCount}件を表示
-      </span>
+      {hideFileStatus ? null : (
+        <span className="status-bar-item status-bar-count">
+          {totalTaskCount}件中{visibleTaskCount}件を表示
+        </span>
+      )}
       <button
         type="button"
         className="status-bar-link"

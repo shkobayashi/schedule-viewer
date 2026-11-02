@@ -173,10 +173,15 @@ export async function deleteAppCalendar(): Promise<void> {
   clearBrowserCalendar();
 }
 
-export function pickCalendarJsonFile(): Promise<{
+export async function pickCalendarJsonFile(): Promise<{
   name: string;
   contents: string;
 } | null> {
+  if (isTauri()) {
+    return invoke<{ name: string; contents: string } | null>(
+      "pick_calendar_json_file",
+    );
+  }
   return new Promise((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";
