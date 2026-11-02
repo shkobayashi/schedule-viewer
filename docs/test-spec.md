@@ -439,6 +439,22 @@
 | 同上 | `adds screenCapture message when screenshot failed` | MCP-01 |
 | 同上 | `returns text only with too-large message when image makes body exceed limit` | MCP-01 |
 | `screen_cli.rs` | `extract_tool_output_writes_image_to_temp_path` | MCP-02 |
+| 同上 | `screen_tool_rejects_window_on_set_view` | MCP-02 |
+| `mcpEditPlan.test.ts` | `rejects self as predecessor` | MCP-01 |
+| 同上 | `moveTask uses outline when levels argument is undefined` | MCP-01 |
+| 同上 | `rejects outline moveTask when insert index is out of range` | MCP-01 |
+| 同上 | `setTaskDates updates outline task when levels argument is undefined` | MCP-01 |
+| 同上 | `leaves document unchanged when insert index is invalid` | MCP-01 |
+| 同上 | `stops on first failure` | MCP-01 |
+| 同上 | `deleteTask removes playground outline task when categories are empty` | MCP-01 |
+| 同上 | `scheduleDocumentForMcpEditPlan clears categories on outline playground` | MCP-01 |
+| 同上 | `deleteTask on playground review task after e2e-like preamble uses normalized document` | MCP-01 |
+| 同上 | `moveTask on playground review task after e2e-like preamble uses normalized document` | MCP-01 |
+| `pendingScheduleOpen.test.ts` | `applies only on the window that matches payload label` | WIN-01 |
+| 同上 | `does not apply twice on the same window` | WIN-01 |
+| `mcpSetView.test.ts` | `leaves collapse unchanged when patch has no collapsed fields` | MCP-01 |
+| 同上 | `keeps vertical scroll unchanged` | MCP-01 |
+| `mcpOperationGate.test.ts` | `rejects file busy even with discardInProgress` | MCP-01 |
 | `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |
 | 同上 | `keeps spaces and quotes inside the JSON command string` | MCP-01 |
 | 同上 | `keeps a macOS path with spaces as the command string` | MCP-01 |
@@ -629,6 +645,7 @@
 | 同上 | `prefixesLevelsOnce` | MCP-01 |
 | 同上 | `rejectsReplaceWhenDepthDiffers` | MCP-01 |
 | `hierarchy.test.ts` | `keeps keys unchanged when saving without levels` など | FILE-04, VIEW-03 |
+| 同上 | `writes outline when levels are omitted` | FILE-04, MCP-01 |
 | 同上 | `rejects levels with categories storage`、`addTopLevelMenuLabel` | EDIT-18 |
 | `hierarchyCrud.test.ts` | `appendLegacyHeadingFromToolbar` | EDIT-18 |
 | `outlineCrud.test.ts` | `appendOutlineHeadingAtLevel three and four levels` | EDIT-18 |
@@ -991,6 +1008,15 @@
 
 | ID | 機能 | 前提 | 手順 | 期待結果 |
 | --- | --- | --- | --- | --- |
+| TC-MCP-425a | MCP-01, MCP-02 | デスクトップ版で未保存の編集がある | `set_view` で絞り込みだけ変える。`edit_plan` で日付を変える。詳細パネル入力途中に `discardInProgress` 無しで `edit_plan` を呼ぶ | 見方のあとは未保存にならない。計画のあとは未保存でファイルの更新時刻は変わらない。入力途中は拒否され文書は変わらない |
+| TC-MCP-425b | MCP-02 | 同上 | `--screen set_view --window schedule-2` を実行する | 拒否文が標準エラーに出て終了コード 1 である |
+| TC-MCP-425c | MCP-01 | デスクトップ版。2 ウィンドウ。読み取り 6 つを呼ぶ | 読み取りのあいだ前面が変わらない。`focus_window` のあと同じファイルを開いたときと同じウィンドウが前面 | 読み取りは前面を変えない。focus のあとは同じファイルを前面に出したときと同じ |
+| TC-MCP-425d | MCP-01 | 絞り込みまたは折りたたみで行が減っている | `file_action` で書き出す | 書き出しの行は、そのとき見えている行だけである |
+| TC-MCP-425e | MCP-01 | `catalog_action` で save 無し | 一覧を変えて save 無しで呼ぶ | ファイルの内容は変わらない |
+| TC-MCP-425f | MCP-01 | 日付バーをドラッグ中 | `discardInProgress` 無しで `edit_plan` を呼ぶ。ドラッグを離す | 拒否のあと離しても、離す前の日付は文書に入らない |
+| TC-MCP-425g | MCP-01 | 詳細パネル入力途中 | `discardInProgress` 無しで拒否されたあと blur で確定しようとする | 拒否前の入力は文書に無い |
+| TC-MCP-425h | MCP-01 | 保存先が無い | `file_action` で save | 拒否される |
+| TC-MCP-425i | MCP-01 | ディスクと画面が不一致。上書きか別名の結果が無い | `file_action` で save | 拒否され、今の保存と同じ不一致の文である |
 | TC-HIER-01 | VIEW-03 | `examples/hierarchy/levels-2.schedule.json` など定義の無いファイル | 開いて保存する | 定義の無いファイルは保存後も `levels` と `outline` が付かない。2段・3段・4段・5段のサンプルは帯の上に定義名が並び、段数どおりの行になる |
 | TC-HIER-02 | VIEW-03 | 定義と入れ子の段数が合わない JSON | 開く | 「階層の定義と入れ子の数が違います。」が出て、行の組み立ては変わらない |
 | TC-HIER-03 | VIEW-03, FILE-01 | `examples/hierarchy/levels-3.schedule.json` | ワークスペースで開く。同じ JSON を直接開く | 階層の見え方が同じである |
@@ -1100,6 +1126,7 @@
 | TC-WIN-01f | WIN-01, SYNC-03 | 2 ウィンドウ。元の `main` を閉じ、追加側だけ残して終了 | 起動する | 空の `main` は一緒に開かず、残したウィンドウだけ開く |
 | TC-WIN-01g | WIN-01, MCP-01 | 別々のファイルを 2 ウィンドウで開き、それぞれ別のタスクを 1 件選んでから、返す側を前面にする | `selected_task` を呼ぶ | 前面の選択タスクが返る。背面の選択は返らない |
 | TC-WIN-01h | WIN-01, FILE-10 | デスクトップ版。設定ファイルと schemaVersion 6 のスケジュールを束ねた例がある | 「新しいウィンドウで開く」で設定ファイルを選ぶ。続けて schemaVersion 6 のスケジュール JSON を選ぶ | 元のウィンドウは残る。新しいウィンドウは設定ファイルの束縛で開き、メンバーとステータスとカレンダーと拡張がそのウィンドウだけに効く。履歴に設定ファイルだけが足り、スケジュールパスは足らない。もう一つの新しいウィンドウは schemaVersion 6 を移行して開き、未保存にならない |
+| TC-WIN-01i | WIN-01, MCP-01 | 別ファイルを 2 ウィンドウで開いたあと、MCP の `open_new_window` で 3 枚目を開く | 元の 2 枚の `open_windows` の folder と path が変わらない。3 枚目だけテスト用ファイルを開く |
 | TC-WIN-02 | WIN-02 | 同じファイルを2つのウィンドウで開く。片方は未保存 | 未保存の側で外部更新を「画面の編集を残す」にする | もう一方の隅に「確認待ち」が出て、確認が終わるまで残る。押すと、確認を出したウィンドウが前面になる。確認を終えると知らせは消える |
 | TC-WIN-02b | WIN-02 | 同じファイルを2つ開く。両方保存済み | 片方で外部更新を即時反映する | もう一方の隅に「反映した」が数秒出る |
 | TC-WIN-03 | SET-02, SET-01, SET-04 | 2つのウィンドウを開く | 片方でメンバー、表示サイズ、配色、一覧の幅、行の密度、イナズマ線、一覧の列を変える | もう一方も同じ設定になる |

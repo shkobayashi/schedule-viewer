@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { flushSync } from "react-dom";
 import type { WorkspaceWindowBinding } from "../model/workspaceTypes";
 import { loadWorkspaceBinding } from "../model/workspaceLoad";
 
@@ -15,7 +16,9 @@ export function useWorkspaceBinding() {
       if (!loaded.ok) {
         return loaded;
       }
-      setBinding(loaded.binding);
+      flushSync(() => {
+        setBinding(loaded.binding);
+      });
       return loaded;
     },
     [],

@@ -154,29 +154,31 @@ export function useScheduleFile({
   const clearExternalReloadPromptRef = useRef<() => void>(() => {});
   const clearInvalidDiskHashRef = useRef<() => void>(() => {});
 
-  const currentJson = useMemo(
-    () =>
-      serializeScheduleDocument(
-        title,
-        categories,
-        milestoneGroups,
-        milestones,
-        levels,
-        outline,
-        extraFieldDefs.length > 0 ? [...extraFieldDefs] : undefined,
-        connections,
-      ),
-    [
+  const currentJson = useMemo(() => {
+    if (getCanonicalJson) {
+      return getCanonicalJson();
+    }
+    return serializeScheduleDocument(
+      title,
       categories,
-      connections,
-      extraFieldDefs,
-      levels,
       milestoneGroups,
       milestones,
+      levels,
       outline,
-      title,
-    ],
-  );
+      extraFieldDefs.length > 0 ? [...extraFieldDefs] : undefined,
+      connections,
+    );
+  }, [
+    categories,
+    connections,
+    extraFieldDefs,
+    getCanonicalJson,
+    levels,
+    milestoneGroups,
+    milestones,
+    outline,
+    title,
+  ]);
 
   const isDirty = currentJson !== baselineJson;
   const isDirtyRef = useRef(isDirty);
@@ -272,6 +274,24 @@ export function useScheduleFile({
       }
     },
   });
+
+  const markSavedAtPath = useCallback(
+    (canonicalJson: string, path: string) => {
+      const previousPath = filePathRef.current;
+      setFilePath(path);
+      setBrowserFileLabel(null);
+      setBaselineJson(canonicalJson);
+      baselineJsonRef.current = canonicalJson;
+      clearExternalReloadPromptRef.current();
+      clearInvalidDiskHashRef.current();
+      void clearRecoveryDraft();
+      if (previousPath !== path) {
+        onWorkspaceBindingChange?.(null);
+      }
+    },
+    [clearRecoveryDraft, onWorkspaceBindingChange],
+  );
+
   const externalChangeOpenRef = useRef(externalChangeOpen);
   externalChangeOpenRef.current = externalChangeOpen;
 
@@ -822,6 +842,7 @@ export function useScheduleFile({
 
   const startup = useScheduleStartupRecovery({
     replaceDocument,
+    reloadDocumentFromDisk,
     onAfterOpen,
     setFilePath,
     setBrowserFileLabel,
@@ -1193,6 +1214,8 @@ export function useScheduleFile({
 
   return {
     filePath,
+    getFilePath: () => filePathRef.current,
+    getIsDirty: () => isDirtyRef.current,
     displayFileName,
     saveStatusLabel,
     statusLabel,
@@ -1250,5 +1273,7 @@ export function useScheduleFile({
     currentJson,
     baselineJson,
     peerNotice,
+    markSavedAtPath,
+    applyOpenedFile,
   };
 }

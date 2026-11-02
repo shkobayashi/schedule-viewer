@@ -366,6 +366,26 @@ export async function exportSchedule(
   return null;
 }
 
+/** ダイアログを開かず、指定パスへ書き出す（MCP の file_action 用）。 */
+export async function exportScheduleToPath(
+  input: ScheduleExportInput,
+  format: ScheduleExportFormat,
+  path: string,
+): Promise<void> {
+  if (format === "xlsx") {
+    throw new Error("Excel の書き出しは exportScheduleExcelToPath を使います。");
+  }
+  if (!isTauri()) {
+    throw new Error("この操作はデスクトップ版だけ使えます。");
+  }
+  const contents = format === "svg" ? buildScheduleSvg(input) : buildScheduleHtml(input);
+  await invoke("write_schedule_export_at_path", {
+    path,
+    contents,
+    extension: format,
+  });
+}
+
 function estimateTextWidth(value: string, fontSize: number): number {
   let width = 0;
   for (const ch of value) {

@@ -20,6 +20,26 @@ import {
   type ReplaceScheduleDocumentResult,
 } from "../model/replaceSchedule";
 import {
+  assessMcpOperationGate,
+  parseMcpActionEnvelope,
+} from "../model/mcpOperationGate";
+import {
+  MCP_TOOL_CATALOG_ACTION,
+  MCP_TOOL_CLOSE_WINDOW,
+  MCP_TOOL_EDIT_PLAN,
+  MCP_TOOL_FILE_ACTION,
+  MCP_TOOL_FOCUS_WINDOW,
+  MCP_TOOL_HISTORY,
+  MCP_TOOL_MINIMIZE_WINDOW,
+  MCP_TOOL_OPEN_NEW_WINDOW,
+  MCP_TOOL_SET_PREFERENCES,
+  MCP_TOOL_SET_VIEW,
+} from "../model/mcpToolNames";
+import {
+  executeMcpActionTool,
+  type McpActionExecutorContext,
+} from "./mcpActionExecutor";
+import {
   buildFilteredTasksPayload,
   buildScheduleDiffPayload,
   buildSelectedTaskPayload,
@@ -40,6 +60,7 @@ import {
 import type { VisibleRow } from "../model/types";
 import { captureMainElementForMcp } from "../model/captureMainForMcp";
 import { isTauri } from "../model/scheduleFile";
+import { setMcpInProgressGeneration } from "../model/mcpInProgressInvalidation";
 import type { Member, MemberId } from "../model/memberTypes";
 import type {
   Category,
@@ -77,6 +98,7 @@ type UseMcpScreenBridgeInput = {
   mcpMembers: readonly Member[];
   statuses: readonly StatusItem[];
   colors: readonly ColorItem[] | null;
+  colorsCatalogError?: string | null;
   levels?: ScheduleLevelDef[] | null;
   fields?: readonly ScheduleFieldDef[] | undefined;
   collapsed: ReadonlySet<string>;
@@ -88,12 +110,17 @@ type UseMcpScreenBridgeInput = {
   colorSchemePreference: ColorSchemePreference;
   resolvedColorScheme: ResolvedColorScheme;
   calendar: CalendarDocument | null;
-  scheduleFilePath: string | null;
+  getScheduleFilePath: () => string | null;
+  getCanonicalJson?: () => string;
   scheduleCurrentJson: string;
   scheduleBaselineJson: string;
   startupSettled: boolean;
   startupRecoveryDialogOpen: boolean;
+  fileBusy: boolean;
   mcpReplaceUiBlocking: () => boolean;
+  mcpUiBlocking: () => boolean;
+  onDiscardInProgress: () => void;
+  mcpActionExecutor: McpActionExecutorContext;
   replaceScheduleDocument: (
     document: ScheduleDocument,
   ) => ReplaceScheduleDocumentResult;
@@ -164,8 +191,90 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         >;
         isError?: boolean;
       },
+      invalidateInProgress = false,
     ) {
-      await invoke("mcp_reply", { id, generation, body });
+      await invoke("mcp_reply", {
+        id,
+        generation,
+        body,
+        invalidateInProgress,
+      });
+    }
+
+    function invalidateAfterReject(discardInProgress: boolean): boolean {
+      return !discardInProgress;
+    }
+
+    async function replyError(
+      payload: McpScreenRequest,
+      message: string,
+      discardInProgress: boolean,
+    ) {
+      await reply(
+        payload.id,
+        payload.generation,
+        mcpToolErrorBody(message),
+        invalidateAfterReject(discardInProgress),
+      );
+    }
+
+    const MCP_ACTION_TOOLS = new Set([
+      MCP_TOOL_SET_VIEW,
+      MCP_TOOL_EDIT_PLAN,
+      MCP_TOOL_FILE_ACTION,
+      MCP_TOOL_CATALOG_ACTION,
+      MCP_TOOL_SET_PREFERENCES,
+      MCP_TOOL_HISTORY,
+      MCP_TOOL_OPEN_NEW_WINDOW,
+      MCP_TOOL_CLOSE_WINDOW,
+      MCP_TOOL_FOCUS_WINDOW,
+      MCP_TOOL_MINIMIZE_WINDOW,
+    ]);
+
+    async function handleMcpActionTool(
+      payload: McpScreenRequest,
+      snap: UseMcpScreenBridgeInput,
+    ) {
+      const parsedEnvelope = parseMcpActionEnvelope(payload.arguments);
+      if (!parsedEnvelope.ok) {
+        await replyError(payload, parsedEnvelope.message, false);
+        return;
+      }
+      const discardInProgress =
+        parsedEnvelope.envelope.discardInProgress === true;
+      const gate = assessMcpOperationGate({
+        startupSettled: snap.startupSettled,
+        startupRecoveryDialogOpen: snap.startupRecoveryDialogOpen,
+        uiBlocking: snap.mcpUiBlocking(),
+        discardInProgress,
+        fileBusy: snap.fileBusy,
+      });
+      if (!gate.ok) {
+        await replyError(payload, gate.message, discardInProgress);
+        return;
+      }
+      if (gate.discardInProgress) {
+        snap.onDiscardInProgress();
+      }
+      const result = await executeMcpActionTool(
+        payload.tool,
+        parsedEnvelope.envelope,
+        snap.mcpActionExecutor,
+      );
+      if (!result.ok) {
+        await replyError(payload, result.message, discardInProgress);
+        return;
+      }
+      const body = mcpPlainTextToolBody(result.text, false);
+      if ("tooLarge" in body) {
+        await replyError(
+          payload,
+          "応答が大きすぎるため、渡せません。",
+          discardInProgress,
+        );
+        return;
+      }
+      await reply(payload.id, payload.generation, body);
     }
 
     async function handleReplaceSchedule(
@@ -182,6 +291,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           payload.id,
           payload.generation,
           mcpToolErrorBody(gate.message),
+          true,
         );
         return;
       }
@@ -191,6 +301,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           payload.id,
           payload.generation,
           mcpToolErrorBody(parsed.message),
+          true,
         );
         return;
       }
@@ -203,6 +314,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           payload.id,
           payload.generation,
           mcpToolErrorBody(levelGate.message),
+          true,
         );
         return;
       }
@@ -212,6 +324,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           payload.id,
           payload.generation,
           mcpToolErrorBody(REPLACE_SCHEDULE_UI_BUSY),
+          true,
         );
         return;
       }
@@ -219,7 +332,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         snap.onReplaceScheduleApplied?.(replaceResult);
       }
       const diff = await loadScheduleDiffText(
-        snap.scheduleFilePath,
+        snap.getScheduleFilePath(),
         replaceResult.screenJson,
         snap.fields,
       );
@@ -251,12 +364,18 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         await handleReplaceSchedule(payload, snap);
         return;
       }
+      if (MCP_ACTION_TOOLS.has(payload.tool)) {
+        await handleMcpActionTool(payload, snap);
+        return;
+      }
       let toolPayload: unknown;
       switch (payload.tool) {
         case MCP_TOOL_SCHEDULE_DIFF: {
+          const screenJson =
+            snap.getCanonicalJson?.() ?? snap.scheduleCurrentJson;
           const diff = await loadScheduleDiffText(
-            snap.scheduleFilePath,
-            snap.scheduleCurrentJson,
+            snap.getScheduleFilePath(),
+            screenJson,
             snap.fields,
           );
           const scheduleDiffText = diff.ok ? diff.text : diff.message;
@@ -269,9 +388,10 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         }
         case MCP_TOOL_BASELINE_DIFFS: {
           const baselineJson = snap.scheduleBaselineJson;
-          const screenJson = snap.scheduleCurrentJson;
+          const screenJson =
+            snap.getCanonicalJson?.() ?? snap.scheduleCurrentJson;
           const result = await loadBaselineDiffsText(
-            snap.scheduleFilePath,
+            snap.getScheduleFilePath(),
             baselineJson,
             screenJson,
             snap.fields,
@@ -330,7 +450,8 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           break;
         }
         case MCP_TOOL_CURRENT_SCHEDULE: {
-          const body = mcpPlainTextToolBody(snap.scheduleCurrentJson);
+          const json = snap.getCanonicalJson?.() ?? snap.scheduleCurrentJson;
+          const body = mcpPlainTextToolBody(json);
           if ("tooLarge" in body) {
             await reply(
               payload.id,
@@ -343,6 +464,14 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           return;
         }
         case MCP_TOOL_FILTERED_TASKS: {
+          if (snap.colorsCatalogError) {
+            await reply(
+              payload.id,
+              payload.generation,
+              mcpToolErrorBody(snap.colorsCatalogError),
+            );
+            return;
+          }
           toolPayload = buildFilteredTasksPayload({
             ...mcpPayloadFields(snap),
             categories: snap.categories,
@@ -393,6 +522,13 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       await reply(payload.id, payload.generation, body);
     }
 
+    let unlistenInvalidated: (() => void) | undefined;
+    void listen<number>("mcp-in-progress-invalidated", (event) => {
+      setMcpInProgressGeneration(event.payload);
+    }).then((off) => {
+      unlistenInvalidated = off;
+    });
+
     let unlisten: (() => void) | undefined;
     void listen<McpScreenRequest>(
       "mcp-screen-request",
@@ -405,6 +541,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
     });
     return () => {
       unlisten?.();
+      unlistenInvalidated?.();
     };
   }, []);
 }

@@ -65,13 +65,26 @@ import {
 
 export const MCP_SCREEN_CONTEXT_MAX_BYTES = 10 * 1024 * 1024;
 
-export const MCP_TOOL_SCHEDULE_DIFF = "schedule_diff";
-export const MCP_TOOL_BASELINE_DIFFS = "baseline_diffs";
-export const MCP_TOOL_SELECTED_TASK = "selected_task";
-export const MCP_TOOL_SELECTED_TASKS = "selected_tasks";
-export const MCP_TOOL_FILTERED_TASKS = "filtered_tasks";
-export const MCP_TOOL_CURRENT_SCHEDULE = "current_schedule";
-export const MCP_TOOL_REPLACE_SCHEDULE = "replace_schedule";
+export {
+  MCP_TOOL_BASELINE_DIFFS,
+  MCP_TOOL_CATALOG_ACTION,
+  MCP_TOOL_CLOSE_WINDOW,
+  MCP_TOOL_CURRENT_SCHEDULE,
+  MCP_TOOL_EDIT_PLAN,
+  MCP_TOOL_FILE_ACTION,
+  MCP_TOOL_FILTERED_TASKS,
+  MCP_TOOL_FOCUS_WINDOW,
+  MCP_TOOL_HISTORY,
+  MCP_TOOL_MINIMIZE_WINDOW,
+  MCP_TOOL_OPEN_NEW_WINDOW,
+  MCP_TOOL_OPEN_WINDOWS,
+  MCP_TOOL_REPLACE_SCHEDULE,
+  MCP_TOOL_SCHEDULE_DIFF,
+  MCP_TOOL_SELECTED_TASK,
+  MCP_TOOL_SELECTED_TASKS,
+  MCP_TOOL_SET_PREFERENCES,
+  MCP_TOOL_SET_VIEW,
+} from "./mcpToolNames";
 
 export type ScreenContextTask = {
   id: ScheduleId;
@@ -973,9 +986,9 @@ export function mcpReadToolsPayloadToToolBody(
 
 export function isMcpReadToolName(tool: string): boolean {
   return (
-    tool === MCP_TOOL_SELECTED_TASK ||
-    tool === MCP_TOOL_SELECTED_TASKS ||
-    tool === MCP_TOOL_FILTERED_TASKS
+    tool === "selected_task" ||
+    tool === "selected_tasks" ||
+    tool === "filtered_tasks"
   );
 }
 

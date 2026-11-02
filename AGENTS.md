@@ -27,6 +27,8 @@
 
 フィールド定義の正本は各 JSON Schema である。挙動の正本はソースコードである。文書とソースが食い違ったときは、ソースに合わせて文書を直す。
 
+デスクトップ版を起動するときは、リポジトリで `npm run tauri dev` を使う。手順は [docs/development.md](docs/development.md) にある。`src-tauri/target/debug/schedule-viewer` を直接開かない。開発ビルドの画面は `http://localhost:1420/` を読むので、開発サーバーが無いと白くなる。`schedule-viewer --mcp` は画面用のプロセスとは別である。
+
 ## 変更したら文書も更新する
 
 | 変えたもの | 同じ変更で更新する文書 |

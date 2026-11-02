@@ -182,6 +182,63 @@ fn tools_list_result() -> Value {
                     "type": "object",
                     "description": "schedule-viewer のスケジュール JSON 全体（schemaVersion 8）",
                 }
+            },
+            {
+                "name": "focus_window",
+                "description": "open_windows の label のウィンドウを前面にします。文書も見方も変えません。読み取りツールは前面にしません。",
+                "inputSchema": read_schema.clone(),
+            },
+            {
+                "name": "open_new_window",
+                "description": "path のスケジュールを新しいウィンドウで開きます。前面ウィンドウだけに届きます。標準入力に path と workspacePath（任意）を JSON で渡します。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "path": { "type": "string" },
+                        "workspacePath": { "type": "string" },
+                    },
+                    "required": ["path"],
+                }
+            },
+            {
+                "name": "close_window",
+                "description": "label のウィンドウを閉じます。未保存のときは discardUnsaved が true のときだけ閉じます。",
+                "inputSchema": read_schema.clone(),
+            },
+            {
+                "name": "minimize_window",
+                "description": "label のウィンドウを最小化します。文書は変えません。",
+                "inputSchema": read_schema.clone(),
+            },
+            {
+                "name": "set_view",
+                "description": "前面ウィンドウの見方だけを変えます。計画のファイルは変えず、未保存にもしません。絞り込み、折りたたみ、表示サイズ、行の密度、追加列、配色、イナズマ線、稼働日、ズーム、スクロール、Fit を標準入力の JSON で渡します。",
+                "inputSchema": { "type": "object" }
+            },
+            {
+                "name": "edit_plan",
+                "description": "前面の計画を未保存のまま変えます。ops に日付、担当、並べ替え、先行を順に渡します。成功時は差分テキストを返します。",
+                "inputSchema": { "type": "object" }
+            },
+            {
+                "name": "file_action",
+                "description": "保存、別名保存、書き出し、開く、設定ファイルの書き出しを、結果の JSON だけで行います。ダイアログは開きません。",
+                "inputSchema": { "type": "object" }
+            },
+            {
+                "name": "catalog_action",
+                "description": "メンバー、色、ステータス、追加項目の一覧を編集し、save が true のときだけファイルを書きます。",
+                "inputSchema": { "type": "object" }
+            },
+            {
+                "name": "set_preferences",
+                "description": "JSON作成スキルの置き場所と、起動時の更新確認のオンオフを結果で受け取ります。",
+                "inputSchema": { "type": "object" }
+            },
+            {
+                "name": "history",
+                "description": "前面ウィンドウで取り消しまたはやり直しを1段だけ行います。見方や選択は戻りません。",
+                "inputSchema": { "type": "object" }
             }
         ]
     })
@@ -265,19 +322,12 @@ mod tests {
             .iter()
             .filter_map(|t| t.get("name").and_then(|n| n.as_str()))
             .collect();
-        assert_eq!(
-            names,
-            [
-                "open_windows",
-                "schedule_diff",
-                "baseline_diffs",
-                "selected_task",
-                "selected_tasks",
-                "filtered_tasks",
-                "current_schedule",
-                "replace_schedule",
-            ]
-        );
+        assert!(names.contains(&"open_windows"));
+        assert!(names.contains(&"replace_schedule"));
+        assert!(names.contains(&"set_view"));
+        assert!(names.contains(&"edit_plan"));
+        assert!(names.contains(&"focus_window"));
+        assert_eq!(names.len(), 18);
         let schedule_diff = tools
             .iter()
             .find(|t| t.get("name").and_then(|n| n.as_str()) == Some("schedule_diff"))

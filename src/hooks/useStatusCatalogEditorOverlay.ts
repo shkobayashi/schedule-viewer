@@ -129,6 +129,10 @@ export function useStatusCatalogEditorOverlay({
     void closeOverlay();
   }, [closeOverlay, dirty]);
 
+  const forceClose = useCallback(() => {
+    void closeOverlay();
+  }, [closeOverlay]);
+
   const openEditor = useCallback(() => {
     void releaseClaim(editingClaimKeyRef.current);
     if (workspaceTarget) {
@@ -526,6 +530,7 @@ export function useStatusCatalogEditorOverlay({
     mode,
     openEditor,
     requestClose,
+    forceClose,
     editingCatalogId,
     editingItems,
     itemsRevision,

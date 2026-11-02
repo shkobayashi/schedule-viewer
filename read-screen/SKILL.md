@@ -41,6 +41,25 @@ schedule-viewer のデスクトップ版ウィンドウと連携するスキル�
 | オンな絞り込みと残るタスク | `filtered_tasks` | `--screen filtered_tasks` |
 | 画面のスケジュール JSON 全体 | `current_schedule` | `--screen current_schedule` |
 
+### 前面ウィンドウ向けの操作
+
+操作の JSON は標準入力で渡します。`discardInProgress: true` があるときだけ、詳細や一括の入力途中、並べ替えや日付バーのドラッグ、開いているダイアログを確定せず閉じてから実行します。起動復旧中とファイル書き込み中は、この印があっても拒みます。
+
+| 目的 | MCP ツール名 | コマンド |
+| --- | --- | --- |
+| 見方（絞り込み、折りたたみ、表示、ズーム、スクロール、Fit など） | `set_view` | `--screen set_view`（stdin に JSON） |
+| 計画の部分更新（日付、担当、並べ替え、先行） | `edit_plan` | `--screen edit_plan` |
+| 保存、別名保存、書き出し、開く、設定ファイルの書き出し | `file_action` | `--screen file_action` |
+| 一覧（メンバー、色、ステータス、追加項目） | `catalog_action` | `--screen catalog_action` |
+| JSON 作成スキルと起動時の更新確認 | `set_preferences` | `--screen set_preferences` |
+| 取り消しとやり直し（1 段） | `history` | `--screen history` |
+| ウィンドウを前面に | `focus_window` | `--screen focus_window` または `--screen focus_window --window <label>` |
+| 新しいウィンドウで開く | `open_new_window` | `--screen open_new_window` |
+| ウィンドウを閉じる | `close_window` | `--screen close_window` または `--screen close_window --window <label>` |
+| 最小化 | `minimize_window` | `--screen minimize_window` または `--screen minimize_window --window <label>` |
+
+`focus_window`、`close_window`、`minimize_window` だけ `--window` を付けられます。`open_windows`、`replace_schedule`、上表の前面向け操作に `--window` を付けたときは、CLI は拒否文を標準エラーへ出して終了コード 1 にします。
+
 背面のウィンドウを読むときは、MCP では読み取り 6 つに `window` 引数（`open_windows` の `label`）を付けます。MCP が使えないときは `--screen <読み取り> --window <label>` です。`open_windows` と `replace_schedule` に `--window` は付けません。
 
 `selected_tasks` は、選択が1件でも配列で返します。選択が無いときは空の配列です。選択数が不明なときは `selected_tasks` を使います。`selected_task` は、選択がちょうど1件のときだけそのタスクを返し、0件と2件以上は null です。

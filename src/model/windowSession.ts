@@ -10,6 +10,7 @@ export type WindowStartupRead = {
 };
 
 export type PendingScheduleWindowOpen = {
+  label: string;
   path: string;
   contents: string;
   workspacePath?: string | null;
@@ -63,6 +64,10 @@ export async function takePendingScheduleWindowOpenViaTauri(): Promise<PendingSc
   return invoke<PendingScheduleWindowOpen | null>(
     "take_pending_schedule_window_open",
   );
+}
+
+export async function ackPendingScheduleWindowOpenViaTauri(): Promise<void> {
+  await invoke("ack_pending_schedule_window_open");
 }
 
 export async function createScheduleWindowViaTauri(

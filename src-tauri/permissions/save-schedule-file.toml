@@ -1,4 +1,4 @@
 [[permission]]
 identifier = "allow-save-schedule-file"
 description = "Allows saving schedule JSON via native file dialog or known path."
-commands.allow = ["save_schedule_file"]
+commands.allow = ["save_schedule_file", "save_schedule_at_path"]

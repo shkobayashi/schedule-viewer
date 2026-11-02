@@ -6,29 +6,14 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 
 use crate::mcp_bridge::call_tool_via_bridge;
+use crate::mcp_tool_names::{
+    mcp_tool_rejects_window_argument, MCP_STDIN_ACTION_TOOL_NAMES, SCREEN_REPLACE_TOOL_NAME,
+    SCREEN_TOOL_NAMES,
+};
 
-pub const OPEN_WINDOWS_TOOL_NAME: &str = "open_windows";
-
-pub const SCREEN_READ_TOOL_NAMES: [&str; 7] = [
-    "schedule_diff",
-    "baseline_diffs",
-    "selected_task",
-    "selected_tasks",
-    "filtered_tasks",
-    "current_schedule",
-    OPEN_WINDOWS_TOOL_NAME,
-];
-
-pub const SCREEN_READ_TOOLS_WITH_WINDOW: [&str; 6] = [
-    "schedule_diff",
-    "baseline_diffs",
-    "selected_task",
-    "selected_tasks",
-    "filtered_tasks",
-    "current_schedule",
-];
-
-pub const SCREEN_REPLACE_TOOL_NAME: &str = "replace_schedule";
+pub use crate::mcp_tool_names::{
+    OPEN_WINDOWS_WINDOW_NOT_SUPPORTED, REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED,
+};
 
 pub const MAX_SCHEDULE_BYTES: usize = 10 * 1024 * 1024;
 
@@ -36,21 +21,8 @@ const REPLACE_SCHEDULE_TOO_LARGE: &str =
     "スケジュールが大きすぎるため、置き換えられません。";
 const REPLACE_SCHEDULE_INVALID_JSON: &str =
     "スケジュールの JSON として読めないので、置き換えられません。";
-pub const REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED: &str =
-    "replace_schedule は前面ウィンドウだけを置き換えます。--window は使えません。";
-pub const OPEN_WINDOWS_WINDOW_NOT_SUPPORTED: &str =
-    "open_windows は --window を受け付けません。";
-
-pub const SCREEN_TOOL_NAMES: [&str; 8] = [
-    "schedule_diff",
-    "baseline_diffs",
-    "selected_task",
-    "selected_tasks",
-    "filtered_tasks",
-    "current_schedule",
-    OPEN_WINDOWS_TOOL_NAME,
-    "replace_schedule",
-];
+const ACTION_STDIN_INVALID_JSON: &str =
+    "操作の JSON として読めないので、実行できません。";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScreenCliInvocation {
@@ -75,10 +47,7 @@ pub fn parse_screen_cli(args: &[String]) -> Option<ScreenCliInvocation> {
     }
     if args.len() == 4 && args[2] == "--window" {
         let name = args[1].as_str();
-        if SCREEN_READ_TOOLS_WITH_WINDOW.contains(&name)
-            || name == OPEN_WINDOWS_TOOL_NAME
-            || name == SCREEN_REPLACE_TOOL_NAME
-        {
+        if SCREEN_TOOL_NAMES.contains(&name) {
             return Some(ScreenCliInvocation {
                 tool: name.to_string(),
                 window: Some(args[3].clone()),
@@ -92,15 +61,11 @@ pub fn parse_screen_cli(args: &[String]) -> Option<ScreenCliInvocation> {
 pub fn screen_cli_window_rejection_message(
     tool: &str,
     window: Option<&str>,
-) -> Option<&'static str> {
+) -> Option<String> {
     if window.is_none() {
         None
-    } else if tool == SCREEN_REPLACE_TOOL_NAME {
-        Some(REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED)
-    } else if tool == OPEN_WINDOWS_TOOL_NAME {
-        Some(OPEN_WINDOWS_WINDOW_NOT_SUPPORTED)
     } else {
-        None
+        mcp_tool_rejects_window_argument(tool)
     }
 }
 
@@ -137,6 +102,26 @@ pub fn parse_replace_schedule_stdin_bytes(data: &[u8]) -> Result<Value, String> 
     serde_json::from_slice(payload).map_err(|_| REPLACE_SCHEDULE_INVALID_JSON.to_string())
 }
 
+fn parse_action_stdin_bytes(data: &[u8]) -> Result<Value, String> {
+    if data.len() > MAX_SCHEDULE_BYTES {
+        return Err(ACTION_STDIN_INVALID_JSON.to_string());
+    }
+    let payload = strip_utf8_bom(data);
+    if payload.is_empty() {
+        return Err(ACTION_STDIN_INVALID_JSON.to_string());
+    }
+    serde_json::from_slice(payload).map_err(|_| ACTION_STDIN_INVALID_JSON.to_string())
+}
+
+fn read_stdin_json() -> Result<Value, String> {
+    let mut buf = Vec::new();
+    io::stdin()
+        .take((MAX_SCHEDULE_BYTES + 1) as u64)
+        .read_to_end(&mut buf)
+        .map_err(|err| err.to_string())?;
+    parse_action_stdin_bytes(&buf)
+}
+
 fn read_replace_schedule_stdin() -> Result<Value, String> {
     let mut buf = Vec::new();
     io::stdin()
@@ -155,6 +140,14 @@ pub fn run_screen_cli(invocation: &ScreenCliInvocation) -> i32 {
     }
     let arguments = if invocation.tool == SCREEN_REPLACE_TOOL_NAME {
         match read_replace_schedule_stdin() {
+            Ok(value) => value,
+            Err(message) => {
+                eprintln!("{message}");
+                return 1;
+            }
+        }
+    } else if MCP_STDIN_ACTION_TOOL_NAMES.contains(&invocation.tool.as_str()) {
+        match read_stdin_json() {
             Ok(value) => value,
             Err(message) => {
                 eprintln!("{message}");
@@ -198,7 +191,6 @@ struct ScreenCliOutput {
     text: String,
     image_path: Option<PathBuf>,
 }
-
 
 fn write_screen_image_from_content(content: &[Value]) -> Result<Option<PathBuf>, String> {
     if content.len() < 2 {
@@ -250,6 +242,7 @@ fn extract_tool_output(body: &Value) -> Result<ScreenCliOutput, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mcp_tool_names::OPEN_WINDOWS_WINDOW_NOT_SUPPORTED;
 
     #[test]
     fn screen_tool_requires_exactly_two_args() {
@@ -274,7 +267,7 @@ mod tests {
                 "schedule_diff".to_string(),
                 "extra".to_string(),
             ])
-                .is_none()
+            .is_none()
         );
     }
 
@@ -289,6 +282,22 @@ mod tests {
             ]),
             Some(ScreenCliInvocation {
                 tool: "selected_tasks".to_string(),
+                window: Some("schedule-2".to_string()),
+            })
+        );
+    }
+
+    #[test]
+    fn screen_tool_accepts_window_on_focus_window() {
+        assert_eq!(
+            parse_screen_cli(&[
+                "--screen".to_string(),
+                "focus_window".to_string(),
+                "--window".to_string(),
+                "schedule-2".to_string(),
+            ]),
+            Some(ScreenCliInvocation {
+                tool: "focus_window".to_string(),
                 window: Some("schedule-2".to_string()),
             })
         );
@@ -310,7 +319,7 @@ mod tests {
         );
         assert_eq!(
             screen_cli_window_rejection_message("open_windows", Some("schedule-2")),
-            Some(OPEN_WINDOWS_WINDOW_NOT_SUPPORTED)
+            Some(OPEN_WINDOWS_WINDOW_NOT_SUPPORTED.to_string())
         );
     }
 
@@ -330,7 +339,27 @@ mod tests {
         );
         assert_eq!(
             screen_cli_window_rejection_message("replace_schedule", Some("schedule-2")),
-            Some(REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED)
+            Some(REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED.to_string())
+        );
+    }
+
+    #[test]
+    fn screen_tool_rejects_window_on_set_view() {
+        assert_eq!(
+            parse_screen_cli(&[
+                "--screen".to_string(),
+                "set_view".to_string(),
+                "--window".to_string(),
+                "schedule-2".to_string(),
+            ]),
+            Some(ScreenCliInvocation {
+                tool: "set_view".to_string(),
+                window: Some("schedule-2".to_string()),
+            })
+        );
+        assert_eq!(
+            screen_cli_window_rejection_message("set_view", Some("schedule-2")),
+            Some("set_view は前面ウィンドウだけに届きます。--window は使えません。".to_string())
         );
     }
 

@@ -108,6 +108,18 @@ export function scheduleToJson(
   };
 
   const hasLevels = levels != null && levels.length > 0;
+
+  if (outline != null && outline.length > 0) {
+    const levelDefs = hasLevels
+      ? levels.map((level) => normalizeLevelDefinition(level))
+      : undefined;
+    return withConnections({
+      ...base,
+      ...(levelDefs != null ? { levels: levelDefs } : {}),
+      outline: outlineToJson(outline, valueFieldDefs),
+    });
+  }
+
   if (!hasLevels) {
     return withConnections({
       ...base,
@@ -124,14 +136,6 @@ export function scheduleToJson(
   }
 
   const levelDefs = levels.map((level) => normalizeLevelDefinition(level));
-
-  if (outline != null && outline.length > 0) {
-    return withConnections({
-      ...base,
-      levels: levelDefs,
-      outline: outlineToJson(outline, valueFieldDefs),
-    });
-  }
 
   return withConnections({
     ...base,

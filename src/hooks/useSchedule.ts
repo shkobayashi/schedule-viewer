@@ -110,6 +110,7 @@ import {
   type SearchField,
 } from "../model/scheduleFilterPersistence";
 import type { ReplaceScheduleDocumentResult } from "../model/replaceSchedule";
+import { coerceOutlineStorageDocument } from "../model/mcpEditPlan";
 import { serializeScheduleDocument } from "../model/scheduleFile";
 import {
   resolveScheduleTitleCommit,
@@ -419,6 +420,8 @@ export function useSchedule(
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const collapsedRef = useRef(collapsed);
+  collapsedRef.current = collapsed;
   const [reorderPreview, setReorderPreview] = useState<
     | {
         kind: "task";
@@ -1120,6 +1123,7 @@ export function useSchedule(
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      collapsedRef.current = next;
       return next;
     });
   }, []);
@@ -2496,7 +2500,7 @@ export function useSchedule(
       if (blockDocumentEditsRef?.current) {
         return { outcome: "rejected" };
       }
-      const next = snapshotFromDocument(document);
+      const next = snapshotFromDocument(coerceOutlineStorageDocument(document));
       const pushed = pushDocumentHistory(historyRef.current, current, next);
       if (!pushed) {
         return { outcome: "unchanged", screenJson: currentJson };
@@ -2629,14 +2633,16 @@ export function useSchedule(
     [pruneUiForDocument, setReorderPreview, syncHistoryUi],
   );
 
-  const undo = useCallback(() => {
-    if (blockDocumentEditsRef?.current) return;
+  const undo = useCallback((): boolean => {
+    if (blockDocumentEditsRef?.current) return false;
+    if (historyRef.current.past.length === 0) return false;
     const result = undoDocumentHistory(historyRef.current, documentRef.current);
-    if (!result) return;
+    if (!result) return false;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
     syncHistoryUi();
     onHistoryUndoApplied?.(result.snapshot);
+    return true;
   }, [
     applySnapshot,
     blockDocumentEditsRef,
@@ -2644,14 +2650,16 @@ export function useSchedule(
     syncHistoryUi,
   ]);
 
-  const redo = useCallback(() => {
-    if (blockDocumentEditsRef?.current) return;
+  const redo = useCallback((): boolean => {
+    if (blockDocumentEditsRef?.current) return false;
+    if (historyRef.current.future.length === 0) return false;
     const result = redoDocumentHistory(historyRef.current, documentRef.current);
-    if (!result) return;
+    if (!result) return false;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
     syncHistoryUi();
     onHistoryRedoApplied?.(result.snapshot);
+    return true;
   }, [
     applySnapshot,
     blockDocumentEditsRef,
@@ -2686,13 +2694,48 @@ export function useSchedule(
     });
     setSearchField(state.searchField);
     setHiddenMilestoneGroupIds([...state.hiddenMilestoneGroupIds]);
-    setCollapsed(
-      collapsedSetFromIds(
+    setCollapsed((prev) => {
+      const next = collapsedSetFromIds(
         state.collapsedCategoryIds,
         state.collapsedGroupIds,
-      ),
-    );
+      );
+      for (const key of prev) {
+        if (key.startsWith("hierarchy:")) {
+          next.add(key);
+        }
+      }
+      collapsedRef.current = next;
+      return next;
+    });
   }, []);
+
+  const applyPartialFilterViewState = useCallback(
+    (update: {
+      filters?: ScheduleFilterViewState["filters"];
+      searchField?: ScheduleFilterViewState["searchField"];
+      hiddenMilestoneGroupIds?: ScheduleId[];
+      collapsed?: ReadonlySet<string>;
+    }) => {
+      if (update.filters !== undefined) {
+        setFilters({
+          ...update.filters,
+          tags: [...update.filters.tags],
+        });
+      }
+      if (update.searchField !== undefined) {
+        setSearchField(update.searchField);
+      }
+      if (update.hiddenMilestoneGroupIds !== undefined) {
+        setHiddenMilestoneGroupIds([...update.hiddenMilestoneGroupIds]);
+      }
+      if (update.collapsed !== undefined) {
+        const next = new Set(update.collapsed);
+        collapsedRef.current = next;
+        setCollapsed(next);
+      }
+    },
+    [],
+  );
 
   const getFilterViewState = useCallback((): ScheduleFilterViewState => {
     const { collapsedCategoryIds, collapsedGroupIds } =
@@ -2812,6 +2855,7 @@ export function useSchedule(
     setSearchField,
     setFilterViewState,
     getFilterViewState,
+    applyPartialFilterViewState,
     knownMemberIds,
     updateFilters,
     patchFieldFilter,
@@ -2875,6 +2919,7 @@ export function useSchedule(
     diskEpoch,
     undo,
     redo,
+    getCollapsedForMcp: () => collapsedRef.current,
     canUndo: historyUi.canUndo,
     canRedo: historyUi.canRedo,
     today,

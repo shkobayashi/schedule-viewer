@@ -21,6 +21,10 @@ import {
   type Rect as ChipRect,
 } from "../model/dragDates";
 import {
+  captureMcpInProgressGeneration,
+  isMcpInProgressCommitStale,
+} from "../model/mcpInProgressInvalidation";
+import {
   CHART_PAN_THRESHOLD_PX,
   hitTaskAnchor,
   hitTaskResizeEdge,
@@ -164,6 +168,7 @@ type TimelineProps = {
   onChartPointer: (pointer: ChartPointer) => void;
   sticky: StickyLayout;
   showLightningLine?: boolean;
+  onBarDragActiveChange?: (active: boolean) => void;
 };
 
 const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
@@ -407,6 +412,7 @@ function TaskBar({
   } | null>(null);
   const moveTargetIdsRef = useRef<readonly ScheduleId[]>([task.id]);
   const blockOpenEditRef = useRef(false);
+  const dragCommitEpochRef = useRef(captureMcpInProgressGeneration());
   const resizeEdgeAtPointer = useCallback(() => {
     if (!allowResizeEdges) return null;
     const pos = groupRef.current?.getRelativePointerPosition();
@@ -420,6 +426,7 @@ function TaskBar({
     (commit: boolean) => {
       const drag = moveDragRef.current;
       const node = groupRef.current;
+      let shouldCommit = commit;
       if (drag) {
         drag.detach();
         if (drag.captureTarget.hasPointerCapture(drag.pointerId)) {
@@ -432,7 +439,12 @@ function TaskBar({
         onDragGeometry(null);
         return;
       }
-      if (commit) {
+      if (shouldCommit) {
+        if (isMcpInProgressCommitStale(dragCommitEpochRef.current)) {
+          shouldCommit = false;
+        }
+      }
+      if (shouldCommit) {
         const delta = Math.round((node.x() - origXRef.current) / pxPerDay);
         node.position({ x: origXRef.current + delta * pxPerDay, y: barY });
         if (delta !== 0) onMoveTask(delta, moveTargetIdsRef.current);
@@ -470,6 +482,7 @@ function TaskBar({
           ? [...selectedTaskIds]
           : [task.id];
       origXRef.current = node.x();
+      dragCommitEpochRef.current = captureMcpInProgressGeneration();
       try {
         captureTarget.setPointerCapture(pointerId);
       } catch {
@@ -813,6 +826,7 @@ function TaskBar({
                 barWidth,
               };
               draggingHandleRef.current = this as Konva.Rect;
+              dragCommitEpochRef.current = captureMcpInProgressGeneration();
               registerDragCancel(() => cancelUnselectedResize());
               onDragGeometry({
                 taskId: task.id,
@@ -866,6 +880,10 @@ function TaskBar({
                 return;
               }
               if (!g) return;
+              if (isMcpInProgressCommitStale(dragCommitEpochRef.current)) {
+                cancelUnselectedResize();
+                return;
+              }
               onResizeStart(g.x());
             }}
           />
@@ -897,6 +915,7 @@ function TaskBar({
                 barWidth: bgWidthRef.current,
               };
               draggingHandleRef.current = this as Konva.Rect;
+              dragCommitEpochRef.current = captureMcpInProgressGeneration();
               registerDragCancel(() => cancelUnselectedResize());
               onDragGeometry({
                 taskId: task.id,
@@ -937,6 +956,10 @@ function TaskBar({
                 return;
               }
               if (!g) return;
+              if (isMcpInProgressCommitStale(dragCommitEpochRef.current)) {
+                cancelUnselectedResize();
+                return;
+              }
               onResizeEnd(g.x(), bgWidthRef.current);
             }}
           />
@@ -1508,6 +1531,7 @@ export function Timeline({
   onChartPointer,
   sticky,
   showLightningLine = true,
+  onBarDragActiveChange,
 }: TimelineProps) {
   const linkMode = linkSourceId != null;
   const chart = useMemo(
@@ -1615,6 +1639,9 @@ export function Timeline({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [dragPreviews]);
+  useEffect(() => {
+    onBarDragActiveChange?.(dragPreviews != null);
+  }, [dragPreviews, onBarDragActiveChange]);
   const onDragGeometry = useCallback(
     (geometry: DragBarGeometry | null) => {
       if (geometry == null) {

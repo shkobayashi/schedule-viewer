@@ -10,6 +10,7 @@ import {
   isTauri,
   parseScheduleText,
   readOpenScheduleFileViaTauri,
+  resolveScheduleComparisonPath,
   safeScheduleJsonFilename,
 } from "./scheduleFile";
 
@@ -22,8 +23,9 @@ export async function loadScheduleDiffText(
   screenJson: string,
   fields?: readonly ScheduleFieldDef[],
 ): Promise<ScheduleDiffLoadResult> {
+  const resolvedPath = await resolveScheduleComparisonPath(filePath);
   const canCompareOnDisk =
-    filePath != null &&
+    resolvedPath != null &&
     (isTauri() || import.meta.env.MODE === "manual-screenshot");
   if (!canCompareOnDisk) {
     return {
@@ -32,7 +34,7 @@ export async function loadScheduleDiffText(
       isError: false,
     };
   }
-  const filename = safeScheduleJsonFilename(filePath);
+  const filename = safeScheduleJsonFilename(resolvedPath);
   try {
     const contents =
       import.meta.env.MODE === "manual-screenshot"

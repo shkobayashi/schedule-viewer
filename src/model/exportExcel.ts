@@ -618,3 +618,14 @@ export async function exportScheduleExcel(
     suggestedName,
   });
 }
+
+export async function exportScheduleExcelToPath(
+  input: ScheduleExcelInput,
+  path: string,
+): Promise<void> {
+  const payload = buildExcelExportPayload(input);
+  if (!isTauri()) {
+    throw new Error("Excel の書き出しはデスクトップ版だけです。");
+  }
+  await invoke("write_excel_export_at_path", { path, payload });
+}

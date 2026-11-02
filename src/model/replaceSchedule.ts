@@ -1,4 +1,8 @@
 import type { DocumentSnapshot } from "./history";
+import {
+  REPLACE_SCHEDULE_STARTUP_NOT_SETTLED,
+  REPLACE_SCHEDULE_UI_BUSY,
+} from "./mcpOperationGate";
 import { MCP_SCREEN_CONTEXT_MAX_BYTES } from "./screenContext";
 import {
   MAX_SCHEDULE_BYTES,
@@ -12,38 +16,13 @@ export const REPLACE_SCHEDULE_APPLIED_TOAST =
 export const REPLACE_SCHEDULE_APPLIED_BASELINE_SAME_TOAST =
   "画面に反映しました。";
 
-export type McpReplaceUiBlockingInput = {
-  fileBusy: boolean;
-  titleEditing: boolean;
-  detailPanelEditing: boolean;
-  scheduleInlineEditing: boolean;
-  reorderDragging: boolean;
-  sidebarReorderDragging: boolean;
-  modalDialogOpen: boolean;
-  externalReloadConflictDialogOpen: boolean;
-};
+export type McpReplaceUiBlockingInput = import("./mcpOperationGate").McpUiBlockingInput;
 
-/** true のとき replace_schedule は「画面の操作が途中」で拒否する。 */
-export function assessMcpReplaceUiBlocking(
-  input: McpReplaceUiBlockingInput,
-): boolean {
-  if (input.fileBusy) return true;
-  if (input.titleEditing) return true;
-  if (input.detailPanelEditing) return true;
-  if (input.scheduleInlineEditing) return true;
-  if (input.reorderDragging) return true;
-  if (input.sidebarReorderDragging) return true;
-  if (input.modalDialogOpen && !input.externalReloadConflictDialogOpen) {
-    return true;
-  }
-  return false;
-}
-
-export const REPLACE_SCHEDULE_STARTUP_NOT_SETTLED =
-  "起動の復旧が終わっていないので、置き換えられません。";
-
-export const REPLACE_SCHEDULE_UI_BUSY =
-  "画面の操作が途中なので、置き換えられません。";
+export {
+  assessMcpReplaceUiBlocking,
+  REPLACE_SCHEDULE_STARTUP_NOT_SETTLED,
+  REPLACE_SCHEDULE_UI_BUSY,
+} from "./mcpOperationGate";
 
 export const REPLACE_SCHEDULE_TOO_LARGE =
   "スケジュールが大きすぎるため、置き換えられません。";
