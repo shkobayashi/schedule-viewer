@@ -1,6 +1,6 @@
 # テスト仕様
 
-何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
+何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/file_dialog_filters.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
 
 ## 方針
 
@@ -611,6 +611,10 @@
 | `sanitize_export_filename_removes_path_separators` | パス区切りを除く | EXPORT-04 |
 | `sanitize_export_filename_uses_default_for_empty` | 空なら `schedule.html` | EXPORT-04 |
 | `sanitize_export_filename_adds_extension` | 拡張子を足す | EXPORT-04, FILE-02 |
+| `schedule_filters_default_to_json_then_schedule_suffix` | Windows と Linux のスケジュール開く・別名保存の種類 | FILE-01, FILE-03 |
+| `members_filters_default_to_members_suffix_then_json` | Windows と Linux のメンバー取り込みの種類 | SET-02 |
+| `calendar_filters_default_to_calendar_suffix_then_json` | Windows と Linux のカレンダー取り込みの種類 | SET-03 |
+| `macos_json_dialogs_keep_a_single_json_filter` | macOS の三つのダイアログが JSON の一種類 | FILE-01, FILE-03, SET-02, SET-03 |
 | `export_xlsx::write_excel_bytes_produces_xlsx` | xlsx の先頭が ZIP である | EXPORT-05 |
 | 同上 | `screen_gridlines_are_off` | シートの `showGridLines` が 0 である | EXPORT-05 |
 | 同上 | `shape_pixel_dimensions_clamps_thin_lines` | EXPORT-05 |
@@ -768,6 +772,9 @@
 | TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 7 になる |
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 7 になる。タグを付けていないタスクに `tags` は無い |
 | TC-FILE-01h | FILE-01, NAV-03 | 期間の短いスケジュールを開き、一覧を下へ送ったあと、同じウィンドウで期間の長いスケジュールを開く。開始が前の原点より後ろのスケジュールも開く | 1日幅は新しい期間が幅に入る値になる。横位置は先頭。一覧は上端から見える。後ろの開始でも、前の原点の空き日の分だけバーが右へ寄らない |
+| TC-FILE-01i | FILE-01, FILE-03 | デスクトップ版 Windows または Linux。同じフォルダに `plan.json`、`workspace.json`、`foo.schedule.json`、名前そのものの `schedule.json` がある | 「開く」で種類を見る。JSON のまま `plan.json` と `workspace.json` を開ける。スケジュールに切り替えると `foo.schedule.json` だけが出る。`schedule.json` は JSON で選べる。別名保存も同じ二種類で、既定は JSON である |
+| TC-FILE-01j | FILE-01, FILE-03, SET-02, SET-03 | デスクトップ版 macOS | 「開く」、別名保存、メンバーと稼働日の「取り込み…」で種類を見る | いずれも JSON の一種類だけである。末尾 `.json` を選べる |
+| TC-FILE-01k | FILE-01, SET-02, SET-03 | ブラウザ版、`npm run dev` | 「開く」と設定の取り込みでファイルを選ぶ | 種類の切り替えは無い。`.json` を選べる |
 | TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバーとカレンダーがファイル由来になる。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとカレンダーだけ読み直す。起動し直すと設定ファイルのまま戻る |
 | TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとカレンダーを選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
 | TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューにスケジュールと設定ファイルを別グループで新しい順に並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
@@ -1038,8 +1045,10 @@
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
+| TC-SET-02c | SET-02 | デスクトップ版 Windows または Linux。`team.members.json`、名前そのものの `members.json`、スケジュール JSON がある | メンバー「取り込み…」で種類を切り替えて選ぶ | 既定では `team.members.json` だけが出る。`members.json` とスケジュール JSON は JSON で選べる。中身がメンバーでなければ今の検証エラーで、カタログは増えない |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
+| TC-SET-03c | SET-03 | デスクトップ版 Windows または Linux。`jp.calendar.json`、名前そのものの `calendar.json`、メンバー JSON がある | 稼働日「取り込み…」で種類を切り替えて選ぶ | 既定では `jp.calendar.json` だけが出る。`calendar.json` とメンバー JSON は JSON で選べる。中身がカレンダーでなければ今の検証エラー |
 | TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace が `~/.cursor/skills/` に置かれ、パスが示される |
 | TC-SET-05b | SET-05 | 上記のいずれかが既にある | もう一度「置く」 | 上書き確認が出る。上書き後、置いたパスが示される |
 | TC-SET-05c | SET-05 | 指定フォルダへ Claude Code を置く。`~/.claude/skills/` に同名がある | 「置く」 | 置いたあと、個人用が先に使われる旨が出る |
