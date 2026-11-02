@@ -22,3 +22,8 @@ commands.allow = ["delete_member_catalog"]
 identifier = "allow-set-selected-member-catalog"
 description = "Allows selecting the active member catalog."
 commands.allow = ["set_selected_member_catalog"]
+
+[[permission]]
+identifier = "allow-pick-members-json-file"
+description = "Allows picking a member JSON file via native file dialog."
+commands.allow = ["pick_members_json_file"]

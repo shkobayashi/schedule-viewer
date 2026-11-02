@@ -168,7 +168,12 @@ export async function setSelectedMemberCatalog(
   writeBrowserSelected(catalogId);
 }
 
-export function pickMembersJsonFile(): Promise<{ name: string; contents: string } | null> {
+export async function pickMembersJsonFile(): Promise<{ name: string; contents: string } | null> {
+  if (isTauri()) {
+    return invoke<{ name: string; contents: string } | null>(
+      "pick_members_json_file",
+    );
+  }
   return new Promise((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";
