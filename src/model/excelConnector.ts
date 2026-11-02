@@ -1,17 +1,15 @@
-import { paletteFor, type ResolvedColorScheme } from "./palette";
+import { paletteFor } from "./palette";
 
 const EXCEL_LINK_ELBOW_PX = 12;
+
+const lightChart = paletteFor("light").chart;
 
 export function excelConnectorStraight(sameRow: boolean): boolean {
   return sameRow;
 }
 
-export function excelConnectorStrokeRgb(
-  broken: boolean,
-  colorScheme: ResolvedColorScheme,
-): string {
-  const { chart } = paletteFor(colorScheme);
-  const hex = broken ? chart.linkBroken : chart.linkOk;
+export function excelConnectorStrokeRgb(broken: boolean): string {
+  const hex = broken ? lightChart.linkBroken : lightChart.linkOk;
   return hex.replace("#", "");
 }
 
@@ -44,11 +42,10 @@ export function excelConnectorDescriptor(
   sameRow: boolean,
   fromRightPx: number,
   toLeftPx: number,
-  colorScheme: ResolvedColorScheme,
 ): ExcelConnectorDescriptor {
   const straight = excelConnectorStraight(sameRow);
   return {
-    strokeRgb: excelConnectorStrokeRgb(broken, colorScheme),
+    strokeRgb: excelConnectorStrokeRgb(broken),
     broken,
     straight,
     bentAdj1: straight

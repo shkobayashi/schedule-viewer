@@ -183,7 +183,119 @@ describe("exportExcel", () => {
     expect(payload.connectors[0]?.straight).toBe(false);
     expect(payload.shapes.some((s) => s.text === "▶")).toBe(false);
     expect(payload.todayLine).not.toBeNull();
-    expect(payload.todayLine?.strokeRgb).toMatch(/^[0-9A-Fa-f]{6}$/);
+    expect(payload.todayLine?.strokeRgb).toBe("E07B20");
+  });
+
+  it("uses light lightning color when colorScheme is dark", () => {
+    const input = baseInput();
+    input.showLightningLine = true;
+    const payload = buildExcelExportPayload({
+      ...input,
+      colorScheme: "dark",
+    });
+    expect(payload.todayLine?.strokeRgb).toBe("E07B20");
+  });
+
+  it("uses light category name when colorScheme is dark", () => {
+    const category: VisibleRow = {
+      type: "category",
+      y: 0,
+      id: "c1",
+      label: "要件",
+      collapsed: false,
+      summary: null,
+      rollupPercent: null,
+    };
+    const payload = buildExcelExportPayload({
+      ...baseInput(),
+      visibleRows: [category],
+      colorScheme: "dark",
+    });
+    expect(payload.rows[0]?.nameTextRgb).toBe("1F2937");
+  });
+
+  it("uses light category fill when colorScheme is dark", () => {
+    const payload = buildExcelExportPayload({
+      ...baseInput(),
+      colorScheme: "dark",
+    });
+    expect(payload.categoryHeadingFillRgb).toBe("F8F9FB");
+  });
+
+  it("uses light summary colors when colorScheme is dark", () => {
+    const category: VisibleRow = {
+      type: "category",
+      y: 0,
+      id: "c1",
+      label: "要件",
+      collapsed: false,
+      summary: {
+        start: "2026-01-07",
+        end: "2026-01-08",
+        covered: [{ start: "2026-01-07", end: "2026-01-08" }],
+      },
+      rollupPercent: 50,
+    };
+    const payload = buildExcelExportPayload({
+      ...baseInput(),
+      visibleRows: [category],
+      colorScheme: "dark",
+    });
+    expect(payload.shapes[0]?.fillRgb).toBe("8A94A6");
+    expect(payload.summaryGapLines).toHaveLength(0);
+  });
+
+  it("uses light hatch on tentative bars when colorScheme is dark", () => {
+    const taskRow: VisibleRow = {
+      type: "task",
+      y: 0,
+      task: {
+        id: "t1",
+        name: "未確定",
+        start: "2026-01-07",
+        end: "2026-01-08",
+        assigneeId: null,
+        status: "in-progress",
+        progress: 0,
+        confidence: "tentative",
+        predecessors: [],
+        milestoneId: null,
+      },
+    };
+    const payload = buildExcelExportPayload({
+      ...baseInput(),
+      visibleRows: [taskRow],
+      colorScheme: "dark",
+    });
+    expect(payload.shapes[0]?.patternForeRgb).toBe("818492");
+    expect(payload.shapes[0]?.fillRgb).toBe("DEE3FB");
+  });
+
+  it("uses light connector colors when colorScheme is dark", () => {
+    const task2: VisibleRow = {
+      type: "task",
+      y: 28,
+      task: {
+        id: "t2",
+        name: "実装",
+        start: "2026-01-09",
+        end: "2026-01-09",
+        assigneeId: null,
+        status: "not-started",
+        progress: 0,
+        confidence: "committed",
+        predecessors: ["t1"],
+        milestoneId: null,
+      },
+    };
+    const input = baseInput();
+    input.visibleRows = [input.visibleRows[0]!, task2];
+    input.links = [{ fromId: "t1", toId: "t2", broken: true }];
+    const payload = buildExcelExportPayload({
+      ...input,
+      colorScheme: "dark",
+    });
+    expect(payload.connectors[0]?.strokeRgb).toBe("C4351A");
   });
 
   it("assigns name indent and summary decorations by row kind", () => {
