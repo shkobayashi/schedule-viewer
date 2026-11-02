@@ -284,8 +284,7 @@ function shapeForSpan(
 export function buildExcelExportPayload(
   input: ScheduleExcelInput,
 ): ExcelExportPayload {
-  const { chart } = paletteFor(input.colorScheme);
-  const { css: lightCss } = paletteFor("light");
+  const { chart, css: lightCss } = paletteFor("light");
   const excelGroupNameRgb = lightCss.groupText.replace("#", "");
   const excelOverdueNameRgb = lightCss.dangerText.replace("#", "");
   const leftHeaders = excelLeftHeaders(input.excelColumns);
@@ -343,7 +342,6 @@ export function buildExcelExportPayload(
           visible.summary,
           columns,
           input.tier,
-          chart,
           leftColCount,
           dateColumnWidthPx,
           bodyRowHeightPx,
@@ -370,7 +368,6 @@ export function buildExcelExportPayload(
           visible.summary,
           columns,
           input.tier,
-          chart,
           leftColCount,
           dateColumnWidthPx,
           bodyRowHeightPx,
@@ -410,7 +407,7 @@ export function buildExcelExportPayload(
         isoDate(taskBarExclusiveEnd(task)),
         columns,
         input.tier,
-        excelTaskBarFillStyle(task, input.today, input.colorScheme),
+        excelTaskBarFillStyle(task, input.today),
         leftColCount,
         dateColumnWidthPx,
         bodyRowHeightPx,
@@ -453,7 +450,6 @@ export function buildExcelExportPayload(
       fromRow === toRow,
       fromRight,
       toLeft,
-      input.colorScheme,
     );
     connectors.push({
       fromShapeIndex,
@@ -474,7 +470,6 @@ export function buildExcelExportPayload(
     rows.length,
     leftColCount,
     bodyStartRow,
-    input.colorScheme,
   );
 
   const payload: ExcelExportPayload = {

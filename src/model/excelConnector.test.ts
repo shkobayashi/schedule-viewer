@@ -13,10 +13,8 @@ describe("excelConnector", () => {
   });
 
   it("picks stroke color from broken flag only", () => {
-    expect(excelConnectorStrokeRgb(false, "light")).toBe("8A94A6");
-    expect(excelConnectorStrokeRgb(true, "light")).toBe("C4351A");
-    expect(excelConnectorStrokeRgb(false, "dark")).toBe("8a94a6");
-    expect(excelConnectorStrokeRgb(true, "dark")).toBe("f07050");
+    expect(excelConnectorStrokeRgb(false)).toBe("8A94A6");
+    expect(excelConnectorStrokeRgb(true)).toBe("C4351A");
   });
 
   it("places bent elbow 12px from the predecessor when the gap is wide enough", () => {
@@ -28,7 +26,7 @@ describe("excelConnector", () => {
   });
 
   it("descriptor uses straight geometry on the same row", () => {
-    const d = excelConnectorDescriptor(false, true, 100, 200, "light");
+    const d = excelConnectorDescriptor(false, true, 100, 200);
     expect(d.straight).toBe(true);
     expect(d.bentAdj1).toBe(50_000);
     expect(d.strokeRgb).toBe("8A94A6");
@@ -36,7 +34,7 @@ describe("excelConnector", () => {
   });
 
   it("descriptor uses bent geometry across rows", () => {
-    const d = excelConnectorDescriptor(true, false, 100, 200, "light");
+    const d = excelConnectorDescriptor(true, false, 100, 200);
     expect(d.straight).toBe(false);
     expect(d.bentAdj1).toBe(12_000);
     expect(d.strokeRgb).toBe("C4351A");
