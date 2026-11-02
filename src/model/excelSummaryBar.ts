@@ -1,5 +1,5 @@
 import { addDays, isoDate, parseDate } from "./dates";
-import type { ChartPalette } from "./palette";
+import { paletteFor } from "./palette";
 import type { GridTier } from "./timeline";
 import type { SummarySpan } from "./summary";
 import { spanExclusiveEnd } from "./summary";
@@ -110,7 +110,6 @@ export function excelSummaryBarDecorations(
   summary: SummarySpan,
   columns: ExcelTimeColumn[],
   tier: GridTier,
-  chart: ChartPalette,
   leftColCount: number,
   dateColumnWidthPx: number,
   bodyRowHeightPx: number,
@@ -119,6 +118,7 @@ export function excelSummaryBarDecorations(
   gapLines: ExcelExportSummaryGapLine[];
   caps: ExcelExportSummaryCap[];
 } {
+  const { chart } = paletteFor("light");
   const fillRgb = chart.summaryCovered.replace("#", "");
   const gapRgb = chart.summaryGap;
   const sorted = [...summary.covered].sort((a, b) =>

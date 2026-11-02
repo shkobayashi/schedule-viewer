@@ -112,7 +112,7 @@
 | 同上 | `centers bar vertically from body row height only` | EXPORT-05 |
 | 同上 | `uses solid fill for committed tasks` | EXPORT-05 |
 | 同上 | `uses hatch foreground for tentative tasks` | EXPORT-05 |
-| 同上 | `changes fill with status, overdue, and color scheme` | EXPORT-05 |
+| 同上 | `uses light status fills` | EXPORT-05 |
 | 同上 | `does not change fill when only dates change` | EXPORT-05 |
 | `excelConnector.test.ts` | `uses straight connector on the same row` | EXPORT-05 |
 | 同上 | `picks stroke color from broken flag only` | EXPORT-05 |
@@ -132,6 +132,7 @@
 | 同上 | `keeps same-day milestone names in document order` | EXPORT-05 |
 | `excelDateColumnBorder.test.ts` | `uses one light border color for all tiers` | EXPORT-05 |
 | `excelSummaryBar.test.ts` | `splits covered spans and adds gap lines between them` | EXPORT-05 |
+| 同上 | `uses light summary colors` | EXPORT-05 |
 | `exportExcel.test.ts` | `spans a task bar across start and end day columns in day view` | EXPORT-05 |
 | 同上 | `puts visible task rows and shapes into the payload` | EXPORT-02, EXPORT-05 |
 | 同上 | `uses 28px header and 22px body rows for month export columns` | EXPORT-05 |
@@ -140,6 +141,12 @@
 | 同上 | `assigns name indent and summary decorations by row kind` | EXPORT-05 |
 | 同上 | `uses black task names and group-row gray for holidays` | EXPORT-05 |
 | 同上 | `uses light group and overdue name colors on a white sheet` | EXPORT-05 |
+| 同上 | `uses light lightning color when colorScheme is dark` | EXPORT-05 |
+| 同上 | `uses light category name when colorScheme is dark` | EXPORT-05 |
+| 同上 | `uses light category fill when colorScheme is dark` | EXPORT-05 |
+| 同上 | `uses light summary colors when colorScheme is dark` | EXPORT-05 |
+| 同上 | `uses light hatch on tentative bars when colorScheme is dark` | EXPORT-05 |
+| 同上 | `uses light connector colors when colorScheme is dark` | EXPORT-05 |
 | 同上 | `uses milestone group name on milestone rows` | EXPORT-05 |
 | `excelExportColumns.test.ts` | `uses default columns when storage is empty` | EXPORT-01, EXPORT-05 |
 | 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
@@ -1031,7 +1038,7 @@
 | TC-EXPORT-02 | EXPORT-02 | タスク名で数件に絞る | HTML で書き出す | 絞り込みで残った行だけが入り、絞り込みで隠したタスクは入らない。画面の外にスクロールしている行も入る |
 | TC-EXPORT-03 | EXPORT-03 | 書き出しの行が 10,000 を超えるデータ | 「書き出し」を実行する | ファイルを作らず、行数の上限を理由に出す |
 | TC-EXPORT-04 | EXPORT-04 | タイトルに `/` や `:` がある | 書き出しの保存ダイアログを開く | 提案名からそれらの文字が除かれ、選んだ形式の拡張子が付く |
-| TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。グループ名と遅延のタスク名は、画面がダークでもライト配色の文字色で読める。カテゴリの塗りは左の列だけである。マイルストンは「◆ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
+| TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。カテゴリ名、グループ名、遅延のタスク名、カテゴリ行の塗り、タスクバー、親バー、前後の線、今日の縦線は、画面がダークでもライト配色の色である。マイルストンは「◆ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |

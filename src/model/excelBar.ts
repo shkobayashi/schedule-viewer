@@ -1,7 +1,6 @@
 import { addDays, isoDate, parseDate } from "./dates";
 import { hatchStripeColor } from "./hatch";
 import { barColors } from "./timeline";
-import type { ResolvedColorScheme } from "./palette";
 import type { Task } from "./types";
 import type { GridTier } from "./timeline";
 import type { ExcelTimeColumn } from "./excelTimeColumns";
@@ -136,15 +135,14 @@ export type ExcelBarFillStyle = {
 export function excelTaskBarFillStyle(
   task: Task,
   today: string,
-  colorScheme: ResolvedColorScheme,
 ): ExcelBarFillStyle {
-  const colors = barColors(task, today, colorScheme);
+  const colors = barColors(task, today, "light");
   const tentative = task.confidence === "tentative";
   return {
     fillRgb: colors.bg.replace("#", ""),
     pattern: tentative ? "tentative" : "solid",
     patternForeRgb: tentative
-      ? hatchStripeColor(colors.bg, colorScheme).replace("#", "")
+      ? hatchStripeColor(colors.bg, "light").replace("#", "")
       : null,
   };
 }

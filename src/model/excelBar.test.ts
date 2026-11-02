@@ -54,7 +54,7 @@ describe("excelBar", () => {
       predecessors: [],
       milestoneId: null,
     };
-    const fill = excelTaskBarFillStyle(task, "2026-01-07", "light");
+    const fill = excelTaskBarFillStyle(task, "2026-01-07");
     expect(fill).toEqual({
       fillRgb: "DEE3FB",
       pattern: "solid",
@@ -75,13 +75,13 @@ describe("excelBar", () => {
       predecessors: [],
       milestoneId: null,
     };
-    const fill = excelTaskBarFillStyle(task, "2026-01-07", "light");
+    const fill = excelTaskBarFillStyle(task, "2026-01-07");
     expect(fill.pattern).toBe("tentative");
     expect(fill.patternForeRgb).toBe("818492");
     expect(fill.fillRgb).toBe("DEE3FB");
   });
 
-  it("changes fill with status, overdue, and color scheme", () => {
+  it("uses light status fills", () => {
     const base = {
       id: "t1",
       name: "A",
@@ -94,27 +94,18 @@ describe("excelBar", () => {
     const inProgress = excelTaskBarFillStyle(
       { ...base, start: "2026-01-07", end: "2026-01-08", status: "in-progress" },
       "2026-01-07",
-      "light",
     );
     const done = excelTaskBarFillStyle(
       { ...base, start: "2026-01-01", end: "2026-01-05", status: "done" },
       "2026-01-07",
-      "light",
     );
     const overdue = excelTaskBarFillStyle(
       { ...base, start: "2026-01-01", end: "2026-01-05", status: "not-started" },
       "2026-01-07",
-      "light",
-    );
-    const dark = excelTaskBarFillStyle(
-      { ...base, start: "2026-01-07", end: "2026-01-08", status: "in-progress" },
-      "2026-01-07",
-      "dark",
     );
     expect(inProgress.fillRgb).toBe("DEE3FB");
     expect(done.fillRgb).toBe("247A55");
     expect(overdue.fillRgb).toBe("F8D0C8");
-    expect(dark.fillRgb).toBe("2e3344");
   });
 
   it("does not change fill when only dates change", () => {
@@ -131,12 +122,10 @@ describe("excelBar", () => {
     const a = excelTaskBarFillStyle(
       { ...base, start: "2026-01-07", end: "2026-01-08" },
       "2026-01-07",
-      "light",
     );
     const b = excelTaskBarFillStyle(
       { ...base, start: "2026-01-08", end: "2026-01-09" },
       "2026-01-07",
-      "light",
     );
     expect(a).toEqual(b);
   });
