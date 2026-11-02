@@ -232,13 +232,24 @@
 | `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
 | `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
 | 同上 | `lists each hidden milestone mark` | FILTER-13 |
+| 同上 | `hides every other milestone id for show only` | FILTER-13 |
 | 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
-| 同上 | `counts hidden milestone marks separately from hidden groups` | FILTER-13 |
+| 同上 | `does not count lineage for the filter button` | FILTER-12, FILTER-13 |
 | `milestones.test.ts` | `skips milestones hidden by FILTER-13` | FILTER-13, VIEW-04 |
+| 同上 | `preserves milestone order when one mark is hidden` | FILTER-13 |
+| `rows.test.ts` | `keeps tasks pointing at a hidden milestone mark` | FILTER-13, FILTER-07 |
 | `exportView.test.ts` | `drops a hidden milestone mark even when filter selects it` | FILTER-13, EXPORT-02 |
+| 同上 | `omits hidden mark dates from export range` | FILTER-13, EXPORT-02 |
 | `diffNavigation.test.ts` | `blocks milestone navigation when the mark is hidden` | FILTER-13, DIFF |
 | `scheduleFilterPersistence.test.ts` | `treats missing hiddenMilestoneIds as empty` | FILTER-13, FILE-09 |
+| 同上 | `round-trips hiddenMilestoneIds` | FILTER-13, FILE-09 |
+| 同上 | `rejects hiddenMilestoneIds when not a string array` | FILTER-13, FILE-09 |
+| 同上 | `drops hidden milestone mark ids missing from document` | FILTER-13, FILE-09 |
+| 同上 | `is false when milestone marks are hidden` | FILTER-13, FILE-09 |
 | `screenContext.test.ts` | `includes hidden milestone marks in activeConditions` | FILTER-13, MCP-01 |
+| 同上 | `lists milestoneMarkHidden after milestoneBandHidden` | FILTER-13, MCP-01 |
+| 同上 | `keeps tasks linked to hidden milestone marks in filtered_tasks` | FILTER-13, MCP-01 |
+| `timeline.test.ts` | `includes hidden milestone mark dates in the timeline span` | FILTER-13 |
 | `milestoneField.test.ts` | `prepends none and keeps array order without date sort` | EDIT-04, EDIT-14 |
 | 同上 | `caps milestones at 50 and none does not count` | EDIT-04, EDIT-14 |
 | 同上 | `returns -1 when current is beyond first 50 with empty query` | EDIT-04, EDIT-14 |
@@ -886,9 +897,15 @@
 | TC-VIEW-04 | VIEW-04 | playground または長い名前のマイルストンがある JSON | 右端まで横スクロールする。月表示でも見る。全角24文字を超える名前にカーソルを乗せる。近いひし形の手前で切れる名前も見る。日・週・月を切り替える | 右端まで送ったとき、次のひし形が無い名前と年月が最後まで読める。全角24文字を超える名前は「…」になり、ホバーでチャート内に全文が読める。近いひし形の手前で切れることと、日・週・月の切り替えは今までどおり。グループごとに帯が積まれる。ひし形が重なるときだけ段が増える。左はグループ名。チャート全体の縦線は無い |
 | TC-FILTER-11 | FILTER-11 | マイルストングループが2つ以上ある JSON | 絞り込みの帯の線で1つをオフにする。書き出す | 帯と書き出しからその線が消える。タスク行は変わらない。札とすべて解除で戻る |
 | TC-FILTER-11b | FILTER-11, EDIT-11 | マイルストングループが2つ以上あり、各グループにマイルストンがある JSON | 左のマイルストングループ名の行の空きを右クリックし「非表示」を選ぶ。札を押す。別の行で「この行だけ表示」を選ぶ。残った1行を右クリックし、メニューを見る。そのあと最後の1行も非表示にする。書き出す | 帯と左の行が消える。札でそのグループだけ戻る。「この行だけ表示」で他がオフになり、オフしたグループごとに札が出る。帯に別のグループ行が無くなったあとは、「この行だけ表示」は出ない。全部オフで帯の高さは0。ひし形の右クリックメニューは今どおり。線を引くモードと見出しではメニューが出ない。タスクの選択は変わらない |
-| TC-FILTER-13 | FILTER-13 | 同じグループにマイルストンが2件以上ある JSON | 絞り込みの帯の印で1件をオフにする。書き出す。札を押す | 帯と書き出しからそのひし形だけ消える。タスク行は変わらない。条件数は帯の線とは別に1。すべて解除で戻る |
-| TC-FILTER-13b | FILTER-13, EDIT-11 | 帯にひし形が2件以上見える JSON | ひし形を右クリックし「非表示」。別のひし形で「このマイルストンだけ表示」。帯の印を変えたあともタスク選択を確認する。書き出す | メニューとパネルが同じ状態。選択は変わらない。書き出しも同じ |
-| TC-SYNC-03p | FILTER-13, FILE-09 | 帯の印をオフにして保存・終了 | 同じファイルを開き直す | 帯の印のオフが戻る |
+| TC-FILTER-13 | FILTER-13, EXPORT-02, EXPORT-05 | マイルストンが2件以上ある JSON で、1件のチェックを外す。HTML、SVG、Excel で書き出す | 帯と3形式からそのひし形が消える。タスク行は残る |
+| TC-FILTER-13b | FILTER-13, FILTER-11 | 札を押す | その1件だけ戻る。「すべて解除」で帯の印と帯の線が戻り、系統は残る |
+| TC-FILTER-13c | FILTER-13, EDIT-11 | ひし形を右クリックして「非表示」を選ぶ。別のひし形で「このマイルストンだけ表示」を選ぶ。帯に1件だけのときメニューを見る。全部オフにする。線を引くモードでも右クリックする | 帯から消え、札が出る。「このマイルストンだけ表示」で他のひし形が消える。帯の線のチェックはオンのまま。1件だけのときは「このマイルストンだけ表示」が無い。全部オフで帯の高さは 0。線を引くモードではメニューが出ない。タスクの選択は変わらない |
+| TC-FILTER-13d | FILTER-13 | 名前の一部と日付の一部で候補を減らし、一致の無い文字を入れ、7件以上でパネルを開く。表示サイズ 100%、75%、50% で、1件目を外したときの入力欄の位置を見る。「すべて表示」を押す。絞り込みボタンの数を見る | 大文字と小文字は区別する。一致が無いときは文言だけで、枠付きの一覧は無い。6行を超える分は一覧だけがスクロールし、文言はスクロールしなくても見える。パネルの高さは件数で変わらない。入力欄は動かない。「すべて表示」で帯の印だけが戻り、帯の線と検索文字は残る。ボタンの数は、2件隠しても 1 増える |
+| TC-FILTER-13e | FILTER-13, FILTER-07, VIEW-06, EDIT-04 | 隠したマイルストンを指すタスクを見る。FILTER-07 と詳細の「対応マイルストン」を開く。帯の印を変える | 超過は残る。候補にそのマイルストンが出る。タスクの選択は残る |
+| TC-FILTER-13f | FILTER-13, FILE-07, FILTER-11 | 差分の一覧で、帯の印がオフのマイルストンの行を押す。グループの帯の線もオフの行も押す | 前者は「帯の印がオフ」、後者は「帯の線がオフ」。チャートは動かない |
+| TC-FILTER-13g | FILTER-13, EDIT-07 | 編集で別グループへ移す。マイルストンを追加する。隠しているマイルストンを削除する。取り消しを押す | 帯の印は移したあとも残る。追加したひし形は出る。削除した id の札は消える。取り消しでは帯の印は戻らない |
+| TC-FILTER-13h | FILTER-13, EXPORT-02 | タスクよりあとの日付のマイルストンを隠す | 画面は右へその日付まで送れる。書き出しの期間には、その日付を含めない |
+| TC-SYNC-03p | SYNC-03, FILTER-13 | デスクトップ版で帯の印をオフにし、保存済みのまま閉じる。起動する。別途、ブラウザ版で変えてページを開き直す | デスクトップ版は同じ札が戻り、未保存にはならない。ブラウザ版は戻らない |
 | TC-VIEW-04b | VIEW-04, VIEW-12 | 未確定と確定のマイルストンがある | ひし形を、ライトとダークで見る。HTML と SVG に書き出す | 未確定は斜線、確定は塗りつぶし。書き出しも同じ |
 | TC-VIEW-05 | VIEW-05 | 終了日が昨日の未完了タスクと、終了日が今日の未完了タスク | 両方のバーを見る | 昨日で終わるものだけが赤い |
 | TC-VIEW-06 | VIEW-06 | 対応マイルストンより終了日が後のタスクと、当日で終わるタスク | 行を見る | 後のタスクだけ、右が半透明の赤になり「超過」が出る |
@@ -1098,7 +1115,7 @@
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
-| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。画面の絞り込みは変わらない |
+| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。`filtered_tasks` の条件に、帯の線の直後として隠したマイルストンの id、名前、日付が出る。そのマイルストンを指すタスクは、残るタスクに入る。画面の絞り込みは変わらない |
 | TC-MCP-01e | MCP-01 | デスクトップ版、画面の未保存とファイルの外部更新が同時にある | `baseline_diffs` を1回呼ぶ | `画面:` に起点から画面への差分、`ファイル:` に起点からファイルへの差分、`分類:` に画面のみ・ファイルのみ・異なるなどが id ごとに出る。`schedule_diff` の混ざった差分だけでは分類しない |
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
 | TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |

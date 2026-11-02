@@ -1,6 +1,5 @@
 import type { SearchField } from "./scheduleFilterPersistence";
 import { resolveAssigneeDisplay } from "./assigneeDisplay";
-import { milestoneMarkFilterLabel } from "./milestoneMarkFilter";
 import type { Member, MemberId } from "./memberTypes";
 import {
   findTaskById,
@@ -58,7 +57,10 @@ export type McpActiveFilterCondition =
   | { type: "milestone"; id: string; name: string }
   | { type: "tags"; tags: string[] }
   | { type: "milestoneBandHidden"; groups: Array<{ id: ScheduleId; name: string }> }
-  | { type: "milestoneMarkHidden"; milestones: Array<{ id: ScheduleId; name: string }> }
+  | {
+      type: "milestoneMarkHidden";
+      milestones: Array<{ id: ScheduleId; name: string; date: string }>;
+    }
   | { type: "searchName"; query: string }
   | { type: "searchNote"; query: string }
   | { type: "lineage"; taskId: ScheduleId; taskName: string };
@@ -222,9 +224,8 @@ export function buildActiveFilterConditions(input: {
       const milestone = input.milestones.find((m) => m.id === id);
       return {
         id,
-        name: milestone
-          ? milestoneMarkFilterLabel(milestone)
-          : id,
+        name: milestone?.name ?? id,
+        date: milestone?.date ?? "",
       };
     });
     conditions.push({ type: "milestoneMarkHidden", milestones: hidden });

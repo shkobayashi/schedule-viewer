@@ -1729,14 +1729,10 @@ export function useSchedule(
   const showOnlyMilestoneMark = useCallback(
     (milestoneId: ScheduleId) => {
       setHiddenMilestoneIds(
-        hiddenMilestoneIdsForShowOnly(
-          milestoneId,
-          milestones,
-          visibleMilestoneGroupIds,
-        ),
+        hiddenMilestoneIdsForShowOnly(milestoneId, milestones),
       );
     },
-    [milestones, visibleMilestoneGroupIds],
+    [milestones],
   );
 
   const showOnlyMilestoneGroup = useCallback(

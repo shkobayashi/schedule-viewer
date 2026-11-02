@@ -2382,27 +2382,6 @@ function App() {
       return [
         {
           type: "item",
-          id: "hide-milestone-mark",
-          label: "非表示",
-          onSelect: () => setMilestoneMarkVisible(milestoneId, false),
-        },
-        ...(hasOtherVisibleMilestoneMark(
-          visibleMilestoneGroupIds,
-          milestones,
-          hiddenMilestoneIdSet,
-          milestoneId,
-        )
-          ? [
-              {
-                type: "item" as const,
-                id: "show-only-milestone-mark",
-                label: "このマイルストンだけ表示",
-                onSelect: () => showOnlyMilestoneMark(milestoneId),
-              },
-            ]
-          : []),
-        {
-          type: "item",
           id: "edit",
           label: "編集",
           icon: <Pencil size={14} strokeWidth={2} />,
@@ -2423,6 +2402,27 @@ function App() {
                     milestone.confidence === "tentative" ? "committed" : "tentative",
                   );
                 },
+              },
+            ]
+          : []),
+        {
+          type: "item",
+          id: "hide-milestone-mark",
+          label: "非表示",
+          onSelect: () => setMilestoneMarkVisible(milestoneId, false),
+        },
+        ...(hasOtherVisibleMilestoneMark(
+          visibleMilestoneGroupIds,
+          milestones,
+          hiddenMilestoneIdSet,
+          milestoneId,
+        )
+          ? [
+              {
+                type: "item" as const,
+                id: "show-only-milestone-mark",
+                label: "このマイルストンだけ表示",
+                onSelect: () => showOnlyMilestoneMark(milestoneId),
               },
             ]
           : []),

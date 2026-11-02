@@ -483,4 +483,26 @@ describe("layoutMilestoneBand", () => {
     );
     expect(layout.blocks[0]?.milestones.map((m) => m.id)).toEqual([MS_A]);
   });
+
+  it("preserves milestone order when one mark is hidden", () => {
+    const layout = layoutMilestoneBand(
+      [{ id: GRP, name: "G" }],
+      [
+        milestone({ id: MS_A, name: "A", date: "2026-04-01" }),
+        milestone({ id: MS_B, name: "B", date: "2026-04-02" }),
+        milestone({ id: "00000000-0000-4000-8000-000000000099", name: "C", date: "2026-04-03" }),
+      ],
+      new Set([GRP]),
+      40,
+      11,
+      11,
+      26,
+      "screen",
+      new Set([MS_B]),
+    );
+    expect(layout.blocks[0]?.milestones.map((m) => m.id)).toEqual([
+      MS_A,
+      "00000000-0000-4000-8000-000000000099",
+    ]);
+  });
 });

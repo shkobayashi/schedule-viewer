@@ -5,6 +5,7 @@ import {
   filterChipClearPatch,
   hasOtherVisibleMilestoneBandGroup,
   hiddenMilestoneGroupIdsForShowOnly,
+  hiddenMilestoneIdsForShowOnly,
   pruneHiddenMilestoneGroupIds,
 } from "./filterChips";
 import type { ScheduleFilters } from "./types";
@@ -122,6 +123,29 @@ describe("activeFilterCount", () => {
   it("counts tag filter once regardless of how many tags are selected", () => {
     expect(activeFilterCount({ ...base, tags: ["a"] }, false)).toBe(1);
     expect(activeFilterCount({ ...base, tags: ["a", "b"] }, false)).toBe(1);
+  });
+});
+
+describe("hiddenMilestoneIdsForShowOnly", () => {
+  const milestones = [
+    {
+      id: "m1",
+      name: "A",
+      date: "2026-01-01",
+      confidence: "committed" as const,
+      groupId: "g1",
+    },
+    {
+      id: "m2",
+      name: "B",
+      date: "2026-01-02",
+      confidence: "committed" as const,
+      groupId: "g2",
+    },
+  ];
+
+  it("hides every other milestone id for show only", () => {
+    expect(hiddenMilestoneIdsForShowOnly("m2", milestones)).toEqual(["m1"]);
   });
 });
 

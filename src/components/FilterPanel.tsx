@@ -489,55 +489,60 @@ function FilterMilestoneMarkField({
           onKeyDown={onInputKeyDown}
         />
         {listOpen ? (
-          <ul
-            id={listId}
-            ref={listRef}
-            className="filter-panel-tag-options"
-            role="listbox"
-            aria-multiselectable="true"
+          <div
+            className="filter-panel-milestone-dropdown"
             style={
               listMaxHeight != null ? { maxHeight: listMaxHeight } : undefined
             }
           >
             {candidates.length > 0 ? (
-              candidates.map((milestone, index) => {
-                const checked = !hiddenSet.has(milestone.id);
-                const active = index === activeIndex;
-                const label = milestoneMarkFilterLabel(milestone);
-                return (
-                  <li
-                    key={milestone.id}
-                    id={`${listId}-opt-${index}`}
-                    role="option"
-                    aria-selected={checked}
-                    data-milestone-mark-index={index}
-                    className={
-                      active
-                        ? "filter-panel-tag-option filter-panel-tag-option-active"
-                        : "filter-panel-tag-option"
-                    }
-                    title={label}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onClick={() => toggleMark(milestone.id)}
-                  >
-                    <span className="filter-panel-tag-option-check" aria-hidden="true">
-                      <input type="checkbox" readOnly tabIndex={-1} checked={checked} />
-                    </span>
-                    <span className="filter-panel-tag-option-label">{label}</span>
-                  </li>
-                );
-              })
-            ) : (
-              <li
-                className="filter-panel-tag-none"
+              <ul
+                id={listId}
+                ref={listRef}
+                className="filter-panel-tag-options"
+                role="listbox"
+                aria-multiselectable="true"
+              >
+                {candidates.map((milestone, index) => {
+                  const checked = !hiddenSet.has(milestone.id);
+                  const active = index === activeIndex;
+                  const label = milestoneMarkFilterLabel(milestone);
+                  return (
+                    <li
+                      key={milestone.id}
+                      id={`${listId}-opt-${index}`}
+                      role="option"
+                      aria-selected={checked}
+                      data-milestone-mark-index={index}
+                      className={
+                        active
+                          ? "filter-panel-tag-option filter-panel-tag-option-active"
+                          : "filter-panel-tag-option"
+                      }
+                      title={label}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onClick={() => toggleMark(milestone.id)}
+                    >
+                      <span className="filter-panel-tag-option-check" aria-hidden="true">
+                        <input type="checkbox" readOnly tabIndex={-1} checked={checked} />
+                      </span>
+                      <span className="filter-panel-tag-option-label">{label}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+            {candidates.length === 0 ? (
+              <p
+                className="filter-panel-milestone-status"
                 role="status"
                 aria-live="polite"
               >
-                該当するマイルストンはありません
-              </li>
-            )}
-          </ul>
+                一致するマイルストンがありません
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>

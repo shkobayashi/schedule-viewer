@@ -213,18 +213,13 @@ export function hasOtherVisibleMilestoneBandGroup(
   return false;
 }
 
-/** 「このマイルストンだけ表示」で隠すマイルストンの ID。帯の線がオンのグループだけ対象。 */
+/** 「このマイルストンだけ表示」で隠すマイルストンの ID（残す1件以外）。 */
 export function hiddenMilestoneIdsForShowOnly(
   keepMilestoneId: ScheduleId,
   milestones: readonly Milestone[],
-  visibleGroupIds: ReadonlySet<ScheduleId>,
 ): ScheduleId[] {
   return milestones
-    .filter(
-      (milestone) =>
-        milestone.id !== keepMilestoneId &&
-        visibleGroupIds.has(milestone.groupId),
-    )
+    .filter((milestone) => milestone.id !== keepMilestoneId)
     .map((milestone) => milestone.id);
 }
 
