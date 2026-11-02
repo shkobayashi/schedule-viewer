@@ -151,7 +151,11 @@ flowchart TD
 
 開く成功のあと、デスクトップ版だけ `record_recent_files` で `recent-files.json` を更新する。スケジュールと設定ファイルは別配列である。起動時に前回のウィンドウを載せるとき、前面化だけのとき、`replace_schedule` では足さない。履歴から開くときも `runOpenFromPath` と `applyOpenedFile` の既存経路を使う。設定ファイルは `classifyOpenedJson` で開き分け、`accept_opened_workspace` で `open-windows.json` に `workspacePath` を書き、`loadWorkspaceBinding` が相対パス先を読む。表示は `useWorkspaceBinding` と `App.tsx` の `displayMembers` / `displayCalendar` が束縛を優先する。`export_workspace_bundle` がフォルダ書き出しを行う。
 
-ブラウザ版はダイアログの代わりにファイル選択を使い、`accept_opened_schedule` は呼ばない。デスクトップ版の Windows と Linux では、`open_schedule_file` と `save_schedule_file` の保存ダイアログは、種類を JSON とスケジュール（`schedule.json` で終わるファイル）の二つにする。macOS では JSON の一つである。メンバーとカレンダーの取り込みは、デスクトップ版だけ `pick_members_json_file` と `pick_calendar_json_file` を使う。Windows と Linux では、メンバーは `members.json` と JSON、カレンダーは `calendar.json` と JSON の二種類である。macOS では JSON の一つである。フィルタの組み立ては `src-tauri/src/file_dialog_filters.rs` に置く。
+ブラウザ版はダイアログの代わりにファイル選択を使い、`accept_opened_schedule` は呼ばない。
+
+デスクトップ版の Windows と Linux では、`open_schedule_file` の開くダイアログは、種類を JSON とスケジュールの二つにする。JSON では末尾が `.json` のファイルが選べる。スケジュールに切り替えると、`*.schedule.json` に合うファイルだけが一覧に出る。名前そのものの `schedule.json` は JSON の方に出る。`save_schedule_file` の保存ダイアログ（別名保存と、保存先が無いときの保存）も同じ二種類で、先頭の JSON が既定である。macOS では開くと保存のどちらも種類は JSON の一つである。
+
+メンバーとカレンダーの取り込みは、デスクトップ版だけ `pick_members_json_file` と `pick_calendar_json_file` を使う。Windows と Linux では、メンバーは `members.json` と JSON、カレンダーは `calendar.json` と JSON の二種類である。macOS では JSON の一つである。フィルタの組み立ては `src-tauri/src/file_dialog_filters.rs` に置く。
 
 FILE-08 はデスクトップ版だけが Tauri の `DragDrop` を受け、`useScheduleDropOpen` が `classifyDroppedSchedulePaths` と `scheduleDropBlockedReason` で仕分けと門を見る。門はファイル操作の確認ダイアログと、その時点で開いている `role="dialog"` も見る。1件の `.json` は `read_dropped_schedule_file` で読み、検証後に `accept_opened_schedule` と `replaceDocument` の既存経路で開く。WIN-04 は `schedule_drop.rs` が起動引数、macOS の `RunEvent::Opened`、`tauri-plugin-single-instance` の引数を `ExternalDropQueue` に載せる。`Opened` は macOS の `cfg` の中だけで参照する。2つ目のプロセスの引数は先頭の実行ファイルを除き、フォルダは件数に残す。キュー内の同じ束だけ重複を捨てる。全ウィンドウの起動復旧が `report_startup_settled` で揃い、復旧の確認ダイアログを閉じたあと `report_external_schedule_drop_ready` で揃ったときだけ `schedule-external-drop` を前面ウィンドウへ送る。待ちのあいだは拒否文を出さず、キューも進めない。ルートは `routeExternalScheduleDrop` が決め、同じ正規化パスなら `focus_schedule_window`、パス無し1枚ならそのウィンドウで開く、それ以外は `create_schedule_window` または `forward_schedule_external_drop` である。`ack_external_schedule_drop` は配りを受けたウィンドウだけが送る。ブラウザ版は `main.tsx` が `dragover` と `drop` で `preventDefault` するだけである。
 
