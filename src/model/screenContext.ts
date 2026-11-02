@@ -1,5 +1,6 @@
 import type { SearchField } from "./scheduleFilterPersistence";
 import { resolveAssigneeDisplay } from "./assigneeDisplay";
+import { milestoneMarkFilterLabel } from "./milestoneMarkFilter";
 import type { Member, MemberId } from "./memberTypes";
 import {
   findTaskById,
@@ -57,6 +58,7 @@ export type McpActiveFilterCondition =
   | { type: "milestone"; id: string; name: string }
   | { type: "tags"; tags: string[] }
   | { type: "milestoneBandHidden"; groups: Array<{ id: ScheduleId; name: string }> }
+  | { type: "milestoneMarkHidden"; milestones: Array<{ id: ScheduleId; name: string }> }
   | { type: "searchName"; query: string }
   | { type: "searchNote"; query: string }
   | { type: "lineage"; taskId: ScheduleId; taskName: string };
@@ -122,6 +124,7 @@ function taskToContext(ref: FilteredTaskRef): ScreenContextTask {
 export function buildActiveFilterConditions(input: {
   filters: ScheduleFilters;
   hiddenMilestoneGroupIds: ScheduleId[];
+  hiddenMilestoneIds: ScheduleId[];
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
   lineageTaskId: ScheduleId | null;
@@ -214,6 +217,19 @@ export function buildActiveFilterConditions(input: {
     conditions.push({ type: "milestoneBandHidden", groups: hidden });
   }
 
+  if (input.hiddenMilestoneIds.length > 0) {
+    const hidden = input.hiddenMilestoneIds.map((id) => {
+      const milestone = input.milestones.find((m) => m.id === id);
+      return {
+        id,
+        name: milestone
+          ? milestoneMarkFilterLabel(milestone)
+          : id,
+      };
+    });
+    conditions.push({ type: "milestoneMarkHidden", milestones: hidden });
+  }
+
   const searchName = filters.search.trim();
   if (searchName) {
     conditions.push({ type: "searchName", query: searchName });
@@ -267,6 +283,7 @@ export function buildFilteredTasksPayload(input: {
   filters: ScheduleFilters;
   lineageTaskId: ScheduleId | null;
   hiddenMilestoneGroupIds: ScheduleId[];
+  hiddenMilestoneIds: ScheduleId[];
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
   today: string;
@@ -284,6 +301,7 @@ export function buildFilteredTasksPayload(input: {
     activeConditions: buildActiveFilterConditions({
       filters: input.filters,
       hiddenMilestoneGroupIds: input.hiddenMilestoneGroupIds,
+      hiddenMilestoneIds: input.hiddenMilestoneIds,
       milestoneGroups: input.milestoneGroups,
       milestones: input.milestones,
       lineageTaskId: input.lineageTaskId,
@@ -426,6 +444,7 @@ export function buildScreenContextPayload(input: {
     filters: input.filters,
     lineageTaskId: input.lineageTaskId,
     hiddenMilestoneGroupIds: input.hiddenMilestoneGroupIds,
+    hiddenMilestoneIds: [],
     milestoneGroups: [],
     milestones: [],
     today: input.today,

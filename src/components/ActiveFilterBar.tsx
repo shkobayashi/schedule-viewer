@@ -17,12 +17,15 @@ type ActiveFilterBarProps = {
   milestones: Milestone[];
   milestoneGroups: MilestoneGroup[];
   hiddenMilestoneGroupIds: ScheduleId[];
+  hiddenMilestoneIds: ScheduleId[];
   assigneeLabel: string | null;
   lineageName: string | null;
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
   onClearLineage: () => void;
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
+  onMilestoneMarkVisible: (milestoneId: ScheduleId, visible: boolean) => void;
   onShowAllMilestoneGroups: () => void;
+  onShowAllMilestoneMarks: () => void;
   scheduleTags: string[];
 };
 
@@ -31,12 +34,15 @@ export function ActiveFilterBar({
   milestones,
   milestoneGroups,
   hiddenMilestoneGroupIds,
+  hiddenMilestoneIds,
   assigneeLabel,
   lineageName,
   onFiltersChange,
   onClearLineage,
   onMilestoneGroupVisible,
+  onMilestoneMarkVisible,
   onShowAllMilestoneGroups,
+  onShowAllMilestoneMarks,
   scheduleTags,
 }: ActiveFilterBarProps) {
   const chips = activeFilterChips(
@@ -47,6 +53,7 @@ export function ActiveFilterBar({
     milestoneGroups,
     hiddenMilestoneGroupIds,
     scheduleTags,
+    hiddenMilestoneIds,
   );
   if (chips.length === 0) return null;
 
@@ -54,6 +61,7 @@ export function ActiveFilterBar({
     kind: FilterChipKind,
     milestoneGroupId?: ScheduleId,
     tagName?: string,
+    milestoneId?: ScheduleId,
   ) => {
     if (kind === "lineage") {
       onClearLineage();
@@ -61,6 +69,10 @@ export function ActiveFilterBar({
     }
     if (kind === "milestoneGroup" && milestoneGroupId != null) {
       onMilestoneGroupVisible(milestoneGroupId, true);
+      return;
+    }
+    if (kind === "milestoneMark" && milestoneId != null) {
+      onMilestoneMarkVisible(milestoneId, true);
       return;
     }
     if (kind === "tag" && tagName != null) {
@@ -73,6 +85,7 @@ export function ActiveFilterBar({
   const clearAllFilters = () => {
     onFiltersChange(DEFAULT_FILTERS);
     onShowAllMilestoneGroups();
+    onShowAllMilestoneMarks();
   };
 
   const hasFilterChips = chips.some((chip) => chip.kind !== "lineage");
@@ -81,11 +94,16 @@ export function ActiveFilterBar({
     <div className="filter-bar">
       {chips.map((chip) => (
         <button
-          key={`${chip.kind}-${chip.tagName ?? chip.milestoneGroupId ?? chip.label}`}
+          key={`${chip.kind}-${chip.tagName ?? chip.milestoneGroupId ?? chip.milestoneId ?? chip.label}`}
           type="button"
           className="filter-chip"
           onClick={() =>
-            clearChip(chip.kind, chip.milestoneGroupId, chip.tagName)
+            clearChip(
+              chip.kind,
+              chip.milestoneGroupId,
+              chip.tagName,
+              chip.milestoneId,
+            )
           }
           title="この条件を外す"
         >

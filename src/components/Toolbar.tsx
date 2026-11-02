@@ -43,7 +43,10 @@ type ToolbarProps = {
   milestones: Milestone[];
   milestoneGroups: MilestoneGroup[];
   hiddenMilestoneGroupIds: ScheduleId[];
+  hiddenMilestoneIds: ScheduleId[];
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
+  onMilestoneMarkVisible: (milestoneId: ScheduleId, visible: boolean) => void;
+  onShowAllMilestoneMarks: () => void;
   assigneeFilterOptions: AssigneeFilterOption[];
   scheduleTags: string[];
   tier: GridTier;
@@ -100,7 +103,10 @@ export function Toolbar({
   milestones,
   milestoneGroups,
   hiddenMilestoneGroupIds,
+  hiddenMilestoneIds,
   onMilestoneGroupVisible,
+  onMilestoneMarkVisible,
+  onShowAllMilestoneMarks,
   assigneeFilterOptions,
   scheduleTags,
   tier,
@@ -161,6 +167,7 @@ export function Toolbar({
     filters,
     false,
     hiddenMilestoneGroupIds.length,
+    hiddenMilestoneIds.length,
   );
 
   const showSelectionActions =
@@ -295,7 +302,10 @@ export function Toolbar({
           milestones={milestones}
           milestoneGroups={milestoneGroups}
           hiddenMilestoneGroupIds={hiddenMilestoneGroupIds}
+          hiddenMilestoneIds={hiddenMilestoneIds}
           onMilestoneGroupVisible={onMilestoneGroupVisible}
+          onMilestoneMarkVisible={onMilestoneMarkVisible}
+          onShowAllMilestoneMarks={onShowAllMilestoneMarks}
           assigneeFilterOptions={assigneeFilterOptions}
           scheduleTags={scheduleTags}
           onFiltersChange={onFiltersChange}

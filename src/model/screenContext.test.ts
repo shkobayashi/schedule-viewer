@@ -102,6 +102,7 @@ describe("buildFilteredTasksPayload", () => {
       filters: brokenFilters,
       lineageTaskId: null,
       hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
       milestoneGroups: [],
       milestones: [],
       today: "2026-01-15",
@@ -156,6 +157,7 @@ describe("buildFilteredTasksPayload", () => {
       filters: assigneeFilters,
       lineageTaskId: null,
       hiddenMilestoneGroupIds: ["mg-off"],
+      hiddenMilestoneIds: [],
       milestoneGroups: [{ id: "mg-off", name: "帯A" }],
       milestones: [],
       today: "2026-01-15",
@@ -168,6 +170,36 @@ describe("buildFilteredTasksPayload", () => {
       {
         type: "milestoneBandHidden",
         groups: [{ id: "mg-off", name: "帯A" }],
+      },
+    ]);
+  });
+
+  it("includes hidden milestone marks in activeConditions", () => {
+    const milestoneId = "00000000-0000-4000-8000-000000000099";
+    const payload = buildFilteredTasksPayload({
+      categories: categoryWithTasks([]),
+      filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [milestoneId],
+      milestoneGroups: [{ id: "mg1", name: "G" }],
+      milestones: [
+        {
+          id: milestoneId,
+          name: "M",
+          date: "2026-01-01",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: null,
+    });
+    expect(payload.activeConditions).toEqual([
+      {
+        type: "milestoneMarkHidden",
+        milestones: [{ id: milestoneId, name: "M（2026-01-01）" }],
       },
     ]);
   });
@@ -217,6 +249,7 @@ describe("buildFilteredTasksPayload", () => {
       filters: statusFilters,
       lineageTaskId: a.id,
       hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
       milestoneGroups: [],
       milestones: [],
       today: "2026-01-15",
@@ -399,6 +432,7 @@ describe("buildActiveFilterConditions", () => {
         tags: ["t1"],
       },
       hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
       milestoneGroups: [],
       milestones: [],
       lineageTaskId: null,

@@ -110,6 +110,18 @@ describe("milestonesForExport", () => {
     expect(isoDate(range.timelineEnd)).toBe("2026-04-17");
   });
 
+  it("drops a hidden milestone mark even when filter selects it", () => {
+    const picked = milestonesForExport(
+      far.id,
+      groups,
+      allGroups,
+      [near, far],
+      [row(task({}))],
+      new Set([far.id]),
+    );
+    expect(picked).toEqual([]);
+  });
+
   it("drops milestones when the filter is none", () => {
     expect(
       milestonesForExport(

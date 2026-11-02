@@ -61,6 +61,7 @@ function baseContext(
     memberMap: null,
     lineageIds: null,
     hiddenMilestoneGroupIds: new Set(),
+    hiddenMilestoneIds: new Set(),
     milestones: screen.milestones,
     scrollY: 0,
     rowHeight: 32,
@@ -264,6 +265,38 @@ describe("resolveDiffNavigation", () => {
     expect(outcome).toEqual({
       status: "blocked",
       message: "帯の線がオフ",
+    });
+  });
+
+  it("blocks milestone navigation when the mark is hidden", () => {
+    const groupId = "g1000001-0000-4000-8000-000000000001";
+    const milestoneId = "m1000001-0000-4000-8000-000000000001";
+    const screen = doc(design([]));
+    screen.milestoneGroups = [{ id: groupId, name: "G" }];
+    screen.milestones = [
+      {
+        id: milestoneId,
+        name: "GA",
+        date: "2026-05-01",
+        confidence: "committed",
+        groupId,
+      },
+    ];
+    const outcome = resolveDiffNavigation(
+      {
+        text: "マイルストン GA",
+        nav: { kind: "milestone", milestoneId },
+        badge: "変更",
+        summaryName: "GA",
+        location: null,
+      },
+      baseContext(screen, {
+        hiddenMilestoneIds: new Set([milestoneId]),
+      }),
+    );
+    expect(outcome).toEqual({
+      status: "blocked",
+      message: "帯の印がオフ",
     });
   });
 

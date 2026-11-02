@@ -268,6 +268,7 @@ export function layoutMilestoneBand(
   diamondSize: number,
   laneHeight: number,
   mode: MilestoneLayoutMode,
+  hiddenMilestoneIds: ReadonlySet<ScheduleId> = new Set(),
 ): MilestoneBandLayout {
   const blocks: MilestoneBandBlockLayout[] = [];
   const centerYById = new Map<ScheduleId, number>();
@@ -279,7 +280,8 @@ export function layoutMilestoneBand(
   for (const group of milestoneGroups) {
     if (!visibleGroupIds.has(group.id)) continue;
     const groupMilestones = milestones.filter(
-      (item) => item.groupId === group.id,
+      (item) =>
+        item.groupId === group.id && !hiddenMilestoneIds.has(item.id),
     );
     if (groupMilestones.length === 0) continue;
     const lanes = layoutMilestonesInGroup(
@@ -335,6 +337,7 @@ export function milestoneBandHeightPx(
   diamondSize: number,
   laneHeight: number,
   mode: MilestoneLayoutMode = "screen",
+  hiddenMilestoneIds: ReadonlySet<ScheduleId> = new Set(),
 ): number {
   return layoutMilestoneBand(
     milestoneGroups,
@@ -345,6 +348,7 @@ export function milestoneBandHeightPx(
     diamondSize,
     laneHeight,
     mode,
+    hiddenMilestoneIds,
   ).totalHeight;
 }
 
