@@ -420,55 +420,89 @@ export function useScheduleStartupRecovery({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 起動時のみ
   }, []);
 
-  const confirmRecoveryOpenDisk = useCallback(() => {
-    const payload = recoveryConflictRef.current;
+  const dismissRecoveryConflictUi = useCallback(() => {
     setRecoveryConflictOpen(false);
     setRecoveryConflictLabel(null);
     setRecoveryConflictMissing(false);
     recoveryConflictRef.current = null;
+  }, []);
+
+  const confirmRecoveryOpenDisk = useCallback(() => {
+    const payload = recoveryConflictRef.current;
     if (!payload) return;
     if (payload.missing) {
+      dismissRecoveryConflictUi();
       beginOpen(scheduleParentDirectory(payload.path) ?? payload.path);
       return;
     }
     if (payload.diskContents == null) return;
     const diskContents = payload.diskContents;
+    const path = payload.path;
     void (async () => {
       try {
         await clearRecoveryDraft();
-        await acceptOpenedScheduleViaTauri(payload.path, diskContents);
-        void applyOpenedFile({
-          path: payload.path,
-          contents: diskContents,
-        }, { restoreFilters: true });
+        await acceptOpenedScheduleViaTauri(path, diskContents);
+        dismissRecoveryConflictUi();
+        const applied = await applyOpenedFile(
+          { path, contents: diskContents },
+          { restoreFilters: true },
+        );
+        if (!applied) {
+          setStartupContentReady(true);
+        }
       } catch (error) {
+        dismissRecoveryConflictUi();
         setErrorMessageText(errorMessage(error, "ファイルを開けませんでした。"));
+        setStartupContentReady(true);
       }
     })();
-  }, [applyOpenedFile, beginOpen, clearRecoveryDraft, setErrorMessageText]);
+  }, [
+    applyOpenedFile,
+    beginOpen,
+    clearRecoveryDraft,
+    dismissRecoveryConflictUi,
+    setErrorMessageText,
+    setStartupContentReady,
+  ]);
 
   const confirmRecoveryRestoreEdits = useCallback(() => {
     const payload = recoveryConflictRef.current;
-    setRecoveryConflictOpen(false);
-    setRecoveryConflictLabel(null);
-    setRecoveryConflictMissing(false);
-    recoveryConflictRef.current = null;
     if (!payload || payload.missing) return;
     if (payload.diskContents == null) return;
-    void applyRecoverySession(
-      {
-        path: payload.path,
-        document: payload.document,
-        baselineJson: payload.baselineJson,
-        diskContents: payload.diskContents,
-      },
-      { deferDisk: true, restoreFilters: true },
-    ).catch((error) => {
-      setErrorMessageText(
-        errorMessage(error, "未保存の編集を戻せませんでした。"),
-      );
-    });
-  }, [applyRecoverySession, setErrorMessageText]);
+    const diskContents = payload.diskContents;
+    void (async () => {
+      try {
+        const applied = await applyRecoverySession(
+          {
+            path: payload.path,
+            document: payload.document,
+            baselineJson: payload.baselineJson,
+            diskContents,
+          },
+          {
+            deferDisk: true,
+            restoreFilters: true,
+            onDocumentApplied: dismissRecoveryConflictUi,
+          },
+        );
+        if (!applied) {
+          dismissRecoveryConflictUi();
+          setStartupContentReady(true);
+        }
+      } catch (error) {
+        dismissRecoveryConflictUi();
+        setErrorMessageText(
+          errorMessage(error, "未保存の編集を戻せませんでした。"),
+        );
+        setStartupContentReady(true);
+      }
+    })();
+  }, [
+    applyRecoverySession,
+    dismissRecoveryConflictUi,
+    setErrorMessageText,
+    setStartupContentReady,
+  ]);
 
   const dismissRecoveryInvalid = useCallback(() => {
     setRecoveryInvalidOpen(false);

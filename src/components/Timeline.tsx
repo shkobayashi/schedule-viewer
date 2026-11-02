@@ -2835,49 +2835,53 @@ export function Timeline({
               ) : null}
             </Group>
           </Layer>
-          <Layer listening={false}>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-              listening={false}
-            >
-              <Line
-                points={[
-                  dateToX(todayDate),
-                  sticky.clipTop,
-                  dateToX(todayDate),
-                  bodyHeight,
-                ]}
-                stroke={cssPalette.accent}
-                strokeWidth={1}
-                opacity={0.85}
-                listening={false}
-              />
-            </Group>
-          </Layer>
-          <Layer listening={false}>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-              listening={false}
-            >
-              {showLightningLine ? (
-              <Line
-                points={lightningPoints}
-                stroke={chart.lightning}
-                strokeWidth={1.5}
-                opacity={0.55}
-                lineJoin="round"
-                lineCap="round"
-                listening={false}
-              />
-              ) : null}
-            </Group>
-          </Layer>
+          {scheduleBodyVisible ? (
+            <>
+              <Layer listening={false}>
+                <Group
+                  clipX={0}
+                  clipY={sticky.clipTop}
+                  clipWidth={width}
+                  clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+                  listening={false}
+                >
+                  <Line
+                    points={[
+                      dateToX(todayDate),
+                      sticky.clipTop,
+                      dateToX(todayDate),
+                      bodyHeight,
+                    ]}
+                    stroke={cssPalette.accent}
+                    strokeWidth={1}
+                    opacity={0.85}
+                    listening={false}
+                  />
+                </Group>
+              </Layer>
+              <Layer listening={false}>
+                <Group
+                  clipX={0}
+                  clipY={sticky.clipTop}
+                  clipWidth={width}
+                  clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+                  listening={false}
+                >
+                  {showLightningLine ? (
+                    <Line
+                      points={lightningPoints}
+                      stroke={chart.lightning}
+                      strokeWidth={1.5}
+                      opacity={0.55}
+                      lineJoin="round"
+                      lineCap="round"
+                      listening={false}
+                    />
+                  ) : null}
+                </Group>
+              </Layer>
+            </>
+          ) : null}
           <Layer>
             <Group
               clipX={0}
