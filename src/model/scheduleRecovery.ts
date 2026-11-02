@@ -52,6 +52,29 @@ export function actionIgnoresDraft(action: RecoveryStartupAction): boolean {
   return "ignoredDraft" in action && action.ignoredDraft;
 }
 
+/** 起動復旧の結果を、最初に描く中身の種類へ分ける。`transientMain` のときは枠だけ残す。 */
+export type StartupContentKind = "hold" | "sample" | "document";
+
+export function startupContentKind(
+  action: RecoveryStartupAction,
+  transientMain: boolean,
+): StartupContentKind {
+  if (transientMain) return "hold";
+  switch (action.kind) {
+    case "none":
+    case "missingNotice":
+    case "invalidDraft":
+    case "invalidDisk":
+      return "sample";
+    case "openSaved":
+    case "restore":
+    case "missingWithEdits":
+      return "document";
+    case "conflict":
+      return "hold";
+  }
+}
+
 export function parseRecoveryDraft(text: string): ParsedRecoveryDraft {
   const normalized = text.replace(/^\uFEFF/, "");
   let data: unknown;

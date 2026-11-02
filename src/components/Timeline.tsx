@@ -145,6 +145,7 @@ type TimelineProps = {
   onChartPointer: (pointer: ChartPointer) => void;
   sticky: StickyLayout;
   showLightningLine?: boolean;
+  scheduleBodyVisible?: boolean;
 };
 
 const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
@@ -1478,6 +1479,7 @@ export function Timeline({
   onChartPointer,
   sticky,
   showLightningLine = true,
+  scheduleBodyVisible = true,
 }: TimelineProps) {
   const linkMode = linkSourceId != null;
   const chart = useMemo(
@@ -1647,6 +1649,9 @@ export function Timeline({
         listening={false}
       />,
     );
+    if (!scheduleBodyVisible) {
+      return elements;
+    }
 
     const scrollAnchor = Math.max(
       0,
@@ -1807,6 +1812,7 @@ export function Timeline({
     timelineStart,
     width,
     chart,
+    scheduleBodyVisible,
   ]);
 
   const stickyHidden = useMemo(
@@ -1815,6 +1821,9 @@ export function Timeline({
   );
 
   const bgContent = useMemo(() => {
+    if (!scheduleBodyVisible) {
+      return [];
+    }
     const elements: ReactNode[] = [];
     const height = bodyHeight;
 
@@ -1880,6 +1889,7 @@ export function Timeline({
     visibleRows,
     width,
     chart,
+    scheduleBodyVisible,
   ]);
 
   const stickyContent = useMemo(() => {
@@ -2549,7 +2559,7 @@ export function Timeline({
           <Layer>{headerContent}</Layer>
         </Stage>
       </div>
-      {milestoneBandHeight > 0 ? (
+      {scheduleBodyVisible && milestoneBandHeight > 0 ? (
         <MilestoneBand
           bandLayout={milestoneBandLayout}
           width={width}

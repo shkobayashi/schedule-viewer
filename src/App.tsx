@@ -853,7 +853,13 @@ function App() {
     };
   }, []);
 
-  useWindowTitle(scheduleFile.displayFileName, scheduleFile.isDirty);
+  useWindowTitle(
+    scheduleFile.displayFileName,
+    scheduleFile.isDirty,
+    isTauri() && !scheduleFile.startupContentReady,
+  );
+
+  const showScheduleBody = scheduleFile.startupContentReady;
 
   const showUpdateToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -2644,7 +2650,7 @@ function App() {
         {titleBlankNotice}
       </p>
       <Toolbar
-        title={schedule.title}
+        title={showScheduleBody ? schedule.title : ""}
         titleDiffMarked={diffNavigationMark.title}
         filters={schedule.filters}
         searchField={schedule.searchField}
@@ -2751,9 +2757,9 @@ function App() {
       />
       <div ref={mainRef} className="main">
         <Sidebar
-          categories={schedule.categories}
-          rows={schedule.visibleRows}
-          reorderBaseRows={schedule.baseVisibleRows}
+          categories={showScheduleBody ? schedule.categories : []}
+          rows={showScheduleBody ? schedule.visibleRows : []}
+          reorderBaseRows={showScheduleBody ? schedule.baseVisibleRows : []}
           scrollY={scrollY}
           viewportHeight={bodyHeight}
           rowHeight={rowHeight}
@@ -2787,9 +2793,9 @@ function App() {
           onCommitGroupReorder={schedule.commitGroupReorder}
           onCancelReorder={schedule.cancelReorder}
           onReorderDragActiveChange={setSidebarReorderDragging}
-          milestoneBandHeight={milestoneBandHeight}
+          milestoneBandHeight={showScheduleBody ? milestoneBandHeight : 0}
           milestoneBandLayout={milestoneBandLayout}
-          milestones={schedule.milestones}
+          milestones={showScheduleBody ? schedule.milestones : []}
           onToggleCollapse={schedule.toggleCollapsed}
           onOpenTaskNote={schedule.openTaskNoteDialog}
           onTaskContextMenu={openTaskContextMenu}
@@ -2829,7 +2835,7 @@ function App() {
             </div>
           ) : null}
           <Timeline
-            visibleRows={schedule.visibleRows}
+            visibleRows={showScheduleBody ? schedule.visibleRows : []}
             width={Math.max(200, timelineWidth)}
             rowHeight={rowHeight}
             barHeight={barHeight}
@@ -2857,9 +2863,9 @@ function App() {
             onWheelBody={onWheelBody}
             onWheelHeader={onWheelHeader}
             onPan={panBy}
-            milestones={schedule.milestones}
+            milestones={showScheduleBody ? schedule.milestones : []}
             milestoneBandLayout={milestoneBandLayout}
-            milestoneBandHeight={milestoneBandHeight}
+            milestoneBandHeight={showScheduleBody ? milestoneBandHeight : 0}
             milestoneLaneHeight={milestoneLaneHeight}
             milestoneDiamondSize={milestoneDiamondSize}
             milestoneFontSize={milestoneFontSize}
@@ -2882,6 +2888,7 @@ function App() {
             }}
             sticky={stickyLayout}
             showLightningLine={showLightningLine}
+            scheduleBodyVisible={showScheduleBody}
           />
         </div>
         {selectedDetailTask ? (
@@ -2950,6 +2957,7 @@ function App() {
         saveStatus={scheduleFile.saveStatusLabel}
         saveStatusClickable={scheduleFile.isDirty}
         onSaveStatusClick={showScheduleDiff}
+        hideFileStatus={!showScheduleBody}
         membersCatalogLabel={membersCatalogLabel}
         membersCatalogError={membersCatalogError}
         calendarError={calendarDisplayError}

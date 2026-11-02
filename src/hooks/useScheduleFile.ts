@@ -132,6 +132,7 @@ export function useScheduleFile({
   const [startupSettled, setStartupSettled] = useState(!isTauri());
   const startupSettledRef = useRef(startupSettled);
   startupSettledRef.current = startupSettled;
+  const [startupContentReady, setStartupContentReady] = useState(!isTauri());
   const initialDirectoryRef = useRef<string | null>(null);
   const allowCloseRef = useRef(false);
   const requestMissingFileOpenRef = useRef<() => void>(() => {});
@@ -338,6 +339,9 @@ export function useScheduleFile({
       resetPollTracking();
       baselineJsonRef.current = parsed.canonicalJson;
       onAfterOpen();
+      if (isTauri()) {
+        setStartupContentReady(true);
+      }
       if (isTauri() && previousPath && previousPath !== pick.path) {
         void releaseScheduleRecoveryViaTauri(previousPath).catch((error) => {
           setErrorMessageText(
@@ -367,6 +371,7 @@ export function useScheduleFile({
       onRecentFilesStoreUpdated,
       replaceDocument,
       resetPollTracking,
+      setStartupContentReady,
     ],
   );
 
@@ -740,6 +745,7 @@ export function useScheduleFile({
     setErrorMessageText,
     startupSettledRef,
     setStartupSettled,
+    setStartupContentReady,
     filePathRef,
     baselineJsonRef,
     isDirtyRef,
@@ -1115,6 +1121,7 @@ export function useScheduleFile({
     isDirty,
     fileBusy,
     startupSettled,
+    startupContentReady,
     errorMessage: errorMessageText,
     errorDialogTitle,
     discardPromptOpen,

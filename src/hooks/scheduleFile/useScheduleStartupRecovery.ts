@@ -50,6 +50,7 @@ type UseScheduleStartupRecoveryOptions = {
   setErrorMessageText: (message: string | null) => void;
   startupSettledRef: { current: boolean };
   setStartupSettled: (settled: boolean) => void;
+  setStartupContentReady: (ready: boolean) => void;
   filePathRef: { current: string | null };
   baselineJsonRef: { current: string };
   isDirtyRef: { current: boolean };
@@ -85,6 +86,7 @@ export function useScheduleStartupRecovery({
   setErrorMessageText,
   startupSettledRef,
   setStartupSettled,
+  setStartupContentReady,
   filePathRef,
   baselineJsonRef,
   isDirtyRef,
@@ -122,6 +124,7 @@ export function useScheduleStartupRecovery({
         deferDisk?: boolean;
         abortIfMovedOn?: boolean;
         restoreFilters?: boolean;
+        onDocumentApplied?: () => void;
       },
     ): Promise<boolean> => {
       const startupId = recoveryStartupRef.current;
@@ -144,6 +147,8 @@ export function useScheduleStartupRecovery({
           setDeferredExternalContents(
             options?.deferDisk ? session.diskContents : null,
           );
+          options?.onDocumentApplied?.();
+          setStartupContentReady(true);
           onAfterOpen();
           return true;
         },
@@ -167,6 +172,7 @@ export function useScheduleStartupRecovery({
       setDeferredExternalContents,
       setFilePath,
       restoreFiltersForPath,
+      setStartupContentReady,
     ],
   );
 
@@ -232,11 +238,16 @@ export function useScheduleStartupRecovery({
           return;
         }
         const startup = await readWindowStartupViaTauri();
+        if (startup.transientMain) {
+          releaseStartupBusy();
+          return;
+        }
         const workspaceStartupOk = await restoreWorkspaceBinding(
           startup.workspacePath,
         );
         if (startup.workspacePath && !workspaceStartupOk) {
           setErrorMessageText(WORKSPACE_STARTUP_FAILED_MESSAGE);
+          setStartupContentReady(true);
           releaseStartupBusy();
           return;
         }
@@ -251,6 +262,7 @@ export function useScheduleStartupRecovery({
         const draftText = startup.draftText;
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (last == null && (draftText == null || draftText.length === 0)) {
+          setStartupContentReady(true);
           releaseStartupBusy();
           return;
         }
@@ -263,6 +275,9 @@ export function useScheduleStartupRecovery({
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         const userMovedOn = filePathRef.current != null || isDirtyRef.current;
         if (action.kind === "none" || userMovedOn) {
+          if (action.kind === "none" && !userMovedOn) {
+            setStartupContentReady(true);
+          }
           releaseStartupBusy();
           return;
         }
@@ -288,12 +303,14 @@ export function useScheduleStartupRecovery({
           case "invalidDraft":
             setRecoveryInvalidMessage(action.message);
             setRecoveryInvalidOpen(true);
+            setStartupContentReady(true);
             releaseStartupBusy();
             return;
           case "missingNotice":
             setMissingScheduleLabel(
               scheduleJsonFilename(action.path) ?? action.path,
             );
+            setStartupContentReady(true);
             releaseStartupBusy();
             return;
           case "invalidDisk":
@@ -301,6 +318,7 @@ export function useScheduleStartupRecovery({
               `${action.message}（${scheduleJsonFilename(action.path) ?? action.path}）`,
             );
             setRecoveryInvalidOpen(true);
+            setStartupContentReady(true);
             releaseStartupBusy();
             return;
           case "openSaved": {
@@ -354,25 +372,30 @@ export function useScheduleStartupRecovery({
                 baselineJson: action.baselineJson,
                 diskContents: action.baselineJson,
               },
-              { abortIfMovedOn: true, restoreFilters: true },
+              {
+                abortIfMovedOn: true,
+                restoreFilters: true,
+                onDocumentApplied: () => {
+                  markMissingFilePrompted();
+                  recoveryConflictRef.current = {
+                    path: action.path,
+                    diskContents: null,
+                    document: action.document,
+                    baselineJson: action.baselineJson,
+                    missing: true,
+                  };
+                  setRecoveryConflictMissing(true);
+                  setRecoveryConflictLabel(
+                    scheduleJsonFilename(action.path) ?? action.path,
+                  );
+                  setRecoveryConflictOpen(true);
+                },
+              },
             );
             if (!applied) {
               releaseStartupBusy();
               return;
             }
-            markMissingFilePrompted();
-            recoveryConflictRef.current = {
-              path: action.path,
-              diskContents: null,
-              document: action.document,
-              baselineJson: action.baselineJson,
-              missing: true,
-            };
-            setRecoveryConflictMissing(true);
-            setRecoveryConflictLabel(
-              scheduleJsonFilename(action.path) ?? action.path,
-            );
-            setRecoveryConflictOpen(true);
             releaseStartupBusy();
             return;
           }
@@ -382,6 +405,7 @@ export function useScheduleStartupRecovery({
           setErrorMessageText(
             errorMessage(error, "前回のファイルを読み込めませんでした。"),
           );
+          setStartupContentReady(true);
         }
         releaseStartupBusy();
       }

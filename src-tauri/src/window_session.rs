@@ -577,6 +577,10 @@ pub fn should_close_default_main_window(file: &OpenWindowsFile) -> bool {
     !has_main && !file.windows.is_empty()
 }
 
+pub fn is_transient_main_window(file: &OpenWindowsFile, label: &str) -> bool {
+    label == "main" && should_close_default_main_window(file)
+}
+
 pub fn should_remove_open_window_label_after_destroy(
     quitting: bool,
     remaining_webviews: usize,
@@ -755,6 +759,8 @@ pub struct WindowStartupRead {
     #[serde(rename = "workspacePath")]
     pub workspace_path: Option<String>,
     pub sample: bool,
+    #[serde(rename = "transientMain")]
+    pub transient_main: bool,
     pub contents: Option<String>,
     pub error: Option<String>,
     pub draft_text: Option<String>,
@@ -762,11 +768,13 @@ pub struct WindowStartupRead {
 
 pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartupRead, String> {
     let file = read_open_windows(app_data)?;
+    let transient_main = is_transient_main_window(&file, label);
     let Some(entry) = entry_for_label(&file, label) else {
         return Ok(WindowStartupRead {
             path: None,
             workspace_path: None,
             sample: true,
+            transient_main,
             contents: None,
             error: None,
             draft_text: None,
@@ -777,6 +785,7 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
             path: None,
             workspace_path: None,
             sample: true,
+            transient_main,
             contents: None,
             error: None,
             draft_text: None,
@@ -791,6 +800,7 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
             path: Some(path),
             workspace_path,
             sample: false,
+            transient_main,
             contents: None,
             error: Some(SCHEDULE_FILE_NOT_FOUND.to_string()),
             draft_text,
@@ -801,6 +811,7 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
             path: Some(path),
             workspace_path,
             sample: false,
+            transient_main,
             contents: Some(contents),
             error: None,
             draft_text,
@@ -809,6 +820,7 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
             path: Some(path),
             workspace_path,
             sample: false,
+            transient_main,
             contents: None,
             error: Some(message),
             draft_text,
@@ -953,6 +965,49 @@ mod tests {
             ],
         };
         assert!(!should_close_default_main_window(&with_main));
+    }
+
+    #[test]
+    fn transient_main_hides_schedule_body() {
+        let file = OpenWindowsFile {
+            focused_label: "schedule-2".to_string(),
+            windows: vec![OpenWindowEntry {
+                label: "schedule-2".to_string(),
+                path: Some("/tmp/plan.json".to_string()),
+                workspace_path: None,
+                sample: false,
+            }],
+        };
+        assert!(is_transient_main_window(&file, "main"));
+        assert!(!is_transient_main_window(&file, "schedule-2"));
+    }
+
+    #[test]
+    fn first_launch_main_is_not_transient() {
+        let file = OpenWindowsFile {
+            focused_label: "main".to_string(),
+            windows: vec![OpenWindowEntry {
+                label: "main".to_string(),
+                path: None,
+                workspace_path: None,
+                sample: true,
+            }],
+        };
+        assert!(!is_transient_main_window(&file, "main"));
+    }
+
+    #[test]
+    fn recorded_sample_main_is_not_transient() {
+        let file = OpenWindowsFile {
+            focused_label: "main".to_string(),
+            windows: vec![OpenWindowEntry {
+                label: "main".to_string(),
+                path: None,
+                workspace_path: None,
+                sample: true,
+            }],
+        };
+        assert!(!is_transient_main_window(&file, "main"));
     }
 
     #[test]

@@ -52,7 +52,7 @@ Intel Mac では、[開発ガイドの配布用ビルド](docs/development.md#�
 
 ## 使い始める
 
-起動直後はサンプルのスケジュールが表示される。入手と、☰ の「開く」「保存」までの短い手順は [操作マニュアルのはじめに](docs/user-manual/getting-started.md) にある。スケジュール JSON を LLM とスキルで作る流れは [チュートリアル](docs/user-manual/tutorial.md)、絞り込みや編集などの操作は [全機能](docs/user-manual/features.md) にある。文書の入口は [操作マニュアル](docs/user-manual.md) です。
+起動直後は、ブラウザ版ではサンプルのスケジュールが表示される。デスクトップ版では前回の結果が決まるまで枠だけが見え、決まったあとにサンプルまたは前回の内容が一度だけ表示される。入手と、☰ の「開く」「保存」までの短い手順は [操作マニュアルのはじめに](docs/user-manual/getting-started.md) にある。スケジュール JSON を LLM とスキルで作る流れは [チュートリアル](docs/user-manual/tutorial.md)、絞り込みや編集などの操作は [全機能](docs/user-manual/features.md) にある。文書の入口は [操作マニュアル](docs/user-manual.md) です。
 
 ## ドキュメント
 
