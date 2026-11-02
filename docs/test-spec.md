@@ -231,7 +231,14 @@
 | 同上 | `keeps all selected tags when duplicated task matches one of them` | FILTER-12, EDIT-14 |
 | `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
 | `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
+| 同上 | `lists each hidden milestone mark` | FILTER-13 |
 | 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
+| 同上 | `counts hidden milestone marks separately from hidden groups` | FILTER-13 |
+| `milestones.test.ts` | `skips milestones hidden by FILTER-13` | FILTER-13, VIEW-04 |
+| `exportView.test.ts` | `drops a hidden milestone mark even when filter selects it` | FILTER-13, EXPORT-02 |
+| `diffNavigation.test.ts` | `blocks milestone navigation when the mark is hidden` | FILTER-13, DIFF |
+| `scheduleFilterPersistence.test.ts` | `treats missing hiddenMilestoneIds as empty` | FILTER-13, FILE-09 |
+| `screenContext.test.ts` | `includes hidden milestone marks in activeConditions` | FILTER-13, MCP-01 |
 | `milestoneField.test.ts` | `prepends none and keeps array order without date sort` | EDIT-04, EDIT-14 |
 | 同上 | `caps milestones at 50 and none does not count` | EDIT-04, EDIT-14 |
 | 同上 | `returns -1 when current is beyond first 50 with empty query` | EDIT-04, EDIT-14 |
