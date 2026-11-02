@@ -33,8 +33,12 @@ import {
   MCP_TOOL_SELECTED_TASKS,
   mcpPayloadToToolBody,
   mcpPlainTextToolBody,
+  mcpReadToolsPayloadToToolBody,
+  isMcpReadToolName,
   mcpToolErrorBody,
 } from "../model/screenContext";
+import type { VisibleRow } from "../model/types";
+import { captureMainElementForMcp } from "../model/captureMainForMcp";
 import { isTauri } from "../model/scheduleFile";
 import type { Member, MemberId } from "../model/memberTypes";
 import type {
@@ -94,6 +98,16 @@ type UseMcpScreenBridgeInput = {
     document: ScheduleDocument,
   ) => ReplaceScheduleDocumentResult;
   onReplaceScheduleApplied?: (result: ReplaceScheduleDocumentResult) => void;
+  visibleRows: VisibleRow[];
+  viewStart: Date;
+  viewTotalDays: number;
+  scrollX: number;
+  pxPerDay: number;
+  chartWidth: number;
+  scrollY: number;
+  rowHeight: number;
+  bodyHeight: number;
+  mainElement: HTMLElement | null;
 };
 
 export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
@@ -119,11 +133,35 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       };
     }
 
+    function mcpViewportFromSnap(snap: UseMcpScreenBridgeInput) {
+      return {
+        timelineStart: snap.viewStart,
+        totalDays: snap.viewTotalDays,
+        scrollX: snap.scrollX,
+        pxPerDay: snap.pxPerDay,
+        chartWidth: snap.chartWidth,
+        scrollY: snap.scrollY,
+        rowHeight: snap.rowHeight,
+        bodyHeight: snap.bodyHeight,
+        visibleRows: snap.visibleRows,
+      };
+    }
+
+    function mcpPayloadFields(snap: UseMcpScreenBridgeInput) {
+      return {
+        ...mcpViewFields(snap),
+        viewport: mcpViewportFromSnap(snap),
+      };
+    }
+
     async function reply(
       id: string,
       generation: number,
       body: {
-        content: Array<{ type: string; text: string }>;
+        content: Array<
+          | { type: string; text: string }
+          | { type: string; data: string; mimeType: string }
+        >;
         isError?: boolean;
       },
     ) {
@@ -255,7 +293,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         }
         case MCP_TOOL_SELECTED_TASK: {
           toolPayload = buildSelectedTaskPayload({
-            ...mcpViewFields(snap),
+            ...mcpPayloadFields(snap),
             categories: snap.categories,
             outline: snap.outline,
             title: snap.title,
@@ -276,7 +314,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         }
         case MCP_TOOL_SELECTED_TASKS: {
           toolPayload = buildSelectedTasksPayload({
-            ...mcpViewFields(snap),
+            ...mcpPayloadFields(snap),
             categories: snap.categories,
             outline: snap.outline,
             title: snap.title,
@@ -306,7 +344,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         }
         case MCP_TOOL_FILTERED_TASKS: {
           toolPayload = buildFilteredTasksPayload({
-            ...mcpViewFields(snap),
+            ...mcpPayloadFields(snap),
             categories: snap.categories,
             outline: snap.outline,
             title: snap.title,
@@ -334,7 +372,16 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           );
           return;
       }
-      const body = mcpPayloadToToolBody(toolPayload);
+      let body;
+      if (isMcpReadToolName(payload.tool)) {
+        const screenshot = await captureMainElementForMcp(snap.mainElement);
+        body = mcpReadToolsPayloadToToolBody(
+          toolPayload as Record<string, unknown>,
+          screenshot,
+        );
+      } else {
+        body = mcpPayloadToToolBody(toolPayload);
+      }
       if ("tooLarge" in body) {
         await reply(
           payload.id,

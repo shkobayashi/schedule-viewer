@@ -2473,6 +2473,16 @@ function App() {
     replaceScheduleDocument: (document) =>
       replaceScheduleDocumentRef.current(document),
     onReplaceScheduleApplied,
+    visibleRows: schedule.visibleRows,
+    viewStart,
+    viewTotalDays,
+    scrollX,
+    pxPerDay,
+    chartWidth: timelineWidth,
+    scrollY,
+    rowHeight,
+    bodyHeight,
+    mainElement: mainRef.current,
   });
 
   const announceDiffStrip = useCallback((kind: DiffStripContentKind, text: string) => {

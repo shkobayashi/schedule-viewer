@@ -1,5 +1,9 @@
 use serde_json::{json, Value};
 use std::io::{self, Read, Write};
+use std::path::PathBuf;
+
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 
 use crate::mcp_bridge::call_tool_via_bridge;
 
@@ -164,10 +168,16 @@ pub fn run_screen_cli(invocation: &ScreenCliInvocation) -> i32 {
     };
     match call_tool_via_bridge(&invocation.tool, arguments) {
         Ok(body) => match extract_tool_output(&body) {
-            Ok(text) => {
-                if let Err(err) = writeln!(io::stdout(), "{text}") {
+            Ok(output) => {
+                if let Err(err) = writeln!(io::stdout(), "{}", output.text) {
                     eprintln!("{err}");
                     return 1;
+                }
+                if let Some(path) = output.image_path {
+                    if let Err(err) = writeln!(io::stdout(), "{}", path.display()) {
+                        eprintln!("{err}");
+                        return 1;
+                    }
                 }
                 0
             }
@@ -183,20 +193,58 @@ pub fn run_screen_cli(invocation: &ScreenCliInvocation) -> i32 {
     }
 }
 
-fn extract_tool_output(body: &Value) -> Result<String, String> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ScreenCliOutput {
+    text: String,
+    image_path: Option<PathBuf>,
+}
+
+
+fn write_screen_image_from_content(content: &[Value]) -> Result<Option<PathBuf>, String> {
+    if content.len() < 2 {
+        return Ok(None);
+    }
+    let item = &content[1];
+    if item.get("type").and_then(|v| v.as_str()) != Some("image") {
+        return Ok(None);
+    }
+    let data = item
+        .get("data")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "画像のデータがありません。".to_string())?;
+    let bytes = BASE64_STANDARD
+        .decode(data)
+        .map_err(|_| "画像のデータを読めません。".to_string())?;
+    let mut file = tempfile::NamedTempFile::new()
+        .map_err(|err| err.to_string())?;
+    file.write_all(&bytes)
+        .map_err(|err| err.to_string())?;
+    file.flush().map_err(|err| err.to_string())?;
+    let path = file.into_temp_path();
+    let png_path = path.with_extension("png");
+    path.persist(&png_path)
+        .map_err(|err| err.error.to_string())?;
+    Ok(Some(png_path))
+}
+
+fn extract_tool_output(body: &Value) -> Result<ScreenCliOutput, String> {
     let is_error = body.get("isError").and_then(|v| v.as_bool()).unwrap_or(false);
-    let text = body
+    let content = body
         .get("content")
         .and_then(|c| c.as_array())
-        .and_then(|arr| arr.first())
+        .cloned()
+        .unwrap_or_default();
+    let text = content
+        .first()
         .and_then(|item| item.get("text"))
         .and_then(|t| t.as_str())
-        .unwrap_or("");
+        .unwrap_or("")
+        .to_string();
     if is_error {
-        Err(text.to_string())
-    } else {
-        Ok(text.to_string())
+        return Err(text);
     }
+    let image_path = write_screen_image_from_content(&content)?;
+    Ok(ScreenCliOutput { text, image_path })
 }
 
 #[cfg(test)]
@@ -347,12 +395,40 @@ mod tests {
             "content": [{ "type": "text", "text": "hello" }],
             "isError": false,
         });
-        assert_eq!(extract_tool_output(&ok).unwrap(), "hello");
+        assert_eq!(
+            extract_tool_output(&ok).unwrap(),
+            ScreenCliOutput {
+                text: "hello".to_string(),
+                image_path: None,
+            }
+        );
 
         let err = json!({
             "content": [{ "type": "text", "text": "失敗" }],
             "isError": true,
         });
         assert_eq!(extract_tool_output(&err).unwrap_err(), "失敗");
+    }
+
+    #[test]
+    fn extract_tool_output_writes_image_to_temp_path() {
+        let png = [
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+        ];
+        let data = BASE64_STANDARD.encode(png);
+        let ok = json!({
+            "content": [
+                { "type": "text", "text": "{}" },
+                { "type": "image", "data": data, "mimeType": "image/png" },
+            ],
+            "isError": false,
+        });
+        let output = extract_tool_output(&ok).unwrap();
+        assert_eq!(output.text, "{}");
+        let path = output.image_path.expect("image path");
+        assert!(path.exists());
+        let written = std::fs::read(&path).expect("read png");
+        assert_eq!(written, png);
+        std::fs::remove_file(&path).expect("remove temp png");
     }
 }

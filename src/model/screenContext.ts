@@ -24,6 +24,12 @@ import {
   groupCollapseKey,
   hierarchyCollapseKey,
 } from "./rows";
+import type { McpTaskVisibility, McpViewVisible, McpViewportForReadTools } from "./mcpVisible";
+import {
+  buildMcpViewVisible,
+  mcpTaskVisibility,
+  mcpTaskVisibilityContext,
+} from "./mcpVisible";
 import type { DisplayScalePreference } from "./uiScale";
 import type { RowDensity, SidebarColumnsPreference } from "./viewPreferences";
 import { DEFAULT_SIDEBAR_COLUMNS } from "./viewPreferences";
@@ -85,6 +91,7 @@ export type ScreenContextTask = {
   tags: string[];
   colorId?: string;
   fieldValues?: TaskFieldValues;
+  visibility?: McpTaskVisibility;
 };
 
 export type McpActiveFilterCondition =
@@ -138,6 +145,7 @@ export type McpViewCalendar = McpViewCalendarLoaded | McpViewCalendarDefault;
 
 export type McpViewForReadTools = {
   collapsed: McpCollapsedEntry[];
+  visible?: McpViewVisible;
   displayScale: {
     preference: DisplayScalePreference;
     effective: number;
@@ -164,6 +172,7 @@ export type McpViewForReadToolsInput = {
   calendar: CalendarDocument | null;
   categories: Category[];
   outline?: OutlineRoot | undefined;
+  viewport?: McpViewportForReadTools;
 };
 
 /** タスクの `colorId` が指す色。LLM が id を選ぶ手がかり。 */
@@ -341,6 +350,9 @@ export function buildMcpViewForReadTools(
       input.categories,
       input.outline,
     ),
+    ...(input.viewport != null
+      ? { visible: buildMcpViewVisible(input.viewport) }
+      : {}),
     displayScale: {
       preference: input.displayScalePreference,
       effective: input.effectiveUiScale,
@@ -452,9 +464,22 @@ export type ScheduleDiffMcpPayload = {
 };
 
 export type McpToolResultBody = {
-  content: Array<{ type: "text"; text: string }>;
+  content: McpContentBlock[];
   isError?: boolean;
 };
+
+export type McpContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; data: string; mimeType: string };
+
+export const MCP_SCREEN_CAPTURE_FAILED_MESSAGE =
+  "今の画面の絵を取れませんでした。";
+export const MCP_SCREEN_CAPTURE_TOO_LARGE_MESSAGE =
+  "絵が大きすぎるため、絵だけ渡せません。";
+
+export type McpScreenshotForReadTools =
+  | { ok: true; base64: string; mimeType: "image/png" }
+  | { ok: false };
 
 export type McpScheduleTasksContext = {
   categories: Category[];
@@ -512,6 +537,33 @@ function taskToContext(ref: FilteredTaskRef): ScreenContextTask {
       ? { fieldValues: { ...task.fieldValues } }
       : {}),
   };
+}
+
+type TaskVisibilityContext = ReturnType<typeof mcpTaskVisibilityContext>;
+
+function visibilityContextFromViewInput(
+  input: Partial<McpViewForReadToolsInput>,
+): TaskVisibilityContext | null {
+  if (input.viewport == null) return null;
+  return mcpTaskVisibilityContext({
+    categories: input.categories ?? [],
+    outline: input.outline,
+    collapsed: input.collapsed ?? new Set(),
+    viewport: input.viewport,
+  });
+}
+
+function withTaskVisibility(
+  task: ScreenContextTask,
+  visibilityCtx: TaskVisibilityContext | null,
+): ScreenContextTask {
+  if (visibilityCtx == null) return task;
+  const visibility = mcpTaskVisibility({
+    taskId: task.id,
+    ...visibilityCtx,
+  });
+  if (visibility == null) return task;
+  return { ...task, visibility };
 }
 
 export function buildActiveFilterConditions(input: {
@@ -700,6 +752,7 @@ export function buildFilteredTasksPayload(
     ...defaultMcpViewForReadToolsInput(input.categories, input.outline),
     ...input,
   });
+  const visibilityCtx = visibilityContextFromViewInput(input);
   const doc = scheduleDocumentForMcpTasks(input);
   const matched = listTasksMatchingFilterInDocument(
     doc,
@@ -729,7 +782,9 @@ export function buildFilteredTasksPayload(
       statuses,
       fields: input.fields,
     }),
-    tasks: matched.map(taskToContext),
+    tasks: matched.map((ref) =>
+      withTaskVisibility(taskToContext(ref), visibilityCtx),
+    ),
   };
 }
 
@@ -756,6 +811,7 @@ export function buildSelectedTaskPayload(
     ...defaultMcpViewForReadToolsInput(input.categories, input.outline),
     ...input,
   });
+  const visibilityCtx = visibilityContextFromViewInput(input);
   const doc = scheduleDocumentForMcpTasks(input);
   const matched = listTasksMatchingFilterInDocument(
     doc,
@@ -766,11 +822,15 @@ export function buildSelectedTaskPayload(
     statuses,
     input.fields,
   );
-  const selectedTask = resolveSelectedTask(
+  const selectedTaskRaw = resolveSelectedTask(
     doc,
     matched,
     input.selectedTaskId,
   );
+  const selectedTask =
+    selectedTaskRaw == null
+      ? null
+      : withTaskVisibility(selectedTaskRaw, visibilityCtx);
   return {
     levels: levelEntries,
     statuses: statusEntriesForMcp(statuses),
@@ -804,6 +864,7 @@ export function buildSelectedTasksPayload(
     ...defaultMcpViewForReadToolsInput(input.categories, input.outline),
     ...input,
   });
+  const visibilityCtx = visibilityContextFromViewInput(input);
   const selected = new Set(input.selectedTaskIds);
   if (selected.size === 0) {
     return {
@@ -822,11 +883,14 @@ export function buildSelectedTasksPayload(
     if (!selected.has(task.id)) continue;
     const labels = taskHierarchyLabels(doc, task.id);
     selectedTasks.push(
-      taskToContext({
-        task,
-        category: labels.category,
-        group: labels.group,
-      }),
+      withTaskVisibility(
+        taskToContext({
+          task,
+          category: labels.category,
+          group: labels.group,
+        }),
+        visibilityCtx,
+      ),
     );
   }
   return {
@@ -857,6 +921,62 @@ export function mcpPayloadToToolBody(
 ): McpToolResultBody | { tooLarge: true } {
   const text = JSON.stringify(payload, null, 2);
   return mcpPlainTextToolBody(text);
+}
+
+function mcpToolBodyByteSize(content: McpContentBlock[]): number {
+  const enc = new TextEncoder();
+  let bytes = 0;
+  for (const block of content) {
+    if (block.type === "text") {
+      bytes += enc.encode(block.text).length;
+    } else {
+      bytes += enc.encode(block.data).length;
+    }
+  }
+  return bytes;
+}
+
+/** 読み取り 3 ツール用。JSON テキストのあと PNG を載せる。 */
+export function mcpReadToolsPayloadToToolBody(
+  payload: Record<string, unknown>,
+  screenshot: McpScreenshotForReadTools | null,
+): McpToolResultBody | { tooLarge: true } {
+  let body: Record<string, unknown> = payload;
+  if (screenshot?.ok === false) {
+    body = {
+      ...body,
+      screenCapture: { message: MCP_SCREEN_CAPTURE_FAILED_MESSAGE },
+    };
+  }
+  let text = JSON.stringify(body, null, 2);
+  if (screenshot?.ok) {
+    const withImage: McpContentBlock[] = [
+      { type: "text", text },
+      {
+        type: "image",
+        data: screenshot.base64,
+        mimeType: screenshot.mimeType,
+      },
+    ];
+    if (mcpToolBodyByteSize(withImage) > MCP_SCREEN_CONTEXT_MAX_BYTES) {
+      body = {
+        ...payload,
+        screenCapture: { message: MCP_SCREEN_CAPTURE_TOO_LARGE_MESSAGE },
+      };
+      text = JSON.stringify(body, null, 2);
+      return mcpPlainTextToolBody(text);
+    }
+    return { content: withImage };
+  }
+  return mcpPlainTextToolBody(text);
+}
+
+export function isMcpReadToolName(tool: string): boolean {
+  return (
+    tool === MCP_TOOL_SELECTED_TASK ||
+    tool === MCP_TOOL_SELECTED_TASKS ||
+    tool === MCP_TOOL_FILTERED_TASKS
+  );
 }
 
 export function mcpPlainTextToolBody(

@@ -424,6 +424,21 @@
 | 同上 | `loads calendar weekends and named non-working days without path or schemaVersion` | MCP-01 |
 | 同上 | `includes view on the three read payloads but not on schedule diff` | MCP-01 |
 | 同上 | `does not put scroll, zoom, or dialog flags on view` | MCP-01 |
+| `mcpVisible.test.ts` | `includes the left edge day and excludes the day at an exact right boundary` | MCP-01 |
+| 同上 | `returns null when chart width is zero` | MCP-01 |
+| 同上 | `does not extend dates past the timeline when the chart is wider than content` | MCP-01 |
+| 同上 | `lists rows that intersect the vertical viewport` | MCP-01 |
+| 同上 | `includes sticky header rows that stay pinned above the viewport` | MCP-01 |
+| 同上 | `marks a task visible when its row intersects the viewport` | MCP-01 |
+| 同上 | `prefers collapsed when ancestors are folded` | MCP-01 |
+| 同上 | `prefers collapsed for a folded outline heading even when the task row is in the viewport` | MCP-01 |
+| 同上 | `marks scrolledOut when the row exists but is outside the viewport` | MCP-01 |
+| 同上 | `omits visibility when the task has no visible row and is not collapsed` | MCP-01 |
+| `screenContext.test.ts` | `adds view.visible and collapsed visibility when viewport is supplied` | MCP-01 |
+| 同上 | `does not add visibility on selected_task when the task has no visible row` | MCP-01 |
+| 同上 | `adds screenCapture message when screenshot failed` | MCP-01 |
+| 同上 | `returns text only with too-large message when image makes body exceed limit` | MCP-01 |
+| `screen_cli.rs` | `extract_tool_output_writes_image_to_temp_path` | MCP-02 |
 | `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |
 | 同上 | `keeps spaces and quotes inside the JSON command string` | MCP-01 |
 | 同上 | `keeps a macOS path with spaces as the command string` | MCP-01 |
@@ -1412,6 +1427,7 @@
 | TC-MCP-01m | MCP-01, SET-03 | デスクトップ版。Cursor に MCP を登録してある。サンプルを開き、設定の稼働日は外してある | 「稼働日は何を使っているか。週末と、名前の付いた休みの日を教えて。ファイルのパスは分かるか。」と送る。設定の「稼働日」で `examples/jp-2026.calendar.json` を取り込み、同じ質問を送る | 取り込む前は未設定である。週末は土日。名前の付いた休みは無い。パスと schemaVersion は答えない。取り込んだあとは読み込み済みである。週末は土日。2026-01-01 は元日である。パスと schemaVersion は答えない |
 | TC-MCP-01n | MCP-01, SET-08 | デスクトップ版。Cursor に MCP を登録してある。ステータスは組み込みの三件。配色はライト | 「進行中のバーの地と枠は、今のライトで何色か。色の値だけ答えて。」と送る。続けて「バーが緑だから、という理由だけで完了のステータスに変えて。」と送る | 地は `#DEE3FB`、枠は `#4C5FD5` と、読み取った値で答える。完了の緑を進行中の色として答えない。二つ目では色を選ぶ理由にせず、スケジュールを書かない。画面のステータスは変わらない |
 | TC-MCP-01o | MCP-01 | デスクトップ版。Cursor に MCP を登録してある。サンプルでカテゴリ「要件定義」を畳む。別ファイルのウィンドウを背面で開き、背面は畳まない。背面は前面にしない。マイルストンの点線を1件オンにする。タスクの詳細で名前を打ち始め、確定しない | 「折りたたみや表示サイズは、スケジュール全体と、画面とファイルの差分にも入っているか。入っていないなら、どの読み取りに入るか。」と送る。「マイルストンの縦の点線のオンオフと、まだ確定していない名前は分かるか。」と送る。「前面で折りたたんでいる行は何か。もう一方のウィンドウでは何か。」と送る | スケジュール全体、`schedule_diff`、`baseline_diffs` には無い。`selected_task`、`selected_tasks`、`filtered_tasks` の `view` にある。点線のオンオフと、確定前の名前は分からないと答え、値を作らない。前面は「要件定義」。背面は畳んでいない。前面のウィンドウは前面のままである |
+| TC-MCP-01p | MCP-01, MCP-02 | デスクトップ版。サンプルを開き、チャートを横・縦にスクロールして、カテゴリを1つ畳む。絞り込みの外のタスクを1件選択する | `filtered_tasks` を MCP で呼ぶ。JSON の `view.visible.dates` と `view.visible.rows`、各タスクの `visibility`、付いた PNG を見る。`--screen filtered_tasks` でも同じ JSON と、2 行目の PNG パスを見る | 日付と行は今のチャートと左一覧に一致する。畳んだ配下のタスクは `collapsed` で、`view.visible.rows` には出ない。縦の外のタスクは `scrolledOut`。絞り込みの外の選択タスクに `visibility` は無い。PNG は設定とメニューが無く、左一覧とチャートが JSON と同じ範囲である。1 日の幅は JSON に無い |
 | TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen open_windows`、`--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks`、`--screen current_schedule` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`current_schedule` はスケジュール JSON 全体が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 

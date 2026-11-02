@@ -22,6 +22,9 @@ import {
   buildSelectedTasksPayload,
   mcpMembersForReadTools,
   mcpPayloadToToolBody,
+  mcpReadToolsPayloadToToolBody,
+  MCP_SCREEN_CAPTURE_FAILED_MESSAGE,
+  MCP_SCREEN_CAPTURE_TOO_LARGE_MESSAGE,
 } from "./screenContext";
 import {
   categoryCollapseKey,
@@ -30,6 +33,7 @@ import {
   listTasksMatchingFilter,
 } from "./rows";
 import { documentToJsonString } from "./serialize";
+import { parseDate } from "./dates";
 import { BUILTIN_STATUS_ITEMS, type StatusItem } from "./statusCatalog";
 import type { ColorItem } from "./colorCatalog";
 import type { Member } from "./memberTypes";
@@ -1209,6 +1213,80 @@ describe("view in MCP read payloads", () => {
     expect(payload.tasks.map((t) => t.id)).toEqual([taskInCat.id]);
   });
 
+  it("adds view.visible and collapsed visibility when viewport is supplied", () => {
+    const categories = categoryWithTasks([taskInCat]);
+    const payload = buildFilteredTasksPayload({
+      categories,
+      filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: null,
+      collapsed: new Set([categoryCollapseKey(catId)]),
+      viewport: {
+        timelineStart: parseDate("2026-01-01"),
+        totalDays: 30,
+        scrollX: 0,
+        pxPerDay: 10,
+        chartWidth: 50,
+        scrollY: 0,
+        rowHeight: 32,
+        bodyHeight: 64,
+        visibleRows: [
+          {
+            type: "category",
+            id: catId,
+            label: "Cat",
+            y: 0,
+            collapsed: true,
+            summary: null,
+            rollupPercent: null,
+          },
+        ],
+      },
+    });
+    expect(payload.view.visible?.dates).toEqual({
+      start: "2026-01-01",
+      end: "2026-01-05",
+    });
+    expect(payload.view.visible?.rows).toEqual([
+      { kind: "category", id: catId, name: "Cat" },
+    ]);
+    expect(payload.tasks[0]?.visibility).toBe("collapsed");
+    expect(
+      payload.view.visible?.rows.some((row) => row.kind === "task"),
+    ).toBe(false);
+  });
+
+  it("does not add visibility on selected_task when the task has no visible row", () => {
+    const categories = categoryWithTasks([taskInCat]);
+    const payload = buildSelectedTaskPayload({
+      categories,
+      filters: { ...filters, search: "nomatch" },
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: null,
+      selectedTaskId: taskInCat.id,
+      collapsed: new Set(),
+      viewport: {
+        timelineStart: parseDate("2026-01-01"),
+        totalDays: 30,
+        scrollX: 0,
+        pxPerDay: 10,
+        chartWidth: 50,
+        scrollY: 0,
+        rowHeight: 32,
+        bodyHeight: 64,
+        visibleRows: [],
+      },
+    });
+    expect(payload.selectedTask?.id).toBe(taskInCat.id);
+    expect(payload.selectedTask).not.toHaveProperty("visibility");
+  });
+
   it("lists collapsed group id and name", () => {
     const categories = categoryWithTasks([taskInCat]);
     const payload = buildFilteredTasksPayload({
@@ -1445,6 +1523,53 @@ describe("view in MCP read payloads", () => {
         "rowDensity",
       ].sort(),
     );
+  });
+});
+
+describe("mcpReadToolsPayloadToToolBody", () => {
+  const payload = { view: { collapsed: [] }, tasks: [] };
+
+  it("adds screenCapture message when screenshot failed", () => {
+    const body = mcpReadToolsPayloadToToolBody(payload, { ok: false });
+    expect(body).not.toEqual({ tooLarge: true });
+    if ("tooLarge" in body) throw new Error("unexpected tooLarge");
+    expect(body.content).toHaveLength(1);
+    expect(body.content[0].type).toBe("text");
+    const parsed = JSON.parse((body.content[0] as { text: string }).text);
+    expect(parsed.screenCapture).toEqual({
+      message: MCP_SCREEN_CAPTURE_FAILED_MESSAGE,
+    });
+  });
+
+  it("appends PNG after JSON text when screenshot succeeded", () => {
+    const body = mcpReadToolsPayloadToToolBody(payload, {
+      ok: true,
+      base64: "aGVsbG8=",
+      mimeType: "image/png",
+    });
+    if ("tooLarge" in body) throw new Error("unexpected tooLarge");
+    expect(body.content).toHaveLength(2);
+    expect(body.content[0].type).toBe("text");
+    expect(body.content[1]).toEqual({
+      type: "image",
+      data: "aGVsbG8=",
+      mimeType: "image/png",
+    });
+  });
+
+  it("returns text only with too-large message when image makes body exceed limit", () => {
+    const huge = "A".repeat(11 * 1024 * 1024);
+    const body = mcpReadToolsPayloadToToolBody(payload, {
+      ok: true,
+      base64: huge,
+      mimeType: "image/png",
+    });
+    if ("tooLarge" in body) throw new Error("unexpected tooLarge");
+    expect(body.content).toHaveLength(1);
+    const parsed = JSON.parse((body.content[0] as { text: string }).text);
+    expect(parsed.screenCapture).toEqual({
+      message: MCP_SCREEN_CAPTURE_TOO_LARGE_MESSAGE,
+    });
   });
 });
 
