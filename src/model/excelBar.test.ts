@@ -91,6 +91,10 @@ describe("excelBar", () => {
       milestoneId: null,
       confidence: "committed" as const,
     };
+    const notStarted = excelTaskBarFillStyle(
+      { ...base, start: "2026-01-07", end: "2026-01-08", status: "not-started" },
+      "2026-01-07",
+    );
     const inProgress = excelTaskBarFillStyle(
       { ...base, start: "2026-01-07", end: "2026-01-08", status: "in-progress" },
       "2026-01-07",
@@ -103,6 +107,7 @@ describe("excelBar", () => {
       { ...base, start: "2026-01-01", end: "2026-01-05", status: "not-started" },
       "2026-01-07",
     );
+    expect(notStarted.fillRgb).toBe("E2E6ED");
     expect(inProgress.fillRgb).toBe("DEE3FB");
     expect(done.fillRgb).toBe("247A55");
     expect(overdue.fillRgb).toBe("F8D0C8");
