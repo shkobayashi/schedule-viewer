@@ -458,6 +458,15 @@
 | 同上 | `ignores a draft for a different path and opens the remembered file` | SYNC-03 |
 | 同上 | `restores when disk formatting differs but canonical matches` | SYNC-03, FILE-04 |
 | 同上 | `returns invalidDisk when the file fails validation` | SYNC-03 |
+| 同上 | `paints sample when nothing was open` | SYNC-03 |
+| 同上 | `paints the document when opening the saved file` | SYNC-03 |
+| 同上 | `paints the document when restoring unsaved edits` | SYNC-03 |
+| 同上 | `holds the body until the user chooses` | SYNC-03 |
+| 同上 | `paints sample when the file is missing and there is no draft` | SYNC-03 |
+| 同上 | `paints the document when the file is missing and a draft exists` | SYNC-03 |
+| 同上 | `paints sample when the draft is invalid` | SYNC-03 |
+| 同上 | `paints sample when the file fails validation` | SYNC-03 |
+| 同上 | `holds the body for a transient main window` | SYNC-03 |
 | `scheduleFilterPersistence.test.ts` | `accepts a valid file` など | SYNC-03 |
 | `serialize.test.ts` | `omits empty note` | EDIT-06 |
 | 同上 | `writes confidence after progress` | FILE-02 |
@@ -643,6 +652,9 @@
 | `require_active_save_path_accepts_matching_path` | 開いているパスと一致すれば上書きできる | FILE-02 |
 | `require_active_save_path_rejects_mismatch_and_missing` | パスの不一致と、ファイルを開いていない状態は拒否する | FILE-02 |
 | `should_close_default_main_when_main_not_recorded` | 記録に `main` が無いときだけ、起動時に空の `main` を閉じる | SYNC-03, WIN-01 |
+| 同上 | `transient_main_hides_schedule_body` | SYNC-03 |
+| 同上 | `first_launch_main_is_not_transient` | SYNC-03 |
+| 同上 | `recorded_sample_main_is_not_transient` | SYNC-03 |
 | `should_remove_label_after_destroy_when_another_window_remains` | 終了中以外で別ウィンドウが残る破棄では一覧から外す | SYNC-03, WIN-01 |
 | `resolve_mcp_label_prefers_recorded_then_os_then_focus_order` | MCP の送り先は記録の前面、OS の前面、直近の前面順の順で決める | MCP-01, WIN-01 |
 | `reply_from_other_window_keeps_pending` | 送り先と違うウィンドウの応答は pending を外さない | MCP-01, WIN-01 |
@@ -767,7 +779,7 @@
 
 ## 手動テストケース
 
-前提に書いていないときは、デスクトップ版を起動し、サンプルが表示された状態から始める。ブラウザ版で結果が違う場合は、そのケースに書く。
+前提に書いていないときは、デスクトップ版を起動する。起動復旧の待ちを見ないケースでは、復旧が終わってサンプルまたは前回の内容が出た状態から始める。ブラウザ版で結果が違う場合は、そのケースに書く。
 
 | ID | 機能 | 前提 | 手順 | 期待結果 |
 | --- | --- | --- | --- | --- |
@@ -858,9 +870,19 @@
 | TC-SYNC-03l | SYNC-03 | マイルストンで絞ったあと、そのマイルストンをファイルから消して閉じる | 起動する | マイルストンの条件は「すべて」になる。取り消しでは戻らない |
 | TC-SYNC-03m | SYNC-03 | 同じパスを2つのウィンドウで開き、前面だけ条件を変えて閉じる | 起動する | 前面の条件だけが戻る |
 | TC-SYNC-03n | SYNC-03 | ブラウザ版で絞り込みを変えて閉じる | ページを開き直す | 絞り込みは戻らない |
-| TC-SYNC-03e | SYNC-03 | 保存して閉じたあと、そのファイルを消す | アプリを起動する | 見つからないと知らせてサンプルになる。ファイルダイアログは出ない。その状態で閉じると、次はサンプルのままである |
-| TC-SYNC-03f | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前にバーをドラッグする | 復旧が終わるまで日付は変わらない。終わったあとはドラッグできる |
-| TC-SYNC-03g | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前に別のエディタでその JSON を保存する。復旧が終わったあと少し待つ | 変えた内容が画面に出る。起動が終わったあとはバーをドラッグできる |
+| TC-SYNC-03e | SYNC-03 | 保存して閉じたあと、そのファイルを消す | アプリを起動する | 見つからないと知らせてサンプルになる。知らせとサンプルが同時に出る。先にサンプルだけは出ない。ファイルダイアログは出ない。その状態で閉じると、次はサンプルのままである |
+| TC-SYNC-03f | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前にバーをドラッグする | 待ちのあいだ、サンプルのタスクや題名は出ない。復旧が終わるまで日付は変わらない。終わったあとはドラッグできる |
+| TC-SYNC-03g | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前に別のエディタでその JSON を保存する。復旧が終わったあと少し待つ | 待ちのあいだ、サンプルのタスクや題名は出ない。変えた内容が画面に出る。起動が終わったあとはバーをドラッグできる |
+| TC-SYNC-03r | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動する | ファイルが出る前に、サンプルのタスク、題名、日付の目盛り、状態バーの「サンプルデータ」は出ない。そのファイルが一度だけ出る。更新の確認はこの待ちに入らない |
+| TC-SYNC-03s | SYNC-03 | 控えがあるあいだに、別のエディタでファイルを変えた | アプリを起動する | 選ぶまで中身は出ない。「ファイルを開く」で最新内容が一度だけ出る。「未保存の編集を戻す」で控えが一度だけ出る。あいだにサンプルは出ない |
+| TC-SYNC-03t | SYNC-03 | 前回のファイルが無く、未保存も無い | アプリを起動する | 見つからない知らせとサンプルが同時に出る。知らせの前にサンプルだけは出ない |
+| TC-SYNC-03u | SYNC-03 | 未保存のまま閉じたあと、対象ファイルを消す | アプリを起動する | 未保存と、ファイルが無い知らせが同時に出る。サンプルは先に出ない |
+| TC-SYNC-03v | SYNC-03 | 控えが壊れている、またはファイルはあるが検証できない | アプリを起動する | 知らせとサンプルが同時に出る。記録は残り、「控えを破棄」で消せる |
+| TC-SYNC-03w | SYNC-03 | 前回がサンプル、または記録が無い | アプリを起動する | サンプルが一度だけ出る |
+| TC-WIN-01h | WIN-01, SYNC-03 | 記録に `main` が無く、追加したウィンドウだけを残して終了したあと | アプリを起動する | 閉じるだけの `main` にサンプルは出ない |
+| TC-WIN-04h | WIN-04, SYNC-03 | アプリを終了している。検証済みの JSON がある | JSON を Dock またはアプリのショートカットへ落とす | 復元が終わるまでサンプルは出ない。復元のあとそのファイルが開く |
+| TC-SYNC-03x | SYNC-03 | ブラウザ版 | ページを開く | 最初からサンプルである。空の枠では始まらない |
+| TC-FILE-01h | FILE-01, SYNC-03 | 起動が終わったあと | 「開く」で別のファイルを選ぶ | 途中で空の枠にはならない |
 | TC-WIN-01 | WIN-01 | デスクトップ版。検証済みの JSON がある | 「新しいウィンドウで開く」で選ぶ | 元のウィンドウは残り、新しいウィンドウにその内容が開く。Windows では新しい窓が白いまま止まらず、元の窓も操作できる |
 | TC-WIN-01b | WIN-01 | 同上 | ⌘/Ctrl+Shift+O で選ぶ | 同上。ブラウザ版ではブラウザのショートカットになる |
 | TC-WIN-01c | WIN-01 | 未保存の編集がある | 「新しいウィンドウで開く」 | 破棄の確認は出ず、新しいウィンドウだけ開く |
