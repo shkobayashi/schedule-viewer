@@ -2,7 +2,11 @@ import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { Member, MemberId } from "../model/memberTypes";
+import type { CalendarDocument } from "../model/calendarTypes";
+import type { ColorSchemePreference } from "../model/colorScheme";
+import type { ResolvedColorScheme } from "../model/palette";
+import type { DisplayScalePreference } from "../model/uiScale";
+import type { RowDensity, SidebarColumnsPreference } from "../model/viewPreferences";
 import type { ColorItem } from "../model/colorCatalog";
 import type { StatusItem } from "../model/statusCatalog";
 import { loadBaselineDiffsText } from "../model/baselineDiffsLoad";
@@ -32,6 +36,7 @@ import {
   mcpToolErrorBody,
 } from "../model/screenContext";
 import { isTauri } from "../model/scheduleFile";
+import type { Member, MemberId } from "../model/memberTypes";
 import type {
   Category,
   Milestone,
@@ -70,6 +75,15 @@ type UseMcpScreenBridgeInput = {
   colors: readonly ColorItem[] | null;
   levels?: ScheduleLevelDef[] | null;
   fields?: readonly ScheduleFieldDef[] | undefined;
+  collapsed: ReadonlySet<string>;
+  displayScalePreference: DisplayScalePreference;
+  effectiveUiScale: number;
+  rowDensity: RowDensity;
+  showLightningLine: boolean;
+  sidebarColumns: SidebarColumnsPreference;
+  colorSchemePreference: ColorSchemePreference;
+  resolvedColorScheme: ResolvedColorScheme;
+  calendar: CalendarDocument | null;
   scheduleFilePath: string | null;
   scheduleCurrentJson: string;
   scheduleBaselineJson: string;
@@ -88,6 +102,22 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
 
   useEffect(() => {
     if (!isTauri()) return;
+
+    function mcpViewFields(snap: UseMcpScreenBridgeInput) {
+      return {
+        collapsed: snap.collapsed,
+        displayScalePreference: snap.displayScalePreference,
+        effectiveUiScale: snap.effectiveUiScale,
+        rowDensity: snap.rowDensity,
+        showLightningLine: snap.showLightningLine,
+        sidebarColumns: snap.sidebarColumns,
+        colorSchemePreference: snap.colorSchemePreference,
+        resolvedColorScheme: snap.resolvedColorScheme,
+        calendar: snap.calendar,
+        categories: snap.categories,
+        outline: snap.outline,
+      };
+    }
 
     async function reply(
       id: string,
@@ -225,6 +255,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         }
         case MCP_TOOL_SELECTED_TASK: {
           toolPayload = buildSelectedTaskPayload({
+            ...mcpViewFields(snap),
             categories: snap.categories,
             outline: snap.outline,
             title: snap.title,
@@ -245,6 +276,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         }
         case MCP_TOOL_SELECTED_TASKS: {
           toolPayload = buildSelectedTasksPayload({
+            ...mcpViewFields(snap),
             categories: snap.categories,
             outline: snap.outline,
             title: snap.title,
@@ -274,6 +306,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         }
         case MCP_TOOL_FILTERED_TASKS: {
           toolPayload = buildFilteredTasksPayload({
+            ...mcpViewFields(snap),
             categories: snap.categories,
             outline: snap.outline,
             title: snap.title,

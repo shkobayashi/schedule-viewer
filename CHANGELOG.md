@@ -6,6 +6,8 @@
 
 ### 追加
 
+- MCP と read-screen の読み取り 3 ツール（`selected_task`、`selected_tasks`、`filtered_tasks`）に、折りたたみとチャートの見方に効く設定を `view` として載せ、ステータス一覧にバーの色を載せた（#421）
+
 - スケジュール JSON の任意配列 `connections` で、終わってから始まる前後とは別の2タスク間の繋がりを持てる。チャートでは緩い円弧と短い言葉で描く。Excel では見えている組だけ、棒の上端の中央同士を曲線コネクタで結び、言葉は 8pt の文字図形で二つの上端の中央の中点に出す（#416）。確認用は `examples/connections/`（#413）
 - MCP の `current_schedule` と `replace_schedule`、および `write-schedule` / `read-screen` スキルに、繋がりの読み書き規則を同じ文言で載せた。LLM は JSON 全体の置き換えで繋がりを足す、言葉を変える、外す（#415）
 

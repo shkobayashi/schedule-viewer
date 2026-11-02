@@ -10,11 +10,23 @@ import {
 } from "./statusCatalog";
 import type { Member, MemberId } from "./memberTypes";
 import type { WorkspaceMemberState } from "./workspaceTypes";
+import type { CalendarDocument, Weekday } from "./calendarTypes";
+import type { ColorSchemePreference } from "./colorScheme";
+import type { ResolvedColorScheme } from "./palette";
 import {
   collectTasksFromDocument,
   findTaskInDocument,
+  isOutlineBranch,
   taskHierarchyLabels,
 } from "./hierarchy";
+import {
+  categoryCollapseKey,
+  groupCollapseKey,
+  hierarchyCollapseKey,
+} from "./rows";
+import type { DisplayScalePreference } from "./uiScale";
+import type { RowDensity, SidebarColumnsPreference } from "./viewPreferences";
+import { DEFAULT_SIDEBAR_COLUMNS } from "./viewPreferences";
 import { fieldFilterChipLabel, isFieldFilterActive } from "./fieldFilters";
 import { mcpLevelsFromDocument, type McpLevelEntry } from "./hierarchyLevelEdit";
 import {
@@ -96,6 +108,62 @@ export type McpStatusEntry = {
   role: StatusItem["role"];
   description: string;
   instruction?: string;
+  color: {
+    light: { bg: string; border: string };
+    dark: { bg: string; border: string };
+  };
+};
+
+export type McpCollapsedEntry = {
+  kind: "category" | "group" | "heading";
+  id: ScheduleId;
+  name: string;
+};
+
+export type McpViewCalendarLoaded = {
+  source: "loaded";
+  weekends: Weekday[];
+  nonWorkingDays: Array<{ date: string; name?: string }>;
+  workingDays: Array<{ date: string; name?: string }>;
+};
+
+export type McpViewCalendarDefault = {
+  source: "default";
+  weekends: ["sat", "sun"];
+  nonWorkingDays: [];
+  workingDays: [];
+};
+
+export type McpViewCalendar = McpViewCalendarLoaded | McpViewCalendarDefault;
+
+export type McpViewForReadTools = {
+  collapsed: McpCollapsedEntry[];
+  displayScale: {
+    preference: DisplayScalePreference;
+    effective: number;
+  };
+  rowDensity: RowDensity;
+  lightning: boolean;
+  columns: SidebarColumnsPreference;
+  colorScheme: {
+    preference: ColorSchemePreference;
+    effective: ResolvedColorScheme;
+  };
+  calendar: McpViewCalendar;
+};
+
+export type McpViewForReadToolsInput = {
+  collapsed: ReadonlySet<string>;
+  displayScalePreference: DisplayScalePreference;
+  effectiveUiScale: number;
+  rowDensity: RowDensity;
+  showLightningLine: boolean;
+  sidebarColumns: SidebarColumnsPreference;
+  colorSchemePreference: ColorSchemePreference;
+  resolvedColorScheme: ResolvedColorScheme;
+  calendar: CalendarDocument | null;
+  categories: Category[];
+  outline?: OutlineRoot | undefined;
 };
 
 /** タスクの `colorId` が指す色。LLM が id を選ぶ手がかり。 */
@@ -156,10 +224,136 @@ export function statusEntriesForMcp(
 ): McpStatusEntry[] {
   return statuses.map((item) => {
     const { id, name, role, description, instruction } = normalizeStatusItem(item);
-    const entry: McpStatusEntry = { id, name, role, description };
+    const entry: McpStatusEntry = {
+      id,
+      name,
+      role,
+      description,
+      color: {
+        light: {
+          bg: item.color.light.bg,
+          border: item.color.light.border,
+        },
+        dark: {
+          bg: item.color.dark.bg,
+          border: item.color.dark.border,
+        },
+      },
+    };
     if (instruction) entry.instruction = instruction;
     return entry;
   });
+}
+
+function calendarDatedEntriesForMcp(
+  entries: CalendarDocument["nonWorkingDays"],
+): Array<{ date: string; name?: string }> {
+  return entries.map((entry) => {
+    const name = entry.name?.trim();
+    if (name) return { date: entry.date, name };
+    return { date: entry.date };
+  });
+}
+
+function collectCollapsedInDocumentOrder(
+  collapsed: ReadonlySet<string>,
+  categories: Category[],
+  outline: OutlineRoot | undefined,
+): McpCollapsedEntry[] {
+  const out: McpCollapsedEntry[] = [];
+  const categoryIds = new Set<string>();
+  const groupIds = new Set<string>();
+  for (const cat of categories) {
+    categoryIds.add(cat.id);
+    for (const group of cat.groups) {
+      groupIds.add(group.id);
+    }
+  }
+  for (const cat of categories) {
+    if (collapsed.has(categoryCollapseKey(cat.id)) && categoryIds.has(cat.id)) {
+      out.push({ kind: "category", id: cat.id, name: cat.name });
+    }
+    for (const group of cat.groups) {
+      if (
+        collapsed.has(groupCollapseKey(group.id)) &&
+        groupIds.has(group.id)
+      ) {
+        out.push({ kind: "group", id: group.id, name: group.name });
+      }
+    }
+  }
+  const walkOutline = (nodes: OutlineRoot) => {
+    for (const node of nodes) {
+      if (!isOutlineBranch(node)) continue;
+      if (collapsed.has(hierarchyCollapseKey(node.id))) {
+        out.push({ kind: "heading", id: node.id, name: node.name });
+      }
+      walkOutline(node.children);
+    }
+  };
+  if (outline != null && outline.length > 0) {
+    walkOutline(outline);
+  }
+  return out;
+}
+
+export function defaultMcpViewForReadToolsInput(
+  categories: Category[],
+  outline?: OutlineRoot | undefined,
+): McpViewForReadToolsInput {
+  return {
+    collapsed: new Set(),
+    displayScalePreference: 1,
+    effectiveUiScale: 1,
+    rowDensity: "comfortable",
+    showLightningLine: true,
+    sidebarColumns: { ...DEFAULT_SIDEBAR_COLUMNS },
+    colorSchemePreference: "light",
+    resolvedColorScheme: "light",
+    calendar: null,
+    categories,
+    outline,
+  };
+}
+
+export function buildMcpViewForReadTools(
+  input: McpViewForReadToolsInput,
+): McpViewForReadTools {
+  const calendar: McpViewCalendar =
+    input.calendar != null
+      ? {
+          source: "loaded",
+          weekends: [...input.calendar.weekends],
+          nonWorkingDays: calendarDatedEntriesForMcp(
+            input.calendar.nonWorkingDays,
+          ),
+          workingDays: calendarDatedEntriesForMcp(input.calendar.workingDays),
+        }
+      : {
+          source: "default",
+          weekends: ["sat", "sun"],
+          nonWorkingDays: [],
+          workingDays: [],
+        };
+  return {
+    collapsed: collectCollapsedInDocumentOrder(
+      input.collapsed,
+      input.categories,
+      input.outline,
+    ),
+    displayScale: {
+      preference: input.displayScalePreference,
+      effective: input.effectiveUiScale,
+    },
+    rowDensity: input.rowDensity,
+    lightning: input.showLightningLine,
+    columns: { ...input.sidebarColumns },
+    colorScheme: {
+      preference: input.colorSchemePreference,
+      effective: input.resolvedColorScheme,
+    },
+    calendar,
+  };
 }
 
 export function colorEntriesForMcp(
@@ -218,6 +412,7 @@ export type FilteredTasksMcpPayload = {
   colors: McpColorEntry[];
   members: McpMemberEntry[];
   fields: McpFieldEntry[];
+  view: McpViewForReadTools;
   activeConditions: McpActiveFilterCondition[];
   tasks: ScreenContextTask[];
 };
@@ -228,6 +423,7 @@ export type SelectedTaskMcpPayload = {
   colors: McpColorEntry[];
   members: McpMemberEntry[];
   fields: McpFieldEntry[];
+  view: McpViewForReadTools;
   selectedTaskId: ScheduleId | null;
   selectedTask: ScreenContextTask | null;
 };
@@ -238,6 +434,7 @@ export type SelectedTasksMcpPayload = {
   colors: McpColorEntry[];
   members: McpMemberEntry[];
   fields: McpFieldEntry[];
+  view: McpViewForReadTools;
   selectedTasks: ScreenContextTask[];
 };
 
@@ -480,7 +677,8 @@ function resolveSelectedTask(
 }
 
 export function buildFilteredTasksPayload(
-  input: McpScheduleTasksContext & {
+  input: McpScheduleTasksContext &
+    Partial<McpViewForReadToolsInput> & {
     filters: ScheduleFilters;
     lineageTaskId: ScheduleId | null;
     hiddenMilestoneGroupIds: ScheduleId[];
@@ -498,6 +696,10 @@ export function buildFilteredTasksPayload(
   const memberEntries = memberEntriesForMcp(input.mcpMembers);
   const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
+  const view = buildMcpViewForReadTools({
+    ...defaultMcpViewForReadToolsInput(input.categories, input.outline),
+    ...input,
+  });
   const doc = scheduleDocumentForMcpTasks(input);
   const matched = listTasksMatchingFilterInDocument(
     doc,
@@ -514,6 +716,7 @@ export function buildFilteredTasksPayload(
     colors: colorEntries,
     members: memberEntries,
     fields: fieldEntries,
+    view,
     activeConditions: buildActiveFilterConditions({
       filters: input.filters,
       hiddenMilestoneGroupIds: input.hiddenMilestoneGroupIds,
@@ -531,7 +734,8 @@ export function buildFilteredTasksPayload(
 }
 
 export function buildSelectedTaskPayload(
-  input: McpScheduleTasksContext & {
+  input: McpScheduleTasksContext &
+    Partial<McpViewForReadToolsInput> & {
     filters: ScheduleFilters;
     today: string;
     memberCatalog: Map<MemberId, Member> | null;
@@ -548,6 +752,10 @@ export function buildSelectedTaskPayload(
   const memberEntries = memberEntriesForMcp(input.mcpMembers);
   const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
+  const view = buildMcpViewForReadTools({
+    ...defaultMcpViewForReadToolsInput(input.categories, input.outline),
+    ...input,
+  });
   const doc = scheduleDocumentForMcpTasks(input);
   const matched = listTasksMatchingFilterInDocument(
     doc,
@@ -569,13 +777,15 @@ export function buildSelectedTaskPayload(
     colors: colorEntries,
     members: memberEntries,
     fields: fieldEntries,
+    view,
     selectedTaskId: input.selectedTaskId,
     selectedTask,
   };
 }
 
 export function buildSelectedTasksPayload(
-  input: McpScheduleTasksContext & {
+  input: McpScheduleTasksContext &
+    Partial<McpViewForReadToolsInput> & {
     selectedTaskIds: readonly ScheduleId[];
     statuses?: readonly StatusItem[];
     colors?: readonly ColorItem[] | null;
@@ -590,6 +800,10 @@ export function buildSelectedTasksPayload(
   const memberEntries = memberEntriesForMcp(input.mcpMembers);
   const fieldEntries = fieldEntriesForMcp(input.fields ?? []);
   const levelEntries = levelsForMcpPayload(input.levels);
+  const view = buildMcpViewForReadTools({
+    ...defaultMcpViewForReadToolsInput(input.categories, input.outline),
+    ...input,
+  });
   const selected = new Set(input.selectedTaskIds);
   if (selected.size === 0) {
     return {
@@ -598,6 +812,7 @@ export function buildSelectedTasksPayload(
       colors: colorEntries,
       members: memberEntries,
       fields: fieldEntries,
+      view,
       selectedTasks: [],
     };
   }
@@ -620,6 +835,7 @@ export function buildSelectedTasksPayload(
     colors: colorEntries,
     members: memberEntries,
     fields: fieldEntries,
+    view,
     selectedTasks,
   };
 }
@@ -698,7 +914,9 @@ export function buildScreenContextPayload(input: {
   scheduleDiffText: string;
   scheduleDiffIsError: boolean;
 }): ScreenContextPayload {
+  const viewDefaults = defaultMcpViewForReadToolsInput(input.categories);
   const filtered = buildFilteredTasksPayload({
+    ...viewDefaults,
     categories: input.categories,
     title: "",
     filters: input.filters,
@@ -711,6 +929,7 @@ export function buildScreenContextPayload(input: {
     lineageIds: input.lineageIds,
   });
   const selected = buildSelectedTaskPayload({
+    ...viewDefaults,
     categories: input.categories,
     title: "",
     milestoneGroups: [],
