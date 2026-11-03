@@ -183,6 +183,47 @@ describe("taskMatchesFilter confidence", () => {
   });
 });
 
+describe("taskMatchesFilter explainTaskIds", () => {
+  const explainIds = new Set([baseTask.id]);
+  const catalog = new Map([
+    ["member-1", { id: "member-1", name: "佐藤" }],
+  ]);
+
+  it("keeps only listed ids and ignores user filters and lineage", () => {
+    const other: Task = {
+      ...baseTask,
+      id: "00000000-0000-4000-8000-000000000002",
+    };
+    const lineage = new Set([other.id]);
+    expect(
+      taskMatchesFilter(
+        baseTask,
+        { ...filters, assignee: "member-1" },
+        "2026-01-01",
+        catalog,
+        undefined,
+        lineage,
+        undefined,
+        undefined,
+        explainIds,
+      ),
+    ).toBe(true);
+    expect(
+      taskMatchesFilter(
+        other,
+        { ...filters, assignee: "all" },
+        "2026-01-01",
+        null,
+        undefined,
+        null,
+        undefined,
+        undefined,
+        explainIds,
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("taskMatchesFilter assignee", () => {
   const catalog = new Map([
     ["member-1", { id: "member-1", name: "佐藤" }],

@@ -26,6 +26,12 @@ import {
 } from "./rows";
 import type { McpTaskVisibility, McpViewVisible, McpViewportForReadTools } from "./mcpVisible";
 import {
+  displayedCollapsedSet,
+  explanationViewActive,
+  orderedExplainTaskIdsForRead,
+  type ExplanationViewState,
+} from "./explainView";
+import {
   buildMcpViewVisible,
   mcpTaskVisibility,
   mcpTaskVisibilityContext,
@@ -84,6 +90,7 @@ export {
   MCP_TOOL_SELECTED_TASKS,
   MCP_TOOL_SET_PREFERENCES,
   MCP_TOOL_SET_VIEW,
+  MCP_TOOL_EXPLAIN_VIEW,
 } from "./mcpToolNames";
 
 export type ScreenContextTask = {
@@ -156,9 +163,15 @@ export type McpViewCalendarDefault = {
 
 export type McpViewCalendar = McpViewCalendarLoaded | McpViewCalendarDefault;
 
+export type McpViewExplanation = {
+  taskIds?: ScheduleId[];
+  baseCollapsed: McpCollapsedEntry[];
+};
+
 export type McpViewForReadTools = {
   collapsed: McpCollapsedEntry[];
   visible?: McpViewVisible;
+  explanation?: McpViewExplanation;
   displayScale: {
     preference: DisplayScalePreference;
     effective: number;
@@ -175,6 +188,8 @@ export type McpViewForReadTools = {
 
 export type McpViewForReadToolsInput = {
   collapsed: ReadonlySet<string>;
+  userCollapsed?: ReadonlySet<string>;
+  explanationView?: ExplanationViewState | null;
   displayScalePreference: DisplayScalePreference;
   effectiveUiScale: number;
   rowDensity: RowDensity;
@@ -357,12 +372,36 @@ export function buildMcpViewForReadTools(
           nonWorkingDays: [],
           workingDays: [],
         };
+  const userCollapsed = input.userCollapsed ?? input.collapsed;
+  const displayCollapsed =
+    input.explanationView != null
+      ? displayedCollapsedSet(userCollapsed, input.explanationView)
+      : input.collapsed;
+  const explanationPayload = (() => {
+    if (!explanationViewActive(input.explanationView ?? null)) return undefined;
+    const ev = input.explanationView!;
+    const payload: McpViewExplanation = {
+      baseCollapsed: collectCollapsedInDocumentOrder(
+        userCollapsed,
+        input.categories,
+        input.outline,
+      ),
+    };
+    if (ev.taskIds != null) {
+      payload.taskIds = orderedExplainTaskIdsForRead(
+        { categories: input.categories, outline: input.outline },
+        ev.taskIds,
+      );
+    }
+    return payload;
+  })();
   return {
     collapsed: collectCollapsedInDocumentOrder(
-      input.collapsed,
+      displayCollapsed,
       input.categories,
       input.outline,
     ),
+    ...(explanationPayload ? { explanation: explanationPayload } : {}),
     ...(input.viewport != null
       ? { visible: buildMcpViewVisible(input.viewport) }
       : {}),

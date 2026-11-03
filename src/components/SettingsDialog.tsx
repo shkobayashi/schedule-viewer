@@ -1341,7 +1341,7 @@ export function SettingsDialog({
                 <h3 className="settings-changelog-heading">mcp.json に登録する</h3>
                 <p className="settings-note">
                   MCP を使える Cursor または Claude 向けです。下の JSON をコピーして、mcp.json
-                  に貼ります。渡すのは開いているウィンドウ一覧（open_windows）、差分（schedule_diff）、起点・画面・ファイルの分類（baseline_diffs）、選択中のタスク（selected_task）、編集の選択（selected_tasks）、オンな絞り込みと残るタスク（filtered_tasks）、画面のスケジュール JSON 全体（current_schedule）、前面の未保存の置き換え（replace_schedule）、見方（set_view）、計画の部分更新（edit_plan）、ファイル操作（file_action）、一覧（catalog_action）、設定（set_preferences）、取り消し（history）、ウィンドウ操作（focus_window、open_new_window、close_window、minimize_window）です。読み取りは引数を省略すると前面のウィンドウです。別のウィンドウを読むときは一覧の label を window に渡します。置き換えと前面向けの操作は前面だけです。操作の途中は discardInProgress が無いと拒みます。下のスキルを置いても、この登録は終わりません。スケジュールのウィンドウが開いていないときは渡せません。
+                  に貼ります。渡すのは開いているウィンドウ一覧（open_windows）、差分（schedule_diff）、起点・画面・ファイルの分類（baseline_diffs）、選択中のタスク（selected_task）、編集の選択（selected_tasks）、オンな絞り込みと残るタスク（filtered_tasks）、画面のスケジュール JSON 全体（current_schedule）、前面の未保存の置き換え（replace_schedule）、見方（set_view）、説明のための見え方（explain_view）、計画の部分更新（edit_plan）、ファイル操作（file_action）、一覧（catalog_action）、設定（set_preferences）、取り消し（history）、ウィンドウ操作（focus_window、open_new_window、close_window、minimize_window）です。読み取りは引数を省略すると前面のウィンドウです。別のウィンドウを読むときは一覧の label を window に渡します。置き換えと前面向けの操作は前面だけです。操作の途中は discardInProgress が無いと拒みます。下のスキルを置いても、この登録は終わりません。スケジュールのウィンドウが開いていないときは渡せません。
                 </p>
                 <label className="settings-field">
                   <span>mcp.json</span>

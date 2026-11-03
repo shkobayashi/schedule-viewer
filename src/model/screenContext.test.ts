@@ -1524,6 +1524,37 @@ describe("view in MCP read payloads", () => {
       ].sort(),
     );
   });
+
+  it("includes view.explanation when explanation view is active", () => {
+    const t = taskFixture("00000000-0000-4000-8000-000000000010", "Explain");
+    const categories = categoryWithTasks([t]);
+    const userCollapsed = new Set([categoryCollapseKey(categories[0]!.id)]);
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput(categories),
+      userCollapsed,
+      collapsed: userCollapsed,
+      explanationView: {
+        taskIds: new Set([t.id]),
+        collapseOverride: new Set<string>(),
+      },
+    });
+    expect(view.explanation).toEqual({
+      taskIds: [t.id],
+      baseCollapsed: [
+        {
+          kind: "category",
+          id: categories[0]!.id,
+          name: categories[0]!.name,
+        },
+      ],
+    });
+    expect(view.collapsed).toEqual([]);
+  });
+
+  it("omits view.explanation when explanation is inactive", () => {
+    const view = buildMcpViewForReadTools(defaultMcpViewForReadToolsInput([]));
+    expect(view.explanation).toBeUndefined();
+  });
 });
 
 describe("mcpReadToolsPayloadToToolBody", () => {

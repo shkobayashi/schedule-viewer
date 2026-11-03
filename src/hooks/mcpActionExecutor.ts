@@ -8,6 +8,7 @@ import {
   MCP_TOOL_CATALOG_ACTION,
   MCP_TOOL_CLOSE_WINDOW,
   MCP_TOOL_EDIT_PLAN,
+  MCP_TOOL_EXPLAIN_VIEW,
   MCP_TOOL_FILE_ACTION,
   MCP_TOOL_FOCUS_WINDOW,
   MCP_TOOL_HISTORY,
@@ -27,6 +28,9 @@ export type McpActionExecutorContext = {
   visibleRows: readonly VisibleRow[];
   getDocument: () => ScheduleDocument;
   applySetView: (patch: McpSetViewPatch) => McpActionResult | Promise<McpActionResult>;
+  applyExplainView: (
+    envelope: Record<string, unknown>,
+  ) => McpActionResult | Promise<McpActionResult>;
   applyEditPlan: (
     document: ScheduleDocument,
     movedTo?: string,
@@ -70,6 +74,8 @@ export async function executeMcpActionTool(
       if (!parsed.ok) return parsed;
       return ctx.applySetView(parsed.patch);
     }
+    case MCP_TOOL_EXPLAIN_VIEW:
+      return ctx.applyExplainView(envelope);
     case MCP_TOOL_EDIT_PLAN: {
       const parsed = parseMcpEditPlanOps(envelope);
       if (!parsed.ok) return parsed;

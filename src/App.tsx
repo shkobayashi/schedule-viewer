@@ -202,7 +202,6 @@ import {
   findTaskInDocument,
   listTaskRefsFromDocument,
   HIERARCHY_MISMATCH_MESSAGE,
-  scheduleStoresTasksInOutline,
 } from "./model/hierarchy";
 import { useSharedSettingsRevision } from "./hooks/useSharedSettingsRevision";
 import { useTimelineView } from "./hooks/useTimelineView";
@@ -1091,7 +1090,8 @@ function App() {
   const showChartTopBanners =
     catalogMismatchText != null ||
     linkSourceId != null ||
-    hierarchyTopBanner != null;
+    hierarchyTopBanner != null ||
+    schedule.explanationActive;
 
   useLayoutEffect(() => {
     const node = chartTopBannersRef.current;
@@ -1113,6 +1113,7 @@ function App() {
     schedule.hierarchyLevelBanner,
     linkSourceId,
     linkError,
+    schedule.explanationActive,
   ]);
 
   const range = useMemo(
@@ -2905,6 +2906,8 @@ function App() {
     },
     getCollapsed: () => schedule.getCollapsedForMcp(),
     getFilterViewState: () => schedule.getFilterViewState(),
+    clearExplanationOnSetView: schedule.clearExplanationView,
+    runExplainViewAction: schedule.runExplainViewAction,
     applyPartialFilterViewState: schedule.applyPartialFilterViewState,
     applySetViewPreferences: (patch: McpSetViewPatch) => {
       if (patch.displayScale !== undefined) {
@@ -3024,7 +3027,9 @@ function App() {
     mcpMembers,
     levels: schedule.levels,
     fields: editableFieldDefs,
-    collapsed: schedule.getCollapsedForMcp(),
+    collapsed: schedule.getDisplayedCollapsedForMcp(),
+    userCollapsed: schedule.getCollapsedForMcp(),
+    explanationView: schedule.explanationView,
     displayScalePreference,
     effectiveUiScale: uiScale,
     rowDensity,
@@ -4562,6 +4567,21 @@ function App() {
                   {linkError ? (
                     <div className="hint-error">{linkError}</div>
                   ) : null}
+                </div>
+              ) : null}
+              {schedule.explanationActive ? (
+                <div className="explanation-banner" role="status">
+                  <div className="explanation-banner-text">説明を表示しています</div>
+                  <button
+                    type="button"
+                    className="explanation-banner-dismiss"
+                    onClick={() => {
+                      schedule.clearExplanationView();
+                      timelineAreaRef.current?.focus();
+                    }}
+                  >
+                    説明を消す
+                  </button>
                 </div>
               ) : null}
             </div>

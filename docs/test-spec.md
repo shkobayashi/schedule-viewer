@@ -440,6 +440,7 @@
 | 同上 | `returns text only with too-large message when image makes body exceed limit` | MCP-01 |
 | `screen_cli.rs` | `extract_tool_output_writes_image_to_temp_path` | MCP-02 |
 | 同上 | `screen_tool_rejects_window_on_set_view` | MCP-02 |
+| 同上 | `screen_tool_rejects_window_on_explain_view` | MCP-02 |
 | `mcpEditPlan.test.ts` | `rejects self as predecessor` | MCP-01 |
 | 同上 | `moveTask uses outline when levels argument is undefined` | MCP-01 |
 | 同上 | `rejects outline moveTask when insert index is out of range` | MCP-01 |
@@ -454,6 +455,8 @@
 | 同上 | `does not apply twice on the same window` | WIN-01 |
 | `mcpSetView.test.ts` | `leaves collapse unchanged when patch has no collapsed fields` | MCP-01 |
 | 同上 | `keeps vertical scroll unchanged` | MCP-01 |
+| `explainView.test.ts` | `parseExplainView_acceptsTaskIdsAndCollapse`、`parseExplainView_rejectsEmptyTaskIds`、`parseExplainView_rejectsUnknownTaskId`、`parseExplainView_rejectsUnknownCollapseId`、`parseExplainView_rejectsTagsAndColorId`、`parseExplainView_rejectsClearWithOtherFields`、`parseExplainView_rejectsEmptyRequest`、`parseExplainView_clearWhenInactive`、`applyExplainView_clearsSelectionWhenTaskIdsChange`、`applyExplainView_keepsSelectionForCollapseOnly`、`composeDisplayedCollapse_usesOverrideOrUserSet`、`composeDisplayedRows_replaceKeepsTaskOutsideUserFilter`、`explanationRead_includesTaskIdsAndBaseCollapsed` | VIEW-16, MCP-01 |
+| `screenContext.test.ts` | `includes view.explanation when explanation view is active`、`omits view.explanation when explanation is inactive` | VIEW-16, MCP-01 |
 | `mcpOperationGate.test.ts` | `rejects file busy even with discardInProgress` | MCP-01 |
 | `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |
 | 同上 | `keeps spaces and quotes inside the JSON command string` | MCP-01 |
@@ -1338,6 +1341,7 @@
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、ステータス、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
 | TC-VIEW-13 | VIEW-13 | 一覧に無い `status`、メンバーに無い `assigneeId`、または定義に無い `fieldValues` キーがあるファイル。ステータス列はオフ | 帯の文を見る。定義に無い追加項目は詳細で編集できないことを見る。左のタスク名とバーが同じ行に揃うこと、見出しの下端が揃うことを見る。絞り込みで該当行を隠しても帯が残ることを確かめる。右下の一時的な知らせを出しても帯が残ることを確かめる。設定でステータス列をオンにし、一覧に無い `id` の札と、メンバー不明の札を縦に見る。線を引くモード中は帯がその上にあり、両方の帯でも揃うことを見る。縦スクロールと表示サイズを変えても揃うことを見る。ライトとダークで、札の文字と帯の文字・左線のコントラストを見る | 帯は三つの文のいずれかだけ。`id` も件数も出ない。列は見えているタスク行だけ。未割当だけのときは帯は出ない。不一致が無くなると帯は消え、左の空きも消える。トーストが出ても帯は消えない。札の文字は 4.5:1 以上、帯の左線は 3:1 以上である |
 | TC-VIEW-14 | VIEW-14 | デスクトップ版。`examples/colors/workspace.json` を開く | ライトとダークを切り替える。注力のタスクの詳細で「色」を開き、注力と待ちの名前の左に黄と青の小さな四角があること、候補の行全体は塗られないことを見る。色を「待ち」に変え、地が青になること。同じタスクを複製し、色を「なし」にして追加すると地が付かないこと。注力と待ちの2件を選び、一括で同じ色に適用して両方の地が変わること。注力の地が黄から暗い茶へ変わること、バーの色は変わらないこと、見出しとマイルストンと色なしの行は今の地のままであること、帯が「一覧に無い色があります。」であること、土日の列は灰色のままであることを見る。ダークのまま Excel に書き出し、注力の行の地が暗い茶ではなくライトの黄系であること、バーがステータス色のままであることを見る。ブラウザ版の起動サンプルでは「色」欄が出ないこと | 一覧に無い `colorId` の行は塗らない。一覧にあるだけの `risk` は塗らない |
+| TC-VIEW-16 | VIEW-16, MCP-01 | デスクトップ版。Cursor に MCP を登録してある。サンプルを開き、絞り込みを1つオンにする | `explain_view` でタスク id を2件指定する。`filtered_tasks` を読む。チャート上端の帯と「説明を消す」を見る。絞り込みを1つ変える。`clear: true` を呼ぶ。アプリを終了して同じファイルを開き直す | 行は2件だけ残る。`activeConditions` と `tasks` は人の絞り込みのまま。`view.explanation` に `taskIds` と `baseCollapsed` がある。帯が出る。絞り込みを変えると説明だけ消え、人の絞り込みは残る。clear で帯が消える。再起動後も説明は掛かっていない |
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |

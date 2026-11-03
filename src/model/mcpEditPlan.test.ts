@@ -15,7 +15,7 @@ import {
 import { computeVisibleRows } from "./rows";
 import type { Category, ScheduleDocument, ScheduleFilters, Task, VisibleRow } from "./types";
 import { cloneOutlineRoot, findTaskInDocument } from "./hierarchy";
-import { parseScheduleText, serializeScheduleDocument } from "./scheduleFile";
+import { parseScheduleText } from "./scheduleFile";
 import { documentToJsonString } from "./serialize";
 import {
   createDocumentHistory,
@@ -836,7 +836,7 @@ describe("applyMcpEditPlanOps", () => {
     history = undone.history;
     current = undone.snapshot;
 
-    let redone = redoDocumentHistory(history, current);
+    const redone = redoDocumentHistory(history, current);
     expect(redone).not.toBeNull();
     if (!redone) return;
     history = redone.history;
@@ -974,7 +974,7 @@ describe("applyMcpEditPlanOps", () => {
     history = undone.history;
     current = undone.snapshot;
 
-    let redone = redoDocumentHistory(history, current);
+    const redone = redoDocumentHistory(history, current);
     expect(redone).not.toBeNull();
     if (!redone) return;
     history = redone.history;
