@@ -34,6 +34,7 @@ import {
   MCP_TOOL_OPEN_NEW_WINDOW,
   MCP_TOOL_SET_PREFERENCES,
   MCP_TOOL_SET_VIEW,
+  MCP_TOOL_EXPLAIN_VIEW,
 } from "../model/mcpToolNames";
 import {
   executeMcpActionTool,
@@ -73,6 +74,7 @@ import type {
   ScheduleFieldDef,
   ScheduleLevelDef,
 } from "../model/types";
+import type { ExplanationViewState } from "../model/explainView";
 
 type McpScreenRequest = {
   id: string;
@@ -102,6 +104,8 @@ type UseMcpScreenBridgeInput = {
   levels?: ScheduleLevelDef[] | null;
   fields?: readonly ScheduleFieldDef[] | undefined;
   collapsed: ReadonlySet<string>;
+  userCollapsed: ReadonlySet<string>;
+  explanationView: ExplanationViewState | null;
   displayScalePreference: DisplayScalePreference;
   effectiveUiScale: number;
   rowDensity: RowDensity;
@@ -147,6 +151,8 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
     function mcpViewFields(snap: UseMcpScreenBridgeInput) {
       return {
         collapsed: snap.collapsed,
+        userCollapsed: snap.userCollapsed,
+        explanationView: snap.explanationView,
         displayScalePreference: snap.displayScalePreference,
         effectiveUiScale: snap.effectiveUiScale,
         rowDensity: snap.rowDensity,
@@ -220,6 +226,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
 
     const MCP_ACTION_TOOLS = new Set([
       MCP_TOOL_SET_VIEW,
+      MCP_TOOL_EXPLAIN_VIEW,
       MCP_TOOL_EDIT_PLAN,
       MCP_TOOL_FILE_ACTION,
       MCP_TOOL_CATALOG_ACTION,

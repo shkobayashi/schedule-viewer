@@ -234,7 +234,11 @@ export function taskMatchesFilter(
   lineageIds?: ReadonlySet<ScheduleId> | null,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
   fields?: readonly ScheduleFieldDef[],
+  explainTaskIds?: ReadonlySet<ScheduleId> | null,
 ): boolean {
+  if (explainTaskIds != null) {
+    return explainTaskIds.has(task.id);
+  }
   if (lineageIds && !lineageIds.has(task.id)) return false;
   if (filters.assignee === UNASSIGNED_FILTER) {
     if (!matchesUnassignedFilter(task.assigneeIds, memberCatalog)) return false;
@@ -384,6 +388,7 @@ function computeFlatTaskVisibleRows(
   lineageIds?: ReadonlySet<ScheduleId> | null,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
   fields?: readonly ScheduleFieldDef[],
+  explainTaskIds?: ReadonlySet<ScheduleId> | null,
 ): VisibleRow[] {
   const brokenIds = brokenIdsForOutline(outline, filters);
   const rows: VisibleRow[] = [];
@@ -400,6 +405,7 @@ function computeFlatTaskVisibleRows(
         lineageIds,
         statuses,
         fields,
+        explainTaskIds,
       )
     ) {
       continue;
@@ -437,6 +443,7 @@ function computeOutlineVisibleRows(
   lineageIds?: ReadonlySet<ScheduleId> | null,
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
   fields?: readonly ScheduleFieldDef[],
+  explainTaskIds?: ReadonlySet<ScheduleId> | null,
 ): VisibleRow[] {
   const brokenIds = brokenIdsForOutline(outline, filters);
   const showEmpty = showEmptyHierarchyRows(filters, lineageIds, fields);
@@ -461,6 +468,7 @@ function computeOutlineVisibleRows(
             lineageIds,
             statuses,
             fields,
+            explainTaskIds,
           )
         ) {
           rows.push({ type: "task", task: node, y });
@@ -480,6 +488,7 @@ function computeOutlineVisibleRows(
           lineageIds,
           statuses,
           fields,
+          explainTaskIds,
         ),
       );
       if (matched.length === 0 && !(showEmpty && allTasks.length === 0)) continue;
@@ -527,6 +536,7 @@ export function computeVisibleRows(
     levelCount: number;
   },
   fields?: readonly ScheduleFieldDef[],
+  explainTaskIds?: ReadonlySet<ScheduleId> | null,
 ): VisibleRow[] {
   if (
     hierarchy?.levels != null &&
@@ -544,6 +554,7 @@ export function computeVisibleRows(
       lineageIds,
       statuses,
       fields,
+      explainTaskIds,
     );
   }
   if (
@@ -564,6 +575,7 @@ export function computeVisibleRows(
       lineageIds,
       statuses,
       fields,
+      explainTaskIds,
     );
   }
   const brokenIds = brokenIdsForFilter(categories, filters);
@@ -584,6 +596,7 @@ export function computeVisibleRows(
             lineageIds,
             statuses,
             fields,
+            explainTaskIds,
           ),
         ),
       }))

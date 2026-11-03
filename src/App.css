@@ -2531,6 +2531,42 @@ button:focus-visible,
   flex-shrink: 0;
 }
 
+.explanation-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8px * var(--s));
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  flex-shrink: 0;
+}
+
+.explanation-banner-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.explanation-banner-dismiss {
+  flex: 0 0 auto;
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 8px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-text-fill-color: var(--text-secondary);
+}
+
+.explanation-banner-dismiss:hover {
+  color: var(--text-primary);
+  -webkit-text-fill-color: var(--text-primary);
+}
+
 .chart-top-banners {
   flex-shrink: 0;
   display: flex;

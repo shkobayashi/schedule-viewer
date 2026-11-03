@@ -64,6 +64,10 @@ export type UseMcpActionExecutorInput = {
     hiddenMilestoneGroupIds?: ScheduleId[];
     collapsed?: ReadonlySet<string>;
   }) => void;
+  clearExplanationOnSetView: () => void;
+  runExplainViewAction: (
+    envelope: Record<string, unknown>,
+  ) => { ok: true; text: string } | { ok: false; message: string };
   applySetViewPreferences: (patch: McpSetViewPatch) => void;
   applySetViewTimeline: (patch: McpSetViewPatch) => void;
   applyCalendarAction: (
@@ -95,6 +99,7 @@ export function useMcpActionExecutor(
       getDocument: input.getDocument,
       applySetView: async (patch) => {
         if (mcpSetViewTouchesFilterState(patch)) {
+          input.clearExplanationOnSetView();
           const current = input.getFilterViewState();
           const collapsed = mergeMcpSetViewCollapsed(input.getCollapsed(), patch);
           input.applyPartialFilterViewState({
@@ -113,6 +118,7 @@ export function useMcpActionExecutor(
         }
         return { ok: true, text: "見方を変えました。" };
       },
+      applyExplainView: async (envelope) => input.runExplainViewAction(envelope),
       applyEditPlan: async (document, movedTo) => {
         const replaceResult = input.replaceScheduleDocument(document);
         if (replaceResult.outcome === "rejected") {

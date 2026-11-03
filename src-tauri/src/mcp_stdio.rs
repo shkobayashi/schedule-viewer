@@ -95,7 +95,7 @@ const MCP_CURRENT_SCHEDULE_CONNECTION_READ: &str = "繋がりがあるときは�
 
 const MCP_STATUSES_IN_READ_TOOLS: &str = "続けて statuses は、使用中のステータス一覧（id、name、role、description、color.light.bg、color.light.border、color.dark.bg、color.dark.border。instruction がある項目だけ instruction も入る）です。ステータスの色はバーの見た目である。id を選ぶ材料にしない。選ぶ材料は description である。";
 
-const MCP_VIEW_IN_READ_TOOLS: &str = "続けて view は、そのウィンドウの見方（折りたたみ、今映っている日付と行、表示サイズ、行の密度、イナズマ線、左一覧の追加列、配色、稼働日カレンダー）を一度だけ載せます。view.collapsed は今畳んでいる行（kind、id、name）です。view.visible.dates はチャートに掛っている日付の start と end です。view.visible.rows は縦に見えている行と上に残している見出しです。各タスクの visibility は visible、collapsed、scrolledOut のいずれかで、見えている、畳んで隠している、スクロールの外を表します。折りたたみではタスクを減らさない。filtered_tasks の tasks には畳んだ行のタスクも残ります。同じ応答のあとに、同じ .main の PNG を載せます。設定と閉じているメニューは写しません。1 日の幅は渡しません。displayScale の preference は auto または固定の段、effective は今のウィンドウで効いている倍率です。自動のときは効いている倍率も effective に載せます。colorScheme の preference が system のとき、effective は今効いている light か dark です。システムに合わせているときは効いている方を載せます。ズーム、1 日の幅、日・週・月、スクロール量、左一覧の幅、マイルストンの縦点線、ダイアログの開閉は view に含みません。";
+const MCP_VIEW_IN_READ_TOOLS: &str = "続けて view は、そのウィンドウの見方（折りたたみ、今映っている日付と行、表示サイズ、行の密度、イナズマ線、左一覧の追加列、配色、稼働日カレンダー）を一度だけ載せます。view.collapsed は今畳んでいる行（kind、id、name）です。view.explanation は説明のための見え方が掛かっているときだけ載り、taskIds と baseCollapsed を含みます。view.explanation.baseCollapsed は人が選んだ折りたたみです。view.visible.dates はチャートに掛っている日付の start と end です。view.visible.rows は縦に見えている行と上に残している見出しです。各タスクの visibility は visible、collapsed、scrolledOut のいずれかで、見えている、畳んで隠している、スクロールの外を表します。折りたたみではタスクを減らさない。filtered_tasks の tasks には畳んだ行のタスクも残ります。同じ応答のあとに、同じ .main の PNG を載せます。設定と閉じているメニューは写しません。1 日の幅は渡しません。displayScale の preference は auto または固定の段、effective は今のウィンドウで効いている倍率です。自動のときは効いている倍率も effective に載せます。colorScheme の preference が system のとき、effective は今効いている light か dark です。システムに合わせているときは効いている方を載せます。ズーム、1 日の幅、日・週・月、スクロール量、左一覧の幅、マイルストンの縦点線、ダイアログの開閉は view に含みません。";
 
 const MCP_SCHEDULE_TALK_HINT: &str = "判断の手順は schedule-talk スキルにある。";
 
@@ -229,6 +229,11 @@ fn tools_list_result() -> Value {
                 "inputSchema": { "type": "object" }
             },
             {
+                "name": "explain_view",
+                "description": "前面ウィンドウに、説明のための絞り込みと折りたたみだけを掛けます。taskIds と折りたたみの id を標準入力の JSON で渡します。clear で消します。次回起動の記録には残しません。読み取りでは view.explanation を見てください。判断の手順は schedule-talk スキルにある。",
+                "inputSchema": { "type": "object" }
+            },
+            {
                 "name": "edit_plan",
                 "description": "前面の計画を未保存のまま変えます。ops に日付、担当、並べ替え、先行を順に渡します。成功時は差分テキストを返します。",
                 "inputSchema": { "type": "object" }
@@ -338,9 +343,14 @@ mod tests {
         assert!(names.contains(&"open_windows"));
         assert!(names.contains(&"replace_schedule"));
         assert!(names.contains(&"set_view"));
+        assert!(names.contains(&"explain_view"));
         assert!(names.contains(&"edit_plan"));
         assert!(names.contains(&"focus_window"));
-        assert_eq!(names.len(), 18);
+        assert_eq!(names.len(), 19);
+        let explain_view = description("explain_view");
+        assert!(explain_view.contains("view.explanation"));
+        assert!(explain_view.contains("次回起動の記録には残しません"));
+        assert!(explain_view.contains(MCP_SCHEDULE_TALK_HINT));
         let schedule_diff = tools
             .iter()
             .find(|t| t.get("name").and_then(|n| n.as_str()) == Some("schedule_diff"))
@@ -372,6 +382,7 @@ mod tests {
         assert!(selected_task.contains("fieldValues"));
         let view_rule_phrases = [
             "折りたたみではタスクを減らさない",
+            "view.explanation",
             "view.visible.dates",
             "見えている、畳んで隠している、スクロールの外",
             "自動のときは効いている倍率",

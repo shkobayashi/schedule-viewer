@@ -6,6 +6,8 @@
 
 ### 追加
 
+- MCP と read-screen から、前面ウィンドウ向けに説明のための見え方（`explain_view`）を掛けられる。タスク id の絞り込みと折りたたみだけを変え、次回起動の記録には残さない。読み取り 3 ツールの `view.explanation` で、説明が掛かっていることと人が選んだ折りたたみを返す。チャート上端に「説明を表示しています」と「説明を消す」を出す（#437）
+
 - 設定の「JSON作成スキルを置く」に `schedule-talk` スキルを足した。見た目で指す手順とウィンドウの当て方などの判断は `schedule-talk` に置き、MCP の読み取り 7 ツールの説明末尾と `read-screen` スキルからは判断のありかだけを示す（#431）
 
 - MCP と read-screen から、前面ウィンドウ向けに見方（`set_view`）、計画の部分更新（`edit_plan`）、ファイル操作（`file_action`）、一覧（`catalog_action`）、設定（`set_preferences`）、取り消し（`history`）、ウィンドウ操作（`focus_window`、`open_new_window`、`close_window`、`minimize_window`）を呼べる。操作の途中は `discardInProgress` が無いと拒み、拒否のあとは進行中の確定が文書に載らない。前面だけのツールに `--window` を付けたときは CLI が拒否文を返す（#425）
