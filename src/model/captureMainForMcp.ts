@@ -9,9 +9,21 @@ export function hasExplanationOverlayCaptureAttr(element: {
   return element.hasAttribute(EXPLANATION_OVERLAY_CAPTURE_ATTR);
 }
 
+function nodeHasCaptureAttribute(
+  node: unknown,
+): node is { hasAttribute(name: string): boolean } {
+  return (
+    typeof node === "object" &&
+    node !== null &&
+    "hasAttribute" in node &&
+    typeof (node as { hasAttribute: (name: string) => boolean }).hasAttribute ===
+      "function"
+  );
+}
+
 /** MCP 読み取り用 PNG に含める DOM ノードか（説明用の半透明 SVG は除く）。 */
 export function shouldCaptureNodeForMcp(node: unknown): boolean {
-  if (typeof Element !== "undefined" && node instanceof Element) {
+  if (nodeHasCaptureAttribute(node)) {
     return !hasExplanationOverlayCaptureAttr(node);
   }
   return true;

@@ -11,11 +11,12 @@ describe("shouldCaptureNodeForMcp", () => {
       hasAttribute: (name: string) => name === EXPLANATION_OVERLAY_CAPTURE_ATTR,
     };
     expect(hasExplanationOverlayCaptureAttr(overlay)).toBe(true);
+    expect(shouldCaptureNodeForMcp(overlay)).toBe(false);
     expect(
-      hasExplanationOverlayCaptureAttr({
+      shouldCaptureNodeForMcp({
         hasAttribute: () => false,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(shouldCaptureNodeForMcp(null)).toBe(true);
     expect(shouldCaptureNodeForMcp(undefined)).toBe(true);
   });
