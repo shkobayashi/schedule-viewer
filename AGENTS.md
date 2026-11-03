@@ -59,9 +59,9 @@ GitHub の Issue を見る、コメントする、作る、更新するときは
 
 計画を実装する前に、計画が名指ししたスキルの `SKILL.md` を読む。名指しが無いときは、`description` がこの作業に合うスキルを1つ読む。`implement-change` は、指定された節と、節の指定にかかわらず「着手前」を読む。
 
-日本語の文章の書き方は [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) に従う。
+日本語の文章の書き方は [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) に従う。相談の返答の順は [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) が優先する。
 
-仕様や方向の相談は、利用者が `/consult` または「相談モード」で始めたときに [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) に従う。返し方と終わりの条件はこのルールにある。[.cursor/skills/consult/SKILL.md](.cursor/skills/consult/SKILL.md) は `/consult` で始めるための入口である。
+仕様や方向の相談は、利用者が `/consult` または「相談モード」で始めたときに [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) に従う。返答は、依頼を一文で復唱し、次の一文で推す案を書き、理由は「理由1: 見出し」で番号を付け、そのあと「変える場所」「残る選択肢」の見出しで続ける。終わりの条件もこのルールにある。[.cursor/skills/consult/SKILL.md](.cursor/skills/consult/SKILL.md) は、`/consult` で相談を始めるときに読む。
 
 スキルの作成、本文の更新、分割してよいかの判断は、エージェントが同じ作業の中で行う。
 
