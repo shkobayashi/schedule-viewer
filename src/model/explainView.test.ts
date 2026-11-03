@@ -188,4 +188,11 @@ describe("read payload helpers", () => {
       explanationViewActive({ taskIds: new Set(["t1"]), collapseOverride: null }),
     ).toBe(true);
   });
+
+  it("explainView_rejectsTranslucentKey", () => {
+    expect(parseExplainViewRequest({ translucent: true }, doc, null)).toEqual({
+      ok: false,
+      message: "説明に使えない項目があります。",
+    });
+  });
 });

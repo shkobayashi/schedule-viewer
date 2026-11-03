@@ -118,6 +118,14 @@ import {
   parseExplainViewRequest,
   type ExplanationViewState,
 } from "../model/explainView";
+import {
+  explainOverlayHideSuccessText,
+  explainOverlayShowSuccessText,
+  explanationOverlayActive,
+  explanationSessionActive,
+  parseExplainOverlayRequest,
+  type ExplanationOverlayState,
+} from "../model/explainOverlay";
 import type { ReplaceScheduleDocumentResult } from "../model/replaceSchedule";
 import { coerceOutlineStorageDocument } from "../model/mcpEditPlan";
 import { serializeScheduleDocument } from "../model/scheduleFile";
@@ -436,14 +444,23 @@ export function useSchedule(
   );
   const explanationViewRef = useRef(explanationView);
   explanationViewRef.current = explanationView;
-  const clearExplanationView = useCallback(() => {
+  const [explanationOverlay, setExplanationOverlay] =
+    useState<ExplanationOverlayState | null>(null);
+  const explanationOverlayRef = useRef(explanationOverlay);
+  explanationOverlayRef.current = explanationOverlay;
+  const clearExplanationSession = useCallback(() => {
     setExplanationView(null);
+    setExplanationOverlay(null);
   }, []);
+  const clearExplanationView = clearExplanationSession;
   const clearExplanationOnHumanViewChange = useCallback(() => {
-    if (explanationViewRef.current != null) {
-      setExplanationView(null);
+    if (
+      explanationViewRef.current != null ||
+      explanationOverlayRef.current?.translucent === true
+    ) {
+      clearExplanationSession();
     }
-  }, []);
+  }, [clearExplanationSession]);
   const explainTaskIds = useMemo(
     () => explainTaskIdsForFilter(explanationView),
     [explanationView],
@@ -537,11 +554,14 @@ export function useSchedule(
       setConnections(cloned.connections);
       setReorderPreview(null);
       pruneUiForDocument(cloned);
-      if (explanationViewRef.current != null) {
-        setExplanationView(null);
+      if (
+        explanationViewRef.current != null ||
+        explanationOverlayRef.current?.translucent === true
+      ) {
+        clearExplanationSession();
       }
     },
-    [pruneUiForDocument, setReorderPreview],
+    [pruneUiForDocument, setReorderPreview, clearExplanationSession],
   );
 
   const commitDocument = useCallback(
@@ -554,8 +574,11 @@ export function useSchedule(
       historyRef.current = pushed.history;
       syncHistoryUi();
       if (!pushed.applied) return;
-      if (explanationViewRef.current != null) {
-        setExplanationView(null);
+      if (
+        explanationViewRef.current != null ||
+        explanationOverlayRef.current?.translucent === true
+      ) {
+        clearExplanationSession();
       }
       documentRef.current = pushed.applied;
       setCategories(pushed.applied.categories);
@@ -565,7 +588,7 @@ export function useSchedule(
       setOutline(pushed.applied.outline);
       setConnections(pushed.applied.connections);
     },
-    [blockDocumentEditsRef, syncHistoryUi],
+    [blockDocumentEditsRef, clearExplanationSession, syncHistoryUi],
   );
 
   const commitCategories = useCallback(
@@ -2566,8 +2589,11 @@ export function useSchedule(
       setOutline(pushed.applied.outline);
       setConnections(pushed.applied.connections);
       pruneUiForDocument(pushed.applied);
-      if (explanationViewRef.current != null) {
-        setExplanationView(null);
+      if (
+        explanationViewRef.current != null ||
+        explanationOverlayRef.current?.translucent === true
+      ) {
+        clearExplanationSession();
       }
       return {
         outcome: "applied",
@@ -2578,6 +2604,7 @@ export function useSchedule(
     },
     [
       blockDocumentEditsRef,
+      clearExplanationSession,
       pruneUiForDocument,
       snapshotCanonicalJson,
       syncHistoryUi,
@@ -2619,13 +2646,17 @@ export function useSchedule(
       setDeletingHierarchy(null);
       setReorderPreview(null);
       pruneUiForDocument(pushed.applied);
-      if (explanationViewRef.current != null) {
-        setExplanationView(null);
+      if (
+        explanationViewRef.current != null ||
+        explanationOverlayRef.current?.translucent === true
+      ) {
+        clearExplanationSession();
       }
       return { before, after: pushed.applied };
     },
     [
       blockDocumentEditsRef,
+      clearExplanationSession,
       pruneUiForDocument,
       setReorderPreview,
       syncHistoryUi,
@@ -2656,6 +2687,7 @@ export function useSchedule(
       setSearchField(defaultView.searchField);
       setHiddenMilestoneGroupIds(defaultView.hiddenMilestoneGroupIds);
       setExplanationView(null);
+      setExplanationOverlay(null);
       setReorderPreview(null);
       syncHistoryUi();
     },
@@ -2682,12 +2714,20 @@ export function useSchedule(
       setDiskEpoch((epoch) => epoch + 1);
       setReorderPreview(null);
       pruneUiForDocument(snapshot);
-      if (explanationViewRef.current != null) {
-        setExplanationView(null);
+      if (
+        explanationViewRef.current != null ||
+        explanationOverlayRef.current?.translucent === true
+      ) {
+        clearExplanationSession();
       }
       syncHistoryUi();
     },
-    [pruneUiForDocument, setReorderPreview, syncHistoryUi],
+    [
+      clearExplanationSession,
+      pruneUiForDocument,
+      setReorderPreview,
+      syncHistoryUi,
+    ],
   );
 
   const undo = useCallback((): boolean => {
@@ -2878,8 +2918,10 @@ export function useSchedule(
       );
       if (!parsed.ok) return parsed;
       if (parsed.kind === "clear") {
-        const wasActive = explanationViewRef.current != null;
-        setExplanationView(null);
+        const wasActive =
+          explanationViewRef.current != null ||
+          explanationOverlayRef.current?.translucent === true;
+        clearExplanationSession();
         return { ok: true, text: explainViewClearSuccessText(wasActive) };
       }
       if (parsed.clearSelection) {
@@ -2887,6 +2929,23 @@ export function useSchedule(
       }
       setExplanationView(parsed.state);
       return { ok: true, text: explainViewApplySuccessText() };
+    },
+    [clearExplanationSession],
+  );
+
+  const runExplainOverlayAction = useCallback(
+    (
+      envelope: Record<string, unknown>,
+    ): { ok: true; text: string } | { ok: false; message: string } => {
+      const parsed = parseExplainOverlayRequest(envelope);
+      if (!parsed.ok) return parsed;
+      if (parsed.kind === "hide") {
+        const wasActive = explanationOverlayRef.current?.translucent === true;
+        setExplanationOverlay(null);
+        return { ok: true, text: explainOverlayHideSuccessText(wasActive) };
+      }
+      setExplanationOverlay({ translucent: true });
+      return { ok: true, text: explainOverlayShowSuccessText() };
     },
     [],
   );
@@ -3018,9 +3077,16 @@ export function useSchedule(
     getDisplayedCollapsedForMcp: () =>
       displayedCollapsedSet(collapsedRef.current, explanationViewRef.current),
     explanationView,
+    explanationOverlay,
     explanationActive: explanationViewActive(explanationView),
+    explanationOverlayActive: explanationOverlayActive(explanationOverlay),
+    explanationSessionActive: explanationSessionActive(
+      explanationViewActive(explanationView),
+      explanationOverlay,
+    ),
     clearExplanationView,
     runExplainViewAction,
+    runExplainOverlayAction,
     canUndo: historyUi.canUndo,
     canRedo: historyUi.canRedo,
     today,

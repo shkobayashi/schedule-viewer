@@ -91,6 +91,7 @@ export type CssPalette = {
   menuShadow: string;
   onAccent: string;
   onAccentDark: string;
+  explanationVeil: string;
 };
 
 export type AppPalette = {
@@ -137,6 +138,7 @@ const LIGHT: AppPalette = {
     menuShadow: "rgba(0, 0, 0, 0.12)",
     onAccent: "#ffffff",
     onAccentDark: "#12152b",
+    explanationVeil: "rgba(16, 24, 40, 0.18)",
   },
   chart: {
     summaryCovered: "#8A94A6",
@@ -225,6 +227,7 @@ const DARK: AppPalette = {
     menuShadow: "rgba(0, 0, 0, 0.35)",
     onAccent: "#12152b",
     onAccentDark: "#12152b",
+    explanationVeil: "rgba(255, 255, 255, 0.14)",
   },
   chart: {
     summaryCovered: "#6b7588",
