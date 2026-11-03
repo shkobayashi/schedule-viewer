@@ -53,7 +53,7 @@ GitHub の Issue を見る、コメントする、作る、更新するときは
 
 ## スキルの使い方と保守
 
-計画を書いて実装に渡すときは、実装が読むスキル名と、その中の節を計画に書く。アプリの実装（画面、状態、モデル、Tauri、描画と、それに伴う文書とテスト）は [implement-change](.cursor/skills/implement-change/SKILL.md)、リリース、CI、配布用ビルドは [cut-release](.cursor/skills/cut-release/SKILL.md)、操作マニュアルの GitHub Pages は [publish-user-manual](.cursor/skills/publish-user-manual/SKILL.md)、プロジェクト全体のレビューは [review-project](.cursor/skills/review-project/SKILL.md)、計画を実装したあとのレビューは [review-implementation](.cursor/skills/review-implementation/SKILL.md) である。スケジュール、メンバー、カレンダーの JSON を作るときは `write-schedule`、`write-members`、`write-calendar`。色の一覧 JSON を作るときは `write-colors`。同じフォルダを `workspace.json` で束ねるときは `write-workspace`。スケジュール JSON の形を変えるときは `update-schedule-schema`。
+計画を書いて実装に渡すときは、実装が読むスキル名と、その中の節を計画に書く。アプリの実装（画面、状態、モデル、Tauri、描画と、それに伴う文書とテスト）は [implement-change](.cursor/skills/implement-change/SKILL.md)、リリース、CI、配布用ビルドは [cut-release](.cursor/skills/cut-release/SKILL.md)、操作マニュアルの GitHub Pages は [publish-user-manual](.cursor/skills/publish-user-manual/SKILL.md)、プロジェクト全体のレビューは [review-project](.cursor/skills/review-project/SKILL.md)、計画を実装したあとのレビューは [review-implementation](.cursor/skills/review-implementation/SKILL.md) である。起動中のスケジュールの相談や変更は `schedule-talk` から始め、必要に応じて MCP、`read-screen`、`write-schedule` を使う。スケジュール、メンバー、カレンダーの JSON を作るときは `write-schedule`、`write-members`、`write-calendar`。色の一覧 JSON を作るときは `write-colors`。同じフォルダを `workspace.json` で束ねるときは `write-workspace`。スケジュール JSON の形を変えるときは `update-schedule-schema`。
 
 1.x を出しながら次のメジャーを進める手順は [docs/development.md](docs/development.md) にある。この作業用のスキルは作らない。実装の計画は implement-change だけを読み、載せるブランチは着手前で決める。`next` を切る作業と次メジャーのリリースは、cut-release の「1.x と次のメジャー」を読む。
 

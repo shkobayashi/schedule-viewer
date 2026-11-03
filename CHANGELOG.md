@@ -6,6 +6,8 @@
 
 ### 追加
 
+- 設定の「JSON作成スキルを置く」に `schedule-talk` スキルを足した。見た目で指す手順とウィンドウの当て方などの判断は `schedule-talk` に置き、MCP の読み取り 7 ツールの説明末尾と `read-screen` スキルからは判断のありかだけを示す（#431）
+
 - MCP と read-screen から、前面ウィンドウ向けに見方（`set_view`）、計画の部分更新（`edit_plan`）、ファイル操作（`file_action`）、一覧（`catalog_action`）、設定（`set_preferences`）、取り消し（`history`）、ウィンドウ操作（`focus_window`、`open_new_window`、`close_window`、`minimize_window`）を呼べる。操作の途中は `discardInProgress` が無いと拒み、拒否のあとは進行中の確定が文書に載らない。前面だけのツールに `--window` を付けたときは CLI が拒否文を返す（#425）
 
 - MCP と read-screen の読み取り 3 ツール（`selected_task`、`selected_tasks`、`filtered_tasks`）に、今映っている日付と行（`view.visible`）と各タスクの `visibility` を載せ、同じ応答に `.main` の PNG を付ける（#423）

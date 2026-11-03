@@ -884,9 +884,9 @@
 | `filter_path_uses_same_hash_as_recovery` | 絞り込みのファイル名のハッシュは控えと同じ | SYNC-03 |
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 | `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
-| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの5スキルに限る | SET-05 |
-| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の5スキルだけ | SET-05 |
-| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は15パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各5つは `JSON_SKILL_NAMES` の順 | SET-05 |
+| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの7スキルに限る | SET-05 |
+| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の7スキルだけ | SET-05 |
+| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は21パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各7つは `JSON_SKILL_NAMES` の順 | SET-05 |
 | `bundled_skill_lists_match_json_skill_names_in_tauri_and_msix` | `JSON_SKILL_NAMES` の各名前が `tauri.conf.json` の `json-skills/<name>/` と MSIX の `json-skills\<name>\SKILL.md` にある。`read-screen/` と `read-screen\SKILL.md` もある | SET-05 |
 | `parse_tool_selection_requires_at_least_one` | ツール未選択は「ツールを1つ以上選んでください。」 | SET-05, MCP-02 |
 | `claude_user_shadows_only_when_claude_project_scope` | Copilot だけの指定フォルダでは Claude の個人用優先警告を出さない | SET-05 |
@@ -903,7 +903,7 @@
 | `install_does_not_write_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら置かない | SET-05 |
 | `place_staged_skill_restores_original_when_copy_fails` | 入れ替えのコピーに失敗したら元のフォルダを残す | SET-05 |
 | `install_keeps_earlier_skill_when_a_later_copy_fails` | 後続のコピーに失敗しても、先に置けたスキルは残る | SET-05 |
-| `uninstall_removes_only_bundled_skill_folders` | 外すのは4スキルだけで、別名のスキルは残す | SET-05 |
+| `uninstall_removes_only_bundled_skill_folders` | 外すのは7スキルだけで、別名のスキルは残す | SET-05 |
 | `uninstall_does_not_remove_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら外さない | SET-05 |
 | `uninstall_removes_broken_symlink_at_destination` | 宛先の壊れたシンボリックリンクはリンクだけ外す | SET-05 |
 | `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
@@ -932,7 +932,7 @@
 | `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` と `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する。読み取り 3 ツールの説明に `view`、折りたたみでタスクを減らさない旨、自動表示サイズの effective、システム配色の effective、ステータス色を id の材料にしない旨がある。`replace_schedule` の説明に繋がりの規則（`predecessors とは別`、`繋がりの話でない更新では`、`残ったタスク同士はつなぎ直さない` など）がある。`current_schedule` の説明に `connections` と、タスク読み取りには載らない旨がある | MCP-01 |
+| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する。読み取り 7 ツールの説明末尾に「判断の手順は schedule-talk スキルにある。」がある。`replace_schedule` の説明にはその一文が無い。`point-by-appearance.md` に見た目で指す条件の連続した文があり、それらの文は MCP の説明と `read-screen` スキルに無い。「色を選ぶ材料は description」は `screen-judgment.md` にあり `read-screen` に無い（MCP の `selected_task` 等の説明には従来どおりある）。読み取り 3 ツールの説明に `view`、折りたたみでタスクを減らさない旨、自動表示サイズの effective、システム配色の effective、ステータス色を id の材料にしない旨がある。`replace_schedule` の説明に繋がりの規則（`predecessors とは別`、`繋がりの話でない更新では`、`残ったタスク同士はつなぎ直さない` など）がある。`current_schedule` の説明に `connections` と、タスク読み取りには載らない旨がある | MCP-01 |
 | `build_mcp_open_windows_orders_live_and_sets_front`（`window_session.rs`） | 生きているラベルだけを記録順に並べ、`file`・`folder`・`front` を付け、絶対パスを含めない | MCP-01 |
 | `build_mcp_open_windows_omits_home_path_segments`（`window_session.rs`） | ホーム配下のパスでも `file`・`folder` は末尾と親だけ。JSON に `/Users` などを含めない | MCP-01 |
 | `resolve_mcp_label_with_override_absent_matches_front_resolution`（`window_session.rs`） | `window` 省略時の送り先は `resolve_mcp_screen_window_label` と同じ | MCP-01 |
@@ -1398,16 +1398,16 @@
 | TC-SET-10s | SET-10 | （自動）`fieldExtensionEdit.test.ts` | 合成キーが重なる拡張を保存前に判定する | 理由に合成キーが含まれる |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
-| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace、write-fields が `~/.cursor/skills/` に置かれ、パスが示される |
+| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk が `~/.cursor/skills/` に置かれ、パスが示される |
 | TC-SET-05b | SET-05 | 上記のいずれかが既にある | もう一度「置く」 | 上書き確認が出る。上書き後、置いたパスが示される |
 | TC-SET-05c | SET-05 | 指定フォルダへ Claude Code を置く。`~/.claude/skills/` に同名がある | 「置く」 | 置いたあと、個人用が先に使われる旨が出る |
-| TC-SET-05d | SET-05 | ブラウザ版 | 設定の「JSON作成スキルを置く」を開く | デスクトップ版でのみ置ける旨が出て、「置く」は押せない |
-| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に5つがある | 「外す」で確認のあと外す | 5つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
-| TC-SET-05f | SET-05 | デスクトップ版、置き先に同名が無い | GitHub Copilot、ユーザー全体を選び「置く」 | 5つが `~/.copilot/skills/` に置かれ、パスが示される。`~/.copilot` が無くても作られる |
-| TC-SET-05g | SET-05 | デスクトップ版 | GitHub Copilot、指定したフォルダを選び「置く」 | 5つが `<フォルダ>/.github/skills/` に置かれ、パスが示される。git には入れない |
-| TC-SET-05h | SET-05 | デスクトップ版 | Cursor、Claude Code、GitHub Copilot をすべて選び、ユーザー全体で「置く」 | 15パスが示される。中身は同じ5つ |
+| TC-SET-05d | SET-05 | ブラウザ版 | 設定の「JSON作成スキルを置く」を開く | デスクトップ版でのみ置ける旨が出て、「置く」は押せない。欄に write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk の7つと「の7つをまとめて置きます」が出る |
+| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に7つがある | 「外す」で確認のあと外す | 確認に7つを外す旨がある。7つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05f | SET-05 | デスクトップ版、置き先に同名が無い | GitHub Copilot、ユーザー全体を選び「置く」 | 7つが `~/.copilot/skills/` に置かれ、パスが示される。`~/.copilot` が無くても作られる |
+| TC-SET-05g | SET-05 | デスクトップ版 | GitHub Copilot、指定したフォルダを選び「置く」 | 7つが `<フォルダ>/.github/skills/` に置かれ、パスが示される。git には入れない |
+| TC-SET-05h | SET-05 | デスクトップ版 | Cursor、Claude Code、GitHub Copilot をすべて選び、ユーザー全体で「置く」 | 21パスが示される。中身は同じ7つ |
 | TC-SET-05i | SET-05 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
-| TC-SET-05j | SET-05 | デスクトップ版、ユーザー全体の Copilot に5つがある | 「外す」で確認のあと外す | 5つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05j | SET-05 | デスクトップ版、ユーザー全体の Copilot に7つがある | 「外す」で確認のあと外す | 7つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
 | TC-MCP-02c | MCP-02 | デスクトップ版 | 「MCP を使えないときに渡す」で GitHub Copilot を選び「置く」 | `read-screen` が `~/.copilot/skills/read-screen/` に置かれ、パスと実行ファイルのパスが示される |
 | TC-MCP-02d | MCP-02 | デスクトップ版、Copilot に read-screen がある | 同じ欄で GitHub Copilot を選び「外す」 | その1つだけ消え、外したパスが示される |
 | TC-MCP-02e | MCP-02 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |

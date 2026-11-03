@@ -28,7 +28,7 @@ jobs:
           manual=false
           while IFS= read -r file; do
             case "$file" in
-              src-tauri/*|rust-toolchain.toml)
+              src-tauri/*|rust-toolchain.toml|read-screen/*|.cursor/skills/schedule-talk/*)
                 rust=true
                 ;;
               .github/workflows/*)

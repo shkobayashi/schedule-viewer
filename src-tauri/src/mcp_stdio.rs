@@ -97,12 +97,15 @@ const MCP_STATUSES_IN_READ_TOOLS: &str = "続けて statuses は、使用中の�
 
 const MCP_VIEW_IN_READ_TOOLS: &str = "続けて view は、そのウィンドウの見方（折りたたみ、今映っている日付と行、表示サイズ、行の密度、イナズマ線、左一覧の追加列、配色、稼働日カレンダー）を一度だけ載せます。view.collapsed は今畳んでいる行（kind、id、name）です。view.visible.dates はチャートに掛っている日付の start と end です。view.visible.rows は縦に見えている行と上に残している見出しです。各タスクの visibility は visible、collapsed、scrolledOut のいずれかで、見えている、畳んで隠している、スクロールの外を表します。折りたたみではタスクを減らさない。filtered_tasks の tasks には畳んだ行のタスクも残ります。同じ応答のあとに、同じ .main の PNG を載せます。設定と閉じているメニューは写しません。1 日の幅は渡しません。displayScale の preference は auto または固定の段、effective は今のウィンドウで効いている倍率です。自動のときは効いている倍率も effective に載せます。colorScheme の preference が system のとき、effective は今効いている light か dark です。システムに合わせているときは効いている方を載せます。ズーム、1 日の幅、日・週・月、スクロール量、左一覧の幅、マイルストンの縦点線、ダイアログの開閉は view に含みません。";
 
+const MCP_SCHEDULE_TALK_HINT: &str = "判断の手順は schedule-talk スキルにある。";
+
 fn tools_list_result() -> Value {
     let read_schema = read_tool_window_schema();
     let current_schedule_description = [
         "画面の確定したスケジュール JSON 全体を返します。保存するときと同じ形です。ディスク上のファイルは読みません。未保存の画面を返します。",
         MCP_CURRENT_SCHEDULE_CONNECTION_READ,
         " window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+        MCP_SCHEDULE_TALK_HINT,
     ]
     .concat();
     let replace_schedule_description = [
@@ -117,6 +120,7 @@ fn tools_list_result() -> Value {
         "続けて colors は、使用中の色の一覧（id、name、description、color.light.bg、color.dark.bg。一覧が無いときは空の配列）です。続けて members は、メンバー一覧（id、name。空でない description がある人だけ description も入る。一覧が無いときは空の配列）です。assigneeId には members の id だけを書く。一覧は、設定ファイルに members があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが members が無いとき、担当を付ける依頼は JSON を書かず不足として返す。設定ファイルが無いときはこの応答の members を使う。それも空なら、担当を付ける依頼は不足として返す。id は作らない。仕事の内容から選ぶときは description だけを見る。表示名は、この選び方には使わない。一つに合う人だけを担当にする。二つ以上に合うときと、どれにも合わないときは尋ね、id は作らない。説明が無い人は、名指しされたときだけ担当に使う。名指しが id か表示名で一人に定まるときは、その id を使う。表示名が二人以上に当たるときは尋ねる。名指しされた人は、説明が別の人に合っていても付け替えない。description はタスクへコピーしない。担当は assigneeId だけである。続けて fields は、使用中の追加項目の定義（key、name、type。meaning、instruction、required、percent、choices、default は空でないときだけ）を一度だけ載せます。定義が無いときは空の配列です。タスクには、colorId があるときだけ colorId を載せます。値があるときだけ fieldValues（合成キーと値）を載せます。colorId には色の一覧の id だけを書く。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときはこの応答の colors を使う。それも空なら書かない。色を選ぶ材料は description です。",
         MCP_VIEW_IN_READ_TOOLS,
         " window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+        MCP_SCHEDULE_TALK_HINT,
     ]
     .concat();
     let selected_task_description = [
@@ -138,7 +142,10 @@ fn tools_list_result() -> Value {
         "tools": [
             {
                 "name": "open_windows",
-                "description": "開いているスケジュールウィンドウの一覧を JSON 配列で返します。各要素は label、file（パス末尾またはサンプル表示名）、folder（親フォルダ名。無いとき null）、front（引数なしの読み取りが向くウィンドウだけ true）です。絶対パスは含みません。利用者がファイル名や親フォルダ、背面のウィンドウを指したときに、省略した言い方を file と folder へ当てるために使います。一意に当たったときだけ読み取りの window に label を渡します。0 件または 2 件以上のときは前面で代用せず尋ねます。「後ろ」「背面」だけでファイル名が無いときは front が false の 1 件、複数なら尋ねます。ウィンドウもファイルも指していない依頼では呼びません。",
+                "description": concat!(
+                    "開いているスケジュールウィンドウの一覧を JSON 配列で返します。各要素は label、file（パス末尾またはサンプル表示名）、folder（親フォルダ名。無いとき null）、front（引数なしの読み取りが向くウィンドウだけ true）です。絶対パスは含みません。利用者がファイル名や親フォルダ、背面のウィンドウを指したときに、省略した言い方を file と folder へ当てるために使います。一意に当たったときだけ読み取りの window に label を渡します。0 件または 2 件以上のときは前面で代用せず尋ねます。「後ろ」「背面」だけでファイル名が無いときは front が false の 1 件、複数なら尋ねます。ウィンドウもファイルも指していない依頼では呼びません。",
+                    "判断の手順は schedule-talk スキルにある。"
+                ),
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -147,12 +154,18 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "schedule_diff",
-                "description": "開いているファイルと画面の編集内容の差分テキスト（FILE-07 と同じ）だけを返します。人が直したあとに前後関係を見直すときに使います。タスク一覧は含みません。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": concat!(
+                    "開いているファイルと画面の編集内容の差分テキスト（FILE-07 と同じ）だけを返します。人が直したあとに前後関係を見直すときに使います。タスク一覧は含みません。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                    "判断の手順は schedule-talk スキルにある。"
+                ),
                 "inputSchema": read_schema.clone(),
             },
             {
                 "name": "baseline_diffs",
-                "description": "起点（最後に開いた・保存した・読み直した内容）と、画面とファイルの差分と、id ごとの分類を返します。画面とファイルの両方が動いたときに使います。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                "description": concat!(
+                    "起点（最後に開いた・保存した・読み直した内容）と、画面とファイルの差分と、id ごとの分類を返します。画面とファイルの両方が動いたときに使います。window を省略すると前面ウィンドウです。必要なツールだけ呼びます。",
+                    "判断の手順は schedule-talk スキルにある。"
+                ),
                 "inputSchema": read_schema.clone(),
             },
             {
@@ -299,7 +312,7 @@ pub fn is_mcp_stdio_mode(args: &[String]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_mcp_stdio_mode, tools_list_result};
+    use super::{is_mcp_stdio_mode, tools_list_result, MCP_SCHEDULE_TALK_HINT};
 
     #[test]
     fn mcp_stdio_mode_requires_only_flag() {
@@ -444,6 +457,60 @@ mod tests {
         assert!(current_schedule.contains("selected_task"));
         assert!(current_schedule.contains("filtered_tasks"));
         assert!(current_schedule.contains("には載らない"));
+        const READ_TOOLS: [&str; 7] = [
+            "open_windows",
+            "schedule_diff",
+            "baseline_diffs",
+            "selected_task",
+            "selected_tasks",
+            "filtered_tasks",
+            "current_schedule",
+        ];
+        for tool in READ_TOOLS {
+            assert!(
+                description(tool).contains(MCP_SCHEDULE_TALK_HINT),
+                "{tool} missing schedule-talk hint"
+            );
+        }
+        assert!(
+            !replace_schedule.contains(MCP_SCHEDULE_TALK_HINT),
+            "replace_schedule must not mention schedule-talk hint"
+        );
+        let point_by_appearance = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../.cursor/skills/schedule-talk/references/point-by-appearance.md"),
+        )
+        .expect("point-by-appearance.md");
+        for phrase in [
+            "斜線はタスクバーだけ",
+            "未確定のひし形は中空",
+            "イナズマ線は候補にしない",
+            "半透明のあいだは人に確認する",
+            "色は選ぶ材料にしない",
+        ] {
+            assert!(
+                point_by_appearance.contains(phrase),
+                "point-by-appearance.md missing {phrase}"
+            );
+            assert!(
+                !read_screen_skill.contains(phrase),
+                "read-screen must not contain appearance phrase {phrase}"
+            );
+            assert!(
+                !selected_task.contains(phrase),
+                "selected_task description must not contain appearance phrase {phrase}"
+            );
+        }
+        let screen_judgment = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../.cursor/skills/schedule-talk/references/screen-judgment.md"),
+        )
+        .expect("screen-judgment.md");
+        assert!(screen_judgment.contains("色を選ぶ材料は description"));
+        assert!(
+            !read_screen_skill.contains("色を選ぶ材料は description"),
+            "read-screen must not contain color selection rule"
+        );
         let replace_schema = tools
             .iter()
             .find(|t| t.get("name").and_then(|n| n.as_str()) == Some("replace_schedule"))
