@@ -4,6 +4,7 @@ export type WindowStartupRead = {
   path: string | null;
   workspacePath: string | null;
   sample: boolean;
+  transientMain: boolean;
   contents: string | null;
   error: string | null;
   draftText: string | null;

@@ -34,7 +34,9 @@ import {
 } from "../model/taskTags";
 import {
   hiddenMilestoneGroupIdsForShowOnly,
+  hiddenMilestoneIdsForShowOnly,
   pruneHiddenMilestoneGroupIds,
+  pruneHiddenMilestoneIds,
 } from "../model/filterChips";
 import {
   collapsedIdsFromSet,
@@ -232,6 +234,9 @@ export function useSchedule(
   const [hiddenMilestoneGroupIds, setHiddenMilestoneGroupIds] = useState<
     ScheduleId[]
   >([]);
+  const [hiddenMilestoneIds, setHiddenMilestoneIds] = useState<ScheduleId[]>(
+    [],
+  );
   const [editingMilestoneId, setEditingMilestoneId] = useState<ScheduleId | null>(
     null,
   );
@@ -1227,6 +1232,7 @@ export function useSchedule(
         ...prev,
         milestone: milestoneFilterAfterDelete(prev.milestone, id),
       }));
+      setHiddenMilestoneIds((prev) => prev.filter((item) => item !== id));
     },
     [commitDocument],
   );
@@ -1514,6 +1520,7 @@ export function useSchedule(
       setMilestoneGroups(snapshot.milestoneGroups);
       setMilestones(snapshot.milestones);
       setHiddenMilestoneGroupIds([]);
+      setHiddenMilestoneIds([]);
       setTaskSelection(emptyTaskSelection());
       setLineageTaskId(null);
       setDuplicatingTaskId(null);
@@ -1524,6 +1531,7 @@ export function useSchedule(
       setFilters(defaultView.filters);
       setSearchField(defaultView.searchField);
       setHiddenMilestoneGroupIds(defaultView.hiddenMilestoneGroupIds);
+      setHiddenMilestoneIds(defaultView.hiddenMilestoneIds);
       setReorderPreview(null);
       syncHistoryUi();
     },
@@ -1547,6 +1555,11 @@ export function useSchedule(
       setHiddenMilestoneGroupIds((hidden) =>
         hidden.filter((groupId) =>
           snapshot.milestoneGroups.some((group) => group.id === groupId),
+        ),
+      );
+      setHiddenMilestoneIds((hidden) =>
+        hidden.filter((id) =>
+          snapshot.milestones.some((milestone) => milestone.id === id),
         ),
       );
       setDiskEpoch((epoch) => epoch + 1);
@@ -1607,6 +1620,11 @@ export function useSchedule(
     [hiddenMilestoneGroupIds, milestoneGroups],
   );
 
+  const prunedHiddenMilestoneIds = useMemo(
+    () => pruneHiddenMilestoneIds(hiddenMilestoneIds, milestones),
+    [hiddenMilestoneIds, milestones],
+  );
+
   const setFilterViewState = useCallback((state: ScheduleFilterViewState) => {
     setFilters({
       ...state.filters,
@@ -1614,6 +1632,7 @@ export function useSchedule(
     });
     setSearchField(state.searchField);
     setHiddenMilestoneGroupIds([...state.hiddenMilestoneGroupIds]);
+    setHiddenMilestoneIds([...state.hiddenMilestoneIds]);
     setCollapsed(
       collapsedSetFromIds(
         state.collapsedCategoryIds,
@@ -1629,10 +1648,17 @@ export function useSchedule(
       filters,
       searchField,
       hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
+      hiddenMilestoneIds: prunedHiddenMilestoneIds,
       collapsedCategoryIds,
       collapsedGroupIds,
     };
-  }, [collapsed, filters, prunedHiddenMilestoneGroupIds, searchField]);
+  }, [
+    collapsed,
+    filters,
+    prunedHiddenMilestoneGroupIds,
+    prunedHiddenMilestoneIds,
+    searchField,
+  ]);
 
   useEffect(() => {
     if (prunedHiddenMilestoneGroupIds.length === hiddenMilestoneGroupIds.length) {
@@ -1641,9 +1667,21 @@ export function useSchedule(
     setHiddenMilestoneGroupIds(prunedHiddenMilestoneGroupIds);
   }, [hiddenMilestoneGroupIds, prunedHiddenMilestoneGroupIds]);
 
+  useEffect(() => {
+    if (prunedHiddenMilestoneIds.length === hiddenMilestoneIds.length) {
+      return;
+    }
+    setHiddenMilestoneIds(prunedHiddenMilestoneIds);
+  }, [hiddenMilestoneIds, prunedHiddenMilestoneIds]);
+
   const hiddenMilestoneGroupIdSet = useMemo(
     () => new Set(prunedHiddenMilestoneGroupIds),
     [prunedHiddenMilestoneGroupIds],
+  );
+
+  const hiddenMilestoneIdSet = useMemo(
+    () => new Set(prunedHiddenMilestoneIds),
+    [prunedHiddenMilestoneIds],
   );
 
   const visibleMilestoneGroupIds = useMemo(
@@ -1672,6 +1710,31 @@ export function useSchedule(
     setHiddenMilestoneGroupIds([]);
   }, []);
 
+  const setMilestoneMarkVisible = useCallback(
+    (milestoneId: ScheduleId, visible: boolean) => {
+      setHiddenMilestoneIds((prev) => {
+        const hidden = prev.includes(milestoneId);
+        if (visible && hidden) return prev.filter((id) => id !== milestoneId);
+        if (!visible && !hidden) return [...prev, milestoneId];
+        return prev;
+      });
+    },
+    [],
+  );
+
+  const showAllMilestoneMarks = useCallback(() => {
+    setHiddenMilestoneIds([]);
+  }, []);
+
+  const showOnlyMilestoneMark = useCallback(
+    (milestoneId: ScheduleId) => {
+      setHiddenMilestoneIds(
+        hiddenMilestoneIdsForShowOnly(milestoneId, milestones),
+      );
+    },
+    [milestones],
+  );
+
   const showOnlyMilestoneGroup = useCallback(
     (groupId: ScheduleId) => {
       setHiddenMilestoneGroupIds(
@@ -1687,9 +1750,14 @@ export function useSchedule(
     milestoneGroups,
     visibleMilestoneGroupIds,
     hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
+    hiddenMilestoneIds: prunedHiddenMilestoneIds,
+    hiddenMilestoneIdSet,
     setMilestoneGroupVisible,
     showAllMilestoneGroups,
     showOnlyMilestoneGroup,
+    setMilestoneMarkVisible,
+    showAllMilestoneMarks,
+    showOnlyMilestoneMark,
     milestones,
     editingMilestone,
     editingHierarchyTarget,

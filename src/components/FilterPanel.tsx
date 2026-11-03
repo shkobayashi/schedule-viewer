@@ -20,6 +20,10 @@ import {
 } from "../model/milestoneField";
 import { filterTagsByQuery } from "../model/taskTags";
 import {
+  filterMilestoneMarksByQuery,
+  milestoneMarkFilterLabel,
+} from "../model/milestoneMarkFilter";
+import {
   UNASSIGNED_FILTER,
   UNASSIGNED_LABEL,
   type ConfidenceFilter,
@@ -298,6 +302,247 @@ function FilterTagField({
               </li>
             )}
           </ul>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+type FilterMilestoneMarkFieldProps = {
+  milestones: Milestone[];
+  hiddenMilestoneIds: ScheduleId[];
+  onMilestoneMarkVisible: (milestoneId: ScheduleId, visible: boolean) => void;
+  onShowAllMilestoneMarks: () => void;
+};
+
+function FilterMilestoneMarkField({
+  milestones,
+  hiddenMilestoneIds,
+  onMilestoneMarkVisible,
+  onShowAllMilestoneMarks,
+}: FilterMilestoneMarkFieldProps) {
+  const inputId = useId();
+  const listId = `${inputId}-list`;
+  const [query, setQuery] = useState("");
+  const [listOpen, setListOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [listMaxHeight, setListMaxHeight] = useState<number | undefined>(
+    undefined,
+  );
+  const inputRef = useRef<HTMLInputElement>(null);
+  const comboRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const [clearAnnouncement, setClearAnnouncement] = useState("");
+
+  const hiddenSet = useMemo(
+    () => new Set(hiddenMilestoneIds),
+    [hiddenMilestoneIds],
+  );
+
+  const candidates = useMemo(
+    () => filterMilestoneMarksByQuery(milestones, query),
+    [milestones, query],
+  );
+
+  const toggleMark = (milestoneId: ScheduleId) => {
+    onMilestoneMarkVisible(milestoneId, hiddenSet.has(milestoneId));
+  };
+
+  const showAllMarks = () => {
+    onShowAllMilestoneMarks();
+    setClearAnnouncement("");
+    queueMicrotask(() => setClearAnnouncement("帯の印をすべて表示に戻しました"));
+    inputRef.current?.focus();
+  };
+
+  const updateListMaxHeight = () => {
+    const combo = comboRef.current;
+    if (!combo) return;
+    const input = inputRef.current;
+    const bottom = input
+      ? input.getBoundingClientRect().bottom + 4 * readScale()
+      : combo.getBoundingClientRect().bottom;
+    setListMaxHeight(filterTagListMaxHeightPx(bottom));
+  };
+
+  useLayoutEffect(() => {
+    if (!listOpen) return;
+    updateListMaxHeight();
+    const onResize = () => updateListMaxHeight();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [listOpen, query]);
+
+  useLayoutEffect(() => {
+    if (!listOpen || !listRef.current) return;
+    const list = listRef.current;
+    const row = list.querySelector<HTMLElement>(
+      `[data-milestone-mark-index="${activeIndex}"]`,
+    );
+    if (!row) return;
+    const rowTop = row.offsetTop;
+    const rowBottom = rowTop + row.offsetHeight;
+    if (rowTop < list.scrollTop) {
+      list.scrollTop = rowTop;
+    } else if (rowBottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = rowBottom - list.clientHeight;
+    }
+  }, [activeIndex, listOpen, candidates.length]);
+
+  const onInputKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    const composing =
+      event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229;
+
+    if (event.key === "ArrowDown") {
+      if (composing) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!listOpen) {
+        setActiveIndex(0);
+        setListOpen(true);
+        return;
+      }
+      setActiveIndex((prev) => Math.min(prev + 1, Math.max(candidates.length - 1, 0)));
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      if (composing) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!listOpen) {
+        setActiveIndex(Math.max(candidates.length - 1, 0));
+        setListOpen(true);
+        return;
+      }
+      setActiveIndex((prev) => Math.max(prev - 1, 0));
+      return;
+    }
+    if (event.key === "Enter") {
+      if (composing) return;
+      if (!listOpen) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const milestone = candidates[activeIndex];
+      if (milestone) toggleMark(milestone.id);
+      return;
+    }
+    if (event.key === "Escape" && listOpen) {
+      event.preventDefault();
+      event.stopPropagation();
+      setListOpen(false);
+    }
+  };
+
+  const activeOptionId =
+    listOpen && candidates[activeIndex]
+      ? `${listId}-opt-${activeIndex}`
+      : undefined;
+
+  const showShowAll = hiddenMilestoneIds.length > 0;
+
+  return (
+    <div className="filter-panel-field filter-panel-tags filter-panel-field-span">
+      <div className="filter-panel-tag-heading">
+        <label className="filter-panel-tag-label" htmlFor={inputId}>
+          帯の印
+        </label>
+        {showShowAll ? (
+          <button
+            type="button"
+            className="filter-clear-all"
+            aria-label="帯の印をすべて表示"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={showAllMarks}
+          >
+            すべて表示
+          </button>
+        ) : null}
+      </div>
+      <div className="filter-panel-sr-only" role="status" aria-live="polite">
+        {clearAnnouncement}
+      </div>
+      <div className="filter-panel-tag-combo" ref={comboRef}>
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="text"
+          className="filter-panel-tag-input"
+          role="combobox"
+          aria-expanded={listOpen}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={activeOptionId}
+          placeholder="名前か日付で検索"
+          autoComplete="off"
+          spellCheck={false}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActiveIndex(0);
+            setListOpen(true);
+          }}
+          onFocus={() => setListOpen(true)}
+          onBlur={() => setListOpen(false)}
+          onClick={() => {
+            if (!listOpen) setListOpen(true);
+          }}
+          onKeyDown={onInputKeyDown}
+        />
+        {listOpen ? (
+          <div
+            className="filter-panel-milestone-dropdown"
+            style={
+              listMaxHeight != null ? { maxHeight: listMaxHeight } : undefined
+            }
+          >
+            {candidates.length > 0 ? (
+              <ul
+                id={listId}
+                ref={listRef}
+                className="filter-panel-tag-options"
+                role="listbox"
+                aria-multiselectable="true"
+              >
+                {candidates.map((milestone, index) => {
+                  const checked = !hiddenSet.has(milestone.id);
+                  const active = index === activeIndex;
+                  const label = milestoneMarkFilterLabel(milestone);
+                  return (
+                    <li
+                      key={milestone.id}
+                      id={`${listId}-opt-${index}`}
+                      role="option"
+                      aria-selected={checked}
+                      data-milestone-mark-index={index}
+                      className={
+                        active
+                          ? "filter-panel-tag-option filter-panel-tag-option-active"
+                          : "filter-panel-tag-option"
+                      }
+                      title={label}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onClick={() => toggleMark(milestone.id)}
+                    >
+                      <span className="filter-panel-tag-option-check" aria-hidden="true">
+                        <input type="checkbox" readOnly tabIndex={-1} checked={checked} />
+                      </span>
+                      <span className="filter-panel-tag-option-label">{label}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+            {candidates.length === 0 ? (
+              <p
+                className="filter-panel-milestone-status"
+                role="status"
+                aria-live="polite"
+              >
+                一致するマイルストンがありません
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>
@@ -620,7 +865,10 @@ type FilterPanelProps = {
   milestones: Milestone[];
   milestoneGroups: MilestoneGroup[];
   hiddenMilestoneGroupIds: ScheduleId[];
+  hiddenMilestoneIds: ScheduleId[];
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
+  onMilestoneMarkVisible: (milestoneId: ScheduleId, visible: boolean) => void;
+  onShowAllMilestoneMarks: () => void;
   assigneeFilterOptions: AssigneeFilterOption[];
   scheduleTags: string[];
   onFiltersChange: (patch: Partial<ScheduleFilters>) => void;
@@ -634,7 +882,10 @@ export function FilterPanel({
   milestones,
   milestoneGroups,
   hiddenMilestoneGroupIds,
+  hiddenMilestoneIds,
   onMilestoneGroupVisible,
+  onMilestoneMarkVisible,
+  onShowAllMilestoneMarks,
   assigneeFilterOptions,
   scheduleTags,
   onFiltersChange,
@@ -791,6 +1042,14 @@ export function FilterPanel({
             onTagsChange={(tags) => onFiltersChange({ tags })}
           />
         )}
+        {milestones.length > 0 ? (
+          <FilterMilestoneMarkField
+            milestones={milestones}
+            hiddenMilestoneIds={hiddenMilestoneIds}
+            onMilestoneMarkVisible={onMilestoneMarkVisible}
+            onShowAllMilestoneMarks={onShowAllMilestoneMarks}
+          />
+        ) : null}
         {milestoneGroups.length > 0 ? (
           <div className="filter-panel-field filter-panel-milestone-groups">
             <span>帯の線</span>

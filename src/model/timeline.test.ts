@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { parseDate } from "./dates";
+import { isoDate, parseDate } from "./dates";
 import {
+  computeTimelineRange,
   fitPxPerDayToViewport,
   fitViewAfterOpen,
   resolveTimelineOrigin,
 } from "./timeline";
+import type { Category, Milestone } from "./types";
 
 describe("resolveTimelineOrigin", () => {
   const pinned = parseDate("2026-09-08");
@@ -80,5 +82,47 @@ describe("fitPxPerDayToViewport", () => {
   it("includes prefix days before the data range when fitting", () => {
     const px = fitPxPerDayToViewport(800, 10, 100, () => 0);
     expect(px).toBeCloseTo(800 / 110, 1);
+  });
+});
+
+describe("computeTimelineRange", () => {
+  it("includes hidden milestone mark dates in the timeline span", () => {
+    const categories: Category[] = [
+      {
+        id: "c1",
+        name: "C",
+        groups: [
+          {
+            id: "g1",
+            name: "G",
+            tasks: [
+              {
+                id: "t1",
+                name: "T",
+                start: "2026-04-01",
+                end: "2026-04-02",
+                assigneeId: null,
+                status: "not-started",
+                progress: 0,
+                confidence: "committed",
+                predecessors: [],
+                milestoneId: null,
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const milestones: Milestone[] = [
+      {
+        id: "m-late",
+        name: "Late",
+        date: "2028-01-01",
+        confidence: "committed",
+        groupId: "g1",
+      },
+    ];
+    const range = computeTimelineRange(categories, milestones, "2026-04-08");
+    expect(isoDate(range.timelineEnd)).toBe("2028-01-08");
   });
 });

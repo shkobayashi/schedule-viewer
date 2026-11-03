@@ -1,6 +1,6 @@
 # テスト仕様
 
-何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
+何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/file_dialog_filters.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
 
 ## 方針
 
@@ -112,7 +112,7 @@
 | 同上 | `centers bar vertically from body row height only` | EXPORT-05 |
 | 同上 | `uses solid fill for committed tasks` | EXPORT-05 |
 | 同上 | `uses hatch foreground for tentative tasks` | EXPORT-05 |
-| 同上 | `changes fill with status, overdue, and color scheme` | EXPORT-05 |
+| 同上 | `uses light status fills` | EXPORT-05 |
 | 同上 | `does not change fill when only dates change` | EXPORT-05 |
 | `excelConnector.test.ts` | `uses straight connector on the same row` | EXPORT-05 |
 | 同上 | `picks stroke color from broken flag only` | EXPORT-05 |
@@ -132,6 +132,7 @@
 | 同上 | `keeps same-day milestone names in document order` | EXPORT-05 |
 | `excelDateColumnBorder.test.ts` | `uses one light border color for all tiers` | EXPORT-05 |
 | `excelSummaryBar.test.ts` | `splits covered spans and adds gap lines between them` | EXPORT-05 |
+| 同上 | `uses light summary colors` | EXPORT-05 |
 | `exportExcel.test.ts` | `spans a task bar across start and end day columns in day view` | EXPORT-05 |
 | 同上 | `puts visible task rows and shapes into the payload` | EXPORT-02, EXPORT-05 |
 | 同上 | `uses 28px header and 22px body rows for month export columns` | EXPORT-05 |
@@ -140,6 +141,12 @@
 | 同上 | `assigns name indent and summary decorations by row kind` | EXPORT-05 |
 | 同上 | `uses black task names and group-row gray for holidays` | EXPORT-05 |
 | 同上 | `uses light group and overdue name colors on a white sheet` | EXPORT-05 |
+| 同上 | `uses light lightning color when colorScheme is dark` | EXPORT-05 |
+| 同上 | `uses light category name when colorScheme is dark` | EXPORT-05 |
+| 同上 | `uses light category fill when colorScheme is dark` | EXPORT-05 |
+| 同上 | `uses light summary colors when colorScheme is dark` | EXPORT-05 |
+| 同上 | `uses light hatch on tentative bars when colorScheme is dark` | EXPORT-05 |
+| 同上 | `uses light connector colors when colorScheme is dark` | EXPORT-05 |
 | 同上 | `uses milestone group name on milestone rows` | EXPORT-05 |
 | `excelExportColumns.test.ts` | `uses default columns when storage is empty` | EXPORT-01, EXPORT-05 |
 | 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
@@ -224,7 +231,25 @@
 | 同上 | `keeps all selected tags when duplicated task matches one of them` | FILTER-12, EDIT-14 |
 | `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
 | `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
+| 同上 | `lists each hidden milestone mark` | FILTER-13 |
+| 同上 | `hides every other milestone id for show only` | FILTER-13 |
 | 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
+| 同上 | `does not count lineage for the filter button` | FILTER-12, FILTER-13 |
+| `milestones.test.ts` | `skips milestones hidden by FILTER-13` | FILTER-13, VIEW-04 |
+| 同上 | `preserves milestone order when one mark is hidden` | FILTER-13 |
+| `rows.test.ts` | `keeps tasks pointing at a hidden milestone mark` | FILTER-13, FILTER-07 |
+| `exportView.test.ts` | `drops a hidden milestone mark even when filter selects it` | FILTER-13, EXPORT-02 |
+| 同上 | `omits hidden mark dates from export range` | FILTER-13, EXPORT-02 |
+| `diffNavigation.test.ts` | `blocks milestone navigation when the mark is hidden` | FILTER-13, DIFF |
+| `scheduleFilterPersistence.test.ts` | `treats missing hiddenMilestoneIds as empty` | FILTER-13, FILE-09 |
+| 同上 | `round-trips hiddenMilestoneIds` | FILTER-13, FILE-09 |
+| 同上 | `rejects hiddenMilestoneIds when not a string array` | FILTER-13, FILE-09 |
+| 同上 | `drops hidden milestone mark ids missing from document` | FILTER-13, FILE-09 |
+| 同上 | `is false when milestone marks are hidden` | FILTER-13, FILE-09 |
+| `screenContext.test.ts` | `includes hidden milestone marks in activeConditions` | FILTER-13, MCP-01 |
+| 同上 | `lists milestoneMarkHidden after milestoneBandHidden` | FILTER-13, MCP-01 |
+| 同上 | `keeps tasks linked to hidden milestone marks in filtered_tasks` | FILTER-13, MCP-01 |
+| `timeline.test.ts` | `includes hidden milestone mark dates in the timeline span` | FILTER-13 |
 | `milestoneField.test.ts` | `prepends none and keeps array order without date sort` | EDIT-04, EDIT-14 |
 | 同上 | `caps milestones at 50 and none does not count` | EDIT-04, EDIT-14 |
 | 同上 | `returns -1 when current is beyond first 50 with empty query` | EDIT-04, EDIT-14 |
@@ -451,6 +476,15 @@
 | 同上 | `ignores a draft for a different path and opens the remembered file` | SYNC-03 |
 | 同上 | `restores when disk formatting differs but canonical matches` | SYNC-03, FILE-04 |
 | 同上 | `returns invalidDisk when the file fails validation` | SYNC-03 |
+| 同上 | `paints sample when nothing was open` | SYNC-03 |
+| 同上 | `paints the document when opening the saved file` | SYNC-03 |
+| 同上 | `paints the document when restoring unsaved edits` | SYNC-03 |
+| 同上 | `holds the body until the user chooses` | SYNC-03 |
+| 同上 | `paints sample when the file is missing and there is no draft` | SYNC-03 |
+| 同上 | `paints the document when the file is missing and a draft exists` | SYNC-03 |
+| 同上 | `paints sample when the draft is invalid` | SYNC-03 |
+| 同上 | `paints sample when the file fails validation` | SYNC-03 |
+| 同上 | `holds the body for a transient main window` | SYNC-03 |
 | `scheduleFilterPersistence.test.ts` | `accepts a valid file` など | SYNC-03 |
 | `serialize.test.ts` | `omits empty note` | EDIT-06 |
 | 同上 | `writes confidence after progress` | FILE-02 |
@@ -611,6 +645,10 @@
 | `sanitize_export_filename_removes_path_separators` | パス区切りを除く | EXPORT-04 |
 | `sanitize_export_filename_uses_default_for_empty` | 空なら `schedule.html` | EXPORT-04 |
 | `sanitize_export_filename_adds_extension` | 拡張子を足す | EXPORT-04, FILE-02 |
+| `schedule_filters_default_to_json_then_schedule_suffix` | Windows と Linux のスケジュール開く・別名保存の種類 | FILE-01, FILE-03 |
+| `members_filters_default_to_members_suffix_then_json` | Windows と Linux のメンバー取り込みの種類 | SET-02 |
+| `calendar_filters_default_to_calendar_suffix_then_json` | Windows と Linux のカレンダー取り込みの種類 | SET-03 |
+| `macos_json_dialogs_keep_a_single_json_filter` | macOS の三つのダイアログが JSON の一種類 | FILE-01, FILE-03, SET-02, SET-03 |
 | `export_xlsx::write_excel_bytes_produces_xlsx` | xlsx の先頭が ZIP である | EXPORT-05 |
 | 同上 | `screen_gridlines_are_off` | シートの `showGridLines` が 0 である | EXPORT-05 |
 | 同上 | `shape_pixel_dimensions_clamps_thin_lines` | EXPORT-05 |
@@ -632,6 +670,9 @@
 | `require_active_save_path_accepts_matching_path` | 開いているパスと一致すれば上書きできる | FILE-02 |
 | `require_active_save_path_rejects_mismatch_and_missing` | パスの不一致と、ファイルを開いていない状態は拒否する | FILE-02 |
 | `should_close_default_main_when_main_not_recorded` | 記録に `main` が無いときだけ、起動時に空の `main` を閉じる | SYNC-03, WIN-01 |
+| 同上 | `transient_main_hides_schedule_body` | SYNC-03 |
+| 同上 | `first_launch_main_is_not_transient` | SYNC-03 |
+| 同上 | `recorded_sample_main_is_not_transient` | SYNC-03 |
 | `should_remove_label_after_destroy_when_another_window_remains` | 終了中以外で別ウィンドウが残る破棄では一覧から外す | SYNC-03, WIN-01 |
 | `resolve_mcp_label_prefers_recorded_then_os_then_focus_order` | MCP の送り先は記録の前面、OS の前面、直近の前面順の順で決める | MCP-01, WIN-01 |
 | `reply_from_other_window_keeps_pending` | 送り先と違うウィンドウの応答は pending を外さない | MCP-01, WIN-01 |
@@ -756,7 +797,7 @@
 
 ## 手動テストケース
 
-前提に書いていないときは、デスクトップ版を起動し、サンプルが表示された状態から始める。ブラウザ版で結果が違う場合は、そのケースに書く。
+前提に書いていないときは、デスクトップ版を起動する。起動復旧の待ちを見ないケースでは、復旧が終わってサンプルまたは前回の内容が出た状態から始める。ブラウザ版で結果が違う場合は、そのケースに書く。
 
 | ID | 機能 | 前提 | 手順 | 期待結果 |
 | --- | --- | --- | --- | --- |
@@ -768,6 +809,9 @@
 | TC-FILE-01e | FILE-01, FILE-04 | schemaVersion 4 で、カテゴリとグループに `id` が無い JSON がある | 「開く」で選ぶ。同じファイルをもう一度開く | どちらも未保存にならない。付けたカテゴリとグループの `id` は同じである。保存すると schemaVersion 7 になる |
 | TC-FILE-01g | FILE-01, FILE-04 | schemaVersion 6 の JSON がある | 「開く」で選ぶ。保存する | 未保存にならず開く。保存すると schemaVersion 7 になる。タグを付けていないタスクに `tags` は無い |
 | TC-FILE-01h | FILE-01, NAV-03 | 期間の短いスケジュールを開き、一覧を下へ送ったあと、同じウィンドウで期間の長いスケジュールを開く。開始が前の原点より後ろのスケジュールも開く | 1日幅は新しい期間が幅に入る値になる。横位置は先頭。一覧は上端から見える。後ろの開始でも、前の原点の空き日の分だけバーが右へ寄らない |
+| TC-FILE-01i | FILE-01, FILE-03 | デスクトップ版 Windows または Linux。同じフォルダに `plan.json`、`workspace.json`、`foo.schedule.json`、名前そのものの `schedule.json` がある | 「開く」で種類を見る。JSON のまま `plan.json` と `workspace.json` を開ける。スケジュールに切り替えると `foo.schedule.json` だけが出る。`schedule.json` は JSON で選べる。別名保存も同じ二種類で、既定は JSON である |
+| TC-FILE-01j | FILE-01, FILE-03, SET-02, SET-03 | デスクトップ版 macOS | 「開く」、別名保存、メンバーと稼働日の「取り込み…」で種類を見る | いずれも JSON の一種類だけである。末尾 `.json` を選べる |
+| TC-FILE-01k | FILE-01, SET-02, SET-03 | ブラウザ版、`npm run dev` | 「開く」と設定の取り込みでファイルを選ぶ | 種類の切り替えは無い。`.json` を選べる |
 | TC-FILE-10 | FILE-10 | 設定ファイルとスケジュールがある | 設定ファイルで開く。通常のウィンドウも同時に開く | 設定ファイルのウィンドウだけメンバーとカレンダーがファイル由来になる。互いにアプリの選択を変えない。同じ設定ファイルを前面にしたときメンバーとカレンダーだけ読み直す。起動し直すと設定ファイルのまま戻る |
 | TC-FILE-11 | FILE-11 | ユーザ設定モードでスケジュールを開き、メンバーとカレンダーを選んでいる | ☰ の「設定ファイルを新しいフォルダへ書き出す」で空のフォルダを選ぶ | `workspace.json` と各 JSON ができ、今のウィンドウはユーザ設定モードのまま。成功の知らせが出る |
 | TC-FILE-09 | FILE-09 | デスクトップ版。検証済みの JSON を複数ある | 「開く」、新しいウィンドウ、ドロップ、アイコンから順に開く | ☰ と macOS のファイルメニューでは「最近開いたファイル」のサブメニューにスケジュールと設定ファイルを別グループで新しい順に並び、区切りの下に「履歴を消す」がある。コマンドパレットに新しい順で並ぶ。☰ のサブメニューで項目にマウスを乗せると絶対パスが出る。同じファイルをもう一度開くと1件のまま先頭へ移る |
@@ -787,6 +831,7 @@
 | TC-FILE-02c | FILE-02 | 同上 | ⌘/Ctrl+S を押す。検索欄にフォーカスがあるときも押す | 「保存」と同じように保存される。モーダルダイアログが開いているときは保存されない |
 | TC-FILE-03 | FILE-03 | サンプルを編集する | 「別名保存」で新しいパスを選ぶ | そのパスに JSON ができ、次の「保存」はそのパスへ書く |
 | TC-FILE-03b | FILE-03 | サンプルを編集する | ⌘/Ctrl+Shift+S で新しいパスを選ぶ | 「別名保存」と同じになる |
+| TC-FILE-03c | FILE-03 | デスクトップ版 Windows または Linux。サンプルを編集する | 「別名保存」で保存ダイアログを開き、種類と提案名を見る | 種類は JSON とスケジュールの二つで、既定は JSON である。提案名の末尾は `.json` のままである |
 | TC-FILE-04 | FILE-04 | ファイルを開いた直後 | 絞り込みだけを変える | 見出しは「未保存」にならない |
 | TC-FILE-04b | FILE-04 | ファイルを開いている | バーを1日動かす | 見出しが「未保存」になる |
 | TC-FILE-05 | FILE-05 | サンプルを編集し、未保存にする | ウィンドウを閉じる | 破棄して閉じるかを聞く。破棄すると控えは残らない |
@@ -843,9 +888,19 @@
 | TC-SYNC-03l | SYNC-03 | マイルストンで絞ったあと、そのマイルストンをファイルから消して閉じる | 起動する | マイルストンの条件は「すべて」になる。取り消しでは戻らない |
 | TC-SYNC-03m | SYNC-03 | 同じパスを2つのウィンドウで開き、前面だけ条件を変えて閉じる | 起動する | 前面の条件だけが戻る |
 | TC-SYNC-03n | SYNC-03 | ブラウザ版で絞り込みを変えて閉じる | ページを開き直す | 絞り込みは戻らない |
-| TC-SYNC-03e | SYNC-03 | 保存して閉じたあと、そのファイルを消す | アプリを起動する | 見つからないと知らせてサンプルになる。ファイルダイアログは出ない。その状態で閉じると、次はサンプルのままである |
-| TC-SYNC-03f | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前にバーをドラッグする | 復旧が終わるまで日付は変わらない。終わったあとはドラッグできる |
-| TC-SYNC-03g | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前に別のエディタでその JSON を保存する。復旧が終わったあと少し待つ | 変えた内容が画面に出る。起動が終わったあとはバーをドラッグできる |
+| TC-SYNC-03e | SYNC-03 | 保存して閉じたあと、そのファイルを消す | アプリを起動する | 見つからないと知らせてサンプルになる。知らせとサンプルが同時に出る。先にサンプルだけは出ない。ファイルダイアログは出ない。その状態で閉じると、次はサンプルのままである |
+| TC-SYNC-03f | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前にバーをドラッグする | 待ちのあいだ、サンプルのタスクや題名は出ない。復旧が終わるまで日付は変わらない。終わったあとはドラッグできる |
+| TC-SYNC-03g | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前に別のエディタでその JSON を保存する。復旧が終わったあと少し待つ | 待ちのあいだ、サンプルのタスクや題名は出ない。変えた内容が画面に出る。起動が終わったあとはバーをドラッグできる |
+| TC-SYNC-03r | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動する | ファイルが出る前に、サンプルのタスク、題名、日付の目盛り、状態バーの「サンプルデータ」は出ない。そのファイルが一度だけ出る。更新の確認はこの待ちに入らない |
+| TC-SYNC-03s | SYNC-03 | 控えがあるあいだに、別のエディタでファイルを変えた | アプリを起動する | 選ぶまで中身は出ない。「ファイルを開く」で最新内容が一度だけ出る。「未保存の編集を戻す」で控えが一度だけ出る。あいだにサンプルは出ない |
+| TC-SYNC-03t | SYNC-03 | 前回のファイルが無く、未保存も無い | アプリを起動する | 見つからない知らせとサンプルが同時に出る。知らせの前にサンプルだけは出ない |
+| TC-SYNC-03u | SYNC-03 | 未保存のまま閉じたあと、対象ファイルを消す | アプリを起動する | 未保存と、ファイルが無い知らせが同時に出る。サンプルは先に出ない |
+| TC-SYNC-03v | SYNC-03 | 控えが壊れている、またはファイルはあるが検証できない | アプリを起動する | 知らせとサンプルが同時に出る。記録は残り、「控えを破棄」で消せる |
+| TC-SYNC-03w | SYNC-03 | 前回がサンプル、または記録が無い | アプリを起動する | サンプルが一度だけ出る |
+| TC-WIN-01h | WIN-01, SYNC-03 | 記録に `main` が無く、追加したウィンドウだけを残して終了したあと | アプリを起動する | 閉じるだけの `main` にサンプルは出ない |
+| TC-WIN-04h | WIN-04, SYNC-03 | アプリを終了している。検証済みの JSON がある | JSON を Dock またはアプリのショートカットへ落とす | 復元が終わるまでサンプルは出ない。復元のあとそのファイルが開く |
+| TC-SYNC-03x | SYNC-03 | ブラウザ版 | ページを開く | 最初からサンプルである。空の枠では始まらない |
+| TC-FILE-01h | FILE-01, SYNC-03 | 起動が終わったあと | 「開く」で別のファイルを選ぶ | 途中で空の枠にはならない |
 | TC-WIN-01 | WIN-01 | デスクトップ版。検証済みの JSON がある | 「新しいウィンドウで開く」で選ぶ | 元のウィンドウは残り、新しいウィンドウにその内容が開く。Windows では新しい窓が白いまま止まらず、元の窓も操作できる |
 | TC-WIN-01b | WIN-01 | 同上 | ⌘/Ctrl+Shift+O で選ぶ | 同上。ブラウザ版ではブラウザのショートカットになる |
 | TC-WIN-01c | WIN-01 | 未保存の編集がある | 「新しいウィンドウで開く」 | 破棄の確認は出ず、新しいウィンドウだけ開く |
@@ -872,6 +927,15 @@
 | TC-VIEW-04 | VIEW-04 | playground または長い名前のマイルストンがある JSON | 右端まで横スクロールする。月表示でも見る。全角24文字を超える名前にカーソルを乗せる。近いひし形の手前で切れる名前も見る。日・週・月を切り替える | 右端まで送ったとき、次のひし形が無い名前と年月が最後まで読める。全角24文字を超える名前は「…」になり、ホバーでチャート内に全文が読める。近いひし形の手前で切れることと、日・週・月の切り替えは今までどおり。グループごとに帯が積まれる。ひし形が重なるときだけ段が増える。左はグループ名。チャート全体の縦線は無い |
 | TC-FILTER-11 | FILTER-11 | マイルストングループが2つ以上ある JSON | 絞り込みの帯の線で1つをオフにする。書き出す | 帯と書き出しからその線が消える。タスク行は変わらない。札とすべて解除で戻る |
 | TC-FILTER-11b | FILTER-11, EDIT-11 | マイルストングループが2つ以上あり、各グループにマイルストンがある JSON | 左のマイルストングループ名の行の空きを右クリックし「非表示」を選ぶ。札を押す。別の行で「この行だけ表示」を選ぶ。残った1行を右クリックし、メニューを見る。そのあと最後の1行も非表示にする。書き出す | 帯と左の行が消える。札でそのグループだけ戻る。「この行だけ表示」で他がオフになり、オフしたグループごとに札が出る。帯に別のグループ行が無くなったあとは、「この行だけ表示」は出ない。全部オフで帯の高さは0。ひし形の右クリックメニューは今どおり。線を引くモードと見出しではメニューが出ない。タスクの選択は変わらない |
+| TC-FILTER-13 | FILTER-13, EXPORT-02, EXPORT-05 | マイルストンが2件以上ある JSON で、1件のチェックを外す。HTML、SVG、Excel で書き出す | 帯と3形式からそのひし形が消える。タスク行は残る |
+| TC-FILTER-13b | FILTER-13, FILTER-11 | 札を押す | その1件だけ戻る。「すべて解除」で帯の印と帯の線が戻り、系統は残る |
+| TC-FILTER-13c | FILTER-13, EDIT-11 | ひし形を右クリックして「非表示」を選ぶ。別のひし形で「このマイルストンだけ表示」を選ぶ。帯に1件だけのときメニューを見る。全部オフにする。線を引くモードでも右クリックする | 帯から消え、札が出る。「このマイルストンだけ表示」で他のひし形が消える。帯の線のチェックはオンのまま。1件だけのときは「このマイルストンだけ表示」が無い。全部オフで帯の高さは 0。線を引くモードではメニューが出ない。タスクの選択は変わらない |
+| TC-FILTER-13d | FILTER-13 | 名前の一部と日付の一部で候補を減らし、一致の無い文字を入れ、7件以上でパネルを開く。表示サイズ 100%、75%、50% で、1件目を外したときの入力欄の位置を見る。「すべて表示」を押す。絞り込みボタンの数を見る | 大文字と小文字は区別する。一致が無いときは文言だけで、枠付きの一覧は無い。6行を超える分は一覧だけがスクロールし、文言はスクロールしなくても見える。パネルの高さは件数で変わらない。入力欄は動かない。「すべて表示」で帯の印だけが戻り、帯の線と検索文字は残る。ボタンの数は、2件隠しても 1 増える |
+| TC-FILTER-13e | FILTER-13, FILTER-07, VIEW-06, EDIT-04 | 隠したマイルストンを指すタスクを見る。FILTER-07 と詳細の「対応マイルストン」を開く。帯の印を変える | 超過は残る。候補にそのマイルストンが出る。タスクの選択は残る |
+| TC-FILTER-13f | FILTER-13, FILE-07, FILTER-11 | 差分の一覧で、帯の印がオフのマイルストンの行を押す。グループの帯の線もオフの行も押す | 前者は「帯の印がオフ」、後者は「帯の線がオフ」。チャートは動かない |
+| TC-FILTER-13g | FILTER-13, EDIT-07 | 編集で別グループへ移す。マイルストンを追加する。隠しているマイルストンを削除する。取り消しを押す | 帯の印は移したあとも残る。追加したひし形は出る。削除した id の札は消える。取り消しでは帯の印は戻らない |
+| TC-FILTER-13h | FILTER-13, EXPORT-02 | タスクよりあとの日付のマイルストンを隠す | 画面は右へその日付まで送れる。書き出しの期間には、その日付を含めない |
+| TC-SYNC-03p | SYNC-03, FILTER-13 | デスクトップ版で帯の印をオフにし、保存済みのまま閉じる。起動する。別途、ブラウザ版で変えてページを開き直す | デスクトップ版は同じ札が戻り、未保存にはならない。ブラウザ版は戻らない |
 | TC-VIEW-04b | VIEW-04, VIEW-12 | 未確定と確定のマイルストンがある | ひし形を、ライトとダークで見る。HTML と SVG に書き出す | 未確定は斜線、確定は塗りつぶし。書き出しも同じ |
 | TC-VIEW-05 | VIEW-05 | 終了日が昨日の未完了タスクと、終了日が今日の未完了タスク | 両方のバーを見る | 昨日で終わるものだけが赤い |
 | TC-VIEW-06 | VIEW-06 | 対応マイルストンより終了日が後のタスクと、当日で終わるタスク | 行を見る | 後のタスクだけ、右が半透明の赤になり「超過」が出る |
@@ -1031,15 +1095,17 @@
 | TC-EXPORT-02 | EXPORT-02 | タスク名で数件に絞る | HTML で書き出す | 絞り込みで残った行だけが入り、絞り込みで隠したタスクは入らない。画面の外にスクロールしている行も入る |
 | TC-EXPORT-03 | EXPORT-03 | 書き出しの行が 10,000 を超えるデータ | 「書き出し」を実行する | ファイルを作らず、行数の上限を理由に出す |
 | TC-EXPORT-04 | EXPORT-04 | タイトルに `/` や `:` がある | 書き出しの保存ダイアログを開く | 提案名からそれらの文字が除かれ、選んだ形式の拡張子が付く |
-| TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。グループ名と遅延のタスク名は、画面がダークでもライト配色の文字色で読める。カテゴリの塗りは左の列だけである。マイルストンは「◆ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
+| TC-EXPORT-05 | EXPORT-05 | デスクトップ版でサンプルを開く。設定をダークにしてもよい | Excel を選び、左の列を変えて保存する | `.xlsx` ができ、選んだ左の列と日付の列に見えている行が入る。ノート列は折り返される。名前の字下げでカテゴリ・グループ・タスクが分かれ、左の列に薄い罫線があり、日付の列は縦罫線だけが付き、マイルストン行には罫線が無い。日表示では休日の列が見出しからタスクまで続き、その灰色はライトのグループ行と同じ濃さである。タスク名は黒である。カテゴリ名、グループ名、遅延のタスク名、カテゴリ行の塗り、タスクバー、親バー、前後の線、今日の縦線は、画面がダークでもライト配色の色である。カテゴリの塗りは左の列だけである。マイルストンは「◆ 名前」で、同日は「、」でつながる。親バーは細く、空きは点線で、両端に直角三角形の角がある。既定の格子は出ない。前後は、先行バーの右辺の中央と後続バーの左辺の中央に付いたカギ線矢印で、イナズマ線がオンのときの今日の縦線が入る。キャンセルではできない |
 | TC-SET-01 | SET-01 | 設定の「表示」 | 「200%」を選び、アプリを起動し直す。次に「自動」を選び、再起動する | 文字と行が大きくなり、再起動後も維持される。「自動」も localStorage に残り、次の起動でも自動のままである |
 | TC-SET-01b | SET-01 | 表示サイズが自動、または 100% | ⌘ または Ctrl と +、=、− を押す。押し続ける。200% と 50% でも押す。検索欄、開いている設定、右クリックメニュー、線を引くモードでも押す | 一段ずつ変わり、端では止まる。自動は隣の固定段になり、再起動後も残る。設定の選択が追従する。右クリックメニューは閉じ、線を引くモードは残る。ページはズームしない |
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
+| TC-SET-02c | SET-02 | デスクトップ版 Windows または Linux。`team.members.json`、名前そのものの `members.json`、スケジュール JSON がある | メンバー「取り込み…」で種類を切り替えて選ぶ | 既定では `team.members.json` だけが出る。`members.json` とスケジュール JSON は JSON で選べる。中身がメンバーでなければ今の検証エラーで、カタログは増えない |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
+| TC-SET-03c | SET-03 | デスクトップ版 Windows または Linux。`jp.calendar.json`、名前そのものの `calendar.json`、メンバー JSON がある | 稼働日「取り込み…」で種類を切り替えて選ぶ | 既定では `jp.calendar.json` だけが出る。`calendar.json` とメンバー JSON は JSON で選べる。中身がカレンダーでなければ今の検証エラー |
 | TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace が `~/.cursor/skills/` に置かれ、パスが示される |
 | TC-SET-05b | SET-05 | 上記のいずれかが既にある | もう一度「置く」 | 上書き確認が出る。上書き後、置いたパスが示される |
 | TC-SET-05c | SET-05 | 指定フォルダへ Claude Code を置く。`~/.claude/skills/` に同名がある | 「置く」 | 置いたあと、個人用が先に使われる旨が出る |
@@ -1081,7 +1147,7 @@
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
 | TC-SET-07c | SET-07 | 表示サイズ 50% と 200%。ライトとダーク | 設定を開く | 行はダイアログの中に収まる。文字色は設定の注記と同じ二次色である。欄が長いときはその欄だけがスクロールし、版の行はダイアログの下に残る |
-| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。画面の絞り込みは変わらない |
+| TC-MCP-01 | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で JSON をコピーし、Cursor または Claude の mcp.json に貼って `schedule_diff`、`baseline_diffs`、`selected_task`、`selected_tasks`、`filtered_tasks` をそれぞれ1回呼ぶ。0件選択、1件選択、2件以上選択のときも `selected_task` と `selected_tasks` を見る | 差分は差分テキストだけ。`baseline_diffs` は `画面:`・`ファイル:`・`分類:` のプレーンテキスト。`selected_task` は1件のときだけそのタスク。0件と2件以上は null。`selected_tasks` は選択をカテゴリ、グループ、タスクの文書順の配列で返す。0件は空配列でエラーではない。1件のときは `selected_task` と同じ1件を含む。2件以上のときは選択の全部を含む。マイルストンは含まない。絞り込みの外でも選択に残っていれば `selected_tasks` に含む。`schedule_diff` と `filtered_tasks` の中身は変わらない。`filtered_tasks` はオン条件と残るタスクだけ。`filtered_tasks` の条件に、帯の線の直後として隠したマイルストンの id、名前、日付が出る。そのマイルストンを指すタスクは、残るタスクに入る。画面の絞り込みは変わらない |
 | TC-MCP-01e | MCP-01 | デスクトップ版、画面の未保存とファイルの外部更新が同時にある | `baseline_diffs` を1回呼ぶ | `画面:` に起点から画面への差分、`ファイル:` に起点からファイルへの差分、`分類:` に画面のみ・ファイルのみ・異なるなどが id ごとに出る。`schedule_diff` の混ざった差分だけでは分類しない |
 | TC-MCP-01b | MCP-01 | デスクトップ版（macOS、Ubuntu、Windows）、アプリを終了した状態 | 登録した MCP でいずれかのツールを呼ぶ | スケジュールのウィンドウが開いていない旨が返る |
 | TC-MCP-01c | MCP-01 | 同じファイルを2つのウィンドウで開き、前面だけ絞り込む | `filtered_tasks` を呼ぶ | 前面の絞り込み結果が返る |

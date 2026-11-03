@@ -5,6 +5,7 @@ import {
   filterChipClearPatch,
   hasOtherVisibleMilestoneBandGroup,
   hiddenMilestoneGroupIdsForShowOnly,
+  hiddenMilestoneIdsForShowOnly,
   pruneHiddenMilestoneGroupIds,
 } from "./filterChips";
 import type { ScheduleFilters } from "./types";
@@ -70,6 +71,30 @@ describe("activeFilterChips", () => {
     );
     expect(chips.map((chip) => chip.label)).toEqual(["帯の線: 承認を非表示"]);
   });
+
+  it("lists each hidden milestone mark", () => {
+    const chips = activeFilterChips(
+      base,
+      [
+        {
+          id: "00000000-0000-4000-8000-000000000010",
+          name: "α",
+          date: "2026-04-01",
+          confidence: "committed",
+          groupId: "e1000001-0000-4000-8000-000000000001",
+        },
+      ],
+      null,
+      null,
+      [],
+      [],
+      [],
+      ["00000000-0000-4000-8000-000000000010"],
+    );
+    expect(chips.map((chip) => chip.label)).toEqual([
+      "帯の印: α（2026-04-01）を非表示",
+    ]);
+  });
 });
 
 describe("pruneHiddenMilestoneGroupIds", () => {
@@ -91,11 +116,36 @@ describe("activeFilterCount", () => {
     expect(activeFilterCount({ ...base, search: "a" }, false)).toBe(1);
     expect(activeFilterCount({ ...base, search: "a" }, true)).toBe(2);
     expect(activeFilterCount(base, false, 2)).toBe(1);
+    expect(activeFilterCount(base, false, 0, 3)).toBe(1);
+    expect(activeFilterCount(base, false, 2, 3)).toBe(2);
   });
 
   it("counts tag filter once regardless of how many tags are selected", () => {
     expect(activeFilterCount({ ...base, tags: ["a"] }, false)).toBe(1);
     expect(activeFilterCount({ ...base, tags: ["a", "b"] }, false)).toBe(1);
+  });
+});
+
+describe("hiddenMilestoneIdsForShowOnly", () => {
+  const milestones = [
+    {
+      id: "m1",
+      name: "A",
+      date: "2026-01-01",
+      confidence: "committed" as const,
+      groupId: "g1",
+    },
+    {
+      id: "m2",
+      name: "B",
+      date: "2026-01-02",
+      confidence: "committed" as const,
+      groupId: "g2",
+    },
+  ];
+
+  it("hides every other milestone id for show only", () => {
+    expect(hiddenMilestoneIdsForShowOnly("m2", milestones)).toEqual(["m1"]);
   });
 });
 

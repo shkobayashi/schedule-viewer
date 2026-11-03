@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   decideRecoveryStartup,
   parseRecoveryDraft,
+  startupContentKind,
 } from "./scheduleRecovery";
 import {
   SCHEDULE_FILE_NOT_FOUND,
@@ -192,5 +193,84 @@ describe("decideRecoveryStartup", () => {
       null,
     );
     expect(action.kind).toBe("invalidDisk");
+  });
+});
+
+describe("startupContentKind", () => {
+  const path = "/tmp/plan.json";
+
+  it("paints sample when nothing was open", () => {
+    const action = decideRecoveryStartup(null, null, null, null);
+    expect(startupContentKind(action, false)).toBe("sample");
+  });
+
+  it("paints the document when opening the saved file", () => {
+    const action = decideRecoveryStartup(path, null, baselineJson, null);
+    expect(startupContentKind(action, false)).toBe("document");
+  });
+
+  it("paints the document when restoring unsaved edits", () => {
+    const doc = withTitle("編集中");
+    const action = decideRecoveryStartup(
+      path,
+      draftJson(doc),
+      baselineJson,
+      null,
+    );
+    expect(startupContentKind(action, false)).toBe("document");
+  });
+
+  it("holds the body until the user chooses", () => {
+    const doc = withTitle("編集中");
+    const disk = withTitle("LLM更新");
+    const action = decideRecoveryStartup(
+      path,
+      draftJson(doc),
+      disk,
+      null,
+    );
+    expect(startupContentKind(action, false)).toBe("hold");
+  });
+
+  it("paints sample when the file is missing and there is no draft", () => {
+    const action = decideRecoveryStartup(
+      path,
+      null,
+      null,
+      SCHEDULE_FILE_NOT_FOUND,
+    );
+    expect(startupContentKind(action, false)).toBe("sample");
+  });
+
+  it("paints the document when the file is missing and a draft exists", () => {
+    const doc = withTitle("編集中");
+    const action = decideRecoveryStartup(
+      path,
+      draftJson(doc),
+      null,
+      SCHEDULE_FILE_NOT_FOUND,
+    );
+    expect(startupContentKind(action, false)).toBe("document");
+  });
+
+  it("paints sample when the draft is invalid", () => {
+    const action = decideRecoveryStartup(path, "{", baselineJson, null);
+    expect(startupContentKind(action, false)).toBe("sample");
+  });
+
+  it("paints sample when the file fails validation", () => {
+    const doc = withTitle("編集中");
+    const action = decideRecoveryStartup(
+      path,
+      draftJson(doc),
+      "{",
+      null,
+    );
+    expect(startupContentKind(action, false)).toBe("sample");
+  });
+
+  it("holds the body for a transient main window", () => {
+    const action = decideRecoveryStartup(null, null, null, null);
+    expect(startupContentKind(action, true)).toBe("hold");
   });
 });

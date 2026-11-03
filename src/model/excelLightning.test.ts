@@ -27,7 +27,6 @@ describe("excelLightning", () => {
         1,
         4,
         2,
-        "light",
       ),
     ).toBeNull();
   });
@@ -46,7 +45,6 @@ describe("excelLightning", () => {
         1,
         4,
         2,
-        "light",
       ),
     ).toBeNull();
   });
@@ -65,7 +63,6 @@ describe("excelLightning", () => {
         0,
         4,
         2,
-        "light",
       ),
     ).toBeNull();
   });
@@ -83,7 +80,6 @@ describe("excelLightning", () => {
       1,
       4,
       2,
-      "light",
     );
     expect(line).toEqual({
       row: 2,
@@ -107,7 +103,6 @@ describe("excelLightning", () => {
       2,
       4,
       2,
-      "light",
     );
     const short = excelTodayLineDescriptor(
       true,
@@ -121,7 +116,6 @@ describe("excelLightning", () => {
       2,
       4,
       2,
-      "light",
     );
     expect(tall?.heightPx).toBe(60);
     expect(short?.heightPx).toBe(44);
