@@ -67,8 +67,8 @@ flowchart TD
 | `ShortcutsDialog.tsx` | ショートカット一覧 |
 | `CommandPalette.tsx` | ⌘/Ctrl+K のコマンドパレット |
 | `Sidebar.tsx` | 左の行、階層の細い縦線（`hierarchyGuide.ts` が見えている行から本数を決める）、マイルストングループ名の行の右クリック、折りたたみ、切れた名前の全文、タスク行のクリック選択とホバー帯、左端の握りによる並べ替えと別グループへの移動、グループ行の握りによる並べ替えと別カテゴリへの移動、カテゴリ行の握りによる並べ替え、並べ替え中にポインタへ付く半透明の行または塊 |
-| `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer`。説明用の半透明は DOM の `ExplanationOverlay.tsx` を本体末尾に重ね、`pointer-events: none` |
-| `ExplanationOverlay.tsx` | 説明セッションの半透明ベール。`.timeline-body` 上の SVG。MCP 読み取り PNG では `data-explanation-overlay` を `captureMainForMcp.ts` が除外する |
+| `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer`。説明用の半透明は DOM の `ExplanationOverlay.tsx` を `.timeline` 全体に重ね、`pointer-events: none` |
+| `ExplanationOverlay.tsx` | 説明セッションの半透明ベール。`.timeline` と `.sidebar`（説明の帯の下）に同じ SVG 構造で重ねる。MCP 読み取り PNG では `data-explanation-overlay` を `captureMainForMcp.ts` が除外する |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
 | `ModalDialog.tsx` | 共通の枠。Escape、フォーカスの保持、背面の操作禁止。`#root` の `inert` は `useLayoutEffect` で付け外しし、閉じたあとの描画の前に外す |

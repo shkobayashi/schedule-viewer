@@ -4527,6 +4527,7 @@ function App() {
           sticky={stickyLayout}
           sidebarColumns={sidebarColumns}
           chartTopBannerHeight={chartTopBannerHeight}
+          explanationOverlayTranslucent={schedule.explanationOverlayActive}
         />
         <div className="chart-detail">
         {bulkDiscardNotice ? (

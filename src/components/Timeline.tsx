@@ -3212,14 +3212,14 @@ export function Timeline({
             {stickyContent}
           </Layer>
         </Stage>
-        {explanationOverlayTranslucent ? (
-          <ExplanationOverlay
-            width={width}
-            height={bodyHeight}
-            colorScheme={colorScheme}
-          />
-        ) : null}
       </div>
+      {explanationOverlayTranslucent ? (
+        <ExplanationOverlay
+          width={width}
+          height={headerHeight + milestoneBandHeight + bodyHeight}
+          colorScheme={colorScheme}
+        />
+      ) : null}
     </div>
   );
 }
