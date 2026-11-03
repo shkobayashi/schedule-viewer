@@ -67,7 +67,8 @@ flowchart TD
 | `ShortcutsDialog.tsx` | ショートカット一覧 |
 | `CommandPalette.tsx` | ⌘/Ctrl+K のコマンドパレット |
 | `Sidebar.tsx` | 左の行、階層の細い縦線（`hierarchyGuide.ts` が見えている行から本数を決める）、マイルストングループ名の行の右クリック、折りたたみ、切れた名前の全文、タスク行のクリック選択とホバー帯、左端の握りによる並べ替えと別グループへの移動、グループ行の握りによる並べ替えと別カテゴリへの移動、カテゴリ行の握りによる並べ替え、並べ替え中にポインタへ付く半透明の行または塊 |
-| `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer` |
+| `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer`。説明用の半透明は DOM の `ExplanationOverlay.tsx` を本体末尾に重ね、`pointer-events: none` |
+| `ExplanationOverlay.tsx` | 説明セッションの半透明ベール。`.timeline-body` 上の SVG。MCP 読み取り PNG では `data-explanation-overlay` を `captureMainForMcp.ts` が除外する |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
 | `ModalDialog.tsx` | 共通の枠。Escape、フォーカスの保持、背面の操作禁止。`#root` の `inert` は `useLayoutEffect` で付け外しし、閉じたあとの描画の前に外す |
@@ -79,7 +80,7 @@ flowchart TD
 
 | フック | 持つもの |
 | --- | --- |
-| `useSchedule` | 文書、取り消し、絞り込み、選択（`taskSelection` の id 配列と `anchorId` / `activeId`。履歴に入れない）、折りたたみ、系統、編集対象、複製元、一括下書き、タスクとカテゴリの並べ替えのプレビュー |
+| `useSchedule` | 文書、取り消し、絞り込み、選択（`taskSelection` の id 配列と `anchorId` / `activeId`。履歴に入れない）、折りたたみ、系統、編集対象、複製元、一括下書き、タスクとカテゴリの並べ替えのプレビュー、説明のための見え方（`explanationView`）と半透明（`explanationOverlay`）。`clearExplanationSession` で絞り込みと半透明をまとめて片付ける |
 | `useMacOSAppMenu` | macOS のデスクトップ版だけ、画面上部のアプリメニューを組み立てる |
 | `useScheduleFile` | パス、未保存の基準、開く、履歴から開く、ドロップで開く、閉じる確認。保存、控え、外部更新、起動復旧は `src/hooks/scheduleFile/` に分け、戻り値はここがまとめる |
 | `useRecentFiles` | `recent-files.json` の読み直しと消去。ウィンドウが前面になったときも読み直す |
@@ -91,7 +92,7 @@ flowchart TD
 | `useMemberCatalogEditorOverlay` | SET-02 の覆い。編集セッションの取得（`claim_member_catalog_edit`）、下書き、設定ファイルへの `write_members_at_path` |
 | `useStatusCatalog` | ステータス一覧の読み込みと選択。無いときは組み込みの三件 |
 | `useAppCalendar` | カレンダーの読み込み |
-| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 6 ツールと前面向け操作ツールを組み立てる。操作ツールは `assessMcpOperationGate` と `mcpActionExecutor` を通す（`current_schedule` は `scheduleCurrentJson` を返す。`window` は橋渡しで外れる。文書の `levels`、使用中のステータス `statuses`、使用中の色 `colors`（`displayColors`）、使用中のメンバー `mcpMembers`（`displayMembers`）、追加項目定義 `fields`、見方 `view`（折りたたみ集合、`explanation`、 `visible` の日付と行、表示サイズ、行の密度、イナズマ線、追加列、配色、カレンダー）とタスクの `visibility` を `screenContext` に渡す。`explain_view` は `explainView.ts` で検証し、`useSchedule.runExplainViewAction` で `explanationView` を更新する。読み取り 3 ツールは `.main` を PNG にして MCP の image として返す。`.main` の絵が取れないときも読み取り自体は成功とし、JSON の `screenCapture.message` に「今の画面の絵を取れませんでした。」または「絵が大きすぎるため、絵だけ渡せません。」を載せる。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・`assessMcpReplaceUiBlocking` の操作中。SYNC-01 の衝突確認だけ開いているときは除く）と引数を検証し、`assessReplaceScheduleLevelCount` で渡した JSON の段数と入れ子を見てから `useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。衝突確認のあいだに置き換えたときは `useScheduleExternalReload` の `completeReplaceDuringConflictReload` で確認を閉じ、帯用の追跡を残す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
+| `useMcpScreenBridge` | デスクトップ版だけ。自ウィンドウ宛の `mcp-screen-request` だけを受け、読み取り 6 ツールと前面向け操作ツールを組み立てる。操作ツールは `assessMcpOperationGate` と `mcpActionExecutor` を通す（`current_schedule` は `scheduleCurrentJson` を返す。`window` は橋渡しで外れる。文書の `levels`、使用中のステータス `statuses`、使用中の色 `colors`（`displayColors`）、使用中のメンバー `mcpMembers`（`displayMembers`）、追加項目定義 `fields`、見方 `view`（折りたたみ集合、`explanation`、 `visible` の日付と行、表示サイズ、行の密度、イナズマ線、追加列、配色、カレンダー）とタスクの `visibility` を `screenContext` に渡す。`explain_view` は `explainView.ts` で検証し、`useSchedule.runExplainViewAction` で `explanationView` を更新する。`explain_overlay` は `explainOverlay.ts` で検証し、`useSchedule.runExplainOverlayAction` で `explanationOverlay`（半透明の on/off）を更新する。読み取り 3 ツールは `captureMainForMcp.ts` が `data-explanation-overlay` を除いた `.main` を PNG にして MCP の image として返す。`.main` の絵が取れないときも読み取り自体は成功とし、JSON の `screenCapture.message` に「今の画面の絵を取れませんでした。」または「絵が大きすぎるため、絵だけ渡せません。」を載せる。`replace_schedule` は `replaceSchedule.ts` で門（起動未完了・起動復旧ダイアログ・`assessMcpReplaceUiBlocking` の操作中。SYNC-01 の衝突確認だけ開いているときは除く）と引数を検証し、`assessReplaceScheduleLevelCount` で渡した JSON の段数と入れ子を見てから `useSchedule.replaceScheduleDocument` で履歴付き置き換えのあと `scheduleDiffLoad` で差分テキストを返す。衝突確認のあいだに置き換えたときは `useScheduleExternalReload` の `completeReplaceDuringConflictReload` で確認を閉じ、帯用の追跡を残す。編集拒否は `isError`、保存形式が同じときは差分だけ成功 |
 
 ### モデル
 
@@ -111,7 +112,7 @@ flowchart TD
 | 外部更新時の非衝突合成と判定 | `baselineMerge.ts`（`assessBaselineMerge`、`buildNonConflictingMergedDocument` は `baselineDiffs.ts`。合成の検証は `documentToJson`） |
 | 外部更新確認の一覧表示 | `baselineMergeReview.ts`（`buildBaselineMergeReview`、`buildBaselineMergeConflictReview`。`collectScheduleDiffBlocks` と衝突一覧の追加項目に使用中の定義を渡す） |
 | 反映の取り消しで帯を戻す判定 | `baselineMergeDeferred.ts` |
-| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks` / `current_schedule`。タスク系の応答の先頭は `levels`、続けて `statuses`（バーの色を含む）、続けて `colors`、続けて `members`、続けて `fields`、続けて `view`（折りたたみ、`explanation`、表示サイズ、行の密度、イナズマ線、追加列、配色、稼働日カレンダー）。`members` は `memberEntriesForMcp` で `id`・`name` と、空でないときだけ `description`。タスクには `colorId` があるときだけ `colorId`、値があるときだけ `fieldValues`）、`explainView.ts`（`explain_view` の JSON と `explanationView`）、`fieldValuesDiff.ts`（差分テキストの追加項目行）、`hierarchyLevelEdit.ts`（階層ダイアログの確定、保存前の `assessHierarchySave`、`replace_schedule` 前の `assessReplaceScheduleLevelCount`）、`scheduleDiffLoad.ts`（`schedule_diff`。使用中の定義を渡して FILE-07 の追加項目行を出す）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
+| MCP 用の画面スナップショット | `screenContext.ts`（`filtered_tasks` / `selected_task` / `selected_tasks` / `current_schedule`。タスク系の応答の先頭は `levels`、続けて `statuses`（バーの色を含む）、続けて `colors`、続けて `members`、続けて `fields`、続けて `view`（折りたたみ、`explanation`、表示サイズ、行の密度、イナズマ線、追加列、配色、稼働日カレンダー）。`view` の外側に、半透明が on のときだけ `explanationOverlay`（`translucent: true`）。`members` は `memberEntriesForMcp` で `id`・`name` と、空でないときだけ `description`。タスクには `colorId` があるときだけ `colorId`、値があるときだけ `fieldValues`）、`explainView.ts`（`explain_view` の JSON と `explanationView`）、`explainOverlay.ts`（`explain_overlay` の JSON と `explanationOverlay`）、`captureMainForMcp.ts`（読み取り PNG から説明用半透明を除く）、`fieldValuesDiff.ts`（差分テキストの追加項目行）、`hierarchyLevelEdit.ts`（階層ダイアログの確定、保存前の `assessHierarchySave`、`replace_schedule` 前の `assessReplaceScheduleLevelCount`）、`scheduleDiffLoad.ts`（`schedule_diff`。使用中の定義を渡して FILE-07 の追加項目行を出す）、`baselineDiffsLoad.ts`（`baseline_diffs`）、`replaceSchedule.ts`（`replace_schedule` の門と差分上限）、`mcpRegistration.ts` |
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
@@ -128,7 +129,7 @@ flowchart TD
 | 種類 | 中身 | 置く場所 | 残るか |
 | --- | --- | --- | --- |
 | 文書（`ScheduleDocument`） | タイトル、カテゴリ、マイルストングループ、マイルストン、任意の `levels` と `outline` | `useSchedule` | ファイルと控えだけ。取り消しはメモリ |
-| 表示 | 絞り込み、帯の線の表示、選択、折りたたみ、系統、線を引くモード、説明のための見え方（`explanationView`）、ズーム、スクロール | `useSchedule`、`App.tsx`、`useTimelineView` | 絞り込み、帯の線、折りたたみはデスクトップ版でパスごとに `schedule-filters/`。説明のための見え方はメモリだけで、次回起動には残さない。☰ の「開く」と新しいウィンドウでは初期化。系統、選択、ズーム、スクロールは残さない。開いた直後はズームと一覧の縦位置を先頭へ戻す |
+| 表示 | 絞り込み、帯の線の表示、選択、折りたたみ、系統、線を引くモード、説明のための見え方（`explanationView`）と半透明（`explanationOverlay`）、ズーム、スクロール | `useSchedule`、`App.tsx`、`useTimelineView` | 絞り込み、帯の線、折りたたみはデスクトップ版でパスごとに `schedule-filters/`。説明のための見え方と半透明はメモリだけで、次回起動には残さない。☰ の「開く」と新しいウィンドウでは初期化。系統、選択、ズーム、スクロールは残さない。開いた直後はズームと一覧の縦位置を先頭へ戻す |
 | ファイル | パス、未保存判定の基準にする JSON、ディスクのハッシュ | `useScheduleFile` と Rust の `ScheduleFileStates`（ウィンドウラベルごと） | ウィンドウ一覧は `open-windows.json`。未保存の控えはパスごとに `schedule-recovery/`。絞り込みはパスごとに `schedule-filters/` |
 
 取り消しのスナップショットに入るのは `title`、`categories`、`milestoneGroups`、`milestones`、`levels`、`outline` である。絞り込みなどの表示状態は履歴に入らない。`history.ts` は、内容が同じ変更を積まず、最大 100 件で古いものから捨てる。比較は保存形式の文字列で行い、現在の文書のキーを覚えているので、次の文書だけを文字列化する。文書を変える操作は、確定したときに 1 ステップだけ積む。失敗した変更は積まない。マイルストンを消して絞り込みを「すべて」に戻すことは表示状態で、その戻りは履歴に入らない。編集で別のマイルストングループへ移し、移した先の帯の線がオフだったときにそのグループだけオンに戻すことも表示状態で、履歴に入らない。線を引くモードの起点は表示状態で、選択が起点と違う値になったときモードは終わる。

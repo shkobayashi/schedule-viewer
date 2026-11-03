@@ -1091,7 +1091,7 @@ function App() {
     catalogMismatchText != null ||
     linkSourceId != null ||
     hierarchyTopBanner != null ||
-    schedule.explanationActive;
+    schedule.explanationSessionActive;
 
   useLayoutEffect(() => {
     const node = chartTopBannersRef.current;
@@ -1113,7 +1113,7 @@ function App() {
     schedule.hierarchyLevelBanner,
     linkSourceId,
     linkError,
-    schedule.explanationActive,
+    schedule.explanationSessionActive,
   ]);
 
   const range = useMemo(
@@ -2908,6 +2908,7 @@ function App() {
     getFilterViewState: () => schedule.getFilterViewState(),
     clearExplanationOnSetView: schedule.clearExplanationView,
     runExplainViewAction: schedule.runExplainViewAction,
+    runExplainOverlayAction: schedule.runExplainOverlayAction,
     applyPartialFilterViewState: schedule.applyPartialFilterViewState,
     applySetViewPreferences: (patch: McpSetViewPatch) => {
       if (patch.displayScale !== undefined) {
@@ -3030,6 +3031,7 @@ function App() {
     collapsed: schedule.getDisplayedCollapsedForMcp(),
     userCollapsed: schedule.getCollapsedForMcp(),
     explanationView: schedule.explanationView,
+    explanationOverlay: schedule.explanationOverlay,
     displayScalePreference,
     effectiveUiScale: uiScale,
     rowDensity,
@@ -4569,7 +4571,7 @@ function App() {
                   ) : null}
                 </div>
               ) : null}
-              {schedule.explanationActive ? (
+              {schedule.explanationSessionActive ? (
                 <div className="explanation-banner" role="status">
                   <div className="explanation-banner-text">説明を表示しています</div>
                   <button
@@ -4646,6 +4648,7 @@ function App() {
             sticky={stickyLayout}
             showLightningLine={showLightningLine}
             onBarDragActiveChange={setChartBarDragging}
+            explanationOverlayTranslucent={schedule.explanationOverlayActive}
           />
         </div>
         {selectedDetailTask ? (

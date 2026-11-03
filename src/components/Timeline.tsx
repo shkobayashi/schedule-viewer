@@ -89,6 +89,7 @@ import type { CalendarDocument } from "../model/calendarTypes";
 import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
 import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "../model/palette";
 import { MilestoneBand } from "./MilestoneBand";
+import { ExplanationOverlay } from "./ExplanationOverlay";
 import {
   MilestoneHoverOverlay,
   type MilestoneHoverState,
@@ -169,6 +170,7 @@ type TimelineProps = {
   sticky: StickyLayout;
   showLightningLine?: boolean;
   onBarDragActiveChange?: (active: boolean) => void;
+  explanationOverlayTranslucent?: boolean;
 };
 
 const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
@@ -1532,6 +1534,7 @@ export function Timeline({
   sticky,
   showLightningLine = true,
   onBarDragActiveChange,
+  explanationOverlayTranslucent = false,
 }: TimelineProps) {
   const linkMode = linkSourceId != null;
   const chart = useMemo(
@@ -3209,6 +3212,13 @@ export function Timeline({
             {stickyContent}
           </Layer>
         </Stage>
+        {explanationOverlayTranslucent ? (
+          <ExplanationOverlay
+            width={width}
+            height={bodyHeight}
+            colorScheme={colorScheme}
+          />
+        ) : null}
       </div>
     </div>
   );

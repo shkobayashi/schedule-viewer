@@ -34,6 +34,7 @@ import {
 } from "./rows";
 import { documentToJsonString } from "./serialize";
 import { parseDate } from "./dates";
+import { defaultScheduleFilterViewState } from "./scheduleFilterPersistence";
 import { BUILTIN_STATUS_ITEMS, type StatusItem } from "./statusCatalog";
 import type { ColorItem } from "./colorCatalog";
 import type { Member } from "./memberTypes";
@@ -1554,6 +1555,64 @@ describe("view in MCP read payloads", () => {
   it("omits view.explanation when explanation is inactive", () => {
     const view = buildMcpViewForReadTools(defaultMcpViewForReadToolsInput([]));
     expect(view.explanation).toBeUndefined();
+  });
+
+  it("includes explanationOverlay when translucent", () => {
+    const payload = buildFilteredTasksPayload({
+      ...defaultMcpViewForReadToolsInput([]),
+      categories: [],
+      filters: defaultScheduleFilterViewState().filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      explanationOverlay: { translucent: true },
+    });
+    expect(payload.explanationOverlay).toEqual({ translucent: true });
+    expect(payload.view.explanation).toBeUndefined();
+  });
+
+  it("omits explanationOverlay when translucent is off", () => {
+    const payload = buildFilteredTasksPayload({
+      ...defaultMcpViewForReadToolsInput([]),
+      categories: [],
+      filters: defaultScheduleFilterViewState().filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      explanationOverlay: null,
+    });
+    expect(payload.explanationOverlay).toBeUndefined();
+  });
+
+  it("explanationOverlay is outside tasks and view.explanation", () => {
+    const t = taskFixture("00000000-0000-4000-8000-000000000010", "Explain");
+    const categories = categoryWithTasks([t]);
+    const payload = buildFilteredTasksPayload({
+      ...defaultMcpViewForReadToolsInput(categories),
+      categories,
+      filters: defaultScheduleFilterViewState().filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      explanationOverlay: { translucent: true },
+      explanationView: {
+        taskIds: new Set([t.id]),
+        collapseOverride: null,
+      },
+      userCollapsed: new Set(),
+      collapsed: new Set(),
+    });
+    expect(payload.explanationOverlay).toEqual({ translucent: true });
+    expect(payload.view.explanation?.taskIds).toEqual([t.id]);
+    expect(
+      payload.tasks.every((task) => !("explanationOverlay" in task)),
+    ).toBe(true);
   });
 });
 

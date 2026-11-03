@@ -3565,6 +3565,13 @@ button:focus-visible,
   cursor: grabbing;
 }
 
+.explanation-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
 .command-palette-overlay {
   align-items: flex-start;
   padding-top: calc(72px * var(--s));
