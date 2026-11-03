@@ -235,7 +235,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "explain_overlay",
-                "description": "前面ウィンドウのチャート本体に、説明の半透明だけを重ねます。translucent が true で出し、false で消します。計画のファイル、差分、次回起動の記録には残しません。読み取り 3 ツールの explanationOverlay を見てください。判断の手順は schedule-talk スキルにある。",
+                "description": "前面ウィンドウの左の一覧とチャート（日付ヘッダー、マイルストン帯、本体）に、説明の半透明だけを重ねます。translucent が true で出し、false で消します。計画のファイル、差分、次回起動の記録には残しません。読み取り 3 ツールの explanationOverlay を見てください。判断の手順は schedule-talk スキルにある。",
                 "inputSchema": { "type": "object" }
             },
             {

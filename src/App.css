@@ -3565,11 +3565,26 @@ button:focus-visible,
   cursor: grabbing;
 }
 
-.explanation-overlay {
+.explanation-overlay-host {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
   pointer-events: none;
-  z-index: 2;
+  z-index: 5;
+}
+
+.timeline > .explanation-overlay-host {
+  top: 0;
+}
+
+.sidebar > .explanation-overlay-host {
+  /* top は chartTopBannerHeight を inline で指定 */
+}
+
+.explanation-overlay {
+  display: block;
 }
 
 .command-palette-overlay {

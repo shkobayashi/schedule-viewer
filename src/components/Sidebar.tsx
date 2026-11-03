@@ -46,6 +46,7 @@ import {
 } from "../model/hierarchyGuide";
 import type { HierarchyGuideSpec } from "../model/hierarchyGuide";
 import { HierarchyGuideRail } from "./HierarchyGuideRail";
+import { ExplanationOverlay } from "./ExplanationOverlay";
 import { TaskNoteButton } from "./TaskNoteButton";
 import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
 import {
@@ -166,6 +167,7 @@ type SidebarProps = {
   sticky: StickyLayout;
   sidebarColumns: SidebarColumnsPreference;
   chartTopBannerHeight: number;
+  explanationOverlayTranslucent?: boolean;
 };
 
 export function Sidebar({
@@ -225,9 +227,14 @@ export function Sidebar({
   sticky,
   sidebarColumns,
   chartTopBannerHeight,
+  explanationOverlayTranslucent = false,
 }: SidebarProps) {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const [overlayBelowBannerSize, setOverlayBelowBannerSize] = useState({
+    width: 0,
+    height: 0,
+  });
   const hiddenIndexes = sticky.hiddenIndexes;
   const guideSpecs = useMemo(() => hierarchyGuideSpecsForRows(rows), [rows]);
   const assigneeDuplicateNames = useMemo(
@@ -303,6 +310,26 @@ export function Sidebar({
     sidebar.addEventListener("wheel", onWheel, { passive: false });
     return () => sidebar.removeEventListener("wheel", onWheel);
   }, [onWheelRows]);
+
+  useLayoutEffect(() => {
+    if (!explanationOverlayTranslucent) {
+      setOverlayBelowBannerSize({ width: 0, height: 0 });
+      return;
+    }
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+    const update = () => {
+      const height = sidebar.clientHeight - chartTopBannerHeight;
+      setOverlayBelowBannerSize({
+        width: sidebar.clientWidth,
+        height: height > 0 ? height : 0,
+      });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(sidebar);
+    return () => observer.disconnect();
+  }, [chartTopBannerHeight, explanationOverlayTranslucent]);
 
   const rowStyle = (y: number): CSSProperties => ({
     position: "absolute",
@@ -912,6 +939,16 @@ export function Sidebar({
           />
         ) : null}
       </div>
+      {explanationOverlayTranslucent &&
+      overlayBelowBannerSize.width > 0 &&
+      overlayBelowBannerSize.height > 0 ? (
+        <ExplanationOverlay
+          width={overlayBelowBannerSize.width}
+          height={overlayBelowBannerSize.height}
+          colorScheme={colorScheme}
+          style={{ top: chartTopBannerHeight }}
+        />
+      ) : null}
       <SidebarResizer
         uiScale={uiScale}
         sidebarWidth={sidebarWidth}
