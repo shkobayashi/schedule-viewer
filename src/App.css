@@ -3570,6 +3570,7 @@ button:focus-visible,
   left: 0;
   right: 0;
   bottom: 0;
+  overflow: hidden;
   pointer-events: none;
   z-index: 5;
 }
