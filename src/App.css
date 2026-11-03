@@ -2563,8 +2563,8 @@ button:focus-visible,
 }
 
 .explanation-banner-dismiss:hover {
-  color: var(--text-primary);
-  -webkit-text-fill-color: var(--text-primary);
+  color: var(--text);
+  -webkit-text-fill-color: var(--text);
 }
 
 .chart-top-banners {

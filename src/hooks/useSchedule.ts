@@ -2682,6 +2682,9 @@ export function useSchedule(
       setDiskEpoch((epoch) => epoch + 1);
       setReorderPreview(null);
       pruneUiForDocument(snapshot);
+      if (explanationViewRef.current != null) {
+        setExplanationView(null);
+      }
       syncHistoryUi();
     },
     [pruneUiForDocument, setReorderPreview, syncHistoryUi],
