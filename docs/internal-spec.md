@@ -119,7 +119,7 @@ flowchart TD
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
 | アプリデータ | `memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportExcel.ts`、`exportView.ts`、`exportFilename.ts` |
-| 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts` |
+| 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts`（UI 色と `applyCssPalette`）、`design/uiTokens.ts`（半径・余白・タイポ・影・モーション）、`design/appChrome.css`（Raycast シェル） |
 | キーボードショートカット | `shortcuts.ts` |
 | 操作の案内の文 | `guideContent.ts` |
 

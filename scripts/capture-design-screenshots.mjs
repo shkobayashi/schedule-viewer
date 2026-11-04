@@ -31,6 +31,140 @@ const DARK_DIRECTIONS = [
 ];
 
 const captureDarkOnly = process.argv.includes("--capture-dark-only");
+const capturePhase3Only = process.argv.includes("--phase3-evidence");
+const capturePhase3BeforeOnly = process.argv.includes("--phase3-before-only");
+const captureLegacyDirections = process.argv.includes("--legacy-directions");
+const viteRoot = process.env.BASELINE_ROOT
+  ? path.resolve(process.env.BASELINE_ROOT)
+  : root;
+
+const INVENTORY_SUFFIXES = [
+  "main",
+  "milestone-band",
+  "filter-panel",
+  "settings",
+  "diff-panel",
+  "explain-overlay",
+  "context-menu",
+  "task-detail",
+];
+
+async function captureInventory(page, { namePrefix = "inventory", colorScheme = "light" } = {}) {
+  const file = (suffix) => path.join(outDir, `${namePrefix}-${suffix}.png`);
+  await prepareMain(page, "", colorScheme);
+  await page.screenshot({
+    path: file("main"),
+  });
+
+  await page.locator(".milestone-band").screenshot({
+    path: file("milestone-band"),
+  });
+
+  await page.getByRole("button", { name: /^絞り込み/ }).click();
+  await page.waitForTimeout(300);
+  await page.screenshot({
+    path: file("filter-panel"),
+  });
+  await page.keyboard.press("Escape");
+
+  await openSettings(page);
+  await page.screenshot({
+    path: file("settings"),
+  });
+  await page.locator(".settings-dialog").getByRole("button", { name: "閉じる" }).click();
+  await page.waitForTimeout(300);
+
+  await applyOpen(page, colorsSchedule);
+  await page.waitForSelector(".toolbar-title-text", {
+    hasText: "操作マニュアル用の見本",
+    timeout: 60_000,
+  });
+  await page.waitForTimeout(400);
+  const progressTask = page.getByText("進行中（青）", { exact: true });
+  await progressTask.click();
+  await page.locator("#detailName").fill("進行中（青・差分用）");
+  await page.locator("#detailName").blur();
+  await page.waitForTimeout(400);
+  await page.locator(".diff-strip-handle").click();
+  await page.waitForFunction(() => {
+    const list = document.querySelector(".diff-strip-list");
+    const body = document.querySelector(".diff-strip-row-body");
+    const text = `${list?.textContent ?? ""}${body?.textContent ?? ""}`;
+    return text.includes("→");
+  });
+  await page.waitForTimeout(300);
+  await page.screenshot({
+    path: file("diff-panel"),
+  });
+  await applyOpen(page, playgroundSchedule);
+  await page.waitForSelector(".toolbar-title-text", { hasText: "playground" });
+  await page.waitForTimeout(400);
+
+  const canShowExplain = await page.evaluate(
+    () => typeof window.__manualScreenshotShowExplainOverlay === "function",
+  );
+  if (canShowExplain) {
+    await page.evaluate(() => window.__manualScreenshotShowExplainOverlay?.());
+    await page.waitForSelector(".explanation-sidebar-veil", { timeout: 15_000 });
+    await page.waitForTimeout(600);
+    await page.screenshot({
+      path: file("explain-overlay"),
+    });
+  } else {
+    console.warn(
+      `${namePrefix}: skipping explain-overlay (manual-screenshot hook unavailable)`,
+    );
+  }
+
+  const taskLabel = page.getByText("要件定義書作成", { exact: true }).first();
+  await taskLabel.click({ button: "right" });
+  await page.waitForSelector(".context-menu");
+  await page.waitForTimeout(250);
+  await page.screenshot({
+    path: file("context-menu"),
+  });
+  await page.keyboard.press("Escape");
+
+  await taskLabel.click();
+  await page.waitForSelector('[aria-label="タスクの詳細"]');
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: file("task-detail"),
+  });
+}
+
+async function buildPhase3Comparisons() {
+  const pairs = [
+    { suffix: "main", height: 720, useFromPaths: false },
+    { suffix: "settings", height: 640, useFromPaths: false },
+    { suffix: "explain-overlay", height: 720, useFromPaths: false },
+  ];
+  for (const scheme of ["light", "dark"]) {
+    const beforeLabel = scheme === "light" ? "feature-436 ライト" : "feature-436 ダーク";
+    const afterLabel = scheme === "light" ? "Raycast 標準 ライト" : "Raycast 標準 ダーク";
+    for (const { suffix, height, useFromPaths } of pairs) {
+      const beforePath = path.join(
+        outDir,
+        `phase3-before-${scheme}-inventory-${suffix}.png`,
+      );
+      const afterPath = path.join(
+        outDir,
+        `phase3-after-${scheme}-inventory-${suffix}.png`,
+      );
+      if (!fs.existsSync(beforePath) || !fs.existsSync(afterPath)) {
+        console.warn(`Skip compare-phase3-${suffix}-${scheme}: missing before/after PNG`);
+        continue;
+      }
+      const stitch = useFromPaths ? stitchLabeledRowFromPaths : stitchLabeledRow;
+      await stitch(
+        [beforePath, afterPath],
+        [beforeLabel, afterLabel],
+        path.join(outDir, `compare-phase3-${suffix}-${scheme}.png`),
+        height,
+      );
+    }
+  }
+}
 
 function waitForServer(timeoutMs = 120_000) {
   const started = Date.now();
@@ -69,7 +203,7 @@ function startVite() {
   const child = spawn(
     "npx",
     ["vite", "--port", String(port), "--strictPort", "--mode", "manual-screenshot"],
-    { cwd: root, stdio: ["ignore", "pipe", "pipe"] },
+    { cwd: viteRoot, stdio: ["ignore", "pipe", "pipe"] },
   );
   child.stdout?.on("data", (c) => process.stdout.write(c));
   child.stderr?.on("data", (c) => process.stderr.write(c));
@@ -154,83 +288,11 @@ async function openSettings(page) {
   await page.waitForTimeout(400);
 }
 
-async function captureInventory(page) {
-  await prepareMain(page);
-  await page.screenshot({
-    path: path.join(outDir, "inventory-main.png"),
-  });
-
-  await page.locator(".milestone-band").screenshot({
-    path: path.join(outDir, "inventory-milestone-band.png"),
-  });
-
-  await page.getByRole("button", { name: /^絞り込み/ }).click();
-  await page.waitForTimeout(300);
-  await page.screenshot({
-    path: path.join(outDir, "inventory-filter-panel.png"),
-  });
-  await page.keyboard.press("Escape");
-
-  await openSettings(page);
-  await page.screenshot({
-    path: path.join(outDir, "inventory-settings.png"),
-  });
-  await page.locator(".settings-dialog").getByRole("button", { name: "閉じる" }).click();
-  await page.waitForTimeout(300);
-
-  await applyOpen(page, colorsSchedule);
-  await page.waitForSelector(".toolbar-title-text", {
-    hasText: "操作マニュアル用の見本",
-    timeout: 60_000,
-  });
-  await page.waitForTimeout(400);
-  const progressTask = page.getByText("進行中（青）", { exact: true });
-  await progressTask.click();
-  await page.locator("#detailName").fill("進行中（青・差分用）");
-  await page.locator("#detailName").blur();
-  await page.waitForTimeout(400);
-  await page.locator(".diff-strip-handle").click();
-  await page.waitForFunction(() => {
-    const list = document.querySelector(".diff-strip-list");
-    const body = document.querySelector(".diff-strip-row-body");
-    const text = `${list?.textContent ?? ""}${body?.textContent ?? ""}`;
-    return text.includes("→");
-  });
-  await page.waitForTimeout(300);
-  await page.screenshot({
-    path: path.join(outDir, "inventory-diff-panel.png"),
-  });
-  await applyOpen(page, playgroundSchedule);
-  await page.waitForSelector(".toolbar-title-text", { hasText: "playground" });
-  await page.waitForTimeout(400);
-
-  await page.evaluate(() => window.__manualScreenshotShowExplainOverlay?.());
-  await page.waitForSelector(".explanation-sidebar-veil", { timeout: 15_000 });
-  await page.waitForTimeout(600);
-  await page.screenshot({
-    path: path.join(outDir, "inventory-explain-overlay.png"),
-  });
-
-  const taskLabel = page.getByText("要件定義書作成", { exact: true }).first();
-  await taskLabel.click({ button: "right" });
-  await page.waitForSelector(".context-menu");
-  await page.waitForTimeout(250);
-  await page.screenshot({
-    path: path.join(outDir, "inventory-context-menu.png"),
-  });
-  await page.keyboard.press("Escape");
-
-  await taskLabel.click();
-  await page.waitForSelector('[aria-label="タスクの詳細"]');
-  await page.waitForTimeout(400);
-  await page.screenshot({
-    path: path.join(outDir, "inventory-task-detail.png"),
-  });
-}
-
 async function captureDirection(page, { id, prefix }, colorScheme = "light") {
-  const query = id ? `designDirection=${id}` : "";
-  await prepareMain(page, query, colorScheme);
+  if (id) {
+    console.warn("designDirection query removed; capturing default chrome only");
+  }
+  await prepareMain(page, "", colorScheme);
   await showSelectionAndHover(page);
   await page.screenshot({
     path: path.join(outDir, `${prefix}-main.png`),
@@ -330,18 +392,40 @@ async function main() {
     await waitForServer();
     const browser = await chromium.launch();
     const page = await browser.newPage();
-    if (!captureDarkOnly) {
-      await captureInventory(page);
-      for (const dir of DIRECTIONS) {
-        await captureDirection(page, dir);
+    if (capturePhase3BeforeOnly) {
+      for (const scheme of ["light", "dark"]) {
+        await captureInventory(page, {
+          namePrefix: `phase3-before-${scheme}-inventory`,
+          colorScheme: scheme,
+        });
       }
-      await buildComparisons();
+    } else if (capturePhase3Only) {
+      await captureInventory(page, {
+        namePrefix: "phase3-after-light-inventory",
+        colorScheme: "light",
+      });
+      await captureInventory(page, {
+        namePrefix: "phase3-after-dark-inventory",
+        colorScheme: "dark",
+      });
+      await captureInventory(page, { namePrefix: "inventory", colorScheme: "light" });
+      await buildPhase3Comparisons();
+    } else if (!captureDarkOnly) {
+      await captureInventory(page, { namePrefix: "inventory", colorScheme: "light" });
+      if (captureLegacyDirections) {
+        for (const dir of DIRECTIONS) {
+          await captureDirection(page, dir);
+        }
+        await buildComparisons();
+      }
     }
-    for (const dir of DARK_DIRECTIONS) {
-      await captureDirection(page, dir, "dark");
+    if (captureLegacyDirections || captureDarkOnly) {
+      for (const dir of DARK_DIRECTIONS) {
+        await captureDirection(page, dir, "dark");
+      }
+      await buildDarkComparisons();
     }
     await browser.close();
-    await buildDarkComparisons();
     for (const name of fs.readdirSync(outDir)) {
       if (!name.endsWith(".png")) continue;
       fs.copyFileSync(

@@ -1,0 +1,159 @@
+/**
+ * Issue #449 phase 3 — Raycast (B) chrome as the default app shell.
+ * Chart semantics remain on palette.chart (Konva).
+ */
+
+.app {
+  font-family: var(--font-family-ui);
+}
+
+.app .toolbar {
+  margin: var(--space-sm);
+  margin-bottom: 0;
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--toolbar-bg);
+  border: none;
+  border-radius: var(--radius-card);
+  box-shadow: var(--elevation-toolbar);
+  transition: box-shadow var(--motion-duration-normal) var(--motion-ease-standard);
+}
+
+html[data-color-scheme="dark"] .app .toolbar {
+  border: var(--border-width-hairline) solid rgba(255, 255, 255, 0.1);
+}
+
+.app .toolbar-title,
+.app .toolbar-title-text {
+  color: var(--toolbar-fg);
+}
+
+.app .toolbar-btn {
+  border: none;
+  background: var(--toolbar-btn-bg);
+  color: var(--toolbar-btn-fg);
+  border-radius: var(--radius-pill);
+  height: calc(32px * var(--s));
+  transition: background var(--motion-duration-fast) var(--motion-ease-standard);
+}
+
+.app .toolbar-btn:hover:not(:disabled) {
+  background: var(--toolbar-btn-hover-bg);
+}
+
+.app .toolbar-btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.app .toolbar-row-actions .toolbar-btn-label,
+.app .lineage-btn .toolbar-btn-label {
+  display: none;
+}
+
+.app .main {
+  padding: 0 var(--space-sm) var(--space-sm);
+  gap: var(--space-main-gap);
+  background: var(--bg);
+}
+
+.app .sidebar {
+  border: none;
+  border-radius: var(--radius-card);
+  box-shadow: var(--elevation-card);
+  overflow: hidden;
+}
+
+html[data-color-scheme="dark"] .app .sidebar {
+  background: var(--surface);
+  border: var(--border-width-hairline) solid var(--border);
+}
+
+.app .sidebar-row::after {
+  display: none;
+}
+
+.app .sidebar-row.task:nth-child(odd) {
+  background: var(--row-stripe);
+}
+
+.app .sidebar-row.selected {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.app .sidebar-row.selected .sidebar-row-body,
+.app .sidebar-row.selected .sidebar-col {
+  color: var(--on-accent);
+}
+
+html[data-color-scheme="dark"] .app .sidebar-row.selected {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  color: var(--text);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+html[data-color-scheme="dark"] .app .sidebar-row.selected .sidebar-row-body,
+html[data-color-scheme="dark"] .app .sidebar-row.selected .sidebar-col {
+  color: var(--text);
+}
+
+.app .sidebar-row.task.hovered:not(.selected) {
+  background: var(--hover-row);
+  outline: var(--border-width-focus) solid color-mix(in srgb, var(--accent) 40%, transparent);
+  outline-offset: -2px;
+}
+
+html[data-color-scheme="dark"] .app .sidebar-row.task.hovered:not(.selected) {
+  outline: var(--border-width-hairline) solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+html[data-color-scheme="dark"] .app .sidebar-header {
+  background: var(--panel);
+  border-bottom: var(--border-width-hairline) solid var(--border);
+}
+
+.app .timeline-slot {
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  box-shadow: var(--elevation-card);
+  background: var(--timeline-surface-bg);
+}
+
+html[data-color-scheme="dark"] .app .timeline-slot {
+  border: var(--border-width-hairline) solid var(--border);
+}
+
+.app .timeline-header {
+  background: var(--timeline-surface-bg);
+  border-bottom: var(--border-width-hairline) solid var(--timeline-header-border);
+}
+
+html[data-color-scheme="dark"] .app .timeline-header {
+  background: var(--panel);
+  border-bottom-color: var(--border);
+}
+
+html[data-color-scheme="dark"] .app .milestone-band {
+  background: var(--panel);
+  border-bottom: var(--border-width-hairline) solid var(--border);
+}
+
+.app .settings-dialog {
+  border-radius: var(--radius-dialog);
+  box-shadow: var(--elevation-modal);
+  overflow: hidden;
+}
+
+html[data-color-scheme="dark"] .app .settings-dialog {
+  border: var(--border-width-hairline) solid var(--border);
+}
+
+.app .settings-nav {
+  background: var(--settings-nav-bg);
+}
+
+.app .context-menu,
+.app .menu-panel {
+  box-shadow: var(--elevation-menu);
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-standard);
+}

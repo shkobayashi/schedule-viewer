@@ -62,11 +62,6 @@ import {
   noteShortcutHint,
   usesCommandKey,
 } from "./model/shortcuts";
-import {
-  applyDesignDirection,
-  designLayoutTweaks,
-  readDesignDirectionFromLocation,
-} from "./design/applyDesignDirection";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
 import { useMacOSAppMenu } from "./hooks/useMacOSAppMenu";
 import { useRecentFiles } from "./hooks/useRecentFiles";
@@ -562,14 +557,9 @@ function App() {
       : "",
   );
 
-  const designDirection = readDesignDirectionFromLocation();
-  const layoutTweaks = designLayoutTweaks(designDirection);
-  const effectiveUiScale = uiScale * layoutTweaks.uiScaleMul;
-  const baseLayout = scaledLayoutSizes(effectiveUiScale, rowDensity);
-  const rowHeight = Math.round(baseLayout.rowHeight * layoutTweaks.rowHeightMul);
-  const headerHeight = Math.round(
-    baseLayout.headerHeight * layoutTweaks.headerHeightMul,
-  );
+  const baseLayout = scaledLayoutSizes(uiScale, rowDensity);
+  const rowHeight = baseLayout.rowHeight;
+  const headerHeight = baseLayout.headerHeight;
   const barHeight = baseLayout.barHeight;
   const milestoneLaneHeight = baseLayout.milestoneLaneHeight;
   const milestoneFontSize = Math.round(11 * uiScale);
@@ -586,10 +576,6 @@ function App() {
 
   useEffect(() => {
     applyResolvedColorScheme(resolvedColorScheme);
-    applyDesignDirection(
-      readDesignDirectionFromLocation(),
-      resolvedColorScheme,
-    );
   }, [resolvedColorScheme]);
 
   useEffect(() => {
@@ -4389,11 +4375,8 @@ function App() {
   return (
     <div
       className="app"
-      data-design-direction={
-        readDesignDirectionFromLocation() || undefined
-      }
       style={{
-        ["--s" as string]: effectiveUiScale,
+        ["--s" as string]: uiScale,
         ["--sidebar-w" as string]: sidebarWidth,
         ["--diff-panel-inset" as string]: diffPanelInset,
       }}

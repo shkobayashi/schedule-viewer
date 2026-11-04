@@ -1,91 +1,56 @@
-# 見た目のベンチマーク（Issue #449 フェーズ 2）
+# 見た目のベンチマーク（Issue #449）
 
-Linear と Raycast を参照に、**UI の地・枠・文字・余白**だけを揃える原則である。チャート上の意味色（ステータスバー、パターン色、印の色など）は Konva の `palette.chart` のまま触らない。
+2026-11 時点の **正式 UI** は、フェーズ 2 で選んだ **Raycast（B）** をライト・ダーク両方の既定とする。チャート上の意味色（ステータスバー、パターン色、印、全案一致 `#ca8a04`、マイルストン菱形、説明オーバーレイの意味色など）は `palette.chart` と説明用定数のまま触らない。
 
-## 意味色の保護
+## トークンの正本
 
-- `palette.chart` のステータス・期限超過・未割当・不明・バーラベル
-- 説明オーバーレイの印・試しバー・全案一致 `#ca8a04`
-- 行色 `colorId`、ステータスカタログの色
+| 種類 | 正本 | 適用 |
+| --- | --- | --- |
+| UI 色（背景・文字・アクセント・行選択など） | `src/model/palette.ts` の `css`（Raycast B ライト／ダーク） | `applyCssPalette` → `:root` の CSS 変数 |
+| 半径・余白・タイポ・影・モーション・ツールバー／カードのクロム | `src/design/uiTokens.ts` | 同上（`applyCssPalette` 内） |
+| 意味色・Konva・書き出し SVG | `palette.chart` | TypeScript から直接参照 |
 
-## プレビューの切り替え
+`App.css` の `:root` に色の初期値は置かない（二重定義を解消）。起動時に `applyResolvedColorScheme` が変数を書き込む。
 
-開発ビルドまたは `manual-screenshot` モードで URL に `?designDirection=linear|raycast|compact` を付ける。実装は `src/design/applyDesignDirection.ts`（CSS 変数）と `src/design/designDirections.css`（レイアウト・部品の見え方）、`designLayoutTweaks`（行高の実寸変更）である。
+## シェルと部品
 
-## 方向ごとに何が違うか（平易な一覧）
+- **アプリシェル** — `src/design/appChrome.css`（浮きツールバー、カード型一覧／タイムライン、選択・ホバー、設定ダイアログ）
+- **共有プリミティブ** — `src/components/ui/primitives.css` と `UiButton`（新規ダイアログ向け）。既存ツールバーは `.toolbar-btn` 等をトークン参照に寄せ済み
 
-スクリーンショットは **選択行（要件定義書作成）＋別行ホバー（要件レビュー）** を含む。並べ替え画像は [screenshots/](screenshots/) の `compare-*` を見る。
+## フェーズ 2 の比較資料（履歴）
 
-### 現状（ベースライン）
+方向 A/B/C のプレビューと `?designDirection=` は **フェーズ 3 で削除**した。比較 PNG は [screenshots/](screenshots/) に残す（`design-*` / `compare-*`）。当時の説明は git 履歴の `benchmark.md` を参照。
 
-- ツールバーに枠線付きボタン、白地のバー。
-- 左一覧の行間は標準（`scaledLayoutSizes` そのまま）。
-- 行の区切りは薄いグラデーション線（`sidebar-row::after`）。
-- 選択行は薄い青系の背景（`--selected-row`）。
-- タイムライン上は従来どおりのヘッダ高さとマイルストンバンド。
+## フェーズ 3 の before / after
 
-### A — `designDirection=linear`（Linear 寄り）
+ベースラインは **`feature-436`（本 PR 前）**、after は **Raycast 標準（本ブランチ）**。inventory 全画面をライト・ダークで撮影する。
 
-- ツールバーの下だけ 2px の線があり、ボタンの枠線は無し（フラット）。主要ボタンだけ塗り。
-- 左一覧の行区切り線を非表示。グループ見出しは小さく **大文字**。
-- **行の高さを約 14% 増やす**（タイムラインと同期）。日付ヘッダも高くする。
-- 選択行は **左に 3px のアクセント線**＋薄い背景。ホバーは淡いグレー背景。
-- フォントは Inter 系。設定ダイアログは細い枠・弱い影。
-
-### B — `designDirection=raycast`（Raycast 寄り）
-
-- ツールバー全体が **黒い浮きカード**（角丸・影）。ボタンは **丸 pill**、副次ボタンの **文字ラベルを非表示**（アイコン中心）。
-- メイン領域はグレー地の上に、左一覧とチャートが **白い角丸カード** として分離。
-- 選択行は **アクセント色で行全体を塗り**、文字は白。ホバーは薄いピンク＋枠。
-- 奇数行にごく薄い縦ストライプ。行区切り線なし。
-- 設定ダイアログは大きな角丸と強い影。
-
-#### B のダークモード（`schedule-viewer/color-scheme` = `dark`）
-
-ライトの「黒カード／白カード」は、ダークでは **canvas（`--bg`）の上に surface カード** として読み替える。チャート意味色は従来どおり。
-
-- ツールバーは `#2a2b33`＋明るい縁と影で、背景に溶けない浮きカードにする。
-- 左一覧・タイムラインは `--surface` の角丸カード（枠＋影）。
-- 選択行は **全面アクセント塗りではなく**、薄いアクセント混色＋**左 3px アクセント線**（ダークでうるさくならないよう調整）。
-- ホバーは半透明の白背景＋薄いアクセント枠。
-
-個別 PNG: `design-baseline-dark-*` / `design-B-raycast-dark-*`（`-main`、`-settings-dialog`、`-crop-toolbar`、`-crop-sidebar`）。
-
-| 内容 | ファイル |
+| 比較（左: feature-436 / 右: 標準） | ファイル |
 | --- | --- |
-| メイン（現状ダーク｜B ダーク） | [compare-main-baseline-B-dark.png](screenshots/compare-main-baseline-B-dark.png) |
-| ツールバー拡大 | [compare-crop-toolbar-baseline-B-dark.png](screenshots/compare-crop-toolbar-baseline-B-dark.png) |
-| 左一覧拡大 | [compare-crop-sidebar-baseline-B-dark.png](screenshots/compare-crop-sidebar-baseline-B-dark.png) |
+| メイン・ライト | [compare-phase3-main-light.png](screenshots/compare-phase3-main-light.png) |
+| メイン・ダーク | [compare-phase3-main-dark.png](screenshots/compare-phase3-main-dark.png) |
+| 設定・ライト | [compare-phase3-settings-light.png](screenshots/compare-phase3-settings-light.png) |
+| 設定・ダーク | [compare-phase3-settings-dark.png](screenshots/compare-phase3-settings-dark.png) |
+| 説明オーバーレイ・ライト | [compare-phase3-explain-overlay-light.png](screenshots/compare-phase3-explain-overlay-light.png) |
+| 説明オーバーレイ・ダーク | [compare-phase3-explain-overlay-dark.png](screenshots/compare-phase3-explain-overlay-dark.png) |
 
-再生成（ダークだけ）: `npm run capture:design-screenshots -- --capture-dark-only`
+再生成:
 
-### C — `designDirection=compact`（高密度）
+```bash
+# feature-436 を BASELINE_ROOT に checkout した worktree で before
+BASELINE_ROOT=/path/to/feature-436-worktree npm run capture:design-screenshots -- --phase3-before-only
+# 本ブランチで after + compare
+npm run capture:phase3-evidence
+```
 
-- **行の高さを約 30% 減らす**（約 7px 低い一行相当）。ツールバー・一覧ヘッダ・日付ヘッダも低い。
-- ツールバーは 2px 下線＋コンパクトな小ボタン（11px 級）。
-- 左一覧は **行ごとに実線**、カテゴリ／グループ行は **帯状の背景**。偶数タスク行は薄い縦縞。
-- 選択行は **2px のアクセント枠**（塗りは薄青）。ホバーは **黄色系** のハイライト。
-- 設定ダイアログは角丸ほぼ無し・2px 枠・影なし。IBM Plex Sans 系。
+## あとで整える余地（フェーズ 3 では未着手）
 
-## 比較用の並べ画像（まずここを見る）
-
-| 内容 | ファイル |
-| --- | --- |
-| メイン全体（現状｜A｜B｜C） | [compare-main-baseline-A-B-C.png](screenshots/compare-main-baseline-A-B-C.png) |
-| 設定ダイアログ（現状｜A｜B｜C） | [compare-settings-baseline-A-B-C.png](screenshots/compare-settings-baseline-A-B-C.png) |
-| ツールバー拡大（現状｜A｜B｜C） | [compare-crop-toolbar-baseline-A-B-C.png](screenshots/compare-crop-toolbar-baseline-A-B-C.png) |
-| 左一覧拡大（現状｜A｜B｜C） | [compare-crop-sidebar-baseline-A-B-C.png](screenshots/compare-crop-sidebar-baseline-A-B-C.png) |
-
-個別 PNG は `design-baseline-*` / `design-A-linear-*` / `design-B-raycast-*` / `design-C-compact-*`（`-main`、`-settings-dialog`、`-crop-toolbar`、`-crop-sidebar`）。
-
-再生成: `npm run capture:design-screenshots`
-
-## 利用者への比較の仕方
-
-1. 上の **4 枚の compare-* 画像** を開き、ラベル付きの並びで差を見る。
-2. バーの色は同じデータなので、**ツールバー・左一覧・行の高さ・選択／ホバー** だけに注目する。
-3. 短い印象を返してもらい、次フェーズで 1 方向に絞る。
+- ダイアログ内の個別フォーム（エクスポート、ガイド、コマンドパレット）の `border-radius` / `padding` 直書き
+- フィルタパネル・差分ストリップの影と gap の統一
+- 詳細パネル内フィールドを `.ui-field` へ段階的に移行
+- Konva 試し行の点線・ハロ色（意味色は維持しつつ UI トークンとの整理）
+- 操作マニュアル 19 図（`capture:manual-screenshots`）の撮り直し
 
 ## implement-change からの参照
 
-画面の UI トーンを変える計画では、本書と [inventory.md](inventory.md) を読み、意味色保護節を守る。
+画面 UI トーンを変える計画では、本書と [inventory.md](inventory.md) を読み、意味色保護節を守る。

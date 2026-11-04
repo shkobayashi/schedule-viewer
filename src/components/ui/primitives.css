@@ -1,0 +1,92 @@
+/**
+ * Shared UI primitives — class hooks for buttons, panels, and form controls.
+ * Prefer these classes in new markup; legacy selectors remain in App.css.
+ */
+
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0 calc(10px * var(--s));
+  min-height: calc(28px * var(--s));
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--text);
+  background: var(--panel);
+  transition: background var(--motion-duration-fast) var(--motion-ease-standard);
+}
+
+.ui-btn:hover:not(:disabled) {
+  background: var(--hover-row);
+}
+
+.ui-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ui-btn--pill {
+  border-radius: var(--radius-pill);
+}
+
+.ui-btn--primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.ui-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.ui-btn--icon {
+  padding: 0 calc(8px * var(--s));
+}
+
+.ui-panel {
+  background: var(--surface);
+  border: var(--border-width-hairline) solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--elevation-card);
+}
+
+.ui-list-row {
+  transition: background var(--motion-duration-fast) var(--motion-ease-standard);
+}
+
+.ui-list-row--selected {
+  background: var(--selected-row);
+}
+
+.ui-list-row--hovered {
+  background: var(--hover-row);
+}
+
+.ui-field {
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  border-radius: var(--radius-md);
+  border: var(--border-width-hairline) solid var(--border);
+  padding: calc(6px * var(--s)) calc(8px * var(--s));
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color var(--motion-duration-fast) var(--motion-ease-standard);
+}
+
+.ui-dialog-surface {
+  border-radius: var(--radius-dialog);
+  box-shadow: var(--elevation-modal);
+  background: var(--surface);
+}
+
+.ui-menu-surface {
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-menu);
+  background: var(--surface);
+  border: var(--border-width-hairline) solid var(--border);
+}

@@ -52,5 +52,4 @@
 
 ## 次フェーズ（本 Issue の 3 以降）への入力
 
-- 上記の「UI クロム」だけを [benchmark.md](benchmark.md) のトークンに寄せ、意味色は `palette.chart` と説明用定数を触らない。
-- 比較用の方向 A/B/C は `?designDirection=` で切り替え可能（[benchmark.md](benchmark.md)）。本番コンポーネントへの一括適用はまだ行わない。
+- UI クロムは [benchmark.md](benchmark.md) のトークン（`palette.ts` + `uiTokens.ts` + `appChrome.css`）に統一済み（Issue #449 フェーズ 3）。意味色は `palette.chart` のまま。

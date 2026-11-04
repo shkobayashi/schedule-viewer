@@ -388,13 +388,14 @@ describe("schedule export documents", () => {
   });
 
   it("uses dark palette when colorScheme is dark", () => {
+    const { css } = paletteFor("dark");
     const dark = buildScheduleHtml({ ...input(), colorScheme: "dark" });
-    expect(dark).toContain("background: #1c1f26");
-    expect(dark).toContain('fill="#1c1f26"');
+    expect(dark).toContain(`background: ${css.bg}`);
+    expect(dark).toContain(`fill="${css.bg}"`);
     expect(dark).toContain("inset 3px 0 0 #a888d8");
     const svg = buildScheduleSvg({ ...input(), colorScheme: "dark" });
-    expect(svg).toContain('fill="#1c1f26"');
-    expect(svg).toContain('fill="#a8b0bf"');
+    expect(svg).toContain(`fill="${css.bg}"`);
+    expect(svg).toContain(`fill="${css.textSecondary}"`);
   });
 
   it("fills hierarchy chart rows like the sidebar", () => {
