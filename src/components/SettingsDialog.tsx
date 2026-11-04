@@ -1208,7 +1208,7 @@ export function SettingsDialog({
                 {showBetaInstallerSave ? (
                   <>
                     <p className="settings-note">
-                      公開中のベータを、この OS のインストーラとして保存します。
+                      公開中の Pre-release（アルファまたはベータ）を、この OS のインストーラとして保存します。
                     </p>
                     <div className="settings-actions">
                       <button

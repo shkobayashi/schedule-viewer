@@ -6,7 +6,7 @@
 
 ## 入手と起動
 
-Ubuntu の安定版は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) の Latest から入手します。Windows の安定版は [Microsoft Store](https://apps.microsoft.com/detail/9PP41TRJ8ZT8) から入手します。Pre-release は実機確認用であり、自動更新では届きません。GitHub の Release では配布物の SHA-256 を `SHA256SUMS` で確認できます。Ubuntu でベータの deb を入れたあとに安定版へ移すときは、先にベータの deb を外してください。
+Ubuntu の安定版は [GitHub Releases](https://github.com/shkobayashi/schedule-viewer/releases) の Latest から入手します。Windows の安定版は [Microsoft Store](https://apps.microsoft.com/detail/9PP41TRJ8ZT8) から入手します。Pre-release は実機確認用であり、自動更新では届きません。GitHub の Release では配布物の SHA-256 を `SHA256SUMS` で確認できます。Ubuntu で Pre-release の deb を入れたあとに安定版へ移すときは、先に Pre-release の deb を外してください。
 
 Ubuntu 22.04 以降で使うファイルは `schedule-viewer_X.Y.Z_amd64.deb` です。導入は `sudo apt install ./schedule-viewer_X.Y.Z_amd64.deb` で行います。起動コマンドは `schedule-viewer` です。Windows では Microsoft Store から schedule-viewer を入れ、スタートメニューから起動します。更新は Windows が行います。
 

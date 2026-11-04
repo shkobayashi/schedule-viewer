@@ -1,15 +1,20 @@
 import { compareReleaseVersions, parseReleaseVersion } from "./releaseVersion";
 
+const PRERELEASE_TAG_RE = /^v(\d+\.\d+\.\d+-(?:alpha|beta)\.\d+)$/i;
 const BETA_TAG_RE = /^v(\d+\.\d+\.\d+-beta\.\d+)$/i;
 const UPDATER_TAG_RE = /^updater-\d+$/i;
 
 export function versionFromReleaseTag(tag: string): string | null {
-  const beta = BETA_TAG_RE.exec(tag.trim());
-  if (beta) return beta[1];
+  const prerelease = PRERELEASE_TAG_RE.exec(tag.trim());
+  if (prerelease) return prerelease[1];
   if (tag.startsWith("v") && parseReleaseVersion(tag.slice(1))) {
     return tag.slice(1);
   }
   return null;
+}
+
+export function isPrereleaseReleaseTag(tag: string): boolean {
+  return PRERELEASE_TAG_RE.test(tag.trim());
 }
 
 export function isBetaReleaseTag(tag: string): boolean {
@@ -20,12 +25,17 @@ export function isUpdaterReleaseTag(tag: string): boolean {
   return UPDATER_TAG_RE.test(tag.trim());
 }
 
+/** 公開 Pre-release（アルファまたはベータ）のうち、semver 上いちばん新しい版 */
 export function pickLatestBetaVersion(tags: string[]): string | null {
   let latest: string | null = null;
   for (const tag of tags) {
-    if (!isBetaReleaseTag(tag) || isUpdaterReleaseTag(tag)) continue;
+    if (!isPrereleaseReleaseTag(tag) || isUpdaterReleaseTag(tag)) continue;
     const version = versionFromReleaseTag(tag);
-    if (!version || parseReleaseVersion(version)?.kind !== "beta") continue;
+    if (!version) continue;
+    const parsed = parseReleaseVersion(version);
+    if (!parsed || (parsed.kind !== "alpha" && parsed.kind !== "beta")) {
+      continue;
+    }
     if (latest === null) {
       latest = version;
       continue;
@@ -36,7 +46,7 @@ export function pickLatestBetaVersion(tags: string[]): string | null {
   return latest;
 }
 
-/** 入っている版より新しいベータだけ true */
+/** 入っている版より新しい Pre-release だけ true */
 export function isNewerBetaThanInstalled(
   installedVersion: string,
   candidateVersion: string,
