@@ -473,7 +473,7 @@ Tauri で作ったデスクトップアプリをデスクトップ版、`npm run
 
 ### VIEW-16 説明のための見え方
 
-**操作** デスクトップ版で MCP の `explain_view` または read-screen の `--screen explain_view` を使い、説明のためのタスク id の絞り込みと折りたたみをかける。`clear: true` で、絞り込み、折りたたみ、半透明を消す。半透明と示す印は MCP の `explain_overlay` または read-screen の `--screen explain_overlay` で置き換える。`translucent: true` と、任意の `summary`、任意の `marks` を渡す。`translucent: false` で半透明、印、`summary` を消す。`marks` が空で `translucent: true` だけのときは、半透明だけを重ねる。説明の絞り込み、折りたたみ、半透明のどれかが掛かっているあいだ、チャート上端に説明の帯と「説明を消す」を出す。`summary` があるときは帯の文として出し、無いときは「説明を表示しています」を出す。
+**操作** デスクトップ版で MCP の `explain_view` または read-screen の `--screen explain_view` を使い、説明のためのタスク id の絞り込みと折りたたみをかける。`clear: true` で、絞り込み、折りたたみ、半透明を消す。半透明と示す印は MCP の `explain_overlay` または read-screen の `--screen explain_overlay` で置き換える。`translucent: true` と、任意の `summary`、任意の `marks` を渡す。`translucent: false` で半透明、印、`summary` を消す。`marks` が空で `translucent: true` だけのときは、半透明だけを重ねる。説明の絞り込み、折りたたみ、半透明のどれかが掛かっているあいだ、チャート上端に説明の帯と「説明を消す」を出す。帯には常に「説明を表示しています」を出し、`summary` があるときはその下に `summary` を続けて出す。
 
 **挙動** 説明の `taskIds` があるとき、行として残るタスクはその id だけに置き換える。人が選んだ絞り込み条件は変えず、`filtered_tasks` の `activeConditions` と `tasks` は人の絞り込みのまま返す。系統と帯の線の表示は、説明の上には掛けない。折りたたみを上書きしたとき、読み取りの `view.collapsed` は今の畳み、`view.explanation.baseCollapsed` は人が選んだ折りたたみである。説明の `taskIds` を変えたときは選択を外す。折りたたみだけを変えたときは選択を残す。説明を消すと、人の絞り込みと折りたたみの見え方に戻す。選択と未保存の編集は消さない。ズームとスクロールでは説明を消さない。
 

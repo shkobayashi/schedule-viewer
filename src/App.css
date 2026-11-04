@@ -2533,7 +2533,7 @@ button:focus-visible,
 
 .explanation-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: calc(8px * var(--s));
   font-size: calc(11px * var(--s));
@@ -2542,6 +2542,12 @@ button:focus-visible,
   border-bottom: 1px solid var(--border);
   background: var(--panel);
   flex-shrink: 0;
+}
+
+.explanation-banner-summary {
+  margin-top: calc(4px * var(--s));
+  color: var(--text);
+  white-space: pre-wrap;
 }
 
 .explanation-banner-text {
@@ -2581,7 +2587,6 @@ button:focus-visible,
 
 .explanation-balloon {
   position: absolute;
-  transform: translate(-50%, calc(-100% - 6px));
   pointer-events: none;
   padding: calc(4px * var(--s)) calc(6px * var(--s));
   border-radius: 4px;
@@ -2594,10 +2599,18 @@ button:focus-visible,
   max-width: 160px;
 }
 
+.explanation-balloon--above {
+  transform: translate(-50%, calc(-100% - 6px));
+}
+
+.explanation-balloon--below {
+  transform: translate(-50%, 6px);
+}
+
 .explanation-balloon-label {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   overflow: hidden;
   white-space: normal;
 }

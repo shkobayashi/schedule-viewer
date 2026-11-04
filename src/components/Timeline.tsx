@@ -80,6 +80,7 @@ import {
   taskBarChartLabelStrings,
   taskBarLabelFontSize,
   type ConnectionBarObstacle,
+  type TaskBarAnchor,
 } from "../model/connections";
 import { KONVA_FONT_FAMILY } from "../model/fontStack";
 import type { Member, MemberId } from "../model/memberTypes";
@@ -178,6 +179,9 @@ type TimelineProps = {
   showLightningLine?: boolean;
   onBarDragActiveChange?: (active: boolean) => void;
   explanationOverlay?: ExplanationOverlayState | null;
+  explainOverlayLiveAnchorsRef?: React.MutableRefObject<
+    Map<ScheduleId, TaskBarAnchor>
+  >;
 };
 
 const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
@@ -1542,6 +1546,7 @@ export function Timeline({
   showLightningLine = true,
   onBarDragActiveChange,
   explanationOverlay = null,
+  explainOverlayLiveAnchorsRef,
 }: TimelineProps) {
   const linkMode = linkSourceId != null;
   const chart = useMemo(
@@ -2120,6 +2125,10 @@ export function Timeline({
     }
     return next;
   }, [barHeight, dragPreviews, taskAnchors]);
+
+  if (explainOverlayLiveAnchorsRef != null) {
+    explainOverlayLiveAnchorsRef.current = liveAnchors;
+  }
 
   const explanationOverlayGeometry = useMemo(() => {
     if (!explanationOverlayActive(explanationOverlay)) return null;

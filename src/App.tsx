@@ -218,6 +218,7 @@ import {
   collapsedSetFromIds,
 } from "./model/scheduleFilterPersistence";
 import { buildTaskBarAnchorsForOverlay } from "./model/explainOverlayLayout";
+import type { TaskBarAnchor } from "./model/connections";
 import { scrollXToRevealTask } from "./model/chartScroll";
 import {
   type DiffStripContentKind,
@@ -956,6 +957,9 @@ function App() {
       plan: import("./model/explainOverlayLayout").ExplanationScrollPlan,
     ) => void;
   } | null>(null);
+  const explainOverlayLiveAnchorsRef = useRef<
+    Map<ScheduleId, TaskBarAnchor>
+  >(new Map());
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
@@ -1277,13 +1281,7 @@ function App() {
       chartWidth: Math.max(200, timelineWidth),
       timelineStart: viewStart,
       totalDays: viewTotalDays,
-      liveAnchors: buildTaskBarAnchorsForOverlay({
-        visibleRows: schedule.visibleRows,
-        scrollY,
-        rowHeight,
-        dateToX,
-        pxPerDay,
-      }),
+      liveAnchors: explainOverlayLiveAnchorsRef.current,
     }),
     applyScroll: (plan) =>
       applyScrollPosition(plan.scrollX, plan.scrollY),
@@ -3107,6 +3105,7 @@ function App() {
     milestoneBandHeight,
     barHeight,
     mainElement: mainRef.current,
+    explainOverlayLiveAnchorsRef,
   });
 
   const announceDiffStrip = useCallback((kind: DiffStripContentKind, text: string) => {
@@ -4568,6 +4567,7 @@ function App() {
           sidebarColumns={sidebarColumns}
           chartTopBannerHeight={chartTopBannerHeight}
           explanationOverlay={schedule.explanationOverlay}
+          explainOverlayLiveAnchorsRef={explainOverlayLiveAnchorsRef}
           dateToX={dateToX}
           pxPerDay={pxPerDay}
           barHeight={barHeight}
@@ -4621,9 +4621,15 @@ function App() {
               {schedule.explanationSessionActive ? (
                 <div className="explanation-banner" role="status">
                   <div className="explanation-banner-text">
-                    {schedule.explanationOverlay?.summary?.trim()
-                      ? schedule.explanationOverlay.summary
-                      : "説明を表示しています"}
+                    <div>説明を表示しています</div>
+                    {schedule.explanationOverlay?.summary?.trim() ? (
+                      <div
+                        className="explanation-banner-summary"
+                        data-explanation-overlay=""
+                      >
+                        {schedule.explanationOverlay.summary}
+                      </div>
+                    ) : null}
                   </div>
                   <button
                     type="button"
@@ -4700,6 +4706,7 @@ function App() {
             showLightningLine={showLightningLine}
             onBarDragActiveChange={setChartBarDragging}
             explanationOverlay={schedule.explanationOverlay}
+            explainOverlayLiveAnchorsRef={explainOverlayLiveAnchorsRef}
           />
         </div>
         {selectedDetailTask ? (

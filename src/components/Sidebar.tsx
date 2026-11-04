@@ -176,6 +176,9 @@ type SidebarProps = {
   sidebarColumns: SidebarColumnsPreference;
   chartTopBannerHeight: number;
   explanationOverlay?: ExplanationOverlayState | null;
+  explainOverlayLiveAnchorsRef?: React.MutableRefObject<
+    Map<import("../model/types").ScheduleId, import("../model/connections").TaskBarAnchor>
+  >;
   dateToX: (d: Date) => number;
   pxPerDay: number;
   barHeight: number;
@@ -242,6 +245,7 @@ export function Sidebar({
   sidebarColumns,
   chartTopBannerHeight,
   explanationOverlay = null,
+  explainOverlayLiveAnchorsRef,
   dateToX,
   pxPerDay,
   barHeight,
@@ -353,13 +357,15 @@ export function Sidebar({
 
   const explanationSidebarHoles = useMemo(() => {
     if (!explanationOverlayActive(explanationOverlay)) return [];
-    const liveAnchors = buildTaskBarAnchorsForOverlay({
-      visibleRows: rows,
-      scrollY,
-      rowHeight,
-      dateToX,
-      pxPerDay,
-    });
+    const liveAnchors =
+      explainOverlayLiveAnchorsRef?.current ??
+      buildTaskBarAnchorsForOverlay({
+        visibleRows: rows,
+        scrollY,
+        rowHeight,
+        dateToX,
+        pxPerDay,
+      });
     return buildExplanationOverlayGeometry({
       marks: explanationOverlay.marks,
       visibleRows: rows,
@@ -383,6 +389,7 @@ export function Sidebar({
     bodyHeight,
     dateToX,
     explanationOverlay,
+    explainOverlayLiveAnchorsRef,
     headerHeight,
     milestoneBandHeight,
     milestoneBandLayout.centerYById,

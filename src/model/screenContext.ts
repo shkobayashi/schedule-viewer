@@ -524,15 +524,13 @@ function attachExplanationOverlay<T extends { view: McpViewForReadTools }>(
   const explanationOverlay = buildMcpExplanationOverlay({
     overlay: overlay ?? null,
     visibleRows: build?.visibleRows ?? [],
-    dateToX: build?.dateToX ?? (() => 0),
     pxPerDay: build?.pxPerDay ?? 1,
+    scrollX: build?.scrollX ?? 0,
     scrollY: build?.scrollY ?? 0,
     rowHeight: build?.rowHeight ?? 0,
-    barHeight: build?.barHeight ?? 0,
     bodyHeight: build?.bodyHeight ?? 0,
     chartWidth: build?.chartWidth ?? 0,
-    headerHeight: build?.headerHeight ?? 0,
-    milestoneBandHeight: build?.milestoneBandHeight ?? 0,
+    timelineStart: build?.timelineStart ?? new Date(0),
     liveAnchors: build?.liveAnchors ?? new Map(),
   });
   if (explanationOverlay == null) return payload;

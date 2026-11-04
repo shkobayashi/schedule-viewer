@@ -2953,6 +2953,7 @@ export function useSchedule(
       const parsed = parseExplainOverlayRequest(envelope, {
         categories: documentRef.current.categories,
         outline: documentRef.current.outline,
+        milestones: documentRef.current.milestones,
         collapsed: displayedCollapsedRef.current,
         visibleRows: visibleRowsRef.current,
       });

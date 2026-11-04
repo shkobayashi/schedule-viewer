@@ -9,7 +9,7 @@ import {
   explanationMarkVisibleInViewport,
   type PlanExplanationScrollInput,
 } from "./explainOverlayLayout";
-import type { Category, OutlineRoot, ScheduleId, VisibleRow } from "./types";
+import type { Category, Milestone, OutlineRoot, ScheduleId, VisibleRow } from "./types";
 
 export type ExplanationMarkKind = "change" | "ask";
 
@@ -58,6 +58,7 @@ export function explanationSessionActive(
 export type ExplainOverlayValidationContext = {
   categories: Category[];
   outline: OutlineRoot | undefined;
+  milestones: readonly Milestone[];
   collapsed: ReadonlySet<string>;
   visibleRows: readonly VisibleRow[];
 };
@@ -158,7 +159,7 @@ export function parseExplainOverlayRequest(
 
   const range = computeTimelineRange(
     context.categories,
-    [],
+    context.milestones,
     undefined,
     context.outline,
   );
@@ -261,15 +262,13 @@ export type McpExplanationOverlayPayload = {
 export type BuildMcpExplanationOverlayInput = {
   overlay: ExplanationOverlayState | null;
   visibleRows: readonly VisibleRow[];
-  dateToX: (d: Date) => number;
   pxPerDay: number;
+  scrollX: number;
   scrollY: number;
   rowHeight: number;
-  barHeight: number;
   bodyHeight: number;
   chartWidth: number;
-  headerHeight: number;
-  milestoneBandHeight: number;
+  timelineStart: Date;
   liveAnchors: ReadonlyMap<
     ScheduleId,
     { x: number; right: number; y: number }
@@ -288,14 +287,13 @@ export function buildMcpExplanationOverlay(
       visible: explanationMarkVisibleInViewport({
         mark,
         visibleRows: input.visibleRows,
-        dateToX: input.dateToX,
         pxPerDay: input.pxPerDay,
+        scrollX: input.scrollX,
         scrollY: input.scrollY,
         rowHeight: input.rowHeight,
         bodyHeight: input.bodyHeight,
         chartWidth: input.chartWidth,
-        headerHeight: input.headerHeight,
-        milestoneBandHeight: input.milestoneBandHeight,
+        timelineStart: input.timelineStart,
         liveAnchors: input.liveAnchors,
       }),
     };

@@ -141,8 +141,8 @@ const LIGHT: AppPalette = {
     onAccent: "#ffffff",
     onAccentDark: "#12152b",
     explanationVeil: "rgba(16, 24, 40, 0.18)",
-    explanationMarkChangeRing: "#4c5fd5",
-    explanationMarkAskRing: "#d4920a",
+    explanationMarkChangeRing: "#2436a8",
+    explanationMarkAskRing: "#8a5a00",
   },
   chart: {
     summaryCovered: "#8A94A6",
@@ -232,8 +232,8 @@ const DARK: AppPalette = {
     onAccent: "#12152b",
     onAccentDark: "#12152b",
     explanationVeil: "rgba(255, 255, 255, 0.14)",
-    explanationMarkChangeRing: "#8ba3ff",
-    explanationMarkAskRing: "#e8c060",
+    explanationMarkChangeRing: "#9cb0ff",
+    explanationMarkAskRing: "#f0d060",
   },
   chart: {
     summaryCovered: "#6b7588",

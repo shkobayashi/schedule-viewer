@@ -91,7 +91,7 @@ export function ExplanationOverlay({
       {visibleBalloons.map((balloon) => (
         <div
           key={`balloon-${balloon.markIndex}`}
-          className="explanation-balloon"
+          className={`explanation-balloon explanation-balloon--${balloon.placement}`}
           data-explanation-overlay=""
           style={{
             left: balloon.left,

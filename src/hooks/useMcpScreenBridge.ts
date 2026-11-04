@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -76,9 +76,12 @@ import type {
   ScheduleLevelDef,
 } from "../model/types";
 import type { ExplanationViewState } from "../model/explainView";
-import type { ExplanationOverlayState } from "../model/explainOverlay";
+import type {
+  BuildMcpExplanationOverlayInput,
+  ExplanationOverlayState,
+} from "../model/explainOverlay";
 import { buildTaskBarAnchorsForOverlay } from "../model/explainOverlayLayout";
-import type { BuildMcpExplanationOverlayInput } from "../model/explainOverlay";
+import type { TaskBarAnchor } from "../model/connections";
 
 type McpScreenRequest = {
   id: string;
@@ -148,6 +151,9 @@ type UseMcpScreenBridgeInput = {
   milestoneBandHeight: number;
   barHeight: number;
   mainElement: HTMLElement | null;
+  explainOverlayLiveAnchorsRef: RefObject<
+    ReadonlyMap<ScheduleId, TaskBarAnchor>
+  >;
 };
 
 export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
@@ -192,24 +198,25 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
     function mcpExplanationOverlayBuild(
       snap: UseMcpScreenBridgeInput,
     ): Omit<BuildMcpExplanationOverlayInput, "overlay"> | null {
+      const liveFromChart = snap.explainOverlayLiveAnchorsRef.current;
       return {
         visibleRows: snap.visibleRows,
-        dateToX: snap.dateToX,
         pxPerDay: snap.pxPerDay,
+        scrollX: snap.scrollX,
         scrollY: snap.scrollY,
         rowHeight: snap.rowHeight,
-        barHeight: snap.barHeight,
         bodyHeight: snap.bodyHeight,
         chartWidth: snap.chartWidth,
-        headerHeight: snap.headerHeight,
-        milestoneBandHeight: snap.milestoneBandHeight,
-        liveAnchors: buildTaskBarAnchorsForOverlay({
-          visibleRows: snap.visibleRows,
-          scrollY: snap.scrollY,
-          rowHeight: snap.rowHeight,
-          dateToX: snap.dateToX,
-          pxPerDay: snap.pxPerDay,
-        }),
+        timelineStart: snap.viewStart,
+        liveAnchors:
+          liveFromChart ??
+          buildTaskBarAnchorsForOverlay({
+            visibleRows: snap.visibleRows,
+            scrollY: snap.scrollY,
+            rowHeight: snap.rowHeight,
+            dateToX: snap.dateToX,
+            pxPerDay: snap.pxPerDay,
+          }),
       };
     }
 
