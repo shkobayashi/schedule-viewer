@@ -274,6 +274,7 @@ function layoutExplanationBalloons(
           dimensions,
         );
         if (rect.top < 0 || rect.bottom > chartBottom) continue;
+        if (input.tier === "header" && rect.top < 0) continue;
         candidates.push({ placement, left, rect });
       }
     }
@@ -288,7 +289,8 @@ function layoutExplanationBalloons(
       chosen = clear;
     } else if (candidates.length === 0) {
       const left = baseLeft;
-      const placement: ExplanationBalloonPlacement = "above";
+      const placement: ExplanationBalloonPlacement =
+        input.tier === "header" ? "below" : "above";
       chosen = {
         placement,
         left,
@@ -299,6 +301,19 @@ function layoutExplanationBalloons(
           dimensions,
         ),
       };
+      if (input.tier === "header" && chosen.rect.top < 0) {
+        const belowPlacement: ExplanationBalloonPlacement = "below";
+        chosen = {
+          placement: belowPlacement,
+          left,
+          rect: explanationBalloonScreenRect(
+            left,
+            anchorY,
+            belowPlacement,
+            dimensions,
+          ),
+        };
+      }
     } else {
       chosen = candidates.reduce((best, candidate) => {
         const bestArea = labelObstacleOverlapArea(best.rect, input.labelObstacles);
