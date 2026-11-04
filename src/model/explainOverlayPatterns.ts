@@ -58,6 +58,40 @@ export const APPLY_EXPLANATION_PATTERN_ID_COLLISION =
 export const MAX_EXPLANATION_PATTERNS = 4;
 export const MAX_EXPLANATION_TRIAL_TASKS = 20;
 
+/** 全パターンで同じ試し変更の枠色。 */
+export const EXPLANATION_TRIAL_UNANIMOUS_COLOR = "#ca8a04";
+
+function taskChangeKey(change: ExplanationTrialChange): string {
+  return `${change.taskId}\0${change.start}\0${change.end}`;
+}
+
+function milestoneChangeKey(change: ExplanationTrialMilestoneChange): string {
+  return `${change.milestoneId}\0${change.date}`;
+}
+
+function unanimousChangeKeys<T>(
+  patterns: readonly ExplanationPattern[],
+  pick: (pattern: ExplanationPattern) => readonly T[],
+  keyOf: (item: T) => string,
+): Set<string> {
+  if (patterns.length < 2) return new Set();
+  const counts = new Map<string, number>();
+  for (const pattern of patterns) {
+    const seen = new Set<string>();
+    for (const item of pick(pattern)) {
+      const key = keyOf(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  const unanimous = new Set<string>();
+  for (const [key, count] of counts) {
+    if (count === patterns.length) unanimous.add(key);
+  }
+  return unanimous;
+}
+
 export type ExplanationTrialNewTask = {
   id: ScheduleId;
   name: string;
@@ -699,6 +733,12 @@ export function buildExplanationTrialBarLayouts(input: {
 }): ExplanationTrialBarLayout[] {
   const layouts: ExplanationTrialBarLayout[] = [];
   const seenTrialIds = new Set<ScheduleId>();
+  const unanimousTaskChanges = unanimousChangeKeys(
+    input.patterns,
+    (pattern) => pattern.changes,
+    taskChangeKey,
+  );
+  const emittedUnanimousTaskChanges = new Set<string>();
 
   for (const pattern of input.patterns) {
     for (const trial of pattern.tasks) {
@@ -723,6 +763,11 @@ export function buildExplanationTrialBarLayouts(input: {
 
     for (const change of pattern.changes) {
       if (change.start == null) continue;
+      const changeKey = taskChangeKey(change);
+      if (unanimousTaskChanges.has(changeKey)) {
+        if (emittedUnanimousTaskChanges.has(changeKey)) continue;
+        emittedUnanimousTaskChanges.add(changeKey);
+      }
       const real = findTaskInDocument(
         input.categories,
         input.outline,
@@ -739,7 +784,9 @@ export function buildExplanationTrialBarLayouts(input: {
       layouts.push({
         patternId: pattern.id,
         trialTaskId: change.taskId,
-        color: pattern.color,
+        color: unanimousTaskChanges.has(changeKey)
+          ? EXPLANATION_TRIAL_UNANIMOUS_COLOR
+          : pattern.color,
         rect: taskBarRectInBody({
           task: synthetic,
           viewportRowTop: row.y - input.scrollY,
@@ -760,6 +807,8 @@ export type ExplanationTrialMilestoneLayout = {
   milestoneId: ScheduleId;
   color: string;
   rect: TaskBarBodyRect;
+  originRect: TaskBarBodyRect;
+  unanimous: boolean;
 };
 
 export function buildExplanationTrialMilestoneLayouts(input: {
@@ -773,16 +822,38 @@ export function buildExplanationTrialMilestoneLayouts(input: {
   const milestoneById = new Map(
     input.milestones.map((milestone) => [milestone.id, milestone]),
   );
+  const unanimousMilestoneChanges = unanimousChangeKeys(
+    input.patterns,
+    (pattern) => pattern.milestoneChanges ?? [],
+    milestoneChangeKey,
+  );
+  const emittedUnanimous = new Set<string>();
 
   for (const pattern of input.patterns) {
     for (const change of pattern.milestoneChanges ?? []) {
-      if (milestoneById.get(change.milestoneId) == null) continue;
+      const milestone = milestoneById.get(change.milestoneId);
+      if (milestone == null) continue;
       const centerY = input.milestoneCenterYById.get(change.milestoneId);
       if (centerY == null) continue;
+      const changeKey = milestoneChangeKey(change);
+      const unanimous = unanimousMilestoneChanges.has(changeKey);
+      if (unanimous) {
+        if (emittedUnanimous.has(changeKey)) continue;
+        emittedUnanimous.add(changeKey);
+      }
       layouts.push({
         patternId: pattern.id,
         milestoneId: change.milestoneId,
-        color: pattern.color,
+        color: unanimous
+          ? EXPLANATION_TRIAL_UNANIMOUS_COLOR
+          : pattern.color,
+        unanimous,
+        originRect: milestoneDiamondRectInBand({
+          dateIso: milestone.date,
+          dateToX: input.dateToX,
+          centerY,
+          diamondSize: input.diamondSize,
+        }),
         rect: milestoneDiamondRectInBand({
           dateIso: change.date,
           dateToX: input.dateToX,

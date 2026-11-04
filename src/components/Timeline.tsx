@@ -2264,6 +2264,14 @@ export function Timeline({
     milestones,
   ]);
 
+  const milestoneIdsWithTrialMove = useMemo(() => {
+    const ids = new Set<ScheduleId>();
+    for (const layout of explanationTrialMilestones) {
+      ids.add(layout.milestoneId);
+    }
+    return ids;
+  }, [explanationTrialMilestones]);
+
   const explanationTrialBars = useMemo(() => {
     if (!explanationOverlayActive(explanationOverlay)) return [];
     if (explanationOverlay.patterns.length === 0) return [];
@@ -3066,6 +3074,9 @@ export function Timeline({
           explanationColorScheme={explanationActive ? colorScheme : undefined}
           explanationTrialMilestones={
             explanationActive ? explanationTrialMilestones : undefined
+          }
+          milestoneIdsWithTrialMove={
+            explanationActive ? milestoneIdsWithTrialMove : undefined
           }
         />
       ) : null}
