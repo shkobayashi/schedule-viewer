@@ -7,6 +7,7 @@ import {
   explanationViewActive,
   orderedExplainTaskIdsForRead,
   parseExplainViewRequest,
+  resolveExplanationMilestoneBand,
   type ExplanationViewState,
 } from "./explainView";
 import { categoryCollapseKey } from "./rows";
@@ -51,7 +52,21 @@ const categories: Category[] = [
   },
 ];
 
-const doc = { categories, outline: undefined };
+const doc = {
+  categories,
+  outline: undefined,
+  milestoneGroups: [{ id: "mg1", name: "Release" }],
+  milestones: [
+    {
+      id: "ms1",
+      name: "GA",
+      date: "2026-01-10",
+      confidence: "committed" as const,
+      groupId: "mg1",
+    },
+  ],
+  hiddenMilestoneGroupIds: [] as string[],
+};
 
 describe("parseExplainViewRequest", () => {
   it("parseExplainView_acceptsTaskIdsAndCollapse", () => {
@@ -133,6 +148,8 @@ describe("applyExplainView selection", () => {
     const prev: ExplanationViewState = {
       taskIds: new Set(["t1"]),
       collapseOverride: null,
+      milestoneGroupIds: null,
+      milestoneIds: null,
     };
     const parsed = parseExplainViewRequest({ taskIds: ["t2"] }, doc, prev);
     expect(parsed.ok).toBe(true);
@@ -159,6 +176,8 @@ describe("displayedCollapsedSet", () => {
     const state: ExplanationViewState = {
       taskIds: null,
       collapseOverride: override,
+      milestoneGroupIds: null,
+      milestoneIds: null,
     };
     expect(displayedCollapsedSet(user, state)).toBe(override);
     expect(displayedCollapsedSet(user, null)).toBe(user);
@@ -170,6 +189,8 @@ describe("explainTaskIdsForFilter", () => {
     const state: ExplanationViewState = {
       taskIds: new Set(["t2"]),
       collapseOverride: null,
+      milestoneGroupIds: null,
+      milestoneIds: null,
     };
     expect(explainTaskIdsForFilter(state)?.has("t2")).toBe(true);
   });
@@ -185,7 +206,12 @@ describe("read payload helpers", () => {
     expect(explainViewApplySuccessText()).toBe("説明のための見え方にしました。");
     expect(explanationViewActive(null)).toBe(false);
     expect(
-      explanationViewActive({ taskIds: new Set(["t1"]), collapseOverride: null }),
+      explanationViewActive({
+        taskIds: new Set(["t1"]),
+        collapseOverride: null,
+        milestoneGroupIds: null,
+        milestoneIds: null,
+      }),
     ).toBe(true);
   });
 
@@ -194,5 +220,81 @@ describe("read payload helpers", () => {
       ok: false,
       message: "説明に使えない項目があります。",
     });
+  });
+});
+
+describe("parseExplainViewRequest milestones", () => {
+  it("parseExplainView_acceptsMilestoneGroupIds", () => {
+    const parsed = parseExplainViewRequest(
+      { milestoneGroupIds: ["mg1"] },
+      doc,
+      null,
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok || parsed.kind !== "apply") return;
+    expect(parsed.state.milestoneGroupIds?.has("mg1")).toBe(true);
+    expect(parsed.clearSelection).toBe(false);
+  });
+
+  it("parseExplainView_rejectsHiddenMilestoneGroup", () => {
+    const parsed = parseExplainViewRequest(
+      { milestoneGroupIds: ["mg1"] },
+      { ...doc, hiddenMilestoneGroupIds: ["mg1"] },
+      null,
+    );
+    expect(parsed).toEqual({
+      ok: false,
+      message:
+        "説明で示すマイルストンの帯の行が、帯の線をオフにして見えていません。",
+    });
+  });
+
+  it("parseExplainView_rejectsMilestoneNotInGroupFilter", () => {
+    const parsed = parseExplainViewRequest(
+      { milestoneGroupIds: ["mg1"], milestoneIds: ["missing"] },
+      doc,
+      null,
+    );
+    expect(parsed).toEqual({
+      ok: false,
+      message: "説明に指定したマイルストンが見つかりません。",
+    });
+  });
+
+  it("resolveExplanationMilestoneBand_hidesEmptyGroupsWhenStarOnly", () => {
+    const band = resolveExplanationMilestoneBand(
+      {
+        milestoneGroups: [
+          { id: "mg1", name: "A" },
+          { id: "mg2", name: "B" },
+        ],
+        milestones: [
+          {
+            id: "ms1",
+            name: "S1",
+            date: "2026-01-01",
+            confidence: "committed",
+            groupId: "mg1",
+          },
+          {
+            id: "ms2",
+            name: "S2",
+            date: "2026-01-02",
+            confidence: "committed",
+            groupId: "mg2",
+          },
+        ],
+      },
+      {
+        taskIds: null,
+        collapseOverride: null,
+        milestoneGroupIds: null,
+        milestoneIds: new Set(["ms1"]),
+      },
+      new Set(),
+    );
+    expect(band.visibleGroupIds.has("mg1")).toBe(true);
+    expect(band.visibleGroupIds.has("mg2")).toBe(false);
+    expect(band.milestones.map((m) => m.id)).toEqual(["ms1"]);
   });
 });

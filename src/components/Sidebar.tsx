@@ -47,6 +47,7 @@ import {
 import type { HierarchyGuideSpec } from "../model/hierarchyGuide";
 import { HierarchyGuideRail } from "./HierarchyGuideRail";
 import {
+  explanationSidebarMarkByMilestoneGroup,
   explanationSidebarMarkByTask,
   type ExplanationSidebarMarkDisplay,
 } from "../model/explainOverlayLayout";
@@ -329,6 +330,13 @@ export function Sidebar({
       return new Map<ScheduleId, ExplanationSidebarMarkDisplay>();
     }
     return explanationSidebarMarkByTask(explanationOverlay!.marks);
+  }, [explanationActive, explanationOverlay]);
+
+  const sidebarMarksByMilestoneGroup = useMemo(() => {
+    if (!explanationActive) {
+      return new Map<ScheduleId, ExplanationSidebarMarkDisplay>();
+    }
+    return explanationSidebarMarkByMilestoneGroup(explanationOverlay!.marks);
   }, [explanationActive, explanationOverlay]);
 
   const rowStyle = (y: number): CSSProperties => ({
@@ -718,10 +726,19 @@ export function Sidebar({
           className="sidebar-milestone-groups"
           style={{ height: milestoneBandHeight }}
         >
-          {milestoneBandLayout.blocks.map((block) => (
+          {milestoneBandLayout.blocks.map((block) => {
+            const explanationMark = sidebarMarksByMilestoneGroup.get(
+              block.group.id,
+            );
+            let milestoneMarkClass = "";
+            if (explanationMark != null) {
+              milestoneMarkClass = " sidebar-milestones--explanation-mark";
+              milestoneMarkClass += ` sidebar-milestones--explanation-mark-${explanationMark.kind}`;
+            }
+            return (
             <div
               key={block.group.id}
-              className={`sidebar-milestones${diffMarkedMilestoneGroupId === block.group.id ? " hovered" : ""}`}
+              className={`sidebar-milestones${diffMarkedMilestoneGroupId === block.group.id ? " hovered" : ""}${milestoneMarkClass}`}
               style={{ height: block.height }}
               onClick={(event) => {
                 if (linkMode) return;
@@ -740,7 +757,8 @@ export function Sidebar({
             >
               <NameLabel text={block.group.name} />
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
       {explanationActive && explanationPalette ? (

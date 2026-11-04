@@ -24,13 +24,16 @@ import {
 } from "./connections";
 import {
   clipTaskBarRectToDate,
+  milestoneDiamondRectInBand,
   taskBarAnchorInBody,
   taskBarRectInBody,
   type TaskBarBodyRect,
 } from "./taskBarLayout";
+import { applyMilestoneEdit } from "./milestones";
 import type {
   Category,
   Milestone,
+  MilestoneGroup,
   OutlineRoot,
   ScheduleId,
   Task,
@@ -47,6 +50,8 @@ export const APPLY_EXPLANATION_PATTERN_UNKNOWN =
   "指定したパターンがありません。";
 export const APPLY_EXPLANATION_PATTERN_AFTER_MISSING =
   "afterTaskId のタスクがありません。";
+export const APPLY_EXPLANATION_PATTERN_MILESTONE_MISSING =
+  "試しの計画に指定したマイルストンがありません。";
 export const APPLY_EXPLANATION_PATTERN_ID_COLLISION =
   "試しのタスク id が既存のタスクと重なっています。";
 
@@ -68,12 +73,18 @@ export type ExplanationTrialChange = {
   predecessors?: ScheduleId[];
 };
 
+export type ExplanationTrialMilestoneChange = {
+  milestoneId: ScheduleId;
+  date: string;
+};
+
 export type ExplanationPattern = {
   id: string;
   name: string;
   color: string;
   tasks: ExplanationTrialNewTask[];
   changes: ExplanationTrialChange[];
+  milestoneChanges: ExplanationTrialMilestoneChange[];
 };
 
 const ALLOWED_PATTERN_KEYS = new Set([
@@ -82,7 +93,10 @@ const ALLOWED_PATTERN_KEYS = new Set([
   "color",
   "tasks",
   "changes",
+  "milestoneChanges",
 ]);
+
+const ALLOWED_MILESTONE_CHANGE_KEYS = new Set(["milestoneId", "date"]);
 
 const ALLOWED_TRIAL_TASK_KEYS = new Set([
   "id",
@@ -239,7 +253,12 @@ export function parseExplanationPatterns(
 
     const tasksRaw = item.tasks ?? [];
     const changesRaw = item.changes ?? [];
-    if (!Array.isArray(tasksRaw) || !Array.isArray(changesRaw)) {
+    const milestoneChangesRaw = item.milestoneChanges ?? [];
+    if (
+      !Array.isArray(tasksRaw) ||
+      !Array.isArray(changesRaw) ||
+      !Array.isArray(milestoneChangesRaw)
+    ) {
       return rejectPatterns();
     }
 
@@ -382,12 +401,39 @@ export function parseExplanationPatterns(
       changes.push(entry);
     }
 
+    const milestoneChanges: ExplanationTrialMilestoneChange[] = [];
+    const milestoneIds = new Set((context.milestones ?? []).map((m) => m.id));
+    for (const changeItem of milestoneChangesRaw) {
+      if (!isRecord(changeItem)) return rejectPatterns();
+      const changeExtra = Object.keys(changeItem).filter(
+        (k) => !ALLOWED_MILESTONE_CHANGE_KEYS.has(k),
+      );
+      if (changeExtra.length > 0) return rejectPatterns();
+      if (
+        typeof changeItem.milestoneId !== "string" ||
+        typeof changeItem.date !== "string"
+      ) {
+        return rejectPatterns();
+      }
+      if (!milestoneIds.has(changeItem.milestoneId)) {
+        return rejectPatterns();
+      }
+      if (!validateIsoInTimeline(changeItem.date, range)) {
+        return rejectPatterns();
+      }
+      milestoneChanges.push({
+        milestoneId: changeItem.milestoneId,
+        date: changeItem.date,
+      });
+    }
+
     patterns.push({
       id: item.id,
       name: item.name,
       color: normalizedColor,
       tasks: trialTasks,
       changes,
+      milestoneChanges,
     });
   }
 
@@ -709,6 +755,47 @@ export function buildExplanationTrialBarLayouts(input: {
   return layouts;
 }
 
+export type ExplanationTrialMilestoneLayout = {
+  patternId: string;
+  milestoneId: ScheduleId;
+  color: string;
+  rect: TaskBarBodyRect;
+};
+
+export function buildExplanationTrialMilestoneLayouts(input: {
+  patterns: readonly ExplanationPattern[];
+  milestones: readonly Milestone[];
+  milestoneCenterYById: ReadonlyMap<ScheduleId, number>;
+  diamondSize: number;
+  dateToX: (d: Date) => number;
+}): ExplanationTrialMilestoneLayout[] {
+  const layouts: ExplanationTrialMilestoneLayout[] = [];
+  const milestoneById = new Map(
+    input.milestones.map((milestone) => [milestone.id, milestone]),
+  );
+
+  for (const pattern of input.patterns) {
+    for (const change of pattern.milestoneChanges ?? []) {
+      if (milestoneById.get(change.milestoneId) == null) continue;
+      const centerY = input.milestoneCenterYById.get(change.milestoneId);
+      if (centerY == null) continue;
+      layouts.push({
+        patternId: pattern.id,
+        milestoneId: change.milestoneId,
+        color: pattern.color,
+        rect: milestoneDiamondRectInBand({
+          dateIso: change.date,
+          dateToX: input.dateToX,
+          centerY,
+          diamondSize: input.diamondSize,
+        }),
+      });
+    }
+  }
+
+  return layouts;
+}
+
 export type ExplanationTrialPredecessorArc = {
   patternId: string;
   color: string;
@@ -894,6 +981,14 @@ export function buildMcpExplanationPatterns(
         ? { predecessors: [...change.predecessors] }
         : {}),
     })),
+    ...((pattern.milestoneChanges ?? []).length > 0
+      ? {
+          milestoneChanges: (pattern.milestoneChanges ?? []).map((change) => ({
+            milestoneId: change.milestoneId,
+            date: change.date,
+          })),
+        }
+      : {}),
   }));
 }
 
@@ -979,6 +1074,27 @@ export function applyExplanationPatternToDocument(
       if (!preds.ok) return preds;
       current = preds.document;
     }
+  }
+
+  for (const change of pattern.milestoneChanges ?? []) {
+    const milestone = current.milestones.find(
+      (item) => item.id === change.milestoneId,
+    );
+    if (milestone == null) {
+      return { ok: false, message: APPLY_EXPLANATION_PATTERN_MILESTONE_MISSING };
+    }
+    const nextMilestones = applyMilestoneEdit(
+      current.milestones,
+      change.milestoneId,
+      current.milestoneGroups,
+      {
+        name: milestone.name,
+        date: change.date,
+        confidence: milestone.confidence,
+        groupId: milestone.groupId,
+      },
+    );
+    current = { ...current, milestones: nextMilestones };
   }
 
   return { ok: true, document: current };

@@ -7,10 +7,12 @@ import { taskBarExclusiveEnd, taskBarWidthPx } from "./timeline";
 import {
   clipTaskBarRectToDate,
   dateColumnRectInHeader,
+  milestoneBandBlockRectInBand,
   milestoneDiamondRectInBand,
   taskBarAnchorInBody,
   taskBarRectInBody,
 } from "./taskBarLayout";
+import type { MilestoneBandLayout } from "./milestones";
 import {
   collectTaskBarLabelObstacles,
   estimateChartTextWidth,
@@ -220,6 +222,7 @@ function layoutExplanationBalloons(
     displayScale: number;
     obstacles: readonly TextObstacleRect[];
     labelObstacles: readonly TextObstacleRect[];
+    tier?: "header" | "body";
   },
 ): ExplanationBalloonLayout[] {
   const chartBottom = input.bodyHeight;
@@ -255,7 +258,9 @@ function layoutExplanationBalloons(
       xOffsets.push(delta, -delta);
     }
 
-    for (const placement of ["above", "below"] as const) {
+    const placementOrder: ExplanationBalloonPlacement[] =
+      input.tier === "header" ? ["below", "above"] : ["above", "below"];
+    for (const placement of placementOrder) {
       for (const offset of xOffsets) {
         const left = clampBalloonAnchorX(
           baseLeft + offset,
@@ -303,7 +308,17 @@ function layoutExplanationBalloons(
         );
         if (area < bestArea) return candidate;
         if (area > bestArea) return best;
-        if (candidate.placement === "below" && best.placement === "above") {
+        if (input.tier === "header") {
+          if (candidate.placement === "below" && best.placement === "above") {
+            return candidate;
+          }
+          if (candidate.placement === "above" && best.placement === "below") {
+            return best;
+          }
+        } else if (
+          candidate.placement === "below" &&
+          best.placement === "above"
+        ) {
           return candidate;
         }
         return best;
@@ -343,6 +358,7 @@ export type BuildExplanationOverlayGeometryInput = {
   liveAnchors: ReadonlyMap<ScheduleId, TaskBarAnchor>;
   milestones: readonly Milestone[];
   milestoneCenterYById: ReadonlyMap<ScheduleId, number>;
+  milestoneBandLayout?: MilestoneBandLayout;
   milestoneDiamondSize: number;
   tier?: "day" | "week" | "month";
   memberCatalog?: Map<MemberId, Member> | null;
@@ -390,6 +406,19 @@ export function explanationSidebarMarkKinds(
     byTask.set(mark.taskId, mark.kind);
   }
   return byTask;
+}
+
+export function explanationSidebarMarkByMilestoneGroup(
+  marks: readonly ExplanationMark[],
+): Map<ScheduleId, ExplanationSidebarMarkDisplay> {
+  const byGroup = new Map<ScheduleId, ExplanationSidebarMarkDisplay>();
+  for (const mark of marks) {
+    if (mark.milestoneGroupId == null) continue;
+    const entry: ExplanationSidebarMarkDisplay = { kind: mark.kind };
+    if (mark.color != null) entry.color = mark.color;
+    byGroup.set(mark.milestoneGroupId, entry);
+  }
+  return byGroup;
 }
 
 function buildBodyBalloonObstacles(
@@ -531,6 +560,75 @@ export function buildExplanationOverlayGeometry(
       continue;
     }
 
+    if (mark.milestoneId != null) {
+      const milestone = input.milestones.find(
+        (item) => item.id === mark.milestoneId,
+      );
+      if (milestone == null) continue;
+      const cy = input.milestoneCenterYById.get(mark.milestoneId);
+      if (cy == null) continue;
+      const diamond = milestoneDiamondRectInBand({
+        dateIso: milestone.date,
+        dateToX: input.dateToX,
+        centerY: cy,
+        diamondSize: input.milestoneDiamondSize,
+      });
+      milestoneHoles.push({
+        ...diamond,
+        kind,
+        markIndex,
+        ...(color != null ? { color } : {}),
+      });
+      const anchorX = diamond.x + diamond.width / 2;
+      const anchorY = diamond.y;
+      bodyBalloonDrafts.push({
+        markIndex,
+        left: anchorX,
+        top: anchorY,
+        maxWidth: balloonMaxWidth,
+        label: mark.label,
+        number: mark.number,
+        visible: bodyBalloonVisible(anchorX, anchorY, input),
+        ...(color != null ? { color } : {}),
+      });
+      continue;
+    }
+
+    if (mark.milestoneGroupId != null) {
+      const block = input.milestoneBandLayout?.blocks.find(
+        (item) => item.group.id === mark.milestoneGroupId,
+      );
+      if (block == null) continue;
+      const bandRect = milestoneBandBlockRectInBand({
+        offsetY: block.offsetY,
+        height: block.height,
+        timelineWidth: input.timelineWidth,
+      });
+      milestoneHoles.push({
+        ...bandRect,
+        kind,
+        markIndex,
+        ...(color != null ? { color } : {}),
+      });
+      for (const milestone of block.milestones) {
+        const cy = block.centerYById.get(milestone.id);
+        if (cy == null) continue;
+        const diamond = milestoneDiamondRectInBand({
+          dateIso: milestone.date,
+          dateToX: input.dateToX,
+          centerY: cy,
+          diamondSize: input.milestoneDiamondSize,
+        });
+        milestoneHoles.push({
+          ...diamond,
+          kind,
+          markIndex,
+          ...(color != null ? { color } : {}),
+        });
+      }
+      continue;
+    }
+
     if (mark.date != null) {
       const headerRect = dateColumnRectInHeader({
         dateIso: mark.date,
@@ -585,6 +683,7 @@ export function buildExplanationOverlayGeometry(
       displayScale: input.displayScale ?? 1,
       obstacles: [],
       labelObstacles: [],
+      tier: "header",
     }),
   );
 
@@ -636,6 +735,8 @@ export type ExplanationScrollPlan = {
 export type PlanExplanationScrollInput = {
   marks: readonly ExplanationMark[];
   visibleRows: readonly VisibleRow[];
+  milestones?: readonly Milestone[];
+  milestoneCenterYById?: ReadonlyMap<ScheduleId, number>;
   dateToX: (d: Date) => number;
   pxPerDay: number;
   scrollX: number;
@@ -693,6 +794,23 @@ export function planExplanationOverlayScroll(
       const rowTop = row.y - input.scrollY;
       minY = Math.min(minY, rowTop);
       maxY = Math.max(maxY, rowTop + input.rowHeight);
+      continue;
+    }
+    if (mark.milestoneId != null) {
+      const milestone = input.milestones?.find(
+        (item) => item.id === mark.milestoneId,
+      );
+      if (milestone == null) continue;
+      const contentX = contentXFromDate(
+        parseDate(milestone.date),
+        input.timelineStart,
+        input.pxPerDay,
+      );
+      contentMinX = Math.min(contentMinX, contentX);
+      contentMaxX = Math.max(contentMaxX, contentX + input.pxPerDay);
+      continue;
+    }
+    if (mark.milestoneGroupId != null) {
       continue;
     }
     if (mark.date != null) {
@@ -779,6 +897,21 @@ export function planExplanationOverlayScroll(
         input.bodyHeight,
       );
     }
+  } else if (first.milestoneId != null) {
+    const milestone = input.milestones?.find(
+      (item) => item.id === first.milestoneId,
+    );
+    if (milestone != null) {
+      targetScrollX = scrollXToRevealTask(
+        parseDate(milestone.date),
+        input.pxPerDay,
+        input.scrollX,
+        input.timelineStart,
+        input.totalDays,
+        input.pxPerDay,
+        input.chartWidth,
+      );
+    }
   } else if (first.date != null) {
     targetScrollX = scrollXToRevealTask(
       parseDate(first.date),
@@ -801,6 +934,7 @@ function clamp(value: number, min: number, max: number): number {
 export function explanationMarkVisibleInViewport(input: {
   mark: ExplanationMark;
   visibleRows: readonly VisibleRow[];
+  milestones?: readonly Milestone[];
   pxPerDay: number;
   scrollX: number;
   scrollY: number;
@@ -839,6 +973,25 @@ export function explanationMarkVisibleInViewport(input: {
     }
     const y = row.y - input.scrollY;
     if (y + input.rowHeight < 0 || y > input.bodyHeight) return false;
+    return true;
+  }
+  if (mark.milestoneId != null) {
+    const milestone = input.milestones?.find(
+      (item) => item.id === mark.milestoneId,
+    );
+    if (milestone == null) return false;
+    const contentX = contentXFromDate(
+      parseDate(milestone.date),
+      input.timelineStart,
+      input.pxPerDay,
+    );
+    const viewportX = contentX - input.scrollX;
+    if (viewportX + input.pxPerDay < 0 || viewportX > input.chartWidth) {
+      return false;
+    }
+    return true;
+  }
+  if (mark.milestoneGroupId != null) {
     return true;
   }
   if (mark.date != null) {

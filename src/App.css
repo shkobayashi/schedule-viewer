@@ -3416,6 +3416,18 @@ button:focus-visible,
   background: var(--hover-row);
 }
 
+.sidebar-milestones--explanation-mark-change {
+  outline: 2px solid var(--explanation-mark-change-ring);
+  outline-offset: -2px;
+  z-index: 2;
+}
+
+.sidebar-milestones--explanation-mark-ask {
+  outline: 2px dashed var(--explanation-mark-ask-ring);
+  outline-offset: -2px;
+  z-index: 2;
+}
+
 .sidebar-row.selected {
   background: var(--selected-row);
 }

@@ -28,6 +28,8 @@ import type { McpTaskVisibility, McpViewVisible, McpViewportForReadTools } from 
 import {
   displayedCollapsedSet,
   explanationViewActive,
+  orderedExplainMilestoneGroupIdsForRead,
+  orderedExplainMilestoneIdsForRead,
   orderedExplainTaskIdsForRead,
   type ExplanationViewState,
 } from "./explainView";
@@ -173,6 +175,8 @@ export type McpViewCalendar = McpViewCalendarLoaded | McpViewCalendarDefault;
 
 export type McpViewExplanation = {
   taskIds?: ScheduleId[];
+  milestoneGroupIds?: ScheduleId[];
+  milestoneIds?: ScheduleId[];
   baseCollapsed: McpCollapsedEntry[];
 };
 
@@ -208,6 +212,8 @@ export type McpViewForReadToolsInput = {
   calendar: CalendarDocument | null;
   categories: Category[];
   outline?: OutlineRoot | undefined;
+  milestoneGroups?: readonly MilestoneGroup[];
+  milestones?: readonly Milestone[];
   viewport?: McpViewportForReadTools;
 };
 
@@ -399,6 +405,18 @@ export function buildMcpViewForReadTools(
       payload.taskIds = orderedExplainTaskIdsForRead(
         { categories: input.categories, outline: input.outline },
         ev.taskIds,
+      );
+    }
+    if (ev.milestoneGroupIds != null) {
+      payload.milestoneGroupIds = orderedExplainMilestoneGroupIdsForRead(
+        input.milestoneGroups ?? [],
+        ev.milestoneGroupIds,
+      );
+    }
+    if (ev.milestoneIds != null) {
+      payload.milestoneIds = orderedExplainMilestoneIdsForRead(
+        input.milestones ?? [],
+        ev.milestoneIds,
       );
     }
     return payload;

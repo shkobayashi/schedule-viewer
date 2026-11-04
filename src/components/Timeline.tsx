@@ -104,7 +104,12 @@ import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
 import {
   buildExplanationOverlayGeometry,
 } from "../model/explainOverlayLayout";
-import { buildExplanationTrialBarLayouts, buildExplanationTrialPredecessorArcs, isExplanationTrialVisibleRow } from "../model/explainOverlayPatterns";
+import {
+  buildExplanationTrialBarLayouts,
+  buildExplanationTrialMilestoneLayouts,
+  buildExplanationTrialPredecessorArcs,
+  isExplanationTrialVisibleRow,
+} from "../model/explainOverlayPatterns";
 import {
   explanationOverlayActive,
   type ExplanationOverlayState,
@@ -2211,6 +2216,7 @@ export function Timeline({
       liveAnchors,
       milestones,
       milestoneCenterYById: milestoneBandLayout.centerYById,
+      milestoneBandLayout,
       milestoneDiamondSize,
       tier,
       memberCatalog,
@@ -2237,6 +2243,24 @@ export function Timeline({
     uiScale,
     visibleRows,
     width,
+  ]);
+
+  const explanationTrialMilestones = useMemo(() => {
+    if (!explanationOverlayActive(explanationOverlay)) return [];
+    if (explanationOverlay.patterns.length === 0) return [];
+    return buildExplanationTrialMilestoneLayouts({
+      patterns: explanationOverlay.patterns,
+      milestones,
+      milestoneCenterYById: milestoneBandLayout.centerYById,
+      diamondSize: milestoneDiamondSize,
+      dateToX,
+    });
+  }, [
+    dateToX,
+    explanationOverlay,
+    milestoneBandLayout.centerYById,
+    milestoneDiamondSize,
+    milestones,
   ]);
 
   const explanationTrialBars = useMemo(() => {
@@ -3039,6 +3063,9 @@ export function Timeline({
               : undefined
           }
           explanationColorScheme={explanationActive ? colorScheme : undefined}
+          explanationTrialMilestones={
+            explanationActive ? explanationTrialMilestones : undefined
+          }
         />
       ) : null}
       <MilestoneHoverOverlay

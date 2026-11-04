@@ -8,11 +8,20 @@ import {
   groupCollapseKey,
   hierarchyCollapseKey,
 } from "./rows";
-import type { Category, OutlineRoot, ScheduleDocument, ScheduleId } from "./types";
+import type {
+  Category,
+  Milestone,
+  MilestoneGroup,
+  OutlineRoot,
+  ScheduleDocument,
+  ScheduleId,
+} from "./types";
 
 export type ExplanationViewState = {
   taskIds: ReadonlySet<ScheduleId> | null;
   collapseOverride: ReadonlySet<string> | null;
+  milestoneGroupIds: ReadonlySet<ScheduleId> | null;
+  milestoneIds: ReadonlySet<ScheduleId> | null;
 };
 
 const ALLOWED_KEYS = new Set([
@@ -21,6 +30,8 @@ const ALLOWED_KEYS = new Set([
   "collapsedCategoryIds",
   "collapsedGroupIds",
   "collapsedOutlineHeadingIds",
+  "milestoneGroupIds",
+  "milestoneIds",
   "discardInProgress",
 ]);
 
@@ -28,7 +39,12 @@ export function explanationViewActive(
   state: ExplanationViewState | null,
 ): state is ExplanationViewState {
   if (state == null) return false;
-  return state.taskIds != null || state.collapseOverride != null;
+  return (
+    state.taskIds != null ||
+    state.collapseOverride != null ||
+    state.milestoneGroupIds != null ||
+    state.milestoneIds != null
+  );
 }
 
 export function displayedCollapsedSet(
@@ -46,6 +62,13 @@ export function explainTaskIdsForFilter(
 ): ReadonlySet<ScheduleId> | null {
   return explanation?.taskIds ?? null;
 }
+
+export type ExplainViewDocumentContext = Pick<
+  ScheduleDocument,
+  "categories" | "outline" | "milestoneGroups" | "milestones"
+> & {
+  hiddenMilestoneGroupIds: readonly ScheduleId[];
+};
 
 function isStringArray(value: unknown): value is string[] {
   return (
@@ -143,6 +166,28 @@ function taskIdsInDocumentOrder(
   return ordered;
 }
 
+function milestoneGroupsInDocumentOrder(
+  groups: readonly MilestoneGroup[],
+  ids: ReadonlySet<ScheduleId>,
+): ScheduleId[] {
+  const ordered: ScheduleId[] = [];
+  for (const group of groups) {
+    if (ids.has(group.id)) ordered.push(group.id);
+  }
+  return ordered;
+}
+
+function milestonesInDocumentOrder(
+  milestones: readonly Milestone[],
+  ids: ReadonlySet<ScheduleId>,
+): ScheduleId[] {
+  const ordered: ScheduleId[] = [];
+  for (const milestone of milestones) {
+    if (ids.has(milestone.id)) ordered.push(milestone.id);
+  }
+  return ordered;
+}
+
 function taskIdsChanged(
   previous: ExplanationViewState | null,
   nextTaskIds: ReadonlySet<ScheduleId> | null,
@@ -170,7 +215,7 @@ export type ParseExplainViewResult =
 
 export function parseExplainViewRequest(
   envelope: Record<string, unknown>,
-  document: Pick<ScheduleDocument, "categories" | "outline">,
+  document: ExplainViewDocumentContext,
   previous: ExplanationViewState | null,
 ): ParseExplainViewResult {
   const extra = unknownKeys(envelope).filter((k) => k !== "discardInProgress");
@@ -178,12 +223,16 @@ export function parseExplainViewRequest(
     return { ok: false, message: "説明に使えない項目があります。" };
   }
 
+  const hiddenGroupSet = new Set(document.hiddenMilestoneGroupIds);
+
   if (envelope.clear === true) {
     if (
       envelope.taskIds !== undefined ||
       envelope.collapsedCategoryIds !== undefined ||
       envelope.collapsedGroupIds !== undefined ||
-      envelope.collapsedOutlineHeadingIds !== undefined
+      envelope.collapsedOutlineHeadingIds !== undefined ||
+      envelope.milestoneGroupIds !== undefined ||
+      envelope.milestoneIds !== undefined
     ) {
       return { ok: false, message: "clear と他の項目は同時に渡せません。" };
     }
@@ -195,6 +244,8 @@ export function parseExplainViewRequest(
   }
 
   const hasTaskIds = envelope.taskIds !== undefined;
+  const hasMilestoneGroupIds = envelope.milestoneGroupIds !== undefined;
+  const hasMilestoneIds = envelope.milestoneIds !== undefined;
 
   if (hasTaskIds) {
     const rawTaskIds = envelope.taskIds;
@@ -205,6 +256,40 @@ export function parseExplainViewRequest(
       return {
         ok: false,
         message: "説明のための絞り込みに、タスクを 1 件以上指定してください。",
+      };
+    }
+  }
+
+  if (hasMilestoneGroupIds) {
+    const raw = envelope.milestoneGroupIds;
+    if (!isStringArray(raw)) {
+      return {
+        ok: false,
+        message: "milestoneGroupIds は文字列の配列にしてください。",
+      };
+    }
+    if (raw.length === 0) {
+      return {
+        ok: false,
+        message:
+          "説明のための絞り込みに、マイルストンの帯の行を 1 件以上指定してください。",
+      };
+    }
+  }
+
+  if (hasMilestoneIds) {
+    const raw = envelope.milestoneIds;
+    if (!isStringArray(raw)) {
+      return {
+        ok: false,
+        message: "milestoneIds は文字列の配列にしてください。",
+      };
+    }
+    if (raw.length === 0) {
+      return {
+        ok: false,
+        message:
+          "説明のための絞り込みに、マイルストンを 1 件以上指定してください。",
       };
     }
   }
@@ -247,6 +332,64 @@ export function parseExplainViewRequest(
     }
   }
 
+  const milestoneGroups = document.milestoneGroups ?? [];
+  const milestones = document.milestones ?? [];
+  const groupIdSet = new Set(milestoneGroups.map((group) => group.id));
+  const milestoneById = new Map(
+    milestones.map((milestone) => [milestone.id, milestone]),
+  );
+
+  let milestoneGroupIdSet: ReadonlySet<ScheduleId> | null = null;
+  if (hasMilestoneGroupIds) {
+    milestoneGroupIdSet = new Set(envelope.milestoneGroupIds as string[]);
+    for (const id of milestoneGroupIdSet) {
+      if (!groupIdSet.has(id)) {
+        return {
+          ok: false,
+          message: "説明に指定したマイルストンの帯の行が見つかりません。",
+        };
+      }
+      if (hiddenGroupSet.has(id)) {
+        return {
+          ok: false,
+          message:
+            "説明で示すマイルストンの帯の行が、帯の線をオフにして見えていません。",
+        };
+      }
+    }
+  }
+
+  let milestoneIdSet: ReadonlySet<ScheduleId> | null = null;
+  if (hasMilestoneIds) {
+    milestoneIdSet = new Set(envelope.milestoneIds as string[]);
+    for (const id of milestoneIdSet) {
+      const milestone = milestoneById.get(id);
+      if (milestone == null) {
+        return {
+          ok: false,
+          message: "説明に指定したマイルストンが見つかりません。",
+        };
+      }
+      if (hiddenGroupSet.has(milestone.groupId)) {
+        return {
+          ok: false,
+          message:
+            "説明で示すマイルストンが、帯の線をオフにして見えていません。",
+        };
+      }
+      if (
+        milestoneGroupIdSet != null &&
+        !milestoneGroupIdSet.has(milestone.groupId)
+      ) {
+        return {
+          ok: false,
+          message:
+            "説明に指定したマイルストンは、指定した帯の行にありません。",
+        };
+      }
+    }
+  }
+
   const finalCollapse = buildCollapseOverrideFromPatch({
     collapsedCategoryIds: envelope.collapsedCategoryIds as ScheduleId[] | undefined,
     collapsedGroupIds: envelope.collapsedGroupIds as ScheduleId[] | undefined,
@@ -261,13 +404,20 @@ export function parseExplainViewRequest(
     return { ok: false, message: "説明に指定した折りたたみが見つかりません。" };
   }
 
-  if (taskIdSet == null && finalCollapse == null) {
+  if (
+    taskIdSet == null &&
+    finalCollapse == null &&
+    milestoneGroupIdSet == null &&
+    milestoneIdSet == null
+  ) {
     return { ok: false, message: "説明の指定がありません。" };
   }
 
   const state: ExplanationViewState = {
     taskIds: taskIdSet,
     collapseOverride: finalCollapse,
+    milestoneGroupIds: milestoneGroupIdSet,
+    milestoneIds: milestoneIdSet,
   };
 
   return {
@@ -276,6 +426,51 @@ export function parseExplainViewRequest(
     state,
     clearSelection: taskIdsChanged(previous, taskIdSet),
   };
+}
+
+export function resolveExplanationMilestoneBand(
+  document: Pick<ScheduleDocument, "milestoneGroups" | "milestones">,
+  explanation: ExplanationViewState | null,
+  hiddenMilestoneGroupIds: ReadonlySet<ScheduleId>,
+): { visibleGroupIds: Set<ScheduleId>; milestones: Milestone[] } {
+  const userVisibleGroups = document.milestoneGroups.filter(
+    (group) => !hiddenMilestoneGroupIds.has(group.id),
+  );
+  const groupFilter = explanation?.milestoneGroupIds ?? null;
+  const milestoneFilter = explanation?.milestoneIds ?? null;
+
+  if (groupFilter == null && milestoneFilter == null) {
+    const visibleGroupIds = new Set(userVisibleGroups.map((group) => group.id));
+    const milestones = document.milestones.filter((milestone) =>
+      visibleGroupIds.has(milestone.groupId),
+    );
+    return { visibleGroupIds, milestones };
+  }
+
+  let candidateGroups = userVisibleGroups;
+  if (groupFilter != null) {
+    candidateGroups = candidateGroups.filter((group) =>
+      groupFilter.has(group.id),
+    );
+  }
+
+  let milestones = document.milestones.filter((milestone) =>
+    candidateGroups.some((group) => group.id === milestone.groupId),
+  );
+  if (milestoneFilter != null) {
+    milestones = milestones.filter((milestone) =>
+      milestoneFilter.has(milestone.id),
+    );
+  }
+
+  const visibleGroupIds = new Set<ScheduleId>();
+  for (const group of candidateGroups) {
+    if (milestones.some((milestone) => milestone.groupId === group.id)) {
+      visibleGroupIds.add(group.id);
+    }
+  }
+
+  return { visibleGroupIds, milestones };
 }
 
 export function explainViewClearSuccessText(active: boolean): string {
@@ -291,4 +486,18 @@ export function orderedExplainTaskIdsForRead(
   taskIds: ReadonlySet<ScheduleId>,
 ): ScheduleId[] {
   return taskIdsInDocumentOrder(document, taskIds);
+}
+
+export function orderedExplainMilestoneGroupIdsForRead(
+  groups: readonly MilestoneGroup[],
+  groupIds: ReadonlySet<ScheduleId>,
+): ScheduleId[] {
+  return milestoneGroupsInDocumentOrder(groups, groupIds);
+}
+
+export function orderedExplainMilestoneIdsForRead(
+  milestones: readonly Milestone[],
+  milestoneIds: ReadonlySet<ScheduleId>,
+): ScheduleId[] {
+  return milestonesInDocumentOrder(milestones, milestoneIds);
 }

@@ -19,13 +19,26 @@ import {
   type ExplanationPattern,
   type McpExplanationPatternPayload,
 } from "./explainOverlayPatterns";
-import type { Category, Milestone, OutlineRoot, ScheduleId, VisibleRow } from "./types";
+import {
+  resolveExplanationMilestoneBand,
+  type ExplanationViewState,
+} from "./explainView";
+import type {
+  Category,
+  Milestone,
+  MilestoneGroup,
+  OutlineRoot,
+  ScheduleId,
+  VisibleRow,
+} from "./types";
 
 export type ExplanationMarkKind = "change" | "ask";
 
 export type ExplanationMark = {
   taskId?: ScheduleId;
   date?: string;
+  milestoneId?: ScheduleId;
+  milestoneGroupId?: ScheduleId;
   kind: ExplanationMarkKind;
   label: string;
   number?: number;
@@ -51,6 +64,8 @@ const ALLOWED_TOP_KEYS = new Set([
 const ALLOWED_MARK_KEYS = new Set([
   "taskId",
   "date",
+  "milestoneId",
+  "milestoneGroupId",
   "kind",
   "label",
   "number",
@@ -74,6 +89,9 @@ export type ExplainOverlayValidationContext = {
   categories: Category[];
   outline: OutlineRoot | undefined;
   milestones: readonly Milestone[];
+  milestoneGroups: readonly MilestoneGroup[];
+  hiddenMilestoneGroupIds: readonly ScheduleId[];
+  explanationView?: ExplanationViewState | null;
   collapsed: ReadonlySet<string>;
   visibleRows: readonly VisibleRow[];
 };
@@ -155,13 +173,30 @@ export function parseExplainOverlayRequest(
       }
       const hasTaskId = item.taskId !== undefined;
       const hasDate = item.date !== undefined;
-      if (!hasTaskId && !hasDate) {
+      const hasMilestoneId = item.milestoneId !== undefined;
+      const hasMilestoneGroupId = item.milestoneGroupId !== undefined;
+      if (hasMilestoneId && hasMilestoneGroupId) {
+        return { ok: false, message: "説明の印に使えない項目があります。" };
+      }
+      if (hasTaskId && (hasMilestoneId || hasMilestoneGroupId)) {
+        return { ok: false, message: "説明の印に使えない項目があります。" };
+      }
+      if (hasDate && (hasMilestoneId || hasMilestoneGroupId)) {
+        return { ok: false, message: "説明の印に使えない項目があります。" };
+      }
+      if (!hasTaskId && !hasDate && !hasMilestoneId && !hasMilestoneGroupId) {
         return { ok: false, message: "説明の印に使えない項目があります。" };
       }
       if (hasTaskId && typeof item.taskId !== "string") {
         return { ok: false, message: "説明の印に使えない項目があります。" };
       }
       if (hasDate && typeof item.date !== "string") {
+        return { ok: false, message: "説明の印に使えない項目があります。" };
+      }
+      if (hasMilestoneId && typeof item.milestoneId !== "string") {
+        return { ok: false, message: "説明の印に使えない項目があります。" };
+      }
+      if (hasMilestoneGroupId && typeof item.milestoneGroupId !== "string") {
         return { ok: false, message: "説明の印に使えない項目があります。" };
       }
       if (item.kind !== "change" && item.kind !== "ask") {
@@ -185,6 +220,10 @@ export function parseExplainOverlayRequest(
       };
       if (hasTaskId) mark.taskId = item.taskId as string;
       if (hasDate) mark.date = item.date as string;
+      if (hasMilestoneId) mark.milestoneId = item.milestoneId as string;
+      if (hasMilestoneGroupId) {
+        mark.milestoneGroupId = item.milestoneGroupId as string;
+      }
       if (item.number !== undefined) mark.number = item.number;
       if (item.color !== undefined) {
         mark.color = parseExplanationMarkColor(item.color)!;
@@ -199,6 +238,26 @@ export function parseExplainOverlayRequest(
     context.milestones,
     undefined,
     context.outline,
+  );
+
+  const hiddenMilestoneGroups = new Set(context.hiddenMilestoneGroupIds);
+  const bandForMarks = resolveExplanationMilestoneBand(
+    {
+      milestoneGroups: context.milestoneGroups,
+      milestones: context.milestones,
+    },
+    context.explanationView ?? null,
+    hiddenMilestoneGroups,
+  );
+  const visibleMilestoneIds = new Set(
+    bandForMarks.milestones.map((milestone) => milestone.id),
+  );
+  const visibleMilestoneGroupIds = bandForMarks.visibleGroupIds;
+  const milestoneById = new Map(
+    context.milestones.map((milestone) => [milestone.id, milestone]),
+  );
+  const milestoneGroupIds = new Set(
+    context.milestoneGroups.map((group) => group.id),
   );
 
   for (const mark of marks) {
@@ -316,6 +375,56 @@ export function parseExplainOverlayRequest(
       if (dayIdx < 0 || dayIdx >= range.totalDays) {
         return { ok: false, message: "説明で示す日付が、計画の期間の外です。" };
       }
+    } else if (mark.milestoneId != null) {
+      const milestone = milestoneById.get(mark.milestoneId);
+      if (milestone == null) {
+        return { ok: false, message: "説明に指定したマイルストンが見つかりません。" };
+      }
+      if (hiddenMilestoneGroups.has(milestone.groupId)) {
+        return {
+          ok: false,
+          message:
+            "説明で示すマイルストンが、帯の線をオフにして見えていません。",
+        };
+      }
+      if (!visibleMilestoneIds.has(mark.milestoneId)) {
+        return {
+          ok: false,
+          message:
+            "説明で示すマイルストンが、絞り込みか折りたたみで隠れています。",
+        };
+      }
+      let parsed: Date;
+      try {
+        parsed = parseDate(milestone.date);
+      } catch {
+        return { ok: false, message: "説明の印に使えない項目があります。" };
+      }
+      const dayIdx = daysBetween(range.timelineStart, parsed);
+      if (dayIdx < 0 || dayIdx >= range.totalDays) {
+        return { ok: false, message: "説明で示す日付が、計画の期間の外です。" };
+      }
+    } else if (mark.milestoneGroupId != null) {
+      if (!milestoneGroupIds.has(mark.milestoneGroupId)) {
+        return {
+          ok: false,
+          message: "説明に指定したマイルストンの帯の行が見つかりません。",
+        };
+      }
+      if (hiddenMilestoneGroups.has(mark.milestoneGroupId)) {
+        return {
+          ok: false,
+          message:
+            "説明で示すマイルストンの帯の行が、帯の線をオフにして見えていません。",
+        };
+      }
+      if (!visibleMilestoneGroupIds.has(mark.milestoneGroupId)) {
+        return {
+          ok: false,
+          message:
+            "説明で示すマイルストンの帯の行が、絞り込みか折りたたみで隠れています。",
+        };
+      }
     }
   }
 
@@ -339,6 +448,8 @@ export function explainOverlayHideSuccessText(wasActive: boolean): string {
 export type McpExplanationMarkPayload = {
   taskId?: ScheduleId;
   date?: string;
+  milestoneId?: ScheduleId;
+  milestoneGroupId?: ScheduleId;
   kind: ExplanationMarkKind;
   label: string;
   number?: number;
@@ -356,6 +467,7 @@ export type McpExplanationOverlayPayload = {
 export type BuildMcpExplanationOverlayInput = {
   overlay: ExplanationOverlayState | null;
   visibleRows: readonly VisibleRow[];
+  milestones?: readonly Milestone[];
   pxPerDay: number;
   scrollX: number;
   scrollY: number;
@@ -381,6 +493,7 @@ export function buildMcpExplanationOverlay(
       visible: explanationMarkVisibleInViewport({
         mark,
         visibleRows: input.visibleRows,
+        milestones: input.milestones,
         pxPerDay: input.pxPerDay,
         scrollX: input.scrollX,
         scrollY: input.scrollY,
@@ -393,6 +506,10 @@ export function buildMcpExplanationOverlay(
     };
     if (mark.taskId != null) payload.taskId = mark.taskId;
     if (mark.date != null) payload.date = mark.date;
+    if (mark.milestoneId != null) payload.milestoneId = mark.milestoneId;
+    if (mark.milestoneGroupId != null) {
+      payload.milestoneGroupId = mark.milestoneGroupId;
+    }
     if (mark.number !== undefined) payload.number = mark.number;
     if (mark.color != null) payload.color = mark.color;
     return payload;
