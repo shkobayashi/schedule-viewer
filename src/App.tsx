@@ -64,6 +64,7 @@ import {
 } from "./model/shortcuts";
 import {
   applyDesignDirection,
+  designLayoutTweaks,
   readDesignDirectionFromLocation,
 } from "./design/applyDesignDirection";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
@@ -561,8 +562,16 @@ function App() {
       : "",
   );
 
-  const { headerHeight, rowHeight, barHeight, milestoneLaneHeight } =
-    scaledLayoutSizes(uiScale, rowDensity);
+  const designDirection = readDesignDirectionFromLocation();
+  const layoutTweaks = designLayoutTweaks(designDirection);
+  const effectiveUiScale = uiScale * layoutTweaks.uiScaleMul;
+  const baseLayout = scaledLayoutSizes(effectiveUiScale, rowDensity);
+  const rowHeight = Math.round(baseLayout.rowHeight * layoutTweaks.rowHeightMul);
+  const headerHeight = Math.round(
+    baseLayout.headerHeight * layoutTweaks.headerHeightMul,
+  );
+  const barHeight = baseLayout.barHeight;
+  const milestoneLaneHeight = baseLayout.milestoneLaneHeight;
   const milestoneFontSize = Math.round(11 * uiScale);
   const milestoneDiamondSize = Math.max(8, Math.round(11 * uiScale));
   const refreshUiScale = useCallback(() => {
@@ -4384,9 +4393,7 @@ function App() {
         readDesignDirectionFromLocation() || undefined
       }
       style={{
-        ["--s" as string]:
-          uiScale *
-          (readDesignDirectionFromLocation() === "compact" ? 0.92 : 1),
+        ["--s" as string]: effectiveUiScale,
         ["--sidebar-w" as string]: sidebarWidth,
         ["--diff-panel-inset" as string]: diffPanelInset,
       }}

@@ -1,30 +1,288 @@
 /**
- * Issue #449 phase 2 — optional chrome density on .app when a direction is active.
- * Semantic chart colors are not defined here; they stay on palette.chart.
+ * Issue #449 — throwaway direction previews. Chart/task bar colors unchanged (Konva palette).
  */
-.app[data-design-direction] {
-  --s: var(--design-density, 1);
+
+.app[data-design-direction="linear"] {
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
 }
 
-.app[data-design-direction] .toolbar-button,
-.app[data-design-direction] .settings-nav button {
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease;
+/* —— A: Linear — flat chrome, tall rows, no row rules, left accent selection —— */
+.app[data-design-direction="linear"] .toolbar {
+  background: var(--bg);
+  border-bottom: 2px solid var(--border);
+  padding: calc(10px * var(--s)) calc(16px * var(--s));
+  box-shadow: none;
 }
 
-.app[data-design-direction="linear"] .modal-panel,
+.app[data-design-direction="linear"] .toolbar-btn:not(.toolbar-btn-primary) {
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+}
+
+.app[data-design-direction="linear"] .toolbar-btn:not(.toolbar-btn-primary):hover:not(:disabled) {
+  background: var(--panel);
+}
+
+.app[data-design-direction="linear"] .toolbar-btn-primary {
+  border-radius: var(--radius-md);
+}
+
+.app[data-design-direction="linear"] .sidebar {
+  border-right: none;
+  box-shadow: inset -1px 0 0 var(--border);
+  background: var(--bg);
+}
+
+.app[data-design-direction="linear"] .sidebar-header {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.app[data-design-direction="linear"] .sidebar-row::after {
+  display: none;
+}
+
+.app[data-design-direction="linear"] .sidebar-row.group .sidebar-row-body,
+.app[data-design-direction="linear"] .sidebar-row.category .sidebar-row-body {
+  font-size: calc(10px * var(--s));
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.app[data-design-direction="linear"] .sidebar-row.selected {
+  background: var(--selected-row);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.app[data-design-direction="linear"] .sidebar-row.task.hovered:not(.selected) {
+  background: var(--hover-row);
+}
+
+.app[data-design-direction="linear"] .timeline-header {
+  height: calc(48px * var(--s));
+  background: var(--panel);
+  border-bottom: 2px solid var(--border);
+}
+
+.app[data-design-direction="linear"] .milestone-band {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
 .app[data-design-direction="linear"] .settings-dialog {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px var(--modal-shadow);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-lg);
 }
 
-.app[data-design-direction="raycast"] .modal-panel,
+.app[data-design-direction="linear"] .settings-nav {
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+
+/* —— B: Raycast — dark floating toolbar, card panels, pill buttons, filled selection —— */
+.app[data-design-direction="raycast"] {
+  font-family:
+    ui-rounded,
+    "SF Pro Display",
+    system-ui,
+    sans-serif;
+}
+
+.app[data-design-direction="raycast"] .toolbar {
+  margin: calc(8px * var(--s));
+  margin-bottom: 0;
+  padding: calc(8px * var(--s)) calc(14px * var(--s));
+  background: #1a1a1a;
+  border: none;
+  border-radius: calc(14px * var(--s));
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.app[data-design-direction="raycast"] .toolbar-title,
+.app[data-design-direction="raycast"] .toolbar-title-text {
+  color: #f5f5f5;
+}
+
+.app[data-design-direction="raycast"] .toolbar-btn {
+  border: none;
+  background: #333333;
+  color: #f0f0f0;
+  border-radius: 999px;
+  height: calc(32px * var(--s));
+}
+
+.app[data-design-direction="raycast"] .toolbar-btn:hover:not(:disabled) {
+  background: #444444;
+}
+
+.app[data-design-direction="raycast"] .toolbar-btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.app[data-design-direction="raycast"] .toolbar-row-actions .toolbar-btn-label,
+.app[data-design-direction="raycast"] .lineage-btn .toolbar-btn-label {
+  display: none;
+}
+
+.app[data-design-direction="raycast"] .main {
+  padding: 0 calc(8px * var(--s)) calc(8px * var(--s));
+  gap: calc(10px * var(--s));
+  background: var(--bg);
+}
+
+.app[data-design-direction="raycast"] .sidebar {
+  border: none;
+  border-radius: calc(14px * var(--s));
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.app[data-design-direction="raycast"] .sidebar-row::after {
+  display: none;
+}
+
+.app[data-design-direction="raycast"] .sidebar-row.task:nth-child(odd) {
+  background: rgba(0, 0, 0, 0.025);
+}
+
+.app[data-design-direction="raycast"] .sidebar-row.selected {
+  background: var(--accent);
+  color: #fff;
+}
+
+.app[data-design-direction="raycast"] .sidebar-row.selected .sidebar-row-body,
+.app[data-design-direction="raycast"] .sidebar-row.selected .sidebar-col {
+  color: #fff;
+}
+
+.app[data-design-direction="raycast"] .sidebar-row.task.hovered:not(.selected) {
+  background: var(--hover-row);
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  outline-offset: -2px;
+}
+
+.app[data-design-direction="raycast"] .timeline-slot {
+  border-radius: calc(14px * var(--s));
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  background: #fff;
+}
+
+.app[data-design-direction="raycast"] .timeline-header {
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
 .app[data-design-direction="raycast"] .settings-dialog {
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  border-radius: calc(18px * var(--s));
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
 }
 
-.app[data-design-direction="compact"] .sidebar-row,
+.app[data-design-direction="raycast"] .settings-nav {
+  background: #f5f5f7;
+}
+
+/* —— C: Compact — dense rows, full-width rules, banded groups, outline selection —— */
+.app[data-design-direction="compact"] {
+  font-family:
+    "IBM Plex Sans",
+    "Hiragino Sans",
+    Meiryo,
+    sans-serif;
+}
+
 .app[data-design-direction="compact"] .toolbar {
-  letter-spacing: -0.01em;
+  padding: calc(2px * var(--s)) calc(8px * var(--s));
+  border-bottom: 2px solid var(--border);
+  background: var(--panel);
+}
+
+.app[data-design-direction="compact"] .toolbar-btn {
+  height: calc(24px * var(--s));
+  min-height: calc(22px * var(--s));
+  padding: 0 calc(6px * var(--s));
+  font-size: calc(11px * var(--s));
+  border-radius: var(--radius-sm);
+}
+
+.app[data-design-direction="compact"] .toolbar-title {
+  font-size: calc(12px * var(--s));
+}
+
+.app[data-design-direction="compact"] .sidebar-header {
+  height: calc(28px * var(--s));
+  font-size: calc(11px * var(--s));
+  font-weight: 700;
+  background: var(--group-bg);
+}
+
+.app[data-design-direction="compact"] .sidebar-row {
+  font-size: calc(11px * var(--s));
+}
+
+.app[data-design-direction="compact"] .sidebar-row::after {
+  background: var(--row-border);
+  height: 1px;
+  left: 0;
+  right: 0;
+}
+
+.app[data-design-direction="compact"] .sidebar-row.category,
+.app[data-design-direction="compact"] .sidebar-row.group {
+  background: var(--group-bg);
+  border-top: 1px solid var(--border);
+  font-weight: 700;
+}
+
+.app[data-design-direction="compact"] .sidebar-row.task:nth-child(even) {
+  background: var(--panel);
+}
+
+.app[data-design-direction="compact"] .sidebar-row.selected {
+  background: var(--selected-row);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.app[data-design-direction="compact"] .sidebar-row.task.hovered:not(.selected) {
+  background: var(--hover-row);
+}
+
+.app[data-design-direction="compact"] .timeline-header {
+  height: calc(28px * var(--s));
+  border-bottom: 2px solid var(--border);
+  background: var(--panel);
+}
+
+.app[data-design-direction="compact"] .milestone-band {
+  border-bottom: 2px solid var(--border);
+}
+
+.app[data-design-direction="compact"] .sidebar {
+  border-right: 2px solid var(--border);
+}
+
+.app[data-design-direction="compact"] .settings-dialog {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+
+.app[data-design-direction="compact"] .settings-nav button {
+  font-size: calc(11px * var(--s));
+  padding: calc(6px * var(--s)) calc(10px * var(--s));
 }

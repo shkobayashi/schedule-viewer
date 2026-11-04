@@ -4,6 +4,10 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import {
+  stitchLabeledRow,
+  stitchLabeledRowFromPaths,
+} from "./compose-design-comparisons.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = path.join(root, "docs", "design", "screenshots");
@@ -12,6 +16,13 @@ const playgroundSchedule = path.join(root, "examples", "playground.schedule.json
 const colorsSchedule = path.join(root, "examples", "manual-colors.schedule.json");
 const port = 5174;
 const viewport = { width: 1440, height: 900 };
+
+const DIRECTIONS = [
+  { id: "", prefix: "design-baseline", label: "現状" },
+  { id: "linear", prefix: "design-A-linear", label: "A Linear" },
+  { id: "raycast", prefix: "design-B-raycast", label: "B Raycast" },
+  { id: "compact", prefix: "design-C-compact", label: "C 高密度" },
+];
 
 function waitForServer(timeoutMs = 120_000) {
   const started = Date.now();
@@ -81,7 +92,11 @@ async function applyOpen(page, filePath) {
 }
 
 async function prepareMain(page, query = "") {
-  await page.goto(`http://localhost:${port}/${query}`, {
+  const param = query.startsWith("?") ? query.slice(1) : query;
+  const url = param
+    ? `http://localhost:${port}/?${param}`
+    : `http://localhost:${port}/`;
+  await page.goto(url, {
     waitUntil: "networkidle",
   });
   await page.setViewportSize(viewport);
@@ -95,7 +110,26 @@ async function prepareMain(page, query = "") {
     hasText: "playground",
     timeout: 60_000,
   });
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(500);
+}
+
+async function expandSidebar(page) {
+  const collapsed = page.locator('button.twist[aria-expanded="false"]');
+  for (let i = 0; i < 14; i += 1) {
+    if ((await collapsed.count()) === 0) break;
+    await collapsed.first().click();
+    await page.waitForTimeout(120);
+  }
+}
+
+async function showSelectionAndHover(page) {
+  await expandSidebar(page);
+  const selected = page.getByText("要件定義書作成", { exact: true }).first();
+  await selected.click();
+  await page.waitForTimeout(200);
+  const hoverTarget = page.getByText("要件レビュー", { exact: true }).first();
+  await hoverTarget.hover();
+  await page.waitForTimeout(350);
 }
 
 async function openSettings(page) {
@@ -161,9 +195,6 @@ async function captureInventory(page) {
   await page.screenshot({
     path: path.join(outDir, "inventory-explain-overlay.png"),
   });
-  await page.evaluate(() => {
-    document.querySelector(".explanation-konva-veil");
-  });
 
   const taskLabel = page.getByText("要件定義書作成", { exact: true }).first();
   await taskLabel.click({ button: "right" });
@@ -182,16 +213,66 @@ async function captureInventory(page) {
   });
 }
 
-async function captureDirection(page, id, labelPrefix) {
-  const query = id ? `?designDirection=${id}` : "";
+async function captureDirection(page, { id, prefix }) {
+  const query = id ? `designDirection=${id}` : "";
   await prepareMain(page, query);
+  await showSelectionAndHover(page);
   await page.screenshot({
-    path: path.join(outDir, `${labelPrefix}-main.png`),
+    path: path.join(outDir, `${prefix}-main.png`),
+  });
+  await page.locator(".toolbar").screenshot({
+    path: path.join(outDir, `${prefix}-crop-toolbar.png`),
+  });
+  await page.locator(".sidebar").screenshot({
+    path: path.join(outDir, `${prefix}-crop-sidebar.png`),
   });
   await openSettings(page);
   await page.screenshot({
-    path: path.join(outDir, `${labelPrefix}-settings-dialog.png`),
+    path: path.join(outDir, `${prefix}-settings-dialog.png`),
   });
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+}
+
+async function buildComparisons() {
+  const mainPaths = DIRECTIONS.map((d) =>
+    path.join(outDir, `${d.prefix}-main.png`),
+  );
+  const settingsPaths = DIRECTIONS.map((d) =>
+    path.join(outDir, `${d.prefix}-settings-dialog.png`),
+  );
+  const toolbarPaths = DIRECTIONS.map((d) =>
+    path.join(outDir, `${d.prefix}-crop-toolbar.png`),
+  );
+  const sidebarPaths = DIRECTIONS.map((d) =>
+    path.join(outDir, `${d.prefix}-crop-sidebar.png`),
+  );
+  const labels = DIRECTIONS.map((d) => d.label);
+
+  await stitchLabeledRow(
+    mainPaths,
+    labels,
+    path.join(outDir, "compare-main-baseline-A-B-C.png"),
+    720,
+  );
+  await stitchLabeledRow(
+    settingsPaths,
+    labels,
+    path.join(outDir, "compare-settings-baseline-A-B-C.png"),
+    640,
+  );
+  await stitchLabeledRowFromPaths(
+    toolbarPaths,
+    labels,
+    path.join(outDir, "compare-crop-toolbar-baseline-A-B-C.png"),
+    120,
+  );
+  await stitchLabeledRowFromPaths(
+    sidebarPaths,
+    labels,
+    path.join(outDir, "compare-crop-sidebar-baseline-A-B-C.png"),
+    420,
+  );
 }
 
 async function main() {
@@ -204,11 +285,11 @@ async function main() {
     const browser = await chromium.launch();
     const page = await browser.newPage();
     await captureInventory(page);
-    await captureDirection(page, "", "design-baseline");
-    await captureDirection(page, "linear", "design-A-linear");
-    await captureDirection(page, "raycast", "design-B-raycast");
-    await captureDirection(page, "compact", "design-C-compact");
+    for (const dir of DIRECTIONS) {
+      await captureDirection(page, dir);
+    }
     await browser.close();
+    await buildComparisons();
     for (const name of fs.readdirSync(outDir)) {
       if (!name.endsWith(".png")) continue;
       fs.copyFileSync(

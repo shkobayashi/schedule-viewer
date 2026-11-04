@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { readDesignDirectionFromLocation } from "./applyDesignDirection";
+import {
+  designLayoutTweaks,
+  readDesignDirectionFromLocation,
+} from "./applyDesignDirection";
 
 describe("readDesignDirectionFromLocation", () => {
   it("returns empty for unknown query values", () => {
@@ -15,5 +18,10 @@ describe("readDesignDirectionFromLocation", () => {
     window.history.replaceState({}, "", "/?designDirection=linear");
     expect(readDesignDirectionFromLocation()).toBe("linear");
     window.history.replaceState({}, "", previous);
+  });
+
+  it("designLayoutTweaks_compact_reduces_row_height", () => {
+    expect(designLayoutTweaks("compact").rowHeightMul).toBeLessThan(0.85);
+    expect(designLayoutTweaks("linear").rowHeightMul).toBeGreaterThan(1.05);
   });
 });
