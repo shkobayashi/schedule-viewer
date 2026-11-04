@@ -630,6 +630,7 @@
 | 同上 | `treats trim-equal title as unchanged` | EDIT-20 |
 | 同上 | `keeps internal spaces and reports changed title` | EDIT-20 |
 | `ScheduleToolbarTitle.test.ts` | `keeps 階層編集 visible while title edit swaps label slot` | EDIT-20, EDIT-21 |
+| `HierarchyLevelsDialog.test.ts` | `commits draft via footer 適用, not a second 閉じる` | EDIT-21 |
 | `DialogCloseButton.test.ts` | `exposes dismiss label and Esc tooltip` | NAV-07 |
 | `history.test.ts` | `undo restores a title change in one step` | EDIT-10, EDIT-20 |
 | `recentFiles.test.ts` | `appendRecentFile` など、スケジュールと設定ファイルの二系統 | FILE-09 |
@@ -1040,7 +1041,7 @@
 | TC-HIER-05d | EDIT-18, EDIT-11 | `examples/hierarchy/levels-4.schedule.json` | プルダウンが「見出しを追加」であること。段はタスクを除く3つ。最上段を1件追加する。タスクの一つ上の段でも1件追加する。見出し行の右クリックが定義名のままであること。取り消す | 下の見出しが定義名でつながり、タスクは付かない。取り消し1回で戻る |
 | TC-HIER-06 | EDIT-18 | 上記の追加後 | 保存する | タスクの一つ上の枝だけ `children` が空でも検証に通る |
 | TC-HIER-02b | VIEW-03 | 中間枝だけ子が空の JSON を手で用意する | 開く | 「階層の定義と入れ子の数が違います。」が出る。見出しの追加メニューは出ない |
-| TC-HIER-06b | EDIT-21, FILE-02 | サンプルまたは `levels-3.schedule.json` | ブラウザ版で入口の「階層編集」が枠付きであることを見る。「階層編集」を開き、全段で名前・意味・指示の欄の左端が揃い、最下段の操作列に「タスク」が出ることを見る。見出しの段で「上へ」「下へ」が効くことを見る。名前だけ変えて閉じる。指示だけ書いて閉じ、保存してキーが残ることを見る。段を1つ足して閉じ、保存を試す。意味を空にして閉じられるか試す | 名前か意味だけの変更で段数が同じときは行は動かない。上下は閉じるまで文書は動かない。段数だけ変えたあとは保存が拒否され、ダイアログの見出しは「保存できません」で本文に階層の理由が出る。空の意味では閉じられない。空の指示ではキーを書かない |
+| TC-HIER-06b | EDIT-21, FILE-02 | サンプルまたは `levels-3.schedule.json` | ブラウザ版で入口の「階層編集」が枠付きであることを見る。「階層編集」を開き、全段で名前・意味・指示の欄の左端が揃い、最下段の操作列に「タスク」が出ることを見る。見出しの段で「上へ」「下へ」が効くことを見る。名前だけ変えて適用する。指示だけ書いて適用し、保存してキーが残ることを見る。段を1つ足して適用し、保存を試す。意味を空にして適用できるか試す | 名前か意味だけの変更で段数が同じときは行は動かない。上下は適用するまで文書は動かない。段数だけ変えたあとは保存が拒否され、ダイアログの見出しは「保存できません」で本文に階層の理由が出る。空の意味では適用できない。空の指示ではキーを書かない |
 | TC-HIER-06c | EDIT-21, SYNC-01 | デスクトップ版で `levels-2.schedule.json` を開く | 「階層編集」を開き、意味の下書きを入れる。別端末で同じファイルのタスク終了日だけを変えて保存する。即時反映せず確認が出ること。下書きが残ること。読み直す。再度「階層編集」を開き下書きを入れ、今度はファイル側だけの変更で「両方を画面へ反映」する | 開いているあいだは即時反映しない。読み直しと反映のあと、閉じたダイアログの下書きは文書へ入らない。反映後は `levels` と `outline` が残る |
 | TC-HIER-07 | EXPORT-02, EXPORT-05, VIEW-01 | `examples/hierarchy/levels-2.schedule.json`、`levels-3.schedule.json`、`levels-5.schedule.json` と定義の無いサンプル | 各ファイルを開き、HTML と Excel で書き出す。画面と並べ、左の縦線と行の地、チャートの親バー、Excel の字下げと一番上だけの塗りを見る | 2段は見出しの字下げ 0 とタスク 1、塗りは見出しの左列だけ。3段の `outline` は字下げ 0・1・2 で定義の無い3段と同じ。5段はタスクが字下げ 4。中間の見出しにも親バーが出る。HTML のチャート側の行の地は、一番上・タスクのすぐ上・あいだで分かれる |
 | TC-FILE-01 | FILE-01 | 検証済みの JSON がある | 「開く」でそのファイルを選ぶ | 画面がその内容になり、見出しのタイトルは JSON の `title` になる。ファイル名は状態バーとウィンドウタイトルに出る |

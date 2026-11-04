@@ -11,6 +11,7 @@ import {
 import type { ScheduleLevelDef } from "../model/types";
 import type { DocumentSnapshot } from "../model/history";
 import { ModalDialog } from "./ModalDialog";
+import { UiButton } from "./ui/UiButton";
 
 const MEANING_HINT =
   "この段に何を置くかだけを書く。隣の段にも置けそうなときだけ、分かれ目を一文足す。";
@@ -285,14 +286,13 @@ export function HierarchyLevelsDialog({
         >
           段を追加
         </button>
-        <button
-          type="button"
-          className="toolbar-btn"
+        <UiButton
+          variant="primary"
           disabled={!canClose}
           onClick={handleCloseCommit}
         >
-          閉じる
-        </button>
+          適用
+        </UiButton>
       </div>
       </div>
     </ModalDialog>
