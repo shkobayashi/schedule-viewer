@@ -1,0 +1,30 @@
+/**
+ * Issue #449 phase 2 — optional chrome density on .app when a direction is active.
+ * Semantic chart colors are not defined here; they stay on palette.chart.
+ */
+.app[data-design-direction] {
+  --s: var(--design-density, 1);
+}
+
+.app[data-design-direction] .toolbar-button,
+.app[data-design-direction] .settings-nav button {
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.app[data-design-direction="linear"] .modal-panel,
+.app[data-design-direction="linear"] .settings-dialog {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px var(--modal-shadow);
+}
+
+.app[data-design-direction="raycast"] .modal-panel,
+.app[data-design-direction="raycast"] .settings-dialog {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.app[data-design-direction="compact"] .sidebar-row,
+.app[data-design-direction="compact"] .toolbar {
+  letter-spacing: -0.01em;
+}

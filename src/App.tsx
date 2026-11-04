@@ -62,6 +62,10 @@ import {
   noteShortcutHint,
   usesCommandKey,
 } from "./model/shortcuts";
+import {
+  applyDesignDirection,
+  readDesignDirectionFromLocation,
+} from "./design/applyDesignDirection";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
 import { useMacOSAppMenu } from "./hooks/useMacOSAppMenu";
 import { useRecentFiles } from "./hooks/useRecentFiles";
@@ -573,6 +577,10 @@ function App() {
 
   useEffect(() => {
     applyResolvedColorScheme(resolvedColorScheme);
+    applyDesignDirection(
+      readDesignDirectionFromLocation(),
+      resolvedColorScheme,
+    );
   }, [resolvedColorScheme]);
 
   useEffect(() => {
@@ -4372,8 +4380,13 @@ function App() {
   return (
     <div
       className="app"
+      data-design-direction={
+        readDesignDirectionFromLocation() || undefined
+      }
       style={{
-        ["--s" as string]: uiScale,
+        ["--s" as string]:
+          uiScale *
+          (readDesignDirectionFromLocation() === "compact" ? 0.92 : 1),
         ["--sidebar-w" as string]: sidebarWidth,
         ["--diff-panel-inset" as string]: diffPanelInset,
       }}
