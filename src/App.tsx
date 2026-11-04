@@ -2929,6 +2929,7 @@ function App() {
       }
       if (patch.colorScheme !== undefined) {
         setColorSchemePreference(patch.colorScheme);
+        setResolvedColorScheme(resolveColorScheme(patch.colorScheme));
         writeColorSchemePreference(patch.colorScheme);
       }
     },
