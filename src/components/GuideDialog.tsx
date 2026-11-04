@@ -42,9 +42,6 @@ export function GuideDialog({
         <button type="button" onClick={onOpenShortcuts}>
           ショートカット一覧
         </button>
-        <button type="button" className="primary" onClick={onClose}>
-          閉じる
-        </button>
       </div>
     </ModalDialog>
   );

@@ -96,14 +96,6 @@ export function HierarchyLevelsDialog({
     onClose();
   };
 
-  const handleEscape = () => {
-    if (canClose) {
-      handleCloseCommit();
-      return;
-    }
-    onClose();
-  };
-
   const atMaxLevels = draft.length >= MAX_LEVEL_COUNT;
   const showHeadingActions = draft.length > 1;
   const lastHeadingIndex = draft.length - 2;
@@ -113,7 +105,7 @@ export function HierarchyLevelsDialog({
       title="階層"
       className="ui-dialog-panel--hierarchy hierarchy-levels-dialog"
       initialFocusRef={firstNameRef}
-      onClose={handleEscape}
+      onClose={onClose}
     >
       <div className="ui-dialog-body hierarchy-levels-dialog-body">
       <div className="hierarchy-levels-body">

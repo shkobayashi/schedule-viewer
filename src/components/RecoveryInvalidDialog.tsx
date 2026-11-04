@@ -15,9 +15,6 @@ export function RecoveryInvalidDialog({
     <ModalDialog title="復旧用の控え" onClose={onClose}>
       <p className="form-note">{message}</p>
       <div className="modal-actions">
-        <button type="button" className="btn" onClick={onClose}>
-          閉じる
-        </button>
         <button type="button" className="btn danger" onClick={onDiscard}>
           控えを破棄
         </button>

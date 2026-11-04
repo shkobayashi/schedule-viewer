@@ -142,10 +142,11 @@ html[data-color-scheme="dark"] .ui-dialog-panel {
 
 .ui-dialog-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
   flex-shrink: 0;
+  min-height: calc(28px * var(--s));
 }
 
 .ui-dialog-title {
