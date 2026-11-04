@@ -20,6 +20,17 @@ struct GhAsset {
     browser_download_url: String,
 }
 
+fn is_alpha_tag(tag: &str) -> bool {
+    let trimmed = tag.trim();
+    let rest = trimmed.strip_prefix('v').unwrap_or(trimmed);
+    let parts: Vec<&str> = rest.split("-alpha.").collect();
+    if parts.len() != 2 {
+        return false;
+    }
+    let nums: Vec<&str> = parts[0].split('.').collect();
+    nums.len() == 3 && parts[1].chars().all(|c| c.is_ascii_digit())
+}
+
 fn is_beta_tag(tag: &str) -> bool {
     let trimmed = tag.trim();
     let rest = trimmed.strip_prefix('v').unwrap_or(trimmed);
@@ -29,6 +40,10 @@ fn is_beta_tag(tag: &str) -> bool {
     }
     let nums: Vec<&str> = parts[0].split('.').collect();
     nums.len() == 3 && parts[1].chars().all(|c| c.is_ascii_digit())
+}
+
+fn is_prerelease_tag(tag: &str) -> bool {
+    is_alpha_tag(tag) || is_beta_tag(tag)
 }
 
 fn is_updater_tag(tag: &str) -> bool {
@@ -53,7 +68,7 @@ pub fn fetch_beta_release_tags() -> Result<Vec<String>, String> {
     let tags = releases
         .into_iter()
         .map(|release| release.tag_name)
-        .filter(|tag| is_beta_tag(tag) && !is_updater_tag(tag))
+        .filter(|tag| is_prerelease_tag(tag) && !is_updater_tag(tag))
         .collect();
     Ok(tags)
 }
@@ -90,12 +105,12 @@ fn find_installer_asset(releases: &[GhRelease], version: &str) -> Result<GhAsset
     let release = releases
         .iter()
         .find(|item| item.tag_name == tag)
-        .ok_or_else(|| "公開中のベータはありません".to_string())?;
+        .ok_or_else(|| "公開中の Pre-release はありません".to_string())?;
     let asset = release
         .assets
         .iter()
         .find(|asset| asset_name_matches_installer(&asset.name, suffix))
-        .ok_or_else(|| "この OS のベータはありません".to_string())?;
+        .ok_or_else(|| "この OS の Pre-release はありません".to_string())?;
     if !is_allowed_download_url(&asset.browser_download_url) {
         return Err("ベータの取得に失敗しました".to_string());
     }

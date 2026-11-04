@@ -23,7 +23,7 @@
 | スケジュール検証 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` |
 | カレンダー検証 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` |
 | メンバー検証 | `npm run check:members` | 引数なしなら `examples/playground.members.json` |
-| バージョン | `npm run version:check` | 5ファイルのバージョン番号と `X.Y.Z` / `X.Y.Z-beta.N` の形、`tauri.conf.json` の `plugins.updater.endpoints` がそのメジャー用 `updater-X` を指すこと |
+| バージョン | `npm run version:check` | 5ファイルのバージョン番号と `X.Y.Z` / `X.Y.Z-alpha.N` / `X.Y.Z-beta.N` の形、`tauri.conf.json` の `plugins.updater.endpoints` がそのメジャー用 `updater-X` を指すこと |
 | スキル同梱物 | `npm run build:validate-skill` のあと、CI と同じパスで `git diff --exit-code` | スキーマコピーと検証 bundle の差分 |
 
 画面用のテストランナー（jsdom、Testing Library、Playwright）は入っていない。
@@ -34,7 +34,7 @@
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | `develop`、`main`、`next` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`。最後に集約ジョブ `ci` が成功する |
 | `.github/workflows/pages.yml` | `main` への push（操作マニュアルとサイトビルドの入力）または `workflow_dispatch` | `npm ci` のあと `build:manual-site` を GitHub Pages へ公開する |
-| `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Apple Silicon の dmg を GitHub Release へ出す。安定版では Windows が署名しない MSIX を Microsoft Store（`9PP41TRJ8ZT8`）へ提出する。ベータでは Windows NSIS と `schedule-viewer-codesign.cer` と `latest-windows-x86_64.json` を出す。`latest-linux-x86_64.json`、`latest-darwin-aarch64.json` と、安定版では `linux-x86_64` と `darwin-aarch64` の `latest.json`、ベータでは `windows-x86_64` も含む `latest.json`、`SHA256SUMS` を載せる。安定版の `checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。`main` は安定版で CHANGELOG から本文を組み立てる。安定版ではビルド前に GitHub Release を作り、`checksums` が同じメジャー用の Pre-release `updater-X` の `latest.json` を更新し、より大きいメジャーが無いときだけ Latest を付ける。`release/X.Y.Z` は Pre-release で短い確認用の本文 |
+| `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Apple Silicon の dmg を GitHub Release へ出す。安定版では Windows が署名しない MSIX を Microsoft Store（`9PP41TRJ8ZT8`）へ提出する。Pre-release では Windows NSIS と `schedule-viewer-codesign.cer` と `latest-windows-x86_64.json` を出す。`latest-linux-x86_64.json`、`latest-darwin-aarch64.json` と、安定版では `linux-x86_64` と `darwin-aarch64` の `latest.json`、Pre-release では `windows-x86_64` も含む `latest.json`、`SHA256SUMS` を載せる。Pre-release では Latest を付けず `updater-X` も更新しない。安定版の `checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。`main` は安定版で CHANGELOG から本文を組み立てる。安定版ではビルド前に GitHub Release を作り、`checksums` が `updater-X` を更新し、より大きいメジャーが無いときだけ Latest を付ける。`release/X.Y.Z` は Pre-release で、アルファまたはベータに応じた短い確認用の本文 |
 
 `develop` への push だけでは CI は動かない。`docs/*.md` だけの変更（操作マニュアル以外）ではフロントと Rust と `manual` はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
@@ -815,7 +815,7 @@
 | `colorScheme.test.ts` | `accepts light and dark` | SET-04 |
 | `autoUpdate.test.ts` | `treats on as enabled`、localStorage の読み書き、更新確認の失敗を出さない条件、`classifyUpdateCheckError` | SET-06 |
 | `storeDistribution.test.ts` | `readStoreDistribution` が Tauri で `is_store_distribution` を呼ぶ | SET-06 |
-| `betaRelease.test.ts` | `updater-X` の除外、一覧から最新ベータを選ぶ、入っている版より新しいときだけ保存対象、OS に合うファイル名 | SET-06 |
+| `betaRelease.test.ts` | `updater-X` の除外、一覧から最新 Pre-release（アルファ・ベータ）を選ぶ、入っている版より新しいときだけ保存対象、OS に合うファイル名 | SET-06 |
 | 同上 | `stores fixed schemes and clears key for system` | SET-04 |
 | 同上 | `falls back to system for missing or invalid values` | SET-04 |
 | 同上 | `uses OS preference when set to system` | SET-04 |
@@ -836,7 +836,7 @@
 `dates.test.ts` の夏時間のケースは、特定の機能ではなく、日付計算の基礎を確かめるものである。
 
 | `releaseVersion.test.ts` | `accepts stable versions`、先頭 `0` の拒否 | — |
-| 同上 | `bumps major, minor, patch on stable only`（ベータでは失敗） | — |
+| 同上 | `bumps major, minor, patch on stable only`（Pre-release では失敗） | — |
 | 同上 | `bumps beta from stable and from beta`、`strips beta suffix` | — |
 | 同上 | `rejects beta on main`、`rejects stable on release branch` | — |
 | 同上 | `rejects unsupported release branch name`、`rejects release branch base mismatch` | — |
@@ -1454,10 +1454,10 @@
 | TC-SET-06v | SET-06 | TC-SET-06u のあと、次の安定版が公開され、自動更新がオン | 起動時の知らせまたは「更新を確認」で「入れ直す」を選ぶ | 再起動後に版が進む。その起動で Gatekeeper の警告は出ない |
 | TC-SET-06t | SET-06 | GitHub Releases の Windows 版、確認先の `latest.json` に `windows-x86_64` が無い（安定版の `updater-X` を見ている） | 起動時の自動確認のあと、「更新を確認」する | 起動時は入れ直しの知らせが出ない。手動では「Windows の安定版は Microsoft Store で入手・更新します。」が欄または隅に出る |
 | TC-SET-06n | SET-06 | デスクトップ版、知らせが出ている | 設定を開き「更新」以外を見る | 隅の知らせは出ない。「更新」に戻すと同じ知らせが見える |
-| TC-SET-06o | SET-06 | Windows または Ubuntu、入っている版 `1.0.0`、公開ベータ `1.0.0-beta.1` だけ | 設定の「更新」で「インストーラを保存」 | 「公開中のベータはありません」 |
-| TC-SET-06p | SET-06 | 同上、公開ベータ `1.0.1-beta.1` がある | 同上 | 保存先を選べ、欄にパスが出る。インストーラは起動しない |
-| TC-SET-06q | SET-06 | macOS のデスクトップ版 | 設定の「更新」を見る | ベータの保存ボタンと説明が無い |
-| TC-SET-06r | SET-06 | Microsoft Store の MSIX 版、Windows | 起動する。☰ と設定の「更新」を見る | 起動時の入れ直し知らせが出ない。「更新を確認」が無い。設定の「更新」に Windows が更新する旨と変更履歴だけがある。「起動時に更新を確認する」とベータ保存が無い |
+| TC-SET-06o | SET-06 | Windows または Ubuntu、入っている版 `1.0.0`、公開 Pre-release `1.0.0-beta.1` だけ（入っている版より新しくない） | 設定の「更新」で「インストーラを保存」 | 「公開中の Pre-release はありません」 |
+| TC-SET-06p | SET-06 | 同上、公開 Pre-release `1.0.1-beta.1` がある | 同上 | 保存先を選べ、欄にパスが出る。インストーラは起動しない |
+| TC-SET-06q | SET-06 | macOS のデスクトップ版 | 設定の「更新」を見る | Pre-release の保存ボタンと説明が無い |
+| TC-SET-06r | SET-06 | Microsoft Store の MSIX 版、Windows | 起動する。☰ と設定の「更新」を見る | 起動時の入れ直し知らせが出ない。「更新を確認」が無い。設定の「更新」に Windows が更新する旨と変更履歴だけがある。「起動時に更新を確認する」と Pre-release 保存が無い |
 | TC-SET-06s | SET-06 | 旧 `com.collabcentral.schedule-viewer` にメンバーと控えがある、新 identifier のディレクトリが無い | NSIS 版を一度起動する | 新ディレクトリに内容が移る。旧ディレクトリは残る。2回目の起動で上書きしない |
 | TC-SET-07 | SET-07 | デスクトップ版 | 設定を開く。表示、メンバー、更新の各セクションを見る | どのセクションでも下に `バージョン ` と、入れている版の番号が出る。押しても閉じず、変更内容は出ない |
 | TC-SET-07b | SET-07 | ブラウザ版 | 設定を開く | 同じ位置に `package.json` の番号が出る。「更新」の欄は無い |
@@ -1499,9 +1499,9 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。スケジュ
 8. TC-SYNC-01 で、別のエディタで保存した内容が画面に反映されることを見る
 9. TC-SYNC-03 で未保存の復元を、TC-SYNC-03d で保存済みの開き直しを見る。TC-WIN-01 で別ウィンドウ、TC-WIN-02 で他ウィンドウの知らせ、TC-WIN-03 で設定の共有を見る。TC-FILE-08 と TC-WIN-04 は手元の OS で `npm run tauri dev` を使って見る
 10. TC-VIEW-05 と TC-VIEW-07 で赤とイナズマ線を見る
-11. Ubuntu では deb のインストールと起動を見る。Apple Silicon の Mac では dmg のインストールと起動を見る（TC-SET-06u）。安定版の Release 後、Windows では Store の更新、実行エイリアス、更新欄、MCP のエイリアスを見る。ベータの Pre-release では NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
-12. 安定版の `SHA256SUMS` に deb、dmg、`latest.json` など Release のファイルが含まれ、各ファイルのハッシュが一致することを見る。安定版の `latest.json` に `linux-x86_64` と `darwin-aarch64` があることを見る。ベータでは `windows-x86_64` も含まれる
+11. Ubuntu では deb のインストールと起動を見る。Apple Silicon の Mac では dmg のインストールと起動を見る（TC-SET-06u）。安定版の Release 後、Windows では Store の更新、実行エイリアス、更新欄、MCP のエイリアスを見る。Pre-release では NSIS が署名されていること（ジョブログ）、`schedule-viewer-codesign.cer` があること、証明書を二つのストアへ入れた PC で発行元が `schedule-viewer` になること、入れていない PC で SmartScreen の確認が出ることを見る
+12. 安定版の `SHA256SUMS` に deb、dmg、`latest.json` など Release のファイルが含まれ、各ファイルのハッシュが一致することを見る。安定版の `latest.json` に `linux-x86_64` と `darwin-aarch64` があることを見る。Pre-release では `windows-x86_64` も含まれる
 13. 安定版の Release 本文にダウンロード手順とその版の CHANGELOG 節の本体（版見出しは無い）があり、番号がある項目の `(#番号)` がリンクになっていることを見る。番号が無い項目は本文のまま載る。CHANGELOG にその版の節が無いときは本文ジョブが失敗し、本文はダウンロード手順のまま残る。`[Unreleased]` と前の版の節は載らない。Pre-release の本文は確認用の短い文だけで、CHANGELOG 節は無い
-14. TC-SET-06b から TC-SET-06q で自動更新、手動確認、ベータ保存、設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
-15. この仕組みを初めて使うベータでは、Windows にベータを入れたあと、安定版は Microsoft Store から入れ直すことを確認する
-16. 安定版の Release 後、`updater-X` が Pre-release で `latest.json` だけを載せていることを見る。タグ `updater-X` は初回の位置のままである。より大きいメジャーの安定版が無いときだけ、その版が Latest になる
+14. TC-SET-06b から TC-SET-06q で自動更新、手動確認、Pre-release 保存、設定の変更履歴を見る（新しい Release が無いときは TC-SET-06e は Release 公開後に見る）
+15. この仕組みを初めて使う Pre-release では、Windows に Pre-release を入れたあと、安定版は Microsoft Store から入れ直すことを確認する
+16. 安定版の Release 後、`checksums` が `updater-X` の `latest.json` を更新していることを見る。Pre-release では `updater-X` は更新されない。より大きいメジャーの安定版が無いときだけ、その版が Latest になる
