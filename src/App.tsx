@@ -2068,7 +2068,7 @@ function App() {
       const tags = await fetchBetaReleaseTagsViaTauri();
       const version = pickSaveableBetaVersion(installed, tags);
       if (!version) {
-        setBetaInstallerStatusLine("公開中のベータはありません");
+        setBetaInstallerStatusLine("公開中の Pre-release はありません");
         return;
       }
       const saved = await saveBetaInstallerViaTauri(version);
@@ -2078,7 +2078,7 @@ function App() {
         setBetaInstallerStatusLine(previousLine);
       }
     } catch {
-      setBetaInstallerStatusLine("ベータの取得に失敗しました");
+      setBetaInstallerStatusLine("Pre-release の取得に失敗しました");
     }
   }, [betaInstallerStatusLine, storeDistribution, updateUiState.phase]);
 

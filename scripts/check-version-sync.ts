@@ -12,7 +12,7 @@ const mismatched = Object.entries(sources).filter(([, v]) => v !== expected);
 
 if (!isValidReleaseVersion(expected)) {
   console.error(`Invalid release version format: ${expected}`);
-  console.error("Expected X.Y.Z or X.Y.Z-beta.N (N >= 1, no leading zero)");
+  console.error("Expected X.Y.Z, X.Y.Z-alpha.N, or X.Y.Z-beta.N (N >= 1, no leading zero)");
   process.exit(1);
 }
 

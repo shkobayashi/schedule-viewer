@@ -198,8 +198,8 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
 | `npm run build:validate-skill` | `write-schedule`、`write-calendar`、`write-members`、`write-workspace`、`write-fields`、`write-colors` に同梱する検証スクリプトと、スキーマのコピーを作り直す |
-| `npm run version:check` | バージョン番号が5ファイルで揃っていることと、`X.Y.Z` または `X.Y.Z-beta.N` の形であることを確認する |
-| `npm run version:bump` | バージョンを上げる。`major`、`minor`、`patch`、`beta`、`stable` を引数にする |
+| `npm run version:check` | バージョン番号が5ファイルで揃っていることと、`X.Y.Z`、`X.Y.Z-alpha.N`、または `X.Y.Z-beta.N` の形であることを確認する |
+| `npm run version:bump` | バージョンを上げる。`major`、`minor`、`patch`、`alpha`、`beta`、`stable` を引数にする |
 | `postinstall` | `@tauri-apps/cli` のその OS 向けバイナリがあることを確認する |
 
 ## ブランチと CI
@@ -233,7 +233,7 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 | `develop` | 1.x の統合。安定版はここから `main` へ載せる |
 | `main` | 安定版。push すると安定版の Release が走る |
 | `feature-<Issue番号>` | 1.x は `develop` から、次メジャーは `next` から切る。マージ先は切った元である |
-| `release/X.Y.Z` | その版のベータを出してから消すまでのブランチである。次メジャーの統合には使わない |
+| `release/X.Y.Z` | その版の Pre-release（アルファ・ベータ）を出してから消すまでのブランチである。次メジャーの統合には使わない |
 | `next` | 次メジャーの統合。`main` と `release/**` へはマージしない |
 
 #### `next` を切る
@@ -250,7 +250,7 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 2. 公開する契約を壊す変更は、`next` から `feature-<Issue番号>` を切り、`next` へ戻す。1.x で開けているスケジュールを拒否するスキーマの変更も、`next` だけに置く。
 3. 両方に要る修正は、先に `develop` へ入れる。`next` へは、手順 4 のマージで届ける。`develop` へマージしただけでは `next` には載らない。
 4. 1.x の修正と依存更新を `next` に届けるときは、**出荷済みの安定版を `main` に載せたあと**（または同じ版の `develop` を指しているとき）、`main` または `develop` を `next` へマージする pull request を出す。通常の feature マージと別に、この取り込みを忘れない。取り込まないと、CHANGELOG や `develop` の履歴だけ先行し、`next` のコードが 1.x 安定版から遅れたままになる（#410・#418・#386 は `develop`/`main` にあったが、この取り込みが無かったため `next` に載っていなかった）。`next` を `develop` へマージするのは、下の「次のメジャーを出す」が終わったあとだけである。
-5. 手順 4 のマージで `next` に載せた版は、**いま出荷した安定版の `X.Y.Z` に揃える**。`package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` の 5 ファイルを、その版に書き換えてから pull request に含める。手元では [scripts/project-version-files.ts](../scripts/project-version-files.ts) の `writeProjectVersion`（`npm run version:bump` は使わず、出荷版の番号をそのまま指定する）のあと `npm run version:check` する。`plugins.updater.endpoints` は 1.x メジャー用の `updater-1` のままである。`next` 上の次メジャー開発のあいだ、版番号を古い 1.x のままにしない。番号は「コードが追いついている最新の 1.x 安定版」を示す。`version:check` が受け付けるのは `X.Y.Z` と `X.Y.Z-beta.N` だけなので、別の接尾辞は付けない。
+5. 手順 4 のマージで `next` に載せた版は、**いま出荷した安定版の `X.Y.Z` に揃える**。`package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` の 5 ファイルを、その版に書き換えてから pull request に含める。手元では [scripts/project-version-files.ts](../scripts/project-version-files.ts) の `writeProjectVersion`（`npm run version:bump` は使わず、出荷版の番号をそのまま指定する）のあと `npm run version:check` する。`plugins.updater.endpoints` は 1.x メジャー用の `updater-1` のままである。`next` 上の次メジャー開発のあいだ、版番号を古い 1.x のままにしない。番号は「コードが追いついている最新の 1.x 安定版」を示す。`version:check` が受け付けるのは `X.Y.Z`、`X.Y.Z-alpha.N`、`X.Y.Z-beta.N` だけなので、別の接尾辞は付けない。
 6. マージで、次メジャー側が触った箇所と 1.x の修正が重なったときは、`next` では次メジャーの挙動を残す。版番号の 5 ファイルは、手順 5 の出荷済み安定版に揃えた値を維持する。
 
 #### 次のメジャーを出す
@@ -260,7 +260,7 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 1. `develop` を `next` へマージする。
 2. 確認先がまだ `releases/latest` の版があるときは、2.0.0 を `main` に載せる前に、今のメジャーの安定版として `updater-1` を配る。確認先が `updater-1` の版は、2.0 へ自動では進まない。
 3. `next` から `release/2.0.0` を切る。
-4. 「ベータリリース」の手順 2 を行う。版が 1.x のままなら、`major` のあと `beta` で `2.0.0-beta.1` にする。続けて「ベータリリース」の手順 3、4、5 を、この `release/2.0.0` に対して行う。ベータのあいだに入れた修正は、同じ内容を `next` にも入れる。このベータに、1.x 側で別途進めた機能は混ぜない。
+4. 「アルファリリース」の手順 2 を行う。版が 1.x のままなら、`major` のあと `alpha` で `2.0.0-alpha.1` にする。続けて「アルファリリース」の手順 3、4、5 を、この `release/2.0.0` に対して行う。アルファのあいだに入れた修正は、同じ内容を `next` にも入れる。このアルファに、1.x 側で別途進めた機能は混ぜない。機能が固まったら「アルファリリース」の手順 6 からベータへ進み、以降は「ベータリリース」の手順 5 以降で安定版を出す。
 5. 「ベータリリース」の手順 6 のとおり、`release/2.0.0` を `main` へマージする。この push が安定版になる。操作マニュアルの Pages は、この時点の `main` を公開する。Windows の安定版は Store の同じ製品なので、Store の利用者には 2.0 が届く。
 6. `release/2.0.0` を `next` へマージしてから、`next` を `develop` へマージする。`develop` は 2.x の統合になる。そのあと `release/2.0.0` を消す。「ベータリリース」の手順 1 と 7 は行わない。
 
@@ -517,7 +517,7 @@ gh secret list
 rm -f "$HOME/schedule-viewer-updater/schedule-viewer-updater.key" "$HOME/schedule-viewer-updater/schedule-viewer-updater.key.pub"
 ```
 
-Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。`bundle.macOS.signingIdentity` は `-` で ad-hoc 署名のみである。パスワード用の環境変数は渡さない。安定版では、各 OS のビルドの前に `prepare-stable-github-release` が GitHub Release を作る。タグは push したコミット（`GITHUB_SHA`）を指す。より大きいメジャーの安定版が既にあるときは、ビルド前に Latest を外す。`release-deb` は `latest-linux-x86_64.json` を Release に載せる。`release-dmg` は `tauri build --bundles app,dmg` で Apple Silicon の dmg と更新用の `.app.tar.gz` を作り、`latest-darwin-aarch64.json` と `.sig` を載せる。`dmg` だけでは更新用の `.app.tar.gz` は出ない。ベータの `release-windows-nsis` は `latest-windows-x86_64.json` と `.cer` を載せる。安定版の `checksums` は `latest-linux-x86_64.json` と `latest-darwin-aarch64.json` を `latest.json` にまとめ、同じメジャー用の Pre-release `updater-X` の `latest.json` も更新し、より大きいメジャーが無いときだけ `finalize-stable-github-release-latest` で Latest を付ける。`checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
+Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が空でないことを確認し、`src-tauri/tauri.release.json` で `createUpdaterArtifacts` を有効にする。`bundle.macOS.signingIdentity` は `-` で ad-hoc 署名のみである。パスワード用の環境変数は渡さない。安定版では、各 OS のビルドの前に `prepare-stable-github-release` が GitHub Release を作る。タグは push したコミット（`GITHUB_SHA`）を指す。より大きいメジャーの安定版が既にあるときは、ビルド前に Latest を外す。`release-deb` は `latest-linux-x86_64.json` を Release に載せる。`release-dmg` は `tauri build --bundles app,dmg` で Apple Silicon の dmg と更新用の `.app.tar.gz` を作り、`latest-darwin-aarch64.json` と `.sig` を載せる。`dmg` だけでは更新用の `.app.tar.gz` は出ない。Pre-release の `release-windows-nsis` は `latest-windows-x86_64.json` と `.cer` を載せる。Pre-release でもその版の Release に `latest.json` と `SHA256SUMS` を添付するが、GitHub の Latest は付けず、同じメジャー用 `updater-X` の `latest.json` も更新しない。安定版の `checksums` は `latest-linux-x86_64.json` と `latest-darwin-aarch64.json` を `latest.json` にまとめ、[scripts/publish-updater-channel.ts](../scripts/publish-updater-channel.ts) で `updater-X` を更新し、より大きいメジャーが無いときだけ [scripts/finalize-stable-github-release-latest.ts](../scripts/finalize-stable-github-release-latest.ts) で Latest を付ける。`checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。手元の `npm run tauri build` は、更新用の署名ファイルを作らない。
 
 デスクトップ版の自動更新は、入っている版のメジャー用 `updater-X` の `latest.json` を見る。確認先の URL は `tauri.conf.json` にビルドごとに入る。この確認先を含む版を入れたあとから効く。それより前の版は `releases/latest` を見るため、次のメジャーへ自動で進み得る。次のメジャーを出す前に、今のメジャーの安定版として `updater-X` を配る。
 
@@ -527,7 +527,7 @@ Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が�
 
 ベータの Windows NSIS を出す変更を `release/**` に載せるときは、先に「Windows のコード署名」の secret 登録が終わっていること。安定版を `main` に載せるときは、「Microsoft Store への自動提出」の secret 登録が終わっていること。自動更新を含む変更を載せるときは、「更新用の署名鍵」の secret 登録も終わっていること。
 
-実機で Windows または Ubuntu のインストーラを見てから配りたい版は、下の「ベータリリース」で Pre-release として出す。実機確認が要らない変更は、今までどおり `develop` から `main` へ載せる。
+実機で Windows または Ubuntu のインストーラを見てから配りたい版は、下の「アルファリリース」または「ベータリリース」で Pre-release として出す。実機確認が要らない変更は、今までどおり `develop` から `main` へ載せる。
 
 `develop` を `main` にマージする直前に、リポジトリ直下でバージョンを1回だけ上げる。版は `X.Y.Z` である（`-beta.N` は付けない）。
 
@@ -539,15 +539,26 @@ Release ワークフローは、ビルド前に `TAURI_SIGNING_PRIVATE_KEY` が�
 
 変更の要約は、そのバージョン上げのコミットで [CHANGELOG.md](../CHANGELOG.md) に書く。公開する版の節へ移すときは、対応する Issue がある項目の末尾に `(#番号)` を書く。番号が複数あるときは `(#155) (#156)` のように並べる。対応する Issue が無い項目は番号を書かない。`[Unreleased]` の項目には書かなくてよい。
 
-Release ワークフローは、安定版では各 OS のビルドが同じダウンロード手順だけを `releaseBody` に載せる。`checksums` ジョブが [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) で接頭文のあとにその版の CHANGELOG 節を足し、`gh release edit` で本文を確定する。CHANGELOG にその版の節が無いときはジョブが失敗し、本文はダウンロード手順のまま残る。番号が無い項目があっても本文は作り、番号がある項目だけ GitHub のリンクにする。Pre-release では CHANGELOG を読まず、[scripts/release-body-beta.md](../scripts/release-body-beta.md) の短い文だけを載せる。
+Release ワークフローは、安定版では各 OS のビルドが同じダウンロード手順だけを `releaseBody` に載せる。`checksums` ジョブが [scripts/build-release-notes.ts](../scripts/build-release-notes.ts) で接頭文のあとにその版の CHANGELOG 節を足し、`gh release edit` で本文を確定する。CHANGELOG にその版の節が無いときはジョブが失敗し、本文はダウンロード手順のまま残る。番号が無い項目があっても本文は作り、番号がある項目だけ GitHub のリンクにする。Pre-release では CHANGELOG を読まず、アルファは [scripts/release-body-alpha.md](../scripts/release-body-alpha.md)、ベータは [scripts/release-body-beta.md](../scripts/release-body-beta.md) の短い文だけを載せる。
+
+### アルファリリース
+
+機能がまだ増える段階の確認用である。同じ `release/X.Y.Z` ブランチで **アルファ → ベータ → 安定版** の順に進める。版の順序は semver 上 `alpha.N` ＜ `beta.N` ＜ 安定版である。
+
+1. 1.x は `develop` から、次メジャーは `next` から `release/X.Y.Z` を切る。最初の 2.0 アルファの例: 作業ブランチを `next` にマージしたあと、`next` から `release/2.0.0` を切る
+2. 今の番号が出したい安定版と同じなら `npm run version:bump -- alpha` だけで `X.Y.Z-alpha.1` にする。まだ 1.x のままなら、先に `npm run version:bump -- major`（または `minor`、`patch`）してから `alpha` を実行する
+3. インストーラが要るコミットをこのブランチへ push する。検査のあと環境 `release` の承認を経て、deb、dmg、Windows NSIS が Pre-release として出る。タグは `vX.Y.Z-alpha.N` である。Microsoft Store への MSIX 提出は行わない。GitHub の Latest も付けない。利用者は Release ページからインストーラを取る。Windows と Ubuntu では、設定の「更新」から、入っている版より新しい公開 Pre-release（アルファまたはベータ）の、この OS 用インストーラを別名保存できる
+4. アルファのあいだに直す不具合は `release/X.Y.Z` に入れる。直すたびに `npm run version:bump -- alpha` で `N` を増やして push する。`develop` や `next` で進めた別の機能は、そのアルファに混ぜない。同じ修正は `next` にも入れる
+5. 機能追加を一段落させたら、次のベータへ進む。`npm run version:bump -- beta` を実行する。アルファからは `X.Y.Z-beta.1` になる（`alpha.N` の続きにはしない）
+6. 以降は「ベータリリース」の手順 3 から 7 まで行う。`stable` はベータからだけ実行できる
 
 ### ベータリリース
 
-1.x の統合用ブランチは `develop` と `main` のままである。確認用の版は、その版だけの `release/X.Y.Z` から Pre-release として出す。次メジャーのベータは、「1.x を出しながら次のメジャーを進める」の出荷の手順で切る。
+1.x の統合用ブランチは `develop` と `main` のままである。確認用の版は、その版だけの `release/X.Y.Z` から Pre-release として出す。次メジャーは「1.x を出しながら次のメジャーを進める」の出荷の手順で切る。2.0 以降で機能がまだ増える段階は、先に「アルファリリース」を行う。
 
-1. 1.x は `develop` から `release/X.Y.Z` を切る。次メジャーは、出荷の手順で `next` から切る
-2. 今の番号が出したい安定版と同じなら `npm run version:bump -- beta` だけで `X.Y.Z-beta.1` にする。違うときは、目的の番号になるまで `npm run version:bump -- major`（または `minor`、`patch`）を実行してから `beta` を実行する
-3. インストーラが要るコミットをこのブランチへ push する。検査のあと環境 `release` の承認を経て、deb と NSIS が Pre-release として出る。タグは `vX.Y.Z-beta.N` である。ベータを使ってよい人は、その Release のページからインストーラを取る。Windows と Ubuntu のデスクトップ版では、設定の「更新」から、入っている版より新しい公開ベータの、この OS 用インストーラを別名保存できる
+1. 1.x は `develop` から `release/X.Y.Z` を切る。次メジャーは、出荷の手順で `next` から切る（アルファを省略してベータから始めてもよい）
+2. 今の番号が出したい安定版と同じなら `npm run version:bump -- beta` だけで `X.Y.Z-beta.1` にする。アルファから進むときも手順 2 は同じ `beta` である。違うときは、目的の番号になるまで `npm run version:bump -- major`（または `minor`、`patch`）を実行してから `beta` を実行する
+3. インストーラが要るコミットをこのブランチへ push する。検査のあと環境 `release` の承認を経て、deb、dmg、NSIS が Pre-release として出る。タグは `vX.Y.Z-beta.N` である。Pre-release を使ってよい人は、その Release のページからインストーラを取る。Windows と Ubuntu のデスクトップ版では、設定の「更新」から、入っている版より新しい公開 Pre-release の、この OS 用インストーラを別名保存できる
 4. ベータのあいだに直す不具合は `release/X.Y.Z` に入れる。直すたびに `npm run version:bump -- beta` で `N` を増やして push する。`develop` で進めた別の機能は、そのベータに混ぜない
 5. 確認が終わったら `npm run version:bump -- stable` で接尾辞を外し、[CHANGELOG.md](../CHANGELOG.md) の版の節を今の手順で書く。この push では Release ワークフローが失敗する（`release/X.Y.Z` に安定版の番号は載せない）
 6. `release/X.Y.Z` を `main` へマージする。`main` への push が安定版になり、Latest と自動更新の対象になる
@@ -555,15 +566,15 @@ Release ワークフローは、安定版では各 OS のビルドが同じダ�
 
 次の push は検査で失敗し、Release は作られない。
 
-- 版番号に `-beta.N` がある `main`
-- 版番号に `-beta.N` が無い `release/X.Y.Z`（手順 5 の push）
+- 版番号に `-alpha.N` または `-beta.N` がある `main`
+- 版番号に接尾辞が無い `release/X.Y.Z`（ベータ手順 5 の push）
 - ブランチ名が `release/X.Y.Z` ではない（例: `release/1.5.0-beta.1`）
 - ブランチの番号と版から接尾辞を外した番号が違う
 - 同じタグが別のコミットを指している版を、もう一度新規に作ろうとしたとき
 
-ベータを手で入れたあとも、同じメジャーの `updater-X` を見る。入っている版より古い安定版へは進まない。次のメジャーへは自動では進まない。次の `beta.N` は自動では入らない。自動更新の版比較は semver である。接尾辞を外した安定版が出て、自動更新がオンなら、判定上はベータより新しい版として入れ直しが始まる。Ubuntu では deb の入れ直しで進む。Windows の GitHub 版（入っている NSIS とベータ）は、安定版へは Microsoft Store から入れ直す。より大きいメジャーの安定版を出したあとに、小さいメジャーの安定版を出しても、GitHub の Latest は大きいメジャーのままである。
+Pre-release を手で入れたあとも、同じメジャーの `updater-X` を見る。入っている版より古い安定版へは進まない。次のメジャーへは自動では進まない。次の `alpha.N` や `beta.N` は自動では入らない。Pre-release の版は `updater-X` を更新しないため、自動更新で Pre-release へ進むことはない。自動更新の版比較は semver である。接尾辞を外した安定版が出て、自動更新がオンなら、判定上は Pre-release より新しい版として入れ直しが始まる。Ubuntu では deb の入れ直しで進む。Windows の GitHub 版（入っている NSIS と Pre-release）は、安定版へは Microsoft Store から入れ直す。より大きいメジャーの安定版を出したあとに、小さいメジャーの安定版を出しても、GitHub の Latest は大きいメジャーのままである。
 
-Ubuntu では deb の版比較は Debian の規則である。`X.Y.Z-beta.N` は同じ番号の `X.Y.Z` より新しいため、ベータの deb が入っている状態で安定版の deb を `apt install` すると、`dpkg` がダウングレードとして拒否する。手で安定版へ移すときは、先にベータの deb を外してから安定版を入れる。
+Ubuntu では deb の版比較は Debian の規則である。`X.Y.Z-alpha.N` と `X.Y.Z-beta.N` は同じ番号の `X.Y.Z` より新しいため、Pre-release の deb が入っている状態で安定版の deb を `apt install` すると、`dpkg` がダウングレードとして拒否する。手で安定版へ移すときは、先に Pre-release の deb を外してから安定版を入れる。
 
 ### Release 後に証明書を入れる（ベータの NSIS）
 

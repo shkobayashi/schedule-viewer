@@ -2,7 +2,7 @@
 name: cut-release
 description: >-
   Changes schedule-viewer release workflow, version bump scripts, and release
-  documentation. Use for stable and beta GitHub Releases, release/X.Y.Z
+  documentation. Use for stable, alpha, and beta GitHub Releases, release/X.Y.Z
   branches, version:check / version:bump behavior, updater endpoint URLs,
   updater-X channel releases, cutting the next branch, and shipping the next
   major while 1.x is still maintained. Not for app UI, settings dialog fields,
@@ -11,7 +11,7 @@ description: >-
 
 # cut-release（schedule-viewer のリリースと CI）
 
-安定版とベータ版の GitHub Release、版番号の付け外し、Release ワークフローの検査、メジャーごとの自動更新配信（`updater-X`）を変える。設定ダイアログの画面と設定項目はこのスキルの対象外である。
+安定版と Pre-release（アルファ・ベータ）の GitHub Release、版番号の付け外し、Release ワークフローの検査、メジャーごとの自動更新配信（`updater-X`）を変える。設定ダイアログの画面と設定項目はこのスキルの対象外である。
 
 ## 着手前
 
@@ -21,9 +21,9 @@ description: >-
 
 ## 版番号
 
-1. 許容する版は `X.Y.Z` と `X.Y.Z-beta.N` だけである。`X` `Y` `Z` と `N` は、1 桁なら `0` を許す。2 桁以上で先頭の `0` は付けない。`N` は 1 以上である
+1. 許容する版は `X.Y.Z`、`X.Y.Z-alpha.N`、`X.Y.Z-beta.N` である。`X` `Y` `Z` と `N` は、1 桁なら `0` を許す。2 桁以上で先頭の `0` は付けない。`N` は 1 以上である。同一 `X.Y.Z` では semver 上 `alpha.N` ＜ `beta.N` ＜ 安定版である
 2. [scripts/bump-version.ts](../../../scripts/bump-version.ts) と [scripts/check-version-sync.ts](../../../scripts/check-version-sync.ts) を、純粋関数と揃える
-3. `major`、`minor`、`patch` は安定版のときだけ上げる。`beta` と `stable` を足す
+3. `major`、`minor`、`patch` は安定版のときだけ上げる。`alpha`、`beta`、`stable` を足す。`alpha` は安定版または alpha から N を増やす。`beta` は安定版または alpha から `beta.1`、beta から N を増やす。`stable` は beta からだけ接尾辞を外す
 4. 書き換える 5 ファイルは `package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` の schedule-viewer 版である。`tauri.conf.json` の `plugins.updater.endpoints` は 1 件だけとし、[src/model/releaseVersion.ts](../../../src/model/releaseVersion.ts) の `updaterEndpointForVersion` でメジャーに合わせて書く
 
 ## ワークフロー
@@ -31,12 +31,12 @@ description: >-
 1. [.github/workflows/release.yml](../../../.github/workflows/release.yml) のきっかけは `main` と `release/**` である
 2. 環境 `release` の承認より前に検査ジョブを置く。失敗した push は Release を作らない
 3. [scripts/check-release-push.ts](../../../scripts/check-release-push.ts) が版、ブランチ、タグを読み、純粋関数で判定する。検査ジョブの checkout はタグを取得する。取得しないと、別コミットのタグを「タグが無い」と見て承認まで進む。版の形を確かめてから、タグ名はシェルを通さず git の引数に渡す
-4. 安定版は CHANGELOG から本文を組み立てる。ベータは [scripts/release-body-beta.md](../../../scripts/release-body-beta.md) だけを使う
-5. Pre-release でも `latest.json` と `SHA256SUMS` はその Release に添付する。GitHub の Latest は、より大きいメジャーの安定版が無いときだけ付ける。同じメジャー用の自動更新配信は Pre-release の `updater-X` に `latest.json` だけを載せる。安定版の `checksums` が [scripts/publish-updater-channel.ts](../../../scripts/publish-updater-channel.ts) で更新する
+4. 安定版は CHANGELOG から本文を組み立てる。Pre-release は [scripts/prerelease-release-body-path.ts](../../../scripts/prerelease-release-body-path.ts) で選ぶ。アルファは [scripts/release-body-alpha.md](../../../scripts/release-body-alpha.md)、ベータは [scripts/release-body-beta.md](../../../scripts/release-body-beta.md) である
+5. Pre-release でも `latest.json` と `SHA256SUMS` はその Release に添付する。GitHub の Latest は付けない。Pre-release では `updater-X` を更新しない。安定版の `checksums` だけが [scripts/publish-updater-channel.ts](../../../scripts/publish-updater-channel.ts) で `updater-X` を更新する
 6. `gh release create` で `vX.Y.Z` と `updater-X` を新規作るときは `--target` にワークフローの `GITHUB_SHA` を渡す。無いときは失敗させる。再実行の `release edit` ではタグは動かさない
 7. Latest は資産を載せ、`updater-X` を更新したあと、[scripts/finalize-stable-github-release-latest.ts](../../../scripts/finalize-stable-github-release-latest.ts) で付ける。ビルド前の [scripts/prepare-stable-github-release.ts](../../../scripts/prepare-stable-github-release.ts) では、より大きいメジャーがあるときだけ Latest を外す
 8. 既存の `updater-X` で `latest.json` の `version` が読めないときは、[scripts/publish-updater-channel.ts](../../../scripts/publish-updater-channel.ts) を失敗させ、上書きしない。安定版一覧は `gh api --paginate` で集める
-9. 安定版の Windows は [.github/workflows/release.yml](../../../.github/workflows/release.yml) の `release-windows-store` が `tauri build --no-bundle` のあと [packaging/msix/build-msix.ps1](../../../packaging/msix/build-msix.ps1) で署名しない MSIX を作り、Microsoft Store Developer CLI で Store ID `9PP41TRJ8ZT8` へ提出する。secret は `MSSTORE_TENANT_ID`、`MSSTORE_CLIENT_ID`、`MSSTORE_CLIENT_SECRET`、`MSSTORE_SELLER_ID` である。ベータの Windows は `release-windows-nsis` が NSIS と公開用 `.cer` を出す。Apple Silicon の Mac は `release-dmg` が `--bundles app,dmg` で dmg と更新用の `.app.tar.gz` を作り、`latest-darwin-aarch64.json` を出す。`dmg` だけでは更新用アーカイブが無く、続く `checksums` が動かない。`src-tauri/tauri.release.json` の `bundle.macOS.signingIdentity` は `-` で ad-hoc 署名のみである。安定版の GitHub Release には NSIS と `latest-windows-x86_64.json` を載せない。Intel 用 dmg は Release に載せない。安定版の `checksums` は [scripts/merge-latest-json.mjs](../../../scripts/merge-latest-json.mjs) で `latest-linux-x86_64.json` と `latest-darwin-aarch64.json` を `latest.json` にまとめる。呼び出しは `--require` で必須のプラットフォームキーを渡す。安定版は `linux-x86_64` と `darwin-aarch64`、ベータはこれに `windows-x86_64` を足す。マージ結果に必須キーが無いときは失敗する。ベータの `latest.json` は `windows-x86_64` も含める。`checksums` は `release-deb` と `release-dmg` の成功を待ち、`release-windows-store` の成否では止まらない。Store 用 MSIX は WebView2 を同梱せず、マニフェストの `PackageDependency` にも書かない。`build-msix.ps1` は `target/release` の `json-skills/` と `read-screen/` を実行ファイルの隣へ入れる。四隅の座標は入れ子の `@()` の中で `-` を書かず、配列の前の変数に入れる。4 つの `SKILL.md`（`write-schedule`、`write-members`、`write-calendar`、`read-screen`）のどれかが無いときは MakeAppx の前に失敗し、MSIX を作らない。マニフェストの機能宣言は `runFullTrust` のままにする。`icon.png` からタスクバー用の target size を作り、`Square44x44Logo.targetsize-*` と `_altform-unplated` と `_altform-lightunplated` を `resources.pri` に載せる。`makepri.exe` が無いとき、またはダンプに `targetsize-24` と `lightunplated` と、明るいテーマ用ではない `unplated` が無いときは、MakeAppx の前に失敗する。これを欠くと、タスクバーは角丸の外に `#0078D4` の板を敷く
+9. 安定版の Windows は [.github/workflows/release.yml](../../../.github/workflows/release.yml) の `release-windows-store` が `tauri build --no-bundle` のあと [packaging/msix/build-msix.ps1](../../../packaging/msix/build-msix.ps1) で署名しない MSIX を作り、Microsoft Store Developer CLI で Store ID `9PP41TRJ8ZT8` へ提出する。secret は `MSSTORE_TENANT_ID`、`MSSTORE_CLIENT_ID`、`MSSTORE_CLIENT_SECRET`、`MSSTORE_SELLER_ID` である。Pre-release の Windows は `release-windows-nsis` が NSIS と公開用 `.cer` を出す。Apple Silicon の Mac は `release-dmg` が `--bundles app,dmg` で dmg と更新用の `.app.tar.gz` を作り、`latest-darwin-aarch64.json` を出す。`dmg` だけでは更新用アーカイブが無く、続く `checksums` が動かない。`src-tauri/tauri.release.json` の `bundle.macOS.signingIdentity` は `-` で ad-hoc 署名のみである。安定版の GitHub Release には NSIS と `latest-windows-x86_64.json` を載せない。Intel 用 dmg は Release に載せない。安定版の `checksums` は [scripts/merge-latest-json.mjs](../../../scripts/merge-latest-json.mjs) で `latest-linux-x86_64.json` と `latest-darwin-aarch64.json` を `latest.json` にまとめる。呼び出しは `--require` で必須のプラットフォームキーを渡す。安定版は `linux-x86_64` と `darwin-aarch64`、Pre-release はこれに `windows-x86_64` を足す。マージ結果に必須キーが無いときは失敗する。Pre-release の `latest.json` は `windows-x86_64` も含める。`checksums` は `release-deb` と `release-dmg` の成功を待ち、`release-windows-store` の成否では止まらない。Store 用 MSIX は WebView2 を同梱せず、マニフェストの `PackageDependency` にも書かない。`build-msix.ps1` は `target/release` の `json-skills/` と `read-screen/` を実行ファイルの隣へ入れる。四隅の座標は入れ子の `@()` の中で `-` を書かず、配列の前の変数に入れる。4 つの `SKILL.md`（`write-schedule`、`write-members`、`write-calendar`、`read-screen`）のどれかが無いときは MakeAppx の前に失敗し、MSIX を作らない。マニフェストの機能宣言は `runFullTrust` のままにする。`icon.png` からタスクバー用の target size を作り、`Square44x44Logo.targetsize-*` と `_altform-unplated` と `_altform-lightunplated` を `resources.pri` に載せる。`makepri.exe` が無いとき、またはダンプに `targetsize-24` と `lightunplated` と、明るいテーマ用ではない `unplated` が無いときは、MakeAppx の前に失敗する。これを欠くと、タスクバーは角丸の外に `#0078D4` の板を敷く
 
 ## 文書
 
@@ -44,7 +44,7 @@ description: >-
 
 配布の経路を変えたあとは、`NSIS の上書き`、`msix-store`、`workflow_dispatch` で MSIX、安定版の GitHub NSIS など、古い経路の語が [docs/development.md](../../../docs/development.md)、[docs/external-spec.md](../../../docs/external-spec.md)、[docs/user-manual/features.md](../../../docs/user-manual/features.md)、[CHANGELOG.md](../../../CHANGELOG.md) に残っていないかを検索して直す
 
-自動更新の版比較は semver である。Ubuntu の deb の版比較は Debian の規則である。文書では、この 2 つを 1 つの「進む」にまとめない。デスクトップ版は入っている版のメジャー用 `updater-X` の `latest.json` を見る。同じメジャーのより新しい安定版だけ入れる。ベータを入れたあとも同じメジャーの `updater-X` を見る。判定上、接尾辞を外した安定版はベータより新しいが、Ubuntu では `dpkg` がダウングレードとして拒否する。手で `apt install` するときも、先にベータの deb を外す
+自動更新の版比較は semver である。Ubuntu の deb の版比較は Debian の規則である。文書では、この 2 つを 1 つの「進む」にまとめない。デスクトップ版は入っている版のメジャー用 `updater-X` の `latest.json` を見る。同じメジャーのより新しい安定版だけ入れる。Pre-release を入れたあとも同じメジャーの `updater-X` を見るが、チャンネルは安定版だけを指す。判定上、接尾辞を外した安定版は Pre-release より新しいが、Ubuntu では `dpkg` がダウングレードとして拒否する。手で `apt install` するときも、先に Pre-release の deb を外す
 
 ## 1.x と次のメジャー
 
@@ -53,8 +53,8 @@ description: >-
 `next` を切る作業、次メジャーのリリース、2.0 を出したあとに 1.x の安定版を出せるようワークフローを広げる作業は、この節を読む。手順は development.md の上から順に行い、次を省かない。
 
 1. `next` を `develop` へマージするのは、次メジャーの安定版を `main` に載せたあとだけである
-2. 1.x 安定版を `next` に取り込んだマージでは、版番号をその安定版の `X.Y.Z` に揃える（[development.md](../../../docs/development.md) の「変更の入れ先」手順 5）。次メジャーのベータに上げるのは `release/2.0.0` を切ったあとである
-3. `release/X.Y.Z` は、その版のベータを出してから消すまでだけ使う
+2. 1.x 安定版を `next` に取り込んだマージでは、版番号をその安定版の `X.Y.Z` に揃える（[development.md](../../../docs/development.md) の「変更の入れ先」手順 5）。次メジャーの Pre-release（アルファ）に上げるのは `release/2.0.0` を切ったあとである
+3. `release/X.Y.Z` は、その版の Pre-release（アルファ・ベータ）を出してから消すまでだけ使う
 4. 公開する契約を壊す変更は `next` に置く。1.x のまま出せる変更は `develop` に置く
 5. `main` へ次メジャーを載せると、Store の同じ製品の利用者にはその版が届く
 6. 次メジャーを `main` に載せたあと、1.x の修正を `main` へマージしても、1.x の安定版にはならない。続けるときは `maint/1` を足し、ブランチ名は `release/` にしない。より大きいメジャーがあるときに Latest を付けない判定は残す
@@ -67,6 +67,6 @@ description: >-
 
 ## 完了条件
 
-- 計画した安定版とベータの分岐がワークフローと版番号スクリプトに入っている
+- 計画した安定版と Pre-release（アルファ・ベータ）の分岐がワークフローと版番号スクリプトに入っている
 - 対応する文書が同じ変更に含まれている
 - `npm run build`、`npm run lint`、`npm test` が通っている
