@@ -463,6 +463,84 @@ export function syntheticTaskForTrialBar(input: {
   return null;
 }
 
+export function isExplanationTrialVisibleRow(
+  row: VisibleRow,
+): row is Extract<VisibleRow, { type: "task" }> & {
+  explanationTrial: { patternId: string; color: string };
+} {
+  return row.type === "task" && row.explanationTrial != null;
+}
+
+function taskFromExplanationTrialNewTask(trial: ExplanationTrialNewTask): Task {
+  return {
+    id: trial.id,
+    name: trial.name,
+    start: trial.start,
+    end: trial.end,
+    assigneeIds: [],
+    status: "not-started",
+    progress: 0,
+    confidence: "tentative",
+    predecessors: [],
+    milestoneId: null,
+    tags: [],
+  };
+}
+
+/** 文書の visibleRows に、試しの新しいタスク行だけを画面用に挿す。 */
+export function buildDisplayVisibleRowsWithExplanationTrials(
+  documentRows: readonly VisibleRow[],
+  patterns: readonly ExplanationPattern[],
+  rowHeight: number,
+): VisibleRow[] {
+  if (patterns.length === 0) return [...documentRows];
+
+  type InsertItem = {
+    trial: ExplanationTrialNewTask;
+    pattern: ExplanationPattern;
+  };
+  const insertsAfter = new Map<ScheduleId, InsertItem[]>();
+
+  for (const pattern of patterns) {
+    for (const trial of pattern.tasks) {
+      if (findTaskRowInVisible(documentRows, trial.afterTaskId) == null) {
+        continue;
+      }
+      const list = insertsAfter.get(trial.afterTaskId) ?? [];
+      list.push({ trial, pattern });
+      insertsAfter.set(trial.afterTaskId, list);
+    }
+  }
+
+  if (insertsAfter.size === 0) return [...documentRows];
+
+  const built: VisibleRow[] = [];
+  for (const row of documentRows) {
+    built.push(row);
+    if (row.type !== "task") continue;
+    const inserts = insertsAfter.get(row.task.id);
+    if (inserts == null) continue;
+    for (const { trial, pattern } of inserts) {
+      built.push({
+        type: "task",
+        y: 0,
+        task: taskFromExplanationTrialNewTask(trial),
+        explanationTrial: {
+          patternId: pattern.id,
+          color: pattern.color,
+        },
+      });
+    }
+  }
+
+  let y = 0;
+  return built.map((row) => {
+    const withY = { ...row, y };
+    y += rowHeight;
+    return withY;
+  });
+}
+
 function patternTaskAnchorInBody(input: {
   pattern: ExplanationPattern;
   taskId: ScheduleId;
@@ -476,6 +554,18 @@ function patternTaskAnchorInBody(input: {
   dateToX: (d: Date) => number;
   liveAnchors: ReadonlyMap<ScheduleId, TaskBarAnchor>;
 }): TaskBarAnchor | null {
+  if (input.pattern.tasks.some((t) => t.id === input.taskId)) {
+    const row = findTaskRowInVisible(input.visibleRows, input.taskId);
+    if (row == null) return null;
+    return taskBarAnchorInBody({
+      task: row.task,
+      viewportRowTop: row.y - input.scrollY,
+      rowHeight: input.rowHeight,
+      barHeight: input.barHeight,
+      pxPerDay: input.pxPerDay,
+      dateToX: input.dateToX,
+    });
+  }
   const synthetic = syntheticTaskInPattern(
     input.pattern,
     input.taskId,
@@ -532,27 +622,14 @@ export function buildExplanationTrialBarLayouts(input: {
     for (const trial of pattern.tasks) {
       if (seenTrialIds.has(trial.id)) continue;
       seenTrialIds.add(trial.id);
-      const row = findTaskRowInVisible(input.visibleRows, trial.afterTaskId);
+      const row = findTaskRowInVisible(input.visibleRows, trial.id);
       if (row == null) continue;
-      const synthetic: Task = {
-        id: trial.id,
-        name: trial.name,
-        start: trial.start,
-        end: trial.end,
-        assigneeIds: [],
-        status: "not-started",
-        progress: 0,
-        confidence: "tentative",
-        predecessors: [],
-        milestoneId: null,
-        tags: [],
-      };
       layouts.push({
         patternId: pattern.id,
         trialTaskId: trial.id,
         color: pattern.color,
         rect: taskBarRectInBody({
-          task: synthetic,
+          task: row.task,
           viewportRowTop: row.y - input.scrollY,
           rowHeight: input.rowHeight,
           barHeight: input.barHeight,
@@ -681,37 +758,6 @@ export function buildExplanationTrialPredecessorArcs(input: {
   return arcs;
 }
 
-export type ExplanationTrialSidebarLabel = {
-  trialTaskId: ScheduleId;
-  name: string;
-  color: string;
-  viewportTop: number;
-  rowHeight: number;
-};
-
-export function explanationTrialSidebarLabels(input: {
-  patterns: readonly ExplanationPattern[];
-  visibleRows: readonly VisibleRow[];
-  scrollY: number;
-  rowHeight: number;
-}): ExplanationTrialSidebarLabel[] {
-  const labels: ExplanationTrialSidebarLabel[] = [];
-  for (const pattern of input.patterns) {
-    for (const trial of pattern.tasks) {
-      const row = findTaskRowInVisible(input.visibleRows, trial.afterTaskId);
-      if (row == null) continue;
-      labels.push({
-        trialTaskId: trial.id,
-        name: trial.name,
-        color: pattern.color,
-        viewportTop: row.y,
-        rowHeight: input.rowHeight,
-      });
-    }
-  }
-  return labels;
-}
-
 export function trialMarkBarRect(input: {
   taskId: ScheduleId;
   date: string | undefined;
@@ -725,6 +771,26 @@ export function trialMarkBarRect(input: {
   pxPerDay: number;
   dateToX: (d: Date) => number;
 }): TaskBarBodyRect | null {
+  const displayRow = findTaskRowInVisible(input.visibleRows, input.taskId);
+  if (displayRow != null) {
+    let bar = taskBarRectInBody({
+      task: displayRow.task,
+      viewportRowTop: displayRow.y - input.scrollY,
+      rowHeight: input.rowHeight,
+      barHeight: input.barHeight,
+      pxPerDay: input.pxPerDay,
+      dateToX: input.dateToX,
+    });
+    if (input.date != null) {
+      bar = clipTaskBarRectToDate(
+        bar,
+        input.date,
+        input.dateToX,
+        input.pxPerDay,
+      );
+    }
+    return bar;
+  }
   const synthetic = syntheticTaskForTrialBar({
     taskId: input.taskId,
     patterns: input.patterns,
@@ -807,6 +873,17 @@ export function trialTaskAnchorInBody(input: {
   pxPerDay: number;
   dateToX: (d: Date) => number;
 }): TaskBarAnchor | null {
+  const displayRow = findTaskRowInVisible(input.visibleRows, input.taskId);
+  if (displayRow != null) {
+    return taskBarAnchorInBody({
+      task: displayRow.task,
+      viewportRowTop: displayRow.y - input.scrollY,
+      rowHeight: input.rowHeight,
+      barHeight: input.barHeight,
+      pxPerDay: input.pxPerDay,
+      dateToX: input.dateToX,
+    });
+  }
   const synthetic = syntheticTaskForTrialBar({
     taskId: input.taskId,
     patterns: input.patterns,

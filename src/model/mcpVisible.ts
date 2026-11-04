@@ -7,6 +7,7 @@ import {
   groupCollapseKey,
   hierarchyCollapseKey,
 } from "./rows";
+import { isExplanationTrialVisibleRow } from "./explainOverlayPatterns";
 import type { Category, OutlineRoot, ScheduleId, VisibleRow } from "./types";
 
 export type McpVisibleDates = {
@@ -20,6 +21,7 @@ export type McpVisibleRowEntry = {
   kind: McpVisibleRowKind;
   id: ScheduleId;
   name: string;
+  trial?: true;
 };
 
 export type McpViewVisible = {
@@ -95,7 +97,12 @@ function visibleRowEntry(row: VisibleRow): McpVisibleRowEntry {
     case "hierarchy":
       return { kind: "heading", id: row.id, name: row.label };
     case "task":
-      return { kind: "task", id: row.task.id, name: row.task.name };
+      return {
+        kind: "task",
+        id: row.task.id,
+        name: row.task.name,
+        ...(isExplanationTrialVisibleRow(row) ? { trial: true as const } : {}),
+      };
   }
 }
 

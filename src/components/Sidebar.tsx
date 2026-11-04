@@ -58,7 +58,7 @@ import {
   explanationOverlayActive,
   type ExplanationOverlayState,
 } from "../model/explainOverlay";
-import { explanationTrialSidebarLabels } from "../model/explainOverlayPatterns";
+import { isExplanationTrialVisibleRow } from "../model/explainOverlayPatterns";
 import { paletteFor } from "../model/palette";
 import { TaskNoteButton } from "./TaskNoteButton";
 import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
@@ -328,21 +328,6 @@ export function Sidebar({
     return explanationSidebarMarkByTask(explanationOverlay!.marks);
   }, [explanationActive, explanationOverlay]);
 
-  const trialSidebarLabels = useMemo(() => {
-    if (!explanationActive || explanationOverlay == null) return [];
-    return explanationTrialSidebarLabels({
-      patterns: explanationOverlay.patterns,
-      visibleRows: rows,
-      scrollY,
-      rowHeight,
-    });
-  }, [explanationActive, explanationOverlay, rows, scrollY, rowHeight]);
-
-  const explanationPalette = useMemo(
-    () => (explanationActive ? paletteFor(colorScheme).css : null),
-    [colorScheme, explanationActive],
-  );
-
   const rowStyle = (y: number): CSSProperties => ({
     position: "absolute",
     left: 0,
@@ -350,6 +335,11 @@ export function Sidebar({
     top: y,
     height: rowHeight,
   });
+
+  const explanationPalette = useMemo(
+    () => (explanationActive ? paletteFor(colorScheme).css : null),
+    [colorScheme, explanationActive],
+  );
 
   const contentYFromPointer = useCallback(
     (clientY: number) => {
@@ -840,6 +830,35 @@ export function Sidebar({
                 />
               );
             }
+            if (isExplanationTrialVisibleRow(row)) {
+              return (
+                <TaskSidebarRow
+                  key={`trial-task-${row.task.id}`}
+                  task={row.task}
+                  guideSpec={guideSpec}
+                  top={row.y}
+                  rowHeight={rowHeight}
+                  selected={false}
+                  hovered={false}
+                  reordering={false}
+                  canReorder={false}
+                  readOnly
+                  explanationTrial={row.explanationTrial}
+                  today={today}
+                  milestones={milestones}
+                  memberCatalog={memberCatalog}
+                  statuses={statuses}
+                  rowColors={rowColors}
+                  colorScheme={colorScheme}
+                  onOpenTaskNote={() => {}}
+                  onTaskContextMenu={() => {}}
+                  onSelect={() => {}}
+                  onGripPointerDown={() => {}}
+                  sidebarColumns={sidebarColumns}
+                  explanationMark={sidebarMarksByTask.get(row.task.id)}
+                />
+              );
+            }
             return (
               <TaskSidebarRow
                 key={`task-${row.task.id}`}
@@ -885,22 +904,6 @@ export function Sidebar({
               aria-hidden="true"
             />
           ) : null}
-          {trialSidebarLabels.map((label) => (
-            <div
-              key={`trial-label-${label.trialTaskId}`}
-              className="explanation-trial-sidebar-label"
-              data-explanation-overlay=""
-              style={{
-                top: label.viewportTop,
-                height: label.rowHeight,
-                outline: `2px dashed ${label.color}`,
-                color: label.color,
-              }}
-              aria-hidden
-            >
-              {label.name}
-            </div>
-          ))}
         </div>
         <div className="sidebar-sticky">
           {sticky.draws.map((draw) => {
@@ -1475,6 +1478,8 @@ function TaskSidebarRow({
   onGripPointerDown,
   sidebarColumns,
   explanationMark,
+  readOnly = false,
+  explanationTrial,
 }: {
   task: Task;
   guideSpec: HierarchyGuideSpec;
@@ -1484,6 +1489,8 @@ function TaskSidebarRow({
   hovered: boolean;
   reordering: boolean;
   canReorder: boolean;
+  readOnly?: boolean;
+  explanationTrial?: { patternId: string; color: string };
   today: string;
   milestones: Milestone[];
   memberCatalog: Map<MemberId, Member> | null;
@@ -1545,28 +1552,44 @@ function TaskSidebarRow({
           ? `inset 3px 0 0 var(--unassigned-accent), ${haloShadow}`
           : haloShadow;
     }
+  } else if (explanationTrial != null) {
+    rowStyle.outline = `2px dashed ${explanationTrial.color}`;
+    rowStyle.outlineOffset = -2;
+    rowStyle.color = explanationTrial.color;
+    if (readOnly) {
+      rowStyle.pointerEvents = "none";
+    }
   }
 
   return (
     <div
-      className={`sidebar-row task${selected ? " selected" : ""}${hovered ? " hovered" : ""}${rowClass}${reordering ? " reordering" : ""}${explanationMarkClass}`}
+      className={`sidebar-row task${selected ? " selected" : ""}${hovered ? " hovered" : ""}${rowClass}${reordering ? " reordering" : ""}${explanationMarkClass}${readOnly ? " sidebar-row--explanation-trial" : ""}`}
       style={rowStyle}
       title={exceededTitle}
-      aria-selected={selected}
-      onClick={(event) => {
-        const target = event.target as HTMLElement;
-        if (target.closest("button, .row-grip")) return;
-        onSelect(event);
-      }}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        onTaskContextMenu(event.clientX, event.clientY);
-      }}
+      aria-selected={readOnly ? undefined : selected}
+      data-explanation-overlay={readOnly ? "" : undefined}
+      onClick={
+        readOnly
+          ? undefined
+          : (event) => {
+              const target = event.target as HTMLElement;
+              if (target.closest("button, .row-grip")) return;
+              onSelect(event);
+            }
+      }
+      onContextMenu={
+        readOnly
+          ? undefined
+          : (event) => {
+              event.preventDefault();
+              onTaskContextMenu(event.clientX, event.clientY);
+            }
+      }
     >
       <RowGrip
-        canReorder={canReorder}
+        canReorder={readOnly ? false : canReorder}
         label="タスクを並べ替える"
-        onPointerDown={onGripPointerDown}
+        onPointerDown={readOnly ? () => {} : onGripPointerDown}
       />
       <div className="sidebar-row-body">
         <HierarchyGuideRail spec={guideSpec} />

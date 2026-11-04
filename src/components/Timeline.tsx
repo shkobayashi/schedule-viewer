@@ -104,7 +104,7 @@ import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
 import {
   buildExplanationOverlayGeometry,
 } from "../model/explainOverlayLayout";
-import { buildExplanationTrialBarLayouts, buildExplanationTrialPredecessorArcs } from "../model/explainOverlayPatterns";
+import { buildExplanationTrialBarLayouts, buildExplanationTrialPredecessorArcs, isExplanationTrialVisibleRow } from "../model/explainOverlayPatterns";
 import {
   explanationOverlayActive,
   type ExplanationOverlayState,
@@ -2104,6 +2104,7 @@ export function Timeline({
     const tx = dateToX(todayDate);
     const points = [tx, 0];
     for (const row of visibleRows) {
+      if (row.type === "task" && isExplanationTrialVisibleRow(row)) continue;
       const y = row.y - scrollY + rowHeight / 2;
       const x =
         row.type === "task"
@@ -2130,7 +2131,7 @@ export function Timeline({
       { x: number; right: number; linkRight: number; y: number }
     >();
     for (const row of visibleRows) {
-      if (row.type !== "task") continue;
+      if (row.type !== "task" || isExplanationTrialVisibleRow(row)) continue;
       const anchor = taskBarAnchorInBody({
         task: row.task,
         viewportRowTop: row.y - scrollY,
@@ -2406,7 +2407,9 @@ export function Timeline({
   const linkPolylines = useMemo(() => {
     const dates = new Map<ScheduleId, { start: string; end: string }>();
     for (const row of visibleRows) {
-      if (row.type === "task") dates.set(row.task.id, row.task);
+      if (row.type === "task" && !isExplanationTrialVisibleRow(row)) {
+        dates.set(row.task.id, row.task);
+      }
     }
     const polylines: Array<LinkPolyline & { broken: boolean }> = [];
     for (const link of links) {
@@ -3192,7 +3195,7 @@ export function Timeline({
               );
             })}
             {visibleRows.map((row) => {
-              if (row.type !== "task") return null;
+              if (row.type !== "task" || isExplanationTrialVisibleRow(row)) return null;
               const y = row.y - scrollY;
               if (y + rowHeight < 0 || y > bodyHeight) return null;
               return (

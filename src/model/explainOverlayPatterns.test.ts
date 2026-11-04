@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   EXPLAIN_OVERLAY_PATTERNS_REJECT,
+  buildDisplayVisibleRowsWithExplanationTrials,
   buildExplanationTrialBarLayouts,
   buildExplanationTrialPredecessorArcs,
   buildMcpExplanationPatterns,
-  explanationTrialSidebarLabels,
   parseExplanationPatterns,
   trialMarkBarRect,
 } from "./explainOverlayPatterns";
@@ -242,6 +242,49 @@ describe("buildMcpExplanationPatterns", () => {
   });
 });
 
+describe("buildDisplayVisibleRowsWithExplanationTrials", () => {
+  it("buildDisplayVisibleRowsWithExplanationTrials_insertsTrialRowAfterAnchorAndShiftsY", () => {
+    const rowHeight = 26;
+    const documentRows = [
+      taskRow("t1", 0),
+      taskRow("t2", 26),
+    ] as VisibleRow[];
+    const patterns = [
+      {
+        id: "p",
+        name: "P",
+        color: "#2563eb",
+        tasks: [
+          {
+            id: "trial-1",
+            name: "試し",
+            start: "2026-01-06",
+            end: "2026-01-08",
+            afterTaskId: "t1",
+          },
+        ],
+        changes: [],
+      },
+    ];
+    const display = buildDisplayVisibleRowsWithExplanationTrials(
+      documentRows,
+      patterns,
+      rowHeight,
+    );
+    expect(display).toHaveLength(3);
+    expect(display[0]?.type).toBe("task");
+    expect(display[0]?.type === "task" && display[0].task.id).toBe("t1");
+    expect(display[1]?.type === "task" && display[1].task.id).toBe("trial-1");
+    expect(display[1]?.type === "task" && display[1].explanationTrial?.patternId).toBe(
+      "p",
+    );
+    expect(display[2]?.type === "task" && display[2].task.id).toBe("t2");
+    expect(display[0]?.y).toBe(0);
+    expect(display[1]?.y).toBe(26);
+    expect(display[2]?.y).toBe(52);
+  });
+});
+
 describe("trial bar geometry", () => {
   const timelineStart = new Date("2026-01-01T00:00:00");
   const dateToX = (d: Date) =>
@@ -254,7 +297,7 @@ describe("trial bar geometry", () => {
       it(`buildExplanationTrialBarLayouts_matchesTaskBarRectInBody pxPerDay=${pxPerDay} rowHeight=${rowHeight}`, () => {
         const barHeight = Math.max(12, Math.round(rowHeight * 0.55));
         const scrollY = 0;
-        const visibleRows = [taskRow("t1", 0)] as VisibleRow[];
+        const documentRows = [taskRow("t1", 0)] as VisibleRow[];
         const patterns = [
           {
             id: "p",
@@ -272,6 +315,11 @@ describe("trial bar geometry", () => {
             changes: [],
           },
         ];
+        const visibleRows = buildDisplayVisibleRowsWithExplanationTrials(
+          documentRows,
+          patterns,
+          rowHeight,
+        );
         const scaledDateToX = (d: Date) =>
           Math.round(
             ((d.getTime() - timelineStart.getTime()) / (24 * 60 * 60 * 1000)) *
@@ -288,16 +336,14 @@ describe("trial bar geometry", () => {
           pxPerDay,
           dateToX: scaledDateToX,
         });
-        const row = visibleRows[0]!;
+        const trialRow = visibleRows.find(
+          (row): row is Extract<VisibleRow, { type: "task" }> =>
+            row.type === "task" && row.task.id === "trial-1",
+        );
+        expect(trialRow).toBeDefined();
         const expected = taskBarRectInBody({
-          task: {
-            ...row.task,
-            id: "trial-1",
-            name: "試し",
-            start: "2026-01-06",
-            end: "2026-01-08",
-          },
-          viewportRowTop: row.y - scrollY,
+          task: trialRow!.task,
+          viewportRowTop: trialRow!.y - scrollY,
           rowHeight,
           barHeight,
           pxPerDay,
@@ -329,7 +375,12 @@ describe("trial bar geometry", () => {
         changes: [],
       },
     ];
-    const visibleRows = [taskRow("t1", 0)] as VisibleRow[];
+    const documentRows = [taskRow("t1", 0)] as VisibleRow[];
+    const visibleRows = buildDisplayVisibleRowsWithExplanationTrials(
+      documentRows,
+      patterns,
+      rowHeight,
+    );
     const scaledDateToX = (d: Date) =>
       Math.round(
         ((d.getTime() - timelineStart.getTime()) / (24 * 60 * 60 * 1000)) *
@@ -557,34 +608,6 @@ describe("trial plan document isolation", () => {
     expect(JSON.stringify(document)).not.toContain(
       JSON.stringify(overlay.state.patterns),
     );
-  });
-});
-
-describe("explanationTrialSidebarLabels", () => {
-  it("explanationTrialSidebarLabels_usesRowYInsideTranslatedContainer", () => {
-    const labels = explanationTrialSidebarLabels({
-      patterns: [
-        {
-          id: "p",
-          name: "P",
-          color: "#2563eb",
-          tasks: [
-            {
-              id: "trial-1",
-              name: "試し",
-              start: "2026-01-06",
-              end: "2026-01-08",
-              afterTaskId: "t1",
-            },
-          ],
-          changes: [],
-        },
-      ],
-      visibleRows: [taskRow("t1", 48)],
-      scrollY: 16,
-      rowHeight: 26,
-    });
-    expect(labels[0]?.viewportTop).toBe(48);
   });
 });
 

@@ -126,6 +126,7 @@ import {
   parseExplainOverlayRequest,
   type ExplanationOverlayState,
 } from "../model/explainOverlay";
+import { buildDisplayVisibleRowsWithExplanationTrials } from "../model/explainOverlayPatterns";
 import {
   planExplanationOverlayScroll,
   type ExplanationScrollPlan,
@@ -936,6 +937,22 @@ export function useSchedule(
   displayedCollapsedRef.current = displayedCollapsed;
   const visibleRowsRef = useRef(visibleRows);
   visibleRowsRef.current = visibleRows;
+
+  const displayVisibleRows = useMemo(() => {
+    if (
+      !explanationOverlayActive(explanationOverlay) ||
+      explanationOverlay.patterns.length === 0
+    ) {
+      return visibleRows;
+    }
+    return buildDisplayVisibleRowsWithExplanationTrials(
+      visibleRows,
+      explanationOverlay.patterns,
+      rowHeight,
+    );
+  }, [explanationOverlay, rowHeight, visibleRows]);
+  const displayVisibleRowsRef = useRef(displayVisibleRows);
+  displayVisibleRowsRef.current = displayVisibleRows;
 
   const cancelReorder = useCallback(() => {
     setReorderPreview(null);
@@ -3020,6 +3037,7 @@ export function useSchedule(
     setMilestoneConfidence,
     assigneeFilterOptions,
     visibleRows,
+    displayVisibleRows,
     baseVisibleRows,
     reorderPreview,
     reorderInsertMarkerY,

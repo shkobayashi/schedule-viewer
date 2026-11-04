@@ -138,6 +138,8 @@ type UseMcpScreenBridgeInput = {
   ) => ReplaceScheduleDocumentResult;
   onReplaceScheduleApplied?: (result: ReplaceScheduleDocumentResult) => void;
   visibleRows: VisibleRow[];
+  prepareMcpPngCapture?: () => void;
+  finalizeMcpPngCapture?: () => void;
   viewStart: Date;
   viewTotalDays: number;
   scrollX: number;
@@ -554,7 +556,13 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       }
       let body;
       if (isMcpReadToolName(payload.tool)) {
-        const screenshot = await captureMainElementForMcp(snap.mainElement);
+        snap.prepareMcpPngCapture?.();
+        let screenshot;
+        try {
+          screenshot = await captureMainElementForMcp(snap.mainElement);
+        } finally {
+          snap.finalizeMcpPngCapture?.();
+        }
         body = mcpReadToolsPayloadToToolBody(
           toolPayload as Record<string, unknown>,
           screenshot,

@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import {
   Copy,
   GitBranch,
@@ -1000,6 +1001,17 @@ function App() {
     visibleMilestoneGroupIds,
   } = schedule;
 
+  const [mcpPngUsesDocumentRows, setMcpPngUsesDocumentRows] = useState(false);
+  const chartVisibleRows = mcpPngUsesDocumentRows
+    ? schedule.visibleRows
+    : schedule.displayVisibleRows;
+  const prepareMcpPngCapture = useCallback(() => {
+    flushSync(() => setMcpPngUsesDocumentRows(true));
+  }, []);
+  const finalizeMcpPngCapture = useCallback(() => {
+    flushSync(() => setMcpPngUsesDocumentRows(false));
+  }, []);
+
   useEffect(() => {
     const ids = new Set(schedule.milestones.map((milestone) => milestone.id));
     setMilestoneGuideLineIds((prev) => {
@@ -1189,7 +1201,7 @@ function App() {
         120,
         timelineSlotHeight - headerHeight - band - chartTopBannerHeight,
       );
-      const rows = schedule.visibleRows;
+      const rows = chartVisibleRows;
       const contentHeight =
         rows.length === 0 ? 0 : rows[rows.length - 1].y + rowHeight;
       return Math.max(0, contentHeight - body);
@@ -1270,7 +1282,7 @@ function App() {
   explainOverlayRuntimeRef.current = {
     getPlanInput: () => ({
       marks: [],
-      visibleRows: schedule.visibleRows,
+      visibleRows: chartVisibleRows,
       dateToX,
       pxPerDay,
       scrollX,
@@ -2119,7 +2131,9 @@ function App() {
       levels: schedule.levels,
       outline: schedule.outline,
     }).length;
-    const visible = schedule.visibleRows.filter((row) => row.type === "task").length;
+    const visible = chartVisibleRows.filter(
+      (row) => row.type === "task" && row.explanationTrial == null,
+    ).length;
     return { visibleTaskCount: visible, totalTaskCount: total };
   }, [
     schedule.categories,
@@ -2128,7 +2142,7 @@ function App() {
     schedule.milestones,
     schedule.outline,
     schedule.title,
-    schedule.visibleRows,
+    chartVisibleRows,
   ]);
 
   const documentTasks = useMemo(
@@ -2451,8 +2465,10 @@ function App() {
   ]);
   const links = useMemo(() => {
     const visibleIds = new Set(
-      schedule.visibleRows.flatMap((row) =>
-        row.type === "task" ? [row.task.id] : [],
+      chartVisibleRows.flatMap((row) =>
+        row.type === "task" && row.explanationTrial == null
+          ? [row.task.id]
+          : [],
       ),
     );
     const tasks = collectTasksFromDocument({
@@ -2475,17 +2491,19 @@ function App() {
     schedule.milestones,
     schedule.outline,
     schedule.title,
-    schedule.visibleRows,
+    chartVisibleRows,
   ]);
 
   const taskConnections = useMemo(() => {
     const visibleIds = new Set(
-      schedule.visibleRows.flatMap((row) =>
-        row.type === "task" ? [row.task.id] : [],
+      chartVisibleRows.flatMap((row) =>
+        row.type === "task" && row.explanationTrial == null
+          ? [row.task.id]
+          : [],
       ),
     );
     return visibleConnectionsFromTasks(schedule.connections, visibleIds);
-  }, [schedule.connections, schedule.visibleRows]);
+  }, [chartVisibleRows, schedule.connections]);
 
   const handleResizeStart = useCallback(
     (taskId: ScheduleId, groupX: number) => {
@@ -2495,8 +2513,8 @@ function App() {
   );
 
   const stickyLayout = useMemo(
-    () => layoutStickyHeaders(visibleRows, scrollY, rowHeight, bodyHeight),
-    [bodyHeight, rowHeight, scrollY, visibleRows],
+    () => layoutStickyHeaders(chartVisibleRows, scrollY, rowHeight, bodyHeight),
+    [bodyHeight, rowHeight, scrollY, chartVisibleRows],
   );
 
   useLayoutEffect(() => {
@@ -2536,10 +2554,10 @@ function App() {
         schedule.milestoneGroups,
         schedule.visibleMilestoneGroupIds,
         schedule.milestones,
-        schedule.visibleRows,
+        chartVisibleRows,
       );
       const baseExportedRange = exportTimelineRange(
-        schedule.visibleRows,
+        chartVisibleRows,
         milestones,
         schedule.today,
       );
@@ -2587,7 +2605,7 @@ function App() {
         title: getDocumentTitle(),
         tierLabel,
         lineageName: schedule.lineageTask?.name ?? null,
-        visibleRows: schedule.visibleRows,
+        visibleRows: chartVisibleRows,
         milestones: schedule.milestones,
         milestoneBandLayout: exportedBandLayout,
         links,
@@ -3092,7 +3110,9 @@ function App() {
     replaceScheduleDocument: (document) =>
       replaceScheduleDocumentRef.current(document),
     onReplaceScheduleApplied,
-    visibleRows: schedule.visibleRows,
+    visibleRows: chartVisibleRows,
+    prepareMcpPngCapture,
+    finalizeMcpPngCapture,
     viewStart,
     viewTotalDays,
     scrollX,
@@ -3256,7 +3276,7 @@ function App() {
         filterState.collapsedGroupIds,
       );
       const outcome = resolveDiffNavigation(entry, {
-        visibleRows: schedule.visibleRows,
+        visibleRows: chartVisibleRows,
         categories: schedule.categories,
         outline: schedule.outline,
         collapsed,
@@ -4507,7 +4527,7 @@ function App() {
           levelCount={schedule.hierarchyLayout.levelCount}
           usesOutlineStorage={schedule.usesOutlineStorage}
           allowCrossParentTaskMove={schedule.allowCrossParentTaskMove}
-          rows={schedule.visibleRows}
+          rows={chartVisibleRows}
           reorderBaseRows={schedule.baseVisibleRows}
           scrollY={scrollY}
           viewportHeight={bodyHeight}
@@ -4642,7 +4662,7 @@ function App() {
           <Timeline
             statuses={displayStatuses}
             rowColors={displayColors}
-            visibleRows={schedule.visibleRows}
+            visibleRows={chartVisibleRows}
             width={Math.max(200, timelineWidth)}
             rowHeight={rowHeight}
             barHeight={barHeight}
