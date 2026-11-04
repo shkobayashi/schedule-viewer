@@ -17,6 +17,8 @@ type StatusBarProps = {
   onOpenSettingsMembers: () => void;
   onOpenSettingsCalendar: () => void;
   onOpenShortcuts: () => void;
+  /** 初回の保存前だけ出すヒント（ピル） */
+  saveHint?: string | null;
 };
 
 function tierLabel(tier: GridTier): string {
@@ -42,9 +44,15 @@ export function StatusBar({
   onOpenSettingsMembers,
   onOpenSettingsCalendar,
   onOpenShortcuts,
+  saveHint = null,
 }: StatusBarProps) {
   return (
     <footer className="status-bar" role="contentinfo">
+      {saveHint ? (
+        <span className="status-bar-first-run-hint" role="note">
+          {saveHint}
+        </span>
+      ) : null}
       <div className="status-bar-group">
         <span className="status-bar-item status-bar-file">{fileName}</span>
         <span className="status-bar-sep" aria-hidden="true">

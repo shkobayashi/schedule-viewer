@@ -32,6 +32,8 @@ type AppMenuProps = {
   onOpenGuide: () => void;
   onOpenShortcuts: () => void;
   onCheckForUpdates?: () => void;
+  /** 履歴が空のとき、無効な「最近開いたファイル」行の補足 */
+  recentFilesEmptyHint?: string | null;
 };
 
 export function AppMenu({
@@ -53,6 +55,7 @@ export function AppMenu({
   onOpenGuide,
   onOpenShortcuts,
   onCheckForUpdates,
+  recentFilesEmptyHint = null,
 }: AppMenuProps) {
   const [open, setOpen] = useState(false);
   const [recentSubmenuOpen, setRecentSubmenuOpen] = useState(false);
@@ -370,7 +373,14 @@ export function AppMenu({
         </div>
       ) : showRecentDisabled ? (
         <button type="button" role="menuitem" disabled>
-          <span>最近開いたファイル</span>
+          {recentFilesEmptyHint ? (
+            <span className="app-menu-item-with-hint">
+              <span>最近開いたファイル</span>
+              <span className="app-menu-item-hint">{recentFilesEmptyHint}</span>
+            </span>
+          ) : (
+            <span>最近開いたファイル</span>
+          )}
         </button>
       ) : null}
       {isTauri() && onOpenInNewWindow ? (
