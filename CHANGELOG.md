@@ -2,7 +2,13 @@
 
 このファイルの変更履歴は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) に沿い、バージョン番号は [Semantic Versioning](https://semver.org/lang/ja/) に従う。
 
+`-alpha.N` と `-beta.N` の Pre-release 中は、その版専用の節を CHANGELOG に書かない。公開する内容は、安定版 `X.Y.Z` の節にまとめる。
+
 ## [Unreleased]
+
+### 変更
+
+- 2.0 向けのアルファ Pre-release 手順を追加。版は `X.Y.Z-alpha.N` と `X.Y.Z-beta.N` を許容し、`npm run version:bump -- alpha` / `beta` / `stable` で alpha → beta → 安定版の順に進める。Pre-release は Latest と `updater-X` 更新の対象外である
 
 ## [1.12.1] - 2026-11-04
 
