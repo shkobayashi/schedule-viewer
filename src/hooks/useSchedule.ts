@@ -3000,14 +3000,15 @@ export function useSchedule(
         return { ok: true, text: explainOverlayHideSuccessText(wasActive) };
       }
       setExplanationOverlay(parsed.state);
-      const runtime = explainOverlayRuntime?.current;
-      const planInput = runtime?.getPlanInput();
-      if (planInput != null && parsed.state.marks.length > 0) {
-        const plan = planExplanationOverlayScroll({
-          ...planInput,
-          marks: parsed.state.marks,
-        });
-        if (plan != null) runtime?.applyScroll(plan);
+      if (explainOverlayRuntime != null) {
+        const planInput = explainOverlayRuntime.current?.getPlanInput();
+        if (planInput != null && parsed.state.marks.length > 0) {
+          const plan = planExplanationOverlayScroll({
+            ...planInput,
+            marks: parsed.state.marks,
+          });
+          if (plan != null) explainOverlayRuntime.current?.applyScroll(plan);
+        }
       }
       return { ok: true, text: explainOverlayShowSuccessText() };
     },

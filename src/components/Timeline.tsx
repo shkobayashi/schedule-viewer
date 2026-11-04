@@ -53,7 +53,6 @@ import {
   barColors,
   barLabelFill,
   lightningDate,
-  taskBarExclusiveEnd,
   taskBarWidthPx,
 } from "../model/timeline";
 import {

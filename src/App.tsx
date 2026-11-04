@@ -218,7 +218,6 @@ import type { ScheduleDiffEntry } from "./model/scheduleDiffEntry";
 import {
   collapsedSetFromIds,
 } from "./model/scheduleFilterPersistence";
-import { buildTaskBarAnchorsForOverlay } from "./model/explainOverlayLayout";
 import type { TaskBarAnchor } from "./model/connections";
 import { scrollXToRevealTask } from "./model/chartScroll";
 import {

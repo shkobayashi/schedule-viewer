@@ -3,7 +3,7 @@ import { daysBetween, parseDate } from "./dates";
 import { scrollXToRevealTask } from "./chartScroll";
 import { scrollYToRevealTask } from "./stickyRows";
 import { layoutStickyHeaders } from "./stickyRows";
-import { taskBarExclusiveEnd, taskBarWidthPx } from "./timeline";
+import { taskBarWidthPx } from "./timeline";
 import {
   clipTaskBarRectToDate,
   dateColumnRectInHeader,
@@ -410,7 +410,7 @@ function layoutExplanationBalloons(
     }
 
     if (input.tier === "header") {
-      let rect = chosen.rect;
+      const rect = chosen.rect;
       if (rect.top < 0 || rect.bottom > chartBottom) {
         const cappedHeight = Math.min(
           dimensions.height,
@@ -436,7 +436,7 @@ function layoutExplanationBalloons(
     }
 
     if (input.tier === "milestone") {
-      let rect = chosen.rect;
+      const rect = chosen.rect;
       if (rect.top < 0 || rect.bottom > chartBottom) {
         const left = chosen.left;
         let anchor = anchorY;

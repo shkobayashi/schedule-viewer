@@ -1,5 +1,5 @@
 import { parseDate } from "./dates";
-import { taskBarExclusiveEnd, taskBarWidthPx } from "./timeline";
+import { taskBarWidthPx } from "./timeline";
 import type { TaskBarAnchor } from "./connections";
 import type { Task } from "./types";
 

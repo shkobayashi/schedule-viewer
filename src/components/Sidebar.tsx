@@ -1545,6 +1545,7 @@ function TaskSidebarRow({
   onTaskContextMenu: (x: number, y: number) => void;
   onSelect: (event: React.MouseEvent<HTMLDivElement>) => void;
   onGripPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  explanationMark?: ExplanationSidebarMarkDisplay;
 }) {
   const assigneeDuplicateNames = useMemo(
     () => duplicateMemberNamesFromCatalog(memberCatalog),

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { executeMcpActionTool } from "./mcpActionExecutor";
+import {
+  executeMcpActionTool,
+  type McpActionExecutorContext,
+} from "./mcpActionExecutor";
 import { MCP_TOOL_APPLY_EXPLANATION_PATTERN } from "../model/mcpToolNames";
 import {
   APPLY_EXPLANATION_PATTERN_NO_OVERLAY,
@@ -7,14 +10,14 @@ import {
 } from "../model/explainOverlayPatterns";
 import type { ExplanationOverlayState } from "../model/explainOverlay";
 import type { ScheduleDocument } from "../model/types";
+import { SCHEDULE_SCHEMA_VERSION } from "../model/types";
 
 const documentFixture = (): ScheduleDocument => ({
-  schemaVersion: 1,
+  schemaVersion: SCHEDULE_SCHEMA_VERSION,
   title: "T",
   categories: [],
   milestoneGroups: [],
   milestones: [],
-  levels: null,
   outline: undefined,
   connections: undefined,
 });
@@ -29,14 +32,15 @@ const overlayWithPattern = (): ExplanationOverlayState => ({
       color: "#2563eb",
       tasks: [],
       changes: [],
+      milestoneChanges: [],
     },
   ],
 });
 
 function baseContext(input: {
   overlay: ExplanationOverlayState | null;
-  applyEditPlan: ReturnType<typeof vi.fn>;
-}) {
+  applyEditPlan: McpActionExecutorContext["applyEditPlan"];
+}): McpActionExecutorContext {
   return {
     levels: null,
     visibleRows: [],
@@ -59,7 +63,9 @@ function baseContext(input: {
 
 describe("executeMcpActionTool apply_explanation_pattern", () => {
   it("executeMcpActionTool_applyExplanationPattern_rejectsWithoutOverlay", async () => {
-    const applyEditPlan = vi.fn();
+    const applyEditPlan = vi.fn<
+      McpActionExecutorContext["applyEditPlan"]
+    >();
     const result = await executeMcpActionTool(
       MCP_TOOL_APPLY_EXPLANATION_PATTERN,
       { patternId: "p-a" },
@@ -73,7 +79,9 @@ describe("executeMcpActionTool apply_explanation_pattern", () => {
   });
 
   it("executeMcpActionTool_applyExplanationPattern_rejectsUnknownPatternId", async () => {
-    const applyEditPlan = vi.fn();
+    const applyEditPlan = vi.fn<
+      McpActionExecutorContext["applyEditPlan"]
+    >();
     const result = await executeMcpActionTool(
       MCP_TOOL_APPLY_EXPLANATION_PATTERN,
       { patternId: "missing" },

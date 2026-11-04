@@ -429,7 +429,10 @@ export function parseExplainViewRequest(
 }
 
 export function resolveExplanationMilestoneBand(
-  document: Pick<ScheduleDocument, "milestoneGroups" | "milestones">,
+  document: {
+    milestoneGroups: readonly MilestoneGroup[];
+    milestones: readonly Milestone[];
+  },
   explanation: ExplanationViewState | null,
   hiddenMilestoneGroupIds: ReadonlySet<ScheduleId>,
 ): { visibleGroupIds: Set<ScheduleId>; milestones: Milestone[] } {

@@ -88,7 +88,6 @@ type UseScheduleStartupRecoveryOptions = {
 };
 
 export function useScheduleStartupRecovery({
-  replaceDocument,
   reloadDocumentFromDisk,
   onAfterOpen,
   setFilePath,

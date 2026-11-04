@@ -22,6 +22,21 @@ import { taskBarAnchorInBody, taskBarRectInBody, milestoneDiamondRectInBand } fr
 import { serializeScheduleDocument } from "./scheduleFile";
 import type { TaskBarAnchor } from "./connections";
 import type { Category, Milestone, ScheduleDocument, Task, VisibleRow } from "./types";
+import { SCHEDULE_SCHEMA_VERSION } from "./types";
+import type { ExplanationPattern } from "./explainOverlayPatterns";
+
+function patternStub(
+  partial: Partial<ExplanationPattern> & Pick<ExplanationPattern, "id">,
+): ExplanationPattern {
+  return {
+    name: "P",
+    color: "#2563eb",
+    tasks: [],
+    changes: [],
+    milestoneChanges: [],
+    ...partial,
+  };
+}
 
 const taskRow = (
   id: string,
@@ -156,6 +171,7 @@ describe("parseExplanationPatterns", () => {
             color: "#2563eb",
             tasks: [],
             changes: [],
+            milestoneChanges: [],
           },
         ],
         baseContext,
@@ -173,6 +189,7 @@ describe("parseExplanationPatterns", () => {
             color: "#2563eb",
             tasks: [{ id: "trial-a", name: "A", start: "2026-01-06", end: "2026-01-07", afterTaskId: "t1" }],
             changes: [],
+            milestoneChanges: [],
           },
           {
             id: "p2",
@@ -234,10 +251,9 @@ describe("parseExplainOverlayRequest patterns integration", () => {
 describe("buildMcpExplanationPatterns", () => {
   it("buildMcpExplanationPatterns_marksTrialTasks", () => {
     const payload = buildMcpExplanationPatterns([
-      {
+      patternStub({
         id: "p-a",
         name: "A",
-        color: "#2563eb",
         tasks: [
           {
             id: "trial-1",
@@ -247,8 +263,7 @@ describe("buildMcpExplanationPatterns", () => {
             afterTaskId: "t1",
           },
         ],
-        changes: [],
-      },
+      }),
     ]);
     expect(payload[0]?.tasks[0]?.trial).toBe(true);
   });
@@ -276,6 +291,7 @@ describe("buildDisplayVisibleRowsWithExplanationTrials", () => {
           },
         ],
         changes: [],
+        milestoneChanges: [],
       },
     ];
     const display = buildDisplayVisibleRowsWithExplanationTrials(
@@ -317,6 +333,7 @@ describe("buildDisplayVisibleRowsWithExplanationTrials", () => {
           },
         ],
         changes: [],
+        milestoneChanges: [],
       },
     ];
     const display = buildDisplayVisibleRowsWithExplanationTrials(
@@ -338,10 +355,6 @@ describe("buildDisplayVisibleRowsWithExplanationTrials", () => {
 
 describe("trial bar geometry", () => {
   const timelineStart = new Date("2026-01-01T00:00:00");
-  const dateToX = (d: Date) =>
-    Math.round(
-      ((d.getTime() - timelineStart.getTime()) / (24 * 60 * 60 * 1000)) * 22,
-    );
 
   for (const pxPerDay of [8, 40] as const) {
     for (const rowHeight of [26, 32] as const) {
@@ -364,6 +377,7 @@ describe("trial bar geometry", () => {
               },
             ],
             changes: [],
+            milestoneChanges: [],
           },
         ];
         const visibleRows = buildDisplayVisibleRowsWithExplanationTrials(
@@ -424,6 +438,7 @@ describe("trial bar geometry", () => {
           },
         ],
         changes: [],
+        milestoneChanges: [],
       },
     ];
     const documentRows = [taskRow("t1", 0)] as VisibleRow[];
@@ -488,6 +503,7 @@ describe("trial bar geometry", () => {
             end: "2026-01-15",
           },
         ],
+        milestoneChanges: [],
       },
     ];
     const layouts = buildExplanationTrialBarLayouts({
@@ -502,6 +518,7 @@ describe("trial bar geometry", () => {
       dateToX: scaledDateToX,
     });
     const row = visibleRows[0]!;
+    if (row.type !== "task") throw new Error("expected task row");
     const expected = taskBarRectInBody({
       task: {
         ...row.task,
@@ -535,6 +552,7 @@ describe("trial bar geometry", () => {
         color: "#2563eb",
         tasks: [],
         changes: [{ taskId: "t2", start: "2026-01-07", end: "2026-01-09" }],
+        milestoneChanges: [],
       },
       {
         id: "p-b",
@@ -542,6 +560,7 @@ describe("trial bar geometry", () => {
         color: "#dc2626",
         tasks: [],
         changes: [{ taskId: "t2", start: "2026-01-10", end: "2026-01-12" }],
+        milestoneChanges: [],
       },
     ];
     const layouts = buildExplanationTrialBarLayouts({
@@ -580,6 +599,7 @@ describe("explain overlay hide clears patterns", () => {
               },
             ],
             changes: [],
+            milestoneChanges: [],
           },
         ],
       },
@@ -649,6 +669,7 @@ describe("trial plan document isolation", () => {
               },
             ],
             changes: [],
+            milestoneChanges: [],
           },
         ],
       },
@@ -705,6 +726,7 @@ describe("buildExplanationTrialPredecessorArcs", () => {
               predecessors: ["t1"],
             },
           ],
+          milestoneChanges: [],
         },
       ],
       visibleRows,
@@ -735,6 +757,7 @@ describe("buildExplanationTrialPredecessorArcs", () => {
               predecessors: ["missing"],
             },
           ],
+          milestoneChanges: [],
         },
       ],
       visibleRows: [taskRow("t2", 32)] as VisibleRow[],
@@ -753,12 +776,11 @@ describe("buildExplanationTrialPredecessorArcs", () => {
 
 describe("applyExplanationPatternToDocument", () => {
   const baseDocument = (): ScheduleDocument => ({
-    schemaVersion: 1,
+    schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title: "T",
     categories,
     milestoneGroups: [],
     milestones,
-    levels: null,
     outline: undefined,
     connections: undefined,
   });
@@ -962,6 +984,7 @@ describe("applyExplanationPatternToDocument", () => {
           color: "#2563eb",
           tasks: [],
           changes: [{ taskId: "t2", start: "2026-01-07", end: "2026-01-09" }],
+          milestoneChanges: [],
         },
         {
           id: "p-b",
@@ -969,6 +992,7 @@ describe("applyExplanationPatternToDocument", () => {
           color: "#dc2626",
           tasks: [],
           changes: [{ taskId: "t2", start: "2026-01-07", end: "2026-01-09" }],
+          milestoneChanges: [],
         },
       ],
       visibleRows,
@@ -1090,6 +1114,7 @@ describe("applyExplanationPatternToDocument", () => {
           end: "2026-01-12",
         },
       ],
+      milestoneChanges: [],
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;

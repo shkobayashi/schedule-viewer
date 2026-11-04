@@ -33,7 +33,6 @@ import { applyMilestoneEdit } from "./milestones";
 import type {
   Category,
   Milestone,
-  MilestoneGroup,
   OutlineRoot,
   ScheduleId,
   Task,
@@ -102,8 +101,8 @@ export type ExplanationTrialNewTask = {
 
 export type ExplanationTrialChange = {
   taskId: ScheduleId;
-  start: string;
-  end: string;
+  start?: string;
+  end?: string;
   predecessors?: ScheduleId[];
 };
 
@@ -379,11 +378,6 @@ export function parseExplanationPatterns(
           return rejectPatterns();
         }
         if (inDocument) {
-          const real = findTaskInDocument(
-            context.categories,
-            context.outline,
-            taskId,
-          )!;
           if (
             taskHiddenByCollapsedAncestors(
               taskId,
@@ -412,12 +406,15 @@ export function parseExplanationPatterns(
             return rejectPatterns();
           }
           if (predInDoc) {
-            const real = findTaskInDocument(
-              context.categories,
-              context.outline,
-              pred,
-            );
-            if (real == null) return rejectPatterns();
+            if (
+              findTaskInDocument(
+                context.categories,
+                context.outline,
+                pred,
+              ) == null
+            ) {
+              return rejectPatterns();
+            }
           }
           predecessors.push(pred);
         }
@@ -539,7 +536,7 @@ function syntheticTaskInPattern(
       task: {
         ...real,
         start: change.start,
-        end: change.end,
+        end: change.end ?? real.end,
       },
     };
   }
@@ -779,7 +776,7 @@ export function buildExplanationTrialBarLayouts(input: {
       const synthetic: Task = {
         ...real,
         start: change.start,
-        end: change.end,
+        end: change.end ?? real.end,
       };
       layouts.push({
         patternId: pattern.id,
@@ -1127,11 +1124,20 @@ export function applyExplanationPatternToDocument(
 
   for (const change of pattern.changes) {
     if (change.start != null) {
+      const existing = findTaskInDocument(
+        current.categories,
+        current.outline,
+        change.taskId,
+      );
+      const end = change.end ?? existing?.end;
+      if (end == null) {
+        return { ok: false, message: EXPLAIN_OVERLAY_PATTERNS_REJECT };
+      }
       const dated = tryMcpSetTaskDates(
         current,
         change.taskId,
         change.start,
-        change.end,
+        end,
       );
       if (!dated.ok) return dated;
       current = dated.document;

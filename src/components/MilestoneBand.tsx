@@ -2,7 +2,6 @@ import { useEffect, useRef, type Ref } from "react";
 import { Group, Layer, Line, RegularPolygon, Shape, Stage, Text } from "react-konva";
 import type Konva from "konva";
 import { milestoneMarkHit } from "../model/chartHitTest";
-import { parseDate } from "../model/dates";
 import { KONVA_FONT_FAMILY } from "../model/fontStack";
 import {
   MILESTONE_GUIDE_DASH,
@@ -19,6 +18,7 @@ import {
 } from "../model/taskBarLayout";
 import type { ExplanationMarkHole } from "../model/explainOverlayLayout";
 import type { ResolvedColorScheme } from "../model/palette";
+import type { MilestoneHoverState } from "./MilestoneHoverOverlay";
 import { ExplanationKonvaVeilLayer } from "./ExplanationKonvaVeil";
 import { ExplanationTrialMilestonesLayer } from "./ExplanationTrialMilestonesLayer";
 import type { ExplanationTrialMilestoneLayout } from "../model/explainOverlayPatterns";

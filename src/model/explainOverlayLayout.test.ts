@@ -474,6 +474,7 @@ describe("buildExplanationOverlayGeometry", () => {
       visibleRows: rows,
       scrollY: 0,
       rowHeight: 24,
+      barHeight: 14,
       dateToX: (d) =>
         Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) *
         pxPerDay,
@@ -513,6 +514,7 @@ describe("buildExplanationOverlayGeometry", () => {
       visibleRows: rows,
       scrollY: 0,
       rowHeight: 24,
+      barHeight: 14,
       dateToX: dateToXContent,
       pxPerDay,
     });
@@ -651,6 +653,7 @@ describe("planExplanationOverlayScroll", () => {
       visibleRows: rows,
       scrollY: 0,
       rowHeight: 24,
+      barHeight: 14,
       dateToX: (d) =>
         Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) *
           pxPerDay,

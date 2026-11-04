@@ -14,7 +14,6 @@ import {
   buildMcpExplanationPatterns,
   parseExplanationPatterns,
   syntheticTaskForTrialBar,
-  trialMarkBarRect,
   trialTaskIdsInPatterns,
   type ExplanationPattern,
   type McpExplanationPatternPayload,

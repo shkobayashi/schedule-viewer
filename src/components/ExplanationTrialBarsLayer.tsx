@@ -34,7 +34,6 @@ export function ExplanationTrialBarsLayer({
   height,
   bars,
   predecessorArcs = [],
-  connectionArcColor = "#64748b",
   connectionArcHaloColor = "#f8fafc",
   clipTop,
   clipHeight,

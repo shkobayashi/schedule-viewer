@@ -591,8 +591,8 @@ export type McpScheduleTasksContext = {
   outline?: OutlineRoot | undefined;
   levels?: readonly ScheduleLevelDef[] | null;
   title?: string;
-  milestoneGroups?: MilestoneGroup[];
-  milestones?: Milestone[];
+  milestoneGroups?: readonly MilestoneGroup[];
+  milestones?: readonly Milestone[];
   fields?: readonly ScheduleFieldDef[];
   /** MCP 用メンバー一覧（チャート解決用 memberCatalog とは別） */
   mcpMembers?: readonly Member[] | null;
@@ -604,9 +604,9 @@ function scheduleDocumentForMcpTasks(
   return {
     schemaVersion: SCHEDULE_SCHEMA_VERSION,
     title: input.title ?? "",
-    categories: input.categories,
-    milestoneGroups: input.milestoneGroups ?? [],
-    milestones: input.milestones ?? [],
+    categories: [...input.categories],
+    milestoneGroups: [...(input.milestoneGroups ?? [])],
+    milestones: [...(input.milestones ?? [])],
     levels: input.levels?.length ? [...input.levels] : undefined,
     outline: input.outline,
   };
@@ -884,10 +884,10 @@ export function buildFilteredTasksPayload(
       activeConditions: buildActiveFilterConditions({
         filters: input.filters,
         hiddenMilestoneGroupIds: input.hiddenMilestoneGroupIds,
-        milestoneGroups: input.milestoneGroups ?? [],
-        milestones: input.milestones ?? [],
+        milestoneGroups: [...(input.milestoneGroups ?? [])],
+        milestones: [...(input.milestones ?? [])],
         lineageTaskId: input.lineageTaskId,
-        categories: input.categories,
+        categories: [...input.categories],
         outline: input.outline,
         memberCatalog: input.memberCatalog,
         statuses,

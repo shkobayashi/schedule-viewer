@@ -348,6 +348,7 @@ describe("buildMcpExplanationOverlay", () => {
       overlay: {
         translucent: true,
         marks: [{ taskId: "t1", kind: "change", label: "x" }],
+        patterns: [],
       },
       visibleRows: rows,
       pxPerDay: 20,
@@ -403,6 +404,7 @@ describe("buildMcpExplanationOverlay", () => {
       overlay: {
         translucent: true,
         marks: [{ taskId: "t1", kind: "change", label: "x" }],
+        patterns: [],
       },
       visibleRows: [taskRow("t1", 0)],
       pxPerDay: 20,
