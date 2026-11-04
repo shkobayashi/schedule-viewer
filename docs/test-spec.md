@@ -588,6 +588,9 @@
 | 同上 | `shows desktop-only items on desktop` | NAV-08 |
 | 同上 | `avoids unexplained jargon and defines MCP` | NAV-08 |
 | 同上 | `introduces the menu with 画面左上 only on first hamburger mention` | NAV-08 |
+| `firstRunGuidance.test.ts` | `starts with hint not dismissed and save hint not completed` | NAV-09 |
+| 同上 | `migrates legacy openFile flag to prepareSchedule` | NAV-09 |
+| 同上 | `persists checklist items and dismisses when all complete` | NAV-09 |
 | `categoryOrder.test.ts` | `moves a category and keeps its groups` | EDIT-16 |
 | 同上 | `returns the same array when the index is unchanged` | EDIT-16 |
 | 同上 | `places a category at the insert index from the original spans` | EDIT-16 |
@@ -1209,7 +1212,7 @@
 | TC-NAV-07 | NAV-07 | サンプルを開く | ⌘/Ctrl+K で「今日」を実行する。ほかのダイアログを開いたあいだ ⌘/Ctrl+K を押す | 今日が見える位置へ横が動く。パレットは開かない |
 | TC-NAV-07b | NAV-07 | 未保存にする | コマンドパレットで「差分をコピー」を実行する | 差分がコピーされる |
 | TC-NAV-07c | NAV-07 | macOS のデスクトップ版 | メニューバーの「ファイル」から「保存」を選ぶ | ☰ と同じ保存が走る |
-| TC-NAV-09 | NAV-09 | デスクトップ版、初回起動、チェックリスト未完了 | 起動復旧後、右下のカードを見る。1 項目だけ完了させ、ファイルを開いたあともカードが残ることを見る。× で閉じ、再起動する | 3 項目にチェック欄がある。完了した項目だけチェックが付き、押せなくなる。未完了のあいだはファイルを開いてもカードが残る。3 項目すべて完了または × のあとは出ない |
+| TC-NAV-09 | NAV-09 | デスクトップ版、初回起動、チェックリスト未完了 | 起動復旧後、右下のカードを見る。1 項目目で「LLM で作る」からスキルを置くか「ある JSON を開く」を試す。別項目だけ完了させ、ファイルを開いたあともカードが残ることを見る。× で閉じ、再起動する | 1 項目目に「スケジュールを用意する」と 2 ボタンがある。スキル設置または JSON を開いたときだけ 1 項目目にチェックが付く。完了した項目は押せなくなる。未完了のあいだはファイルを開いてもカードが残る。3 項目すべて完了または × のあとは出ない |
 | TC-NAV-09b | NAV-09 | デスクトップ版、履歴が空 | ☰ を開き「最近開いたファイル」を見る | 行が無効で、その下に「ファイルを開くとここに並びます」が出る |
 | TC-NAV-09c | NAV-09 | デスクトップ版、保存ヒント未完了 | タスク名などを1回変える。保存に成功する | 未保存のあいだ状態バーに「保存は ☰ または ⌘S」または Ctrl+S のピルが出る。保存後は出ない |
 | TC-NAV-09d | NAV-09 | ブラウザ版 | 上と同様の操作 | カードと保存ヒントのピルは出ない |

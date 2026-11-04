@@ -515,6 +515,14 @@ function App() {
     setSettingsSection("mcp");
     setSettingsOpen(true);
   }, []);
+  const openFirstRunJsonSkills = useCallback(() => {
+    if (isTauri()) {
+      setSettingsSection("jsonSkills");
+      setSettingsOpen(true);
+      return;
+    }
+    openGuide();
+  }, [openGuide]);
   const openShortcuts = useCallback(() => {
     setGuideOpen(false);
     setShortcutsOpen(true);
@@ -1522,7 +1530,7 @@ function App() {
     if (scheduleFile.filePath == null) {
       return;
     }
-    markFirstRunStep("openFile");
+    markFirstRunStep("prepareSchedule");
   }, [markFirstRunStep, scheduleFile.filePath, scheduleFile.startupSettled]);
 
   useEffect(() => {
@@ -5146,11 +5154,12 @@ function App() {
           commandKey={commandKey}
           showingSample={showingBuiltInSample}
           checklist={firstRunChecklist}
-          openFileDisabled={
+          openExistingJsonDisabled={
             scheduleFile.fileBusy || !scheduleFile.startupSettled
           }
           onDismiss={dismissFirstRunHintCard}
-          onOpenFile={onFirstRunOpenFile}
+          onPrepareWithLlm={openFirstRunJsonSkills}
+          onOpenExistingJson={onFirstRunOpenFile}
           onOpenGuide={onFirstRunOpenGuide}
           onOpenMcpSettings={onFirstRunOpenMcpSettings}
         />
@@ -5593,6 +5602,7 @@ function App() {
               : undefined
           }
           onMcpConfigCopied={() => markFirstRunStep("mcp")}
+          onJsonSkillsInstalled={() => markFirstRunStep("prepareSchedule")}
         />
       ) : null}
       <HierarchyLevelsDialog

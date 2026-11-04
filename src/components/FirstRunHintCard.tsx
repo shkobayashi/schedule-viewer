@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import {
   FIRST_RUN_CHECKLIST_LABELS,
   FIRST_RUN_CHECKLIST_ORDER,
+  FIRST_RUN_PREPARE_SCHEDULE_TITLE,
   type FirstRunChecklistId,
   type FirstRunChecklistState,
   firstRunHintSaveFootnote,
@@ -12,9 +13,10 @@ type FirstRunHintCardProps = {
   commandKey: boolean;
   showingSample: boolean;
   checklist: FirstRunChecklistState;
-  openFileDisabled?: boolean;
+  openExistingJsonDisabled?: boolean;
   onDismiss: () => void;
-  onOpenFile: () => void;
+  onPrepareWithLlm: () => void;
+  onOpenExistingJson: () => void;
   onOpenGuide: () => void;
   onOpenMcpSettings: () => void;
 };
@@ -23,9 +25,10 @@ export function FirstRunHintCard({
   commandKey,
   showingSample,
   checklist,
-  openFileDisabled = false,
+  openExistingJsonDisabled = false,
   onDismiss,
-  onOpenFile,
+  onPrepareWithLlm,
+  onOpenExistingJson,
   onOpenGuide,
   onOpenMcpSettings,
 }: FirstRunHintCardProps) {
@@ -41,14 +44,12 @@ export function FirstRunHintCard({
   }, [onDismiss]);
 
   const actionForId = (id: FirstRunChecklistId): (() => void) => {
-    if (id === "openFile") return onOpenFile;
     if (id === "guide") return onOpenGuide;
     return onOpenMcpSettings;
   };
 
   const disabledForId = (id: FirstRunChecklistId): boolean => {
     if (checklist[id]) return true;
-    if (id === "openFile") return openFileDisabled;
     return false;
   };
 
@@ -84,6 +85,53 @@ export function FirstRunHintCard({
         <ol className="first-run-hint-card__checklist">
           {FIRST_RUN_CHECKLIST_ORDER.map((id) => {
             const done = checklist[id];
+            if (id === "prepareSchedule") {
+              const prepareDone = done;
+              return (
+                <li
+                  key={id}
+                  className={
+                    prepareDone
+                      ? "first-run-hint-card__checklist-item first-run-hint-card__checklist-item--done first-run-hint-card__checklist-item--prepare"
+                      : "first-run-hint-card__checklist-item first-run-hint-card__checklist-item--prepare"
+                  }
+                >
+                  <span
+                    className="first-run-hint-card__check"
+                    aria-hidden={!prepareDone}
+                  >
+                    {prepareDone ? (
+                      <Check size={16} strokeWidth={2.5} />
+                    ) : null}
+                  </span>
+                  <div className="first-run-hint-card__prepare">
+                    <p className="first-run-hint-card__prepare-title">
+                      {FIRST_RUN_PREPARE_SCHEDULE_TITLE}
+                    </p>
+                    <div className="first-run-hint-card__prepare-actions">
+                      <button
+                        type="button"
+                        className="first-run-hint-card__btn first-run-hint-card__checklist-btn"
+                        disabled={prepareDone}
+                        onClick={onPrepareWithLlm}
+                      >
+                        LLM で作る
+                      </button>
+                      <button
+                        type="button"
+                        className="first-run-hint-card__btn first-run-hint-card__btn--primary first-run-hint-card__checklist-btn"
+                        disabled={
+                          prepareDone || openExistingJsonDisabled
+                        }
+                        onClick={onOpenExistingJson}
+                      >
+                        ある JSON を開く
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            }
             return (
               <li
                 key={id}
@@ -101,11 +149,7 @@ export function FirstRunHintCard({
                 </span>
                 <button
                   type="button"
-                  className={
-                    id === "openFile"
-                      ? "first-run-hint-card__btn first-run-hint-card__btn--primary first-run-hint-card__checklist-btn"
-                      : "first-run-hint-card__btn first-run-hint-card__checklist-btn"
-                  }
+                  className="first-run-hint-card__btn first-run-hint-card__checklist-btn"
                   disabled={disabledForId(id)}
                   aria-label={
                     done

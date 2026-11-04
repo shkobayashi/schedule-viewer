@@ -20,8 +20,10 @@ describe("guideContent (NAV-08)", () => {
 
   it("matches the first-run checklist order in the opening section", () => {
     const first = GUIDE_SECTIONS[0].items.map((item) => item.text);
+    expect(first[0]).toContain("JSON作成スキルを置く");
     expect(first[0]).toContain("開く");
-    expect(first[1]).toContain("操作の案内を読む");
+    expect(first[1]).toContain("開く・保存");
+    expect(first[1]).not.toContain("操作の案内を読む");
     expect(first[2]).toContain("デスクトップ版では");
     expect(first[2]).toContain("MCP");
   });

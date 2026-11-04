@@ -4,24 +4,26 @@ const LS_CHECKLIST = "schedule-viewer/first-run/checklist";
 
 export const RECENT_FILES_EMPTY_HINT = "ファイルを開くとここに並びます";
 
-export type FirstRunChecklistId = "openFile" | "guide" | "mcp";
+export type FirstRunChecklistId = "prepareSchedule" | "guide" | "mcp";
 
 export type FirstRunChecklistState = Record<FirstRunChecklistId, boolean>;
 
+export const FIRST_RUN_PREPARE_SCHEDULE_TITLE = "スケジュールを用意する";
+
 export const FIRST_RUN_CHECKLIST_ORDER: FirstRunChecklistId[] = [
-  "openFile",
+  "prepareSchedule",
   "guide",
   "mcp",
 ];
 
 export const FIRST_RUN_CHECKLIST_LABELS: Record<FirstRunChecklistId, string> = {
-  openFile: "自分の JSON を開く",
+  prepareSchedule: FIRST_RUN_PREPARE_SCHEDULE_TITLE,
   guide: "操作の案内を読む",
   mcp: "LLM（MCP）とつなぐ",
 };
 
 const EMPTY_CHECKLIST: FirstRunChecklistState = {
-  openFile: false,
+  prepareSchedule: false,
   guide: false,
   mcp: false,
 };
@@ -29,9 +31,13 @@ const EMPTY_CHECKLIST: FirstRunChecklistState = {
 function parseChecklist(raw: string | null): FirstRunChecklistState {
   if (!raw) return { ...EMPTY_CHECKLIST };
   try {
-    const parsed = JSON.parse(raw) as Partial<FirstRunChecklistState>;
+    const parsed = JSON.parse(raw) as Partial<
+      FirstRunChecklistState & { openFile?: boolean }
+    >;
+    const legacyOpenFile = parsed.openFile === true;
     return {
-      openFile: parsed.openFile === true,
+      prepareSchedule:
+        parsed.prepareSchedule === true || legacyOpenFile,
       guide: parsed.guide === true,
       mcp: parsed.mcp === true,
     };

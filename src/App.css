@@ -4965,6 +4965,23 @@ html[data-color-scheme="dark"] .command-palette {
   gap: calc(8px * var(--s));
 }
 
+.first-run-hint-card__checklist-item--prepare {
+  align-items: start;
+}
+
+.first-run-hint-card__prepare-title {
+  margin: 0 0 calc(6px * var(--s));
+  font-size: calc(13px * var(--s));
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.first-run-hint-card__prepare-actions {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
 .first-run-hint-card__check {
   display: inline-flex;
   align-items: center;

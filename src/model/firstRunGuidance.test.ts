@@ -38,7 +38,20 @@ describe("firstRunGuidance persistence", () => {
     expect(isFirstRunHintDismissed()).toBe(false);
     expect(isSaveHintCompleted()).toBe(false);
     expect(readFirstRunChecklist()).toEqual({
-      openFile: false,
+      prepareSchedule: false,
+      guide: false,
+      mcp: false,
+    });
+  });
+
+  it("migrates legacy openFile flag to prepareSchedule", () => {
+    installLocalStorage();
+    memory.set(
+      "schedule-viewer/first-run/checklist",
+      JSON.stringify({ openFile: true, guide: false, mcp: false }),
+    );
+    expect(readFirstRunChecklist()).toEqual({
+      prepareSchedule: true,
       guide: false,
       mcp: false,
     });
@@ -58,12 +71,12 @@ describe("firstRunGuidance persistence", () => {
 
   it("persists checklist items and dismisses when all complete", () => {
     installLocalStorage();
-    markFirstRunChecklistItem("openFile");
+    markFirstRunChecklistItem("prepareSchedule");
     markFirstRunChecklistItem("guide");
     expect(isFirstRunHintDismissed()).toBe(false);
     markFirstRunChecklistItem("mcp");
     expect(readFirstRunChecklist()).toEqual({
-      openFile: true,
+      prepareSchedule: true,
       guide: true,
       mcp: true,
     });
@@ -81,8 +94,8 @@ describe("firstRunGuidance labels", () => {
 });
 
 describe("shouldShowFirstRunHintCard", () => {
-  const empty = { openFile: false, guide: false, mcp: false };
-  const partial = { openFile: true, guide: false, mcp: false };
+  const empty = { prepareSchedule: false, guide: false, mcp: false };
+  const partial = { prepareSchedule: true, guide: false, mcp: false };
 
   it("shows after startup until dismissed or checklist complete", () => {
     expect(
@@ -117,7 +130,7 @@ describe("shouldShowFirstRunHintCard", () => {
       shouldShowFirstRunHintCard({
         dismissed: false,
         startupSettled: true,
-        checklist: { openFile: true, guide: true, mcp: true },
+        checklist: { prepareSchedule: true, guide: true, mcp: true },
       }),
     ).toBe(false);
   });
@@ -125,7 +138,11 @@ describe("shouldShowFirstRunHintCard", () => {
   it("isFirstRunChecklistComplete reflects all items", () => {
     expect(isFirstRunChecklistComplete(partial)).toBe(false);
     expect(
-      isFirstRunChecklistComplete({ openFile: true, guide: true, mcp: true }),
+      isFirstRunChecklistComplete({
+        prepareSchedule: true,
+        guide: true,
+        mcp: true,
+      }),
     ).toBe(true);
   });
 });

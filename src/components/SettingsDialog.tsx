@@ -179,6 +179,8 @@ type SettingsDialogProps = {
   onDeleteFieldExtension?: (catalogId: string) => Promise<void>;
   /** 初回ガイド: mcp.json をコピーしたとき */
   onMcpConfigCopied?: () => void;
+  /** 初回ガイド: JSON作成スキルを置いたとき */
+  onJsonSkillsInstalled?: () => void;
 };
 
 function betaInstallerPlatform(): "windows" | "linux" | null {
@@ -243,6 +245,7 @@ export function SettingsDialog({
   onToggleFieldExtension,
   onDeleteFieldExtension,
   onMcpConfigCopied,
+  onJsonSkillsInstalled,
   workspaceStatusEditor,
   workspaceColorEditor,
   workspaceMemberEditor,
@@ -567,6 +570,7 @@ export function SettingsDialog({
       setConfirmJsonSkillReplace(false);
       setPendingJsonSkillExisting(null);
       setMessage("JSON作成スキルを置きました。");
+      onJsonSkillsInstalled?.();
     } catch (error) {
       setMessage(errorMessage(error, "スキルを置けませんでした。"));
     } finally {
