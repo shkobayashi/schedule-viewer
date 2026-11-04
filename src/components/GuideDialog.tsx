@@ -20,9 +20,9 @@ export function GuideDialog({
     <ModalDialog
       title="操作の案内"
       onClose={onClose}
-      className="modal guide-modal"
+      className="ui-dialog-panel--guide guide-modal"
     >
-      <div className="guide-body" tabIndex={0}>
+      <div className="ui-dialog-body ui-dialog-body--scroll guide-body" tabIndex={0}>
         {GUIDE_SECTIONS.map((section) => {
           const items = visibleGuideItems(section.items, showDesktopOnly);
           if (items.length === 0) return null;

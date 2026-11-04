@@ -111,10 +111,11 @@ export function HierarchyLevelsDialog({
   return (
     <ModalDialog
       title="階層"
-      className="modal wide hierarchy-levels-dialog"
+      className="ui-dialog-panel--hierarchy hierarchy-levels-dialog"
       initialFocusRef={firstNameRef}
       onClose={handleEscape}
     >
+      <div className="ui-dialog-body hierarchy-levels-dialog-body">
       <div className="hierarchy-levels-body">
         <div className="hierarchy-levels-list-pane">
           <p className="hierarchy-levels-hints">
@@ -300,6 +301,7 @@ export function HierarchyLevelsDialog({
         >
           閉じる
         </button>
+      </div>
       </div>
     </ModalDialog>
   );

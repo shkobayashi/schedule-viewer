@@ -1036,13 +1036,18 @@ body {
   opacity: 1;
 }
 
-.modal.wide.hierarchy-levels-dialog {
-  width: min(calc(880px * var(--s)), calc(100vw - calc(48px * var(--s))));
-  max-height: calc(100vh - calc(48px * var(--s)));
+.modal.wide.hierarchy-levels-dialog,
+.ui-dialog-panel--hierarchy.hierarchy-levels-dialog {
   display: flex;
   flex-direction: column;
-  padding: calc(16px * var(--s));
-  box-sizing: border-box;
+}
+
+.hierarchy-levels-dialog-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: calc(8px * var(--s));
 }
 
 .hierarchy-levels-body {
@@ -1194,15 +1199,21 @@ body {
 }
 
 .toolbar-title-editing {
-  flex: 0 1 auto;
-  max-width: min(56vw, 480px);
+  /* width stays on .toolbar-title */
+}
+
+.toolbar-title-label-slot {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: calc(4px * var(--s));
 }
 
 .toolbar-title-input {
   flex: 1 1 auto;
   width: 100%;
   min-width: 0;
-  max-width: min(56vw, 480px);
   height: calc(26px * var(--s));
   margin: 0;
   padding: 0 calc(6px * var(--s));
@@ -1216,6 +1227,8 @@ body {
   line-height: calc(24px * var(--s));
   box-sizing: border-box;
   overflow-x: auto;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .tag {
@@ -3649,16 +3662,33 @@ button:focus-visible,
 
 .command-palette {
   width: min(480px, calc(100vw - 48px));
+  box-sizing: border-box;
+  max-height: calc(100vh - calc(48px * var(--s)));
+  padding: calc(20px * var(--s));
   background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: calc(16px * var(--s));
+  border: var(--border-width-hairline) solid transparent;
+  border-radius: var(--radius-dialog);
   box-shadow: var(--elevation-modal);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+html[data-color-scheme="dark"] .command-palette {
+  border-color: var(--border);
 }
 
 .command-palette-title {
-  margin: 0 0 calc(8px * var(--s));
-  font-size: calc(14px * var(--s));
-  font-weight: 600;
+  margin: 0;
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--text);
+}
+
+.command-palette-header {
+  margin-bottom: 0;
 }
 
 .command-palette-input {
@@ -3711,6 +3741,10 @@ button:focus-visible,
 }
 
 .modal-overlay {
+  /* Legacy alias; new modals use .ui-dialog-overlay from primitives.css */
+}
+
+.modal-overlay:not(.ui-dialog-overlay) {
   position: fixed;
   inset: 0;
   background: var(--overlay);
@@ -3881,58 +3915,40 @@ button:focus-visible,
   overflow: auto;
 }
 
-.modal.shortcuts-modal {
-  width: min(480px, calc(100vw - 48px));
+.modal.shortcuts-modal,
+.modal.guide-modal {
+  /* Sizes: ui-dialog-panel--* in primitives.css */
 }
 
-.modal.guide-modal {
-  width: min(calc(560px * var(--s)), calc(100vw - calc(48px * var(--s))));
-  max-height: calc(100vh - calc(48px * var(--s)));
-  display: flex;
-  flex-direction: column;
+.guide-modal {
+  min-height: 0;
 }
 
 .guide-body {
-  overflow: auto;
-  flex: 1;
-  min-height: 0;
-  font-size: calc(13px * var(--s));
-  color: var(--text);
-}
-
-.guide-body:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  /* Typography: .ui-dialog-body */
 }
 
 .guide-body section {
-  margin-bottom: calc(12px * var(--s));
+  margin-bottom: 0;
 }
 
-.guide-body h3 {
-  margin: 0 0 calc(6px * var(--s));
-  font-size: calc(12px * var(--s));
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
+.guide-body h3,
 .guide-body ul {
-  margin: 0;
-  padding-left: calc(18px * var(--s));
-  display: flex;
-  flex-direction: column;
-  gap: calc(6px * var(--s));
+  /* Typography: .ui-dialog-body h3 / ul in primitives.css */
+}
+
+.shortcuts-modal-body {
+  min-height: 0;
 }
 
 .shortcuts-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: calc(12px * var(--s));
 }
 
 .shortcuts-table th {
   text-align: left;
-  font-weight: 500;
+  font-weight: var(--font-weight-semibold);
   padding: calc(6px * var(--s)) calc(8px * var(--s)) calc(6px * var(--s)) 0;
   vertical-align: top;
   white-space: nowrap;
@@ -3944,7 +3960,8 @@ button:focus-visible,
   text-align: right;
 }
 
-.modal.settings-dialog {
+.modal.settings-dialog,
+.modal-legacy.settings-dialog {
   width: min(880px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
   display: flex;
@@ -3952,13 +3969,15 @@ button:focus-visible,
   overflow: hidden;
 }
 
-.modal.settings-dialog > h2,
 .modal.settings-dialog > .modal-actions,
-.modal.settings-dialog > .settings-app-version {
+.modal-legacy.settings-dialog > .modal-actions,
+.modal.settings-dialog > .settings-app-version,
+.modal-legacy.settings-dialog > .settings-app-version {
   flex-shrink: 0;
 }
 
-.modal.settings-dialog .settings-layout {
+.modal.settings-dialog .settings-layout,
+.modal-legacy.settings-dialog .settings-layout {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
@@ -4265,10 +4284,14 @@ button:focus-visible,
   color: var(--text-secondary);
 }
 
-.modal h2 {
-  font-size: calc(14px * var(--s));
-  margin: 0 0 calc(14px * var(--s));
-  color: var(--text);
+.modal h2,
+.ui-dialog-title {
+  /* Title chrome: .ui-dialog-title in primitives.css */
+}
+
+.modal-header,
+.ui-dialog-header {
+  /* Header row: .ui-dialog-header in primitives.css */
 }
 
 .field {
