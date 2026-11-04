@@ -72,7 +72,7 @@ flowchart TD
 | `Sidebar.tsx` | 説明用半透明は `.explanation-sidebar-veil`（DOM）。示すタスク行は `sidebar-row--explanation-mark` で枠線と `z-index` のみ（y は計算しない）。印に `color` があるときは inline の outline と下敷き、無いときは `kind` 用 CSS |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
-| `ModalDialog.tsx` | 共通の枠。Escape、フォーカスの保持、背面の操作禁止。`#root` の `inert` は `useLayoutEffect` で付け外しし、閉じたあとの描画の前に外す |
+| `ModalDialog.tsx` | 共通の枠。見出し右に × の閉じる（読み上げ名「閉じる」、ツールチップ Esc）。Escape、フォーカスの保持、背面の操作禁止。`#root` の `inert` は `useLayoutEffect` で付け外しし、閉じたあとの描画の前に外す |
 | `TaskNoteButton.tsx` | ノートの有無で色を分けるボタン |
 
 ### フック
@@ -119,7 +119,7 @@ flowchart TD
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
 | アプリデータ | `memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportExcel.ts`、`exportView.ts`、`exportFilename.ts` |
-| 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts` |
+| 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts`（UI 色と `applyCssPalette`）、`design/uiTokens.ts`（半径・余白・タイポ・影・モーション）、`design/appChrome.css`（Raycast シェル） |
 | キーボードショートカット | `shortcuts.ts` |
 | 操作の案内の文 | `guideContent.ts` |
 

@@ -10,6 +10,8 @@
 
 - 2.0 向けのアルファ Pre-release 手順を追加。版は `X.Y.Z-alpha.N` と `X.Y.Z-beta.N` を許容し、`npm run version:bump -- alpha` / `beta` / `stable` で alpha → beta → 安定版の順に進める。Pre-release は Latest と `updater-X` 更新の対象外である
 
+- Issue #449 フェーズ 3: UI を Raycast（B）標準に統一。`palette.ts`（UI 色）と `uiTokens.ts`（半径・余白・タイポ・影・モーション）を正本とし、`App.css` の `:root` 二重定義を解消。`?designDirection=` プレビューと方向 A/C のコードは削除（比較 PNG は `docs/design/screenshots/` に残す）
+
 ### 追加
 
 - 説明のための見え方（`explain_view`）に、マイルストン帯の行 id と星 id の絞り込みを足した。説明の半透明（`explain_overlay`）の印に `milestoneId` と `milestoneGroupId` を足し、試しの計画に星の日付変更（`milestoneChanges`）を足した。読み取り 3 ツールの `view.explanation` と `explanationOverlay` に載せる（#420、#447）

@@ -560,8 +560,11 @@ function App() {
       : "",
   );
 
-  const { headerHeight, rowHeight, barHeight, milestoneLaneHeight } =
-    scaledLayoutSizes(uiScale, rowDensity);
+  const baseLayout = scaledLayoutSizes(uiScale, rowDensity);
+  const rowHeight = baseLayout.rowHeight;
+  const headerHeight = baseLayout.headerHeight;
+  const barHeight = baseLayout.barHeight;
+  const milestoneLaneHeight = baseLayout.milestoneLaneHeight;
   const milestoneFontSize = Math.round(11 * uiScale);
   const milestoneDiamondSize = Math.max(8, Math.round(11 * uiScale));
   const refreshUiScale = useCallback(() => {

@@ -1887,11 +1887,6 @@ export function SettingsDialog({
             </div>
           </div>
         ) : null}
-        <div className="modal-actions">
-          <button type="button" className="toolbar-btn" onClick={onClose}>
-            閉じる
-          </button>
-        </div>
         {appVersionLine ? (
           <p className="settings-app-version">{appVersionLine}</p>
         ) : null}

@@ -465,6 +465,52 @@ export function useSchedule(
     useState<ExplanationOverlayState | null>(null);
   const explanationOverlayRef = useRef(explanationOverlay);
   explanationOverlayRef.current = explanationOverlay;
+
+  useEffect(() => {
+    if (import.meta.env.MODE !== "manual-screenshot") return;
+    window.__manualScreenshotShowExplainOverlay = () => {
+      setExplanationOverlay({
+        translucent: true,
+        summary: "並行案の説明（見本）",
+        marks: [
+          {
+            taskId: "b1000001-0000-4000-8000-000000000002",
+            kind: "change",
+            label: "期間をずらす",
+            number: 1,
+            color: "#2563eb",
+          },
+          {
+            milestoneId: "a1000001-0000-4000-8000-000000000001",
+            kind: "ask",
+            label: "要件確定の位置",
+            number: 2,
+            color: "#ca8a04",
+          },
+        ],
+        patterns: [
+          {
+            id: "p-demo",
+            name: "案A",
+            color: "#2563eb",
+            tasks: [],
+            changes: [
+              {
+                taskId: "b1000001-0000-4000-8000-000000000002",
+                start: "2026-10-08",
+                end: "2026-10-18",
+              },
+            ],
+            milestoneChanges: [],
+          },
+        ],
+      });
+    };
+    return () => {
+      delete window.__manualScreenshotShowExplainOverlay;
+    };
+  }, []);
+
   const clearExplanationSession = useCallback(() => {
     setExplanationView(null);
     setExplanationOverlay(null);

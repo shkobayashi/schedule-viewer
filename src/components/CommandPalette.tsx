@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { acquireBackgroundInert } from "./backgroundInert";
+import { DialogCloseButton } from "./ui/DialogCloseButton";
 import {
   buildCommandPaletteItems,
   commandPaletteActiveIndex,
@@ -124,9 +125,12 @@ export function CommandPalette({
       }}
     >
       <div className="command-palette" tabIndex={-1}>
-        <h2 id={titleId} className="command-palette-title">
-          コマンド
-        </h2>
+        <div className="modal-header command-palette-header">
+          <h2 id={titleId} className="command-palette-title">
+            コマンド
+          </h2>
+          <DialogCloseButton onClose={onClose} />
+        </div>
         <input
           ref={inputRef}
           type="search"
