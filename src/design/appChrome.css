@@ -27,6 +27,22 @@ html[data-color-scheme="dark"] .app .toolbar {
   color: var(--toolbar-fg);
 }
 
+.app .toolbar-title-edit-btn {
+  color: var(--toolbar-fg);
+  -webkit-text-fill-color: var(--toolbar-fg);
+}
+
+.app .toolbar-title-edit-btn:hover:not(:disabled),
+.app .toolbar-title-edit-btn:focus-visible:not(:disabled) {
+  background: var(--toolbar-btn-hover-bg);
+  border-color: transparent;
+}
+
+.app .toolbar-title-edit-btn:disabled {
+  color: color-mix(in srgb, var(--toolbar-fg) 42%, transparent);
+  -webkit-text-fill-color: color-mix(in srgb, var(--toolbar-fg) 42%, transparent);
+}
+
 .app .toolbar-btn {
   border: none;
   background: var(--toolbar-btn-bg);

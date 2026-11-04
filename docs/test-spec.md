@@ -630,6 +630,7 @@
 | 同上 | `treats trim-equal title as unchanged` | EDIT-20 |
 | 同上 | `keeps internal spaces and reports changed title` | EDIT-20 |
 | `ScheduleToolbarTitle.test.ts` | `keeps 階層編集 visible while title edit swaps label slot` | EDIT-20, EDIT-21 |
+| `appChrome.test.ts` | `uses toolbar-fg for pencil on Raycast toolbar` | EDIT-20 |
 | `HierarchyLevelsDialog.test.ts` | `commits draft via footer 適用, not a second 閉じる` | EDIT-21 |
 | `DialogCloseButton.test.ts` | `exposes dismiss label and Esc tooltip` | NAV-07 |
 | `history.test.ts` | `undo restores a title change in one step` | EDIT-10, EDIT-20 |
