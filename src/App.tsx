@@ -2267,14 +2267,14 @@ function App() {
 
   const revealTaskRow = useCallback(
     (taskId: ScheduleId) => {
-      const row = visibleRows.find(
+      const row = chartVisibleRows.find(
         (item) => item.type === "task" && item.task.id === taskId,
       );
       if (!row || row.type !== "task") return;
       reveal(
         parseDate(row.task.start),
         scrollYToShowSelectedTask(
-          visibleRows,
+          chartVisibleRows,
           row.y,
           rowHeight,
           bodyHeight,
@@ -2283,7 +2283,15 @@ function App() {
         taskBarWidthPx(row.task, dateToX, pxPerDay),
       );
     },
-    [bodyHeight, dateToX, pxPerDay, reveal, rowHeight, scrollY, visibleRows],
+    [
+      bodyHeight,
+      chartVisibleRows,
+      dateToX,
+      pxPerDay,
+      reveal,
+      rowHeight,
+      scrollY,
+    ],
   );
 
   const focusDetailName = useCallback(() => {
@@ -2519,17 +2527,25 @@ function App() {
 
   useLayoutEffect(() => {
     if (focusTaskId == null) return;
-    const row = visibleRows.find(
+    const row = chartVisibleRows.find(
       (item) => item.type === "task" && item.task.id === focusTaskId,
     );
     if (!row || row.type !== "task") return;
     reveal(
       parseDate(row.task.start),
-      scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+      scrollYToRevealTask(chartVisibleRows, row.y, rowHeight, bodyHeight),
       taskBarWidthPx(row.task, dateToX, pxPerDay),
     );
     setFocusTaskId(null);
-  }, [bodyHeight, dateToX, focusTaskId, pxPerDay, reveal, rowHeight, visibleRows]);
+  }, [
+    bodyHeight,
+    chartVisibleRows,
+    dateToX,
+    focusTaskId,
+    pxPerDay,
+    reveal,
+    rowHeight,
+  ]);
 
   const handleResizeEnd = useCallback(
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
@@ -2554,10 +2570,10 @@ function App() {
         schedule.milestoneGroups,
         schedule.visibleMilestoneGroupIds,
         schedule.milestones,
-        chartVisibleRows,
+        schedule.visibleRows,
       );
       const baseExportedRange = exportTimelineRange(
-        chartVisibleRows,
+        schedule.visibleRows,
         milestones,
         schedule.today,
       );
@@ -2605,7 +2621,7 @@ function App() {
         title: getDocumentTitle(),
         tierLabel,
         lineageName: schedule.lineageTask?.name ?? null,
-        visibleRows: chartVisibleRows,
+        visibleRows: schedule.visibleRows,
         milestones: schedule.milestones,
         milestoneBandLayout: exportedBandLayout,
         links,

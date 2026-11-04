@@ -556,9 +556,9 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       }
       let body;
       if (isMcpReadToolName(payload.tool)) {
-        snap.prepareMcpPngCapture?.();
         let screenshot;
         try {
+          snap.prepareMcpPngCapture?.();
           screenshot = await captureMainElementForMcp(snap.mainElement);
         } finally {
           snap.finalizeMcpPngCapture?.();

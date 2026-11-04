@@ -58,7 +58,10 @@ import {
   explanationOverlayActive,
   type ExplanationOverlayState,
 } from "../model/explainOverlay";
-import { isExplanationTrialVisibleRow } from "../model/explainOverlayPatterns";
+import {
+  isExplanationTrialVisibleRow,
+  reorderPointerContentYForDocumentRows,
+} from "../model/explainOverlayPatterns";
 import { paletteFor } from "../model/palette";
 import { TaskNoteButton } from "./TaskNoteButton";
 import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
@@ -341,7 +344,7 @@ export function Sidebar({
     [colorScheme, explanationActive],
   );
 
-  const contentYFromPointer = useCallback(
+  const displayContentYFromPointer = useCallback(
     (clientY: number) => {
       const viewport = viewportRef.current;
       if (!viewport) return 0;
@@ -349,6 +352,16 @@ export function Sidebar({
       return clientY - box.top + scrollY;
     },
     [scrollY],
+  );
+
+  const contentYFromPointer = useCallback(
+    (clientY: number) =>
+      reorderPointerContentYForDocumentRows({
+        displayContentY: displayContentYFromPointer(clientY),
+        displayRows: rows,
+        rowHeight,
+      }),
+    [displayContentYFromPointer, rowHeight, rows],
   );
 
   const pointerOnStickyHeader = useCallback((clientX: number, clientY: number) => {

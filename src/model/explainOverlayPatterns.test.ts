@@ -6,6 +6,7 @@ import {
   buildExplanationTrialPredecessorArcs,
   buildMcpExplanationPatterns,
   parseExplanationPatterns,
+  reorderPointerContentYForDocumentRows,
   trialMarkBarRect,
 } from "./explainOverlayPatterns";
 import { parseExplainOverlayRequest } from "./explainOverlay";
@@ -282,6 +283,45 @@ describe("buildDisplayVisibleRowsWithExplanationTrials", () => {
     expect(display[0]?.y).toBe(0);
     expect(display[1]?.y).toBe(26);
     expect(display[2]?.y).toBe(52);
+  });
+
+  it("reorderPointerContentYForDocumentRows_subtractsTrialRowsAbovePointer", () => {
+    const rowHeight = 26;
+    const documentRows = [
+      taskRow("t1", 0),
+      taskRow("t2", 26),
+    ] as VisibleRow[];
+    const patterns = [
+      {
+        id: "p",
+        name: "P",
+        color: "#2563eb",
+        tasks: [
+          {
+            id: "trial-1",
+            name: "試し",
+            start: "2026-01-06",
+            end: "2026-01-08",
+            afterTaskId: "t1",
+          },
+        ],
+        changes: [],
+      },
+    ];
+    const display = buildDisplayVisibleRowsWithExplanationTrials(
+      documentRows,
+      patterns,
+      rowHeight,
+    );
+    const documentY = reorderPointerContentYForDocumentRows({
+      displayContentY: 70,
+      displayRows: display,
+      rowHeight,
+    });
+    expect(documentY).toBe(44);
+    const t2Row = documentRows[1]!;
+    expect(documentY).toBeGreaterThanOrEqual(t2Row.y);
+    expect(documentY).toBeLessThan(t2Row.y + rowHeight);
   });
 });
 
