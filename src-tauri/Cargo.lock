@@ -3338,7 +3338,7 @@ dependencies = [
 
 [[package]]
 name = "schedule-viewer"
-version = "1.12.0"
+version = "1.12.1"
 dependencies = [
  "dirs",
  "libc",
