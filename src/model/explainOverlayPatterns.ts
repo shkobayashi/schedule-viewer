@@ -7,12 +7,15 @@ import {
 import { parseExplanationMarkColor } from "./explanationMarkColor";
 import { computeTimelineRange } from "./timeline";
 import {
+  connectionArcGeometry,
+  type TaskBarAnchor,
+} from "./connections";
+import {
   clipTaskBarRectToDate,
   taskBarAnchorInBody,
   taskBarRectInBody,
   type TaskBarBodyRect,
 } from "./taskBarLayout";
-import type { TaskBarAnchor } from "./connections";
 import type {
   Category,
   Milestone,
@@ -401,13 +404,13 @@ export function findTrialNewTask(
   return null;
 }
 
-export function syntheticTaskForTrialBar(input: {
-  taskId: ScheduleId;
-  patterns: readonly ExplanationPattern[];
-  categories: Category[];
-  outline: OutlineRoot | undefined;
-}): { task: Task; anchorTaskId: ScheduleId } | null {
-  const trial = findTrialNewTask(input.taskId, input.patterns);
+function syntheticTaskInPattern(
+  pattern: ExplanationPattern,
+  taskId: ScheduleId,
+  categories: Category[],
+  outline: OutlineRoot | undefined,
+): { task: Task; anchorTaskId: ScheduleId } | null {
+  const trial = pattern.tasks.find((t) => t.id === taskId);
   if (trial != null) {
     return {
       anchorTaskId: trial.afterTaskId,
@@ -426,26 +429,82 @@ export function syntheticTaskForTrialBar(input: {
       },
     };
   }
-  for (const pattern of input.patterns) {
-    for (const change of pattern.changes) {
-      if (change.taskId !== input.taskId || change.start == null) continue;
-      const real = findTaskInDocument(
-        input.categories,
-        input.outline,
-        change.taskId,
-      );
-      if (real == null) continue;
-      return {
-        anchorTaskId: change.taskId,
-        task: {
-          ...real,
-          start: change.start,
-          end: change.end,
-        },
-      };
-    }
+  for (const change of pattern.changes) {
+    if (change.taskId !== taskId || change.start == null) continue;
+    const real = findTaskInDocument(categories, outline, change.taskId);
+    if (real == null) continue;
+    return {
+      anchorTaskId: change.taskId,
+      task: {
+        ...real,
+        start: change.start,
+        end: change.end,
+      },
+    };
   }
   return null;
+}
+
+export function syntheticTaskForTrialBar(input: {
+  taskId: ScheduleId;
+  patterns: readonly ExplanationPattern[];
+  categories: Category[];
+  outline: OutlineRoot | undefined;
+}): { task: Task; anchorTaskId: ScheduleId } | null {
+  for (const pattern of input.patterns) {
+    const synthetic = syntheticTaskInPattern(
+      pattern,
+      input.taskId,
+      input.categories,
+      input.outline,
+    );
+    if (synthetic != null) return synthetic;
+  }
+  return null;
+}
+
+function patternTaskAnchorInBody(input: {
+  pattern: ExplanationPattern;
+  taskId: ScheduleId;
+  visibleRows: readonly VisibleRow[];
+  categories: Category[];
+  outline: OutlineRoot | undefined;
+  scrollY: number;
+  rowHeight: number;
+  barHeight: number;
+  pxPerDay: number;
+  dateToX: (d: Date) => number;
+  liveAnchors: ReadonlyMap<ScheduleId, TaskBarAnchor>;
+}): TaskBarAnchor | null {
+  const synthetic = syntheticTaskInPattern(
+    input.pattern,
+    input.taskId,
+    input.categories,
+    input.outline,
+  );
+  if (synthetic != null) {
+    const row = findTaskRowInVisible(input.visibleRows, synthetic.anchorTaskId);
+    if (row == null) return null;
+    return taskBarAnchorInBody({
+      task: synthetic.task,
+      viewportRowTop: row.y - input.scrollY,
+      rowHeight: input.rowHeight,
+      barHeight: input.barHeight,
+      pxPerDay: input.pxPerDay,
+      dateToX: input.dateToX,
+    });
+  }
+  const row = findTaskRowInVisible(input.visibleRows, input.taskId);
+  if (row == null) return null;
+  return taskBarAnchorInBody({
+    task: row.task,
+    viewportRowTop: row.y - input.scrollY,
+    rowHeight: input.rowHeight,
+    barHeight: input.barHeight,
+    pxPerDay: input.pxPerDay,
+    dateToX: input.dateToX,
+    anchor: input.liveAnchors.get(input.taskId),
+  });
 }
 
 export type ExplanationTrialBarLayout = {
@@ -465,15 +524,14 @@ export function buildExplanationTrialBarLayouts(input: {
   barHeight: number;
   pxPerDay: number;
   dateToX: (d: Date) => number;
-  liveAnchors: ReadonlyMap<ScheduleId, TaskBarAnchor>;
 }): ExplanationTrialBarLayout[] {
   const layouts: ExplanationTrialBarLayout[] = [];
-  const seen = new Set<ScheduleId>();
+  const seenTrialIds = new Set<ScheduleId>();
 
   for (const pattern of input.patterns) {
     for (const trial of pattern.tasks) {
-      if (seen.has(trial.id)) continue;
-      seen.add(trial.id);
+      if (seenTrialIds.has(trial.id)) continue;
+      seenTrialIds.add(trial.id);
       const row = findTaskRowInVisible(input.visibleRows, trial.afterTaskId);
       if (row == null) continue;
       const synthetic: Task = {
@@ -506,7 +564,6 @@ export function buildExplanationTrialBarLayouts(input: {
 
     for (const change of pattern.changes) {
       if (change.start == null) continue;
-      if (seen.has(change.taskId)) continue;
       const real = findTaskInDocument(
         input.categories,
         input.outline,
@@ -515,7 +572,6 @@ export function buildExplanationTrialBarLayouts(input: {
       if (real == null) continue;
       const row = findTaskRowInVisible(input.visibleRows, change.taskId);
       if (row == null) continue;
-      seen.add(change.taskId);
       const synthetic: Task = {
         ...real,
         start: change.start,
@@ -532,13 +588,97 @@ export function buildExplanationTrialBarLayouts(input: {
           barHeight: input.barHeight,
           pxPerDay: input.pxPerDay,
           dateToX: input.dateToX,
-          anchor: input.liveAnchors.get(change.taskId),
         }),
       });
     }
   }
 
   return layouts;
+}
+
+export type ExplanationTrialPredecessorArc = {
+  patternId: string;
+  color: string;
+  points: number[];
+};
+
+export function buildExplanationTrialPredecessorArcs(input: {
+  patterns: readonly ExplanationPattern[];
+  visibleRows: readonly VisibleRow[];
+  categories: Category[];
+  outline: OutlineRoot | undefined;
+  scrollY: number;
+  rowHeight: number;
+  barHeight: number;
+  pxPerDay: number;
+  dateToX: (d: Date) => number;
+  liveAnchors: ReadonlyMap<ScheduleId, TaskBarAnchor>;
+}): ExplanationTrialPredecessorArc[] {
+  const arcs: ExplanationTrialPredecessorArc[] = [];
+  const anchorForConnection = (anchor: TaskBarAnchor) => ({
+    left: anchor.x,
+    width: Math.max(anchor.right - anchor.x, 1),
+    centerY: anchor.y,
+  });
+
+  for (const pattern of input.patterns) {
+    for (const change of pattern.changes) {
+      if (change.predecessors == null || change.predecessors.length === 0) {
+        continue;
+      }
+      const toAnchor = patternTaskAnchorInBody({
+        pattern,
+        taskId: change.taskId,
+        visibleRows: input.visibleRows,
+        categories: input.categories,
+        outline: input.outline,
+        scrollY: input.scrollY,
+        rowHeight: input.rowHeight,
+        barHeight: input.barHeight,
+        pxPerDay: input.pxPerDay,
+        dateToX: input.dateToX,
+        liveAnchors: input.liveAnchors,
+      });
+      if (toAnchor == null) continue;
+      const to = anchorForConnection(toAnchor);
+
+      for (const predId of change.predecessors) {
+        const fromAnchor = patternTaskAnchorInBody({
+          pattern,
+          taskId: predId,
+          visibleRows: input.visibleRows,
+          categories: input.categories,
+          outline: input.outline,
+          scrollY: input.scrollY,
+          rowHeight: input.rowHeight,
+          barHeight: input.barHeight,
+          pxPerDay: input.pxPerDay,
+          dateToX: input.dateToX,
+          liveAnchors: input.liveAnchors,
+        });
+        if (fromAnchor == null) continue;
+        const from = anchorForConnection(fromAnchor);
+        const geom = connectionArcGeometry(
+          from.left,
+          from.width,
+          from.centerY,
+          to.left,
+          to.width,
+          to.centerY,
+          input.barHeight,
+          input.pxPerDay,
+          [],
+        );
+        arcs.push({
+          patternId: pattern.id,
+          color: pattern.color,
+          points: geom.points,
+        });
+      }
+    }
+  }
+
+  return arcs;
 }
 
 export type ExplanationTrialSidebarLabel = {
@@ -564,7 +704,7 @@ export function explanationTrialSidebarLabels(input: {
         trialTaskId: trial.id,
         name: trial.name,
         color: pattern.color,
-        viewportTop: row.y - input.scrollY,
+        viewportTop: row.y,
         rowHeight: input.rowHeight,
       });
     }
@@ -584,7 +724,6 @@ export function trialMarkBarRect(input: {
   barHeight: number;
   pxPerDay: number;
   dateToX: (d: Date) => number;
-  liveAnchors: ReadonlyMap<ScheduleId, TaskBarAnchor>;
 }): TaskBarBodyRect | null {
   const synthetic = syntheticTaskForTrialBar({
     taskId: input.taskId,
@@ -602,7 +741,6 @@ export function trialMarkBarRect(input: {
     barHeight: input.barHeight,
     pxPerDay: input.pxPerDay,
     dateToX: input.dateToX,
-    anchor: input.liveAnchors.get(synthetic.anchorTaskId),
   });
   if (input.date != null) {
     bar = clipTaskBarRectToDate(
@@ -668,7 +806,6 @@ export function trialTaskAnchorInBody(input: {
   barHeight: number;
   pxPerDay: number;
   dateToX: (d: Date) => number;
-  liveAnchors: ReadonlyMap<ScheduleId, TaskBarAnchor>;
 }): TaskBarAnchor | null {
   const synthetic = syntheticTaskForTrialBar({
     taskId: input.taskId,
@@ -686,6 +823,5 @@ export function trialTaskAnchorInBody(input: {
     barHeight: input.barHeight,
     pxPerDay: input.pxPerDay,
     dateToX: input.dateToX,
-    anchor: input.liveAnchors.get(synthetic.anchorTaskId),
   });
 }

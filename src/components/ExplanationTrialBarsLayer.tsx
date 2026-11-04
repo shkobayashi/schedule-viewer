@@ -1,13 +1,23 @@
 import { useEffect, useRef } from "react";
-import { Group, Layer, Rect } from "react-konva";
+import { Group, Layer, Line, Rect } from "react-konva";
 import type Konva from "konva";
+import {
+  CONNECTION_HALO_STROKE_WIDTH,
+  CONNECTION_STROKE_WIDTH,
+} from "../model/connections";
 import { registerExplanationKonvaCapture } from "../model/explanationKonvaCapture";
-import type { ExplanationTrialBarLayout } from "../model/explainOverlayPatterns";
+import type {
+  ExplanationTrialBarLayout,
+  ExplanationTrialPredecessorArc,
+} from "../model/explainOverlayPatterns";
 
 type ExplanationTrialBarsLayerProps = {
   width: number;
   height: number;
   bars: readonly ExplanationTrialBarLayout[];
+  predecessorArcs?: readonly ExplanationTrialPredecessorArc[];
+  connectionArcColor?: string;
+  connectionArcHaloColor?: string;
   clipTop?: number;
   clipHeight?: number;
 };
@@ -23,6 +33,9 @@ export function ExplanationTrialBarsLayer({
   width,
   height,
   bars,
+  predecessorArcs = [],
+  connectionArcColor = "#64748b",
+  connectionArcHaloColor = "#f8fafc",
   clipTop,
   clipHeight,
 }: ExplanationTrialBarsLayerProps) {
@@ -43,11 +56,17 @@ export function ExplanationTrialBarsLayer({
     });
   }, []);
 
-  if (width <= 0 || height <= 0 || bars.length === 0) return null;
+  if (
+    width <= 0 ||
+    height <= 0 ||
+    (bars.length === 0 && predecessorArcs.length === 0)
+  ) {
+    return null;
+  }
 
-  const content = bars.map((bar, index) => (
+  const barContent = bars.map((bar, index) => (
     <Rect
-      key={`trial-bar-${bar.trialTaskId}-${index}`}
+      key={`trial-bar-${bar.patternId}-${bar.trialTaskId}-${index}`}
       x={bar.rect.x}
       y={bar.rect.y}
       width={bar.rect.width}
@@ -59,6 +78,37 @@ export function ExplanationTrialBarsLayer({
       listening={false}
     />
   ));
+
+  const arcContent = predecessorArcs.map((arc, index) => (
+    <Group
+      key={`trial-pred-${arc.patternId}-${index}`}
+      listening={false}
+    >
+      <Line
+        points={arc.points}
+        stroke={connectionArcHaloColor}
+        strokeWidth={CONNECTION_HALO_STROKE_WIDTH}
+        lineCap="round"
+        lineJoin="round"
+        listening={false}
+      />
+      <Line
+        points={arc.points}
+        stroke={arc.color}
+        strokeWidth={CONNECTION_STROKE_WIDTH}
+        lineCap="round"
+        lineJoin="round"
+        listening={false}
+      />
+    </Group>
+  ));
+
+  const content = (
+    <>
+      {arcContent}
+      {barContent}
+    </>
+  );
 
   return (
     <Layer ref={layerRef} listening={false}>

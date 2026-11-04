@@ -95,7 +95,7 @@ const MCP_CURRENT_SCHEDULE_CONNECTION_READ: &str = "繋がりがあるときは�
 
 const MCP_STATUSES_IN_READ_TOOLS: &str = "続けて statuses は、使用中のステータス一覧（id、name、role、description、color.light.bg、color.light.border、color.dark.bg、color.dark.border。instruction がある項目だけ instruction も入る）です。ステータスの色はバーの見た目である。id を選ぶ材料にしない。選ぶ材料は description である。";
 
-const MCP_VIEW_IN_READ_TOOLS: &str = "続けて view は、そのウィンドウの見方（折りたたみ、今映っている日付と行、表示サイズ、行の密度、イナズマ線、左一覧の追加列、配色、稼働日カレンダー）を一度だけ載せます。view.collapsed は今畳んでいる行（kind、id、name）です。view.explanation は説明のための見え方が掛かっているときだけ載り、taskIds と baseCollapsed を含みます。view.explanation.baseCollapsed は人が選んだ折りたたみです。view.visible.dates はチャートに掛っている日付の start と end です。view.visible.rows は縦に見えている行と上に残している見出しです。各タスクの visibility は visible、collapsed、scrolledOut のいずれかで、見えている、畳んで隠している、スクロールの外を表します。折りたたみではタスクを減らさない。filtered_tasks の tasks には畳んだ行のタスクも残ります。explanationOverlay は半透明が出ているときだけ載り、`translucent`、`summary`、各印（`taskId` または `date`、`kind`、`label`、任意の `number`、任意の `color`、`visible`）を含みます。任意の `patterns`（各パターンの `id`、`name`、`color`、試しの `tasks`（`trial: true`）、`changes`）も載せます。`filtered_tasks` の `tasks` と `current_schedule` には混ぜません。計画のタスクやバーの色ではない。PNG には半透明、抜き、吹き出し、`summary`、試しのバーを写さない。open_windows、schedule_diff、baseline_diffs、current_schedule には explanationOverlay を含めません。同じ応答のあとに、同じ .main の PNG を載せます。設定と閉じているメニューは写しません。1 日の幅は渡しません。displayScale の preference は auto または固定の段、effective は今のウィンドウで効いている倍率です。自動のときは効いている倍率も effective に載せます。colorScheme の preference が system のとき、effective は今効いている light か dark です。システムに合わせているときは効いている方を載せます。ズーム、1 日の幅、日・週・月、スクロール量、左一覧の幅、マイルストンの縦点線、ダイアログの開閉は view に含みません。";
+const MCP_VIEW_IN_READ_TOOLS: &str = "続けて view は、そのウィンドウの見方（折りたたみ、今映っている日付と行、表示サイズ、行の密度、イナズマ線、左一覧の追加列、配色、稼働日カレンダー）を一度だけ載せます。view.collapsed は今畳んでいる行（kind、id、name）です。view.explanation は説明のための見え方が掛かっているときだけ載り、taskIds と baseCollapsed を含みます。view.explanation.baseCollapsed は人が選んだ折りたたみです。view.visible.dates はチャートに掛っている日付の start と end です。view.visible.rows は縦に見えている行と上に残している見出しです。各タスクの visibility は visible、collapsed、scrolledOut のいずれかで、見えている、畳んで隠している、スクロールの外を表します。折りたたみではタスクを減らさない。filtered_tasks の tasks には畳んだ行のタスクも残ります。explanationOverlay は半透明が出ているときだけ載り、`translucent`、`summary`、各印（`taskId` または `date`、`kind`、`label`、任意の `number`、任意の `color`、`visible`）を含みます。任意の `patterns`（各パターンの `id`、`name`、`color`、試しの `tasks`（`trial: true`）、`changes`）も載せます。explanationOverlay.patterns は試しの計画で、`filtered_tasks` の tasks には混ぜない。`current_schedule` には混ぜない。計画のタスクやバーの色ではない。PNG には半透明、抜き、吹き出し、`summary`、試しのバーを写さない。open_windows、schedule_diff、baseline_diffs、current_schedule には explanationOverlay を含めません。同じ応答のあとに、同じ .main の PNG を載せます。設定と閉じているメニューは写しません。1 日の幅は渡しません。displayScale の preference は auto または固定の段、effective は今のウィンドウで効いている倍率です。自動のときは効いている倍率も effective に載せます。colorScheme の preference が system のとき、effective は今効いている light か dark です。システムに合わせているときは効いている方を載せます。ズーム、1 日の幅、日・週・月、スクロール量、左一覧の幅、マイルストンの縦点線、ダイアログの開閉は view に含みません。";
 
 const MCP_SCHEDULE_TALK_HINT: &str = "判断の手順は schedule-talk スキルにある。";
 
@@ -410,6 +410,10 @@ mod tests {
             assert!(
                 read_screen_skill.contains(phrase),
                 "read-screen SKILL.md missing {phrase}"
+            );
+            assert!(
+                MCP_VIEW_IN_READ_TOOLS.contains(phrase),
+                "MCP_VIEW_IN_READ_TOOLS missing {phrase}"
             );
         }
         for tool in ["selected_task", "selected_tasks", "filtered_tasks"] {

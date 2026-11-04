@@ -94,6 +94,7 @@ type UseScheduleFileOptions = {
   getDocumentTitle?: () => string;
   onRecentFilesStoreUpdated?: (store: RecentFilesStore) => void;
   onWorkspaceBindingChange?: (binding: WorkspaceWindowBinding | null) => void;
+  onScheduleSaved?: () => void;
 };
 
 export type ApplyOpenedFileOptions = {
@@ -127,6 +128,7 @@ export function useScheduleFile({
   getDocumentTitle,
   onRecentFilesStoreUpdated,
   onWorkspaceBindingChange,
+  onScheduleSaved,
 }: UseScheduleFileOptions) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [browserFileLabel, setBrowserFileLabel] = useState<string | null>(null);
@@ -273,6 +275,7 @@ export function useScheduleFile({
         onWorkspaceBindingChange?.(null);
       }
     },
+    onScheduleSaved,
   });
 
   const markSavedAtPath = useCallback(

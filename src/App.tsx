@@ -1366,6 +1366,7 @@ function App() {
       if (binding) setWorkspaceBinding(binding);
       else clearWorkspaceBinding();
     },
+    onScheduleSaved: schedule.clearExplanationView,
   });
   reportFileErrorRef.current = scheduleFile.showError;
   externalReloadHistoryUndoRef.current = scheduleFile.onHistoryUndoApplied;

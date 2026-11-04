@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   EXPLAIN_OVERLAY_PATTERNS_REJECT,
   buildExplanationTrialBarLayouts,
+  buildExplanationTrialPredecessorArcs,
   buildMcpExplanationPatterns,
+  explanationTrialSidebarLabels,
   parseExplanationPatterns,
   trialMarkBarRect,
 } from "./explainOverlayPatterns";
 import { parseExplainOverlayRequest } from "./explainOverlay";
-import { taskBarRectInBody } from "./taskBarLayout";
+import { taskBarAnchorInBody, taskBarRectInBody } from "./taskBarLayout";
+import { serializeScheduleDocument } from "./scheduleFile";
+import type { TaskBarAnchor } from "./connections";
 import type { Category, Milestone, VisibleRow } from "./types";
 
 const taskRow = (
@@ -283,7 +287,6 @@ describe("trial bar geometry", () => {
           barHeight,
           pxPerDay,
           dateToX: scaledDateToX,
-          liveAnchors: new Map(),
         });
         const row = visibleRows[0]!;
         const expected = taskBarRectInBody({
@@ -344,7 +347,6 @@ describe("trial bar geometry", () => {
       barHeight,
       pxPerDay,
       dateToX: scaledDateToX,
-      liveAnchors: new Map(),
     });
     const layouts = buildExplanationTrialBarLayouts({
       patterns,
@@ -356,9 +358,103 @@ describe("trial bar geometry", () => {
       barHeight,
       pxPerDay,
       dateToX: scaledDateToX,
-      liveAnchors: new Map(),
     });
     expect(rect).toEqual(layouts[0]?.rect);
+  });
+
+  it("buildExplanationTrialBarLayouts_ignoresLiveAnchorsForDateChange", () => {
+    const pxPerDay = 22;
+    const rowHeight = 26;
+    const barHeight = 14;
+    const scrollY = 0;
+    const visibleRows = [taskRow("t1", 0, "2026-01-05", "2026-01-10")] as VisibleRow[];
+    const scaledDateToX = (d: Date) =>
+      Math.round(
+        ((d.getTime() - timelineStart.getTime()) / (24 * 60 * 60 * 1000)) *
+          pxPerDay,
+      );
+    const patterns = [
+      {
+        id: "p",
+        name: "P",
+        color: "#2563eb",
+        tasks: [],
+        changes: [
+          {
+            taskId: "t1",
+            start: "2026-01-12",
+            end: "2026-01-15",
+          },
+        ],
+      },
+    ];
+    const layouts = buildExplanationTrialBarLayouts({
+      patterns,
+      visibleRows,
+      categories,
+      outline: undefined,
+      scrollY,
+      rowHeight,
+      barHeight,
+      pxPerDay,
+      dateToX: scaledDateToX,
+    });
+    const row = visibleRows[0]!;
+    const expected = taskBarRectInBody({
+      task: {
+        ...row.task,
+        start: "2026-01-12",
+        end: "2026-01-15",
+      },
+      viewportRowTop: row.y - scrollY,
+      rowHeight,
+      barHeight,
+      pxPerDay,
+      dateToX: scaledDateToX,
+    });
+    expect(layouts[0]?.rect).toEqual(expected);
+    expect(layouts[0]?.rect.x).not.toBe(0);
+  });
+
+  it("buildExplanationTrialBarLayouts_rendersSameTaskChangePerPattern", () => {
+    const pxPerDay = 22;
+    const rowHeight = 26;
+    const barHeight = 14;
+    const visibleRows = [taskRow("t2", 32)] as VisibleRow[];
+    const scaledDateToX = (d: Date) =>
+      Math.round(
+        ((d.getTime() - timelineStart.getTime()) / (24 * 60 * 60 * 1000)) *
+          pxPerDay,
+      );
+    const patterns = [
+      {
+        id: "p-a",
+        name: "A",
+        color: "#2563eb",
+        tasks: [],
+        changes: [{ taskId: "t2", start: "2026-01-07", end: "2026-01-09" }],
+      },
+      {
+        id: "p-b",
+        name: "B",
+        color: "#dc2626",
+        tasks: [],
+        changes: [{ taskId: "t2", start: "2026-01-10", end: "2026-01-12" }],
+      },
+    ];
+    const layouts = buildExplanationTrialBarLayouts({
+      patterns,
+      visibleRows,
+      categories,
+      outline: undefined,
+      scrollY: 0,
+      rowHeight,
+      barHeight,
+      pxPerDay,
+      dateToX: scaledDateToX,
+    });
+    expect(layouts).toHaveLength(2);
+    expect(layouts.map((l) => l.patternId).sort()).toEqual(["p-a", "p-b"]);
   });
 });
 
@@ -392,5 +488,191 @@ describe("explain overlay hide clears patterns", () => {
     expect(hide).toEqual({ ok: true, kind: "hide" });
     const plain = parseExplainOverlayRequest({ translucent: true }, baseContext);
     expect(plain.ok && plain.kind === "show" && plain.state.patterns).toEqual([]);
+  });
+});
+
+describe("trial plan document isolation", () => {
+  it("serializeScheduleDocument_omitsPatternsAndTrialTasks", () => {
+    const parsed = parseExplanationPatterns(
+      [
+        {
+          id: "p-a",
+          name: "A",
+          color: "#2563eb",
+          tasks: [
+            {
+              id: "trial-1",
+              name: "試し",
+              start: "2026-01-06",
+              end: "2026-01-08",
+              afterTaskId: "t1",
+            },
+          ],
+          changes: [],
+        },
+      ],
+      baseContext,
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+
+    const json = serializeScheduleDocument(
+      "T",
+      categories,
+      [],
+      milestones,
+      undefined,
+      undefined,
+    );
+    const document = JSON.parse(json) as Record<string, unknown>;
+    expect(document.patterns).toBeUndefined();
+    expect(json).not.toContain("trial-1");
+    expect(json).not.toContain('"patterns"');
+
+    const overlay = parseExplainOverlayRequest(
+      {
+        translucent: true,
+        patterns: [
+          {
+            id: "p-a",
+            name: "A",
+            color: "#2563eb",
+            tasks: [
+              {
+                id: "trial-1",
+                name: "試し",
+                start: "2026-01-06",
+                end: "2026-01-08",
+                afterTaskId: "t1",
+              },
+            ],
+            changes: [],
+          },
+        ],
+      },
+      baseContext,
+    );
+    expect(overlay.ok).toBe(true);
+    if (!overlay.ok || overlay.kind !== "show") return;
+    expect(JSON.stringify(document)).not.toContain(
+      JSON.stringify(overlay.state.patterns),
+    );
+  });
+});
+
+describe("explanationTrialSidebarLabels", () => {
+  it("explanationTrialSidebarLabels_usesRowYInsideTranslatedContainer", () => {
+    const labels = explanationTrialSidebarLabels({
+      patterns: [
+        {
+          id: "p",
+          name: "P",
+          color: "#2563eb",
+          tasks: [
+            {
+              id: "trial-1",
+              name: "試し",
+              start: "2026-01-06",
+              end: "2026-01-08",
+              afterTaskId: "t1",
+            },
+          ],
+          changes: [],
+        },
+      ],
+      visibleRows: [taskRow("t1", 48)],
+      scrollY: 16,
+      rowHeight: 26,
+    });
+    expect(labels[0]?.viewportTop).toBe(48);
+  });
+});
+
+describe("buildExplanationTrialPredecessorArcs", () => {
+  const timelineStart = new Date("2026-01-01T00:00:00");
+
+  it("buildExplanationTrialPredecessorArcs_drawsWhenBothAnchorsResolve", () => {
+    const pxPerDay = 22;
+    const rowHeight = 26;
+    const barHeight = 14;
+    const scrollY = 0;
+    const visibleRows = [
+      taskRow("t1", 0, "2026-01-05", "2026-01-08"),
+      taskRow("t2", 32, "2026-01-09", "2026-01-12"),
+    ] as VisibleRow[];
+    const scaledDateToX = (d: Date) =>
+      Math.round(
+        ((d.getTime() - timelineStart.getTime()) / (24 * 60 * 60 * 1000)) *
+          pxPerDay,
+      );
+    const liveAnchors = new Map<string, TaskBarAnchor>();
+    for (const row of visibleRows) {
+      if (row.type !== "task") continue;
+      const anchor = taskBarAnchorInBody({
+        task: row.task,
+        viewportRowTop: row.y - scrollY,
+        rowHeight,
+        barHeight,
+        pxPerDay,
+        dateToX: scaledDateToX,
+      });
+      liveAnchors.set(row.task.id, anchor);
+    }
+    const arcs = buildExplanationTrialPredecessorArcs({
+      patterns: [
+        {
+          id: "p",
+          name: "P",
+          color: "#2563eb",
+          tasks: [],
+          changes: [
+            {
+              taskId: "t2",
+              predecessors: ["t1"],
+            },
+          ],
+        },
+      ],
+      visibleRows,
+      categories,
+      outline: undefined,
+      scrollY,
+      rowHeight,
+      barHeight,
+      pxPerDay,
+      dateToX: scaledDateToX,
+      liveAnchors,
+    });
+    expect(arcs).toHaveLength(1);
+    expect(arcs[0]?.points.length).toBeGreaterThan(4);
+  });
+
+  it("buildExplanationTrialPredecessorArcs_skipsWhenAnchorMissing", () => {
+    const arcs = buildExplanationTrialPredecessorArcs({
+      patterns: [
+        {
+          id: "p",
+          name: "P",
+          color: "#2563eb",
+          tasks: [],
+          changes: [
+            {
+              taskId: "t2",
+              predecessors: ["missing"],
+            },
+          ],
+        },
+      ],
+      visibleRows: [taskRow("t2", 32)] as VisibleRow[],
+      categories,
+      outline: undefined,
+      scrollY: 0,
+      rowHeight: 26,
+      barHeight: 14,
+      pxPerDay: 22,
+      dateToX: () => 0,
+      liveAnchors: new Map(),
+    });
+    expect(arcs).toHaveLength(0);
   });
 });

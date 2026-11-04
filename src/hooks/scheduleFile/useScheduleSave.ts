@@ -40,6 +40,7 @@ type UseScheduleSaveOptions = {
     previousPath: string | null,
     newPath: string,
   ) => void;
+  onScheduleSaved?: () => void;
 };
 
 export function useScheduleSave({
@@ -60,6 +61,7 @@ export function useScheduleSave({
   clearInvalidDiskHashRef,
   extraFieldDefs = [],
   onScheduleSavePathChanged,
+  onScheduleSaved,
 }: UseScheduleSaveOptions) {
   const saveInFlightRef = useRef(false);
   const pausePollRef = useRef(false);
@@ -146,6 +148,7 @@ export function useScheduleSave({
                 onScheduleSavePathChanged?.(previousPath, writtenPath);
               }
               await clearRecoveryDraft();
+              onScheduleSaved?.();
             } catch (error) {
               const message = errorMessage(error, "ファイルに保存できませんでした。");
               if (message.includes(DISK_HASH_MISMATCH)) {
@@ -167,6 +170,7 @@ export function useScheduleSave({
           clearExternalReloadPromptRef.current();
           clearInvalidDiskHashRef.current();
           await clearRecoveryDraft();
+          onScheduleSaved?.();
           if (saveAs) {
             setFilePath(null);
             setBrowserFileLabel(null);
@@ -194,6 +198,7 @@ export function useScheduleSave({
       title,
       extraFieldDefs,
       onScheduleSavePathChanged,
+      onScheduleSaved,
     ],
   );
 

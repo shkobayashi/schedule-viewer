@@ -498,7 +498,6 @@ export function buildExplanationOverlayGeometry(
           barHeight: input.barHeight,
           pxPerDay: input.pxPerDay,
           dateToX: input.dateToX,
-          liveAnchors: input.liveAnchors,
         });
       }
       if (bar == null) continue;

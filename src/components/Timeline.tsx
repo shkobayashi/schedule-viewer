@@ -104,7 +104,7 @@ import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
 import {
   buildExplanationOverlayGeometry,
 } from "../model/explainOverlayLayout";
-import { buildExplanationTrialBarLayouts } from "../model/explainOverlayPatterns";
+import { buildExplanationTrialBarLayouts, buildExplanationTrialPredecessorArcs } from "../model/explainOverlayPatterns";
 import {
   explanationOverlayActive,
   type ExplanationOverlayState,
@@ -2251,6 +2251,32 @@ export function Timeline({
       barHeight,
       pxPerDay,
       dateToX,
+    });
+  }, [
+    barHeight,
+    dateToX,
+    explainOverlayCategories,
+    explainOverlayOutline,
+    explanationOverlay,
+    pxPerDay,
+    rowHeight,
+    scrollY,
+    visibleRows,
+  ]);
+
+  const explanationTrialPredecessorArcs = useMemo(() => {
+    if (!explanationOverlayActive(explanationOverlay)) return [];
+    if (explanationOverlay.patterns.length === 0) return [];
+    return buildExplanationTrialPredecessorArcs({
+      patterns: explanationOverlay.patterns,
+      visibleRows,
+      categories: explainOverlayCategories,
+      outline: explainOverlayOutline,
+      scrollY,
+      rowHeight,
+      barHeight,
+      pxPerDay,
+      dateToX,
       liveAnchors,
     });
   }, [
@@ -3400,6 +3426,9 @@ export function Timeline({
               width={width}
               height={bodyHeight}
               bars={explanationTrialBars}
+              predecessorArcs={explanationTrialPredecessorArcs}
+              connectionArcColor={chart.connectionArc}
+              connectionArcHaloColor={chart.connectionArcHalo}
               clipTop={sticky.clipTop}
               clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
             />
