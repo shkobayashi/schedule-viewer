@@ -7,15 +7,26 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
+import {
+  clearScheduleViewerLocalStorageEvaluateSource,
+  SCHEDULE_VIEWER_LS_PREFIX,
+} from "../src/model/devFreshStart.ts";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = path.join("/cursor/stores/self", "first-run-impl");
-const COLOR_SCHEME_LS_KEY = "schedule-viewer/color-scheme";
-const LS_HINT_DISMISSED = "schedule-viewer/first-run/hint-dismissed";
-const LS_SAVE_HINT_COMPLETED = "schedule-viewer/first-run/save-hint-completed";
+const COLOR_SCHEME_LS_KEY = `${SCHEDULE_VIEWER_LS_PREFIX}color-scheme`;
+const LS_HINT_DISMISSED = `${SCHEDULE_VIEWER_LS_PREFIX}first-run/hint-dismissed`;
+const LS_SAVE_HINT_COMPLETED = `${SCHEDULE_VIEWER_LS_PREFIX}first-run/save-hint-completed`;
 
-function waitForServer(url, ms = 120_000) {
+async function clearAppLocalStorage(page: Page): Promise<void> {
+  await page.evaluate((body) => {
+    const fn = eval(body) as (storage: Storage) => void;
+    fn(localStorage);
+  }, clearScheduleViewerLocalStorageEvaluateSource());
+}
+
+function waitForServer(url: string, ms = 120_000): Promise<void> {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     const tick = () => {
@@ -35,7 +46,7 @@ function waitForServer(url, ms = 120_000) {
   });
 }
 
-function killPort(p) {
+function killPort(p: number): void {
   try {
     spawnSync("fuser", ["-k", `${p}/tcp`], { stdio: "ignore" });
   } catch {
@@ -43,11 +54,17 @@ function killPort(p) {
   }
 }
 
-async function applyScheme(page, port, scheme, firstRunKeys) {
+async function applyScheme(
+  page: Page,
+  port: number,
+  scheme: "light" | "dark",
+  firstRunKeys: Record<string, string | null>,
+): Promise<void> {
   await page.emulateMedia({
     colorScheme: scheme === "dark" ? "dark" : "light",
   });
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
+  await clearAppLocalStorage(page);
   await page.evaluate(
     ({ colorKey, colorValue, keys }) => {
       localStorage.setItem(colorKey, colorValue);
@@ -72,12 +89,12 @@ async function applyScheme(page, port, scheme, firstRunKeys) {
   await page.waitForTimeout(400);
 }
 
-async function captureSet(port) {
+async function captureSet(port: number): Promise<void> {
   fs.mkdirSync(outDir, { recursive: true });
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 
-  for (const scheme of ["light", "dark"]) {
+  for (const scheme of ["light", "dark"] as const) {
     await applyScheme(page, port, scheme, {
       [LS_HINT_DISMISSED]: null,
       [LS_SAVE_HINT_COMPLETED]: null,
@@ -123,7 +140,7 @@ async function captureSet(port) {
   await browser.close();
 }
 
-async function main() {
+async function main(): Promise<void> {
   const port = 5173;
   killPort(port);
   const vite = spawn(

@@ -3,6 +3,7 @@ mod excel_drawing_patch;
 mod export_xlsx;
 #[cfg(test)]
 mod excel_book;
+mod dev_fresh_start;
 mod file_dialog_filters;
 mod json_skills;
 mod mcp_app_data;
@@ -3275,6 +3276,9 @@ pub fn run() {
             let handle = app.handle().clone();
             if let Ok(dir) = app_data_dir(&handle) {
                 let _ = migrate_legacy_session(&dir);
+                if dev_fresh_start::fresh_start_requested() {
+                    let _ = dev_fresh_start::reset_app_data_for_fresh_start(&dir);
+                }
                 let bridge = Arc::new(McpBridgeState::new(dir.clone()));
                 app.manage(bridge.clone());
                 let without_tauri = mcp_app_data::app_data_dir_without_tauri();

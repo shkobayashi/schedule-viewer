@@ -175,6 +175,33 @@ npm run dev
 npm run tauri dev
 ```
 
+### 初回起動と同じ状態で Tauri を起動する（開発専用）
+
+繰り返し「初めて起動した直後」を確かめるときは、次を使う。
+
+```bash
+npm run tauri:dev:fresh
+```
+
+中身は `SCHEDULE_VIEWER_FRESH_START=1` を付けた `npm run tauri dev` である。同じ効果を得るには、環境変数 `SCHEDULE_VIEWER_FRESH_START=1`（または `true`）を付けて `npm run tauri dev` してもよい。
+
+**いつ効くか** Rust 側は `debug_assertions` が有効な開発ビルドだけである。`tauri build` の配布用バイナリでは、環境変数を付けてもリセットは走らない。フロント側は Vite の開発モード（`tauri dev` の WebView、`npm run dev`、`dev:manual-screenshot`）だけが対象である。
+
+**消えるもの**（アプリデータと localStorage の所有分だけ。ユーザーがホームやプロジェクトに置いたスケジュール JSON など、app data 外のファイルは触らない）
+
+- 初回ガイド（`schedule-viewer/first-run/*`）
+- 最近開いたファイル（`recent-files.json`）
+- ウィンドウ復元（`open-windows.json`、未保存控え `schedule-recovery/`、絞り込み `schedule-filters/`、古い `last-schedule.json` / `schedule-recovery.json`）
+- 設定の選択状態（`settings.json`、取り込んだメンバー・ステータス・色・拡張項目・カレンダーのコピー）
+- 表示まわりの localStorage（配色、表示サイズ、左一覧の幅、行密度、追加列、自動更新のオンオフ、Excel 列の選択など、`schedule-viewer/` 接頭辞のキーすべて）
+
+**残るもの**
+
+- ディスク上のスケジュール JSON、設定ファイル、メンバー JSON など（開いていたパスは忘れるが、ファイル自体は削除しない）
+- `~/.cursor/skills/` などへ手で置いたスキル（アプリデータ外）
+
+**テストと撮影** `src/model/devFreshStart.ts` の `clearScheduleViewerLocalStorage` が localStorage のリセット本体である。Vitest は `src/model/devFreshStart.test.ts`、Playwright 系は `clearScheduleViewerLocalStorageEvaluateSource` を `page.evaluate` から呼ぶ（例: `tsx scripts/capture-first-run-impl-screenshots.ts`）。
+
 FILE-08 のブラウザ版は、`npm run dev` で開き、Finder などから JSON をウィンドウへ落としても、ブラウザがそのファイルを開こうとしないことを見る。ウィンドウや Dock へのドロップは `npm run tauri dev` で手元の OS 上で見る。macOS と Linux の `fileAssociations` は `src-tauri/tauri.macos.conf.json` と `src-tauri/tauri.linux.conf.json` にあり、同じ OS で `npm run tauri build` すると Tauri がマージする。Windows は関連付けを登録しない。インストーラでの関連付けと、動いているあいだに OS がパスを渡さない件は、この Mac では見ない。
 
 ## DevContainer
@@ -192,6 +219,7 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run capture:manual-screenshots` | [操作マニュアル](user-manual.md) 用の PNG を `docs/user-manual/images/` に生成する。Chrome が入っていること。色の見本は `examples/manual-colors.schedule.json` |
 | `npm run build:manual-site` | [操作マニュアル](user-manual.md) だけを `site/` に静的 HTML として出力する。fragment と画像の参照を検査する。パスの無い `#見出し` は、そのリンクがあるページの見出しと照合する。全機能の HTML には h2 と h3 の見出し一覧を出す。出力は git に含めない |
 | `npm run tauri` | Tauri CLI を呼ぶ。後ろに `dev` や `build` を付けて使う |
+| `npm run tauri:dev:fresh` | `SCHEDULE_VIEWER_FRESH_START=1` 付きの `tauri dev`。アプリデータと localStorage を初回起動相当にしてから起動する（開発ビルドのみ） |
 | `npm test` | 検証器を生成してから Vitest を1回実行する |
 | `npm run lint` | ESLint |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
