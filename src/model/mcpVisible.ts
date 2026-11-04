@@ -195,7 +195,7 @@ export function taskHiddenByCollapsedAncestors(
   return false;
 }
 
-function findTaskRowInVisible(
+export function findTaskRowInVisible(
   visibleRows: readonly VisibleRow[],
   taskId: ScheduleId,
 ): Extract<VisibleRow, { type: "task" }> | null {

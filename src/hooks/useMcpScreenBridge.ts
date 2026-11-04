@@ -77,6 +77,8 @@ import type {
 } from "../model/types";
 import type { ExplanationViewState } from "../model/explainView";
 import type { ExplanationOverlayState } from "../model/explainOverlay";
+import { buildTaskBarAnchorsForOverlay } from "../model/explainOverlayLayout";
+import type { BuildMcpExplanationOverlayInput } from "../model/explainOverlay";
 
 type McpScreenRequest = {
   id: string;
@@ -141,6 +143,10 @@ type UseMcpScreenBridgeInput = {
   scrollY: number;
   rowHeight: number;
   bodyHeight: number;
+  dateToX: (d: Date) => number;
+  headerHeight: number;
+  milestoneBandHeight: number;
+  barHeight: number;
   mainElement: HTMLElement | null;
 };
 
@@ -183,10 +189,35 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       };
     }
 
+    function mcpExplanationOverlayBuild(
+      snap: UseMcpScreenBridgeInput,
+    ): Omit<BuildMcpExplanationOverlayInput, "overlay"> | null {
+      return {
+        visibleRows: snap.visibleRows,
+        dateToX: snap.dateToX,
+        pxPerDay: snap.pxPerDay,
+        scrollY: snap.scrollY,
+        rowHeight: snap.rowHeight,
+        barHeight: snap.barHeight,
+        bodyHeight: snap.bodyHeight,
+        chartWidth: snap.chartWidth,
+        headerHeight: snap.headerHeight,
+        milestoneBandHeight: snap.milestoneBandHeight,
+        liveAnchors: buildTaskBarAnchorsForOverlay({
+          visibleRows: snap.visibleRows,
+          scrollY: snap.scrollY,
+          rowHeight: snap.rowHeight,
+          dateToX: snap.dateToX,
+          pxPerDay: snap.pxPerDay,
+        }),
+      };
+    }
+
     function mcpPayloadFields(snap: UseMcpScreenBridgeInput) {
       return {
         ...mcpViewFields(snap),
         explanationOverlay: snap.explanationOverlay,
+        explanationOverlayBuild: mcpExplanationOverlayBuild(snap),
         viewport: mcpViewportFromSnap(snap),
       };
     }

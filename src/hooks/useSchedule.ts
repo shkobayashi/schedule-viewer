@@ -1,5 +1,5 @@
 import { BUILTIN_STATUS_ITEMS, defaultStatusId, type StatusItem } from "../model/statusCatalog";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { useToday } from "./useToday";
 import {
   addDays,
@@ -126,6 +126,11 @@ import {
   parseExplainOverlayRequest,
   type ExplanationOverlayState,
 } from "../model/explainOverlay";
+import {
+  planExplanationOverlayScroll,
+  type ExplanationScrollPlan,
+  type PlanExplanationScrollInput,
+} from "../model/explainOverlayLayout";
 import type { ReplaceScheduleDocumentResult } from "../model/replaceSchedule";
 import { coerceOutlineStorageDocument } from "../model/mcpEditPlan";
 import { serializeScheduleDocument } from "../model/scheduleFile";
@@ -364,6 +369,10 @@ export function useSchedule(
   statusCatalogSettled = true,
   effectiveFieldDefs: readonly import("../model/types").ScheduleFieldDef[] = [],
   fieldExtensionCatalogSettled = true,
+  explainOverlayRuntime?: MutableRefObject<{
+    getPlanInput: () => PlanExplanationScrollInput | null;
+    applyScroll: (plan: ExplanationScrollPlan) => void;
+  } | null>,
 ) {
   const documentRef = useRef<DocumentSnapshot>(
     initialSnapshot(
@@ -923,6 +932,10 @@ export function useSchedule(
       today,
     ],
   );
+  const displayedCollapsedRef = useRef(displayedCollapsed);
+  displayedCollapsedRef.current = displayedCollapsed;
+  const visibleRowsRef = useRef(visibleRows);
+  visibleRowsRef.current = visibleRows;
 
   const cancelReorder = useCallback(() => {
     setReorderPreview(null);
@@ -2937,17 +2950,31 @@ export function useSchedule(
     (
       envelope: Record<string, unknown>,
     ): { ok: true; text: string } | { ok: false; message: string } => {
-      const parsed = parseExplainOverlayRequest(envelope);
+      const parsed = parseExplainOverlayRequest(envelope, {
+        categories: documentRef.current.categories,
+        outline: documentRef.current.outline,
+        collapsed: displayedCollapsedRef.current,
+        visibleRows: visibleRowsRef.current,
+      });
       if (!parsed.ok) return parsed;
       if (parsed.kind === "hide") {
         const wasActive = explanationOverlayRef.current?.translucent === true;
         setExplanationOverlay(null);
         return { ok: true, text: explainOverlayHideSuccessText(wasActive) };
       }
-      setExplanationOverlay({ translucent: true });
+      setExplanationOverlay(parsed.state);
+      const runtime = explainOverlayRuntime?.current;
+      const planInput = runtime?.getPlanInput();
+      if (planInput != null && parsed.state.marks.length > 0) {
+        const plan = planExplanationOverlayScroll({
+          ...planInput,
+          marks: parsed.state.marks,
+        });
+        if (plan != null) runtime?.applyScroll(plan);
+      }
       return { ok: true, text: explainOverlayShowSuccessText() };
     },
-    [],
+    [explainOverlayRuntime],
   );
 
   return {

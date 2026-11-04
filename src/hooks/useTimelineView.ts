@@ -273,6 +273,14 @@ export function useTimelineView(
     [maxScrollX, maxScrollY, pxPerDay, setZoom],
   );
 
+  const applyScrollPosition = useCallback(
+    (nextScrollX: number, nextScrollY: number) => {
+      setScrollX(clamp(nextScrollX, 0, maxScrollX));
+      setScrollY(clamp(nextScrollY, 0, maxScrollY));
+    },
+    [maxScrollX, maxScrollY],
+  );
+
   const tier = gridTier(pxPerDay);
 
   return {
@@ -291,6 +299,7 @@ export function useTimelineView(
     scrollToToday,
     panBy,
     scrollBy,
+    applyScrollPosition,
     reveal,
     handleWheel,
     timelineStart: drawStart,

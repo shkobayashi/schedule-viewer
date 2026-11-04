@@ -91,6 +91,13 @@ import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "../mode
 import { MilestoneBand } from "./MilestoneBand";
 import { ExplanationOverlay } from "./ExplanationOverlay";
 import {
+  buildExplanationOverlayGeometry,
+} from "../model/explainOverlayLayout";
+import {
+  explanationOverlayActive,
+  type ExplanationOverlayState,
+} from "../model/explainOverlay";
+import {
   MilestoneHoverOverlay,
   type MilestoneHoverState,
 } from "./MilestoneHoverOverlay";
@@ -170,7 +177,7 @@ type TimelineProps = {
   sticky: StickyLayout;
   showLightningLine?: boolean;
   onBarDragActiveChange?: (active: boolean) => void;
-  explanationOverlayTranslucent?: boolean;
+  explanationOverlay?: ExplanationOverlayState | null;
 };
 
 const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
@@ -1534,7 +1541,7 @@ export function Timeline({
   sticky,
   showLightningLine = true,
   onBarDragActiveChange,
-  explanationOverlayTranslucent = false,
+  explanationOverlay = null,
 }: TimelineProps) {
   const linkMode = linkSourceId != null;
   const chart = useMemo(
@@ -2113,6 +2120,45 @@ export function Timeline({
     }
     return next;
   }, [barHeight, dragPreviews, taskAnchors]);
+
+  const explanationOverlayGeometry = useMemo(() => {
+    if (!explanationOverlayActive(explanationOverlay)) return null;
+    return buildExplanationOverlayGeometry({
+      marks: explanationOverlay.marks,
+      visibleRows,
+      dateToX,
+      pxPerDay,
+      scrollY,
+      rowHeight,
+      barHeight,
+      bodyHeight,
+      headerHeight,
+      milestoneBandHeight,
+      timelineWidth: width,
+      sidebarWidth: 0,
+      liveAnchors,
+      milestones,
+      milestoneCenterYById: milestoneBandLayout.centerYById,
+      milestoneDiamondSize,
+    });
+  }, [
+    barHeight,
+    bodyHeight,
+    dateToX,
+    explanationOverlay,
+    headerHeight,
+    liveAnchors,
+    milestoneBandHeight,
+    milestoneBandLayout.centerYById,
+    milestoneDiamondSize,
+    milestones,
+    pxPerDay,
+    rowHeight,
+    scrollY,
+    visibleRows,
+    width,
+  ]);
+
   const resizeHitAt = useCallback(
     (pos: { x: number; y: number }) =>
       hitTaskResizeEdge(pos, liveAnchors, barHeight),
@@ -3213,11 +3259,13 @@ export function Timeline({
           </Layer>
         </Stage>
       </div>
-      {explanationOverlayTranslucent ? (
+      {explanationOverlayActive(explanationOverlay) ? (
         <ExplanationOverlay
           width={width}
           height={headerHeight + milestoneBandHeight + bodyHeight}
           colorScheme={colorScheme}
+          holes={explanationOverlayGeometry?.timelineHoles}
+          balloons={explanationOverlayGeometry?.timelineBalloons}
         />
       ) : null}
     </div>

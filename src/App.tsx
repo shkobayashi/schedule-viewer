@@ -217,6 +217,7 @@ import type { ScheduleDiffEntry } from "./model/scheduleDiffEntry";
 import {
   collapsedSetFromIds,
 } from "./model/scheduleFilterPersistence";
+import { buildTaskBarAnchorsForOverlay } from "./model/explainOverlayLayout";
 import { scrollXToRevealTask } from "./model/chartScroll";
 import {
   type DiffStripContentKind,
@@ -949,6 +950,12 @@ function App() {
   const externalReloadHistoryRedoRef = useRef<
     (landed: import("./model/history").DocumentSnapshot) => void
   >(() => {});
+  const explainOverlayRuntimeRef = useRef<{
+    getPlanInput: () => import("./model/explainOverlayLayout").PlanExplanationScrollInput | null;
+    applyScroll: (
+      plan: import("./model/explainOverlayLayout").ExplanationScrollPlan,
+    ) => void;
+  } | null>(null);
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
@@ -964,6 +971,7 @@ function App() {
     statusesReady,
     extensionFieldDefs,
     fieldExtensionCatalogSettled,
+    explainOverlayRuntimeRef,
   );
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
   const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
@@ -1244,6 +1252,7 @@ function App() {
     handleWheel,
     xToDate,
     reveal,
+    applyScrollPosition,
     pxPerDay,
     scrollX,
     scrollY,
@@ -1253,6 +1262,32 @@ function App() {
     totalDays: viewTotalDays,
     timelineEnd: viewTimelineEnd,
   } = view;
+
+  explainOverlayRuntimeRef.current = {
+    getPlanInput: () => ({
+      marks: [],
+      visibleRows: schedule.visibleRows,
+      dateToX,
+      pxPerDay,
+      scrollX,
+      scrollY,
+      rowHeight,
+      barHeight,
+      bodyHeight,
+      chartWidth: Math.max(200, timelineWidth),
+      timelineStart: viewStart,
+      totalDays: viewTotalDays,
+      liveAnchors: buildTaskBarAnchorsForOverlay({
+        visibleRows: schedule.visibleRows,
+        scrollY,
+        rowHeight,
+        dateToX,
+        pxPerDay,
+      }),
+    }),
+    applyScroll: (plan) =>
+      applyScrollPosition(plan.scrollX, plan.scrollY),
+  };
 
   const filterAssigneeLabel = useMemo(
     () =>
@@ -3067,6 +3102,10 @@ function App() {
     scrollY,
     rowHeight,
     bodyHeight,
+    dateToX,
+    headerHeight: headerHeight,
+    milestoneBandHeight,
+    barHeight,
     mainElement: mainRef.current,
   });
 
@@ -4528,7 +4567,13 @@ function App() {
           sticky={stickyLayout}
           sidebarColumns={sidebarColumns}
           chartTopBannerHeight={chartTopBannerHeight}
-          explanationOverlayTranslucent={schedule.explanationOverlayActive}
+          explanationOverlay={schedule.explanationOverlay}
+          dateToX={dateToX}
+          pxPerDay={pxPerDay}
+          barHeight={barHeight}
+          bodyHeight={bodyHeight}
+          headerHeight={headerHeight}
+          milestoneDiamondSize={milestoneDiamondSize}
         />
         <div className="chart-detail">
         {bulkDiscardNotice ? (
@@ -4575,7 +4620,11 @@ function App() {
               ) : null}
               {schedule.explanationSessionActive ? (
                 <div className="explanation-banner" role="status">
-                  <div className="explanation-banner-text">説明を表示しています</div>
+                  <div className="explanation-banner-text">
+                    {schedule.explanationOverlay?.summary?.trim()
+                      ? schedule.explanationOverlay.summary
+                      : "説明を表示しています"}
+                  </div>
                   <button
                     type="button"
                     className="explanation-banner-dismiss"
@@ -4650,7 +4699,7 @@ function App() {
             sticky={stickyLayout}
             showLightningLine={showLightningLine}
             onBarDragActiveChange={setChartBarDragging}
-            explanationOverlayTranslucent={schedule.explanationOverlayActive}
+            explanationOverlay={schedule.explanationOverlay}
           />
         </div>
         {selectedDetailTask ? (

@@ -47,6 +47,14 @@ import {
 import type { HierarchyGuideSpec } from "../model/hierarchyGuide";
 import { HierarchyGuideRail } from "./HierarchyGuideRail";
 import { ExplanationOverlay } from "./ExplanationOverlay";
+import {
+  buildExplanationOverlayGeometry,
+  buildTaskBarAnchorsForOverlay,
+} from "../model/explainOverlayLayout";
+import {
+  explanationOverlayActive,
+  type ExplanationOverlayState,
+} from "../model/explainOverlay";
 import { TaskNoteButton } from "./TaskNoteButton";
 import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
 import {
@@ -167,7 +175,13 @@ type SidebarProps = {
   sticky: StickyLayout;
   sidebarColumns: SidebarColumnsPreference;
   chartTopBannerHeight: number;
-  explanationOverlayTranslucent?: boolean;
+  explanationOverlay?: ExplanationOverlayState | null;
+  dateToX: (d: Date) => number;
+  pxPerDay: number;
+  barHeight: number;
+  bodyHeight: number;
+  headerHeight: number;
+  milestoneDiamondSize: number;
 };
 
 export function Sidebar({
@@ -227,7 +241,13 @@ export function Sidebar({
   sticky,
   sidebarColumns,
   chartTopBannerHeight,
-  explanationOverlayTranslucent = false,
+  explanationOverlay = null,
+  dateToX,
+  pxPerDay,
+  barHeight,
+  bodyHeight,
+  headerHeight,
+  milestoneDiamondSize,
 }: SidebarProps) {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -312,7 +332,7 @@ export function Sidebar({
   }, [onWheelRows]);
 
   useLayoutEffect(() => {
-    if (!explanationOverlayTranslucent) {
+    if (!explanationOverlayActive(explanationOverlay)) {
       setOverlayBelowBannerSize({ width: 0, height: 0 });
       return;
     }
@@ -329,7 +349,51 @@ export function Sidebar({
     const observer = new ResizeObserver(update);
     observer.observe(sidebar);
     return () => observer.disconnect();
-  }, [chartTopBannerHeight, explanationOverlayTranslucent]);
+  }, [chartTopBannerHeight, explanationOverlay]);
+
+  const explanationSidebarHoles = useMemo(() => {
+    if (!explanationOverlayActive(explanationOverlay)) return [];
+    const liveAnchors = buildTaskBarAnchorsForOverlay({
+      visibleRows: rows,
+      scrollY,
+      rowHeight,
+      dateToX,
+      pxPerDay,
+    });
+    return buildExplanationOverlayGeometry({
+      marks: explanationOverlay.marks,
+      visibleRows: rows,
+      dateToX,
+      pxPerDay,
+      scrollY,
+      rowHeight,
+      barHeight,
+      bodyHeight,
+      headerHeight,
+      milestoneBandHeight,
+      timelineWidth: 0,
+      sidebarWidth,
+      liveAnchors,
+      milestones,
+      milestoneCenterYById: milestoneBandLayout.centerYById,
+      milestoneDiamondSize,
+    }).sidebarHoles;
+  }, [
+    barHeight,
+    bodyHeight,
+    dateToX,
+    explanationOverlay,
+    headerHeight,
+    milestoneBandHeight,
+    milestoneBandLayout.centerYById,
+    milestoneDiamondSize,
+    milestones,
+    pxPerDay,
+    rowHeight,
+    rows,
+    scrollY,
+    sidebarWidth,
+  ]);
 
   const rowStyle = (y: number): CSSProperties => ({
     position: "absolute",
@@ -939,7 +1003,7 @@ export function Sidebar({
           />
         ) : null}
       </div>
-      {explanationOverlayTranslucent &&
+      {explanationOverlayActive(explanationOverlay) &&
       overlayBelowBannerSize.width > 0 &&
       overlayBelowBannerSize.height > 0 ? (
         <ExplanationOverlay
@@ -947,6 +1011,7 @@ export function Sidebar({
           height={overlayBelowBannerSize.height}
           colorScheme={colorScheme}
           style={{ top: chartTopBannerHeight }}
+          holes={explanationSidebarHoles}
         />
       ) : null}
       <SidebarResizer
