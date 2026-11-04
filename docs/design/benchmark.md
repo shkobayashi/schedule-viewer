@@ -40,6 +40,25 @@ Linear と Raycast を参照に、**UI の地・枠・文字・余白**だけを
 - 奇数行にごく薄い縦ストライプ。行区切り線なし。
 - 設定ダイアログは大きな角丸と強い影。
 
+#### B のダークモード（`schedule-viewer/color-scheme` = `dark`）
+
+ライトの「黒カード／白カード」は、ダークでは **canvas（`--bg`）の上に surface カード** として読み替える。チャート意味色は従来どおり。
+
+- ツールバーは `#2a2b33`＋明るい縁と影で、背景に溶けない浮きカードにする。
+- 左一覧・タイムラインは `--surface` の角丸カード（枠＋影）。
+- 選択行は **全面アクセント塗りではなく**、薄いアクセント混色＋**左 3px アクセント線**（ダークでうるさくならないよう調整）。
+- ホバーは半透明の白背景＋薄いアクセント枠。
+
+個別 PNG: `design-baseline-dark-*` / `design-B-raycast-dark-*`（`-main`、`-settings-dialog`、`-crop-toolbar`、`-crop-sidebar`）。
+
+| 内容 | ファイル |
+| --- | --- |
+| メイン（現状ダーク｜B ダーク） | [compare-main-baseline-B-dark.png](screenshots/compare-main-baseline-B-dark.png) |
+| ツールバー拡大 | [compare-crop-toolbar-baseline-B-dark.png](screenshots/compare-crop-toolbar-baseline-B-dark.png) |
+| 左一覧拡大 | [compare-crop-sidebar-baseline-B-dark.png](screenshots/compare-crop-sidebar-baseline-B-dark.png) |
+
+再生成（ダークだけ）: `npm run capture:design-screenshots -- --capture-dark-only`
+
 ### C — `designDirection=compact`（高密度）
 
 - **行の高さを約 30% 減らす**（約 7px 低い一行相当）。ツールバー・一覧ヘッダ・日付ヘッダも低い。

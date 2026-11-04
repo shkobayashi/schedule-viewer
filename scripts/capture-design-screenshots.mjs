@@ -24,6 +24,14 @@ const DIRECTIONS = [
   { id: "compact", prefix: "design-C-compact", label: "C 高密度" },
 ];
 
+/** Dark-mode previews: baseline app chrome vs B Raycast only. */
+const DARK_DIRECTIONS = [
+  { id: "", prefix: "design-baseline-dark", label: "現状ダーク" },
+  { id: "raycast", prefix: "design-B-raycast-dark", label: "B Raycast ダーク" },
+];
+
+const captureDarkOnly = process.argv.includes("--capture-dark-only");
+
 function waitForServer(timeoutMs = 120_000) {
   const started = Date.now();
   return new Promise((resolve, reject) => {
@@ -91,7 +99,7 @@ async function applyOpen(page, filePath) {
   );
 }
 
-async function prepareMain(page, query = "") {
+async function prepareMain(page, query = "", colorScheme = "light") {
   const param = query.startsWith("?") ? query.slice(1) : query;
   const url = param
     ? `http://localhost:${port}/?${param}`
@@ -100,10 +108,17 @@ async function prepareMain(page, query = "") {
     waitUntil: "networkidle",
   });
   await page.setViewportSize(viewport);
-  await page.evaluate(() => {
-    localStorage.setItem("schedule-viewer/color-scheme", "light");
-  });
+  await page.evaluate((scheme) => {
+    localStorage.setItem("schedule-viewer/color-scheme", scheme);
+  }, colorScheme);
   await page.reload({ waitUntil: "networkidle" });
+  if (colorScheme === "dark") {
+    await page.waitForFunction(
+      () => document.documentElement.dataset.colorScheme === "dark",
+      null,
+      { timeout: 30_000 },
+    );
+  }
   await dismissBlockingUi(page);
   await applyOpen(page, playgroundSchedule);
   await page.waitForSelector(".toolbar-title-text", {
@@ -213,9 +228,9 @@ async function captureInventory(page) {
   });
 }
 
-async function captureDirection(page, { id, prefix }) {
+async function captureDirection(page, { id, prefix }, colorScheme = "light") {
   const query = id ? `designDirection=${id}` : "";
-  await prepareMain(page, query);
+  await prepareMain(page, query, colorScheme);
   await showSelectionAndHover(page);
   await page.screenshot({
     path: path.join(outDir, `${prefix}-main.png`),
@@ -232,6 +247,37 @@ async function captureDirection(page, { id, prefix }) {
   });
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
+}
+
+async function buildDarkComparisons() {
+  const labels = DARK_DIRECTIONS.map((d) => d.label);
+  const pairs = [
+    {
+      suffix: "main",
+      out: "compare-main-baseline-B-dark.png",
+      height: 720,
+      fromPaths: false,
+    },
+    {
+      suffix: "crop-toolbar",
+      out: "compare-crop-toolbar-baseline-B-dark.png",
+      height: 120,
+      fromPaths: true,
+    },
+    {
+      suffix: "crop-sidebar",
+      out: "compare-crop-sidebar-baseline-B-dark.png",
+      height: 420,
+      fromPaths: true,
+    },
+  ];
+  for (const { suffix, out, height, fromPaths } of pairs) {
+    const imagePaths = DARK_DIRECTIONS.map((d) =>
+      path.join(outDir, `${d.prefix}-${suffix}.png`),
+    );
+    const stitch = fromPaths ? stitchLabeledRowFromPaths : stitchLabeledRow;
+    await stitch(imagePaths, labels, path.join(outDir, out), height);
+  }
 }
 
 async function buildComparisons() {
@@ -284,12 +330,18 @@ async function main() {
     await waitForServer();
     const browser = await chromium.launch();
     const page = await browser.newPage();
-    await captureInventory(page);
-    for (const dir of DIRECTIONS) {
-      await captureDirection(page, dir);
+    if (!captureDarkOnly) {
+      await captureInventory(page);
+      for (const dir of DIRECTIONS) {
+        await captureDirection(page, dir);
+      }
+      await buildComparisons();
+    }
+    for (const dir of DARK_DIRECTIONS) {
+      await captureDirection(page, dir, "dark");
     }
     await browser.close();
-    await buildComparisons();
+    await buildDarkComparisons();
     for (const name of fs.readdirSync(outDir)) {
       if (!name.endsWith(".png")) continue;
       fs.copyFileSync(

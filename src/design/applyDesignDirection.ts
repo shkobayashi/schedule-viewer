@@ -66,17 +66,38 @@ const LINEAR_LIGHT: CssVarOverrides = {
 const RAYCAST_LIGHT: CssVarOverrides = {
   "--bg": "#e8e8ed",
   "--panel": "#ffffff",
-  "--surface": "#2d2d2d",
+  "--surface": "#ffffff",
   "--border": "#3f3f46",
   "--row-border": "transparent",
   "--text": "#111827",
   "--text-secondary": "#6b7280",
   "--accent": "#ff6363",
-  "--accent-soft": "#ff6363",
+  "--accent-soft": "#ffe8e8",
   "--selected-row": "#ff6363",
   "--hover-row": "#fff0f0",
   "--group-bg": "#f3f4f6",
   "--group-text": "#374151",
+  "--on-accent": "#ffffff",
+  "--radius-sm": "8px",
+  "--radius-md": "12px",
+  "--radius-lg": "16px",
+};
+
+/** Dark app chrome for Raycast preview — cards lift off canvas; selection is softer than light. */
+const RAYCAST_DARK: CssVarOverrides = {
+  "--bg": "#0f1014",
+  "--panel": "#1a1b22",
+  "--surface": "#23242c",
+  "--border": "#3d4049",
+  "--row-border": "transparent",
+  "--text": "#ececf1",
+  "--text-secondary": "#9ca0ab",
+  "--accent": "#ff7b7b",
+  "--accent-soft": "#402828",
+  "--selected-row": "#402828",
+  "--hover-row": "rgba(255, 255, 255, 0.06)",
+  "--group-bg": "#1e1f27",
+  "--group-text": "#b8bcc6",
   "--on-accent": "#ffffff",
   "--radius-sm": "8px",
   "--radius-md": "12px",
@@ -108,7 +129,7 @@ const TABLES: Record<
   Record<ResolvedColorScheme, CssVarOverrides>
 > = {
   linear: { light: LINEAR_LIGHT, dark: LINEAR_LIGHT },
-  raycast: { light: RAYCAST_LIGHT, dark: RAYCAST_LIGHT },
+  raycast: { light: RAYCAST_LIGHT, dark: RAYCAST_DARK },
   compact: { light: COMPACT_LIGHT, dark: COMPACT_LIGHT },
 };
 
