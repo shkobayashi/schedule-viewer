@@ -155,6 +155,11 @@ import {
   shouldShowFirstRunHintCard,
   shouldShowSaveHintPill,
 } from "./model/firstRunGuidance";
+import {
+  clearPrepareLlmStepsVisible,
+  markPrepareLlmStepsVisible,
+  readPrepareLlmStepsVisible,
+} from "./model/firstRunLlmSteps";
 import { hasRecentMenuItems } from "./model/recentFilesMenu";
 import { memberMapFromList } from "./model/assigneeDisplay";
 import { mcpMembersForReadTools } from "./model/screenContext";
@@ -485,6 +490,9 @@ function App() {
   const [firstRunChecklist, setFirstRunChecklist] = useState(() =>
     readFirstRunChecklist(),
   );
+  const [prepareLlmStepsVisible, setPrepareLlmStepsVisible] = useState(() =>
+    readPrepareLlmStepsVisible(),
+  );
   const [saveHintCompleted, setSaveHintCompleted] = useState(
     () => isSaveHintCompleted(),
   );
@@ -515,14 +523,19 @@ function App() {
     setSettingsSection("mcp");
     setSettingsOpen(true);
   }, []);
+  const revealPrepareLlmSteps = useCallback(() => {
+    markPrepareLlmStepsVisible();
+    setPrepareLlmStepsVisible(true);
+  }, []);
   const openFirstRunJsonSkills = useCallback(() => {
+    revealPrepareLlmSteps();
     if (isTauri()) {
       setSettingsSection("jsonSkills");
       setSettingsOpen(true);
       return;
     }
     openGuide();
-  }, [openGuide]);
+  }, [openGuide, revealPrepareLlmSteps]);
   const openShortcuts = useCallback(() => {
     setGuideOpen(false);
     setShortcutsOpen(true);
@@ -1531,6 +1544,8 @@ function App() {
       return;
     }
     markFirstRunStep("prepareSchedule");
+    clearPrepareLlmStepsVisible();
+    setPrepareLlmStepsVisible(false);
   }, [markFirstRunStep, scheduleFile.filePath, scheduleFile.startupSettled]);
 
   useEffect(() => {
@@ -5154,6 +5169,8 @@ function App() {
           commandKey={commandKey}
           showingSample={showingBuiltInSample}
           checklist={firstRunChecklist}
+          showPrepareLlmSteps={prepareLlmStepsVisible}
+          hasOpenedScheduleFile={scheduleFile.filePath != null}
           openExistingJsonDisabled={
             scheduleFile.fileBusy || !scheduleFile.startupSettled
           }
@@ -5602,7 +5619,10 @@ function App() {
               : undefined
           }
           onMcpConfigCopied={() => markFirstRunStep("mcp")}
-          onJsonSkillsInstalled={() => markFirstRunStep("prepareSchedule")}
+          onJsonSkillsInstalled={() => {
+            revealPrepareLlmSteps();
+            markFirstRunStep("prepareSchedule");
+          }}
         />
       ) : null}
       <HierarchyLevelsDialog

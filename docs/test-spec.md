@@ -589,6 +589,7 @@
 | 同上 | `avoids unexplained jargon and defines MCP` | NAV-08 |
 | 同上 | `introduces the menu with 画面左上 only on first hamburger mention` | NAV-08 |
 | `devFreshStart.test.ts` | `clears when Tauri reports fresh start even if Vite env is off` | NAV-09 |
+| `firstRunLlmSteps.test.ts` | `uses the write-schedule skill name in the example prompt` | NAV-09 |
 | `firstRunGuidance.test.ts` | `starts with hint not dismissed and save hint not completed` | NAV-09 |
 | 同上 | `migrates legacy openFile flag to prepareSchedule` | NAV-09 |
 | 同上 | `persists checklist items and dismisses when all complete` | NAV-09 |

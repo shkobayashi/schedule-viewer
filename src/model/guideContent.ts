@@ -22,7 +22,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     items: [
       {
         text:
-          "まだ JSON が無いときは、LLM にスケジュール JSON を作ってもらう。デスクトップ版では設定「JSON作成スキルを置く」でスキルを置いてから依頼する。プロジェクトで共有されている JSON があるときは、画面左上の ☰ メニューの「開く」で選ぶ",
+          "まだ JSON が無いときは、設定「JSON作成スキルを置く」で write-schedule スキルを置き、Claude Code などで依頼して作る。プロジェクトで共有されている JSON があるときは、画面左上の ☰ メニューの「開く」で選ぶ",
       },
       {
         text:

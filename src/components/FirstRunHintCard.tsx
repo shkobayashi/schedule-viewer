@@ -1,5 +1,5 @@
-import { Check, X } from "lucide-react";
-import { useEffect } from "react";
+import { Check } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   FIRST_RUN_CHECKLIST_LABELS,
   FIRST_RUN_CHECKLIST_ORDER,
@@ -8,11 +8,18 @@ import {
   type FirstRunChecklistState,
   firstRunHintSaveFootnote,
 } from "../model/firstRunGuidance";
+import {
+  FIRST_RUN_WRITE_SCHEDULE_EXAMPLE_PROMPT,
+  WRITE_SCHEDULE_SKILL_NAME,
+} from "../model/firstRunLlmSteps";
+import { DialogCloseButton } from "./ui/DialogCloseButton";
 
 type FirstRunHintCardProps = {
   commandKey: boolean;
   showingSample: boolean;
   checklist: FirstRunChecklistState;
+  showPrepareLlmSteps: boolean;
+  hasOpenedScheduleFile: boolean;
   openExistingJsonDisabled?: boolean;
   onDismiss: () => void;
   onPrepareWithLlm: () => void;
@@ -25,6 +32,8 @@ export function FirstRunHintCard({
   commandKey,
   showingSample,
   checklist,
+  showPrepareLlmSteps,
+  hasOpenedScheduleFile,
   openExistingJsonDisabled = false,
   onDismiss,
   onPrepareWithLlm,
@@ -32,6 +41,8 @@ export function FirstRunHintCard({
   onOpenGuide,
   onOpenMcpSettings,
 }: FirstRunHintCardProps) {
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -43,6 +54,12 @@ export function FirstRunHintCard({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [onDismiss]);
 
+  useEffect(() => {
+    if (!copyStatus) return;
+    const timer = window.setTimeout(() => setCopyStatus(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copyStatus]);
+
   const actionForId = (id: FirstRunChecklistId): (() => void) => {
     if (id === "guide") return onOpenGuide;
     return onOpenMcpSettings;
@@ -51,6 +68,15 @@ export function FirstRunHintCard({
   const disabledForId = (id: FirstRunChecklistId): boolean => {
     if (checklist[id]) return true;
     return false;
+  };
+
+  const copyExamplePrompt = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(FIRST_RUN_WRITE_SCHEDULE_EXAMPLE_PROMPT);
+      setCopyStatus("例文をコピーしました");
+    } catch {
+      setCopyStatus("コピーできませんでした");
+    }
   };
 
   return (
@@ -70,14 +96,7 @@ export function FirstRunHintCard({
                 : "次の 3 つを終えましょう"}
             </h2>
           </div>
-          <button
-            type="button"
-            className="first-run-hint-card__close icon-btn"
-            aria-label="閉じる"
-            onClick={onDismiss}
-          >
-            <X size={18} aria-hidden="true" />
-          </button>
+          <DialogCloseButton onClose={onDismiss} />
         </header>
         <p id="first-run-hint-desc" className="first-run-hint-card__lead">
           3 つ終わるまで、ここから続けられます。終わった項目にはチェックが付きます。
@@ -121,13 +140,51 @@ export function FirstRunHintCard({
                         type="button"
                         className="first-run-hint-card__btn first-run-hint-card__btn--primary first-run-hint-card__checklist-btn"
                         disabled={
-                          prepareDone || openExistingJsonDisabled
+                          (prepareDone && hasOpenedScheduleFile) ||
+                          openExistingJsonDisabled
                         }
                         onClick={onOpenExistingJson}
                       >
                         ある JSON を開く
                       </button>
                     </div>
+                    {showPrepareLlmSteps ? (
+                      <div className="first-run-hint-card__llm-steps">
+                        <p className="first-run-hint-card__llm-steps-title">
+                          スキルを置いたあと
+                        </p>
+                        <ol className="first-run-hint-card__llm-steps-list">
+                          <li>
+                            作業したいフォルダで Claude Code を開く
+                          </li>
+                          <li>
+                            「{WRITE_SCHEDULE_SKILL_NAME}{" "}
+                            スキルで、〇〇のスケジュールを作って」のように依頼する
+                            <button
+                              type="button"
+                              className="first-run-hint-card__copy-btn"
+                              onClick={() => void copyExamplePrompt()}
+                            >
+                              例文をコピー
+                            </button>
+                            {copyStatus ? (
+                              <span
+                                className="first-run-hint-card__copy-status"
+                                role="status"
+                              >
+                                {copyStatus}
+                              </span>
+                            ) : null}
+                          </li>
+                          <li>
+                            できた JSON を「ある JSON を開く」で読み込む
+                          </li>
+                        </ol>
+                        <p className="first-run-hint-card__llm-steps-note">
+                          メンバーや色なども、LLM に頼めば追加できます
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                 </li>
               );
