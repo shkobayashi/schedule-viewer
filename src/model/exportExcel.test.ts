@@ -730,7 +730,7 @@ describe("exportExcel", () => {
     expect(payload.connectors).toHaveLength(1);
     expect(payload.connectors[0]?.straight).toBe(false);
     expect(payload.connectors[0]?.strokeRgb).toBe(
-      paletteFor("dark").chart.linkOk.replace("#", ""),
+      paletteFor("light").chart.linkOk.replace("#", ""),
     );
     expect(payload.connectionCurves).toHaveLength(1);
   });

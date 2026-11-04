@@ -171,7 +171,7 @@ describe("fieldFilterChipLabel", () => {
 
 describe("activeFilterCount and chips", () => {
   it("counts zero field filters after clear all defaults", () => {
-    expect(activeFilterCount(DEFAULT_FILTERS, false, 0, fields)).toBe(0);
+    expect(activeFilterCount(DEFAULT_FILTERS, false, 0, 0, fields)).toBe(0);
   });
 
   const filters: ScheduleFilters = {
@@ -183,7 +183,7 @@ describe("activeFilterCount and chips", () => {
   };
 
   it("counts each active field filter", () => {
-    expect(activeFilterCount(filters, false, 0, fields)).toBe(2);
+    expect(activeFilterCount(filters, false, 0, 0, fields)).toBe(2);
   });
 
   it("lists field filter chips in definition order", () => {
@@ -192,6 +192,7 @@ describe("activeFilterCount and chips", () => {
       [],
       null,
       null,
+      [],
       [],
       [],
       [],
@@ -314,6 +315,7 @@ describe("buildActiveFilterConditions field filters", () => {
         fieldFilters: { memo: { empty: "any", text: "x" } },
       },
       hiddenMilestoneGroupIds: ["g1"],
+      hiddenMilestoneIds: [],
       milestoneGroups: [{ id: "g1", name: "承認" }],
       milestones: [],
       lineageTaskId: null,

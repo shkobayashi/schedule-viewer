@@ -469,6 +469,24 @@ describe("layoutMilestoneBand", () => {
     expect(layout.blocks.map((block) => block.group.name)).toEqual(["G"]);
     expect(layout.totalHeight).toBe(26);
   });
+
+  it("skips milestones hidden by FILTER-13", () => {
+    const layout = layoutMilestoneBand(
+      [{ id: GRP, name: "G" }],
+      [
+        milestone({ id: MS_A, name: "見", date: "2026-04-01" }),
+        milestone({ id: MS_B, name: "隠", date: "2026-04-02" }),
+      ],
+      new Set([GRP]),
+      40,
+      11,
+      11,
+      26,
+      "screen",
+      new Set([MS_B]),
+    );
+    expect(layout.blocks[0]?.milestones.map((m) => m.id)).toEqual([MS_A]);
+  });
 });
 
 describe("toggleMilestoneGuideLinesForGroup", () => {

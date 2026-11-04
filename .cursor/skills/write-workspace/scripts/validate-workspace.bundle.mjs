@@ -585,10 +585,12 @@ function __classPrivateFieldSet(receiver, state, value, kind, f) {
 }
 
 // node_modules/@tauri-apps/api/core.js
+var _Channel_instances;
 var _Channel_onmessage;
 var _Channel_nextMessageIndex;
 var _Channel_pendingMessages;
 var _Channel_messageEndIndex;
+var _Channel_deliver;
 var _Resource_rid;
 var SERIALIZE_TO_IPC_FN = "__TAURI_TO_IPC_KEY__";
 function transformCallback(callback, once = false) {
@@ -596,6 +598,7 @@ function transformCallback(callback, once = false) {
 }
 var Channel = class {
   constructor(onmessage) {
+    _Channel_instances.add(this);
     _Channel_onmessage.set(this, void 0);
     _Channel_nextMessageIndex.set(this, 0);
     _Channel_pendingMessages.set(this, []);
@@ -614,11 +617,11 @@ var Channel = class {
       }
       const message = rawMessage.message;
       if (index == __classPrivateFieldGet(this, _Channel_nextMessageIndex, "f")) {
-        __classPrivateFieldGet(this, _Channel_onmessage, "f").call(this, message);
+        __classPrivateFieldGet(this, _Channel_instances, "m", _Channel_deliver).call(this, message);
         __classPrivateFieldSet(this, _Channel_nextMessageIndex, __classPrivateFieldGet(this, _Channel_nextMessageIndex, "f") + 1, "f");
         while (__classPrivateFieldGet(this, _Channel_nextMessageIndex, "f") in __classPrivateFieldGet(this, _Channel_pendingMessages, "f")) {
           const message2 = __classPrivateFieldGet(this, _Channel_pendingMessages, "f")[__classPrivateFieldGet(this, _Channel_nextMessageIndex, "f")];
-          __classPrivateFieldGet(this, _Channel_onmessage, "f").call(this, message2);
+          __classPrivateFieldGet(this, _Channel_instances, "m", _Channel_deliver).call(this, message2);
           delete __classPrivateFieldGet(this, _Channel_pendingMessages, "f")[__classPrivateFieldGet(this, _Channel_nextMessageIndex, "f")];
           __classPrivateFieldSet(this, _Channel_nextMessageIndex, __classPrivateFieldGet(this, _Channel_nextMessageIndex, "f") + 1, "f");
         }
@@ -646,7 +649,15 @@ var Channel = class {
   get onmessage() {
     return __classPrivateFieldGet(this, _Channel_onmessage, "f");
   }
-  [(_Channel_onmessage = /* @__PURE__ */ new WeakMap(), _Channel_nextMessageIndex = /* @__PURE__ */ new WeakMap(), _Channel_pendingMessages = /* @__PURE__ */ new WeakMap(), _Channel_messageEndIndex = /* @__PURE__ */ new WeakMap(), SERIALIZE_TO_IPC_FN)]() {
+  [(_Channel_onmessage = /* @__PURE__ */ new WeakMap(), _Channel_nextMessageIndex = /* @__PURE__ */ new WeakMap(), _Channel_pendingMessages = /* @__PURE__ */ new WeakMap(), _Channel_messageEndIndex = /* @__PURE__ */ new WeakMap(), _Channel_instances = /* @__PURE__ */ new WeakSet(), _Channel_deliver = function _Channel_deliver2(message) {
+    try {
+      __classPrivateFieldGet(this, _Channel_onmessage, "f").call(this, message);
+    } catch (error) {
+      queueMicrotask(() => {
+        throw error;
+      });
+    }
+  }, SERIALIZE_TO_IPC_FN)]() {
     return `__CHANNEL__:${this.id}`;
   }
   toJSON() {

@@ -1,14 +1,18 @@
 import type { SearchField } from "./scheduleFilterPersistence";
 import { assigneeIdToJson, taskAssigneeIds } from "./assigneeIds";
-import { duplicateMemberNamesFromCatalog, resolveAssigneeRowDisplay } from "./assigneeDisplay";
+import {
+  duplicateMemberNamesFromCatalog,
+  resolveAssigneeRowDisplay,
+} from "./assigneeDisplay";
 import type { ColorItem } from "./colorCatalog";
+import { milestoneMarkFilterLabel } from "./milestoneMarkFilter";
+import type { Member, MemberId } from "./memberTypes";
 import {
   BUILTIN_STATUS_ITEMS,
   normalizeStatusItem,
   statusLabel,
   type StatusItem,
 } from "./statusCatalog";
-import type { Member, MemberId } from "./memberTypes";
 import type { WorkspaceMemberState } from "./workspaceTypes";
 import type { CalendarDocument, Weekday } from "./calendarTypes";
 import type { ColorSchemePreference } from "./colorScheme";
@@ -133,6 +137,7 @@ export type McpActiveFilterCondition =
   | { type: "milestone"; id: string; name: string }
   | { type: "tags"; tags: string[] }
   | { type: "milestoneBandHidden"; groups: Array<{ id: ScheduleId; name: string }> }
+  | { type: "milestoneMarkHidden"; milestones: Array<{ id: ScheduleId; name: string }> }
   | { type: "searchName"; query: string }
   | { type: "searchNote"; query: string }
   | { type: "fieldFilter"; key: string; label: string }
@@ -674,6 +679,7 @@ function withTaskVisibility(
 export function buildActiveFilterConditions(input: {
   filters: ScheduleFilters;
   hiddenMilestoneGroupIds: ScheduleId[];
+  hiddenMilestoneIds: ScheduleId[];
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
   lineageTaskId: ScheduleId | null;
@@ -773,6 +779,19 @@ export function buildActiveFilterConditions(input: {
     conditions.push({ type: "milestoneBandHidden", groups: hidden });
   }
 
+  if (input.hiddenMilestoneIds.length > 0) {
+    const hidden = input.hiddenMilestoneIds.map((id) => {
+      const milestone = input.milestones.find((m) => m.id === id);
+      return {
+        id,
+        name: milestone
+          ? milestoneMarkFilterLabel(milestone)
+          : id,
+      };
+    });
+    conditions.push({ type: "milestoneMarkHidden", milestones: hidden });
+  }
+
   if (input.fields != null) {
     for (const def of input.fields) {
       const condition = filters.fieldFilters?.[def.key];
@@ -839,6 +858,7 @@ export function buildFilteredTasksPayload(
     filters: ScheduleFilters;
     lineageTaskId: ScheduleId | null;
     hiddenMilestoneGroupIds: ScheduleId[];
+    hiddenMilestoneIds: ScheduleId[];
     today: string;
     memberCatalog: Map<MemberId, Member> | null;
     lineageIds: ReadonlySet<ScheduleId> | null;
@@ -884,6 +904,7 @@ export function buildFilteredTasksPayload(
       activeConditions: buildActiveFilterConditions({
         filters: input.filters,
         hiddenMilestoneGroupIds: input.hiddenMilestoneGroupIds,
+        hiddenMilestoneIds: input.hiddenMilestoneIds,
         milestoneGroups: [...(input.milestoneGroups ?? [])],
         milestones: [...(input.milestones ?? [])],
         lineageTaskId: input.lineageTaskId,
@@ -1178,6 +1199,7 @@ export function buildScreenContextPayload(input: {
     filters: input.filters,
     lineageTaskId: input.lineageTaskId,
     hiddenMilestoneGroupIds: input.hiddenMilestoneGroupIds,
+    hiddenMilestoneIds: [],
     milestoneGroups: [],
     milestones: [],
     today: input.today,

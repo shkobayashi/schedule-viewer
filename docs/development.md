@@ -248,10 +248,10 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 
 1. 1.x のまま出せる変更は、`develop` から `feature-<Issue番号>` を切り、`develop` へ戻す。安定版とベータは、「`main` に載せる前のバージョン上げ」と「ベータリリース」で出す。
 2. 公開する契約を壊す変更は、`next` から `feature-<Issue番号>` を切り、`next` へ戻す。1.x で開けているスケジュールを拒否するスキーマの変更も、`next` だけに置く。
-3. 両方に要る修正は、先に `develop` へ入れる。`next` へは、手順 4 のマージで届ける。
-4. `develop` を `next` へマージして、1.x の修正を届ける。`next` を `develop` へマージするのは、下の出荷が終わったあとだけである。
-5. `next` では版番号を上げない。`develop` をマージしたあとも、`package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` の番号は 1.x のままにする。`version:check` が受け付けるのは `X.Y.Z` と `X.Y.Z-beta.N` だけなので、別の接尾辞は付けない。
-6. マージで、次メジャー側が触った箇所と 1.x の修正が重なったときは、`next` では次メジャーの挙動を残す。版番号の 5 ファイルは、手順 5 の 1.x のままにする。
+3. 両方に要る修正は、先に `develop` へ入れる。`next` へは、手順 4 のマージで届ける。`develop` へマージしただけでは `next` には載らない。
+4. 1.x の修正と依存更新を `next` に届けるときは、**出荷済みの安定版を `main` に載せたあと**（または同じ版の `develop` を指しているとき）、`main` または `develop` を `next` へマージする pull request を出す。通常の feature マージと別に、この取り込みを忘れない。取り込まないと、CHANGELOG や `develop` の履歴だけ先行し、`next` のコードが 1.x 安定版から遅れたままになる（#410・#418・#386 は `develop`/`main` にあったが、この取り込みが無かったため `next` に載っていなかった）。`next` を `develop` へマージするのは、下の「次のメジャーを出す」が終わったあとだけである。
+5. 手順 4 のマージで `next` に載せた版は、**いま出荷した安定版の `X.Y.Z` に揃える**。`package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` の 5 ファイルを、その版に書き換えてから pull request に含める。手元では [scripts/project-version-files.ts](../scripts/project-version-files.ts) の `writeProjectVersion`（`npm run version:bump` は使わず、出荷版の番号をそのまま指定する）のあと `npm run version:check` する。`plugins.updater.endpoints` は 1.x メジャー用の `updater-1` のままである。`next` 上の次メジャー開発のあいだ、版番号を古い 1.x のままにしない。番号は「コードが追いついている最新の 1.x 安定版」を示す。`version:check` が受け付けるのは `X.Y.Z` と `X.Y.Z-beta.N` だけなので、別の接尾辞は付けない。
+6. マージで、次メジャー側が触った箇所と 1.x の修正が重なったときは、`next` では次メジャーの挙動を残す。版番号の 5 ファイルは、手順 5 の出荷済み安定版に揃えた値を維持する。
 
 #### 次のメジャーを出す
 

@@ -17,3 +17,8 @@ commands.allow = ["import_app_calendar"]
 identifier = "allow-delete-app-calendar"
 description = "Allows removing the working-day calendar from app data."
 commands.allow = ["delete_app_calendar"]
+
+[[permission]]
+identifier = "allow-pick-calendar-json-file"
+description = "Allows picking a calendar JSON file via native file dialog."
+commands.allow = ["pick_calendar_json_file"]

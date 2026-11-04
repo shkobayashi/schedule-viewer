@@ -1,6 +1,6 @@
 [package]
 name = "schedule-viewer"
-version = "1.11.1"
+version = "1.12.1"
 description = "WBS schedule viewer"
 authors = ["schedule-viewer"]
 edition = "2021"
@@ -33,7 +33,7 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 tauri-plugin-opener = "2"
 tauri-plugin-process = "2"
 url = "2"
-rust_xlsxwriter = "0.101"
+rust_xlsxwriter = "0.102"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [target.'cfg(unix)'.dependencies]

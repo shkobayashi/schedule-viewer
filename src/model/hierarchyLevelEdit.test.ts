@@ -158,6 +158,7 @@ describe("prefixesLevelsOnce", () => {
       filters,
       lineageTaskId: null,
       hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
       milestoneGroups: [],
       milestones: [],
       today: "2026-10-15",

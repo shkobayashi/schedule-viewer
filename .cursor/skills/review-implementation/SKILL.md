@@ -49,6 +49,8 @@ description: >-
 - 仕様と実際の齟齬
 - 日本語として分かりづらい記述
 
+接尾辞で絞るファイルダイアログを触ったレビューでは、[docs/external-spec.md](../../../docs/external-spec.md)、操作マニュアル、[docs/internal-spec.md](../../../docs/internal-spec.md) を読み、名前そのものの `schedule.json` や `members.json` などが、接尾辞の種類と JSON の種類のどちらに出るかが揃っているかを見る。
+
 ## 結果
 
 チャットに書く。`REVIEW.md` は作らない。

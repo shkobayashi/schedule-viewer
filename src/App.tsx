@@ -267,7 +267,10 @@ import {
   type MilestoneBandLayout,
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
-import { hasOtherVisibleMilestoneBandGroup } from "./model/filterChips";
+import {
+  hasOtherVisibleMilestoneBandGroup,
+  hasOtherVisibleMilestoneMark,
+} from "./model/filterChips";
 import {
   layoutStickyHeaders,
   scrollYToRevealTask,
@@ -998,6 +1001,9 @@ function App() {
     setMilestoneGroupVisible,
     showOnlyMilestoneGroup,
     visibleMilestoneGroupIds,
+    hiddenMilestoneIdSet,
+    setMilestoneMarkVisible,
+    showOnlyMilestoneMark,
   } = schedule;
 
   const [mcpPngUsesDocumentRows, setMcpPngUsesDocumentRows] = useState(false);
@@ -1162,6 +1168,7 @@ function App() {
         milestoneGroups: schedule.milestoneGroups,
         milestones: schedule.milestonesForBandLayout,
         visibleGroupIds: schedule.visibleMilestoneGroupIds,
+        hiddenMilestoneIds: schedule.hiddenMilestoneIdSet,
         milestoneFontSize,
         milestoneDiamondSize,
         monthHeaderFontSize,
@@ -1176,6 +1183,7 @@ function App() {
       schedule.milestoneGroups,
       schedule.milestonesForBandLayout,
       schedule.visibleMilestoneGroupIds,
+      schedule.hiddenMilestoneIdSet,
     ],
   );
 
@@ -1195,6 +1203,8 @@ function App() {
         milestoneFontSize,
         milestoneDiamondSize,
         milestoneLaneHeight,
+        "screen",
+        schedule.hiddenMilestoneIdSet,
       );
       const body = Math.max(
         120,
@@ -1222,11 +1232,13 @@ function App() {
         milestoneDiamondSize,
         milestoneLaneHeight,
         "screen",
+        schedule.hiddenMilestoneIdSet,
       ),
     [
       milestoneDiamondSize,
       milestoneFontSize,
       milestoneLaneHeight,
+      schedule.hiddenMilestoneIdSet,
       schedule.milestoneGroups,
       schedule.milestonesForBandLayout,
       schedule.visibleMilestoneGroupIds,
@@ -1403,7 +1415,13 @@ function App() {
     };
   }, []);
 
-  useWindowTitle(scheduleFile.displayFileName, scheduleFile.isDirty);
+  useWindowTitle(
+    scheduleFile.displayFileName,
+    scheduleFile.isDirty,
+    isTauri() && !scheduleFile.startupContentReady,
+  );
+
+  const showScheduleBody = scheduleFile.startupContentReady;
 
   const showUpdateToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -2570,6 +2588,7 @@ function App() {
         schedule.visibleMilestoneGroupIds,
         schedule.milestones,
         schedule.visibleRows,
+        schedule.hiddenMilestoneIdSet,
       );
       const baseExportedRange = exportTimelineRange(
         schedule.visibleRows,
@@ -2587,6 +2606,7 @@ function App() {
         milestoneGroups: exportedGroups,
         milestones,
         visibleGroupIds: schedule.visibleMilestoneGroupIds,
+        hiddenMilestoneIds: schedule.hiddenMilestoneIdSet,
         milestoneFontSize,
         milestoneDiamondSize,
         monthHeaderFontSize,
@@ -2647,6 +2667,7 @@ function App() {
           assigneeLabel,
           schedule.milestoneGroups,
           schedule.hiddenMilestoneGroupIds,
+          schedule.hiddenMilestoneIds,
           schedule.scheduleTags,
           displayStatuses,
         ),
@@ -3090,6 +3111,7 @@ function App() {
     lineageTaskId: schedule.lineageTaskId,
     lineageIds: schedule.lineageIds,
     hiddenMilestoneGroupIds: schedule.hiddenMilestoneGroupIds,
+    hiddenMilestoneIds: schedule.hiddenMilestoneIds,
     selectedTaskId: schedule.selectedTaskId,
     selectedTaskIds: schedule.selectedTaskIds,
     today: schedule.today,
@@ -3301,6 +3323,7 @@ function App() {
         memberMap: displayMemberMap,
         lineageIds: schedule.lineageIds,
         hiddenMilestoneGroupIds: new Set(schedule.hiddenMilestoneGroupIds),
+        hiddenMilestoneIds: schedule.hiddenMilestoneIdSet,
         milestones: schedule.milestones,
         scrollY: view.scrollY,
         rowHeight,
@@ -4049,6 +4072,27 @@ function App() {
       return [
         {
           type: "item",
+          id: "hide-milestone-mark",
+          label: "非表示",
+          onSelect: () => setMilestoneMarkVisible(milestoneId, false),
+        },
+        ...(hasOtherVisibleMilestoneMark(
+          visibleMilestoneGroupIds,
+          milestones,
+          hiddenMilestoneIdSet,
+          milestoneId,
+        )
+          ? [
+              {
+                type: "item" as const,
+                id: "show-only-milestone-mark",
+                label: "このマイルストンだけ表示",
+                onSelect: () => showOnlyMilestoneMark(milestoneId),
+              },
+            ]
+          : []),
+        {
+          type: "item",
           id: "edit",
           label: "編集",
           icon: <Pencil size={14} strokeWidth={2} />,
@@ -4365,6 +4409,9 @@ function App() {
     setMilestoneGroupVisible,
     showOnlyMilestoneGroup,
     visibleMilestoneGroupIds,
+    hiddenMilestoneIdSet,
+    setMilestoneMarkVisible,
+    showOnlyMilestoneMark,
     showLineage,
     schedule.selectedTaskIds.length,
   ]);
@@ -4394,7 +4441,7 @@ function App() {
           }
         >
       <Toolbar
-        title={schedule.title}
+        title={showScheduleBody ? schedule.title : ""}
         titleDiffMarked={diffNavigationMark.title}
         statuses={displayStatuses}
         filters={schedule.filters}
@@ -4403,7 +4450,10 @@ function App() {
         milestones={schedule.milestones}
         milestoneGroups={schedule.milestoneGroups}
         hiddenMilestoneGroupIds={schedule.hiddenMilestoneGroupIds}
+        hiddenMilestoneIds={schedule.hiddenMilestoneIds}
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
+        onMilestoneMarkVisible={schedule.setMilestoneMarkVisible}
+        onShowAllMilestoneMarks={schedule.showAllMilestoneMarks}
         assigneeFilterOptions={schedule.assigneeFilterOptions}
         scheduleTags={schedule.scheduleTags}
         scheduleFields={editableFieldDefs}
@@ -4523,13 +4573,16 @@ function App() {
         milestones={schedule.milestones}
         milestoneGroups={schedule.milestoneGroups}
         hiddenMilestoneGroupIds={schedule.hiddenMilestoneGroupIds}
+        hiddenMilestoneIds={schedule.hiddenMilestoneIds}
         assigneeLabel={filterAssigneeLabel}
         lineageName={schedule.lineageTask?.name ?? null}
         lineageIncludesConnections={schedule.lineageIncludesConnections}
         onFiltersChange={schedule.updateFilters}
         onClearLineage={schedule.clearLineage}
         onMilestoneGroupVisible={schedule.setMilestoneGroupVisible}
+        onMilestoneMarkVisible={schedule.setMilestoneMarkVisible}
         onShowAllMilestoneGroups={schedule.showAllMilestoneGroups}
+        onShowAllMilestoneMarks={schedule.showAllMilestoneMarks}
         scheduleTags={schedule.scheduleTags}
         scheduleFields={editableFieldDefs}
       />
@@ -4538,13 +4591,13 @@ function App() {
           statuses={displayStatuses}
           rowColors={displayColors}
           colorScheme={resolvedColorScheme}
-          categories={schedule.categories}
-          outline={schedule.outline}
+          categories={showScheduleBody ? schedule.categories : []}
+          outline={showScheduleBody ? schedule.outline : undefined}
           levelCount={schedule.hierarchyLayout.levelCount}
           usesOutlineStorage={schedule.usesOutlineStorage}
           allowCrossParentTaskMove={schedule.allowCrossParentTaskMove}
-          rows={chartVisibleRows}
-          reorderBaseRows={schedule.baseVisibleRows}
+          rows={showScheduleBody ? chartVisibleRows : []}
+          reorderBaseRows={showScheduleBody ? schedule.baseVisibleRows : []}
           scrollY={scrollY}
           viewportHeight={bodyHeight}
           rowHeight={rowHeight}
@@ -4578,9 +4631,9 @@ function App() {
           onCommitGroupReorder={schedule.commitGroupReorder}
           onCancelReorder={schedule.cancelReorder}
           onReorderDragActiveChange={setSidebarReorderDragging}
-          milestoneBandHeight={milestoneBandHeight}
+          milestoneBandHeight={showScheduleBody ? milestoneBandHeight : 0}
           milestoneBandLayout={milestoneBandLayout}
-          milestones={schedule.milestones}
+          milestones={showScheduleBody ? schedule.milestones : []}
           onToggleCollapse={schedule.toggleCollapsed}
           onOpenTaskNote={schedule.openTaskNoteDialog}
           onTaskContextMenu={openTaskContextMenu}
@@ -4678,7 +4731,7 @@ function App() {
           <Timeline
             statuses={displayStatuses}
             rowColors={displayColors}
-            visibleRows={chartVisibleRows}
+            visibleRows={showScheduleBody ? chartVisibleRows : []}
             width={Math.max(200, timelineWidth)}
             rowHeight={rowHeight}
             barHeight={barHeight}
@@ -4707,9 +4760,9 @@ function App() {
             onWheelBody={onWheelBody}
             onWheelHeader={onWheelHeader}
             onPan={panBy}
-            milestones={schedule.milestonesForBandLayout}
+            milestones={showScheduleBody ? schedule.milestonesForBandLayout : []}
             milestoneBandLayout={milestoneBandLayout}
-            milestoneBandHeight={milestoneBandHeight}
+            milestoneBandHeight={showScheduleBody ? milestoneBandHeight : 0}
             milestoneLaneHeight={milestoneLaneHeight}
             milestoneDiamondSize={milestoneDiamondSize}
             milestoneFontSize={milestoneFontSize}

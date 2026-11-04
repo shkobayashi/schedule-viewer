@@ -17,9 +17,12 @@ export function milestonesForExport(
   visibleGroupIds: ReadonlySet<ScheduleId>,
   milestones: Milestone[],
   visibleRows: VisibleRow[],
+  hiddenMilestoneIds: ReadonlySet<ScheduleId> = new Set(),
 ): Milestone[] {
-  const visible = milestones.filter((milestone) =>
-    visibleGroupIds.has(milestone.groupId),
+  const visible = milestones.filter(
+    (milestone) =>
+      visibleGroupIds.has(milestone.groupId) &&
+      !hiddenMilestoneIds.has(milestone.id),
   );
   if (milestoneFilter === NO_MILESTONE_FILTER) return [];
   if (milestoneFilter !== "all") {
@@ -98,6 +101,7 @@ export function describeActiveFilters(
   assigneeLabel: string | null,
   milestoneGroups: MilestoneGroup[] = [],
   hiddenMilestoneGroupIds: readonly ScheduleId[] = [],
+  hiddenMilestoneIds: readonly ScheduleId[] = [],
   scheduleTags: readonly string[] = [],
   statuses: readonly StatusItem[] = BUILTIN_STATUS_ITEMS,
 ): string {
@@ -108,6 +112,7 @@ export function describeActiveFilters(
     null,
     milestoneGroups,
     hiddenMilestoneGroupIds,
+    hiddenMilestoneIds,
     scheduleTags,
     statuses,
   )
