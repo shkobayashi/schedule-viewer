@@ -3,7 +3,11 @@ import {
   parseFieldFiltersFromPersistence,
   pruneFieldFilters,
 } from "./fieldFilters";
-import { DEFAULT_FILTERS, pruneHiddenMilestoneGroupIds } from "./filterChips";
+import {
+  DEFAULT_FILTERS,
+  pruneHiddenMilestoneGroupIds,
+  pruneHiddenMilestoneIds,
+} from "./filterChips";
 import {
   categoryCollapseKey,
   filtersAreDefault,
@@ -36,6 +40,7 @@ export type ScheduleFilterViewState = {
   filters: ScheduleFilters;
   searchField: SearchField;
   hiddenMilestoneGroupIds: ScheduleId[];
+  hiddenMilestoneIds: ScheduleId[];
   collapsedCategoryIds: ScheduleId[];
   collapsedGroupIds: ScheduleId[];
 };
@@ -46,6 +51,7 @@ export type ScheduleFilterPersistenceFile = {
   filters: ScheduleFilters;
   searchField: SearchField;
   hiddenMilestoneGroupIds: ScheduleId[];
+  hiddenMilestoneIds: ScheduleId[];
   collapsedCategoryIds: ScheduleId[];
   collapsedGroupIds: ScheduleId[];
 };
@@ -166,6 +172,10 @@ export function parseScheduleFilterPersistence(
   ) {
     return { ok: false };
   }
+  const hiddenMilestoneIds = parseIdArrayField(record.hiddenMilestoneIds);
+  if (hiddenMilestoneIds == null) {
+    return { ok: false };
+  }
   const collapsedCategoryIds = parseIdArrayField(record.collapsedCategoryIds);
   if (collapsedCategoryIds == null) {
     return { ok: false };
@@ -187,6 +197,7 @@ export function parseScheduleFilterPersistence(
       filters: filtersWithFields,
       searchField,
       hiddenMilestoneGroupIds: [...hidden],
+      hiddenMilestoneIds,
       collapsedCategoryIds,
       collapsedGroupIds,
     },
@@ -199,6 +210,7 @@ export function isDefaultScheduleFilterViewState(
 ): boolean {
   if (!filtersAreDefault(state.filters, fields)) return false;
   if (state.hiddenMilestoneGroupIds.length > 0) return false;
+  if (state.hiddenMilestoneIds.length > 0) return false;
   if (state.collapsedCategoryIds.length > 0) return false;
   if (state.collapsedGroupIds.length > 0) return false;
   return true;
@@ -230,6 +242,7 @@ export function serializeScheduleFilterPersistence(
     filters: filtersRecord as ScheduleFilters,
     searchField: state.searchField,
     hiddenMilestoneGroupIds: state.hiddenMilestoneGroupIds,
+    hiddenMilestoneIds: state.hiddenMilestoneIds,
     collapsedCategoryIds: sortedIds(state.collapsedCategoryIds),
     collapsedGroupIds: sortedIds(state.collapsedGroupIds),
   };
@@ -241,6 +254,7 @@ export function defaultScheduleFilterViewState(): ScheduleFilterViewState {
     filters: { ...DEFAULT_FILTERS, tags: [] },
     searchField: "name",
     hiddenMilestoneGroupIds: [],
+    hiddenMilestoneIds: [],
     collapsedCategoryIds: [],
     collapsedGroupIds: [],
   };
@@ -324,6 +338,10 @@ export function pruneScheduleFilterViewState(
     state.hiddenMilestoneGroupIds,
     context.milestoneGroups,
   );
+  const hiddenMilestoneIds = pruneHiddenMilestoneIds(
+    state.hiddenMilestoneIds,
+    context.milestones,
+  );
   const pruneCollapse = options?.pruneCollapse ?? true;
   let collapsedCategoryIds = state.collapsedCategoryIds;
   let collapsedGroupIds = state.collapsedGroupIds;
@@ -343,6 +361,7 @@ export function pruneScheduleFilterViewState(
     filters,
     searchField: state.searchField,
     hiddenMilestoneGroupIds,
+    hiddenMilestoneIds,
     collapsedCategoryIds,
     collapsedGroupIds,
   };
@@ -411,6 +430,7 @@ export function viewStateFromPersistence(
     },
     searchField: data.searchField,
     hiddenMilestoneGroupIds: [...data.hiddenMilestoneGroupIds],
+    hiddenMilestoneIds: [...data.hiddenMilestoneIds],
     collapsedCategoryIds: [...data.collapsedCategoryIds],
     collapsedGroupIds: [...data.collapsedGroupIds],
   };

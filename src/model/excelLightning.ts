@@ -1,8 +1,10 @@
 import { parseDate } from "./dates";
-import { paletteFor, type ResolvedColorScheme } from "./palette";
+import { paletteFor } from "./palette";
 import type { ExcelTimeColumn } from "./excelTimeColumns";
 import type { GridTier } from "./timeline";
 import { dateAreaLeftPx } from "./excelBar";
+
+const lightLightningRgb = paletteFor("light").chart.lightning.replace("#", "");
 
 export type ExcelTodayLineDescriptor = {
   row: number;
@@ -47,7 +49,6 @@ export function excelTodayLineDescriptor(
   bodyRowCount: number,
   leftColCount: number,
   bodyStartRow: number,
-  colorScheme: ResolvedColorScheme,
 ): ExcelTodayLineDescriptor | null {
   if (!showLightningLine || bodyRowCount === 0) return null;
   const todayTime = parseDate(todayIso).getTime();
@@ -65,12 +66,11 @@ export function excelTodayLineDescriptor(
     dateColumnWidthPx,
     bodyRowHeightPx,
   );
-  const { chart } = paletteFor(colorScheme);
   return {
     row: anchor.row,
     anchorCol: anchor.anchorCol,
     xOffsetPx: anchor.xOffsetPx,
     heightPx,
-    strokeRgb: chart.lightning.replace("#", ""),
+    strokeRgb: lightLightningRgb,
   };
 }

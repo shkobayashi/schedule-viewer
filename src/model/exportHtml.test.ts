@@ -388,13 +388,13 @@ describe("schedule export documents", () => {
   });
 
   it("uses dark palette when colorScheme is dark", () => {
-    const { css } = paletteFor("dark");
+    const { css, chart } = paletteFor("dark");
     const dark = buildScheduleHtml({ ...input(), colorScheme: "dark" });
     expect(dark).toContain(`background: ${css.bg}`);
-    expect(dark).toContain(`fill="${css.bg}"`);
+    expect(dark).toContain(`fill="${chart.exportBg}"`);
     expect(dark).toContain("inset 3px 0 0 #a888d8");
     const svg = buildScheduleSvg({ ...input(), colorScheme: "dark" });
-    expect(svg).toContain(`fill="${css.bg}"`);
+    expect(svg).toContain(`fill="${chart.exportBg}"`);
     expect(svg).toContain(`fill="${css.textSecondary}"`);
   });
 

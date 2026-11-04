@@ -3,6 +3,7 @@ mod excel_drawing_patch;
 mod export_xlsx;
 #[cfg(test)]
 mod excel_book;
+mod file_dialog_filters;
 mod json_skills;
 mod mcp_app_data;
 mod mcp_bridge;
@@ -33,6 +34,9 @@ use std::sync::Mutex;
 use tauri::{Emitter, EventTarget, Manager};
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
+use file_dialog_filters::{
+    calendar_import_filters, members_import_filters, schedule_open_save_filters,
+};
 use mcp_bridge::{
     cleanup_mcp_socket, mcp_reply, start_mcp_bridge_server, McpBridgeState,
 };
@@ -85,6 +89,12 @@ const SCHEDULE_FILE_NOT_FOUND: &str = "SCHEDULE_FILE_NOT_FOUND";
 #[derive(Serialize)]
 struct OpenScheduleResult {
     path: String,
+    contents: String,
+}
+
+#[derive(Serialize)]
+struct PickedJsonFile {
+    name: String,
     contents: String,
 }
 
@@ -324,11 +334,10 @@ async fn open_schedule_file(
     _state: State<'_, Mutex<ScheduleFileStates>>,
     initial_directory: Option<String>,
 ) -> Result<Option<OpenScheduleResult>, String> {
-    let mut picker = app
-        .dialog()
-        .file()
-        .set_parent(&window)
-        .add_filter("JSON", &["json"]);
+    let mut picker = app.dialog().file().set_parent(&window);
+    for filter in schedule_open_save_filters() {
+        picker = picker.add_filter(&filter.name, &[filter.extension.as_str()]);
+    }
     if let Some(directory) = dialog_start_directory(&app, initial_directory.as_deref()) {
         picker = picker.set_directory(directory);
     }
@@ -722,13 +731,15 @@ async fn save_schedule_file(
     }
     let target = if save_as {
         let default_name = sanitize_export_filename(&suggested_name, "json");
-        let picked = window
+        let mut picker = window
             .dialog()
             .file()
             .set_parent(&window)
-            .set_file_name(&default_name)
-            .add_filter("JSON", &["json"])
-            .blocking_save_file();
+            .set_file_name(&default_name);
+        for filter in schedule_open_save_filters() {
+            picker = picker.add_filter(&filter.name, &[filter.extension.as_str()]);
+        }
+        let picked = picker.blocking_save_file();
         match picked {
             Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
             None => return Ok(None),
@@ -2727,6 +2738,60 @@ fn delete_app_calendar(app: tauri::AppHandle) -> Result<(), String> {
     write_settings(&app, &settings)
 }
 
+fn picked_json_file_name(path: &Path) -> String {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+#[tauri::command]
+async fn pick_members_json_file(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+) -> Result<Option<PickedJsonFile>, String> {
+    let mut picker = app.dialog().file().set_parent(&window);
+    for filter in members_import_filters() {
+        picker = picker.add_filter(&filter.name, &[filter.extension.as_str()]);
+    }
+    let path = picker.blocking_pick_file();
+    match path {
+        Some(file_path) => {
+            let path_buf = file_path.into_path().map_err(|e| e.to_string())?;
+            let contents = read_utf8(&path_buf, MAX_MEMBERS_BYTES)?;
+            Ok(Some(PickedJsonFile {
+                name: picked_json_file_name(&path_buf),
+                contents,
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+async fn pick_calendar_json_file(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+) -> Result<Option<PickedJsonFile>, String> {
+    const TOO_LARGE: &str = "カレンダーファイルが大きすぎます（上限 2 MB）";
+    let mut picker = app.dialog().file().set_parent(&window);
+    for filter in calendar_import_filters() {
+        picker = picker.add_filter(&filter.name, &[filter.extension.as_str()]);
+    }
+    let path = picker.blocking_pick_file();
+    match path {
+        Some(file_path) => {
+            let path_buf = file_path.into_path().map_err(|e| e.to_string())?;
+            let contents = read_utf8_limited(&path_buf, MAX_CALENDAR_BYTES, TOO_LARGE)?;
+            Ok(Some(PickedJsonFile {
+                name: picked_json_file_name(&path_buf),
+                contents,
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
 fn finish_application_quit(
     app: &tauri::AppHandle,
     session: &Mutex<WindowSessionState>,
@@ -3355,6 +3420,8 @@ pub fn run() {
             read_app_calendar,
             import_app_calendar,
             delete_app_calendar,
+            pick_members_json_file,
+            pick_calendar_json_file,
             read_schedule_recovery,
             write_schedule_recovery,
             delete_schedule_recovery,

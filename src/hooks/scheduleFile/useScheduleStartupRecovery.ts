@@ -9,25 +9,16 @@ import {
 } from "../../model/scheduleRecovery";
 import {
   acceptOpenedScheduleViaTauri,
-  clearLastSchedulePathViaTauri,
   deleteScheduleRecoveryViaTauri,
   isTauri,
-  parseScheduleText,
   scheduleJsonFilename,
   scheduleParentDirectory,
 } from "../../model/scheduleFile";
-import type { RecentFilesStore } from "../../model/recentFiles";
 import {
-  ackPendingScheduleWindowOpenViaTauri,
   readWindowStartupViaTauri,
   takePendingScheduleWindowOpenViaTauri,
-  type PendingScheduleWindowOpen,
 } from "../../model/windowSession";
-import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { recordRecentWorkspaceViaTauri } from "../../model/recentFilesAppData";
 import {
-  acceptOpenedWorkspaceViaTauri,
   openWorkspaceFromFile,
   readJsonFileLimitedViaTauri,
   WORKSPACE_STARTUP_FAILED_MESSAGE,
@@ -52,7 +43,6 @@ type RecoverySession = {
 
 type UseScheduleStartupRecoveryOptions = {
   replaceDocument: (document: ScheduleDocument) => void;
-  reloadDocumentFromDisk: (document: ScheduleDocument) => void;
   onAfterOpen: () => void;
   setFilePath: (path: string | null) => void;
   setBrowserFileLabel: (label: string | null) => void;
@@ -60,6 +50,7 @@ type UseScheduleStartupRecoveryOptions = {
   setErrorMessageText: (message: string | null) => void;
   startupSettledRef: { current: boolean };
   setStartupSettled: (settled: boolean) => void;
+  setStartupContentReady: (ready: boolean) => void;
   filePathRef: { current: string | null };
   baselineJsonRef: { current: string };
   isDirtyRef: { current: boolean };
@@ -84,11 +75,10 @@ type UseScheduleStartupRecoveryOptions = {
     document: ScheduleDocument,
   ) => Promise<void>;
   onWorkspaceBindingChange?: (binding: WorkspaceWindowBinding | null) => void;
-  onRecentFilesStoreUpdated?: (store: RecentFilesStore) => void;
 };
 
 export function useScheduleStartupRecovery({
-  reloadDocumentFromDisk,
+  replaceDocument,
   onAfterOpen,
   setFilePath,
   setBrowserFileLabel,
@@ -96,6 +86,7 @@ export function useScheduleStartupRecovery({
   setErrorMessageText,
   startupSettledRef,
   setStartupSettled,
+  setStartupContentReady,
   filePathRef,
   baselineJsonRef,
   isDirtyRef,
@@ -110,7 +101,6 @@ export function useScheduleStartupRecovery({
   applyOpenedFile,
   restoreFiltersForPath,
   onWorkspaceBindingChange,
-  onRecentFilesStoreUpdated,
 }: UseScheduleStartupRecoveryOptions) {
   const [recoveryConflictOpen, setRecoveryConflictOpen] = useState(false);
   const [recoveryInvalidOpen, setRecoveryInvalidOpen] = useState(false);
@@ -134,6 +124,7 @@ export function useScheduleStartupRecovery({
         deferDisk?: boolean;
         abortIfMovedOn?: boolean;
         restoreFilters?: boolean;
+        onDocumentApplied?: () => void;
       },
     ): Promise<boolean> => {
       const startupId = recoveryStartupRef.current;
@@ -143,12 +134,9 @@ export function useScheduleStartupRecovery({
           recoveryStartupRef.current !== startupId ||
           filePathRef.current != null ||
           isDirtyRef.current,
-        accept: () =>
-          acceptOpenedScheduleViaTauri(session.path, session.diskContents, {
-            preserveWorkspaceBinding: true,
-          }),
+        accept: () => acceptOpenedScheduleViaTauri(session.path, session.diskContents),
         apply: () => {
-          reloadDocumentFromDisk(session.document);
+          replaceDocument(session.document);
           filePathRef.current = session.path;
           setFilePath(session.path);
           setBrowserFileLabel(null);
@@ -159,6 +147,8 @@ export function useScheduleStartupRecovery({
           setDeferredExternalContents(
             options?.deferDisk ? session.diskContents : null,
           );
+          options?.onDocumentApplied?.();
+          setStartupContentReady(true);
           onAfterOpen();
           return true;
         },
@@ -176,12 +166,13 @@ export function useScheduleStartupRecovery({
       filePathRef,
       isDirtyRef,
       onAfterOpen,
-      reloadDocumentFromDisk,
+      replaceDocument,
       setBaselineJson,
       setBrowserFileLabel,
       setDeferredExternalContents,
       setFilePath,
       restoreFiltersForPath,
+      setStartupContentReady,
     ],
   );
 
@@ -214,117 +205,6 @@ export function useScheduleStartupRecovery({
   );
   const applyRecoverySessionRef = useRef(applyRecoverySession);
   applyRecoverySessionRef.current = applyRecoverySession;
-  const pendingOpenAppliedRef = useRef(false);
-
-  useEffect(() => {
-    if (!isTauri()) return;
-    let unlisten: (() => void) | undefined;
-    const selfLabel = getCurrentWindow().label;
-    void listen<PendingScheduleWindowOpen>(
-      "schedule-pending-open",
-      (event) => {
-        const pending = event.payload;
-        if (pending.label !== selfLabel) return;
-        if (pendingOpenAppliedRef.current) return;
-        pendingOpenAppliedRef.current = true;
-        void (async () => {
-          const workspacePath = pending.workspacePath?.trim() || null;
-        const finishPendingStartup = () => {
-          startupSettledRef.current = true;
-          setStartupSettled(true);
-          blockDocumentEditsRef.current = false;
-          fileBusyRef.current = false;
-        };
-        if (workspacePath) {
-          const workspaceStartupOk =
-            await restoreWorkspaceBinding(workspacePath);
-          if (!workspaceStartupOk) {
-            await ackPendingScheduleWindowOpenViaTauri();
-            await clearLastSchedulePathViaTauri().catch(() => {});
-            setErrorMessageText(WORKSPACE_STARTUP_FAILED_MESSAGE);
-            finishPendingStartup();
-            return;
-          }
-          await acceptOpenedWorkspaceViaTauri(
-            workspacePath,
-            pending.path,
-            pending.contents,
-          );
-          const parsed = parseScheduleText(pending.contents);
-          if (!parsed.ok) {
-            await ackPendingScheduleWindowOpenViaTauri();
-            setErrorMessageText(parsed.message);
-            finishPendingStartup();
-            return;
-          }
-          reloadDocumentFromDisk(parsed.document);
-          filePathRef.current = pending.path;
-          setFilePath(pending.path);
-          setBrowserFileLabel(null);
-          setBaselineJson(parsed.canonicalJson);
-          baselineJsonRef.current = parsed.canonicalJson;
-          clearExternalReloadPrompt();
-          clearInvalidDiskHash();
-          void clearRecoveryDraft();
-          onAfterOpen();
-          await ackPendingScheduleWindowOpenViaTauri();
-          try {
-            const store = await recordRecentWorkspaceViaTauri(workspacePath);
-            onRecentFilesStoreUpdated?.(store);
-          } catch {
-            // ignore
-          }
-          finishPendingStartup();
-          return;
-        }
-        await acceptOpenedScheduleViaTauri(pending.path, pending.contents);
-        const parsed = parseScheduleText(pending.contents);
-        if (!parsed.ok) {
-          await ackPendingScheduleWindowOpenViaTauri();
-          setErrorMessageText(parsed.message);
-          finishPendingStartup();
-          return;
-        }
-        reloadDocumentFromDisk(parsed.document);
-        filePathRef.current = pending.path;
-        setFilePath(pending.path);
-        setBrowserFileLabel(null);
-        setBaselineJson(parsed.canonicalJson);
-        baselineJsonRef.current = parsed.canonicalJson;
-        clearExternalReloadPrompt();
-        clearInvalidDiskHash();
-        void clearRecoveryDraft();
-        onAfterOpen();
-        await ackPendingScheduleWindowOpenViaTauri();
-        finishPendingStartup();
-      })();
-      },
-      { target: selfLabel },
-    ).then((off) => {
-      unlisten = off;
-    });
-    return () => {
-      unlisten?.();
-    };
-  }, [
-    baselineJsonRef,
-    blockDocumentEditsRef,
-    clearExternalReloadPrompt,
-    clearInvalidDiskHash,
-    clearRecoveryDraft,
-    fileBusyRef,
-    filePathRef,
-    onAfterOpen,
-    onRecentFilesStoreUpdated,
-    reloadDocumentFromDisk,
-    restoreWorkspaceBinding,
-    setBaselineJson,
-    setBrowserFileLabel,
-    setErrorMessageText,
-    setFilePath,
-    setStartupSettled,
-    startupSettledRef,
-  ]);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -347,71 +227,27 @@ export function useScheduleStartupRecovery({
         const pending = await takePendingScheduleWindowOpenViaTauri();
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (pending) {
-          if (pendingOpenAppliedRef.current) {
-            releaseStartupBusy();
-            return;
-          }
-          pendingOpenAppliedRef.current = true;
-          const workspacePath = pending.workspacePath?.trim() || null;
-          if (workspacePath) {
-            const workspaceStartupOk =
-              await restoreWorkspaceBinding(workspacePath);
-            if (!workspaceStartupOk) {
-              await ackPendingScheduleWindowOpenViaTauri();
-              await clearLastSchedulePathViaTauri().catch(() => {});
-              setErrorMessageText(WORKSPACE_STARTUP_FAILED_MESSAGE);
-              releaseStartupBusy();
-              return;
-            }
-            await acceptOpenedWorkspaceViaTauri(
-              workspacePath,
-              pending.path,
-              pending.contents,
-            );
-            const parsed = parseScheduleText(pending.contents);
-            if (!parsed.ok) {
-              await ackPendingScheduleWindowOpenViaTauri();
-              setErrorMessageText(parsed.message);
-              releaseStartupBusy();
-              return;
-            }
-            reloadDocumentFromDisk(parsed.document);
-            filePathRef.current = pending.path;
-            setFilePath(pending.path);
-            setBrowserFileLabel(null);
-            setBaselineJson(parsed.canonicalJson);
-            baselineJsonRef.current = parsed.canonicalJson;
-            clearExternalReloadPrompt();
-            clearInvalidDiskHash();
-            void clearRecoveryDraft();
-            onAfterOpen();
-            await ackPendingScheduleWindowOpenViaTauri();
-            try {
-              const store = await recordRecentWorkspaceViaTauri(workspacePath);
-              onRecentFilesStoreUpdated?.(store);
-            } catch {
-              // ignore
-            }
-          } else {
-            await acceptOpenedScheduleViaTauri(pending.path, pending.contents);
-            await applyOpenedFileRef.current(
-              {
-                path: pending.path,
-                contents: pending.contents,
-              },
-              { recordRecent: true },
-            );
-            await ackPendingScheduleWindowOpenViaTauri();
-          }
+          await applyOpenedFileRef.current(
+            {
+              path: pending.path,
+              contents: pending.contents,
+            },
+            { recordRecent: true },
+          );
           releaseStartupBusy();
           return;
         }
         const startup = await readWindowStartupViaTauri();
+        if (startup.transientMain) {
+          releaseStartupBusy();
+          return;
+        }
         const workspaceStartupOk = await restoreWorkspaceBinding(
           startup.workspacePath,
         );
         if (startup.workspacePath && !workspaceStartupOk) {
           setErrorMessageText(WORKSPACE_STARTUP_FAILED_MESSAGE);
+          setStartupContentReady(true);
           releaseStartupBusy();
           return;
         }
@@ -426,6 +262,7 @@ export function useScheduleStartupRecovery({
         const draftText = startup.draftText;
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (last == null && (draftText == null || draftText.length === 0)) {
+          setStartupContentReady(true);
           releaseStartupBusy();
           return;
         }
@@ -438,6 +275,9 @@ export function useScheduleStartupRecovery({
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         const userMovedOn = filePathRef.current != null || isDirtyRef.current;
         if (action.kind === "none" || userMovedOn) {
+          if (action.kind === "none" && !userMovedOn) {
+            setStartupContentReady(true);
+          }
           releaseStartupBusy();
           return;
         }
@@ -463,12 +303,14 @@ export function useScheduleStartupRecovery({
           case "invalidDraft":
             setRecoveryInvalidMessage(action.message);
             setRecoveryInvalidOpen(true);
+            setStartupContentReady(true);
             releaseStartupBusy();
             return;
           case "missingNotice":
             setMissingScheduleLabel(
               scheduleJsonFilename(action.path) ?? action.path,
             );
+            setStartupContentReady(true);
             releaseStartupBusy();
             return;
           case "invalidDisk":
@@ -476,6 +318,7 @@ export function useScheduleStartupRecovery({
               `${action.message}（${scheduleJsonFilename(action.path) ?? action.path}）`,
             );
             setRecoveryInvalidOpen(true);
+            setStartupContentReady(true);
             releaseStartupBusy();
             return;
           case "openSaved": {
@@ -529,25 +372,30 @@ export function useScheduleStartupRecovery({
                 baselineJson: action.baselineJson,
                 diskContents: action.baselineJson,
               },
-              { abortIfMovedOn: true, restoreFilters: true },
+              {
+                abortIfMovedOn: true,
+                restoreFilters: true,
+                onDocumentApplied: () => {
+                  markMissingFilePrompted();
+                  recoveryConflictRef.current = {
+                    path: action.path,
+                    diskContents: null,
+                    document: action.document,
+                    baselineJson: action.baselineJson,
+                    missing: true,
+                  };
+                  setRecoveryConflictMissing(true);
+                  setRecoveryConflictLabel(
+                    scheduleJsonFilename(action.path) ?? action.path,
+                  );
+                  setRecoveryConflictOpen(true);
+                },
+              },
             );
             if (!applied) {
               releaseStartupBusy();
               return;
             }
-            markMissingFilePrompted();
-            recoveryConflictRef.current = {
-              path: action.path,
-              diskContents: null,
-              document: action.document,
-              baselineJson: action.baselineJson,
-              missing: true,
-            };
-            setRecoveryConflictMissing(true);
-            setRecoveryConflictLabel(
-              scheduleJsonFilename(action.path) ?? action.path,
-            );
-            setRecoveryConflictOpen(true);
             releaseStartupBusy();
             return;
           }
@@ -557,6 +405,7 @@ export function useScheduleStartupRecovery({
           setErrorMessageText(
             errorMessage(error, "前回のファイルを読み込めませんでした。"),
           );
+          setStartupContentReady(true);
         }
         releaseStartupBusy();
       }
@@ -571,57 +420,89 @@ export function useScheduleStartupRecovery({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 起動時のみ
   }, []);
 
-  const confirmRecoveryOpenDisk = useCallback(() => {
-    const payload = recoveryConflictRef.current;
+  const dismissRecoveryConflictUi = useCallback(() => {
     setRecoveryConflictOpen(false);
     setRecoveryConflictLabel(null);
     setRecoveryConflictMissing(false);
     recoveryConflictRef.current = null;
+  }, []);
+
+  const confirmRecoveryOpenDisk = useCallback(() => {
+    const payload = recoveryConflictRef.current;
     if (!payload) return;
     if (payload.missing) {
+      dismissRecoveryConflictUi();
       beginOpen(scheduleParentDirectory(payload.path) ?? payload.path);
       return;
     }
     if (payload.diskContents == null) return;
     const diskContents = payload.diskContents;
+    const path = payload.path;
     void (async () => {
       try {
         await clearRecoveryDraft();
-        await acceptOpenedScheduleViaTauri(payload.path, diskContents, {
-          preserveWorkspaceBinding: true,
-        });
-        void applyOpenedFile({
-          path: payload.path,
-          contents: diskContents,
-        }, { restoreFilters: true });
+        await acceptOpenedScheduleViaTauri(path, diskContents);
+        dismissRecoveryConflictUi();
+        const applied = await applyOpenedFile(
+          { path, contents: diskContents },
+          { restoreFilters: true },
+        );
+        if (!applied) {
+          setStartupContentReady(true);
+        }
       } catch (error) {
+        dismissRecoveryConflictUi();
         setErrorMessageText(errorMessage(error, "ファイルを開けませんでした。"));
+        setStartupContentReady(true);
       }
     })();
-  }, [applyOpenedFile, beginOpen, clearRecoveryDraft, setErrorMessageText]);
+  }, [
+    applyOpenedFile,
+    beginOpen,
+    clearRecoveryDraft,
+    dismissRecoveryConflictUi,
+    setErrorMessageText,
+    setStartupContentReady,
+  ]);
 
   const confirmRecoveryRestoreEdits = useCallback(() => {
     const payload = recoveryConflictRef.current;
-    setRecoveryConflictOpen(false);
-    setRecoveryConflictLabel(null);
-    setRecoveryConflictMissing(false);
-    recoveryConflictRef.current = null;
     if (!payload || payload.missing) return;
     if (payload.diskContents == null) return;
-    void applyRecoverySession(
-      {
-        path: payload.path,
-        document: payload.document,
-        baselineJson: payload.baselineJson,
-        diskContents: payload.diskContents,
-      },
-      { deferDisk: true, restoreFilters: true },
-    ).catch((error) => {
-      setErrorMessageText(
-        errorMessage(error, "未保存の編集を戻せませんでした。"),
-      );
-    });
-  }, [applyRecoverySession, setErrorMessageText]);
+    const diskContents = payload.diskContents;
+    void (async () => {
+      try {
+        const applied = await applyRecoverySession(
+          {
+            path: payload.path,
+            document: payload.document,
+            baselineJson: payload.baselineJson,
+            diskContents,
+          },
+          {
+            deferDisk: true,
+            restoreFilters: true,
+            onDocumentApplied: dismissRecoveryConflictUi,
+          },
+        );
+        if (!applied) {
+          dismissRecoveryConflictUi();
+          setStartupContentReady(true);
+        }
+      } catch (error) {
+        dismissRecoveryConflictUi();
+        setErrorMessageText(
+          errorMessage(error, "未保存の編集を戻せませんでした。"),
+        );
+        setStartupContentReady(true);
+      }
+    })();
+  }, [
+    applyRecoverySession,
+    dismissRecoveryConflictUi,
+    setErrorMessageText,
+    setStartupContentReady,
+  ]);
 
   const dismissRecoveryInvalid = useCallback(() => {
     setRecoveryInvalidOpen(false);

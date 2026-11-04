@@ -101,6 +101,7 @@ type UseMcpScreenBridgeInput = {
   lineageTaskId: ScheduleId | null;
   lineageIds: ReadonlySet<ScheduleId> | null;
   hiddenMilestoneGroupIds: ScheduleId[];
+  hiddenMilestoneIds: ScheduleId[];
   selectedTaskId: ScheduleId | null;
   selectedTaskIds: readonly ScheduleId[];
   today: string;
@@ -535,6 +536,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             filters: snap.filters,
             lineageTaskId: snap.lineageTaskId,
             hiddenMilestoneGroupIds: snap.hiddenMilestoneGroupIds,
+            hiddenMilestoneIds: snap.hiddenMilestoneIds,
             milestoneGroups: snap.milestoneGroups,
             milestones: snap.milestones,
             today: snap.today,

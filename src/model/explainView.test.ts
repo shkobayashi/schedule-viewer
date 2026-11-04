@@ -66,6 +66,7 @@ const doc = {
     },
   ],
   hiddenMilestoneGroupIds: [] as string[],
+  hiddenMilestoneIds: [],
 };
 
 describe("parseExplainViewRequest", () => {
