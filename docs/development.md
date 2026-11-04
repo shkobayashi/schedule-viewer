@@ -183,7 +183,11 @@ npm run tauri dev
 npm run tauri:dev:fresh
 ```
 
-中身は `SCHEDULE_VIEWER_FRESH_START=1` を付けた `npm run tauri dev` である。同じ効果を得るには、環境変数 `SCHEDULE_VIEWER_FRESH_START=1`（または `true`）を付けて `npm run tauri dev` してもよい。
+中身は `SCHEDULE_VIEWER_FRESH_START=1` を付けた `npm run tauri dev` である（`scripts/tauri-dev-fresh.mjs` 経由。Windows でも同じ）。同じ効果を得るには、環境変数 `SCHEDULE_VIEWER_FRESH_START=1`（または `true`）を付けて `npm run tauri dev` してもよい。
+
+**localStorage** は、Vite 起動時に固定される `import.meta.env` ではなく、**そのとき起動した Tauri プロセス**の環境変数を Rust の `dev_fresh_start_active` で見てから消す。以前の `npm run tauri dev` で Vite が残っていても、`tauri:dev:fresh` のたびに初回ガイド用の記録は消える。
+
+**手順** カードが出ないときは、いったん `tauri dev` を止め（Ctrl+C）、から `npm run tauri:dev:fresh` を実行する。Vite を別ターミナルで `npm run dev` だけ動かしている場合は、1420 を使う Tauri 用の Vite と混ざらないようにする。
 
 **いつ効くか** Rust 側は `debug_assertions` が有効な開発ビルドだけである。`tauri build` の配布用バイナリでは、環境変数を付けてもリセットは走らない。フロント側は Vite の開発モード（`tauri dev` の WebView、`npm run dev`、`dev:manual-screenshot`）だけが対象である。
 

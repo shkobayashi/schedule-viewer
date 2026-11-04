@@ -2,12 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   FRESH_START_ENV_VAR,
   SCHEDULE_VIEWER_LS_PREFIX,
+  applyFreshStartForRuntime,
   applyFreshStartIfRequested,
   clearScheduleViewerLocalStorage,
   clearScheduleViewerLocalStorageEvaluateSource,
   isFreshStartAllowedBuild,
   isFreshStartEnvValue,
   listScheduleViewerLocalStorageKeys,
+  shouldClearStorageForFreshStart,
 } from "./devFreshStart";
 
 const memory = new Map<string, string>();
@@ -94,6 +96,31 @@ describe("applyFreshStartIfRequested", () => {
     memory.set(`${SCHEDULE_VIEWER_LS_PREFIX}color-scheme`, "light");
     expect(applyFreshStartIfRequested({ envValue: "0" })).toBe(false);
     expect(memory.size).toBe(1);
+  });
+});
+
+describe("applyFreshStartForRuntime", () => {
+  it("clears when Tauri reports fresh start even if Vite env is off", async () => {
+    installLocalStorage();
+    memory.set(`${SCHEDULE_VIEWER_LS_PREFIX}first-run/hint-dismissed`, "1");
+    const allowed = isFreshStartAllowedBuild();
+    const applied = await applyFreshStartForRuntime({
+      envValue: "",
+      queryTauri: async () => true,
+    });
+    expect(applied).toBe(allowed);
+    if (allowed) {
+      expect(listScheduleViewerLocalStorageKeys(localStorage)).toEqual([]);
+    }
+  });
+
+  it("shouldClearStorageForFreshStart prefers queryTauri over stale env", async () => {
+    installLocalStorage();
+    const should = await shouldClearStorageForFreshStart({
+      envValue: "",
+      queryTauri: async () => true,
+    });
+    expect(should).toBe(isFreshStartAllowedBuild());
   });
 });
 

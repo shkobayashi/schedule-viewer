@@ -1,3 +1,5 @@
+import { isTauri, invoke } from "@tauri-apps/api/core";
+
 /** localStorage の `schedule-viewer/` 以下をすべて消すときの接頭辞。 */
 export const SCHEDULE_VIEWER_LS_PREFIX = "schedule-viewer/";
 
@@ -63,6 +65,43 @@ export function clearScheduleViewerLocalStorageEvaluateSource(): string {
 })`;
 }
 
+async function queryFreshStartFromTauri(): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    return await invoke<boolean>("dev_fresh_start_active");
+  } catch {
+    return false;
+  }
+}
+
+/** Tauri では起動中プロセスの環境変数を Rust 経由で見る（Vite 起動時の define に依存しない）。 */
+export async function shouldClearStorageForFreshStart(options?: {
+  envValue?: string | null;
+  queryTauri?: () => Promise<boolean>;
+}): Promise<boolean> {
+  if (!isFreshStartAllowedBuild()) return false;
+  if (options?.queryTauri) {
+    return options.queryTauri();
+  }
+  if (isTauri()) {
+    return queryFreshStartFromTauri();
+  }
+  return isFreshStartRequested({ envValue: options?.envValue });
+}
+
+export async function applyFreshStartForRuntime(options?: {
+  envValue?: string | null;
+  storage?: Pick<Storage, "length" | "key" | "removeItem">;
+  queryTauri?: () => Promise<boolean>;
+}): Promise<boolean> {
+  const shouldClear = await shouldClearStorageForFreshStart(options);
+  if (!shouldClear) return false;
+  const storage = options?.storage ?? localStorage;
+  clearScheduleViewerLocalStorage(storage);
+  return true;
+}
+
+/** @deprecated 同期版。Vitest 用。本番起動は `applyFreshStartForRuntime` を使う。 */
 export function applyFreshStartIfRequested(options?: {
   envValue?: string | null;
   storage?: Pick<Storage, "length" | "key" | "removeItem">;

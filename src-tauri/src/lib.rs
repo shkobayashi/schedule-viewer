@@ -3478,6 +3478,7 @@ pub fn run() {
             pick_json_skill_folder,
             install_json_skills,
             uninstall_json_skills,
+            dev_fresh_start::dev_fresh_start_active,
             install_read_screen_skill,
             uninstall_read_screen_skill,
             get_executable_path,

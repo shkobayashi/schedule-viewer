@@ -15,6 +15,12 @@ const COLORS_DIR: &str = "colors";
 const FIELD_EXTENSIONS_DIR: &str = "field-extensions";
 const MCP_SOCKET_FILE: &str = "mcp.sock";
 
+/// フロントが WebView の localStorage を消すタイミングを決める（`setup` の app data リセットと同じ条件）。
+#[tauri::command]
+pub fn dev_fresh_start_active() -> bool {
+    fresh_start_requested()
+}
+
 /// 開発専用。`SCHEDULE_VIEWER_FRESH_START=1`（または `true`）のときだけ true。
 pub fn fresh_start_requested() -> bool {
     if !cfg!(debug_assertions) {
