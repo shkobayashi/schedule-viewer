@@ -59,6 +59,8 @@ const baseContext = {
   categories,
   outline: undefined,
   milestones,
+  milestoneGroups: [{ id: "mg1", name: "G" }],
+  hiddenMilestoneGroupIds: [] as string[],
   collapsed: new Set<string>(),
   visibleRows: [taskRow("t1", 0)] as VisibleRow[],
 };

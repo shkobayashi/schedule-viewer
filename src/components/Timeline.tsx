@@ -103,8 +103,14 @@ import { ExplanationTrialBarsLayer } from "./ExplanationTrialBarsLayer";
 import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
 import {
   buildExplanationOverlayGeometry,
+  milestoneExplanationBalloonOverlayHeight,
 } from "../model/explainOverlayLayout";
-import { buildExplanationTrialBarLayouts, buildExplanationTrialPredecessorArcs, isExplanationTrialVisibleRow } from "../model/explainOverlayPatterns";
+import {
+  buildExplanationTrialBarLayouts,
+  buildExplanationTrialMilestoneLayouts,
+  buildExplanationTrialPredecessorArcs,
+  isExplanationTrialVisibleRow,
+} from "../model/explainOverlayPatterns";
 import {
   explanationOverlayActive,
   type ExplanationOverlayState,
@@ -2211,6 +2217,7 @@ export function Timeline({
       liveAnchors,
       milestones,
       milestoneCenterYById: milestoneBandLayout.centerYById,
+      milestoneBandLayout,
       milestoneDiamondSize,
       tier,
       memberCatalog,
@@ -2238,6 +2245,32 @@ export function Timeline({
     visibleRows,
     width,
   ]);
+
+  const explanationTrialMilestones = useMemo(() => {
+    if (!explanationOverlayActive(explanationOverlay)) return [];
+    if (explanationOverlay.patterns.length === 0) return [];
+    return buildExplanationTrialMilestoneLayouts({
+      patterns: explanationOverlay.patterns,
+      milestones,
+      milestoneCenterYById: milestoneBandLayout.centerYById,
+      diamondSize: milestoneDiamondSize,
+      dateToX,
+    });
+  }, [
+    dateToX,
+    explanationOverlay,
+    milestoneBandLayout.centerYById,
+    milestoneDiamondSize,
+    milestones,
+  ]);
+
+  const milestoneIdsWithTrialMove = useMemo(() => {
+    const ids = new Set<ScheduleId>();
+    for (const layout of explanationTrialMilestones) {
+      ids.add(layout.milestoneId);
+    }
+    return ids;
+  }, [explanationTrialMilestones]);
 
   const explanationTrialBars = useMemo(() => {
     if (!explanationOverlayActive(explanationOverlay)) return [];
@@ -3039,7 +3072,32 @@ export function Timeline({
               : undefined
           }
           explanationColorScheme={explanationActive ? colorScheme : undefined}
+          explanationTrialMilestones={
+            explanationActive ? explanationTrialMilestones : undefined
+          }
+          milestoneIdsWithTrialMove={
+            explanationActive ? milestoneIdsWithTrialMove : undefined
+          }
         />
+      ) : null}
+      {explanationActive &&
+      milestoneBandHeight > 0 &&
+      (explanationOverlayGeometry?.milestoneBalloons?.length ?? 0) > 0 ? (
+        <div
+          className="milestone-explanation-balloons-layer"
+          style={{
+            top: headerHeight,
+            width,
+            height: milestoneExplanationBalloonOverlayHeight(
+              milestoneBandHeight,
+              uiScale,
+            ),
+          }}
+        >
+          <TimelineExplanationBalloons
+            balloons={explanationOverlayGeometry?.milestoneBalloons ?? []}
+          />
+        </div>
       ) : null}
       <MilestoneHoverOverlay
         hover={milestoneHover}

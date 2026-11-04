@@ -47,6 +47,7 @@ import {
 import type { HierarchyGuideSpec } from "../model/hierarchyGuide";
 import { HierarchyGuideRail } from "./HierarchyGuideRail";
 import {
+  explanationSidebarMarkByMilestoneGroup,
   explanationSidebarMarkByTask,
   type ExplanationSidebarMarkDisplay,
 } from "../model/explainOverlayLayout";
@@ -329,6 +330,13 @@ export function Sidebar({
       return new Map<ScheduleId, ExplanationSidebarMarkDisplay>();
     }
     return explanationSidebarMarkByTask(explanationOverlay!.marks);
+  }, [explanationActive, explanationOverlay]);
+
+  const sidebarMarksByMilestoneGroup = useMemo(() => {
+    if (!explanationActive) {
+      return new Map<ScheduleId, ExplanationSidebarMarkDisplay>();
+    }
+    return explanationSidebarMarkByMilestoneGroup(explanationOverlay!.marks);
   }, [explanationActive, explanationOverlay]);
 
   const rowStyle = (y: number): CSSProperties => ({
@@ -718,11 +726,32 @@ export function Sidebar({
           className="sidebar-milestone-groups"
           style={{ height: milestoneBandHeight }}
         >
-          {milestoneBandLayout.blocks.map((block) => (
+          {milestoneBandLayout.blocks.map((block) => {
+            const explanationMark = sidebarMarksByMilestoneGroup.get(
+              block.group.id,
+            );
+            let milestoneMarkClass = "";
+            const milestoneRowStyle: CSSProperties = { height: block.height };
+            if (explanationMark != null) {
+              milestoneMarkClass = " sidebar-milestones--explanation-mark";
+              if (explanationMark.color == null) {
+                milestoneMarkClass += ` sidebar-milestones--explanation-mark-${explanationMark.kind}`;
+              } else {
+                const { outlineStyle } = explanationMarkRingDashStyle(
+                  explanationMark.kind,
+                );
+                const halo = explanationMarkHaloStroke(explanationMark.color);
+                milestoneRowStyle.outline = `2px ${outlineStyle} ${explanationMark.color}`;
+                milestoneRowStyle.outlineOffset = -2;
+                milestoneRowStyle.boxShadow = `0 0 0 1px ${halo}`;
+                milestoneRowStyle.zIndex = 2;
+              }
+            }
+            return (
             <div
               key={block.group.id}
-              className={`sidebar-milestones${diffMarkedMilestoneGroupId === block.group.id ? " hovered" : ""}`}
-              style={{ height: block.height }}
+              className={`sidebar-milestones${diffMarkedMilestoneGroupId === block.group.id ? " hovered" : ""}${milestoneMarkClass}`}
+              style={milestoneRowStyle}
               onClick={(event) => {
                 if (linkMode) return;
                 if (event.button !== 0) return;
@@ -740,7 +769,8 @@ export function Sidebar({
             >
               <NameLabel text={block.group.name} />
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
       {explanationActive && explanationPalette ? (

@@ -20,6 +20,8 @@ import {
 import type { ExplanationMarkHole } from "../model/explainOverlayLayout";
 import type { ResolvedColorScheme } from "../model/palette";
 import { ExplanationKonvaVeilLayer } from "./ExplanationKonvaVeil";
+import { ExplanationTrialMilestonesLayer } from "./ExplanationTrialMilestonesLayer";
+import type { ExplanationTrialMilestoneLayout } from "../model/explainOverlayPatterns";
 
 /** Konva の dblClickWindow と同じ。 */
 const MILESTONE_GUIDE_CLICK_DELAY_MS = 400;
@@ -53,6 +55,8 @@ type MilestoneBandProps = {
   diffMarkStrokeWidth?: number;
   explanationVeilHoles?: readonly ExplanationMarkHole[];
   explanationColorScheme?: ResolvedColorScheme;
+  explanationTrialMilestones?: readonly ExplanationTrialMilestoneLayout[];
+  milestoneIdsWithTrialMove?: ReadonlySet<ScheduleId>;
 };
 
 export function MilestoneBand({
@@ -79,6 +83,8 @@ export function MilestoneBand({
   diffMarkStrokeWidth = 3,
   explanationVeilHoles,
   explanationColorScheme,
+  explanationTrialMilestones = [],
+  milestoneIdsWithTrialMove,
 }: MilestoneBandProps) {
   return (
     <div className="milestone-band" style={{ height }} ref={containerRef}>
@@ -120,6 +126,8 @@ export function MilestoneBand({
                   bandLayout.displayLabels.get(milestone.id) ?? milestone.name;
                 const showHover = displayName !== milestone.name;
                 const guideOn = milestoneGuideLineIds.has(milestone.id);
+                const trialMoveActive =
+                  milestoneIdsWithTrialMove?.has(milestone.id) ?? false;
                 return (
                   <MilestoneMark
                     key={milestone.id}
@@ -133,6 +141,7 @@ export function MilestoneBand({
                     fontSize={fontSize}
                     pxPerDay={pxPerDay}
                     guideOn={guideOn}
+                    trialMoveActive={trialMoveActive}
                     diffMarked={diffMarkedMilestoneId === milestone.id}
                     diffMarkStrokeWidth={diffMarkStrokeWidth}
                     onMove={(delta) => onMove(milestone.id, delta)}
@@ -164,6 +173,14 @@ export function MilestoneBand({
             colorScheme={explanationColorScheme}
           />
         ) : null}
+        {explanationTrialMilestones.length > 0 ? (
+          <ExplanationTrialMilestonesLayer
+            width={width}
+            height={height}
+            diamonds={explanationTrialMilestones}
+            diamondSize={diamondSize}
+          />
+        ) : null}
       </Stage>
     </div>
   );
@@ -189,6 +206,7 @@ function MilestoneMark({
   chart,
   diffMarked,
   diffMarkStrokeWidth,
+  trialMoveActive = false,
 }: {
   milestone: Milestone;
   displayName: string;
@@ -202,6 +220,7 @@ function MilestoneMark({
   guideOn: boolean;
   diffMarked: boolean;
   diffMarkStrokeWidth: number;
+  trialMoveActive: boolean;
   onMove: (deltaDays: number) => void;
   onOpenEdit: () => void;
   onToggleGuideLine: () => void;
@@ -376,6 +395,7 @@ function MilestoneMark({
         fontStyle="bold"
         fontFamily={KONVA_FONT_FAMILY}
         fill={chart.milestoneDiamond}
+        opacity={trialMoveActive ? 0.35 : 1}
         listening={false}
       />
     </Group>

@@ -1537,6 +1537,8 @@ describe("view in MCP read payloads", () => {
       explanationView: {
         taskIds: new Set([t.id]),
         collapseOverride: new Set<string>(),
+        milestoneGroupIds: null,
+        milestoneIds: null,
       },
     });
     expect(view.explanation).toEqual({
@@ -1555,6 +1557,38 @@ describe("view in MCP read payloads", () => {
   it("omits view.explanation when explanation is inactive", () => {
     const view = buildMcpViewForReadTools(defaultMcpViewForReadToolsInput([]));
     expect(view.explanation).toBeUndefined();
+  });
+
+  it("includes view.explanation milestoneGroupIds and milestoneIds", () => {
+    const categories = categoryWithTasks([
+      taskFixture("00000000-0000-4000-8000-000000000010", "T"),
+    ]);
+    const milestoneGroups = [{ id: "mg1", name: "G" }];
+    const milestones = [
+      {
+        id: "ms1",
+        name: "M",
+        date: "2026-01-01",
+        confidence: "committed" as const,
+        groupId: "mg1",
+      },
+    ];
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput(categories),
+      milestoneGroups,
+      milestones,
+      explanationView: {
+        taskIds: null,
+        collapseOverride: null,
+        milestoneGroupIds: new Set(["mg1"]),
+        milestoneIds: new Set(["ms1"]),
+      },
+    });
+    expect(view.explanation).toEqual({
+      milestoneGroupIds: ["mg1"],
+      milestoneIds: ["ms1"],
+      baseCollapsed: [],
+    });
   });
 
   it("includes explanationOverlay when translucent", () => {
@@ -1615,6 +1649,8 @@ describe("view in MCP read payloads", () => {
       explanationView: {
         taskIds: new Set([t.id]),
         collapseOverride: null,
+        milestoneGroupIds: null,
+        milestoneIds: null,
       },
       userCollapsed: new Set(),
       collapsed: new Set(),

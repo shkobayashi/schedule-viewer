@@ -6,6 +6,8 @@
 
 ### 追加
 
+- 説明のための見え方（`explain_view`）に、マイルストン帯の行 id と星 id の絞り込みを足した。説明の半透明（`explain_overlay`）の印に `milestoneId` と `milestoneGroupId` を足し、試しの計画に星の日付変更（`milestoneChanges`）を足した。読み取り 3 ツールの `view.explanation` と `explanationOverlay` に載せる（#420、#447）
+
 - MCP と read-screen に、試しの計画のパターン id を指定して未保存の計画へ一度に入れる `apply_explanation_pattern`（21 個目のツール）を追加。成功時は `edit_plan` と同じ差分テキストを返し、試しの計画と半透明は消える（#420、#445）
 - schedule-talk スキルに相談の流れと部品の使い分けの reference（`consultation-flow.md`）を追加（#445）
 - MCP の `explain_overlay` に、試しの計画を比較する任意の `patterns` を付けられる。試しのバーと印は `taskBarLayout.ts` の戻り値だけで描き、文書・差分・未保存・取り消しには入れない。読み取り 3 ツールの `explanationOverlay.patterns` に `trial: true` を返し、PNG には試しのバーを写さない（#420、#443）

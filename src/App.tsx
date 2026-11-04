@@ -1161,7 +1161,7 @@ function App() {
         pxPerDay: px,
         tier: gridTier(px),
         milestoneGroups: schedule.milestoneGroups,
-        milestones: schedule.milestones,
+        milestones: schedule.milestonesForBandLayout,
         visibleGroupIds: schedule.visibleMilestoneGroupIds,
         milestoneFontSize,
         milestoneDiamondSize,
@@ -1175,7 +1175,7 @@ function App() {
       range.timelineStart,
       range.totalDays,
       schedule.milestoneGroups,
-      schedule.milestones,
+      schedule.milestonesForBandLayout,
       schedule.visibleMilestoneGroupIds,
     ],
   );
@@ -1190,7 +1190,7 @@ function App() {
     (pxPerDay) => {
       const band = milestoneBandHeightPx(
         schedule.milestoneGroups,
-        schedule.milestones,
+        schedule.milestonesForBandLayout,
         schedule.visibleMilestoneGroupIds,
         pxPerDay,
         milestoneFontSize,
@@ -1216,7 +1216,7 @@ function App() {
     () =>
       layoutMilestoneBand(
         schedule.milestoneGroups,
-        schedule.milestones,
+        schedule.milestonesForBandLayout,
         schedule.visibleMilestoneGroupIds,
         view.pxPerDay,
         milestoneFontSize,
@@ -1229,7 +1229,7 @@ function App() {
       milestoneFontSize,
       milestoneLaneHeight,
       schedule.milestoneGroups,
-      schedule.milestones,
+      schedule.milestonesForBandLayout,
       schedule.visibleMilestoneGroupIds,
       view.pxPerDay,
     ],
@@ -4708,7 +4708,7 @@ function App() {
             onWheelBody={onWheelBody}
             onWheelHeader={onWheelHeader}
             onPan={panBy}
-            milestones={schedule.milestones}
+            milestones={schedule.milestonesForBandLayout}
             milestoneBandLayout={milestoneBandLayout}
             milestoneBandHeight={milestoneBandHeight}
             milestoneLaneHeight={milestoneLaneHeight}

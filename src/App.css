@@ -3416,6 +3416,18 @@ button:focus-visible,
   background: var(--hover-row);
 }
 
+.sidebar-milestones--explanation-mark-change {
+  outline: 2px solid var(--explanation-mark-change-ring);
+  outline-offset: -2px;
+  z-index: 2;
+}
+
+.sidebar-milestones--explanation-mark-ask {
+  outline: 2px dashed var(--explanation-mark-ask-ring);
+  outline-offset: -2px;
+  z-index: 2;
+}
+
 .sidebar-row.selected {
   background: var(--selected-row);
 }
@@ -3612,10 +3624,23 @@ button:focus-visible,
 }
 
 .milestone-band {
+  position: relative;
   flex-shrink: 0;
   overflow: hidden;
   background: var(--milestone-band);
   border-bottom: 1px solid var(--border);
+}
+
+.milestone-explanation-balloons-layer {
+  position: absolute;
+  left: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 6;
+}
+
+.milestone-explanation-balloons-layer .explanation-balloons-host {
+  overflow: visible;
 }
 
 .milestone-hover-overlay {

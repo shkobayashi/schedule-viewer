@@ -116,7 +116,9 @@ import {
   explainViewClearSuccessText,
   explanationViewActive,
   parseExplainViewRequest,
+  resolveExplanationMilestoneBand,
   type ExplanationViewState,
+  type ExplainViewDocumentContext,
 } from "../model/explainView";
 import {
   explainOverlayHideSuccessText,
@@ -2888,15 +2890,23 @@ export function useSchedule(
     [prunedHiddenMilestoneGroupIds],
   );
 
-  const visibleMilestoneGroupIds = useMemo(
+  const explanationMilestoneBand = useMemo(
     () =>
-      new Set(
-        milestoneGroups
-          .filter((group) => !hiddenMilestoneGroupIdSet.has(group.id))
-          .map((group) => group.id),
+      resolveExplanationMilestoneBand(
+        { milestoneGroups, milestones },
+        explanationView,
+        hiddenMilestoneGroupIdSet,
       ),
-    [hiddenMilestoneGroupIdSet, milestoneGroups],
+    [
+      explanationView,
+      hiddenMilestoneGroupIdSet,
+      milestoneGroups,
+      milestones,
+    ],
   );
+
+  const visibleMilestoneGroupIds = explanationMilestoneBand.visibleGroupIds;
+  const milestonesForBandLayout = explanationMilestoneBand.milestones;
 
   const setMilestoneGroupVisible = useCallback(
     (groupId: ScheduleId, visible: boolean) => {
@@ -2938,12 +2948,17 @@ export function useSchedule(
     (
       envelope: Record<string, unknown>,
     ): { ok: true; text: string } | { ok: false; message: string } => {
+      const doc = documentRef.current;
+      const explainContext: ExplainViewDocumentContext = {
+        categories: doc.categories,
+        outline: doc.outline,
+        milestoneGroups: doc.milestoneGroups,
+        milestones: doc.milestones,
+        hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
+      };
       const parsed = parseExplainViewRequest(
         envelope,
-        {
-          categories: documentRef.current.categories,
-          outline: documentRef.current.outline,
-        },
+        explainContext,
         explanationViewRef.current,
       );
       if (!parsed.ok) return parsed;
@@ -2960,17 +2975,21 @@ export function useSchedule(
       setExplanationView(parsed.state);
       return { ok: true, text: explainViewApplySuccessText() };
     },
-    [clearExplanationSession],
+    [clearExplanationSession, prunedHiddenMilestoneGroupIds],
   );
 
   const runExplainOverlayAction = useCallback(
     (
       envelope: Record<string, unknown>,
     ): { ok: true; text: string } | { ok: false; message: string } => {
+      const doc = documentRef.current;
       const parsed = parseExplainOverlayRequest(envelope, {
-        categories: documentRef.current.categories,
-        outline: documentRef.current.outline,
-        milestones: documentRef.current.milestones,
+        categories: doc.categories,
+        outline: doc.outline,
+        milestones: doc.milestones,
+        milestoneGroups: doc.milestoneGroups,
+        hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
+        explanationView: explanationViewRef.current,
         collapsed: displayedCollapsedRef.current,
         visibleRows: visibleRowsRef.current,
       });
@@ -2992,7 +3011,7 @@ export function useSchedule(
       }
       return { ok: true, text: explainOverlayShowSuccessText() };
     },
-    [explainOverlayRuntime],
+    [explainOverlayRuntime, prunedHiddenMilestoneGroupIds],
   );
 
   return {
@@ -3005,6 +3024,7 @@ export function useSchedule(
     showAllMilestoneGroups,
     showOnlyMilestoneGroup,
     milestones,
+    milestonesForBandLayout,
     editingMilestone,
     editingHierarchyTarget,
     openHierarchyEdit,

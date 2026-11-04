@@ -8,11 +8,14 @@ import {
   explanationBalloonScreenRect,
   explanationMarkVisibleInViewport,
   explanationSidebarMarkKinds,
+  milestoneExplanationBalloonOverlayHeight,
+  milestoneExplanationBalloonScreenRect,
   planExplanationOverlayScroll,
 } from "./explainOverlayLayout";
 import { taskBarRectInBody } from "./taskBarLayout";
 import { collectTaskBarLabelObstacles } from "./connections";
 import type { ExplanationMark } from "./explainOverlay";
+import { layoutMilestoneBand } from "./milestones";
 
 const timelineStart = parseDate("2026-01-01");
 const pxPerDay = 20;
@@ -240,6 +243,229 @@ describe("buildExplanationOverlayGeometry", () => {
     });
     const hole = geo.bodyHoles[0]!;
     expect(hole.width).toBeLessThanOrEqual(pxPerDay + 1);
+  });
+
+  it("layoutExplanationBalloon_headerStaysWithinHeaderTop", () => {
+    const dateToXContent = (d: Date) =>
+      Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) * pxPerDay;
+    const headerHeight = 30;
+    const geo = buildExplanationOverlayGeometry({
+      marks: [{ date: "2026-01-05", kind: "ask", label: "長い日付ヘッダーの説明ラベル" }],
+      visibleRows: [],
+      dateToX: dateToXContent,
+      pxPerDay,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      bodyHeight: 400,
+      headerHeight,
+      timelineWidth: 400,
+      liveAnchors: new Map(),
+      milestones: [],
+      milestoneCenterYById: new Map(),
+      milestoneDiamondSize: 11,
+    });
+    const balloon = geo.headerBalloons[0]!;
+    const dimensions = estimateBalloonDimensions(
+      balloon.label,
+      balloon.maxWidth,
+      1,
+      headerHeight - 2,
+    );
+    const rect = explanationBalloonScreenRect(
+      balloon.left,
+      balloon.top,
+      balloon.placement,
+      dimensions,
+    );
+    expect(rect.top).toBeGreaterThanOrEqual(0);
+    expect(rect.bottom).toBeLessThanOrEqual(headerHeight);
+  });
+
+  it("buildExplanationOverlayGeometry_placesMilestoneMarkBalloonInBand", () => {
+    const dateToXContent = (d: Date) =>
+      Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) * pxPerDay;
+    const bandLayout = layoutMilestoneBand(
+      [{ id: "mg1", name: "G" }],
+      [
+        {
+          id: "ms1",
+          name: "M",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      new Set(["mg1"]),
+      pxPerDay,
+      11,
+      11,
+      24,
+      "screen",
+    );
+    const geo = buildExplanationOverlayGeometry({
+      marks: [{ milestoneId: "ms1", kind: "ask", label: "星" }],
+      visibleRows: [],
+      dateToX: dateToXContent,
+      pxPerDay,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      bodyHeight: 400,
+      headerHeight: 30,
+      timelineWidth: 400,
+      liveAnchors: new Map(),
+      milestones: [
+        {
+          id: "ms1",
+          name: "M",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      milestoneCenterYById: bandLayout.centerYById,
+      milestoneBandLayout: bandLayout,
+      milestoneDiamondSize: 11,
+    });
+    expect(geo.milestoneBalloons).toHaveLength(1);
+    expect(geo.bodyBalloons).toHaveLength(0);
+  });
+
+  it("milestoneMarkBalloon_staysInVisibleOverlayAndPointsFromBelow", () => {
+    const dateToXContent = (d: Date) =>
+      Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) * pxPerDay;
+    const bandLayout = layoutMilestoneBand(
+      [{ id: "mg1", name: "G" }],
+      [
+        {
+          id: "ms1",
+          name: "PoC完了",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      new Set(["mg1"]),
+      pxPerDay,
+      11,
+      11,
+      24,
+      "screen",
+    );
+    const bandHeight = bandLayout.totalHeight;
+    const overlayHeight = milestoneExplanationBalloonOverlayHeight(
+      bandHeight,
+      1,
+    );
+    const geo = buildExplanationOverlayGeometry({
+      marks: [
+        {
+          milestoneId: "ms1",
+          kind: "ask",
+          label: "PoC完了（評価指標クリア・次フェーズ判定）",
+        },
+      ],
+      visibleRows: [],
+      dateToX: dateToXContent,
+      pxPerDay,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      bodyHeight: 400,
+      headerHeight: 30,
+      timelineWidth: 400,
+      liveAnchors: new Map(),
+      milestones: [
+        {
+          id: "ms1",
+          name: "PoC完了",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      milestoneCenterYById: bandLayout.centerYById,
+      milestoneBandLayout: bandLayout,
+      milestoneDiamondSize: 11,
+    });
+    const balloon = geo.milestoneBalloons[0]!;
+    expect(balloon.placement).toBe("below");
+    const rect = milestoneExplanationBalloonScreenRect(balloon, 1);
+    expect(rect.top).toBeGreaterThanOrEqual(0);
+    expect(rect.bottom).toBeLessThanOrEqual(overlayHeight);
+    const anchorY = bandLayout.centerYById.get("ms1")!;
+    expect(balloon.top).toBeGreaterThanOrEqual(anchorY);
+  });
+
+  it("milestoneMarkBalloon_visibleInMultiRowBand", () => {
+    const dateToXContent = (d: Date) =>
+      Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) * pxPerDay;
+    const bandLayout = layoutMilestoneBand(
+      [{ id: "mg1", name: "G" }],
+      [
+        {
+          id: "ms1",
+          name: "A",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+        {
+          id: "ms2",
+          name: "B",
+          date: "2026-01-06",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      new Set(["mg1"]),
+      pxPerDay,
+      11,
+      11,
+      24,
+      "screen",
+    );
+    const overlayHeight = milestoneExplanationBalloonOverlayHeight(
+      bandLayout.totalHeight,
+      1,
+    );
+    const geo = buildExplanationOverlayGeometry({
+      marks: [{ milestoneId: "ms1", kind: "change", label: "上段の星" }],
+      visibleRows: [],
+      dateToX: dateToXContent,
+      pxPerDay,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      bodyHeight: 400,
+      headerHeight: 30,
+      timelineWidth: 400,
+      liveAnchors: new Map(),
+      milestones: [
+        {
+          id: "ms1",
+          name: "A",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+        {
+          id: "ms2",
+          name: "B",
+          date: "2026-01-06",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      milestoneCenterYById: bandLayout.centerYById,
+      milestoneBandLayout: bandLayout,
+      milestoneDiamondSize: 11,
+    });
+    const balloon = geo.milestoneBalloons[0]!;
+    const rect = milestoneExplanationBalloonScreenRect(balloon, 1);
+    expect(rect.top).toBeGreaterThanOrEqual(0);
+    expect(rect.bottom).toBeLessThanOrEqual(overlayHeight);
   });
 
   it("layoutExplanationBalloon_prefersAboveWhenClear", () => {

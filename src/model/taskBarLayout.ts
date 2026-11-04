@@ -102,6 +102,19 @@ export function milestoneMarkLaneCenterY(
   return lane * laneHeight + laneHeight / 2;
 }
 
+export function milestoneBandBlockRectInBand(input: {
+  offsetY: number;
+  height: number;
+  timelineWidth: number;
+}): TaskBarBodyRect {
+  return {
+    x: 0,
+    y: input.offsetY,
+    width: input.timelineWidth,
+    height: input.height,
+  };
+}
+
 export function milestoneDiamondRectInBand(input: {
   dateIso: string;
   dateToX: (d: Date) => number;

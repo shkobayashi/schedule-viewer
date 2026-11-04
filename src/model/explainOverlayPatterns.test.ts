@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   APPLY_EXPLANATION_PATTERN_AFTER_MISSING,
   APPLY_EXPLANATION_PATTERN_ID_COLLISION,
+  APPLY_EXPLANATION_PATTERN_MILESTONE_MISSING,
   EXPLAIN_OVERLAY_PATTERNS_REJECT,
+  EXPLANATION_TRIAL_UNANIMOUS_COLOR,
   applyExplanationPatternToDocument,
   parseApplyExplanationPatternRequest,
   buildDisplayVisibleRowsWithExplanationTrials,
   buildExplanationTrialBarLayouts,
+  buildExplanationTrialMilestoneLayouts,
   buildExplanationTrialPredecessorArcs,
   buildMcpExplanationPatterns,
   parseExplanationPatterns,
@@ -15,7 +18,7 @@ import {
 } from "./explainOverlayPatterns";
 import { parseExplainOverlayRequest } from "./explainOverlay";
 import { tasksInOutlineParent } from "./outlineTasks";
-import { taskBarAnchorInBody, taskBarRectInBody } from "./taskBarLayout";
+import { taskBarAnchorInBody, taskBarRectInBody, milestoneDiamondRectInBand } from "./taskBarLayout";
 import { serializeScheduleDocument } from "./scheduleFile";
 import type { TaskBarAnchor } from "./connections";
 import type { Category, Milestone, ScheduleDocument, Task, VisibleRow } from "./types";
@@ -71,6 +74,8 @@ const baseContext = {
   categories,
   outline: undefined,
   milestones,
+  milestoneGroups: [{ id: "mg1", name: "G" }],
+  hiddenMilestoneGroupIds: [] as string[],
   collapsed: new Set<string>(),
   visibleRows: [taskRow("t1", 0), taskRow("t2", 32)] as VisibleRow[],
 };
@@ -126,6 +131,7 @@ describe("parseExplanationPatterns", () => {
               end: "2026-01-12",
             },
           ],
+          milestoneChanges: [],
         },
       ],
     });
@@ -777,6 +783,7 @@ describe("applyExplanationPatternToDocument", () => {
         end: "2026-01-12",
       },
     ],
+    milestoneChanges: [],
   };
 
   it("applyExplanationPatternToDocument_insertsTrialAfterAnchorAndAppliesChanges", () => {
@@ -803,6 +810,178 @@ describe("applyExplanationPatternToDocument", () => {
     );
     expect(t2?.start).toBe("2026-01-07");
     expect(t2?.end).toBe("2026-01-12");
+  });
+
+  it("applyExplanationPatternToDocument_appliesTaskAndMilestoneChangesTogether", () => {
+    const doc: ScheduleDocument = {
+      ...baseDocument(),
+      milestoneGroups: [{ id: "mg1", name: "G" }],
+      milestones: [
+        {
+          id: "ms1",
+          name: "M",
+          date: "2026-01-10",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+    };
+    const result = applyExplanationPatternToDocument(doc, {
+      ...samplePattern,
+      tasks: [],
+      changes: [
+        { taskId: "t2", start: "2026-01-07", end: "2026-01-12" },
+      ],
+      milestoneChanges: [{ milestoneId: "ms1", date: "2026-01-15" }],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.milestones[0]?.date).toBe("2026-01-15");
+    expect(
+      result.document.categories[0]?.groups[0]?.tasks.find((t) => t.id === "t2")
+        ?.start,
+    ).toBe("2026-01-07");
+  });
+
+  it("applyExplanationPatternToDocument_rejectsUnknownMilestoneId", () => {
+    const result = applyExplanationPatternToDocument(baseDocument(), {
+      ...samplePattern,
+      tasks: [],
+      changes: [],
+      milestoneChanges: [{ milestoneId: "missing", date: "2026-01-15" }],
+    });
+    expect(result).toEqual({
+      ok: false,
+      message: APPLY_EXPLANATION_PATTERN_MILESTONE_MISSING,
+    });
+  });
+
+  it("buildExplanationTrialMilestoneLayouts_matchesMilestoneDiamondRectInBand", () => {
+    const centerYById = new Map([["ms1", 12]]);
+    const dateToX = (d: Date) =>
+      Math.floor((d.getTime() - Date.parse("2026-01-01")) / 86400000) * 8;
+    const layouts = buildExplanationTrialMilestoneLayouts({
+      patterns: [
+        {
+          id: "p1",
+          name: "A",
+          color: "#2563eb",
+          tasks: [],
+          changes: [],
+          milestoneChanges: [{ milestoneId: "ms1", date: "2026-01-05" }],
+        },
+      ],
+      milestones: [
+        {
+          id: "ms1",
+          name: "M",
+          date: "2026-01-10",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      milestoneCenterYById: centerYById,
+      diamondSize: 11,
+      dateToX,
+    });
+    expect(layouts).toHaveLength(1);
+    const expected = milestoneDiamondRectInBand({
+      dateIso: "2026-01-05",
+      dateToX,
+      centerY: 12,
+      diamondSize: 11,
+    });
+    expect(layouts[0]!.rect).toEqual(expected);
+    expect(layouts[0]!.originRect).toEqual(
+      milestoneDiamondRectInBand({
+        dateIso: "2026-01-10",
+        dateToX,
+        centerY: 12,
+        diamondSize: 11,
+      }),
+    );
+  });
+
+  it("buildExplanationTrialMilestoneLayouts_mergesUnanimousChangeAcrossPatterns", () => {
+    const centerYById = new Map([["ms1", 12]]);
+    const dateToX = (d: Date) =>
+      Math.floor((d.getTime() - Date.parse("2026-01-01")) / 86400000) * 8;
+    const layouts = buildExplanationTrialMilestoneLayouts({
+      patterns: [
+        {
+          id: "p-a",
+          name: "A",
+          color: "#2563eb",
+          tasks: [],
+          changes: [],
+          milestoneChanges: [{ milestoneId: "ms1", date: "2026-02-01" }],
+        },
+        {
+          id: "p-b",
+          name: "B",
+          color: "#dc2626",
+          tasks: [],
+          changes: [],
+          milestoneChanges: [{ milestoneId: "ms1", date: "2026-02-01" }],
+        },
+      ],
+      milestones: [
+        {
+          id: "ms1",
+          name: "M",
+          date: "2026-01-10",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      milestoneCenterYById: centerYById,
+      diamondSize: 11,
+      dateToX,
+    });
+    expect(layouts).toHaveLength(1);
+    expect(layouts[0]!.color).toBe(EXPLANATION_TRIAL_UNANIMOUS_COLOR);
+    expect(layouts[0]!.unanimous).toBe(true);
+  });
+
+  it("buildExplanationTrialBarLayouts_mergesUnanimousTaskChangeAcrossPatterns", () => {
+    const timelineStart = new Date("2026-01-01T00:00:00");
+    const pxPerDay = 22;
+    const rowHeight = 26;
+    const barHeight = 14;
+    const visibleRows = [taskRow("t2", 32)] as VisibleRow[];
+    const scaledDateToX = (d: Date) =>
+      Math.round(
+        ((d.getTime() - timelineStart.getTime()) / (24 * 60 * 60 * 1000)) *
+          pxPerDay,
+      );
+    const layouts = buildExplanationTrialBarLayouts({
+      patterns: [
+        {
+          id: "p-a",
+          name: "A",
+          color: "#2563eb",
+          tasks: [],
+          changes: [{ taskId: "t2", start: "2026-01-07", end: "2026-01-09" }],
+        },
+        {
+          id: "p-b",
+          name: "B",
+          color: "#dc2626",
+          tasks: [],
+          changes: [{ taskId: "t2", start: "2026-01-07", end: "2026-01-09" }],
+        },
+      ],
+      visibleRows,
+      categories,
+      outline: undefined,
+      scrollY: 0,
+      rowHeight,
+      barHeight,
+      pxPerDay,
+      dateToX: scaledDateToX,
+    });
+    expect(layouts).toHaveLength(1);
+    expect(layouts[0]!.color).toBe(EXPLANATION_TRIAL_UNANIMOUS_COLOR);
   });
 
   it("applyExplanationPatternToDocument_rejectsTrialIdCollision", () => {
