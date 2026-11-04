@@ -148,6 +148,18 @@ export async function acknowledgeScheduleFileContentsViaTauri(
   await invoke("acknowledge_schedule_file_contents", { contents });
 }
 
+export async function saveScheduleAtPathViaTauri(
+  path: string,
+  contents: string,
+  skipDiskHashCheck: boolean,
+): Promise<string> {
+  return invoke<string>("save_schedule_at_path", {
+    path,
+    contents,
+    skipDiskHashCheck,
+  });
+}
+
 export async function saveScheduleViaTauri(
   saveAs: boolean,
   contents: string,
@@ -265,6 +277,20 @@ export type LastScheduleRead = {
 
 export async function readLastScheduleFileViaTauri(): Promise<LastScheduleRead | null> {
   return invoke<LastScheduleRead | null>("read_last_schedule_file");
+}
+
+/** MCP 用。React の path が未同期でも、Tauri 側の開いている path を返す。 */
+export async function resolveScheduleComparisonPath(
+  filePath: string | null,
+): Promise<string | null> {
+  if (filePath != null && filePath.length > 0) {
+    return filePath;
+  }
+  if (!isTauri()) {
+    return null;
+  }
+  const last = await readLastScheduleFileViaTauri();
+  return last?.path ?? null;
 }
 
 export async function clearLastSchedulePathViaTauri(): Promise<void> {

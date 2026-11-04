@@ -185,7 +185,7 @@ README は、このアプリの入口にする。説明は v2.0 の方針に合�
 
 ## LLMとのコミュニケーション
 
-LLMとのコミュニケーションは、現時点では計画しない。機能の伝え方は次の節で扱う。自分の予定の始め方以外は、一通り作ったあとである。
+画面を共有して話す計画は、Issue #420 に書いた。Issue #437 で説明のための絞り込みと折りたたみ（6a）を入れた。半透明は Issue #439（6b-1）である。示すことと吹き出しは 6b-2 である。機能の伝え方は次の節で扱う。自分の予定の始め方以外は、一通り作ったあとである。
 
 ## 機能の伝え方
 
@@ -217,7 +217,7 @@ LLMとのコミュニケーションは、現時点では計画しない。機�
 
 ## 決定（MCP を使えないときの画面の状態）
 
-- コマンドは `--screen` とツール名、または読み取り 6 つに `--window` と内部ラベル。ツール名に `open_windows` と `current_schedule` を含む。`open_windows` と `replace_schedule` に `--window` は付けない。`replace_schedule` は標準入力にスケジュール JSON 全体
+- コマンドは `--screen` とツール名、または読み取り 6 つと `focus_window`・`close_window`・`minimize_window` に `--window` と内部ラベル。前面向けの操作（`set_view`、`edit_plan`、`file_action`、`catalog_action`、`set_preferences`、`history`、`open_new_window`）と `open_windows`・`replace_schedule` に `--window` は付けない。拒否文は CLI が標準エラーへ出す。`replace_schedule` と前面向け操作は標準入力に JSON。`discardInProgress` は操作 JSON に書く
 - スキル名は `read-screen`。同梱テンプレートの実行ファイルの呼び方を、置くときにこのパソコンのものへ書き込む。Windows で Local AppData 配下のときは `"$LOCALAPPDATA/"` から続く1行にし、それ以外は絶対パスを引数と別の行に書く
 - 置き先はユーザー全体（`~/.cursor/skills/read-screen/`、`~/.claude/skills/read-screen/`、`~/.copilot/skills/read-screen/`）だけ。指定フォルダは出さない
 - 設定の「画面の状態を渡す」に、mcp.json 登録とスキル置きを並べる。どちらか一方を終えても、もう一方は終わらない
@@ -248,16 +248,12 @@ LLMとのコミュニケーションは、現時点では計画しない。機�
 
 並び替えは、その画面だけの見方にすべきです。保存した計画の順は変えません。
 
-　着手順
-1. Issue 312
-2. Issue 249
-3. Issue 14
-4. Issue 313
-5. Issue 314
-6. Issue 317
-7. Issue 318
-8. Issue 316
-9. Issue 315
-10. Issue 319
-11. Issue 321
-12. Issue 322
+## Step2. LLMとのコミュニケーション強化計画
+
+計画は Issue #420 に移した。子 Issue は、その段に入る直前に切る。
+
+### 未決
+
+- 計画を消さない動きまで、操作のたびに許可が要るか。見方としては、カーソルを動かす、選択を移す、は見せながら進め、許可は入力を捨てるときと、保存のように残る操作に限る。
+- 今無い場所を見せる印と、説明のための仮のタスクを、保存する計画の外に置くか。
+- 開いている webview の絵を、画面の見た目を比べるテストに CI で使うか。クリックで画面を辿ることは、この撮影ではしない。比べるなら、ウィンドウを開ける同じ種類のランナーで撮った絵同士にする。

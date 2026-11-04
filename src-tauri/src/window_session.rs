@@ -838,6 +838,14 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
     }
 }
 
+pub fn peek_pending_open(state: &WindowSessionState, label: &str) -> Option<PendingWindowOpen> {
+    state.pending_opens.get(label).cloned()
+}
+
+pub fn ack_pending_open(state: &mut WindowSessionState, label: &str) {
+    state.pending_opens.remove(label);
+}
+
 pub fn take_pending_open(state: &mut WindowSessionState, label: &str) -> Option<PendingWindowOpen> {
     state.pending_opens.remove(label)
 }

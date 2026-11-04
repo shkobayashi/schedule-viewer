@@ -23,6 +23,10 @@ import type { ResolvedColorScheme } from "../model/palette";
 import type { StatusItem } from "../model/statusCatalog";
 import type { ColorItem } from "../model/colorCatalog";
 import type { MemberId } from "../model/memberTypes";
+import {
+  captureMcpInProgressGeneration,
+  isMcpInProgressCommitStale,
+} from "../model/mcpInProgressInvalidation";
 import type { TaskEditPatch } from "../model/tasks";
 import { validateTaskEdit } from "../model/tasks";
 import {
@@ -164,6 +168,7 @@ export function TaskDetailPanel({
   const nameRef = useRef<HTMLInputElement>(null);
   const panelHeadingRef = useRef<HTMLHeadingElement>(null);
   const rootRef = useRef<HTMLElement>(null);
+  const commitEpochRef = useRef(captureMcpInProgressGeneration());
 
   const announceTagStatus = useCallback((message: string) => {
     if (tagStatusRef.current === message) {
@@ -380,13 +385,17 @@ export function TaskDetailPanel({
     if (rounded !== task.progress) commitWith({ progress });
   }, [commitWith, progress, task.progress]);
 
-  const onFocusIn = () => onEditingChange(true);
+  const onFocusIn = () => {
+    commitEpochRef.current = captureMcpInProgressGeneration();
+    onEditingChange(true);
+  };
   const onFocusOut = (event: FocusEvent) => {
     const root = rootRef.current;
     const next = event.relatedTarget;
     if (root && next instanceof Node && root.contains(next)) return;
     if (isDatePopoverTarget(next)) return;
     onEditingChange(false);
+    if (isMcpInProgressCommitStale(commitEpochRef.current)) return;
     const overrides = dirtyPatch();
     if (overrides) commitWith(overrides);
   };

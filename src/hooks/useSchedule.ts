@@ -1,5 +1,5 @@
 import { BUILTIN_STATUS_ITEMS, defaultStatusId, type StatusItem } from "../model/statusCatalog";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { useToday } from "./useToday";
 import {
   addDays,
@@ -109,7 +109,33 @@ import {
   type ScheduleFilterViewState,
   type SearchField,
 } from "../model/scheduleFilterPersistence";
+import {
+  displayedCollapsedSet,
+  explainTaskIdsForFilter,
+  explainViewApplySuccessText,
+  explainViewClearSuccessText,
+  explanationViewActive,
+  parseExplainViewRequest,
+  resolveExplanationMilestoneBand,
+  type ExplanationViewState,
+  type ExplainViewDocumentContext,
+} from "../model/explainView";
+import {
+  explainOverlayHideSuccessText,
+  explainOverlayShowSuccessText,
+  explanationOverlayActive,
+  explanationSessionActive,
+  parseExplainOverlayRequest,
+  type ExplanationOverlayState,
+} from "../model/explainOverlay";
+import { buildDisplayVisibleRowsWithExplanationTrials } from "../model/explainOverlayPatterns";
+import {
+  planExplanationOverlayScroll,
+  type ExplanationScrollPlan,
+  type PlanExplanationScrollInput,
+} from "../model/explainOverlayLayout";
 import type { ReplaceScheduleDocumentResult } from "../model/replaceSchedule";
+import { coerceOutlineStorageDocument } from "../model/mcpEditPlan";
 import { serializeScheduleDocument } from "../model/scheduleFile";
 import {
   resolveScheduleTitleCommit,
@@ -346,6 +372,10 @@ export function useSchedule(
   statusCatalogSettled = true,
   effectiveFieldDefs: readonly import("../model/types").ScheduleFieldDef[] = [],
   fieldExtensionCatalogSettled = true,
+  explainOverlayRuntime?: MutableRefObject<{
+    getPlanInput: () => PlanExplanationScrollInput | null;
+    applyScroll: (plan: ExplanationScrollPlan) => void;
+  } | null>,
 ) {
   const documentRef = useRef<DocumentSnapshot>(
     initialSnapshot(
@@ -418,6 +448,38 @@ export function useSchedule(
   );
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
     () => new Set(),
+  );
+  const collapsedRef = useRef(collapsed);
+  collapsedRef.current = collapsed;
+  const [explanationView, setExplanationView] = useState<ExplanationViewState | null>(
+    null,
+  );
+  const explanationViewRef = useRef(explanationView);
+  explanationViewRef.current = explanationView;
+  const [explanationOverlay, setExplanationOverlay] =
+    useState<ExplanationOverlayState | null>(null);
+  const explanationOverlayRef = useRef(explanationOverlay);
+  explanationOverlayRef.current = explanationOverlay;
+  const clearExplanationSession = useCallback(() => {
+    setExplanationView(null);
+    setExplanationOverlay(null);
+  }, []);
+  const clearExplanationView = clearExplanationSession;
+  const clearExplanationOnHumanViewChange = useCallback(() => {
+    if (
+      explanationViewRef.current != null ||
+      explanationOverlayRef.current?.translucent === true
+    ) {
+      clearExplanationSession();
+    }
+  }, [clearExplanationSession]);
+  const explainTaskIds = useMemo(
+    () => explainTaskIdsForFilter(explanationView),
+    [explanationView],
+  );
+  const displayedCollapsed = useMemo(
+    () => displayedCollapsedSet(collapsed, explanationView),
+    [collapsed, explanationView],
   );
   const [reorderPreview, setReorderPreview] = useState<
     | {
@@ -504,8 +566,14 @@ export function useSchedule(
       setConnections(cloned.connections);
       setReorderPreview(null);
       pruneUiForDocument(cloned);
+      if (
+        explanationViewRef.current != null ||
+        explanationOverlayRef.current?.translucent === true
+      ) {
+        clearExplanationSession();
+      }
     },
-    [pruneUiForDocument, setReorderPreview],
+    [pruneUiForDocument, setReorderPreview, clearExplanationSession],
   );
 
   const commitDocument = useCallback(
@@ -518,6 +586,12 @@ export function useSchedule(
       historyRef.current = pushed.history;
       syncHistoryUi();
       if (!pushed.applied) return;
+      if (
+        explanationViewRef.current != null ||
+        explanationOverlayRef.current?.translucent === true
+      ) {
+        clearExplanationSession();
+      }
       documentRef.current = pushed.applied;
       setCategories(pushed.applied.categories);
       setMilestoneGroups(pushed.applied.milestoneGroups);
@@ -526,7 +600,7 @@ export function useSchedule(
       setOutline(pushed.applied.outline);
       setConnections(pushed.applied.connections);
     },
-    [blockDocumentEditsRef, syncHistoryUi],
+    [blockDocumentEditsRef, clearExplanationSession, syncHistoryUi],
   );
 
   const commitCategories = useCallback(
@@ -725,7 +799,7 @@ export function useSchedule(
       computeVisibleRows(
         categories,
         filters,
-        collapsed,
+        displayedCollapsed,
         today,
         memberMap,
         rowHeight,
@@ -733,11 +807,13 @@ export function useSchedule(
         statuses,
         hierarchyRowOptions,
         effectiveFieldDefs,
+        explainTaskIds,
       ),
     [
       categories,
-      collapsed,
+      displayedCollapsed,
       effectiveFieldDefs,
+      explainTaskIds,
       filters,
       hierarchyRowOptions,
       lineageIds,
@@ -835,7 +911,7 @@ export function useSchedule(
       computeVisibleRows(
         displayCategories,
         filters,
-        collapsed,
+        displayedCollapsed,
         today,
         memberMap,
         rowHeight,
@@ -843,11 +919,13 @@ export function useSchedule(
         statuses,
         hierarchyRowOptionsForDisplay,
         effectiveFieldDefs,
+        explainTaskIds,
       ),
     [
-      collapsed,
+      displayedCollapsed,
       displayCategories,
       effectiveFieldDefs,
+      explainTaskIds,
       filters,
       hierarchyRowOptionsForDisplay,
       lineageIds,
@@ -857,6 +935,26 @@ export function useSchedule(
       today,
     ],
   );
+  const displayedCollapsedRef = useRef(displayedCollapsed);
+  displayedCollapsedRef.current = displayedCollapsed;
+  const visibleRowsRef = useRef(visibleRows);
+  visibleRowsRef.current = visibleRows;
+
+  const displayVisibleRows = useMemo(() => {
+    if (
+      !explanationOverlayActive(explanationOverlay) ||
+      explanationOverlay.patterns.length === 0
+    ) {
+      return visibleRows;
+    }
+    return buildDisplayVisibleRowsWithExplanationTrials(
+      visibleRows,
+      explanationOverlay.patterns,
+      rowHeight,
+    );
+  }, [explanationOverlay, rowHeight, visibleRows]);
+  const displayVisibleRowsRef = useRef(displayVisibleRows);
+  displayVisibleRowsRef.current = displayVisibleRows;
 
   const cancelReorder = useCallback(() => {
     setReorderPreview(null);
@@ -1116,30 +1214,34 @@ export function useSchedule(
   }, [effectiveFieldDefs, fieldExtensionCatalogSettled, filters.fieldFilters]);
 
   const toggleCollapsed = useCallback((key: string) => {
+    clearExplanationOnHumanViewChange();
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      collapsedRef.current = next;
       return next;
     });
-  }, []);
+  }, [clearExplanationOnHumanViewChange]);
 
   const updateFilters = useCallback((patch: Partial<ScheduleFilters>) => {
+    clearExplanationOnHumanViewChange();
     setFilters((prev) => ({ ...prev, ...patch }));
     setTaskSelection(emptyTaskSelection());
-  }, []);
+  }, [clearExplanationOnHumanViewChange]);
 
   const updateFieldFilters = useCallback(
     (
       build: (prev: ScheduleFilters) => ScheduleFilters["fieldFilters"],
     ) => {
+      clearExplanationOnHumanViewChange();
       setFilters((prev) => ({
         ...prev,
         fieldFilters: build(prev),
       }));
       setTaskSelection(emptyTaskSelection());
     },
-    [],
+    [clearExplanationOnHumanViewChange],
   );
 
   const patchFieldFilter = useCallback(
@@ -1194,6 +1296,7 @@ export function useSchedule(
   }, []);
 
   const toggleLineage = useCallback(() => {
+    clearExplanationOnHumanViewChange();
     if (lineageTaskId != null && lineageIncludesConnections) {
       setLineageIncludesConnections(false);
       setLineageTaskId(null);
@@ -1205,15 +1308,17 @@ export function useSchedule(
     }
     setLineageIncludesConnections(false);
     setLineageTaskId(selectedTaskId);
-  }, [lineageIncludesConnections, lineageTaskId, selectedTaskId]);
+  }, [clearExplanationOnHumanViewChange, lineageIncludesConnections, lineageTaskId, selectedTaskId]);
 
   const showLineage = useCallback((taskId: ScheduleId) => {
+    clearExplanationOnHumanViewChange();
     setLineageIncludesConnections(false);
     setLineageTaskId(taskId);
-  }, []);
+  }, [clearExplanationOnHumanViewChange]);
 
   const showLineageWithConnections = useCallback(
     (taskId: ScheduleId) => {
+      clearExplanationOnHumanViewChange();
       if (lineageTaskId === taskId) {
         setLineageIncludesConnections(true);
         return;
@@ -1221,13 +1326,14 @@ export function useSchedule(
       setLineageTaskId(taskId);
       setLineageIncludesConnections(true);
     },
-    [lineageTaskId],
+    [clearExplanationOnHumanViewChange, lineageTaskId],
   );
 
   const clearLineage = useCallback(() => {
+    clearExplanationOnHumanViewChange();
     setLineageTaskId(null);
     setLineageIncludesConnections(false);
-  }, []);
+  }, [clearExplanationOnHumanViewChange]);
 
   const moveTaskByDays = useCallback(
     (taskId: ScheduleId, deltaDays: number) => {
@@ -2496,7 +2602,7 @@ export function useSchedule(
       if (blockDocumentEditsRef?.current) {
         return { outcome: "rejected" };
       }
-      const next = snapshotFromDocument(document);
+      const next = snapshotFromDocument(coerceOutlineStorageDocument(document));
       const pushed = pushDocumentHistory(historyRef.current, current, next);
       if (!pushed) {
         return { outcome: "unchanged", screenJson: currentJson };
@@ -2515,6 +2621,12 @@ export function useSchedule(
       setOutline(pushed.applied.outline);
       setConnections(pushed.applied.connections);
       pruneUiForDocument(pushed.applied);
+      if (
+        explanationViewRef.current != null ||
+        explanationOverlayRef.current?.translucent === true
+      ) {
+        clearExplanationSession();
+      }
       return {
         outcome: "applied",
         screenJson: snapshotCanonicalJson(pushed.applied),
@@ -2524,6 +2636,7 @@ export function useSchedule(
     },
     [
       blockDocumentEditsRef,
+      clearExplanationSession,
       pruneUiForDocument,
       snapshotCanonicalJson,
       syncHistoryUi,
@@ -2565,10 +2678,17 @@ export function useSchedule(
       setDeletingHierarchy(null);
       setReorderPreview(null);
       pruneUiForDocument(pushed.applied);
+      if (
+        explanationViewRef.current != null ||
+        explanationOverlayRef.current?.translucent === true
+      ) {
+        clearExplanationSession();
+      }
       return { before, after: pushed.applied };
     },
     [
       blockDocumentEditsRef,
+      clearExplanationSession,
       pruneUiForDocument,
       setReorderPreview,
       syncHistoryUi,
@@ -2598,6 +2718,8 @@ export function useSchedule(
       setFilters(defaultView.filters);
       setSearchField(defaultView.searchField);
       setHiddenMilestoneGroupIds(defaultView.hiddenMilestoneGroupIds);
+      setExplanationView(null);
+      setExplanationOverlay(null);
       setReorderPreview(null);
       syncHistoryUi();
     },
@@ -2624,19 +2746,32 @@ export function useSchedule(
       setDiskEpoch((epoch) => epoch + 1);
       setReorderPreview(null);
       pruneUiForDocument(snapshot);
+      if (
+        explanationViewRef.current != null ||
+        explanationOverlayRef.current?.translucent === true
+      ) {
+        clearExplanationSession();
+      }
       syncHistoryUi();
     },
-    [pruneUiForDocument, setReorderPreview, syncHistoryUi],
+    [
+      clearExplanationSession,
+      pruneUiForDocument,
+      setReorderPreview,
+      syncHistoryUi,
+    ],
   );
 
-  const undo = useCallback(() => {
-    if (blockDocumentEditsRef?.current) return;
+  const undo = useCallback((): boolean => {
+    if (blockDocumentEditsRef?.current) return false;
+    if (historyRef.current.past.length === 0) return false;
     const result = undoDocumentHistory(historyRef.current, documentRef.current);
-    if (!result) return;
+    if (!result) return false;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
     syncHistoryUi();
     onHistoryUndoApplied?.(result.snapshot);
+    return true;
   }, [
     applySnapshot,
     blockDocumentEditsRef,
@@ -2644,14 +2779,16 @@ export function useSchedule(
     syncHistoryUi,
   ]);
 
-  const redo = useCallback(() => {
-    if (blockDocumentEditsRef?.current) return;
+  const redo = useCallback((): boolean => {
+    if (blockDocumentEditsRef?.current) return false;
+    if (historyRef.current.future.length === 0) return false;
     const result = redoDocumentHistory(historyRef.current, documentRef.current);
-    if (!result) return;
+    if (!result) return false;
     historyRef.current = result.history;
     applySnapshot(result.snapshot);
     syncHistoryUi();
     onHistoryRedoApplied?.(result.snapshot);
+    return true;
   }, [
     applySnapshot,
     blockDocumentEditsRef,
@@ -2686,13 +2823,48 @@ export function useSchedule(
     });
     setSearchField(state.searchField);
     setHiddenMilestoneGroupIds([...state.hiddenMilestoneGroupIds]);
-    setCollapsed(
-      collapsedSetFromIds(
+    setCollapsed((prev) => {
+      const next = collapsedSetFromIds(
         state.collapsedCategoryIds,
         state.collapsedGroupIds,
-      ),
-    );
+      );
+      for (const key of prev) {
+        if (key.startsWith("hierarchy:")) {
+          next.add(key);
+        }
+      }
+      collapsedRef.current = next;
+      return next;
+    });
   }, []);
+
+  const applyPartialFilterViewState = useCallback(
+    (update: {
+      filters?: ScheduleFilterViewState["filters"];
+      searchField?: ScheduleFilterViewState["searchField"];
+      hiddenMilestoneGroupIds?: ScheduleId[];
+      collapsed?: ReadonlySet<string>;
+    }) => {
+      if (update.filters !== undefined) {
+        setFilters({
+          ...update.filters,
+          tags: [...update.filters.tags],
+        });
+      }
+      if (update.searchField !== undefined) {
+        setSearchField(update.searchField);
+      }
+      if (update.hiddenMilestoneGroupIds !== undefined) {
+        setHiddenMilestoneGroupIds([...update.hiddenMilestoneGroupIds]);
+      }
+      if (update.collapsed !== undefined) {
+        const next = new Set(update.collapsed);
+        collapsedRef.current = next;
+        setCollapsed(next);
+      }
+    },
+    [],
+  );
 
   const getFilterViewState = useCallback((): ScheduleFilterViewState => {
     const { collapsedCategoryIds, collapsedGroupIds } =
@@ -2718,18 +2890,27 @@ export function useSchedule(
     [prunedHiddenMilestoneGroupIds],
   );
 
-  const visibleMilestoneGroupIds = useMemo(
+  const explanationMilestoneBand = useMemo(
     () =>
-      new Set(
-        milestoneGroups
-          .filter((group) => !hiddenMilestoneGroupIdSet.has(group.id))
-          .map((group) => group.id),
+      resolveExplanationMilestoneBand(
+        { milestoneGroups, milestones },
+        explanationView,
+        hiddenMilestoneGroupIdSet,
       ),
-    [hiddenMilestoneGroupIdSet, milestoneGroups],
+    [
+      explanationView,
+      hiddenMilestoneGroupIdSet,
+      milestoneGroups,
+      milestones,
+    ],
   );
+
+  const visibleMilestoneGroupIds = explanationMilestoneBand.visibleGroupIds;
+  const milestonesForBandLayout = explanationMilestoneBand.milestones;
 
   const setMilestoneGroupVisible = useCallback(
     (groupId: ScheduleId, visible: boolean) => {
+      clearExplanationOnHumanViewChange();
       setHiddenMilestoneGroupIds((prev) => {
         const hidden = prev.includes(groupId);
         if (visible && hidden) return prev.filter((id) => id !== groupId);
@@ -2737,20 +2918,101 @@ export function useSchedule(
         return prev;
       });
     },
-    [],
+    [clearExplanationOnHumanViewChange],
   );
 
   const showAllMilestoneGroups = useCallback(() => {
+    clearExplanationOnHumanViewChange();
     setHiddenMilestoneGroupIds([]);
-  }, []);
+  }, [clearExplanationOnHumanViewChange]);
 
   const showOnlyMilestoneGroup = useCallback(
     (groupId: ScheduleId) => {
+      clearExplanationOnHumanViewChange();
       setHiddenMilestoneGroupIds(
         hiddenMilestoneGroupIdsForShowOnly(groupId, milestoneGroups),
       );
     },
-    [milestoneGroups],
+    [clearExplanationOnHumanViewChange, milestoneGroups],
+  );
+
+  const setSearchFieldFromUi = useCallback(
+    (field: SearchField) => {
+      clearExplanationOnHumanViewChange();
+      setSearchField(field);
+    },
+    [clearExplanationOnHumanViewChange],
+  );
+
+  const runExplainViewAction = useCallback(
+    (
+      envelope: Record<string, unknown>,
+    ): { ok: true; text: string } | { ok: false; message: string } => {
+      const doc = documentRef.current;
+      const explainContext: ExplainViewDocumentContext = {
+        categories: doc.categories,
+        outline: doc.outline,
+        milestoneGroups: doc.milestoneGroups,
+        milestones: doc.milestones,
+        hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
+      };
+      const parsed = parseExplainViewRequest(
+        envelope,
+        explainContext,
+        explanationViewRef.current,
+      );
+      if (!parsed.ok) return parsed;
+      if (parsed.kind === "clear") {
+        const wasActive =
+          explanationViewRef.current != null ||
+          explanationOverlayRef.current?.translucent === true;
+        clearExplanationSession();
+        return { ok: true, text: explainViewClearSuccessText(wasActive) };
+      }
+      if (parsed.clearSelection) {
+        setTaskSelection(emptyTaskSelection());
+      }
+      setExplanationView(parsed.state);
+      return { ok: true, text: explainViewApplySuccessText() };
+    },
+    [clearExplanationSession, prunedHiddenMilestoneGroupIds],
+  );
+
+  const runExplainOverlayAction = useCallback(
+    (
+      envelope: Record<string, unknown>,
+    ): { ok: true; text: string } | { ok: false; message: string } => {
+      const doc = documentRef.current;
+      const parsed = parseExplainOverlayRequest(envelope, {
+        categories: doc.categories,
+        outline: doc.outline,
+        milestones: doc.milestones,
+        milestoneGroups: doc.milestoneGroups,
+        hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
+        explanationView: explanationViewRef.current,
+        collapsed: displayedCollapsedRef.current,
+        visibleRows: visibleRowsRef.current,
+      });
+      if (!parsed.ok) return parsed;
+      if (parsed.kind === "hide") {
+        const wasActive = explanationOverlayRef.current?.translucent === true;
+        setExplanationOverlay(null);
+        return { ok: true, text: explainOverlayHideSuccessText(wasActive) };
+      }
+      setExplanationOverlay(parsed.state);
+      if (explainOverlayRuntime != null) {
+        const planInput = explainOverlayRuntime.current?.getPlanInput();
+        if (planInput != null && parsed.state.marks.length > 0) {
+          const plan = planExplanationOverlayScroll({
+            ...planInput,
+            marks: parsed.state.marks,
+          });
+          if (plan != null) explainOverlayRuntime.current?.applyScroll(plan);
+        }
+      }
+      return { ok: true, text: explainOverlayShowSuccessText() };
+    },
+    [explainOverlayRuntime, prunedHiddenMilestoneGroupIds],
   );
 
   return {
@@ -2763,6 +3025,7 @@ export function useSchedule(
     showAllMilestoneGroups,
     showOnlyMilestoneGroup,
     milestones,
+    milestonesForBandLayout,
     editingMilestone,
     editingHierarchyTarget,
     openHierarchyEdit,
@@ -2795,6 +3058,7 @@ export function useSchedule(
     setMilestoneConfidence,
     assigneeFilterOptions,
     visibleRows,
+    displayVisibleRows,
     baseVisibleRows,
     reorderPreview,
     reorderInsertMarkerY,
@@ -2806,11 +3070,13 @@ export function useSchedule(
     commitGroupReorder,
     cancelReorder,
     toggleCollapsed,
+    collapsed,
     filters,
     searchField,
-    setSearchField,
+    setSearchField: setSearchFieldFromUi,
     setFilterViewState,
     getFilterViewState,
+    applyPartialFilterViewState,
     knownMemberIds,
     updateFilters,
     patchFieldFilter,
@@ -2874,6 +3140,20 @@ export function useSchedule(
     diskEpoch,
     undo,
     redo,
+    getCollapsedForMcp: () => collapsedRef.current,
+    getDisplayedCollapsedForMcp: () =>
+      displayedCollapsedSet(collapsedRef.current, explanationViewRef.current),
+    explanationView,
+    explanationOverlay,
+    explanationActive: explanationViewActive(explanationView),
+    explanationOverlayActive: explanationOverlayActive(explanationOverlay),
+    explanationSessionActive: explanationSessionActive(
+      explanationViewActive(explanationView),
+      explanationOverlay,
+    ),
+    clearExplanationView,
+    runExplainViewAction,
+    runExplainOverlayAction,
     canUndo: historyUi.canUndo,
     canRedo: historyUi.canRedo,
     today,

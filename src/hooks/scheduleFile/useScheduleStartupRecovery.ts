@@ -12,16 +12,22 @@ import {
   clearLastSchedulePathViaTauri,
   deleteScheduleRecoveryViaTauri,
   isTauri,
+  parseScheduleText,
   scheduleJsonFilename,
   scheduleParentDirectory,
 } from "../../model/scheduleFile";
 import type { RecentFilesStore } from "../../model/recentFiles";
 import {
+  ackPendingScheduleWindowOpenViaTauri,
   readWindowStartupViaTauri,
   takePendingScheduleWindowOpenViaTauri,
+  type PendingScheduleWindowOpen,
 } from "../../model/windowSession";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { recordRecentWorkspaceViaTauri } from "../../model/recentFilesAppData";
 import {
+  acceptOpenedWorkspaceViaTauri,
   openWorkspaceFromFile,
   readJsonFileLimitedViaTauri,
   WORKSPACE_STARTUP_FAILED_MESSAGE,
@@ -46,6 +52,7 @@ type RecoverySession = {
 
 type UseScheduleStartupRecoveryOptions = {
   replaceDocument: (document: ScheduleDocument) => void;
+  reloadDocumentFromDisk: (document: ScheduleDocument) => void;
   onAfterOpen: () => void;
   setFilePath: (path: string | null) => void;
   setBrowserFileLabel: (label: string | null) => void;
@@ -81,7 +88,7 @@ type UseScheduleStartupRecoveryOptions = {
 };
 
 export function useScheduleStartupRecovery({
-  replaceDocument,
+  reloadDocumentFromDisk,
   onAfterOpen,
   setFilePath,
   setBrowserFileLabel,
@@ -141,7 +148,7 @@ export function useScheduleStartupRecovery({
             preserveWorkspaceBinding: true,
           }),
         apply: () => {
-          replaceDocument(session.document);
+          reloadDocumentFromDisk(session.document);
           filePathRef.current = session.path;
           setFilePath(session.path);
           setBrowserFileLabel(null);
@@ -169,7 +176,7 @@ export function useScheduleStartupRecovery({
       filePathRef,
       isDirtyRef,
       onAfterOpen,
-      replaceDocument,
+      reloadDocumentFromDisk,
       setBaselineJson,
       setBrowserFileLabel,
       setDeferredExternalContents,
@@ -207,6 +214,117 @@ export function useScheduleStartupRecovery({
   );
   const applyRecoverySessionRef = useRef(applyRecoverySession);
   applyRecoverySessionRef.current = applyRecoverySession;
+  const pendingOpenAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let unlisten: (() => void) | undefined;
+    const selfLabel = getCurrentWindow().label;
+    void listen<PendingScheduleWindowOpen>(
+      "schedule-pending-open",
+      (event) => {
+        const pending = event.payload;
+        if (pending.label !== selfLabel) return;
+        if (pendingOpenAppliedRef.current) return;
+        pendingOpenAppliedRef.current = true;
+        void (async () => {
+          const workspacePath = pending.workspacePath?.trim() || null;
+        const finishPendingStartup = () => {
+          startupSettledRef.current = true;
+          setStartupSettled(true);
+          blockDocumentEditsRef.current = false;
+          fileBusyRef.current = false;
+        };
+        if (workspacePath) {
+          const workspaceStartupOk =
+            await restoreWorkspaceBinding(workspacePath);
+          if (!workspaceStartupOk) {
+            await ackPendingScheduleWindowOpenViaTauri();
+            await clearLastSchedulePathViaTauri().catch(() => {});
+            setErrorMessageText(WORKSPACE_STARTUP_FAILED_MESSAGE);
+            finishPendingStartup();
+            return;
+          }
+          await acceptOpenedWorkspaceViaTauri(
+            workspacePath,
+            pending.path,
+            pending.contents,
+          );
+          const parsed = parseScheduleText(pending.contents);
+          if (!parsed.ok) {
+            await ackPendingScheduleWindowOpenViaTauri();
+            setErrorMessageText(parsed.message);
+            finishPendingStartup();
+            return;
+          }
+          reloadDocumentFromDisk(parsed.document);
+          filePathRef.current = pending.path;
+          setFilePath(pending.path);
+          setBrowserFileLabel(null);
+          setBaselineJson(parsed.canonicalJson);
+          baselineJsonRef.current = parsed.canonicalJson;
+          clearExternalReloadPrompt();
+          clearInvalidDiskHash();
+          void clearRecoveryDraft();
+          onAfterOpen();
+          await ackPendingScheduleWindowOpenViaTauri();
+          try {
+            const store = await recordRecentWorkspaceViaTauri(workspacePath);
+            onRecentFilesStoreUpdated?.(store);
+          } catch {
+            // ignore
+          }
+          finishPendingStartup();
+          return;
+        }
+        await acceptOpenedScheduleViaTauri(pending.path, pending.contents);
+        const parsed = parseScheduleText(pending.contents);
+        if (!parsed.ok) {
+          await ackPendingScheduleWindowOpenViaTauri();
+          setErrorMessageText(parsed.message);
+          finishPendingStartup();
+          return;
+        }
+        reloadDocumentFromDisk(parsed.document);
+        filePathRef.current = pending.path;
+        setFilePath(pending.path);
+        setBrowserFileLabel(null);
+        setBaselineJson(parsed.canonicalJson);
+        baselineJsonRef.current = parsed.canonicalJson;
+        clearExternalReloadPrompt();
+        clearInvalidDiskHash();
+        void clearRecoveryDraft();
+        onAfterOpen();
+        await ackPendingScheduleWindowOpenViaTauri();
+        finishPendingStartup();
+      })();
+      },
+      { target: selfLabel },
+    ).then((off) => {
+      unlisten = off;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, [
+    baselineJsonRef,
+    blockDocumentEditsRef,
+    clearExternalReloadPrompt,
+    clearInvalidDiskHash,
+    clearRecoveryDraft,
+    fileBusyRef,
+    filePathRef,
+    onAfterOpen,
+    onRecentFilesStoreUpdated,
+    reloadDocumentFromDisk,
+    restoreWorkspaceBinding,
+    setBaselineJson,
+    setBrowserFileLabel,
+    setErrorMessageText,
+    setFilePath,
+    setStartupSettled,
+    startupSettledRef,
+  ]);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -229,23 +347,45 @@ export function useScheduleStartupRecovery({
         const pending = await takePendingScheduleWindowOpenViaTauri();
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (pending) {
+          if (pendingOpenAppliedRef.current) {
+            releaseStartupBusy();
+            return;
+          }
+          pendingOpenAppliedRef.current = true;
           const workspacePath = pending.workspacePath?.trim() || null;
           if (workspacePath) {
             const workspaceStartupOk =
               await restoreWorkspaceBinding(workspacePath);
             if (!workspaceStartupOk) {
+              await ackPendingScheduleWindowOpenViaTauri();
               await clearLastSchedulePathViaTauri().catch(() => {});
               setErrorMessageText(WORKSPACE_STARTUP_FAILED_MESSAGE);
               releaseStartupBusy();
               return;
             }
-            await applyOpenedFileRef.current(
-              {
-                path: pending.path,
-                contents: pending.contents,
-              },
-              { recordRecent: false },
+            await acceptOpenedWorkspaceViaTauri(
+              workspacePath,
+              pending.path,
+              pending.contents,
             );
+            const parsed = parseScheduleText(pending.contents);
+            if (!parsed.ok) {
+              await ackPendingScheduleWindowOpenViaTauri();
+              setErrorMessageText(parsed.message);
+              releaseStartupBusy();
+              return;
+            }
+            reloadDocumentFromDisk(parsed.document);
+            filePathRef.current = pending.path;
+            setFilePath(pending.path);
+            setBrowserFileLabel(null);
+            setBaselineJson(parsed.canonicalJson);
+            baselineJsonRef.current = parsed.canonicalJson;
+            clearExternalReloadPrompt();
+            clearInvalidDiskHash();
+            void clearRecoveryDraft();
+            onAfterOpen();
+            await ackPendingScheduleWindowOpenViaTauri();
             try {
               const store = await recordRecentWorkspaceViaTauri(workspacePath);
               onRecentFilesStoreUpdated?.(store);
@@ -253,6 +393,7 @@ export function useScheduleStartupRecovery({
               // ignore
             }
           } else {
+            await acceptOpenedScheduleViaTauri(pending.path, pending.contents);
             await applyOpenedFileRef.current(
               {
                 path: pending.path,
@@ -260,6 +401,7 @@ export function useScheduleStartupRecovery({
               },
               { recordRecent: true },
             );
+            await ackPendingScheduleWindowOpenViaTauri();
           }
           releaseStartupBusy();
           return;

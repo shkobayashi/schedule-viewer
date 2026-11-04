@@ -12,7 +12,10 @@ pub const EXPORT_PARTIAL_NOTE: &str =
     "それまでに書いたファイルはフォルダに残しています。このウィンドウはアプリの設定のままです。";
 
 fn is_ignorable_export_folder_entry(name: &str) -> bool {
-    name == ".DS_Store" || name == "Thumbs.db" || name == "desktop.ini"
+    name == ".DS_Store"
+        || name == "Thumbs.db"
+        || name == "desktop.ini"
+        || name.starts_with(".tmp")
 }
 
 pub fn is_export_destination_empty(folder: &Path) -> Result<bool, String> {
@@ -392,6 +395,13 @@ mod export_tests {
     fn allows_ds_store_only_folder() {
         let dir = tempdir().expect("tempdir");
         fs::write(dir.path().join(".DS_Store"), "x").expect("write");
+        ensure_export_folder_ready(dir.path()).expect("empty enough");
+    }
+
+    #[test]
+    fn allows_atomic_write_temp_only_folder() {
+        let dir = tempdir().expect("tempdir");
+        fs::write(dir.path().join(".tmpAlTqLc"), "partial").expect("write");
         ensure_export_folder_ready(dir.path()).expect("empty enough");
     }
 

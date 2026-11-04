@@ -4,13 +4,14 @@ use std::path::{Component, Path, PathBuf};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
-pub const JSON_SKILL_NAMES: [&str; 6] = [
+pub const JSON_SKILL_NAMES: [&str; 7] = [
     "write-schedule",
     "write-members",
     "write-calendar",
     "write-workspace",
     "write-fields",
     "write-colors",
+    "schedule-talk",
 ];
 
 const RESOURCE_SKILLS_DIR: &str = "json-skills";
@@ -348,15 +349,27 @@ pub(crate) fn place_staged_skill(
     Ok(())
 }
 
+fn skill_bundle_usable(path: &Path) -> bool {
+    path.is_dir() && path.join("SKILL.md").is_file()
+}
+
 fn bundled_skill_dir(resource_dir: &Path, skill_name: &str) -> Result<PathBuf, String> {
     if !JSON_SKILL_NAMES.contains(&skill_name) {
         return Err("同梱スキルが見つかりません。".to_string());
     }
     let path = resource_dir.join(RESOURCE_SKILLS_DIR).join(skill_name);
-    if !path.is_dir() {
-        return Err("同梱スキルが見つかりません。".to_string());
+    if skill_bundle_usable(&path) {
+        return Ok(path);
     }
-    Ok(path)
+    let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join(".cursor")
+        .join("skills")
+        .join(skill_name);
+    if skill_bundle_usable(&dev) {
+        return Ok(dev);
+    }
+    Err("同梱スキルが見つかりません。".to_string())
 }
 
 pub fn install_json_skills_to_disk(
@@ -523,7 +536,7 @@ pub fn install_json_skills(
     let resource_dir = app
         .path()
         .resource_dir()
-        .map_err(|_| "同梱スキルが見つかりません。".to_string())?;
+        .unwrap_or_else(|_| PathBuf::new());
 
     install_json_skills_to_disk(
         &resource_dir,

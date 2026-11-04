@@ -1341,7 +1341,7 @@ export function SettingsDialog({
                 <h3 className="settings-changelog-heading">mcp.json に登録する</h3>
                 <p className="settings-note">
                   MCP を使える Cursor または Claude 向けです。下の JSON をコピーして、mcp.json
-                  に貼ります。渡すのは開いているウィンドウ一覧（open_windows）、差分（schedule_diff）、起点・画面・ファイルの分類（baseline_diffs）、選択中のタスク（selected_task）、編集の選択（selected_tasks）、オンな絞り込みと残るタスク（filtered_tasks）、画面のスケジュール JSON 全体（current_schedule）、前面の未保存の置き換え（replace_schedule）です。読み取りは引数を省略すると前面のウィンドウです。別のウィンドウを読むときは一覧の label を window に渡します。置き換えは前面だけです。下のスキルを置いても、この登録は終わりません。スケジュールのウィンドウが開いていないときは渡せません。
+                  に貼ります。渡すのは開いているウィンドウ一覧（open_windows）、差分（schedule_diff）、起点・画面・ファイルの分類（baseline_diffs）、選択中のタスク（selected_task）、編集の選択（selected_tasks）、オンな絞り込みと残るタスク（filtered_tasks）、画面のスケジュール JSON 全体（current_schedule）、前面の未保存の置き換え（replace_schedule）、見方（set_view）、説明のための見え方（explain_view）、説明の半透明（explain_overlay）、試しの計画の反映（apply_explanation_pattern）、計画の部分更新（edit_plan）、ファイル操作（file_action）、一覧（catalog_action）、設定（set_preferences）、取り消し（history）、ウィンドウ操作（focus_window、open_new_window、close_window、minimize_window）です。読み取りは引数を省略すると前面のウィンドウです。別のウィンドウを読むときは一覧の label を window に渡します。置き換えと前面向けの操作は前面だけです。操作の途中は discardInProgress が無いと拒みます。下のスキルを置いても、この登録は終わりません。スケジュールのウィンドウが開いていないときは渡せません。
                 </p>
                 <label className="settings-field">
                   <span>mcp.json</span>
@@ -1378,7 +1378,7 @@ export function SettingsDialog({
                 </div>
                 <h3 className="settings-changelog-heading">MCP を使えないときに渡す</h3>
                 <p className="settings-note">
-                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、$LOCALAPPDATA から続く1行にします。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 6 つは「JSON作成スキルを置く」にあります。
+                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、$LOCALAPPDATA から続く1行にします。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 7 つは「JSON作成スキルを置く」にあります。見た目で指す手順と画面の判断は schedule-talk スキルにあります。
                 </p>
                 <fieldset className="settings-field" disabled={busy}>
                   <legend>置く先</legend>
@@ -1560,8 +1560,8 @@ export function SettingsDialog({
             {section === "jsonSkills" ? (
               <>
                 <p className="settings-note">
-                  write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors
-                  の4つをまとめて置きます。中身はマージしません。git
+                  write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk
+                  の7つをまとめて置きます。中身はマージしません。git
                   には入れず、置いたパスだけを使います。検証スクリプトは Node.js
                   で動かします。画面の状態を渡す手順は、設定の「画面の状態を渡す」にあります。
                 </p>
@@ -1864,8 +1864,8 @@ export function SettingsDialog({
         {section === "jsonSkills" && confirmJsonSkillUninstall ? (
           <div className="settings-confirm">
             <p>
-              選んだ場所から write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors
-              の6つを外します。ほかのスキルや skills フォルダ自体は残します。
+              選んだ場所から write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk
+              の7つを外します。ほかのスキルや skills フォルダ自体は残します。
             </p>
             <div className="modal-actions">
               <button

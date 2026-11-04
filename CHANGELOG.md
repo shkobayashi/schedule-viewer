@@ -6,6 +6,25 @@
 
 ### 追加
 
+- 説明のための見え方（`explain_view`）に、マイルストン帯の行 id と星 id の絞り込みを足した。説明の半透明（`explain_overlay`）の印に `milestoneId` と `milestoneGroupId` を足し、試しの計画に星の日付変更（`milestoneChanges`）を足した。読み取り 3 ツールの `view.explanation` と `explanationOverlay` に載せる（#420、#447）
+
+- MCP と read-screen に、試しの計画のパターン id を指定して未保存の計画へ一度に入れる `apply_explanation_pattern`（21 個目のツール）を追加。成功時は `edit_plan` と同じ差分テキストを返し、試しの計画と半透明は消える（#420、#445）
+- schedule-talk スキルに相談の流れと部品の使い分けの reference（`consultation-flow.md`）を追加（#445）
+- MCP の `explain_overlay` に、試しの計画を比較する任意の `patterns` を付けられる。試しのバーと印は `taskBarLayout.ts` の戻り値だけで描き、文書・差分・未保存・取り消しには入れない。読み取り 3 ツールの `explanationOverlay.patterns` に `trial: true` を返し、PNG には試しのバーを写さない（#420、#443）
+- MCP の `explain_overlay` の各印に、任意の `color`（`#rgb` / `#rrggbb`）を付けられる。省略した印は `kind` の既定の枠のままである。読み取り 3 ツールは、色を付けた印だけ正規化した `color` を返す（#443）
+
+- MCP と read-screen から、前面ウィンドウ向けに説明の半透明（`explain_overlay`）を重ねられる。左の一覧、日付ヘッダー、マイルストン帯、チャート本体を覆い、説明の帯とタスク詳細は覆わない。`summary` と `marks` でタスクや日付を示し、短い文の吹き出しを重ねられる。次回起動の記録には残さない。読み取り 3 ツールの `explanationOverlay` で半透明、印、`visible` を返し、PNG には半透明、抜き、吹き出し、`summary` を写さない（#439、#443）
+
+- MCP と read-screen から、前面ウィンドウ向けに説明のための見え方（`explain_view`）を掛けられる。タスク id の絞り込みと折りたたみだけを変え、次回起動の記録には残さない。読み取り 3 ツールの `view.explanation` で、説明が掛かっていることと人が選んだ折りたたみを返す。チャート上端に「説明を表示しています」と「説明を消す」を出す（#437）
+
+- 設定の「JSON作成スキルを置く」に `schedule-talk` スキルを足した。見た目で指す手順とウィンドウの当て方などの判断は `schedule-talk` に置き、MCP の読み取り 7 ツールの説明末尾と `read-screen` スキルからは判断のありかだけを示す（#431）
+
+- MCP と read-screen から、前面ウィンドウ向けに見方（`set_view`）、計画の部分更新（`edit_plan`）、ファイル操作（`file_action`）、一覧（`catalog_action`）、設定（`set_preferences`）、取り消し（`history`）、ウィンドウ操作（`focus_window`、`open_new_window`、`close_window`、`minimize_window`）を呼べる。操作の途中は `discardInProgress` が無いと拒み、拒否のあとは進行中の確定が文書に載らない。前面だけのツールに `--window` を付けたときは CLI が拒否文を返す（#425）
+
+- MCP と read-screen の読み取り 3 ツール（`selected_task`、`selected_tasks`、`filtered_tasks`）に、今映っている日付と行（`view.visible`）と各タスクの `visibility` を載せ、同じ応答に `.main` の PNG を付ける（#423）
+
+- MCP と read-screen の読み取り 3 ツール（`selected_task`、`selected_tasks`、`filtered_tasks`）に、折りたたみとチャートの見方に効く設定を `view` として載せ、ステータス一覧にバーの色を載せた（#421）
+
 - スケジュール JSON の任意配列 `connections` で、終わってから始まる前後とは別の2タスク間の繋がりを持てる。チャートでは緩い円弧と短い言葉で描く。Excel では見えている組だけ、棒の上端の中央同士を曲線コネクタで結び、言葉は 8pt の文字図形で二つの上端の中央の中点に出す（#416）。確認用は `examples/connections/`（#413）
 - MCP の `current_schedule` と `replace_schedule`、および `write-schedule` / `read-screen` スキルに、繋がりの読み書き規則を同じ文言で載せた。LLM は JSON 全体の置き換えで繋がりを足す、言葉を変える、外す（#415）
 
@@ -21,6 +40,7 @@
 
 ### 修正
 
+- 説明の半透明でタスクを示す吹き出しが、すぐ上の行のバー右の名前に重なることがあったのを、バーと名前を避けて上・下・横に置くよう直した
 - 1件選択の詳細から、相手と言葉を同じダイアログで確定してから繋がりを足す。複製ダイアログと複数選択の一括パネルからは足さない
 - 繋がりだけを変えても、未保存の判定と右端の差分列の読み直しが動くよう、基準 JSON に `connections` を含めた
 - ツールバーの「系統」を、主ボタンと辿り方のプルダウンが一続きの分割ボタンになるよう見た目を揃えた

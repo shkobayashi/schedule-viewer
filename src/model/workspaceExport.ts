@@ -14,9 +14,10 @@ export async function exportWorkspaceBundleViaTauri(input: {
   colorsContents: string | null;
   colorsFileName: string | null;
   fieldExtensions: FieldExtensionExportFile[];
+  folder?: string | null;
 }): Promise<void> {
   if (!isTauri()) return;
-  await invoke("export_workspace_bundle", {
+  const payload = {
     scheduleFileName: safeScheduleJsonFilename(input.scheduleFileName),
     scheduleContents: input.scheduleContents,
     membersFileName: input.membersFileName
@@ -39,5 +40,13 @@ export async function exportWorkspaceBundleViaTauri(input: {
       fileName: safeScheduleJsonFilename(entry.fileName),
       contents: entry.contents,
     })),
-  });
+  };
+  if (input.folder != null && input.folder.trim().length > 0) {
+    await invoke("export_workspace_bundle_at_folder", {
+      folder: input.folder.trim(),
+      ...payload,
+    });
+    return;
+  }
+  await invoke("export_workspace_bundle", payload);
 }

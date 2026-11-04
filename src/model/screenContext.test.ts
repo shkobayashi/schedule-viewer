@@ -15,14 +15,26 @@ import {
   fieldEntriesForMcp,
   statusEntriesForMcp,
   buildScheduleDiffPayload,
+  buildMcpViewForReadTools,
+  defaultMcpViewForReadToolsInput,
   buildScreenContextPayload,
   buildSelectedTaskPayload,
   buildSelectedTasksPayload,
   mcpMembersForReadTools,
   mcpPayloadToToolBody,
+  mcpReadToolsPayloadToToolBody,
+  MCP_SCREEN_CAPTURE_FAILED_MESSAGE,
+  MCP_SCREEN_CAPTURE_TOO_LARGE_MESSAGE,
 } from "./screenContext";
-import { listTasksMatchingFilter } from "./rows";
+import {
+  categoryCollapseKey,
+  groupCollapseKey,
+  hierarchyCollapseKey,
+  listTasksMatchingFilter,
+} from "./rows";
 import { documentToJsonString } from "./serialize";
+import { parseDate } from "./dates";
+import { defaultScheduleFilterViewState } from "./scheduleFilterPersistence";
 import { BUILTIN_STATUS_ITEMS, type StatusItem } from "./statusCatalog";
 import type { ColorItem } from "./colorCatalog";
 import type { Member } from "./memberTypes";
@@ -37,6 +49,10 @@ import {
   type Task,
 } from "./types";
 import { DEFAULT_FILTERS } from "./filterChips";
+import {
+  CALENDAR_SCHEMA_VERSION,
+  type CalendarDocument,
+} from "./calendarTypes";
 
 const filters: ScheduleFilters = {
   assignee: "all",
@@ -529,7 +545,7 @@ describe("split MCP payloads", () => {
       (mcpPayloadToToolBody(selectedMany) as { content: { text: string }[] })
         .content[0].text,
     );
-    expect(selectedManyText).toEqual({
+    expect(selectedManyText).toMatchObject({
       levels: mcpLevelsFromDocument({}),
       statuses: statusEntriesForMcp(BUILTIN_STATUS_ITEMS),
       colors: [],
@@ -537,6 +553,7 @@ describe("split MCP payloads", () => {
       fields: [],
       selectedTasks: [],
     });
+    expect(selectedManyText.view).toBeDefined();
     expect(selectedManyText).not.toHaveProperty("selectedTaskId");
     expect(selectedManyText).not.toHaveProperty("scheduleDiff");
   });
@@ -554,20 +571,25 @@ describe("status catalog in MCP payloads", () => {
     },
   ];
 
-  it("puts the catalog first, once, without colors", () => {
+  it("puts the catalog first, once, with status bar colors", () => {
     const payload = buildSelectedTasksPayload({
       categories: [],
       selectedTaskIds: [],
       statuses: custom,
     });
     expect(Object.keys(payload)[0]).toBe("levels");
-    expect(payload.statuses[payload.statuses.length - 1]).toEqual({
+    expect(payload.statuses[payload.statuses.length - 1]).toMatchObject({
       id: "review",
       name: "確認待ち",
       role: "started",
       description: "作業は終わり、確認を待っている。",
     });
-    expect(payload.statuses[0]).not.toHaveProperty("color");
+    expect(payload.statuses[0].color.light).toEqual(
+      expect.objectContaining({ bg: expect.any(String), border: expect.any(String) }),
+    );
+    expect(payload.statuses[0].color.dark).toEqual(
+      expect.objectContaining({ bg: expect.any(String), border: expect.any(String) }),
+    );
   });
 
   it("names the status filter from the catalog", () => {
@@ -686,6 +708,7 @@ describe("field catalog in MCP payloads", () => {
       "colors",
       "members",
       "fields",
+      "view",
       "activeConditions",
       "tasks",
     ]);
@@ -911,6 +934,7 @@ describe("color catalog in MCP payloads", () => {
       "colors",
       "members",
       "fields",
+      "view",
       "selectedTaskId",
       "selectedTask",
     ]);
@@ -970,7 +994,15 @@ describe("color catalog in MCP payloads", () => {
       Object.keys(
         buildSelectedTasksPayload({ ...base, selectedTaskIds: [] }),
       ),
-    ).toEqual(["levels", "statuses", "colors", "members", "fields", "selectedTasks"]);
+    ).toEqual([
+      "levels",
+      "statuses",
+      "colors",
+      "members",
+      "fields",
+      "view",
+      "selectedTasks",
+    ]);
     expect(
       Object.keys(
         buildFilteredTasksPayload({
@@ -984,8 +1016,8 @@ describe("color catalog in MCP payloads", () => {
           memberCatalog: null,
           lineageIds: null,
         }),
-      ).slice(0, 5),
-    ).toEqual(["levels", "statuses", "colors", "members", "fields"]);
+      ).slice(0, 6),
+    ).toEqual(["levels", "statuses", "colors", "members", "fields", "view"]);
   });
 
   it("includes colorId on tasks when set in categories", () => {
@@ -1151,6 +1183,541 @@ describe("buildScreenContextPayload", () => {
     });
     expect(payload.scheduleDiff.text).toBe("差はありません");
     expect(payload.tasks).toEqual([]);
+  });
+});
+
+describe("view in MCP read payloads", () => {
+  const catId = "00000000-0000-4000-8000-000000000010";
+  const grpId = "00000000-0000-4000-8000-000000000020";
+  const taskInCat = taskFixture(
+    "00000000-0000-4000-8000-000000000030",
+    "InCat",
+  );
+
+  it("lists collapsed category id and name while filtered_tasks keeps its tasks", () => {
+    const categories = categoryWithTasks([taskInCat]);
+    const payload = buildFilteredTasksPayload({
+      categories,
+      filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: null,
+      collapsed: new Set([categoryCollapseKey(catId)]),
+    });
+    expect(payload.view.collapsed).toEqual([
+      { kind: "category", id: catId, name: "Cat" },
+    ]);
+    expect(payload.tasks.map((t) => t.id)).toEqual([taskInCat.id]);
+  });
+
+  it("adds view.visible and collapsed visibility when viewport is supplied", () => {
+    const categories = categoryWithTasks([taskInCat]);
+    const payload = buildFilteredTasksPayload({
+      categories,
+      filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: null,
+      collapsed: new Set([categoryCollapseKey(catId)]),
+      viewport: {
+        timelineStart: parseDate("2026-01-01"),
+        totalDays: 30,
+        scrollX: 0,
+        pxPerDay: 10,
+        chartWidth: 50,
+        scrollY: 0,
+        rowHeight: 32,
+        bodyHeight: 64,
+        visibleRows: [
+          {
+            type: "category",
+            id: catId,
+            label: "Cat",
+            y: 0,
+            collapsed: true,
+            summary: null,
+            rollupPercent: null,
+          },
+        ],
+      },
+    });
+    expect(payload.view.visible?.dates).toEqual({
+      start: "2026-01-01",
+      end: "2026-01-05",
+    });
+    expect(payload.view.visible?.rows).toEqual([
+      { kind: "category", id: catId, name: "Cat" },
+    ]);
+    expect(payload.tasks[0]?.visibility).toBe("collapsed");
+    expect(
+      payload.view.visible?.rows.some((row) => row.kind === "task"),
+    ).toBe(false);
+  });
+
+  it("does not add visibility on selected_task when the task has no visible row", () => {
+    const categories = categoryWithTasks([taskInCat]);
+    const payload = buildSelectedTaskPayload({
+      categories,
+      filters: { ...filters, search: "nomatch" },
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: null,
+      selectedTaskId: taskInCat.id,
+      collapsed: new Set(),
+      viewport: {
+        timelineStart: parseDate("2026-01-01"),
+        totalDays: 30,
+        scrollX: 0,
+        pxPerDay: 10,
+        chartWidth: 50,
+        scrollY: 0,
+        rowHeight: 32,
+        bodyHeight: 64,
+        visibleRows: [],
+      },
+    });
+    expect(payload.selectedTask?.id).toBe(taskInCat.id);
+    expect(payload.selectedTask).not.toHaveProperty("visibility");
+  });
+
+  it("lists collapsed group id and name", () => {
+    const categories = categoryWithTasks([taskInCat]);
+    const payload = buildFilteredTasksPayload({
+      categories,
+      filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: null,
+      collapsed: new Set([groupCollapseKey(grpId)]),
+    });
+    expect(payload.view.collapsed).toEqual([
+      { kind: "group", id: grpId, name: "Grp" },
+    ]);
+  });
+
+  it("lists collapsed outline heading as heading kind", () => {
+    const headingId = "00000000-0000-4000-8000-0000000000h1";
+    const outline: OutlineRoot = [
+      {
+        id: headingId,
+        name: "見出しだけ",
+        children: [taskFixture("00000000-0000-4000-8000-0000000000h2", "下")],
+      },
+    ];
+    const payload = buildSelectedTasksPayload({
+      categories: [],
+      outline,
+      selectedTaskIds: [],
+      collapsed: new Set([hierarchyCollapseKey(headingId)]),
+    });
+    expect(payload.view.collapsed).toEqual([
+      { kind: "heading", id: headingId, name: "見出しだけ" },
+    ]);
+  });
+
+  it("uses an empty collapsed array when nothing is folded", () => {
+    const payload = buildSelectedTaskPayload({
+      categories: [],
+      filters,
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      selectedTaskId: null,
+    });
+    expect(payload.view.collapsed).toEqual([]);
+  });
+
+  it("omits collapsed ids that are not in the document", () => {
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput([]),
+      collapsed: new Set([
+        categoryCollapseKey("00000000-0000-4000-8000-000000000099"),
+      ]),
+    });
+    expect(view.collapsed).toEqual([]);
+  });
+
+  it("puts effective scale when preference is auto and it is not a fixed step", () => {
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput([]),
+      displayScalePreference: "auto",
+      effectiveUiScale: 1.12,
+    });
+    expect(view.displayScale).toEqual({ preference: "auto", effective: 1.12 });
+  });
+
+  it("matches effective scale to a fixed preference step", () => {
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput([]),
+      displayScalePreference: 1.25,
+      effectiveUiScale: 1.25,
+    });
+    expect(view.displayScale).toEqual({ preference: 1.25, effective: 1.25 });
+  });
+
+  it("sets row density to compact", () => {
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput([]),
+      rowDensity: "compact",
+    });
+    expect(view.rowDensity).toBe("compact");
+  });
+
+  it("sets lightning to false when the line is off", () => {
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput([]),
+      showLightningLine: false,
+    });
+    expect(view.lightning).toBe(false);
+  });
+
+  it("keeps all five column keys and only status on", () => {
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput([]),
+      sidebarColumns: {
+        start: false,
+        end: false,
+        duration: false,
+        progress: false,
+        status: true,
+      },
+    });
+    expect(Object.keys(view.columns).sort()).toEqual(
+      ["duration", "end", "progress", "start", "status"].sort(),
+    );
+    expect(view.columns).toEqual({
+      start: false,
+      end: false,
+      duration: false,
+      progress: false,
+      status: true,
+    });
+  });
+
+  it("resolves color scheme to dark when preference is system", () => {
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput([]),
+      colorSchemePreference: "system",
+      resolvedColorScheme: "dark",
+    });
+    expect(view.colorScheme).toEqual({
+      preference: "system",
+      effective: "dark",
+    });
+  });
+
+  it("keeps light for both preference and effective when light is chosen", () => {
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput([]),
+      colorSchemePreference: "light",
+      resolvedColorScheme: "light",
+    });
+    expect(view.colorScheme).toEqual({
+      preference: "light",
+      effective: "light",
+    });
+  });
+
+  it("uses default weekends and empty dated arrays when calendar is unset", () => {
+    const view = buildMcpViewForReadTools(defaultMcpViewForReadToolsInput([]));
+    expect(view.calendar).toEqual({
+      source: "default",
+      weekends: ["sat", "sun"],
+      nonWorkingDays: [],
+      workingDays: [],
+    });
+    expect(view.calendar).not.toHaveProperty("schemaVersion");
+    expect(view.calendar).not.toHaveProperty("path");
+  });
+
+  it("loads calendar weekends and named non-working days without path or schemaVersion", () => {
+    const calendar: CalendarDocument = {
+      schemaVersion: CALENDAR_SCHEMA_VERSION,
+      weekends: ["sat"],
+      nonWorkingDays: [
+        { date: "2026-01-01", name: "元日" },
+        { date: "2026-01-02" },
+      ],
+      workingDays: [],
+    };
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput([]),
+      calendar,
+    });
+    expect(view.calendar).toEqual({
+      source: "loaded",
+      weekends: ["sat"],
+      nonWorkingDays: [
+        { date: "2026-01-01", name: "元日" },
+        { date: "2026-01-02" },
+      ],
+      workingDays: [],
+    });
+  });
+
+  it("includes view on the three read payloads but not on schedule diff", () => {
+    const read = buildFilteredTasksPayload({
+      categories: [],
+      filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+    });
+    const selected = buildSelectedTaskPayload({
+      categories: [],
+      filters,
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      selectedTaskId: null,
+    });
+    const many = buildSelectedTasksPayload({
+      categories: [],
+      selectedTaskIds: [],
+    });
+    const diff = buildScheduleDiffPayload({
+      scheduleDiffText: "差分",
+      scheduleDiffIsError: false,
+    });
+    expect(read.view).toBeDefined();
+    expect(selected.view).toBeDefined();
+    expect(many.view).toBeDefined();
+    expect(diff).not.toHaveProperty("view");
+  });
+
+  it("does not put scroll, zoom, or dialog flags on view", () => {
+    const payload = buildFilteredTasksPayload({
+      categories: [],
+      filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+    });
+    expect(Object.keys(payload.view).sort()).toEqual(
+      [
+        "calendar",
+        "collapsed",
+        "colorScheme",
+        "columns",
+        "displayScale",
+        "lightning",
+        "rowDensity",
+      ].sort(),
+    );
+  });
+
+  it("includes view.explanation when explanation view is active", () => {
+    const t = taskFixture("00000000-0000-4000-8000-000000000010", "Explain");
+    const categories = categoryWithTasks([t]);
+    const userCollapsed = new Set([categoryCollapseKey(categories[0]!.id)]);
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput(categories),
+      userCollapsed,
+      collapsed: userCollapsed,
+      explanationView: {
+        taskIds: new Set([t.id]),
+        collapseOverride: new Set<string>(),
+        milestoneGroupIds: null,
+        milestoneIds: null,
+      },
+    });
+    expect(view.explanation).toEqual({
+      taskIds: [t.id],
+      baseCollapsed: [
+        {
+          kind: "category",
+          id: categories[0]!.id,
+          name: categories[0]!.name,
+        },
+      ],
+    });
+    expect(view.collapsed).toEqual([]);
+  });
+
+  it("omits view.explanation when explanation is inactive", () => {
+    const view = buildMcpViewForReadTools(defaultMcpViewForReadToolsInput([]));
+    expect(view.explanation).toBeUndefined();
+  });
+
+  it("includes view.explanation milestoneGroupIds and milestoneIds", () => {
+    const categories = categoryWithTasks([
+      taskFixture("00000000-0000-4000-8000-000000000010", "T"),
+    ]);
+    const milestoneGroups = [{ id: "mg1", name: "G" }];
+    const milestones = [
+      {
+        id: "ms1",
+        name: "M",
+        date: "2026-01-01",
+        confidence: "committed" as const,
+        groupId: "mg1",
+      },
+    ];
+    const view = buildMcpViewForReadTools({
+      ...defaultMcpViewForReadToolsInput(categories),
+      milestoneGroups,
+      milestones,
+      explanationView: {
+        taskIds: null,
+        collapseOverride: null,
+        milestoneGroupIds: new Set(["mg1"]),
+        milestoneIds: new Set(["ms1"]),
+      },
+    });
+    expect(view.explanation).toEqual({
+      milestoneGroupIds: ["mg1"],
+      milestoneIds: ["ms1"],
+      baseCollapsed: [],
+    });
+  });
+
+  it("includes explanationOverlay when translucent", () => {
+    const payload = buildFilteredTasksPayload({
+      ...defaultMcpViewForReadToolsInput([]),
+      categories: [],
+      filters: defaultScheduleFilterViewState().filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      explanationOverlay: { translucent: true, marks: [], patterns: [] },
+      explanationOverlayBuild: {
+        visibleRows: [],
+        pxPerDay: 1,
+        scrollX: 0,
+        scrollY: 0,
+        rowHeight: 0,
+        bodyHeight: 0,
+        chartWidth: 0,
+        timelineStart: new Date("2026-01-01T00:00:00.000Z"),
+        liveAnchors: new Map(),
+      },
+    });
+    expect(payload.explanationOverlay).toEqual({ translucent: true, marks: [] });
+    expect(payload.view.explanation).toBeUndefined();
+  });
+
+  it("omits explanationOverlay when translucent is off", () => {
+    const payload = buildFilteredTasksPayload({
+      ...defaultMcpViewForReadToolsInput([]),
+      categories: [],
+      filters: defaultScheduleFilterViewState().filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      explanationOverlay: null,
+    });
+    expect(payload.explanationOverlay).toBeUndefined();
+  });
+
+  it("explanationOverlay is outside tasks and view.explanation", () => {
+    const t = taskFixture("00000000-0000-4000-8000-000000000010", "Explain");
+    const categories = categoryWithTasks([t]);
+    const payload = buildFilteredTasksPayload({
+      ...defaultMcpViewForReadToolsInput(categories),
+      categories,
+      filters: defaultScheduleFilterViewState().filters,
+      lineageTaskId: null,
+      hiddenMilestoneGroupIds: [],
+      today: "2026-01-01",
+      memberCatalog: null,
+      lineageIds: null,
+      explanationOverlay: { translucent: true, marks: [], patterns: [] },
+      explanationView: {
+        taskIds: new Set([t.id]),
+        collapseOverride: null,
+        milestoneGroupIds: null,
+        milestoneIds: null,
+      },
+      userCollapsed: new Set(),
+      collapsed: new Set(),
+      explanationOverlayBuild: {
+        visibleRows: [],
+        pxPerDay: 1,
+        scrollX: 0,
+        scrollY: 0,
+        rowHeight: 0,
+        bodyHeight: 0,
+        chartWidth: 0,
+        timelineStart: new Date("2026-01-01T00:00:00.000Z"),
+        liveAnchors: new Map(),
+      },
+    });
+    expect(payload.explanationOverlay).toEqual({ translucent: true, marks: [] });
+    expect(payload.view.explanation?.taskIds).toEqual([t.id]);
+    expect(
+      payload.tasks.every((task) => !("explanationOverlay" in task)),
+    ).toBe(true);
+  });
+});
+
+describe("mcpReadToolsPayloadToToolBody", () => {
+  const payload = { view: { collapsed: [] }, tasks: [] };
+
+  it("adds screenCapture message when screenshot failed", () => {
+    const body = mcpReadToolsPayloadToToolBody(payload, { ok: false });
+    expect(body).not.toEqual({ tooLarge: true });
+    if ("tooLarge" in body) throw new Error("unexpected tooLarge");
+    expect(body.content).toHaveLength(1);
+    expect(body.content[0].type).toBe("text");
+    const parsed = JSON.parse((body.content[0] as { text: string }).text);
+    expect(parsed.screenCapture).toEqual({
+      message: MCP_SCREEN_CAPTURE_FAILED_MESSAGE,
+    });
+  });
+
+  it("appends PNG after JSON text when screenshot succeeded", () => {
+    const body = mcpReadToolsPayloadToToolBody(payload, {
+      ok: true,
+      base64: "aGVsbG8=",
+      mimeType: "image/png",
+    });
+    if ("tooLarge" in body) throw new Error("unexpected tooLarge");
+    expect(body.content).toHaveLength(2);
+    expect(body.content[0].type).toBe("text");
+    expect(body.content[1]).toEqual({
+      type: "image",
+      data: "aGVsbG8=",
+      mimeType: "image/png",
+    });
+  });
+
+  it("returns text only with too-large message when image makes body exceed limit", () => {
+    const huge = "A".repeat(11 * 1024 * 1024);
+    const body = mcpReadToolsPayloadToToolBody(payload, {
+      ok: true,
+      base64: huge,
+      mimeType: "image/png",
+    });
+    if ("tooLarge" in body) throw new Error("unexpected tooLarge");
+    expect(body.content).toHaveLength(1);
+    const parsed = JSON.parse((body.content[0] as { text: string }).text);
+    expect(parsed.screenCapture).toEqual({
+      message: MCP_SCREEN_CAPTURE_TOO_LARGE_MESSAGE,
+    });
   });
 });
 

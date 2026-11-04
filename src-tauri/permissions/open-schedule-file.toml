@@ -7,4 +7,5 @@ commands.allow = [
   "accept_opened_workspace",
   "read_json_file_limited",
   "export_workspace_bundle",
+  "export_workspace_bundle_at_folder",
 ]

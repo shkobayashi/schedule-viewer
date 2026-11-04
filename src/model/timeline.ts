@@ -60,8 +60,8 @@ export function tierLabel(tier: ReturnType<typeof gridTier>): string {
 }
 
 export function computeTimelineRange(
-  categories: Category[],
-  milestones: Milestone[] = [],
+  categories: readonly Category[],
+  milestones: readonly Milestone[] = [],
   today = todayIso(),
   outline?: OutlineRoot,
 ): {
@@ -80,7 +80,7 @@ export function computeTimelineRange(
     title: "",
     milestoneGroups: [],
     milestones: [],
-    categories,
+    categories: [...categories],
     outline,
   })) {
     consider(parseDate(task.start));

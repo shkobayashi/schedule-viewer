@@ -200,4 +200,13 @@ export type VisibleRow =
       /** 2 段のとき、地と帯の両方を付ける行 */
       alsoTaskParent?: boolean;
     }
-  | { type: "task"; task: Task; y: number };
+  | {
+      type: "task";
+      task: Task;
+      y: number;
+      /** 説明の試しの計画で画面用にだけ挿した行。文書には無い。 */
+      explanationTrial?: {
+        patternId: string;
+        color: string;
+      };
+    };

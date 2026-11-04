@@ -6,6 +6,7 @@ mod excel_book;
 mod json_skills;
 mod mcp_app_data;
 mod mcp_bridge;
+mod mcp_tool_names;
 pub mod mcp_stdio;
 mod read_screen_skill;
 pub mod screen_cli;
@@ -29,8 +30,7 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use tauri::Emitter;
-use tauri::Manager;
+use tauri::{Emitter, EventTarget, Manager};
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 use mcp_bridge::{
@@ -56,9 +56,9 @@ use member_catalog_edit::{
 use window_session::{
     all_windows_external_drop_ready, all_windows_startup_settled,
     any_startup_auto_update_enabled,
-    create_schedule_webview_on_main_thread, delete_filter_for_path, delete_recovery_for_path,
+    delete_filter_for_path, delete_recovery_for_path,
     forget_startup_settlement, forget_window_focus, migrate_legacy_session,
-    next_schedule_window_label, note_main_thread, note_window_focus, read_open_windows,
+    note_main_thread, note_window_focus, read_open_windows,
     read_filter_for_path, read_recovery_for_path, recovery_close_persist, recovery_live_persist,
     recovery_owner_label,
     recovery_owners_by_path, remove_window_label,
@@ -414,70 +414,71 @@ struct FieldExtensionExportInput {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[tauri::command]
-async fn export_workspace_bundle(
-    window: tauri::Window,
-    schedule_file_name: String,
-    schedule_contents: String,
-    members_file_name: Option<String>,
-    members_contents: Option<String>,
-    calendar_file_name: Option<String>,
-    calendar_contents: Option<String>,
-    statuses_file_name: Option<String>,
-    statuses_contents: Option<String>,
-    colors_file_name: Option<String>,
-    colors_contents: Option<String>,
-    field_extensions: Vec<FieldExtensionExportInput>,
+fn validate_workspace_bundle_inputs(
+    schedule_contents: &str,
+    members_contents: Option<&str>,
+    calendar_contents: Option<&str>,
+    statuses_contents: Option<&str>,
+    colors_contents: Option<&str>,
+    field_extensions: &[FieldExtensionExportInput],
 ) -> Result<(), String> {
     if schedule_contents.len() as u64 > MAX_SCHEDULE_BYTES {
         return Err("スケジュールが大きすぎます（上限 10 MB）".to_string());
     }
-    if let Some(contents) = &members_contents {
+    if let Some(contents) = members_contents {
         if contents.len() as u64 > MAX_MEMBERS_BYTES {
             return Err("メンバー JSON が大きすぎます（上限 2 MB）".to_string());
         }
     }
-    if let Some(contents) = &calendar_contents {
+    if let Some(contents) = calendar_contents {
         if contents.len() as u64 > MAX_CALENDAR_BYTES {
             return Err("カレンダー JSON が大きすぎます（上限 2 MB）".to_string());
         }
     }
-    if let Some(contents) = &statuses_contents {
+    if let Some(contents) = statuses_contents {
         if contents.len() as u64 > MAX_MEMBERS_BYTES {
             return Err("ステータス JSON が大きすぎます（上限 2 MB）".to_string());
         }
     }
-    if let Some(contents) = &colors_contents {
+    if let Some(contents) = colors_contents {
         if contents.len() as u64 > MAX_MEMBERS_BYTES {
             return Err("色の一覧 JSON が大きすぎます（上限 2 MB）".to_string());
         }
     }
-    for entry in &field_extensions {
+    for entry in field_extensions {
         if entry.contents.len() as u64 > MAX_MEMBERS_BYTES {
             return Err("拡張項目 JSON が大きすぎます（上限 2 MB）".to_string());
         }
     }
-    let picked = window
-        .dialog()
-        .file()
-        .set_title("書き出し先のフォルダ")
-        .set_parent(&window)
-        .blocking_pick_folder();
-    let folder = match picked {
-        Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
-        None => return Ok(()),
-    };
-    workspace::ensure_export_folder_ready(&folder)?;
-    let schedule_name = sanitize_export_filename(&schedule_file_name, "json");
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn write_workspace_bundle_to_folder(
+    folder: &Path,
+    schedule_file_name: &str,
+    schedule_contents: &str,
+    members_file_name: Option<&str>,
+    members_contents: Option<&str>,
+    calendar_file_name: Option<&str>,
+    calendar_contents: Option<&str>,
+    statuses_file_name: Option<&str>,
+    statuses_contents: Option<&str>,
+    colors_file_name: Option<&str>,
+    colors_contents: Option<&str>,
+    field_extensions: &[FieldExtensionExportInput],
+) -> Result<(), String> {
+    workspace::ensure_export_folder_ready(folder)?;
+    let schedule_name = sanitize_export_filename(schedule_file_name, "json");
     let schedule_path = folder.join(&schedule_name);
-    write_utf8_atomic(&schedule_path, &schedule_contents)?;
+    write_utf8_atomic(&schedule_path, schedule_contents)?;
     let mut wrote_any = true;
     let mut used_names = HashSet::from([schedule_name.clone()]);
     let mut workspace = serde_json::json!({
         "schemaVersion": 1,
         "schedule": schedule_name,
     });
-    if let (Some(name), Some(contents)) = (&members_file_name, &members_contents) {
+    if let (Some(name), Some(contents)) = (members_file_name, members_contents) {
         let members_name = sanitize_export_filename(name, "json");
         used_names.insert(members_name.clone());
         if let Err(error) = write_utf8_atomic(&folder.join(&members_name), contents) {
@@ -486,7 +487,7 @@ async fn export_workspace_bundle(
         wrote_any = true;
         workspace["members"] = serde_json::Value::String(members_name);
     }
-    if let (Some(name), Some(contents)) = (&calendar_file_name, &calendar_contents) {
+    if let (Some(name), Some(contents)) = (calendar_file_name, calendar_contents) {
         let calendar_name = sanitize_export_filename(name, "json");
         used_names.insert(calendar_name.clone());
         if let Err(error) = write_utf8_atomic(&folder.join(&calendar_name), contents) {
@@ -495,7 +496,7 @@ async fn export_workspace_bundle(
         wrote_any = true;
         workspace["calendar"] = serde_json::Value::String(calendar_name);
     }
-    if let (Some(name), Some(contents)) = (&statuses_file_name, &statuses_contents) {
+    if let (Some(name), Some(contents)) = (statuses_file_name, statuses_contents) {
         let statuses_name = sanitize_export_filename(name, "json");
         used_names.insert(statuses_name.clone());
         if let Err(error) = write_utf8_atomic(&folder.join(&statuses_name), contents) {
@@ -504,7 +505,7 @@ async fn export_workspace_bundle(
         wrote_any = true;
         workspace["statuses"] = serde_json::Value::String(statuses_name);
     }
-    if let (Some(name), Some(contents)) = (&colors_file_name, &colors_contents) {
+    if let (Some(name), Some(contents)) = (colors_file_name, colors_contents) {
         let colors_name = sanitize_export_filename(name, "json");
         used_names.insert(colors_name.clone());
         if let Err(error) = write_utf8_atomic(&folder.join(&colors_name), contents) {
@@ -536,6 +537,100 @@ async fn export_workspace_bundle(
         return Err(workspace::export_error_with_partial(error, wrote_any));
     }
     Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+async fn export_workspace_bundle(
+    window: tauri::Window,
+    schedule_file_name: String,
+    schedule_contents: String,
+    members_file_name: Option<String>,
+    members_contents: Option<String>,
+    calendar_file_name: Option<String>,
+    calendar_contents: Option<String>,
+    statuses_file_name: Option<String>,
+    statuses_contents: Option<String>,
+    colors_file_name: Option<String>,
+    colors_contents: Option<String>,
+    field_extensions: Vec<FieldExtensionExportInput>,
+) -> Result<(), String> {
+    validate_workspace_bundle_inputs(
+        &schedule_contents,
+        members_contents.as_deref(),
+        calendar_contents.as_deref(),
+        statuses_contents.as_deref(),
+        colors_contents.as_deref(),
+        &field_extensions,
+    )?;
+    let picked = window
+        .dialog()
+        .file()
+        .set_title("書き出し先のフォルダ")
+        .set_parent(&window)
+        .blocking_pick_folder();
+    let folder = match picked {
+        Some(file_path) => file_path.into_path().map_err(|e| e.to_string())?,
+        None => return Ok(()),
+    };
+    write_workspace_bundle_to_folder(
+        &folder,
+        &schedule_file_name,
+        &schedule_contents,
+        members_file_name.as_deref(),
+        members_contents.as_deref(),
+        calendar_file_name.as_deref(),
+        calendar_contents.as_deref(),
+        statuses_file_name.as_deref(),
+        statuses_contents.as_deref(),
+        colors_file_name.as_deref(),
+        colors_contents.as_deref(),
+        &field_extensions,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+async fn export_workspace_bundle_at_folder(
+    folder: String,
+    schedule_file_name: String,
+    schedule_contents: String,
+    members_file_name: Option<String>,
+    members_contents: Option<String>,
+    calendar_file_name: Option<String>,
+    calendar_contents: Option<String>,
+    statuses_file_name: Option<String>,
+    statuses_contents: Option<String>,
+    colors_file_name: Option<String>,
+    colors_contents: Option<String>,
+    field_extensions: Vec<FieldExtensionExportInput>,
+) -> Result<(), String> {
+    validate_workspace_bundle_inputs(
+        &schedule_contents,
+        members_contents.as_deref(),
+        calendar_contents.as_deref(),
+        statuses_contents.as_deref(),
+        colors_contents.as_deref(),
+        &field_extensions,
+    )?;
+    let folder_path = PathBuf::from(folder.trim());
+    if folder.trim().is_empty() {
+        return Err("書き出し先のフォルダが空です。".to_string());
+    }
+    write_workspace_bundle_to_folder(
+        &folder_path,
+        &schedule_file_name,
+        &schedule_contents,
+        members_file_name.as_deref(),
+        members_contents.as_deref(),
+        calendar_file_name.as_deref(),
+        calendar_contents.as_deref(),
+        statuses_file_name.as_deref(),
+        statuses_contents.as_deref(),
+        colors_file_name.as_deref(),
+        colors_contents.as_deref(),
+        &field_extensions,
+    )
 }
 
 #[tauri::command]
@@ -683,6 +778,66 @@ async fn save_schedule_file(
 }
 
 #[tauri::command]
+async fn save_schedule_at_path(
+    window: tauri::Window,
+    state: State<'_, Mutex<ScheduleFileStates>>,
+    contents: String,
+    path: String,
+    skip_disk_hash_check: bool,
+) -> Result<String, String> {
+    if contents.len() as u64 > MAX_SCHEDULE_BYTES {
+        return Err("保存する内容が大きすぎます（上限 10 MB）".to_string());
+    }
+    let target = PathBuf::from(path.trim());
+    if path.trim().is_empty() {
+        return Err("保存先がありません。".to_string());
+    }
+    if !is_json_path(&target) {
+        return Err("JSON ファイル以外には保存できません".to_string());
+    }
+    let label = window_label(&window);
+    let expected_path = {
+        let guard = state.lock().expect("schedule file states");
+        guard
+            .by_label
+            .get(&label)
+            .and_then(|file_state| file_state.path.as_ref())
+            .map(|p| p.to_string_lossy().into_owned())
+    };
+    if let Some(expected) = expected_path.as_deref() {
+        if expected == path.trim() {
+            require_active_save_path(Some(Path::new(expected)), Some(path.trim()))?;
+        }
+    }
+    if !skip_disk_hash_check {
+        let disk = read_utf8(&target, MAX_SCHEDULE_BYTES)?;
+        let disk_hash = hash_contents(&disk);
+        let guard = state.lock().expect("schedule file states");
+        let file_state = guard
+            .by_label
+            .get(&label)
+            .ok_or_else(|| "開いているファイルがありません".to_string())?;
+        let expected_hash = file_state
+            .content_hash
+            .as_ref()
+            .ok_or_else(|| "開いているファイルがありません".to_string())?;
+        if disk_hash != *expected_hash {
+            return Err(DISK_HASH_MISMATCH.to_string());
+        }
+    }
+    write_utf8_atomic(&target, &contents)?;
+    record_schedule_open(
+        window.app_handle(),
+        state.inner(),
+        &label,
+        target.clone(),
+        &contents,
+        true,
+    )?;
+    Ok(target.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
 async fn save_html_file(
     window: tauri::Window,
     app: tauri::AppHandle,
@@ -717,6 +872,51 @@ async fn save_html_file(
     };
     write_utf8_atomic(&target, &contents)?;
     Ok(Some(target.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+fn write_schedule_export_at_path(path: String, contents: String, extension: String) -> Result<(), String> {
+    if contents.len() as u64 > MAX_HTML_BYTES {
+        return Err("保存する内容が大きすぎます（上限 10 MB）".to_string());
+    }
+    let ext = if extension.eq_ignore_ascii_case("svg") {
+        "svg"
+    } else {
+        "html"
+    };
+    let target = PathBuf::from(path.trim());
+    let file_ext = target
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let allowed = if ext == "svg" {
+        file_ext == "svg"
+    } else {
+        file_ext == "html" || file_ext == "htm"
+    };
+    if !allowed {
+        return Err("書き出し先の拡張子が形式と一致しません。".to_string());
+    }
+    write_utf8_atomic(&target, &contents)
+}
+
+#[tauri::command]
+fn write_excel_export_at_path(
+    path: String,
+    payload: export_xlsx::ExcelExportPayload,
+) -> Result<(), String> {
+    let bytes = export_xlsx::write_excel_bytes(&payload)?;
+    let target = PathBuf::from(path.trim());
+    let file_ext = target
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if file_ext != "xlsx" {
+        return Err("Excel の書き出し先は .xlsx である必要があります。".to_string());
+    }
+    write_bytes_atomic(&target, &bytes)
 }
 
 #[tauri::command]
@@ -2076,8 +2276,9 @@ fn clear_last_schedule_path(app: tauri::AppHandle, window: tauri::Window) -> Res
     Ok(())
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct PendingScheduleWindowOpen {
+    label: String,
     path: String,
     contents: String,
     #[serde(rename = "workspacePath")]
@@ -2090,14 +2291,26 @@ fn take_pending_schedule_window_open(
     session: State<'_, Mutex<WindowSessionState>>,
 ) -> Result<Option<PendingScheduleWindowOpen>, String> {
     let label = window_label(&window);
-    let mut guard = session.lock().expect("window session");
+    let guard = session.lock().expect("window session");
     Ok(
-        take_pending_open(&mut guard, &label).map(|pending| PendingScheduleWindowOpen {
+        window_session::peek_pending_open(&guard, &label).map(|pending| PendingScheduleWindowOpen {
+            label: label.clone(),
             path: pending.path,
             contents: pending.contents,
             workspace_path: pending.workspace_path,
         }),
     )
+}
+
+#[tauri::command]
+fn ack_pending_schedule_window_open(
+    window: tauri::Window,
+    session: State<'_, Mutex<WindowSessionState>>,
+) -> Result<(), String> {
+    let label = window_label(&window);
+    let mut guard = session.lock().expect("window session");
+    window_session::ack_pending_open(&mut guard, &label);
+    Ok(())
 }
 
 #[tauri::command]
@@ -2112,36 +2325,72 @@ async fn create_schedule_window(
     if contents.len() as u64 > MAX_SCHEDULE_BYTES {
         return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
     }
-    let label = next_schedule_window_label(&app)?;
     let app_data = app_data_dir(&app)?;
-    {
-        let mut guard = session.lock().expect("window session");
-        store_pending_open(
-            &mut guard,
-            label.clone(),
-            path.clone(),
-            contents.clone(),
-            workspace_path.clone(),
-        );
-        note_window_focus(&mut guard, &label);
-    }
-    if let Err(error) =
-        create_schedule_webview_on_main_thread(&app, &label, "schedule-viewer")
-    {
+    let label = loop {
+        let candidate = window_session::next_schedule_window_label(&app)?;
         {
             let mut guard = session.lock().expect("window session");
-            let _ = take_pending_open(&mut guard, &label);
-            forget_window_focus(&mut guard, &label);
+            store_pending_open(
+                &mut guard,
+                candidate.clone(),
+                path.clone(),
+                contents.clone(),
+                workspace_path.clone(),
+            );
+            note_window_focus(&mut guard, &candidate);
         }
-        return Err(error);
-    }
-    upsert_window_path(
-        &app_data,
-        &label,
-        Some(&path),
-        workspace_path.as_deref(),
-        false,
-    )?;
+        upsert_window_path(
+            &app_data,
+            &candidate,
+            Some(&path),
+            workspace_path.as_deref(),
+            false,
+        )?;
+        match window_session::create_schedule_webview_on_main_thread(
+            &app,
+            &candidate,
+            "schedule-viewer",
+        ) {
+            Ok(()) => {
+                let emit_app = app.clone();
+                let emit_label = candidate.clone();
+                let emit_payload = PendingScheduleWindowOpen {
+                    label: candidate.clone(),
+                    path: path.clone(),
+                    contents: contents.clone(),
+                    workspace_path: workspace_path.clone(),
+                };
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(800));
+                    let app_for_main = emit_app.clone();
+                    let label_for_main = emit_label.clone();
+                    let payload = emit_payload.clone();
+                    let _ = emit_app.run_on_main_thread(move || {
+                        let _ = app_for_main.emit_to(
+                            EventTarget::webview_window(label_for_main),
+                            "schedule-pending-open",
+                            payload,
+                        );
+                    });
+                });
+                break candidate;
+            }
+            Err(error) if error.contains("同じウィンドウが既に開いています") => {
+                let _ = remove_window_label(&app_data, &candidate);
+                let mut guard = session.lock().expect("window session");
+                let _ = take_pending_open(&mut guard, &candidate);
+                forget_window_focus(&mut guard, &candidate);
+                continue;
+            }
+            Err(error) => {
+                let _ = remove_window_label(&app_data, &candidate);
+                let mut guard = session.lock().expect("window session");
+                let _ = take_pending_open(&mut guard, &candidate);
+                forget_window_focus(&mut guard, &candidate);
+                return Err(error);
+            }
+        }
+    };
     let mut guard = states.lock().expect("schedule file states");
     let state = guard.by_label.entry(label.clone()).or_default();
     state.path = Some(PathBuf::from(path));
@@ -3051,12 +3300,15 @@ pub fn run() {
             accept_opened_workspace,
             read_json_file_limited,
             export_workspace_bundle,
+            export_workspace_bundle_at_folder,
             check_schedule_file_changed,
             poll_schedule_file_update,
             read_open_schedule_file,
             acknowledge_schedule_file_contents,
             save_schedule_file,
+            save_schedule_at_path,
             save_html_file,
+            write_schedule_export_at_path,
             save_statuses_json,
             save_members_json,
             save_colors_json,
@@ -3065,6 +3317,7 @@ pub fn run() {
             write_colors_at_path,
             create_workspace_colors_catalog,
             save_excel_export,
+            write_excel_export_at_path,
             get_members_settings,
             read_member_catalog,
             import_member_catalog,
@@ -3125,6 +3378,7 @@ pub fn run() {
             clear_last_schedule_path,
             create_schedule_window,
             take_pending_schedule_window_open,
+            ack_pending_schedule_window_open,
             register_window_focus,
             unregister_window_session,
             emit_schedule_peer_notice,

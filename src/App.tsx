@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import {
   Copy,
   GitBranch,
@@ -104,14 +105,42 @@ import { exportWorkspaceBundleViaTauri } from "./model/workspaceExport";
 import {
   buildFieldExtensionExportFiles,
   fieldExtensionExportTooLargeMessage,
+  type FieldExtensionExportFile,
 } from "./model/workspaceFieldExtensionExport";
-import { safeScheduleJsonFilename } from "./model/scheduleFile";
+import { safeScheduleJsonFilename, scheduleJsonFilename } from "./model/scheduleFile";
 import {
   REPLACE_SCHEDULE_APPLIED_BASELINE_SAME_TOAST,
   REPLACE_SCHEDULE_APPLIED_TOAST,
   assessMcpReplaceUiBlocking,
   type ReplaceScheduleDocumentResult,
 } from "./model/replaceSchedule";
+import { assessMcpUiBlocking } from "./model/mcpOperationGate";
+import type { McpActionEnvelope } from "./model/mcpOperationGate";
+import {
+  catalogContentsFromEnvelope,
+  validateMcpCatalogContents,
+  type McpCatalogKind,
+} from "./model/mcpCatalogAction";
+import { writeMembersAtPath } from "./model/memberAppData";
+import { writeStatusesAtPath } from "./model/statusAppData";
+import { writeColorsAtPath } from "./model/colorAppData";
+import { writeFieldExtensionAtPath } from "./model/fieldExtensionAppData";
+import type { McpActionResult } from "./hooks/mcpActionExecutor";
+import { useMcpActionExecutor } from "./hooks/useMcpActionExecutor";
+import { readDroppedScheduleFileViaTauri } from "./model/windowSession";
+import { errorMessage } from "./model/errors";
+import {
+  acceptOpenedScheduleViaTauri,
+  parseScheduleText,
+} from "./model/scheduleFile";
+import type { McpSetViewPatch } from "./model/mcpSetView";
+import { cloneDocumentForMcpEditPlan } from "./model/mcpEditPlan";
+import {
+  writeRowDensity,
+  writeShowLightning,
+  writeSidebarColumns,
+} from "./model/viewPreferences";
+import { writeColorSchemePreference } from "./model/colorScheme";
 import { memberMapFromList } from "./model/assigneeDisplay";
 import { mcpMembersForReadTools } from "./model/screenContext";
 import {
@@ -146,6 +175,12 @@ import {
   workspaceFieldExtensionsForDisplay,
   workspaceMergedFieldExtensionsForDisplay,
   workspacePinnedFieldExtensionPluginIds,
+  readJsonFileLimitedViaTauri,
+  WORKSPACE_CALENDAR_MAX_BYTES,
+  WORKSPACE_COLORS_MAX_BYTES,
+  WORKSPACE_FIELD_EXTENSIONS_MAX_BYTES,
+  WORKSPACE_MEMBERS_MAX_BYTES,
+  WORKSPACE_STATUSES_MAX_BYTES,
 } from "./model/workspaceLoad";
 import { useSchedule } from "./hooks/useSchedule";
 import { useAppUpdateFlow } from "./hooks/useAppAutoUpdate";
@@ -180,7 +215,10 @@ import {
   type DiffRevealPlan,
 } from "./model/diffNavigation";
 import type { ScheduleDiffEntry } from "./model/scheduleDiffEntry";
-import { collapsedSetFromIds } from "./model/scheduleFilterPersistence";
+import {
+  collapsedSetFromIds,
+} from "./model/scheduleFilterPersistence";
+import type { TaskBarAnchor } from "./model/connections";
 import { scrollXToRevealTask } from "./model/chartScroll";
 import {
   type DiffStripContentKind,
@@ -204,10 +242,11 @@ import { visibleConnectionsFromTasks, connectionsForTask } from "./model/connect
 import { milestoneLinkedByAnyTask } from "./model/milestones";
 import {
   exportSchedule,
+  exportScheduleToPath,
   ScheduleExportTooLargeError,
   type ScheduleExportFormat,
 } from "./model/exportHtml";
-import { exportScheduleExcel } from "./model/exportExcel";
+import { exportScheduleExcel, exportScheduleExcelToPath } from "./model/exportExcel";
 import {
   DEFAULT_EXCEL_EXPORT_COLUMNS,
   readExcelExportFieldColumns,
@@ -682,7 +721,8 @@ function App() {
 
   const displayCalendar = useMemo(() => {
     if (workspaceBinding) {
-      return workspaceCalendarForDisplay(workspaceBinding.calendar);
+      const fromWorkspace = workspaceCalendarForDisplay(workspaceBinding.calendar);
+      if (fromWorkspace != null) return fromWorkspace;
     }
     return appCalendarState.calendar;
   }, [workspaceBinding, appCalendarState.calendar]);
@@ -711,7 +751,7 @@ function App() {
       return workspaceColorsForDisplay(workspaceBinding.colors);
     }
     return colorCatalogState.items;
-  }, [workspaceBinding, colorCatalogState.items]);
+  }, [workspaceBinding, workspaceBinding?.colors, colorCatalogState.items]);
 
   const colorsCatalogError = workspaceBinding
     ? workspaceColorsError(workspaceBinding.colors)
@@ -911,6 +951,15 @@ function App() {
   const externalReloadHistoryRedoRef = useRef<
     (landed: import("./model/history").DocumentSnapshot) => void
   >(() => {});
+  const explainOverlayRuntimeRef = useRef<{
+    getPlanInput: () => import("./model/explainOverlayLayout").PlanExplanationScrollInput | null;
+    applyScroll: (
+      plan: import("./model/explainOverlayLayout").ExplanationScrollPlan,
+    ) => void;
+  } | null>(null);
+  const explainOverlayLiveAnchorsRef = useRef<
+    Map<ScheduleId, TaskBarAnchor>
+  >(new Map());
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
@@ -926,6 +975,7 @@ function App() {
     statusesReady,
     extensionFieldDefs,
     fieldExtensionCatalogSettled,
+    explainOverlayRuntimeRef,
   );
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
   const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
@@ -949,6 +999,17 @@ function App() {
     showOnlyMilestoneGroup,
     visibleMilestoneGroupIds,
   } = schedule;
+
+  const [mcpPngUsesDocumentRows, setMcpPngUsesDocumentRows] = useState(false);
+  const chartVisibleRows = mcpPngUsesDocumentRows
+    ? schedule.visibleRows
+    : schedule.displayVisibleRows;
+  const prepareMcpPngCapture = useCallback(() => {
+    flushSync(() => setMcpPngUsesDocumentRows(true));
+  }, []);
+  const finalizeMcpPngCapture = useCallback(() => {
+    flushSync(() => setMcpPngUsesDocumentRows(false));
+  }, []);
 
   useEffect(() => {
     const ids = new Set(schedule.milestones.map((milestone) => milestone.id));
@@ -1052,7 +1113,8 @@ function App() {
   const showChartTopBanners =
     catalogMismatchText != null ||
     linkSourceId != null ||
-    hierarchyTopBanner != null;
+    hierarchyTopBanner != null ||
+    schedule.explanationSessionActive;
 
   useLayoutEffect(() => {
     const node = chartTopBannersRef.current;
@@ -1074,6 +1136,7 @@ function App() {
     schedule.hierarchyLevelBanner,
     linkSourceId,
     linkError,
+    schedule.explanationSessionActive,
   ]);
 
   const range = useMemo(
@@ -1097,7 +1160,7 @@ function App() {
         pxPerDay: px,
         tier: gridTier(px),
         milestoneGroups: schedule.milestoneGroups,
-        milestones: schedule.milestones,
+        milestones: schedule.milestonesForBandLayout,
         visibleGroupIds: schedule.visibleMilestoneGroupIds,
         milestoneFontSize,
         milestoneDiamondSize,
@@ -1111,7 +1174,7 @@ function App() {
       range.timelineStart,
       range.totalDays,
       schedule.milestoneGroups,
-      schedule.milestones,
+      schedule.milestonesForBandLayout,
       schedule.visibleMilestoneGroupIds,
     ],
   );
@@ -1126,7 +1189,7 @@ function App() {
     (pxPerDay) => {
       const band = milestoneBandHeightPx(
         schedule.milestoneGroups,
-        schedule.milestones,
+        schedule.milestonesForBandLayout,
         schedule.visibleMilestoneGroupIds,
         pxPerDay,
         milestoneFontSize,
@@ -1137,7 +1200,7 @@ function App() {
         120,
         timelineSlotHeight - headerHeight - band - chartTopBannerHeight,
       );
-      const rows = schedule.visibleRows;
+      const rows = chartVisibleRows;
       const contentHeight =
         rows.length === 0 ? 0 : rows[rows.length - 1].y + rowHeight;
       return Math.max(0, contentHeight - body);
@@ -1152,7 +1215,7 @@ function App() {
     () =>
       layoutMilestoneBand(
         schedule.milestoneGroups,
-        schedule.milestones,
+        schedule.milestonesForBandLayout,
         schedule.visibleMilestoneGroupIds,
         view.pxPerDay,
         milestoneFontSize,
@@ -1165,7 +1228,7 @@ function App() {
       milestoneFontSize,
       milestoneLaneHeight,
       schedule.milestoneGroups,
-      schedule.milestones,
+      schedule.milestonesForBandLayout,
       schedule.visibleMilestoneGroupIds,
       view.pxPerDay,
     ],
@@ -1204,6 +1267,7 @@ function App() {
     handleWheel,
     xToDate,
     reveal,
+    applyScrollPosition,
     pxPerDay,
     scrollX,
     scrollY,
@@ -1213,6 +1277,26 @@ function App() {
     totalDays: viewTotalDays,
     timelineEnd: viewTimelineEnd,
   } = view;
+
+  explainOverlayRuntimeRef.current = {
+    getPlanInput: () => ({
+      marks: [],
+      visibleRows: chartVisibleRows,
+      dateToX,
+      pxPerDay,
+      scrollX,
+      scrollY,
+      rowHeight,
+      barHeight,
+      bodyHeight,
+      chartWidth: Math.max(200, timelineWidth),
+      timelineStart: viewStart,
+      totalDays: viewTotalDays,
+      liveAnchors: explainOverlayLiveAnchorsRef.current,
+    }),
+    applyScroll: (plan) =>
+      applyScrollPosition(plan.scrollX, plan.scrollY),
+  };
 
   const filterAssigneeLabel = useMemo(
     () =>
@@ -1293,6 +1377,7 @@ function App() {
       if (binding) setWorkspaceBinding(binding);
       else clearWorkspaceBinding();
     },
+    onScheduleSaved: schedule.clearExplanationView,
   });
   reportFileErrorRef.current = scheduleFile.showError;
   externalReloadHistoryUndoRef.current = scheduleFile.onHistoryUndoApplied;
@@ -1486,88 +1571,127 @@ function App() {
     setOpenColorCatalogEditorAfterWorkspaceCreate(true);
   }, [reloadWorkspaceBinding, workspaceBinding]);
 
-  const handleExportWorkspace = useCallback(async () => {
-    if (!isTauri() || workspaceBinding) return;
-    try {
-      const scheduleContents = getCanonicalJson();
-      const scheduleFileName = safeScheduleJsonFilename(scheduleFile.filePath);
+  const collectWorkspaceExportBundle = useCallback(async () => {
+    const scheduleContents = getCanonicalJson();
+    const scheduleFileName = safeScheduleJsonFilename(scheduleFile.filePath);
+
+    const readSidecar = async (
+      path: string | null,
+      maxBytes: number,
+    ): Promise<string | null> => {
+      if (!path || !isTauri()) return null;
+      try {
+        const text = await readJsonFileLimitedViaTauri(path, maxBytes);
+        return text.endsWith("\n") ? text : `${text}\n`;
+      } catch {
+        return null;
+      }
+    };
+    const sidecarFileName = (path: string | null, fallback: string) =>
+      path ? (scheduleJsonFilename(path) ?? fallback) : fallback;
+
+    if (workspaceBinding) {
       let membersContents: string | null = null;
       let membersFileName: string | null = null;
-      const selectedId = memberCatalogState.settings.selectedCatalogId;
-      if (selectedId) {
-        const text = await invoke<string | null>("read_member_catalog", {
-          catalogId: selectedId,
-        });
-        if (text) {
-          membersContents = text.endsWith("\n") ? text : `${text}\n`;
-          const label =
-            memberCatalogState.selectedCatalogLabel ?? selectedId;
-          membersFileName = `${label}.members.json`;
-        }
+      if (
+        workspaceBinding.members.kind === "loaded" &&
+        workspaceBinding.resolved.membersPath
+      ) {
+        membersContents = await readSidecar(
+          workspaceBinding.resolved.membersPath,
+          WORKSPACE_MEMBERS_MAX_BYTES,
+        );
+        membersFileName = sidecarFileName(
+          workspaceBinding.resolved.membersPath,
+          "members.json",
+        );
       }
       let calendarContents: string | null = null;
       let calendarFileName: string | null = null;
-      if (appCalendarState.label) {
-        const text = await invoke<string | null>("read_app_calendar");
-        if (text) {
-          calendarContents = text.endsWith("\n") ? text : `${text}\n`;
-          calendarFileName = appCalendarState.label.endsWith(".json")
-            ? appCalendarState.label
-            : `${appCalendarState.label}.calendar.json`;
-        }
+      if (
+        workspaceBinding.calendar.kind === "loaded" &&
+        workspaceBinding.resolved.calendarPath
+      ) {
+        calendarContents = await readSidecar(
+          workspaceBinding.resolved.calendarPath,
+          WORKSPACE_CALENDAR_MAX_BYTES,
+        );
+        calendarFileName = sidecarFileName(
+          workspaceBinding.resolved.calendarPath,
+          "calendar.json",
+        );
       }
       let statusesContents: string | null = null;
       let statusesFileName: string | null = null;
-      const selectedStatusId = statusCatalogState.settings.selectedCatalogId;
-      if (selectedStatusId) {
-        const text = await invoke<string | null>("read_status_catalog", {
-          catalogId: selectedStatusId,
-        });
-        if (text) {
-          statusesContents = text.endsWith("\n") ? text : `${text}\n`;
-          const label =
-            statusCatalogState.selectedCatalogLabel ?? selectedStatusId;
-          statusesFileName = label.endsWith(".json")
-            ? label
-            : `${label}.statuses.json`;
-        }
+      if (
+        workspaceBinding.statuses.kind === "loaded" &&
+        workspaceBinding.resolved.statusesPath
+      ) {
+        statusesContents = await readSidecar(
+          workspaceBinding.resolved.statusesPath,
+          WORKSPACE_STATUSES_MAX_BYTES,
+        );
+        statusesFileName = sidecarFileName(
+          workspaceBinding.resolved.statusesPath,
+          "statuses.json",
+        );
       }
       let colorsContents: string | null = null;
       let colorsFileName: string | null = null;
-      const selectedColorId = colorCatalogState.settings.selectedCatalogId;
-      if (selectedColorId) {
-        const text = await invoke<string | null>("read_color_catalog", {
-          catalogId: selectedColorId,
-        });
-        if (text) {
-          colorsContents = text.endsWith("\n") ? text : `${text}\n`;
-          const label =
-            colorCatalogState.selectedCatalogLabel ?? selectedColorId;
-          colorsFileName = label.endsWith(".json")
-            ? label
-            : `${label}.colors.json`;
+      if (
+        workspaceBinding.colors.kind === "loaded" &&
+        workspaceBinding.resolved.colorsPath
+      ) {
+        colorsContents = await readSidecar(
+          workspaceBinding.resolved.colorsPath,
+          WORKSPACE_COLORS_MAX_BYTES,
+        );
+        colorsFileName = sidecarFileName(
+          workspaceBinding.resolved.colorsPath,
+          "colors.json",
+        );
+      }
+      const fieldExtensions: FieldExtensionExportFile[] = [];
+      if (workspaceBinding.fieldExtensions.kind === "loaded") {
+        const paths = workspaceBinding.resolved.fieldExtensionPaths;
+        for (let i = 0; i < workspaceBinding.fieldExtensions.documents.length; i++) {
+          const doc = workspaceBinding.fieldExtensions.documents[i];
+          const path = paths[i];
+          if (!path) continue;
+          const contents = await readSidecar(
+            path,
+            WORKSPACE_FIELD_EXTENSIONS_MAX_BYTES,
+          );
+          if (!contents) continue;
+          const tooLarge = fieldExtensionExportTooLargeMessage(contents);
+          if (tooLarge) throw tooLarge;
+          fieldExtensions.push({
+            fileName: sidecarFileName(path, `${doc.id}.fields.json`),
+            contents,
+          });
         }
       }
-      const selectedExtensionIds =
-        fieldExtensionCatalogState.settings.selectedCatalogIds;
-      const extensionContentsById: Record<string, string | null> = {};
-      for (const catalogId of selectedExtensionIds) {
-        const text = await invoke<string | null>("read_field_extension_catalog", {
-          catalogId,
-        });
-        extensionContentsById[catalogId] = text;
-      }
-      const fieldExtensions = buildFieldExtensionExportFiles(
-        selectedExtensionIds,
-        extensionContentsById,
-      );
-      for (const entry of fieldExtensions) {
-        const tooLarge = fieldExtensionExportTooLargeMessage(entry.contents);
-        if (tooLarge) {
-          throw tooLarge;
+      if (workspaceBinding.editableFieldExtension.kind === "loaded") {
+        const path = workspaceBinding.resolved.editableFieldExtensionPath;
+        if (path) {
+          const contents = await readSidecar(
+            path,
+            WORKSPACE_FIELD_EXTENSIONS_MAX_BYTES,
+          );
+          if (contents) {
+            const tooLarge = fieldExtensionExportTooLargeMessage(contents);
+            if (tooLarge) throw tooLarge;
+            fieldExtensions.push({
+              fileName: sidecarFileName(
+                path,
+                `${workspaceBinding.editableFieldExtension.document.id}.fields.json`,
+              ),
+              contents,
+            });
+          }
         }
       }
-      await exportWorkspaceBundleViaTauri({
+      return {
         scheduleContents,
         scheduleFileName,
         membersContents,
@@ -1579,23 +1703,130 @@ function App() {
         colorsContents,
         colorsFileName,
         fieldExtensions,
+      };
+    }
+
+    let membersContents: string | null = null;
+    let membersFileName: string | null = null;
+    const selectedId = memberCatalogState.settings.selectedCatalogId;
+    if (selectedId) {
+      const text = await invoke<string | null>("read_member_catalog", {
+        catalogId: selectedId,
       });
+      if (text) {
+        membersContents = text.endsWith("\n") ? text : `${text}\n`;
+        const label = memberCatalogState.selectedCatalogLabel ?? selectedId;
+        membersFileName = `${label}.members.json`;
+      }
+    }
+    let calendarContents: string | null = null;
+    let calendarFileName: string | null = null;
+    if (appCalendarState.label) {
+      const text = await invoke<string | null>("read_app_calendar");
+      if (text) {
+        calendarContents = text.endsWith("\n") ? text : `${text}\n`;
+        calendarFileName = appCalendarState.label.endsWith(".json")
+          ? appCalendarState.label
+          : `${appCalendarState.label}.calendar.json`;
+      }
+    }
+    let statusesContents: string | null = null;
+    let statusesFileName: string | null = null;
+    const selectedStatusId = statusCatalogState.settings.selectedCatalogId;
+    if (selectedStatusId) {
+      const text = await invoke<string | null>("read_status_catalog", {
+        catalogId: selectedStatusId,
+      });
+      if (text) {
+        statusesContents = text.endsWith("\n") ? text : `${text}\n`;
+        const label = statusCatalogState.selectedCatalogLabel ?? selectedStatusId;
+        statusesFileName = label.endsWith(".json")
+          ? label
+          : `${label}.statuses.json`;
+      }
+    }
+    let colorsContents: string | null = null;
+    let colorsFileName: string | null = null;
+    const selectedColorId = colorCatalogState.settings.selectedCatalogId;
+    if (selectedColorId) {
+      const text = await invoke<string | null>("read_color_catalog", {
+        catalogId: selectedColorId,
+      });
+      if (text) {
+        colorsContents = text.endsWith("\n") ? text : `${text}\n`;
+        const label = colorCatalogState.selectedCatalogLabel ?? selectedColorId;
+        colorsFileName = label.endsWith(".json")
+          ? label
+          : `${label}.colors.json`;
+      }
+    }
+    const selectedExtensionIds =
+      fieldExtensionCatalogState.settings.selectedCatalogIds;
+    const extensionContentsById: Record<string, string | null> = {};
+    for (const catalogId of selectedExtensionIds) {
+      const text = await invoke<string | null>("read_field_extension_catalog", {
+        catalogId,
+      });
+      extensionContentsById[catalogId] = text;
+    }
+    const fieldExtensions = buildFieldExtensionExportFiles(
+      selectedExtensionIds,
+      extensionContentsById,
+    );
+    for (const entry of fieldExtensions) {
+      const tooLarge = fieldExtensionExportTooLargeMessage(entry.contents);
+      if (tooLarge) {
+        throw tooLarge;
+      }
+    }
+    return {
+      scheduleContents,
+      scheduleFileName,
+      membersContents,
+      membersFileName,
+      calendarContents,
+      calendarFileName,
+      statusesContents,
+      statusesFileName,
+      colorsContents,
+      colorsFileName,
+      fieldExtensions,
+    };
+  }, [
+    appCalendarState.label,
+    colorCatalogState.selectedCatalogLabel,
+    colorCatalogState.settings.selectedCatalogId,
+    fieldExtensionCatalogState.settings.selectedCatalogIds,
+    getCanonicalJson,
+    memberCatalogState.selectedCatalogLabel,
+    memberCatalogState.settings.selectedCatalogId,
+    scheduleFile.filePath,
+    statusCatalogState.selectedCatalogLabel,
+    statusCatalogState.settings.selectedCatalogId,
+    workspaceBinding,
+  ]);
+
+  const handleExportWorkspace = useCallback(async () => {
+    if (!isTauri() || workspaceBinding) return;
+    try {
+      const bundle = await collectWorkspaceExportBundle();
+      await exportWorkspaceBundleViaTauri(bundle);
       const parts = [
         "設定ファイルを書き出しました。このウィンドウはアプリの設定のままです。",
       ];
-      if (!membersContents) {
+      if (!bundle.membersContents) {
         parts.push("メンバーは未選択のため書いていません。");
       }
-      if (!calendarContents) {
+      if (!bundle.calendarContents) {
         parts.push("稼働日は未設定のため書いていません。");
       }
-      if (!statusesContents) {
+      if (!bundle.statusesContents) {
         parts.push("ステータスは組み込みの三件のため書いていません。");
       }
-      if (!colorsContents) {
+      if (!bundle.colorsContents) {
         parts.push("色は未選択のため書いていません。");
       }
-      if (fieldExtensions.length === 0) {
+      if (bundle.fieldExtensions.length === 0) {
         parts.push("拡張項目は選んでいないため書いていません。");
       }
       showUpdateToast(parts.join(" "));
@@ -1608,20 +1839,7 @@ function App() {
             : "書き出しに失敗しました。";
       scheduleFile.showError(message, "書き出しに失敗しました");
     }
-  }, [
-    appCalendarState.label,
-    getCanonicalJson,
-    memberCatalogState.selectedCatalogLabel,
-    memberCatalogState.settings.selectedCatalogId,
-    statusCatalogState.selectedCatalogLabel,
-    statusCatalogState.settings.selectedCatalogId,
-    colorCatalogState.selectedCatalogLabel,
-    colorCatalogState.settings.selectedCatalogId,
-    fieldExtensionCatalogState.settings.selectedCatalogIds,
-    scheduleFile,
-    showUpdateToast,
-    workspaceBinding,
-  ]);
+  }, [collectWorkspaceExportBundle, scheduleFile.showError, showUpdateToast, workspaceBinding]);
 
   const showReplaceScreenToast = useCallback(() => {
     setToastMessage("画面を置き換えました");
@@ -1633,6 +1851,60 @@ function App() {
   );
   completeReplaceDuringConflictReloadRef.current =
     scheduleFile.completeReplaceDuringConflictReload;
+
+  const [chartBarDragging, setChartBarDragging] = useState(false);
+
+  const mcpUiBlocking = useCallback(() => {
+    const assessment = scheduleFile.externalReloadAssessment;
+    const externalReloadConflictDialogOpen =
+      scheduleFile.externalReloadOpen &&
+      assessment?.kind === "blocked" &&
+      assessment.conflictLines.length > 0;
+    return assessMcpUiBlocking({
+      fileBusy: scheduleFile.fileBusy,
+      titleEditing,
+      detailPanelEditing,
+      scheduleInlineEditing:
+        schedule.editingNoteTask != null ||
+        schedule.editingMilestone != null ||
+        schedule.editingHierarchyTarget != null ||
+        schedule.addingHierarchyTarget != null ||
+        schedule.outlineHeadingAddOpen ||
+        schedule.deletingHierarchyTarget != null,
+      reorderDragging: schedule.reorderPreview != null,
+      sidebarReorderDragging,
+      chartBarDragging,
+      modalDialogOpen:
+        settingsOpen ||
+        exportOpen ||
+        guideOpen ||
+        shortcutsOpen ||
+        connectionAddDialogOpen ||
+        hierarchyLevelsOpen ||
+        commandPaletteOpen ||
+        fieldExtensionEditorOverlay.open ||
+        (statusEditorOverlayRef.current?.open ?? false) ||
+        (colorEditorOverlayRef.current?.open ?? false) ||
+        (memberEditorOverlayRef.current?.open ?? false) ||
+        schedule.duplicatingTask != null,
+      externalReloadConflictDialogOpen,
+    });
+  }, [
+    detailPanelEditing,
+    titleEditing,
+    schedule.addingHierarchyTarget,
+    schedule.outlineHeadingAddOpen,
+    schedule.deletingHierarchyTarget,
+    schedule.editingHierarchyTarget,
+    schedule.editingMilestone,
+    schedule.editingNoteTask,
+    schedule.reorderPreview,
+    scheduleFile.externalReloadAssessment,
+    scheduleFile.externalReloadOpen,
+    scheduleFile.fileBusy,
+    sidebarReorderDragging,
+    chartBarDragging,
+  ]);
 
   const mcpReplaceUiBlocking = useCallback(() => {
     const assessment = scheduleFile.externalReloadAssessment;
@@ -1653,7 +1925,20 @@ function App() {
         schedule.deletingHierarchyTarget != null,
       reorderDragging: schedule.reorderPreview != null,
       sidebarReorderDragging,
-      modalDialogOpen: document.querySelector('[role="dialog"]') != null,
+      chartBarDragging,
+      modalDialogOpen:
+        settingsOpen ||
+        exportOpen ||
+        guideOpen ||
+        shortcutsOpen ||
+        connectionAddDialogOpen ||
+        hierarchyLevelsOpen ||
+        commandPaletteOpen ||
+        fieldExtensionEditorOverlay.open ||
+        (statusEditorOverlayRef.current?.open ?? false) ||
+        (colorEditorOverlayRef.current?.open ?? false) ||
+        (memberEditorOverlayRef.current?.open ?? false) ||
+        schedule.duplicatingTask != null,
       externalReloadConflictDialogOpen,
     });
   }, [
@@ -1670,6 +1955,7 @@ function App() {
     scheduleFile.externalReloadOpen,
     scheduleFile.fileBusy,
     sidebarReorderDragging,
+    chartBarDragging,
   ]);
 
   const onReplaceScheduleApplied = useCallback(
@@ -1844,7 +2130,9 @@ function App() {
       levels: schedule.levels,
       outline: schedule.outline,
     }).length;
-    const visible = schedule.visibleRows.filter((row) => row.type === "task").length;
+    const visible = chartVisibleRows.filter(
+      (row) => row.type === "task" && row.explanationTrial == null,
+    ).length;
     return { visibleTaskCount: visible, totalTaskCount: total };
   }, [
     schedule.categories,
@@ -1853,7 +2141,7 @@ function App() {
     schedule.milestones,
     schedule.outline,
     schedule.title,
-    schedule.visibleRows,
+    chartVisibleRows,
   ]);
 
   const documentTasks = useMemo(
@@ -1978,14 +2266,14 @@ function App() {
 
   const revealTaskRow = useCallback(
     (taskId: ScheduleId) => {
-      const row = visibleRows.find(
+      const row = chartVisibleRows.find(
         (item) => item.type === "task" && item.task.id === taskId,
       );
       if (!row || row.type !== "task") return;
       reveal(
         parseDate(row.task.start),
         scrollYToShowSelectedTask(
-          visibleRows,
+          chartVisibleRows,
           row.y,
           rowHeight,
           bodyHeight,
@@ -1994,7 +2282,15 @@ function App() {
         taskBarWidthPx(row.task, dateToX, pxPerDay),
       );
     },
-    [bodyHeight, dateToX, pxPerDay, reveal, rowHeight, scrollY, visibleRows],
+    [
+      bodyHeight,
+      chartVisibleRows,
+      dateToX,
+      pxPerDay,
+      reveal,
+      rowHeight,
+      scrollY,
+    ],
   );
 
   const focusDetailName = useCallback(() => {
@@ -2176,8 +2472,10 @@ function App() {
   ]);
   const links = useMemo(() => {
     const visibleIds = new Set(
-      schedule.visibleRows.flatMap((row) =>
-        row.type === "task" ? [row.task.id] : [],
+      chartVisibleRows.flatMap((row) =>
+        row.type === "task" && row.explanationTrial == null
+          ? [row.task.id]
+          : [],
       ),
     );
     const tasks = collectTasksFromDocument({
@@ -2200,17 +2498,19 @@ function App() {
     schedule.milestones,
     schedule.outline,
     schedule.title,
-    schedule.visibleRows,
+    chartVisibleRows,
   ]);
 
   const taskConnections = useMemo(() => {
     const visibleIds = new Set(
-      schedule.visibleRows.flatMap((row) =>
-        row.type === "task" ? [row.task.id] : [],
+      chartVisibleRows.flatMap((row) =>
+        row.type === "task" && row.explanationTrial == null
+          ? [row.task.id]
+          : [],
       ),
     );
     return visibleConnectionsFromTasks(schedule.connections, visibleIds);
-  }, [schedule.connections, schedule.visibleRows]);
+  }, [chartVisibleRows, schedule.connections]);
 
   const handleResizeStart = useCallback(
     (taskId: ScheduleId, groupX: number) => {
@@ -2220,23 +2520,31 @@ function App() {
   );
 
   const stickyLayout = useMemo(
-    () => layoutStickyHeaders(visibleRows, scrollY, rowHeight, bodyHeight),
-    [bodyHeight, rowHeight, scrollY, visibleRows],
+    () => layoutStickyHeaders(chartVisibleRows, scrollY, rowHeight, bodyHeight),
+    [bodyHeight, rowHeight, scrollY, chartVisibleRows],
   );
 
   useLayoutEffect(() => {
     if (focusTaskId == null) return;
-    const row = visibleRows.find(
+    const row = chartVisibleRows.find(
       (item) => item.type === "task" && item.task.id === focusTaskId,
     );
     if (!row || row.type !== "task") return;
     reveal(
       parseDate(row.task.start),
-      scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+      scrollYToRevealTask(chartVisibleRows, row.y, rowHeight, bodyHeight),
       taskBarWidthPx(row.task, dateToX, pxPerDay),
     );
     setFocusTaskId(null);
-  }, [bodyHeight, dateToX, focusTaskId, pxPerDay, reveal, rowHeight, visibleRows]);
+  }, [
+    bodyHeight,
+    chartVisibleRows,
+    dateToX,
+    focusTaskId,
+    pxPerDay,
+    reveal,
+    rowHeight,
+  ]);
 
   const handleResizeEnd = useCallback(
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
@@ -2249,10 +2557,11 @@ function App() {
   );
 
   const runScheduleExport = useCallback(
-    (
+    async (
       format: ScheduleExportFormat,
       excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
       excelFieldColumns?: ExcelExportFieldColumnsPreference,
+      exportPath?: string,
     ) => {
       flushTitleEdit();
       const milestones = milestonesForExport(
@@ -2368,7 +2677,7 @@ function App() {
         const taskNames = new Map(
           exportTasks.map((task) => [task.id, task.name]),
         );
-        void exportScheduleExcel({
+        const excelInput = {
           ...exportInput,
           exportMilestones: milestones,
           milestoneGroups: schedule.milestoneGroups,
@@ -2380,10 +2689,19 @@ function App() {
           excelFieldColumns:
             excelFieldColumns ??
             readExcelExportFieldColumns(editableFieldDefs),
-        }).catch(onExportError);
+        };
+        if (exportPath) {
+          await exportScheduleExcelToPath(excelInput, exportPath);
+          return;
+        }
+        await exportScheduleExcel(excelInput).catch(onExportError);
         return;
       }
-      void exportSchedule(exportInput, format).catch(onExportError);
+      if (exportPath) {
+        await exportScheduleToPath(exportInput, format, exportPath);
+        return;
+      }
+      await exportSchedule(exportInput, format).catch(onExportError);
     },
     [
       displayCalendar,
@@ -2433,9 +2751,336 @@ function App() {
     };
   }, [editableFieldDefs, getCanonicalJson, scheduleFile.filePath]);
 
+  const onMcpDiscardInProgress = useCallback(() => {
+    setDetailPanelEditing(false);
+    setTitleEditing(false);
+    schedule.cancelReorder();
+    setChartBarDragging(false);
+    setSidebarReorderDragging(false);
+    setCommandPaletteOpen(false);
+    setSettingsOpen(false);
+    setExportOpen(false);
+    setHierarchyLevelsOpen(false);
+    setConnectionAddDialogOpen(false);
+    fieldExtensionEditorOverlay.forceClose();
+    colorEditorOverlay.forceClose();
+    memberEditorOverlay.forceClose();
+    statusEditorOverlay.forceClose();
+    schedule.closeDuplicateDialog();
+    schedule.closeTaskNoteDialog();
+    schedule.closeMilestoneEdit();
+    schedule.closeHierarchyEdit();
+    schedule.closeAddingHierarchy();
+    schedule.closeDeleteHierarchy();
+  }, [
+    colorEditorOverlay,
+    fieldExtensionEditorOverlay,
+    memberEditorOverlay,
+    schedule,
+    statusEditorOverlay,
+  ]);
+
+  const runMcpCatalogAction = useCallback(
+    async (
+      catalog: McpCatalogKind,
+      envelope: McpActionEnvelope,
+    ): Promise<McpActionResult> => {
+      const contents = catalogContentsFromEnvelope(envelope);
+      if (!contents.ok) return contents;
+      const validated = validateMcpCatalogContents(catalog, contents.text);
+      if (!validated.ok) return validated;
+      if (envelope.save !== true) {
+        return { ok: true, text: "内容を確認しました。ファイルは変えていません。" };
+      }
+      const overwrite = envelope.overwrite === true;
+      try {
+        if (catalog === "members") {
+          if (workspaceMemberEditTarget) {
+            await writeMembersAtPath(
+              workspaceMemberEditTarget.membersPath,
+              validated.canonical,
+              workspaceMemberEditTarget.workspacePath,
+            );
+            await reloadWorkspaceBinding();
+            return { ok: true, text: workspaceMemberEditTarget.membersPath };
+          }
+          const catalogId =
+            typeof envelope.catalogId === "string"
+              ? envelope.catalogId
+              : memberCatalogState.settings.selectedCatalogId;
+          if (!catalogId) {
+            return { ok: false, message: "保存するメンバー一覧が選ばれていません。" };
+          }
+          await memberCatalogState.saveCatalog(
+            catalogId,
+            validated.canonical,
+            overwrite,
+          );
+          return { ok: true, text: catalogId };
+        }
+        if (catalog === "statuses") {
+          if (workspaceStatusEditTarget) {
+            await writeStatusesAtPath(
+              workspaceStatusEditTarget.statusesPath,
+              validated.canonical,
+              workspaceStatusEditTarget.workspacePath,
+            );
+            await reloadWorkspaceBinding();
+            return { ok: true, text: workspaceStatusEditTarget.statusesPath };
+          }
+          const catalogId =
+            typeof envelope.catalogId === "string"
+              ? envelope.catalogId
+              : statusCatalogState.settings.selectedCatalogId;
+          if (!catalogId) {
+            return { ok: false, message: "保存するステータス一覧が選ばれていません。" };
+          }
+          await statusCatalogState.saveCatalog(
+            catalogId,
+            validated.canonical,
+            overwrite,
+          );
+          return { ok: true, text: catalogId };
+        }
+        if (catalog === "colors") {
+          if (workspaceColorEditTarget) {
+            await writeColorsAtPath(
+              workspaceColorEditTarget.colorsPath,
+              validated.canonical,
+              workspaceColorEditTarget.workspacePath,
+            );
+            const reloaded = await reloadWorkspaceBinding();
+            if (!reloaded.ok) {
+              return { ok: false, message: reloaded.message };
+            }
+            const colorLoadError = workspaceColorsError(reloaded.binding.colors);
+            if (colorLoadError) {
+              return { ok: false, message: colorLoadError };
+            }
+            return { ok: true, text: workspaceColorEditTarget.colorsPath };
+          }
+          if (workspaceBinding?.colors.kind === "error") {
+            return { ok: false, message: workspaceBinding.colors.message };
+          }
+          const catalogId =
+            typeof envelope.catalogId === "string"
+              ? envelope.catalogId
+              : colorCatalogState.settings.selectedCatalogId;
+          if (!catalogId) {
+            return { ok: false, message: "保存する色の一覧が選ばれていません。" };
+          }
+          await colorCatalogState.saveCatalog(
+            catalogId,
+            validated.canonical,
+            overwrite,
+          );
+          return { ok: true, text: catalogId };
+        }
+        if (workspaceFieldExtensionEditTarget) {
+          await writeFieldExtensionAtPath(
+            workspaceFieldExtensionEditTarget.path,
+            validated.canonical,
+            workspaceFieldExtensionEditTarget.workspacePath,
+          );
+          await reloadWorkspaceBinding();
+          return { ok: true, text: workspaceFieldExtensionEditTarget.path };
+        }
+        const catalogId =
+          typeof envelope.catalogId === "string"
+            ? envelope.catalogId
+            : fieldExtensionCatalogState.settings.selectedCatalogIds[0] ?? null;
+        if (!catalogId) {
+          return { ok: false, message: "保存する拡張項目が選ばれていません。" };
+        }
+        const nextId = await fieldExtensionCatalogState.saveCatalog(
+          catalogId,
+          validated.canonical,
+        );
+        return { ok: true, text: nextId };
+      } catch (error) {
+        return {
+          ok: false,
+          message:
+            error instanceof Error ? error.message : "一覧を保存できませんでした。",
+        };
+      }
+    },
+    [
+      colorCatalogState,
+      fieldExtensionCatalogState,
+      memberCatalogState,
+      reloadWorkspaceBinding,
+      statusCatalogState,
+      workspaceColorEditTarget,
+      workspaceFieldExtensionEditTarget,
+      workspaceMemberEditTarget,
+      workspaceStatusEditTarget,
+      workspaceBinding,
+    ],
+  );
+
+  const mcpActionExecutor = useMcpActionExecutor({
+    levels: schedule.levels,
+    visibleRows: schedule.visibleRows,
+    getDocument: () => {
+      return cloneDocumentForMcpEditPlan({
+        schemaVersion: SCHEDULE_SCHEMA_VERSION,
+        title: schedule.title,
+        categories: schedule.categories,
+        milestoneGroups: schedule.milestoneGroups,
+        milestones: schedule.milestones,
+        levels: schedule.levels,
+        outline: schedule.outline,
+        connections: schedule.connections,
+      });
+    },
+    replaceScheduleDocument: (document) =>
+      replaceScheduleDocumentRef.current(document),
+    scheduleFilePath: scheduleFile.filePath,
+    getScheduleFilePath: scheduleFile.getFilePath,
+    fields: editableFieldDefs,
+    getCanonicalJson,
+    documentTitle: schedule.title,
+    setBaselineAfterSave: scheduleFile.markSavedAtPath,
+    isDirty: scheduleFile.isDirty,
+    getIsDirty: scheduleFile.getIsDirty,
+    openPathWithoutDialog: async (path, discardUnsaved) => {
+      if (scheduleFile.getIsDirty() && !discardUnsaved) {
+        return {
+          ok: false,
+          message: "未保存の変更があります。discardUnsaved を true にしてください。",
+        };
+      }
+      try {
+        const contents = await readDroppedScheduleFileViaTauri(path);
+        const parsed = parseScheduleText(contents);
+        if (!parsed.ok) {
+          return { ok: false, message: parsed.message };
+        }
+        await acceptOpenedScheduleViaTauri(path, contents);
+        await scheduleFile.applyOpenedFile(
+          { path, contents },
+          { recordRecent: false },
+        );
+        return { ok: true, text: path };
+      } catch (error) {
+        return {
+          ok: false,
+          message:
+            error instanceof Error ? error.message : "ファイルを開けませんでした。",
+        };
+      }
+    },
+    getCollapsed: () => schedule.getCollapsedForMcp(),
+    getFilterViewState: () => schedule.getFilterViewState(),
+    clearExplanationOnSetView: schedule.clearExplanationView,
+    runExplainViewAction: schedule.runExplainViewAction,
+    runExplainOverlayAction: schedule.runExplainOverlayAction,
+    getExplanationOverlay: () => schedule.explanationOverlay,
+    applyPartialFilterViewState: schedule.applyPartialFilterViewState,
+    applySetViewPreferences: (patch: McpSetViewPatch) => {
+      if (patch.displayScale !== undefined) {
+        setDisplayScalePreference(patch.displayScale);
+        writeDisplayScalePreference(patch.displayScale);
+      }
+      if (patch.rowDensity !== undefined) {
+        setRowDensity(patch.rowDensity);
+        writeRowDensity(patch.rowDensity);
+      }
+      if (patch.showLightningLine !== undefined) {
+        setShowLightningLine(patch.showLightningLine);
+        writeShowLightning(patch.showLightningLine);
+      }
+      if (patch.sidebarColumns !== undefined) {
+        setSidebarColumns(patch.sidebarColumns);
+        writeSidebarColumns(patch.sidebarColumns);
+      }
+      if (patch.colorScheme !== undefined) {
+        setColorSchemePreference(patch.colorScheme);
+        setResolvedColorScheme(resolveColorScheme(patch.colorScheme));
+        writeColorSchemePreference(patch.colorScheme);
+      }
+    },
+    applySetViewTimeline: (patch: McpSetViewPatch) => {
+      if (patch.zoomTier !== undefined) {
+        view.setTierZoom(patch.zoomTier);
+      }
+      if (patch.fitToWidth) {
+        view.fitToWidth();
+      }
+      if (patch.scrollX !== undefined) {
+        view.scrollBy(patch.scrollX - view.scrollX, 0);
+      }
+      if (patch.scrollY !== undefined) {
+        view.scrollBy(0, patch.scrollY - view.scrollY);
+      }
+    },
+    applyCalendarAction: async (action) => {
+      if (action.kind === "clear") {
+        await appCalendarState.removeCalendar();
+        return { ok: true, text: "稼働日を外しました。" };
+      }
+      if (action.kind === "removeBinding") {
+        await appCalendarState.removeCalendar();
+        return { ok: true, text: "稼働日を外しました。" };
+      }
+      try {
+        const contents = await readDroppedScheduleFileViaTauri(action.path);
+        const label = action.path.split(/[/\\]/).pop() ?? action.path;
+        await appCalendarState.importCalendar(label, contents);
+        return { ok: true, text: action.path };
+      } catch (error) {
+        return {
+          ok: false,
+          message:
+            error instanceof Error ? error.message : "稼働日を取り込めませんでした。",
+        };
+      }
+    },
+    runExport: async (format, path, excelColumns, excelFieldColumns) => {
+      try {
+        await runScheduleExport(
+          format,
+          excelColumns as typeof DEFAULT_EXCEL_EXPORT_COLUMNS | undefined,
+          excelFieldColumns as ExcelExportFieldColumnsPreference | undefined,
+          path,
+        );
+        return { ok: true, text: path };
+      } catch (error) {
+        return {
+          ok: false,
+          message: errorMessage(error, "書き出せませんでした。"),
+        };
+      }
+    },
+    undo: schedule.undo,
+    redo: schedule.redo,
+    memberCatalogSave: (envelope) => runMcpCatalogAction("members", envelope),
+    colorCatalogSave: (envelope) => runMcpCatalogAction("colors", envelope),
+    statusCatalogSave: (envelope) => runMcpCatalogAction("statuses", envelope),
+    fieldCatalogSave: (envelope) => runMcpCatalogAction("fields", envelope),
+    exportWorkspaceToFolder: async (folder) => {
+      try {
+        const bundle = await collectWorkspaceExportBundle();
+        await exportWorkspaceBundleViaTauri({ ...bundle, folder });
+        return { ok: true, text: folder };
+      } catch (error) {
+        return {
+          ok: false,
+          message: errorMessage(
+            error,
+            "設定ファイルを書き出せませんでした。",
+          ),
+        };
+      }
+    },
+    mcpUiBlocking,
+  });
+
   useMcpScreenBridge({
     statuses: displayStatuses,
     colors: displayColors,
+    colorsCatalogError,
     categories: schedule.categories,
     outline: schedule.outline,
     title: schedule.title,
@@ -2452,7 +3097,20 @@ function App() {
     mcpMembers,
     levels: schedule.levels,
     fields: editableFieldDefs,
-    scheduleFilePath: scheduleFile.filePath,
+    collapsed: schedule.getDisplayedCollapsedForMcp(),
+    userCollapsed: schedule.getCollapsedForMcp(),
+    explanationView: schedule.explanationView,
+    explanationOverlay: schedule.explanationOverlay,
+    displayScalePreference,
+    effectiveUiScale: uiScale,
+    rowDensity,
+    showLightningLine,
+    sidebarColumns,
+    colorSchemePreference,
+    resolvedColorScheme,
+    calendar: displayCalendar,
+    getScheduleFilePath: scheduleFile.getFilePath,
+    getCanonicalJson,
     scheduleCurrentJson: scheduleFile.currentJson,
     scheduleBaselineJson: scheduleFile.baselineJson,
     startupSettled: scheduleFile.startupSettled,
@@ -2460,10 +3118,31 @@ function App() {
       scheduleFile.recoveryConflictOpen ||
       scheduleFile.missingScheduleLabel != null ||
       scheduleFile.recoveryInvalidOpen,
+    fileBusy: scheduleFile.fileBusy,
     mcpReplaceUiBlocking,
+    mcpUiBlocking,
+    onDiscardInProgress: onMcpDiscardInProgress,
+    mcpActionExecutor,
     replaceScheduleDocument: (document) =>
       replaceScheduleDocumentRef.current(document),
     onReplaceScheduleApplied,
+    visibleRows: chartVisibleRows,
+    prepareMcpPngCapture,
+    finalizeMcpPngCapture,
+    viewStart,
+    viewTotalDays,
+    scrollX,
+    pxPerDay,
+    chartWidth: timelineWidth,
+    scrollY,
+    rowHeight,
+    bodyHeight,
+    dateToX,
+    headerHeight: headerHeight,
+    milestoneBandHeight,
+    barHeight,
+    mainElement: mainRef.current,
+    explainOverlayLiveAnchorsRef,
   });
 
   const announceDiffStrip = useCallback((kind: DiffStripContentKind, text: string) => {
@@ -2613,7 +3292,7 @@ function App() {
         filterState.collapsedGroupIds,
       );
       const outcome = resolveDiffNavigation(entry, {
-        visibleRows: schedule.visibleRows,
+        visibleRows: chartVisibleRows,
         categories: schedule.categories,
         outline: schedule.outline,
         collapsed,
@@ -3864,7 +4543,7 @@ function App() {
           levelCount={schedule.hierarchyLayout.levelCount}
           usesOutlineStorage={schedule.usesOutlineStorage}
           allowCrossParentTaskMove={schedule.allowCrossParentTaskMove}
-          rows={schedule.visibleRows}
+          rows={chartVisibleRows}
           reorderBaseRows={schedule.baseVisibleRows}
           scrollY={scrollY}
           viewportHeight={bodyHeight}
@@ -3924,6 +4603,7 @@ function App() {
           sticky={stickyLayout}
           sidebarColumns={sidebarColumns}
           chartTopBannerHeight={chartTopBannerHeight}
+          explanationOverlay={schedule.explanationOverlay}
         />
         <div className="chart-detail">
         {bulkDiscardNotice ? (
@@ -3968,12 +4648,37 @@ function App() {
                   ) : null}
                 </div>
               ) : null}
+              {schedule.explanationSessionActive ? (
+                <div className="explanation-banner" role="status">
+                  <div className="explanation-banner-text">
+                    <div>説明を表示しています</div>
+                    {schedule.explanationOverlay?.summary?.trim() ? (
+                      <div
+                        className="explanation-banner-summary"
+                        data-explanation-overlay=""
+                      >
+                        {schedule.explanationOverlay.summary}
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    className="explanation-banner-dismiss"
+                    onClick={() => {
+                      schedule.clearExplanationView();
+                      timelineAreaRef.current?.focus();
+                    }}
+                  >
+                    説明を消す
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
           <Timeline
             statuses={displayStatuses}
             rowColors={displayColors}
-            visibleRows={schedule.visibleRows}
+            visibleRows={chartVisibleRows}
             width={Math.max(200, timelineWidth)}
             rowHeight={rowHeight}
             barHeight={barHeight}
@@ -4002,7 +4707,7 @@ function App() {
             onWheelBody={onWheelBody}
             onWheelHeader={onWheelHeader}
             onPan={panBy}
-            milestones={schedule.milestones}
+            milestones={schedule.milestonesForBandLayout}
             milestoneBandLayout={milestoneBandLayout}
             milestoneBandHeight={milestoneBandHeight}
             milestoneLaneHeight={milestoneLaneHeight}
@@ -4029,6 +4734,12 @@ function App() {
             }}
             sticky={stickyLayout}
             showLightningLine={showLightningLine}
+            onBarDragActiveChange={setChartBarDragging}
+            explanationOverlay={schedule.explanationOverlay}
+            explainOverlayCategories={schedule.categories}
+            explainOverlayOutline={schedule.outline}
+            explainOverlayLiveAnchorsRef={explainOverlayLiveAnchorsRef}
+            uiScale={uiScale}
           />
         </div>
         {selectedDetailTask ? (

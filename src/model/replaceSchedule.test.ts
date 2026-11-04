@@ -65,6 +65,7 @@ describe("assessMcpReplaceUiBlocking", () => {
     scheduleInlineEditing: false,
     reorderDragging: false,
     sidebarReorderDragging: false,
+    chartBarDragging: false,
     modalDialogOpen: false,
     externalReloadConflictDialogOpen: false,
   };

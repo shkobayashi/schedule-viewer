@@ -272,7 +272,7 @@
 | 同上 | `ignores self save reload` | SET-08 |
 | 同上 | `skips reload when saved and loaded items match` | SET-08 |
 | 同上 | `reloads when an item name changed` | SET-08 |
-| `screenContext.test.ts` | `puts the catalog first, once, without colors` | MCP-01 |
+| `screenContext.test.ts` | `puts the catalog first, once, with status bar colors` | MCP-01 |
 | 同上 | `names the status filter from the catalog` | MCP-01 |
 | 同上 | `starts the filtered tasks payload with the catalog` | MCP-01 |
 | `memberAppData.test.ts` | `drops a leading BOM and leaves other text unchanged` | SET-02 |
@@ -408,6 +408,63 @@
 | 同上 | `orders by document order not selection order` | MCP-01, EDIT-01 |
 | 同上 | `includes tasks outside any filter because it does not use filters` | MCP-01, EDIT-01 |
 | 同上 | `omits ids that are not tasks in the document` | MCP-01, EDIT-01 |
+| 同上 | `lists collapsed category id and name while filtered_tasks keeps its tasks` | MCP-01 |
+| 同上 | `lists collapsed group id and name` | MCP-01 |
+| 同上 | `lists collapsed outline heading as heading kind` | MCP-01 |
+| 同上 | `uses an empty collapsed array when nothing is folded` | MCP-01 |
+| 同上 | `omits collapsed ids that are not in the document` | MCP-01 |
+| 同上 | `puts effective scale when preference is auto and it is not a fixed step` | MCP-01 |
+| 同上 | `matches effective scale to a fixed preference step` | MCP-01 |
+| 同上 | `sets row density to compact` | MCP-01 |
+| 同上 | `sets lightning to false when the line is off` | MCP-01 |
+| 同上 | `keeps all five column keys and only status on` | MCP-01 |
+| 同上 | `resolves color scheme to dark when preference is system` | MCP-01 |
+| 同上 | `keeps light for both preference and effective when light is chosen` | MCP-01 |
+| 同上 | `uses default weekends and empty dated arrays when calendar is unset` | MCP-01 |
+| 同上 | `loads calendar weekends and named non-working days without path or schemaVersion` | MCP-01 |
+| 同上 | `includes view on the three read payloads but not on schedule diff` | MCP-01 |
+| 同上 | `does not put scroll, zoom, or dialog flags on view` | MCP-01 |
+| `mcpVisible.test.ts` | `includes the left edge day and excludes the day at an exact right boundary`、`marks explanation trial task rows with trial true` | MCP-01 |
+| 同上 | `returns null when chart width is zero` | MCP-01 |
+| 同上 | `does not extend dates past the timeline when the chart is wider than content` | MCP-01 |
+| 同上 | `lists rows that intersect the vertical viewport` | MCP-01 |
+| 同上 | `includes sticky header rows that stay pinned above the viewport` | MCP-01 |
+| 同上 | `marks a task visible when its row intersects the viewport` | MCP-01 |
+| 同上 | `prefers collapsed when ancestors are folded` | MCP-01 |
+| 同上 | `prefers collapsed for a folded outline heading even when the task row is in the viewport` | MCP-01 |
+| 同上 | `marks scrolledOut when the row exists but is outside the viewport` | MCP-01 |
+| 同上 | `omits visibility when the task has no visible row and is not collapsed` | MCP-01 |
+| `screenContext.test.ts` | `adds view.visible and collapsed visibility when viewport is supplied` | MCP-01 |
+| 同上 | `does not add visibility on selected_task when the task has no visible row` | MCP-01 |
+| 同上 | `adds screenCapture message when screenshot failed` | MCP-01 |
+| 同上 | `returns text only with too-large message when image makes body exceed limit` | MCP-01 |
+| `screen_cli.rs` | `extract_tool_output_writes_image_to_temp_path` | MCP-02 |
+| 同上 | `screen_tool_rejects_window_on_set_view` | MCP-02 |
+| 同上 | `screen_tool_rejects_window_on_explain_view` | MCP-02 |
+| 同上 | `screen_tool_rejects_window_on_explain_overlay` | MCP-02 |
+| `mcpEditPlan.test.ts` | `rejects self as predecessor` | MCP-01 |
+| 同上 | `moveTask uses outline when levels argument is undefined` | MCP-01 |
+| 同上 | `rejects outline moveTask when insert index is out of range` | MCP-01 |
+| 同上 | `setTaskDates updates outline task when levels argument is undefined` | MCP-01 |
+| 同上 | `leaves document unchanged when insert index is invalid` | MCP-01 |
+| 同上 | `stops on first failure` | MCP-01 |
+| 同上 | `deleteTask removes playground outline task when categories are empty` | MCP-01 |
+| 同上 | `scheduleDocumentForMcpEditPlan clears categories on outline playground` | MCP-01 |
+| 同上 | `deleteTask on playground review task after e2e-like preamble uses normalized document` | MCP-01 |
+| 同上 | `moveTask on playground review task after e2e-like preamble uses normalized document` | MCP-01 |
+| `pendingScheduleOpen.test.ts` | `applies only on the window that matches payload label` | WIN-01 |
+| 同上 | `does not apply twice on the same window` | WIN-01 |
+| `mcpSetView.test.ts` | `leaves collapse unchanged when patch has no collapsed fields` | MCP-01 |
+| 同上 | `keeps vertical scroll unchanged` | MCP-01 |
+| `explainView.test.ts` | `parseExplainView_acceptsTaskIdsAndCollapse`、`parseExplainView_rejectsEmptyTaskIds`、`parseExplainView_rejectsUnknownTaskId`、`parseExplainView_rejectsUnknownCollapseId`、`parseExplainView_rejectsTagsAndColorId`、`parseExplainView_rejectsClearWithOtherFields`、`parseExplainView_rejectsEmptyRequest`、`parseExplainView_clearWhenInactive`、`applyExplainView_clearsSelectionWhenTaskIdsChange`、`applyExplainView_keepsSelectionForCollapseOnly`、`composeDisplayedCollapse_usesOverrideOrUserSet`、`composeDisplayedRows_replaceKeepsTaskOutsideUserFilter`、`explanationRead_includesTaskIdsAndBaseCollapsed` | VIEW-16, MCP-01 |
+| `screenContext.test.ts` | `includes view.explanation when explanation view is active`、`omits view.explanation when explanation is inactive`、`includes view.explanation milestoneGroupIds and milestoneIds` | VIEW-16, MCP-01 |
+| `explainView.test.ts` | `parseExplainView_acceptsMilestoneGroupIds`、`parseExplainView_rejectsHiddenMilestoneGroup`、`parseExplainView_rejectsMilestoneNotInGroupFilter`、`parseExplainView_rejectsMilestoneOutsideFilteredGroup`、`resolveExplanationMilestoneBand_hidesEmptyGroupsWhenStarOnly` | VIEW-16, MCP-01 |
+| `explainOverlayLayout.test.ts` | `buildExplanationOverlayGeometry_clipsTaskBarToDate`、`buildExplanationOverlayGeometry_keepsHoleRectWithCustomColor`、`buildExplanationOverlayGeometry_coloredHoleMatchesRenderer`（pxPerDay 8/40、rowHeight 26/32）、`layoutExplanationBalloon_headerStaysWithinHeaderTop`、`buildExplanationOverlayGeometry_placesMilestoneMarkBalloonInBand`、`milestoneMarkBalloon_staysInVisibleOverlayAndPointsFromBelow`、`milestoneMarkBalloon_visibleInMultiRowBand`、`layoutExplanationBalloon_prefersAboveWhenClear`、`layoutExplanationBalloon_avoidsUpperBarLabel`、`planExplanationOverlayScroll_dateOnlyAdjustsHorizontal`、`planExplanationOverlayScroll_firstMarkUsesTaskDate`、`explanationMarkVisibleInViewport_trueWhenScrolledIntoView` | VIEW-16, MCP-01 |
+| `explainOverlay.test.ts` | `parseExplainOverlay_acceptsMarkColorHex`、`parseExplainOverlay_rejectsInvalidMarkColor`、`parseExplainOverlay_omitsColorWhenNotSet`、`buildMcpExplanationOverlay_returnsColorWhenSet`、`buildMcpExplanationOverlay_omitsColorWhenNotSet`（ほか VIEW-16 関連） | VIEW-16, MCP-01 |
+| `explainOverlayPatterns.test.ts` | `parseExplanationPatterns_acceptsValidPattern`、`parseExplanationPatterns_rejectsUnknownKey`、`parseExplanationPatterns_rejectsDocumentTaskId`、`parseExplanationPatterns_rejectsCrossPatternPredecessor`、`parseExplainOverlay_rejectsPatternsWhenHiding`、`parseExplainOverlay_rejectsInvalidPatternWithoutChangingState`、`buildMcpExplanationPatterns_marksTrialTasks`、`buildDisplayVisibleRowsWithExplanationTrials_insertsTrialRowAfterAnchorAndShiftsY`、`reorderPointerContentYForDocumentRows_subtractsTrialRowsAbovePointer`、`buildExplanationTrialBarLayouts_matchesTaskBarRectInBody`（pxPerDay 8/40、rowHeight 26/32）、`buildExplanationTrialBarLayouts_ignoresLiveAnchorsForDateChange`、`buildExplanationTrialBarLayouts_rendersSameTaskChangePerPattern`、`buildExplanationTrialBarLayouts_mergesUnanimousTaskChangeAcrossPatterns`、`trialMarkBarRect_matchesTaskBarRectInBody`、`parseExplainOverlay_hideRemovesPatternsFromNextShow`、`serializeScheduleDocument_omitsPatternsAndTrialTasks`、`buildExplanationTrialPredecessorArcs_drawsWhenBothAnchorsResolve`、`buildExplanationTrialPredecessorArcs_skipsWhenAnchorMissing`、`applyExplanationPatternToDocument_insertsTrialAfterAnchorAndAppliesChanges`、`applyExplanationPatternToDocument_appliesTaskAndMilestoneChangesTogether`、`applyExplanationPatternToDocument_rejectsUnknownMilestoneId`、`buildExplanationTrialMilestoneLayouts_matchesMilestoneDiamondRectInBand`、`buildExplanationTrialMilestoneLayouts_mergesUnanimousChangeAcrossPatterns`、`applyExplanationPatternToDocument_insertsTrialAfterAnchorInOutline`、`applyExplanationPatternToDocument_rejectsTrialIdCollision`、`applyExplanationPatternToDocument_rejectsMissingAfterTaskId`、`parseApplyExplanationPatternRequest_requiresPatternId` | VIEW-16, MCP-01 |
+| `mcpActionExecutor.test.ts` | `executeMcpActionTool_applyExplanationPattern_rejectsWithoutOverlay`、`executeMcpActionTool_applyExplanationPattern_rejectsUnknownPatternId` | VIEW-16, MCP-01 |
+| `explanationMarkColor.test.ts` | `parseExplanationMarkColor_normalizesRgbAndRrggbb`、`parseExplanationMarkColor_rejectsLeadingOrTrailingWhitespace`、`parseExplanationMarkColor_rejectsNonHex`、`explanationMarkRingDashStyle_askStaysDashedWithCustomColor`、`explanationMarkHaloStroke_picksContrastingHalo` | VIEW-16, MCP-01 |
+| `mcpOperationGate.test.ts` | `rejects file busy even with discardInProgress` | MCP-01 |
 | `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |
 | 同上 | `keeps spaces and quotes inside the JSON command string` | MCP-01 |
 | 同上 | `keeps a macOS path with spaces as the command string` | MCP-01 |
@@ -598,6 +655,7 @@
 | 同上 | `prefixesLevelsOnce` | MCP-01 |
 | 同上 | `rejectsReplaceWhenDepthDiffers` | MCP-01 |
 | `hierarchy.test.ts` | `keeps keys unchanged when saving without levels` など | FILE-04, VIEW-03 |
+| 同上 | `writes outline when levels are omitted` | FILE-04, MCP-01 |
 | 同上 | `rejects levels with categories storage`、`addTopLevelMenuLabel` | EDIT-18 |
 | `hierarchyCrud.test.ts` | `appendLegacyHeadingFromToolbar` | EDIT-18 |
 | `outlineCrud.test.ts` | `appendOutlineHeadingAtLevel three and four levels` | EDIT-18 |
@@ -836,9 +894,9 @@
 | `filter_path_uses_same_hash_as_recovery` | 絞り込みのファイル名のハッシュは控えと同じ | SYNC-03 |
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 | `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
-| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの5スキルに限る | SET-05 |
-| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の5スキルだけ | SET-05 |
-| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は15パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各5つは `JSON_SKILL_NAMES` の順 | SET-05 |
+| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの7スキルに限る | SET-05 |
+| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の7スキルだけ | SET-05 |
+| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は21パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各7つは `JSON_SKILL_NAMES` の順 | SET-05 |
 | `bundled_skill_lists_match_json_skill_names_in_tauri_and_msix` | `JSON_SKILL_NAMES` の各名前が `tauri.conf.json` の `json-skills/<name>/` と MSIX の `json-skills\<name>\SKILL.md` にある。`read-screen/` と `read-screen\SKILL.md` もある | SET-05 |
 | `parse_tool_selection_requires_at_least_one` | ツール未選択は「ツールを1つ以上選んでください。」 | SET-05, MCP-02 |
 | `claude_user_shadows_only_when_claude_project_scope` | Copilot だけの指定フォルダでは Claude の個人用優先警告を出さない | SET-05 |
@@ -855,7 +913,7 @@
 | `install_does_not_write_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら置かない | SET-05 |
 | `place_staged_skill_restores_original_when_copy_fails` | 入れ替えのコピーに失敗したら元のフォルダを残す | SET-05 |
 | `install_keeps_earlier_skill_when_a_later_copy_fails` | 後続のコピーに失敗しても、先に置けたスキルは残る | SET-05 |
-| `uninstall_removes_only_bundled_skill_folders` | 外すのは4スキルだけで、別名のスキルは残す | SET-05 |
+| `uninstall_removes_only_bundled_skill_folders` | 外すのは7スキルだけで、別名のスキルは残す | SET-05 |
 | `uninstall_does_not_remove_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら外さない | SET-05 |
 | `uninstall_removes_broken_symlink_at_destination` | 宛先の壊れたシンボリックリンクはリンクだけ外す | SET-05 |
 | `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
@@ -884,7 +942,7 @@
 | `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` と `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する。`replace_schedule` の説明に繋がりの規則（`predecessors とは別`、`繋がりの話でない更新では`、`残ったタスク同士はつなぎ直さない` など）がある。`current_schedule` の説明に `connections` と、タスク読み取りには載らない旨がある | MCP-01 |
+| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する。読み取り 7 ツールの説明末尾に「判断の手順は schedule-talk スキルにある。」がある。`replace_schedule` の説明にはその一文が無い。`point-by-appearance.md` に見た目で指す条件の連続した文があり、それらの文は MCP の説明と `read-screen` スキルに無い。「色を選ぶ材料は description」は `screen-judgment.md` にあり `read-screen` に無い（MCP の `selected_task` 等の説明には従来どおりある）。読み取り 3 ツールの説明に `view`、折りたたみでタスクを減らさない旨、自動表示サイズの effective、システム配色の effective、ステータス色を id の材料にしない旨がある。`replace_schedule` の説明に繋がりの規則（`predecessors とは別`、`繋がりの話でない更新では`、`残ったタスク同士はつなぎ直さない` など）がある。`current_schedule` の説明に `connections` と、タスク読み取りには載らない旨がある | MCP-01 |
 | `build_mcp_open_windows_orders_live_and_sets_front`（`window_session.rs`） | 生きているラベルだけを記録順に並べ、`file`・`folder`・`front` を付け、絶対パスを含めない | MCP-01 |
 | `build_mcp_open_windows_omits_home_path_segments`（`window_session.rs`） | ホーム配下のパスでも `file`・`folder` は末尾と親だけ。JSON に `/Users` などを含めない | MCP-01 |
 | `resolve_mcp_label_with_override_absent_matches_front_resolution`（`window_session.rs`） | `window` 省略時の送り先は `resolve_mcp_screen_window_label` と同じ | MCP-01 |
@@ -960,6 +1018,15 @@
 
 | ID | 機能 | 前提 | 手順 | 期待結果 |
 | --- | --- | --- | --- | --- |
+| TC-MCP-425a | MCP-01, MCP-02 | デスクトップ版で未保存の編集がある | `set_view` で絞り込みだけ変える。`edit_plan` で日付を変える。詳細パネル入力途中に `discardInProgress` 無しで `edit_plan` を呼ぶ | 見方のあとは未保存にならない。計画のあとは未保存でファイルの更新時刻は変わらない。入力途中は拒否され文書は変わらない |
+| TC-MCP-425b | MCP-02 | 同上 | `--screen set_view --window schedule-2` を実行する | 拒否文が標準エラーに出て終了コード 1 である |
+| TC-MCP-425c | MCP-01 | デスクトップ版。2 ウィンドウ。読み取り 6 つを呼ぶ | 読み取りのあいだ前面が変わらない。`focus_window` のあと同じファイルを開いたときと同じウィンドウが前面 | 読み取りは前面を変えない。focus のあとは同じファイルを前面に出したときと同じ |
+| TC-MCP-425d | MCP-01 | 絞り込みまたは折りたたみで行が減っている | `file_action` で書き出す | 書き出しの行は、そのとき見えている行だけである |
+| TC-MCP-425e | MCP-01 | `catalog_action` で save 無し | 一覧を変えて save 無しで呼ぶ | ファイルの内容は変わらない |
+| TC-MCP-425f | MCP-01 | 日付バーをドラッグ中 | `discardInProgress` 無しで `edit_plan` を呼ぶ。ドラッグを離す | 拒否のあと離しても、離す前の日付は文書に入らない |
+| TC-MCP-425g | MCP-01 | 詳細パネル入力途中 | `discardInProgress` 無しで拒否されたあと blur で確定しようとする | 拒否前の入力は文書に無い |
+| TC-MCP-425h | MCP-01 | 保存先が無い | `file_action` で save | 拒否される |
+| TC-MCP-425i | MCP-01 | ディスクと画面が不一致。上書きか別名の結果が無い | `file_action` で save | 拒否され、今の保存と同じ不一致の文である |
 | TC-HIER-01 | VIEW-03 | `examples/hierarchy/levels-2.schedule.json` など定義の無いファイル | 開いて保存する | 定義の無いファイルは保存後も `levels` と `outline` が付かない。2段・3段・4段・5段のサンプルは帯の上に定義名が並び、段数どおりの行になる |
 | TC-HIER-02 | VIEW-03 | 定義と入れ子の段数が合わない JSON | 開く | 「階層の定義と入れ子の数が違います。」が出て、行の組み立ては変わらない |
 | TC-HIER-03 | VIEW-03, FILE-01 | `examples/hierarchy/levels-3.schedule.json` | ワークスペースで開く。同じ JSON を直接開く | 階層の見え方が同じである |
@@ -1069,6 +1136,7 @@
 | TC-WIN-01f | WIN-01, SYNC-03 | 2 ウィンドウ。元の `main` を閉じ、追加側だけ残して終了 | 起動する | 空の `main` は一緒に開かず、残したウィンドウだけ開く |
 | TC-WIN-01g | WIN-01, MCP-01 | 別々のファイルを 2 ウィンドウで開き、それぞれ別のタスクを 1 件選んでから、返す側を前面にする | `selected_task` を呼ぶ | 前面の選択タスクが返る。背面の選択は返らない |
 | TC-WIN-01h | WIN-01, FILE-10 | デスクトップ版。設定ファイルと schemaVersion 6 のスケジュールを束ねた例がある | 「新しいウィンドウで開く」で設定ファイルを選ぶ。続けて schemaVersion 6 のスケジュール JSON を選ぶ | 元のウィンドウは残る。新しいウィンドウは設定ファイルの束縛で開き、メンバーとステータスとカレンダーと拡張がそのウィンドウだけに効く。履歴に設定ファイルだけが足り、スケジュールパスは足らない。もう一つの新しいウィンドウは schemaVersion 6 を移行して開き、未保存にならない |
+| TC-WIN-01i | WIN-01, MCP-01 | 別ファイルを 2 ウィンドウで開いたあと、MCP の `open_new_window` で 3 枚目を開く | 元の 2 枚の `open_windows` の folder と path が変わらない。3 枚目だけテスト用ファイルを開く |
 | TC-WIN-02 | WIN-02 | 同じファイルを2つのウィンドウで開く。片方は未保存 | 未保存の側で外部更新を「画面の編集を残す」にする | もう一方の隅に「確認待ち」が出て、確認が終わるまで残る。押すと、確認を出したウィンドウが前面になる。確認を終えると知らせは消える |
 | TC-WIN-02b | WIN-02 | 同じファイルを2つ開く。両方保存済み | 片方で外部更新を即時反映する | もう一方の隅に「反映した」が数秒出る |
 | TC-WIN-03 | SET-02, SET-01, SET-04 | 2つのウィンドウを開く | 片方でメンバー、表示サイズ、配色、一覧の幅、行の密度、イナズマ線、一覧の列を変える | もう一方も同じ設定になる |
@@ -1280,6 +1348,15 @@
 | TC-SET-01c | SET-01 | 左一覧の列をすべて出す | 開始が 9 月 19 日、終了が 9 月 21 日、進捗が 30% のタスクと、超過のある行と無い行を見る | `09/19`、`09/21`、日数、`30%`、ステータス、超過、担当が、行をまたいで同じ位置に揃う。超過が無い行もその幅は空く。名前にマウスを乗せても列は動かない |
 | TC-VIEW-13 | VIEW-13 | 一覧に無い `status`、メンバーに無い `assigneeId`、または定義に無い `fieldValues` キーがあるファイル。ステータス列はオフ | 帯の文を見る。定義に無い追加項目は詳細で編集できないことを見る。左のタスク名とバーが同じ行に揃うこと、見出しの下端が揃うことを見る。絞り込みで該当行を隠しても帯が残ることを確かめる。右下の一時的な知らせを出しても帯が残ることを確かめる。設定でステータス列をオンにし、一覧に無い `id` の札と、メンバー不明の札を縦に見る。線を引くモード中は帯がその上にあり、両方の帯でも揃うことを見る。縦スクロールと表示サイズを変えても揃うことを見る。ライトとダークで、札の文字と帯の文字・左線のコントラストを見る | 帯は三つの文のいずれかだけ。`id` も件数も出ない。列は見えているタスク行だけ。未割当だけのときは帯は出ない。不一致が無くなると帯は消え、左の空きも消える。トーストが出ても帯は消えない。札の文字は 4.5:1 以上、帯の左線は 3:1 以上である |
 | TC-VIEW-14 | VIEW-14 | デスクトップ版。`examples/colors/workspace.json` を開く | ライトとダークを切り替える。注力のタスクの詳細で「色」を開き、注力と待ちの名前の左に黄と青の小さな四角があること、候補の行全体は塗られないことを見る。色を「待ち」に変え、地が青になること。同じタスクを複製し、色を「なし」にして追加すると地が付かないこと。注力と待ちの2件を選び、一括で同じ色に適用して両方の地が変わること。注力の地が黄から暗い茶へ変わること、バーの色は変わらないこと、見出しとマイルストンと色なしの行は今の地のままであること、帯が「一覧に無い色があります。」であること、土日の列は灰色のままであることを見る。ダークのまま Excel に書き出し、注力の行の地が暗い茶ではなくライトの黄系であること、バーがステータス色のままであることを見る。ブラウザ版の起動サンプルでは「色」欄が出ないこと | 一覧に無い `colorId` の行は塗らない。一覧にあるだけの `risk` は塗らない |
+| TC-VIEW-16 | VIEW-16, MCP-01 | デスクトップ版。Cursor に MCP を登録してある。サンプルを開き、絞り込みを1つオンにする | `explain_view` でタスク id を2件指定する。`filtered_tasks` を読む。チャート上端の帯と「説明を消す」を見る。絞り込みを1つ変える。`clear: true` を呼ぶ。アプリを終了して同じファイルを開き直す | 行は2件だけ残る。`activeConditions` と `tasks` は人の絞り込みのまま。`view.explanation` に `taskIds` と `baseCollapsed` がある。帯が出る。絞り込みを変えると説明だけ消え、人の絞り込みは残る。clear で帯が消える。再起動後も説明は掛かっていない |
+| TC-VIEW-16b | VIEW-16, MCP-01 | デスクトップ版。Cursor に MCP を登録してある。サンプルを開く | `explain_overlay` で `translucent: true` を渡す。左の一覧とチャートの日付ヘッダー、マイルストン帯、本体に半透明が出る。説明の帯と「説明を消す」は覆わない。タスクを1件選び詳細を開く。半透明の下で左の行を選び、折りたたみを変える。半透明の下でバーを動かせる。縦にスクロールする。スクロールとズーム後も半透明が残る。`filtered_tasks` を読む。`explain_view` でタスク id を指定しても半透明は残る。`explain_overlay` で `translucent: false` を渡すと半透明だけ消え、絞り込みは残る。`clear: true` で両方消える。絞り込みを1つオンにしたあと半透明だけを出し直し、絞り込みを変える。折りたたみを変える。タスクの日付を変える。再起動する | `explanationOverlay` があり `view.explanation` は無い。タスク詳細は覆わない。半透明の下で左の行の選択と折りたたみができる。縦スクロール後も日付ヘッダーと左の固定見出しは半透明の下にある。PNG のバー、左の名前、日付ヘッダーに半透明の色は写っていない。ライトとダークで、未着手、進行中、完了、期限超過のバーの色の違いが残る。行の高さは変わらない。絞り込みを変えると半透明だけ消え、変えた絞り込みは残る。折りたたみを変えても半透明だけ消え、変えた折りたたみは残る。差分に半透明は出ない。再起動後も半透明は出ていない |
+| TC-VIEW-16c | VIEW-16, MCP-01 | デスクトップ版。Cursor に MCP を登録してある。サンプルを開き、`explain_view` で示すタスクが見える状態にする。表示サイズ 100% と 150%、行の密度を標準と広め、日・週・月のズーム（pxPerDay が変わる組）をそれぞれ試す | `explain_overlay` で `summary` と `marks`（タスク、タスクと日付、日付だけ、`change` と `ask`、および `#2563eb` と `#dc2626` の `color` と `color` 省略の混在）を渡す。ライトとダークで見る。画面外の印があるときスクロールすることを見る。`filtered_tasks` を読む。不正な `color`（色名など）を渡す。`translucent: false` を渡す | 半透明の抜きと吹き出しが出る。`color` 付きの枠と吹き出しの枠・番号が指定色である。省略した印は従来どおり `kind` の実線と破線の色である。帯に「説明を表示しています」と、その下に `summary` が出る。読み取りの `explanationOverlay.marks` に、色を付けた印だけ正規化した `color` と各印の `visible` がある。PNG に抜きと吹き出しと `summary` は写らない。隠れているタスク id や不正な `color` を渡すと拒否され、前の重ね合わせは変わらない。すぐ上の行でバーが短く名前が右に出ているタスクの真下を示すとき、吹き出しがその名前に重ならない。表示サイズと行の密度とズームを変えても、抜きが棒と左の行からずれない |
+| TC-VIEW-16d | VIEW-16, MCP-01 | デスクトップ版。Cursor に MCP を登録してある。サンプルを開く | `explain_overlay` に `summary`（例: A（青）と B（赤）のどちらにしますか）と、色の違う 2 つの `patterns` を渡す。片方は既存タスクの日付変更、片方は `afterTaskId` 付きの新しい試しタスクとする。チャートと左の一覧を見る。試しの行を選ぼうとする。保存する。差分を開く。取り消しを試す。`filtered_tasks` を読む。PNG を確認する。「説明を消す」を押す | 点線の半透明バーが出る。左の一覧は `afterTaskId` の直後に試しの行が1行足り、1行の高さは通常と同じで操作は受け付けない。本物の行の上に名前は重ねない。保存しても未保存にならず、差分と取り消しに試しが出ない。`filtered_tasks` の `tasks` に試しが無く、`explanationOverlay.patterns` の試しタスクに `trial: true` がある。`view.visible.rows` の試し行にも `trial: true` がある。PNG に試しのバーが写らない。「説明を消す」で試しが消える |
+| TC-VIEW-16e | VIEW-16, MCP-01 | デスクトップ版。Cursor に MCP を登録してある。サンプルを開く | `explain_overlay` で `translucent: true` と `summary`（例: A（青）にしますか）と、パターン id `p-blue`（name A（青）、color `#2563eb`）を1件だけ渡す。その `patterns` の1件に、サンプルに実在するタスク id を `afterTaskId` にした新しい試しタスク id `trial-blue` と、別の実在タスク id の日付変更を入れる。試しの半透明が出ているあいだ、存在しない `patternId` を一度 `apply_explanation_pattern` に渡す。文書と半透明が変わらないことを見る。続けて `p-blue` を渡す。保存は押さない。差分を見る。取り消しを1段試す。`filtered_tasks` を読む | 存在しない id の拒否後も文書も試しの計画もそのまま。`p-blue` の成功後は未保存になる。差分に `trial-blue` の追加と日付変更が出る。試しの半透明と左の試し行が消える。`explanationOverlay` が無い。取り消し1段で変更前に戻る。`filtered_tasks` の `tasks` に `trial-blue` が載る |
+| TC-VIEW-16f | VIEW-16, MCP-01 | デスクトップ版。マイルストンが2行以上あるサンプルを開く | `explain_view` で `milestoneGroupIds` を1行だけ指定する。帯の線をオフにした行 id を指定して拒否されることを見る。`clear: true` で説明を消す。`milestoneIds` だけで星1つを指定し、星が無い行が消えることを見る | 帯と左のグループ名が指定行だけになる。拒否時は見え方が変わらない。`view.explanation` に `milestoneGroupIds` または `milestoneIds` がある |
+| TC-VIEW-16g | VIEW-16, MCP-01 | デスクトップ版。マイルストンが2行以上あるサンプルを開く | `explain_overlay` で `milestoneId` と `milestoneGroupId` の印をそれぞれ試す。日付だけの印でその日の星が全部明るくなることを確認する。星と帯行の吹き出しが帯の上下で切れず、全文読める位置にあることを見る | 星の印はひし形だけ、行の印は帯行と左のグループ名が明るい。読み取りの印に `milestoneId` または `milestoneGroupId` がある。吹き出しは切れず全文読める |
+| TC-VIEW-16h | VIEW-16, MCP-01 | デスクトップ版。マイルストンが2行以上あるサンプルを開く | `summary` 付きで日付ヘッダーの印を出す。吹き出しがチャート上端の説明帯に重ならず、日付ヘッダーの上端より上にはみ出さないことを見る | 吹き出しはヘッダー内か下側に収まる |
+| TC-VIEW-16i | VIEW-16, MCP-01 | デスクトップ版。マイルストンが2行以上あるサンプルを開く | `explain_overlay` で `patterns` に `milestoneChanges` と既存タスクの `changes` を入れて試しのひし形と棒を見る。全パターンで同じ星の同じ日付・同じタスクの同じ期間があるときは、黄色の点線が一度だけ出て、元の星から移動先へ点線が伸び、星の名前が薄くなることを見る。`apply_explanation_pattern` で星の日付とタスクの日付を未保存で入れる。保存は押さない。取り消しを1段試す | 点線の試しひし形と棒が読みやすく出る。全パターン共通の変更は黄色で一度だけ。成功後は星の日付とタスクの日付が変わり、試しと半透明が消える。取り消し1段で変更前に戻る |
 | TC-SET-04 | SET-04 | 設定の「表示」 | 「ダーク」を選び、HTML を書き出す | 画面と書き出しが暗い配色になる。再起動後もダークのまま。「システム設定に合わせる」に戻すと保存値は消える |
 | TC-SET-02 | SET-02 | 正しいメンバー JSON | 「取り込み…」で入れ、使用中にする | 見出しの近くにカタログ名が出て、一致する ID が名前になる。スケジュール JSON にはメンバーが増えない |
 | TC-SET-02b | SET-02 | 同じカタログがすでにある | もう一度取り込む | 上書きしてよいかを聞く |
@@ -1340,16 +1417,16 @@
 | TC-SET-10s | SET-10 | （自動）`fieldExtensionEdit.test.ts` | 合成キーが重なる拡張を保存前に判定する | 理由に合成キーが含まれる |
 | TC-SET-03 | SET-03 | 平日を非稼働にするカレンダー | 「稼働日」で取り込む | 日表示でその日が薄い灰になる。バーの長さは暦日のまま |
 | TC-SET-03b | SET-03 | カレンダー取り込み済み | 「外す」を押す | 土日だけを塗る状態に戻る |
-| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace、write-fields が `~/.cursor/skills/` に置かれ、パスが示される |
+| TC-SET-05 | SET-05 | デスクトップ版、置き先に同名が無い | 設定の「JSON作成スキルを置く」で Cursor、ユーザー全体を選び「置く」 | write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk が `~/.cursor/skills/` に置かれ、パスが示される |
 | TC-SET-05b | SET-05 | 上記のいずれかが既にある | もう一度「置く」 | 上書き確認が出る。上書き後、置いたパスが示される |
 | TC-SET-05c | SET-05 | 指定フォルダへ Claude Code を置く。`~/.claude/skills/` に同名がある | 「置く」 | 置いたあと、個人用が先に使われる旨が出る |
-| TC-SET-05d | SET-05 | ブラウザ版 | 設定の「JSON作成スキルを置く」を開く | デスクトップ版でのみ置ける旨が出て、「置く」は押せない |
-| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に5つがある | 「外す」で確認のあと外す | 5つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
-| TC-SET-05f | SET-05 | デスクトップ版、置き先に同名が無い | GitHub Copilot、ユーザー全体を選び「置く」 | 5つが `~/.copilot/skills/` に置かれ、パスが示される。`~/.copilot` が無くても作られる |
-| TC-SET-05g | SET-05 | デスクトップ版 | GitHub Copilot、指定したフォルダを選び「置く」 | 5つが `<フォルダ>/.github/skills/` に置かれ、パスが示される。git には入れない |
-| TC-SET-05h | SET-05 | デスクトップ版 | Cursor、Claude Code、GitHub Copilot をすべて選び、ユーザー全体で「置く」 | 15パスが示される。中身は同じ5つ |
+| TC-SET-05d | SET-05 | ブラウザ版 | 設定の「JSON作成スキルを置く」を開く | デスクトップ版でのみ置ける旨が出て、「置く」は押せない。欄に write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk の7つと「の7つをまとめて置きます」が出る |
+| TC-SET-05e | SET-05 | デスクトップ版、ユーザー全体に7つがある | 「外す」で確認のあと外す | 確認に7つを外す旨がある。7つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05f | SET-05 | デスクトップ版、置き先に同名が無い | GitHub Copilot、ユーザー全体を選び「置く」 | 7つが `~/.copilot/skills/` に置かれ、パスが示される。`~/.copilot` が無くても作られる |
+| TC-SET-05g | SET-05 | デスクトップ版 | GitHub Copilot、指定したフォルダを選び「置く」 | 7つが `<フォルダ>/.github/skills/` に置かれ、パスが示される。git には入れない |
+| TC-SET-05h | SET-05 | デスクトップ版 | Cursor、Claude Code、GitHub Copilot をすべて選び、ユーザー全体で「置く」 | 21パスが示される。中身は同じ7つ |
 | TC-SET-05i | SET-05 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
-| TC-SET-05j | SET-05 | デスクトップ版、ユーザー全体の Copilot に5つがある | 「外す」で確認のあと外す | 5つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05j | SET-05 | デスクトップ版、ユーザー全体の Copilot に7つがある | 「外す」で確認のあと外す | 7つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
 | TC-MCP-02c | MCP-02 | デスクトップ版 | 「MCP を使えないときに渡す」で GitHub Copilot を選び「置く」 | `read-screen` が `~/.copilot/skills/read-screen/` に置かれ、パスと実行ファイルのパスが示される |
 | TC-MCP-02d | MCP-02 | デスクトップ版、Copilot に read-screen がある | 同じ欄で GitHub Copilot を選び「外す」 | その1つだけ消え、外したパスが示される |
 | TC-MCP-02e | MCP-02 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
@@ -1391,10 +1468,18 @@
 | TC-MCP-01f | MCP-01 | デスクトップ版、ファイルを開き、絞り込み・折りたたみ・選択・系統を変えた状態 | `write-schedule` で検証済みの JSON 全体を作り、`replace_schedule` を 1 回呼ぶ。同じ保存形式の JSON をもう一度呼ぶ。詳細パネルにフォーカスがある状態でも呼ぶ。起動復旧の衝突・ファイル無し・不正控えのダイアログが出ている状態でも呼ぶ | 1 回目は未保存になり、隅に「画面を置き換えました」が約 4 秒出る。ファイルの内容は変わらない。絞り込み・折りたたみ・ズーム・スクロール・系統は変わらない。選択は新文書に残るタスクだけ残る。⌘/Ctrl+Z で置き換え前に戻る。2 回目は未保存も履歴も変わらないが差分テキストは成功で返る。詳細のフォーカス中は「画面の操作が途中なので、置き換えられません。」起動復旧のダイアログ中は「起動の復旧が終わっていないので、置き換えられません。」確認ダイアログは出ない |
 | TC-MCP-01g | MCP-01 | デスクトップ版。パス無しのサンプル、外部更新の帯、同じファイルの2ウィンドウ、開く・保存の途中、並べ替えの握りドラッグ中、10MB超・壊れたJSON・検証失敗の入力、差分が応答上限を超える置き換え | 各条件で `replace_schedule` を呼ぶか `--screen replace_schedule` で標準入力を渡す | パス無しの成功は「比べるファイルがありません」で失敗にしない。JSON として読めない・検証失敗・10MB 超はそれぞれの文で拒否し画面も履歴も変えない。差分が大きすぎても置き換えは残り「差分が大きすぎるため、差分テキストは返せません。」は失敗にしない。「ファイルに更新あり — 確認する」は消えない。背面ウィンドウの文書は変わらない。衝突が無い外部更新の確認、設定など別のダイアログ、ファイル操作中・並べ替えドラッグ中は「画面の操作が途中なので、置き換えられません。」SYNC-01 の衝突確認だけ開いているときは置き換えられ、確認は閉じる（TC-SYNC-01k） |
 | TC-MCP-01j | MCP-01 | デスクトップ版、`examples/connections/` を開く | `current_schedule` と `selected_task` を呼ぶ。繋がりと無関係な置き換えのあと、1組足す、同じ組の言葉だけ変える、1組だけ外す、残りが1件になるまで外してからその1件を外す、タスクを消してその端の繋がりも外す JSON をそれぞれ `replace_schedule` で渡す | `current_schedule` にルートの `connections` がある。`selected_task` には無い。無関係な置き換えのあとも組と `taskIds` の順が残る。足す・言葉変更・1組だけ外すが画面に反映され、1組だけ外したあともルートの `connections` は残る。ファイルは変わらず未保存になる。残り1件のあとその1件を外すとキーが無い。タスク削除ではその id を含む組だけ無く、残ったタスク同士の新しい組は無い |
+| TC-MCP-01k | MCP-01 | デスクトップ版。Cursor にこのアプリの MCP を登録してある。サンプルを前面で開き、折りたたみは無い | Cursor のチャットに「今、折りたたんでいる行はあるか。あるなら種類と名前を答えて。」と送る。左の三角でカテゴリ「要件定義」を畳み、「折りたたんでいる行の種類と名前は何か。配下のタスクは読み取りから消えたか。」と送る。カテゴリを開き、グループ「現状把握」だけを畳み、同じ質問を送る。`examples/hierarchy/levels-5.schedule.json` を開き、見出し「事業甲」を畳む。「折りたたんでいる行の種類と名前は何か。その中のタスクは読み取りのタスク一覧から消えたか。画面に見えているタスクだけを挙げるなら、畳んだ中は除くか。」と送る | 最初は無いと答える。カテゴリを畳んだあとは種類が category、名前は「要件定義」だけである。配下の「現状業務ヒアリング」などは読み取りのタスクに残ると答える。グループだけ畳んだあとは種類が group、名前は「現状把握」である。カテゴリ名は畳んだ行に入れない。見出しを畳んだあとは種類が heading、名前は「事業甲」である。「作業15-1」は読み取りのタスクに残る。見えているタスクだけを挙げるときは、事業甲の配下を除く。画面に無い行を足さない。チャットのあと、画面の折りたたみは変わらない |
+| TC-MCP-01l | MCP-01, SET-01 | デスクトップ版。Cursor に MCP を登録してある。サンプルを開いている | 設定の「表示」で、表示サイズを「自動」、行の密度を「詰める」、イナズマ線をオフ、左一覧の列は「ステータス」だけオン、配色を「システム設定に合わせる」にする。ウィンドウを幅 1100px・高さ 780px より大きくして設定を閉じる。チャートを月表示まで縮小し、左一覧の境界をドラッグして幅を変える。Cursor に「表示サイズは設定で何を選んでいて、今のウィンドウでは何倍か。行の密度、イナズマ線、左一覧の追加列、配色の選択と今効いている明暗を教えて。日・週・月と、左一覧の幅は分かるか。」と送る。続けて表示サイズを 125%、配色を「ライト」にし、「選択と、今効いている値は何か。」と送る | 自動のとき、選択は自動、効いている倍率は 1 より大きく 2 以下である。行の密度は詰める。イナズマ線はオフ。追加列はステータスだけオンで、開始、終了、日数、進捗はオフである。配色の選択はシステム設定に合わせる、効いている明暗は今のシステムのライトかダークと一致する。日・週・月と一覧の幅は分からないと答え、数値や表示単位を作らない。125% とライトのあとは、選択も効いている値も 125%（1.25）とライトである |
+| TC-MCP-01m | MCP-01, SET-03 | デスクトップ版。Cursor に MCP を登録してある。サンプルを開き、設定の稼働日は外してある | 「稼働日は何を使っているか。週末と、名前の付いた休みの日を教えて。ファイルのパスは分かるか。」と送る。設定の「稼働日」で `examples/jp-2026.calendar.json` を取り込み、同じ質問を送る | 取り込む前は未設定である。週末は土日。名前の付いた休みは無い。パスと schemaVersion は答えない。取り込んだあとは読み込み済みである。週末は土日。2026-01-01 は元日である。パスと schemaVersion は答えない |
+| TC-MCP-01n | MCP-01, SET-08 | デスクトップ版。Cursor に MCP を登録してある。ステータスは組み込みの三件。配色はライト | 「進行中のバーの地と枠は、今のライトで何色か。色の値だけ答えて。」と送る。続けて「バーが緑だから、という理由だけで完了のステータスに変えて。」と送る | 地は `#DEE3FB`、枠は `#4C5FD5` と、読み取った値で答える。完了の緑を進行中の色として答えない。二つ目では色を選ぶ理由にせず、スケジュールを書かない。画面のステータスは変わらない |
+| TC-MCP-01o | MCP-01 | デスクトップ版。Cursor に MCP を登録してある。サンプルでカテゴリ「要件定義」を畳む。別ファイルのウィンドウを背面で開き、背面は畳まない。背面は前面にしない。マイルストンの点線を1件オンにする。タスクの詳細で名前を打ち始め、確定しない | 「折りたたみや表示サイズは、スケジュール全体と、画面とファイルの差分にも入っているか。入っていないなら、どの読み取りに入るか。」と送る。「マイルストンの縦の点線のオンオフと、まだ確定していない名前は分かるか。」と送る。「前面で折りたたんでいる行は何か。もう一方のウィンドウでは何か。」と送る | スケジュール全体、`schedule_diff`、`baseline_diffs` には無い。`selected_task`、`selected_tasks`、`filtered_tasks` の `view` にある。点線のオンオフと、確定前の名前は分からないと答え、値を作らない。前面は「要件定義」。背面は畳んでいない。前面のウィンドウは前面のままである |
+| TC-MCP-01p | MCP-01, MCP-02 | デスクトップ版。サンプルを開き、チャートを横・縦にスクロールして、カテゴリを1つ畳む。絞り込みの外のタスクを1件選択する | `filtered_tasks` を MCP で呼ぶ。JSON の `view.visible.dates` と `view.visible.rows`、各タスクの `visibility`、付いた PNG を見る。`--screen filtered_tasks` でも同じ JSON と、2 行目の PNG パスを見る | 日付と行は今のチャートと左一覧に一致する。畳んだ配下のタスクは `collapsed` で、`view.visible.rows` には出ない。縦の外のタスクは `scrolledOut`。絞り込みの外の選択タスクに `visibility` は無い。PNG は設定とメニューが無く、左一覧とチャートが JSON と同じ範囲である。1 日の幅は JSON に無い |
 | TC-MCP-02 | MCP-02 | デスクトップ版、絞り込み・選択・未保存がある | 設定の「画面の状態を渡す」で read-screen を置き、同じ実行ファイルで `--screen open_windows`、`--screen schedule_diff`、`--screen baseline_diffs`、`--screen selected_task`、`--screen selected_tasks`、`--screen filtered_tasks`、`--screen current_schedule` をそれぞれ 1 回起動する。検証済み JSON を標準入力に渡し `--screen replace_schedule` を 1 回起動する。10MB を1バイト超える入力を標準入力に渡して `--screen replace_schedule` をもう 1 回起動する。Windows で実行ファイルが Local AppData 配下のときは、置いた SKILL.md のコマンド例も見る | MCP-01 と同じ内容が標準出力に出る。`current_schedule` はスケジュール JSON 全体が標準出力に出る。`replace_schedule` は差分テキストが標準出力に出る。終了コード 0。10MB 超の標準入力は待ち受けへ送らず標準エラーに「スケジュールが大きすぎるため、置き換えられません。」、終了コード 1。Windows で Local AppData 配下のとき、コマンド例は `"$LOCALAPPDATA/"` で始まり `--screen` と同じ1行にあり、`\AppData` を含まない |
 | TC-MCP-02b | MCP-02 | デスクトップ版、アプリを終了した状態 | 置いた実行ファイルで `--screen schedule_diff` を起動する | 標準エラーにウィンドウが無い旨が出る。終了コード 1 |
 
 TC-MCP-01、TC-MCP-01b、TC-MCP-01c は、表の OS 列どおり macOS、Ubuntu、Windows の配布物で同じ手順を見る。Issue #187 の第1〜2段で実機確認したのは macOS だけである。Windows の名前付きパイプと Ubuntu の Unix ドメインソケットは、Rust のテストで形を揃えてある。実機で登録した MCP から 4 ツールを呼ぶ確認は、macOS では済んでいる。Ubuntu と Windows は未確認である。
+
+TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。スケジュールの画面を操作したあと、Cursor のチャットへ書いた文の答えで判定する。答えが画面と違う、渡していないズームや点線や確定前の入力を埋める、ステータスの色だけで id を選ぶ、のどれかなら失敗である。
 
 ## リリース前確認
 

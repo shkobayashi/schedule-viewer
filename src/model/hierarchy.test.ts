@@ -86,6 +86,28 @@ describe("hierarchy storage", () => {
     expect(doc.levels).toEqual(levels);
   });
 
+  it("writes outline when levels are omitted", () => {
+    const outline = [
+      {
+        id: "c1000001-0000-4000-8000-000000000001",
+        name: "設計",
+        children: [
+          {
+            id: "d1000001-0000-4000-8000-000000000001",
+            name: "上流",
+            children: [
+              task("e1000001-0000-4000-8000-000000000001", "2026-10-01", "2026-10-05"),
+            ],
+          },
+        ],
+      },
+    ];
+    const doc = scheduleToJson("P", [], [], [], undefined, outline);
+    expect(doc.outline).toHaveLength(1);
+    expect(doc).not.toHaveProperty("levels");
+    expect(doc.categories).toHaveLength(0);
+  });
+
   it("rejects levels with categories storage", () => {
     const doc: ScheduleDocument = {
       schemaVersion: SCHEDULE_SCHEMA_VERSION,

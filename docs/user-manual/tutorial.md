@@ -8,7 +8,7 @@
 
 ![設定の「JSON作成スキルを置く」欄。置く先と範囲の選択が見える](images/ui-settings-skills.png)
 
-デスクトップ版の設定「JSON作成スキルを置く」で、Cursor、Claude Code、GitHub Copilot のうち置く先を選び、ユーザー全体か指定したフォルダかを選び、write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors の 6 つをまとめて置けます。GitHub Copilot はユーザー全体なら `~/.copilot/skills/`、チームで残すなら指定したフォルダの `.github/skills/` です。手で `.cursor/skills/` などへコピーして使うこともできます。
+デスクトップ版の設定「JSON作成スキルを置く」で、Cursor、Claude Code、GitHub Copilot のうち置く先を選び、ユーザー全体か指定したフォルダかを選び、write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk の 7 つをまとめて置けます。GitHub Copilot はユーザー全体なら `~/.copilot/skills/`、チームで残すなら指定したフォルダの `.github/skills/` です。手で `.cursor/skills/` などへコピーして使うこともできます。
 
 上書きの確認、外す、シンボリックリンクのときの扱いは [全機能の「設定」](features.md#設定) にあります。
 
@@ -107,7 +107,7 @@ JSON をファイルに書き直したあとは、画面へ反映します。MCP
 
 ## MCP を使わず差分を渡す
 
-MCP を置いていないときは、☰ の「差分を表示」か、状態バーの「未保存」で、開いているファイルとの違いをチャート右の差分列で見られます。未保存で差があるあいだは取っ手だけ出ます。列の「コピー」か ⌘ または Ctrl+Shift+D で全文をコピーできます。写したテキストを LLM に渡します。デスクトップ版が起動していて、設定で `read-screen` を置いているときは、その画面更新の手順に従い、ファイルは書きません。MCP や `read-screen` が使えないときだけ、`write-schedule` で JSON ファイルを更新します。スケジュール全文を二つ渡さなくても、伝わるのは変更だけです。
+MCP を置いていないときは、☰ の「差分を表示」か、状態バーの「未保存」で、開いているファイルとの違いをチャート右の差分列で見られます。未保存で差があるあいだは取っ手だけ出ます。列の「コピー」か ⌘ または Ctrl+Shift+D で全文をコピーできます。写したテキストを LLM に渡します。デスクトップ版が起動していて、設定で `read-screen` を置いているときは、`schedule-talk` の手順に従い `--screen` で読み取り、ファイルは書きません。MCP や `read-screen` が使えないときだけ、`write-schedule` で JSON ファイルを更新します。スケジュール全文を二つ渡さなくても、伝わるのは変更だけです。
 
 ![画面と開いているファイルの違いが、チャート右の差分列に出ている状態](images/ui-diff.png)
 

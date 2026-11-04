@@ -12,13 +12,14 @@ use uuid::Uuid;
 
 #[cfg(unix)]
 use crate::mcp_app_data::mcp_socket_path;
-use crate::screen_cli::{
-    OPEN_WINDOWS_TOOL_NAME, REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED, SCREEN_READ_TOOLS_WITH_WINDOW,
-    SCREEN_REPLACE_TOOL_NAME,
+use crate::mcp_tool_names::{
+    mcp_tool_rejects_window_argument, MCP_WINDOW_TARGET_TOOL_NAMES, OPEN_WINDOWS_TOOL_NAME,
+    SCREEN_READ_TOOLS_WITH_WINDOW,
 };
 use crate::window_session::{
     build_mcp_open_windows_list, read_open_windows,
-    resolve_mcp_screen_window_label_with_override, McpWindowOverrideError, WindowSessionState,
+    resolve_mcp_screen_window_label_with_override, McpWindowOverrideError,
+    WindowSessionState,
 };
 
 #[cfg(windows)]
@@ -172,8 +173,12 @@ fn start_mcp_bridge_server_unix(
             if !peer_is_same_user(&stream) {
                 continue;
             }
-            let mut stream = stream;
-            let _ = handle_bridge_connection_io(&app, &state, &mut stream);
+            let app = app.clone();
+            let state = Arc::clone(&state);
+            thread::spawn(move || {
+                let mut stream = stream;
+                let _ = handle_bridge_connection_io(&app, &state, &mut stream);
+            });
         }
     });
     Ok(())
@@ -285,7 +290,12 @@ enum WindowArgument {
 }
 
 fn window_argument_from_tool(tool: &str, arguments: &Value) -> WindowArgument {
-    if tool == OPEN_WINDOWS_TOOL_NAME || tool == SCREEN_REPLACE_TOOL_NAME {
+    if mcp_tool_rejects_window_argument(tool).is_some() {
+        return WindowArgument::Absent;
+    }
+    if !SCREEN_READ_TOOLS_WITH_WINDOW.contains(&tool)
+        && !MCP_WINDOW_TARGET_TOOL_NAMES.contains(&tool)
+    {
         return WindowArgument::Absent;
     }
     match arguments.get("window") {
@@ -329,6 +339,75 @@ fn bridge_tool_error_response(id: String, text: &str) -> BridgeResponse {
     }
 }
 
+fn emit_and_wait_for_screen_tool(
+    window: &WebviewWindow,
+    label: &str,
+    request: &BridgeRequest,
+    state: &Arc<McpBridgeState>,
+) -> Option<BridgeResponse> {
+    let generation = state.generation_for(label);
+    let notify = Arc::new((Mutex::new(false), Condvar::new()));
+    let result_slot = Arc::new(Mutex::new(None));
+    {
+        let mut pending = state.pending.lock().expect("mcp pending");
+        pending.insert(
+            request.id.clone(),
+            PendingReply {
+                window_label: label.to_string(),
+                generation,
+                notify: notify.clone(),
+                result: result_slot.clone(),
+            },
+        );
+    }
+    let webview_arguments = if SCREEN_READ_TOOLS_WITH_WINDOW
+        .iter()
+        .any(|name| *name == request.tool)
+    {
+        webview_arguments_for_read_tool(request.arguments.clone())
+    } else {
+        request.arguments.clone()
+    };
+    let payload = json!({
+        "id": request.id,
+        "generation": generation,
+        "tool": request.tool,
+        "arguments": webview_arguments,
+    });
+    if window
+        .emit_to(
+            EventTarget::webview_window(label.to_string()),
+            "mcp-screen-request",
+            payload,
+        )
+        .is_err()
+    {
+        state.pending.lock().expect("mcp pending").remove(&request.id);
+        return None;
+    }
+    let (lock, cvar) = &*notify;
+    let mut done = lock.lock().expect("mcp notify");
+    let deadline = Instant::now() + RESPONSE_TIMEOUT;
+    while !*done {
+        let wait = cvar
+            .wait_timeout(done, RESPONSE_TIMEOUT)
+            .expect("mcp wait");
+        done = wait.0;
+        if *done {
+            break;
+        }
+        if Instant::now() >= deadline {
+            break;
+        }
+    }
+    let stored = result_slot.lock().expect("mcp result").clone();
+    if let Some(response) = stored {
+        return Some(response);
+    }
+    state.pending.lock().expect("mcp pending").remove(&request.id);
+    None
+}
+
 fn dispatch_tool_request(
     app: &AppHandle,
     state: &Arc<McpBridgeState>,
@@ -352,12 +431,10 @@ fn dispatch_tool_request(
                 .filter(|focused| *focused)
                 .map(|_| label.clone())
         });
-    if request.tool == SCREEN_REPLACE_TOOL_NAME && arguments_contain_window_key(&request.arguments)
-    {
-        return Ok(bridge_tool_error_response(
-            request.id,
-            REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED,
-        ));
+    if let Some(message) = mcp_tool_rejects_window_argument(&request.tool) {
+        if arguments_contain_window_key(&request.arguments) {
+            return Ok(bridge_tool_error_response(request.id, &message));
+        }
     }
 
     let window_override = window_argument_from_tool(&request.tool, &request.arguments);
@@ -453,75 +530,13 @@ fn dispatch_tool_request(
         }
     };
     let label = window.label().to_string();
-    let generation = state.generation_for(&label);
-    let notify = Arc::new((Mutex::new(false), Condvar::new()));
-    let result_slot = Arc::new(Mutex::new(None));
-    {
-        let mut pending = state.pending.lock().expect("mcp pending");
-        pending.insert(
-            request.id.clone(),
-            PendingReply {
-                window_label: label.clone(),
-                generation,
-                notify: notify.clone(),
-                result: result_slot.clone(),
-            },
-        );
-    }
-    let webview_arguments = if SCREEN_READ_TOOLS_WITH_WINDOW
-        .iter()
-        .any(|name| *name == request.tool)
-    {
-        webview_arguments_for_read_tool(request.arguments)
-    } else {
-        request.arguments
-    };
-    let payload = json!({
-        "id": request.id,
-        "generation": generation,
-        "tool": request.tool,
-        "arguments": webview_arguments,
-    });
-    if window
-        .emit_to(
-            EventTarget::webview_window(label.clone()),
-            "mcp-screen-request",
-            payload,
-        )
-        .is_err()
-    {
-        state.pending.lock().expect("mcp pending").remove(&request.id);
-        return Ok(BridgeResponse {
-            v: BRIDGE_VERSION,
-            id: request.id,
-            body: None,
-            error: Some(if specified {
-                "specified-stale".to_string()
-            } else {
-                "no-window".to_string()
-            }),
-        });
-    }
-    let (lock, cvar) = &*notify;
-    let mut done = lock.lock().expect("mcp notify");
-    let deadline = Instant::now() + RESPONSE_TIMEOUT;
-    while !*done {
-        let wait = cvar
-            .wait_timeout(done, RESPONSE_TIMEOUT)
-            .expect("mcp wait");
-        done = wait.0;
-        if *done {
-            break;
-        }
-        if Instant::now() >= deadline {
-            break;
-        }
-    }
-    let stored = result_slot.lock().expect("mcp result").clone();
-    if let Some(response) = stored {
+    if let Some(response) = emit_and_wait_for_screen_tool(&window, &label, &request, state) {
         return Ok(response);
     }
-    state.pending.lock().expect("mcp pending").remove(&request.id);
+    std::thread::sleep(Duration::from_millis(250));
+    if let Some(response) = emit_and_wait_for_screen_tool(&window, &label, &request, state) {
+        return Ok(response);
+    }
     Ok(BridgeResponse {
         v: BRIDGE_VERSION,
         id: request.id,
@@ -554,6 +569,7 @@ pub fn mcp_reply(
     id: String,
     generation: u64,
     body: Value,
+    invalidate_in_progress: Option<bool>,
     window: WebviewWindow,
     state: tauri::State<'_, Arc<McpBridgeState>>,
 ) -> Result<(), String> {
@@ -565,6 +581,7 @@ pub fn mcp_reply(
         let mut pending = state.pending.lock().expect("mcp pending");
         take_pending_reply_for_window(&mut pending, &id, &label)
     };
+    let mut replied = false;
     if let Some(entry) = entry {
         if entry.generation != generation {
             return Ok(());
@@ -583,6 +600,12 @@ pub fn mcp_reply(
         let mut done = lock.lock().expect("mcp notify");
         *done = true;
         cvar.notify_one();
+        replied = true;
+    }
+    if replied && invalidate_in_progress == Some(true) {
+        state.bump_generation(&label);
+        let next = state.generation_for(&label);
+        let _ = window.emit("mcp-in-progress-invalidated", next);
     }
     Ok(())
 }
