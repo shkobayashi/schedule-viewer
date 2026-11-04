@@ -242,6 +242,38 @@ describe("buildExplanationOverlayGeometry", () => {
     expect(hole.width).toBeLessThanOrEqual(pxPerDay + 1);
   });
 
+  it("layoutExplanationBalloon_headerStaysWithinHeaderTop", () => {
+    const dateToXContent = (d: Date) =>
+      Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) * pxPerDay;
+    const headerHeight = 30;
+    const geo = buildExplanationOverlayGeometry({
+      marks: [{ date: "2026-01-05", kind: "ask", label: "長い日付ヘッダーの説明ラベル" }],
+      visibleRows: [],
+      dateToX: dateToXContent,
+      pxPerDay,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      bodyHeight: 400,
+      headerHeight,
+      timelineWidth: 400,
+      liveAnchors: new Map(),
+      milestones: [],
+      milestoneCenterYById: new Map(),
+      milestoneDiamondSize: 11,
+    });
+    const balloon = geo.headerBalloons[0]!;
+    const dimensions = estimateBalloonDimensions(balloon.label, balloon.maxWidth);
+    const rect = explanationBalloonScreenRect(
+      balloon.left,
+      balloon.top,
+      balloon.placement,
+      dimensions,
+    );
+    expect(rect.top).toBeGreaterThanOrEqual(0);
+    expect(rect.bottom).toBeLessThanOrEqual(headerHeight + dimensions.height + 20);
+  });
+
   it("layoutExplanationBalloon_prefersAboveWhenClear", () => {
     const rows = [taskRow("t1", 120)];
     const liveAnchors = buildTaskBarAnchorsForOverlay({
