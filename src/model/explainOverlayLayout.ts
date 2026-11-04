@@ -57,6 +57,7 @@ export type OverlayRect = {
 export type ExplanationMarkHole = OverlayRect & {
   kind: ExplanationMarkKind;
   markIndex: number;
+  color?: string;
 };
 
 export type ExplanationBalloonPlacement = "above" | "below";
@@ -70,6 +71,7 @@ export type ExplanationBalloonLayout = {
   number?: number;
   visible: boolean;
   placement: ExplanationBalloonPlacement;
+  color?: string;
 };
 
 const BALLOON_MAX_WIDTH = 160;
@@ -317,6 +319,7 @@ function layoutExplanationBalloons(
       number: balloon.number,
       visible: balloon.visible,
       placement: chosen.placement,
+      ...(balloon.color != null ? { color: balloon.color } : {}),
     };
   });
 }
@@ -354,6 +357,24 @@ export type ExplanationOverlayGeometry = {
   bodyBalloons: ExplanationBalloonLayout[];
   sidebarMarkKinds: Map<ScheduleId, ExplanationMarkKind>;
 };
+
+export type ExplanationSidebarMarkDisplay = {
+  kind: ExplanationMarkKind;
+  color?: string;
+};
+
+export function explanationSidebarMarkByTask(
+  marks: readonly ExplanationMark[],
+): Map<ScheduleId, ExplanationSidebarMarkDisplay> {
+  const byTask = new Map<ScheduleId, ExplanationSidebarMarkDisplay>();
+  for (const mark of marks) {
+    if (mark.taskId == null) continue;
+    const entry: ExplanationSidebarMarkDisplay = { kind: mark.kind };
+    if (mark.color != null) entry.color = mark.color;
+    byTask.set(mark.taskId, entry);
+  }
+  return byTask;
+}
 
 export function explanationSidebarMarkKinds(
   marks: readonly ExplanationMark[],
@@ -440,6 +461,7 @@ export function buildExplanationOverlayGeometry(
   for (let markIndex = 0; markIndex < input.marks.length; markIndex += 1) {
     const mark = input.marks[markIndex]!;
     const kind = mark.kind;
+    const color = mark.color;
 
     if (mark.taskId != null) {
       const row = findTaskRow(input.visibleRows, mark.taskId);
@@ -461,7 +483,12 @@ export function buildExplanationOverlayGeometry(
           input.pxPerDay,
         );
       }
-      bodyHoles.push({ ...bar, kind, markIndex });
+      bodyHoles.push({
+        ...bar,
+        kind,
+        markIndex,
+        ...(color != null ? { color } : {}),
+      });
       const anchorX = bar.x + bar.width / 2;
       const anchorY = bar.y;
       bodyBalloonDrafts.push({
@@ -473,6 +500,7 @@ export function buildExplanationOverlayGeometry(
         number: mark.number,
         visible: bodyBalloonVisible(anchorX, anchorY, input),
         taskId: mark.taskId,
+        ...(color != null ? { color } : {}),
       });
       continue;
     }
@@ -484,7 +512,12 @@ export function buildExplanationOverlayGeometry(
         pxPerDay: input.pxPerDay,
         headerHeight: input.headerHeight,
       });
-      headerHoles.push({ ...headerRect, kind, markIndex });
+      headerHoles.push({
+        ...headerRect,
+        kind,
+        markIndex,
+        ...(color != null ? { color } : {}),
+      });
       for (const milestone of input.milestones) {
         if (milestone.date !== mark.date) continue;
         const cy = input.milestoneCenterYById.get(milestone.id);
@@ -495,7 +528,12 @@ export function buildExplanationOverlayGeometry(
           centerY: cy,
           diamondSize: input.milestoneDiamondSize,
         });
-        milestoneHoles.push({ ...diamond, kind, markIndex });
+        milestoneHoles.push({
+          ...diamond,
+          kind,
+          markIndex,
+          ...(color != null ? { color } : {}),
+        });
       }
       const headerAnchorX = headerRect.x + headerRect.width / 2;
       const headerAnchorY = input.headerHeight;
@@ -507,6 +545,7 @@ export function buildExplanationOverlayGeometry(
         label: mark.label,
         number: mark.number,
         visible: headerBalloonVisible(headerAnchorX, headerAnchorY, input),
+        ...(color != null ? { color } : {}),
       });
     }
   }

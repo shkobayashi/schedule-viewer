@@ -83,6 +83,57 @@ describe("buildExplanationOverlayGeometry", () => {
     expect(geo.bodyBalloons[0]?.maxWidth).toBe(160);
   });
 
+  it("buildExplanationOverlayGeometry_keepsHoleRectWithCustomColor", () => {
+    const rows = [taskRow("t1", 40)];
+    const liveAnchors = buildTaskBarAnchorsForOverlay({
+      visibleRows: rows,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      dateToX,
+      pxPerDay,
+    });
+    const shared = {
+      visibleRows: rows,
+      dateToX,
+      pxPerDay,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      bodyHeight: 200,
+      headerHeight: 30,
+      timelineWidth: 400,
+      liveAnchors,
+      milestones: [],
+      milestoneCenterYById: new Map(),
+      milestoneDiamondSize: 11,
+    };
+    const plain = buildExplanationOverlayGeometry({
+      ...shared,
+      marks: [{ taskId: "t1", kind: "change", label: "move" }],
+    });
+    const colored = buildExplanationOverlayGeometry({
+      ...shared,
+      marks: [
+        {
+          taskId: "t1",
+          kind: "change",
+          label: "move",
+          color: "#2563eb",
+        },
+      ],
+    });
+    expect(colored.bodyHoles[0]).toMatchObject({
+      x: plain.bodyHoles[0]?.x,
+      y: plain.bodyHoles[0]?.y,
+      width: plain.bodyHoles[0]?.width,
+      height: plain.bodyHoles[0]?.height,
+    });
+    expect(colored.bodyHoles[0]?.color).toBe("#2563eb");
+    expect(colored.bodyBalloons[0]?.color).toBe("#2563eb");
+    expect(plain.bodyHoles[0]?.color).toBeUndefined();
+  });
+
   it("buildExplanationOverlayGeometry_clipsTaskBarToDate", () => {
     const rows = [taskRow("t1", 40)];
     const liveAnchors = buildTaskBarAnchorsForOverlay({

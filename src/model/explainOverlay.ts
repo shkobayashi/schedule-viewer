@@ -9,6 +9,7 @@ import {
   explanationMarkVisibleInViewport,
   type PlanExplanationScrollInput,
 } from "./explainOverlayLayout";
+import { parseExplanationMarkColor } from "./explanationMarkColor";
 import type { Category, Milestone, OutlineRoot, ScheduleId, VisibleRow } from "./types";
 
 export type ExplanationMarkKind = "change" | "ask";
@@ -19,6 +20,8 @@ export type ExplanationMark = {
   kind: ExplanationMarkKind;
   label: string;
   number?: number;
+  /** Normalized `#rrggbb` when the caller set `color`. */
+  color?: string;
 };
 
 export type ExplanationOverlayState = {
@@ -40,6 +43,7 @@ const ALLOWED_MARK_KEYS = new Set([
   "kind",
   "label",
   "number",
+  "color",
 ]);
 
 export function explanationOverlayActive(
@@ -145,6 +149,12 @@ export function parseExplainOverlayRequest(
       if (item.number !== undefined && typeof item.number !== "number") {
         return { ok: false, message: "説明の印に使えない項目があります。" };
       }
+      if (item.color !== undefined) {
+        const normalized = parseExplanationMarkColor(item.color);
+        if (normalized == null) {
+          return { ok: false, message: "説明の印に使えない項目があります。" };
+        }
+      }
       const mark: ExplanationMark = {
         kind: item.kind,
         label: item.label,
@@ -152,6 +162,9 @@ export function parseExplainOverlayRequest(
       if (hasTaskId) mark.taskId = item.taskId as string;
       if (hasDate) mark.date = item.date as string;
       if (item.number !== undefined) mark.number = item.number;
+      if (item.color !== undefined) {
+        mark.color = parseExplanationMarkColor(item.color)!;
+      }
       parsedMarks.push(mark);
     }
     marks = parsedMarks;
@@ -251,6 +264,7 @@ export type McpExplanationMarkPayload = {
   label: string;
   number?: number;
   visible: boolean;
+  color?: string;
 };
 
 export type McpExplanationOverlayPayload = {
@@ -300,6 +314,7 @@ export function buildMcpExplanationOverlay(
     if (mark.taskId != null) payload.taskId = mark.taskId;
     if (mark.date != null) payload.date = mark.date;
     if (mark.number !== undefined) payload.number = mark.number;
+    if (mark.color != null) payload.color = mark.color;
     return payload;
     },
   );

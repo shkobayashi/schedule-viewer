@@ -2,6 +2,10 @@ import { useEffect, useRef } from "react";
 import { Group, Layer, Rect } from "react-konva";
 import type Konva from "konva";
 import { registerExplanationKonvaCapture } from "../model/explanationKonvaCapture";
+import {
+  explanationMarkHaloStroke,
+  explanationMarkRingDashStyle,
+} from "../model/explanationMarkColor";
 import { paletteFor, type ResolvedColorScheme } from "../model/palette";
 import type { ExplanationMarkHole } from "../model/explainOverlayLayout";
 
@@ -14,8 +18,48 @@ type ExplanationKonvaVeilLayerProps = {
   clipHeight?: number;
 };
 
-function kindStrokeDash(kind: ExplanationMarkHole["kind"]): number[] | undefined {
-  return kind === "ask" ? [4, 3] : undefined;
+function ExplanationHoleRing({
+  hole,
+  changeRing,
+  askRing,
+}: {
+  hole: ExplanationMarkHole;
+  changeRing: string;
+  askRing: string;
+}) {
+  const { konvaDash } = explanationMarkRingDashStyle(hole.kind);
+  const stroke =
+    hole.color ?? (hole.kind === "change" ? changeRing : askRing);
+  const halo = hole.color != null ? explanationMarkHaloStroke(hole.color) : null;
+
+  return (
+    <>
+      {halo != null ? (
+        <Rect
+          x={hole.x}
+          y={hole.y}
+          width={hole.width}
+          height={hole.height}
+          fill="transparent"
+          stroke={halo}
+          strokeWidth={4}
+          dash={konvaDash}
+          listening={false}
+        />
+      ) : null}
+      <Rect
+        x={hole.x}
+        y={hole.y}
+        width={hole.width}
+        height={hole.height}
+        fill="transparent"
+        stroke={stroke}
+        strokeWidth={2}
+        dash={konvaDash}
+        listening={false}
+      />
+    </>
+  );
 }
 
 export function ExplanationKonvaVeilLayer({
@@ -72,17 +116,11 @@ export function ExplanationKonvaVeilLayer({
         />
       ))}
       {holes.map((hole, index) => (
-        <Rect
+        <ExplanationHoleRing
           key={`hole-ring-${index}`}
-          x={hole.x}
-          y={hole.y}
-          width={hole.width}
-          height={hole.height}
-          fill="transparent"
-          stroke={hole.kind === "change" ? changeRing : askRing}
-          strokeWidth={2}
-          dash={kindStrokeDash(hole.kind)}
-          listening={false}
+          hole={hole}
+          changeRing={changeRing}
+          askRing={askRing}
         />
       ))}
     </>

@@ -47,11 +47,15 @@ import {
 import type { HierarchyGuideSpec } from "../model/hierarchyGuide";
 import { HierarchyGuideRail } from "./HierarchyGuideRail";
 import {
-  explanationSidebarMarkKinds,
+  explanationSidebarMarkByTask,
+  type ExplanationSidebarMarkDisplay,
 } from "../model/explainOverlayLayout";
 import {
+  explanationMarkHaloStroke,
+  explanationMarkRingDashStyle,
+} from "../model/explanationMarkColor";
+import {
   explanationOverlayActive,
-  type ExplanationMarkKind,
   type ExplanationOverlayState,
 } from "../model/explainOverlay";
 import { paletteFor } from "../model/palette";
@@ -316,9 +320,11 @@ export function Sidebar({
   }, [onWheelRows]);
 
   const explanationActive = explanationOverlayActive(explanationOverlay);
-  const sidebarMarkKindsByTask = useMemo(() => {
-    if (!explanationActive) return new Map<ScheduleId, ExplanationMarkKind>();
-    return explanationSidebarMarkKinds(explanationOverlay!.marks);
+  const sidebarMarksByTask = useMemo(() => {
+    if (!explanationActive) {
+      return new Map<ScheduleId, ExplanationSidebarMarkDisplay>();
+    }
+    return explanationSidebarMarkByTask(explanationOverlay!.marks);
   }, [explanationActive, explanationOverlay]);
 
   const explanationPalette = useMemo(
@@ -857,7 +863,7 @@ export function Sidebar({
                 onTaskContextMenu={(x, y) => onTaskContextMenu(row.task.id, x, y)}
                 onGripPointerDown={(event) => beginRowDrag("task", row.task.id, event)}
                 sidebarColumns={sidebarColumns}
-                explanationMarkKind={sidebarMarkKindsByTask.get(row.task.id)}
+                explanationMark={sidebarMarksByTask.get(row.task.id)}
               />
             );
           })}
@@ -1441,7 +1447,7 @@ function TaskSidebarRow({
   onSelect,
   onGripPointerDown,
   sidebarColumns,
-  explanationMarkKind,
+  explanationMark,
 }: {
   task: Task;
   guideSpec: HierarchyGuideSpec;
@@ -1496,10 +1502,19 @@ function TaskSidebarRow({
   if (rowFill != null && !selected && !hovered) {
     rowStyle.background = rowFill;
   }
-  const explanationMarkClass =
-    explanationMarkKind != null
-      ? ` sidebar-row--explanation-mark sidebar-row--explanation-mark-${explanationMarkKind}`
-      : "";
+  let explanationMarkClass = "";
+  if (explanationMark != null) {
+    explanationMarkClass = " sidebar-row--explanation-mark";
+    if (explanationMark.color == null) {
+      explanationMarkClass += ` sidebar-row--explanation-mark-${explanationMark.kind}`;
+    } else {
+      const { outlineStyle } = explanationMarkRingDashStyle(explanationMark.kind);
+      const halo = explanationMarkHaloStroke(explanationMark.color);
+      rowStyle.outline = `2px ${outlineStyle} ${explanationMark.color}`;
+      rowStyle.outlineOffset = -2;
+      rowStyle.boxShadow = `0 0 0 1px ${halo}`;
+    }
+  }
 
   return (
     <div
@@ -1643,7 +1658,7 @@ function SidebarDragGhost({
   rowColors: readonly ColorItem[] | null;
   colorScheme: ResolvedColorScheme;
   sidebarColumns: SidebarColumnsPreference;
-  explanationMarkKind?: ExplanationMarkKind;
+  explanationMark?: ExplanationSidebarMarkDisplay;
 }) {
   const block = useMemo(
     () => reorderDragBlockRows(rows, ghost.kind, ghost.id),

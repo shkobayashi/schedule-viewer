@@ -214,6 +214,56 @@ describe("parseExplainOverlayRequest", () => {
       ).ok,
     ).toBe(true);
   });
+
+  it("parseExplainOverlay_acceptsMarkColorHex", () => {
+    expect(
+      parseExplainOverlayRequest(
+        {
+          translucent: true,
+          marks: [
+            {
+              taskId: "t1",
+              kind: "change",
+              label: "x",
+              color: "#ABC",
+            },
+          ],
+        },
+        baseContext,
+      ),
+    ).toEqual({
+      ok: true,
+      kind: "show",
+      state: {
+        translucent: true,
+        marks: [
+          {
+            taskId: "t1",
+            kind: "change",
+            label: "x",
+            color: "#aabbcc",
+          },
+        ],
+      },
+    });
+  });
+
+  it("parseExplainOverlay_rejectsInvalidMarkColor", () => {
+    expect(
+      parseExplainOverlayRequest(
+        {
+          translucent: true,
+          marks: [
+            { taskId: "t1", kind: "change", label: "x", color: "blue" },
+          ],
+        },
+        baseContext,
+      ),
+    ).toEqual({
+      ok: false,
+      message: "説明の印に使えない項目があります。",
+    });
+  });
 });
 
 describe("explanationOverlayActive", () => {
@@ -294,6 +344,32 @@ describe("buildMcpExplanationOverlay", () => {
       ]),
     });
     expect(payload?.marks[0]?.visible).toBe(true);
+  });
+
+  it("buildMcpExplanationOverlay_returnsColorWhenSet", () => {
+    const payload = buildMcpExplanationOverlay({
+      overlay: {
+        translucent: true,
+        marks: [
+          {
+            taskId: "t1",
+            kind: "ask",
+            label: "?",
+            color: "#2563eb",
+          },
+        ],
+      },
+      visibleRows: [taskRow("t1", 0)],
+      pxPerDay: 20,
+      scrollX: 0,
+      scrollY: 0,
+      rowHeight: 24,
+      bodyHeight: 200,
+      chartWidth: 400,
+      timelineStart: parseDate("2026-01-01"),
+      liveAnchors: new Map(),
+    });
+    expect(payload?.marks[0]?.color).toBe("#2563eb");
   });
 });
 
