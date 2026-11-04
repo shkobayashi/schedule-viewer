@@ -27,6 +27,7 @@ import {
 } from "../model/explainOverlayPatterns";
 import { explanationOverlayActive } from "../model/explainOverlay";
 import type { ExplanationOverlayState } from "../model/explainOverlay";
+import type { ScheduleDocument, ScheduleLevelDef, VisibleRow } from "../model/types";
 
 export type McpActionResult =
   | { ok: true; text: string }

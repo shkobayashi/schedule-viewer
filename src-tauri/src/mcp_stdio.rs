@@ -561,9 +561,10 @@ mod tests {
         let apply_explanation_pattern = description("apply_explanation_pattern");
         assert!(apply_explanation_pattern.contains("patternId"));
         assert!(apply_explanation_pattern.contains(MCP_SCHEDULE_TALK_HINT));
-        assert!(read_screen_skill.contains(
-            "前面ウィンドウの試しの計画のうち、patternId で選んだパターンを未保存の計画へ一度に入れます。"
-        ));
+        assert!(
+            read_screen_skill.contains("apply_explanation_pattern"),
+            "read-screen SKILL.md must list apply_explanation_pattern"
+        );
         assert!(
             !read_screen_skill.contains("色を選ぶ材料は description"),
             "read-screen must not contain color selection rule"

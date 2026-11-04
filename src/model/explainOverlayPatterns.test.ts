@@ -14,10 +14,11 @@ import {
   trialMarkBarRect,
 } from "./explainOverlayPatterns";
 import { parseExplainOverlayRequest } from "./explainOverlay";
+import { tasksInOutlineParent } from "./outlineTasks";
 import { taskBarAnchorInBody, taskBarRectInBody } from "./taskBarLayout";
 import { serializeScheduleDocument } from "./scheduleFile";
 import type { TaskBarAnchor } from "./connections";
-import type { Category, Milestone, ScheduleDocument, VisibleRow } from "./types";
+import type { Category, Milestone, ScheduleDocument, Task, VisibleRow } from "./types";
 
 const taskRow = (
   id: string,
@@ -842,6 +843,89 @@ describe("applyExplanationPatternToDocument", () => {
       ok: false,
       message: APPLY_EXPLANATION_PATTERN_AFTER_MISSING,
     });
+  });
+
+  it("applyExplanationPatternToDocument_insertsTrialAfterAnchorInOutline", () => {
+    const teamB = "65283a8a-3e6d-4fa4-8751-c1d4e1e4c89c";
+    const tanaka = "b1000001-0000-4000-8000-000000000001";
+    const review = "b1000001-0000-4000-8000-000000000003";
+    const heading = "c2000001-0000-4000-8000-000000000001";
+    const outlineTask = (id: string, name: string): Task => ({
+      id,
+      name,
+      start: "2026-01-05",
+      end: "2026-01-10",
+      assigneeIds: [],
+      status: "not-started",
+      progress: 0,
+      confidence: "committed",
+      predecessors: [],
+      milestoneId: null,
+      tags: [],
+    });
+    const doc: ScheduleDocument = {
+      schemaVersion: 8,
+      title: "outline",
+      categories: [],
+      milestoneGroups: [],
+      milestones: [],
+      levels: [
+        { name: "カテゴリ", meaning: "上" },
+        { name: "チーム", meaning: "中" },
+        { name: "タスク", meaning: "作業" },
+      ],
+      outline: [
+        {
+          id: heading,
+          name: "要件定義",
+          children: [
+            {
+              id: teamB,
+              name: "チームB",
+              children: [
+                outlineTask(tanaka, "ヒアリング"),
+                outlineTask(review, "レビュー"),
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const result = applyExplanationPatternToDocument(doc, {
+      id: "p-a",
+      name: "A",
+      color: "#2563eb",
+      tasks: [
+        {
+          id: "trial-1",
+          name: "試し",
+          start: "2026-01-06",
+          end: "2026-01-08",
+          afterTaskId: tanaka,
+        },
+      ],
+      changes: [
+        {
+          taskId: review,
+          start: "2026-01-07",
+          end: "2026-01-12",
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const siblings = tasksInOutlineParent(
+      result.document.outline ?? [],
+      teamB,
+      3,
+    );
+    const tanakaIndex = siblings.findIndex((t) => t.id === tanaka);
+    const trialIndex = siblings.findIndex((t) => t.id === "trial-1");
+    expect(tanakaIndex).toBeGreaterThanOrEqual(0);
+    expect(trialIndex).toBe(tanakaIndex + 1);
+    const updatedReview = siblings.find((t) => t.id === review);
+    expect(updatedReview?.start).toBe("2026-01-07");
+    expect(updatedReview?.end).toBe("2026-01-12");
   });
 });
 
