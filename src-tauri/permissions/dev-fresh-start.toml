@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-dev-fresh-start-active"
+description = "Allows the webview to ask whether a development fresh start is active."
+commands.allow = ["dev_fresh_start_active"]

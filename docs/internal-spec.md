@@ -342,6 +342,7 @@ MCP の `--mcp` プロセスは標準入出力だけを話し、`tools/call` を
 | `mcp_reply` | 相関 id、世代、MCP ツール結果の JSON | — | 同上 | `useMcpScreenBridge.ts` |
 | `install_read_screen_skill` | Cursor、Claude Code、GitHub Copilot の各真偽値、置き換え。置いたパス、既存パス、検出した実行ファイルのパス | 同梱テンプレート欠落、パス不正、ツール未選択 | `read-screen-skill.toml` | `readScreenSkill.ts` |
 | `uninstall_read_screen_skill` | 上と同じツールの真偽値。外したパスと無かったパス | パス不正、ツール未選択 | 同上 | 同上 |
+| `dev_fresh_start_active` | 引数なし。開発ビルドかつ `SCHEDULE_VIEWER_FRESH_START` が `1` または `true` のとき true。それ以外は false | — | `dev-fresh-start.toml` | `devFreshStart.ts` |
 
 ダイアログで選んだだけでは `ScheduleFileState` は更新されない。検証に通したあと `accept_opened_schedule` を呼ぶ。
 
