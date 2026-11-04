@@ -10,8 +10,9 @@ export type TaskBarBodyRect = {
   height: number;
 };
 
-/** チャート本体 Stage 内のタスク棒矩形（TaskBar と同じ式）。 */
-export function taskBarRectInBody(input: {
+export type TaskBarAnchorInBody = Pick<TaskBarAnchor, "x" | "right" | "y">;
+
+type TaskBarLayoutInput = {
   task: Task;
   viewportRowTop: number;
   rowHeight: number;
@@ -21,25 +22,35 @@ export function taskBarRectInBody(input: {
   barLeft?: number;
   barWidth?: number;
   anchor?: Pick<TaskBarAnchor, "x" | "right" | "y">;
-}): TaskBarBodyRect {
-  const centerY =
-    input.anchor?.y ?? input.viewportRowTop + input.rowHeight / 2;
-  const barTop = centerY - input.barHeight / 2;
-  const start = parseDate(input.task.start);
-  const x =
-    input.barLeft ?? input.anchor?.x ?? input.dateToX(start);
-  const right =
-    input.barWidth != null
-      ? x + input.barWidth
-      : input.anchor?.right ??
-        x +
-          taskBarWidthPx(input.task, input.dateToX, input.pxPerDay);
+};
+
+/** チャート本体 Stage 内のタスク棒矩形（TaskBar と同じ式）。 */
+export function taskBarRectInBody(input: TaskBarLayoutInput): TaskBarBodyRect {
+  const { x, right, y: centerY } = taskBarAnchorInBody(input);
   return {
     x,
-    y: barTop,
+    y: centerY - input.barHeight / 2,
     width: Math.max(1, right - x),
     height: input.barHeight,
   };
+}
+
+/** リンク・説明用の棒アンカー（TaskBar の中心と左右端）。 */
+export function taskBarAnchorInBody(input: TaskBarLayoutInput): TaskBarAnchorInBody {
+  if (input.anchor != null) {
+    const x = input.barLeft ?? input.anchor.x;
+    const right =
+      input.barWidth != null ? x + input.barWidth : input.anchor.right;
+    return { x, right, y: input.anchor.y };
+  }
+  const start = parseDate(input.task.start);
+  const x = input.barLeft ?? input.dateToX(start);
+  const right =
+    input.barWidth != null
+      ? x + input.barWidth
+      : x + taskBarWidthPx(input.task, input.dateToX, input.pxPerDay);
+  const y = input.viewportRowTop + input.rowHeight / 2;
+  return { x, right, y };
 }
 
 export function clipTaskBarRectToDate(
@@ -75,17 +86,32 @@ export function dateColumnRectInHeader(input: {
   };
 }
 
+/** マイルストン帯 Stage 内の Group の x（菱形の中心 x と同じ）。 */
+export function milestoneMarkGroupX(
+  dateIso: string,
+  dateToX: (d: Date) => number,
+): number {
+  return dateToX(parseDate(dateIso));
+}
+
+/** ブロック内レーンの中心 y（Group の y と同じ）。 */
+export function milestoneMarkLaneCenterY(
+  lane: number,
+  laneHeight: number,
+): number {
+  return lane * laneHeight + laneHeight / 2;
+}
+
 export function milestoneDiamondRectInBand(input: {
   dateIso: string;
   dateToX: (d: Date) => number;
-  pxPerDay: number;
   centerY: number;
   diamondSize: number;
 }): TaskBarBodyRect {
-  const dayX = input.dateToX(parseDate(input.dateIso));
+  const centerX = milestoneMarkGroupX(input.dateIso, input.dateToX);
   const half = input.diamondSize / 2;
   return {
-    x: dayX + input.pxPerDay / 2 - half,
+    x: centerX - half,
     y: input.centerY - half,
     width: input.diamondSize,
     height: input.diamondSize,

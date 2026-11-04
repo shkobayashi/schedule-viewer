@@ -214,6 +214,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             visibleRows: snap.visibleRows,
             scrollY: snap.scrollY,
             rowHeight: snap.rowHeight,
+            barHeight: snap.barHeight,
             dateToX: snap.dateToX,
             pxPerDay: snap.pxPerDay,
           }),

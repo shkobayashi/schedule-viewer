@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Layer, Rect } from "react-konva";
+import { Group, Layer, Rect } from "react-konva";
 import type Konva from "konva";
 import { registerExplanationKonvaCapture } from "../model/explanationKonvaCapture";
 import { paletteFor, type ResolvedColorScheme } from "../model/palette";
@@ -10,6 +10,8 @@ type ExplanationKonvaVeilLayerProps = {
   height: number;
   holes: readonly ExplanationMarkHole[];
   colorScheme: ResolvedColorScheme;
+  clipTop?: number;
+  clipHeight?: number;
 };
 
 function kindStrokeDash(kind: ExplanationMarkHole["kind"]): number[] | undefined {
@@ -21,6 +23,8 @@ export function ExplanationKonvaVeilLayer({
   height,
   holes,
   colorScheme,
+  clipTop,
+  clipHeight,
 }: ExplanationKonvaVeilLayerProps) {
   const layerRef = useRef<Konva.Layer>(null);
   const palette = paletteFor(colorScheme);
@@ -45,8 +49,8 @@ export function ExplanationKonvaVeilLayer({
 
   if (width <= 0 || height <= 0) return null;
 
-  return (
-    <Layer ref={layerRef} listening={false}>
+  const veilContent = (
+    <>
       <Rect
         x={0}
         y={0}
@@ -81,6 +85,24 @@ export function ExplanationKonvaVeilLayer({
           listening={false}
         />
       ))}
+    </>
+  );
+
+  return (
+    <Layer ref={layerRef} listening={false}>
+      {clipTop != null && clipHeight != null && clipHeight > 0 ? (
+        <Group
+          clipX={0}
+          clipY={clipTop}
+          clipWidth={width}
+          clipHeight={clipHeight}
+          listening={false}
+        >
+          {veilContent}
+        </Group>
+      ) : (
+        veilContent
+      )}
     </Layer>
   );
 }

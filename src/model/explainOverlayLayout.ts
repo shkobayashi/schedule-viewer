@@ -8,6 +8,7 @@ import {
   clipTaskBarRectToDate,
   dateColumnRectInHeader,
   milestoneDiamondRectInBand,
+  taskBarAnchorInBody,
   taskBarRectInBody,
 } from "./taskBarLayout";
 import {
@@ -24,20 +25,24 @@ export function buildTaskBarAnchorsForOverlay(input: {
   visibleRows: readonly VisibleRow[];
   scrollY: number;
   rowHeight: number;
+  barHeight: number;
   dateToX: (d: Date) => number;
   pxPerDay: number;
 }): Map<ScheduleId, TaskBarAnchor> {
   const byId = new Map<ScheduleId, TaskBarAnchor>();
   for (const row of input.visibleRows) {
     if (row.type !== "task") continue;
-    const y = row.y - input.scrollY + input.rowHeight / 2;
-    const x = input.dateToX(parseDate(row.task.start));
-    const exclusive = input.dateToX(taskBarExclusiveEnd(row.task));
-    byId.set(row.task.id, {
-      x,
-      right: x + Math.max(input.pxPerDay, exclusive - x),
-      y,
-    });
+    byId.set(
+      row.task.id,
+      taskBarAnchorInBody({
+        task: row.task,
+        viewportRowTop: row.y - input.scrollY,
+        rowHeight: input.rowHeight,
+        barHeight: input.barHeight,
+        pxPerDay: input.pxPerDay,
+        dateToX: input.dateToX,
+      }),
+    );
   }
   return byId;
 }
@@ -95,7 +100,7 @@ export function estimateBalloonDimensions(
   const fontPx = BALLOON_FONT_PX * displayScale;
   const padX = BALLOON_PAD_X * displayScale;
   const padY = BALLOON_PAD_Y * displayScale;
-  const boxMax = Math.min(maxWidth, BALLOON_MAX_WIDTH);
+  const boxMax = Math.min(maxWidth, BALLOON_MAX_WIDTH * displayScale);
   const contentMax = Math.max(1, boxMax - padX * 2);
   const textWidth = estimateChartTextWidth(label, fontPx);
   const lines = Math.min(
@@ -326,9 +331,7 @@ export type BuildExplanationOverlayGeometryInput = {
   barHeight: number;
   bodyHeight: number;
   headerHeight: number;
-  milestoneBandHeight: number;
   timelineWidth: number;
-  sidebarWidth: number;
   liveAnchors: ReadonlyMap<ScheduleId, TaskBarAnchor>;
   milestones: readonly Milestone[];
   milestoneCenterYById: ReadonlyMap<ScheduleId, number>;
@@ -338,6 +341,10 @@ export type BuildExplanationOverlayGeometryInput = {
   assigneeDuplicateNames?: ReadonlySet<string>;
   displayScale?: number;
 };
+
+function explanationBalloonMaxWidth(displayScale: number): number {
+  return BALLOON_MAX_WIDTH * displayScale;
+}
 
 export type ExplanationOverlayGeometry = {
   headerHoles: ExplanationMarkHole[];
@@ -428,6 +435,7 @@ export function buildExplanationOverlayGeometry(
   const bodyBalloons: ExplanationBalloonLayout[] = [];
   const headerBalloonDrafts: BalloonDraft[] = [];
   const bodyBalloonDrafts: BalloonDraft[] = [];
+  const balloonMaxWidth = explanationBalloonMaxWidth(input.displayScale ?? 1);
 
   for (let markIndex = 0; markIndex < input.marks.length; markIndex += 1) {
     const mark = input.marks[markIndex]!;
@@ -460,7 +468,7 @@ export function buildExplanationOverlayGeometry(
         markIndex,
         left: anchorX,
         top: anchorY,
-        maxWidth: BALLOON_MAX_WIDTH,
+        maxWidth: balloonMaxWidth,
         label: mark.label,
         number: mark.number,
         visible: bodyBalloonVisible(anchorX, anchorY, input),
@@ -484,7 +492,6 @@ export function buildExplanationOverlayGeometry(
         const diamond = milestoneDiamondRectInBand({
           dateIso: mark.date,
           dateToX: input.dateToX,
-          pxPerDay: input.pxPerDay,
           centerY: cy,
           diamondSize: input.milestoneDiamondSize,
         });
@@ -496,7 +503,7 @@ export function buildExplanationOverlayGeometry(
         markIndex,
         left: headerAnchorX,
         top: headerAnchorY,
-        maxWidth: BALLOON_MAX_WIDTH,
+        maxWidth: balloonMaxWidth,
         label: mark.label,
         number: mark.number,
         visible: headerBalloonVisible(headerAnchorX, headerAnchorY, input),

@@ -2,12 +2,10 @@ import type { ExplanationBalloonLayout } from "../model/explainOverlayLayout";
 
 type TimelineExplanationBalloonsProps = {
   balloons: readonly ExplanationBalloonLayout[];
-  displayScale?: number;
 };
 
 export function TimelineExplanationBalloons({
   balloons,
-  displayScale = 1,
 }: TimelineExplanationBalloonsProps) {
   const visible = balloons.filter((b) => b.visible);
   if (visible.length === 0) return null;
@@ -22,7 +20,7 @@ export function TimelineExplanationBalloons({
           style={{
             left: balloon.left,
             top: balloon.top,
-            maxWidth: balloon.maxWidth * displayScale,
+            maxWidth: balloon.maxWidth,
           }}
         >
           {balloon.number != null ? (

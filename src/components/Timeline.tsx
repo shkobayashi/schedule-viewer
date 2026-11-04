@@ -99,7 +99,7 @@ import {
   explanationOverlayActive,
   type ExplanationOverlayState,
 } from "../model/explainOverlay";
-import { taskBarRectInBody } from "../model/taskBarLayout";
+import { taskBarRectInBody, taskBarAnchorInBody } from "../model/taskBarLayout";
 import {
   MilestoneHoverOverlay,
   type MilestoneHoverState,
@@ -1019,10 +1019,17 @@ function ResizeHandles({
   registerDragCancel: (cancel: (() => void) | null) => void;
   chart: ChartPalette;
 }) {
-  const start = parseDate(task.start);
-  const groupX = dateToX(start);
-  const w = taskBarWidthPx(task, dateToX, pxPerDay);
-  const barY = y + (rowHeight - barHeight) / 2;
+  const barRect = taskBarRectInBody({
+    task,
+    viewportRowTop: y,
+    rowHeight,
+    barHeight,
+    pxPerDay,
+    dateToX,
+  });
+  const groupX = barRect.x;
+  const w = barRect.width;
+  const barY = barRect.y;
   const handleHeight = Math.max(10, Math.round(barHeight * 0.7));
   const handleY = barHeight / 2 - handleHeight / 2;
   const groupRef = useRef<Konva.Group>(null);
@@ -2110,34 +2117,61 @@ export function Timeline({
     >();
     for (const row of visibleRows) {
       if (row.type !== "task") continue;
-      const y = row.y - scrollY + rowHeight / 2;
-      const x = dateToX(parseDate(row.task.start));
-      const exclusive = dateToX(taskBarExclusiveEnd(row.task));
+      const anchor = taskBarAnchorInBody({
+        task: row.task,
+        viewportRowTop: row.y - scrollY,
+        rowHeight,
+        barHeight,
+        pxPerDay,
+        dateToX,
+      });
       byId.set(row.task.id, {
-        x,
-        right: x + Math.max(pxPerDay, exclusive - x),
-        linkRight: Math.max(x + 6, exclusive),
-        y,
+        x: anchor.x,
+        right: anchor.right,
+        linkRight: Math.max(anchor.x + 6, anchor.right),
+        y: anchor.y,
       });
     }
     return byId;
-  }, [dateToX, pxPerDay, rowHeight, scrollY, visibleRows]);
+  }, [barHeight, dateToX, pxPerDay, rowHeight, scrollY, visibleRows]);
 
   const liveAnchors = useMemo(() => {
     if (dragPreviews == null || dragPreviews.length === 0) return taskAnchors;
     const next = new Map(taskAnchors);
     for (const preview of dragPreviews) {
-      const x = preview.barLeft;
-      const right = x + preview.barWidth;
+      const row = visibleRows.find(
+        (r): r is Extract<VisibleRow, { type: "task" }> =>
+          r.type === "task" && r.task.id === preview.taskId,
+      );
+      if (row == null) continue;
+      const anchor = taskBarAnchorInBody({
+        task: row.task,
+        viewportRowTop: row.y - scrollY,
+        rowHeight,
+        barHeight,
+        pxPerDay,
+        dateToX,
+        barLeft: preview.barLeft,
+        barWidth: preview.barWidth,
+      });
       next.set(preview.taskId, {
-        x,
-        right,
-        linkRight: Math.max(x + 6, right),
-        y: preview.barTop + barHeight / 2,
+        x: anchor.x,
+        right: anchor.right,
+        linkRight: Math.max(anchor.x + 6, anchor.right),
+        y: anchor.y,
       });
     }
     return next;
-  }, [barHeight, dragPreviews, taskAnchors]);
+  }, [
+    barHeight,
+    dateToX,
+    dragPreviews,
+    pxPerDay,
+    rowHeight,
+    scrollY,
+    taskAnchors,
+    visibleRows,
+  ]);
 
   if (explainOverlayLiveAnchorsRef != null) {
     explainOverlayLiveAnchorsRef.current = liveAnchors;
@@ -2155,9 +2189,7 @@ export function Timeline({
       barHeight,
       bodyHeight,
       headerHeight,
-      milestoneBandHeight,
       timelineWidth: width,
-      sidebarWidth: 0,
       liveAnchors,
       milestones,
       milestoneCenterYById: milestoneBandLayout.centerYById,
@@ -2174,7 +2206,6 @@ export function Timeline({
     explanationOverlay,
     headerHeight,
     liveAnchors,
-    milestoneBandHeight,
     milestoneBandLayout.centerYById,
     milestoneDiamondSize,
     milestones,
@@ -2900,7 +2931,6 @@ export function Timeline({
         {explanationActive ? (
           <TimelineExplanationBalloons
             balloons={explanationOverlayGeometry?.headerBalloons ?? []}
-            displayScale={uiScale}
           />
         ) : null}
       </div>
@@ -3314,13 +3344,14 @@ export function Timeline({
               height={bodyHeight}
               holes={explanationOverlayGeometry?.bodyHoles ?? []}
               colorScheme={colorScheme}
+              clipTop={sticky.clipTop}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
             />
           ) : null}
         </Stage>
         {explanationActive ? (
           <TimelineExplanationBalloons
             balloons={explanationOverlayGeometry?.bodyBalloons ?? []}
-            displayScale={uiScale}
           />
         ) : null}
       </div>

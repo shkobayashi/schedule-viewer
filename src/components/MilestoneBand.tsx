@@ -13,6 +13,10 @@ import {
 } from "../model/milestones";
 import type { ChartPalette } from "../model/palette";
 import type { Milestone, ScheduleId } from "../model/types";
+import {
+  milestoneMarkGroupX,
+  milestoneMarkLaneCenterY,
+} from "../model/taskBarLayout";
 import type { ExplanationMarkHole } from "../model/explainOverlayLayout";
 import type { ResolvedColorScheme } from "../model/palette";
 import { ExplanationKonvaVeilLayer } from "./ExplanationKonvaVeil";
@@ -109,8 +113,8 @@ export function MilestoneBand({
               ) : null}
               {block.milestones.map((milestone) => {
                 const lane = block.lanes.get(milestone.id) ?? 0;
-                const x = dateToX(parseDate(milestone.date));
-                const y = lane * laneHeight + laneHeight / 2;
+                const x = milestoneMarkGroupX(milestone.date, dateToX);
+                const y = milestoneMarkLaneCenterY(lane, laneHeight);
                 if (x < -180 || x > width + 40) return null;
                 const displayName =
                   bandLayout.displayLabels.get(milestone.id) ?? milestone.name;

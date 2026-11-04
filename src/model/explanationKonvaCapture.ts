@@ -13,11 +13,13 @@ export function registerExplanationKonvaCapture(handle: CaptureHandle): () => vo
 }
 
 export function hideExplanationKonvaLayersForCapture(): () => void {
+  const hidden: CaptureHandle[] = [];
   for (const handle of handles) {
     handle.hide();
+    hidden.push(handle);
   }
   return () => {
-    for (const handle of handles) {
+    for (const handle of hidden) {
       handle.show();
     }
   };

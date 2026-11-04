@@ -2573,18 +2573,6 @@ button:focus-visible,
   -webkit-text-fill-color: var(--text);
 }
 
-.explanation-overlay-host {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.explanation-overlay {
-  display: block;
-  pointer-events: none;
-}
-
 .explanation-balloon {
   position: absolute;
   pointer-events: none;
@@ -2596,7 +2584,7 @@ button:focus-visible,
   font-size: calc(11px * var(--s));
   line-height: 1.35;
   box-shadow: var(--menu-shadow);
-  max-width: 160px;
+  max-width: calc(160px * var(--s));
 }
 
 .explanation-balloon--above {
@@ -3174,6 +3162,7 @@ button:focus-visible,
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 3;
 }
 
 .sidebar-sticky-clip {
@@ -3651,28 +3640,6 @@ button:focus-visible,
 .timeline-body.panning .konvajs-content,
 .timeline-body.panning canvas {
   cursor: grabbing;
-}
-
-.explanation-overlay-host {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 5;
-}
-
-.timeline > .explanation-overlay-host {
-  top: 0;
-}
-
-.sidebar > .explanation-overlay-host {
-  /* top は chartTopBannerHeight を inline で指定 */
-}
-
-.explanation-overlay {
-  display: block;
 }
 
 .command-palette-overlay {
