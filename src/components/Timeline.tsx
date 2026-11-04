@@ -3066,6 +3066,11 @@ export function Timeline({
           explanationTrialMilestones={
             explanationActive ? explanationTrialMilestones : undefined
           }
+          explanationBalloons={
+            explanationActive
+              ? (explanationOverlayGeometry?.milestoneBalloons ?? [])
+              : undefined
+          }
         />
       ) : null}
       <MilestoneHoverOverlay

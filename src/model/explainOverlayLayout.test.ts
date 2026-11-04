@@ -13,6 +13,7 @@ import {
 import { taskBarRectInBody } from "./taskBarLayout";
 import { collectTaskBarLabelObstacles } from "./connections";
 import type { ExplanationMark } from "./explainOverlay";
+import { layoutMilestoneBand } from "./milestones";
 
 const timelineStart = parseDate("2026-01-01");
 const pxPerDay = 20;
@@ -263,7 +264,12 @@ describe("buildExplanationOverlayGeometry", () => {
       milestoneDiamondSize: 11,
     });
     const balloon = geo.headerBalloons[0]!;
-    const dimensions = estimateBalloonDimensions(balloon.label, balloon.maxWidth);
+    const dimensions = estimateBalloonDimensions(
+      balloon.label,
+      balloon.maxWidth,
+      1,
+      headerHeight - 2,
+    );
     const rect = explanationBalloonScreenRect(
       balloon.left,
       balloon.top,
@@ -271,7 +277,57 @@ describe("buildExplanationOverlayGeometry", () => {
       dimensions,
     );
     expect(rect.top).toBeGreaterThanOrEqual(0);
-    expect(rect.bottom).toBeLessThanOrEqual(headerHeight + dimensions.height + 20);
+    expect(rect.bottom).toBeLessThanOrEqual(headerHeight);
+  });
+
+  it("buildExplanationOverlayGeometry_placesMilestoneMarkBalloonInBand", () => {
+    const dateToXContent = (d: Date) =>
+      Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) * pxPerDay;
+    const bandLayout = layoutMilestoneBand(
+      [{ id: "mg1", name: "G" }],
+      [
+        {
+          id: "ms1",
+          name: "M",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      new Set(["mg1"]),
+      pxPerDay,
+      11,
+      11,
+      24,
+      "screen",
+    );
+    const geo = buildExplanationOverlayGeometry({
+      marks: [{ milestoneId: "ms1", kind: "ask", label: "星" }],
+      visibleRows: [],
+      dateToX: dateToXContent,
+      pxPerDay,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      bodyHeight: 400,
+      headerHeight: 30,
+      timelineWidth: 400,
+      liveAnchors: new Map(),
+      milestones: [
+        {
+          id: "ms1",
+          name: "M",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      milestoneCenterYById: bandLayout.centerYById,
+      milestoneBandLayout: bandLayout,
+      milestoneDiamondSize: 11,
+    });
+    expect(geo.milestoneBalloons).toHaveLength(1);
+    expect(geo.bodyBalloons).toHaveLength(0);
   });
 
   it("layoutExplanationBalloon_prefersAboveWhenClear", () => {

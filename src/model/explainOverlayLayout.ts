@@ -102,6 +102,7 @@ export function estimateBalloonDimensions(
   label: string,
   maxWidth: number,
   displayScale = 1,
+  maxHeight?: number,
 ): BalloonDimensions {
   const fontPx = BALLOON_FONT_PX * displayScale;
   const padX = BALLOON_PAD_X * displayScale;
@@ -113,8 +114,11 @@ export function estimateBalloonDimensions(
     BALLOON_MAX_LINES,
     Math.max(1, Math.ceil(textWidth / contentMax)),
   );
-  const height = padY * 2 + fontPx * BALLOON_LINE_HEIGHT * lines;
+  let height = padY * 2 + fontPx * BALLOON_LINE_HEIGHT * lines;
   const width = Math.min(boxMax, textWidth + padX * 2);
+  if (maxHeight != null && height > maxHeight) {
+    height = Math.max(padY * 2 + fontPx * BALLOON_LINE_HEIGHT, maxHeight);
+  }
   return { width, height };
 }
 
@@ -222,7 +226,7 @@ function layoutExplanationBalloons(
     displayScale: number;
     obstacles: readonly TextObstacleRect[];
     labelObstacles: readonly TextObstacleRect[];
-    tier?: "header" | "body";
+    tier?: "header" | "body" | "milestone";
   },
 ): ExplanationBalloonLayout[] {
   const chartBottom = input.bodyHeight;
@@ -233,6 +237,9 @@ function layoutExplanationBalloons(
       balloon.label,
       balloon.maxWidth,
       input.displayScale,
+      input.tier === "header"
+        ? Math.max(1, chartBottom - 2)
+        : undefined,
     );
     const halfW = dimensions.width / 2;
     const anchorY = balloon.top;
@@ -259,7 +266,9 @@ function layoutExplanationBalloons(
     }
 
     const placementOrder: ExplanationBalloonPlacement[] =
-      input.tier === "header" ? ["below", "above"] : ["above", "below"];
+      input.tier === "header"
+        ? ["above", "below"]
+        : ["above", "below"];
     for (const placement of placementOrder) {
       for (const offset of xOffsets) {
         const left = clampBalloonAnchorX(
@@ -274,7 +283,6 @@ function layoutExplanationBalloons(
           dimensions,
         );
         if (rect.top < 0 || rect.bottom > chartBottom) continue;
-        if (input.tier === "header" && rect.top < 0) continue;
         candidates.push({ placement, left, rect });
       }
     }
@@ -289,30 +297,75 @@ function layoutExplanationBalloons(
       chosen = clear;
     } else if (candidates.length === 0) {
       const left = baseLeft;
-      const placement: ExplanationBalloonPlacement =
-        input.tier === "header" ? "below" : "above";
+      let placement: ExplanationBalloonPlacement = "above";
+      let anchor = anchorY;
+      if (input.tier === "header") {
+        anchor = chartBottom / 2;
+        const aboveRect = explanationBalloonScreenRect(
+          left,
+          anchor,
+          "above",
+          dimensions,
+        );
+        const belowRect = explanationBalloonScreenRect(
+          left,
+          anchor,
+          "below",
+          dimensions,
+        );
+        if (
+          aboveRect.top >= 0 &&
+          aboveRect.bottom <= chartBottom
+        ) {
+          placement = "above";
+        } else if (
+          belowRect.top >= 0 &&
+          belowRect.bottom <= chartBottom
+        ) {
+          placement = "below";
+        } else {
+          placement = "above";
+          anchor = Math.min(
+            chartBottom - BALLOON_GAP,
+            dimensions.height + BALLOON_GAP,
+          );
+        }
+      }
       chosen = {
         placement,
         left,
         rect: explanationBalloonScreenRect(
           left,
-          anchorY,
+          anchor,
           placement,
           dimensions,
         ),
       };
-      if (input.tier === "header" && chosen.rect.top < 0) {
-        const belowPlacement: ExplanationBalloonPlacement = "below";
-        chosen = {
-          placement: belowPlacement,
-          left,
-          rect: explanationBalloonScreenRect(
+      if (input.tier === "header") {
+        if (chosen.rect.top < 0) {
+          chosen = {
+            placement: "below",
             left,
-            anchorY,
-            belowPlacement,
-            dimensions,
-          ),
-        };
+            rect: explanationBalloonScreenRect(
+              left,
+              BALLOON_GAP,
+              "below",
+              dimensions,
+            ),
+          };
+        }
+        if (chosen.rect.bottom > chartBottom) {
+          chosen = {
+            placement: "above",
+            left,
+            rect: explanationBalloonScreenRect(
+              left,
+              chartBottom - BALLOON_GAP,
+              "above",
+              dimensions,
+            ),
+          };
+        }
       }
     } else {
       chosen = candidates.reduce((best, candidate) => {
@@ -324,10 +377,10 @@ function layoutExplanationBalloons(
         if (area < bestArea) return candidate;
         if (area > bestArea) return best;
         if (input.tier === "header") {
-          if (candidate.placement === "below" && best.placement === "above") {
+          if (candidate.placement === "above" && best.placement === "below") {
             return candidate;
           }
-          if (candidate.placement === "above" && best.placement === "below") {
+          if (candidate.placement === "below" && best.placement === "above") {
             return best;
           }
         } else if (
@@ -340,12 +393,43 @@ function layoutExplanationBalloons(
       });
     }
 
+    if (input.tier === "header") {
+      let rect = chosen.rect;
+      if (rect.top < 0 || rect.bottom > chartBottom) {
+        const cappedHeight = Math.min(
+          dimensions.height,
+          Math.max(1, chartBottom - 2),
+        );
+        const cappedDimensions: BalloonDimensions =
+          cappedHeight === dimensions.height
+            ? dimensions
+            : { width: dimensions.width, height: cappedHeight };
+        const top = (chartBottom - cappedHeight) / 2;
+        const centeredAnchorY = top - BALLOON_GAP;
+        chosen = {
+          placement: "below",
+          left: chosen.left,
+          rect: explanationBalloonScreenRect(
+            chosen.left,
+            centeredAnchorY,
+            "below",
+            cappedDimensions,
+          ),
+        };
+      }
+    }
+
+    const resolvedAnchorY =
+      chosen.placement === "below"
+        ? chosen.rect.top - BALLOON_GAP
+        : chosen.rect.bottom + BALLOON_GAP;
+
     placed.push(chosen.rect);
 
     return {
       markIndex: balloon.markIndex,
       left: chosen.left,
-      top: anchorY,
+      top: resolvedAnchorY,
       maxWidth: balloon.maxWidth,
       label: balloon.label,
       number: balloon.number,
@@ -390,6 +474,7 @@ export type ExplanationOverlayGeometry = {
   milestoneHoles: ExplanationMarkHole[];
   bodyHoles: ExplanationMarkHole[];
   headerBalloons: ExplanationBalloonLayout[];
+  milestoneBalloons: ExplanationBalloonLayout[];
   bodyBalloons: ExplanationBalloonLayout[];
   sidebarMarkKinds: Map<ScheduleId, ExplanationMarkKind>;
 };
@@ -502,6 +587,7 @@ export function buildExplanationOverlayGeometry(
   const milestoneHoles: ExplanationMarkHole[] = [];
   const bodyHoles: ExplanationMarkHole[] = [];
   const headerBalloons: ExplanationBalloonLayout[] = [];
+  const milestoneBalloonDrafts: BalloonDraft[] = [];
   const bodyBalloons: ExplanationBalloonLayout[] = [];
   const headerBalloonDrafts: BalloonDraft[] = [];
   const bodyBalloonDrafts: BalloonDraft[] = [];
@@ -595,15 +681,20 @@ export function buildExplanationOverlayGeometry(
         ...(color != null ? { color } : {}),
       });
       const anchorX = diamond.x + diamond.width / 2;
-      const anchorY = diamond.y;
-      bodyBalloonDrafts.push({
+      const anchorY = diamond.y + diamond.height / 2;
+      milestoneBalloonDrafts.push({
         markIndex,
         left: anchorX,
         top: anchorY,
         maxWidth: balloonMaxWidth,
         label: mark.label,
         number: mark.number,
-        visible: bodyBalloonVisible(anchorX, anchorY, input),
+        visible: milestoneBalloonVisible(
+          anchorX,
+          anchorY,
+          input.timelineWidth,
+          input.milestoneBandLayout?.totalHeight ?? 0,
+        ),
         ...(color != null ? { color } : {}),
       });
       continue;
@@ -641,6 +732,23 @@ export function buildExplanationOverlayGeometry(
           ...(color != null ? { color } : {}),
         });
       }
+      const groupAnchorX = input.timelineWidth / 2;
+      const groupAnchorY = block.offsetY + block.height / 2;
+      milestoneBalloonDrafts.push({
+        markIndex,
+        left: groupAnchorX,
+        top: groupAnchorY,
+        maxWidth: balloonMaxWidth,
+        label: mark.label,
+        number: mark.number,
+        visible: milestoneBalloonVisible(
+          groupAnchorX,
+          groupAnchorY,
+          input.timelineWidth,
+          input.milestoneBandLayout?.totalHeight ?? 0,
+        ),
+        ...(color != null ? { color } : {}),
+      });
       continue;
     }
 
@@ -675,12 +783,15 @@ export function buildExplanationOverlayGeometry(
         });
       }
       const headerAnchorX = headerRect.x + headerRect.width / 2;
-      const headerAnchorY = input.headerHeight;
+      const headerAnchorY = input.headerHeight / 2;
       headerBalloonDrafts.push({
         markIndex,
         left: headerAnchorX,
         top: headerAnchorY,
-        maxWidth: balloonMaxWidth,
+        maxWidth: Math.min(
+          balloonMaxWidth,
+          Math.max(40, input.timelineWidth - BALLOON_EDGE_PAD * 2),
+        ),
         label: mark.label,
         number: mark.number,
         visible: headerBalloonVisible(headerAnchorX, headerAnchorY, input),
@@ -702,6 +813,20 @@ export function buildExplanationOverlayGeometry(
     }),
   );
 
+  const milestoneBandHeight =
+    input.milestoneBandLayout?.totalHeight ?? 0;
+  const milestoneBalloons =
+    milestoneBandHeight > 0
+      ? layoutExplanationBalloons(milestoneBalloonDrafts, {
+          bodyHeight: milestoneBandHeight,
+          timelineWidth: input.timelineWidth,
+          displayScale: input.displayScale ?? 1,
+          obstacles: [],
+          labelObstacles: [],
+          tier: "milestone",
+        })
+      : [];
+
   bodyBalloons.push(
     ...layoutExplanationBalloons(bodyBalloonDrafts, {
       bodyHeight: input.bodyHeight,
@@ -717,6 +842,7 @@ export function buildExplanationOverlayGeometry(
     milestoneHoles,
     bodyHoles,
     headerBalloons,
+    milestoneBalloons,
     bodyBalloons,
     sidebarMarkKinds: explanationSidebarMarkKinds(input.marks),
   };
@@ -729,6 +855,17 @@ function headerBalloonVisible(
 ): boolean {
   if (x < 0 || x > input.timelineWidth) return false;
   if (y < 0 || y > input.headerHeight) return false;
+  return true;
+}
+
+function milestoneBalloonVisible(
+  x: number,
+  y: number,
+  timelineWidth: number,
+  bandHeight: number,
+): boolean {
+  if (x < 0 || x > timelineWidth) return false;
+  if (y < 0 || y > bandHeight) return false;
   return true;
 }
 

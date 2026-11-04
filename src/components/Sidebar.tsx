@@ -731,15 +731,27 @@ export function Sidebar({
               block.group.id,
             );
             let milestoneMarkClass = "";
+            const milestoneRowStyle: CSSProperties = { height: block.height };
             if (explanationMark != null) {
               milestoneMarkClass = " sidebar-milestones--explanation-mark";
-              milestoneMarkClass += ` sidebar-milestones--explanation-mark-${explanationMark.kind}`;
+              if (explanationMark.color == null) {
+                milestoneMarkClass += ` sidebar-milestones--explanation-mark-${explanationMark.kind}`;
+              } else {
+                const { outlineStyle } = explanationMarkRingDashStyle(
+                  explanationMark.kind,
+                );
+                const halo = explanationMarkHaloStroke(explanationMark.color);
+                milestoneRowStyle.outline = `2px ${outlineStyle} ${explanationMark.color}`;
+                milestoneRowStyle.outlineOffset = -2;
+                milestoneRowStyle.boxShadow = `0 0 0 1px ${halo}`;
+                milestoneRowStyle.zIndex = 2;
+              }
             }
             return (
             <div
               key={block.group.id}
               className={`sidebar-milestones${diffMarkedMilestoneGroupId === block.group.id ? " hovered" : ""}${milestoneMarkClass}`}
-              style={{ height: block.height }}
+              style={milestoneRowStyle}
               onClick={(event) => {
                 if (linkMode) return;
                 if (event.button !== 0) return;

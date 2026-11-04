@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   APPLY_EXPLANATION_PATTERN_AFTER_MISSING,
   APPLY_EXPLANATION_PATTERN_ID_COLLISION,
+  APPLY_EXPLANATION_PATTERN_MILESTONE_MISSING,
   EXPLAIN_OVERLAY_PATTERNS_REJECT,
   applyExplanationPatternToDocument,
   parseApplyExplanationPatternRequest,
   buildDisplayVisibleRowsWithExplanationTrials,
   buildExplanationTrialBarLayouts,
+  buildExplanationTrialMilestoneLayouts,
   buildExplanationTrialPredecessorArcs,
   buildMcpExplanationPatterns,
   parseExplanationPatterns,
@@ -15,7 +17,7 @@ import {
 } from "./explainOverlayPatterns";
 import { parseExplainOverlayRequest } from "./explainOverlay";
 import { tasksInOutlineParent } from "./outlineTasks";
-import { taskBarAnchorInBody, taskBarRectInBody } from "./taskBarLayout";
+import { taskBarAnchorInBody, taskBarRectInBody, milestoneDiamondRectInBand } from "./taskBarLayout";
 import { serializeScheduleDocument } from "./scheduleFile";
 import type { TaskBarAnchor } from "./connections";
 import type { Category, Milestone, ScheduleDocument, Task, VisibleRow } from "./types";
@@ -780,6 +782,7 @@ describe("applyExplanationPatternToDocument", () => {
         end: "2026-01-12",
       },
     ],
+    milestoneChanges: [],
   };
 
   it("applyExplanationPatternToDocument_insertsTrialAfterAnchorAndAppliesChanges", () => {
@@ -806,6 +809,88 @@ describe("applyExplanationPatternToDocument", () => {
     );
     expect(t2?.start).toBe("2026-01-07");
     expect(t2?.end).toBe("2026-01-12");
+  });
+
+  it("applyExplanationPatternToDocument_appliesTaskAndMilestoneChangesTogether", () => {
+    const doc: ScheduleDocument = {
+      ...baseDocument(),
+      milestoneGroups: [{ id: "mg1", name: "G" }],
+      milestones: [
+        {
+          id: "ms1",
+          name: "M",
+          date: "2026-01-10",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+    };
+    const result = applyExplanationPatternToDocument(doc, {
+      ...samplePattern,
+      tasks: [],
+      changes: [
+        { taskId: "t2", start: "2026-01-07", end: "2026-01-12" },
+      ],
+      milestoneChanges: [{ milestoneId: "ms1", date: "2026-01-15" }],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.milestones[0]?.date).toBe("2026-01-15");
+    expect(
+      result.document.categories[0]?.groups[0]?.tasks.find((t) => t.id === "t2")
+        ?.start,
+    ).toBe("2026-01-07");
+  });
+
+  it("applyExplanationPatternToDocument_rejectsUnknownMilestoneId", () => {
+    const result = applyExplanationPatternToDocument(baseDocument(), {
+      ...samplePattern,
+      tasks: [],
+      changes: [],
+      milestoneChanges: [{ milestoneId: "missing", date: "2026-01-15" }],
+    });
+    expect(result).toEqual({
+      ok: false,
+      message: APPLY_EXPLANATION_PATTERN_MILESTONE_MISSING,
+    });
+  });
+
+  it("buildExplanationTrialMilestoneLayouts_matchesMilestoneDiamondRectInBand", () => {
+    const centerYById = new Map([["ms1", 12]]);
+    const dateToX = (d: Date) =>
+      Math.floor((d.getTime() - Date.parse("2026-01-01")) / 86400000) * 8;
+    const layouts = buildExplanationTrialMilestoneLayouts({
+      patterns: [
+        {
+          id: "p1",
+          name: "A",
+          color: "#2563eb",
+          tasks: [],
+          changes: [],
+          milestoneChanges: [{ milestoneId: "ms1", date: "2026-01-05" }],
+        },
+      ],
+      milestones: [
+        {
+          id: "ms1",
+          name: "M",
+          date: "2026-01-10",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      milestoneCenterYById: centerYById,
+      diamondSize: 11,
+      dateToX,
+    });
+    expect(layouts).toHaveLength(1);
+    const expected = milestoneDiamondRectInBand({
+      dateIso: "2026-01-05",
+      dateToX,
+      centerY: 12,
+      diamondSize: 11,
+    });
+    expect(layouts[0]!.rect).toEqual(expected);
   });
 
   it("applyExplanationPatternToDocument_rejectsTrialIdCollision", () => {

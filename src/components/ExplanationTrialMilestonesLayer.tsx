@@ -52,7 +52,6 @@ export function ExplanationTrialMilestonesLayer({
           stroke={item.color}
           strokeWidth={2}
           dash={[4, 3]}
-          rotation={45}
           listening={false}
         />
       ))}

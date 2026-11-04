@@ -261,6 +261,40 @@ describe("parseExplainViewRequest milestones", () => {
     });
   });
 
+  it("parseExplainView_rejectsMilestoneOutsideFilteredGroup", () => {
+    const parsed = parseExplainViewRequest(
+      { milestoneGroupIds: ["mg1"], milestoneIds: ["ms2"] },
+      {
+        ...doc,
+        milestoneGroups: [
+          { id: "mg1", name: "A" },
+          { id: "mg2", name: "B" },
+        ],
+        milestones: [
+          {
+            id: "ms1",
+            name: "S1",
+            date: "2026-01-01",
+            confidence: "committed",
+            groupId: "mg1",
+          },
+          {
+            id: "ms2",
+            name: "S2",
+            date: "2026-01-02",
+            confidence: "committed",
+            groupId: "mg2",
+          },
+        ],
+      },
+      null,
+    );
+    expect(parsed).toEqual({
+      ok: false,
+      message: "説明に指定したマイルストンは、指定した帯の行にありません。",
+    });
+  });
+
   it("resolveExplanationMilestoneBand_hidesEmptyGroupsWhenStarOnly", () => {
     const band = resolveExplanationMilestoneBand(
       {

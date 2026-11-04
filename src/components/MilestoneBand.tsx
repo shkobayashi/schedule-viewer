@@ -21,6 +21,8 @@ import type { ExplanationMarkHole } from "../model/explainOverlayLayout";
 import type { ResolvedColorScheme } from "../model/palette";
 import { ExplanationKonvaVeilLayer } from "./ExplanationKonvaVeil";
 import { ExplanationTrialMilestonesLayer } from "./ExplanationTrialMilestonesLayer";
+import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
+import type { ExplanationBalloonLayout } from "../model/explainOverlayLayout";
 import type { ExplanationTrialMilestoneLayout } from "../model/explainOverlayPatterns";
 
 /** Konva の dblClickWindow と同じ。 */
@@ -56,6 +58,7 @@ type MilestoneBandProps = {
   explanationVeilHoles?: readonly ExplanationMarkHole[];
   explanationColorScheme?: ResolvedColorScheme;
   explanationTrialMilestones?: readonly ExplanationTrialMilestoneLayout[];
+  explanationBalloons?: readonly ExplanationBalloonLayout[];
 };
 
 export function MilestoneBand({
@@ -83,6 +86,7 @@ export function MilestoneBand({
   explanationVeilHoles,
   explanationColorScheme,
   explanationTrialMilestones = [],
+  explanationBalloons = [],
 }: MilestoneBandProps) {
   return (
     <div className="milestone-band" style={{ height }} ref={containerRef}>
@@ -160,14 +164,6 @@ export function MilestoneBand({
             </Group>
           ))}
         </Layer>
-        {explanationTrialMilestones.length > 0 ? (
-          <ExplanationTrialMilestonesLayer
-            width={width}
-            height={height}
-            diamonds={explanationTrialMilestones}
-            diamondSize={diamondSize}
-          />
-        ) : null}
         {explanationColorScheme != null ? (
           <ExplanationKonvaVeilLayer
             width={width}
@@ -176,7 +172,18 @@ export function MilestoneBand({
             colorScheme={explanationColorScheme}
           />
         ) : null}
+        {explanationTrialMilestones.length > 0 ? (
+          <ExplanationTrialMilestonesLayer
+            width={width}
+            height={height}
+            diamonds={explanationTrialMilestones}
+            diamondSize={diamondSize}
+          />
+        ) : null}
       </Stage>
+      {explanationBalloons.length > 0 ? (
+        <TimelineExplanationBalloons balloons={explanationBalloons} />
+      ) : null}
     </div>
   );
 }

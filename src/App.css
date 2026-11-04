@@ -3624,6 +3624,7 @@ button:focus-visible,
 }
 
 .milestone-band {
+  position: relative;
   flex-shrink: 0;
   overflow: hidden;
   background: var(--milestone-band);
