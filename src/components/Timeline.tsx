@@ -103,6 +103,7 @@ import { ExplanationTrialBarsLayer } from "./ExplanationTrialBarsLayer";
 import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
 import {
   buildExplanationOverlayGeometry,
+  milestoneExplanationBalloonOverlayHeight,
 } from "../model/explainOverlayLayout";
 import {
   buildExplanationTrialBarLayouts,
@@ -3066,12 +3067,26 @@ export function Timeline({
           explanationTrialMilestones={
             explanationActive ? explanationTrialMilestones : undefined
           }
-          explanationBalloons={
-            explanationActive
-              ? (explanationOverlayGeometry?.milestoneBalloons ?? [])
-              : undefined
-          }
         />
+      ) : null}
+      {explanationActive &&
+      milestoneBandHeight > 0 &&
+      (explanationOverlayGeometry?.milestoneBalloons?.length ?? 0) > 0 ? (
+        <div
+          className="milestone-explanation-balloons-layer"
+          style={{
+            top: headerHeight,
+            width,
+            height: milestoneExplanationBalloonOverlayHeight(
+              milestoneBandHeight,
+              uiScale,
+            ),
+          }}
+        >
+          <TimelineExplanationBalloons
+            balloons={explanationOverlayGeometry?.milestoneBalloons ?? []}
+          />
+        </div>
       ) : null}
       <MilestoneHoverOverlay
         hover={milestoneHover}

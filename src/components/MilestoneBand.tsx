@@ -21,8 +21,6 @@ import type { ExplanationMarkHole } from "../model/explainOverlayLayout";
 import type { ResolvedColorScheme } from "../model/palette";
 import { ExplanationKonvaVeilLayer } from "./ExplanationKonvaVeil";
 import { ExplanationTrialMilestonesLayer } from "./ExplanationTrialMilestonesLayer";
-import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
-import type { ExplanationBalloonLayout } from "../model/explainOverlayLayout";
 import type { ExplanationTrialMilestoneLayout } from "../model/explainOverlayPatterns";
 
 /** Konva の dblClickWindow と同じ。 */
@@ -58,7 +56,6 @@ type MilestoneBandProps = {
   explanationVeilHoles?: readonly ExplanationMarkHole[];
   explanationColorScheme?: ResolvedColorScheme;
   explanationTrialMilestones?: readonly ExplanationTrialMilestoneLayout[];
-  explanationBalloons?: readonly ExplanationBalloonLayout[];
 };
 
 export function MilestoneBand({
@@ -86,7 +83,6 @@ export function MilestoneBand({
   explanationVeilHoles,
   explanationColorScheme,
   explanationTrialMilestones = [],
-  explanationBalloons = [],
 }: MilestoneBandProps) {
   return (
     <div className="milestone-band" style={{ height }} ref={containerRef}>
@@ -181,9 +177,6 @@ export function MilestoneBand({
           />
         ) : null}
       </Stage>
-      {explanationBalloons.length > 0 ? (
-        <TimelineExplanationBalloons balloons={explanationBalloons} />
-      ) : null}
     </div>
   );
 }

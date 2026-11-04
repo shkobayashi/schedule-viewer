@@ -227,9 +227,15 @@ function layoutExplanationBalloons(
     obstacles: readonly TextObstacleRect[];
     labelObstacles: readonly TextObstacleRect[];
     tier?: "header" | "body" | "milestone";
+    /** milestone  tier のとき、帯本体の高さ（above はこの中に収める） */
+    milestoneBandHeight?: number;
   },
 ): ExplanationBalloonLayout[] {
   const chartBottom = input.bodyHeight;
+  const milestoneBandHeight =
+    input.tier === "milestone"
+      ? (input.milestoneBandHeight ?? chartBottom)
+      : chartBottom;
   const placed: TextObstacleRect[] = [];
 
   return balloons.map((balloon) => {
@@ -268,7 +274,9 @@ function layoutExplanationBalloons(
     const placementOrder: ExplanationBalloonPlacement[] =
       input.tier === "header"
         ? ["above", "below"]
-        : ["above", "below"];
+        : input.tier === "milestone"
+          ? ["below", "above"]
+          : ["above", "below"];
     for (const placement of placementOrder) {
       for (const offset of xOffsets) {
         const left = clampBalloonAnchorX(
@@ -282,7 +290,15 @@ function layoutExplanationBalloons(
           placement,
           dimensions,
         );
-        if (rect.top < 0 || rect.bottom > chartBottom) continue;
+        if (rect.top < 0) continue;
+        if (input.tier === "milestone") {
+          if (placement === "above" && rect.bottom > milestoneBandHeight) {
+            continue;
+          }
+          if (rect.bottom > chartBottom) continue;
+        } else if (rect.bottom > chartBottom) {
+          continue;
+        }
         candidates.push({ placement, left, rect });
       }
     }
@@ -419,6 +435,44 @@ function layoutExplanationBalloons(
       }
     }
 
+    if (input.tier === "milestone") {
+      let rect = chosen.rect;
+      if (rect.top < 0 || rect.bottom > chartBottom) {
+        const left = chosen.left;
+        let anchor = anchorY;
+        let placement: ExplanationBalloonPlacement = "below";
+        let nextRect = explanationBalloonScreenRect(
+          left,
+          anchor,
+          placement,
+          dimensions,
+        );
+        if (nextRect.bottom > chartBottom) {
+          anchor = Math.max(
+            BALLOON_GAP,
+            chartBottom - BALLOON_GAP - dimensions.height,
+          );
+          nextRect = explanationBalloonScreenRect(
+            left,
+            anchor,
+            placement,
+            dimensions,
+          );
+        }
+        if (nextRect.top < 0) {
+          placement = "above";
+          anchor = milestoneBandHeight - BALLOON_GAP;
+          nextRect = explanationBalloonScreenRect(
+            left,
+            anchor,
+            placement,
+            dimensions,
+          );
+        }
+        chosen = { placement, left, rect: nextRect };
+      }
+    }
+
     const resolvedAnchorY =
       chosen.placement === "below"
         ? chosen.rect.top - BALLOON_GAP
@@ -467,6 +521,38 @@ export type BuildExplanationOverlayGeometryInput = {
 
 function explanationBalloonMaxWidth(displayScale: number): number {
   return BALLOON_MAX_WIDTH * displayScale;
+}
+
+/** マイルストン帯の吹き出しホスト高さ（帯の下へはみ出す分を含む）。 */
+export function milestoneExplanationBalloonOverlayHeight(
+  bandHeight: number,
+  displayScale = 1,
+): number {
+  if (bandHeight <= 0) return 0;
+  const maxLabel = "あ".repeat(80);
+  const dimensions = estimateBalloonDimensions(
+    maxLabel,
+    explanationBalloonMaxWidth(displayScale),
+    displayScale,
+  );
+  return bandHeight + dimensions.height + BALLOON_GAP;
+}
+
+export function milestoneExplanationBalloonScreenRect(
+  balloon: ExplanationBalloonLayout,
+  displayScale = 1,
+): TextObstacleRect {
+  const dimensions = estimateBalloonDimensions(
+    balloon.label,
+    balloon.maxWidth,
+    displayScale,
+  );
+  return explanationBalloonScreenRect(
+    balloon.left,
+    balloon.top,
+    balloon.placement,
+    dimensions,
+  );
 }
 
 export type ExplanationOverlayGeometry = {
@@ -815,15 +901,19 @@ export function buildExplanationOverlayGeometry(
 
   const milestoneBandHeight =
     input.milestoneBandLayout?.totalHeight ?? 0;
+  const displayScale = input.displayScale ?? 1;
+  const milestoneBalloonLayoutHeight =
+    milestoneExplanationBalloonOverlayHeight(milestoneBandHeight, displayScale);
   const milestoneBalloons =
     milestoneBandHeight > 0
       ? layoutExplanationBalloons(milestoneBalloonDrafts, {
-          bodyHeight: milestoneBandHeight,
+          bodyHeight: milestoneBalloonLayoutHeight,
           timelineWidth: input.timelineWidth,
-          displayScale: input.displayScale ?? 1,
+          displayScale,
           obstacles: [],
           labelObstacles: [],
           tier: "milestone",
+          milestoneBandHeight,
         })
       : [];
 

@@ -8,6 +8,8 @@ import {
   explanationBalloonScreenRect,
   explanationMarkVisibleInViewport,
   explanationSidebarMarkKinds,
+  milestoneExplanationBalloonOverlayHeight,
+  milestoneExplanationBalloonScreenRect,
   planExplanationOverlayScroll,
 } from "./explainOverlayLayout";
 import { taskBarRectInBody } from "./taskBarLayout";
@@ -328,6 +330,142 @@ describe("buildExplanationOverlayGeometry", () => {
     });
     expect(geo.milestoneBalloons).toHaveLength(1);
     expect(geo.bodyBalloons).toHaveLength(0);
+  });
+
+  it("milestoneMarkBalloon_staysInVisibleOverlayAndPointsFromBelow", () => {
+    const dateToXContent = (d: Date) =>
+      Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) * pxPerDay;
+    const bandLayout = layoutMilestoneBand(
+      [{ id: "mg1", name: "G" }],
+      [
+        {
+          id: "ms1",
+          name: "PoC完了",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      new Set(["mg1"]),
+      pxPerDay,
+      11,
+      11,
+      24,
+      "screen",
+    );
+    const bandHeight = bandLayout.totalHeight;
+    const overlayHeight = milestoneExplanationBalloonOverlayHeight(
+      bandHeight,
+      1,
+    );
+    const geo = buildExplanationOverlayGeometry({
+      marks: [
+        {
+          milestoneId: "ms1",
+          kind: "ask",
+          label: "PoC完了（評価指標クリア・次フェーズ判定）",
+        },
+      ],
+      visibleRows: [],
+      dateToX: dateToXContent,
+      pxPerDay,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      bodyHeight: 400,
+      headerHeight: 30,
+      timelineWidth: 400,
+      liveAnchors: new Map(),
+      milestones: [
+        {
+          id: "ms1",
+          name: "PoC完了",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      milestoneCenterYById: bandLayout.centerYById,
+      milestoneBandLayout: bandLayout,
+      milestoneDiamondSize: 11,
+    });
+    const balloon = geo.milestoneBalloons[0]!;
+    expect(balloon.placement).toBe("below");
+    const rect = milestoneExplanationBalloonScreenRect(balloon, 1);
+    expect(rect.top).toBeGreaterThanOrEqual(0);
+    expect(rect.bottom).toBeLessThanOrEqual(overlayHeight);
+    const anchorY = bandLayout.centerYById.get("ms1")!;
+    expect(balloon.top).toBeGreaterThanOrEqual(anchorY);
+  });
+
+  it("milestoneMarkBalloon_visibleInMultiRowBand", () => {
+    const dateToXContent = (d: Date) =>
+      Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) * pxPerDay;
+    const bandLayout = layoutMilestoneBand(
+      [{ id: "mg1", name: "G" }],
+      [
+        {
+          id: "ms1",
+          name: "A",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+        {
+          id: "ms2",
+          name: "B",
+          date: "2026-01-06",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      new Set(["mg1"]),
+      pxPerDay,
+      11,
+      11,
+      24,
+      "screen",
+    );
+    const overlayHeight = milestoneExplanationBalloonOverlayHeight(
+      bandLayout.totalHeight,
+      1,
+    );
+    const geo = buildExplanationOverlayGeometry({
+      marks: [{ milestoneId: "ms1", kind: "change", label: "上段の星" }],
+      visibleRows: [],
+      dateToX: dateToXContent,
+      pxPerDay,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      bodyHeight: 400,
+      headerHeight: 30,
+      timelineWidth: 400,
+      liveAnchors: new Map(),
+      milestones: [
+        {
+          id: "ms1",
+          name: "A",
+          date: "2026-01-05",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+        {
+          id: "ms2",
+          name: "B",
+          date: "2026-01-06",
+          confidence: "committed",
+          groupId: "mg1",
+        },
+      ],
+      milestoneCenterYById: bandLayout.centerYById,
+      milestoneBandLayout: bandLayout,
+      milestoneDiamondSize: 11,
+    });
+    const balloon = geo.milestoneBalloons[0]!;
+    const rect = milestoneExplanationBalloonScreenRect(balloon, 1);
+    expect(rect.top).toBeGreaterThanOrEqual(0);
+    expect(rect.bottom).toBeLessThanOrEqual(overlayHeight);
   });
 
   it("layoutExplanationBalloon_prefersAboveWhenClear", () => {
