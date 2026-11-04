@@ -10,6 +10,15 @@ import {
   type PlanExplanationScrollInput,
 } from "./explainOverlayLayout";
 import { parseExplanationMarkColor } from "./explanationMarkColor";
+import {
+  buildMcpExplanationPatterns,
+  parseExplanationPatterns,
+  syntheticTaskForTrialBar,
+  trialMarkBarRect,
+  trialTaskIdsInPatterns,
+  type ExplanationPattern,
+  type McpExplanationPatternPayload,
+} from "./explainOverlayPatterns";
 import type { Category, Milestone, OutlineRoot, ScheduleId, VisibleRow } from "./types";
 
 export type ExplanationMarkKind = "change" | "ask";
@@ -28,6 +37,7 @@ export type ExplanationOverlayState = {
   translucent: true;
   summary?: string;
   marks: ExplanationMark[];
+  patterns: ExplanationPattern[];
 };
 
 const ALLOWED_TOP_KEYS = new Set([
@@ -35,6 +45,7 @@ const ALLOWED_TOP_KEYS = new Set([
   "discardInProgress",
   "summary",
   "marks",
+  "patterns",
 ]);
 
 const ALLOWED_MARK_KEYS = new Set([
@@ -94,10 +105,15 @@ export function parseExplainOverlayRequest(
   }
 
   if (envelope.translucent === false) {
-    if (envelope.summary !== undefined || envelope.marks !== undefined) {
+    if (
+      envelope.summary !== undefined ||
+      envelope.marks !== undefined ||
+      envelope.patterns !== undefined
+    ) {
       return {
         ok: false,
-        message: "translucent が false のときは summary と marks を渡せません。",
+        message:
+          "translucent が false のときは summary、marks、patterns を渡せません。",
       };
     }
     return { ok: true, kind: "hide" };
@@ -114,6 +130,14 @@ export function parseExplainOverlayRequest(
     }
     summary = envelope.summary;
   }
+
+  const parsedPatterns = parseExplanationPatterns(
+    envelope.patterns,
+    context,
+  );
+  if (!parsedPatterns.ok) return parsedPatterns;
+  const patterns = parsedPatterns.patterns;
+  const trialIds = trialTaskIdsInPatterns(patterns);
 
   let marks: ExplanationMark[] = [];
   if (envelope.marks !== undefined) {
@@ -178,6 +202,60 @@ export function parseExplainOverlayRequest(
   );
 
   for (const mark of marks) {
+    if (mark.taskId != null && trialIds.has(mark.taskId)) {
+      const synthetic = syntheticTaskForTrialBar({
+        taskId: mark.taskId,
+        patterns,
+        categories: context.categories,
+        outline: context.outline,
+      });
+      if (synthetic == null) {
+        return { ok: false, message: "説明に指定したタスクが見つかりません。" };
+      }
+      if (
+        taskHiddenByCollapsedAncestors(
+          synthetic.anchorTaskId,
+          context.categories,
+          context.outline,
+          context.collapsed,
+        )
+      ) {
+        return {
+          ok: false,
+          message: "説明で示すタスクが、絞り込みか折りたたみで隠れています。",
+        };
+      }
+      if (
+        findTaskRowInVisible(context.visibleRows, synthetic.anchorTaskId) ==
+        null
+      ) {
+        return {
+          ok: false,
+          message: "説明で示すタスクが、絞り込みか折りたたみで隠れています。",
+        };
+      }
+      if (mark.date != null) {
+        let parsed: Date;
+        try {
+          parsed = parseDate(mark.date);
+        } catch {
+          return { ok: false, message: "説明の印に使えない項目があります。" };
+        }
+        const task = synthetic.task;
+        if (mark.date < task.start || mark.date > task.end) {
+          return {
+            ok: false,
+            message: "説明で示す日付が、そのタスクの期間の外です。",
+          };
+        }
+        const dayIdx = daysBetween(range.timelineStart, parsed);
+        if (dayIdx < 0 || dayIdx >= range.totalDays) {
+          return { ok: false, message: "説明で示す日付が、計画の期間の外です。" };
+        }
+      }
+      continue;
+    }
+
     if (mark.taskId != null) {
       const task = findTaskInDocument(
         context.categories,
@@ -244,6 +322,7 @@ export function parseExplainOverlayRequest(
   const state: ExplanationOverlayState = {
     translucent: true,
     marks,
+    patterns,
   };
   if (summary !== undefined) state.summary = summary;
   return { ok: true, kind: "show", state };
@@ -271,6 +350,7 @@ export type McpExplanationOverlayPayload = {
   translucent: true;
   summary?: string;
   marks: McpExplanationMarkPayload[];
+  patterns?: McpExplanationPatternPayload[];
 };
 
 export type BuildMcpExplanationOverlayInput = {
@@ -324,6 +404,9 @@ export function buildMcpExplanationOverlay(
   };
   if (input.overlay.summary !== undefined) {
     result.summary = input.overlay.summary;
+  }
+  if ((input.overlay.patterns ?? []).length > 0) {
+    result.patterns = buildMcpExplanationPatterns(input.overlay.patterns);
   }
   return result;
 }

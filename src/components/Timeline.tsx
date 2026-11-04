@@ -85,16 +85,26 @@ import {
 import { KONVA_FONT_FAMILY } from "../model/fontStack";
 import type { Member, MemberId } from "../model/memberTypes";
 import type { StickyLayout } from "../model/stickyRows";
-import type { Milestone, ScheduleId, Task, TaskConnection, VisibleRow } from "../model/types";
+import type {
+  Category,
+  Milestone,
+  OutlineRoot,
+  ScheduleId,
+  Task,
+  TaskConnection,
+  VisibleRow,
+} from "../model/types";
 import type { CalendarDocument } from "../model/calendarTypes";
 import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
 import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "../model/palette";
 import { MilestoneBand } from "./MilestoneBand";
 import { ExplanationKonvaVeilLayer } from "./ExplanationKonvaVeil";
+import { ExplanationTrialBarsLayer } from "./ExplanationTrialBarsLayer";
 import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
 import {
   buildExplanationOverlayGeometry,
 } from "../model/explainOverlayLayout";
+import { buildExplanationTrialBarLayouts } from "../model/explainOverlayPatterns";
 import {
   explanationOverlayActive,
   type ExplanationOverlayState,
@@ -181,6 +191,8 @@ type TimelineProps = {
   showLightningLine?: boolean;
   onBarDragActiveChange?: (active: boolean) => void;
   explanationOverlay?: ExplanationOverlayState | null;
+  explainOverlayCategories?: Category[];
+  explainOverlayOutline?: OutlineRoot;
   explainOverlayLiveAnchorsRef?: React.MutableRefObject<
     Map<ScheduleId, TaskBarAnchor>
   >;
@@ -1565,6 +1577,8 @@ export function Timeline({
   showLightningLine = true,
   onBarDragActiveChange,
   explanationOverlay = null,
+  explainOverlayCategories = [],
+  explainOverlayOutline,
   explainOverlayLiveAnchorsRef,
   uiScale = 1,
 }: TimelineProps) {
@@ -2181,6 +2195,9 @@ export function Timeline({
     if (!explanationOverlayActive(explanationOverlay)) return null;
     return buildExplanationOverlayGeometry({
       marks: explanationOverlay.marks,
+      patterns: explanationOverlay.patterns,
+      categories: explainOverlayCategories,
+      outline: explainOverlayOutline,
       visibleRows,
       dateToX,
       pxPerDay,
@@ -2204,6 +2221,8 @@ export function Timeline({
     bodyHeight,
     dateToX,
     explanationOverlay,
+    explainOverlayCategories,
+    explainOverlayOutline,
     headerHeight,
     liveAnchors,
     milestoneBandLayout.centerYById,
@@ -2217,6 +2236,34 @@ export function Timeline({
     uiScale,
     visibleRows,
     width,
+  ]);
+
+  const explanationTrialBars = useMemo(() => {
+    if (!explanationOverlayActive(explanationOverlay)) return [];
+    if (explanationOverlay.patterns.length === 0) return [];
+    return buildExplanationTrialBarLayouts({
+      patterns: explanationOverlay.patterns,
+      visibleRows,
+      categories: explainOverlayCategories,
+      outline: explainOverlayOutline,
+      scrollY,
+      rowHeight,
+      barHeight,
+      pxPerDay,
+      dateToX,
+      liveAnchors,
+    });
+  }, [
+    barHeight,
+    dateToX,
+    explainOverlayCategories,
+    explainOverlayOutline,
+    explanationOverlay,
+    liveAnchors,
+    pxPerDay,
+    rowHeight,
+    scrollY,
+    visibleRows,
   ]);
 
   const explanationActive = explanationOverlayActive(explanationOverlay);
@@ -3344,6 +3391,15 @@ export function Timeline({
               height={bodyHeight}
               holes={explanationOverlayGeometry?.bodyHoles ?? []}
               colorScheme={colorScheme}
+              clipTop={sticky.clipTop}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+            />
+          ) : null}
+          {explanationActive ? (
+            <ExplanationTrialBarsLayer
+              width={width}
+              height={bodyHeight}
+              bars={explanationTrialBars}
               clipTop={sticky.clipTop}
               clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
             />

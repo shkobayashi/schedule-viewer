@@ -18,8 +18,10 @@ import {
   type TextObstacleRect,
 } from "./connections";
 import type { ExplanationMark, ExplanationMarkKind } from "./explainOverlay";
+import type { ExplanationPattern } from "./explainOverlayPatterns";
+import { trialMarkBarRect } from "./explainOverlayPatterns";
 import type { Member, MemberId } from "./memberTypes";
-import type { Milestone, ScheduleId, VisibleRow } from "./types";
+import type { Milestone, ScheduleId, VisibleRow, Category, OutlineRoot } from "./types";
 
 export function buildTaskBarAnchorsForOverlay(input: {
   visibleRows: readonly VisibleRow[];
@@ -326,6 +328,9 @@ function layoutExplanationBalloons(
 
 export type BuildExplanationOverlayGeometryInput = {
   marks: readonly ExplanationMark[];
+  patterns?: readonly ExplanationPattern[];
+  categories?: Category[];
+  outline?: OutlineRoot;
   visibleRows: readonly VisibleRow[];
   dateToX: (d: Date) => number;
   pxPerDay: number;
@@ -464,18 +469,40 @@ export function buildExplanationOverlayGeometry(
     const color = mark.color;
 
     if (mark.taskId != null) {
+      let bar: OverlayRect | null = null;
       const row = findTaskRow(input.visibleRows, mark.taskId);
-      if (row == null) continue;
-      let bar = taskBarRectInBody({
-        task: row.task,
-        viewportRowTop: row.y - input.scrollY,
-        rowHeight: input.rowHeight,
-        barHeight: input.barHeight,
-        pxPerDay: input.pxPerDay,
-        dateToX: input.dateToX,
-        anchor: input.liveAnchors.get(row.task.id),
-      });
-      if (mark.date != null) {
+      if (row != null) {
+        bar = taskBarRectInBody({
+          task: row.task,
+          viewportRowTop: row.y - input.scrollY,
+          rowHeight: input.rowHeight,
+          barHeight: input.barHeight,
+          pxPerDay: input.pxPerDay,
+          dateToX: input.dateToX,
+          anchor: input.liveAnchors.get(row.task.id),
+        });
+      } else if (
+        input.patterns != null &&
+        input.patterns.length > 0 &&
+        input.categories != null
+      ) {
+        bar = trialMarkBarRect({
+          taskId: mark.taskId,
+          date: mark.date,
+          patterns: input.patterns,
+          visibleRows: input.visibleRows,
+          categories: input.categories,
+          outline: input.outline,
+          scrollY: input.scrollY,
+          rowHeight: input.rowHeight,
+          barHeight: input.barHeight,
+          pxPerDay: input.pxPerDay,
+          dateToX: input.dateToX,
+          liveAnchors: input.liveAnchors,
+        });
+      }
+      if (bar == null) continue;
+      if (mark.date != null && row != null) {
         bar = clipTaskBarRectToDate(
           bar,
           mark.date,

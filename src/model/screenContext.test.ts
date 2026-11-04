@@ -1567,7 +1567,7 @@ describe("view in MCP read payloads", () => {
       today: "2026-01-01",
       memberCatalog: null,
       lineageIds: null,
-      explanationOverlay: { translucent: true, marks: [] },
+      explanationOverlay: { translucent: true, marks: [], patterns: [] },
       explanationOverlayBuild: {
         visibleRows: [],
         pxPerDay: 1,
@@ -1611,7 +1611,7 @@ describe("view in MCP read payloads", () => {
       today: "2026-01-01",
       memberCatalog: null,
       lineageIds: null,
-      explanationOverlay: { translucent: true, marks: [] },
+      explanationOverlay: { translucent: true, marks: [], patterns: [] },
       explanationView: {
         taskIds: new Set([t.id]),
         collapseOverride: null,

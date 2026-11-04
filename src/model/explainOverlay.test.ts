@@ -70,7 +70,7 @@ describe("parseExplainOverlayRequest", () => {
     ).toEqual({
       ok: true,
       kind: "show",
-      state: { translucent: true, marks: [] },
+      state: { translucent: true, marks: [], patterns: [] },
     });
   });
 
@@ -119,7 +119,8 @@ describe("parseExplainOverlayRequest", () => {
       ),
     ).toEqual({
       ok: false,
-      message: "translucent が false のときは summary と marks を渡せません。",
+      message:
+          "translucent が false のときは summary、marks、patterns を渡せません。",
     });
   });
 
@@ -132,7 +133,7 @@ describe("parseExplainOverlayRequest", () => {
     ).toEqual({
       ok: true,
       kind: "show",
-      state: { translucent: true, marks: [] },
+      state: { translucent: true, marks: [], patterns: [] },
     });
   });
 
@@ -244,6 +245,7 @@ describe("parseExplainOverlayRequest", () => {
             color: "#aabbcc",
           },
         ],
+        patterns: [],
       },
     });
   });
@@ -281,6 +283,7 @@ describe("parseExplainOverlayRequest", () => {
       state: {
         translucent: true,
         marks: [{ taskId: "t1", kind: "change", label: "x" }],
+        patterns: [],
       },
     });
   });
@@ -290,10 +293,10 @@ describe("explanationOverlayActive", () => {
   it("explanationSessionActive_isTrueForOverlayOnly", () => {
     expect(explanationOverlayActive(null)).toBe(false);
     expect(
-      explanationOverlayActive({ translucent: true, marks: [] }),
+      explanationOverlayActive({ translucent: true, marks: [], patterns: [] }),
     ).toBe(true);
     expect(
-      explanationSessionActive(false, { translucent: true, marks: [] }),
+      explanationSessionActive(false, { translucent: true, marks: [], patterns: [] }),
     ).toBe(true);
     expect(explanationSessionActive(false, null)).toBe(false);
   });
@@ -303,7 +306,7 @@ describe("buildMcpExplanationOverlay", () => {
   it("includes explanationOverlay when translucent", () => {
     expect(
       buildMcpExplanationOverlay({
-        overlay: { translucent: true, marks: [] },
+        overlay: { translucent: true, marks: [], patterns: [] },
         visibleRows: [],
         pxPerDay: 1,
         scrollX: 0,
@@ -378,6 +381,7 @@ describe("buildMcpExplanationOverlay", () => {
             color: "#2563eb",
           },
         ],
+        patterns: [],
       },
       visibleRows: [taskRow("t1", 0)],
       pxPerDay: 20,

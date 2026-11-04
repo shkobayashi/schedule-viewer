@@ -4699,6 +4699,8 @@ function App() {
             showLightningLine={showLightningLine}
             onBarDragActiveChange={setChartBarDragging}
             explanationOverlay={schedule.explanationOverlay}
+            explainOverlayCategories={schedule.categories}
+            explainOverlayOutline={schedule.outline}
             explainOverlayLiveAnchorsRef={explainOverlayLiveAnchorsRef}
             uiScale={uiScale}
           />

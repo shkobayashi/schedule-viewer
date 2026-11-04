@@ -6,6 +6,7 @@
 
 ### 追加
 
+- MCP の `explain_overlay` に、試しの計画を比較する任意の `patterns` を付けられる。試しのバーと印は `taskBarLayout.ts` の戻り値だけで描き、文書・差分・未保存・取り消しには入れない。読み取り 3 ツールの `explanationOverlay.patterns` に `trial: true` を返し、PNG には試しのバーを写さない（#420、#443）
 - MCP の `explain_overlay` の各印に、任意の `color`（`#rgb` / `#rrggbb`）を付けられる。省略した印は `kind` の既定の枠のままである。読み取り 3 ツールは、色を付けた印だけ正規化した `color` を返す（#443）
 
 - MCP と read-screen から、前面ウィンドウ向けに説明の半透明（`explain_overlay`）を重ねられる。左の一覧、日付ヘッダー、マイルストン帯、チャート本体を覆い、説明の帯とタスク詳細は覆わない。`summary` と `marks` でタスクや日付を示し、短い文の吹き出しを重ねられる。次回起動の記録には残さない。読み取り 3 ツールの `explanationOverlay` で半透明、印、`visible` を返し、PNG には半透明、抜き、吹き出し、`summary` を写さない（#439、#443）
