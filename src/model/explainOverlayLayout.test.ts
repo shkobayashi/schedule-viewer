@@ -4,9 +4,12 @@ import type { VisibleRow } from "./types";
 import {
   buildExplanationOverlayGeometry,
   buildTaskBarAnchorsForOverlay,
+  estimateBalloonDimensions,
+  explanationBalloonScreenRect,
   explanationMarkVisibleInViewport,
   planExplanationOverlayScroll,
 } from "./explainOverlayLayout";
+import { collectTaskBarLabelObstacles } from "./connections";
 import type { ExplanationMark } from "./explainOverlay";
 
 const timelineStart = parseDate("2026-01-01");
@@ -111,6 +114,136 @@ describe("buildExplanationOverlayGeometry", () => {
     });
     const hole = geo.timelineHoles[0]!;
     expect(hole.width).toBeLessThanOrEqual(pxPerDay + 1);
+  });
+
+  it("layoutExplanationBalloon_prefersAboveWhenClear", () => {
+    const rows = [taskRow("t1", 120)];
+    const liveAnchors = buildTaskBarAnchorsForOverlay({
+      visibleRows: rows,
+      scrollY: 0,
+      rowHeight: 24,
+      dateToX: (d) =>
+        Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) *
+        pxPerDay,
+      pxPerDay,
+    });
+    const geo = buildExplanationOverlayGeometry({
+      marks: [{ taskId: "t1", kind: "change", label: "ok" }],
+      visibleRows: rows,
+      dateToX: (d) =>
+        Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) *
+        pxPerDay,
+      pxPerDay,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      bodyHeight: 400,
+      headerHeight: 30,
+      milestoneBandHeight: 0,
+      timelineWidth: 400,
+      sidebarWidth: 120,
+      liveAnchors,
+      milestones: [],
+      milestoneCenterYById: new Map(),
+      milestoneDiamondSize: 11,
+      tier: "day",
+      memberCatalog: null,
+    });
+    expect(geo.timelineBalloons[0]?.placement).toBe("above");
+  });
+
+  it("layoutExplanationBalloon_avoidsUpperBarLabel", () => {
+    const upper = taskRow("upper", 16, "2026-01-05", "2026-01-05");
+    upper.task.name = "要件定義書作成 佐藤";
+    const lower = taskRow("lower", 40, "2026-01-05", "2026-01-05");
+    const rows = [upper, lower];
+    const dateToXContent = (d: Date) =>
+      Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) * pxPerDay;
+    const liveAnchors = buildTaskBarAnchorsForOverlay({
+      visibleRows: rows,
+      scrollY: 0,
+      rowHeight: 24,
+      dateToX: dateToXContent,
+      pxPerDay,
+    });
+    const geo = buildExplanationOverlayGeometry({
+      marks: [{ taskId: "lower", kind: "change", label: "選択中" }],
+      visibleRows: rows,
+      dateToX: dateToXContent,
+      pxPerDay,
+      scrollY: 0,
+      rowHeight: 24,
+      barHeight: 14,
+      bodyHeight: 200,
+      headerHeight: 30,
+      milestoneBandHeight: 0,
+      timelineWidth: 400,
+      sidebarWidth: 120,
+      liveAnchors,
+      milestones: [],
+      milestoneCenterYById: new Map(),
+      milestoneDiamondSize: 11,
+      tier: "day",
+      memberCatalog: null,
+    });
+    const balloon = geo.timelineBalloons[0]!;
+    const hole = geo.timelineHoles[0]!;
+    const anchorX = hole.x + hole.width / 2;
+    const anchorY = hole.y;
+    const dimensions = estimateBalloonDimensions(balloon.label, balloon.maxWidth);
+    const balloonRect = explanationBalloonScreenRect(
+      balloon.left,
+      balloon.top,
+      balloon.placement,
+      dimensions,
+    );
+    const aboveRect = explanationBalloonScreenRect(
+      anchorX,
+      anchorY,
+      "above",
+      dimensions,
+    );
+    const upperLabels = collectTaskBarLabelObstacles(
+      rows,
+      0,
+      24,
+      14,
+      200,
+      dateToXContent,
+      pxPerDay,
+      "day",
+      null,
+      new Set(),
+      liveAnchors,
+    );
+    expect(upperLabels.length).toBeGreaterThan(0);
+    const chartTop = 30;
+    const shiftedUpperLabels = upperLabels.map((label) => ({
+      left: label.left,
+      top: label.top + chartTop,
+      right: label.right,
+      bottom: label.bottom + chartTop,
+    }));
+    expect(
+      shiftedUpperLabels.some((label) =>
+        !(
+          aboveRect.bottom <= label.top ||
+          aboveRect.top >= label.bottom ||
+          aboveRect.right <= label.left ||
+          aboveRect.left >= label.right
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      shiftedUpperLabels.some((label) =>
+        !(
+          balloonRect.bottom <= label.top ||
+          balloonRect.top >= label.bottom ||
+          balloonRect.right <= label.left ||
+          balloonRect.left >= label.right
+        ),
+      ),
+    ).toBe(false);
   });
 });
 

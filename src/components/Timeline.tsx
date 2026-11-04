@@ -2149,6 +2149,9 @@ export function Timeline({
       milestones,
       milestoneCenterYById: milestoneBandLayout.centerYById,
       milestoneDiamondSize,
+      tier,
+      memberCatalog,
+      assigneeDuplicateNames: duplicateMemberNamesFromCatalog(memberCatalog),
     });
   }, [
     barHeight,
@@ -2161,9 +2164,11 @@ export function Timeline({
     milestoneBandLayout.centerYById,
     milestoneDiamondSize,
     milestones,
+    memberCatalog,
     pxPerDay,
     rowHeight,
     scrollY,
+    tier,
     visibleRows,
     width,
   ]);
