@@ -1,7 +1,75 @@
 const LS_HINT_DISMISSED = "schedule-viewer/first-run/hint-dismissed";
 const LS_SAVE_HINT_COMPLETED = "schedule-viewer/first-run/save-hint-completed";
+const LS_CHECKLIST = "schedule-viewer/first-run/checklist";
 
 export const RECENT_FILES_EMPTY_HINT = "ファイルを開くとここに並びます";
+
+export type FirstRunChecklistId = "openFile" | "guide" | "mcp";
+
+export type FirstRunChecklistState = Record<FirstRunChecklistId, boolean>;
+
+export const FIRST_RUN_CHECKLIST_ORDER: FirstRunChecklistId[] = [
+  "openFile",
+  "guide",
+  "mcp",
+];
+
+export const FIRST_RUN_CHECKLIST_LABELS: Record<FirstRunChecklistId, string> = {
+  openFile: "自分の JSON を開く",
+  guide: "操作の案内を読む",
+  mcp: "LLM（MCP）とつなぐ",
+};
+
+const EMPTY_CHECKLIST: FirstRunChecklistState = {
+  openFile: false,
+  guide: false,
+  mcp: false,
+};
+
+function parseChecklist(raw: string | null): FirstRunChecklistState {
+  if (!raw) return { ...EMPTY_CHECKLIST };
+  try {
+    const parsed = JSON.parse(raw) as Partial<FirstRunChecklistState>;
+    return {
+      openFile: parsed.openFile === true,
+      guide: parsed.guide === true,
+      mcp: parsed.mcp === true,
+    };
+  } catch {
+    return { ...EMPTY_CHECKLIST };
+  }
+}
+
+export function readFirstRunChecklist(): FirstRunChecklistState {
+  try {
+    return parseChecklist(localStorage.getItem(LS_CHECKLIST));
+  } catch {
+    return { ...EMPTY_CHECKLIST };
+  }
+}
+
+function writeFirstRunChecklist(state: FirstRunChecklistState): void {
+  try {
+    localStorage.setItem(LS_CHECKLIST, JSON.stringify(state));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isFirstRunChecklistComplete(
+  state: FirstRunChecklistState = readFirstRunChecklist(),
+): boolean {
+  return FIRST_RUN_CHECKLIST_ORDER.every((id) => state[id]);
+}
+
+export function markFirstRunChecklistItem(id: FirstRunChecklistId): FirstRunChecklistState {
+  const next = { ...readFirstRunChecklist(), [id]: true };
+  writeFirstRunChecklist(next);
+  if (isFirstRunChecklistComplete(next)) {
+    dismissFirstRunHint();
+  }
+  return next;
+}
 
 export function isFirstRunHintDismissed(): boolean {
   try {
@@ -50,9 +118,12 @@ export function firstRunHintSaveFootnote(commandKey: boolean): string {
 export function shouldShowFirstRunHintCard(options: {
   dismissed: boolean;
   startupSettled: boolean;
-  showingSample: boolean;
+  checklist: FirstRunChecklistState;
 }): boolean {
-  if (options.dismissed || !options.startupSettled || !options.showingSample) {
+  if (options.dismissed || !options.startupSettled) {
+    return false;
+  }
+  if (isFirstRunChecklistComplete(options.checklist)) {
     return false;
   }
   return true;

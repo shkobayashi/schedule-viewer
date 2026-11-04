@@ -189,7 +189,7 @@ npm run tauri:dev:fresh
 
 **消えるもの**（アプリデータと localStorage の所有分だけ。ユーザーがホームやプロジェクトに置いたスケジュール JSON など、app data 外のファイルは触らない）
 
-- 初回ガイド（`schedule-viewer/first-run/*`）
+- 初回ガイド（`schedule-viewer/first-run/*`、チェックリスト 3 項目と閉じた記録）
 - 最近開いたファイル（`recent-files.json`）
 - ウィンドウ復元（`open-windows.json`、未保存控え `schedule-recovery/`、絞り込み `schedule-filters/`、古い `last-schedule.json` / `schedule-recovery.json`）
 - 設定の選択状態（`settings.json`、取り込んだメンバー・ステータス・色・拡張項目・カレンダーのコピー）

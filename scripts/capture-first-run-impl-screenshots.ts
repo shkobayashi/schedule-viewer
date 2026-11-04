@@ -1,6 +1,5 @@
 /**
- * PR evidence for NAV-09 first-run guidance (#469).
- * Output: /cursor/stores/self/first-run-impl/*.png
+ * NAV-09 checklist card screenshots → /cursor/stores/self/first-run-impl/
  */
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -15,9 +14,8 @@ import {
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = path.join("/cursor/stores/self", "first-run-impl");
+const scheduleFixture = path.join(repoRoot, "examples/playground.schedule.json");
 const COLOR_SCHEME_LS_KEY = `${SCHEDULE_VIEWER_LS_PREFIX}color-scheme`;
-const LS_HINT_DISMISSED = `${SCHEDULE_VIEWER_LS_PREFIX}first-run/hint-dismissed`;
-const LS_SAVE_HINT_COMPLETED = `${SCHEDULE_VIEWER_LS_PREFIX}first-run/save-hint-completed`;
 
 async function clearAppLocalStorage(page: Page): Promise<void> {
   await page.evaluate((body) => {
@@ -54,11 +52,10 @@ function killPort(p: number): void {
   }
 }
 
-async function applyScheme(
+async function bootPage(
   page: Page,
   port: number,
   scheme: "light" | "dark",
-  firstRunKeys: Record<string, string | null>,
 ): Promise<void> {
   await page.emulateMedia({
     colorScheme: scheme === "dark" ? "dark" : "light",
@@ -66,27 +63,56 @@ async function applyScheme(
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
   await clearAppLocalStorage(page);
   await page.evaluate(
-    ({ colorKey, colorValue, keys }) => {
+    ({ colorKey, colorValue }) => {
       localStorage.setItem(colorKey, colorValue);
-      for (const [k, v] of Object.entries(keys)) {
-        if (v == null) localStorage.removeItem(k);
-        else localStorage.setItem(k, v);
-      }
     },
-    {
-      colorKey: COLOR_SCHEME_LS_KEY,
-      colorValue: scheme,
-      keys: firstRunKeys,
-    },
+    { colorKey: COLOR_SCHEME_LS_KEY, colorValue: scheme },
   );
   await page.reload({ waitUntil: "networkidle" });
-  await page.waitForFunction(
-    (expected) => document.documentElement.dataset.colorScheme === expected,
-    scheme,
-    { timeout: 30_000 },
-  );
   await page.waitForSelector(".toolbar", { timeout: 60_000 });
   await page.waitForTimeout(400);
+}
+
+async function captureChecklistZero(page: Page, scheme: "light" | "dark"): Promise<void> {
+  await page.waitForSelector(".first-run-hint-card", { timeout: 60_000 });
+  await page.locator(".first-run-hint-card").screenshot({
+    path: path.join(outDir, `first-run-checklist-0-${scheme}.png`),
+  });
+}
+
+async function captureChecklistOneOpenFile(
+  page: Page,
+  port: number,
+  scheme: "light" | "dark",
+): Promise<void> {
+  const contents = fs.readFileSync(scheduleFixture, "utf8");
+  const pick = {
+    path: scheduleFixture,
+    contents,
+  };
+  await page.evaluate((payload) => {
+    sessionStorage.setItem("manual-screenshot-open-pick", payload);
+  }, JSON.stringify(pick));
+  await page
+    .locator(".first-run-hint-card__checklist-btn")
+    .first()
+    .click();
+  await page.waitForFunction(
+    () => {
+      const file = document.querySelector(".status-bar-file");
+      return file?.textContent?.includes("playground.schedule.json") ?? false;
+    },
+    undefined,
+    { timeout: 60_000 },
+  );
+  await page.waitForSelector(
+    ".first-run-hint-card__checklist-item--done",
+    { timeout: 30_000 },
+  );
+  await page.waitForTimeout(300);
+  await page.locator(".first-run-hint-card").screenshot({
+    path: path.join(outDir, `first-run-checklist-1-openfile-${scheme}.png`),
+  });
 }
 
 async function captureSet(port: number): Promise<void> {
@@ -95,46 +121,9 @@ async function captureSet(port: number): Promise<void> {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 
   for (const scheme of ["light", "dark"] as const) {
-    await applyScheme(page, port, scheme, {
-      [LS_HINT_DISMISSED]: null,
-      [LS_SAVE_HINT_COMPLETED]: null,
-    });
-    await page.waitForSelector(".first-run-hint-card", { timeout: 60_000 });
-    const card = page.locator(".first-run-hint-card");
-    await card.screenshot({
-      path: path.join(outDir, `first-run-card-${scheme}.png`),
-    });
-
-    await page.locator(".app-menu button").first().click();
-    await page.waitForSelector(".app-menu-item-hint", { timeout: 10_000 });
-    const menuPanel = page.locator(".app-menu-panel");
-    await menuPanel.screenshot({
-      path: path.join(outDir, `recent-files-empty-hint-${scheme}.png`),
-    });
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(200);
-
-    await page.evaluate(
-      ({ hintKey, saveKey }) => {
-        localStorage.setItem(hintKey, "1");
-        localStorage.removeItem(saveKey);
-      },
-      { hintKey: LS_HINT_DISMISSED, saveKey: LS_SAVE_HINT_COMPLETED },
-    );
-    await page.reload({ waitUntil: "networkidle" });
-    await page.waitForSelector(".toolbar", { timeout: 60_000 });
-    const firstTask = page.locator(".sidebar-row.task").first();
-    await firstTask.click();
-    await page.locator(".toolbar-title-edit-btn").click();
-    await page.locator(".toolbar-title-input").fill("初回保存ヒント確認");
-    await page.locator(".toolbar-title-input").press("Enter");
-    await page.waitForSelector(".status-bar-first-run-hint", {
-      timeout: 30_000,
-    });
-    const statusBar = page.locator(".status-bar");
-    await statusBar.screenshot({
-      path: path.join(outDir, `save-hint-pill-${scheme}.png`),
-    });
+    await bootPage(page, port, scheme);
+    await captureChecklistZero(page, scheme);
+    await captureChecklistOneOpenFile(page, port, scheme);
   }
 
   await browser.close();

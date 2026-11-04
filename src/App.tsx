@@ -145,9 +145,12 @@ import { writeColorSchemePreference } from "./model/colorScheme";
 import {
   RECENT_FILES_EMPTY_HINT,
   dismissFirstRunHint,
+  isFirstRunChecklistComplete,
   isFirstRunHintDismissed,
   isSaveHintCompleted,
+  markFirstRunChecklistItem,
   markSaveHintCompleted,
+  readFirstRunChecklist,
   saveHintLabel,
   shouldShowFirstRunHintCard,
   shouldShowSaveHintPill,
@@ -479,6 +482,9 @@ function App() {
   const [firstRunHintDismissed, setFirstRunHintDismissed] = useState(
     () => isFirstRunHintDismissed(),
   );
+  const [firstRunChecklist, setFirstRunChecklist] = useState(() =>
+    readFirstRunChecklist(),
+  );
   const [saveHintCompleted, setSaveHintCompleted] = useState(
     () => isSaveHintCompleted(),
   );
@@ -491,6 +497,20 @@ function App() {
     dismissFirstRunHint();
     setFirstRunHintDismissed(true);
   }, []);
+  const syncFirstRunChecklist = useCallback(() => {
+    const next = readFirstRunChecklist();
+    setFirstRunChecklist(next);
+    if (isFirstRunChecklistComplete(next) || isFirstRunHintDismissed()) {
+      setFirstRunHintDismissed(true);
+    }
+  }, []);
+  const markFirstRunStep = useCallback(
+    (id: Parameters<typeof markFirstRunChecklistItem>[0]) => {
+      markFirstRunChecklistItem(id);
+      syncFirstRunChecklist();
+    },
+    [syncFirstRunChecklist],
+  );
   const openFirstRunMcpSettings = useCallback(() => {
     setSettingsSection("mcp");
     setSettingsOpen(true);
@@ -1468,7 +1488,7 @@ function App() {
     shouldShowFirstRunHintCard({
       dismissed: firstRunHintDismissed,
       startupSettled: scheduleFile.startupSettled,
-      showingSample: showingBuiltInSample,
+      checklist: firstRunChecklist,
     });
   const statusBarSaveHint =
     isDesktopFirstRunUi &&
@@ -1485,20 +1505,35 @@ function App() {
       : null;
 
   const onFirstRunOpenFile = useCallback(() => {
-    dismissFirstRunHintCard();
     flushTitleEdit();
     scheduleFile.requestOpen();
-  }, [dismissFirstRunHintCard, flushTitleEdit, scheduleFile]);
+  }, [flushTitleEdit, scheduleFile]);
 
   const onFirstRunOpenGuide = useCallback(() => {
-    dismissFirstRunHintCard();
     openGuide();
-  }, [dismissFirstRunHintCard, openGuide]);
+  }, [openGuide]);
 
   const onFirstRunOpenMcpSettings = useCallback(() => {
-    dismissFirstRunHintCard();
     openFirstRunMcpSettings();
-  }, [dismissFirstRunHintCard, openFirstRunMcpSettings]);
+  }, [openFirstRunMcpSettings]);
+
+  useEffect(() => {
+    if (!scheduleFile.startupSettled) return;
+    if (scheduleFile.filePath == null) {
+      return;
+    }
+    markFirstRunStep("openFile");
+  }, [markFirstRunStep, scheduleFile.filePath, scheduleFile.startupSettled]);
+
+  useEffect(() => {
+    if (!guideOpen) return;
+    markFirstRunStep("guide");
+  }, [guideOpen, markFirstRunStep]);
+
+  useEffect(() => {
+    if (!settingsOpen || settingsSection !== "mcp") return;
+    markFirstRunStep("mcp");
+  }, [markFirstRunStep, settingsOpen, settingsSection]);
 
   const showUpdateToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -5109,6 +5144,8 @@ function App() {
       {showFirstRunHintCard ? (
         <FirstRunHintCard
           commandKey={commandKey}
+          showingSample={showingBuiltInSample}
+          checklist={firstRunChecklist}
           openFileDisabled={
             scheduleFile.fileBusy || !scheduleFile.startupSettled
           }
@@ -5555,6 +5592,7 @@ function App() {
                 }
               : undefined
           }
+          onMcpConfigCopied={() => markFirstRunStep("mcp")}
         />
       ) : null}
       <HierarchyLevelsDialog

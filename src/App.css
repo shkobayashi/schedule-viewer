@@ -4949,6 +4949,48 @@ html[data-color-scheme="dark"] .command-palette {
   margin-bottom: calc(10px * var(--s));
 }
 
+.first-run-hint-card__checklist {
+  list-style: none;
+  margin: 0 0 calc(10px * var(--s));
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
+.first-run-hint-card__checklist-item {
+  display: grid;
+  grid-template-columns: calc(22px * var(--s)) minmax(0, 1fr);
+  align-items: center;
+  gap: calc(8px * var(--s));
+}
+
+.first-run-hint-card__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(22px * var(--s));
+  height: calc(22px * var(--s));
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  background: var(--panel);
+}
+
+.first-run-hint-card__checklist-item--done .first-run-hint-card__check {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+}
+
+.first-run-hint-card__checklist-btn {
+  width: 100%;
+}
+
+.first-run-hint-card__checklist-item--done .first-run-hint-card__checklist-btn {
+  opacity: 0.72;
+  cursor: default;
+}
+
 .first-run-hint-card__btn {
   width: 100%;
   padding: calc(8px * var(--s)) calc(10px * var(--s));

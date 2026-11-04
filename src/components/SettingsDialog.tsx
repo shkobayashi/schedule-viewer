@@ -177,6 +177,8 @@ type SettingsDialogProps = {
     selected: boolean,
   ) => Promise<void>;
   onDeleteFieldExtension?: (catalogId: string) => Promise<void>;
+  /** 初回ガイド: mcp.json をコピーしたとき */
+  onMcpConfigCopied?: () => void;
 };
 
 function betaInstallerPlatform(): "windows" | "linux" | null {
@@ -240,6 +242,7 @@ export function SettingsDialog({
   onImportFieldExtension,
   onToggleFieldExtension,
   onDeleteFieldExtension,
+  onMcpConfigCopied,
   workspaceStatusEditor,
   workspaceColorEditor,
   workspaceMemberEditor,
@@ -1360,11 +1363,13 @@ export function SettingsDialog({
                     disabled={!mcpConfig}
                     onClick={() => {
                       void navigator.clipboard.writeText(mcpConfig).then(
-                        () =>
+                        () => {
                           setMcpPanelMessage({
                             text: "JSON をコピーしました。",
                             kind: "status",
-                          }),
+                          });
+                          onMcpConfigCopied?.();
+                        },
                         () =>
                           setMcpPanelMessage({
                             text: "コピーできませんでした。",

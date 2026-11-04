@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   dismissFirstRunHint,
   firstRunHintSaveFootnote,
+  isFirstRunChecklistComplete,
   isFirstRunHintDismissed,
   isSaveHintCompleted,
+  markFirstRunChecklistItem,
   markSaveHintCompleted,
+  readFirstRunChecklist,
   saveHintLabel,
   shouldShowFirstRunHintCard,
   shouldShowSaveHintPill,
@@ -34,6 +37,11 @@ describe("firstRunGuidance persistence", () => {
     installLocalStorage();
     expect(isFirstRunHintDismissed()).toBe(false);
     expect(isSaveHintCompleted()).toBe(false);
+    expect(readFirstRunChecklist()).toEqual({
+      openFile: false,
+      guide: false,
+      mcp: false,
+    });
   });
 
   it("persists hint dismissal", () => {
@@ -47,6 +55,20 @@ describe("firstRunGuidance persistence", () => {
     markSaveHintCompleted();
     expect(isSaveHintCompleted()).toBe(true);
   });
+
+  it("persists checklist items and dismisses when all complete", () => {
+    installLocalStorage();
+    markFirstRunChecklistItem("openFile");
+    markFirstRunChecklistItem("guide");
+    expect(isFirstRunHintDismissed()).toBe(false);
+    markFirstRunChecklistItem("mcp");
+    expect(readFirstRunChecklist()).toEqual({
+      openFile: true,
+      guide: true,
+      mcp: true,
+    });
+    expect(isFirstRunHintDismissed()).toBe(true);
+  });
 });
 
 describe("firstRunGuidance labels", () => {
@@ -59,35 +81,52 @@ describe("firstRunGuidance labels", () => {
 });
 
 describe("shouldShowFirstRunHintCard", () => {
-  it("shows only on sample after startup when not dismissed", () => {
+  const empty = { openFile: false, guide: false, mcp: false };
+  const partial = { openFile: true, guide: false, mcp: false };
+
+  it("shows after startup until dismissed or checklist complete", () => {
     expect(
       shouldShowFirstRunHintCard({
         dismissed: false,
         startupSettled: true,
-        showingSample: true,
+        checklist: empty,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowFirstRunHintCard({
+        dismissed: false,
+        startupSettled: true,
+        checklist: partial,
       }),
     ).toBe(true);
     expect(
       shouldShowFirstRunHintCard({
         dismissed: true,
         startupSettled: true,
-        showingSample: true,
+        checklist: empty,
       }),
     ).toBe(false);
     expect(
       shouldShowFirstRunHintCard({
         dismissed: false,
         startupSettled: false,
-        showingSample: true,
+        checklist: empty,
       }),
     ).toBe(false);
     expect(
       shouldShowFirstRunHintCard({
         dismissed: false,
         startupSettled: true,
-        showingSample: false,
+        checklist: { openFile: true, guide: true, mcp: true },
       }),
     ).toBe(false);
+  });
+
+  it("isFirstRunChecklistComplete reflects all items", () => {
+    expect(isFirstRunChecklistComplete(partial)).toBe(false);
+    expect(
+      isFirstRunChecklistComplete({ openFile: true, guide: true, mcp: true }),
+    ).toBe(true);
   });
 });
 
