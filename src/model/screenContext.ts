@@ -33,7 +33,10 @@ import {
 } from "./explainView";
 import {
   buildMcpExplanationOverlay,
+  explanationOverlayActive,
+  type BuildMcpExplanationOverlayInput,
   type ExplanationOverlayState,
+  type McpExplanationOverlayPayload,
 } from "./explainOverlay";
 import {
   buildMcpViewVisible,
@@ -475,9 +478,7 @@ export function mcpMembersForReadTools(input: {
   return input.appMembers ? [...input.appMembers] : [];
 }
 
-export type McpExplanationOverlayPayload = {
-  translucent: true;
-};
+export type { McpExplanationOverlayPayload } from "./explainOverlay";
 
 export type FilteredTasksMcpPayload = {
   levels: McpLevelEntry[];
@@ -517,8 +518,21 @@ export type SelectedTasksMcpPayload = {
 function attachExplanationOverlay<T extends { view: McpViewForReadTools }>(
   payload: T,
   overlay: ExplanationOverlayState | null | undefined,
+  build?: Omit<BuildMcpExplanationOverlayInput, "overlay"> | null,
 ): T & { explanationOverlay?: McpExplanationOverlayPayload } {
-  const explanationOverlay = buildMcpExplanationOverlay(overlay ?? null);
+  if (!explanationOverlayActive(overlay ?? null)) return payload;
+  const explanationOverlay = buildMcpExplanationOverlay({
+    overlay: overlay ?? null,
+    visibleRows: build?.visibleRows ?? [],
+    pxPerDay: build?.pxPerDay ?? 1,
+    scrollX: build?.scrollX ?? 0,
+    scrollY: build?.scrollY ?? 0,
+    rowHeight: build?.rowHeight ?? 0,
+    bodyHeight: build?.bodyHeight ?? 0,
+    chartWidth: build?.chartWidth ?? 0,
+    timelineStart: build?.timelineStart ?? new Date(0),
+    liveAnchors: build?.liveAnchors ?? new Map(),
+  });
   if (explanationOverlay == null) return payload;
   return { ...payload, explanationOverlay };
 }
@@ -811,6 +825,10 @@ export function buildFilteredTasksPayload(
     memberCatalog: Map<MemberId, Member> | null;
     lineageIds: ReadonlySet<ScheduleId> | null;
     explanationOverlay?: ExplanationOverlayState | null;
+    explanationOverlayBuild?: Omit<
+      BuildMcpExplanationOverlayInput,
+      "overlay"
+    > | null;
     statuses?: readonly StatusItem[];
     colors?: readonly ColorItem[] | null;
     levels?: readonly ScheduleLevelDef[] | null;
@@ -862,6 +880,7 @@ export function buildFilteredTasksPayload(
       ),
     },
     input.explanationOverlay,
+    input.explanationOverlayBuild,
   );
 }
 
@@ -874,6 +893,10 @@ export function buildSelectedTaskPayload(
     lineageIds: ReadonlySet<ScheduleId> | null;
     selectedTaskId: ScheduleId | null;
     explanationOverlay?: ExplanationOverlayState | null;
+    explanationOverlayBuild?: Omit<
+      BuildMcpExplanationOverlayInput,
+      "overlay"
+    > | null;
     statuses?: readonly StatusItem[];
     colors?: readonly ColorItem[] | null;
     levels?: readonly ScheduleLevelDef[] | null;
@@ -921,6 +944,7 @@ export function buildSelectedTaskPayload(
       selectedTask,
     },
     input.explanationOverlay,
+    input.explanationOverlayBuild,
   );
 }
 
@@ -929,6 +953,10 @@ export function buildSelectedTasksPayload(
     Partial<McpViewForReadToolsInput> & {
     selectedTaskIds: readonly ScheduleId[];
     explanationOverlay?: ExplanationOverlayState | null;
+    explanationOverlayBuild?: Omit<
+      BuildMcpExplanationOverlayInput,
+      "overlay"
+    > | null;
     statuses?: readonly StatusItem[];
     colors?: readonly ColorItem[] | null;
     levels?: readonly ScheduleLevelDef[] | null;
@@ -960,6 +988,7 @@ export function buildSelectedTasksPayload(
         selectedTasks: [],
       },
       input.explanationOverlay,
+      input.explanationOverlayBuild,
     );
   }
   const doc = scheduleDocumentForMcpTasks(input);
@@ -989,6 +1018,7 @@ export function buildSelectedTasksPayload(
       selectedTasks,
     },
     input.explanationOverlay,
+    input.explanationOverlayBuild,
   );
 }
 

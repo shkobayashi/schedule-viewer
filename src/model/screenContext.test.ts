@@ -1567,9 +1567,20 @@ describe("view in MCP read payloads", () => {
       today: "2026-01-01",
       memberCatalog: null,
       lineageIds: null,
-      explanationOverlay: { translucent: true },
+      explanationOverlay: { translucent: true, marks: [], patterns: [] },
+      explanationOverlayBuild: {
+        visibleRows: [],
+        pxPerDay: 1,
+        scrollX: 0,
+        scrollY: 0,
+        rowHeight: 0,
+        bodyHeight: 0,
+        chartWidth: 0,
+        timelineStart: new Date("2026-01-01T00:00:00.000Z"),
+        liveAnchors: new Map(),
+      },
     });
-    expect(payload.explanationOverlay).toEqual({ translucent: true });
+    expect(payload.explanationOverlay).toEqual({ translucent: true, marks: [] });
     expect(payload.view.explanation).toBeUndefined();
   });
 
@@ -1600,15 +1611,26 @@ describe("view in MCP read payloads", () => {
       today: "2026-01-01",
       memberCatalog: null,
       lineageIds: null,
-      explanationOverlay: { translucent: true },
+      explanationOverlay: { translucent: true, marks: [], patterns: [] },
       explanationView: {
         taskIds: new Set([t.id]),
         collapseOverride: null,
       },
       userCollapsed: new Set(),
       collapsed: new Set(),
+      explanationOverlayBuild: {
+        visibleRows: [],
+        pxPerDay: 1,
+        scrollX: 0,
+        scrollY: 0,
+        rowHeight: 0,
+        bodyHeight: 0,
+        chartWidth: 0,
+        timelineStart: new Date("2026-01-01T00:00:00.000Z"),
+        liveAnchors: new Map(),
+      },
     });
-    expect(payload.explanationOverlay).toEqual({ translucent: true });
+    expect(payload.explanationOverlay).toEqual({ translucent: true, marks: [] });
     expect(payload.view.explanation?.taskIds).toEqual([t.id]);
     expect(
       payload.tasks.every((task) => !("explanationOverlay" in task)),

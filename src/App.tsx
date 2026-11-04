@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import {
   Copy,
   GitBranch,
@@ -217,6 +218,8 @@ import type { ScheduleDiffEntry } from "./model/scheduleDiffEntry";
 import {
   collapsedSetFromIds,
 } from "./model/scheduleFilterPersistence";
+import { buildTaskBarAnchorsForOverlay } from "./model/explainOverlayLayout";
+import type { TaskBarAnchor } from "./model/connections";
 import { scrollXToRevealTask } from "./model/chartScroll";
 import {
   type DiffStripContentKind,
@@ -949,6 +952,15 @@ function App() {
   const externalReloadHistoryRedoRef = useRef<
     (landed: import("./model/history").DocumentSnapshot) => void
   >(() => {});
+  const explainOverlayRuntimeRef = useRef<{
+    getPlanInput: () => import("./model/explainOverlayLayout").PlanExplanationScrollInput | null;
+    applyScroll: (
+      plan: import("./model/explainOverlayLayout").ExplanationScrollPlan,
+    ) => void;
+  } | null>(null);
+  const explainOverlayLiveAnchorsRef = useRef<
+    Map<ScheduleId, TaskBarAnchor>
+  >(new Map());
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
     sampleCategories,
@@ -964,6 +976,7 @@ function App() {
     statusesReady,
     extensionFieldDefs,
     fieldExtensionCatalogSettled,
+    explainOverlayRuntimeRef,
   );
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
   const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
@@ -987,6 +1000,17 @@ function App() {
     showOnlyMilestoneGroup,
     visibleMilestoneGroupIds,
   } = schedule;
+
+  const [mcpPngUsesDocumentRows, setMcpPngUsesDocumentRows] = useState(false);
+  const chartVisibleRows = mcpPngUsesDocumentRows
+    ? schedule.visibleRows
+    : schedule.displayVisibleRows;
+  const prepareMcpPngCapture = useCallback(() => {
+    flushSync(() => setMcpPngUsesDocumentRows(true));
+  }, []);
+  const finalizeMcpPngCapture = useCallback(() => {
+    flushSync(() => setMcpPngUsesDocumentRows(false));
+  }, []);
 
   useEffect(() => {
     const ids = new Set(schedule.milestones.map((milestone) => milestone.id));
@@ -1177,7 +1201,7 @@ function App() {
         120,
         timelineSlotHeight - headerHeight - band - chartTopBannerHeight,
       );
-      const rows = schedule.visibleRows;
+      const rows = chartVisibleRows;
       const contentHeight =
         rows.length === 0 ? 0 : rows[rows.length - 1].y + rowHeight;
       return Math.max(0, contentHeight - body);
@@ -1244,6 +1268,7 @@ function App() {
     handleWheel,
     xToDate,
     reveal,
+    applyScrollPosition,
     pxPerDay,
     scrollX,
     scrollY,
@@ -1253,6 +1278,26 @@ function App() {
     totalDays: viewTotalDays,
     timelineEnd: viewTimelineEnd,
   } = view;
+
+  explainOverlayRuntimeRef.current = {
+    getPlanInput: () => ({
+      marks: [],
+      visibleRows: chartVisibleRows,
+      dateToX,
+      pxPerDay,
+      scrollX,
+      scrollY,
+      rowHeight,
+      barHeight,
+      bodyHeight,
+      chartWidth: Math.max(200, timelineWidth),
+      timelineStart: viewStart,
+      totalDays: viewTotalDays,
+      liveAnchors: explainOverlayLiveAnchorsRef.current,
+    }),
+    applyScroll: (plan) =>
+      applyScrollPosition(plan.scrollX, plan.scrollY),
+  };
 
   const filterAssigneeLabel = useMemo(
     () =>
@@ -1333,6 +1378,7 @@ function App() {
       if (binding) setWorkspaceBinding(binding);
       else clearWorkspaceBinding();
     },
+    onScheduleSaved: schedule.clearExplanationView,
   });
   reportFileErrorRef.current = scheduleFile.showError;
   externalReloadHistoryUndoRef.current = scheduleFile.onHistoryUndoApplied;
@@ -2085,7 +2131,9 @@ function App() {
       levels: schedule.levels,
       outline: schedule.outline,
     }).length;
-    const visible = schedule.visibleRows.filter((row) => row.type === "task").length;
+    const visible = chartVisibleRows.filter(
+      (row) => row.type === "task" && row.explanationTrial == null,
+    ).length;
     return { visibleTaskCount: visible, totalTaskCount: total };
   }, [
     schedule.categories,
@@ -2094,7 +2142,7 @@ function App() {
     schedule.milestones,
     schedule.outline,
     schedule.title,
-    schedule.visibleRows,
+    chartVisibleRows,
   ]);
 
   const documentTasks = useMemo(
@@ -2219,14 +2267,14 @@ function App() {
 
   const revealTaskRow = useCallback(
     (taskId: ScheduleId) => {
-      const row = visibleRows.find(
+      const row = chartVisibleRows.find(
         (item) => item.type === "task" && item.task.id === taskId,
       );
       if (!row || row.type !== "task") return;
       reveal(
         parseDate(row.task.start),
         scrollYToShowSelectedTask(
-          visibleRows,
+          chartVisibleRows,
           row.y,
           rowHeight,
           bodyHeight,
@@ -2235,7 +2283,15 @@ function App() {
         taskBarWidthPx(row.task, dateToX, pxPerDay),
       );
     },
-    [bodyHeight, dateToX, pxPerDay, reveal, rowHeight, scrollY, visibleRows],
+    [
+      bodyHeight,
+      chartVisibleRows,
+      dateToX,
+      pxPerDay,
+      reveal,
+      rowHeight,
+      scrollY,
+    ],
   );
 
   const focusDetailName = useCallback(() => {
@@ -2417,8 +2473,10 @@ function App() {
   ]);
   const links = useMemo(() => {
     const visibleIds = new Set(
-      schedule.visibleRows.flatMap((row) =>
-        row.type === "task" ? [row.task.id] : [],
+      chartVisibleRows.flatMap((row) =>
+        row.type === "task" && row.explanationTrial == null
+          ? [row.task.id]
+          : [],
       ),
     );
     const tasks = collectTasksFromDocument({
@@ -2441,17 +2499,19 @@ function App() {
     schedule.milestones,
     schedule.outline,
     schedule.title,
-    schedule.visibleRows,
+    chartVisibleRows,
   ]);
 
   const taskConnections = useMemo(() => {
     const visibleIds = new Set(
-      schedule.visibleRows.flatMap((row) =>
-        row.type === "task" ? [row.task.id] : [],
+      chartVisibleRows.flatMap((row) =>
+        row.type === "task" && row.explanationTrial == null
+          ? [row.task.id]
+          : [],
       ),
     );
     return visibleConnectionsFromTasks(schedule.connections, visibleIds);
-  }, [schedule.connections, schedule.visibleRows]);
+  }, [chartVisibleRows, schedule.connections]);
 
   const handleResizeStart = useCallback(
     (taskId: ScheduleId, groupX: number) => {
@@ -2461,23 +2521,31 @@ function App() {
   );
 
   const stickyLayout = useMemo(
-    () => layoutStickyHeaders(visibleRows, scrollY, rowHeight, bodyHeight),
-    [bodyHeight, rowHeight, scrollY, visibleRows],
+    () => layoutStickyHeaders(chartVisibleRows, scrollY, rowHeight, bodyHeight),
+    [bodyHeight, rowHeight, scrollY, chartVisibleRows],
   );
 
   useLayoutEffect(() => {
     if (focusTaskId == null) return;
-    const row = visibleRows.find(
+    const row = chartVisibleRows.find(
       (item) => item.type === "task" && item.task.id === focusTaskId,
     );
     if (!row || row.type !== "task") return;
     reveal(
       parseDate(row.task.start),
-      scrollYToRevealTask(visibleRows, row.y, rowHeight, bodyHeight),
+      scrollYToRevealTask(chartVisibleRows, row.y, rowHeight, bodyHeight),
       taskBarWidthPx(row.task, dateToX, pxPerDay),
     );
     setFocusTaskId(null);
-  }, [bodyHeight, dateToX, focusTaskId, pxPerDay, reveal, rowHeight, visibleRows]);
+  }, [
+    bodyHeight,
+    chartVisibleRows,
+    dateToX,
+    focusTaskId,
+    pxPerDay,
+    reveal,
+    rowHeight,
+  ]);
 
   const handleResizeEnd = useCallback(
     (taskId: ScheduleId, groupX: number, barWidth: number) => {
@@ -3058,7 +3126,9 @@ function App() {
     replaceScheduleDocument: (document) =>
       replaceScheduleDocumentRef.current(document),
     onReplaceScheduleApplied,
-    visibleRows: schedule.visibleRows,
+    visibleRows: chartVisibleRows,
+    prepareMcpPngCapture,
+    finalizeMcpPngCapture,
     viewStart,
     viewTotalDays,
     scrollX,
@@ -3067,7 +3137,12 @@ function App() {
     scrollY,
     rowHeight,
     bodyHeight,
+    dateToX,
+    headerHeight: headerHeight,
+    milestoneBandHeight,
+    barHeight,
     mainElement: mainRef.current,
+    explainOverlayLiveAnchorsRef,
   });
 
   const announceDiffStrip = useCallback((kind: DiffStripContentKind, text: string) => {
@@ -3217,7 +3292,7 @@ function App() {
         filterState.collapsedGroupIds,
       );
       const outcome = resolveDiffNavigation(entry, {
-        visibleRows: schedule.visibleRows,
+        visibleRows: chartVisibleRows,
         categories: schedule.categories,
         outline: schedule.outline,
         collapsed,
@@ -4468,7 +4543,7 @@ function App() {
           levelCount={schedule.hierarchyLayout.levelCount}
           usesOutlineStorage={schedule.usesOutlineStorage}
           allowCrossParentTaskMove={schedule.allowCrossParentTaskMove}
-          rows={schedule.visibleRows}
+          rows={chartVisibleRows}
           reorderBaseRows={schedule.baseVisibleRows}
           scrollY={scrollY}
           viewportHeight={bodyHeight}
@@ -4528,7 +4603,7 @@ function App() {
           sticky={stickyLayout}
           sidebarColumns={sidebarColumns}
           chartTopBannerHeight={chartTopBannerHeight}
-          explanationOverlayTranslucent={schedule.explanationOverlayActive}
+          explanationOverlay={schedule.explanationOverlay}
         />
         <div className="chart-detail">
         {bulkDiscardNotice ? (
@@ -4575,7 +4650,17 @@ function App() {
               ) : null}
               {schedule.explanationSessionActive ? (
                 <div className="explanation-banner" role="status">
-                  <div className="explanation-banner-text">説明を表示しています</div>
+                  <div className="explanation-banner-text">
+                    <div>説明を表示しています</div>
+                    {schedule.explanationOverlay?.summary?.trim() ? (
+                      <div
+                        className="explanation-banner-summary"
+                        data-explanation-overlay=""
+                      >
+                        {schedule.explanationOverlay.summary}
+                      </div>
+                    ) : null}
+                  </div>
                   <button
                     type="button"
                     className="explanation-banner-dismiss"
@@ -4593,7 +4678,7 @@ function App() {
           <Timeline
             statuses={displayStatuses}
             rowColors={displayColors}
-            visibleRows={schedule.visibleRows}
+            visibleRows={chartVisibleRows}
             width={Math.max(200, timelineWidth)}
             rowHeight={rowHeight}
             barHeight={barHeight}
@@ -4650,7 +4735,11 @@ function App() {
             sticky={stickyLayout}
             showLightningLine={showLightningLine}
             onBarDragActiveChange={setChartBarDragging}
-            explanationOverlayTranslucent={schedule.explanationOverlayActive}
+            explanationOverlay={schedule.explanationOverlay}
+            explainOverlayCategories={schedule.categories}
+            explainOverlayOutline={schedule.outline}
+            explainOverlayLiveAnchorsRef={explainOverlayLiveAnchorsRef}
+            uiScale={uiScale}
           />
         </div>
         {selectedDetailTask ? (

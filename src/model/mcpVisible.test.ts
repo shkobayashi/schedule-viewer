@@ -112,6 +112,41 @@ describe("mcpVisibleRows", () => {
     ]);
   });
 
+  it("marks explanation trial task rows with trial true", () => {
+    const trialRows: VisibleRow[] = [
+      taskRow("t1", "Anchor", 0),
+      {
+        type: "task",
+        y: 32,
+        task: {
+          id: "trial-1",
+          name: "試し",
+          start: "2026-01-01",
+          end: "2026-01-02",
+          assigneeIds: [],
+          status: "not-started",
+          progress: 0,
+          confidence: "tentative",
+          predecessors: [],
+          milestoneId: null,
+          tags: [],
+        },
+        explanationTrial: { patternId: "p", color: "#2563eb" },
+      },
+    ];
+    expect(
+      mcpVisibleRows({
+        visibleRows: trialRows,
+        scrollY: 0,
+        rowHeight: 32,
+        bodyHeight: 100,
+      }),
+    ).toEqual([
+      { kind: "task", id: "t1", name: "Anchor" },
+      { kind: "task", id: "trial-1", name: "試し", trial: true },
+    ]);
+  });
+
   it("includes sticky header rows that stay pinned above the viewport", () => {
     const manyRows: VisibleRow[] = [
       {

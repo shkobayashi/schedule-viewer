@@ -29,10 +29,13 @@ export function shouldCaptureNodeForMcp(node: unknown): boolean {
   return true;
 }
 
+import { hideExplanationKonvaLayersForCapture } from "./explanationKonvaCapture";
+
 export async function captureMainElementForMcp(
   element: HTMLElement | null,
 ): Promise<McpScreenshotForReadTools> {
   if (element == null) return { ok: false };
+  const restoreKonva = hideExplanationKonvaLayersForCapture();
   try {
     const dataUrl = await domToPng(element, {
       scale: 1,
@@ -46,5 +49,7 @@ export async function captureMainElementForMcp(
     return { ok: true, base64, mimeType: "image/png" };
   } catch {
     return { ok: false };
+  } finally {
+    restoreKonva();
   }
 }

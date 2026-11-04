@@ -80,16 +80,36 @@ import {
   taskBarChartLabelStrings,
   taskBarLabelFontSize,
   type ConnectionBarObstacle,
+  type TaskBarAnchor,
 } from "../model/connections";
 import { KONVA_FONT_FAMILY } from "../model/fontStack";
 import type { Member, MemberId } from "../model/memberTypes";
 import type { StickyLayout } from "../model/stickyRows";
-import type { Milestone, ScheduleId, Task, TaskConnection, VisibleRow } from "../model/types";
+import type {
+  Category,
+  Milestone,
+  OutlineRoot,
+  ScheduleId,
+  Task,
+  TaskConnection,
+  VisibleRow,
+} from "../model/types";
 import type { CalendarDocument } from "../model/calendarTypes";
 import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
 import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "../model/palette";
 import { MilestoneBand } from "./MilestoneBand";
-import { ExplanationOverlay } from "./ExplanationOverlay";
+import { ExplanationKonvaVeilLayer } from "./ExplanationKonvaVeil";
+import { ExplanationTrialBarsLayer } from "./ExplanationTrialBarsLayer";
+import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
+import {
+  buildExplanationOverlayGeometry,
+} from "../model/explainOverlayLayout";
+import { buildExplanationTrialBarLayouts, buildExplanationTrialPredecessorArcs, isExplanationTrialVisibleRow } from "../model/explainOverlayPatterns";
+import {
+  explanationOverlayActive,
+  type ExplanationOverlayState,
+} from "../model/explainOverlay";
+import { taskBarRectInBody, taskBarAnchorInBody } from "../model/taskBarLayout";
 import {
   MilestoneHoverOverlay,
   type MilestoneHoverState,
@@ -170,7 +190,13 @@ type TimelineProps = {
   sticky: StickyLayout;
   showLightningLine?: boolean;
   onBarDragActiveChange?: (active: boolean) => void;
-  explanationOverlayTranslucent?: boolean;
+  explanationOverlay?: ExplanationOverlayState | null;
+  explainOverlayCategories?: Category[];
+  explainOverlayOutline?: OutlineRoot;
+  explainOverlayLiveAnchorsRef?: React.MutableRefObject<
+    Map<ScheduleId, TaskBarAnchor>
+  >;
+  uiScale?: number;
 };
 
 const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
@@ -367,10 +393,19 @@ function TaskBar({
   tier: "day" | "week" | "month";
 }) {
   const css = paletteFor(colorScheme).css;
-  const start = parseDate(task.start);
-  const x = dragLeft ?? dateToX(start);
-  const w = dragWidth ?? taskBarWidthPx(task, dateToX, pxPerDay);
-  const barY = y + (rowHeight - barHeight) / 2;
+  const barRect = taskBarRectInBody({
+    task,
+    viewportRowTop: y,
+    rowHeight,
+    barHeight,
+    pxPerDay,
+    dateToX,
+    barLeft: dragLeft,
+    barWidth: dragWidth,
+  });
+  const x = barRect.x;
+  const w = barRect.width;
+  const barY = barRect.y;
   const colors = barColors(task, today, colorScheme, statuses);
   const assigneeDuplicateNames = useMemo(
     () => duplicateMemberNamesFromCatalog(memberCatalog),
@@ -996,10 +1031,17 @@ function ResizeHandles({
   registerDragCancel: (cancel: (() => void) | null) => void;
   chart: ChartPalette;
 }) {
-  const start = parseDate(task.start);
-  const groupX = dateToX(start);
-  const w = taskBarWidthPx(task, dateToX, pxPerDay);
-  const barY = y + (rowHeight - barHeight) / 2;
+  const barRect = taskBarRectInBody({
+    task,
+    viewportRowTop: y,
+    rowHeight,
+    barHeight,
+    pxPerDay,
+    dateToX,
+  });
+  const groupX = barRect.x;
+  const w = barRect.width;
+  const barY = barRect.y;
   const handleHeight = Math.max(10, Math.round(barHeight * 0.7));
   const handleY = barHeight / 2 - handleHeight / 2;
   const groupRef = useRef<Konva.Group>(null);
@@ -1534,7 +1576,11 @@ export function Timeline({
   sticky,
   showLightningLine = true,
   onBarDragActiveChange,
-  explanationOverlayTranslucent = false,
+  explanationOverlay = null,
+  explainOverlayCategories = [],
+  explainOverlayOutline,
+  explainOverlayLiveAnchorsRef,
+  uiScale = 1,
 }: TimelineProps) {
   const linkMode = linkSourceId != null;
   const chart = useMemo(
@@ -2058,6 +2104,7 @@ export function Timeline({
     const tx = dateToX(todayDate);
     const points = [tx, 0];
     for (const row of visibleRows) {
+      if (row.type === "task" && isExplanationTrialVisibleRow(row)) continue;
       const y = row.y - scrollY + rowHeight / 2;
       const x =
         row.type === "task"
@@ -2084,35 +2131,170 @@ export function Timeline({
       { x: number; right: number; linkRight: number; y: number }
     >();
     for (const row of visibleRows) {
-      if (row.type !== "task") continue;
-      const y = row.y - scrollY + rowHeight / 2;
-      const x = dateToX(parseDate(row.task.start));
-      const exclusive = dateToX(taskBarExclusiveEnd(row.task));
+      if (row.type !== "task" || isExplanationTrialVisibleRow(row)) continue;
+      const anchor = taskBarAnchorInBody({
+        task: row.task,
+        viewportRowTop: row.y - scrollY,
+        rowHeight,
+        barHeight,
+        pxPerDay,
+        dateToX,
+      });
       byId.set(row.task.id, {
-        x,
-        right: x + Math.max(pxPerDay, exclusive - x),
-        linkRight: Math.max(x + 6, exclusive),
-        y,
+        x: anchor.x,
+        right: anchor.right,
+        linkRight: Math.max(anchor.x + 6, anchor.right),
+        y: anchor.y,
       });
     }
     return byId;
-  }, [dateToX, pxPerDay, rowHeight, scrollY, visibleRows]);
+  }, [barHeight, dateToX, pxPerDay, rowHeight, scrollY, visibleRows]);
 
   const liveAnchors = useMemo(() => {
     if (dragPreviews == null || dragPreviews.length === 0) return taskAnchors;
     const next = new Map(taskAnchors);
     for (const preview of dragPreviews) {
-      const x = preview.barLeft;
-      const right = x + preview.barWidth;
+      const row = visibleRows.find(
+        (r): r is Extract<VisibleRow, { type: "task" }> =>
+          r.type === "task" && r.task.id === preview.taskId,
+      );
+      if (row == null) continue;
+      const anchor = taskBarAnchorInBody({
+        task: row.task,
+        viewportRowTop: row.y - scrollY,
+        rowHeight,
+        barHeight,
+        pxPerDay,
+        dateToX,
+        barLeft: preview.barLeft,
+        barWidth: preview.barWidth,
+      });
       next.set(preview.taskId, {
-        x,
-        right,
-        linkRight: Math.max(x + 6, right),
-        y: preview.barTop + barHeight / 2,
+        x: anchor.x,
+        right: anchor.right,
+        linkRight: Math.max(anchor.x + 6, anchor.right),
+        y: anchor.y,
       });
     }
     return next;
-  }, [barHeight, dragPreviews, taskAnchors]);
+  }, [
+    barHeight,
+    dateToX,
+    dragPreviews,
+    pxPerDay,
+    rowHeight,
+    scrollY,
+    taskAnchors,
+    visibleRows,
+  ]);
+
+  if (explainOverlayLiveAnchorsRef != null) {
+    explainOverlayLiveAnchorsRef.current = liveAnchors;
+  }
+
+  const explanationOverlayGeometry = useMemo(() => {
+    if (!explanationOverlayActive(explanationOverlay)) return null;
+    return buildExplanationOverlayGeometry({
+      marks: explanationOverlay.marks,
+      patterns: explanationOverlay.patterns,
+      categories: explainOverlayCategories,
+      outline: explainOverlayOutline,
+      visibleRows,
+      dateToX,
+      pxPerDay,
+      scrollY,
+      rowHeight,
+      barHeight,
+      bodyHeight,
+      headerHeight,
+      timelineWidth: width,
+      liveAnchors,
+      milestones,
+      milestoneCenterYById: milestoneBandLayout.centerYById,
+      milestoneDiamondSize,
+      tier,
+      memberCatalog,
+      assigneeDuplicateNames: duplicateMemberNamesFromCatalog(memberCatalog),
+      displayScale: uiScale,
+    });
+  }, [
+    barHeight,
+    bodyHeight,
+    dateToX,
+    explanationOverlay,
+    explainOverlayCategories,
+    explainOverlayOutline,
+    headerHeight,
+    liveAnchors,
+    milestoneBandLayout.centerYById,
+    milestoneDiamondSize,
+    milestones,
+    memberCatalog,
+    pxPerDay,
+    rowHeight,
+    scrollY,
+    tier,
+    uiScale,
+    visibleRows,
+    width,
+  ]);
+
+  const explanationTrialBars = useMemo(() => {
+    if (!explanationOverlayActive(explanationOverlay)) return [];
+    if (explanationOverlay.patterns.length === 0) return [];
+    return buildExplanationTrialBarLayouts({
+      patterns: explanationOverlay.patterns,
+      visibleRows,
+      categories: explainOverlayCategories,
+      outline: explainOverlayOutline,
+      scrollY,
+      rowHeight,
+      barHeight,
+      pxPerDay,
+      dateToX,
+    });
+  }, [
+    barHeight,
+    dateToX,
+    explainOverlayCategories,
+    explainOverlayOutline,
+    explanationOverlay,
+    pxPerDay,
+    rowHeight,
+    scrollY,
+    visibleRows,
+  ]);
+
+  const explanationTrialPredecessorArcs = useMemo(() => {
+    if (!explanationOverlayActive(explanationOverlay)) return [];
+    if (explanationOverlay.patterns.length === 0) return [];
+    return buildExplanationTrialPredecessorArcs({
+      patterns: explanationOverlay.patterns,
+      visibleRows,
+      categories: explainOverlayCategories,
+      outline: explainOverlayOutline,
+      scrollY,
+      rowHeight,
+      barHeight,
+      pxPerDay,
+      dateToX,
+      liveAnchors,
+    });
+  }, [
+    barHeight,
+    dateToX,
+    explainOverlayCategories,
+    explainOverlayOutline,
+    explanationOverlay,
+    liveAnchors,
+    pxPerDay,
+    rowHeight,
+    scrollY,
+    visibleRows,
+  ]);
+
+  const explanationActive = explanationOverlayActive(explanationOverlay);
+
   const resizeHitAt = useCallback(
     (pos: { x: number; y: number }) =>
       hitTaskResizeEdge(pos, liveAnchors, barHeight),
@@ -2225,7 +2407,9 @@ export function Timeline({
   const linkPolylines = useMemo(() => {
     const dates = new Map<ScheduleId, { start: string; end: string }>();
     for (const row of visibleRows) {
-      if (row.type === "task") dates.set(row.task.id, row.task);
+      if (row.type === "task" && !isExplanationTrialVisibleRow(row)) {
+        dates.set(row.task.id, row.task);
+      }
     }
     const polylines: Array<LinkPolyline & { broken: boolean }> = [];
     for (const link of links) {
@@ -2811,7 +2995,20 @@ export function Timeline({
           }}
         >
           <Layer>{headerContent}</Layer>
+          {explanationActive ? (
+            <ExplanationKonvaVeilLayer
+              width={width}
+              height={headerHeight}
+              holes={explanationOverlayGeometry?.headerHoles ?? []}
+              colorScheme={colorScheme}
+            />
+          ) : null}
         </Stage>
+        {explanationActive ? (
+          <TimelineExplanationBalloons
+            balloons={explanationOverlayGeometry?.headerBalloons ?? []}
+          />
+        ) : null}
       </div>
       {milestoneBandHeight > 0 ? (
         <MilestoneBand
@@ -2836,6 +3033,12 @@ export function Timeline({
           milestoneGuideLineIds={milestoneGuideLineIds}
           diffMarkedMilestoneId={diffMarkedMilestoneId}
           diffMarkStrokeWidth={diffMarkStrokeWidth}
+          explanationVeilHoles={
+            explanationActive
+              ? (explanationOverlayGeometry?.milestoneHoles ?? [])
+              : undefined
+          }
+          explanationColorScheme={explanationActive ? colorScheme : undefined}
         />
       ) : null}
       <MilestoneHoverOverlay
@@ -2992,7 +3195,7 @@ export function Timeline({
               );
             })}
             {visibleRows.map((row) => {
-              if (row.type !== "task") return null;
+              if (row.type !== "task" || isExplanationTrialVisibleRow(row)) return null;
               const y = row.y - scrollY;
               if (y + rowHeight < 0 || y > bodyHeight) return null;
               return (
@@ -3211,15 +3414,35 @@ export function Timeline({
             </Group>
             {stickyContent}
           </Layer>
+          {explanationActive ? (
+            <ExplanationKonvaVeilLayer
+              width={width}
+              height={bodyHeight}
+              holes={explanationOverlayGeometry?.bodyHoles ?? []}
+              colorScheme={colorScheme}
+              clipTop={sticky.clipTop}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+            />
+          ) : null}
+          {explanationActive ? (
+            <ExplanationTrialBarsLayer
+              width={width}
+              height={bodyHeight}
+              bars={explanationTrialBars}
+              predecessorArcs={explanationTrialPredecessorArcs}
+              connectionArcColor={chart.connectionArc}
+              connectionArcHaloColor={chart.connectionArcHalo}
+              clipTop={sticky.clipTop}
+              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+            />
+          ) : null}
         </Stage>
+        {explanationActive ? (
+          <TimelineExplanationBalloons
+            balloons={explanationOverlayGeometry?.bodyBalloons ?? []}
+          />
+        ) : null}
       </div>
-      {explanationOverlayTranslucent ? (
-        <ExplanationOverlay
-          width={width}
-          height={headerHeight + milestoneBandHeight + bodyHeight}
-          colorScheme={colorScheme}
-        />
-      ) : null}
     </div>
   );
 }

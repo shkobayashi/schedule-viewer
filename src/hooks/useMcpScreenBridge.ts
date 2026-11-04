@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -76,7 +76,12 @@ import type {
   ScheduleLevelDef,
 } from "../model/types";
 import type { ExplanationViewState } from "../model/explainView";
-import type { ExplanationOverlayState } from "../model/explainOverlay";
+import type {
+  BuildMcpExplanationOverlayInput,
+  ExplanationOverlayState,
+} from "../model/explainOverlay";
+import { buildTaskBarAnchorsForOverlay } from "../model/explainOverlayLayout";
+import type { TaskBarAnchor } from "../model/connections";
 
 type McpScreenRequest = {
   id: string;
@@ -133,6 +138,8 @@ type UseMcpScreenBridgeInput = {
   ) => ReplaceScheduleDocumentResult;
   onReplaceScheduleApplied?: (result: ReplaceScheduleDocumentResult) => void;
   visibleRows: VisibleRow[];
+  prepareMcpPngCapture?: () => void;
+  finalizeMcpPngCapture?: () => void;
   viewStart: Date;
   viewTotalDays: number;
   scrollX: number;
@@ -141,7 +148,14 @@ type UseMcpScreenBridgeInput = {
   scrollY: number;
   rowHeight: number;
   bodyHeight: number;
+  dateToX: (d: Date) => number;
+  headerHeight: number;
+  milestoneBandHeight: number;
+  barHeight: number;
   mainElement: HTMLElement | null;
+  explainOverlayLiveAnchorsRef: RefObject<
+    ReadonlyMap<ScheduleId, TaskBarAnchor>
+  >;
 };
 
 export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
@@ -183,10 +197,37 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       };
     }
 
+    function mcpExplanationOverlayBuild(
+      snap: UseMcpScreenBridgeInput,
+    ): Omit<BuildMcpExplanationOverlayInput, "overlay"> | null {
+      const liveFromChart = snap.explainOverlayLiveAnchorsRef.current;
+      return {
+        visibleRows: snap.visibleRows,
+        pxPerDay: snap.pxPerDay,
+        scrollX: snap.scrollX,
+        scrollY: snap.scrollY,
+        rowHeight: snap.rowHeight,
+        bodyHeight: snap.bodyHeight,
+        chartWidth: snap.chartWidth,
+        timelineStart: snap.viewStart,
+        liveAnchors:
+          liveFromChart ??
+          buildTaskBarAnchorsForOverlay({
+            visibleRows: snap.visibleRows,
+            scrollY: snap.scrollY,
+            rowHeight: snap.rowHeight,
+            barHeight: snap.barHeight,
+            dateToX: snap.dateToX,
+            pxPerDay: snap.pxPerDay,
+          }),
+      };
+    }
+
     function mcpPayloadFields(snap: UseMcpScreenBridgeInput) {
       return {
         ...mcpViewFields(snap),
         explanationOverlay: snap.explanationOverlay,
+        explanationOverlayBuild: mcpExplanationOverlayBuild(snap),
         viewport: mcpViewportFromSnap(snap),
       };
     }
@@ -515,7 +556,13 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       }
       let body;
       if (isMcpReadToolName(payload.tool)) {
-        const screenshot = await captureMainElementForMcp(snap.mainElement);
+        let screenshot;
+        try {
+          snap.prepareMcpPngCapture?.();
+          screenshot = await captureMainElementForMcp(snap.mainElement);
+        } finally {
+          snap.finalizeMcpPngCapture?.();
+        }
         body = mcpReadToolsPayloadToToolBody(
           toolPayload as Record<string, unknown>,
           screenshot,
