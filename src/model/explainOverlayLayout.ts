@@ -5,6 +5,12 @@ import { scrollYToRevealTask } from "./stickyRows";
 import { layoutStickyHeaders } from "./stickyRows";
 import { taskBarExclusiveEnd, taskBarWidthPx } from "./timeline";
 import {
+  clipTaskBarRectToDate,
+  dateColumnRectInHeader,
+  milestoneDiamondRectInBand,
+  taskBarRectInBody,
+} from "./taskBarLayout";
+import {
   collectTaskBarLabelObstacles,
   estimateChartTextWidth,
   type TaskBarAnchor,
@@ -200,8 +206,6 @@ function labelObstacleOverlapArea(
 function layoutExplanationBalloons(
   balloons: BalloonDraft[],
   input: {
-    headerHeight: number;
-    milestoneBandHeight: number;
     bodyHeight: number;
     timelineWidth: number;
     displayScale: number;
@@ -209,14 +213,7 @@ function layoutExplanationBalloons(
     labelObstacles: readonly TextObstacleRect[];
   },
 ): ExplanationBalloonLayout[] {
-  const chartTop = input.headerHeight + input.milestoneBandHeight;
-  const chartBottom = chartTop + input.bodyHeight;
-  const headerObstacle: TextObstacleRect = {
-    left: 0,
-    top: 0,
-    right: input.timelineWidth,
-    bottom: input.headerHeight,
-  };
+  const chartBottom = input.bodyHeight;
   const placed: TextObstacleRect[] = [];
 
   return balloons.map((balloon) => {
@@ -263,12 +260,11 @@ function layoutExplanationBalloons(
           dimensions,
         );
         if (rect.top < 0 || rect.bottom > chartBottom) continue;
-        if (placement === "above" && rect.top < input.headerHeight) continue;
         candidates.push({ placement, left, rect });
       }
     }
 
-    const blockers = [...input.obstacles, headerObstacle, ...placed];
+    const blockers = [...input.obstacles, ...placed];
     const clear = candidates.find(
       (candidate) => !rectOverlapsAny(candidate.rect, blockers),
     );
@@ -344,64 +340,27 @@ export type BuildExplanationOverlayGeometryInput = {
 };
 
 export type ExplanationOverlayGeometry = {
-  timelineHoles: ExplanationMarkHole[];
-  sidebarHoles: ExplanationMarkHole[];
-  timelineBalloons: ExplanationBalloonLayout[];
+  headerHoles: ExplanationMarkHole[];
+  milestoneHoles: ExplanationMarkHole[];
+  bodyHoles: ExplanationMarkHole[];
+  headerBalloons: ExplanationBalloonLayout[];
+  bodyBalloons: ExplanationBalloonLayout[];
+  sidebarMarkKinds: Map<ScheduleId, ExplanationMarkKind>;
 };
 
-function barRectForTask(
-  row: Extract<VisibleRow, { type: "task" }>,
+export function explanationSidebarMarkKinds(
+  marks: readonly ExplanationMark[],
+): Map<ScheduleId, ExplanationMarkKind> {
+  const byTask = new Map<ScheduleId, ExplanationMarkKind>();
+  for (const mark of marks) {
+    if (mark.taskId == null) continue;
+    byTask.set(mark.taskId, mark.kind);
+  }
+  return byTask;
+}
+
+function buildBodyBalloonObstacles(
   input: BuildExplanationOverlayGeometryInput,
-): OverlayRect {
-  const anchor = input.liveAnchors.get(row.task.id);
-  const yBody = row.y - input.scrollY;
-  const top = anchor?.y ?? yBody + input.rowHeight / 2;
-  const barTop = top - input.barHeight / 2;
-  const x = anchor?.x ?? input.dateToX(parseDate(row.task.start));
-  const right =
-    anchor?.right ??
-    x + taskBarWidthPx(row.task, input.dateToX, input.pxPerDay);
-  return {
-    x,
-    y: barTop,
-    width: Math.max(1, right - x),
-    height: input.barHeight,
-  };
-}
-
-function clipBarToDate(
-  bar: OverlayRect,
-  dateIso: string,
-  dateToX: (d: Date) => number,
-  pxPerDay: number,
-): OverlayRect {
-  const dayStart = dateToX(parseDate(dateIso));
-  const dayEnd = dayStart + pxPerDay;
-  const x = Math.max(bar.x, dayStart);
-  const right = Math.min(bar.x + bar.width, dayEnd);
-  return {
-    x,
-    y: bar.y,
-    width: Math.max(1, right - x),
-    height: bar.height,
-  };
-}
-
-function shiftObstacleToTimeline(
-  obstacle: TextObstacleRect,
-  chartTop: number,
-): TextObstacleRect {
-  return {
-    left: obstacle.left,
-    top: obstacle.top + chartTop,
-    right: obstacle.right,
-    bottom: obstacle.bottom + chartTop,
-  };
-}
-
-function buildTimelineBalloonObstacles(
-  input: BuildExplanationOverlayGeometryInput,
-  chartTop: number,
 ): { obstacles: TextObstacleRect[]; labelObstacles: TextObstacleRect[] } {
   if (input.tier == null) {
     return { obstacles: [], labelObstacles: [] };
@@ -421,17 +380,25 @@ function buildTimelineBalloonObstacles(
     input.memberCatalog ?? null,
     assigneeDuplicateNames,
     input.liveAnchors,
-  ).map((obstacle) => shiftObstacleToTimeline(obstacle, chartTop));
+  );
 
   const barObstacles: TextObstacleRect[] = [];
   for (const row of input.visibleRows) {
     if (row.type !== "task") continue;
-    const bar = barRectForTask(row, input);
+    const bar = taskBarRectInBody({
+      task: row.task,
+      viewportRowTop: row.y - input.scrollY,
+      rowHeight: input.rowHeight,
+      barHeight: input.barHeight,
+      pxPerDay: input.pxPerDay,
+      dateToX: input.dateToX,
+      anchor: input.liveAnchors.get(row.task.id),
+    });
     barObstacles.push({
       left: bar.x,
-      top: chartTop + bar.y,
+      top: bar.y,
       right: bar.x + bar.width,
-      bottom: chartTop + bar.y + bar.height,
+      bottom: bar.y + bar.height,
     });
   }
 
@@ -454,11 +421,13 @@ function findTaskRow(
 export function buildExplanationOverlayGeometry(
   input: BuildExplanationOverlayGeometryInput,
 ): ExplanationOverlayGeometry {
-  const timelineHoles: ExplanationMarkHole[] = [];
-  const sidebarHoles: ExplanationMarkHole[] = [];
-  const timelineBalloons: ExplanationBalloonLayout[] = [];
-  const chartTop = input.headerHeight + input.milestoneBandHeight;
-  const balloonDrafts: BalloonDraft[] = [];
+  const headerHoles: ExplanationMarkHole[] = [];
+  const milestoneHoles: ExplanationMarkHole[] = [];
+  const bodyHoles: ExplanationMarkHole[] = [];
+  const headerBalloons: ExplanationBalloonLayout[] = [];
+  const bodyBalloons: ExplanationBalloonLayout[] = [];
+  const headerBalloonDrafts: BalloonDraft[] = [];
+  const bodyBalloonDrafts: BalloonDraft[] = [];
 
   for (let markIndex = 0; markIndex < input.marks.length; markIndex += 1) {
     const mark = input.marks[markIndex]!;
@@ -467,87 +436,88 @@ export function buildExplanationOverlayGeometry(
     if (mark.taskId != null) {
       const row = findTaskRow(input.visibleRows, mark.taskId);
       if (row == null) continue;
-      let bar = barRectForTask(row, input);
-      if (mark.date != null) {
-        bar = clipBarToDate(bar, mark.date, input.dateToX, input.pxPerDay);
-      }
-      const timelineBar: OverlayRect = {
-        x: bar.x,
-        y: chartTop + bar.y,
-        width: bar.width,
-        height: bar.height,
-      };
-      timelineHoles.push({ ...timelineBar, kind, markIndex });
-      sidebarHoles.push({
-        x: 0,
-        y: input.milestoneBandHeight + (row.y - input.scrollY),
-        width: input.sidebarWidth,
-        height: input.rowHeight,
-        kind,
-        markIndex,
+      let bar = taskBarRectInBody({
+        task: row.task,
+        viewportRowTop: row.y - input.scrollY,
+        rowHeight: input.rowHeight,
+        barHeight: input.barHeight,
+        pxPerDay: input.pxPerDay,
+        dateToX: input.dateToX,
+        anchor: input.liveAnchors.get(row.task.id),
       });
-      const anchorX = timelineBar.x + timelineBar.width / 2;
-      const anchorY = timelineBar.y;
-      balloonDrafts.push({
+      if (mark.date != null) {
+        bar = clipTaskBarRectToDate(
+          bar,
+          mark.date,
+          input.dateToX,
+          input.pxPerDay,
+        );
+      }
+      bodyHoles.push({ ...bar, kind, markIndex });
+      const anchorX = bar.x + bar.width / 2;
+      const anchorY = bar.y;
+      bodyBalloonDrafts.push({
         markIndex,
         left: anchorX,
         top: anchorY,
         maxWidth: BALLOON_MAX_WIDTH,
         label: mark.label,
         number: mark.number,
-        visible: balloonVisible(anchorX, anchorY, input),
+        visible: bodyBalloonVisible(anchorX, anchorY, input),
         taskId: mark.taskId,
       });
       continue;
     }
 
     if (mark.date != null) {
-      const dayX = input.dateToX(parseDate(mark.date));
-      timelineHoles.push({
-        x: dayX,
-        y: 0,
-        width: input.pxPerDay,
-        height: input.headerHeight,
-        kind,
-        markIndex,
+      const headerRect = dateColumnRectInHeader({
+        dateIso: mark.date,
+        dateToX: input.dateToX,
+        pxPerDay: input.pxPerDay,
+        headerHeight: input.headerHeight,
       });
+      headerHoles.push({ ...headerRect, kind, markIndex });
       for (const milestone of input.milestones) {
         if (milestone.date !== mark.date) continue;
         const cy = input.milestoneCenterYById.get(milestone.id);
         if (cy == null) continue;
-        const half = input.milestoneDiamondSize / 2;
-        timelineHoles.push({
-          x: dayX + input.pxPerDay / 2 - half,
-          y: input.headerHeight + cy - half,
-          width: input.milestoneDiamondSize,
-          height: input.milestoneDiamondSize,
-          kind,
-          markIndex,
+        const diamond = milestoneDiamondRectInBand({
+          dateIso: mark.date,
+          dateToX: input.dateToX,
+          pxPerDay: input.pxPerDay,
+          centerY: cy,
+          diamondSize: input.milestoneDiamondSize,
         });
+        milestoneHoles.push({ ...diamond, kind, markIndex });
       }
-      const anchorX = dayX + input.pxPerDay / 2;
-      const anchorY = 0;
-      balloonDrafts.push({
+      const headerAnchorX = headerRect.x + headerRect.width / 2;
+      const headerAnchorY = input.headerHeight;
+      headerBalloonDrafts.push({
         markIndex,
-        left: anchorX,
-        top: anchorY,
+        left: headerAnchorX,
+        top: headerAnchorY,
         maxWidth: BALLOON_MAX_WIDTH,
         label: mark.label,
         number: mark.number,
-        visible: balloonVisible(anchorX, anchorY, input),
+        visible: headerBalloonVisible(headerAnchorX, headerAnchorY, input),
       });
     }
   }
 
-  const { obstacles, labelObstacles } = buildTimelineBalloonObstacles(
-    input,
-    chartTop,
+  const { obstacles, labelObstacles } = buildBodyBalloonObstacles(input);
+
+  headerBalloons.push(
+    ...layoutExplanationBalloons(headerBalloonDrafts, {
+      bodyHeight: input.headerHeight,
+      timelineWidth: input.timelineWidth,
+      displayScale: input.displayScale ?? 1,
+      obstacles: [],
+      labelObstacles: [],
+    }),
   );
 
-  timelineBalloons.push(
-    ...layoutExplanationBalloons(balloonDrafts, {
-      headerHeight: input.headerHeight,
-      milestoneBandHeight: input.milestoneBandHeight,
+  bodyBalloons.push(
+    ...layoutExplanationBalloons(bodyBalloonDrafts, {
       bodyHeight: input.bodyHeight,
       timelineWidth: input.timelineWidth,
       displayScale: input.displayScale ?? 1,
@@ -556,18 +526,33 @@ export function buildExplanationOverlayGeometry(
     }),
   );
 
-  return { timelineHoles, sidebarHoles, timelineBalloons };
+  return {
+    headerHoles,
+    milestoneHoles,
+    bodyHoles,
+    headerBalloons,
+    bodyBalloons,
+    sidebarMarkKinds: explanationSidebarMarkKinds(input.marks),
+  };
 }
 
-function balloonVisible(
+function headerBalloonVisible(
   x: number,
   y: number,
   input: BuildExplanationOverlayGeometryInput,
 ): boolean {
   if (x < 0 || x > input.timelineWidth) return false;
-  const totalHeight =
-    input.headerHeight + input.milestoneBandHeight + input.bodyHeight;
-  if (y < 0 || y > totalHeight) return false;
+  if (y < 0 || y > input.headerHeight) return false;
+  return true;
+}
+
+function bodyBalloonVisible(
+  x: number,
+  y: number,
+  input: BuildExplanationOverlayGeometryInput,
+): boolean {
+  if (x < 0 || x > input.timelineWidth) return false;
+  if (y < 0 || y > input.bodyHeight) return false;
   return true;
 }
 

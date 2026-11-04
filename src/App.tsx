@@ -4567,13 +4567,6 @@ function App() {
           sidebarColumns={sidebarColumns}
           chartTopBannerHeight={chartTopBannerHeight}
           explanationOverlay={schedule.explanationOverlay}
-          explainOverlayLiveAnchorsRef={explainOverlayLiveAnchorsRef}
-          dateToX={dateToX}
-          pxPerDay={pxPerDay}
-          barHeight={barHeight}
-          bodyHeight={bodyHeight}
-          headerHeight={headerHeight}
-          milestoneDiamondSize={milestoneDiamondSize}
         />
         <div className="chart-detail">
         {bulkDiscardNotice ? (
@@ -4707,6 +4700,7 @@ function App() {
             onBarDragActiveChange={setChartBarDragging}
             explanationOverlay={schedule.explanationOverlay}
             explainOverlayLiveAnchorsRef={explainOverlayLiveAnchorsRef}
+            uiScale={uiScale}
           />
         </div>
         {selectedDetailTask ? (

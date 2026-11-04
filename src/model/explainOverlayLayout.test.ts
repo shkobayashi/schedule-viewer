@@ -7,6 +7,7 @@ import {
   estimateBalloonDimensions,
   explanationBalloonScreenRect,
   explanationMarkVisibleInViewport,
+  explanationSidebarMarkKinds,
   planExplanationOverlayScroll,
 } from "./explainOverlayLayout";
 import { collectTaskBarLabelObstacles } from "./connections";
@@ -44,7 +45,7 @@ const taskRow = (
 });
 
 describe("buildExplanationOverlayGeometry", () => {
-  it("cuts task bar and sidebar row for task mark", () => {
+  it("cuts task bar in body stage and sidebar mark kind without y", () => {
     const rows = [taskRow("t1", 40)];
     const liveAnchors = buildTaskBarAnchorsForOverlay({
       visibleRows: rows,
@@ -71,11 +72,16 @@ describe("buildExplanationOverlayGeometry", () => {
       milestoneCenterYById: new Map(),
       milestoneDiamondSize: 11,
     });
-    expect(geo.timelineHoles.length).toBeGreaterThan(0);
-    expect(geo.sidebarHoles.length).toBe(1);
-    expect(geo.sidebarHoles[0]?.y).toBe(40);
-    expect(geo.timelineBalloons[0]?.placement).toBeDefined();
-    expect(geo.timelineBalloons[0]?.maxWidth).toBe(160);
+    expect(geo.bodyHoles.length).toBe(1);
+    expect(geo.bodyHoles[0]?.y).toBe(40 + (24 - 14) / 2);
+    expect(geo.sidebarMarkKinds.get("t1")).toBe("change");
+    expect(
+      explanationSidebarMarkKinds([
+        { taskId: "t1", kind: "change", label: "move" },
+      ]).get("t1"),
+    ).toBe("change");
+    expect(geo.bodyBalloons[0]?.placement).toBeDefined();
+    expect(geo.bodyBalloons[0]?.maxWidth).toBe(160);
   });
 
   it("buildExplanationOverlayGeometry_clipsTaskBarToDate", () => {
@@ -112,7 +118,7 @@ describe("buildExplanationOverlayGeometry", () => {
       milestoneCenterYById: new Map(),
       milestoneDiamondSize: 11,
     });
-    const hole = geo.timelineHoles[0]!;
+    const hole = geo.bodyHoles[0]!;
     expect(hole.width).toBeLessThanOrEqual(pxPerDay + 1);
   });
 
@@ -149,7 +155,7 @@ describe("buildExplanationOverlayGeometry", () => {
       tier: "day",
       memberCatalog: null,
     });
-    expect(geo.timelineBalloons[0]?.placement).toBe("above");
+    expect(geo.bodyBalloons[0]?.placement).toBe("above");
   });
 
   it("layoutExplanationBalloon_avoidsUpperBarLabel", () => {
@@ -186,8 +192,8 @@ describe("buildExplanationOverlayGeometry", () => {
       tier: "day",
       memberCatalog: null,
     });
-    const balloon = geo.timelineBalloons[0]!;
-    const hole = geo.timelineHoles[0]!;
+    const balloon = geo.bodyBalloons[0]!;
+    const hole = geo.bodyHoles[0]!;
     const anchorX = hole.x + hole.width / 2;
     const anchorY = hole.y;
     const dimensions = estimateBalloonDimensions(balloon.label, balloon.maxWidth);
@@ -217,15 +223,8 @@ describe("buildExplanationOverlayGeometry", () => {
       liveAnchors,
     );
     expect(upperLabels.length).toBeGreaterThan(0);
-    const chartTop = 30;
-    const shiftedUpperLabels = upperLabels.map((label) => ({
-      left: label.left,
-      top: label.top + chartTop,
-      right: label.right,
-      bottom: label.bottom + chartTop,
-    }));
     expect(
-      shiftedUpperLabels.some((label) =>
+      upperLabels.some((label) =>
         !(
           aboveRect.bottom <= label.top ||
           aboveRect.top >= label.bottom ||
@@ -235,7 +234,7 @@ describe("buildExplanationOverlayGeometry", () => {
       ),
     ).toBe(true);
     expect(
-      shiftedUpperLabels.some((label) =>
+      upperLabels.some((label) =>
         !(
           balloonRect.bottom <= label.top ||
           balloonRect.top >= label.bottom ||

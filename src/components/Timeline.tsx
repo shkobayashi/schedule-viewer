@@ -90,7 +90,8 @@ import type { CalendarDocument } from "../model/calendarTypes";
 import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
 import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "../model/palette";
 import { MilestoneBand } from "./MilestoneBand";
-import { ExplanationOverlay } from "./ExplanationOverlay";
+import { ExplanationKonvaVeilLayer } from "./ExplanationKonvaVeil";
+import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
 import {
   buildExplanationOverlayGeometry,
 } from "../model/explainOverlayLayout";
@@ -98,6 +99,7 @@ import {
   explanationOverlayActive,
   type ExplanationOverlayState,
 } from "../model/explainOverlay";
+import { taskBarRectInBody } from "../model/taskBarLayout";
 import {
   MilestoneHoverOverlay,
   type MilestoneHoverState,
@@ -182,6 +184,7 @@ type TimelineProps = {
   explainOverlayLiveAnchorsRef?: React.MutableRefObject<
     Map<ScheduleId, TaskBarAnchor>
   >;
+  uiScale?: number;
 };
 
 const HANDLE_WIDTH = TASK_HANDLE_WIDTH;
@@ -378,10 +381,19 @@ function TaskBar({
   tier: "day" | "week" | "month";
 }) {
   const css = paletteFor(colorScheme).css;
-  const start = parseDate(task.start);
-  const x = dragLeft ?? dateToX(start);
-  const w = dragWidth ?? taskBarWidthPx(task, dateToX, pxPerDay);
-  const barY = y + (rowHeight - barHeight) / 2;
+  const barRect = taskBarRectInBody({
+    task,
+    viewportRowTop: y,
+    rowHeight,
+    barHeight,
+    pxPerDay,
+    dateToX,
+    barLeft: dragLeft,
+    barWidth: dragWidth,
+  });
+  const x = barRect.x;
+  const w = barRect.width;
+  const barY = barRect.y;
   const colors = barColors(task, today, colorScheme, statuses);
   const assigneeDuplicateNames = useMemo(
     () => duplicateMemberNamesFromCatalog(memberCatalog),
@@ -1547,6 +1559,7 @@ export function Timeline({
   onBarDragActiveChange,
   explanationOverlay = null,
   explainOverlayLiveAnchorsRef,
+  uiScale = 1,
 }: TimelineProps) {
   const linkMode = linkSourceId != null;
   const chart = useMemo(
@@ -2152,6 +2165,7 @@ export function Timeline({
       tier,
       memberCatalog,
       assigneeDuplicateNames: duplicateMemberNamesFromCatalog(memberCatalog),
+      displayScale: uiScale,
     });
   }, [
     barHeight,
@@ -2169,9 +2183,12 @@ export function Timeline({
     rowHeight,
     scrollY,
     tier,
+    uiScale,
     visibleRows,
     width,
   ]);
+
+  const explanationActive = explanationOverlayActive(explanationOverlay);
 
   const resizeHitAt = useCallback(
     (pos: { x: number; y: number }) =>
@@ -2871,7 +2888,21 @@ export function Timeline({
           }}
         >
           <Layer>{headerContent}</Layer>
+          {explanationActive ? (
+            <ExplanationKonvaVeilLayer
+              width={width}
+              height={headerHeight}
+              holes={explanationOverlayGeometry?.headerHoles ?? []}
+              colorScheme={colorScheme}
+            />
+          ) : null}
         </Stage>
+        {explanationActive ? (
+          <TimelineExplanationBalloons
+            balloons={explanationOverlayGeometry?.headerBalloons ?? []}
+            displayScale={uiScale}
+          />
+        ) : null}
       </div>
       {milestoneBandHeight > 0 ? (
         <MilestoneBand
@@ -2896,6 +2927,12 @@ export function Timeline({
           milestoneGuideLineIds={milestoneGuideLineIds}
           diffMarkedMilestoneId={diffMarkedMilestoneId}
           diffMarkStrokeWidth={diffMarkStrokeWidth}
+          explanationVeilHoles={
+            explanationActive
+              ? (explanationOverlayGeometry?.milestoneHoles ?? [])
+              : undefined
+          }
+          explanationColorScheme={explanationActive ? colorScheme : undefined}
         />
       ) : null}
       <MilestoneHoverOverlay
@@ -3271,17 +3308,22 @@ export function Timeline({
             </Group>
             {stickyContent}
           </Layer>
+          {explanationActive ? (
+            <ExplanationKonvaVeilLayer
+              width={width}
+              height={bodyHeight}
+              holes={explanationOverlayGeometry?.bodyHoles ?? []}
+              colorScheme={colorScheme}
+            />
+          ) : null}
         </Stage>
+        {explanationActive ? (
+          <TimelineExplanationBalloons
+            balloons={explanationOverlayGeometry?.bodyBalloons ?? []}
+            displayScale={uiScale}
+          />
+        ) : null}
       </div>
-      {explanationOverlayActive(explanationOverlay) ? (
-        <ExplanationOverlay
-          width={width}
-          height={headerHeight + milestoneBandHeight + bodyHeight}
-          colorScheme={colorScheme}
-          holes={explanationOverlayGeometry?.timelineHoles}
-          balloons={explanationOverlayGeometry?.timelineBalloons}
-        />
-      ) : null}
     </div>
   );
 }

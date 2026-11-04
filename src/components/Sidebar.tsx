@@ -46,15 +46,15 @@ import {
 } from "../model/hierarchyGuide";
 import type { HierarchyGuideSpec } from "../model/hierarchyGuide";
 import { HierarchyGuideRail } from "./HierarchyGuideRail";
-import { ExplanationOverlay } from "./ExplanationOverlay";
 import {
-  buildExplanationOverlayGeometry,
-  buildTaskBarAnchorsForOverlay,
+  explanationSidebarMarkKinds,
 } from "../model/explainOverlayLayout";
 import {
   explanationOverlayActive,
+  type ExplanationMarkKind,
   type ExplanationOverlayState,
 } from "../model/explainOverlay";
+import { paletteFor } from "../model/palette";
 import { TaskNoteButton } from "./TaskNoteButton";
 import { SIDEBAR_WIDTH_KEY_STEP, SIDEBAR_WIDTH_MIN } from "../model/sidebarWidth";
 import {
@@ -176,15 +176,6 @@ type SidebarProps = {
   sidebarColumns: SidebarColumnsPreference;
   chartTopBannerHeight: number;
   explanationOverlay?: ExplanationOverlayState | null;
-  explainOverlayLiveAnchorsRef?: React.MutableRefObject<
-    Map<import("../model/types").ScheduleId, import("../model/connections").TaskBarAnchor>
-  >;
-  dateToX: (d: Date) => number;
-  pxPerDay: number;
-  barHeight: number;
-  bodyHeight: number;
-  headerHeight: number;
-  milestoneDiamondSize: number;
 };
 
 export function Sidebar({
@@ -245,20 +236,9 @@ export function Sidebar({
   sidebarColumns,
   chartTopBannerHeight,
   explanationOverlay = null,
-  explainOverlayLiveAnchorsRef,
-  dateToX,
-  pxPerDay,
-  barHeight,
-  bodyHeight,
-  headerHeight,
-  milestoneDiamondSize,
 }: SidebarProps) {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const [overlayBelowBannerSize, setOverlayBelowBannerSize] = useState({
-    width: 0,
-    height: 0,
-  });
   const hiddenIndexes = sticky.hiddenIndexes;
   const guideSpecs = useMemo(() => hierarchyGuideSpecsForRows(rows), [rows]);
   const assigneeDuplicateNames = useMemo(
@@ -335,72 +315,16 @@ export function Sidebar({
     return () => sidebar.removeEventListener("wheel", onWheel);
   }, [onWheelRows]);
 
-  useLayoutEffect(() => {
-    if (!explanationOverlayActive(explanationOverlay)) {
-      setOverlayBelowBannerSize({ width: 0, height: 0 });
-      return;
-    }
-    const sidebar = sidebarRef.current;
-    if (!sidebar) return;
-    const update = () => {
-      const height = sidebar.clientHeight - chartTopBannerHeight;
-      setOverlayBelowBannerSize({
-        width: sidebar.clientWidth,
-        height: height > 0 ? height : 0,
-      });
-    };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(sidebar);
-    return () => observer.disconnect();
-  }, [chartTopBannerHeight, explanationOverlay]);
+  const explanationActive = explanationOverlayActive(explanationOverlay);
+  const sidebarMarkKindsByTask = useMemo(() => {
+    if (!explanationActive) return new Map<ScheduleId, ExplanationMarkKind>();
+    return explanationSidebarMarkKinds(explanationOverlay!.marks);
+  }, [explanationActive, explanationOverlay]);
 
-  const explanationSidebarHoles = useMemo(() => {
-    if (!explanationOverlayActive(explanationOverlay)) return [];
-    const liveAnchors =
-      explainOverlayLiveAnchorsRef?.current ??
-      buildTaskBarAnchorsForOverlay({
-        visibleRows: rows,
-        scrollY,
-        rowHeight,
-        dateToX,
-        pxPerDay,
-      });
-    return buildExplanationOverlayGeometry({
-      marks: explanationOverlay.marks,
-      visibleRows: rows,
-      dateToX,
-      pxPerDay,
-      scrollY,
-      rowHeight,
-      barHeight,
-      bodyHeight,
-      headerHeight,
-      milestoneBandHeight,
-      timelineWidth: 0,
-      sidebarWidth,
-      liveAnchors,
-      milestones,
-      milestoneCenterYById: milestoneBandLayout.centerYById,
-      milestoneDiamondSize,
-    }).sidebarHoles;
-  }, [
-    barHeight,
-    bodyHeight,
-    dateToX,
-    explanationOverlay,
-    explainOverlayLiveAnchorsRef,
-    headerHeight,
-    milestoneBandHeight,
-    milestoneBandLayout.centerYById,
-    milestoneDiamondSize,
-    milestones,
-    pxPerDay,
-    rowHeight,
-    rows,
-    scrollY,
-    sidebarWidth,
-  ]);
+  const explanationPalette = useMemo(
+    () => (explanationActive ? paletteFor(colorScheme).css : null),
+    [colorScheme, explanationActive],
+  );
 
   const rowStyle = (y: number): CSSProperties => ({
     position: "absolute",
@@ -747,7 +671,20 @@ export function Sidebar({
   };
 
   return (
-    <div className="sidebar" ref={sidebarRef}>
+    <div
+      className="sidebar"
+      ref={sidebarRef}
+      style={
+        explanationActive && explanationPalette
+          ? ({
+              ["--explanation-mark-change-ring" as string]:
+                explanationPalette.explanationMarkChangeRing,
+              ["--explanation-mark-ask-ring" as string]:
+                explanationPalette.explanationMarkAskRing,
+            } as CSSProperties)
+          : undefined
+      }
+    >
       {chartTopBannerHeight > 0 ? (
         <div
           className="sidebar-chart-banner-spacer"
@@ -785,6 +722,17 @@ export function Sidebar({
             </div>
           ))}
         </div>
+      ) : null}
+      {explanationActive && explanationPalette ? (
+        <div
+          className="explanation-sidebar-veil"
+          style={{
+            top: chartTopBannerHeight,
+            background: explanationPalette.explanationVeil,
+          }}
+          data-explanation-overlay=""
+          aria-hidden
+        />
       ) : null}
       <div
         className="sidebar-viewport"
@@ -909,6 +857,7 @@ export function Sidebar({
                 onTaskContextMenu={(x, y) => onTaskContextMenu(row.task.id, x, y)}
                 onGripPointerDown={(event) => beginRowDrag("task", row.task.id, event)}
                 sidebarColumns={sidebarColumns}
+                explanationMarkKind={sidebarMarkKindsByTask.get(row.task.id)}
               />
             );
           })}
@@ -1010,17 +959,6 @@ export function Sidebar({
           />
         ) : null}
       </div>
-      {explanationOverlayActive(explanationOverlay) &&
-      overlayBelowBannerSize.width > 0 &&
-      overlayBelowBannerSize.height > 0 ? (
-        <ExplanationOverlay
-          width={overlayBelowBannerSize.width}
-          height={overlayBelowBannerSize.height}
-          colorScheme={colorScheme}
-          style={{ top: chartTopBannerHeight }}
-          holes={explanationSidebarHoles}
-        />
-      ) : null}
       <SidebarResizer
         uiScale={uiScale}
         sidebarWidth={sidebarWidth}
@@ -1503,6 +1441,7 @@ function TaskSidebarRow({
   onSelect,
   onGripPointerDown,
   sidebarColumns,
+  explanationMarkKind,
 }: {
   task: Task;
   guideSpec: HierarchyGuideSpec;
@@ -1557,10 +1496,14 @@ function TaskSidebarRow({
   if (rowFill != null && !selected && !hovered) {
     rowStyle.background = rowFill;
   }
+  const explanationMarkClass =
+    explanationMarkKind != null
+      ? ` sidebar-row--explanation-mark sidebar-row--explanation-mark-${explanationMarkKind}`
+      : "";
 
   return (
     <div
-      className={`sidebar-row task${selected ? " selected" : ""}${hovered ? " hovered" : ""}${rowClass}${reordering ? " reordering" : ""}`}
+      className={`sidebar-row task${selected ? " selected" : ""}${hovered ? " hovered" : ""}${rowClass}${reordering ? " reordering" : ""}${explanationMarkClass}`}
       style={rowStyle}
       title={exceededTitle}
       aria-selected={selected}
@@ -1700,6 +1643,7 @@ function SidebarDragGhost({
   rowColors: readonly ColorItem[] | null;
   colorScheme: ResolvedColorScheme;
   sidebarColumns: SidebarColumnsPreference;
+  explanationMarkKind?: ExplanationMarkKind;
 }) {
   const block = useMemo(
     () => reorderDragBlockRows(rows, ghost.kind, ghost.id),

@@ -2623,6 +2623,37 @@ button:focus-visible,
   color: var(--text-secondary);
 }
 
+.explanation-sidebar-veil {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sidebar-row--explanation-mark {
+  z-index: 2;
+}
+
+.sidebar-row--explanation-mark-change {
+  outline: 2px solid var(--explanation-mark-change-ring);
+  outline-offset: -2px;
+}
+
+.sidebar-row--explanation-mark-ask {
+  outline: 2px dashed var(--explanation-mark-ask-ring);
+  outline-offset: -2px;
+}
+
+.explanation-balloons-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 6;
+}
+
 .chart-top-banners {
   flex-shrink: 0;
   display: flex;
@@ -3570,6 +3601,7 @@ button:focus-visible,
 }
 
 .timeline-header {
+  position: relative;
   height: calc(40px * var(--s));
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);

@@ -13,7 +13,9 @@ import {
 } from "../model/milestones";
 import type { ChartPalette } from "../model/palette";
 import type { Milestone, ScheduleId } from "../model/types";
-import type { MilestoneHoverState } from "./MilestoneHoverOverlay";
+import type { ExplanationMarkHole } from "../model/explainOverlayLayout";
+import type { ResolvedColorScheme } from "../model/palette";
+import { ExplanationKonvaVeilLayer } from "./ExplanationKonvaVeil";
 
 /** Konva の dblClickWindow と同じ。 */
 const MILESTONE_GUIDE_CLICK_DELAY_MS = 400;
@@ -45,6 +47,8 @@ type MilestoneBandProps = {
   milestoneGuideLineIds: ReadonlySet<ScheduleId>;
   diffMarkedMilestoneId?: ScheduleId | null;
   diffMarkStrokeWidth?: number;
+  explanationVeilHoles?: readonly ExplanationMarkHole[];
+  explanationColorScheme?: ResolvedColorScheme;
 };
 
 export function MilestoneBand({
@@ -69,6 +73,8 @@ export function MilestoneBand({
   milestoneGuideLineIds,
   diffMarkedMilestoneId = null,
   diffMarkStrokeWidth = 3,
+  explanationVeilHoles,
+  explanationColorScheme,
 }: MilestoneBandProps) {
   return (
     <div className="milestone-band" style={{ height }} ref={containerRef}>
@@ -146,6 +152,14 @@ export function MilestoneBand({
             </Group>
           ))}
         </Layer>
+        {explanationColorScheme != null ? (
+          <ExplanationKonvaVeilLayer
+            width={width}
+            height={height}
+            holes={explanationVeilHoles ?? []}
+            colorScheme={explanationColorScheme}
+          />
+        ) : null}
       </Stage>
     </div>
   );
