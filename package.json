@@ -15,6 +15,8 @@
     "capture:manual-screenshots": "node scripts/capture-user-manual-screenshots.mjs",
     "capture:design-screenshots": "node scripts/capture-design-screenshots.mjs",
     "capture:phase3-evidence": "node scripts/capture-design-screenshots.mjs --phase3-evidence",
+    "capture:phase3-before": "node scripts/capture-design-screenshots.mjs --phase3-before-only",
+    "capture:phase3-full": "node scripts/capture-design-screenshots.mjs --phase3-full",
     "build:manual-site": "node scripts/build-user-manual-site.mjs",
     "tauri": "tauri",
     "check:schedule": "tsx scripts/check-schedule.ts",

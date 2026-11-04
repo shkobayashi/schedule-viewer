@@ -37,10 +37,16 @@
 再生成:
 
 ```bash
-# feature-436 を BASELINE_ROOT に checkout した worktree で before
-BASELINE_ROOT=/path/to/feature-436-worktree npm run capture:design-screenshots -- --phase3-before-only
-# 本ブランチで after + compare
-npm run capture:phase3-evidence
+npm run capture:phase3-full
+```
+
+（`feature-436` を `/tmp/sv-f436-baseline` に worktree チェックアウトし **ポート 5175** で旧 UI を配信。本ブランチは **5174**。撮影前に `verifyServedChrome` で before に Raycast CSS が混ざっていないことを確認する。）
+
+従来の分割:
+
+```bash
+npm run capture:phase3-before   # 5175 · origin/feature-436
+npm run capture:phase3-evidence # 5174 · 本ブランチ + compare 合成
 ```
 
 ## あとで整える余地（フェーズ 3 では未着手）
