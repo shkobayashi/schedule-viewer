@@ -160,6 +160,7 @@ $requiredSkillFiles = @(
   "json-skills\schedule-talk\SKILL.md",
   "json-skills\schedule-talk\references\point-by-appearance.md",
   "json-skills\schedule-talk\references\screen-judgment.md",
+  "json-skills\schedule-talk\references\consultation-flow.md",
   "read-screen\SKILL.md"
 )
 foreach ($relativePath in $requiredSkillFiles) {

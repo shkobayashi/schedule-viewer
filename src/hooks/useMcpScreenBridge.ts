@@ -36,6 +36,7 @@ import {
   MCP_TOOL_SET_VIEW,
   MCP_TOOL_EXPLAIN_VIEW,
   MCP_TOOL_EXPLAIN_OVERLAY,
+  MCP_TOOL_APPLY_EXPLANATION_PATTERN,
 } from "../model/mcpToolNames";
 import {
   executeMcpActionTool,
@@ -273,6 +274,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       MCP_TOOL_SET_VIEW,
       MCP_TOOL_EXPLAIN_VIEW,
       MCP_TOOL_EXPLAIN_OVERLAY,
+      MCP_TOOL_APPLY_EXPLANATION_PATTERN,
       MCP_TOOL_EDIT_PLAN,
       MCP_TOOL_FILE_ACTION,
       MCP_TOOL_CATALOG_ACTION,

@@ -2977,6 +2977,7 @@ function App() {
     clearExplanationOnSetView: schedule.clearExplanationView,
     runExplainViewAction: schedule.runExplainViewAction,
     runExplainOverlayAction: schedule.runExplainOverlayAction,
+    getExplanationOverlay: () => schedule.explanationOverlay,
     applyPartialFilterViewState: schedule.applyPartialFilterViewState,
     applySetViewPreferences: (patch: McpSetViewPatch) => {
       if (patch.displayScale !== undefined) {

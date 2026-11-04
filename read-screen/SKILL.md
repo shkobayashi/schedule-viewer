@@ -41,6 +41,7 @@ schedule-viewer のデスクトップ版ウィンドウと連携するスキル�
 | 見方（絞り込み、折りたたみ、表示、ズーム、スクロール、Fit など） | `set_view` | `--screen set_view`（stdin に JSON） |
 | 説明のための絞り込みと折りたたみ | `explain_view` | `--screen explain_view`（stdin に JSON） |
 | 説明の半透明 | `explain_overlay` | `--screen explain_overlay`（stdin に JSON） |
+| 試しの計画を計画へ入れる | `apply_explanation_pattern` | `--screen apply_explanation_pattern`（stdin に `patternId`） |
 | 計画の部分更新（日付、担当、並べ替え、先行） | `edit_plan` | `--screen edit_plan` |
 | 保存、別名保存、書き出し、開く、設定ファイルの書き出し | `file_action` | `--screen file_action` |
 | 一覧（メンバー、色、ステータス、追加項目） | `catalog_action` | `--screen catalog_action` |

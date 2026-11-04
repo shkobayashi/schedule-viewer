@@ -16,13 +16,14 @@ pub const MCP_WINDOW_TARGET_TOOL_NAMES: [&str; 3] = [
     "minimize_window",
 ];
 
-pub const MCP_FRONT_ONLY_TOOL_NAMES: [&str; 11] = [
+pub const MCP_FRONT_ONLY_TOOL_NAMES: [&str; 12] = [
     OPEN_WINDOWS_TOOL_NAME,
     SCREEN_REPLACE_TOOL_NAME,
     "open_new_window",
     "set_view",
     "explain_view",
     "explain_overlay",
+    "apply_explanation_pattern",
     "edit_plan",
     "file_action",
     "catalog_action",
@@ -30,10 +31,11 @@ pub const MCP_FRONT_ONLY_TOOL_NAMES: [&str; 11] = [
     "history",
 ];
 
-pub const MCP_STDIN_ACTION_TOOL_NAMES: [&str; 9] = [
+pub const MCP_STDIN_ACTION_TOOL_NAMES: [&str; 10] = [
     "set_view",
     "explain_view",
     "explain_overlay",
+    "apply_explanation_pattern",
     "edit_plan",
     "file_action",
     "catalog_action",
@@ -42,7 +44,7 @@ pub const MCP_STDIN_ACTION_TOOL_NAMES: [&str; 9] = [
     "open_new_window",
 ];
 
-pub const SCREEN_TOOL_NAMES: [&str; 20] = [
+pub const SCREEN_TOOL_NAMES: [&str; 21] = [
     "schedule_diff",
     "baseline_diffs",
     "selected_task",
@@ -58,6 +60,7 @@ pub const SCREEN_TOOL_NAMES: [&str; 20] = [
     "set_view",
     "explain_view",
     "explain_overlay",
+    "apply_explanation_pattern",
     "edit_plan",
     "file_action",
     "catalog_action",

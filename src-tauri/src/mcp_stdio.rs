@@ -239,6 +239,17 @@ fn tools_list_result() -> Value {
                 "inputSchema": { "type": "object" }
             },
             {
+                "name": "apply_explanation_pattern",
+                "description": "前面ウィンドウの試しの計画のうち、patternId で選んだパターンを未保存の計画へ一度に入れます。explain_overlay で出している patterns の id を標準入力の JSON で渡します。成功時は edit_plan と同じ差分テキストを返します。試しの計画と半透明は消えます。判断の手順は schedule-talk スキルにある。",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "patternId": { "type": "string" },
+                    },
+                    "required": ["patternId"],
+                }
+            },
+            {
                 "name": "edit_plan",
                 "description": "前面の計画を未保存のまま変えます。ops に日付、担当、並べ替え、先行を順に渡します。成功時は差分テキストを返します。",
                 "inputSchema": { "type": "object" }
@@ -350,9 +361,10 @@ mod tests {
         assert!(names.contains(&"set_view"));
         assert!(names.contains(&"explain_view"));
         assert!(names.contains(&"explain_overlay"));
+        assert!(names.contains(&"apply_explanation_pattern"));
         assert!(names.contains(&"edit_plan"));
         assert!(names.contains(&"focus_window"));
-        assert_eq!(names.len(), 20);
+        assert_eq!(names.len(), 21);
         let explain_view = description("explain_view");
         assert!(explain_view.contains("view.explanation"));
         assert!(explain_view.contains("次回起動の記録には残しません"));
@@ -536,7 +548,22 @@ mod tests {
                 .join("../.cursor/skills/schedule-talk/references/screen-judgment.md"),
         )
         .expect("screen-judgment.md");
-        assert!(screen_judgment.contains("色を選ぶ材料は description"));
+        assert!(
+            screen_judgment.contains("色を選ぶ材料は description"),
+            "screen-judgment.md missing color selection rule"
+        );
+        let consultation_flow = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../.cursor/skills/schedule-talk/references/consultation-flow.md"),
+        )
+        .expect("consultation-flow.md");
+        assert!(consultation_flow.contains("apply_explanation_pattern"));
+        let apply_explanation_pattern = description("apply_explanation_pattern");
+        assert!(apply_explanation_pattern.contains("patternId"));
+        assert!(apply_explanation_pattern.contains(MCP_SCHEDULE_TALK_HINT));
+        assert!(read_screen_skill.contains(
+            "前面ウィンドウの試しの計画のうち、patternId で選んだパターンを未保存の計画へ一度に入れます。"
+        ));
         assert!(
             !read_screen_skill.contains("色を選ぶ材料は description"),
             "read-screen must not contain color selection rule"

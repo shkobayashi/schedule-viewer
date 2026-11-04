@@ -8,6 +8,7 @@ import {
   MCP_TOOL_CATALOG_ACTION,
   MCP_TOOL_CLOSE_WINDOW,
   MCP_TOOL_EDIT_PLAN,
+  MCP_TOOL_APPLY_EXPLANATION_PATTERN,
   MCP_TOOL_EXPLAIN_VIEW,
   MCP_TOOL_EXPLAIN_OVERLAY,
   MCP_TOOL_FILE_ACTION,
@@ -18,7 +19,14 @@ import {
   MCP_TOOL_SET_PREFERENCES,
   MCP_TOOL_SET_VIEW,
 } from "../model/mcpToolNames";
-import type { ScheduleDocument, ScheduleLevelDef, VisibleRow } from "../model/types";
+import {
+  applyExplanationPatternToDocument,
+  APPLY_EXPLANATION_PATTERN_NO_OVERLAY,
+  APPLY_EXPLANATION_PATTERN_UNKNOWN,
+  parseApplyExplanationPatternRequest,
+} from "../model/explainOverlayPatterns";
+import { explanationOverlayActive } from "../model/explainOverlay";
+import type { ExplanationOverlayState } from "../model/explainOverlay";
 
 export type McpActionResult =
   | { ok: true; text: string }
@@ -35,6 +43,7 @@ export type McpActionExecutorContext = {
   applyExplainOverlay: (
     envelope: Record<string, unknown>,
   ) => McpActionResult | Promise<McpActionResult>;
+  getExplanationOverlay: () => ExplanationOverlayState | null;
   applyEditPlan: (
     document: ScheduleDocument,
     movedTo?: string,
@@ -82,6 +91,27 @@ export async function executeMcpActionTool(
       return ctx.applyExplainView(envelope);
     case MCP_TOOL_EXPLAIN_OVERLAY:
       return ctx.applyExplainOverlay(envelope);
+    case MCP_TOOL_APPLY_EXPLANATION_PATTERN: {
+      const parsed = parseApplyExplanationPatternRequest(envelope);
+      if (!parsed.ok) return parsed;
+      const overlay = ctx.getExplanationOverlay();
+      if (
+        !explanationOverlayActive(overlay) ||
+        overlay.patterns.length === 0
+      ) {
+        return { ok: false, message: APPLY_EXPLANATION_PATTERN_NO_OVERLAY };
+      }
+      const pattern = overlay.patterns.find((p) => p.id === parsed.patternId);
+      if (pattern == null) {
+        return { ok: false, message: APPLY_EXPLANATION_PATTERN_UNKNOWN };
+      }
+      const applied = applyExplanationPatternToDocument(
+        ctx.getDocument(),
+        pattern,
+      );
+      if (!applied.ok) return applied;
+      return ctx.applyEditPlan(applied.document);
+    }
     case MCP_TOOL_EDIT_PLAN: {
       const parsed = parseMcpEditPlanOps(envelope);
       if (!parsed.ok) return parsed;

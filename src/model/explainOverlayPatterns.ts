@@ -1,5 +1,17 @@
 import { daysBetween, isIsoDateString, parseDate } from "./dates";
-import { findTaskInDocument, isTaskNode } from "./hierarchy";
+import {
+  findTaskInDocument,
+  hierarchyLayoutContext,
+  isTaskNode,
+  scheduleStoresTasksInOutline,
+} from "./hierarchy";
+import {
+  tryMcpSetPredecessors,
+  tryMcpSetTaskDates,
+} from "./mcpEditPlan";
+import { insertTaskAfterInOutline } from "./outlineTasks";
+import { insertTaskAfter } from "./tasks";
+import type { ScheduleDocument } from "./types";
 import {
   findTaskRowInVisible,
   taskHiddenByCollapsedAncestors,
@@ -28,6 +40,15 @@ import type { ExplainOverlayValidationContext } from "./explainOverlay";
 
 export const EXPLAIN_OVERLAY_PATTERNS_REJECT =
   "試しの計画に使えない項目があります。";
+
+export const APPLY_EXPLANATION_PATTERN_NO_OVERLAY =
+  "試しの計画がありません。";
+export const APPLY_EXPLANATION_PATTERN_UNKNOWN =
+  "指定したパターンがありません。";
+export const APPLY_EXPLANATION_PATTERN_AFTER_MISSING =
+  "afterTaskId のタスクがありません。";
+export const APPLY_EXPLANATION_PATTERN_ID_COLLISION =
+  "試しのタスク id が既存のタスクと重なっています。";
 
 export const MAX_EXPLANATION_PATTERNS = 4;
 export const MAX_EXPLANATION_TRIAL_TASKS = 20;
@@ -874,6 +895,93 @@ export function buildMcpExplanationPatterns(
         : {}),
     })),
   }));
+}
+
+export function parseApplyExplanationPatternRequest(
+  envelope: Record<string, unknown>,
+): { ok: true; patternId: string } | { ok: false; message: string } {
+  const patternId = envelope.patternId;
+  if (typeof patternId !== "string" || patternId.length === 0) {
+    return { ok: false, message: "patternId が要ります。" };
+  }
+  return { ok: true, patternId };
+}
+
+function trialTaskFromPattern(trial: ExplanationTrialNewTask): Task {
+  return taskFromExplanationTrialNewTask(trial);
+}
+
+export function applyExplanationPatternToDocument(
+  document: ScheduleDocument,
+  pattern: ExplanationPattern,
+): { ok: true; document: ScheduleDocument } | { ok: false; message: string } {
+  const documentIds = collectDocumentTaskIds(
+    document.categories,
+    document.outline,
+  );
+  for (const trial of pattern.tasks) {
+    if (documentIds.has(trial.id)) {
+      return { ok: false, message: APPLY_EXPLANATION_PATTERN_ID_COLLISION };
+    }
+    if (findTaskInDocument(document.categories, document.outline, trial.afterTaskId) == null) {
+      return { ok: false, message: APPLY_EXPLANATION_PATTERN_AFTER_MISSING };
+    }
+  }
+
+  let current = document;
+  const outlineMode = scheduleStoresTasksInOutline(current);
+  const levelCount = hierarchyLayoutContext(current).levelCount;
+
+  for (let i = pattern.tasks.length - 1; i >= 0; i -= 1) {
+    const trial = pattern.tasks[i]!;
+    const task = trialTaskFromPattern(trial);
+    if (outlineMode) {
+      const outline = insertTaskAfterInOutline(
+        current.outline ?? [],
+        task,
+        trial.afterTaskId,
+        levelCount,
+      );
+      if (outline == null) {
+        return { ok: false, message: APPLY_EXPLANATION_PATTERN_AFTER_MISSING };
+      }
+      current = { ...current, outline };
+    } else {
+      const categories = insertTaskAfter(
+        current.categories,
+        task,
+        trial.afterTaskId,
+      );
+      if (categories == null) {
+        return { ok: false, message: APPLY_EXPLANATION_PATTERN_AFTER_MISSING };
+      }
+      current = { ...current, categories };
+    }
+  }
+
+  for (const change of pattern.changes) {
+    if (change.start != null) {
+      const dated = tryMcpSetTaskDates(
+        current,
+        change.taskId,
+        change.start,
+        change.end,
+      );
+      if (!dated.ok) return dated;
+      current = dated.document;
+    }
+    if (change.predecessors != null) {
+      const preds = tryMcpSetPredecessors(
+        current,
+        change.taskId,
+        change.predecessors,
+      );
+      if (!preds.ok) return preds;
+      current = preds.document;
+    }
+  }
+
+  return { ok: true, document: current };
 }
 
 export function trialTaskAnchorInBody(input: {
