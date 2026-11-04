@@ -249,19 +249,39 @@ describe("parseExplainOverlayRequest", () => {
   });
 
   it("parseExplainOverlay_rejectsInvalidMarkColor", () => {
-    expect(
-      parseExplainOverlayRequest(
-        {
-          translucent: true,
-          marks: [
-            { taskId: "t1", kind: "change", label: "x", color: "blue" },
-          ],
-        },
-        baseContext,
-      ),
-    ).toEqual({
-      ok: false,
-      message: "説明の印に使えない項目があります。",
+    for (const color of ["blue", "#rgba", "rgb(1,2,3)", "", "  #f00  "]) {
+      expect(
+        parseExplainOverlayRequest(
+          {
+            translucent: true,
+            marks: [
+              { taskId: "t1", kind: "change", label: "x", color },
+            ],
+          },
+          baseContext,
+        ),
+      ).toEqual({
+        ok: false,
+        message: "説明の印に使えない項目があります。",
+      });
+    }
+  });
+
+  it("parseExplainOverlay_omitsColorWhenNotSet", () => {
+    const result = parseExplainOverlayRequest(
+      {
+        translucent: true,
+        marks: [{ taskId: "t1", kind: "change", label: "x" }],
+      },
+      baseContext,
+    );
+    expect(result).toEqual({
+      ok: true,
+      kind: "show",
+      state: {
+        translucent: true,
+        marks: [{ taskId: "t1", kind: "change", label: "x" }],
+      },
     });
   });
 });
@@ -370,6 +390,25 @@ describe("buildMcpExplanationOverlay", () => {
       liveAnchors: new Map(),
     });
     expect(payload?.marks[0]?.color).toBe("#2563eb");
+  });
+
+  it("buildMcpExplanationOverlay_omitsColorWhenNotSet", () => {
+    const payload = buildMcpExplanationOverlay({
+      overlay: {
+        translucent: true,
+        marks: [{ taskId: "t1", kind: "change", label: "x" }],
+      },
+      visibleRows: [taskRow("t1", 0)],
+      pxPerDay: 20,
+      scrollX: 0,
+      scrollY: 0,
+      rowHeight: 24,
+      bodyHeight: 200,
+      chartWidth: 400,
+      timelineStart: parseDate("2026-01-01"),
+      liveAnchors: new Map(),
+    });
+    expect(payload?.marks[0]).not.toHaveProperty("color");
   });
 });
 

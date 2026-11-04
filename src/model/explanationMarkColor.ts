@@ -4,9 +4,8 @@ const HEX_MARK_COLOR =
 export function parseExplanationMarkColor(value: unknown): string | null {
   if (value === undefined) return null;
   if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!HEX_MARK_COLOR.test(trimmed)) return null;
-  const body = trimmed.slice(1);
+  if (!HEX_MARK_COLOR.test(value)) return null;
+  const body = value.slice(1);
   if (body.length === 3) {
     const expanded = body
       .split("")

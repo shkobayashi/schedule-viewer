@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   explanationMarkHaloStroke,
   explanationMarkRelativeLuminance,
+  explanationMarkRingDashStyle,
   parseExplanationMarkColor,
 } from "./explanationMarkColor";
 
@@ -10,7 +11,11 @@ describe("parseExplanationMarkColor", () => {
     expect(parseExplanationMarkColor("#abc")).toBe("#aabbcc");
     expect(parseExplanationMarkColor("#ABC")).toBe("#aabbcc");
     expect(parseExplanationMarkColor("#2563eb")).toBe("#2563eb");
-    expect(parseExplanationMarkColor("  #f00  ")).toBe("#ff0000");
+  });
+
+  it("parseExplanationMarkColor_rejectsLeadingOrTrailingWhitespace", () => {
+    expect(parseExplanationMarkColor("  #f00  ")).toBe(null);
+    expect(parseExplanationMarkColor(" #abc")).toBe(null);
   });
 
   it("parseExplanationMarkColor_rejectsNonHex", () => {
@@ -20,6 +25,18 @@ describe("parseExplanationMarkColor", () => {
     expect(parseExplanationMarkColor("#gggggg")).toBe(null);
     expect(parseExplanationMarkColor("")).toBe(null);
     expect(parseExplanationMarkColor(1)).toBe(null);
+  });
+});
+
+describe("explanationMarkRingDashStyle", () => {
+  it("explanationMarkRingDashStyle_askStaysDashedWithCustomColor", () => {
+    expect(explanationMarkRingDashStyle("ask")).toEqual({
+      outlineStyle: "dashed",
+      konvaDash: [4, 3],
+    });
+    expect(explanationMarkRingDashStyle("change")).toEqual({
+      outlineStyle: "solid",
+    });
   });
 });
 

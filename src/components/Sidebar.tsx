@@ -1512,7 +1512,11 @@ function TaskSidebarRow({
       const halo = explanationMarkHaloStroke(explanationMark.color);
       rowStyle.outline = `2px ${outlineStyle} ${explanationMark.color}`;
       rowStyle.outlineOffset = -2;
-      rowStyle.boxShadow = `0 0 0 1px ${halo}`;
+      const haloShadow = `0 0 0 1px ${halo}`;
+      rowStyle.boxShadow =
+        assigneeDisplay.kind === "unassigned"
+          ? `inset 3px 0 0 var(--unassigned-accent), ${haloShadow}`
+          : haloShadow;
     }
   }
 

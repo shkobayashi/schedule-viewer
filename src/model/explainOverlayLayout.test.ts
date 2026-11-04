@@ -10,6 +10,7 @@ import {
   explanationSidebarMarkKinds,
   planExplanationOverlayScroll,
 } from "./explainOverlayLayout";
+import { taskBarRectInBody } from "./taskBarLayout";
 import { collectTaskBarLabelObstacles } from "./connections";
 import type { ExplanationMark } from "./explainOverlay";
 
@@ -132,6 +133,76 @@ describe("buildExplanationOverlayGeometry", () => {
     expect(colored.bodyHoles[0]?.color).toBe("#2563eb");
     expect(colored.bodyBalloons[0]?.color).toBe("#2563eb");
     expect(plain.bodyHoles[0]?.color).toBeUndefined();
+  });
+
+  describe("colored body holes match taskBarRectInBody", () => {
+    const cases = [
+      { pxPerDay: 8, rowHeight: 26, barHeight: 14, scrollX: 40 },
+      { pxPerDay: 40, rowHeight: 26, barHeight: 14, scrollX: 100 },
+      { pxPerDay: 8, rowHeight: 32, barHeight: 16, scrollX: 40 },
+      { pxPerDay: 40, rowHeight: 32, barHeight: 16, scrollX: 100 },
+    ] as const;
+
+    for (const { pxPerDay, rowHeight, barHeight, scrollX: sx } of cases) {
+      it(`buildExplanationOverlayGeometry_coloredHoleMatchesRenderer pxPerDay=${pxPerDay} rowHeight=${rowHeight}`, () => {
+        const dateToXLocal = (d: Date) =>
+          Math.floor((d.getTime() - timelineStart.getTime()) / 86400000) *
+            pxPerDay -
+          sx;
+        const rows = [taskRow("t1", 40)];
+        const scrollY = 0;
+        const liveAnchors = buildTaskBarAnchorsForOverlay({
+          visibleRows: rows,
+          scrollY,
+          rowHeight,
+          barHeight,
+          dateToX: dateToXLocal,
+          pxPerDay,
+        });
+        const geo = buildExplanationOverlayGeometry({
+          marks: [
+            {
+              taskId: "t1",
+              kind: "ask",
+              label: "?",
+              color: "#dc2626",
+            },
+          ],
+          visibleRows: rows,
+          dateToX: dateToXLocal,
+          pxPerDay,
+          scrollY,
+          rowHeight,
+          barHeight,
+          bodyHeight: 200,
+          headerHeight: 30,
+          timelineWidth: 400,
+          liveAnchors,
+          milestones: [],
+          milestoneCenterYById: new Map(),
+          milestoneDiamondSize: 11,
+        });
+        const row = rows[0]!;
+        const expected = taskBarRectInBody({
+          task: row.task,
+          viewportRowTop: row.y - scrollY,
+          rowHeight,
+          barHeight,
+          pxPerDay,
+          dateToX: dateToXLocal,
+          anchor: liveAnchors.get("t1"),
+        });
+        const hole = geo.bodyHoles[0]!;
+        expect({
+          x: hole.x,
+          y: hole.y,
+          width: hole.width,
+          height: hole.height,
+        }).toEqual(expected);
+        expect(hole.color).toBe("#dc2626");
+        expect(hole.kind).toBe("ask");
+      });
+    }
   });
 
   it("buildExplanationOverlayGeometry_clipsTaskBarToDate", () => {
