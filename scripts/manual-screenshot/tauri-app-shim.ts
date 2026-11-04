@@ -1,3 +1,5 @@
+import packageJson from "../../package.json";
+
 export async function getVersion(): Promise<string> {
-  return "1.4.0";
+  return packageJson.version;
 }

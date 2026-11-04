@@ -17,6 +17,7 @@
 | 環境構築、起動、CI、リリース、配布用ビルド | [docs/development.md](docs/development.md) |
 | 1.x を出しながら次のメジャーを進めるブランチ | [docs/development.md](docs/development.md)（1.x を出しながら次のメジャーを進める）。実装は implement-change、`next` を切る作業とリリースは cut-release |
 | 目的、決定事項、経緯、ロードマップ | [docs/PLANNING.md](docs/PLANNING.md) |
+| UI の見た目ベンチマーク・洗い出し（#449） | [docs/design/benchmark.md](docs/design/benchmark.md)、[docs/design/inventory.md](docs/design/inventory.md) |
 | 概要と文書の入口 | [README.md](README.md) |
 | 計画に沿ってアプリを実装する | [.cursor/skills/implement-change/SKILL.md](.cursor/skills/implement-change/SKILL.md) |
 | リリース、CI、配布用ビルド | [.cursor/skills/cut-release/SKILL.md](.cursor/skills/cut-release/SKILL.md) |

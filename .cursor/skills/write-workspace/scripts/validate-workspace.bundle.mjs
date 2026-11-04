@@ -2882,6 +2882,61 @@ var LEGACY_THREE_LEVEL_DEFS = [
 ];
 var LEGACY_THREE_LEVEL_COUNT = LEGACY_THREE_LEVEL_DEFS.length;
 
+// src/design/uiTokens.ts
+var LIGHT_CHROME = {
+  radiusSm: "8px",
+  radiusMd: "12px",
+  radiusLg: "16px",
+  radiusPill: "999px",
+  radiusCard: "calc(14px * var(--s))",
+  radiusDialog: "calc(18px * var(--s))",
+  spaceXs: "calc(4px * var(--s))",
+  spaceSm: "calc(8px * var(--s))",
+  spaceMd: "calc(10px * var(--s))",
+  spaceLg: "calc(14px * var(--s))",
+  spaceMainGap: "calc(10px * var(--s))",
+  fontFamilyUi: 'ui-rounded, "SF Pro Display", system-ui, -apple-system, "Segoe UI", sans-serif',
+  fontSizeCaption: "calc(10px * var(--s))",
+  fontSizeBody: "calc(12px * var(--s))",
+  fontSizeTitle: "calc(13px * var(--s))",
+  fontWeightNormal: "400",
+  fontWeightSemibold: "600",
+  fontWeightBold: "700",
+  lineHeightTight: "1.25",
+  lineHeightBody: "1.45",
+  motionDurationFast: "120ms",
+  motionDurationNormal: "200ms",
+  motionEaseStandard: "cubic-bezier(0.4, 0, 0.2, 1)",
+  borderWidthHairline: "1px",
+  borderWidthFocus: "2px",
+  elevationToolbar: "0 8px 32px rgba(0, 0, 0, 0.25)",
+  elevationCard: "0 4px 24px rgba(0, 0, 0, 0.12)",
+  elevationModal: "0 24px 64px rgba(0, 0, 0, 0.2)",
+  elevationMenu: "",
+  toolbarBg: "#1a1a1a",
+  toolbarFg: "#f5f5f5",
+  toolbarBtnBg: "#333333",
+  toolbarBtnFg: "#f0f0f0",
+  toolbarBtnHoverBg: "#444444",
+  timelineSurfaceBg: "#ffffff",
+  timelineHeaderBorder: "#e5e7eb",
+  settingsNavBg: "#f5f5f7",
+  rowStripe: "rgba(0, 0, 0, 0.025)"
+};
+var DARK_CHROME = {
+  ...LIGHT_CHROME,
+  elevationToolbar: "0 8px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04)",
+  elevationCard: "0 8px 28px rgba(0, 0, 0, 0.45)",
+  elevationModal: "0 24px 64px rgba(0, 0, 0, 0.55)",
+  toolbarBg: "#2a2b33",
+  toolbarBtnBg: "#3a3b44",
+  toolbarBtnHoverBg: "#454652",
+  timelineSurfaceBg: "var(--surface)",
+  timelineHeaderBorder: "var(--border)",
+  settingsNavBg: "var(--panel)",
+  rowStripe: "rgba(255, 255, 255, 0.03)"
+};
+
 // src/model/statusCatalog.ts
 var STATUSES_SCHEMA_VERSION = 2;
 var BUILTIN_STATUS_ITEMS = [

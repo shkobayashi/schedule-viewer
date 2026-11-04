@@ -8,7 +8,7 @@ describe("palette contrast", () => {
     const dark = paletteFor("dark").css;
     expect(contrastRatio(light.onAccent, light.accent)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(light.dangerOn, light.danger)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(dark.onAccentDark, dark.accent)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(dark.onAccent, dark.accent)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(dark.dangerOn, dark.danger)).toBeGreaterThanOrEqual(4.5);
   });
 

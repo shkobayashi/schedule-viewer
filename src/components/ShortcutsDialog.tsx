@@ -14,7 +14,12 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
     (row) => isTauri() || row.action !== "新しいウィンドウで開く",
   );
   return (
-    <ModalDialog title="ショートカット" onClose={onClose} className="modal shortcuts-modal">
+    <ModalDialog
+      title="ショートカット"
+      onClose={onClose}
+      className="ui-dialog-panel--shortcuts shortcuts-modal"
+    >
+      <div className="ui-dialog-body shortcuts-modal-body">
       <table className="shortcuts-table">
         <tbody>
           {rows.map((row) => (
@@ -25,6 +30,7 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
           ))}
         </tbody>
       </table>
+      </div>
     </ModalDialog>
   );
 }

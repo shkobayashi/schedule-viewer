@@ -18,6 +18,7 @@ declare global {
       path: string;
       contents: string;
     }) => Promise<void>;
+    __manualScreenshotShowExplainOverlay?: () => void;
   }
 }
 

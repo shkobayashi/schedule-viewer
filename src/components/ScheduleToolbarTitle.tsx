@@ -188,84 +188,91 @@ export function ScheduleToolbarTitle({
     setSessionTitle(title);
   }, [editing, title]);
 
-  if (editing) {
-    return (
-      <div className="toolbar-title toolbar-title-editing">
-        <h1 className="toolbar-title-heading toolbar-title-heading-sr-only">
-          {sessionTitle}
-        </h1>
-        <input
-          ref={inputRef}
-          type="text"
-          className="toolbar-title-input"
-          aria-label="スケジュールのタイトル"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-            if (event.key === "Enter") {
-              event.preventDefault();
-              commitEdit(true);
-              return;
-            }
-            if (event.key === "Escape") {
-              event.preventDefault();
-              cancelEdit();
-              focusPencilAfterCloseRef.current = true;
-            }
-          }}
-          onBlur={() => {
-            if (committingRef.current || closingWithoutCommitRef.current) return;
-            commitEdit(false);
-          }}
-        />
-      </div>
-    );
-  }
+  const hierarchyButton =
+    onOpenHierarchy != null ? (
+      <button
+        ref={hierarchyButtonRef}
+        type="button"
+        className="toolbar-title-hierarchy-btn"
+        aria-label="階層の名前、意味、指示"
+        title="階層の名前、意味、指示"
+        disabled={hierarchyEditDisabled}
+        onClick={onOpenHierarchy}
+      >
+        階層編集
+      </button>
+    ) : null;
 
   return (
-    <div className="toolbar-title">
-      <h1 className="toolbar-title-heading">
-        <TitleHeadingText title={title} titleDiffMarked={titleDiffMarked} />
-      </h1>
-      <button
-        ref={pencilRef}
-        type="button"
-        className="toolbar-title-edit-btn"
-        aria-label="タイトルを変更"
-        title="タイトルを変更"
-        disabled={titleEditDisabled}
-        onClick={beginEdit}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            beginEdit();
-          }
-        }}
-      >
-        <Pencil
-          size={14}
-          strokeWidth={2}
-          aria-hidden="true"
-          style={{
-            width: "calc(14px * var(--s))",
-            height: "calc(14px * var(--s))",
-          }}
-        />
-      </button>
-      {onOpenHierarchy ? (
-        <button
-          ref={hierarchyButtonRef}
-          type="button"
-          className="toolbar-title-hierarchy-btn"
-          aria-label="階層の名前、意味、指示"
-          title="階層の名前、意味、指示"
-          disabled={hierarchyEditDisabled}
-          onClick={onOpenHierarchy}
-        >
-          階層編集
-        </button>
-      ) : null}
+    <div
+      className={`toolbar-title${editing ? " toolbar-title-editing" : ""}`}
+    >
+      <div className="toolbar-title-label-slot">
+        {editing ? (
+          <>
+            <h1 className="toolbar-title-heading toolbar-title-heading-sr-only">
+              {sessionTitle}
+            </h1>
+            <input
+              ref={inputRef}
+              type="text"
+              className="toolbar-title-input"
+              aria-label="スケジュールのタイトル"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitEdit(true);
+                  return;
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  cancelEdit();
+                  focusPencilAfterCloseRef.current = true;
+                }
+              }}
+              onBlur={() => {
+                if (committingRef.current || closingWithoutCommitRef.current) return;
+                commitEdit(false);
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <h1 className="toolbar-title-heading">
+              <TitleHeadingText title={title} titleDiffMarked={titleDiffMarked} />
+            </h1>
+            <button
+              ref={pencilRef}
+              type="button"
+              className="toolbar-title-edit-btn"
+              aria-label="タイトルを変更"
+              title="タイトルを変更"
+              disabled={titleEditDisabled}
+              onClick={beginEdit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  beginEdit();
+                }
+              }}
+            >
+              <Pencil
+                size={14}
+                strokeWidth={2}
+                aria-hidden="true"
+                style={{
+                  width: "calc(14px * var(--s))",
+                  height: "calc(14px * var(--s))",
+                }}
+              />
+            </button>
+          </>
+        )}
+      </div>
+      {hierarchyButton}
     </div>
   );
 }

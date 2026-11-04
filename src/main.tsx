@@ -3,6 +3,8 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { applyResolvedColorScheme, readResolvedColorScheme } from "./model/colorScheme";
 import "./App.css";
+import "./design/appChrome.css";
+import "./components/ui/primitives.css";
 
 applyResolvedColorScheme(readResolvedColorScheme());
 

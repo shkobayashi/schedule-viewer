@@ -1,3 +1,5 @@
+import { uiTokenCssProperties } from "../design/uiTokens";
+
 export type ResolvedColorScheme = "light" | "dark";
 
 export type StatusBarColors = {
@@ -103,27 +105,27 @@ export type AppPalette = {
 
 const LIGHT: AppPalette = {
   css: {
-    bg: "#ffffff",
-    panel: "#f8f9fb",
-    border: "#e3e6eb",
-    text: "#1f2937",
-    textSecondary: "#697586",
-    accent: "#4c5fd5",
+    bg: "#e8e8ed",
+    panel: "#ffffff",
+    border: "#3f3f46",
+    text: "#111827",
+    textSecondary: "#6b7280",
+    accent: "#ff6363",
     today: "#e2542a",
     danger: "#c4351a",
     dangerOn: "#ffffff",
     dangerText: "#c4351a",
     surface: "#ffffff",
-    accentSoft: "#dce3fb",
-    rowBorder: "#f0f1f4",
-    groupBg: "#f3f5f8",
-    groupText: "#4b5568",
+    accentSoft: "#ffe8e8",
+    rowBorder: "transparent",
+    groupBg: "#f3f4f6",
+    groupText: "#374151",
     twist: "#6b7280",
     noteEmpty: "#c5cad3",
     noteHoverBg: "#e8ebf4",
     noteEmptyHover: "#9aa3b2",
-    selectedRow: "#dce3fb",
-    hoverRow: "#eef2fc",
+    selectedRow: "#ff6363",
+    hoverRow: "#fff0f0",
     unassignedAccent: "#d4920a",
     unassignedText: "#8a5a00",
     unassignedBg: "#fff4d6",
@@ -138,7 +140,7 @@ const LIGHT: AppPalette = {
     overlay: "rgba(16, 24, 40, 0.4)",
     modalShadow: "rgba(16, 24, 40, 0.2)",
     menuShadow: "rgba(0, 0, 0, 0.12)",
-    onAccent: "#ffffff",
+    onAccent: "#12152b",
     onAccentDark: "#12152b",
     explanationVeil: "rgba(16, 24, 40, 0.18)",
     explanationMarkChangeRing: "#2436a8",
@@ -194,27 +196,27 @@ const LIGHT: AppPalette = {
 
 const DARK: AppPalette = {
   css: {
-    bg: "#1c1f26",
-    panel: "#262a33",
-    border: "#3a4050",
-    text: "#e6e8ee",
-    textSecondary: "#a8b0bf",
-    accent: "#7b8cff",
+    bg: "#0f1014",
+    panel: "#1a1b22",
+    border: "#3d4049",
+    text: "#ececf1",
+    textSecondary: "#9ca0ab",
+    accent: "#ff7b7b",
     today: "#f07050",
     danger: "#c4351a",
     dangerOn: "#ffffff",
     dangerText: "#ff9a82",
-    surface: "#23272f",
-    accentSoft: "#343b52",
-    rowBorder: "#323844",
-    groupBg: "#2a2f3a",
-    groupText: "#b8c0cf",
+    surface: "#23242c",
+    accentSoft: "#402828",
+    rowBorder: "transparent",
+    groupBg: "#1e1f27",
+    groupText: "#b8bcc6",
     twist: "#8a94a6",
     noteEmpty: "#5c6578",
     noteHoverBg: "#323844",
     noteEmptyHover: "#7a8496",
-    selectedRow: "#343b52",
-    hoverRow: "#2a3148",
+    selectedRow: "#402828",
+    hoverRow: "rgba(255, 255, 255, 0.06)",
     unassignedAccent: "#d4920a",
     unassignedText: "#e8c060",
     unassignedBg: "#3d3520",
@@ -229,8 +231,8 @@ const DARK: AppPalette = {
     overlay: "rgba(0, 0, 0, 0.55)",
     modalShadow: "rgba(0, 0, 0, 0.45)",
     menuShadow: "rgba(0, 0, 0, 0.35)",
-    onAccent: "#12152b",
-    onAccentDark: "#12152b",
+    onAccent: "#0f1014",
+    onAccentDark: "#ffffff",
     explanationVeil: "rgba(255, 255, 255, 0.14)",
     explanationMarkChangeRing: "#9cb0ff",
     explanationMarkAskRing: "#f0d060",
@@ -287,14 +289,16 @@ export function paletteFor(scheme: ResolvedColorScheme): AppPalette {
   return scheme === "dark" ? DARK : LIGHT;
 }
 
-export function applyCssPalette(palette: AppPalette): void {
+export function applyCssPalette(palette: AppPalette, scheme: ResolvedColorScheme): void {
   const root = document.documentElement;
   const c = palette.css;
-  root.style.setProperty("--radius-sm", "4px");
-  root.style.setProperty("--radius-md", "6px");
-  root.style.setProperty("--radius-lg", "8px");
-  root.style.setProperty("--elevation-menu", `0 8px 24px ${c.menuShadow}`);
-  root.style.setProperty("--elevation-modal", `0 8px 24px ${c.modalShadow}`);
+  const tokenVars = uiTokenCssProperties(scheme, c.menuShadow);
+  for (const [key, value] of Object.entries(tokenVars)) {
+    root.style.setProperty(key, value);
+  }
+  root.style.setProperty("--modal-shadow", c.modalShadow);
+  root.style.setProperty("--menu-shadow", c.menuShadow);
+  root.style.setProperty("--elevation-modal", tokenVars["--elevation-modal"]);
   root.style.setProperty("--bg", c.bg);
   root.style.setProperty("--panel", c.panel);
   root.style.setProperty("--border", c.border);

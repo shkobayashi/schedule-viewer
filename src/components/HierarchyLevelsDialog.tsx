@@ -11,6 +11,7 @@ import {
 import type { ScheduleLevelDef } from "../model/types";
 import type { DocumentSnapshot } from "../model/history";
 import { ModalDialog } from "./ModalDialog";
+import { UiButton } from "./ui/UiButton";
 
 const MEANING_HINT =
   "この段に何を置くかだけを書く。隣の段にも置けそうなときだけ、分かれ目を一文足す。";
@@ -96,14 +97,6 @@ export function HierarchyLevelsDialog({
     onClose();
   };
 
-  const handleEscape = () => {
-    if (canClose) {
-      handleCloseCommit();
-      return;
-    }
-    onClose();
-  };
-
   const atMaxLevels = draft.length >= MAX_LEVEL_COUNT;
   const showHeadingActions = draft.length > 1;
   const lastHeadingIndex = draft.length - 2;
@@ -111,10 +104,11 @@ export function HierarchyLevelsDialog({
   return (
     <ModalDialog
       title="階層"
-      className="modal wide hierarchy-levels-dialog"
+      className="ui-dialog-panel--hierarchy hierarchy-levels-dialog"
       initialFocusRef={firstNameRef}
-      onClose={handleEscape}
+      onClose={onClose}
     >
+      <div className="ui-dialog-body hierarchy-levels-dialog-body">
       <div className="hierarchy-levels-body">
         <div className="hierarchy-levels-list-pane">
           <p className="hierarchy-levels-hints">
@@ -292,14 +286,14 @@ export function HierarchyLevelsDialog({
         >
           段を追加
         </button>
-        <button
-          type="button"
-          className="toolbar-btn"
+        <UiButton
+          variant="primary"
           disabled={!canClose}
           onClick={handleCloseCommit}
         >
-          閉じる
-        </button>
+          適用
+        </UiButton>
+      </div>
       </div>
     </ModalDialog>
   );
