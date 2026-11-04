@@ -204,7 +204,7 @@ npm run tauri:dev:fresh
 - ディスク上のスケジュール JSON、設定ファイル、メンバー JSON など（開いていたパスは忘れるが、ファイル自体は削除しない）
 - `~/.cursor/skills/` などへ手で置いたスキル（アプリデータ外）
 
-**テストと撮影** `src/model/devFreshStart.ts` の `clearScheduleViewerLocalStorage` が localStorage のリセット本体である。Vitest は `src/model/devFreshStart.test.ts`、Playwright 系は `clearScheduleViewerLocalStorageEvaluateSource` を `page.evaluate` から呼ぶ（例: `tsx scripts/capture-first-run-impl-screenshots.ts`）。
+**テストと撮影** `applyFreshStartForRuntime`（Tauri では `dev_fresh_start_active`）が localStorage のリセット本体である。Vitest は `src/model/devFreshStart.test.ts`、Playwright 系は `clearScheduleViewerLocalStorageEvaluateSource` を `page.evaluate` から呼ぶ（例: `tsx scripts/capture-first-run-impl-screenshots.ts`）。
 
 FILE-08 のブラウザ版は、`npm run dev` で開き、Finder などから JSON をウィンドウへ落としても、ブラウザがそのファイルを開こうとしないことを見る。ウィンドウや Dock へのドロップは `npm run tauri dev` で手元の OS 上で見る。macOS と Linux の `fileAssociations` は `src-tauri/tauri.macos.conf.json` と `src-tauri/tauri.linux.conf.json` にあり、同じ OS で `npm run tauri build` すると Tauri がマージする。Windows は関連付けを登録しない。インストーラでの関連付けと、動いているあいだに OS がパスを渡さない件は、この Mac では見ない。
 
