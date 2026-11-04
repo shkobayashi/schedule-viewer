@@ -46,7 +46,10 @@ type ToolbarProps = {
   milestones: Milestone[];
   milestoneGroups: MilestoneGroup[];
   hiddenMilestoneGroupIds: ScheduleId[];
+  hiddenMilestoneIds: ScheduleId[];
   onMilestoneGroupVisible: (groupId: ScheduleId, visible: boolean) => void;
+  onMilestoneMarkVisible: (milestoneId: ScheduleId, visible: boolean) => void;
+  onShowAllMilestoneMarks: () => void;
   assigneeFilterOptions: AssigneeFilterOption[];
   scheduleTags: string[];
   scheduleFields?: readonly ScheduleFieldDef[];
@@ -119,7 +122,10 @@ export function Toolbar({
   milestones,
   milestoneGroups,
   hiddenMilestoneGroupIds,
+  hiddenMilestoneIds,
   onMilestoneGroupVisible,
+  onMilestoneMarkVisible,
+  onShowAllMilestoneMarks,
   assigneeFilterOptions,
   scheduleTags,
   scheduleFields,
@@ -192,6 +198,7 @@ export function Toolbar({
     filters,
     false,
     hiddenMilestoneGroupIds.length,
+    hiddenMilestoneIds.length,
     scheduleFields,
   );
 
@@ -377,7 +384,10 @@ export function Toolbar({
           milestones={milestones}
           milestoneGroups={milestoneGroups}
           hiddenMilestoneGroupIds={hiddenMilestoneGroupIds}
+          hiddenMilestoneIds={hiddenMilestoneIds}
           onMilestoneGroupVisible={onMilestoneGroupVisible}
+          onMilestoneMarkVisible={onMilestoneMarkVisible}
+          onShowAllMilestoneMarks={onShowAllMilestoneMarks}
           assigneeFilterOptions={assigneeFilterOptions}
           scheduleTags={scheduleTags}
           scheduleFields={scheduleFields}

@@ -19,6 +19,7 @@ export type TimelineRightPaddingInput = {
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
   visibleGroupIds: ReadonlySet<ScheduleId>;
+  hiddenMilestoneIds?: ReadonlySet<ScheduleId>;
   milestoneFontSize: number;
   milestoneDiamondSize: number;
   monthHeaderFontSize: number;
@@ -43,6 +44,7 @@ function neededContentRightPx(input: TimelineRightPaddingInput): number {
     input.milestoneDiamondSize,
     26,
     input.mode,
+    input.hiddenMilestoneIds ?? new Set(),
   );
 
   for (const block of band.blocks) {

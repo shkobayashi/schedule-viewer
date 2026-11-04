@@ -150,6 +150,7 @@ export function useScheduleFile({
   const [startupSettled, setStartupSettled] = useState(!isTauri());
   const startupSettledRef = useRef(startupSettled);
   startupSettledRef.current = startupSettled;
+  const [startupContentReady, setStartupContentReady] = useState(!isTauri());
   const initialDirectoryRef = useRef<string | null>(null);
   const allowCloseRef = useRef(false);
   const requestMissingFileOpenRef = useRef<() => void>(() => {});
@@ -845,7 +846,6 @@ export function useScheduleFile({
 
   const startup = useScheduleStartupRecovery({
     replaceDocument,
-    reloadDocumentFromDisk,
     onAfterOpen,
     setFilePath,
     setBrowserFileLabel,
@@ -853,6 +853,7 @@ export function useScheduleFile({
     setErrorMessageText,
     startupSettledRef,
     setStartupSettled,
+    setStartupContentReady,
     filePathRef,
     baselineJsonRef,
     isDirtyRef,
@@ -867,7 +868,6 @@ export function useScheduleFile({
     applyOpenedFile,
     restoreFiltersForPath: filterPersistence.restoreFiltersForPath,
     onWorkspaceBindingChange,
-    onRecentFilesStoreUpdated,
   });
 
   useEffect(() => {
@@ -1232,6 +1232,7 @@ export function useScheduleFile({
     isDirty,
     fileBusy,
     startupSettled,
+    startupContentReady,
     errorMessage: errorMessageText,
     errorDialogTitle,
     discardPromptOpen,
