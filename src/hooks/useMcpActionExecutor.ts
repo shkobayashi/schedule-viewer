@@ -30,6 +30,7 @@ import type { ScheduleExportFormat } from "../model/exportHtml";
 import { installJsonSkills, uninstallJsonSkills } from "../model/jsonSkills";
 import { writeAutoUpdateEnabled } from "../model/autoUpdate";
 import type { ReplaceScheduleDocumentResult } from "../model/replaceSchedule";
+import type { ExplanationOverlayState } from "../model/explainOverlay";
 import { loadScheduleDiffText } from "../model/scheduleDiffLoad";
 import { capReplaceScheduleDiffText } from "../model/replaceSchedule";
 import { finalizeWindowClose } from "./useWindowSession";
@@ -71,6 +72,7 @@ export type UseMcpActionExecutorInput = {
   runExplainOverlayAction: (
     envelope: Record<string, unknown>,
   ) => { ok: true; text: string } | { ok: false; message: string };
+  getExplanationOverlay: () => ExplanationOverlayState | null;
   applySetViewPreferences: (patch: McpSetViewPatch) => void;
   applySetViewTimeline: (patch: McpSetViewPatch) => void;
   applyCalendarAction: (
@@ -124,6 +126,7 @@ export function useMcpActionExecutor(
       applyExplainView: async (envelope) => input.runExplainViewAction(envelope),
       applyExplainOverlay: async (envelope) =>
         input.runExplainOverlayAction(envelope),
+      getExplanationOverlay: () => input.getExplanationOverlay(),
       applyEditPlan: async (document, movedTo) => {
         const replaceResult = input.replaceScheduleDocument(document);
         if (replaceResult.outcome === "rejected") {

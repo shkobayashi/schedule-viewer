@@ -359,6 +359,20 @@ mod tests {
     }
 
     #[test]
+    fn screen_tool_rejects_window_on_apply_explanation_pattern() {
+        assert_eq!(
+            screen_cli_window_rejection_message(
+                "apply_explanation_pattern",
+                Some("schedule-2")
+            ),
+            Some(
+                "apply_explanation_pattern は前面ウィンドウだけに届きます。--window は使えません。"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
     fn screen_tool_rejects_window_on_set_view() {
         assert_eq!(
             parse_screen_cli(&[
