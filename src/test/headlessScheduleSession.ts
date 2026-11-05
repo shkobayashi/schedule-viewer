@@ -4,11 +4,13 @@ import { join } from "node:path";
 import { executeMcpActionTool } from "../hooks/mcpActionExecutor";
 import type { ExplanationOverlayState } from "../model/explainOverlay";
 import {
+  explainOverlayHideSuccessText,
   explainOverlayShowSuccessText,
   parseExplainOverlayRequest,
 } from "../model/explainOverlay";
 import {
   explainViewApplySuccessText,
+  explainViewClearSuccessText,
   parseExplainViewRequest,
   type ExplanationViewState,
 } from "../model/explainView";
@@ -331,7 +333,13 @@ export class HeadlessSchedule {
       this.explainView,
     );
     if (!parsed.ok) return parsed;
-    this.explainView = parsed.kind === "clear" ? null : parsed.state;
+    if (parsed.kind === "clear") {
+      const wasActive =
+        this.explainView != null || this.explainOverlay?.translucent === true;
+      this.explainView = null;
+      return { ok: true, text: explainViewClearSuccessText(wasActive) };
+    }
+    this.explainView = parsed.state;
     return { ok: true, text: explainViewApplySuccessText() };
   }
 
@@ -349,7 +357,12 @@ export class HeadlessSchedule {
       visibleRows: this.visibleRows(),
     });
     if (!parsed.ok) return parsed;
-    this.explainOverlay = parsed.kind === "hide" ? null : parsed.state;
+    if (parsed.kind === "hide") {
+      const wasActive = this.explainOverlay?.translucent === true;
+      this.explainOverlay = null;
+      return { ok: true, text: explainOverlayHideSuccessText(wasActive) };
+    }
+    this.explainOverlay = parsed.state;
     return { ok: true, text: explainOverlayShowSuccessText() };
   }
 
