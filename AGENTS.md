@@ -8,7 +8,8 @@
 
 | 知りたいこと | 文書 |
 | --- | --- |
-| 利用者の操作 | [docs/user-manual.md](docs/user-manual.md)（読み方）。手順は [はじめに](docs/user-manual/getting-started.md)、[チュートリアル](docs/user-manual/tutorial.md)、[全機能](docs/user-manual/features.md) |
+| 利用者の操作 | [docs/user-manual.md](docs/user-manual.md)（読み方）。手順は [はじめに](docs/user-manual/getting-started.md)、[やりたいことから探す](docs/user-manual/find-by-intent.md)、[チュートリアル](docs/user-manual/tutorial.md)、[全機能](docs/user-manual/features.md) |
+| 操作の入口（内部表） | [docs/operation-entries.md](docs/operation-entries.md) |
 | 画面と機能の挙動、機能 ID | [docs/external-spec.md](docs/external-spec.md) |
 | 仕様を足すときの影響と抜け | [docs/feature-checklist.md](docs/feature-checklist.md) |
 | スケジュール、メンバー、カレンダーの JSON とアプリデータ | [docs/data-format.md](docs/data-format.md) と `docs/*.schema.json` |
@@ -30,11 +31,24 @@
 
 デスクトップ版を起動するときは、リポジトリで `npm run tauri dev` を使う。手順は [docs/development.md](docs/development.md) にある。`src-tauri/target/debug/schedule-viewer` を直接開かない。開発ビルドの画面は `http://localhost:1420/` を読むので、開発サーバーが無いと白くなる。`schedule-viewer --mcp` は画面用のプロセスとは別である。
 
+## 内部コードの境界（#436 ステップ 8）
+
+Issue #436 段 8（子 Issue #490）の方針の要約である。モジュールの場所と操作入口のコード上の対応は [docs/internal-spec.md](docs/internal-spec.md) に書く。実装の細かい手順は [.cursor/skills/implement-change/SKILL.md](.cursor/skills/implement-change/SKILL.md) に残す。
+
+- 依存は `components` / `App` → `hooks` → `model` の向きだけとする。`model` は `components` と `hooks` を import しない
+- PR 2 以降で `src/operations/` を置く。操作 ID と入口定義（ラベルは `operationLabels.ts` を参照）を集め、**実行**は hooks に残す
+- 操作の入口を増やす・変えるときは、同じ変更で [docs/operation-entries.md](docs/operation-entries.md)（手書き正本）と [docs/feature-checklist.md](docs/feature-checklist.md) の「操作の入口」を更新する。機械検査は PR 1 以降で足す
+- 挙動が変わる不具合修正・audit・性能計測はステップ 8 に混ぜない（別 Issue #491）
+- 段 8 にスコープ外はない。PR 0–7 のあと、**カタログ編集共通化 → `Timeline.tsx` 段階分割 → `model` 循環解消**の順で、各塊は特性テストを先に足し小 PR に分ける。急がない。順序と完了条件は Issue #490
+- AGENTS や skills の記述を削る・短くするときは、移動先を示し黙って削除しない（#490 の D1）。M 完了後の **D0–D2** で棚卸しと仕上げを行う
+
 ## 変更したら文書も更新する
 
 | 変えたもの | 同じ変更で更新する文書 |
 | --- | --- |
-| 画面の挙動、操作、表示 | [docs/external-spec.md](docs/external-spec.md)。利用者の手順が変わるときは、内容に合う [docs/user-manual/getting-started.md](docs/user-manual/getting-started.md)、[docs/user-manual/tutorial.md](docs/user-manual/tutorial.md)、[docs/user-manual/features.md](docs/user-manual/features.md)。読み方だけ変えるときは [docs/user-manual.md](docs/user-manual.md)。README の機能説明が変わるときは [README.md](README.md) |
+| 画面の挙動、操作、表示 | [docs/external-spec.md](docs/external-spec.md)。利用者の手順が変わるときは、内容に合う [docs/user-manual/getting-started.md](docs/user-manual/getting-started.md)、[docs/user-manual/find-by-intent.md](docs/user-manual/find-by-intent.md)、[docs/user-manual/tutorial.md](docs/user-manual/tutorial.md)、[docs/user-manual/features.md](docs/user-manual/features.md)。読み方だけ変えるときは [docs/user-manual.md](docs/user-manual.md)。README の機能説明が変わるときは [README.md](README.md) |
+| 操作の入口（ラベル・ショートカット・MCP 名の対応） | [docs/operation-entries.md](docs/operation-entries.md) と [docs/feature-checklist.md](docs/feature-checklist.md) の「操作の入口」 |
+| コードの境界・`src/operations/`・入口のソース位置 | [docs/internal-spec.md](docs/internal-spec.md) |
 | 機能 ID の増減、または機能チェックリストの行の境 | [docs/feature-checklist.md](docs/feature-checklist.md) |
 | JSON のフィールドや `schemaVersion` | [docs/data-format.md](docs/data-format.md) と対応する `docs/*.schema.json`。スケジュール JSON は [.cursor/skills/update-schedule-schema/SKILL.md](.cursor/skills/update-schedule-schema/SKILL.md) の手順で、検証、サンプル、`write-schedule` スキルも揃える。カレンダーは `write-calendar`、メンバーは `write-members`、色の一覧は `write-colors`、設定ファイルは `write-workspace` を、スキーマとアプリの検証と同じ変更で揃える |
 | モジュール構成、状態、Tauri コマンド、描画の流れ | [docs/internal-spec.md](docs/internal-spec.md) |

@@ -40,6 +40,27 @@ flowchart TD
 
 依存は上の図の向きだけである。コンポーネントは、モデルの純粋関数を直接呼ぶことがある。`model` はコンポーネントを参照しない。
 
+## コードの境界（#436 ステップ 8）
+
+Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline.tsx` 分割 → `model` 循環解消** の目標構成である。**この節が境界の詳細の正本**である。AGENTS.md は要約だけを書く。全フェーズで挙動は変えない。各塊は Issue #490 のとおり、特性テストを先に足して小 PR に分ける。
+
+| 層 | 置くもの | import してよい先 |
+| --- | --- | --- |
+| `src/operations/`（PR 2 以降） | 操作 ID、入口定義（ラベルは `operationLabels.ts`、表は [operation-entries.md](operation-entries.md)） | `model`（ラベル・ショートカット定数など）。hooks / components は import しない |
+| `src/components/`、`App.tsx` | UI、Konva、ダイアログ。操作の**実行**は hooks のコールバック | `operations`（定義）、`hooks`、`model` |
+| `src/hooks/` | 状態、副作用、MCP 橋、ファイル | `model`、`operations`（入口定義の参照のみ可）。`components` は import しない |
+| `src/model/` | 純粋関数、型、検証、座標、書き出し生成 | 同層の model のみ。`hooks` / `components` / `operations` は import しない |
+
+操作の入口を増やす・変えるときは、同じ変更で [operation-entries.md](operation-entries.md) と [feature-checklist.md](feature-checklist.md) の「操作の入口」を更新する。機械検査（MCP 名同期、入口表の一部照合、import 境界）は PR 1 以降で足す。
+
+段 8 の後半（PR 7 以降）の目安順序:
+
+1. **カタログ編集共通化** — `ColorCatalogEditor*` / `Member*` / `Status*` の Overlay・Panel、`use*CatalogEditorOverlay`、`*AppData.ts`、設定の色・メンバー・ステータス節。先に C0 特性テスト
+2. **`Timeline.tsx`**（約 3,505 行）— T0 特性テストのあと、ヘッダー・バー・ポインタ・説明レイヤーを T1–T5 で分割
+3. **`model` の循環 import**（madge で約 30 件）— `validateSchedule` クラスタは M3 で最後。M0 でベースライン記録
+
+`Toolbar.tsx` ↔ `FilterPanel.tsx` の UI 循環も段 8 で解消する（該当 PR で madge 確認）。
+
 ## モジュール一覧
 
 ### コンポーネント
@@ -66,10 +87,9 @@ flowchart TD
 | `GuideDialog.tsx` | 操作の案内（`guideContent.ts` の文） |
 | `ShortcutsDialog.tsx` | ショートカット一覧 |
 | `CommandPalette.tsx` | ⌘/Ctrl+K のコマンドパレット |
-| `Sidebar.tsx` | 左の行、階層の細い縦線（`hierarchyGuide.ts` が見えている行から本数を決める）、マイルストングループ名の行の右クリック、折りたたみ、切れた名前の全文、タスク行のクリック選択とホバー帯、左端の握りによる並べ替えと別グループへの移動、グループ行の握りによる並べ替えと別カテゴリへの移動、カテゴリ行の握りによる並べ替え、並べ替え中にポインタへ付く半透明の行または塊 |
-| `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer`。説明用の半透明は各 Stage 最上段の `ExplanationKonvaVeilLayer.tsx`（Konva のベールと destination-out の抜き）。吹き出しは `TimelineExplanationBalloons.tsx` を `.timeline-body` と `.timeline-header` に本体座標で重ねる |
+| `Sidebar.tsx` | 左の行、階層の細い縦線（`hierarchyGuide.ts` が見えている行から本数を決める）、マイルストングループ名の行の右クリック、折りたたみ、切れた名前の全文、タスク行のクリック選択とホバー帯、左端の握りによる並べ替えと別グループへの移動、グループ行の握りによる並べ替えと別カテゴリへの移動、カテゴリ行の握りによる並べ替え、並べ替え中にポインタへ付く半透明の行または塊。説明用半透明は `.explanation-sidebar-veil`（DOM）。示すタスク行は `sidebar-row--explanation-mark` で枠線と `z-index` のみ（y は計算しない）。印に `color` があるときは inline の outline と下敷き、無いときは `kind` 用 CSS |
+| `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer`。説明用の半透明は各 Stage 最上段の `ExplanationKonvaVeilLayer.tsx`（Konva のベールと destination-out の抜き）。吹き出しは `TimelineExplanationBalloons.tsx` を `.timeline-body` と `.timeline-header` に本体座標で重ねる。段階分割の計画は Issue #490 |
 | `ExplanationKonvaVeilLayer.tsx` | 説明セッションの Konva ベールと抜き。日付ヘッダー、マイルストン帯、チャート本体の Stage に載せる。MCP 読み取り PNG では `explanationKonvaCapture.ts` 経由で Layer を一時的に隠す |
-| `Sidebar.tsx` | 説明用半透明は `.explanation-sidebar-veil`（DOM）。示すタスク行は `sidebar-row--explanation-mark` で枠線と `z-index` のみ（y は計算しない）。印に `color` があるときは inline の outline と下敷き、無いときは `kind` 用 CSS |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
 | `ModalDialog.tsx` | 共通の枠。見出し右に × の閉じる（読み上げ名「閉じる」、ツールチップ Esc）。Escape、フォーカスの保持、背面の操作禁止。`#root` の `inert` は `useLayoutEffect` で付け外しし、閉じたあとの描画の前に外す |
