@@ -64,8 +64,10 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm run check:mcp-tool-names
+      # Circular imports: madge vs scripts/madge-circular-baseline.json (non-zero cycles fail the job).
       - run: npm run check:madge-circular-baseline
       - run: npm test
+      # jscpd only; continue-on-error is not set but the script always exits 0.
       - run: npm run check:architecture-warn
       - run: npm run test:coverage-warn
         continue-on-error: true

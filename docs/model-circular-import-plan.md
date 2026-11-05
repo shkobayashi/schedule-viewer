@@ -6,10 +6,9 @@
 
 | 項目 | 値 |
 | --- | --- |
-| コマンド | `npx madge --circular --extensions ts,tsx src`（`npm run check:architecture-warn` も同じ madge 呼び出し） |
-| 終了コード | 循環があると **1**（CI の architecture-warn は失敗してもジョブは続行） |
-| ベースライン照合 | `npm run check:madge-circular-baseline`（**CI frontend で必須**。`npm test` の node:test からも呼ぶ。**不一致で失敗**） |
-| 正本 JSON | [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) |
+| コマンド | `npx madge --circular --extensions ts,tsx src` |
+| CI での失敗 | `npm run check:madge-circular-baseline`（madge の結果を [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) と照合。**1 件でも循環が増えたら CI が失敗**。`cycleCount: 0` と `cycles: []` が正本） |
+| 正本 JSON | [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json)（解消履歴は `resolutionPlan`） |
 
 M0 時点の **循環数は 30** である。M1 後 **17**、M2 後 **15**、M3a 後 **4**、M3b 後 **2**、UI 解消 PR 後 **1**、**hooks 解消 PR 後** **0**（Issue #490 段 8 の循環解消完了）。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。`cycles` が空配列のときは循環 0 件である。
 
@@ -68,6 +67,6 @@ Issue #490 では M3 を最後にまとめる。**変更量に応じて PR を�
 
 ## madge と CI
 
-- `check:architecture-warn` は **警告のまま**（ratchet しない、エラー化しない）。madge 自体の終了コード 1 でも CI ジョブは止めない。
-- **ベースライン一致**は `npm run check:madge-circular-baseline` で **CI frontend ジョブが必須**（`.github/workflows/ci.yml` で `check:mcp-tool-names` の直後）。ローカルでも同コマンドで確認する。
-- 循環が **1 件でも増減**した PR（M1–M3 の解消、UI / hooks の解消、意図的な再計測を含む）は、必ず [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) の `cycles`・`cycleCount`・`resolutionPlan` を **同じ PR で意図的に**更新する。黙って drift させない。
+- **循環 import**は `npm run check:madge-circular-baseline` で **CI が失敗する**（`.github/workflows/ci.yml` の frontend で `check:mcp-tool-names` の直後）。`npm test` の node:test からも同じ照合を呼ぶ。実装は madge の JSON 出力をベースラインと比較する（ベースライン JSON を残す理由: 解消 PR で意図的に更新する正本と、`resolutionPlan` の履歴を一本化するため。件数 0 のときも、live と JSON の両方が空であることを確認する）。
+- `check:architecture-warn` は **jscpd のみ**（警告のまま）。madge はここでは走らせない（二重実行をやめる）。
+- 循環が **1 件でも増減**した PR では、必ず [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) の `cycles`・`cycleCount`・`resolutionPlan` を **同じ PR で意図的に**更新する。
