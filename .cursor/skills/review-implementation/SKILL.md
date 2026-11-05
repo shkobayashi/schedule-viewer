@@ -20,7 +20,7 @@ description: >-
 
 1. 範囲は、その会話の計画、実装した差分、計画が更新するとしている文書である。リポジトリ全体は読まない
 2. [AGENTS.md](../../../AGENTS.md) に従い、ソースより先に該当する文書を読む
-3. 文章の指摘は [.cursor/rules/japanese-prose.mdc](../../rules/japanese-prose.mdc) に合わせる
+3. 文章の指摘は [.cursor/rules/japanese-prose.mdc](../../rules/japanese-prose.mdc) の **J1–J5** と [docs/japanese-prose-examples.md](../../../docs/japanese-prose-examples.md) に合わせる（**チャット返答も対象**）
 
 ## 仕様
 
@@ -48,6 +48,17 @@ description: >-
 
 - 仕様と実際の齟齬
 - 日本語として分かりづらい記述
+
+### チャット報告の癖（J1–J5・examples に加える確認）
+
+1. 表と太字ラベルだけで報告書を組んでいないか
+2. 「対象: チャット。状態: ある。」のように、項目と値だけを並べていないか
+3. J1、P-AG-03、「正本」「束」「入口」など、説明なしの造語や番号を使っていないか
+4. Exists、Proposed、Final principles など、英語の見出しやラベルが混ざっていないか
+5. ファイル名とテスト件数を先に並べ、読み手にとって何が変わったかが後回しになっていないか
+6. 結論より先に、読んだ手順や作業の経過だけを書いていないか
+7. 利用者が前から決めている進め方を、「不要です」のように打ち消していないか
+8. ほぼ一通り決まっているのに、「進めてよいですか」と質問で止めていないか
 
 接尾辞で絞るファイルダイアログを触ったレビューでは、[docs/external-spec.md](../../../docs/external-spec.md)、操作マニュアル、[docs/internal-spec.md](../../../docs/internal-spec.md) を読み、名前そのものの `schedule.json` や `members.json` などが、接尾辞の種類と JSON の種類のどちらに出るかが揃っているかを見る。
 

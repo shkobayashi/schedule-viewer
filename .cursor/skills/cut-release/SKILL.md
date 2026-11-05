@@ -15,7 +15,7 @@ description: >-
 
 ## 着手前
 
-1. [AGENTS.md](../../../AGENTS.md) の表で [docs/development.md](../../../docs/development.md) を読み、触る箇所を絞る
+1. [docs/agents-agent-index.md](../../../docs/agents-agent-index.md) で [docs/development.md](../../../docs/development.md) を読み、触る箇所を絞る
 2. 版番号の純粋関数は [src/model/releaseVersion.ts](../../../src/model/releaseVersion.ts) が正本である。スクリプトはここを import する
 3. 挙動の正本は [.github/workflows/release.yml](../../../.github/workflows/release.yml) と上の TypeScript である
 
@@ -40,7 +40,7 @@ description: >-
 
 ## 文書
 
-[AGENTS.md](../../../AGENTS.md) の「変更したら文書も更新する」に従う。リリース手順は [docs/development.md](../../../docs/development.md)。配布の方針は [docs/PLANNING.md](../../../docs/PLANNING.md)。入手先は [README.md](../../../README.md) と [docs/user-manual.md](../../../docs/user-manual.md)。動作環境は [docs/external-spec.md](../../../docs/external-spec.md)。CI の説明は [docs/test-spec.md](../../../docs/test-spec.md)。Release 本文の組み立ては [docs/internal-spec.md](../../../docs/internal-spec.md)
+[docs/agents-doc-update-map.md](../../../docs/agents-doc-update-map.md) に従う。リリース手順は [docs/development.md](../../../docs/development.md)。配布の方針は [docs/PLANNING.md](../../../docs/PLANNING.md)。入手先は [README.md](../../../README.md) と [docs/user-manual.md](../../../docs/user-manual.md)。動作環境は [docs/external-spec.md](../../../docs/external-spec.md)。CI の説明は [docs/test-spec.md](../../../docs/test-spec.md)。Release 本文の組み立ては [docs/internal-spec.md](../../../docs/internal-spec.md)
 
 配布の経路を変えたあとは、`NSIS の上書き`、`msix-store`、`workflow_dispatch` で MSIX、安定版の GitHub NSIS など、古い経路の語が [docs/development.md](../../../docs/development.md)、[docs/external-spec.md](../../../docs/external-spec.md)、[docs/user-manual/features.md](../../../docs/user-manual/features.md)、[CHANGELOG.md](../../../CHANGELOG.md) に残っていないかを検索して直す
 
