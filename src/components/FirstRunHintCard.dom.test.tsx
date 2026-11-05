@@ -1,11 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import {
-  FIRST_RUN_CHECKLIST_LABELS,
-  FIRST_RUN_PREPARE_SCHEDULE_TITLE,
-  type FirstRunChecklistState,
-} from "../model/firstRunGuidance";
-import { FIRST_RUN_TRY_LLM_PROMPT } from "../model/llmRequestExamples";
+import type { FirstRunChecklistState } from "../model/firstRunGuidance";
 import { FirstRunHintCard } from "./FirstRunHintCard";
 
 const emptyChecklist: FirstRunChecklistState = {
@@ -53,13 +48,9 @@ describe("FirstRunHintCard", () => {
     expect(
       screen.getByRole("heading", { name: "サンプルを表示しています" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(FIRST_RUN_PREPARE_SCHEDULE_TITLE)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: FIRST_RUN_CHECKLIST_LABELS.guide }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole("button", { name: FIRST_RUN_CHECKLIST_LABELS.mcp }),
-    ).toBeEnabled();
+    expect(screen.getByText("スケジュールを用意する")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "操作の案内を読む" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "LLM（MCP）とつなぐ" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "LLM で作る" }));
     fireEvent.click(screen.getByRole("button", { name: "ある JSON を開く" }));
     expect(actions.onPrepareWithLlm).toHaveBeenCalledOnce();
@@ -75,7 +66,7 @@ describe("FirstRunHintCard", () => {
     expect(
       screen.queryByRole("heading", { name: "サンプルを表示しています" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(FIRST_RUN_PREPARE_SCHEDULE_TITLE)).toBeInTheDocument();
+    expect(screen.getByText("スケジュールを用意する")).toBeInTheDocument();
     expect(screen.getByText(/⌘S/)).toBeInTheDocument();
   });
 
@@ -88,7 +79,7 @@ describe("FirstRunHintCard", () => {
       screen.getByRole("button", { name: "操作の案内を読む（完了）" }),
     ).toBeDisabled();
     expect(screen.getByRole("button", { name: "LLM で作る" })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: FIRST_RUN_CHECKLIST_LABELS.mcp }));
+    fireEvent.click(screen.getByRole("button", { name: "LLM（MCP）とつなぐ" }));
     expect(actions.onOpenMcpSettings).toHaveBeenCalledOnce();
     expect(actions.onOpenGuide).not.toHaveBeenCalled();
   });
@@ -141,7 +132,9 @@ describe("FirstRunHintCard", () => {
       checklist: { prepareSchedule: false, guide: false, mcp: true },
     });
     expect(screen.getByText("LLM に頼んでみる")).toBeInTheDocument();
-    expect(screen.getByText(FIRST_RUN_TRY_LLM_PROMPT)).toBeInTheDocument();
+    expect(
+      screen.getByText("選んでいるタスクを 2 日後ろにずらして"),
+    ).toBeInTheDocument();
     expect(screen.getByText(/やっぱり戻して/)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "LLM（MCP）とつなぐ（完了）" }),

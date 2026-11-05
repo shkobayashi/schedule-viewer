@@ -71,7 +71,7 @@
 
 ## 原則 7 — テストと手動
 
-**サンプル:** jsdom の `offsetParent`、Konva/Tauri は手動、計画語とテスト名の対応表、誤計算でも通る入力の禁止（テスト 9）。
+**サンプル:** jsdom の `offsetParent`、Konva/Tauri は手動、計画語とテスト名の対応表、誤計算でも通る入力の禁止（テスト 9）。画面の見出しは部品の定数を期待にせず、出す文を書く。
 
 **implement-change:** テスト 1–13；review-implementation「test-spec の表（P-AG-02）」。
 

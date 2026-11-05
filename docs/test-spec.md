@@ -338,6 +338,32 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `wires member section to member copy and note` | SET-02 |
 | 同上 | `wires color section to color note with colorId` | SET-09 |
 | 同上 | `wires status section to built-in fallback label` | SET-08 |
+| `contextMenuItems.test.ts` | `lists edit, duplicate, note shortcut, and delete for one task` | EDIT-11, EDIT-06, EDIT-14 |
+| 同上 | `switches confidence and lineage labels for a tentative task on mac` | EDIT-11, VIEW-12, FILTER-08 |
+| 同上 | `lists only delete when several tasks are selected` | EDIT-11, EDIT-09 |
+| 同上 | `lists only add-milestone on an empty chart` | EDIT-11, EDIT-07 |
+| 同上 | `offers show-only when another milestone mark is visible` | EDIT-11, FILTER-13 |
+| 同上 | `hides show-only when the milestone is the only visible mark` | EDIT-11, FILTER-13 |
+| 同上 | `lists only unlink for a connection` | EDIT-11, EDIT-23 |
+| 同上 | `lists only unlink for a predecessor` | EDIT-11, EDIT-12 |
+| 同上 | `lists category adds and hides delete while the category has tasks` | EDIT-11, EDIT-18, EDIT-19 |
+| 同上 | `lists group add and hides delete while it is the only group` | EDIT-11, EDIT-18, EDIT-19 |
+| 同上 | `lists milestone-group show-only only when another band has a mark` | EDIT-11, FILTER-11 |
+| 同上 | `lists outline adds without delete, and returns nothing when the outline is not aligned` | EDIT-11, EDIT-18 |
+| `FirstRunHintCard.dom.test.tsx` | `shows the sample heading, three items, and two prepare buttons` | NAV-09 |
+| 同上 | `switches the heading when a file is open instead of the sample` | NAV-09 |
+| 同上 | `keeps the card and disables only the finished guide action` | NAV-09 |
+| 同上 | `keeps open-json enabled after prepare is checked until a file is opened` | NAV-09 |
+| 同上 | `disables open-json when a file is already open or the opener is blocked` | NAV-09 |
+| 同上 | `dismisses from the close button` | NAV-09 |
+| 同上 | `dismisses when Escape is pressed` | NAV-09 |
+| 同上 | `shows the try-llm prompt after mcp is checked` | NAV-09 |
+| `StatusBar.dom.test.tsx` | `shows the mac and windows save hint text` | NAV-09 |
+| 同上 | `omits the hint when saveHint is absent` | NAV-09 |
+| `GuideDialog.dom.test.tsx` | `shows the four headings while open` | NAV-08 |
+| 同上 | `renders nothing while closed` | NAV-08 |
+| 同上 | `dismisses from the close button and Escape` | NAV-08 |
+| 同上 | `shows the llm example only when the desktop runtime is on` | NAV-08, NAV-09 |
 | `memberCatalogEditSession.test.ts` | `closes when the open catalog is removed` | SET-02, SET-08 |
 | 同上 | `reloads when another window overwrites the open catalog` | SET-02, SET-08 |
 | 同上 | `ignores self save reload` | SET-02, SET-08 |
@@ -1112,32 +1138,6 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `mcp_socket_lives_in_app_data` | Unix のソケットはアプリデータ直下 | MCP-01 |
 | `mcp_pipe_name_includes_identifier_and_sid` | Windows のパイプ名に identifier と SID が入る | MCP-01 |
 | `pipe_roundtrips_length_prefixed_frame` | Windows の名前付きパイプで長さ付き JSON が往復する | MCP-01 |
-| `contextMenuItems.test.ts` | `lists edit, duplicate, note shortcut, and delete for one task` | EDIT-11, EDIT-06, EDIT-14 |
-| 同上 | `switches confidence and lineage labels for a tentative task on mac` | EDIT-11, VIEW-12, FILTER-08 |
-| 同上 | `lists only delete when several tasks are selected` | EDIT-11, EDIT-09 |
-| 同上 | `lists only add-milestone on an empty chart` | EDIT-11, EDIT-07 |
-| 同上 | `offers show-only when another milestone mark is visible` | EDIT-11, FILTER-13 |
-| 同上 | `hides show-only when the milestone is the only visible mark` | EDIT-11, FILTER-13 |
-| 同上 | `lists only unlink for a connection` | EDIT-11, EDIT-23 |
-| 同上 | `lists only unlink for a predecessor` | EDIT-11, EDIT-12 |
-| 同上 | `lists category adds and hides delete while the category has tasks` | EDIT-11, EDIT-18, EDIT-19 |
-| 同上 | `lists group add and hides delete while it is the only group` | EDIT-11, EDIT-18, EDIT-19 |
-| 同上 | `lists milestone-group show-only only when another band has a mark` | EDIT-11, FILTER-11 |
-| 同上 | `lists outline adds without delete, and returns nothing when the outline is not aligned` | EDIT-11, EDIT-18 |
-| `FirstRunHintCard.dom.test.tsx` | `shows the sample heading, three items, and two prepare buttons` | NAV-09 |
-| 同上 | `switches the heading when a file is open instead of the sample` | NAV-09 |
-| 同上 | `keeps the card and disables only the finished guide action` | NAV-09 |
-| 同上 | `keeps open-json enabled after prepare is checked until a file is opened` | NAV-09 |
-| 同上 | `disables open-json when a file is already open or the opener is blocked` | NAV-09 |
-| 同上 | `dismisses from the close button` | NAV-09 |
-| 同上 | `dismisses when Escape is pressed` | NAV-09 |
-| 同上 | `shows the try-llm prompt after mcp is checked` | NAV-09 |
-| `StatusBar.dom.test.tsx` | `shows the mac and windows save hint text` | NAV-09 |
-| 同上 | `omits the hint when saveHint is absent` | NAV-09 |
-| `GuideDialog.dom.test.tsx` | `shows the four headings while open` | NAV-08 |
-| 同上 | `renders nothing while closed` | NAV-08 |
-| 同上 | `dismisses from the close button and Escape` | NAV-08 |
-| 同上 | `shows the llm example only when the desktop runtime is on` | NAV-08, NAV-09 |
 | `skips_new_listener_when_pipe_is_alive` | 接続できるパイプは取り替えない | MCP-01 |
 | `open_pipe_client_with_retry_waits_for_busy_pipe` | 使用中の名前付きパイプは接続を試し直し、解放後に繋がる | MCP-01 |
 

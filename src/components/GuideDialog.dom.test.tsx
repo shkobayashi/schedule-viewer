@@ -1,8 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isTauri } from "@tauri-apps/api/core";
-import { GUIDE_SECTION_TITLES } from "../model/guideContent";
-import { FIRST_RUN_TRY_LLM_PROMPT } from "../model/llmRequestExamples";
 import { GuideDialog } from "./GuideDialog";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -18,7 +16,12 @@ describe("GuideDialog", () => {
     render(
       <GuideDialog open onClose={vi.fn()} onOpenShortcuts={vi.fn()} />,
     );
-    for (const title of GUIDE_SECTION_TITLES) {
+    for (const title of [
+      "最初にやる 3 つ",
+      "開く・保存",
+      "画面の見方",
+      "もう少し知りたいとき",
+    ]) {
       expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
     }
     expect(screen.getByRole("heading", { name: "操作の案内" })).toBeInTheDocument();
@@ -48,10 +51,14 @@ describe("GuideDialog", () => {
     const { unmount } = render(
       <GuideDialog open onClose={vi.fn()} onOpenShortcuts={vi.fn()} />,
     );
-    expect(screen.queryByText(new RegExp(FIRST_RUN_TRY_LLM_PROMPT))).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/選んでいるタスクを 2 日後ろにずらして/),
+    ).not.toBeInTheDocument();
     unmount();
     vi.mocked(isTauri).mockReturnValue(true);
     render(<GuideDialog open onClose={vi.fn()} onOpenShortcuts={vi.fn()} />);
-    expect(screen.getByText(new RegExp(FIRST_RUN_TRY_LLM_PROMPT))).toBeInTheDocument();
+    expect(
+      screen.getByText(/選んでいるタスクを 2 日後ろにずらして/),
+    ).toBeInTheDocument();
   });
 });
