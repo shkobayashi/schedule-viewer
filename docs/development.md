@@ -229,7 +229,7 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm test` | 検証器を生成してから `node --test scripts/*.test.mjs` と Vitest を1回実行する。Vitest は `src/**/*.test.ts`（Node）と `src/**/*.test.tsx`（jsdom）の2プロジェクト |
 | `npm run lint` | ESLint |
 | `npm run check:mcp-tool-names` | MCP ツール名が TypeScript と Rust で一致すること |
-| `npm run check:madge-circular-baseline` | madge 循環が [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) と一致すること（Issue #490 M0） |
+| `npm run check:madge-circular-baseline` | madge 循環が [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) と一致すること（Issue #490 M0）。**CI の frontend ジョブで必須**（`check:mcp-tool-names` の直後）。循環が 1 件でも増減した PR では [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) を意図的に同じ変更で更新する |
 | `npm run check:architecture-warn` | madge（循環）と jscpd（重複）。終了コード 0（内容は警告として読む） |
 | `npm run test:coverage-warn` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する（閾値 0。CI では警告扱い） |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
