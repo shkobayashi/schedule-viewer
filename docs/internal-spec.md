@@ -110,7 +110,8 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 
 | フック | 持つもの |
 | --- | --- |
-| `useSchedule` | 文書、取り消し、絞り込み、選択（`taskSelection` の id 配列と `anchorId` / `activeId`。履歴に入れない）、折りたたみ、系統、編集対象、複製元、一括下書き、タスクとカテゴリの並べ替えのプレビュー、説明のための見え方（`explanationView`）と半透明（`explanationOverlay`）。`visibleRows` は文書の行、`displayVisibleRows` は試しの新規タスク行だけ `buildDisplayVisibleRowsWithExplanationTrials` で挿した画面用の行。書き出し・保存・差分・並べ替えの確定は文書行だけを使う。`clearExplanationSession` で絞り込みと半透明をまとめて片付ける |
+| `useSchedule` | 文書の表示状態、絞り込み、選択（`taskSelection` の id 配列と `anchorId` / `activeId`。履歴に入れない）、折りたたみ、系統、編集対象、複製元、一括下書き、タスクとカテゴリの並べ替えのプレビュー、説明のための見え方（`explanationView`）と半透明（`explanationOverlay`）。`visibleRows` は文書の行、`displayVisibleRows` は試しの新規タスク行だけ `buildDisplayVisibleRowsWithExplanationTrials` で挿した画面用の行。書き出し・保存・差分・並べ替えの確定は文書行だけを使う。`clearExplanationSession` で絞り込みと半透明をまとめて片付ける。文書の確定（履歴付き `commitDocument`）、取り消し・やり直し、`replaceScheduleDocument`・`applyMergedDocument`・`replaceDocument`・`reloadDocumentFromDisk` は `src/hooks/schedule/useScheduleDocumentCommit.ts` |
+| `useScheduleDocumentCommit` | `documentRef`、履歴、`commitDocument` / `commitCategories` / `commitMilestones`、canonical JSON、MCP 置換、マージ反映、別ファイルへの置換、ディスク再読み込み、取り消し・やり直し。React の setter は `useSchedule` から渡す bridge で更新する |
 | `useMacOSAppMenu` | macOS のデスクトップ版だけ、画面上部のアプリメニューを組み立てる |
 | `useScheduleFile` | パス、未保存の基準、開く、履歴から開く、ドロップで開く、閉じる確認。保存、控え、外部更新、起動復旧は `src/hooks/scheduleFile/` に分け、戻り値はここがまとめる |
 | `useRecentFiles` | `recent-files.json` の読み直しと消去。ウィンドウが前面になったときも読み直す |
