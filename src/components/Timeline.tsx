@@ -26,8 +26,6 @@ import { MILESTONE_GUIDE_DASH, milestonesExceededBy } from "../model/milestones"
 import { resolveMilestoneHover } from "../model/milestoneHoverLabel";
 import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
-import { duplicateMemberNamesFromCatalog } from "../model/assigneeDisplay";
-import type { TaskBarAnchor } from "../model/connections";
 import type { Member, MemberId } from "../model/memberTypes";
 import type { StickyLayout } from "../model/stickyRows";
 import type {
@@ -54,23 +52,15 @@ import {
   TimelinePredecessorLinks,
 } from "./timeline/TimelineConnectionLinks";
 import { TimelineConnectionArcs } from "./timeline/TimelineConnectionArcs";
-import { ExplanationKonvaVeilLayer } from "./ExplanationKonvaVeil";
-import { ExplanationTrialBarsLayer } from "./ExplanationTrialBarsLayer";
-import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
+import { useTimelineExplanationLayers } from "../hooks/useTimelineExplanationLayers";
+import { buildTimelineMilestoneBandExplanationProps } from "../model/timelineExplanationBandProps";
+import type { ExplanationOverlayState } from "../model/explainOverlay";
+import { isExplanationTrialVisibleRow } from "../model/explainOverlayPatterns";
 import {
-  buildExplanationOverlayGeometry,
-  milestoneExplanationBalloonOverlayHeight,
-} from "../model/explainOverlayLayout";
-import {
-  buildExplanationTrialBarLayouts,
-  buildExplanationTrialMilestoneLayouts,
-  buildExplanationTrialPredecessorArcs,
-  isExplanationTrialVisibleRow,
-} from "../model/explainOverlayPatterns";
-import {
-  explanationOverlayActive,
-  type ExplanationOverlayState,
-} from "../model/explainOverlay";
+  TimelineBodyExplanationBalloons,
+  TimelineStageExplanationLayers,
+} from "./timeline/TimelineBodyExplanationLayers";
+import { TimelineMilestoneExplanationBalloons } from "./timeline/TimelineMilestoneExplanationBalloons";
 import {
   applyDragPreviewsToTimelineAnchors,
   buildTimelineTaskAnchors,
@@ -162,7 +152,7 @@ type TimelineProps = {
   explainOverlayCategories?: Category[];
   explainOverlayOutline?: OutlineRoot;
   explainOverlayLiveAnchorsRef?: React.MutableRefObject<
-    Map<ScheduleId, TaskBarAnchor>
+    Map<ScheduleId, import("../model/connections").TaskBarAnchor>
   >;
   uiScale?: number;
 };
@@ -616,139 +606,36 @@ export function Timeline({
     ],
   );
 
-  if (explainOverlayLiveAnchorsRef != null) {
-    explainOverlayLiveAnchorsRef.current = liveAnchors;
-  }
-
-  const explanationOverlayGeometry = useMemo(() => {
-    if (!explanationOverlayActive(explanationOverlay)) return null;
-    return buildExplanationOverlayGeometry({
-      marks: explanationOverlay.marks,
-      patterns: explanationOverlay.patterns,
-      categories: explainOverlayCategories,
-      outline: explainOverlayOutline,
-      visibleRows,
-      dateToX,
-      pxPerDay,
-      scrollY,
-      rowHeight,
-      barHeight,
-      bodyHeight,
-      headerHeight,
-      timelineWidth: width,
-      liveAnchors,
-      milestones,
-      milestoneCenterYById: milestoneBandLayout.centerYById,
-      milestoneBandLayout,
-      milestoneDiamondSize,
-      tier,
-      memberCatalog,
-      assigneeDuplicateNames: duplicateMemberNamesFromCatalog(memberCatalog),
-      displayScale: uiScale,
-    });
-  }, [
+  const {
+    explanationActive,
+    explanationOverlayGeometry,
+    explanationTrialMilestones,
+    milestoneIdsWithTrialMove,
+    explanationTrialBars,
+    explanationTrialPredecessorArcs,
+  } = useTimelineExplanationLayers({
+    explanationOverlay,
+    explainOverlayCategories,
+    explainOverlayOutline,
+    explainOverlayLiveAnchorsRef,
+    visibleRows,
+    dateToX,
+    pxPerDay,
+    scrollY,
+    rowHeight,
     barHeight,
     bodyHeight,
-    dateToX,
-    explanationOverlay,
-    explainOverlayCategories,
-    explainOverlayOutline,
     headerHeight,
-    liveAnchors,
-    milestoneBandLayout.centerYById,
-    milestoneDiamondSize,
-    milestones,
-    memberCatalog,
-    pxPerDay,
-    rowHeight,
-    scrollY,
-    tier,
-    uiScale,
-    visibleRows,
     width,
-  ]);
-
-  const explanationTrialMilestones = useMemo(() => {
-    if (!explanationOverlayActive(explanationOverlay)) return [];
-    if (explanationOverlay.patterns.length === 0) return [];
-    return buildExplanationTrialMilestoneLayouts({
-      patterns: explanationOverlay.patterns,
-      milestones,
-      milestoneCenterYById: milestoneBandLayout.centerYById,
-      diamondSize: milestoneDiamondSize,
-      dateToX,
-    });
-  }, [
-    dateToX,
-    explanationOverlay,
-    milestoneBandLayout.centerYById,
-    milestoneDiamondSize,
-    milestones,
-  ]);
-
-  const milestoneIdsWithTrialMove = useMemo(() => {
-    const ids = new Set<ScheduleId>();
-    for (const layout of explanationTrialMilestones) {
-      ids.add(layout.milestoneId);
-    }
-    return ids;
-  }, [explanationTrialMilestones]);
-
-  const explanationTrialBars = useMemo(() => {
-    if (!explanationOverlayActive(explanationOverlay)) return [];
-    if (explanationOverlay.patterns.length === 0) return [];
-    return buildExplanationTrialBarLayouts({
-      patterns: explanationOverlay.patterns,
-      visibleRows,
-      categories: explainOverlayCategories,
-      outline: explainOverlayOutline,
-      scrollY,
-      rowHeight,
-      barHeight,
-      pxPerDay,
-      dateToX,
-    });
-  }, [
-    barHeight,
-    dateToX,
-    explainOverlayCategories,
-    explainOverlayOutline,
-    explanationOverlay,
-    pxPerDay,
-    rowHeight,
-    scrollY,
-    visibleRows,
-  ]);
-
-  const explanationTrialPredecessorArcs = useMemo(() => {
-    if (!explanationOverlayActive(explanationOverlay)) return [];
-    if (explanationOverlay.patterns.length === 0) return [];
-    return buildExplanationTrialPredecessorArcs({
-      patterns: explanationOverlay.patterns,
-      visibleRows,
-      categories: explainOverlayCategories,
-      outline: explainOverlayOutline,
-      scrollY,
-      rowHeight,
-      barHeight,
-      pxPerDay,
-      dateToX,
-      liveAnchors,
-    });
-  }, [
-    barHeight,
-    dateToX,
-    explainOverlayCategories,
-    explainOverlayOutline,
-    explanationOverlay,
     liveAnchors,
-    pxPerDay,
-    rowHeight,
-    scrollY,
-    visibleRows,
-  ]);
+    milestones,
+    milestoneBandLayout,
+    milestoneDiamondSize,
+    tier,
+    memberCatalog,
+    uiScale,
+  });
 
-  const explanationActive = explanationOverlayActive(explanationOverlay);
 
   const resizeHitAt = useCallback(
     (pos: { x: number; y: number }) =>
@@ -897,39 +784,23 @@ export function Timeline({
           milestoneGuideLineIds={milestoneGuideLineIds}
           diffMarkedMilestoneId={diffMarkedMilestoneId}
           diffMarkStrokeWidth={diffMarkStrokeWidth}
-          explanationVeilHoles={
-            explanationActive
-              ? (explanationOverlayGeometry?.milestoneHoles ?? [])
-              : undefined
-          }
-          explanationColorScheme={explanationActive ? colorScheme : undefined}
-          explanationTrialMilestones={
-            explanationActive ? explanationTrialMilestones : undefined
-          }
-          milestoneIdsWithTrialMove={
-            explanationActive ? milestoneIdsWithTrialMove : undefined
-          }
+          {...buildTimelineMilestoneBandExplanationProps({
+            active: explanationActive,
+            milestoneHoles: explanationOverlayGeometry?.milestoneHoles,
+            colorScheme,
+            trialMilestones: explanationTrialMilestones,
+            milestoneIdsWithTrialMove,
+          })}
         />
       ) : null}
-      {explanationActive &&
-      milestoneBandHeight > 0 &&
-      (explanationOverlayGeometry?.milestoneBalloons?.length ?? 0) > 0 ? (
-        <div
-          className="milestone-explanation-balloons-layer"
-          style={{
-            top: headerHeight,
-            width,
-            height: milestoneExplanationBalloonOverlayHeight(
-              milestoneBandHeight,
-              uiScale,
-            ),
-          }}
-        >
-          <TimelineExplanationBalloons
-            balloons={explanationOverlayGeometry?.milestoneBalloons ?? []}
-          />
-        </div>
-      ) : null}
+      <TimelineMilestoneExplanationBalloons
+        active={explanationActive}
+        milestoneBandHeight={milestoneBandHeight}
+        headerHeight={headerHeight}
+        width={width}
+        uiScale={uiScale}
+        geometry={explanationOverlayGeometry}
+      />
       <MilestoneHoverOverlay
         hover={milestoneHover}
         bandTopPx={headerHeight}
@@ -1314,34 +1185,24 @@ export function Timeline({
             </Group>
             {stickyContent}
           </Layer>
-          {explanationActive ? (
-            <ExplanationKonvaVeilLayer
-              width={width}
-              height={bodyHeight}
-              holes={explanationOverlayGeometry?.bodyHoles ?? []}
-              colorScheme={colorScheme}
-              clipTop={sticky.clipTop}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-            />
-          ) : null}
-          {explanationActive ? (
-            <ExplanationTrialBarsLayer
-              width={width}
-              height={bodyHeight}
-              bars={explanationTrialBars}
-              predecessorArcs={explanationTrialPredecessorArcs}
-              connectionArcColor={chart.connectionArc}
-              connectionArcHaloColor={chart.connectionArcHalo}
-              clipTop={sticky.clipTop}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-            />
-          ) : null}
-        </Stage>
-        {explanationActive ? (
-          <TimelineExplanationBalloons
-            balloons={explanationOverlayGeometry?.bodyBalloons ?? []}
+          <TimelineStageExplanationLayers
+            active={explanationActive}
+            width={width}
+            bodyHeight={bodyHeight}
+            colorScheme={colorScheme}
+            clipTop={sticky.clipTop}
+            clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
+            geometry={explanationOverlayGeometry}
+            trialBars={explanationTrialBars}
+            predecessorArcs={explanationTrialPredecessorArcs}
+            connectionArcColor={chart.connectionArc}
+            connectionArcHaloColor={chart.connectionArcHalo}
           />
-        ) : null}
+        </Stage>
+        <TimelineBodyExplanationBalloons
+          active={explanationActive}
+          geometry={explanationOverlayGeometry}
+        />
       </div>
     </div>
   );
