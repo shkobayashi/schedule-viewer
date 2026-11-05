@@ -278,6 +278,10 @@
 | `screenContext.test.ts` | `puts the catalog first, once, with status bar colors` | MCP-01 |
 | 同上 | `names the status filter from the catalog` | MCP-01 |
 | 同上 | `starts the filtered tasks payload with the catalog` | MCP-01 |
+| `mcpScreenBridgeSnap.test.ts` | `maps bridge viewport fields to McpViewportForReadTools names` | MCP-01 |
+| 同上 | `picks view fields required for read tools` | MCP-01 |
+| 同上 | `uses live chart anchors when provided for overlay build` | MCP-01 |
+| 同上 | `includes collapsed viewport and overlay build in read payload fields` | MCP-01 |
 | `memberAppData.test.ts` | `drops a leading BOM and leaves other text unchanged` | SET-02 |
 | 同上 | `stores imported JSON without a BOM and reads it back` | SET-02 |
 | 同上 | `imports the sample only once when two seeds overlap` | SET-02 |
