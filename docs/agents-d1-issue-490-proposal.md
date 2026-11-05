@@ -4,7 +4,7 @@ GitHub Issue は**編集しない**。人が貼り替えるときの文案であ
 
 ## 背景
 
-#524 マージ後、**循環 import** は `npm run check:madge-circular-baseline` で CI **frontend が失敗で止まる**（`scripts/madge-circular-baseline.json` は `cycleCount: 0`）。その時点では **jscpd**（`check:architecture-warn`）と **coverage**（`test:coverage-warn`）だけが警告だった。その後、coverage は閾値を下回ると失敗する。jscpd は上限を超えても警告のままである。数値と上げ方は [development.md](development.md)。
+#524 マージ後、**循環 import** は `npm run check:madge-circular-baseline` で CI **frontend が失敗で止まる**（`scripts/madge-circular-baseline.json` は `cycleCount: 0`）。その時点では **jscpd**（`check:architecture-warn`）と **coverage**（`test:coverage-warn`）だけが警告だった。その後、coverage は閾値を下回ると失敗し、jscpd は上限を超えても警告のままである（数値と上げ方は [development.md](development.md)）。
 
 Issue 本文の PR 1 表や「madge warn」表現は **#524 以前の記述**が残っている。
 

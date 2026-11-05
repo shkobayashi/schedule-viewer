@@ -254,7 +254,9 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 
 カバレッジの閾値は、テストを足したあとに `npm run test:coverage-warn` で実測し、行・文・分岐・関数のそれぞれを、その実測より約 1 ポイント低い整数へ上げる。数値は `vitest.config.ts` と上の表の両方に、同じ変更で書く。
 
-lint の警告上限は `package.json` の `lint`、jscpd の重複率の上限は `scripts/check-architecture-warn.mjs` にあり、どちらも上の表と揃える。カバレッジの閾値を下げるとき、警告上限を上げるとき、重複率の上限を上げるときは、理由を pull request に書く。Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` は、これまでどおり失敗にする。
+lint の警告上限は `package.json` の `lint`、jscpd の重複率の上限は `scripts/check-architecture-warn.mjs` にあり、どちらも上の表と揃える。カバレッジの閾値を下げるとき、警告上限を上げるとき、重複率の上限を上げるときは、理由を pull request に書く。
+
+Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` は、これまでどおり失敗にする。
 
 ## ブランチと CI
 
