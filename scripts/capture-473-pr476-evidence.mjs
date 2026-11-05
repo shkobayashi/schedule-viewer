@@ -233,18 +233,17 @@ async function main() {
       await page.keyboard.press("Escape");
 
       await page.locator(".shortcuts-btn").click();
-      await page.waitForSelector(".shortcuts-modal");
-      await page.waitForSelector(".shortcuts-section-title");
+      await page.waitForSelector(".shortcuts-table--mode", { timeout: 10_000 });
       const shortcutsPath = path.join(
         outDir,
         `menu-473-shortcuts-dialog-${scheme}.png`,
       );
-      await page.locator(".shortcuts-modal .ui-dialog-panel").screenshot({
+      await page.locator(".ui-dialog-panel.shortcuts-modal").screenshot({
         path: shortcutsPath,
       });
       await save2xCrop(
         page,
-        ".shortcuts-modal .ui-dialog-panel",
+        ".ui-dialog-panel.shortcuts-modal",
         path.join(outDir, `menu-473-shortcuts-dialog-${scheme}-2x.png`),
       );
       written.push(shortcutsPath);
