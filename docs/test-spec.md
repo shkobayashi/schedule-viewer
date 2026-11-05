@@ -580,6 +580,22 @@
 | 同上 | `accepts another category when the name is free and a group remains` | EDIT-17 |
 | 同上 | `rejects a category that already has the same group name` | EDIT-17 |
 | 同上 | `rejects moving the last group out of its category` | EDIT-17 |
+| `guideContent.test.ts` | `uses the four section titles in order` | NAV-08 |
+| 同上 | `matches the first-run checklist order in the opening section` | NAV-08 |
+| 同上 | `includes open, save, and diff in 開く・保存` | NAV-08 |
+| 同上 | `keeps legacy detail under もう少し知りたいとき` | NAV-08 |
+| 同上 | `hides desktop-only items on web` | NAV-08 |
+| 同上 | `shows desktop-only items on desktop` | NAV-08 |
+| 同上 | `avoids unexplained jargon and defines MCP` | NAV-08 |
+| 同上 | `introduces the menu with 画面左上 only on first hamburger mention` | NAV-08 |
+| `devFreshStart.test.ts` | `clears when Tauri reports fresh start even if Vite env is off` | NAV-09 |
+| `firstRunLlmSteps.test.ts` | `uses the write-schedule skill name in the example prompt` | NAV-09 |
+| `firstRunGuidance.test.ts` | `starts with hint not dismissed and save hint not completed` | NAV-09 |
+| 同上 | `migrates legacy openFile flag to prepareSchedule` | NAV-09 |
+| 同上 | `persists checklist items and dismisses when all complete` | NAV-09 |
+| `anchorSample.test.ts` | `preserves one ahead and one behind lightning on varied open days` | NAV-09 |
+| 同上 | `keeps template progress on the reference day` | NAV-09 |
+| 同上 | `shifts milestones with tasks by the same offset` | NAV-09 |
 | `categoryOrder.test.ts` | `moves a category and keeps its groups` | EDIT-16 |
 | 同上 | `returns the same array when the index is unchanged` | EDIT-16 |
 | 同上 | `places a category at the insert index from the original spans` | EDIT-16 |
@@ -946,7 +962,7 @@
 | `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` と `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
-| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する。読み取り 7 ツールの説明末尾に「判断の手順は schedule-talk スキルにある。」がある。`replace_schedule` の説明にはその一文が無い。`point-by-appearance.md` に見た目で指す条件の連続した文があり、それらの文は MCP の説明と `read-screen` スキルに無い。「色を選ぶ材料は description」は `screen-judgment.md` にあり `read-screen` に無い（MCP の `selected_task` 等の説明には従来どおりある）。読み取り 3 ツールの説明に `view`、折りたたみでタスクを減らさない旨、自動表示サイズの effective、システム配色の effective、ステータス色を id の材料にしない旨がある。`replace_schedule` の説明に繋がりの規則（`predecessors とは別`、`繋がりの話でない更新では`、`残ったタスク同士はつなぎ直さない` など）がある。`current_schedule` の説明に `connections` と、タスク読み取りには載らない旨がある | MCP-01 |
+| `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する。読み取り 7 ツールの説明末尾に「判断の手順は schedule-talk スキルにある。」がある。`replace_schedule` の説明にはその一文が無い。`edit_plan` と `replace_schedule` の説明に、タスクが2件以上変わった成功のあと LLM が `explain_view` と `explain_overlay` の両方で示しチャットでも説明する旨がある。`consultation-flow.md` に「計画を変えたあとの説明」があり、2件以上のとき `explain_overlay`（`summary` と `marks` の `kind: change` など）を必須とする旨、パス無しの差分と削除 id を `explain_view` に渡さない旨がある。`read-screen` スキルに手順の重複が無い。`point-by-appearance.md` に見た目で指す条件の連続した文があり、それらの文は MCP の説明と `read-screen` スキルに無い。「色を選ぶ材料は description」は `screen-judgment.md` にあり `read-screen` に無い（MCP の `selected_task` 等の説明には従来どおりある）。読み取り 3 ツールの説明に `view`、折りたたみでタスクを減らさない旨、自動表示サイズの effective、システム配色の effective、ステータス色を id の材料にしない旨がある。`replace_schedule` の説明に繋がりの規則（`predecessors とは別`、`繋がりの話でない更新では`、`残ったタスク同士はつなぎ直さない` など）がある。`current_schedule` の説明に `connections` と、タスク読み取りには載らない旨がある | MCP-01 |
 | `build_mcp_open_windows_orders_live_and_sets_front`（`window_session.rs`） | 生きているラベルだけを記録順に並べ、`file`・`folder`・`front` を付け、絶対パスを含めない | MCP-01 |
 | `build_mcp_open_windows_omits_home_path_segments`（`window_session.rs`） | ホーム配下のパスでも `file`・`folder` は末尾と親だけ。JSON に `/Users` などを含めない | MCP-01 |
 | `resolve_mcp_label_with_override_absent_matches_front_resolution`（`window_session.rs`） | `window` 省略時の送り先は `resolve_mcp_screen_window_label` と同じ | MCP-01 |
@@ -1201,6 +1217,10 @@
 | TC-NAV-07 | NAV-07 | サンプルを開く | ⌘/Ctrl+K で「今日」を実行する。ほかのダイアログを開いたあいだ ⌘/Ctrl+K を押す | 今日が見える位置へ横が動く。パレットは開かない |
 | TC-NAV-07b | NAV-07 | 未保存にする | コマンドパレットで「差分をコピー」を実行する | 差分がコピーされる |
 | TC-NAV-07c | NAV-07 | macOS のデスクトップ版 | メニューバーの「ファイル」から「保存」を選ぶ | ☰ と同じ保存が走る |
+| TC-NAV-09 | NAV-09 | デスクトップ版、初回起動、チェックリスト未完了 | 起動復旧後、右下のカードを見る。1 項目目で「LLM で作る」からスキルを置くか「ある JSON を開く」を試す。別項目だけ完了させ、ファイルを開いたあともカードが残ることを見る。× で閉じ、再起動する | 1 項目目に「スケジュールを用意する」と 2 ボタンがある。スキル設置または JSON を開いたときだけ 1 項目目にチェックが付く。完了した項目は押せなくなる。未完了のあいだはファイルを開いてもカードが残る。3 項目すべて完了または × のあとは出ない |
+| TC-NAV-09b | NAV-09 | デスクトップ版、履歴が空 | ☰ を開き「最近開いたファイル」を見る | 行が無効で、その下に「ファイルを開くとここに並びます」が出る |
+| TC-NAV-09c | NAV-09 | デスクトップ版、保存ヒント未完了 | タスク名などを1回変える。保存に成功する | 未保存のあいだ状態バーに「保存は ☰ または ⌘S」または Ctrl+S のピルが出る。保存後は出ない |
+| TC-NAV-09d | NAV-09 | ブラウザ版 | 上と同様の操作 | カードと保存ヒントのピルは出ない |
 | TC-NAV-04 | NAV-04 | タスクがあるグループ | 三角を二度押す | 一度で配下の行が隠れ、親バーは残る。二度で戻る |
 | TC-NAV-05 | NAV-05 | 左の幅に収まらないタスク名 | その名前にマウスを乗せる。名前をドラッグする | 全文が出る。名前は動かない。担当と「超過」は動かない |
 | TC-NAV-06 | NAV-06 | 左の一覧とチャートの境界 | 境界を横にドラッグし、ダブルクリックする。ウィンドウを狭めてから広げる | 一覧の幅が変わり、チャートは残った幅に合う。ダブルクリックで既定の幅に戻る。切れた名前の全文は残る。ウィンドウを狭めると表示だけ縮み、広げると戻る |
@@ -1334,9 +1354,9 @@
 | TC-EDIT-20 | EDIT-20, EDIT-10, FILE-04, FILE-07, NAV-07, SYNC-01 | サンプル。ファイルを開いているときは別名保存したあともよい | 鉛筆で編集を始める。見出しのクリック、ドラッグ、ダブルクリックでは始まらない。全文選択と先頭スクロールを見る。Enter、外クリック、Tab、Shift+Tab で確定し、Escape では戻る。変換中の Enter と Escape では閉じない。前後の空白だけ除き途中の空白は残す。空白だけは元のまま閉じ、「タイトルは変更していません」と一度読む。同じ文字なら履歴も読み上げも無い。変わった確定は取り消し 1 回で戻る。入力中の取り消しは文字入力に効く。確定前は差分と未保存に入らない。入力中に外部ファイルのタイトルは入力へ書き込まれない。FILE-07 で title の行を開いているあいだ、下線は休止中の見出しだけにつく。☰、⌘/Ctrl+O、⌘/Ctrl+S、⌘/Ctrl+Shift+S、書き出し、差分を表示、差分をコピー、JSON を表示の前に確定する。macOS のデスクトップ版では、画面上部のファイルメニューから開く、保存、別名保存、書き出し、JSON を表示も同じ。⌘/Ctrl+K でパレットを開くと確定し、「タイトルを変更」で確定後の文字で開き直す。パレットで開いたあと確定しても、入力は再び開かない。ファイル操作の途中は鉛筆もコマンドも押せない。ファイル名、ウィンドウタイトル、状態バーはタイトルと連動しない。デスクトップ版では入力中に外部更新を止め、確定か Escape のあと続く | 計画どおりに動く |
 | TC-EDIT-12 | EDIT-12 | 見えているタスクを選択 | 「線を引く」または ⌘/Ctrl+L を押す。L だけも押す。帯のあいだ、左のタスク名とバーが同じ行に揃うこと、見出しの下端が揃うこと、縦スクロールと表示サイズを変えても揃うことを見る | モードに入る。ボタンに起点の名前が出る。チャート上端の帯は「次にクリックしたタスクを後続にします。Esc で中止」になる。選択が無いときと、L だけでは入らない。モードを終えると左の空きも消える |
 | TC-UI-01 | NAV-02 | サンプル | ? と F1 を押す。☰ の「ショートカット一覧」も開く | 一覧ダイアログが開き、見出し右の × または Escape で閉じる。検索欄にフォーカスがあるときは ? でも F1 でも開かない |
-| TC-UI-02 | NAV-08 | サンプル | 起動直後は案内が出ないことを見る。上段の「案内」、☰ の「操作の案内」、⌘ または Ctrl+K で「操作の案内」を開く | 見出し「スケジュールの作り方」「画面」「タグ」「気づきにくい操作」「色と線」が出る。スキルの2文はブラウザ版でも出る。本文にフォーカスしたままキーで末尾までスクロールできる。Escape で閉じる。中の「ショートカット一覧」で案内が閉じ、ショートカット一覧が開く。? と F1 は一覧を開く |
-| TC-UI-02b | NAV-08 | ブラウザ版 | 案内を開く | 「気づきにくい操作」に、外部ファイルの反映と自動更新の文が無い |
-| TC-UI-02c | NAV-08 | デスクトップ版 | 案内を開く | 外部ファイルの反映と自動更新の文が出る |
+| TC-UI-02 | NAV-08 | サンプル | 起動直後は案内が出ないことを見る。上段の「案内」、☰ の「操作の案内」、⌘ または Ctrl+K で「操作の案内」を開く | 見出し「最初にやる 3 つ」「開く・保存」「画面の見方」「もう少し知りたいとき」が出る。スキルの2文はブラウザ版でも出る。本文にフォーカスしたままキーで末尾までスクロールできる。Escape で閉じる。中の「ショートカット一覧」で案内が閉じ、ショートカット一覧が開く。? と F1 は一覧を開く |
+| TC-UI-02b | NAV-08 | ブラウザ版 | 案内を開く | 「もう少し知りたいとき」に、外部ファイルの反映と自動更新の文が無い |
+| TC-UI-02c | NAV-08 | デスクトップ版 | 案内を開く | 「もう少し知りたいとき」に、外部ファイルの反映と自動更新の文が出る |
 | TC-EDIT-12b | EDIT-12 | 線を引くモード | カーソルを動かし、タスクバー、左の一覧、それ以外へ乗せる | 起点の右端から折れ線が追随する。バーの上ではその左端まで、一覧の上ではチャートの左端まで伸びる。乗ったタスクバーだけ別の輪郭になる。起点、親バー、ひし形は強調されない。モードを終えると線は消える |
 | TC-EDIT-12c | EDIT-12 | 線を引くモード | 別のタスクバーをクリックする。続けて Esc、起点の再クリック、「線を引く」、⌘/Ctrl+L を試す。親バー、ひし形、背景もクリックする | クリックで線が 1 本加わる。取り消しの 1 ステップで戻り、モードは残る。Esc、起点、ボタン、⌘/Ctrl+L では結ばずに終わる。親バー、ひし形、背景では終わらない |
 | TC-EDIT-12d | EDIT-12 | 線を引くモード | 空きを 3px 未満で離す。同じバーを 8px 未満で離す。バーで 8px 以上動かして離す。押して 8px 未満のまま空きか別のバーで離す。親バー、スペース、中ボタンでドラッグする。バーの端の外 12px 付近も試す。同じバーをすばやく 2 回押す。スクロール中にチャートの外へ出す。ドラッグ中に Esc。ホイールの縦と横、Shift+ホイール、⌘ または Ctrl と矢印も試す | 空きを 3px 未満で離すと線もビューも変わらない。3px ほど動かすとその時点でスクロールし、閉じた手が出る。8px 未満で同じバーを離すと後続になる。スペースのまま 3px 未満で同じバーを離すと後続になる。8px 以上のドラッグはスクロールし、離した場所がバーでも線は増えない。閉じた手はスクロール中だけで、離すと矢印に戻る。その直後の短いクリックで線が 1 本増える。8px 未満のまま空きか別のバーで離すと線もスクロールも起きない。親バー、スペース、中ボタンは 3px でスクロールする。中ボタンでは線が増えない。端の外でも 3px でスクロールする。すばやい 2 回押しでは線は 1 本で、名前欄へ移らない。スクロール中に外へ出ても追随する線が残る。Esc でモードと追随する線が消え、閉じた手も消える。ビューは Esc の時点の位置のまま。移動、期間変更、ひし形の日付変更はしない。ホイールと矢印ではスクロールし、追随する線も動く。モードは残る。ダブルクリックと Enter では詳細パネルの名前欄にフォーカスが移らない |

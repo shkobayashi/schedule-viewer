@@ -1,10 +1,12 @@
 import { scheduleToJson } from "../model/serialize";
+import { todayIso } from "../model/dates";
 import type {
   Category,
   Milestone,
   MilestoneGroup,
   ScheduleDocument,
 } from "../model/types";
+import { anchorSampleSchedule } from "./anchorSample";
 import {
   SAMPLE_CATEGORY_IDS,
   SAMPLE_GROUP_IDS,
@@ -341,14 +343,39 @@ export const sampleCategories: Category[] = [
   },
 ];
 
-export function sampleScheduleDocument(): ScheduleDocument {
+export function sampleScheduleDocument(
+  openToday: string = todayIso(),
+): ScheduleDocument {
+  const { categories, milestones } = anchorSampleSchedule(
+    sampleCategories,
+    sampleMilestones,
+    openToday,
+  );
   return scheduleToJson(
     SAMPLE_PROJECT_TITLE,
-    sampleCategories,
+    categories,
     sampleMilestoneGroups,
-    sampleMilestones,
+    milestones,
     null,
     null,
     null,
   );
+}
+
+/** 画面のサンプル表示用。開いた日を基準に日付と進み具合を揃える。 */
+export function sampleScheduleParts(openToday: string = todayIso()): {
+  categories: Category[];
+  milestoneGroups: MilestoneGroup[];
+  milestones: Milestone[];
+} {
+  const { categories, milestones } = anchorSampleSchedule(
+    sampleCategories,
+    sampleMilestones,
+    openToday,
+  );
+  return {
+    categories,
+    milestoneGroups: sampleMilestoneGroups,
+    milestones,
+  };
 }

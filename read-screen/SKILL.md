@@ -14,7 +14,7 @@ description: >-
 
 # read-screen
 
-判断の手順は schedule-talk スキルにある。ウィンドウの当て方、未保存の置き換え、見た目で指す手順は、schedule-talk の reference を読む。
+判断の手順は schedule-talk スキルにある。ウィンドウの当て方、未保存の置き換え、見た目で指す手順、`edit_plan` と `replace_schedule` のあとに変えた場所を説明する手順は、schedule-talk の reference を読む。
 
 schedule-viewer のデスクトップ版ウィンドウと連携するスキルです。起動しているとき、開いているスケジュールの更新を未保存として置き換えます。JSON の形は `write-schedule` の出力形に従い、ファイルには書きません。新しいスケジュールファイルの作成、デスクトップ版が起動していないときのファイル作成、`write-members`、`write-calendar` は別です。
 

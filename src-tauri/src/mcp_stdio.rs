@@ -98,6 +98,8 @@ const MCP_STATUSES_IN_READ_TOOLS: &str = "続けて statuses は、使用中の�
 const MCP_VIEW_IN_READ_TOOLS: &str = "続けて view は、そのウィンドウの見方（折りたたみ、今映っている日付と行、表示サイズ、行の密度、イナズマ線、左一覧の追加列、配色、稼働日カレンダー）を一度だけ載せます。view.collapsed は今畳んでいる行（kind、id、name）です。view.explanation は説明のための見え方が掛かっているときだけ載り、taskIds、任意の milestoneGroupIds と milestoneIds、baseCollapsed を含みます。view.explanation.baseCollapsed は人が選んだ折りたたみです。view.visible.dates はチャートに掛っている日付の start と end です。view.visible.rows は縦に見えている行と上に残している見出しです。試しの新しいタスク行だけ kind が task の要素に `trial: true` を載せます。各タスクの visibility は visible、collapsed、scrolledOut のいずれかで、見えている、畳んで隠している、スクロールの外を表します。折りたたみではタスクを減らさない。filtered_tasks の tasks には畳んだ行のタスクも残ります。explanationOverlay は半透明が出ているときだけ載り、計画のタスクやバーの色ではない。PNG には半透明、抜き、吹き出し、`summary`、試しのバーを写さない。`translucent`、`summary`、各印（`taskId`、`date`、または `milestoneId` / `milestoneGroupId`、`kind`、`label`、任意の `number`、任意の `color`、`visible`）を含みます。任意の `patterns`（各パターンの `id`、`name`、`color`、試しの `tasks`（`trial: true`）、`changes`、任意の `milestoneChanges`）も載せます。explanationOverlay.patterns は試しの計画で、`filtered_tasks` の tasks には混ぜない。`current_schedule` には混ぜない。open_windows、schedule_diff、baseline_diffs、current_schedule には explanationOverlay を含めません。同じ応答のあとに、同じ .main の PNG を載せます。設定と閉じているメニューは写しません。1 日の幅は渡しません。displayScale の preference は auto または固定の段、effective は今のウィンドウで効いている倍率です。自動のときは効いている倍率も effective に載せます。colorScheme の preference が system のとき、effective は今効いている light か dark です。システムに合わせているときは効いている方を載せます。ズーム、1 日の幅、日・週・月、スクロール量、左一覧の幅、マイルストンの縦点線、ダイアログの開閉は view に含みません。";
 
 const MCP_SCHEDULE_TALK_HINT: &str = "判断の手順は schedule-talk スキルにある。";
+const MCP_AFTER_MULTI_TASK_CHANGE_EXPLAIN: &str =
+    "成功してタスクが2件以上変わったときは、schedule-talk スキルの「計画を変えたあとの説明」に従い、explain_view で絞り込み、explain_overlay（summary と marks の kind: change など）で変えた場所を指し、チャットでも何をなぜ変えたかを伝える。1件だけのときは説明するか LLM の判断。";
 
 fn tools_list_result() -> Value {
     let read_schema = read_tool_window_schema();
@@ -111,7 +113,9 @@ fn tools_list_result() -> Value {
     let replace_schedule_description = [
         "デスクトップ版が起動しているとき、開いているスケジュールの更新はこのツールへ渡します。新しいスケジュールファイルの作成や、アプリが起動していないときのファイル書きには使いません。levels が無い JSON は段数 3 として扱い、画面が 3 段以外のときは置き換えません。levels がある JSON は、渡した段数と入れ子が揃っているときだけ、画面の段数と違っても置き換えます。揃っていないときは置き換えません。タスクの status には、読み取りツールの応答にある statuses の id だけを書きます。選ぶ材料は description です。name は画面の名前であり、選ぶ定義にはしません。role はアプリの描き方です。role が done だから完了、とは選びません。二つの description が同じ依頼に合うときは id を選ばず尋ねます。合う項目が無いときは id を作らず、利用者に尋ねます。instruction が無い項目のために進捗や確認を足しません。instruction があるときは、選んだあとにそこに書いてあることだけを守ります。進捗の数値が書いてあればその値にし、移す前に確認すると書いてあれば、移る前の項目と移った先の項目のどちらに書いてあっても、スケジュールを書く前に利用者へ尋ね、答えがあるまで書きません。description と instruction はタスクへコピーしません。タスクの colorId には、色の一覧の id だけを書きます。一覧は、設定ファイルに colors があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが colors が無いときは色の id を書かない。設定ファイルが無いときは読み取りツールの応答にある colors を使う。それも空なら書かない。id は作らない。色を選ぶ材料は description です。name と色の値は選ぶ定義にしません。色を付ける依頼では、文に合う項目が一つならその id を書く。どれにも合わないタスクには colorId を書かず、既に付いていても外す。二つ以上に合いそうなときは id を選ばず尋ね、答えがあるまで書かない。色の話でない更新では今ある colorId を残す。足さないし、消さない。色を外すと頼まれたときだけキーを省く。一覧に無い id を書いた colorId も残します。タスクの assigneeId には、メンバー一覧の id だけを書きます。一覧は、設定ファイルに members があるときはその JSON を読み、起動中でも MCP の一覧は使わない。設定ファイルはあるが members が無いとき、担当を付ける依頼は JSON を書かず不足として返す。設定ファイルが無いときは読み取りツールの応答にある members を使う。それも空なら、担当を付ける依頼は不足として返す。id は作らない。仕事の内容から選ぶときは description だけを見る。表示名は、この選び方には使わない。一つに合う人だけを担当にする。二つ以上に合うときと、どれにも合わないときは尋ね、id は作らない。説明が無い人は、名指しされたときだけ担当に使う。名指しが id か表示名で一人に定まるときは、その id を使う。表示名が二人以上に当たるときは尋ねる。名指しされた人は、説明が別の人に合っていても付け替えない。description はタスクへコピーしない。担当は assigneeId だけである。担当の話でない更新では今ある assigneeId を残す。追加項目の fieldValues は、読み取りツールの応答にある fields の key だけを新しく足します。定義に無い key と差分に出ていない key の値は残します。instruction が空の項目は、値が無いときだけ埋め、既にある値は書き換えません。差分に無い値は作りません。todos があるタスクの progress は件数から決める。スキルが書いた progress では置き換えない。todos を消すときは todos キーを省き、残す progress を progress に書く。",
         MCP_CONNECTION_RULES,
-        " 前面ウィンドウのスケジュールだけを、検証済みの JSON 全体で未保存として置き換えます。背面のウィンドウは置き換えません。利用者が前面と違うウィンドウの更新だけを指しているときは、このツールを呼び出さずその旨を伝えます。外部更新の衝突確認が開いているときも置き換えられ、確認は閉じます。ファイルには書きません。置き換えたあと、内容を確認して問題なければ保存するよう利用者に促してください。成功時は FILE-07 と同じ差分テキストだけを返します。",
+        " 前面ウィンドウのスケジュールだけを、検証済みの JSON 全体で未保存として置き換えます。背面のウィンドウは置き換えません。利用者が前面と違うウィンドウの更新だけを指しているときは、このツールを呼び出さずその旨を伝えます。外部更新の衝突確認が開いているときも置き換えられ、確認は閉じます。ファイルには書きません。置き換えたあと、内容を確認して問題なければ保存するよう利用者に促してください。",
+        MCP_AFTER_MULTI_TASK_CHANGE_EXPLAIN,
+        "成功時は FILE-07 と同じ差分テキストだけを返します。",
     ]
     .concat();
     let read_tools_shared_suffix = [
@@ -136,6 +140,11 @@ fn tools_list_result() -> Value {
     let filtered_tasks_description = [
         "今オンになっている絞り込み条件と、その条件で残るタスク一覧を返します。破綻のみなどは画面でその条件がオンのときだけ反映されます。",
         read_tools_shared_suffix.as_str(),
+    ]
+    .concat();
+    let edit_plan_description = [
+        "前面の計画を未保存のまま変えます。ops に日付、担当、並べ替え、先行を順に渡します。成功時は差分テキストを返します。",
+        MCP_AFTER_MULTI_TASK_CHANGE_EXPLAIN,
     ]
     .concat();
     json!({
@@ -251,7 +260,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "edit_plan",
-                "description": "前面の計画を未保存のまま変えます。ops に日付、担当、並べ替え、先行を順に渡します。成功時は差分テキストを返します。",
+                "description": edit_plan_description,
                 "inputSchema": { "type": "object" }
             },
             {
@@ -334,7 +343,8 @@ pub fn is_mcp_stdio_mode(args: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_mcp_stdio_mode, tools_list_result, MCP_SCHEDULE_TALK_HINT, MCP_VIEW_IN_READ_TOOLS,
+        is_mcp_stdio_mode, tools_list_result, MCP_AFTER_MULTI_TASK_CHANGE_EXPLAIN,
+        MCP_SCHEDULE_TALK_HINT, MCP_VIEW_IN_READ_TOOLS,
     };
 
     #[test]
@@ -498,6 +508,9 @@ mod tests {
         assert!(replace_schedule.contains("繋がりの話でない更新では"));
         assert!(replace_schedule.contains("taskIds の順も変えない"));
         assert!(replace_schedule.contains("残ったタスク同士はつなぎ直さない"));
+        assert!(replace_schedule.contains(MCP_AFTER_MULTI_TASK_CHANGE_EXPLAIN));
+        let edit_plan = description("edit_plan");
+        assert!(edit_plan.contains(MCP_AFTER_MULTI_TASK_CHANGE_EXPLAIN));
         let current_schedule = description("current_schedule");
         assert!(current_schedule.contains("connections"));
         assert!(current_schedule.contains("selected_task"));
@@ -562,6 +575,22 @@ mod tests {
         )
         .expect("consultation-flow.md");
         assert!(consultation_flow.contains("apply_explanation_pattern"));
+        assert!(consultation_flow.contains("計画を変えたあとの説明"));
+        assert!(consultation_flow.contains("explain_view"));
+        assert!(consultation_flow.contains("explain_overlay"));
+        assert!(consultation_flow.contains("kind: change"));
+        assert!(consultation_flow.contains("絞り込みだけでは足りません"));
+        assert!(replace_schedule.contains("explain_overlay"));
+        assert!(edit_plan.contains("explain_overlay"));
+        assert!(MCP_AFTER_MULTI_TASK_CHANGE_EXPLAIN.contains("explain_overlay"));
+        assert!(MCP_AFTER_MULTI_TASK_CHANGE_EXPLAIN.contains("explain_view"));
+        assert!(consultation_flow.contains("やっぱり戻して"));
+        assert!(consultation_flow.contains("比べるファイルがありません"));
+        assert!(consultation_flow.contains("削除した id は渡しません"));
+        assert!(
+            !read_screen_skill.contains("タスクが2件以上変わったときは"),
+            "read-screen must not duplicate post-change explanation procedure"
+        );
         let apply_explanation_pattern = description("apply_explanation_pattern");
         assert!(apply_explanation_pattern.contains("patternId"));
         assert!(apply_explanation_pattern.contains(MCP_SCHEDULE_TALK_HINT));

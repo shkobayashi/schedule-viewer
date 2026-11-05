@@ -1,13 +1,20 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  HAMBURGER_MENU_TAIL_ROWS,
+  SHARED_FILE_MENU_ROWS,
+  sharedMenuShortcutHint,
+  type SharedFileMenuActionId,
+} from "../model/appMenuStructure";
+import { OPERATION_FORMAL } from "../model/operationLabels";
 import type { RecentFilesStore } from "../model/recentFiles";
 import {
   hasRecentMenuItems,
   recentMenuItemAriaLabel,
   recentMenuSections,
 } from "../model/recentFilesMenu";
-import { fileShortcutHint, usesCommandKey } from "../model/shortcuts";
+import { diffCopyShortcutHint, fileShortcutHint, usesCommandKey } from "../model/shortcuts";
 import { anchorBelowRect, menuShiftForRect } from "./anchoredMenu";
 import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 
@@ -28,10 +35,13 @@ type AppMenuProps = {
   onExportWorkspace?: () => void;
   onShowJson: () => void;
   onShowDiff: () => void;
+  onCopyDiff: () => void;
   onOpenSettings: () => void;
   onOpenGuide: () => void;
   onOpenShortcuts: () => void;
   onCheckForUpdates?: () => void;
+  /** 履歴が空のとき、無効な「最近開いたファイル」行の補足 */
+  recentFilesEmptyHint?: string | null;
 };
 
 export function AppMenu({
@@ -49,10 +59,12 @@ export function AppMenu({
   onExportWorkspace,
   onShowJson,
   onShowDiff,
+  onCopyDiff,
   onOpenSettings,
   onOpenGuide,
   onOpenShortcuts,
   onCheckForUpdates,
+  recentFilesEmptyHint = null,
 }: AppMenuProps) {
   const [open, setOpen] = useState(false);
   const [recentSubmenuOpen, setRecentSubmenuOpen] = useState(false);
@@ -283,6 +295,47 @@ export function AppMenu({
   const showRecentDisabled =
     showRecentDesktopRow && recentSections.length === 0;
 
+  const fileActionHandlers: Record<SharedFileMenuActionId, () => void> = {
+    open: onOpen,
+    openNewWindow: onOpenInNewWindow ?? (() => {}),
+    save: onSave,
+    saveAs: onSaveAs,
+    exportHtml: onExportHtml,
+    exportWorkspace: onExportWorkspace ?? (() => {}),
+    showJson: onShowJson,
+    showDiff: onShowDiff,
+    copyDiff: onCopyDiff,
+  };
+
+  const renderFileAction = (id: SharedFileMenuActionId, label: string, opts: {
+    locksWithFileIdle: boolean;
+    fileShortcut?: "open" | "openNew" | "save" | "saveAs";
+    diffCopyShortcut?: boolean;
+  }) => {
+    if (id === "openNewWindow" && !(isTauri() && onOpenInNewWindow)) return null;
+    if (id === "exportWorkspace" && !(isTauri() && onExportWorkspace)) return null;
+    const disabled = opts.locksWithFileIdle && menuFileActionsLocked;
+    return (
+      <button
+        key={id}
+        type="button"
+        role="menuitem"
+        disabled={disabled}
+        onClick={() => run(fileActionHandlers[id])}
+      >
+        <span>{label}</span>
+        {opts.fileShortcut ? (
+          <span className="menu-shortcut">
+            {fileShortcutHint(opts.fileShortcut, commandKey)}
+          </span>
+        ) : null}
+        {opts.diffCopyShortcut ? (
+          <span className="menu-shortcut">{diffCopyShortcutHint(commandKey)}</span>
+        ) : null}
+      </button>
+    );
+  };
+
   const panel = open ? (
     <div
       ref={panelRef}
@@ -293,162 +346,130 @@ export function AppMenu({
         top: position.top + shift.y,
       }}
     >
-      <button
-        type="button"
-        role="menuitem"
-        disabled={menuFileActionsLocked}
-        onClick={() => run(onOpen)}
-      >
-        <span>開く</span>
-        <span className="menu-shortcut">{fileShortcutHint("open", commandKey)}</span>
-      </button>
-      {showRecentSubmenu ? (
-        <div
-          className="app-menu-submenu-host"
-          data-menu-item-host="true"
-          onMouseEnter={openRecentSubmenu}
-          onMouseLeave={scheduleRecentSubmenuClose}
-        >
+      {SHARED_FILE_MENU_ROWS.map((row, index) => {
+        if (row.kind === "separator") {
+          return <hr key={`sep-${index}`} />;
+        }
+        if (row.kind === "recentSubmenu") {
+          return (
+            <div key="recent">
+              {showRecentSubmenu ? (
+                <div
+                  className="app-menu-submenu-host"
+                  data-menu-item-host="true"
+                  onMouseEnter={openRecentSubmenu}
+                  onMouseLeave={scheduleRecentSubmenuClose}
+                >
+                  <button
+                    ref={recentRowRef}
+                    type="button"
+                    role="menuitem"
+                    aria-haspopup="menu"
+                    aria-expanded={recentSubmenuOpen}
+                    onMouseEnter={openRecentSubmenu}
+                    onClick={openRecentSubmenu}
+                  >
+                    <span>{OPERATION_FORMAL.recentFiles}</span>
+                    <span className="app-menu-submenu-chevron" aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
+                  {recentSubmenuOpen ? (
+                    <div
+                      ref={recentSubmenuRef}
+                      className="app-menu-submenu-panel"
+                      role="menu"
+                      style={{
+                        left: recentSubmenuPosition.left + recentSubmenuShift.x,
+                        top: recentSubmenuPosition.top + recentSubmenuShift.y,
+                      }}
+                      onMouseEnter={openRecentSubmenu}
+                    >
+                      {recentSections.map((section, sectionIndex) => (
+                        <div
+                          key={section.heading}
+                          role="group"
+                          aria-label={section.heading}
+                        >
+                          {sectionIndex > 0 ? <hr /> : null}
+                          <div
+                            className="app-menu-submenu-heading"
+                            role="presentation"
+                          >
+                            {section.heading}
+                          </div>
+                          {section.items.map((entry) => (
+                            <button
+                              key={entry.path}
+                              type="button"
+                              role="menuitem"
+                              disabled={menuFileActionsLocked}
+                              title={entry.path}
+                              aria-label={recentMenuItemAriaLabel(entry)}
+                              onClick={() =>
+                                run(() => onOpenRecent?.(entry.path, entry.kind))
+                              }
+                            >
+                              <span>{entry.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                      <hr />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => run(onClearRecentHistory!)}
+                      >
+                        {OPERATION_FORMAL.clearRecentHistory}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : showRecentDisabled ? (
+                <button type="button" role="menuitem" disabled>
+                  {recentFilesEmptyHint ? (
+                    <span className="app-menu-item-with-hint">
+                      <span>{OPERATION_FORMAL.recentFiles}</span>
+                      <span className="app-menu-item-hint">{recentFilesEmptyHint}</span>
+                    </span>
+                  ) : (
+                    <span>{OPERATION_FORMAL.recentFiles}</span>
+                  )}
+                </button>
+              ) : null}
+            </div>
+          );
+        }
+        return renderFileAction(row.id, row.label, row);
+      })}
+      <hr />
+      {HAMBURGER_MENU_TAIL_ROWS.map((row) => {
+        if (row.id === "checkForUpdates" && !onCheckForUpdates) return null;
+        const action =
+          row.id === "guide"
+            ? onOpenGuide
+            : row.id === "shortcuts"
+              ? onOpenShortcuts
+              : row.id === "checkForUpdates"
+                ? onCheckForUpdates!
+                : onOpenSettings;
+        return (
           <button
-            ref={recentRowRef}
+            key={row.id}
             type="button"
             role="menuitem"
-            aria-haspopup="menu"
-            aria-expanded={recentSubmenuOpen}
-            onMouseEnter={openRecentSubmenu}
-            onClick={openRecentSubmenu}
+            onClick={() => run(action)}
           >
-            <span>最近開いたファイル</span>
-            <span className="app-menu-submenu-chevron" aria-hidden="true">
-              ›
-            </span>
+            <span>{row.label}</span>
+            {row.menuShortcut ? (
+              <span className="menu-shortcut">
+                {sharedMenuShortcutHint(row.menuShortcut, commandKey)}
+              </span>
+            ) : null}
           </button>
-          {recentSubmenuOpen ? (
-            <div
-              ref={recentSubmenuRef}
-              className="app-menu-submenu-panel"
-              role="menu"
-              style={{
-                left: recentSubmenuPosition.left + recentSubmenuShift.x,
-                top: recentSubmenuPosition.top + recentSubmenuShift.y,
-              }}
-              onMouseEnter={openRecentSubmenu}
-            >
-              {recentSections.map((section, sectionIndex) => (
-                <div key={section.heading} role="group" aria-label={section.heading}>
-                  {sectionIndex > 0 ? <hr /> : null}
-                  <div className="app-menu-submenu-heading" role="presentation">
-                    {section.heading}
-                  </div>
-                  {section.items.map((entry) => (
-                    <button
-                      key={entry.path}
-                      type="button"
-                      role="menuitem"
-                      disabled={menuFileActionsLocked}
-                      title={entry.path}
-                      aria-label={recentMenuItemAriaLabel(entry)}
-                      onClick={() =>
-                        run(() => onOpenRecent?.(entry.path, entry.kind))
-                      }
-                    >
-                      <span>{entry.label}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
-              <hr />
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => run(onClearRecentHistory)}
-              >
-                履歴を消す
-              </button>
-            </div>
-          ) : null}
-        </div>
-      ) : showRecentDisabled ? (
-        <button type="button" role="menuitem" disabled>
-          <span>最近開いたファイル</span>
-        </button>
-      ) : null}
-      {isTauri() && onOpenInNewWindow ? (
-        <button
-          type="button"
-          role="menuitem"
-          disabled={menuFileActionsLocked}
-          onClick={() => run(onOpenInNewWindow)}
-        >
-          <span>新しいウィンドウで開く</span>
-          <span className="menu-shortcut">
-            {fileShortcutHint("openNew", commandKey)}
-          </span>
-        </button>
-      ) : null}
-      <button
-        type="button"
-        role="menuitem"
-        disabled={menuFileActionsLocked}
-        onClick={() => run(onSave)}
-      >
-        <span>保存</span>
-        <span className="menu-shortcut">{fileShortcutHint("save", commandKey)}</span>
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        disabled={menuFileActionsLocked}
-        onClick={() => run(onSaveAs)}
-      >
-        <span>別名保存</span>
-        <span className="menu-shortcut">
-          {fileShortcutHint("saveAs", commandKey)}
-        </span>
-      </button>
-      <button type="button" role="menuitem" onClick={() => run(onExportHtml)}>
-        書き出し
-      </button>
-      {isTauri() && onExportWorkspace ? (
-        <button
-          type="button"
-          role="menuitem"
-          disabled={menuFileActionsLocked}
-          onClick={() => run(onExportWorkspace)}
-        >
-          設定ファイルを新しいフォルダへ書き出す
-        </button>
-      ) : null}
-      <button type="button" role="menuitem" onClick={() => run(onShowJson)}>
-        JSON を表示
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        disabled={menuFileActionsLocked}
-        onClick={() => run(onShowDiff)}
-      >
-        差分を表示
-      </button>
-      <hr />
-      <button type="button" role="menuitem" onClick={() => run(onOpenGuide)}>
-        操作の案内
-      </button>
-      <button type="button" role="menuitem" onClick={() => run(onOpenShortcuts)}>
-        ショートカット一覧
-      </button>
-      {onCheckForUpdates ? (
-        <button
-          type="button"
-          role="menuitem"
-          onClick={() => run(onCheckForUpdates)}
-        >
-          更新を確認
-        </button>
-      ) : null}
-      <button type="button" role="menuitem" onClick={() => run(onOpenSettings)}>
-        設定
-      </button>
+        );
+      })}
     </div>
   ) : null;
 

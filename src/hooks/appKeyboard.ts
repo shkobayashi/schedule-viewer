@@ -15,9 +15,17 @@ import {
   matchOpenCommandPalette,
   matchOpenShortcutsHelp,
   matchReorderTaskShortcut,
+  matchGoToday,
+  matchOpenSettings,
+  matchRenameF2,
+  matchToggleConfidence,
+  matchToggleFilterPanel,
+  matchToggleLineage,
+  matchViewTier,
   type DisplayScaleDirection,
   type ReorderTaskDirection,
   type ShortcutKeyEvent,
+  type ViewTierShortcut,
 } from "../model/shortcuts";
 import type { ScheduleId } from "../model/types";
 
@@ -59,6 +67,12 @@ export type AppKeyAction =
   | { type: "addMilestone" }
   | { type: "duplicateTask" }
   | { type: "reorderTaskInGroup"; direction: ReorderTaskDirection; insertIndex: number }
+  | { type: "openSettings" }
+  | { type: "goToday" }
+  | { type: "setViewTier"; tier: ViewTierShortcut }
+  | { type: "toggleLineage" }
+  | { type: "toggleFilterPanel" }
+  | { type: "toggleTaskConfidence" }
   | { type: "none" };
 
 export type AppKeyDecision = {
@@ -98,6 +112,7 @@ export function decideAppKey(input: {
   taskIndexInGroup: number | null;
   groupTaskCount: number;
   diffStripListFocused: boolean;
+  filterPanelOpen: boolean;
 }): AppKeyDecision {
   const { event } = input;
   const targetFields = input.target ?? {
@@ -164,6 +179,7 @@ export function decideAppKey(input: {
   }
   if (
     !input.dialogOpen &&
+    !input.filterPanelOpen &&
     !event.ctrlKey &&
     !event.metaKey &&
     !blocksEditShortcut(
@@ -237,6 +253,70 @@ export function decideAppKey(input: {
       preventDefault: true,
       closeMenu: true,
       action: { type: "displayScale", direction: displayScale },
+    };
+  }
+
+  const navModCtx = {
+    dialogOpen: input.dialogOpen,
+    blocksLinkKeys,
+    linkSourceId: input.linkSourceId,
+    selectedTaskCount: input.selectedTaskCount,
+  };
+  if (matchOpenSettings(event, navModCtx)) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "openSettings" },
+    };
+  }
+  const viewTier = matchViewTier(event, navModCtx);
+  if (viewTier) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "setViewTier", tier: viewTier },
+    };
+  }
+  if (matchToggleFilterPanel(event, navModCtx)) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "toggleFilterPanel" },
+    };
+  }
+  if (matchToggleLineage(event, navModCtx)) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "toggleLineage" },
+    };
+  }
+  if (matchToggleConfidence(event, navModCtx)) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "toggleTaskConfidence" },
+    };
+  }
+
+  const navEditCtx = {
+    dialogOpen: input.dialogOpen,
+    blocksEditKeys,
+    selectedTaskCount: input.selectedTaskCount,
+    commandPaletteOpen: input.commandPaletteOpen,
+  };
+  if (matchGoToday(event, navEditCtx)) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "goToday" },
+    };
+  }
+  if (matchRenameF2(event, navEditCtx)) {
+    return {
+      preventDefault: true,
+      closeMenu: true,
+      action: { type: "focusDetailName" },
     };
   }
 
