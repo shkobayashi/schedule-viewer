@@ -177,6 +177,7 @@ html[data-color-scheme="dark"] .ui-dialog-panel {
 .ui-dialog-body--scroll {
   overflow: auto;
   flex: 1 1 auto;
+  min-height: 0;
 }
 
 .ui-dialog-panel--shortcuts {
