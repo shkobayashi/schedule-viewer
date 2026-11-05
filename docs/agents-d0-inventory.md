@@ -61,11 +61,11 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 
 | develop に無く feature-436 で足した行・節 | 新しい正本 |
 | --- | --- |
-| operation-entries / feature-checklist / find-by-intent | AGENTS 表 |
-| design benchmark / inventory（#449） | AGENTS 表 |
-| write-workspace / write-fields / write-colors | AGENTS 表・更新義務表 |
-| 「内部コードの境界」節全体 | AGENTS 要約 + internal-spec |
-| 起動段落の --mcp 注記 | AGENTS + development |
+| operation-entries / feature-checklist / find-by-intent | [agents-agent-index.md](agents-agent-index.md) |
+| design benchmark / inventory（#449） | agents-agent-index |
+| write-workspace / write-fields / write-colors | agents-agent-index + [agents-doc-update-map.md](agents-doc-update-map.md) |
+| 「内部コードの境界」節全体 | agents-agent-index 要約 + internal-spec |
+| 起動段落の --mcp 注記 | agents-agent-index + development |
 
 **Removed（理由）:** なし。統合・短縮・表化のみ。
 
@@ -79,7 +79,7 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 | 分割（IC 51） | 1 |
 | 削除（黙って） | **0** |
 
-原則 ID（P1–P6）の定義と分析表 → [agents-d0-principles-analysis.md](agents-d0-principles-analysis.md)。
+8 原則の定義と分析表 → [agents-d0-principles-analysis.md](agents-d0-principles-analysis.md)。
 
 ---
 

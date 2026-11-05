@@ -44,7 +44,7 @@ description: >-
 
 ## 文書
 
-計画が更新するとしている文書と、[AGENTS.md](../../../AGENTS.md) の「変更したら文書も更新する」で同じ変更に含める文書を、実装と比べる。
+計画が更新するとしている文書と、[docs/agents-doc-update-map.md](../../../docs/agents-doc-update-map.md) を、実装と比べる。
 
 - 仕様と実際の齟齬
 - 日本語として分かりづらい記述
