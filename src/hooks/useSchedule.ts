@@ -15,23 +15,13 @@ import {
   tryAddPredecessorLink,
 } from "../model/dependencies";
 import {
-  cloneConnections,
   removeConnectionByPair,
   removeConnectionsForDeletedTasks,
   tryAddConnection,
   tryUpdateConnectionLabel,
 } from "../model/connections";
+import { type DocumentSnapshot } from "../model/history";
 import {
-  cloneSnapshot,
-  createDocumentHistory,
-  pushDocumentHistory,
-  redoDocumentHistory,
-  undoDocumentHistory,
-  type DocumentHistory,
-  type DocumentSnapshot,
-} from "../model/history";
-import {
-  cloneOutlineRoot,
   collectTasksFromDocument,
   findTaskInDocument,
   hierarchyLayoutContext,
@@ -136,9 +126,13 @@ import {
   type ExplanationScrollPlan,
   type PlanExplanationScrollInput,
 } from "../model/explainOverlayLayout";
-import type { ReplaceScheduleDocumentResult } from "../model/replaceSchedule";
-import { coerceOutlineStorageDocument } from "../model/mcpEditPlan";
-import { serializeScheduleDocument } from "../model/scheduleFile";
+import {
+  initialDocumentSnapshot,
+} from "./schedule/documentSnapshot";
+import {
+  useScheduleDocumentCommit,
+  type ScheduleDocumentCommitBridge,
+} from "./schedule/useScheduleDocumentCommit";
 import {
   resolveScheduleTitleCommit,
   type ScheduleTitleCommitResult,
@@ -155,7 +149,6 @@ import {
   addTaskTag,
   categoriesAfterDuplicate,
   categoriesAfterTaskEdit,
-  cloneCategories,
   collectScheduleIds,
   findTaskOwner,
   insertTask,
@@ -205,7 +198,6 @@ import {
   type Milestone,
   type MilestoneGroup,
   type OutlineRoot,
-  type ScheduleDocument,
   type ScheduleFieldDef,
   type ScheduleFilters,
   type ScheduleId,
@@ -238,34 +230,6 @@ import {
   type TaskClickModifiers,
   type TaskSelectionState,
 } from "../model/taskSelection";
-
-function snapshotFromDocument(doc: ScheduleDocument): DocumentSnapshot {
-  return {
-    title: doc.title,
-    categories: cloneCategories(doc.categories ?? []),
-    milestoneGroups: doc.milestoneGroups.map((group) => ({ ...group })),
-    milestones: doc.milestones.map((milestone) => ({ ...milestone })),
-    connections: cloneConnections(doc.connections),
-    levels: doc.levels?.map((level) => ({ ...level })),
-    outline:
-      doc.outline != null ? cloneOutlineRoot(doc.outline) : undefined,
-  };
-}
-
-function initialSnapshot(
-  title: string,
-  categories: Category[],
-  milestoneGroups: MilestoneGroup[],
-  milestones: Milestone[],
-): DocumentSnapshot {
-  return snapshotFromDocument({
-    schemaVersion: SCHEDULE_SCHEMA_VERSION,
-    title,
-    categories,
-    milestoneGroups,
-    milestones,
-  });
-}
 
 type EditingHierarchy =
   | { kind: "category" | "group" | "outline"; id: ScheduleId };
@@ -379,42 +343,34 @@ export function useSchedule(
     applyScroll: (plan: ExplanationScrollPlan) => void;
   } | null>,
 ) {
-  const documentRef = useRef<DocumentSnapshot>(
-    initialSnapshot(
+  const bootSnapshotRef = useRef(
+    initialDocumentSnapshot(
       initialTitle,
       initialCategories,
       initialMilestoneGroups,
       initialMilestones,
     ),
   );
-  const historyRef = useRef<DocumentHistory>(createDocumentHistory());
-  const [historyUi, setHistoryUi] = useState({ canUndo: false, canRedo: false });
-  const syncHistoryUi = useCallback(() => {
-    setHistoryUi({
-      canUndo: historyRef.current.past.length > 0,
-      canRedo: historyRef.current.future.length > 0,
-    });
-  }, []);
 
   const [title, setTitle] = useState(() => initialTitle);
   const [categories, setCategories] = useState(
-    () => documentRef.current.categories,
+    () => bootSnapshotRef.current.categories,
   );
   const [milestoneGroups, setMilestoneGroups] = useState(
-    () => documentRef.current.milestoneGroups,
+    () => bootSnapshotRef.current.milestoneGroups,
   );
   const [milestones, setMilestones] = useState(
-    () => documentRef.current.milestones,
+    () => bootSnapshotRef.current.milestones,
   );
   const [levels, setLevels] = useState<ScheduleLevelDef[] | undefined>(
-    () => documentRef.current.levels,
+    () => bootSnapshotRef.current.levels,
   );
   const [outline, setOutline] = useState<OutlineRoot | undefined>(
-    () => documentRef.current.outline,
+    () => bootSnapshotRef.current.outline,
   );
   const [connections, setConnections] = useState<
     TaskConnection[] | undefined
-  >(() => documentRef.current.connections);
+  >(() => bootSnapshotRef.current.connections);
   const [hiddenMilestoneGroupIds, setHiddenMilestoneGroupIds] = useState<
     ScheduleId[]
   >([]);
@@ -604,80 +560,63 @@ export function useSchedule(
     });
   }, []);
 
-  const applySnapshot = useCallback(
-    (snapshot: DocumentSnapshot) => {
-      const cloned = cloneSnapshot(snapshot);
-      documentRef.current = cloned;
-      setTitle(cloned.title);
-      setCategories(cloned.categories);
-      setMilestoneGroups(cloned.milestoneGroups);
-      setMilestones(cloned.milestones);
-      setLevels(cloned.levels);
-      setOutline(cloned.outline);
-      setConnections(cloned.connections);
-      setReorderPreview(null);
-      pruneUiForDocument(cloned);
-      if (
-        explanationViewRef.current != null ||
-        explanationOverlayRef.current?.translucent === true
-      ) {
-        clearExplanationSession();
-      }
-    },
-    [pruneUiForDocument, setReorderPreview, clearExplanationSession],
-  );
+  const documentCommitBridgeRef = useRef<ScheduleDocumentCommitBridge>(null!);
+  documentCommitBridgeRef.current = {
+    setTitle,
+    setCategories,
+    setMilestoneGroups,
+    setMilestones,
+    setLevels,
+    setOutline,
+    setConnections,
+    setHiddenMilestoneGroupIds,
+    setHiddenMilestoneIds,
+    setTaskSelection,
+    setLineageTaskId,
+    setDuplicatingTaskId,
+    setEditingNoteTaskId,
+    setEditingMilestoneId,
+    setEditingHierarchy,
+    setAddingHierarchy,
+    setDeletingHierarchy,
+    setCollapsed,
+    setFilters,
+    setSearchField,
+    setExplanationView,
+    setExplanationOverlay,
+    setDiskEpoch,
+    setReorderPreview,
+    pruneUiForDocument,
+    clearExplanationSession,
+    explanationViewRef,
+    explanationOverlayRef,
+  } as ScheduleDocumentCommitBridge;
 
-  const commitDocument = useCallback(
-    (buildNext: (current: DocumentSnapshot) => DocumentSnapshot) => {
-      if (blockDocumentEditsRef?.current) return;
-      const current = documentRef.current;
-      const next = buildNext(current);
-      const pushed = pushDocumentHistory(historyRef.current, current, next);
-      if (!pushed) return;
-      historyRef.current = pushed.history;
-      syncHistoryUi();
-      if (!pushed.applied) return;
-      if (
-        explanationViewRef.current != null ||
-        explanationOverlayRef.current?.translucent === true
-      ) {
-        clearExplanationSession();
-      }
-      documentRef.current = pushed.applied;
-      setCategories(pushed.applied.categories);
-      setMilestoneGroups(pushed.applied.milestoneGroups);
-      setMilestones(pushed.applied.milestones);
-      setLevels(pushed.applied.levels);
-      setOutline(pushed.applied.outline);
-      setConnections(pushed.applied.connections);
-    },
-    [blockDocumentEditsRef, clearExplanationSession, syncHistoryUi],
-  );
-
-  const commitCategories = useCallback(
-    (update: (prev: Category[]) => Category[]) => {
-      commitDocument((current) => ({
-        ...current,
-        categories: update(current.categories),
-      }));
-    },
-    [commitDocument],
-  );
-
-  const commitMilestones = useCallback(
-    (update: (prev: Milestone[]) => Milestone[]) => {
-      commitDocument((current) => ({
-        ...current,
-        milestones: update(current.milestones),
-      }));
-    },
-    [commitDocument],
-  );
-
-  const getDocumentSnapshot = useCallback(
-    (): DocumentSnapshot => documentRef.current,
-    [],
-  );
+  const {
+    documentRef,
+    historyUi,
+    commitDocument,
+    commitCategories,
+    commitMilestones,
+    getDocumentSnapshot,
+    getCanonicalJson,
+    replaceScheduleDocument,
+    applyMergedDocument,
+    replaceDocument,
+    reloadDocumentFromDisk,
+    undo,
+    redo,
+  } = useScheduleDocumentCommit({
+    initialTitle,
+    initialCategories,
+    initialMilestoneGroups,
+    initialMilestones,
+    effectiveFieldDefs,
+    bridgeRef: documentCommitBridgeRef,
+    blockDocumentEditsRef,
+    onHistoryUndoApplied,
+    onHistoryRedoApplied,
+  });
 
   const commitLevelDefinitions = useCallback(
     (draft: ScheduleLevelDef[], hadDocumentLevels: boolean) => {
@@ -712,21 +651,6 @@ export function useSchedule(
       return resolved;
     },
     [blockDocumentEditsRef, commitDocument],
-  );
-
-  const getCanonicalJson = useCallback(
-    () =>
-      serializeScheduleDocument(
-        documentRef.current.title,
-        documentRef.current.categories,
-        documentRef.current.milestoneGroups,
-        documentRef.current.milestones,
-        documentRef.current.levels,
-        documentRef.current.outline,
-        effectiveFieldDefs.length > 0 ? [...effectiveFieldDefs] : undefined,
-        documentRef.current.connections,
-      ),
-    [effectiveFieldDefs],
   );
 
   const hierarchyLayout = useMemo(
@@ -2633,227 +2557,6 @@ export function useSchedule(
     },
     [commitDocument, usesOutlineStorage],
   );
-
-  const snapshotCanonicalJson = useCallback((snap: DocumentSnapshot) => {
-    return serializeScheduleDocument(
-      snap.title,
-      snap.categories,
-      snap.milestoneGroups,
-      snap.milestones,
-      snap.levels,
-      snap.outline,
-      effectiveFieldDefs.length > 0 ? [...effectiveFieldDefs] : undefined,
-      snap.connections,
-    );
-  }, [effectiveFieldDefs]);
-
-  const replaceScheduleDocument = useCallback(
-    (document: ScheduleDocument): ReplaceScheduleDocumentResult => {
-      const current = documentRef.current;
-      const currentJson = snapshotCanonicalJson(current);
-      if (blockDocumentEditsRef?.current) {
-        return { outcome: "rejected" };
-      }
-      const next = snapshotFromDocument(coerceOutlineStorageDocument(document));
-      const pushed = pushDocumentHistory(historyRef.current, current, next);
-      if (!pushed) {
-        return { outcome: "unchanged", screenJson: currentJson };
-      }
-      historyRef.current = pushed.history;
-      syncHistoryUi();
-      if (!pushed.applied) {
-        return { outcome: "unchanged", screenJson: currentJson };
-      }
-      documentRef.current = pushed.applied;
-      setTitle(pushed.applied.title);
-      setCategories(pushed.applied.categories);
-      setMilestoneGroups(pushed.applied.milestoneGroups);
-      setMilestones(pushed.applied.milestones);
-      setLevels(pushed.applied.levels);
-      setOutline(pushed.applied.outline);
-      setConnections(pushed.applied.connections);
-      pruneUiForDocument(pushed.applied);
-      if (
-        explanationViewRef.current != null ||
-        explanationOverlayRef.current?.translucent === true
-      ) {
-        clearExplanationSession();
-      }
-      return {
-        outcome: "applied",
-        screenJson: snapshotCanonicalJson(pushed.applied),
-        before: current,
-        after: pushed.applied,
-      };
-    },
-    [
-      blockDocumentEditsRef,
-      clearExplanationSession,
-      pruneUiForDocument,
-      snapshotCanonicalJson,
-      syncHistoryUi,
-    ],
-  );
-
-  const applyMergedDocument = useCallback(
-    (
-      document: ScheduleDocument,
-    ): { before: DocumentSnapshot; after: DocumentSnapshot } | null => {
-      if (blockDocumentEditsRef?.current) return null;
-      const before = documentRef.current;
-      const next = snapshotFromDocument(document);
-      const pushed = pushDocumentHistory(historyRef.current, before, next);
-      if (!pushed) return null;
-      historyRef.current = pushed.history;
-      syncHistoryUi();
-      if (!pushed.applied) return null;
-      documentRef.current = pushed.applied;
-      setTitle(pushed.applied.title);
-      setCategories(pushed.applied.categories);
-      setMilestoneGroups(pushed.applied.milestoneGroups);
-      setMilestones(pushed.applied.milestones);
-      setLevels(pushed.applied.levels);
-      setOutline(pushed.applied.outline);
-      setConnections(pushed.applied.connections);
-      setTaskSelection((current) =>
-        pruneTaskSelection(
-          pushed.applied!.categories,
-          pushed.applied!.outline,
-          current,
-        ),
-      );
-      setDuplicatingTaskId(null);
-      setEditingNoteTaskId(null);
-      setEditingMilestoneId(null);
-      setEditingHierarchy(null);
-      setAddingHierarchy(null);
-      setDeletingHierarchy(null);
-      setReorderPreview(null);
-      pruneUiForDocument(pushed.applied);
-      if (
-        explanationViewRef.current != null ||
-        explanationOverlayRef.current?.translucent === true
-      ) {
-        clearExplanationSession();
-      }
-      return { before, after: pushed.applied };
-    },
-    [
-      blockDocumentEditsRef,
-      clearExplanationSession,
-      pruneUiForDocument,
-      setReorderPreview,
-      syncHistoryUi,
-    ],
-  );
-
-  const replaceDocument = useCallback(
-    (document: ScheduleDocument) => {
-      historyRef.current = createDocumentHistory();
-      const snapshot = snapshotFromDocument(document);
-      documentRef.current = snapshot;
-      setTitle(document.title);
-      setCategories(snapshot.categories);
-      setMilestoneGroups(snapshot.milestoneGroups);
-      setMilestones(snapshot.milestones);
-      setLevels(snapshot.levels);
-      setOutline(snapshot.outline);
-      setConnections(snapshot.connections);
-      setHiddenMilestoneGroupIds([]);
-      setHiddenMilestoneIds([]);
-      setTaskSelection(emptyTaskSelection());
-      setLineageTaskId(null);
-      setDuplicatingTaskId(null);
-      setEditingNoteTaskId(null);
-      setEditingMilestoneId(null);
-      setCollapsed(new Set());
-      const defaultView = defaultScheduleFilterViewState();
-      setFilters(defaultView.filters);
-      setSearchField(defaultView.searchField);
-      setHiddenMilestoneGroupIds(defaultView.hiddenMilestoneGroupIds);
-      setHiddenMilestoneIds(defaultView.hiddenMilestoneIds);
-      setExplanationView(null);
-      setExplanationOverlay(null);
-      setReorderPreview(null);
-      syncHistoryUi();
-    },
-    [setReorderPreview, syncHistoryUi],
-  );
-
-  const reloadDocumentFromDisk = useCallback(
-    (document: ScheduleDocument) => {
-      historyRef.current = createDocumentHistory();
-      const snapshot = snapshotFromDocument(document);
-      documentRef.current = snapshot;
-      setTitle(document.title);
-      setCategories(snapshot.categories);
-      setMilestoneGroups(snapshot.milestoneGroups);
-      setMilestones(snapshot.milestones);
-      setLevels(snapshot.levels);
-      setOutline(snapshot.outline);
-      setConnections(snapshot.connections);
-      setHiddenMilestoneGroupIds((hidden) =>
-        hidden.filter((groupId) =>
-          snapshot.milestoneGroups.some((group) => group.id === groupId),
-        ),
-      );
-      setHiddenMilestoneIds((hidden) =>
-        hidden.filter((id) =>
-          snapshot.milestones.some((milestone) => milestone.id === id),
-        ),
-      );
-      setDiskEpoch((epoch) => epoch + 1);
-      setReorderPreview(null);
-      pruneUiForDocument(snapshot);
-      if (
-        explanationViewRef.current != null ||
-        explanationOverlayRef.current?.translucent === true
-      ) {
-        clearExplanationSession();
-      }
-      syncHistoryUi();
-    },
-    [
-      clearExplanationSession,
-      pruneUiForDocument,
-      setReorderPreview,
-      syncHistoryUi,
-    ],
-  );
-
-  const undo = useCallback((): boolean => {
-    if (blockDocumentEditsRef?.current) return false;
-    if (historyRef.current.past.length === 0) return false;
-    const result = undoDocumentHistory(historyRef.current, documentRef.current);
-    if (!result) return false;
-    historyRef.current = result.history;
-    applySnapshot(result.snapshot);
-    syncHistoryUi();
-    onHistoryUndoApplied?.(result.snapshot);
-    return true;
-  }, [
-    applySnapshot,
-    blockDocumentEditsRef,
-    onHistoryUndoApplied,
-    syncHistoryUi,
-  ]);
-
-  const redo = useCallback((): boolean => {
-    if (blockDocumentEditsRef?.current) return false;
-    if (historyRef.current.future.length === 0) return false;
-    const result = redoDocumentHistory(historyRef.current, documentRef.current);
-    if (!result) return false;
-    historyRef.current = result.history;
-    applySnapshot(result.snapshot);
-    syncHistoryUi();
-    onHistoryRedoApplied?.(result.snapshot);
-    return true;
-  }, [
-    applySnapshot,
-    blockDocumentEditsRef,
-    onHistoryRedoApplied,
-    syncHistoryUi,
-  ]);
 
   const duplicatingTask = useMemo(
     () => findTaskInDocument(categories, outline, duplicatingTaskId),
