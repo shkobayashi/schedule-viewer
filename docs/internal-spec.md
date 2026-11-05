@@ -52,7 +52,7 @@ flowchart TD
 
 ## コードの境界（#436 ステップ 8）
 
-Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline.tsx` 分割 → `model` 循環解消** の目標構成である。**この節が境界の詳細の正本**である。AGENTS.md は要約だけを書く。全フェーズで挙動は変えない。各塊は Issue #490 のとおり、特性テストを先に足して小 PR に分ける。
+Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline.tsx` 分割 → `model` 循環解消** の目標構成である。**この節が境界の詳細の正本**である。[AGENTS.md](../AGENTS.md) は **P1–P6** の原則と索引（[agents-d0-principles-analysis.md](agents-d0-principles-analysis.md)）。全フェーズで挙動は変えない。各塊は Issue #490 のとおり、特性テストを先に足して小 PR に分ける。
 
 | 層 | 置くもの | import してよい先 |
 | --- | --- | --- |

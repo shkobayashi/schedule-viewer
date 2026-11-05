@@ -1,87 +1,158 @@
 # エージェント向け指示
 
-このリポジトリを調べるときは、ソースを開く前に下の文書を読む。実装や設定を変えたら、同じ作業の中で対応する文書を更新する。文書が古いままの変更は完了にしない。
+このリポジトリでは、**利用者に見える真実は仕様とコードにあり、エージェント向けの長い手順はスキルと internal-spec に置く**。ソースを開く前に文書で場所を絞る。実装や設定を変えたら、同じ作業の中で対応する文書を更新する。文書が古いままの変更は完了にしない。
+
+原則の束ね方と旧メモとの対応は [docs/agents-d0-principles-analysis.md](docs/agents-d0-principles-analysis.md) と [docs/agents-d0-inventory.md](docs/agents-d0-inventory.md)（**D0**。黙って削除しないための old→new 表）にある。
+
+## 原則 1 — 結合された文書（P1）
+
+**変更は、利用者・テスト・CI 表まで同じ PR で届ける。** 正本は JSON Schema（データ形）とソース（挙動）。食い違ったらソースに合わせて文書を直す。
+
+チェック例:
+
+- 触った画面・操作 → [docs/external-spec.md](docs/external-spec.md) と、必要なら [docs/user-manual/](docs/user-manual/)・[README.md](README.md)
+- 触ったテスト ID → [docs/test-spec.md](docs/test-spec.md)（表の行を**足す**ときは既存行を落とさない）
+- 触った CI・起動 → [docs/development.md](docs/development.md)
+- 詳細手順 → [.cursor/skills/implement-change/SKILL.md](.cursor/skills/implement-change/SKILL.md)「文書」「テストと確認」
+
+下の「変更したら文書も更新する」表が具体的な対応一覧である。
+
+## 原則 2 — 依存の向き（P2）
+
+**UI → hooks → model の一方向。model は UI を import しない。循環 import は 0 件。**
+
+チェック例:
+
+- 層の表と import 規則 → [docs/internal-spec.md](docs/internal-spec.md)「コードの境界」
+- 循環の CI（**エラー**）→ `npm run check:madge-circular-baseline`（[docs/model-circular-import-plan.md](docs/model-circular-import-plan.md)）
+- import 境界 → `npm run lint`
+- リファクタで型・走査を切り出すときは **同名モジュールの上書きに注意**（P-AG-04）
+
+## 原則 3 — 操作入口の一致（P3）
+
+**同じ操作 ID は、☰・ショートカット・MCP・右クリックなど、利用者が触る面すべてで同じ集合・対応になる。**
+
+チェック例:
+
+- 手書き正本 → [docs/operation-entries.md](docs/operation-entries.md)
+- 影響行 → [docs/feature-checklist.md](docs/feature-checklist.md)「操作の入口」
+- 定義のコード → `src/operations/`（実行は hooks）。詳細は internal-spec
+- 機械照合 → **未実装**（D2 で `check-operation-entries` 予定、P-CI-06）
+
+## 原則 4 — スコープと計画（P4）
+
+**Issue #490 段 8 は挙動不変の整理。不具合・audit・性能は #491 など別 Issue。** 計画が名指ししたスキルと節だけを実装する。
+
+チェック例:
+
+- 実装手順の正本 → [implement-change](.cursor/skills/implement-change/SKILL.md)（着手前・計画照合）
+- 実装後レビュー → [review-implementation](.cursor/skills/review-implementation/SKILL.md)（指摘の再発防止は SKILL か CI へ、**P6**）
+- 段 8 の完了順（C/T/M 済、D 進行中）→ Issue #490 / internal-spec
+
+## 原則 5 — 索引と移動（P5）
+
+**AGENTS は短い原則と索引。削る・短くするときは移動先と [agents-d0-inventory.md](docs/agents-d0-inventory.md) の対応表（削除 0）。**
+
+チェック例:
+
+- 個人の好み・マシン固有 → `.cursor/rules/personal.local.mdc`（Git に含めない）
+- `write-schedule` 等 JSON スキル → 他リポジトリ向け。**アプリ実装手順は implement-change へ書かない**
+- スキルリンクは SKILL から `../../../AGENTS.md` のように相対パス
+- 日本語 → [japanese-prose.mdc](.cursor/rules/japanese-prose.mdc)。相談 → [consult.mdc](.cursor/rules/consult.mdc)（`/consult` 時は [consult/SKILL.md](.cursor/skills/consult/SKILL.md)）
+- Cloud Agent: **マージ済み PR ブランチへ push しない**（新ブランチ。D1 で development へ明記予定）
+
+## 原則 6 — 落とし穴を止める（P6）
+
+**一度問題になったパターンは、CI・テスト・SKILL のチェックのどれかで止める。** UI/Konva/起動/MCP/Windows の具体条項は implement-change に番号付きで残す（削らない）。
+
+チェック例:
+
+| 種類 | 既にあるガード |
+| --- | --- |
+| MCP 名 | `npm run check:mcp-tool-names` |
+| MCP/read-screen 共有句 | Rust テスト（`MCP_VIEW_IN_READ_TOOLS` 等） |
+| model 純関数 | `src/model/*.test.ts` |
+| DOM 特性 | `src/**/*.test.tsx`（Vitest jsdom） |
+| Rust | `cargo clippy -- -D warnings`、`cargo test --locked` |
+| 重複 clone 警告 | `npm run check:architecture-warn`（jscpd） |
+| レビューで test-spec 行落ち | **D2** review チェックリスト（P-AG-02） |
+
+テーマ別索引 → [agents-d0-principles-analysis.md](docs/agents-d0-principles-analysis.md) §「implement-change 番号 → 原則」。
 
 ## 先に読む文書
 
-質問に合う文書だけを読む。広く検索してからソースを開かない。文書に答えがあるときは、ソースを読まない。実装のためにソースが必要なときは、文書で場所を絞ってから、そのファイルだけを開く。
+質問に合う文書だけを読む。広く検索してからソースを開かない。
 
 | 知りたいこと | 文書 |
 | --- | --- |
-| 利用者の操作 | [docs/user-manual.md](docs/user-manual.md)（読み方）。手順は [はじめに](docs/user-manual/getting-started.md)、[やりたいことから探す](docs/user-manual/find-by-intent.md)、[チュートリアル](docs/user-manual/tutorial.md)、[全機能](docs/user-manual/features.md) |
+| 利用者の操作 | [docs/user-manual.md](docs/user-manual.md)。手順は [getting-started](docs/user-manual/getting-started.md)、[find-by-intent](docs/user-manual/find-by-intent.md)、[tutorial](docs/user-manual/tutorial.md)、[features](docs/user-manual/features.md) |
 | 操作の入口（内部表） | [docs/operation-entries.md](docs/operation-entries.md) |
 | 画面と機能の挙動、機能 ID | [docs/external-spec.md](docs/external-spec.md) |
-| 仕様を足すときの影響と抜け | [docs/feature-checklist.md](docs/feature-checklist.md) |
-| スケジュール、メンバー、カレンダーの JSON とアプリデータ | [docs/data-format.md](docs/data-format.md) と `docs/*.schema.json` |
-| 構成、状態、Tauri コマンド、描画 | [docs/internal-spec.md](docs/internal-spec.md) |
-| 自動テストと手動テスト | [docs/test-spec.md](docs/test-spec.md) |
-| 環境構築、起動、CI、リリース、配布用ビルド | [docs/development.md](docs/development.md) |
-| 1.x を出しながら次のメジャーを進めるブランチ | [docs/development.md](docs/development.md)（1.x を出しながら次のメジャーを進める）。実装は implement-change、`next` を切る作業とリリースは cut-release |
-| 目的、決定事項、経緯、ロードマップ | [docs/PLANNING.md](docs/PLANNING.md) |
-| UI の見た目ベンチマーク・洗い出し（#449） | [docs/design/benchmark.md](docs/design/benchmark.md)、[docs/design/inventory.md](docs/design/inventory.md) |
-| 概要と文書の入口 | [README.md](README.md) |
-| 計画に沿ってアプリを実装する | [.cursor/skills/implement-change/SKILL.md](.cursor/skills/implement-change/SKILL.md) |
-| リリース、CI、配布用ビルド | [.cursor/skills/cut-release/SKILL.md](.cursor/skills/cut-release/SKILL.md) |
-| 操作マニュアルの GitHub Pages 公開 | [.cursor/skills/publish-user-manual/SKILL.md](.cursor/skills/publish-user-manual/SKILL.md) |
-| プロジェクト全体をレビューする | [.cursor/skills/review-project/SKILL.md](.cursor/skills/review-project/SKILL.md) |
-| 計画を実装したあとのレビュー | [.cursor/skills/review-implementation/SKILL.md](.cursor/skills/review-implementation/SKILL.md) |
-| 日本語の文章の書き方 | [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) |
-
-フィールド定義の正本は各 JSON Schema である。挙動の正本はソースコードである。文書とソースが食い違ったときは、ソースに合わせて文書を直す。
-
-デスクトップ版を起動するときは、リポジトリで `npm run tauri dev` を使う。手順は [docs/development.md](docs/development.md) にある。`src-tauri/target/debug/schedule-viewer` を直接開かない。開発ビルドの画面は `http://localhost:1420/` を読むので、開発サーバーが無いと白くなる。`schedule-viewer --mcp` は画面用のプロセスとは別である。
-
-## 内部コードの境界（#436 ステップ 8）
-
-Issue #436 段 8（子 Issue #490）の方針の要約である。モジュールの場所と操作入口のコード上の対応は [docs/internal-spec.md](docs/internal-spec.md) に書く。実装の細かい手順は [.cursor/skills/implement-change/SKILL.md](.cursor/skills/implement-change/SKILL.md) に残す。
-
-- 依存は `components` / `App` → `hooks` → `model` の向きだけとする。`model` は `components` と `hooks` を import しない
-- PR 2 以降で `src/operations/` を置く。操作 ID と入口定義（ラベルは `operationLabels.ts` を参照）を集め、**実行**は hooks に残す
-- 操作の入口を増やす・変えるときは、同じ変更で [docs/operation-entries.md](docs/operation-entries.md)（手書き正本）と [docs/feature-checklist.md](docs/feature-checklist.md) の「操作の入口」を更新する。機械検査は PR 1 以降で足す
-- 挙動が変わる不具合修正・audit・性能計測はステップ 8 に混ぜない（別 Issue #491）
-- 段 8 にスコープ外はない。PR 0–7 のあと、**カタログ編集共通化 → `Timeline.tsx` 段階分割 → `model` 循環解消**の順で、各塊は特性テストを先に足し小 PR に分ける。急がない。順序と完了条件は Issue #490。**循環 import**は `npm run check:madge-circular-baseline` で CI が失敗する（詳細は [docs/model-circular-import-plan.md](docs/model-circular-import-plan.md)）
-- AGENTS や skills の記述を削る・短くするときは、移動先を示し黙って削除しない（#490 の D1）。M 完了後の **D0–D2** で棚卸しと仕上げを行う
+| 仕様を足すときの影響 | [docs/feature-checklist.md](docs/feature-checklist.md) |
+| JSON とアプリデータ | [docs/data-format.md](docs/data-format.md)、`docs/*.schema.json` |
+| 構成、Tauri、描画、段 8 境界 | [docs/internal-spec.md](docs/internal-spec.md) |
+| 循環 import と CI | [docs/model-circular-import-plan.md](docs/model-circular-import-plan.md) |
+| テスト | [docs/test-spec.md](docs/test-spec.md) |
+| 環境・CI・リリース | [docs/development.md](docs/development.md) |
+| 1.x と next のブランチ | [development.md](docs/development.md)（1.x を出しながら次のメジャーを進める） |
+| 方針・ロードマップ | [docs/PLANNING.md](docs/PLANNING.md) |
+| UI デザイン #449 | [docs/design/benchmark.md](docs/design/benchmark.md)、[inventory.md](docs/design/inventory.md) |
+| D0 棚卸し・old→new | [docs/agents-d0-inventory.md](docs/agents-d0-inventory.md)、[principles-analysis](docs/agents-d0-principles-analysis.md) |
+| 概要 | [README.md](README.md) |
 
 ## 変更したら文書も更新する
 
 | 変えたもの | 同じ変更で更新する文書 |
 | --- | --- |
-| 画面の挙動、操作、表示 | [docs/external-spec.md](docs/external-spec.md)。利用者の手順が変わるときは、内容に合う [docs/user-manual/getting-started.md](docs/user-manual/getting-started.md)、[docs/user-manual/find-by-intent.md](docs/user-manual/find-by-intent.md)、[docs/user-manual/tutorial.md](docs/user-manual/tutorial.md)、[docs/user-manual/features.md](docs/user-manual/features.md)。読み方だけ変えるときは [docs/user-manual.md](docs/user-manual.md)。README の機能説明が変わるときは [README.md](README.md) |
-| 操作の入口（ラベル・ショートカット・MCP 名の対応） | [docs/operation-entries.md](docs/operation-entries.md) と [docs/feature-checklist.md](docs/feature-checklist.md) の「操作の入口」 |
-| コードの境界・`src/operations/`・入口のソース位置 | [docs/internal-spec.md](docs/internal-spec.md) |
-| 機能 ID の増減、または機能チェックリストの行の境 | [docs/feature-checklist.md](docs/feature-checklist.md) |
-| JSON のフィールドや `schemaVersion` | [docs/data-format.md](docs/data-format.md) と対応する `docs/*.schema.json`。スケジュール JSON は [.cursor/skills/update-schedule-schema/SKILL.md](.cursor/skills/update-schedule-schema/SKILL.md) の手順で、検証、サンプル、`write-schedule` スキルも揃える。カレンダーは `write-calendar`、メンバーは `write-members`、色の一覧は `write-colors`、設定ファイルは `write-workspace` を、スキーマとアプリの検証と同じ変更で揃える |
-| モジュール構成、状態、Tauri コマンド、描画の流れ | [docs/internal-spec.md](docs/internal-spec.md) |
-| テストの追加、削除、または対応する機能 ID | [docs/test-spec.md](docs/test-spec.md) |
-| 起動手順、依存バージョン、CI、リリース、配布、操作マニュアルの Pages | [docs/development.md](docs/development.md)。利用者向けの導入が変わるときは [README.md](README.md) と [docs/user-manual/getting-started.md](docs/user-manual/getting-started.md)（入手と起動）。LLM 連携の流れが変わるときは [docs/user-manual/tutorial.md](docs/user-manual/tutorial.md)。公開 URL が変わるときは [docs/user-manual.md](docs/user-manual.md) |
-| 方針、決定事項、ロードマップ | [docs/PLANNING.md](docs/PLANNING.md) |
+| 画面の挙動、操作、表示 | [docs/external-spec.md](docs/external-spec.md)。手順が変わるときは [getting-started](docs/user-manual/getting-started.md)、[find-by-intent](docs/user-manual/find-by-intent.md)、[tutorial](docs/user-manual/tutorial.md)、[features](docs/user-manual/features.md)。読み方だけ [user-manual.md](docs/user-manual.md)。README の機能説明 [README.md](README.md) |
+| 操作の入口 | [docs/operation-entries.md](docs/operation-entries.md)、[feature-checklist.md](docs/feature-checklist.md)「操作の入口」 |
+| コードの境界・operations | [docs/internal-spec.md](docs/internal-spec.md) |
+| 機能 ID・チェックリスト行 | [docs/feature-checklist.md](docs/feature-checklist.md) |
+| JSON・schemaVersion | [docs/data-format.md](docs/data-format.md)、`docs/*.schema.json`。[update-schedule-schema](.cursor/skills/update-schedule-schema/SKILL.md)。カレンダー・メンバー・色・workspace は各 write-* スキルと検証を同じ変更で |
+| モジュール・状態・Tauri・描画 | [docs/internal-spec.md](docs/internal-spec.md) |
+| テスト | [docs/test-spec.md](docs/test-spec.md) |
+| 起動・CI・リリース・Pages | [docs/development.md](docs/development.md)。導入 [README.md](README.md)、[getting-started](docs/user-manual/getting-started.md)。LLM [tutorial](docs/user-manual/tutorial.md)。公開 URL [user-manual.md](docs/user-manual.md) |
+| 方針・ロードマップ | [docs/PLANNING.md](docs/PLANNING.md) |
 
-通常の不具合修正では [docs/PLANNING.md](docs/PLANNING.md) は更新しない。利用者に見える変更をリリースへ入れるときは [CHANGELOG.md](CHANGELOG.md) も更新する。
+通常の不具合修正では [docs/PLANNING.md](docs/PLANNING.md) は更新しない。利用者向けリリースでは [CHANGELOG.md](CHANGELOG.md) も更新する。
+
+## 開発環境（例）
+
+デスクトップは `npm run tauri dev`（[development.md](docs/development.md)）。`src-tauri/target/debug/schedule-viewer` を直接開かない。UI は `http://localhost:1420/`。`schedule-viewer --mcp` は画面プロセスと別。
+
+## 段 8 文書仕上げ（Issue #490）
+
+コード整理（C/T/M・UI/hooks 循環・#524 madge CI）は **feature-436** 上で完了。**D0** = 本 AGENTS の原則化 + inventory。**D1** = skills 再構成 + Issue 本文更新。**D2** = P-CI-06 等の機械化。
+
+**届け方:** `feature-436` → **`next` 合流**。CI・AGENTS の共通ルールは **`develop` にも必要なら cherry-pick または合流 PR**（段 8 専用の境界だけ next 限定可）。
 
 ## Issue
 
-GitHub の Issue を見る、コメントする、作る、更新するときは、gh を使う。
+GitHub の Issue は gh を使う。
 
 ## 個人の学習
 
-会話から残す個人の好みと、このマシンだけの作業事実は、`.cursor/rules/personal.local.mdc` に書く。`AGENTS.md` には `Learned User Preferences` と `Learned Workspace Facts` を足さない。学習の実行状態は `.cursor/hooks/state/` に置く。この二つは Git に含めない。
+個人の好みとマシン固有の事実は `.cursor/rules/personal.local.mdc`。`AGENTS.md` に Learned User Preferences / Workspace Facts を足さない。実行状態は `.cursor/hooks/state/`（Git 外）。
 
-## スキルの使い方と保守
+## スキルとルール（索引）
 
-計画を書いて実装に渡すときは、実装が読むスキル名と、その中の節を計画に書く。アプリの実装（画面、状態、モデル、Tauri、描画と、それに伴う文書とテスト）は [implement-change](.cursor/skills/implement-change/SKILL.md)、リリース、CI、配布用ビルドは [cut-release](.cursor/skills/cut-release/SKILL.md)、操作マニュアルの GitHub Pages は [publish-user-manual](.cursor/skills/publish-user-manual/SKILL.md)、プロジェクト全体のレビューは [review-project](.cursor/skills/review-project/SKILL.md)、計画を実装したあとのレビューは [review-implementation](.cursor/skills/review-implementation/SKILL.md) である。起動中のスケジュールの相談や変更は `schedule-talk` から始め、必要に応じて MCP、`read-screen`、`write-schedule` を使う。スケジュール、メンバー、カレンダーの JSON を作るときは `write-schedule`、`write-members`、`write-calendar`。色の一覧 JSON を作るときは `write-colors`。同じフォルダを `workspace.json` で束ねるときは `write-workspace`。スケジュール JSON の形を変えるときは `update-schedule-schema`。
+計画には読むスキル名と節を書く。名指しが無いときは `description` が合うスキルを 1 つ。`implement-change` は指定節 + 常に「着手前」。
 
-1.x を出しながら次のメジャーを進める手順は [docs/development.md](docs/development.md) にある。この作業用のスキルは作らない。実装の計画は implement-change だけを読み、載せるブランチは着手前で決める。`next` を切る作業と次メジャーのリリースは、cut-release の「1.x と次のメジャー」を読む。
+| 用途 | スキル |
+| --- | --- |
+| アプリ実装・文書・テスト | [implement-change](.cursor/skills/implement-change/SKILL.md) |
+| リリース・CI・配布 | [cut-release](.cursor/skills/cut-release/SKILL.md) |
+| 操作マニュアル Pages | [publish-user-manual](.cursor/skills/publish-user-manual/SKILL.md) |
+| 全体レビュー | [review-project](.cursor/skills/review-project/SKILL.md) |
+| 計画実装のレビュー | [review-implementation](.cursor/skills/review-implementation/SKILL.md) |
+| 起動中スケジュール相談 | [schedule-talk](.cursor/skills/schedule-talk/SKILL.md) |
+| `/consult` | [consult](.cursor/skills/consult/SKILL.md) + consult.mdc |
+| スケジュール JSON | write-schedule（他リポジトリ可） |
+| メンバー / カレンダー / 色 / workspace / 拡張項目 | write-members, write-calendar, write-colors, write-workspace, write-fields |
+| スケジュール schema | [update-schedule-schema](.cursor/skills/update-schedule-schema/SKILL.md) |
 
-計画を実装する前に、計画が名指ししたスキルの `SKILL.md` を読む。名指しが無いときは、`description` がこの作業に合うスキルを1つ読む。`implement-change` は、指定された節と、節の指定にかかわらず「着手前」を読む。
+1.x を出しながら next を進める手順は development のみ（専用スキルは作らない）。`next` 切りと次メジャーリリースは cut-release「1.x と次のメジャー」。
 
-日本語の文章の書き方は [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) に従う。相談の返答の順は [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) が優先する。
+スキルの分割・更新はエージェントが同じ作業で行う。半分以上の節が不要なら種類別スキルへ分ける（スキーマ変更は update-schedule-schema のまま）。
 
-仕様や方向の相談は、利用者が `/consult` または「相談モード」で始めたときに [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) に従う。返答は、依頼を一文で復唱し、次の一文で推す案を書き、理由は「理由1: 見出し」で番号を付け、そのあと「変える場所」「残る選択肢」の見出しで続ける。終わりの条件もこのルールにある。[.cursor/skills/consult/SKILL.md](.cursor/skills/consult/SKILL.md) は、`/consult` で相談を始めるときに読む。
-
-スキルの作成、本文の更新、分割してよいかの判断は、エージェントが同じ作業の中で行う。
-
-スキルやルールの本文からほかのファイルへリンクするときは、そのファイルからの相対パスで書く。たとえば SKILL.md から `AGENTS.md` へは `../../../AGENTS.md` と書く。
-
-計画を実装したあとのレビューは [review-implementation](.cursor/skills/review-implementation/SKILL.md) に従い、その場ではファイルを直さない。計画と仕上がりがずれた箇所を直すときは、再発を防ぐ手順を該当スキルの該当する節へ同じ変更で必ず足す。足した節を結果に書く。足さない判断だけを書いて完了にしない。その計画だけの指摘は足さない。`write-schedule`、`write-members`、`write-calendar`、`write-workspace`、`write-fields`、`write-colors` は他のリポジトリへコピーして使うので、アプリ実装の手順はそこへ書かない。
-
-ある種類の計画で、既存スキルの手順のうち使わないものが半分を超えるときは、その種類用のスキルに分ける。リリース、CI、配布用ビルドは、画面の実装と手順が重ならなくなったときに分ける。スキーマの変更は `update-schedule-schema` のままにする。毎回の計画が実装用スキルを2つ読めとしているときは、1つに戻す。
+レビュー指摘を直すとき、再発防止は該当 SKILL 節へ同じ変更で必ず足す（review-implementation）。計画だけの指摘は足さない。

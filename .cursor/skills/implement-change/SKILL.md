@@ -17,6 +17,7 @@ description: >-
 
 ## 着手前
 
+0. AGENTS の **P1–P6** と [docs/agents-d0-principles-analysis.md](../../../docs/agents-d0-principles-analysis.md)（テーマ別索引）。具体条項は本 SKILL に残す
 1. [AGENTS.md](../../../AGENTS.md) の表で、この変更に合う文書を読み、場所を絞ってからソースを開く
 2. 機能 ID がある変更は、[docs/external-spec.md](../../../docs/external-spec.md) のその節に合わせる
 3. 画面の組み立て、状態、モデル、Tauri、描画のどれを触るかを決める。層の向きと `src/operations/` の役割は [docs/internal-spec.md](../../../docs/internal-spec.md) の「コードの境界（#436 ステップ 8）」に従う。AGENTS.md に要約がある。Rust は JSON の意味を解釈しない（`internal-spec.md` の全体構成も参照）
