@@ -934,6 +934,10 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `allows fire after the window or on a different task` | EDIT-12 |
 | `timelineVisibleBarObstacles.test.ts` | `skips rows outside the viewport and skipped task ids` | EDIT-03, EDIT-11 |
 | 同上 | `includes visible task bars and summary bars with layout coordinates` | EDIT-03 |
+| `timelineHeaderScrollAnchor.test.ts` | `clamps to day range and floors scroll offset` | NAV-01 |
+| 同上 | `avoids division by zero when pxPerDay is zero` | NAV-01 |
+| `timelineHeaderGrid.test.ts` | `builds month-tier vertical grid lines` | NAV-01 |
+| 同上 | `includes header border and year-month label keys` | NAV-01 |
 | `colorScheme.test.ts` | `accepts light and dark` | SET-04 |
 | `autoUpdate.test.ts` | `treats on as enabled`、localStorage の読み書き、更新確認の失敗を出さない条件、`classifyUpdateCheckError` | SET-06 |
 | `storeDistribution.test.ts` | `readStoreDistribution` が Tauri で `is_store_distribution` を呼ぶ | SET-06 |
