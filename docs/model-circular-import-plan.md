@@ -40,9 +40,9 @@ Issue #490 の順序を変えない。**M3 は `validateSchedule` ハブを最�
 
 完了条件: 2 環が 0。同上。
 
-### M3（17 環）
+### M3（残り 13 環、ベースライン JSON 参照）
 
-`validateSchedule.ts` を中心としたクラスタ（`hierarchy`、`dependencies`、`tasks`、`scheduleSemantics`、`assigneeIds`、`connections`、`taskFields`、`taskTodos`、`outlineTasks`、`validationMessages`、`taskTags`、`timeline` への経路を含む）。
+`validateSchedule.ts` を中心としたクラスタ（M1 後は `outlineTaskMap` 経路を含む。`hierarchy`、`dependencies`、`tasks`、`scheduleSemantics` 等）。
 
 完了条件: model 向け madge 循環が 0、または許容リストのみ。全テスト通過。**ハブの層分割はこの段だけ**で行う。
 
