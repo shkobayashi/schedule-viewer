@@ -49,6 +49,11 @@ for (const row of matrixRows) {
   if (!row.includes("自動:") && !row.includes("手動:")) {
     errors.push(`対応が無い行: ${row.slice(0, 80)}`);
   }
+  for (const match of row.matchAll(/手動:(RG-[A-Z0-9-]+)/g)) {
+    if (!scenarios.includes(`## ${match[1]} `)) {
+      errors.push(`対応表の ${match[1]} が regression.md のシナリオに無い`);
+    }
+  }
 }
 
 const caseIds = idList
