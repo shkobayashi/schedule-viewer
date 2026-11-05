@@ -65,7 +65,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 段 8 の後半（PR 7 以降）の目安順序:
 
 1. **カタログ編集共通化** — `ColorCatalogEditor*` / `Member*` / `Status*` の Overlay・Panel、`use*CatalogEditorOverlay`、`*AppData.ts`、設定の色・メンバー・ステータス節。**C0**（特性テストのみ）: `memberCatalogEditSession.test.ts`、`memberCatalogEditHistory.test.ts`、`catalogEditDraftMessages.test.ts`、`catalogEditImportMessages.test.ts`、`colorCatalogEditSession.test.ts` の追補、Rust `sanitize_catalog_id` の `#[test]`。手動 TC との対応は `docs/test-spec.md` の Vitest 表。**C1**: `catalogAppDataLoader.ts`。**C2**: `useCatalogEditorOverlayCore.ts`（三種の覆いフックの共通セッション。各 `use*CatalogEditorOverlay` は種別の read・claim・文言・フラグだけを渡す）。**C3**: `CatalogEditorOverlay.tsx`、`CatalogEditorPanelFooter.tsx`、`catalogEditorCopy.ts`、`catalogEditorUi.ts`（覆いの殻とパネルフッター。各 `*CatalogEditorOverlay` / `*CatalogEditorPanel` は種別の Panel 本体と行・右欄を残す）。**C3 のあと（C4 の前）**: `src/**/*.test.tsx` を jsdom で実行する Vitest プロジェクトと Testing Library（`catalogEditorOverlay.dom.test.tsx` など）。**C4**: `SettingsCatalogSection.tsx`、`settingsCatalogSectionCopy.ts`（設定の色・メンバー・ステータス節の取り込み・選択・外す・上書き確認。各 `Settings*Section` は説明文と検証だけを渡す薄いラッパー）
-2. **`Timeline.tsx`**（T1 後おおよそ 3,220 行）— **T0** 特性テスト（`chartHitTest.ts` の追補、`mcpInProgressInvalidation` / `timelineDragCommit` / `timelineLinkPointerClick` / `timelineVisibleBarObstacles`、クライアント座標ヘルパー）。**T1**: `TimelineHeaderPanel.tsx`、`buildTimelineChartHeaderContent`、`buildTimelineBodyColumnNodes`、`timelineHeaderScrollAnchor.ts`（日・週・月ヘッダーと本体グリッド。ポインタ非依存）。T1 通過後、バー・ポインタ・説明レイヤーを T2–T5 で分割
+2. **`Timeline.tsx`**（T2 後おおよそ 2,140 行）— **T0** 特性テスト（`chartHitTest.ts` の追補、`mcpInProgressInvalidation` / `timelineDragCommit` / `timelineLinkPointerClick` / `timelineVisibleBarObstacles`、クライアント座標ヘルパー）。**T1**: `TimelineHeaderPanel.tsx`、`buildTimelineChartHeaderContent`、`buildTimelineBodyColumnNodes`、`timelineHeaderScrollAnchor.ts`（日・週・月ヘッダーと本体グリッド。ポインタ非依存）。**T2**: `TimelineSummaryBar.tsx`、`TimelineTaskBar.tsx`、`TimelineResizeHandles.tsx`、`timelineBarResizeHit.ts`（親バー・タスクバー・選択時のリサイズハンドル。ドラッグ日付チップは `Timeline.tsx` に残す）。T2 通過後、ポインタ・説明レイヤーを T3–T5 で分割
 3. **`model` の循環 import**（madge で約 30 件）— `validateSchedule` クラスタは M3 で最後。M0 でベースライン記録
 
 `Toolbar.tsx` ↔ `FilterPanel.tsx` の UI 循環も段 8 で解消する（該当 PR で madge 確認）。
@@ -103,10 +103,14 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 | `ShortcutsDialog.tsx` | ショートカット一覧 |
 | `CommandPalette.tsx` | ⌘/Ctrl+K のコマンドパレット |
 | `Sidebar.tsx` | 左の行、階層の細い縦線（`hierarchyGuide.ts` が見えている行から本数を決める）、マイルストングループ名の行の右クリック、折りたたみ、切れた名前の全文、タスク行のクリック選択とホバー帯、左端の握りによる並べ替えと別グループへの移動、グループ行の握りによる並べ替えと別カテゴリへの移動、カテゴリ行の握りによる並べ替え、並べ替え中にポインタへ付く半透明の行または塊。説明用半透明は `.explanation-sidebar-veil`（DOM）。示すタスク行は `sidebar-row--explanation-mark` で枠線と `z-index` のみ（y は計算しない）。印に `color` があるときは inline の outline と下敷き、無いときは `kind` 用 CSS |
-| `Timeline.tsx` | バー、前後の線、イナズマ線、ドラッグでのスクロール、本体 Stage。ポインターの当たりは `useTimelinePointer`。日付ヘッダー Stage は `TimelineHeaderPanel`。説明用の半透明は各 Stage 最上段の `ExplanationKonvaVeilLayer.tsx`。吹き出しは `TimelineExplanationBalloons.tsx` を `.timeline-body` と `.timeline-header` に重ねる。段階分割は Issue #490 |
+| `Timeline.tsx` | 前後の線、イナズマ線、ドラッグ日付チップ、ドラッグでのスクロール、本体 Stage。ポインターの当たりは `useTimelinePointer`。日付ヘッダー Stage は `TimelineHeaderPanel`。親バー・タスクバー・選択時リサイズは T2 の `TimelineSummaryBar` / `TimelineTaskBar` / `TimelineResizeHandles`。説明用の半透明は各 Stage 最上段の `ExplanationKonvaVeilLayer.tsx`。吹き出しは `TimelineExplanationBalloons.tsx` を `.timeline-body` と `.timeline-header` に重ねる。段階分割は Issue #490 |
 | `TimelineHeaderPanel.tsx` | チャート上部の日付ヘッダー Stage（T1）。`buildTimelineChartHeaderContent` の Layer と説明ベール |
 | `TimelineChartHeaderContent.tsx` | `buildTimelineChartHeaderContent` — 日・週・月ヘッダーの Konva ノード（T1） |
 | `TimelineBodyGrid.tsx` | `buildTimelineBodyColumnNodes` — チャート本体と固定行の背景グリッド（T1） |
+| `TimelineSummaryBar.tsx` | カテゴリ・グループ・見出し行の親バー（T2） |
+| `TimelineTaskBar.tsx` | タスクバーの Konva（移動・未選択時の端ドラッグ・ラベル・系統モードの押下）（T2） |
+| `TimelineResizeHandles.tsx` | 選択タスクの見えるリサイズハンドル（T2） |
+| `timelineBarResizeHit.ts` | 端ドラッグ用の Konva `hitFunc` とクリック伝播止め（T2） |
 | `ExplanationKonvaVeilLayer.tsx` | 説明セッションの Konva ベールと抜き。日付ヘッダー、マイルストン帯、チャート本体の Stage に載せる。MCP 読み取り PNG では `explanationKonvaCapture.ts` 経由で Layer を一時的に隠す |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
@@ -150,7 +154,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 | 型 | `types.ts`、`memberTypes.ts`、`calendarTypes.ts` |
 | 検証 | `validateSchedule.ts`、`validateMembers.ts`、`validateCalendar.ts`、`*Semantics.ts`、`scheduleMigrate.ts`、`uuidV5.ts`、`validationMessages.ts`、`generated/` |
 | 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`progressRollup.ts`、`taskTodos.ts`、`tasks.ts`、`taskOrder.ts`、`categoryOrder.ts`、`groupOrder.ts` |
-| 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`timelineHeaderScrollAnchor.ts`（T1）、`timelineVisibleBarObstacles.ts`（T0）、`timelineDragCommit.ts`（T0）、`timelineLinkPointerClick.ts`（T0）、`mcpInProgressInvalidation.ts`（T0）、`dates.ts`、`monthHeader.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
+| 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`timelineHeaderScrollAnchor.ts`（T1）、`timelineVisibleBarObstacles.ts`（T0）、`timelineDragCommit.ts`（T0）、`timelineLinkPointerClick.ts`（T0）、`mcpInProgressInvalidation.ts`（T0）、`summaryBarLayout.ts`（T2）、`dates.ts`、`monthHeader.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
 | 担当とノート | `assigneeIds.ts`（JSON との変換と意味規則）、`assigneeDisplay.ts`、`taskNote.ts` |
 | 対応マイルストン欄と絞り込みのマイルストン欄 | `milestoneField.ts` の `buildMilestoneFieldList`、`buildMilestoneFilterList`、`initialMilestoneFieldActiveIndex`、`initialMilestoneFilterActiveIndex` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |
@@ -466,7 +470,7 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 | 破綻 | `dependencies.ts` の `isBrokenLink` | 後続の開始が先行の終了より前。同じ日は破綻でない |
 | ドラッグ中の日付 | `dragDates.ts` の `layoutDragDateChips` と `previewDatesForDrag` | 開始と終了を月/日で、棒と互いの地と他の棒を避けて置く。離したときに入る日に数字を合わせる |
 | ドラッグ中の線の色 | `dragDates.ts` の `previewLinkBroken` | 触っているタスクが端の線だけ、preview の日付で破綻を見る |
-| 親バー | `summary.ts` の `summarizeSpans`、`Timeline.tsx` の `SummaryBar` | 開始順に並べ、次が前の終了の翌日以前ならつなぐ。1日空くと分ける。見えているタスクだけを渡す。カテゴリ、グループ、`levels` の見出し行のいずれも、`summary` があるとき親バーを描く |
+| 親バー | `summary.ts` の `summarizeSpans`、`TimelineSummaryBar.tsx` | 開始順に並べ、次が前の終了の翌日以前ならつなぐ。1日空くと分ける。見えているタスクだけを渡す。カテゴリ、グループ、`levels` の見出し行のいずれも、`summary` があるとき親バーを描く |
 | 左の行の進捗 | `progressRollup.ts` の `categoryRollupPercent` と `groupRollupPercent` | 配下タスクを同じ重さで平均し四捨五入。`status` が `done` のタスクは 100。それ以外は進捗欄の数字。絞り込み・折りたたみ・系統で隠れたタスクも含む。親バーとは別 |
 | タスクの項目と進捗 | `taskTodos.ts` の `normalizeScheduleDocument`、`progressFromTodoItems`、`normalizeTaskWithTodos` | 読み込みと保存で `todos` があるタスクの `progress` を件数で上書き。左のタスク行の `3/6` は `taskTodoCountLabel`。詳細は EDIT-22 |
 | イナズマ線 | `timeline.ts` の `lightningDate` | 項目の `role` と開始・終了・今日。一覧に無い `id` はどの期間でも今日 |
