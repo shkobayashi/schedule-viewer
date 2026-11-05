@@ -65,7 +65,7 @@ Intel Mac では、[開発ガイドの配布用ビルド](docs/development.md#�
 
 ## ドキュメント
 
-リポジトリを調べるエージェントは、ソースより先にこれらの文書を読み、変更したときは対応する文書も同じ変更で更新する。詳細は [AGENTS.md](AGENTS.md)。
+リポジトリを調べるエージェントは、[AGENTS.md](AGENTS.md) の 8 原則と [docs/agents-agent-index.md](docs/agents-agent-index.md) の文書表を先に読み、変更したときは [docs/agents-doc-update-map.md](docs/agents-doc-update-map.md) に従って文書も同じ変更で更新する。
 
 | 文書 | 内容 |
 | --- | --- |
