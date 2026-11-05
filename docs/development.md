@@ -220,7 +220,7 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run build` | 検証器の生成、`tsc`、Vite の本番ビルド |
 | `npm run preview` | 本番ビルドのプレビュー |
 | `npm run dev:manual-screenshot` | 操作マニュアル用の画面ショット撮影向けに、Tauri をモックした Vite を起動する |
-| `npm run capture:manual-screenshots` | [操作マニュアル](user-manual.md) 用の PNG を `docs/user-manual/images/` に生成する。Chrome が入っていること。色の見本は `examples/manual-colors.schedule.json` |
+| `npm run capture:manual-screenshots` | [操作マニュアル](user-manual.md) 用の PNG を `docs/user-manual/images/` に生成する。Chrome が入っていること。色の見本は `examples/manual-colors.schedule.json`。撮る前に、その JSON の日付を撮影日（`manualScreenshotTodayIso`）基準へ平行移動する |
 | `npm run build:manual-site` | [操作マニュアル](user-manual.md) だけを `site/` に静的 HTML として出力する。fragment と画像の参照を検査する。パスの無い `#見出し` は、そのリンクがあるページの見出しと照合する。全機能の HTML には h2 と h3 の見出し一覧を出す。出力は git に含めない |
 | `npm run tauri` | Tauri CLI を呼ぶ。後ろに `dev` や `build` を付けて使う |
 | `npm run tauri:dev:fresh` | `SCHEDULE_VIEWER_FRESH_START=1` 付きの `tauri dev`。アプリデータと localStorage を初回起動相当にしてから起動する（開発ビルドのみ） |
