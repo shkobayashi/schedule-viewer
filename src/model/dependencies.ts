@@ -4,16 +4,12 @@ import {
   validatePredecessorRefs,
   type ValidationIssue,
 } from "./scheduleSemantics";
-import { forEachTask, mapTasks } from "./tasks";
+import { forEachTask, mapTasks } from "./taskTraversal";
+import { type TaskRef } from "./taskRef";
 import { SCHEDULE_SCHEMA_VERSION, type Category, type ScheduleId, type Task, type TaskConnection } from "./types";
 import { formatValidationErrors } from "./validateSchedule";
 
-export type TaskRef = {
-  id: ScheduleId;
-  name: string;
-  category: string;
-  group: string;
-};
+export type { TaskRef } from "./taskRef";
 
 export type DependencyLink = {
   fromId: ScheduleId;

@@ -11,7 +11,7 @@
 | ベースライン照合 | `npm run check:madge-circular-baseline`（**CI frontend で必須**。`npm test` の node:test からも呼ぶ。**不一致で失敗**） |
 | 正本 JSON | [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) |
 
-M0 時点の **循環数は 30** である。M1 完了後は **17**、M2 完了後は **15** である（ベースライン JSON を更新済み）。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。
+M0 時点の **循環数は 30** である。M1 完了後は **17**、M2 完了後は **15**、**M3a** 完了後は **4** である（ベースライン JSON を更新済み）。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。
 
 ## 解消順（M1 → M2 → M3）
 
@@ -38,11 +38,24 @@ Issue #490 の順序を変えない。**M3 は `validateSchedule` ハブを最�
 | `fieldFilters` ↔ `types` | 条件型を `fieldFiltersTypes.ts` へ。`types` はそこから `FieldFiltersState` を参照 |
 | `palette` ↔ `design/uiTokens` | `ResolvedColorScheme` を `resolvedColorScheme.ts` へ |
 
-### M3（残り 13 環、ベースライン JSON 参照）— 未着手
+### M3（`validateSchedule` ハブ）— 分割
 
-`validateSchedule.ts` を中心としたクラスタ（M1 後は `outlineTaskMap` 経路を含む。`hierarchy`、`dependencies`、`tasks`、`scheduleSemantics` 等）。
+Issue #490 では M3 を最後にまとめる。**変更量に応じて PR を分ける**。
 
-完了条件: model 向け madge 循環が 0、または許容リストのみ。全テスト通過。**ハブの層分割はこの段だけ**で行う。
+#### M3a — 完了
+
+2026-11-05 の M3a PR。`taskRef.ts`（`TaskRef` 型）と `taskTraversal.ts`（`forEachTask` / `mapTasks`）。`hierarchy` が `dependencies` を import しないようにし、`taskTags` が `tasks` を import しないようにした。**13 環のうち 11 環を解消**（ベースライン **15 → 4**）。
+
+#### M3b — 未着手
+
+残り **model 2 環**（ベースライン JSON の `M3b` 参照）。
+
+| 環 | 方針（案） |
+| --- | --- |
+| `taskTodos` ↔ `tasks` | 正規化・編集進捗の共有型または薄いモジュールへ型を逃がす |
+| `validateSchedule` → `taskTodos` → `tasks` | `formatValidationErrors` を `validationMessages` へ直接 import、`ValidationIssue` 型の正本を `validationIssue.ts` 等へ |
+
+完了条件: model 向け madge 循環が 0。全テスト通過。
 
 ## 段 8 で別扱い（M1–M3 とは別 PR）
 
