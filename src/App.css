@@ -4007,22 +4007,44 @@ html[data-color-scheme="dark"] .command-palette {
   line-height: 1.4;
 }
 
+.shortcuts-mode-intro {
+  margin: 0 0 calc(8px * var(--s));
+  font-size: calc(11px * var(--s));
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.shortcuts-mode-notes {
+  margin: calc(10px * var(--s)) 0 0;
+  padding-left: calc(18px * var(--s));
+  font-size: calc(10px * var(--s));
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.shortcuts-mode-notes-label {
+  display: block;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text);
+  margin-bottom: calc(2px * var(--s));
+}
+
+.shortcuts-table--mode thead th:not(:first-child),
+.shortcuts-table--mode tbody td:not(:first-child) {
+  white-space: nowrap;
+  text-align: center;
+  font-size: calc(12px * var(--s));
+  line-height: 1.3;
+  padding-right: calc(4px * var(--s));
+  width: 14%;
+}
+
 .shortcuts-table--mode th[scope="row"],
 .shortcuts-table--mode td:first-child {
   white-space: normal;
   text-align: left;
   padding-right: calc(8px * var(--s));
-  width: 26%;
-}
-
-.shortcuts-table--mode thead th:not(:first-child),
-.shortcuts-table--mode tbody td {
-  white-space: normal;
-  text-align: left;
-  hyphens: auto;
-  overflow-wrap: anywhere;
-  padding-right: calc(6px * var(--s));
-  width: 18.5%;
+  width: 44%;
 }
 
 .shortcuts-table--mode thead th:not(:first-child) {

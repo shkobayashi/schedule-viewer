@@ -333,7 +333,13 @@ describe("frequent operation shortcuts", () => {
     expect(matchGoToday(key("t"), editNav)).toBe(true);
     expect(matchGoToday(key("T"), editNav)).toBe(true);
     expect(matchGoToday(key("t", { ctrlKey: true }), editNav)).toBe(false);
-    expect(matchGoToday(key("t"), { ...editNav, blocksEditKeys: true })).toBe(false);
+    expect(matchGoToday(key("t"), { ...editNav, blocksEditKeys: true })).toBe(
+      false,
+    );
+    expect(matchGoToday(key("t"), { ...editNav, dialogOpen: true })).toBe(false);
+    expect(matchGoToday(key("t"), { ...editNav, commandPaletteOpen: true })).toBe(
+      false,
+    );
   });
 
   it("sets view tier with Ctrl/Cmd+1..4", () => {

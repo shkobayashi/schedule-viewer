@@ -63,7 +63,6 @@ import {
   editShortcutHint,
   lineageToggleShortcutHint,
   noteShortcutHint,
-  renameShortcutHint,
   usesCommandKey,
 } from "./model/shortcuts";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
@@ -4520,7 +4519,7 @@ function App() {
         id: "edit",
         label: "編集",
         icon: <Pencil size={14} strokeWidth={2} />,
-        shortcut: `${editShortcutHint()}, ${renameShortcutHint()}`,
+        shortcut: editShortcutHint(),
         onSelect: () => {
           if (task) openTaskForEdit(task);
         },

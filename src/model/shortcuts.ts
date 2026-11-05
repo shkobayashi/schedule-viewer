@@ -261,6 +261,7 @@ type EditNavigationShortcutContext = Pick<
   "dialogOpen" | "blocksEditKeys"
 > & {
   selectedTaskCount?: number;
+  commandPaletteOpen?: boolean;
 };
 
 export function settingsShortcutHint(commandKey: boolean): string {
@@ -286,7 +287,13 @@ export function matchGoToday(
   event: ShortcutKeyEvent,
   context: EditNavigationShortcutContext,
 ): boolean {
-  if (context.dialogOpen || context.blocksEditKeys) return false;
+  if (
+    context.dialogOpen ||
+    context.blocksEditKeys ||
+    context.commandPaletteOpen
+  ) {
+    return false;
+  }
   if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return false;
   return shortcutKey(event) === "t";
 }

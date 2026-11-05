@@ -5,55 +5,67 @@ export type ModeKeyboardReferenceRow = {
   enter: string;
   tab: string;
   arrows: string;
+  /** 表の下に出す補足（1文） */
+  note?: string;
 };
+
+/** セルに載せない詳細。表の直下に場面名付きで並べる。 */
+export const MODE_KEYBOARD_TABLE_INTRO =
+  "Esc・Enter・Tab・矢印は、その場面が開いているあいだの動きです。入口用の単キー（T など）は含みません。";
 
 /**
  * ダイアログ・パネル・モードのあいだで共通のキー操作（入口のショートカットは含めない）。
- * 文言は ShortcutsDialog と docs/operation-entries.md と揃える。
+ * 表のセルは短い語句だけ。補足は note と docs/operation-entries.md。
  */
 export const MODE_KEYBOARD_REFERENCE_ROWS: readonly ModeKeyboardReferenceRow[] =
   [
     {
       mode: "階層の編集（EDIT-21）",
-      escape: "閉じる（下書きは文書へ書かない。確定は「適用」のみ）",
-      enter: "入力欄では改行せず確定しない（適用ボタンで反映）",
-      tab: "欄とボタンの間を移動（ダイアログ内でループ）",
-      arrows: "↑↓ で段の行を移し、同じ列（名前・意味・指示）にフォーカス",
+      escape: "閉じる",
+      enter: "—",
+      tab: "次の欄",
+      arrows: "行を移動",
+      note: "下書きは文書へ書かず、確定は「適用」だけ。入力欄の Enter は改行のみ。",
     },
     {
       mode: "階層の名前を変更",
-      escape: "キャンセル（保存しない）",
-      enter: "保存（検証に通れば閉じる）",
-      tab: "欄とボタンの間を移動",
-      arrows: "（一覧なし）",
+      escape: "キャンセル",
+      enter: "保存",
+      tab: "次の欄",
+      arrows: "—",
+      note: "保存は検証に通ったときだけ閉じます。",
     },
     {
-      mode: "設定：ステータス／メンバー／色／拡張項目の項目編集",
-      escape: "閉じる（未保存なら確認。確認ダイアログ中は Esc で確認だけ閉じる）",
-      enter: "フォーカス中の入力欄の確定（行全体の保存は「保存」ボタン）",
-      tab: "覆い内の操作可能な要素を移動（ループ）",
-      arrows: "項目一覧にフォーカスがあるとき ↑↓ で行を選ぶ",
+      mode: "設定：項目編集（ステータス／メンバー／色／拡張）",
+      escape: "閉じる",
+      enter: "確定",
+      tab: "次の要素",
+      arrows: "行を選ぶ",
+      note: "未保存なら確認。確認の Esc は確認だけ閉じます。行の保存は「保存」ボタン。",
     },
     {
       mode: "タスク詳細パネル（EDIT-04）",
-      escape: "TODO 追加の入力中だけ取り消し。パネル自体は Esc では閉じない",
-      enter: "タグ欄・TODO 欄では確定。ほかの欄はブラウザの Enter 動作",
-      tab: "欄の間を移動",
-      arrows: "フォーカスが入力欄・選択欄のときは一覧の ↑↓ 選択は動かない",
+      escape: "入力取り消し",
+      enter: "確定",
+      tab: "次の欄",
+      arrows: "—",
+      note: "Esc は TODO 追加の入力中だけ。パネル自体は Esc では閉じません。Enter はタグ・TODO 欄中心。",
     },
     {
       mode: "線を引くモード（EDIT-05）",
-      escape: "モードを終了（確定前の線は残さない）",
-      enter: "（モード専用の確定なし）",
-      tab: "（変化なし）",
-      arrows: "チャートの ⌘/Ctrl+矢印はスクロール。タスク ↑↓ は入力欄外で有効",
+      escape: "終了",
+      enter: "—",
+      tab: "—",
+      arrows: "スクロール／選択",
+      note: "確定前の線は残しません。⌘/Ctrl+矢印はチャートのスクロール。",
     },
     {
       mode: "絞り込みパネル（FILTER-01）",
-      escape: "候補一覧を開いていれば閉じる。閉じていればパネル全体を閉じる",
-      enter: "タグ・マイルストン等の候補一覧で候補を選ぶ",
-      tab: "パネル内の欄を移動",
-      arrows: "候補一覧で ↑↓。パネルが開いているあいだは一覧の ↑↓ タスク選択は動かない",
+      escape: "閉じる",
+      enter: "候補を選ぶ",
+      tab: "次の欄",
+      arrows: "候補／—",
+      note: "Esc は候補一覧→パネルの順。開いているあいだ一覧の ↑↓ タスク選択は動きません。",
     },
   ];
 

@@ -167,6 +167,7 @@ async function prepareShortcutsDialogForCapture(page) {
   await page.evaluate(() => {
     const panel = document.querySelector(".ui-dialog-panel.shortcuts-modal");
     const body = document.querySelector(".shortcuts-modal-body");
+    const block = document.querySelector("#shortcuts-mode-capture");
     if (panel instanceof HTMLElement) {
       panel.style.maxHeight = "none";
       panel.style.overflow = "visible";
@@ -175,12 +176,16 @@ async function prepareShortcutsDialogForCapture(page) {
     if (body instanceof HTMLElement) {
       body.style.overflow = "visible";
       body.style.maxHeight = "none";
-      body.style.flex = "none";
+      body.style.flex = "0 0 auto";
       body.style.height = "auto";
       body.scrollTop = 0;
     }
+    if (block instanceof HTMLElement) {
+      block.style.overflow = "visible";
+      block.style.height = "auto";
+    }
   });
-  await page.waitForTimeout(150);
+  await page.waitForTimeout(200);
 }
 
 async function assertPngNotBlank(filePath, minBytes = 4000) {
@@ -248,21 +253,96 @@ async function save2xElementScreenshot(page, selector, outPath) {
     .toFile(outPath);
 }
 
+async function layoutShortcutsModeBlockForCapture(page) {
+  await prepareShortcutsDialogForCapture(page);
+  await page.evaluate(() => {
+    const overlay = document.querySelector(
+      '.ui-dialog-overlay[role="dialog"]:has(#shortcuts-mode-capture)',
+    );
+    const panel = document.querySelector(".ui-dialog-panel.shortcuts-modal");
+    const body = document.querySelector(".shortcuts-modal-body");
+    const block = document.querySelector("#shortcuts-mode-capture");
+    if (overlay instanceof HTMLElement) {
+      overlay.style.alignItems = "flex-start";
+      overlay.style.justifyContent = "center";
+      overlay.style.paddingTop = "16px";
+    }
+    if (panel instanceof HTMLElement) {
+      panel.style.position = "relative";
+      panel.style.top = "0";
+      panel.style.transform = "none";
+      panel.style.maxHeight = "none";
+      panel.style.height = "auto";
+      panel.style.overflow = "visible";
+    }
+    if (body instanceof HTMLElement) {
+      for (const child of body.children) {
+        if (child instanceof HTMLElement && child !== block) {
+          child.style.display = "none";
+        }
+      }
+    }
+    if (block instanceof HTMLElement) {
+      block.style.height = "auto";
+      block.style.overflow = "visible";
+    }
+    const header = panel?.querySelector(".ui-dialog-header");
+    if (header instanceof HTMLElement) {
+      header.style.display = "none";
+    }
+  });
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.waitForTimeout(120);
+}
+
 async function captureShortcutsModeTable(page, scheme, written) {
   await page.waitForFunction(
     () =>
       (document.querySelectorAll(".shortcuts-table--mode tbody tr").length ?? 0) >= 6,
   );
+  await page.waitForFunction(() => {
+    const block = document.querySelector("#shortcuts-mode-capture");
+    const text = block?.textContent ?? "";
+    return (
+      text.includes("絞り込みパネル") &&
+      text.includes("線を引くモード") &&
+      text.includes("タスク詳細パネル")
+    );
+  });
   await assertModeTableKeyColumnsReadable(page);
+  await layoutShortcutsModeBlockForCapture(page);
+  await page.waitForFunction(() => {
+    const rows = document.querySelectorAll(".shortcuts-table--mode tbody tr");
+    if (rows.length < 6) return false;
+    const notes = document.querySelectorAll(".shortcuts-mode-notes li");
+    if (notes.length < 6) return false;
+    const last = rows[rows.length - 1];
+    const block = document.querySelector("#shortcuts-mode-capture");
+    if (!last || !block) return false;
+    const lastBox = last.getBoundingClientRect();
+    const blockBox = block.getBoundingClientRect();
+    const vh = window.innerHeight;
+    return lastBox.bottom <= vh - 8 && blockBox.top >= 0;
+  });
   const locator = page.locator("#shortcuts-mode-capture");
   await locator.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(150);
   const modePath = path.join(outDir, `menu-473-shortcuts-mode-table-${scheme}.png`);
   const mode2x = path.join(outDir, `menu-473-shortcuts-mode-table-${scheme}-2x.png`);
   const shot = await locator.screenshot({ type: "png" });
   await sharp(shot).png().toFile(modePath);
-  await assertPngNotBlank(modePath, 8000);
   const meta = await sharp(shot).metadata();
+  if ((meta.height ?? 0) < 380) {
+    throw new Error(
+      `mode table capture too short (${meta.height}px); expected all 6 rows and notes`,
+    );
+  }
+  if ((meta.height ?? 0) < 420) {
+    throw new Error(
+      `mode table capture height ${meta.height}px; expected full 6 rows and notes`,
+    );
+  }
+  await assertPngNotBlank(modePath, 8000);
   await sharp(shot)
     .resize((meta.width ?? 1) * 2, (meta.height ?? 1) * 2, {
       kernel: sharp.kernel.nearest,
@@ -346,6 +426,7 @@ async function captureTodayToolbarTooltip(page, scheme, written) {
   }
   const box = await btn.boundingBox();
   if (!box) throw new Error("today button box missing");
+  const tipTop = box.y + box.height + 14;
   await page.evaluate(
     ({ text, left, top, width }) => {
       document.getElementById("capture-tooltip-mirror")?.remove();
@@ -355,7 +436,7 @@ async function captureTodayToolbarTooltip(page, scheme, written) {
       Object.assign(tip.style, {
         position: "fixed",
         left: `${left}px`,
-        top: `${Math.max(8, top - 36)}px`,
+        top: `${top}px`,
         maxWidth: `${Math.max(width, 280)}px`,
         padding: "6px 10px",
         background: "CanvasText",
@@ -368,14 +449,14 @@ async function captureTodayToolbarTooltip(page, scheme, written) {
       });
       document.body.appendChild(tip);
     },
-    { text: title, left: box.x, top: box.y, width: box.width },
+    { text: title, left: box.x, top: tipTop, width: box.width },
   );
   await page.waitForTimeout(80);
   const clip = {
-    x: Math.max(0, box.x - 40),
-    y: Math.max(0, box.y - 52),
-    width: Math.min(1440 - Math.max(0, box.x - 40), box.width + 320),
-    height: box.height + 64,
+    x: Math.max(0, box.x - 24),
+    y: Math.max(0, box.y - 6),
+    width: Math.min(1440 - Math.max(0, box.x - 24), box.width + 300),
+    height: box.height + 14 + 44 + 16,
   };
   const tipPath = path.join(outDir, `menu-473-toolbar-today-tooltip-${scheme}.png`);
   const shot = await page.screenshot({ type: "png", clip });
