@@ -11,7 +11,7 @@
 | ベースライン照合 | `npm run check:madge-circular-baseline`（**CI frontend で必須**。`npm test` の node:test からも呼ぶ。**不一致で失敗**） |
 | 正本 JSON | [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) |
 
-M0 時点の **循環数は 30** である。M1 完了後は **17**、M2 完了後は **15**、**M3a** 完了後は **4** である（ベースライン JSON を更新済み）。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。
+M0 時点の **循環数は 30** である。M1 後 **17**、M2 後 **15**、M3a 後 **4**、M3b 後 **2**（**model 向け 0**。残りは UI と hooks）。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。
 
 ## 解消順（M1 → M2 → M3）
 
@@ -46,16 +46,16 @@ Issue #490 では M3 を最後にまとめる。**変更量に応じて PR を�
 
 2026-11-05 の M3a PR。`taskRef.ts`（`TaskRef` 型）と `taskTraversal.ts`（`forEachTask` / `mapTasks`）。`hierarchy` が `dependencies` を import しないようにし、`taskTags` が `tasks` を import しないようにした。**13 環のうち 11 環を解消**（ベースライン **15 → 4**）。
 
-#### M3b — 未着手
+#### M3b — 完了
 
-残り **model 2 環**（ベースライン JSON の `M3b` 参照）。
+2026-11-05 の M3b PR。`taskTodos.ts` の `mapTasks` を `taskTraversal` から import。`tasks.ts` の `formatValidationErrors` を `validationMessages` から import（`validateSchedule` 経由をやめる）。**model 2 環を解消**（ベースライン **4 → 2**）。
 
-| 環 | 方針（案） |
+| 環 | 対応 |
 | --- | --- |
-| `taskTodos` ↔ `tasks` | 正規化・編集進捗の共有型または薄いモジュールへ型を逃がす |
-| `validateSchedule` → `taskTodos` → `tasks` | `formatValidationErrors` を `validationMessages` へ直接 import、`ValidationIssue` 型の正本を `validationIssue.ts` 等へ |
+| `taskTodos` → `tasks` | `mapTasks` を `taskTraversal` から import |
+| `validateSchedule` → `taskTodos` → `tasks` | `tasks` が `formatValidationErrors` を `validationMessages` から直接 import |
 
-完了条件: model 向け madge 循環が 0。全テスト通過。
+**M3（model）完了**。残り循環は UI / hooks のみ（別 PR）。
 
 ## 段 8 で別扱い（M1–M3 とは別 PR）
 

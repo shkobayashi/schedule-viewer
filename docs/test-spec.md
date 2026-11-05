@@ -21,7 +21,7 @@
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1） |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
 | 循環・重複（警告） | `npm run check:architecture-warn` | madge 循環、jscpd。CI では失敗にしない |
-| madge 循環ベースライン | `npm run check:madge-circular-baseline` | M3a 後 4 件。**CI frontend 必須**。循環増減 PR では JSON を意図的に更新 |
+| madge 循環ベースライン | `npm run check:madge-circular-baseline` | M3b 後 2 件（model 0）。**CI frontend 必須**。循環増減 PR では JSON を意図的に更新 |
 | カバレッジ（警告） | `npm run test:coverage-warn` | Vitest coverage サマリ。CI では失敗にしない |
 | 型検査 | `npm run build` の中の `tsc` | `src` |
 | Clippy | `cd src-tauri && cargo clippy -- -D warnings` | Rust。警告をエラーにする |
