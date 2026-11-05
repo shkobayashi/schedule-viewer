@@ -3,6 +3,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { RecentFilesStore } from "../model/recentFiles";
+import { RECENT_FILES_EMPTY_HINT } from "../model/firstRunGuidance";
 import { recentMenuSections } from "../model/recentFilesMenu";
 import { requestApplicationQuitViaTauri } from "../model/windowSession";
 import type { GridTier } from "../model/timeline";
@@ -145,10 +146,16 @@ export function useMacOSAppMenu(
                 }),
               ],
             })
-          : await MenuItem.new({
-              id: "file-recent-empty",
+          : await Submenu.new({
               text: "最近開いたファイル",
               enabled: false,
+              items: [
+                await MenuItem.new({
+                  id: "file-recent-empty-hint",
+                  text: RECENT_FILES_EMPTY_HINT,
+                  enabled: false,
+                }),
+              ],
             });
       const fileSubmenu = await Submenu.new({
         text: "ファイル",

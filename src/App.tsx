@@ -47,6 +47,7 @@ import { ExportFormatDialog } from "./components/ExportFormatDialog";
 import { ActiveFilterBar } from "./components/ActiveFilterBar";
 import { AppToast } from "./components/AppToast";
 import { GuideDialog } from "./components/GuideDialog";
+import { FirstRunHintCard } from "./components/FirstRunHintCard";
 import { HierarchyLevelsDialog } from "./components/HierarchyLevelsDialog";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { CommandPalette } from "./components/CommandPalette";
@@ -141,6 +142,25 @@ import {
   writeSidebarColumns,
 } from "./model/viewPreferences";
 import { writeColorSchemePreference } from "./model/colorScheme";
+import {
+  RECENT_FILES_EMPTY_HINT,
+  dismissFirstRunHint,
+  isFirstRunChecklistComplete,
+  isFirstRunHintDismissed,
+  isSaveHintCompleted,
+  markFirstRunChecklistItem,
+  markSaveHintCompleted,
+  readFirstRunChecklist,
+  saveHintLabel,
+  shouldShowFirstRunHintCard,
+  shouldShowSaveHintPill,
+} from "./model/firstRunGuidance";
+import {
+  clearPrepareLlmStepsVisible,
+  markPrepareLlmStepsVisible,
+  readPrepareLlmStepsVisible,
+} from "./model/firstRunLlmSteps";
+import { hasRecentMenuItems } from "./model/recentFilesMenu";
 import { memberMapFromList } from "./model/assigneeDisplay";
 import { mcpMembersForReadTools } from "./model/screenContext";
 import {
@@ -464,11 +484,58 @@ function App() {
   const [storeDistribution, setStoreDistribution] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [firstRunHintDismissed, setFirstRunHintDismissed] = useState(
+    () => isFirstRunHintDismissed(),
+  );
+  const [firstRunChecklist, setFirstRunChecklist] = useState(() =>
+    readFirstRunChecklist(),
+  );
+  const [prepareLlmStepsVisible, setPrepareLlmStepsVisible] = useState(() =>
+    readPrepareLlmStepsVisible(),
+  );
+  const [saveHintCompleted, setSaveHintCompleted] = useState(
+    () => isSaveHintCompleted(),
+  );
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const openGuide = useCallback(() => {
     setShortcutsOpen(false);
     setGuideOpen(true);
   }, []);
+  const dismissFirstRunHintCard = useCallback(() => {
+    dismissFirstRunHint();
+    setFirstRunHintDismissed(true);
+  }, []);
+  const syncFirstRunChecklist = useCallback(() => {
+    const next = readFirstRunChecklist();
+    setFirstRunChecklist(next);
+    if (isFirstRunChecklistComplete(next) || isFirstRunHintDismissed()) {
+      setFirstRunHintDismissed(true);
+    }
+  }, []);
+  const markFirstRunStep = useCallback(
+    (id: Parameters<typeof markFirstRunChecklistItem>[0]) => {
+      markFirstRunChecklistItem(id);
+      syncFirstRunChecklist();
+    },
+    [syncFirstRunChecklist],
+  );
+  const openFirstRunMcpSettings = useCallback(() => {
+    setSettingsSection("mcp");
+    setSettingsOpen(true);
+  }, []);
+  const revealPrepareLlmSteps = useCallback(() => {
+    markPrepareLlmStepsVisible();
+    setPrepareLlmStepsVisible(true);
+  }, []);
+  const openFirstRunJsonSkills = useCallback(() => {
+    revealPrepareLlmSteps();
+    if (isTauri()) {
+      setSettingsSection("jsonSkills");
+      setSettingsOpen(true);
+      return;
+    }
+    openGuide();
+  }, [openGuide, revealPrepareLlmSteps]);
   const openShortcuts = useCallback(() => {
     setGuideOpen(false);
     setShortcutsOpen(true);
@@ -1341,6 +1408,12 @@ function App() {
     [commitTitle],
   );
 
+  const handleScheduleSaved = useCallback(() => {
+    schedule.clearExplanationView();
+    markSaveHintCompleted();
+    setSaveHintCompleted(true);
+  }, [schedule.clearExplanationView]);
+
   const reportFileErrorRef = useRef<(message: string) => void>(() => {});
   const {
     recentFilesStore,
@@ -1392,7 +1465,7 @@ function App() {
       if (binding) setWorkspaceBinding(binding);
       else clearWorkspaceBinding();
     },
-    onScheduleSaved: schedule.clearExplanationView,
+    onScheduleSaved: handleScheduleSaved,
   });
   reportFileErrorRef.current = scheduleFile.showError;
   externalReloadHistoryUndoRef.current = scheduleFile.onHistoryUndoApplied;
@@ -1425,6 +1498,65 @@ function App() {
   );
 
   const showScheduleBody = scheduleFile.startupContentReady;
+
+  const isDesktopFirstRunUi =
+    isTauri() || import.meta.env.MODE === "manual-screenshot";
+  const showingBuiltInSample =
+    scheduleFile.filePath == null &&
+    scheduleFile.displayFileName === "サンプルデータ";
+  const showFirstRunHintCard =
+    isDesktopFirstRunUi &&
+    shouldShowFirstRunHintCard({
+      dismissed: firstRunHintDismissed,
+      startupSettled: scheduleFile.startupSettled,
+      checklist: firstRunChecklist,
+    });
+  const statusBarSaveHint =
+    isDesktopFirstRunUi &&
+    shouldShowSaveHintPill({
+      completed: saveHintCompleted,
+      startupSettled: scheduleFile.startupSettled,
+      isDirty: scheduleFile.isDirty,
+    })
+      ? saveHintLabel(commandKey)
+      : null;
+  const recentFilesMenuEmptyHint =
+    isDesktopFirstRunUi && !hasRecentMenuItems(recentFilesStore)
+      ? RECENT_FILES_EMPTY_HINT
+      : null;
+
+  const onFirstRunOpenFile = useCallback(() => {
+    flushTitleEdit();
+    scheduleFile.requestOpen();
+  }, [flushTitleEdit, scheduleFile]);
+
+  const onFirstRunOpenGuide = useCallback(() => {
+    openGuide();
+  }, [openGuide]);
+
+  const onFirstRunOpenMcpSettings = useCallback(() => {
+    openFirstRunMcpSettings();
+  }, [openFirstRunMcpSettings]);
+
+  useEffect(() => {
+    if (!scheduleFile.startupSettled) return;
+    if (scheduleFile.filePath == null) {
+      return;
+    }
+    markFirstRunStep("prepareSchedule");
+    clearPrepareLlmStepsVisible();
+    setPrepareLlmStepsVisible(false);
+  }, [markFirstRunStep, scheduleFile.filePath, scheduleFile.startupSettled]);
+
+  useEffect(() => {
+    if (!guideOpen) return;
+    markFirstRunStep("guide");
+  }, [guideOpen, markFirstRunStep]);
+
+  useEffect(() => {
+    if (!settingsOpen || settingsSection !== "mcp") return;
+    markFirstRunStep("mcp");
+  }, [markFirstRunStep, settingsOpen, settingsSection]);
 
   const showUpdateToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -4568,6 +4700,7 @@ function App() {
         }}
         fileBusy={scheduleFile.fileBusy}
         startupSettled={scheduleFile.startupSettled}
+        recentFilesEmptyHint={recentFilesMenuEmptyHint}
         taskSearchRef={taskSearchRef}
       />
       <ActiveFilterBar
@@ -5029,7 +5162,25 @@ function App() {
           setSettingsOpen(true);
         }}
         onOpenShortcuts={openShortcuts}
+        saveHint={statusBarSaveHint}
       />
+      {showFirstRunHintCard ? (
+        <FirstRunHintCard
+          commandKey={commandKey}
+          showingSample={showingBuiltInSample}
+          checklist={firstRunChecklist}
+          showPrepareLlmSteps={prepareLlmStepsVisible}
+          hasOpenedScheduleFile={scheduleFile.filePath != null}
+          openExistingJsonDisabled={
+            scheduleFile.fileBusy || !scheduleFile.startupSettled
+          }
+          onDismiss={dismissFirstRunHintCard}
+          onPrepareWithLlm={openFirstRunJsonSkills}
+          onOpenExistingJson={onFirstRunOpenFile}
+          onOpenGuide={onFirstRunOpenGuide}
+          onOpenMcpSettings={onFirstRunOpenMcpSettings}
+        />
+      ) : null}
       {showCornerNotice && updateCornerMessage ? (
         updateCornerMode === "offer" || updateCornerMode === "installing" ? (
           <UpdateOfferNotice
@@ -5467,6 +5618,11 @@ function App() {
                 }
               : undefined
           }
+          onMcpConfigCopied={() => markFirstRunStep("mcp")}
+          onJsonSkillsInstalled={() => {
+            revealPrepareLlmSteps();
+            markFirstRunStep("prepareSchedule");
+          }}
         />
       ) : null}
       <HierarchyLevelsDialog

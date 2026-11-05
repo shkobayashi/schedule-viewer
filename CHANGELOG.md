@@ -8,6 +8,10 @@
 
 ### 変更
 
+- 初回ガイド（NAV-09）の 1 項目目を「スケジュールを用意する」にし、「LLM で作る」（デスクトップ版は JSON 作成スキル設定、ブラウザ版は案内）と「ある JSON を開く」の 2 ボタンに分けた。スキル設置または JSON を開いたときに完了とする（#469）
+- 初回カードの「LLM で作る」押下後に write-schedule 向けの短い手順と例文コピーを表示する。ダイアログの × ボタンの位置を調整する（#469）
+- 操作の案内（NAV-08）を 4 見出し（最初にやる 3 つ、開く・保存、画面の見方、もう少し知りたいとき）に組み替え、冒頭を初回カードの 3 項目に揃えた（#469）
+
 - 2.0 向けのアルファ Pre-release 手順を追加。版は `X.Y.Z-alpha.N` と `X.Y.Z-beta.N` を許容し、`npm run version:bump -- alpha` / `beta` / `stable` で alpha → beta → 安定版の順に進める。Pre-release は Latest と `updater-X` 更新の対象外である
 
 - Issue #449 フェーズ 3: UI を Raycast（B）標準に統一。`palette.ts`（UI 色）と `uiTokens.ts`（半径・余白・タイポ・影・モーション）を正本とし、`App.css` の `:root` 二重定義を解消。`?designDirection=` プレビューと方向 A/C のコードは削除（比較 PNG は `docs/design/screenshots/` に残す）

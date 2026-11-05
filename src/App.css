@@ -1413,6 +1413,21 @@ body {
   user-select: none;
 }
 
+.app-menu-item-with-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(2px * var(--s));
+  text-align: left;
+}
+
+.app-menu-item-hint {
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+  font-weight: 400;
+  line-height: 1.35;
+}
+
 .context-menu {
   position: fixed;
   z-index: 40;
@@ -2257,14 +2272,24 @@ input[type="number"] {
 }
 
 .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   width: calc(26px * var(--s));
   height: calc(26px * var(--s));
+  padding: 0;
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: var(--radius-md);
   cursor: pointer;
   font-size: calc(13px * var(--s));
   color: var(--text);
+}
+
+.icon-btn svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 .zoom-controls button:hover,
@@ -4530,6 +4555,18 @@ html[data-color-scheme="dark"] .command-palette {
   margin-left: auto;
 }
 
+.status-bar-first-run-hint {
+  display: inline-flex;
+  align-items: center;
+  padding: calc(2px * var(--s)) calc(8px * var(--s));
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: calc(11px * var(--s));
+  white-space: nowrap;
+}
+
 .status-bar-action,
 .status-bar-link {
   border: none;
@@ -4862,4 +4899,215 @@ html[data-color-scheme="dark"] .command-palette {
 .sidebar-row .milestone-alert-icon {
   display: inline-flex;
   color: var(--overdue);
+}
+
+.first-run-hint-layer {
+  position: fixed;
+  right: calc(12px * var(--s) + var(--diff-panel-inset, 0px));
+  bottom: calc(36px * var(--s));
+  z-index: 44;
+  pointer-events: none;
+  max-width: min(calc(360px * var(--s)), calc(100vw - 24px * var(--s)));
+}
+
+.first-run-hint-card {
+  pointer-events: auto;
+  padding: calc(14px * var(--s)) calc(16px * var(--s));
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--elevation-menu);
+  color: var(--text);
+}
+
+.first-run-hint-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: calc(8px * var(--s));
+  margin-bottom: calc(8px * var(--s));
+}
+
+.first-run-hint-card__eyebrow {
+  margin: 0 0 calc(4px * var(--s));
+  font-size: calc(11px * var(--s));
+  color: var(--text-secondary);
+}
+
+.first-run-hint-card__head h2 {
+  margin: 0;
+  font-size: calc(15px * var(--s));
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.first-run-hint-card__close {
+  flex-shrink: 0;
+}
+
+.first-run-hint-card__lead {
+  margin: 0 0 calc(12px * var(--s));
+  font-size: calc(13px * var(--s));
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.first-run-hint-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+  margin-bottom: calc(10px * var(--s));
+}
+
+.first-run-hint-card__checklist {
+  list-style: none;
+  margin: 0 0 calc(10px * var(--s));
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
+.first-run-hint-card__checklist-item {
+  display: grid;
+  grid-template-columns: calc(22px * var(--s)) minmax(0, 1fr);
+  align-items: center;
+  gap: calc(8px * var(--s));
+}
+
+.first-run-hint-card__checklist-item--prepare {
+  align-items: start;
+}
+
+.first-run-hint-card__prepare-title {
+  margin: 0 0 calc(6px * var(--s));
+  font-size: calc(13px * var(--s));
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.first-run-hint-card__prepare-actions {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s));
+}
+
+.first-run-hint-card__llm-steps {
+  margin-top: calc(8px * var(--s));
+  padding: calc(8px * var(--s)) calc(10px * var(--s));
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 88%, var(--surface));
+}
+
+.first-run-hint-card__llm-steps-title {
+  margin: 0 0 calc(6px * var(--s));
+  font-size: calc(11px * var(--s));
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.first-run-hint-card__llm-steps-list {
+  margin: 0;
+  padding-left: calc(18px * var(--s));
+  font-size: calc(11px * var(--s));
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.first-run-hint-card__llm-steps-list li + li {
+  margin-top: calc(4px * var(--s));
+}
+
+.first-run-hint-card__copy-btn {
+  display: inline-block;
+  margin-top: calc(4px * var(--s));
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: calc(11px * var(--s));
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.first-run-hint-card__copy-btn:hover {
+  filter: brightness(1.05);
+}
+
+.first-run-hint-card__copy-status {
+  display: block;
+  margin-top: calc(2px * var(--s));
+  font-size: calc(10px * var(--s));
+  color: var(--text-secondary);
+}
+
+.first-run-hint-card__llm-steps-note {
+  margin: calc(6px * var(--s)) 0 0;
+  font-size: calc(10px * var(--s));
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.first-run-hint-card__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(22px * var(--s));
+  height: calc(22px * var(--s));
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  background: var(--panel);
+}
+
+.first-run-hint-card__checklist-item--done .first-run-hint-card__check {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+}
+
+.first-run-hint-card__checklist-btn {
+  width: 100%;
+}
+
+.first-run-hint-card__checklist-item--done .first-run-hint-card__checklist-btn {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.first-run-hint-card__btn {
+  width: 100%;
+  padding: calc(8px * var(--s)) calc(10px * var(--s));
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: calc(13px * var(--s));
+  text-align: left;
+  cursor: pointer;
+}
+
+.first-run-hint-card__btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.first-run-hint-card__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.first-run-hint-card__btn--primary {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  font-weight: 600;
+}
+
+.first-run-hint-card__foot {
+  margin: 0;
+  font-size: calc(11px * var(--s));
+  line-height: 1.4;
+  color: var(--text-secondary);
 }

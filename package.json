@@ -19,6 +19,7 @@
     "capture:phase3-full": "node scripts/capture-design-screenshots.mjs --phase3-full",
     "build:manual-site": "node scripts/build-user-manual-site.mjs",
     "tauri": "tauri",
+    "tauri:dev:fresh": "node scripts/tauri-dev-fresh.mjs",
     "check:schedule": "tsx scripts/check-schedule.ts",
     "check:calendar": "tsx scripts/check-calendar.ts",
     "check:members": "tsx scripts/check-members.ts",

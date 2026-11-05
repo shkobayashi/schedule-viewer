@@ -111,6 +111,7 @@ type ToolbarProps = {
   hierarchyEditDisabled?: boolean;
   hierarchyButtonRef?: RefObject<HTMLButtonElement | null>;
   onOpenHierarchy?: () => void;
+  recentFilesEmptyHint?: string | null;
 };
 
 export function Toolbar({
@@ -182,6 +183,7 @@ export function Toolbar({
   hierarchyEditDisabled = false,
   hierarchyButtonRef,
   onOpenHierarchy,
+  recentFilesEmptyHint = null,
 }: ToolbarProps) {
   const titleEditDisabled = fileBusy || !startupSettled;
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
@@ -326,6 +328,7 @@ export function Toolbar({
         onOpenGuide={onOpenGuide}
         onOpenShortcuts={onOpenShortcuts}
         onCheckForUpdates={onCheckForUpdates}
+        recentFilesEmptyHint={recentFilesEmptyHint}
       />
       <ScheduleToolbarTitle
         title={title}
