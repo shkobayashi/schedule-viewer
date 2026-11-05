@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { addDays, daysBetween, isoDate, parseDate } from "../model/dates";
 import { lightningDate } from "../model/timeline";
 import { SAMPLE_TASK_IDS } from "./ids";
 import {
@@ -76,13 +77,23 @@ describe("anchorSampleSchedule", () => {
 
   it("shifts milestones with tasks by the same offset", () => {
     const openToday = "2027-01-15";
+    const delta = daysBetween(
+      parseDate(SAMPLE_REFERENCE_TODAY),
+      parseDate(openToday),
+    );
     const { milestones, categories } = anchorSampleSchedule(
       sampleCategories,
       sampleMilestones,
       openToday,
     );
     const t01 = taskById(categories, SAMPLE_TASK_IDS.t01);
-    expect(t01?.start).not.toBe("2026-09-14");
-    expect(milestones[0]?.date).not.toBe("2026-10-02");
+    const templateT01Start = "2026-09-14";
+    const templateM0 = sampleMilestones[0]!.date;
+    expect(t01?.start).toBe(
+      isoDate(addDays(parseDate(templateT01Start), delta)),
+    );
+    expect(milestones[0]?.date).toBe(
+      isoDate(addDays(parseDate(templateM0), delta)),
+    );
   });
 });

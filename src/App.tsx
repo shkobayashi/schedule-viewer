@@ -1390,6 +1390,24 @@ function App() {
     timelineEnd: viewTimelineEnd,
   } = view;
 
+  useEffect(() => {
+    if (import.meta.env.MODE !== "manual-screenshot") return;
+    (
+      window as Window & {
+        __manualScreenshotScrollToToday?: () => void;
+      }
+    ).__manualScreenshotScrollToToday = () => {
+      scrollToToday();
+    };
+    return () => {
+      delete (
+        window as Window & {
+          __manualScreenshotScrollToToday?: () => void;
+        }
+      ).__manualScreenshotScrollToToday;
+    };
+  }, [scrollToToday]);
+
   explainOverlayRuntimeRef.current = {
     getPlanInput: () => ({
       marks: [],

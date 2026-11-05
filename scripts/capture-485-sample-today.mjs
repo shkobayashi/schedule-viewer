@@ -9,14 +9,13 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import {
   clearScheduleViewerLocalStorageEvaluateSource,
-  SCHEDULE_VIEWER_LS_PREFIX,
 } from "../src/model/devFreshStart.ts";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = "/opt/cursor/artifacts";
 const port = 5177;
 const viewport = { width: 1440, height: 900 };
-const COLOR_SCHEME_LS_KEY = `${SCHEDULE_VIEWER_LS_PREFIX}color-scheme`;
+const COLOR_SCHEME_LS_KEY = "schedule-viewer/color-scheme";
 const SHOW_LIGHTNING_LS_KEY = "schedule-viewer/show-lightning";
 
 const openDays = ["2026-03-02", "2026-10-10", "2028-06-15"];
@@ -58,7 +57,7 @@ function startVite() {
   );
 }
 
-async function preparePage(page, scheme) {
+async function bootPage(page, scheme) {
   await page.emulateMedia({
     colorScheme: scheme === "dark" ? "dark" : "light",
   });
@@ -78,15 +77,13 @@ async function preparePage(page, scheme) {
       lightningKey: SHOW_LIGHTNING_LS_KEY,
     },
   );
-  await page.evaluate(() => {
-    localStorage.setItem("schedule-viewer/first-run/hint-dismissed", "1");
-  });
   await page.reload({ waitUntil: "networkidle" });
-  await page.waitForSelector(".timeline", { timeout: 60_000 });
+  await page.waitForSelector(".app", { timeout: 60_000 });
   await page.waitForSelector(".toolbar-title-text", {
     hasText: "サンプル",
     timeout: 60_000,
   });
+  await page.waitForSelector(".first-run-hint-card", { timeout: 60_000 });
 }
 
 async function captureDay(page, openToday, scheme) {
@@ -94,10 +91,24 @@ async function captureDay(page, openToday, scheme) {
     window.__manualScreenshotSetToday?.(today);
     window.__manualScreenshotLoadSampleForToday?.(today);
   }, openToday);
+  await page.waitForFunction(
+    () =>
+      typeof window.__manualScreenshotScrollToToday === "function" &&
+      typeof window.__manualScreenshotLoadSampleForToday === "function",
+  );
+  await page.evaluate(() => {
+    window.__manualScreenshotScrollToToday?.();
+  });
+  await page.waitForTimeout(400);
+  await page.getByRole("button", { name: "今日", exact: true }).click();
   await page.waitForTimeout(600);
+  await page.locator(".sidebar-row.task").first().waitFor({
+    state: "visible",
+    timeout: 30_000,
+  });
   const slug = openToday.replaceAll("-", "");
   const fileName = `485-sample-${slug}-${scheme}.png`;
-  await page.locator(".timeline").screenshot({
+  await page.locator(".app").screenshot({
     path: path.join(outDir, fileName),
     scale: "css",
   });
@@ -107,13 +118,13 @@ async function captureDay(page, openToday, scheme) {
 async function main() {
   fs.mkdirSync(outDir, { recursive: true });
   const vite = startVite();
-  await new Promise((r) => setTimeout(r, 2000));
+  await new Promise((r) => setTimeout(r, 2500));
   try {
     await waitForServer(`http://127.0.0.1:${port}/`);
     const browser = await chromium.launch();
     const page = await browser.newPage({ viewport });
     for (const scheme of ["light", "dark"]) {
-      await preparePage(page, scheme);
+      await bootPage(page, scheme);
       for (const openToday of openDays) {
         await captureDay(page, openToday, scheme);
       }
