@@ -205,9 +205,19 @@ export async function manualScreenshotInvoke(
     case "read_calendar_app_data":
     case "write_calendar_app_data":
       return null;
+    case "json_skill_home_dirs":
+      return { cursor: true, claude: true, copilot: true };
     case "install_json_skills":
+      return {
+        installedPaths: ["/mock/skills/write-schedule"],
+        existingPaths: [],
+        claudeUserShadows: [],
+      };
     case "remove_json_skills":
-      return null;
+      return {
+        removedPaths: [],
+        missingPaths: [],
+      };
     case "export_schedule_html":
     case "export_schedule_svg":
       return null;

@@ -14,7 +14,15 @@ import {
   matchAppShortcut,
   matchChartScroll,
   matchDisplayScale,
+  matchGoToday,
+  matchOpenSettings,
   matchOpenShortcutsHelp,
+  matchRenameF2,
+  matchToggleConfidence,
+  matchToggleFilterPanel,
+  matchToggleLineage,
+  matchViewTier,
+  shortcutReferenceColumnGroups,
   usesCommandKey,
   type ShortcutContext,
   type ShortcutKeyEvent,
@@ -298,6 +306,89 @@ describe("task workflow shortcuts", () => {
     expect(matchReorderTaskShortcut(key("ArrowDown", { altKey: true }), idle)).toBe("down");
     expect(matchAddTaskShortcut(key("Enter", { ctrlKey: true }), typing)).toBe(false);
     expect(matchReorderTaskShortcut(key("ArrowDown", { altKey: true }), dialog)).toBeNull();
+  });
+});
+
+describe("frequent operation shortcuts", () => {
+  const modNav = {
+    dialogOpen: false,
+    blocksLinkKeys: false,
+    linkSourceId: null,
+    selectedTaskCount: 1,
+  };
+  const editNav = {
+    dialogOpen: false,
+    blocksEditKeys: false,
+    selectedTaskCount: 1,
+  };
+
+  it("opens settings with Ctrl+, or ⌘,", () => {
+    expect(matchOpenSettings(key(",", { ctrlKey: true }), modNav)).toBe(true);
+    expect(matchOpenSettings(key(",", { metaKey: true }), modNav)).toBe(true);
+    expect(matchOpenSettings(key(",", { ctrlKey: true, shiftKey: true }), modNav)).toBe(
+      false,
+    );
+  });
+
+  it("goes to today with T when not typing", () => {
+    expect(matchGoToday(key("t"), editNav)).toBe(true);
+    expect(matchGoToday(key("T"), editNav)).toBe(true);
+    expect(matchGoToday(key("t", { ctrlKey: true }), editNav)).toBe(false);
+    expect(matchGoToday(key("t"), { ...editNav, blocksEditKeys: true })).toBe(
+      false,
+    );
+    expect(matchGoToday(key("t"), { ...editNav, dialogOpen: true })).toBe(false);
+    expect(matchGoToday(key("t"), { ...editNav, commandPaletteOpen: true })).toBe(
+      false,
+    );
+  });
+
+  it("sets view tier with Ctrl/Cmd+1..4", () => {
+    expect(matchViewTier(key("1", { ctrlKey: true }), modNav)).toBe("day");
+    expect(matchViewTier(key("4", { metaKey: true }), modNav)).toBe("fit");
+    expect(matchViewTier(key("5", { ctrlKey: true }), modNav)).toBeNull();
+  });
+
+  it("toggles filter panel with Ctrl/Cmd+Shift+F", () => {
+    expect(matchToggleFilterPanel(key("f", { ctrlKey: true, shiftKey: true }), modNav)).toBe(
+      true,
+    );
+    expect(matchToggleFilterPanel(key("f", { ctrlKey: true }), modNav)).toBe(false);
+  });
+
+  it("toggles lineage with Ctrl/Cmd+Shift+L when one task is selected", () => {
+    expect(matchToggleLineage(key("l", { ctrlKey: true, shiftKey: true }), modNav)).toBe(
+      true,
+    );
+    expect(
+      matchToggleLineage(key("l", { ctrlKey: true, shiftKey: true }), {
+        ...modNav,
+        selectedTaskCount: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it("toggles confidence with Ctrl/Cmd+Shift+U", () => {
+    expect(matchToggleConfidence(key("u", { ctrlKey: true, shiftKey: true }), modNav)).toBe(
+      true,
+    );
+  });
+
+  it("renames with F2 for a single selection", () => {
+    expect(matchRenameF2(key("F2"), editNav)).toBe(true);
+    expect(matchRenameF2(key("F2"), { ...editNav, selectedTaskCount: 2 })).toBe(false);
+  });
+});
+
+describe("shortcutReferenceColumnGroups", () => {
+  it("keeps zoom keys short and moves the sidebar note under the action", () => {
+    const nav = shortcutReferenceColumnGroups(false).start.find(
+      (g) => g.title === "表示とナビゲーション",
+    );
+    const zoom = nav?.rows.find((row) => row.action === "ズーム");
+    expect(zoom?.keys).toBe("Ctrl+ホイール");
+    expect(zoom?.keys).not.toContain("一覧");
+    expect(zoom?.actionNote).toMatch(/左端の日付/);
   });
 });
 

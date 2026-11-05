@@ -49,8 +49,14 @@
 
 .ui-btn--dialog-close {
   flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: calc(28px * var(--s));
   min-height: calc(28px * var(--s));
+  width: calc(28px * var(--s));
+  height: calc(28px * var(--s));
   padding: 0;
   color: var(--text-secondary);
 }
@@ -174,7 +180,7 @@ html[data-color-scheme="dark"] .ui-dialog-panel {
 }
 
 .ui-dialog-panel--shortcuts {
-  width: min(calc(480px * var(--s)), calc(100vw - calc(48px * var(--s))));
+  width: min(calc(720px * var(--s)), calc(100vw - calc(48px * var(--s))));
 }
 
 .ui-dialog-panel--guide {

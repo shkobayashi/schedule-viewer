@@ -54,7 +54,14 @@ Intel Mac では、[開発ガイドの配布用ビルド](docs/development.md#�
 
 ## 使い始める
 
-起動直後は、ブラウザ版ではサンプルのスケジュールが表示される。デスクトップ版では前回の結果が決まるまで枠だけが見え、決まったあとにサンプルまたは前回の内容が一度だけ表示される。入手と、☰ の「開く」「保存」までの短い手順は [操作マニュアルのはじめに](docs/user-manual/getting-started.md) にある。スケジュール JSON を LLM とスキルで作る流れは [チュートリアル](docs/user-manual/tutorial.md)、絞り込みや編集などの操作は [全機能](docs/user-manual/features.md) にある。文書の入口は [操作マニュアル](docs/user-manual.md) です。
+起動直後は、ブラウザ版ではサンプルのスケジュールが表示される。デスクトップ版では前回の結果が決まるまで枠だけが見え、決まったあとにサンプルまたは前回の内容が一度だけ表示される。サンプルの日付は、起動した日を基準に作られる。
+
+- [はじめに](docs/user-manual/getting-started.md) — 起動、手または LLM で一か所直して保存する
+- [やりたいことから探す](docs/user-manual/find-by-intent.md) — 目的から全機能へ飛ぶ
+- [チュートリアル](docs/user-manual/tutorial.md) — スキルで JSON を作り、MCP で取り込み直す
+- [全機能](docs/user-manual/features.md) — 操作を網羅して調べる
+
+文書の入口は [操作マニュアル](docs/user-manual.md) です。
 
 ## ドキュメント
 
@@ -62,7 +69,7 @@ Intel Mac では、[開発ガイドの配布用ビルド](docs/development.md#�
 
 | 文書 | 内容 |
 | --- | --- |
-| [操作マニュアル](docs/user-manual.md) | 利用者向けの手順（[はじめに](docs/user-manual/getting-started.md)、[チュートリアル](docs/user-manual/tutorial.md)、[全機能](docs/user-manual/features.md)） |
+| [操作マニュアル](docs/user-manual.md) | 利用者向けの手順（[はじめに](docs/user-manual/getting-started.md)、[やりたいことから探す](docs/user-manual/find-by-intent.md)、[チュートリアル](docs/user-manual/tutorial.md)、[全機能](docs/user-manual/features.md)） |
 | [外部仕様](docs/external-spec.md) | 画面と機能の挙動。機能 ID の正本 |
 | [機能チェックリスト](docs/feature-checklist.md) | 仕様を足すときに、影響と抜けを見る一覧 |
 | [データ仕様](docs/data-format.md) | スケジュール、メンバー、カレンダー、色の一覧の JSON とアプリデータ |

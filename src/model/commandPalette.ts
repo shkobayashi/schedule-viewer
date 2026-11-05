@@ -1,3 +1,4 @@
+import { lineagePaletteLabel, OPERATION_FORMAL } from "./operationLabels";
 import { recentFileCommandPaletteLabel } from "./recentFiles";
 import {
   recentMenuCommandPalettePrefix,
@@ -12,6 +13,7 @@ export type CommandPaletteCommandId =
   | "save"
   | "saveAs"
   | "find"
+  | "toggleFilterPanel"
   | "editTitle"
   | "showDiff"
   | "copyDiff"
@@ -83,189 +85,195 @@ type CommandPaletteTemplate = {
 const BASE_ITEMS: CommandPaletteTemplate[] = [
   {
     id: "open",
-    label: "開く",
+    label: OPERATION_FORMAL.open,
     keywords: "open file ファイル",
     enabled: (ctx) => !ctx.fileBusy,
   },
   {
     id: "openNewWindow",
-    label: "新しいウィンドウで開く",
+    label: OPERATION_FORMAL.openNewWindow,
     keywords: "open new window 別ウィンドウ",
     enabled: (ctx) => ctx.isTauriDesktop && !ctx.fileBusy,
   },
   {
     id: "save",
-    label: "保存",
+    label: OPERATION_FORMAL.save,
     keywords: "save",
     enabled: (ctx) => !ctx.fileBusy,
   },
   {
     id: "saveAs",
-    label: "別名保存",
+    label: OPERATION_FORMAL.saveAs,
     keywords: "save as export",
     enabled: (ctx) => !ctx.fileBusy,
   },
   {
     id: "find",
-    label: "検索へ移る",
-    keywords: "find search 検索",
+    label: OPERATION_FORMAL.searchFocus,
+    keywords: "find search 検索 検索へ移る",
+    enabled: () => true,
+  },
+  {
+    id: "toggleFilterPanel",
+    label: OPERATION_FORMAL.filterPanel,
+    keywords: "filter 絞り込み パネル",
     enabled: () => true,
   },
   {
     id: "editTitle",
-    label: "タイトルを変更",
+    label: OPERATION_FORMAL.editTitle,
     keywords: "title タイトル 名前",
     enabled: (ctx) => !ctx.fileBusy,
   },
   {
     id: "showDiff",
-    label: "差分を表示",
+    label: OPERATION_FORMAL.showDiff,
     keywords: "diff 差分",
     enabled: (ctx) => !ctx.fileBusy,
   },
   {
     id: "copyDiff",
-    label: "差分をコピー",
+    label: OPERATION_FORMAL.copyDiff,
     keywords: "diff copy 差分 コピー",
     enabled: (ctx) => !ctx.fileBusy,
   },
   {
     id: "showJson",
-    label: "JSON を表示",
+    label: OPERATION_FORMAL.showJson,
     keywords: "json",
     enabled: () => true,
   },
   {
     id: "export",
-    label: "書き出し",
+    label: OPERATION_FORMAL.export,
     keywords: "export html svg",
     enabled: () => true,
   },
   {
     id: "settings",
-    label: "設定",
+    label: OPERATION_FORMAL.settings,
     keywords: "settings 設定",
     enabled: () => true,
   },
   {
     id: "checkForUpdates",
-    label: "更新を確認",
+    label: OPERATION_FORMAL.checkForUpdates,
     keywords: "update 更新 確認",
     enabled: (ctx) => ctx.isTauriDesktop && !ctx.storeDistribution,
   },
   {
     id: "guide",
-    label: "操作の案内",
-    keywords: "guide help 案内 操作",
+    label: OPERATION_FORMAL.guide,
+    keywords: "guide help 案内 操作 操作の案内",
     enabled: () => true,
   },
   {
     id: "shortcuts",
-    label: "ショートカット一覧",
+    label: OPERATION_FORMAL.shortcuts,
     keywords: "shortcuts help ? f1",
     enabled: () => true,
   },
   {
     id: "goToday",
-    label: "今日",
+    label: OPERATION_FORMAL.goToday,
     keywords: "today 今日",
     enabled: () => true,
   },
   {
     id: "tierDay",
-    label: "日表示",
+    label: OPERATION_FORMAL.tierDay,
     keywords: "day 日",
     enabled: () => true,
   },
   {
     id: "tierWeek",
-    label: "週表示",
+    label: OPERATION_FORMAL.tierWeek,
     keywords: "week 週",
     enabled: () => true,
   },
   {
     id: "tierMonth",
-    label: "月表示",
+    label: OPERATION_FORMAL.tierMonth,
     keywords: "month 月",
     enabled: () => true,
   },
   {
     id: "fit",
-    label: "全体",
+    label: OPERATION_FORMAL.fit,
     keywords: "fit 全体",
     enabled: () => true,
   },
   {
     id: "undo",
-    label: "取り消し",
+    label: OPERATION_FORMAL.undo,
     keywords: "undo",
     enabled: (ctx) => ctx.canUndo,
   },
   {
     id: "redo",
-    label: "やり直し",
+    label: OPERATION_FORMAL.redo,
     keywords: "redo",
     enabled: (ctx) => ctx.canRedo,
   },
   {
     id: "displayScaleIn",
-    label: "表示サイズを拡大",
+    label: OPERATION_FORMAL.displayScaleIn,
     keywords: "zoom scale 拡大",
     enabled: () => true,
   },
   {
     id: "displayScaleOut",
-    label: "表示サイズを縮小",
+    label: OPERATION_FORMAL.displayScaleOut,
     keywords: "zoom scale 縮小",
     enabled: () => true,
   },
   {
     id: "editTask",
-    label: "選択中のタスクを編集",
-    keywords: "edit 編集 enter",
+    label: OPERATION_FORMAL.editTask,
+    keywords: "edit 編集 enter 選択中",
     enabled: (ctx) => ctx.selectedTaskId != null && ctx.linkSourceId == null,
   },
   {
     id: "deleteTask",
-    label: "選択中のタスクを削除",
-    keywords: "delete 削除",
+    label: OPERATION_FORMAL.deleteTask,
+    keywords: "delete 削除 選択中",
     enabled: (ctx) => ctx.selectedTaskCount > 0,
   },
   {
     id: "link",
-    label: "線を引く",
+    label: OPERATION_FORMAL.link,
     keywords: "link 線",
     enabled: (ctx) => ctx.selectedTaskId != null || ctx.linkSourceId != null,
   },
   {
     id: "note",
-    label: "ノート",
+    label: OPERATION_FORMAL.note,
     keywords: "note ノート",
     enabled: (ctx) =>
       ctx.selectedTaskId != null && ctx.linkSourceId == null,
   },
   {
     id: "lineage",
-    label: (ctx) => (ctx.lineageActive ? "系統を解除" : "系統を表示"),
+    label: (ctx) => lineagePaletteLabel(ctx.lineageActive),
     keywords: "lineage 系統",
     enabled: (ctx) => ctx.selectedTaskId != null,
   },
   {
     id: "addTask",
-    label: "タスクを追加",
+    label: OPERATION_FORMAL.addTask,
     keywords: "add task 追加 insert",
     enabled: (ctx) => ctx.linkSourceId == null,
   },
   {
     id: "addMilestone",
-    label: "マイルストンを追加",
+    label: OPERATION_FORMAL.addMilestone,
     keywords: "add milestone マイルストン",
     enabled: (ctx) => ctx.linkSourceId == null,
   },
   {
     id: "duplicateTask",
-    label: "タスクを複製",
-    keywords: "duplicate 複製 copy",
+    label: OPERATION_FORMAL.duplicateTask,
+    keywords: "duplicate 複製 copy タスクを複製",
     enabled: (ctx) =>
       ctx.selectedTaskId != null && ctx.linkSourceId == null,
   },
@@ -333,7 +341,7 @@ export function buildCommandPaletteItems(
     recentBlock.push({
       kind: "command",
       id: "clearRecentHistory",
-      label: "履歴を消す",
+      label: OPERATION_FORMAL.clearRecentHistory,
       keywords: "recent clear 履歴",
       enabled: true,
     });

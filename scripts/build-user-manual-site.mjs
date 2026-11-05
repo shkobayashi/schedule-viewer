@@ -29,6 +29,12 @@ const PAGES = [
     title: "はじめに",
   },
   {
+    source: path.join(manualDir, "find-by-intent.md"),
+    out: "find-by-intent.html",
+    nav: "find-by-intent",
+    title: "やりたいことから探す",
+  },
+  {
     source: path.join(manualDir, "tutorial.md"),
     out: "tutorial.html",
     nav: "tutorial",
@@ -57,6 +63,11 @@ const EXTERNAL_DOC_SLUG_SOURCES = [
 const NAV_ITEMS = [
   { href: "index.html", nav: "index", label: "操作マニュアル" },
   { href: "getting-started.html", nav: "getting-started", label: "はじめに" },
+  {
+    href: "find-by-intent.html",
+    nav: "find-by-intent",
+    label: "やりたいことから探す",
+  },
   { href: "tutorial.html", nav: "tutorial", label: "チュートリアル" },
   { href: "features.html", nav: "features", label: "全機能" },
   { href: "privacy.html", nav: "privacy", label: "プライバシーポリシー" },

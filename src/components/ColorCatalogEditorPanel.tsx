@@ -537,7 +537,35 @@ export const ColorCatalogEditorPanel = forwardRef<
     <>
       <div className="status-catalog-editor-workspace">
         <div className="status-catalog-editor-list-pane">
-          <div className="status-catalog-editor-scroll" ref={listScrollRef}>
+          <div
+            className="status-catalog-editor-scroll"
+            ref={listScrollRef}
+            tabIndex={-1}
+            onKeyDown={(event) => {
+              const target = event.target;
+              if (!(target instanceof HTMLElement)) return;
+              if (
+                target.closest(
+                  "input, textarea, select, button, label.status-catalog-editor-field, label.status-catalog-editor-role-option, label.status-catalog-editor-color",
+                )
+              ) {
+                return;
+              }
+              if (draft.length === 0) return;
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                const next = Math.min(safeSelectedIndex + 1, draft.length - 1);
+                selectRow(next, false);
+                revealRow(next);
+              }
+              if (event.key === "ArrowUp") {
+                event.preventDefault();
+                const next = Math.max(safeSelectedIndex - 1, 0);
+                selectRow(next, false);
+                revealRow(next);
+              }
+            }}
+          >
             <p className="settings-note status-catalog-editor-hint">
               並びは、詳細パネルと複製と一括の「色」の順です。<code>id</code> は項目を足すときだけ決められます。項目を外しても、その
               <code>colorId</code> を持つタスクは変わりません。行を選んで、右の説明を書きます。

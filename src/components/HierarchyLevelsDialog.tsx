@@ -97,6 +97,43 @@ export function HierarchyLevelsDialog({
     onClose();
   };
 
+  const focusLevelField = (
+    rowIndex: number,
+    field: "name" | "meaning" | "instruction",
+  ) => {
+    const suffix =
+      field === "name" ? "name" : field === "meaning" ? "meaning" : "instruction";
+    document.getElementById(`${listId}-${suffix}-${rowIndex}`)?.focus();
+  };
+
+  const fieldFromInputId = (id: string): "name" | "meaning" | "instruction" => {
+    if (id.includes("-meaning-")) return "meaning";
+    if (id.includes("-instruction-")) return "instruction";
+    return "name";
+  };
+
+  const onLevelFieldKeyDown = (
+    rowIndex: number,
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      return;
+    }
+    const field = fieldFromInputId(event.currentTarget.id);
+    if (event.key === "ArrowDown" && rowIndex < draft.length - 1) {
+      event.preventDefault();
+      focusLevelField(rowIndex + 1, field);
+    }
+    if (event.key === "ArrowUp" && rowIndex > 0) {
+      event.preventDefault();
+      focusLevelField(rowIndex - 1, field);
+    }
+  };
+
   const atMaxLevels = draft.length >= MAX_LEVEL_COUNT;
   const showHeadingActions = draft.length > 1;
   const lastHeadingIndex = draft.length - 2;
@@ -159,17 +196,7 @@ export function HierarchyLevelsDialog({
                         onChange={(event) =>
                           updateLevel(index, { name: event.target.value })
                         }
-                        onKeyDown={(event) => {
-                          if (
-                            event.nativeEvent.isComposing ||
-                            event.keyCode === 229
-                          ) {
-                            return;
-                          }
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                          }
-                        }}
+                        onKeyDown={(event) => onLevelFieldKeyDown(index, event)}
                       />
                     </div>
                     <div className="hierarchy-levels-field">
@@ -183,17 +210,7 @@ export function HierarchyLevelsDialog({
                         onChange={(event) =>
                           updateLevel(index, { meaning: event.target.value })
                         }
-                        onKeyDown={(event) => {
-                          if (
-                            event.nativeEvent.isComposing ||
-                            event.keyCode === 229
-                          ) {
-                            return;
-                          }
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                          }
-                        }}
+                        onKeyDown={(event) => onLevelFieldKeyDown(index, event)}
                       />
                     </div>
                     <div className="hierarchy-levels-field">
@@ -209,17 +226,7 @@ export function HierarchyLevelsDialog({
                             instruction: event.target.value,
                           })
                         }
-                        onKeyDown={(event) => {
-                          if (
-                            event.nativeEvent.isComposing ||
-                            event.keyCode === 229
-                          ) {
-                            return;
-                          }
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                          }
-                        }}
+                        onKeyDown={(event) => onLevelFieldKeyDown(index, event)}
                       />
                     </div>
                   </div>
