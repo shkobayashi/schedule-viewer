@@ -163,6 +163,66 @@ async function save2xCrop(page, selector, outPath) {
     .toFile(outPath);
 }
 
+async function scrollShortcutsModeSectionIntoView(page) {
+  await page.evaluate(() => {
+    const body = document.querySelector(".shortcuts-modal-body");
+    const section = document.querySelector("#shortcuts-section-mode");
+    const table = document.querySelector(".shortcuts-table--mode");
+    if (!body || !section || !table) return;
+    const bodyTop = body.getBoundingClientRect().top;
+    const sectionTop = section.getBoundingClientRect().top;
+    body.scrollTop += sectionTop - bodyTop - 4;
+  });
+  await page.waitForTimeout(200);
+}
+
+async function assertModeTableKeyColumnsReadable(page) {
+  await page.waitForFunction(() => {
+    const table = document.querySelector(".shortcuts-table--mode");
+    if (!table) return false;
+    const headCells = [...table.querySelectorAll("thead th")];
+    if (headCells.length !== 5) return false;
+    const keyHeaders = headCells.slice(1);
+    const expected = ["Esc", "Enter", "Tab", "矢印"];
+    for (let i = 0; i < expected.length; i += 1) {
+      if ((keyHeaders[i]?.textContent?.trim() ?? "") !== expected[i]) return false;
+    }
+    for (const cell of keyHeaders) {
+      const r = cell.getBoundingClientRect();
+      if (r.width < 32) return false;
+    }
+    const bodyRows = table.querySelectorAll("tbody tr");
+    if (bodyRows.length < 3) return false;
+    const sample = table.querySelector("tbody td:nth-child(5)");
+    if (!sample) return false;
+    return sample.getBoundingClientRect().width >= 32;
+  });
+}
+
+async function save2xElementScreenshot(page, selector, outPath) {
+  const shot = await page.locator(selector).screenshot({ type: "png" });
+  const meta = await sharp(shot).metadata();
+  const width = meta.width ?? 1;
+  const height = meta.height ?? 1;
+  await sharp(shot)
+    .resize(width * 2, height * 2, { kernel: sharp.kernel.nearest })
+    .png()
+    .toFile(outPath);
+}
+
+async function captureShortcutsModeTable(page, scheme, written) {
+  await scrollShortcutsModeSectionIntoView(page);
+  await assertModeTableKeyColumnsReadable(page);
+  const modePath = path.join(outDir, `menu-473-shortcuts-mode-table-${scheme}.png`);
+  await page.locator(".shortcuts-table--mode").screenshot({ path: modePath });
+  await save2xElementScreenshot(
+    page,
+    ".shortcuts-table--mode",
+    path.join(outDir, `menu-473-shortcuts-mode-table-${scheme}-2x.png`),
+  );
+  written.push(modePath);
+}
+
 async function main() {
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(
@@ -247,6 +307,7 @@ async function main() {
         path.join(outDir, `menu-473-shortcuts-dialog-${scheme}-2x.png`),
       );
       written.push(shortcutsPath);
+      await captureShortcutsModeTable(page, scheme, written);
       await page.keyboard.press("Escape");
     }
 

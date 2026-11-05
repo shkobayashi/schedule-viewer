@@ -63,7 +63,9 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
           ))}
         </tbody>
       </table>
-      <h3 className="shortcuts-section-title">編集中・モード内</h3>
+      <h3 className="shortcuts-section-title" id="shortcuts-section-mode">
+        編集中・モード内
+      </h3>
       <ModeKeyboardTable rows={modeRows} />
       </div>
     </ModalDialog>

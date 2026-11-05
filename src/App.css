@@ -3996,11 +3996,37 @@ html[data-color-scheme="dark"] .command-palette {
   margin-top: 0;
 }
 
+.shortcuts-table--mode {
+  table-layout: fixed;
+}
+
 .shortcuts-table--mode th,
 .shortcuts-table--mode td {
   vertical-align: top;
   font-size: calc(11px * var(--s));
   line-height: 1.4;
+}
+
+.shortcuts-table--mode th[scope="row"],
+.shortcuts-table--mode td:first-child {
+  white-space: normal;
+  text-align: left;
+  padding-right: calc(8px * var(--s));
+  width: 26%;
+}
+
+.shortcuts-table--mode thead th:not(:first-child),
+.shortcuts-table--mode tbody td {
+  white-space: normal;
+  text-align: left;
+  hyphens: auto;
+  overflow-wrap: anywhere;
+  padding-right: calc(6px * var(--s));
+  width: 18.5%;
+}
+
+.shortcuts-table--mode thead th:not(:first-child) {
+  white-space: nowrap;
 }
 
 .shortcuts-table {

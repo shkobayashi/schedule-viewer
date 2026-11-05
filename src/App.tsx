@@ -3942,6 +3942,31 @@ function App() {
     onDuplicateTask: openDuplicateDialog,
     commitTaskReorder: schedule.commitTaskReorder,
     filterPanelOpen,
+    onOpenSettings: () => {
+      setSettingsSection("display");
+      setSettingsOpen(true);
+    },
+    onGoToday: scrollToToday,
+    onSetViewTier: (tier) => {
+      if (tier === "fit") fitToWidth();
+      else setTierZoom(tier);
+    },
+    onToggleLineage: () => schedule.toggleLineage(),
+    onToggleFilterPanel: () => setFilterPanelOpen((open) => !open),
+    onToggleTaskConfidence: () => {
+      for (const taskId of schedule.selectedTaskIds) {
+        const task = findTaskInDocument(
+          schedule.categories,
+          schedule.outline,
+          taskId,
+        );
+        if (!task) continue;
+        schedule.setTaskConfidence(
+          taskId,
+          task.confidence === "tentative" ? "committed" : "tentative",
+        );
+      }
+    },
   });
 
   useMacOSAppMenu(
