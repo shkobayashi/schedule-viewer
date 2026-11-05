@@ -22,6 +22,7 @@ import {
   matchToggleFilterPanel,
   matchToggleLineage,
   matchViewTier,
+  shortcutReferenceColumnGroups,
   usesCommandKey,
   type ShortcutContext,
   type ShortcutKeyEvent,
@@ -376,6 +377,18 @@ describe("frequent operation shortcuts", () => {
   it("renames with F2 for a single selection", () => {
     expect(matchRenameF2(key("F2"), editNav)).toBe(true);
     expect(matchRenameF2(key("F2"), { ...editNav, selectedTaskCount: 2 })).toBe(false);
+  });
+});
+
+describe("shortcutReferenceColumnGroups", () => {
+  it("keeps zoom keys short and moves the sidebar note under the action", () => {
+    const nav = shortcutReferenceColumnGroups(false).start.find(
+      (g) => g.title === "表示とナビゲーション",
+    );
+    const zoom = nav?.rows.find((row) => row.action === "ズーム");
+    expect(zoom?.keys).toBe("Ctrl+ホイール");
+    expect(zoom?.keys).not.toContain("一覧");
+    expect(zoom?.actionNote).toMatch(/左端の日付/);
   });
 });
 

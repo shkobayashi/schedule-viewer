@@ -469,6 +469,8 @@ export function reorderTaskShortcutHint(): string {
 export type ShortcutReferenceRow = {
   action: string;
   keys: string;
+  /** 操作名の下。キー欄を短く保つための補足 */
+  actionNote?: string;
 };
 
 export type ShortcutReferenceGroup = {
@@ -520,7 +522,8 @@ export function shortcutReferenceColumnGroups(
           },
           {
             action: "ズーム",
-            keys: `${mod}+ホイール（一覧の上では左端の日付を保つ）`,
+            keys: `${mod}+ホイール`,
+            actionNote: "一覧の上では左端の日付を保つ",
           },
           { action: "横スクロール", keys: "Shift+ホイール" },
         ],
