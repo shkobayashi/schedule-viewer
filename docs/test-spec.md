@@ -733,6 +733,10 @@
 | 同上 | `does not accept once the generation has already moved on` | SYNC-03 |
 | `pollGate.test.ts` | `does not read or apply while a file operation is busy or paused` | SYNC-01 |
 | 同上 | `prompts for a missing file on the fifth consecutive read failure` | SYNC-01 |
+| `scheduleViewPrune.test.ts` | `prunes selection when task is gone` / `keeps selection and lineage when task remains` / `clears invalid lineage and signals connection flag reset` | — |
+| `scheduleLineageToggle.test.ts` | `turns off connection-inclusive lineage first` / `clears lineage when active without connections` / `starts lineage from primary selection when inactive` | — |
+| `scheduleExplainSession.test.ts` | `clears when explanation view is active` / `clears when translucent overlay is active` / `does not clear when overlay is inactive` | — |
+| `scheduleFilterViewApply.test.ts` | `applies persisted category and group collapse keys` / `keeps hierarchy collapse keys from previous set` | — |
 | `shortcuts.test.ts` | `maps save, save as, open, and find` | FILE-01, FILE-02, FILE-03, NAV-05 |
 | 同上 | `keeps file shortcuts while typing and drops them in a dialog` | FILE-02 |
 | 同上 | `maps Enter and Delete only when edit keys are free` | EDIT-04, EDIT-09 |
