@@ -21,7 +21,7 @@
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1） |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
 | 循環・重複（警告） | `npm run check:architecture-warn` | madge 循環、jscpd。CI では失敗にしない |
-| madge 循環ベースライン | `npm run check:madge-circular-baseline` | M1 後 17 件。**CI frontend 必須**。循環増減 PR では JSON を意図的に更新 |
+| madge 循環ベースライン | `npm run check:madge-circular-baseline` | M2 後 15 件。**CI frontend 必須**。循環増減 PR では JSON を意図的に更新 |
 | カバレッジ（警告） | `npm run test:coverage-warn` | Vitest coverage サマリ。CI では失敗にしない |
 | 型検査 | `npm run build` の中の `tsc` | `src` |
 | Clippy | `cd src-tauri && cargo clippy -- -D warnings` | Rust。警告をエラーにする |
@@ -959,6 +959,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `documentSnapshot.test.ts` | `cloneSnapshot preserves documentToJson equality` | FILE-02 |
 | `explainOverlayTrialVisible.test.ts` | `detects explanation trial task rows` | MCP-01 |
 | `outlineTaskMap.test.ts` | `maps all tasks in outline` | EDIT-02 |
+| `fieldFiltersTypes.test.ts` | `allows an empty field filter record` | FILTER-11 |
+| `resolvedColorScheme.test.ts` | `accepts light and dark` | SET-04 |
 | 同上 | `exports T5 hooks and pure helpers` | VIEW-04, NAV-01 |
 | `connectionArcLabelFontSize.test.ts` | `scales with bar height and keeps a readable minimum` | VIEW-04 |
 | `colorScheme.test.ts` | `accepts light and dark` | SET-04 |

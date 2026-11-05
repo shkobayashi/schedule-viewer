@@ -11,7 +11,7 @@
 | ベースライン照合 | `npm run check:madge-circular-baseline`（**CI frontend で必須**。`npm test` の node:test からも呼ぶ。**不一致で失敗**） |
 | 正本 JSON | [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) |
 
-M0 時点の **循環数は 30** である。M1 完了後（Issue #490）は **17** である（ベースライン JSON を更新済み）。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。
+M0 時点の **循環数は 30** である。M1 完了後は **17**、M2 完了後は **15** である（ベースライン JSON を更新済み）。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。
 
 ## 解消順（M1 → M2 → M3）
 
@@ -29,18 +29,16 @@ Issue #490 の順序を変えない。**M3 は `validateSchedule` ハブを最�
 | 履歴と serialize | `DocumentSnapshot` を `documentSnapshot.ts` へ |
 | タスク TODO の短い環 | `mapAllTasksInOutline` を `outlineTaskMap.ts` へ |
 
-### M2（2 環）— 未着手
+### M2（2 環）— 完了
 
-デザイントークンと型の相互参照。
+2026-11-05 の M2 PR で解消済み。
 
-| 環 | 内容 |
+| 環 | 対応 |
 | --- | --- |
-| 1 | `model/palette.ts` ↔ `design/uiTokens.ts` |
-| 2 | `model/fieldFilters.ts` ↔ `model/types.ts` |
+| `fieldFilters` ↔ `types` | 条件型を `fieldFiltersTypes.ts` へ。`types` はそこから `FieldFiltersState` を参照 |
+| `palette` ↔ `design/uiTokens` | `ResolvedColorScheme` を `resolvedColorScheme.ts` へ |
 
-完了条件: 2 環が 0。同上。
-
-### M3（残り 13 環、ベースライン JSON 参照）
+### M3（残り 13 環、ベースライン JSON 参照）— 未着手
 
 `validateSchedule.ts` を中心としたクラスタ（M1 後は `outlineTaskMap` 経路を含む。`hierarchy`、`dependencies`、`tasks`、`scheduleSemantics` 等）。
 

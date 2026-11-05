@@ -1,24 +1,22 @@
 {
   "schemaVersion": 1,
   "recordedAt": "2026-11-05",
-  "issue": "#490 M1",
+  "issue": "#490 M2",
   "madgeRoot": "src",
   "extensions": [
     "ts",
     "tsx"
   ],
-  "cycleCount": 17,
+  "cycleCount": 15,
   "cycles": [
     "components/Toolbar.tsx > components/FilterPanel.tsx",
     "hooks/useScheduleFile.ts > hooks/scheduleFile/useScheduleStartupRecovery.ts",
     "model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts",
-    "model/fieldFilters.ts > model/types.ts",
     "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/connections.ts",
     "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/connections.ts > model/timeline.ts",
     "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskFields.ts",
     "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskTodos.ts",
     "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskTodos.ts > model/outlineTaskMap.ts",
-    "model/palette.ts > design/uiTokens.ts",
     "model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts",
     "model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts",
     "model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/connections.ts",
@@ -45,12 +43,13 @@
       "cycles": []
     },
     "M2": {
-      "summary": "palette ↔ design/uiTokens、fieldFilters ↔ types",
-      "cycleCount": 2,
-      "cycles": [
+      "summary": "M2 完了（2026-11-05 PR）。fieldFiltersTypes、resolvedColorScheme",
+      "cycleCount": 0,
+      "resolvedCycles": [
         "model/fieldFilters.ts > model/types.ts",
         "model/palette.ts > design/uiTokens.ts"
-      ]
+      ],
+      "cycles": []
     },
     "M3": {
       "summary": "validateSchedule ハブ（hierarchy、dependencies、tasks、scheduleSemantics、connections、validationMessages 等）。import 向きの分割のみ。最後にまとめる",
