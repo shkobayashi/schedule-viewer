@@ -39,6 +39,7 @@ import {
   type StatusFilter,
 } from "../model/types";
 import { anchorBelowRect, menuShiftForRect } from "./anchoredMenu";
+import type { AssigneeFilterOption } from "./assigneeFilterOption";
 import {
   FilterComboDropdown,
   FilterPanelScrollRefContext,
@@ -54,7 +55,6 @@ import {
   filterPanelMaxOuterHeightPx,
 } from "./filterPanelLayout";
 import { FilterFieldFiltersSection } from "./FilterFieldFiltersSection";
-import type { AssigneeFilterOption } from "./assigneeFilterOption";
 import type { FieldFilterCondition } from "../model/fieldFilters";
 import type { ScheduleFieldDef } from "../model/types";
 
