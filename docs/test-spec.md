@@ -287,6 +287,10 @@
 | 同上 | `imports the sample only once when two seeds overlap` | SET-02 |
 | 同上 | `turns a storage failure into a user-facing error` | SET-02 |
 | 同上 | `does not restore a sample catalog after it was removed` | SET-02 |
+| 同上 | `returns null when browser storage holds an empty body` | SET-02 |
+| `catalogAppDataLoader.test.ts` | `exposes C0-pinned catalog import error strings` | SET-02, SET-08, SET-09 |
+| 同上 | `defaults catalog id from filename` | SET-02 |
+| 同上 | `treats empty browser catalog body as missing` | SET-02, SET-08, SET-09 |
 | `memberCatalogEditSession.test.ts` | `closes when the open catalog is removed` | SET-02, SET-08 |
 | 同上 | `reloads when another window overwrites the open catalog` | SET-02, SET-08 |
 | 同上 | `ignores self save reload` | SET-02, SET-08 |
@@ -310,6 +314,8 @@
 | 同上 | `rejects invalid members JSON on read after import` | SET-02 |
 | 同上 | `rejects invalid status JSON on read after import` | SET-08 |
 | 同上 | `rejects invalid colors JSON on read after import` | SET-09 |
+| 同上 | `returns null for empty stored body on read (status)` | SET-08 |
+| 同上 | `returns null for empty stored body on read (colors)` | SET-09 |
 | 同上 | `rejects browser storage failure with fixed message` | SET-02, SET-08, SET-09 |
 | `colorCatalogEditSession.test.ts` | `ignores unrelated catalogs` | SET-09 |
 | `milestones.test.ts` | `rejects a blank name and an empty or impossible date` | EDIT-07 |
