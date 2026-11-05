@@ -16,6 +16,25 @@ describe("timelineLinkPointerClick", () => {
     ).toBe(false);
   });
 
+  it("allows pointerup detail zero and single click detail one", () => {
+    expect(
+      shouldFireTimelineLinkPointerClick({
+        taskId: "t1",
+        eventClickDetail: 0,
+        lastFire: null,
+        now: 1000,
+      }),
+    ).toBe(true);
+    expect(
+      shouldFireTimelineLinkPointerClick({
+        taskId: "t1",
+        eventClickDetail: 1,
+        lastFire: null,
+        now: 1000,
+      }),
+    ).toBe(true);
+  });
+
   it("rejects a second fire on the same task inside the window", () => {
     expect(
       shouldFireTimelineLinkPointerClick({

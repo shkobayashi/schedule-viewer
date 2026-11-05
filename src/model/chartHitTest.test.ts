@@ -383,6 +383,20 @@ describe("chartHitTest", () => {
     );
   });
 
+  it("maps client coordinates into chart rects", () => {
+    const rect = { left: 10, top: 20, right: 110, bottom: 220 };
+    expect(clientOffsetInRect(15, 25, rect)).toEqual({ x: 5, y: 5 });
+    expect(clientPointInRect(10, 20, rect)).toBe(true);
+    expect(clientPointInRect(110, 220, rect)).toBe(true);
+    expect(clientPointInRect(15, 25, rect)).toBe(true);
+    expect(clientPointInRect(9, 25, rect)).toBe(false);
+    expect(clientPointInRect(111, 25, rect)).toBe(false);
+    expect(clientPointInRect(15, 19, rect)).toBe(false);
+    expect(clientPointInRect(15, 221, rect)).toBe(false);
+    expect(clientOffsetInRect(9, 19, rect)).toEqual({ x: -1, y: -1 });
+    expect(clientOffsetInRect(111, 221, rect)).toEqual({ x: 101, y: 201 });
+  });
+
   it("compares hover and preview ends for pointer updates", () => {
     const hoverA = {
       overTask: true,
@@ -398,10 +412,21 @@ describe("chartHitTest", () => {
     expect(previewEndEquals({ x: 1, y: 2 }, null)).toBe(false);
   });
 
-  it("maps client coordinates into chart rects", () => {
-    const rect = { left: 10, top: 20, right: 110, bottom: 220 };
-    expect(clientOffsetInRect(15, 25, rect)).toEqual({ x: 5, y: 5 });
-    expect(clientPointInRect(15, 25, rect)).toBe(true);
-    expect(clientPointInRect(9, 25, rect)).toBe(false);
+  it("compares hover including link identity", () => {
+    const base = {
+      overTask: false,
+      overMilestone: false,
+      hoverTaskId: null,
+    };
+    const linkA = {
+      ...base,
+      link: { fromId: "a", toId: "b", kind: "predecessor" as const },
+    };
+    const linkB = {
+      ...base,
+      link: { fromId: "a", toId: "c", kind: "predecessor" as const },
+    };
+    expect(chartHoverEquals(linkA, linkA)).toBe(true);
+    expect(chartHoverEquals(linkA, linkB)).toBe(false);
   });
 });

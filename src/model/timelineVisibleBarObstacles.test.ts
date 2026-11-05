@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseDate } from "./dates";
 import { timelineVisibleBarObstacles } from "./timelineVisibleBarObstacles";
 import type { Task, VisibleRow } from "./types";
 
@@ -23,7 +24,7 @@ const taskB: Task = {
   end: "2026-04-02",
 };
 
-const dateToX = (d: Date) => d.getUTCDate() * 10;
+const dateToX = (d: Date) => (d.getTime() - parseDate("2026-04-01").getTime()) / 86400000 * 10;
 
 describe("timelineVisibleBarObstacles", () => {
   it("skips rows outside the viewport and skipped task ids", () => {
@@ -44,7 +45,7 @@ describe("timelineVisibleBarObstacles", () => {
     expect(obstacles).toHaveLength(0);
   });
 
-  it("includes visible task bars and summary bars", () => {
+  it("includes visible task bars and summary bars with layout coordinates", () => {
     const rows: VisibleRow[] = [
       { type: "task", task: taskA, y: 10 },
       {
@@ -62,19 +63,38 @@ describe("timelineVisibleBarObstacles", () => {
         },
         rollupPercent: 50,
       },
+      {
+        type: "category",
+        id: "c2",
+        label: "Empty",
+        y: 70,
+        collapsed: false,
+        summary: null,
+        rollupPercent: null,
+      },
     ];
     const obstacles = timelineVisibleBarObstacles({
       rows,
       scrollY: 0,
       rowHeight: 24,
       barHeight: 16,
-      bodyHeight: 200,
+      bodyHeight: 72,
       dateToX,
       pxPerDay: 10,
       skipTaskIds: new Set(),
     });
-    expect(obstacles.length).toBe(2);
-    expect(obstacles[0]?.height).toBe(16);
-    expect(obstacles[1]?.height).toBe(8);
+    expect(obstacles).toHaveLength(2);
+    expect(obstacles[0]).toEqual({
+      x: 0,
+      y: 10 + (24 - 16) / 2,
+      width: 30,
+      height: 16,
+    });
+    expect(obstacles[1]).toEqual({
+      x: 0,
+      y: 40 + (24 - 8) / 2,
+      width: 50,
+      height: 8,
+    });
   });
 });

@@ -1,6 +1,6 @@
 import { isMcpInProgressCommitStale } from "./mcpInProgressInvalidation";
 
-/** タスクバー移動・期間変更の確定を、MCP 読み取りの世代進行後は拒否する。 */
+/** MCP 読み取り中に世代が進んだあとは、タスクバー本体移動と未選択ハンドルの確定を書き込まない。選択中ハンドルは従来どおり世代を見ない。 */
 export function shouldApplyTimelineDragCommit(
   requestedCommit: boolean,
   capturedGeneration: number,

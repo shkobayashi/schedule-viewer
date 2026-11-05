@@ -13,7 +13,7 @@ import {
 
 const noop = vi.fn();
 const emptyProps = {
-  settings: { selectedCatalogId: null, catalogs: [] as const },
+  settings: { selectedCatalogId: null, catalogs: [] },
   selectedCatalogLabel: null,
   onImport: noop,
   onSelectCatalog: noop,

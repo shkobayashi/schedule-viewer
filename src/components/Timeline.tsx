@@ -31,6 +31,7 @@ import {
 import { timelineVisibleBarObstacles } from "../model/timelineVisibleBarObstacles";
 import {
   CHART_PAN_THRESHOLD_PX,
+  clientOffsetInRect,
   hitTaskAnchor,
   hitTaskResizeEdge,
   type LinkModePointerButton,
@@ -2679,7 +2680,7 @@ export function Timeline({
     (clientX: number, clientY: number): ScheduleId | null => {
       const body = bodyRef.current?.getBoundingClientRect();
       if (!body) return null;
-      const pos = { x: clientX - body.left, y: clientY - body.top };
+      const pos = clientOffsetInRect(clientX, clientY, body);
       const hit = hitTaskAnchor(pos, liveAnchors, barHeight, {
         linkMode: true,
         selectedTaskId,

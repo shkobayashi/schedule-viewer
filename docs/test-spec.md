@@ -922,6 +922,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `resolves link mode drags to scroll, link click, or none` | EDIT-12 |
 | 同上 | `compares hover and preview ends for pointer updates` | EDIT-12, NAV-01 |
 | 同上 | `maps client coordinates into chart rects` | EDIT-12, NAV-01 |
+| 同上 | `allows pointerup detail zero and single click detail one` | EDIT-12 |
+| 同上 | `compares hover including link identity` | EDIT-12 |
 | `mcpInProgressInvalidation.test.ts` | `treats a captured generation as stale after MCP progress bumps` | MCP-01, EDIT-03 |
 | 同上 | `does not mark stale when generation matches` | MCP-01 |
 | `timelineDragCommit.test.ts` | `allows commit when MCP generation is unchanged` | EDIT-03, MCP-01 |
@@ -931,7 +933,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `rejects a second fire on the same task inside the window` | EDIT-12 |
 | 同上 | `allows fire after the window or on a different task` | EDIT-12 |
 | `timelineVisibleBarObstacles.test.ts` | `skips rows outside the viewport and skipped task ids` | EDIT-03, EDIT-11 |
-| 同上 | `includes visible task bars and summary bars` | EDIT-03 |
+| 同上 | `includes visible task bars and summary bars with layout coordinates` | EDIT-03 |
 | `colorScheme.test.ts` | `accepts light and dark` | SET-04 |
 | `autoUpdate.test.ts` | `treats on as enabled`、localStorage の読み書き、更新確認の失敗を出さない条件、`classifyUpdateCheckError` | SET-06 |
 | `storeDistribution.test.ts` | `readStoreDistribution` が Tauri で `is_store_distribution` を呼ぶ | SET-06 |
