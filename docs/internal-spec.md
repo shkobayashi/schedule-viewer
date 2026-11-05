@@ -64,7 +64,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 
 段 8 の後半（PR 7 以降）の目安順序:
 
-1. **カタログ編集共通化** — `ColorCatalogEditor*` / `Member*` / `Status*` の Overlay・Panel、`use*CatalogEditorOverlay`、`*AppData.ts`、設定の色・メンバー・ステータス節。**C0**（特性テストのみ）: `memberCatalogEditSession.test.ts`、`memberCatalogEditHistory.test.ts`、`catalogEditDraftMessages.test.ts`、`catalogEditImportMessages.test.ts`、`colorCatalogEditSession.test.ts` の追補、Rust `sanitize_catalog_id` の `#[test]`。手動 TC との対応は `docs/test-spec.md` の Vitest 表。**C1**: `catalogAppDataLoader.ts`。**C2**: `useCatalogEditorOverlayCore.ts`（三種の覆いフックの共通セッション。各 `use*CatalogEditorOverlay` は種別の read・claim・文言・フラグだけを渡す）
+1. **カタログ編集共通化** — `ColorCatalogEditor*` / `Member*` / `Status*` の Overlay・Panel、`use*CatalogEditorOverlay`、`*AppData.ts`、設定の色・メンバー・ステータス節。**C0**（特性テストのみ）: `memberCatalogEditSession.test.ts`、`memberCatalogEditHistory.test.ts`、`catalogEditDraftMessages.test.ts`、`catalogEditImportMessages.test.ts`、`colorCatalogEditSession.test.ts` の追補、Rust `sanitize_catalog_id` の `#[test]`。手動 TC との対応は `docs/test-spec.md` の Vitest 表。**C1**: `catalogAppDataLoader.ts`。**C2**: `useCatalogEditorOverlayCore.ts`（三種の覆いフックの共通セッション。各 `use*CatalogEditorOverlay` は種別の read・claim・文言・フラグだけを渡す）。**C3**: `CatalogEditorOverlay.tsx`、`CatalogEditorPanelFooter.tsx`、`catalogEditorCopy.ts`、`catalogEditorUi.ts`（覆いの殻とパネルフッター。各 `*CatalogEditorOverlay` / `*CatalogEditorPanel` は種別の Panel 本体と行・右欄を残す）
 2. **`Timeline.tsx`**（約 3,505 行）— T0 特性テストのあと、ヘッダー・バー・ポインタ・説明レイヤーを T1–T5 で分割
 3. **`model` の循環 import**（madge で約 30 件）— `validateSchedule` クラスタは M3 で最後。M0 でベースライン記録
 
@@ -88,7 +88,9 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 | `ScheduleToolbarTitle.tsx` | 見出しのタイトル表示、鉛筆による EDIT-20 のその場編集、鉛筆の右の EDIT-21「階層編集」入口。パレットの要求番号だけで編集を始める |
 | `HierarchyLevelsDialog.tsx` | EDIT-21。段ごとの名前・意味・指示、見出し段の上下と削除、段の追加、不一致時の alert、閉じるで `useSchedule.commitLevelDefinitions` |
 | `FieldExtensionEditorOverlay.tsx` | SET-10。主画面の覆い。拡張 JSON の定義を `fieldDefinitionEdit.ts` の下書きで直し、保存で拡張ファイルだけを上書きする |
-| `MemberCatalogEditorOverlay.tsx` | SET-02。主画面の覆い「メンバーの項目を編集」。`MemberCatalogEditorPanel` が下書きを持ち、保存でカタログ JSON または設定ファイルの `members` だけを上書きする |
+| `CatalogEditorOverlay.tsx` | SET-02 / SET-08 / SET-09 の覆いの共通 DOM。`catalogEditorCopy` と render prop で各 Panel を載せる |
+| `CatalogEditorPanelFooter.tsx` | 三種 Panel 共通のフッター（足す・保存・編集を戻す・JSON を書き出す） |
+| `MemberCatalogEditorOverlay.tsx` | SET-02。`CatalogEditorOverlay` に `memberCatalogEditorCopy` と `MemberCatalogEditorPanel` を渡す |
 | `MemberCatalogEditorPanel.tsx` | 覆いの一覧と右欄。削除確認などは覆いが持つ |
 | `FieldDefinitionEditorPanel.tsx` | 覆いの一覧と右欄。削除確認は覆いが持つ |
 | `ActiveFilterBar.tsx` | 効いている絞り込みと系統の札 |
@@ -155,7 +157,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
-| アプリデータ | `catalogAppDataLoader.ts`（メンバー・ステータス・色の一覧の共通 loader。`memberAppData.ts`・`statusAppData.ts`・`colorAppData.ts` は parse・validate・claim/release と種別ごとの Tauri 呼び出し）、`memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts` |
+| アプリデータ | `catalogAppDataLoader.ts`（メンバー・ステータス・色の一覧の共通 loader。`memberAppData.ts`・`statusAppData.ts`・`colorAppData.ts` は parse・validate・claim/release と種別ごとの Tauri 呼び出し）、`catalogEditorCopy.ts`・`catalogEditorUi.ts`（カタログ編集覆いと Panel フッターの文言と UI 判定。C3）、`memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportExcel.ts`、`exportView.ts`、`exportFilename.ts` |
 | 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts`（UI 色と `applyCssPalette`）、`design/uiTokens.ts`（半径・余白・タイポ・影・モーション）、`design/appChrome.css`（Raycast シェル） |
 | キーボードショートカット | `shortcuts.ts` |

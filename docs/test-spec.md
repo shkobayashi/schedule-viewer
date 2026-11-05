@@ -291,6 +291,25 @@
 | `catalogAppDataLoader.test.ts` | `exposes C0-pinned catalog import error strings` | SET-02, SET-08, SET-09 |
 | 同上 | `defaults catalog id from filename` | SET-02 |
 | 同上 | `treats empty browser catalog body as missing` | SET-02, SET-08, SET-09 |
+| `catalogEditorCopy.test.ts` | `builds member applied notes for app modes` | SET-02 |
+| 同上 | `adds dirty and in-use lines to remove confirm` | SET-08 |
+| 同上 | `uses status workspace subtitle with file label` | SET-08 |
+| 同上 | `formats save messages` | SET-02, SET-08, SET-09 |
+| 同上 | `pins color radio group name` | SET-09 |
+| `catalogEditorUi.test.ts` | `allows workspace edit only for __workspace__ id` | SET-02, SET-08, SET-09 |
+| 同上 | `routes overlay keys through confirm, undo, close, and tab` | SET-02, SET-08, SET-09 |
+| 同上 | `computes scroll reveal delta` | SET-02, SET-08, SET-09 |
+| 同上 | `tracks member session-new rows` | SET-02 |
+| 同上 | `disables delete for keep-last policy` | SET-08, SET-09 |
+| 同上 | `suggests export names` | SET-02, SET-08, SET-09 |
+| 同上 | `shrinks selection index when list shortens` | SET-02, SET-08, SET-09 |
+| `catalogEditorOverlay.ui.test.ts` | `keeps shared overlay shell classes and dialog roles` | SET-02, SET-08, SET-09 |
+| 同上 | `pins member-specific copy via catalogEditorCopy` | SET-02 |
+| 同上 | `pins status-specific copy` | SET-08 |
+| 同上 | `pins color-specific copy` | SET-09 |
+| 同上 | `keeps thin member overlay wrapper wiring` | SET-02 |
+| 同上 | `exposes shared footer button labels` | SET-02, SET-08, SET-09 |
+| 同上 | `keeps member panel list hint in member panel source` | SET-02 |
 | `memberCatalogEditSession.test.ts` | `closes when the open catalog is removed` | SET-02, SET-08 |
 | 同上 | `reloads when another window overwrites the open catalog` | SET-02, SET-08 |
 | 同上 | `ignores self save reload` | SET-02, SET-08 |
