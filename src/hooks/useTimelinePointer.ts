@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import {
   chartHoverEquals,
+  clientOffsetInRect,
+  clientPointInRect,
   hitMilestoneDiamond,
   previewEndEquals,
   resolveChartHover,
@@ -86,16 +88,15 @@ export function useTimelinePointer({
     const band = bandRef.current?.getBoundingClientRect();
     if (
       band &&
-      clientPointer.x >= band.left &&
-      clientPointer.x <= band.right &&
-      clientPointer.y >= band.top &&
-      clientPointer.y <= band.bottom
+      clientPointInRect(clientPointer.x, clientPointer.y, band)
     ) {
+      const bandLocal = clientOffsetInRect(
+        clientPointer.x,
+        clientPointer.y,
+        band,
+      );
       overMilestone = hitMilestoneDiamond(
-        {
-          x: clientPointer.x - band.left,
-          y: clientPointer.y - band.top,
-        },
+        bandLocal,
         milestones,
         milestoneCenterYById,
         milestoneDisplayLabels,
@@ -107,18 +108,12 @@ export function useTimelinePointer({
 
     const body = bodyRef.current?.getBoundingClientRect();
     const local = body
-      ? {
-          x: clientPointer.x - body.left,
-          y: clientPointer.y - body.top,
-        }
+      ? clientOffsetInRect(clientPointer.x, clientPointer.y, body)
       : null;
     const insideBody =
       body != null &&
       local != null &&
-      clientPointer.x >= body.left &&
-      clientPointer.x <= body.right &&
-      clientPointer.y >= body.top &&
-      clientPointer.y <= body.bottom;
+      clientPointInRect(clientPointer.x, clientPointer.y, body);
     const resolved = resolveChartHover({
       insideBody,
       local,

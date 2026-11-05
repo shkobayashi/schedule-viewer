@@ -9,6 +9,10 @@ import {
   resolveChartHover,
   resolveLinkModeGesture,
   resizeExclusiveInside,
+  chartHoverEquals,
+  clientOffsetInRect,
+  clientPointInRect,
+  previewEndEquals,
   taskBarEdgeAt,
   taskBarResizeEdgeAt,
   RESIZE_BODY_CLICK_PX,
@@ -295,18 +299,6 @@ describe("chartHitTest", () => {
     expect(hitAt(10, 9)).toBe(false);
   });
 
-  it("uses 3px on empty and 8px on task bars for primary drags in link mode", () => {
-    expect(linkModeScrollThresholdPx("chartEmpty", "primary")).toBe(
-      CHART_PAN_THRESHOLD_PX,
-    );
-    expect(linkModeScrollThresholdPx("taskBar", "primary")).toBe(
-      TASK_DRAG_THRESHOLD_PX,
-    );
-    expect(linkModeScrollThresholdPx("taskBar", "middle")).toBe(
-      CHART_PAN_THRESHOLD_PX,
-    );
-  });
-
   it("resolves link mode drags to scroll, link click, or none", () => {
     const base = {
       surface: "taskBar" as const,
@@ -377,5 +369,39 @@ describe("chartHitTest", () => {
         distancePx: 2,
       }),
     ).toEqual({ kind: "linkClick" });
+  });
+
+  it("uses 3px on empty and 8px on task bars for primary drags in link mode", () => {
+    expect(linkModeScrollThresholdPx("chartEmpty", "primary")).toBe(
+      CHART_PAN_THRESHOLD_PX,
+    );
+    expect(linkModeScrollThresholdPx("taskBar", "primary")).toBe(
+      TASK_DRAG_THRESHOLD_PX,
+    );
+    expect(linkModeScrollThresholdPx("taskBar", "middle")).toBe(
+      CHART_PAN_THRESHOLD_PX,
+    );
+  });
+
+  it("compares hover and preview ends for pointer updates", () => {
+    const hoverA = {
+      overTask: true,
+      overMilestone: false,
+      link: null,
+      hoverTaskId: "t1" as const,
+    };
+    const hoverB = { ...hoverA, hoverTaskId: "t2" as const };
+    expect(chartHoverEquals(hoverA, hoverA)).toBe(true);
+    expect(chartHoverEquals(hoverA, hoverB)).toBe(false);
+    expect(previewEndEquals({ x: 1, y: 2 }, { x: 1, y: 2 })).toBe(true);
+    expect(previewEndEquals(null, null)).toBe(true);
+    expect(previewEndEquals({ x: 1, y: 2 }, null)).toBe(false);
+  });
+
+  it("maps client coordinates into chart rects", () => {
+    const rect = { left: 10, top: 20, right: 110, bottom: 220 };
+    expect(clientOffsetInRect(15, 25, rect)).toEqual({ x: 5, y: 5 });
+    expect(clientPointInRect(15, 25, rect)).toBe(true);
+    expect(clientPointInRect(9, 25, rect)).toBe(false);
   });
 });
