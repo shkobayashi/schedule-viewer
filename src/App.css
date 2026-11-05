@@ -1431,7 +1431,11 @@ body {
 .context-menu {
   position: fixed;
   z-index: 40;
+  width: max-content;
   min-width: calc(160px * var(--s));
+  max-width: calc(100vw - calc(16px * var(--s)));
+  box-sizing: border-box;
+  overflow: visible;
   padding: 6px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1447,6 +1451,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: calc(16px * var(--s));
+  width: 100%;
+  box-sizing: border-box;
   text-align: left;
   border: none;
   background: transparent;
@@ -1455,6 +1461,7 @@ body {
   font-size: calc(12px * var(--s));
   color: var(--text);
   cursor: pointer;
+  overflow: visible;
 }
 
 .context-menu button:hover {
@@ -1475,6 +1482,16 @@ body {
   display: inline-flex;
   align-items: center;
   gap: calc(8px * var(--s));
+  flex: 1;
+  min-width: 0;
+}
+
+.context-menu .menu-shortcut {
+  flex-shrink: 0;
+  min-width: calc(6.5rem * var(--s));
+  padding-right: calc(10px * var(--s));
+  text-align: right;
+  box-sizing: border-box;
 }
 
 .context-menu-icon {
@@ -3737,7 +3754,10 @@ html[data-color-scheme="dark"] .command-palette {
 }
 
 .command-palette-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8px * var(--s));
   width: 100%;
   text-align: left;
   padding: calc(8px * var(--s)) calc(10px * var(--s));
@@ -3964,6 +3984,49 @@ html[data-color-scheme="dark"] .command-palette {
 
 .shortcuts-modal-body {
   min-height: 0;
+}
+
+.shortcuts-section-title {
+  margin: calc(16px * var(--s)) 0 calc(8px * var(--s));
+  font-size: calc(13px * var(--s));
+  font-weight: 600;
+}
+
+.shortcuts-section-title:first-child {
+  margin-top: 0;
+}
+
+.shortcuts-table--mode {
+  table-layout: fixed;
+}
+
+.shortcuts-table--mode th,
+.shortcuts-table--mode td {
+  vertical-align: top;
+  font-size: calc(11px * var(--s));
+  line-height: 1.4;
+}
+
+.shortcuts-table--mode th[scope="row"],
+.shortcuts-table--mode td:first-child {
+  white-space: normal;
+  text-align: left;
+  padding-right: calc(8px * var(--s));
+  width: 26%;
+}
+
+.shortcuts-table--mode thead th:not(:first-child),
+.shortcuts-table--mode tbody td {
+  white-space: normal;
+  text-align: left;
+  hyphens: auto;
+  overflow-wrap: anywhere;
+  padding-right: calc(6px * var(--s));
+  width: 18.5%;
+}
+
+.shortcuts-table--mode thead th:not(:first-child) {
+  white-space: nowrap;
 }
 
 .shortcuts-table {

@@ -40,6 +40,7 @@ function decide(
     taskIndexInGroup: null,
     groupTaskCount: 0,
     diffStripListFocused: false,
+    filterPanelOpen: false,
     ...overrides,
   });
 }
@@ -427,6 +428,22 @@ describe("decideAppKey", () => {
         selectedTaskCount: 1,
       }).action,
     ).toEqual({ type: "selectTaskNext" });
+  });
+
+  it("does not move task selection with arrows while the filter panel is open", () => {
+    expect(
+      decide({
+        event: {
+          key: "ArrowDown",
+          ctrlKey: false,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          repeat: false,
+        },
+        filterPanelOpen: true,
+      }).action,
+    ).toEqual({ type: "none" });
   });
 
   it("ignores undo and redo in a dialog or text field", () => {

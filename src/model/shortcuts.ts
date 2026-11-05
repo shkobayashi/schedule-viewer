@@ -1,3 +1,5 @@
+import type { ScheduleId } from "./types";
+
 export type AppShortcut =
   | "save"
   | "saveAs"
@@ -65,7 +67,10 @@ export function blocksBrowserShortcut(event: ShortcutKeyEvent): boolean {
   if (key === "d" && event.shiftKey) return true;
   if (key === "k" && !event.shiftKey) return true;
   if (key === "o") return true;
-  return key === "f" && !event.shiftKey;
+  if (key === "f" && !event.shiftKey) return true;
+  if (key === ",") return true;
+  if (!event.shiftKey && key >= "1" && key <= "4") return true;
+  return false;
 }
 
 export function commandPaletteShortcutHint(commandKey: boolean): string {
@@ -219,7 +224,14 @@ export function undoShortcutHint(commandKey: boolean): string {
 }
 
 export function redoShortcutHint(commandKey: boolean): string {
-  return commandKey ? "⌘⇧Z" : "Ctrl+Shift+Z / Ctrl+Y";
+  return commandKey ? "⌘⇧Z" : "Ctrl+Shift+Z（Ctrl+Y も可）";
+}
+
+/** ツールバー tooltip 用（括弧を二重にしない） */
+export function redoToolbarTitle(commandKey: boolean): string {
+  return commandKey
+    ? "やり直し（⌘⇧Z）"
+    : "やり直し（Ctrl+Shift+Z、Ctrl+Y も可）";
 }
 
 export function findShortcutHint(commandKey: boolean): string {
@@ -232,6 +244,143 @@ export function displayScaleShortcutHint(commandKey: boolean): string {
 
 export function chartScrollShortcutHint(commandKey: boolean): string {
   return commandKey ? "⌘矢印" : "Ctrl+矢印";
+}
+
+export type ViewTierShortcut = "day" | "week" | "month" | "fit";
+
+export type ModNavigationShortcutContext = Pick<
+  ShortcutContext,
+  "dialogOpen" | "blocksLinkKeys"
+> & {
+  linkSourceId?: ScheduleId | null;
+  selectedTaskCount?: number;
+};
+
+type EditNavigationShortcutContext = Pick<
+  ShortcutContext,
+  "dialogOpen" | "blocksEditKeys"
+> & {
+  selectedTaskCount?: number;
+};
+
+export function settingsShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘," : "Ctrl+,";
+}
+
+export function matchOpenSettings(
+  event: ShortcutKeyEvent,
+  context: ModNavigationShortcutContext,
+): boolean {
+  if (context.dialogOpen || context.blocksLinkKeys || event.altKey || event.shiftKey) {
+    return false;
+  }
+  if (!(event.ctrlKey || event.metaKey)) return false;
+  return event.key === ",";
+}
+
+export function goTodayShortcutHint(): string {
+  return "T";
+}
+
+export function matchGoToday(
+  event: ShortcutKeyEvent,
+  context: EditNavigationShortcutContext,
+): boolean {
+  if (context.dialogOpen || context.blocksEditKeys) return false;
+  if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return false;
+  return shortcutKey(event) === "t";
+}
+
+export function viewTierShortcutHint(
+  tier: ViewTierShortcut,
+  commandKey: boolean,
+): string {
+  const mod = commandKey ? "⌘" : "Ctrl";
+  if (tier === "day") return `${mod}+1`;
+  if (tier === "week") return `${mod}+2`;
+  if (tier === "month") return `${mod}+3`;
+  return `${mod}+4`;
+}
+
+export function matchViewTier(
+  event: ShortcutKeyEvent,
+  context: ModNavigationShortcutContext,
+): ViewTierShortcut | null {
+  if (context.dialogOpen || context.blocksLinkKeys || event.altKey || event.shiftKey) {
+    return null;
+  }
+  if (!(event.ctrlKey || event.metaKey)) return null;
+  const key = shortcutKey(event);
+  if (key === "1") return "day";
+  if (key === "2") return "week";
+  if (key === "3") return "month";
+  if (key === "4") return "fit";
+  return null;
+}
+
+export function lineageToggleShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘⇧L" : "Ctrl+Shift+L";
+}
+
+export function matchToggleLineage(
+  event: ShortcutKeyEvent,
+  context: ModNavigationShortcutContext,
+): boolean {
+  if (
+    context.dialogOpen ||
+    context.blocksLinkKeys ||
+    context.linkSourceId != null ||
+    (context.selectedTaskCount ?? 0) < 1
+  ) {
+    return false;
+  }
+  if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey) return false;
+  return shortcutKey(event) === "l";
+}
+
+export function filterPanelShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘⇧F" : "Ctrl+Shift+F";
+}
+
+export function matchToggleFilterPanel(
+  event: ShortcutKeyEvent,
+  context: ModNavigationShortcutContext,
+): boolean {
+  if (context.dialogOpen || context.blocksLinkKeys || event.altKey) return false;
+  if (!(event.ctrlKey || event.metaKey) || !event.shiftKey) return false;
+  return shortcutKey(event) === "f";
+}
+
+export function confidenceToggleShortcutHint(commandKey: boolean): string {
+  return commandKey ? "⌘⇧U" : "Ctrl+Shift+U";
+}
+
+export function matchToggleConfidence(
+  event: ShortcutKeyEvent,
+  context: ModNavigationShortcutContext,
+): boolean {
+  if (
+    context.dialogOpen ||
+    context.blocksLinkKeys ||
+    (context.selectedTaskCount ?? 0) < 1
+  ) {
+    return false;
+  }
+  if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey) return false;
+  return shortcutKey(event) === "u";
+}
+
+export function renameShortcutHint(): string {
+  return "F2";
+}
+
+export function matchRenameF2(
+  event: ShortcutKeyEvent,
+  context: EditNavigationShortcutContext,
+): boolean {
+  if (context.dialogOpen || context.blocksEditKeys) return false;
+  if (event.key !== "F2") return false;
+  return (context.selectedTaskCount ?? 0) === 1;
 }
 
 export type TaskWorkflowShortcutContext = Pick<
@@ -323,6 +472,19 @@ export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow
     { action: "保存", keys: fileShortcutHint("save", commandKey) },
     { action: "別名保存", keys: fileShortcutHint("saveAs", commandKey) },
     { action: "検索", keys: findShortcutHint(commandKey) },
+    { action: "設定", keys: settingsShortcutHint(commandKey) },
+    { action: "今日", keys: goTodayShortcutHint() },
+    { action: "日表示", keys: viewTierShortcutHint("day", commandKey) },
+    { action: "週表示", keys: viewTierShortcutHint("week", commandKey) },
+    { action: "月表示", keys: viewTierShortcutHint("month", commandKey) },
+    { action: "全体表示", keys: viewTierShortcutHint("fit", commandKey) },
+    { action: "系統を表示／解除", keys: lineageToggleShortcutHint(commandKey) },
+    { action: "絞り込みパネル", keys: filterPanelShortcutHint(commandKey) },
+    {
+      action: "確定／未確定（選択中のタスク）",
+      keys: confidenceToggleShortcutHint(commandKey),
+    },
+    { action: "名前を変更（タスク）", keys: renameShortcutHint() },
     { action: "編集", keys: editShortcutHint() },
     { action: "削除", keys: deleteShortcutHint() },
     { action: "差分をコピー", keys: diffCopyShortcutHint(commandKey) },

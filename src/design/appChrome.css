@@ -61,9 +61,9 @@ html[data-color-scheme="dark"] .app .toolbar {
   color: var(--on-accent);
 }
 
-.app .toolbar-row-actions .toolbar-btn-label,
-.app .lineage-btn .toolbar-btn-label {
-  display: none;
+/* 案 C: ツールバーは略称のみ。ショートカットは title（tooltip）とメニュー／パレットのみ */
+.app .toolbar-row-actions .menu-shortcut {
+  display: none !important;
 }
 
 .app .main {

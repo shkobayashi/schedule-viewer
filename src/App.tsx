@@ -612,6 +612,7 @@ function App() {
   const titleEditHandleRef = useRef<ScheduleToolbarTitleHandle | null>(null);
   const hierarchyButtonRef = useRef<HTMLButtonElement | null>(null);
   const [hierarchyLevelsOpen, setHierarchyLevelsOpen] = useState(false);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [hierarchyHadDocumentLevels, setHierarchyHadDocumentLevels] =
     useState(false);
   const [sidebarReorderDragging, setSidebarReorderDragging] = useState(false);
@@ -3940,6 +3941,32 @@ function App() {
     },
     onDuplicateTask: openDuplicateDialog,
     commitTaskReorder: schedule.commitTaskReorder,
+    filterPanelOpen,
+    onOpenSettings: () => {
+      setSettingsSection("display");
+      setSettingsOpen(true);
+    },
+    onGoToday: scrollToToday,
+    onSetViewTier: (tier) => {
+      if (tier === "fit") fitToWidth();
+      else setTierZoom(tier);
+    },
+    onToggleLineage: () => schedule.toggleLineage(),
+    onToggleFilterPanel: () => setFilterPanelOpen((open) => !open),
+    onToggleTaskConfidence: () => {
+      for (const taskId of schedule.selectedTaskIds) {
+        const task = findTaskInDocument(
+          schedule.categories,
+          schedule.outline,
+          taskId,
+        );
+        if (!task) continue;
+        schedule.setTaskConfidence(
+          taskId,
+          task.confidence === "tentative" ? "committed" : "tentative",
+        );
+      }
+    },
   });
 
   useMacOSAppMenu(
@@ -3964,6 +3991,10 @@ function App() {
       setJsonOpen(true);
     },
     onShowDiff: showScheduleDiff,
+    onCopyDiff: () => {
+      flushTitleEdit();
+      copyScheduleDiff();
+    },
     onOpenGuide: openGuide,
     onOpenShortcuts: openShortcuts,
     onOpenSettings: () => {
@@ -4198,6 +4229,34 @@ function App() {
     },
     [addPredecessorLink, linkSourceId],
   );
+
+  useEffect(() => {
+    if (import.meta.env.MODE !== "manual-screenshot") return;
+    const openForCapture = () => {
+      const row =
+        document.querySelector<HTMLElement>(
+          ".sidebar-row.task.selected:not(.sidebar-row--explanation-trial)",
+        ) ??
+        document.querySelector<HTMLElement>(
+          ".sidebar-row.task:not(.sidebar-row--explanation-trial)",
+        );
+      const taskId = row?.dataset.taskId ?? null;
+      if (taskId == null) return;
+      openTaskContextMenu(taskId as ScheduleId, 520, 360);
+    };
+    (
+      window as Window & {
+        __manualScreenshotOpenTaskContextMenu?: () => void;
+      }
+    ).__manualScreenshotOpenTaskContextMenu = openForCapture;
+    return () => {
+      delete (
+        window as Window & {
+          __manualScreenshotOpenTaskContextMenu?: () => void;
+        }
+      ).__manualScreenshotOpenTaskContextMenu;
+    };
+  }, [openTaskContextMenu]);
 
   const contextMenuItems = useMemo((): ContextMenuItem[] => {
     if (contextMenu == null) return [];
@@ -4629,6 +4688,10 @@ function App() {
           setJsonOpen(true);
         }}
         onShowDiff={showScheduleDiff}
+        onCopyDiff={() => {
+          flushTitleEdit();
+          copyScheduleDiff();
+        }}
         onOpen={() => {
           flushTitleEdit();
           scheduleFile.requestOpen();
@@ -4663,6 +4726,8 @@ function App() {
           setHierarchyHadDocumentLevels(schedule.documentHasExplicitLevels());
           setHierarchyLevelsOpen(true);
         }}
+        filterPanelOpen={filterPanelOpen}
+        onFilterPanelOpenChange={setFilterPanelOpen}
         onOpenSettings={() => {
           setSettingsSection("display");
           setSettingsOpen(true);

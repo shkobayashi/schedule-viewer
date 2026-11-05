@@ -1,5 +1,5 @@
 import type { StatusItem } from "../model/statusCatalog";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import type {
   Milestone,
@@ -14,10 +14,11 @@ import {
   addTaskShortcutHint,
   deleteShortcutHint,
   linkShortcutHint,
-  redoShortcutHint,
+  redoToolbarTitle,
   undoShortcutHint,
   usesCommandKey,
 } from "../model/shortcuts";
+import { OPERATION_FORMAL, TOOLBAR_SHORT } from "../model/operationLabels";
 import type { GridTier } from "../model/timeline";
 import type { FieldFilterCondition } from "../model/fieldFilters";
 import type { SearchField } from "../model/scheduleFilterPersistence";
@@ -82,6 +83,7 @@ type ToolbarProps = {
   onOpenShortcuts: () => void;
   onShowJson: () => void;
   onShowDiff: () => void;
+  onCopyDiff: () => void;
   onExportHtml: () => void;
   onExportWorkspace?: () => void;
   onOpen: () => void;
@@ -112,6 +114,8 @@ type ToolbarProps = {
   hierarchyButtonRef?: RefObject<HTMLButtonElement | null>;
   onOpenHierarchy?: () => void;
   recentFilesEmptyHint?: string | null;
+  filterPanelOpen?: boolean;
+  onFilterPanelOpenChange?: (open: boolean) => void;
 };
 
 export function Toolbar({
@@ -154,6 +158,7 @@ export function Toolbar({
   onOpenShortcuts,
   onShowJson,
   onShowDiff,
+  onCopyDiff,
   onExportHtml,
   onExportWorkspace,
   onOpen,
@@ -184,11 +189,23 @@ export function Toolbar({
   hierarchyButtonRef,
   onOpenHierarchy,
   recentFilesEmptyHint = null,
+  filterPanelOpen: filterPanelOpenProp,
+  onFilterPanelOpenChange,
 }: ToolbarProps) {
   const titleEditDisabled = fileBusy || !startupSettled;
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
   const linkKey = linkShortcutHint(commandKey);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterOpenInternal, setFilterOpenInternal] = useState(false);
+  const filterOpenControlled = filterPanelOpenProp !== undefined;
+  const filterOpen = filterPanelOpenProp ?? filterOpenInternal;
+  const setFilterOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const value = typeof next === "function" ? next(filterOpen) : next;
+      if (filterOpenControlled) onFilterPanelOpenChange?.(value);
+      else setFilterOpenInternal(value);
+    },
+    [filterOpen, filterOpenControlled, onFilterPanelOpenChange],
+  );
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const addButtonRef = useRef<HTMLDivElement>(null);
   const lineageButtonRef = useRef<HTMLDivElement>(null);
@@ -324,6 +341,7 @@ export function Toolbar({
         onExportWorkspace={onExportWorkspace}
         onShowJson={onShowJson}
         onShowDiff={onShowDiff}
+        onCopyDiff={onCopyDiff}
         onOpenSettings={onOpenSettings}
         onOpenGuide={onOpenGuide}
         onOpenShortcuts={onOpenShortcuts}
@@ -413,7 +431,11 @@ export function Toolbar({
               aria-pressed={tier === value}
               onClick={() => onSetTier(value)}
             >
-              {value === "day" ? "日" : value === "week" ? "週" : "月"}
+              {value === "day"
+                ? TOOLBAR_SHORT.tierDay
+                : value === "week"
+                  ? TOOLBAR_SHORT.tierWeek
+                  : TOOLBAR_SHORT.tierMonth}
             </button>
           ))}
         </div>
@@ -424,8 +446,9 @@ export function Toolbar({
           type="button"
           className="toolbar-btn"
           onClick={onOpenGuide}
+          title={OPERATION_FORMAL.guide}
         >
-          案内
+          {TOOLBAR_SHORT.guide}
         </button>
         <button
           type="button"
@@ -459,6 +482,7 @@ export function Toolbar({
           className={`lineage-btn add-split-toggle${lineageName ? " active" : ""}`}
           aria-expanded={lineageMenuOpen}
           aria-label="系統の辿り方"
+          title="系統の辿り方（繋がりも辿る）"
           disabled={!canStartLineageWithConnections}
           onClick={() =>
             lineageMenuOpen ? closeLineageMenu() : openLineageMenu()
@@ -494,41 +518,37 @@ export function Toolbar({
       </div>
       <button
         type="button"
-        className={`lineage-btn toolbar-btn-with-shortcut${linkSourceName ? " active" : ""}`}
+        className={`lineage-btn${linkSourceName ? " active" : ""}`}
         disabled={!linkSourceName && !canStartLink}
         title={
           linkSourceName
             ? `${linkSourceName} から後続へ線を引いています。もう一度押すか、${linkKey} で中止`
-            : `選択中のタスクから、次にクリックしたタスクを後続にする（${linkKey}）`
+            : `${OPERATION_FORMAL.link}（${linkKey}）`
         }
         onClick={onToggleLink}
       >
-        <span className="toolbar-btn-label">
-          {linkSourceName ? `線を引く: ${linkSourceName}` : "線を引く"}
-        </span>
-        <span className="menu-shortcut">{linkKey}</span>
+        {linkSourceName ? `線を引く: ${linkSourceName}` : OPERATION_FORMAL.link}
       </button>
       <button
         type="button"
-        className="toolbar-btn toolbar-btn-with-shortcut toolbar-btn-danger"
+        className="toolbar-btn toolbar-btn-danger"
         disabled={!canDelete}
-        title={canDelete ? "選択中のタスクを削除" : "タスクを選択してから削除"}
+        title={canDelete ? `${OPERATION_FORMAL.deleteTask}（${deleteShortcutHint()}）` : "タスクを選択してから削除"}
         onClick={onDelete}
       >
         <span>削除</span>
-        <span className="menu-shortcut">{deleteShortcutHint()}</span>
       </button>
         </>
       ) : null}
       <div className="add-split" ref={addButtonRef}>
         <button
           type="button"
-          className="toolbar-btn toolbar-btn-primary toolbar-btn-with-shortcut"
+          className="toolbar-btn toolbar-btn-primary"
+          title={`${OPERATION_FORMAL.addTask}（${addTaskShortcutHint(commandKey)}）`}
           onClick={onAdd}
         >
           <Plus size={16} strokeWidth={2.25} aria-hidden="true" />
-          <span>追加</span>
-          <span className="menu-shortcut">{addTaskShortcutHint(commandKey)}</span>
+          <span>{TOOLBAR_SHORT.addTask}</span>
         </button>
         <button
           type="button"
@@ -560,7 +580,7 @@ export function Toolbar({
                 onAdd();
               }}
             >
-              タスクを追加
+              {OPERATION_FORMAL.addTask}
             </button>
             {addTopLevelMenuLabel && onAddTopLevel ? (
               <button
@@ -582,7 +602,7 @@ export function Toolbar({
                 onAddMilestone();
               }}
             >
-              <span>マイルストンを追加</span>
+              <span>{OPERATION_FORMAL.addMilestone}</span>
               <span className="menu-shortcut">
                 {addMilestoneShortcutHint(commandKey)}
               </span>
@@ -592,23 +612,21 @@ export function Toolbar({
       </div>
       <button
         type="button"
-        className="toolbar-btn toolbar-btn-with-shortcut"
+        className="toolbar-btn"
         disabled={!canUndo}
-        title="取り消し"
+        title={`取り消し（${undoShortcutHint(commandKey)}）`}
         onClick={onUndo}
       >
         <span>取り消し</span>
-        <span className="menu-shortcut">{undoShortcutHint(commandKey)}</span>
       </button>
       <button
         type="button"
-        className="toolbar-btn toolbar-btn-with-shortcut"
+        className="toolbar-btn"
         disabled={!canRedo}
-        title="やり直し"
+        title={redoToolbarTitle(commandKey)}
         onClick={onRedo}
       >
         <span>やり直し</span>
-        <span className="menu-shortcut">{redoShortcutHint(commandKey)}</span>
       </button>
       </div>
     </div>

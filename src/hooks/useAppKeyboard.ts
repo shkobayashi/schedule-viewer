@@ -66,6 +66,13 @@ type UseAppKeyboardOptions = {
     targetGroupId: ScheduleId,
     insertIndex: number,
   ) => void;
+  filterPanelOpen?: boolean;
+  onOpenSettings: () => void;
+  onGoToday: () => void;
+  onSetViewTier: (tier: import("../model/shortcuts").ViewTierShortcut) => void;
+  onToggleLineage: () => void;
+  onToggleFilterPanel: () => void;
+  onToggleTaskConfidence: () => void;
 };
 
 function groupTaskCount(categories: Category[], groupId: ScheduleId): number {
@@ -120,6 +127,13 @@ export function useAppKeyboard({
   onAddMilestone,
   onDuplicateTask,
   commitTaskReorder,
+  filterPanelOpen = false,
+  onOpenSettings,
+  onGoToday,
+  onSetViewTier,
+  onToggleLineage,
+  onToggleFilterPanel,
+  onToggleTaskConfidence,
 }: UseAppKeyboardOptions) {
   useEffect(() => {
     const macAppQuit =
@@ -175,6 +189,7 @@ export function useAppKeyboard({
         taskIndexInGroup: taskIndex,
         groupTaskCount: groupCount,
         diffStripListFocused,
+        filterPanelOpen,
       });
       if (decision.preventDefault) event.preventDefault();
       if (decision.closeMenu) closeFloatingMenus();
@@ -299,6 +314,12 @@ export function useAppKeyboard({
       else if (action.type === "quitApplication") {
         void requestApplicationQuitViaTauri();
       } else if (action.type === "openDiffCopy") copyScheduleDiff();
+      else if (action.type === "openSettings") onOpenSettings();
+      else if (action.type === "goToday") onGoToday();
+      else if (action.type === "setViewTier") onSetViewTier(action.tier);
+      else if (action.type === "toggleLineage") onToggleLineage();
+      else if (action.type === "toggleFilterPanel") onToggleFilterPanel();
+      else if (action.type === "toggleTaskConfidence") onToggleTaskConfidence();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -345,5 +366,12 @@ export function useAppKeyboard({
     focusDetailName,
     revealTaskRow,
     copyScheduleDiff,
+    filterPanelOpen,
+    onOpenSettings,
+    onGoToday,
+    onSetViewTier,
+    onToggleLineage,
+    onToggleFilterPanel,
+    onToggleTaskConfidence,
   ]);
 }
