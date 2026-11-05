@@ -9,7 +9,7 @@ import {
 import { Arrow, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { hatchCanvas } from "../model/hatch";
 import type Konva from "konva";
-import { addDays, addUtcMonths, fmtShort, fmtWeekday, isoDate, parseDate, utcMonthStart } from "../model/dates";
+import { fmtShort, parseDate } from "../model/dates";
 import {
   dragDateChipSize,
   layoutDragDateChips,
@@ -69,11 +69,6 @@ import {
 import { MILESTONE_GUIDE_DASH, milestonesExceededBy } from "../model/milestones";
 import { resolveMilestoneHover } from "../model/milestoneHoverLabel";
 import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
-import {
-  formatYearMonth,
-  MONTH_HEADER_LABEL_GAP_BASE_PX,
-  visibleMonthHeaderLabels,
-} from "../model/monthHeader";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
 import { resolveAssigneeRowDisplay, assigneeSidebarLabel, duplicateMemberNamesFromCatalog } from "../model/assigneeDisplay";
 import {
@@ -100,9 +95,11 @@ import type {
   VisibleRow,
 } from "../model/types";
 import type { CalendarDocument } from "../model/calendarTypes";
-import { nonWorkingDayClipRects } from "../model/nonWorkingDay";
 import { paletteFor, type ChartPalette, type ResolvedColorScheme } from "../model/palette";
 import { MilestoneBand } from "./MilestoneBand";
+import { buildTimelineBodyColumnNodes } from "./timeline/TimelineBodyGrid";
+import { buildTimelineChartHeaderContent } from "./timeline/TimelineChartHeaderContent";
+import { TimelineHeaderPanel } from "./timeline/TimelineHeaderPanel";
 import { ExplanationKonvaVeilLayer } from "./ExplanationKonvaVeil";
 import { ExplanationTrialBarsLayer } from "./ExplanationTrialBarsLayer";
 import { TimelineExplanationBalloons } from "./TimelineExplanationBalloons";
@@ -1393,100 +1390,6 @@ function DragDateLabels({
   );
 }
 
-function bodyColumnNodes(input: {
-  keyPrefix: string;
-  width: number;
-  height: number;
-  tier: "day" | "week" | "month";
-  timelineStart: Date;
-  timelineEnd: Date;
-  totalDays: number;
-  dayStart: number;
-  dayEnd: number;
-  dateToX: (d: Date) => number;
-  pxPerDay: number;
-  calendar: CalendarDocument | null;
-  chart: ChartPalette;
-}): ReactNode[] {
-  const elements: ReactNode[] = [];
-  const {
-    keyPrefix,
-    width,
-    height,
-    tier,
-    timelineStart,
-    timelineEnd,
-    totalDays,
-    dayStart,
-    dayEnd,
-    dateToX,
-    pxPerDay,
-    calendar,
-    chart,
-  } = input;
-  if (tier !== "month") {
-    const bands = nonWorkingDayClipRects(
-      timelineStart,
-      dayStart,
-      dayEnd,
-      dateToX,
-      pxPerDay,
-      width,
-      calendar,
-      totalDays,
-    );
-    for (let i = 0; i < bands.length; i += 1) {
-      const band = bands[i];
-      elements.push(
-        <Rect
-          key={`${keyPrefix}nwd-${i}-${band.x}`}
-          x={band.x}
-          y={0}
-          width={band.width}
-          height={height}
-          fill={chart.nonWorking}
-          listening={false}
-        />,
-      );
-    }
-    for (let i = dayStart; i <= dayEnd; i += 1) {
-      const d = addDays(timelineStart, i);
-      const x = dateToX(d);
-      if (x < -10 || x > width + 10) continue;
-      const isMonday = d.getUTCDay() === 1;
-      if (tier === "day" || isMonday) {
-        elements.push(
-          <Line
-            key={`${keyPrefix}vg-${i}`}
-            points={[x, 0, x, height]}
-            stroke={isMonday ? chart.gridBodyMonday : chart.gridBodyWeekday}
-            strokeWidth={1}
-            listening={false}
-          />,
-        );
-      }
-    }
-  } else {
-    let d = utcMonthStart(timelineStart);
-    while (d < timelineEnd) {
-      const x = dateToX(d);
-      if (x > -10 && x < width + 10) {
-        elements.push(
-          <Line
-            key={`${keyPrefix}mg-${d.getTime()}`}
-            points={[x, 0, x, height]}
-            stroke={chart.gridMonth}
-            strokeWidth={1}
-            listening={false}
-          />,
-        );
-      }
-      d = addUtcMonths(d, 1);
-    }
-  }
-  return elements;
-}
-
 export function Timeline({
   visibleRows,
   width,
@@ -1721,178 +1624,45 @@ export function Timeline({
     [pxPerDay, scrollX, totalDays, width],
   );
 
-  const headerContent = useMemo(() => {
-    const elements: ReactNode[] = [];
-    elements.push(
-      <Line
-        key="header-border"
-        points={[0, headerHeight - 0.5, width, headerHeight - 0.5]}
-        stroke={chart.headerBorder}
-        strokeWidth={1}
-        listening={false}
-      />,
-    );
-
-    const scrollAnchor = Math.max(
-      0,
-      Math.min(totalDays - 1, Math.floor(scrollX / Math.max(pxPerDay, 0.001))),
-    );
-    const anchorDate = addDays(timelineStart, scrollAnchor);
-    const yearMonthLabel = (
-      <Text
-        key="header-year-month"
-        x={4}
-        y={4 * scale}
-        text={formatYearMonth(anchorDate)}
-        fontSize={11 * scale}
-        fontStyle="bold"
-        fontFamily={KONVA_FONT_FAMILY}
-        fill={chart.textPrimary}
-        listening={false}
-      />
-    );
-
-    if (tier === "month") {
-      const fixedFontSize = 11 * scale;
-      const monthFontSize = 12 * scale;
-      const gapPx = MONTH_HEADER_LABEL_GAP_BASE_PX * scale;
-      elements.push(yearMonthLabel);
-      const monthLabelCandidates = [];
-      let d = utcMonthStart(timelineStart);
-      while (d < timelineEnd) {
-        const x = dateToX(d);
-        if (x > -120 && x < width + 120) {
-          elements.push(
-            <Line
-              key={`mh-${d.getTime()}`}
-              points={[x, 0, x, headerHeight]}
-              stroke={chart.monthGrid}
-              strokeWidth={1}
-              listening={false}
-            />,
-          );
-          monthLabelCandidates.push({
-            key: `mt-${d.getTime()}`,
-            x: x + 6,
-            text: formatYearMonth(d),
-            fontSize: monthFontSize,
-          });
-        }
-        d = addUtcMonths(d, 1);
-      }
-      const visibleMonthLabels = visibleMonthHeaderLabels(
-        monthLabelCandidates,
-        [{ left: 4, text: formatYearMonth(anchorDate), fontSize: fixedFontSize }],
-        gapPx,
-      );
-      for (const label of visibleMonthLabels) {
-        elements.push(
-          <Text
-            key={label.key}
-            x={label.x}
-            y={13 * scale}
-            text={label.text}
-            fontSize={label.fontSize}
-            fontStyle="bold"
-            fontFamily={KONVA_FONT_FAMILY}
-            fill={chart.textPrimary}
-            listening={false}
-          />,
-        );
-      }
-    } else {
-      const headerBands = nonWorkingDayClipRects(
-        timelineStart,
-        dayRange.start,
-        dayRange.end,
-        dateToX,
-        pxPerDay,
+  const headerContent = useMemo(
+    () =>
+      buildTimelineChartHeaderContent({
         width,
-        calendar,
+        headerHeight,
+        scale,
+        tier,
+        timelineStart,
+        timelineEnd,
         totalDays,
-      );
-      for (let i = 0; i < headerBands.length; i += 1) {
-        const band = headerBands[i];
-        elements.push(
-          <Rect
-            key={`hwe-${i}-${band.x}`}
-            x={band.x}
-            y={0}
-            width={band.width}
-            height={headerHeight}
-            fill={chart.nonWorking}
-            listening={false}
-          />,
-        );
-      }
-      elements.push(yearMonthLabel);
-      for (let i = dayRange.start; i <= dayRange.end; i += 1) {
-        const d = addDays(timelineStart, i);
-        const x = dateToX(d);
-        if (x < -40 || x > width + 40) continue;
-        const isMonday = d.getUTCDay() === 1;
-        const isToday = isoDate(d) === today;
-        if (tier === "day" || isMonday) {
-          elements.push(
-            <Line
-              key={`hl-${i}`}
-              points={[x, 22 * scale, x, headerHeight]}
-              stroke={isMonday ? chart.gridMonday : chart.gridWeekday}
-              strokeWidth={1}
-              listening={false}
-            />,
-            <Text
-              key={`ht-${i}`}
-              x={x + 2}
-              y={28 * scale}
-              text={
-                tier === "day"
-                  ? `${fmtShort(d)} ${fmtWeekday(d)}`
-                  : fmtShort(d)
-              }
-              fontSize={10 * scale}
-              fontFamily={KONVA_FONT_FAMILY}
-              fill={isMonday || isToday ? chart.textPrimary : chart.textSecondary}
-              fontStyle={isMonday || isToday ? "bold" : "normal"}
-              listening={false}
-            />,
-          );
-        }
-        if (isToday) {
-          elements.push(
-            <Rect
-              key={`today-${i}`}
-              x={x + 1}
-              y={26 * scale}
-              width={Math.max(4, pxPerDay - 2)}
-              height={4 * scale}
-              fill={cssPalette.accent}
-              cornerRadius={2}
-              listening={false}
-            />,
-          );
-        }
-      }
-    }
-    return elements;
-  }, [
-    calendar,
-    cssPalette.accent,
-    dateToX,
-    dayRange.end,
-    dayRange.start,
-    headerHeight,
-    pxPerDay,
-    scale,
-    scrollX,
-    today,
-    totalDays,
-    tier,
-    timelineEnd,
-    timelineStart,
-    width,
-    chart,
-  ]);
+        scrollX,
+        pxPerDay,
+        dayStart: dayRange.start,
+        dayEnd: dayRange.end,
+        dateToX,
+        today,
+        calendar,
+        chart,
+        accentColor: cssPalette.accent,
+      }),
+    [
+      calendar,
+      cssPalette.accent,
+      dateToX,
+      dayRange.end,
+      dayRange.start,
+      headerHeight,
+      pxPerDay,
+      scale,
+      scrollX,
+      today,
+      totalDays,
+      tier,
+      timelineEnd,
+      timelineStart,
+      width,
+      chart,
+    ],
+  );
 
   const stickyHidden = useMemo(
     () => new Set(sticky.hiddenIndexes),
@@ -1925,7 +1695,7 @@ export function Timeline({
     }
 
     elements.push(
-      ...bodyColumnNodes({
+      ...buildTimelineBodyColumnNodes({
         keyPrefix: "",
         width,
         height,
@@ -2015,7 +1785,7 @@ export function Timeline({
             fill="transparent"
             listening={false}
           />
-          {bodyColumnNodes({
+          {buildTimelineBodyColumnNodes({
             keyPrefix: `s${draw.index}-`,
             width,
             height: bodyHeight,
@@ -2975,35 +2745,18 @@ export function Timeline({
 
   return (
     <div className="timeline">
-      <div className="timeline-header">
-        <Stage
-          width={width}
-          height={headerHeight}
-          onWheel={onWheelHeader}
-          onContextMenu={(e) => {
-            e.evt.preventDefault();
-            if (linkMode) return;
-            const pos = e.target.getStage()?.getPointerPosition();
-            if (!pos) return;
-            onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
-          }}
-        >
-          <Layer>{headerContent}</Layer>
-          {explanationActive ? (
-            <ExplanationKonvaVeilLayer
-              width={width}
-              height={headerHeight}
-              holes={explanationOverlayGeometry?.headerHoles ?? []}
-              colorScheme={colorScheme}
-            />
-          ) : null}
-        </Stage>
-        {explanationActive ? (
-          <TimelineExplanationBalloons
-            balloons={explanationOverlayGeometry?.headerBalloons ?? []}
-          />
-        ) : null}
-      </div>
+      <TimelineHeaderPanel
+        width={width}
+        headerHeight={headerHeight}
+        headerContent={headerContent}
+        linkMode={linkMode}
+        explanationActive={explanationActive}
+        colorScheme={colorScheme}
+        headerHoles={explanationOverlayGeometry?.headerHoles ?? []}
+        headerBalloons={explanationOverlayGeometry?.headerBalloons ?? []}
+        onWheelHeader={onWheelHeader}
+        onAddMilestoneContextMenu={onAddMilestoneContextMenu}
+      />
       {milestoneBandHeight > 0 ? (
         <MilestoneBand
           bandLayout={milestoneBandLayout}
