@@ -13,7 +13,7 @@ description: >-
 
 ## 着手前
 
-1. [AGENTS.md](../../../AGENTS.md) の表で [docs/development.md](../../../docs/development.md) を読み、触る箇所を絞る
+1. [docs/agents-agent-index.md](../../../docs/agents-agent-index.md) で [docs/development.md](../../../docs/development.md) を読み、触る箇所を絞る
 2. ビルドの正本は [scripts/build-user-manual-site.mjs](../../../scripts/build-user-manual-site.mjs) と [scripts/manual-site/manual.css](../../../scripts/manual-site/manual.css) である
 3. 公開の正本は [.github/workflows/pages.yml](../../../.github/workflows/pages.yml) である。pull request では [.github/workflows/ci.yml](../../../.github/workflows/ci.yml) の `manual` ジョブがビルドだけ検査する
 
@@ -41,7 +41,7 @@ description: >-
 
 ## 文書
 
-[AGENTS.md](../../../AGENTS.md) の「変更したら文書も更新する」に従う。手順と CI の説明は [docs/development.md](../../../docs/development.md)。CI の表は [docs/test-spec.md](../../../docs/test-spec.md)。`scripts/` の説明は [docs/internal-spec.md](../../../docs/internal-spec.md)。方針は [docs/PLANNING.md](../../../docs/PLANNING.md)。公開 URL は [README.md](../../../README.md) と [docs/user-manual.md](../../../docs/user-manual.md)
+[docs/agents-doc-update-map.md](../../../docs/agents-doc-update-map.md) に従う。手順と CI の説明は [docs/development.md](../../../docs/development.md)。CI の表は [docs/test-spec.md](../../../docs/test-spec.md)。`scripts/` の説明は [docs/internal-spec.md](../../../docs/internal-spec.md)。方針は [docs/PLANNING.md](../../../docs/PLANNING.md)。公開 URL は [README.md](../../../README.md) と [docs/user-manual.md](../../../docs/user-manual.md)
 
 ## 確認
 

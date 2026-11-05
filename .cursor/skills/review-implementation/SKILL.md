@@ -20,7 +20,7 @@ description: >-
 
 1. 範囲は、その会話の計画、実装した差分、計画が更新するとしている文書である。リポジトリ全体は読まない
 2. [AGENTS.md](../../../AGENTS.md) に従い、ソースより先に該当する文書を読む
-3. 文章の指摘は [.cursor/rules/japanese-prose.mdc](../../rules/japanese-prose.mdc) に合わせる
+3. 文章の指摘は [.cursor/rules/japanese-prose.mdc](../../rules/japanese-prose.mdc) の **J1–J5** と [docs/japanese-prose-examples.md](../../../docs/japanese-prose-examples.md) に合わせる（**チャット返答も対象**）
 
 ## 仕様
 

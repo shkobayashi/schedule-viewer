@@ -23,6 +23,8 @@
 | 同じ変更で揃える文書 | [agents-doc-update-map.md](agents-doc-update-map.md) |
 | 事故例・implement-change 番号索引 | [agents-pitfall-examples.md](agents-pitfall-examples.md) |
 | D0 棚卸し・old→new | [agents-d0-inventory.md](agents-d0-inventory.md)、[agents-d0-principles-analysis.md](agents-d0-principles-analysis.md) |
+| D1 棚卸し | [agents-d1-inventory.md](agents-d1-inventory.md)、Issue 文案 [agents-d1-issue-490-proposal.md](agents-d1-issue-490-proposal.md) |
+| D2 計画 | [agents-d2-plan.md](agents-d2-plan.md) |
 | 概要 | [README.md](../README.md) |
 
 ## コードの境界（要約）
@@ -46,7 +48,9 @@
 | 全体レビュー | [review-project](../.cursor/skills/review-project/SKILL.md) |
 | 計画実装のレビュー | [review-implementation](../.cursor/skills/review-implementation/SKILL.md) |
 | 起動中スケジュール相談 | [schedule-talk](../.cursor/skills/schedule-talk/SKILL.md) |
-| `/consult` | [consult](../.cursor/skills/consult/SKILL.md) + [consult.mdc](../.cursor/rules/consult.mdc) |
+| `/consult` 相談モード | [consult](../.cursor/skills/consult/SKILL.md) + [consult.mdc](../.cursor/rules/consult.mdc) |
+| 起動中の相談・試し計画（Issue #490 #344） | [schedule-talk/references/consultation-flow.md](../.cursor/skills/schedule-talk/references/consultation-flow.md) |
+| 日本語（チャット含む） | [japanese-prose.mdc](../.cursor/rules/japanese-prose.mdc) **J1–J5**、[japanese-prose-examples.md](japanese-prose-examples.md)、[分析](japanese-prose-principles-analysis.md) |
 | スケジュール JSON | write-schedule（他リポジトリ可） |
 | メンバー / カレンダー / 色 / workspace / 拡張項目 | write-members, write-calendar, write-colors, write-workspace, write-fields |
 | スケジュール schema | [update-schedule-schema](../.cursor/skills/update-schedule-schema/SKILL.md) |
@@ -57,12 +61,12 @@
 
 レビュー指摘を直すとき、再発防止は該当 SKILL 節へ同じ変更で必ず足す（review-implementation）。計画だけの指摘は足さない。`write-*` へアプリ実装手順を書かない。
 
-日本語: [japanese-prose.mdc](../.cursor/rules/japanese-prose.mdc)。相談: [consult.mdc](../.cursor/rules/consult.mdc)。
+日本語: [japanese-prose.mdc](../.cursor/rules/japanese-prose.mdc)（J1–J5、**チャット含む**）と [japanese-prose-examples.md](japanese-prose-examples.md)。相談: [consult.mdc](../.cursor/rules/consult.mdc) + [consult/SKILL.md](../.cursor/skills/consult/SKILL.md)
 
 ## 作業の進め方
 
 - GitHub Issue は gh を使う
 - 個人の好みとマシン固有の事実は `.cursor/rules/personal.local.mdc`（Git 外）。`AGENTS.md` に Learned User Preferences / Workspace Facts を足さない。実行状態は `.cursor/hooks/state/`
 - デスクトップ: `npm run tauri dev`（[development.md](development.md)）。`src-tauri/target/debug/schedule-viewer` を直接開かない。UI は `http://localhost:1420/`。`schedule-viewer --mcp` は画面プロセスと別
-- Cloud Agent: **マージ済み PR ブランチへ push しない**（新ブランチ。D1 で development へ明記予定、P-AG-03）
+- Cloud Agent: **マージ済み PR の head ブランチへ push しない**（続きは新ブランチ・新 PR）。amend / force-push / rebase 禁止 — [development.md](development.md)「Cursor Cloud Agent」（P-AG-03）
 - 文書を短くするとき: [agents-d0-inventory.md](agents-d0-inventory.md) の old→new（**削除 0**）。D0–D2: Issue #490。**D0** = 原則化 + inventory。**D1** = skills 再構成 + Issue 本文。**D2** = P-CI-06 等。届け方: `feature-436` → `next`；共通ルールは必要なら `develop` へ cherry-pick

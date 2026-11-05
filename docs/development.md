@@ -212,6 +212,17 @@ FILE-08 のブラウザ版は、`npm run dev` で開き、Finder などから JS
 
 DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1.98.1 を使う。VS Code / Cursor で「Reopen in Container」を選ぶ。コンテナ内でも `npm run tauri build` で Linux 向けパッケージは作れる。ウィンドウを開いての動作確認は、ディスプレイがあるホスト OS 側で行う。
 
+## Cursor Cloud Agent
+
+Issue #490 の Cloud Agent 運用（P-AG-03）。
+
+- 作業は `feature-436`（または計画の統合ブランチ）から `cursor/<説明>-5fbc` のようにブランチを切る
+- **マージ済み** pull request の head ブランチへ、同じ PR 用に追加 push しない。続きは新ブランチと新 PR
+- `git commit --amend`、force-push、rebase で共有履歴を書き換えない
+- レビュー指摘は **コミットを分けて** 直す（review-implementation）
+
+索引: [agents-agent-index.md](agents-agent-index.md)、[agents-d1-inventory.md](agents-d1-inventory.md) §2。
+
 ## npm スクリプト
 
 リポジトリ直下の `.npmrc` は `legacy-peer-deps=true` である。`madge` が TypeScript 6 を peer として想定していないため、`npm ci` を通すために必要である。

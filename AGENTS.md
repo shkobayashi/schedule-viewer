@@ -54,4 +54,4 @@
 
 **根本原因:** レビューをその場のパッチで終えると同じ省略が繰り返す。write-* へアプリ手順を書くと他リポジトリへ汚染する。短くして移動先を示さないと観点が消える。
 
-**ガード:** [agents-agent-index.md](docs/agents-agent-index.md) のスキル表、review-implementation / implement-change 完了条件、`.cursor/rules/personal.local.mdc`（Git 外）、inventory の old→new。**例:** [§8](docs/agents-pitfall-examples.md#原則-8--スキルと再発防止)。
+**ガード:** [agents-agent-index.md](docs/agents-agent-index.md) のスキル表、review-implementation / implement-change 完了条件、`.cursor/rules/personal.local.mdc`（Git 外）、inventory の old→new。日本語は [japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) **J1–J5**（チャット含む）。**例:** [§8](docs/agents-pitfall-examples.md#原則-8--スキルと再発防止)。

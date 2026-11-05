@@ -92,7 +92,7 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 | internal-spec 段 8 ロードマップ | 同（C/T/M 完了反映済み） | 完了済み節を「履歴」に短縮 |
 | cut-release / publish-user-manual | 変更なし | D1 で AGENTS 表からのリンク確認のみ |
 | schedule-talk / consult | 変更なし | #344 用の置き場所を D1 で決定（Issue #490） |
-| japanese-prose / consult.mdc | 変更なし | — |
+| japanese-prose / consult.mdc | J1–J5 + examples / consult 索引 | **D1 完了** — [japanese-prose-d1-inventory.md](japanese-prose-d1-inventory.md) |
 
 ---
 
@@ -106,9 +106,9 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 | --- | --- | --- | --- | --- |
 | P-AG-01 | AGENTS / skills を短くするときに観点を黙って消す | AGENTS、#490 D1 | 本 inventory + PR 対応表必須 | **Exists**（プロセス） |
 | P-AG-02 | test-spec 表で行を「差し替え」て M1/M2 行を落とす | M2/M3 レビュー | review-implementation + 表の diff 確認 | **Proposed D2**（review チェックリスト） |
-| P-AG-03 | マージ済みブランチへ再度 push する | Cloud Agent 運用 | ブランチ一覧・PR マージ後は新ブランチ | **Proposed D1**（development.md Cloud Agent 節） |
+| P-AG-03 | マージ済みブランチへ再度 push する | Cloud Agent 運用 | [development.md](development.md)「Cursor Cloud Agent」 | **Exists**（D1） |
 | P-AG-04 | 循環解消 PR で無関係ファイルを上書き（例: `colorScheme.ts`） | M2 セッション | implement-change 着手前 + diff 自己レビュー | **Proposed D2** |
-| P-AG-05 | Issue #490 本文が madge warn のまま | #490 本文 | D1 で Issue 更新 | **Proposed D1** |
+| P-AG-05 | Issue #490 本文が madge warn のまま | #490 本文 | [agents-d1-issue-490-proposal.md](agents-d1-issue-490-proposal.md)（**Issue は人手更新**） | **Exists**（D1 文案） |
 | P-AG-06 | `tasks.ts` で export が import ブロックを分割 | M3b レビュー | コードレビュー | **Exists**（修正済みパターンを IC へ D2） |
 
 ### 3.2 アーキテクチャ・CI（段 8 PR 1 以降）
@@ -146,12 +146,12 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 
 | 段 | 内容 | 主な成果物 |
 | --- | --- | --- |
-| **D0（本 PR）** | 棚卸し + AGENTS 再構成 + 本 inventory | 対応表、pitfall 表、AGENTS 索引化 |
-| **D1** | skills / internal-spec の再構成 | implement-change の索引節、consult/schedule-talk/#344 の置き場、Issue #490 本文更新、旧→新対応表の PR 添付 |
-| **D2** | 再発防止の機械化 | `check-operation-entries`（または段階的）、review-implementation / implement-change の P-AG-02/04/06 チェックリスト、必要なら ESLint 追加 |
+| **D0** | 棚卸し + AGENTS 8 原則 | 完了（#525） |
+| **D1** | skills 索引、日本語 J1–J5、Cloud Agent、Issue 文案 | 本 PR |
+| **D2** | 機械化 + review チェックリスト。**TODO:** D2 後に d0 analysis + inventory を統合 or Issue へ — [agents-d2-plan.md](agents-d2-plan.md) |
 
 ---
 
 ## 5. 関連文書の更新義務（AGENTS 表の写し）
 
-D0 では AGENTS の表を正とする。変更したら同じ変更で更新する文書は AGENTS.md「変更したら文書も更新する」を参照（**削除・統合なし**）。
+D0 では [agents-doc-update-map.md](agents-doc-update-map.md) が更新表の正本。変更したら同じ変更で更新する文書はそこを参照（**削除・統合なし**）。
