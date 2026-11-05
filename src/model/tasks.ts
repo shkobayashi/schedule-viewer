@@ -20,7 +20,7 @@ import {
   type TaskConfidence,
   type TaskStatus,
 } from "./types";
-import { formatValidationErrors } from "./validateSchedule";
+import { formatValidationErrors } from "./validationMessages";
 
 export { forEachTask, mapTasks } from "./taskTraversal";
 
