@@ -64,6 +64,11 @@ function startVite(mode, port) {
 }
 
 async function dismissBlockingUi(page) {
+  const firstRunClose = page.locator(".first-run-hint-card .modal-close-btn");
+  if (await firstRunClose.isVisible().catch(() => false)) {
+    await firstRunClose.click();
+    await page.waitForTimeout(200);
+  }
   const closeGuide = page.getByRole("button", { name: "閉じる" });
   if (await closeGuide.isVisible().catch(() => false)) {
     await closeGuide.click();
@@ -127,6 +132,7 @@ async function captureBrowserShots(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await dismissBlockingUi(page);
   await page.waitForSelector(".toolbar-title-text");
+  await openColorsScheduleBrowser(page);
   await page.waitForTimeout(800);
 
   await page.screenshot({
@@ -175,9 +181,10 @@ async function captureBrowserShots(page) {
 }
 
 async function openSettings(page) {
-  await page.getByRole("button", { name: "メニュー" }).click();
-  await page.getByRole("menuitem", { name: "設定", exact: true }).click();
-  await page.waitForSelector(".settings-nav");
+  await page.keyboard.press("Control+,");
+  await page.waitForSelector(".settings-dialog .settings-nav", {
+    timeout: 60_000,
+  });
   await page.locator(".settings-nav").evaluate((el) => {
     el.scrollTop = 0;
   });
@@ -327,9 +334,7 @@ async function captureDesktopChromeShots(page) {
   await page.getByRole("button", { name: "キャンセル" }).click();
   await page.waitForTimeout(300);
 
-  await page
-    .getByRole("button", { name: "追加 ⌘+Enter / Insert" })
-    .click();
+  await page.locator(".add-split > button.toolbar-btn-primary").first().click();
   await page.getByRole("heading", { name: "タスク追加" }).waitFor();
   await page.waitForTimeout(300);
   await page.screenshot({
@@ -452,11 +457,15 @@ async function main() {
     desktopServer.kill("SIGTERM");
   }
 
-  await browser.close();
+  await browser.close().catch(() => {});
   console.log(`Wrote screenshots to ${outDir}`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

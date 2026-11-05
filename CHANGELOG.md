@@ -15,6 +15,7 @@
 - `edit_plan` / `replace_schedule` でタスクが2件以上変わった成功のあと、LLM が `schedule-talk` の手順に従い `explain_view` と `explain_overlay` の両方で変えた場所を示し、チャットでも説明するよう、スキル・MCP ツール説明・文書を揃えた（#481）
 - 上記について、2件以上のときは `explain_overlay` を省略可能と読める表現をやめ、`summary` と `marks`（`kind: change` など）を必須にした（#481）
 - 初回案内用のサンプルデータは、開いた日（暦日）を基準にタスクとマイルストンの日付をずらし、参照日と同じ見え方（イナズマ線の遅れと先行が少し見える程度）になるようにした（#485）
+- 操作マニュアルに「やりたいことから探す」を足し、はじめにを手と LLM で一か所直して保存する流れに組み替えた（#486）
 
 - 2.0 向けのアルファ Pre-release 手順を追加。版は `X.Y.Z-alpha.N` と `X.Y.Z-beta.N` を許容し、`npm run version:bump -- alpha` / `beta` / `stable` で alpha → beta → 安定版の順に進める。Pre-release は Latest と `updater-X` 更新の対象外である
 
