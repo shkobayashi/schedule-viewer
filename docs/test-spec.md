@@ -593,6 +593,9 @@
 | `firstRunGuidance.test.ts` | `starts with hint not dismissed and save hint not completed` | NAV-09 |
 | 同上 | `migrates legacy openFile flag to prepareSchedule` | NAV-09 |
 | 同上 | `persists checklist items and dismisses when all complete` | NAV-09 |
+| `anchorSample.test.ts` | `preserves one ahead and one behind lightning on varied open days` | NAV-09 |
+| 同上 | `keeps template progress on the reference day` | NAV-09 |
+| 同上 | `shifts milestones with tasks by the same offset` | NAV-09 |
 | `categoryOrder.test.ts` | `moves a category and keeps its groups` | EDIT-16 |
 | 同上 | `returns the same array when the index is unchanged` | EDIT-16 |
 | 同上 | `places a category at the insert index from the original spans` | EDIT-16 |

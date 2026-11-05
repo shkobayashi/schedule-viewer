@@ -373,22 +373,29 @@ import {
   SAMPLE_MEMBERS_CATALOG_ID,
 } from "./sample/ids";
 import { sampleMembersJson } from "./sample/members";
+import { todayIso } from "./model/dates";
 import {
   SAMPLE_PROJECT_TITLE,
-  sampleCategories,
-  sampleMilestoneGroups,
-  sampleMilestones,
+  sampleScheduleDocument,
+  sampleScheduleParts,
 } from "./sample/schedule";
 
-const INITIAL_BASELINE_JSON = serializeScheduleDocument(
-  SAMPLE_PROJECT_TITLE,
-  sampleCategories,
-  sampleMilestoneGroups,
-  sampleMilestones,
-  null,
-  null,
-  null,
-);
+function initialSampleAtOpen(openToday: string) {
+  const parts = sampleScheduleParts(openToday);
+  return {
+    openToday,
+    ...parts,
+    baselineJson: serializeScheduleDocument(
+      SAMPLE_PROJECT_TITLE,
+      parts.categories,
+      parts.milestoneGroups,
+      parts.milestones,
+    ),
+  };
+}
+
+const initialSample = initialSampleAtOpen(todayIso());
+const INITIAL_BASELINE_JSON = initialSample.baselineJson;
 
 type ContextMenuState =
   | { kind: "task"; taskId: ScheduleId; x: number; y: number }
@@ -1038,9 +1045,9 @@ function App() {
   >(new Map());
   const schedule = useSchedule(
     SAMPLE_PROJECT_TITLE,
-    sampleCategories,
-    sampleMilestoneGroups,
-    sampleMilestones,
+    initialSample.categories,
+    initialSample.milestoneGroups,
+    initialSample.milestones,
     rowHeight,
     displayMembers,
     !memberCatalogState.loading,
@@ -1056,6 +1063,26 @@ function App() {
   applyMergedDocumentRef.current = schedule.applyMergedDocument;
   const replaceScheduleDocumentRef = useRef(schedule.replaceScheduleDocument);
   replaceScheduleDocumentRef.current = schedule.replaceScheduleDocument;
+
+  useEffect(() => {
+    if (import.meta.env.MODE !== "manual-screenshot") return;
+    const loadSample = (today: string) => {
+      replaceScheduleDocumentRef.current(sampleScheduleDocument(today));
+    };
+    (
+      window as Window & {
+        __manualScreenshotLoadSampleForToday?: (today: string) => void;
+      }
+    ).__manualScreenshotLoadSampleForToday = loadSample;
+    return () => {
+      delete (
+        window as Window & {
+          __manualScreenshotLoadSampleForToday?: (today: string) => void;
+        }
+      ).__manualScreenshotLoadSampleForToday;
+    };
+  }, []);
+
   const {
     redo,
     undo,
@@ -1362,6 +1389,24 @@ function App() {
     totalDays: viewTotalDays,
     timelineEnd: viewTimelineEnd,
   } = view;
+
+  useEffect(() => {
+    if (import.meta.env.MODE !== "manual-screenshot") return;
+    (
+      window as Window & {
+        __manualScreenshotScrollToToday?: () => void;
+      }
+    ).__manualScreenshotScrollToToday = () => {
+      scrollToToday();
+    };
+    return () => {
+      delete (
+        window as Window & {
+          __manualScreenshotScrollToToday?: () => void;
+        }
+      ).__manualScreenshotScrollToToday;
+    };
+  }, [scrollToToday]);
 
   explainOverlayRuntimeRef.current = {
     getPlanInput: () => ({

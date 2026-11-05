@@ -27,7 +27,7 @@ flowchart TD
 | `src/components/` | ツールバー、サイドバー、タイムライン、各ダイアログ |
 | `src/hooks/` | 文書（スケジュールの内容）、ファイル、ズーム、今日、メンバー、カレンダーの状態 |
 | `src/model/` | 型、検証、行、座標、履歴、書き出し。I/O を持つのは一部だけ |
-| `src/sample/` | 起動時のサンプル |
+| `src/sample/` | 起動時のサンプル。同梱テンプレートの日付を `SAMPLE_REFERENCE_TODAY` から開いた日までの暦日差だけずらす（`anchorSampleSchedule`）。`App.tsx` は起動時の `todayIso()` で一度だけ載せ、`useToday` が日付変更で更新してもサンプル JSON は作り直さない |
 | `src-tauri/src/lib.rs` | ダイアログ、一時ファイルを使った安全な置き換え、アプリデータ、内容ハッシュ、MCP 待ち受け |
 | `src-tauri/src/mcp_stdio.rs` | `--mcp` 起動の標準入出力 JSON-RPC（`initialize`、`tools/list`、`tools/call`） |
 | `src-tauri/src/mcp_bridge.rs` | アプリデータのローカルソケットと、送り先 webview への `mcp-screen-request`。`open_windows` は Rust だけで一覧を返す。`focus_window` と `minimize_window` も Rust だけで前面操作する |
