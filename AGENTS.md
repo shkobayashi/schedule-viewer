@@ -40,6 +40,7 @@ Issue #436 段 8（子 Issue #490）の方針の要約である。モジュー�
 - 操作の入口を増やす・変えるときは、同じ変更で [docs/operation-entries.md](docs/operation-entries.md)（手書き正本）と [docs/feature-checklist.md](docs/feature-checklist.md) の「操作の入口」を更新する。機械検査は PR 1 以降で足す
 - 挙動が変わる不具合修正・audit・性能計測はステップ 8 に混ぜない（別 Issue #491）
 - 段 8 にスコープ外はない。PR 0–7 のあと、**カタログ編集共通化 → `Timeline.tsx` 段階分割 → `model` 循環解消**の順で、各塊は特性テストを先に足し小 PR に分ける。急がない。順序と完了条件は Issue #490
+- AGENTS や skills の記述を削る・短くするときは、移動先を示し黙って削除しない（#490 の D1）。M 完了後の **D0–D2** で棚卸しと仕上げを行う
 
 ## 変更したら文書も更新する
 

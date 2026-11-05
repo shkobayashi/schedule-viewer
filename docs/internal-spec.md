@@ -89,6 +89,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 | `CommandPalette.tsx` | ⌘/Ctrl+K のコマンドパレット |
 | `Sidebar.tsx` | 左の行、階層の細い縦線（`hierarchyGuide.ts` が見えている行から本数を決める）、マイルストングループ名の行の右クリック、折りたたみ、切れた名前の全文、タスク行のクリック選択とホバー帯、左端の握りによる並べ替えと別グループへの移動、グループ行の握りによる並べ替えと別カテゴリへの移動、カテゴリ行の握りによる並べ替え、並べ替え中にポインタへ付く半透明の行または塊。説明用半透明は `.explanation-sidebar-veil`（DOM）。示すタスク行は `sidebar-row--explanation-mark` で枠線と `z-index` のみ（y は計算しない）。印に `color` があるときは inline の outline と下敷き、無いときは `kind` 用 CSS |
 | `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer`。説明用の半透明は各 Stage 最上段の `ExplanationKonvaVeilLayer.tsx`（Konva のベールと destination-out の抜き）。吹き出しは `TimelineExplanationBalloons.tsx` を `.timeline-body` と `.timeline-header` に本体座標で重ねる。段階分割の計画は Issue #490 |
+| `ExplanationKonvaVeilLayer.tsx` | 説明セッションの Konva ベールと抜き。日付ヘッダー、マイルストン帯、チャート本体の Stage に載せる。MCP 読み取り PNG では `explanationKonvaCapture.ts` 経由で Layer を一時的に隠す |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
 | `ModalDialog.tsx` | 共通の枠。見出し右に × の閉じる（読み上げ名「閉じる」、ツールチップ Esc）。Escape、フォーカスの保持、背面の操作禁止。`#root` の `inert` は `useLayoutEffect` で付け外しし、閉じたあとの描画の前に外す |
