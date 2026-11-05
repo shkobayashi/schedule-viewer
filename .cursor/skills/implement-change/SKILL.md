@@ -17,10 +17,10 @@ description: >-
 
 ## 着手前
 
-0. AGENTS の **P1–P6** と [docs/agents-d0-principles-analysis.md](../../../docs/agents-d0-principles-analysis.md)（テーマ別索引）。具体条項は本 SKILL に残す
-1. [AGENTS.md](../../../AGENTS.md) の表で、この変更に合う文書を読み、場所を絞ってからソースを開く
+0. [AGENTS.md](../../../AGENTS.md) の **8 原則** と [docs/agents-pitfall-examples.md](../../../docs/agents-pitfall-examples.md)。具体条項の全文は本 SKILL（削らない）
+1. [docs/agents-agent-index.md](../../../docs/agents-agent-index.md) の「先に読む文書」で場所を絞ってからソースを開く
 2. 機能 ID がある変更は、[docs/external-spec.md](../../../docs/external-spec.md) のその節に合わせる
-3. 画面の組み立て、状態、モデル、Tauri、描画のどれを触るかを決める。層の向きと `src/operations/` の役割は [docs/internal-spec.md](../../../docs/internal-spec.md) の「コードの境界（#436 ステップ 8）」に従う。AGENTS.md に要約がある。Rust は JSON の意味を解釈しない（`internal-spec.md` の全体構成も参照）
+3. 画面の組み立て、状態、モデル、Tauri、描画のどれを触るかを決める。層の向きと `src/operations/` の役割は [docs/internal-spec.md](../../../docs/internal-spec.md)「コードの境界」のみに従う（要約は [agents-agent-index.md](../../../docs/agents-agent-index.md)）。Rust は JSON の意味を解釈しない
 4. 計画がスキルの節番号を列挙していても、計画本文の出し入れ、主語の掛かり、手動テストの各条件は照合する。照合結果は実装の結果に残す
 5. `next` があるとき、変更を載せる統合ブランチは [docs/development.md](../../../docs/development.md#1x-を出しながら次のメジャーを進める) の「1.x を出しながら次のメジャーを進める」で決める。1.x のまま出せる変更は `develop`、公開する契約を壊す変更は `next` である。計画がブランチを書いていても、この節と照合し、結果は実装の結果に残す
 6. 計画が操作の種類を列挙しているとき、チェックリストに足りない種類を「未対応」と書いて終えない。足すか、計画どおり実装する
@@ -32,8 +32,8 @@ description: >-
 
 1. `src/components/`、`src/hooks/`、`src/App.tsx` のうち、計画が指す箇所を変える
 2. [docs/external-spec.md](../../../docs/external-spec.md) を同じ変更で更新する
-3. 操作の入口（ラベル、ショートカット、パレット、☰、macOS メニュー、右クリック、MCP 名）を増やす・変えるときは、同じ変更で [docs/operation-entries.md](../../../docs/operation-entries.md) と [docs/feature-checklist.md](../../../docs/feature-checklist.md) の「操作の入口」を更新する
-4. 利用者の手順が変わるときは、内容に合う [docs/user-manual/getting-started.md](../../../docs/user-manual/getting-started.md)、[docs/user-manual/find-by-intent.md](../../../docs/user-manual/find-by-intent.md)、[docs/user-manual/tutorial.md](../../../docs/user-manual/tutorial.md)、[docs/user-manual/features.md](../../../docs/user-manual/features.md) を更新する。読み方だけ変えるときは [docs/user-manual.md](../../../docs/user-manual.md)。README の機能説明が変わるときは [README.md](../../../README.md) を更新する
+3. 操作の入口（ラベル、ショートカット、パレット、☰、macOS メニュー、右クリック、MCP 名）を増やす・変えるときは、[docs/agents-doc-update-map.md](../../../docs/agents-doc-update-map.md) の「操作の入口」行どおり [docs/operation-entries.md](../../../docs/operation-entries.md) と [docs/feature-checklist.md](../../../docs/feature-checklist.md) を更新する
+4. 利用者の手順が変わるときは、[docs/agents-doc-update-map.md](../../../docs/agents-doc-update-map.md) の「画面の挙動」行どおりマニュアル・README を更新する
 5. 変えた操作を最後まで行う。ブラウザ版（`npm run dev`、ポート 5173）で確かめられる操作はそこで確認する。ファイルダイアログなど Tauri のウィンドウでないと確かめられない操作は、確認できなかったことを結果に書く
 6. 入力欄と選択欄には読めるラベルを付け、動的なエラーは支援技術へ通知する。ダイアログ内の候補一覧などが Escape を処理したときは、親ダイアログまで閉じない
 7. 操作の対象や手順を変えたときは、計画が挙げる文書のほか、ショートカット一覧と、その場だけ出す帯（線を引くモードなど）と、マニュアルでその操作を説明する文も揃える
@@ -80,10 +80,13 @@ description: >-
 48. 計画が既存の寄せと同じと書いたときは、その関数のスクロール計算を使い、今の `scrollY` を渡す。見えている行で縦位置が変わらないテストを置く
 49. 計画が印を付けると書いたときは、描くコンポーネントがその状態を読む
 50. テキスト欄を、入力欄でもボタンでもない一覧に替えるときは、その一覧のフォーカス中もガント向けのキーを `decideAppKey` で止める
-51. 説明半透明（`explain_overlay`）の吹き出し配置とスクロールは `explainOverlayLayout.ts` で決める。マイルストン帯の絞り込みは `explainView.ts` の `resolveExplanationMilestoneBand` で決め、`useSchedule` の `visibleMilestoneGroupIds` と `milestonesForBandLayout` に載せる。星の印と帯の行の印の穴は `milestoneDiamondRectInBand` と `milestoneBandBlockRectInBand` の戻り値だけを使う。試しの計画の星の日付変更は `buildExplanationTrialMilestoneLayouts` とマイルストン帯の試し Layer で描き、`patterns` の `milestoneChanges` を `applyExplanationPatternToDocument` で `applyMilestoneEdit` と同じ更新に含める。マイルストン帯の試し Layer は半透明ベールのうしろ（上）に載せ、ひし形の `RegularPolygon` は `MilestoneMark` と同じ向きにする。星と帯の行の吹き出しはマイルストン帯の DOM ホストに出す。日付ヘッダーの吹き出しは日付ヘッダーの矩形の外へ出さない。読み取りの印と `milestoneChanges` の文を変えるときは、`MCP_VIEW_IN_READ_TOOLS`、`read-screen/SKILL.md`、`mcp_stdio.rs` の照合句を同じ連続した文字列で揃える。タスク棒、日付列、マイルストン菱形の抜きと、TaskBar・期間ハンドル・リンク用アンカーは、描画側が呼ぶ `taskBarLayout.ts` の関数の戻り値だけを使い、同じ式を説明用に別途書かない。試しの計画（`patterns`）の棒と印の穴も同じ戻り値だけを使い、状態は `explainOverlayPatterns.ts` で文書の外に置く。選んだパターンを計画へ入れるのは `apply_explanation_pattern` で、`applyExplanationPatternToDocument` が `afterTaskId` の直後へ試しタスクを挿し、`changes` を適用する。成功は `replaceScheduleDocument` 経由で未保存・取り消し1段・説明の消去になる。`consultation-flow.md` では、入れる手順を先に消す順に書かない。試しの計画が画面に残っているあいだに `apply_explanation_pattern` を呼ぶ。先に消すと拒否される。MCP と read-screen には判断の例を写さない。試しの新しいタスクは `buildDisplayVisibleRowsWithExplanationTrials` で文書の `visibleRows` にだけ画面用の行を挿し、保存・差分・並べ替えの挿入位置・範囲選択の id 列・書き出しは文書行のままにする。画面用の行を渡すのは、左の一覧の描画、チャート、最大スクロール、固定見出し、印、吹き出し、依存の線、MCP 読み取りの `view.visible.rows`、タスクを画面へ寄せるスクロールである。左一覧の並べ替えは `reorderBaseRows`（文書）のまま比べ、ポインタの Y だけ `reorderPointerContentYForDocumentRows` で試し行分を引く。チャートと左一覧と MCP 読み取りの `view.visible.rows` は挿入後の行を使い、PNG 取得の直前だけ文書行に戻してから撮り、直後に画面行へ戻す（`prepare` から `finalize` まで同じ `try` / `finally`）。試しの左行は操作不可とし、重ねラベルは使わない。試しの計画の日付変更棒、新しい試しタスクの棒と印の穴では、`taskBarRectInBody` と `taskBarAnchorInBody` に本物の `liveAnchors` を渡さない。PNG 用 Konva では試しの棒 Layer も隠す。読み取りの `view.visible.rows` では試し行だけ `trial: true` を載せる。印の任意 `color` は `explanationMarkColor.ts` で検証と正規化し、前後の空白は trim せず拒否する。色付き印の穴矩形は、描画が `taskBarRectInBody` 等へ渡すのと同じ引数で戻り値と一致することをテストする。穴の位置は変えず Konva と DOM の枠の色と下敷きだけを変える。色付きの未割当行は、左の未割当線と下敷きの `box-shadow` を両方残す。左の一覧の示す行は DOM の枠線と `z-index` のみで y を計算しない。`useTimelineView` の `dateToX` は内容の x から `scrollX` を引いたチャート表示座標である。スクロール量を求めるときは日付や棒の左端を内容座標に直してから `scrollX` を計算する。印の棒位置と MCP の `visible` は `Timeline` が持つ `liveAnchors`（ドラッグ中のプレビューを含む）を ref で `App` と MCP 読み取りへ渡す。計画が表示文言を解析しないと書いたときは、札と名前と場所をブロックのフィールドにし、コピー用の全文は今の文字列のままにする。schedule-talk の reference（`consultation-flow.md` など）を足すときは、`docs/development.md` の MSIX 必須一覧と `packaging/msix/build-msix.ps1` の `$requiredSkillFiles` を同じ変更で揃える
-52. 編集を始める effect は、要求の番号だけを依存にする。タイトルなどを閉じた開始関数を依存にすると、確定のあと入力が開き直る
-53. 計画が、開いている入力を操作の前に確定すると書いたときは、その操作を実行する入口のすべてで同じ確定を先に呼ぶ。ボタンだけに置かない
-54. 名前のうしろへ縮めない表示を足すときは、既存のラベルが `flex: 1` などで余白を取ると、表示は行の右端へ離れる。間隔を `--s` の余白だけにするときは、ラベルと表示を一つの塊にし、ラベルは内容の幅まで縮め、足りない幅は名前だけを省略する。行に `overflow: hidden` がありラベルに `min-width` があるときは、一覧の最小幅でもその表示が切れないことをブラウザ版で見る
+51. 説明半透明（`explain_overlay`）の吹き出し配置とスクロールは `explainOverlayLayout.ts` で決める。マイルストン帯の絞り込みは `explainView.ts` の `resolveExplanationMilestoneBand` で決め、`useSchedule` の `visibleMilestoneGroupIds` と `milestonesForBandLayout` に載せる。星の印と帯の行の印の穴は `milestoneDiamondRectInBand` と `milestoneBandBlockRectInBand` の戻り値だけを使う。試しの計画の星の日付変更は `buildExplanationTrialMilestoneLayouts` とマイルストン帯の試し Layer で描き、`patterns` の `milestoneChanges` を `applyExplanationPatternToDocument` で `applyMilestoneEdit` と同じ更新に含める。マイルストン帯の試し Layer は半透明ベールのうしろ（上）に載せ、ひし形の `RegularPolygon` は `MilestoneMark` と同じ向きにする。星と帯の行の吹き出しはマイルストン帯の DOM ホストに出す。日付ヘッダーの吹き出しは日付ヘッダーの矩形の外へ出さない。
+52. 読み取りの印と `milestoneChanges` の文を変えるときは、`MCP_VIEW_IN_READ_TOOLS`、`read-screen/SKILL.md`、`mcp_stdio.rs` の照合句を同じ連続した文字列で揃える。タスク棒、日付列、マイルストン菱形の抜きと、TaskBar・期間ハンドル・リンク用アンカーは、描画側が呼ぶ `taskBarLayout.ts` の関数の戻り値だけを使い、同じ式を説明用に別途書かない。試しの計画（`patterns`）の棒と印の穴も同じ戻り値だけを使い、状態は `explainOverlayPatterns.ts` で文書の外に置く。
+53. 選んだパターンを計画へ入れるのは `apply_explanation_pattern` で、`applyExplanationPatternToDocument` が `afterTaskId` の直後へ試しタスクを挿し、`changes` を適用する。成功は `replaceScheduleDocument` 経由で未保存・取り消し1段・説明の消去になる。`consultation-flow.md` では、入れる手順を先に消す順に書かない。試しの計画が画面に残っているあいだに `apply_explanation_pattern` を呼ぶ。先に消すと拒否される。MCP と read-screen には判断の例を写さない。
+54. 試しの新しいタスクは `buildDisplayVisibleRowsWithExplanationTrials` で文書の `visibleRows` にだけ画面用の行を挿し、保存・差分・並べ替えの挿入位置・範囲選択の id 列・書き出しは文書行のままにする。画面用の行を渡すのは、左の一覧の描画、チャート、最大スクロール、固定見出し、印、吹き出し、依存の線、MCP 読み取りの `view.visible.rows`、タスクを画面へ寄せるスクロールである。左一覧の並べ替えは `reorderBaseRows`（文書）のまま比べ、ポインタの Y だけ `reorderPointerContentYForDocumentRows` で試し行分を引く。チャートと左一覧と MCP 読み取りの `view.visible.rows` は挿入後の行を使い、PNG 取得の直前だけ文書行に戻してから撮り、直後に画面行へ戻す（`prepare` から `finalize` まで同じ `try` / `finally`）。試しの左行は操作不可とし、重ねラベルは使わない。試しの計画の日付変更棒、新しい試しタスクの棒と印の穴では、`taskBarRectInBody` と `taskBarAnchorInBody` に本物の `liveAnchors` を渡さない。PNG 用 Konva では試しの棒 Layer も隠す。読み取りの `view.visible.rows` では試し行だけ `trial: true` を載せる。印の任意 `color` は `explanationMarkColor.ts` で検証と正規化し、前後の空白は trim せず拒否する。色付き印の穴矩形は、描画が `taskBarRectInBody` 等へ渡すのと同じ引数で戻り値と一致することをテストする。穴の位置は変えず Konva と DOM の枠の色と下敷きだけを変える。色付きの未割当行は、左の未割当線と下敷きの `box-shadow` を両方残す。左の一覧の示す行は DOM の枠線と `z-index` のみで y を計算しない。`useTimelineView` の `dateToX` は内容の x から `scrollX` を引いたチャート表示座標である。スクロール量を求めるときは日付や棒の左端を内容座標に直してから `scrollX` を計算する。印の棒位置と MCP の `visible` は `Timeline` が持つ `liveAnchors`（ドラッグ中のプレビューを含む）を ref で `App` と MCP 読み取りへ渡す。計画が表示文言を解析しないと書いたときは、札と名前と場所をブロックのフィールドにし、コピー用の全文は今の文字列のままにする。schedule-talk の reference（`consultation-flow.md` など）を足すときは、`docs/development.md` の MSIX 必須一覧と `packaging/msix/build-msix.ps1` の `$requiredSkillFiles` を同じ変更で揃える
+55. 編集を始める effect は、要求の番号だけを依存にする。タイトルなどを閉じた開始関数を依存にすると、確定のあと入力が開き直る
+56. 計画が、開いている入力を操作の前に確定すると書いたときは、その操作を実行する入口のすべてで同じ確定を先に呼ぶ。ボタンだけに置かない
+57. 名前のうしろへ縮めない表示を足すときは、既存のラベルが `flex: 1` などで余白を取ると、表示は行の右端へ離れる。間隔を `--s` の余白だけにするときは、ラベルと表示を一つの塊にし、ラベルは内容の幅まで縮め、足りない幅は名前だけを省略する。行に `overflow: hidden` がありラベルに `min-width` があるときは、一覧の最小幅でもその表示が切れないことをブラウザ版で見る
 
 ## 状態・モデル・描画・Tauri
 
@@ -122,7 +125,7 @@ description: >-
 
 ## 文書
 
-どの文書を同じ変更に含めるかは [AGENTS.md](../../../AGENTS.md) の「変更したら文書も更新する」に従う。通常の不具合修正では [docs/PLANNING.md](../../../docs/PLANNING.md) は更新しない。利用者に見える変更をリリースへ入れるときは [CHANGELOG.md](../../../CHANGELOG.md) も更新する。計画が REVIEW.md の指摘を扱うときは、対応または見送りを同じ変更で REVIEW.md に書く。
+どの文書を同じ変更に含めるかは [docs/agents-doc-update-map.md](../../../docs/agents-doc-update-map.md) に従う。通常の不具合修正では [docs/PLANNING.md](../../../docs/PLANNING.md) は更新しない。利用者に見える変更をリリースへ入れるときは [CHANGELOG.md](../../../CHANGELOG.md) も更新する。計画が REVIEW.md の指摘を扱うときは、対応または見送りを同じ変更で REVIEW.md に書く。
 
 既存の段落へ別機能の制約を足すときは、うしろの文の主語が新しい機能に掛からないよう、段落を分ける。
 

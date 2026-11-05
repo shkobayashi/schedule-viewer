@@ -6,9 +6,12 @@
 
 | 層 | 置くもの |
 | --- | --- |
-| [AGENTS.md](../AGENTS.md) | **6 原則**（P1–P6）+ 索引表。具体メモは下記 |
+| [AGENTS.md](../AGENTS.md) | **8 原則**のみ（根本原因 1–2 行 + ガード + 例へのリンク） |
+| [docs/agents-agent-index.md](agents-agent-index.md) | 先に読む文書、スキル表、作業の進め方、境界要約 |
+| [docs/agents-doc-update-map.md](agents-doc-update-map.md) | **更新表の正本** |
+| [docs/agents-pitfall-examples.md](agents-pitfall-examples.md) | 事故例サンプル・IC 番号 → 原則 |
 | [docs/agents-d0-principles-analysis.md](agents-d0-principles-analysis.md) | メモの束 → 根本原因 → 原則 → ガード |
-| [docs/agents-d0-inventory.md](agents-d0-inventory.md) | **old → new** 対応、落とし穴 ID、D1/D2 |
+| [docs/agents-d0-inventory.md](agents-d0-inventory.md) | **old → new**、落とし穴 ID、D1/D2 |
 | [docs/internal-spec.md](internal-spec.md) | モジュール構成、段 8 の層と import、自動検査の表 |
 | [docs/model-circular-import-plan.md](model-circular-import-plan.md) | 循環 import の履歴と CI |
 | [.cursor/skills/implement-change/SKILL.md](../.cursor/skills/implement-change/SKILL.md) | 番号付きの具体落とし穴（削らない） |
@@ -27,20 +30,32 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 
 ## 1. AGENTS.md 節の old → new 対応
 
-**Old** = D0 直前の `AGENTS.md`（#524 マージ後）。**New** = 原則 P1–P6 骨格 + 索引（本 PR）。原則への分解は [agents-d0-principles-analysis.md](agents-d0-principles-analysis.md) §「old → new」。
+**Old** = D0 直前の `AGENTS.md`（#524 マージ後）。**New（PR #525 最終）** = 8 原則のみ + 索引の分割先。
 
 | Old（節・段落） | New の置き場所 | 扱い |
 | --- | --- | --- |
-| タイトル + 導入（ソースより先に文書） | 冒頭 + **P1** | **保持・統合** |
-| 「先に読む文書」表 | 「先に読む文書」 | **保持** + D0 文書行 |
-| フィールド定義 / 挙動正本の段落 | **P1** チェック例 | **移動**（文意保持） |
-| デスクトップ起動段落 | **P5** + 「開発環境」 | **移動** |
-| 「内部コードの境界」箇条書き | **P2**・**P3**・**P4** + 段 8 節 | **分解** |
-| D0–D2 / 削除禁止 | **P5** + 「段 8 文書仕上げ」 | **保持** |
-| 「変更したら文書も更新する」表 | **P1** 直下の表 | **保持** |
-| Issue / 個人の学習 | 同節 | **保持** |
-| 「スキルの使い方」長段落 | **P4**・**P5**・**P6** + スキル表 | **分割** |
-| consult / review 段落 | **P4**–**P6** + ルールリンク | **分散**（全文 consult.mdc / review SKILL） |
+| タイトル + 導入 | AGENTS 冒頭（正本の使い分け）+ **原則 1–2** | **保持・統合** |
+| 「先に読む文書」表 | [agents-agent-index.md](agents-agent-index.md) | **移動** |
+| フィールド / ソース優先 | AGENTS 冒頭 + **原則 1** | **保持** |
+| デスクトップ起動 | agents-agent-index「作業の進め方」 | **移動** |
+| 内部コードの境界 | **原則 3** + agents-agent-index 要約 + internal-spec 正本 | **分解** |
+| 段 8 スコープ（#491 等） | agents-agent-index / Issue #490（**原則から除外**） | **移動**（観点は消さない） |
+| D0–D2 / 削除禁止 | **原則 8** + agents-agent-index | **保持** |
+| 「変更したら…」表 | [agents-doc-update-map.md](agents-doc-update-map.md) | **移動**（正本） |
+| Issue / 個人の学習 | agents-agent-index | **移動** |
+| スキル表・長段落 | agents-agent-index + **原則 8** | **移動・統合** |
+| consult / review | agents-agent-index + 各 SKILL / consult.mdc | **分散** |
+
+### PR #525 内の再構成（6 原則 → 8 原則）
+
+| D0 v1（コミット 945df89） | D0 v2（本コミット列） | 扱い |
+| --- | --- | --- |
+| P1–P6 節 + 索引表 | 8 原則 + agent-index / doc-update-map / pitfall-examples | **再分解** |
+| P4 段 8 スコープ | 原則外（agent-index へ） | **移動**（ユーザー決定） |
+| implement-change 旧 51 | 51–54、旧 52–54 → 55–57 | **分割**（全文保持） |
+| 削除（黙って） | — | **0** |
+
+原則定義 → [agents-d0-principles-analysis.md](agents-d0-principles-analysis.md)。
 
 ### develop ブランチ AGENTS との差（段 8 で足したもの）
 
@@ -58,9 +73,10 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 
 | 扱い | 件数 |
 | --- | ---: |
-| 保持・統合 | 4 |
-| 移動（原則下の例） | 2 |
-| 分解・分散・分割 | 4 |
+| 保持・統合 | 3 |
+| 移動 | 7 |
+| 再分解（6→8 原則） | 1 |
+| 分割（IC 51） | 1 |
 | 削除（黙って） | **0** |
 
 原則 ID（P1–P6）の定義と分析表 → [agents-d0-principles-analysis.md](agents-d0-principles-analysis.md)。
@@ -72,7 +88,7 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 | 旧の置き場（観点） | D0 後 | D1 で行うこと |
 | --- | --- | --- |
 | AGENTS 長段落に載っていたスキル列挙 | AGENTS の索引表 | skills の description 整理、重複段落の削除（対応表付き） |
-| implement-change 全項目（54+） | 同 SKILL に **正本のまま** | テーマ別索引、review チェックリストへのリンク |
+| implement-change 全項目（57） | 同 SKILL **正本**。IC **51–54**（旧 51 分割）、**55–57**（旧 52–54） | 原則索引 [agents-pitfall-examples.md](agents-pitfall-examples.md)、51 全文 [agents-implement-change-51-split.md](agents-implement-change-51-split.md) |
 | internal-spec 段 8 ロードマップ | 同（C/T/M 完了反映済み） | 完了済み節を「履歴」に短縮 |
 | cut-release / publish-user-manual | 変更なし | D1 で AGENTS 表からのリンク確認のみ |
 | schedule-talk / consult | 変更なし | #344 用の置き場所を D1 で決定（Issue #490） |

@@ -52,16 +52,16 @@ flowchart TD
 
 ## コードの境界（#436 ステップ 8）
 
-Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline.tsx` 分割 → `model` 循環解消** の目標構成である。**この節が境界の詳細の正本**である。[AGENTS.md](../AGENTS.md) は **P1–P6** の原則と索引（[agents-d0-principles-analysis.md](agents-d0-principles-analysis.md)）。全フェーズで挙動は変えない。各塊は Issue #490 のとおり、特性テストを先に足して小 PR に分ける。
+Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline.tsx` 分割 → `model` 循環解消** は完了済みの履歴である。**この節が層・import・自動検査の正本**である。[AGENTS.md](../AGENTS.md) は 8 原則のみ（[agents-d0-principles-analysis.md](agents-d0-principles-analysis.md)）。要約は [agents-agent-index.md](agents-agent-index.md)。リファクタ PR では挙動を変えない（不具合・audit・性能は Issue #491 など別 Issue）。各塊は特性テストを先に足して小 PR に分ける。
 
 | 層 | 置くもの | import してよい先 |
 | --- | --- | --- |
-| `src/operations/`（PR 2 以降） | 操作 ID（`operationIds.ts`）、入口定義とラベル（`operationLabelLink.ts`）、パレット／☰／macOS ファイルメニューの dispatch（`dispatchPaletteCommand.ts`）。右クリックは `contextMenuItems.tsx` | `model`（ラベル・ショートカット定数など）。hooks / components は import しない |
+| `src/operations/` | 操作 ID（`operationIds.ts`）、入口定義とラベル（`operationLabelLink.ts`）、パレット／☰／macOS ファイルメニューの dispatch（`dispatchPaletteCommand.ts`）。右クリックは `contextMenuItems.tsx` | `model`（ラベル・ショートカット定数など）。hooks / components は import しない |
 | `src/components/`、`App.tsx` | UI、Konva、ダイアログ。操作の**実行**は hooks のコールバック | `operations`（定義）、`hooks`、`model` |
 | `src/hooks/` | 状態、副作用、MCP 橋、ファイル | `model`、`operations`（入口定義の参照のみ可）。`components` は import しない |
 | `src/model/` | 純粋関数、型、検証、座標、書き出し生成 | 同層の model のみ。`hooks` / `components` / `operations` は import しない |
 
-操作の入口を増やす・変えるときは、同じ変更で [operation-entries.md](operation-entries.md) と [feature-checklist.md](feature-checklist.md) の「操作の入口」を更新する。機械検査（MCP 名同期、入口表の一部照合、import 境界）は PR 1 以降で足す。
+操作の入口を増やす・変えるときは、同じ変更で [operation-entries.md](operation-entries.md) と [feature-checklist.md](feature-checklist.md) の「操作の入口」を更新する。機械検査: `check:mcp-tool-names`、import 境界（`lint`）、循環（`check:madge-circular-baseline`）。入口表の全列照合は **未実装**（D2 / P-CI-06 予定）。
 
 段 8 の後半（PR 7 以降）の目安順序:
 
