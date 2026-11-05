@@ -949,6 +949,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `timelineExplanationTrialIds.test.ts` | `collects unique milestone ids from trial layouts` | MCP-01 |
 | `timelineExplanationBandProps.test.ts` | `clears band explanation props when overlay is inactive` | MCP-01 |
 | `timelineExplanationLayers.test.ts` | `exports explanation Konva and balloon wrappers` | MCP-01 |
+| `timelineExplainLiveAnchorsRef.test.ts` | `replaces the ref map with live anchors` | MCP-01 |
 | `connectionArcLabelFontSize.test.ts` | `scales with bar height and keeps a readable minimum` | VIEW-04 |
 | `colorScheme.test.ts` | `accepts light and dark` | SET-04 |
 | `autoUpdate.test.ts` | `treats on as enabled`、localStorage の読み書き、更新確認の失敗を出さない条件、`classifyUpdateCheckError` | SET-06 |
