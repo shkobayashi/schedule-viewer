@@ -3964,6 +3964,10 @@ function App() {
       setJsonOpen(true);
     },
     onShowDiff: showScheduleDiff,
+    onCopyDiff: () => {
+      flushTitleEdit();
+      copyScheduleDiff();
+    },
     onOpenGuide: openGuide,
     onOpenShortcuts: openShortcuts,
     onOpenSettings: () => {
@@ -4629,6 +4633,10 @@ function App() {
           setJsonOpen(true);
         }}
         onShowDiff={showScheduleDiff}
+        onCopyDiff={() => {
+          flushTitleEdit();
+          copyScheduleDiff();
+        }}
         onOpen={() => {
           flushTitleEdit();
           scheduleFile.requestOpen();

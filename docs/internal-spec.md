@@ -121,6 +121,9 @@ flowchart TD
 | 書き出し | `exportHtml.ts`、`exportExcel.ts`、`exportView.ts`、`exportFilename.ts` |
 | 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts`（UI 色と `applyCssPalette`）、`design/uiTokens.ts`（半径・余白・タイポ・影・モーション）、`design/appChrome.css`（Raycast シェル） |
 | キーボードショートカット | `shortcuts.ts` |
+| 操作の正式名とツールバー略称 | `operationLabels.ts`（`OPERATION_FORMAL`、`TOOLBAR_SHORT`） |
+| ☰ と macOS ファイルメニューの共通行 | `appMenuStructure.ts`（`SHARED_FILE_MENU_ROWS`、`macMenuAccelerator`） |
+| コマンドパレット行のショートカット表示 | `commandPaletteShortcuts.ts` |
 | 操作の案内の文 | `guideContent.ts` |
 
 ## 状態

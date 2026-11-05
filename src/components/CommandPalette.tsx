@@ -12,6 +12,8 @@ import {
   type CommandPaletteContext,
   type CommandPaletteRunTarget,
 } from "../model/commandPalette";
+import { commandPaletteCommandShortcut } from "../model/commandPaletteShortcuts";
+import { usesCommandKey } from "../model/shortcuts";
 
 type CommandPaletteProps = {
   open: boolean;
@@ -68,6 +70,8 @@ export function CommandPalette({
   }, [activeIndex, open]);
 
   if (!open) return null;
+
+  const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
 
   const runTarget = (target: CommandPaletteRunTarget) => {
     onClose();
@@ -188,7 +192,18 @@ export function CommandPalette({
                     runTarget(target);
                   }}
                 >
-                  {item.label}
+                  <span>{item.label}</span>
+                  {item.kind === "command" ? (
+                    (() => {
+                      const keys = commandPaletteCommandShortcut(
+                        item.id,
+                        commandKey,
+                      );
+                      return keys ? (
+                        <span className="menu-shortcut">{keys}</span>
+                      ) : null;
+                    })()
+                  ) : null}
                 </button>
               </li>
             ))

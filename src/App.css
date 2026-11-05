@@ -3737,7 +3737,10 @@ html[data-color-scheme="dark"] .command-palette {
 }
 
 .command-palette-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8px * var(--s));
   width: 100%;
   text-align: left;
   padding: calc(8px * var(--s)) calc(10px * var(--s));

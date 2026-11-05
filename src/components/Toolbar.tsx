@@ -18,6 +18,7 @@ import {
   undoShortcutHint,
   usesCommandKey,
 } from "../model/shortcuts";
+import { OPERATION_FORMAL, TOOLBAR_SHORT } from "../model/operationLabels";
 import type { GridTier } from "../model/timeline";
 import type { FieldFilterCondition } from "../model/fieldFilters";
 import type { SearchField } from "../model/scheduleFilterPersistence";
@@ -82,6 +83,7 @@ type ToolbarProps = {
   onOpenShortcuts: () => void;
   onShowJson: () => void;
   onShowDiff: () => void;
+  onCopyDiff: () => void;
   onExportHtml: () => void;
   onExportWorkspace?: () => void;
   onOpen: () => void;
@@ -154,6 +156,7 @@ export function Toolbar({
   onOpenShortcuts,
   onShowJson,
   onShowDiff,
+  onCopyDiff,
   onExportHtml,
   onExportWorkspace,
   onOpen,
@@ -324,6 +327,7 @@ export function Toolbar({
         onExportWorkspace={onExportWorkspace}
         onShowJson={onShowJson}
         onShowDiff={onShowDiff}
+        onCopyDiff={onCopyDiff}
         onOpenSettings={onOpenSettings}
         onOpenGuide={onOpenGuide}
         onOpenShortcuts={onOpenShortcuts}
@@ -413,7 +417,11 @@ export function Toolbar({
               aria-pressed={tier === value}
               onClick={() => onSetTier(value)}
             >
-              {value === "day" ? "日" : value === "week" ? "週" : "月"}
+              {value === "day"
+                ? TOOLBAR_SHORT.tierDay
+                : value === "week"
+                  ? TOOLBAR_SHORT.tierWeek
+                  : TOOLBAR_SHORT.tierMonth}
             </button>
           ))}
         </div>
@@ -424,8 +432,9 @@ export function Toolbar({
           type="button"
           className="toolbar-btn"
           onClick={onOpenGuide}
+          title={OPERATION_FORMAL.guide}
         >
-          案内
+          {TOOLBAR_SHORT.guide}
         </button>
         <button
           type="button"
@@ -512,7 +521,7 @@ export function Toolbar({
         type="button"
         className="toolbar-btn toolbar-btn-with-shortcut toolbar-btn-danger"
         disabled={!canDelete}
-        title={canDelete ? "選択中のタスクを削除" : "タスクを選択してから削除"}
+        title={canDelete ? `${OPERATION_FORMAL.deleteTask}（${deleteShortcutHint()}）` : "タスクを選択してから削除"}
         onClick={onDelete}
       >
         <span>削除</span>
@@ -527,7 +536,7 @@ export function Toolbar({
           onClick={onAdd}
         >
           <Plus size={16} strokeWidth={2.25} aria-hidden="true" />
-          <span>追加</span>
+          <span>{TOOLBAR_SHORT.addTask}</span>
           <span className="menu-shortcut">{addTaskShortcutHint(commandKey)}</span>
         </button>
         <button
@@ -560,7 +569,7 @@ export function Toolbar({
                 onAdd();
               }}
             >
-              タスクを追加
+              {OPERATION_FORMAL.addTask}
             </button>
             {addTopLevelMenuLabel && onAddTopLevel ? (
               <button
@@ -582,7 +591,7 @@ export function Toolbar({
                 onAddMilestone();
               }}
             >
-              <span>マイルストンを追加</span>
+              <span>{OPERATION_FORMAL.addMilestone}</span>
               <span className="menu-shortcut">
                 {addMilestoneShortcutHint(commandKey)}
               </span>

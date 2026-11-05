@@ -4,6 +4,12 @@ import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/men
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { RecentFilesStore } from "../model/recentFiles";
 import { RECENT_FILES_EMPTY_HINT } from "../model/firstRunGuidance";
+import {
+  macMenuAccelerator,
+  SHARED_FILE_MENU_ROWS,
+  type SharedFileMenuActionId,
+} from "../model/appMenuStructure";
+import { OPERATION_FORMAL } from "../model/operationLabels";
 import { recentMenuSections } from "../model/recentFilesMenu";
 import { requestApplicationQuitViaTauri } from "../model/windowSession";
 import type { GridTier } from "../model/timeline";
@@ -20,6 +26,7 @@ export type MacOSAppMenuHandlers = {
   onExportWorkspace?: () => void;
   onShowJson: () => void;
   onShowDiff: () => void;
+  onCopyDiff: () => void;
   onOpenGuide: () => void;
   onOpenShortcuts: () => void;
   onOpenSettings: () => void;
@@ -63,15 +70,42 @@ export function useMacOSAppMenu(
         text: string,
         action: () => void,
         needsIdle = true,
+        accelerator?: string,
       ) =>
         MenuItem.new({
           id,
           text,
+          ...(accelerator ? { accelerator } : {}),
           action: () => {
             if (needsIdle && h().fileBusy()) return;
             action();
           },
         });
+
+      const fileAction = (menuId: SharedFileMenuActionId): (() => void) => {
+        switch (menuId) {
+          case "open":
+            return () => h().onOpen();
+          case "openNewWindow":
+            return () => h().onOpenInNewWindow();
+          case "save":
+            return () => h().onSave();
+          case "saveAs":
+            return () => h().onSaveAs();
+          case "exportHtml":
+            return () => h().onExportHtml();
+          case "exportWorkspace":
+            return () => h().onExportWorkspace?.();
+          case "showJson":
+            return () => h().onShowJson();
+          case "showDiff":
+            return () => h().onShowDiff();
+          case "copyDiff":
+            return () => h().onCopyDiff();
+          default:
+            return () => {};
+        }
+      };
 
       const appSubmenu = await Submenu.new({
         text: "schedule-viewer",
@@ -84,7 +118,7 @@ export function useMacOSAppMenu(
             ? [
                 await MenuItem.new({
                   id: "app-check-updates",
-                  text: "更新を確認",
+                  text: OPERATION_FORMAL.checkForUpdates,
                   action: () => h().onCheckForUpdates?.(),
                 }),
                 await PredefinedMenuItem.new({ item: "Separator" }),
@@ -135,19 +169,19 @@ export function useMacOSAppMenu(
       const recentMenuSlot =
         recentSections.length > 0
           ? await Submenu.new({
-              text: "最近開いたファイル",
+              text: OPERATION_FORMAL.recentFiles,
               items: [
                 ...recentMenuItems,
                 await PredefinedMenuItem.new({ item: "Separator" }),
                 await MenuItem.new({
                   id: "file-clear-recent",
-                  text: "履歴を消す",
+                  text: OPERATION_FORMAL.clearRecentHistory,
                   action: () => h().onClearRecentHistory(),
                 }),
               ],
             })
           : await Submenu.new({
-              text: "最近開いたファイル",
+              text: OPERATION_FORMAL.recentFiles,
               enabled: false,
               items: [
                 await MenuItem.new({
@@ -157,32 +191,48 @@ export function useMacOSAppMenu(
                 }),
               ],
             });
+
+      const fileSubmenuItems: (
+        | Awaited<ReturnType<typeof MenuItem.new>>
+        | Awaited<ReturnType<typeof PredefinedMenuItem.new>>
+        | Awaited<ReturnType<typeof Submenu.new>>
+      )[] = [];
+
+      for (const row of SHARED_FILE_MENU_ROWS) {
+        if (row.kind === "separator") {
+          fileSubmenuItems.push(
+            await PredefinedMenuItem.new({ item: "Separator" }),
+          );
+          continue;
+        }
+        if (row.kind === "recentSubmenu") {
+          fileSubmenuItems.push(recentMenuSlot);
+          continue;
+        }
+        if (row.id === "exportWorkspace" && !h().onExportWorkspace) continue;
+        fileSubmenuItems.push(
+          await fileItem(
+            `file-${row.id}`,
+            row.label,
+            fileAction(row.id),
+            row.locksWithFileIdle,
+            macMenuAccelerator(row),
+          ),
+        );
+      }
+
+      fileSubmenuItems.push(
+        await PredefinedMenuItem.new({ item: "Separator" }),
+        await MenuItem.new({
+          id: "file-settings",
+          text: OPERATION_FORMAL.settings,
+          action: () => h().onOpenSettings(),
+        }),
+      );
+
       const fileSubmenu = await Submenu.new({
         text: "ファイル",
-        items: [
-          await fileItem("file-open", "開く", () => h().onOpen()),
-          recentMenuSlot,
-          await fileItem(
-            "file-open-new",
-            "新しいウィンドウで開く",
-            () => h().onOpenInNewWindow(),
-          ),
-          await fileItem("file-save", "保存", () => h().onSave()),
-          await fileItem("file-save-as", "別名保存", () => h().onSaveAs()),
-          await PredefinedMenuItem.new({ item: "Separator" }),
-          await fileItem("file-export", "書き出し", () => h().onExportHtml(), false),
-          ...(h().onExportWorkspace
-            ? [
-                await fileItem(
-                  "file-export-workspace",
-                  "設定ファイルを新しいフォルダへ書き出す",
-                  () => h().onExportWorkspace?.(),
-                ),
-              ]
-            : []),
-          await fileItem("file-json", "JSON を表示", () => h().onShowJson(), false),
-          await fileItem("file-diff", "差分を表示", () => h().onShowDiff()),
-        ],
+        items: fileSubmenuItems,
       });
 
       const editSubmenu = await Submenu.new({
@@ -190,7 +240,7 @@ export function useMacOSAppMenu(
         items: [
           await MenuItem.new({
             id: "edit-undo",
-            text: "取り消し",
+            text: OPERATION_FORMAL.undo,
             accelerator: "Command+Z",
             action: () => {
               const handlers = h();
@@ -208,7 +258,7 @@ export function useMacOSAppMenu(
           }),
           await MenuItem.new({
             id: "edit-redo",
-            text: "やり直し",
+            text: OPERATION_FORMAL.redo,
             accelerator: "Shift+Command+Z",
             action: () => {
               const handlers = h();
@@ -237,38 +287,38 @@ export function useMacOSAppMenu(
         items: [
           await MenuItem.new({
             id: "view-guide",
-            text: "操作の案内",
+            text: OPERATION_FORMAL.guide,
             action: () => h().onOpenGuide(),
           }),
           await MenuItem.new({
             id: "view-shortcuts",
-            text: "ショートカット一覧",
+            text: OPERATION_FORMAL.shortcuts,
             action: () => h().onOpenShortcuts(),
           }),
           await PredefinedMenuItem.new({ item: "Separator" }),
           await MenuItem.new({
             id: "view-today",
-            text: "今日",
+            text: OPERATION_FORMAL.goToday,
             action: () => h().onGoToday(),
           }),
           await MenuItem.new({
             id: "view-day",
-            text: "日表示",
+            text: OPERATION_FORMAL.tierDay,
             action: () => h().onSetTier("day"),
           }),
           await MenuItem.new({
             id: "view-week",
-            text: "週表示",
+            text: OPERATION_FORMAL.tierWeek,
             action: () => h().onSetTier("week"),
           }),
           await MenuItem.new({
             id: "view-month",
-            text: "月表示",
+            text: OPERATION_FORMAL.tierMonth,
             action: () => h().onSetTier("month"),
           }),
           await MenuItem.new({
             id: "view-fit",
-            text: "全体",
+            text: OPERATION_FORMAL.fit,
             action: () => h().onFit(),
           }),
         ],

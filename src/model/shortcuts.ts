@@ -219,7 +219,7 @@ export function undoShortcutHint(commandKey: boolean): string {
 }
 
 export function redoShortcutHint(commandKey: boolean): string {
-  return commandKey ? "⌘⇧Z" : "Ctrl+Shift+Z / Ctrl+Y";
+  return commandKey ? "⌘⇧Z" : "Ctrl+Shift+Z（Ctrl+Y も可）";
 }
 
 export function findShortcutHint(commandKey: boolean): string {

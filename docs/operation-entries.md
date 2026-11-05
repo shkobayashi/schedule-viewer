@@ -7,7 +7,9 @@
 | 列 | 意味 |
 | --- | --- |
 | 操作 | この行で扱う操作の呼び名（表内の見出し用。入口のラベルとは限らない） |
-| ツールバー | 画面上部ツールバーに出る表示名（`src/components/Toolbar.tsx`、`ScheduleToolbarTitle.tsx`） |
+| 正式名 | ☰・macOS・パレット・右クリック・案内の共通ラベル（`src/model/operationLabels.ts` の `OPERATION_FORMAL`） |
+| 略称 | ツールバーだけの短いラベル（同ファイルの `TOOLBAR_SHORT`） |
+| ツールバー | 画面上部ツールバー。略称がある操作は `TOOLBAR_SHORT`、それ以外は正式名 |
 | 右クリック | チャート／一覧のコンテキストメニュー（`src/App.tsx` の `contextMenuItems`） |
 | コマンドパレット | ⌘/Ctrl+K の一覧（`src/model/commandPalette.ts` の `label`） |
 | ショートカット (Mac / Win) | キー割り当て（`src/model/shortcuts.ts` とメニューに出すヒント。未記載の入口は空） |
@@ -40,7 +42,7 @@
 | 設定ファイルを新しいフォルダへ書き出す | | | | | 設定ファイルを新しいフォルダへ書き出す | 設定ファイルを新しいフォルダへ書き出す | | `file_action` (exportWorkspace) | `--screen file_action` | `FILE-11` |
 | JSON を表示 | | | JSON を表示 | | JSON を表示 | JSON を表示 | | | | `FILE-06` |
 | 差分を表示 | | | 差分を表示 | | 差分を表示 | 差分を表示 | 画面と開いているファイルの違いは、☰ の「差分を表示」、または状態バーの「未保存」 | | | `FILE-04` |
-| 差分をコピー | | | 差分をコピー | ⌘⇧D / Ctrl+Shift+D | | | | | | `FILE-05` |
+| 差分をコピー | | | 差分をコピー | ⌘⇧D / Ctrl+Shift+D | 差分をコピー | 差分をコピー | | | | `FILE-05` |
 | 未保存の差分を開く（状態バー） | `未保存`（`saveStatus`。`StatusBar.tsx`） | | | | | | 同上 | | | `FILE-04` |
 | 外部ファイル更新の確認 | `ファイルに更新あり — 確認する` | | | | | | 状態バーの「ファイルに更新あり — 確認する」から確認を開く | | | `SYNC-01` |
 | 更新を確認 | | | 更新を確認 | | schedule-viewer を終了 の上（アプリメニュー） | 更新を確認 | 設定の「更新」（案内内の説明） | | | `SET-06` |
@@ -58,9 +60,9 @@
 | 操作 | ツールバー | 右クリック | コマンドパレット | ショートカット (Mac / Win) | macOS メニュー | ☰ | 操作の案内 | MCP | CLI | 機能 ID |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | コマンドパレットを開く／閉じる | | | （パレット自身） | ⌘K / Ctrl+K | | | ⌘ または Ctrl+K でコマンドパレットを開く | | | `NAV-07` |
-| 操作の案内を開く | 案内 | | 操作の案内 | | 操作の案内 | 操作の案内 | （ダイアログ本文。固定ラベルではない） | | | `NAV-08` |
+| 操作の案内を開く | 案内（`TOOLBAR_SHORT.guide`。title は操作の案内） | | 操作の案内 | | 操作の案内 | 操作の案内 | （ダイアログ本文。固定ラベルではない） | | | `NAV-08` |
 | ショートカット一覧を開く | `?`（title: ショートカット一覧（?、F1）） | | ショートカット一覧 | ? / F1 | ショートカット一覧 | ショートカット一覧 | キーの一覧は、? と F1、または「ショートカット一覧」 | | | `NAV-08` |
-| タスク名／ノートで検索 | `名前` / `ノート`（select）＋ placeholder `タスク名で検索` / `ノートで検索` | | 検索へ移る | ⌘F / Ctrl+F | | | 上の「絞り込み」で、残す行を選ぶ（検索欄自体は案内に未記名） | `set_view`（filters） | `--screen set_view` | `FILTER-01` |
+| タスク名／ノートで検索 | `名前` / `ノート`（select）＋ placeholder `タスク名で検索` / `ノートで検索` | | 検索 | ⌘F / Ctrl+F | | | 上の「絞り込み」で、残す行を選ぶ（検索欄自体は案内に未記名） | `set_view`（filters） | `--screen set_view` | `FILTER-01` |
 | 今日へ移動 | 今日 | | 今日 | | 今日 | | | `set_view` | `--screen set_view` | `NAV-01` |
 | 日表示 | `日`（tier-toggle） | | 日表示 | | 日表示 | | | `set_view` | `--screen set_view` | `NAV-02` |
 | 週表示 | `週` | | 週表示 | | 週表示 | | | `set_view` | `--screen set_view` | `NAV-02` |
@@ -101,9 +103,9 @@
 | やり直し | やり直し | | やり直し | ⌘⇧Z / Ctrl+Shift+Z / Ctrl+Y | やり直し | | | `history` (redo) | `--screen history` | `EDIT-10` |
 | タスクを追加 | `追加`（split 主ボタン）／メニュー `タスクを追加` | | タスクを追加 | ⌘+Enter / Insert / Ctrl+Enter | | | | `edit_plan` | `--screen edit_plan` | `EDIT-08` |
 | マイルストンを追加 | 追加メニュー `マイルストンを追加` | マイルストンを追加 | マイルストンを追加 | ⌘⇧Enter / Ctrl+Shift+Enter | | | | `edit_plan` | `--screen edit_plan` | `EDIT-07` |
-| タスクを編集（詳細） | | 編集 | 選択中のタスクを編集 | Enter | | | | `edit_plan` | `--screen edit_plan` | `EDIT-04` |
-| タスクを削除 | 削除 | 削除 | 選択中のタスクを削除 | Delete / Backspace | | | | `edit_plan` | `--screen edit_plan` | `EDIT-09` |
-| タスクを複製 | | 複製 | タスクを複製 | Alt+Shift+↓ | | | | `edit_plan` | `--screen edit_plan` | `EDIT-14` |
+| タスクを編集（詳細） | | 編集 | 編集 | Enter | | | | `edit_plan` | `--screen edit_plan` | `EDIT-04` |
+| タスクを削除 | 削除 | 削除 | 削除 | Delete / Backspace | | | | `edit_plan` | `--screen edit_plan` | `EDIT-09` |
+| タスクを複製 | | 複製 | 複製 | Alt+Shift+↓ | | | | `edit_plan` | `--screen edit_plan` | `EDIT-14` |
 | 同じグループ内で並べ替え | | | | Alt+↑ / Alt+↓ | | | | `edit_plan` | `--screen edit_plan` | `EDIT-15` |
 | ノートを開く | | ノート | ノート | ⌘N / Ctrl+N | | | | `edit_plan` | `--screen edit_plan` | `EDIT-06` |
 | 系統を表示／解除（タスク） | | `系統を表示` / `系統を解除` | `系統を表示` / `系統を解除` | | | | | `set_view` | `--screen set_view` | `FILTER-08` |
