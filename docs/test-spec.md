@@ -1,10 +1,10 @@
 # テスト仕様
 
-何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。テスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。
+何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。Vitest の Node 側のテスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。jsdom 側は `src/**/*.test.tsx` の `it` 名を [自動テスト一覧](#自動テスト一覧) の Vitest 表に書く。
 
 ## 方針
 
-自動テストの対象は、`src/model/` の純粋関数と、Rust 側のパス検査である。画面操作、Konva の描画、Tauri のダイアログ、ファイルの監視、配布物は、手で確かめる。
+自動テストの対象は、`src/model/` の純粋関数、Rust 側のパス検査、および `src/**/*.test.tsx`（jsdom）で描くコンポーネントの DOM 特性である。Konva の描画、Tauri のダイアログ、ファイルの監視、配布物は、手で確かめる。
 
 どの機能 ID も、自動テストか下の手動テストケースの少なくとも一方に対応づける。
 
@@ -15,7 +15,8 @@
 | 種類 | コマンド | 見ているもの |
 | --- | --- | --- |
 | node:test | `npm test` の中の `node --test scripts/*.test.mjs` | `scripts/*.test.mjs`。操作マニュアルサイトは、同じページ内の `#見出し` をその HTML の見出し id と照合する |
-| Vitest | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
+| Vitest（Node） | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
+| Vitest（jsdom） | `npm test` | `src/**/*.test.tsx`。jsdom と Testing Library。React コンポーネントの DOM 特性（Issue #490、C3 のあと） |
 | Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査 |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1） |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
@@ -29,7 +30,7 @@
 | バージョン | `npm run version:check` | 5ファイルのバージョン番号と `X.Y.Z` / `X.Y.Z-alpha.N` / `X.Y.Z-beta.N` の形、`tauri.conf.json` の `plugins.updater.endpoints` がそのメジャー用 `updater-X` を指すこと |
 | スキル同梱物 | `npm run build:validate-skill` のあと、CI と同じパスで `git diff --exit-code` | スキーマコピーと検証 bundle の差分 |
 
-画面用のテストランナー（jsdom、Testing Library、Playwright）は入っていない。
+Playwright は手動スクリーンショット用に devDependencies にある。画面コンポーネントの単体 DOM テストには jsdom と `@testing-library/react` を使う（`src/**/*.test.tsx`）。
 
 ## CI での実行
 
@@ -310,6 +311,16 @@
 | 同上 | `keeps thin member overlay wrapper wiring` | SET-02 |
 | 同上 | `exposes shared footer button labels` | SET-02, SET-08, SET-09 |
 | 同上 | `keeps member panel list hint in member panel source` | SET-02 |
+| `catalogEditorOverlay.dom.test.tsx` | `shows member catalog title and picker actions` | SET-02 |
+| 同上 | `shows status catalog title and picker actions` | SET-08 |
+| 同上 | `shows color catalog title and picker actions` | SET-09 |
+| 同上 | `shows member-specific applied note when chart uses this catalog` | SET-02 |
+| 同上 | `shows status remove-in-use warning in confirm dialog` | SET-08 |
+| 同上 | `shows copy confirm body for color catalog` | SET-09 |
+| 同上 | `marks the main panel inert while discard confirm is open` | SET-02, SET-08, SET-09 |
+| 同上 | `focuses discard confirm on open` | SET-02, SET-08, SET-09 |
+| 同上 | `Escape on discard confirm calls cancel handler` | SET-02, SET-08, SET-09 |
+| 同上 | `Tab wraps focus from panel end to start` | SET-02, SET-08, SET-09 |
 | `memberCatalogEditSession.test.ts` | `closes when the open catalog is removed` | SET-02, SET-08 |
 | 同上 | `reloads when another window overwrites the open catalog` | SET-02, SET-08 |
 | 同上 | `ignores self save reload` | SET-02, SET-08 |

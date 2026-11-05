@@ -226,11 +226,11 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run build:manual-site` | [操作マニュアル](user-manual.md) だけを `site/` に静的 HTML として出力する。fragment と画像の参照を検査する。パスの無い `#見出し` は、そのリンクがあるページの見出しと照合する。全機能の HTML には h2 と h3 の見出し一覧を出す。出力は git に含めない |
 | `npm run tauri` | Tauri CLI を呼ぶ。後ろに `dev` や `build` を付けて使う |
 | `npm run tauri:dev:fresh` | `SCHEDULE_VIEWER_FRESH_START=1` 付きの `tauri dev`。アプリデータと localStorage を初回起動相当にしてから起動する（開発ビルドのみ） |
-| `npm test` | 検証器を生成してから Vitest を1回実行する |
+| `npm test` | 検証器を生成してから `node --test scripts/*.test.mjs` と Vitest を1回実行する。Vitest は `src/**/*.test.ts`（Node）と `src/**/*.test.tsx`（jsdom）の2プロジェクト |
 | `npm run lint` | ESLint |
 | `npm run check:mcp-tool-names` | MCP ツール名が TypeScript と Rust で一致すること |
 | `npm run check:architecture-warn` | madge（循環）と jscpd（重複）。終了コード 0（内容は警告として読む） |
-| `npm run test:coverage-warn` | Vitest を coverage 付きで1回実行する（閾値 0。CI では警告扱い） |
+| `npm run test:coverage-warn` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する（閾値 0。CI では警告扱い） |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
