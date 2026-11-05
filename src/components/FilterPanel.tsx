@@ -54,7 +54,7 @@ import {
   filterPanelMaxOuterHeightPx,
 } from "./filterPanelLayout";
 import { FilterFieldFiltersSection } from "./FilterFieldFiltersSection";
-import type { AssigneeFilterOption } from "./Toolbar";
+import type { AssigneeFilterOption } from "./assigneeFilterOption";
 import type { FieldFilterCondition } from "../model/fieldFilters";
 import type { ScheduleFieldDef } from "../model/types";
 
