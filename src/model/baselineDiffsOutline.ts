@@ -10,7 +10,7 @@ import { normalizeLevelDefinition } from "./hierarchyLevelEdit";
 import type {
   BaselineClassificationLine,
   BaselineDiffClassification,
-} from "./baselineDiffs";
+} from "./baselineDiffsClassification";
 import { fieldValuesEqualForDiff } from "./fieldValuesDiff";
 import { upgradeTaskDiffClassification } from "./fieldValuesDiff";
 import { normalizeTaskNote } from "./taskNote";

@@ -7,7 +7,7 @@ import {
   groupCollapseKey,
   hierarchyCollapseKey,
 } from "./rows";
-import { isExplanationTrialVisibleRow } from "./explainOverlayPatterns";
+import { isExplanationTrialVisibleRow } from "./explainOverlayTrialVisible";
 import type { Category, OutlineRoot, ScheduleId, VisibleRow } from "./types";
 
 export type McpVisibleDates = {

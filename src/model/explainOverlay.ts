@@ -20,30 +20,23 @@ import {
 } from "./explainOverlayPatterns";
 import {
   resolveExplanationMilestoneBand,
-  type ExplanationViewState,
 } from "./explainView";
 import type {
-  Category,
   Milestone,
-  MilestoneGroup,
-  OutlineRoot,
   ScheduleId,
   VisibleRow,
 } from "./types";
 
-export type ExplanationMarkKind = "change" | "ask";
-
-export type ExplanationMark = {
-  taskId?: ScheduleId;
-  date?: string;
-  milestoneId?: ScheduleId;
-  milestoneGroupId?: ScheduleId;
-  kind: ExplanationMarkKind;
-  label: string;
-  number?: number;
-  /** Normalized `#rrggbb` when the caller set `color`. */
-  color?: string;
-};
+import type {
+  ExplanationMark,
+  ExplanationMarkKind,
+  ExplainOverlayValidationContext,
+} from "./explainOverlayTypes";
+export type {
+  ExplanationMark,
+  ExplanationMarkKind,
+  ExplainOverlayValidationContext,
+} from "./explainOverlayTypes";
 
 export type ExplanationOverlayState = {
   translucent: true;
@@ -83,17 +76,6 @@ export function explanationSessionActive(
 ): boolean {
   return explanationViewActive || explanationOverlayActive(overlay);
 }
-
-export type ExplainOverlayValidationContext = {
-  categories: Category[];
-  outline: OutlineRoot | undefined;
-  milestones: readonly Milestone[];
-  milestoneGroups: readonly MilestoneGroup[];
-  hiddenMilestoneGroupIds: readonly ScheduleId[];
-  explanationView?: ExplanationViewState | null;
-  collapsed: ReadonlySet<string>;
-  visibleRows: readonly VisibleRow[];
-};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

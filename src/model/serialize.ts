@@ -1,3 +1,4 @@
+import type { DocumentSnapshot } from "./documentSnapshot";
 import { assigneeIdToJson, taskAssigneeIds } from "./assigneeIds";
 import { documentHasLevels } from "./hierarchy";
 import { normalizeLevelDefinition } from "./hierarchyLevelEdit";
@@ -144,7 +145,7 @@ export function scheduleToJson(
 }
 
 export function documentToJson(
-  doc: ScheduleDocument | import("./history").DocumentSnapshot,
+  doc: ScheduleDocument | DocumentSnapshot,
 ): ScheduleDocument {
   return scheduleToJson(
     doc.title,

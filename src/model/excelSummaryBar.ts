@@ -7,7 +7,7 @@ import {
   barPixelsInDateColumns,
 } from "./excelBar";
 import type { ExcelTimeColumn } from "./excelTimeColumns";
-import type { ExcelExportShape } from "./exportExcel";
+import type { ExcelExportShape } from "./excelExportTypes";
 
 export const EXCEL_SUMMARY_BAR_HEIGHT_PX = 5;
 

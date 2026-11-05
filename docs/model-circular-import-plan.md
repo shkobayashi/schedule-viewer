@@ -11,27 +11,25 @@
 | ベースライン照合 | `npm run check:madge-circular-baseline`（**CI frontend で必須**。`npm test` の node:test からも呼ぶ。**不一致で失敗**） |
 | 正本 JSON | [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) |
 
-M0 時点の **循環数は 30** である。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。
+M0 時点の **循環数は 30** である。M1 完了後（Issue #490）は **17** である（ベースライン JSON を更新済み）。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。
 
 ## 解消順（M1 → M2 → M3）
 
 Issue #490 の順序を変えない。**M3 は `validateSchedule` ハブを最後**にまとめる。
 
-### M1（9 環）
+### M1（9 環）— 完了
 
-葉に近い model クラスタ。検証ハブに依存しない、または短い環だけを先に切る。
+葉に近い model クラスタ。2026-11-05 の M1 PR で解消済み。型・小モジュールの切り出しのみ（`baselineDiffsClassification`、`documentSnapshot`、`excelExportTypes`、`explainOverlayTypes`、`explainOverlayTrialVisible`、`outlineTaskMap` 等）。
 
-| 塊 | 環数 | 代表 |
-| --- | ---: | --- |
-| `baselineDiffs*` | 2 | `baselineDiffs.ts` ↔ `baselineDiffsConnections` / `baselineDiffsOutline` |
-| `explainOverlay*` | 3 | `explainOverlay.ts` ↔ `explainOverlayLayout` / `explainOverlayPatterns` ↔ `mcpVisible` |
-| Excel 書き出し | 1 | `exportExcel.ts` ↔ `excelSummaryBar.ts` |
-| 履歴と serialize | 2 | `history.ts` ↔ `serialize.ts`（`hierarchyLevelEdit` 経由を含む） |
-| タスク TODO の短い環 | 1 | `taskTodos.ts` ↔ `outlineTasks.ts`（`validateSchedule` を経由しない環） |
+| 塊 | 解消内容 |
+| --- | --- |
+| `baselineDiffs*` | 分類ラベル型を `baselineDiffsClassification.ts` へ |
+| `explainOverlay*` / `mcpVisible` | 共有型と試し行判定を `explainOverlayTypes` / `explainOverlayTrialVisible` へ |
+| Excel 書き出し | `ExcelExportShape` を `excelExportTypes.ts` へ |
+| 履歴と serialize | `DocumentSnapshot` を `documentSnapshot.ts` へ |
+| タスク TODO の短い環 | `mapAllTasksInOutline` を `outlineTaskMap.ts` へ |
 
-完了条件: 上記 9 環が madge から消え、ベースライン JSON を **意図的に**更新する PR で件数が減ること。全 model テスト通過。
-
-### M2（2 環）
+### M2（2 環）— 未着手
 
 デザイントークンと型の相互参照。
 
@@ -42,9 +40,9 @@ Issue #490 の順序を変えない。**M3 は `validateSchedule` ハブを最�
 
 完了条件: 2 環が 0。同上。
 
-### M3（17 環）
+### M3（残り 13 環、ベースライン JSON 参照）
 
-`validateSchedule.ts` を中心としたクラスタ（`hierarchy`、`dependencies`、`tasks`、`scheduleSemantics`、`assigneeIds`、`connections`、`taskFields`、`taskTodos`、`outlineTasks`、`validationMessages`、`taskTags`、`timeline` への経路を含む）。
+`validateSchedule.ts` を中心としたクラスタ（M1 後は `outlineTaskMap` 経路を含む。`hierarchy`、`dependencies`、`tasks`、`scheduleSemantics` 等）。
 
 完了条件: model 向け madge 循環が 0、または許容リストのみ。全テスト通過。**ハブの層分割はこの段だけ**で行う。
 

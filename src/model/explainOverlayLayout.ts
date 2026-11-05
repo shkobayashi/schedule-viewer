@@ -19,7 +19,7 @@ import {
   type TaskBarAnchor,
   type TextObstacleRect,
 } from "./connections";
-import type { ExplanationMark, ExplanationMarkKind } from "./explainOverlay";
+import type { ExplanationMark, ExplanationMarkKind } from "./explainOverlayTypes";
 import type { ExplanationPattern } from "./explainOverlayPatterns";
 import { trialMarkBarRect } from "./explainOverlayPatterns";
 import type { Member, MemberId } from "./memberTypes";
