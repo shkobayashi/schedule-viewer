@@ -7,10 +7,10 @@
 | 列 | 意味 |
 | --- | --- |
 | 操作 | この行で扱う操作の呼び名（表内の見出し用。入口のラベルとは限らない） |
-| 正式名 | ☰・macOS・パレット・右クリック・案内の共通ラベル（`src/model/operationLabels.ts` の `OPERATION_FORMAL`） |
+| 正式名 | ☰・macOS・パレット・右クリック・案内の共通ラベル（`src/model/operationLabels.ts` の `OPERATION_FORMAL`。右クリックは `operationLabelLink.ts` の `OPERATION_FORMAL_LINK` 経由） |
 | 略称 | ツールバーだけの短いラベル（同ファイルの `TOOLBAR_SHORT`） |
 | ツールバー | 画面上部ツールバー。略称がある操作は `TOOLBAR_SHORT`、それ以外は正式名 |
-| 右クリック | チャート／一覧のコンテキストメニュー（`src/operations/contextMenuItems.tsx` と `contextMenuLabels.ts`） |
+| 右クリック | チャート／一覧のコンテキストメニュー（`src/operations/contextMenuItems.tsx`。操作 ID は `operationIds.ts`、ラベルは `operationLabelLink.ts` と `operationLabels.ts`） |
 | コマンドパレット | ⌘/Ctrl+K の一覧（`src/model/commandPalette.ts` の `label`） |
 | ショートカット (Mac / Win) | キー割り当て（`src/model/shortcuts.ts` とメニューに出すヒント。未記載の入口は空） |
 | macOS メニュー | Tauri アプリメニュー（`src/hooks/useMacOSAppMenu.ts`。デスクトップ macOS のみ） |
@@ -25,6 +25,8 @@
 ## ラベルの出所
 
 表示名は、上記ソースの文字列をそのまま書く。動的なラベルは、ソースの式をバッククォートで示す。macOS の `PredefinedMenuItem`（Cut など）は Tauri が OS 文言を出すため、コード上の識別子を書く。
+
+操作 ID の正本は `src/operations/operationIds.ts` である。右クリック項目の DOM id（React の `key`）も同じ文字列を使う。ラベルは `operationLabelLink.ts` が `OPERATION_FORMAL` と右クリック専用固定文言を結びつける。
 
 ---
 
