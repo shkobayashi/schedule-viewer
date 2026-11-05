@@ -343,7 +343,7 @@ export function useSchedule(
     applyScroll: (plan: ExplanationScrollPlan) => void;
   } | null>,
 ) {
-  const bootSnapshotRef = useRef(
+  const documentRef = useRef(
     initialDocumentSnapshot(
       initialTitle,
       initialCategories,
@@ -354,23 +354,23 @@ export function useSchedule(
 
   const [title, setTitle] = useState(() => initialTitle);
   const [categories, setCategories] = useState(
-    () => bootSnapshotRef.current.categories,
+    () => documentRef.current.categories,
   );
   const [milestoneGroups, setMilestoneGroups] = useState(
-    () => bootSnapshotRef.current.milestoneGroups,
+    () => documentRef.current.milestoneGroups,
   );
   const [milestones, setMilestones] = useState(
-    () => bootSnapshotRef.current.milestones,
+    () => documentRef.current.milestones,
   );
   const [levels, setLevels] = useState<ScheduleLevelDef[] | undefined>(
-    () => bootSnapshotRef.current.levels,
+    () => documentRef.current.levels,
   );
   const [outline, setOutline] = useState<OutlineRoot | undefined>(
-    () => bootSnapshotRef.current.outline,
+    () => documentRef.current.outline,
   );
   const [connections, setConnections] = useState<
     TaskConnection[] | undefined
-  >(() => bootSnapshotRef.current.connections);
+  >(() => documentRef.current.connections);
   const [hiddenMilestoneGroupIds, setHiddenMilestoneGroupIds] = useState<
     ScheduleId[]
   >([]);
@@ -593,7 +593,6 @@ export function useSchedule(
   } as ScheduleDocumentCommitBridge;
 
   const {
-    documentRef,
     historyUi,
     commitDocument,
     commitCategories,
@@ -612,6 +611,7 @@ export function useSchedule(
     initialMilestoneGroups,
     initialMilestones,
     effectiveFieldDefs,
+    documentRef,
     bridgeRef: documentCommitBridgeRef,
     blockDocumentEditsRef,
     onHistoryUndoApplied,
