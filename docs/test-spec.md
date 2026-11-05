@@ -359,6 +359,14 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `keeps dynamic labels` | EDIT-11 |
 | 同上 | `labels every operation id` | EDIT-11, EDIT-19 |
 | 同上 | `aligns command palette IDs with OPERATION_ID values` | NAV-07 |
+| `headlessScheduleSession.test.ts` | `shifts two tasks, keeps the file until save, then clears the diff` | EDIT-02, FILE-02, FILE-07 |
+| 同上 | `undo and redo restore the exact saved schedule` | EDIT-10, FILE-02 |
+| 同上 | `adds a task, moves it to the empty group, and saves` | EDIT-08, EDIT-15, FILE-02 |
+| 同上 | `adds and deletes a milestone, then undo restores it` | EDIT-07, EDIT-10 |
+| 同上 | `deletes an empty category and an empty group, then undo restores both` | EDIT-19, EDIT-10 |
+| 同上 | `rejects a backwards period, a busy drag, and a filled category without writing` | EDIT-03, EDIT-19, MCP-01 |
+| 同上 | `stays the same after save, reload, and save again` | FILE-02, FILE-01 |
+| 同上 | `keeps both explanation filter and overlay after two date changes` | VIEW-16, EDIT-02 |
 | `FirstRunHintCard.dom.test.tsx` | `shows the sample heading, three items, and two prepare buttons` | NAV-09 |
 | 同上 | `switches the heading when a file is open instead of the sample` | NAV-09 |
 | 同上 | `keeps the card and disables only the finished guide action` | NAV-09 |
@@ -1204,6 +1212,23 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 壊れた JSON は、必須項目を消すか、schemaVersion を 2 にして作る。外部からの書き換えは、開いたファイルを別のエディタで保存して作る。
 
+## 画面なしの操作列
+
+`src/test/headlessScheduleSession` は、起動中の窓を使わない。見本を一時ファイルへ書き、`edit_plan` と履歴は MCP と同じ実行関数を呼ぶ。保存はダイアログを通さず、アプリが書くのと同じ JSON をそのファイルへ置く。タスク、カテゴリ、グループ、マイルストンの追加は、画面が呼ぶ関数のあと、同じ履歴の確定を使う。
+
+この自動テストで見るのは、次である。
+
+- 日付を2件ずらすと未保存の差分が出て、保存するとファイルが変わり、差分が消える
+- 保存したあとの変更を、取り消しとやり直しで、保存済みの JSON に戻せる
+- タスクを足して別のグループへ移し、保存したファイルに残る
+- マイルストンを足して消し、取り消しで戻して保存する
+- 空のカテゴリと、空で唯一ではないグループを消し、取り消しで戻る
+- 終了が開始より前の期間、ドラッグ中の更新、タスクのあるカテゴリの削除は拒否され、ファイルは変わらない
+- 保存して読み直し、もう一度保存しても中身は同じ
+- 2件の日付変更のあと、説明用の絞り込みと半透明が両方ある
+
+まだ手で見るのは、バーのドラッグ、削除の確認ダイアログ、IME、描画のずれ、本物の LLM の文、起動直後の実ドラッグ、右クリック直後のポインタである。
+
 ## 手動テストケース
 
 前提に書いていないときは、デスクトップ版を起動し、サンプルが表示された状態から始める。ブラウザ版で結果が違う場合は、そのケースに書く。
@@ -1509,7 +1534,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | TC-EDIT-17c | EDIT-17, FILTER-01 | 同じカテゴリにグループが複数ある | タスク名で1つのグループだけ残す絞り込みをかけ、グループ行の左端の握りをドラッグする | 並べ替えは始まらない |
 | TC-EDIT-17d | EDIT-17, FILE-07 | パスのあるファイルを開いている | 同じカテゴリでグループの順だけ変え、「差分を表示」を開く | `並び グループ` の行が出る |
 | TC-EDIT-18 | EDIT-18, EDIT-10 | カテゴリが2件以上ある | カテゴリ行を右クリックし「下にカテゴリを追加」で名前を保存する。取り消す | 直後にカテゴリと空の「グループ」が足る。取り消し 1 回で戻る |
-| TC-EDIT-19 | EDIT-19, EDIT-10 | タスク0件のグループがあり、同じカテゴリに別のグループがある | そのグループ行の「削除」を確認する。取り消す | グループが消える。取り消し 1 回で戻る。「削除」が出るか、最後のグループだけでは出ないかは自動テストで見る |
+| TC-EDIT-19 | EDIT-19, EDIT-10 | タスク0件のグループがあり、同じカテゴリに別のグループがある | そのグループ行の「削除」の確認ダイアログを開く | 確認ダイアログで消えることと、取り消しの操作は手で見る。JSON の削除と取り消しは自動テストで見る |
 | TC-EDIT-09 | EDIT-09 | 先行を持つタスクを選択 | 「削除」を確認する | タスクが消え、他の先行からも外れ、残ったタスク同士はつながらない |
 | TC-EDIT-09b | EDIT-09 | タスクを選んでいない | 「削除」を見る | 押せない |
 | TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
