@@ -37,13 +37,12 @@ import type { SearchField } from "../../model/scheduleFilterPersistence";
 import type { ExplanationOverlayState } from "../../model/explainOverlay";
 import type { ExplanationViewState } from "../../model/explainView";
 import {
-  initialDocumentSnapshot,
   snapshotFromDocument,
 } from "./documentSnapshot";
 import {
-  hiddenMilestoneGroupsAfterReload,
-  hiddenMilestoneMarksAfterReload,
-} from "./scheduleDocumentReload";
+  pruneHiddenMilestoneGroupIds,
+  pruneHiddenMilestoneIds,
+} from "../../model/filterChips";
 
 export type ScheduleDocumentCommitBridge = {
   setTitle: (title: string) => void;
@@ -82,6 +81,7 @@ export type UseScheduleDocumentCommitParams = {
   initialMilestoneGroups: MilestoneGroup[];
   initialMilestones: Milestone[];
   effectiveFieldDefs: readonly ScheduleFieldDef[];
+  documentRef: MutableRefObject<DocumentSnapshot>;
   bridgeRef: MutableRefObject<ScheduleDocumentCommitBridge>;
   blockDocumentEditsRef?: { current: boolean };
   onHistoryUndoApplied?: (landed: DocumentSnapshot) => void;
@@ -92,16 +92,15 @@ function applySnapshotFields(
   bridge: ScheduleDocumentCommitBridge,
   snapshot: DocumentSnapshot,
 ): void {
-  const cloned = cloneSnapshot(snapshot);
-  bridge.setTitle(cloned.title);
-  bridge.setCategories(cloned.categories);
-  bridge.setMilestoneGroups(cloned.milestoneGroups);
-  bridge.setMilestones(cloned.milestones);
-  bridge.setLevels(cloned.levels);
-  bridge.setOutline(cloned.outline);
-  bridge.setConnections(cloned.connections);
+  bridge.setTitle(snapshot.title);
+  bridge.setCategories(snapshot.categories);
+  bridge.setMilestoneGroups(snapshot.milestoneGroups);
+  bridge.setMilestones(snapshot.milestones);
+  bridge.setLevels(snapshot.levels);
+  bridge.setOutline(snapshot.outline);
+  bridge.setConnections(snapshot.connections);
   bridge.setReorderPreview(null);
-  bridge.pruneUiForDocument(cloned);
+  bridge.pruneUiForDocument(snapshot);
   if (
     bridge.explanationViewRef.current != null ||
     bridge.explanationOverlayRef.current?.translucent === true
@@ -111,24 +110,13 @@ function applySnapshotFields(
 }
 
 export function useScheduleDocumentCommit({
-  initialTitle,
-  initialCategories,
-  initialMilestoneGroups,
-  initialMilestones,
   effectiveFieldDefs,
+  documentRef,
   bridgeRef,
   blockDocumentEditsRef,
   onHistoryUndoApplied,
   onHistoryRedoApplied,
 }: UseScheduleDocumentCommitParams) {
-  const documentRef = useRef<DocumentSnapshot>(
-    initialDocumentSnapshot(
-      initialTitle,
-      initialCategories,
-      initialMilestoneGroups,
-      initialMilestones,
-    ),
-  );
   const historyRef = useRef<DocumentHistory>(createDocumentHistory());
   const [historyUi, setHistoryUi] = useState({ canUndo: false, canRedo: false });
 
@@ -359,10 +347,10 @@ export function useScheduleDocumentCommit({
       bridge.setOutline(snapshot.outline);
       bridge.setConnections(snapshot.connections);
       bridge.setHiddenMilestoneGroupIds((hidden) =>
-        hiddenMilestoneGroupsAfterReload(hidden, snapshot),
+        pruneHiddenMilestoneGroupIds(hidden, snapshot.milestoneGroups),
       );
       bridge.setHiddenMilestoneIds((hidden) =>
-        hiddenMilestoneMarksAfterReload(hidden, snapshot),
+        pruneHiddenMilestoneIds(hidden, snapshot.milestones),
       );
       bridge.setDiskEpoch((epoch) => epoch + 1);
       bridge.setReorderPreview(null);

@@ -350,6 +350,7 @@
 | 同上 | `keeps tag filter when the duplicated task has that tag` | FILTER-12, EDIT-14 |
 | 同上 | `keeps all selected tags when duplicated task matches one of them` | FILTER-12, EDIT-14 |
 | `exportView.test.ts` | `lists selected tags in document order` | FILTER-12 |
+| `filterChips.test.ts` | `drops ids whose milestones are gone` | SYNC-01 |
 | `filterChips.test.ts` | `shows a tag chip per selected tag in document order` | FILTER-12 |
 | 同上 | `counts tag filter once regardless of how many tags are selected` | FILTER-12 |
 | `fieldFilters.test.ts` | 四型の一致、値が無いの残すと除く、札、件数、定義なし、記録の1件だけ型不一致、下書き行の保持、`relaxFieldFiltersForNewTask`、`activeConditions` の並び、`filtered_tasks` の outline | FILTER-13 |
