@@ -958,6 +958,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `baselineDiffsClassification.test.ts` | `treats conflicting labels as conflicts` | MCP-01 |
 | `documentSnapshot.test.ts` | `cloneSnapshot preserves documentToJson equality` | FILE-02 |
 | `explainOverlayTrialVisible.test.ts` | `detects explanation trial task rows` | MCP-01 |
+| `outlineTaskMap.test.ts` | `maps all tasks in outline` | EDIT-02 |
 | `fieldFiltersTypes.test.ts` | `allows an empty field filter record` | FILTER-11 |
 | `resolvedColorScheme.test.ts` | `accepts light and dark` | SET-04 |
 | 同上 | `exports T5 hooks and pure helpers` | VIEW-04, NAV-01 |
