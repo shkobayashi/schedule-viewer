@@ -218,6 +218,30 @@ export async function manualScreenshotInvoke(
         removedPaths: [],
         missingPaths: [],
       };
+    case "export_claude_json_skills_zip":
+      return {
+        exportDir: "/mock/export/schedule-viewer-claude-json-skills",
+        zipPaths: [
+          "/mock/export/schedule-viewer-claude-json-skills/write-schedule.zip",
+          "/mock/export/schedule-viewer-claude-json-skills/write-members.zip",
+          "/mock/export/schedule-viewer-claude-json-skills/write-calendar.zip",
+          "/mock/export/schedule-viewer-claude-json-skills/write-workspace.zip",
+          "/mock/export/schedule-viewer-claude-json-skills/write-fields.zip",
+          "/mock/export/schedule-viewer-claude-json-skills/write-colors.zip",
+        ],
+        uploadHint:
+          "Claude Desktop または claude.ai で Customize → Skills → ＋ → Create skill → Upload a skill を開き、書き出した zip を1つずつアップロードします。Code execution and file creation をオンにしてください。",
+      };
+    case "export_claude_read_screen_skills_zip":
+      return {
+        exportDir: "/mock/export/schedule-viewer-claude-read-screen",
+        zipPaths: [
+          "/mock/export/schedule-viewer-claude-read-screen/read-screen.zip",
+          "/mock/export/schedule-viewer-claude-read-screen/schedule-talk.zip",
+        ],
+        uploadHint:
+          "Claude Desktop または claude.ai で Customize → Skills → ＋ → Create skill → Upload a skill を開き、書き出した zip を1つずつアップロードします。Code execution and file creation をオンにしてください。 read-screen.zip と schedule-talk.zip の両方をアップロードしてください。",
+      };
     case "export_schedule_html":
     case "export_schedule_svg":
       return null;

@@ -6,6 +6,7 @@ mod excel_book;
 mod dev_fresh_start;
 mod file_dialog_filters;
 mod json_skills;
+mod claude_skill_export;
 mod mcp_app_data;
 mod mcp_bridge;
 mod mcp_tool_names;
@@ -22,6 +23,9 @@ mod color_catalog_edit;
 mod member_catalog_edit;
 mod window_session;
 
+use claude_skill_export::{
+    export_claude_json_skills_zip, export_claude_read_screen_skills_zip,
+};
 use json_skills::{
     install_json_skills, json_skill_home_dirs, pick_json_skill_folder, uninstall_json_skills,
 };
@@ -3478,6 +3482,8 @@ pub fn run() {
             pick_json_skill_folder,
             install_json_skills,
             uninstall_json_skills,
+            export_claude_json_skills_zip,
+            export_claude_read_screen_skills_zip,
             dev_fresh_start::dev_fresh_start_active,
             install_read_screen_skill,
             uninstall_read_screen_skill,

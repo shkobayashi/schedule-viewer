@@ -129,6 +129,54 @@ pub fn read_screen_invocation_block(executable_path: &str, local_app_data: Optio
     }
 }
 
+pub fn read_screen_claude_invocation_block(executable_path: &str) -> String {
+    format!(
+        r#"## Claude Desktop / claude.ai 向け
+
+Claude Desktop と claude.ai のスキルは、コード実行用の隔離環境で動きます。この環境から手元の schedule-viewer を `--screen` で起動することは**できません**。
+
+schedule-viewer とつなぐときは、**MCP とつないだ Claude Desktop** を使います。schedule-viewer の設定「画面の状態を渡す」でコピーする mcp.json を Claude Desktop の設定に貼り、`schedule-viewer` サーバーが `--mcp` で起動するようにします。`command` には次の実行ファイルを使います（`args` は `["--mcp"]` です）。
+
+```
+{executable_path}
+```
+
+MCP が使えるときは、下の表どおり MCP ツールを呼びます。判断の手順は **schedule-talk** スキルを先にアップロードして読んでください。
+
+## Cursor / Claude Code 向け（ローカルにスキルフォルダを置いたとき）
+
+ローカルに read-screen スキルを置いた Cursor や Claude Code では、MCP が使えないときだけ `--screen` でこのパソコンの schedule-viewer を起動できます。次の節はそのときの呼び方です。
+
+"#
+    )
+}
+
+pub fn render_read_screen_skill_for_claude(
+    template: &str,
+    executable_path: &str,
+    local_app_data: Option<&str>,
+) -> Result<String, String> {
+    let claude_block = read_screen_claude_invocation_block(executable_path);
+    let local_block = read_screen_invocation_block(executable_path, local_app_data);
+    let combined = format!("{claude_block}\n{local_block}");
+    if combined.contains(EXECUTABLE_PLACEHOLDER) || combined.contains(INVOCATION_PLACEHOLDER) {
+        return Err("スキル本文を書き込めません。".to_string());
+    }
+    let token = read_screen_local_app_data_token(executable_path, local_app_data)
+        .unwrap_or_else(|| executable_path.to_string());
+    let rendered = template
+        .replace(INVOCATION_PLACEHOLDER, &combined)
+        .replace(EXECUTABLE_PLACEHOLDER, &token);
+    if rendered.contains(INVOCATION_PLACEHOLDER) || rendered.contains(EXECUTABLE_PLACEHOLDER) {
+        return Err("スキル本文を書き込めません。".to_string());
+    }
+    Ok(rendered)
+}
+
+pub fn bundled_read_screen_template_path(resource_dir: &Path) -> PathBuf {
+    bundled_template_path(resource_dir)
+}
+
 pub fn render_read_screen_skill(
     template: &str,
     executable_path: &str,
@@ -264,6 +312,10 @@ fn local_app_data_prefix() -> Option<String> {
     {
         None
     }
+}
+
+pub(crate) fn local_app_data_prefix_for_read_screen() -> Option<String> {
+    local_app_data_prefix()
 }
 
 #[tauri::command]

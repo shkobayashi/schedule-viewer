@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-export-claude-json-skills-zip"
+description = "Allows exporting Claude upload zips for JSON authoring skills."
+commands.allow = ["export_claude_json_skills_zip"]
+
+[[permission]]
+identifier = "allow-export-claude-read-screen-skills-zip"
+description = "Allows exporting Claude upload zips for read-screen and schedule-talk."
+commands.allow = ["export_claude_read_screen_skills_zip"]

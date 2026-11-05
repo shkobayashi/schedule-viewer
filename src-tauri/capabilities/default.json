@@ -87,6 +87,8 @@
     "allow-json-skill-home-dirs",
     "allow-pick-json-skill-folder",
     "allow-install-json-skills",
+    "allow-export-claude-json-skills-zip",
+    "allow-export-claude-read-screen-skills-zip",
     "allow-uninstall-json-skills",
     "allow-install-read-screen-skill",
     "allow-uninstall-read-screen-skill",

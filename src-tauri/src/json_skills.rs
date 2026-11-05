@@ -16,6 +16,8 @@ pub const JSON_SKILL_NAMES: [&str; 7] = [
 
 const RESOURCE_SKILLS_DIR: &str = "json-skills";
 
+pub(crate) const JSON_SKILL_BUNDLE_DIR: &str = RESOURCE_SKILLS_DIR;
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JsonSkillHomeDirsResult {
@@ -194,7 +196,7 @@ pub fn claude_user_shadow_paths(
         .collect()
 }
 
-fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {
+pub(crate) fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {
     fs::create_dir_all(dst).map_err(|e| format!("スキルを置けません: {}", e))?;
     for entry in fs::read_dir(src).map_err(|e| format!("スキルを置けません: {}", e))? {
         let entry = entry.map_err(|e| format!("スキルを置けません: {}", e))?;
@@ -568,6 +570,15 @@ pub fn uninstall_json_skills(
 }
 
 #[cfg(test)]
+pub(crate) fn write_minimal_bundled_skills(resource: &Path) {
+    for name in JSON_SKILL_NAMES {
+        let skill_dir = resource.join(RESOURCE_SKILLS_DIR).join(name);
+        fs::create_dir_all(&skill_dir).expect("mkdir skill");
+        fs::write(skill_dir.join("SKILL.md"), name).expect("write");
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -826,11 +837,7 @@ mod tests {
     }
 
     fn write_bundled_skills(resource: &Path) {
-        for name in JSON_SKILL_NAMES {
-            let skill_dir = resource.join(RESOURCE_SKILLS_DIR).join(name);
-            fs::create_dir_all(&skill_dir).expect("mkdir skill");
-            fs::write(skill_dir.join("SKILL.md"), name).expect("write");
-        }
+        write_minimal_bundled_skills(resource);
     }
 
     #[test]

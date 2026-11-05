@@ -20,6 +20,8 @@
 
 ### 追加
 
+- 設定から Claude Desktop / claude.ai 向けに JSON 作成スキル 6 件と read-screen・schedule-talk の zip を書き出せる（#474）
+
 - 説明のための見え方（`explain_view`）に、マイルストン帯の行 id と星 id の絞り込みを足した。説明の半透明（`explain_overlay`）の印に `milestoneId` と `milestoneGroupId` を足し、試しの計画に星の日付変更（`milestoneChanges`）を足した。読み取り 3 ツールの `view.explanation` と `explanationOverlay` に載せる（#420、#447）
 
 - MCP と read-screen に、試しの計画のパターン id を指定して未保存の計画へ一度に入れる `apply_explanation_pattern`（21 個目のツール）を追加。成功時は `edit_plan` と同じ差分テキストを返し、試しの計画と半透明は消える（#420、#445）

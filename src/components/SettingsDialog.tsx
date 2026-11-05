@@ -62,6 +62,11 @@ import {
   type JsonSkillToolSelection,
 } from "../model/jsonSkills";
 import {
+  exportClaudeJsonSkillsZip,
+  exportClaudeReadScreenSkillsZip,
+  type ExportClaudeSkillsResult,
+} from "../model/claudeSkillExport";
+import {
   installReadScreenSkill,
   uninstallReadScreenSkill,
 } from "../model/readScreenSkill";
@@ -356,6 +361,10 @@ export function SettingsDialog({
   const [jsonSkillRemovedPaths, setJsonSkillRemovedPaths] = useState<
     string[] | null
   >(null);
+  const [claudeJsonExport, setClaudeJsonExport] =
+    useState<ExportClaudeSkillsResult | null>(null);
+  const [claudeReadScreenExport, setClaudeReadScreenExport] =
+    useState<ExportClaudeSkillsResult | null>(null);
   const jsonSkillToolsTouched = useRef(false);
   const [appVersionLine, setAppVersionLine] = useState<string | null>(
     () => cachedAppVersionLine,
@@ -601,6 +610,46 @@ export function SettingsDialog({
     }
     setMessage(null);
     setConfirmJsonSkillUninstall(true);
+  };
+
+  const runClaudeJsonExport = async () => {
+    setBusy(true);
+    setMessage(null);
+    setClaudeJsonExport(null);
+    try {
+      const result = await exportClaudeJsonSkillsZip();
+      if (!result) return;
+      setClaudeJsonExport(result);
+      setMessage(
+        "JSON 作成スキル 6 件の zip を書き出しました。フォルダを開きました。",
+      );
+    } catch (error) {
+      setMessage(errorMessage(error, "zip を書き出せませんでした。"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runClaudeReadScreenExport = async () => {
+    setBusy(true);
+    setMcpPanelMessage(null);
+    setClaudeReadScreenExport(null);
+    try {
+      const result = await exportClaudeReadScreenSkillsZip();
+      if (!result) return;
+      setClaudeReadScreenExport(result);
+      setMcpPanelMessage({
+        text: "read-screen と schedule-talk の zip を書き出しました。フォルダを開きました。",
+        kind: "status",
+      });
+    } catch (error) {
+      setMcpPanelMessage({
+        text: errorMessage(error, "zip を書き出せませんでした。"),
+        kind: "alert",
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const runReadScreenInstall = async (replace: boolean) => {
@@ -1387,10 +1436,40 @@ export function SettingsDialog({
                 </div>
                 <h3 className="settings-changelog-heading">MCP を使えないときに渡す</h3>
                 <p className="settings-note">
-                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、$LOCALAPPDATA から続く1行にします。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 7 つは「JSON作成スキルを置く」にあります。見た目で指す手順と画面の判断は schedule-talk スキルにあります。
+                  MCP を使えない環境では、read-screen スキルがコマンドの呼び方を持ちます。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、$LOCALAPPDATA から続く1行にします。上の登録を終えても、このスキル置きは終わりません。スケジュール JSON を作る write-schedule など 6 つは「JSON作成スキルを置く」にあります。見た目で指す手順と画面の判断は schedule-talk スキルにあります。
                 </p>
+                <h3 className="settings-changelog-heading">
+                  Claude Desktop / claude.ai 向け
+                </h3>
+                <p className="settings-note">
+                  read-screen と schedule-talk を zip として書き出します（1 zip に 1
+                  スキル）。Claude Desktop では MCP とつないだうえで read-screen
+                  を判断の参照として使います。`--screen` で手元のアプリを起動する手順は zip
+                  内に Cursor / Claude Code 向けとして残します。
+                </p>
+                <div className="settings-actions">
+                  <button
+                    type="button"
+                    className="toolbar-btn"
+                    disabled={busy || !settingsDesktopOnly()}
+                    onClick={() => void runClaudeReadScreenExport()}
+                  >
+                    zip を書き出す…
+                  </button>
+                </div>
+                {claudeReadScreenExport ? (
+                  <div className="settings-current">
+                    <p>書き出し先: {claudeReadScreenExport.exportDir}</p>
+                    <ul className="settings-path-list">
+                      {claudeReadScreenExport.zipPaths.map((path) => (
+                        <li key={path}>{path}</li>
+                      ))}
+                    </ul>
+                    <p className="settings-note">{claudeReadScreenExport.uploadHint}</p>
+                  </div>
+                ) : null}
                 <fieldset className="settings-field" disabled={busy}>
-                  <legend>置く先</legend>
+                  <legend>Cursor / Claude Code / Copilot に置く</legend>
                   <label className="settings-field-check">
                     <input
                       type="checkbox"
@@ -1579,8 +1658,37 @@ export function SettingsDialog({
                     この操作はデスクトップ版でのみ使えます。
                   </p>
                 ) : null}
+                <h3 className="settings-changelog-heading">
+                  Claude Desktop / claude.ai 向け
+                </h3>
+                <p className="settings-note">
+                  write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors
+                  の 6 つを、スキルごとに zip として書き出します（1 zip に 1 スキル）。schedule-talk
+                  は「画面の状態を渡す」の zip に含めます。
+                </p>
+                <div className="settings-actions">
+                  <button
+                    type="button"
+                    className="toolbar-btn"
+                    disabled={busy || !settingsDesktopOnly()}
+                    onClick={() => void runClaudeJsonExport()}
+                  >
+                    zip を書き出す…
+                  </button>
+                </div>
+                {claudeJsonExport ? (
+                  <div className="settings-current">
+                    <p>書き出し先: {claudeJsonExport.exportDir}</p>
+                    <ul className="settings-path-list">
+                      {claudeJsonExport.zipPaths.map((path) => (
+                        <li key={path}>{path}</li>
+                      ))}
+                    </ul>
+                    <p className="settings-note">{claudeJsonExport.uploadHint}</p>
+                  </div>
+                ) : null}
                 <fieldset className="settings-field" disabled={busy || !settingsDesktopOnly()}>
-                  <legend>置く先</legend>
+                  <legend>Cursor / Claude Code / Copilot に置く</legend>
                   <label className="settings-field-check">
                     <input
                       type="checkbox"

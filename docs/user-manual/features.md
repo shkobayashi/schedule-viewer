@@ -266,11 +266,15 @@ GitHub Releases から入れた Ubuntu 版と Apple Silicon の Mac 版には「
 
 「MCP を使えないときに渡す」では、`read-screen` スキルを Cursor、Claude Code、GitHub Copilot のユーザー用フォルダへ置きます。GitHub Copilot は `~/.copilot/skills/read-screen/` だけです。置くときに、このパソコンの実行ファイルの呼び方をスキルへ書き込みます。Windows で実行ファイルが Local AppData 配下のときは、`$LOCALAPPDATA` から続く1行にします。スキルは、読み取り 7 つと前面向け 12 操作をコマンド（`--screen` とツール名。読み取り 6 つと `focus_window`・`close_window`・`minimize_window` の背面は `--window` と label）で渡す手順と、読み取り応答の形を持ちます。ウィンドウの当て方、未保存の置き換え、見た目で指す手順は `schedule-talk` スキル（「JSON作成スキルを置く」で置く）にあります。前面向け操作は標準入力に JSON を読みます。読み取り 3 つの応答は 1 行目が JSON、絵があるときだけ 2 行目が PNG の一時ファイルのパスです。上の mcp.json 登録を終えても、このスキル置きは終わりません。
 
+Claude Desktop または claude.ai 向けには、同じ欄の「zip を書き出す…」で `read-screen` と `schedule-talk` を zip として保存できます。Claude Desktop では MCP とつないだうえで read-screen を使います。保存先を選ぶと `schedule-viewer-claude-read-screen` フォルダが開き、両方の zip のパスとアップロード手順が設定に出ます。
+
 同じファイル名のカタログや、すでにあるカレンダーを取り込むときは、上書きしてよいかを聞きます。
 
 ![設定の「JSON作成スキルを置く」欄。置く先と範囲の選択が見える](images/ui-settings-skills.png)
 
 「JSON作成スキルを置く」では、write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk の7つをまとめて置けます。Cursor、Claude Code、GitHub Copilot のうち置く先を1つ以上選び、ユーザー全体か指定したフォルダかを選びます。自分の作業ならユーザー全体、チームで同じ手順をリポジトリに残すなら指定したフォルダを使います。GitHub Copilot はユーザー全体なら `~/.copilot/skills/`、指定したフォルダなら `.github/skills/` です。置いたパスだけを示し、git には入れません。同名フォルダがあるときは上書きを確認します。「外す」で、同じ選び方の場所から7つだけ削除できます。デスクトップ版だけ使えます。ブラウザ版では同じ欄に、デスクトップ版で置く旨だけ出ます。`.cursor` と `.claude` と `.copilot` と `.github` と、それぞれの `skills` がシンボリックリンクのときは置けません。外すときも、リンクの先は消しません。
+
+Claude Desktop または claude.ai 向けには、同じ欄の「zip を書き出す…」で、上の7つのうち schedule-talk を除く6つをスキルごとの zip として保存できます。保存先を選ぶと `schedule-viewer-claude-json-skills` フォルダが開き、zip のパスとアップロード手順が設定に出ます。1回のアップロードで1スキルです。
 
 ## ほかのプログラムがファイルを書き換えたとき
 

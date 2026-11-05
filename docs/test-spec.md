@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | node:test | `npm test` の中の `node --test scripts/*.test.mjs` | `scripts/*.test.mjs`。操作マニュアルサイトは、同じページ内の `#見出し` をその HTML の見出し id と照合する |
 | Vitest | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
-| Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査 |
+| Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、`claude_skill_export.rs`、MCP 関連のパスとフレーム検査 |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外 |
 | 型検査 | `npm run build` の中の `tsc` | `src` |
 | Clippy | `cd src-tauri && cargo clippy -- -D warnings` | Rust。警告をエラーにする |
@@ -934,6 +934,9 @@
 | `uninstall_does_not_remove_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら外さない | SET-05 |
 | `uninstall_removes_broken_symlink_at_destination` | 宛先の壊れたシンボリックリンクはリンクだけ外す | SET-05 |
 | `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
+| `claude_descriptions_fit_anthropic_limit`（`claude_skill_export.rs`） | Claude 向け description は 200 文字以内 | SET-05, MCP-02 |
+| `json_export_writes_one_zip_per_authoring_skill`（`claude_skill_export.rs`） | JSON 向け zip は 6 件。各 zip のルートは `<name>/` だけ | SET-05 |
+| `read_screen_export_includes_mcp_preamble_in_skill_md`（`claude_skill_export.rs`） | read-screen の zip に MCP 前提の説明が入る | MCP-02 |
 | `screen_tool_requires_exactly_two_args`（`screen_cli.rs`） | `--screen` はツール名とセットで 2 引数だけ | MCP-02 |
 | `screen_tool_rejects_unknown_name`（`screen_cli.rs`） | 未知のツール名は待ち受けへ繋がない | MCP-02 |
 | `screen_tool_accepts_replace_schedule`（`screen_cli.rs`） | `--screen replace_schedule` を受け付ける | MCP-02 |
@@ -1452,6 +1455,8 @@
 | TC-SET-05h | SET-05 | デスクトップ版 | Cursor、Claude Code、GitHub Copilot をすべて選び、ユーザー全体で「置く」 | 21パスが示される。中身は同じ7つ |
 | TC-SET-05i | SET-05 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
 | TC-SET-05j | SET-05 | デスクトップ版、ユーザー全体の Copilot に7つがある | 「外す」で確認のあと外す | 7つが消え、外したパスが示される。skills フォルダと別名スキルは残る |
+| TC-SET-05k | SET-05 | デスクトップ版 | 「JSON作成スキルを置く」の「zip を書き出す…」でフォルダを選ぶ | `schedule-viewer-claude-json-skills` に6つの zip ができ、フォルダが開き、パス一覧とアップロード手順が出る |
+| TC-MCP-02f | MCP-02 | デスクトップ版 | 「画面の状態を渡す」の「zip を書き出す…」でフォルダを選ぶ | `schedule-viewer-claude-read-screen` に read-screen.zip と schedule-talk.zip があり、フォルダが開き、両方アップロードする手順が出る |
 | TC-MCP-02c | MCP-02 | デスクトップ版 | 「MCP を使えないときに渡す」で GitHub Copilot を選び「置く」 | `read-screen` が `~/.copilot/skills/read-screen/` に置かれ、パスと実行ファイルのパスが示される |
 | TC-MCP-02d | MCP-02 | デスクトップ版、Copilot に read-screen がある | 同じ欄で GitHub Copilot を選び「外す」 | その1つだけ消え、外したパスが示される |
 | TC-MCP-02e | MCP-02 | デスクトップ版 | 置く先のチェックをすべて外す | 「置く」と「外す」は押せない |
