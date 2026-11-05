@@ -12,6 +12,10 @@ import {
   FIRST_RUN_WRITE_SCHEDULE_EXAMPLE_PROMPT,
   WRITE_SCHEDULE_SKILL_NAME,
 } from "../model/firstRunLlmSteps";
+import {
+  FIRST_RUN_TRY_LLM_PROMPT,
+  FIRST_RUN_TRY_LLM_UNDO_HINT,
+} from "../model/llmRequestExamples";
 import { DialogCloseButton } from "./ui/DialogCloseButton";
 
 type FirstRunHintCardProps = {
@@ -42,6 +46,7 @@ export function FirstRunHintCard({
   onOpenMcpSettings,
 }: FirstRunHintCardProps) {
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [tryCopyStatus, setTryCopyStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -60,6 +65,12 @@ export function FirstRunHintCard({
     return () => window.clearTimeout(timer);
   }, [copyStatus]);
 
+  useEffect(() => {
+    if (!tryCopyStatus) return;
+    const timer = window.setTimeout(() => setTryCopyStatus(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [tryCopyStatus]);
+
   const actionForId = (id: FirstRunChecklistId): (() => void) => {
     if (id === "guide") return onOpenGuide;
     return onOpenMcpSettings;
@@ -76,6 +87,15 @@ export function FirstRunHintCard({
       setCopyStatus("例文をコピーしました");
     } catch {
       setCopyStatus("コピーできませんでした");
+    }
+  };
+
+  const copyTryLlmPrompt = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(FIRST_RUN_TRY_LLM_PROMPT);
+      setTryCopyStatus("例文をコピーしました");
+    } catch {
+      setTryCopyStatus("コピーできませんでした");
     }
   };
 
@@ -182,6 +202,73 @@ export function FirstRunHintCard({
                         </ol>
                         <p className="first-run-hint-card__llm-steps-note">
                           メンバーや色なども、LLM に頼めば追加できます
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            }
+            if (id === "mcp") {
+              return (
+                <li
+                  key={id}
+                  className={
+                    done
+                      ? "first-run-hint-card__checklist-item first-run-hint-card__checklist-item--done first-run-hint-card__checklist-item--prepare"
+                      : "first-run-hint-card__checklist-item first-run-hint-card__checklist-item--prepare"
+                  }
+                >
+                  <span
+                    className="first-run-hint-card__check"
+                    aria-hidden={!done}
+                  >
+                    {done ? <Check size={16} strokeWidth={2.5} /> : null}
+                  </span>
+                  <div>
+                    <button
+                      type="button"
+                      className="first-run-hint-card__btn first-run-hint-card__checklist-btn"
+                      disabled={disabledForId(id)}
+                      aria-label={
+                        done
+                          ? `${FIRST_RUN_CHECKLIST_LABELS[id]}（完了）`
+                          : FIRST_RUN_CHECKLIST_LABELS[id]
+                      }
+                      onClick={actionForId(id)}
+                    >
+                      {FIRST_RUN_CHECKLIST_LABELS[id]}
+                    </button>
+                    {done ? (
+                      <div className="first-run-hint-card__llm-try">
+                        <p className="first-run-hint-card__llm-steps-title">
+                          LLM に頼んでみる
+                        </p>
+                        <p className="first-run-hint-card__llm-try-lead">
+                          デスクトップ版で MCP
+                          がつながっているとき、タスクを1件選んで Cursor や
+                          Claude に次のように頼めます。
+                        </p>
+                        <p className="first-run-hint-card__llm-try-prompt">
+                          {FIRST_RUN_TRY_LLM_PROMPT}
+                        </p>
+                        <button
+                          type="button"
+                          className="first-run-hint-card__copy-btn"
+                          onClick={() => void copyTryLlmPrompt()}
+                        >
+                          例文をコピー
+                        </button>
+                        {tryCopyStatus ? (
+                          <span
+                            className="first-run-hint-card__copy-status"
+                            role="status"
+                          >
+                            {tryCopyStatus}
+                          </span>
+                        ) : null}
+                        <p className="first-run-hint-card__llm-steps-note">
+                          {FIRST_RUN_TRY_LLM_UNDO_HINT}
                         </p>
                       </div>
                     ) : null}
