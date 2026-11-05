@@ -89,7 +89,7 @@ write-schedule スキルに従い、schedule-viewer 用のスケジュール JSO
 
 引数を省略した読み取りは前面のウィンドウです。別のウィンドウを読むときは `open_windows` で一覧を取り、`window` に `label` を渡します。置き換えは前面だけです。スケジュールのウィンドウが開いていないときは渡せません。ブラウザ版には「画面の状態を渡す」欄はありません。
 
-チャットで起動中のスケジュールを更新するときは、`baseline_diffs` で衝突が無いことを確かめ、JSON の形は `write-schedule` の出力形に従って全体を組み立て、`replace_schedule` で未保存を置き換えます。ファイルは書きません。戻った差分を見て、よければそのまま未保存のままにし、違えば ⌘/Ctrl+Z で取り消すか、画面を手直しします。保存はこの手順ではしません。タスクが2件以上変わったときは、LLM は `schedule-talk` の手順に従い `explain_view`（必要なら `explain_overlay`）で変えた場所を示し、短く説明します。1件だけのときは説明するか LLM の判断です。
+チャットで起動中のスケジュールを更新するときは、`baseline_diffs` で衝突が無いことを確かめ、JSON の形は `write-schedule` の出力形に従って全体を組み立て、`replace_schedule` で未保存を置き換えます。ファイルは書きません。戻った差分を見て、よければそのまま未保存のままにし、違えば ⌘/Ctrl+Z で取り消すか、画面を手直しします。保存はこの手順ではしません。タスクが2件以上変わったときは、LLM は `schedule-talk` の手順に従い `explain_view` で絞り込み、`explain_overlay`（`summary` と `marks` の `kind: change` など）で変えた場所を指し、チャットでも短く説明します。1件だけのときは説明するか LLM の判断です。
 
 ```text
 schedule-viewer の MCP で baseline_diffs、current_schedule、selected_tasks、filtered_tasks を読み、衝突が無ければ write-schedule の出力形に従ってスケジュール全体を組み立て、replace_schedule で前面の未保存を置き換えてください。ファイルは書きません。戻った差分を見て、更新内容を説明してください。保存はしません。

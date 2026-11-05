@@ -99,7 +99,7 @@ const MCP_VIEW_IN_READ_TOOLS: &str = "続けて view は、そのウィンドウ
 
 const MCP_SCHEDULE_TALK_HINT: &str = "判断の手順は schedule-talk スキルにある。";
 const MCP_AFTER_MULTI_TASK_CHANGE_EXPLAIN: &str =
-    "成功してタスクが2件以上変わったときは、schedule-talk スキルに従い、変えた場所を説明する。1件だけのときは説明するか LLM の判断。";
+    "成功してタスクが2件以上変わったときは、schedule-talk スキルの「計画を変えたあとの説明」に従い、explain_view で絞り込み、explain_overlay（summary と marks の kind: change など）で変えた場所を指し、チャットでも何をなぜ変えたかを伝える。1件だけのときは説明するか LLM の判断。";
 
 fn tools_list_result() -> Value {
     let read_schema = read_tool_window_schema();
@@ -577,6 +577,13 @@ mod tests {
         assert!(consultation_flow.contains("apply_explanation_pattern"));
         assert!(consultation_flow.contains("計画を変えたあとの説明"));
         assert!(consultation_flow.contains("explain_view"));
+        assert!(consultation_flow.contains("explain_overlay"));
+        assert!(consultation_flow.contains("kind: change"));
+        assert!(consultation_flow.contains("絞り込みだけでは足りません"));
+        assert!(replace_schedule.contains("explain_overlay"));
+        assert!(edit_plan.contains("explain_overlay"));
+        assert!(MCP_AFTER_MULTI_TASK_CHANGE_EXPLAIN.contains("explain_overlay"));
+        assert!(MCP_AFTER_MULTI_TASK_CHANGE_EXPLAIN.contains("explain_view"));
         assert!(consultation_flow.contains("やっぱり戻して"));
         assert!(consultation_flow.contains("比べるファイルがありません"));
         assert!(consultation_flow.contains("削除した id は渡しません"));
