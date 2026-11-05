@@ -98,6 +98,7 @@ export function decideAppKey(input: {
   taskIndexInGroup: number | null;
   groupTaskCount: number;
   diffStripListFocused: boolean;
+  filterPanelOpen: boolean;
 }): AppKeyDecision {
   const { event } = input;
   const targetFields = input.target ?? {
@@ -164,6 +165,7 @@ export function decideAppKey(input: {
   }
   if (
     !input.dialogOpen &&
+    !input.filterPanelOpen &&
     !event.ctrlKey &&
     !event.metaKey &&
     !blocksEditShortcut(

@@ -66,6 +66,7 @@ type UseAppKeyboardOptions = {
     targetGroupId: ScheduleId,
     insertIndex: number,
   ) => void;
+  filterPanelOpen?: boolean;
 };
 
 function groupTaskCount(categories: Category[], groupId: ScheduleId): number {
@@ -120,6 +121,7 @@ export function useAppKeyboard({
   onAddMilestone,
   onDuplicateTask,
   commitTaskReorder,
+  filterPanelOpen = false,
 }: UseAppKeyboardOptions) {
   useEffect(() => {
     const macAppQuit =
@@ -175,6 +177,7 @@ export function useAppKeyboard({
         taskIndexInGroup: taskIndex,
         groupTaskCount: groupCount,
         diffStripListFocused,
+        filterPanelOpen,
       });
       if (decision.preventDefault) event.preventDefault();
       if (decision.closeMenu) closeFloatingMenus();
@@ -345,5 +348,6 @@ export function useAppKeyboard({
     focusDetailName,
     revealTaskRow,
     copyScheduleDiff,
+    filterPanelOpen,
   ]);
 }

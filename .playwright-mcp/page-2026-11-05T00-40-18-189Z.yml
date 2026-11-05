@@ -1,0 +1,277 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - status [ref=e4]
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - button "メニュー" [expanded] [ref=e10] [cursor=pointer]
+          - generic [ref=e12]:
+            - generic [ref=e13]:
+              - heading "AI活用PoC推進プロジェクト" [level=1] [ref=e14]
+              - button "タイトルを変更" [ref=e17] [cursor=pointer]
+            - button "階層の名前、意味、指示" [ref=e21] [cursor=pointer]: 階層編集
+          - generic [ref=e22]:
+            - combobox "検索の対象" [ref=e23]:
+              - option "名前" [selected]
+              - option "ノート"
+            - textbox "タスク名で検索" [ref=e24]
+          - button "絞り込み" [ref=e26] [cursor=pointer]
+          - generic [ref=e27]:
+            - button "今日" [ref=e28] [cursor=pointer]
+            - group "表示の切り替え" [ref=e29]:
+              - button "日" [ref=e30] [cursor=pointer]
+              - button "週" [pressed] [ref=e31] [cursor=pointer]
+              - button "月" [ref=e32] [cursor=pointer]
+            - button "全体" [ref=e33] [cursor=pointer]
+            - button "案内" [ref=e34] [cursor=pointer]
+            - button "?" [ref=e35] [cursor=pointer]
+        - generic [ref=e36]:
+          - generic [ref=e37]:
+            - button "追加 Ctrl+Enter / Insert" [ref=e38] [cursor=pointer]:
+              - generic [ref=e40]: 追加
+              - generic [ref=e41]: Ctrl+Enter / Insert
+            - button "追加の種類" [ref=e42] [cursor=pointer]
+          - button "取り消し Ctrl+Z" [disabled] [ref=e45]:
+            - generic [ref=e46]: 取り消し
+            - generic [ref=e47]: Ctrl+Z
+          - button "やり直し Ctrl+Shift+Z（Ctrl+Y も可）" [disabled] [ref=e48]:
+            - generic [ref=e49]: やり直し
+            - generic [ref=e50]: Ctrl+Shift+Z（Ctrl+Y も可）
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - generic [ref=e53]: WBS / タスク
+          - generic [ref=e54]: マイルストン
+          - generic [ref=e59]:
+            - generic [ref=e60]:
+              - button "カテゴリを並べ替える" [ref=e61]
+              - generic [ref=e62]:
+                - button "要件定義 を折りたたむ" [expanded] [ref=e65] [cursor=pointer]: ▼
+                - generic [ref=e66]:
+                  - generic [ref=e67]: 要件定義
+                  - generic [ref=e69]: 53%
+            - generic [ref=e70]:
+              - button "グループを並べ替える" [ref=e71]
+              - generic [ref=e72]:
+                - button "現状把握 を折りたたむ" [expanded] [ref=e75] [cursor=pointer]: ▼
+                - generic [ref=e76]:
+                  - generic [ref=e77]: 現状把握
+                  - generic [ref=e79]: 100%
+            - generic [ref=e80]:
+              - button "タスクを並べ替える" [ref=e81]
+              - generic [ref=e82]:
+                - button "ノートを表示・編集" [ref=e85] [cursor=pointer]
+                - generic [ref=e88]: 現状業務ヒアリング
+                - generic "田中" [ref=e92]
+            - generic [ref=e93]:
+              - button "グループを並べ替える" [ref=e94]
+              - generic [ref=e95]:
+                - button "要件化 を折りたたむ" [expanded] [ref=e98] [cursor=pointer]: ▼
+                - generic [ref=e99]:
+                  - generic [ref=e100]: 要件化
+                  - generic [ref=e102]: 30%
+            - generic [ref=e103]:
+              - button "タスクを並べ替える" [ref=e104]
+              - generic [ref=e105]:
+                - button "ノートを追加" [ref=e108] [cursor=pointer]
+                - generic [ref=e111]: 要件定義書作成
+                - generic "佐藤" [ref=e115]
+            - generic [ref=e116]:
+              - button "タスクを並べ替える" [ref=e117]
+              - generic [ref=e118]:
+                - button "ノートを追加" [ref=e121] [cursor=pointer]
+                - generic [ref=e124]: 要件レビュー
+                - generic "未割当" [ref=e128]
+            - generic [ref=e130]:
+              - button "カテゴリを並べ替える" [ref=e131]
+              - generic [ref=e132]:
+                - button "PoC設計・開発 を折りたたむ" [expanded] [ref=e135] [cursor=pointer]: ▼
+                - generic [ref=e136]:
+                  - generic [ref=e137]: PoC設計・開発
+                  - generic [ref=e139]: 8%
+            - generic [ref=e140]:
+              - button "グループを並べ替える" [ref=e141]
+              - generic [ref=e142]:
+                - button "設計 を折りたたむ" [expanded] [ref=e145] [cursor=pointer]: ▼
+                - generic [ref=e146]:
+                  - generic [ref=e147]: 設計
+                  - generic [ref=e149]: 30%
+            - generic "要件確定を超える計画です" [ref=e150]:
+              - button "タスクを並べ替える" [ref=e151]
+              - generic [ref=e152]:
+                - button "ノートを追加" [ref=e155] [cursor=pointer]
+                - generic [ref=e158]: アーキテクチャ設計
+                - generic [ref=e160]:
+                  - generic "超過" [ref=e162]
+                  - generic "鈴木" [ref=e165]
+            - generic [ref=e166]:
+              - button "グループを並べ替える" [ref=e167]
+              - generic [ref=e168]:
+                - button "実装 を折りたたむ" [expanded] [ref=e171] [cursor=pointer]: ▼
+                - generic [ref=e172]:
+                  - generic [ref=e173]: 実装
+                  - generic [ref=e175]: 0%
+            - generic [ref=e176]:
+              - button "タスクを並べ替える" [ref=e177]
+              - generic [ref=e178]:
+                - button "ノートを追加" [ref=e181] [cursor=pointer]
+                - generic [ref=e184]: PoC環境構築
+                - generic "未割当" [ref=e188]
+            - generic [ref=e190]:
+              - button "タスクを並べ替える" [ref=e191]
+              - generic [ref=e192]:
+                - button "ノートを追加" [ref=e195] [cursor=pointer]
+                - generic [ref=e198]: プロトタイプ開発
+                - generic "鈴木" [ref=e202]
+            - generic [ref=e203]:
+              - button "グループを並べ替える" [ref=e204]
+              - generic [ref=e205]:
+                - button "評価 を折りたたむ" [expanded] [ref=e208] [cursor=pointer]: ▼
+                - generic [ref=e209]:
+                  - generic [ref=e210]: 評価
+                  - generic [ref=e212]: 0%
+            - generic [ref=e213]:
+              - button "タスクを並べ替える" [ref=e214]
+              - generic [ref=e215]:
+                - button "ノートを追加" [ref=e218] [cursor=pointer]
+                - generic [ref=e221]: 評価・振り返り
+                - generic "佐藤" [ref=e225]
+            - generic [ref=e226]:
+              - button "カテゴリを並べ替える" [ref=e227]
+              - generic [ref=e228]:
+                - button "基盤構築 を折りたたむ" [expanded] [ref=e231] [cursor=pointer]: ▼
+                - generic [ref=e232]:
+                  - generic [ref=e233]: 基盤構築
+                  - generic [ref=e235]: 15%
+            - generic [ref=e236]:
+              - button "グループを並べ替える" [ref=e237]
+              - generic [ref=e238]:
+                - button "設計 を折りたたむ" [expanded] [ref=e241] [cursor=pointer]: ▼
+                - generic [ref=e242]:
+                  - generic [ref=e243]: 設計
+                  - generic [ref=e245]: 45%
+            - generic [ref=e246]:
+              - button "タスクを並べ替える" [ref=e247]
+              - generic [ref=e248]:
+                - button "ノートを追加" [ref=e251] [cursor=pointer]
+                - generic [ref=e254]: データ基盤設計
+                - generic "高橋" [ref=e258]
+            - generic [ref=e259]:
+              - button "グループを並べ替える" [ref=e260]
+              - generic [ref=e261]:
+                - button "構築 を折りたたむ" [expanded] [ref=e264] [cursor=pointer]: ▼
+                - generic [ref=e265]:
+                  - generic [ref=e266]: 構築
+                  - generic [ref=e268]: 0%
+            - generic [ref=e269]:
+              - button "タスクを並べ替える" [ref=e270]
+              - generic [ref=e271]:
+                - button "ノートを追加" [ref=e274] [cursor=pointer]
+                - generic [ref=e277]: 基盤構築
+                - generic "高橋" [ref=e281]
+            - generic [ref=e282]:
+              - button "タスクを並べ替える" [ref=e283]
+              - generic [ref=e284]:
+                - button "ノートを追加" [ref=e287] [cursor=pointer]
+                - generic [ref=e290]: セキュリティ設定
+                - generic "鈴木" [ref=e294]
+            - generic [ref=e295]:
+              - button "カテゴリを並べ替える" [ref=e296]
+              - generic [ref=e297]:
+                - button "移行・テスト を折りたたむ" [expanded] [ref=e300] [cursor=pointer]: ▼
+                - generic [ref=e301]:
+                  - generic [ref=e302]: 移行・テスト
+                  - generic [ref=e304]: 0%
+            - generic [ref=e305]:
+              - button "グループを並べ替える" [ref=e306]
+              - generic [ref=e307]:
+                - button "移行 を折りたたむ" [expanded] [ref=e310] [cursor=pointer]: ▼
+                - generic [ref=e311]:
+                  - generic [ref=e312]: 移行
+                  - generic [ref=e314]: 0%
+            - generic [ref=e315]:
+              - button "タスクを並べ替える" [ref=e316]
+              - generic [ref=e317]:
+                - button "ノートを追加" [ref=e320] [cursor=pointer]
+                - generic [ref=e323]: データ移行
+                - generic "田中" [ref=e327]
+            - generic [ref=e328]:
+              - button "グループを並べ替える" [ref=e329]
+              - generic [ref=e330]:
+                - button "検証 を折りたたむ" [expanded] [ref=e333] [cursor=pointer]: ▼
+                - generic [ref=e334]:
+                  - generic [ref=e335]: 検証
+                  - generic [ref=e337]: 0%
+            - generic [ref=e338]:
+              - button "タスクを並べ替える" [ref=e339]
+              - generic [ref=e340]:
+                - button "ノートを追加" [ref=e343] [cursor=pointer]
+                - generic [ref=e346]: 結合テスト
+                - generic "佐藤" [ref=e350]
+            - generic [ref=e351]:
+              - button "タスクを並べ替える" [ref=e352]
+              - generic [ref=e353]:
+                - button "ノートを追加" [ref=e356] [cursor=pointer]
+                - generic [ref=e359]: 受け入れテスト
+                - generic "未割当" [ref=e363]
+          - separator "タスク一覧の幅" [ref=e365]
+        - generic "スケジュールチャート" [ref=e367]:
+          - paragraph [ref=e368]: 一覧に無いステータス、担当、色、追加項目はありません。
+    - status [ref=e386]
+    - contentinfo [ref=e387]:
+      - generic [ref=e388]:
+        - generic [ref=e389]: サンプルデータ
+        - generic [aria-hidden] [ref=e390]: ·
+        - generic [ref=e391]: サンプルデータ
+      - generic "sample-team" [ref=e392]
+      - generic [ref=e393]: 週表示
+      - generic [ref=e394]: 16件中16件を表示
+      - button "? ショートカット" [ref=e395] [cursor=pointer]
+    - dialog [ref=e396]:
+      - banner [ref=e397]:
+        - generic [ref=e398]:
+          - paragraph [ref=e399]: はじめての起動
+          - heading "サンプルを表示しています" [level=2] [ref=e400]
+        - button "閉じる" [ref=e401]
+      - paragraph [ref=e405]: 3 つ終わるまで、ここから続けられます。終わった項目にはチェックが付きます。
+      - list [ref=e406]:
+        - listitem [ref=e407]:
+          - generic [ref=e409]:
+            - paragraph [ref=e410]: スケジュールを用意する
+            - generic [ref=e411]:
+              - button "LLM で作る" [ref=e412] [cursor=pointer]
+              - button "ある JSON を開く" [ref=e413] [cursor=pointer]
+        - listitem [ref=e414]:
+          - button "操作の案内を読む" [ref=e416] [cursor=pointer]
+        - listitem [ref=e417]:
+          - button "LLM（MCP）とつなぐ" [ref=e419] [cursor=pointer]
+      - paragraph [ref=e420]: 保存は ☰ メニューまたは Ctrl+S です。
+  - menu [ref=e421]:
+    - menuitem "開く Ctrl+O" [active] [ref=e422] [cursor=pointer]:
+      - generic [ref=e423]: 開く
+      - generic [ref=e424]: Ctrl+O
+    - menuitem "最近開いたファイル ファイルを開くとここに並びます" [disabled] [ref=e426]:
+      - generic [ref=e427]:
+        - generic [ref=e428]: 最近開いたファイル
+        - generic [ref=e429]: ファイルを開くとここに並びます
+    - menuitem "新しいウィンドウで開く Ctrl+Shift+O" [ref=e430] [cursor=pointer]:
+      - generic [ref=e431]: 新しいウィンドウで開く
+      - generic [ref=e432]: Ctrl+Shift+O
+    - separator [ref=e433]
+    - menuitem "保存 Ctrl+S" [ref=e434] [cursor=pointer]:
+      - generic [ref=e435]: 保存
+      - generic [ref=e436]: Ctrl+S
+    - menuitem "別名保存 Ctrl+Shift+S" [ref=e437] [cursor=pointer]:
+      - generic [ref=e438]: 別名保存
+      - generic [ref=e439]: Ctrl+Shift+S
+    - menuitem "書き出し" [ref=e440] [cursor=pointer]
+    - menuitem "設定ファイルを新しいフォルダへ書き出す" [ref=e442] [cursor=pointer]
+    - menuitem "JSON を表示" [ref=e444] [cursor=pointer]
+    - menuitem "差分を表示" [ref=e446] [cursor=pointer]
+    - menuitem "差分をコピー Ctrl+Shift+D" [ref=e448] [cursor=pointer]:
+      - generic [ref=e449]: 差分をコピー
+      - generic [ref=e450]: Ctrl+Shift+D
+    - separator [ref=e451]
+    - menuitem "操作の案内" [ref=e452] [cursor=pointer]
+    - menuitem "ショートカット一覧" [ref=e453] [cursor=pointer]
+    - menuitem "更新を確認" [ref=e454] [cursor=pointer]
+    - menuitem "設定" [ref=e455] [cursor=pointer]

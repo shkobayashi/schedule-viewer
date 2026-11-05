@@ -1,5 +1,5 @@
 import type { StatusItem } from "../model/statusCatalog";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import type {
   Milestone,
@@ -114,6 +114,8 @@ type ToolbarProps = {
   hierarchyButtonRef?: RefObject<HTMLButtonElement | null>;
   onOpenHierarchy?: () => void;
   recentFilesEmptyHint?: string | null;
+  filterPanelOpen?: boolean;
+  onFilterPanelOpenChange?: (open: boolean) => void;
 };
 
 export function Toolbar({
@@ -187,11 +189,23 @@ export function Toolbar({
   hierarchyButtonRef,
   onOpenHierarchy,
   recentFilesEmptyHint = null,
+  filterPanelOpen: filterPanelOpenProp,
+  onFilterPanelOpenChange,
 }: ToolbarProps) {
   const titleEditDisabled = fileBusy || !startupSettled;
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
   const linkKey = linkShortcutHint(commandKey);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterOpenInternal, setFilterOpenInternal] = useState(false);
+  const filterOpenControlled = filterPanelOpenProp !== undefined;
+  const filterOpen = filterPanelOpenProp ?? filterOpenInternal;
+  const setFilterOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const value = typeof next === "function" ? next(filterOpen) : next;
+      if (filterOpenControlled) onFilterPanelOpenChange?.(value);
+      else setFilterOpenInternal(value);
+    },
+    [filterOpen, filterOpenControlled, onFilterPanelOpenChange],
+  );
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const addButtonRef = useRef<HTMLDivElement>(null);
   const lineageButtonRef = useRef<HTMLDivElement>(null);

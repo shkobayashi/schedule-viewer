@@ -3986,6 +3986,23 @@ html[data-color-scheme="dark"] .command-palette {
   min-height: 0;
 }
 
+.shortcuts-section-title {
+  margin: calc(16px * var(--s)) 0 calc(8px * var(--s));
+  font-size: calc(13px * var(--s));
+  font-weight: 600;
+}
+
+.shortcuts-section-title:first-child {
+  margin-top: 0;
+}
+
+.shortcuts-table--mode th,
+.shortcuts-table--mode td {
+  vertical-align: top;
+  font-size: calc(11px * var(--s));
+  line-height: 1.4;
+}
+
 .shortcuts-table {
   width: 100%;
   border-collapse: collapse;

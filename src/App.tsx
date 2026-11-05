@@ -612,6 +612,7 @@ function App() {
   const titleEditHandleRef = useRef<ScheduleToolbarTitleHandle | null>(null);
   const hierarchyButtonRef = useRef<HTMLButtonElement | null>(null);
   const [hierarchyLevelsOpen, setHierarchyLevelsOpen] = useState(false);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [hierarchyHadDocumentLevels, setHierarchyHadDocumentLevels] =
     useState(false);
   const [sidebarReorderDragging, setSidebarReorderDragging] = useState(false);
@@ -3940,6 +3941,7 @@ function App() {
     },
     onDuplicateTask: openDuplicateDialog,
     commitTaskReorder: schedule.commitTaskReorder,
+    filterPanelOpen,
   });
 
   useMacOSAppMenu(
@@ -4699,6 +4701,8 @@ function App() {
           setHierarchyHadDocumentLevels(schedule.documentHasExplicitLevels());
           setHierarchyLevelsOpen(true);
         }}
+        filterPanelOpen={filterPanelOpen}
+        onFilterPanelOpenChange={setFilterPanelOpen}
         onOpenSettings={() => {
           setSettingsSection("display");
           setSettingsOpen(true);
