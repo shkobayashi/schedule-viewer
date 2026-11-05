@@ -10,19 +10,8 @@ function run(label, command, args) {
   if (result.stderr) process.stderr.write(result.stderr);
   if (result.status !== 0) {
     console.log(`(${label} exited with ${result.status}; CI treats this as a warning)`);
-    console.log(
-      "(Pin the cycle list with npm run check:madge-circular-baseline; see docs/model-circular-import-plan.md.)",
-    );
   }
 }
-
-run("madge circular imports", "npx", [
-  "madge",
-  "--circular",
-  "--extensions",
-  "ts,tsx",
-  "src",
-]);
 
 run("jscpd duplication", "npx", [
   "jscpd",
@@ -36,4 +25,6 @@ run("jscpd duplication", "npx", [
   "--silent",
 ]);
 
-console.log("\nArchitecture warn checks finished (non-blocking).");
+console.log(
+  "\nArchitecture warn checks finished (jscpd only; circular imports use npm run check:madge-circular-baseline).",
+);

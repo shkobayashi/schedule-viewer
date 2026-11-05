@@ -70,7 +70,7 @@ if (missing.length > 0 || extra.length > 0) {
     console.error(`  extra: ${cycle}`);
   }
   console.error(
-    "Update scripts/madge-circular-baseline.json only when resolving cycles (M1–M3) or intentionally recording a new baseline.",
+    "Update scripts/madge-circular-baseline.json when the cycle list changes intentionally (see docs/model-circular-import-plan.md).",
   );
   process.exit(1);
 }
