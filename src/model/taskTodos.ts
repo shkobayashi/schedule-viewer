@@ -8,7 +8,7 @@ import type {
   Task,
   TaskTodoItem,
 } from "./types";
-import { mapAllTasksInOutline } from "./outlineTasks";
+import { mapAllTasksInOutline } from "./outlineTaskMap";
 import { mapTasks } from "./tasks";
 
 /** 済んだ件数を全体で割り、切り捨てた整数。全部済んだときだけ 100。 */

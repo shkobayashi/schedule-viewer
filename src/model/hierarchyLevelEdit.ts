@@ -2,7 +2,7 @@ import {
   assessHierarchyAlignment,
   LEGACY_THREE_LEVEL_COUNT,
 } from "./hierarchy";
-import type { DocumentSnapshot } from "./history";
+import type { DocumentSnapshot } from "./documentSnapshot";
 import type { Category, OutlineRoot, ScheduleDocument, ScheduleLevelDef } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 

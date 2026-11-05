@@ -19,6 +19,9 @@ import type {
 } from "./types";
 import { SCHEDULE_SCHEMA_VERSION } from "./types";
 import type { TaskEditPatch } from "./tasks";
+import { mapAllTasksInOutline } from "./outlineTaskMap";
+
+export { mapAllTasksInOutline } from "./outlineTaskMap";
 
 export function collectOutlineIds(outline: OutlineRoot): Set<ScheduleId> {
   const ids = new Set<ScheduleId>();
@@ -196,24 +199,6 @@ function mapOutlineChild(
   return {
     ...node,
     children: node.children.map((child) => mapOutlineChild(child, taskId, update)),
-  };
-}
-
-export function mapAllTasksInOutline(
-  outline: OutlineRoot,
-  update: (task: Task) => Task,
-): OutlineRoot {
-  return outline.map((node) => mapOutlineChildForAll(node, update));
-}
-
-function mapOutlineChildForAll(
-  node: OutlineChild,
-  update: (task: Task) => Task,
-): OutlineChild {
-  if (isTaskNode(node)) return update(node);
-  return {
-    ...node,
-    children: node.children.map((child) => mapOutlineChildForAll(child, update)),
   };
 }
 
