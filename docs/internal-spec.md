@@ -64,7 +64,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 
 段 8 の後半（PR 7 以降）の目安順序:
 
-1. **カタログ編集共通化** — `ColorCatalogEditor*` / `Member*` / `Status*` の Overlay・Panel、`use*CatalogEditorOverlay`、`*AppData.ts`、設定の色・メンバー・ステータス節。**C0**（特性テストのみ）: `memberCatalogEditSession.test.ts`、`memberCatalogEditHistory.test.ts`、`catalogEditDraftMessages.test.ts`、`catalogEditImportMessages.test.ts`、`colorCatalogEditSession.test.ts` の追補、Rust `sanitize_catalog_id` の `#[test]`。手動 TC との対応は `docs/test-spec.md` の Vitest 表。**C1**: `catalogAppDataLoader.ts`。**C2**: `useCatalogEditorOverlayCore.ts`（三種の覆いフックの共通セッション。各 `use*CatalogEditorOverlay` は種別の read・claim・文言・フラグだけを渡す）。**C3**: `CatalogEditorOverlay.tsx`、`CatalogEditorPanelFooter.tsx`、`catalogEditorCopy.ts`、`catalogEditorUi.ts`（覆いの殻とパネルフッター。各 `*CatalogEditorOverlay` / `*CatalogEditorPanel` は種別の Panel 本体と行・右欄を残す）
+1. **カタログ編集共通化** — `ColorCatalogEditor*` / `Member*` / `Status*` の Overlay・Panel、`use*CatalogEditorOverlay`、`*AppData.ts`、設定の色・メンバー・ステータス節。**C0**（特性テストのみ）: `memberCatalogEditSession.test.ts`、`memberCatalogEditHistory.test.ts`、`catalogEditDraftMessages.test.ts`、`catalogEditImportMessages.test.ts`、`colorCatalogEditSession.test.ts` の追補、Rust `sanitize_catalog_id` の `#[test]`。手動 TC との対応は `docs/test-spec.md` の Vitest 表。**C1**: `catalogAppDataLoader.ts`。**C2**: `useCatalogEditorOverlayCore.ts`（三種の覆いフックの共通セッション。各 `use*CatalogEditorOverlay` は種別の read・claim・文言・フラグだけを渡す）。**C3**: `CatalogEditorOverlay.tsx`、`CatalogEditorPanelFooter.tsx`、`catalogEditorCopy.ts`、`catalogEditorUi.ts`（覆いの殻とパネルフッター。各 `*CatalogEditorOverlay` / `*CatalogEditorPanel` は種別の Panel 本体と行・右欄を残す）。**C3 のあと（C4 の前）**: `src/**/*.test.tsx` を jsdom で実行する Vitest プロジェクトと Testing Library（`catalogEditorOverlay.dom.test.tsx` など）
 2. **`Timeline.tsx`**（約 3,505 行）— T0 特性テストのあと、ヘッダー・バー・ポインタ・説明レイヤーを T1–T5 で分割
 3. **`model` の循環 import**（madge で約 30 件）— `validateSchedule` クラスタは M3 で最後。M0 でベースライン記録
 
@@ -478,7 +478,7 @@ MCP のローカル待ち受けは、Tauri の `app_data_dir` と `dirs::data_di
 
 ## ビルドとツール
 
-Vite は、ブラウザ版の `npm run dev` ではポート 5173、`tauri dev` ではポート 1420 を使い、`src-tauri` の変更では再起動しない。Vitest は `src/**/*.test.ts` を Node 上で実行する。TypeScript は `strict` で、`npm run build` の `tsc` が型を見る。ESLint は `dist`、`src-tauri`、`mockup`、`.cursor` を見ない。
+Vite は、ブラウザ版の `npm run dev` ではポート 5173、`tauri dev` ではポート 1420 を使い、`src-tauri` の変更では再起動しない。Vitest は `src/**/*.test.ts` を Node、`src/**/*.test.tsx` を jsdom の 2 プロジェクトで実行する。TypeScript は `strict` で、`npm run build` の `tsc` が型を見る。ESLint は `dist`、`src-tauri`、`mockup`、`.cursor` を見ない。
 
 Rust は 1.98.1 で、CI は `cargo clippy -- -D warnings` と `cargo test --locked` を実行する。バージョン番号は `package.json`、`package-lock.json`、`tauri.conf.json`、`Cargo.toml`、`Cargo.lock` を `scripts/check-version-sync.ts` で揃える。同じ検査で `plugins.updater.endpoints` がその版のメジャー用 `updater-X` を指すことも見る。形式は `X.Y.Z`、`X.Y.Z-alpha.N`、または `X.Y.Z-beta.N` である。各数字と `N` は 1 桁なら `0` を許し、2 桁以上の先頭 `0` は付けない。`postinstall` は、その OS 向けの Tauri CLI があることを確認する。
 
