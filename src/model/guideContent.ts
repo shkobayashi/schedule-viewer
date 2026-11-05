@@ -1,3 +1,5 @@
+import { LLM_REQUEST_EXAMPLES } from "./llmRequestExamples";
+
 export type GuideItem = {
   text: string;
   /** デスクトップ版（Tauri）だけ表示する */
@@ -127,6 +129,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           "LLM が説明のための見え方を掛けたとき、チャート上端に「説明を表示しています」と出る。「説明を消す」で元の見え方に戻る",
         desktopOnly: true,
       },
+      ...LLM_REQUEST_EXAMPLES.map((row) => ({
+        text: `MCP でつながっているとき、「${row.prompt}」のように頼める。${row.hint}`,
+        desktopOnly: true as const,
+      })),
     ],
   },
 ];

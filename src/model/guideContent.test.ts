@@ -44,6 +44,15 @@ describe("guideContent (NAV-08)", () => {
     expect(more).toContain("JSON作成スキルを置く");
   });
 
+  it("lists LLM request examples under もう少し知りたいとき on desktop", () => {
+    const more = GUIDE_SECTIONS[3].items.map((item) => item.text).join("\n");
+    expect(more).toContain("選んでいるタスクを 2 日後ろにずらして");
+    expect(more).toContain("やっぱり戻して");
+    expect(more).toContain(
+      "設計が 1 週間遅れたら、リリースはどうなる？画面で見せて",
+    );
+  });
+
   it("hides desktop-only items on web", () => {
     const allItems = GUIDE_SECTIONS.flatMap((section) => section.items);
     const webItems = GUIDE_SECTIONS.flatMap((section) =>
@@ -61,7 +70,7 @@ describe("guideContent (NAV-08)", () => {
       webTexts.some((text) => text.includes("JSON作成スキルを置く")),
     ).toBe(true);
     expect(webTexts.some((text) => text.includes("メンバー一覧"))).toBe(true);
-    expect(allItems.filter((item) => item.desktopOnly).length).toBe(3);
+    expect(allItems.filter((item) => item.desktopOnly).length).toBe(8);
   });
 
   it("shows desktop-only items on desktop", () => {

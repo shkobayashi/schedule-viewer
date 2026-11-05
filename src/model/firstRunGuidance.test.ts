@@ -69,17 +69,18 @@ describe("firstRunGuidance persistence", () => {
     expect(isSaveHintCompleted()).toBe(true);
   });
 
-  it("persists checklist items and dismisses when all complete", () => {
+  it("persists checklist items without auto-dismiss when all complete", () => {
     installLocalStorage();
     markFirstRunChecklistItem("prepareSchedule");
     markFirstRunChecklistItem("guide");
-    expect(isFirstRunHintDismissed()).toBe(false);
     markFirstRunChecklistItem("mcp");
+    expect(isFirstRunHintDismissed()).toBe(false);
     expect(readFirstRunChecklist()).toEqual({
       prepareSchedule: true,
       guide: true,
       mcp: true,
     });
+    dismissFirstRunHint();
     expect(isFirstRunHintDismissed()).toBe(true);
   });
 });
@@ -132,7 +133,7 @@ describe("shouldShowFirstRunHintCard", () => {
         startupSettled: true,
         checklist: { prepareSchedule: true, guide: true, mcp: true },
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("isFirstRunChecklistComplete reflects all items", () => {

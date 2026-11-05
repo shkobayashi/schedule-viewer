@@ -71,9 +71,6 @@ export function isFirstRunChecklistComplete(
 export function markFirstRunChecklistItem(id: FirstRunChecklistId): FirstRunChecklistState {
   const next = { ...readFirstRunChecklist(), [id]: true };
   writeFirstRunChecklist(next);
-  if (isFirstRunChecklistComplete(next)) {
-    dismissFirstRunHint();
-  }
   return next;
 }
 
@@ -127,9 +124,6 @@ export function shouldShowFirstRunHintCard(options: {
   checklist: FirstRunChecklistState;
 }): boolean {
   if (options.dismissed || !options.startupSettled) {
-    return false;
-  }
-  if (isFirstRunChecklistComplete(options.checklist)) {
     return false;
   }
   return true;
