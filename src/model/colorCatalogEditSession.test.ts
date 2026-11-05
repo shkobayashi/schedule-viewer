@@ -45,6 +45,16 @@ describe("overlayReactionToColorCatalogChange", () => {
       }),
     ).toBe("ignore");
   });
+
+  it("ignores unrelated catalogs", () => {
+    expect(
+      overlayReactionToColorCatalogChange("custom", {
+        kind: "imported",
+        catalogId: "other",
+        fromSelf: false,
+      }),
+    ).toBe("ignore");
+  });
 });
 
 describe("shouldReloadEditingColorCatalogItems", () => {
