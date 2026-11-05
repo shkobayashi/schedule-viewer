@@ -25,12 +25,14 @@ function listMadgeCircularCycles(): string[] {
       encoding: "utf8",
     },
   );
-  if (!result.stdout?.trim()) {
-    throw new Error(
-      result.stderr || "madge produced no stdout (is src present?)",
-    );
+  const raw = result.stdout?.trim() ?? "";
+  if (!raw) {
+    if (result.status !== 0 && result.stderr?.trim()) {
+      throw new Error(result.stderr.trim());
+    }
+    return [];
   }
-  const parsed = JSON.parse(result.stdout) as string[][];
+  const parsed = JSON.parse(raw) as string[][];
   if (!Array.isArray(parsed)) {
     throw new Error("madge JSON output is not an array");
   }

@@ -11,7 +11,7 @@
 | ベースライン照合 | `npm run check:madge-circular-baseline`（**CI frontend で必須**。`npm test` の node:test からも呼ぶ。**不一致で失敗**） |
 | 正本 JSON | [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) |
 
-M0 時点の **循環数は 30** である。M1 後 **17**、M2 後 **15**、M3a 後 **4**、M3b 後 **2**、**UI 解消 PR 後** **1**（残り hooks のみ）。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。
+M0 時点の **循環数は 30** である。M1 後 **17**、M2 後 **15**、M3a 後 **4**、M3b 後 **2**、UI 解消 PR 後 **1**、**hooks 解消 PR 後** **0**（Issue #490 段 8 の循環解消完了）。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。`cycles` が空配列のときは循環 0 件である。
 
 ## 解消順（M1 → M2 → M3）
 
@@ -55,14 +55,14 @@ Issue #490 では M3 を最後にまとめる。**変更量に応じて PR を�
 | `taskTodos` → `tasks` | `mapTasks` を `taskTraversal` から import |
 | `validateSchedule` → `taskTodos` → `tasks` | `tasks` が `formatValidationErrors` を `validationMessages` から直接 import |
 
-**M3（model）完了**。残り循環は **hooks** のみ（別 PR）。
+**M3（model）完了**。**Issue #490 段 8 の madge 循環は 0 件**（`resolutionPlan` の M1–hooks すべて完了）。
 
 ## 段 8 で別扱い（M1–M3 とは別 PR）
 
 | 塊 | 環数 | 内容 | 状態 |
 | --- | ---: | --- | --- |
 | **UI** | 1 → 0 | `components/Toolbar.tsx` ↔ `components/FilterPanel.tsx`。`AssigneeFilterOption` を [assigneeFilterOption.ts](../src/components/assigneeFilterOption.ts) へ | **完了** |
-| **hooks** | 1 | `hooks/useScheduleFile.ts` ↔ `hooks/scheduleFile/useScheduleStartupRecovery.ts` | 未着手 |
+| **hooks** | 1 → 0 | `hooks/useScheduleFile.ts` ↔ `hooks/scheduleFile/useScheduleStartupRecovery.ts`。`ApplyOpenedFileOptions` を [applyOpenedFileOptions.ts](../src/hooks/scheduleFile/applyOpenedFileOptions.ts) へ | **完了** |
 
 解消 PR ごとに madge を確認する。ベースライン JSON は、該当環が消えた PR でまとめて更新する。
 
