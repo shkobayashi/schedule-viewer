@@ -231,6 +231,24 @@ async function main() {
       );
       written.push(ctxPath);
       await page.keyboard.press("Escape");
+
+      await page.locator(".shortcuts-btn").click();
+      await page.waitForSelector(".shortcuts-modal");
+      await page.waitForSelector(".shortcuts-section-title");
+      const shortcutsPath = path.join(
+        outDir,
+        `menu-473-shortcuts-dialog-${scheme}.png`,
+      );
+      await page.locator(".shortcuts-modal .ui-dialog-panel").screenshot({
+        path: shortcutsPath,
+      });
+      await save2xCrop(
+        page,
+        ".shortcuts-modal .ui-dialog-panel",
+        path.join(outDir, `menu-473-shortcuts-dialog-${scheme}-2x.png`),
+      );
+      written.push(shortcutsPath);
+      await page.keyboard.press("Escape");
     }
 
     await browser.close();
