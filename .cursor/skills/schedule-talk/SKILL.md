@@ -29,4 +29,4 @@ MCP と read-screen は、このスキルから使います。名前を指定し
 | --- | --- |
 | [references/point-by-appearance.md](references/point-by-appearance.md) | 人が色や見た目で行・札・マイルストンを指すとき |
 | [references/screen-judgment.md](references/screen-judgment.md) | どのウィンドウを読むか、画面の未保存更新、繋がり、ステータス・色・担当を説明から選ぶとき |
-| [references/consultation-flow.md](references/consultation-flow.md) | 相談の流れ、説明部品の使い分け、途中でやめるとき、決めたあとに試しの計画を入れるとき |
+| [references/consultation-flow.md](references/consultation-flow.md) | 相談の流れ、説明部品の使い分け、計画を変えたあとの説明、途中でやめるとき、決めたあとに試しの計画を入れるとき |

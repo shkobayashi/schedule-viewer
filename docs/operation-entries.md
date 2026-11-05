@@ -177,3 +177,16 @@
 | 文字のコピー | | | | | Copy | | | | | |
 | 文字の貼り付け | | | | | Paste | | | | | |
 | すべて選択 | | | | | SelectAll | | | | | |
+
+---
+
+## LLM が計画を変えたあと（MCP / read-screen）
+
+`edit_plan` と `replace_schedule` で計画を変えたあとの説明の手順は、同梱の `schedule-talk` スキル `references/consultation-flow.md` の「計画を変えたあとの説明」に書く。MCP の各ツール説明と `read-screen` スキルは、手順の重複を避け、そこへ当てる。
+
+| きっかけ | LLM が行うこと（要約） |
+| --- | --- |
+| `edit_plan` または `replace_schedule` が成功し、差分で変わったタスクが **2件以上** | 必ず `explain_view` で変えたタスクを示す。必要なら `explain_overlay` で場所を指す。何をなぜ変えたかを短く伝え、「やっぱり戻して」で `history` の取り消しが使える旨を添える |
+| 同上で **1件だけ** | 説明するか LLM の判断 |
+| 件数の数え方 | 成功時の差分テキスト（FILE-07 と同じ規則。追加・削除・変更のタスク id を重複なく数える）。足りないときは `schedule_diff` / `baseline_diffs`。差分が「比べるファイルがありません」だけのときは、今回の `ops` または置き換え JSON で意図したタスク id を数える |
+| `explain_view` の制約 | 文書に残っている id だけ渡す。削除した id は渡せないので、削除はチャットで伝える |
