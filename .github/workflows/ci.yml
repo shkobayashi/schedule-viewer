@@ -64,6 +64,7 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm run check:mcp-tool-names
+      - run: npm run check:operation-entries
       # Circular imports: madge vs scripts/madge-circular-baseline.json (non-zero cycles fail the job).
       - run: npm run check:madge-circular-baseline
       - run: npm test

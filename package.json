@@ -26,6 +26,7 @@
     "check:statuses": "tsx scripts/check-statuses.ts",
     "check:colors": "tsx scripts/check-colors.ts",
     "check:mcp-tool-names": "tsx scripts/check-mcp-tool-names.ts",
+    "check:operation-entries": "tsx scripts/check-operation-entries.ts",
     "check:madge-circular-baseline": "tsx scripts/check-madge-circular-baseline.ts",
     "check:architecture-warn": "node scripts/check-architecture-warn.mjs",
     "test:coverage-warn": "vitest run --coverage",

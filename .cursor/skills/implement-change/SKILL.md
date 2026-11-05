@@ -40,14 +40,13 @@ description: >-
 5. `next` があるとき、変更を載せる統合ブランチは [docs/development.md](../../../docs/development.md#1x-を出しながら次のメジャーを進める) の「1.x を出しながら次のメジャーを進める」で決める。1.x のまま出せる変更は `develop`、公開する契約を壊す変更は `next` である。計画がブランチを書いていても、この節と照合し、結果は実装の結果に残す
 6. 計画が操作の種類を列挙しているとき、チェックリストに足りない種類を「未対応」と書いて終えない。足すか、計画どおり実装する
 7. 計画に無い依存と `tsconfig.json` の `compilerOptions.types` は、作業の基点ブランチでも同じ型エラーが出るなら、この変更には入れない
-
-## 画面と操作（原則 1 · 4 · 5 · 6 · 7 · 8）
+8. 循環解消やリファクタの PR では、計画に無いファイルの内容が丸ごと差し替わっていないか、差分のファイル一覧と変更量を見る。**ガード:** P-AG-04（[review-implementation](../review-implementation/SKILL.md)「差分の範囲」）（原則 1 · 4 · 5 · 6 · 7 · 8）
 
 利用者に見える挙動、操作、表示を変える。
 
 1. `src/components/`、`src/hooks/`、`src/App.tsx` のうち、計画が指す箇所を変える
 2. [docs/external-spec.md](../../../docs/external-spec.md) を同じ変更で更新する
-3. 操作の入口（ラベル、ショートカット、パレット、☰、macOS メニュー、右クリック、MCP 名）を増やす・変えるときは、[docs/agents-doc-update-map.md](../../../docs/agents-doc-update-map.md) の「操作の入口」行どおり [docs/operation-entries.md](../../../docs/operation-entries.md) と [docs/feature-checklist.md](../../../docs/feature-checklist.md) を更新する
+3. 操作の入口（ラベル、ショートカット、パレット、☰、macOS メニュー、右クリック、MCP 名）を増やす・変えるときは、[docs/agents-doc-update-map.md](../../../docs/agents-doc-update-map.md) の「操作の入口」行どおり [docs/operation-entries.md](../../../docs/operation-entries.md) と [docs/feature-checklist.md](../../../docs/feature-checklist.md) を更新する。同じ変更で `npm run check:operation-entries` が通ること（P-CI-06）
 4. 利用者の手順が変わるときは、[docs/agents-doc-update-map.md](../../../docs/agents-doc-update-map.md) の「画面の挙動」行どおりマニュアル・README を更新する
 5. 変えた操作を最後まで行う。ブラウザ版（`npm run dev`、ポート 5173）で確かめられる操作はそこで確認する。ファイルダイアログなど Tauri のウィンドウでないと確かめられない操作は、確認できなかったことを結果に書く
 6. 入力欄と選択欄には読めるラベルを付け、動的なエラーは支援技術へ通知する。ダイアログ内の候補一覧などが Escape を処理したときは、親ダイアログまで閉じない
@@ -137,6 +136,7 @@ description: >-
 28. 計画が同じ規則を MCP のツール説明とスキルの両方に書くと書いたときは、両方に置く。MCP だけに書いてスキルに無いと、MCP 利用時に規則が欠ける。計画が MCP のツール説明と read-screen の両方に置くと書いた語は、ツール説明のテストが通っても read-screen の本文に同じ連続した文字列があることを同じテストで確かめる。共有文の句は `MCP_VIEW_IN_READ_TOOLS` 定数と read-screen の両方に同じ連続した文字列があることを Rust のテストで確かめる。新しく足したツールの description 全文が read-screen にあることは、既存の句のテストとは別に確かめる。計画が同じ連続した文字列として語を並べたときは、その語を別の言い方に置き換えない。照合する句も、その語を含む
 29. Windows API を `windows-sys` で呼ぶときは、`Cargo.toml` に書いた版のクレートで、その関数があるモジュールと feature を見てから使う。別の版にあるモジュール名だけで feature を足さない。`#[cfg(windows)]` の中は macOS の Clippy ではコンパイルされない。unsafe な関数は unsafe ブロックで呼び、Windows の `cargo clippy -- -D warnings` が通る形にする
 30. 計画が文書の入口を関数名で挙げたときは、同じフックで文書を差し替える残りの関数も照合し、同じ片付けや副作用が抜けていないかを見る
+31. `src/model/` でシンボルを再エクスポートするときは、import ブロックの途中に `export` を挟まない。import をまとめたあとに `export { ... } from` を置く（`tasks.ts` の `forEachTask` / `mapTasks` と同型）。**ガード:** P-AG-06（review-implementation「model の export 配置」）
 
 ## 文書（原則 1 · 4）
 
@@ -160,7 +160,7 @@ description: >-
 
 ## テストと確認（原則 2 · 7）
 
-1. 機能 ID がある変更は、自動テストか [docs/test-spec.md](../../../docs/test-spec.md) の手動テストケースの少なくとも一方に対応づける。テストを足した、消した、または対応する機能 ID が変わるときは、テスト仕様を同じ変更で更新する。テスト仕様の表に書く自動テストの名前は、`it` や Rust の `fn` の名前と同じにする。同じファイルに足した `it` は、代表の1件だけにせず、そのファイルの分を表に全部書く
+1. 機能 ID がある変更は、自動テストか [docs/test-spec.md](../../../docs/test-spec.md) の手動テストケースの少なくとも一方に対応づける。テストを足した、消した、または対応する機能 ID が変わるときは、テスト仕様を同じ変更で更新する。表の行を差し替えるときは、M1/M2 など別目的の行を黙って消さない（P-AG-02）。テスト仕様の表に書く自動テストの名前は、`it` や Rust の `fn` の名前と同じにする。同じファイルに足した `it` は、代表の1件だけにせず、そのファイルの分を表に全部書く
 2. 自動テストの対象は `src/model/` の純粋関数、Rust 側のパス検査、`src/**/*.test.tsx` の DOM 特性である。Konva の描画と Tauri のダイアログは手で確かめる。jsdom は `offsetParent` と `getBoundingClientRect` を実装しない。表示の有無を `offsetParent` で分けている処理は、テストの準備で null でない値を返してから、その分岐を断言する。Tab の循環は、端から反対の端へ戻ることを見る。焦点が動いたことだけでは、循環を書いたことにしない。MCP 読み取り PNG から DOM 要素を除くときは、`instanceof Element` だけに頼らない。Vitest では `Element` が無いことがある。除外する属性の有無は、`hasAttribute` を持つノードで `shouldCaptureNodeForMcp` など同じ判定関数のテストが、その分岐を通る形で書く
 3. 触った層に応じて検査する。フロントの型とテストは `npm run build`、`npm run lint`、`npm test`。Rust を変えたときは `cd src-tauri && cargo clippy -- -D warnings` と `cargo test --locked`
 4. 画面の幅、余白、切れ、行の揃いを変えたときは、計画が指す境界をサンプルが含まないなら、その境界も見る。サンプルのラベルが札の文字より短いときは、より長い表示名とメンバー不明でも、札の幅と列の揃いを見る

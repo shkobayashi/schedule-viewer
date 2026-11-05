@@ -105,11 +105,11 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 | ID | 落とし穴（観点） | 出典 | ガード | 状態 |
 | --- | --- | --- | --- | --- |
 | P-AG-01 | AGENTS / skills を短くするときに観点を黙って消す | AGENTS、#490 D1 | 本 inventory + PR 対応表必須 | **Exists**（プロセス） |
-| P-AG-02 | test-spec 表で行を「差し替え」て M1/M2 行を落とす | M2/M3 レビュー | review-implementation + 表の diff 確認 | **Proposed D2**（review チェックリスト） |
+| P-AG-02 | test-spec 表で行を「差し替え」て M1/M2 行を落とす | M2/M3 レビュー | review-implementation「test-spec の表」+ implement-change テスト 1 | **ある**（D2） |
 | P-AG-03 | マージ済みブランチへ再度 push する | Cloud Agent 運用 | [development.md](development.md)「Cursor Cloud Agent」 | **Exists**（D1） |
-| P-AG-04 | 循環解消 PR で無関係ファイルを上書き（例: `colorScheme.ts`） | M2 セッション | implement-change 着手前 + diff 自己レビュー | **Proposed D2** |
+| P-AG-04 | 循環解消 PR で無関係ファイルを上書き（例: `colorScheme.ts`） | M2 セッション | implement-change 着手前 8 + review「差分の範囲」 | **ある**（D2） |
 | P-AG-05 | Issue #490 本文が madge warn のまま | #490 本文 | [agents-d1-issue-490-proposal.md](agents-d1-issue-490-proposal.md)（**Issue は人手更新**） | **Exists**（D1 文案） |
-| P-AG-06 | `tasks.ts` で export が import ブロックを分割 | M3b レビュー | コードレビュー | **Exists**（修正済みパターンを IC へ D2） |
+| P-AG-06 | `tasks.ts` で export が import ブロックを分割 | M3b レビュー | implement-change 状態 31 + review「model の export 配置」 | **ある**（D2） |
 
 ### 3.2 アーキテクチャ・CI（段 8 PR 1 以降）
 
@@ -120,7 +120,7 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 | P-CI-03 | 循環 import を増やす | M0–hooks | `npm run check:madge-circular-baseline`（CI **エラー**、#524） | **Exists** |
 | P-CI-04 | MCP ツール名と Rust の不一致 | #490 PR1 | `npm run check:mcp-tool-names` | **Exists** |
 | P-CI-05 | jscpd 克隆の急増 | PR1 | `npm run check:architecture-warn`（**警告**） | **Exists** |
-| P-CI-06 | 操作入口表とコードの drift | #490 維持 | `check-operation-entries`（未実装） | **Proposed D2**（Issue #490 維持の仕組み） |
+| P-CI-06 | 操作入口表とコードの drift | #490 維持 | `npm run check:operation-entries`（段階1）+ CI | **ある**（D2） |
 | P-CI-07 | ベースライン JSON を更新せず madge だけ変える | model-circular-import-plan | baseline 照合 + `check-madge-circular-baseline.test.mjs` | **Exists** |
 
 ### 3.3 implement-change の落とし穴（番号 → ガード）
@@ -130,14 +130,14 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 | テーマ | SKILL 節・代表番号 | 主なガード | 状態 |
 | --- | --- | --- | --- |
 | 着手前・ブランチ | 着手前 1–7 | AGENTS + development + 計画照合 | **Exists**（スキル） |
-| 操作入口・external-spec | 画面 3–9、文書 | 人手 + feature-checklist | **Proposed D2**（P-CI-06） |
-| Konva・ポインタ・並べ替え | 画面 10–20, 34–37 | Vitest（model/UI 単体）+ test-spec 手動 | **Exists**（部分）+ **Proposed D2**（review 代表項目） |
+| 操作入口・external-spec | 画面 3–9、文書 | `check:operation-entries` + feature-checklist | **ある**（D2 / P-CI-06） |
+| Konva・ポインタ・並べ替え | 画面 10–20, 34–37 | Vitest（model/UI 単体）+ test-spec 手動 | **Exists**（部分）+ review「再発の代表」 |
 | 起動復旧・ファイル | 画面 15, 19–20；状態 4, 10–11 | `useScheduleStartupRecovery` / file hooks テスト | **Exists**（部分） |
 | MCP・read-screen 文言一致 | 状態 28–29；画面 52 一部 | `mcp_tool_names.rs` テスト、`MCP_VIEW_IN_READ_TOOLS` | **Exists** |
 | 説明オーバーレイ・試し行 | 画面 52 | `explainOverlay*.test.ts`、MCP テスト | **Exists** |
 | Windows / Tauri / cfg | 状態 16, 19, 25, 29 | `cargo clippy -D warnings`、`cargo test` | **Exists** |
 | マニュアル 19 図 | 画面 32 | `capture:manual-screenshots` + スキル完了条件 | **Exists**（スキル） |
-| 文書・test-spec 照合 | 文書；テスト 5–13 | review-implementation | **Proposed D2**（チェックリスト化） |
+| 文書・test-spec 照合 | 文書；テスト 5–13 | review「test-spec の表（P-AG-02）」 | **ある**（D2） |
 | JSON スキル同梱 | テスト 13 | Rust 件数テスト + MSIX スクリプト | **Exists** |
 
 ---
