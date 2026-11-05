@@ -51,7 +51,7 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
       onClose={onClose}
       className="ui-dialog-panel--shortcuts shortcuts-modal"
     >
-      <div className="ui-dialog-body shortcuts-modal-body">
+      <div className="ui-dialog-body ui-dialog-body--scroll shortcuts-modal-body">
       <h3 className="shortcuts-section-title">操作の入口</h3>
       <table className="shortcuts-table">
         <tbody>
@@ -63,10 +63,12 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
           ))}
         </tbody>
       </table>
-      <h3 className="shortcuts-section-title" id="shortcuts-section-mode">
-        編集中・モード内
-      </h3>
-      <ModeKeyboardTable rows={modeRows} />
+      <div id="shortcuts-mode-capture" className="shortcuts-mode-capture">
+        <h3 className="shortcuts-section-title" id="shortcuts-section-mode">
+          編集中・モード内
+        </h3>
+        <ModeKeyboardTable rows={modeRows} />
+      </div>
       </div>
     </ModalDialog>
   );

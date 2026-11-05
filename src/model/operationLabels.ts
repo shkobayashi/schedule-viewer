@@ -16,6 +16,7 @@ export const OPERATION_FORMAL = {
   clearRecentHistory: "履歴を消す",
   recentFiles: "最近開いたファイル",
   searchFocus: "検索",
+  filterPanel: "絞り込み",
   goToday: "今日",
   tierDay: "日表示",
   tierWeek: "週表示",

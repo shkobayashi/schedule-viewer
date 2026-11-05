@@ -13,6 +13,7 @@ export type CommandPaletteCommandId =
   | "save"
   | "saveAs"
   | "find"
+  | "toggleFilterPanel"
   | "editTitle"
   | "showDiff"
   | "copyDiff"
@@ -110,6 +111,12 @@ const BASE_ITEMS: CommandPaletteTemplate[] = [
     id: "find",
     label: OPERATION_FORMAL.searchFocus,
     keywords: "find search 検索 検索へ移る",
+    enabled: () => true,
+  },
+  {
+    id: "toggleFilterPanel",
+    label: OPERATION_FORMAL.filterPanel,
+    keywords: "filter 絞り込み パネル",
     enabled: () => true,
   },
   {

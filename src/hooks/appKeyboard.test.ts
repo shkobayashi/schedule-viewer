@@ -446,6 +446,70 @@ describe("decideAppKey", () => {
     ).toEqual({ type: "none" });
   });
 
+  it("maps frequent-operation shortcuts", () => {
+    expect(
+      decide({
+        event: {
+          key: ",",
+          ctrlKey: true,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          repeat: false,
+        },
+      }).action,
+    ).toEqual({ type: "openSettings" });
+    expect(
+      decide({
+        event: {
+          key: "t",
+          ctrlKey: false,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          repeat: false,
+        },
+      }).action,
+    ).toEqual({ type: "goToday" });
+    expect(
+      decide({
+        event: {
+          key: "2",
+          ctrlKey: true,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          repeat: false,
+        },
+      }).action,
+    ).toEqual({ type: "setViewTier", tier: "week" });
+    expect(
+      decide({
+        event: {
+          key: "f",
+          ctrlKey: true,
+          metaKey: false,
+          shiftKey: true,
+          altKey: false,
+          repeat: false,
+        },
+      }).action,
+    ).toEqual({ type: "toggleFilterPanel" });
+    expect(
+      decide({
+        event: {
+          key: "F2",
+          ctrlKey: false,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          repeat: false,
+        },
+        selectedTaskCount: 1,
+      }).action,
+    ).toEqual({ type: "focusDetailName" });
+  });
+
   it("ignores undo and redo in a dialog or text field", () => {
     const undo = {
       key: "z",
