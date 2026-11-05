@@ -55,7 +55,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 
 | 層 | 置くもの | import してよい先 |
 | --- | --- | --- |
-| `src/operations/`（PR 2 以降） | 操作 ID（`operationIds.ts`）、入口定義とラベル連携（`operationLabelLink.ts` → `operationLabels.ts`、表は [operation-entries.md](operation-entries.md)）。右クリックは `contextMenuItems.tsx` | `model`（ラベル・ショートカット定数など）。hooks / components は import しない |
+| `src/operations/`（PR 2 以降） | 操作 ID（`operationIds.ts`）、入口定義とラベル（`operationLabelLink.ts`）、パレット／☰／macOS ファイルメニューの dispatch（`dispatchPaletteCommand.ts`）。右クリックは `contextMenuItems.tsx` | `model`（ラベル・ショートカット定数など）。hooks / components は import しない |
 | `src/components/`、`App.tsx` | UI、Konva、ダイアログ。操作の**実行**は hooks のコールバック | `operations`（定義）、`hooks`、`model` |
 | `src/hooks/` | 状態、副作用、MCP 橋、ファイル | `model`、`operations`（入口定義の参照のみ可）。`components` は import しない |
 | `src/model/` | 純粋関数、型、検証、座標、書き出し生成 | 同層の model のみ。`hooks` / `components` / `operations` は import しない |

@@ -11,10 +11,10 @@
 | 略称 | ツールバーだけの短いラベル（同ファイルの `TOOLBAR_SHORT`） |
 | ツールバー | 画面上部ツールバー。略称がある操作は `TOOLBAR_SHORT`、それ以外は正式名 |
 | 右クリック | チャート／一覧のコンテキストメニュー（`src/operations/contextMenuItems.tsx`。操作 ID は `operationIds.ts`、ラベルは `operationLabelLink.ts` と `operationLabels.ts`） |
-| コマンドパレット | ⌘/Ctrl+K の一覧（`src/model/commandPalette.ts` の `label`） |
+| コマンドパレット | ⌘/Ctrl+K の一覧（`src/model/commandPalette.ts` の `label`。実行は `src/operations/dispatchPaletteCommand.ts`） |
 | ショートカット (Mac / Win) | キー割り当て（`src/model/shortcuts.ts` とメニューに出すヒント。未記載の入口は空） |
 | macOS メニュー | Tauri アプリメニュー（`src/hooks/useMacOSAppMenu.ts`。デスクトップ macOS のみ） |
-| ☰ | ☰ メニュー（`src/components/AppMenu.tsx`） |
+| ☰ | ☰ メニュー（`src/components/AppMenu.tsx`。ファイル行と末尾行の dispatch は `dispatchPaletteCommand.ts`） |
 | 操作の案内 | `src/model/guideContent.ts` でその操作に触れる文（要約。ボタン名ではない） |
 | MCP | MCP ツール名（`src/model/mcpToolNames.ts`）。`file_action` などは JSON の `action` を括弧で足す |
 | CLI | `--screen` のツール名（MCP と同じ名前。読み取りで `--window` が要るものは注記） |
