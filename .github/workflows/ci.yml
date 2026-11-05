@@ -63,7 +63,11 @@ jobs:
       - run: npm run version:check
       - run: npm run build
       - run: npm run lint
+      - run: npm run check:mcp-tool-names
       - run: npm test
+      - run: npm run check:architecture-warn
+      - run: npm run test:coverage-warn
+        continue-on-error: true
       - run: npm run check:schedule
       - run: npm run check:calendar
       - run: npm run check:members
