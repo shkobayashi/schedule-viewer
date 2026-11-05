@@ -32,7 +32,7 @@
 
 - 依存: `App` / `components` → `operations`（操作 ID と入口定義）・`hooks`（実行と状態）→ `model`（純粋関数）。`model` は `hooks` / `components` / `operations` を import しない
 - 循環 import: `npm run check:madge-circular-baseline`（CI **エラー**、現状 0 件）
-- jscpd・coverage: 警告のみ（`check:architecture-warn`、`test:coverage-warn`）
+- jscpd は警告のまま（`check:architecture-warn`。上限は [development.md](development.md)）。coverage は `test:coverage` が同じ文書の閾値を下回ると CI が失敗する
 - Issue #490 の段 8 作業指示（C/T/M 順、#491 を混ぜない、D0–D2）: [PLANNING.md](PLANNING.md) / Issue #490 / [model-circular-import-plan.md](model-circular-import-plan.md) — **恒久原則ではない**
 
 ## スキルとルール

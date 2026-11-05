@@ -48,7 +48,7 @@
 
 **根本原因:** 「テストを足した」だけでは計画の分岐を通ったことにならない。Konva・Tauri ダイアログ・IME は自動では見られない。誤った計算でも同じ期待値になる入力がある。
 
-**ガード:** [test-spec.md](docs/test-spec.md)、`npm test`、review-implementation「テスト網羅性」、implement-change「テストと確認」。coverage / jscpd は警告のまま（[development.md](docs/development.md)）。**例:** [§7](docs/agents-pitfall-examples.md#原則-7--テストと手動)。
+**ガード:** [test-spec.md](docs/test-spec.md)、`npm test`、review-implementation「テスト網羅性」、implement-change「テストと確認」。coverage は [development.md](docs/development.md) の閾値を下回ると CI が失敗する。jscpd は警告のまま。**例:** [§7](docs/agents-pitfall-examples.md#原則-7--テストと手動)。
 
 ## 原則 8 — スキルは作業種別の手順書。再発防止はスキルへ。持ち出し用にアプリ実装を混ぜない
 

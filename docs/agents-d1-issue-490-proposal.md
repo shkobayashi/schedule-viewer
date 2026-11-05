@@ -4,7 +4,7 @@ GitHub Issue は**編集しない**。人が貼り替えるときの文案であ
 
 ## 背景
 
-#524 マージ後、**循環 import** は `npm run check:madge-circular-baseline` で CI **frontend が失敗で止まる**（`scripts/madge-circular-baseline.json` は `cycleCount: 0`）。**jscpd**（`check:architecture-warn`）と **coverage**（`test:coverage-warn`）だけが警告のまま。
+#524 マージ後、**循環 import** は `npm run check:madge-circular-baseline` で CI **frontend が失敗で止まる**（`scripts/madge-circular-baseline.json` は `cycleCount: 0`）。その時点では **jscpd**（`check:architecture-warn`）と coverage の検査だけが警告だった。その後、coverage は閾値を下回ると失敗し、jscpd は上限を超えても警告のままである（数値と上げ方は [development.md](development.md)）。
 
 Issue 本文の PR 1 表や「madge warn」表現は **#524 以前の記述**が残っている。
 
@@ -20,8 +20,8 @@ Issue 本文の PR 1 表や「madge warn」表現は **#524 以前の記述**が
 | `check:operation-entries` | 失敗で止める（入口表 段階1） |
 | ESLint import 境界 | 失敗で止める |
 | `check:madge-circular-baseline` | 失敗で止める（循環 0 件。増減時は baseline JSON を同 PR で更新） |
-| `check:architecture-warn`（jscpd） | 警告のみ |
-| `test:coverage-warn` | 警告のみ |
+| `check:architecture-warn`（jscpd） | 警告のみ（上限を超えても失敗しない。上限は development.md） |
+| `test:coverage` | 失敗で止める（閾値は development.md） |
 
 ## 差し替え案（方針・operations）
 

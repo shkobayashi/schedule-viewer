@@ -7,11 +7,12 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text-summary"],
+      // 実測より約 1 ポイント下の整数。上げ下げは docs/development.md。
       thresholds: {
-        lines: 0,
-        functions: 0,
-        branches: 0,
-        statements: 0,
+        lines: 72,
+        functions: 75,
+        branches: 59,
+        statements: 65,
       },
     },
     projects: [
