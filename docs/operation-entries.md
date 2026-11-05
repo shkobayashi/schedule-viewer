@@ -10,7 +10,7 @@
 | 正式名 | ☰・macOS・パレット・右クリック・案内の共通ラベル（`src/model/operationLabels.ts` の `OPERATION_FORMAL`） |
 | 略称 | ツールバーだけの短いラベル（同ファイルの `TOOLBAR_SHORT`） |
 | ツールバー | 画面上部ツールバー。略称がある操作は `TOOLBAR_SHORT`、それ以外は正式名 |
-| 右クリック | チャート／一覧のコンテキストメニュー（`src/App.tsx` の `contextMenuItems`） |
+| 右クリック | チャート／一覧のコンテキストメニュー（`src/operations/contextMenuItems.tsx` と `contextMenuLabels.ts`） |
 | コマンドパレット | ⌘/Ctrl+K の一覧（`src/model/commandPalette.ts` の `label`） |
 | ショートカット (Mac / Win) | キー割り当て（`src/model/shortcuts.ts` とメニューに出すヒント。未記載の入口は空） |
 | macOS メニュー | Tauri アプリメニュー（`src/hooks/useMacOSAppMenu.ts`。デスクトップ macOS のみ） |

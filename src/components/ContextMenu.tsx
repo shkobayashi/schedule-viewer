@@ -1,19 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { menuShiftForRect } from "./anchoredMenu";
 import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
+import type { ContextMenuItem } from "../operations/contextMenuTypes";
 
-export type ContextMenuItem =
-  | {
-      type: "item";
-      id: string;
-      label: string;
-      shortcut?: string;
-      icon?: ReactNode;
-      danger?: boolean;
-      onSelect: () => void;
-    }
-  | { type: "separator"; id: string };
+export type { ContextMenuItem } from "../operations/contextMenuTypes";
 
 type ContextMenuProps = {
   x: number;
