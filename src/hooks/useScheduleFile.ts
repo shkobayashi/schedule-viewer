@@ -30,6 +30,7 @@ import {
   useScheduleSave,
 } from "./scheduleFile/useScheduleSave";
 import { useScheduleFilterPersistence } from "./scheduleFile/useScheduleFilterPersistence";
+import type { ApplyOpenedFileOptions } from "./scheduleFile/applyOpenedFileOptions";
 import { useScheduleStartupRecovery } from "./scheduleFile/useScheduleStartupRecovery";
 import type { ScheduleFilterViewState } from "../model/scheduleFilterPersistence";
 import { releaseScheduleFilterViaTauri } from "../model/scheduleFilterFile";
@@ -64,6 +65,8 @@ import {
 import type { WorkspaceWindowBinding } from "../model/workspaceTypes";
 import type { RecentFilesStore } from "../model/recentFiles";
 
+export type { ApplyOpenedFileOptions } from "./scheduleFile/applyOpenedFileOptions";
+
 export type FileStatusTag = "sample" | "saved" | "unsaved";
 
 type UseScheduleFileOptions = {
@@ -95,11 +98,6 @@ type UseScheduleFileOptions = {
   onRecentFilesStoreUpdated?: (store: RecentFilesStore) => void;
   onWorkspaceBindingChange?: (binding: WorkspaceWindowBinding | null) => void;
   onScheduleSaved?: () => void;
-};
-
-export type ApplyOpenedFileOptions = {
-  restoreFilters?: boolean;
-  recordRecent?: boolean;
 };
 
 export function useScheduleFile({

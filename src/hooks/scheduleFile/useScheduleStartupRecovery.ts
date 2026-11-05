@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ApplyOpenedFileOptions } from "../useScheduleFile";
+import type { ApplyOpenedFileOptions } from "./applyOpenedFileOptions";
 import type { ScheduleDocument } from "../../model/types";
 import { errorMessage } from "../../model/errors";
 import {

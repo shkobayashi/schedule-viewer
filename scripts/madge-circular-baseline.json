@@ -1,16 +1,14 @@
 {
   "schemaVersion": 1,
   "recordedAt": "2026-11-05",
-  "issue": "#490 UI",
+  "issue": "#490 hooks",
   "madgeRoot": "src",
   "extensions": [
     "ts",
     "tsx"
   ],
-  "cycleCount": 1,
-  "cycles": [
-    "hooks/useScheduleFile.ts > hooks/scheduleFile/useScheduleStartupRecovery.ts"
-  ],
+  "cycleCount": 0,
+  "cycles": [],
   "resolutionPlan": {
     "M1": {
       "summary": "M1 完了（2026-11-05 PR）。解消済み 9 環は resolvedCycles に残す",
@@ -67,7 +65,7 @@
       "cycles": []
     },
     "UI": {
-      "summary": "UI 完了（2026-11-05 PR）。AssigneeFilterOption を assigneeFilterOption.ts へ",
+      "summary": "UI 完了（2026-11-05 PR #522）。AssigneeFilterOption を assigneeFilterOption.ts へ",
       "cycleCount": 0,
       "resolvedCycles": [
         "components/Toolbar.tsx > components/FilterPanel.tsx"
@@ -75,11 +73,12 @@
       "cycles": []
     },
     "hooks": {
-      "summary": "useScheduleFile ↔ useScheduleStartupRecovery（ファイル復旧。未着手）",
-      "cycleCount": 1,
-      "cycles": [
+      "summary": "hooks 完了（2026-11-05 PR）。ApplyOpenedFileOptions を applyOpenedFileOptions.ts へ",
+      "cycleCount": 0,
+      "resolvedCycles": [
         "hooks/useScheduleFile.ts > hooks/scheduleFile/useScheduleStartupRecovery.ts"
-      ]
+      ],
+      "cycles": []
     }
   }
 }
