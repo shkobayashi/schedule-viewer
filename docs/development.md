@@ -243,7 +243,7 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 | `npm run check:operation-entries` | `docs/operation-entries.md` が右クリック固定ラベル・`OPERATION_FORMAL`・MCP 全ツール名を参照していること（P-CI-06 段階1） |
 | `npm run check:madge-circular-baseline` | madge 循環が [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) と一致すること（`cycleCount: 0` と `cycles: []` 可）。**CI frontend で失敗扱い**（循環が 1 件でも増えたら失敗）。意図的に解消・再計測した PR では JSON を同じ変更で更新する |
 | `npm run check:architecture-warn` | jscpd（重複 clone）。重複率の上限は 6%。超えても終了コードは 0 なので、CI では警告のままである（循環 import は上の `check:madge-circular-baseline`） |
-| `npm run test:coverage` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。行（lines）72%、文（statements）65%、分岐（branches）59%、関数（functions）75% を下回ると失敗する。**CI frontend で失敗扱い** |
+| `npm run test:coverage` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。行（lines）72%、文（statements）65%、分岐（branches）59%、関数（functions）74% を下回ると失敗する。**CI frontend で失敗扱い** |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
