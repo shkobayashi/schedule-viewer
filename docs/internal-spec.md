@@ -38,7 +38,16 @@ flowchart TD
 | `docs/*.schema.json` | JSON Schema の正本 |
 | `.cursor/skills/` | LLM 用のスキル。`implement-change` はこのリポジトリの実装手順、`review-project` は全体レビュー、`review-implementation` は計画を実装したあとのレビューの手順。`update-schedule-schema` はスケジュール JSON の形を変えるとき。`write-schedule`、`write-members`、`write-calendar`、`write-workspace`、`write-fields` は他のリポジトリへコピーして使う |
 
-依存は上の図の向きだけである。コンポーネントは、モデルの純粋関数を直接呼ぶことがある。`model` はコンポーネントを参照しない。
+依存は上の図の向きだけである。コンポーネントは、モデルの純粋関数を直接呼ぶことがある。`model` はコンポーネントを参照しない。`hooks` は `components` を import しない（Issue #490 PR 1 で ESLint が検査する）。
+
+### 段 8 の自動検査（Issue #490 PR 1）
+
+| コマンド | 内容 | CI |
+| --- | --- | --- |
+| `npm run check:mcp-tool-names` | `src/model/mcpToolNames.ts` と `src-tauri/src/mcp_tool_names.rs` のツール名集合 | 失敗で止める |
+| `npm run lint` | `src/model/**` は hooks / components / operations を import しない。`src/hooks/**` は components を import しない | 失敗で止める |
+| `npm run check:architecture-warn` | madge の循環 import と jscpd の重複 clone | 警告のみ |
+| `npm run test:coverage-warn` | Vitest の coverage サマリ | 警告のみ |
 
 ## コードの境界（#436 ステップ 8）
 

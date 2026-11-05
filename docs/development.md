@@ -214,6 +214,8 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 
 ## npm スクリプト
 
+リポジトリ直下の `.npmrc` は `legacy-peer-deps=true` である。`madge` が TypeScript 6 を peer として想定していないため、`npm ci` を通すために必要である。
+
 | スクリプト | 内容 |
 | --- | --- |
 | `npm run dev` | 検証器を生成してから Vite でフロントを起動する（ポート 5173）。`tauri dev` から呼ばれたときはポート 1420 |
@@ -226,6 +228,9 @@ DevContainer で開発する場合は、コンテナ内の Node.js 24 と Rust 1
 | `npm run tauri:dev:fresh` | `SCHEDULE_VIEWER_FRESH_START=1` 付きの `tauri dev`。アプリデータと localStorage を初回起動相当にしてから起動する（開発ビルドのみ） |
 | `npm test` | 検証器を生成してから Vitest を1回実行する |
 | `npm run lint` | ESLint |
+| `npm run check:mcp-tool-names` | MCP ツール名が TypeScript と Rust で一致すること |
+| `npm run check:architecture-warn` | madge（循環）と jscpd（重複）。終了コード 0（内容は警告として読む） |
+| `npm run test:coverage-warn` | Vitest を coverage 付きで1回実行する（閾値 0。CI では警告扱い） |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
