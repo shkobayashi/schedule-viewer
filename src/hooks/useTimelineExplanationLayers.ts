@@ -17,7 +17,7 @@ import {
   type ExplanationTrialPredecessorArc,
 } from "../model/explainOverlayPatterns";
 import type { MilestoneBandLayout } from "../model/milestones";
-import type { TaskBarAnchor } from "../model/connections";
+import { assignExplainOverlayLiveAnchorsRef } from "../model/timelineExplainLiveAnchorsRef";
 import type { TimelineLiveAnchor } from "../model/timelineLiveAnchors";
 import { milestoneIdsWithTrialMoveFromLayouts } from "../model/timelineExplanationTrialIds";
 import type { Member, MemberId } from "../model/memberTypes";
@@ -34,7 +34,7 @@ type UseTimelineExplanationLayersOptions = {
   explainOverlayCategories?: Category[];
   explainOverlayOutline?: OutlineRoot;
   explainOverlayLiveAnchorsRef?: MutableRefObject<
-    Map<ScheduleId, TaskBarAnchor>
+    Map<ScheduleId, import("../model/connections").TaskBarAnchor>
   > | null;
   visibleRows: readonly VisibleRow[];
   dateToX: (d: Date) => number;
@@ -84,8 +84,10 @@ export function useTimelineExplanationLayers({
   explanationTrialPredecessorArcs: ExplanationTrialPredecessorArc[];
 } {
   if (explainOverlayLiveAnchorsRef != null) {
-    explainOverlayLiveAnchorsRef.current =
-      liveAnchors as unknown as Map<ScheduleId, TaskBarAnchor>;
+    assignExplainOverlayLiveAnchorsRef(
+      explainOverlayLiveAnchorsRef,
+      liveAnchors,
+    );
   }
 
   const explanationOverlayGeometry = useMemo(() => {
