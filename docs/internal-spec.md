@@ -152,7 +152,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 | 絞り込みで残るタスクの列挙 | `rows.ts` の `listTasksMatchingFilter` |
 | ファイルの入出力と、外部更新・控えの判定 | `scheduleExternalReload.ts`、`scheduleRecovery.ts`、`scheduleFile.ts` |
 | 最近開いたファイルの一覧とメニュー文言 | `recentFiles.ts` |
-| アプリデータ | `memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts` |
+| アプリデータ | `catalogAppDataLoader.ts`（メンバー・ステータス・色の一覧の共通 loader。`memberAppData.ts`・`statusAppData.ts`・`colorAppData.ts` は parse・validate・claim/release と種別ごとの Tauri 呼び出し）、`memberAppData.ts`、`statusAppData.ts`、`colorAppData.ts`、`calendarAppData.ts` |
 | 書き出し | `exportHtml.ts`、`exportExcel.ts`、`exportView.ts`、`exportFilename.ts` |
 | 見た目の寸法と配色 | `layoutSizes.ts`、`uiScale.ts`、`sidebarWidth.ts`、`colorScheme.ts`、`palette.ts`（UI 色と `applyCssPalette`）、`design/uiTokens.ts`（半径・余白・タイポ・影・モーション）、`design/appChrome.css`（Raycast シェル） |
 | キーボードショートカット | `shortcuts.ts` |
