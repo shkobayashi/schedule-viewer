@@ -9,8 +9,6 @@ import { applyTaskNote } from "./taskNote";
 import { resolveTaskEditProgress } from "./taskTodos";
 import { applyTaskTags } from "./taskTags";
 import { forEachTask, mapTasks } from "./taskTraversal";
-
-export { forEachTask, mapTasks } from "./taskTraversal";
 import {
   SCHEDULE_SCHEMA_VERSION,
   type Category,
@@ -23,6 +21,8 @@ import {
   type TaskStatus,
 } from "./types";
 import { formatValidationErrors } from "./validateSchedule";
+
+export { forEachTask, mapTasks } from "./taskTraversal";
 
 export function createScheduleId(): ScheduleId {
   return crypto.randomUUID();
