@@ -34,11 +34,9 @@ import {
   type ScheduleToolbarTitleHandle,
 } from "./ScheduleToolbarTitle";
 import { anchorBelowRect, menuViewportShift } from "./anchoredMenu";
+import type { AssigneeFilterOption } from "./assigneeFilterOption";
 
-export type AssigneeFilterOption = {
-  id: string;
-  label: string;
-};
+export type { AssigneeFilterOption } from "./assigneeFilterOption";
 
 export type { SearchField } from "../model/scheduleFilterPersistence";
 

@@ -1,15 +1,14 @@
 {
   "schemaVersion": 1,
   "recordedAt": "2026-11-05",
-  "issue": "#490 M3b",
+  "issue": "#490 UI",
   "madgeRoot": "src",
   "extensions": [
     "ts",
     "tsx"
   ],
-  "cycleCount": 2,
+  "cycleCount": 1,
   "cycles": [
-    "components/Toolbar.tsx > components/FilterPanel.tsx",
     "hooks/useScheduleFile.ts > hooks/scheduleFile/useScheduleStartupRecovery.ts"
   ],
   "resolutionPlan": {
@@ -59,7 +58,7 @@
       "cycles": []
     },
     "M3b": {
-      "summary": "M3b（2026-11-05 PR）。taskTodos は taskTraversal、tasks は validationMessages へ import",
+      "summary": "M3b（2026-11-05 PR #521）。taskTodos は taskTraversal、tasks は validationMessages へ import",
       "cycleCount": 0,
       "resolvedCycles": [
         "model/taskTodos.ts > model/tasks.ts",
@@ -68,14 +67,15 @@
       "cycles": []
     },
     "UI": {
-      "summary": "components の Toolbar ↔ FilterPanel（段 8。model 解消とは別 PR で madge 確認）",
-      "cycleCount": 1,
-      "cycles": [
+      "summary": "UI 完了（2026-11-05 PR）。AssigneeFilterOption を assigneeFilterOption.ts へ",
+      "cycleCount": 0,
+      "resolvedCycles": [
         "components/Toolbar.tsx > components/FilterPanel.tsx"
-      ]
+      ],
+      "cycles": []
     },
     "hooks": {
-      "summary": "useScheduleFile ↔ useScheduleStartupRecovery（ファイル復旧。M1–M3 とは別途）",
+      "summary": "useScheduleFile ↔ useScheduleStartupRecovery（ファイル復旧。未着手）",
       "cycleCount": 1,
       "cycles": [
         "hooks/useScheduleFile.ts > hooks/scheduleFile/useScheduleStartupRecovery.ts"
