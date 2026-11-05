@@ -6,6 +6,7 @@ import {
 } from "./recentFilesMenu";
 import type { RecentFilesStore } from "./recentFiles";
 
+/** パレット項目 ID。`src/operations/operationIds.ts` の `COMMAND_PALETTE_OPERATION_IDS` と値を揃える。 */
 export type CommandPaletteCommandId =
   | "open"
   | "clearRecentHistory"

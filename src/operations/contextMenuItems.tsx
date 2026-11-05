@@ -29,13 +29,9 @@ import type {
   Task,
 } from "../model/types";
 import {
-  CONTEXT_MENU_LABEL,
-  milestoneConfidenceLabel,
-  outlineChildAddLabel,
-  outlineSiblingAddLabel,
-  taskConfidenceLabel,
-  taskLineageLabel,
-} from "./contextMenuLabels";
+  contextMenuLabel,
+} from "./operationLabelLink";
+import { OPERATION_ID } from "./operationIds";
 import type { ContextMenuItem, ContextMenuTarget } from "./contextMenuTypes";
 
 export type ContextMenuItemHandlers = {
@@ -118,8 +114,8 @@ export function buildContextMenuItems(
     return [
       {
         type: "item",
-        id: "hide-milestone-mark",
-        label: CONTEXT_MENU_LABEL.hide,
+        id: OPERATION_ID.hideMilestoneMark,
+        label: contextMenuLabel(OPERATION_ID.hideMilestoneMark),
         onSelect: () => handlers.setMilestoneMarkVisible(milestoneId, false),
       },
       ...(hasOtherVisibleMilestoneMark(
@@ -131,16 +127,16 @@ export function buildContextMenuItems(
         ? [
             {
               type: "item" as const,
-              id: "show-only-milestone-mark",
-              label: CONTEXT_MENU_LABEL.showOnlyMilestoneMark,
+              id: OPERATION_ID.showOnlyMilestoneMark,
+              label: contextMenuLabel(OPERATION_ID.showOnlyMilestoneMark),
               onSelect: () => handlers.showOnlyMilestoneMark(milestoneId),
             },
           ]
         : []),
       {
         type: "item",
-        id: "edit",
-        label: CONTEXT_MENU_LABEL.edit,
+        id: OPERATION_ID.editMilestone,
+        label: contextMenuLabel(OPERATION_ID.editMilestone),
         icon: <Pencil size={14} strokeWidth={2} />,
         onSelect: () => handlers.openMilestoneEdit(milestoneId),
       },
@@ -148,10 +144,10 @@ export function buildContextMenuItems(
         ? [
             {
               type: "item" as const,
-              id: "confidence",
-              label: milestoneConfidenceLabel(
-                milestone.confidence === "tentative",
-              ),
+              id: OPERATION_ID.toggleMilestoneConfidence,
+              label: contextMenuLabel(OPERATION_ID.toggleMilestoneConfidence, {
+                tentative: milestone.confidence === "tentative",
+              }),
               onSelect: () => {
                 handlers.setMilestoneConfidence(
                   milestoneId,
@@ -166,8 +162,8 @@ export function buildContextMenuItems(
       { type: "separator", id: "milestone-sep" },
       {
         type: "item",
-        id: "delete",
-        label: CONTEXT_MENU_LABEL.delete,
+        id: OPERATION_ID.deleteMilestone,
+        label: contextMenuLabel(OPERATION_ID.deleteMilestone),
         danger: true,
         icon: <Trash2 size={14} strokeWidth={2} />,
         onSelect: () => handlers.setDeleteMilestoneId(milestoneId),
@@ -176,14 +172,15 @@ export function buildContextMenuItems(
   }
   if (target.kind === "link") {
     const { fromId, toId, linkKind } = target;
+    const unlinkOperationId =
+      linkKind === "connection"
+        ? OPERATION_ID.unlinkConnection
+        : OPERATION_ID.unlinkPredecessor;
     return [
       {
         type: "item",
-        id: "unlink",
-        label:
-          linkKind === "connection"
-            ? CONTEXT_MENU_LABEL.unlinkConnection
-            : CONTEXT_MENU_LABEL.unlinkPredecessor,
+        id: unlinkOperationId,
+        label: contextMenuLabel(unlinkOperationId),
         onSelect: () =>
           linkKind === "connection"
             ? handlers.removeTaskConnection(fromId, toId)
@@ -196,8 +193,8 @@ export function buildContextMenuItems(
     return [
       {
         type: "item",
-        id: "add-milestone",
-        label: CONTEXT_MENU_LABEL.addMilestone,
+        id: OPERATION_ID.addMilestone,
+        label: contextMenuLabel(OPERATION_ID.addMilestone),
         onSelect: () => handlers.openAddMilestone(date, groupId),
       },
     ];
@@ -207,8 +204,8 @@ export function buildContextMenuItems(
     const items: ContextMenuItem[] = [
       {
         type: "item",
-        id: "hide-milestone-group",
-        label: CONTEXT_MENU_LABEL.hide,
+        id: OPERATION_ID.hideMilestoneGroup,
+        label: contextMenuLabel(OPERATION_ID.hideMilestoneGroup),
         onSelect: () => handlers.setMilestoneGroupVisible(groupId, false),
       },
     ];
@@ -221,8 +218,8 @@ export function buildContextMenuItems(
     ) {
       items.push({
         type: "item",
-        id: "show-only-milestone-group",
-        label: CONTEXT_MENU_LABEL.showOnlyMilestoneGroup,
+        id: OPERATION_ID.showOnlyMilestoneGroup,
+        label: contextMenuLabel(OPERATION_ID.showOnlyMilestoneGroup),
         onSelect: () => handlers.showOnlyMilestoneGroup(groupId),
       });
     }
@@ -233,20 +230,20 @@ export function buildContextMenuItems(
     const items: ContextMenuItem[] = [
       {
         type: "item",
-        id: "rename",
-        label: CONTEXT_MENU_LABEL.rename,
+        id: OPERATION_ID.renameHierarchy,
+        label: contextMenuLabel(OPERATION_ID.renameHierarchy),
         onSelect: () => handlers.openHierarchyEdit("category", id),
       },
       {
         type: "item",
-        id: "add-category",
-        label: CONTEXT_MENU_LABEL.addCategoryBelow,
+        id: OPERATION_ID.addCategoryBelow,
+        label: contextMenuLabel(OPERATION_ID.addCategoryBelow),
         onSelect: () => handlers.openAddCategoryAfter(id),
       },
       {
         type: "item",
-        id: "add-group",
-        label: CONTEXT_MENU_LABEL.addGroup,
+        id: OPERATION_ID.addGroupToCategory,
+        label: contextMenuLabel(OPERATION_ID.addGroupToCategory),
         onSelect: () => handlers.openAddGroupToCategory(id),
       },
     ];
@@ -255,8 +252,8 @@ export function buildContextMenuItems(
         { type: "separator", id: "category-sep" },
         {
           type: "item",
-          id: "delete",
-          label: CONTEXT_MENU_LABEL.delete,
+          id: OPERATION_ID.deleteHierarchy,
+          label: contextMenuLabel(OPERATION_ID.deleteHierarchy),
           danger: true,
           icon: <Trash2 size={14} strokeWidth={2} />,
           onSelect: () => handlers.openDeleteHierarchy("category", id),
@@ -270,14 +267,14 @@ export function buildContextMenuItems(
     const items: ContextMenuItem[] = [
       {
         type: "item",
-        id: "rename",
-        label: CONTEXT_MENU_LABEL.rename,
+        id: OPERATION_ID.renameHierarchy,
+        label: contextMenuLabel(OPERATION_ID.renameHierarchy),
         onSelect: () => handlers.openHierarchyEdit("group", id),
       },
       {
         type: "item",
-        id: "add-group",
-        label: CONTEXT_MENU_LABEL.addGroupBelow,
+        id: OPERATION_ID.addGroupBelow,
+        label: contextMenuLabel(OPERATION_ID.addGroupBelow),
         onSelect: () => handlers.openAddGroupAfter(id),
       },
     ];
@@ -286,8 +283,8 @@ export function buildContextMenuItems(
         { type: "separator", id: "group-sep" },
         {
           type: "item",
-          id: "delete",
-          label: CONTEXT_MENU_LABEL.delete,
+          id: OPERATION_ID.deleteHierarchy,
+          label: contextMenuLabel(OPERATION_ID.deleteHierarchy),
           danger: true,
           icon: <Trash2 size={14} strokeWidth={2} />,
           onSelect: () => handlers.openDeleteHierarchy("group", id),
@@ -307,14 +304,14 @@ export function buildContextMenuItems(
     const items: ContextMenuItem[] = [
       {
         type: "item",
-        id: "rename",
-        label: CONTEXT_MENU_LABEL.rename,
+        id: OPERATION_ID.renameHierarchy,
+        label: contextMenuLabel(OPERATION_ID.renameHierarchy),
         onSelect: () => handlers.openHierarchyEdit("outline", id),
       },
       {
         type: "item",
-        id: "add-sibling",
-        label: outlineSiblingAddLabel(levelName),
+        id: OPERATION_ID.addOutlineSibling,
+        label: contextMenuLabel(OPERATION_ID.addOutlineSibling, { levelName }),
         onSelect: () => handlers.openAddOutlineSiblingAfter(id),
       },
     ];
@@ -322,8 +319,8 @@ export function buildContextMenuItems(
       const childName = levels[levelIndex + 1]?.name ?? "階層";
       items.push({
         type: "item",
-        id: "add-child",
-        label: outlineChildAddLabel(childName),
+        id: OPERATION_ID.addOutlineChild,
+        label: contextMenuLabel(OPERATION_ID.addOutlineChild, { childName }),
         onSelect: () => handlers.openAddOutlineChild(id),
       });
     }
@@ -332,8 +329,8 @@ export function buildContextMenuItems(
         { type: "separator", id: "hierarchy-sep" },
         {
           type: "item",
-          id: "delete",
-          label: CONTEXT_MENU_LABEL.delete,
+          id: OPERATION_ID.deleteHierarchy,
+          label: contextMenuLabel(OPERATION_ID.deleteHierarchy),
           danger: true,
           icon: <Trash2 size={14} strokeWidth={2} />,
           onSelect: () => handlers.openDeleteHierarchy("outline", id),
@@ -352,8 +349,8 @@ export function buildContextMenuItems(
     return [
       {
         type: "item",
-        id: "delete",
-        label: CONTEXT_MENU_LABEL.delete,
+        id: OPERATION_ID.deleteTask,
+        label: contextMenuLabel(OPERATION_ID.deleteTask),
         danger: true,
         icon: <Trash2 size={14} strokeWidth={2} />,
         shortcut: deleteShortcutHint(),
@@ -365,8 +362,8 @@ export function buildContextMenuItems(
   return [
     {
       type: "item",
-      id: "edit",
-      label: CONTEXT_MENU_LABEL.edit,
+      id: OPERATION_ID.editTask,
+      label: contextMenuLabel(OPERATION_ID.editTask),
       icon: <Pencil size={14} strokeWidth={2} />,
       shortcut: editShortcutHint(),
       onSelect: () => {
@@ -375,8 +372,8 @@ export function buildContextMenuItems(
     },
     {
       type: "item",
-      id: "duplicate",
-      label: CONTEXT_MENU_LABEL.duplicate,
+      id: OPERATION_ID.duplicateTask,
+      label: contextMenuLabel(OPERATION_ID.duplicateTask),
       icon: <Copy size={14} strokeWidth={2} />,
       shortcut: duplicateTaskShortcutHint(),
       onSelect: () => handlers.openDuplicateDialog(taskId),
@@ -386,8 +383,10 @@ export function buildContextMenuItems(
       ? [
           {
             type: "item" as const,
-            id: "confidence",
-            label: taskConfidenceLabel(task.confidence === "tentative"),
+            id: OPERATION_ID.toggleTaskConfidence,
+            label: contextMenuLabel(OPERATION_ID.toggleTaskConfidence, {
+              tentative: task.confidence === "tentative",
+            }),
             shortcut: confidenceToggleShortcutHint(commandKey),
             onSelect: () => {
               handlers.setTaskConfidence(
@@ -400,8 +399,8 @@ export function buildContextMenuItems(
       : []),
     {
       type: "item",
-      id: "note",
-      label: CONTEXT_MENU_LABEL.note,
+      id: OPERATION_ID.note,
+      label: contextMenuLabel(OPERATION_ID.note),
       icon: <StickyNote size={14} strokeWidth={2} />,
       shortcut: noteShortcutHint(commandKey),
       onSelect: () => handlers.openTaskNoteDialog(taskId),
@@ -409,8 +408,8 @@ export function buildContextMenuItems(
     { type: "separator", id: "task-sep-2" },
     {
       type: "item",
-      id: "lineage",
-      label: taskLineageLabel(lineageActive),
+      id: OPERATION_ID.toggleLineage,
+      label: contextMenuLabel(OPERATION_ID.toggleLineage, { lineageActive }),
       icon: <GitBranch size={14} strokeWidth={2} />,
       shortcut: lineageToggleShortcutHint(commandKey),
       onSelect: () => {
@@ -421,8 +420,8 @@ export function buildContextMenuItems(
     { type: "separator", id: "task-sep-3" },
     {
       type: "item",
-      id: "delete",
-      label: CONTEXT_MENU_LABEL.delete,
+      id: OPERATION_ID.deleteTask,
+      label: contextMenuLabel(OPERATION_ID.deleteTask),
       danger: true,
       icon: <Trash2 size={14} strokeWidth={2} />,
       shortcut: deleteShortcutHint(),
