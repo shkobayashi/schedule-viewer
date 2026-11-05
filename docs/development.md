@@ -238,12 +238,12 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 | `npm run tauri` | Tauri CLI を呼ぶ。後ろに `dev` や `build` を付けて使う |
 | `npm run tauri:dev:fresh` | `SCHEDULE_VIEWER_FRESH_START=1` 付きの `tauri dev`。アプリデータと localStorage を初回起動相当にしてから起動する（開発ビルドのみ） |
 | `npm test` | 検証器を生成してから `node --test scripts/*.test.mjs` と Vitest を1回実行する。Vitest は `src/**/*.test.ts`（Node）と `src/**/*.test.tsx`（jsdom）の2プロジェクト |
-| `npm run lint` | ESLint |
+| `npm run lint` | ESLint。警告が 48 件を超えると失敗する |
 | `npm run check:mcp-tool-names` | MCP ツール名が TypeScript と Rust で一致すること |
 | `npm run check:operation-entries` | `docs/operation-entries.md` が右クリック固定ラベル・`OPERATION_FORMAL`・MCP 全ツール名を参照していること（P-CI-06 段階1） |
 | `npm run check:madge-circular-baseline` | madge 循環が [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) と一致すること（`cycleCount: 0` と `cycles: []` 可）。**CI frontend で失敗扱い**（循環が 1 件でも増えたら失敗）。意図的に解消・再計測した PR では JSON を同じ変更で更新する |
-| `npm run check:architecture-warn` | jscpd（重複 clone）。**警告のみ**（循環 import は上の `check:madge-circular-baseline`） |
-| `npm run test:coverage-warn` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する（閾値 0。CI では警告扱い） |
+| `npm run check:architecture-warn` | jscpd（重複 clone）。重複率の上限は 6%。超えても終了コードは 0 なので、CI では警告のままである（循環 import は上の `check:madge-circular-baseline`） |
+| `npm run test:coverage-warn` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。行（lines）72%、文（statements）65%、分岐（branches）59%、関数（functions）75% を下回ると失敗する。**CI frontend で失敗扱い** |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
@@ -251,6 +251,10 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 | `npm run version:check` | バージョン番号が5ファイルで揃っていることと、`X.Y.Z`、`X.Y.Z-alpha.N`、または `X.Y.Z-beta.N` の形であることを確認する |
 | `npm run version:bump` | バージョンを上げる。`major`、`minor`、`patch`、`alpha`、`beta`、`stable` を引数にする |
 | `postinstall` | `@tauri-apps/cli` のその OS 向けバイナリがあることを確認する |
+
+カバレッジの閾値は、テストを足したあとに `npm run test:coverage-warn` で実測し、行・文・分岐・関数のそれぞれを、その実測より約 1 ポイント低い整数へ上げる。数値は `vitest.config.ts` と上の表の両方に、同じ変更で書く。
+
+lint の警告上限は `package.json` の `lint`、jscpd の重複率の上限は `scripts/check-architecture-warn.mjs` にあり、どちらも上の表と揃える。カバレッジの閾値を下げるとき、警告上限を上げるとき、重複率の上限を上げるときは、理由を pull request に書く。Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` は、これまでどおり失敗にする。
 
 ## ブランチと CI
 
@@ -267,7 +271,7 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。読み取りステップは `shell: bash` にする。Release の Windows ランナーの既定シェルは PowerShell で、bash のまま書くと構文エラーになる。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
 - `src-tauri/`、`rust-toolchain.toml`、`read-screen/*`、`.cursor/skills/schedule-talk/*` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`）が動く
-- `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`test`、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、スキル同梱物と `src/model/generated/` の差分検査である
+- `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:madge-circular-baseline`、`test`、`check:architecture-warn`（jscpd。上限を超えても警告）、`test:coverage-warn`（カバレッジの閾値を下回ると失敗）、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物と `src/model/generated/` の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
 - `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`）が動く。`package.json` と `package-lock.json` が変わったときも同じ
 - `docs/*.md` や `README.md` だけの変更（操作マニュアル以外）では、フロントと Rust と `manual` はスキップする。集約ジョブ `ci` は成功する

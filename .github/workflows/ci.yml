@@ -68,10 +68,10 @@ jobs:
       # Circular imports: madge vs scripts/madge-circular-baseline.json (non-zero cycles fail the job).
       - run: npm run check:madge-circular-baseline
       - run: npm test
-      # jscpd only; continue-on-error is not set but the script always exits 0.
+      # jscpd only. The script always exits 0. Above 6% it logs a warning.
       - run: npm run check:architecture-warn
+      # Floors are in vitest.config.ts. Below a floor, this step fails the job.
       - run: npm run test:coverage-warn
-        continue-on-error: true
       - run: npm run check:schedule
       - run: npm run check:calendar
       - run: npm run check:members

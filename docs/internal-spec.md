@@ -47,8 +47,8 @@ flowchart TD
 | `npm run check:mcp-tool-names` | `src/model/mcpToolNames.ts` と `src-tauri/src/mcp_tool_names.rs` のツール名集合 | 失敗で止める |
 | `npm run check:madge-circular-baseline` | madge 循環と [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) の一致（`cycles: []` 可）。**CI frontend で必須。循環が 1 件でも増えたら失敗**。意図的に解消・再計測した PR では JSON を同じ変更で更新する | 失敗で止める |
 | `npm run lint` | `src/model/**` は hooks / components / operations を import しない。`src/hooks/**` は components を import しない | 失敗で止める |
-| `npm run check:architecture-warn` | jscpd の重複 clone（循環 import は `check:madge-circular-baseline`） | 警告のみ |
-| `npm run test:coverage-warn` | Vitest の coverage サマリ | 警告のみ |
+| `npm run check:architecture-warn` | jscpd の重複 clone。重複率の上限は [development.md](development.md)（循環 import は `check:madge-circular-baseline`） | 警告のみ。上限を超えてもジョブは失敗しない |
+| `npm run test:coverage-warn` | Vitest の coverage。閾値の数値と上げ方は [development.md](development.md) | 失敗で止める |
 
 ## コードの境界（#436 ステップ 8）
 

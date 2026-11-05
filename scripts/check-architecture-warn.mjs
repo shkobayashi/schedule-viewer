@@ -21,7 +21,8 @@ run("jscpd duplication", "npx", [
   "--min-tokens",
   "50",
   "--threshold",
-  "0",
+  // 重複率の上限（%）。超えてもこのスクリプトは終了コード 0。上げ下げは docs/development.md。
+  "6",
   "--silent",
 ]);
 
