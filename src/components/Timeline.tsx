@@ -22,10 +22,16 @@ import {
 } from "../model/dragDates";
 import {
   captureMcpInProgressGeneration,
-  isMcpInProgressCommitStale,
 } from "../model/mcpInProgressInvalidation";
+import { shouldApplyTimelineDragCommit } from "../model/timelineDragCommit";
+import {
+  shouldFireTimelineLinkPointerClick,
+  TIMELINE_LINK_DOUBLE_CLICK_MS,
+} from "../model/timelineLinkPointerClick";
+import { timelineVisibleBarObstacles } from "../model/timelineVisibleBarObstacles";
 import {
   CHART_PAN_THRESHOLD_PX,
+  clientOffsetInRect,
   hitTaskAnchor,
   hitTaskResizeEdge,
   type LinkModePointerButton,
@@ -227,7 +233,7 @@ function swallowResizeClick(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) 
   e.cancelBubble = true;
 }
 /** 同じバーへの連続クリックを、ダブルクリックの 2 回目として扱う時間。 */
-const LINK_DOUBLE_CLICK_MS = 500;
+const LINK_DOUBLE_CLICK_MS = TIMELINE_LINK_DOUBLE_CLICK_MS;
 
 function SummaryBar({
   summary,
@@ -482,9 +488,10 @@ function TaskBar({
         return;
       }
       if (shouldCommit) {
-        if (isMcpInProgressCommitStale(dragCommitEpochRef.current)) {
-          shouldCommit = false;
-        }
+        shouldCommit = shouldApplyTimelineDragCommit(
+          true,
+          dragCommitEpochRef.current,
+        );
       }
       if (shouldCommit) {
         const delta = Math.round((node.x() - origXRef.current) / pxPerDay);
@@ -922,7 +929,7 @@ function TaskBar({
                 return;
               }
               if (!g) return;
-              if (isMcpInProgressCommitStale(dragCommitEpochRef.current)) {
+              if (!shouldApplyTimelineDragCommit(true, dragCommitEpochRef.current)) {
                 cancelUnselectedResize();
                 return;
               }
@@ -998,7 +1005,7 @@ function TaskBar({
                 return;
               }
               if (!g) return;
-              if (isMcpInProgressCommitStale(dragCommitEpochRef.current)) {
+              if (!shouldApplyTimelineDragCommit(true, dragCommitEpochRef.current)) {
                 cancelUnselectedResize();
                 return;
               }
@@ -1273,50 +1280,6 @@ function ResizeHandles({
       />
     </Group>
   );
-}
-
-function visibleBarObstacles(
-  rows: VisibleRow[],
-  scrollY: number,
-  rowHeight: number,
-  barHeight: number,
-  bodyHeight: number,
-  dateToX: (d: Date) => number,
-  pxPerDay: number,
-  skipTaskIds: ReadonlySet<ScheduleId>,
-): ChipRect[] {
-  const rects: ChipRect[] = [];
-  for (const row of rows) {
-    const y = row.y - scrollY;
-    if (y + rowHeight < 0 || y > bodyHeight) continue;
-    if (row.type !== "task") {
-      if (row.summary == null) continue;
-      const placed = summaryBarWidthPx(
-        row.summary.start,
-        row.summary.end,
-        dateToX,
-        6,
-      );
-      const height = Math.max(4, Math.round(barHeight / 2));
-      rects.push({
-        x: placed.x,
-        y: y + (rowHeight - height) / 2,
-        width: placed.width,
-        height,
-      });
-      continue;
-    }
-    if (skipTaskIds.has(row.task.id)) continue;
-    const x = dateToX(parseDate(row.task.start));
-    const top = y + (rowHeight - barHeight) / 2;
-    rects.push({
-      x,
-      y: top,
-      width: taskBarWidthPx(row.task, dateToX, pxPerDay),
-      height: barHeight,
-    });
-  }
-  return rects;
 }
 
 function DragDateChip({
@@ -2350,16 +2313,16 @@ export function Timeline({
 
   const dragObstacles = useMemo(() => {
     if (dragPreviews == null || dragPreviews.length === 0) return [];
-    return visibleBarObstacles(
-      visibleRows,
+    return timelineVisibleBarObstacles({
+      rows: visibleRows,
       scrollY,
       rowHeight,
       barHeight,
       bodyHeight,
       dateToX,
       pxPerDay,
-      dragObstacleSkipIds,
-    );
+      skipTaskIds: dragObstacleSkipIds,
+    });
   }, [
     barHeight,
     bodyHeight,
@@ -2384,16 +2347,16 @@ export function Timeline({
     for (const connection of connections) {
       const [taskA, taskB] = connection.taskIds;
       const skipIds = new Set<ScheduleId>([taskA, taskB]);
-      const obstacles: ConnectionBarObstacle[] = visibleBarObstacles(
-        visibleRows,
+      const obstacles: ConnectionBarObstacle[] = timelineVisibleBarObstacles({
+        rows: visibleRows,
         scrollY,
         rowHeight,
         barHeight,
         bodyHeight,
         dateToX,
         pxPerDay,
-        skipIds,
-      ).map((rect) => ({
+        skipTaskIds: skipIds,
+      }).map((rect) => ({
         left: rect.x,
         right: rect.x + rect.width,
         topY: rect.y,
@@ -2717,7 +2680,7 @@ export function Timeline({
     (clientX: number, clientY: number): ScheduleId | null => {
       const body = bodyRef.current?.getBoundingClientRect();
       if (!body) return null;
-      const pos = { x: clientX - body.left, y: clientY - body.top };
+      const pos = clientOffsetInRect(clientX, clientY, body);
       const hit = hitTaskAnchor(pos, liveAnchors, barHeight, {
         linkMode: true,
         selectedTaskId,
@@ -2742,15 +2705,14 @@ export function Timeline({
 
   const shouldFireLinkPointerClick = useCallback(
     (taskId: ScheduleId, evt: MouseEvent | PointerEvent) => {
-      if (evt instanceof MouseEvent && evt.detail > 1) return false;
-      const last = linkPointerFireRef.current;
-      if (
-        last?.taskId === taskId &&
-        performance.now() - last.at < LINK_DOUBLE_CLICK_MS
-      ) {
-        return false;
-      }
-      return true;
+      const detail = evt instanceof MouseEvent ? evt.detail : 1;
+      return shouldFireTimelineLinkPointerClick({
+        taskId,
+        eventClickDetail: detail,
+        lastFire: linkPointerFireRef.current,
+        now: performance.now(),
+        doubleClickWindowMs: LINK_DOUBLE_CLICK_MS,
+      });
     },
     [],
   );

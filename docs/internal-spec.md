@@ -65,7 +65,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 段 8 の後半（PR 7 以降）の目安順序:
 
 1. **カタログ編集共通化** — `ColorCatalogEditor*` / `Member*` / `Status*` の Overlay・Panel、`use*CatalogEditorOverlay`、`*AppData.ts`、設定の色・メンバー・ステータス節。**C0**（特性テストのみ）: `memberCatalogEditSession.test.ts`、`memberCatalogEditHistory.test.ts`、`catalogEditDraftMessages.test.ts`、`catalogEditImportMessages.test.ts`、`colorCatalogEditSession.test.ts` の追補、Rust `sanitize_catalog_id` の `#[test]`。手動 TC との対応は `docs/test-spec.md` の Vitest 表。**C1**: `catalogAppDataLoader.ts`。**C2**: `useCatalogEditorOverlayCore.ts`（三種の覆いフックの共通セッション。各 `use*CatalogEditorOverlay` は種別の read・claim・文言・フラグだけを渡す）。**C3**: `CatalogEditorOverlay.tsx`、`CatalogEditorPanelFooter.tsx`、`catalogEditorCopy.ts`、`catalogEditorUi.ts`（覆いの殻とパネルフッター。各 `*CatalogEditorOverlay` / `*CatalogEditorPanel` は種別の Panel 本体と行・右欄を残す）。**C3 のあと（C4 の前）**: `src/**/*.test.tsx` を jsdom で実行する Vitest プロジェクトと Testing Library（`catalogEditorOverlay.dom.test.tsx` など）。**C4**: `SettingsCatalogSection.tsx`、`settingsCatalogSectionCopy.ts`（設定の色・メンバー・ステータス節の取り込み・選択・外す・上書き確認。各 `Settings*Section` は説明文と検証だけを渡す薄いラッパー）
-2. **`Timeline.tsx`**（約 3,505 行）— T0 特性テストのあと、ヘッダー・バー・ポインタ・説明レイヤーを T1–T5 で分割
+2. **`Timeline.tsx`**（約 3,505 行）— **T0** 特性テスト（`chartHitTest.ts` の追補、`mcpInProgressInvalidation` / `timelineDragCommit` / `timelineLinkPointerClick` / `timelineVisibleBarObstacles`、クライアント座標ヘルパー）。T0 通過後、ヘッダー・バー・ポインタ・説明レイヤーを T1–T5 で分割
 3. **`model` の循環 import**（madge で約 30 件）— `validateSchedule` クラスタは M3 で最後。M0 でベースライン記録
 
 `Toolbar.tsx` ↔ `FilterPanel.tsx` の UI 循環も段 8 で解消する（該当 PR で madge 確認）。
@@ -126,7 +126,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 | `useScheduleFile` | パス、未保存の基準、開く、履歴から開く、ドロップで開く、閉じる確認。保存、控え、外部更新、起動復旧は `src/hooks/scheduleFile/` に分け、戻り値はここがまとめる |
 | `useRecentFiles` | `recent-files.json` の読み直しと消去。ウィンドウが前面になったときも読み直す |
 | `useAppKeyboard` | ウィンドウのキー。押した結果の判断は `appKeyboard.ts` |
-| `useTimelinePointer` | チャートとマイルストン帯のホバー、線を引くときの追随。当たりは `chartHitTest.ts` |
+| `useTimelinePointer` | チャートとマイルストン帯のホバー、線を引くときの追随。当たりは `chartHitTest.ts`。クライアント座標のオフセットは `clientOffsetInRect`（T0）。線ジェスチャのバー当たりも同じオフセット |
 | `useTimelineView` | 1日あたりの幅、スクロール、ホイール。キーの `scrollBy` は `useAppKeyboard` から呼ぶ |
 | `useToday` | 今日の日付。日付が変わると更新する |
 | `useMemberCatalog` | カタログの読み込みと選択 |
@@ -147,7 +147,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 | 型 | `types.ts`、`memberTypes.ts`、`calendarTypes.ts` |
 | 検証 | `validateSchedule.ts`、`validateMembers.ts`、`validateCalendar.ts`、`*Semantics.ts`、`scheduleMigrate.ts`、`uuidV5.ts`、`validationMessages.ts`、`generated/` |
 | 行と前後関係 | `rows.ts`、`stickyRows.ts`、`dependencies.ts`、`summary.ts`、`progressRollup.ts`、`taskTodos.ts`、`tasks.ts`、`taskOrder.ts`、`categoryOrder.ts`、`groupOrder.ts` |
-| 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`dates.ts`、`monthHeader.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
+| 時間軸 | `timeline.ts`、`timelineVisibleDays.ts`、`timelineVisibleBarObstacles.ts`（T0）、`timelineDragCommit.ts`（T0）、`timelineLinkPointerClick.ts`（T0）、`mcpInProgressInvalidation.ts`（T0）、`dates.ts`、`monthHeader.ts`、`nonWorkingDay.ts`、`milestones.ts`、`chartHitTest.ts` |
 | 担当とノート | `assigneeIds.ts`（JSON との変換と意味規則）、`assigneeDisplay.ts`、`taskNote.ts` |
 | 対応マイルストン欄と絞り込みのマイルストン欄 | `milestoneField.ts` の `buildMilestoneFieldList`、`buildMilestoneFilterList`、`initialMilestoneFieldActiveIndex`、`initialMilestoneFilterActiveIndex` |
 | 履歴と保存形式 | `history.ts`、`serialize.ts` |

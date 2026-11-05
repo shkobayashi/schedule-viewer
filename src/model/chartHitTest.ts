@@ -349,3 +349,33 @@ export function previewEndEquals(
   if (next == null) return prev == null;
   return prev != null && prev.x === next.x && prev.y === next.y;
 }
+
+export type ClientRectLike = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
+/** クライアント座標を、矩形左上を原点としたチャート座標へ。 */
+export function clientOffsetInRect(
+  clientX: number,
+  clientY: number,
+  rect: Pick<ClientRectLike, "left" | "top">,
+): { x: number; y: number } {
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+/** クライアント座標が矩形の内側にあるか。 */
+export function clientPointInRect(
+  clientX: number,
+  clientY: number,
+  rect: ClientRectLike,
+): boolean {
+  return (
+    clientX >= rect.left &&
+    clientX <= rect.right &&
+    clientY >= rect.top &&
+    clientY <= rect.bottom
+  );
+}
