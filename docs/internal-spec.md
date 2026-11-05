@@ -61,7 +61,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 | `src/hooks/` | 状態、副作用、MCP 橋、ファイル | `model`、`operations`（入口定義の参照のみ可）。`components` は import しない |
 | `src/model/` | 純粋関数、型、検証、座標、書き出し生成 | 同層の model のみ。`hooks` / `components` / `operations` は import しない |
 
-操作の入口を増やす・変えるときは、同じ変更で [operation-entries.md](operation-entries.md) と [feature-checklist.md](feature-checklist.md) の「操作の入口」を更新する。機械検査: `check:mcp-tool-names`、import 境界（`lint`）、循環（`check:madge-circular-baseline`）。入口表の全列照合は **未実装**（D2 / P-CI-06 予定）。
+操作の入口を増やす・変えるときは、同じ変更で [operation-entries.md](operation-entries.md) と [feature-checklist.md](feature-checklist.md) の「操作の入口」を更新する。機械検査: `check:mcp-tool-names`、`check:operation-entries`（P-CI-06、段階1）、import 境界（`lint`）、循環（`check:madge-circular-baseline`）。
 
 段 8 の実装順序（**C0–C4**、**T0–T5**、**M0–M3b**、Toolbar/FilterPanel、hooks 循環解消）は **完了済み**（Issue #490 段 8 コード整理）。手順の履歴と madge 解消の記録は [model-circular-import-plan.md](model-circular-import-plan.md)。残作業は **D0–D2**（エージェント向け文書仕上げ。D0–D1 完了後は **D2** のみ）。
 

@@ -30,7 +30,7 @@
 
 **根本原因:** ☰・ショートカット・パレット・MCP・右クリックなどは同じ操作の別入口。一つだけ直すと他が古いまま。文書へ入口を挿入すると文末の動詞や「これら」がずれる。
 
-**ガード:** [operation-entries.md](docs/operation-entries.md)、[feature-checklist.md](docs/feature-checklist.md)「操作の入口」、implement-change「画面と操作」、**Proposed D2** `check-operation-entries`（P-CI-06）。**例:** [§4](docs/agents-pitfall-examples.md#原則-4--操作の入口)。
+**ガード:** [operation-entries.md](docs/operation-entries.md)、[feature-checklist.md](docs/feature-checklist.md)「操作の入口」、implement-change「画面と操作」、`npm run check:operation-entries`（P-CI-06）。**例:** [§4](docs/agents-pitfall-examples.md#原則-4--操作の入口)。
 
 ## 原則 5 — 「今の操作」の持ち主を取り違えない
 

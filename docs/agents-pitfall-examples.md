@@ -41,7 +41,7 @@
 
 **サンプル:** model に UI ロジック、循環解消で葉モジュールへ型を出す（`documentSnapshot.ts` 等）、Konva Layer の増やし方（状態 6）。
 
-**implement-change:** 着手前 3；状態 1–2, 6。**ガード:** lint、madge baseline（P-CI-03）。
+**implement-change:** 着手前 3；状態 1–2, 6。**ガード:** lint、madge baseline（P-CI-03）、review「差分の範囲」（P-AG-04）。
 
 ---
 
@@ -49,7 +49,7 @@
 
 **サンプル:** 文末の動詞が新入口に掛かる、macOS メニューから二重ダイアログ（27）、全入口で入力確定（56 / 旧 53）。
 
-**implement-change:** 画面 3, 7–9, 31；文書の主語。**Proposed:** P-CI-06。
+**implement-change:** 画面 3, 7–9, 31；文書の主語。**ガード:** `npm run check:operation-entries`（P-CI-06）。
 
 ---
 
@@ -73,7 +73,7 @@
 
 **サンプル:** jsdom の `offsetParent`、Konva/Tauri は手動、計画語とテスト名の対応表、誤計算でも通る入力の禁止（テスト 9）。
 
-**implement-change:** テスト 1–13；review-implementation「テスト網羅性」。**Proposed:** P-AG-02。
+**implement-change:** テスト 1–13；review-implementation「test-spec の表（P-AG-02）」。
 
 ---
 

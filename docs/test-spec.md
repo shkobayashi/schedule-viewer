@@ -20,6 +20,7 @@
 | Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査 |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1） |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
+| 操作の入口表（段階1） | `npm run check:operation-entries` | `operation-entries.md` と `OPERATION_FORMAL` / 右クリック固定 / MCP 名（P-CI-06） |
 | 循環 import | `npm run check:madge-circular-baseline` | madge とベースライン JSON の一致。**CI frontend で失敗扱い** |
 | 重複（警告） | `npm run check:architecture-warn` | jscpd のみ。CI では失敗にしない |
 | カバレッジ（警告） | `npm run test:coverage-warn` | Vitest coverage サマリ。CI では失敗にしない |
@@ -37,7 +38,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `develop`、`main`、`next` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:madge-circular-baseline`（循環 import）、`test`、`check:architecture-warn`（jscpd 警告）、`test:coverage-warn`（警告）、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`。最後に集約ジョブ `ci` が成功する |
+| `.github/workflows/ci.yml` | `develop`、`main`、`next` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:madge-circular-baseline`（循環 import）、`test`、`check:architecture-warn`（jscpd 警告）、`test:coverage-warn`（警告）、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`。最後に集約ジョブ `ci` が成功する |
 | `.github/workflows/pages.yml` | `main` への push（操作マニュアルとサイトビルドの入力）または `workflow_dispatch` | `npm ci` のあと `build:manual-site` を GitHub Pages へ公開する |
 | `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Apple Silicon の dmg を GitHub Release へ出す。安定版では Windows が署名しない MSIX を Microsoft Store（`9PP41TRJ8ZT8`）へ提出する。Pre-release では Windows NSIS と `schedule-viewer-codesign.cer` と `latest-windows-x86_64.json` を出す。`latest-linux-x86_64.json`、`latest-darwin-aarch64.json` と、安定版では `linux-x86_64` と `darwin-aarch64` の `latest.json`、Pre-release では `windows-x86_64` も含む `latest.json`、`SHA256SUMS` を載せる。Pre-release では Latest を付けず `updater-X` も更新しない。安定版の `checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。`main` は安定版で CHANGELOG から本文を組み立てる。安定版ではビルド前に GitHub Release を作り、`checksums` が `updater-X` を更新し、より大きいメジャーが無いときだけ Latest を付ける。`release/X.Y.Z` は Pre-release で、アルファまたはベータに応じた短い確認用の本文 |
 
@@ -51,6 +52,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | --- | --- |
 | `scripts/build-user-manual-site.test.mjs` | 同じページ内の `#見出し` は、その HTML の見出し id と照合する。無いときは HTML ファイル名を出して失敗する |
 | `scripts/check-madge-circular-baseline.test.mjs` | `check-madge-circular-baseline matches madge-circular-baseline.json` | — |
+| `scripts/check-operation-entries.test.mjs` | `check-operation-entries matches labels and MCP names in operation-entries.md` | — |
 
 ### Vitest
 

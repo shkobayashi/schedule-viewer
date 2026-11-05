@@ -240,6 +240,7 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 | `npm test` | 検証器を生成してから `node --test scripts/*.test.mjs` と Vitest を1回実行する。Vitest は `src/**/*.test.ts`（Node）と `src/**/*.test.tsx`（jsdom）の2プロジェクト |
 | `npm run lint` | ESLint |
 | `npm run check:mcp-tool-names` | MCP ツール名が TypeScript と Rust で一致すること |
+| `npm run check:operation-entries` | `docs/operation-entries.md` が右クリック固定ラベル・`OPERATION_FORMAL`・MCP 全ツール名を参照していること（P-CI-06 段階1） |
 | `npm run check:madge-circular-baseline` | madge 循環が [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) と一致すること（`cycleCount: 0` と `cycles: []` 可）。**CI frontend で失敗扱い**（循環が 1 件でも増えたら失敗）。意図的に解消・再計測した PR では JSON を同じ変更で更新する |
 | `npm run check:architecture-warn` | jscpd（重複 clone）。**警告のみ**（循環 import は上の `check:madge-circular-baseline`） |
 | `npm run test:coverage-warn` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する（閾値 0。CI では警告扱い） |

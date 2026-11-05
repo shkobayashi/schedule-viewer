@@ -35,12 +35,27 @@ description: >-
 ## 実装
 
 - 計画の意図との齟齬。計画が求めたことが差分に入っているか。計画に無い変更が同じ差分に入っていないか
+- **差分の範囲（P-AG-04）:** 循環解消やリファクタで、計画に無いファイル（例: `palette.ts` / `colorScheme.ts`）が全文置換されていないか。implement-change 着手前 8
+- **test-spec の表（P-AG-02）:** `docs/test-spec.md` の表を行差し替えしていないか。消した行の手動・自動の対応が残っているか。implement-change「テストと確認」1
+- **model の export 配置（P-AG-06）:** `src/model/` で import ブロックの途中に `export` が割り込んでいないか。implement-change 状態 31
+- **操作の入口（P-CI-06）:** 入口ラベルや MCP 名を変えたとき、`operation-entries.md` を更新し `npm run check:operation-entries` が通るか
 - テスト網羅性。計画が名指しした条件が、テストと [docs/test-spec.md](../../../docs/test-spec.md) に残っているか。照合は implement-change の「テストと確認」に従う
 - 潜在的な不具合。境界、失敗、非同期の古い結果、保存と履歴を、差分が触れているときに見る
 - セキュリティリスク。差分が Tauri の権限、パス、HTML と SVG、入力の大きさに触れているときだけ見る
 - パフォーマンスリスク。差分が描画中の再計算、ポーリング、保存の頻度に触れているときだけ見る
 
 推測だけの指摘は書かない。場所と、そう判断した根拠を付ける。
+
+## implement-change 再発の代表（D2）
+
+[docs/agents-pitfall-examples.md](../../../docs/agents-pitfall-examples.md) と [docs/agents-d0-inventory.md](../../../docs/agents-d0-inventory.md) §3.3 のテーマのうち、差分が触れやすいものを見る。各テーマの**ガード**は inventory §3 を正とする。
+
+- **操作入口・external-spec（P-CI-06）:** `npm run check:operation-entries`、implement-change 画面 3
+- **Konva・ポインタ・並べ替え:** Vitest + test-spec 手動（implement-change 画面 10–20, 34–37）
+- **起動復旧・ファイル:** `useScheduleStartupRecovery` 等のテスト（画面 15, 19–20；状態 4, 10–11）
+- **MCP・read-screen 文言:** `check:mcp-tool-names`、Rust テスト、`MCP_VIEW_IN_READ_TOOLS`
+- **文書・test-spec 照合（P-AG-02）:** 上記 test-spec の表
+- **JSON スキル同梱:** Rust 件数テスト + MSIX（テスト 13）
 
 ## 文書
 
