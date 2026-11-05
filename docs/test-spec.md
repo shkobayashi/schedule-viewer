@@ -321,6 +321,19 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `focuses discard confirm on open` | SET-02, SET-08, SET-09 |
 | 同上 | `Escape on discard confirm calls cancel handler` | SET-02, SET-08, SET-09 |
 | 同上 | `Tab wraps focus from panel end to start` | SET-02, SET-08, SET-09 |
+| `settingsCatalogSectionCopy.test.ts` | `pins member overwrite confirm after the catalog list` | SET-02 |
+| 同上 | `pins color and status overwrite confirm before the catalog list` | SET-08, SET-09 |
+| 同上 | `uses distinct empty-list and failure strings per kind` | SET-02, SET-08, SET-09 |
+| 同上 | `pins status confirm copy to match color placement and labels` | SET-08, SET-09 |
+| `settingsCatalogSection.dom.test.tsx` | `renders color note actions and catalog row labels` | SET-09 |
+| 同上 | `shows color overwrite dialog before list with aria-label` | SET-09 |
+| 同上 | `shows member overwrite dialog after clear selection and list` | SET-02 |
+| 同上 | `shows status overwrite dialog before list like color` | SET-08 |
+| 同上 | `hides member clear selection when nothing is selected` | SET-02 |
+| 同上 | `disables color clear selection when no catalog is selected` | SET-09 |
+| 同上 | `wires member section to member copy and note` | SET-02 |
+| 同上 | `wires color section to color note with colorId` | SET-09 |
+| 同上 | `wires status section to built-in fallback label` | SET-08 |
 | `memberCatalogEditSession.test.ts` | `closes when the open catalog is removed` | SET-02, SET-08 |
 | 同上 | `reloads when another window overwrites the open catalog` | SET-02, SET-08 |
 | 同上 | `ignores self save reload` | SET-02, SET-08 |
