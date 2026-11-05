@@ -51,6 +51,10 @@ import type { ScheduleToolbarTitleHandle } from "./components/ScheduleToolbarTit
 import { ContextMenu } from "./components/ContextMenu";
 import { buildContextMenuItems } from "./operations/contextMenuItems";
 import {
+  dispatchCommandPaletteRunTarget,
+  type PaletteCommandDispatchHandlers,
+} from "./operations/dispatchPaletteCommand";
+import {
   contextMenuTarget,
   type ContextMenuState,
 } from "./operations/contextMenuTypes";
@@ -3731,9 +3735,63 @@ function App() {
     ],
   );
 
-  const runCommandPalette = useCallback(
-    (target: CommandPaletteRunTarget) => {
-      const stepScale = (direction: "in" | "out") => {
+  const paletteCommandDispatchHandlers = useMemo(
+    (): PaletteCommandDispatchHandlers => ({
+      onOpen: () => {
+        flushTitleEdit();
+        scheduleFile.requestOpen();
+      },
+      onOpenInNewWindow: () => {
+        flushTitleEdit();
+        scheduleFile.requestOpenInNewWindow();
+      },
+      onSave: () => {
+        flushTitleEdit();
+        void scheduleFile.save(false);
+      },
+      onSaveAs: () => {
+        flushTitleEdit();
+        void scheduleFile.save(true);
+      },
+      onExportHtml: () => {
+        flushTitleEdit();
+        setExportOpen(true);
+      },
+      onExportWorkspace: workspaceBinding
+        ? undefined
+        : () => {
+            flushTitleEdit();
+            void handleExportWorkspace();
+          },
+      onShowJson: () => {
+        flushTitleEdit();
+        setJsonOpen(true);
+      },
+      onShowDiff: showScheduleDiff,
+      onCopyDiff: copyScheduleDiff,
+      onClearRecentHistory: handleClearRecentHistory,
+      onOpenRecent: requestOpenFromRecentWithTitleFlush,
+      onEditTitle: () => setTitleEditRequestToken((token) => token + 1),
+      onFocusSearch: () => {
+        taskSearchRef.current?.focus();
+        taskSearchRef.current?.select();
+      },
+      onToggleFilterPanel: () => setFilterPanelOpen((open) => !open),
+      onOpenGuide: openGuide,
+      onOpenShortcuts: openShortcuts,
+      onOpenSettings: () => {
+        setSettingsSection("display");
+        setSettingsOpen(true);
+      },
+      onCheckForUpdates: storeDistribution
+        ? undefined
+        : () => handleCheckForUpdates(false),
+      onGoToday: scrollToToday,
+      onSetTier: setTierZoom,
+      onFit: fitToWidth,
+      onUndo: undo,
+      onRedo: redo,
+      onAdjustDisplayScale: (direction) => {
         const next = stepDisplayScale(
           displayScalePreferenceRef.current,
           uiScaleRef.current,
@@ -3748,130 +3806,21 @@ function App() {
         );
         writeDisplayScalePreference(next);
         handleDisplayScaleChange(next);
-      };
-      if (target.type === "openRecent") {
-        requestOpenFromRecentWithTitleFlush(target.path);
-        return;
-      }
-      switch (target.id) {
-        case "clearRecentHistory":
-          handleClearRecentHistory();
-          break;
-        case "editTitle":
-          setTitleEditRequestToken((token) => token + 1);
-          break;
-        case "open":
-          flushTitleEdit();
-          scheduleFile.requestOpen();
-          break;
-        case "openNewWindow":
-          flushTitleEdit();
-          scheduleFile.requestOpenInNewWindow();
-          break;
-        case "save":
-          flushTitleEdit();
-          void scheduleFile.save(false);
-          break;
-        case "saveAs":
-          flushTitleEdit();
-          void scheduleFile.save(true);
-          break;
-        case "find":
-          taskSearchRef.current?.focus();
-          taskSearchRef.current?.select();
-          break;
-        case "toggleFilterPanel":
-          setFilterPanelOpen((open) => !open);
-          break;
-        case "showDiff":
-          showScheduleDiff();
-          break;
-        case "copyDiff":
-          copyScheduleDiff();
-          break;
-        case "showJson":
-          flushTitleEdit();
-          setJsonOpen(true);
-          break;
-        case "export":
-          flushTitleEdit();
-          setExportOpen(true);
-          break;
-        case "settings":
-          setSettingsSection("display");
-          setSettingsOpen(true);
-          break;
-        case "guide":
-          openGuide();
-          break;
-        case "shortcuts":
-          openShortcuts();
-          break;
-        case "goToday":
-          scrollToToday();
-          break;
-        case "tierDay":
-          setTierZoom("day");
-          break;
-        case "tierWeek":
-          setTierZoom("week");
-          break;
-        case "tierMonth":
-          setTierZoom("month");
-          break;
-        case "fit":
-          fitToWidth();
-          break;
-        case "undo":
-          undo();
-          break;
-        case "redo":
-          redo();
-          break;
-        case "displayScaleIn":
-          stepScale("in");
-          break;
-        case "displayScaleOut":
-          stepScale("out");
-          break;
-        case "editTask":
-          if (schedule.selectedTaskId == null) break;
-          focusDetailName();
-          break;
-        case "deleteTask":
-          requestDeleteTask();
-          break;
-        case "link":
-          toggleLinkMode();
-          break;
-        case "note":
-          if (schedule.selectedTaskId != null) {
-            schedule.openTaskNoteDialog(schedule.selectedTaskId);
-          }
-          break;
-        case "lineage":
-          schedule.toggleLineage();
-          break;
-        case "addTask":
-          setAddOpen(true);
-          break;
-        case "addMilestone":
-          setAddMilestoneInitialDate(null);
-          setAddMilestoneInitialGroupId(null);
-          setAddMilestoneOpen(true);
-          break;
-        case "duplicateTask":
-          if (schedule.selectedTaskId != null) {
-            openDuplicateDialog(schedule.selectedTaskId);
-          }
-          break;
-        case "checkForUpdates":
-          handleCheckForUpdates(false);
-          break;
-        default:
-          break;
-      }
-    },
+      },
+      onFocusEditTask: focusDetailName,
+      onDeleteTask: requestDeleteTask,
+      onToggleLinkMode: toggleLinkMode,
+      onOpenTaskNote: (taskId) => schedule.openTaskNoteDialog(taskId),
+      onToggleLineage: () => schedule.toggleLineage(),
+      onAddTask: () => setAddOpen(true),
+      onAddMilestone: () => {
+        setAddMilestoneInitialDate(null);
+        setAddMilestoneInitialGroupId(null);
+        setAddMilestoneOpen(true);
+      },
+      onDuplicateTask: (taskId) => openDuplicateDialog(taskId),
+      selectedTaskId: schedule.selectedTaskId,
+    }),
     [
       copyScheduleDiff,
       fitToWidth,
@@ -3880,6 +3829,7 @@ function App() {
       handleCheckForUpdates,
       handleClearRecentHistory,
       handleDisplayScaleChange,
+      handleExportWorkspace,
       openDuplicateDialog,
       openGuide,
       openShortcuts,
@@ -3891,9 +3841,18 @@ function App() {
       scrollToToday,
       setTierZoom,
       showScheduleDiff,
+      storeDistribution,
       toggleLinkMode,
       undo,
+      workspaceBinding,
     ],
+  );
+
+  const runCommandPalette = useCallback(
+    (target: CommandPaletteRunTarget) => {
+      dispatchCommandPaletteRunTarget(target, paletteCommandDispatchHandlers);
+    },
+    [paletteCommandDispatchHandlers],
   );
 
   useAppKeyboard({
