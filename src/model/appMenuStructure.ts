@@ -1,4 +1,54 @@
 import { OPERATION_FORMAL } from "./operationLabels";
+import {
+  goTodayShortcutHint,
+  settingsShortcutHint,
+  viewTierShortcutHint,
+  type ViewTierShortcut,
+} from "./shortcuts";
+
+/** macOS メニューと ☰ で同じショートカット文字列に揃える ID。 */
+export type SharedMenuShortcutId =
+  | "settings"
+  | "goToday"
+  | "tierDay"
+  | "tierWeek"
+  | "tierMonth"
+  | "fit";
+
+export function sharedMenuShortcutHint(
+  id: SharedMenuShortcutId,
+  commandKey: boolean,
+): string {
+  if (id === "settings") return settingsShortcutHint(commandKey);
+  if (id === "goToday") return goTodayShortcutHint();
+  if (id === "tierDay") return viewTierShortcutHint("day", commandKey);
+  if (id === "tierWeek") return viewTierShortcutHint("week", commandKey);
+  if (id === "tierMonth") return viewTierShortcutHint("month", commandKey);
+  return viewTierShortcutHint("fit", commandKey);
+}
+
+const VIEW_TIER_BY_SHORTCUT: Record<
+  Exclude<SharedMenuShortcutId, "settings" | "goToday">,
+  ViewTierShortcut
+> = {
+  tierDay: "day",
+  tierWeek: "week",
+  tierMonth: "month",
+  fit: "fit",
+};
+
+export function macSharedMenuAccelerator(
+  id: SharedMenuShortcutId,
+): string | undefined {
+  if (id === "settings") return "Command+,";
+  if (id === "goToday") return "T";
+  const tier = VIEW_TIER_BY_SHORTCUT[id as keyof typeof VIEW_TIER_BY_SHORTCUT];
+  if (tier === "day") return "Command+1";
+  if (tier === "week") return "Command+2";
+  if (tier === "month") return "Command+3";
+  if (tier === "fit") return "Command+4";
+  return undefined;
+}
 
 /** ☰ と macOS ファイルメニューで同じ順・同じ正式名に並べる項目。 */
 export type SharedFileMenuActionId =
@@ -106,6 +156,7 @@ export type HamburgerTailRow = {
   kind: "action";
   id: HamburgerTailActionId;
   label: string;
+  menuShortcut?: SharedMenuShortcutId;
 };
 
 export function macMenuAccelerator(
@@ -123,5 +174,5 @@ export const HAMBURGER_MENU_TAIL_ROWS: readonly HamburgerTailRow[] = [
   { kind: "action", id: "guide", label: OPERATION_FORMAL.guide },
   { kind: "action", id: "shortcuts", label: OPERATION_FORMAL.shortcuts },
   { kind: "action", id: "checkForUpdates", label: OPERATION_FORMAL.checkForUpdates },
-  { kind: "action", id: "settings", label: OPERATION_FORMAL.settings },
+  { kind: "action", id: "settings", label: OPERATION_FORMAL.settings, menuShortcut: "settings" },
 ];

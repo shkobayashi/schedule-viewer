@@ -57,9 +57,11 @@ import { Toolbar } from "./components/Toolbar";
 import type { ScheduleToolbarTitleHandle } from "./components/ScheduleToolbarTitle";
 import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
 import {
+  confidenceToggleShortcutHint,
   deleteShortcutHint,
   duplicateTaskShortcutHint,
   editShortcutHint,
+  lineageToggleShortcutHint,
   noteShortcutHint,
   usesCommandKey,
 } from "./model/shortcuts";
@@ -3774,6 +3776,9 @@ function App() {
           taskSearchRef.current?.focus();
           taskSearchRef.current?.select();
           break;
+        case "toggleFilterPanel":
+          setFilterPanelOpen((open) => !open);
+          break;
         case "showDiff":
           showScheduleDiff();
           break;
@@ -4535,6 +4540,7 @@ function App() {
               id: "confidence",
               label:
                 task.confidence === "tentative" ? "確定にする" : "未確定にする",
+              shortcut: confidenceToggleShortcutHint(commandKey),
               onSelect: () => {
                 setTaskConfidence(
                   taskId,
@@ -4558,6 +4564,7 @@ function App() {
         id: "lineage",
         label: lineageActive ? "系統を解除" : "系統を表示",
         icon: <GitBranch size={14} strokeWidth={2} />,
+        shortcut: lineageToggleShortcutHint(commandKey),
         onSelect: () => {
           if (lineageActive) clearLineage();
           else showLineage(taskId);

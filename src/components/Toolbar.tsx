@@ -12,11 +12,16 @@ import { activeFilterCount } from "../model/filterChips";
 import {
   addMilestoneShortcutHint,
   addTaskShortcutHint,
+  confidenceToggleShortcutHint,
   deleteShortcutHint,
+  filterPanelShortcutHint,
+  goTodayShortcutHint,
+  lineageToggleShortcutHint,
   linkShortcutHint,
   redoToolbarTitle,
   undoShortcutHint,
   usesCommandKey,
+  viewTierShortcutHint,
 } from "../model/shortcuts";
 import { OPERATION_FORMAL, TOOLBAR_SHORT } from "../model/operationLabels";
 import type { GridTier } from "../model/timeline";
@@ -393,6 +398,7 @@ export function Toolbar({
           type="button"
           className={`toolbar-btn${filterCount > 0 ? " active" : ""}`}
           aria-expanded={filterOpen}
+          title={`${OPERATION_FORMAL.filterPanel}（${filterPanelShortcutHint(commandKey)}）`}
           onClick={() => setFilterOpen((prev) => !prev)}
         >
           絞り込み{filterCount > 0 ? ` ${filterCount}` : ""}
@@ -419,7 +425,12 @@ export function Toolbar({
         />
       </div>
       <div className="view-controls">
-        <button type="button" className="toolbar-btn" onClick={onGoToday}>
+        <button
+          type="button"
+          className="toolbar-btn"
+          title={`${OPERATION_FORMAL.goToday}（${goTodayShortcutHint()}）`}
+          onClick={onGoToday}
+        >
           今日
         </button>
         <div className="tier-toggle" role="group" aria-label="表示の切り替え">
@@ -429,6 +440,7 @@ export function Toolbar({
               type="button"
               className={tier === value ? "active" : ""}
               aria-pressed={tier === value}
+              title={viewTierShortcutHint(value, commandKey)}
               onClick={() => onSetTier(value)}
             >
               {value === "day"
@@ -439,7 +451,12 @@ export function Toolbar({
             </button>
           ))}
         </div>
-        <button type="button" className="toolbar-btn" onClick={onFit}>
+        <button
+          type="button"
+          className="toolbar-btn"
+          title={viewTierShortcutHint("fit", commandKey)}
+          onClick={onFit}
+        >
           全体
         </button>
         <button
@@ -471,7 +488,7 @@ export function Toolbar({
           title={
             lineageName
               ? `${lineageName} の前後の系統を表示中。クリックで解除`
-              : "選択中のタスクについて、前後の最初から最後までを表示"
+              : `${OPERATION_FORMAL.lineageShow}（${lineageToggleShortcutHint(commandKey)}）`
           }
           onClick={onToggleLineage}
         >

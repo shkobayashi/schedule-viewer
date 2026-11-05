@@ -303,6 +303,7 @@ export function decideAppKey(input: {
     dialogOpen: input.dialogOpen,
     blocksEditKeys,
     selectedTaskCount: input.selectedTaskCount,
+    commandPaletteOpen: input.commandPaletteOpen,
   };
   if (matchGoToday(event, navEditCtx)) {
     return {

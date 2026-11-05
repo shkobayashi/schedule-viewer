@@ -446,6 +446,109 @@ describe("decideAppKey", () => {
     ).toEqual({ type: "none" });
   });
 
+  it("maps frequent-operation shortcuts", () => {
+    expect(
+      decide({
+        event: {
+          key: ",",
+          ctrlKey: true,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          repeat: false,
+        },
+      }).action,
+    ).toEqual({ type: "openSettings" });
+    expect(
+      decide({
+        event: {
+          key: "t",
+          ctrlKey: false,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          repeat: false,
+        },
+      }).action,
+    ).toEqual({ type: "goToday" });
+    expect(
+      decide({
+        event: {
+          key: "2",
+          ctrlKey: true,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          repeat: false,
+        },
+      }).action,
+    ).toEqual({ type: "setViewTier", tier: "week" });
+    expect(
+      decide({
+        event: {
+          key: "f",
+          ctrlKey: true,
+          metaKey: false,
+          shiftKey: true,
+          altKey: false,
+          repeat: false,
+        },
+      }).action,
+    ).toEqual({ type: "toggleFilterPanel" });
+    expect(
+      decide({
+        event: {
+          key: "F2",
+          ctrlKey: false,
+          metaKey: false,
+          shiftKey: false,
+          altKey: false,
+          repeat: false,
+        },
+        selectedTaskCount: 1,
+      }).action,
+    ).toEqual({ type: "focusDetailName" });
+  });
+
+  it("does not go to today while typing, in a dialog, or in the palette", () => {
+    const t = {
+      key: "t",
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      repeat: false,
+    };
+    expect(decide({ event: t, dialogOpen: true }).action).toEqual({ type: "none" });
+    expect(decide({ event: t, commandPaletteOpen: true }).action).toEqual({
+      type: "none",
+    });
+    expect(
+      decide({
+        event: t,
+        target: { tagName: "TEXTAREA", isContentEditable: false },
+      }).action,
+    ).toEqual({ type: "none" });
+    expect(
+      decide({
+        event: t,
+        target: { tagName: "INPUT", isContentEditable: false },
+      }).action,
+    ).toEqual({ type: "none" });
+    expect(
+      decide({
+        event: t,
+        target: { tagName: "SELECT", isContentEditable: false },
+      }).action,
+    ).toEqual({ type: "none" });
+    expect(
+      decide({
+        event: t,
+        target: { tagName: "DIV", isContentEditable: true },
+      }).action,
+    ).toEqual({ type: "none" });
+  });
+
   it("ignores undo and redo in a dialog or text field", () => {
     const undo = {
       key: "z",

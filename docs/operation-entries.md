@@ -46,7 +46,7 @@
 | 未保存の差分を開く（状態バー） | `未保存`（`saveStatus`。`StatusBar.tsx`） | | | | | | 同上 | | | `FILE-04` |
 | 外部ファイル更新の確認 | `ファイルに更新あり — 確認する` | | | | | | 状態バーの「ファイルに更新あり — 確認する」から確認を開く | | | `SYNC-01` |
 | 更新を確認 | | | 更新を確認 | | schedule-viewer を終了 の上（アプリメニュー） | 更新を確認 | 設定の「更新」（案内内の説明） | | | `SET-06` |
-| 設定を開く | | | 設定 | | | 設定 | | `set_preferences` | `--screen set_preferences` | `SET-01` 他 |
+| 設定を開く | | | 設定 | ⌘, / Ctrl+, | 設定（⌘,） | 設定（⌘, / Ctrl+,） | | `set_preferences` | `--screen set_preferences` | `SET-01` 他 |
 | ウィンドウを閉じる | | | | ⌘W（macOS メニューのみ） | 閉じる | | | `close_window` | `--screen close_window --window <label>` | `FILE-07` |
 | ウィンドウを最小化 | | | | ⌘M（`PredefinedMenuItem` Minimize） | Minimize | | | `minimize_window` | `--screen minimize_window --window <label>` | |
 | アプリを終了 | | | | ⌘Q（`matchMacAppQuit`。メニューは schedule-viewer を終了） | schedule-viewer を終了 | | | | | `FILE-07` |
@@ -63,11 +63,11 @@
 | 操作の案内を開く | 案内（`TOOLBAR_SHORT.guide`。title は操作の案内） | | 操作の案内 | | 操作の案内 | 操作の案内 | （ダイアログ本文。固定ラベルではない） | | | `NAV-08` |
 | ショートカット一覧を開く | `?`（title: ショートカット一覧（?、F1）） | | ショートカット一覧 | ? / F1 | ショートカット一覧 | ショートカット一覧 | キーの一覧は、? と F1、または「ショートカット一覧」 | | | `NAV-08` |
 | タスク名／ノートで検索 | `名前` / `ノート`（select）＋ placeholder `タスク名で検索` / `ノートで検索` | | 検索 | ⌘F / Ctrl+F | | | 上の「絞り込み」で、残す行を選ぶ（検索欄自体は案内に未記名） | `set_view`（filters） | `--screen set_view` | `FILTER-01` |
-| 今日へ移動 | 今日 | | 今日 | | 今日 | | | `set_view` | `--screen set_view` | `NAV-01` |
-| 日表示 | `日`（tier-toggle） | | 日表示 | | 日表示 | | | `set_view` | `--screen set_view` | `NAV-02` |
-| 週表示 | `週` | | 週表示 | | 週表示 | | | `set_view` | `--screen set_view` | `NAV-02` |
-| 月表示 | `月` | | 月表示 | | 月表示 | | | `set_view` | `--screen set_view` | `NAV-02` |
-| 全体表示 | 全体 | | 全体 | | 全体 | | | `set_view` | `--screen set_view` | `NAV-03` |
+| 今日へ移動 | 今日（title に T） | | 今日 | T | 今日（T） | | | `set_view` | `--screen set_view` | `NAV-01` |
+| 日表示 | `日`（tier-toggle。title に ⌘/Ctrl+1） | | 日表示 | ⌘1 / Ctrl+1 | 日表示（⌘1） | | | `set_view` | `--screen set_view` | `NAV-02` |
+| 週表示 | `週`（title に ⌘/Ctrl+2） | | 週表示 | ⌘2 / Ctrl+2 | 週表示（⌘2） | | | `set_view` | `--screen set_view` | `NAV-02` |
+| 月表示 | `月`（title に ⌘/Ctrl+3） | | 月表示 | ⌘3 / Ctrl+3 | 月表示（⌘3） | | | `set_view` | `--screen set_view` | `NAV-02` |
+| 全体表示 | 全体（title に ⌘/Ctrl+4） | | 全体 | ⌘4 / Ctrl+4 | 全体（⌘4） | | | `set_view` | `--screen set_view` | `NAV-03` |
 | 表示サイズを拡大 | | | 表示サイズを拡大 | ⌘+ / ⌘= / Ctrl+ / Ctrl= | | | | `set_view` | `--screen set_view` | `NAV-01` |
 | 表示サイズを縮小 | | | 表示サイズを縮小 | ⌘− / Ctrl− | | | | `set_view` | `--screen set_view` | `NAV-01` |
 | チャートをスクロール | | | | ⌘矢印 / Ctrl+矢印 | | | | `set_view` | `--screen set_view` | `NAV-01` |
@@ -82,9 +82,9 @@
 
 | 操作 | ツールバー | 右クリック | コマンドパレット | ショートカット (Mac / Win) | macOS メニュー | ☰ | 操作の案内 | MCP | CLI | 機能 ID |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 絞り込みパネルを開く | `絞り込み`（条件数付き） | | | | | | 上の「絞り込み」で、残す行を選ぶ | `set_view` | `--screen set_view` | `FILTER-01` 他 |
+| 絞り込みパネルを開く | `絞り込み`（title に ⌘⇧F / Ctrl+Shift+F） | | 絞り込み | ⌘⇧F / Ctrl+Shift+F | | | 上の「絞り込み」で、残す行を選ぶ | `set_view` | `--screen set_view` | `FILTER-01` 他 |
 | 絞り込みをすべて解除 | `すべて解除`（`ActiveFilterBar.tsx`） | | | | | | | `set_view` | `--screen set_view` | `FILTER-01` |
-| 系統を表示／解除 | `系統` または `系統: ${lineageName}` | | `系統を表示` / `系統を解除` | | | | タスクを選んで「系統」を押すと… | `set_view` | `--screen set_view` | `FILTER-08` |
+| 系統を表示／解除 | `系統` または `系統: ${lineageName}`（title に ⌘⇧L / Ctrl+Shift+L） | | `系統を表示` / `系統を解除` | ⌘⇧L / Ctrl+Shift+L | | | タスクを選んで「系統」を押すと… | `set_view` | `--screen set_view` | `FILTER-08` |
 | 系統（繋がりも辿る） | `繋がりも辿る`（系統 split メニュー） | | | | | | | `set_view` | `--screen set_view` | `FILTER-08` |
 | 線を引くモード | `線を引く` または `線を引く: ${linkSourceName}` | | 線を引く | ⌘L / Ctrl+L | | | | | | `EDIT-05` |
 | マイルストン帯の印を非表示 | | 非表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
@@ -108,8 +108,8 @@
 | タスクを複製 | | 複製 | 複製 | Alt+Shift+↓ | | | | `edit_plan` | `--screen edit_plan` | `EDIT-14` |
 | 同じグループ内で並べ替え | | | | Alt+↑ / Alt+↓ | | | | `edit_plan` | `--screen edit_plan` | `EDIT-15` |
 | ノートを開く | | ノート | ノート | ⌘N / Ctrl+N | | | | `edit_plan` | `--screen edit_plan` | `EDIT-06` |
-| 系統を表示／解除（タスク） | | `系統を表示` / `系統を解除` | `系統を表示` / `系統を解除` | | | | | `set_view` | `--screen set_view` | `FILTER-08` |
-| 確定／未確定（タスク） | | `確定にする` / `未確定にする` | | | | | | `edit_plan` | `--screen edit_plan` | `VIEW-07` |
+| 系統を表示／解除（タスク） | | `系統を表示` / `系統を解除`（⌘⇧L / Ctrl+Shift+L） | `系統を表示` / `系統を解除` | ⌘⇧L / Ctrl+Shift+L | | | | `set_view` | `--screen set_view` | `FILTER-08` |
+| 確定／未確定（タスク） | | `確定にする` / `未確定にする`（⌘⇧U / Ctrl+Shift+U） | | ⌘⇧U / Ctrl+Shift+U | | | | `edit_plan` | `--screen edit_plan` | `VIEW-07` |
 | 確定／未確定（マイルストン） | | 同上 | | | | | | `edit_plan` | `--screen edit_plan` | `VIEW-07` |
 | マイルストンを編集 | | 編集 | | | | | | `edit_plan` | `--screen edit_plan` | `EDIT-07` |
 | マイルストンを削除 | | 削除 | | | | | | `edit_plan` | `--screen edit_plan` | `EDIT-07` |
@@ -158,12 +158,14 @@
 
 | 場面 | Esc | Enter | Tab | 矢印 |
 | --- | --- | --- | --- | --- |
-| 階層の編集（EDIT-21） | 閉じる（下書きは文書へ書かない。確定は「適用」のみ） | 入力欄では改行せず確定しない | ダイアログ内でループ | ↑↓ で段の行を移し、同じ列にフォーカス |
-| 階層の名前を変更 | キャンセル | 保存 | 欄とボタン | （一覧なし） |
-| 設定：ステータス／メンバー／色／拡張項目の項目編集 | 閉じる（未保存なら確認） | 入力欄の確定 | 覆い内ループ | 項目一覧で ↑↓ |
-| タスク詳細パネル（EDIT-04） | TODO 追加中のみ取り消し | タグ・TODO で確定 | 欄の間 | 入力欄・選択欄では ↑↓ 選択しない |
-| 線を引くモード（EDIT-05） | モード終了 | — | — | ⌘/Ctrl+矢印はスクロール |
-| 絞り込みパネル（FILTER-01） | 候補を閉じる／パネルを閉じる | 候補一覧で選択 | パネル内 | 候補で ↑↓。開いているあいだ一覧 ↑↓ 選択しない |
+| 階層の編集（EDIT-21） | 閉じる | — | 次の欄 | 行を移動 |
+| 階層の名前を変更 | キャンセル | 保存 | 次の欄 | — |
+| 設定：項目編集（ステータス／メンバー／色／拡張） | 閉じる | 確定 | 次の要素 | 行を選ぶ |
+| タスク詳細パネル（EDIT-04） | 入力取り消し | 確定 | 次の欄 | — |
+| 線を引くモード（EDIT-05） | 終了 | — | — | スクロール／選択 |
+| 絞り込みパネル（FILTER-01） | 閉じる | 候補を選ぶ | 次の欄 | 候補／— |
+
+表の下に、場面ごとの補足（下書きと「適用」、絞り込み中の一覧 ↑↓ など）をショートカット一覧と同じ文で載せる。
 
 ---
 

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import {
   HAMBURGER_MENU_TAIL_ROWS,
   SHARED_FILE_MENU_ROWS,
+  sharedMenuShortcutHint,
   type SharedFileMenuActionId,
 } from "../model/appMenuStructure";
 import { OPERATION_FORMAL } from "../model/operationLabels";
@@ -460,7 +461,12 @@ export function AppMenu({
             role="menuitem"
             onClick={() => run(action)}
           >
-            {row.label}
+            <span>{row.label}</span>
+            {row.menuShortcut ? (
+              <span className="menu-shortcut">
+                {sharedMenuShortcutHint(row.menuShortcut, commandKey)}
+              </span>
+            ) : null}
           </button>
         );
       })}

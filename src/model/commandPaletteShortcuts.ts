@@ -6,11 +6,16 @@ import {
   diffCopyShortcutHint,
   editShortcutHint,
   fileShortcutHint,
+  filterPanelShortcutHint,
   findShortcutHint,
+  goTodayShortcutHint,
+  lineageToggleShortcutHint,
   linkShortcutHint,
   noteShortcutHint,
   redoShortcutHint,
+  settingsShortcutHint,
   undoShortcutHint,
+  viewTierShortcutHint,
 } from "./shortcuts";
 
 /** コマンドパレットの行右に出すショートカット（無いときは null）。 */
@@ -29,6 +34,22 @@ export function commandPaletteCommandShortcut(
       return fileShortcutHint("saveAs", commandKey);
     case "find":
       return findShortcutHint(commandKey);
+    case "toggleFilterPanel":
+      return filterPanelShortcutHint(commandKey);
+    case "settings":
+      return settingsShortcutHint(commandKey);
+    case "goToday":
+      return goTodayShortcutHint();
+    case "tierDay":
+      return viewTierShortcutHint("day", commandKey);
+    case "tierWeek":
+      return viewTierShortcutHint("week", commandKey);
+    case "tierMonth":
+      return viewTierShortcutHint("month", commandKey);
+    case "fit":
+      return viewTierShortcutHint("fit", commandKey);
+    case "lineage":
+      return lineageToggleShortcutHint(commandKey);
     case "copyDiff":
       return diffCopyShortcutHint(commandKey);
     case "undo":

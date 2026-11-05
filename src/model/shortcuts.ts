@@ -261,6 +261,7 @@ type EditNavigationShortcutContext = Pick<
   "dialogOpen" | "blocksEditKeys"
 > & {
   selectedTaskCount?: number;
+  commandPaletteOpen?: boolean;
 };
 
 export function settingsShortcutHint(commandKey: boolean): string {
@@ -286,7 +287,13 @@ export function matchGoToday(
   event: ShortcutKeyEvent,
   context: EditNavigationShortcutContext,
 ): boolean {
-  if (context.dialogOpen || context.blocksEditKeys) return false;
+  if (
+    context.dialogOpen ||
+    context.blocksEditKeys ||
+    context.commandPaletteOpen
+  ) {
+    return false;
+  }
   if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return false;
   return shortcutKey(event) === "t";
 }
@@ -464,57 +471,120 @@ export type ShortcutReferenceRow = {
   keys: string;
 };
 
-export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow[] {
+export type ShortcutReferenceGroup = {
+  title: string;
+  rows: ShortcutReferenceRow[];
+};
+
+export type ShortcutReferenceColumns = {
+  start: ShortcutReferenceGroup[];
+  end: ShortcutReferenceGroup[];
+};
+
+export function shortcutReferenceColumnGroups(
+  commandKey: boolean,
+): ShortcutReferenceColumns {
   const mod = commandKey ? "⌘" : "Ctrl";
-  return [
-    { action: "開く", keys: fileShortcutHint("open", commandKey) },
-    { action: "新しいウィンドウで開く", keys: fileShortcutHint("openNew", commandKey) },
-    { action: "保存", keys: fileShortcutHint("save", commandKey) },
-    { action: "別名保存", keys: fileShortcutHint("saveAs", commandKey) },
-    { action: "検索", keys: findShortcutHint(commandKey) },
-    { action: "設定", keys: settingsShortcutHint(commandKey) },
-    { action: "今日", keys: goTodayShortcutHint() },
-    { action: "日表示", keys: viewTierShortcutHint("day", commandKey) },
-    { action: "週表示", keys: viewTierShortcutHint("week", commandKey) },
-    { action: "月表示", keys: viewTierShortcutHint("month", commandKey) },
-    { action: "全体表示", keys: viewTierShortcutHint("fit", commandKey) },
-    { action: "系統を表示／解除", keys: lineageToggleShortcutHint(commandKey) },
-    { action: "絞り込みパネル", keys: filterPanelShortcutHint(commandKey) },
-    {
-      action: "確定／未確定（選択中のタスク）",
-      keys: confidenceToggleShortcutHint(commandKey),
-    },
-    { action: "名前を変更（タスク）", keys: renameShortcutHint() },
-    { action: "編集", keys: editShortcutHint() },
-    { action: "削除", keys: deleteShortcutHint() },
-    { action: "差分をコピー", keys: diffCopyShortcutHint(commandKey) },
-    { action: "線を引く", keys: linkShortcutHint(commandKey) },
-    { action: "ノート", keys: noteShortcutHint(commandKey) },
-    { action: "タスクを追加", keys: addTaskShortcutHint(commandKey) },
-    { action: "マイルストンを追加", keys: addMilestoneShortcutHint(commandKey) },
-    {
-      action: "同じグループで上下に移動",
-      keys: reorderTaskShortcutHint(),
-    },
-    { action: "タスクを複製", keys: duplicateTaskShortcutHint() },
-    { action: "取り消し", keys: undoShortcutHint(commandKey) },
-    { action: "やり直し", keys: redoShortcutHint(commandKey) },
-    { action: "表示サイズ", keys: displayScaleShortcutHint(commandKey) },
-    { action: "チャートのスクロール", keys: chartScrollShortcutHint(commandKey) },
-    {
-      action: "タスクを追加選択",
-      keys: commandKey ? "⌘+クリック" : "Ctrl+クリック",
-    },
-    { action: "タスクを範囲選択", keys: "Shift+クリック" },
-    { action: "選択を伸ばす", keys: "Shift+↑↓" },
-    { action: "ショートカット一覧", keys: "? / F1" },
-    { action: "コマンドパレット", keys: commandPaletteShortcutHint(commandKey) },
-    {
-      action: "ズーム",
-      keys: `${mod}+ホイール（一覧の上では左端の日付を保つ）`,
-    },
-    { action: "横スクロール", keys: "Shift+ホイール" },
-  ];
+  return {
+    start: [
+      {
+        title: "ファイルとウィンドウ",
+        rows: [
+          { action: "開く", keys: fileShortcutHint("open", commandKey) },
+          {
+            action: "新しいウィンドウで開く",
+            keys: fileShortcutHint("openNew", commandKey),
+          },
+          { action: "保存", keys: fileShortcutHint("save", commandKey) },
+          { action: "別名保存", keys: fileShortcutHint("saveAs", commandKey) },
+          { action: "差分をコピー", keys: diffCopyShortcutHint(commandKey) },
+        ],
+      },
+      {
+        title: "表示とナビゲーション",
+        rows: [
+          { action: "今日", keys: goTodayShortcutHint() },
+          { action: "日表示", keys: viewTierShortcutHint("day", commandKey) },
+          { action: "週表示", keys: viewTierShortcutHint("week", commandKey) },
+          { action: "月表示", keys: viewTierShortcutHint("month", commandKey) },
+          { action: "全体表示", keys: viewTierShortcutHint("fit", commandKey) },
+          {
+            action: "系統を表示／解除",
+            keys: lineageToggleShortcutHint(commandKey),
+          },
+          { action: "絞り込みパネル", keys: filterPanelShortcutHint(commandKey) },
+          { action: "表示サイズ", keys: displayScaleShortcutHint(commandKey) },
+          {
+            action: "チャートのスクロール",
+            keys: chartScrollShortcutHint(commandKey),
+          },
+          {
+            action: "ズーム",
+            keys: `${mod}+ホイール（一覧の上では左端の日付を保つ）`,
+          },
+          { action: "横スクロール", keys: "Shift+ホイール" },
+        ],
+      },
+      {
+        title: "検索と設定",
+        rows: [
+          { action: "検索", keys: findShortcutHint(commandKey) },
+          { action: "設定", keys: settingsShortcutHint(commandKey) },
+        ],
+      },
+    ],
+    end: [
+      {
+        title: "編集",
+        rows: [
+          {
+            action: "確定／未確定（選択中のタスク）",
+            keys: confidenceToggleShortcutHint(commandKey),
+          },
+          { action: "名前を変更（タスク）", keys: renameShortcutHint() },
+          { action: "編集", keys: editShortcutHint() },
+          { action: "削除", keys: deleteShortcutHint() },
+          { action: "線を引く", keys: linkShortcutHint(commandKey) },
+          { action: "ノート", keys: noteShortcutHint(commandKey) },
+          { action: "タスクを追加", keys: addTaskShortcutHint(commandKey) },
+          {
+            action: "マイルストンを追加",
+            keys: addMilestoneShortcutHint(commandKey),
+          },
+          {
+            action: "同じグループで上下に移動",
+            keys: reorderTaskShortcutHint(),
+          },
+          { action: "タスクを複製", keys: duplicateTaskShortcutHint() },
+          { action: "取り消し", keys: undoShortcutHint(commandKey) },
+          { action: "やり直し", keys: redoShortcutHint(commandKey) },
+        ],
+      },
+      {
+        title: "選択とマウス",
+        rows: [
+          {
+            action: "タスクを追加選択",
+            keys: commandKey ? "⌘+クリック" : "Ctrl+クリック",
+          },
+          { action: "タスクを範囲選択", keys: "Shift+クリック" },
+          { action: "選択を伸ばす", keys: "Shift+↑↓" },
+        ],
+      },
+      {
+        title: "ヘルプ",
+        rows: [
+          { action: "ショートカット一覧", keys: "? / F1" },
+          { action: "コマンドパレット", keys: commandPaletteShortcutHint(commandKey) },
+        ],
+      },
+    ],
+  };
+}
+
+export function shortcutReferenceRows(commandKey: boolean): ShortcutReferenceRow[] {
+  const { start, end } = shortcutReferenceColumnGroups(commandKey);
+  return [...start, ...end].flatMap((group) => group.rows);
 }
 
 /** 入力欄・選択欄・ボタン・ダイアログのあいだは効かない。? と F1。 */

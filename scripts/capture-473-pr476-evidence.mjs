@@ -163,15 +163,58 @@ async function save2xCrop(page, selector, outPath) {
     .toFile(outPath);
 }
 
+async function prepareShortcutsDialogForCapture(page) {
+  await page.evaluate(() => {
+    const panel = document.querySelector(".ui-dialog-panel.shortcuts-modal");
+    const body = document.querySelector(".shortcuts-modal-body");
+    const block = document.querySelector("#shortcuts-mode-capture");
+    if (panel instanceof HTMLElement) {
+      panel.style.maxHeight = "none";
+      panel.style.overflow = "visible";
+      panel.style.height = "auto";
+    }
+    if (body instanceof HTMLElement) {
+      body.style.overflow = "visible";
+      body.style.maxHeight = "none";
+      body.style.flex = "0 0 auto";
+      body.style.height = "auto";
+      body.scrollTop = 0;
+    }
+    if (block instanceof HTMLElement) {
+      block.style.overflow = "visible";
+      block.style.height = "auto";
+    }
+  });
+  await page.waitForTimeout(200);
+}
+
+async function assertPngNotBlank(filePath, minBytes = 4000) {
+  const stat = fs.statSync(filePath);
+  if (stat.size < minBytes) {
+    throw new Error(`${filePath} too small (${stat.size} bytes)`);
+  }
+  const { data, info } = await sharp(filePath).raw().toBuffer({ resolveWithObject: true });
+  let min = 255;
+  let max = 0;
+  for (let i = 0; i < data.length; i += info.channels) {
+    const v = data[i] ?? 0;
+    min = Math.min(min, v);
+    max = Math.max(max, v);
+  }
+  if (max - min < 30) {
+    throw new Error(`${filePath} looks blank (luma range ${min}-${max})`);
+  }
+}
+
 async function scrollShortcutsModeSectionIntoView(page) {
   await page.evaluate(() => {
     const body = document.querySelector(".shortcuts-modal-body");
-    const section = document.querySelector("#shortcuts-section-mode");
-    const table = document.querySelector(".shortcuts-table--mode");
-    if (!body || !section || !table) return;
+    const block = document.querySelector("#shortcuts-mode-capture");
+    if (!body || !block) return;
+    body.scrollTop = 0;
     const bodyTop = body.getBoundingClientRect().top;
-    const sectionTop = section.getBoundingClientRect().top;
-    body.scrollTop += sectionTop - bodyTop - 4;
+    const blockTop = block.getBoundingClientRect().top;
+    body.scrollTop += blockTop - bodyTop - 4;
   });
   await page.waitForTimeout(200);
 }
@@ -210,17 +253,282 @@ async function save2xElementScreenshot(page, selector, outPath) {
     .toFile(outPath);
 }
 
+async function layoutShortcutsModeBlockForCapture(page) {
+  await prepareShortcutsDialogForCapture(page);
+  await page.evaluate(() => {
+    const overlay = document.querySelector(
+      '.ui-dialog-overlay[role="dialog"]:has(#shortcuts-mode-capture)',
+    );
+    const panel = document.querySelector(".ui-dialog-panel.shortcuts-modal");
+    const body = document.querySelector(".shortcuts-modal-body");
+    const block = document.querySelector("#shortcuts-mode-capture");
+    if (overlay instanceof HTMLElement) {
+      overlay.style.alignItems = "flex-start";
+      overlay.style.justifyContent = "center";
+      overlay.style.paddingTop = "16px";
+    }
+    if (panel instanceof HTMLElement) {
+      panel.style.position = "relative";
+      panel.style.top = "0";
+      panel.style.transform = "none";
+      panel.style.maxHeight = "none";
+      panel.style.height = "auto";
+      panel.style.overflow = "visible";
+    }
+    if (body instanceof HTMLElement) {
+      for (const child of body.children) {
+        if (child instanceof HTMLElement && child !== block) {
+          child.style.display = "none";
+        }
+      }
+    }
+    if (block instanceof HTMLElement) {
+      block.style.height = "auto";
+      block.style.overflow = "visible";
+    }
+    const header = panel?.querySelector(".ui-dialog-header");
+    if (header instanceof HTMLElement) {
+      header.style.display = "none";
+    }
+  });
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.waitForTimeout(120);
+}
+
 async function captureShortcutsModeTable(page, scheme, written) {
-  await scrollShortcutsModeSectionIntoView(page);
-  await assertModeTableKeyColumnsReadable(page);
-  const modePath = path.join(outDir, `menu-473-shortcuts-mode-table-${scheme}.png`);
-  await page.locator(".shortcuts-table--mode").screenshot({ path: modePath });
-  await save2xElementScreenshot(
-    page,
-    ".shortcuts-table--mode",
-    path.join(outDir, `menu-473-shortcuts-mode-table-${scheme}-2x.png`),
+  await page.waitForFunction(
+    () =>
+      (document.querySelectorAll(".shortcuts-table--mode tbody tr").length ?? 0) >= 6,
   );
+  await page.waitForFunction(() => {
+    const block = document.querySelector("#shortcuts-mode-capture");
+    const text = block?.textContent ?? "";
+    return (
+      text.includes("絞り込みパネル") &&
+      text.includes("線を引くモード") &&
+      text.includes("タスク詳細パネル")
+    );
+  });
+  await assertModeTableKeyColumnsReadable(page);
+  await layoutShortcutsModeBlockForCapture(page);
+  await page.waitForFunction(() => {
+    const rows = document.querySelectorAll(".shortcuts-table--mode tbody tr");
+    if (rows.length < 6) return false;
+    const notes = document.querySelectorAll(".shortcuts-mode-notes li");
+    if (notes.length < 6) return false;
+    const last = rows[rows.length - 1];
+    const block = document.querySelector("#shortcuts-mode-capture");
+    if (!last || !block) return false;
+    const lastBox = last.getBoundingClientRect();
+    const blockBox = block.getBoundingClientRect();
+    const vh = window.innerHeight;
+    return lastBox.bottom <= vh - 8 && blockBox.top >= 0;
+  });
+  const locator = page.locator("#shortcuts-mode-capture");
+  await locator.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(150);
+  const modePath = path.join(outDir, `menu-473-shortcuts-mode-table-${scheme}.png`);
+  const mode2x = path.join(outDir, `menu-473-shortcuts-mode-table-${scheme}-2x.png`);
+  const shot = await locator.screenshot({ type: "png" });
+  await sharp(shot).png().toFile(modePath);
+  const meta = await sharp(shot).metadata();
+  if ((meta.height ?? 0) < 380) {
+    throw new Error(
+      `mode table capture too short (${meta.height}px); expected all 6 rows and notes`,
+    );
+  }
+  if ((meta.height ?? 0) < 420) {
+    throw new Error(
+      `mode table capture height ${meta.height}px; expected full 6 rows and notes`,
+    );
+  }
+  await assertPngNotBlank(modePath, 8000);
+  await sharp(shot)
+    .resize((meta.width ?? 1) * 2, (meta.height ?? 1) * 2, {
+      kernel: sharp.kernel.nearest,
+    })
+    .png()
+    .toFile(mode2x);
+  await assertPngNotBlank(mode2x, 20_000);
   written.push(modePath);
+}
+
+async function captureShortcutsDialogBothSections(page, scheme, written) {
+  await prepareShortcutsDialogForCapture(page);
+  await page.evaluate(() => {
+    const overlay = document.querySelector(
+      '.ui-dialog-overlay[role="dialog"]:has(.shortcuts-entry-columns)',
+    );
+    const panel = document.querySelector(".ui-dialog-panel.shortcuts-modal");
+    const body = document.querySelector(".shortcuts-modal-body");
+    if (overlay instanceof HTMLElement) {
+      overlay.style.alignItems = "flex-start";
+      overlay.style.paddingTop = "12px";
+    }
+    if (panel instanceof HTMLElement) {
+      panel.style.maxHeight = "none";
+      panel.style.height = "auto";
+    }
+    if (body instanceof HTMLElement) {
+      body.scrollTop = 0;
+    }
+  });
+  await page.setViewportSize({ width: 1440, height: 1200 });
+  await page.waitForTimeout(120);
+  await page.waitForFunction(() => {
+    const grid = document.querySelector(".shortcuts-entry-columns");
+    if (!grid) return false;
+    const cols = getComputedStyle(grid).gridTemplateColumns;
+    return cols.split(" ").filter(Boolean).length >= 2;
+  });
+  const selector = ".ui-dialog-panel.shortcuts-modal";
+  const shortcutsPath = path.join(outDir, `menu-473-shortcuts-dialog-${scheme}.png`);
+  await captureRegionScreenshot(
+    page,
+    selector,
+    shortcutsPath,
+    path.join(outDir, `menu-473-shortcuts-dialog-${scheme}-2x.png`),
+  );
+  written.push(shortcutsPath);
+}
+
+async function captureShortcutsDialogNarrow(page, scheme, written) {
+  await page.setViewportSize({ width: 420, height: 1400 });
+  await prepareShortcutsDialogForCapture(page);
+  await page.evaluate(() => {
+    const overlay = document.querySelector(
+      '.ui-dialog-overlay[role="dialog"]:has(.shortcuts-entry-columns)',
+    );
+    if (overlay instanceof HTMLElement) {
+      overlay.style.alignItems = "flex-start";
+      overlay.style.paddingTop = "8px";
+    }
+  });
+  await page.waitForTimeout(120);
+  await page.waitForFunction(() => {
+    const grid = document.querySelector(".shortcuts-entry-columns");
+    if (!grid) return false;
+    return getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length === 1;
+  });
+  const selector = ".ui-dialog-panel.shortcuts-modal";
+  const narrowPath = path.join(outDir, `menu-473-shortcuts-dialog-narrow-${scheme}.png`);
+  await captureRegionScreenshot(
+    page,
+    selector,
+    narrowPath,
+    path.join(outDir, `menu-473-shortcuts-dialog-narrow-${scheme}-2x.png`),
+  );
+  written.push(narrowPath);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(80);
+}
+
+async function captureRegionLocator(page, locator, outPath, out2xPath) {
+  const box = await locator.boundingBox();
+  if (!box || box.width < 8 || box.height < 8) {
+    throw new Error("missing region box for locator");
+  }
+  const shot = await page.screenshot({ type: "png" });
+  const meta = await sharp(shot).metadata();
+  const w = meta.width ?? 1440;
+  const h = meta.height ?? 900;
+  const left = Math.max(0, Math.floor(box.x));
+  const top = Math.max(0, Math.floor(box.y));
+  const width = Math.min(w - left, Math.ceil(box.width));
+  const height = Math.min(h - top, Math.ceil(box.height));
+  await sharp(shot)
+    .extract({ left, top, width, height })
+    .png()
+    .toFile(outPath);
+  await assertPngNotBlank(outPath);
+  await sharp(shot)
+    .extract({ left, top, width, height })
+    .resize(width * 2, height * 2, { kernel: sharp.kernel.nearest })
+    .png()
+    .toFile(out2xPath);
+  await assertPngNotBlank(out2xPath, 15_000);
+}
+
+async function captureRegionScreenshot(page, selector, outPath, out2xPath) {
+  await captureRegionLocator(page, page.locator(selector).first(), outPath, out2xPath);
+}
+
+function hamburgerMenuPanel(page) {
+  return page
+    .getByRole("menu")
+    .filter({ has: page.getByRole("menuitem", { name: "開く" }) })
+    .first();
+}
+
+async function captureAppMenu(page, scheme, written) {
+  await page.locator(".menu-btn").click();
+  const panel = hamburgerMenuPanel(page);
+  await panel.waitFor({ state: "visible", timeout: 10_000 });
+  await page.waitForTimeout(200);
+  const menuPath = path.join(outDir, `menu-473-hamburger-menu-${scheme}.png`);
+  await captureRegionLocator(
+    page,
+    panel,
+    menuPath,
+    path.join(outDir, `menu-473-hamburger-menu-${scheme}-2x.png`),
+  );
+  written.push(menuPath);
+  await page.keyboard.press("Escape");
+}
+
+async function captureTodayToolbarTooltip(page, scheme, written) {
+  const btn = page.getByRole("button", { name: "今日", exact: true });
+  const title = await btn.getAttribute("title");
+  if (!title || !/（T）|\(T\)/.test(title)) {
+    throw new Error(`today title missing (T): ${title ?? "null"}`);
+  }
+  const box = await btn.boundingBox();
+  if (!box) throw new Error("today button box missing");
+  const tipTop = box.y + box.height + 14;
+  await page.evaluate(
+    ({ text, left, top, width }) => {
+      document.getElementById("capture-tooltip-mirror")?.remove();
+      const tip = document.createElement("div");
+      tip.id = "capture-tooltip-mirror";
+      tip.textContent = text;
+      Object.assign(tip.style, {
+        position: "fixed",
+        left: `${left}px`,
+        top: `${top}px`,
+        maxWidth: `${Math.max(width, 280)}px`,
+        padding: "6px 10px",
+        background: "CanvasText",
+        color: "Canvas",
+        font: "12px system-ui, sans-serif",
+        borderRadius: "4px",
+        zIndex: "99999",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+        pointerEvents: "none",
+      });
+      document.body.appendChild(tip);
+    },
+    { text: title, left: box.x, top: tipTop, width: box.width },
+  );
+  await page.waitForTimeout(80);
+  const clip = {
+    x: Math.max(0, box.x - 24),
+    y: Math.max(0, box.y - 6),
+    width: Math.min(1440 - Math.max(0, box.x - 24), box.width + 300),
+    height: box.height + 14 + 44 + 16,
+  };
+  const tipPath = path.join(outDir, `menu-473-toolbar-today-tooltip-${scheme}.png`);
+  const shot = await page.screenshot({ type: "png", clip });
+  await sharp(shot).png().toFile(tipPath);
+  await assertPngNotBlank(tipPath, 4000);
+  const meta = await sharp(shot).metadata();
+  await sharp(shot)
+    .resize((meta.width ?? 1) * 2, (meta.height ?? 1) * 2, {
+      kernel: sharp.kernel.nearest,
+    })
+    .png()
+    .toFile(path.join(outDir, `menu-473-toolbar-today-tooltip-${scheme}-2x.png`));
+  await page.evaluate(() => document.getElementById("capture-tooltip-mirror")?.remove());
+  written.push(tipPath);
 }
 
 async function main() {
@@ -262,6 +570,10 @@ async function main() {
     for (const scheme of ["light", "dark"]) {
       await applyColorScheme(page, scheme);
 
+      await captureAppMenu(page, scheme, written);
+
+      await captureTodayToolbarTooltip(page, scheme, written);
+
       const toolbarPath = path.join(outDir, `menu-473-toolbar-selected-${scheme}.png`);
       await page.locator(".toolbar-row-actions").screenshot({ path: toolbarPath });
       await save2xCrop(
@@ -293,20 +605,10 @@ async function main() {
       await page.keyboard.press("Escape");
 
       await page.locator(".shortcuts-btn").click();
+      await page.waitForSelector(".shortcuts-entry-columns", { timeout: 10_000 });
       await page.waitForSelector(".shortcuts-table--mode", { timeout: 10_000 });
-      const shortcutsPath = path.join(
-        outDir,
-        `menu-473-shortcuts-dialog-${scheme}.png`,
-      );
-      await page.locator(".ui-dialog-panel.shortcuts-modal").screenshot({
-        path: shortcutsPath,
-      });
-      await save2xCrop(
-        page,
-        ".ui-dialog-panel.shortcuts-modal",
-        path.join(outDir, `menu-473-shortcuts-dialog-${scheme}-2x.png`),
-      );
-      written.push(shortcutsPath);
+      await captureShortcutsDialogBothSections(page, scheme, written);
+      await captureShortcutsDialogNarrow(page, scheme, written);
       await captureShortcutsModeTable(page, scheme, written);
       await page.keyboard.press("Escape");
     }

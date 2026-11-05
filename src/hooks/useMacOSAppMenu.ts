@@ -6,6 +6,7 @@ import type { RecentFilesStore } from "../model/recentFiles";
 import { RECENT_FILES_EMPTY_HINT } from "../model/firstRunGuidance";
 import {
   macMenuAccelerator,
+  macSharedMenuAccelerator,
   SHARED_FILE_MENU_ROWS,
   type SharedFileMenuActionId,
 } from "../model/appMenuStructure";
@@ -226,6 +227,7 @@ export function useMacOSAppMenu(
         await MenuItem.new({
           id: "file-settings",
           text: OPERATION_FORMAL.settings,
+          accelerator: macSharedMenuAccelerator("settings"),
           action: () => h().onOpenSettings(),
         }),
       );
@@ -299,26 +301,31 @@ export function useMacOSAppMenu(
           await MenuItem.new({
             id: "view-today",
             text: OPERATION_FORMAL.goToday,
+            accelerator: macSharedMenuAccelerator("goToday"),
             action: () => h().onGoToday(),
           }),
           await MenuItem.new({
             id: "view-day",
             text: OPERATION_FORMAL.tierDay,
+            accelerator: macSharedMenuAccelerator("tierDay"),
             action: () => h().onSetTier("day"),
           }),
           await MenuItem.new({
             id: "view-week",
             text: OPERATION_FORMAL.tierWeek,
+            accelerator: macSharedMenuAccelerator("tierWeek"),
             action: () => h().onSetTier("week"),
           }),
           await MenuItem.new({
             id: "view-month",
             text: OPERATION_FORMAL.tierMonth,
+            accelerator: macSharedMenuAccelerator("tierMonth"),
             action: () => h().onSetTier("month"),
           }),
           await MenuItem.new({
             id: "view-fit",
             text: OPERATION_FORMAL.fit,
+            accelerator: macSharedMenuAccelerator("fit"),
             action: () => h().onFit(),
           }),
         ],
