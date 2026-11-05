@@ -65,7 +65,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 段 8 の後半（PR 7 以降）の目安順序:
 
 1. **カタログ編集共通化** — `ColorCatalogEditor*` / `Member*` / `Status*` の Overlay・Panel、`use*CatalogEditorOverlay`、`*AppData.ts`、設定の色・メンバー・ステータス節。**C0**（特性テストのみ）: `memberCatalogEditSession.test.ts`、`memberCatalogEditHistory.test.ts`、`catalogEditDraftMessages.test.ts`、`catalogEditImportMessages.test.ts`、`colorCatalogEditSession.test.ts` の追補、Rust `sanitize_catalog_id` の `#[test]`。手動 TC との対応は `docs/test-spec.md` の Vitest 表。**C1**: `catalogAppDataLoader.ts`。**C2**: `useCatalogEditorOverlayCore.ts`（三種の覆いフックの共通セッション。各 `use*CatalogEditorOverlay` は種別の read・claim・文言・フラグだけを渡す）。**C3**: `CatalogEditorOverlay.tsx`、`CatalogEditorPanelFooter.tsx`、`catalogEditorCopy.ts`、`catalogEditorUi.ts`（覆いの殻とパネルフッター。各 `*CatalogEditorOverlay` / `*CatalogEditorPanel` は種別の Panel 本体と行・右欄を残す）。**C3 のあと（C4 の前）**: `src/**/*.test.tsx` を jsdom で実行する Vitest プロジェクトと Testing Library（`catalogEditorOverlay.dom.test.tsx` など）。**C4**: `SettingsCatalogSection.tsx`、`settingsCatalogSectionCopy.ts`（設定の色・メンバー・ステータス節の取り込み・選択・外す・上書き確認。各 `Settings*Section` は説明文と検証だけを渡す薄いラッパー）
-2. **`Timeline.tsx`**（約 3,505 行）— **T0** 特性テスト（`chartHitTest.ts` の追補、`mcpInProgressInvalidation` / `timelineDragCommit` / `timelineLinkPointerClick` / `timelineVisibleBarObstacles`、クライアント座標ヘルパー）。**T1**: `TimelineHeaderPanel.tsx`、`TimelineChartHeaderContent.tsx`、`TimelineBodyGrid.tsx`、`timelineHeaderScrollAnchor.ts`（日・週・月ヘッダーと本体グリッド。ポインタ非依存）。T1 通過後、バー・ポインタ・説明レイヤーを T2–T5 で分割
+2. **`Timeline.tsx`**（T1 後おおよそ 3,220 行）— **T0** 特性テスト（`chartHitTest.ts` の追補、`mcpInProgressInvalidation` / `timelineDragCommit` / `timelineLinkPointerClick` / `timelineVisibleBarObstacles`、クライアント座標ヘルパー）。**T1**: `TimelineHeaderPanel.tsx`、`buildTimelineChartHeaderContent`、`buildTimelineBodyColumnNodes`、`timelineHeaderScrollAnchor.ts`（日・週・月ヘッダーと本体グリッド。ポインタ非依存）。T1 通過後、バー・ポインタ・説明レイヤーを T2–T5 で分割
 3. **`model` の循環 import**（madge で約 30 件）— `validateSchedule` クラスタは M3 で最後。M0 でベースライン記録
 
 `Toolbar.tsx` ↔ `FilterPanel.tsx` の UI 循環も段 8 で解消する（該当 PR で madge 確認）。
@@ -103,10 +103,10 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 | `ShortcutsDialog.tsx` | ショートカット一覧 |
 | `CommandPalette.tsx` | ⌘/Ctrl+K のコマンドパレット |
 | `Sidebar.tsx` | 左の行、階層の細い縦線（`hierarchyGuide.ts` が見えている行から本数を決める）、マイルストングループ名の行の右クリック、折りたたみ、切れた名前の全文、タスク行のクリック選択とホバー帯、左端の握りによる並べ替えと別グループへの移動、グループ行の握りによる並べ替えと別カテゴリへの移動、カテゴリ行の握りによる並べ替え、並べ替え中にポインタへ付く半透明の行または塊。説明用半透明は `.explanation-sidebar-veil`（DOM）。示すタスク行は `sidebar-row--explanation-mark` で枠線と `z-index` のみ（y は計算しない）。印に `color` があるときは inline の outline と下敷き、無いときは `kind` 用 CSS |
-| `Timeline.tsx` | Konva のヘッダー、バー、前後の線、イナズマ線、ドラッグでのスクロール。ポインターの当たりは `useTimelinePointer`。説明用の半透明は各 Stage 最上段の `ExplanationKonvaVeilLayer.tsx`（Konva のベールと destination-out の抜き）。吹き出しは `TimelineExplanationBalloons.tsx` を `.timeline-body` と `.timeline-header` に本体座標で重ねる。段階分割の計画は Issue #490 |
-| `TimelineHeaderPanel.tsx` | チャート上部の日付ヘッダー Stage（T1）。`TimelineChartHeaderContent` の Layer と説明ベール |
-| `TimelineChartHeaderContent.tsx` | 日・週・月ヘッダーの Konva ノード組み立て（T1） |
-| `TimelineBodyGrid.tsx` | チャート本体と固定行の背景グリッド（T1） |
+| `Timeline.tsx` | バー、前後の線、イナズマ線、ドラッグでのスクロール、本体 Stage。ポインターの当たりは `useTimelinePointer`。日付ヘッダー Stage は `TimelineHeaderPanel`。説明用の半透明は各 Stage 最上段の `ExplanationKonvaVeilLayer.tsx`。吹き出しは `TimelineExplanationBalloons.tsx` を `.timeline-body` と `.timeline-header` に重ねる。段階分割は Issue #490 |
+| `TimelineHeaderPanel.tsx` | チャート上部の日付ヘッダー Stage（T1）。`buildTimelineChartHeaderContent` の Layer と説明ベール |
+| `TimelineChartHeaderContent.tsx` | `buildTimelineChartHeaderContent` — 日・週・月ヘッダーの Konva ノード（T1） |
+| `TimelineBodyGrid.tsx` | `buildTimelineBodyColumnNodes` — チャート本体と固定行の背景グリッド（T1） |
 | `ExplanationKonvaVeilLayer.tsx` | 説明セッションの Konva ベールと抜き。日付ヘッダー、マイルストン帯、チャート本体の Stage に載せる。MCP 読み取り PNG では `explanationKonvaCapture.ts` 経由で Layer を一時的に隠す |
 | `MilestoneBand.tsx` | マイルストンのひし形 |
 | `*Dialog.tsx` | [外部仕様](external-spec.md#ダイアログ) の各ダイアログ |
