@@ -291,6 +291,11 @@
 | `catalogAppDataLoader.test.ts` | `exposes C0-pinned catalog import error strings` | SET-02, SET-08, SET-09 |
 | 同上 | `defaults catalog id from filename` | SET-02 |
 | 同上 | `treats empty browser catalog body as missing` | SET-02, SET-08, SET-09 |
+| `catalogEditorCopy.test.ts` | `builds member applied notes for app modes` | SET-02, SET-08, SET-09 |
+| `catalogEditorUi.test.ts` | `routes overlay keys through confirm, undo, close, and tab` | SET-02, SET-08, SET-09 |
+| `catalogEditorOverlay.ui.test.ts` | `keeps shared overlay shell classes and dialog roles` | SET-02, SET-08, SET-09 |
+| 同上 | `pins member-specific copy via catalogEditorCopy` | SET-02 |
+| 同上 | `exposes shared footer button labels` | SET-02, SET-08, SET-09 |
 | `memberCatalogEditSession.test.ts` | `closes when the open catalog is removed` | SET-02, SET-08 |
 | 同上 | `reloads when another window overwrites the open catalog` | SET-02, SET-08 |
 | 同上 | `ignores self save reload` | SET-02, SET-08 |
