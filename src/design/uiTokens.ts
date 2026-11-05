@@ -1,4 +1,4 @@
-import type { ResolvedColorScheme } from "../model/palette";
+import type { ResolvedColorScheme } from "../model/resolvedColorScheme";
 
 /** Layout / motion / typography tokens (scheme-independent unless noted). */
 export type UiTokenSet = {
