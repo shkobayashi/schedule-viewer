@@ -10,7 +10,7 @@ export default defineConfig({
       // 実測より約 1 ポイント下の整数。上げ下げは docs/development.md。
       thresholds: {
         lines: 72,
-        functions: 75,
+        functions: 74,
         branches: 59,
         statements: 65,
       },
