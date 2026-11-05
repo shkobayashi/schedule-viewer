@@ -13,7 +13,7 @@
 | agents-agent-index Cloud 1行 | + [development.md](development.md) Cloud Agent 節（P-AG-03） | **ガード追加** |
 | Issue #490 本文 madge warn | [agents-d1-issue-490-proposal.md](agents-d1-issue-490-proposal.md) | **提案のみ** |
 | schedule-talk / #344 | agent-index に consultation-flow 行 | **索引** |
-| review-implementation 日本語 | + examples / J 原則 | **拡張** |
+| review-implementation 日本語 | J1–J5 + examples + 文書 §チャット報告の癖（8 項目） | **D1 + Geo** |
 | cut-release / publish-user-manual | doc-update-map 参照（変更最小） | **確認** |
 
 | 扱い | 件数 |

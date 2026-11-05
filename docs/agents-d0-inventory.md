@@ -92,7 +92,7 @@ GitHub Issue #490 本文の「madge / jscpd / coverage: warn」は **#524 以降
 | internal-spec 段 8 ロードマップ | 同（C/T/M 完了反映済み） | 完了済み節を「履歴」に短縮 |
 | cut-release / publish-user-manual | 変更なし | D1 で AGENTS 表からのリンク確認のみ |
 | schedule-talk / consult | 変更なし | #344 用の置き場所を D1 で決定（Issue #490） |
-| japanese-prose / consult.mdc | J1–J5 + examples / consult 索引 | **D1 完了** — [japanese-prose-d1-inventory.md](japanese-prose-d1-inventory.md) |
+| japanese-prose / consult.mdc | J1–J5 + examples / consult 索引 | **D1 完了** — [japanese-prose-d1-inventory.md](japanese-prose-d1-inventory.md)（初版の意味抜けは同 §「落ちていた文」。Geo レビュー後に examples 8 組・J3 復帰） |
 
 ---
 
