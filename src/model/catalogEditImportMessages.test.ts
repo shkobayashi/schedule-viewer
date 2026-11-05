@@ -67,6 +67,18 @@ describe("catalog import messages (C0)", () => {
     );
   });
 
+  it("returns null for empty stored body on read (status)", async () => {
+    installLocalStorage();
+    await importStatusCatalog("empty", "", false);
+    expect(await readStatusCatalog("empty")).toBeNull();
+  });
+
+  it("returns null for empty stored body on read (colors)", async () => {
+    installLocalStorage();
+    await importColorCatalog("empty", "", false);
+    expect(await readColorCatalog("empty")).toBeNull();
+  });
+
   it("rejects browser storage failure with fixed message", async () => {
     vi.stubGlobal("localStorage", {
       getItem: () => null,

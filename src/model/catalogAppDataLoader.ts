@@ -115,7 +115,9 @@ export function createCatalogAppDataAccess(config: CatalogAppDataAccessConfig) {
       return invoke<string | null>(tauri.readCatalog, { catalogId });
     }
     const stored = readBrowserCatalogs(browser.catalogs);
-    return stored[catalogId] ?? null;
+    const text = stored[catalogId];
+    if (!text) return null;
+    return text;
   }
 
   async function importCatalog(
