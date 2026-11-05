@@ -55,7 +55,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 
 | 層 | 置くもの | import してよい先 |
 | --- | --- | --- |
-| `src/operations/`（PR 2 以降） | 操作 ID、入口定義（ラベルは `operationLabels.ts`、表は [operation-entries.md](operation-entries.md)） | `model`（ラベル・ショートカット定数など）。hooks / components は import しない |
+| `src/operations/`（PR 2 以降） | 操作 ID、入口定義（ラベルは `operationLabels.ts` と `contextMenuLabels.ts`、表は [operation-entries.md](operation-entries.md)）。右クリックは `contextMenuItems.tsx` | `model`（ラベル・ショートカット定数など）。hooks / components は import しない |
 | `src/components/`、`App.tsx` | UI、Konva、ダイアログ。操作の**実行**は hooks のコールバック | `operations`（定義）、`hooks`、`model` |
 | `src/hooks/` | 状態、副作用、MCP 橋、ファイル | `model`、`operations`（入口定義の参照のみ可）。`components` は import しない |
 | `src/model/` | 純粋関数、型、検証、座標、書き出し生成 | 同層の model のみ。`hooks` / `components` / `operations` は import しない |
@@ -77,7 +77,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 | ファイル | 役割 |
 | --- | --- |
 | `AppMenu.tsx` | ☰ メニュー |
-| `ContextMenu.tsx` | タスク、マイルストン、左のマイルストングループ名の行、カテゴリ、グループ、チャートの空きの右クリックメニュー。区切り、危険色の削除、Lucide アイコン、ショートカット表示。タスクは編集、複製、確度、ノート、系統、削除。マイルストングループ行は非表示と、条件付きのこの行だけ表示。カテゴリは名前の変更、下へのカテゴリ追加、グループ追加、条件付きの削除。グループは名前の変更、下へのグループ追加、条件付きの削除。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す。位置はクリック座標と `offsetWidth` / `offsetHeight` から `anchoredMenu.ts` の `menuShiftForRect` で一度だけ決める |
+| `ContextMenu.tsx` | タスク、マイルストン、左のマイルストングループ名の行、カテゴリ、グループ、チャートの空きの右クリックメニューの枠。項目の組み立ては `src/operations/contextMenuItems.tsx`（ラベルは `contextMenuLabels.ts`）。区切り、危険色の削除、Lucide アイコン、ショートカット表示。タスクは編集、複製、確度、ノート、系統、削除。マイルストングループ行は非表示と、条件付きのこの行だけ表示。カテゴリは名前の変更、下へのカテゴリ追加、グループ追加、条件付きの削除。グループは名前の変更、下へのグループ追加、条件付きの削除。マイルストンは編集、確度の切り替え、削除。日付ヘッダー、マイルストン帯の空き、チャート本体の空きは「マイルストンを追加」だけ。`#root` に出す。位置はクリック座標と `offsetWidth` / `offsetHeight` から `anchoredMenu.ts` の `menuShiftForRect` で一度だけ決める |
 | `TaskDetailPanel.tsx` | 選択が1件のときの右パネル。`applyTaskPatch` で項目ごとに履歴。`fields` があるときは追加項目を `setTaskFieldValue` で1キーずつ更新する。必須で値が空のときだけラベルに「空欄」を付ける。フォーカス中は外部反映を止める。保存は呼び出し時点の文書を土台に、利用者が変えた項目だけ上書きする。開始日と終了日は日付欄を変えたときだけ含める。日付のカレンダーへフォーカスが移っても、パネル内の編集として扱う。色の一覧を読めているウィンドウでは `displayColors` と解決済み配色を渡し、ステータスの直後に `ColorSelectField` で「色」を出す。一覧にある色は名前の左に小さな角丸の四角で示す |
 | `DateInput.tsx` | 日付欄。カレンダーは欄の下に空きが足りないとき上に開き、`datePopover.ts` が `anchoredMenu.ts` の `menuShiftForRect` で画面内に収める |
 | `BulkTaskDetailPanel.tsx` | 選択が2件以上のときの右パネル。共通値の表示と下書き。「件数に適用」で `applyBulkTaskDraft` を一度だけ呼ぶ。下書きがあるあいだは外部反映を止める。色の一覧を読めているウィンドウでは `displayColors` と解決済み配色を渡し、一括用の `ColorSelectField` で「色」を出す |
