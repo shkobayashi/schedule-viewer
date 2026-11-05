@@ -14,6 +14,7 @@
 - 操作名を正式名（☰・macOS・パレット・右クリック・案内・スキル）とツールバー略称（案内、日・週・月、追加）の二層に整理した。コマンドパレットの「検索へ移る」「選択中のタスクを編集／削除」「タスクを複製」を「検索」「編集」「削除」「複製」に短縮した。☰ と macOS ファイルメニューに「差分をコピー」と「設定」を揃え、Windows のやり直しヒントは Ctrl+Shift+Z を主に Ctrl+Y も併記する（#473）
 - `edit_plan` / `replace_schedule` でタスクが2件以上変わった成功のあと、LLM が `schedule-talk` の手順に従い `explain_view` と `explain_overlay` の両方で変えた場所を示し、チャットでも説明するよう、スキル・MCP ツール説明・文書を揃えた（#481）
 - 上記について、2件以上のときは `explain_overlay` を省略可能と読める表現をやめ、`summary` と `marks`（`kind: change` など）を必須にした（#481）
+- 初回案内用のサンプルデータは、開いた日（暦日）を基準にタスクとマイルストンの日付をずらし、参照日と同じ見え方（イナズマ線の遅れと先行が少し見える程度）になるようにした（#485）
 
 - 2.0 向けのアルファ Pre-release 手順を追加。版は `X.Y.Z-alpha.N` と `X.Y.Z-beta.N` を許容し、`npm run version:bump -- alpha` / `beta` / `stable` で alpha → beta → 安定版の順に進める。Pre-release は Latest と `updater-X` 更新の対象外である
 

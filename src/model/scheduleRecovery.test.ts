@@ -10,17 +10,17 @@ import {
   serializeScheduleDocument,
 } from "./scheduleFile";
 import {
-  sampleCategories,
-  sampleMilestoneGroups,
-  sampleMilestones,
+  sampleScheduleParts,
   SAMPLE_PROJECT_TITLE,
 } from "../sample/schedule";
+import { SAMPLE_REFERENCE_TODAY } from "../sample/anchorSample";
 
+const sampleParts = sampleScheduleParts(SAMPLE_REFERENCE_TODAY);
 const baselineJson = serializeScheduleDocument(
   SAMPLE_PROJECT_TITLE,
-  sampleCategories,
-  sampleMilestoneGroups,
-  sampleMilestones,
+  sampleParts.categories,
+  sampleParts.milestoneGroups,
+  sampleParts.milestones,
 );
 
 function draftJson(documentJson: string): string {
