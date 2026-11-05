@@ -47,6 +47,22 @@ describe("operationLabelLink", () => {
     ).toBe("下に章を追加");
   });
 
+  it("labels every operation id", () => {
+    for (const operationId of Object.values(OPERATION_ID)) {
+      expect(
+        contextMenuLabel(operationId, {
+          tentative: false,
+          lineageActive: false,
+          levelName: "段",
+          childName: "子",
+        }).length,
+      ).toBeGreaterThan(0);
+    }
+    expect(contextMenuLabel(OPERATION_ID.deleteHierarchy)).toBe(
+      OPERATION_FORMAL.deleteTask,
+    );
+  });
+
   it("aligns command palette IDs with OPERATION_ID values", () => {
     for (const id of COMMAND_PALETTE_OPERATION_IDS) {
       expect(id).toBe(OPERATION_ID[id as keyof typeof OPERATION_ID]);

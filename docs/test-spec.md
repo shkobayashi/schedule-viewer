@@ -20,7 +20,7 @@
 | Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査 |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1）。警告の上限を超えると失敗する。上限は [開発ガイド](development.md) |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
-| 操作の入口表（段階1） | `npm run check:operation-entries` | `operation-entries.md` と `OPERATION_FORMAL` / 右クリック固定 / MCP 名（P-CI-06） |
+| 操作の入口表（段階1） | `npm run check:operation-entries` | `operation-entries.md` と `OPERATION_FORMAL` / 右クリック固定 / MCP 名。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
 | 循環 import | `npm run check:madge-circular-baseline` | madge とベースライン JSON の一致。**CI frontend で失敗扱い** |
 | 重複（警告） | `npm run check:architecture-warn` | jscpd のみ。重複率の上限を超えても CI では失敗にしない。上限は [開発ガイド](development.md) |
 | カバレッジ | `npm run test:coverage` | Vitest coverage。閾値を下回ると CI で失敗する。数値と上げ方は [開発ガイド](development.md) |
@@ -347,9 +347,18 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `lists only unlink for a connection` | EDIT-11, EDIT-23 |
 | 同上 | `lists only unlink for a predecessor` | EDIT-11, EDIT-12 |
 | 同上 | `lists category adds and hides delete while the category has tasks` | EDIT-11, EDIT-18, EDIT-19 |
+| 同上 | `shows delete for an empty category when another category exists` | EDIT-11, EDIT-19 |
+| 同上 | `hides delete for the only category even when it has no tasks` | EDIT-11, EDIT-19 |
+| 同上 | `shows delete for an empty group that is not the only one` | EDIT-11, EDIT-19 |
 | 同上 | `lists group add and hides delete while it is the only group` | EDIT-11, EDIT-18, EDIT-19 |
 | 同上 | `lists milestone-group show-only only when another band has a mark` | EDIT-11, FILTER-11 |
 | 同上 | `lists outline adds without delete, and returns nothing when the outline is not aligned` | EDIT-11, EDIT-18 |
+| 同上 | `shows delete for an outline branch that can be removed` | EDIT-11, EDIT-19 |
+| `operationLabelLink.test.ts` | `maps shared operation IDs to OPERATION_FORMAL` | EDIT-11 |
+| 同上 | `keeps fixed context-menu labels from operation-entries` | EDIT-11 |
+| 同上 | `keeps dynamic labels` | EDIT-11 |
+| 同上 | `labels every operation id` | EDIT-11, EDIT-19 |
+| 同上 | `aligns command palette IDs with OPERATION_ID values` | NAV-07 |
 | `FirstRunHintCard.dom.test.tsx` | `shows the sample heading, three items, and two prepare buttons` | NAV-09 |
 | 同上 | `switches the heading when a file is open instead of the sample` | NAV-09 |
 | 同上 | `keeps the card and disables only the finished guide action` | NAV-09 |
@@ -1500,11 +1509,11 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | TC-EDIT-17c | EDIT-17, FILTER-01 | 同じカテゴリにグループが複数ある | タスク名で1つのグループだけ残す絞り込みをかけ、グループ行の左端の握りをドラッグする | 並べ替えは始まらない |
 | TC-EDIT-17d | EDIT-17, FILE-07 | パスのあるファイルを開いている | 同じカテゴリでグループの順だけ変え、「差分を表示」を開く | `並び グループ` の行が出る |
 | TC-EDIT-18 | EDIT-18, EDIT-10 | カテゴリが2件以上ある | カテゴリ行を右クリックし「下にカテゴリを追加」で名前を保存する。取り消す | 直後にカテゴリと空の「グループ」が足る。取り消し 1 回で戻る |
-| TC-EDIT-19 | EDIT-19, EDIT-10 | タスク0件のグループがあり、同じカテゴリに別のグループがある | そのグループ行を右クリックし「削除」を確認する。取り消す | グループが消える。取り消し 1 回で戻る。最後のグループ単体では「削除」は出ない |
+| TC-EDIT-19 | EDIT-19, EDIT-10 | タスク0件のグループがあり、同じカテゴリに別のグループがある | そのグループ行の「削除」を確認する。取り消す | グループが消える。取り消し 1 回で戻る。「削除」が出るか、最後のグループだけでは出ないかは自動テストで見る |
 | TC-EDIT-09 | EDIT-09 | 先行を持つタスクを選択 | 「削除」を確認する | タスクが消え、他の先行からも外れ、残ったタスク同士はつながらない |
 | TC-EDIT-09b | EDIT-09 | タスクを選んでいない | 「削除」を見る | 押せない |
 | TC-EDIT-09c | EDIT-09 | タスクを選択している | Delete または Backspace を押す | 削除確認が開く。検索欄にフォーカスがあるときは開かない。キャンセルでは消えない |
-| TC-EDIT-11 | EDIT-11 | サンプル | バーの本体を右クリックし、「ノート」を選ぶ。次に左のタスク行を右クリックする。選択後に見えるハンドルと、そのすぐ内側も右クリックする。カテゴリ行とグループ行も右クリックする | ノートが開く。区切りと削除の危険色、Enter・⌘/Ctrl+N・Delete の表示がある。左のタスク行は右クリックで選択され、左クリックでも選べる。チャートの空白では「マイルストンを追加」だけが出る。ハンドルと端の内側ではメニューが出ず、選択も変わらない。カテゴリ行では追加項目と、消せるときだけ「削除」が出る。グループ行も同様である |
+| TC-EDIT-11 | EDIT-11 | サンプル | バーの本体を右クリックし、「ノート」を選ぶ。次に左のタスク行を右クリックする。選択後に見えるハンドルと、そのすぐ内側も右クリックする。| ノートが開く。区切りと削除の危険色、Enter・⌘/Ctrl+N・Delete の表示がある。左のタスク行は右クリックで選択され、左クリックでも選べる。チャートの空白では「マイルストンを追加」だけが出る。ハンドルと端の内側ではメニューが出ず、選択も変わらない。カテゴリ行とグループ行の追加と、消せるときだけ「削除」が出ることは自動テストで見る |
 | TC-EDIT-11f | EDIT-11 | ウィンドウを縦に狭める | タスクを右クリックしてメニューを開く | メニューが上下に往復せず、画面内に収まった位置で止まる |
 | TC-EDIT-02e | EDIT-02, EDIT-04 | タスクを選び詳細パネルを開く | バー本体を横へドラッグして離す | 詳細パネルと左の開始・終了が、同じ日数だけ動く |
 | TC-EDIT-02f | EDIT-02, EDIT-11 | タスクを右クリックしてメニューを開いた直後 | バー本体を横へドラッグして離す | 日付が確定し、取り消し 1 回で戻る |

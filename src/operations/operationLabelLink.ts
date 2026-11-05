@@ -12,6 +12,7 @@ export const OPERATION_FORMAL_LINK: Partial<Record<OperationId, FormalKey>> = {
   [OPERATION_ID.addMilestone]: "addMilestone",
   [OPERATION_ID.editMilestone]: "editTask",
   [OPERATION_ID.deleteMilestone]: "deleteTask",
+  [OPERATION_ID.deleteHierarchy]: "deleteTask",
 };
 
 /** 右クリック専用の固定ラベル（`docs/operation-entries.md` の「右クリック」列）。 */
