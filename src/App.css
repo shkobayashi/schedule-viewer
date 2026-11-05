@@ -4014,16 +4014,49 @@ html[data-color-scheme="dark"] .command-palette {
   color: var(--text-secondary);
 }
 
+.shortcuts-table--entry {
+  table-layout: fixed;
+  width: 100%;
+}
+
 .shortcuts-table--entry th[scope="row"] {
+  width: 62%;
+  vertical-align: top;
   white-space: normal;
   font-size: calc(11px * var(--s));
   font-weight: var(--font-weight-medium);
   padding-right: calc(6px * var(--s));
 }
 
+.shortcuts-entry-action-label {
+  display: block;
+  white-space: nowrap;
+}
+
+.shortcuts-entry-action-note {
+  display: block;
+  margin-top: calc(2px * var(--s));
+  white-space: normal;
+  font-weight: var(--font-weight-regular);
+  font-size: calc(10px * var(--s));
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
 .shortcuts-table--entry td {
+  width: 38%;
   font-size: calc(11px * var(--s));
   white-space: nowrap;
+  vertical-align: top;
+  text-align: right;
+}
+
+.shortcuts-mode-capture {
+  margin-top: calc(4px * var(--s));
+}
+
+.shortcuts-mode-capture > .shortcuts-section-title {
+  margin-top: calc(20px * var(--s));
 }
 
 .shortcuts-section-title {

@@ -79,7 +79,12 @@ function ShortcutEntryGroup({ group }: { group: ShortcutReferenceGroup }) {
         <tbody>
           {group.rows.map((row) => (
             <tr key={row.action}>
-              <th scope="row">{row.action}</th>
+              <th scope="row">
+                <span className="shortcuts-entry-action-label">{row.action}</span>
+                {row.actionNote ? (
+                  <span className="shortcuts-entry-action-note">{row.actionNote}</span>
+                ) : null}
+              </th>
               <td>{row.keys}</td>
             </tr>
           ))}
