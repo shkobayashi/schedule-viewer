@@ -8,6 +8,9 @@ import { applyTaskColorId } from "./taskColorId";
 import { applyTaskNote } from "./taskNote";
 import { resolveTaskEditProgress } from "./taskTodos";
 import { applyTaskTags } from "./taskTags";
+import { forEachTask, mapTasks } from "./taskTraversal";
+
+export { forEachTask, mapTasks } from "./taskTraversal";
 import {
   SCHEDULE_SCHEMA_VERSION,
   type Category,
@@ -58,32 +61,6 @@ export function uniqueScheduleId(
     if (!taken.has(id)) return id;
   }
   throw new Error("スケジュール ID を作れませんでした");
-}
-
-export function forEachTask(
-  categories: Category[],
-  visit: (task: Task, place: { category: string; group: string }) => void,
-): void {
-  for (const category of categories) {
-    for (const group of category.groups) {
-      for (const task of group.tasks) {
-        visit(task, { category: category.name, group: group.name });
-      }
-    }
-  }
-}
-
-export function mapTasks(
-  categories: Category[],
-  update: (task: Task) => Task,
-): Category[] {
-  return categories.map((category) => ({
-    ...category,
-    groups: category.groups.map((group) => ({
-      ...group,
-      tasks: group.tasks.map(update),
-    })),
-  }));
 }
 
 export function findTaskInCategories(

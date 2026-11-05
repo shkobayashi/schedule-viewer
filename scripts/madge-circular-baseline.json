@@ -1,29 +1,18 @@
 {
   "schemaVersion": 1,
   "recordedAt": "2026-11-05",
-  "issue": "#490 M2",
+  "issue": "#490 M3a",
   "madgeRoot": "src",
   "extensions": [
     "ts",
     "tsx"
   ],
-  "cycleCount": 15,
+  "cycleCount": 4,
   "cycles": [
     "components/Toolbar.tsx > components/FilterPanel.tsx",
     "hooks/useScheduleFile.ts > hooks/scheduleFile/useScheduleStartupRecovery.ts",
-    "model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts",
-    "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/connections.ts",
-    "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/connections.ts > model/timeline.ts",
-    "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskFields.ts",
-    "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskTodos.ts",
-    "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskTodos.ts > model/outlineTaskMap.ts",
-    "model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts",
-    "model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts",
-    "model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/connections.ts",
-    "model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/validationMessages.ts",
-    "model/taskTags.ts > model/tasks.ts",
-    "model/tasks.ts > model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts",
-    "model/tasks.ts > model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskTodos.ts"
+    "model/taskTodos.ts > model/tasks.ts",
+    "model/validateSchedule.ts > model/taskTodos.ts > model/tasks.ts"
   ],
   "resolutionPlan": {
     "M1": {
@@ -51,10 +40,10 @@
       ],
       "cycles": []
     },
-    "M3": {
-      "summary": "validateSchedule ハブ（hierarchy、dependencies、tasks、scheduleSemantics、connections、validationMessages 等）。import 向きの分割のみ。最後にまとめる",
-      "cycleCount": 13,
-      "cycles": [
+    "M3a": {
+      "summary": "M3a（2026-11-05 PR）。taskRef、taskTraversal で hierarchy↔dependencies と taskTags↔tasks および validateSchedule ハブの大半を解消",
+      "cycleCount": 0,
+      "resolvedCycles": [
         "model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts",
         "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/connections.ts",
         "model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/connections.ts > model/timeline.ts",
@@ -68,6 +57,15 @@
         "model/taskTags.ts > model/tasks.ts",
         "model/tasks.ts > model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts",
         "model/tasks.ts > model/scheduleSemantics.ts > model/assigneeIds.ts > model/hierarchy.ts > model/dependencies.ts > model/validateSchedule.ts > model/taskTodos.ts"
+      ],
+      "cycles": []
+    },
+    "M3b": {
+      "summary": "残り model 2 環（taskTodos ↔ tasks ↔ validateSchedule）。ValidationIssue / formatValidationErrors の層と import 向き",
+      "cycleCount": 2,
+      "cycles": [
+        "model/taskTodos.ts > model/tasks.ts",
+        "model/validateSchedule.ts > model/taskTodos.ts > model/tasks.ts"
       ]
     },
     "UI": {

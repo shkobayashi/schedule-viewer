@@ -1,5 +1,5 @@
 import type { Category, Task } from "./types";
-import { forEachTask } from "./tasks";
+import { forEachTask } from "./taskTraversal";
 
 /** 保存用にタグを整形する。空白のみは捨て、重複は先のものを残す。0 件なら undefined。 */
 export function normalizeTaskTags(
