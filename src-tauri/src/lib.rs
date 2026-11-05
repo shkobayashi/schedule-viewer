@@ -3509,7 +3509,8 @@ mod tests {
     use std::path::PathBuf;
 
     use super::{
-        choose_open_directory, read_utf8, require_active_save_path, sanitize_export_filename,
+        choose_open_directory, read_utf8, require_active_save_path,
+        sanitize_catalog_id, sanitize_export_filename,
     };
 
     #[test]
@@ -3569,6 +3570,22 @@ mod tests {
         assert_eq!(
             choose_open_directory(Some("/tmp/missing"), false, None),
             None
+        );
+    }
+
+    #[test]
+    fn sanitize_catalog_id_rejects_empty_without_period() {
+        assert_eq!(
+            sanitize_catalog_id("  ").unwrap_err(),
+            "カタログ名が空です"
+        );
+    }
+
+    #[test]
+    fn sanitize_catalog_id_rejects_path_separators() {
+        assert_eq!(
+            sanitize_catalog_id("a/b").unwrap_err(),
+            "カタログ名に / や \\ は使えません"
         );
     }
 }

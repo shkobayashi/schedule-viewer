@@ -287,6 +287,31 @@
 | 同上 | `imports the sample only once when two seeds overlap` | SET-02 |
 | 同上 | `turns a storage failure into a user-facing error` | SET-02 |
 | 同上 | `does not restore a sample catalog after it was removed` | SET-02 |
+| `memberCatalogEditSession.test.ts` | `closes when the open catalog is removed` | SET-02, SET-08 |
+| 同上 | `reloads when another window overwrites the open catalog` | SET-02, SET-08 |
+| 同上 | `ignores self save reload` | SET-02, SET-08 |
+| 同上 | `ignores unrelated catalogs` | SET-02, SET-08 |
+| 同上 | `ignores when no catalog is open` | SET-02, SET-08 |
+| 同上 | `skips reload when saved and loaded items match` | SET-02, SET-08 |
+| 同上 | `reloads when an item name changed` | SET-02, SET-08 |
+| `memberCatalogEditHistory.test.ts` | `undoes one character at a time` | SET-02, SET-08 |
+| 同上 | `coalesces identical snapshots` | SET-08 |
+| 同上 | `restores selection when undoing a delete` | SET-08 |
+| 同上 | `redoes after undo` | SET-08 |
+| `catalogEditDraftMessages.test.ts` | `TC-SET-02m: memberDraftError reports blank name` | SET-02 |
+| 同上 | `TC-SET-02m: memberDraftError reports blank id` | SET-02 |
+| 同上 | `TC-SET-02m: memberDraftError reports duplicate id` | SET-02 |
+| 同上 | `TC-SET-02m: memberDescriptionErrorAt reports blank description` | SET-02 |
+| 同上 | `TC-SET-08e: statusDraftError reports blank name and duplicate id` | SET-08 |
+| 同上 | `TC-SET-08e: statusDescriptionErrorAt reports blank description` | SET-08 |
+| 同上 | `TC-SET-09h: colorDraftError reports blank name and duplicate id` | SET-09 |
+| `catalogEditImportMessages.test.ts` | `rejects empty catalog id with trailing period (members)` | SET-02 |
+| 同上 | `rejects duplicate catalog id (members)` | SET-02b |
+| 同上 | `rejects invalid members JSON on read after import` | SET-02 |
+| 同上 | `rejects invalid status JSON on read after import` | SET-08 |
+| 同上 | `rejects invalid colors JSON on read after import` | SET-09 |
+| 同上 | `rejects browser storage failure with fixed message` | SET-02, SET-08, SET-09 |
+| `colorCatalogEditSession.test.ts` | `ignores unrelated catalogs` | SET-09 |
 | `milestones.test.ts` | `rejects a blank name and an empty or impossible date` | EDIT-07 |
 | 同上 | `accepts a name that is only padded with spaces` | EDIT-07 |
 | 同上 | `appends a milestone without sorting or rejecting duplicates` | EDIT-07 |
@@ -887,6 +912,8 @@
 | `sanitize_export_filename_removes_path_separators` | パス区切りを除く | EXPORT-04 |
 | `sanitize_export_filename_uses_default_for_empty` | 空なら `schedule.html` | EXPORT-04 |
 | `sanitize_export_filename_adds_extension` | 拡張子を足す | EXPORT-04, FILE-02 |
+| `sanitize_catalog_id_rejects_empty_without_period` | 空のカタログ名（句点なし） | SET-02, SET-08, SET-09 |
+| `sanitize_catalog_id_rejects_path_separators` | `/` `\` を含むカタログ名 | SET-02, SET-08, SET-09 |
 | `export_xlsx::write_excel_bytes_produces_xlsx` | xlsx の先頭が ZIP である | EXPORT-05 |
 | 同上 | `screen_gridlines_are_off` | シートの `showGridLines` が 0 である | EXPORT-05 |
 | 同上 | `shape_pixel_dimensions_clamps_thin_lines` | EXPORT-05 |

@@ -64,7 +64,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 
 段 8 の後半（PR 7 以降）の目安順序:
 
-1. **カタログ編集共通化** — `ColorCatalogEditor*` / `Member*` / `Status*` の Overlay・Panel、`use*CatalogEditorOverlay`、`*AppData.ts`、設定の色・メンバー・ステータス節。先に C0 特性テスト
+1. **カタログ編集共通化** — `ColorCatalogEditor*` / `Member*` / `Status*` の Overlay・Panel、`use*CatalogEditorOverlay`、`*AppData.ts`、設定の色・メンバー・ステータス節。**C0**（特性テストのみ）: `memberCatalogEditSession.test.ts`、`memberCatalogEditHistory.test.ts`、`catalogEditDraftMessages.test.ts`、`catalogEditImportMessages.test.ts`、`colorCatalogEditSession.test.ts` の追補、Rust `sanitize_catalog_id` の `#[test]`。手動 TC との対応は `docs/test-spec.md` の Vitest 表
 2. **`Timeline.tsx`**（約 3,505 行）— T0 特性テストのあと、ヘッダー・バー・ポインタ・説明レイヤーを T1–T5 で分割
 3. **`model` の循環 import**（madge で約 30 件）— `validateSchedule` クラスタは M3 で最後。M0 でベースライン記録
 
