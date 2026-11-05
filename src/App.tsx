@@ -4203,6 +4203,34 @@ function App() {
     [addPredecessorLink, linkSourceId],
   );
 
+  useEffect(() => {
+    if (import.meta.env.MODE !== "manual-screenshot") return;
+    const openForCapture = () => {
+      const row =
+        document.querySelector<HTMLElement>(
+          ".sidebar-row.task.selected:not(.sidebar-row--explanation-trial)",
+        ) ??
+        document.querySelector<HTMLElement>(
+          ".sidebar-row.task:not(.sidebar-row--explanation-trial)",
+        );
+      const taskId = row?.dataset.taskId ?? null;
+      if (taskId == null) return;
+      openTaskContextMenu(taskId as ScheduleId, 520, 360);
+    };
+    (
+      window as Window & {
+        __manualScreenshotOpenTaskContextMenu?: () => void;
+      }
+    ).__manualScreenshotOpenTaskContextMenu = openForCapture;
+    return () => {
+      delete (
+        window as Window & {
+          __manualScreenshotOpenTaskContextMenu?: () => void;
+        }
+      ).__manualScreenshotOpenTaskContextMenu;
+    };
+  }, [openTaskContextMenu]);
+
   const contextMenuItems = useMemo((): ContextMenuItem[] => {
     if (contextMenu == null) return [];
     if (contextMenu.kind === "milestone") {

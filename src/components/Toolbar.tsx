@@ -468,6 +468,7 @@ export function Toolbar({
           className={`lineage-btn add-split-toggle${lineageName ? " active" : ""}`}
           aria-expanded={lineageMenuOpen}
           aria-label="系統の辿り方"
+          title="系統の辿り方（繋がりも辿る）"
           disabled={!canStartLineageWithConnections}
           onClick={() =>
             lineageMenuOpen ? closeLineageMenu() : openLineageMenu()
@@ -508,13 +509,11 @@ export function Toolbar({
         title={
           linkSourceName
             ? `${linkSourceName} から後続へ線を引いています。もう一度押すか、${linkKey} で中止`
-            : `選択中のタスクから、次にクリックしたタスクを後続にする（${linkKey}）`
+            : `${OPERATION_FORMAL.link}（${linkKey}）`
         }
         onClick={onToggleLink}
       >
-        <span className="toolbar-btn-label">
-          {linkSourceName ? `線を引く: ${linkSourceName}` : "線を引く"}
-        </span>
+        {linkSourceName ? `線を引く: ${linkSourceName}` : OPERATION_FORMAL.link}
       </button>
       <button
         type="button"

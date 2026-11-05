@@ -1610,6 +1610,7 @@ function TaskSidebarRow({
       className={`sidebar-row task${selected ? " selected" : ""}${hovered ? " hovered" : ""}${rowClass}${reordering ? " reordering" : ""}${explanationMarkClass}${readOnly ? " sidebar-row--explanation-trial" : ""}`}
       style={rowStyle}
       title={exceededTitle}
+      data-task-id={readOnly ? undefined : task.id}
       aria-selected={readOnly ? undefined : selected}
       data-explanation-overlay={readOnly ? "" : undefined}
       onClick={
