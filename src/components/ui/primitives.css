@@ -180,7 +180,7 @@ html[data-color-scheme="dark"] .ui-dialog-panel {
 }
 
 .ui-dialog-panel--shortcuts {
-  width: min(calc(480px * var(--s)), calc(100vw - calc(48px * var(--s))));
+  width: min(calc(720px * var(--s)), calc(100vw - calc(48px * var(--s))));
 }
 
 .ui-dialog-panel--guide {

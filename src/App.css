@@ -3986,6 +3986,46 @@ html[data-color-scheme="dark"] .command-palette {
   min-height: 0;
 }
 
+.shortcuts-entry-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: calc(12px * var(--s)) calc(28px * var(--s));
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .shortcuts-entry-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.shortcuts-entry-column {
+  display: flex;
+  flex-direction: column;
+  gap: calc(14px * var(--s));
+  min-width: 0;
+}
+
+.shortcuts-entry-group-title {
+  margin: 0 0 calc(4px * var(--s));
+  font-size: calc(11px * var(--s));
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.shortcuts-table--entry th[scope="row"] {
+  white-space: normal;
+  font-size: calc(11px * var(--s));
+  font-weight: var(--font-weight-medium);
+  padding-right: calc(6px * var(--s));
+}
+
+.shortcuts-table--entry td {
+  font-size: calc(11px * var(--s));
+  white-space: nowrap;
+}
+
 .shortcuts-section-title {
   margin: calc(16px * var(--s)) 0 calc(8px * var(--s));
   font-size: calc(13px * var(--s));

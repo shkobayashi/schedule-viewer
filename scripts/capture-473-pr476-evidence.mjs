@@ -354,6 +354,33 @@ async function captureShortcutsModeTable(page, scheme, written) {
 }
 
 async function captureShortcutsDialogBothSections(page, scheme, written) {
+  await prepareShortcutsDialogForCapture(page);
+  await page.evaluate(() => {
+    const overlay = document.querySelector(
+      '.ui-dialog-overlay[role="dialog"]:has(.shortcuts-entry-columns)',
+    );
+    const panel = document.querySelector(".ui-dialog-panel.shortcuts-modal");
+    const body = document.querySelector(".shortcuts-modal-body");
+    if (overlay instanceof HTMLElement) {
+      overlay.style.alignItems = "flex-start";
+      overlay.style.paddingTop = "12px";
+    }
+    if (panel instanceof HTMLElement) {
+      panel.style.maxHeight = "none";
+      panel.style.height = "auto";
+    }
+    if (body instanceof HTMLElement) {
+      body.scrollTop = 0;
+    }
+  });
+  await page.setViewportSize({ width: 1440, height: 1200 });
+  await page.waitForTimeout(120);
+  await page.waitForFunction(() => {
+    const grid = document.querySelector(".shortcuts-entry-columns");
+    if (!grid) return false;
+    const cols = getComputedStyle(grid).gridTemplateColumns;
+    return cols.split(" ").filter(Boolean).length >= 2;
+  });
   const selector = ".ui-dialog-panel.shortcuts-modal";
   const shortcutsPath = path.join(outDir, `menu-473-shortcuts-dialog-${scheme}.png`);
   await captureRegionScreenshot(
@@ -363,6 +390,37 @@ async function captureShortcutsDialogBothSections(page, scheme, written) {
     path.join(outDir, `menu-473-shortcuts-dialog-${scheme}-2x.png`),
   );
   written.push(shortcutsPath);
+}
+
+async function captureShortcutsDialogNarrow(page, scheme, written) {
+  await page.setViewportSize({ width: 420, height: 1400 });
+  await prepareShortcutsDialogForCapture(page);
+  await page.evaluate(() => {
+    const overlay = document.querySelector(
+      '.ui-dialog-overlay[role="dialog"]:has(.shortcuts-entry-columns)',
+    );
+    if (overlay instanceof HTMLElement) {
+      overlay.style.alignItems = "flex-start";
+      overlay.style.paddingTop = "8px";
+    }
+  });
+  await page.waitForTimeout(120);
+  await page.waitForFunction(() => {
+    const grid = document.querySelector(".shortcuts-entry-columns");
+    if (!grid) return false;
+    return getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length === 1;
+  });
+  const selector = ".ui-dialog-panel.shortcuts-modal";
+  const narrowPath = path.join(outDir, `menu-473-shortcuts-dialog-narrow-${scheme}.png`);
+  await captureRegionScreenshot(
+    page,
+    selector,
+    narrowPath,
+    path.join(outDir, `menu-473-shortcuts-dialog-narrow-${scheme}-2x.png`),
+  );
+  written.push(narrowPath);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(80);
 }
 
 async function captureRegionLocator(page, locator, outPath, out2xPath) {
@@ -547,9 +605,10 @@ async function main() {
       await page.keyboard.press("Escape");
 
       await page.locator(".shortcuts-btn").click();
+      await page.waitForSelector(".shortcuts-entry-columns", { timeout: 10_000 });
       await page.waitForSelector(".shortcuts-table--mode", { timeout: 10_000 });
-      await prepareShortcutsDialogForCapture(page);
       await captureShortcutsDialogBothSections(page, scheme, written);
+      await captureShortcutsDialogNarrow(page, scheme, written);
       await captureShortcutsModeTable(page, scheme, written);
       await page.keyboard.press("Escape");
     }

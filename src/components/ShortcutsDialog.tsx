@@ -5,7 +5,11 @@ import {
   modeKeyboardReferenceRows,
   type ModeKeyboardReferenceRow,
 } from "../model/modeKeyboardReference";
-import { shortcutReferenceRows, usesCommandKey } from "../model/shortcuts";
+import {
+  shortcutReferenceColumnGroups,
+  type ShortcutReferenceGroup,
+  usesCommandKey,
+} from "../model/shortcuts";
 
 type ShortcutsDialogProps = {
   open: boolean;
@@ -54,12 +58,53 @@ function ModeKeyboardNotes({ rows }: { rows: readonly ModeKeyboardReferenceRow[]
   );
 }
 
+function filterShortcutGroups(
+  groups: ShortcutReferenceGroup[],
+): ShortcutReferenceGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      rows: group.rows.filter(
+        (row) => isTauri() || row.action !== "新しいウィンドウで開く",
+      ),
+    }))
+    .filter((group) => group.rows.length > 0);
+}
+
+function ShortcutEntryGroup({ group }: { group: ShortcutReferenceGroup }) {
+  return (
+    <section className="shortcuts-entry-group">
+      <h4 className="shortcuts-entry-group-title">{group.title}</h4>
+      <table className="shortcuts-table shortcuts-table--entry">
+        <tbody>
+          {group.rows.map((row) => (
+            <tr key={row.action}>
+              <th scope="row">{row.action}</th>
+              <td>{row.keys}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function ShortcutEntryColumn({ groups }: { groups: ShortcutReferenceGroup[] }) {
+  return (
+    <div className="shortcuts-entry-column">
+      {groups.map((group) => (
+        <ShortcutEntryGroup key={group.title} group={group} />
+      ))}
+    </div>
+  );
+}
+
 export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
   if (!open) return null;
   const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
-  const rows = shortcutReferenceRows(commandKey).filter(
-    (row) => isTauri() || row.action !== "新しいウィンドウで開く",
-  );
+  const { start, end } = shortcutReferenceColumnGroups(commandKey);
+  const startGroups = filterShortcutGroups(start);
+  const endGroups = filterShortcutGroups(end);
   const modeRows = modeKeyboardReferenceRows();
   return (
     <ModalDialog
@@ -69,16 +114,10 @@ export function ShortcutsDialog({ open, onClose }: ShortcutsDialogProps) {
     >
       <div className="ui-dialog-body ui-dialog-body--scroll shortcuts-modal-body">
         <h3 className="shortcuts-section-title">操作の入口</h3>
-        <table className="shortcuts-table">
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.action}>
-                <th scope="row">{row.action}</th>
-                <td>{row.keys}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="shortcuts-entry-columns">
+          <ShortcutEntryColumn groups={startGroups} />
+          <ShortcutEntryColumn groups={endGroups} />
+        </div>
         <div id="shortcuts-mode-capture" className="shortcuts-mode-capture">
           <h3 className="shortcuts-section-title" id="shortcuts-section-mode">
             編集中・モード内

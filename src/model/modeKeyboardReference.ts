@@ -1,4 +1,6 @@
 export type ModeKeyboardReferenceRow = {
+  /** docs・テスト用の機能 ID（利用者向け文言には出さない） */
+  featureId?: string;
   /** ショートカット一覧の「場面」列 */
   mode: string;
   escape: string;
@@ -20,7 +22,8 @@ export const MODE_KEYBOARD_TABLE_INTRO =
 export const MODE_KEYBOARD_REFERENCE_ROWS: readonly ModeKeyboardReferenceRow[] =
   [
     {
-      mode: "階層の編集（EDIT-21）",
+      featureId: "EDIT-21",
+      mode: "階層の編集",
       escape: "閉じる",
       enter: "—",
       tab: "次の欄",
@@ -44,7 +47,8 @@ export const MODE_KEYBOARD_REFERENCE_ROWS: readonly ModeKeyboardReferenceRow[] =
       note: "未保存なら確認。確認の Esc は確認だけ閉じます。行の保存は「保存」ボタン。",
     },
     {
-      mode: "タスク詳細パネル（EDIT-04）",
+      featureId: "EDIT-04",
+      mode: "タスク詳細パネル",
       escape: "入力取り消し",
       enter: "確定",
       tab: "次の欄",
@@ -52,7 +56,8 @@ export const MODE_KEYBOARD_REFERENCE_ROWS: readonly ModeKeyboardReferenceRow[] =
       note: "Esc は TODO 追加の入力中だけ。パネル自体は Esc では閉じません。Enter はタグ・TODO 欄中心。",
     },
     {
-      mode: "線を引くモード（EDIT-05）",
+      featureId: "EDIT-05",
+      mode: "線を引くモード",
       escape: "終了",
       enter: "—",
       tab: "—",
@@ -60,7 +65,8 @@ export const MODE_KEYBOARD_REFERENCE_ROWS: readonly ModeKeyboardReferenceRow[] =
       note: "確定前の線は残しません。⌘/Ctrl+矢印はチャートのスクロール。",
     },
     {
-      mode: "絞り込みパネル（FILTER-01）",
+      featureId: "FILTER-01",
+      mode: "絞り込みパネル",
       escape: "閉じる",
       enter: "候補を選ぶ",
       tab: "次の欄",
