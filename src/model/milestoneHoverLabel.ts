@@ -6,6 +6,10 @@ import {
 } from "./milestones";
 import type { ScheduleId } from "./types";
 
+export type MilestoneHoverState = {
+  id: ScheduleId;
+};
+
 const LINE_HEIGHT_FACTOR = 1.25;
 
 export type MilestoneHoverLabelLayout = {

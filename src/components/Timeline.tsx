@@ -1,31 +1,27 @@
 import {
-  type ReactNode,
   useCallback,
-  useEffect,
   useMemo,
-  useState,
 } from "react";
-import { Group, Layer, Line, Rect, Stage } from "react-konva";
 import type Konva from "konva";
 import { parseDate } from "../model/dates";
 import {
-  hitTaskAnchor,
   hitTaskResizeEdge,
   type ChartPointer,
 } from "../model/chartHitTest";
-import { nearestLinkHit, type DependencyLink } from "../model/dependencies";
+import type { DependencyLink } from "../model/dependencies";
 import { useTimelinePointer } from "../hooks/useTimelinePointer";
 import { useTimelineChartPan } from "../hooks/useTimelineChartPan";
 import { useTimelineDragDates } from "../hooks/useTimelineDragDates";
 import { useTimelineLinkGesture } from "../hooks/useTimelineLinkGesture";
+import { useTimelineSpacePanArm } from "../hooks/useTimelineSpacePanArm";
+import { useTimelineMilestoneHover } from "../hooks/useTimelineMilestoneHover";
 import type { StatusItem } from "../model/statusCatalog";
 import type { ColorItem } from "../model/colorCatalog";
-import { rowFillForColorId } from "../model/colorCatalog";
-import { lightningDate } from "../model/timeline";
-import { MILESTONE_GUIDE_DASH, milestonesExceededBy } from "../model/milestones";
-import { resolveMilestoneHover } from "../model/milestoneHoverLabel";
-import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
 import { visibleDayIndexRange } from "../model/timelineVisibleDays";
+import { filterTimelineBodyGuideLineMilestones } from "../model/timelineBodyGuideMilestones";
+import { buildTimelineLightningPolyline } from "../model/timelineLightningPolyline";
+import { timelineDragDateChipMetrics } from "../model/timelineDragDateChipMetrics";
+import { LAYOUT_HEADER_HEIGHT } from "../model/layoutSizes";
 import type { Member, MemberId } from "../model/memberTypes";
 import type { StickyLayout } from "../model/stickyRows";
 import type {
@@ -40,26 +36,16 @@ import type {
 import type { CalendarDocument } from "../model/calendarTypes";
 import { paletteFor, type ResolvedColorScheme } from "../model/palette";
 import { MilestoneBand } from "./MilestoneBand";
-import { buildTimelineBodyColumnNodes } from "./timeline/TimelineBodyGrid";
 import { buildTimelineChartHeaderContent } from "./timeline/TimelineChartHeaderContent";
 import { TimelineHeaderPanel } from "./timeline/TimelineHeaderPanel";
-import { TimelineSummaryBar as SummaryBar } from "./timeline/TimelineSummaryBar";
-import { TimelineTaskBar as TaskBar } from "./timeline/TimelineTaskBar";
-import { TimelineResizeHandles as ResizeHandles } from "./timeline/TimelineResizeHandles";
-import { TimelineDragDateLabels } from "./timeline/TimelineDragDateLabels";
-import {
-  TimelineLinkPreviewArrow,
-  TimelinePredecessorLinks,
-} from "./timeline/TimelineConnectionLinks";
-import { TimelineConnectionArcs } from "./timeline/TimelineConnectionArcs";
+import { buildTimelineBodyBackgroundContent } from "./timeline/TimelineBodyBackground";
+import { buildTimelineStickyParentRowContent } from "./timeline/TimelineStickyParentRows";
+import { TimelineChartBodyStage } from "./timeline/TimelineChartBodyStage";
 import { useTimelineExplanationLayers } from "../hooks/useTimelineExplanationLayers";
 import { buildTimelineMilestoneBandExplanationProps } from "../model/timelineExplanationBandProps";
 import type { ExplanationOverlayState } from "../model/explainOverlay";
 import { isExplanationTrialVisibleRow } from "../model/explainOverlayPatterns";
-import {
-  TimelineBodyExplanationBalloons,
-  TimelineStageExplanationLayers,
-} from "./timeline/TimelineBodyExplanationLayers";
+import { TimelineBodyExplanationBalloons } from "./timeline/TimelineBodyExplanationLayers";
 import { TimelineMilestoneExplanationBalloons } from "./timeline/TimelineMilestoneExplanationBalloons";
 import {
   applyDragPreviewsToTimelineAnchors,
@@ -70,7 +56,6 @@ import { buildTimelineLinkPreviewPoints } from "../model/timelineLinkPreviewPoin
 import { prepareTimelineConnectionArcs } from "../model/timelinePreparedConnectionArcs";
 import {
   MilestoneHoverOverlay,
-  type MilestoneHoverState,
 } from "./MilestoneHoverOverlay";
 
 type TimelineProps = {
@@ -230,11 +215,11 @@ export function Timeline({
     [colorScheme],
   );
   const todayDate = useMemo(() => parseDate(today), [today]);
+  const { dateFontSize, datePadX, datePadY, dateGap } = useMemo(
+    () => timelineDragDateChipMetrics(headerHeight),
+    [headerHeight],
+  );
   const scale = headerHeight / LAYOUT_HEADER_HEIGHT;
-  const dateFontSize = Math.max(8, Math.round(11 * scale));
-  const datePadX = Math.max(3, Math.round(4 * scale));
-  const datePadY = Math.max(1, Math.round(2 * scale));
-  const dateGap = Math.max(4, Math.round(4 * scale));
   const {
     dragPreviews,
     registerDragCancel,
@@ -254,76 +239,25 @@ export function Timeline({
     bodyHeight,
     onBarDragActiveChange,
   });
-  const [milestoneHoverId, setMilestoneHoverId] =
-    useState<ScheduleId | null>(null);
-
-  const milestoneHover =
-    milestoneHoverId == null
-      ? null
-      : resolveMilestoneHover(
-          milestoneHoverId,
-          milestoneBandLayout,
-          milestoneLaneHeight,
-          milestoneDiamondSize,
-          milestoneFontSize,
-          dateToX,
-        );
-
-  useEffect(() => {
-    if (milestoneHoverId != null && milestoneHover == null) {
-      setMilestoneHoverId(null);
-    }
-  }, [milestoneHover, milestoneHoverId]);
-
-  const onHoverMilestone = useCallback((hover: MilestoneHoverState | null) => {
-    setMilestoneHoverId(hover?.id ?? null);
-  }, []);
+  const { milestoneHover, onHoverMilestone } = useTimelineMilestoneHover({
+    milestoneBandLayout,
+    milestoneLaneHeight,
+    milestoneDiamondSize,
+    milestoneFontSize,
+    dateToX,
+  });
 
   const bodyGuideLineMilestones = useMemo(
     () =>
-      milestones.filter(
-        (milestone) =>
-          milestoneGuideLineIds.has(milestone.id) &&
-          milestoneBandLayout.centerYById.has(milestone.id),
-      ),
+      filterTimelineBodyGuideLineMilestones({
+        milestones,
+        milestoneGuideLineIds,
+        milestoneCenterYById: milestoneBandLayout.centerYById,
+      }),
     [milestones, milestoneBandLayout.centerYById, milestoneGuideLineIds],
   );
 
-  const [spacePanArmed, setSpacePanArmed] = useState(false);
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || event.repeat) return;
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
-          target.isContentEditable ||
-          target.tagName === "BUTTON" ||
-          target.closest("button, a, [role='button']"))
-      ) {
-        return;
-      }
-      if (
-        target !== document.body &&
-        !(target instanceof HTMLElement && target.closest(".timeline-body"))
-      ) {
-        return;
-      }
-      event.preventDefault();
-      setSpacePanArmed(true);
-    };
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code === "Space") setSpacePanArmed(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-    };
-  }, []);
+  const spacePanArmed = useTimelineSpacePanArm();
   const dayRange = useMemo(
     () => visibleDayIndexRange(scrollX, pxPerDay, width, totalDays),
     [pxPerDay, scrollX, totalDays, width],
@@ -374,36 +308,59 @@ export function Timeline({
     [sticky.hiddenIndexes],
   );
 
-  const bgContent = useMemo(() => {
-    const elements: ReactNode[] = [];
-    const height = bodyHeight;
-
-    for (let index = 0; index < visibleRows.length; index += 1) {
-      if (stickyHidden.has(index)) continue;
-      const row = visibleRows[index];
-      if (row.type !== "task") continue;
-      const fill = rowFillForColorId(rowColors, row.task.colorId, colorScheme);
-      if (fill == null) continue;
-      const y = row.y - scrollY;
-      if (y + rowHeight < 0 || y > height) continue;
-      elements.push(
-        <Rect
-          key={`row-fill-${row.task.id}`}
-          x={0}
-          y={y}
-          width={width}
-          height={rowHeight}
-          fill={fill}
-          listening={false}
-        />,
-      );
-    }
-
-    elements.push(
-      ...buildTimelineBodyColumnNodes({
-        keyPrefix: "",
+  const bgContent = useMemo(
+    () =>
+      buildTimelineBodyBackgroundContent({
+        visibleRows,
+        stickyHidden,
+        scrollY,
+        rowHeight,
+        bodyHeight,
         width,
-        height,
+        tier,
+        timelineStart,
+        timelineEnd,
+        totalDays,
+        dayStart: dayRange.start,
+        dayEnd: dayRange.end,
+        dateToX,
+        pxPerDay,
+        calendar,
+        chart,
+        rowColors,
+        colorScheme,
+      }),
+    [
+      bodyHeight,
+      calendar,
+      colorScheme,
+      dateToX,
+      dayRange.end,
+      dayRange.start,
+      pxPerDay,
+      rowHeight,
+      rowColors,
+      scrollY,
+      stickyHidden,
+      tier,
+      timelineEnd,
+      timelineStart,
+      totalDays,
+      visibleRows,
+      width,
+      chart,
+    ],
+  );
+
+  const stickyContent = useMemo(
+    () =>
+      buildTimelineStickyParentRowContent({
+        sticky,
+        visibleRows,
+        width,
+        bodyHeight,
+        rowHeight,
+        barHeight,
         tier,
         timelineStart,
         timelineEnd,
@@ -415,149 +372,40 @@ export function Timeline({
         calendar,
         chart,
       }),
-    );
+    [
+      barHeight,
+      bodyHeight,
+      calendar,
+      chart,
+      dateToX,
+      dayRange.end,
+      dayRange.start,
+      pxPerDay,
+      rowHeight,
+      sticky,
+      tier,
+      timelineEnd,
+      timelineStart,
+      totalDays,
+      visibleRows,
+      width,
+    ],
+  );
 
-    for (let index = 0; index < visibleRows.length; index += 1) {
-      if (stickyHidden.has(index)) continue;
-      const row = visibleRows[index];
-      const y = row.y - scrollY + rowHeight;
-      if (y < 0 || y > height) continue;
-      elements.push(
-        <Line
-          key={`hr-${row.y}`}
-          points={[0, y, width, y]}
-          stroke={chart.rowBorder}
-          strokeWidth={1}
-          listening={false}
-        />,
-      );
-    }
-
-    return elements;
-  }, [
-    bodyHeight,
-    calendar,
-    dateToX,
-    dayRange.end,
-    dayRange.start,
-    pxPerDay,
-    rowHeight,
-    totalDays,
-    scrollY,
-    tier,
-    timelineEnd,
-    timelineStart,
-    stickyHidden,
-    visibleRows,
-    width,
-    chart,
-    rowColors,
-    colorScheme,
-  ]);
-
-  const stickyContent = useMemo(() => {
-    return sticky.draws.map((draw) => {
-      const row = visibleRows[draw.index];
-      if (
-        row == null ||
-        (row.type !== "category" &&
-          row.type !== "group" &&
-          row.type !== "hierarchy")
-      ) {
-        return null;
-      }
-      const clipHeight = draw.clipBottom - draw.clipTop;
-      if (clipHeight <= 0) return null;
-      const showSummary =
-        row.summary != null &&
-        (row.type === "category" ||
-          row.type === "group" ||
-          row.type === "hierarchy");
-      return (
-        <Group
-          key={`sticky-${draw.index}`}
-          clipX={0}
-          clipY={draw.clipTop}
-          clipWidth={width}
-          clipHeight={clipHeight}
-          listening={false}
-        >
-          <Rect
-            x={0}
-            y={draw.top}
-            width={width}
-            height={rowHeight}
-            fill="transparent"
-            listening={false}
-          />
-          {buildTimelineBodyColumnNodes({
-            keyPrefix: `s${draw.index}-`,
-            width,
-            height: bodyHeight,
-            tier,
-            timelineStart,
-            timelineEnd,
-            totalDays,
-            dayStart: dayRange.start,
-            dayEnd: dayRange.end,
-            dateToX,
-            pxPerDay,
-            calendar,
-            chart,
-          })}
-          <Line
-            points={[0, draw.top + rowHeight, width, draw.top + rowHeight]}
-            stroke={chart.rowBorder}
-            strokeWidth={1}
-            listening={false}
-          />
-          {showSummary ? (
-            <SummaryBar
-              summary={row.summary!}
-              y={draw.top}
-              rowHeight={rowHeight}
-              barHeight={barHeight}
-              dateToX={dateToX}
-              chart={chart}
-            />
-          ) : null}
-        </Group>
-      );
-    });
-  }, [
-    barHeight,
-    bodyHeight,
-    calendar,
-    chart,
-    dateToX,
-    dayRange.end,
-    dayRange.start,
-    pxPerDay,
-    rowHeight,
-    sticky.draws,
-    tier,
-    timelineEnd,
-    timelineStart,
-    totalDays,
-    visibleRows,
-    width,
-  ]);
-
-  const lightningPoints = useMemo(() => {
-    const tx = dateToX(todayDate);
-    const points = [tx, 0];
-    for (const row of visibleRows) {
-      if (row.type === "task" && isExplanationTrialVisibleRow(row)) continue;
-      const y = row.y - scrollY + rowHeight / 2;
-      const x =
-        row.type === "task"
-          ? dateToX(parseDate(lightningDate(row.task, today, statuses)))
-          : tx;
-      points.push(x, y);
-    }
-    points.push(tx, bodyHeight);
-    return points;
-  }, [bodyHeight, dateToX, rowHeight, scrollY, statuses, today, todayDate, visibleRows]);
+  const lightningPoints = useMemo(
+    () =>
+      buildTimelineLightningPolyline({
+        visibleRows,
+        scrollY,
+        rowHeight,
+        bodyHeight,
+        today,
+        todayDate,
+        statuses,
+        dateToX,
+      }),
+    [bodyHeight, dateToX, rowHeight, scrollY, statuses, today, todayDate, visibleRows],
+  );
 
   const soleSelectedId =
     selectedTaskIds.size === 1 ? selectedTaskIds.values().next().value : null;
@@ -813,392 +661,73 @@ export function Timeline({
         className={`timeline-body${linkMode ? " linking" : ""}${panning ? " panning" : ""}`}
         ref={bodyRef}
       >
-        <Stage
+        <TimelineChartBodyStage
           width={width}
-          height={bodyHeight}
-          onWheel={onWheelBody}
-          onMouseDown={onBodyMouseDown}
-          onMouseUp={endPan}
-          onContextMenu={(e) => {
-            e.evt.preventDefault();
-            const stage = e.target.getStage();
-            const pos = stage?.getPointerPosition();
-            if (!pos) return;
-            if (resizeHitAt(pos) != null) return;
-            if (pos.y < sticky.clipTop) {
-              if (linkMode) return;
-              onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
-              return;
-            }
-            const overTask =
-              hitTaskAnchor(pos, liveAnchors, barHeight, {
-                linkMode,
-                selectedTaskId,
-              }) != null;
-            if (overTask) return;
-            const hit = nearestLinkHit(linkPolylines, pos.x, pos.y);
-            if (hit) {
-              onLinkContextMenu(
-                hit.fromId,
-                hit.toId,
-                e.evt.clientX,
-                e.evt.clientY,
-                hit.kind ?? "predecessor",
-              );
-              return;
-            }
-            if (linkMode) return;
-            onAddMilestoneContextMenu(pos.x, e.evt.clientX, e.evt.clientY);
-          }}
-          onClick={(e) => {
-            if (linkMode) return;
-            // Konva は右ボタンの mouseup でも click を出す。右クリックは選択を外さない。
-            if (e.evt.button !== 0) return;
-            if (suppressClickRef.current) {
-              suppressClickRef.current = false;
-              return;
-            }
-            const stage = e.target.getStage();
-            const pos = stage?.getPointerPosition();
-            if (pos != null && resizeHitAt(pos) != null) return;
-            if (e.target === stage) onClearSelection();
-          }}
-          onTap={(e) => {
-            if (linkMode) return;
-            const stage = e.target.getStage();
-            const pos = stage?.getPointerPosition();
-            if (pos != null && resizeHitAt(pos) != null) return;
-            if (e.target === stage) onClearSelection();
-          }}
-        >
-          <Layer listening={false}>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-              listening={false}
-            >
-              {bgContent}
-            </Group>
-          </Layer>
-          <Layer listening={false}>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-              listening={false}
-            >
-              <TimelinePredecessorLinks
-                linkPolylines={linkPolylines}
-                hover={hover}
-                chart={chart}
-              />
-            </Group>
-          </Layer>
-          <Layer>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-            >
-            {hover.hoverTaskId != null &&
-            hover.hoverTaskId !== selectedTaskId &&
-            visibleRows.find(
-              (row) =>
-                row.type === "task" && row.task.id === hover.hoverTaskId,
-            ) ? (
-              <Rect
-                key={`hover-row-${hover.hoverTaskId}`}
-                x={0}
-                y={
-                  (
-                    visibleRows.find(
-                      (row) =>
-                        row.type === "task" &&
-                        row.task.id === hover.hoverTaskId,
-                    )!
-                  ).y - scrollY
-                }
-                width={width}
-                height={rowHeight}
-                fill={cssPalette.hoverRow}
-                listening={false}
-              />
-            ) : null}
-            {multiSelectedRows.map((row) =>
-              row.type === "task" ? (
-                <Rect
-                  key={`selected-row-${row.task.id}`}
-                  x={0}
-                  y={row.y - scrollY}
-                  width={width}
-                  height={rowHeight}
-                  fill={cssPalette.selectedRow}
-                  listening={false}
-                />
-              ) : null,
-            )}
-            {visibleRows.map((row, index) => {
-              if (row.type === "task" || stickyHidden.has(index)) return null;
-              const y = row.y - scrollY;
-              if (y + rowHeight < 0 || y > bodyHeight) return null;
-              if (row.summary == null) return null;
-              return (
-                <SummaryBar
-                  key={`${row.type}-${row.type === "group" ? row.category : ""}-${row.label}-${row.y}`}
-                  summary={row.summary}
-                  y={y}
-                  rowHeight={rowHeight}
-                  barHeight={barHeight}
-                  dateToX={dateToX}
-                  chart={chart}
-                />
-              );
-            })}
-            {visibleRows.map((row) => {
-              if (row.type !== "task" || isExplanationTrialVisibleRow(row)) return null;
-              const y = row.y - scrollY;
-              if (y + rowHeight < 0 || y > bodyHeight) return null;
-              return (
-                <TaskBar
-                  key={row.task.id}
-                  task={row.task}
-                  y={y}
-                  rowHeight={rowHeight}
-                  barHeight={barHeight}
-                  pxPerDay={pxPerDay}
-                  dateToX={dateToX}
-                  exceeded={milestonesExceededBy(row.task, milestones)}
-                  selected={selectedTaskIds.has(row.task.id)}
-                  selectedTaskIds={selectedTaskIds}
-                  allowResizeEdges={
-                    !selectedTaskIds.has(row.task.id) ||
-                    selectedTaskIds.size <= 1
-                  }
-                  linkMode={linkMode}
-                  linkTarget={
-                    linkMode &&
-                    hover.hoverTaskId === row.task.id &&
-                    row.task.id !== linkSourceId
-                  }
-                  onLinkBarPointerDown={linkBarPointerDown}
-                  onSelect={(e) => {
-                    if (suppressClickRef.current) {
-                      suppressClickRef.current = false;
-                      return;
-                    }
-                    if (linkMode) return;
-                    onSelectTask(row.task.id, {
-                      shiftKey: e.evt.shiftKey,
-                      metaKey: e.evt.metaKey,
-                      ctrlKey: e.evt.ctrlKey,
-                    });
-                  }}
-                  onOpenEdit={() => {
-                    if (linkPressRef.current) return;
-                    onOpenEdit(row.task);
-                  }}
-                  onContextMenu={(x, y) => onTaskContextMenu(row.task.id, x, y)}
-                  onMoveTask={(delta, taskIds) =>
-                    onMoveTask(row.task.id, delta, taskIds)
-                  }
-                  onResizeStart={(groupX) =>
-                    onResizeStart(row.task.id, groupX)
-                  }
-                  onResizeEnd={(groupX, barWidth) =>
-                    onResizeEnd(row.task.id, groupX, barWidth)
-                  }
-                  onDragGeometry={onDragGeometry}
-                  onBeginPan={beginPan}
-                  panScrollArmed={spacePanArmed}
-                  onDragMoved={() => {
-                    suppressClickRef.current = true;
-                  }}
-                  registerDragCancel={registerDragCancel}
-                  chart={chart}
-                  dragLeft={
-                    dragPreviews?.find(
-                      (preview) =>
-                        preview.taskId === row.task.id &&
-                        preview.kind !== "move",
-                    )?.barLeft
-                  }
-                  dragWidth={
-                    dragPreviews?.find(
-                      (preview) =>
-                        preview.taskId === row.task.id &&
-                        preview.kind !== "move",
-                    )?.barWidth
-                  }
-                  today={today}
-                  statuses={statuses}
-                  memberCatalog={memberCatalog}
-                  colorScheme={colorScheme}
-                  tier={tier}
-                />
-              );
-            })}
-            </Group>
-          </Layer>
-          <Layer listening={false}>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-              listening={false}
-            >
-              <TimelineConnectionArcs
-                preparedConnectionArcs={preparedConnectionArcs}
-                hover={hover}
-                chart={chart}
-                visibleRows={visibleRows}
-                scrollY={scrollY}
-                rowHeight={rowHeight}
-                barHeight={barHeight}
-                bodyHeight={bodyHeight}
-                dateToX={dateToX}
-                pxPerDay={pxPerDay}
-                tier={tier}
-                memberCatalog={memberCatalog}
-                liveAnchors={liveAnchors}
-              />
-            </Group>
-          </Layer>
-          <Layer listening={false}>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-              listening={false}
-            >
-              <TimelineLinkPreviewArrow
-                previewPoints={previewPoints}
-                chart={chart}
-              />
-            </Group>
-          </Layer>
-          <Layer listening={false}>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-              listening={false}
-            >
-              {bodyGuideLineMilestones.map((milestone) => (
-                <Line
-                  key={milestone.id}
-                  points={[
-                    dateToX(parseDate(milestone.date)),
-                    sticky.clipTop,
-                    dateToX(parseDate(milestone.date)),
-                    bodyHeight,
-                  ]}
-                  stroke={chart.milestoneGuideLine}
-                  strokeWidth={1}
-                  dash={[...MILESTONE_GUIDE_DASH]}
-                  listening={false}
-                />
-              ))}
-              <Line
-                points={[
-                  dateToX(todayDate),
-                  sticky.clipTop,
-                  dateToX(todayDate),
-                  bodyHeight,
-                ]}
-                stroke={cssPalette.accent}
-                strokeWidth={1}
-                opacity={0.85}
-                listening={false}
-              />
-            </Group>
-          </Layer>
-          <Layer listening={false}>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-              listening={false}
-            >
-              {showLightningLine ? (
-              <Line
-                points={lightningPoints}
-                stroke={chart.lightning}
-                strokeWidth={1.5}
-                opacity={0.55}
-                lineJoin="round"
-                lineCap="round"
-                listening={false}
-              />
-              ) : null}
-            </Group>
-          </Layer>
-          <Layer>
-            <Group
-              clipX={0}
-              clipY={sticky.clipTop}
-              clipWidth={width}
-              clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-            >
-            {selectedRow && selectedRow.type === "task" && !linkMode ? (
-              <ResizeHandles
-                key={selectedRow.task.id}
-                task={selectedRow.task}
-                y={selectedRow.y - scrollY}
-                rowHeight={rowHeight}
-                barHeight={barHeight}
-                pxPerDay={pxPerDay}
-                dateToX={dateToX}
-                onResizeStart={(groupX) =>
-                  onResizeStart(selectedRow.task.id, groupX)
-                }
-                onResizeEnd={(groupX, barWidth) =>
-                  onResizeEnd(selectedRow.task.id, groupX, barWidth)
-                }
-                onDragGeometry={onDragGeometry}
-                registerDragCancel={registerDragCancel}
-                chart={chart}
-              />
-            ) : null}
-            {dragPreviews?.map((preview) => (
-              <TimelineDragDateLabels
-                key={preview.taskId}
-                preview={preview}
-                fontSize={dateFontSize}
-                padX={datePadX}
-                padY={datePadY}
-                gap={dateGap}
-                viewportWidth={width}
-                viewportHeight={bodyHeight}
-                barHeight={barHeight}
-                obstacles={dragObstacles}
-                chart={chart}
-              />
-            ))}
-            </Group>
-            {stickyContent}
-          </Layer>
-          <TimelineStageExplanationLayers
-            active={explanationActive}
-            width={width}
-            bodyHeight={bodyHeight}
-            colorScheme={colorScheme}
-            clipTop={sticky.clipTop}
-            clipHeight={Math.max(0, bodyHeight - sticky.clipTop)}
-            geometry={explanationOverlayGeometry}
-            trialBars={explanationTrialBars}
-            predecessorArcs={explanationTrialPredecessorArcs}
-            connectionArcColor={chart.connectionArc}
-            connectionArcHaloColor={chart.connectionArcHalo}
-          />
-        </Stage>
+          bodyHeight={bodyHeight}
+          onWheelBody={onWheelBody}
+          onBodyMouseDown={onBodyMouseDown}
+          endPan={endPan}
+          resizeHitAt={resizeHitAt}
+          sticky={sticky}
+          linkMode={linkMode}
+          onAddMilestoneContextMenu={onAddMilestoneContextMenu}
+          liveAnchors={liveAnchors}
+          barHeight={barHeight}
+          selectedTaskId={selectedTaskId}
+          linkPolylines={linkPolylines}
+          onLinkContextMenu={onLinkContextMenu}
+          suppressClickRef={suppressClickRef}
+          onClearSelection={onClearSelection}
+          bgContent={bgContent}
+          hover={hover}
+          visibleRows={visibleRows}
+          scrollY={scrollY}
+          rowHeight={rowHeight}
+          cssPalette={cssPalette}
+          multiSelectedRows={multiSelectedRows}
+          milestones={milestones}
+          selectedTaskIds={selectedTaskIds}
+          linkSourceId={linkSourceId}
+          linkBarPointerDown={linkBarPointerDown}
+          onSelectTask={onSelectTask}
+          linkPressRef={linkPressRef}
+          onOpenEdit={onOpenEdit}
+          onTaskContextMenu={onTaskContextMenu}
+          onMoveTask={onMoveTask}
+          onResizeStart={onResizeStart}
+          onResizeEnd={onResizeEnd}
+          onDragGeometry={onDragGeometry}
+          beginPan={beginPan}
+          spacePanArmed={spacePanArmed}
+          registerDragCancel={registerDragCancel}
+          chart={chart}
+          dragPreviews={dragPreviews}
+          today={today}
+          statuses={statuses}
+          memberCatalog={memberCatalog}
+          colorScheme={colorScheme}
+          tier={tier}
+          preparedConnectionArcs={preparedConnectionArcs}
+          previewPoints={previewPoints}
+          bodyGuideLineMilestones={bodyGuideLineMilestones}
+          dateToX={dateToX}
+          todayDate={todayDate}
+          showLightningLine={showLightningLine}
+          lightningPoints={lightningPoints}
+          selectedRow={selectedRow}
+          stickyContent={stickyContent}
+          stickyHidden={stickyHidden}
+          dateFontSize={dateFontSize}
+          datePadX={datePadX}
+          datePadY={datePadY}
+          dateGap={dateGap}
+          dragObstacles={dragObstacles}
+          pxPerDay={pxPerDay}
+          explanationActive={explanationActive}
+          explanationOverlayGeometry={explanationOverlayGeometry}
+          explanationTrialBars={explanationTrialBars}
+          explanationTrialPredecessorArcs={explanationTrialPredecessorArcs}
+        />
         <TimelineBodyExplanationBalloons
           active={explanationActive}
           geometry={explanationOverlayGeometry}
