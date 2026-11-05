@@ -293,6 +293,47 @@ describe("buildContextMenuItems", () => {
     expect(calls.openAddGroupAfter).not.toHaveBeenCalled();
   });
 
+  it("shows delete for an empty category when another category exists", () => {
+    const empty = category("cat-empty", [group("group-empty", [])]);
+    const other = category("cat-2", [group("group-2", [task("task-2")])]);
+    const { items, calls } = itemsFor(
+      { kind: "category", id: "cat-empty" },
+      { categories: [empty, other] },
+    );
+    expect(itemIds(items)).toContain(OPERATION_ID.deleteHierarchy);
+    expect(labelOf(items, OPERATION_ID.deleteHierarchy)).toBe("削除");
+    select(items, OPERATION_ID.deleteHierarchy);
+    expect(calls.openDeleteHierarchy).toHaveBeenCalledWith("category", "cat-empty");
+    expect(calls.openAddCategoryAfter).not.toHaveBeenCalled();
+  });
+
+  it("hides delete for the only category even when it has no tasks", () => {
+    const only = category("cat-only", [group("group-only", [])]);
+    const { items } = itemsFor(
+      { kind: "category", id: "cat-only" },
+      { categories: [only] },
+    );
+    expect(itemIds(items)).not.toContain(OPERATION_ID.deleteHierarchy);
+    expect(labelOf(items, OPERATION_ID.addCategoryBelow)).toBe(
+      "下にカテゴリを追加",
+    );
+  });
+
+  it("shows delete for an empty group that is not the only one", () => {
+    const cat = category("cat-1", [
+      group("group-full", [task("task-1")]),
+      group("group-empty", []),
+    ]);
+    const { items, calls } = itemsFor(
+      { kind: "group", id: "group-empty" },
+      { categories: [cat] },
+    );
+    expect(itemIds(items)).toContain(OPERATION_ID.deleteHierarchy);
+    expect(labelOf(items, OPERATION_ID.deleteHierarchy)).toBe("削除");
+    select(items, OPERATION_ID.deleteHierarchy);
+    expect(calls.openDeleteHierarchy).toHaveBeenCalledWith("group", "group-empty");
+  });
+
   it("lists group add and hides delete while it is the only group", () => {
     const { items, calls } = itemsFor(
       { kind: "group", id: "group-1" },
@@ -374,5 +415,28 @@ describe("buildContextMenuItems", () => {
     select(items, OPERATION_ID.addOutlineChild);
     expect(calls.openAddOutlineChild).toHaveBeenCalledWith("branch-1");
     expect(calls.openAddOutlineSiblingAfter).not.toHaveBeenCalled();
+  });
+
+  it("shows delete for an outline branch that can be removed", () => {
+    const levels: ScheduleLevelDef[] = [
+      { name: "事業", meaning: "上" },
+      { name: "工程", meaning: "中" },
+      { name: "タスク", meaning: "下" },
+    ];
+    const outline: OutlineRoot = [
+      { id: "branch-1", name: "設計", children: [] },
+    ];
+    const { items, calls } = itemsFor(
+      { kind: "hierarchy", id: "branch-1" },
+      {
+        hierarchyAligned: true,
+        levels,
+        outline,
+        canDeleteOutlineBranch: () => true,
+      },
+    );
+    expect(labelOf(items, OPERATION_ID.deleteHierarchy)).toBe("削除");
+    select(items, OPERATION_ID.deleteHierarchy);
+    expect(calls.openDeleteHierarchy).toHaveBeenCalledWith("outline", "branch-1");
   });
 });
