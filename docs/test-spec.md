@@ -940,6 +940,13 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `includes header border and year-month label keys` | NAV-01, NAV-02 |
 | `summaryBarLayout.test.ts` | `keeps a minimum height and scales with bar height` | VIEW-04 |
 | `timelineTaskBars.test.ts` | `exports Konva bar components and shared resize helpers` | VIEW-04, EDIT-02 |
+| `timelinePointerLayers.test.ts` | `exports drag-date and link Konva components` | EDIT-02, EDIT-12 |
+| `timelineLiveAnchors.test.ts` | `adds linkRight at least six px past the bar left` | EDIT-02, EDIT-03 |
+| `timelineDragDatePreviews.test.ts` | `builds a primary preview for a single selected task move` | EDIT-02 |
+| `timelineLinkPolylines.test.ts` | `marks predecessor links broken when drag overrides break dependency dates` | EDIT-03, EDIT-12 |
+| `timelineLinkPreviewPoints.test.ts` | `builds polyline points from linkRight to preview` | EDIT-12 |
+| `timelinePreparedConnectionArcs.test.ts` | `returns empty when there are no connections` | EDIT-12 |
+| `connectionArcLabelFontSize.test.ts` | `scales with bar height and keeps a readable minimum` | VIEW-04 |
 | `colorScheme.test.ts` | `accepts light and dark` | SET-04 |
 | `autoUpdate.test.ts` | `treats on as enabled`、localStorage の読み書き、更新確認の失敗を出さない条件、`classifyUpdateCheckError` | SET-06 |
 | `storeDistribution.test.ts` | `readStoreDistribution` が Tauri で `is_store_distribution` を呼ぶ | SET-06 |
