@@ -10,6 +10,9 @@ function run(label, command, args) {
   if (result.stderr) process.stderr.write(result.stderr);
   if (result.status !== 0) {
     console.log(`(${label} exited with ${result.status}; CI treats this as a warning)`);
+    console.log(
+      "(Pin the cycle list with npm run check:madge-circular-baseline; see docs/model-circular-import-plan.md.)",
+    );
   }
 }
 

@@ -21,6 +21,7 @@
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1） |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
 | 循環・重複（警告） | `npm run check:architecture-warn` | madge 循環、jscpd。CI では失敗にしない |
+| madge 循環ベースライン | `npm run check:madge-circular-baseline` | M0 固定 30 件。解消 PR で JSON を更新 |
 | カバレッジ（警告） | `npm run test:coverage-warn` | Vitest coverage サマリ。CI では失敗にしない |
 | 型検査 | `npm run build` の中の `tsc` | `src` |
 | Clippy | `cd src-tauri && cargo clippy -- -D warnings` | Rust。警告をエラーにする |
@@ -49,6 +50,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | ファイル | ケース |
 | --- | --- |
 | `scripts/build-user-manual-site.test.mjs` | 同じページ内の `#見出し` は、その HTML の見出し id と照合する。無いときは HTML ファイル名を出して失敗する |
+| `scripts/check-madge-circular-baseline.test.mjs` | `check-madge-circular-baseline matches madge-circular-baseline.json` | — |
 
 ### Vitest
 
