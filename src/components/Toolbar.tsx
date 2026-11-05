@@ -12,7 +12,6 @@ import { activeFilterCount } from "../model/filterChips";
 import {
   addMilestoneShortcutHint,
   addTaskShortcutHint,
-  confidenceToggleShortcutHint,
   deleteShortcutHint,
   filterPanelShortcutHint,
   goTodayShortcutHint,
