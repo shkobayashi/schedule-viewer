@@ -14,7 +14,7 @@ import {
   addTaskShortcutHint,
   deleteShortcutHint,
   linkShortcutHint,
-  redoShortcutHint,
+  redoToolbarTitle,
   undoShortcutHint,
   usesCommandKey,
 } from "../model/shortcuts";
@@ -503,7 +503,7 @@ export function Toolbar({
       </div>
       <button
         type="button"
-        className={`lineage-btn toolbar-btn-with-shortcut${linkSourceName ? " active" : ""}`}
+        className={`lineage-btn${linkSourceName ? " active" : ""}`}
         disabled={!linkSourceName && !canStartLink}
         title={
           linkSourceName
@@ -515,29 +515,27 @@ export function Toolbar({
         <span className="toolbar-btn-label">
           {linkSourceName ? `線を引く: ${linkSourceName}` : "線を引く"}
         </span>
-        <span className="menu-shortcut">{linkKey}</span>
       </button>
       <button
         type="button"
-        className="toolbar-btn toolbar-btn-with-shortcut toolbar-btn-danger"
+        className="toolbar-btn toolbar-btn-danger"
         disabled={!canDelete}
         title={canDelete ? `${OPERATION_FORMAL.deleteTask}（${deleteShortcutHint()}）` : "タスクを選択してから削除"}
         onClick={onDelete}
       >
         <span>削除</span>
-        <span className="menu-shortcut">{deleteShortcutHint()}</span>
       </button>
         </>
       ) : null}
       <div className="add-split" ref={addButtonRef}>
         <button
           type="button"
-          className="toolbar-btn toolbar-btn-primary toolbar-btn-with-shortcut"
+          className="toolbar-btn toolbar-btn-primary"
+          title={`${OPERATION_FORMAL.addTask}（${addTaskShortcutHint(commandKey)}）`}
           onClick={onAdd}
         >
           <Plus size={16} strokeWidth={2.25} aria-hidden="true" />
           <span>{TOOLBAR_SHORT.addTask}</span>
-          <span className="menu-shortcut">{addTaskShortcutHint(commandKey)}</span>
         </button>
         <button
           type="button"
@@ -601,23 +599,21 @@ export function Toolbar({
       </div>
       <button
         type="button"
-        className="toolbar-btn toolbar-btn-with-shortcut"
+        className="toolbar-btn"
         disabled={!canUndo}
-        title="取り消し"
+        title={`取り消し（${undoShortcutHint(commandKey)}）`}
         onClick={onUndo}
       >
         <span>取り消し</span>
-        <span className="menu-shortcut">{undoShortcutHint(commandKey)}</span>
       </button>
       <button
         type="button"
-        className="toolbar-btn toolbar-btn-with-shortcut"
+        className="toolbar-btn"
         disabled={!canRedo}
-        title="やり直し"
+        title={redoToolbarTitle(commandKey)}
         onClick={onRedo}
       >
         <span>やり直し</span>
-        <span className="menu-shortcut">{redoShortcutHint(commandKey)}</span>
       </button>
       </div>
     </div>

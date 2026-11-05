@@ -129,8 +129,8 @@ export function CommandPalette({
       }}
     >
       <div className="command-palette" tabIndex={-1}>
-        <div className="modal-header command-palette-header">
-          <h2 id={titleId} className="command-palette-title">
+        <div className="ui-dialog-header command-palette-header">
+          <h2 id={titleId} className="ui-dialog-title command-palette-title">
             コマンド
           </h2>
           <DialogCloseButton onClose={onClose} />

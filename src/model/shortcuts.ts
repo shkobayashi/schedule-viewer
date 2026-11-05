@@ -222,6 +222,13 @@ export function redoShortcutHint(commandKey: boolean): string {
   return commandKey ? "⌘⇧Z" : "Ctrl+Shift+Z（Ctrl+Y も可）";
 }
 
+/** ツールバー tooltip 用（括弧を二重にしない） */
+export function redoToolbarTitle(commandKey: boolean): string {
+  return commandKey
+    ? "やり直し（⌘⇧Z）"
+    : "やり直し（Ctrl+Shift+Z、Ctrl+Y も可）";
+}
+
 export function findShortcutHint(commandKey: boolean): string {
   return commandKey ? "⌘F" : "Ctrl+F";
 }
