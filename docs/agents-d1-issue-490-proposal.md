@@ -35,7 +35,8 @@ Issue 本文の PR 1 表や「madge warn」表現は **#524 以前の記述**が
 
 - **D0** — 完了（#525）。AGENTS 8 原則、agents-agent-index / doc-update-map / pitfall-examples。
 - **D1** — skills 原則索引、internal-spec 履歴短縮、Cloud Agent 運用（development.md）、本提案文案、日本語 J1–J5。
-- **D2** — 完了（[agents-d2-inventory.md](agents-d2-inventory.md)）。`check:operation-entries`、review チェックリスト（P-AG-02/04/06）、再発代表節。**TODO（別 PR）:** D2 マージ後に `agents-d0-principles-analysis.md` と `agents-d0-inventory.md` を **1 ファイルに統合するか Issue 本文へ移す**（ユーザー指示。忘れないこと）。
+- **D2** — 完了（#527）。`check:operation-entries`、review チェック（P-AG-02/04/06）、再発代表節。
+- **統合** — 完了（D2 マージ後 PR）。作業記録は [agents-d0-inventory.md](agents-d0-inventory.md) 1 ファイル（§0・§分析・§6–§8）。
 
 ## 参照
 

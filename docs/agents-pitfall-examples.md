@@ -2,7 +2,7 @@
 
 [AGENTS.md](../AGENTS.md) の **8 原則** ごとに、過去に起きた型を **例** として束ねる。全文は [.cursor/skills/implement-change/SKILL.md](../.cursor/skills/implement-change/SKILL.md)（番号付き。**削らない**）。旧 51 の分割は [agents-implement-change-51-split.md](agents-implement-change-51-split.md)。
 
-落とし穴 ID とガード（Exists / Proposed D1/D2）: [agents-d0-inventory.md](agents-d0-inventory.md) §3。
+落とし穴 ID とガード: [agents-d0-inventory.md](agents-d0-inventory.md) §3（Issue #490 作業記録は同ファイル §0–§8）。
 
 ## implement-change 番号 → 原則（索引）
 

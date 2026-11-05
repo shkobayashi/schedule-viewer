@@ -52,7 +52,7 @@ flowchart TD
 
 ## コードの境界（#436 ステップ 8）
 
-Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline.tsx` 分割 → `model` 循環解消** は完了済みの履歴である。**この節が層・import・自動検査の正本**である。[AGENTS.md](../AGENTS.md) は 8 原則のみ（[agents-d0-principles-analysis.md](agents-d0-principles-analysis.md)）。要約は [agents-agent-index.md](agents-agent-index.md)。リファクタ PR では挙動を変えない（不具合・audit・性能は Issue #491 など別 Issue）。各塊は特性テストを先に足して小 PR に分ける。
+Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline.tsx` 分割 → `model` 循環解消** は完了済みの履歴である。**この節が層・import・自動検査の正本**である。[AGENTS.md](../AGENTS.md) は 8 原則のみ（分析・作業記録は [agents-d0-inventory.md](agents-d0-inventory.md) §分析）。要約は [agents-agent-index.md](agents-agent-index.md)。リファクタ PR では挙動を変えない（不具合・audit・性能は Issue #491 など別 Issue）。各塊は特性テストを先に足して小 PR に分ける。
 
 | 層 | 置くもの | import してよい先 |
 | --- | --- | --- |
