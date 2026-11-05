@@ -10,8 +10,6 @@ import {
   brokenLinkTaskIds,
   brokenLinkTaskIdsFromTasks,
   dropPredecessorLink,
-  lineageTaskIdsFromTasks,
-  lineageTaskIdsFromTasksWithConnections,
   tryAddPredecessorLink,
 } from "../model/dependencies";
 import {
@@ -80,49 +78,16 @@ import {
   setTaskFieldValueOnCategories,
 } from "../model/taskFields";
 import {
-  collectTagsFromTasks,
-  pruneSelectedTags,
-} from "../model/taskTags";
-import {
-  applyFieldFilterPatch,
-  pruneFieldFilters,
-  type FieldFilterCondition,
-} from "../model/fieldFilters";
-import {
-  hiddenMilestoneGroupIdsForShowOnly,
-  hiddenMilestoneIdsForShowOnly,
-  pruneHiddenMilestoneGroupIds,
-  pruneHiddenMilestoneIds,
-} from "../model/filterChips";
-import {
-  collapsedIdsFromSet,
-  collapsedSetFromIds,
-  defaultScheduleFilterViewState,
-  type ScheduleFilterViewState,
-  type SearchField,
-} from "../model/scheduleFilterPersistence";
-import {
-  displayedCollapsedSet,
   explainTaskIdsForFilter,
-  explainViewApplySuccessText,
-  explainViewClearSuccessText,
+  displayedCollapsedSet,
   explanationViewActive,
-  parseExplainViewRequest,
-  resolveExplanationMilestoneBand,
-  type ExplanationViewState,
-  type ExplainViewDocumentContext,
 } from "../model/explainView";
 import {
-  explainOverlayHideSuccessText,
-  explainOverlayShowSuccessText,
   explanationOverlayActive,
   explanationSessionActive,
-  parseExplainOverlayRequest,
-  type ExplanationOverlayState,
 } from "../model/explainOverlay";
 import { buildDisplayVisibleRowsWithExplanationTrials } from "../model/explainOverlayPatterns";
 import {
-  planExplanationOverlayScroll,
   type ExplanationScrollPlan,
   type PlanExplanationScrollInput,
 } from "../model/explainOverlayLayout";
@@ -133,6 +98,11 @@ import {
   useScheduleDocumentCommit,
   type ScheduleDocumentCommitBridge,
 } from "./schedule/useScheduleDocumentCommit";
+import { pruneSelectionAndLineageForDocument } from "./schedule/scheduleViewPrune";
+import { useScheduleSelection } from "./schedule/useScheduleSelection";
+import { useScheduleExplain } from "./schedule/useScheduleExplain";
+import { useScheduleFilters } from "./schedule/useScheduleFilters";
+import { useScheduleLineage } from "./schedule/useScheduleLineage";
 import {
   resolveScheduleTitleCommit,
   type ScheduleTitleCommitResult,
@@ -191,15 +161,11 @@ import {
 } from "../model/taskOrder";
 import type { Member } from "../model/memberTypes";
 import {
-  NO_MILESTONE_FILTER,
-  UNASSIGNED_FILTER,
   SCHEDULE_SCHEMA_VERSION,
   type Category,
   type Milestone,
   type MilestoneGroup,
   type OutlineRoot,
-  type ScheduleFieldDef,
-  type ScheduleFilters,
   type ScheduleId,
   type ScheduleLevelDef,
   type Task,
@@ -208,27 +174,14 @@ import {
   type VisibleRow,
 } from "../model/types";
 import {
-  duplicateMemberNames,
-  memberMapFromList,
-  memberOptionLabel,
-} from "../model/assigneeDisplay";
-import {
   applyBulkTaskEdit,
   applyBulkTaskEditOutline,
   type BulkTaskDraft,
 } from "../model/bulkTaskEdit";
 import {
   emptyTaskSelection,
-  extendSelectionByArrow,
-  moveSelectionByArrow,
-  primarySelectedTaskId,
-  pruneTaskSelection,
   removeDeletedTasksFromSelection,
-  selectTaskClick,
-  selectTaskContextMenu,
   singleTaskSelection,
-  type TaskClickModifiers,
-  type TaskSelectionState,
 } from "../model/taskSelection";
 
 type EditingHierarchy =
@@ -371,12 +324,6 @@ export function useSchedule(
   const [connections, setConnections] = useState<
     TaskConnection[] | undefined
   >(() => documentRef.current.connections);
-  const [hiddenMilestoneGroupIds, setHiddenMilestoneGroupIds] = useState<
-    ScheduleId[]
-  >([]);
-  const [hiddenMilestoneIds, setHiddenMilestoneIds] = useState<ScheduleId[]>(
-    [],
-  );
   const [editingMilestoneId, setEditingMilestoneId] = useState<ScheduleId | null>(
     null,
   );
@@ -389,104 +336,132 @@ export function useSchedule(
   const [deletingHierarchy, setDeletingHierarchy] = useState<
     { kind: "category" | "group" | "outline"; id: ScheduleId } | null
   >(null);
-  const [taskSelection, setTaskSelection] = useState<TaskSelectionState>(
-    () => emptyTaskSelection(),
-  );
-  const selectedTaskIds = taskSelection.ids;
-  const selectedTaskId = primarySelectedTaskId(taskSelection);
-  const [lineageTaskId, setLineageTaskId] = useState<ScheduleId | null>(null);
-  const [lineageIncludesConnections, setLineageIncludesConnections] =
-    useState(false);
-  const [filters, setFilters] = useState<ScheduleFilters>(
-    () => defaultScheduleFilterViewState().filters,
-  );
-  const [searchField, setSearchField] = useState<SearchField>("name");
+  const prunedHiddenMilestoneGroupIdsRef = useRef<ScheduleId[]>([]);
+  const displayedCollapsedRef = useRef<ReadonlySet<string>>(new Set());
+  const visibleRowsRef = useRef<VisibleRow[]>([]);
+
+  const {
+    taskSelection,
+    setTaskSelection,
+    selectedTaskIds,
+    selectedTaskId,
+    selectTask,
+    selectTaskWithClick,
+    selectTaskFromContextMenu,
+    navigateTaskSelection,
+    clearSelection,
+  } = useScheduleSelection();
+
+  const {
+    explanationView,
+    setExplanationView,
+    explanationViewRef,
+    explanationOverlay,
+    setExplanationOverlay,
+    explanationOverlayRef,
+    clearExplanationSession,
+    clearExplanationView,
+    clearExplanationOnHumanViewChange,
+    runExplainViewAction,
+    runExplainOverlayAction,
+  } = useScheduleExplain({
+    documentRef,
+    prunedHiddenMilestoneGroupIdsRef,
+    setTaskSelection,
+    displayedCollapsedRef,
+    visibleRowsRef,
+    explainOverlayRuntime,
+  });
+
+  const {
+    filters,
+    setFilters,
+    searchField,
+    setSearchField,
+    collapsed,
+    setCollapsed,
+    collapsedRef,
+    displayedCollapsed,
+    hiddenMilestoneGroupIds,
+    setHiddenMilestoneGroupIds,
+    setHiddenMilestoneIds,
+    prunedHiddenMilestoneGroupIds,
+    prunedHiddenMilestoneIds,
+    hiddenMilestoneIdSet,
+    visibleMilestoneGroupIds,
+    milestonesForBandLayout,
+    memberMap,
+    assigneeFilterOptions,
+    knownMemberIds,
+    scheduleTags,
+    toggleCollapsed,
+    updateFilters,
+    patchFieldFilter,
+    updateFieldFilters,
+    setFilterViewState,
+    getFilterViewState,
+    applyPartialFilterViewState,
+    setMilestoneGroupVisible,
+    showAllMilestoneGroups,
+    showOnlyMilestoneGroup,
+    setMilestoneMarkVisible,
+    showAllMilestoneMarks,
+    showOnlyMilestoneMark,
+    setSearchFieldFromUi,
+  } = useScheduleFilters({
+    title,
+    categories,
+    milestoneGroups,
+    milestones,
+    levels,
+    outline,
+    memberCatalog,
+    memberCatalogSettled,
+    statuses,
+    statusCatalogSettled,
+    effectiveFieldDefs,
+    fieldExtensionCatalogSettled,
+    explanationView,
+    clearExplanationOnHumanViewChange,
+    setTaskSelection,
+  });
+
+  displayedCollapsedRef.current = displayedCollapsed;
+  prunedHiddenMilestoneGroupIdsRef.current = prunedHiddenMilestoneGroupIds;
+
+  const {
+    lineageTaskId,
+    setLineageTaskId,
+    lineageIncludesConnections,
+    setLineageIncludesConnections,
+    lineageIds,
+    lineageTask,
+    toggleLineage,
+    showLineage,
+    showLineageWithConnections,
+    clearLineage,
+  } = useScheduleLineage({
+    documentRef,
+    title,
+    categories,
+    milestoneGroups,
+    milestones,
+    levels,
+    outline,
+    connections,
+    selectedTaskId,
+    clearExplanationOnHumanViewChange,
+  });
+
   const [duplicatingTaskId, setDuplicatingTaskId] = useState<ScheduleId | null>(
     null,
   );
   const [editingNoteTaskId, setEditingNoteTaskId] = useState<ScheduleId | null>(
     null,
   );
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const collapsedRef = useRef(collapsed);
-  collapsedRef.current = collapsed;
-  const [explanationView, setExplanationView] = useState<ExplanationViewState | null>(
-    null,
-  );
-  const explanationViewRef = useRef(explanationView);
-  explanationViewRef.current = explanationView;
-  const [explanationOverlay, setExplanationOverlay] =
-    useState<ExplanationOverlayState | null>(null);
-  const explanationOverlayRef = useRef(explanationOverlay);
-  explanationOverlayRef.current = explanationOverlay;
-
-  useEffect(() => {
-    if (import.meta.env.MODE !== "manual-screenshot") return;
-    window.__manualScreenshotShowExplainOverlay = () => {
-      setExplanationOverlay({
-        translucent: true,
-        summary: "並行案の説明（見本）",
-        marks: [
-          {
-            taskId: "b1000001-0000-4000-8000-000000000002",
-            kind: "change",
-            label: "期間をずらす",
-            number: 1,
-            color: "#2563eb",
-          },
-          {
-            milestoneId: "a1000001-0000-4000-8000-000000000001",
-            kind: "ask",
-            label: "要件確定の位置",
-            number: 2,
-            color: "#ca8a04",
-          },
-        ],
-        patterns: [
-          {
-            id: "p-demo",
-            name: "案A",
-            color: "#2563eb",
-            tasks: [],
-            changes: [
-              {
-                taskId: "b1000001-0000-4000-8000-000000000002",
-                start: "2026-10-08",
-                end: "2026-10-18",
-              },
-            ],
-            milestoneChanges: [],
-          },
-        ],
-      });
-    };
-    return () => {
-      delete window.__manualScreenshotShowExplainOverlay;
-    };
-  }, []);
-
-  const clearExplanationSession = useCallback(() => {
-    setExplanationView(null);
-    setExplanationOverlay(null);
-  }, []);
-  const clearExplanationView = clearExplanationSession;
-  const clearExplanationOnHumanViewChange = useCallback(() => {
-    if (
-      explanationViewRef.current != null ||
-      explanationOverlayRef.current?.translucent === true
-    ) {
-      clearExplanationSession();
-    }
-  }, [clearExplanationSession]);
   const explainTaskIds = useMemo(
     () => explainTaskIdsForFilter(explanationView),
     [explanationView],
-  );
-  const displayedCollapsed = useMemo(
-    () => displayedCollapsedSet(collapsed, explanationView),
-    [collapsed, explanationView],
   );
   const [reorderPreview, setReorderPreview] = useState<
     | {
@@ -511,7 +486,7 @@ export function useSchedule(
 
   const pruneUiForDocument = useCallback((snapshot: DocumentSnapshot) => {
     setTaskSelection((current) =>
-      pruneTaskSelection(snapshot.categories, snapshot.outline, current),
+      pruneSelectionAndLineageForDocument(snapshot, current, null).taskSelection,
     );
     setDuplicatingTaskId((current) =>
       current != null &&
@@ -526,19 +501,15 @@ export function useSchedule(
         : null,
     );
     setLineageTaskId((current) => {
-      if (current == null) return null;
-      const tasks = collectTasksFromDocument({
-        schemaVersion: SCHEDULE_SCHEMA_VERSION,
-        title: snapshot.title,
-        categories: snapshot.categories,
-        milestoneGroups: snapshot.milestoneGroups,
-        milestones: snapshot.milestones,
-        levels: snapshot.levels,
-        outline: snapshot.outline,
-      });
-      const ok = lineageTaskIdsFromTasks(tasks, current);
-      if (!ok) setLineageIncludesConnections(false);
-      return ok ? current : null;
+      const pruned = pruneSelectionAndLineageForDocument(
+        snapshot,
+        emptyTaskSelection(),
+        current,
+      );
+      if (pruned.clearLineageIncludesConnections) {
+        setLineageIncludesConnections(false);
+      }
+      return pruned.lineageTaskId;
     });
     setEditingMilestoneId((current) =>
       current != null &&
@@ -558,7 +529,7 @@ export function useSchedule(
       );
       return exists ? current : null;
     });
-  }, []);
+  }, [setLineageIncludesConnections]);
 
   const documentCommitBridgeRef = useRef<ScheduleDocumentCommitBridge>(null!);
   documentCommitBridgeRef.current = {
@@ -713,61 +684,7 @@ export function useSchedule(
     return taskParentBranchesInOutline(outline, levels.length);
   }, [levels, outline, usesOutlineStorage]);
 
-  const getDocumentTitle = useCallback(() => documentRef.current.title, []);
-
-  const memberMap = useMemo(
-    () => memberMapFromList(memberCatalog),
-    [memberCatalog],
-  );
-
-  const assigneeFilterOptions = useMemo(() => {
-    if (!memberCatalog || memberCatalog.length === 0) return [];
-    const dupes = duplicateMemberNames(memberCatalog);
-    return memberCatalog.map((member) => ({
-      id: member.id,
-      label: memberOptionLabel(member, dupes),
-    }));
-  }, [memberCatalog]);
-
-  const knownMemberIds = useMemo(
-    () => new Set(memberCatalog?.map((member) => member.id) ?? []),
-    [memberCatalog],
-  );
-
-  const knownMilestoneIds = useMemo(
-    () => new Set(milestones.map((milestone) => milestone.id)),
-    [milestones],
-  );
-
-  const lineageIds = useMemo(() => {
-    if (lineageTaskId == null) return null;
-    const tasks = collectTasksFromDocument({
-      schemaVersion: SCHEDULE_SCHEMA_VERSION,
-      title,
-      categories,
-      milestoneGroups,
-      milestones,
-      levels,
-      outline,
-    });
-    return lineageIncludesConnections
-      ? lineageTaskIdsFromTasksWithConnections(
-          tasks,
-          documentRef.current.connections,
-          lineageTaskId,
-        )
-      : lineageTaskIdsFromTasks(tasks, lineageTaskId);
-  }, [
-    categories,
-    connections,
-    lineageIncludesConnections,
-    lineageTaskId,
-    levels,
-    milestoneGroups,
-    milestones,
-    outline,
-    title,
-  ]);
+  const getDocumentTitle = useCallback(() => documentRef.current.title, [documentRef]);
 
   const baseVisibleRows = useMemo(
     () =>
@@ -910,9 +827,6 @@ export function useSchedule(
       today,
     ],
   );
-  const displayedCollapsedRef = useRef(displayedCollapsed);
-  displayedCollapsedRef.current = displayedCollapsed;
-  const visibleRowsRef = useRef(visibleRows);
   visibleRowsRef.current = visibleRows;
 
   const displayVisibleRows = useMemo(() => {
@@ -1117,198 +1031,6 @@ export function useSchedule(
       groupRows,
     );
   }, [displayCategories, reorderPreview, rowHeight, visibleRows]);
-
-  useEffect(() => {
-    if (!statusCatalogSettled) return;
-    if (
-      filters.status === "all" ||
-      filters.status === "not-done" ||
-      statuses.some((item) => item.id === filters.status)
-    ) {
-      return;
-    }
-    setFilters((prev) => ({ ...prev, status: "all" }));
-  }, [filters.status, statusCatalogSettled, statuses]);
-
-  useEffect(() => {
-    if (!memberCatalogSettled) return;
-    if (
-      filters.assignee === "all" ||
-      filters.assignee === UNASSIGNED_FILTER ||
-      knownMemberIds.has(filters.assignee)
-    ) {
-      return;
-    }
-    setFilters((prev) => ({ ...prev, assignee: "all" }));
-  }, [filters.assignee, knownMemberIds, memberCatalogSettled]);
-
-  useEffect(() => {
-    if (
-      filters.milestone === "all" ||
-      filters.milestone === NO_MILESTONE_FILTER ||
-      knownMilestoneIds.has(filters.milestone)
-    ) {
-      return;
-    }
-    setFilters((prev) => ({ ...prev, milestone: "all" }));
-  }, [filters.milestone, knownMilestoneIds]);
-
-  const scheduleTags = useMemo(() => {
-    const tasks = collectTasksFromDocument({
-      schemaVersion: SCHEDULE_SCHEMA_VERSION,
-      title,
-      categories,
-      milestoneGroups,
-      milestones,
-      levels,
-      outline,
-    });
-    return collectTagsFromTasks(tasks);
-  }, [categories, levels, milestoneGroups, milestones, outline, title]);
-  useEffect(() => {
-    const pruned = pruneSelectedTags(filters.tags, scheduleTags);
-    if (
-      pruned.length === filters.tags.length &&
-      pruned.every((tag, index) => tag === filters.tags[index])
-    ) {
-      return;
-    }
-    setFilters((prev) => ({ ...prev, tags: pruned }));
-  }, [filters.tags, scheduleTags]);
-
-  useEffect(() => {
-    if (!fieldExtensionCatalogSettled) return;
-    const current = filters.fieldFilters ?? {};
-    const pruned = pruneFieldFilters(effectiveFieldDefs, current);
-    if (pruned === current) return;
-    const same =
-      Object.keys(pruned).length === Object.keys(current).length &&
-      Object.entries(pruned).every(([key, value]) => current[key] === value);
-    if (same) return;
-    setFilters((prev) => ({ ...prev, fieldFilters: pruned }));
-  }, [effectiveFieldDefs, fieldExtensionCatalogSettled, filters.fieldFilters]);
-
-  const toggleCollapsed = useCallback((key: string) => {
-    clearExplanationOnHumanViewChange();
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      collapsedRef.current = next;
-      return next;
-    });
-  }, [clearExplanationOnHumanViewChange]);
-
-  const updateFilters = useCallback((patch: Partial<ScheduleFilters>) => {
-    clearExplanationOnHumanViewChange();
-    setFilters((prev) => ({ ...prev, ...patch }));
-    setTaskSelection(emptyTaskSelection());
-  }, [clearExplanationOnHumanViewChange]);
-
-  const updateFieldFilters = useCallback(
-    (
-      build: (prev: ScheduleFilters) => ScheduleFilters["fieldFilters"],
-    ) => {
-      clearExplanationOnHumanViewChange();
-      setFilters((prev) => ({
-        ...prev,
-        fieldFilters: build(prev),
-      }));
-      setTaskSelection(emptyTaskSelection());
-    },
-    [clearExplanationOnHumanViewChange],
-  );
-
-  const patchFieldFilter = useCallback(
-    (def: ScheduleFieldDef, patch: Partial<FieldFilterCondition>) => {
-      updateFieldFilters((prev) => applyFieldFilterPatch(prev, def, patch));
-    },
-    [updateFieldFilters],
-  );
-
-  const selectTask = useCallback((id: ScheduleId | null) => {
-    setTaskSelection(id == null ? emptyTaskSelection() : singleTaskSelection(id));
-  }, []);
-
-  const selectTaskWithClick = useCallback(
-    (
-      id: ScheduleId,
-      mod: TaskClickModifiers,
-      visibleIds: ScheduleId[],
-      commandKey: boolean,
-    ) => {
-      setTaskSelection((prev) =>
-        selectTaskClick(visibleIds, prev, id, mod, commandKey),
-      );
-    },
-    [],
-  );
-
-  const selectTaskFromContextMenu = useCallback((id: ScheduleId) => {
-    setTaskSelection((prev) => selectTaskContextMenu(prev, id));
-  }, []);
-
-  const navigateTaskSelection = useCallback(
-    (
-      rows: VisibleRow[],
-      direction: "prev" | "next",
-      extend: boolean,
-      onAfter?: (next: TaskSelectionState) => void,
-    ) => {
-      setTaskSelection((prev) => {
-        const next = extend
-          ? extendSelectionByArrow(rows, prev, direction)
-          : moveSelectionByArrow(rows, prev, direction);
-        onAfter?.(next);
-        return next;
-      });
-    },
-    [],
-  );
-
-  const clearSelection = useCallback(() => {
-    setTaskSelection(emptyTaskSelection());
-  }, []);
-
-  const toggleLineage = useCallback(() => {
-    clearExplanationOnHumanViewChange();
-    if (lineageTaskId != null && lineageIncludesConnections) {
-      setLineageIncludesConnections(false);
-      setLineageTaskId(null);
-      return;
-    }
-    if (lineageTaskId != null) {
-      setLineageTaskId(null);
-      return;
-    }
-    setLineageIncludesConnections(false);
-    setLineageTaskId(selectedTaskId);
-  }, [clearExplanationOnHumanViewChange, lineageIncludesConnections, lineageTaskId, selectedTaskId]);
-
-  const showLineage = useCallback((taskId: ScheduleId) => {
-    clearExplanationOnHumanViewChange();
-    setLineageIncludesConnections(false);
-    setLineageTaskId(taskId);
-  }, [clearExplanationOnHumanViewChange]);
-
-  const showLineageWithConnections = useCallback(
-    (taskId: ScheduleId) => {
-      clearExplanationOnHumanViewChange();
-      if (lineageTaskId === taskId) {
-        setLineageIncludesConnections(true);
-        return;
-      }
-      setLineageTaskId(taskId);
-      setLineageIncludesConnections(true);
-    },
-    [clearExplanationOnHumanViewChange, lineageTaskId],
-  );
-
-  const clearLineage = useCallback(() => {
-    clearExplanationOnHumanViewChange();
-    setLineageTaskId(null);
-    setLineageIncludesConnections(false);
-  }, [clearExplanationOnHumanViewChange]);
 
   const moveTaskByDays = useCallback(
     (taskId: ScheduleId, deltaDays: number) => {
@@ -2566,269 +2288,6 @@ export function useSchedule(
   const editingNoteTask = useMemo(
     () => findTaskInDocument(categories, outline, editingNoteTaskId),
     [categories, editingNoteTaskId, outline],
-  );
-
-  const lineageTask = useMemo(
-    () => findTaskInDocument(categories, outline, lineageTaskId),
-    [categories, lineageTaskId, outline],
-  );
-
-  const prunedHiddenMilestoneGroupIds = useMemo(
-    () => pruneHiddenMilestoneGroupIds(hiddenMilestoneGroupIds, milestoneGroups),
-    [hiddenMilestoneGroupIds, milestoneGroups],
-  );
-
-  const prunedHiddenMilestoneIds = useMemo(
-    () => pruneHiddenMilestoneIds(hiddenMilestoneIds, milestones),
-    [hiddenMilestoneIds, milestones],
-  );
-
-  const setFilterViewState = useCallback((state: ScheduleFilterViewState) => {
-    setFilters({
-      ...state.filters,
-      tags: [...state.filters.tags],
-    });
-    setSearchField(state.searchField);
-    setHiddenMilestoneGroupIds([...state.hiddenMilestoneGroupIds]);
-    setHiddenMilestoneIds([...state.hiddenMilestoneIds]);
-    setCollapsed((prev) => {
-      const next = collapsedSetFromIds(
-        state.collapsedCategoryIds,
-        state.collapsedGroupIds,
-      );
-      for (const key of prev) {
-        if (key.startsWith("hierarchy:")) {
-          next.add(key);
-        }
-      }
-      collapsedRef.current = next;
-      return next;
-    });
-  }, []);
-
-  const applyPartialFilterViewState = useCallback(
-    (update: {
-      filters?: ScheduleFilterViewState["filters"];
-      searchField?: ScheduleFilterViewState["searchField"];
-      hiddenMilestoneGroupIds?: ScheduleId[];
-      collapsed?: ReadonlySet<string>;
-    }) => {
-      if (update.filters !== undefined) {
-        setFilters({
-          ...update.filters,
-          tags: [...update.filters.tags],
-        });
-      }
-      if (update.searchField !== undefined) {
-        setSearchField(update.searchField);
-      }
-      if (update.hiddenMilestoneGroupIds !== undefined) {
-        setHiddenMilestoneGroupIds([...update.hiddenMilestoneGroupIds]);
-      }
-      if (update.collapsed !== undefined) {
-        const next = new Set(update.collapsed);
-        collapsedRef.current = next;
-        setCollapsed(next);
-      }
-    },
-    [],
-  );
-
-  const getFilterViewState = useCallback((): ScheduleFilterViewState => {
-    const { collapsedCategoryIds, collapsedGroupIds } =
-      collapsedIdsFromSet(collapsed);
-    return {
-      filters,
-      searchField,
-      hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
-      hiddenMilestoneIds: prunedHiddenMilestoneIds,
-      collapsedCategoryIds,
-      collapsedGroupIds,
-    };
-  }, [
-    collapsed,
-    filters,
-    prunedHiddenMilestoneGroupIds,
-    prunedHiddenMilestoneIds,
-    searchField,
-  ]);
-
-  useEffect(() => {
-    if (prunedHiddenMilestoneGroupIds.length === hiddenMilestoneGroupIds.length) {
-      return;
-    }
-    setHiddenMilestoneGroupIds(prunedHiddenMilestoneGroupIds);
-  }, [hiddenMilestoneGroupIds, prunedHiddenMilestoneGroupIds]);
-
-  useEffect(() => {
-    if (prunedHiddenMilestoneIds.length === hiddenMilestoneIds.length) {
-      return;
-    }
-    setHiddenMilestoneIds(prunedHiddenMilestoneIds);
-  }, [hiddenMilestoneIds, prunedHiddenMilestoneIds]);
-
-  const hiddenMilestoneGroupIdSet = useMemo(
-    () => new Set(prunedHiddenMilestoneGroupIds),
-    [prunedHiddenMilestoneGroupIds],
-  );
-
-  const hiddenMilestoneIdSet = useMemo(
-    () => new Set(prunedHiddenMilestoneIds),
-    [prunedHiddenMilestoneIds],
-  );
-
-  const explanationMilestoneBand = useMemo(
-    () =>
-      resolveExplanationMilestoneBand(
-        { milestoneGroups, milestones },
-        explanationView,
-        hiddenMilestoneGroupIdSet,
-      ),
-    [
-      explanationView,
-      hiddenMilestoneGroupIdSet,
-      milestoneGroups,
-      milestones,
-    ],
-  );
-
-  const visibleMilestoneGroupIds = explanationMilestoneBand.visibleGroupIds;
-  const milestonesForBandLayout = explanationMilestoneBand.milestones;
-
-  const setMilestoneGroupVisible = useCallback(
-    (groupId: ScheduleId, visible: boolean) => {
-      clearExplanationOnHumanViewChange();
-      setHiddenMilestoneGroupIds((prev) => {
-        const hidden = prev.includes(groupId);
-        if (visible && hidden) return prev.filter((id) => id !== groupId);
-        if (!visible && !hidden) return [...prev, groupId];
-        return prev;
-      });
-    },
-    [clearExplanationOnHumanViewChange],
-  );
-
-  const showAllMilestoneGroups = useCallback(() => {
-    clearExplanationOnHumanViewChange();
-    setHiddenMilestoneGroupIds([]);
-  }, [clearExplanationOnHumanViewChange]);
-
-  const setMilestoneMarkVisible = useCallback(
-    (milestoneId: ScheduleId, visible: boolean) => {
-      setHiddenMilestoneIds((prev) => {
-        const hidden = prev.includes(milestoneId);
-        if (visible && hidden) return prev.filter((id) => id !== milestoneId);
-        if (!visible && !hidden) return [...prev, milestoneId];
-        return prev;
-      });
-    },
-    [],
-  );
-
-  const showAllMilestoneMarks = useCallback(() => {
-    setHiddenMilestoneIds([]);
-  }, []);
-
-  const showOnlyMilestoneMark = useCallback(
-    (milestoneId: ScheduleId) => {
-      setHiddenMilestoneIds(
-        hiddenMilestoneIdsForShowOnly(
-          milestoneId,
-          milestones,
-          visibleMilestoneGroupIds,
-        ),
-      );
-    },
-    [milestones, visibleMilestoneGroupIds],
-  );
-
-  const showOnlyMilestoneGroup = useCallback(
-    (groupId: ScheduleId) => {
-      clearExplanationOnHumanViewChange();
-      setHiddenMilestoneGroupIds(
-        hiddenMilestoneGroupIdsForShowOnly(groupId, milestoneGroups),
-      );
-    },
-    [clearExplanationOnHumanViewChange, milestoneGroups],
-  );
-
-  const setSearchFieldFromUi = useCallback(
-    (field: SearchField) => {
-      clearExplanationOnHumanViewChange();
-      setSearchField(field);
-    },
-    [clearExplanationOnHumanViewChange],
-  );
-
-  const runExplainViewAction = useCallback(
-    (
-      envelope: Record<string, unknown>,
-    ): { ok: true; text: string } | { ok: false; message: string } => {
-      const doc = documentRef.current;
-      const explainContext: ExplainViewDocumentContext = {
-        categories: doc.categories,
-        outline: doc.outline,
-        milestoneGroups: doc.milestoneGroups,
-        milestones: doc.milestones,
-        hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
-      };
-      const parsed = parseExplainViewRequest(
-        envelope,
-        explainContext,
-        explanationViewRef.current,
-      );
-      if (!parsed.ok) return parsed;
-      if (parsed.kind === "clear") {
-        const wasActive =
-          explanationViewRef.current != null ||
-          explanationOverlayRef.current?.translucent === true;
-        clearExplanationSession();
-        return { ok: true, text: explainViewClearSuccessText(wasActive) };
-      }
-      if (parsed.clearSelection) {
-        setTaskSelection(emptyTaskSelection());
-      }
-      setExplanationView(parsed.state);
-      return { ok: true, text: explainViewApplySuccessText() };
-    },
-    [clearExplanationSession, prunedHiddenMilestoneGroupIds],
-  );
-
-  const runExplainOverlayAction = useCallback(
-    (
-      envelope: Record<string, unknown>,
-    ): { ok: true; text: string } | { ok: false; message: string } => {
-      const doc = documentRef.current;
-      const parsed = parseExplainOverlayRequest(envelope, {
-        categories: doc.categories,
-        outline: doc.outline,
-        milestones: doc.milestones,
-        milestoneGroups: doc.milestoneGroups,
-        hiddenMilestoneGroupIds: prunedHiddenMilestoneGroupIds,
-        explanationView: explanationViewRef.current,
-        collapsed: displayedCollapsedRef.current,
-        visibleRows: visibleRowsRef.current,
-      });
-      if (!parsed.ok) return parsed;
-      if (parsed.kind === "hide") {
-        const wasActive = explanationOverlayRef.current?.translucent === true;
-        setExplanationOverlay(null);
-        return { ok: true, text: explainOverlayHideSuccessText(wasActive) };
-      }
-      setExplanationOverlay(parsed.state);
-      if (explainOverlayRuntime != null) {
-        const planInput = explainOverlayRuntime.current?.getPlanInput();
-        if (planInput != null && parsed.state.marks.length > 0) {
-          const plan = planExplanationOverlayScroll({
-            ...planInput,
-            marks: parsed.state.marks,
-          });
-          if (plan != null) explainOverlayRuntime.current?.applyScroll(plan);
-        }
-      }
-      return { ok: true, text: explainOverlayShowSuccessText() };
-    },
-    [explainOverlayRuntime, prunedHiddenMilestoneGroupIds],
   );
 
   return {
