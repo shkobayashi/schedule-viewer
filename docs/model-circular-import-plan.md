@@ -8,7 +8,7 @@
 | --- | --- |
 | コマンド | `npx madge --circular --extensions ts,tsx src`（`npm run check:architecture-warn` も同じ madge 呼び出し） |
 | 終了コード | 循環があると **1**（CI の architecture-warn は失敗してもジョブは続行） |
-| ベースライン照合 | `npm run check:madge-circular-baseline`（`npm test` に含む。**不一致で失敗**） |
+| ベースライン照合 | `npm run check:madge-circular-baseline`（**CI frontend で必須**。`npm test` の node:test からも呼ぶ。**不一致で失敗**） |
 | 正本 JSON | [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) |
 
 M0 時点の **循環数は 30** である。madge の表示順と JSON の `cycles` は、パスを ` > ` でつないだ文字列を辞書順に並べたものである。
@@ -59,5 +59,6 @@ Issue #490 の順序を変えない。**M3 は `validateSchedule` ハブを最�
 
 ## madge と CI
 
-- `check:architecture-warn` は **警告のまま**（ratchet しない、エラー化しない）。
-- ベースライン固定は `check:madge-circular-baseline` のみが担う。循環を解消した PR では JSON の `cycles` と `resolutionPlan` を同じ変更で更新する。
+- `check:architecture-warn` は **警告のまま**（ratchet しない、エラー化しない）。madge 自体の終了コード 1 でも CI ジョブは止めない。
+- **ベースライン一致**は `npm run check:madge-circular-baseline` で **CI frontend ジョブが必須**（`.github/workflows/ci.yml` で `check:mcp-tool-names` の直後）。ローカルでも同コマンドで確認する。
+- 循環が **1 件でも増減**した PR（M1–M3 の解消、UI / hooks の解消、意図的な再計測を含む）は、必ず [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) の `cycles`・`cycleCount`・`resolutionPlan` を **同じ PR で意図的に**更新する。黙って drift させない。

@@ -64,6 +64,7 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm run check:mcp-tool-names
+      - run: npm run check:madge-circular-baseline
       - run: npm test
       - run: npm run check:architecture-warn
       - run: npm run test:coverage-warn
