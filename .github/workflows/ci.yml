@@ -71,7 +71,7 @@ jobs:
       # jscpd only. The script always exits 0. Above 6% it logs a warning.
       - run: npm run check:architecture-warn
       # Floors are in vitest.config.ts. Below a floor, this step fails the job.
-      - run: npm run test:coverage-warn
+      - run: npm run test:coverage
       - run: npm run check:schedule
       - run: npm run check:calendar
       - run: npm run check:members
