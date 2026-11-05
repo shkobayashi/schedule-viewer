@@ -221,7 +221,7 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 - `git commit --amend`、force-push、rebase で共有履歴を書き換えない
 - レビュー指摘は **コミットを分けて** 直す（review-implementation）
 
-索引: [agents-agent-index.md](agents-agent-index.md)、[agents-d1-inventory.md](agents-d1-inventory.md) §2。
+索引: [agents-agent-index.md](agents-agent-index.md)、[agents-d0-inventory.md](agents-d0-inventory.md) §3（P-AG-03）。
 
 ## npm スクリプト
 

@@ -19,7 +19,7 @@ description: >-
 
 [AGENTS.md](../../../AGENTS.md) の **8 原則**と、条項番号の対応は [docs/agents-pitfall-examples.md](../../../docs/agents-pitfall-examples.md) の索引表を正とする。本 SKILL の **1–57** は全文を残す（番号の欠番・黙って削除はしない）。
 
-**再発防止:** レビューで直したあとは、該当原則の例を [agents-pitfall-examples.md](../../../docs/agents-pitfall-examples.md) に短く足し、手順の全文は本 SKILL の**最も近い既存条項の直後**へ同じ変更で追記する。末尾にだけ「58.」を足して新ルール化しない。条項の並べ替えもしない。短くするときは [docs/agents-d1-inventory.md](../../../docs/agents-d1-inventory.md) の old→new（**削除 0**）。
+**再発防止:** レビューで直したあとは、該当原則の例を [agents-pitfall-examples.md](../../../docs/agents-pitfall-examples.md) に短く足し、手順の全文は本 SKILL の**最も近い既存条項の直後**へ同じ変更で追記する。末尾にだけ「58.」を足して新ルール化しない。条項の並べ替えもしない。短くするときは [docs/agents-d0-inventory.md](../../../docs/agents-d0-inventory.md)（**削除 0**、§1・§6–§7）。
 
 | 節 | 主に効く原則 |
 | --- | --- |

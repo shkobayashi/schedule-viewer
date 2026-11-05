@@ -22,9 +22,8 @@
 | UI デザイン #449 | [design/benchmark.md](design/benchmark.md)、[inventory.md](design/inventory.md) |
 | 同じ変更で揃える文書 | [agents-doc-update-map.md](agents-doc-update-map.md) |
 | 事故例・implement-change 番号索引 | [agents-pitfall-examples.md](agents-pitfall-examples.md) |
-| D0 棚卸し・old→new | [agents-d0-inventory.md](agents-d0-inventory.md)、[agents-d0-principles-analysis.md](agents-d0-principles-analysis.md) |
-| D1 棚卸し | [agents-d1-inventory.md](agents-d1-inventory.md)、Issue 文案 [agents-d1-issue-490-proposal.md](agents-d1-issue-490-proposal.md) |
-| D2 計画 | [agents-d2-plan.md](agents-d2-plan.md) |
+| Issue #490 作業記録（分析・D0–D2 対応表） | [agents-d0-inventory.md](agents-d0-inventory.md) |
+| Issue #490 本文更新案（人手） | [agents-d1-issue-490-proposal.md](agents-d1-issue-490-proposal.md) |
 | 概要 | [README.md](../README.md) |
 
 ## コードの境界（要約）
@@ -69,4 +68,4 @@
 - 個人の好みとマシン固有の事実は `.cursor/rules/personal.local.mdc`（Git 外）。`AGENTS.md` に Learned User Preferences / Workspace Facts を足さない。実行状態は `.cursor/hooks/state/`
 - デスクトップ: `npm run tauri dev`（[development.md](development.md)）。`src-tauri/target/debug/schedule-viewer` を直接開かない。UI は `http://localhost:1420/`。`schedule-viewer --mcp` は画面プロセスと別
 - Cloud Agent: **マージ済み PR の head ブランチへ push しない**（続きは新ブランチ・新 PR）。amend / force-push / rebase 禁止 — [development.md](development.md)「Cursor Cloud Agent」（P-AG-03）
-- 文書を短くするとき: [agents-d0-inventory.md](agents-d0-inventory.md) の old→new（**削除 0**）。D0–D2: Issue #490。**D0** = 原則化 + inventory。**D1** = skills 再構成 + 日本語 J1–J5。**D2** = [agents-d2-inventory.md](agents-d2-inventory.md)（ガード）。**D2 後 TODO:** d0 分析+inventory 統合 → [agents-d2-plan.md](agents-d2-plan.md)。届け方: `feature-436` → `next`；共通ルールは必要なら `develop` へ cherry-pick
+- 文書を短くするとき: [agents-d0-inventory.md](agents-d0-inventory.md)（**削除 0**、§1・§6–§7）。Issue #490 D0–D2 は同ファイル §4。届け方: `feature-436` → `next`；必要なら `develop` へ cherry-pick
