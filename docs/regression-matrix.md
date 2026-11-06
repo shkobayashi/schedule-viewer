@@ -220,7 +220,6 @@
 | MX-T-9 | 計算 | selected_tasks | 自動化予定 | 自動化予定:#543 |
 | MX-T-10 | 計算 | filtered_tasks | 自動済み | 自動:src/model/mcpVisible.test.ts#lists rows that intersect the vertical viewport |
 | MX-T-11 | 計算 | filtered_tasks | 自動化予定 | 自動化予定:#543 |
-| MX-T-12 | 計算 | current_schedule | 自動済み | 自動:src/model/screenContext.test.ts#has no top-level fields property |
 | MX-T-13 | 計算 | current_schedule | 自動化予定 | 自動化予定:#543 |
 | MX-T-14 | 計算 | replace_schedule | 自動化予定 | 自動化予定:#543 |
 | MX-T-15 | 計算 | focus_window | 自動化予定 | 自動化予定:#543 |
