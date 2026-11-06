@@ -139,3 +139,42 @@ export function shouldShowSaveHintPill(options: {
   }
   return true;
 }
+
+/** 通常のブラウザは false。デスクトップと、マニュアル撮影用の shim だけ true。 */
+export function isDesktopFirstRunRuntime(tauri: boolean, mode: string): boolean {
+  return tauri || mode === "manual-screenshot";
+}
+
+export function desktopFirstRunVisibility(input: {
+  desktopRuntime: boolean;
+  dismissed: boolean;
+  checklist: FirstRunChecklistState;
+  startupSettled: boolean;
+  saveHintCompleted: boolean;
+  isDirty: boolean;
+  commandKey: boolean;
+  recentMenuEmpty: boolean;
+}): {
+  showCard: boolean;
+  saveHint: string | null;
+  recentEmptyHint: string | null;
+} {
+  if (!input.desktopRuntime) {
+    return { showCard: false, saveHint: null, recentEmptyHint: null };
+  }
+  return {
+    showCard: shouldShowFirstRunHintCard({
+      dismissed: input.dismissed,
+      startupSettled: input.startupSettled,
+      checklist: input.checklist,
+    }),
+    saveHint: shouldShowSaveHintPill({
+      completed: input.saveHintCompleted,
+      startupSettled: input.startupSettled,
+      isDirty: input.isDirty,
+    })
+      ? saveHintLabel(input.commandKey)
+      : null,
+    recentEmptyHint: input.recentMenuEmpty ? RECENT_FILES_EMPTY_HINT : null,
+  };
+}

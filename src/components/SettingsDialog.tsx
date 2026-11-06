@@ -13,6 +13,8 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
+import { isDesktopFirstRunRuntime } from "../model/firstRunGuidance";
+import { SettingsDesktopSectionButtons } from "./SettingsDesktopSectionButtons";
 import packageJson from "../../package.json";
 import {
   calendarLabelFromFilename,
@@ -24,9 +26,6 @@ import {
 } from "../model/validateCalendar";
 import { errorMessage } from "../model/errors";
 
-function settingsDesktopOnly(): boolean {
-  return isTauri() || import.meta.env.MODE === "manual-screenshot";
-}
 import { usesCommandKey } from "../model/shortcuts";
 import { ModalDialog } from "./ModalDialog";
 import { SettingsChangelogHistory } from "./SettingsChangelogHistory";
@@ -95,13 +94,13 @@ function formatAppVersionLine(raw: string): string {
 let cachedAppVersionLine: string | null = null;
 let appVersionFetchPromise: Promise<void> | null = null;
 
-if (!settingsDesktopOnly()) {
+if (!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) {
   cachedAppVersionLine = formatAppVersionLine(packageJson.version);
 }
 
 function fetchAppVersionLineIfNeeded(): Promise<void> {
   if (cachedAppVersionLine !== null) return Promise.resolve();
-  if (!settingsDesktopOnly()) {
+  if (!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) {
     cachedAppVersionLine = formatAppVersionLine(packageJson.version);
     return Promise.resolve();
   }
@@ -184,7 +183,7 @@ type SettingsDialogProps = {
 };
 
 function betaInstallerPlatform(): "windows" | "linux" | null {
-  if (!settingsDesktopOnly()) return null;
+  if (!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) return null;
   const ua = navigator.userAgent;
   if (/Win/i.test(ua)) return "windows";
   if (/Linux/i.test(ua)) return "linux";
@@ -290,7 +289,7 @@ export function SettingsDialog({
   }, [section]);
 
   useEffect(() => {
-    if (!open || section !== "mcp" || !settingsDesktopOnly()) return;
+    if (!open || section !== "mcp" || !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) return;
     void fetchMcpConfigJson().then((json) => {
       setMcpConfig(json ?? "");
     });
@@ -384,7 +383,7 @@ export function SettingsDialog({
       readScreenToolsTouched.current = false;
       return;
     }
-    if (!settingsDesktopOnly()) return;
+    if (!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) return;
     let cancelled = false;
     const allTools: JsonSkillToolSelection = {
       cursor: true,
@@ -579,7 +578,7 @@ export function SettingsDialog({
   };
 
   const handlePickJsonSkillFolder = async () => {
-    if (!settingsDesktopOnly()) return;
+    if (!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -786,26 +785,10 @@ export function SettingsDialog({
             >
               稼働日
             </button>
-            {settingsDesktopOnly() ? (
-              <button
-                type="button"
-                className={section === "updates" ? "active" : undefined}
-                aria-current={section === "updates" ? "true" : undefined}
-                onClick={() => setSection("updates")}
-              >
-                更新
-              </button>
-            ) : null}
-            {settingsDesktopOnly() ? (
-              <button
-                type="button"
-                className={section === "mcp" ? "active" : undefined}
-                aria-current={section === "mcp" ? "true" : undefined}
-                onClick={() => setSection("mcp")}
-              >
-                画面の状態を渡す
-              </button>
-            ) : null}
+            <SettingsDesktopSectionButtons
+              section={section}
+              onSelect={setSection}
+            />
             <button
               type="button"
               className={section === "jsonSkills" ? "active" : undefined}
@@ -1343,7 +1326,7 @@ export function SettingsDialog({
                 )}
               </>
             ) : null}
-            {section === "mcp" && settingsDesktopOnly() ? (
+            {section === "mcp" && isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE) ? (
               <>
                 <h3 className="settings-changelog-heading">mcp.json に登録する</h3>
                 <p className="settings-note">
@@ -1469,7 +1452,7 @@ export function SettingsDialog({
                 ) : null}
               </>
             ) : null}
-            {section === "updates" && settingsDesktopOnly() ? (
+            {section === "updates" && isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE) ? (
               storeDistribution ? (
                 <>
                   <p className="settings-note">
@@ -1574,12 +1557,12 @@ export function SettingsDialog({
                   には入れず、置いたパスだけを使います。検証スクリプトは Node.js
                   で動かします。画面の状態を渡す手順は、設定の「画面の状態を渡す」にあります。
                 </p>
-                {!settingsDesktopOnly() ? (
+                {!isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE) ? (
                   <p className="settings-note">
                     この操作はデスクトップ版でのみ使えます。
                   </p>
                 ) : null}
-                <fieldset className="settings-field" disabled={busy || !settingsDesktopOnly()}>
+                <fieldset className="settings-field" disabled={busy || !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)}>
                   <legend>置く先</legend>
                   <label className="settings-field-check">
                     <input
@@ -1606,7 +1589,7 @@ export function SettingsDialog({
                     <span>GitHub Copilot</span>
                   </label>
                 </fieldset>
-                <fieldset className="settings-field" disabled={busy || !settingsDesktopOnly()}>
+                <fieldset className="settings-field" disabled={busy || !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)}>
                   <legend>範囲</legend>
                   <label className="settings-field-check">
                     <input
@@ -1634,7 +1617,7 @@ export function SettingsDialog({
                       <button
                         type="button"
                         className="toolbar-btn"
-                        disabled={busy || !settingsDesktopOnly()}
+                        disabled={busy || !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE)}
                         onClick={() => void handlePickJsonSkillFolder()}
                       >
                         フォルダを選ぶ…
@@ -1653,7 +1636,7 @@ export function SettingsDialog({
                     className="toolbar-btn"
                     disabled={
                       busy ||
-                      !settingsDesktopOnly() ||
+                      !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE) ||
                       !jsonSkillToolsReady ||
                       confirmJsonSkillReplace ||
                       confirmJsonSkillUninstall
@@ -1667,7 +1650,7 @@ export function SettingsDialog({
                     className="toolbar-btn"
                     disabled={
                       busy ||
-                      !settingsDesktopOnly() ||
+                      !isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE) ||
                       !jsonSkillToolsReady ||
                       confirmJsonSkillReplace ||
                       confirmJsonSkillUninstall

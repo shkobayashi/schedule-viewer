@@ -1,6 +1,6 @@
 # 既存の手動ケースの行き先
 
-テスト仕様にあった手動ケースを、ここへ移した。行は消していない。同じ ID の2行目は統合とし、先頭の行へまとめた。区分は自動済み、一部自動、シナリオ、統合、自動化予定、手動のままのいずれかである。一部自動は、計算を既存のテストが断言し、画面や OS は自動化予定のままである。自動化予定と手動のままは合格にしない。この表は追跡用であり、毎回の必須実施ではない。 いまの件数は、一部自動 187、自動化予定 229、自動済み 20、シナリオ 22、統合 4、手動のまま 4 である。
+テスト仕様にあった手動ケースを、ここへ移した。行は消していない。同じ ID の2行目は統合とし、先頭の行へまとめた。区分は自動済み、一部自動、シナリオ、統合、自動化予定、手動のままのいずれかである。一部自動は、計算を既存のテストが断言し、画面や OS は自動化予定のままである。自動化予定と手動のままは合格にしない。この表は追跡用であり、毎回の必須実施ではない。 いまの件数は、一部自動 186、自動化予定 225、自動済み 25、シナリオ 22、統合 4、手動のまま 4 である。
 
 | ID | 機能 | 前提 | 手順 | 期待結果 | 区分 | 行き先 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -42,12 +42,12 @@
 | TC-FILE-09c | FILE-09 | 履歴にパスがある | 存在しないパスを選ぶ。未保存のあいだに履歴から開き、キャンセルする | 画面と保存先は残る。サンプルに戻らない。項目は残る。キャンセルでは順番が変わらない | 自動化予定 | 自動化予定:#547 |
 | TC-FILE-09d | FILE-09 | 履歴がある | ☰ または macOS のファイルメニューで「最近開いたファイル」から「履歴を消す」を押す。ファイル操作の途中でサブメニューから開く操作を試す | パスだけ消える。開いているスケジュールと次回起動のウィンドウ・控え・絞り込みは残る。操作中は履歴から開けず、「履歴を消す」は押せる。消したあと、☰ と macOS のファイルメニューに「最近開いたファイル」の行は残り、押せず、サブメニューは開かない | 一部自動 | 自動:src-tauri/src/recent_files.rs#clears_to_empty_store。自動:src/model/commandPalette.test.ts#keeps recent open enabled while busy but disables open from history。自動化予定:#547 |
 | TC-FILE-09e | FILE-09 | 履歴から開く、または `recent-files.json` を壊す | 絞り込み・折りたたみ・系統・選択を変えたあと履歴から開く。別ウィンドウでも一覧を見る。壊れて一覧が空のとき ☰ を開く | 絞り込みなどが初期状態になり Fit する。壊れた JSON では一覧が空で知らせは出ない。別ウィンドウでも同じ一覧。一覧が空のとき、☰ と macOS のファイルメニューに「最近開いたファイル」の行は残り、押せず、サブメニューは開かない | 一部自動 | 自動:src-tauri/src/recent_files.rs#read_missing_or_corrupt_is_empty。自動:src/model/recentFiles.test.ts#returns empty for non-array, bad elements, and more than five items。自動化予定:#547 |
-| TC-FILE-09f | FILE-09 | ブラウザ版、`npm run dev` | ☰ と ⌘/Ctrl+K を開く | 最近開いたファイルも「履歴を消す」も出ない | 一部自動 | 自動:src/model/commandPalette.test.ts#omits recent entries when empty or not desktop。自動化予定:#544 |
+| TC-FILE-09f | FILE-09 | ブラウザ版、`npm run dev` | ☰ と ⌘/Ctrl+K を開く | 最近開いたファイルも「履歴を消す」も出ない | 自動済み | 自動:src/components/browserDesktopChrome.dom.test.tsx#omits recent files and clear history from the browser menu and palette |
 | TC-FILE-08 | FILE-08 | デスクトップ版。検証済みの JSON がある | その JSON をウィンドウへ1つ落とす | 「開く」と同じ内容になる。ファイルダイアログは出ない | シナリオ | 手動:RG-S4-7 |
 | TC-FILE-08b | FILE-08 | 未保存の編集がある | 別の検証済み JSON を同じウィンドウへ落とす | 破棄の確認が出る | 自動化予定 | 自動化予定:#541 |
 | TC-FILE-08c | FILE-08 | サンプル | JSON を2つ、またはフォルダと JSON をまとめて落とす | 開かず「スケジュールの JSON を1つだけ落としてください。」が出る | シナリオ | 手動:RG-S4-7 |
 | TC-FILE-08d | FILE-08 | 開くダイアログを開いている | JSON を1つ落とす | 開かず「画面の操作が途中なので、開けません。」が出る | 自動化予定 | 自動化予定:#541 |
-| TC-FILE-08e | FILE-08 | ブラウザ版、`npm run dev` | JSON をページへ落とす | ファイルは開かず、ブラウザがそのファイルへ移らない | 自動化予定 | 自動化予定:#544 |
+| TC-FILE-08e | FILE-08 | ブラウザ版、`npm run dev` | JSON をページへ落とす | ファイルは開かず、ブラウザがそのファイルへ移らない | 自動済み | 自動:src/components/browserDesktopChrome.dom.test.tsx#prevents the browser from navigating when a file is dropped。自動:src/components/browserDesktopChrome.dom.test.tsx#does not subscribe to schedule drops outside Tauri |
 | TC-FILE-08f | FILE-08 | デスクトップ版。設定またはタスク編集のダイアログを開いている | JSON をウィンドウへ1つ落とす | 開かず「画面の操作が途中なので、開けません。」が出る | 自動化予定 | 自動化予定:#541 |
 | TC-FILE-08g | FILE-08 | デスクトップ版 | タスクバーの上と並べ替えの握りの上へ JSON を通して落とす | チャートの移動と並べ替えは始まらない | 自動化予定 | 自動化予定:#541 |
 | TC-FILE-02 | FILE-02 | ファイルを開き、バーを動かして未保存にする | 「保存」を押す | 見出しから「未保存」が消え、ファイルの内容が画面と一致する | シナリオ | 手動:RG-S4-3 |
@@ -110,7 +110,7 @@
 | TC-SYNC-03k | SYNC-03 | 「開く」で別のファイルを選ぶ | 起動する | 開いたファイルの絞り込みは初期値である | 自動化予定 | 自動化予定:#547 |
 | TC-SYNC-03l | SYNC-03 | マイルストンで絞ったあと、そのマイルストンをファイルから消して閉じる | 起動する | マイルストンの条件は「すべて」になる。取り消しでは戻らない | 一部自動 | 自動:src/model/scheduleFilterPersistence.test.ts#clears unknown milestone and tags。自動化予定:#545 |
 | TC-SYNC-03m | SYNC-03 | 同じパスを2つのウィンドウで開き、前面だけ条件を変えて閉じる | 起動する | 前面の条件だけが戻る | 自動化予定 | 自動化予定:#541 |
-| TC-SYNC-03n | SYNC-03 | ブラウザ版で絞り込みを変えて閉じる | ページを開き直す | 絞り込みは戻らない | 自動化予定 | 自動化予定:#544 |
+| TC-SYNC-03n | SYNC-03 | ブラウザ版で絞り込みを変えて閉じる | ページを開き直す | 絞り込みは戻らない | 自動済み | 自動:src/components/browserDesktopChrome.dom.test.tsx#does not poll an external file or write filters in the browser |
 | TC-SYNC-03e | SYNC-03 | 保存して閉じたあと、そのファイルを消す | アプリを起動する | 見つからないと知らせてサンプルになる。ファイルダイアログは出ない。その状態で閉じると、次はサンプルのままである | 一部自動 | 自動:src/model/scheduleRecovery.test.ts#returns missingNotice when the saved file is gone。自動:src/model/scheduleRecovery.test.ts#paints sample when the file is missing and there is no draft。自動化予定:#547 |
 | TC-SYNC-03f | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前にバーをドラッグする | 復旧が終わるまで日付は変わらない。終わったあとはドラッグできる | 自動化予定 | 自動化予定:#547 |
 | TC-SYNC-03g | SYNC-03 | 保存済みのファイルを閉じた直後 | アプリを起動し、起動復旧が終わる前に別のエディタでその JSON を保存する。復旧が終わったあと少し待つ | 変えた内容が画面に出る。起動が終わったあとはバーをドラッグできる | 自動化予定 | 自動化予定:#547 |
@@ -183,8 +183,8 @@
 | TC-NAV-07 | NAV-07 | サンプルを開く | ⌘/Ctrl+K で「今日」を実行する。ほかのダイアログを開いたあいだ ⌘/Ctrl+K を押す | 今日が見える位置へ横が動く。パレットは開かない | 自動化予定 | 自動化予定:#535 |
 | TC-NAV-07b | NAV-07 | 未保存にする | コマンドパレットで「差分をコピー」を実行する | 差分がコピーされる | 自動化予定 | 自動化予定:#540 |
 | TC-NAV-07c | NAV-07 | macOS のデスクトップ版 | メニューバーの「ファイル」から「保存」を選ぶ | ☰ と同じ保存が走る | 自動化予定 | 自動化予定:#547 |
-| TC-NAV-09 | NAV-09 | デスクトップ版、初回起動、チェックリスト未完了 | 起動復旧後、右下のカードを見る。1 項目目で「LLM で作る」からスキルを置くか「ある JSON を開く」を試す。別項目だけ完了させ、ファイルを開いたあともカードが残ることを見る。× で閉じ、再起動する | 1 項目目に「スケジュールを用意する」と 2 ボタンがある。スキル設置または JSON を開いたときだけ 1 項目目にチェックが付く。完了した項目は押せなくなる。未完了のあいだはファイルを開いてもカードが残る。3 項目すべて完了または × のあとは出ない | 自動化予定 | 自動化予定:#544 |
-| TC-NAV-09b | NAV-09 | デスクトップ版、履歴が空 | ☰ を開き「最近開いたファイル」を見る | 行が無効で、その下に「ファイルを開くとここに並びます」が出る | 自動化予定 | 自動化予定:#544 |
+| TC-NAV-09 | NAV-09 | デスクトップ版、初回起動、チェックリスト未完了 | 起動復旧後、右下のカードを見る。1 項目目で「LLM で作る」からスキルを置くか「ある JSON を開く」を試す。別項目だけ完了させ、ファイルを開いたあともカードが残ることを見る。× で閉じ、再起動する | 1 項目目に「スケジュールを用意する」と 2 ボタンがある。スキル設置または JSON を開いたときだけ 1 項目目にチェックが付く。完了した項目は押せなくなる。未完了のあいだはファイルを開いてもカードが残る。3 項目すべて完了または × のあとは出ない | 自動済み | 自動:src/components/browserDesktopChrome.dom.test.tsx#keeps the card when only the prepare item is checked。自動:src/components/browserDesktopChrome.dom.test.tsx#hides the first-run card after dismiss across a remount |
+| TC-NAV-09b | NAV-09 | デスクトップ版、履歴が空 | ☰ を開き「最近開いたファイル」を見る | 行が無効で、その下に「ファイルを開くとここに並びます」が出る | 自動済み | 自動:src/components/browserDesktopChrome.dom.test.tsx#shows a disabled recent-files row and the empty hint on the desktop menu |
 | TC-NAV-09c | NAV-09 | デスクトップ版、保存ヒント未完了 | タスク名などを1回変える。保存に成功する | 未保存のあいだ状態バーに「保存は ☰ または ⌘S」または Ctrl+S のピルが出る。保存後は出ない | 自動済み | 自動:src/components/StatusBar.dom.test.tsx#shows the mac and windows save hint text |
 | TC-NAV-09d | NAV-09 | ブラウザ版 | 上と同様の操作 | カードと保存ヒントのピルは出ない | シナリオ | 手動:RG-S5-1 |
 | TC-NAV-04 | NAV-04 | タスクがあるグループ | 三角を二度押す | 一度で配下の行が隠れ、親バーは残る。二度で戻る | 自動化予定 | 自動化予定:#535 |
