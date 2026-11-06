@@ -94,7 +94,7 @@ test("a scenario heading without a numbered step fails", () => {
 test("a numbered step without an expectation fails", () => {
   withCopy((root) => {
     replace(root, "docs/regression.md", "期待: カードは出ない。", "結果だけを書く。");
-    assert.failWith(run(root), "期待が無い");
+    assert.failWith(run(root), "期待か扱いが無い");
   });
 });
 
