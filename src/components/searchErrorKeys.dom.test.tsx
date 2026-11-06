@@ -924,6 +924,7 @@ describe("keyboard paths", () => {
     expect(scroll().x).toBeLessThan(scrolled);
     const held = sidebarWidth();
     const scrollBeforeShift = scroll().x;
+    // NAV-06 は Shift または Alt で幅もスクロールも変えない、と書く。境界の実装は Ctrl と Meta のときだけ幅を動かさない。
     press(separator, { key: "ArrowRight", shiftKey: true });
     expect(sidebarWidth()).toBe(held + SIDEBAR_WIDTH_KEY_STEP);
     expect(scroll().x).toBe(scrollBeforeShift);
