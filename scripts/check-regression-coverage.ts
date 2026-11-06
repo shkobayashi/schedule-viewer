@@ -104,8 +104,14 @@ for (const line of caseRows) {
   if (cells[4] === "") errors.push(`${id} の期待が空`);
   if (count > 1 && kind !== "統合") errors.push(`${id} の ${count} 行目が統合ではない`);
   if (kind === "統合" && dest !== `統合:${id}`) errors.push(`${id} の統合先が同じ ID の先頭行ではない`);
-  if (!["自動済み", "シナリオ", "統合", "自動化予定", "対象外", "重複"].includes(kind)) {
+  if (!["自動済み", "一部自動", "シナリオ", "統合", "自動化予定", "手動のまま", "一部手動", "対象外", "重複"].includes(kind)) {
     errors.push(`${id} の区分が無い`);
+  }
+  if (kind === "一部自動" && (!dest.includes("自動:") || !dest.includes("自動化予定:#"))) {
+    errors.push(`${id} の一部自動には、自動のテストと残りの自動化予定が要る`);
+  }
+  if ((kind === "手動のまま" || kind === "一部手動") && !dest.includes("手動のまま:")) {
+    errors.push(`${id} の手動のままには理由が要る`);
   }
   checkDestination(`${kind} ${dest}`, id);
 }
@@ -155,9 +161,13 @@ function checkDestination(text: string, label: string): void {
     !hasManual &&
     !text.includes("自動化予定:#") &&
     !text.includes("統合:") &&
-    !text.includes("理由:")
+    !text.includes("理由:") &&
+    !text.includes("手動のまま:")
   ) {
     errors.push(`${label} に行き先が無い`);
+  }
+  if (text.includes("手動のまま:") && text.split("手動のまま:")[1].trim().length < 4) {
+    errors.push(`${label} の手動のままの理由が無い`);
   }
   if (hasManual && manuals.length === 0) {
     errors.push(`${label} の手動の行き先から手順 ID が取れない`);
@@ -169,8 +179,8 @@ function checkDestination(text: string, label: string): void {
       continue;
     }
     const section = stepSection(id);
-    if (!section.includes("操作:") || !section.includes("期待:")) {
-      errors.push(`${label} の ${id} に操作か期待が無い`);
+    if (!section.includes("操作:") || !section.includes("期待:") || !section.includes("扱い:")) {
+      errors.push(`${label} の ${id} に操作か期待か扱いが無い`);
     }
   }
   for (const match of text.matchAll(/自動:(\S+?)#([^。\n|]+)/g)) {
