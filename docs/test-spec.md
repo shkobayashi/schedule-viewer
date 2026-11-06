@@ -393,6 +393,55 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `renders nothing while closed` | NAV-08 |
 | 同上 | `dismisses from the close button and Escape` | NAV-08 |
 | 同上 | `shows the llm example only when the desktop runtime is on` | NAV-08, NAV-09 |
+| `searchErrorKeys.dom.test.tsx` | `keeps only tasks whose name contains the query` | FILTER-01 |
+| 同上 | `keeps lineage when every filter chip is cleared` | FILTER-01, FILTER-08 |
+| 同上 | `focuses the search field and selects its text on ctrl+f` | FILTER-01 |
+| 同上 | `filters assignees from the panel and clears one chip` | FILTER-03 |
+| 同上 | `filters notes from the note search field` | FILTER-02 |
+| 同上 | `keeps only overdue tasks from the due menu` | FILTER-05 |
+| 同上 | `keeps broken-link endpoints from the relation menu` | FILTER-06 |
+| 同上 | `filters by milestone and keeps selection only for the same row` | FILTER-07 |
+| 同上 | `shows all and none only for an empty milestone query` | FILTER-07 |
+| 同上 | `caps milestone candidates and keeps the overflow note outside the list` | FILTER-07 |
+| 同上 | `replaces a closed milestone label when typing again` | FILTER-07 |
+| 同上 | `toggles lineage from the toolbar and the task menu` | FILTER-08 |
+| 同上 | `hides a finished group and still offers it when adding` | FILTER-04, FILTER-09 |
+| 同上 | `filters confidence and clears the selection` | FILTER-10 |
+| 同上 | `filters tags and clears one chip without clearing lineage` | FILTER-12 |
+| 同上 | `drops tag selection when the file is opened again` | FILTER-12 |
+| 同上 | `keeps only tagged tasks when every file tag is selected` | FILTER-12 |
+| 同上 | `keeps tasks with no tag when none are selected` | FILTER-12 |
+| 同上 | `scrolls only the tag list and restores hidden checks` | FILTER-12 |
+| 同上 | `shows that there are no tags and hides the clear button` | FILTER-12 |
+| 同上 | `clears only the tag selection from the tag button` | FILTER-12 |
+| 同上 | `drops a deleted tag from the selection` | FILTER-12 |
+| 同上 | `scrolls field-filter rows inside the panel` | FILTER-13 |
+| 同上 | `hides milestone bands and marks from the panel and the menu` | FILTER-11, FILTER-13 |
+| 同上 | `leaves task selection still while the diff list is focused` | FILE-07 |
+| 同上 | `focuses the diff list from the keyboard and the chart from a click` | FILE-07 |
+| 同上 | `copies the diff text without opening the column` | FILE-07, NAV-07 |
+| 同上 | `moves the menu with arrows home and end and closes it with escape` | FILE-01 |
+| 同上 | `opens and closes the command palette without the guide` | NAV-07 |
+| 同上 | `scrolls the chart with ctrl+arrow and leaves a bare arrow to the field` | NAV-01 |
+| 同上 | `changes the sidebar width with arrows and scrolls with ctrl+arrow` | NAV-06 |
+| 同上 | `opens the shortcut list from keys and the menu but not from search` | NAV-02 |
+| 同上 | `opens the guide and moves to the shortcut list` | NAV-08 |
+| 同上 | `moves selection along tasks and reveals only off-screen rows` | EDIT-01, NAV-01 |
+| 同上 | `focuses the detail name on enter unless search is focused` | EDIT-04 |
+| 同上 | `keeps a duplicate unsaved while composing and closes it with escape` | EDIT-04, EDIT-14 |
+| 同上 | `opens the note with ctrl+n and shows the shortcut` | EDIT-06 |
+| 同上 | `does not delete a milestone from the delete key` | EDIT-07 |
+| 同上 | `opens add dialogs from shortcuts and skips them while typing or linking` | EDIT-07, EDIT-08, EDIT-14, EDIT-15, NAV-07 |
+| 同上 | `opens delete confirmation unless search is focused` | EDIT-09 |
+| 同上 | `undoes and redoes a move unless search is focused` | EDIT-10 |
+| 同上 | `cuts copies pastes and selects all in the name field` | EDIT-04 |
+| 同上 | `does not commit name note or hierarchy fields while composing` | EDIT-04, EDIT-21 |
+| 同上 | `clears the selection when the name query changes` | FILTER-01 |
+| 同上 | `keeps the open schedule when a broken file is rejected` | FILE-01 |
+| 同上 | `shows unknown assignees and leaves unassigned tasks` | VIEW-13 |
+| 同上 | `drives field, tag, and mark keyboards and the remaining toolbar actions` | FILTER-07, FILTER-12, FILTER-13, EDIT-08 |
+| 同上 | `walks save on the edit dialogs` | EDIT-04, EDIT-06, EDIT-07, EDIT-08, EDIT-09, EDIT-21 |
+| 同上 | `shows the calendar error and keeps the schedule` | SET-03 |
 | `memberCatalogEditSession.test.ts` | `closes when the open catalog is removed` | SET-02, SET-08 |
 | 同上 | `reloads when another window overwrites the open catalog` | SET-02, SET-08 |
 | 同上 | `ignores self save reload` | SET-02, SET-08 |
@@ -1189,7 +1238,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `errors.ts` | 未テスト |
 | `timelineVisibleDays.ts` | 未テスト |
 | `layoutSizes.ts` | 未テスト |
-| `src/components/`、`src/hooks/`、`App.tsx` | DOM、Konva、Tauri の操作は未テスト。キーの判断、チャートの当たり、保存の直列化、起動の世代、監視の停止は純粋関数としてテストしている |
+| `src/components/`、`src/hooks/`、`App.tsx` | 検索、絞り込み、エラー表示、メニュー、パレット、ショートカットの DOM は `searchErrorKeys.dom.test.tsx` がテストしている。Konva の描画、Tauri のダイアログ、ファイルの監視は手で確かめる。キーの判断、チャートの当たり、保存の直列化、起動の世代、監視の停止は純粋関数としてもテストしている |
 
 足すなら、手間のわりに効果が大きい次の順がよい。
 
