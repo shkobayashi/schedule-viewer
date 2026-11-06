@@ -378,6 +378,17 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `shows the try-llm prompt after mcp is checked` | NAV-09 |
 | `StatusBar.dom.test.tsx` | `shows the mac and windows save hint text` | NAV-09 |
 | 同上 | `omits the hint when saveHint is absent` | NAV-09 |
+| `browserDesktopChrome.dom.test.tsx` | `hides the first-run card after dismiss across a remount` | NAV-09 |
+| 同上 | `shows the save hint while the document is dirty and clears it after save` | NAV-09 |
+| 同上 | `keeps the card when only the prepare item is checked` | NAV-09 |
+| 同上 | `omits the first-run card and save hint in the browser runtime` | NAV-09 |
+| 同上 | `shows the first-run card in the screenshot runtime without Tauri` | NAV-09 |
+| 同上 | `shows a disabled recent-files row and the empty hint on the desktop menu` | NAV-09, FILE-09 |
+| 同上 | `omits recent files and clear history from the browser menu and palette` | FILE-09 |
+| 同上 | `omits the screen-state settings section in the browser` | NAV-09 |
+| 同上 | `prevents the browser from navigating when a file is dropped` | FILE-08 |
+| 同上 | `does not subscribe to schedule drops outside Tauri` | FILE-08 |
+| 同上 | `does not poll an external file or write filters in the browser` | SYNC-03, SYNC-01 |
 | `GuideDialog.dom.test.tsx` | `shows the four headings while open` | NAV-08 |
 | 同上 | `renders nothing while closed` | NAV-08 |
 | 同上 | `dismisses from the close button and Escape` | NAV-08 |
@@ -721,6 +732,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `devFreshStart.test.ts` | `clears when Tauri reports fresh start even if Vite env is off` | NAV-09 |
 | `firstRunLlmSteps.test.ts` | `uses the write-schedule skill name in the example prompt` | NAV-09 |
 | `firstRunGuidance.test.ts` | `starts with hint not dismissed and save hint not completed` | NAV-09 |
+| 同上 | `keeps the screenshot shim on the desktop path and the browser off it` | NAV-09 |
+| 同上 | `hides the card, save hint, and empty-history note outside the desktop runtime` | NAV-09 |
 | 同上 | `migrates legacy openFile flag to prepareSchedule` | NAV-09 |
 | 同上 | `persists checklist items and dismisses when all complete` | NAV-09 |
 | `anchorSample.test.ts` | `preserves one ahead and one behind lightning on varied open days` | NAV-09 |

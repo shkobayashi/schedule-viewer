@@ -35,6 +35,7 @@ function parseScheduleErrorMessage(
   if (!baselineParsed.ok) return baselineParsed.message;
   return "スケジュールを読み込めません。";
 }
+import { scheduleFilePoll } from "./browserFileBridge";
 import { EXTERNAL_RELOAD_POLL_MS, RELOAD_NOTICE_MS } from "./constants";
 import {
   recordPollReadFailure,
@@ -287,7 +288,6 @@ export function useScheduleExternalReload({
   );
 
   useEffect(() => {
-    if (!isTauri() || !filePath) return;
     let cancelled = false;
     let inFlight = false;
 
@@ -335,12 +335,17 @@ export function useScheduleExternalReload({
       }
     };
 
-    const id = window.setInterval(() => {
-      void tick();
-    }, EXTERNAL_RELOAD_POLL_MS);
+    const stop = scheduleFilePoll(
+      isTauri(),
+      filePath,
+      () => {
+        void tick();
+      },
+      EXTERNAL_RELOAD_POLL_MS,
+    );
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      stop();
     };
   }, [fileBusyRef, filePath, pausePollRef, processDiskContents, requestMissingFileOpenRef]);
 

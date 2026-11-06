@@ -79,21 +79,21 @@ test("a test name that is not in the file fails", () => {
 
 test("a step id that is not in the scenario fails", () => {
   withCopy((root) => {
-    replace(root, "docs/regression-matrix.md", "手動:RG-S1-3", "手動:RG-S1-99");
-    assert.failWith(run(root), "RG-S1-99");
+    replace(root, "docs/regression-matrix.md", "手動:RG-S2-6", "手動:RG-S2-99");
+    assert.failWith(run(root), "RG-S2-99");
   });
 });
 
 test("a scenario heading without a numbered step fails", () => {
   withCopy((root) => {
-    replace(root, "docs/regression-matrix.md", "手動:RG-S1-3", "手動:RG-S1");
-    assert.failWith(run(root), "RG-S1");
+    replace(root, "docs/regression-matrix.md", "手動:RG-S2-6", "手動:RG-S2");
+    assert.failWith(run(root), "RG-S2");
   });
 });
 
 test("a numbered step without an expectation fails", () => {
   withCopy((root) => {
-    replace(root, "docs/regression.md", "期待: カードは出ない。", "結果だけを書く。");
+    replace(root, "docs/regression.md", "期待: 進行中の色、期限超過の赤、「調査」の未割当、土日の塗りが、地に溶けて読めなくならない。読めない色の名前を記録する。", "結果だけを書く。");
     assert.failWith(run(root), "期待か扱いが無い");
   });
 });
@@ -165,7 +165,7 @@ test("a matrix row with the wrong number of columns fails", () => {
 
 test("an unparsable manual reference fails", () => {
   withCopy((root) => {
-    replace(root, "docs/regression-matrix.md", "手動:RG-S1-3", "手動:なし");
+    replace(root, "docs/regression-matrix.md", "手動:RG-S2-6", "手動:なし");
     assert.failWith(run(root), "手順 ID が取れない");
   });
 });

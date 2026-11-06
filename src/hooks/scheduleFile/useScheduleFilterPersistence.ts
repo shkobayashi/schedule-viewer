@@ -20,6 +20,7 @@ import {
 import type { ScheduleDocument } from "../../model/types";
 import { isTauri } from "../../model/scheduleFile";
 import { recoveryCloseActionViaTauri, recoveryLiveActionViaTauri } from "../../model/windowSession";
+import { scheduleFilterWrite } from "./browserFileBridge";
 import { RECOVERY_DEBOUNCE_MS } from "./constants";
 
 type UseScheduleFilterPersistenceOptions = {
@@ -181,19 +182,18 @@ export function useScheduleFilterPersistence({
   );
 
   useEffect(() => {
-    if (!isTauri() || !filePath || !startupSettled) return;
+    if (!startupSettled || !filePath) return;
     const snapshot = JSON.stringify(getFilterViewState());
     if (snapshot === filterViewSnapshotRef.current) return;
     filterViewSnapshotRef.current = snapshot;
     if (persistSuppressedRef.current) return;
-    const id = window.setTimeout(() => {
+    return scheduleFilterWrite(isTauri(), filePath, () => {
       void syncLiveFilter().catch((error) => {
         setErrorMessageText(
           errorMessage(error, "絞り込みの記録を保存できませんでした。"),
         );
       });
     }, RECOVERY_DEBOUNCE_MS);
-    return () => window.clearTimeout(id);
   }, [
     filePath,
     getFilterViewState,

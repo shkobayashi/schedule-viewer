@@ -9,6 +9,8 @@ import {
   markSaveHintCompleted,
   readFirstRunChecklist,
   saveHintLabel,
+  desktopFirstRunVisibility,
+  isDesktopFirstRunRuntime,
   shouldShowFirstRunHintCard,
   shouldShowSaveHintPill,
 } from "./firstRunGuidance";
@@ -91,6 +93,33 @@ describe("firstRunGuidance labels", () => {
     expect(saveHintLabel(true)).toBe("保存は ☰ または ⌘S");
     expect(firstRunHintSaveFootnote(true)).toContain("⌘S");
     expect(firstRunHintSaveFootnote(false)).toContain("Ctrl+S");
+  });
+});
+
+describe("isDesktopFirstRunRuntime", () => {
+  it("keeps the screenshot shim on the desktop path and the browser off it", () => {
+    expect(isDesktopFirstRunRuntime(false, "test")).toBe(false);
+    expect(isDesktopFirstRunRuntime(false, "development")).toBe(false);
+    expect(isDesktopFirstRunRuntime(false, "manual-screenshot")).toBe(true);
+    expect(isDesktopFirstRunRuntime(true, "development")).toBe(true);
+  });
+
+  it("hides the card, save hint, and empty-history note outside the desktop runtime", () => {
+    const browser = desktopFirstRunVisibility({
+      desktopRuntime: isDesktopFirstRunRuntime(false, "development"),
+      dismissed: false,
+      checklist: { prepareSchedule: false, guide: false, mcp: false },
+      startupSettled: true,
+      saveHintCompleted: false,
+      isDirty: true,
+      commandKey: false,
+      recentMenuEmpty: true,
+    });
+    expect(browser).toEqual({
+      showCard: false,
+      saveHint: null,
+      recentEmptyHint: null,
+    });
   });
 });
 

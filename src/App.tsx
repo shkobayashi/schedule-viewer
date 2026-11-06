@@ -141,18 +141,10 @@ import {
 } from "./model/viewPreferences";
 import { writeColorSchemePreference } from "./model/colorScheme";
 import {
-  RECENT_FILES_EMPTY_HINT,
-  dismissFirstRunHint,
-  isFirstRunChecklistComplete,
-  isFirstRunHintDismissed,
-  isSaveHintCompleted,
-  markFirstRunChecklistItem,
-  markSaveHintCompleted,
-  readFirstRunChecklist,
-  saveHintLabel,
-  shouldShowFirstRunHintCard,
-  shouldShowSaveHintPill,
+  desktopFirstRunVisibility,
+  isDesktopFirstRunRuntime,
 } from "./model/firstRunGuidance";
+import { useDesktopFirstRunSession } from "./hooks/useDesktopFirstRunSession";
 import {
   clearPrepareLlmStepsVisible,
   markPrepareLlmStepsVisible,
@@ -456,41 +448,22 @@ function App() {
   const [storeDistribution, setStoreDistribution] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
-  const [firstRunHintDismissed, setFirstRunHintDismissed] = useState(
-    () => isFirstRunHintDismissed(),
-  );
-  const [firstRunChecklist, setFirstRunChecklist] = useState(() =>
-    readFirstRunChecklist(),
-  );
+  const {
+    dismissed: firstRunDismissed,
+    checklist: firstRunChecklist,
+    saveHintCompleted,
+    dismiss: dismissFirstRunHintCard,
+    markSaved: markSaveHintCompleted,
+    markStep: markFirstRunStep,
+  } = useDesktopFirstRunSession();
   const [prepareLlmStepsVisible, setPrepareLlmStepsVisible] = useState(() =>
     readPrepareLlmStepsVisible(),
-  );
-  const [saveHintCompleted, setSaveHintCompleted] = useState(
-    () => isSaveHintCompleted(),
   );
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const openGuide = useCallback(() => {
     setShortcutsOpen(false);
     setGuideOpen(true);
   }, []);
-  const dismissFirstRunHintCard = useCallback(() => {
-    dismissFirstRunHint();
-    setFirstRunHintDismissed(true);
-  }, []);
-  const syncFirstRunChecklist = useCallback(() => {
-    const next = readFirstRunChecklist();
-    setFirstRunChecklist(next);
-    if (isFirstRunChecklistComplete(next) || isFirstRunHintDismissed()) {
-      setFirstRunHintDismissed(true);
-    }
-  }, []);
-  const markFirstRunStep = useCallback(
-    (id: Parameters<typeof markFirstRunChecklistItem>[0]) => {
-      markFirstRunChecklistItem(id);
-      syncFirstRunChecklist();
-    },
-    [syncFirstRunChecklist],
-  );
   const openFirstRunMcpSettings = useCallback(() => {
     setSettingsSection("mcp");
     setSettingsOpen(true);
@@ -1422,8 +1395,7 @@ function App() {
   const handleScheduleSaved = useCallback(() => {
     schedule.clearExplanationView();
     markSaveHintCompleted();
-    setSaveHintCompleted(true);
-  }, [schedule.clearExplanationView]);
+  }, [markSaveHintCompleted, schedule.clearExplanationView]);
 
   const reportFileErrorRef = useRef<(message: string) => void>(() => {});
   const {
@@ -1510,31 +1482,22 @@ function App() {
 
   const showScheduleBody = scheduleFile.startupContentReady;
 
-  const isDesktopFirstRunUi =
-    isTauri() || import.meta.env.MODE === "manual-screenshot";
   const showingBuiltInSample =
     scheduleFile.filePath == null &&
     scheduleFile.displayFileName === "サンプルデータ";
-  const showFirstRunHintCard =
-    isDesktopFirstRunUi &&
-    shouldShowFirstRunHintCard({
-      dismissed: firstRunHintDismissed,
-      startupSettled: scheduleFile.startupSettled,
-      checklist: firstRunChecklist,
-    });
-  const statusBarSaveHint =
-    isDesktopFirstRunUi &&
-    shouldShowSaveHintPill({
-      completed: saveHintCompleted,
-      startupSettled: scheduleFile.startupSettled,
-      isDirty: scheduleFile.isDirty,
-    })
-      ? saveHintLabel(commandKey)
-      : null;
-  const recentFilesMenuEmptyHint =
-    isDesktopFirstRunUi && !hasRecentMenuItems(recentFilesStore)
-      ? RECENT_FILES_EMPTY_HINT
-      : null;
+  const firstRunChrome = desktopFirstRunVisibility({
+    desktopRuntime: isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE),
+    dismissed: firstRunDismissed,
+    checklist: firstRunChecklist,
+    startupSettled: scheduleFile.startupSettled,
+    saveHintCompleted,
+    isDirty: scheduleFile.isDirty,
+    commandKey,
+    recentMenuEmpty: !hasRecentMenuItems(recentFilesStore),
+  });
+  const showFirstRunHintCard = firstRunChrome.showCard;
+  const statusBarSaveHint = firstRunChrome.saveHint;
+  const recentFilesMenuEmptyHint = firstRunChrome.recentEmptyHint;
 
   const onFirstRunOpenFile = useCallback(() => {
     flushTitleEdit();

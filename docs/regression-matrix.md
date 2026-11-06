@@ -9,8 +9,8 @@
 | ID | 種類 | 項目 | 区分 | 行き先 |
 | --- | --- | --- | --- | --- |
 | MX-H-1 | 集約 | できること | 対象外 | 理由:総見出し。子の見出しで確認する。この行だけでは合格にしない |
-| MX-H-2 | UI | インストールと起動 | 自動化予定 | 手動:RG-S1-3。自動化予定:#544 |
-| MX-H-3 | 計算 | インストールと起動 | 自動化予定 | 自動化予定:#544 |
+| MX-H-2 | UI | インストールと起動 | 自動済み | 自動:src/components/browserDesktopChrome.dom.test.tsx#hides the first-run card after dismiss across a remount |
+| MX-H-3 | 計算 | インストールと起動 | 自動済み | 自動:src/model/firstRunGuidance.test.ts#keeps the screenshot shim on the desktop path and the browser off it |
 | MX-H-4 | 見た目 | 画面の見かた | 手動のまま | 手動:RG-S2-6。手動のまま:色が地に溶けて読めるかは人が判断する |
 | MX-H-5 | UI | 画面の見かた | 自動化予定 | 自動化予定:#535 |
 | MX-H-6 | UI | ファイルを開く・保存する | 自動化予定 | 手動:RG-S4-3。自動化予定:#547 |
@@ -61,8 +61,8 @@
 | MX-H-51 | UI | 「メンバー設定エラー」「カレンダー設定エラー」が出る | 自動化予定 | 手動:RG-F13-3。自動化予定:#540 |
 | MX-H-52 | OS | WindowsでSmartScreenが出る | 手動のまま | 手動:RG-F14-4。手動のまま:SmartScreen は署名した Windows の初回起動でしか確認できない |
 | MX-H-53 | UI | 書き出せない | 自動化予定 | 手動:RG-F5-3。自動化予定:#547 |
-| MX-H-54 | UI | ブラウザ版とデスクトップ版の違い | 自動化予定 | 手動:RG-S5-1。自動化予定:#544 |
-| MX-H-55 | UI | ブラウザ版とデスクトップ版の違い | 自動化予定 | 自動化予定:#544 |
+| MX-H-54 | UI | ブラウザ版とデスクトップ版の違い | 自動済み | 自動:src/components/browserDesktopChrome.dom.test.tsx#omits the first-run card and save hint in the browser runtime |
+| MX-H-55 | UI | ブラウザ版とデスクトップ版の違い | 自動済み | 自動:src/components/browserDesktopChrome.dom.test.tsx#omits the screen-state settings section in the browser |
 
 ## 操作
 
