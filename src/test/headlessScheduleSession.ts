@@ -298,6 +298,10 @@ export class HeadlessSchedule {
     return { ok: true, text: "更新しました。" };
   }
 
+  private committed(next: ScheduleDocument): { ok: true; message: string } {
+    return { ok: true, message: this.commit(next).text };
+  }
+
   private runHistory(
     action: unknown,
   ): { ok: true; text: string } | { ok: false; message: string } {
@@ -374,7 +378,7 @@ export class HeadlessSchedule {
     if (categories == null) {
       return { ok: false, message: "タスクを追加できません。" };
     }
-    return this.commit({ ...this.document, categories });
+    return this.committed({ ...this.document, categories });
   }
 
   private addCategory(
@@ -388,7 +392,7 @@ export class HeadlessSchedule {
       step.groupId,
     );
     if (result.error) return { ok: false, message: result.error };
-    return this.commit({ ...this.document, categories: result.categories });
+    return this.committed({ ...this.document, categories: result.categories });
   }
 
   private addGroup(
@@ -401,7 +405,7 @@ export class HeadlessSchedule {
       step.groupId,
     );
     if (result.error) return { ok: false, message: result.error };
-    return this.commit({ ...this.document, categories: result.categories });
+    return this.committed({ ...this.document, categories: result.categories });
   }
 
   private addMilestone(
@@ -409,7 +413,7 @@ export class HeadlessSchedule {
   ): { ok: boolean; message: string } {
     const error = validateNewMilestone(milestone);
     if (error) return { ok: false, message: error };
-    return this.commit({
+    return this.committed({
       ...this.document,
       milestones: appendMilestone(this.document.milestones, milestone),
     });
@@ -426,7 +430,7 @@ export class HeadlessSchedule {
     if (removed.milestones.length === this.document.milestones.length) {
       return { ok: false, message: "マイルストンが見つかりません。" };
     }
-    return this.commit({
+    return this.committed({
       ...this.document,
       categories: removed.categories,
       milestones: removed.milestones,
