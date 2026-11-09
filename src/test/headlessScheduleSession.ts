@@ -51,6 +51,7 @@ import {
   removeTask,
   validateNewTask,
 } from "../model/tasks";
+import { BUILTIN_STATUS_ITEMS, defaultStatusId } from "../model/statusCatalog";
 import {
   SCHEDULE_SCHEMA_VERSION,
   type Milestone,
@@ -114,7 +115,9 @@ export type HeadlessStep =
       };
       taskId: string;
     }
-  | { tool: "setTitle"; raw: string };
+  | { tool: "setTitle"; raw: string }
+  | { tool: "deleteTask"; taskId: string }
+  | { tool: "commitDocument"; document: ScheduleDocument };
 
 export type HeadlessStepResult = {
   ok: boolean;
@@ -231,6 +234,12 @@ export class HeadlessSchedule {
     }
     if (step.tool === "save") {
       return this.save();
+    }
+    if (step.tool === "deleteTask") {
+      return this.deleteTaskStep(step.taskId);
+    }
+    if (step.tool === "commitDocument") {
+      return this.committed(step.document);
     }
     const gate = assessMcpOperationGate({
       startupSettled: true,
@@ -463,9 +472,6 @@ export class HeadlessSchedule {
     groupId: string,
   ): { ok: boolean; message: string } {
     const categories = removeGroupFromCategories(this.document.categories, groupId);
-    if (categories === this.document.categories) {
-      return { ok: false, message: "グループを削除できません。" };
-    }
     return this.committed({ ...this.document, categories });
   }
 
@@ -486,7 +492,7 @@ export class HeadlessSchedule {
       start: step.input.start,
       end: step.input.end,
       assigneeIds: [],
-      status: "not-started",
+      status: defaultStatusId(BUILTIN_STATUS_ITEMS),
       progress: 0,
       confidence: "tentative",
       predecessors: [],
@@ -509,7 +515,7 @@ export class HeadlessSchedule {
     return this.committed({ ...this.document, title: resolved.title });
   }
 
-  deleteTask(taskId: string): { ok: boolean; message: string } {
+  private deleteTaskStep(taskId: string): { ok: boolean; message: string } {
     const deleted = new Set([taskId]);
     return this.committed({
       ...this.document,
@@ -519,12 +525,6 @@ export class HeadlessSchedule {
         deleted,
       ),
     });
-  }
-
-  commitProduction(
-    next: ScheduleDocument,
-  ): { ok: boolean; message: string } {
-    return this.committed(next);
   }
 
   getDocument(): ScheduleDocument {
