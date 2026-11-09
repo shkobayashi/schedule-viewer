@@ -36,7 +36,7 @@
 | MX-H-26 | UI | タスクへの色 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color |
 | MX-H-27 | UI | タスクへの色 | 自動化予定 | 自動化予定:#536 |
 | MX-H-28 | 計算 | 右クリックと複製 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
-| MX-H-29 | UI | 右クリックと複製 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#duplicates 調査 with edit_plan patch fields and one undo removes the copy。自動化予定:#535 |
+| MX-H-29 | UI | 右クリックと複製 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#duplicates 調査 on full.schedule with unchanged pointed tasks。自動化予定:#535 |
 | MX-H-30 | UI | ノートと名前 | 手動のまま | 手動:RG-F1-2。手動のまま:実機の変換確定は模擬イベントで代用しない |
 | MX-H-31 | 計算 | 追加と削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#deletes an empty category and an empty group, then undo restores both |
 | MX-H-32 | UI | 追加と削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。自動:src/test/headlessScheduleSession.regression.test.ts#restores empty group 後半 after removeGroup and one undo。手動:RG-S3-9。自動化予定:#535 |
@@ -120,8 +120,8 @@
 | MX-O-50 | UI | 横スクロール（ホイール） | 自動化予定 | 手動:RG-S2-4。自動化予定:#535 |
 | MX-O-51 | UI | 横スクロール（ホイール） | 自動化予定 | 自動化予定:#535 |
 | MX-O-52 | UI | スケジュールのタイトルを変更 | 手動のまま | 手動:RG-F1-4。手動のまま:見出しの実機の変換確定は模擬イベントで代用しない |
-| MX-O-53 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 手動:RG-F10-4。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。自動化予定:#545 |
-| MX-O-54 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied。自動化予定:#545 |
+| MX-O-53 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 手動:RG-F10-4。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。自動化予定:#547 |
+| MX-O-54 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied。自動化予定:#535 |
 | MX-O-55 | UI | 絞り込みパネルを開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters assignees from the panel and clears one chip |
 | MX-O-56 | UI | 絞り込みをすべて解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters tags and clears one chip without clearing lineage |
 | MX-O-57 | UI | 系統を表示／解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
@@ -143,17 +143,17 @@
 | MX-O-73 | 計算 | マイルストンを追加 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#adds and deletes a milestone, then undo restores it |
 | MX-O-74 | UI | マイルストンを追加 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only add-milestone on an empty chart |
 | MX-O-75 | UI | タスクを編集（詳細） | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#undoes assignee add clear and reorder on 調査。自動:src/test/headlessScheduleSession.regression.test.ts#adds and removes a tag with undo redo and leaves the file dirty until save。自動化予定:#535 |
-| MX-O-76 | UI | タスクを削除 | 自動化予定 | 手動:RG-S3-9。自動化予定:#545 |
+| MX-O-76 | UI | タスクを削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。手動:RG-S3-9。自動化予定:#535 |
 | MX-O-77 | 計算 | タスクを削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。自動化予定:#535 |
-| MX-O-78 | UI | タスクを複製 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#duplicates 調査 with edit_plan patch fields and one undo removes the copy。自動化予定:#535 |
+| MX-O-78 | UI | タスクを複製 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#duplicates 調査 on full.schedule with unchanged pointed tasks。自動化予定:#535 |
 | MX-O-79 | UI | 同じグループ内で並べ替え | 自動化予定 | 自動化予定:#535 |
 | MX-O-80 | UI | ノートを開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens the note with ctrl+n and shows the shortcut |
 | MX-O-81 | UI | 系統を表示／解除（タスク） | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
 | MX-O-82 | UI | 確定／未確定（タスク） | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#toggles 設計 confidence without moving dates and one undo restores it。自動化予定:#535 |
 | MX-O-83 | 見た目 | 確定／未確定（マイルストン） | 自動化予定 | 手動:RG-F4-3。自動化予定:#536 |
-| MX-O-84 | UI | マイルストンを編集 | 自動化予定 | 自動化予定:#545 |
+| MX-O-84 | UI | マイルストンを編集 | 自動化予定 | 自動化予定:#535 |
 | MX-O-85 | 計算 | マイルストンを削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#adds and deletes a milestone, then undo restores it |
-| MX-O-86 | UI | マイルストンを削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#resets milestone filter to all when 承認 is deleted and undo does not restore the filter。自動化予定:#535 |
+| MX-O-86 | UI | マイルストンを削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#clears 調査 milestoneId when 承認 is deleted and undo restores both。自動化予定:#535 |
 | MX-O-87 | UI | 前後の線を外す | 自動化予定 | 手動:RG-F4-1。自動化予定:#536 |
 | MX-O-88 | 見た目 | 前後の線を外す | 自動化予定 | 自動化予定:#536 |
 | MX-O-89 | UI | 繋がりを外す | 自動化予定 | 手動:RG-F4-4。自動化予定:#536 |
@@ -162,9 +162,9 @@
 | MX-O-92 | UI | グループを追加（カテゴリ下） | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#appends a group under the chosen category and one undo removes it。自動化予定:#535 |
 | MX-O-93 | UI | グループ名を変更 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#keeps group id when renaming 前半 and undo restores the name。自動化予定:#535 |
 | MX-O-94 | UI | 下にグループを追加 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#appends a group under the chosen category and one undo removes it。自動化予定:#535 |
-| MX-O-95 | UI | 階層名を変更（アウトライン） | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動:src/test/headlessScheduleSession.regression.test.ts#saves outline heading 回帰の見出し and undo removes it。自動化予定:#535 |
-| MX-O-96 | UI | 下に階層を追加 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動:src/test/headlessScheduleSession.regression.test.ts#saves outline heading 回帰の見出し and undo removes it。自動化予定:#535 |
-| MX-O-97 | UI | 子階層を追加 | 自動化予定 | 自動化予定:#545 |
+| MX-O-95 | UI | 階層名を変更（アウトライン） | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#MX-O-95: renameOutlineBranch and undo。自動化予定:#535 |
+| MX-O-96 | UI | 下に階層を追加 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#MX-O-97: appendOutlineChildBranch and undo。自動化予定:#535 |
+| MX-O-97 | UI | 子階層を追加 | 自動化予定 | 自動化予定:#535 |
 | MX-O-98 | 計算 | カテゴリ／グループ／階層を削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#deletes an empty category and an empty group, then undo restores both |
 | MX-O-99 | UI | カテゴリ／グループ／階層を削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores empty group 後半 after removeGroup and one undo。自動:src/test/headlessScheduleSession.regression.test.ts#undo removes a category added under 計画 and its default グループ。自動化予定:#535 |
 | MX-O-100 | UI | タスクバーをドラッグして期間変更 | 自動化予定 | 手動:RG-S3-1。自動化予定:#535 |
@@ -175,7 +175,7 @@
 | MX-O-105 | UI | タスクを範囲選択 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
 | MX-O-106 | 計算 | 選択を伸ばす | 自動済み | 自動:src/model/taskSelection.test.ts#extends selection with shift+arrow |
 | MX-O-107 | UI | 選択を伸ばす | 自動化予定 | 自動化予定:#535 |
-| MX-O-108 | 計算 | 説明を消す | 自動化予定 | 自動化予定:#545 |
+| MX-O-108 | 計算 | 説明を消す | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
 | MX-O-109 | 計算 | 前面スケジュールを置き換え | 自動化予定 | 自動化予定:#543 |
 | MX-O-110 | 計算 | 選択中タスクを1件読む | 自動済み | 自動:src/model/screenContext.test.ts#returns null when selection is not exactly one task |
 | MX-O-111 | 計算 | 選択中タスクを1件読む | 自動化予定 | 自動化予定:#543 |
@@ -188,12 +188,12 @@
 | MX-O-118 | 計算 | 起点・画面・ファイルの分類を読む | 自動済み | 自動:src/model/baselineDiffs.test.ts#reports no changes when baseline, screen, and file match |
 | MX-O-119 | 計算 | 起点・画面・ファイルの分類を読む | 自動化予定 | 自動化予定:#543 |
 | MX-O-120 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the status editor open and shows the saved status name。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color。自動化予定:#547 |
-| MX-O-121 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 自動化予定 | 自動化予定:#545 |
+| MX-O-121 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 自動化予定 | 自動化予定:#536 |
 | MX-O-122 | UI | JSON作成スキル・更新確認の設定 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the browser skill note, the seven skill names, and a disabled install button。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the package version and omits the updates section in the browser。自動:src/components/settingsDesktopChrome.dom.test.tsx#shows the overwrite confirmation when install reports existing paths。自動:src/components/settingsDesktopChrome.dom.test.tsx#disables install and remove when every skill target is unchecked。自動化予定:#547 |
-| MX-O-123 | 計算 | 説明のための見え方を掛ける | 自動化予定 | 自動化予定:#545 |
+| MX-O-123 | 計算 | 説明のための見え方を掛ける | 自動済み | 自動:src/model/screenContext.test.ts#includes view.explanation when explanation view is active。自動:src/model/rows.test.ts#keeps only listed ids and ignores user filters and lineage |
 | MX-O-124 | 計算 | 説明の半透明・試しの計画 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
 | MX-O-125 | UI | 説明の半透明・試しの計画 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch。自動化予定:#535 |
-| MX-O-126 | 計算 | 試しの計画を計画へ反映 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch。自動化予定:#535 |
+| MX-O-126 | 計算 | 試しの計画を計画へ反映 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch |
 | MX-O-127 | 計算 | 画面の見方を LLM から変更 | 自動済み | 自動:src/model/mcpSetView.test.ts#leaves collapse unchanged when patch has no collapsed fields |
 | MX-O-128 | 計算 | 画面の見方を LLM から変更 | 自動化予定 | 自動化予定:#543 |
 | MX-O-129 | 計算 | 計画を部分更新 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#shifts two tasks, keeps the file until save, then clears the diff |
@@ -229,14 +229,14 @@
 | MX-T-19 | 計算 | set_view | 自動済み | 自動:src/model/mcpSetView.test.ts#leaves collapse unchanged when patch has no collapsed fields |
 | MX-T-20 | 計算 | set_view | 自動化予定 | 自動化予定:#543 |
 | MX-T-21 | 計算 | explain_view | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
-| MX-T-22 | 計算 | explain_view | 自動化予定 | 自動化予定:#545 |
+| MX-T-22 | 計算 | explain_view | 自動済み | 自動:src/model/rows.test.ts#keeps only listed ids and ignores user filters and lineage。自動:src/model/screenContext.test.ts#includes view.explanation when explanation view is active |
 | MX-T-23 | 計算 | explain_overlay | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
 | MX-T-24 | 計算 | explain_overlay | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch |
 | MX-T-25 | 計算 | apply_explanation_pattern | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#rejects apply_explanation_pattern without overlay or with unknown id。自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch |
 | MX-T-26 | 計算 | edit_plan | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#shifts two tasks, keeps the file until save, then clears the diff |
 | MX-T-27 | 計算 | edit_plan | 自動化予定 | 自動化予定:#543 |
 | MX-T-28 | 計算 | file_action | 自動化予定 | 自動化予定:#547 |
-| MX-T-29 | 計算 | catalog_action | 自動化予定 | 自動化予定:#545 |
-| MX-T-30 | 計算 | set_preferences | 自動化予定 | 自動化予定:#545 |
+| MX-T-29 | 計算 | catalog_action | 自動化予定 | 自動化予定:#547 |
+| MX-T-30 | 計算 | set_preferences | 自動化予定 | 自動化予定:#547 |
 | MX-T-31 | 計算 | history | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#undo and redo restore the exact saved schedule |
 | MX-T-32 | 計算 | history | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo |

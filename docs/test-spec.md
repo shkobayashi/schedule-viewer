@@ -393,6 +393,31 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `rejects a backwards period, a busy drag, and a filled category without writing` | EDIT-03, EDIT-19, MCP-01 |
 | 同上 | `stays the same after save, reload, and save again` | FILE-02, FILE-01 |
 | 同上 | `keeps both explanation filter and overlay after two date changes` | VIEW-16, EDIT-02 |
+| `headlessScheduleSession.regression.test.ts` | `restores 調査 note and 設計 predecessor after delete undo and redo` | EDIT-10, EDIT-19 |
+| 同上 | `restores empty group 後半 after removeGroup and one undo` | EDIT-19, EDIT-10 |
+| 同上 | `clears 調査 milestoneId when 承認 is deleted and undo restores both` | EDIT-07, EDIT-10 |
+| 同上 | `duplicates 調査 on full.schedule with unchanged pointed tasks` | EDIT-14, EDIT-10 |
+| 同上 | `formatScheduleDiff includes hidden filtered task date change` | FILE-07, FILTER-01 |
+| 同上 | `applyMilestoneEdit group move appears in diff as groupId` | EDIT-07, FILE-07 |
+| 同上 | `rejects edit_plan while the detail panel is editing` | MCP-01 |
+| 同上 | `adopts one explanation pattern through MCP dispatch` | VIEW-17, MCP-01 |
+| 同上 | `rejects apply_explanation_pattern without overlay or with unknown id` | VIEW-17, MCP-01 |
+| `headlessScheduleSession.connections.regression.test.ts` | `adds one connection pair and rejects blank labels` | EDIT-23 |
+| 同上 | `removeConnectionByPair undo restores and diffText has exactly one 削除 繋がり` | EDIT-23, FILE-07 |
+| 同上 | `keeps connections across duplicate and bulk edit` | EDIT-23, EDIT-14 |
+| 同上 | `TC-EDIT-23c: relation broken hides connection-only task rows on connections schedule` | EDIT-23, VIEW-02 |
+| `headlessScheduleSession.fields.regression.test.ts` | `parseTaskFieldInput and setTaskFieldValueOnCategories per field defs` | EDIT-04, FILE-02 |
+| `headlessScheduleSession.hierarchy.regression.test.ts` | `appendOutlineHeadingAtLevel on levels-2.schedule.json commits, saves, and parses` | EDIT-18, FILE-02 |
+| 同上 | `appendOutlineHeadingAtLevel on levels-3.schedule.json commits, saves, and parses` | EDIT-18, FILE-02 |
+| 同上 | `MX-O-97: appendOutlineChildBranch and undo` | EDIT-18, EDIT-10 |
+| 同上 | `MX-O-95: renameOutlineBranch and undo` | EDIT-18, EDIT-10 |
+| `headlessScheduleSession.levels.regression.test.ts` | `assessHierarchySave rejects level count mismatch` | EDIT-18, FILE-02 |
+| 同上 | `applyLevelEditorCommit keeps 回帰の指示 in saved file but not in example source` | EDIT-18, FILE-02 |
+| `headlessScheduleSession.explain.regression.test.ts` | `explain_overlay hide clears overlay state` | VIEW-17 |
+| 同上 | `explain_view apply and clear` | VIEW-17, MCP-01 |
+| `mcpCatalogAction.test.ts` | `accepts minimal fields catalog JSON` | MCP-425 |
+| 同上 | `rejects members JSON that fails validator semantics` | MCP-425 |
+| 同上 | `rejects statuses JSON that fails validator semantics` | MCP-425 |
 | `FirstRunHintCard.dom.test.tsx` | `shows the sample heading, three items, and two prepare buttons` | NAV-09 |
 | 同上 | `switches the heading when a file is open instead of the sample` | NAV-09 |
 | 同上 | `keeps the card and disables only the finished guide action` | NAV-09 |
@@ -1302,18 +1327,21 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 ## 画面なしの操作列
 
-`src/test/headlessScheduleSession` は、起動中の窓を使わない。見本を一時ファイルへ書き、`edit_plan` と履歴は MCP と同じ実行関数を呼ぶ。保存はダイアログを通さず、アプリが書くのと同じ JSON をそのファイルへ置く。タスク、カテゴリ、グループ、マイルストンの追加は、画面が呼ぶ関数のあと、同じ履歴の確定を使う。
+`src/test/headlessScheduleSession` は、起動中の窓を使わない。見本を一時ファイルへ書き、`edit_plan` と履歴は MCP と同じ実行関数を呼ぶ。保存はダイアログを通さず、アプリが書くのと同じ JSON をそのファイルへ置く。タスク、カテゴリ、グループ、マイルストンの追加は、画面が呼ぶ関数のあと、同じ履歴の確定を使う。`run` では `deleteTask`、`commitDocument`（画面と同じ確定）、`insertValidatedTask`、`removeGroup`、`apply_explanation_pattern`、`setTitle`、`setDetailPanelEditing` なども呼べる。
 
 この自動テストで見るのは、次である。
 
 - 日付を2件ずらすと未保存の差分が出て、保存するとファイルが変わり、差分が消える
 - 保存したあとの変更を、取り消しとやり直しで、保存済みの JSON に戻せる
 - タスクを足して別のグループへ移し、保存したファイルに残る
-- マイルストンを足して消し、取り消しで戻して保存する
+- マイルストンを足して消し、取り消しで戻して保存する。削除で他タスクの `milestoneId` が外れ、取り消しで戻る
 - 空のカテゴリと、空で唯一ではないグループを消し、取り消しで戻る
 - 終了が開始より前の期間、ドラッグ中の更新、タスクのあるカテゴリの削除は拒否され、ファイルは変わらない
 - 保存して読み直し、もう一度保存しても中身は同じ
 - 2件の日付変更のあと、説明用の絞り込みと半透明が両方ある
+- 繋がりの追加・ラベル変更・組の削除、複製と一括編集で繋がりが増えないこと、破綻系統で接続だけの行が出ないこと
+- 拡張項目の入力とカテゴリへの反映、見本外の階層保存、`levels` の段数だけ変える保存の拒否
+- 複製で写る項目と元タスクの先行、説明オーバーレイの消去、絞り込みで隠したタスクの日付変更が差分テキストに残ること
 
 まだ手で見るのは、バーのドラッグ、削除の確認ダイアログ、IME、描画のずれ、本物の LLM の文、起動直後の実ドラッグ、右クリック直後のポインタである。
 
