@@ -85,8 +85,8 @@
 | MX-O-15 | UI | JSON を表示 | 自動化予定 | 自動化予定:#547 |
 | MX-O-16 | 計算 | 差分を表示 | 自動済み | 自動:src/model/scheduleDiff.test.ts#says there is no difference when the documents match |
 | MX-O-17 | UI | 差分を表示 | 一部自動 | 手動:RG-F11-1。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動化予定:#536 |
-| MX-O-18 | UI | 差分をコピー | 一部自動 | 手動:RG-F11-4。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the copy toast outside the diff column。自動化予定:#536 |
-| MX-O-19 | UI | 未保存の差分を開く（状態バー） | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column |
+| MX-O-18 | UI | 差分をコピー | 一部自動 | 手動:RG-F11-4。自動:src/components/settingsHierarchyDiff.dom.test.tsx#copies diff text to the clipboard。自動化予定:#536 |
+| MX-O-19 | UI | 未保存の差分を開く（状態バー） | 一部自動 | 手動:RG-F11-1。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動化予定:#547 |
 | MX-O-20 | UI | 外部ファイル更新の確認 | 自動化予定 | 手動:RG-F7-2。自動化予定:#547 |
 | MX-O-21 | OS | 外部ファイル更新の確認 | 自動化予定 | 自動化予定:#547 |
 | MX-O-22 | UI | 更新を確認 | 自動化予定 | 手動:RG-F14-2。自動化予定:#547 |
@@ -162,8 +162,8 @@
 | MX-O-92 | UI | グループを追加（カテゴリ下） | 自動化予定 | 自動化予定:#545 |
 | MX-O-93 | UI | グループ名を変更 | 自動化予定 | 自動化予定:#545 |
 | MX-O-94 | UI | 下にグループを追加 | 自動化予定 | 自動化予定:#545 |
-| MX-O-95 | UI | 階層名を変更（アウトライン） | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu and removes it with one undo。自動化予定:#545 |
-| MX-O-96 | UI | 下に階層を追加 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu and removes it with one undo |
+| MX-O-95 | UI | 階層名を変更（アウトライン） | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動化予定:#545 |
+| MX-O-96 | UI | 下に階層を追加 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動化予定:#545 |
 | MX-O-97 | UI | 子階層を追加 | 自動化予定 | 自動化予定:#545 |
 | MX-O-98 | 計算 | カテゴリ／グループ／階層を削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#deletes an empty category and an empty group, then undo restores both |
 | MX-O-99 | UI | カテゴリ／グループ／階層を削除 | 自動化予定 | 自動化予定:#545 |

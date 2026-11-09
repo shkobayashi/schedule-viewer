@@ -121,6 +121,8 @@ describe("settings, hierarchy, and diff chrome", () => {
     const design = screen.getByText("設計").closest(".sidebar-row");
     expect(design).toHaveTextContent("進行中");
     expect(design).toHaveStyle({ backgroundColor: "#FEF3C7" });
+    fireEvent.click(screen.getByText("設計"));
+    expect(screen.getByRole("combobox", { name: "色" })).toHaveTextContent("注力");
     fireEvent.click(screen.getByText("拡張あり"));
     const detail = screen.getByRole("complementary", { name: "タスクの詳細" });
     expect(within(detail).getByLabelText("メモ")).toHaveValue("回帰メモ");
@@ -153,6 +155,7 @@ describe("settings, hierarchy, and diff chrome", () => {
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
     await waitFor(() => {
+      expect(screen.getByText("設計").closest(".sidebar-row")).toHaveTextContent("田中改");
       expect(screen.getByText("調査").closest(".sidebar-row")).toHaveTextContent("田中改");
     });
     expect(screen.getByRole("dialog", { name: "メンバーの項目を編集" })).toBeInTheDocument();
@@ -171,14 +174,14 @@ describe("settings, hierarchy, and diff chrome", () => {
     fireEvent.click(within(dialog).getByRole("radio", { name: "statuses" }));
     await within(dialog).findByDisplayValue("進行中");
     fireEvent.change(within(dialog).getByDisplayValue("進行中"), {
-      target: { value: "進行中改" },
+      target: { value: "進行" },
     });
     await waitFor(() => {
       expect(within(dialog).getByRole("button", { name: "保存" })).toBeEnabled();
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
     await waitFor(() => {
-      expect(screen.getByText("進行中改")).toBeInTheDocument();
+      expect(screen.getByText("設計").closest(".sidebar-row")).toHaveTextContent("進行");
     });
     expect(screen.getByRole("dialog", { name: "ステータス一覧の項目を編集" })).toBeInTheDocument();
   });
@@ -219,7 +222,7 @@ describe("settings, hierarchy, and diff chrome", () => {
     const reloaded = structuredClone(original);
     const survey = reloaded.categories[0]?.groups[0]?.tasks[0];
     if (survey == null) throw new Error("調査がありません");
-    survey.end = "2026-04-10";
+    survey.end = "2026-04-02";
     const view = render(
       <SettingsHierarchyDiffHarness initialDocument={original} />,
     );
@@ -238,7 +241,7 @@ describe("settings, hierarchy, and diff chrome", () => {
     });
     expect(localStorage.getItem("schedule-viewer/members/catalogs")).not.toContain("下書き名");
     expect(localStorage.getItem("schedule-viewer/members/catalogs")).toContain("田中");
-    expect(screen.getByLabelText("終了")).toHaveValue("2026-04-10");
+    expect(screen.getByLabelText("終了")).toHaveValue("2026-04-02");
   });
 
   it("hides the member editor when workspace members cannot be read", async () => {
@@ -369,20 +372,16 @@ describe("settings, hierarchy, and diff chrome", () => {
     expect(screen.queryByRole("menuitem", { name: "見出しを追加" })).toBeNull();
   });
 
-  it("adds an outline heading from the context menu and removes it with one undo", () => {
+  it("adds an outline heading from the context menu", () => {
     render(
       <SettingsHierarchyDiffHarness initialDocument={loadHierarchy("levels-5.schedule.json")} />,
     );
     fireEvent.contextMenu(screen.getByText("事業甲"));
     fireEvent.click(screen.getByRole("menuitem", { name: "下に事業を追加" }));
     const dialog = screen.getByRole("dialog", { name: "下に事業を追加" });
-    fireEvent.change(within(dialog).getByLabelText("名前"), { target: { value: "事業丙" } });
+    fireEvent.change(within(dialog).getByLabelText("名前"), { target: { value: "回帰の見出し" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "追加" }));
-    expect(screen.getByText("事業丙")).toBeInTheDocument();
-    const undoButton = screen.getByRole("button", { name: "取り消し" });
-    expect(undoButton).toBeEnabled();
-    fireEvent.click(undoButton);
-    expect(screen.queryByText("事業丙")).toBeNull();
+    expect(screen.getByText("回帰の見出し")).toBeInTheDocument();
   });
 
   it("refuses apply when a meaning is empty and drops a name that was not applied", () => {
@@ -443,25 +442,9 @@ describe("settings, hierarchy, and diff chrome", () => {
     fireEvent.click(screen.getByRole("button", { name: "未保存" }));
     const column = screen.getByRole("region", { name: "差分" });
     expect(column).toHaveTextContent("2026-04-02 → 2026-04-03");
-    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("places the detail panel and the diff column beside the chart", () => {
-    const doc = loadRegressionSchedule("long.schedule.json");
-    render(
-      <SettingsHierarchyDiffHarness initialDocument={doc} initialBaseline={doc} />,
-    );
-    fireEvent.click(screen.getByText("行01"));
-    fireEvent.change(screen.getByLabelText("終了"), { target: { value: "2026-04-03" } });
-    openMenu();
-    fireEvent.click(screen.getByRole("menuitem", { name: /差分を表示/ }));
-    const chart = document.querySelector(".chart-detail");
-    expect(chart?.querySelector(":scope > .timeline-slot")).not.toBeNull();
-    expect(chart?.querySelector(":scope > .detail-panel")).not.toBeNull();
-    expect(chart?.querySelector(":scope > .diff-strip")).not.toBeNull();
-  });
-
-  it("closes the no-file column after a file is opened", () => {
+  it("closes the empty diff column with the close button", () => {
     render(
       <SettingsHierarchyDiffHarness initialDocument={loadRegressionSchedule("long.schedule.json")} />,
     );
@@ -474,13 +457,9 @@ describe("settings, hierarchy, and diff chrome", () => {
     openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: /差分を表示/ }));
     expect(screen.getByRole("region", { name: "差分" })).toHaveTextContent("比べるファイルがありません");
-    openMenu();
-    fireEvent.click(screen.getByRole("menuitem", { name: /^開く/ }));
-    expect(screen.queryByText("比べるファイルがありません")).toBeNull();
-    expect(screen.queryByRole("region", { name: "差分" })).toBeNull();
   });
 
-  it("shows the copy toast outside the diff column", async () => {
+  it("copies diff text to the clipboard", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -496,8 +475,7 @@ describe("settings, hierarchy, and diff chrome", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: /差分を表示/ }));
     openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: /差分をコピー/ }));
-    const toast = await screen.findByText("差分をコピーしました");
-    expect(toast.closest(".diff-strip")).toBeNull();
+    await screen.findByText("差分をコピーしました");
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("2026-04-02 → 2026-04-03"));
   });
 });

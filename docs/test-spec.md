@@ -354,14 +354,13 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `stores dark and clears the key when returning to the system scheme` | SET-04 |
 | 同上 | `shows the level names above an aligned outline` | VIEW-03 |
 | 同上 | `shows the mismatch message and hides add-heading when the outline does not match` | VIEW-03 |
-| 同上 | `adds an outline heading from the context menu and removes it with one undo` | EDIT-18 |
+| 同上 | `adds an outline heading from the context menu` | EDIT-18 |
 | 同上 | `refuses apply when a meaning is empty and drops a name that was not applied` | EDIT-21 |
 | 同上 | `keeps an applied instruction when the hierarchy dialog is opened again` | EDIT-21 |
 | 同上 | `drops a blank instruction when the hierarchy dialog is applied` | EDIT-21 |
 | 同上 | `shows the old and new end dates in the diff column` | FILE-07 |
-| 同上 | `places the detail panel and the diff column beside the chart` | FILE-07 |
-| 同上 | `closes the no-file column after a file is opened` | FILE-07 |
-| 同上 | `shows the copy toast outside the diff column` | FILE-07 |
+| 同上 | `closes the empty diff column with the close button` | FILE-07 |
+| 同上 | `copies diff text to the clipboard` | FILE-07 |
 | `settingsDesktopChrome.dom.test.tsx` | `shows the version line on display, members, and updates` | SET-07 |
 | 同上 | `disables install and remove when every skill target is unchecked` | SET-05 |
 | 同上 | `shows the overwrite confirmation when install reports existing paths` | SET-05 |
@@ -1264,7 +1263,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `errors.ts` | 未テスト |
 | `timelineVisibleDays.ts` | 未テスト |
 | `layoutSizes.ts` | 未テスト |
-| `src/components/`、`src/hooks/`、`App.tsx` | 検索、絞り込み、エラー表示、メニュー、パレット、ショートカットの DOM は `searchErrorKeys.dom.test.tsx` がテストしている。設定、階層、差分列の DOM は `settingsHierarchyDiff.dom.test.tsx` と `settingsDesktopChrome.dom.test.tsx` がテストしている。Konva の描画、Tauri のダイアログ、ファイルの監視は手で確かめる。キーの判断、チャートの当たり、保存の直列化、起動の世代、監視の停止は純粋関数としてもテストしている |
+| `src/components/`、`src/hooks/`、`App.tsx` | 検索、絞り込み、エラー表示、メニュー、パレット、ショートカットの DOM は `searchErrorKeys.dom.test.tsx` がテストしている。設定、階層、差分列の DOM は `settingsHierarchyDiff.dom.test.tsx` と `settingsDesktopChrome.dom.test.tsx` がテストしている。`settingsHierarchyDiff.dom.test.tsx` はハーネス上の部品を見ており、`App.tsx` への配線までは見ない。Konva の描画、Tauri のダイアログ、ファイルの監視は手で確かめる。キーの判断、チャートの当たり、保存の直列化、起動の世代、監視の停止は純粋関数としてもテストしている |
 
 足すなら、手間のわりに効果が大きい次の順がよい。
 
