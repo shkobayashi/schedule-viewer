@@ -827,7 +827,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 「回帰の見出し」が足る。取り消し 1 回で消える。
 
-扱い: 自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#appendOutlineHeadingAtLevel on levels-2.schedule.json commits, saves, and parses（追加の保存と取り消し）。右クリックでの追加は自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。取り消しと追加の確定は手で行わない。メニューは自動化予定:#535。
+扱い: 自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#appendOutlineHeadingAtLevel on levels-2.schedule.json commits, saves, and parses。取り消しも同じテスト。右クリックでの追加は自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。メニューは自動化予定:#535。
 
 ### RG-F10-3
 
