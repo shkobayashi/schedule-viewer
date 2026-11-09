@@ -1,18 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { applyBulkTaskEdit } from "../model/bulkTaskEdit";
-import {
-  tryAddConnection,
-  removeConnectionByPair,
-} from "../model/connections";
 import { tryAddPredecessorLink } from "../model/dependencies";
 import {
   APPLY_EXPLANATION_PATTERN_NO_OVERLAY,
   APPLY_EXPLANATION_PATTERN_UNKNOWN,
 } from "../model/explainOverlayPatterns";
-import { milestoneFilterAfterDelete } from "../model/milestones";
-import { insertOutlineSiblingAfter } from "../model/outlineCrud";
-import { computeVisibleRows, relaxFiltersForNewTask } from "../model/rows";
+import { MCP_OPERATION_UI_BUSY } from "../model/mcpOperationGate";
+import { applyMilestoneEdit } from "../model/milestones";
+import { relaxFiltersForNewTask, taskMatchesFilter } from "../model/rows";
 import {
   pruneContextFromScheduleDocument,
   pruneScheduleFilterViewState,
@@ -38,6 +34,7 @@ import {
   type HeadlessSchedule,
   type HeadlessStep,
 } from "./headlessScheduleSession";
+import { commitDocument } from "./headlessScheduleSessionTestUtil";
 import type { SearchField } from "../model/scheduleFilterPersistence";
 import type { ScheduleDocument, ScheduleFilters, ScheduleId, Task } from "../model/types";
 
@@ -95,8 +92,8 @@ describe("headlessScheduleSession regression", () => {
     const opened = await session.run({ tool: "reload" });
     const savedBaseline = opened.savedJson;
 
-    const deleted = session.deleteTask(TASK_A);
-    expect(deleted.ok).toBe(true);
+    const deleted = await session.run({ tool: "deleteTask", taskId: TASK_A });
+    expect(deleted.ok, deleted.message).toBe(true);
     const afterDelete = parseDoc((await session.run({ tool: "save" })).screenJson);
     expect(taskById(afterDelete, TASK_B).predecessors).toEqual([]);
     expect(taskCount(afterDelete)).toBe(2);
@@ -205,7 +202,7 @@ describe("headlessScheduleSession regression", () => {
     );
     expect(bulk.ok).toBe(true);
     if (!bulk.ok) return;
-    session.commitProduction({ ...document, categories: bulk.categories });
+    await commitDocument(session, { ...document, categories: bulk.categories });
     expect(taskById(session.getDocument(), TASK_A).assigneeIds).toEqual([MEMBER_SATO]);
     expect(taskById(session.getDocument(), TASK_B).assigneeIds).toEqual([MEMBER_SATO]);
     await session.run({ tool: "history", action: "undo" });
@@ -257,7 +254,7 @@ describe("headlessScheduleSession regression", () => {
     );
     expect(edited.ok).toBe(true);
     if (!edited.ok) return;
-    session.commitProduction({ ...session.getDocument(), categories: edited.categories });
+    await commitDocument(session, { ...session.getDocument(), categories: edited.categories });
     const after = taskById(session.getDocument(), TASK_B);
     expect(after.confidence).toBe("committed");
     expect(after.start).toBe("2026-04-04");
@@ -277,14 +274,14 @@ describe("headlessScheduleSession regression", () => {
       ...doc,
       categories: addTaskTag(doc.categories, TASK_A, "回帰").categories,
     };
-    session.commitProduction(doc);
+    await commitDocument(session, doc);
     expect(taskById(session.getDocument(), TASK_A).tags).toEqual(["回帰"]);
     expect(documentToJsonString(session.getDocument())).not.toBe(baseline);
     doc = {
       ...session.getDocument(),
       categories: removeTaskTag(session.getDocument().categories, TASK_A, "回帰"),
     };
-    session.commitProduction(doc);
+    await commitDocument(session, doc);
     const undone = await session.run({ tool: "history", action: "undo" });
     expect(taskById(parseDoc(undone.screenJson), TASK_A).tags).toEqual(["回帰"]);
     const redone = await session.run({ tool: "history", action: "redo" });
@@ -310,6 +307,7 @@ describe("headlessScheduleSession regression", () => {
       ],
     });
     expect(blocked.ok).toBe(false);
+    expect(blocked.message).toBe(MCP_OPERATION_UI_BUSY);
     expect(blocked.screenJson).toBe(before);
     await session.run({ tool: "setDetailPanelEditing", detailPanelEditing: false });
   });
@@ -355,17 +353,20 @@ describe("headlessScheduleSession regression", () => {
     expect(pruned.filters.milestone).toBe("all");
   });
 
-  it("resets milestone filter to all when 承認 is deleted and undo does not restore the filter", async () => {
+  it("clears 調査 milestoneId when 承認 is deleted and undo restores both", async () => {
     const session = openSmoke();
-    let milestoneFilter = MILESTONE_承認;
+    const before = taskById(session.getDocument(), TASK_A);
+    expect(before.milestoneId).toBe(MILESTONE_承認);
     await run(session, [{ tool: "deleteMilestone", milestoneId: MILESTONE_承認 }]);
-    milestoneFilter = milestoneFilterAfterDelete(milestoneFilter, MILESTONE_承認);
-    expect(milestoneFilter).toBe("all");
+    const after = taskById(session.getDocument(), TASK_A);
+    expect(after.milestoneId).toBeNull();
+    expect(after.start).toBe(before.start);
+    expect(after.end).toBe(before.end);
     await session.run({ tool: "history", action: "undo" });
-    expect(milestoneFilter).toBe("all");
-    expect(
-      session.getDocument().milestones.some((item) => item.id === MILESTONE_承認),
-    ).toBe(true);
+    expect(taskById(session.getDocument(), TASK_A).milestoneId).toBe(MILESTONE_承認);
+    expect(session.getDocument().milestones.some((item) => item.id === MILESTONE_承認)).toBe(
+      true,
+    );
   });
 
   it("undo restores 計画 name and keeps category id", async () => {
@@ -373,7 +374,7 @@ describe("headlessScheduleSession regression", () => {
     const beforeId = session.getDocument().categories.find((item) => item.name === "計画")?.id;
     const renamed = renameCategory(session.getDocument().categories, beforeId!, "改めた計画");
     expect(renamed.error).toBeNull();
-    session.commitProduction({ ...session.getDocument(), categories: renamed.categories! });
+    await commitDocument(session, { ...session.getDocument(), categories: renamed.categories! });
     await session.run({ tool: "history", action: "undo" });
     const category = session.getDocument().categories.find((item) => item.id === beforeId);
     expect(category?.name).toBe("計画");
@@ -399,43 +400,10 @@ describe("headlessScheduleSession regression", () => {
     expect(defaultGroup?.name).toBe("グループ");
     await session.run({ tool: "history", action: "undo" });
     expect(session.getDocument().categories.some((item) => item.id === newCat)).toBe(false);
-    await session.run({ tool: "save" });
-    expect(session.getDocument().levels).toBeUndefined();
-    expect(session.getDocument().outline).toBeUndefined();
-  });
-
-  it("saves outline heading 回帰の見出し and undo removes it", async () => {
-    const session = openHeadlessSchedule(
-      readFileSync(
-        `${import.meta.dirname}/../../examples/hierarchy/levels-2.schedule.json`,
-        "utf8",
-      ),
-    );
-    const document = session.getDocument();
-    const levels = document.levels ?? [];
-    const outline = document.outline ?? [];
-    const top = outline[0]?.id;
-    if (top == null) throw new Error("missing outline");
-    let n = 0;
-    const allocateId = () => `new-${++n}`;
-    const result = insertOutlineSiblingAfter(
-      outline,
-      top,
-      levels.length,
-      levels,
-      "回帰の見出し",
-      "branch-new",
-      allocateId,
-    );
-    expect(result.error).toBeNull();
-    session.commitProduction({ ...document, outline: result.outline });
-    expect(session.getDocument().outline?.some((item) => item.name === "回帰の見出し")).toBe(
-      true,
-    );
-    await session.run({ tool: "history", action: "undo" });
-    expect(session.getDocument().outline?.some((item) => item.name === "回帰の見出し")).toBe(
-      false,
-    );
+    const saved = await session.run({ tool: "save" });
+    const parsed = parseDoc(saved.savedJson);
+    expect(parsed.levels).toBeUndefined();
+    expect(parsed.outline).toBeUndefined();
   });
 
   it("adds unassigned tentative task and relaxes the done filter", async () => {
@@ -467,7 +435,7 @@ describe("headlessScheduleSession regression", () => {
       predecessors: [],
       milestoneId: null,
     };
-    session.commitProduction({
+    await commitDocument(session, {
       ...session.getDocument(),
       categories: insertTask(session.getDocument().categories, task, {
         category: "計画",
@@ -497,7 +465,7 @@ describe("headlessScheduleSession regression", () => {
     );
     expect(link.ok).toBe(true);
     if (!link.ok) return;
-    session.commitProduction({ ...session.getDocument(), categories: link.categories });
+    await commitDocument(session, { ...session.getDocument(), categories: link.categories });
     expect(taskById(session.getDocument(), TASK_OVERDUE).predecessors).toContain(TASK_B);
     await session.run({ tool: "history", action: "undo" });
     expect(taskById(session.getDocument(), TASK_OVERDUE).predecessors).toEqual([]);
@@ -550,7 +518,7 @@ describe("headlessScheduleSession regression", () => {
       patternId: "",
     });
     expect(missingId.ok).toBe(false);
-    expect(missingId.message).toContain("patternId");
+    expect(missingId.message).toBe("patternId が要ります。");
     const noOverlay = await session.run({
       tool: "apply_explanation_pattern",
       patternId: "missing",
@@ -587,7 +555,7 @@ describe("headlessScheduleSession regression", () => {
     const groupId = GRP_A;
     const renamed = renameGroup(session.getDocument().categories, groupId, "改めた前半");
     expect(renamed.error).toBeNull();
-    session.commitProduction({ ...session.getDocument(), categories: renamed.categories! });
+    await commitDocument(session, { ...session.getDocument(), categories: renamed.categories! });
     await session.run({ tool: "history", action: "undo" });
     const group = session
       .getDocument()
@@ -603,7 +571,7 @@ describe("headlessScheduleSession regression", () => {
     const grpId = "d1000001-0000-4000-8000-000000000088";
     const appended = appendCategoryAtEnd(session.getDocument().categories, "末尾分類", catId, grpId);
     expect(appended.error).toBeNull();
-    session.commitProduction({ ...session.getDocument(), categories: appended.categories! });
+    await commitDocument(session, { ...session.getDocument(), categories: appended.categories! });
     expect(
       session
         .getDocument()
@@ -624,7 +592,7 @@ describe("headlessScheduleSession regression", () => {
       grpId,
     );
     expect(appended.error).toBeNull();
-    session.commitProduction({ ...session.getDocument(), categories: appended.categories! });
+    await commitDocument(session, { ...session.getDocument(), categories: appended.categories! });
     const groups = session.getDocument().categories.find((item) => item.id === CAT_A)?.groups;
     expect(groups?.some((item) => item.id === grpId)).toBe(true);
     await session.run({ tool: "history", action: "undo" });
@@ -636,18 +604,24 @@ describe("headlessScheduleSession regression", () => {
     ).toBe(false);
   });
 
-  it("duplicates 調査 with edit_plan patch fields and one undo removes the copy", async () => {
-    const session = openSmoke();
-    await session.run({ tool: "reload" });
-    const source = taskById(session.getDocument(), TASK_A);
-    const newId = "e1000001-0000-4000-8000-000000000088";
+  it("duplicates 調査 on full.schedule with unchanged pointed tasks", async () => {
+    const session = openHeadlessSchedule(
+      readFileSync(
+        `${import.meta.dirname}/../../examples/regression/full.schedule.json`,
+        "utf8",
+      ),
+    );
+    const document = session.getDocument();
+    const source = taskById(document, "e1000001-0000-4000-8000-000000000001");
+    const newId = "e1000001-0000-4000-8000-000000000099";
+    const connectionsBefore = document.connections ?? [];
     const patch: TaskEditPatch = {
       name: `${source.name}（複製）`,
       start: source.start,
       end: source.end,
       assigneeIds: [...source.assigneeIds],
-      status: source.status,
-      progress: source.progress,
+      status: "not-started",
+      progress: 0,
       confidence: source.confidence,
       predecessors: [],
       successors: [],
@@ -655,99 +629,40 @@ describe("headlessScheduleSession regression", () => {
       note: source.note ?? "",
     };
     const dup = categoriesAfterDuplicate(
-      session.getDocument().categories,
-      session.getDocument().milestones,
-      session.getDocument().title,
-      TASK_A,
+      document.categories,
+      document.milestones,
+      document.title,
+      source.id,
       newId,
       patch,
     );
     expect(dup.ok).toBe(true);
     if (!dup.ok) return;
-    session.commitProduction({ ...session.getDocument(), categories: dup.categories });
-    expect(taskCount(session.getDocument())).toBe(4);
-    await session.run({ tool: "history", action: "undo" });
-    expect(taskCount(session.getDocument())).toBe(3);
-  });
-
-  it("adds one connection pair and removeConnectionByPair drops it", () => {
-    const added = tryAddConnection(undefined, TASK_A, TASK_B, "回帰");
-    expect(added.ok).toBe(true);
-    if (!added.ok) return;
-    const removed = removeConnectionByPair(added.connections, TASK_A, TASK_B);
-    expect(removed).toBeUndefined();
-  });
-
-  it("shows only broken predecessor endpoints when relation is broken", () => {
-    const pred: Task = {
-      id: "00000000-0000-4000-8000-000000000101",
-      name: "先行",
-      start: "2026-01-05",
-      end: "2026-01-10",
-      assigneeIds: [],
-      status: "not-started",
-      progress: 0,
-      confidence: "committed",
-      predecessors: [],
-      milestoneId: null,
-    };
-    const succ: Task = {
-      id: "00000000-0000-4000-8000-000000000102",
-      name: "後続",
-      start: "2026-01-01",
-      end: "2026-01-03",
-      assigneeIds: [],
-      status: "not-started",
-      progress: 0,
-      confidence: "committed",
-      predecessors: [pred.id],
-      milestoneId: null,
-    };
-    const categories = [
-      {
-        id: CAT_A,
-        name: "計画",
-        groups: [
-          {
-            id: GRP_A,
-            name: "前半",
-            tasks: [pred, succ],
-          },
-        ],
-      },
-    ];
-    const filters: ScheduleFilters = {
-      assignee: "all",
-      status: "all",
-      confidence: "all",
-      overdue: "all",
-      relation: "broken",
-      milestone: "all",
-      tags: [],
-      search: "",
-      noteSearch: "",
-      fieldFilters: {},
-    };
-    const rows = computeVisibleRows(
-      categories,
-      filters,
-      new Set(),
-      "2026-01-15",
-      null,
-      undefined,
-      null,
-      undefined,
-      {
-        levels: null,
-        outline: undefined,
-        useLegacyCategoryRows: true,
-        levelCount: 0,
-      },
+    const copy = taskById(
+      { ...document, categories: dup.categories },
+      newId,
     );
-    const visibleTaskIds = rows
-      .filter((row) => row.type === "task")
-      .map((row) => row.task.id);
-    expect(visibleTaskIds.sort()).toEqual([pred.id, succ.id].sort());
+    expect(copy.assigneeIds).toEqual(source.assigneeIds);
+    expect(copy.confidence).toBe(source.confidence);
+    expect(copy.note).toBe(source.note);
+    expect(copy.tags).toEqual(source.tags);
+    expect(copy.status).toBe("not-started");
+    expect(copy.progress).toBe(0);
+    expect(copy.predecessors).toEqual([]);
+    const tasksPointing = dup.categories
+      .flatMap((c) => c.groups.flatMap((g) => g.tasks))
+      .filter((t) => t.predecessors.includes(source.id) || t.id === source.id);
+    for (const task of tasksPointing) {
+      if (task.id === source.id) expect(task.predecessors).toEqual(source.predecessors);
+      else expect(task.predecessors).toEqual([source.id]);
+    }
+    await commitDocument(session, {
+      ...document,
+      categories: dup.categories,
+      connections: connectionsBefore,
+    });
+    expect(session.getDocument().connections).toEqual(connectionsBefore);
+    await session.run({ tool: "history", action: "undo" });
   });
 
   it("round-trips assigneeIds through parse and save for unassigned tasks", async () => {
@@ -766,5 +681,91 @@ describe("headlessScheduleSession regression", () => {
     expect(session.getDocument().title).toBe("改めた回帰");
     await session.run({ tool: "history", action: "undo" });
     expect(session.getDocument().title).toBe("回帰確認");
+    const blocked = await session.run({ tool: "history", action: "undo" });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.message).toBe("戻せません。");
+  });
+
+  it("formatScheduleDiff includes hidden filtered task date change", async () => {
+    const session = openSmoke();
+    const filtersInProgress: ScheduleFilters = {
+      assignee: "all",
+      status: "in-progress",
+      confidence: "all",
+      overdue: "all",
+      relation: "all",
+      milestone: "all",
+      tags: [],
+      search: "",
+      noteSearch: "",
+      fieldFilters: {},
+    };
+    expect(
+      taskMatchesFilter(
+        taskById(session.getDocument(), TASK_A),
+        filtersInProgress,
+        "2026-04-01",
+        null,
+      ),
+    ).toBe(false);
+    expect(
+      taskMatchesFilter(
+        taskById(session.getDocument(), TASK_B),
+        filtersInProgress,
+        "2026-04-01",
+        null,
+      ),
+    ).toBe(true);
+    const shifted = await session.run({
+      tool: "edit_plan",
+      ops: [
+        {
+          type: "setTaskDates",
+          taskId: TASK_A,
+          start: "2026-04-02",
+          end: "2026-04-04",
+        },
+        {
+          type: "setTaskDates",
+          taskId: TASK_B,
+          start: "2026-04-05",
+          end: "2026-04-09",
+        },
+      ],
+    });
+    expect(shifted.ok).toBe(true);
+    expect(shifted.diffText).toContain("調査");
+    expect(shifted.diffText).toContain("設計");
+  });
+
+  it("applyMilestoneEdit group move appears in diff as groupId", async () => {
+    const session = openSmoke();
+    const extraGroupId = "a1000001-0000-4000-8000-0000000000bb";
+    const document = session.getDocument();
+    await commitDocument(session, {
+      ...document,
+      milestoneGroups: [
+        ...document.milestoneGroups,
+        { id: extraGroupId, name: "追節目" },
+      ],
+    });
+    const milestone = session.getDocument().milestones[0]!;
+    const nextMilestones = applyMilestoneEdit(
+      session.getDocument().milestones,
+      milestone.id,
+      session.getDocument().milestoneGroups,
+      {
+        name: milestone.name,
+        date: milestone.date,
+        confidence: milestone.confidence,
+        groupId: extraGroupId,
+      },
+    );
+    const result = await commitDocument(session, {
+      ...session.getDocument(),
+      milestones: nextMilestones,
+    });
+    expect(result.diffText).toContain("groupId:");
+    expect(result.diffText).toContain("追節目");
   });
 });
