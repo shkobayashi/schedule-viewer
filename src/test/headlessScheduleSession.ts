@@ -30,16 +30,27 @@ import {
   type McpUiBlockingInput,
 } from "../model/mcpOperationGate";
 import {
+  MCP_TOOL_APPLY_EXPLANATION_PATTERN,
   MCP_TOOL_EDIT_PLAN,
   MCP_TOOL_EXPLAIN_OVERLAY,
   MCP_TOOL_EXPLAIN_VIEW,
   MCP_TOOL_HISTORY,
 } from "../model/mcpToolNames";
+import { removeConnectionsForDeletedTasks } from "../model/connections";
 import { computeVisibleRows } from "../model/rows";
 import { parseScheduleText } from "../model/scheduleFile";
 import { formatScheduleDiff, SCHEDULE_DIFF_NO_CHANGES } from "../model/scheduleDiff";
+import { resolveScheduleTitleCommit } from "../model/scheduleTitleEdit";
 import { documentToJsonString } from "../model/serialize";
-import { insertCategoryAfter, insertGroupAfter, insertTaskAfter } from "../model/tasks";
+import {
+  insertCategoryAfter,
+  insertGroupAfter,
+  insertTask,
+  insertTaskAfter,
+  removeGroup as removeGroupFromCategories,
+  removeTask,
+  validateNewTask,
+} from "../model/tasks";
 import {
   SCHEDULE_SCHEMA_VERSION,
   type Milestone,
@@ -88,7 +99,22 @@ export type HeadlessStep =
   | { tool: "deleteMilestone"; milestoneId: string }
   | { tool: "explain_view"; envelope: Record<string, unknown> }
   | { tool: "explain_overlay"; envelope: Record<string, unknown> }
-  | { tool: "setDragging"; chartBarDragging: boolean };
+  | { tool: "apply_explanation_pattern"; patternId: string }
+  | { tool: "setDragging"; chartBarDragging: boolean }
+  | { tool: "setDetailPanelEditing"; detailPanelEditing: boolean }
+  | { tool: "removeGroup"; groupId: string }
+  | {
+      tool: "insertValidatedTask";
+      input: {
+        name: string;
+        start: string;
+        end: string;
+        category: string;
+        group: string;
+      };
+      taskId: string;
+    }
+  | { tool: "setTitle"; raw: string };
 
 export type HeadlessStepResult = {
   ok: boolean;
@@ -196,6 +222,10 @@ export class HeadlessSchedule {
       this.ui = { ...this.ui, chartBarDragging: step.chartBarDragging };
       return { ok: true, message: "" };
     }
+    if (step.tool === "setDetailPanelEditing") {
+      this.ui = { ...this.ui, detailPanelEditing: step.detailPanelEditing };
+      return { ok: true, message: "" };
+    }
     if (step.tool === "reload") {
       return this.reload();
     }
@@ -220,6 +250,16 @@ export class HeadlessSchedule {
         return this.dispatch(MCP_TOOL_EXPLAIN_VIEW, step.envelope);
       case "explain_overlay":
         return this.dispatch(MCP_TOOL_EXPLAIN_OVERLAY, step.envelope);
+      case "apply_explanation_pattern":
+        return this.dispatch(MCP_TOOL_APPLY_EXPLANATION_PATTERN, {
+          patternId: step.patternId,
+        });
+      case "removeGroup":
+        return this.removeGroupById(step.groupId);
+      case "insertValidatedTask":
+        return this.insertValidatedTask(step);
+      case "setTitle":
+        return this.setTitle(step.raw);
       case "addTask":
         return this.addTask(step.task, step.afterTaskId);
       case "addCategory":
@@ -417,6 +457,78 @@ export class HeadlessSchedule {
       ...this.document,
       milestones: appendMilestone(this.document.milestones, milestone),
     });
+  }
+
+  private removeGroupStep(
+    groupId: string,
+  ): { ok: boolean; message: string } {
+    const categories = removeGroupFromCategories(this.document.categories, groupId);
+    if (categories === this.document.categories) {
+      return { ok: false, message: "グループを削除できません。" };
+    }
+    return this.committed({ ...this.document, categories });
+  }
+
+  private removeGroupById(groupId: string): { ok: boolean; message: string } {
+    return this.removeGroupStep(groupId);
+  }
+
+  private insertValidatedTask(
+    step: Extract<HeadlessStep, { tool: "insertValidatedTask" }>,
+  ): { ok: boolean; message: string } {
+    const error = validateNewTask(step.input, this.document.categories);
+    if (error != null) {
+      return { ok: false, message: error };
+    }
+    const task: Task = {
+      id: step.taskId,
+      name: step.input.name.trim(),
+      start: step.input.start,
+      end: step.input.end,
+      assigneeIds: [],
+      status: "not-started",
+      progress: 0,
+      confidence: "tentative",
+      predecessors: [],
+      milestoneId: null,
+    };
+    return this.committed({
+      ...this.document,
+      categories: insertTask(this.document.categories, task, {
+        category: step.input.category,
+        group: step.input.group,
+      }),
+    });
+  }
+
+  private setTitle(raw: string): { ok: boolean; message: string } {
+    const resolved = resolveScheduleTitleCommit(this.document.title, raw);
+    if (resolved.kind === "blank" || resolved.kind === "unchanged") {
+      return { ok: true, message: "" };
+    }
+    return this.committed({ ...this.document, title: resolved.title });
+  }
+
+  deleteTask(taskId: string): { ok: boolean; message: string } {
+    const deleted = new Set([taskId]);
+    return this.committed({
+      ...this.document,
+      categories: removeTask(this.document.categories, taskId),
+      connections: removeConnectionsForDeletedTasks(
+        this.document.connections ?? [],
+        deleted,
+      ),
+    });
+  }
+
+  commitProduction(
+    next: ScheduleDocument,
+  ): { ok: boolean; message: string } {
+    return this.committed(next);
+  }
+
+  getDocument(): ScheduleDocument {
+    return this.document;
   }
 
   private deleteMilestone(
