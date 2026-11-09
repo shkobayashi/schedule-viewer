@@ -19,7 +19,7 @@ const root = process.argv[2] ?? repoRoot;
 /** 付録 ID 一覧の承認済みハッシュ。変えるときは、行の追加か削除の理由を同じ変更に書く。 */
 export const EXPECTED_CASE_ID_SHA256 = "2cca659b56960ebd29c9af6616cc5929c846d1dc334470483b5d7b445549698c";
 
-const plannedIssues = new Set(["535", "536", "537", "538", "540", "541", "543", "544", "545", "547", "548"]);
+const plannedIssues = new Set(["535", "536", "537", "538", "540", "541", "543", "544", "545", "547"]);
 const errors: string[] = [];
 
 const features = readRepo("docs/user-manual/features.md");

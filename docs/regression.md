@@ -647,7 +647,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 ## RG-F6 設定の覆い
 
-目的は、担当と色が付いた見本で、表示名の変更がチャートへ残り、外部の読み直しで下書きが消えることである。対象はデスクトップ版である。目安は 16 分である。短い通しには入れない。画面部品の自動は #548 である。
+目的は、担当と色が付いた見本で、表示名の変更がチャートへ残り、外部の読み直しで下書きが消えることである。対象はデスクトップ版である。目安は 16 分である。短い通しには入れない。画面の接続は `settingsHierarchyDiff.dom.test.tsx` が見ている。別プログラムがファイルを書く監視は #547 である。
 
 ### RG-F6-1
 
@@ -657,7 +657,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 担当は田中と佐藤である。色の id は `focus`（名前は注力）である。ステータスは進行中である。「拡張あり」のメモは「回帰メモ」である。「やること付き」に「下書き」と「確認」がある。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows assignee, status, color name, and extension memo from the selected catalogs。この手順は手で行わない。
 
 ### RG-F6-2
 
@@ -665,9 +665,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 覆いは開いたままである。「設計」と「調査」の担当表示が「田中改」になる。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #548。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows。この手順は手で行わない。
 
 ### RG-F6-3
 
@@ -675,9 +673,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 「設計」の札が「進行」になる。覆いは開いたままである。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #548。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the status editor open and shows the saved status name。この手順は手で行わない。テストの表示名は「進行中改」である。
 
 ### RG-F6-4
 
@@ -685,9 +681,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 「設計」の地が、変えた色になる。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #548。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color。この手順は手で行わない。名前を変えても色の値は `#FEF3C7` のままである。
 
 ### RG-F6-5
 
@@ -697,9 +691,9 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 読み直しの前に覆いが閉じる。下書きはカタログのファイルへ書かない。「調査」の終了は 2026-04-02 である。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#closes catalog editors on external reload and leaves the draft out of storage。別プログラムがファイルを書く監視と、作業用ファイルへの書き込みは自動化予定:#547。テストの読み直し先は終了 2026-04-10 である。
 
-自動化予定: #548。
+自動化予定: #547。
 
 ## RG-F7 外部更新の対話
 
@@ -813,7 +807,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 ## RG-F10 階層の線
 
-目的は、畳む枝、追加する名前、下書きが保存されないことを分けることである。対象はデスクトップ版である。目安は 12 分である。短い通しには入れない。見た目の自動は #536、編集の自動は #548 である。
+目的は、畳む枝、追加する名前、下書きが保存されないことを分けることである。対象はデスクトップ版である。目安は 12 分である。短い通しには入れない。見た目の自動は #536 である。追加と空の意味と指示の画面は `settingsHierarchyDiff.dom.test.tsx` が見ている。保存した JSON は #545 である。
 
 ### RG-F10-1
 
@@ -833,9 +827,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 「回帰の見出し」が足る。取り消し 1 回で消える。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #548。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu and removes it with one undo。この手順は手で行わない。テストの追加名は「事業丙」である。
 
 ### RG-F10-3
 
@@ -845,9 +837,9 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 空の意味では適用できない。閉じたあと、作業用ファイルに「回帰の下書き」は無い。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied。閉じた名前が作業用ファイルに無いことは自動化予定:#545。
 
-自動化予定: #548。
+自動化予定: #545。
 
 ### RG-F10-4
 
@@ -855,13 +847,13 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 保存した JSON にその指示が残る。原本の `examples/hierarchy/levels-3.schedule.json` には残らない。終わったら作業用を原本からコピーし直す。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。保存した JSON に指示が残ることは自動化予定:#545。
 
-自動化予定: #548。
+自動化予定: #545。
 
 ## RG-F11 差分列の配置
 
-目的は、旧値と新値、詳細との並び、キー、コピーの知らせを分けることである。対象はデスクトップ版である。見本は作業用の `long.schedule.json` である。目安は 12 分である。短い通しには入れない。配置の自動は #548 である。差分の文面の計算は `scheduleDiff.test.ts` が持っている。
+目的は、旧値と新値、詳細との並び、キー、コピーの知らせを分けることである。対象はデスクトップ版である。見本は作業用の `long.schedule.json` である。目安は 12 分である。短い通しには入れない。列の文面、詳細との並び、コピーの知らせは `settingsHierarchyDiff.dom.test.tsx` と `searchErrorKeys.dom.test.tsx` が見ている。幅、重なり、高さ 800 のスクロールは #536 である。差分の文面の計算は `scheduleDiff.test.ts` が持っている。
 
 ### RG-F11-1
 
@@ -871,9 +863,9 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 列が開く。「行01」の終了の旧値は 2026-04-02、新値は 2026-04-03 である。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。テストは状態バーの「未保存」から列を開く。取っ手の位置は自動化予定:#536。
 
-自動化予定: #548。
+自動化予定: #536。
 
 ### RG-F11-2
 
@@ -881,9 +873,9 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: チャートの幅は、詳細と差分列を除いた残りである。2 つは重ならない。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#places the detail panel and the diff column beside the chart。チャートの残り幅は自動化予定:#536。
 
-自動化予定: #548。
+自動化予定: #536。
 
 ### RG-F11-3
 
@@ -891,9 +883,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 差分にフォーカスがあるあいだ、「行20」の選択は動かない。チャートでは上下で選択が動く。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #548。
+扱い: 自動:src/components/searchErrorKeys.dom.test.tsx#leaves task selection still while the diff list is focused。この手順は手で行わない。
 
 ### RG-F11-4
 
@@ -901,9 +891,9 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 知らせは、コピーのあとで出る。差分列の上には重ならない。行は「行01」から「行40」まであり、高さ 800 の窓では一覧が縦にスクロールする。
 
-扱い: 自動化予定:#548。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the copy toast outside the diff column。差分列への重なりと、高さ 800 での縦スクロールは自動化予定:#536。
 
-自動化予定: #548。
+自動化予定: #536。
 
 ## RG-F12 本物の LLM
 
