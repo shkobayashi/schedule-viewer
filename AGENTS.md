@@ -62,7 +62,7 @@ GitHub の Issue を見る、コメントする、作る、更新するときは
 
 日本語の文章の書き方は [.cursor/rules/japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) に従う。相談の返答の順は [.cursor/skills/consult/references/session.md](.cursor/skills/consult/references/session.md) の「返答の順」が優先する。
 
-仕様や方向の相談は、利用者が `/consult` または「相談モード」で始めたときに行う。始まりと終わりは [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) にある。返答は、依頼を一文で復唱し、次の一文で推す案を書き、理由は「理由1: 見出し」で番号を付け、そのあと「変える場所」「残る選択肢」の見出しで続ける。終わりの条件は consult.mdc にある。本文は [.cursor/skills/consult/references/session.md](.cursor/skills/consult/references/session.md) にある。始めるときと、相談が続いているあいだの各ターンで、[.cursor/skills/consult/SKILL.md](.cursor/skills/consult/SKILL.md) とその本文を読む。
+仕様や方向の相談は、利用者が `/consult` または「相談モード」で始めたときに行う。始まりと終わりは [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) にある。返答は、依頼を一文で復唱し、次の一文で推す案を書き、理由は「理由1: 見出し」で番号を付け、そのあと「変える場所」「残る選択肢」の見出しで続ける。本文は [.cursor/skills/consult/references/session.md](.cursor/skills/consult/references/session.md) にある。始めるときと、相談が続いているあいだの各ターンで、[.cursor/skills/consult/SKILL.md](.cursor/skills/consult/SKILL.md) とその本文を読む。
 
 スキルの作成、本文の更新、分割してよいかの判断は、エージェントが同じ作業の中で行う。
 
