@@ -614,7 +614,7 @@ describe("headlessScheduleSession regression", () => {
     const document = session.getDocument();
     const source = taskById(document, "e1000001-0000-4000-8000-000000000001");
     const newId = "e1000001-0000-4000-8000-000000000099";
-    const connectionsBefore = document.connections ?? [];
+    const sourcePredecessors = [...source.predecessors];
     const patch: TaskEditPatch = {
       name: `${source.name}（複製）`,
       start: source.start,
@@ -659,10 +659,16 @@ describe("headlessScheduleSession regression", () => {
     await commitDocument(session, {
       ...document,
       categories: dup.categories,
-      connections: connectionsBefore,
     });
-    expect(session.getDocument().connections).toEqual(connectionsBefore);
-    await session.run({ tool: "history", action: "undo" });
+    const undone = await session.run({ tool: "history", action: "undo" });
+    expect(undone.ok).toBe(true);
+    const afterUndo = session.getDocument();
+    expect(
+      afterUndo.categories
+        .flatMap((c) => c.groups.flatMap((g) => g.tasks))
+        .some((t) => t.id === newId),
+    ).toBe(false);
+    expect(taskById(afterUndo, source.id).predecessors).toEqual(sourcePredecessors);
   });
 
   it("round-trips assigneeIds through parse and save for unassigned tasks", async () => {
@@ -670,6 +676,8 @@ describe("headlessScheduleSession regression", () => {
     expect(taskById(session.getDocument(), TASK_A).assigneeIds).toEqual([]);
     const saved = await session.run({ tool: "save" });
     expect(taskById(parseDoc(saved.screenJson), TASK_A).assigneeIds).toEqual([]);
+    expect(saved.savedJson).toContain(`"id": "${TASK_A}"`);
+    expect(saved.savedJson).toContain('"assigneeId": null');
   });
 
   it("changes title only when trimmed text changes and undo restores 回帰確認", async () => {

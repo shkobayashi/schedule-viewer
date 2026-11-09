@@ -25,6 +25,9 @@ describe("headlessScheduleSession fields regression", () => {
     const session = openHeadlessSchedule(readFileSync(FIELDS_SCHEDULE, "utf8"));
     const rejected = parseTaskFieldInput(FIELD_DEFS[1]!, "not-a-number");
     expect(rejected.ok).toBe(false);
+    if (!rejected.ok) {
+      expect(rejected.message).toBe("点数は数値にしてください");
+    }
 
     const parsed = parseTaskFieldInput(FIELD_DEFS[1]!, "42");
     expect(parsed.ok).toBe(true);
@@ -42,8 +45,33 @@ describe("headlessScheduleSession fields regression", () => {
     expect(task?.fieldValues?.sample_score).toBe(42);
     expect(task?.fieldValues?.sample_memo).toBe("レビュー前");
 
+    const taskWithoutValues = findTaskById(
+      session.getDocument().categories,
+      "a1000001-0000-4000-8000-000000000004",
+    );
+    expect(taskWithoutValues?.fieldValues).toBeUndefined();
+
     const saved = await session.run({ tool: "save" });
     expect(saved.ok).toBe(true);
     expect(saved.savedJson).toContain('"sample_score": 42');
+    expect(saved.savedJson).toContain('"schemaVersion": 8');
+    expect(saved.savedJson).not.toMatch(/"sample_score": 80/);
+    expect(saved.savedJson).toContain('"sample_memo": "レビュー前"');
+    const savedDocument = JSON.parse(saved.savedJson) as {
+      categories: Array<{
+        groups: Array<{
+          tasks: Array<{ id: string; fieldValues?: Record<string, unknown> }>;
+        }>;
+      }>;
+    };
+    const valueTask = savedDocument.categories
+      .flatMap((c) => c.groups.flatMap((g) => g.tasks))
+      .find((t) => t.id === TASK_WITH_VALUES);
+    expect(valueTask?.fieldValues?.sample_score).toBe(42);
+    expect(valueTask?.fieldValues?.sample_memo).toBe("レビュー前");
+    const emptyTask = savedDocument.categories
+      .flatMap((c) => c.groups.flatMap((g) => g.tasks))
+      .find((t) => t.id === "a1000001-0000-4000-8000-000000000004");
+    expect(emptyTask?.fieldValues).toBeUndefined();
   });
 });

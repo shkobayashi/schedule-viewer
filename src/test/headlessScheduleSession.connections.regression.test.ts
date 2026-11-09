@@ -37,8 +37,16 @@ describe("headlessScheduleSession connections regression", () => {
     const anchor = "c5010001-0000-4000-8000-000000000018";
     const other = "c5010001-0000-4000-8000-000000000019";
 
-    expect(tryAddConnection(document.connections, anchor, other, " ").ok).toBe(false);
-    expect(tryAddConnection(document.connections, anchor, other, "  ").ok).toBe(false);
+    const blankSpace = tryAddConnection(document.connections, anchor, other, " ");
+    expect(blankSpace.ok).toBe(false);
+    if (!blankSpace.ok) {
+      expect(blankSpace.message).toBe("繋がりの言葉を入力してください。");
+    }
+    const blankDouble = tryAddConnection(document.connections, anchor, other, "  ");
+    expect(blankDouble.ok).toBe(false);
+    if (!blankDouble.ok) {
+      expect(blankDouble.message).toBe("繋がりの言葉を入力してください。");
+    }
 
     const added = tryAddConnection(document.connections, anchor, other, "回帰の繋がり");
     expect(added.ok).toBe(true);
@@ -100,12 +108,13 @@ describe("headlessScheduleSession connections regression", () => {
       milestoneId: source.milestoneId,
       note: source.note ?? "",
     };
+    const duplicateId = "c5010001-0000-4000-8000-000000000099";
     const dup = categoriesAfterDuplicate(
       document.categories,
       document.milestones,
       document.title,
       source.id,
-      "c5010001-0000-4000-8000-000000000099",
+      duplicateId,
       patch,
     );
     expect(dup.ok).toBe(true);
@@ -113,9 +122,11 @@ describe("headlessScheduleSession connections regression", () => {
     await commitDocument(session, {
       ...document,
       categories: dup.categories,
-      connections: connectionsBefore,
     });
     expect(session.getDocument().connections).toEqual(connectionsBefore);
+    for (const pair of session.getDocument().connections ?? []) {
+      expect(pair.taskIds.includes(duplicateId)).toBe(false);
+    }
 
     const bulk = applyBulkTaskEdit(
       session.getDocument().categories,
@@ -129,9 +140,11 @@ describe("headlessScheduleSession connections regression", () => {
     await commitDocument(session, {
       ...session.getDocument(),
       categories: bulk.categories,
-      connections: connectionsBefore,
     });
     expect(session.getDocument().connections).toEqual(connectionsBefore);
+    for (const pair of session.getDocument().connections ?? []) {
+      expect(pair.taskIds.includes(duplicateId)).toBe(false);
+    }
   });
 
   it("TC-EDIT-23c: relation broken hides connection-only task rows on connections schedule", () => {

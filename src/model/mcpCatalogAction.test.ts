@@ -111,7 +111,9 @@ describe("mcpCatalogAction", () => {
       JSON.stringify({ schemaVersion: 1, members: [{ id: "", name: "X" }] }),
     );
     expect(validated.ok).toBe(false);
-    if (!validated.ok) expect(validated.message.length).toBeGreaterThan(0);
+    if (!validated.ok) {
+      expect(validated.message).toBe("members / 0 / ID: 1 文字以上必要です");
+    }
   });
 
   it("rejects statuses JSON that fails validator semantics", () => {
@@ -120,7 +122,9 @@ describe("mcpCatalogAction", () => {
       JSON.stringify({ schemaVersion: 2, statuses: [] }),
     );
     expect(validated.ok).toBe(false);
-    if (!validated.ok) expect(validated.message.length).toBeGreaterThan(0);
+    if (!validated.ok) {
+      expect(validated.message).toBe("statuses: 1 件以上必要です");
+    }
   });
 
   it("rejects colors with duplicate ids", () => {

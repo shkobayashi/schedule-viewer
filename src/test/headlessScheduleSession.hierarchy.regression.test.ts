@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   appendOutlineChildBranch,
   appendOutlineHeadingAtLevel,
+  insertOutlineSiblingAfter,
   renameOutlineBranch,
 } from "../model/outlineCrud";
 import { parseScheduleText } from "../model/scheduleFile";
@@ -125,6 +126,11 @@ describe("headlessScheduleSession hierarchy regression", () => {
         expect(saved.savedJson).not.toContain('"categories"');
         expect(parsed.document.categories).toEqual([]);
       }
+      const undone = await session.run({ tool: "history", action: "undo" });
+      expect(undone.ok).toBe(true);
+      expect(
+        outlineHasName(session.getDocument().outline ?? [], fixture.headingName),
+      ).toBe(false);
   });
 
   it("TC-HIER-06: levels-2 empty heading children still validates after save", async () => {
@@ -152,6 +158,33 @@ describe("headlessScheduleSession hierarchy regression", () => {
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(validateSchedule(parsed.document).ok).toBe(true);
+  });
+
+  it("insertOutlineSiblingAfter commits and undo removes the sibling", async () => {
+    const session = openHierarchy("levels-2.schedule.json");
+    const document = session.getDocument();
+    const levels = document.levels ?? [];
+    const outline = document.outline ?? [];
+    const afterBranchId = outline[0]!.id;
+    const allocateId = allocateOutlineId();
+    const siblingName = "回帰・同段追加";
+    const result = insertOutlineSiblingAfter(
+      outline,
+      afterBranchId,
+      levels.length,
+      levels,
+      siblingName,
+      allocateId(),
+      allocateId,
+    );
+    expect(result.error).toBeNull();
+    await commitDocument(session, { ...document, outline: result.outline });
+    expect(outlineHasName(session.getDocument().outline ?? [], siblingName)).toBe(true);
+    const undone = await session.run({ tool: "history", action: "undo" });
+    expect(undone.ok).toBe(true);
+    expect(outlineHasName(session.getDocument().outline ?? [], siblingName)).toBe(
+      false,
+    );
   });
 
   it("MX-O-97: appendOutlineChildBranch and undo", async () => {
