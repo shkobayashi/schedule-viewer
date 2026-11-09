@@ -676,8 +676,14 @@ describe("headlessScheduleSession regression", () => {
     expect(taskById(session.getDocument(), TASK_A).assigneeIds).toEqual([]);
     const saved = await session.run({ tool: "save" });
     expect(taskById(parseDoc(saved.screenJson), TASK_A).assigneeIds).toEqual([]);
-    expect(saved.savedJson).toContain(`"id": "${TASK_A}"`);
-    expect(saved.savedJson).toContain('"assigneeId": null');
+    const diskDoc = parseDoc(saved.savedJson);
+    expect(taskById(diskDoc, TASK_A).assigneeIds).toEqual([]);
+    const diskTask = diskDoc.categories
+      .flatMap((c) => c.groups.flatMap((g) => g.tasks))
+      .find((t) => t.id === TASK_A);
+    expect(diskTask).toBeDefined();
+    expect(saved.savedJson).toContain('"assigneeIds": []');
+    expect(saved.savedJson).not.toContain('"assigneeId"');
   });
 
   it("changes title only when trimmed text changes and undo restores 回帰確認", async () => {

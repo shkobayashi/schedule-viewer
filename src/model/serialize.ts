@@ -1,5 +1,5 @@
 import type { DocumentSnapshot } from "./documentSnapshot";
-import { assigneeIdToJson, taskAssigneeIds } from "./assigneeIds";
+import { taskAssigneeIds } from "./assigneeIds";
 import { documentHasLevels } from "./hierarchy";
 import { normalizeLevelDefinition } from "./hierarchyLevelEdit";
 import { taskFieldValuesForSerialization } from "./taskFields";
@@ -196,7 +196,7 @@ function orderTaskJson(
     name: task.name,
     start: task.start,
     end: task.end,
-    assigneeId: assigneeIdToJson(taskAssigneeIds(task)),
+    assigneeIds: [...taskAssigneeIds(task)],
     status: task.status,
   };
   if (task.colorId != null) {
