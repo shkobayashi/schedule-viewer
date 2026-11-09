@@ -9,6 +9,6 @@ alwaysApply: true
 
 あるときは、利用者が終わりを告げるまで次に従う。話題が移っても、相談のままにする。「相談モード終了」「コンサルトモード終了」のように終わりを告げられたら、次の返事からこの返し方をやめる。
 
-次に従う本文は [../skills/consult/references/session.md](../skills/consult/references/session.md) にある。相談が続いているあいだは、返事の前に [../skills/consult/SKILL.md](../skills/consult/SKILL.md) と、その本文を読む。会話の履歴に本文が残っていても、同じ読みを行う。
+次に従う本文は [../skills/consult/references/session.md](../skills/consult/references/session.md) にある。相談が続いているあいだは、返事の前に [../skills/consult/SKILL.md](../skills/consult/SKILL.md) と、その本文を読む。会話の履歴に本文が残っていても、読み直す。
 
 Cursor の alwaysApply では、このファイルは各ターンの指示に入る。本文ファイルの中身は入らない。`/consult` で開いたスキルは、そのメッセージに付くだけで、次のターンには残らない。読んだ本文は、そのターンのツール結果に残り、会話の要約では落ちることがある。毎ターン読むことで、相談が続いているあいだ本文が効く。AGENTS.md も、相談が続いているあいだは同じ読みを指示している。
