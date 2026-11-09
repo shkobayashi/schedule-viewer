@@ -92,6 +92,37 @@ describe("mcpCatalogAction", () => {
     expect(validated.ok).toBe(true);
   });
 
+  it("accepts minimal fields catalog JSON", () => {
+    const validated = validateMcpCatalogContents(
+      "fields",
+      JSON.stringify({
+        schemaVersion: 1,
+        id: "sample",
+        name: "サンプル",
+        fields: [{ id: "memo", name: "メモ", type: "text" }],
+      }),
+    );
+    expect(validated.ok).toBe(true);
+  });
+
+  it("rejects members JSON that fails validator semantics", () => {
+    const validated = validateMcpCatalogContents(
+      "members",
+      JSON.stringify({ schemaVersion: 1, members: [{ id: "", name: "X" }] }),
+    );
+    expect(validated.ok).toBe(false);
+    if (!validated.ok) expect(validated.message.length).toBeGreaterThan(0);
+  });
+
+  it("rejects statuses JSON that fails validator semantics", () => {
+    const validated = validateMcpCatalogContents(
+      "statuses",
+      JSON.stringify({ schemaVersion: 2, statuses: [] }),
+    );
+    expect(validated.ok).toBe(false);
+    if (!validated.ok) expect(validated.message.length).toBeGreaterThan(0);
+  });
+
   it("rejects colors with duplicate ids", () => {
     const validated = validateMcpCatalogContents(
       "colors",
