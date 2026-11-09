@@ -9,10 +9,16 @@ export default defineConfig({
       reporter: ["text-summary"],
       // 実測より約 1 ポイント下の整数。上げ下げは docs/development.md。
       thresholds: {
-        lines: 73,
-        functions: 75,
-        branches: 61,
-        statements: 67,
+        lines: 69,
+        functions: 68,
+        branches: 58,
+        statements: 64,
+        "src/model/**": {
+          lines: 77,
+          functions: 79,
+          branches: 62,
+          statements: 69,
+        },
       },
     },
     projects: [

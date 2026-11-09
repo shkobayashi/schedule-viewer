@@ -339,6 +339,31 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `wires member section to member copy and note` | SET-02 |
 | 同上 | `wires color section to color note with colorId` | SET-09 |
 | 同上 | `wires status section to built-in fallback label` | SET-08 |
+| `settingsHierarchyDiff.dom.test.tsx` | `shows assignee, status, color name, and extension memo from the selected catalogs` | SET-02, SET-08, SET-09, EDIT-04 |
+| 同上 | `keeps the member editor open and shows the saved display name on the rows` | SET-02 |
+| 同上 | `keeps the status editor open and shows the saved status name` | SET-08 |
+| 同上 | `keeps the row fill bound to the renamed color` | SET-09 |
+| 同上 | `closes catalog editors on external reload and leaves the draft out of storage` | SET-02, SET-08, SET-09, SYNC-01 |
+| 同上 | `hides the member editor when workspace members cannot be read` | SET-02 |
+| 同上 | `rejects a blank task name and leaves the task unchanged` | EDIT-04 |
+| 同上 | `shows unregistered field values as read-only without a catalog` | EDIT-04 |
+| 同上 | `hides delete until a task is selected` | EDIT-09 |
+| 同上 | `shows the browser skill note, the seven skill names, and a disabled install button` | SET-05 |
+| 同上 | `shows the package version and omits the updates section in the browser` | SET-07 |
+| 同上 | `stores the display scale and applies it as --s` | SET-01 |
+| 同上 | `stores dark and clears the key when returning to the system scheme` | SET-04 |
+| 同上 | `shows the level names above an aligned outline` | VIEW-03 |
+| 同上 | `shows the mismatch message and hides add-heading when the outline does not match` | VIEW-03 |
+| 同上 | `adds an outline heading from the context menu` | EDIT-18 |
+| 同上 | `refuses apply when a meaning is empty and drops a name that was not applied` | EDIT-21 |
+| 同上 | `keeps an applied instruction when the hierarchy dialog is opened again` | EDIT-21 |
+| 同上 | `drops a blank instruction when the hierarchy dialog is applied` | EDIT-21 |
+| 同上 | `shows the old and new end dates in the diff column` | FILE-07 |
+| 同上 | `closes the empty diff column with the close button` | FILE-07 |
+| 同上 | `copies diff text to the clipboard` | FILE-07 |
+| `settingsDesktopChrome.dom.test.tsx` | `shows the version line on display, members, and updates` | SET-07 |
+| 同上 | `disables install and remove when every skill target is unchecked` | SET-05 |
+| 同上 | `shows the overwrite confirmation when install reports existing paths` | SET-05 |
 | `contextMenuItems.test.ts` | `lists edit, duplicate, note shortcut, and delete for one task` | EDIT-11, EDIT-06, EDIT-14 |
 | 同上 | `switches confidence and lineage labels for a tentative task on mac` | EDIT-11, VIEW-12, FILTER-08 |
 | 同上 | `lists only delete when several tasks are selected` | EDIT-11, EDIT-09 |
@@ -1238,7 +1263,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `errors.ts` | 未テスト |
 | `timelineVisibleDays.ts` | 未テスト |
 | `layoutSizes.ts` | 未テスト |
-| `src/components/`、`src/hooks/`、`App.tsx` | 検索、絞り込み、エラー表示、メニュー、パレット、ショートカットの DOM は `searchErrorKeys.dom.test.tsx` がテストしている。Konva の描画、Tauri のダイアログ、ファイルの監視は手で確かめる。キーの判断、チャートの当たり、保存の直列化、起動の世代、監視の停止は純粋関数としてもテストしている |
+| `src/components/`、`src/hooks/`、`App.tsx` | 検索、絞り込み、エラー表示、メニュー、パレット、ショートカットの DOM は `searchErrorKeys.dom.test.tsx` がテストしている。設定、階層、差分列の DOM は `settingsHierarchyDiff.dom.test.tsx` と `settingsDesktopChrome.dom.test.tsx` がテストしている。`settingsHierarchyDiff.dom.test.tsx` はハーネス上の部品を見ており、`App.tsx` への配線までは見ない。Konva の描画、Tauri のダイアログ、ファイルの監視は手で確かめる。キーの判断、チャートの当たり、保存の直列化、起動の世代、監視の停止は純粋関数としてもテストしている |
 
 足すなら、手間のわりに効果が大きい次の順がよい。
 

@@ -244,7 +244,7 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 | `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定である。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない。通し方は [regression.md](regression.md) |
 | `npm run check:madge-circular-baseline` | madge 循環が [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) と一致すること（`cycleCount: 0` と `cycles: []` 可）。**CI frontend で失敗扱い**（循環が 1 件でも増えたら失敗）。意図的に解消・再計測した PR では JSON を同じ変更で更新する |
 | `npm run check:architecture-warn` | jscpd（重複 clone）。重複率の上限は 6%。超えても終了コードは 0 なので、CI では警告のままである（循環 import は上の `check:madge-circular-baseline`） |
-| `npm run test:coverage` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。行（lines）73%、文（statements）67%、分岐（branches）61%、関数（functions）75% を下回ると失敗する。**CI frontend で失敗扱い** |
+| `npm run test:coverage` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。全体は行（lines）69%、文（statements）64%、分岐（branches）58%、関数（functions）68% を下回ると失敗する。`src/model/**` は行 77%、文 69%、分岐 62%、関数 79% を下回ると失敗する。**CI frontend で失敗扱い** |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |

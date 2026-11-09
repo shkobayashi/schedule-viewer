@@ -33,8 +33,8 @@
 | MX-H-23 | UI | 選択と移動 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
 | MX-H-24 | UI | 詳細パネルと線 | 手動のまま | 手動:RG-F1-1。手動のまま:変換中の Enter は実機の日本語変換でしか確認できない |
 | MX-H-25 | 見た目 | 詳細パネルと線 | 自動化予定 | 手動:RG-F4-1。自動化予定:#536 |
-| MX-H-26 | UI | タスクへの色 | 自動化予定 | 手動:RG-F6-4。自動化予定:#548 |
-| MX-H-27 | UI | タスクへの色 | 自動化予定 | 自動化予定:#548 |
+| MX-H-26 | UI | タスクへの色 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color |
+| MX-H-27 | UI | タスクへの色 | 自動化予定 | 自動化予定:#536 |
 | MX-H-28 | 計算 | 右クリックと複製 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
 | MX-H-29 | UI | 右クリックと複製 | 自動化予定 | 自動化予定:#545 |
 | MX-H-30 | UI | ノートと名前 | 手動のまま | 手動:RG-F1-2。手動のまま:実機の変換確定は模擬イベントで代用しない |
@@ -44,8 +44,8 @@
 | MX-H-34 | UI | 取り消しと、入力中のキー | 手動のまま | 手動:RG-F1-3。手動のまま:変換中の Escape は実機の日本語変換でしか確認できない |
 | MX-H-35 | 見た目 | 書き出す | 自動化予定 | 手動:RG-F5-2。自動化予定:#536 |
 | MX-H-36 | 計算 | 書き出す | 自動化予定 | 自動化予定:#536 |
-| MX-H-37 | UI | 設定 | 自動化予定 | 手動:RG-F6-2。自動化予定:#548 |
-| MX-H-38 | UI | 設定 | 自動化予定 | 自動化予定:#548 |
+| MX-H-37 | UI | 設定 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows |
+| MX-H-38 | UI | 設定 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the status editor open and shows the saved status name。自動:src/components/settingsHierarchyDiff.dom.test.tsx#stores dark and clears the key when returning to the system scheme。自動:src/components/settingsHierarchyDiff.dom.test.tsx#stores the display scale and applies it as --s。自動化予定:#547 |
 | MX-H-39 | UI | ほかのプログラムがファイルを書き換えたとき | 自動化予定 | 手動:RG-F7-1。自動化予定:#547 |
 | MX-H-40 | OS | ほかのプログラムがファイルを書き換えたとき | 自動化予定 | 自動化予定:#547 |
 | MX-H-41 | UI | 閉じたあとに、また開くとき | 自動化予定 | 手動:RG-F8-2。自動化予定:#547 |
@@ -84,14 +84,14 @@
 | MX-O-14 | OS | 設定ファイルを新しいフォルダへ書き出す | 自動化予定 | 自動化予定:#547 |
 | MX-O-15 | UI | JSON を表示 | 自動化予定 | 自動化予定:#547 |
 | MX-O-16 | 計算 | 差分を表示 | 自動済み | 自動:src/model/scheduleDiff.test.ts#says there is no difference when the documents match |
-| MX-O-17 | UI | 差分を表示 | 自動化予定 | 手動:RG-F11-1。自動化予定:#548 |
-| MX-O-18 | UI | 差分をコピー | 自動化予定 | 手動:RG-F11-4。自動化予定:#548 |
-| MX-O-19 | UI | 未保存の差分を開く（状態バー） | 自動化予定 | 手動:RG-F11-1。自動化予定:#548 |
+| MX-O-17 | UI | 差分を表示 | 一部自動 | 手動:RG-F11-1。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動化予定:#536 |
+| MX-O-18 | UI | 差分をコピー | 一部自動 | 手動:RG-F11-4。自動:src/components/settingsHierarchyDiff.dom.test.tsx#copies diff text to the clipboard。自動化予定:#536 |
+| MX-O-19 | UI | 未保存の差分を開く（状態バー） | 一部自動 | 手動:RG-F11-1。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動化予定:#547 |
 | MX-O-20 | UI | 外部ファイル更新の確認 | 自動化予定 | 手動:RG-F7-2。自動化予定:#547 |
 | MX-O-21 | OS | 外部ファイル更新の確認 | 自動化予定 | 自動化予定:#547 |
 | MX-O-22 | UI | 更新を確認 | 自動化予定 | 手動:RG-F14-2。自動化予定:#547 |
 | MX-O-23 | UI | 更新を確認 | 自動化予定 | 自動化予定:#547 |
-| MX-O-24 | UI | 設定を開く | 自動化予定 | 手動:RG-F6-2。自動化予定:#548 |
+| MX-O-24 | UI | 設定を開く | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows |
 | MX-O-25 | OS | ウィンドウを閉じる | 自動化予定 | 手動:RG-S4-6。自動化予定:#547 |
 | MX-O-26 | OS | ウィンドウを閉じる | 自動化予定 | 自動化予定:#541 |
 | MX-O-27 | OS | ウィンドウを最小化 | 自動化予定 | 手動:RG-F9-4。自動化予定:#541 |
@@ -120,8 +120,8 @@
 | MX-O-50 | UI | 横スクロール（ホイール） | 自動化予定 | 手動:RG-S2-4。自動化予定:#535 |
 | MX-O-51 | UI | 横スクロール（ホイール） | 自動化予定 | 自動化予定:#535 |
 | MX-O-52 | UI | スケジュールのタイトルを変更 | 手動のまま | 手動:RG-F1-4。手動のまま:見出しの実機の変換確定は模擬イベントで代用しない |
-| MX-O-53 | UI | 階層の名前・意味・指示を編集 | 自動化予定 | 手動:RG-F10-4。自動化予定:#548 |
-| MX-O-54 | UI | 階層の名前・意味・指示を編集 | 自動化予定 | 自動化予定:#548 |
+| MX-O-53 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 手動:RG-F10-4。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。自動化予定:#545 |
+| MX-O-54 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied。自動化予定:#545 |
 | MX-O-55 | UI | 絞り込みパネルを開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters assignees from the panel and clears one chip |
 | MX-O-56 | UI | 絞り込みをすべて解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters tags and clears one chip without clearing lineage |
 | MX-O-57 | UI | 系統を表示／解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
@@ -157,14 +157,14 @@
 | MX-O-87 | UI | 前後の線を外す | 自動化予定 | 手動:RG-F4-1。自動化予定:#536 |
 | MX-O-88 | 見た目 | 前後の線を外す | 自動化予定 | 自動化予定:#536 |
 | MX-O-89 | UI | 繋がりを外す | 自動化予定 | 手動:RG-F4-4。自動化予定:#536 |
-| MX-O-90 | UI | カテゴリ名を変更 | 自動化予定 | 自動化予定:#548 |
+| MX-O-90 | UI | カテゴリ名を変更 | 自動化予定 | 自動化予定:#545 |
 | MX-O-91 | UI | 下にカテゴリを追加 | 自動化予定 | 自動化予定:#545 |
 | MX-O-92 | UI | グループを追加（カテゴリ下） | 自動化予定 | 自動化予定:#545 |
-| MX-O-93 | UI | グループ名を変更 | 自動化予定 | 自動化予定:#548 |
+| MX-O-93 | UI | グループ名を変更 | 自動化予定 | 自動化予定:#545 |
 | MX-O-94 | UI | 下にグループを追加 | 自動化予定 | 自動化予定:#545 |
-| MX-O-95 | UI | 階層名を変更（アウトライン） | 自動化予定 | 手動:RG-F10-2。自動化予定:#548 |
-| MX-O-96 | UI | 下に階層を追加 | 自動化予定 | 手動:RG-F10-2。自動化予定:#548 |
-| MX-O-97 | UI | 子階層を追加 | 自動化予定 | 自動化予定:#548 |
+| MX-O-95 | UI | 階層名を変更（アウトライン） | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動化予定:#545 |
+| MX-O-96 | UI | 下に階層を追加 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動化予定:#545 |
+| MX-O-97 | UI | 子階層を追加 | 自動化予定 | 自動化予定:#545 |
 | MX-O-98 | 計算 | カテゴリ／グループ／階層を削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#deletes an empty category and an empty group, then undo restores both |
 | MX-O-99 | UI | カテゴリ／グループ／階層を削除 | 自動化予定 | 自動化予定:#545 |
 | MX-O-100 | UI | タスクバーをドラッグして期間変更 | 自動化予定 | 手動:RG-S3-1。自動化予定:#535 |
@@ -187,9 +187,9 @@
 | MX-O-117 | 計算 | 差分テキストを読む | 自動化予定 | 自動化予定:#543 |
 | MX-O-118 | 計算 | 起点・画面・ファイルの分類を読む | 自動済み | 自動:src/model/baselineDiffs.test.ts#reports no changes when baseline, screen, and file match |
 | MX-O-119 | 計算 | 起点・画面・ファイルの分類を読む | 自動化予定 | 自動化予定:#543 |
-| MX-O-120 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 自動化予定 | 手動:RG-F6-2。自動化予定:#548 |
-| MX-O-121 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 自動化予定 | 自動化予定:#548 |
-| MX-O-122 | UI | JSON作成スキル・更新確認の設定 | 自動化予定 | 自動化予定:#548 |
+| MX-O-120 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the status editor open and shows the saved status name。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color。自動化予定:#547 |
+| MX-O-121 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 自動化予定 | 自動化予定:#545 |
+| MX-O-122 | UI | JSON作成スキル・更新確認の設定 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the browser skill note, the seven skill names, and a disabled install button。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the package version and omits the updates section in the browser。自動:src/components/settingsDesktopChrome.dom.test.tsx#shows the overwrite confirmation when install reports existing paths。自動:src/components/settingsDesktopChrome.dom.test.tsx#disables install and remove when every skill target is unchecked。自動化予定:#547 |
 | MX-O-123 | 計算 | 説明のための見え方を掛ける | 自動化予定 | 自動化予定:#545 |
 | MX-O-124 | 計算 | 説明の半透明・試しの計画 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
 | MX-O-125 | UI | 説明の半透明・試しの計画 | 自動化予定 | 自動化予定:#545 |
