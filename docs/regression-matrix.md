@@ -28,7 +28,7 @@
 | MX-H-18 | 見た目 | 色と線の見かた | 手動のまま | 手動:RG-S2-6。手動のまま:色が地に溶けて読めるかは人が判断する |
 | MX-H-19 | 見た目 | 色と線の見かた | 自動化予定 | 自動化予定:#536 |
 | MX-H-20 | UI | 編集する | 自動化予定 | 手動:RG-S3-1。自動化予定:#535 |
-| MX-H-21 | 計算 | 編集する | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#toggles 設計 confidence without moving dates and one undo restores it。自動化予定:#535 |
+| MX-H-21 | 計算 | 編集する | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#toggles 設計 confidence without moving dates and one undo restores it |
 | MX-H-22 | 計算 | 選択と移動 | 自動済み | 自動:src/model/taskSelection.test.ts#selects a range with shift+click |
 | MX-H-23 | UI | 選択と移動 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
 | MX-H-24 | UI | 詳細パネルと線 | 手動のまま | 手動:RG-F1-1。手動のまま:変換中の Enter は実機の日本語変換でしか確認できない |
@@ -144,7 +144,7 @@
 | MX-O-74 | UI | マイルストンを追加 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only add-milestone on an empty chart |
 | MX-O-75 | UI | タスクを編集（詳細） | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#undoes assignee add clear and reorder on 調査。自動:src/test/headlessScheduleSession.regression.test.ts#adds and removes a tag with undo redo and leaves the file dirty until save。自動化予定:#535 |
 | MX-O-76 | UI | タスクを削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。手動:RG-S3-9。自動化予定:#535 |
-| MX-O-77 | 計算 | タスクを削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。自動化予定:#535 |
+| MX-O-77 | 計算 | タスクを削除 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo |
 | MX-O-78 | UI | タスクを複製 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#duplicates 調査 on full.schedule with unchanged pointed tasks。自動化予定:#535 |
 | MX-O-79 | UI | 同じグループ内で並べ替え | 自動化予定 | 自動化予定:#535 |
 | MX-O-80 | UI | ノートを開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens the note with ctrl+n and shows the shortcut |
@@ -163,8 +163,8 @@
 | MX-O-93 | UI | グループ名を変更 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#keeps group id when renaming 前半 and undo restores the name。自動化予定:#535 |
 | MX-O-94 | UI | 下にグループを追加 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#appends a group under the chosen category and one undo removes it。自動化予定:#535 |
 | MX-O-95 | UI | 階層名を変更（アウトライン） | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#MX-O-95: renameOutlineBranch and undo。自動化予定:#535 |
-| MX-O-96 | UI | 下に階層を追加 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#MX-O-97: appendOutlineChildBranch and undo。自動化予定:#535 |
-| MX-O-97 | UI | 子階層を追加 | 自動化予定 | 自動化予定:#535 |
+| MX-O-96 | UI | 下に階層を追加 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#insertOutlineSiblingAfter commits and undo removes the sibling。自動化予定:#535 |
+| MX-O-97 | UI | 子階層を追加 | 一部自動 | 自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#MX-O-97: appendOutlineChildBranch and undo。自動化予定:#535 |
 | MX-O-98 | 計算 | カテゴリ／グループ／階層を削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#deletes an empty category and an empty group, then undo restores both |
 | MX-O-99 | UI | カテゴリ／グループ／階層を削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores empty group 後半 after removeGroup and one undo。自動:src/test/headlessScheduleSession.regression.test.ts#undo removes a category added under 計画 and its default グループ。自動化予定:#535 |
 | MX-O-100 | UI | タスクバーをドラッグして期間変更 | 自動化予定 | 手動:RG-S3-1。自動化予定:#535 |
