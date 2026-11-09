@@ -131,7 +131,7 @@ describe("normalizeAssigneesInDocument", () => {
 });
 
 describe("validateSchedule assigneeId json", () => {
-  it("keeps one person in assigneeIds in canonical json", () => {
+  it("keeps one person as assigneeId string in canonical json", () => {
     const parsed = validateSchedule(scheduleWithAssigneeId(memberId));
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
@@ -139,9 +139,8 @@ describe("validateSchedule assigneeId json", () => {
       memberId,
     ]);
     const json = documentToJsonString(parsed.document);
-    expect(json).toContain(`"assigneeIds": [`);
-    expect(json).toContain(`"${memberId}"`);
-    expect(json).not.toContain('"assigneeId"');
+    expect(json).toContain(`"assigneeId": "${memberId}"`);
+    expect(json).not.toMatch(/"assigneeId":\s*\[/);
   });
 
   it("accepts a one-element assigneeId array", () => {
@@ -176,8 +175,7 @@ describe("validateSchedule assigneeId json", () => {
     expect(merged.ok).toBe(true);
     if (!merged.ok) return;
     const out = documentToJsonString(merged.document);
-    expect(out).toContain('"assigneeIds": []');
-    expect(out).not.toContain('"assigneeId"');
+    expect(out).toContain('"assigneeId": null');
   });
 });
 

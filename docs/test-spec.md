@@ -410,7 +410,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `appends category and default group at document end then undo removes both` | EDIT-18, EDIT-10 |
 | 同上 | `appends a group under the chosen category and one undo removes it` | EDIT-18, EDIT-10 |
 | 同上 | `duplicates 調査 on full.schedule with unchanged pointed tasks` | EDIT-14, EDIT-10 |
-| 同上 | `round-trips assigneeIds through parse and save for unassigned tasks` | FILE-02 |
+| 同上 | `round-trips assigneeIds through parse and save for unassigned tasks`（未割当は保存 JSON で `assigneeId: null`。`assigneeIds` キーは書かない。再読み込み後はメモリ上で空配列） | FILE-02 |
 | 同上 | `changes title only when trimmed text changes and undo restores 回帰確認` | EDIT-20, EDIT-10 |
 | 同上 | `formatScheduleDiff includes hidden filtered task date change` | FILE-07, FILTER-01 |
 | 同上 | `applyMilestoneEdit group move appears in diff as groupId` | EDIT-07, FILE-07 |
@@ -1363,6 +1363,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 - 繋がりの追加・ラベル変更・組の削除、複製と一括編集で繋がりが増えないこと、破綻系統で接続だけの行が出ないこと
 - 拡張項目の入力とカテゴリへの反映、見本外の階層保存、`levels` の段数だけ変える保存の拒否
 - 複製で写る項目と元タスクの先行、説明オーバーレイの消去、絞り込みで隠したタスクの日付変更が差分テキストに残ること
+- 未割当タスクの保存ファイルは `assigneeId: null` であり、メモリ上の `assigneeIds` は空配列のまま往復する
 
 まだ手で見るのは、バーのドラッグ、削除の確認ダイアログ、IME、描画のずれ、本物の LLM の文、起動直後の実ドラッグ、右クリック直後のポインタである。
 
