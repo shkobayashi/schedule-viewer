@@ -51,7 +51,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## 短い通しと、全体
 
-短い通しは RG-S2 から RG-S4 である。RG-S1 と RG-S5 は自動テストが見ている。いまの目安は 44 分である。全体の代表手順は、それに RG-F1 から RG-F14 を足して約 3 時間 1 分である。上の短文に書いた手で行わない手順（RG-F6-1 から RG-F6-4 の目安約 13 分と RG-F11-3 の約 3 分など、合わせて約 16 分）を、もともとの約 3 時間 17 分から引いた見積である。RG-F3 と RG-F13 は手で通さない。RG-F1-6、RG-F2-4、RG-F2-5、RG-F6-1 から RG-F6-4、RG-F10-2（追加まで）、RG-F11-3 も手で行わない。シナリオは 19 本、手順は 98 である。この分数は、各シナリオに書いてあった目安から、手で行わなくなった分を引いた見積で、実測ではない。各手順の扱いに書いた自動化予定がすべて終わったあと、手で残すのは色の読みやすさ、実機の日本語変換、本物の LLM の判断、署名と配布物の確認だけである。そのときの目安は、短い通しが約 5 分、全体が約 25 分に、配布物の確認があるときだけ OS ごとに約 10 分を足す。この分数も実測ではない。
+短い通しは RG-S2 から RG-S4 である。RG-S1 と RG-S5 は自動テストが見ている。いまの目安は 43 分である（もともと 44 分の見積から、手で行わなくなった RG-S3-13 の 1 分だけを引いた見積）。全体の代表手順は、それに RG-F1 から RG-F14 を足して約 3 時間 0 分である（もともとの約 3 時間 17 分から、以前に手で行わなくなった約 16 分［RG-F6-1 から RG-F6-4 の約 13 分と RG-F11-3 の約 3 分など］と、今回手で行わなくなった RG-S3-13 の 1 分だけを引いた見積）。RG-F10-2 はメニューが自動化予定:#535 のまま残るため、この引き算には含めない。RG-S3-7 と RG-S3-8 も自動化予定:#535 が残るため、引き算には含めない。RG-S3-10 と RG-S3-11 は選択の復元が #535 に残るため、上の引き算には含めない。RG-F9-3 は自動化予定:#547 が残るため、引き算には含めない。RG-F3 と RG-F13 は手で通さない。RG-F1-6、RG-F2-4、RG-F2-5、RG-F6-1 から RG-F6-4、RG-S3-13、RG-F11-3 も手で行わない。シナリオは 19 本、手順は 98 である。この分数は、各シナリオに書いてあった目安から、自動化予定が残っていない手順だけを引いた見積で、実測ではない。各手順の扱いに書いた自動化予定がすべて終わったあと、手で残すのは色の読みやすさ、実機の日本語変換、本物の LLM の判断、署名と配布物の確認だけである。そのときの目安は、短い通しが約 5 分、全体が約 25 分に、配布物の確認があるときだけ OS ごとに約 10 分を足す。この分数も実測ではない。
 
 各手順の番号ごとに、合、否、保留、未検証、対象外のいずれかと、違ったときは見えた文を記録する。記録の型は末尾にある。自動化予定と書いた手順を手で行っても、その Issue が終わるまで自動の代わりの合格にはしない。
 
@@ -153,7 +153,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 扱い: 自動化予定:#535。この Issue が終わると、この手順は手で行わない。
 
-自動化予定: #535。今日線の基準日は #545 の日付固定でも見る。
+自動化予定: #535。
 
 ### RG-S2-6
 
@@ -175,7 +175,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## RG-S3 ドラッグと、右クリックの直後
 
-目的は、離して確定する操作と、離す前の Escape を分け、削除の確認と取り消しの戻りを見ることである。対象はデスクトップ版である。見本は作業用の `smoke.schedule.json` である。各手順の前に原本からコピーし直す。目安は 16 分である。座標の自動は #535、削除の結果の計算は既存の画面なし実行が持っている。ドラッグの感触と、右クリックの直後のポインタは人が残す。
+目的は、離して確定する操作と、離す前の Escape を分け、削除の確認と取り消しの戻りを見ることである。対象はデスクトップ版である。見本は作業用の `smoke.schedule.json` である。各手順の前に原本からコピーし直す。目安は 15 分である（見積で、実測ではない）。座標の自動は #535、削除と取り消し・やり直しの結果の計算は `headlessScheduleSession.regression.test.ts` が持っている。ドラッグの感触と、右クリックの直後のポインタ、削除確認のキャンセルは人が残す。
 
 ### RG-S3-1
 
@@ -255,23 +255,23 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 「調査」が残る。ノート「回帰確認用のノート」も残る。担当は未割当のままである。
 
-扱い: 自動化予定:#545。この Issue が終わると、この手順は手で行わない。
+扱い: 手で行う。確認ダイアログのキャンセルを含む手順全体が自動化予定:#535 のまま残る。
 
 ### RG-S3-10
 
 操作: 「調査」を削除し、確認で削除する。取り消しを 1 回押す。
 
-期待: 「調査」が戻る。ノート、未割当、選択が削除前と同じである。先行が「調査」だった「設計」の線も戻る。
+期待: 「調査」が戻る。ノート、未割当が削除前と同じである。先行が「調査」だった「設計」の線も戻る。選択が削除前と同じになることは、アプリはまだ保証しない（`pruneTaskSelection` のあと空のまま残る）。
 
-扱い: 自動化予定:#545。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。この手順の期待のうち、ノート・未割当・先行の復元はこのテストが断言している。選択の復元は自動化予定:#535。
 
 ### RG-S3-11
 
 操作: やり直しを 1 回押し、もう一度取り消しを押す。
 
-期待: やり直しで「調査」が消え、取り消しで RG-S3-10 の戻りと同じになる。
+期待: やり直しで「調査」が消え、取り消しで RG-S3-10 の戻りと同じになる（選択の復元を除く）。
 
-扱い: 自動化予定:#545。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。この手順の期待のうち、やり直し・取り消しとノート・先行はこのテストが断言している。選択の復元は自動化予定:#535。
 
 ### RG-S3-12
 
@@ -281,7 +281,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 「後半」は残る。
 
-扱い: 自動化予定:#545。この Issue が終わると、この手順は手で行わない。
+扱い: 手で行う。確認ダイアログのキャンセルを含む手順全体が自動化予定:#535 のまま残る。
 
 ### RG-S3-13
 
@@ -289,7 +289,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 削除のあと「後半」は消え、取り消し 1 回で空のグループとして戻る。
 
-扱い: 自動化予定:#545。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/test/headlessScheduleSession.regression.test.ts#restores empty group 後半 after removeGroup and one undo。この手順の期待はこのテストが断言している。
 
 ## RG-S4 保存して開き直す
 
@@ -807,7 +807,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 ## RG-F10 階層の線
 
-目的は、畳む枝、追加する名前、下書きが保存されないことを分けることである。対象はデスクトップ版である。目安は 12 分である。短い通しには入れない。見た目の自動は #536 である。見出しの追加、意味が空のときに適用できないこと、指示の入力は、`settingsHierarchyDiff.dom.test.tsx` が確かめている。保存した JSON は #545 である。
+目的は、畳む枝、追加する名前、下書きが保存されないことを分けることである。対象はデスクトップ版である。目安は 9 分である（見積で、実測ではない）。短い通しには入れない。見た目の自動は #536 である。見出しの追加、意味が空のときに適用できないこと、指示の入力は、`settingsHierarchyDiff.dom.test.tsx` が確かめている。見出し追加の取り消しは `headlessScheduleSession.hierarchy.regression.test.ts` の `appendOutlineHeadingAtLevel on levels-2.schedule.json commits, saves, and parses` が確かめている。
 
 ### RG-F10-1
 
@@ -827,7 +827,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 「回帰の見出し」が足る。取り消し 1 回で消える。
 
-扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。追加は手で行わない。取り消し 1 回は自動化予定:#545。
+扱い: 自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#appendOutlineHeadingAtLevel on levels-2.schedule.json commits, saves, and parses。取り消しも同じテスト。右クリックでの追加は自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。メニューは自動化予定:#535。
 
 ### RG-F10-3
 
@@ -837,9 +837,9 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 空の意味では適用できない。閉じたあと、作業用ファイルに「回帰の下書き」は無い。
 
-扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied。適用せずに閉じた名前が作業用ファイルに書かれないことは、#545 で自動にする予定である。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied。適用せずに閉じた名前が作業用ファイルに書かれないことは自動化予定:#547。
 
-自動化予定: #545。
+自動化予定: #547。
 
 ### RG-F10-4
 
@@ -847,9 +847,9 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 保存した JSON にその指示が残る。原本の `examples/hierarchy/levels-3.schedule.json` には残らない。終わったら作業用を原本からコピーし直す。
 
-扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。保存した JSON に指示が残ることは自動化予定:#545。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。保存した JSON に指示が残ることは自動化予定:#547。
 
-自動化予定: #545。
+自動化予定: #547。
 
 ## RG-F11 差分列の配置
 
@@ -937,7 +937,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 扱い: 手動のまま:試しの採用を人が読める説明で判断する。この手順は自動化しない。
 
-試しの計算の自動は #545 である。自由な言い換えではなく、この文で見る。
+試しの計算の自動は `headlessScheduleSession.regression.test.ts` の `adopts one explanation pattern through MCP dispatch` が持っている。自由な言い換えではなく、この文で見る。
 
 ### RG-F12-5
 

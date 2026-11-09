@@ -393,6 +393,52 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `rejects a backwards period, a busy drag, and a filled category without writing` | EDIT-03, EDIT-19, MCP-01 |
 | 同上 | `stays the same after save, reload, and save again` | FILE-02, FILE-01 |
 | 同上 | `keeps both explanation filter and overlay after two date changes` | VIEW-16, EDIT-02 |
+| `headlessScheduleSession.regression.test.ts` | `restores 調査 note and 設計 predecessor after delete undo and redo` | EDIT-10, EDIT-19 |
+| 同上 | `restores empty group 後半 after removeGroup and one undo` | EDIT-19, EDIT-10 |
+| 同上 | `undoes assignee add clear and reorder on 調査` | EDIT-04 |
+| 同上 | `replaces both assignee lists and one undo restores 調査 and 設計` | EDIT-04, EDIT-01 |
+| 同上 | `rejects insert when end is before start` | EDIT-08 |
+| 同上 | `toggles 設計 confidence without moving dates and one undo restores it` | EDIT-04, EDIT-10 |
+| 同上 | `adds and removes a tag with undo redo and leaves the file dirty until save` | EDIT-04, EDIT-10, FILTER-12 |
+| 同上 | `clears milestone filter when 承認 is missing from reopened document` | SYNC-03 |
+| 同上 | `clears 調査 milestoneId when 承認 is deleted and undo restores both` | EDIT-07, EDIT-10 |
+| 同上 | `undo restores 計画 name and keeps category id` | EDIT-13, EDIT-10 |
+| 同上 | `undo removes a category added under 計画 and its default グループ` | EDIT-18, EDIT-10 |
+| 同上 | `adds unassigned tentative task and relaxes the done filter` | EDIT-08 |
+| 同上 | `adds one predecessor and undo leaves link mode data unchanged` | EDIT-05 |
+| 同上 | `keeps group id when renaming 前半 and undo restores the name` | EDIT-13, EDIT-10 |
+| 同上 | `appends category and default group at document end then undo removes both` | EDIT-18, EDIT-10 |
+| 同上 | `appends a group under the chosen category and one undo removes it` | EDIT-18, EDIT-10 |
+| 同上 | `duplicates 調査 on full.schedule with unchanged pointed tasks` | EDIT-14, EDIT-10 |
+| 同上 | `round-trips assigneeIds through parse and save for unassigned tasks`（未割当は保存 JSON で `assigneeId: null`。`assigneeIds` キーは書かない。再読み込み後はメモリ上で空配列） | FILE-02 |
+| 同上 | `changes title only when trimmed text changes and undo restores 回帰確認` | EDIT-20, EDIT-10 |
+| 同上 | `formatScheduleDiff includes hidden filtered task date change` | FILE-07, FILTER-01 |
+| 同上 | `applyMilestoneEdit group move appears in diff as groupId` | EDIT-07, FILE-07 |
+| 同上 | `rejects edit_plan while the detail panel is editing` | MCP-01 |
+| 同上 | `adopts one explanation pattern through MCP dispatch` | VIEW-17, MCP-01 |
+| 同上 | `rejects apply_explanation_pattern without overlay or with unknown id` | VIEW-17, MCP-01 |
+| `headlessScheduleSession.connections.regression.test.ts` | `adds one connection pair and rejects blank labels` | EDIT-23 |
+| 同上 | `removeConnectionByPair undo restores and diffText has exactly one 削除 繋がり` | EDIT-23, FILE-07 |
+| 同上 | `keeps connections across duplicate and bulk edit` | EDIT-23, EDIT-14 |
+| 同上 | `TC-EDIT-23c: relation broken hides connection-only task rows on connections schedule` | EDIT-23, VIEW-02 |
+| `headlessScheduleSession.fields.regression.test.ts` | `parseTaskFieldInput and setTaskFieldValueOnCategories per field defs` | EDIT-04, FILE-02 |
+| `headlessScheduleSession.hierarchy.regression.test.ts` | `appendOutlineHeadingAtLevel on levels-2.schedule.json commits, saves, and parses` | EDIT-18, FILE-02 |
+| 同上 | `appendOutlineHeadingAtLevel on levels-3.schedule.json commits, saves, and parses` | EDIT-18, FILE-02 |
+| 同上 | `appendOutlineHeadingAtLevel on levels-4.schedule.json commits, saves, and parses` | EDIT-18, FILE-02 |
+| 同上 | `appendOutlineHeadingAtLevel on levels-5.schedule.json commits, saves, and parses` | EDIT-18, FILE-02 |
+| 同上 | `TC-HIER-06: levels-2 empty heading children still validates after save` | EDIT-18 |
+| 同上 | `insertOutlineSiblingAfter commits and undo removes the sibling` | EDIT-18, EDIT-10 |
+| 同上 | `MX-O-97: appendOutlineChildBranch and undo` | EDIT-18, EDIT-10 |
+| 同上 | `MX-O-95: renameOutlineBranch and undo` | EDIT-18, EDIT-10 |
+| `headlessScheduleSession.levels.regression.test.ts` | `assessHierarchySave rejects level count mismatch` | EDIT-18, FILE-02 |
+| 同上 | `applyLevelEditorCommit keeps 回帰の指示 in saved file but not in example source` | EDIT-18, FILE-02 |
+| 同上 | `isLevelDraftComplete rejects empty meaning` | EDIT-21 |
+| `headlessScheduleSession.explain.regression.test.ts` | `explain_overlay hide clears overlay state` | VIEW-17 |
+| 同上 | `explain_view apply and clear` | VIEW-17, MCP-01 |
+| 同上 | `pattern rejects with exact messages` | VIEW-17, MCP-01 |
+| `mcpCatalogAction.test.ts` | `accepts minimal fields catalog JSON` | MCP-425 |
+| 同上 | `rejects members JSON that fails validator semantics` | MCP-425 |
+| 同上 | `rejects statuses JSON that fails validator semantics` | MCP-425 |
 | `FirstRunHintCard.dom.test.tsx` | `shows the sample heading, three items, and two prepare buttons` | NAV-09 |
 | 同上 | `switches the heading when a file is open instead of the sample` | NAV-09 |
 | 同上 | `keeps the card and disables only the finished guide action` | NAV-09 |
@@ -1302,18 +1348,22 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 ## 画面なしの操作列
 
-`src/test/headlessScheduleSession` は、起動中の窓を使わない。見本を一時ファイルへ書き、`edit_plan` と履歴は MCP と同じ実行関数を呼ぶ。保存はダイアログを通さず、アプリが書くのと同じ JSON をそのファイルへ置く。タスク、カテゴリ、グループ、マイルストンの追加は、画面が呼ぶ関数のあと、同じ履歴の確定を使う。
+`src/test/headlessScheduleSession` は、起動中の窓を使わない。見本を一時ファイルへ書き、`edit_plan` と履歴は MCP と同じ実行関数を呼ぶ。保存はダイアログを通さず、アプリが書くのと同じ JSON をそのファイルへ置く。タスク、カテゴリ、グループ、マイルストンの追加は、画面が呼ぶ関数のあと、同じ履歴の確定を使う。`run` では `deleteTask`、`commitDocument`（画面と同じ確定。`pushDocumentHistory` で履歴へ積む。選択の整理と説明セッションの消去は画面の `useScheduleDocumentCommit` が行い、この実行器は行わない）、`insertValidatedTask`、`removeGroup`、`apply_explanation_pattern`、`setTitle`、`setDetailPanelEditing` なども呼べる。
 
 この自動テストで見るのは、次である。
 
 - 日付を2件ずらすと未保存の差分が出て、保存するとファイルが変わり、差分が消える
 - 保存したあとの変更を、取り消しとやり直しで、保存済みの JSON に戻せる
 - タスクを足して別のグループへ移し、保存したファイルに残る
-- マイルストンを足して消し、取り消しで戻して保存する
+- マイルストンを足して消し、取り消しで戻して保存する。削除で他タスクの `milestoneId` が外れ、取り消しで戻る
 - 空のカテゴリと、空で唯一ではないグループを消し、取り消しで戻る
 - 終了が開始より前の期間、ドラッグ中の更新、タスクのあるカテゴリの削除は拒否され、ファイルは変わらない
 - 保存して読み直し、もう一度保存しても中身は同じ
 - 2件の日付変更のあと、説明用の絞り込みと半透明が両方ある
+- 繋がりの追加・ラベル変更・組の削除、複製と一括編集で繋がりが増えないこと、破綻系統で接続だけの行が出ないこと
+- 拡張項目の入力とカテゴリへの反映、見本外の階層保存、`levels` の段数だけ変える保存の拒否
+- 複製で写る項目と元タスクの先行、説明オーバーレイの消去、絞り込みで隠したタスクの日付変更が差分テキストに残ること
+- 未割当タスクの保存ファイルは `assigneeId: null` であり、メモリ上の `assigneeIds` は空配列のまま往復する
 
 まだ手で見るのは、バーのドラッグ、削除の確認ダイアログ、IME、描画のずれ、本物の LLM の文、起動直後の実ドラッグ、右クリック直後のポインタである。
 
@@ -1321,7 +1371,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 手動の通しは [regression.md](regression.md) にまとめた。既存ケースの全文は [regression-tc.md](regression-tc.md) にある。ここには同じ表を重ねて置かない。新しい手動ケースは regression-tc.md と `docs/regression-tc-ids.txt` に足し、`npm run check:regression-coverage` が通ることを見る。
 
-短い通しは RG-S1 から RG-S5（目安 60 分）、全体の代表手順はそれに RG-F1 から RG-F14 を足す（目安 4 時間）である。目安は実測ではない。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
+短い通しは RG-S2 から RG-S4（目安 43 分）、全体の代表手順はそれに RG-F1 から RG-F14 を足す（目安 約 3 時間 0 分）である。いずれも [regression.md](regression.md) の見積と同じで、実測ではない。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
 
 ## リリース前確認
 
