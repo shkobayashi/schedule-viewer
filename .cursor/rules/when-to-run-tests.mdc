@@ -15,3 +15,5 @@ alwaysApply: true
 | next、develop へのマージ前 | `npm run test:browser-regression` を、そのコミットで 1 回 |
 | 夜間 | ブラウザ回帰。定期実行は別の Issue で GitHub Actions に足す。このリポジトリにはまだ無い |
 | リリース前 | 「リリース前に回す検査」の自動を全部回す。手動の回帰も行う。緊急のリリースは手動の回帰だけ飛ばしてよい |
+
+`src-tauri/` を変えたときは、普段の開発でも、手元の OS で `cd src-tauri && cargo clippy -- -D warnings` と `cargo test --locked` を足す。
