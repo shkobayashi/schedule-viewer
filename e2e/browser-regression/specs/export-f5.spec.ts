@@ -175,6 +175,10 @@ test("filters extra fields by type and keeps them out of HTML and SVG exports", 
   await selectTaskByName(page, "拡張あり");
   await page.locator("#detailField-sample_memo").fill("回帰メモ");
   await page.locator("#detailField-sample_score").fill("12");
+  await selectTaskByName(page, "設計");
+  await page.locator("#detailField-sample_score").fill("5");
+  await selectTaskByName(page, "調査");
+  await page.locator("#detailField-sample_memo").fill("");
   await page.getByRole("button", { name: /^絞り込み/ }).click();
   const panel = page.locator(".filter-panel");
   const fieldSearch = panel.getByPlaceholder("項目名で検索");
@@ -184,14 +188,27 @@ test("filters extra fields by type and keeps them out of HTML and SVG exports", 
   await panel.getByLabel("点数 以上").fill("10");
   await page.keyboard.press("Escape");
   await expect(page.locator(".sidebar-row.task", { hasText: "拡張あり" })).toBeVisible();
+  await expect(page.locator(".sidebar-row.task", { hasText: "設計" })).toHaveCount(0);
+  await expect(page.locator(".sidebar-row.task", { hasText: "調査" })).toHaveCount(0);
+  await page.getByRole("button", { name: /^絞り込み/ }).click();
+  await panel.getByRole("button", { name: "点数 の条件を外す" }).click();
+  await fieldSearch.fill("メモ");
+  await fieldSearch.press("ArrowDown");
+  await fieldSearch.press("Enter");
+  await panel.getByLabel("メモ を含む").fill("回帰メモ");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".sidebar-row.task", { hasText: "拡張あり" })).toBeVisible();
+  await expect(page.locator(".sidebar-row.task", { hasText: "調査" })).toHaveCount(0);
   const htmlPath = await exportWithFormat(page, "html");
   const svgPath = await exportWithFormat(page, "svg");
   const html = readExportFile(htmlPath);
   const svg = readExportFile(svgPath);
   expect(html).not.toContain("sample_memo");
   expect(html).not.toContain("sample_score");
+  expect(html).not.toContain("回帰メモ");
   expect(svg).not.toContain("sample_memo");
   expect(svg).not.toContain("sample_score");
+  expect(svg).not.toContain("回帰メモ");
   const fieldColumns = await page.evaluate(() => {
     const raw = localStorage.getItem("schedule-viewer/excel-export-field-columns");
     return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};

@@ -8,9 +8,10 @@ import {
   editTaskEndDate,
   filterTasksByName,
   openDiffFromHandle,
+  openScheduleDiffFromMenu,
   readChartScrollProbe,
   readOpenScheduleDiskViaInvoke,
-  diskScheduleIncludesTaskEnd,
+  readTaskEndFromScheduleJson,
   saveScheduleDownload,
   selectTaskViaSearch,
   unlinkTempFile,
@@ -311,30 +312,30 @@ test.describe("diff strip from the handle", () => {
     await saveScheduleDownload(page, BROWSER_DIFF_REGRESSION_PORT);
     await expect(page.getByRole("button", { name: /未保存/ })).toHaveCount(0, { timeout: 15_000 });
     await expect
-      .poll(async () => diskScheduleIncludesTaskEnd(page, "行01", "2026-04-03"), {
-        timeout: 15_000,
-      })
-      .toBe(true);
-    const disk = await readOpenScheduleDiskViaInvoke(page);
-    await expect(
-      page.evaluate(
-        async ({ saved, filename }) => {
-          const { formatScheduleDiff, SCHEDULE_DIFF_NO_CHANGES } = await import(
-            "/src/model/scheduleDiff.ts"
-          );
-          const { parseScheduleText } = await import("/src/model/scheduleFile.ts");
-          const parsed = parseScheduleText(saved);
-          if (!parsed.ok) return parsed.message;
-          return formatScheduleDiff(parsed.document, parsed.document, filename);
+      .poll(
+        async () => {
+          try {
+            const disk = await readOpenScheduleDiskViaInvoke(page);
+            return readTaskEndFromScheduleJson(disk, "行01");
+          } catch {
+            return null;
+          }
         },
-        { saved: disk, filename: "mock-long.schedule.json" },
-      ),
-    ).resolves.toContain(SCHEDULE_DIFF_NO_CHANGES);
+        { timeout: 15_000 },
+      )
+      .toBe("2026-04-03");
     await expect(page.locator(".diff-strip-handle")).toHaveCount(0);
+    await openScheduleDiffFromMenu(page);
+    const diffText = page.getByRole("textbox", { name: "差分テキスト" });
+    await expect(diffText).toHaveValue(new RegExp(SCHEDULE_DIFF_NO_CHANGES));
+    await page.getByRole("button", { name: "閉じる", exact: true }).click();
     await editTaskEndDate(page, "行02", "2026-04-04");
     await expect(page.locator(".diff-strip-handle")).toBeVisible({ timeout: 15_000 });
     await openDiffFromHandle(page);
-    await expect(page.getByRole("listbox", { name: "差分の一覧" })).toBeVisible();
+    const diffList = page.getByRole("listbox", { name: "差分の一覧" });
+    await expect(diffList).toBeVisible();
+    await expect(diffList.locator(".diff-strip-row-name", { hasText: "行02" })).toBeVisible();
+    await expect(diffList.locator(".diff-strip-row-name", { hasText: "行01" })).toHaveCount(0);
   });
 
   test("keeps the chart width as the remainder beside the detail and the diff column", async ({

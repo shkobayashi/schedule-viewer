@@ -3,10 +3,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expect, type Page } from "playwright/test";
-import {
-  formatScheduleDiff,
-  SCHEDULE_DIFF_NO_CHANGES,
-} from "../../../src/model/scheduleDiff.ts";
 import { parseScheduleText } from "../../../src/model/scheduleFile.ts";
 import { selectTaskByName } from "./drag.ts";
 import { BROWSER_DIFF_REGRESSION_PORT, repoRoot } from "./session.ts";
@@ -128,39 +124,6 @@ export function runCheckStatuses(filePath: string): void {
     encoding: "utf8",
     stdio: "pipe",
   });
-}
-
-export function assertScheduleFilesMatch(screenJson: string, fileJson: string, filename: string): void {
-  const screenParsed = parseScheduleText(screenJson);
-  const fileParsed = parseScheduleText(fileJson);
-  if (!screenParsed.ok) throw new Error(screenParsed.message);
-  if (!fileParsed.ok) throw new Error(fileParsed.message);
-  const text = formatScheduleDiff(screenParsed.document, fileParsed.document, filename);
-  expect(text).toContain(SCHEDULE_DIFF_NO_CHANGES);
-}
-
-export async function diskScheduleIncludesTaskEnd(
-  page: Page,
-  taskName: string,
-  end: string,
-): Promise<boolean> {
-  return page.evaluate(
-    async ({ name, expectedEnd }) => {
-      try {
-        const global = (window as Record<string, unknown>).__manualScreenshotOpenScheduleDisk;
-        let raw =
-          typeof global === "string"
-            ? global
-            : ((await import("@tauri-apps/api/core").then((m) =>
-                m.invoke("read_open_schedule_file"),
-              )) as string);
-        return raw.includes(`"name": "${name}"`) && raw.includes(expectedEnd);
-      } catch {
-        return false;
-      }
-    },
-    { name: taskName, expectedEnd: end },
-  );
 }
 
 export function readTaskEndFromScheduleJson(
