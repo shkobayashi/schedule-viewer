@@ -71,7 +71,7 @@
 | MX-O-1 | UI | 開く | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。手動:RG-S4-3 |
 | MX-O-2 | OS | 開く | 自動化予定 | 自動化予定:#541 |
 | MX-O-3 | 計算 | 最近開いたファイルの1件を開く | 自動済み | 自動:src/model/recentFiles.test.ts#prepends a new path |
-| MX-O-4 | UI | 最近開いたファイルの1件を開く | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#opening from history resets filters and fit。自動化予定:#541 |
+| MX-O-4 | UI | 最近開いたファイルの1件を開く | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#opening from history resets filters and fit。自動化予定:#535 |
 | MX-O-5 | UI | 履歴を消す | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#clear history leaves the open schedule and the recovery file。手動:RG-F9-2 |
 | MX-O-6 | UI | 新しいウィンドウで開く | 自動化予定 | 手動:RG-F9-1。自動化予定:#541 |
 | MX-O-7 | OS | 新しいウィンドウで開く | 自動化予定 | 自動化予定:#541 |
@@ -92,7 +92,7 @@
 | MX-O-22 | UI | 更新を確認 | 一部自動 | 自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m: manual check with no update shows the latest message。手動:RG-F14-2 |
 | MX-O-23 | UI | 更新を確認 | 一部自動 | 自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m3: manual check shows a failure message when check throws |
 | MX-O-24 | UI | 設定を開く | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows |
-| MX-O-25 | OS | ウィンドウを閉じる | 一部自動 | 自動:src/hooks/scheduleFile/startupRecoveryFlow.dom.test.tsx#TC-SYNC-03: restores unsaved edits when the disk matches baseline。手動:RG-S4-6 |
+| MX-O-25 | OS | ウィンドウを閉じる | 一部自動 | 自動:src/hooks/scheduleFile/startupRecoveryFlow.dom.test.tsx#TC-SYNC-03: restores unsaved start date for RG-S4-6。手動:RG-S4-6 |
 | MX-O-26 | OS | ウィンドウを閉じる | 自動化予定 | 自動化予定:#541 |
 | MX-O-27 | OS | ウィンドウを最小化 | 自動化予定 | 手動:RG-F9-4。自動化予定:#541 |
 | MX-O-28 | OS | アプリを終了 | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#quit cancel keeps the sample path and does not clear the other window hook。手動:RG-S4-6 |
