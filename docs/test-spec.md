@@ -91,7 +91,22 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `milestone-links.spec.ts` | deletes a milestone used as a filter and leaves the selection | EDIT-07, FILTER-03 |
 | `normal-clock.spec.ts` | does not install the screenshot clock in the normal browser | SYNC-01 |
 | `settings-diff.spec.ts` | clicks a diff row without changing a multi-selection | FILE-07 |
-| `settings-diff.spec.ts` | leaves the chart still and shows the hidden-row message | TC-FILE-07x |
+| `settings-diff.spec.ts` | leaves the chart still and shows the filter-hidden message | TC-FILE-07x |
+| `settings-diff.spec.ts` | opens the diff from the right-edge handle and shows the old and new end | TC-FILE-07, RG-F11-1 |
+| `settings-diff.spec.ts` | places the copy notice off the diff column and scrolls only the list at height 800 | TC-FILE-07b, RG-F11-4 |
+| `settings-diff.spec.ts` | collapses back to the handle and copies with the shortcut without opening the column | TC-FILE-07p |
+| `settings-diff.spec.ts` | scrolls only the list under the diff heading | TC-FILE-07q |
+| `settings-diff.spec.ts` | shows no difference after save and turns the empty column into a body when edited | TC-FILE-07c, TC-FILE-07m |
+| `settings-diff.spec.ts` | keeps the chart width as the remainder beside the detail and the diff column | TC-FILE-07r, RG-F11-2 |
+| `settings-diff.spec.ts` | scrolls to the parent row and marks it when a deleted task row is pressed | TC-FILE-07w |
+| `settings-diff.spec.ts` | leaves the chart still and shows the band-off message | TC-FILE-07y |
+| `export-f5.spec.ts` | downloads HTML and SVG of the smoke schedule and opens the HTML | TC-EXPORT-01, RG-F5-1 |
+| `export-f5.spec.ts` | exports only the rows left by the name filter, including rows below the viewport | TC-EXPORT-02 |
+| `export-f5.spec.ts` | matches exported summary bars, hollow milestones, and hatches to the screen | TC-HIER-07, TC-VIEW-03, TC-VIEW-04b, TC-VIEW-12 |
+| `export-f5.spec.ts` | shows todo column off until enabled | TC-EDIT-22b |
+| `export-f5.spec.ts` | matches sidebar column visibility in the HTML export | TC-EXPORT-05 |
+| `export-f5.spec.ts` | keeps connection arcs and labels out of HTML and SVG downloads | TC-EXPORT-05b |
+| `export-f5.spec.ts` | shows the Excel desktop-only message in the export dialog | TC-EXPORT-04 |
 | `settings-diff.spec.ts` | opens the diff handle after removing one connection | TC-FILE-07z, EDIT-23 |
 | `settings-diff.spec.ts` | keeps the connection dialog open until both fields are filled | TC-EDIT-23 |
 | `settings-diff.spec.ts` | saves a member display name from the overlay and leaves an unused catalog unchanged | TC-SET-02c |
@@ -302,6 +317,9 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `parses stored preferences` | EXPORT-01, EXPORT-05 |
 | 同上 | `defaults field columns to off`、`inserts enabled field columns before note`、`disambiguates duplicate names only among enabled field columns` | EXPORT-01, EXPORT-05 |
 | `exportExcel.test.ts` | `leaves field columns off by default`、`formats enabled field columns before note` | EXPORT-05 |
+| `exportExcel.test.ts` | `refuses export when visible rows exceed 10000` | TC-EXPORT-03 |
+| `exportExcel.test.ts` | `puts the smoke task name, start date, and Japanese text in the excel payload` | RG-F5-2 |
+| `exportHtml.test.ts` | `refuses export when visible rows exceed 10000` | TC-EXPORT-03 |
 | 同上 | `puts full assignee text in one column for tasks and leaves headings empty` | EXPORT-05 |
 | 同上 | `does not add assignee cells on milestone rows when the column is on` | EXPORT-05 |
 | `baselineDiffs.test.ts` | `classifies same key with number on screen and string on file as 異なる`、`keeps unchanged field values when merging a file-only field change` | SYNC-01, FILE-07 |

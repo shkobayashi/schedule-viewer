@@ -1,18 +1,39 @@
 import { expect, test } from "playwright/test";
 import { ensureKonvaProbed } from "../helpers/probeSetup.ts";
 import {
+  collapseDiffToHandle,
+  diffListScrollTop,
+  editLongScheduleRowsThrough40,
+  editTaskEndDate,
+  filterTasksByName,
+  openDiffFromHandle,
+  openScheduleDiffFromMenu,
+  readChartScrollProbe,
+  saveScheduleDownload,
+  selectTaskViaSearch,
+  unlinkTempFile,
+} from "../helpers/diff.ts";
+import { confirmDelete } from "../helpers/contextMenu.ts";
+import { selectTaskByName } from "../helpers/drag.ts";
+import {
+  BROWSER_DIFF_REGRESSION_PORT,
   bootNormalPage,
   colorsRegressionPath,
   connectionsSchedulePath,
   fieldsRegressionPath,
+  fullSchedulePath,
   longSchedulePath,
   membersRegressionPath,
   openScheduleFile,
+  openScheduleFileManualScreenshot,
   openSmokeSchedule,
   statusesRegressionPath,
+  waitForTitle,
 } from "../helpers/session.ts";
 import { importJsonInOpenSettings, openSettingsSection } from "../helpers/settings.ts";
-import { selectTaskByName } from "../helpers/drag.ts";
+import { openContextMenuAt, openTaskBarContextMenu } from "../helpers/contextMenu.ts";
+import { pointerOnMilestoneDiamond } from "../helpers/konvaUi.ts";
+import { wheelShiftHorizontalOnChart } from "../helpers/nav.ts";
 import { taskSearchBox } from "../helpers/sidebar.ts";
 test.beforeAll(async ({ browser }) => {
   await ensureKonvaProbed(browser);
@@ -46,14 +67,21 @@ test("clicks a diff row without changing a multi-selection", async ({ page }) =>
   await expect(page.locator(".sidebar-row.task.selected")).toHaveCount(2);
 });
 
-test("leaves the chart still and shows the hidden-row message", async ({ page }) => {
-  await openScheduleFile(page, longSchedulePath);
-  await taskSearchBox(page).fill("行99");
-  await expect.poll(async () => (await taskSearchBox(page).inputValue()) === "行99").toBe(true);
-  const diffBtn = page.getByRole("button", { name: /未保存/ });
-  if (await diffBtn.isVisible()) await diffBtn.click();
-  const msg = page.getByText("絞り込みで出ていません");
-  if (await msg.isVisible()) await expect(msg).toBeVisible();
+test("leaves the chart still and shows the filter-hidden message", async ({ page }) => {
+  await bootNormalPage(page, BROWSER_DIFF_REGRESSION_PORT, { clearLocalStorage: true });
+  await openScheduleFileManualScreenshot(page, longSchedulePath, "回帰の長い一覧");
+  await page.locator(".timeline-body").waitFor({ state: "visible" });
+  await editTaskEndDate(page, "行40", "2026-04-05", { viaSearch: true });
+  await openDiffFromHandle(page);
+  await filterTasksByName(page, "行01");
+  const scrollBefore = await readChartScrollProbe(page);
+  await page
+    .getByRole("option", { name: /行40/ })
+    .first()
+    .click();
+  await expect(page.getByRole("status").filter({ hasText: "絞り込みで出ていません" })).toBeVisible();
+  const scrollAfter = await readChartScrollProbe(page);
+  expect(Math.abs(scrollAfter - scrollBefore)).toBeLessThan(2);
 });
 
 test("opens the diff handle after removing one connection", async ({ page }) => {
@@ -163,4 +191,178 @@ test("closes the field overlay with escape", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(editor).toHaveCount(0);
   await expect(page.getByRole("dialog", { name: "設定" })).toBeVisible();
+});
+
+test.describe("diff strip from the handle", () => {
+  test.beforeEach(async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await bootNormalPage(page, BROWSER_DIFF_REGRESSION_PORT, { clearLocalStorage: true });
+    await openScheduleFileManualScreenshot(page, longSchedulePath, "回帰の長い一覧");
+    await page.locator(".timeline-body").waitFor({ state: "visible" });
+  });
+
+  test("opens the diff from the right-edge handle and shows the old and new end", async ({
+    page,
+  }) => {
+    await editTaskEndDate(page, "行01", "2026-04-03");
+    await openDiffFromHandle(page);
+    const detail = page.getByLabel("差分の詳細");
+    await expect(detail).toBeVisible();
+    await expect(detail).toContainText("2026-04-02");
+    await expect(detail).toContainText("2026-04-03");
+  });
+
+  test("places the copy notice off the diff column and scrolls only the list at height 800", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await editLongScheduleRowsThrough40(page);
+    await openDiffFromHandle(page);
+    const list = page.locator(".diff-strip-list");
+  const listBox = await list.boundingBox();
+    if (!listBox) throw new Error("diff list missing");
+    const before = await diffListScrollTop(page);
+    await list.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await expect.poll(() => diffListScrollTop(page)).toBeGreaterThan(before);
+    const header = page.locator(".diff-strip-header");
+    const headerTop = await header.evaluate((el) => el.getBoundingClientRect().top);
+    const listTop = await list.evaluate((el) => el.getBoundingClientRect().top);
+    expect(listTop).toBeGreaterThanOrEqual(headerTop);
+    await page.getByRole("button", { name: "コピー", exact: true }).click();
+    const toast = page.locator(".app-toast");
+    await expect(toast).toContainText("差分をコピーしました");
+    const toastBox = await toast.boundingBox();
+    if (!toastBox) throw new Error("toast missing");
+    const region = page.getByRole("region", { name: "差分" });
+    const regionBox = await region.boundingBox();
+    if (!regionBox) throw new Error("diff region missing");
+    expect(toastBox.x + toastBox.width).toBeLessThanOrEqual(regionBox.x + 2);
+  });
+
+  test("collapses back to the handle and copies with the shortcut without opening the column", async ({
+    page,
+  }) => {
+    await editTaskEndDate(page, "行01", "2026-04-03");
+    await openDiffFromHandle(page);
+    await collapseDiffToHandle(page);
+    await page.keyboard.press("Control+Shift+KeyD");
+    await expect(page.locator(".app-toast")).toContainText("差分をコピーしました");
+    await expect(page.getByRole("listbox", { name: "差分の一覧" })).toHaveCount(0);
+    const clip = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clip).toContain("2026-04-02");
+    expect(clip).toContain("2026-04-03");
+  });
+
+  test("scrolls only the list under the diff heading", async ({ page }) => {
+    await editLongScheduleRowsThrough40(page);
+    await openDiffFromHandle(page);
+    const list = page.locator(".diff-strip-list");
+    const titleTop = await page
+      .locator(".diff-strip-title")
+      .evaluate((el) => el.getBoundingClientRect().top);
+    const before = await diffListScrollTop(page);
+    await list.evaluate((el) => {
+      el.scrollTop = 120;
+    });
+    await expect.poll(() => diffListScrollTop(page)).toBeGreaterThan(before);
+    const titleTopAfter = await page
+      .locator(".diff-strip-title")
+      .evaluate((el) => el.getBoundingClientRect().top);
+    expect(Math.abs(titleTopAfter - titleTop)).toBeLessThan(1);
+  });
+
+  test("shows no difference after save and turns the empty column into a body when edited", async ({
+    page,
+  }) => {
+    await editTaskEndDate(page, "行01", "2026-04-03");
+    await openDiffFromHandle(page);
+    await expect(page.getByRole("listbox", { name: "差分の一覧" })).toBeVisible();
+    const savedPath = await saveScheduleDownload(page, BROWSER_DIFF_REGRESSION_PORT);
+    await expect(page.locator(".diff-strip-handle")).toHaveCount(0);
+    await openScheduleDiffFromMenu(page);
+    await expect(page.getByLabel("差分テキスト")).toContainText("差はありません");
+    await page.getByRole("button", { name: "閉じる", exact: true }).click();
+    await editTaskEndDate(page, "行02", "2026-04-04");
+    await expect(page.locator(".diff-strip-handle")).toBeVisible({ timeout: 15_000 });
+    await openDiffFromHandle(page);
+    await expect(page.getByRole("listbox", { name: "差分の一覧" })).toBeVisible();
+    if (savedPath) unlinkTempFile(savedPath);
+  });
+
+  test("keeps the chart width as the remainder beside the detail and the diff column", async ({
+    page,
+  }) => {
+    await selectTaskViaSearch(page, "行20");
+    await expect(page.getByRole("complementary", { name: "タスクの詳細" })).toBeVisible();
+    const chartOnly = await page.locator(".timeline-body").evaluate((el) => el.clientWidth);
+    await editTaskEndDate(page, "行20", "2026-04-05", { viaSearch: true });
+    await openDiffFromHandle(page);
+    await expect(page.getByRole("region", { name: "差分" })).toBeVisible();
+    const diffWidth = await page
+      .getByRole("region", { name: "差分" })
+      .evaluate((el) => el.clientWidth);
+    expect(diffWidth).toBeGreaterThan(120);
+    const chartWithDiff = await page.locator(".timeline-body").evaluate((el) => el.clientWidth);
+    expect(chartWithDiff).toBeLessThanOrEqual(chartOnly);
+    expect(chartWithDiff).toBeGreaterThan(chartOnly * 0.45);
+  });
+
+  test("scrolls to the parent row and marks it when a deleted task row is pressed", async ({
+    page,
+  }) => {
+    await editTaskEndDate(page, "行05", "2026-04-03");
+    await selectTaskByName(page, "行05");
+    await page.getByRole("button", { name: "削除", exact: true }).click();
+    await confirmDelete(page);
+    await openDiffFromHandle(page);
+    await page.getByRole("option", { name: /行05/ }).first().click();
+    const groupRow = page.locator(".sidebar-row.group", { hasText: "行" }).first();
+    await expect(groupRow).toHaveClass(/hovered/);
+    await expect(page.locator(".sidebar-row.task", { hasText: "行05" })).toHaveCount(0);
+  });
+
+});
+
+test.describe("diff strip when a milestone band line is off", () => {
+  test.beforeEach(async ({ page }) => {
+    await bootNormalPage(page, BROWSER_DIFF_REGRESSION_PORT, { clearLocalStorage: true });
+    await openScheduleFileManualScreenshot(page, fullSchedulePath, "回帰の詳細");
+    await page.locator(".timeline-body").waitFor({ state: "visible" });
+    await page.getByRole("button", { name: "全体", exact: true }).click();
+    await page
+      .getByRole("group", { name: "表示の切り替え" })
+      .getByRole("button", { name: "月", exact: true })
+      .click();
+    await page.evaluate(() => window.__manualScreenshotSetToday?.("2026-04-15"));
+    await page.getByRole("button", { name: "今日" }).click();
+    await wheelShiftHorizontalOnChart(page, 600);
+  });
+
+  test("leaves the chart still and shows the band-off message", async ({ page }) => {
+    const diamond = await pointerOnMilestoneDiamond(page, "承認");
+    if (!diamond) throw new Error("milestone diamond missing on chart");
+    await page.mouse.dblclick(diamond.x, diamond.y);
+    const dialog = page.getByRole("dialog", { name: "マイルストン編集" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("名前").fill("承認（変更）");
+    await dialog.getByRole("button", { name: "保存" }).click();
+    await expect(dialog).toHaveCount(0);
+    const bandRow = page.locator(".sidebar-milestones", { hasText: "別の節目" }).first();
+    const box = await bandRow.boundingBox();
+    if (!box) throw new Error("milestone group row missing");
+    await openContextMenuAt(page, box.x + box.width / 2, box.y + box.height / 2);
+    await page
+      .locator(".context-menu [role='menuitem']", {
+        has: page.locator(".context-menu-label", { hasText: "この行だけ表示" }),
+      })
+      .click();
+    const scrollBefore = await readChartScrollProbe(page);
+    await openDiffFromHandle(page);
+    await page.getByRole("option", { name: /承認/ }).first().click();
+    await expect(page.getByRole("status").filter({ hasText: "帯の線がオフ" })).toBeVisible();
+    const scrollAfter = await readChartScrollProbe(page);
+    expect(Math.abs(scrollAfter - scrollBefore)).toBeLessThan(2);
+  });
 });

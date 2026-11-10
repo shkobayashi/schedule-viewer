@@ -98,14 +98,21 @@ export async function openSmokeSchedule(page: Page): Promise<void> {
   await waitForTitle(page, "回帰確認");
 }
 
-export async function openSmokeScheduleManualScreenshot(page: Page): Promise<void> {
+/** Browser regression uses this port when diff must compare to an on-disk file (manual-screenshot shim). */
+export const BROWSER_DIFF_REGRESSION_PORT = 5174;
+
+export async function openScheduleFileManualScreenshot(
+  page: Page,
+  filePath: string,
+  title?: string,
+): Promise<void> {
   await page.waitForFunction(
     () => typeof window.__manualScreenshotApplyOpen === "function",
     null,
     { timeout: 60_000 },
   );
-  const contents = fs.readFileSync(smokeSchedulePath, "utf8");
-  const mockPath = `/Users/example/Documents/${path.basename(smokeSchedulePath)}`;
+  const contents = fs.readFileSync(filePath, "utf8");
+  const mockPath = `/Users/example/Documents/${path.basename(filePath)}`;
   await page.evaluate(
     async ({ pickPath, pickContents }) => {
       const apply = window.__manualScreenshotApplyOpen;
@@ -116,7 +123,13 @@ export async function openSmokeScheduleManualScreenshot(page: Page): Promise<voi
     },
     { pickPath: mockPath, pickContents: contents },
   );
-  await waitForTitle(page, "回帰確認");
+  if (title) {
+    await waitForTitle(page, title);
+  }
+}
+
+export async function openSmokeScheduleManualScreenshot(page: Page): Promise<void> {
+  await openScheduleFileManualScreenshot(page, smokeSchedulePath, "回帰確認");
 }
 
 export async function openLongSchedule(page: Page): Promise<void> {

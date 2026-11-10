@@ -4,6 +4,7 @@ type OpenPick = { path: string; contents: string };
 
 let pendingOpenPick: OpenPick | null = null;
 let openScheduleDiskContents: string | null = null;
+let openSchedulePath: string | null = null;
 const memberCatalogBodies = new Map<string, string>();
 let selectedMemberCatalogId: string | null = null;
 const statusCatalogBodies = new Map<string, string>();
@@ -16,6 +17,11 @@ export function setManualScreenshotOpenPick(pick: OpenPick | null): void {
 }
 
 export function setManualScreenshotDiskContents(contents: string | null): void {
+  openScheduleDiskContents = contents;
+}
+
+function rememberOpenSchedule(path: string, contents: string): void {
+  openSchedulePath = path;
   openScheduleDiskContents = contents;
 }
 
@@ -195,6 +201,27 @@ export async function manualScreenshotInvoke(
       return null;
     case "check_schedule_file_changed":
       return false;
+    case "save_schedule_file": {
+      const saveAs = Boolean(args.saveAs);
+      const contents = String(args.contents ?? "");
+      const suggested = String(args.suggestedName ?? "schedule.json");
+      const expectedPath =
+        typeof args.expectedPath === "string" && args.expectedPath.length > 0
+          ? args.expectedPath
+          : null;
+      const path =
+        saveAs || expectedPath == null
+          ? `/Users/example/Documents/${suggested.endsWith(".json") ? suggested : `${suggested}.json`}`
+          : expectedPath;
+      rememberOpenSchedule(path, contents);
+      return path;
+    }
+    case "save_schedule_at_path": {
+      const path = String(args.path ?? "");
+      const contents = String(args.contents ?? "");
+      rememberOpenSchedule(path, contents);
+      return path;
+    }
     case "read_open_schedule_file":
       if (openScheduleDiskContents == null) {
         throw new Error("開いているスケジュールファイルがありません");
