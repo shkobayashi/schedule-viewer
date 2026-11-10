@@ -102,6 +102,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn empty_id_is_rejected() {
+        let mut state = FieldExtensionEditState::default();
+        let result = claim_field_extension_edit_state(&mut state, "  ", "main");
+        assert!(matches!(result, Err(message) if message == "編集対象が空です。"));
+    }
+
+    #[test]
     fn second_label_does_not_claim() {
         let mut state = FieldExtensionEditState::default();
         let first = claim_field_extension_edit_state(&mut state, "risk", "main").unwrap();

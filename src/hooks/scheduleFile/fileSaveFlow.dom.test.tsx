@@ -288,6 +288,18 @@ describe("file save flow", () => {
     expect(after).toBe(before);
   });
 
+  it("TC-FILE-02c: the save shortcut saves through useAppKeyboard when no dialog is open", async () => {
+    const { flow, ref } = await mountOpenSmoke();
+    await setDesignEnd(ref, "2026-04-10");
+    const before = flow.commandLog.filter((c) => c === "save_schedule_file").length;
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    await waitFor(() => {
+      const after = flow.commandLog.filter((c) => c === "save_schedule_file").length;
+      expect(after).toBe(before + 1);
+    });
+    expect(screen.queryByText("未保存")).toBeNull();
+  });
+
   it("JsonDialog shows the edited task name and save is not invoked (FILE-06)", async () => {
     const { flow, ref } = await mountOpenSmoke();
     await renameDesignTask(ref, "設計改");

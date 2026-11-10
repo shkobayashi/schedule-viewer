@@ -51,6 +51,24 @@ export function seedRegressionCatalogs(readRegressionText: (name: string) => str
   );
 }
 
+export function cloneWithTaskStart(
+  source: ScheduleDocument,
+  taskId: string,
+  start: string,
+): ScheduleDocument {
+  const next = structuredClone(source);
+  for (const category of next.categories) {
+    for (const group of category.groups) {
+      for (const task of group.tasks) {
+        if (task.id === taskId) {
+          task.start = start;
+        }
+      }
+    }
+  }
+  return next;
+}
+
 export function cloneWithTaskEnd(
   source: ScheduleDocument,
   taskId: string,

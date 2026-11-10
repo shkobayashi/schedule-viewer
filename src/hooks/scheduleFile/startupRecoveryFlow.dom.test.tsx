@@ -9,14 +9,18 @@ import {
 } from "../../test/scheduleFileFlowHarness";
 import { createSaveFlowEnv, FLOW_SCHEDULE_PATH, seedRegressionCatalogs } from "../../test/fileSaveFlowTestEnv";
 import {
-  advanceOnePoll,
   cloneWithTaskEnd,
   cloneWithTaskName,
+  cloneWithTaskStart,
   draftWrapper,
   installDomFlowPrereqs,
-  pollJson,
+  TASK_DESIGN,
   TASK_SURVEY,
 } from "../../test/scheduleFileFlowTestEnv";
+import {
+  defaultScheduleFilterViewState,
+  serializeScheduleFilterPersistence,
+} from "../../model/scheduleFilterPersistence";
 import { loadRegressionSchedule, readRegressionText } from "../../test/searchErrorKeysFixtures";
 import type { ScheduleFileTauriInvoke } from "../../test/scheduleFileFlowInvoke";
 
@@ -55,14 +59,6 @@ vi.mock("@tauri-apps/api/event", () => ({
     };
   }),
 }));
-
-async function settleAfterPoll() {
-  await act(async () => {
-    await Promise.resolve();
-    await Promise.resolve();
-  });
-  vi.useRealTimers();
-}
 
 async function resolveStartupInAct(
   flow: ReturnType<typeof createSaveFlowEnv>,
@@ -114,6 +110,25 @@ describe("startup recovery flow", () => {
     expect(flow.commandLog).toContain("accept_opened_schedule");
     expect(screen.queryByText("未保存")).toBeNull();
     expect(screen.getByTestId("is-dirty")).toHaveTextContent("no");
+  });
+
+  it("TC-SYNC-03: restores unsaved start date for RG-S4-6", async () => {
+    const doc = loadRegressionSchedule("smoke.schedule.json");
+    const baseline = documentToJsonString(doc);
+    const edited = cloneWithTaskStart(doc, TASK_DESIGN, "2026-04-05");
+    const flow = createSaveFlowEnv(doc);
+    flow.resolveStartup({
+      path: FLOW_SCHEDULE_PATH,
+      sample: false,
+      contents: baseline,
+      draftText: draftWrapper(edited, baseline),
+    });
+    invoke.mockImplementation(flow.invoke);
+    render(<ScheduleFileFlowHarness initialDocument={doc} />);
+    await waitFor(() => {
+      expect(screen.getByTestId("design-start")).toHaveTextContent("2026-04-05");
+    });
+    expect(screen.getByText("未保存")).toBeInTheDocument();
   });
 
   it("TC-SYNC-03: restores unsaved edits when the disk matches baseline", async () => {
@@ -224,50 +239,84 @@ describe("startup recovery flow", () => {
       contents: documentToJsonString(loadRegressionSchedule("smoke.schedule.json")),
     });
     await waitFor(() => expect(ref.current).not.toBeNull());
-    ref.current!.selectTask(TASK_SURVEY);
+    ref.current!.selectTask(TASK_DESIGN);
     await act(async () => {
       fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
     });
-    expect(screen.getByTestId("survey-end")).toHaveTextContent("2026-04-03");
+    expect(screen.getByTestId("design-start")).toHaveTextContent("2026-04-04");
     await resolveStartupInAct(flow);
     await waitFor(() => {
       expect(screen.getByTestId("startup-settled")).toHaveTextContent("yes");
     });
+    ref.current!.selectTask(TASK_DESIGN);
     await act(async () => {
-      ref.current!.setTaskEnd(TASK_SURVEY, "2026-04-04");
+      fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
     });
-    expect(screen.getByTestId("survey-end")).toHaveTextContent("2026-04-04");
+    expect(screen.getByTestId("design-start")).toHaveTextContent("2026-04-05");
   });
 
   it(
     "TC-SYNC-03g: applies an external update after startup and then allows moves",
     async () => {
+      const doc = loadRegressionSchedule("smoke.schedule.json");
+      const initialJson = documentToJsonString(doc);
+      const { flow, ref } = await mountHeldStartup({
+        path: FLOW_SCHEDULE_PATH,
+        sample: false,
+        contents: initialJson,
+      });
+      const updated = cloneWithTaskEnd(doc, TASK_SURVEY, "2026-04-08");
+      const updatedJson = documentToJsonString(updated);
+      flow.setDisk(FLOW_SCHEDULE_PATH, updatedJson);
+      ref.current!.selectTask(TASK_DESIGN);
+      await act(async () => {
+        fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+      });
+      expect(screen.getByTestId("design-start")).toHaveTextContent("2026-04-04");
+      await resolveStartupInAct(flow, {
+        path: FLOW_SCHEDULE_PATH,
+        sample: false,
+        contents: updatedJson,
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId("startup-settled")).toHaveTextContent("yes");
+      });
+      expect(screen.getByTestId("survey-end")).toHaveTextContent("2026-04-08");
+      expect(ref.current?.getFilePath()).toBe(FLOW_SCHEDULE_PATH);
+      ref.current!.selectTask(TASK_DESIGN);
+      await act(async () => {
+        fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+      });
+      expect(screen.getByTestId("design-start")).toHaveTextContent("2026-04-05");
+    },
+    15_000,
+  );
+
+  it("TC-SYNC-03h: restores saved filters on startup", async () => {
     const doc = loadRegressionSchedule("smoke.schedule.json");
-    const { flow, ref } = await mountHeldStartup({
+    const flow = createSaveFlowEnv(doc);
+    const view = defaultScheduleFilterViewState();
+    view.filters.tags = ["回帰"];
+    flow.filterStore.set(
+      FLOW_SCHEDULE_PATH,
+      serializeScheduleFilterPersistence(FLOW_SCHEDULE_PATH, view),
+    );
+    flow.resolveStartup({
       path: FLOW_SCHEDULE_PATH,
       sample: false,
       contents: documentToJsonString(doc),
     });
-    const updated = cloneWithTaskEnd(doc, TASK_SURVEY, "2026-04-08");
-    flow.setDisk(FLOW_SCHEDULE_PATH, documentToJsonString(updated));
-    flow.queuePoll(pollJson(updated));
-    vi.useFakeTimers();
-    await resolveStartupInAct(flow);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
-    expect(screen.getByTestId("startup-settled")).toHaveTextContent("yes");
-    expect(ref.current?.getFilePath()).toBe(FLOW_SCHEDULE_PATH);
-    await advanceOnePoll();
-    await settleAfterPoll();
+    invoke.mockImplementation(flow.invoke);
+    render(<ScheduleFileFlowHarness initialDocument={doc} />);
     await waitFor(() => {
-      expect(screen.getByTestId("survey-end")).toHaveTextContent("2026-04-08");
+      expect(screen.getByTestId("startup-settled")).toHaveTextContent("yes");
     });
-    await act(async () => {
-      ref.current!.setTaskEnd(TASK_SURVEY, "2026-04-09");
+    await waitFor(() => {
+      expect(screen.getByTestId("members-settled")).toHaveTextContent("yes");
     });
-    expect(screen.getByTestId("survey-end")).toHaveTextContent("2026-04-09");
-    },
-    15_000,
-  );
+    await waitFor(() => {
+      expect(screen.getByTestId("filter-tags")).toHaveTextContent("回帰");
+    });
+    expect(screen.queryByText("未保存")).toBeNull();
+  });
 });

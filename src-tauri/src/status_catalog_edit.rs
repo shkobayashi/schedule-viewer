@@ -102,6 +102,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn empty_id_is_rejected() {
+        let mut state = StatusCatalogEditState::default();
+        let result = claim_status_catalog_edit_state(&mut state, "  ", "main");
+        assert!(matches!(result, Err(message) if message == "カタログ名が空です。"));
+    }
+
+    #[test]
     fn second_label_does_not_claim() {
         let mut state = StatusCatalogEditState::default();
         let first = claim_status_catalog_edit_state(&mut state, "flow", "main").unwrap();

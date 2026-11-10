@@ -52,6 +52,7 @@ export type ScheduleFileFlowHandle = {
   openSavedAtPath: (path: string, contents: string) => void;
   getFilePath: () => string | null;
   setTaskEnd: (taskId: ScheduleId, end: string) => void;
+  save: () => Promise<void>;
   moveSelectedTasksByDays: (deltaDays: number) => void;
   undo: () => void;
   redo: () => void;
@@ -293,6 +294,7 @@ export const ScheduleFileFlowHarness = forwardRef<
         scheduleFile.markSavedAtPath(parsed.canonicalJson, path);
       },
       getFilePath: () => scheduleFile.filePath,
+      save: () => scheduleFile.save(false),
       moveSelectedTasksByDays: (deltaDays) => {
         if (selection.ids.length === 0) return;
         schedule.moveSelectedTasksByDays(selection.ids, deltaDays);
@@ -328,7 +330,9 @@ export const ScheduleFileFlowHarness = forwardRef<
       <span data-testid="file-path">{scheduleFile.filePath ?? ""}</span>
       <span data-testid="survey-name">{surveyTask?.name ?? ""}</span>
       <span data-testid="survey-end">{surveyTask?.end ?? ""}</span>
+      <span data-testid="design-start">{designTask?.start ?? ""}</span>
       <span data-testid="design-end">{designTask?.end ?? ""}</span>
+      <span data-testid="filter-tags">{schedule.filters.tags.join(",")}</span>
       <span data-testid="merge-notice">{scheduleFile.mergeNotice ? "yes" : "no"}</span>
       <StatusBar
         fileName={scheduleFile.displayFileName}

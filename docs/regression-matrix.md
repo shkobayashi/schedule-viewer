@@ -68,7 +68,7 @@
 
 | ID | 種類 | 項目 | 区分 | 行き先 |
 | --- | --- | --- | --- | --- |
-| MX-O-1 | UI | 開く | 自動済み | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02) |
+| MX-O-1 | UI | 開く | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。手動:RG-S4-3 |
 | MX-O-2 | OS | 開く | 自動化予定 | 自動化予定:#541 |
 | MX-O-3 | 計算 | 最近開いたファイルの1件を開く | 自動済み | 自動:src/model/recentFiles.test.ts#prepends a new path |
 | MX-O-4 | UI | 最近開いたファイルの1件を開く | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#opening from history resets filters and fit。自動化予定:#541 |

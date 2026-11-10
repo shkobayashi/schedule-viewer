@@ -179,8 +179,9 @@ describe("external reload flow", () => {
 
   it("TC-SYNC-01b: keep local edits and show the deferred reload banner", async () => {
     const { flow, ref, doc } = await mountWithOpenSaved();
-    await markScreenDirty(ref, TASK_SURVEY, "調査rev");
-    flow.queuePoll(pollJson(cloneWithTaskEnd(doc, TASK_DESIGN, "2026-04-10")));
+    await markScreenDirtyEnd(ref, TASK_DESIGN, "2026-04-12");
+    const disk = cloneWithTaskName(doc, TASK_SURVEY, "衝突しないノート");
+    flow.queuePoll(pollJson(disk));
     await advanceOnePoll();
     await settleAfterPoll();
     const dialog = await screen.findByRole("dialog", {
@@ -193,7 +194,66 @@ describe("external reload flow", () => {
     expect(
       screen.getByRole("button", { name: "ファイルに更新あり — 確認する" }),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("design-end")).toHaveTextContent("2026-04-08");
+    expect(screen.getByTestId("design-end")).toHaveTextContent("2026-04-12");
+  });
+
+  it("TC-SYNC-01h: does not restore the deferred banner after another edit and undo", async () => {
+    const { flow, ref, doc } = await mountWithOpenSaved();
+    await markScreenDirtyEnd(ref, TASK_SURVEY, "2026-04-04");
+    flow.queuePoll(pollJson(cloneWithTaskEnd(doc, TASK_DESIGN, "2026-04-10")));
+    await advanceOnePoll();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const mergeDialog = screen.getByRole("dialog", { name: "ファイルが更新されています" });
+    vi.useRealTimers();
+    fireEvent.click(
+      within(mergeDialog).getByRole("button", { name: "両方を画面へ反映" }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("未保存")).toBeInTheDocument();
+    });
+    await markScreenDirty(ref, TASK_SURVEY, "あとから変えた");
+    await act(async () => {
+      ref.current?.undo();
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "ファイルに更新あり — 確認する" }),
+      ).toBeNull();
+    });
+  });
+
+  it("TC-SYNC-01j: does not restore the deferred banner after save and undo", async () => {
+    const { flow, ref, doc } = await mountWithOpenSaved();
+    await markScreenDirtyEnd(ref, TASK_SURVEY, "2026-04-04");
+    flow.queuePoll(pollJson(cloneWithTaskEnd(doc, TASK_DESIGN, "2026-04-10")));
+    await advanceOnePoll();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const mergeDialog = screen.getByRole("dialog", { name: "ファイルが更新されています" });
+    vi.useRealTimers();
+    fireEvent.click(
+      within(mergeDialog).getByRole("button", { name: "両方を画面へ反映" }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("未保存")).toBeInTheDocument();
+    });
+    await act(async () => {
+      await ref.current!.save();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("未保存")).toBeNull();
+    });
+    await act(async () => {
+      ref.current?.undo();
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "ファイルに更新あり — 確認する" }),
+      ).toBeNull();
+    });
   });
 
   it("TC-SYNC-01e: lists screen and file sections in the merge review", async () => {
