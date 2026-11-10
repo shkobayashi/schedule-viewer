@@ -48,3 +48,4 @@ target/menu-paint-probe-sample.jsonl
 target/menu-paint-probe.jsonl
 target/grip-cursor-probe.jsonl
 .playwright-mcp/
+test-results/

@@ -32,6 +32,7 @@
     "check:architecture-warn": "node scripts/check-architecture-warn.mjs",
     "test:coverage": "vitest run --coverage",
     "test": "node scripts/compile-validators.mjs && node --test scripts/*.test.mjs && vitest run",
+    "test:browser-regression": "node scripts/compile-validators.mjs && playwright test -c e2e/browser-regression/playwright.config.ts",
     "lint": "eslint . --max-warnings 48",
     "build:validate-skill": "node scripts/build-validate-skill.mjs",
     "version:check": "tsx scripts/check-version-sync.ts",
