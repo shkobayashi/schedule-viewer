@@ -865,7 +865,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: アプリは、設定からクライアントのプロセスを起動しない。
 
-扱い: 自動:src/components/settingsDesktopChrome.dom.test.tsx#copies the mcp json of the executable and invokes only get_executable_path。手動のまま、実クライアントの mcp.json への初回の貼り付けは人が残す。
+扱い: 自動:src/components/settingsDesktopChrome.dom.test.tsx#copies the mcp json to the clipboard and does not invoke tauri again on copy。手動のまま、実クライアントの mcp.json への初回の貼り付けは人が残す。
 
 ### RG-F12-3
 
@@ -901,9 +901,9 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 操作: 複数の窓の読み取りと、`--screen` の CLI は、この通しでは行わない。
 
-期待: 未実施と記録する。合格にしない。自動は #543 と #538 である。
+期待: 未実施と記録する。合格にしない。自動は #543 である。
 
-扱い: 自動:src-tauri/tests/mcp_stdio_client.rs#front_only_tools_with_window_exit_1_with_empty_stdout_and_the_rejection_on_stderr、src-tauri/tests/mcp_stdio_client.rs#unknown_screen_tool_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#screen_flag_without_tool_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#screen_with_extra_arg_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#replace_schedule_over_ten_megabytes_exits_1_and_writes_too_large_to_stderr、src-tauri/tests/mcp_stdio_client.rs#replace_schedule_invalid_json_exits_1_and_writes_unreadable_to_stderr、src-tauri/tests/mcp_stdio_client.rs#stdin_action_tools_reject_invalid_json_with_exit_1_and_the_action_message、src-tauri/tests/mcp_stdio_client.rs#schedule_diff_without_gui_exits_1_and_writes_no_window_to_stderr。起動中のアプリへの `--screen` の成功は自動化予定:#543。複数の窓の読み取りは自動化予定:#541。本物の LLM の通しでこれらを行わず、未実施とし、合格にしない、という文は残す。
+扱い: 自動:src-tauri/tests/mcp_stdio_client.rs#front_only_tools_with_window_exit_1_with_empty_stdout_and_the_rejection_on_stderr、src-tauri/tests/mcp_stdio_client.rs#unknown_screen_tool_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#screen_flag_without_tool_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#screen_with_extra_arg_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#replace_schedule_over_ten_megabytes_exits_1_and_writes_too_large_to_stderr、src-tauri/tests/mcp_stdio_client.rs#replace_schedule_invalid_json_exits_1_and_writes_unreadable_to_stderr、src-tauri/tests/mcp_stdio_client.rs#stdin_action_tools_reject_invalid_json_with_exit_1_and_the_action_message、src-tauri/tests/mcp_stdio_client.rs#schedule_diff_without_gui_exits_1_and_writes_no_window_to_stderr。起動中のアプリへの `--screen` の成功は自動化予定:#543。複数の窓の読み取りは自動化予定:#541。本物の LLM の通しでは、窓の要らない CLI の試験は自動試験が行い、起動中のアプリへの成功と複数窓の読み取りは行わず、未実施と記録し、合格にしない。
 
 ### RG-F12-7
 

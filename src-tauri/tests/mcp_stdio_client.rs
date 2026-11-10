@@ -1,9 +1,6 @@
 //! MCP 標準入出力と `--screen` CLI の統合試験（起動中の GUI 不要）。
 
-use schedule_viewer_lib::screen_cli::{
-    self, MAX_SCHEDULE_BYTES, OPEN_WINDOWS_WINDOW_NOT_SUPPORTED,
-    REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED,
-};
+use schedule_viewer_lib::screen_cli::MAX_SCHEDULE_BYTES;
 
 const SCREEN_TOOL_NAMES: [&str; 21] = [
     "open_windows",
@@ -57,8 +54,12 @@ const MCP_STDIN_ACTION_TOOL_NAMES: [&str; 10] = [
     "open_new_window",
 ];
 use serde_json::Value;
-use std::io::Write;
-use std::process::{Command, Stdio};
+use std::io::{Read, Write};
+use std::process::{Child, Command, Stdio};
+use std::time::Duration;
+
+/// `MCP_PIPE_CONNECT_TIMEOUT`（5 秒）より長い上限。
+const CHILD_WAIT_TIMEOUT: Duration = Duration::from_secs(10);
 const USAGE_LINE: &str = "使えるのは --screen schedule_diff、--screen baseline_diffs、--screen selected_task、--screen selected_tasks、--screen filtered_tasks、--screen current_schedule、--screen open_windows、--screen replace_schedule、または読み取り 6 つに --window <label> を付ける形だけです。";
 
 const NO_WINDOW_STDERR: &str = "スケジュールのウィンドウが開いていないので、渡せません。";
@@ -73,19 +74,9 @@ const READ_SIX: [&str; 6] = [
 ];
 
 fn executable() -> String {
-    if let Ok(path) = std::env::var("CARGO_BIN_EXE_schedule_viewer") {
-        return path;
-    }
-    let profile = std::env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
-    let candidate = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("target")
-        .join(profile)
-        .join("schedule-viewer");
-    assert!(
-        candidate.is_file(),
-        "CARGO_BIN_EXE_schedule_viewer must be set when running integration tests, and {candidate:?} must exist"
-    );
-    candidate.to_string_lossy().into_owned()
+    std::env::var("CARGO_BIN_EXE_schedule_viewer").expect(
+        "CARGO_BIN_EXE_schedule_viewer must be set when running integration tests",
+    )
 }
 
 fn normalize_text(text: &str) -> String {
@@ -107,6 +98,34 @@ fn with_isolated_home(cmd: &mut Command) -> tempfile::TempDir {
     dir
 }
 
+fn finish_child(mut child: Child) -> ProcessOutput {
+    let deadline = std::time::Instant::now() + CHILD_WAIT_TIMEOUT;
+    let status = loop {
+        if let Some(status) = child.try_wait().expect("try_wait") {
+            break status;
+        }
+        if std::time::Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            panic!("child did not exit within {CHILD_WAIT_TIMEOUT:?}");
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    };
+    let mut stdout_bytes = Vec::new();
+    if let Some(mut out) = child.stdout.take() {
+        out.read_to_end(&mut stdout_bytes).expect("read stdout");
+    }
+    let mut stderr_bytes = Vec::new();
+    if let Some(mut err) = child.stderr.take() {
+        err.read_to_end(&mut stderr_bytes).expect("read stderr");
+    }
+    ProcessOutput {
+        code: status.code().unwrap_or(-1),
+        stdout: normalize_text(&String::from_utf8_lossy(&stdout_bytes)),
+        stderr: normalize_text(&String::from_utf8_lossy(&stderr_bytes)),
+    }
+}
+
 fn run_mcp_stdio(stdin_body: &str) -> ProcessOutput {
     let mut cmd = Command::new(executable());
     cmd.arg("--mcp");
@@ -121,12 +140,8 @@ fn run_mcp_stdio(stdin_body: &str) -> ProcessOutput {
             .write_all(stdin_body.as_bytes())
             .expect("write mcp stdin");
     }
-    let output = child.wait_with_output().expect("wait mcp");
-    ProcessOutput {
-        code: output.status.code().unwrap_or(-1),
-        stdout: normalize_text(&String::from_utf8_lossy(&output.stdout)),
-        stderr: normalize_text(&String::from_utf8_lossy(&output.stderr)),
-    }
+    drop(child.stdin.take());
+    finish_child(child)
 }
 
 fn run_screen(args: &[&str], stdin: Option<&[u8]>) -> ProcessOutput {
@@ -140,13 +155,9 @@ fn run_screen(args: &[&str], stdin: Option<&[u8]>) -> ProcessOutput {
     if let Some(body) = stdin {
         let mut stdin_pipe = child.stdin.take().expect("stdin");
         stdin_pipe.write_all(body).expect("write screen stdin");
-    } else if child.stdin.take().is_some() {}
-    let output = child.wait_with_output().expect("wait screen");
-    ProcessOutput {
-        code: output.status.code().unwrap_or(-1),
-        stdout: normalize_text(&String::from_utf8_lossy(&output.stdout)),
-        stderr: normalize_text(&String::from_utf8_lossy(&output.stderr)),
     }
+    drop(child.stdin.take());
+    finish_child(child)
 }
 
 fn parse_stdout_lines(stdout: &str) -> Vec<Value> {
@@ -180,10 +191,11 @@ fn initialize_echoes_id_and_returns_protocol_version_server_name_and_tools_capab
             .and_then(|v| v.as_str()),
         Some("schedule-viewer")
     );
-    assert!(result
+    let tools_capability = result
         .get("capabilities")
         .and_then(|v| v.get("tools"))
-        .is_some());
+        .expect("capabilities.tools");
+    assert!(tools_capability.is_object());
 }
 
 #[test]
@@ -194,14 +206,11 @@ fn tools_list_returns_twenty_one_tools_with_each_input_schema() {
     let result = lines[0].get("result").expect("result");
     let tools = result.get("tools").and_then(|v| v.as_array()).expect("tools");
     assert_eq!(tools.len(), 21);
-    let mut names: Vec<&str> = tools
+    let names: Vec<&str> = tools
         .iter()
-        .filter_map(|t| t.get("name").and_then(|n| n.as_str()))
+        .map(|t| t.get("name").and_then(|n| n.as_str()).expect("tool name"))
         .collect();
-    names.sort_unstable();
-    let mut expected: Vec<&str> = SCREEN_TOOL_NAMES.to_vec();
-    expected.sort_unstable();
-    assert_eq!(names, expected);
+    assert_eq!(names, SCREEN_TOOL_NAMES);
     assert!(!names.contains(&"screen_context"));
 
     for tool in tools {
@@ -380,17 +389,12 @@ fn front_only_tools_with_window_exit_1_with_empty_stdout_and_the_rejection_on_st
         assert_eq!(out.code, 1, "tool {tool}");
         assert!(out.stdout.is_empty(), "tool {tool}");
         let expected = if tool == "open_windows" {
-            OPEN_WINDOWS_WINDOW_NOT_SUPPORTED.to_string()
+            "open_windows は --window を受け付けません。".to_string()
         } else if tool == "replace_schedule" {
-            REPLACE_SCHEDULE_WINDOW_NOT_SUPPORTED.to_string()
+            "replace_schedule は前面ウィンドウだけを置き換えます。--window は使えません。".to_string()
         } else {
-            screen_cli::screen_cli_window_rejection_message(tool, Some("schedule-2"))
-                .expect("rejection message")
+            format!("{tool} は前面ウィンドウだけに届きます。--window は使えません。")
         };
-        assert_eq!(
-            screen_cli::screen_cli_window_rejection_message(tool, Some("schedule-2")),
-            Some(expected.clone())
-        );
         assert_eq!(out.stderr, expected, "tool {tool}");
     }
 }

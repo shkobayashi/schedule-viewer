@@ -153,11 +153,12 @@ describe("desktop settings chrome", () => {
     return dialog;
   }
 
-  it("copies the mcp json of the executable and invokes only get_executable_path", async () => {
+  it("copies the mcp json to the clipboard and does not invoke tauri again on copy", async () => {
     const dialog = await openMcpSection();
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("get_executable_path");
     });
+    const invokeCountAfterOpen = invoke.mock.calls.length;
     const textarea = within(dialog).getByRole("textbox");
     const parsed = JSON.parse(textarea.textContent ?? "") as {
       mcpServers: Record<string, { command: string; args: string[] }>;
@@ -173,9 +174,9 @@ describe("desktop settings chrome", () => {
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(textarea.textContent);
     });
-    const calls = invoke.mock.calls.map(([name]) => name);
-    expect(calls.filter((name) => name === "get_executable_path")).toHaveLength(1);
-    expect(calls).not.toContain("install_read_screen_skill");
+    expect(invoke.mock.calls.length).toBe(invokeCountAfterOpen);
+    const commandNames = new Set(invoke.mock.calls.map(([name]) => name));
+    expect(commandNames).toEqual(new Set(["json_skill_home_dirs", "get_executable_path"]));
   });
 
   it("shows the copilot read-screen path and the executable after placing", async () => {
@@ -203,6 +204,7 @@ describe("desktop settings chrome", () => {
     const dialog = await openMcpSection();
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Cursor" }));
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Claude Code" }));
+    expect(within(dialog).queryByText("置いたパス:")).not.toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "外す" }));
     expect(within(dialog).getByText(/read-screen だけを外します/)).toBeInTheDocument();
     const confirmUninstall = within(dialog)
@@ -215,16 +217,23 @@ describe("desktop settings chrome", () => {
       });
     });
     expect(within(dialog).getByText("外したパス:")).toBeInTheDocument();
-    expect(within(dialog).getByText("/home/user/.copilot/skills/read-screen")).toBeInTheDocument();
+    expect(within(dialog).queryByText("置いたパス:")).not.toBeInTheDocument();
+    const removedLabels = within(dialog).getAllByText(/^\/home\/user\//);
+    expect(removedLabels).toHaveLength(1);
+    expect(removedLabels[0]).toHaveTextContent("/home/user/.copilot/skills/read-screen");
   });
 
   it("disables place and remove when every read-screen target is unchecked", async () => {
     const dialog = await openMcpSection();
-    for (const name of ["Cursor", "Claude Code", "GitHub Copilot"]) {
-      const box = within(dialog).getByRole("checkbox", { name });
-      if ((box as HTMLInputElement).checked) {
-        fireEvent.click(box);
+    await waitFor(() => {
+      for (const name of ["Cursor", "Claude Code", "GitHub Copilot"]) {
+        expect(within(dialog).getByRole("checkbox", { name })).toBeChecked();
       }
+    });
+    expect(within(dialog).getByRole("button", { name: "置く" })).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "外す" })).toBeEnabled();
+    for (const name of ["Cursor", "Claude Code", "GitHub Copilot"]) {
+      fireEvent.click(within(dialog).getByRole("checkbox", { name }));
     }
     expect(within(dialog).getByRole("button", { name: "置く" })).toBeDisabled();
     expect(within(dialog).getByRole("button", { name: "外す" })).toBeDisabled();

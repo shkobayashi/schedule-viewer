@@ -527,7 +527,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `settingsDesktopChrome.dom.test.tsx` | `shows the version line on display, members, and updates` | SET-07 |
 | 同上 | `disables install and remove when every skill target is unchecked` | SET-05 |
 | 同上 | `shows the overwrite confirmation when install reports existing paths` | SET-05 |
-| 同上 | `copies the mcp json of the executable and invokes only get_executable_path` | MCP-01 |
+| 同上 | `copies the mcp json to the clipboard and does not invoke tauri again on copy` | MCP-01 |
 | 同上 | `shows the copilot read-screen path and the executable after placing` | MCP-02 |
 | 同上 | `shows only the removed read-screen path after confirming uninstall` | MCP-02 |
 | 同上 | `disables place and remove when every read-screen target is unchecked` | MCP-02 |
