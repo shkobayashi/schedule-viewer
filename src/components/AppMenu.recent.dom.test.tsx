@@ -112,8 +112,11 @@ describe("AppMenu recent files (desktop)", () => {
     );
     await user.click(screen.getByTitle("メニュー"));
     await user.click(screen.getByRole("menuitem", { name: /最近開いたファイル/ }));
+    const menus = screen.getAllByRole("menu");
+    const recentMenu = menus[menus.length - 1];
+    if (!recentMenu) throw new Error("recent submenu missing");
     await user.click(
-      within(screen.getAllByRole("menu").at(-1)!).getByRole("menuitem", {
+      within(recentMenu).getByRole("menuitem", {
         name: /スケジュール smoke\.schedule\.json/,
       }),
     );
