@@ -31,6 +31,22 @@ export const connectionsSchedulePath = path.join(
   repoRoot,
   "examples/connections/schedule.json",
 );
+export const manualColorsSchedulePath = path.join(
+  repoRoot,
+  "examples/manual-colors.schedule.json",
+);
+export const levels2SchedulePath = path.join(
+  repoRoot,
+  "examples/hierarchy/levels-2.schedule.json",
+);
+export const levels3SchedulePath = path.join(
+  repoRoot,
+  "examples/hierarchy/levels-3.schedule.json",
+);
+export const levels4SchedulePath = path.join(
+  repoRoot,
+  "examples/hierarchy/levels-4.schedule.json",
+);
 export const statusesRegressionPath = path.join(
   repoRoot,
   "examples/regression/statuses.json",

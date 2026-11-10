@@ -565,9 +565,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 線だけが外れ、2 件のタスクは残る。取り消しで線が戻る。Escape は押していない。
 
-扱い: 自動化予定:#536。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #536。
+扱い: 自動:e2e/browser-regression/specs/links-f4.spec.ts#deletes the hovered predecessor with Delete and restores it with undo。この手順は手で行わない。
 
 ### RG-F4-2
 
@@ -577,9 +575,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: ドラッグ中の線だけが赤く太くなる。Escape のあと、線は増えない。「設計」の先行は「調査」のままである。
 
-扱い: 自動化予定:#536。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #536。
+扱い: 自動:e2e/browser-regression/specs/links-f4.spec.ts#cancels a link drag onto an earlier task with Escape。手動のまま:線を引くモードの追随矢印は通常色のままなので、ドラッグ中の赤と太さは人が見る。
 
 ### RG-F4-3
 
@@ -587,7 +583,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 「承認」のひし形は塗られている。「未確定の節目」のひし形は中空である。
 
-扱い: 自動化予定:#536。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:e2e/browser-regression/specs/links-f4.spec.ts#shows a filled approval diamond and a hollow tentative diamond。書き出しの同じ見かたは #536 のグループ 4 が引き受ける。
 
 ### RG-F4-4
 
@@ -597,9 +593,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 円弧が消え、取り消しで「相談」が戻る。タスクは残る。
 
-扱い: 自動化予定:#536。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #536。
+扱い: 自動:e2e/browser-regression/specs/links-f4.spec.ts#deletes the hovered connection arc with Delete and restores the label with undo。この手順は手で行わない。
 
 ## RG-F5 書き出しの見た目
 
@@ -791,9 +785,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 畳んだあいだ、その枝の下へ縦線が続かない。開くと、行の境で縦線は切れない。
 
-扱い: 自動化予定:#536。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #536。
+扱い: 自動:e2e/browser-regression/specs/hierarchy-guides.spec.ts#drops the stem under a collapsed five-level heading and rejoins it when expanded。この手順は手で行わない。
 
 ### RG-F10-2
 

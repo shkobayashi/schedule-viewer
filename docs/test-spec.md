@@ -50,7 +50,25 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `hierarchy-reorder.spec.ts` | adds a heading from the toolbar menu and from the row menu, then undoes | TC-HIER-05e, EDIT-18 |
 | `hierarchy-reorder.spec.ts` | renames a category and a group from double click and undoes | EDIT-13 |
 | `hierarchy-reorder.spec.ts` | reorders a category on the five-level sample from the grip | TC-HIER-04 |
+| `hierarchy-guides.spec.ts` | drops the stem under a collapsed five-level heading and rejoins it when expanded | RG-F10-1 |
+| `hierarchy-guides.spec.ts` | keeps guide rail width and name starts aligned on five-level and three-level samples | TC-HIER-04 |
+| `hierarchy-guides.spec.ts` | shows level names above the band for two, three, four, and five levels and omits them when the file has no levels | TC-HIER-01 |
+| `hierarchy-guides.spec.ts` | shows the outline mismatch and hides add-heading on a short branch and an empty middle branch | TC-HIER-02, TC-HIER-02b |
+| `hierarchy-guides.spec.ts` | aligns hierarchy editor fields and refuses save when a level is added | TC-HIER-06b |
+| `hierarchy-guides.spec.ts` | matches sidebar guides and parent bars for two, three, and five levels | TC-HIER-07 |
+| `hierarchy-guides.spec.ts` | draws a thin summary bar with dotted gaps, solid spans, and downward caps | TC-VIEW-03 |
+| `hierarchy-guides.spec.ts` | shows integer rollup percents beside names at the minimum sidebar width | TC-VIEW-03b |
 | `konva-probe.spec.ts` | probes Konva readability for regression helpers | — |
+| `links-f4.spec.ts` | deletes the hovered predecessor with Delete and restores it with undo | RG-F4-1, TC-VIEW-08, MX-O-87, MX-O-88, MX-H-25 |
+| `links-f4.spec.ts` | cancels a link drag onto an earlier task with Escape | RG-F4-2, MX-O-59, MX-O-60 |
+| `links-f4.spec.ts` | shows a filled approval diamond and a hollow tentative diamond | RG-F4-3, MX-O-83, TC-VIEW-04b |
+| `links-f4.spec.ts` | deletes the hovered connection arc with Delete and restores the label with undo | RG-F4-4, MX-O-89 |
+| `links-f4.spec.ts` | drops only the arc of a deleted endpoint and keeps the other label in the file | TC-VIEW-15c |
+| `links-f4.spec.ts` | marks only broken predecessor links red and removes the arrow when collapsed | TC-VIEW-08 |
+| `links-f4.spec.ts` | reddens the predecessor while the end is dragged past the successor, before release | TC-VIEW-08b |
+| `links-f4.spec.ts` | keeps the arrow head outside the successor bar in week and month | TC-VIEW-08c |
+| `links-f4.spec.ts` | draws connection arcs without arrowheads and with a different stroke from predecessor links | TC-VIEW-15 |
+| `links-f4.spec.ts` | keeps arcs on broken-only lineage and leaves connection-only rows hidden | TC-EDIT-23c |
 | `layout-f2.spec.ts` | shows only short toolbar labels at 1280 by 800 | VIEW-16 |
 | `layout-f2.spec.ts` | folds the shortcut list into one column at 480 by 640 | VIEW-16 |
 | `layout-f2.spec.ts` | keeps the corner context menu inside the 480 by 640 window | VIEW-16 |

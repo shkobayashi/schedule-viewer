@@ -32,7 +32,7 @@
 | MX-H-22 | 計算 | 選択と移動 | 自動済み | 自動:src/model/taskSelection.test.ts#selects a range with shift+click |
 | MX-H-23 | UI | 選択と移動 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
 | MX-H-24 | UI | 詳細パネルと線 | 手動のまま | 手動:RG-F1-1。手動のまま:変換中の Enter は実機の日本語変換でしか確認できない |
-| MX-H-25 | 見た目 | 詳細パネルと線 | 自動化予定 | 手動:RG-F4-1。自動化予定:#536 |
+| MX-H-25 | 見た目 | 詳細パネルと線 | 自動済み | 自動:e2e/browser-regression/specs/links-f4.spec.ts#deletes the hovered predecessor with Delete and restores it with undo |
 | MX-H-26 | UI | タスクへの色 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color |
 | MX-H-27 | UI | タスクへの色 | 自動化予定 | 自動化予定:#536 |
 | MX-H-28 | 計算 | 右クリックと複製 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
@@ -126,8 +126,8 @@
 | MX-O-56 | UI | 絞り込みをすべて解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters tags and clears one chip without clearing lineage |
 | MX-O-57 | UI | 系統を表示／解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
 | MX-O-58 | UI | 系統（繋がりも辿る） | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
-| MX-O-59 | UI | 線を引くモード | 自動化予定 | 手動:RG-F4-2。自動化予定:#536 |
-| MX-O-60 | 見た目 | 線を引くモード | 自動化予定 | 自動化予定:#536 |
+| MX-O-59 | UI | 線を引くモード | 一部手動 | 自動:e2e/browser-regression/specs/links-f4.spec.ts#cancels a link drag onto an earlier task with Escape。手動のまま:線を引くモードの追随矢印は通常色のままなので、ドラッグ中の赤と太さは人が見る |
+| MX-O-60 | 見た目 | 線を引くモード | 一部手動 | 自動:e2e/browser-regression/specs/links-f4.spec.ts#cancels a link drag onto an earlier task with Escape。手動のまま:線を引くモードの追随矢印は通常色のままなので、ドラッグ中の赤と太さは人が見る |
 | MX-O-61 | UI | マイルストン帯の印を非表示 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#hides milestone bands and marks from the panel and the menu |
 | MX-O-62 | UI | このマイルストンだけ表示 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#hides milestone bands and marks from the panel and the menu |
 | MX-O-63 | UI | マイルストン帯の行を非表示 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#hides milestone bands and marks from the panel and the menu |
@@ -150,13 +150,13 @@
 | MX-O-80 | UI | ノートを開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens the note with ctrl+n and shows the shortcut |
 | MX-O-81 | UI | 系統を表示／解除（タスク） | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
 | MX-O-82 | UI | 確定／未確定（タスク） | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#toggles 設計 confidence without moving dates and one undo restores it |
-| MX-O-83 | 見た目 | 確定／未確定（マイルストン） | 自動化予定 | 手動:RG-F4-3。自動化予定:#536 |
+| MX-O-83 | 見た目 | 確定／未確定（マイルストン） | 一部自動 | 自動:e2e/browser-regression/specs/links-f4.spec.ts#shows a filled approval diamond and a hollow tentative diamond。自動化予定:#536 |
 | MX-O-84 | UI | マイルストンを編集 | 一部自動 | 自動化予定:#536 |
 | MX-O-85 | 計算 | マイルストンを削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#adds and deletes a milestone, then undo restores it |
 | MX-O-86 | UI | マイルストンを削除 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#clears 調査 milestoneId when 承認 is deleted and undo restores both。自動:e2e/browser-regression/specs/milestone-links.spec.ts#deletes a milestone used as a filter and leaves the selection |
-| MX-O-87 | UI | 前後の線を外す | 自動化予定 | 手動:RG-F4-1。自動化予定:#536 |
-| MX-O-88 | 見た目 | 前後の線を外す | 自動化予定 | 自動化予定:#536 |
-| MX-O-89 | UI | 繋がりを外す | 自動化予定 | 手動:RG-F4-4。自動化予定:#536 |
+| MX-O-87 | UI | 前後の線を外す | 自動済み | 自動:e2e/browser-regression/specs/links-f4.spec.ts#deletes the hovered predecessor with Delete and restores it with undo |
+| MX-O-88 | 見た目 | 前後の線を外す | 自動済み | 自動:e2e/browser-regression/specs/links-f4.spec.ts#deletes the hovered predecessor with Delete and restores it with undo |
+| MX-O-89 | UI | 繋がりを外す | 自動済み | 自動:e2e/browser-regression/specs/links-f4.spec.ts#deletes the hovered connection arc with Delete and restores the label with undo |
 | MX-O-90 | UI | カテゴリ名を変更 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#undo restores 計画 name and keeps category id |
 | MX-O-91 | UI | 下にカテゴリを追加 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#undo removes a category added under 計画 and its default グループ。自動:src/test/headlessScheduleSession.regression.test.ts#appends category and default group at document end then undo removes both |
 | MX-O-92 | UI | グループを追加（カテゴリ下） | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#appends a group under the chosen category and one undo removes it |

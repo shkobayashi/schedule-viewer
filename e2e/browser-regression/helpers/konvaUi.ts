@@ -211,3 +211,369 @@ export async function pointerOnMilestoneLabel(
 }
 
 export { dragTaskRightEdge as dragBarRightEdge } from "./drag.ts";
+
+export const LIGHT_CHART = {
+  linkOk: "#8a94a6",
+  linkBroken: "#c4351a",
+  connectionArc: "#0369a1",
+} as const;
+
+export type KonvaStrokeInfo = {
+  className: string;
+  stroke: string;
+  strokeWidth: number;
+  points: number[];
+};
+
+function normalizeHex(color: string): string {
+  return color.trim().toLowerCase();
+}
+
+async function rowMidClientY(page: Page, taskName: string): Promise<number> {
+  const row = page.locator(".sidebar-row", { hasText: taskName }).first();
+  const box = await row.boundingBox();
+  if (!box) throw new Error(`row missing for ${taskName}`);
+  return box.y + box.height / 2;
+}
+
+export async function readKonvaStrokesInTimelineBody(page: Page): Promise<KonvaStrokeInfo[]> {
+  return page.evaluate((collector) => {
+    const stages = eval(collector) as Array<{
+      container?: () => HTMLElement | null;
+      find: (selector: string) => Array<{
+        getClassName?: () => string;
+        stroke?: () => string;
+        strokeWidth?: () => number;
+        points?: () => number[];
+        visible?: () => boolean;
+      }>;
+    }>;
+    const out: {
+      className: string;
+      stroke: string;
+      strokeWidth: number;
+      points: number[];
+    }[] = [];
+    for (const stage of stages) {
+      const container = stage.container?.();
+      if (!(container instanceof HTMLElement)) continue;
+      if (!container.closest(".timeline-body")) continue;
+      for (const selector of ["Arrow", "Line"] as const) {
+        for (const node of stage.find(selector)) {
+          if (node.visible?.() === false) continue;
+          const stroke = node.stroke?.() ?? "";
+          if (!stroke) continue;
+          out.push({
+            className: node.getClassName?.() ?? selector,
+            stroke,
+            strokeWidth: node.strokeWidth?.() ?? 0,
+            points: node.points?.() ?? [],
+          });
+        }
+      }
+    }
+    return out;
+  }, collectKonvaStagesSource);
+}
+
+export async function countKonvaArrowsInTimelineBody(page: Page): Promise<number> {
+  const strokes = await readKonvaStrokesInTimelineBody(page);
+  return strokes.filter((stroke) => stroke.className === "Arrow").length;
+}
+
+export async function pointerOnPredecessorLink(
+  page: Page,
+  fromName: string,
+  toName: string,
+): Promise<{ x: number; y: number }> {
+  const fromY = await rowMidClientY(page, fromName);
+  const toY = await rowMidClientY(page, toName);
+  const minY = Math.min(fromY, toY);
+  const maxY = Math.max(fromY, toY);
+  const point = await page.evaluate(
+    ({ collector, minY, maxY }) => {
+      const stages = eval(collector) as Array<{
+        container?: () => HTMLElement | null;
+        find: (selector: string) => Array<{
+          getClassName?: () => string;
+          points?: () => number[];
+          getAbsoluteTransform?: () => {
+            point: (pt: { x: number; y: number }) => { x: number; y: number };
+          };
+        }>;
+      }>;
+      for (const stage of stages) {
+        const container = stage.container?.();
+        if (!(container instanceof HTMLElement)) continue;
+        if (!container.closest(".timeline-body")) continue;
+        const stageRect = container.getBoundingClientRect();
+        for (const node of stage.find("Arrow")) {
+          if ((node.getClassName?.() ?? "") !== "Arrow") continue;
+          const pts = node.points?.() ?? [];
+          if (pts.length < 4) continue;
+          const transform = node.getAbsoluteTransform?.();
+          let bestClient: { x: number; y: number } | null = null;
+          for (let index = 0; index + 1 < pts.length / 2; index += 1) {
+            const lx = pts[index * 2];
+            const ly = pts[index * 2 + 1];
+            const client = transform
+              ? transform.point({ x: lx, y: ly })
+              : { x: lx, y: ly };
+            const clientY = stageRect.top + client.y;
+            if (clientY >= minY - 24 && clientY <= maxY + 24) {
+              const clientX = stageRect.left + client.x;
+              if (!bestClient) bestClient = { x: clientX, y: clientY };
+            }
+          }
+          if (bestClient) {
+            const pts = node.points?.() ?? [];
+            if (pts.length >= 4) {
+              const midIndex = Math.floor(pts.length / 4) * 2;
+              const local = { x: pts[midIndex] ?? 0, y: pts[midIndex + 1] ?? 0 };
+              const transformed = node.getAbsoluteTransform?.().point(local) ?? local;
+              const container = stage.container?.();
+              const stageRect =
+                container instanceof HTMLElement ? container.getBoundingClientRect() : { left: 0, top: 0 };
+              return { x: stageRect.left + transformed.x, y: stageRect.top + transformed.y };
+            }
+            return bestClient;
+          }
+        }
+      }
+      return null;
+    },
+    { collector: collectKonvaStagesSource, minY, maxY },
+  );
+  if (!point) throw new Error(`predecessor link not found: ${fromName} -> ${toName}`);
+  return point;
+}
+
+export async function pointerOnConnectionArc(
+  page: Page,
+  label: string,
+): Promise<{ x: number; y: number }> {
+  return page.evaluate(
+    ({ connectionLabel, collector }) => {
+      const stages = eval(collector) as Array<{
+        container?: () => HTMLElement | null;
+        find: (selector: string) => Array<{
+          text?: () => string;
+          getAbsolutePosition?: () => { x: number; y: number };
+        }>;
+      }>;
+      for (const stage of stages) {
+        const container = stage.container?.();
+        if (!(container instanceof HTMLElement)) continue;
+        if (!container.closest(".timeline-body")) continue;
+        const stageRect = container.getBoundingClientRect();
+        const textNode = stage.find("Text").find((node) => node.text?.() === connectionLabel);
+        if (!textNode) continue;
+        const pos = textNode.getAbsolutePosition?.() ?? { x: 0, y: 0 };
+        return { x: stageRect.left + pos.x, y: stageRect.top + pos.y };
+      }
+      throw new Error(`connection label missing: ${connectionLabel}`);
+    },
+    { connectionLabel: label, collector: collectKonvaStagesSource },
+  );
+}
+
+export async function readMilestoneDiamondFill(
+  page: Page,
+  milestoneName: string,
+): Promise<{ fill: string | null; stroke: string }> {
+  return page.evaluate(
+    ({ label, collector }) => {
+      const stages = eval(collector) as Array<{
+        container?: () => HTMLElement | null;
+        find: (selector: string) => Array<{
+          sides?: () => number;
+          fill?: () => string | undefined;
+          stroke?: () => string;
+          getAbsolutePosition?: () => { x: number; y: number };
+        } & { text?: () => string }>[];
+      }>;
+      for (const stage of stages) {
+        const container = stage.container?.();
+        if (!(container instanceof HTMLElement)) continue;
+        const texts = stage.find("Text");
+        const labelIndex = texts.findIndex((node) => {
+          const text = node.text?.() ?? "";
+          return text === label || text.includes(label);
+        });
+        if (labelIndex < 0) continue;
+        const textPos = texts[labelIndex]!.getAbsolutePosition?.() ?? { x: 0, y: 0 };
+        let best: { dist: number; fill: string | null; stroke: string } | null = null;
+        for (const diamond of stage.find("RegularPolygon")) {
+          if ((diamond.sides?.() ?? 0) !== 4) continue;
+          const pos = diamond.getAbsolutePosition?.() ?? { x: 0, y: 0 };
+          const dist = Math.hypot(pos.x - textPos.x, pos.y - textPos.y);
+          const fillRaw = diamond.fill?.();
+          const fill =
+            fillRaw == null || fillRaw === "" || fillRaw === "transparent"
+              ? null
+              : String(fillRaw);
+          const stroke = diamond.stroke?.() ?? "";
+          const candidate = { dist, fill, stroke };
+          if (!best || candidate.dist < best.dist) best = candidate;
+        }
+        if (best) return { fill: best.fill, stroke: best.stroke };
+      }
+      throw new Error(`milestone diamond missing: ${label}`);
+    },
+    { label: milestoneName, collector: collectKonvaStagesSource },
+  );
+}
+
+export async function hasSummaryBarNearRow(page: Page, rowLabel: string): Promise<boolean> {
+  const targetY = await page.evaluate((label) => {
+    const row = [...document.querySelectorAll(".sidebar-row")].find((el) =>
+      el.textContent?.includes(label),
+    );
+    if (!row) return null;
+    const box = row.getBoundingClientRect();
+    return box.y + box.height / 2;
+  }, rowLabel);
+  if (targetY == null) throw new Error(`row missing: ${rowLabel}`);
+  return page.evaluate(
+    ({ collector, yMid }) => {
+      const stages = eval(collector) as Array<{
+        container?: () => HTMLElement | null;
+        find: (selector: string) => Array<{
+          width?: () => number;
+          height?: () => number;
+          getAbsoluteTransform?: () => {
+            point: (pt: { x: number; y: number }) => { x: number; y: number };
+          };
+        }>;
+      }>;
+      for (const stage of stages) {
+        const container = stage.container?.();
+        if (!(container instanceof HTMLElement)) continue;
+        if (!container.closest(".timeline-body")) continue;
+        const stageRect = container.getBoundingClientRect();
+        for (const rect of stage.find("Rect")) {
+          const w = rect.width?.() ?? 0;
+          const h = rect.height?.() ?? 0;
+          if (w < 16 || h < 2 || h > 12) continue;
+          const mid = rect.getAbsoluteTransform?.().point({ x: w / 2, y: h / 2 }) ?? {
+            x: w / 2,
+            y: h / 2,
+          };
+          const clientY = stageRect.top + mid.y;
+          if (Math.abs(clientY - yMid) <= 12) return true;
+        }
+      }
+      return false;
+    },
+    { collector: collectKonvaStagesSource, yMid: targetY },
+  );
+}
+
+export function strokeMatches(color: string, expected: string): boolean {
+  return normalizeHex(color) === normalizeHex(expected);
+}
+
+export async function probeDeleteWithHover(
+  page: Page,
+  predicate: (stroke: KonvaStrokeInfo) => boolean,
+): Promise<void> {
+  const points = await page.evaluate(
+    ({ collector, minY, maxY }) => {
+      void minY;
+      void maxY;
+      const stages = eval(collector) as Array<{
+        container?: () => HTMLElement | null;
+        find: (selector: string) => Array<{
+          getClassName?: () => string;
+          stroke?: () => string;
+          points?: () => number[];
+          getAbsoluteTransform?: () => {
+            point: (pt: { x: number; y: number }) => { x: number; y: number };
+          };
+        }>;
+      }>;
+      const mids: { x: number; y: number; stroke: string; kind: string }[] = [];
+      for (const stage of stages) {
+        const container = stage.container?.();
+        if (!(container instanceof HTMLElement)) continue;
+        if (!container.closest(".timeline-body")) continue;
+        const stageRect = container.getBoundingClientRect();
+        for (const kind of ["Arrow", "Line"] as const) {
+          for (const node of stage.find(kind)) {
+            const pts = node.points?.() ?? [];
+            if (pts.length < 4) continue;
+            const transform = node.getAbsoluteTransform?.();
+            for (let index = 0; index + 1 < pts.length / 2; index += 1) {
+              const local = { x: pts[index * 2] ?? 0, y: pts[index * 2 + 1] ?? 0 };
+              const transformed = transform?.point(local) ?? local;
+              mids.push({
+                kind,
+                stroke: node.stroke?.() ?? "",
+                x: stageRect.left + transformed.x,
+                y: stageRect.top + transformed.y,
+              });
+            }
+          }
+        }
+      }
+      return mids;
+    },
+    { collector: collectKonvaStagesSource, minY: 0, maxY: 0 },
+  );
+  const undo = page.getByRole("button", { name: "取り消し" });
+  for (const point of points) {
+    if (!predicate({ className: point.kind, stroke: point.stroke, strokeWidth: 0, points: [] })) {
+      continue;
+    }
+    await page.mouse.move(point.x, point.y);
+    await page.keyboard.press("Delete");
+    if (await undo.isEnabled()) return;
+  }
+  throw new Error("Delete hover did not remove a matching link");
+}
+
+export async function readDiamondFillAtPointer(
+  page: Page,
+  clientX: number,
+  clientY: number,
+): Promise<{ fill: string | null; stroke: string }> {
+  return page.evaluate(
+    ({ x, y, collector }) => {
+      const stages = eval(collector) as Array<{
+        container?: () => HTMLElement | null;
+        find: (selector: string) => Array<{
+          sides?: () => number;
+          fill?: () => string | undefined;
+          stroke?: () => string;
+          getAbsolutePosition?: () => { x: number; y: number };
+        }>;
+      }>;
+      let best: { dist: number; fill: string | null; stroke: string } | null = null;
+      for (const stage of stages) {
+        const container = stage.container?.();
+        if (!(container instanceof HTMLElement)) continue;
+        const stageRect = container.getBoundingClientRect();
+        for (const diamond of stage.find("RegularPolygon")) {
+          if ((diamond.sides?.() ?? 0) !== 4) continue;
+          const pos = diamond.getAbsolutePosition?.() ?? { x: 0, y: 0 };
+          const clientDiamondX = stageRect.left + pos.x;
+          const clientDiamondY = stageRect.top + pos.y;
+          const dist = Math.hypot(clientDiamondX - x, clientDiamondY - y);
+          const fillRaw = diamond.fill?.();
+          const fill =
+            fillRaw == null || fillRaw === "" || fillRaw === "transparent"
+              ? null
+              : String(fillRaw);
+          const stroke = diamond.stroke?.() ?? "";
+          const candidate = { dist, fill, stroke };
+          if (!best || candidate.dist < best.dist) best = candidate;
+        }
+      }
+      if (!best || best.dist > 40) {
+        throw new Error("milestone diamond missing at pointer");
+      }
+      return { fill: best.fill, stroke: best.stroke };
+    },
+    { x: clientX, y: clientY, collector: collectKonvaStagesSource },
+  );
+}
