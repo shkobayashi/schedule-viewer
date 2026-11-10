@@ -87,6 +87,9 @@ export const playgroundMembersPath = path.join(
   repoRoot,
   "examples/playground.members.json",
 );
+export const playgroundSchedulePath = path.join(repoRoot, "examples/playground.schedule.json");
+export const colorsSchedulePath = path.join(repoRoot, "examples/colors/schedule.json");
+export const colorsCatalogPath = path.join(repoRoot, "examples/colors/colors.json");
 
 export async function dismissBlockingUi(page: Page): Promise<void> {
   const firstRunClose = page.locator(".first-run-hint-card .modal-close-btn");
@@ -326,4 +329,13 @@ export function smokeScheduleTitle(): string {
   const raw = fs.readFileSync(smokeSchedulePath, "utf8");
   const doc = JSON.parse(raw) as { title?: string };
   return doc.title ?? "回帰確認";
+}
+
+export async function readSidebarAppliedWidth(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const app = document.querySelector(".app");
+    if (!app) return 0;
+    const raw = getComputedStyle(app).getPropertyValue("--sidebar-w").trim();
+    return Number.parseFloat(raw) || 0;
+  });
 }

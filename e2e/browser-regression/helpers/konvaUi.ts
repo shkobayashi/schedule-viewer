@@ -108,6 +108,31 @@ export function requireKonva(message = "Konva not readable"): void {
   }
 }
 
+/** Konva Text nodes on the milestone band strip. */
+export async function readKonvaTextsInMilestoneBand(page: Page): Promise<string[]> {
+  return page.evaluate((collector) => {
+    const stages = eval(collector) as Array<{
+      container?: () => HTMLElement | null;
+      find: (selector: string) => Array<{
+        text?: () => string;
+        visible?: () => boolean;
+      }>;
+    }>;
+    const texts: string[] = [];
+    for (const stage of stages) {
+      const container = stage.container?.();
+      if (!(container instanceof HTMLElement)) continue;
+      if (!container.closest(".milestone-band")) continue;
+      for (const node of stage.find("Text")) {
+        if (node.visible?.() === false) continue;
+        const text = node.text?.() ?? "";
+        if (text.length > 0) texts.push(text);
+      }
+    }
+    return texts;
+  }, collectKonvaStagesSource);
+}
+
 /** Konva Text nodes under `.timeline-body` (canvas-only labels such as 休). */
 export async function readKonvaTextsInTimelineBody(page: Page): Promise<string[]> {
   return page.evaluate((collector) => {
@@ -708,6 +733,121 @@ export async function readTaskBarKonvaForRow(
       return null;
     },
     { name: taskName, id: taskId, collector: collectKonvaStagesSource },
+  );
+}
+
+export async function readAllKonvaTextContents(page: Page): Promise<string[]> {
+  return page.evaluate((collector) => {
+    const stages = eval(collector) as Array<{
+      find: (selector: string) => Array<{ text?: () => string; visible?: () => boolean }>;
+    }>;
+    const texts: string[] = [];
+    for (const stage of stages) {
+      for (const node of stage.find("Text")) {
+        if (node.visible?.() === false) continue;
+        const text = node.text?.() ?? "";
+        if (text.length > 0) texts.push(text);
+      }
+    }
+    return texts;
+  }, collectKonvaStagesSource);
+}
+
+export async function readTimelineHeaderClientXForMonthDay(
+  page: Page,
+  monthDay: string,
+): Promise<number | null> {
+  const alternate =
+    monthDay.includes("/") && monthDay.length > 3
+      ? `${monthDay.slice(0, 3)}${Number.parseInt(monthDay.slice(3), 10)}`
+      : monthDay;
+  return page.evaluate(
+    ({ label, alt, collector }) => {
+      const stages = eval(collector) as Array<{
+        container?: () => HTMLElement | null;
+        find: (selector: string) => Array<{
+          text?: () => string;
+          getAbsoluteTransform?: () => {
+            point: (pt: { x: number; y: number }) => { x: number; y: number };
+          };
+        }>;
+      }>;
+      for (const stage of stages) {
+        const container = stage.container?.();
+        if (!(container instanceof HTMLElement)) continue;
+        if (!container.closest(".timeline-header")) continue;
+        const stageRect = container.getBoundingClientRect();
+        for (const node of stage.find("Text")) {
+          const text = node.text?.() ?? "";
+          if (text !== label && text !== alt && !text.includes(label) && !text.includes(alt)) continue;
+          const mid = node.getAbsoluteTransform?.().point({ x: 0, y: 0 }) ?? { x: 0, y: 0 };
+          return stageRect.left + mid.x;
+        }
+      }
+      return null;
+    },
+    { label: monthDay, alt: alternate, collector: collectKonvaStagesSource },
+  );
+}
+
+export async function readLightningVerticalClientXForRow(
+  page: Page,
+  taskName: string,
+  expectedStroke: string,
+): Promise<number | null> {
+  const row = page.locator(".sidebar-row.task", { hasText: taskName }).first();
+  const taskId = await row.getAttribute("data-task-id");
+  return page.evaluate(
+    ({ name, id, expected, collector }) => {
+      const rowEl = id
+        ? document.querySelector(`[data-task-id="${id}"]`)
+        : [...document.querySelectorAll(".sidebar-row.task")].find((el) =>
+            el.textContent?.includes(name),
+          );
+      if (!rowEl) return null;
+      const targetY = rowEl.getBoundingClientRect().top + rowEl.getBoundingClientRect().height / 2;
+      const matchStroke = (stroke: string) => {
+        const a = stroke.trim().toLowerCase().replace(/\s/g, "");
+        const b = expected.trim().toLowerCase().replace(/\s/g, "");
+        return a === b;
+      };
+      const stages = eval(collector) as Array<{
+        container?: () => HTMLElement | null;
+        find: (selector: string) => Array<{
+          stroke?: () => string;
+          points?: () => number[];
+          getAbsoluteTransform?: () => {
+            point: (pt: { x: number; y: number }) => { x: number; y: number };
+          };
+        }>;
+      }>;
+      for (const stage of stages) {
+        const container = stage.container?.();
+        if (!(container instanceof HTMLElement)) continue;
+        if (!container.closest(".timeline-body")) continue;
+        const stageRect = container.getBoundingClientRect();
+        for (const line of stage.find("Line")) {
+          const pts = line.points?.() ?? [];
+          if (pts.length < 4) continue;
+          if (Math.abs((pts[0] ?? 0) - (pts[2] ?? 0)) > 0.5) continue;
+          const stroke = line.stroke?.() ?? "";
+          if (!matchStroke(stroke)) continue;
+          const transform = line.getAbsoluteTransform?.();
+          let crossesRow = false;
+          let bestX: number | null = null;
+          for (let index = 0; index < pts.length; index += 2) {
+            const local = { x: pts[index] ?? 0, y: pts[index + 1] ?? 0 };
+            const client = transform?.point(local) ?? local;
+            const clientY = stageRect.top + client.y;
+            if (Math.abs(clientY - targetY) < 20) crossesRow = true;
+            bestX = stageRect.left + client.x;
+          }
+          if (crossesRow && bestX != null) return bestX;
+        }
+      }
+      return null;
+    },
+    { name: taskName, id: taskId, expected: expectedStroke, collector: collectKonvaStagesSource },
   );
 }
 
