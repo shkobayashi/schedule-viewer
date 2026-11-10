@@ -15,6 +15,10 @@ export const longSchedulePath = path.join(
   repoRoot,
   "examples/regression/long.schedule.json",
 );
+export const manyTasksSchedulePath = path.join(
+  repoRoot,
+  "examples/regression/many-tasks.schedule.json",
+);
 export const levels5SchedulePath = path.join(
   repoRoot,
   "examples/hierarchy/levels-5.schedule.json",
@@ -26,6 +30,10 @@ export const membersRegressionPath = path.join(
 export const fullSchedulePath = path.join(
   repoRoot,
   "examples/regression/full.schedule.json",
+);
+export const fieldsSchedulePath = path.join(
+  repoRoot,
+  "examples/fields.schedule.json",
 );
 export const connectionsSchedulePath = path.join(
   repoRoot,
@@ -58,6 +66,26 @@ export const colorsRegressionPath = path.join(
 export const fieldsRegressionPath = path.join(
   repoRoot,
   "examples/regression/fields.json",
+);
+export const brokenCalendarPath = path.join(
+  repoRoot,
+  "examples/regression/broken.calendar.json",
+);
+export const jp2026CalendarPath = path.join(
+  repoRoot,
+  "examples/jp-2026.calendar.json",
+);
+export const lightningSchedulePath = path.join(
+  repoRoot,
+  "examples/lightning/schedule.json",
+);
+export const lightningStatusesPath = path.join(
+  repoRoot,
+  "examples/lightning/statuses.json",
+);
+export const playgroundMembersPath = path.join(
+  repoRoot,
+  "examples/playground.members.json",
 );
 
 export async function dismissBlockingUi(page: Page): Promise<void> {

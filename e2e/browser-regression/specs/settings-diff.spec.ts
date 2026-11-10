@@ -30,7 +30,11 @@ import {
   statusesRegressionPath,
   waitForTitle,
 } from "../helpers/session.ts";
-import { importJsonInOpenSettings, openSettingsSection } from "../helpers/settings.ts";
+import {
+  importJsonInOpenSettings,
+  openCatalogEditorFromSettings,
+  openSettingsSection,
+} from "../helpers/settings.ts";
 import { openContextMenuAt, openTaskBarContextMenu } from "../helpers/contextMenu.ts";
 import { pointerOnMilestoneDiamond } from "../helpers/konvaUi.ts";
 import { wheelShiftHorizontalOnChart } from "../helpers/nav.ts";
@@ -130,12 +134,33 @@ test("saves a member display name from the overlay and leaves an unused catalog 
   await page.getByRole("button", { name: "項目を編集…" }).click();
   const editor = page.getByRole("dialog", { name: "メンバーの項目を編集" });
   await editor.getByRole("radio", { name: "members" }).click();
+  await editor.locator('.status-catalog-editor-field-name input[value="鈴木"]').fill("順序テスト");
+  await editor.locator('.status-catalog-editor-field-name input[value="田中"]').click();
+  await editor.getByRole("button", { name: "田中を下へ" }).click();
+  await editor.getByRole("button", { name: "田中を下へ" }).click();
+  await editor.locator("aside textarea.status-catalog-editor-textarea-description").fill("メンバー説明");
   await editor.locator('.status-catalog-editor-field-name input[value="田中"]').fill("表示名テスト");
   await editor.getByRole("button", { name: "保存" }).click();
   await editor.getByRole("button", { name: "閉じる" }).click();
   await expect(editor).toHaveCount(0);
   await page.keyboard.press("Escape");
+  await page.reload({ waitUntil: "load" });
+  await openSmokeSchedule(page);
+  await openCatalogEditorFromSettings(page, "メンバー");
+  const editor2 = page.getByRole("dialog", { name: "メンバーの項目を編集" });
+  await editor2.getByRole("radio", { name: "members" }).click();
+  await editor2.locator('.status-catalog-editor-field-name input[value="表示名テスト"]').click();
+  await expect(editor2.locator("aside textarea.status-catalog-editor-textarea-description")).toHaveValue(
+    "メンバー説明",
+  );
+  await editor2.getByRole("button", { name: "閉じる" }).click();
+  await page.keyboard.press("Escape");
   await selectTaskByName(page, "設計");
+  const options = await page.locator("#detailAssigneeAdd option").allTextContents();
+  const suzukiIndex = options.indexOf("順序テスト");
+  const tanakaIndex = options.indexOf("表示名テスト");
+  expect(suzukiIndex).toBeGreaterThanOrEqual(0);
+  expect(tanakaIndex).toBeGreaterThan(suzukiIndex);
   await page.locator("#detailAssigneeAdd").selectOption({ label: "表示名テスト" });
   await expect(page.locator(".sidebar-row", { hasText: "設計" })).toContainText("表示名テスト");
 });
@@ -177,6 +202,9 @@ test("adds a color list and refuses a blank or duplicate id", async ({ page }) =
   await editor.getByRole("button", { name: "項目を足す" }).click();
   await editor.locator(".status-catalog-editor-field-id input:not([readonly])").last().fill("focus");
   await expect(editor.getByRole("button", { name: "保存" })).toBeDisabled();
+  const savedId = editor.locator('.status-catalog-editor-field-id input[readonly]').first();
+  await expect(savedId).toBeVisible();
+  await expect(savedId).toHaveAttribute("readonly", "");
   await page.keyboard.press("Escape");
 });
 
