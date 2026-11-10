@@ -12,22 +12,22 @@
 | MX-H-2 | UI | インストールと起動 | 自動済み | 自動:src/components/browserDesktopChrome.dom.test.tsx#hides the first-run card after dismiss across a remount |
 | MX-H-3 | 計算 | インストールと起動 | 自動済み | 自動:src/model/firstRunGuidance.test.ts#keeps the screenshot shim on the desktop path and the browser off it |
 | MX-H-4 | 見た目 | 画面の見かた | 手動のまま | 手動:RG-S2-6。手動のまま:色が地に溶けて読めるかは人が判断する |
-| MX-H-5 | UI | 画面の見かた | 自動化予定 | 自動化予定:#535 |
+| MX-H-5 | UI | 画面の見かた | 自動済み | 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#shows the smoke fixture title and task names (VIEW-01) |
 | MX-H-6 | UI | ファイルを開く・保存する | 自動済み | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02) |
 | MX-H-7 | OS | ファイルを開く・保存する | 手動のまま | 手動のまま:OS のファイルを開く・保存するダイアログは mock だけでは足りない。 |
-| MX-H-8 | UI | 表示を動かす | 自動化予定 | 手動:RG-S2-3。自動化予定:#535 |
-| MX-H-9 | UI | 表示を動かす | 自動化予定 | 自動化予定:#535 |
-| MX-H-10 | UI | スクロール | 自動化予定 | 手動:RG-S2-2。自動化予定:#535 |
-| MX-H-11 | UI | スクロール | 自動化予定 | 自動化予定:#535 |
-| MX-H-12 | UI | 拡大と表示単位 | 自動化予定 | 手動:RG-S2-5。自動化予定:#535 |
-| MX-H-13 | UI | 拡大と表示単位 | 自動化予定 | 自動化予定:#535 |
-| MX-H-14 | UI | 折りたたみと一覧の幅 | 自動化予定 | 手動:RG-S2-7。自動化予定:#535 |
-| MX-H-15 | UI | 折りたたみと一覧の幅 | 自動化予定 | 自動化予定:#535 |
+| MX-H-8 | UI | 表示を動かす | 自動済み | 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#pans the empty chart 80px without moving the list vertically (NAV-01) |
+| MX-H-9 | UI | 表示を動かす | 自動済み | 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#pans the empty chart 80px without moving the list vertically (NAV-01) |
+| MX-H-10 | UI | スクロール | 一部自動 | 手動:RG-S2-2。自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls the long list until row 40... |
+| MX-H-11 | UI | スクロール | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls with ctrl or meta and the arrow keys... |
+| MX-H-12 | UI | 拡大と表示単位 | 自動済み | 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03)。自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette and ignores the palette shortcut while a dialog is open |
+| MX-H-13 | UI | 拡大と表示単位 | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls the sidebar horizontally with the wheel and zooms there |
+| MX-H-14 | UI | 折りたたみと一覧の幅 | 一部自動 | 手動:RG-S2-7。自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#drags the sidebar boundary and keeps the row and bar on the same y |
+| MX-H-15 | UI | 折りたたみと一覧の幅 | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls the sidebar horizontally with the wheel and zooms there |
 | MX-H-16 | UI | 絞り込む | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#keeps only tasks whose name contains the query |
 | MX-H-17 | 計算 | 絞り込む | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#keeps only tasks whose name contains the query |
 | MX-H-18 | 見た目 | 色と線の見かた | 手動のまま | 手動:RG-S2-6。手動のまま:色が地に溶けて読めるかは人が判断する |
 | MX-H-19 | 見た目 | 色と線の見かた | 自動化予定 | 自動化予定:#536 |
-| MX-H-20 | UI | 編集する | 自動化予定 | 手動:RG-S3-1。自動化予定:#535 |
+| MX-H-20 | UI | 編集する | 自動済み | 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#moves 設計 to 2026-04-06 through 2026-04-10 on release and adds one undo (EDIT-02) |
 | MX-H-21 | 計算 | 編集する | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#toggles 設計 confidence without moving dates and one undo restores it |
 | MX-H-22 | 計算 | 選択と移動 | 自動済み | 自動:src/model/taskSelection.test.ts#selects a range with shift+click |
 | MX-H-23 | UI | 選択と移動 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
@@ -36,10 +36,10 @@
 | MX-H-26 | UI | タスクへの色 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color |
 | MX-H-27 | UI | タスクへの色 | 自動化予定 | 自動化予定:#536 |
 | MX-H-28 | 計算 | 右クリックと複製 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
-| MX-H-29 | UI | 右クリックと複製 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#duplicates 調査 on full.schedule with unchanged pointed tasks。自動化予定:#535 |
+| MX-H-29 | UI | 右クリックと複製 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#duplicates 調査 on full.schedule with unchanged pointed tasks |
 | MX-H-30 | UI | ノートと名前 | 手動のまま | 手動:RG-F1-2。手動のまま:実機の変換確定は模擬イベントで代用しない |
 | MX-H-31 | 計算 | 追加と削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#deletes an empty category and an empty group, then undo restores both |
-| MX-H-32 | UI | 追加と削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。自動:src/test/headlessScheduleSession.regression.test.ts#restores empty group 後半 after removeGroup and one undo。手動:RG-S3-9。自動化予定:#535 |
+| MX-H-32 | UI | 追加と削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。自動:src/test/headlessScheduleSession.regression.test.ts#restores empty group 後半 after removeGroup and one undo。手動:RG-S3-9 |
 | MX-H-33 | 計算 | 取り消しと、入力中のキー | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#undo and redo restore the exact saved schedule |
 | MX-H-34 | UI | 取り消しと、入力中のキー | 手動のまま | 手動:RG-F1-3。手動のまま:変換中の Escape は実機の日本語変換でしか確認できない |
 | MX-H-35 | 見た目 | 書き出す | 自動化予定 | 手動:RG-F5-2。自動化予定:#536 |
@@ -50,7 +50,7 @@
 | MX-H-40 | OS | ほかのプログラムがファイルを書き換えたとき | 手動のまま | 手動のまま:他プログラムによるファイル書き換えの実機監視は mock だけでは足りない。 |
 | MX-H-41 | UI | 閉じたあとに、また開くとき | 一部自動 | 自動:src/hooks/scheduleFile/startupRecoveryFlow.dom.test.tsx#TC-SYNC-03: restores unsaved edits when the disk matches baseline。手動:RG-F8-2 |
 | MX-H-42 | UI | 閉じたあとに、また開くとき | 一部自動 | 自動:src/hooks/scheduleFile/startupRecoveryFlow.dom.test.tsx#TC-SYNC-03f: blocks date moves until startup recovery settles |
-| MX-H-43 | UI | 操作早見表 | 自動化予定 | 手動:RG-F2-2。自動化予定:#535 |
+| MX-H-43 | UI | 操作早見表 | 一部自動 | 手動:RG-F2-2。自動:e2e/browser-regression/specs/layout-f2.spec.ts#folds the shortcut list into one column at 480 by 640 |
 | MX-H-44 | UI | 操作早見表 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens the shortcut list from keys and the menu but not from search |
 | MX-H-45 | UI | モード中のキー | 手動のまま | 手動:RG-F1-5。手動のまま:変換中の矢印は実機の日本語変換でしか確認できない |
 | MX-H-46 | UI | モード中のキー | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens add dialogs from shortcuts and skips them while typing or linking |
@@ -71,7 +71,7 @@
 | MX-O-1 | UI | 開く | 手動のまま | 手動のまま:実機の「開く」ダイアログでファイルを選ぶ操作は mock だけでは足りない。 |
 | MX-O-2 | OS | 開く | 手動のまま | 手動のまま:OS の「開く」ダイアログでファイルを選ぶ操作は mock だけでは足りない。 |
 | MX-O-3 | 計算 | 最近開いたファイルの1件を開く | 自動済み | 自動:src/model/recentFiles.test.ts#prepends a new path |
-| MX-O-4 | UI | 最近開いたファイルの1件を開く | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#opening from history resets filters and fit。自動化予定:#535 |
+| MX-O-4 | UI | 最近開いたファイルの1件を開く | 自動済み | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#opening from history resets filters and fit。自動:src/components/AppMenu.recent.dom.test.tsx#opens the first recent schedule when chosen from the submenu |
 | MX-O-5 | UI | 履歴を消す | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#clear history leaves the open schedule and the recovery file。手動:RG-F9-2 |
 | MX-O-6 | UI | 新しいウィンドウで開く | 自動化予定 | 手動:RG-F9-1。自動化予定:#541 |
 | MX-O-7 | OS | 新しいウィンドウで開く | 自動化予定 | 自動化予定:#541 |
@@ -102,26 +102,26 @@
 | MX-O-32 | UI | コマンドパレットを開く／閉じる | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens and closes the command palette without the guide |
 | MX-O-33 | 計算 | 操作の案内を開く | 自動済み | 自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open |
 | MX-O-34 | UI | 操作の案内を開く | 自動済み | 自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open |
-| MX-O-35 | UI | ショートカット一覧を開く | 自動化予定 | 手動:RG-F2-2。自動化予定:#535 |
+| MX-O-35 | UI | ショートカット一覧を開く | 一部自動 | 手動:RG-F2-2。自動:e2e/browser-regression/specs/layout-f2.spec.ts#folds the shortcut list into one column at 480 by 640 |
 | MX-O-36 | UI | ショートカット一覧を開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens the shortcut list from keys and the menu but not from search |
 | MX-O-37 | UI | タスク名／ノートで検索 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#keeps only tasks whose name contains the query |
 | MX-O-38 | 計算 | タスク名／ノートで検索 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters notes from the note search field |
-| MX-O-39 | UI | 今日へ移動 | 自動化予定 | 手動:RG-S2-5。自動化予定:#535 |
-| MX-O-40 | UI | 今日へ移動 | 自動化予定 | 自動化予定:#535 |
-| MX-O-41 | UI | 日表示 | 自動化予定 | 手動:RG-S2-5。自動化予定:#535 |
-| MX-O-42 | UI | 週表示 | 自動化予定 | 手動:RG-S2-5。自動化予定:#535 |
-| MX-O-43 | UI | 月表示 | 自動化予定 | 手動:RG-S2-5。自動化予定:#535 |
-| MX-O-44 | UI | 全体表示 | 自動化予定 | 手動:RG-S2-5。自動化予定:#535 |
-| MX-O-45 | UI | 表示サイズを拡大 | 自動化予定 | 自動化予定:#535 |
-| MX-O-46 | UI | 表示サイズを縮小 | 自動化予定 | 自動化予定:#535 |
-| MX-O-47 | UI | チャートをスクロール | 自動化予定 | 手動:RG-S2-3。自動化予定:#535 |
-| MX-O-48 | UI | チャートをスクロール | 自動化予定 | 自動化予定:#535 |
-| MX-O-49 | UI | ズーム（ホイール） | 自動化予定 | 自動化予定:#535 |
-| MX-O-50 | UI | 横スクロール（ホイール） | 自動化予定 | 手動:RG-S2-4。自動化予定:#535 |
-| MX-O-51 | UI | 横スクロール（ホイール） | 自動化予定 | 自動化予定:#535 |
+| MX-O-39 | UI | 今日へ移動 | 一部自動 | 手動:RG-S2-5。自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette and ignores the palette shortcut while a dialog is open |
+| MX-O-40 | UI | 今日へ移動 | 自動済み | 自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette and ignores the palette shortcut while a dialog is open |
+| MX-O-41 | UI | 日表示 | 一部自動 | 手動:RG-S2-5。自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03) |
+| MX-O-42 | UI | 週表示 | 一部自動 | 手動:RG-S2-5。自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03) |
+| MX-O-43 | UI | 月表示 | 一部自動 | 手動:RG-S2-5。自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03) |
+| MX-O-44 | UI | 全体表示 | 一部自動 | 手動:RG-S2-5。自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03) |
+| MX-O-45 | UI | 表示サイズを拡大 | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls the sidebar horizontally with the wheel and zooms there |
+| MX-O-46 | UI | 表示サイズを縮小 | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls the sidebar horizontally with the wheel and zooms there |
+| MX-O-47 | UI | チャートをスクロール | 一部自動 | 手動:RG-S2-3。自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#pans the empty chart 80px without moving the list vertically (NAV-01) |
+| MX-O-48 | UI | チャートをスクロール | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls with ctrl or meta and the arrow keys... |
+| MX-O-49 | UI | ズーム（ホイール） | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls the sidebar horizontally with the wheel and zooms there |
+| MX-O-50 | UI | 横スクロール（ホイール） | 一部自動 | 手動:RG-S2-4。自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#shifts the chart horizontally with shift and the wheel |
+| MX-O-51 | UI | 横スクロール（ホイール） | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#shifts the chart horizontally with shift and the wheel |
 | MX-O-52 | UI | スケジュールのタイトルを変更 | 手動のまま | 手動:RG-F1-4。手動のまま:見出しの実機の変換確定は模擬イベントで代用しない |
 | MX-O-53 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#the saved file contains 回帰の指示 and the example file does not |
-| MX-O-54 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied。自動化予定:#535 |
+| MX-O-54 | UI | 階層の名前・意味・指示を編集 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied |
 | MX-O-55 | UI | 絞り込みパネルを開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters assignees from the panel and clears one chip |
 | MX-O-56 | UI | 絞り込みをすべて解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters tags and clears one chip without clearing lineage |
 | MX-O-57 | UI | 系統を表示／解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
@@ -135,46 +135,46 @@
 | MX-O-65 | 計算 | 絞り込み結果のタスク一覧を読む | 自動済み | 自動:src/model/mcpVisible.test.ts#lists rows that intersect the vertical viewport |
 | MX-O-66 | 計算 | 絞り込み結果のタスク一覧を読む | 自動化予定 | 自動化予定:#543 |
 | MX-O-67 | 計算 | 取り消し | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#undo and redo restore the exact saved schedule |
-| MX-O-68 | UI | 取り消し | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。手動:RG-S3-10。自動化予定:#535 |
+| MX-O-68 | UI | 取り消し | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。手動:RG-S3-10 |
 | MX-O-69 | 計算 | やり直し | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#undo and redo restore the exact saved schedule |
-| MX-O-70 | UI | やり直し | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。手動:RG-S3-11。自動化予定:#535 |
+| MX-O-70 | UI | やり直し | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。手動:RG-S3-11 |
 | MX-O-71 | 計算 | タスクを追加 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#adds a task, moves it to the empty group, and saves |
-| MX-O-72 | UI | タスクを追加 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#adds unassigned tentative task and relaxes the done filter。自動化予定:#535 |
+| MX-O-72 | UI | タスクを追加 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#adds unassigned tentative task and relaxes the done filter |
 | MX-O-73 | 計算 | マイルストンを追加 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#adds and deletes a milestone, then undo restores it |
 | MX-O-74 | UI | マイルストンを追加 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only add-milestone on an empty chart |
-| MX-O-75 | UI | タスクを編集（詳細） | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#undoes assignee add clear and reorder on 調査。自動:src/test/headlessScheduleSession.regression.test.ts#adds and removes a tag with undo redo and leaves the file dirty until save。自動化予定:#535 |
-| MX-O-76 | UI | タスクを削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。手動:RG-S3-9。自動化予定:#535 |
+| MX-O-75 | UI | タスクを編集（詳細） | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#undoes assignee add clear and reorder on 調査。自動:src/test/headlessScheduleSession.regression.test.ts#adds and removes a tag with undo redo and leaves the file dirty until save。自動:e2e/browser-regression/specs/milestone-links.spec.ts#replaces assignees from the detail and the bulk panel and undoes。自動:e2e/browser-regression/specs/milestone-links.spec.ts#changes confidence and tags from the detail and undoes |
+| MX-O-76 | UI | タスクを削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。手動:RG-S3-9。自動:e2e/browser-regression/specs/smoke-edit-drag.spec.ts#keeps 調査 when delete is cancelled |
 | MX-O-77 | 計算 | タスクを削除 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo |
-| MX-O-78 | UI | タスクを複製 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#duplicates 調査 on full.schedule with unchanged pointed tasks。自動化予定:#535 |
-| MX-O-79 | UI | 同じグループ内で並べ替え | 自動化予定 | 自動化予定:#535 |
+| MX-O-78 | UI | タスクを複製 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#duplicates 調査 on full.schedule with unchanged pointed tasks |
+| MX-O-79 | UI | 同じグループ内で並べ替え | 自動済み | 自動:e2e/browser-regression/specs/hierarchy-reorder.spec.ts#reorders a task, a category, and a group from the grip and undoes once |
 | MX-O-80 | UI | ノートを開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens the note with ctrl+n and shows the shortcut |
 | MX-O-81 | UI | 系統を表示／解除（タスク） | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
-| MX-O-82 | UI | 確定／未確定（タスク） | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#toggles 設計 confidence without moving dates and one undo restores it。自動化予定:#535 |
+| MX-O-82 | UI | 確定／未確定（タスク） | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#toggles 設計 confidence without moving dates and one undo restores it |
 | MX-O-83 | 見た目 | 確定／未確定（マイルストン） | 自動化予定 | 手動:RG-F4-3。自動化予定:#536 |
-| MX-O-84 | UI | マイルストンを編集 | 自動化予定 | 自動化予定:#535 |
+| MX-O-84 | UI | マイルストンを編集 | 一部自動 | 自動化予定:#536 |
 | MX-O-85 | 計算 | マイルストンを削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#adds and deletes a milestone, then undo restores it |
-| MX-O-86 | UI | マイルストンを削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#clears 調査 milestoneId when 承認 is deleted and undo restores both。自動化予定:#535 |
+| MX-O-86 | UI | マイルストンを削除 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#clears 調査 milestoneId when 承認 is deleted and undo restores both。自動:e2e/browser-regression/specs/milestone-links.spec.ts#deletes a milestone used as a filter and leaves the selection |
 | MX-O-87 | UI | 前後の線を外す | 自動化予定 | 手動:RG-F4-1。自動化予定:#536 |
 | MX-O-88 | 見た目 | 前後の線を外す | 自動化予定 | 自動化予定:#536 |
 | MX-O-89 | UI | 繋がりを外す | 自動化予定 | 手動:RG-F4-4。自動化予定:#536 |
-| MX-O-90 | UI | カテゴリ名を変更 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#undo restores 計画 name and keeps category id。自動化予定:#535 |
-| MX-O-91 | UI | 下にカテゴリを追加 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#undo removes a category added under 計画 and its default グループ。自動:src/test/headlessScheduleSession.regression.test.ts#appends category and default group at document end then undo removes both。自動化予定:#535 |
-| MX-O-92 | UI | グループを追加（カテゴリ下） | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#appends a group under the chosen category and one undo removes it。自動化予定:#535 |
-| MX-O-93 | UI | グループ名を変更 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#keeps group id when renaming 前半 and undo restores the name。自動化予定:#535 |
-| MX-O-94 | UI | 下にグループを追加 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#appends a group under the chosen category and one undo removes it。自動化予定:#535 |
-| MX-O-95 | UI | 階層名を変更（アウトライン） | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#MX-O-95: renameOutlineBranch and undo。自動化予定:#535 |
-| MX-O-96 | UI | 下に階層を追加 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#insertOutlineSiblingAfter commits and undo removes the sibling。自動化予定:#535 |
-| MX-O-97 | UI | 子階層を追加 | 一部自動 | 自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#MX-O-97: appendOutlineChildBranch and undo。自動化予定:#535 |
+| MX-O-90 | UI | カテゴリ名を変更 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#undo restores 計画 name and keeps category id |
+| MX-O-91 | UI | 下にカテゴリを追加 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#undo removes a category added under 計画 and its default グループ。自動:src/test/headlessScheduleSession.regression.test.ts#appends category and default group at document end then undo removes both |
+| MX-O-92 | UI | グループを追加（カテゴリ下） | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#appends a group under the chosen category and one undo removes it |
+| MX-O-93 | UI | グループ名を変更 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#keeps group id when renaming 前半 and undo restores the name |
+| MX-O-94 | UI | 下にグループを追加 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#appends a group under the chosen category and one undo removes it |
+| MX-O-95 | UI | 階層名を変更（アウトライン） | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#MX-O-95: renameOutlineBranch and undo |
+| MX-O-96 | UI | 下に階層を追加 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#adds an outline heading from the context menu。自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#insertOutlineSiblingAfter commits and undo removes the sibling |
+| MX-O-97 | UI | 子階層を追加 | 自動済み | 自動:src/test/headlessScheduleSession.hierarchy.regression.test.ts#MX-O-97: appendOutlineChildBranch and undo |
 | MX-O-98 | 計算 | カテゴリ／グループ／階層を削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#deletes an empty category and an empty group, then undo restores both |
-| MX-O-99 | UI | カテゴリ／グループ／階層を削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores empty group 後半 after removeGroup and one undo。自動:src/test/headlessScheduleSession.regression.test.ts#undo removes a category added under 計画 and its default グループ。自動化予定:#535 |
-| MX-O-100 | UI | タスクバーをドラッグして期間変更 | 自動化予定 | 手動:RG-S3-1。自動化予定:#535 |
-| MX-O-101 | UI | タスクバーをドラッグして期間変更 | 自動化予定 | 自動化予定:#535 |
+| MX-O-99 | UI | カテゴリ／グループ／階層を削除 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#restores empty group 後半 after removeGroup and one undo。自動:src/test/headlessScheduleSession.regression.test.ts#undo removes a category added under 計画 and its default グループ |
+| MX-O-100 | UI | タスクバーをドラッグして期間変更 | 一部自動 | 手動:RG-S3-1。自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#moves 設計 to 2026-04-06 through 2026-04-10 on release and adds one undo (EDIT-02) |
+| MX-O-101 | UI | タスクバーをドラッグして期間変更 | 自動済み | 自動:e2e/browser-regression/specs/smoke-edit-drag.spec.ts#commits a drag that starts as a right click and undoes it once |
 | MX-O-102 | 計算 | タスクを追加選択 | 自動済み | 自動:src/model/taskSelection.test.ts#toggles with meta+click |
-| MX-O-103 | UI | タスクを追加選択 | 自動化予定 | 自動化予定:#535 |
+| MX-O-103 | UI | タスクを追加選択 | 自動済み | 自動:e2e/browser-regression/specs/smoke-edit-drag.spec.ts#selects by click, shift range, and ctrl or meta toggle |
 | MX-O-104 | 計算 | タスクを範囲選択 | 自動済み | 自動:src/model/taskSelection.test.ts#selects a range with shift+click |
 | MX-O-105 | UI | タスクを範囲選択 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
 | MX-O-106 | 計算 | 選択を伸ばす | 自動済み | 自動:src/model/taskSelection.test.ts#extends selection with shift+arrow |
-| MX-O-107 | UI | 選択を伸ばす | 自動化予定 | 自動化予定:#535 |
+| MX-O-107 | UI | 選択を伸ばす | 自動済み | 自動:e2e/browser-regression/specs/smoke-edit-drag.spec.ts#extends the selection with shift and arrow keys |
 | MX-O-108 | 計算 | 説明を消す | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
 | MX-O-109 | 計算 | 前面スケジュールを置き換え | 自動化予定 | 自動化予定:#543 |
 | MX-O-110 | 計算 | 選択中タスクを1件読む | 自動済み | 自動:src/model/screenContext.test.ts#returns null when selection is not exactly one task |
@@ -192,7 +192,7 @@
 | MX-O-122 | UI | JSON作成スキル・更新確認の設定 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the browser skill note, the seven skill names, and a disabled install button。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the package version and omits the updates section in the browser。自動:src/components/settingsDesktopChrome.dom.test.tsx#shows the overwrite confirmation when install reports existing paths。自動:src/components/settingsDesktopChrome.dom.test.tsx#disables install and remove when every skill target is unchecked。自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m: manual check with no update shows the latest message |
 | MX-O-123 | 計算 | 説明のための見え方を掛ける | 自動済み | 自動:src/model/screenContext.test.ts#includes view.explanation when explanation view is active。自動:src/model/rows.test.ts#keeps only listed ids and ignores user filters and lineage |
 | MX-O-124 | 計算 | 説明の半透明・試しの計画 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
-| MX-O-125 | UI | 説明の半透明・試しの計画 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch。自動化予定:#535 |
+| MX-O-125 | UI | 説明の半透明・試しの計画 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch |
 | MX-O-126 | 計算 | 試しの計画を計画へ反映 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch |
 | MX-O-127 | 計算 | 画面の見方を LLM から変更 | 自動済み | 自動:src/model/mcpSetView.test.ts#leaves collapse unchanged when patch has no collapsed fields |
 | MX-O-128 | 計算 | 画面の見方を LLM から変更 | 自動化予定 | 自動化予定:#543 |

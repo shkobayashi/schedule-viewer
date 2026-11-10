@@ -33,7 +33,77 @@
 | バージョン | `npm run version:check` | 5ファイルのバージョン番号と `X.Y.Z` / `X.Y.Z-alpha.N` / `X.Y.Z-beta.N` の形、`tauri.conf.json` の `plugins.updater.endpoints` がそのメジャー用 `updater-X` を指すこと |
 | スキル同梱物 | `npm run build:validate-skill` のあと、CI と同じパスで `git diff --exit-code` | スキーマコピーと検証 bundle の差分 |
 
-Playwright は手動スクリーンショット用に devDependencies にある。画面コンポーネントの単体 DOM テストには jsdom と `@testing-library/react` を使う（`src/**/*.test.tsx`）。
+Playwright は手動スクリーンショット用に devDependencies にある。画面コンポーネントの単体 DOM テストには jsdom と `@testing-library/react` を使う（`src/**/*.test.tsx`）。ブラウザ回帰の E2E は `npm run test:browser-regression` で実行する（[development.md](development.md)）。
+
+## ブラウザ回帰
+
+`npm run test:browser-regression` で Playwright が `e2e/browser-regression/specs/*.spec.ts` を実行する（`konva-probe.spec.ts` と `manual-screenshot-only.spec.ts` は別プロジェクト）。機能 ID と `test` 名の対応は `e2e/browser-regression/feature-ids.json` を正本とし、下表はその写しである。DOM 回帰の `AppMenu.recent.dom.test.tsx` は [Vitest 表](#vitest) に載せる。
+
+| ファイル | `test` 名 | 機能 ID |
+| --- | --- | --- |
+| `hierarchy-reorder.spec.ts` | collapses and expands from the triangle | VIEW-01, TC-HIER-04 |
+| `hierarchy-reorder.spec.ts` | shows the full name on hover... | VIEW-13 |
+| `hierarchy-reorder.spec.ts` | reorders a task, a category, and a group from the grip and undoes once | EDIT-13 |
+| `hierarchy-reorder.spec.ts` | shows one translucent row while a collapsed category or group grip is dragged | EDIT-13 |
+| `hierarchy-reorder.spec.ts` | does not start a reorder while a name filter leaves one row | EDIT-13 |
+| `hierarchy-reorder.spec.ts` | does not select or open a menu from a short grip click | EDIT-13 |
+| `hierarchy-reorder.spec.ts` | adds a heading from the toolbar menu and from the row menu, then undoes | TC-HIER-05e, EDIT-18 |
+| `hierarchy-reorder.spec.ts` | renames a category and a group from double click and undoes | EDIT-13 |
+| `hierarchy-reorder.spec.ts` | reorders a category on the five-level sample from the grip | TC-HIER-04 |
+| `konva-probe.spec.ts` | probes Konva readability for regression helpers | — |
+| `layout-f2.spec.ts` | shows only short toolbar labels at 1280 by 800 | VIEW-16 |
+| `layout-f2.spec.ts` | folds the shortcut list into one column at 480 by 640 | VIEW-16 |
+| `layout-f2.spec.ts` | keeps the corner context menu inside the 480 by 640 window | VIEW-16 |
+| `layout-f2.spec.ts` | runs 今日 from the command palette and ignores the palette shortcut while a dialog is open | NAV-07 |
+| `layout-f2.spec.ts` | compares light and dark screenshots of the sample without judging readability | VIEW-16 (#536) |
+| `manual-screenshot-only.spec.ts` | shows the April 2026 today line when the screenshot clock is 2026-04-15 | NAV-02 |
+| `milestone-links.spec.ts` | edits milestone confidence from the name menu and undoes | EDIT-07 |
+| `milestone-links.spec.ts` | toggles task confidence from the menu and undoes | EDIT-04 |
+| `milestone-links.spec.ts` | duplicates from the menu with an empty predecessor and undoes | EDIT-10 |
+| `milestone-links.spec.ts` | enters link mode from the button and ctrl or meta L, not from L alone | EDIT-23 |
+| `milestone-links.spec.ts` | adds one link by clicking another bar and leaves the mode with escape | EDIT-23 |
+| `milestone-links.spec.ts` | does not add a link below the drag thresholds | EDIT-23 |
+| `milestone-links.spec.ts` | moves the milestone focus with escape without closing the detail | VIEW-04c |
+| `milestone-links.spec.ts` | changes confidence and tags from the detail and undoes | EDIT-04 |
+| `milestone-links.spec.ts` | replaces assignees from the detail and the bulk panel and undoes | EDIT-04s |
+| `milestone-links.spec.ts` | refuses a self predecessor and a cycle from the detail | EDIT-04 |
+| `milestone-links.spec.ts` | adds a task in the selected group | EDIT-11 |
+| `milestone-links.spec.ts` | edits the title with enter, tab, and escape, and ignores composing keys as a stand-in | EDIT-03 |
+| `milestone-links.spec.ts` | opens the note from the icon and from the menu | VIEW-11 |
+| `milestone-links.spec.ts` | deletes a milestone used as a filter and leaves the selection | EDIT-07, FILTER-03 |
+| `normal-clock.spec.ts` | does not install the screenshot clock in the normal browser | SYNC-01 |
+| `settings-diff.spec.ts` | clicks a diff row without changing a multi-selection | FILE-07 |
+| `settings-diff.spec.ts` | leaves the chart still and shows the hidden-row message | TC-FILE-07x |
+| `settings-diff.spec.ts` | opens the diff handle after removing one connection | TC-FILE-07z, EDIT-23 |
+| `settings-diff.spec.ts` | keeps the connection dialog open until both fields are filled | TC-EDIT-23 |
+| `settings-diff.spec.ts` | saves a member display name from the overlay and leaves an unused catalog unchanged | TC-SET-02c |
+| `settings-diff.spec.ts` | discards or keeps a status draft and removes a catalog from the overlay | SET-08 |
+| `settings-diff.spec.ts` | adds a color list and refuses a blank or duplicate id | TC-SET-09h |
+| `settings-diff.spec.ts` | closes the field overlay with escape | SET-10 |
+| `smoke-edit-drag.spec.ts` | does not focus the detail name when the period edge is clicked | EDIT-03 |
+| `smoke-edit-drag.spec.ts` | commits a drag that starts as a right click and undoes it once | EDIT-02, EDIT-11 |
+| `smoke-edit-drag.spec.ts` | keeps 設計 selected when the handle or its inside edge is right-clicked | EDIT-02 |
+| `smoke-edit-drag.spec.ts` | shows only delete after shift-clicking 調査 and 設計 | EDIT-10 |
+| `smoke-edit-drag.spec.ts` | shows only add-milestone on an empty chart right click | EDIT-07 |
+| `smoke-edit-drag.spec.ts` | keeps 調査 when delete is cancelled | EDIT-10 |
+| `smoke-edit-drag.spec.ts` | keeps the empty group 後半 when delete is cancelled | EDIT-12 |
+| `smoke-edit-drag.spec.ts` | selects by click, shift range, and ctrl or meta toggle | EDIT-10 |
+| `smoke-edit-drag.spec.ts` | extends the selection with shift and arrow keys | EDIT-10 |
+| `smoke-edit-drag.spec.ts` | clears the selection when the filter changes | FILTER-03 |
+| `smoke-edit-drag.spec.ts` | does not change horizontal scroll when a visible bar is clicked | NAV-01 |
+| `smoke-edit-drag.spec.ts` | drags one bar across a non-working day without showing 休 | VIEW-09 |
+| `smoke-edit-drag.spec.ts` | shows month day chips mid drag without overlapping the bar (EDIT-02b) | TC-EDIT-02b |
+| `smoke-nav-scroll.spec.ts` | scrolls the long list until row 40... | NAV-01 |
+| `smoke-nav-scroll.spec.ts` | shifts the chart horizontally with shift and the wheel | NAV-01 |
+| `smoke-nav-scroll.spec.ts` | scrolls with ctrl or meta and the arrow keys... | NAV-01 |
+| `smoke-nav-scroll.spec.ts` | keeps sticky headings in sync... | TC-NAV-01f |
+| `smoke-nav-scroll.spec.ts` | scrolls the sidebar horizontally with the wheel and zooms there | NAV-01 |
+| `smoke-nav-scroll.spec.ts` | drags the sidebar boundary and keeps the row and bar on the same y | NAV-01 |
+| `smoke-view-nav.spec.ts` | shows the smoke fixture title and task names (VIEW-01) | VIEW-01 |
+| `smoke-view-nav.spec.ts` | pans the empty chart 80px without moving the list vertically (NAV-01) | NAV-01 |
+| `smoke-view-nav.spec.ts` | sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03) | NAV-02, NAV-03 |
+| `smoke-view-nav.spec.ts` | moves 設計 to 2026-04-06 through 2026-04-10 on release and adds one undo (EDIT-02) | EDIT-02 |
+| `smoke-view-nav.spec.ts` | leaves 設計 unchanged when escape is pressed before release (EDIT-02) | EDIT-02 |
 
 ## CI での実行
 
@@ -344,6 +414,10 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `wires color section to color note with colorId` | SET-09 |
 | 同上 | `wires status section to built-in fallback label` | SET-08 |
 | `settingsHierarchyDiff.dom.test.tsx` | `shows assignee, status, color name, and extension memo from the selected catalogs` | SET-02, SET-08, SET-09, EDIT-04 |
+| `AppMenu.recent.dom.test.tsx` | `lists schedule and workspace recent files, shows the path on hover, and clears history` | MX-O-75, MX-O-86 |
+| 同上 | `keeps a disabled recent-files row when the list is empty` | MX-O-75 |
+| 同上 | `registers macOS file save on the same action as the app menu` | MX-O-4 |
+| 同上 | `opens the first recent schedule when chosen from the submenu` | MX-O-4 |
 | 同上 | `keeps the member editor open and shows the saved display name on the rows` | SET-02 |
 | 同上 | `keeps the status editor open and shows the saved status name` | SET-08 |
 | 同上 | `keeps the row fill bound to the renamed color` | SET-09 |
@@ -1407,7 +1481,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 手動の通しは [regression.md](regression.md) にまとめた。既存ケースの全文は [regression-tc.md](regression-tc.md) にある。ここには同じ表を重ねて置かない。新しい手動ケースは regression-tc.md と `docs/regression-tc-ids.txt` に足し、`npm run check:regression-coverage` が通ることを見る。
 
-短い通しは RG-S2 から RG-S4（目安 39 分）、全体の代表手順はそれに RG-F1 から RG-F14 を足す（目安 約 2 時間 38 分）である。いずれも [regression.md](regression.md) の見積と同じで、実測ではない。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
+短い通しは RG-S2 から RG-S4（目安 約 22 分・手順 72。シナリオ見積は RG-S2 12 分・RG-S3 15 分・RG-S4 18 分）、全体の代表手順はそれに RG-F1 から RG-F14 を足す（目安 約 2 時間 10 分＝158 分−17 分−8 分−3 分。RG-F2 10 分・RG-F9 14 分・RG-F10 9 分を含む。RG-F9 の分は引かない）である。手順数と分数の内訳は [regression.md](regression.md) の見積と同じである。いずれも [regression.md](regression.md) の見積と同じで、実測ではない。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
 
 ## リリース前確認
 

@@ -238,6 +238,7 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 | `npm run tauri` | Tauri CLI を呼ぶ。後ろに `dev` や `build` を付けて使う |
 | `npm run tauri:dev:fresh` | `SCHEDULE_VIEWER_FRESH_START=1` 付きの `tauri dev`。アプリデータと localStorage を初回起動相当にしてから起動する（開発ビルドのみ） |
 | `npm test` | 検証器を生成してから `node --test scripts/*.test.mjs` と Vitest を1回実行する。Vitest は `src/**/*.test.ts`（Node）と `src/**/*.test.tsx`（jsdom）の2プロジェクト |
+| `npm run test:browser-regression` | Playwright でブラウザ回帰を実行する。設定は `e2e/browser-regression/playwright.config.ts`。通常はポート 5173 の `npm run dev`、手動撮影 shim 用の Konva プローブだけポート 5174 の `npm run dev:manual-screenshot` を起動する。失敗時のトレースとスクリーンショットは `test-results/` に出る。レイアウト用の基準画像は `e2e/browser-regression/baselines/` に置く。見直すときは `npx playwright test -c e2e/browser-regression/playwright.config.ts e2e/browser-regression/specs/layout-f2.spec.ts --grep compares --update-snapshots` で `layout-f2-light.png` と `layout-f2-dark.png` だけを更新する。PNG を差し替えただけでは不具合を直したことにしない |
 | `npm run lint` | ESLint。警告が 48 件を超えると失敗する |
 | `npm run check:mcp-tool-names` | MCP ツール名が TypeScript と Rust で一致すること |
 | `npm run check:operation-entries` | `docs/operation-entries.md` が右クリック固定ラベル・`OPERATION_FORMAL`・MCP 全ツール名を参照していること。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06 段階1） |
