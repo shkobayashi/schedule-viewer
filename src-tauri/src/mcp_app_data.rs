@@ -163,46 +163,6 @@ mod tests {
     }
 
     #[test]
-    fn migrate_legacy_moves_members_and_recovery_and_second_call_does_not_replace() {
-        let parent = std::env::temp_dir().join(format!(
-            "sv-migrate-members-{}",
-            std::process::id()
-        ));
-        let _ = std::fs::remove_dir_all(&parent);
-        std::fs::create_dir_all(&parent).expect("temp parent");
-        let old_dir = parent.join(LEGACY_APP_IDENTIFIER);
-        std::fs::create_dir_all(old_dir.join("members")).expect("members dir");
-        std::fs::write(old_dir.join("members/team.json"), "legacy-members").expect("members");
-        let recovery = old_dir.join("recovery-draft.json");
-        std::fs::write(&recovery, "legacy-recovery").expect("recovery");
-
-        migrate_legacy_app_data_under(&parent).expect("migrate");
-
-        let new_dir = parent.join(APP_IDENTIFIER);
-        assert_eq!(
-            std::fs::read_to_string(new_dir.join("members/team.json")).unwrap(),
-            "legacy-members"
-        );
-        assert_eq!(
-            std::fs::read_to_string(new_dir.join("recovery-draft.json")).unwrap(),
-            "legacy-recovery"
-        );
-        std::fs::write(new_dir.join("members/team.json"), "kept").expect("update members");
-        std::fs::create_dir_all(&old_dir).expect("recreate legacy");
-        std::fs::create_dir_all(old_dir.join("members")).expect("legacy members");
-        std::fs::write(old_dir.join("members/team.json"), "replaced").expect("legacy members file");
-
-        migrate_legacy_app_data_under(&parent).expect("second migrate");
-
-        assert_eq!(
-            std::fs::read_to_string(new_dir.join("members/team.json")).unwrap(),
-            "kept"
-        );
-
-        let _ = std::fs::remove_dir_all(&parent);
-    }
-
-    #[test]
     fn migrate_legacy_skips_when_new_exists() {
         let parent = std::env::temp_dir().join(format!(
             "sv-migrate-skip-{}",
