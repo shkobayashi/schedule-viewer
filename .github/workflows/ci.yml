@@ -127,10 +127,19 @@ jobs:
         with:
           toolchain: ${{ steps.rust-toolchain.outputs.channel }}
           components: ${{ steps.rust-toolchain.outputs.components }}
+      - name: Install xvfb (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xvfb
       - run: cargo clippy -- -D warnings
         working-directory: src-tauri
-      - run: cargo test --locked
+      - name: cargo test (Linux)
+        if: matrix.os == 'ubuntu-latest'
         working-directory: src-tauri
+        run: xvfb-run -a cargo test --locked
+      - name: cargo test (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: src-tauri
+        run: cargo test --locked
 
   manual:
     needs: changes

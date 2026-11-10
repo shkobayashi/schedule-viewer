@@ -478,3 +478,24 @@ fn schedule_diff_without_gui_exits_1_and_writes_no_window_to_stderr() {
     assert_eq!(out.stderr, NO_WINDOW_STDERR);
     assert!(!out.stderr.contains("前面のウィンドウが開いていないので、渡せません。"));
 }
+
+#[test]
+fn tools_call_schedule_diff_without_gui_returns_no_window_text_is_error_and_not_json_rpc_error() {
+    let out = run_mcp_stdio(
+        r#"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"schedule_diff","arguments":{}},"id":8}"#,
+    );
+    assert_eq!(out.code, 0);
+    let lines = parse_stdout_lines(&out.stdout);
+    assert_eq!(lines.len(), 1);
+    assert!(lines[0].get("error").is_none());
+    let result = lines[0].get("result").expect("result");
+    assert_eq!(result.get("isError").and_then(|v| v.as_bool()), Some(true));
+    let text = result
+        .get("content")
+        .and_then(|c| c.as_array())
+        .and_then(|items| items.first())
+        .and_then(|item| item.get("text"))
+        .and_then(|t| t.as_str())
+        .expect("tool text");
+    assert_eq!(text, NO_WINDOW_STDERR);
+}
