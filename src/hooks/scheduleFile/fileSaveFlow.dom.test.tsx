@@ -31,15 +31,13 @@ import {
   seedRegressionCatalogs,
   smokeDocument,
 } from "../../test/fileSaveFlowTestEnv";
+import type { ScheduleFileTauriInvoke } from "../../test/scheduleFileFlowInvoke";
 
-const invoke = vi.hoisted(() => vi.fn());
+const invoke = vi.hoisted(() => vi.fn<ScheduleFileTauriInvoke>());
 
 const eventHandlers = vi.hoisted(
   () => new Map<string, (payload?: unknown) => void>(),
 );
-let closeRequested:
-  | ((event: { preventDefault: () => void }) => Promise<void>)
-  | null = null;
 
 vi.mock("@tauri-apps/api/core", () => ({
   isTauri: () => true,
@@ -50,12 +48,7 @@ vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
     label: "main",
     setFocus: vi.fn(),
-    onCloseRequested: (handler: typeof closeRequested) => {
-      closeRequested = handler;
-      return Promise.resolve(() => {
-        closeRequested = null;
-      });
-    },
+    onCloseRequested: () => Promise.resolve(() => {}),
     onDragDropEvent: () => Promise.resolve(() => {}),
     close: vi.fn(),
     onFocusChanged: () => Promise.resolve(() => {}),
@@ -186,7 +179,6 @@ describe("file save flow", () => {
     seedRegressionCatalogs();
     invoke.mockReset();
     eventHandlers.clear();
-    closeRequested = null;
   });
 
   afterEach(() => {
@@ -273,7 +265,7 @@ describe("file save flow", () => {
     await act(async () => {
       ref.current?.schedule.updateFilters({
         ...ref.current!.schedule.filters,
-        searchQuery: "調査",
+        search: "調査",
       });
     });
     expect(screen.queryByText("未保存")).toBeNull();
@@ -304,7 +296,9 @@ describe("file save flow", () => {
       name: "現在のスケジュールJSON",
     });
     await waitFor(() => {
-      expect(within(dialog).getByRole("textbox").value).toContain("設計改");
+      expect(within(dialog).getByRole("textbox")).toHaveValue(
+        expect.stringContaining("設計改"),
+      );
     });
     const saves = flow.commandLog.filter((c) => c === "save_schedule_file").length;
     expect(saves).toBe(0);
@@ -362,7 +356,7 @@ describe("file save flow", () => {
     );
     const extraLevels = [
       ...(levelsDoc.levels ?? []),
-      { name: "余分", meaning: "余分な段の説明", instruction: null },
+      { name: "余分", meaning: "余分な段の説明" },
     ];
     await act(async () => {
       ref.current!.schedule.commitLevelDefinitions(extraLevels, true);
@@ -378,7 +372,7 @@ describe("file save flow", () => {
   });
 
   it("the saved file contains 回帰の指示 and the example file does not (EDIT-21, FILE-02)", async () => {
-    const { flow, ref } = await mountWithSavedPath(
+    const { ref } = await mountWithSavedPath(
       LEVELS_3_PATH,
       levels3Text(),
       levels3Document(),
@@ -397,7 +391,7 @@ describe("file save flow", () => {
   });
 
   it("an unapplied name 回帰の下書き is absent from the file (EDIT-21, FILE-02)", async () => {
-    const { flow, ref } = await mountWithSavedPath(
+    const { ref } = await mountWithSavedPath(
       LEVELS_3_PATH,
       levels3Text(),
       levels3Document(),
@@ -522,7 +516,7 @@ describe("recent files in useScheduleFile", () => {
   });
 
   it("clear history leaves the open schedule and the recovery file (FILE-09)", async () => {
-    const { flow, ref } = await mountOpenSmoke([FLOW_SCHEDULE_PATH]);
+    const { flow } = await mountOpenSmoke([FLOW_SCHEDULE_PATH]);
     flow.recoveryStore.set(FLOW_SCHEDULE_PATH, '{"path":"recovery"}');
     fireEvent.click(screen.getByRole("button", { name: "履歴を消す" }));
     await waitFor(() => {
@@ -558,7 +552,7 @@ describe("recent files in useScheduleFile", () => {
     await act(async () => {
       ref.current?.schedule.updateFilters({
         ...ref.current!.schedule.filters,
-        searchQuery: "調査",
+        search: "調査",
       });
       ref.current?.setScroll(300, 80);
     });
@@ -568,7 +562,7 @@ describe("recent files in useScheduleFile", () => {
     await waitFor(() => {
       expect(ref.current?.scheduleFile.filePath).toBe(other);
     });
-    expect(ref.current?.schedule.filters.searchQuery ?? "").toBe("");
+    expect(ref.current?.schedule.filters.search).toBe("");
     await waitFor(() => {
       expect(screen.getByTestId("scroll")).toHaveTextContent("0,0");
     });

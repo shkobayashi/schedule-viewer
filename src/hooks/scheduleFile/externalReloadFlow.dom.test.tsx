@@ -1,4 +1,3 @@
-import { createRef } from "react";
 import {
   act,
   cleanup,
@@ -9,7 +8,6 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { parseScheduleText } from "../../model/scheduleFile";
 import { documentToJsonString } from "../../model/serialize";
 import type { RefObject } from "react";
 import {
@@ -27,8 +25,9 @@ import {
   TASK_SURVEY,
 } from "../../test/scheduleFileFlowTestEnv";
 import { loadRegressionSchedule, readRegressionText } from "../../test/searchErrorKeysFixtures";
+import type { ScheduleFileTauriInvoke } from "../../test/scheduleFileFlowInvoke";
 
-const invoke = vi.hoisted(() => vi.fn());
+const invoke = vi.hoisted(() => vi.fn<ScheduleFileTauriInvoke>());
 
 vi.mock("@tauri-apps/api/core", () => ({
   isTauri: () => true,

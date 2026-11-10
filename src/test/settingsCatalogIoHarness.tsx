@@ -8,7 +8,8 @@ import {
   resolveAssigneeRowDisplay,
 } from "../model/assigneeDisplay";
 import { parseScheduleText } from "../model/scheduleFile";
-import type { MemberId, ScheduleDocument } from "../model/types";
+import type { MemberId } from "../model/memberTypes";
+import type { ScheduleDocument } from "../model/types";
 
 export type SettingsCatalogIoHarnessProps = {
   scheduleText: string;

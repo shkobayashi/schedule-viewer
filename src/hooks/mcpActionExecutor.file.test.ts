@@ -11,7 +11,9 @@ import {
   catalogContentsFromEnvelope,
   validateMcpCatalogContents,
 } from "../model/mcpCatalogAction";
-import type { McpActionEnvelope, McpActionResult } from "./mcpActionExecutor";
+import type { McpActionResult } from "./mcpActionExecutor";
+import type { McpActionEnvelope } from "../model/mcpOperationGate";
+import { DEFAULT_FILTERS } from "../model/filterChips";
 import {
   checkScheduleFileChangedViaTauri,
   DISK_HASH_MISMATCH,
@@ -69,7 +71,10 @@ function baseInput(
     getDocument: () => savedDocument(),
     visibleRows: [],
     levels: null,
-    replaceScheduleDocument: () => ({ outcome: "unchanged" }),
+    replaceScheduleDocument: () => ({
+      outcome: "unchanged",
+      screenJson: canonicalJson,
+    }),
     scheduleFilePath: null,
     getScheduleFilePath: () => null,
     fields: [],
@@ -81,15 +86,8 @@ function baseInput(
     openPathWithoutDialog: async () => ({ ok: true, text: "" }),
     getCollapsed: () => new Set(),
     getFilterViewState: () => ({
-      filters: {
-        assigneeMemberIds: [],
-        assigneeUnassigned: false,
-        statusIds: [],
-        tags: [],
-        milestoneId: null,
-        searchQuery: "",
-      },
-      searchField: "name",
+      filters: DEFAULT_FILTERS,
+      searchField: "name" as const,
       hiddenMilestoneGroupIds: [],
     }),
     applyPartialFilterViewState: vi.fn(),

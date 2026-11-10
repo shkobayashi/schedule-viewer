@@ -18,8 +18,9 @@ import {
   TASK_SURVEY,
 } from "../../test/scheduleFileFlowTestEnv";
 import { loadRegressionSchedule, readRegressionText } from "../../test/searchErrorKeysFixtures";
+import type { ScheduleFileTauriInvoke } from "../../test/scheduleFileFlowInvoke";
 
-const invoke = vi.hoisted(() => vi.fn());
+const invoke = vi.hoisted(() => vi.fn<ScheduleFileTauriInvoke>());
 
 vi.mock("@tauri-apps/api/core", () => ({
   isTauri: () => true,

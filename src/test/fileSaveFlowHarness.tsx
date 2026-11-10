@@ -73,13 +73,7 @@ export const FileSaveFlowHarness = forwardRef<
   FileSaveFlowHandle,
   FileSaveFlowHarnessProps
 >(function FileSaveFlowHarness(
-  {
-    initialDocument,
-    initialBaselineJson,
-    startupSample = false,
-    openPathOnStartup = null,
-    openContentsOnStartup = null,
-  },
+  { initialDocument, initialBaselineJson, startupSample = false }: FileSaveFlowHarnessProps,
   ref,
 ) {
   const members = useMemo(() => loadRegressionMembers(), []);
@@ -109,7 +103,7 @@ export const FileSaveFlowHarness = forwardRef<
     (landed) => onHistoryRedoRef.current(landed),
     BUILTIN_STATUS_ITEMS,
     true,
-    initialDocument.fields ?? [],
+    [],
     true,
   );
 
@@ -150,7 +144,7 @@ export const FileSaveFlowHarness = forwardRef<
     knownMemberIds: schedule.knownMemberIds,
     memberCatalogSettled: true,
     fieldExtensionCatalogSettled: true,
-    extraFieldDefs: schedule.fieldDefs,
+    extraFieldDefs: [...schedule.fieldDefs],
     sidebarReorderDragging: false,
     getCanonicalJson: schedule.getCanonicalJson,
     getDocumentTitle: schedule.getDocumentTitle,
@@ -309,7 +303,11 @@ export const FileSaveFlowHarness = forwardRef<
       }
       setDiffStrip(viewState);
       setDiffEntries(result.entries);
-      if (source === "explicit" && viewState.kind === "body") {
+      if (
+        source === "explicit" &&
+        viewState.visible &&
+        viewState.kind === "body"
+      ) {
         setDiffExpanded(true);
       }
     },
@@ -400,8 +398,8 @@ export const FileSaveFlowHarness = forwardRef<
           confidence: task.confidence,
           predecessors: task.predecessors,
           successors: [],
-          milestoneId: task.milestoneId,
-          note: task.note,
+          milestoneId: task.milestoneId ?? null,
+          note: task.note ?? "",
         });
       },
       openJson: () => setJsonOpen(true),
@@ -456,7 +454,7 @@ export const FileSaveFlowHarness = forwardRef<
         colorsCatalogError={null}
         tier={view.tier}
         visibleTaskCount={schedule.visibleRows.filter((row) => row.type === "task").length}
-        totalTaskCount={listTasks(schedule.categories, schedule.outline).length}
+        totalTaskCount={listTasks(schedule.categories).length}
         showDeferredReload={scheduleFile.showDeferredReload}
         onDeferredReload={scheduleFile.requestDeferredConfirm}
         onOpenSettingsMembers={() => {}}
@@ -530,15 +528,7 @@ export const FileSaveFlowHarness = forwardRef<
       />
       <HierarchyLevelsDialog
         open={hierarchyOpen}
-        initialLevels={levelDefsForEditor({
-          title: schedule.title,
-          categories: schedule.categories,
-          milestoneGroups: schedule.milestoneGroups,
-          milestones: schedule.milestones,
-          levels: schedule.levels,
-          outline: schedule.outline,
-          connections: schedule.connections,
-        })}
+        initialLevels={levelDefsForEditor({ levels: schedule.levels })}
         hadDocumentLevels={documentHasExplicitLevels({ levels: schedule.levels })}
         snapshot={{
           ...schedule.getDocumentSnapshot(),

@@ -31,6 +31,7 @@ import { documentToJsonString } from "../model/serialize";
 import {
   emptyTaskSelection,
   selectTaskClick,
+  visibleTaskIds,
   type TaskSelectionState,
 } from "../model/taskSelection";
 import type { ScheduleDocument, ScheduleId } from "../model/types";
@@ -91,7 +92,7 @@ export const ScheduleFileFlowHarness = forwardRef<
     (landed) => onHistoryRedoRef.current(landed),
     BUILTIN_STATUS_ITEMS,
     true,
-    initialDocument.fields ?? [],
+    [],
     true,
   );
 
@@ -156,7 +157,7 @@ export const ScheduleFileFlowHarness = forwardRef<
     knownMemberIds: schedule.knownMemberIds,
     memberCatalogSettled: true,
     fieldExtensionCatalogSettled: true,
-    extraFieldDefs: schedule.fieldDefs,
+    extraFieldDefs: [...schedule.fieldDefs],
     sidebarReorderDragging: false,
     getCanonicalJson: schedule.getCanonicalJson,
     getDocumentTitle: schedule.getDocumentTitle,
@@ -246,7 +247,7 @@ export const ScheduleFileFlowHarness = forwardRef<
           progress: task.progress,
           confidence: task.confidence,
           predecessors: task.predecessors ?? [],
-          successors: task.successors ?? [],
+          successors: [],
           milestoneId: task.milestoneId ?? null,
           note: task.note ?? "",
           colorId: task.colorId,
@@ -256,7 +257,15 @@ export const ScheduleFileFlowHarness = forwardRef<
         schedule.setTaskEnd(taskId, end);
       },
       selectTask: (taskId) => {
-        setSelection(selectTaskClick(emptyTaskSelection(), taskId, false, false));
+        setSelection(
+          selectTaskClick(
+            visibleTaskIds(schedule.visibleRows),
+            emptyTaskSelection(),
+            taskId,
+            { shiftKey: false, metaKey: false, ctrlKey: false },
+            false,
+          ),
+        );
       },
       openMemberEditor: () => {
         memberEditor.openEditor();
@@ -271,7 +280,9 @@ export const ScheduleFileFlowHarness = forwardRef<
         void fieldEditor.selectCatalog("sample");
       },
       taskEnd,
-      applyOpenedFile: (pick, options) => scheduleFile.applyOpenedFile(pick, options),
+      applyOpenedFile: async (pick, options) => {
+        await scheduleFile.applyOpenedFile(pick, options);
+      },
       markSavedAtPath: (path, canonicalJson) => {
         scheduleFile.markSavedAtPath(canonicalJson, path);
       },
@@ -330,7 +341,7 @@ export const ScheduleFileFlowHarness = forwardRef<
         colorsCatalogError={null}
         tier="week"
         visibleTaskCount={schedule.visibleRows.filter((row) => row.type === "task").length}
-        totalTaskCount={listTasks(schedule.categories, schedule.outline).length}
+        totalTaskCount={listTasks(schedule.categories).length}
         showDeferredReload={scheduleFile.showDeferredReload}
         onDeferredReload={scheduleFile.requestDeferredConfirm}
         onOpenSettingsMembers={() => {}}

@@ -58,8 +58,13 @@ function createDeferred<T>(): Deferred<T> {
   return { promise, resolve, reject };
 }
 
+export type ScheduleFileTauriInvoke = (
+  command: string,
+  args?: Record<string, unknown>,
+) => Promise<unknown>;
+
 export type ScheduleFileFlowInvoke = {
-  invoke: ReturnType<typeof vi.fn>;
+  invoke: ReturnType<typeof vi.fn<ScheduleFileTauriInvoke>>;
   holdStartup: (read?: Partial<WindowStartupRead>) => void;
   resolveStartup: (read?: Partial<WindowStartupRead>) => void;
   rejectStartup: (error?: unknown) => void;
@@ -103,7 +108,7 @@ export function createScheduleFileFlowInvoke(
     draftText: null,
   });
 
-  const invoke = vi.fn(async (command: string, args?: Record<string, unknown>) => {
+  const invoke = vi.fn<ScheduleFileTauriInvoke>(async (command, args) => {
     switch (command) {
       case "read_window_startup":
         if (startupDeferred) return startupDeferred.promise;

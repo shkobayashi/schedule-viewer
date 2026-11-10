@@ -2,13 +2,12 @@ import { vi } from "vitest";
 import { hashTextSha256 } from "../model/scheduleFile";
 import { documentToJsonString } from "../model/serialize";
 import type { RecentFilesStore } from "../model/recentFiles";
-import type { WindowStartupRead } from "../model/windowSession";
-import type { PollScheduleFileUpdateResult } from "../model/scheduleFile";
 import type { ScheduleDocument } from "../model/types";
 import {
   createScheduleFileFlowInvoke,
   FLOW_SCHEDULE_PATH,
   type ScheduleFileFlowInvoke,
+  type ScheduleFileTauriInvoke,
 } from "./scheduleFileFlowInvoke";
 
 export { FLOW_SCHEDULE_PATH };
@@ -65,13 +64,13 @@ export function createFileSaveFlowInvoke(
     });
   };
 
-  const invoke = vi.fn(async (command: string, args?: Record<string, unknown>) => {
+  const invoke = vi.fn<ScheduleFileTauriInvoke>(async (command, args) => {
     commandLog.push(command);
     switch (command) {
       case "save_schedule_file": {
         const saveAs = Boolean(args?.saveAs);
         const contents = String(args?.contents ?? "");
-        let path =
+        const path =
           saveAs || args?.expectedPath == null
             ? (saveAsQueue.shift() ?? SAVE_AS_PATH)
             : String(args.expectedPath);

@@ -1,4 +1,3 @@
-import { parseScheduleText } from "../model/scheduleFile";
 import { documentToJsonString } from "../model/serialize";
 import type { ScheduleDocument } from "../model/types";
 import {
