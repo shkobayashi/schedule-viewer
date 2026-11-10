@@ -7,6 +7,7 @@ import {
   openSmokeSchedule,
 } from "../helpers/session.ts";
 import { clickUndoOnce } from "../helpers/drag.ts";
+import { hasSummaryBarNearRow, requireKonva } from "../helpers/konvaUi.ts";
 import {
   collapseToggleFor,
   dragRowGrip,
@@ -24,9 +25,11 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("collapses and expands from the triangle", async ({ page }) => {
+  requireKonva();
   const toggle = collapseToggleFor(page, "計画");
   await toggle.click();
   await expect(page.locator(".sidebar-row", { hasText: "調査" })).toHaveCount(0);
+  await expect.poll(() => hasSummaryBarNearRow(page, "計画")).toBe(true);
   await toggle.click();
   await expect(page.locator(".sidebar-row", { hasText: "調査" }).first()).toBeVisible();
 });
