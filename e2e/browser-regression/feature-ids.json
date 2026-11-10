@@ -46,6 +46,7 @@
   "export-f5.spec.ts|matches sidebar column visibility in the HTML export": "TC-EXPORT-05",
   "export-f5.spec.ts|keeps connection arcs and labels out of HTML and SVG downloads": "TC-EXPORT-05b",
   "export-f5.spec.ts|shows the Excel desktop-only message in the export dialog": "TC-EXPORT-04",
+  "export-f5.spec.ts|filters extra fields by type and keeps them out of HTML and SVG exports": "TC-EDIT-20f",
   "settings-diff.spec.ts|opens the diff handle after removing one connection": "TC-FILE-07z, EDIT-23",
   "settings-diff.spec.ts|keeps the connection dialog open until both fields are filled": "TC-EDIT-23",
   "settings-diff.spec.ts|saves a member display name from the overlay and leaves an unused catalog unchanged": "TC-SET-02c",

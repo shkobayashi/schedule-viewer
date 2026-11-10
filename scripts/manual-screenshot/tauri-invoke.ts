@@ -4,6 +4,28 @@ type OpenPick = { path: string; contents: string };
 
 let pendingOpenPick: OpenPick | null = null;
 let openScheduleDiskContents: string | null = null;
+
+const DISK_GLOBAL_KEY = "__manualScreenshotOpenScheduleDisk";
+
+function syncDiskGlobal(contents: string | null): void {
+  if (typeof window === "undefined") return;
+  if (contents == null) {
+    delete (window as Record<string, unknown>)[DISK_GLOBAL_KEY];
+    return;
+  }
+  (window as Record<string, unknown>)[DISK_GLOBAL_KEY] = contents;
+}
+
+function resolveDiskContents(): string | null {
+  if (openScheduleDiskContents != null) return openScheduleDiskContents;
+  if (typeof window === "undefined") return null;
+  const shared = (window as Record<string, unknown>)[DISK_GLOBAL_KEY];
+  if (typeof shared === "string") {
+    openScheduleDiskContents = shared;
+    return shared;
+  }
+  return null;
+}
 const memberCatalogBodies = new Map<string, string>();
 let selectedMemberCatalogId: string | null = null;
 const statusCatalogBodies = new Map<string, string>();
@@ -17,10 +39,12 @@ export function setManualScreenshotOpenPick(pick: OpenPick | null): void {
 
 export function setManualScreenshotDiskContents(contents: string | null): void {
   openScheduleDiskContents = contents;
+  syncDiskGlobal(contents);
 }
 
 function rememberOpenSchedule(contents: string): void {
   openScheduleDiskContents = contents;
+  syncDiskGlobal(contents);
 }
 
 const MANUAL_SCREENSHOT_EXE_PATH =
@@ -190,7 +214,7 @@ export async function manualScreenshotInvoke(
     }
     case "accept_opened_schedule":
       if (typeof args.contents === "string") {
-        openScheduleDiskContents = args.contents;
+        rememberOpenSchedule(args.contents);
       }
       return null;
     case "acknowledge_schedule_file_contents":
@@ -220,11 +244,13 @@ export async function manualScreenshotInvoke(
       rememberOpenSchedule(contents);
       return path;
     }
-    case "read_open_schedule_file":
-      if (openScheduleDiskContents == null) {
+    case "read_open_schedule_file": {
+      const disk = resolveDiskContents();
+      if (disk == null) {
         throw new Error("開いているスケジュールファイルがありません");
       }
-      return openScheduleDiskContents;
+      return disk;
+    }
     case "read_members_app_data":
     case "write_members_app_data":
     case "read_calendar_app_data":

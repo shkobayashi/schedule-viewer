@@ -926,3 +926,91 @@ export async function evaluateLightningIsoForTask(
   const todayStr = await readAppTodayIso(page);
   return lightningDate(task, todayStr, statuses);
 }
+
+export function fillMatches(color: string, expected: string): boolean {
+  return strokeMatches(color, expected);
+}
+
+/** Konva Text nodes on the chart row aligned with the named task. */
+export async function readKonvaTextsNearTaskRow(
+  page: Page,
+  taskName: string,
+): Promise<string[]> {
+  const row = page.locator(".sidebar-row.task", { hasText: taskName }).first();
+  const taskId = await row.getAttribute("data-task-id");
+  return page.evaluate(
+    ({ name, id, collector }) => {
+      const rowEl = id
+        ? document.querySelector(`[data-task-id="${id}"]`)
+        : [...document.querySelectorAll(".sidebar-row.task")].find((el) =>
+            el.textContent?.includes(name),
+          );
+      if (!rowEl) return [];
+      const targetY = rowEl.getBoundingClientRect().top + rowEl.getBoundingClientRect().height / 2;
+      const stages = eval(collector) as Array<{
+        container?: () => HTMLElement | null;
+        find: (selector: string) => Array<{
+          text?: () => string;
+          visible?: () => boolean;
+          getAbsoluteTransform?: () => {
+            point: (pt: { x: number; y: number }) => { x: number; y: number };
+          };
+        }>;
+      }>;
+      const texts: string[] = [];
+      for (const stage of stages) {
+        const container = stage.container?.();
+        if (!(container instanceof HTMLElement)) continue;
+        if (!container.closest(".timeline-body")) continue;
+        const stageRect = container.getBoundingClientRect();
+        for (const node of stage.find("Text")) {
+          if (node.visible?.() === false) continue;
+          const body = node.text?.() ?? "";
+          if (!body) continue;
+          const mid = node.getAbsoluteTransform?.().point({ x: 0, y: 0 }) ?? { x: 0, y: 0 };
+          const clientY = stageRect.top + mid.y;
+          if (Math.abs(clientY - targetY) > 16) continue;
+          texts.push(body);
+        }
+      }
+      return texts;
+    },
+    { name: taskName, id: taskId, collector: collectKonvaStagesSource },
+  );
+}
+
+/** Vertical non-working bands in the chart header (day view). */
+export async function readNonWorkingHeaderBandFillCount(
+  page: Page,
+  expectedFill: string,
+): Promise<number> {
+  return page.evaluate(
+    ({ collector, expected }) => {
+      const norm = (value: string) => value.trim().toLowerCase().replace(/\s/g, "");
+      const target = norm(expected);
+      let count = 0;
+      const stages = eval(collector) as Array<{
+        container?: () => HTMLElement | null;
+        find: (selector: string) => Array<{
+          fill?: () => string;
+          width?: () => number;
+          height?: () => number;
+        }>;
+      }>;
+      for (const stage of stages) {
+        const container = stage.container?.();
+        if (!(container instanceof HTMLElement)) continue;
+        if (!container.closest(".timeline-header")) continue;
+        for (const rect of stage.find("Rect")) {
+          const fill = rect.fill?.() ?? "";
+          const w = rect.width?.() ?? 0;
+          const h = rect.height?.() ?? 0;
+          if (w < 2 || h < 4) continue;
+          if (norm(fill) === target) count += 1;
+        }
+      }
+      return count;
+    },
+    { collector: collectKonvaStagesSource, expected: expectedFill },
+  );
+}

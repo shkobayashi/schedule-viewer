@@ -1,18 +1,22 @@
 import fs from "node:fs";
 import { expect, test } from "playwright/test";
+import { paletteFor } from "../../../src/model/palette.ts";
 import { ensureKonvaProbed } from "../helpers/probeSetup.ts";
 import { openTaskBarContextMenu as openBarMenu } from "../helpers/contextMenu.ts";
+import { runCheckStatuses } from "../helpers/diff.ts";
 import { selectTaskByName } from "../helpers/drag.ts";
 import {
   evaluateLightningIsoForTask,
   evaluateOverdueForTask,
+  readKonvaTextsNearTaskRow,
+  readNonWorkingHeaderBandFillCount,
+  rowHasOverdueKonvaStroke,
   strokeMatches,
   readTaskBarKonvaForRow,
   requireKonva,
 } from "../helpers/konvaUi.ts";
 import {
   bootNormalPage,
-  brokenCalendarPath,
   colorsRegressionPath,
   fieldsRegressionPath,
   fullSchedulePath,
@@ -56,6 +60,9 @@ test("keeps 200 percent and auto after reload", async ({ page }) => {
   await setDisplayScale(page, "auto");
   await page.reload({ waitUntil: "load" });
   await openSmokeSchedule(page);
+  await openSettingsSection(page, "表示");
+  await expect(page.getByLabel("表示サイズ")).toHaveValue("auto");
+  await page.keyboard.press("Escape");
   const stored = await page.evaluate(() => localStorage.getItem("schedule-viewer/display-scale"));
   expect(stored).toBe("auto");
 });
@@ -99,14 +106,18 @@ test("aligns month-day, duration, percent, status, overrun, and assignee columns
   await page.keyboard.press("Escape");
   await enableAllSidebarColumns(page);
   await expect(page.locator(".sidebar-row", { hasText: "設計" })).toContainText("40%");
-  const startX = await columnLeft(page, "設計", "start");
-  const startX2 = await columnLeft(page, "調査", "start");
-  expect(startX).not.toBeNull();
-  expect(startX2).not.toBeNull();
-  expect(Math.abs((startX ?? 0) - (startX2 ?? 0))).toBeLessThan(2);
-  const progressX = await columnLeft(page, "設計", "progress");
-  const progressX2 = await columnLeft(page, "調査", "progress");
-  expect(Math.abs((progressX ?? 0) - (progressX2 ?? 0))).toBeLessThan(2);
+  for (const rowName of ["設計", "調査"]) {
+    for (const col of ["start", "duration", "progress", "status"] as const) {
+      const left = await columnLeft(page, rowName, col);
+      const left2 = await columnLeft(page, rowName === "設計" ? "調査" : "設計", col);
+      expect(left).not.toBeNull();
+      expect(left2).not.toBeNull();
+      expect(Math.abs((left ?? 0) - (left2 ?? 0))).toBeLessThan(2);
+    }
+    const designRow = page.locator(".sidebar-row.task", { hasText: rowName }).first();
+    const assigneeBox = await designRow.locator(".assignee").boundingBox();
+    expect(assigneeBox).not.toBeNull();
+  }
   const designRow = page.locator(".sidebar-row.task", { hasText: "設計" }).first();
   const surveyRow = page.locator(".sidebar-row.task", { hasText: "調査" }).first();
   const alertDesign = await designRow.locator(".sidebar-alert-slot").boundingBox();
@@ -116,6 +127,7 @@ test("aligns month-day, duration, percent, status, overrun, and assignee columns
   const box = await name.boundingBox();
   if (!box) throw new Error("label missing");
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  const progressX = await columnLeft(page, "設計", "progress");
   const progressXHover = await columnLeft(page, "設計", "progress");
   expect(Math.abs((progressX ?? 0) - (progressXHover ?? 0))).toBeLessThan(2);
 });
@@ -141,18 +153,24 @@ test("keeps settings rows inside the dialog at 50 and 200 percent in light and d
   await openSettingsSection(page, "表示");
   await page.getByLabel("配色").selectOption("dark");
   await page.keyboard.press("Escape");
-  await openSettingsSection(page, "メンバー");
-  const darkDialog = page.getByRole("dialog", { name: "設定" });
-  const darkBox = await darkDialog.boundingBox();
-  const viewport = page.viewportSize();
-  if (!darkBox || !viewport) throw new Error("layout missing");
-  expect(darkBox.x + darkBox.width).toBeLessThanOrEqual(viewport.width + 1);
+  for (const scale of ["0.5", "2"] as const) {
+    await setDisplayScale(page, scale);
+    await openSettingsSection(page, "メンバー");
+    const darkDialog = page.getByRole("dialog", { name: "設定" });
+    const darkBox = await darkDialog.boundingBox();
+    const viewport = page.viewportSize();
+    if (!darkBox || !viewport) throw new Error("layout missing");
+    expect(darkBox.x + darkBox.width).toBeLessThanOrEqual(viewport.width + 1);
+    expect(darkBox.y + darkBox.height).toBeLessThanOrEqual(viewport.height + 1);
+    await page.keyboard.press("Escape");
+  }
 });
 
 test("leaves chart assignee text unchanged when an unused catalog is renamed", async ({
   page,
 }) => {
-  await openSmokeSchedule(page);
+  await openScheduleFile(page, fullSchedulePath);
+  await waitForTitle(page, "回帰の詳細");
   await openSettingsSection(page, "メンバー");
   await importJsonInOpenSettings(page, membersRegressionPath);
   await page.getByRole("radio", { name: "members" }).click();
@@ -167,7 +185,11 @@ test("leaves chart assignee text unchanged when an unused catalog is renamed", a
   await editor.getByRole("button", { name: "保存" }).click();
   await editor.getByRole("button", { name: "閉じる" }).click();
   await page.keyboard.press("Escape");
-  await selectTaskByName(page, "設計");
+  await selectTaskByName(page, "調査");
+  requireKonva();
+  const chartTexts = await readKonvaTextsNearTaskRow(page, "調査");
+  expect(chartTexts.join(" ")).toContain("田中");
+  expect(chartTexts.join(" ")).not.toContain("未使用の表示名");
   await expect(page.locator(".sidebar-row", { hasText: "設計" })).not.toContainText(
     "未使用の表示名",
   );
@@ -222,7 +244,7 @@ test("keeps the assignee id and shows the unknown member after the person is del
   await editor.getByRole("button", { name: "保存" }).click();
   await editor.getByRole("button", { name: "閉じる" }).click();
   await page.keyboard.press("Escape");
-  await expect(page.locator(".sidebar-row", { hasText: "調査" })).toContainText(/メンバー不明/);
+  await expect(page.locator(".sidebar-row", { hasText: "調査" })).toContainText(/メンバー不明（tanaka）/);
 });
 
 test("hides the member description on the list, the detail, and the chart", async ({ page }) => {
@@ -243,26 +265,41 @@ test("hides the member description on the list, the detail, and the chart", asyn
   await expect(page.locator(".sidebar-row", { hasText: "調査" })).not.toContainText("説明は出さない");
   const detail = page.getByRole("complementary", { name: "タスクの詳細" });
   await expect(detail).not.toContainText("説明は出さない");
+  requireKonva();
+  const chartTexts = await readKonvaTextsNearTaskRow(page, "調査");
+  expect(chartTexts.join(" ")).not.toContain("説明は出さない");
 });
 
 test("grays a non-working weekday and restores weekends after the calendar is removed", async ({
   page,
 }) => {
   await openSmokeSchedule(page);
+  await page.getByRole("button", { name: "全体", exact: true }).click();
+  await selectTaskByName(page, "調査");
+  await page
+    .getByRole("group", { name: "表示の切り替え" })
+    .getByRole("button", { name: "日", exact: true })
+    .click();
+  const nonWorkingFill = paletteFor("light").chart.nonWorking;
+  const beforeCount = await readNonWorkingHeaderBandFillCount(page, nonWorkingFill);
+  expect(beforeCount).toBeGreaterThan(0);
   await openSettingsSection(page, "稼働日");
   await importJsonInOpenSettings(page, jp2026CalendarPath);
+  await expect(page.locator(".settings-current")).toContainText("jp-2026");
   await page.keyboard.press("Escape");
   await page.locator(".timeline-body").waitFor({ state: "visible" });
+  const withCalendar = await readNonWorkingHeaderBandFillCount(page, nonWorkingFill);
   await openSettingsSection(page, "稼働日");
-  await importJsonInOpenSettings(page, brokenCalendarPath);
-  const brokenConfirm = page.getByRole("alertdialog");
-  if (await brokenConfirm.isVisible().catch(() => false)) {
-    await brokenConfirm.getByRole("button", { name: /上書き/ }).click();
-  }
+  await page
+    .getByRole("dialog", { name: "設定" })
+    .getByRole("button", { name: "外す" })
+    .click();
   await page.keyboard.press("Escape");
-  await openSettingsSection(page, "稼働日");
-  await page.getByRole("button", { name: "外す" }).click();
-  await page.keyboard.press("Escape");
+  await expect
+    .poll(async () => readNonWorkingHeaderBandFillCount(page, nonWorkingFill))
+    .toBeLessThanOrEqual(withCalendar);
+  const afterRemove = await readNonWorkingHeaderBandFillCount(page, nonWorkingFill);
+  expect(afterRemove).toBe(beforeCount);
 });
 
 test("shows catalog status colors, overdue borders, and lightning folds on the bars", async ({
@@ -291,9 +328,11 @@ test("shows catalog status colors, overdue borders, and lightning folds on the b
   const bar = await readTaskBarKonvaForRow(page, "未着手・終了後");
   expect(bar).not.toBeNull();
   expect(strokeMatches(bar!.fill ?? "", "#E2E6ED")).toBe(true);
-  const lightningTask = { start: "2026-10-06", end: "2026-11-06", status: "in-progress" };
+  expect(await rowHasOverdueKonvaStroke(page, "未着手・終了後")).toBe(true);
+  const lightningTask = { start: "2026-10-06", end: "2026-11-06", status: "not-started" };
   const foldDate = await evaluateLightningIsoForTask(page, lightningTask);
   expect(foldDate.length).toBeGreaterThan(0);
+  await selectTaskByName(page, "未着手・期間中");
 });
 
 test("adds a status, colors the bar, and keeps the description after reload", async ({ page }) => {
@@ -311,8 +350,13 @@ test("adds a status, colors the bar, and keeps the description after reload", as
   await editor.getByRole("button", { name: "保存" }).click();
   await editor.getByRole("button", { name: "閉じる" }).click();
   await page.keyboard.press("Escape");
+  await enableAllSidebarColumns(page);
   await selectTaskByName(page, "設計");
   await page.locator("#detailStatus").selectOption({ label: "保留" });
+  await expect(page.locator("#detailStatus")).toHaveValue("hold");
+  requireKonva();
+  const holdBar = await readTaskBarKonvaForRow(page, "設計");
+  expect(holdBar?.strokeWidth).toBeGreaterThan(0);
   await page.reload({ waitUntil: "load" });
   await page.locator(".timeline-body").waitFor({ state: "visible" });
   await openCatalogEditorFromSettings(page, "ステータス");
@@ -335,7 +379,14 @@ test("reorders statuses, downloads JSON that passes check:statuses, and leaves t
   await page.getByRole("button", { name: "項目を編集…" }).click();
   const editor = page.getByRole("dialog", { name: "ステータス一覧の項目を編集" });
   await editor.getByRole("radio", { name: /statuses/ }).click();
+  const orderBefore = await editor
+    .locator(".status-catalog-editor-field-name input")
+    .evaluateAll((inputs) => inputs.map((el) => (el as HTMLInputElement).value));
   await editor.getByRole("button", { name: "下へ" }).first().click();
+  const orderAfter = await editor
+    .locator(".status-catalog-editor-field-name input")
+    .evaluateAll((inputs) => inputs.map((el) => (el as HTMLInputElement).value));
+  expect(orderAfter).not.toEqual(orderBefore);
   const [download] = await Promise.all([
     page.waitForEvent("download"),
     editor.getByRole("button", { name: "JSON を書き出す" }).click(),
@@ -350,8 +401,11 @@ test("reorders statuses, downloads JSON that passes check:statuses, and leaves t
   await openSettingsSection(page, "ステータス");
   await expect(page.getByRole("radio", { name: activeBefore })).toBeChecked();
   const raw = fs.readFileSync(path, "utf8");
-  const doc = JSON.parse(raw) as { statuses: { id: string }[] };
+  const doc = JSON.parse(raw) as { statuses: { id: string; name: string }[] };
   expect(doc.statuses.length).toBeGreaterThan(0);
+  runCheckStatuses(path);
+  const downloadedNames = doc.statuses.map((item) => item.name);
+  expect(downloadedNames).toEqual(orderAfter);
 });
 
 test("adds a custom list without a dialog", async ({ page }) => {
@@ -425,6 +479,9 @@ test("shows the color field on detail, bulk, and duplicate, and separates leave-
   await page.keyboard.press("Escape");
   await chooseColorSelectOption(page, "detailColor", "なし");
   await expect(page.locator("#detailColor")).toContainText("なし");
+  await page.locator("#detailColor").click();
+  await expect(page.locator(".color-select-dropdown [role='option']", { hasText: "変更しない" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
 });
 
 test("opens a one-item color draft and leaves the active list unchanged", async ({ page }) => {
@@ -460,6 +517,18 @@ test("keeps extension definitions after reload and leaves schedule field values 
   await expect(
     page.locator("label.settings-catalog-row").filter({ hasText: "サンプル追加項目" }),
   ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await openSettingsSection(page, "拡張項目");
+  await page.locator('label.settings-catalog-row input[type="checkbox"]').first().check();
+  await page.keyboard.press("Escape");
+  await selectTaskByName(page, "拡張あり");
+  await page.locator("#detailField-sample_memo").fill("未保存のメモ");
+  await page.locator("#detailField-sample_memo").blur();
+  await expect.poll(async () => page.getByRole("button", { name: /未保存/ }).count()).toBeGreaterThan(0);
+  await page.reload({ waitUntil: "load" });
+  await openScheduleFile(page, fullSchedulePath);
+  await selectTaskByName(page, "拡張あり");
+  await expect(page.locator("#detailField-sample_memo")).not.toHaveValue("未保存のメモ");
 });
 
 test("keeps one close button and the footer inside a viewport under 900 pixels", async ({
@@ -490,6 +559,23 @@ test("adds two new extensions with one field each and can return to the previous
   await editor.getByRole("button", { name: "新しい拡張" }).click();
   await editor.getByRole("button", { name: "新しい拡張" }).click();
   await expect(editor.getByRole("radio")).toHaveCount(before + 2);
+  const radios = editor.getByRole("radio");
+  const radioCount = await radios.count();
+  for (let index = radioCount - 2; index < radioCount; index += 1) {
+    await radios.nth(index).click();
+    await discardCatalogDraftIfShown(page);
+    const items = editor.locator(".field-definition-editor-field-name input");
+    const beforeFields = await items.count();
+    await editor.getByRole("button", { name: "項目を足す" }).click();
+    await expect(items).toHaveCount(beforeFields + 1);
+    await editor
+      .locator(".field-definition-editor-field-id input:not([readonly])")
+      .last()
+      .fill(`field_${index}`);
+    await items.last().fill(`項目${index}`);
+    await editor.getByRole("button", { name: "保存" }).click();
+    await expect(editor.getByRole("button", { name: "保存" })).toBeDisabled();
+  }
   await editor.getByRole("radio").first().click();
   await expect(editor.getByRole("radio").first()).toBeChecked();
 });
@@ -507,11 +593,21 @@ test("downloads the renamed extension and shows the new id in settings", async (
     page.waitForEvent("download"),
     editor.getByRole("button", { name: "JSON を書き出す" }).click(),
   ]);
-  await download.path();
+  const downloadPath = await download.path();
+  if (!downloadPath) throw new Error("download missing");
+  const extensionDoc = JSON.parse(fs.readFileSync(downloadPath, "utf8")) as {
+    id: string;
+    name: string;
+  };
+  expect(extensionDoc.id).toBe("sample");
+  expect(extensionDoc.name).toBe("改名サンプル");
   await editor.getByRole("button", { name: "閉じる" }).click();
   await page.keyboard.press("Escape");
   await openSettingsSection(page, "拡張項目");
   await expect(
     page.locator("label.settings-catalog-row").filter({ hasText: "改名サンプル" }),
   ).toBeVisible();
+  await expect(
+    page.locator("label.settings-catalog-row").filter({ hasText: "改名サンプル" }),
+  ).toContainText("sample");
 });

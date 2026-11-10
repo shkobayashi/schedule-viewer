@@ -48,6 +48,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `export-f5.spec.ts` | matches sidebar column visibility in the HTML export | TC-EXPORT-05 |
 | `export-f5.spec.ts` | shows the Excel desktop-only message in the export dialog | TC-EXPORT-04 |
 | `export-f5.spec.ts` | shows todo column off until enabled | TC-EDIT-22b |
+| `export-f5.spec.ts` | filters extra fields by type and keeps them out of HTML and SVG exports | TC-EDIT-20f |
 | `hierarchy-guides.spec.ts` | aligns hierarchy editor fields and refuses save when a level is added | TC-HIER-06b |
 | `hierarchy-guides.spec.ts` | draws a thin summary bar with dotted gaps, solid spans, and downward caps | TC-VIEW-03 |
 | `hierarchy-guides.spec.ts` | drops the stem under a collapsed five-level heading and rejoins it when expanded | RG-F10-1 |

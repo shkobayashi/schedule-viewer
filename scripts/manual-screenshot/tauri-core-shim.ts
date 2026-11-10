@@ -19,6 +19,7 @@ import {
 declare global {
   interface Window {
     __manualScreenshotPrepareOpen?: (pick: { path: string; contents: string }) => void;
+    __manualScreenshotTestInvoke?: typeof manualScreenshotInvoke;
   }
 }
 
@@ -27,6 +28,7 @@ if (typeof window !== "undefined") {
     setManualScreenshotOpenPick(pick);
     setManualScreenshotDiskContents(pick.contents);
   };
+  window.__manualScreenshotTestInvoke = manualScreenshotInvoke;
 }
 
 export function isTauri(): boolean {

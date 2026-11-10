@@ -9,10 +9,15 @@ import {
   readSmokeScheduleBytesOnDisk,
   unlinkExportFile,
 } from "../helpers/export.ts";
-import { openSettingsSection } from "../helpers/settings.ts";
+import {
+  importJsonInOpenSettings,
+  openSettingsSection,
+} from "../helpers/settings.ts";
 import {
   bootNormalPage,
   connectionsSchedulePath,
+  fieldsRegressionPath,
+  fullSchedulePath,
   levels3SchedulePath,
   longSchedulePath,
   manualColorsSchedulePath,
@@ -22,6 +27,7 @@ import {
   waitForFitToWidthSettled,
   waitForTitle,
 } from "../helpers/session.ts";
+import { selectTaskByName } from "../helpers/drag.ts";
 
 test.beforeAll(async ({ browser }) => {
   await ensureKonvaProbed(browser);
@@ -150,4 +156,48 @@ test("shows the Excel desktop-only message in the export dialog", async ({ page 
   await expect(page.getByRole("radio", { name: "HTML" })).toBeVisible();
   await expect(page.getByRole("radio", { name: "SVG" })).toBeVisible();
   await page.getByRole("button", { name: "キャンセル" }).click();
+});
+
+test("filters extra fields by type and keeps them out of HTML and SVG exports", async ({
+  page,
+}) => {
+  await openScheduleFile(page, fullSchedulePath);
+  await waitForTitle(page, "回帰の詳細");
+  await openSettingsSection(page, "拡張項目");
+  await importJsonInOpenSettings(page, fieldsRegressionPath);
+  await page
+    .locator("label.settings-catalog-row", { hasText: "サンプル追加項目" })
+    .locator('input[type="checkbox"]')
+    .check();
+  await page.keyboard.press("Escape");
+  await page.reload({ waitUntil: "load" });
+  await openScheduleFile(page, fullSchedulePath);
+  await selectTaskByName(page, "拡張あり");
+  await page.locator("#detailField-sample_memo").fill("回帰メモ");
+  await page.locator("#detailField-sample_score").fill("12");
+  await page.getByRole("button", { name: /^絞り込み/ }).click();
+  const panel = page.locator(".filter-panel");
+  const fieldSearch = panel.getByPlaceholder("項目名で検索");
+  await fieldSearch.fill("点数");
+  await fieldSearch.press("ArrowDown");
+  await fieldSearch.press("Enter");
+  await panel.getByLabel("点数 以上").fill("10");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".sidebar-row.task", { hasText: "拡張あり" })).toBeVisible();
+  const htmlPath = await exportWithFormat(page, "html");
+  const svgPath = await exportWithFormat(page, "svg");
+  const html = readExportFile(htmlPath);
+  const svg = readExportFile(svgPath);
+  expect(html).not.toContain("sample_memo");
+  expect(html).not.toContain("sample_score");
+  expect(svg).not.toContain("sample_memo");
+  expect(svg).not.toContain("sample_score");
+  const fieldColumns = await page.evaluate(() => {
+    const raw = localStorage.getItem("schedule-viewer/excel-export-field-columns");
+    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+  });
+  expect(fieldColumns.sample_memo).not.toBe(true);
+  expect(fieldColumns.sample_score).not.toBe(true);
+  unlinkExportFile(htmlPath);
+  unlinkExportFile(svgPath);
 });
