@@ -27,6 +27,7 @@ export default defineConfig({
         test: {
           name: "node",
           include: ["src/**/*.test.ts"],
+          exclude: ["src/hooks/mcpActionExecutor.file.test.ts"],
           environment: "node",
         },
       },
@@ -34,7 +35,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "dom",
-          include: ["src/**/*.test.tsx"],
+          include: ["src/**/*.test.tsx", "src/hooks/mcpActionExecutor.file.test.ts"],
           environment: "jsdom",
           setupFiles: ["src/test/setupDomTests.ts"],
         },

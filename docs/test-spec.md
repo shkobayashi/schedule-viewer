@@ -80,6 +80,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `keeps empty and unknown-only, and drops resolved members` | FILTER-03 |
 | 同上 | `matches when id is in the list` | FILTER-03 |
 | 同上 | `appends the id only when the display name is duplicated` | VIEW-10 |
+| 同上 | `TC-EDIT-04u: resolves workspace-only ids for sidebar, detail, bulk, and duplicate labels` | EDIT-04, FILE-10 |
 | 同上 | `matches bar-right label for empty assignees` / `joins all assignees in order with読点` / `appends id only for duplicate display names and marks unknown ids` / `does not truncate long labels` | EXPORT-05 |
 | `assigneeIds.test.ts` | `maps null, string, and array` / `serializes empty, one, and many` / `compares order` / 重複拒否 / 正規化 / `validateSchedule assigneeId json` / `accepts unassigned tasks after documentToJson for baseline merge validation` | FILE-01, FILE-02, SYNC-01 |
 | `rows.test.ts` | `taskMatchesFilter assignee` | FILTER-03 |
@@ -330,6 +331,9 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `pins color and status overwrite confirm before the catalog list` | SET-08, SET-09 |
 | 同上 | `uses distinct empty-list and failure strings per kind` | SET-02, SET-08, SET-09 |
 | 同上 | `pins status confirm copy to match color placement and labels` | SET-08, SET-09 |
+| `settingsCatalogIo.dom.test.tsx` | `TC-SET-02: import shows catalog name, resolves assignee id, and leaves schedule JSON unchanged` | SET-02 |
+| 同上 | `TC-SET-02: import accepts description on members` | SET-02 |
+| 同上 | `TC-SET-02: import rejects blank member name` | SET-02 |
 | `settingsCatalogSection.dom.test.tsx` | `renders color note actions and catalog row labels` | SET-09 |
 | 同上 | `shows color overwrite dialog before list with aria-label` | SET-09 |
 | 同上 | `shows member overwrite dialog after clear selection and list` | SET-02 |
@@ -345,6 +349,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `keeps the row fill bound to the renamed color` | SET-09 |
 | 同上 | `closes catalog editors on external reload and leaves the draft out of storage` | SET-02, SET-08, SET-09, SYNC-01 |
 | 同上 | `hides the member editor when workspace members cannot be read` | SET-02 |
+| 同上 | `TC-EDIT-04u: shows workspace-only assignee in the sidebar and detail` | EDIT-04, FILE-10 |
 | 同上 | `rejects a blank task name and leaves the task unchanged` | EDIT-04 |
 | 同上 | `shows unregistered field values as read-only without a catalog` | EDIT-04 |
 | 同上 | `hides delete until a task is selected` | EDIT-09 |
@@ -724,6 +729,10 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `explainOverlay.test.ts` | `parseExplainOverlay_acceptsMarkColorHex`、`parseExplainOverlay_rejectsInvalidMarkColor`、`parseExplainOverlay_omitsColorWhenNotSet`、`buildMcpExplanationOverlay_returnsColorWhenSet`、`buildMcpExplanationOverlay_omitsColorWhenNotSet`（ほか VIEW-16 関連） | VIEW-16, MCP-01 |
 | `explainOverlayPatterns.test.ts` | `parseExplanationPatterns_acceptsValidPattern`、`parseExplanationPatterns_rejectsUnknownKey`、`parseExplanationPatterns_rejectsDocumentTaskId`、`parseExplanationPatterns_rejectsCrossPatternPredecessor`、`parseExplainOverlay_rejectsPatternsWhenHiding`、`parseExplainOverlay_rejectsInvalidPatternWithoutChangingState`、`buildMcpExplanationPatterns_marksTrialTasks`、`buildDisplayVisibleRowsWithExplanationTrials_insertsTrialRowAfterAnchorAndShiftsY`、`reorderPointerContentYForDocumentRows_subtractsTrialRowsAbovePointer`、`buildExplanationTrialBarLayouts_matchesTaskBarRectInBody`（pxPerDay 8/40、rowHeight 26/32）、`buildExplanationTrialBarLayouts_ignoresLiveAnchorsForDateChange`、`buildExplanationTrialBarLayouts_rendersSameTaskChangePerPattern`、`buildExplanationTrialBarLayouts_mergesUnanimousTaskChangeAcrossPatterns`、`trialMarkBarRect_matchesTaskBarRectInBody`、`parseExplainOverlay_hideRemovesPatternsFromNextShow`、`serializeScheduleDocument_omitsPatternsAndTrialTasks`、`buildExplanationTrialPredecessorArcs_drawsWhenBothAnchorsResolve`、`buildExplanationTrialPredecessorArcs_skipsWhenAnchorMissing`、`applyExplanationPatternToDocument_insertsTrialAfterAnchorAndAppliesChanges`、`applyExplanationPatternToDocument_appliesTaskAndMilestoneChangesTogether`、`applyExplanationPatternToDocument_rejectsUnknownMilestoneId`、`buildExplanationTrialMilestoneLayouts_matchesMilestoneDiamondRectInBand`、`buildExplanationTrialMilestoneLayouts_mergesUnanimousChangeAcrossPatterns`、`applyExplanationPatternToDocument_insertsTrialAfterAnchorInOutline`、`applyExplanationPatternToDocument_rejectsTrialIdCollision`、`applyExplanationPatternToDocument_rejectsMissingAfterTaskId`、`parseApplyExplanationPatternRequest_requiresPatternId` | VIEW-16, MCP-01 |
 | `mcpActionExecutor.test.ts` | `executeMcpActionTool_applyExplanationPattern_rejectsWithoutOverlay`、`executeMcpActionTool_applyExplanationPattern_rejectsUnknownPatternId` | VIEW-16, MCP-01 |
+| `mcpActionExecutor.file.test.ts` | `TC-MCP-425h: file_action save without a path returns 保存先がありません。` | MCP-01 |
+| 同上 | `TC-MCP-425i: file_action save without overwrite or saveAs returns DISK_HASH_MISMATCH` | MCP-01 |
+| 同上 | `TC-MCP-425e: catalog_action without save leaves the members file bytes` | MCP-01 |
+| 同上 | `set_preferences on writes the auto update key and does not call check` | MCP-01, SET-06 |
 | `explanationMarkColor.test.ts` | `parseExplanationMarkColor_normalizesRgbAndRrggbb`、`parseExplanationMarkColor_rejectsLeadingOrTrailingWhitespace`、`parseExplanationMarkColor_rejectsNonHex`、`explanationMarkRingDashStyle_askStaysDashedWithCustomColor`、`explanationMarkHaloStroke_picksContrastingHalo` | VIEW-16, MCP-01 |
 | `mcpOperationGate.test.ts` | `rejects file busy even with discardInProgress` | MCP-01 |
 | `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |

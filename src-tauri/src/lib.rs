@@ -163,7 +163,58 @@ fn hash_contents(contents: &str) -> String {
     sha256_hex(contents.as_bytes())
 }
 
-fn read_open_schedule<T>(
+pub(crate) fn schedule_disk_hash_mismatch(disk_contents: &str, expected_hash: &str) -> bool {
+    hash_contents(disk_contents) != expected_hash
+}
+
+pub(crate) fn blank_schedule_path_error(path: &str) -> Option<&'static str> {
+    if path.trim().is_empty() {
+        Some("保存先がありません。")
+    } else {
+        None
+    }
+}
+
+pub(crate) fn prepare_schedule_export_target(
+    path: &str,
+    extension: &str,
+) -> Result<PathBuf, String> {
+    let ext = if extension.eq_ignore_ascii_case("svg") {
+        "svg"
+    } else {
+        "html"
+    };
+    let target = PathBuf::from(path.trim());
+    let file_ext = target
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let allowed = if ext == "svg" {
+        file_ext == "svg"
+    } else {
+        file_ext == "html" || file_ext == "htm"
+    };
+    if !allowed {
+        return Err("書き出し先の拡張子が形式と一致しません。".to_string());
+    }
+    Ok(target)
+}
+
+pub(crate) fn prepare_excel_export_target(path: &str) -> Result<PathBuf, String> {
+    let target = PathBuf::from(path.trim());
+    let file_ext = target
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if file_ext != "xlsx" {
+        return Err("Excel の書き出し先は .xlsx である必要があります。".to_string());
+    }
+    Ok(target)
+}
+
+pub(crate) fn read_open_schedule<T>(
     states: &Mutex<ScheduleFileStates>,
     label: &str,
     use_contents: impl Fn(&ScheduleFileState, &str, &str) -> Result<T, String>,
@@ -417,7 +468,7 @@ fn read_json_file_limited(path: String, max_bytes: u64) -> Result<String, String
 }
 
 #[derive(Deserialize)]
-struct FieldExtensionExportInput {
+pub(crate) struct FieldExtensionExportInput {
     #[serde(rename = "fileName")]
     file_name: String,
     contents: String,
@@ -464,7 +515,7 @@ fn validate_workspace_bundle_inputs(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn write_workspace_bundle_to_folder(
+pub(crate) fn write_workspace_bundle_to_folder(
     folder: &Path,
     schedule_file_name: &str,
     schedule_contents: &str,
@@ -761,7 +812,6 @@ async fn save_schedule_file(
 
     if !save_as && !skip_disk_hash_check {
         let disk = read_utf8(&target, MAX_SCHEDULE_BYTES)?;
-        let disk_hash = hash_contents(&disk);
         let guard = state.lock().expect("schedule file states");
         let label = window_label(&window);
         let file_state = guard
@@ -772,7 +822,7 @@ async fn save_schedule_file(
             .content_hash
             .as_ref()
             .ok_or_else(|| "開いているファイルがありません".to_string())?;
-        if disk_hash != *expected_hash {
+        if schedule_disk_hash_mismatch(&disk, expected_hash) {
             return Err(DISK_HASH_MISMATCH.to_string());
         }
     }
@@ -800,10 +850,10 @@ async fn save_schedule_at_path(
     if contents.len() as u64 > MAX_SCHEDULE_BYTES {
         return Err("保存する内容が大きすぎます（上限 10 MB）".to_string());
     }
-    let target = PathBuf::from(path.trim());
-    if path.trim().is_empty() {
-        return Err("保存先がありません。".to_string());
+    if let Some(message) = blank_schedule_path_error(&path) {
+        return Err(message.to_string());
     }
+    let target = PathBuf::from(path.trim());
     if !is_json_path(&target) {
         return Err("JSON ファイル以外には保存できません".to_string());
     }
@@ -823,7 +873,6 @@ async fn save_schedule_at_path(
     }
     if !skip_disk_hash_check {
         let disk = read_utf8(&target, MAX_SCHEDULE_BYTES)?;
-        let disk_hash = hash_contents(&disk);
         let guard = state.lock().expect("schedule file states");
         let file_state = guard
             .by_label
@@ -833,7 +882,7 @@ async fn save_schedule_at_path(
             .content_hash
             .as_ref()
             .ok_or_else(|| "開いているファイルがありません".to_string())?;
-        if disk_hash != *expected_hash {
+        if schedule_disk_hash_mismatch(&disk, expected_hash) {
             return Err(DISK_HASH_MISMATCH.to_string());
         }
     }
@@ -891,25 +940,7 @@ fn write_schedule_export_at_path(path: String, contents: String, extension: Stri
     if contents.len() as u64 > MAX_HTML_BYTES {
         return Err("保存する内容が大きすぎます（上限 10 MB）".to_string());
     }
-    let ext = if extension.eq_ignore_ascii_case("svg") {
-        "svg"
-    } else {
-        "html"
-    };
-    let target = PathBuf::from(path.trim());
-    let file_ext = target
-        .extension()
-        .and_then(|value| value.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    let allowed = if ext == "svg" {
-        file_ext == "svg"
-    } else {
-        file_ext == "html" || file_ext == "htm"
-    };
-    if !allowed {
-        return Err("書き出し先の拡張子が形式と一致しません。".to_string());
-    }
+    let target = prepare_schedule_export_target(&path, &extension)?;
     write_utf8_atomic(&target, &contents)
 }
 
@@ -919,15 +950,7 @@ fn write_excel_export_at_path(
     payload: export_xlsx::ExcelExportPayload,
 ) -> Result<(), String> {
     let bytes = export_xlsx::write_excel_bytes(&payload)?;
-    let target = PathBuf::from(path.trim());
-    let file_ext = target
-        .extension()
-        .and_then(|value| value.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    if file_ext != "xlsx" {
-        return Err("Excel の書き出し先は .xlsx である必要があります。".to_string());
-    }
+    let target = prepare_excel_export_target(&path)?;
     write_bytes_atomic(&target, &bytes)
 }
 
@@ -3507,10 +3530,15 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+    use std::sync::Mutex;
 
     use super::{
-        choose_open_directory, read_utf8, require_active_save_path,
-        sanitize_catalog_id, sanitize_export_filename,
+        blank_schedule_path_error, choose_open_directory, hash_contents, prepare_excel_export_target,
+        prepare_schedule_export_target, read_open_schedule, read_utf8, require_active_save_path,
+        sanitize_catalog_id, sanitize_export_filename, schedule_disk_hash_mismatch,
+        write_schedule_export_at_path, write_utf8_atomic,
+        write_workspace_bundle_to_folder, FieldExtensionExportInput, ScheduleFileState,
+        ScheduleFileStates,
     };
 
     #[test]
@@ -3587,5 +3615,142 @@ mod tests {
             sanitize_catalog_id("a/b").unwrap_err(),
             "カタログ名に / や \\ は使えません"
         );
+    }
+
+    #[test]
+    fn write_utf8_atomic_writes_the_given_json_and_leaves_the_sibling() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let sibling = dir.path().join("sibling.json");
+        std::fs::write(&sibling, "keep").expect("sibling");
+        let target = dir.path().join("plan.json");
+        write_utf8_atomic(&target, "{\n}\n").expect("write");
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "{\n}\n");
+        assert_eq!(std::fs::read_to_string(&sibling).unwrap(), "keep");
+        assert_eq!(
+            dir.path()
+                .read_dir()
+                .unwrap()
+                .filter_map(|entry| entry.ok())
+                .count(),
+            2
+        );
+    }
+
+    #[test]
+    fn blank_schedule_path_error_rejects_empty_and_whitespace() {
+        assert_eq!(
+            blank_schedule_path_error(""),
+            Some("保存先がありません。")
+        );
+        assert_eq!(
+            blank_schedule_path_error("  \t"),
+            Some("保存先がありません。")
+        );
+        assert_eq!(blank_schedule_path_error("/tmp/plan.json"), None);
+    }
+
+    #[test]
+    fn schedule_disk_hash_mismatch_is_true_when_bytes_differ() {
+        let contents = r#"{"schemaVersion":8}"#;
+        let hash = hash_contents(contents);
+        assert!(!schedule_disk_hash_mismatch(contents, &hash));
+        assert!(schedule_disk_hash_mismatch(
+            r#"{"schemaVersion":8,"tasks":[]}"#,
+            &hash
+        ));
+    }
+
+    #[test]
+    fn write_workspace_bundle_to_folder_omits_builtin_statuses_and_keeps_field_order() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let extensions = vec![
+            FieldExtensionExportInput {
+                file_name: "alpha.fields.json".to_string(),
+                contents: "{}\n".to_string(),
+            },
+            FieldExtensionExportInput {
+                file_name: "beta.fields.json".to_string(),
+                contents: "{}\n".to_string(),
+            },
+        ];
+        write_workspace_bundle_to_folder(
+            dir.path(),
+            "plan.json",
+            "{}\n",
+            Some("members.json"),
+            Some("[]\n"),
+            Some("calendar.json"),
+            Some("[]\n"),
+            None,
+            None,
+            Some("colors.json"),
+            Some("[]\n"),
+            &extensions,
+        )
+        .expect("write bundle");
+        let workspace = std::fs::read_to_string(dir.path().join("workspace.json")).unwrap();
+        assert!(!workspace.contains("\"statuses\""));
+        let schedule_pos = workspace.find("\"schedule\"").unwrap();
+        let members_pos = workspace.find("\"members\"").unwrap();
+        let calendar_pos = workspace.find("\"calendar\"").unwrap();
+        let colors_pos = workspace.find("\"colors\"").unwrap();
+        let extensions_pos = workspace.find("\"fieldExtensions\"").unwrap();
+        assert!(schedule_pos < members_pos);
+        assert!(members_pos < calendar_pos);
+        assert!(calendar_pos < colors_pos);
+        assert!(colors_pos < extensions_pos);
+        let parsed: serde_json::Value = serde_json::from_str(&workspace).unwrap();
+        let paths = parsed["fieldExtensions"]
+            .as_array()
+            .expect("fieldExtensions");
+        assert_eq!(paths.len(), 2);
+        assert!(paths[0].as_str().unwrap().contains("alpha"));
+        assert!(paths[1].as_str().unwrap().contains("beta"));
+    }
+
+    #[test]
+    fn write_schedule_export_at_path_rejects_an_empty_path() {
+        let err = prepare_schedule_export_target("  ", "html").unwrap_err();
+        assert_eq!(err, "書き出し先の拡張子が形式と一致しません。");
+        let err = write_schedule_export_at_path(
+            "  ".to_string(),
+            "<p>ok</p>".to_string(),
+            "html".to_string(),
+        )
+        .unwrap_err();
+        assert_eq!(err, "書き出し先の拡張子が形式と一致しません。");
+    }
+
+    #[test]
+    fn write_excel_export_at_path_rejects_an_empty_path() {
+        let err = prepare_excel_export_target("  ").unwrap_err();
+        assert_eq!(err, "Excel の書き出し先は .xlsx である必要があります。");
+    }
+
+    #[test]
+    fn read_open_schedule_returns_new_bytes_after_the_temp_file_is_replaced() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("plan.json");
+        std::fs::write(&path, "{\"a\":1}").expect("write");
+        let mut states = ScheduleFileStates::default();
+        states.by_label.insert(
+            "main".to_string(),
+            ScheduleFileState {
+                path: Some(path.clone()),
+                content_hash: Some(hash_contents("{\"a\":1}")),
+            },
+        );
+        let mutex = Mutex::new(states);
+        let first = read_open_schedule(&mutex, "main", |_state, contents, _hash| {
+            Ok(contents.to_string())
+        })
+        .expect("first read");
+        assert_eq!(first, "{\"a\":1}");
+        std::fs::write(&path, "{\"b\":2}").expect("replace");
+        let second = read_open_schedule(&mutex, "main", |_state, contents, _hash| {
+            Ok(contents.to_string())
+        })
+        .expect("second read");
+        assert_eq!(second, "{\"b\":2}");
     }
 }
