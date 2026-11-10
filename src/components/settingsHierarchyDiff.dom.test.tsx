@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScheduleDocument } from "../model/types";
-import type { WorkspaceWindowBinding } from "../model/workspaceTypes";
+import type { WorkspaceMemberState, WorkspaceWindowBinding } from "../model/workspaceTypes";
 import {
   loadExampleSchedule,
   loadRegressionSchedule,
@@ -477,5 +477,46 @@ describe("settings, hierarchy, and diff chrome", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: /差分をコピー/ }));
     await screen.findByText("差分をコピーしました");
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("2026-04-02 → 2026-04-03"));
+  });
+
+  it("TC-EDIT-04u: shows workspace-only assignee in the sidebar and detail", async () => {
+    localStorage.removeItem("schedule-viewer/members/catalogs");
+    localStorage.removeItem("schedule-viewer/members/selected");
+    const doc = structuredClone(loadRegressionSchedule("smoke.schedule.json"));
+    const design = doc.categories[0]?.groups[0]?.tasks.find((task) => task.name === "設計");
+    if (!design) throw new Error("設計 task missing");
+    design.assigneeIds = ["ws-only"];
+    const members: WorkspaceMemberState = {
+      kind: "loaded",
+      label: "プロジェクトメンバー",
+      members: [{ id: "ws-only", name: "設定ファイルの山田" }],
+    };
+    const binding: WorkspaceWindowBinding = {
+      workspacePath: "/proj/client/workspace.json",
+      document: {
+        schemaVersion: 1,
+        schedule: "smoke.schedule.json",
+        members: "team.members.json",
+      },
+      resolved: {
+        schedulePath: "/proj/client/smoke.schedule.json",
+        membersPath: "/proj/client/team.members.json",
+        calendarPath: null,
+        statusesPath: null,
+        colorsPath: null,
+        fieldExtensionPaths: [],
+        editableFieldExtensionPath: null,
+      },
+      members,
+      calendar: { kind: "unset" },
+      statuses: { kind: "unset" },
+      colors: { kind: "unset" },
+      fieldExtensions: { kind: "unset" },
+      editableFieldExtension: { kind: "unset" },
+    };
+    render(<SettingsHierarchyDiffHarness initialDocument={doc} workspaceBinding={binding} />);
+    expect(await screen.findByText("設定ファイルの山田")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("設計"));
+    expect(screen.getAllByText("設定ファイルの山田").length).toBeGreaterThanOrEqual(2);
   });
 });

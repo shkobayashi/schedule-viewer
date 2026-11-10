@@ -51,7 +51,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## 短い通しと、全体
 
-短い通しは RG-S2 から RG-S4 である。RG-S1 と RG-S5 は自動テストが見ている。いまの目安は 43 分である（もともと 44 分の見積から、手で行わなくなった RG-S3-13 の 1 分だけを引いた見積）。全体の代表手順は、それに RG-F1 から RG-F14 を足して約 3 時間 0 分である（もともとの約 3 時間 17 分から、以前に手で行わなくなった約 16 分［RG-F6-1 から RG-F6-4 の約 13 分と RG-F11-3 の約 3 分など］と、今回手で行わなくなった RG-S3-13 の 1 分だけを引いた見積）。RG-F10-2 はメニューが自動化予定:#535 のまま残るため、この引き算には含めない。RG-S3-7 と RG-S3-8 も自動化予定:#535 が残るため、引き算には含めない。RG-S3-10 と RG-S3-11 は選択の復元が #535 に残るため、上の引き算には含めない。RG-F9-3 は自動化予定:#547 が残るため、引き算には含めない。RG-F3 と RG-F13 は手で通さない。RG-F1-6、RG-F2-4、RG-F2-5、RG-F6-1 から RG-F6-4、RG-S3-13、RG-F11-3 も手で行わない。シナリオは 19 本、手順は 98 である。この分数は、各シナリオに書いてあった目安から、自動化予定が残っていない手順だけを引いた見積で、実測ではない。各手順の扱いに書いた自動化予定がすべて終わったあと、手で残すのは色の読みやすさ、実機の日本語変換、本物の LLM の判断、署名と配布物の確認だけである。そのときの目安は、短い通しが約 5 分、全体が約 25 分に、配布物の確認があるときだけ OS ごとに約 10 分を足す。この分数も実測ではない。
+短い通しは RG-S2 から RG-S4 である。RG-S1 と RG-S5 は自動テストが見ている。いまの目安は 39 分である（もともと 44 分の見積から、手で行わなくなった RG-S3-13 の 1 分と RG-S4-3・RG-S4-6 の約 4 分を引いた見積）。全体の代表手順は、それに RG-F1 から RG-F14 を足して約 2 時間 38 分である（もともと約 3 時間 0 分の見積から、今回手で行わなくなった RG-S4-3・RG-S4-6 の約 4 分、RG-F6-5 の約 3 分、RG-F7-2・RG-F7-3 の約 6 分、RG-F8-1 の約 3 分、RG-F10-3・RG-F10-4 の約 4 分、RG-F14-3 の約 2 分を引いた見積。約 3 時間 0 分は、以前分の約 16 分をすでに引いたあとの数字である）。RG-F9-3 は窓の前面が自動化予定:#541 のまま残る。RG-S1-4 は扱いが自動になったが、98 の手順数の引き算には含めない。RG-F10-2 はメニューが自動化予定:#535 のまま残るため、この引き算には含めない。RG-S3-7 と RG-S3-8 も自動化予定:#535 が残るため、引き算には含めない。RG-S3-10 と RG-S3-11 は選択の復元が #535 に残るため、上の引き算には含めない。RG-F7-1 と RG-F8-2 は実機の監視が残るため、上の引き算には含めない。RG-F5-3・RG-F9-2・RG-F14-2 は扱い本文に手動が残るため、時間と手順数の引き算には含めない。RG-F3 と RG-F13 は手で通さない。RG-F1-6、RG-F2-4、RG-F2-5、RG-F6-1 から RG-F6-4、RG-S3-13、RG-F11-3、RG-S4-3、RG-S4-6、RG-F6-5、RG-F7-2、RG-F7-3、RG-F8-1、RG-F10-3、RG-F10-4、RG-F14-3 も手で行わない。シナリオは 19 本、手順は 89 である。手順 98 から、上の手で行わなくなった 9 手順を引いた見積である。RG-S1-4 は 98 の外にある。この分数は、各シナリオに書いてあった目安から、自動化予定が残っていない手順だけを引いた見積で、実測ではない。各手順の扱いに書いた自動化予定がすべて終わったあと、手で残すのは色の読みやすさ、実機の日本語変換、本物の LLM の判断、署名と配布物の確認だけである。そのときの目安は、短い通しが約 5 分、全体が約 25 分に、配布物の確認があるときだけ OS ごとに約 10 分を足す。この分数も実測ではない。
 
 各手順の番号ごとに、合、否、保留、未検証、対象外のいずれかと、違ったときは見えた文を記録する。記録の型は末尾にある。自動化予定と書いた手順を手で行っても、その Issue が終わるまで自動の代わりの合格にはしない。
 
@@ -97,7 +97,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 変えた直後、状態バーは「保存は ☰ または Ctrl+S」（Mac では ⌘S）である。保存後、同じ環境ではその文は出ない。作業用ファイルの名前は「調査メモ」である。原本の `examples/regression/smoke.schedule.json` の名前は「調査」のままである。終わったら作業用を原本からコピーし直す。
 
-扱い: 自動:src/components/browserDesktopChrome.dom.test.tsx#shows the save hint while the document is dirty and clears it after save。保存した JSON の中身は自動化予定:#547。ヒントの出入りはこのテストが断言する。
+扱い: 自動:src/components/browserDesktopChrome.dom.test.tsx#shows the save hint while the document is dirty and clears it after save。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。ヒントの出入りと保存内容は既存のテストが断言している。
 
 ## RG-S2 表示と色
 
@@ -293,7 +293,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## RG-S4 保存して開き直す
 
-目的は、保存先が無い新規、保存先がある通常保存、別名保存、破棄、ドロップ、ショートカットを分けることである。対象はデスクトップ版である。原本は上書きしない。目安は 18 分である。保存の分岐の自動は #547 である。OS のダイアログで選ぶ操作は人が残す。
+目的は、保存先が無い新規、保存先がある通常保存、別名保存、破棄、ドロップ、ショートカットを分けることである。対象はデスクトップ版である。原本は上書きしない。目安は 18 分である。保存の分岐の多くは `fileSaveFlow.dom.test.tsx` が見ている。OS のダイアログで選ぶ操作は人が残す。
 
 ### RG-S4-1
 
@@ -303,7 +303,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 保存先を聞く。作業用にファイルができ、タイトルは「回帰の新規」である。原本は増えない。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
+扱い: OS の保存ダイアログは手動のままである。
 
 ### RG-S4-2
 
@@ -313,7 +313,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 未保存のままである。作業用に `new.schedule.json` はできない。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
+扱い: OS の保存ダイアログは手動のままである。
 
 ### RG-S4-3
 
@@ -323,7 +323,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 保存先のダイアログは出ない。作業用ファイルの終了は 2026-04-10 である。原本の終了は 2026-04-08 のままである。差分列の差は消える。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。この手順の期待は既存のテストが断言している。
 
 ### RG-S4-4
 
@@ -331,7 +331,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 保存先は作業用の `smoke.schedule.json` のままである。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
+扱い: OS の別名保存ダイアログは手動のままである。
 
 ### RG-S4-5
 
@@ -339,7 +339,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 保存先は一度 `copy.schedule.json` になる。破棄のあと、そのファイルのタイトルは「回帰確認」のままである。「別名の確認」は残らない。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#save as then save writes the second change to the new path。OS の別名保存ダイアログは手動のままである。
 
 ### RG-S4-6
 
@@ -349,7 +349,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 起動後の開始は 2026-04-05 である。原本は 2026-04-04 のままである。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src/hooks/scheduleFile/startupRecoveryFlow.dom.test.tsx#TC-SYNC-03: restores unsaved start date for RG-S4-6。この手順の期待はこのテストが断言している。
 
 ### RG-S4-7
 
@@ -365,7 +365,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: タイトルは「回帰確認」である。ダイアログが開いているあいだは、このキーは開かない。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
+扱い: OS の開くダイアログは手動のままである。
 
 ## RG-S5 ブラウザ版との差
 
@@ -641,13 +641,13 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 操作: 書き出し先を空のまま確定できるかを試す。
 
-期待: ダイアログが空を渡せるときは、書き出せず理由が出る。空を渡せないときは対象外と記録し、合格にしない。空確定の自動は #547 である。
+期待: ダイアログが空を渡せるときは、書き出せず理由が出る。空を渡せないときは対象外と記録し、合格にしない。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src-tauri/src/lib.rs#write_schedule_export_at_path_rejects_an_empty_path。ダイアログが空を渡せるかは手動のままである。
 
 ## RG-F6 設定の読み込みと編集
 
-目的は、担当と色が付いた見本で、表示名の変更がチャートへ残り、外部の読み直しで下書きが消えることである。対象はデスクトップ版である。目安は 16 分である。短い通しには入れない。担当、ステータス、色、追加項目の表示と編集は、画面部品テスト `settingsHierarchyDiff.dom.test.tsx` が確かめている。別プログラムがファイルを書く監視は #547 である。
+目的は、担当と色が付いた見本で、表示名の変更がチャートへ残り、外部の読み直しで下書きが消えることである。対象はデスクトップ版である。目安は 16 分である。短い通しには入れない。担当、ステータス、色、追加項目の表示と編集は、画面部品テスト `settingsHierarchyDiff.dom.test.tsx` が確かめている。別プログラムがファイルを書く監視は手動のままである。
 
 ### RG-F6-1
 
@@ -691,13 +691,11 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 読み直しの前に覆いが閉じる。下書きはカタログのファイルへ書かない。「調査」の終了は 2026-04-02 である。
 
-扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#closes catalog editors on external reload and leaves the draft out of storage。別プログラムがファイルを書く監視と、作業用ファイルへの書き込みは自動化予定:#547。
-
-自動化予定: #547。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#closes catalog editors on external reload and leaves the draft out of storage。自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SET-02e: closes the member catalog editor on reload without writing the draft。実機のファイル監視は手動のままである。
 
 ## RG-F7 外部更新の対話
 
-目的は、未保存が無いとき、別のタスクの変更、同じ項目の衝突を分けることである。対象はデスクトップ版である。見本は作業用の `full.schedule.json` で、一度保存したパスを使う。各手順の前に原本からコピーし直して開く。目安は 14 分である。短い通しには入れない。分岐の自動は #547 である。実機の監視は人が残す。
+目的は、未保存が無いとき、別のタスクの変更、同じ項目の衝突を分けることである。対象はデスクトップ版である。見本は作業用の `full.schedule.json` で、一度保存したパスを使う。各手順の前に原本からコピーし直して開く。目安は 14 分である。短い通しには入れない。分岐の多くは `externalReloadFlow.dom.test.tsx` が見ている。実機の監視は人が残す。
 
 ### RG-F7-1
 
@@ -707,9 +705,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 画面が変わり、「ファイルを反映しました」と出る。ノートは「外部のノート」である。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #547。
+扱い: 自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SYNC-01: applies a clean disk change after one poll interval。実機のファイル監視は手動のままである。
 
 ### RG-F7-2
 
@@ -719,9 +715,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 確認が出る。押したあと、状態バーに確認へ戻る操作が出る。「設計」の終了は 2026-04-12 のままである。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #547。
+扱い: 自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SYNC-01b: keep local edits and show the deferred reload banner。この手順の期待は既存のテストが断言している。
 
 ### RG-F7-3
 
@@ -731,13 +725,11 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 「両方を画面へ反映」は出ない。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #547。
+扱い: 自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SYNC-01f: blocks merge when the same task conflicts。この手順の期待は既存のテストが断言している。
 
 ## RG-F8 起動復旧のタイミング
 
-目的は、復旧中のドラッグを、人が捕まえられないときは未検証にすることである。対象はデスクトップ版である。目安は 6 分である。短い通しには入れない。待ちを止める自動は #547 である。本番の起動に待ち時間は足さない。
+目的は、復旧中のドラッグを、人が捕まえられないときは未検証にすることである。対象はデスクトップ版である。目安は 6 分である。短い通しには入れない。待ちを止める自動は `startupRecoveryFlow.dom.test.tsx` が見ている。本番の起動に待ち時間は足さない。
 
 ### RG-F8-1
 
@@ -747,9 +739,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 終わる前に掴めたときは、終わるまで日付は変わらない。終わったあと、ドラッグできる。掴める前に復旧が終わったときは、未検証とし、合にも否にもしない。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #547。
+扱い: 自動:src/hooks/scheduleFile/startupRecoveryFlow.dom.test.tsx#TC-SYNC-03f: blocks date moves until startup recovery settles。この手順の期待は既存のテストが断言している。
 
 ### RG-F8-2
 
@@ -757,13 +747,11 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 開始 2026-04-05 の未保存が戻る。RG-S4-6 と同じ戻りである。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #547。
+扱い: 自動:src/hooks/scheduleFile/startupRecoveryFlow.dom.test.tsx#TC-SYNC-03: restores unsaved edits when the disk matches baseline。本番の起動タイミングは手動のままである。
 
 ## RG-F9 複数のウィンドウ
 
-目的は、2 枚の窓、履歴の消去、同じカタログの選択を分けることである。対象はデスクトップ版である。目安は 14 分である。短い通しには入れない。履歴の計算は `recentFiles.test.ts` が持っている。窓が残ることの自動は #547 と #543、実機の前面は #541 である。
+目的は、2 枚の窓、履歴の消去、同じカタログの選択を分けることである。対象はデスクトップ版である。目安は 14 分である。短い通しには入れない。履歴の計算は `recentFiles.test.ts` が持っている。履歴消去の自動は `fileSaveFlow.dom.test.tsx` が見ている。窓が残ることの自動は #543、実機の前面は #541 である。
 
 ### RG-F9-1
 
@@ -781,9 +769,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 消す前は両方のファイルが出る。消したあと、開いているスケジュールは残る。履歴の項目は押せない。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
-
-計算の自動は `recentFiles.test.ts` の `drops the oldest on the sixth add` などである。メニューとの接続は #547 である。
+扱い: 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#clear history leaves the open schedule and the recovery file。自動:src/model/recentFiles.test.ts#drops the oldest on the sixth add。☰ のメニュー表示は手動のままである。自動化予定:#535。
 
 ### RG-F9-3
 
@@ -792,8 +778,6 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 期待: 編集中の 1 枚目が前面になる。2 枚目では、その操作では選ばれない。
 
 扱い: 自動化予定:#541。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #547。実機の前面は #541 である。
 
 ### RG-F9-4
 
@@ -837,9 +821,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 空の意味では適用できない。閉じたあと、作業用ファイルに「回帰の下書き」は無い。
 
-扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied。適用せずに閉じた名前が作業用ファイルに書かれないことは自動化予定:#547。
-
-自動化予定: #547。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#an unapplied name 回帰の下書き is absent from the file。この手順の期待は既存のテストが断言している。
 
 ### RG-F10-4
 
@@ -847,9 +829,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 保存した JSON にその指示が残る。原本の `examples/hierarchy/levels-3.schedule.json` には残らない。終わったら作業用を原本からコピーし直す。
 
-扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。保存した JSON に指示が残ることは自動化予定:#547。
-
-自動化予定: #547。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#the saved file contains 回帰の指示 and the example file does not。この手順の期待は既存のテストが断言している。
 
 ## RG-F11 差分列の配置
 
@@ -1005,7 +985,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 ## RG-F14 更新の知らせ
 
-目的は、配布物の更新を、最新、より新しい版、失敗、初回の PC に分けることである。開発ビルドでは対象外である。目安は 8 分である。短い通しには入れない。応答の分岐の自動は #547 である。署名、SmartScreen、実更新は配布時の条件付きであり、通常の開発通しの合格には数えない。
+目的は、配布物の更新を、最新、より新しい版、失敗、初回の PC に分けることである。開発ビルドでは対象外である。目安は 8 分である。短い通しには入れない。応答の分岐の多くは `useAppAutoUpdate.flow.test.tsx` が見ている。署名、SmartScreen、実更新は配布時の条件付きであり、通常の開発通しの合格には数えない。
 
 ### RG-F14-1
 
@@ -1025,9 +1005,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 入れ直す案内は出ない。より新しい版が公開されていないときは、更新ありの確認は未検証とする。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #547。実物の配布 URL は人が残す。
+扱い: 自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m: manual check with no update shows the latest message。実物の配布 URL は手動のままである。
 
 ### RG-F14-3
 
@@ -1035,9 +1013,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 失敗の知らせが出る。接続が無いことを、最新版である旨と取り違えない。再起動の案内は、入れ直しを選んだときだけである。
 
-扱い: 自動化予定:#547。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #547。
+扱い: 自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m3: manual check shows a failure message when check throws。この手順の期待は既存のテストが断言している。
 
 ### RG-F14-4
 

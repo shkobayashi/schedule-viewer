@@ -80,6 +80,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `keeps empty and unknown-only, and drops resolved members` | FILTER-03 |
 | 同上 | `matches when id is in the list` | FILTER-03 |
 | 同上 | `appends the id only when the display name is duplicated` | VIEW-10 |
+| 同上 | `TC-EDIT-04u: resolves workspace-only ids for sidebar, detail, bulk, and duplicate labels` | EDIT-04, FILE-10 |
 | 同上 | `matches bar-right label for empty assignees` / `joins all assignees in order with読点` / `appends id only for duplicate display names and marks unknown ids` / `does not truncate long labels` | EXPORT-05 |
 | `assigneeIds.test.ts` | `maps null, string, and array` / `serializes empty, one, and many` / `compares order` / 重複拒否 / 正規化 / `validateSchedule assigneeId json` / `accepts unassigned tasks after documentToJson for baseline merge validation` | FILE-01, FILE-02, SYNC-01 |
 | `rows.test.ts` | `taskMatchesFilter assignee` | FILTER-03 |
@@ -330,6 +331,9 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `pins color and status overwrite confirm before the catalog list` | SET-08, SET-09 |
 | 同上 | `uses distinct empty-list and failure strings per kind` | SET-02, SET-08, SET-09 |
 | 同上 | `pins status confirm copy to match color placement and labels` | SET-08, SET-09 |
+| `settingsCatalogIo.dom.test.tsx` | `TC-SET-02: import shows catalog name, resolves assignee id, and leaves schedule JSON unchanged` | SET-02 |
+| 同上 | `TC-SET-02: import accepts description on members` | SET-02 |
+| 同上 | `TC-SET-02: import rejects blank member name` | SET-02 |
 | `settingsCatalogSection.dom.test.tsx` | `renders color note actions and catalog row labels` | SET-09 |
 | 同上 | `shows color overwrite dialog before list with aria-label` | SET-09 |
 | 同上 | `shows member overwrite dialog after clear selection and list` | SET-02 |
@@ -345,6 +349,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `keeps the row fill bound to the renamed color` | SET-09 |
 | 同上 | `closes catalog editors on external reload and leaves the draft out of storage` | SET-02, SET-08, SET-09, SYNC-01 |
 | 同上 | `hides the member editor when workspace members cannot be read` | SET-02 |
+| 同上 | `TC-EDIT-04u: shows workspace-only assignee in the sidebar and detail` | EDIT-04, FILE-10 |
 | 同上 | `rejects a blank task name and leaves the task unchanged` | EDIT-04 |
 | 同上 | `shows unregistered field values as read-only without a catalog` | EDIT-04 |
 | 同上 | `hides delete until a task is selected` | EDIT-09 |
@@ -724,6 +729,10 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `explainOverlay.test.ts` | `parseExplainOverlay_acceptsMarkColorHex`、`parseExplainOverlay_rejectsInvalidMarkColor`、`parseExplainOverlay_omitsColorWhenNotSet`、`buildMcpExplanationOverlay_returnsColorWhenSet`、`buildMcpExplanationOverlay_omitsColorWhenNotSet`（ほか VIEW-16 関連） | VIEW-16, MCP-01 |
 | `explainOverlayPatterns.test.ts` | `parseExplanationPatterns_acceptsValidPattern`、`parseExplanationPatterns_rejectsUnknownKey`、`parseExplanationPatterns_rejectsDocumentTaskId`、`parseExplanationPatterns_rejectsCrossPatternPredecessor`、`parseExplainOverlay_rejectsPatternsWhenHiding`、`parseExplainOverlay_rejectsInvalidPatternWithoutChangingState`、`buildMcpExplanationPatterns_marksTrialTasks`、`buildDisplayVisibleRowsWithExplanationTrials_insertsTrialRowAfterAnchorAndShiftsY`、`reorderPointerContentYForDocumentRows_subtractsTrialRowsAbovePointer`、`buildExplanationTrialBarLayouts_matchesTaskBarRectInBody`（pxPerDay 8/40、rowHeight 26/32）、`buildExplanationTrialBarLayouts_ignoresLiveAnchorsForDateChange`、`buildExplanationTrialBarLayouts_rendersSameTaskChangePerPattern`、`buildExplanationTrialBarLayouts_mergesUnanimousTaskChangeAcrossPatterns`、`trialMarkBarRect_matchesTaskBarRectInBody`、`parseExplainOverlay_hideRemovesPatternsFromNextShow`、`serializeScheduleDocument_omitsPatternsAndTrialTasks`、`buildExplanationTrialPredecessorArcs_drawsWhenBothAnchorsResolve`、`buildExplanationTrialPredecessorArcs_skipsWhenAnchorMissing`、`applyExplanationPatternToDocument_insertsTrialAfterAnchorAndAppliesChanges`、`applyExplanationPatternToDocument_appliesTaskAndMilestoneChangesTogether`、`applyExplanationPatternToDocument_rejectsUnknownMilestoneId`、`buildExplanationTrialMilestoneLayouts_matchesMilestoneDiamondRectInBand`、`buildExplanationTrialMilestoneLayouts_mergesUnanimousChangeAcrossPatterns`、`applyExplanationPatternToDocument_insertsTrialAfterAnchorInOutline`、`applyExplanationPatternToDocument_rejectsTrialIdCollision`、`applyExplanationPatternToDocument_rejectsMissingAfterTaskId`、`parseApplyExplanationPatternRequest_requiresPatternId` | VIEW-16, MCP-01 |
 | `mcpActionExecutor.test.ts` | `executeMcpActionTool_applyExplanationPattern_rejectsWithoutOverlay`、`executeMcpActionTool_applyExplanationPattern_rejectsUnknownPatternId` | VIEW-16, MCP-01 |
+| `mcpActionExecutor.file.test.ts` | `TC-MCP-425h: file_action save without a path returns 保存先がありません。` | MCP-01 |
+| 同上 | `TC-MCP-425i: file_action save without overwrite or saveAs returns DISK_HASH_MISMATCH` | MCP-01 |
+| 同上 | `TC-MCP-425e: catalog_action without save leaves the members file bytes` | MCP-01 |
+| 同上 | `set_preferences on writes the auto update key and does not call check` | MCP-01, SET-06 |
 | `explanationMarkColor.test.ts` | `parseExplanationMarkColor_normalizesRgbAndRrggbb`、`parseExplanationMarkColor_rejectsLeadingOrTrailingWhitespace`、`parseExplanationMarkColor_rejectsNonHex`、`explanationMarkRingDashStyle_askStaysDashedWithCustomColor`、`explanationMarkHaloStroke_picksContrastingHalo` | VIEW-16, MCP-01 |
 | `mcpOperationGate.test.ts` | `rejects file busy even with discardInProgress` | MCP-01 |
 | `mcpRegistration.test.ts` | `writes a Windows path as the mcp.json command` | MCP-01 |
@@ -992,6 +1001,33 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `does not accept once the generation has already moved on` | SYNC-03 |
 | `pollGate.test.ts` | `does not read or apply while a file operation is busy or paused` | SYNC-01 |
 | 同上 | `prompts for a missing file on the fifth consecutive read failure` | SYNC-01 |
+| `externalReloadFlow.dom.test.tsx` | `TC-SYNC-01: applies a clean disk change after one poll interval` | SYNC-01 |
+| 同上 | `TC-SYNC-01b: opens confirm when the screen is dirty and disk differs` / `TC-SYNC-01b: keep local edits and show the deferred reload banner` | SYNC-01 |
+| 同上 | `TC-SYNC-01e: lists screen and file sections in the merge review` / `TC-SYNC-01e2: merges screen and file edits and becomes dirty` | SYNC-01 |
+| 同上 | `TC-SYNC-01f: blocks merge when the same task conflicts` / `TC-SYNC-01g: restoring the deferred banner on undo after merge` / `TC-SYNC-01h: does not restore the deferred banner after another edit and undo` / `TC-SYNC-01i: clears the deferred banner on redo after undo` / `TC-SYNC-01j: does not restore the deferred banner after save and undo` | SYNC-01 |
+| 同上 | `TC-SYNC-01d: prompts to open a missing file after five failed polls` | SYNC-01 |
+| 同上 | `TC-SET-02e: closes the member catalog editor on reload without writing the draft` | SET-02, SYNC-01 |
+| 同上 | `TC-SET-09d: closes the color catalog editor on reload without writing the draft` | SET-09, SYNC-01 |
+| 同上 | `TC-SET-10f: closes the field extension editor on reload without saving` | SET-10, SYNC-01 |
+| `fileSaveFlow.dom.test.tsx` | `saves the open path without a dialog and the design end becomes 2026-04-10` / `canceling save leaves the baseline and writes nothing` / `save as then save writes the second change to the new path` / `the save shortcut handler calls save(false) and a dialog blocks it` / `TC-FILE-02c: the save shortcut saves through useAppKeyboard when no dialog is open` | FILE-02, FILE-03 |
+| 同上 | `discard on close deletes the recovery file` / `quit cancel keeps the sample path and does not clear the other window hook` | FILE-05 |
+| 同上 | `a filter change leaves saveStatusLabel off 未保存` / `setTaskEnd makes saveStatusLabel 未保存` / `schemaVersion 6 opens clean and save writes schemaVersion 8 without tags` | FILE-01, FILE-04 |
+| 同上 | `JsonDialog shows the edited task name and save is not invoked` | FILE-06 |
+| 同上 | `applyOpenedFile bumps the timeline open epoch and useTimelineView resets scroll` | FILE-01, NAV-03 |
+| 同上 | `a level count mismatch reports 保存できません through performSave` / `the saved file contains 回帰の指示 and the example file does not` / `an unapplied name 回帰の下書き is absent from the file` | EDIT-21, FILE-02 |
+| 同上 | `opening a file makes resolveStripAfterAutoLoad hide the empty strip` / `the status bar opens the diff from the real file bytes` / `a broken file on disk yields the read error and no diff rows` | FILE-07 |
+| 同上 | `opening another file clears undo` | EDIT-10 |
+| 同上 | `workspace open and direct parse show the same level names from levels-3` | VIEW-03, FILE-01 |
+| 同上 | `a missing recent path keeps the screen and the history order` / `cancel during unsaved does not move the recent entry` / `clear history leaves the open schedule and the recovery file` / `a corrupt recent file yields an empty list and no notice` / `opening from history resets filters and fit` | FILE-09 |
+| `startupRecoveryFlow.dom.test.tsx` | `TC-SYNC-03d: opens the saved file when there is no draft` / `TC-SYNC-03: restores unsaved start date for RG-S4-6` / `TC-SYNC-03: restores unsaved edits when the disk matches baseline` | SYNC-03 |
+| 同上 | `TC-SYNC-03b: asks whether to open disk or restore when disk differs` / `TC-SYNC-03b: opens the latest file without a dialog when choosing disk` | SYNC-03 |
+| 同上 | `TC-SYNC-03e: shows a missing notice without a draft and keeps the sample` / `TC-SYNC-03c: restores edits when the file is missing` | SYNC-03 |
+| 同上 | `TC-SYNC-03f: blocks date moves until startup recovery settles` / `TC-SYNC-03g: applies an external update after startup and then allows moves` / `TC-SYNC-03h: restores saved filters on startup` | SYNC-03 |
+| `useAppAutoUpdate.flow.test.tsx` | `TC-SET-06d: does not check for updates until the backend asks` / `TC-SET-06e: shows an offer after startup when a same-major update exists` / `TC-SET-06k: ignores a newer major on automatic check` | SET-06 |
+| 同上 | `TC-SET-06m: manual check with no update shows the latest message` / `TC-SET-06m2: manual check with an update shows the same offer as startup` / `TC-SET-06m3: manual check shows a failure message when check throws` | SET-06 |
+| 同上 | `TC-SET-06m4: manual check treats missing platform as latest on non-Windows` / `TC-SET-06t: manual check redirects Windows stable users to the Store message` | SET-06 |
+| 同上 | `TC-SET-06n: hides the corner notice in settings until the updates section is open` / `TC-SET-06c: syncs update UI from other windows through application-update-ui-sync` | SET-06 |
+| 同上 | `TC-SET-07: shows the version on display, members, and updates in settings` | SET-07 |
 | `scheduleViewPrune.test.ts` | `prunes selection when task is gone` / `keeps selection and lineage when task remains` / `clears invalid lineage and signals connection flag reset` | — |
 | `scheduleLineageToggle.test.ts` | `turns off connection-inclusive lineage first` / `clears lineage when active without connections` / `starts lineage from primary selection when inactive` | — |
 | `scheduleExplainSession.test.ts` | `clears when explanation view is active` / `clears when translucent overlay is active` / `does not clear when overlay is inactive` | — |
@@ -1371,7 +1407,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 手動の通しは [regression.md](regression.md) にまとめた。既存ケースの全文は [regression-tc.md](regression-tc.md) にある。ここには同じ表を重ねて置かない。新しい手動ケースは regression-tc.md と `docs/regression-tc-ids.txt` に足し、`npm run check:regression-coverage` が通ることを見る。
 
-短い通しは RG-S2 から RG-S4（目安 43 分）、全体の代表手順はそれに RG-F1 から RG-F14 を足す（目安 約 3 時間 0 分）である。いずれも [regression.md](regression.md) の見積と同じで、実測ではない。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
+短い通しは RG-S2 から RG-S4（目安 39 分）、全体の代表手順はそれに RG-F1 から RG-F14 を足す（目安 約 2 時間 38 分）である。いずれも [regression.md](regression.md) の見積と同じで、実測ではない。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
 
 ## リリース前確認
 

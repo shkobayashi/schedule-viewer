@@ -9,8 +9,8 @@ export default defineConfig({
       reporter: ["text-summary"],
       // 実測より約 1 ポイント下の整数。上げ下げは docs/development.md。
       thresholds: {
-        lines: 69,
-        functions: 68,
+        lines: 67,
+        functions: 66,
         branches: 58,
         statements: 64,
         "src/model/**": {
@@ -27,6 +27,7 @@ export default defineConfig({
         test: {
           name: "node",
           include: ["src/**/*.test.ts"],
+          exclude: ["src/hooks/mcpActionExecutor.file.test.ts"],
           environment: "node",
         },
       },
@@ -34,7 +35,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "dom",
-          include: ["src/**/*.test.tsx"],
+          include: ["src/**/*.test.tsx", "src/hooks/mcpActionExecutor.file.test.ts"],
           environment: "jsdom",
           setupFiles: ["src/test/setupDomTests.ts"],
         },

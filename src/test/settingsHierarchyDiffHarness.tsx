@@ -25,8 +25,14 @@ import { useStatusCatalogEditorOverlay } from "../hooks/useStatusCatalogEditorOv
 import {
   assigneeSidebarLabel,
   duplicateMemberNames,
+  memberMapFromList,
   resolveAssigneeRowDisplay,
 } from "../model/assigneeDisplay";
+import {
+  workspaceMemberCatalogLabel,
+  workspaceMemberError,
+  workspaceMembersForDisplay,
+} from "../model/workspaceLoad";
 import type { ColorItem } from "../model/colorCatalog";
 import { rowFillForColorId } from "../model/colorCatalog";
 import {
@@ -146,6 +152,26 @@ export function SettingsHierarchyDiffHarness({
   const diffListRef = useRef<HTMLDivElement>(null);
 
   const memberCatalog = useMemberCatalog();
+  const displayMembers = useMemo(() => {
+    if (workspaceBinding) {
+      return workspaceMembersForDisplay(workspaceBinding.members);
+    }
+    return memberCatalog.members;
+  }, [workspaceBinding, memberCatalog.members]);
+  const displayMemberMap = useMemo(
+    () => memberMapFromList(displayMembers),
+    [displayMembers],
+  );
+  const displayMemberDuplicateNames = useMemo(
+    () => duplicateMemberNames(displayMembers ?? []),
+    [displayMembers],
+  );
+  const membersCatalogLabel = workspaceBinding
+    ? workspaceMemberCatalogLabel(workspaceBinding.members)
+    : memberCatalog.selectedCatalogLabel;
+  const membersCatalogError = workspaceBinding
+    ? workspaceMemberError(workspaceBinding.members)
+    : memberCatalog.error;
   const statusCatalog = useStatusCatalog();
   const colorCatalog = useColorCatalog();
   const fieldCatalog = useFieldExtensionCatalog();
@@ -214,11 +240,11 @@ export function SettingsHierarchyDiffHarness({
     () =>
       computeVisibleRowsForHarness(
         doc,
-        memberCatalog.memberMap,
+        displayMemberMap,
         statusCatalog.statuses,
         fieldCatalog.extensionFieldDefs,
       ),
-    [doc, fieldCatalog.extensionFieldDefs, memberCatalog.memberMap, statusCatalog.statuses],
+    [doc, displayMemberMap, fieldCatalog.extensionFieldDefs, statusCatalog.statuses],
   );
   const selectedId = selection.ids.length === 1 ? selection.ids[0] : null;
   const selectedTask = findTaskInDocument(doc.categories, doc.outline, selectedId);
@@ -405,8 +431,8 @@ export function SettingsHierarchyDiffHarness({
           if (row.type === "task") {
             const assigneeDisplay = resolveAssigneeRowDisplay(
               row.task.assigneeIds,
-              memberCatalog.memberMap,
-              duplicateMemberNames(memberCatalog.members ?? []),
+              displayMemberMap,
+              displayMemberDuplicateNames,
             );
             const assignee =
               assigneeDisplay.kind === "unassigned"
@@ -471,8 +497,8 @@ export function SettingsHierarchyDiffHarness({
           {selectedTask ? (
             <TaskDetailPanel
               task={selectedTask}
-              members={memberCatalog.members ?? []}
-              memberCatalog={memberCatalog.memberMap}
+              members={displayMembers ?? []}
+              memberCatalog={displayMemberMap}
               tasks={taskRefs}
               milestones={doc.milestones}
               successorIds={[]}
@@ -583,8 +609,8 @@ export function SettingsHierarchyDiffHarness({
         saveStatus={dirty ? "未保存" : baseline == null ? "サンプルデータ" : "保存済み"}
         saveStatusClickable={dirty}
         onSaveStatusClick={showDiff}
-        membersCatalogLabel={memberCatalog.selectedCatalogLabel}
-        membersCatalogError={memberCatalog.error}
+        membersCatalogLabel={membersCatalogLabel}
+        membersCatalogError={membersCatalogError}
         calendarError={null}
         colorsCatalogError={colorCatalog.error}
         tier="day"

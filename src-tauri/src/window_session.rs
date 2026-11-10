@@ -884,6 +884,37 @@ mod tests {
     use super::*;
 
     #[test]
+    fn recovery_roundtrip_reads_the_draft_bytes() {
+        let app_data = tempfile::tempdir().expect("temp dir");
+        let schedule = "/tmp/plan.json";
+        let draft = r#"{"schemaVersion":8,"tasks":[]}"#;
+        write_recovery_for_path(app_data.path(), schedule, draft).expect("write");
+        let read = read_recovery_for_path(app_data.path(), schedule)
+            .expect("read")
+            .expect("some");
+        assert_eq!(read, draft);
+    }
+
+    #[test]
+    fn delete_recovery_for_path_removes_only_that_draft() {
+        let app_data = tempfile::tempdir().expect("temp dir");
+        let first = "/tmp/one.json";
+        let second = "/tmp/two.json";
+        write_recovery_for_path(app_data.path(), first, "one").expect("write one");
+        write_recovery_for_path(app_data.path(), second, "two").expect("write two");
+        delete_recovery_for_path(app_data.path(), first).expect("delete");
+        assert!(read_recovery_for_path(app_data.path(), first)
+            .expect("read")
+            .is_none());
+        assert_eq!(
+            read_recovery_for_path(app_data.path(), second)
+                .expect("read")
+                .as_deref(),
+            Some("two")
+        );
+    }
+
+    #[test]
     fn path_recovery_key_is_stable() {
         assert_eq!(
             path_recovery_key("/tmp/a.json"),

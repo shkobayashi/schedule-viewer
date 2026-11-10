@@ -190,6 +190,39 @@ mod tests {
     }
 
     #[test]
+    fn clear_recent_files_keeps_schedule_recovery_and_filter_files() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let app_data = dir.path();
+        record_recent_files(
+            app_data,
+            RecentFilesStore::default(),
+            RecentFilesStore {
+                schedules: vec!["/tmp/plan.json".to_string()],
+                workspaces: vec![],
+            },
+        )
+        .expect("write recent");
+        let schedule = "/tmp/plan.json";
+        crate::window_session::write_recovery_for_path(app_data, schedule, "draft").expect("recovery");
+        crate::window_session::write_filter_for_path(app_data, schedule, r#"{"q":""}"#)
+            .expect("filter");
+        clear_recent_files(app_data).expect("clear");
+        assert!(read_recent_files(app_data).schedules.is_empty());
+        assert_eq!(
+            crate::window_session::read_recovery_for_path(app_data, schedule)
+                .expect("read recovery")
+                .as_deref(),
+            Some("draft")
+        );
+        assert_eq!(
+            crate::window_session::read_filter_for_path(app_data, schedule)
+                .expect("read filter")
+                .as_deref(),
+            Some(r#"{"q":""}"#)
+        );
+    }
+
+    #[test]
     fn clears_to_empty_store() {
         let dir = tempfile::tempdir().expect("temp dir");
         let app_data = dir.path();
