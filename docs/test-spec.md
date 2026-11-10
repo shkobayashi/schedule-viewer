@@ -1515,7 +1515,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `history_undo_then_redo_restores_the_edited_date_and_not_the_filter`（`mcp_running_app.rs`） | undo/redo で日付が戻り、絞り込みは残る | MCP-01 |
 | `close_window_with_unknown_label_keeps_the_open_windows_list`（`mcp_running_app.rs`） | 無い `close_window` で窓一覧不変 | MCP-01 |
 | `minimize_window_with_unknown_label_keeps_the_open_windows_list`（`mcp_running_app.rs`） | 無い `minimize_window` で窓一覧不変 | MCP-01 |
-| `two_windows_share_member_name_external_date_appears_and_restart_restores_unsaved_date`（`mcp_running_app.rs`） | 2 窓でカタログ共有、外部更新、未保存の再起動まで一連に見る | WIN-01, FILE-10, SYNC-01, SYNC-03, MCP-01 |
+| `two_windows_share_member_name_external_date_appears_and_restart_restores_unsaved_date`（`mcp_running_app.rs`） | 2 窓でカタログ共有、外部更新、未保存の再起動まで一連に見る。`#[ignore]`（xvfb で members 外部更新の両窓反映が 90 秒以内に観測できない。別報告 PR #570） | WIN-01, FILE-10, SYNC-01, SYNC-03, MCP-01 |
 | `six_reads_leave_open_windows_front_on_main`（`mcp_running_app.rs`） | 読み取り 6 ツールのあいだも `front` が `main` の 1 件だけ | MCP-01 |
 | `focus_window_and_same_path_second_process_both_set_front_to_schedule_2`（`mcp_running_app.rs`） | `focus_window` と同パス第 2 プロセスで前面が `schedule-2` だけ | MCP-01, WIN-01 |
 | `filtered_tasks_follows_the_front_window_status_filter`（`mcp_running_app.rs`） | 同パス 2 窓で前面の絞り込みだけが `filtered_tasks` に効く | MCP-01 |
@@ -1525,9 +1525,9 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `close_window_on_main_then_restart_opens_only_schedule_2`（`mcp_running_app.rs`） | `main` を閉じて再起動すると `schedule-2` だけ | WIN-01, SYNC-03, MCP-01 |
 | `startup_without_main_in_open_windows_opens_only_schedule_2`（`mcp_running_app.rs`） | 記録に `main` が無いとき起動で `schedule-2` だけ | WIN-01, SYNC-03, MCP-01 |
 | `close_window_schedule_2_leaves_only_main_still_answering_current_schedule`（`mcp_running_app.rs`） | `schedule-2` を閉じたあと `main` だけが応答する | WIN-01, MCP-01 |
-| `restart_restores_the_front_status_filter_for_the_shared_path`（`mcp_running_app.rs`） | 同パス 2 窓で前面だけの絞り込みが再起動後に戻る | SYNC-03, MCP-01 |
+| `restart_restores_the_front_status_filter_for_the_shared_path`（`mcp_running_app.rs`） | 同パス 2 窓で前面だけの絞り込みが再起動後に戻る。`#[ignore]`（xvfb で schedule-filters 永続化待ちが 60 秒以内に終わらない。別報告 PR #570） | SYNC-03, MCP-01 |
 | `second_process_same_path_focuses_newer_window_and_keeps_unsaved_date_and_file_bytes`（`mcp_running_app.rs`） | 同パス第 2 プロセスで新しい窓が前面になり未保存とファイルは不変 | WIN-04, MCP-01 |
-| `second_process_other_json_adds_a_window_and_keeps_main_edited_date`（`mcp_running_app.rs`） | 別 JSON の第 2 プロセスで窓が 1 枚増え、`main` の未保存は残る | WIN-04, MCP-01 |
+| `second_process_other_json_adds_a_window_and_keeps_main_edited_date`（`mcp_running_app.rs`） | 別 JSON の第 2 プロセスで窓が 1 枚増え、`main` の未保存は残る。`#[ignore]`（xvfb で 45 秒以内に窓が増えない。別報告 PR #570） | WIN-04, MCP-01 |
 | `second_process_folder_does_not_add_a_window_or_change_current_schedule`（`mcp_running_app.rs`） | フォルダ引数の第 2 プロセスで窓数とタイトルは不変 | WIN-04, MCP-01 |
 | `workspace_window_catalogs_differ_from_the_plain_window`（`mcp_running_app.rs`） | 設定ファイル窓だけ作業用カタログが `filtered_tasks` に載る | FILE-10, MCP-01 |
 | `focus_rereads_members_statuses_and_calendar_and_leaves_field_names`（`mcp_running_app.rs`） | 前面化でメンバー・ステータス・カレンダーだけ読み直し、拡張名の集合は不変。`#[ignore]`（xvfb でディスク差分の再読込待ちが不安定。別報告 PR #570） | FILE-10, MCP-01 |
