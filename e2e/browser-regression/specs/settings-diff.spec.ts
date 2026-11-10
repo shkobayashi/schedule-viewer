@@ -14,7 +14,6 @@ import {
   readTaskEndFromScheduleJson,
   saveScheduleDownload,
   selectTaskViaSearch,
-  unlinkTempFile,
 } from "../helpers/diff.ts";
 import { confirmDelete } from "../helpers/contextMenu.ts";
 import { selectTaskByName } from "../helpers/drag.ts";

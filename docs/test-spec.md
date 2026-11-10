@@ -161,7 +161,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `smoke-view-nav.spec.ts` | shows the smoke fixture title and task names (VIEW-01) | VIEW-01 |
 | `view-appearance.spec.ts` | adds no task on cancel or Escape and keeps the dialog open when the end is before the start | TC-EDIT-14b |
 | `view-appearance.spec.ts` | asks to narrow the predecessor search when there are more than 50 tasks | TC-EDIT-05b |
-| `view-appearance.spec.ts` | clears tag selection when filters change | TC-EDIT-08, TC-EDIT-08d |
+| `view-appearance.spec.ts` | clears tag selection when a task is added under a tag filter | TC-EDIT-08d |
+| `view-appearance.spec.ts` | relaxes a done status filter when a task is added and selects the new row | TC-EDIT-08 |
 | `view-appearance.spec.ts` | closes only the predecessor list on Escape and leaves the detail open | TC-EDIT-05d |
 | `view-appearance.spec.ts` | does not reorder a filtered task, category, or group from the grip | TC-EDIT-15c, TC-EDIT-16c, TC-EDIT-17c |
 | `view-appearance.spec.ts` | drags the sidebar boundary, restores it on double click, and shrinks only the applied width | TC-NAV-06 |

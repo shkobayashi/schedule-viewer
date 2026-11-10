@@ -9,17 +9,18 @@ const DISK_GLOBAL_KEY = "__manualScreenshotOpenScheduleDisk";
 
 function syncDiskGlobal(contents: string | null): void {
   if (typeof window === "undefined") return;
+  const globalStore = window as unknown as Record<string, unknown>;
   if (contents == null) {
-    delete (window as Record<string, unknown>)[DISK_GLOBAL_KEY];
+    delete globalStore[DISK_GLOBAL_KEY];
     return;
   }
-  (window as Record<string, unknown>)[DISK_GLOBAL_KEY] = contents;
+  globalStore[DISK_GLOBAL_KEY] = contents;
 }
 
 function resolveDiskContents(): string | null {
   if (openScheduleDiskContents != null) return openScheduleDiskContents;
   if (typeof window === "undefined") return null;
-  const shared = (window as Record<string, unknown>)[DISK_GLOBAL_KEY];
+  const shared = (window as unknown as Record<string, unknown>)[DISK_GLOBAL_KEY];
   if (typeof shared === "string") {
     openScheduleDiskContents = shared;
     return shared;

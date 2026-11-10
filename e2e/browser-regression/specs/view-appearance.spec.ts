@@ -20,8 +20,6 @@ import {
   pointerOnMilestoneDiamond,
   pointerOnMilestoneLabel,
   readAllKonvaTextContents,
-  readKonvaTextsInMilestoneBand,
-  readKonvaTextsInTimelineBody,
   readLightningVerticalClientXForRow,
   readMilestoneDiamondFill,
   readTaskBarKonvaForRow,
@@ -40,6 +38,7 @@ import {
   bootNormalPage,
   colorsCatalogPath,
   colorsSchedulePath,
+  connectionsSchedulePath,
   fieldsRegressionPath,
   fullSchedulePath,
   manyTasksSchedulePath,
@@ -150,10 +149,14 @@ test("drags the sidebar boundary, restores it on double click, and shrinks only 
   const narrowedSidebar = await page.locator(".sidebar").boundingBox();
   if (!narrowedSidebar) throw new Error("sidebar missing");
   expect(narrowedSidebar.width).toBeLessThan(wideSidebar.width - 4);
+  const narrowApplied = await readSidebarAppliedWidth(page);
   await page.setViewportSize({ width: 1280, height: 800 });
-  const restoredSidebar = await page.locator(".sidebar").boundingBox();
-  if (!restoredSidebar) throw new Error("sidebar missing");
-  expect(restoredSidebar.width).toBeGreaterThan(narrowedSidebar.width);
+  await page.locator(".timeline-body").waitFor({ state: "visible" });
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await page.locator(".timeline-body").waitFor({ state: "visible" });
+  await expect
+    .poll(async () => readSidebarAppliedWidth(page), { timeout: 10_000 })
+    .toBeGreaterThan(narrowApplied);
 });
 
 test("does not reorder a filtered task, category, or group from the grip", async ({ page }) => {
@@ -246,9 +249,15 @@ test("matches score and progress field widths to the note and shows a percent si
 });
 
 test("keeps the confirmation calendar inside the viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 420 });
   await openSmokeSchedule(page);
   await selectTaskByName(page, "設計");
-  await page.getByLabel("カレンダーを開く").first().click();
+  const panel = page.locator(".detail-panel");
+  await panel.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  const calButtons = page.getByLabel("カレンダーを開く");
+  await calButtons.last().click();
   const popover = page.locator(".date-popover");
   await expect(popover).toBeVisible();
   const box = await popover.boundingBox();
@@ -256,6 +265,8 @@ test("keeps the confirmation calendar inside the viewport", async ({ page }) => 
   if (!box || !viewport) throw new Error("popover missing");
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
 });
 
 test("meets a 4.5 to 1 contrast for extra-field text and the percent sign in light and dark", async ({
@@ -688,6 +699,12 @@ test("leaves unknown color ids and catalog-only risk unpainted, and hides the co
   const waitStyle = await rowBg("待ち（青の地、完了のバー）");
   expect(waitStyle).toMatch(/dbeafe|219\s*,\s*234\s*,\s*254/i);
   await bootNormalPage(page, 5173, { clearLocalStorage: true });
+  await openScheduleFile(page, connectionsSchedulePath);
+  await page.locator(".timeline-body").waitFor({ state: "visible" });
+  await taskSearchBox(page).fill("リスク側");
+  await expect(page.locator(".sidebar-row.task", { hasText: "リスク側" }).first()).toBeVisible();
+  const riskOnly = await rowBg("リスク側");
+  expect(riskOnly).not.toMatch(/fecaca|254\s*,\s*202\s*,\s*202/i);
   await openSmokeSchedule(page);
   await selectTaskByName(page, "設計");
   await expect(page.locator("#detailColor")).toHaveCount(0);
