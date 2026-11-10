@@ -42,8 +42,8 @@
 | MX-H-32 | UI | 追加と削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。自動:src/test/headlessScheduleSession.regression.test.ts#restores empty group 後半 after removeGroup and one undo。手動:RG-S3-9 |
 | MX-H-33 | 計算 | 取り消しと、入力中のキー | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#undo and redo restore the exact saved schedule |
 | MX-H-34 | UI | 取り消しと、入力中のキー | 手動のまま | 手動:RG-F1-3。手動のまま:変換中の Escape は実機の日本語変換でしか確認できない |
-| MX-H-35 | 見た目 | 書き出す | 自動化予定 | 手動:RG-F5-2。自動化予定:#536 |
-| MX-H-36 | 計算 | 書き出す | 自動化予定 | 自動化予定:#536 |
+| MX-H-35 | 見た目 | 書き出す | 一部手動 | 手動:RG-F5-2。自動:e2e/browser-regression/specs/export-f5.spec.ts#downloads HTML and SVG of the smoke schedule and opens the HTML。自動:e2e/browser-regression/specs/export-f5.spec.ts#matches exported summary bars, hollow milestones, and hatches to the screen |
+| MX-H-36 | 計算 | 書き出す | 一部自動 | 自動:src/model/exportExcel.test.ts#puts the smoke task name, start date, and Japanese text in the excel payload。自動:src/model/exportHtml.test.ts#refuses export when visible rows exceed 10000。自動:src/model/exportExcel.test.ts#refuses export when visible rows exceed 10000 |
 | MX-H-37 | UI | 設定 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows |
 | MX-H-38 | UI | 設定 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the status editor open and shows the saved status name。自動:src/components/settingsHierarchyDiff.dom.test.tsx#stores dark and clears the key when returning to the system scheme。自動:src/components/settingsHierarchyDiff.dom.test.tsx#stores the display scale and applies it as --s。自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-07: shows the version on display, members, and updates in settings |
 | MX-H-39 | UI | ほかのプログラムがファイルを書き換えたとき | 一部自動 | 自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SYNC-01: applies a clean disk change after one poll interval。手動:RG-F7-1 |
@@ -79,14 +79,14 @@
 | MX-O-9 | OS | 保存 | 一部手動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。手動のまま:OS の保存ダイアログは mock だけでは足りない。 |
 | MX-O-10 | OS | 別名保存 | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#save as then save writes the second change to the new path。手動:RG-S4-5 |
 | MX-O-11 | OS | 別名保存 | 手動のまま | 手動のまま:OS の別名保存ダイアログは mock だけでは足りない。 |
-| MX-O-12 | 見た目 | 書き出し（HTML / SVG / Excel） | 自動化予定 | 手動:RG-F5-2。自動化予定:#536 |
-| MX-O-13 | 計算 | 書き出し（HTML / SVG / Excel） | 自動化予定 | 自動化予定:#536 |
+| MX-O-12 | 見た目 | 書き出し（HTML / SVG / Excel） | 一部手動 | 手動:RG-F5-2。自動:e2e/browser-regression/specs/export-f5.spec.ts#downloads HTML and SVG of the smoke schedule and opens the HTML。自動:e2e/browser-regression/specs/export-f5.spec.ts#exports only the rows left by the name filter, including rows below the viewport |
+| MX-O-13 | 計算 | 書き出し（HTML / SVG / Excel） | 一部自動 | 自動:src/model/exportExcel.test.ts#puts the smoke task name, start date, and Japanese text in the excel payload。自動:src/model/exportHtml.test.ts#refuses export when visible rows exceed 10000。自動:src/model/exportExcel.test.ts#refuses export when visible rows exceed 10000 |
 | MX-O-14 | OS | 設定ファイルを新しいフォルダへ書き出す | 一部手動 | 自動:src-tauri/src/lib.rs#write_workspace_bundle_to_folder_omits_builtin_statuses_and_keeps_field_order。手動のまま:OS のフォルダ選択は mock だけでは足りない。 |
 | MX-O-15 | UI | JSON を表示 | 自動済み | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#JsonDialog shows the edited task name and save is not invoked |
 | MX-O-16 | 計算 | 差分を表示 | 自動済み | 自動:src/model/scheduleDiff.test.ts#says there is no difference when the documents match |
-| MX-O-17 | UI | 差分を表示 | 一部自動 | 手動:RG-F11-1。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動化予定:#536 |
-| MX-O-18 | UI | 差分をコピー | 一部自動 | 手動:RG-F11-4。自動:src/components/settingsHierarchyDiff.dom.test.tsx#copies diff text to the clipboard。自動化予定:#536 |
-| MX-O-19 | UI | 未保存の差分を開く（状態バー） | 一部自動 | 手動:RG-F11-1。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#the status bar opens the diff from the real file bytes。自動化予定:#536 |
+| MX-O-17 | UI | 差分を表示 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動:e2e/browser-regression/specs/settings-diff.spec.ts#opens the diff from the right-edge handle and shows the old and new end |
+| MX-O-18 | UI | 差分をコピー | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#copies diff text to the clipboard。自動:e2e/browser-regression/specs/settings-diff.spec.ts#places the copy notice off the diff column and scrolls only the list at height 800。自動:e2e/browser-regression/specs/settings-diff.spec.ts#collapses back to the handle and copies with the shortcut without opening the column |
+| MX-O-19 | UI | 未保存の差分を開く（状態バー） | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#the status bar opens the diff from the real file bytes。自動:e2e/browser-regression/specs/settings-diff.spec.ts#opens the diff from the right-edge handle and shows the old and new end |
 | MX-O-20 | UI | 外部ファイル更新の確認 | 一部自動 | 自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SYNC-01b: keep local edits and show the deferred reload banner |
 | MX-O-21 | OS | 外部ファイル更新の確認 | 手動のまま | 手動のまま:OS の外部ファイル更新確認ダイアログは mock だけでは足りない。 |
 | MX-O-22 | UI | 更新を確認 | 一部自動 | 自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m: manual check with no update shows the latest message。手動:RG-F14-2 |

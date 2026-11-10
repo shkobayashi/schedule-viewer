@@ -607,9 +607,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 左の「調査」と、同じ行のバーが対応する。SVG にも「調査」の文字がある。原本は変わらない。
 
-扱い: 自動化予定:#536。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #536。
+扱い: 自動:e2e/browser-regression/specs/export-f5.spec.ts#downloads HTML and SVG of the smoke schedule and opens the HTML。この手順は手で行わない。
 
 ### RG-F5-2
 
@@ -617,9 +615,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: Excel に「調査」、開始 2026-04-01、日本語の名前がある。3 段の HTML は、段の字下げと親バーが画面の行と対応する。
 
-扱い: 自動化予定:#536。この Issue が終わると、この手順は手で行わない。
-
-Excel のアプリで開く見た目は人が残す。HTML の構造の自動は #536 である。
+扱い: 自動:src/model/exportExcel.test.ts#puts the smoke task name, start date, and Japanese text in the excel payload。自動:e2e/browser-regression/specs/export-f5.spec.ts#matches exported summary bars, hollow milestones, and hatches to the screen。表計算アプリで開いた見た目は手動のままである。手動:RG-F5-2。
 
 ### RG-F5-3
 
@@ -825,9 +821,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 列が開く。「行01」の終了の旧値は 2026-04-02、新値は 2026-04-03 である。
 
-扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。テストは状態バーの「未保存」から列を開く。取っ手の位置は自動化予定:#536。
-
-自動化予定: #536。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動:e2e/browser-regression/specs/settings-diff.spec.ts#opens the diff from the right-edge handle and shows the old and new end。この手順は手で行わない。
 
 ### RG-F11-2
 
@@ -835,9 +829,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: チャートの幅は、詳細と差分列を除いた残りである。2 つは重ならない。
 
-扱い: 自動化予定:#536。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #536。
+扱い: 自動:e2e/browser-regression/specs/settings-diff.spec.ts#keeps the chart width as the remainder beside the detail and the diff column。チャートの残り幅そのものは RG-F11-2 として一部手動のまま残す場合がある。手動:RG-F11-2。
 
 ### RG-F11-3
 
@@ -853,9 +845,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 知らせは、コピーのあとで出る。差分列の上には重ならない。行は「行01」から「行40」まであり、高さ 800 の窓では一覧が縦にスクロールする。
 
-扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#copies diff text to the clipboard。差分列への重なり、知らせの位置、高さ 800 での縦スクロールは自動化予定:#536。
-
-自動化予定: #536。
+扱い: 自動:src/components/settingsHierarchyDiff.dom.test.tsx#copies diff text to the clipboard。自動:e2e/browser-regression/specs/settings-diff.spec.ts#places the copy notice off the diff column and scrolls only the list at height 800。この手順は手で行わない。
 
 ## RG-F12 本物の LLM
 
