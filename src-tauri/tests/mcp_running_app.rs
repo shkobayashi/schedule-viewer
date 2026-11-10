@@ -66,8 +66,26 @@ struct OpenWindowsSnapshot {
 
 impl Drop for RunningHarness {
     fn drop(&mut self) {
+        let root = self.gui_pid;
         kill_child_fast(&mut self.gui);
         let _ = self.gui.wait();
+        #[cfg(unix)]
+        {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while Instant::now() < deadline {
+                let alive = schedule_viewer_pids();
+                if alive.is_empty() {
+                    break;
+                }
+                for pid in alive {
+                    if pid != root {
+                        let _ = Command::new("kill").args(["-KILL", &pid.to_string()]).status();
+                    }
+                }
+                let _ = Command::new("kill").args(["-KILL", &root.to_string()]).status();
+                std::thread::sleep(Duration::from_millis(200));
+            }
+        }
     }
 }
 
@@ -76,7 +94,7 @@ fn normalize_text(text: &str) -> String {
         .replace("\r\n", "\n")
 }
 
-fn finish_child(mut child: Child) -> ProcessOutput {
+fn finish_child_with_timeout(mut child: Child, timeout: Duration) -> ProcessOutput {
     let stdout_reader = child.stdout.take().map(|mut out| {
         std::thread::spawn(move || {
             let mut buf = Vec::new();
@@ -92,7 +110,7 @@ fn finish_child(mut child: Child) -> ProcessOutput {
         })
     });
 
-    let deadline = Instant::now() + CHILD_WAIT_TIMEOUT;
+    let deadline = Instant::now() + timeout;
     let status = loop {
         if let Some(status) = child.try_wait().expect("try_wait") {
             break status;
@@ -100,7 +118,7 @@ fn finish_child(mut child: Child) -> ProcessOutput {
         if Instant::now() >= deadline {
             let _ = child.kill();
             let _ = child.wait();
-            panic!("child did not exit within {CHILD_WAIT_TIMEOUT:?}");
+            panic!("child did not exit within {timeout:?}");
         }
         std::thread::sleep(Duration::from_millis(100));
     };
@@ -117,6 +135,10 @@ fn finish_child(mut child: Child) -> ProcessOutput {
         stdout: normalize_text(&String::from_utf8_lossy(&stdout_bytes)),
         stderr: normalize_text(&String::from_utf8_lossy(&stderr_bytes)),
     }
+}
+
+fn finish_child(child: Child) -> ProcessOutput {
+    finish_child_with_timeout(child, CHILD_WAIT_TIMEOUT)
 }
 
 fn apply_isolated_home(cmd: &mut Command, home: &Path) {
@@ -228,6 +250,181 @@ fn assert_no_foreign_mcp_pipe() {
 
 #[cfg(not(windows))]
 fn assert_no_foreign_mcp_pipe() {}
+
+const REPLACE_SCHEDULE_WINDOW_REJECT: &str =
+    "replace_schedule は前面ウィンドウだけを置き換えます。--window は使えません。";
+
+#[cfg(unix)]
+fn schedule_viewer_pids() -> Vec<u32> {
+    let out = Command::new("pgrep")
+        .args(["-x", "schedule-viewer"])
+        .output()
+        .expect("pgrep");
+    if !out.status.success() {
+        return Vec::new();
+    }
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|line| line.trim().parse().ok())
+        .collect()
+}
+
+fn assert_no_foreign_schedule_viewer_processes(exclude: &[u32]) {
+    assert_no_foreign_mcp_pipe();
+    #[cfg(unix)]
+    {
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            let foreign: Vec<u32> = schedule_viewer_pids()
+                .into_iter()
+                .filter(|pid| !exclude.contains(pid))
+                .collect();
+            if foreign.is_empty() {
+                return;
+            }
+            if Instant::now() >= deadline {
+                panic!(
+                    "schedule-viewer が他に動いています {foreign:?}。ツールを送る前に止めてください"
+                );
+            }
+            for pid in &foreign {
+                let _ = Command::new("kill")
+                    .args(["-KILL", &pid.to_string()])
+                    .status();
+            }
+            std::thread::sleep(Duration::from_millis(250));
+        }
+    }
+}
+
+enum OpenWindowsSeed {
+    Default,
+    Custom(Value),
+    Absent,
+}
+
+fn write_open_windows_value(app_data: &Path, body: &Value) {
+    fs::create_dir_all(app_data).expect("app data dir");
+    fs::write(
+        app_data.join("open-windows.json"),
+        serde_json::to_string_pretty(body).expect("open windows json") + "\n",
+    )
+    .expect("write open-windows.json");
+}
+
+fn wait_until(timeout: Duration, mut probe: impl FnMut() -> bool) {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if probe() {
+            return;
+        }
+        if Instant::now() >= deadline {
+            panic!("timed out after {timeout:?}");
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn assert_only_front_label(h: &RunningHarness, label: &str) {
+    let wins = parse_mcp_json_text(&h.mcp_call("open_windows", json!({})).text);
+    let rows = wins.as_array().expect("open_windows array");
+    let front_labels: Vec<&str> = rows
+        .iter()
+        .filter(|w| w.get("front").and_then(|v| v.as_bool()) == Some(true))
+        .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
+        .collect();
+    assert_eq!(front_labels.len(), 1, "exactly one front window");
+    assert_eq!(front_labels[0], label);
+}
+
+fn member_name_by_id(payload: &Value, id: &str) -> Option<String> {
+    payload
+        .get("members")
+        .and_then(|v| v.as_array())
+        .and_then(|list| {
+            list.iter().find(|m| m.get("id").and_then(|v| v.as_str()) == Some(id))
+        })
+        .and_then(|m| m.get("name").and_then(|v| v.as_str()))
+        .map(|s| s.to_string())
+}
+
+fn field_names_set(payload: &Value) -> std::collections::BTreeSet<String> {
+    payload
+        .get("fields")
+        .and_then(|v| v.as_array())
+        .map(|rows| {
+            rows.iter()
+                .filter_map(|f| f.get("name").and_then(|n| n.as_str()))
+                .map(|s| s.to_string())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn status_color_by_id(payload: &Value, id: &str) -> Option<String> {
+    payload
+        .get("statuses")
+        .and_then(|v| v.as_array())
+        .and_then(|list| {
+            list.iter().find(|s| s.get("id").and_then(|v| v.as_str()) == Some(id))
+        })
+        .and_then(|s| s.get("color"))
+        .and_then(|c| c.get("light"))
+        .and_then(|l| l.get("bg"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+fn enrich_workspace_catalogs(work: &Path) {
+    let regression = Path::new(REPO_ROOT).join("examples/regression");
+    let calendar_src = Path::new(REPO_ROOT).join("examples/jp-2026.calendar.json");
+    let mut calendar: Value = serde_json::from_str(
+        &fs::read_to_string(&calendar_src).expect("calendar"),
+    )
+    .expect("calendar json");
+    if let Some(days) = calendar.get_mut("nonWorkingDays").and_then(|v| v.as_array_mut()) {
+        days.push(json!({ "date": "2026-04-08", "name": "回帰用休日" }));
+    }
+    fs::write(
+        work.join("calendar.json"),
+        serde_json::to_string_pretty(&calendar).expect("calendar") + "\n",
+    )
+    .expect("write calendar");
+    let mut statuses: Value = serde_json::from_str(
+        &fs::read_to_string(regression.join("statuses.json")).expect("statuses"),
+    )
+    .expect("statuses json");
+    if let Some(list) = statuses.get_mut("statuses").and_then(|v| v.as_array_mut()) {
+        list.push(json!({
+            "id": "ws-only",
+            "name": "作業用のみ",
+            "color": {
+                "light": { "bg": "#E8C4FF", "border": "#9a5bd5" },
+                "dark": { "bg": "#4b3560", "border": "#b07fe0" }
+            },
+            "role": "started",
+            "description": "設定ファイルだけのステータス"
+        }));
+    }
+    fs::write(
+        work.join("statuses.json"),
+        serde_json::to_string_pretty(&statuses).expect("statuses") + "\n",
+    )
+    .expect("write statuses");
+    let mut workspace: Value = serde_json::from_str(
+        &fs::read_to_string(work.join("workspace.json")).expect("workspace"),
+    )
+    .expect("workspace json");
+    workspace
+        .as_object_mut()
+        .expect("workspace")
+        .insert("calendar".to_string(), Value::String("calendar.json".to_string()));
+    fs::write(
+        work.join("workspace.json"),
+        serde_json::to_string_pretty(&workspace).expect("workspace") + "\n",
+    )
+    .expect("rewrite workspace");
+}
 
 fn tauri_platform_env() -> &'static str {
     #[cfg(windows)]
@@ -599,11 +796,18 @@ fn with_gui<F, R>(f: F) -> R
 where
     F: FnOnce(&mut RunningHarness) -> R,
 {
+    with_gui_seeded(OpenWindowsSeed::Default, f)
+}
+
+fn with_gui_seeded<F, R>(seed: OpenWindowsSeed, f: F) -> R
+where
+    F: FnOnce(&mut RunningHarness) -> R,
+{
     let _vite = vite_guard();
     let _gui = GuiGuard {
         _lock: lock_ignore_poison(&GUI_MUTEX),
     };
-    let mut harness = RunningHarness::start().expect("start gui");
+    let mut harness = RunningHarness::start_seeded(seed).expect("start gui");
     f(&mut harness)
 }
 
@@ -694,8 +898,16 @@ fn write_open_windows(app_data: &Path, main_path: &Path, schedule2_path: &Path, 
 
 impl RunningHarness {
     fn start() -> Result<Self, String> {
+        Self::start_seeded(OpenWindowsSeed::Default)
+    }
+
+    fn start_seeded(seed: OpenWindowsSeed) -> Result<Self, String> {
+        Self::start_with(seed, &[])
+    }
+
+    fn start_with(seed: OpenWindowsSeed, launch_args: &[&str]) -> Result<Self, String> {
         assert_linux_display();
-        assert_no_foreign_mcp_pipe();
+        assert_no_foreign_schedule_viewer_processes(&[]);
 
         let home = tempfile::tempdir().map_err(|e| e.to_string())?;
         let home_path = home.path().to_path_buf();
@@ -708,10 +920,17 @@ impl RunningHarness {
         let schedule3_path = work.join("schedule-3.schedule.json");
         let members_path = work.join("members.json");
         let workspace_path = work.join("workspace.json");
-        write_open_windows(&app_data, &main_path, &schedule2_path, &workspace_path);
+        match seed {
+            OpenWindowsSeed::Default => {
+                write_open_windows(&app_data, &main_path, &schedule2_path, &workspace_path);
+            }
+            OpenWindowsSeed::Custom(body) => write_open_windows_value(&app_data, &body),
+            OpenWindowsSeed::Absent => {}
+        }
 
         let mut cmd = Command::new(EXECUTABLE);
         apply_isolated_home(&mut cmd, &home_path);
+        cmd.args(launch_args);
         cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
         let mut gui = cmd.spawn().map_err(|e| e.to_string())?;
         let gui_pid = gui.id();
@@ -724,6 +943,11 @@ impl RunningHarness {
             drains.push(spawn_output_drain(err, Arc::clone(&stderr_log)));
         }
 
+        let ready_timeout = if launch_args.is_empty() {
+            GUI_READY_TIMEOUT
+        } else {
+            GUI_READY_TIMEOUT + Duration::from_secs(90)
+        };
         let mut harness = Self {
             _home: home,
             home: home_path,
@@ -737,9 +961,9 @@ impl RunningHarness {
             _gui_output_drains: drains,
             stderr_log,
         };
-        if let Err(err) = harness.wait_ready() {
+        if let Err(err) = harness.wait_ready_with(ready_timeout) {
             kill_child_fast(&mut harness.gui);
-            kill_shared_vite_child();
+            let _ = harness.gui.wait();
             return Err(err);
         }
         Ok(harness)
@@ -772,11 +996,15 @@ impl RunningHarness {
         }
         self.gui = gui;
         self._gui_output_drains = drains;
-        self.wait_ready()
+        self.wait_ready_with(GUI_READY_TIMEOUT)
     }
 
     fn wait_ready(&mut self) -> Result<(), String> {
-        let deadline = Instant::now() + GUI_READY_TIMEOUT;
+        self.wait_ready_with(GUI_READY_TIMEOUT)
+    }
+
+    fn wait_ready_with(&mut self, timeout: Duration) -> Result<(), String> {
+        let deadline = Instant::now() + timeout;
         loop {
             let out = self.run_screen(&["--screen", "current_schedule"], None, None);
             if out.code == 0 {
@@ -891,6 +1119,52 @@ impl RunningHarness {
             .duration_since(std::time::UNIX_EPOCH)
             .expect("duration")
             .as_nanos()
+    }
+
+    fn filtered_tasks_json(&self, window: Option<&str>) -> Value {
+        let args = window.map(|w| json!({ "window": w })).unwrap_or_else(|| json!({}));
+        parse_mcp_json_text(&self.mcp_call("filtered_tasks", args).text)
+    }
+
+    fn current_schedule_json(&self, window: Option<&str>) -> Value {
+        if let Some(label) = window {
+            let out = self.run_screen(&["--screen", "current_schedule"], Some(label), None);
+            assert_eq!(out.code, 0);
+            serde_json::from_str(&out.stdout).expect("current_schedule json")
+        } else {
+            parse_mcp_json_text(&self.mcp_call("current_schedule", json!({})).text)
+        }
+    }
+
+    fn open_windows_rows(&self) -> Vec<Value> {
+        parse_mcp_json_text(&self.mcp_call("open_windows", json!({})).text)
+            .as_array()
+            .expect("open_windows")
+            .clone()
+    }
+
+    fn spawn_second_instance(&self, args: &[&str]) -> ProcessOutput {
+        assert_no_foreign_schedule_viewer_processes(&[self.gui_pid]);
+        let mut cmd = Command::new(EXECUTABLE);
+        apply_isolated_home(&mut cmd, &self.home);
+        cmd.args(args);
+        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+        let child = cmd.spawn().expect("spawn second instance");
+        assert_no_foreign_schedule_viewer_processes(&[self.gui_pid, child.id()]);
+        finish_child_with_timeout(child, CHILD_WAIT_TIMEOUT + Duration::from_secs(20))
+    }
+
+    fn stop_gui_and_respawn(&mut self) -> Result<(), String> {
+        graceful_stop_gui(&mut self.gui);
+        let _ = self.gui.wait();
+        self.respawn_gui()
+    }
+
+    fn schedule_filter_dir_has_entries(&self) -> bool {
+        let dir = self.app_data_dir().join("schedule-filters");
+        fs::read_dir(dir)
+            .map(|mut rd| rd.next().is_some())
+            .unwrap_or(false)
     }
 }
 
@@ -1748,4 +2022,805 @@ fn filtered_and_selected_payloads_order_members_after_colors_and_omit_blank_desc
             assert!(sato.get("description").is_none());
         }
     });
+}
+
+fn open_windows_same_path_body(main: &Path, workspace: &Path) -> Value {
+    let main_s = main.to_string_lossy();
+    let ws = workspace.to_string_lossy();
+    json!({
+        "focusedLabel": "main",
+        "windows": [
+            { "label": "main", "path": main_s, "workspacePath": ws },
+            { "label": "schedule-2", "path": main_s, "workspacePath": ws },
+        ]
+    })
+}
+
+fn open_windows_plain_two_body(main: &Path, schedule2: &Path) -> Value {
+    json!({
+        "focusedLabel": "main",
+        "windows": [
+            { "label": "main", "path": main.to_string_lossy() },
+            { "label": "schedule-2", "path": schedule2.to_string_lossy() },
+        ]
+    })
+}
+
+fn open_windows_workspace_main_only_body(main: &Path, schedule2: &Path, workspace: &Path) -> Value {
+    json!({
+        "focusedLabel": "main",
+        "windows": [
+            { "label": "main", "path": main.to_string_lossy(), "workspacePath": workspace.to_string_lossy() },
+            { "label": "schedule-2", "path": schedule2.to_string_lossy() },
+        ]
+    })
+}
+
+fn open_windows_only_schedule_2_body(schedule2: &Path, workspace: &Path) -> Value {
+    json!({
+        "focusedLabel": "schedule-2",
+        "windows": [
+            { "label": "schedule-2", "path": schedule2.to_string_lossy(), "workspacePath": workspace.to_string_lossy() },
+        ]
+    })
+}
+
+#[test]
+fn two_windows_share_member_name_external_date_appears_and_restart_restores_unsaved_date() {
+    with_gui(|h| {
+        assert_eq!(h.open_windows_rows().len(), 2);
+        let new_member_name = "共有表示名テスト";
+        let mut catalog: Value =
+            serde_json::from_slice(&h.file_bytes(&h.members_path)).expect("members");
+        catalog["members"][0]["name"] = json!(new_member_name);
+        let changed = h.mcp_call(
+            "catalog_action",
+            json!({
+                "catalog": "members",
+                "contents": catalog,
+                "overwrite": true,
+                "save": true,
+            }),
+        );
+        assert!(!changed.is_error, "{}", changed.text);
+        wait_until(Duration::from_secs(5), || {
+            member_name_by_id(&h.filtered_tasks_json(Some("schedule-2")), "tanaka").as_deref()
+                == Some(new_member_name)
+        });
+        assert_eq!(
+            member_name_by_id(&h.filtered_tasks_json(None), "tanaka").as_deref(),
+            Some(new_member_name)
+        );
+        let disk_before = h.file_bytes(&h.main_path);
+        let mut on_disk: Value = serde_json::from_slice(&disk_before).expect("schedule");
+        on_disk["categories"][0]["groups"][0]["tasks"][0]["start"] = json!("2026-04-10");
+        fs::write(
+            &h.main_path,
+            serde_json::to_vec_pretty(&on_disk).expect("pretty"),
+        )
+        .expect("write disk");
+        wait_until(Duration::from_secs(10), || {
+            task_start(&h.current_schedule_json(None), SEEDED_TASK_ID).as_deref() == Some("2026-04-10")
+        });
+        let unsaved_date = "2026-04-11";
+        assert!(!h
+            .mcp_call(
+                "edit_plan",
+                json!({
+                    "ops": [{
+                        "type": "setTaskDates",
+                        "taskId": SEEDED_TASK_ID,
+                        "start": unsaved_date,
+                        "end": "2026-04-12",
+                    }]
+                }),
+            )
+            .is_error);
+        let unsaved_start =
+            task_start(&h.current_schedule_json(None), SEEDED_TASK_ID).expect("unsaved start");
+        assert_eq!(unsaved_start, unsaved_date);
+        h.stop_gui_and_respawn().expect("respawn");
+        let after = h.current_schedule_json(None);
+        assert_eq!(
+            task_start(&after, SEEDED_TASK_ID).as_deref(),
+            Some(unsaved_date)
+        );
+        let file_after: Value = serde_json::from_slice(&h.file_bytes(&h.main_path)).expect("file");
+        assert_ne!(
+            task_start(&file_after, SEEDED_TASK_ID).as_deref(),
+            Some(unsaved_date)
+        );
+    });
+}
+
+#[test]
+fn six_reads_leave_open_windows_front_on_main() {
+    with_gui(|h| {
+        for tool in [
+            "schedule_diff",
+            "baseline_diffs",
+            "selected_task",
+            "selected_tasks",
+            "filtered_tasks",
+            "current_schedule",
+        ] {
+            let read = h.mcp_call(tool, json!({}));
+            assert!(!read.is_error, "tool {tool}: {}", read.text);
+            assert_only_front_label(&h, "main");
+        }
+    });
+}
+
+#[test]
+fn focus_window_and_same_path_second_process_both_set_front_to_schedule_2() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let main = copy_regression_workspace(&work);
+    let workspace = work.join("workspace.json");
+    let body = open_windows_same_path_body(&main, &workspace);
+    let mut h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[]).expect("start");
+    let focus2 = h.mcp_call("focus_window", json!({ "window": "schedule-2" }));
+    assert!(!focus2.is_error, "{}", focus2.text);
+    assert_only_front_label(&h, "schedule-2");
+    let focus_main = h.mcp_call("focus_window", json!({ "window": "main" }));
+    assert!(!focus_main.is_error, "{}", focus_main.text);
+    assert_only_front_label(&h, "main");
+    let arg = main.to_string_lossy().to_string();
+    h.spawn_second_instance(&[&arg]);
+    assert_only_front_label(&h, "schedule-2");
+}
+
+#[test]
+fn filtered_tasks_follows_the_front_window_status_filter() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let main = copy_regression_workspace(&work);
+    let workspace = work.join("workspace.json");
+    let body = open_windows_same_path_body(&main, &workspace);
+    let mut h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[]).expect("start");
+    assert_eq!(
+        h.open_windows_rows().len(),
+        2,
+        "two windows with the same path"
+    );
+    let focus = h.mcp_call("focus_window", json!({ "window": "schedule-2" }));
+    assert!(!focus.is_error, "{}", focus.text);
+    let mut filters = default_filters();
+    filters["status"] = json!("in-progress");
+    assert!(!h.mcp_call("set_view", json!({ "filters": filters })).is_error);
+    let s2_names = task_names(&h.filtered_tasks_json(Some("schedule-2")));
+    assert_eq!(s2_names, vec![TASK_B_NAME.to_string()]);
+    assert!(!h
+        .mcp_call("focus_window", json!({ "window": "main" }))
+        .is_error);
+    let main_names = task_names(&h.filtered_tasks_json(None));
+    assert!(main_names.contains(&SEEDED_TASK_NAME.to_string()));
+    assert!(!h
+        .mcp_call("focus_window", json!({ "window": "schedule-2" }))
+        .is_error);
+    let s2_again = task_names(&h.filtered_tasks_json(None));
+    assert_eq!(s2_again, vec![TASK_B_NAME.to_string()]);
+}
+
+#[test]
+fn screen_replace_schedule_with_window_exits_1_writes_front_only_sentence_and_leaves_current_schedule(
+) {
+    with_gui(|h| {
+        let before = task_start(&h.current_schedule_json(None), SEEDED_TASK_ID);
+        let doc = h.current_schedule_json(None);
+        let body = serde_json::to_vec(&doc).expect("serialize");
+        let out = h.run_screen(
+            &["--screen", "replace_schedule", "--window", "schedule-2"],
+            None,
+            Some(&body),
+        );
+        assert_eq!(out.code, 1);
+        assert!(out.stdout.is_empty());
+        assert_eq!(out.stderr, REPLACE_SCHEDULE_WINDOW_REJECT);
+        assert_eq!(
+            task_start(&h.current_schedule_json(None), SEEDED_TASK_ID).as_deref(),
+            before.as_deref()
+        );
+    });
+}
+
+#[test]
+fn open_new_window_keeps_process_alive_and_both_windows_return_current_schedule() {
+    with_gui(|h| {
+        let before_count = h.open_windows_rows().len();
+        let r = h.mcp_call(
+            "open_new_window",
+            json!({
+                "path": h.schedule3_path.to_string_lossy(),
+                "workspacePath": h.work.join("workspace.json").to_string_lossy(),
+            }),
+        );
+        assert!(!r.is_error, "{}", r.text);
+        assert!(h.gui.try_wait().expect("try_wait").is_none());
+        let wins = h.open_windows_rows();
+        let third = wins
+            .iter()
+            .find(|w| w.get("file").and_then(|v| v.as_str()) == Some("schedule-3.schedule.json"))
+            .expect("schedule-3 window");
+        let new_label = third
+            .get("label")
+            .and_then(|v| v.as_str())
+            .expect("third label");
+        let main_doc = h.current_schedule_json(Some("main"));
+        assert!(schedule_contains_task(&main_doc, SEEDED_TASK_ID));
+        let new_doc = h.current_schedule_json(Some(new_label));
+        assert!(schedule_contains_task(&new_doc, SEEDED_TASK_ID));
+        let wins = h.open_windows_rows();
+        assert_eq!(wins.len(), before_count + 1);
+        assert_eq!(wins[0].get("file").and_then(|v| v.as_str()), Some("main.schedule.json"));
+        assert_eq!(
+            wins[1].get("file").and_then(|v| v.as_str()),
+            Some("schedule-2.schedule.json")
+        );
+    });
+}
+
+#[test]
+fn open_new_window_while_main_is_dirty_keeps_the_edited_date_and_adds_a_window() {
+    with_gui(|h| {
+        let edited = "2026-04-07";
+        let focus = h.mcp_call("focus_window", json!({ "window": "main" }));
+        assert!(!focus.is_error, "{}", focus.text);
+        assert!(!h
+            .mcp_call(
+                "edit_plan",
+                json!({
+                    "ops": [{
+                        "type": "setTaskDates",
+                        "taskId": SEEDED_TASK_ID,
+                        "start": edited,
+                        "end": "2026-04-08",
+                    }]
+                }),
+            )
+            .is_error);
+        let before = h.open_windows_rows().len();
+        let r = h.mcp_call(
+            "open_new_window",
+            json!({
+                "path": h.schedule3_path.to_string_lossy(),
+                "workspacePath": h.work.join("workspace.json").to_string_lossy(),
+            }),
+        );
+        assert!(!r.is_error, "{}", r.text);
+        assert_eq!(
+            task_start(&h.current_schedule_json(None), SEEDED_TASK_ID).as_deref(),
+            Some(edited)
+        );
+        assert_eq!(h.open_windows_rows().len(), before + 1);
+    });
+}
+
+#[test]
+fn close_window_on_main_then_restart_opens_only_schedule_2() {
+    with_gui(|h| {
+        assert!(!h.mcp_call("close_window", json!({ "window": "main" })).is_error);
+        let wins = h.open_windows_rows();
+        assert_eq!(wins.len(), 1);
+        assert_eq!(wins[0].get("label").and_then(|v| v.as_str()), Some("schedule-2"));
+        let stored: Value = serde_json::from_str(
+            &fs::read_to_string(h.app_data_dir().join("open-windows.json")).expect("open-windows"),
+        )
+        .expect("open-windows json");
+        assert_eq!(stored["windows"].as_array().map(|a| a.len()), Some(1));
+        h.stop_gui_and_respawn().expect("respawn");
+        let after = h.open_windows_rows();
+        assert_eq!(after.len(), 1);
+        assert_eq!(after[0].get("label").and_then(|v| v.as_str()), Some("schedule-2"));
+    });
+}
+
+#[test]
+fn startup_without_main_in_open_windows_opens_only_schedule_2() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let schedule2 = work.join("schedule-2.schedule.json");
+    let _main = copy_regression_workspace(&work);
+    let workspace = work.join("workspace.json");
+    let body = open_windows_only_schedule_2_body(&schedule2, &workspace);
+    let mut h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[]).expect("start");
+    let wins = h.open_windows_rows();
+    assert_eq!(wins.len(), 1);
+    assert_eq!(wins[0].get("label").and_then(|v| v.as_str()), Some("schedule-2"));
+    assert!(schedule_contains_task(&h.current_schedule_json(None), SEEDED_TASK_ID));
+    assert!(
+        wins.iter()
+            .all(|w| w.get("label").and_then(|v| v.as_str()) != Some("main"))
+    );
+}
+
+#[test]
+fn close_window_schedule_2_leaves_only_main_still_answering_current_schedule() {
+    with_gui(|h| {
+        assert!(!h
+            .mcp_call("close_window", json!({ "window": "schedule-2" }))
+            .is_error);
+        let wins = h.open_windows_rows();
+        assert_eq!(wins.len(), 1);
+        assert_eq!(wins[0].get("label").and_then(|v| v.as_str()), Some("main"));
+        assert!(schedule_contains_task(&h.current_schedule_json(None), SEEDED_TASK_ID));
+        assert!(h.gui.try_wait().expect("try_wait").is_none());
+    });
+}
+
+#[test]
+fn restart_restores_the_front_status_filter_for_the_shared_path() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let main = copy_regression_workspace(&work);
+    let workspace = work.join("workspace.json");
+    let body = open_windows_same_path_body(&main, &workspace);
+    let mut h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[]).expect("start");
+    assert_eq!(
+        h.open_windows_rows().len(),
+        2,
+        "two windows with the same path"
+    );
+    let focus = h.mcp_call("focus_window", json!({ "window": "schedule-2" }));
+    assert!(!focus.is_error, "{}", focus.text);
+    let mut filters = default_filters();
+    filters["status"] = json!("in-progress");
+    assert!(!h.mcp_call("set_view", json!({ "filters": filters })).is_error);
+    wait_until(Duration::from_secs(5), || h.schedule_filter_dir_has_entries());
+    h.stop_gui_and_respawn().expect("respawn");
+    let names = task_names(&h.filtered_tasks_json(None));
+    assert_eq!(names, vec![TASK_B_NAME.to_string()]);
+}
+
+#[test]
+fn argv_on_cold_start_opens_the_given_schedule_after_ready() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let path = copy_regression_workspace(&work);
+    let arg = path.to_string_lossy().to_string();
+    let h = RunningHarness::start_with(OpenWindowsSeed::Absent, &[&arg]).expect("cold start");
+    let doc = h.current_schedule_json(None);
+    let on_disk: Value = serde_json::from_slice(&fs::read(&path).expect("read")).expect("json");
+    assert_eq!(
+        doc.get("title").and_then(|v| v.as_str()),
+        on_disk.get("title").and_then(|v| v.as_str())
+    );
+}
+
+#[test]
+fn second_process_same_path_focuses_newer_window_and_keeps_unsaved_date_and_file_bytes() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let main = copy_regression_workspace(&work);
+    let workspace = work.join("workspace.json");
+    let body = open_windows_same_path_body(&main, &workspace);
+    let mut h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[]).expect("start");
+    assert!(!h
+        .mcp_call("focus_window", json!({ "window": "schedule-2" }))
+        .is_error);
+    let unsaved = "2026-04-06";
+    assert!(!h
+        .mcp_call(
+            "edit_plan",
+            json!({
+                "ops": [{
+                    "type": "setTaskDates",
+                    "taskId": SEEDED_TASK_ID,
+                    "start": unsaved,
+                    "end": "2026-04-07",
+                }]
+            }),
+        )
+        .is_error);
+    let before_bytes = h.file_bytes(&main);
+    let arg = main.to_string_lossy().to_string();
+    h.spawn_second_instance(&[&arg]);
+    assert_only_front_label(&h, "schedule-2");
+    assert_eq!(
+        task_start(&h.current_schedule_json(None), SEEDED_TASK_ID).as_deref(),
+        Some(unsaved)
+    );
+    assert_eq!(h.file_bytes(&main), before_bytes);
+}
+
+#[test]
+fn second_process_other_json_adds_a_window_and_keeps_main_edited_date() {
+    with_gui(|h| {
+        let unsaved = "2026-04-05";
+        assert!(!h
+            .mcp_call(
+                "edit_plan",
+                json!({
+                    "ops": [{
+                        "type": "setTaskDates",
+                        "taskId": SEEDED_TASK_ID,
+                        "start": unsaved,
+                        "end": "2026-04-06",
+                    }]
+                }),
+            )
+            .is_error);
+        let before = h.open_windows_rows().len();
+        let arg = h.schedule3_path.to_string_lossy().to_string();
+        h.spawn_second_instance(&[&arg]);
+        assert_eq!(h.open_windows_rows().len(), before + 1);
+        assert_eq!(
+            task_start(&h.current_schedule_json(Some("main")), SEEDED_TASK_ID).as_deref(),
+            Some(unsaved)
+        );
+    });
+}
+
+#[test]
+fn second_process_folder_does_not_add_a_window_or_change_current_schedule() {
+    with_gui(|h| {
+        let before_count = h.open_windows_rows().len();
+        let title_before = h
+            .current_schedule_json(None)
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let folder = h.work.to_string_lossy().to_string();
+        h.spawn_second_instance(&[&folder]);
+        assert_eq!(h.open_windows_rows().len(), before_count);
+        let folder_and_file = format!("{} {}", folder, h.main_path.to_string_lossy());
+        h.spawn_second_instance(&[&folder_and_file]);
+        assert_eq!(h.open_windows_rows().len(), before_count);
+        let title_after = h
+            .current_schedule_json(None)
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        assert_eq!(title_after, title_before);
+    });
+}
+
+#[test]
+fn workspace_window_catalogs_differ_from_the_plain_window() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let main = copy_regression_workspace(&work);
+    enrich_workspace_catalogs(&work);
+    let schedule2 = work.join("schedule-2.schedule.json");
+    let workspace = work.join("workspace.json");
+    let body = open_windows_workspace_main_only_body(&main, &schedule2, &workspace);
+    let h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[]).expect("start");
+    let main_payload = h.filtered_tasks_json(Some("main"));
+    let tanaka_desc = main_payload
+        .get("members")
+        .and_then(|v| v.as_array())
+        .and_then(|list| list.iter().find(|m| m.get("id").and_then(|v| v.as_str()) == Some("tanaka")))
+        .and_then(|m| m.get("description").and_then(|v| v.as_str()));
+    assert_eq!(tanaka_desc, Some("担当リーダー"));
+    assert!(main_payload
+        .get("statuses")
+        .and_then(|v| v.as_array())
+        .and_then(|list| list.iter().find(|s| s.get("id").and_then(|v| v.as_str()) == Some("ws-only")))
+        .is_some());
+    let fields = field_names_set(&main_payload);
+    assert!(fields.contains("メモ"));
+    let non_working = main_payload
+        .get("view")
+        .and_then(|v| v.get("calendar"))
+        .and_then(|c| c.get("nonWorkingDays"))
+        .and_then(|v| v.as_array());
+    assert!(
+        non_working
+            .map(|days| days.iter().any(|d| d.get("date").and_then(|v| v.as_str()) == Some("2026-04-08")))
+            .unwrap_or(false),
+        "calendar nonWorkingDays"
+    );
+    let plain = h.filtered_tasks_json(Some("schedule-2"));
+    assert!(
+        plain.get("members").and_then(|v| v.as_array()).and_then(|list| {
+            list.iter().find(|m| m.get("id").and_then(|v| v.as_str()) == Some("tanaka"))
+        }).and_then(|m| m.get("description").and_then(|v| v.as_str()))
+            != Some("担当リーダー")
+    );
+    assert!(plain
+        .get("statuses")
+        .and_then(|v| v.as_array())
+        .and_then(|list| list.iter().find(|s| s.get("id").and_then(|v| v.as_str()) == Some("ws-only")))
+        .is_none());
+}
+
+#[test]
+fn focus_rereads_members_statuses_and_calendar_and_leaves_field_names() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let main = copy_regression_workspace(&work);
+    enrich_workspace_catalogs(&work);
+    let schedule2 = work.join("schedule-2.schedule.json");
+    let workspace = work.join("workspace.json");
+    let body = open_windows_workspace_main_only_body(&main, &schedule2, &workspace);
+    let h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[]).expect("start");
+    let before_fields = field_names_set(&h.filtered_tasks_json(Some("main")));
+    let new_member = "再読込メンバー";
+    let mut members: Value =
+        serde_json::from_slice(&fs::read(work.join("members.json")).expect("members")).expect("json");
+    members["members"][0]["name"] = json!(new_member);
+    fs::write(
+        work.join("members.json"),
+        serde_json::to_string_pretty(&members).expect("members") + "\n",
+    )
+    .expect("write members");
+    let mut statuses: Value =
+        serde_json::from_slice(&fs::read(work.join("statuses.json")).expect("statuses")).expect("json");
+    statuses["statuses"][1]["color"]["light"]["bg"] = json!("#AABBCC");
+    fs::write(
+        work.join("statuses.json"),
+        serde_json::to_string_pretty(&statuses).expect("statuses") + "\n",
+    )
+    .expect("write statuses");
+    let mut calendar: Value =
+        serde_json::from_slice(&fs::read(work.join("calendar.json")).expect("calendar")).expect("json");
+    calendar["nonWorkingDays"]
+        .as_array_mut()
+        .expect("days")
+        .push(json!({ "date": "2026-04-09", "name": "追加分" }));
+    fs::write(
+        work.join("calendar.json"),
+        serde_json::to_string_pretty(&calendar).expect("calendar") + "\n",
+    )
+    .expect("write calendar");
+    assert!(!h
+        .mcp_call("focus_window", json!({ "window": "schedule-2" }))
+        .is_error);
+    let focus_main = h.mcp_call("focus_window", json!({ "window": "main" }));
+    assert!(!focus_main.is_error, "{}", focus_main.text);
+    wait_until(Duration::from_secs(5), || {
+        member_name_by_id(&h.filtered_tasks_json(Some("main")), "tanaka").as_deref() == Some(new_member)
+    });
+    let main_payload = h.filtered_tasks_json(Some("main"));
+    assert_eq!(
+        member_name_by_id(&main_payload, "tanaka").as_deref(),
+        Some(new_member)
+    );
+    assert_eq!(
+        status_color_by_id(&main_payload, "in-progress").as_deref(),
+        Some("#AABBCC")
+    );
+    let cal = main_payload
+        .get("view")
+        .and_then(|v| v.get("calendar"))
+        .and_then(|c| c.get("nonWorkingDays"))
+        .and_then(|v| v.as_array());
+    assert!(cal
+        .map(|days| {
+            days.iter()
+                .any(|d| d.get("date").and_then(|v| v.as_str()) == Some("2026-04-09"))
+        })
+        .unwrap_or(false));
+    assert_eq!(field_names_set(&main_payload), before_fields);
+}
+
+#[test]
+fn save_then_restart_keeps_workspace_path_and_field_name() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let main = copy_regression_workspace(&work);
+    enrich_workspace_catalogs(&work);
+    let schedule2 = work.join("schedule-2.schedule.json");
+    let workspace = work.join("workspace.json");
+    let body = open_windows_workspace_main_only_body(&main, &schedule2, &workspace);
+    let mut h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[]).expect("start");
+    let before_fields = field_names_set(&h.filtered_tasks_json(Some("main")));
+    assert!(!h
+        .mcp_call(
+            "edit_plan",
+            json!({
+                "ops": [{
+                    "type": "setTaskDates",
+                    "taskId": SEEDED_TASK_ID,
+                    "start": "2026-04-03",
+                    "end": "2026-04-04",
+                }]
+            }),
+        )
+        .is_error);
+    assert!(!h.mcp_call("file_action", json!({ "action": "save" })).is_error);
+    h.stop_gui_and_respawn().expect("respawn");
+    let row = h
+        .open_windows_rows()
+        .into_iter()
+        .find(|w| w.get("label").and_then(|v| v.as_str()) == Some("main"))
+        .expect("main row");
+    assert_eq!(
+        row.get("file").and_then(|v| v.as_str()),
+        Some("main.schedule.json")
+    );
+    assert_eq!(
+        field_names_set(&h.filtered_tasks_json(Some("main"))),
+        before_fields
+    );
+}
+
+#[test]
+fn catalog_action_save_changes_workspace_member_name_and_leaves_app_members_dir() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let main = copy_regression_workspace(&work);
+    let schedule2 = work.join("schedule-2.schedule.json");
+    let workspace = work.join("workspace.json");
+    let body = open_windows_workspace_main_only_body(&main, &schedule2, &workspace);
+    let h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[]).expect("start");
+    let app_members_dir = h.app_data_dir().join("members");
+    let app_members_before = fs::read_dir(&app_members_dir)
+        .ok()
+        .map(|mut it| {
+            it.filter_map(|e| e.ok())
+                .map(|e| (e.path(), fs::read(e.path()).expect("bytes")))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let saved_name = "作業用保存メンバー";
+    let mut catalog: Value =
+        serde_json::from_slice(&fs::read(work.join("members.json")).expect("members")).expect("json");
+    catalog["members"][0]["name"] = json!(saved_name);
+    let save_members = h.mcp_call(
+        "catalog_action",
+        json!({
+            "catalog": "members",
+            "contents": catalog,
+            "overwrite": true,
+            "save": true,
+        }),
+    );
+    assert!(!save_members.is_error, "{}", save_members.text);
+    let work_members = fs::read(work.join("members.json")).expect("work members");
+    assert!(String::from_utf8_lossy(&work_members).contains(saved_name));
+    assert_eq!(
+        member_name_by_id(&h.filtered_tasks_json(Some("main")), "tanaka").as_deref(),
+        Some(saved_name)
+    );
+    let app_members_after = fs::read_dir(&app_members_dir)
+        .ok()
+        .map(|mut it| {
+            it.filter_map(|e| e.ok())
+                .map(|e| (e.path(), fs::read(e.path()).expect("bytes")))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert_eq!(app_members_before, app_members_after);
+}
+
+#[test]
+fn catalog_action_save_changes_workspace_status_color_and_leaves_app_statuses_dir() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let main = copy_regression_workspace(&work);
+    let schedule2 = work.join("schedule-2.schedule.json");
+    let workspace = work.join("workspace.json");
+    let body = open_windows_workspace_main_only_body(&main, &schedule2, &workspace);
+    let h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[]).expect("start");
+    let app_statuses = h.app_data_dir().join("statuses");
+    let before = fs::read_dir(&app_statuses)
+        .ok()
+        .map(|mut it| {
+            it.filter_map(|e| e.ok())
+                .map(|e| (e.path(), fs::read(e.path()).expect("bytes")))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let color = "#112233";
+    let mut catalog: Value =
+        serde_json::from_slice(&fs::read(work.join("statuses.json")).expect("statuses")).expect("json");
+    catalog["statuses"][1]["color"]["light"]["bg"] = json!(color);
+    let save_statuses = h.mcp_call(
+        "catalog_action",
+        json!({
+            "catalog": "statuses",
+            "contents": catalog,
+            "overwrite": true,
+            "save": true,
+        }),
+    );
+    assert!(!save_statuses.is_error, "{}", save_statuses.text);
+    assert_eq!(
+        status_color_by_id(&h.filtered_tasks_json(Some("main")), "in-progress").as_deref(),
+        Some(color)
+    );
+    let after = fs::read_dir(&app_statuses)
+        .ok()
+        .map(|mut it| {
+            it.filter_map(|e| e.ok())
+                .map(|e| (e.path(), fs::read(e.path()).expect("bytes")))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert_eq!(before, after);
+}
+
+#[test]
+fn catalog_action_save_on_app_catalog_updates_member_name_on_both_plain_windows() {
+    let _vite = vite_guard();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let work = home.path().join("work");
+    fs::create_dir_all(&work).expect("work");
+    let main = copy_regression_workspace(&work);
+    let schedule2 = work.join("schedule-2.schedule.json");
+    let body = open_windows_plain_two_body(&main, &schedule2);
+    let h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[]).expect("start");
+    let saved_name = "プレーン両窓";
+    let mut catalog: Value =
+        serde_json::from_slice(&fs::read(h.members_path.clone()).expect("members")).expect("json");
+    catalog["members"][0]["name"] = json!(saved_name);
+    let save_members = h.mcp_call(
+        "catalog_action",
+        json!({
+            "catalog": "members",
+            "contents": catalog,
+            "overwrite": true,
+            "save": true,
+        }),
+    );
+    assert!(!save_members.is_error, "{}", save_members.text);
+    wait_until(Duration::from_secs(5), || {
+        member_name_by_id(&h.filtered_tasks_json(Some("schedule-2")), "tanaka").as_deref()
+            == Some(saved_name)
+    });
+    assert_eq!(
+        member_name_by_id(&h.filtered_tasks_json(Some("main")), "tanaka").as_deref(),
+        Some(saved_name)
+    );
 }
