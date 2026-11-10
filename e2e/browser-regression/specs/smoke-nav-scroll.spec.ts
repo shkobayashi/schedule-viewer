@@ -7,6 +7,7 @@ import {
   readChartScrollXProbe,
   readMovableHeaderClientX,
   readSidebarScrollY,
+  waitForFitToWidthSettled,
 } from "../helpers/session.ts";
 import {
   dragSidebarResizer,
@@ -26,7 +27,7 @@ test.beforeEach(async ({ page }) => {
   await openSmokeSchedule(page);
   await page.locator(".timeline-body").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "全体", exact: true }).click();
-  await page.waitForTimeout(350);
+  await waitForFitToWidthSettled(page);
 });
 
 test("scrolls the long list until row 40...", async ({
@@ -72,20 +73,13 @@ test("scrolls with ctrl or meta and the arrow keys...", async ({
   await sidebar.click();
   const y0 = await readSidebarScrollY(page);
   await page.keyboard.press(`${mod}+ArrowDown`);
-  await page.waitForTimeout(250);
-  const y1 = await readSidebarScrollY(page);
-  expect(y1).toBeGreaterThan(y0);
-  await page.keyboard.press(`${mod}+ArrowRight`);
-  await page.waitForTimeout(250);
+  await expect.poll(async () => readSidebarScrollY(page), { timeout: 5_000 }).toBeGreaterThan(y0);
   const x0 = await readMovableHeaderClientX(page);
   expect(x0).not.toBeNull();
   await page.keyboard.press(`${mod}+ArrowRight`);
-  await page.waitForTimeout(250);
-  const x1 = await readMovableHeaderClientX(page);
-  expect(x1).not.toBeNull();
-  if (x0 != null && x1 != null) {
-    expect(x1).not.toBe(x0);
-  }
+  await expect
+    .poll(async () => readMovableHeaderClientX(page), { timeout: 5_000 })
+    .not.toBe(x0);
 });
 
 test("keeps sticky headings in sync...", async ({ page }) => {
@@ -93,7 +87,9 @@ test("keeps sticky headings in sync...", async ({ page }) => {
   await page.locator(".timeline-body").waitFor({ state: "visible" });
   const stickyBefore = await page.locator(".sidebar-sticky-clip").count();
   await page.mouse.wheel(0, 600);
-  await page.waitForTimeout(300);
+  await expect
+    .poll(async () => page.locator(".sidebar-sticky-clip").count(), { timeout: 5_000 })
+    .toBeGreaterThanOrEqual(stickyBefore);
   const stickyAfter = await page.locator(".sidebar-sticky-clip").count();
   expect(stickyAfter).toBeGreaterThanOrEqual(stickyBefore);
   await scrollSidebarToBottom(page);
@@ -107,18 +103,14 @@ test("scrolls the sidebar horizontally with the wheel and zooms there", async ({
   await page.mouse.move(box.x + 40, box.y + 80);
   const xBefore = await readChartScrollXProbe(page);
   await page.mouse.wheel(80, 0);
-  await page.waitForTimeout(200);
-  const xAfterWheel = await readChartScrollXProbe(page);
   expect(xBefore).not.toBeNull();
-  expect(xAfterWheel).not.toBeNull();
-  if (xBefore != null && xAfterWheel != null) {
-    expect(xAfterWheel).not.toBe(xBefore);
-  }
+  await expect
+    .poll(async () => readChartScrollXProbe(page), { timeout: 5_000 })
+    .not.toBe(xBefore);
   const mod = process.platform === "darwin" ? "Meta" : "Control";
   await page.keyboard.down(mod);
   await page.mouse.wheel(0, -200);
   await page.keyboard.up(mod);
-  await page.waitForTimeout(300);
   const spacing = await page
     .evaluate(() => document.documentElement.style.getPropertyValue("--s"))
     .catch(() => "");

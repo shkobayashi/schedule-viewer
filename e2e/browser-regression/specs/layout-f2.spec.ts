@@ -111,6 +111,8 @@ test("compares light and dark screenshots of the sample without judging readabil
   await activateHighlightedPaletteItem(page);
   await page.getByLabel("配色").selectOption("dark");
   await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "設定" })).toHaveCount(0);
+  // ダーク配色は Konva の再描画が終わるまで条件の読み取り口が無い
   await page.waitForTimeout(400);
   await expect(app).toHaveScreenshot(path.join(baselineDir, "layout-f2-dark.png"), {
     maxDiffPixelRatio: 0.06,

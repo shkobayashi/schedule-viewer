@@ -1,4 +1,4 @@
-import type { Page } from "playwright/test";
+import { expect, type Page } from "playwright/test";
 import {
   readChartScrollXProbe,
   readMovableHeaderClientX,
@@ -6,17 +6,15 @@ import {
 } from "./session.ts";
 
 export async function scrollSidebarToBottom(page: Page): Promise<void> {
+  const target = page.locator(".sidebar-row", { hasText: "行40" }).first();
   const sidebar = page.locator(".sidebar");
   const box = await sidebar.boundingBox();
   if (!box) throw new Error("sidebar missing");
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
-  await page.mouse.move(x, y);
-  for (let step = 0; step < 40; step += 1) {
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  for (let step = 0; step < 40 && !(await target.isVisible().catch(() => false)); step += 1) {
     await page.mouse.wheel(0, 1200);
-    await page.waitForTimeout(40);
   }
-  await page.waitForTimeout(300);
+  await expect(target).toBeVisible({ timeout: 30_000 });
 }
 
 export async function wheelShiftHorizontalOnChart(page: Page, deltaY: number): Promise<void> {
@@ -27,7 +25,6 @@ export async function wheelShiftHorizontalOnChart(page: Page, deltaY: number): P
   await page.keyboard.down("Shift");
   await page.mouse.wheel(0, deltaY);
   await page.keyboard.up("Shift");
-  await page.waitForTimeout(250);
 }
 
 export async function readRowCenterY(page: Page, rowLabel: string): Promise<number | null> {
@@ -51,7 +48,7 @@ export async function dragSidebarResizer(
   await page.mouse.down();
   await page.mouse.move(x + deltaX, y, { steps: 10 });
   await page.mouse.up();
-  await page.waitForTimeout(300);
+  await expect(page.locator(".sidebar-resizer")).toBeVisible();
 }
 
 export async function readScrollProbePair(page: Page): Promise<{

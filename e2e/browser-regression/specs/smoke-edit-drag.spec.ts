@@ -1,6 +1,11 @@
 import { expect, test } from "playwright/test";
 import { ensureKonvaProbed } from "../helpers/probeSetup.ts";
-import { bootNormalPage, openSmokeSchedule, readChartScrollXProbe } from "../helpers/session.ts";
+import {
+  bootNormalPage,
+  openSmokeSchedule,
+  readChartScrollXProbe,
+  waitForFitToWidthSettled,
+} from "../helpers/session.ts";
 import {
   cancelTaskBarDrag,
   clickUndoOnce,
@@ -22,6 +27,7 @@ import {
 } from "../helpers/contextMenu.ts";
 import {
   readBarCenterForTask,
+  readKonvaTextsInTimelineBody,
   readMidDragDateTexts,
   requireKonva,
 } from "../helpers/konvaUi.ts";
@@ -35,7 +41,7 @@ test.beforeEach(async ({ page }) => {
   await openSmokeSchedule(page);
   await page.locator(".timeline-body").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "全体", exact: true }).click();
-  await page.waitForTimeout(350);
+  await waitForFitToWidthSettled(page);
 });
 
 test("does not focus the detail name when the period edge is clicked", async ({ page }) => {
@@ -161,7 +167,7 @@ test("does not change horizontal scroll when a visible bar is clicked", async ({
   const xAfter = await readChartScrollXProbe(page);
   expect(xAfter).not.toBeNull();
   if (x0 != null && xAfter != null) {
-    expect(Math.abs(xAfter - x0)).toBeLessThan(80);
+    expect(Math.abs(xAfter - x0)).toBeLessThan(32);
   }
 });
 
@@ -172,8 +178,8 @@ test("drags one bar across a non-working day without showing 休", async ({ page
   await releaseTaskBarDrag(page);
   await expect
     .poll(async () => {
-      const text = await page.locator(".timeline-body").innerText();
-      return text.includes("休");
+      const texts = await readKonvaTextsInTimelineBody(page);
+      return texts.some((t) => t.includes("休"));
     })
     .toBe(false);
 });

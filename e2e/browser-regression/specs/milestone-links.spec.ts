@@ -37,7 +37,6 @@ test.beforeEach(async ({ page }) => {
     .getByRole("button", { name: "月", exact: true })
     .click();
   await wheelShiftHorizontalOnChart(page, -900);
-  await page.waitForTimeout(350);
 });
 
 test("edits milestone confidence from the name menu and undoes", async ({ page }) => {
@@ -85,7 +84,7 @@ test("duplicates from the menu with an empty predecessor and undoes", async ({ p
     const button = root.querySelector("button.btn.primary");
     if (button instanceof HTMLButtonElement) button.click();
   });
-  await page.waitForTimeout(300);
+  await expect(page.getByRole("button", { name: "取り消し" })).toBeEnabled();
   await clickUndoOnce(page);
 });
 

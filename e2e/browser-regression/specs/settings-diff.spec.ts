@@ -30,7 +30,7 @@ test("clicks a diff row without changing a multi-selection", async ({ page }) =>
   await page.locator(".sidebar-row.task", { hasText: "行01" }).first().click();
   await page.locator("#detailEnd").fill("2026-04-03");
   await page.locator("#detailEnd").press("Enter");
-  await page.waitForTimeout(200);
+  await expect.poll(async () => page.locator("#detailEnd").inputValue()).toBe("2026-04-03");
   await page.keyboard.down("Shift");
   await page.locator(".sidebar-row.task", { hasText: "行02" }).first().click();
   await page.keyboard.up("Shift");
@@ -49,7 +49,7 @@ test("clicks a diff row without changing a multi-selection", async ({ page }) =>
 test("leaves the chart still and shows the hidden-row message", async ({ page }) => {
   await openScheduleFile(page, longSchedulePath);
   await taskSearchBox(page).fill("行99");
-  await page.waitForTimeout(200);
+  await expect.poll(async () => (await taskSearchBox(page).inputValue()) === "行99").toBe(true);
   const diffBtn = page.getByRole("button", { name: /未保存/ });
   if (await diffBtn.isVisible()) await diffBtn.click();
   const msg = page.getByText("絞り込みで出ていません");
@@ -70,7 +70,9 @@ test("keeps the connection dialog open until both fields are filled", async ({ p
   await openScheduleFile(page, connectionsSchedulePath);
   await page.locator(".timeline-body").waitFor({ state: "visible" });
   await taskSearchBox(page).fill("上：色なし");
-  await page.waitForTimeout(250);
+  await expect(
+    page.locator(".sidebar-row.task", { hasText: "上：色なし" }).first(),
+  ).toBeVisible();
   await selectTaskByName(page, "上：色なし");
   await page.getByRole("button", { name: "足す" }).click();
   const dialog = page.getByRole("dialog", { name: "繋がりを足す" });

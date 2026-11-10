@@ -1,4 +1,4 @@
-import type { Page } from "playwright/test";
+import { expect, type Page } from "playwright/test";
 
 export async function openSettingsDialog(page: Page): Promise<void> {
   await page.getByRole("button", { name: "メニュー" }).click();
@@ -25,7 +25,7 @@ export async function importJsonInOpenSettings(
   if (await overwrite.isVisible().catch(() => false)) {
     await overwrite.click();
   }
-  await page.waitForTimeout(400);
+  await expect(importBtn).toBeEnabled({ timeout: 10_000 });
 }
 
 export async function openCatalogEditorFromSettings(

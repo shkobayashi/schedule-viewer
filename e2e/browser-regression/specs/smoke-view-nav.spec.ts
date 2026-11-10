@@ -6,6 +6,7 @@ import {
   readMovableHeaderClientX,
   readSidebarScrollY,
   smokeScheduleTitle,
+  waitForFitToWidthSettled,
 } from "../helpers/session.ts";
 import {
   cancelTaskBarDrag,
@@ -24,7 +25,7 @@ test.beforeEach(async ({ page }) => {
   await openSmokeSchedule(page);
   await page.locator(".timeline-body").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "全体", exact: true }).click();
-  await page.waitForTimeout(350);
+  await waitForFitToWidthSettled(page);
 });
 
 test("shows the smoke fixture title and task names (VIEW-01)", async ({ page }) => {
@@ -49,7 +50,13 @@ test("pans the empty chart 80px without moving the list vertically (NAV-01)", as
   await page.mouse.down();
   await page.mouse.move(startX - 80, startY, { steps: 8 });
   await page.mouse.up();
-  await page.waitForTimeout(300);
+  await expect
+    .poll(async () => {
+      if (headerXBefore == null) return false;
+      const after = await readMovableHeaderClientX(page);
+      return after != null && Math.abs(after - headerXBefore) > 8;
+    }, { timeout: 5_000 })
+    .toBe(true);
 
   const scrollYAfter = await readSidebarScrollY(page);
   const headerXAfter = await readMovableHeaderClientX(page);

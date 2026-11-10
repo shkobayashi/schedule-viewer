@@ -51,7 +51,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## 短い通しと、全体
 
-短い通しは RG-S2 から RG-S4 である。RG-S1 と RG-S5 は自動テストが見ている。シナリオの見積は RG-S2 が 12 分、RG-S3 が 15 分、RG-S4 が 18 分である。基準は feature-436 時点の 39 分・約 2 時間 38 分・手順 89 である（#547 の 9 手順・約 22 分、RG-S3-13 の 1 分、以前分の約 16 分は再引きしない）。いまの目安は約 22 分である（39 分から、扱いが自動だけで skip せず期待を断言する手順だけを引いた見積。短い通しでは RG-S2-1 から RG-S2-5、RG-S2-7、RG-S3-1 から RG-S3-6、RG-S3-9、RG-S3-12 に、見積として RG-S2 から約 11 分、RG-S3 から約 6 分を割り当て、合わせて約 17 分を引く。RG-S3-7、RG-S3-8、RG-S3-10、RG-S3-11、RG-S2-6、RG-S3-3 の右端リサイズは引かない）。全体の代表手順は、それに RG-F1 から RG-F14 を足して約 2 時間 21 分である（約 2 時間 38 分から、短い通しと同じ 17 分を引いた見積に、見積として RG-F2 から約 8 分、RG-F9 から約 7 分、RG-F10 から約 3 分を足して全体から引く。RG-F9-2 は ☰ の履歴と開いているスケジュールの断言まで自動。ファイルダイアログ本体は手動のまま）。シナリオの見積は RG-F2 が 10 分、RG-F9 が 14 分、RG-F10 が 9 分である。RG-F9-3 は窓の前面が自動化予定:#541 のまま残る。RG-S1-4 は扱いが自動になったが、89 の引き算には含めない。RG-S3-7 と RG-S3-8 はメニュー表示は e2e が見ているが、手順数と時間の引き算には含めない。RG-S3-10 と RG-S3-11 は選択の復元が自動化予定:#535 のまま残るため、上の引き算には含めない。RG-F7-1 と RG-F8-2 は実機の監視が残るため、上の引き算には含めない。RG-F5-3・RG-F9-2 のファイルダイアログ部分・RG-F14-2 は扱い本文に手動が残るため、時間と手順数の引き算には含めない。RG-F3 と RG-F13 は手で通さない。シナリオは 19 本、手順は 70 である（89 から、上の自動のみの 19 手順を引いた数。RG-S3-3 の右端リサイズと TC-EDIT-07h のチャート編集は headless で操作できないため含めない）。この分数は見積で、実測ではない。`test.skip` で合格にするテストは自動済みに数えない。
+短い通しは RG-S2 から RG-S4 である。RG-S1 と RG-S5 は自動テストが見ている。シナリオの見積は RG-S2 が 12 分、RG-S3 が 15 分、RG-S4 が 18 分である。基準は feature-436 時点の 39 分・約 2 時間 38 分・手順 89 である（#547 の 9 手順・約 22 分、RG-S3-13 の 1 分、以前分の約 16 分は再引きしない）。いまの目安は約 22 分である（39 分−17 分＝22 分。見積。短い通しで引く手順は RG-S2-1〜5・RG-S2-7、RG-S3-1・2・4・5・6・9・12 の 13 件で、見積として RG-S2 から約 11 分・RG-S3 から約 6 分を割り当てる。RG-S3-3 右端、RG-S3-7、RG-S3-8、RG-S3-10、RG-S3-11、RG-S2-6 は引かない）。全体の代表手順は、それに RG-F1 から RG-F14 を足して約 2 時間 10 分である（158 分−17 分−8 分−3 分＝130 分。見積。短い通しの 17 分に加え RG-F2-1〜3 に 8 分、RG-F10-2 に 3 分を割り当てて引く。RG-F2 の 8 分は F2-1〜3 のみで、RG-F2-4 と RG-F2-5 は DOM 自動で以前から手で行わないため二重に引かない。RG-F9 の分は引かない）。シナリオの見積は RG-F2 が 10 分、RG-F9 が 14 分、RG-F10 が 9 分である。RG-F9-3 は窓の前面が自動化予定:#541 のまま残る。RG-S1-4 は扱いが自動になったが、89 の引き算には含めない。RG-S3-7 と RG-S3-8 はメニュー表示は e2e が見ているが、手順数と時間の引き算には含めない。RG-S3-10 と RG-S3-11 は選択の復元が自動化予定:#535 のまま残るため、上の引き算には含めない。RG-F7-1 と RG-F8-2 は実機の監視が残るため、上の引き算には含めない。RG-F5-3・RG-F9-2 のファイルダイアログ部分・RG-F14-2 は扱い本文に手動が残るため、時間と手順数の引き算には含めない。RG-F3 と RG-F13 は手で通さない。シナリオは 19 本、手順は 72 である（89−17＝72。引いた 17 手順は RG-S2-1〜5・S2-7、RG-S3-1・2・4・5・6・9・12、RG-F2-1〜3、RG-F10-2。RG-S3-3 右端・TC-EDIT-07h・RG-F9-2 は含めない）。この分数は見積で、実測ではない。`test.skip` で合格にするテストは自動済みに数えない。
 
 各手順の番号ごとに、合、否、保留、未検証、対象外のいずれかと、違ったときは見えた文を記録する。記録の型は末尾にある。自動化予定と書いた手順を手で行っても、その Issue が終わるまで自動の代わりの合格にはしない。
 
@@ -199,7 +199,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 終了は開始の 2026-04-04 より前にならない。最短でも開始と同じ日である。
 
-扱い: 自動:e2e/browser-regression/specs/smoke-edit-drag.spec.ts#does not move the end before the start when the right edge is dragged。この手順は手で行わない。
+扱い: 手動のまま:headless では Konva の右端ドラッグが再現できない。期間端クリックは自動:e2e/browser-regression/specs/smoke-edit-drag.spec.ts#does not focus the detail name when the period edge is clicked。
 
 ### RG-S3-4
 
@@ -759,7 +759,7 @@ Excel のアプリで開く見た目は人が残す。HTML の構造の自動は
 
 期待: 消す前は両方のファイルが出る。消したあと、開いているスケジュールは残る。履歴の項目は押せない。
 
-扱い: 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#clear history leaves the open schedule and the recovery file。自動:src/model/recentFiles.test.ts#drops the oldest on the sixth add。自動:src/components/AppMenu.recent.dom.test.tsx#lists schedule and workspace recent files, shows the path on hover, and clears history。この手順は手で行わない。
+扱い: 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#clear history leaves the open schedule and the recovery file。自動:src/model/recentFiles.test.ts#drops the oldest on the sixth add。自動:src/components/AppMenu.recent.dom.test.tsx#lists schedule and workspace recent files, shows the path on hover, and clears history。ファイルダイアログ部分は手動のまま。時間と手順数の引き算には含めない。
 
 ### RG-F9-3
 

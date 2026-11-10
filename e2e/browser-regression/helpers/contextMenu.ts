@@ -51,12 +51,12 @@ export async function dismissDeleteConfirm(page: Page): Promise<void> {
   const cancel = page.getByRole("button", { name: "キャンセル" });
   await cancel.waitFor({ state: "visible", timeout: 10_000 });
   await cancel.click();
-  await page.waitForTimeout(200);
+  await expect(cancel).toBeHidden({ timeout: 5_000 });
 }
 
 export async function confirmDelete(page: Page): Promise<void> {
   const ok = page.getByRole("button", { name: "削除" }).last();
   await ok.waitFor({ state: "visible", timeout: 10_000 });
   await ok.click();
-  await page.waitForTimeout(300);
+  await expect(ok).toBeHidden({ timeout: 5_000 });
 }

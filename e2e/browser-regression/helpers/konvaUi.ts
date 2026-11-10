@@ -104,6 +104,31 @@ export function requireKonva(message = "Konva not readable"): void {
   }
 }
 
+/** Konva Text nodes under `.timeline-body` (canvas-only labels such as 休). */
+export async function readKonvaTextsInTimelineBody(page: Page): Promise<string[]> {
+  return page.evaluate((collector) => {
+    const stages = eval(collector) as Array<{
+      container?: () => HTMLElement | null;
+      find: (selector: string) => Array<{
+        text?: () => string;
+        visible?: () => boolean;
+      }>;
+    }>;
+    const texts: string[] = [];
+    for (const stage of stages) {
+      const container = stage.container?.();
+      if (!(container instanceof HTMLElement)) continue;
+      if (!container.closest(".timeline-body")) continue;
+      for (const node of stage.find("Text")) {
+        if (node.visible?.() === false) continue;
+        const text = node.text?.() ?? "";
+        if (text.length > 0) texts.push(text);
+      }
+    }
+    return texts;
+  }, collectKonvaStagesSource);
+}
+
 export async function pointerOnMilestoneDiamond(
   page: Page,
   name: string,

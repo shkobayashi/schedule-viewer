@@ -4,7 +4,7 @@ import {
   probeKonvaReadable,
   setKonvaCapability,
 } from "./konva.ts";
-import { bootNormalPage, openSmokeSchedule } from "./session.ts";
+import { bootNormalPage, openSmokeSchedule, waitForFitToWidthSettled } from "./session.ts";
 
 export async function ensureKonvaProbed(
   browser: Browser,
@@ -15,8 +15,8 @@ export async function ensureKonvaProbed(
   try {
     await bootNormalPage(page, port, { clearLocalStorage: true });
     await openSmokeSchedule(page);
-    await page.locator(".timeline-body").waitFor({ state: "visible", timeout: 60_000 });
-    await page.waitForTimeout(400);
+    await page.getByRole("button", { name: "全体", exact: true }).click();
+    await waitForFitToWidthSettled(page);
     setKonvaCapability(await probeKonvaReadable(page));
   } finally {
     await page.close();

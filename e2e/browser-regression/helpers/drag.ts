@@ -1,4 +1,4 @@
-import type { Page } from "playwright/test";
+import { expect, type Page } from "playwright/test";
 import { readHeaderGridSpacing } from "./session.ts";
 
 const collectKonvaStagesSource = `(() => {
@@ -24,7 +24,7 @@ export async function selectTaskByName(page: Page, taskName: string): Promise<vo
     state: "visible",
     timeout: 15_000,
   });
-  await page.waitForTimeout(250);
+  await expect(page.locator("#detailName")).toBeVisible();
 }
 
 export async function readDetailDates(page: Page): Promise<{ start: string; end: string }> {
@@ -132,13 +132,11 @@ export async function dragFromClientPoint(
 
 export async function releaseTaskBarDrag(page: Page): Promise<void> {
   await page.mouse.up();
-  await page.waitForTimeout(200);
 }
 
 export async function cancelTaskBarDrag(page: Page): Promise<void> {
   await page.keyboard.press("Escape");
   await page.mouse.up();
-  await page.waitForTimeout(200);
 }
 
 export async function dragTaskBarByDays(
@@ -148,7 +146,10 @@ export async function dragTaskBarByDays(
 ): Promise<void> {
   const tier = page.getByRole("group", { name: "表示の切り替え" });
   await tier.getByRole("button", { name: "週", exact: true }).click();
-  await page.waitForTimeout(200);
+  await expect(tier.getByRole("button", { name: "週", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   const pxPerDay = (await readHeaderGridSpacing(page)) ?? 22;
   const deltaPx = Math.round(dayDelta * pxPerDay);
   await dragTaskBar(page, taskName, deltaPx);
@@ -158,7 +159,6 @@ export async function clickUndoOnce(page: Page): Promise<void> {
   const undo = page.getByRole("button", { name: "取り消し" });
   await undo.waitFor({ state: "visible" });
   await undo.click();
-  await page.waitForTimeout(250);
 }
 
 export async function isDetailNameFocused(page: Page): Promise<boolean> {
@@ -244,7 +244,6 @@ export async function clickPeriodEdgeWithoutSelecting(
 ): Promise<{ x: number; y: number }> {
   const pointer = await resolveRightEdgePointer(page, taskName);
   await page.mouse.click(pointer.x, pointer.y);
-  await page.waitForTimeout(200);
   return pointer;
 }
 
@@ -256,11 +255,13 @@ export async function dragTaskRightEdge(
   await selectTaskByName(page, taskName);
   const tier = page.getByRole("group", { name: "表示の切り替え" });
   await tier.getByRole("button", { name: "日", exact: true }).click();
-  await page.waitForTimeout(200);
+  await expect(tier.getByRole("button", { name: "日", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   const pointer = await resolveRightEdgePointer(page, taskName);
   await page.mouse.move(pointer.x, pointer.y);
   await page.mouse.down();
   await page.mouse.move(pointer.x + deltaPx, pointer.y, { steps: 12 });
   await page.mouse.up();
-  await page.waitForTimeout(300);
 }

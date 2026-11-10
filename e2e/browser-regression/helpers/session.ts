@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Page } from "playwright/test";
+import { expect, type Page } from "playwright/test";
 import { clearScheduleViewerLocalStorageEvaluateSource } from "../../../src/model/devFreshStart.ts";
 
 const helperDir = path.dirname(fileURLToPath(import.meta.url));
@@ -48,7 +48,7 @@ export async function dismissBlockingUi(page: Page): Promise<void> {
   const firstRunClose = page.locator(".first-run-hint-card .modal-close-btn");
   if (await firstRunClose.isVisible().catch(() => false)) {
     await firstRunClose.click();
-    await page.waitForTimeout(200);
+    await expect(firstRunClose).toBeHidden({ timeout: 5_000 });
   }
   const closeGuide = page.getByRole("button", { name: "閉じる" });
   if (await closeGuide.isVisible().catch(() => false)) {
@@ -75,7 +75,6 @@ export async function openScheduleFile(page: Page, filePath: string): Promise<vo
     openItem.click(),
   ]);
   await fileChooser.setFiles(filePath);
-  await page.waitForTimeout(400);
 }
 
 export async function openSmokeSchedule(page: Page): Promise<void> {
@@ -110,14 +109,16 @@ export async function openLongSchedule(page: Page): Promise<void> {
 }
 
 export async function waitForTitle(page: Page, title: string): Promise<void> {
-  const deadline = Date.now() + 60_000;
-  const locator = page.locator(".toolbar-title-text");
-  while (Date.now() < deadline) {
-    const text = (await locator.textContent())?.trim() ?? "";
-    if (text.includes(title)) return;
-    await page.waitForTimeout(100);
-  }
-  throw new Error(`toolbar title did not match ${title} within 60s`);
+  await expect(page.locator(".toolbar-title-text")).toContainText(title, { timeout: 60_000 });
+}
+
+/** 全体表示のあとチャートが安定するまで待つ。 */
+export async function waitForFitToWidthSettled(page: Page): Promise<void> {
+  await expect(page.locator(".timeline-body")).toBeVisible();
+  await expect(page.locator(".sidebar-row.task").first()).toBeVisible();
+  await expect
+    .poll(async () => page.locator(".timeline-body canvas").count(), { timeout: 8_000 })
+    .toBeGreaterThan(0);
 }
 
 export type BootNormalPageOptions = {

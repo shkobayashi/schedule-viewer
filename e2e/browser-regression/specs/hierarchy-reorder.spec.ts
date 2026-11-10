@@ -26,7 +26,6 @@ test.beforeEach(async ({ page }) => {
 test("collapses and expands from the triangle", async ({ page }) => {
   const toggle = collapseToggleFor(page, "計画");
   await toggle.click();
-  await page.waitForTimeout(200);
   await expect(page.locator(".sidebar-row", { hasText: "調査" })).toHaveCount(0);
   await toggle.click();
   await expect(page.locator(".sidebar-row", { hasText: "調査" }).first()).toBeVisible();
@@ -65,7 +64,7 @@ test("shows one translucent row while a collapsed category or group grip is drag
   page,
 }) => {
   await collapseToggleFor(page, "計画").click();
-  await page.waitForTimeout(200);
+  await expect(page.locator(".sidebar-row", { hasText: "調査" })).toHaveCount(0);
   const grip = page.locator(".sidebar-row", { hasText: "計画" }).first().locator(".row-grip");
   const box = await grip.boundingBox();
   if (!box) throw new Error("grip missing");
@@ -78,7 +77,7 @@ test("shows one translucent row while a collapsed category or group grip is drag
 
 test("does not start a reorder while a name filter leaves one row", async ({ page }) => {
   await taskSearchBox(page).fill("設計");
-  await page.waitForTimeout(200);
+  await expect.poll(async () => page.locator(".sidebar-row.task").count()).toBe(1);
   const grip = page.locator(".sidebar-row.task .row-grip").first();
   const box = await grip.boundingBox();
   if (!box) throw new Error("grip missing");
@@ -92,7 +91,6 @@ test("does not start a reorder while a name filter leaves one row", async ({ pag
 test("does not select or open a menu from a short grip click", async ({ page }) => {
   const grip = page.locator(".sidebar-row.task", { hasText: "設計" }).first().locator(".row-grip");
   await grip.click();
-  await page.waitForTimeout(150);
   await expect(page.locator(".context-menu")).toHaveCount(0);
   await expect(page.locator(".sidebar-row.task.selected", { hasText: "設計" })).toHaveCount(0);
 });
@@ -124,7 +122,7 @@ test("reorders a category on the five-level sample from the grip", async ({ page
   await openScheduleFile(page, levels5SchedulePath);
   await page.locator(".timeline-body").waitFor({ state: "visible" });
   await taskSearchBox(page).fill("作業15");
-  await page.waitForTimeout(300);
+  await expect(page.locator(".sidebar-row.task", { hasText: "作業15-1" }).first()).toBeVisible();
   const first = page.locator(".sidebar-row.task", { hasText: "作業15-1" }).first();
   const second = page.locator(".sidebar-row.task", { hasText: "作業15-2" }).first();
   const firstBox = await first.boundingBox();

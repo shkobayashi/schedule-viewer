@@ -1,4 +1,4 @@
-import type { Page } from "playwright/test";
+import { expect, type Page } from "playwright/test";
 
 export async function openCommandPalette(page: Page): Promise<void> {
   const mod = process.platform === "darwin" ? "Meta" : "Control";
@@ -14,10 +14,12 @@ export async function closeCommandPalette(page: Page): Promise<void> {
 export async function runPaletteQuery(page: Page, query: string): Promise<void> {
   const input = page.locator(".command-palette-input");
   await input.fill(query);
-  await page.waitForTimeout(150);
+  await expect(page.locator(".command-palette-list [role='option']").first()).toBeVisible({
+    timeout: 5_000,
+  });
 }
 
 export async function activateHighlightedPaletteItem(page: Page): Promise<void> {
   await page.keyboard.press("Enter");
-  await page.waitForTimeout(300);
+  await expect(page.locator(".command-palette-input")).toBeHidden({ timeout: 5_000 });
 }

@@ -4,6 +4,7 @@ import {
   dismissBlockingUi,
   openSmokeSchedule,
   openSmokeScheduleManualScreenshot,
+  waitForFitToWidthSettled,
 } from "../helpers/session.ts";
 import {
   getKonvaCapability,
@@ -20,8 +21,12 @@ test("probes Konva readability for regression helpers", async ({ page, baseURL }
     await openSmokeSchedule(page);
   }
   await dismissBlockingUi(page);
-  await page.locator(".timeline-body").waitFor({ state: "visible", timeout: 60_000 });
-  await page.waitForTimeout(500);
+  if (port === 5173) {
+    await page.getByRole("button", { name: "全体", exact: true }).click();
+    await waitForFitToWidthSettled(page);
+  } else {
+    await page.locator(".timeline-body").waitFor({ state: "visible", timeout: 60_000 });
+  }
 
   const result = await probeKonvaReadable(page);
   setKonvaCapability(result);

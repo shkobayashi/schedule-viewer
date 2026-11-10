@@ -1,4 +1,4 @@
-import type { Locator, Page } from "playwright/test";
+import { expect, type Locator, Page } from "playwright/test";
 
 export function taskSearchBox(page: Page) {
   return page.getByRole("textbox", { name: "タスク名で検索" });
@@ -22,9 +22,12 @@ export async function dragRowGrip(
   if (!box) throw new Error("row grip missing");
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
+  const yBefore = box.y;
   await page.mouse.move(cx, cy);
   await page.mouse.down();
   await page.mouse.move(cx, cy + deltaY, { steps: 12 });
   await page.mouse.up();
-  await page.waitForTimeout(300);
+  await expect
+    .poll(async () => (await row.boundingBox())?.y ?? yBefore, { timeout: 5_000 })
+    .not.toBe(yBefore);
 }
