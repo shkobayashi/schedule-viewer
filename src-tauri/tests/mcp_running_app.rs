@@ -262,13 +262,61 @@ fn kill_child_fast(child: &mut Child) {
     let _ = child.try_wait();
 }
 
+fn kill_listeners_on_vite_port() {
+    #[cfg(unix)]
+    {
+        let _ = Command::new("bash")
+            .args(["-c", "lsof -ti :1420 | xargs -r kill -9"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+}
+
 fn kill_shared_vite_child() {
     let mut slot = VITE_CHILD.lock().expect("vite child");
     if let Some(mut child) = slot.take() {
+        let pid = child.id();
         kill_child_fast(&mut child);
+        #[cfg(unix)]
+        {
+            let _ = Command::new("kill")
+                .args(["-KILL", &format!("-{pid}")])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
         let _ = child.wait();
     }
+    kill_listeners_on_vite_port();
 }
+
+struct SharedViteProcess;
+
+impl Drop for SharedViteProcess {
+    fn drop(&mut self) {
+        kill_shared_vite_child();
+    }
+}
+
+#[cfg(unix)]
+fn register_vite_process_exit_cleanup() {
+    use std::sync::Once;
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| unsafe {
+        libc::atexit(kill_shared_vite_child_on_exit);
+    });
+}
+
+#[cfg(unix)]
+extern "C" fn kill_shared_vite_child_on_exit() {
+    kill_shared_vite_child();
+}
+
+static SHARED_VITE: LazyLock<SharedViteProcess> = LazyLock::new(|| {
+    ensure_vite();
+    SharedViteProcess
+});
 
 fn assert_child_exited(pid: u32) {
     #[cfg(unix)]
@@ -489,6 +537,16 @@ fn ensure_vite() {
     cmd.env("TAURI_ENV_PLATFORM", platform);
     cmd.stdout(Stdio::null());
     cmd.stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        unsafe {
+            cmd.pre_exec(|| {
+                libc::setsid();
+                Ok(())
+            });
+        }
+    }
     let mut child = cmd.spawn().expect("spawn vite");
     let deadline = Instant::now() + VITE_READY_TIMEOUT;
     let client = reqwest::blocking::Client::builder()
@@ -519,6 +577,7 @@ fn ensure_vite() {
         std::thread::sleep(Duration::from_millis(200));
     }
     *slot = Some(child);
+    register_vite_process_exit_cleanup();
 }
 
 struct ViteGuard {
@@ -526,7 +585,7 @@ struct ViteGuard {
 }
 
 fn vite_guard() -> ViteGuard {
-    ensure_vite();
+    LazyLock::force(&SHARED_VITE);
     ViteGuard {
         _vite_lock: lock_ignore_poison(&VITE_MUTEX),
     }
