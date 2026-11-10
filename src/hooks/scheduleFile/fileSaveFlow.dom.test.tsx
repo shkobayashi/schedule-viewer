@@ -296,9 +296,9 @@ describe("file save flow", () => {
       name: "現在のスケジュールJSON",
     });
     await waitFor(() => {
-      expect(within(dialog).getByRole("textbox")).toHaveValue(
-        expect.stringContaining("設計改"),
-      );
+      const jsonText = (within(dialog).getByRole("textbox") as HTMLTextAreaElement)
+        .value;
+      expect(jsonText).toContain("設計改");
     });
     const saves = flow.commandLog.filter((c) => c === "save_schedule_file").length;
     expect(saves).toBe(0);

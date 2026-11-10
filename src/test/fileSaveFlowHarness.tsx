@@ -21,7 +21,7 @@ import { useScheduleFile } from "../hooks/useScheduleFile";
 import { useTimelineView } from "../hooks/useTimelineView";
 import { computeTimelineRange, gridTier } from "../model/timeline";
 import { extraTimelineDaysForRightEdge } from "../model/timelineRightPadding";
-import { listTasks } from "../model/dependencies";
+import { listTasks, successorIds } from "../model/dependencies";
 import { findTaskInDocument, levelBannerText } from "../model/hierarchy";
 import {
   documentHasExplicitLevels,
@@ -397,7 +397,7 @@ export const FileSaveFlowHarness = forwardRef<
           progress: task.progress,
           confidence: task.confidence,
           predecessors: task.predecessors,
-          successors: [],
+          successors: successorIds(schedule.categories, taskId),
           milestoneId: task.milestoneId ?? null,
           note: task.note ?? "",
         });
@@ -523,7 +523,7 @@ export const FileSaveFlowHarness = forwardRef<
       ) : null}
       <JsonDialog
         open={jsonOpen}
-        json={schedule.getCanonicalJson()}
+        json={jsonOpen ? scheduleFile.currentJson : ""}
         onClose={() => setJsonOpen(false)}
       />
       <HierarchyLevelsDialog
