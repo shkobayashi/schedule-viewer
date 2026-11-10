@@ -19,7 +19,7 @@
 | MX-H-9 | UI | 表示を動かす | 自動済み | 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#pans the empty chart 80px without moving the list vertically (NAV-01) |
 | MX-H-10 | UI | スクロール | 一部自動 | 手動:RG-S2-2。自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls the long list until row 40... |
 | MX-H-11 | UI | スクロール | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls with ctrl or meta and the arrow keys... |
-| MX-H-12 | UI | 拡大と表示単位 | 自動済み | 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03)。自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette... |
+| MX-H-12 | UI | 拡大と表示単位 | 自動済み | 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03)。自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette and ignores the palette shortcut while a dialog is open |
 | MX-H-13 | UI | 拡大と表示単位 | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls the sidebar horizontally with the wheel and zooms there |
 | MX-H-14 | UI | 折りたたみと一覧の幅 | 一部自動 | 手動:RG-S2-7。自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#drags the sidebar boundary and keeps the row and bar on the same y |
 | MX-H-15 | UI | 折りたたみと一覧の幅 | 自動済み | 自動:e2e/browser-regression/specs/smoke-nav-scroll.spec.ts#scrolls the sidebar horizontally with the wheel and zooms there |
@@ -106,8 +106,8 @@
 | MX-O-36 | UI | ショートカット一覧を開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens the shortcut list from keys and the menu but not from search |
 | MX-O-37 | UI | タスク名／ノートで検索 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#keeps only tasks whose name contains the query |
 | MX-O-38 | 計算 | タスク名／ノートで検索 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters notes from the note search field |
-| MX-O-39 | UI | 今日へ移動 | 一部自動 | 手動:RG-S2-5。自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette... |
-| MX-O-40 | UI | 今日へ移動 | 自動済み | 自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette... |
+| MX-O-39 | UI | 今日へ移動 | 一部自動 | 手動:RG-S2-5。自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette and ignores the palette shortcut while a dialog is open |
+| MX-O-40 | UI | 今日へ移動 | 自動済み | 自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette and ignores the palette shortcut while a dialog is open |
 | MX-O-41 | UI | 日表示 | 一部自動 | 手動:RG-S2-5。自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03) |
 | MX-O-42 | UI | 週表示 | 一部自動 | 手動:RG-S2-5。自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03) |
 | MX-O-43 | UI | 月表示 | 一部自動 | 手動:RG-S2-5。自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03) |
@@ -151,7 +151,7 @@
 | MX-O-81 | UI | 系統を表示／解除（タスク） | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
 | MX-O-82 | UI | 確定／未確定（タスク） | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#toggles 設計 confidence without moving dates and one undo restores it |
 | MX-O-83 | 見た目 | 確定／未確定（マイルストン） | 自動化予定 | 手動:RG-F4-3。自動化予定:#536 |
-| MX-O-84 | UI | マイルストンを編集 | 一部自動 | 自動:e2e/browser-regression/specs/milestone-links.spec.ts#drags a milestone by the diamond and rejects a blank name。自動:e2e/browser-regression/specs/milestone-links.spec.ts#moves a milestone between groups from the editor and undoes。自動化予定:#536 |
+| MX-O-84 | UI | マイルストンを編集 | 一部自動 | 自動化予定:#536 |
 | MX-O-85 | 計算 | マイルストンを削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#adds and deletes a milestone, then undo restores it |
 | MX-O-86 | UI | マイルストンを削除 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#clears 調査 milestoneId when 承認 is deleted and undo restores both。自動:e2e/browser-regression/specs/milestone-links.spec.ts#deletes a milestone used as a filter and leaves the selection |
 | MX-O-87 | UI | 前後の線を外す | 自動化予定 | 手動:RG-F4-1。自動化予定:#536 |

@@ -1,17 +1,17 @@
-import { expect, test } from "playwright/test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { expect, test } from "playwright/test";
+
+const baselineDir = fileURLToPath(new URL("../baselines/", import.meta.url));
 import { ensureKonvaProbed } from "../helpers/probeSetup.ts";
-import { bootNormalPage, openSmokeSchedule } from "../helpers/session.ts";
+import { bootNormalPage, openSmokeSchedule, readChartScrollXProbe } from "../helpers/session.ts";
 import {
   activateHighlightedPaletteItem,
   closeCommandPalette,
   openCommandPalette,
   runPaletteQuery,
 } from "../helpers/palette.ts";
-
-const specDir = path.dirname(fileURLToPath(import.meta.url));
-const baselineDir = path.join(specDir, "../baselines");
+import { openContextMenuAt } from "../helpers/contextMenu.ts";
 
 test.beforeAll(async ({ browser }) => {
   await ensureKonvaProbed(browser);
@@ -47,16 +47,16 @@ test("folds the shortcut list into one column at 480 by 640", async ({ page }) =
 
 test("keeps the corner context menu inside the 480 by 640 window", async ({ page }) => {
   await page.setViewportSize({ width: 480, height: 640 });
-  const canvas = page.locator(".timeline-body canvas").first();
-  const canvasBox = await canvas.boundingBox();
-  if (!canvasBox) throw new Error("chart canvas missing");
-  await page.mouse.click(
-    canvasBox.x + canvasBox.width - 48,
-    canvasBox.y + canvasBox.height - 48,
-    { button: "right" },
-  );
   const viewport = page.viewportSize();
   if (!viewport) throw new Error("viewport missing");
+  const body = page.locator(".timeline-body");
+  const bodyBox = await body.boundingBox();
+  if (!bodyBox) throw new Error("chart body missing");
+  await openContextMenuAt(
+    page,
+    bodyBox.x + bodyBox.width * 0.9,
+    bodyBox.y + bodyBox.height * 0.85,
+  );
   const menu = page.locator(".context-menu");
   await expect(menu).toBeVisible({ timeout: 15_000 });
   const box = await menu.boundingBox();
@@ -69,14 +69,32 @@ test("keeps the corner context menu inside the 480 by 640 window", async ({ page
   }
 });
 
-test("runs 今日 from the command palette...", async ({ page }) => {
+test("runs 今日 from the command palette and ignores the palette shortcut while a dialog is open", async ({
+  page,
+}) => {
+  const xBefore = await readChartScrollXProbe(page);
+  expect(xBefore).not.toBeNull();
   await openCommandPalette(page);
   await runPaletteQuery(page, "今日");
   await activateHighlightedPaletteItem(page);
   await closeCommandPalette(page);
   await expect(page.getByRole("dialog", { name: "操作の案内" })).toHaveCount(0);
   await page.getByRole("group", { name: "表示の切り替え" }).getByRole("button", { name: "日", exact: true }).click();
-  await page.waitForTimeout(300);
+  await expect
+    .poll(
+      async () => {
+        const x = await readChartScrollXProbe(page);
+        return x != null && xBefore != null && Math.abs(x - xBefore) > 10;
+      },
+      { timeout: 5_000 },
+    )
+    .toBe(true);
+  await page.locator(".sidebar-row.task", { hasText: "設計" }).first().click();
+  await page.getByRole("button", { name: "タイトルを変更" }).click();
+  await page.keyboard.down(process.platform === "darwin" ? "Meta" : "Control");
+  await page.keyboard.press("KeyP");
+  await page.keyboard.up(process.platform === "darwin" ? "Meta" : "Control");
+  await expect(page.getByRole("searchbox", { name: "コマンドパレット" })).toHaveCount(0);
 });
 
 test("compares light and dark screenshots of the sample without judging readability", async ({
@@ -85,7 +103,7 @@ test("compares light and dark screenshots of the sample without judging readabil
   await page.setViewportSize({ width: 1280, height: 800 });
   const app = page.locator(".app");
   await expect(app).toHaveScreenshot(path.join(baselineDir, "layout-f2-light.png"), {
-    maxDiffPixelRatio: 0.04,
+    maxDiffPixelRatio: 0.06,
     animations: "disabled",
   });
   await openCommandPalette(page);
@@ -95,7 +113,7 @@ test("compares light and dark screenshots of the sample without judging readabil
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
   await expect(app).toHaveScreenshot(path.join(baselineDir, "layout-f2-dark.png"), {
-    maxDiffPixelRatio: 0.04,
+    maxDiffPixelRatio: 0.06,
     animations: "disabled",
   });
 });

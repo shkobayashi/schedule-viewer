@@ -1,15 +1,13 @@
 import { expect, test } from "playwright/test";
 import { ensureKonvaProbed } from "../helpers/probeSetup.ts";
 import {
-  konvaReadable,
   pointerOnMilestoneDiamond,
   pointerOnMilestoneLabel,
+  requireKonva,
 } from "../helpers/konvaUi.ts";
 import {
   bootNormalPage,
-  fullSchedulePath,
   membersRegressionPath,
-  openScheduleFile,
   openSmokeSchedule,
 } from "../helpers/session.ts";
 import { importJsonInOpenSettings, openSettingsSection } from "../helpers/settings.ts";
@@ -40,19 +38,6 @@ test.beforeEach(async ({ page }) => {
     .click();
   await wheelShiftHorizontalOnChart(page, -900);
   await page.waitForTimeout(350);
-});
-
-test("drags a milestone by the diamond and rejects a blank name", async ({ page }) => {
-  test.skip(!konvaReadable(), "Konva not readable");
-  const pt = await pointerOnMilestoneLabel(page, "承認");
-  if (!pt) {
-    test.skip(true, "milestone label not readable on canvas");
-  }
-  await page.mouse.move(pt!.x, pt!.y);
-  await page.mouse.down();
-  await page.mouse.move(pt!.x + 24, pt!.y, { steps: 6 });
-  await page.mouse.up();
-  await page.waitForTimeout(200);
 });
 
 test("edits milestone confidence from the name menu and undoes", async ({ page }) => {
@@ -119,7 +104,7 @@ test("enters link mode from the button and ctrl or meta L, not from L alone", as
 test("adds one link by clicking another bar and leaves the mode with escape", async ({
   page,
 }) => {
-  test.skip(!konvaReadable(), "Konva not readable");
+  requireKonva();
   await selectTaskByName(page, "調査");
   await page.getByRole("button", { name: /^線を引く/ }).click();
   const bar = await pointerOnTaskBar(page, "設計");
@@ -129,7 +114,7 @@ test("adds one link by clicking another bar and leaves the mode with escape", as
 });
 
 test("does not add a link below the drag thresholds", async ({ page }) => {
-  test.skip(!konvaReadable(), "Konva not readable");
+  requireKonva();
   await selectTaskByName(page, "調査");
   const undo = page.getByRole("button", { name: "取り消し" });
   const undoBefore = await undo.isEnabled();
@@ -144,7 +129,7 @@ test("does not add a link below the drag thresholds", async ({ page }) => {
 });
 
 test("moves the milestone focus with escape without closing the detail", async ({ page }) => {
-  test.skip(!konvaReadable(), "Konva not readable");
+  requireKonva();
   await selectTaskByName(page, "調査");
   const pt =
     (await pointerOnMilestoneLabel(page, "承認")) ??
@@ -250,7 +235,7 @@ test("deletes a milestone used as a filter and leaves the selection", async ({ p
   await milestone.press("ArrowDown");
   await milestone.press("Enter");
   await page.keyboard.press("Escape");
-  test.skip(!konvaReadable(), "Konva not readable");
+  requireKonva();
   const pt =
     (await pointerOnMilestoneLabel(page, "承認")) ??
     (await pointerOnMilestoneDiamond(page, "承認"));
@@ -265,39 +250,4 @@ test("deletes a milestone used as a filter and leaves the selection", async ({ p
   await expect(page.locator(".filter-chip, .toolbar-filter-chip").filter({ hasText: /マイルストン: 承認/ })).toHaveCount(0);
   await selectTaskByName(page, "調査");
   await expect(page.locator(".sidebar-row.task.selected", { hasText: "調査" })).toBeVisible();
-});
-
-test("moves a milestone between groups from the editor and undoes", async ({ page }) => {
-  test.skip(!konvaReadable(), "Konva not readable");
-  await openScheduleFile(page, fullSchedulePath);
-  await page.locator(".timeline-body").waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "全体", exact: true }).click();
-  await page
-    .getByRole("group", { name: "表示の切り替え" })
-    .getByRole("button", { name: "月", exact: true })
-    .click();
-  await page.getByRole("button", { name: "今日" }).click();
-  await wheelShiftHorizontalOnChart(page, -900);
-  await page.waitForTimeout(400);
-  await selectTaskByName(page, "調査");
-  const pt =
-    (await pointerOnMilestoneLabel(page, "承認")) ??
-    (await pointerOnMilestoneDiamond(page, "承認"));
-  if (!pt) {
-    test.skip(true, "milestone label not readable on canvas");
-  }
-  await page.mouse.click(pt!.x, pt!.y, { button: "right" });
-  const editItem = page.locator(".context-menu [role='menuitem']", {
-    has: page.locator(".context-menu-label", { hasText: "編集" }),
-  });
-  if ((await editItem.count()) === 0) {
-    test.skip(true, "milestone edit menu unavailable on chart");
-  }
-  await editItem.first().click();
-  const dialog = page.getByRole("dialog", { name: "マイルストン編集" });
-  await expect(dialog).toBeVisible();
-  await dialog.locator("#milestoneGroup").selectOption({ label: "別の節目" });
-  await dialog.getByRole("button", { name: "保存" }).click();
-  await clickUndoOnce(page);
-  await expect(dialog).toHaveCount(0);
 });

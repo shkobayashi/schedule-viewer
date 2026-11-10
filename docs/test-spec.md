@@ -54,10 +54,9 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `layout-f2.spec.ts` | shows only short toolbar labels at 1280 by 800 | VIEW-16 |
 | `layout-f2.spec.ts` | folds the shortcut list into one column at 480 by 640 | VIEW-16 |
 | `layout-f2.spec.ts` | keeps the corner context menu inside the 480 by 640 window | VIEW-16 |
-| `layout-f2.spec.ts` | runs 今日 from the command palette... | NAV-01 |
+| `layout-f2.spec.ts` | runs 今日 from the command palette and ignores the palette shortcut while a dialog is open | NAV-07 |
 | `layout-f2.spec.ts` | compares light and dark screenshots of the sample without judging readability | VIEW-16 (#536) |
-| `manual-screenshot-only.spec.ts` | shows the April 2026 today line when the screenshot clock is 2026-04-15 (NAV-02) | NAV-02 |
-| `milestone-links.spec.ts` | drags a milestone by the diamond and rejects a blank name | EDIT-07 |
+| `manual-screenshot-only.spec.ts` | shows the April 2026 today line when the screenshot clock is 2026-04-15 | NAV-02 |
 | `milestone-links.spec.ts` | edits milestone confidence from the name menu and undoes | EDIT-07 |
 | `milestone-links.spec.ts` | toggles task confidence from the menu and undoes | EDIT-04 |
 | `milestone-links.spec.ts` | duplicates from the menu with an empty predecessor and undoes | EDIT-10 |
@@ -72,7 +71,6 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `milestone-links.spec.ts` | edits the title with enter, tab, and escape, and ignores composing keys as a stand-in | EDIT-03 |
 | `milestone-links.spec.ts` | opens the note from the icon and from the menu | VIEW-11 |
 | `milestone-links.spec.ts` | deletes a milestone used as a filter and leaves the selection | EDIT-07, FILTER-03 |
-| `milestone-links.spec.ts` | moves a milestone between groups from the editor and undoes | EDIT-07 |
 | `normal-clock.spec.ts` | does not install the screenshot clock in the normal browser | SYNC-01 |
 | `settings-diff.spec.ts` | clicks a diff row without changing a multi-selection | FILE-07 |
 | `settings-diff.spec.ts` | leaves the chart still and shows the hidden-row message | TC-FILE-07x |
@@ -82,9 +80,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `settings-diff.spec.ts` | discards or keeps a status draft and removes a catalog from the overlay | SET-08 |
 | `settings-diff.spec.ts` | adds a color list and refuses a blank or duplicate id | TC-SET-09h |
 | `settings-diff.spec.ts` | closes the field overlay with escape | SET-10 |
-| `smoke-edit-drag.spec.ts` | does not move the end before the start when the right edge is dragged | EDIT-02 |
-| `smoke-edit-drag.spec.ts` | does not focus the detail name when the period edge is clicked | EDIT-02 |
-| `smoke-edit-drag.spec.ts` | commits a drag that starts as a right click and undoes it once | EDIT-02 |
+| `smoke-edit-drag.spec.ts` | does not focus the detail name when the period edge is clicked | EDIT-03 |
+| `smoke-edit-drag.spec.ts` | commits a drag that starts as a right click and undoes it once | EDIT-02, EDIT-11 |
 | `smoke-edit-drag.spec.ts` | keeps 設計 selected when the handle or its inside edge is right-clicked | EDIT-02 |
 | `smoke-edit-drag.spec.ts` | shows only delete after shift-clicking 調査 and 設計 | EDIT-10 |
 | `smoke-edit-drag.spec.ts` | shows only add-milestone on an empty chart right click | EDIT-07 |
@@ -1484,7 +1481,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 手動の通しは [regression.md](regression.md) にまとめた。既存ケースの全文は [regression-tc.md](regression-tc.md) にある。ここには同じ表を重ねて置かない。新しい手動ケースは regression-tc.md と `docs/regression-tc-ids.txt` に足し、`npm run check:regression-coverage` が通ることを見る。
 
-短い通しは RG-S2 から RG-S4（目安 22 分。シナリオ見積は RG-S2 12 分・RG-S3 15 分・RG-S4 18 分）、全体の代表手順はそれに RG-F1 から RG-F14 を足す（目安 約 2 時間 24 分。RG-F2 10 分・RG-F9 14 分・RG-F10 9 分を含む）である。いずれも [regression.md](regression.md) の見積と同じで、実測ではない。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
+短い通しは RG-S2 から RG-S4（目安 約 22 分・手順 70。シナリオ見積は RG-S2 12 分・RG-S3 15 分・RG-S4 18 分）、全体の代表手順はそれに RG-F1 から RG-F14 を足す（目安 約 2 時間 21 分。RG-F2 10 分・RG-F9 14 分・RG-F10 9 分を含む）である。手順数と分数の内訳は [regression.md](regression.md) の見積と同じである。いずれも [regression.md](regression.md) の見積と同じで、実測ではない。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
 
 ## リリース前確認
 

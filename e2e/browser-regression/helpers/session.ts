@@ -173,9 +173,13 @@ const collectKonvaStagesSource = `(() => {
 export async function readHeaderGridSpacing(page: Page): Promise<number | null> {
   return page.evaluate((collector) => {
     const stages = eval(collector) as Array<{
+      container?: () => HTMLElement | null;
       find: (selector: string) => Array<{ points?: () => number[] }>;
     }>;
     for (const stage of stages) {
+      const container = stage.container?.();
+      if (!(container instanceof HTMLElement)) continue;
+      if (!container.closest(".timeline-header") && !container.closest(".timeline-body")) continue;
       const xs: number[] = [];
       for (const node of stage.find("Line")) {
         const points = node.points?.() ?? [];
@@ -202,6 +206,7 @@ export async function readMovableHeaderClientX(page: Page): Promise<number | nul
   return page.evaluate((collector) => {
     const stages = eval(collector) as Array<{
       container?: () => HTMLElement | null;
+      getLayers?: () => Array<{ x?: () => number }>;
       find: (selector: string) => Array<{
         text?: () => string;
         x?: () => number;
@@ -213,31 +218,38 @@ export async function readMovableHeaderClientX(page: Page): Promise<number | nul
       if (!(container instanceof HTMLElement)) continue;
       if (!container.closest(".timeline-header")) continue;
       const stageRect = container.getBoundingClientRect();
-      let bestX: number | null = null;
+      const textXs: number[] = [];
       for (const node of stage.find("Text")) {
         const text = node.text?.() ?? "";
-        if (!/^\d{1,2}$/.test(text)) continue;
+        if (!/\d/.test(text)) continue;
         const abs = node.getAbsolutePosition?.();
         const x = abs?.x ?? node.x?.() ?? 0;
-        const clientX = stageRect.left + x;
-        if (bestX == null || clientX > bestX) bestX = clientX;
+        textXs.push(stageRect.left + x);
       }
-      return bestX;
+      if (textXs.length > 0) {
+        textXs.sort((a, b) => a - b);
+        return textXs[Math.floor(textXs.length / 2)];
+      }
     }
     return null;
   }, collectKonvaStagesSource);
 }
 
 export async function readChartScrollXProbe(page: Page): Promise<number | null> {
+  const header = await readMovableHeaderClientX(page);
+  if (header != null) return header;
   return page.evaluate((collector) => {
     const stages = eval(collector) as Array<{
       container?: () => HTMLElement | null;
+      getLayers?: () => Array<{ x?: () => number }>;
       find: (selector: string) => Array<{ points?: () => number[] }>;
     }>;
     for (const stage of stages) {
       const container = stage.container?.();
       if (!(container instanceof HTMLElement)) continue;
-      if (!container.closest(".timeline-header")) continue;
+      const host =
+        container.closest(".timeline-header") ?? container.closest(".timeline-body");
+      if (!host) continue;
       const xs: number[] = [];
       for (const node of stage.find("Line")) {
         const points = node.points?.() ?? [];

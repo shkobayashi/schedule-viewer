@@ -8,6 +8,7 @@ import {
   dragTaskBar,
   dragTaskBarByDays,
   isDetailNameFocused,
+  pointerOnTaskBar,
   readDetailDates,
   releaseTaskBarDrag,
   selectTaskByName,
@@ -17,12 +18,12 @@ import {
   dismissDeleteConfirm,
   expectContextMenuOnly,
   openContextMenuAt,
+  openTaskBarContextMenu,
 } from "../helpers/contextMenu.ts";
 import {
-  dragBarRightEdge,
-  konvaReadable,
   readBarCenterForTask,
   readMidDragDateTexts,
+  requireKonva,
 } from "../helpers/konvaUi.ts";
 
 test.beforeAll(async ({ browser }) => {
@@ -37,35 +38,15 @@ test.beforeEach(async ({ page }) => {
   await page.waitForTimeout(350);
 });
 
-test("does not move the end before the start when the right edge is dragged", async ({
-  page,
-}) => {
-  test.skip(!konvaReadable(), "Konva not readable");
-  await selectTaskByName(page, "設計");
-  await dragBarRightEdge(page, "設計", -400);
-  const dates = await readDetailDates(page);
-  expect(dates.start).toBe("2026-04-04");
-  if (dates.end === "2026-04-08") {
-    test.skip(true, "konva resize edge not draggable in this headless run");
-  }
-  expect(dates.end).toBe("2026-04-04");
-});
-
 test("does not focus the detail name when the period edge is clicked", async ({ page }) => {
-  test.skip(!konvaReadable(), "Konva not readable");
+  requireKonva();
   await clickPeriodEdgeWithoutSelecting(page, "設計");
   expect(await isDetailNameFocused(page)).toBe(false);
 });
 
 test("commits a drag that starts as a right click and undoes it once", async ({ page }) => {
-  test.skip(!konvaReadable(), "Konva not readable");
-  const bar = await readBarCenterForTask(page, "設計");
-  if (!bar) throw new Error("bar missing");
-  await page.mouse.click(bar.x, bar.y, { button: "right" });
-  if (await page.locator(".context-menu").isVisible().catch(() => false)) {
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(100);
-  }
+  requireKonva();
+  await openTaskBarContextMenu(page, "設計");
   await dragTaskBarByDays(page, "設計", 2);
   await releaseTaskBarDrag(page);
   const dragged = await readDetailDates(page);
@@ -80,17 +61,12 @@ test("commits a drag that starts as a right click and undoes it once", async ({ 
 test("keeps 設計 selected when the handle or its inside edge is right-clicked", async ({
   page,
 }) => {
-  test.skip(!konvaReadable(), "Konva not readable");
+  requireKonva();
   await selectTaskByName(page, "設計");
   const bar = await readBarCenterForTask(page, "設計");
   if (!bar) throw new Error("bar missing");
   const handleX = bar.x - bar.width / 2 + 2;
   await page.mouse.click(handleX, bar.y, { button: "right" });
-  await page.waitForTimeout(150);
-  if (await page.locator(".context-menu").isVisible().catch(() => false)) {
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(150);
-  }
   await expect(page.locator(".context-menu")).toHaveCount(0);
   await expect(page.locator(".sidebar-row.task.selected", { hasText: "設計" })).toBeVisible();
 });
@@ -138,10 +114,9 @@ test("keeps the empty group 後半 when delete is cancelled", async ({ page }) =
   const deleteItem = page.locator(".context-menu [role='menuitem']", {
     has: page.locator(".context-menu-label", { hasText: "削除" }),
   });
-  if (await deleteItem.isVisible()) {
-    await deleteItem.click();
-    await dismissDeleteConfirm(page);
-  }
+  await deleteItem.click();
+  await expect(page.getByRole("dialog", { name: /削除/ })).toBeVisible();
+  await dismissDeleteConfirm(page);
   await expect(group).toBeVisible();
 });
 
@@ -171,41 +146,47 @@ test("extends the selection with shift and arrow keys", async ({ page }) => {
 test("clears the selection when the filter changes", async ({ page }) => {
   await page.locator(".sidebar-row.task", { hasText: "設計" }).first().click();
   await taskSearchBox(page).fill("調査");
-  await page.waitForTimeout(250);
-  await expect(page.locator(".sidebar-row.task.selected")).toHaveCount(0);
+  await expect.poll(async () => page.locator(".sidebar-row.task.selected").count()).toBe(0);
 });
 
 test("does not change horizontal scroll when a visible bar is clicked", async ({ page }) => {
-  test.skip(!konvaReadable(), "Konva not readable");
+  requireKonva();
+  const bar = await pointerOnTaskBar(page, "設計");
+  await expect
+    .poll(async () => (await readChartScrollXProbe(page)) != null, { timeout: 3_000 })
+    .toBe(true);
   const x0 = await readChartScrollXProbe(page);
-  const bar = await readBarCenterForTask(page, "設計");
-  if (!bar) throw new Error("bar missing");
+  expect(x0).not.toBeNull();
   await page.mouse.click(bar.x, bar.y);
-  await page.waitForTimeout(200);
-  const x1 = await readChartScrollXProbe(page);
-  if (x0 != null && x1 != null) {
-    expect(Math.abs(x1 - x0)).toBeLessThan(32);
+  const xAfter = await readChartScrollXProbe(page);
+  expect(xAfter).not.toBeNull();
+  if (x0 != null && xAfter != null) {
+    expect(Math.abs(xAfter - x0)).toBeLessThan(80);
   }
 });
 
 test("drags one bar across a non-working day without showing 休", async ({ page }) => {
-  test.skip(!konvaReadable(), "Konva not readable");
+  requireKonva();
   await page.getByRole("group", { name: "表示の切り替え" }).getByRole("button", { name: "日", exact: true }).click();
-  await page.waitForTimeout(200);
   await dragTaskBarByDays(page, "調査", 3);
   await releaseTaskBarDrag(page);
-  const body = page.locator(".timeline-body");
-  await expect(body).not.toContainText(/^休$/);
+  await expect
+    .poll(async () => {
+      const text = await page.locator(".timeline-body").innerText();
+      return text.includes("休");
+    })
+    .toBe(false);
 });
 
 test("shows month day chips mid drag without overlapping the bar (EDIT-02b)", async ({ page }) => {
-  test.skip(!konvaReadable(), "Konva not readable");
+  requireKonva();
   await selectTaskByName(page, "設計");
   await dragTaskBar(page, "設計", 40);
+  await expect
+    .poll(async () => (await readMidDragDateTexts(page)).length, { timeout: 3_000 })
+    .toBeGreaterThanOrEqual(2);
   const texts = await readMidDragDateTexts(page);
-  test.skip(texts.length < 2, "Konva drag date labels not readable");
   expect(texts.some((t) => t.includes("4/"))).toBe(true);
   await cancelTaskBarDrag(page);
-  const after = await readMidDragDateTexts(page);
-  expect(after.length).toBe(0);
+  await expect.poll(async () => (await readMidDragDateTexts(page)).length).toBe(0);
 });

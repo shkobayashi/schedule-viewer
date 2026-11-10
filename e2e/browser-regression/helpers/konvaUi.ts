@@ -98,6 +98,12 @@ export function konvaReadable(): boolean {
   return Boolean(getKonvaCapability()?.readable);
 }
 
+export function requireKonva(message = "Konva not readable"): void {
+  if (!konvaReadable()) {
+    throw new Error(message);
+  }
+}
+
 export async function pointerOnMilestoneDiamond(
   page: Page,
   name: string,

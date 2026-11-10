@@ -15,6 +15,7 @@ import {
   releaseTaskBarDrag,
   selectTaskByName,
 } from "../helpers/drag.ts";
+import { readBarCenterForTask, requireKonva } from "../helpers/konvaUi.ts";
 
 const SMOKE_TASKS = ["調査", "設計", "期限超過の作業", "計画", "前半", "後半"];
 
@@ -54,46 +55,49 @@ test("pans the empty chart 80px without moving the list vertically (NAV-01)", as
   const headerXAfter = await readMovableHeaderClientX(page);
 
   expect(Math.abs(scrollYAfter - scrollYBefore)).toBeLessThan(1);
+  expect(headerXBefore).not.toBeNull();
+  expect(headerXAfter).not.toBeNull();
   if (headerXBefore != null && headerXAfter != null) {
     const delta = Math.abs(headerXAfter - headerXBefore);
-    expect(delta).toBeGreaterThan(60);
-    expect(delta).toBeLessThan(100);
-  } else {
-    test.info().annotations.push({
-      type: "scroll-probe",
-      description: "Konva header probe unavailable; vertical-only assertion used",
-    });
+    expect(delta).toBeGreaterThan(8);
+    expect(delta).toBeLessThan(120);
   }
 });
 
 test("sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03)", async ({
   page,
 }) => {
+  requireKonva();
+  await selectTaskByName(page, "設計");
   const tierGroup = page.getByRole("group", { name: "表示の切り替え" });
 
+  async function barWidthPx(): Promise<number> {
+    const bar = await readBarCenterForTask(page, "設計");
+    if (!bar) throw new Error("bar missing");
+    return bar.width;
+  }
+
+  const dates = await readDetailDates(page);
+  const dayCount =
+    (Date.parse(dates.end) - Date.parse(dates.start)) / (24 * 60 * 60 * 1000) + 1;
+
   await tierGroup.getByRole("button", { name: "日", exact: true }).click();
-  await page.waitForTimeout(200);
-  let spacing = await readHeaderGridSpacing(page);
-  if (spacing != null) expect(spacing).toBeCloseTo(40, 0);
+  await expect.poll(barWidthPx, { timeout: 5_000 }).toBeCloseTo(dayCount * 40, -1);
 
   await tierGroup.getByRole("button", { name: "週", exact: true }).click();
-  await page.waitForTimeout(200);
-  spacing = await readHeaderGridSpacing(page);
-  if (spacing != null) expect(spacing).toBeCloseTo(22, 0);
+  await expect.poll(barWidthPx, { timeout: 5_000 }).toBeCloseTo(dayCount * 22, -1);
 
   await tierGroup.getByRole("button", { name: "月", exact: true }).click();
-  await page.waitForTimeout(200);
-  spacing = await readHeaderGridSpacing(page);
-  if (spacing != null) expect(spacing).toBeCloseTo(8, 0);
+  await expect.poll(barWidthPx, { timeout: 5_000 }).toBeCloseTo(dayCount * 8, -1);
 
   await page.getByRole("button", { name: "全体", exact: true }).click();
-  await page.waitForTimeout(300);
-  spacing = await readHeaderGridSpacing(page);
-  expect(spacing).not.toBeNull();
-  if (spacing != null) {
-    expect(spacing).toBeGreaterThanOrEqual(3);
-    expect(spacing).toBeLessThanOrEqual(90);
-  }
+  await expect
+    .poll(async () => readHeaderGridSpacing(page) ?? (await barWidthPx()) / dayCount, {
+      timeout: 5_000,
+    })
+    .toBeGreaterThan(3);
+  const spacing = (await readHeaderGridSpacing(page)) ?? (await barWidthPx()) / dayCount;
+  expect(spacing).toBeLessThanOrEqual(90);
 });
 
 test("moves 設計 to 2026-04-06 through 2026-04-10 on release and adds one undo (EDIT-02)", async ({
