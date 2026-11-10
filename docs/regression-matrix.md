@@ -14,7 +14,7 @@
 | MX-H-4 | 見た目 | 画面の見かた | 手動のまま | 手動:RG-S2-6。手動のまま:色が地に溶けて読めるかは人が判断する |
 | MX-H-5 | UI | 画面の見かた | 自動化予定 | 自動化予定:#535 |
 | MX-H-6 | UI | ファイルを開く・保存する | 自動済み | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02) |
-| MX-H-7 | OS | ファイルを開く・保存する | 自動化予定 | 自動化予定:#541 |
+| MX-H-7 | OS | ファイルを開く・保存する | 手動のまま | 手動のまま:OS のファイルを開く・保存するダイアログは mock だけでは足りない。 |
 | MX-H-8 | UI | 表示を動かす | 自動化予定 | 手動:RG-S2-3。自動化予定:#535 |
 | MX-H-9 | UI | 表示を動かす | 自動化予定 | 自動化予定:#535 |
 | MX-H-10 | UI | スクロール | 自動化予定 | 手動:RG-S2-2。自動化予定:#535 |
@@ -47,7 +47,7 @@
 | MX-H-37 | UI | 設定 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows |
 | MX-H-38 | UI | 設定 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the status editor open and shows the saved status name。自動:src/components/settingsHierarchyDiff.dom.test.tsx#stores dark and clears the key when returning to the system scheme。自動:src/components/settingsHierarchyDiff.dom.test.tsx#stores the display scale and applies it as --s。自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-07: shows the version on display, members, and updates in settings |
 | MX-H-39 | UI | ほかのプログラムがファイルを書き換えたとき | 一部自動 | 自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SYNC-01: applies a clean disk change after one poll interval。手動:RG-F7-1 |
-| MX-H-40 | OS | ほかのプログラムがファイルを書き換えたとき | 自動化予定 | 自動化予定:#541 |
+| MX-H-40 | OS | ほかのプログラムがファイルを書き換えたとき | 手動のまま | 手動のまま:他プログラムによるファイル書き換えの実機監視は mock だけでは足りない。 |
 | MX-H-41 | UI | 閉じたあとに、また開くとき | 一部自動 | 自動:src/hooks/scheduleFile/startupRecoveryFlow.dom.test.tsx#TC-SYNC-03: restores unsaved edits when the disk matches baseline。手動:RG-F8-2 |
 | MX-H-42 | UI | 閉じたあとに、また開くとき | 一部自動 | 自動:src/hooks/scheduleFile/startupRecoveryFlow.dom.test.tsx#TC-SYNC-03f: blocks date moves until startup recovery settles |
 | MX-H-43 | UI | 操作早見表 | 自動化予定 | 手動:RG-F2-2。自動化予定:#535 |
@@ -69,7 +69,7 @@
 | ID | 種類 | 項目 | 区分 | 行き先 |
 | --- | --- | --- | --- | --- |
 | MX-O-1 | UI | 開く | 手動のまま | 手動のまま:実機の「開く」ダイアログでファイルを選ぶ操作は mock だけでは足りない。 |
-| MX-O-2 | OS | 開く | 自動化予定 | 自動化予定:#541 |
+| MX-O-2 | OS | 開く | 手動のまま | 手動のまま:OS の「開く」ダイアログでファイルを選ぶ操作は mock だけでは足りない。 |
 | MX-O-3 | 計算 | 最近開いたファイルの1件を開く | 自動済み | 自動:src/model/recentFiles.test.ts#prepends a new path |
 | MX-O-4 | UI | 最近開いたファイルの1件を開く | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#opening from history resets filters and fit。自動化予定:#535 |
 | MX-O-5 | UI | 履歴を消す | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#clear history leaves the open schedule and the recovery file。手動:RG-F9-2 |
