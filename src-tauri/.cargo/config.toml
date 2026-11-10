@@ -1,3 +1,0 @@
-# 統合試験は CARGO_BIN_EXE_schedule_viewer だけを参照する（Rust 側に候補パスのフォールバックは置かない）。
-[env]
-CARGO_BIN_EXE_schedule_viewer = { value = "target/debug/schedule-viewer", relative = true }
