@@ -738,12 +738,15 @@ describe("exportExcel", () => {
   });
 
   it("refuses export when visible rows exceed 10000", () => {
-    const taskRow: VisibleRow = baseInput().visibleRows[0]!;
+    const template = baseInput().visibleRows.find((row) => row.type === "task");
+    if (!template || template.type !== "task") {
+      throw new Error("task row missing in baseInput");
+    }
     const rows: VisibleRow[] = Array.from({ length: 10_000 }, (_, index) => ({
-      ...taskRow,
+      ...template,
       y: index * 22,
       task: {
-        ...taskRow.task,
+        ...template.task,
         id: `t-${index}`,
         name: `行${index}`,
       },

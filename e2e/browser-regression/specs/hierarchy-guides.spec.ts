@@ -1,7 +1,6 @@
 import path from "node:path";
 import { expect, test } from "playwright/test";
 import { ensureKonvaProbed } from "../helpers/probeSetup.ts";
-import { clickUndoOnce } from "../helpers/drag.ts";
 import { hasSummaryBarNearRow, requireKonva } from "../helpers/konvaUi.ts";
 import {
   bootNormalPage,
@@ -11,11 +10,9 @@ import {
   openScheduleFile,
   openSmokeSchedule,
   repoRoot,
-  smokeSchedulePath,
-  waitForFitToWidthSettled,
   waitForTitle,
 } from "../helpers/session.ts";
-import { collapseToggleFor, taskSearchBox } from "../helpers/sidebar.ts";
+import { collapseToggleFor } from "../helpers/sidebar.ts";
 
 function hierarchyRailLines(page: import("playwright/test").Page, rowLabel: string) {
   return page

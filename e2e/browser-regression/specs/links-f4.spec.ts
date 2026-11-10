@@ -10,11 +10,9 @@ import {
   pointerOnTaskBar,
   selectTaskByName,
 } from "../helpers/drag.ts";
-import { wheelShiftHorizontalOnChart } from "../helpers/nav.ts";
 import {
   countKonvaArrowsInTimelineBody,
   LIGHT_CHART,
-  pointerOnConnectionArc,
   pointerOnPredecessorLink,
   pointerOnMilestoneDiamond,
   probeDeleteWithHover,

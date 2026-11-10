@@ -7,7 +7,6 @@ import {
   evaluateLightningIsoForTask,
   evaluateOverdueForTask,
   strokeMatches,
-  readLightningFoldClientX,
   readTaskBarKonvaForRow,
   requireKonva,
 } from "../helpers/konvaUi.ts";

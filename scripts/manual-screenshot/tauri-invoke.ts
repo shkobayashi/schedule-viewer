@@ -4,7 +4,6 @@ type OpenPick = { path: string; contents: string };
 
 let pendingOpenPick: OpenPick | null = null;
 let openScheduleDiskContents: string | null = null;
-let openSchedulePath: string | null = null;
 const memberCatalogBodies = new Map<string, string>();
 let selectedMemberCatalogId: string | null = null;
 const statusCatalogBodies = new Map<string, string>();
@@ -20,8 +19,7 @@ export function setManualScreenshotDiskContents(contents: string | null): void {
   openScheduleDiskContents = contents;
 }
 
-function rememberOpenSchedule(path: string, contents: string): void {
-  openSchedulePath = path;
+function rememberOpenSchedule(contents: string): void {
   openScheduleDiskContents = contents;
 }
 
@@ -213,13 +211,13 @@ export async function manualScreenshotInvoke(
         saveAs || expectedPath == null
           ? `/Users/example/Documents/${suggested.endsWith(".json") ? suggested : `${suggested}.json`}`
           : expectedPath;
-      rememberOpenSchedule(path, contents);
+      rememberOpenSchedule(contents);
       return path;
     }
     case "save_schedule_at_path": {
       const path = String(args.path ?? "");
       const contents = String(args.contents ?? "");
-      rememberOpenSchedule(path, contents);
+      rememberOpenSchedule(contents);
       return path;
     }
     case "read_open_schedule_file":

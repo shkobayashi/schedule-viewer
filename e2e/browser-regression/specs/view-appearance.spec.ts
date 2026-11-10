@@ -1,6 +1,6 @@
 import { expect, test } from "playwright/test";
 import { ensureKonvaProbed } from "../helpers/probeSetup.ts";
-import { confirmDelete, openContextMenuAt, openTaskBarContextMenu } from "../helpers/contextMenu.ts";
+import { confirmDelete } from "../helpers/contextMenu.ts";
 import {
   clickUndoOnce,
   pointerOnTaskBar,
@@ -13,27 +13,20 @@ import {
   evaluateLightningIsoForTask,
   evaluateOverdueForTask,
   pointerOnMilestoneDiamond,
-  pointerOnMilestoneLabel,
   readMilestoneDiamondFill,
   readTaskBarKonvaForRow,
   requireKonva,
 } from "../helpers/konvaUi.ts";
-import { wheelShiftHorizontalOnChart } from "../helpers/nav.ts";
-import { readChartScrollXProbe } from "../helpers/session.ts";
-import { collapseToggleFor, dragRowGrip, taskSearchBox } from "../helpers/sidebar.ts";
+import { dragRowGrip } from "../helpers/sidebar.ts";
 import {
-  chooseColorSelectOption,
   enableAllSidebarColumns,
   importJsonInOpenSettings,
   openSettingsSection,
 } from "../helpers/settings.ts";
 import {
   bootNormalPage,
-  colorsRegressionPath,
   fieldsRegressionPath,
-  fieldsSchedulePath,
   fullSchedulePath,
-  longSchedulePath,
   manyTasksSchedulePath,
   levels3SchedulePath,
   lightningSchedulePath,

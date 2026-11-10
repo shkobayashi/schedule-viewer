@@ -28,14 +28,13 @@ import {
   openScheduleFileManualScreenshot,
   openSmokeSchedule,
   statusesRegressionPath,
-  waitForTitle,
 } from "../helpers/session.ts";
 import {
   importJsonInOpenSettings,
   openCatalogEditorFromSettings,
   openSettingsSection,
 } from "../helpers/settings.ts";
-import { openContextMenuAt, openTaskBarContextMenu } from "../helpers/contextMenu.ts";
+import { openContextMenuAt } from "../helpers/contextMenu.ts";
 import { pointerOnMilestoneDiamond } from "../helpers/konvaUi.ts";
 import { wheelShiftHorizontalOnChart } from "../helpers/nav.ts";
 import { taskSearchBox } from "../helpers/sidebar.ts";
