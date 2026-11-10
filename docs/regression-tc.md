@@ -1,6 +1,6 @@
 # 既存の手動ケースの行き先
 
-テスト仕様にあった手動ケースを、ここへ移した。行は消していない。同じ ID の2行目は統合とし、先頭の行へまとめた。区分は自動済み、一部自動、シナリオ、統合、自動化予定、手動のままのいずれかである。一部自動は、計算を既存のテストが断言し、画面や OS は自動化予定のままである。自動化予定と手動のままは合格にしない。この表は追跡用であり、毎回の必須実施ではない。 いまの件数は、一部自動 22、自動化予定 28、自動済み 348、シナリオ 21、統合 4、手動のまま 22、一部手動 20、対象外 1 である。
+テスト仕様にあった手動ケースを、ここへ移した。行は消していない。同じ ID の2行目は統合とし、先頭の行へまとめた。区分は自動済み、一部自動、シナリオ、統合、自動化予定、手動のままのいずれかである。一部自動は、計算を既存のテストが断言し、画面や OS は自動化予定のままである。自動化予定と手動のままは合格にしない。この表は追跡用であり、毎回の必須実施ではない。起動中アプリの試験を参照する行は、Windows の CI で `cargo test --locked` が通るまで自動済みにしない。区分は一部自動のまま `自動化予定:#543` を付ける。 いまの件数は、check:regression-coverage が数えた区分件数に合わせる（手で書き換えるときは直後に同検査を回す）。
 
 | ID | 機能 | 前提 | 手順 | 期待結果 | 区分 | 行き先 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -357,7 +357,7 @@
 | TC-SET-02c | SET-02 | カタログを使用中にしている | 設定の「項目を編集…」で覆いを開き、説明を書いて「保存」する。詳細の担当候補の順を見る | 覆いのタイトルは「メンバーの項目を編集」。保存後も覆いは開いたまま。再起動後も説明が残る。候補の順が覆いの並びと同じ | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows。自動:e2e/browser-regression/specs/settings-diff.spec.ts#saves a member display name from the overlay and leaves an unused catalog unchanged |
 | TC-SET-02d | SET-02, FILE-10 | 設定ファイルで `members` を読めている | 設定の「項目を編集…」で表示名を変えて「保存」する | このウィンドウの担当表示が変わる。アプリの使用中カタログは変わらない | 自動化予定 | 自動化予定:#541 |
 | TC-SET-02e | SET-02, SYNC-01 | メンバーの項目の編集覆いを開いている | 外部でスケジュール JSON を更新する。読み直しを選ぶ | 即時反映しない。読み直し前に覆いが閉じ、下書きはメンバー JSON へ書かない | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#closes catalog editors on external reload and leaves the draft out of storage。自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SET-02e: closes the member catalog editor on reload without writing the draft |
-| TC-SET-02f | SET-02, MCP-01 | 説明付きの人がいるカタログを使用中にしている | `selected_tasks` と `filtered_tasks` を呼ぶ | 応答のキー順に `colors` の次 `members` があり、説明がある人だけ `description` が入る。空の説明はキーが無い | 一部自動 | 自動:src/model/screenContext.test.ts#omits empty member description and orders members after colors in payload。自動:src/model/screenContext.test.ts#orders members after colors on selected_tasks and filtered_tasks。自動:src-tauri/tests/mcp_running_app.rs#filtered_and_selected_payloads_order_members_after_colors_and_omit_blank_descriptions。自動化予定:#543 |
+| TC-SET-02f | SET-02, MCP-01 | 説明付きの人がいるカタログを使用中にしている | `selected_tasks` と `filtered_tasks` を呼ぶ | 応答のキー順に `colors` の次 `members` があり、説明がある人だけ `description` が入る。空の説明はキーが無い | 自動済み | 自動:src/model/screenContext.test.ts#omits empty member description and orders members after colors in payload。自動:src/model/screenContext.test.ts#orders members after colors on selected_tasks and filtered_tasks。自動:src-tauri/tests/mcp_running_app.rs#filtered_and_selected_payloads_order_members_after_colors_and_omit_blank_descriptions |
 | TC-SET-02g | SET-02 | デスクトップ版で同じカタログを2つのウィンドウが開ける | 一方で覆いを開いてカタログを選ぶ。もう一方で同じカタログを選ぶ | 編集中のウィンドウが前面になり、もう一方ではカタログが選ばれない | 自動化予定 | 自動化予定:#541 |
 | TC-SET-02h | SET-02, FILE-10 | 設定ファイルで `members` が無い、または読めない | 設定の「メンバー」を見る | 「項目を編集…」は出ない | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#hides the member editor when workspace members cannot be read |
 | TC-SET-02i | SET-02 | カタログを使用中にしている。デスクトップ版で同じカタログを使うウィンドウを2つ開ける | 一方で覆いを開き、表示名を変えて「保存」する | 保存したウィンドウの担当表示が変わる。もう一方のウィンドウの担当表示も同じ表示名になる | 自動化予定 | 自動化予定:#541 |

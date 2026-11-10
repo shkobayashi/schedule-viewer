@@ -1491,8 +1491,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `schedule_diff_without_gui_exits_1_and_writes_no_window_to_stderr`（`mcp_stdio_client.rs`） | GUI 無しの `schedule_diff` がウィンドウ無し文で失敗する | MCP-02 |
 | `tools_call_schedule_diff_without_gui_returns_no_window_text_is_error_and_not_json_rpc_error`（`mcp_stdio_client.rs`） | GUI 無しの `tools/call schedule_diff` が `isError` とウィンドウ無し文を返し、JSON-RPC エラーにならない | MCP-01 |
 | `running_app_current_schedule_returns_the_seeded_task_id_and_the_process_is_killed_on_drop`（`mcp_running_app.rs`） | 起動直後のハーネスで `current_schedule` がシード済みタスクを返し、ハーネス破棄で GUI を止める | MCP-01 |
-| `screen_seven_reads_and_replace_schedule_exit_0_and_write_the_tool_text_to_stdout`（`mcp_running_app.rs`） | 起動中の読み取り 7 ツールと `--screen replace_schedule` が終了コード 0 で本文を標準出力へ出す | MCP-02 |
-| `open_windows_lists_main_and_schedule_2_with_file_and_folder_and_only_main_front`（`mcp_running_app.rs`） | `open_windows` が `main` と `schedule-2` の file・folder と前面 1 件を返す | MCP-01 |
+| `screen_seven_reads_and_replace_schedule_exit_0_and_write_the_tool_text_to_stdout`（`mcp_running_app.rs`） | 起動中の読み取り 7 ツールの本文が同状態の `tools/call` と一致し、`--screen replace_schedule` が終了コード 0。`filtered_tasks` の PNG 行は先頭が PNG マジック | MCP-01, MCP-02 |
+| `open_windows_lists_main_and_schedule_2_with_file_and_folder_and_only_main_front`（`mcp_running_app.rs`） | `open_windows` が 2 件で `main` と `schedule-2` の相対 `file`・`folder` と前面 1 件を返す | MCP-01, WIN-01 |
 | `replace_schedule_changes_screen_keeps_file_bytes_and_identical_second_call_returns_diff_text`（`mcp_running_app.rs`） | `replace_schedule` が画面だけ変え、同一 JSON の 2 回目も差分テキストを返す | MCP-01, SYNC-01 |
 | `filtered_and_selected_payloads_order_members_after_colors_and_omit_blank_descriptions`（`mcp_running_app.rs`） | `filtered_tasks` と `selected_tasks` のキー順とメンバー `description` の有無 | MCP-01, SET-02 |
 | `schedule_diff_after_open_is_no_difference_text`（`mcp_running_app.rs`） | 未編集の `schedule_diff` が差無し文を返し、ファイルの更新時刻は変わらない | MCP-01, FILE-07 |
