@@ -73,10 +73,8 @@ const READ_SIX: [&str; 6] = [
     "current_schedule",
 ];
 
-fn executable() -> String {
-    std::env::var("CARGO_BIN_EXE_schedule_viewer").expect(
-        "CARGO_BIN_EXE_schedule_viewer must be set when running integration tests",
-    )
+fn executable() -> &'static str {
+    env!("CARGO_BIN_EXE_schedule-viewer")
 }
 
 fn normalize_text(text: &str) -> String {
@@ -99,6 +97,21 @@ fn with_isolated_home(cmd: &mut Command) -> tempfile::TempDir {
 }
 
 fn finish_child(mut child: Child) -> ProcessOutput {
+    let stdout_reader = child.stdout.take().map(|mut out| {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            out.read_to_end(&mut buf).expect("read stdout");
+            buf
+        })
+    });
+    let stderr_reader = child.stderr.take().map(|mut err| {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            err.read_to_end(&mut buf).expect("read stderr");
+            buf
+        })
+    });
+
     let deadline = std::time::Instant::now() + CHILD_WAIT_TIMEOUT;
     let status = loop {
         if let Some(status) = child.try_wait().expect("try_wait") {
@@ -111,14 +124,14 @@ fn finish_child(mut child: Child) -> ProcessOutput {
         }
         std::thread::sleep(Duration::from_millis(100));
     };
-    let mut stdout_bytes = Vec::new();
-    if let Some(mut out) = child.stdout.take() {
-        out.read_to_end(&mut stdout_bytes).expect("read stdout");
-    }
-    let mut stderr_bytes = Vec::new();
-    if let Some(mut err) = child.stderr.take() {
-        err.read_to_end(&mut stderr_bytes).expect("read stderr");
-    }
+
+    let stdout_bytes = stdout_reader
+        .map(|handle| handle.join().expect("stdout thread"))
+        .unwrap_or_default();
+    let stderr_bytes = stderr_reader
+        .map(|handle| handle.join().expect("stderr thread"))
+        .unwrap_or_default();
+
     ProcessOutput {
         code: status.code().unwrap_or(-1),
         stdout: normalize_text(&String::from_utf8_lossy(&stdout_bytes)),
