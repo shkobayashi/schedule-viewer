@@ -59,7 +59,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `hierarchy-guides.spec.ts` | draws a thin summary bar with dotted gaps, solid spans, and downward caps | TC-VIEW-03 |
 | `hierarchy-guides.spec.ts` | shows integer rollup percents beside names at the minimum sidebar width | TC-VIEW-03b |
 | `konva-probe.spec.ts` | probes Konva readability for regression helpers | — |
-| `links-f4.spec.ts` | deletes the hovered predecessor with Delete and restores it with undo | RG-F4-1, TC-VIEW-08, MX-O-87, MX-O-88, MX-H-25 |
+| `links-f4.spec.ts` | deletes the hovered predecessor with Delete and restores it with undo | RG-F4-1, MX-O-87, MX-O-88, MX-H-25 |
 | `links-f4.spec.ts` | cancels a link drag onto an earlier task with Escape | RG-F4-2, MX-O-59, MX-O-60 |
 | `links-f4.spec.ts` | shows a filled approval diamond and a hollow tentative diamond | RG-F4-3, MX-O-83, TC-VIEW-04b |
 | `links-f4.spec.ts` | deletes the hovered connection arc with Delete and restores the label with undo | RG-F4-4, MX-O-89 |

@@ -52,20 +52,38 @@ test.describe("smoke schedule links", () => {
     page,
   }) => {
     requireKonva();
+    const detail = page.getByRole("complementary", { name: "タスクの詳細" });
+    const predecessorField = detail
+      .locator(".field")
+      .filter({ has: page.getByLabel("先行タスク") });
     const arrowsBefore = await countKonvaArrowsInTimelineBody(page);
     expect(arrowsBefore).toBeGreaterThanOrEqual(1);
     await selectTaskByName(page, "設計");
-    const detail = page.getByRole("complementary", { name: "タスクの詳細" });
-    await detail
-      .locator(".relation-list li")
-      .filter({ hasText: "調査" })
-      .getByRole("button", { name: "外す" })
-      .click();
-    await expect.poll(async () => countKonvaArrowsInTimelineBody(page)).toBe(arrowsBefore - 1);
+    await expect(predecessorField.getByText("調査")).toBeVisible();
+    const linkPt = await pointerOnPredecessorLink(page, "調査", "設計");
+    const chosaBar = await pointerOnTaskBar(page, "調査");
+    const sekkeiBar = await pointerOnTaskBar(page, "設計");
+    expect(Math.hypot(linkPt.x - chosaBar.x, linkPt.y - chosaBar.y)).toBeGreaterThan(18);
+    expect(Math.hypot(linkPt.x - sekkeiBar.x, linkPt.y - sekkeiBar.y)).toBeGreaterThan(18);
+    await page.locator(".timeline-body").click({ position: { x: 10, y: 10 } });
+    await probeDeleteWithHover(
+      page,
+      (stroke) =>
+        stroke.className === "Arrow" && strokeMatches(stroke.stroke, LIGHT_CHART.linkOk),
+    );
+    await expect
+      .poll(async () => countKonvaArrowsInTimelineBody(page))
+      .toBe(arrowsBefore - 1);
     await expect(page.locator(".sidebar-row.task", { hasText: "調査" })).toBeVisible();
     await expect(page.locator(".sidebar-row.task", { hasText: "設計" })).toBeVisible();
+    await selectTaskByName(page, "設計");
+    await expect(predecessorField.getByText("なし")).toBeVisible();
     await clickUndoOnce(page);
-    await expect.poll(async () => countKonvaArrowsInTimelineBody(page)).toBe(arrowsBefore);
+    await expect
+      .poll(async () => countKonvaArrowsInTimelineBody(page))
+      .toBe(arrowsBefore);
+    await selectTaskByName(page, "設計");
+    await expect(predecessorField.getByText("調査")).toBeVisible();
   });
 
   test("cancels a link drag onto an earlier task with Escape", async ({ page }) => {
@@ -133,9 +151,7 @@ test.describe("full and color schedules", () => {
     await probeDeleteWithHover(
       page,
       (stroke) =>
-        stroke.className === "Line" &&
-        (strokeMatches(stroke.stroke, LIGHT_CHART.connectionArc) ||
-          strokeMatches(stroke.stroke, "#0369a1")),
+        stroke.className === "Line" && strokeMatches(stroke.stroke, LIGHT_CHART.connectionArc),
     );
     await expect
       .poll(async () => {

@@ -1,4 +1,5 @@
 import type { Page } from "playwright/test";
+import { paletteFor } from "../../../src/model/palette.ts";
 import { getKonvaCapability } from "./konva.ts";
 import { selectTaskByName } from "./drag.ts";
 
@@ -212,10 +213,11 @@ export async function pointerOnMilestoneLabel(
 
 export { dragTaskRightEdge as dragBarRightEdge } from "./drag.ts";
 
+const lightChart = paletteFor("light").chart;
 export const LIGHT_CHART = {
-  linkOk: "#8a94a6",
-  linkBroken: "#c4351a",
-  connectionArc: "#0369a1",
+  linkOk: lightChart.linkOk,
+  linkBroken: lightChart.linkBroken,
+  connectionArc: lightChart.connectionArc,
 } as const;
 
 export type KonvaStrokeInfo = {

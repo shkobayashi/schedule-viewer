@@ -62,7 +62,7 @@
   "smoke-view-nav.spec.ts|sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03)": "NAV-02, NAV-03",
   "smoke-view-nav.spec.ts|moves 設計 to 2026-04-06 through 2026-04-10 on release and adds one undo (EDIT-02)": "EDIT-02",
   "smoke-view-nav.spec.ts|leaves 設計 unchanged when escape is pressed before release (EDIT-02)": "EDIT-02",
-  "links-f4.spec.ts|deletes the hovered predecessor with Delete and restores it with undo": "RG-F4-1, TC-VIEW-08, MX-O-87, MX-O-88, MX-H-25",
+  "links-f4.spec.ts|deletes the hovered predecessor with Delete and restores it with undo": "RG-F4-1, MX-O-87, MX-O-88, MX-H-25",
   "links-f4.spec.ts|cancels a link drag onto an earlier task with Escape": "RG-F4-2, MX-O-59, MX-O-60",
   "links-f4.spec.ts|shows a filled approval diamond and a hollow tentative diamond": "RG-F4-3, MX-O-83, TC-VIEW-04b",
   "links-f4.spec.ts|deletes the hovered connection arc with Delete and restores the label with undo": "RG-F4-4, MX-O-89",
