@@ -62,11 +62,11 @@ description: >-
 ## 確認
 
 1. [src/model/releaseVersion.test.ts](../../../src/model/releaseVersion.test.ts) に判定と bump を足す
-2. `npm run build`、`npm run lint`、`npm test` を通す
+2. リリース前は [docs/development.md](../../../docs/development.md) の「リリース前に回す検査」に従い、そこに書いてある自動は通す。緊急のときは手動の回帰だけ飛ばしてよい
 3. GitHub 上の Pre-release と、安定版の Store 提出は、最初の該当 Release を出したときに手で見る
 
 ## 完了条件
 
 - 計画した安定版と Pre-release（アルファ・ベータ）の分岐がワークフローと版番号スクリプトに入っている
 - 対応する文書が同じ変更に含まれている
-- `npm run build`、`npm run lint`、`npm test` が通っている
+- [docs/development.md](../../../docs/development.md) の「リリース前に回す検査」に書いてある自動が通っている（緊急のリリースでは手動の回帰だけ飛ばしてよい）

@@ -1,0 +1,17 @@
+---
+description: 場面ごとに回す検査。作業中は表の行より多く繰り返さない
+alwaysApply: true
+---
+
+# 場面ごとに回す検査
+
+作業中は、この表の場面より多い検査を繰り返さない。詳細（触ったテストの絞り方、PR 前の一回の列挙、リリース前に回す検査の列挙）は [docs/development.md](../../docs/development.md) の「場面ごとに回す検査」を見る。
+
+| 場面 | 回すもの |
+| --- | --- |
+| 普段の開発（コミット、push） | `npm test`、`npm run lint`、`npm run typecheck`。Vitest は「触ったテスト」で絞ってよい |
+| 子 Issue の PR（feature ブランチ向け） | 作業中は、触ったテストと `npm run check:regression-coverage`。PR を出す前に 1 回だけ「PR 前の一回」 |
+| `e2e/browser-regression/` を触る Issue の作業中 | 触った spec だけ `npx playwright test -c e2e/browser-regression/playwright.config.ts <spec>`。全 spec を繰り返し回さない |
+| next、develop へのマージ前 | `npm run test:browser-regression` を、そのコミットで 1 回 |
+| 夜間 | ブラウザ回帰。定期実行は別の Issue で GitHub Actions に足す。このリポジトリにはまだ無い |
+| リリース前 | 「リリース前に回す検査」の自動を全部回す。手動の回帰も行う。緊急のリリースは手動の回帰だけ飛ばしてよい |
