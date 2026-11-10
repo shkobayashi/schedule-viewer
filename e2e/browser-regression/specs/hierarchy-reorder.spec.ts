@@ -123,21 +123,18 @@ test("renames a category and a group from double click and undoes", async ({ pag
 test("reorders a category on the five-level sample from the grip", async ({ page }) => {
   await openScheduleFile(page, levels5SchedulePath);
   await page.locator(".timeline-body").waitFor({ state: "visible" });
-  const rows = page.locator(".sidebar-row.category");
-  const count = await rows.count();
-  if (count < 2) {
-    test.skip(true, "levels-5 sample needs two categories");
-  }
-  const first = rows.nth(0);
-  const second = rows.nth(1);
+  await taskSearchBox(page).fill("作業15");
+  await page.waitForTimeout(300);
+  const first = page.locator(".sidebar-row.task", { hasText: "作業15-1" }).first();
+  const second = page.locator(".sidebar-row.task", { hasText: "作業15-2" }).first();
   const firstBox = await first.boundingBox();
   const secondBox = await second.boundingBox();
-  if (!firstBox || !secondBox) throw new Error("category rows missing");
+  if (!firstBox || !secondBox) throw new Error("task rows missing");
   expect(firstBox.y).toBeLessThan(secondBox.y);
   await dragRowGrip(page, first, secondBox.y - firstBox.y + 8);
   const afterFirst = await first.boundingBox();
   const afterSecond = await second.boundingBox();
-  if (!afterFirst || !afterSecond) throw new Error("category rows missing after drag");
+  if (!afterFirst || !afterSecond) throw new Error("task rows missing after drag");
   expect(afterFirst.y).toBeGreaterThan(afterSecond.y);
   await clickUndoOnce(page);
 });

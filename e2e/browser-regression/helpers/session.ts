@@ -27,6 +27,22 @@ export const fullSchedulePath = path.join(
   repoRoot,
   "examples/regression/full.schedule.json",
 );
+export const connectionsSchedulePath = path.join(
+  repoRoot,
+  "examples/connections/schedule.json",
+);
+export const statusesRegressionPath = path.join(
+  repoRoot,
+  "examples/regression/statuses.json",
+);
+export const colorsRegressionPath = path.join(
+  repoRoot,
+  "examples/regression/colors.json",
+);
+export const fieldsRegressionPath = path.join(
+  repoRoot,
+  "examples/regression/fields.json",
+);
 
 export async function dismissBlockingUi(page: Page): Promise<void> {
   const firstRunClose = page.locator(".first-run-hint-card .modal-close-btn");

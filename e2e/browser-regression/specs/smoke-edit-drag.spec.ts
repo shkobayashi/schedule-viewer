@@ -1,6 +1,5 @@
 import { expect, test } from "playwright/test";
 import { ensureKonvaProbed } from "../helpers/probeSetup.ts";
-import { getKonvaCapability } from "../helpers/konva.ts";
 import { bootNormalPage, openSmokeSchedule, readChartScrollXProbe } from "../helpers/session.ts";
 import {
   cancelTaskBarDrag,
@@ -15,12 +14,9 @@ import {
 } from "../helpers/drag.ts";
 import { taskSearchBox } from "../helpers/sidebar.ts";
 import {
-  confirmDelete,
   dismissDeleteConfirm,
   expectContextMenuOnly,
   openContextMenuAt,
-  openTaskBarContextMenu,
-  readContextMenuLabels,
 } from "../helpers/contextMenu.ts";
 import {
   dragBarRightEdge,
@@ -120,17 +116,17 @@ test("shows only add-milestone on an empty chart right click", async ({ page }) 
 });
 
 test("keeps 調査 when delete is cancelled", async ({ page }) => {
-  await openTaskBarContextMenu(page, "調査");
-  const labels = await readContextMenuLabels(page);
-  const deleteItem = page.locator(".context-menu [role='menuitem']", {
-    has: page.locator(".context-menu-label", { hasText: "削除" }),
-  });
-  if (await deleteItem.count()) {
-    await deleteItem.click();
-    await dismissDeleteConfirm(page);
-  } else {
-    test.skip(true, "delete item not in menu for single selection");
-  }
+  const row = page.locator(".sidebar-row.task", { hasText: "調査" }).first();
+  await row.click();
+  const box = await row.boundingBox();
+  if (!box) throw new Error("row missing");
+  await openContextMenuAt(page, box.x + 80, box.y + box.height / 2);
+  await page
+    .locator(".context-menu [role='menuitem']", {
+      has: page.locator(".context-menu-label", { hasText: "削除" }),
+    })
+    .click();
+  await dismissDeleteConfirm(page);
   await expect(page.locator(".sidebar-row", { hasText: "調査" }).first()).toBeVisible();
 });
 

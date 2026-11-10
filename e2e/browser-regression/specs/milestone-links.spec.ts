@@ -5,7 +5,14 @@ import {
   pointerOnMilestoneDiamond,
   pointerOnMilestoneLabel,
 } from "../helpers/konvaUi.ts";
-import { bootNormalPage, openSmokeSchedule } from "../helpers/session.ts";
+import {
+  bootNormalPage,
+  fullSchedulePath,
+  membersRegressionPath,
+  openScheduleFile,
+  openSmokeSchedule,
+} from "../helpers/session.ts";
+import { importJsonInOpenSettings, openSettingsSection } from "../helpers/settings.ts";
 import { wheelShiftHorizontalOnChart } from "../helpers/nav.ts";
 import {
   clickUndoOnce,
@@ -13,6 +20,7 @@ import {
   selectTaskByName,
 } from "../helpers/drag.ts";
 import {
+  confirmDelete,
   openContextMenuAt,
   openTaskBarContextMenu,
 } from "../helpers/contextMenu.ts";
@@ -156,11 +164,46 @@ test("changes confidence and tags from the detail and undoes", async ({ page }) 
 test("replaces assignees from the detail and the bulk panel and undoes", async ({
   page,
 }) => {
-  test.skip(true, "needs members catalog overlay flow in browser file picker");
+  await openSettingsSection(page, "メンバー");
+  await importJsonInOpenSettings(page, membersRegressionPath);
+  await page.keyboard.press("Escape");
+  await selectTaskByName(page, "調査");
+  await page.locator("#detailAssigneeAdd").selectOption({ label: "田中" });
+  await page.locator("#detailAssigneeAdd").selectOption({ label: "佐藤" });
+  const surveyRow = page.locator(".sidebar-row.task", { hasText: "調査" }).first();
+  await surveyRow.click();
+  await page.keyboard.down("Shift");
+  await page.locator(".sidebar-row.task", { hasText: "設計" }).first().click();
+  await page.keyboard.up("Shift");
+  await page.getByRole("button", { name: "未割当にする" }).click();
+  await page.locator("#bulkAssigneeAdd").selectOption({ label: "鈴木" });
+  await page.getByRole("button", { name: /件に適用/ }).click();
+  await expect(page.locator(".sidebar-row", { hasText: "調査" })).toContainText("鈴木");
+  await expect(page.locator(".sidebar-row", { hasText: "設計" })).toContainText("鈴木");
+  await clickUndoOnce(page);
+  await expect(page.locator(".sidebar-row", { hasText: "調査" })).not.toContainText("鈴木");
 });
 
 test("refuses a self predecessor and a cycle from the detail", async ({ page }) => {
-  test.skip(true, "needs full.schedule predecessors UI flow");
+  const detail = page.getByRole("complementary", { name: "タスクの詳細" });
+  await selectTaskByName(page, "設計");
+  const pred = detail.locator("#fieldPredecessors");
+  await pred.fill("設計");
+  await expect(detail.locator("#fieldPredecessors-list [role='option']")).toHaveCount(0);
+  await page.locator(".sidebar-row.group", { hasText: "後半" }).first().click();
+  await page.getByRole("button", { name: "追加", exact: true }).click();
+  const addDialog = page.getByRole("dialog");
+  await addDialog.getByLabel("タスク名").fill("循環B");
+  await addDialog.getByRole("button", { name: "追加" }).click();
+  await selectTaskByName(page, "調査");
+  await pred.click();
+  await pred.fill("循環B");
+  await pred.press("Enter");
+  await selectTaskByName(page, "循環B");
+  await pred.click();
+  await pred.fill("調査");
+  await pred.press("Enter");
+  await expect(page.getByText(/循環/)).toBeVisible({ timeout: 10_000 });
 });
 
 test("adds a task in the selected group", async ({ page }) => {
@@ -197,9 +240,64 @@ test("opens the note from the icon and from the menu", async ({ page }) => {
 });
 
 test("deletes a milestone used as a filter and leaves the selection", async ({ page }) => {
-  test.skip(true, "needs filter panel milestone chip setup");
+  await selectTaskByName(page, "調査");
+  await page.getByRole("button", { name: /^絞り込み/ }).click();
+  const milestone = page
+    .locator(".filter-panel")
+    .getByRole("combobox", { name: "マイルストン" });
+  await milestone.click();
+  await milestone.fill("承認");
+  await milestone.press("ArrowDown");
+  await milestone.press("Enter");
+  await page.keyboard.press("Escape");
+  test.skip(!konvaReadable(), "Konva not readable");
+  const pt =
+    (await pointerOnMilestoneLabel(page, "承認")) ??
+    (await pointerOnMilestoneDiamond(page, "承認"));
+  if (!pt) throw new Error("milestone missing");
+  await page.mouse.click(pt.x, pt.y, { button: "right" });
+  await page
+    .locator(".context-menu [role='menuitem']", {
+      has: page.locator(".context-menu-label", { hasText: "削除" }),
+    })
+    .click();
+  await confirmDelete(page);
+  await expect(page.locator(".filter-chip, .toolbar-filter-chip").filter({ hasText: /マイルストン: 承認/ })).toHaveCount(0);
+  await selectTaskByName(page, "調査");
+  await expect(page.locator(".sidebar-row.task.selected", { hasText: "調査" })).toBeVisible();
 });
 
 test("moves a milestone between groups from the editor and undoes", async ({ page }) => {
-  test.skip(true, "needs milestone editor dialog flow");
+  test.skip(!konvaReadable(), "Konva not readable");
+  await openScheduleFile(page, fullSchedulePath);
+  await page.locator(".timeline-body").waitFor({ state: "visible" });
+  await page.getByRole("button", { name: "全体", exact: true }).click();
+  await page
+    .getByRole("group", { name: "表示の切り替え" })
+    .getByRole("button", { name: "月", exact: true })
+    .click();
+  await page.getByRole("button", { name: "今日" }).click();
+  await wheelShiftHorizontalOnChart(page, -900);
+  await page.waitForTimeout(400);
+  await selectTaskByName(page, "調査");
+  const pt =
+    (await pointerOnMilestoneLabel(page, "承認")) ??
+    (await pointerOnMilestoneDiamond(page, "承認"));
+  if (!pt) {
+    test.skip(true, "milestone label not readable on canvas");
+  }
+  await page.mouse.click(pt!.x, pt!.y, { button: "right" });
+  const editItem = page.locator(".context-menu [role='menuitem']", {
+    has: page.locator(".context-menu-label", { hasText: "編集" }),
+  });
+  if ((await editItem.count()) === 0) {
+    test.skip(true, "milestone edit menu unavailable on chart");
+  }
+  await editItem.first().click();
+  const dialog = page.getByRole("dialog", { name: "マイルストン編集" });
+  await expect(dialog).toBeVisible();
+  await dialog.locator("#milestoneGroup").selectOption({ label: "別の節目" });
+  await dialog.getByRole("button", { name: "保存" }).click();
+  await clickUndoOnce(page);
+  await expect(dialog).toHaveCount(0);
 });
