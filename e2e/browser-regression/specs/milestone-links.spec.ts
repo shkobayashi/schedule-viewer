@@ -3,12 +3,16 @@ import { ensureKonvaProbed } from "../helpers/probeSetup.ts";
 import {
   pointerOnMilestoneDiamond,
   pointerOnMilestoneLabel,
+  readMilestoneDiamondFill,
   requireKonva,
 } from "../helpers/konvaUi.ts";
 import {
   bootNormalPage,
+  manualColorsSchedulePath,
   membersRegressionPath,
+  openScheduleFile,
   openSmokeSchedule,
+  waitForTitle,
 } from "../helpers/session.ts";
 import { importJsonInOpenSettings, openSettingsSection } from "../helpers/settings.ts";
 import { wheelShiftHorizontalOnChart } from "../helpers/nav.ts";
@@ -39,28 +43,31 @@ test.beforeEach(async ({ page }) => {
   await wheelShiftHorizontalOnChart(page, -900);
 });
 
-test("edits milestone confidence from the name menu and undoes", async ({ page }) => {
-  await selectTaskByName(page, "調査");
-  const group = page.locator(".sidebar-milestones", { hasText: "節目" }).first();
-  const box = await group.boundingBox();
-  if (!box) throw new Error("milestone group missing");
-  await openContextMenuAt(page, box.x + box.width / 2, box.y + box.height / 2);
+test("edits a milestone from the name menu and undoes", async ({ page }) => {
+  requireKonva();
+  await openScheduleFile(page, manualColorsSchedulePath);
+  await waitForTitle(page, "操作マニュアル用の見本");
+  await page.locator(".timeline-body").waitFor({ state: "visible" });
+  const labelPt = await pointerOnMilestoneLabel(page, "締切（確定）");
+  const pt =
+    labelPt ?? (await pointerOnMilestoneDiamond(page, "締切（確定）"));
+  if (!pt) throw new Error("milestone missing");
+  await openContextMenuAt(page, pt.x, pt.y);
   const edit = page.locator(".context-menu [role='menuitem']", {
     has: page.locator(".context-menu-label", { hasText: "編集" }),
   });
-  if (await edit.count()) {
-    await edit.first().click();
-    await page.getByLabel("確度").selectOption("tentative");
-    await page.getByRole("button", { name: "保存" }).click();
-    await clickUndoOnce(page);
-    return;
-  }
-  await openTaskBarContextMenu(page, "調査");
-  const toggle = page.locator(".context-menu [role='menuitem']", {
-    has: page.locator(".context-menu-label", { hasText: /未確定にする|確定にする/ }),
-  });
-  await toggle.first().click();
+  await expect(edit).toHaveCount(1);
+  await edit.click();
+  const dialog = page.getByRole("dialog", { name: "マイルストン編集" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("確度").selectOption("tentative");
+  await dialog.getByRole("button", { name: "保存" }).click();
+  await expect(dialog).toHaveCount(0);
+  const after = await readMilestoneDiamondFill(page, "締切（確定）");
+  expect(after.fill).toBeNull();
   await clickUndoOnce(page);
+  const restored = await readMilestoneDiamondFill(page, "締切（確定）");
+  expect(restored.fill).not.toBeNull();
 });
 
 test("toggles task confidence from the menu and undoes", async ({ page }) => {
