@@ -66,28 +66,8 @@ struct OpenWindowsSnapshot {
 
 impl Drop for RunningHarness {
     fn drop(&mut self) {
-        let root = self.gui_pid;
         kill_child_fast(&mut self.gui);
         let _ = self.gui.wait();
-        #[cfg(unix)]
-        {
-            let allowed = allowed_schedule_viewer_pids(&[root]);
-            let deadline = Instant::now() + Duration::from_secs(5);
-            while Instant::now() < deadline {
-                let alive: Vec<u32> = schedule_viewer_pids()
-                    .into_iter()
-                    .filter(|pid| !allowed.contains(pid))
-                    .collect();
-                if alive.is_empty() {
-                    break;
-                }
-                for pid in alive {
-                    let _ = Command::new("kill").args(["-KILL", &pid.to_string()]).status();
-                }
-                let _ = Command::new("kill").args(["-KILL", &root.to_string()]).status();
-                std::thread::sleep(Duration::from_millis(200));
-            }
-        }
     }
 }
 
@@ -291,48 +271,124 @@ fn allowed_schedule_viewer_pids(roots: &[u32]) -> std::collections::HashSet<u32>
 }
 
 #[cfg(unix)]
-fn schedule_viewer_pids() -> Vec<u32> {
-    let out = Command::new("pgrep")
-        .arg("-f")
-        .arg(EXECUTABLE)
-        .output()
-        .expect("pgrep");
-    if !out.status.success() {
-        return Vec::new();
-    }
-    String::from_utf8_lossy(&out.stdout)
-        .lines()
-        .filter_map(|line| line.trim().parse().ok())
-        .collect()
+fn canonical_test_executable() -> Result<PathBuf, String> {
+    fs::canonicalize(EXECUTABLE).map_err(|e| format!("canonicalize {EXECUTABLE}: {e}"))
 }
 
-fn assert_no_foreign_schedule_viewer_processes(exclude: &[u32]) {
-    assert_no_foreign_mcp_pipe();
-    #[cfg(unix)]
+#[cfg(unix)]
+fn all_pids() -> Result<Vec<u32>, String> {
+    #[cfg(target_os = "linux")]
     {
-        let allowed = allowed_schedule_viewer_pids(exclude);
-        let deadline = Instant::now() + Duration::from_secs(15);
-        loop {
-            let foreign: Vec<u32> = schedule_viewer_pids()
-                .into_iter()
-                .filter(|pid| !allowed.contains(pid))
-                .collect();
-            if foreign.is_empty() {
-                return;
+        let mut pids = Vec::new();
+        for entry in fs::read_dir("/proc").map_err(|e| format!("/proc: {e}"))? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let name = entry.file_name();
+            if let Ok(pid) = name.to_string_lossy().parse::<u32>() {
+                pids.push(pid);
             }
-            if Instant::now() >= deadline {
-                panic!(
-                    "schedule-viewer が他に動いています {foreign:?}。ツールを送る前に止めてください"
-                );
-            }
-            for pid in &foreign {
-                let _ = Command::new("kill")
-                    .args(["-KILL", &pid.to_string()])
-                    .status();
-            }
-            std::thread::sleep(Duration::from_millis(250));
+        }
+        Ok(pids)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let out = Command::new("ps")
+            .args(["-A", "-o", "pid="])
+            .output()
+            .map_err(|e| e.to_string())?;
+        if !out.status.success() {
+            return Err(format!("ps exited {}", out.status));
+        }
+        Ok(String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|line| line.trim().parse().ok())
+            .collect())
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        Err("schedule-viewer の実行ファイル同一性の検査は Linux と macOS だけです".to_string())
+    }
+}
+
+#[cfg(unix)]
+fn executable_path_for_pid(pid: u32) -> Result<Option<PathBuf>, String> {
+    #[cfg(target_os = "linux")]
+    {
+        let link = format!("/proc/{pid}/exe");
+        match fs::read_link(&link) {
+            Ok(path) => Ok(Some(path)),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied => Ok(None),
+            Err(err) => Err(format!("read_link {link}: {err}")),
         }
     }
+    #[cfg(target_os = "macos")]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        let mut buf = vec![0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
+        let len = unsafe {
+            libc::proc_pidpath(
+                pid as libc::pid_t,
+                buf.as_mut_ptr() as *mut libc::c_void,
+                buf.len() as u32,
+            )
+        };
+        if len <= 0 {
+            return Ok(None);
+        }
+        Ok(Some(PathBuf::from(
+            std::ffi::OsStr::from_bytes(&buf[..len as usize]),
+        )))
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        let _ = pid;
+        Err("executable_path_for_pid は Linux と macOS だけです".to_string())
+    }
+}
+
+#[cfg(unix)]
+fn paths_same_executable(a: &Path, b: &Path) -> Result<bool, String> {
+    let ca = fs::canonicalize(a).map_err(|e| format!("canonicalize {}: {e}", a.display()))?;
+    let cb = fs::canonicalize(b).map_err(|e| format!("canonicalize {}: {e}", b.display()))?;
+    Ok(ca == cb)
+}
+
+#[cfg(unix)]
+fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
+    let target = canonical_test_executable()?;
+    let mut found = Vec::new();
+    for pid in all_pids()? {
+        let Some(path) = executable_path_for_pid(pid)? else {
+            continue;
+        };
+        if paths_same_executable(&path, &target)? {
+            found.push(pid);
+        }
+    }
+    Ok(found)
+}
+
+#[cfg(unix)]
+fn assert_no_foreign_schedule_viewer_processes(exclude: &[u32]) {
+    assert_no_foreign_mcp_pipe();
+    let allowed = allowed_schedule_viewer_pids(exclude);
+    let pids = schedule_viewer_pids().unwrap_or_else(|err| {
+        panic!("schedule-viewer の実行ファイルを列挙できません: {err}");
+    });
+    let foreign: Vec<u32> = pids
+        .into_iter()
+        .filter(|pid| !allowed.contains(pid))
+        .collect();
+    if !foreign.is_empty() {
+        panic!(
+            "schedule-viewer が他に動いています {foreign:?}。ツールを送る前に止めてください"
+        );
+    }
+}
+
+#[cfg(windows)]
+fn assert_no_foreign_schedule_viewer_processes(_exclude: &[u32]) {
+    assert_no_foreign_mcp_pipe();
 }
 
 enum OpenWindowsSeed {
@@ -2961,4 +3017,30 @@ fn catalog_action_save_on_app_catalog_updates_member_name_on_both_plain_windows(
         member_name_by_id(&h.filtered_tasks_json(Some("main")), "tanaka").as_deref(),
         Some(saved_name)
     );
+}
+
+#[test]
+fn foreign_schedule_viewer_process_fails_without_sending_tools() {
+    assert_linux_display();
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
+    let home = tempfile::tempdir().expect("home");
+    let mut foreign = Command::new(EXECUTABLE);
+    apply_isolated_home(&mut foreign, home.path());
+    foreign.stdout(Stdio::null()).stderr(Stdio::null());
+    let mut child = foreign.spawn().expect("spawn foreign schedule-viewer");
+    let foreign_pid = child.id();
+    std::thread::sleep(Duration::from_secs(2));
+    let result = std::panic::catch_unwind(|| assert_no_foreign_schedule_viewer_processes(&[]));
+    assert!(
+        result.is_err(),
+        "foreign pid {foreign_pid} should make assert_no_foreign fail"
+    );
+    assert!(
+        child.try_wait().expect("try_wait").is_none(),
+        "foreign process must stay alive"
+    );
+    kill_child_fast(&mut child);
+    let _ = child.wait();
 }
