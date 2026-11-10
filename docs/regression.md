@@ -829,7 +829,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: チャートの幅は、詳細と差分列を除いた残りである。2 つは重ならない。
 
-扱い: 自動:e2e/browser-regression/specs/settings-diff.spec.ts#keeps the chart width as the remainder beside the detail and the diff column。チャートの残り幅そのものは RG-F11-2 として一部手動のまま残す場合がある。手動:RG-F11-2。
+扱い: 自動:e2e/browser-regression/specs/settings-diff.spec.ts#keeps the chart width as the remainder beside the detail and the diff column。この手順は手で行わない。
 
 ### RG-F11-3
 

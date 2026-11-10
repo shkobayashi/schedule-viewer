@@ -294,19 +294,35 @@ test.describe("diff strip from the handle", () => {
   test("keeps the chart width as the remainder beside the detail and the diff column", async ({
     page,
   }) => {
+    const pxTol = 3;
     await selectTaskViaSearch(page, "行20");
-    await expect(page.getByRole("complementary", { name: "タスクの詳細" })).toBeVisible();
-    const chartOnly = await page.locator(".timeline-body").evaluate((el) => el.clientWidth);
-    await editTaskEndDate(page, "行20", "2026-04-05", { viaSearch: true });
+    await page.locator("#detailEnd").fill("2026-04-05");
+    await page.locator("#detailEnd").press("Enter");
+    await expect.poll(async () => page.locator("#detailEnd").inputValue()).toBe("2026-04-05");
     await openDiffFromHandle(page);
     await expect(page.getByRole("region", { name: "差分" })).toBeVisible();
-    const diffWidth = await page
-      .getByRole("region", { name: "差分" })
-      .evaluate((el) => el.clientWidth);
-    expect(diffWidth).toBeGreaterThan(120);
-    const chartWithDiff = await page.locator(".timeline-body").evaluate((el) => el.clientWidth);
-    expect(chartWithDiff).toBeLessThanOrEqual(chartOnly);
-    expect(chartWithDiff).toBeGreaterThan(chartOnly * 0.45);
+    await page.locator(".sidebar-row.task", { hasText: "行20" }).first().click();
+    await expect(page.getByRole("complementary", { name: "タスクの詳細" })).toBeVisible();
+
+    const parent = page.locator(".chart-detail");
+    const chart = page.locator(".timeline-body");
+    const detail = page.getByRole("complementary", { name: "タスクの詳細" });
+    const diff = page.getByRole("region", { name: "差分" });
+
+    const parentBox = await parent.boundingBox();
+    const chartBox = await chart.boundingBox();
+    const detailBox = await detail.boundingBox();
+    const diffBox = await diff.boundingBox();
+    if (!parentBox || !chartBox || !detailBox || !diffBox) {
+      throw new Error("layout region missing");
+    }
+
+    expect(chartBox.x + chartBox.width).toBeLessThanOrEqual(detailBox.x + pxTol);
+    expect(detailBox.x + detailBox.width).toBeLessThanOrEqual(diffBox.x + pxTol);
+    expect(chartBox.x + chartBox.width).toBeLessThanOrEqual(diffBox.x + pxTol);
+
+    const expectedChartWidth = parentBox.width - detailBox.width - diffBox.width;
+    expect(Math.abs(chartBox.width - expectedChartWidth)).toBeLessThanOrEqual(pxTol);
   });
 
   test("scrolls to the parent row and marks it when a deleted task row is pressed", async ({
