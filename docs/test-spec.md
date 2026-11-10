@@ -41,102 +41,148 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 | ファイル | `test` 名 | 機能 ID |
 | --- | --- | --- |
-| `hierarchy-reorder.spec.ts` | collapses and expands from the triangle | VIEW-01, TC-HIER-04 |
-| `hierarchy-reorder.spec.ts` | shows the full name on hover... | VIEW-13 |
-| `hierarchy-reorder.spec.ts` | reorders a task, a category, and a group from the grip and undoes once | EDIT-13 |
-| `hierarchy-reorder.spec.ts` | shows one translucent row while a collapsed category or group grip is dragged | EDIT-13 |
-| `hierarchy-reorder.spec.ts` | does not start a reorder while a name filter leaves one row | EDIT-13 |
-| `hierarchy-reorder.spec.ts` | does not select or open a menu from a short grip click | EDIT-13 |
-| `hierarchy-reorder.spec.ts` | adds a heading from the toolbar menu and from the row menu, then undoes | TC-HIER-05e, EDIT-18 |
-| `hierarchy-reorder.spec.ts` | renames a category and a group from double click and undoes | EDIT-13 |
-| `hierarchy-reorder.spec.ts` | reorders a category on the five-level sample from the grip | TC-HIER-04 |
+| `export-f5.spec.ts` | downloads HTML and SVG of the smoke schedule and opens the HTML | TC-EXPORT-01, RG-F5-1 |
+| `export-f5.spec.ts` | exports only the rows left by the name filter, including rows below the viewport | TC-EXPORT-02 |
+| `export-f5.spec.ts` | keeps connection arcs and labels out of HTML and SVG downloads | TC-EXPORT-05b |
+| `export-f5.spec.ts` | matches exported summary bars, hollow milestones, and hatches to the screen | TC-HIER-07, TC-VIEW-03, TC-VIEW-04b, TC-VIEW-12 |
+| `export-f5.spec.ts` | matches sidebar column visibility in the HTML export | TC-EXPORT-05 |
+| `export-f5.spec.ts` | shows the Excel desktop-only message in the export dialog | TC-EXPORT-04 |
+| `export-f5.spec.ts` | shows todo column off until enabled | TC-EDIT-22b |
+| `hierarchy-guides.spec.ts` | aligns hierarchy editor fields and refuses save when a level is added | TC-HIER-06b |
+| `hierarchy-guides.spec.ts` | draws a thin summary bar with dotted gaps, solid spans, and downward caps | TC-VIEW-03 |
 | `hierarchy-guides.spec.ts` | drops the stem under a collapsed five-level heading and rejoins it when expanded | RG-F10-1 |
 | `hierarchy-guides.spec.ts` | keeps guide rail width and name starts aligned on five-level and three-level samples | TC-HIER-04 |
+| `hierarchy-guides.spec.ts` | matches sidebar guides and parent bars for two, three, and five levels | TC-HIER-07 |
+| `hierarchy-guides.spec.ts` | shows integer rollup percents beside names at the minimum sidebar width | TC-VIEW-03b |
 | `hierarchy-guides.spec.ts` | shows level names above the band for two, three, four, and five levels and omits them when the file has no levels | TC-HIER-01 |
 | `hierarchy-guides.spec.ts` | shows the outline mismatch and hides add-heading on a short branch and an empty middle branch | TC-HIER-02, TC-HIER-02b |
-| `hierarchy-guides.spec.ts` | aligns hierarchy editor fields and refuses save when a level is added | TC-HIER-06b |
-| `hierarchy-guides.spec.ts` | matches sidebar guides and parent bars for two, three, and five levels | TC-HIER-07 |
-| `hierarchy-guides.spec.ts` | draws a thin summary bar with dotted gaps, solid spans, and downward caps | TC-VIEW-03 |
-| `hierarchy-guides.spec.ts` | shows integer rollup percents beside names at the minimum sidebar width | TC-VIEW-03b |
+| `hierarchy-reorder.spec.ts` | adds a heading from the toolbar menu and from the row menu, then undoes | TC-HIER-05e, EDIT-18 |
+| `hierarchy-reorder.spec.ts` | collapses and expands from the triangle | VIEW-01, TC-NAV-04, TC-HIER-04 |
+| `hierarchy-reorder.spec.ts` | does not select or open a menu from a short grip click | EDIT-13 |
+| `hierarchy-reorder.spec.ts` | does not start a reorder while a name filter leaves one row | EDIT-13, TC-EDIT-15c, TC-EDIT-16c, TC-EDIT-17c |
+| `hierarchy-reorder.spec.ts` | renames a category and a group from double click and undoes | EDIT-13 |
+| `hierarchy-reorder.spec.ts` | reorders a category on the five-level sample from the grip | TC-HIER-04 |
+| `hierarchy-reorder.spec.ts` | reorders a task, a category, and a group from the grip and undoes once | EDIT-13 |
+| `hierarchy-reorder.spec.ts` | shows one translucent row while a collapsed category or group grip is dragged | EDIT-13, TC-EDIT-16e, TC-EDIT-17e |
+| `hierarchy-reorder.spec.ts` | shows the full name on hover... | VIEW-13, TC-NAV-05, TC-EDIT-15b, TC-EDIT-16b, TC-EDIT-17b |
 | `konva-probe.spec.ts` | probes Konva readability for regression helpers | — |
-| `links-f4.spec.ts` | deletes the hovered predecessor with Delete and restores it with undo | RG-F4-1, MX-O-87, MX-O-88, MX-H-25 |
-| `links-f4.spec.ts` | cancels a link drag onto an earlier task with Escape | RG-F4-2, MX-O-59, MX-O-60 |
-| `links-f4.spec.ts` | shows a filled approval diamond and a hollow tentative diamond | RG-F4-3, MX-O-83, TC-VIEW-04b |
-| `links-f4.spec.ts` | deletes the hovered connection arc with Delete and restores the label with undo | RG-F4-4, MX-O-89 |
-| `links-f4.spec.ts` | drops only the arc of a deleted endpoint and keeps the other label in the file | TC-VIEW-15c |
-| `links-f4.spec.ts` | marks only broken predecessor links red and removes the arrow when collapsed | TC-VIEW-08 |
-| `links-f4.spec.ts` | reddens the predecessor while the end is dragged past the successor, before release | TC-VIEW-08b |
-| `links-f4.spec.ts` | keeps the arrow head outside the successor bar in week and month | TC-VIEW-08c |
-| `links-f4.spec.ts` | draws connection arcs without arrowheads and with a different stroke from predecessor links | TC-VIEW-15 |
-| `links-f4.spec.ts` | keeps arcs on broken-only lineage and leaves connection-only rows hidden | TC-EDIT-23c |
-| `layout-f2.spec.ts` | shows only short toolbar labels at 1280 by 800 | VIEW-16 |
+| `layout-f2.spec.ts` | compares light and dark screenshots of the sample without judging readability | VIEW-16 (#536) |
 | `layout-f2.spec.ts` | folds the shortcut list into one column at 480 by 640 | VIEW-16 |
 | `layout-f2.spec.ts` | keeps the corner context menu inside the 480 by 640 window | VIEW-16 |
 | `layout-f2.spec.ts` | runs 今日 from the command palette and ignores the palette shortcut while a dialog is open | NAV-07 |
-| `layout-f2.spec.ts` | compares light and dark screenshots of the sample without judging readability | VIEW-16 (#536) |
+| `layout-f2.spec.ts` | shows only short toolbar labels at 1280 by 800 | VIEW-16 |
+| `links-f4.spec.ts` | cancels a link drag onto an earlier task with Escape | RG-F4-2, MX-O-59, MX-O-60 |
+| `links-f4.spec.ts` | deletes the hovered connection arc with Delete and restores the label with undo | RG-F4-4, MX-O-89 |
+| `links-f4.spec.ts` | deletes the hovered predecessor with Delete and restores it with undo | RG-F4-1, MX-O-87, MX-O-88, MX-H-25 |
+| `links-f4.spec.ts` | draws connection arcs without arrowheads and with a different stroke from predecessor links | TC-VIEW-15 |
+| `links-f4.spec.ts` | drops only the arc of a deleted endpoint and keeps the other label in the file | TC-VIEW-15c |
+| `links-f4.spec.ts` | keeps arcs on broken-only lineage and leaves connection-only rows hidden | TC-EDIT-23c |
+| `links-f4.spec.ts` | keeps the arrow head outside the successor bar in week and month | TC-VIEW-08c |
+| `links-f4.spec.ts` | marks only broken predecessor links red and removes the arrow when collapsed | TC-VIEW-08 |
+| `links-f4.spec.ts` | reddens the predecessor while the end is dragged past the successor, before release | TC-VIEW-08b |
+| `links-f4.spec.ts` | shows a filled approval diamond and a hollow tentative diamond | RG-F4-3, MX-O-83, TC-VIEW-04b |
 | `manual-screenshot-only.spec.ts` | shows the April 2026 today line when the screenshot clock is 2026-04-15 | NAV-02 |
-| `milestone-links.spec.ts` | edits milestone confidence from the name menu and undoes | EDIT-07 |
-| `milestone-links.spec.ts` | toggles task confidence from the menu and undoes | EDIT-04 |
-| `milestone-links.spec.ts` | duplicates from the menu with an empty predecessor and undoes | EDIT-10 |
-| `milestone-links.spec.ts` | enters link mode from the button and ctrl or meta L, not from L alone | EDIT-23 |
-| `milestone-links.spec.ts` | adds one link by clicking another bar and leaves the mode with escape | EDIT-23 |
-| `milestone-links.spec.ts` | does not add a link below the drag thresholds | EDIT-23 |
-| `milestone-links.spec.ts` | moves the milestone focus with escape without closing the detail | VIEW-04c |
-| `milestone-links.spec.ts` | changes confidence and tags from the detail and undoes | EDIT-04 |
-| `milestone-links.spec.ts` | replaces assignees from the detail and the bulk panel and undoes | EDIT-04s |
-| `milestone-links.spec.ts` | refuses a self predecessor and a cycle from the detail | EDIT-04 |
 | `milestone-links.spec.ts` | adds a task in the selected group | EDIT-11 |
-| `milestone-links.spec.ts` | edits the title with enter, tab, and escape, and ignores composing keys as a stand-in | EDIT-03 |
-| `milestone-links.spec.ts` | opens the note from the icon and from the menu | VIEW-11 |
+| `milestone-links.spec.ts` | adds one link by clicking another bar and leaves the mode with escape | EDIT-23 |
+| `milestone-links.spec.ts` | changes confidence and tags from the detail and undoes | EDIT-04 |
 | `milestone-links.spec.ts` | deletes a milestone used as a filter and leaves the selection | EDIT-07, FILTER-03 |
+| `milestone-links.spec.ts` | does not add a link below the drag thresholds | EDIT-23 |
+| `milestone-links.spec.ts` | duplicates from the menu with an empty predecessor and undoes | EDIT-10 |
+| `milestone-links.spec.ts` | edits a milestone from the name menu and undoes | MX-O-84 |
+| `milestone-links.spec.ts` | edits the title with enter, tab, and escape, and ignores composing keys as a stand-in | EDIT-03 |
+| `milestone-links.spec.ts` | enters link mode from the button and ctrl or meta L, not from L alone | EDIT-23 |
+| `milestone-links.spec.ts` | moves the milestone focus with escape without closing the detail | VIEW-04c |
+| `milestone-links.spec.ts` | opens the note from the icon and from the menu | VIEW-11 |
+| `milestone-links.spec.ts` | refuses a self predecessor and a cycle from the detail | EDIT-04 |
+| `milestone-links.spec.ts` | replaces assignees from the detail and the bulk panel and undoes | EDIT-04s |
+| `milestone-links.spec.ts` | toggles task confidence from the menu and undoes | EDIT-04 |
 | `normal-clock.spec.ts` | does not install the screenshot clock in the normal browser | SYNC-01 |
+| `settings-catalog.spec.ts` | adds a custom list without a dialog | TC-SET-08k |
+| `settings-catalog.spec.ts` | adds a status, colors the bar, and keeps the description after reload | TC-SET-08d |
+| `settings-catalog.spec.ts` | adds two new extensions with one field each and can return to the previous radio | TC-SET-10h |
+| `settings-catalog.spec.ts` | aligns month-day, duration, percent, status, overrun, and assignee columns | TC-SET-01c |
+| `settings-catalog.spec.ts` | downloads the renamed extension and shows the new id in settings | TC-SET-10i |
+| `settings-catalog.spec.ts` | grays a non-working weekday and restores weekends after the calendar is removed | TC-SET-03, TC-SET-03b |
+| `settings-catalog.spec.ts` | hides the member description on the list, the detail, and the chart | TC-SET-02o |
+| `settings-catalog.spec.ts` | keeps 200 percent and auto after reload | TC-SET-01 |
+| `settings-catalog.spec.ts` | keeps a description, drops a blank instruction, and keeps the footer inside a narrow overlay | TC-SET-08o |
+| `settings-catalog.spec.ts` | keeps extension definitions after reload and leaves schedule field values unsaved | TC-SET-10c |
+| `settings-catalog.spec.ts` | keeps one close button and the footer inside a viewport under 900 pixels | TC-SET-10g |
+| `settings-catalog.spec.ts` | keeps settings rows inside the dialog at 50 and 200 percent in light and dark | TC-SET-07c |
+| `settings-catalog.spec.ts` | keeps the assignee id and shows the unknown member after the person is deleted | TC-SET-02n |
+| `settings-catalog.spec.ts` | leaves chart assignee text unchanged when an unused catalog is renamed | TC-SET-02j |
+| `settings-catalog.spec.ts` | leaves the active catalog unchanged when a new catalog is created | TC-SET-02k |
+| `settings-catalog.spec.ts` | leaves the active catalog unchanged when JSON is downloaded | TC-SET-02l |
+| `settings-catalog.spec.ts` | opens a one-item color draft and leaves the active list unchanged | TC-SET-09e |
+| `settings-catalog.spec.ts` | reorders statuses, downloads JSON that passes check:statuses, and leaves the active list unchanged when copied | TC-SET-08f |
+| `settings-catalog.spec.ts` | shows catalog status colors, overdue borders, and lightning folds on the bars | TC-SET-08, TC-SET-08b, TC-SET-08c, TC-SET-08g |
+| `settings-catalog.spec.ts` | shows the color field on detail, bulk, and duplicate, and separates leave-unchanged from none | TC-SET-09 |
+| `settings-catalog.spec.ts` | steps the display scale from the shortcut without zooming the page | TC-SET-01b |
+| `settings-diff.spec.ts` | adds a color list and refuses a blank or duplicate id | TC-SET-09h |
 | `settings-diff.spec.ts` | clicks a diff row without changing a multi-selection | FILE-07 |
+| `settings-diff.spec.ts` | closes the field overlay with escape | SET-10 |
+| `settings-diff.spec.ts` | collapses back to the handle and copies with the shortcut without opening the column | TC-FILE-07p |
+| `settings-diff.spec.ts` | discards or keeps a status draft and removes a catalog from the overlay | SET-08 |
+| `settings-diff.spec.ts` | keeps the chart width as the remainder beside the detail and the diff column | TC-FILE-07r, RG-F11-2 |
+| `settings-diff.spec.ts` | keeps the connection dialog open until both fields are filled | TC-EDIT-23 |
+| `settings-diff.spec.ts` | leaves the chart still and shows the band-off message | TC-FILE-07y |
 | `settings-diff.spec.ts` | leaves the chart still and shows the filter-hidden message | TC-FILE-07x |
 | `settings-diff.spec.ts` | opens the diff from the right-edge handle and shows the old and new end | TC-FILE-07, RG-F11-1 |
-| `settings-diff.spec.ts` | places the copy notice off the diff column and scrolls only the list at height 800 | TC-FILE-07b, RG-F11-4 |
-| `settings-diff.spec.ts` | collapses back to the handle and copies with the shortcut without opening the column | TC-FILE-07p |
-| `settings-diff.spec.ts` | scrolls only the list under the diff heading | TC-FILE-07q |
-| `settings-diff.spec.ts` | shows no difference after save and turns the empty column into a body when edited | TC-FILE-07c, TC-FILE-07m |
-| `settings-diff.spec.ts` | keeps the chart width as the remainder beside the detail and the diff column | TC-FILE-07r, RG-F11-2 |
-| `settings-diff.spec.ts` | scrolls to the parent row and marks it when a deleted task row is pressed | TC-FILE-07w |
-| `settings-diff.spec.ts` | leaves the chart still and shows the band-off message | TC-FILE-07y |
-| `export-f5.spec.ts` | downloads HTML and SVG of the smoke schedule and opens the HTML | TC-EXPORT-01, RG-F5-1 |
-| `export-f5.spec.ts` | exports only the rows left by the name filter, including rows below the viewport | TC-EXPORT-02 |
-| `export-f5.spec.ts` | matches exported summary bars, hollow milestones, and hatches to the screen | TC-HIER-07, TC-VIEW-03, TC-VIEW-04b, TC-VIEW-12 |
-| `export-f5.spec.ts` | shows todo column off until enabled | TC-EDIT-22b |
-| `export-f5.spec.ts` | matches sidebar column visibility in the HTML export | TC-EXPORT-05 |
-| `export-f5.spec.ts` | keeps connection arcs and labels out of HTML and SVG downloads | TC-EXPORT-05b |
-| `export-f5.spec.ts` | shows the Excel desktop-only message in the export dialog | TC-EXPORT-04 |
 | `settings-diff.spec.ts` | opens the diff handle after removing one connection | TC-FILE-07z, EDIT-23 |
-| `settings-diff.spec.ts` | keeps the connection dialog open until both fields are filled | TC-EDIT-23 |
+| `settings-diff.spec.ts` | places the copy notice off the diff column and scrolls only the list at height 800 | TC-FILE-07b, RG-F11-4 |
 | `settings-diff.spec.ts` | saves a member display name from the overlay and leaves an unused catalog unchanged | TC-SET-02c |
-| `settings-diff.spec.ts` | discards or keeps a status draft and removes a catalog from the overlay | SET-08 |
-| `settings-diff.spec.ts` | adds a color list and refuses a blank or duplicate id | TC-SET-09h |
-| `settings-diff.spec.ts` | closes the field overlay with escape | SET-10 |
-| `smoke-edit-drag.spec.ts` | does not focus the detail name when the period edge is clicked | EDIT-03 |
+| `settings-diff.spec.ts` | scrolls only the list under the diff heading | TC-FILE-07q |
+| `settings-diff.spec.ts` | scrolls to the parent row and marks it when a deleted task row is pressed | TC-FILE-07w |
+| `settings-diff.spec.ts` | shows no difference after save and turns the empty column into a body when edited | TC-FILE-07c, TC-FILE-07m |
+| `smoke-edit-drag.spec.ts` | clears the selection when the filter changes | TC-EDIT-01b |
 | `smoke-edit-drag.spec.ts` | commits a drag that starts as a right click and undoes it once | EDIT-02, EDIT-11 |
-| `smoke-edit-drag.spec.ts` | keeps 設計 selected when the handle or its inside edge is right-clicked | EDIT-02 |
-| `smoke-edit-drag.spec.ts` | shows only delete after shift-clicking 調査 and 設計 | EDIT-10 |
-| `smoke-edit-drag.spec.ts` | shows only add-milestone on an empty chart right click | EDIT-07 |
-| `smoke-edit-drag.spec.ts` | keeps 調査 when delete is cancelled | EDIT-10 |
-| `smoke-edit-drag.spec.ts` | keeps the empty group 後半 when delete is cancelled | EDIT-12 |
-| `smoke-edit-drag.spec.ts` | selects by click, shift range, and ctrl or meta toggle | EDIT-10 |
-| `smoke-edit-drag.spec.ts` | extends the selection with shift and arrow keys | EDIT-10 |
-| `smoke-edit-drag.spec.ts` | clears the selection when the filter changes | FILTER-03 |
 | `smoke-edit-drag.spec.ts` | does not change horizontal scroll when a visible bar is clicked | NAV-01 |
+| `smoke-edit-drag.spec.ts` | does not focus the detail name when the period edge is clicked | EDIT-03 |
 | `smoke-edit-drag.spec.ts` | drags one bar across a non-working day without showing 休 | VIEW-09 |
+| `smoke-edit-drag.spec.ts` | extends the selection with shift and arrow keys | EDIT-10 |
+| `smoke-edit-drag.spec.ts` | keeps the empty group 後半 when delete is cancelled | EDIT-12 |
+| `smoke-edit-drag.spec.ts` | keeps 設計 selected when the handle or its inside edge is right-clicked | EDIT-02 |
+| `smoke-edit-drag.spec.ts` | keeps 調査 when delete is cancelled | EDIT-10 |
+| `smoke-edit-drag.spec.ts` | selects by click, shift range, and ctrl or meta toggle | EDIT-10 |
 | `smoke-edit-drag.spec.ts` | shows month day chips mid drag without overlapping the bar (EDIT-02b) | TC-EDIT-02b |
-| `smoke-nav-scroll.spec.ts` | scrolls the long list until row 40... | NAV-01 |
-| `smoke-nav-scroll.spec.ts` | shifts the chart horizontally with shift and the wheel | NAV-01 |
-| `smoke-nav-scroll.spec.ts` | scrolls with ctrl or meta and the arrow keys... | NAV-01 |
+| `smoke-edit-drag.spec.ts` | shows only add-milestone on an empty chart right click | EDIT-07 |
+| `smoke-edit-drag.spec.ts` | shows only delete after shift-clicking 調査 and 設計 | EDIT-10 |
+| `smoke-nav-scroll.spec.ts` | drags the sidebar boundary and keeps the row and bar on the same y | TC-NAV-06 |
 | `smoke-nav-scroll.spec.ts` | keeps sticky headings in sync... | TC-NAV-01f |
+| `smoke-nav-scroll.spec.ts` | scrolls the long list until row 40... | NAV-01 |
 | `smoke-nav-scroll.spec.ts` | scrolls the sidebar horizontally with the wheel and zooms there | NAV-01 |
-| `smoke-nav-scroll.spec.ts` | drags the sidebar boundary and keeps the row and bar on the same y | NAV-01 |
-| `smoke-view-nav.spec.ts` | shows the smoke fixture title and task names (VIEW-01) | VIEW-01 |
+| `smoke-nav-scroll.spec.ts` | scrolls with ctrl or meta and the arrow keys... | NAV-01 |
+| `smoke-nav-scroll.spec.ts` | shifts the chart horizontally with shift and the wheel | NAV-01 |
+| `smoke-view-nav.spec.ts` | leaves 設計 unchanged when escape is pressed before release (EDIT-02) | EDIT-02 |
+| `smoke-view-nav.spec.ts` | moves 設計 to 2026-04-06 through 2026-04-10 on release and adds one undo (EDIT-02) | EDIT-02 |
 | `smoke-view-nav.spec.ts` | pans the empty chart 80px without moving the list vertically (NAV-01) | NAV-01 |
 | `smoke-view-nav.spec.ts` | sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03) | NAV-02, NAV-03 |
-| `smoke-view-nav.spec.ts` | moves 設計 to 2026-04-06 through 2026-04-10 on release and adds one undo (EDIT-02) | EDIT-02 |
-| `smoke-view-nav.spec.ts` | leaves 設計 unchanged when escape is pressed before release (EDIT-02) | EDIT-02 |
+| `smoke-view-nav.spec.ts` | shows the smoke fixture title and task names (VIEW-01) | VIEW-01 |
+| `view-appearance.spec.ts` | adds no task on cancel or Escape and keeps the dialog open when the end is before the start | TC-EDIT-14b |
+| `view-appearance.spec.ts` | asks to narrow the predecessor search when there are more than 50 tasks | TC-EDIT-05b |
+| `view-appearance.spec.ts` | clears tag selection when filters change | TC-EDIT-08, TC-EDIT-08d |
+| `view-appearance.spec.ts` | closes only the predecessor list on Escape and leaves the detail open | TC-EDIT-05d |
+| `view-appearance.spec.ts` | does not reorder a filtered task, category, or group from the grip | TC-EDIT-15c, TC-EDIT-16c, TC-EDIT-17c |
+| `view-appearance.spec.ts` | drags the sidebar boundary, restores it on double click, and shrinks only the applied width | TC-NAV-06 |
+| `view-appearance.spec.ts` | fills in-progress bars with a darker progress segment, done in green, and not-started in gray | TC-VIEW-02 |
+| `view-appearance.spec.ts` | hides the extra-fields section on the startup sample | TC-EDIT-04l |
+| `view-appearance.spec.ts` | keeps the confirmation calendar inside the viewport | TC-EDIT-04o |
+| `view-appearance.spec.ts` | leaves unknown color ids and catalog-only risk unpainted, and hides the color field on the startup sample | TC-VIEW-14 |
+| `view-appearance.spec.ts` | matches overdue borders, overrun frames, and lightning folds to isOverdue and lightningDate for the page today | TC-VIEW-05, TC-VIEW-06, TC-VIEW-07 |
+| `view-appearance.spec.ts` | matches score and progress field widths to the note and shows a percent sign | TC-EDIT-04n |
+| `view-appearance.spec.ts` | meets a 4.5 to 1 contrast for extra-field text and the percent sign in light and dark | TC-EDIT-04r |
+| `view-appearance.spec.ts` | omits the task itself from predecessor options | TC-EDIT-05 |
+| `view-appearance.spec.ts` | removes the survey on redo and restores it again on undo, with the selection still empty | RG-S3-11 |
+| `view-appearance.spec.ts` | removes the task and the predecessor line after the delete is confirmed | TC-EDIT-09 |
+| `view-appearance.spec.ts` | restores the survey note and the design link after delete and undo, and leaves the selection empty | RG-S3-10 |
+| `view-appearance.spec.ts` | scrolls milestone names to the right edge, ellipsizes past 24 characters, and shows the full name on hover | TC-VIEW-04 |
+| `view-appearance.spec.ts` | scrolls the highlighted milestone into view and leaves the value unchanged on Enter | TC-EDIT-04i |
+| `view-appearance.spec.ts` | selects from the bar and the row and clears on the background | TC-EDIT-01 |
+| `view-appearance.spec.ts` | shows tentative hatch, committed solid bar, and no 未確定 in the task list | TC-VIEW-12 |
+| `view-appearance.spec.ts` | shows the full name on hover and does not drag the name, then reorders from the grip | TC-NAV-05, TC-EDIT-15b, TC-EDIT-16b, TC-EDIT-17b |
+| `view-appearance.spec.ts` | shows the full task name, ellipsizes the hierarchy line, and shows the full path on hover | TC-EDIT-05c |
+| `view-appearance.spec.ts` | shows unassigned, known, and unknown assignee chips on the list and in the HTML and SVG download | TC-VIEW-10 |
+| `view-appearance.spec.ts` | ties todo checks to progress, hides checks under the row, and omits todos from HTML and SVG | TC-EDIT-22 |
 
 ## CI での実行
 

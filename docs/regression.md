@@ -51,7 +51,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## 短い通しと、全体
 
-短い通しは RG-S2 から RG-S4 である。RG-S1 と RG-S5 は自動テストが見ている。シナリオの見積は RG-S2 が 12 分、RG-S3 が 15 分、RG-S4 が 18 分である。基準は feature-436 時点の 39 分・約 2 時間 38 分・手順 89 である（#547 の 9 手順・約 22 分、RG-S3-13 の 1 分、以前分の約 16 分は再引きしない）。いまの目安は約 22 分である（39 分−17 分＝22 分。見積。短い通しで引く手順は RG-S2-1〜5・RG-S2-7、RG-S3-1・2・4・5・6・9・12 の 13 件で、見積として RG-S2 から約 11 分・RG-S3 から約 6 分を割り当てる。RG-S3-3 右端、RG-S3-7、RG-S3-8、RG-S3-10、RG-S3-11、RG-S2-6 は引かない）。全体の代表手順は、それに RG-F1 から RG-F14 を足して約 2 時間 10 分である（158 分−17 分−8 分−3 分＝130 分。見積。短い通しの 17 分に加え RG-F2-1〜3 に 8 分、RG-F10-2 に 3 分を割り当てて引く。RG-F2 の 8 分は F2-1〜3 のみで、RG-F2-4 と RG-F2-5 は DOM 自動で以前から手で行わないため二重に引かない。RG-F9 の分は引かない）。シナリオの見積は RG-F2 が 10 分、RG-F9 が 14 分、RG-F10 が 9 分である。RG-F9-3 は窓の前面が自動化予定:#541 のまま残る。RG-S1-4 は扱いが自動になったが、89 の引き算には含めない。RG-S3-7 と RG-S3-8 はメニュー表示は e2e が見ているが、手順数と時間の引き算には含めない。RG-S3-10 と RG-S3-11 は選択の復元が自動化予定:#536 のまま残るため、上の引き算には含めない。RG-F7-1 と RG-F8-2 は実機の監視が残るため、上の引き算には含めない。RG-F5-3・RG-F9-2 のファイルダイアログ部分・RG-F14-2 は扱い本文に手動が残るため、時間と手順数の引き算には含めない。RG-F3 と RG-F13 は手で通さない。シナリオは 19 本、手順は 72 である（89−17＝72。引いた 17 手順は RG-S2-1〜5・S2-7、RG-S3-1・2・4・5・6・9・12、RG-F2-1〜3、RG-F10-2。RG-S3-3 右端・TC-EDIT-07h・RG-F9-2 は含めない）。この分数は見積で、実測ではない。`test.skip` で合格にするテストは自動済みに数えない。
+短い通しは RG-S2 から RG-S4 である。RG-S1 と RG-S5 は自動テストが見ている。シナリオの見積は RG-S2 が 12 分、RG-S3 が 15 分、RG-S4 が 18 分である。基準は feature-436 時点の 39 分・約 2 時間 38 分・手順 89 である（#547 の 9 手順・約 22 分、RG-S3-13 の 1 分、以前分の約 16 分は再引きしない）。いまの目安は約 22 分である（39 分−17 分＝22 分。見積。短い通しで引く手順は RG-S2-1〜5・RG-S2-7、RG-S3-1・2・4・5・6・9・12 の 13 件で、見積として RG-S2 から約 11 分・RG-S3 から約 6 分を割り当てる。RG-S3-3 右端、RG-S3-7、RG-S3-8、RG-S2-6 は引かない）。全体の代表手順は、それに RG-F1 から RG-F14 を足して約 2 時間 10 分である（158 分−17 分−8 分−3 分＝130 分。見積。短い通しの 17 分に加え RG-F2-1〜3 に 8 分、RG-F10-2 に 3 分を割り当てて引く。RG-F2 の 8 分は F2-1〜3 のみで、RG-F2-4 と RG-F2-5 は DOM 自動で以前から手で行わないため二重に引かない。RG-F9 の分は引かない）。シナリオの見積は RG-F2 が 10 分、RG-F9 が 14 分、RG-F10 が 9 分である。RG-F9-3 は窓の前面が自動化予定:#541 のまま残る。RG-S1-4 は扱いが自動になったが、89 の引き算には含めない。RG-S3-7 と RG-S3-8 はメニュー表示は e2e が見ているが、手順数と時間の引き算には含めない。RG-F7-1 と RG-F8-2 は実機の監視が残るため、上の引き算には含めない。RG-F5-3・RG-F9-2 のファイルダイアログ部分・RG-F14-2 は扱い本文に手動が残るため、時間と手順数の引き算には含めない。RG-F3 と RG-F13 は手で通さない。シナリオは 19 本、手順は 62 である（72−10＝62。引いた 10 手順は RG-F4-1・RG-F4-3・RG-F4-4・RG-F5-1・RG-F10-1・RG-F11-1・RG-F11-2・RG-F11-4・RG-S3-10・RG-S3-11。RG-F4-2・RG-F5-2・RG-F10-2・TC-VIEW-16h・そのほか手動が残る手順は含めない）。#536 で自動化した RG-F4・RG-F5・RG-F10・RG-F11・RG-S3 の 10 手順は、シナリオ見積の分数は引かない（各シナリオの目安分は、表計算アプリや追随矢印など手動が残る分を含むため）。この分数は見積で、実測ではない。`test.skip` で合格にするテストは自動済みに数えない。
 
 各手順の番号ごとに、合、否、保留、未検証、対象外のいずれかと、違ったときは見えた文を記録する。記録の型は末尾にある。自動化予定と書いた手順を手で行っても、その Issue が終わるまで自動の代わりの合格にはしない。
 
@@ -255,7 +255,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 「調査」が戻る。ノート、未割当が削除前と同じである。先行が「調査」だった「設計」の線も戻る。選択が削除前と同じになることは、アプリはまだ保証しない（`pruneTaskSelection` のあと空のまま残る）。
 
-扱い: 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。この手順の期待のうち、ノート・未割当・先行の復元はこのテストが断言している。選択の復元は自動化予定:#536。
+扱い: 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。自動:e2e/browser-regression/specs/view-appearance.spec.ts#restores the survey note and the design link after delete and undo, and leaves the selection empty。この手順は手で行わない。
 
 ### RG-S3-11
 
@@ -263,7 +263,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: やり直しで「調査」が消え、取り消しで RG-S3-10 の戻りと同じになる（選択の復元を除く）。
 
-扱い: 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。この手順の期待のうち、やり直し・取り消しとノート・先行はこのテストが断言している。選択の復元は自動化予定:#536。
+扱い: 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。自動:e2e/browser-regression/specs/view-appearance.spec.ts#removes the survey on redo and restores it again on undo, with the selection still empty。この手順は手で行わない。
 
 ### RG-S3-12
 
@@ -555,7 +555,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## RG-F4 線の見た目
 
-目的は、線の削除、破綻する相手、節目の形、円弧を分けることである。対象はデスクトップ版である。目安は 12 分である。短い通しには入れない。線の自動は #536 である。読みやすさは人が残す。
+目的は、線の削除、破綻する相手、節目の形、円弧を分けることである。対象はデスクトップ版である。目安は 12 分である。短い通しには入れない。RG-F4-2 の追随矢印の赤と太さは手動のままである。読みやすさは人が残す。
 
 ### RG-F4-1
 
@@ -583,7 +583,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 「承認」のひし形は塗られている。「未確定の節目」のひし形は中空である。
 
-扱い: 自動:e2e/browser-regression/specs/links-f4.spec.ts#shows a filled approval diamond and a hollow tentative diamond。書き出しの同じ見かたは #536 のグループ 4 が引き受ける。
+扱い: 自動:e2e/browser-regression/specs/links-f4.spec.ts#shows a filled approval diamond and a hollow tentative diamond。自動:e2e/browser-regression/specs/export-f5.spec.ts#matches exported summary bars, hollow milestones, and hatches to the screen。この手順は手で行わない。
 
 ### RG-F4-4
 
@@ -597,7 +597,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## RG-F5 書き出しの見た目
 
-目的は、HTML、SVG、Excel を決めた場所へ出し、空の確定を分けることである。対象はデスクトップ版である。目安は 14 分である。短い通しには入れない。構造の自動は #536 である。Excel を実アプリで開く見た目は人が残す。
+目的は、HTML、SVG、Excel を決めた場所へ出し、空の確定を分けることである。対象はデスクトップ版である。目安は 14 分である。短い通しには入れない。HTML と SVG の構造は e2e が見ている。Excel を実アプリで開く見た目は人が残す。
 
 ### RG-F5-1
 
@@ -771,7 +771,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## RG-F10 階層の線
 
-目的は、畳む枝、追加する名前、下書きが保存されないことを分けることである。対象はデスクトップ版である。目安は 9 分である（見積で、実測ではない）。短い通しには入れない。見た目の自動は #536 である。見出しの追加、意味が空のときに適用できないこと、指示の入力は、`settingsHierarchyDiff.dom.test.tsx` が確かめている。見出し追加の取り消しは `headlessScheduleSession.hierarchy.regression.test.ts` の `appendOutlineHeadingAtLevel on levels-2.schedule.json commits, saves, and parses` が確かめている。
+目的は、畳む枝、追加する名前、下書きが保存されないことを分けることである。対象はデスクトップ版である。目安は 9 分である（見積で、実測ではない）。短い通しには入れない。折りたたみ時の縦線は e2e が見ている。見出しの追加、意味が空のときに適用できないこと、指示の入力は、`settingsHierarchyDiff.dom.test.tsx` が確かめている。見出し追加の取り消しは `headlessScheduleSession.hierarchy.regression.test.ts` の `appendOutlineHeadingAtLevel on levels-2.schedule.json commits, saves, and parses` が確かめている。
 
 ### RG-F10-1
 
@@ -811,7 +811,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## RG-F11 差分列の配置
 
-目的は、旧値と新値、詳細との並び、キー、コピーの知らせを分けることである。対象はデスクトップ版である。見本は作業用の `long.schedule.json` である。目安は 12 分である。短い通しには入れない。列の文面とコピー先の文字列は `settingsHierarchyDiff.dom.test.tsx` が見ている。フォーカスと上下キーは `searchErrorKeys.dom.test.tsx` が見ている。幅、重なり、高さ 800 のスクロール、コピー知らせの位置は #536 である。差分の文面の計算は `scheduleDiff.test.ts` が持っている。
+目的は、旧値と新値、詳細との並び、キー、コピーの知らせを分けることである。対象はデスクトップ版である。見本は作業用の `long.schedule.json` である。目安は 12 分である。短い通しには入れない。列の文面とコピー先の文字列は `settingsHierarchyDiff.dom.test.tsx` が見ている。フォーカスと上下キーは `searchErrorKeys.dom.test.tsx` が見ている。幅、重なり、高さ 800 のスクロール、コピー知らせの位置は e2e が見ている。差分の文面の計算は `scheduleDiff.test.ts` が持っている。
 
 ### RG-F11-1
 
