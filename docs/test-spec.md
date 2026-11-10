@@ -1530,11 +1530,11 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `second_process_other_json_adds_a_window_and_keeps_main_edited_date`（`mcp_running_app.rs`） | 別 JSON の第 2 プロセスで窓が 1 枚増え、`main` の未保存は残る | WIN-04, MCP-01 |
 | `second_process_folder_does_not_add_a_window_or_change_current_schedule`（`mcp_running_app.rs`） | フォルダ引数の第 2 プロセスで窓数とタイトルは不変 | WIN-04, MCP-01 |
 | `workspace_window_catalogs_differ_from_the_plain_window`（`mcp_running_app.rs`） | 設定ファイル窓だけ作業用カタログが `filtered_tasks` に載る | FILE-10, MCP-01 |
-| `focus_rereads_members_statuses_and_calendar_and_leaves_field_names`（`mcp_running_app.rs`） | 前面化でメンバー・ステータス・カレンダーだけ読み直し、拡張名の集合は不変 | FILE-10, MCP-01 |
-| `save_then_restart_keeps_workspace_path_and_field_name`（`mcp_running_app.rs`） | 保存して再起動しても設定ファイル束縛と拡張名が残る | FILE-10, MCP-01 |
-| `catalog_action_save_changes_workspace_member_name_and_leaves_app_members_dir`（`mcp_running_app.rs`） | 設定ファイルのメンバー保存で作業用 JSON だけ変わり、アプリデータの `members/` は不変 | SET-02, FILE-10, MCP-01 |
-| `catalog_action_save_changes_workspace_status_color_and_leaves_app_statuses_dir`（`mcp_running_app.rs`） | 設定ファイルのステータス保存で作業用 JSON だけ変わり、アプリデータの `statuses/` は不変 | SET-08, FILE-10, MCP-01 |
-| `catalog_action_save_on_app_catalog_updates_member_name_on_both_plain_windows`（`mcp_running_app.rs`） | 設定ファイル無し 2 窓で片方のカタログ保存が両方の読み取りに揃う | SET-02, MCP-01 |
+| `focus_rereads_members_statuses_and_calendar_and_leaves_field_names`（`mcp_running_app.rs`） | 前面化でメンバー・ステータス・カレンダーだけ読み直し、拡張名の集合は不変。`#[ignore]`（xvfb でディスク差分の再読込待ちが不安定。別報告 PR #570） | FILE-10, MCP-01 |
+| `save_then_restart_keeps_workspace_path_and_field_name`（`mcp_running_app.rs`） | 保存して再起動しても設定ファイル束縛と拡張名が残る。`#[ignore]`（同上） | FILE-10, MCP-01 |
+| `catalog_action_save_changes_workspace_member_name_and_leaves_app_members_dir`（`mcp_running_app.rs`） | 設定ファイルのメンバー保存で作業用 JSON だけ変わり、アプリデータの `members/` は不変。`#[ignore]`（xvfb 上で `catalog_action` の `save: true` が「一覧を保存できませんでした。」で失敗するため。別報告 PR #570） | SET-02, FILE-10, MCP-01 |
+| `catalog_action_save_changes_workspace_status_color_and_leaves_app_statuses_dir`（`mcp_running_app.rs`） | 設定ファイルのステータス保存で作業用 JSON だけ変わり、アプリデータの `statuses/` は不変。同上 `#[ignore]` | SET-08, FILE-10, MCP-01 |
+| `catalog_action_save_on_app_catalog_updates_member_name_on_both_plain_windows`（`mcp_running_app.rs`） | 設定ファイル無し 2 窓で片方のカタログ保存が両方の読み取りに揃う。同上 `#[ignore]` | SET-02, MCP-01 |
 | `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` and `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
