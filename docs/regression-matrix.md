@@ -68,7 +68,7 @@
 
 | ID | 種類 | 項目 | 区分 | 行き先 |
 | --- | --- | --- | --- | --- |
-| MX-O-1 | UI | 開く | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。手動:RG-S4-3 |
+| MX-O-1 | UI | 開く | 手動のまま | 手動のまま:実機の「開く」ダイアログでファイルを選ぶ操作は mock だけでは足りない。 |
 | MX-O-2 | OS | 開く | 自動化予定 | 自動化予定:#541 |
 | MX-O-3 | 計算 | 最近開いたファイルの1件を開く | 自動済み | 自動:src/model/recentFiles.test.ts#prepends a new path |
 | MX-O-4 | UI | 最近開いたファイルの1件を開く | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#opening from history resets filters and fit。自動化予定:#535 |
@@ -76,9 +76,9 @@
 | MX-O-6 | UI | 新しいウィンドウで開く | 自動化予定 | 手動:RG-F9-1。自動化予定:#541 |
 | MX-O-7 | OS | 新しいウィンドウで開く | 自動化予定 | 自動化予定:#541 |
 | MX-O-8 | 計算 | 保存 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#stays the same after save, reload, and save again |
-| MX-O-9 | OS | 保存 | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。自動化予定:#541 |
+| MX-O-9 | OS | 保存 | 一部手動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。手動のまま:OS の保存ダイアログは mock だけでは足りない。 |
 | MX-O-10 | OS | 別名保存 | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#save as then save writes the second change to the new path。手動:RG-S4-5 |
-| MX-O-11 | OS | 別名保存 | 自動化予定 | 自動化予定:#541 |
+| MX-O-11 | OS | 別名保存 | 手動のまま | 手動のまま:OS の別名保存ダイアログは mock だけでは足りない。 |
 | MX-O-12 | 見た目 | 書き出し（HTML / SVG / Excel） | 自動化予定 | 手動:RG-F5-2。自動化予定:#536 |
 | MX-O-13 | 計算 | 書き出し（HTML / SVG / Excel） | 自動化予定 | 自動化予定:#536 |
 | MX-O-14 | OS | 設定ファイルを新しいフォルダへ書き出す | 一部手動 | 自動:src-tauri/src/lib.rs#write_workspace_bundle_to_folder_omits_builtin_statuses_and_keeps_field_order。手動のまま:OS のフォルダ選択は mock だけでは足りない。 |
@@ -87,15 +87,15 @@
 | MX-O-17 | UI | 差分を表示 | 一部自動 | 手動:RG-F11-1。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動化予定:#536 |
 | MX-O-18 | UI | 差分をコピー | 一部自動 | 手動:RG-F11-4。自動:src/components/settingsHierarchyDiff.dom.test.tsx#copies diff text to the clipboard。自動化予定:#536 |
 | MX-O-19 | UI | 未保存の差分を開く（状態バー） | 一部自動 | 手動:RG-F11-1。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#the status bar opens the diff from the real file bytes。自動化予定:#536 |
-| MX-O-20 | UI | 外部ファイル更新の確認 | 一部自動 | 自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SYNC-01b: keep local edits and show the deferred reload banner。手動:RG-F7-2 |
-| MX-O-21 | OS | 外部ファイル更新の確認 | 自動化予定 | 自動化予定:#541 |
+| MX-O-20 | UI | 外部ファイル更新の確認 | 一部自動 | 自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SYNC-01b: keep local edits and show the deferred reload banner |
+| MX-O-21 | OS | 外部ファイル更新の確認 | 手動のまま | 手動のまま:OS の外部ファイル更新確認ダイアログは mock だけでは足りない。 |
 | MX-O-22 | UI | 更新を確認 | 一部自動 | 自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m: manual check with no update shows the latest message。手動:RG-F14-2 |
 | MX-O-23 | UI | 更新を確認 | 一部自動 | 自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m3: manual check shows a failure message when check throws |
 | MX-O-24 | UI | 設定を開く | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows |
-| MX-O-25 | OS | ウィンドウを閉じる | 一部自動 | 自動:src/hooks/scheduleFile/startupRecoveryFlow.dom.test.tsx#TC-SYNC-03: restores unsaved start date for RG-S4-6。手動:RG-S4-6 |
+| MX-O-25 | OS | ウィンドウを閉じる | 手動のまま | 手動のまま:OS のウィンドウを閉じる操作は mock だけでは足りない。 |
 | MX-O-26 | OS | ウィンドウを閉じる | 自動化予定 | 自動化予定:#541 |
 | MX-O-27 | OS | ウィンドウを最小化 | 自動化予定 | 手動:RG-F9-4。自動化予定:#541 |
-| MX-O-28 | OS | アプリを終了 | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#quit cancel keeps the sample path and does not clear the other window hook。手動:RG-S4-6 |
+| MX-O-28 | OS | アプリを終了 | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#quit cancel keeps the sample path and does not clear the other window hook |
 | MX-O-29 | OS | 前面ウィンドウを前面にする | 自動化予定 | 自動化予定:#541 |
 | MX-O-30 | 計算 | 開いているウィンドウ一覧を読む | 自動化予定 | 自動化予定:#543 |
 | MX-O-31 | UI | コマンドパレットを開く／閉じる | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens and closes the command palette without the guide |
@@ -120,7 +120,7 @@
 | MX-O-50 | UI | 横スクロール（ホイール） | 自動化予定 | 手動:RG-S2-4。自動化予定:#535 |
 | MX-O-51 | UI | 横スクロール（ホイール） | 自動化予定 | 自動化予定:#535 |
 | MX-O-52 | UI | スケジュールのタイトルを変更 | 手動のまま | 手動:RG-F1-4。手動のまま:見出しの実機の変換確定は模擬イベントで代用しない |
-| MX-O-53 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 手動:RG-F10-4。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#the saved file contains 回帰の指示 and the example file does not |
+| MX-O-53 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps an applied instruction when the hierarchy dialog is opened again。自動:src/components/settingsHierarchyDiff.dom.test.tsx#drops a blank instruction when the hierarchy dialog is applied。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#the saved file contains 回帰の指示 and the example file does not |
 | MX-O-54 | UI | 階層の名前・意味・指示を編集 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#refuses apply when a meaning is empty and drops a name that was not applied。自動化予定:#535 |
 | MX-O-55 | UI | 絞り込みパネルを開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters assignees from the panel and clears one chip |
 | MX-O-56 | UI | 絞り込みをすべて解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters tags and clears one chip without clearing lineage |
