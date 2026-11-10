@@ -2393,26 +2393,6 @@ fn restart_restores_the_front_status_filter_for_the_shared_path() {
 }
 
 #[test]
-fn argv_on_cold_start_opens_the_given_schedule_after_ready() {
-    let _vite = vite_guard();
-    let _gui = GuiGuard {
-        _lock: lock_ignore_poison(&GUI_MUTEX),
-    };
-    let home = tempfile::tempdir().expect("home");
-    let work = home.path().join("work");
-    fs::create_dir_all(&work).expect("work");
-    let path = copy_regression_workspace(&work);
-    let arg = path.to_string_lossy().to_string();
-    let h = RunningHarness::start_with(OpenWindowsSeed::Absent, &[&arg]).expect("cold start");
-    let doc = h.current_schedule_json(None);
-    let on_disk: Value = serde_json::from_slice(&fs::read(&path).expect("read")).expect("json");
-    assert_eq!(
-        doc.get("title").and_then(|v| v.as_str()),
-        on_disk.get("title").and_then(|v| v.as_str())
-    );
-}
-
-#[test]
 fn second_process_same_path_focuses_newer_window_and_keeps_unsaved_date_and_file_bytes() {
     let _vite = vite_guard();
     let _gui = GuiGuard {

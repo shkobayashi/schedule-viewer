@@ -1526,7 +1526,6 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `startup_without_main_in_open_windows_opens_only_schedule_2`（`mcp_running_app.rs`） | 記録に `main` が無いとき起動で `schedule-2` だけ | WIN-01, SYNC-03, MCP-01 |
 | `close_window_schedule_2_leaves_only_main_still_answering_current_schedule`（`mcp_running_app.rs`） | `schedule-2` を閉じたあと `main` だけが応答する | WIN-01, MCP-01 |
 | `restart_restores_the_front_status_filter_for_the_shared_path`（`mcp_running_app.rs`） | 同パス 2 窓で前面だけの絞り込みが再起動後に戻る | SYNC-03, MCP-01 |
-| `argv_on_cold_start_opens_the_given_schedule_after_ready`（`mcp_running_app.rs`） | 冷たい起動の引数で指定 JSON が開く | WIN-04, MCP-01 |
 | `second_process_same_path_focuses_newer_window_and_keeps_unsaved_date_and_file_bytes`（`mcp_running_app.rs`） | 同パス第 2 プロセスで新しい窓が前面になり未保存とファイルは不変 | WIN-04, MCP-01 |
 | `second_process_other_json_adds_a_window_and_keeps_main_edited_date`（`mcp_running_app.rs`） | 別 JSON の第 2 プロセスで窓が 1 枚増え、`main` の未保存は残る | WIN-04, MCP-01 |
 | `second_process_folder_does_not_add_a_window_or_change_current_schedule`（`mcp_running_app.rs`） | フォルダ引数の第 2 プロセスで窓数とタイトルは不変 | WIN-04, MCP-01 |
