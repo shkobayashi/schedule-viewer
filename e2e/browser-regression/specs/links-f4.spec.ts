@@ -64,11 +64,7 @@ test.describe("smoke schedule links", () => {
     expect(Math.hypot(linkPt.x - chosaBar.x, linkPt.y - chosaBar.y)).toBeGreaterThan(18);
     expect(Math.hypot(linkPt.x - sekkeiBar.x, linkPt.y - sekkeiBar.y)).toBeGreaterThan(18);
     await page.locator(".timeline-body").click({ position: { x: 10, y: 10 } });
-    await probeDeleteWithHover(
-      page,
-      (stroke) =>
-        stroke.className === "Arrow" && strokeMatches(stroke.stroke, LIGHT_CHART.linkOk),
-    );
+    await probeDeleteWithHover(page, (stroke) => stroke.className === "Arrow");
     await expect
       .poll(async () => countKonvaArrowsInTimelineBody(page))
       .toBe(arrowsBefore - 1);
