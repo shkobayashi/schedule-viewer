@@ -1,8 +1,4 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { expect, test } from "playwright/test";
-
-const baselineDir = fileURLToPath(new URL("../baselines/", import.meta.url));
 import { ensureKonvaProbed } from "../helpers/probeSetup.ts";
 import { bootNormalPage, openSmokeSchedule, readChartScrollXProbe } from "../helpers/session.ts";
 import {
@@ -102,7 +98,7 @@ test("compares light and dark screenshots of the sample without judging readabil
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   const app = page.locator(".app");
-  await expect(app).toHaveScreenshot(path.join(baselineDir, "layout-f2-light.png"), {
+  await expect(app).toHaveScreenshot("layout-f2-light.png", {
     maxDiffPixelRatio: 0.06,
     animations: "disabled",
   });
@@ -114,7 +110,7 @@ test("compares light and dark screenshots of the sample without judging readabil
   await expect(page.getByRole("dialog", { name: "設定" })).toHaveCount(0);
   // ダーク配色は Konva の再描画が終わるまで条件の読み取り口が無い
   await page.waitForTimeout(400);
-  await expect(app).toHaveScreenshot(path.join(baselineDir, "layout-f2-dark.png"), {
+  await expect(app).toHaveScreenshot("layout-f2-dark.png", {
     maxDiffPixelRatio: 0.06,
     animations: "disabled",
   });
