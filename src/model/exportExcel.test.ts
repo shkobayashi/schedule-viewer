@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { loadRegressionSchedule } from "../test/searchErrorKeysFixtures";
+import { collectTasksFromDocument } from "./hierarchy";
 import {
   barPixelsInDateColumns,
   buildExcelExportPayload,
@@ -733,6 +735,58 @@ describe("exportExcel", () => {
       paletteFor("light").chart.linkOk.replace("#", ""),
     );
     expect(payload.connectionCurves).toHaveLength(1);
+  });
+
+  it("refuses export when visible rows exceed 10000", () => {
+    const taskRow: VisibleRow = baseInput().visibleRows[0]!;
+    const rows: VisibleRow[] = Array.from({ length: 10_000 }, (_, index) => ({
+      ...taskRow,
+      y: index * 22,
+      task: {
+        ...taskRow.task,
+        id: `t-${index}`,
+        name: `行${index}`,
+      },
+    }));
+    const input = baseInput();
+    input.visibleRows = rows;
+    expect(() => buildExcelExportPayload(input)).toThrow(
+      "書き出し対象の行数が上限（10000 行）を超えています。絞り込みや折りたたみで行数を減らしてください。",
+    );
+  });
+
+  it("puts the smoke task name, start date, and Japanese text in the excel payload", () => {
+    const doc = loadRegressionSchedule("smoke.schedule.json");
+    const survey = doc.categories[0]?.groups[0]?.tasks.find((item) => item.name === "調査");
+    if (!survey) throw new Error("調査 missing in smoke.schedule.json");
+    const timelineStart = parseDate("2026-04-01");
+    const timelineEnd = parseDate("2026-04-08");
+    const visibleRows: VisibleRow[] = [{ type: "task", y: 0, task: survey }];
+    const exportBase = baseInput();
+    const taskNames = new Map(collectTasksFromDocument(doc).map((item) => [item.id, item.name]));
+    const payload = buildExcelExportPayload({
+      ...exportBase,
+      title: doc.title,
+      visibleRows,
+      milestones: [],
+      exportMilestones: [],
+      milestoneGroups: doc.milestoneGroups,
+      milestoneBandLayout: {
+        blocks: [],
+        totalHeight: 0,
+        centerYById: new Map(),
+        displayLabels: new Map(),
+      },
+      timelineStart,
+      timelineEnd,
+      totalDays: 7,
+      taskNames,
+      milestoneBandHeight: 0,
+    });
+    const surveyRow = payload.rows.find((row) => row.cells[0] === "調査");
+    expect(surveyRow).toBeDefined();
+    expect(surveyRow?.cells).toContain("04/01");
+    expect(surveyRow?.cells.some((cell) => cell.includes("回帰確認用のノート"))).toBe(true);
   });
 
   it("counts connection labels toward the drawing limit", () => {
