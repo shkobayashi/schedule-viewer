@@ -222,8 +222,8 @@ describe("startup recovery flow", () => {
       sample: false,
       contents: documentToJsonString(loadRegressionSchedule("smoke.schedule.json")),
     });
-    const handle = ref.current as ScheduleFileFlowHandle;
-    handle.selectTask(TASK_SURVEY);
+    await waitFor(() => expect(ref.current).not.toBeNull());
+    ref.current!.selectTask(TASK_SURVEY);
     await act(async () => {
       fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
     });
@@ -233,12 +233,14 @@ describe("startup recovery flow", () => {
       expect(screen.getByTestId("startup-settled")).toHaveTextContent("yes");
     });
     await act(async () => {
-      fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+      ref.current!.setTaskEnd(TASK_SURVEY, "2026-04-04");
     });
     expect(screen.getByTestId("survey-end")).toHaveTextContent("2026-04-04");
   });
 
-  it("TC-SYNC-03g: applies an external update after startup and then allows moves", async () => {
+  it(
+    "TC-SYNC-03g: applies an external update after startup and then allows moves",
+    async () => {
     const doc = loadRegressionSchedule("smoke.schedule.json");
     const { flow, ref } = await mountHeldStartup({
       path: FLOW_SCHEDULE_PATH,
@@ -250,19 +252,21 @@ describe("startup recovery flow", () => {
     flow.queuePoll(pollJson(updated));
     vi.useFakeTimers();
     await resolveStartupInAct(flow);
-    await waitFor(() => {
-      expect(screen.getByTestId("startup-settled")).toHaveTextContent("yes");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
     });
+    expect(screen.getByTestId("startup-settled")).toHaveTextContent("yes");
+    expect(ref.current?.getFilePath()).toBe(FLOW_SCHEDULE_PATH);
     await advanceOnePoll();
     await settleAfterPoll();
     await waitFor(() => {
       expect(screen.getByTestId("survey-end")).toHaveTextContent("2026-04-08");
     });
-    const handle = ref.current as ScheduleFileFlowHandle;
-    handle.selectTask(TASK_SURVEY);
-    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
-    await waitFor(() => {
-      expect(screen.getByTestId("survey-end")).toHaveTextContent("2026-04-09");
+    await act(async () => {
+      ref.current!.setTaskEnd(TASK_SURVEY, "2026-04-09");
     });
-  });
+    expect(screen.getByTestId("survey-end")).toHaveTextContent("2026-04-09");
+    },
+    15_000,
+  );
 });

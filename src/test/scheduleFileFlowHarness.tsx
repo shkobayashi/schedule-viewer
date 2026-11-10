@@ -52,6 +52,8 @@ export type ScheduleFileFlowHandle = {
   getFilePath: () => string | null;
   setTaskEnd: (taskId: ScheduleId, end: string) => void;
   moveSelectedTasksByDays: (deltaDays: number) => void;
+  undo: () => void;
+  redo: () => void;
 };
 
 type ScheduleFileFlowHarnessProps = {
@@ -283,6 +285,12 @@ export const ScheduleFileFlowHarness = forwardRef<
       moveSelectedTasksByDays: (deltaDays) => {
         if (selection.ids.length === 0) return;
         schedule.moveSelectedTasksByDays(selection.ids, deltaDays);
+      },
+      undo: () => {
+        schedule.undo();
+      },
+      redo: () => {
+        schedule.redo();
       },
     }),
     [colorEditor, fieldEditor, memberEditor, schedule, scheduleFile, selection.ids, taskEnd],

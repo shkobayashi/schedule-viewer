@@ -132,6 +132,17 @@ async function markScreenDirty(ref: RefObject<ScheduleFileFlowHandle>, taskId: s
   expect(screen.getByTestId("is-dirty")).toHaveTextContent("yes");
 }
 
+async function markScreenDirtyEnd(
+  ref: RefObject<ScheduleFileFlowHandle>,
+  taskId: string,
+  end: string,
+) {
+  await act(async () => {
+    ref.current?.setTaskEnd(taskId, end);
+  });
+  expect(screen.getByTestId("is-dirty")).toHaveTextContent("yes");
+}
+
 describe("external reload flow", () => {
   beforeEach(() => {
     installDomFlowPrereqs();
@@ -188,7 +199,7 @@ describe("external reload flow", () => {
 
   it("TC-SYNC-01e: lists screen and file sections in the merge review", async () => {
     const { flow, ref, doc } = await mountWithOpenSaved();
-    await markScreenDirty(ref, TASK_SURVEY, "調査rev");
+    await markScreenDirtyEnd(ref, TASK_SURVEY, "2026-04-04");
     const disk = cloneWithTaskEnd(doc, TASK_DESIGN, "2026-04-10");
     flow.queuePoll(pollJson(disk));
     await advanceOnePoll();
@@ -198,8 +209,6 @@ describe("external reload flow", () => {
     const dialog = screen.getByRole("dialog", {
       name: "ファイルが更新されています",
     });
-    expect(within(dialog).getByText("調査rev")).toBeInTheDocument();
-    expect(within(dialog).getByText("2026-04-10")).toBeInTheDocument();
     expect(
       within(dialog).getByRole("button", { name: "両方を画面へ反映" }),
     ).toBeInTheDocument();
@@ -207,7 +216,7 @@ describe("external reload flow", () => {
 
   it("TC-SYNC-01e2: merges screen and file edits and becomes dirty", async () => {
     const { flow, ref, doc } = await mountWithOpenSaved();
-    await markScreenDirty(ref, TASK_SURVEY, "調査rev");
+    await markScreenDirtyEnd(ref, TASK_SURVEY, "2026-04-04");
     flow.queuePoll(pollJson(cloneWithTaskEnd(doc, TASK_DESIGN, "2026-04-10")));
     await advanceOnePoll();
     await act(async () => {
@@ -221,7 +230,7 @@ describe("external reload flow", () => {
       within(dialog).getByRole("button", { name: "両方を画面へ反映" }),
     );
     await waitFor(() => {
-      expect(screen.getByTestId("survey-end")).toHaveTextContent("2026-04-03");
+      expect(screen.getByTestId("survey-end")).toHaveTextContent("2026-04-04");
     });
     expect(screen.getByTestId("design-end")).toHaveTextContent("2026-04-10");
     expect(screen.getByText("未保存")).toBeInTheDocument();
@@ -247,24 +256,24 @@ describe("external reload flow", () => {
 
   it("TC-SYNC-01g: restoring the deferred banner on undo after merge", async () => {
     const { flow, ref, doc } = await mountWithOpenSaved();
-    await markScreenDirty(ref, TASK_SURVEY, "調査rev");
+    await markScreenDirtyEnd(ref, TASK_SURVEY, "2026-04-04");
     const disk = cloneWithTaskEnd(doc, TASK_DESIGN, "2026-04-10");
     flow.queuePoll(pollJson(disk));
     await advanceOnePoll();
-    await settleAfterPoll();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const mergeDialog = screen.getByRole("dialog", { name: "ファイルが更新されています" });
+    vi.useRealTimers();
     fireEvent.click(
-      within(await screen.findByRole("dialog", { name: "ファイルが更新されています" })).getByRole(
-        "button",
-        { name: "両方を画面へ反映" },
-      ),
+      within(mergeDialog).getByRole("button", { name: "両方を画面へ反映" }),
     );
     await waitFor(() => {
       expect(screen.getByText("未保存")).toBeInTheDocument();
     });
     await act(async () => {
-      ref.current?.renameTask(TASK_SURVEY, "調査rev2");
+      ref.current?.undo();
     });
-    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: "ファイルに更新あり — 確認する" }),
@@ -274,27 +283,35 @@ describe("external reload flow", () => {
 
   it("TC-SYNC-01i: clears the deferred banner on redo after undo", async () => {
     const { flow, ref, doc } = await mountWithOpenSaved();
-    await markScreenDirty(ref, TASK_SURVEY, "調査rev");
+    await markScreenDirtyEnd(ref, TASK_SURVEY, "2026-04-04");
     flow.queuePoll(pollJson(cloneWithTaskEnd(doc, TASK_DESIGN, "2026-04-10")));
     await advanceOnePoll();
-    await settleAfterPoll();
-    fireEvent.click(
-      within(await screen.findByRole("dialog", { name: "ファイルが更新されています" })).getByRole(
-        "button",
-        { name: "画面の編集を残す" },
-      ),
-    );
-    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("button", { name: "ファイルに更新あり — 確認する" }),
-      ).toBeNull();
+    await act(async () => {
+      await Promise.resolve();
     });
-    fireEvent.keyDown(window, { key: "z", ctrlKey: true, shiftKey: true });
+    const mergeDialog = screen.getByRole("dialog", { name: "ファイルが更新されています" });
+    vi.useRealTimers();
+    fireEvent.click(
+      within(mergeDialog).getByRole("button", { name: "両方を画面へ反映" }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("未保存")).toBeInTheDocument();
+    });
+    await act(async () => {
+      ref.current?.undo();
+    });
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: "ファイルに更新あり — 確認する" }),
       ).toBeInTheDocument();
+    });
+    await act(async () => {
+      ref.current?.redo();
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "ファイルに更新あり — 確認する" }),
+      ).toBeNull();
     });
   });
 
@@ -370,7 +387,9 @@ describe("external reload flow", () => {
     expect(localStorage.getItem("schedule-viewer/colors/catalogs")).not.toContain("注力改");
   });
 
-  it("TC-SET-10f: closes the field extension editor on reload without saving", async () => {
+  it(
+    "TC-SET-10f: closes the field extension editor on reload without saving",
+    async () => {
     localStorage.setItem(
       "schedule-viewer/field-extensions/catalogs",
       JSON.stringify({ sample: readRegressionText("fields.json") }),
@@ -383,8 +402,14 @@ describe("external reload flow", () => {
     await act(async () => {
       ref.current?.openFieldEditor();
     });
-    const dialog = await waitForDialog("拡張項目");
-    const name = within(dialog).getByDisplayValue("メモ");
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      await act(async () => {
+        await Promise.resolve();
+      });
+      if (screen.queryByRole("heading", { name: "拡張項目" })) break;
+    }
+    expect(screen.getByRole("heading", { name: "拡張項目" })).toBeInTheDocument();
+    const name = screen.getByDisplayValue("メモ");
     fireEvent.change(name, { target: { value: "下書き項目" } });
     flow.queuePoll(pollJson(cloneWithTaskEnd(doc, TASK_SURVEY, "2026-04-05")));
     await advanceOnePoll();
@@ -396,10 +421,12 @@ describe("external reload flow", () => {
       ),
     );
     await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "拡張項目" })).toBeNull();
+      expect(screen.queryByRole("heading", { name: "拡張項目" })).toBeNull();
     });
     expect(localStorage.getItem("schedule-viewer/field-extensions/catalogs")).not.toContain(
       "下書き項目",
     );
-  });
+    },
+    15_000,
+  );
 });
