@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "node scripts/compile-validators.mjs && vite",
     "build": "node scripts/compile-validators.mjs && tsc && vite build",
+    "typecheck": "npx tsc --noEmit",
     "preview": "vite preview",
     "dev:manual-screenshot": "node scripts/compile-validators.mjs && vite --mode manual-screenshot",
     "capture:manual-screenshots": "node scripts/capture-user-manual-screenshots.mjs",
@@ -31,6 +32,7 @@
     "check:madge-circular-baseline": "tsx scripts/check-madge-circular-baseline.ts",
     "check:architecture-warn": "node scripts/check-architecture-warn.mjs",
     "test:coverage": "vitest run --coverage",
+    "test:ci": "node scripts/compile-validators.mjs && node --test scripts/*.test.mjs && vitest run --coverage",
     "test": "node scripts/compile-validators.mjs && node --test scripts/*.test.mjs && vitest run",
     "test:browser-regression": "node scripts/compile-validators.mjs && playwright test -c e2e/browser-regression/playwright.config.ts",
     "lint": "eslint . --max-warnings 48",

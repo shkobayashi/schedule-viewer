@@ -237,7 +237,9 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 | `npm run build:manual-site` | [操作マニュアル](user-manual.md) だけを `site/` に静的 HTML として出力する。fragment と画像の参照を検査する。パスの無い `#見出し` は、そのリンクがあるページの見出しと照合する。全機能の HTML には h2 と h3 の見出し一覧を出す。出力は git に含めない |
 | `npm run tauri` | Tauri CLI を呼ぶ。後ろに `dev` や `build` を付けて使う |
 | `npm run tauri:dev:fresh` | `SCHEDULE_VIEWER_FRESH_START=1` 付きの `tauri dev`。アプリデータと localStorage を初回起動相当にしてから起動する（開発ビルドのみ） |
+| `npm run typecheck` | TypeScript の型検査のみ（`tsc --noEmit`）。Vite の本番ビルドは含まない |
 | `npm test` | 検証器を生成してから `node --test scripts/*.test.mjs` と Vitest を1回実行する。Vitest は `src/**/*.test.ts`（Node）と `src/**/*.test.tsx`（jsdom）の2プロジェクト |
+| `npm run test:ci` | CI の frontend と同じ。検証器の生成、`node --test scripts/*.test.mjs`、カバレッジ付き Vitest を各 1 回 |
 | `npm run test:browser-regression` | Playwright でブラウザ回帰を実行する。設定は `e2e/browser-regression/playwright.config.ts`。通常はポート 5173 の `npm run dev`、手動撮影 shim 用の Konva プローブだけポート 5174 の `npm run dev:manual-screenshot` を起動する。失敗時のトレースとスクリーンショットは `test-results/` に出る。レイアウト用の基準画像は `e2e/browser-regression/baselines/` に置く。見直すときは `npx playwright test -c e2e/browser-regression/playwright.config.ts e2e/browser-regression/specs/layout-f2.spec.ts --grep compares --update-snapshots` で `layout-f2-light.png` と `layout-f2-dark.png` だけを更新する。PNG を差し替えただけでは不具合を直したことにしない |
 | `npm run lint` | ESLint。警告が 48 件を超えると失敗する |
 | `npm run check:mcp-tool-names` | MCP ツール名が TypeScript と Rust で一致すること |
@@ -245,7 +247,7 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 | `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定である。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない。通し方は [regression.md](regression.md) |
 | `npm run check:madge-circular-baseline` | madge 循環が [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) と一致すること（`cycleCount: 0` と `cycles: []` 可）。**CI frontend で失敗扱い**（循環が 1 件でも増えたら失敗）。意図的に解消・再計測した PR では JSON を同じ変更で更新する |
 | `npm run check:architecture-warn` | jscpd（重複 clone）。重複率の上限は 6%。超えても終了コードは 0 なので、CI では警告のままである（循環 import は上の `check:madge-circular-baseline`） |
-| `npm run test:coverage` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。全体は行（lines）69%、文（statements）64%、分岐（branches）58%、関数（functions）68% を下回ると失敗する。`src/model/**` は行 77%、文 69%、分岐 62%、関数 79% を下回ると失敗する。**CI frontend で失敗扱い** |
+| `npm run test:coverage` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。全体は行（lines）67%、文（statements）64%、分岐（branches）58%、関数（functions）66% を下回ると失敗する。`src/model/**` は行 77%、文 69%、分岐 62%、関数 79% を下回ると失敗する。**CI frontend では `test:ci` の中で失敗扱い** |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
@@ -275,12 +277,83 @@ Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` 
 CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。読み取りステップは `shell: bash` にする。Release の Windows ランナーの既定シェルは PowerShell で、bash のまま書くと構文エラーになる。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
 - `src-tauri/`、`rust-toolchain.toml`、`read-screen/*`、`.cursor/skills/schedule-talk/*` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`）が動く
-- `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`、`test`、`check:architecture-warn`（jscpd。上限を超えても警告）、`test:coverage`（カバレッジの閾値を下回ると失敗）、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物と `src/model/generated/` の差分検査である
+- `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`、`test:ci`（カバレッジの閾値を下回ると失敗）、`check:architecture-warn`（jscpd。上限を超えても警告）、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物と `src/model/generated/` の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
 - `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`）が動く。`package.json` と `package-lock.json` が変わったときも同じ
 - `docs/*.md` や `README.md` だけの変更（操作マニュアル以外）では、フロントと Rust と `manual` はスキップする。集約ジョブ `ci` は成功する
 
 ワークフロー全体の `permissions` は `contents: read` である。Release の `contents: write` は配布ジョブだけに付ける。Pages の `pages: write` と `id-token: write` は deploy ジョブだけに付ける。`actions/checkout` は `persist-credentials: false` である。
+
+### 場面ごとに回す検査
+
+作業中は、この表の場面より多い検査を繰り返さない。秒数を書くときは、測ったコマンドだけを書き、測っていない秒数は未測定と書く。
+
+| 場面 | 回すもの |
+| --- | --- |
+| 普段の開発（コミット、push） | `npm test`、`npm run lint`、`npm run typecheck`。Vitest は「触ったテスト」で絞ってよい |
+| 子 Issue の PR（feature ブランチ向け） | 作業中は、触ったテストと `npm run check:regression-coverage`。PR を出す前に 1 回だけ「PR 前の一回」 |
+| `e2e/browser-regression/` を触る Issue の作業中 | 触った spec だけ `npx playwright test -c e2e/browser-regression/playwright.config.ts <spec>`。全 spec を繰り返し回さない |
+| next、develop へのマージ前 | `npm run test:browser-regression` を、そのコミットで 1 回 |
+| 夜間 | ブラウザ回帰。定期実行は別の Issue で GitHub Actions に足す。このリポジトリにはまだ無い |
+| リリース前 | 「リリース前に回す検査」の自動を全部回す。手動の回帰も行う。緊急のリリースは手動の回帰だけ飛ばしてよい |
+
+`src-tauri/` を変えたときは、普段の開発でも、手元の OS で `cd src-tauri && cargo clippy -- -D warnings` と `cargo test --locked` を足す。
+
+ブラウザ回帰は、子 Issue の作業中と「PR 前の一回」には含めない。next または develop へマージする直前の 1 回と、リリース前の自動に含める。同じコミットでは繰り返さない。
+
+**触ったテスト**
+
+検証器を先に生成する。`npm test` は `scripts/*.test.mjs` と Vitest を全部回す。絞るときは `npm test` を使わない。
+
+- 未コミットの変更だけ: `node scripts/compile-validators.mjs && npx vitest run --changed`
+- 分岐元からの変更: `node scripts/compile-validators.mjs && npx vitest run --changed origin/feature-436`（分岐元が develop なら `origin/develop`）
+- ファイルを指定: `node scripts/compile-validators.mjs && npx vitest run テストファイルのパス`
+- ソースから関連テスト: `node scripts/compile-validators.mjs && npx vitest related ソースのパス`
+- `scripts/*.test.mjs` を触ったとき: `node --test scripts/そのファイル.test.mjs`
+
+`package.json`、`vitest.config.ts`、`vite.config.ts` が変わるとき、Vitest は全部回す。`src/test/setupDomTests.ts` を変えたときは、dom のテストが全部対象になる。
+
+**PR 前の一回**
+
+次を 1 回だけ実行する。ブラウザ回帰は含めない。
+
+1. `npm run test:ci`
+2. `npm run lint`
+3. `npm run build`
+4. `npm run check:mcp-tool-names`
+5. `npm run check:operation-entries`
+6. `npm run check:regression-coverage`
+7. `npm run check:madge-circular-baseline`
+8. `npm run check:architecture-warn`
+9. `npm run check:schedule`
+10. `npm run check:calendar`
+11. `npm run check:members`
+12. `npm run build:validate-skill`
+13. `npm run version:check`
+14. `npm audit --audit-level=high`
+15. `.github/workflows/ci.yml` の frontend ジョブにある `git diff --exit-code` を、同じパスで実行する
+
+`src-tauri/` を変えたときは、手元の OS の Clippy と `cargo test --locked` をこの 1 回に足す。
+
+**リリース前に回す検査**
+
+自動は、緊急のリリースでも飛ばさない。
+
+1. 「PR 前の一回」
+2. `npm run test:browser-regression`
+3. `docs/regression.md` の「自動を先に流す」のうち、サンプルを指定する 4 つ。無引数の `npm test` と `npm run test:coverage` は `test:ci` にまとめてあるので、ここでは繰り返さない
+   - `npm run check:schedule -- examples/regression/smoke.schedule.json`
+   - `npm run check:schedule -- examples/regression/long.schedule.json`
+   - `npm run check:schedule -- examples/regression/full.schedule.json`
+   - `npm run check:members -- examples/regression/members.json`
+4. 手元の OS で `cd src-tauri && cargo clippy -- -D warnings` と `cargo test --locked`
+
+手動の回帰は、緊急のリリースでは飛ばしてよい。
+
+- `docs/regression.md` の「自動を先に流す」のあとに書いてある手作業
+- `docs/test-spec.md` の「リリース前確認」
+
+`check:statuses` と `check:colors` は、CI にも「自動を先に流す」にも無い。この一覧にも足さない。
 
 ### 1.x を出しながら次のメジャーを進める
 
