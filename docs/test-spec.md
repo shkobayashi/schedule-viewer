@@ -20,7 +20,7 @@
 | Rust | Linux では `xvfb-run -a cargo test --locked`（`src-tauri`） | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査、`tests/mcp_stdio_client.rs` の標準入出力と `--screen` CLI（GUI 不要）、`tests/mcp_running_app.rs` の起動中 GUI 向け MCP 統合試験（Vite 1420・`DISPLAY` 必須。Linux CI は xvfb） |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1）。警告の上限を超えると失敗する。上限は [package.json](../package.json) の `lint`（`--max-warnings`） |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
-| 操作の入口表（段階1） | `npm run check:operation-entries` | `operation-entries.md` と `OPERATION_FORMAL` / 右クリック固定 / MCP 名。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
+| 操作の入口表（段階2） | `npm run check:operation-entries` | `operation-entries.md` 主表の各列とソースカタログ（`operationEntryCatalog.ts`）の機械照合。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
 | エージェント向け文書 | `npm run check:agent-docs` | `AGENTS.md`、`docs/agents-*.md`、`.cursor/rules/*.mdc`、各スキルの `SKILL.md` と `references/*.md` の相対リンク（ファイルまたは既存ディレクトリ。`#` アンカーは見ない）。コードフェンス内とインラインの `` `...` `` 内は無視。`[text][ref]` 形式と HTML の `href` は見ない。`SKILL.md` の frontmatter に空でない `name` と `description`。`docs/agents-implement-change-51-split.md` の旧→新番号対応表（必須 `52→55`、`53→56`、`54→57`。重複と不正行は拒否。先頭の空白インデントは無視）。`.cursor/skills/implement-change/references/screen.md` の条項 51–57 が各1回（番号のみ。本文の言い換えは可）。`alwaysApply` ルールと `AGENTS.md` のバイト数を標準出力へ出す |
 | 回帰の対応 | `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定である。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない |
 | 循環 import | `npm run check:madge-circular-baseline` | madge とベースライン JSON の一致。**CI frontend で失敗扱い** |
@@ -222,6 +222,73 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/how-to-citations.test.mjs` | `extractFileHeadingCitations finds citations in markdown` | SET-05 |
 | `scripts/check-madge-circular-baseline.test.mjs` | `check-madge-circular-baseline matches madge-circular-baseline.json` | — |
 | `scripts/check-operation-entries.test.mjs` | `check-operation-entries matches labels and MCP names in operation-entries.md` | — |
+| 同上 | `wrong TOOLBAR_SHORT key in toolbar column fails validation` | — |
+| 同上 | `removed context menu label token fails validation` | — |
+| 同上 | `forbidden --window on open_windows CLI fails validation` | — |
+| 同上 | `unresolved feature ID 他 fails validation` | — |
+| 同上 | `false quoted guide span fails validation` | — |
+| 同上 | `schedule_diff row must not use baseline_diffs MCP name` | — |
+| 同上 | `missing TOOLBAR_SHORT catalog citation fails toolbar short coverage` | — |
+| 同上 | `hamburger label drift from SHARED_FILE_MENU_ROWS fails validation` | — |
+| 同上 | `wrong Mac shortcut for palette tierDay fails validation` | — |
+| 同上 | `palette label absent from buildCommandPaletteItems fails validation` | — |
+| 同上 | `production doc passes direct validateOperationEntryCoverage` | — |
+| 同上 | `toolbar visible label must match TOOLBAR_SHORT value exactly` | — |
+| 同上 | `empty fixed context-menu label fails catalog coverage` | — |
+| 同上 | `visible right-click text outside backticks fails validation` | — |
+| 同上 | `focus_window without --window fails validation` | — |
+| 同上 | `file_action with invalid action fails validation` | — |
+| 同上 | `recent palette double prefix fails validation` | — |
+| 同上 | `malformed main-table column count fails parse` | — |
+| 同上 | `fake toolbar undo label fails validation` | — |
+| 同上 | `fake toolbar today label fails validation` | — |
+| 同上 | `cleared hierarchy toolbar fails validation` | — |
+| 同上 | `wrong display scale enlarge keys fail validation` | — |
+| 同上 | `delete shortcut with NotAKey fails validation` | — |
+| 同上 | `empty tierDay shortcut with palette label fails validation` | — |
+| 同上 | `wrong context menu template placeholder fails validation` | — |
+| 同上 | `empty chart-scroll shortcut cell fails shortcutReference consumption` | — |
+| 同上 | `empty zoom-wheel shortcut cell fails shortcutReference consumption` | — |
+| 同上 | `display scale enlarge without Mac counterpart fails validation` | — |
+| 同上 | `fake toolbar lineage follow label fails validation` | — |
+| 同上 | `fake toolbar clear-all-filters label fails validation` | — |
+| 同上 | `fake toolbar shortcuts glyph fails validation` | — |
+| 同上 | `fake toolbar add-milestone label fails validation` | — |
+| 同上 | `fake toolbar edit-title label fails validation` | — |
+| 同上 | `fake toolbar lineage button label fails validation` | — |
+| 同上 | `fake toolbar dirty save-status label fails validation` | — |
+| 同上 | `fake filter-panel toolbar backtick fails validation` | — |
+| 同上 | `fake external reload status-bar toolbar label fails validation` | — |
+| 同上 | `fake toolbar search toggle literals fail validation` | — |
+| 同上 | `fake link-mode toolbar static label fails validation` | — |
+| 同上 | `fake explanation-dismiss banner toolbar label fails validation` | — |
+| 同上 | `fake add-task split menu label fails validation` | — |
+| 同上 | `redo toolbar showing delete formal fails wrong-owner validation` | — |
+| 同上 | `delete-task toolbar showing fit formal fails wrong-owner validation` | — |
+| 同上 | `required redo toolbar empty cell fails validation` | — |
+| 同上 | `undo toolbar extra slash segment fails validation` | — |
+| 同上 | `dirty save toolbar extra plain text fails validation` | — |
+| 同上 | `required undo toolbar note-only cell fails validation` | — |
+| 同上 | `go-today toolbar hides delete formal in note fails validation` | — |
+| 同上 | `fit toolbar hides delete formal in note fails validation` | — |
+| 同上 | `undo toolbar fake word in note fails validation` | — |
+| 同上 | `toolbar catalog source extractions are non-empty and live-derived` | — |
+| 同上 | `parseToolbarUiSourceFromText throws when toolbar search block is missing` | — |
+| 同上 | `undo toolbar backtick delete in note fails validation` | — |
+| 同上 | `undo toolbar backtick fake in note fails validation` | — |
+| 同上 | `go-today invalid title tail without ni fails validation` | — |
+| 同上 | `undo toolbar ASCII fake in note fails validation` | — |
+| 同上 | `undo toolbar long japanese garbage in note fails validation` | — |
+| 同上 | `search toolbar suffix after note with fake token fails validation` | — |
+| 同上 | `add-task toolbar menu suffix fake token fails validation` | — |
+| 同上 | `dirty save toolbar backtick delete formal instead of saveStatus fails validation` | — |
+| 同上 | `dirty save toolbar extra delete backtick in note fails validation` | — |
+| 同上 | `lineage toolbar fake dynamic template backtick fails validation` | — |
+| 同上 | `undo toolbar tierDay TOOLBAR_SHORT in note fails validation` | — |
+| 同上 | `undo toolbar pencil metadata in note fails validation` | — |
+| 同上 | `undo toolbar cross-row saveStatus citation backtick fails validation` | — |
+| 同上 | `dirty save toolbar cross-row undo formal backtick fails validation` | — |
+| 同上 | `undo toolbar cross-row tier-toggle metadata fails validation` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentity valid when full SHAs match` | — |

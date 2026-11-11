@@ -1,39 +1,30 @@
 /**
- * P-CI-06（段階1）: docs/operation-entries.md とコード側の固定ラベル・MCP 名の drift を止める。
- * 全列の機械照合は未実装。次を確認する:
- * - CONTEXT_MENU_FIXED_LABEL の各文言が表に存在する
- * - OPERATION_FORMAL の各正式名が表に存在する
- * - MCP_ALL_TOOL_NAMES の各ツール名が表に参照されている
- * - 操作 ID のすべてに右クリック用ラベルがある
+ * P-CI-06（段階2）: docs/operation-entries.md の主表を、ソース由来カタログと列意味に照合する。
+ *
+ * 段階1の doc.includes 部分一致は廃止。主表以外（set_view 追加入力、Excel 列、
+ * 編集中キー、LLM 後手順）は本チェックの対象外。
+ *
+ * 未照合: 操作の案内の無引用要約（セルごとに列挙）、ツールバー行別未登録の出典引用セル、
+ * context menu テンプレの levelName/childName 手書き whitelist、FILTER-09 行の機能 ID 所有、
+ * MCP file_action/history の action 列挙コピー（useMcpActionExecutor との手動同期）、
+ * macOS PredefinedMenuItem の OS 文言、一部メニュー accelerator。
+ * 機能 ID は external-spec.md への存在のみ（FILTER-09 等の行の所有対応は未照合）。
+ * file_action / history の action 列挙は useMcpActionExecutor と同じ固定集合（ドリフトは手で揃える）。
  */
 import { readFileSync } from "node:fs";
-import { MCP_ALL_TOOL_NAMES } from "../src/model/mcpToolNames.ts";
-import { OPERATION_FORMAL } from "../src/model/operationLabels.ts";
+import { buildOperationEntryCatalog } from "./operationEntryCatalog.ts";
 import { OPERATION_ID } from "../src/operations/operationIds.ts";
-import {
-  CONTEXT_MENU_FIXED_LABEL,
-  contextMenuLabel,
-} from "../src/operations/operationLabelLink.ts";
+import { contextMenuLabel } from "../src/operations/operationLabelLink.ts";
 
-const doc = readFileSync("docs/operation-entries.md", "utf8");
+const docPath = process.argv[2] ?? "docs/operation-entries.md";
+const doc = readFileSync(docPath, "utf8");
 
-const errors: string[] = [];
-
-for (const [operationId, label] of Object.entries(CONTEXT_MENU_FIXED_LABEL)) {
-  if (label && !doc.includes(label)) {
-    errors.push(
-      `右クリック固定ラベル (${operationId}): 「${label}」が operation-entries.md に無い`,
-    );
-  }
-}
-
-for (const [key, label] of Object.entries(OPERATION_FORMAL)) {
-  if (!doc.includes(label)) {
-    errors.push(
-      `OPERATION_FORMAL.${key}: 「${label}」が operation-entries.md に無い`,
-    );
-  }
-}
+const catalog = buildOperationEntryCatalog();
+const coverage = await import("./operationEntryCoverage.mjs");
+const { errors, unverified } = coverage.validateOperationEntryCoverage(
+  doc,
+  catalog,
+);
 
 for (const operationId of Object.values(OPERATION_ID)) {
   try {
@@ -52,18 +43,21 @@ for (const operationId of Object.values(OPERATION_ID)) {
   }
 }
 
-for (const name of MCP_ALL_TOOL_NAMES) {
-  if (!doc.includes(`\`${name}\``) && !doc.includes(name)) {
-    errors.push(`MCP ツール ${name} が operation-entries.md に参照されていない`);
-  }
-}
-
 if (errors.length > 0) {
   console.error("check-operation-entries failed:");
   for (const e of errors) console.error(`  - ${e}`);
   process.exit(1);
 }
 
-console.log(
-  "operation-entries.md covers CONTEXT_MENU_FIXED_LABEL, OPERATION_FORMAL, and MCP_ALL_TOOL_NAMES; every operation id has a context menu label (phase 1)",
-);
+const fullyVerified = unverified.length === 0;
+if (fullyVerified) {
+  console.log(
+    "operation-entries.md main tables match source catalogs (P-CI-06 stage 2)",
+  );
+} else {
+  console.log(
+    "operation-entries.md main tables checked against source catalogs (P-CI-06 stage 2); unverified cells remain",
+  );
+  console.log("Unverified (not failures):");
+  for (const line of unverified) console.log(`  - ${line}`);
+}
