@@ -266,6 +266,7 @@ export type McpScreenBridgeFilteredTasksSnap = McpScreenBridgeReadPayloadSnap &
   McpScreenBridgeTaskCatalogSnap & {
     filters: ScheduleFilters;
     lineageTaskId: ScheduleId | null;
+    lineageIncludesConnections: boolean;
     hiddenMilestoneGroupIds: ScheduleId[];
     hiddenMilestoneIds: ScheduleId[];
     today: string;
@@ -284,6 +285,7 @@ export function mcpFilteredTasksPayloadInputFromSnap(
     title: snap.title,
     filters: snap.filters,
     lineageTaskId: snap.lineageTaskId,
+    lineageIncludesConnections: snap.lineageIncludesConnections,
     hiddenMilestoneGroupIds: snap.hiddenMilestoneGroupIds,
     hiddenMilestoneIds: snap.hiddenMilestoneIds,
     milestoneGroups: snap.milestoneGroups,

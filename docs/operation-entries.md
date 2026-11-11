@@ -89,8 +89,8 @@
 | 系統を表示／解除 | `系統` または `系統: ${lineageName}`（title に ⌘⇧L / Ctrl+Shift+L） | | `系統を表示` / `系統を解除` | ⌘⇧L / Ctrl+Shift+L | | | タスクを選んで「系統」を押すと… | `set_view` | `--screen set_view` | `FILTER-08` |
 | 系統（繋がりも辿る） | `繋がりも辿る`（系統 split メニュー） | | | | | | | `set_view` | `--screen set_view` | `FILTER-08` |
 | 線を引くモード | `線を引く` または `線を引く: ${linkSourceName}` | | 線を引く | ⌘L / Ctrl+L | | | | | | `EDIT-05` |
-| マイルストン帯の印を非表示 | | 非表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
-| このマイルストンだけ表示 | | このマイルストンだけ表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
+| マイルストン帯の印を非表示 | | 非表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-13` |
+| このマイルストンだけ表示 | | このマイルストンだけ表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-13` |
 | マイルストン帯の行を非表示 | | 非表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
 | この行だけ表示（帯グループ） | | この行だけ表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
 | 絞り込み結果のタスク一覧を読む | | | | | | | | `filtered_tasks` | `--screen filtered_tasks --window <label>` | `MCP-01` |
@@ -151,6 +151,24 @@
 | 試しの計画を計画へ反映 | | | | | | | | `apply_explanation_pattern` | `--screen apply_explanation_pattern` | `VIEW-16` |
 | 画面の見方を LLM から変更 | | | | | | | | `set_view` | `--screen set_view` | `MCP-01`、`VIEW-16` |
 | 計画を部分更新 | | | | | | | | `edit_plan` | `--screen edit_plan` | `MCP-01` |
+
+### `set_view` の見方だけの追加入力（#475）
+
+人がツールバー・絞り込みパネル・右クリックで変えられる見方のうち、次は `set_view` の JSON でも渡せる。逆方向（JSON を貼る専用 UI、操作の自動再生）は求めない。
+
+| 人の操作 | `set_view` の JSON（要約） |
+| --- | --- |
+| 系統・繋がりも辿る（`FILTER-08`） | `lineage`: `{ "taskId", "includesConnections" }`。解除は `{ "taskId": null }`（`lineage: null` は不可） |
+| 帯の印の非表示（`FILTER-13` の印） | `hiddenMilestoneIds`: 非表示にする印 id の配列（丸ごと置き換え） |
+
+### `file_action` 書き出し（Excel）の列（#475）
+
+| 人の操作 | `file_action` の JSON（`action`: `export`, `format`: `xlsx`） |
+| --- | --- |
+| 書き出しダイアログの列チェック | `excelColumns`: 固定列 id → 真偽。省略時は保存済み設定 |
+| 追加項目の列チェック | `excelFieldColumns`: 項目 key → 真偽。省略時は保存済み設定 |
+
+`html` / `svg` では `excelColumns` と `excelFieldColumns` を受け付けない。
 
 ---
 

@@ -9,8 +9,14 @@ import {
   groupCollapseKey,
   hierarchyCollapseKey,
 } from "./rows";
-import type { ScheduleFilters, ScheduleId } from "./types";
+import { findTaskInDocument } from "./hierarchy";
+import type { ScheduleDocument, ScheduleFilters, ScheduleId } from "./types";
 import type { GridTier } from "./timeline";
+
+export type McpSetViewLineagePatch = {
+  taskId: ScheduleId | null;
+  includesConnections: boolean;
+};
 
 export function mcpSetViewTouchesFilterState(patch: McpSetViewPatch): boolean {
   return (
@@ -21,6 +27,14 @@ export function mcpSetViewTouchesFilterState(patch: McpSetViewPatch): boolean {
     patch.collapsedGroupIds !== undefined ||
     patch.collapsedOutlineHeadingIds !== undefined
   );
+}
+
+export function mcpSetViewTouchesLineage(patch: McpSetViewPatch): boolean {
+  return patch.lineage !== undefined;
+}
+
+export function mcpSetViewTouchesHiddenMilestoneMarks(patch: McpSetViewPatch): boolean {
+  return patch.hiddenMilestoneIds !== undefined;
 }
 
 /** Fit to width は横だけ変え、縦スクロールはそのままにする。 */
@@ -69,6 +83,8 @@ export type McpSetViewPatch = {
   filters?: ScheduleFilters;
   searchField?: SearchField;
   hiddenMilestoneGroupIds?: ScheduleId[];
+  hiddenMilestoneIds?: ScheduleId[];
+  lineage?: McpSetViewLineagePatch;
   collapsedCategoryIds?: ScheduleId[];
   collapsedGroupIds?: ScheduleId[];
   collapsedOutlineHeadingIds?: ScheduleId[];
@@ -176,6 +192,79 @@ function parseColorScheme(value: unknown): ColorSchemePreference | null {
   return null;
 }
 
+function parseLineage(
+  value: unknown,
+): { ok: true; lineage: McpSetViewLineagePatch } | { ok: false; message: string } {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    return { ok: false, message: "lineage の形が正しくありません。" };
+  }
+  const record = value as Record<string, unknown>;
+  const hasTaskId = Object.prototype.hasOwnProperty.call(record, "taskId");
+  const hasIncludes = Object.prototype.hasOwnProperty.call(
+    record,
+    "includesConnections",
+  );
+  if (!hasTaskId && !hasIncludes) {
+    return { ok: false, message: "lineage の形が正しくありません。" };
+  }
+
+  let taskId: ScheduleId | null | undefined;
+  if (hasTaskId) {
+    if (record.taskId === null) {
+      taskId = null;
+    } else if (typeof record.taskId === "string" && record.taskId.length > 0) {
+      taskId = record.taskId;
+    } else {
+      return { ok: false, message: "lineage の形が正しくありません。" };
+    }
+  }
+
+  let includesConnections = false;
+  if (hasIncludes) {
+    if (typeof record.includesConnections !== "boolean") {
+      return { ok: false, message: "includesConnections は true か false だけにしてください。" };
+    }
+    includesConnections = record.includesConnections;
+  }
+
+  if (includesConnections && (taskId === undefined || taskId === null)) {
+    return {
+      ok: false,
+      message: "繋がりも辿るには、系統の起点が要ります。",
+    };
+  }
+
+  if (taskId === undefined) {
+    return { ok: false, message: "lineage の形が正しくありません。" };
+  }
+
+  return {
+    ok: true,
+    lineage: {
+      taskId,
+      includesConnections: includesConnections && taskId != null,
+    },
+  };
+}
+
+export function validateMcpSetViewLineageForApply(
+  patch: McpSetViewPatch,
+  document: ScheduleDocument,
+): { ok: true } | { ok: false; message: string } {
+  const lineage = patch.lineage;
+  if (lineage == null) return { ok: true };
+  if (lineage.taskId == null) return { ok: true };
+  const task = findTaskInDocument(
+    document.categories,
+    document.outline,
+    lineage.taskId,
+  );
+  if (task == null) {
+    return { ok: false, message: "系統の起点のタスクが見つかりません。" };
+  }
+  return { ok: true };
+}
+
 function parseCalendar(value: unknown): McpSetViewCalendarAction | null {
   if (value == null || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -222,6 +311,22 @@ export function parseMcpSetViewPatch(
       };
     }
     patch.hiddenMilestoneGroupIds = envelope.hiddenMilestoneGroupIds;
+    hasField = true;
+  }
+  if (envelope.hiddenMilestoneIds !== undefined) {
+    if (!isStringArray(envelope.hiddenMilestoneIds)) {
+      return {
+        ok: false,
+        message: "hiddenMilestoneIds は文字列の配列にしてください。",
+      };
+    }
+    patch.hiddenMilestoneIds = envelope.hiddenMilestoneIds;
+    hasField = true;
+  }
+  if (envelope.lineage !== undefined) {
+    const lineage = parseLineage(envelope.lineage);
+    if (!lineage.ok) return lineage;
+    patch.lineage = lineage.lineage;
     hasField = true;
   }
   if (envelope.collapsedCategoryIds !== undefined) {

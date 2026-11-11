@@ -322,6 +322,7 @@ export function useScheduleFilters({
       filters?: ScheduleFilterViewState["filters"];
       searchField?: ScheduleFilterViewState["searchField"];
       hiddenMilestoneGroupIds?: ScheduleId[];
+      hiddenMilestoneIds?: ScheduleId[];
       collapsed?: ReadonlySet<string>;
     }) => {
       if (update.filters !== undefined) {
@@ -335,6 +336,9 @@ export function useScheduleFilters({
       }
       if (update.hiddenMilestoneGroupIds !== undefined) {
         setHiddenMilestoneGroupIds([...update.hiddenMilestoneGroupIds]);
+      }
+      if (update.hiddenMilestoneIds !== undefined) {
+        setHiddenMilestoneIds([...update.hiddenMilestoneIds]);
       }
       if (update.collapsed !== undefined) {
         const next = new Set(update.collapsed);

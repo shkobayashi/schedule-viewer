@@ -258,8 +258,9 @@ import {
 } from "./model/exportHtml";
 import { exportScheduleExcel, exportScheduleExcelToPath } from "./model/exportExcel";
 import {
-  DEFAULT_EXCEL_EXPORT_COLUMNS,
+  readExcelExportColumns,
   readExcelExportFieldColumns,
+  type ExcelExportColumnsPreference,
   type ExcelExportFieldColumnsPreference,
 } from "./model/excelExportColumns";
 import {
@@ -2686,7 +2687,7 @@ function App() {
   const runScheduleExport = useCallback(
     async (
       format: ScheduleExportFormat,
-      excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
+      excelColumns?: ExcelExportColumnsPreference,
       excelFieldColumns?: ExcelExportFieldColumnsPreference,
       exportPath?: string,
     ) => {
@@ -2814,7 +2815,7 @@ function App() {
           taskNames,
           connections: schedule.connections,
           exportedAtIso: new Date().toISOString(),
-          excelColumns: excelColumns ?? DEFAULT_EXCEL_EXPORT_COLUMNS,
+          excelColumns: excelColumns ?? readExcelExportColumns(),
           fieldDefs: editableFieldDefs,
           excelFieldColumns:
             excelFieldColumns ??
@@ -3108,6 +3109,17 @@ function App() {
     runExplainOverlayAction: schedule.runExplainOverlayAction,
     getExplanationOverlay: () => schedule.explanationOverlay,
     applyPartialFilterViewState: schedule.applyPartialFilterViewState,
+    applyMcpSetViewLineage: (lineage) => {
+      if (lineage.taskId === null) {
+        schedule.clearLineage();
+        return;
+      }
+      if (lineage.includesConnections) {
+        schedule.showLineageWithConnections(lineage.taskId);
+        return;
+      }
+      schedule.showLineage(lineage.taskId);
+    },
     applySetViewPreferences: (patch: McpSetViewPatch) => {
       if (patch.displayScale !== undefined) {
         setDisplayScalePreference(patch.displayScale);
@@ -3171,8 +3183,8 @@ function App() {
       try {
         await runScheduleExport(
           format,
-          excelColumns as typeof DEFAULT_EXCEL_EXPORT_COLUMNS | undefined,
-          excelFieldColumns as ExcelExportFieldColumnsPreference | undefined,
+          excelColumns,
+          excelFieldColumns,
           path,
         );
         return { ok: true, text: path };
@@ -3218,6 +3230,7 @@ function App() {
     milestoneGroups: schedule.milestoneGroups,
     filters: schedule.filters,
     lineageTaskId: schedule.lineageTaskId,
+    lineageIncludesConnections: schedule.lineageIncludesConnections,
     lineageIds: schedule.lineageIds,
     hiddenMilestoneGroupIds: schedule.hiddenMilestoneGroupIds,
     hiddenMilestoneIds: schedule.hiddenMilestoneIds,

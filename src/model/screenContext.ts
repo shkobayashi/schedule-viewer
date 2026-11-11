@@ -141,7 +141,7 @@ export type McpActiveFilterCondition =
   | { type: "searchName"; query: string }
   | { type: "searchNote"; query: string }
   | { type: "fieldFilter"; key: string; label: string }
-  | { type: "lineage"; taskId: ScheduleId; taskName: string };
+  | { type: "lineage"; taskId: ScheduleId; taskName: string; includesConnections?: true };
 
 /** タスクの `status` が書く `id` の意味。LLM が `id` を選ぶ手がかり。 */
 export type McpStatusEntry = {
@@ -683,6 +683,7 @@ export function buildActiveFilterConditions(input: {
   milestoneGroups: MilestoneGroup[];
   milestones: Milestone[];
   lineageTaskId: ScheduleId | null;
+  lineageIncludesConnections?: boolean;
   categories: Category[];
   outline?: OutlineRoot | undefined;
   memberCatalog: Map<MemberId, Member> | null;
@@ -822,6 +823,7 @@ export function buildActiveFilterConditions(input: {
       type: "lineage",
       taskId: input.lineageTaskId,
       taskName: task?.name ?? input.lineageTaskId,
+      ...(input.lineageIncludesConnections ? { includesConnections: true } : {}),
     });
   }
 
@@ -857,6 +859,7 @@ export function buildFilteredTasksPayload(
     Partial<McpViewForReadToolsInput> & {
     filters: ScheduleFilters;
     lineageTaskId: ScheduleId | null;
+    lineageIncludesConnections?: boolean;
     hiddenMilestoneGroupIds: ScheduleId[];
     hiddenMilestoneIds: ScheduleId[];
     today: string;
@@ -908,6 +911,7 @@ export function buildFilteredTasksPayload(
         milestoneGroups: [...(input.milestoneGroups ?? [])],
         milestones: [...(input.milestones ?? [])],
         lineageTaskId: input.lineageTaskId,
+        lineageIncludesConnections: input.lineageIncludesConnections,
         categories: [...input.categories],
         outline: input.outline,
         memberCatalog: input.memberCatalog,
