@@ -232,7 +232,7 @@ test("cleared hierarchy toolbar fails validation", () => {
       "| 階層の名前・意味・指示を編集 | |",
     ),
   );
-  expectFailures(doc, [/階層編集.*セルが空/]);
+  expectFailures(doc, [/階層|ツールバー列が空/]);
 });
 
 test("wrong display scale enlarge keys fail validation", () => {
@@ -361,4 +361,73 @@ test("fake toolbar dirty save-status label fails validation", () => {
     ),
   );
   expectFailures(doc, [/ツールバー.*偽物|未保存/]);
+});
+
+test("fake filter-panel toolbar backtick fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("`絞り込み`", "`偽物`"),
+  );
+  expectFailures(doc, [/偽物|filterPanel|絞り込み/]);
+});
+
+test("fake external reload status-bar toolbar label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "`ファイルに更新あり — 確認する`",
+      "`別文言に更新あり`",
+    ),
+  );
+  expectFailures(doc, [/別文言|更新あり/]);
+});
+
+test("fake toolbar search toggle literals fail validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "`名前` / `ノート`",
+      "`偽物` / `ノート`",
+    ),
+  );
+  expectFailures(doc, [/偽物|名前/]);
+});
+
+test("fake link-mode toolbar static label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("`線を引く`", "`偽物`"),
+  );
+  expectFailures(doc, [/偽物|線を引く/]);
+});
+
+test("fake explanation-dismiss banner toolbar label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("`説明を消す`", "`偽物`"),
+  );
+  expectFailures(doc, [/偽物|説明を消す/]);
+});
+
+test("fake add-task split menu label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("メニュー `タスクを追加`", "メニュー `偽物`"),
+  );
+  expectFailures(doc, [/偽物|タスクを追加/]);
+});
+
+test("redo toolbar showing delete formal fails wrong-owner validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("| やり直し | やり直し |", "| やり直し | 削除 |"),
+  );
+  expectFailures(doc, [/やり直し|redo|削除|別操作/]);
+});
+
+test("delete-task toolbar showing fit formal fails wrong-owner validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("| タスクを削除 | 削除 |", "| タスクを削除 | 全体 |"),
+  );
+  expectFailures(doc, [/deleteTask|削除|全体|別操作/]);
+});
+
+test("required redo toolbar empty cell fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("| やり直し | やり直し |", "| やり直し | |"),
+  );
+  expectFailures(doc, [/やり直し|空/]);
 });

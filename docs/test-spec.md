@@ -257,6 +257,15 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `fake toolbar edit-title label fails validation` | — |
 | 同上 | `fake toolbar lineage button label fails validation` | — |
 | 同上 | `fake toolbar dirty save-status label fails validation` | — |
+| 同上 | `fake filter-panel toolbar backtick fails validation` | — |
+| 同上 | `fake external reload status-bar toolbar label fails validation` | — |
+| 同上 | `fake toolbar search toggle literals fail validation` | — |
+| 同上 | `fake link-mode toolbar static label fails validation` | — |
+| 同上 | `fake explanation-dismiss banner toolbar label fails validation` | — |
+| 同上 | `fake add-task split menu label fails validation` | — |
+| 同上 | `redo toolbar showing delete formal fails wrong-owner validation` | — |
+| 同上 | `delete-task toolbar showing fit formal fails wrong-owner validation` | — |
+| 同上 | `required redo toolbar empty cell fails validation` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentity valid when full SHAs match` | — |

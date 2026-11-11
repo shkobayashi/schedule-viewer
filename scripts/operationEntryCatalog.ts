@@ -275,6 +275,123 @@ function deriveDisplayScaleShortcuts(): {
   return { enlarge, reduce };
 }
 
+export type ToolbarOperationSpec = {
+  /** Primary visible label must equal this OPERATION_FORMAL entry (wrong formal rejected). */
+  ownerFormal?: keyof typeof OPERATION_FORMAL;
+  toolbarShortKeys?: (keyof typeof TOOLBAR_SHORT)[];
+  /** Static backtick literals required in the markdown cell. */
+  backtickStatic?: string[];
+  /** Slash-separated visible literals (toolbar search toggle). */
+  slashLiterals?: string[];
+  /** Placeholder strings cited in backticks in the doc. */
+  placeholderLiterals?: string[];
+  /** Runtime suffix only (listed in unverified, static prefix validated). */
+  dynamicUnverified?: Array<"lineageName" | "linkSourceName" | "filterCount">;
+  /** Toolbar column may be empty in doc. */
+  optional?: boolean;
+};
+
+function parseToolbarUiSource() {
+  const toolbar = readFileSync("src/components/Toolbar.tsx", "utf8");
+  const statusBar = readFileSync("src/components/StatusBar.tsx", "utf8");
+  const app = readFileSync("src/App.tsx", "utf8");
+
+  const searchMatch = toolbar.match(
+    /searchField === "name" \? "([^"]+)" : "([^"]+)"/,
+  );
+  const externalReloadLabel =
+    statusBar
+      .match(/className="status-bar-action"[^>]*>\s*([^<]+?)\s*</)?.[1]
+      ?.trim() ?? "";
+  const explanationDismissLabel =
+    app
+      .match(
+        /className="explanation-banner-dismiss"[\s\S]*?>\s*\n\s*([^<\n]+?)\s*\n/,
+      )?.[1]
+      ?.trim() ?? "説明を消す";
+  const linkNamedTemplate =
+    toolbar.match(/linkSourceName \? `([^`]+)` : OPERATION_FORMAL\.link/)?.[1] ??
+    `線を引く: \${linkSourceName}`;
+
+  return {
+    searchNameOption:
+      toolbar.match(/value="name">([^<]+)</)?.[1]?.trim() ?? "",
+    searchNoteOption:
+      toolbar.match(/value="note">([^<]+)</)?.[1]?.trim() ?? "",
+    searchNamePlaceholder: searchMatch?.[1]?.trim() ?? "",
+    searchNotePlaceholder: searchMatch?.[2]?.trim() ?? "",
+    externalReloadLabel,
+    explanationDismissLabel,
+    linkNamedTemplate,
+  };
+}
+
+function buildToolbarByOperation(
+  ui: ReturnType<typeof parseToolbarUiSource>,
+  toolbarSourceLabels: ReturnType<typeof extractToolbarSourceLabels>,
+): Record<string, ToolbarOperationSpec> {
+  const f = OPERATION_FORMAL;
+  return {
+    "未保存の差分を開く（状態バー）": {
+      backtickStatic: [toolbarSourceLabels.dirtySaveStatusLabel],
+    },
+    "外部ファイル更新の確認": {
+      backtickStatic: [ui.externalReloadLabel],
+    },
+    "操作の案内を開く": { toolbarShortKeys: ["guide"] },
+    "ショートカット一覧を開く": {
+      backtickStatic: [toolbarSourceLabels.shortcutsButtonGlyph],
+    },
+    "タスク名／ノートで検索": {
+      slashLiterals: [ui.searchNameOption, ui.searchNoteOption],
+      placeholderLiterals: [
+        ui.searchNamePlaceholder,
+        ui.searchNotePlaceholder,
+      ],
+    },
+    "今日へ移動": { ownerFormal: "goToday" },
+    "日表示": { toolbarShortKeys: ["tierDay"] },
+    "週表示": { toolbarShortKeys: ["tierWeek"] },
+    "月表示": { toolbarShortKeys: ["tierMonth"] },
+    "全体表示": { ownerFormal: "fit" },
+    "スケジュールのタイトルを変更": { ownerFormal: "editTitle", backtickStatic: [f.editTitle] },
+    "階層の名前・意味・指示を編集": { ownerFormal: "hierarchyEdit" },
+    "絞り込みパネルを開く": {
+      ownerFormal: "filterPanel",
+      backtickStatic: [f.filterPanel],
+      dynamicUnverified: ["filterCount"],
+    },
+    "絞り込みをすべて解除": {
+      backtickStatic: [toolbarSourceLabels.clearAllFiltersLabel],
+    },
+    "系統を表示／解除": {
+      backtickStatic: [
+        toolbarSourceLabels.lineageButtonLabel,
+        toolbarSourceLabels.lineageNamedTemplate,
+      ],
+      dynamicUnverified: ["lineageName"],
+    },
+    "系統（繋がりも辿る）": {
+      backtickStatic: [f.lineageFollowConnections],
+    },
+    "線を引くモード": {
+      backtickStatic: [f.link, ui.linkNamedTemplate],
+      dynamicUnverified: ["linkSourceName"],
+    },
+    "取り消し": { ownerFormal: "undo" },
+    "やり直し": { ownerFormal: "redo" },
+    "タスクを追加": {
+      toolbarShortKeys: ["addTask"],
+      backtickStatic: [f.addTask],
+    },
+    "マイルストンを追加": {
+      backtickStatic: [f.addMilestone],
+    },
+    "タスクを削除": { ownerFormal: "deleteTask" },
+    "説明を消す": { backtickStatic: [ui.explanationDismissLabel] },
+  };
+}
+
 function extractToolbarSourceLabels() {
   const toolbar = readFileSync("src/components/Toolbar.tsx", "utf8");
   const active = readFileSync("src/components/ActiveFilterBar.tsx", "utf8");
@@ -419,6 +536,11 @@ export function buildOperationEntryCatalog() {
   const palette = collectPaletteLabels();
   const contextMenu = collectContextMenuOutputs();
   const toolbarSourceLabels = extractToolbarSourceLabels();
+  const toolbarUiSource = parseToolbarUiSource();
+  const toolbarByOperation = buildToolbarByOperation(
+    toolbarUiSource,
+    toolbarSourceLabels,
+  );
   const toolbarStaticLabelSet = [
     ...Object.values(OPERATION_FORMAL),
     ...Object.values(TOOLBAR_SHORT),
@@ -447,6 +569,8 @@ export function buildOperationEntryCatalog() {
     contextMenuTemplateLiterals: contextMenu.templateLiterals,
     displayScaleShortcuts: deriveDisplayScaleShortcuts(),
     toolbarSourceLabels,
+    toolbarUiSource,
+    toolbarByOperation,
     toolbarStaticLabelSet,
     toolbarTitleHintGoToday: goTodayShortcutHint(),
     paletteStaticLabels: palette.staticLabels,

@@ -229,133 +229,193 @@ function toolbarVisibleSegments(cell) {
     .filter(Boolean);
 }
 
-/** @type {Record<string, string>} */
-const TOOLBAR_FORMAL_BY_OPERATION = {
-  "階層の名前・意味・指示を編集": "階層編集",
-  "取り消し": "取り消し",
-  "今日へ移動": "今日",
-};
-
+/** @param {import("./operationEntryCatalog.ts").ToolbarOperationSpec} spec */
 /** @param {import("./operationEntryCatalog.ts").OperationEntryCatalog} catalog */
-function toolbarRowExpectedLiterals(row, catalog) {
-  /** @type {Record<string, string[]>} */
-  const byOperation = {
-    "系統（繋がりも辿る）": [catalog.operationFormal.lineageFollowConnections],
-    "絞り込みをすべて解除": [
-      catalog.toolbarSourceLabels.clearAllFiltersLabel,
-    ],
-    "ショートカット一覧を開く": [
-      catalog.toolbarSourceLabels.shortcutsButtonGlyph,
-    ],
-    "マイルストンを追加": [catalog.operationFormal.addMilestone],
-    "スケジュールのタイトルを変更": [catalog.operationFormal.editTitle],
-    "未保存の差分を開く（状態バー）": [
-      catalog.toolbarSourceLabels.dirtySaveStatusLabel,
-    ],
-    "系統を表示／解除": [
-      catalog.toolbarSourceLabels.lineageButtonLabel,
-      catalog.toolbarSourceLabels.lineageNamedTemplate,
-    ],
-  };
-  return byOperation[row.operation] ?? null;
-}
-
-/** @param {import("./operationEntryCatalog.ts").OperationEntryCatalog} catalog */
-function validateToolbarBacktickLiterals(row, cell, catalog, errors, unverified) {
-  const expected = toolbarRowExpectedLiterals(row, catalog);
-  if (!expected) {
-    if (
-      /placeholder|\.tsx|select）|更新あり|説明を消す|\$\{linkSourceName\}/.test(
-        cell,
-      )
-    ) {
-      unverified.push(
-        `[ツールバー] 操作「${row.operation}」: 動的／出典引用（行別の静的照合は未実施）`,
-      );
-    }
-    return;
+function validateToolbarOperationSpec(row, cell, spec, catalog, errors, unverified) {
+  if (spec.dynamicUnverified?.includes("filterCount")) {
+    unverified.push(
+      `[ツールバー] 操作「${row.operation}」: 絞り込み件数サフィックスは動的（ボタン接頭辞のみ照合）`,
+    );
+  }
+  if (spec.dynamicUnverified?.includes("lineageName")) {
+    unverified.push(
+      `[ツールバー] 操作「${row.operation}」: lineageName サフィックスは動的（系統接頭辞のみ照合）`,
+    );
+  }
+  if (spec.dynamicUnverified?.includes("linkSourceName")) {
+    unverified.push(
+      `[ツールバー] 操作「${row.operation}」: linkSourceName サフィックスは動的（線を引く接頭辞のみ照合）`,
+    );
   }
 
-  /** @type {Set<string>} */
-  const allowed = new Set([
-    ...catalog.toolbarStaticLabelSet,
-    ...expected,
-  ]);
-
-  for (const staticLabel of expected) {
-    if (staticLabel.includes("${")) continue;
-    if (!cell.includes("`" + staticLabel + "`")) {
+  if (spec.ownerFormal) {
+    const want = catalog.operationFormal[spec.ownerFormal];
+    const inBacktick =
+      spec.backtickStatic?.includes(want) && cell.includes("`" + want + "`");
+  const segments = toolbarVisibleSegments(cell);
+    const visibles =
+      segments.length > 0 ? segments : [extractMenuLabelToken(cell)].filter(Boolean);
+    if (!inBacktick && !visibles.includes(want)) {
       report(
         row,
         "ツールバー",
-        `必須の静的ラベル「${staticLabel}」がツールバー列に無い`,
+        `表示が owner OPERATION_FORMAL.${spec.ownerFormal} の「${want}」と一致しない（実際: ${visibles.join(" / ") || "空"}）`,
         errors,
       );
     }
-  }
-
-  for (const match of cell.matchAll(/`([^`]+)`/g)) {
-    const lit = match[1];
-    if (lit.includes("${lineageName}")) {
-      unverified.push(
-        `[ツールバー] 操作「${row.operation}」: 「${lit}」の lineageName は動的（静的接頭辞のみ照合）`,
-      );
-      const expectedPrefix =
-        catalog.toolbarSourceLabels.lineageNamedTemplate.replace(
-          "${lineageName}",
-          "",
-        );
-      const actualPrefix = lit.replace("${lineageName}", "");
-      if (actualPrefix !== expectedPrefix) {
+    for (const visible of visibles) {
+      if (
+        visible !== want &&
+        catalog.operationFormalValues.includes(visible)
+      ) {
         report(
           row,
           "ツールバー",
-          `系統ラベル接頭辞「${actualPrefix}」が Toolbar.tsx の「${expectedPrefix}」と一致しない`,
+          `表示「${visible}」は別操作の正式名であり、${spec.ownerFormal} 行では不可`,
           errors,
         );
       }
-      continue;
-    }
-    if (
-      lit === "saveStatus" ||
-      lit === "StatusBar.tsx" ||
-      lit === "ActiveFilterBar.tsx" ||
-      lit.startsWith("TOOLBAR_SHORT.")
-    ) {
-      continue;
-    }
-    if (!allowed.has(lit)) {
-      report(
-        row,
-        "ツールバー",
-        `バッククォート内「${lit}」がソース由来のツールバー静的文言と一致しない`,
-        errors,
-      );
     }
   }
 
-  const head = cell.split("（")[0].trim();
-  const addMenu = head.match(/^追加メニュー\s+`([^`]+)`/);
-  if (addMenu) {
+  if (spec.backtickStatic) {
+    for (const lit of spec.backtickStatic) {
+      if (lit.includes("${lineageName}")) {
+        const expectedPrefix =
+          catalog.toolbarSourceLabels.lineageNamedTemplate.replace(
+            "${lineageName}",
+            "",
+          );
+        const pattern = new RegExp(
+          "`" + lit.replace(/\$\{lineageName\}/g, "\\$\\{lineageName\\}") + "`",
+        );
+        if (!pattern.test(cell)) {
+          report(
+            row,
+            "ツールバー",
+            `必須の系統テンプレート「${lit}」が無い`,
+            errors,
+          );
+          continue;
+        }
+        const match = cell.match(/`([^`]*\$\{lineageName\}[^`]*)`/);
+        if (match) {
+          const actualPrefix = match[1].replace("${lineageName}", "");
+          if (actualPrefix !== expectedPrefix) {
+            report(
+              row,
+              "ツールバー",
+              `系統テンプレ接頭辞「${actualPrefix}」が Toolbar.tsx の「${expectedPrefix}」と一致しない`,
+              errors,
+            );
+          }
+        }
+        continue;
+      }
+      if (lit.includes("${linkSourceName}")) {
+        const expectedPrefix = catalog.toolbarUiSource.linkNamedTemplate.replace(
+          "${linkSourceName}",
+          "",
+        );
+        const match = cell.match(/`([^`]*\$\{linkSourceName\}[^`]*)`/);
+        if (!match) {
+          report(
+            row,
+            "ツールバー",
+            `必須の線を引くテンプレート「${lit}」が無い`,
+            errors,
+          );
+        } else {
+          const actualPrefix = match[1].replace("${linkSourceName}", "");
+          if (actualPrefix !== expectedPrefix) {
+            report(
+              row,
+              "ツールバー",
+              `線を引くテンプレ接頭辞「${actualPrefix}」が Toolbar.tsx の「${expectedPrefix}」と一致しない`,
+              errors,
+            );
+          }
+        }
+        if (!cell.includes("`" + catalog.operationFormal.link + "`")) {
+          report(
+            row,
+            "ツールバー",
+            `線を引くモード行に静的ラベル「${catalog.operationFormal.link}」の引用が無い`,
+            errors,
+          );
+        }
+        continue;
+      }
+      if (!cell.includes("`" + lit + "`")) {
+        report(
+          row,
+          "ツールバー",
+          `必須のバッククォート静的文字「${lit}」が無い`,
+          errors,
+        );
+      }
+    }
+    for (const match of cell.matchAll(/`([^`]+)`/g)) {
+      const lit = match[1];
+      if (
+        lit === "saveStatus" ||
+        lit === "StatusBar.tsx" ||
+        lit === "ActiveFilterBar.tsx" ||
+        lit.startsWith("TOOLBAR_SHORT.")
+      ) {
+        continue;
+      }
+      if (lit.includes("${")) continue;
+      const allowed = new Set([
+        ...spec.backtickStatic,
+        ...(spec.placeholderLiterals ?? []),
+        ...(spec.toolbarShortKeys ?? []).map((k) => catalog.toolbarShort[k]),
+      ]);
+      if (!allowed.has(lit)) {
+        report(
+          row,
+          "ツールバー",
+          `バッククォート内「${lit}」がこの操作の許可静的トークンと一致しない`,
+          errors,
+        );
+      }
+    }
+  }
+
+  if (spec.slashLiterals?.length) {
+    for (const lit of spec.slashLiterals) {
+      if (!cell.includes("`" + lit + "`")) {
+        report(
+          row,
+          "ツールバー",
+          `検索トグル「${lit}」の引用が無い`,
+          errors,
+        );
+      }
+    }
+  }
+
+  if (spec.placeholderLiterals?.length) {
+    for (const lit of spec.placeholderLiterals) {
+      if (!cell.includes("`" + lit + "`")) {
+        report(
+          row,
+          "ツールバー",
+          `placeholder「${lit}」の引用が無い`,
+          errors,
+        );
+      }
+    }
+  }
+
+  const addMenu = cell.match(/メニュー\s+`([^`]+)`/);
+  if (addMenu && spec.backtickStatic?.includes(catalog.operationFormal.addTask)) {
     const lit = addMenu[1];
-    if (!allowed.has(lit)) {
+    if (lit !== catalog.operationFormal.addTask) {
       report(
         row,
         "ツールバー",
-        `追加メニュー表示「${lit}」がソース由来のツールバー静的文言と一致しない`,
-        errors,
-      );
-    }
-  }
-
-  if (row.operation === "ショートカット一覧を開く") {
-    const glyph = head.replace(/`/g, "").trim();
-    const want = catalog.toolbarSourceLabels.shortcutsButtonGlyph;
-    if (glyph && glyph !== want) {
-      report(
-        row,
-        "ツールバー",
-        `ショートカットボタン表示「${glyph}」が Toolbar.tsx の「${want}」と一致しない`,
+        `追加 split メニュー「${lit}」が OPERATION_FORMAL.addTask の「${catalog.operationFormal.addTask}」と一致しない`,
         errors,
       );
     }
@@ -363,25 +423,29 @@ function validateToolbarBacktickLiterals(row, cell, catalog, errors, unverified)
 }
 
 function validateToolbar(row, catalog, errors, unverified) {
-  const cell = row.cells["ツールバー"];
-  const requiredFormal = TOOLBAR_FORMAL_BY_OPERATION[row.operation];
-  if (!cell || !cell.trim()) {
-    if (requiredFormal) {
-      report(
-        row,
-        "ツールバー",
-        `必須の正式ラベル「${requiredFormal}」のセルが空`,
-        errors,
-      );
+  const cell = row.cells["ツールバー"] ?? "";
+  const spec = catalog.toolbarByOperation[row.operation];
+
+  if (!cell.trim()) {
+    if (spec && !spec.optional) {
+      report(row, "ツールバー", "ツールバー列が空だが、この操作は必須", errors);
     }
     return;
   }
   if (cell.startsWith("（")) return;
 
-  const citedKeys = new Set();
+  if (!spec) {
+    report(
+      row,
+      "ツールバー",
+      "主表ツールバー照合カタログに未登録（静的トークンを自動合格させない）",
+      errors,
+    );
+    return;
+  }
+
   for (const match of cell.matchAll(/TOOLBAR_SHORT\.(\w+)/g)) {
     const key = match[1];
-    citedKeys.add(key);
     const value = catalog.toolbarShort[key];
     if (value == null) {
       report(
@@ -390,58 +454,37 @@ function validateToolbar(row, catalog, errors, unverified) {
         `TOOLBAR_SHORT.${key} がソースに無い`,
         errors,
       );
-      continue;
-    }
-    const segments = toolbarVisibleSegments(cell);
-    if (segments.length > 0 && !segments.some((seg) => seg === value)) {
-      report(
-        row,
-        "ツールバー",
-        `TOOLBAR_SHORT.${key} の表示値「${value}」とセル「${segments.join("/")}」が一致しない`,
-        errors,
-      );
     }
   }
 
-  if (citedKeys.size > 0) {
-    const titleMatch = cell.match(/title に ([^）]+)/);
-    if (titleMatch && row.operation === "今日へ移動") {
-      const hint = titleMatch[1].trim();
-      if (hint !== catalog.toolbarTitleHintGoToday) {
+  if (spec.toolbarShortKeys) {
+    for (const key of spec.toolbarShortKeys) {
+      const value = catalog.toolbarShort[key];
+      if (value == null) continue;
+      if (!cell.includes(`TOOLBAR_SHORT.${key}`)) {
         report(
           row,
           "ツールバー",
-          `title に「${hint}」が goTodayShortcutHint の「${catalog.toolbarTitleHintGoToday}」と一致しない`,
+          `TOOLBAR_SHORT.${key} のカタログ引用が無い`,
+          errors,
+        );
+      }
+      const segments = toolbarVisibleSegments(cell);
+      if (segments.length > 0 && !segments.some((seg) => seg === value)) {
+        report(
+          row,
+          "ツールバー",
+          `TOOLBAR_SHORT.${key} の表示値「${value}」とセル「${segments.join("/")}」が一致しない`,
           errors,
         );
       }
     }
-    return;
   }
 
-  validateToolbarBacktickLiterals(row, cell, catalog, errors, unverified);
-
-  const rowExpected = toolbarRowExpectedLiterals(row, catalog);
-  const hasBacktickCitations = /`[^`]+`/.test(cell);
-  const primary = extractMenuLabelToken(cell);
-  if (
-    !rowExpected &&
-    !hasBacktickCitations &&
-    primary &&
-    !catalog.operationFormalValues.includes(primary) &&
-    !Object.values(catalog.toolbarShort).includes(primary) &&
-    !catalog.toolbarStaticLabelSet.includes(primary)
-  ) {
-    report(
-      row,
-      "ツールバー",
-      `表示「${primary}」が OPERATION_FORMAL / TOOLBAR_SHORT と一致しない`,
-      errors,
-    );
-  }
+  validateToolbarOperationSpec(row, cell, spec, catalog, errors, unverified);
 
   const titleMatch = cell.match(/title に ([^）]+)/);
-  if (titleMatch && primary === catalog.operationFormal?.goToday) {
+  if (titleMatch && row.operation === "今日へ移動") {
     const hint = titleMatch[1].trim();
     if (hint !== catalog.toolbarTitleHintGoToday) {
       report(
@@ -453,13 +496,16 @@ function validateToolbar(row, catalog, errors, unverified) {
     }
   }
 
-  if (requiredFormal && primary !== requiredFormal) {
-    report(
-      row,
-      "ツールバー",
-      `表示「${primary}」が必須の「${requiredFormal}」と一致しない`,
-      errors,
-    );
+  if (row.operation === "マイルストンを追加") {
+    const menu = cell.match(/追加メニュー\s+`([^`]+)`/);
+    if (menu && menu[1] !== catalog.operationFormal.addMilestone) {
+      report(
+        row,
+        "ツールバー",
+        `追加メニュー「${menu[1]}」が OPERATION_FORMAL.addMilestone と一致しない`,
+        errors,
+      );
+    }
   }
 }
 
