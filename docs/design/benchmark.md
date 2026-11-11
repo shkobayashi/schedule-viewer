@@ -53,7 +53,7 @@ npm run capture:phase3-evidence # 5174 · 本ブランチ + compare 合成
 
 - ダイアログ内の個別フォーム（エクスポート、ガイド、コマンドパレット）の `border-radius` / `padding` 直書き。コマンドパレットは Issue #551 増分 1 で、入力・候補行の余白と gap だけ `var(--space-sm)` / `var(--space-md)` へ寄せた（フレーム `padding: calc(20px * var(--s))`、オーバーレイ 72px、空一覧 12px はトークン一致が無いため据え置き）。`ExportFormatDialog` の未スケール `gap: 8px` 等は同 Issue の別増分
 - フィルタパネル・差分ストリップの影と gap の統一（増分 2 済み: スケール済み 4/8/10/14px と `border-radius: 8px`・チップ `999px` をトークン化。`.filter-bar` の未スケール `6px` / `4px 12px`、チップ `2px 8px`、パネル `calc(12px * var(--s))`、`6px` 行間、差分の `calc(12px * var(--s))`、`.detail-panel` の `-6px 0 24px` は据え置き）
-- 詳細パネル内フィールドを `.ui-field` へ段階的に移行
+- 詳細パネル内フィールドの `.ui-field` 移行（増分 3 済み: `TaskDetailPanel` / `BulkTaskDetailPanel` のテキスト・テキストエリア・select・日付・タグ・TODO 入力と、`DateInput` の任意 `inputClassName`。レンジ・チェックボックス・色・担当・適用ボタンは除外。`DateInput` 単体利用は従来クラスのまま）
 - Konva 試し行の点線・ハロ色（意味色は維持しつつ UI トークンとの整理）
 - 操作マニュアル 19 図（`capture:manual-screenshots`）の撮り直し
 

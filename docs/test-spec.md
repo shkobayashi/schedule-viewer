@@ -1100,6 +1100,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `appChrome.test.ts` | `uses toolbar-fg for pencil on Raycast toolbar` | EDIT-20 |
 | `commandPaletteCss.test.ts` | `maps input and item padding and gaps to --space-sm and --space-md` / `does not keep scaled 8px/10px literals on palette input and items` / `keeps frame chrome on design tokens and unmatched scaled padding` | — |
 | `filterDiffStripCss.test.ts` | `maps filter panel grid and field gaps to space tokens` / `maps diff strip header, actions, and list spacing to space tokens` / `uses radius-pill on filter chips without retokenizing bar spacing` / `keeps detail panel left-facing shadow unchanged` / `matches design token literals from uiTokens.ts` | — |
+| `DateInput.test.tsx` | `keeps default input class when inputClassName is omitted` / `applies optional inputClassName on the text field only` / `commits on blur with optional class` | — |
+| `detailPanelUiField.dom.test.tsx` | `puts ui-field on text, textarea, select, date, todo inputs but not on progress range` / `persists a status edit from the detail panel` / `enables bulk apply after a status change` | — |
 | `HierarchyLevelsDialog.test.ts` | `commits draft via footer 適用, not a second 閉じる` | EDIT-21 |
 | `DialogCloseButton.test.ts` | `exposes dismiss label and Esc tooltip` | NAV-07 |
 | `history.test.ts` | `undo restores a title change in one step` | EDIT-10, EDIT-20 |

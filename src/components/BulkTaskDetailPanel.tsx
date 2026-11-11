@@ -313,6 +313,7 @@ export function BulkTaskDetailPanel({
             <DateInput
               id="bulkStart"
               value={displayStart}
+              inputClassName="ui-field"
               onChange={(next) =>
                 setLocal((prev) =>
                   setDraftDateField("start", next, commonStart, prev),
@@ -328,6 +329,7 @@ export function BulkTaskDetailPanel({
             <DateInput
               id="bulkEnd"
               value={displayEnd}
+              inputClassName="ui-field"
               onChange={(next) =>
                 setLocal((prev) =>
                   setDraftDateField("end", next, commonEnd, prev),
@@ -419,6 +421,7 @@ export function BulkTaskDetailPanel({
           <label htmlFor="bulkStatus">ステータス</label>
           <select
             id="bulkStatus"
+            className="ui-field"
             value={local.status}
             onChange={(e) =>
               setLocal((prev) => ({
@@ -463,6 +466,7 @@ export function BulkTaskDetailPanel({
           <label htmlFor="bulkConfidence">確度</label>
           <select
             id="bulkConfidence"
+            className="ui-field"
             value={local.confidence}
             onChange={(e) =>
               setLocal((prev) => ({
@@ -591,6 +595,7 @@ export function BulkTaskDetailPanel({
           <input
             id="bulkTagInput"
             type="text"
+            className="ui-field"
             list={documentTags.length > 0 ? "bulkTagSuggestions" : undefined}
             value={tagInput}
             placeholder="タグを入力して Enter"
