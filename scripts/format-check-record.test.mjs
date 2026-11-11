@@ -454,6 +454,43 @@ test("#591 record uses as-of integration_status without validator pinning open f
   assert.equal(validatePhaseRecord(rec591).ok, true);
 });
 
+test("#591 committed record reflects GitHub user merge and keeps verified_head_sha", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  assert.ok(rec591);
+  assert.equal(rec591.integration_status.pr_state, "merged");
+  assert.equal(
+    rec591.integration_status.merge_commit_sha,
+    "4382d4b7eb53e0601ceacd7e508e99c61dee994a",
+  );
+  assert.equal(rec591.verified_head_sha, "2add60baa4014c3900cca4f5a77ae73d00aaae1d");
+  assert.equal(rec591.fix_rounds, 2);
+  const userMerge = rec591.phases.find((p) => p.id === "591-merge-user-1");
+  assert.ok(userMerge);
+  assert.equal(userMerge.substantive_fix, false);
+});
+
+test("validatePhaseRecordRevision accepts #591 user merge phase and merged integration_status", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  assert.ok(rec591);
+  const beforeMerge = structuredClone(rec591);
+  beforeMerge.integration_status = {
+    as_of: "2026-11-11",
+    pr_state: "open",
+    pr_head_sha: "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
+    provenance: "coordinator launch/review/fix record and GitHub fetch at slice authoring",
+  };
+  beforeMerge.phases = beforeMerge.phases.filter((p) => p.id !== "591-merge-user-1");
+  beforeMerge.corrections = beforeMerge.corrections.filter(
+    (c) =>
+      c.id !== "591-corr-integration-open-historical" && c.id !== "591-corr-user-merge-github",
+  );
+  const rev = validatePhaseRecordRevision(beforeMerge, rec591);
+  assert.equal(rev.ok, true, rev.issues.join("; "));
+  assert.equal(validatePhaseRecord(rec591).ok, true);
+});
+
 test("committed #592 canonical record matches high plan configured and fix_rounds 1", () => {
   const committed = validateCommittedPhaseRecordFiles();
   const rec592 = committed.records.find((r) => r?.record_id === "issue-553-pr-592");
@@ -474,7 +511,7 @@ test("#591 committed record verified_head_sha matches latest MERGE-READY review"
     "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
   );
   assert.equal(rec591.verified_head_sha, "2add60baa4014c3900cca4f5a77ae73d00aaae1d");
-  assert.equal(rec591.integration_status.pr_state, "open");
+  assert.equal(rec591.integration_status.pr_state, "merged");
   assert.equal(rec591.ready_head_sha, "60d5252149558ddf0146866f0cd2f60995ee03e4");
 });
 

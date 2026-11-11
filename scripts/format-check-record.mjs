@@ -739,6 +739,7 @@ export function validateCommittedPhaseRecordFiles(dir = PHASE_RECORDS_DIR) {
 
 const PR591_READY_SHA = "60d5252149558ddf0146866f0cd2f60995ee03e4";
 const PR591_VERIFIED_SHA = "2add60baa4014c3900cca4f5a77ae73d00aaae1d";
+const PR591_MERGE_SHA = "4382d4b7eb53e0601ceacd7e508e99c61dee994a";
 const PR592_VERIFIED_SHA = "eb0c804e42a6c1359920da7b202f103124dcbb0a";
 const PR592_MERGE_SHA = "4879ed7a02eb8d6df1ba47c8e4f894bfed83c6b2";
 
@@ -766,6 +767,9 @@ export function validatePhaseLogPracticeEntries(markdown) {
   }
   if (!markdown.includes(PR591_VERIFIED_SHA)) {
     issues.push("missing #591 verified_head_sha in phase log");
+  }
+  if (!markdown.includes(PR591_MERGE_SHA)) {
+    issues.push("missing #591 merge commit sha in phase log");
   }
   if (!markdown.includes(PR592_VERIFIED_SHA)) {
     issues.push("missing #592 verified_head_sha in phase log");

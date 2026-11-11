@@ -7,9 +7,12 @@
   "canonical_path": "docs/phase-records/issue-553-pr591.json",
   "integration_status": {
     "as_of": "2026-11-11",
-    "pr_state": "open",
+    "pr_state": "merged",
     "pr_head_sha": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
-    "provenance": "coordinator launch/review/fix record and GitHub fetch at slice authoring"
+    "merge_commit_sha": "4382d4b7eb53e0601ceacd7e508e99c61dee994a",
+    "merged_at_utc": "2026-11-11T11:30:01Z",
+    "merged_at_jst": "2026-11-11T20:30:01+09:00",
+    "provenance": "GitHub user merge event; prior open as-of row preserved in corrections"
   },
   "verified_head_sha": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
   "ready_head_sha": "60d5252149558ddf0146866f0cd2f60995ee03e4",
@@ -127,6 +130,17 @@
       "review_outcome": "MERGE-READY",
       "findings": "MERGE-READY on integration head. Provider and fetched heads matched; parents 60d52521 and 4879ed7a both ancestors. Hook bytes unchanged from 60d52521; split files byte-identical to merged #592; conflicted docs preserve both sides. 87 targeted tests, 35-file agent-docs checker, exact test-spec title parity, full correct-base PR diff check passed on archive Node v22.23.4. GitHub mergeable; no check runs. No Node 24 or live IDE/Cloud blocking proof.",
       "provenance": "coordinator review record (run 4 complete)"
+    },
+    {
+      "id": "591-merge-user-1",
+      "task_type": "統合",
+      "effort": "unknown",
+      "effort_basis": "unknown",
+      "head_sha_produced": "4382d4b7eb53e0601ceacd7e508e99c61dee994a",
+      "pr_head_at_merge": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
+      "substantive_fix": false,
+      "findings": "GitHub user merge at 2026-11-11T11:30:01Z (20:30:01 JST). Merge commit 4382d4b7eb53e0601ceacd7e508e99c61dee994a; reviewed PR head 2add60baa4014c3900cca4f5a77ae73d00aaae1d unchanged as verified_head_sha. Not a fix round.",
+      "provenance": "GitHub merge event (user)"
     }
   ],
   "corrections": [
@@ -153,6 +167,18 @@
       "appended_at": "2026-11-11",
       "correction_note": "PR #593 review-fix (one-time schema delivery): verified_head_sha set from latest MERGE-READY review while integration_status.pr_state remains open; human merge is separate.",
       "provenance": "coordinator correction"
+    },
+    {
+      "id": "591-corr-integration-open-historical",
+      "appended_at": "2026-11-11",
+      "correction_note": "Historical integration_status before GitHub user merge: pr_state open, as_of 2026-11-11, pr_head_sha 2add60baa4014c3900cca4f5a77ae73d00aaae1d; provenance coordinator launch/review/fix record and GitHub fetch at slice authoring.",
+      "provenance": "coordinator correction"
+    },
+    {
+      "id": "591-corr-user-merge-github",
+      "appended_at": "2026-11-11",
+      "correction_note": "GitHub merged PR #591: merge_commit_sha 4382d4b7eb53e0601ceacd7e508e99c61dee994a; merged_at 2026-11-11T11:30:01Z. verified_head_sha stays 2add60baa4014c3900cca4f5a77ae73d00aaae1d.",
+      "provenance": "GitHub merge event (user)"
     }
   ],
   "merge_summary": {

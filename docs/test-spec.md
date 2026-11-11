@@ -256,6 +256,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/format-check-record.test.mjs` | `#591 record uses as-of integration_status without validator pinning open forever` | — |
 | `scripts/format-check-record.test.mjs` | `committed #592 canonical record matches high plan configured and fix_rounds 1` | — |
 | `scripts/format-check-record.test.mjs` | `phase log practice entries link canonical #591 and #592 records` | — |
+| `scripts/format-check-record.test.mjs` | `#591 committed record reflects GitHub user merge and keeps verified_head_sha` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision accepts #591 user merge phase and merged integration_status` | — |
 | `scripts/format-check-record.test.mjs` | `#591 committed record verified_head_sha matches latest MERGE-READY review` | — |
 | `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects verified_head_sha missing when MERGE-READY review exists` | — |
 | `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects mutated committed #591 phase prefix` | — |
