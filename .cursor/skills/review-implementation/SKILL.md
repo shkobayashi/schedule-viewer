@@ -40,6 +40,7 @@ description: >-
 - **model の export 配置（P-AG-06）:** `src/model/` で import ブロックの途中に `export` が割り込んでいないか。implement-change 状態 31
 - **操作の入口（P-CI-06）:** 入口ラベルや MCP 名を変えたとき、`operation-entries.md` を更新し `npm run check:operation-entries` が通るか
 - テスト網羅性。計画が名指しした条件が、テストと [docs/test-spec.md](../../../docs/test-spec.md) に残っているか。照合は implement-change の「テストと確認」に従う
+- **証拠と SHA:** スクリーンショットは枠内の表示だけを証明する。比較は同じ表示条件で行う。UI の見え方と MCP 経路の同等性は別主張として、差分が触れているときだけ確かめる。報告の head SHA が `git` または GitHub と一致するか
 - 潜在的な不具合。境界、失敗、非同期の古い結果、保存と履歴を、差分が触れているときに見る
 - セキュリティリスク。差分が Tauri の権限、パス、HTML と SVG、入力の大きさに触れているときだけ見る
 - パフォーマンスリスク。差分が描画中の再計算、ポーリング、保存の頻度に触れているときだけ見る

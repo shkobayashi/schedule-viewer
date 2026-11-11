@@ -302,7 +302,9 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 | 夜間 | 同じワークフローが、既定ブランチ `develop` の `schedule`（cron `0 16 * * *`、UTC、日本時間 1:00）で回す。このファイルが `develop` に入るまでは動かない |
 | リリース前 | 「リリース前に回す検査」の自動を全部回す。手動の回帰も行う。緊急のリリースは手動の回帰だけ飛ばしてよい |
 
-`src-tauri/` を変えたときは、普段の開発でも、手元の OS で `cd src-tauri && cargo clippy -- -D warnings` と `cargo test --locked` を足す。
+`src-tauri/` を変えた作業の途中は、手元の OS で `cargo clippy --lib -- -D warnings` と `cargo test --lib --locked` を足す。`tests/mcp_running_app.rs` を含む全体の `cargo test --locked` は、PR 前の一回、リリース前、CI で回す。
+
+文書だけの修正のあとに、フロントエンドの全テストを理由なく繰り返さない。
 
 ブラウザ回帰は、子 Issue の作業中と「PR 前の一回」には含めない。`develop` または `next` 向けの pull request では、上のワークフローが回す。リリース前の自動にも含める。同じコミットでは繰り返さない。夜間は、ワークフローファイルが `develop` に入ってから動く。
 
