@@ -235,8 +235,10 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/check-agent-docs.test.mjs` | `unquoted broken prose link still fails` | — |
 | `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects empty quoted description` | — |
 | `scripts/check-quality-doc-sources.test.mjs` | `development quality table links sources and omits mutable limits` | — |
+| `scripts/check-quality-doc-sources.test.mjs` | `copied limit guard tolerates Issue #436 in scoped jscpd cell` | — |
 | `scripts/check-quality-doc-sources.test.mjs` | `agent-facing quality pointers reference config sources` | — |
-| `scripts/check-quality-doc-sources.test.mjs` | `recurrence guidance prefers automated checks before skill prose` | — |
+| `scripts/check-quality-doc-sources.test.mjs` | `recurrence instructions require checks before skill prose in four sources` | — |
+| `scripts/check-quality-doc-sources.test.mjs` | `recurrence mutation fixtures reject prose-only regressions` | — |
 | `scripts/ci-changed-path-flags.test.mjs` | `ci.yml changes job pipes git diff into ci-changed-path-flags.sh` | — |
 | `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: build-user-manual-site.mjs is manual only` | — |
 | `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: manual-site render.mjs is manual only` | — |
