@@ -19,3 +19,5 @@ Side-by-side (top crop only): `increment3-compare-light-task-detail.png`, `incre
 ## Increment 4 — explanation overlay (trial Konva)
 
 Full viewport captures at `--s = 1.15` via `__manualScreenshotShowExplainOverlay` on `examples/playground.schedule.json` (`increment4-{before,after}-{light,dark}-explain-overlay.png`). Veil, summary band, trial dashed bar, and numbered balloons are visible. **Halo rings on colored marks** use `explanationMarkHaloStroke` when `color` is set; the hook fixture’s marks include `color` but halo contrast is **not** asserted from these crops — see `explanationTrialTokens.test.ts` and `explanationMarkColor.test.ts`. Trial predecessor halos use `chart.connectionArcHalo` passed from the timeline (no `#f8fafc` default).
+
+`increment4-before-metrics.json` keeps the original empty `summaryText` DOM samples from the first before run; see its `summaryTextDomCapture` block for the timing limitation and PNG-based transcription label. New captures use the script wait on non-empty summary text and read metrics after the screenshot.

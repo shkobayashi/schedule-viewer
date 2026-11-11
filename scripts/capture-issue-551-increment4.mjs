@@ -133,19 +133,30 @@ async function captureExplainOverlay(page, scheme) {
   if (!canShow) throw new Error("manual-screenshot explain overlay hook missing");
   await page.evaluate(() => window.__manualScreenshotShowExplainOverlay?.());
   await page.waitForSelector(".explanation-sidebar-veil", { timeout: 15_000 });
-  await page.waitForSelector(".explanation-banner-summary", { timeout: 15_000 });
-  await page.waitForTimeout(600);
+  await page.waitForFunction(
+    () => {
+      const text = document.querySelector(".explanation-banner-summary")?.textContent?.trim();
+      return Boolean(text);
+    },
+    null,
+    { timeout: 15_000 },
+  );
+  const file = path.join(outDir, `increment4-${phase}-${scheme}-explain-overlay.png`);
+  await page.screenshot({ path: file, fullPage: false });
   const metrics = await page.evaluate(() => {
     const rootStyle = getComputedStyle(document.documentElement);
+    const summaryText =
+      document.querySelector(".explanation-banner-summary")?.textContent?.trim() ?? "";
     return {
       s: rootStyle.getPropertyValue("--s").trim(),
       borderWidthFocus: rootStyle.getPropertyValue("--border-width-focus").trim(),
       veilVisible: document.querySelector(".explanation-sidebar-veil") != null,
-      summaryText: document.querySelector(".explanation-banner-summary")?.textContent?.trim() ?? "",
+      summaryText,
     };
   });
-  const file = path.join(outDir, `increment4-${phase}-${scheme}-explain-overlay.png`);
-  await page.screenshot({ path: file, fullPage: false });
+  if (!metrics.summaryText) {
+    throw new Error("summaryText empty after overlay settle");
+  }
   return { case: "explain-overlay", scheme, metrics, file };
 }
 

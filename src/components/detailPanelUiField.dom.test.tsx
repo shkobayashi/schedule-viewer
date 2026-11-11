@@ -94,9 +94,9 @@ describe("detail panel ui-field (#551 increment 3)", () => {
     cleanup();
   });
 
-  it("puts ui-field on text, textarea, select, date, todo inputs but not on progress range", async () => {
-    const path = "/tmp/ui-field/detail-smoke-todos.json";
-    const contents = smokeScheduleWithTodosOnDesign();
+  it("puts ui-field on detail text fields and keeps the progress range without ui-field", async () => {
+    const path = "/tmp/ui-field/detail-smoke-progress.json";
+    const contents = documentToJsonString(loadRegressionSchedule("smoke.schedule.json"));
     await mountApp({ path, contents }, invoke);
     await expandSidebarUntilTask("設計");
     fireEvent.click(screen.getByText("設計"));
@@ -107,6 +107,22 @@ describe("detail panel ui-field (#551 increment 3)", () => {
     expect(document.getElementById("detailTagInput")).toHaveClass("ui-field");
     expect(document.getElementById("detailStart")).toHaveClass("ui-field");
     expect(document.getElementById("detailStatus")).toHaveClass("ui-field");
+    const progressRange = document.querySelector(
+      '#detailProgress[type="range"]',
+    ) as HTMLInputElement | null;
+    expect(progressRange).toBeTruthy();
+    expect(progressRange).not.toHaveClass("ui-field");
+    expect(progressRange?.value).toBe("40");
+  });
+
+  it("uses ui-field on todo text but not on progress range or status checkbox when todos are active", async () => {
+    const path = "/tmp/ui-field/detail-smoke-todos.json";
+    const contents = smokeScheduleWithTodosOnDesign();
+    await mountApp({ path, contents }, invoke);
+    await expandSidebarUntilTask("設計");
+    fireEvent.click(screen.getByText("設計"));
+    await waitFor(() => expect(screen.getByLabelText("タスクの詳細")).toBeInTheDocument());
+
     expect(document.querySelector(".detail-todo-text")).toHaveClass("ui-field");
     expect(document.querySelector('#detailProgress[type="range"]')).toBeNull();
     expect(document.querySelector(".field input[type='checkbox']")).not.toHaveClass(

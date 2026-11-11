@@ -29,11 +29,16 @@ describe("explanation trial Konva tokens (#551 increment 4)", () => {
     expect(src).toContain("EXPLANATION_TRIAL_STROKE_WIDTH");
   });
 
-  it("routes timeline body layers through chart.connectionArcHalo", () => {
-    const src = readFileSync(
+  it("passes chart.connectionArcHalo from TimelineChartBodyStage into body layers", () => {
+    const stageSrc = readFileSync(
+      path.join(repoRoot, "components", "timeline", "TimelineChartBodyStage.tsx"),
+      "utf8",
+    );
+    expect(stageSrc).toContain("connectionArcHaloColor={chart.connectionArcHalo}");
+    const layersSrc = readFileSync(
       path.join(repoRoot, "components", "timeline", "TimelineBodyExplanationLayers.tsx"),
       "utf8",
     );
-    expect(src).toContain("connectionArcHaloColor={connectionArcHaloColor}");
+    expect(layersSrc).toContain("connectionArcHaloColor={connectionArcHaloColor}");
   });
 });

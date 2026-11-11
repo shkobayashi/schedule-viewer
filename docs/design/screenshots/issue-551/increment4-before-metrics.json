@@ -4,6 +4,14 @@
     "width": 1440,
     "height": 900
   },
+  "summaryTextDomCapture": {
+    "limitation": "The 2026-11-11T07:17:13Z run stored empty summaryText in captures[].metrics while veilVisible was true. Paired increment4-before-*-explain-overlay.png files are byte-identical to after PNGs and visibly show the banner line 並行案の説明（見本）.",
+    "cause": "capture-issue-551-increment4.mjs sampled metrics before non-empty summary text was guaranteed; the script now waits on non-empty .explanation-banner-summary textContent and samples metrics after the screenshot.",
+    "visualTranscriptionFromPng": {
+      "summaryText": "並行案の説明（見本）",
+      "label": "Not captured DOM data — transcribed from increment4-before-{light,dark}-explain-overlay.png"
+    }
+  },
   "capturedAt": "2026-11-11T07:17:13.659Z",
   "captures": [
     {
