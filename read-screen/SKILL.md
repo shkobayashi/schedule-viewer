@@ -38,12 +38,12 @@ schedule-viewer のデスクトップ版ウィンドウと連携するスキル�
 
 | 目的 | MCP ツール名 | コマンド |
 | --- | --- | --- |
-| 見方（絞り込み、折りたたみ、表示、ズーム、スクロール、Fit など） | `set_view` | `--screen set_view`（stdin に JSON） |
+| 見方（絞り込み、折りたたみ、表示、ズーム、スクロール、Fit、系統、帯の印の非表示 など） | `set_view` | `--screen set_view`（stdin に JSON。系統は `lineage`、帯の印の非表示は `hiddenMilestoneIds`） |
 | 説明のための絞り込みと折りたたみ | `explain_view` | `--screen explain_view`（stdin に JSON） |
 | 説明の半透明 | `explain_overlay` | `--screen explain_overlay`（stdin に JSON） |
 | 試しの計画を計画へ入れる | `apply_explanation_pattern` | `--screen apply_explanation_pattern`（stdin に `patternId`） |
 | 計画の部分更新（日付、担当、並べ替え、先行） | `edit_plan` | `--screen edit_plan` |
-| 保存、別名保存、書き出し、開く、設定ファイルの書き出し | `file_action` | `--screen file_action` |
+| 保存、別名保存、書き出し、開く、設定ファイルの書き出し | `file_action` | `--screen file_action`（Excel 書き出しは `excelColumns` / `excelFieldColumns` を真偽マップで任意指定。省略時は保存済み列設定） |
 | 一覧（メンバー、色、ステータス、追加項目） | `catalog_action` | `--screen catalog_action` |
 | JSON 作成スキルと起動時の更新確認 | `set_preferences` | `--screen set_preferences` |
 | 取り消しとやり直し（1 段） | `history` | `--screen history` |

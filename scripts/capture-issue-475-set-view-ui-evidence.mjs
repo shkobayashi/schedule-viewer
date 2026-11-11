@@ -1,7 +1,7 @@
 /**
  * Issue #475 — UI-state evidence for lineage + hidden milestone mark chips.
  * Reachable via existing UI only (not MCP). Viewport 1440×900, display scale auto (--s 1.15).
- * Output: /opt/cursor/artifacts/issue-475/ only (does not touch manual/ or phase3 PNGs).
+ * Writes artifacts and copies into docs/evidence/issue-475/ for PR durability.
  */
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -13,9 +13,11 @@ import { chromium } from "playwright";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDir = "/opt/cursor/artifacts/issue-475";
 const storeDir = "/cursor/stores/self/issue-475";
+const repoEvidenceDir = path.join(root, "docs/evidence/issue-475");
 const smokeSchedule = path.join(root, "examples/regression/smoke.schedule.json");
 const PORT = 5175;
 const viewport = { width: 1440, height: 900 };
+const MILESTONE_VIEW_TODAY = "2026-05-01";
 
 function killOwnPort(port) {
   try {
@@ -103,16 +105,75 @@ async function readScale(page) {
   }));
 }
 
+async function stabilizeMilestoneViewport(page) {
+  await page.waitForFunction(
+    () => typeof window.__manualScreenshotSetToday === "function",
+    null,
+    { timeout: 60_000 },
+  );
+  await page.evaluate((today) => {
+    window.__manualScreenshotSetToday?.(today);
+    window.__manualScreenshotScrollToToday?.();
+  }, MILESTONE_VIEW_TODAY);
+  await page.waitForTimeout(700);
+}
+
+async function readHeaderScrollFingerprint(page) {
+  return page.evaluate(() => {
+    const canvas = document.querySelector(".timeline-header canvas");
+    if (!(canvas instanceof HTMLCanvasElement)) return null;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    const sampleW = Math.min(240, canvas.width);
+    const image = ctx.getImageData(0, 0, sampleW, canvas.height);
+    let sum = 0;
+    for (let i = 0; i < image.data.length; i += 19) {
+      sum = (sum + image.data[i]) % 1_000_000_007;
+    }
+    return {
+      headerCanvasWidth: canvas.width,
+      headerSampleSum: sum,
+      bandHeight: document.querySelector(".milestone-band")?.clientHeight ?? 0,
+    };
+  });
+}
+
+async function closeFilterPanelIfOpen(page) {
+  const panel = page.locator(".filter-panel");
+  if (!(await panel.isVisible().catch(() => false))) return;
+  const toggle = page.getByRole("button", { name: /^絞り込み/ });
+  await toggle.click();
+  await panel.waitFor({ state: "hidden", timeout: 10_000 });
+}
+
+async function clearTaskSelection(page) {
+  await page.locator(".timeline-body").click({ position: { x: 36, y: 48 } });
+  await page.waitForTimeout(250);
+  const detail = page.locator(".detail-panel");
+  if (await detail.isVisible().catch(() => false)) {
+    await page.keyboard.press("Escape");
+    await page.locator(".sidebar-header").click();
+    await page.locator(".timeline-body").click({ position: { x: 36, y: 48 } });
+  }
+  await detail.waitFor({ state: "hidden", timeout: 10_000 });
+}
+
+async function prepareScreenshotSurface(page) {
+  await closeFilterPanelIfOpen(page);
+  await clearTaskSelection(page);
+  await stabilizeMilestoneViewport(page);
+}
+
 async function screenshotToolbarAndChips(page, filePath) {
   const clip = await page.evaluate(() => {
     const toolbar = document.querySelector(".toolbar");
     const bar = document.querySelector(".filter-bar");
     const nodes = [toolbar, bar].filter(Boolean);
     if (nodes.length === 0) return null;
-  let top = Infinity;
-  let left = Infinity;
-  let right = -Infinity;
-  let bottom = -Infinity;
+    let top = Infinity;
+    let left = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
     for (const node of nodes) {
       const r = node.getBoundingClientRect();
       top = Math.min(top, r.top);
@@ -136,51 +197,57 @@ async function screenshotChartContext(page, filePath) {
   const clip = await page.evaluate(() => {
     const toolbar = document.querySelector(".toolbar");
     const filterBar = document.querySelector(".filter-bar");
+    const timelineHeader = document.querySelector(".timeline-header");
     const band = document.querySelector(".milestone-band");
-    const sidebarMarks = document.querySelector(".sidebar-milestones");
-    const nodes = [toolbar, filterBar, band, sidebarMarks].filter(Boolean);
+    const timelineBody = document.querySelector(".timeline-body");
+    const sidebarMarks = document.querySelector(".sidebar-milestone-groups");
+    const nodes = [toolbar, filterBar, timelineHeader, band, timelineBody, sidebarMarks].filter(
+      Boolean,
+    );
     if (nodes.length === 0) return null;
     let top = Infinity;
-    let left = Infinity;
-    let right = -Infinity;
     let bottom = -Infinity;
     for (const node of nodes) {
       const r = node.getBoundingClientRect();
       top = Math.min(top, r.top);
-      left = Math.min(left, r.left);
-      right = Math.max(right, r.right);
       bottom = Math.max(bottom, r.bottom);
     }
-    const padX = 16;
     const padY = 12;
+    const extraBody = timelineBody ? Math.min(120, timelineBody.getBoundingClientRect().height) : 0;
     return {
       x: 0,
       y: Math.max(0, top - padY),
       width: window.innerWidth,
-      height: Math.min(window.innerHeight, bottom - top + padY * 2),
+      height: Math.min(
+        window.innerHeight,
+        bottom - top + padY * 2 + extraBody * 0.35,
+      ),
     };
   });
   if (clip == null) throw new Error("chart context not found");
   await page.screenshot({ path: filePath, clip });
 }
 
-async function scrollChartToShowMilestoneBand(page) {
-  await page.waitForFunction(
-    () => typeof window.__manualScreenshotSetToday === "function",
-    null,
-    { timeout: 60_000 },
-  );
-  await page.evaluate(() => {
-    window.__manualScreenshotSetToday?.("2026-04-15");
-    window.__manualScreenshotScrollToToday?.();
-  });
-  await page.waitForTimeout(600);
-}
-
-async function assertApprovalMarkVisible(page) {
+async function assertBaselineBandReady(page) {
   await page.waitForSelector(".milestone-band", { state: "visible", timeout: 10_000 });
   const bandHeight = await page.locator(".milestone-band").evaluate((el) => el.clientHeight);
   if (bandHeight <= 0) throw new Error("milestone band height is zero");
+}
+
+function assertMatchingViewport(before, after, label) {
+  if (before == null || after == null) {
+    throw new Error(`${label}: missing viewport fingerprint`);
+  }
+  if (before.headerCanvasWidth !== after.headerCanvasWidth) {
+    throw new Error(
+      `${label}: header canvas width ${before.headerCanvasWidth} vs ${after.headerCanvasWidth}`,
+    );
+  }
+  if (before.headerSampleSum !== after.headerSampleSum) {
+    throw new Error(
+      `${label}: timeline scroll mismatch (header sample ${before.headerSampleSum} vs ${after.headerSampleSum})`,
+    );
+  }
 }
 
 async function captureBaseline(page, scheme) {
@@ -189,42 +256,39 @@ async function captureBaseline(page, scheme) {
   await prepareColorScheme(page, scheme);
   await applyOpen(page, smokeSchedule);
   await page.waitForSelector(".toolbar-title-text", { hasText: "回帰確認", timeout: 60_000 });
-  await scrollChartToShowMilestoneBand(page);
+  await prepareScreenshotSurface(page);
+  const viewportFingerprint = await readHeaderScrollFingerprint(page);
   const metrics = await readScale(page);
-  await assertApprovalMarkVisible(page);
-  const toolbarFile = path.join(
-    artifactDir,
-    `ui-baseline-${scheme}-toolbar-chips.png`,
-  );
+  await assertBaselineBandReady(page);
+  const toolbarFile = path.join(artifactDir, `ui-baseline-${scheme}-toolbar-chips.png`);
   await screenshotToolbarAndChips(page, toolbarFile);
-  const chartFile = path.join(
-    artifactDir,
-    `ui-baseline-${scheme}-chart-context.png`,
-  );
+  const chartFile = path.join(artifactDir, `ui-baseline-${scheme}-chart-context.png`);
   await screenshotChartContext(page, chartFile);
   return [
     {
       file: toolbarFile,
       metrics,
+      viewportFingerprint,
       caption:
-        "Baseline UI state (smoke): no active filter chips; toolbar 系統 control without a named lineage chip row.",
+        "Baseline UI (smoke, not MCP): no filter chips; toolbar before lineage chip.",
     },
     {
       file: chartFile,
       metrics,
+      viewportFingerprint,
       caption:
-        "Baseline UI state (smoke): milestone band and sidebar show the 承認 mark visible (UI, not MCP).",
+        "Baseline UI (smoke, not MCP): milestone band at fixed scroll (today=2026-05-01); 承認 and 未確定の節目 marks expected on band (Konva).",
     },
   ];
 }
 
-async function captureAfterUi(page, scheme) {
+async function captureAfterUi(page, scheme, baselineChartFingerprint) {
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "networkidle" });
   await page.setViewportSize(viewport);
   await prepareColorScheme(page, scheme);
   await applyOpen(page, smokeSchedule);
   await page.waitForSelector(".toolbar-title-text", { hasText: "回帰確認", timeout: 60_000 });
-  await scrollChartToShowMilestoneBand(page);
+  await stabilizeMilestoneViewport(page);
 
   const designRow = page.getByText("設計", { exact: true }).first();
   await designRow.click();
@@ -253,17 +317,28 @@ async function captureAfterUi(page, scheme) {
     .getByRole("button", { name: /帯の印: 承認/ })
     .waitFor({ state: "visible", timeout: 10_000 });
 
-  await page.waitForTimeout(350);
+  await prepareScreenshotSurface(page);
+
+  const viewportFingerprint = await readHeaderScrollFingerprint(page);
+  assertMatchingViewport(
+    baselineChartFingerprint,
+    viewportFingerprint,
+    `${scheme} baseline-vs-after`,
+  );
+
   const metrics = await readScale(page);
   await page
     .locator(".filter-chip")
     .filter({ hasText: /帯の印: 承認/ })
     .first()
     .waitFor({ state: "visible", timeout: 10_000 });
-  const toolbarFile = path.join(
-    artifactDir,
-    `ui-after-${scheme}-toolbar-chips.png`,
-  );
+  await page
+    .locator(".filter-chip")
+    .filter({ hasText: "系統: 設計" })
+    .first()
+    .waitFor({ state: "visible", timeout: 10_000 });
+
+  const toolbarFile = path.join(artifactDir, `ui-after-${scheme}-toolbar-chips.png`);
   await screenshotToolbarAndChips(page, toolbarFile);
   const chartFile = path.join(artifactDir, `ui-after-${scheme}-chart-context.png`);
   await screenshotChartContext(page, chartFile);
@@ -271,16 +346,30 @@ async function captureAfterUi(page, scheme) {
     {
       file: toolbarFile,
       metrics,
+      viewportFingerprint,
       caption:
-        "Equivalent UI state (not MCP): lineage chip 系統: 設計 and hidden mark chip 帯の印: 承認（…）. Reached via toolbar + filter panel.",
+        "Equivalent UI (not MCP): chips 系統: 設計 and 帯の印: 承認（…） after toolbar + filter panel; panels closed before capture.",
     },
     {
       file: chartFile,
       metrics,
+      viewportFingerprint,
       caption:
-        "Equivalent UI state (not MCP): 承認 mark absent from milestone band after hiding via filter 帯の印 (chips still visible above).",
+        "Equivalent UI (not MCP): same timeline header as baseline; filter hides 承認 on band while 未確定の節目 remains (compare to baseline chart-context at same scroll).",
     },
   ];
+}
+
+function mirrorArtifacts(manifest) {
+  for (const dir of [storeDir, repoEvidenceDir]) {
+    fs.mkdirSync(dir, { recursive: true });
+    const manifestPath = path.join(dir, "manifest.json");
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    for (const entry of manifest) {
+      const base = path.basename(entry.file);
+      fs.copyFileSync(entry.file, path.join(dir, base));
+    }
+  }
 }
 
 async function main() {
@@ -299,22 +388,25 @@ async function main() {
     for (const scheme of ["light", "dark"]) {
       const context = await browser.newContext({ viewport });
       const page = await context.newPage();
-      manifest.push(...(await captureBaseline(page, scheme)));
-      manifest.push(...(await captureAfterUi(page, scheme)));
+      const baseline = await captureBaseline(page, scheme);
+      const baselineChartFingerprint = baseline[1]?.viewportFingerprint ?? null;
+      manifest.push(...baseline);
+      manifest.push(...(await captureAfterUi(page, scheme, baselineChartFingerprint)));
       await context.close();
     }
     await browser.close();
     const manifestPath = path.join(artifactDir, "manifest.json");
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    fs.mkdirSync(storeDir, { recursive: true });
-    fs.copyFileSync(manifestPath, path.join(storeDir, "manifest.json"));
-    for (const entry of manifest) {
-      const base = path.basename(entry.file);
-      fs.copyFileSync(entry.file, path.join(storeDir, base));
-    }
+    mirrorArtifacts(manifest);
     console.log(
       JSON.stringify(
-        { artifactDir, storeDir, manifestPath, items: manifest.length },
+        {
+          artifactDir,
+          storeDir,
+          repoEvidenceDir,
+          manifestPath,
+          items: manifest.length,
+        },
         null,
         2,
       ),

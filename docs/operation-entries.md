@@ -152,6 +152,24 @@
 | 画面の見方を LLM から変更 | | | | | | | | `set_view` | `--screen set_view` | `MCP-01`、`VIEW-16` |
 | 計画を部分更新 | | | | | | | | `edit_plan` | `--screen edit_plan` | `MCP-01` |
 
+### `set_view` の見方だけの追加入力（#475）
+
+人がツールバー・絞り込みパネル・右クリックで変えられる見方のうち、次は `set_view` の JSON でも渡せる。逆方向（JSON を貼る専用 UI、操作の自動再生）は求めない。
+
+| 人の操作 | `set_view` の JSON（要約） |
+| --- | --- |
+| 系統・繋がりも辿る（`FILTER-08`） | `lineage`: `{ "taskId", "includesConnections" }` または `null` で解除 |
+| 帯の印の非表示（`FILTER-06` の印） | `hiddenMilestoneIds`: 非表示にする印 id の配列（丸ごと置き換え） |
+
+### `file_action` 書き出し（Excel）の列（#475）
+
+| 人の操作 | `file_action` の JSON（`action`: `export`, `format`: `xlsx`） |
+| --- | --- |
+| 書き出しダイアログの列チェック | `excelColumns`: 固定列 id → 真偽。省略時は保存済み設定 |
+| 追加項目の列チェック | `excelFieldColumns`: 項目 key → 真偽。省略時は保存済み設定 |
+
+`html` / `svg` では `excelColumns` と `excelFieldColumns` を受け付けない。
+
 ---
 
 ## 編集中・モード内のキー（入口のショートカットではない）

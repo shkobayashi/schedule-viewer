@@ -234,7 +234,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "set_view",
-                "description": "前面ウィンドウの見方だけを変えます。計画のファイルは変えず、未保存にもしません。絞り込み、折りたたみ、表示サイズ、行の密度、追加列、配色、イナズマ線、稼働日、ズーム、スクロール、Fit を標準入力の JSON で渡します。",
+                "description": "前面ウィンドウの見方だけを変えます。計画のファイルは変えず、未保存にもしません。絞り込み、折りたたみ、表示サイズ、行の密度、追加列、配色、イナズマ線、稼働日、ズーム、スクロール、Fit、系統（lineage）、帯の印の非表示（hiddenMilestoneIds）を標準入力の JSON で渡します。",
                 "inputSchema": { "type": "object" }
             },
             {
@@ -265,7 +265,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "file_action",
-                "description": "保存、別名保存、書き出し、開く、設定ファイルの書き出しを、結果の JSON だけで行います。ダイアログは開きません。",
+                "description": "保存、別名保存、書き出し、開く、設定ファイルの書き出しを、結果の JSON だけで行います。ダイアログは開きません。Excel 書き出しでは excelColumns と excelFieldColumns を書き出しダイアログと同じ真偽マップで任意に渡せます。省略時は保存済みの列設定を使います。",
                 "inputSchema": { "type": "object" }
             },
             {
