@@ -241,13 +241,13 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 | `npm test` | 検証器を生成してから `node --test scripts/*.test.mjs` と Vitest を1回実行する。Vitest は `src/**/*.test.ts`（Node）と `src/**/*.test.tsx`（jsdom）の2プロジェクト |
 | `npm run test:ci` | CI の frontend と同じ。検証器の生成、`node --test scripts/*.test.mjs`、カバレッジ付き Vitest を各 1 回 |
 | `npm run test:browser-regression` | Playwright でブラウザ回帰を実行する。設定は `e2e/browser-regression/playwright.config.ts`。通常はポート 5173 の `npm run dev`、手動撮影 shim 用の Konva プローブだけポート 5174 の `npm run dev:manual-screenshot` を起動する。失敗時のトレースとスクリーンショットは `test-results/` に出る。レイアウト用の基準画像は `e2e/browser-regression/baselines/` に置く。見直すときは `npx playwright test -c e2e/browser-regression/playwright.config.ts e2e/browser-regression/specs/layout-f2.spec.ts --grep compares --update-snapshots` で `layout-f2-light.png` と `layout-f2-dark.png` だけを更新する。PNG を差し替えただけでは不具合を直したことにしない |
-| `npm run lint` | ESLint。警告が 48 件を超えると失敗する |
+| `npm run lint` | ESLint。警告の上限を超えると失敗する。上限は [package.json](../package.json) の `lint`（`--max-warnings`） |
 | `npm run check:mcp-tool-names` | MCP ツール名が TypeScript と Rust で一致すること |
 | `npm run check:operation-entries` | `docs/operation-entries.md` が右クリック固定ラベル・`OPERATION_FORMAL`・MCP 全ツール名を参照していること。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06 段階1） |
 | `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定である。`自動化予定:#` は #541 と #543 のみ許可する（冒頭の説明と同じ変更で更新する）。一部手動に `自動:` が無い行は失敗する。`自動:` の試験名は、参照ファイル内のその名前の試験がすべて `#[ignore]` または `test.skip` / `it.skip` / `describe.skip` 内なら失敗する。JS/TS は TypeScript の構文木で `it`/`test` の呼び出しだけを見る（コメント・文字列は除外）。Rust はコメントを除いたうえで `fn` 定義だけを見る。同名の別スイート・別ファイルでは落とさない。`手動のまま:` の理由に名前があるだけでは落とさない。`cfg_attr`・実行時 skip は見ない。構文解析が万能ではない。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない。通し方は [regression.md](regression.md) |
 | `npm run check:madge-circular-baseline` | madge 循環が [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) と一致すること（`cycleCount: 0` と `cycles: []` 可）。**CI frontend で失敗扱い**（循環が 1 件でも増えたら失敗）。意図的に解消・再計測した PR では JSON を同じ変更で更新する |
-| `npm run check:architecture-warn` | jscpd（重複 clone）。重複率の上限は 6%。超えても終了コードは 0 なので、CI では警告のままである（循環 import は上の `check:madge-circular-baseline`） |
-| `npm run test:coverage` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。全体は行（lines）68%、文（statements）64%、分岐（branches）58%、関数（functions）67% を下回ると失敗する。`src/model/**` は行 78%、文 70%、分岐 63%、関数 82% を下回ると失敗する。**CI frontend では `test:ci` の中で失敗扱い** |
+| `npm run check:architecture-warn` | jscpd（重複 clone）。重複率の上限を超えても終了コードは 0 なので、CI では警告のままである（循環 import は上の `check:madge-circular-baseline`）。上限は [scripts/check-architecture-warn.mjs](../scripts/check-architecture-warn.mjs) の `--threshold` |
+| `npm run test:coverage` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。閾値を下回ると失敗する。閾値は [vitest.config.ts](../vitest.config.ts) の `coverage.thresholds`（`src/model/**` 含む）。**CI frontend では `test:ci` の中で失敗扱い** |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
@@ -256,9 +256,9 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 | `npm run version:bump` | バージョンを上げる。`major`、`minor`、`patch`、`alpha`、`beta`、`stable` を引数にする |
 | `postinstall` | `@tauri-apps/cli` のその OS 向けバイナリがあることを確認する |
 
-カバレッジの閾値は、テストを足したあとに `npm run test:coverage` で実測し、行・文・分岐・関数のそれぞれを、その実測より約 1 ポイント低い整数へ上げる。数値は `vitest.config.ts` と上の表の両方に、同じ変更で書く。
+カバレッジの閾値は、テストを足したあとに `npm run test:coverage` で実測し、行・文・分岐・関数のそれぞれを、その実測より約 1 ポイント低い整数へ上げる。数値の正本は [vitest.config.ts](../vitest.config.ts) の `coverage.thresholds` である。上げるときは同じ変更でそこを直す。
 
-lint の警告上限は `package.json` の `lint`、jscpd の重複率の上限は `scripts/check-architecture-warn.mjs` にあり、どちらも上の表と揃える。カバレッジの閾値を下げるとき、警告上限を上げるとき、重複率の上限を上げるときは、理由を pull request に書く。
+lint の警告上限の正本は [package.json](../package.json) の `lint`（`--max-warnings`）である。jscpd の重複率の上限の正本は [scripts/check-architecture-warn.mjs](../scripts/check-architecture-warn.mjs) の `--threshold` である。カバレッジの閾値を下げるとき、警告上限を上げるとき、重複率の上限を上げるときは、理由を pull request に書く。
 
 Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` は、これまでどおり失敗にする。Ubuntu の CI では GUI を要する `tests/mcp_running_app.rs` のため `xvfb` を入れ、`xvfb-run -a cargo test --locked` で走らせる。手元の Linux でも同様に `xvfb-run` を使う。起動中アプリの統合試験は、リポジトリ直下で `TAURI_ENV_PLATFORM` を付けた `npm run dev` がポート 1420 で応答していること、1420 が空いていることを要する。試験用の Vite は `mcp_running_app.rs` が共有で起動し、試験バイナリの終了時に子プロセスごと片付ける。Windows では、GUI を起動する前に `RunningHarness` が利用者向けの名前付きパイプ（`\\.\pipe\{APP_IDENTIFIER}-{SID}`）へ `CreateFileW` で接続できるかだけを見る。接続できたら `schedule_diff` などのツールは送らず、その場で失敗する。手元では schedule-viewer を閉じてから `cargo test --locked --test mcp_running_app` を回す。`mcp_running_app` の第 2 プロセス試験は、ほかに同一ユーザーの `schedule-viewer`（実行ファイル名が `schedule-viewer` または `schedule-viewer.exe`。インストール先のパスは問わない）が動いていると、シグナルやツールを送らずその場で失敗する。許可するのは試験が起動した GUI とその子孫だけ（`pgrep -P` で木ごと列挙）である。Linux は `/proc/<pid>/status` の UID で所有者を区別し、同一 UID のときだけ `/proc/<pid>/exe` を読む。macOS は `proc_pidpath` でパスの basename を見る。他ユーザーのプロセスは無視する。同一ユーザーのプロセスで exe の確認に失敗したときは「ほかにいない」と見なさない。Windows は `tasklist` でイメージ名を列挙する。列挙自体に失敗したときも同様である。他プロセス検出の単体試験は、本物の schedule-viewer ではなく `sleep`（Windows では `timeout`）を `schedule-viewer` の名前でコピーして起動する。`RunningHarness` の破棄では試験が起動した GUI だけを終了させる。`--test-threads=1` で回す。`.cursor/mcp-e2e-run.py` は `cargo test --locked --test mcp_running_app` だけを実行する。
 
