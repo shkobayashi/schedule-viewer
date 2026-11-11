@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "node .cursor/hooks/block-history-rewrite.mjs",
+        "timeout": 10,
+        "failClosed": true
+      }
+    ]
+  }
+}

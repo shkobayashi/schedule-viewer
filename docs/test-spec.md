@@ -261,6 +261,31 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/check-agent-docs.test.mjs` | `inline backtick link is ignored after fence strip` | — |
 | `scripts/check-agent-docs.test.mjs` | `unquoted broken prose link still fails` | — |
 | `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects empty quoted description` | — |
+| `scripts/block-history-rewrite.test.mjs` | `allows ordinary status commit push and merge` | — |
+| `scripts/block-history-rewrite.test.mjs` | `denies commit amend through global options and wrappers` | — |
+| `scripts/block-history-rewrite.test.mjs` | `denies force push flags short clusters and plus refspecs` | — |
+| `scripts/block-history-rewrite.test.mjs` | `denies rebase and pull rebase but allows rebase false` | — |
+| `scripts/block-history-rewrite.test.mjs` | `allows quoted text that mentions forbidden words` | — |
+| `scripts/block-history-rewrite.test.mjs` | `denies a forbidden command after a chain operator` | — |
+| `scripts/block-history-rewrite.test.mjs` | `malformed hook input denies with json` | — |
+| `scripts/block-history-rewrite.test.mjs` | `stdin fixtures do not execute the command` | — |
+| `scripts/block-history-rewrite.test.mjs` | `sandbox and confirmation words do not allow a rewrite` | — |
+| `scripts/block-history-rewrite.test.mjs` | `substitution with rewrite is denied` | — |
+| `scripts/block-history-rewrite.test.mjs` | `unbalanced double quotes deny` | — |
+| `scripts/block-history-rewrite.test.mjs` | `empty command is allowed` | — |
+| `scripts/block-history-rewrite.test.mjs` | `denies substitutions inside double quotes and commit -m with them` | — |
+| `scripts/block-history-rewrite.test.mjs` | `backslash outside quotes preserves argv boundaries for amend` | — |
+| `scripts/block-history-rewrite.test.mjs` | `pull rebase flag order terminator and qr cluster` | — |
+| `scripts/block-history-rewrite.test.mjs` | `git globals support documented options and deny unknown globals` | — |
+| `scripts/block-history-rewrite.test.mjs` | `shell dash c skips long rcfile options` | — |
+| `scripts/block-history-rewrite.test.mjs` | `env command exec wrappers peel to git` | — |
+| `scripts/block-history-rewrite.test.mjs` | `push force policy push options and no force independence` | — |
+| `scripts/block-history-rewrite.test.mjs` | `trailing shell comments do not hide git verbs` | — |
+| `scripts/block-history-rewrite.test.mjs` | `pull rebase from git config global only with explicit override` | — |
+| `scripts/block-history-rewrite.test.mjs` | `simple grouped commands still classify git` | — |
+| `scripts/block-history-rewrite.test.mjs` | `hooks.json registers beforeShellExecution block-history-rewrite` | — |
+| `scripts/block-history-rewrite.test.mjs` | `env peeled through assignments chdir and double hyphen` | — |
+| `scripts/block-history-rewrite.test.mjs` | `git informational globals without subcommand allow` | — |
 | `scripts/check-implement-change-split.test.mjs` | `implement-change references are scanned by the agent-doc checker` | — |
 | `scripts/check-implement-change-split.test.mjs` | `reference files do not require skill frontmatter` | — |
 | `scripts/check-implement-change-split.test.mjs` | `entry keeps before-start and completion and omits moved headings` | — |
