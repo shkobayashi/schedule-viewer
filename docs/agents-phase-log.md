@@ -191,7 +191,7 @@ Issue #553「継続改善の仕組み」用。出典は [agents-pitfall-examples
 | 4 | 操作入口の漏れ・二重ダイアログ | 原則 4 サンプル | **P-CI-06** `check:operation-entries` |
 | 5 | ポインタ／IME／`fileBusy` の持ち主 | 原則 5 サンプル | Vitest + test-spec 手動 |
 | 6 | test-spec 表の行差し替え | **P-AG-02** | review + IC テスト 1 |
-| 7 | マージ済みブランチへの再 push | **P-AG-03** | [development.md](development.md) Cloud Agent、`beforeShellExecution`（#553 項目 6） |
+| 7 | マージ済みブランチへの再 push | **P-AG-03** | [development.md](development.md)「Cursor Cloud Agent」。マージ済みブランチへの自動拒否は未証明（`beforeShellExecution` は履歴書き換え系のみ） |
 | 8 | 検査優先でスキルだけ肥大化 | 原則 8 サンプル | **P-AG-01**、IC 完了条件 |
 
 ### #553 受け入れの残り（観測のみ）
