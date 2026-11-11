@@ -554,17 +554,7 @@ fn next_schedule_window_label_with_live(
     }
 }
 
-pub fn next_schedule_window_label(
-    app: &AppHandle,
-    session: &WindowSessionState,
-) -> Result<String, String> {
-    next_schedule_window_label_with_live(session, |label| {
-        app.get_webview_window(label).is_some()
-    })
-}
-
-/// ラベル選定と pending 予約を同一セッション操作の中で行う。単体試験から使う。
-#[allow(dead_code)]
+/// ラベル選定と pending 予約を同一 `WindowSessionState` 操作の中で行う。`create_schedule_window` は live 判定を渡して呼ぶ。
 pub fn reserve_next_schedule_window_open_with_live(
     session: &mut WindowSessionState,
     is_label_live: impl Fn(&str) -> bool,
@@ -584,7 +574,7 @@ pub fn reserve_next_schedule_window_open_with_live(
     Ok(label)
 }
 
-/// `create_schedule_window` が使う。
+/// `create_schedule_window` が使う。呼び出し側がセッション Mutex を保持していること。
 pub fn reserve_next_schedule_window_open(
     app: &AppHandle,
     session: &mut WindowSessionState,
@@ -592,16 +582,13 @@ pub fn reserve_next_schedule_window_open(
     contents: String,
     workspace_path: Option<String>,
 ) -> Result<String, String> {
-    let label = next_schedule_window_label(app, session)?;
-    store_pending_open(
+    reserve_next_schedule_window_open_with_live(
         session,
-        label.clone(),
+        |label| app.get_webview_window(label).is_some(),
         path,
         contents,
         workspace_path,
-    );
-    note_window_focus(session, &label);
-    Ok(label)
+    )
 }
 
 static MAIN_THREAD_ID: OnceLock<thread::ThreadId> = OnceLock::new();
@@ -1079,26 +1066,35 @@ mod tests {
 
     #[test]
     fn concurrent_reserve_next_schedule_window_open_yields_distinct_labels() {
+        use std::collections::HashSet;
         use std::sync::{Arc, Barrier, Mutex};
         use std::thread;
 
         let state = Arc::new(Mutex::new(WindowSessionState::default()));
+        let live_labels: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
         let barrier = Arc::new(Barrier::new(2));
         let mut handles = Vec::new();
         for index in 0..2 {
             let state = Arc::clone(&state);
+            let live_labels = Arc::clone(&live_labels);
             let barrier = Arc::clone(&barrier);
             handles.push(thread::spawn(move || {
                 barrier.wait();
                 let mut guard = state.lock().expect("session lock");
                 let label = reserve_next_schedule_window_open_with_live(
                     &mut guard,
-                    |_| false,
+                    |candidate| {
+                        live_labels
+                            .lock()
+                            .expect("live labels")
+                            .contains(candidate)
+                    },
                     format!("/tmp/open-{index}.schedule.json"),
                     "{}".to_string(),
                     None,
                 )
                 .expect("reserve");
+                live_labels.lock().expect("live labels").insert(label.clone());
                 label
             }));
         }
