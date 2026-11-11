@@ -431,3 +431,83 @@ test("required redo toolbar empty cell fails validation", () => {
   );
   expectFailures(doc, [/やり直し|空/]);
 });
+
+test("undo toolbar extra slash segment fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("| 取り消し | 取り消し |", "| 取り消し | 取り消し / 偽物 |"),
+  );
+  expectFailures(doc, [/偽物|余分|許可/]);
+});
+
+test("dirty save toolbar extra plain text fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 未保存の差分を開く（状態バー） | `未保存`（`saveStatus`。`StatusBar.tsx`） |",
+      "| 未保存の差分を開く（状態バー） | `未保存` 偽物（`saveStatus`。`StatusBar.tsx`） |",
+    ),
+  );
+  expectFailures(doc, [/偽物|余分|許可/]);
+});
+
+test("required undo toolbar note-only cell fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("| 取り消し | 取り消し |", "| 取り消し | （取り消し） |"),
+  );
+  expectFailures(doc, [/取り消し|必須|一致/]);
+});
+
+test("go-today toolbar hides delete formal in note fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 今日へ移動 | 今日（title に T） |",
+      "| 今日へ移動 | 今日（削除） |",
+    ),
+  );
+  expectFailures(doc, [/削除|注記|正式名/]);
+});
+
+test("fit toolbar hides delete formal in note fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 全体表示 | 全体（title に ⌘/Ctrl+4） |",
+      "| 全体表示 | 全体（削除） |",
+    ),
+  );
+  expectFailures(doc, [/削除|注記|正式名/]);
+});
+
+test("undo toolbar fake word in note fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("| 取り消し | 取り消し |", "| 取り消し | 取り消し（偽物） |"),
+  );
+  expectFailures(doc, [/偽物|注記/]);
+});
+
+test("toolbar catalog source extractions are non-empty and live-derived", () => {
+  const c = getCatalog();
+  assert.ok(c.toolbarSourceLabels.dirtySaveStatusLabel, "dirty save status");
+  assert.ok(c.toolbarSourceLabels.shortcutsButtonGlyph, "shortcuts glyph");
+  assert.ok(c.toolbarUiSource.externalReloadLabel, "external reload label");
+  assert.ok(c.toolbarUiSource.explanationDismissLabel, "explanation dismiss");
+  assert.equal(c.toolbarSourceLabels.dirtySaveStatusLabel, "未保存");
+});
+
+test("parseToolbarUiSourceFromText throws when toolbar search block is missing", () => {
+  const snippet = [
+    'import { parseToolbarUiSourceFromText } from "./scripts/operationEntryCatalog.ts";',
+    "try {",
+    '  parseToolbarUiSourceFromText("export {}", \'<button className="status-bar-action">reload</button>\', \'<button className="explanation-banner-dismiss">\\n説明を消す\\n\');',
+    "  process.exit(2);",
+    "} catch (e) {",
+    "  const m = e instanceof Error ? e.message : String(e);",
+    '  if (/operationEntryCatalog:.*抽出できない/.test(m) && /Toolbar\\.tsx/.test(m)) process.exit(0);',
+    "  console.error(m);",
+    "  process.exit(1);",
+    "}",
+  ].join("\n");
+  const result = spawnSync("npx", ["tsx", "-e", snippet], {
+    encoding: "utf8",
+    cwd: repo,
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});

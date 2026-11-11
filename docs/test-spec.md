@@ -266,6 +266,14 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `redo toolbar showing delete formal fails wrong-owner validation` | — |
 | 同上 | `delete-task toolbar showing fit formal fails wrong-owner validation` | — |
 | 同上 | `required redo toolbar empty cell fails validation` | — |
+| 同上 | `undo toolbar extra slash segment fails validation` | — |
+| 同上 | `dirty save toolbar extra plain text fails validation` | — |
+| 同上 | `required undo toolbar note-only cell fails validation` | — |
+| 同上 | `go-today toolbar hides delete formal in note fails validation` | — |
+| 同上 | `fit toolbar hides delete formal in note fails validation` | — |
+| 同上 | `undo toolbar fake word in note fails validation` | — |
+| 同上 | `toolbar catalog source extractions are non-empty and live-derived` | — |
+| 同上 | `parseToolbarUiSourceFromText throws when toolbar search block is missing` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentity valid when full SHAs match` | — |

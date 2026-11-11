@@ -291,39 +291,68 @@ export type ToolbarOperationSpec = {
   optional?: boolean;
 };
 
-function parseToolbarUiSource() {
-  const toolbar = readFileSync("src/components/Toolbar.tsx", "utf8");
-  const statusBar = readFileSync("src/components/StatusBar.tsx", "utf8");
-  const app = readFileSync("src/App.tsx", "utf8");
+function requireExtracted(value: string | undefined, field: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    throw new Error(
+      `operationEntryCatalog: 「${field}」をソースから抽出できない`,
+    );
+  }
+  return trimmed;
+}
 
+export function parseToolbarUiSourceFromText(
+  toolbar: string,
+  statusBar: string,
+  app: string,
+) {
   const searchMatch = toolbar.match(
     /searchField === "name" \? "([^"]+)" : "([^"]+)"/,
   );
-  const externalReloadLabel =
-    statusBar
-      .match(/className="status-bar-action"[^>]*>\s*([^<]+?)\s*</)?.[1]
-      ?.trim() ?? "";
-  const explanationDismissLabel =
-    app
-      .match(
-        /className="explanation-banner-dismiss"[\s\S]*?>\s*\n\s*([^<\n]+?)\s*\n/,
-      )?.[1]
-      ?.trim() ?? "説明を消す";
-  const linkNamedTemplate =
-    toolbar.match(/linkSourceName \? `([^`]+)` : OPERATION_FORMAL\.link/)?.[1] ??
-    `線を引く: \${linkSourceName}`;
+  const externalReloadLabel = requireExtracted(
+    statusBar.match(/className="status-bar-action"[^>]*>\s*([^<]+?)\s*</)?.[1],
+    "StatusBar.tsx deferred reload button",
+  );
+  const explanationDismissLabel = requireExtracted(
+    app.match(
+      /className="explanation-banner-dismiss"[\s\S]*?>\s*\n\s*([^<\n]+?)\s*\n/,
+    )?.[1],
+    "App.tsx explanation-banner-dismiss",
+  );
+  const linkNamedTemplate = requireExtracted(
+    toolbar.match(/linkSourceName \? `([^`]+)` : OPERATION_FORMAL\.link/)?.[1],
+    "Toolbar.tsx linkSourceName template",
+  );
 
   return {
-    searchNameOption:
-      toolbar.match(/value="name">([^<]+)</)?.[1]?.trim() ?? "",
-    searchNoteOption:
-      toolbar.match(/value="note">([^<]+)</)?.[1]?.trim() ?? "",
-    searchNamePlaceholder: searchMatch?.[1]?.trim() ?? "",
-    searchNotePlaceholder: searchMatch?.[2]?.trim() ?? "",
+    searchNameOption: requireExtracted(
+      toolbar.match(/value="name">([^<]+)</)?.[1],
+      "Toolbar.tsx search option name",
+    ),
+    searchNoteOption: requireExtracted(
+      toolbar.match(/value="note">([^<]+)</)?.[1],
+      "Toolbar.tsx search option note",
+    ),
+    searchNamePlaceholder: requireExtracted(
+      searchMatch?.[1],
+      "Toolbar.tsx search placeholder (name)",
+    ),
+    searchNotePlaceholder: requireExtracted(
+      searchMatch?.[2],
+      "Toolbar.tsx search placeholder (note)",
+    ),
     externalReloadLabel,
     explanationDismissLabel,
     linkNamedTemplate,
   };
+}
+
+function parseToolbarUiSource() {
+  return parseToolbarUiSourceFromText(
+    readFileSync("src/components/Toolbar.tsx", "utf8"),
+    readFileSync("src/components/StatusBar.tsx", "utf8"),
+    readFileSync("src/App.tsx", "utf8"),
+  );
 }
 
 function buildToolbarByOperation(
@@ -392,43 +421,53 @@ function buildToolbarByOperation(
   };
 }
 
-function extractToolbarSourceLabels() {
-  const toolbar = readFileSync("src/components/Toolbar.tsx", "utf8");
-  const active = readFileSync("src/components/ActiveFilterBar.tsx", "utf8");
-  const scheduleFile = readFileSync("src/hooks/useScheduleFile.ts", "utf8");
-
-  const shortcutsButtonGlyph =
-    toolbar
-      .match(/className="icon-btn shortcuts-btn"[^>]*>\s*([^<]+?)\s*<\/button>/)
-      ?.[1]?.trim() ?? "?";
-
-  const lineageNamedTemplate =
-    toolbar.match(/lineageName \? `([^`]+)` :/)?.[1] ??
-    "系統: ${lineageName}";
-
-  const lineageButtonLabel =
-    toolbar.match(/lineageName \? `系統: \$\{lineageName\}` : "([^"]+)"/)?.[1] ??
-    "系統";
-
-  const clearAllFiltersLabel =
-    active
-      .match(/className="filter-clear-all"[\s\S]*?>\s*([^<\s]+)\s*</)?.[1]
-      ?.trim() ?? "すべて解除";
-
-  const saveStatusBlock =
+export function extractToolbarSourceLabelsFromText(
+  toolbar: string,
+  activeFilterBar: string,
+  scheduleFile: string,
+) {
+  const saveStatusBlock = requireExtracted(
     scheduleFile.match(
       /const saveStatusLabel = useMemo\(\(\) => \{[\s\S]*?\}, \[browserFileLabel, filePath, isDirty\]\);/,
-    )?.[0] ?? "";
-  const dirtySaveStatusLabel =
-    saveStatusBlock.match(/if \(isDirty\) return "([^"]+)"/)?.[1] ?? "未保存";
-
+    )?.[0],
+    "useScheduleFile.ts saveStatusLabel block",
+  );
   return {
-    shortcutsButtonGlyph,
-    lineageButtonLabel,
-    lineageNamedTemplate,
-    clearAllFiltersLabel,
-    dirtySaveStatusLabel,
+    shortcutsButtonGlyph: requireExtracted(
+      toolbar.match(
+        /className="icon-btn shortcuts-btn"[^>]*>\s*([^<]+?)\s*<\/button>/,
+      )?.[1],
+      "Toolbar.tsx shortcuts-btn glyph",
+    ),
+    lineageNamedTemplate: requireExtracted(
+      toolbar.match(/lineageName \? `([^`]+)` :/)?.[1],
+      "Toolbar.tsx lineageNamedTemplate",
+    ),
+    lineageButtonLabel: requireExtracted(
+      toolbar.match(
+        /lineageName \? `系統: \$\{lineageName\}` : "([^"]+)"/,
+      )?.[1],
+      "Toolbar.tsx lineageButtonLabel",
+    ),
+    clearAllFiltersLabel: requireExtracted(
+      activeFilterBar.match(
+        /className="filter-clear-all"[\s\S]*?>\s*([^<\s]+)\s*</,
+      )?.[1],
+      "ActiveFilterBar.tsx clear-all label",
+    ),
+    dirtySaveStatusLabel: requireExtracted(
+      saveStatusBlock.match(/if \(isDirty\) return "([^"]+)"/)?.[1],
+      "useScheduleFile.ts dirty saveStatusLabel",
+    ),
   };
+}
+
+function extractToolbarSourceLabels() {
+  return extractToolbarSourceLabelsFromText(
+    readFileSync("src/components/Toolbar.tsx", "utf8"),
+    readFileSync("src/components/ActiveFilterBar.tsx", "utf8"),
+    readFileSync("src/hooks/useScheduleFile.ts", "utf8"),
+  );
 }
 
 function parseExternalFeatureIds(): string[] {
