@@ -465,6 +465,151 @@ test("Rust comment-only fn name is not treated as a definition", () => {
   });
 });
 
+test("unrelated string literal does not satisfy auto ref", () => {
+  withCopy((root) => {
+    const testPath = join(root, "src/model/fixture-unrelated-title-string.test.ts");
+    mkdirSync(dirname(testPath), { recursive: true });
+    writeFileSync(
+      testPath,
+      `import { it } from "vitest";
+const hint = "存在しない試験名";
+it("something_else", () => {});
+`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-unrelated-title-string.test.ts#存在しない試験名",
+    );
+    assert.failWith(run(root), "存在しない試験名");
+  });
+});
+
+test("it.each and test.each titles satisfy auto refs", () => {
+  withCopy((root) => {
+    const itPath = join(root, "src/model/fixture-each-it.test.ts");
+    const testPath = join(root, "src/model/fixture-each-test.test.ts");
+    mkdirSync(dirname(itPath), { recursive: true });
+    writeFileSync(
+      itPath,
+      `import { it } from "vitest";
+it.each([["each_it_title", 1]])("%s", () => {});
+`,
+    );
+    writeFileSync(
+      testPath,
+      `import { test } from "vitest";
+test.each([["each_test_title", 2]])("%s", () => {});
+`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-each-it.test.ts#each_it_title",
+    );
+    assert.equal(run(root).status, 0);
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/model/fixture-each-it.test.ts#each_it_title",
+      "自動:src/model/fixture-each-test.test.ts#each_test_title",
+    );
+    assert.equal(run(root).status, 0);
+  });
+});
+
+test("skipped it.each titles fail auto refs", () => {
+  withCopy((root) => {
+    const skipEachPath = join(root, "src/model/fixture-each-skip-each.test.ts");
+    const describeSkipPath = join(root, "src/model/fixture-each-describe-skip.test.ts");
+    mkdirSync(dirname(skipEachPath), { recursive: true });
+    writeFileSync(
+      skipEachPath,
+      `import { it } from "vitest";
+it.skip.each([["each_skip_each_title", 1]])("%s", () => {});
+`,
+    );
+    writeFileSync(
+      describeSkipPath,
+      `import { describe, it } from "vitest";
+describe.skip("s", () => {
+  it.each([["each_in_describe_skip", 1]])("%s", () => {});
+});
+`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-each-skip-each.test.ts#each_skip_each_title",
+    );
+    assert.failWith(run(root), "skip 付き");
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/model/fixture-each-skip-each.test.ts#each_skip_each_title",
+      "自動:src/model/fixture-each-describe-skip.test.ts#each_in_describe_skip",
+    );
+    assert.failWith(run(root), "skip 付き");
+  });
+});
+
+test("Rust block comments before fn keep #[ignore] alignment", () => {
+  withCopy((root) => {
+    const rustPath = join(root, "src-tauri/tests/fixture_block_comment_ignore.rs");
+    mkdirSync(dirname(rustPath), { recursive: true });
+    writeFileSync(
+      rustPath,
+      `/*
+ * header
+ */
+#[ignore = "xvfb"]
+fn rust_after_block_comment() {}
+
+fn rust_active_after_block_comment() {}
+`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "| MX-O-33 | 計算 | 操作の案内を開く | 自動済み | 自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open |",
+      "| MX-O-33 | 計算 | 操作の案内を開く | 自動済み | 自動:src-tauri/tests/fixture_block_comment_ignore.rs#rust_after_block_comment |",
+    );
+    assert.failWith(run(root), "#[ignore]");
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "rust_after_block_comment",
+      "rust_active_after_block_comment",
+    );
+    assert.equal(run(root).status, 0);
+  });
+});
+
+test("multiline Rust #[ignore] attribute value across lines is detected", () => {
+  withCopy((root) => {
+    const rustPath = join(root, "src-tauri/tests/fixture_split_ignore_attr.rs");
+    mkdirSync(dirname(rustPath), { recursive: true });
+    writeFileSync(
+      rustPath,
+      `#[test]
+#[ignore =
+"xvfb"]
+fn split_ignore_attr_sample() {}
+`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "| MX-O-33 | 計算 | 操作の案内を開く | 自動済み | 自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open |",
+      "| MX-O-33 | 計算 | 操作の案内を開く | 自動済み | 自動:src-tauri/tests/fixture_split_ignore_attr.rs#split_ignore_attr_sample |",
+    );
+    assert.failWith(run(root), "#[ignore]");
+  });
+});
+
 test("multiline Rust #[ignore] attributes fail auto refs", () => {
   withCopy((root) => {
     const rustPath = join(root, "src-tauri/tests/fixture_multiline_ignore.rs");
