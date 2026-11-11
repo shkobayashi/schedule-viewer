@@ -271,8 +271,11 @@ Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` 
 | `develop`、`main`、`next` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルドを分け、集約ジョブ `ci` で結果をまとめる |
 | `main` への push（操作マニュアルとサイトビルドの入力） | Pages（`.github/workflows/pages.yml`） | `npm run build:manual-site` のあと GitHub Pages へ公開。URL は https://shkobayashi.github.io/schedule-viewer/ 。`workflow_dispatch` でも動く |
 | `main` または `release/**` への push | Release（`.github/workflows/release.yml`） | 版とブランチを検査したあと、環境 `release` の承認のあと、Ubuntu (deb) を GitHub Release へ公開する。`main` の安定版では Windows が署名しない MSIX を Microsoft Store へ提出する。`release/X.Y.Z` の Pre-release では Windows (NSIS) も出す |
+| `develop` または `next` 向け pull request の `opened` と `synchronize`。既定ブランチの `schedule`（`0 16 * * *`、UTC）。`workflow_dispatch` | Browser regression（`.github/workflows/browser-regression.yml`） | パスでは絞らない。`npm ci`、`npx playwright install --with-deps chromium`、`npm run test:browser-regression`。失敗したときは `test-results/` を成果物にする。`main` 向けの pull request では動かない |
 
 `develop` への push だけでは CI は動かない。CI が動くのは `develop`、`main`、`next` 向けの pull request のときである。
+
+`browser-regression.yml` は、`develop` への push では動かない。夜間の `schedule` は、このファイルが既定ブランチ `develop` にあるとき、その最新コミットで動く。`workflow_dispatch` も、ファイルが `develop` にあるときだけ起動できる。
 
 CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。読み取りステップは `shell: bash` にする。Release の Windows ランナーの既定シェルは PowerShell で、bash のまま書くと構文エラーになる。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
@@ -293,13 +296,13 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 | 普段の開発（コミット、push） | `npm test`、`npm run lint`、`npm run typecheck`。Vitest は「触ったテスト」で絞ってよい |
 | 子 Issue の PR（feature ブランチ向け） | 作業中は、触ったテストと `npm run check:regression-coverage`。PR を出す前に 1 回だけ「PR 前の一回」 |
 | `e2e/browser-regression/` を触る Issue の作業中 | 触った spec だけ `npx playwright test -c e2e/browser-regression/playwright.config.ts <spec>`。全 spec を繰り返し回さない |
-| next、develop へのマージ前 | `npm run test:browser-regression` を、そのコミットで 1 回 |
-| 夜間 | ブラウザ回帰。定期実行は別の Issue で GitHub Actions に足す。このリポジトリにはまだ無い |
+| next、develop へのマージ前 | `.github/workflows/browser-regression.yml` が、base が `develop` または `next` の pull request の `opened` と `synchronize` で `npm run test:browser-regression` を 1 回回す。手元では同じコミットで繰り返さない |
+| 夜間 | 同じワークフローが、既定ブランチ `develop` の `schedule`（cron `0 16 * * *`、UTC、日本時間 1:00）で回す。このファイルが `develop` に入るまでは動かない |
 | リリース前 | 「リリース前に回す検査」の自動を全部回す。手動の回帰も行う。緊急のリリースは手動の回帰だけ飛ばしてよい |
 
 `src-tauri/` を変えたときは、普段の開発でも、手元の OS で `cd src-tauri && cargo clippy -- -D warnings` と `cargo test --locked` を足す。
 
-ブラウザ回帰は、子 Issue の作業中と「PR 前の一回」には含めない。next または develop へマージする直前の 1 回と、リリース前の自動に含める。同じコミットでは繰り返さない。
+ブラウザ回帰は、子 Issue の作業中と「PR 前の一回」には含めない。`develop` または `next` 向けの pull request では、上のワークフローが回す。リリース前の自動にも含める。同じコミットでは繰り返さない。夜間は、ワークフローファイルが `develop` に入ってから動く。
 
 **触ったテスト**
 
