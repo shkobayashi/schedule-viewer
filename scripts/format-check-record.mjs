@@ -414,7 +414,574 @@ export function validatePhaseLogStructure(markdown) {
 /** @param {string} [filePath] */
 export function validatePhaseLogFile(filePath = PHASE_LOG) {
   const markdown = readFileSync(filePath, "utf8");
-  return validatePhaseLogStructure(markdown);
+  return validatePhaseLogStructureFull(markdown);
+}
+
+const PHASE_RECORDS_DIR = path.join(REPO_ROOT, "docs/phase-records");
+const SESSION_ID_RE =
+  /^bc-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EFFORT_BASIS_ALLOWED = new Set(["configured", "runtime", "unknown"]);
+const KNOWN_INTEGRATION_STATES = new Set(["open", "merged", "closed"]);
+const KNOWN_REVIEW_OUTCOMES = new Set(["MERGE-READY", "NOT-READY"]);
+const MERGE_SUMMARY_ROLLUP_KEYS = [
+  "tokens",
+  "actual_cost",
+  "duration",
+  "composer_effort",
+];
+
+/**
+ * @param {unknown} effort
+ * @returns {boolean}
+ */
+function effortClaimsConfiguredLevel(effort) {
+  if (effort == null) return false;
+  const s = String(effort).trim().toLowerCase();
+  return s !== "" && s !== "unknown";
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function stableStringify(value) {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => stableStringify(v)).join(",")}]`;
+  }
+  const obj = /** @type {Record<string, unknown>} */ (value);
+  const keys = Object.keys(obj).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(",")}}`;
+}
+
+/**
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {boolean}
+ */
+function valueDeepEqual(a, b) {
+  return stableStringify(a) === stableStringify(b);
+}
+
+/**
+ * Readiness judgment for one レビュー phase. Structured review_outcome wins over findings text.
+ * @param {Record<string, unknown>} p
+ * @returns {{ kind: "positive" | "negative" | "none", head: string | null }}
+ */
+function reviewPhaseReadinessJudgment(p) {
+  const head = p.head_sha_reviewed;
+  const headStr =
+    head != null && String(head).trim() !== ""
+      ? String(head).trim().toLowerCase()
+      : null;
+
+  const outcome = p.review_outcome;
+  if (outcome != null && String(outcome).trim() !== "") {
+    const o = String(outcome).trim();
+    if (o === "MERGE-READY") {
+      if (headStr && describeSha(headStr).wellFormed) {
+        return { kind: "positive", head: headStr };
+      }
+      return { kind: "invalid_positive", head: null };
+    }
+    if (o === "NOT-READY") {
+      return { kind: "negative", head: null };
+    }
+    return { kind: "none", head: null };
+  }
+
+  const findings = p.findings == null ? "" : String(p.findings).trim();
+  if (!findings) {
+    return { kind: "none", head: null };
+  }
+  if (/^Not ready\b/i.test(findings)) {
+    return { kind: "negative", head: null };
+  }
+  if (/^MERGE-READY\b/.test(findings)) {
+    if (headStr && describeSha(headStr).wellFormed) {
+      return { kind: "positive", head: headStr };
+    }
+    return { kind: "invalid_positive", head: null };
+  }
+  if (/^Ready\b/.test(findings)) {
+    if (headStr && describeSha(headStr).wellFormed) {
+      return { kind: "positive", head: headStr };
+    }
+    return { kind: "invalid_positive", head: null };
+  }
+  return { kind: "none", head: null };
+}
+
+/**
+ * Current verified head from the latest explicit readiness judgment (newest レビュー first).
+ * NOT-READY withdraws readiness (null). Reviews with no judgment are skipped.
+ * @param {unknown[]} phases
+ * @returns {string | null}
+ */
+export function currentVerifiedHeadFromReviews(phases) {
+  if (!Array.isArray(phases)) return null;
+  for (let i = phases.length - 1; i >= 0; i--) {
+    const phase = phases[i];
+    if (phase == null || typeof phase !== "object") continue;
+    const p = /** @type {Record<string, unknown>} */ (phase);
+    if (p.task_type !== "レビュー") continue;
+    const judgment = reviewPhaseReadinessJudgment(p);
+    if (judgment.kind === "positive") return judgment.head;
+    if (judgment.kind === "negative") return null;
+    if (judgment.kind === "invalid_positive") return null;
+  }
+  return null;
+}
+
+/**
+ * @param {unknown} v
+ * @returns {boolean}
+ */
+function mergeSummaryValueIsConcrete(v) {
+  if (v == null) return false;
+  const s = String(v).trim();
+  return s !== "" && s !== "unknown";
+}
+
+/**
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {boolean}
+ */
+function rollupObservationValuesMatch(a, b) {
+  if (typeof a === "number" && typeof b === "number") return a === b;
+  return String(a) === String(b);
+}
+
+/**
+ * @param {unknown} correction
+ * @param {string} key
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function correctionSupportsRollup(correction, key, value) {
+  if (correction == null || typeof correction !== "object") return false;
+  const c = /** @type {Record<string, unknown>} */ (correction);
+  if (typeof c.provenance !== "string" || !c.provenance.trim()) return false;
+  const ro = c.rollup_observation;
+  if (ro == null || typeof ro !== "object") return false;
+  const obs = /** @type {Record<string, unknown>} */ (ro);
+  if (String(obs.key) !== key) return false;
+  if (obs.value === undefined || obs.value === null) return false;
+  return rollupObservationValuesMatch(obs.value, value);
+}
+
+/**
+ * @param {unknown[]} corrections
+ * @param {Record<string, unknown>} mergeSummary
+ * @param {string[]} issues
+ */
+function validateMergeSummaryRollupObservations(corrections, mergeSummary, issues) {
+  for (const key of MERGE_SUMMARY_ROLLUP_KEYS) {
+    const v = mergeSummary[key];
+    if (!mergeSummaryValueIsConcrete(v)) continue;
+    const supported = corrections.some((c) => correctionSupportsRollup(c, key, v));
+    if (!supported) {
+      issues.push(
+        `merge_summary.${key} lacks matching rollup_observation in corrections with provenance`,
+      );
+    }
+  }
+}
+
+/** @deprecated Use currentVerifiedHeadFromReviews; kept for importers. */
+export function latestMergeReadyHeadSha(phases) {
+  return currentVerifiedHeadFromReviews(phases);
+}
+
+/**
+ * @param {unknown} record
+ * @returns {{ ok: boolean, issues: string[] }}
+ */
+export function validatePhaseRecord(record) {
+  const issues = [];
+  if (record == null || typeof record !== "object") {
+    return { ok: false, issues: ["record must be an object"] };
+  }
+  const r = /** @type {Record<string, unknown>} */ (record);
+
+  if (typeof r.record_id !== "string" || !r.record_id.trim()) {
+    issues.push("record_id required");
+  }
+
+  if (typeof r.provenance !== "string" || !r.provenance.trim()) {
+    issues.push("record provenance required");
+  }
+
+  if (!Array.isArray(r.phases) || r.phases.length === 0) {
+    issues.push("phases must be a non-empty array");
+  }
+
+  const phases = Array.isArray(r.phases) ? r.phases : [];
+  const seenIds = new Set();
+  let substantiveFixCount = 0;
+
+  for (let i = 0; i < phases.length; i++) {
+    const phase = phases[i];
+    if (phase == null || typeof phase !== "object") {
+      issues.push(`phases[${i}] must be an object`);
+      continue;
+    }
+    const p = /** @type {Record<string, unknown>} */ (phase);
+    const id = p.id;
+    if (typeof id !== "string" || !id.trim()) {
+      issues.push(`phases[${i}] missing stable id`);
+    } else if (seenIds.has(id)) {
+      issues.push(`duplicate phase id ${id}`);
+    } else {
+      seenIds.add(id);
+    }
+
+    if (typeof p.task_type !== "string" || !p.task_type.trim()) {
+      issues.push(`phases[${i}] missing task_type`);
+    }
+
+    if (typeof p.provenance !== "string" || !p.provenance.trim()) {
+      issues.push(`phases[${i}] provenance required`);
+    }
+
+    const basis = p.effort_basis;
+    if (basis != null && !EFFORT_BASIS_ALLOWED.has(String(basis))) {
+      issues.push(`phases[${i}] invalid effort_basis ${basis}`);
+    }
+
+    if (effortClaimsConfiguredLevel(p.effort)) {
+      const b = basis == null ? "unknown" : String(basis);
+      if (b === "unknown") {
+        issues.push(
+          `phases[${i}] effort ${p.effort} requires effort_basis configured or runtime`,
+        );
+      }
+    }
+
+    if (p.session_id != null && String(p.session_id).trim() !== "") {
+      if (!SESSION_ID_RE.test(String(p.session_id).trim())) {
+        issues.push(`phases[${i}] malformed session_id`);
+      }
+    }
+
+    for (const field of ["head_sha_produced", "head_sha_reviewed"]) {
+      if (p[field] != null && String(p[field]).trim() !== "") {
+        const { wellFormed } = describeSha(String(p[field]));
+        if (!wellFormed) {
+          issues.push(`phases[${i}] malformed ${field}`);
+        }
+      }
+    }
+
+    if (p.task_type === "レビュー") {
+      if (p.review_outcome != null) {
+        const o = String(p.review_outcome).trim();
+        if (o && !KNOWN_REVIEW_OUTCOMES.has(o)) {
+          issues.push(`phases[${i}] invalid review_outcome ${o}`);
+        }
+      }
+      const judgment = reviewPhaseReadinessJudgment(p);
+      if (judgment.kind === "invalid_positive") {
+        issues.push(
+          `phases[${i}] positive readiness judgment requires well-formed head_sha_reviewed`,
+        );
+      }
+    }
+
+    if (p.task_type === "修正" && p.substantive_fix !== false) {
+      substantiveFixCount += 1;
+    }
+  }
+
+  const expectedVerified = currentVerifiedHeadFromReviews(phases);
+  const verifiedRaw = r.verified_head_sha;
+  const hasVerified =
+    verifiedRaw != null && String(verifiedRaw).trim() !== "";
+  if (hasVerified) {
+    const { wellFormed, value } = describeSha(String(verifiedRaw));
+    if (!wellFormed) {
+      issues.push("malformed verified_head_sha");
+    } else if (expectedVerified == null) {
+      issues.push(
+        "verified_head_sha must be null (latest review withdrew readiness or no positive judgment)",
+      );
+    } else if (value !== expectedVerified) {
+      issues.push(
+        `verified_head_sha ${value} does not match current verified judgment head ${expectedVerified}`,
+      );
+    }
+  } else if (expectedVerified != null) {
+    issues.push(
+      `verified_head_sha required (current verified judgment head ${expectedVerified})`,
+    );
+  }
+
+  const corrections = Array.isArray(r.corrections) ? r.corrections : [];
+
+  const mergeSummary = r.merge_summary;
+  if (mergeSummary != null && typeof mergeSummary === "object") {
+    const ms = /** @type {Record<string, unknown>} */ (mergeSummary);
+    for (const key of MERGE_SUMMARY_ROLLUP_KEYS) {
+      const v = ms[key];
+      if (mergeSummaryValueIsConcrete(v)) {
+        if (typeof v === "number" && !Number.isFinite(v)) {
+          issues.push(`merge_summary.${key} must be unknown or a finite number`);
+        }
+      }
+    }
+    validateMergeSummaryRollupObservations(corrections, ms, issues);
+  }
+
+  for (let i = 0; i < corrections.length; i++) {
+    const c = corrections[i];
+    if (c == null || typeof c !== "object") continue;
+    const corr = /** @type {Record<string, unknown>} */ (c);
+    const ro = corr.rollup_observation;
+    if (ro == null) continue;
+    if (typeof ro !== "object") {
+      issues.push(`corrections[${i}] rollup_observation must be an object`);
+      continue;
+    }
+    const obs = /** @type {Record<string, unknown>} */ (ro);
+    const ok = typeof obs.key === "string" && MERGE_SUMMARY_ROLLUP_KEYS.includes(obs.key);
+    if (!ok) {
+      issues.push(`corrections[${i}] rollup_observation.key invalid`);
+    }
+    if (obs.value === undefined || obs.value === null) {
+      issues.push(`corrections[${i}] rollup_observation.value required`);
+    }
+    if (typeof corr.provenance !== "string" || !corr.provenance.trim()) {
+      issues.push(`corrections[${i}] rollup_observation requires provenance`);
+    }
+  }
+
+  const integration = r.integration_status;
+  if (integration != null && typeof integration === "object") {
+    const st = /** @type {Record<string, unknown>} */ (integration).pr_state;
+    if (st != null && !KNOWN_INTEGRATION_STATES.has(String(st))) {
+      issues.push(`integration_status.pr_state invalid: ${st}`);
+    }
+    const head = /** @type {Record<string, unknown>} */ (integration).pr_head_sha;
+    if (head != null && String(head).trim() !== "") {
+      const { wellFormed } = describeSha(String(head));
+      if (!wellFormed) issues.push("malformed integration_status.pr_head_sha");
+    }
+    const mergeSha = /** @type {Record<string, unknown>} */ (integration).merge_commit_sha;
+    if (mergeSha != null && String(mergeSha).trim() !== "") {
+      const { wellFormed } = describeSha(String(mergeSha));
+      if (!wellFormed) issues.push("malformed integration_status.merge_commit_sha");
+    }
+  }
+
+  const fixRounds = r.fix_rounds;
+  if (typeof fixRounds === "number") {
+    if (fixRounds !== substantiveFixCount) {
+      issues.push(
+        `fix_rounds ${fixRounds} does not match substantive 修正 count ${substantiveFixCount}`,
+      );
+    }
+  } else if (fixRounds !== "unknown") {
+    issues.push("fix_rounds must be a number or unknown");
+  }
+
+  if (!Array.isArray(r.corrections)) {
+    issues.push("corrections must be an array (may be empty)");
+  } else {
+    const corrIds = new Set();
+    for (const c of corrections) {
+      if (c == null || typeof c !== "object") continue;
+      const cid = /** @type {Record<string, unknown>} */ (c).id;
+      if (typeof cid === "string" && corrIds.has(cid)) {
+        issues.push(`duplicate correction id ${cid}`);
+      }
+      if (typeof cid === "string") corrIds.add(cid);
+    }
+  }
+
+  return { ok: issues.length === 0, issues };
+}
+
+/**
+ * Append-only revision: prior phase ids and their task_type must remain; phases may grow.
+ * @param {unknown} previous
+ * @param {unknown} next
+ */
+export function validatePhaseRecordRevision(previous, next) {
+  const base = validatePhaseRecord(next);
+  const issues = [...base.issues];
+  if (previous == null || typeof previous !== "object") {
+    issues.push("previous record required for revision check");
+    return { ok: false, issues };
+  }
+  if (next == null || typeof next !== "object") {
+    issues.push("next record required");
+    return { ok: false, issues };
+  }
+  const prevPhases = Array.isArray(
+    /** @type {Record<string, unknown>} */ (previous).phases,
+  )
+    ? /** @type {Record<string, unknown>} */ (previous).phases
+    : [];
+  const nextPhases = Array.isArray(
+    /** @type {Record<string, unknown>} */ (next).phases,
+  )
+    ? /** @type {Record<string, unknown>} */ (next).phases
+    : [];
+  if (nextPhases.length < prevPhases.length) {
+    issues.push("revision removed phases");
+  }
+
+  const prefixLen = Math.min(prevPhases.length, nextPhases.length);
+  for (let i = 0; i < prefixLen; i++) {
+    if (!valueDeepEqual(prevPhases[i], nextPhases[i])) {
+      const id =
+        prevPhases[i] &&
+        typeof prevPhases[i] === "object" &&
+        /** @type {Record<string, unknown>} */ (prevPhases[i]).id;
+      issues.push(
+        `revision mutated phase at index ${i}${typeof id === "string" ? ` (id ${id})` : ""}`,
+      );
+    }
+  }
+
+  const prevCorr = Array.isArray(
+    /** @type {Record<string, unknown>} */ (previous).corrections,
+  )
+    ? /** @type {Record<string, unknown>} */ (previous).corrections
+    : [];
+  const nextCorr = Array.isArray(
+    /** @type {Record<string, unknown>} */ (next).corrections,
+  )
+    ? /** @type {Record<string, unknown>} */ (next).corrections
+    : [];
+  if (nextCorr.length < prevCorr.length) {
+    issues.push("revision removed correction entries");
+  }
+  const corrPrefix = Math.min(prevCorr.length, nextCorr.length);
+  for (let i = 0; i < corrPrefix; i++) {
+    if (!valueDeepEqual(prevCorr[i], nextCorr[i])) {
+      const cid =
+        prevCorr[i] &&
+        typeof prevCorr[i] === "object" &&
+        /** @type {Record<string, unknown>} */ (prevCorr[i]).id;
+      issues.push(
+        `revision mutated correction at index ${i}${typeof cid === "string" ? ` (id ${cid})` : ""}`,
+      );
+    }
+  }
+
+  const prevMs = /** @type {Record<string, unknown>} */ (previous).merge_summary;
+  const nextMs = /** @type {Record<string, unknown>} */ (next).merge_summary;
+  const appendedCorr = nextCorr.slice(prevCorr.length);
+  if (
+    prevMs != null &&
+    nextMs != null &&
+    typeof prevMs === "object" &&
+    typeof nextMs === "object"
+  ) {
+    for (const key of MERGE_SUMMARY_ROLLUP_KEYS) {
+      const pv = prevMs[key];
+      const nv = nextMs[key];
+      if (rollupObservationValuesMatch(pv, nv)) continue;
+      if (!mergeSummaryValueIsConcrete(nv)) continue;
+      const hasNewObs = appendedCorr.some((c) => correctionSupportsRollup(c, key, nv));
+      if (!hasNewObs) {
+        issues.push(
+          `revision merge_summary.${key} change requires appended rollup_observation for new value`,
+        );
+      }
+    }
+  }
+
+  return { ok: issues.length === 0, issues };
+}
+
+/**
+ * @param {string} [dir]
+ * @returns {{ ok: boolean, issues: string[], records: unknown[] }}
+ */
+export function validateCommittedPhaseRecordFiles(dir = PHASE_RECORDS_DIR) {
+  const issues = [];
+  const records = [];
+  const files = ["issue-553-pr591.json", "issue-553-pr592.json"];
+  for (const name of files) {
+    const filePath = path.join(dir, name);
+    let parsed;
+    try {
+      parsed = JSON.parse(readFileSync(filePath, "utf8"));
+    } catch (err) {
+      issues.push(`${name}: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
+    records.push(parsed);
+    const check = validatePhaseRecord(parsed);
+    if (!check.ok) {
+      issues.push(...check.issues.map((msg) => `${name}: ${msg}`));
+    }
+  }
+  return { ok: issues.length === 0, issues, records };
+}
+
+const PR591_READY_SHA = "60d5252149558ddf0146866f0cd2f60995ee03e4";
+const PR591_VERIFIED_SHA = "2add60baa4014c3900cca4f5a77ae73d00aaae1d";
+const PR591_MERGE_SHA = "4382d4b7eb53e0601ceacd7e508e99c61dee994a";
+const PR592_VERIFIED_SHA = "eb0c804e42a6c1359920da7b202f103124dcbb0a";
+const PR592_MERGE_SHA = "4879ed7a02eb8d6df1ba47c8e4f894bfed83c6b2";
+
+/**
+ * Cross-check phase log prose links and key SHAs against canonical JSON records.
+ * Does not assert PR #591 remains open forever — only documents as-of rows in JSON.
+ * @param {string} markdown
+ */
+export function validatePhaseLogPracticeEntries(markdown) {
+  const issues = [];
+  if (!markdown.includes("## Issue #553 — PR #591")) {
+    issues.push("missing heading ## Issue #553 — PR #591");
+  }
+  if (!markdown.includes("## Issue #553 — PR #592")) {
+    issues.push("missing heading ## Issue #553 — PR #592");
+  }
+  if (!markdown.includes("docs/phase-records/issue-553-pr591.json")) {
+    issues.push("missing canonical link to issue-553-pr591.json");
+  }
+  if (!markdown.includes("docs/phase-records/issue-553-pr592.json")) {
+    issues.push("missing canonical link to issue-553-pr592.json");
+  }
+  if (!markdown.includes(PR591_READY_SHA)) {
+    issues.push("missing #591 ready_head_sha in phase log");
+  }
+  if (!markdown.includes(PR591_VERIFIED_SHA)) {
+    issues.push("missing #591 verified_head_sha in phase log");
+  }
+  if (!markdown.includes(PR591_MERGE_SHA)) {
+    issues.push("missing #591 merge commit sha in phase log");
+  }
+  if (!markdown.includes(PR592_VERIFIED_SHA)) {
+    issues.push("missing #592 verified_head_sha in phase log");
+  }
+  if (!markdown.includes(PR592_MERGE_SHA)) {
+    issues.push("missing #592 merge commit sha in phase log");
+  }
+
+  const committed = validateCommittedPhaseRecordFiles();
+  if (!committed.ok) {
+    issues.push(...committed.issues);
+  }
+
+  return { ok: issues.length === 0, issues };
+}
+
+/**
+ * @param {string} markdown
+ */
+export function validatePhaseLogStructureFull(markdown) {
+  const structural = validatePhaseLogStructure(markdown);
+  const practice = validatePhaseLogPracticeEntries(markdown);
+  const issues = [...structural.issues, ...practice.issues];
+  return { ok: issues.length === 0, issues };
 }
 
 async function readStdin() {
