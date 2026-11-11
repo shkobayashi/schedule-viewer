@@ -224,6 +224,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/check-operation-entries.test.mjs` | `check-operation-entries matches labels and MCP names in operation-entries.md` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
+| `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent frontmatter name model readonly` | — |
+| `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent explicit invocation and review-implementation link` | — |
 | `scripts/check-agent-docs.test.mjs` | `stripFencedCodeBlocks removes fenced links` | — |
 | `scripts/check-agent-docs.test.mjs` | `resolveRelativeFileLink rejects broken relative link` | — |
 | `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects missing description` | — |
