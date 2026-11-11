@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "record_id": "issue-553-pr-591",
+  "issue": 553,
+  "pr": 591,
+  "title": "Issue #553 item 6: beforeShellExecution hook to deny git history rewrites",
+  "canonical_path": "docs/phase-records/issue-553-pr591.json",
+  "integration_status": {
+    "as_of": "2026-11-11",
+    "pr_state": "merged",
+    "pr_head_sha": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
+    "merge_commit_sha": "4382d4b7eb53e0601ceacd7e508e99c61dee994a",
+    "merged_at_utc": "2026-11-11T11:30:01Z",
+    "merged_at_jst": "2026-11-11T20:30:01+09:00",
+    "provenance": "GitHub user merge event; prior open as-of row preserved in corrections"
+  },
+  "verified_head_sha": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
+  "ready_head_sha": "60d5252149558ddf0146866f0cd2f60995ee03e4",
+  "post_integration_ready_head_sha": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
+  "fix_rounds": 2,
+  "fix_rounds_note": "Counts substantive implementation/test/doc fixes only. Integration merge and post-integration review are not fix rounds.",
+  "phases": [
+    {
+      "id": "591-plan-1",
+      "task_type": "計画",
+      "model_id": "grok-4.7",
+      "effort": "high",
+      "effort_basis": "configured",
+      "session_id": "bc-730af328-eac8-54ff-ad46-aef8345f8a92",
+      "coordinator_run": 6,
+      "selection_rationale": "Bounded parser false-positive/negative reasoning; user policy plan/review high then Composer.",
+      "findings": null,
+      "provenance": "coordinator launch record"
+    },
+    {
+      "id": "591-impl-1",
+      "task_type": "実装",
+      "model_id": "composer-2.5",
+      "effort": "unknown",
+      "effort_basis": "unknown",
+      "session_id": "bc-f325fd81-e9ad-5c5d-b42d-462c3d879436",
+      "head_sha_produced": "245aea2cf3ac15c3c434a61aafde2360e066eb5e",
+      "provenance": "coordinator implementation record"
+    },
+    {
+      "id": "591-review-1",
+      "task_type": "レビュー",
+      "model_id": "grok-4.7",
+      "effort": "high",
+      "effort_basis": "configured",
+      "session_id": "bc-f2aab7f8-7be0-5eac-adea-5ed6f54baadf",
+      "coordinator_run": 1,
+      "head_sha_reviewed": "245aea2cf3ac15c3c434a61aafde2360e066eb5e",
+      "findings": "About 10 parser finding families plus config test; not exact per-bug counts.",
+      "provenance": "coordinator review record"
+    },
+    {
+      "id": "591-fix-1",
+      "task_type": "修正",
+      "model_id": "composer-2.5",
+      "effort": "unknown",
+      "effort_basis": "unknown",
+      "session_id": "bc-cbf06a6a-ab80-5371-89a9-b5698f2f0245",
+      "coordinator_run": 1,
+      "head_sha_produced": "0f94c600354a2bff5a8620df13a6ca546f01b7ee",
+      "substantive_fix": true,
+      "findings": "Tests before 13 pass 10 fail; after 23 pass.",
+      "provenance": "coordinator fix record"
+    },
+    {
+      "id": "591-review-2",
+      "task_type": "レビュー",
+      "model_id": "grok-4.7",
+      "effort": "high",
+      "effort_basis": "configured",
+      "session_id": "bc-f2aab7f8-7be0-5eac-adea-5ed6f54baadf",
+      "coordinator_run": 2,
+      "head_sha_reviewed": "0f94c600354a2bff5a8620df13a6ca546f01b7ee",
+      "findings": "Four residual families: env/group/config modes/info false-positive.",
+      "provenance": "coordinator review record"
+    },
+    {
+      "id": "591-fix-2",
+      "task_type": "修正",
+      "model_id": "composer-2.5",
+      "effort": "unknown",
+      "effort_basis": "unknown",
+      "session_id": "bc-cbf06a6a-ab80-5371-89a9-b5698f2f0245",
+      "coordinator_run": 2,
+      "head_sha_produced": "60d5252149558ddf0146866f0cd2f60995ee03e4",
+      "substantive_fix": true,
+      "findings": "Tests before 21 pass 4 fail; after 25 pass.",
+      "provenance": "coordinator fix record"
+    },
+    {
+      "id": "591-review-3",
+      "task_type": "レビュー",
+      "model_id": "grok-4.7",
+      "effort": "high",
+      "effort_basis": "configured",
+      "session_id": "bc-f2aab7f8-7be0-5eac-adea-5ed6f54baadf",
+      "coordinator_run": 3,
+      "head_sha_reviewed": "60d5252149558ddf0146866f0cd2f60995ee03e4",
+      "findings": "Ready on 60d52521.",
+      "provenance": "coordinator review record"
+    },
+    {
+      "id": "591-integration-1",
+      "task_type": "統合",
+      "model_id": "composer-2.5",
+      "effort": "unknown",
+      "effort_basis": "unknown",
+      "session_id": "bc-cbf06a6a-ab80-5371-89a9-b5698f2f0245",
+      "coordinator_run": 3,
+      "head_sha_produced": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
+      "substantive_fix": false,
+      "findings": "Normal merge; parents 60d52521 and 4879ed7a; 87 combined tests/checker/diff pass reported; hook unchanged — not parser fix round 3.",
+      "provenance": "coordinator integration record"
+    },
+    {
+      "id": "591-review-4",
+      "task_type": "レビュー",
+      "model_id": "grok-4.7",
+      "effort": "high",
+      "effort_basis": "configured",
+      "session_id": "bc-f2aab7f8-7be0-5eac-adea-5ed6f54baadf",
+      "coordinator_run": 4,
+      "head_sha_reviewed": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
+      "base_sha_reviewed": "4879ed7a02eb8d6df1ba47c8e4f894bfed83c6b2",
+      "review_outcome": "MERGE-READY",
+      "findings": "MERGE-READY on integration head. Provider and fetched heads matched; parents 60d52521 and 4879ed7a both ancestors. Hook bytes unchanged from 60d52521; split files byte-identical to merged #592; conflicted docs preserve both sides. 87 targeted tests, 35-file agent-docs checker, exact test-spec title parity, full correct-base PR diff check passed on archive Node v22.23.4. GitHub mergeable; no check runs. No Node 24 or live IDE/Cloud blocking proof.",
+      "provenance": "coordinator review record (run 4 complete)"
+    },
+    {
+      "id": "591-merge-user-1",
+      "task_type": "統合",
+      "effort": "unknown",
+      "effort_basis": "unknown",
+      "head_sha_produced": "4382d4b7eb53e0601ceacd7e508e99c61dee994a",
+      "pr_head_at_merge": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
+      "substantive_fix": false,
+      "findings": "GitHub user merge at 2026-11-11T11:30:01Z (20:30:01 JST). Merge commit 4382d4b7eb53e0601ceacd7e508e99c61dee994a; reviewed PR head 2add60baa4014c3900cca4f5a77ae73d00aaae1d unchanged as verified_head_sha. Not a fix round.",
+      "provenance": "GitHub merge event (user)"
+    }
+  ],
+  "corrections": [
+    {
+      "id": "591-corr-reviewer-1",
+      "appended_at": "2026-11-11",
+      "correction_note": "Reviewer correction: escaped-space executable 'git\\ commit' not git+argv; no-force does not cancel independent lease/if-includes.",
+      "provenance": "coordinator correction"
+    },
+    {
+      "id": "591-corr-review4-historical-pending",
+      "appended_at": "2026-11-11",
+      "correction_note": "Post-integration review active as of slice authoring; do not invent final result.",
+      "provenance": "coordinator correction (historical finding at 591-review-4 before run 4 complete)"
+    },
+    {
+      "id": "591-corr-review4-run4-outcome",
+      "appended_at": "2026-11-11",
+      "correction_note": "Review run 4 complete: MERGE-READY on head 2add60baa4014c3900cca4f5a77ae73d00aaae1d. Phase 591-review-4 findings updated; historical pending sentence preserved in correction id 591-corr-review4-historical-pending above.",
+      "provenance": "coordinator correction"
+    },
+    {
+      "id": "591-corr-pr593-review-fix",
+      "appended_at": "2026-11-11",
+      "correction_note": "PR #593 review-fix (one-time schema delivery): verified_head_sha set from latest MERGE-READY review while integration_status.pr_state remains open; human merge is separate.",
+      "provenance": "coordinator correction"
+    },
+    {
+      "id": "591-corr-integration-open-historical",
+      "appended_at": "2026-11-11",
+      "correction_note": "Historical integration_status before GitHub user merge: pr_state open, as_of 2026-11-11, pr_head_sha 2add60baa4014c3900cca4f5a77ae73d00aaae1d; provenance coordinator launch/review/fix record and GitHub fetch at slice authoring.",
+      "provenance": "coordinator correction"
+    },
+    {
+      "id": "591-corr-user-merge-github",
+      "appended_at": "2026-11-11",
+      "correction_note": "GitHub merged PR #591: merge_commit_sha 4382d4b7eb53e0601ceacd7e508e99c61dee994a; merged_at 2026-11-11T11:30:01Z. verified_head_sha stays 2add60baa4014c3900cca4f5a77ae73d00aaae1d.",
+      "provenance": "GitHub merge event (user)"
+    }
+  ],
+  "merge_summary": {
+    "tests_node": "22.23.4",
+    "live_blocking": "none reported",
+    "actual_cost": "unknown",
+    "tokens": "unknown",
+    "duration": "unknown",
+    "composer_effort": "unknown"
+  },
+  "comparison_limits": "No controlled high/medium/xhigh comparison; no causal quality ranking; rationale is coordinator-recorded policy not experimental proof.",
+  "provenance": "coordinator-provided launch/review/fix observations; not repository inference"
+}

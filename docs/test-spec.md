@@ -248,6 +248,38 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/format-check-record.test.mjs` | `phase log validator rejects #475 implement effort not unknown` | — |
 | `scripts/format-check-record.test.mjs` | `phase log validator rejects #475 fix composer effort not unknown` | — |
 | `scripts/format-check-record.test.mjs` | `phase log validator rejects fabricated old table March migration phrase` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects high effort without effort_basis` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord accepts configured high plan with effort_basis configured` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects fix_rounds mismatch` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects dropped earlier phase` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision allows appended correction and integration status change` | — |
+| `scripts/format-check-record.test.mjs` | `#591 record uses as-of integration_status without validator pinning open forever` | — |
+| `scripts/format-check-record.test.mjs` | `committed #592 canonical record matches high plan configured and fix_rounds 1` | — |
+| `scripts/format-check-record.test.mjs` | `phase log practice entries link canonical #591 and #592 records` | — |
+| `scripts/format-check-record.test.mjs` | `#591 committed record reflects GitHub user merge and keeps verified_head_sha` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision accepts #591 user merge phase and merged integration_status` | — |
+| `scripts/format-check-record.test.mjs` | `#591 committed record verified_head_sha matches latest MERGE-READY review` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects verified_head_sha missing when MERGE-READY review exists` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects mutated committed #591 phase prefix` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects replaced committed #591 correction prefix` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects reordered committed #591 phases` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects deleted committed #591 correction` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects stale verified_head_sha after appended NOT-READY review` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord accepts null verified_head_sha after NOT-READY withdrawal` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord preserves verified_head when appended review has no readiness judgment` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord requires new head after MERGE-READY re-ready on later head` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord review_outcome NOT-READY overrides positive findings text` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects invalid review_outcome on review phase` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects uncited merge_summary tokens on committed #591 clone (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord accepts cited merge_summary tokens with appended observation (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects merge_summary token change without fresh observation (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord accepts merge_summary token change with fresh observation (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects rollup_observation without provenance (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects rollup_observation key value mismatch (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects MERGE-READY without head_sha_reviewed on #591 clone (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects MERGE-READY with malformed head_sha_reviewed (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects legacy Ready findings without head_sha_reviewed on #591 clone (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord NOT-READY with Ready prose does not require positive head (example)` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentityStatus unit cases` | — |
 | `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent frontmatter name model readonly` | — |
 | `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent explicit invocation and review-implementation link` | — |

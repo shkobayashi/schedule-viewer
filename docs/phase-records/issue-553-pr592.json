@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "record_id": "issue-553-pr-592",
+  "issue": 553,
+  "pr": 592,
+  "title": "Issue #553 item 3: split implement-change into entry + references",
+  "canonical_path": "docs/phase-records/issue-553-pr592.json",
+  "integration_status": {
+    "as_of": "2026-11-11",
+    "pr_state": "merged",
+    "pr_head_sha": "eb0c804e42a6c1359920da7b202f103124dcbb0a",
+    "merge_commit_sha": "4879ed7a02eb8d6df1ba47c8e4f894bfed83c6b2",
+    "merged_at_jst": "2026-11-11T20:15:11+09:00",
+    "provenance": "coordinator record and GitHub fetch at slice authoring"
+  },
+  "verified_head_sha": "eb0c804e42a6c1359920da7b202f103124dcbb0a",
+  "fix_rounds": 1,
+  "fix_rounds_note": "One substantive fix round. Metadata-only base/SHA/whitespace correction is not counted.",
+  "phases": [
+    {
+      "id": "592-plan-1",
+      "task_type": "計画",
+      "model_id": "grok-4.7",
+      "effort": "high",
+      "effort_basis": "configured",
+      "session_id": "bc-730af328-eac8-54ff-ad46-aef8345f8a92",
+      "coordinator_run": 7,
+      "selection_rationale": "Mechanical equivalence/link/history dependency; user policy plan/review high then Composer.",
+      "findings": null,
+      "provenance": "coordinator launch record"
+    },
+    {
+      "id": "592-impl-1",
+      "task_type": "実装",
+      "model_id": "composer-2.5",
+      "effort": "unknown",
+      "effort_basis": "unknown",
+      "session_id": "bc-e7b6b370-05c7-5d04-83f6-e69624a2b0e0",
+      "head_sha_produced": "35d804df4608559b25a484855e251a39e981792b",
+      "provenance": "coordinator implementation record"
+    },
+    {
+      "id": "592-review-1",
+      "task_type": "レビュー",
+      "model_id": "grok-4.7",
+      "effort": "high",
+      "effort_basis": "configured",
+      "session_id": "bc-fcd2d7f5-3969-5dd5-83d7-5c4641eff88b",
+      "coordinator_run": 1,
+      "head_sha_reviewed": "35d804df4608559b25a484855e251a39e981792b",
+      "findings": "Forbidden permanent prose snapshot (freezes future edits / fails depth-1 tmp dependency) and four EOF blanks; split text/link equivalence otherwise verified.",
+      "provenance": "coordinator review record"
+    },
+    {
+      "id": "592-fix-1",
+      "task_type": "修正",
+      "model_id": "composer-2.5",
+      "effort": "unknown",
+      "effort_basis": "unknown",
+      "session_id": "bc-4320e2a0-916f-5185-80a2-77850135f3f5",
+      "coordinator_run": 1,
+      "head_sha_produced": "eb0c804e42a6c1359920da7b202f103124dcbb0a",
+      "substantive_fix": true,
+      "provenance": "coordinator fix record"
+    },
+    {
+      "id": "592-review-2",
+      "task_type": "レビュー",
+      "model_id": "grok-4.7",
+      "effort": "high",
+      "effort_basis": "configured",
+      "session_id": "bc-fcd2d7f5-3969-5dd5-83d7-5c4641eff88b",
+      "coordinator_run": 2,
+      "head_sha_reviewed": "eb0c804e42a6c1359920da7b202f103124dcbb0a",
+      "findings": "Ready; 19 tests/archive without git/checker 35/full correct feature-436 diff pass; clause/link preservation.",
+      "provenance": "coordinator review record"
+    },
+    {
+      "id": "592-meta-corr-1",
+      "task_type": "訂正",
+      "model_id": "composer-2.5",
+      "effort": "unknown",
+      "effort_basis": "unknown",
+      "session_id": "bc-4320e2a0-916f-5185-80a2-77850135f3f5",
+      "coordinator_run": 2,
+      "substantive_fix": false,
+      "correction_note": "Wrong develop base, malformed SHA prefix, unrelated whitespace claim; no head change.",
+      "provenance": "coordinator correction record"
+    }
+  ],
+  "corrections": [],
+  "merge_summary": {
+    "actual_cost": "unknown",
+    "tokens": "unknown",
+    "duration": "unknown",
+    "composer_effort": "unknown"
+  },
+  "comparison_limits": "No second model comparison.",
+  "provenance": "coordinator-provided launch/review/fix observations; not repository inference"
+}
