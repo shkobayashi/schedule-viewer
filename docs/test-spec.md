@@ -21,6 +21,7 @@
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1）。警告の上限を超えると失敗する。上限は [開発ガイド](development.md) |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
 | 操作の入口表（段階1） | `npm run check:operation-entries` | `operation-entries.md` と `OPERATION_FORMAL` / 右クリック固定 / MCP 名。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
+| エージェント向け文書 | `npm run check:agent-docs` | `AGENTS.md`、`docs/agents-*.md`、`.cursor/rules/*.mdc`、各スキルの `SKILL.md` と `references/*.md` の相対リンク（ファイルまたは既存ディレクトリ。`#` アンカーは見ない）。コードフェンス内とインラインの `` `...` `` 内は無視。`[text][ref]` 形式と HTML の `href` は見ない。`SKILL.md` の frontmatter に空でない `name` と `description`。`alwaysApply` ルールと `AGENTS.md` のバイト数を標準出力へ出す |
 | 回帰の対応 | `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定である。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない |
 | 循環 import | `npm run check:madge-circular-baseline` | madge とベースライン JSON の一致。**CI frontend で失敗扱い** |
 | 重複（警告） | `npm run check:architecture-warn` | jscpd のみ。重複率の上限を超えても CI では失敗にしない。上限は [開発ガイド](development.md) |
@@ -190,11 +191,11 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `develop`、`main`、`next` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`（循環 import）、`test:ci`（閾値未満は失敗）、`check:architecture-warn`（jscpd。上限超過は警告）、`check:schedule`、`check:calendar`、`check:members`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、`npm audit --audit-level=high`、スキル同梱物と `how-to/manual/` の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、マニュアル6ファイルと `how-to/manual/` の差分。最後に集約ジョブ `ci` が成功する |
+| `.github/workflows/ci.yml` | `develop`、`main`、`next` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`（循環 import）、`test:ci`（閾値未満は失敗）、`check:architecture-warn`（jscpd。上限超過は警告）、`check:schedule`、`check:calendar`、`check:members`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、`npm audit --audit-level=high`、スキル同梱物と `how-to/manual/` の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、マニュアル6ファイルと `how-to/manual/` の差分。エージェント向け文書だけ（フロント・Rust・`manual` と重ならないパス）なら `npm run check:agent-docs` と `node --test scripts/check-agent-docs.test.mjs`。最後に集約ジョブ `ci` が成功する |
 | `.github/workflows/pages.yml` | `main` への push（操作マニュアルとサイトビルドの入力）または `workflow_dispatch` | `npm ci` のあと `build:manual-site` を GitHub Pages へ公開する |
 | `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Apple Silicon の dmg を GitHub Release へ出す。安定版では Windows が署名しない MSIX を Microsoft Store（`9PP41TRJ8ZT8`）へ提出する。Pre-release では Windows NSIS と `schedule-viewer-codesign.cer` と `latest-windows-x86_64.json` を出す。`latest-linux-x86_64.json`、`latest-darwin-aarch64.json` と、安定版では `linux-x86_64` と `darwin-aarch64` の `latest.json`、Pre-release では `windows-x86_64` も含む `latest.json`、`SHA256SUMS` を載せる。Pre-release では Latest を付けず `updater-X` も更新しない。安定版の `checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。`main` は安定版で CHANGELOG から本文を組み立てる。安定版ではビルド前に GitHub Release を作り、`checksums` が `updater-X` を更新し、より大きいメジャーが無いときだけ Latest を付ける。`release/X.Y.Z` は Pre-release で、アルファまたはベータに応じた短い確認用の本文 |
 
-`develop` への push だけでは CI は動かない。`docs/*.md` だけの変更（操作マニュアル以外）ではフロントと Rust と `manual` はスキップするが、集約ジョブ `ci` は成功する。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
+`develop` への push だけでは CI は動かない。`docs/*.md` だけの変更（操作マニュアル以外）ではフロントと Rust と `manual` はスキップするが、集約ジョブ `ci` は成功する。`agentdocs` ジョブは `npm run check:agent-docs` と `node --test scripts/check-agent-docs.test.mjs` を走らせる。**agentdocs だけ**が立つのは、変更がフロント・Rust・`manual` に当たらないときである。`.cursor/skills/write-*` と `how-to/` の SKILL・`references` は frontend と重なり、`.cursor/skills/schedule-talk/` の SKILL・`references` は Rust と重なる。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
 ## 自動テスト一覧
 
@@ -223,6 +224,30 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/check-operation-entries.test.mjs` | `check-operation-entries matches labels and MCP names in operation-entries.md` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
+| `scripts/check-agent-docs.test.mjs` | `stripFencedCodeBlocks removes fenced links` | — |
+| `scripts/check-agent-docs.test.mjs` | `resolveRelativeFileLink rejects broken relative link` | — |
+| `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects missing description` | — |
+| `scripts/check-agent-docs.test.mjs` | `valid relative links and frontmatter pass in fixture tree` | — |
+| `scripts/check-agent-docs.test.mjs` | `check-agent-docs passes on repository agent-doc tree` | — |
+| `scripts/check-agent-docs.test.mjs` | `resolveRelativeFileLink accepts external URL without file check` | — |
+| `scripts/check-agent-docs.test.mjs` | `resolveRelativeFileLink accepts existing directory target` | — |
+| `scripts/check-agent-docs.test.mjs` | `inline backtick link is ignored after fence strip` | — |
+| `scripts/check-agent-docs.test.mjs` | `unquoted broken prose link still fails` | — |
+| `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects empty quoted description` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci.yml changes job pipes git diff into ci-changed-path-flags.sh` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: build-user-manual-site.mjs is manual only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: manual-site render.mjs is manual only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: ci.yml is frontend and rust` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: pages.yml is frontend and rust` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: docs agents non-md still sets agentdocs only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: rules non-mdc still sets agentdocs only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: check-agent-docs files are agentdocs only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: ci-changed-path-flags files are frontend only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: write-schedule SKILL is frontend and agentdocs` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: schedule-talk reference is rust and agentdocs` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: src App is frontend only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: src-tauri lib is rust only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: consult rule and session are agentdocs only` | — |
 
 ### Vitest
 
