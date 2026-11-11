@@ -10,7 +10,13 @@ use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 const EXECUTABLE: &str = env!("CARGO_BIN_EXE_schedule-viewer");
+#[cfg(unix)]
+const IDLE_FIXTURE_SLEEP: &str = "/bin/sleep";
+#[cfg(windows)]
+const IDLE_FIXTURE_SLEEP: &str = r"C:\Windows\System32\timeout.exe";
 const REPO_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
+const SCHEDULE_VIEWER_IMAGE_NAME_UNIX: &str = "schedule-viewer";
+const SCHEDULE_VIEWER_IMAGE_NAME_WINDOWS: &str = "schedule-viewer.exe";
 
 const CHILD_WAIT_TIMEOUT: Duration = Duration::from_secs(10);
 const GUI_READY_TIMEOUT: Duration = Duration::from_secs(120);
@@ -147,7 +153,7 @@ fn assert_linux_display() {
 }
 
 #[cfg(windows)]
-fn assert_no_foreign_mcp_pipe() {
+fn mcp_named_pipe_is_open() -> bool {
     use std::ffi::c_void;
     use std::ptr;
     use windows_sys::Win32::Foundation::{
@@ -218,7 +224,7 @@ fn assert_no_foreign_mcp_pipe() {
         )
     };
     if handle == INVALID_HANDLE_VALUE {
-        return;
+        return false;
     }
     let mode = PIPE_READMODE_BYTE;
     if unsafe {
@@ -226,10 +232,17 @@ fn assert_no_foreign_mcp_pipe() {
     } == 0
     {
         let _ = unsafe { CloseHandle(handle) };
-        return;
+        return false;
     }
     let _ = unsafe { CloseHandle(handle) };
-    panic!("named pipe is already open; close other schedule-viewer instances before tests");
+    true
+}
+
+#[cfg(windows)]
+fn assert_no_foreign_mcp_pipe() {
+    if mcp_named_pipe_is_open() {
+        panic!("named pipe is already open; close other schedule-viewer instances before tests");
+    }
 }
 
 #[cfg(not(windows))]
@@ -273,8 +286,87 @@ fn allowed_schedule_viewer_pids(roots: &[u32]) -> std::collections::HashSet<u32>
 }
 
 #[cfg(unix)]
-fn canonical_test_executable() -> Result<PathBuf, String> {
-    fs::canonicalize(EXECUTABLE).map_err(|e| format!("canonicalize {EXECUTABLE}: {e}"))
+fn current_euid() -> u32 {
+    unsafe { libc::geteuid() }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_proc_owner_uid(pid: u32) -> Result<Option<u32>, String> {
+    let out = Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "uid="])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Ok(None);
+    }
+    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if text.is_empty() {
+        return Ok(None);
+    }
+    text.parse::<u32>()
+        .map(Some)
+        .map_err(|e| format!("parse uid for pid {pid}: {e}"))
+}
+
+#[cfg(unix)]
+fn unix_proc_owner_uid(pid: u32) -> Result<Option<u32>, String> {
+    #[cfg(target_os = "linux")]
+    {
+        linux_proc_status_uid(pid)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        macos_proc_owner_uid(pid)
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        let _ = pid;
+        Err("unix_proc_owner_uid は Linux と macOS だけです".to_string())
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_proc_status_uid(pid: u32) -> Result<Option<u32>, String> {
+    let path = format!("/proc/{pid}/status");
+    let status = match fs::read_to_string(&path) {
+        Ok(s) => s,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(format!("read {path}: {err}")),
+    };
+    for line in status.lines() {
+        if let Some(rest) = line.strip_prefix("Uid:") {
+            let uid = rest
+                .split_whitespace()
+                .next()
+                .ok_or_else(|| format!("Uid: line missing uid in {path}"))?
+                .parse::<u32>()
+                .map_err(|e| format!("parse uid in {path}: {e}"))?;
+            return Ok(Some(uid));
+        }
+    }
+    Err(format!("Uid: not found in {path}"))
+}
+
+#[cfg(unix)]
+fn is_schedule_viewer_image_path(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|n| n.to_str()),
+        Some(SCHEDULE_VIEWER_IMAGE_NAME_UNIX)
+    )
+}
+
+enum ExeInspection {
+    Resolved(PathBuf),
+    NoSuchProcess,
+    OtherUser,
+    InspectFailed(String),
+}
+
+#[cfg(unix)]
+fn unix_pid_alive(pid: u32) -> bool {
+    unsafe {
+        libc::kill(pid as i32, 0) == 0 || *libc::__errno_location() == libc::EPERM
+    }
 }
 
 #[cfg(unix)]
@@ -312,15 +404,32 @@ fn all_pids() -> Result<Vec<u32>, String> {
 }
 
 #[cfg(unix)]
-fn executable_path_for_pid(pid: u32) -> Result<Option<PathBuf>, String> {
+fn inspect_schedule_viewer_image(pid: u32, me: u32) -> Result<ExeInspection, String> {
+    if !unix_pid_alive(pid) {
+        return Ok(ExeInspection::NoSuchProcess);
+    }
+    let owner = unix_proc_owner_uid(pid)?;
+    let Some(owner) = owner else {
+        if !unix_pid_alive(pid) {
+            return Ok(ExeInspection::NoSuchProcess);
+        }
+        return Err(format!("Uid: を読めません (pid {pid})"));
+    };
+    if owner != me {
+        return Ok(ExeInspection::OtherUser);
+    }
     #[cfg(target_os = "linux")]
     {
         let link = format!("/proc/{pid}/exe");
         match fs::read_link(&link) {
-            Ok(path) => Ok(Some(path)),
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied => Ok(None),
-            Err(err) => Err(format!("read_link {link}: {err}")),
+            Ok(path) => Ok(ExeInspection::Resolved(path)),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(ExeInspection::NoSuchProcess),
+            Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied => {
+                Ok(ExeInspection::InspectFailed(format!(
+                    "read_link {link}: permission denied (same uid)"
+                )))
+            }
+            Err(err) => Ok(ExeInspection::InspectFailed(format!("read_link {link}: {err}"))),
         }
     }
     #[cfg(target_os = "macos")]
@@ -335,36 +444,74 @@ fn executable_path_for_pid(pid: u32) -> Result<Option<PathBuf>, String> {
             )
         };
         if len <= 0 {
-            return Ok(None);
+            if !unix_pid_alive(pid) {
+                return Ok(ExeInspection::NoSuchProcess);
+            }
+            let errno = unsafe { *libc::__errno_location() };
+            return Ok(ExeInspection::InspectFailed(format!(
+                "proc_pidpath({pid}) failed (errno {errno})"
+            )));
         }
-        Ok(Some(PathBuf::from(
+        Ok(ExeInspection::Resolved(PathBuf::from(
             std::ffi::OsStr::from_bytes(&buf[..len as usize]),
         )))
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
-        let _ = pid;
-        Err("executable_path_for_pid は Linux と macOS だけです".to_string())
+        let _ = (pid, me);
+        Err("inspect_schedule_viewer_image は Linux と macOS だけです".to_string())
     }
 }
 
 #[cfg(unix)]
-fn paths_same_executable(a: &Path, b: &Path) -> Result<bool, String> {
-    let ca = fs::canonicalize(a).map_err(|e| format!("canonicalize {}: {e}", a.display()))?;
-    let cb = fs::canonicalize(b).map_err(|e| format!("canonicalize {}: {e}", b.display()))?;
-    Ok(ca == cb)
+fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
+    let me = current_euid();
+    let mut found = Vec::new();
+    let mut inspect_failures = Vec::new();
+    for pid in all_pids()? {
+        match inspect_schedule_viewer_image(pid, me)? {
+            ExeInspection::Resolved(path) if is_schedule_viewer_image_path(&path) => found.push(pid),
+            ExeInspection::InspectFailed(msg) => inspect_failures.push((pid, msg)),
+            ExeInspection::Resolved(_)
+            | ExeInspection::NoSuchProcess
+            | ExeInspection::OtherUser => {}
+        }
+    }
+    if !inspect_failures.is_empty() {
+        return Err(format!(
+            "同一ユーザーの schedule-viewer 実行ファイルを確認できません: {inspect_failures:?}"
+        ));
+    }
+    Ok(found)
 }
 
-#[cfg(unix)]
+#[cfg(windows)]
 fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
-    let target = canonical_test_executable()?;
+    let out = Command::new("tasklist")
+        .args([
+            "/FO",
+            "CSV",
+            "/NH",
+            "/FI",
+            &format!("IMAGENAME eq {SCHEDULE_VIEWER_IMAGE_NAME_WINDOWS}"),
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Err(format!("tasklist exited {}", out.status));
+    }
     let mut found = Vec::new();
-    for pid in all_pids()? {
-        let Some(path) = executable_path_for_pid(pid)? else {
+    for line in String::from_utf8_lossy(&out.stdout).lines() {
+        let line = line.trim();
+        if line.is_empty() {
             continue;
-        };
-        if paths_same_executable(&path, &target)? {
-            found.push(pid);
+        }
+        let parts: Vec<&str> = line.split("\",\"").collect();
+        if parts.len() >= 2 {
+            let pid = parts[1].trim_end_matches('"').trim();
+            if let Ok(pid) = pid.parse::<u32>() {
+                found.push(pid);
+            }
         }
     }
     Ok(found)
@@ -427,8 +574,21 @@ fn assert_no_foreign_schedule_viewer_processes(exclude: &[u32]) {
 }
 
 #[cfg(windows)]
-fn assert_no_foreign_schedule_viewer_processes(_exclude: &[u32]) {
+fn assert_no_foreign_schedule_viewer_processes(exclude: &[u32]) {
     assert_no_foreign_mcp_pipe();
+    let allowed: std::collections::HashSet<u32> = exclude.iter().copied().collect();
+    let pids = schedule_viewer_pids().unwrap_or_else(|err| {
+        panic!("schedule-viewer の実行ファイルを列挙できません: {err}");
+    });
+    let foreign: Vec<u32> = pids
+        .into_iter()
+        .filter(|pid| !allowed.contains(pid))
+        .collect();
+    if !foreign.is_empty() {
+        panic!(
+            "schedule-viewer が他に動いています {foreign:?}。ツールを送る前に止めてください"
+        );
+    }
 }
 
 enum OpenWindowsSeed {
@@ -444,6 +604,121 @@ fn write_open_windows_value(app_data: &Path, body: &Value) {
         serde_json::to_string_pretty(body).expect("open windows json") + "\n",
     )
     .expect("write open-windows.json");
+}
+
+fn window_labels(h: &RunningHarness) -> std::collections::BTreeSet<String> {
+    h.open_windows_rows()
+        .iter()
+        .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
+        .map(str::to_string)
+        .collect()
+}
+
+fn wait_open_windows_labels_exactly_one_new(
+    h: &RunningHarness,
+    before: &std::collections::BTreeSet<String>,
+    new_label: &str,
+) {
+    let expected: std::collections::BTreeSet<String> = before
+        .iter()
+        .cloned()
+        .chain(std::iter::once(new_label.to_string()))
+        .collect();
+    let deadline = Instant::now() + Duration::from_secs(90);
+    loop {
+        let after = window_labels(h);
+        let rows_len = h.open_windows_rows().len();
+        if after == expected && rows_len == expected.len() {
+            break;
+        }
+        if Instant::now() >= deadline {
+            let rows = h.open_windows_rows();
+            panic!(
+                "open_new_window labels did not settle: before={before:?} expected={expected:?} after={after:?} rows_len={rows_len} rows={rows:?}"
+            );
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    let after = window_labels(h);
+    assert_eq!(after, expected, "open_new_window label set");
+    assert_eq!(
+        h.open_windows_rows().len(),
+        expected.len(),
+        "open_windows row count"
+    );
+}
+
+struct ChildGuard {
+    child: Child,
+    _keep_dir: tempfile::TempDir,
+}
+
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        kill_child_fast(&mut self.child);
+        let _ = self.child.wait();
+    }
+}
+
+fn harmless_schedule_viewer_image_path(dir: &Path) -> PathBuf {
+    #[cfg(unix)]
+    {
+        dir.join(SCHEDULE_VIEWER_IMAGE_NAME_UNIX)
+    }
+    #[cfg(windows)]
+    {
+        dir.join(SCHEDULE_VIEWER_IMAGE_NAME_WINDOWS)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = dir;
+        PathBuf::from(SCHEDULE_VIEWER_IMAGE_NAME_UNIX)
+    }
+}
+
+fn spawn_harmless_schedule_viewer_decoy() -> (ChildGuard, u32) {
+    let keep_dir = tempfile::tempdir().expect("decoy dir");
+    let image = harmless_schedule_viewer_image_path(keep_dir.path());
+    fs::copy(IDLE_FIXTURE_SLEEP, &image).expect("copy sleep stub");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&image).expect("metadata").permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&image, perms).expect("chmod decoy");
+    }
+    let mut cmd = Command::new(&image);
+    cmd.stdout(Stdio::null()).stderr(Stdio::null());
+    #[cfg(unix)]
+    {
+        cmd.arg("3600");
+    }
+    #[cfg(windows)]
+    {
+        cmd.args(["/T", "3600", "/NOBREAK"]);
+    }
+    let child = cmd.spawn().expect("spawn harmless decoy");
+    let pid = child.id();
+    (
+        ChildGuard {
+            child,
+            _keep_dir: keep_dir,
+        },
+        pid,
+    )
+}
+
+fn wait_for_foreign_schedule_viewer_pid(pid: u32) {
+    wait_until(Duration::from_secs(30), || {
+        schedule_viewer_pids()
+            .map(|pids| pids.contains(&pid))
+            .unwrap_or(false)
+    });
+    let pids = schedule_viewer_pids().expect("schedule_viewer_pids after decoy spawn");
+    assert!(
+        pids.contains(&pid),
+        "harmless decoy pid {pid} not listed in schedule-viewer pids {pids:?}"
+    );
 }
 
 fn wait_until(timeout: Duration, mut probe: impl FnMut() -> bool) {
@@ -1842,6 +2117,7 @@ fn open_new_window_adds_the_third_file_and_keeps_the_first_two_file_and_folder()
         let main_mtime = h.mtime_nanos(&h.main_path);
         let second_mtime = h.mtime_nanos(&h.schedule2_path);
         let before = open_windows_snapshot(h);
+        let before_labels = window_labels(h);
         let r = h.mcp_call(
             "open_new_window",
             json!({
@@ -1850,11 +2126,13 @@ fn open_new_window_adds_the_third_file_and_keeps_the_first_two_file_and_folder()
             }),
         );
         assert!(!r.is_error, "{}", r.text);
+        let new_label = normalize_text(&r.text);
         assert!(
-            r.text.starts_with("schedule-"),
+            new_label.starts_with("schedule-"),
             "open_new_window should return the new window label: {}",
             r.text
         );
+        wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
         let wins = parse_mcp_json_text(&h.mcp_call("open_windows", json!({})).text);
         let files: Vec<_> = wins
             .as_array()
@@ -2460,11 +2738,7 @@ fn screen_replace_schedule_with_window_exits_1_writes_front_only_sentence_and_le
 #[test]
 fn open_new_window_keeps_process_alive_and_both_windows_return_current_schedule() {
     with_gui(|h| {
-        let before_rows = h.open_windows_rows();
-        let before_labels: std::collections::BTreeSet<_> = before_rows
-            .iter()
-            .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
-            .collect();
+        let before_labels = window_labels(h);
         let r = h.mcp_call(
             "open_new_window",
             json!({
@@ -2474,18 +2748,11 @@ fn open_new_window_keeps_process_alive_and_both_windows_return_current_schedule(
         );
         assert!(!r.is_error, "{}", r.text);
         assert!(h.gui.try_wait().expect("try_wait").is_none());
-        let wins = h.open_windows_rows();
-        let third = wins
-            .iter()
-            .find(|w| w.get("file").and_then(|v| v.as_str()) == Some("schedule-3.schedule.json"))
-            .expect("schedule-3 window");
-        let new_label = third
-            .get("label")
-            .and_then(|v| v.as_str())
-            .expect("third label");
+        let new_label = normalize_text(&r.text);
+        wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
         let main_doc = h.current_schedule_json(Some("main"));
         assert!(schedule_contains_task(&main_doc, SEEDED_TASK_ID));
-        let new_doc = h.current_schedule_json(Some(new_label));
+        let new_doc = h.current_schedule_json(Some(&new_label));
         assert!(schedule_contains_task(&new_doc, SEEDED_TASK_ID));
         let wins = h.open_windows_rows();
         let schedule3_rows: Vec<_> = wins
@@ -2493,16 +2760,7 @@ fn open_new_window_keeps_process_alive_and_both_windows_return_current_schedule(
             .filter(|w| w.get("file").and_then(|v| v.as_str()) == Some("schedule-3.schedule.json"))
             .collect();
         assert_eq!(schedule3_rows.len(), 1);
-        let labels: std::collections::BTreeSet<_> = wins
-            .iter()
-            .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
-            .collect();
-        assert!(
-            labels.len() >= before_labels.len() + 1,
-            "expected at least one new window label, before {:?} after {:?}",
-            before_labels,
-            labels
-        );
+        let wins = h.open_windows_rows();
         let files: std::collections::BTreeSet<_> = wins
             .iter()
             .filter_map(|w| w.get("file").and_then(|v| v.as_str()))
@@ -2532,12 +2790,7 @@ fn open_new_window_while_main_is_dirty_keeps_the_edited_date_and_adds_a_window()
                 }),
             )
             .is_error);
-        let before_rows = h.open_windows_rows();
-        let before = before_rows.len();
-        let before_labels: std::collections::BTreeSet<_> = before_rows
-            .iter()
-            .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
-            .collect();
+        let before_labels = window_labels(h);
         let r = h.mcp_call(
             "open_new_window",
             json!({
@@ -2550,22 +2803,14 @@ fn open_new_window_while_main_is_dirty_keeps_the_edited_date_and_adds_a_window()
             task_start(&h.current_schedule_json(Some("main")), SEEDED_TASK_ID).as_deref(),
             Some(edited)
         );
+        let new_label = normalize_text(&r.text);
+        wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
         let after = h.open_windows_rows();
         let schedule3_rows: Vec<_> = after
             .iter()
             .filter(|w| w.get("file").and_then(|v| v.as_str()) == Some("schedule-3.schedule.json"))
             .collect();
         assert_eq!(schedule3_rows.len(), 1);
-        let labels: std::collections::BTreeSet<_> = after
-            .iter()
-            .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
-            .collect();
-        assert!(
-            labels.len() >= before_labels.len() + 1,
-            "expected at least one new window label, before {:?} after {:?}",
-            before_labels,
-            labels
-        );
     });
 }
 
@@ -3073,26 +3318,21 @@ fn catalog_action_save_on_app_catalog_updates_member_name_on_both_plain_windows(
 
 #[test]
 fn foreign_schedule_viewer_process_fails_without_sending_tools() {
+    #[cfg(target_os = "linux")]
     assert_linux_display();
     let _gui = GuiGuard {
         _lock: lock_ignore_poison(&GUI_MUTEX),
     };
-    let home = tempfile::tempdir().expect("home");
-    let mut foreign = Command::new(EXECUTABLE);
-    apply_isolated_home(&mut foreign, home.path());
-    foreign.stdout(Stdio::null()).stderr(Stdio::null());
-    let mut child = foreign.spawn().expect("spawn foreign schedule-viewer");
-    let foreign_pid = child.id();
-    std::thread::sleep(Duration::from_secs(2));
+    let (guard, foreign_pid) = spawn_harmless_schedule_viewer_decoy();
+    #[cfg(any(unix, windows))]
+    wait_for_foreign_schedule_viewer_pid(foreign_pid);
     let result = std::panic::catch_unwind(|| assert_no_foreign_schedule_viewer_processes(&[]));
     assert!(
         result.is_err(),
-        "foreign pid {foreign_pid} should make assert_no_foreign fail"
+        "harmless decoy pid {foreign_pid} should make assert_no_foreign fail"
     );
     assert!(
-        child.try_wait().expect("try_wait").is_none(),
-        "foreign process must stay alive"
+        guard.child.try_wait().expect("try_wait").is_none(),
+        "harmless decoy must stay alive until drop"
     );
-    kill_child_fast(&mut child);
-    let _ = child.wait();
 }

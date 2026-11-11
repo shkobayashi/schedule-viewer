@@ -1518,6 +1518,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `two_windows_external_date_appears_and_restart_restores_unsaved_date`（`mcp_running_app.rs`） | 2 窓でディスクの開始日の外部反映と未保存の再起動を見る。`#[ignore]`（ディスクの開始日変更が 10 秒以内に `current_schedule` に載らない。別報告 PR #570） | WIN-01, FILE-10, SYNC-01, SYNC-03, MCP-01 |
 | `six_reads_leave_open_windows_front_on_main`（`mcp_running_app.rs`） | 読み取り 6 ツールのあいだも `front` が `main` の 1 件だけ | MCP-01 |
 | `focus_window_and_same_path_second_process_both_set_front_to_main`（`mcp_running_app.rs`） | `focus_window` のあと同パス第 2 プロセスで前面が `main` だけ（前面順の新しい方） | MCP-01, WIN-01 |
+| `foreign_schedule_viewer_process_fails_without_sending_tools`（`mcp_running_app.rs`） | `sleep` を `schedule-viewer` の名前で起動して検出したあと `assert_no_foreign_schedule_viewer_processes` が panic する（GTK・D-Bus・MCP へ届かない） | MCP-01 |
 | `filtered_tasks_follows_the_front_window_status_filter`（`mcp_running_app.rs`） | 同パス 2 窓で前面の絞り込みだけが `filtered_tasks` に効く | MCP-01 |
 | `screen_replace_schedule_with_window_exits_1_writes_front_only_sentence_and_leaves_current_schedule`（`mcp_running_app.rs`） | `--screen replace_schedule --window` が終了 1 と前面のみ文。画面は不変 | MCP-01, MCP-02 |
 | `open_new_window_keeps_process_alive_and_both_windows_return_current_schedule`（`mcp_running_app.rs`） | 3 枚目追加後もプロセスが生き、元 2 枚と 3 枚目が `current_schedule` を返す | WIN-01, MCP-01 |
