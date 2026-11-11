@@ -4,9 +4,12 @@ import { SettingsDialog } from "./SettingsDialog";
 import { DEFAULT_SIDEBAR_COLUMNS } from "../model/viewPreferences";
 
 const invoke = vi.hoisted(() =>
-  vi.fn(async (command: string) => {
+  vi.fn(async (command: string, args?: { params?: Record<string, unknown> }) => {
     if (command === "json_skill_home_dirs") {
       return { cursor: true, claude: true, copilot: true };
+    }
+    if (command === "get_executable_path") {
+      return "/usr/bin/schedule-viewer";
     }
     if (command === "install_json_skills") {
       return {
@@ -15,6 +18,20 @@ const invoke = vi.hoisted(() =>
         claudeUserShadows: [],
       };
     }
+    if (command === "install_read_screen_skill") {
+      return {
+        installedPaths: ["/home/user/.copilot/skills/read-screen/SKILL.md"],
+        existingPaths: [],
+        executablePath: "/usr/bin/schedule-viewer",
+      };
+    }
+    if (command === "uninstall_read_screen_skill") {
+      return {
+        removedPaths: ["/home/user/.copilot/skills/read-screen"],
+        missingPaths: [],
+      };
+    }
+    void args;
     return null;
   }),
 );
@@ -124,5 +141,101 @@ describe("desktop settings chrome", () => {
     expect(
       within(dialog).getByText("/home/user/.cursor/skills/write-schedule/SKILL.md"),
     ).toBeInTheDocument();
+  });
+
+  async function openMcpSection() {
+    renderSettings();
+    const dialog = screen.getByRole("dialog", { name: "設定" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "画面の状態を渡す" }));
+    await waitFor(() => {
+      expect(within(dialog).getByRole("heading", { name: "mcp.json に登録する" })).toBeInTheDocument();
+    });
+    return dialog;
+  }
+
+  it("copies the mcp json to the clipboard and does not invoke tauri again on copy", async () => {
+    const dialog = await openMcpSection();
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("get_executable_path");
+    });
+    const invokeCountAfterOpen = invoke.mock.calls.length;
+    const textarea = within(dialog).getByRole("textbox");
+    const parsed = JSON.parse(textarea.textContent ?? "") as {
+      mcpServers: Record<string, { command: string; args: string[] }>;
+    };
+    expect(parsed.mcpServers["schedule-viewer"].command).toBe("/usr/bin/schedule-viewer");
+    expect(parsed.mcpServers["schedule-viewer"].args).toEqual(["--mcp"]);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "コピー" }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(textarea.textContent);
+    });
+    expect(invoke.mock.calls.length).toBe(invokeCountAfterOpen);
+    const commandNames = new Set(invoke.mock.calls.map(([name]) => name));
+    expect(commandNames).toEqual(new Set(["json_skill_home_dirs", "get_executable_path"]));
+  });
+
+  it("shows the copilot read-screen path and the executable after placing", async () => {
+    const dialog = await openMcpSection();
+    await waitFor(() => {
+      expect(within(dialog).getByRole("checkbox", { name: "GitHub Copilot" })).toBeChecked();
+    });
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Cursor" }));
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Claude Code" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "置く" }));
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("install_read_screen_skill", {
+        params: { cursor: false, claude: false, copilot: true, replace: false },
+      });
+    });
+    expect(within(dialog).getByText("置いたパス:")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("/home/user/.copilot/skills/read-screen/SKILL.md"),
+    ).toBeInTheDocument();
+    const executableLine = within(dialog).getByText(/検出した実行ファイル:/);
+    expect(executableLine.textContent).toContain("/usr/bin/schedule-viewer");
+  });
+
+  it("shows only the removed read-screen path after confirming uninstall", async () => {
+    const dialog = await openMcpSection();
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Cursor" }));
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Claude Code" }));
+    expect(within(dialog).queryByText("置いたパス:")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "外す" }));
+    expect(within(dialog).getByText(/read-screen だけを外します/)).toBeInTheDocument();
+    const confirmUninstall = within(dialog)
+      .getAllByRole("button", { name: "外す" })
+      .find((button) => button.closest(".settings-confirm") !== null);
+    fireEvent.click(confirmUninstall!);
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("uninstall_read_screen_skill", {
+        params: { cursor: false, claude: false, copilot: true },
+      });
+    });
+    expect(within(dialog).getByText("外したパス:")).toBeInTheDocument();
+    expect(within(dialog).queryByText("置いたパス:")).not.toBeInTheDocument();
+    const removedLabels = within(dialog).getAllByText(/^\/home\/user\//);
+    expect(removedLabels).toHaveLength(1);
+    expect(removedLabels[0]).toHaveTextContent("/home/user/.copilot/skills/read-screen");
+  });
+
+  it("disables place and remove when every read-screen target is unchecked", async () => {
+    const dialog = await openMcpSection();
+    await waitFor(() => {
+      for (const name of ["Cursor", "Claude Code", "GitHub Copilot"]) {
+        expect(within(dialog).getByRole("checkbox", { name })).toBeChecked();
+      }
+    });
+    expect(within(dialog).getByRole("button", { name: "置く" })).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "外す" })).toBeEnabled();
+    for (const name of ["Cursor", "Claude Code", "GitHub Copilot"]) {
+      fireEvent.click(within(dialog).getByRole("checkbox", { name }));
+    }
+    expect(within(dialog).getByRole("button", { name: "置く" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "外す" })).toBeDisabled();
   });
 });

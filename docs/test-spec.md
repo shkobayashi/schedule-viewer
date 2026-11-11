@@ -1,6 +1,6 @@
 # テスト仕様
 
-何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。Vitest の Node 側のテスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。jsdom 側は `src/**/*.test.tsx` の `it` 名を [自動テスト一覧](#自動テスト一覧) の Vitest 表に書く。
+何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。Vitest の Node 側のテスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。Rust の統合試験は `src-tauri/tests/mcp_stdio_client.rs` の `#[test]` 名を [Rust 表](#rust) に書く。jsdom 側は `src/**/*.test.tsx` の `it` 名を [自動テスト一覧](#自動テスト一覧) の Vitest 表に書く。
 
 ## 方針
 
@@ -17,7 +17,7 @@
 | node:test | `npm test` の中の `node --test scripts/*.test.mjs` | `scripts/*.test.mjs`。操作マニュアルサイトは、同じページ内の `#見出し` をその HTML の見出し id と照合する |
 | Vitest（Node） | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
 | Vitest（jsdom） | `npm test` | `src/**/*.test.tsx`。jsdom と Testing Library。React コンポーネントの DOM 特性（Issue #490、C3 のあと） |
-| Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査 |
+| Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査、`tests/mcp_stdio_client.rs` の標準入出力と `--screen` CLI |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1）。警告の上限を超えると失敗する。上限は [開発ガイド](development.md) |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
 | 操作の入口表（段階1） | `npm run check:operation-entries` | `operation-entries.md` と `OPERATION_FORMAL` / 右クリック固定 / MCP 名。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
@@ -527,6 +527,10 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `settingsDesktopChrome.dom.test.tsx` | `shows the version line on display, members, and updates` | SET-07 |
 | 同上 | `disables install and remove when every skill target is unchecked` | SET-05 |
 | 同上 | `shows the overwrite confirmation when install reports existing paths` | SET-05 |
+| 同上 | `copies the mcp json to the clipboard and does not invoke tauri again on copy` | MCP-01 |
+| 同上 | `shows the copilot read-screen path and the executable after placing` | MCP-02 |
+| 同上 | `shows only the removed read-screen path after confirming uninstall` | MCP-02 |
+| 同上 | `disables place and remove when every read-screen target is unchecked` | MCP-02 |
 | `contextMenuItems.test.ts` | `lists edit, duplicate, note shortcut, and delete for one task` | EDIT-11, EDIT-06, EDIT-14 |
 | 同上 | `switches confidence and lineage labels for a tentative task on mac` | EDIT-11, VIEW-12, FILTER-08 |
 | 同上 | `lists only delete when several tasks are selected` | EDIT-11, EDIT-09 |
@@ -1467,6 +1471,23 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `install_and_uninstall_skip_copilot_when_dot_copilot_is_symlink`（`read_screen_skill.rs`） | read-screen は `.copilot` がシンボリックリンクなら置かず、外さない | MCP-02 |
 | `install_and_uninstall_skip_copilot_when_skills_under_copilot_is_symlink`（`read_screen_skill.rs`） | read-screen は `.copilot/skills` がシンボリックリンクなら置かず、外さない | MCP-02 |
 | `uninstall_with_symlink_copilot_does_not_remove_cursor_read_screen`（`read_screen_skill.rs`） | Copilot の親がシンボリックリンクで外すのが失敗したとき、先に置いた Cursor の read-screen は残る | MCP-02 |
+| `uninstall_copilot_removes_only_read_screen_and_leaves_other_skills`（`read_screen_skill.rs`） | Copilot の read-screen だけを外し、別名スキルと Cursor の read-screen は残す | MCP-02 |
+| `initialize_echoes_id_and_returns_protocol_version_server_name_and_tools_capability`（`mcp_stdio_client.rs`） | `initialize` が protocolVersion・serverInfo・tools capability を返す | MCP-01 |
+| `tools_list_returns_twenty_one_tools_with_each_input_schema`（`mcp_stdio_client.rs`） | `tools/list` が 21 ツールと各 `inputSchema` を返す | MCP-01 |
+| `invalid_json_returns_parse_error_then_initialize_still_succeeds`（`mcp_stdio_client.rs`） | 壊れた JSON のあとも次の要求が通る | MCP-01 |
+| `unknown_method_returns_method_not_found_and_echoes_id`（`mcp_stdio_client.rs`） | 未知のメソッドが -32601 で id を返す | MCP-01 |
+| `tools_call_missing_name_returns_invalid_params_and_not_the_no_window_message`（`mcp_stdio_client.rs`） | 名前のない `tools/call` が -32602 で、ウィンドウ無し文を出さない | MCP-01 |
+| `notification_writes_no_line_and_ping_returns_empty_object`（`mcp_stdio_client.rs`） | 通知は応答を書かず、続く `ping` だけが返る | MCP-01 |
+| `blank_line_produces_no_response_and_ping_echoes_id`（`mcp_stdio_client.rs`） | 空行のあとの `ping` だけが返る | MCP-01 |
+| `mcp_exits_0_when_stdin_closes_without_a_request`（`mcp_stdio_client.rs`） | 要求なしで標準入力を閉じると終了コード 0 | MCP-01 |
+| `front_only_tools_with_window_exit_1_with_empty_stdout_and_the_rejection_on_stderr`（`mcp_stdio_client.rs`） | 前面限定 12 ツールが `--window` を標準エラーで拒む | MCP-02 |
+| `unknown_screen_tool_exits_1_and_writes_usage_to_stderr`（`mcp_stdio_client.rs`） | 未知の `--screen` ツールが使い方の文を出す | MCP-02 |
+| `screen_flag_without_tool_exits_1_and_writes_usage_to_stderr`（`mcp_stdio_client.rs`） | `--screen` だけが使い方の文を出す | MCP-02 |
+| `screen_with_extra_arg_exits_1_and_writes_usage_to_stderr`（`mcp_stdio_client.rs`） | 余分な引数が使い方の文を出す | MCP-02 |
+| `replace_schedule_over_ten_megabytes_exits_1_and_writes_too_large_to_stderr`（`mcp_stdio_client.rs`） | 10MB 超の標準入力が拒否される | MCP-02 |
+| `replace_schedule_invalid_json_exits_1_and_writes_unreadable_to_stderr`（`mcp_stdio_client.rs`） | 壊れたスケジュール JSON が拒否される | MCP-02 |
+| `stdin_action_tools_reject_invalid_json_with_exit_1_and_the_action_message`（`mcp_stdio_client.rs`） | 操作 JSON 10 ツールが壊れた入力を拒否する | MCP-02 |
+| `schedule_diff_without_gui_exits_1_and_writes_no_window_to_stderr`（`mcp_stdio_client.rs`） | GUI 無しの `schedule_diff` がウィンドウ無し文で失敗する | MCP-02 |
 | `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` と `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |

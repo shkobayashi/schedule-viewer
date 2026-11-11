@@ -706,4 +706,44 @@ mod tests {
         assert!(uninstall_err.contains("シンボリックリンク"), "{uninstall_err}");
         assert!(cursor_skill.is_file());
     }
+
+    #[test]
+    fn uninstall_copilot_removes_only_read_screen_and_leaves_other_skills() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        let copilot_skill = home
+            .join(".copilot")
+            .join("skills")
+            .join(READ_SCREEN_SKILL_NAME);
+        let other_skill = home.join(".copilot").join("skills").join("other-skill");
+        let cursor_skill = home
+            .join(".cursor")
+            .join("skills")
+            .join(READ_SCREEN_SKILL_NAME);
+        fs::create_dir_all(&copilot_skill).expect("copilot read-screen");
+        fs::write(copilot_skill.join("SKILL.md"), "copilot").expect("write copilot");
+        fs::create_dir_all(&other_skill).expect("other skill");
+        fs::write(other_skill.join("SKILL.md"), "other").expect("write other");
+        fs::create_dir_all(&cursor_skill).expect("cursor read-screen");
+        fs::write(cursor_skill.join("SKILL.md"), "cursor").expect("write cursor");
+
+        let result = uninstall_read_screen_skill_from_disk(
+            &home,
+            JsonSkillToolSelection {
+                cursor: false,
+                claude: false,
+                copilot: true,
+            },
+        )
+        .expect("uninstall");
+
+        assert_eq!(result.removed_paths.len(), 1);
+        assert!(result
+            .removed_paths[0]
+            .replace('\\', "/")
+            .ends_with(".copilot/skills/read-screen"));
+        assert!(!copilot_skill.is_dir());
+        assert!(other_skill.is_dir());
+        assert!(cursor_skill.is_dir());
+    }
 }

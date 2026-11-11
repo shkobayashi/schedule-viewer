@@ -849,7 +849,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## RG-F12 本物の LLM
 
-目的は、決めた依頼文で、説明と、渡していない値を作らないことを見ることである。対象はデスクトップ版で、Cursor または Claude に MCP を登録してあるときだけである。クライアントが無いときは、このシナリオを保留とし、合格にしない。目安は 20 分である。短い通しには入れない。通信の自動は #538 と #543 である。文の解釈は人が残す。
+目的は、決めた依頼文で、説明と、渡していない値を作らないことを見ることである。対象はデスクトップ版で、Cursor または Claude に MCP を登録してあるときだけである。クライアントが無いときは、このシナリオを保留とし、合格にしない。目安は 20 分である。短い通しには入れない。窓の要らない JSON-RPC と CLI の拒否は自動テスト、起動中のアプリへの `tools/call` は #543、文の解釈は人が残す。#538 では手順も分数も引かない。
 
 ### RG-F12-1
 
@@ -857,7 +857,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 登録できないときは保留である。合にしない。
 
-扱い: 自動化予定:#538。この Issue が終わると、この手順は手で行わない。
+扱い: 手動のまま、実クライアントが登録できるかを人が見て、できないときは保留とし、合にしない。あわせて initialize、tools/list、壊れた JSON、未知のメソッド、名前の無い tools/call の自動は、src-tauri/tests/mcp_stdio_client.rs の `initialize_echoes_id_and_returns_protocol_version_server_name_and_tools_capability`、`tools_list_returns_twenty_one_tools_with_each_input_schema`、`invalid_json_returns_parse_error_then_initialize_still_succeeds`、`unknown_method_returns_method_not_found_and_echoes_id`、`tools_call_missing_name_returns_invalid_params_and_not_the_no_window_message` である。
 
 ### RG-F12-2
 
@@ -865,9 +865,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: アプリは、設定からクライアントのプロセスを起動しない。
 
-扱い: 自動化予定:#538。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #538。実クライアントへの初回登録は人が残す。
+扱い: 自動:src/components/settingsDesktopChrome.dom.test.tsx#copies the mcp json to the clipboard and does not invoke tauri again on copy。手動のまま、実クライアントの mcp.json への初回の貼り付けは人が残す。
 
 ### RG-F12-3
 
@@ -903,9 +901,9 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 操作: 複数の窓の読み取りと、`--screen` の CLI は、この通しでは行わない。
 
-期待: 未実施と記録する。合格にしない。自動は #543 と #538 である。
+期待: 未実施と記録する。合格にしない。自動は #543 である。
 
-扱い: 自動化予定:#538。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src-tauri/tests/mcp_stdio_client.rs#front_only_tools_with_window_exit_1_with_empty_stdout_and_the_rejection_on_stderr、src-tauri/tests/mcp_stdio_client.rs#unknown_screen_tool_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#screen_flag_without_tool_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#screen_with_extra_arg_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#replace_schedule_over_ten_megabytes_exits_1_and_writes_too_large_to_stderr、src-tauri/tests/mcp_stdio_client.rs#replace_schedule_invalid_json_exits_1_and_writes_unreadable_to_stderr、src-tauri/tests/mcp_stdio_client.rs#stdin_action_tools_reject_invalid_json_with_exit_1_and_the_action_message、src-tauri/tests/mcp_stdio_client.rs#schedule_diff_without_gui_exits_1_and_writes_no_window_to_stderr。起動中のアプリへの `--screen` の成功は自動化予定:#543。複数の窓の読み取りは自動化予定:#541。本物の LLM の通しでは、窓の要らない CLI の試験は自動試験が行い、起動中のアプリへの成功と複数窓の読み取りは行わず、未実施と記録し、合格にしない。
 
 ### RG-F12-7
 
