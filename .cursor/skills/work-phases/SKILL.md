@@ -49,7 +49,11 @@ description: >-
 
 ## 記録
 
-Issue がマージ可能になったら、[docs/agents-phase-log.md](../../../docs/agents-phase-log.md) にエントリを足す。`verified_head_sha` と **phase-history**（フェンス内 YAML）に、task_type、model_id、effort、selection_rationale、finding_types、fix_rounds、actual_cost、comparison_limits、recheck_decision を書く。分からない項目は `unknown` のままにする。トークン数はツールが実際に返したときだけ整数で書いてよい。サイズは git の差分行数であり、難易度のスコアではない。別 Issue どうしで一方が手戻り少なかったと因果では書かない。head が更新されたら、古い **execution-snapshot** は stale とみなす。古い phase-history 行は消さない。
+Issue がマージ可能になったら、[docs/agents-phase-log.md](../../../docs/agents-phase-log.md) にエントリを足す。`verified_head_sha` と **phase-history**（フェンス内 YAML）に、task_type、model_id、effort、**effort_basis**（`configured` | `runtime` | `unknown`）、session_id（分かるときは Cloud Agent の bc-… を全文）、head_sha_produced / head_sha_reviewed、selection_rationale、finding_types、fix_rounds、actual_cost、comparison_limits、recheck_decision を書く。構造化の正本は [docs/phase-records/](../../../docs/phase-records/) の JSON とし、マークダウンは要約とリンクにとどめる。検証は [scripts/format-check-record.mjs](../../../scripts/format-check-record.mjs) の `validatePhaseRecord` を使う。
+
+**fix_rounds** は、実装・テスト・文書本文の手戻り（`修正` で実質的なもの）だけを数える。PR 本文だけの訂正、統合マージ、メタデータ訂正は数えない。**訂正**は JSON の `corrections` または該当フェーズの `correction_note` へ**追記**し、既存フェーズを消さない。`effort: high` など設定値を書くときは `effort_basis: configured` を付ける（実行時の帰属証明ではない）。
+
+分からない項目は `unknown` のままにする。トークン数はツールが実際に返したときだけ整数で書いてよい。サイズは git の差分行数であり、難易度のスコアではない。別 Issue どうしで一方が手戻り少なかったと因果では書かない。head が更新されたら、古い **execution-snapshot** は stale とみなす。古い phase-history 行は消さない。
 
 ### 実行スナップショット
 

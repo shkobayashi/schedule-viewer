@@ -414,7 +414,294 @@ export function validatePhaseLogStructure(markdown) {
 /** @param {string} [filePath] */
 export function validatePhaseLogFile(filePath = PHASE_LOG) {
   const markdown = readFileSync(filePath, "utf8");
-  return validatePhaseLogStructure(markdown);
+  return validatePhaseLogStructureFull(markdown);
+}
+
+const PHASE_RECORDS_DIR = path.join(REPO_ROOT, "docs/phase-records");
+const SESSION_ID_RE =
+  /^bc-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EFFORT_BASIS_ALLOWED = new Set(["configured", "runtime", "unknown"]);
+const KNOWN_INTEGRATION_STATES = new Set(["open", "merged", "closed"]);
+
+/**
+ * @param {unknown} effort
+ * @returns {boolean}
+ */
+function effortClaimsConfiguredLevel(effort) {
+  if (effort == null) return false;
+  const s = String(effort).trim().toLowerCase();
+  return s !== "" && s !== "unknown";
+}
+
+/**
+ * @param {unknown} record
+ * @returns {{ ok: boolean, issues: string[] }}
+ */
+export function validatePhaseRecord(record) {
+  const issues = [];
+  if (record == null || typeof record !== "object") {
+    return { ok: false, issues: ["record must be an object"] };
+  }
+  const r = /** @type {Record<string, unknown>} */ (record);
+
+  if (typeof r.record_id !== "string" || !r.record_id.trim()) {
+    issues.push("record_id required");
+  }
+
+  if (!Array.isArray(r.phases) || r.phases.length === 0) {
+    issues.push("phases must be a non-empty array");
+  }
+
+  const phases = Array.isArray(r.phases) ? r.phases : [];
+  const seenIds = new Set();
+  let substantiveFixCount = 0;
+
+  for (let i = 0; i < phases.length; i++) {
+    const phase = phases[i];
+    if (phase == null || typeof phase !== "object") {
+      issues.push(`phases[${i}] must be an object`);
+      continue;
+    }
+    const p = /** @type {Record<string, unknown>} */ (phase);
+    const id = p.id;
+    if (typeof id !== "string" || !id.trim()) {
+      issues.push(`phases[${i}] missing stable id`);
+    } else if (seenIds.has(id)) {
+      issues.push(`duplicate phase id ${id}`);
+    } else {
+      seenIds.add(id);
+    }
+
+    if (typeof p.task_type !== "string" || !p.task_type.trim()) {
+      issues.push(`phases[${i}] missing task_type`);
+    }
+
+    const basis = p.effort_basis;
+    if (basis != null && !EFFORT_BASIS_ALLOWED.has(String(basis))) {
+      issues.push(`phases[${i}] invalid effort_basis ${basis}`);
+    }
+
+    if (effortClaimsConfiguredLevel(p.effort)) {
+      const b = basis == null ? "unknown" : String(basis);
+      if (b === "unknown") {
+        issues.push(
+          `phases[${i}] effort ${p.effort} requires effort_basis configured or runtime`,
+        );
+      }
+    }
+
+    if (p.session_id != null && String(p.session_id).trim() !== "") {
+      if (!SESSION_ID_RE.test(String(p.session_id).trim())) {
+        issues.push(`phases[${i}] malformed session_id`);
+      }
+    }
+
+    for (const field of ["head_sha_produced", "head_sha_reviewed"]) {
+      if (p[field] != null && String(p[field]).trim() !== "") {
+        const { wellFormed } = describeSha(String(p[field]));
+        if (!wellFormed) {
+          issues.push(`phases[${i}] malformed ${field}`);
+        }
+      }
+    }
+
+    if (p.task_type === "修正" && p.substantive_fix !== false) {
+      substantiveFixCount += 1;
+    }
+  }
+
+  if (r.verified_head_sha != null && String(r.verified_head_sha).trim() !== "") {
+    const { wellFormed } = describeSha(String(r.verified_head_sha));
+    if (!wellFormed) {
+      issues.push("malformed verified_head_sha");
+    }
+  }
+
+  const integration = r.integration_status;
+  if (integration != null && typeof integration === "object") {
+    const st = /** @type {Record<string, unknown>} */ (integration).pr_state;
+    if (st != null && !KNOWN_INTEGRATION_STATES.has(String(st))) {
+      issues.push(`integration_status.pr_state invalid: ${st}`);
+    }
+    const head = /** @type {Record<string, unknown>} */ (integration).pr_head_sha;
+    if (head != null && String(head).trim() !== "") {
+      const { wellFormed } = describeSha(String(head));
+      if (!wellFormed) issues.push("malformed integration_status.pr_head_sha");
+    }
+    const mergeSha = /** @type {Record<string, unknown>} */ (integration).merge_commit_sha;
+    if (mergeSha != null && String(mergeSha).trim() !== "") {
+      const { wellFormed } = describeSha(String(mergeSha));
+      if (!wellFormed) issues.push("malformed integration_status.merge_commit_sha");
+    }
+  }
+
+  const fixRounds = r.fix_rounds;
+  if (typeof fixRounds === "number") {
+    if (fixRounds !== substantiveFixCount) {
+      issues.push(
+        `fix_rounds ${fixRounds} does not match substantive 修正 count ${substantiveFixCount}`,
+      );
+    }
+  } else if (fixRounds !== "unknown") {
+    issues.push("fix_rounds must be a number or unknown");
+  }
+
+  if (!Array.isArray(r.corrections)) {
+    issues.push("corrections must be an array (may be empty)");
+  } else {
+    const corrIds = new Set();
+    for (const c of r.corrections) {
+      if (c == null || typeof c !== "object") continue;
+      const cid = /** @type {Record<string, unknown>} */ (c).id;
+      if (typeof cid === "string" && corrIds.has(cid)) {
+        issues.push(`duplicate correction id ${cid}`);
+      }
+      if (typeof cid === "string") corrIds.add(cid);
+    }
+  }
+
+  return { ok: issues.length === 0, issues };
+}
+
+/**
+ * Append-only revision: prior phase ids and their task_type must remain; phases may grow.
+ * @param {unknown} previous
+ * @param {unknown} next
+ */
+export function validatePhaseRecordRevision(previous, next) {
+  const base = validatePhaseRecord(next);
+  const issues = [...base.issues];
+  if (previous == null || typeof previous !== "object") {
+    issues.push("previous record required for revision check");
+    return { ok: false, issues };
+  }
+  if (next == null || typeof next !== "object") {
+    issues.push("next record required");
+    return { ok: false, issues };
+  }
+  const prevPhases = Array.isArray(
+    /** @type {Record<string, unknown>} */ (previous).phases,
+  )
+    ? /** @type {Record<string, unknown>} */ (previous).phases
+    : [];
+  const nextPhases = Array.isArray(
+    /** @type {Record<string, unknown>} */ (next).phases,
+  )
+    ? /** @type {Record<string, unknown>} */ (next).phases
+    : [];
+  const nextById = new Map(
+    nextPhases
+      .filter((p) => p && typeof p === "object" && typeof p.id === "string")
+      .map((p) => [String(p.id), p]),
+  );
+
+  for (const phase of prevPhases) {
+    if (phase == null || typeof phase !== "object") continue;
+    const p = /** @type {Record<string, unknown>} */ (phase);
+    const id = p.id;
+    if (typeof id !== "string") continue;
+    const kept = nextById.get(id);
+    if (!kept) {
+      issues.push(`revision dropped phase id ${id}`);
+      continue;
+    }
+    if (String(kept.task_type) !== String(p.task_type)) {
+      issues.push(`revision changed task_type for phase id ${id}`);
+    }
+  }
+
+  const prevCorr = Array.isArray(
+    /** @type {Record<string, unknown>} */ (previous).corrections,
+  )
+    ? /** @type {Record<string, unknown>} */ (previous).corrections
+    : [];
+  const nextCorr = Array.isArray(
+    /** @type {Record<string, unknown>} */ (next).corrections,
+  )
+    ? /** @type {Record<string, unknown>} */ (next).corrections
+    : [];
+  if (nextCorr.length < prevCorr.length) {
+    issues.push("revision removed correction entries");
+  }
+
+  return { ok: issues.length === 0, issues };
+}
+
+/**
+ * @param {string} [dir]
+ * @returns {{ ok: boolean, issues: string[], records: unknown[] }}
+ */
+export function validateCommittedPhaseRecordFiles(dir = PHASE_RECORDS_DIR) {
+  const issues = [];
+  const records = [];
+  const files = ["issue-553-pr591.json", "issue-553-pr592.json"];
+  for (const name of files) {
+    const filePath = path.join(dir, name);
+    let parsed;
+    try {
+      parsed = JSON.parse(readFileSync(filePath, "utf8"));
+    } catch (err) {
+      issues.push(`${name}: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
+    records.push(parsed);
+    const check = validatePhaseRecord(parsed);
+    if (!check.ok) {
+      issues.push(...check.issues.map((msg) => `${name}: ${msg}`));
+    }
+  }
+  return { ok: issues.length === 0, issues, records };
+}
+
+const PR591_READY_SHA = "60d5252149558ddf0146866f0cd2f60995ee03e4";
+const PR592_VERIFIED_SHA = "eb0c804e42a6c1359920da7b202f103124dcbb0a";
+const PR592_MERGE_SHA = "4879ed7a02eb8d6df1ba47c8e4f894bfed83c6b2";
+
+/**
+ * Cross-check phase log prose links and key SHAs against canonical JSON records.
+ * Does not assert PR #591 remains open forever — only documents as-of rows in JSON.
+ * @param {string} markdown
+ */
+export function validatePhaseLogPracticeEntries(markdown) {
+  const issues = [];
+  if (!markdown.includes("## Issue #553 — PR #591")) {
+    issues.push("missing heading ## Issue #553 — PR #591");
+  }
+  if (!markdown.includes("## Issue #553 — PR #592")) {
+    issues.push("missing heading ## Issue #553 — PR #592");
+  }
+  if (!markdown.includes("docs/phase-records/issue-553-pr591.json")) {
+    issues.push("missing canonical link to issue-553-pr591.json");
+  }
+  if (!markdown.includes("docs/phase-records/issue-553-pr592.json")) {
+    issues.push("missing canonical link to issue-553-pr592.json");
+  }
+  if (!markdown.includes(PR591_READY_SHA)) {
+    issues.push("missing #591 ready_head_sha in phase log");
+  }
+  if (!markdown.includes(PR592_VERIFIED_SHA)) {
+    issues.push("missing #592 verified_head_sha in phase log");
+  }
+  if (!markdown.includes(PR592_MERGE_SHA)) {
+    issues.push("missing #592 merge commit sha in phase log");
+  }
+
+  const committed = validateCommittedPhaseRecordFiles();
+  if (!committed.ok) {
+    issues.push(...committed.issues);
+  }
+
+  return { ok: issues.length === 0, issues };
+}
+
+/**
+ * @param {string} markdown
+ */
+export function validatePhaseLogStructureFull(markdown) {
+  const structural = validatePhaseLogStructure(markdown);
+  const practice = validatePhaseLogPracticeEntries(markdown);
+  const issues = [...structural.issues, ...practice.issues];
+  return { ok: issues.length === 0, issues };
 }
 
 async function readStdin() {

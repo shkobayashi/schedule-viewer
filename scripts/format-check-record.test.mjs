@@ -12,9 +12,12 @@ import {
   parseMadgeCycleCount,
   shaIdentityStatus,
   usableForGuidelineFromRun,
+  validateCommittedPhaseRecordFiles,
   validateIssue475HistoricalPhases,
   validatePhaseLogFile,
   validatePhaseLogStructure,
+  validatePhaseRecord,
+  validatePhaseRecordRevision,
 } from "./format-check-record.mjs";
 
 const FIXTURES = path.join(
@@ -313,6 +316,128 @@ test("phase log validator rejects fabricated old table March migration phrase", 
 移行元は旧一行表（2026-03 以前）
 `;
   assert.equal(validatePhaseLogStructure(sample).ok, false);
+});
+
+test("validatePhaseRecord rejects high effort without effort_basis", () => {
+  const bad = validatePhaseRecord({
+    record_id: "t",
+    fix_rounds: 0,
+    phases: [
+      {
+        id: "p1",
+        task_type: "計画",
+        effort: "high",
+        effort_basis: "unknown",
+      },
+    ],
+    corrections: [],
+  });
+  assert.equal(bad.ok, false);
+  assert.ok(bad.issues.some((i) => i.includes("effort_basis")));
+});
+
+test("validatePhaseRecord accepts configured high plan with effort_basis configured", () => {
+  const good = validatePhaseRecord({
+    record_id: "t",
+    fix_rounds: 0,
+    phases: [
+      {
+        id: "p1",
+        task_type: "計画",
+        effort: "high",
+        effort_basis: "configured",
+        session_id: "bc-730af328-eac8-54ff-ad46-aef8345f8a92",
+      },
+    ],
+    corrections: [],
+  });
+  assert.equal(good.ok, true, good.issues.join("; "));
+});
+
+test("validatePhaseRecord rejects fix_rounds mismatch", () => {
+  const bad = validatePhaseRecord({
+    record_id: "t",
+    fix_rounds: 2,
+    phases: [
+      {
+        id: "f1",
+        task_type: "修正",
+        substantive_fix: true,
+      },
+    ],
+    corrections: [],
+  });
+  assert.equal(bad.ok, false);
+  assert.ok(bad.issues.some((i) => i.includes("fix_rounds")));
+});
+
+test("validatePhaseRecordRevision rejects dropped earlier phase", () => {
+  const prev = {
+    record_id: "t",
+    fix_rounds: 0,
+    phases: [{ id: "a", task_type: "計画", effort: "unknown", effort_basis: "unknown" }],
+    corrections: [],
+  };
+  const next = {
+    record_id: "t",
+    fix_rounds: 0,
+    phases: [{ id: "b", task_type: "実装", effort: "unknown", effort_basis: "unknown" }],
+    corrections: [],
+  };
+  const rev = validatePhaseRecordRevision(prev, next);
+  assert.equal(rev.ok, false);
+  assert.ok(rev.issues.some((i) => i.includes("dropped phase id a")));
+});
+
+test("validatePhaseRecordRevision allows appended correction and integration status change", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  assert.equal(committed.ok, true, committed.issues.join("; "));
+  const rec591 = committed.records.find(
+    (r) => r && typeof r === "object" && r.record_id === "issue-553-pr-591",
+  );
+  assert.ok(rec591);
+  const revised = structuredClone(rec591);
+  revised.integration_status = {
+    ...revised.integration_status,
+    pr_state: "merged",
+    as_of: "2026-12-01",
+  };
+  revised.corrections = [
+    ...revised.corrections,
+    {
+      id: "591-corr-status-2",
+      appended_at: "2026-12-01",
+      correction_note: "PR merged; prior open row kept in history via revision append.",
+      provenance: "coordinator correction",
+    },
+  ];
+  const rev = validatePhaseRecordRevision(rec591, revised);
+  assert.equal(rev.ok, true, rev.issues.join("; "));
+  assert.equal(validatePhaseRecord(revised).ok, true);
+});
+
+test("#591 record uses as-of integration_status without validator pinning open forever", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = /** @type {{ integration_status?: { pr_state?: string } }} */ (
+    committed.records.find((r) => r?.record_id === "issue-553-pr-591")
+  );
+  assert.ok(rec591?.integration_status?.pr_state);
+  assert.equal(validatePhaseRecord(rec591).ok, true);
+});
+
+test("committed #592 canonical record matches high plan configured and fix_rounds 1", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec592 = committed.records.find((r) => r?.record_id === "issue-553-pr-592");
+  assert.ok(rec592);
+  assert.equal(rec592.fix_rounds, 1);
+  const plan = rec592.phases.find((p) => p.id === "592-plan-1");
+  assert.equal(plan.effort_basis, "configured");
+  assert.equal(rec592.verified_head_sha, "eb0c804e42a6c1359920da7b202f103124dcbb0a");
+});
+
+test("phase log practice entries link canonical #591 and #592 records", () => {
+  const result = validatePhaseLogFile();
+  assert.equal(result.ok, true, result.issues.join("; "));
 });
 
 test("shaIdentityStatus unit cases", () => {

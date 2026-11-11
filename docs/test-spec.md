@@ -248,6 +248,14 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/format-check-record.test.mjs` | `phase log validator rejects #475 implement effort not unknown` | — |
 | `scripts/format-check-record.test.mjs` | `phase log validator rejects #475 fix composer effort not unknown` | — |
 | `scripts/format-check-record.test.mjs` | `phase log validator rejects fabricated old table March migration phrase` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects high effort without effort_basis` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord accepts configured high plan with effort_basis configured` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects fix_rounds mismatch` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects dropped earlier phase` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision allows appended correction and integration status change` | — |
+| `scripts/format-check-record.test.mjs` | `#591 record uses as-of integration_status without validator pinning open forever` | — |
+| `scripts/format-check-record.test.mjs` | `committed #592 canonical record matches high plan configured and fix_rounds 1` | — |
+| `scripts/format-check-record.test.mjs` | `phase log practice entries link canonical #591 and #592 records` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentityStatus unit cases` | — |
 | `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent frontmatter name model readonly` | — |
 | `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent explicit invocation and review-implementation link` | — |

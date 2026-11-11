@@ -4,9 +4,14 @@
 
 各エントリの正本は次のとおりである。
 
-- **verified_head_sha** — マージ可能と判断したときの Git の head（40 桁の小文字 HEX）。
-- **phase-history** — フェンス内 YAML。フェーズごとの task_type、model_id、effort、selection_rationale、finding_types、fix_rounds、actual_cost、comparison_limits、recheck_decision など。
+- **verified_head_sha** — マージ可能と判断したときの Git の head（40 桁の小文字 HEX）。未マージの PR は `null` または未記載のままにし、代わりに **ready_head_sha** や **integration_status** の時点行を残す。
+- **phase-history** — フェンス内 YAML。フェーズごとの task_type、model_id、effort、**effort_basis**（`configured` は起動設定、`runtime` は実行時帰属、分からなければ `unknown`）、session_id、head_sha_produced / head_sha_reviewed、selection_rationale、findings、correction_note など。
+- **phase-record JSON**（#553 実践） — [docs/phase-records/](phase-records/) の構造化 JSON。マークダウンは要約とリンクであり、二重の正本にしない。訂正は **corrections** 配列へ追記し、既存フェーズ行は消さない。
 - **execution-snapshot**（任意） — [scripts/format-check-record.mjs](../scripts/format-check-record.mjs) が **呼び出し側が集めた** コマンド結果から整形した JSON。`shaIdentity.status` が `valid` でも、コマンドが本当にそのツリーで走った証明にはならない。head が更新されると、古いスナップショットは `stale` 扱いになる。
+
+**fix_rounds** は、実装・テスト・文書本文の手戻り（`修正` で `substantive_fix` が false でないもの）だけを数える。PR 本文だけの訂正、統合マージ、メタデータ訂正は数えない。コスト・トークン・所要時間・Composer の effort は、観測が無ければ `unknown` のままにする。
+
+検証は [scripts/format-check-record.mjs](../scripts/format-check-record.mjs) の `validatePhaseRecord`（単体記録）、`validatePhaseRecordRevision`（追記のみ）、`validateCommittedPhaseRecordFiles`（コミット済み JSON）を使う。根拠はコーディネータが渡した起動・レビュー・修正の記録であり、リポジトリからの推測ではない。
 
 実行記録の整形手順は [.cursor/skills/work-phases/SKILL.md](../.cursor/skills/work-phases/SKILL.md) の「実行スナップショット」を見る。
 
@@ -96,9 +101,61 @@ provenance: |
 
 ---
 
+## Issue #553 — PR #591
+
+- **PR:** [#591](https://github.com/shkobayashi/schedule-viewer/pull/591)
+- **canonical:** [issue-553-pr591.json](phase-records/issue-553-pr591.json)
+- **ready_head_sha:** `60d5252149558ddf0146866f0cd2f60995ee03e4`（レビュー ready、統合前）
+- **integration_head_sha（時点）:** `2add60baa4014c3900cca4f5a77ae73d00aaae1d` — JSON の `integration_status` を見る。Open/Merged は固定しない。
+- **fix_rounds:** `2`（実装修正のみ）
+
+### phase-history（要約）
+
+計画・レビューは Grok 4.7 **effort high**（`effort_basis: configured`）、実装・修正は Composer 2.5 **effort unknown**。統合マージと post-integration レビューは fix round に含めない。訂正は JSON の `corrections` に追記。
+
+```yaml
+record_ref: docs/phase-records/issue-553-pr591.json
+fix_rounds: 2
+merge_summary:
+  composer_effort: unknown
+  tokens: unknown
+  actual_cost: unknown
+provenance: |
+  コーディネータ起動・レビュー・修正の記録。#591 は統合後も独立レビューが続く場合があり、
+  時点の pr_state は JSON integration_status に書く。古い行は訂正で上書きせず corrections へ足す。
+```
+
+---
+
+## Issue #553 — PR #592
+
+- **PR:** [#592](https://github.com/shkobayashi/schedule-viewer/pull/592)（マージ済み）
+- **canonical:** [issue-553-pr592.json](phase-records/issue-553-pr592.json)
+- **verified_head_sha:** `eb0c804e42a6c1359920da7b202f103124dcbb0a`
+- **merge_commit_sha:** `4879ed7a02eb8d6df1ba47c8e4f894bfed83c6b2`
+- **fix_rounds:** `1`
+
+### phase-history（要約）
+
+implement-change 分割。計画 run 7・レビュー high（configured）。修正 1 回のあと ready。メタデータ訂正（ベース誤り・SHA 接頭・無関係空白）は fix round に数えない。
+
+```yaml
+record_ref: docs/phase-records/issue-553-pr592.json
+fix_rounds: 1
+merge_summary:
+  composer_effort: unknown
+  tokens: unknown
+  actual_cost: unknown
+provenance: |
+  コーディネータ記録と GitHub マージ時刻（2026-11-11 20:15:11 JST）。verified_head はマージコミットと別。
+```
+
+---
+
 ## 見直しメモ（#553 項目 5）
 
 | 日付 | 参照 | 決定 | 理由 |
 | --- | --- | --- | --- |
 | 2026-11-11 | Issue #553 継続改善の仕組み | **keep** — 固定の難易度×モデル表はまだ置かない | #551 / #475 の実測だけでは因果比較にならない。選定理由と実行記録を段階履歴に残す方針を採用 |
 | 2026-11-11 | Issue #553 項目 5 | **change** — 実行スナップショット用に `format-check-record.mjs` を追加 | head SHA とコマンド結果の整形を分離し、生ログをコミットしない |
+| 2026-11-11 | Issue #553 段階ログ実践（#591 / #592） | **keep** — 固定の難易度×モデル表はまだ置かない | 実測 2 PR 分を phase-record JSON と検証器で残し、訂正は追記。因果比較はしない |
