@@ -827,22 +827,45 @@ mod tests {
         assert_eq!(result.installed_paths.len(), JSON_SKILL_NAMES.len());
 
         let how_to_dest = skills.join("how-to");
-        let canonical = how_to_dest.canonicalize().expect("canonicalize how-to");
-        assert!(canonical.ends_with("how-to"));
-        assert!(
-            !how_to_dest
-                .symlink_metadata()
-                .expect("how-to meta")
-                .file_type()
-                .is_symlink()
-        );
-        let manual_features = how_to_dest.join("manual").join("features.md");
-        assert!(manual_features.is_file());
-        assert_eq!(
-            fs::read_to_string(&manual_features).expect("read features"),
-            "features.md"
-        );
-        assert!(canonical.join("manual").join("features.md").exists());
+        let skills_canonical = skills.canonicalize().expect("canonicalize skills");
+        let expected_how_to = skills_canonical.join("how-to");
+        let how_to_canonical = how_to_dest.canonicalize().expect("canonicalize how-to");
+        assert_eq!(how_to_canonical, expected_how_to);
+        let how_to_meta = how_to_dest
+            .symlink_metadata()
+            .expect("how-to meta");
+        assert!(how_to_meta.is_dir());
+        assert!(!how_to_meta.file_type().is_symlink());
+
+        let manual_names = [
+            "user-manual.md",
+            "getting-started.md",
+            "find-by-intent.md",
+            "tutorial.md",
+            "features.md",
+            "privacy.md",
+        ];
+        for name in manual_names {
+            let file_path = how_to_dest.join("manual").join(name);
+            let meta = file_path.symlink_metadata().expect("manual file meta");
+            assert!(meta.is_file(), "expected regular file for manual/{name}");
+            assert!(
+                !meta.file_type().is_symlink(),
+                "manual/{name} must not be a symlink"
+            );
+            assert_eq!(
+                fs::read_to_string(&file_path).expect("read manual file"),
+                name,
+                "manual/{name} content"
+            );
+            let file_canonical = file_path.canonicalize().expect("canonicalize manual file");
+            assert!(
+                file_canonical.starts_with(&how_to_canonical),
+                "manual/{name} must resolve inside how-to: {:?} not under {:?}",
+                file_canonical,
+                how_to_canonical
+            );
+        }
 
         let uninstall = uninstall_json_skills_from_disk(
             &home,
@@ -854,6 +877,10 @@ mod tests {
         assert_eq!(uninstall.removed_paths.len(), JSON_SKILL_NAMES.len());
         assert!(!how_to_dest.exists());
         assert!(skills.join("other-skill").exists());
+        assert_eq!(
+            fs::read_to_string(skills.join("other-skill").join("SKILL.md")).expect("neighbor"),
+            "neighbor"
+        );
     }
 
     #[test]

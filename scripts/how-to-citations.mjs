@@ -20,7 +20,7 @@ const CITATION_PATTERN = /(?:^|[\s`（(「『\[])([a-zA-Z0-9_.-]+\.md)#([^\s`）
 
 /** Detects every `…md#…` token so slash-qualified paths cannot slip past the strict pattern. */
 const BROAD_CITATION_PATTERN =
-  /(?:^|[\s`（(「『\[])([a-zA-Z0-9_./-]+\.md)#([^\s`）)\]」』]+)/g;
+  /(?:^|[\s`（(「『\[])([a-zA-Z0-9_./\\-]+\.md)#([^\s`）)\]」』]+)/g;
 
 export const HOW_TO_QUESTION_HEADINGS = [
   "1. タスクの期間をチャート上で動かすやり方を教えて",

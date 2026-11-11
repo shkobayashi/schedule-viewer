@@ -182,6 +182,14 @@ test("duplicate manual headings use github-slugger -1 suffix", () => {
   assert.equal(validateCitation("features.md", "設定-1", slugSets), null);
 });
 
+test("backslash-qualified citation manual\\features.md#設定 is rejected", () => {
+  const slugSets = manualSlugSetsFromBundle(repoRoot);
+  const sample = String.raw`参照は manual\features.md#設定 です。`;
+  const errors = validateCitationReferences(sample, "test.md", slugSets);
+  assert.ok(errors.some((e) => e.includes("slash-qualified")));
+  assert.equal(extractAllFileHeadingCitations(sample).length, 1);
+});
+
 test("slash-qualified citation manual/features.md#設定 is rejected", () => {
   const slugSets = manualSlugSetsFromBundle(repoRoot);
   const sample = "参照は manual/features.md#設定 です。";
