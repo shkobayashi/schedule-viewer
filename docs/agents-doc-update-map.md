@@ -13,5 +13,6 @@ implement-change・cut-release・publish-user-manual は、**この表に従う*
 | テスト | [test-spec.md](test-spec.md) |
 | 起動・CI・リリース・Pages | [development.md](development.md)。導入 [README.md](../README.md)、[getting-started](user-manual/getting-started.md)。LLM [tutorial](user-manual/tutorial.md)。公開 URL [user-manual.md](user-manual.md) |
 | 方針・ロードマップ | [PLANNING.md](PLANNING.md) |
+| 段階の手順と記録 | [.cursor/skills/work-phases/SKILL.md](../.cursor/skills/work-phases/SKILL.md) と [agents-phase-log.md](agents-phase-log.md) を同じ変更で揃える |
 
 通常の不具合修正では [PLANNING.md](PLANNING.md) は更新しない。利用者向けリリースでは [CHANGELOG.md](../CHANGELOG.md) も更新する。

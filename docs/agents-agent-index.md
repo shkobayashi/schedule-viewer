@@ -21,6 +21,7 @@
 | 方針・ロードマップ | [PLANNING.md](PLANNING.md) |
 | UI デザイン #449 | [design/benchmark.md](design/benchmark.md)、[inventory.md](design/inventory.md) |
 | 同じ変更で揃える文書 | [agents-doc-update-map.md](agents-doc-update-map.md) |
+| 段階の手順と実測記録 | [work-phases/SKILL.md](../.cursor/skills/work-phases/SKILL.md)、[agents-phase-log.md](agents-phase-log.md) |
 | 事故例・implement-change 番号索引 | [agents-pitfall-examples.md](agents-pitfall-examples.md) |
 | Issue #490 作業記録（分析・D0–D2 対応表） | [agents-d0-inventory.md](agents-d0-inventory.md) |
 | Issue #490 本文更新案（人手） | [agents-d1-issue-490-proposal.md](agents-d1-issue-490-proposal.md) |
@@ -46,6 +47,7 @@
 | 操作マニュアル Pages | [publish-user-manual](../.cursor/skills/publish-user-manual/SKILL.md) |
 | 全体レビュー | [review-project](../.cursor/skills/review-project/SKILL.md) |
 | 計画実装のレビュー | [review-implementation](../.cursor/skills/review-implementation/SKILL.md) |
+| 計画からマージまでの段階 | [work-phases](../.cursor/skills/work-phases/SKILL.md) |
 | 起動中スケジュール相談 | [schedule-talk](../.cursor/skills/schedule-talk/SKILL.md) |
 | `/consult` 相談モード | [consult](../.cursor/skills/consult/SKILL.md) + [consult.mdc](../.cursor/rules/consult.mdc) |
 | 起動中の相談・試し計画（Issue #490 #344） | [schedule-talk/references/consultation-flow.md](../.cursor/skills/schedule-talk/references/consultation-flow.md) |
@@ -68,4 +70,5 @@
 - 個人の好みとマシン固有の事実は `.cursor/rules/personal.local.mdc`（Git 外）。`AGENTS.md` に Learned User Preferences / Workspace Facts を足さない。実行状態は `.cursor/hooks/state/`
 - デスクトップ: `npm run tauri dev`（[development.md](development.md)）。`src-tauri/target/debug/schedule-viewer` を直接開かない。UI は `http://localhost:1420/`。`schedule-viewer --mcp` は画面プロセスと別
 - Cloud Agent: **マージ済み PR の head ブランチへ push しない**（続きは新ブランチ・新 PR）。amend / force-push / rebase 禁止 — [development.md](development.md)「Cursor Cloud Agent」（P-AG-03）
+- 計画・実装・レビューを分けるとき: [work-phases/SKILL.md](../.cursor/skills/work-phases/SKILL.md)。マージ可能になったら [agents-phase-log.md](agents-phase-log.md) に一行足す
 - 文書を短くするとき: [agents-d0-inventory.md](agents-d0-inventory.md)（**削除 0**、§1・§6–§7）。Issue #490 D0–D2 は同ファイル §4。届け方: `feature-436` → `next`；必要なら `develop` へ cherry-pick
