@@ -233,6 +233,13 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `wrong Mac shortcut for palette tierDay fails validation` | — |
 | 同上 | `palette label absent from buildCommandPaletteItems fails validation` | — |
 | 同上 | `production doc passes direct validateOperationEntryCoverage` | — |
+| 同上 | `toolbar visible label must match TOOLBAR_SHORT value exactly` | — |
+| 同上 | `empty fixed context-menu label fails catalog coverage` | — |
+| 同上 | `visible right-click text outside backticks fails validation` | — |
+| 同上 | `focus_window without --window fails validation` | — |
+| 同上 | `file_action with invalid action fails validation` | — |
+| 同上 | `recent palette double prefix fails validation` | — |
+| 同上 | `malformed main-table column count fails parse` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentity valid when full SHAs match` | — |

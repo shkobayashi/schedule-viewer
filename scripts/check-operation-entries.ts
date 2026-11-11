@@ -4,7 +4,8 @@
  * 段階1の doc.includes 部分一致は廃止。主表以外（set_view 追加入力、Excel 列、
  * 編集中キー、LLM 後手順）は本チェックの対象外。
  *
- * 未照合: 操作の案内の無引用要約、ツールバー動的ラベルのマウント、空セルの反証。
+ * 未照合: 操作の案内の無引用要約（セルごとに列挙）、ツールバー動的ラベルのマウント、
+ * macOS PredefinedMenuItem の OS 文言、一部メニュー accelerator。
  */
 import { readFileSync } from "node:fs";
 import { buildOperationEntryCatalog } from "./operationEntryCatalog.ts";
@@ -44,10 +45,15 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(
-  "operation-entries.md main tables match source catalogs (P-CI-06 phase 2)",
-);
-if (unverified.length > 0) {
-  console.log("Unverified semantics (not failures):");
+const fullyVerified = unverified.length === 0;
+if (fullyVerified) {
+  console.log(
+    "operation-entries.md main tables match source catalogs (P-CI-06 stage 2)",
+  );
+} else {
+  console.log(
+    "operation-entries.md main tables checked against source catalogs (P-CI-06 stage 2); unverified cells remain",
+  );
+  console.log("Unverified (not failures):");
   for (const line of unverified) console.log(`  - ${line}`);
 }

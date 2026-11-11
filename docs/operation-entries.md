@@ -37,7 +37,7 @@
 | 操作 | ツールバー | 右クリック | コマンドパレット | ショートカット (Mac / Win) | macOS メニュー | ☰ | 操作の案内 | MCP | CLI | 機能 ID |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 開く | | | 開く | ⌘O / Ctrl+O | 開く | 開く | スケジュールは、☰ の「開く」で読み込む | `file_action` (open) | `--screen file_action` | `FILE-01` |
-| 最近開いたファイルの1件を開く | | | `recentFileCommandPaletteLabel(\`最近開いたファイル ${prefix}${entry.label}\`)`（`src/model/recentFiles.ts`） | | サブメニュー内 `entry.label` | サブメニュー内 `entry.label` | | `file_action` (open) | `--screen file_action` | `FILE-09` |
+| 最近開いたファイルの1件を開く | | | `recentFileCommandPaletteLabel(\`${prefix}${entry.label}\`)`（`src/model/recentFiles.ts`） | | サブメニュー内 `entry.label` | サブメニュー内 `entry.label` | | `file_action` (open) | `--screen file_action` | `FILE-09` |
 | 履歴を消す | | | 履歴を消す | | 履歴を消す | 履歴を消す | | | | `FILE-09` |
 | 新しいウィンドウで開く | | | 新しいウィンドウで開く | ⌘⇧O / Ctrl+Shift+O | 新しいウィンドウで開く | 新しいウィンドウで開く | | `open_new_window` | `--screen open_new_window` | `WIN-04` |
 | 保存 | | | 保存 | ⌘S / Ctrl+S | 保存 | 保存 | | `file_action` (save) | `--screen file_action` | `FILE-02` |
@@ -86,7 +86,7 @@
 
 | 操作 | ツールバー | 右クリック | コマンドパレット | ショートカット (Mac / Win) | macOS メニュー | ☰ | 操作の案内 | MCP | CLI | 機能 ID |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 絞り込みパネルを開く | `絞り込み`（title に ⌘⇧F / Ctrl+Shift+F） | | 絞り込み | ⌘⇧F / Ctrl+Shift+F | | | 上の「絞り込み」で、残す行を選ぶ | `set_view` | `--screen set_view` | `FILTER-01`、`FILTER-02`、`FILTER-03`、`FILTER-04`、`FILTER-05`、`FILTER-06`、`FILTER-07`、`FILTER-10`、`FILTER-11`、`FILTER-12`、`FILTER-13` |
+| 絞り込みパネルを開く | `絞り込み`（title に ⌘⇧F / Ctrl+Shift+F） | | 絞り込み | ⌘⇧F / Ctrl+Shift+F | | | 上の「絞り込み」で、残す行を選ぶ | `set_view` | `--screen set_view` | `FILTER-01`、`FILTER-02`、`FILTER-03`、`FILTER-04`、`FILTER-05`、`FILTER-06`、`FILTER-07`、`FILTER-09`、`FILTER-10`、`FILTER-11`、`FILTER-12`、`FILTER-13` |
 | 絞り込みをすべて解除 | `すべて解除`（`ActiveFilterBar.tsx`） | | | | | | | `set_view` | `--screen set_view` | `FILTER-01` |
 | 系統を表示／解除 | `系統` または `系統: ${lineageName}`（title に ⌘⇧L / Ctrl+Shift+L） | | `系統を表示` / `系統を解除` | ⌘⇧L / Ctrl+Shift+L | | | タスクを選んで「系統」を押すと… | `set_view` | `--screen set_view` | `FILTER-08` |
 | 系統（繋がりも辿る） | `繋がりも辿る`（系統 split メニュー） | | | | | | | `set_view` | `--screen set_view` | `FILTER-08` |

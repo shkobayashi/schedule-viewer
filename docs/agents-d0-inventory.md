@@ -282,7 +282,7 @@ Issue #490 本文の madge 表現更新案は [agents-d1-issue-490-proposal.md](
 
 | ID | 成果物 | 状態 |
 | --- | --- | --- |
-| P-CI-06 | check:operation-entries 段階1 | 済 |
+| P-CI-06 | check:operation-entries 段階2（列カタログ照合。未照合セル列挙付き） | 部分（PR #595） |
 | P-AG-02 | review + IC | 済 |
 | P-AG-04 | IC 8 + review | 済 |
 | P-AG-06 | IC 31 + review | 済 |

@@ -140,3 +140,70 @@ test("production doc passes direct validateOperationEntryCoverage", () => {
   const { errors } = validateOperationEntryCoverage(baseDoc, getCatalog());
   assert.deepEqual(errors, []);
 });
+
+test("toolbar visible label must match TOOLBAR_SHORT value exactly", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "`月`（`TOOLBAR_SHORT.tierMonth`",
+      "`月ではない`（`TOOLBAR_SHORT.tierMonth`",
+    ),
+  );
+  expectFailures(doc, [/TOOLBAR_SHORT\.tierMonth.*一致しない/]);
+});
+
+test("empty fixed context-menu label fails catalog coverage", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 前後の線を外す | | `線を外す` |",
+      "| 前後の線を外す | | |",
+    ),
+  );
+  expectFailures(doc, [/固定ラベル「線を外す」が主表のどの行にも無い/]);
+});
+
+test("visible right-click text outside backticks fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| タスクを削除 | 削除 | 削除 | 削除 |",
+      "| タスクを削除 | 削除 | 偽（`削除`） | 削除 |",
+    ),
+  );
+  expectFailures(doc, [/右クリック.*偽/]);
+});
+
+test("focus_window without --window fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "--screen focus_window --window <label>",
+      "--screen focus_window",
+    ),
+  );
+  expectFailures(doc, [/focus_window は --window/]);
+});
+
+test("file_action with invalid action fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("`file_action` (open)", "`file_action` (notAnAction)"),
+  );
+  expectFailures(doc, [/file_action の action「notAnAction」/]);
+});
+
+test("recent palette double prefix fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "recentFileCommandPaletteLabel(\\`${prefix}${entry.label}\\`)",
+      "recentFileCommandPaletteLabel(\\`最近開いたファイル ${prefix}${entry.label}\\`)",
+    ),
+  );
+  expectFailures(doc, [/recent 行は/]);
+});
+
+test("malformed main-table column count fails parse", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 今日へ移動 | 今日（title に T） | | 今日 | T | 今日（T） | | | `set_view` | `--screen set_view` | `NAV-01` |",
+      "| 今日へ移動 | 今日 | 今日 |",
+    ),
+  );
+  expectFailures(doc, [/主表の列数が/]);
+});

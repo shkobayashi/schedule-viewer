@@ -29,13 +29,40 @@ const STOP_SECTION_MARKERS = [
   /^## LLM が計画を変えたあと/,
 ];
 
+/** 操作列の見出し → shortcutReferenceRows の action */
+const OPERATION_TO_SHORTCUT_ACTION = {
+  "今日へ移動": "今日",
+  "タスク名／ノートで検索": "検索",
+  "コマンドパレットを開く／閉じる": "コマンドパレット",
+  "ショートカット一覧を開く": "ショートカット一覧",
+  "チャートをスクロール": "チャートのスクロール",
+  "ズーム（ホイール）": "ズーム",
+  "横スクロール（ホイール）": "横スクロール",
+  "表示サイズを拡大": "表示サイズ",
+  "表示サイズを縮小": "表示サイズ",
+  "絞り込みパネルを開く": "絞り込みパネル",
+  "系統を表示／解除": "系統を表示／解除",
+  "系統を表示／解除（タスク）": "系統を表示／解除",
+  "確定／未確定（タスク）": "確定／未確定（選択中のタスク）",
+  "同じグループ内で並べ替え": "同じグループで上下に移動",
+  "タスクを編集（詳細）": "編集",
+  "ノートを開く": "ノート",
+  "線を引くモード": "線を引く",
+  "全体表示": "全体表示",
+};
+
+/** ショートカット列で Backspace を併記してよい reference action */
+const SHORTCUT_EXTRA_ALTS = new Set(["削除"]);
+
 /**
  * @param {string} markdown
- * @returns {OperationRow[]}
+ * @returns {{ rows: OperationRow[], parseErrors: string[] }}
  */
 export function parseMainOperationTables(markdown) {
   /** @type {OperationRow[]} */
   const rows = [];
+  /** @type {string[]} */
+  const parseErrors = [];
   let currentSection = "";
   let inMainTable = false;
 
@@ -65,7 +92,12 @@ export function parseMainOperationTables(markdown) {
     if (/^\|\s*---/.test(line)) continue;
 
     const parts = splitTableRow(line);
-    if (parts.length !== MAIN_TABLE_COLUMNS.length) continue;
+    if (parts.length !== MAIN_TABLE_COLUMNS.length) {
+      parseErrors.push(
+        `主表の列数が ${MAIN_TABLE_COLUMNS.length} ではない（${parts.length} 列）: ${line.trim()}`,
+      );
+      continue;
+    }
 
     const cells = Object.fromEntries(
       MAIN_TABLE_COLUMNS.map((col, index) => [col, parts[index].trim()]),
@@ -76,7 +108,7 @@ export function parseMainOperationTables(markdown) {
       cells,
     });
   }
-  return rows;
+  return { rows, parseErrors };
 }
 
 /**
@@ -145,23 +177,25 @@ function report(row, column, message, errors) {
  * @param {{ previousRows?: OperationRow[] }} [options]
  */
 export function validateOperationEntryCoverage(markdown, catalog, options = {}) {
-  const rows = parseMainOperationTables(markdown);
+  const { rows, parseErrors } = parseMainOperationTables(markdown);
   /** @type {string[]} */
-  const errors = [];
+  const errors = [...parseErrors];
   /** @type {string[]} */
   const unverified = [];
 
   /** @type {Map<string, string>} */
   const previousCellByColumn = new Map();
+  /** @type {Set<string>} */
+  const shortcutActionsMatched = new Set();
 
   for (const row of rows) {
     validateToolbar(row, catalog, errors);
     validateRightClick(row, catalog, errors, previousCellByColumn);
     validatePalette(row, catalog, errors);
     validateSharedMenus(row, catalog, errors);
-    validateShortcut(row, catalog, errors, unverified);
+    validateShortcut(row, catalog, errors, unverified, shortcutActionsMatched);
     validateMacosMenu(row, catalog, errors);
-    validateGuide(row, catalog, errors, previousCellByColumn);
+    validateGuide(row, catalog, errors, previousCellByColumn, unverified);
     validateMcp(row, catalog, errors);
     validateCli(row, catalog, errors);
     validateFeatureIds(row, catalog, errors);
@@ -173,7 +207,8 @@ export function validateOperationEntryCoverage(markdown, catalog, options = {}) 
   }
 
   validateToolbarShortCoverage(rows, catalog, errors);
-  validateFormalSurfaceEvidence(rows, catalog, errors, unverified);
+  validateCatalogColumnCoverage(rows, catalog, errors);
+  appendKnownLimitations(unverified);
   ensureEveryOperationIdHasContextMenuLabel(catalog, errors);
 
   if (options.previousRows) {
@@ -188,12 +223,22 @@ export function validateOperationEntryCoverage(markdown, catalog, options = {}) 
  * @param {import("./operationEntryCatalog.ts").OperationEntryCatalog} catalog
  * @param {string[]} errors
  */
+function toolbarVisibleSegments(cell) {
+  const head = cell.split("（")[0];
+  return head
+    .split("/")
+    .map((seg) => seg.replace(/`/g, "").trim())
+    .filter(Boolean);
+}
+
 function validateToolbar(row, catalog, errors) {
   const cell = row.cells["ツールバー"];
-  if (!cell) return;
+  if (!cell || cell.startsWith("（")) return;
 
+  const citedKeys = new Set();
   for (const match of cell.matchAll(/TOOLBAR_SHORT\.(\w+)/g)) {
     const key = match[1];
+    citedKeys.add(key);
     const value = catalog.toolbarShort[key];
     if (value == null) {
       report(
@@ -204,24 +249,26 @@ function validateToolbar(row, catalog, errors) {
       );
       continue;
     }
-    const visible = cell.split("（")[0].replace(/`/g, "").trim();
-    const segments = visible.split("/").map((s) => s.trim()).filter(Boolean);
-    if (
-      segments.length > 0 &&
-      !segments.some((seg) => seg === value || seg.startsWith(value))
-    ) {
-      const firstSegment = segments[0].replace(/^[^`]*`?/, "").trim();
-      if (firstSegment !== value && !segments.includes(value)) {
-        report(
-          row,
-          "ツールバー",
-          `TOOLBAR_SHORT.${key} の表示値「${value}」とセル先頭「${firstSegment}」が一致しない`,
-          errors,
-        );
-      }
+    const segments = toolbarVisibleSegments(cell);
+    if (segments.length > 0 && !segments.some((seg) => seg === value)) {
+      report(
+        row,
+        "ツールバー",
+        `TOOLBAR_SHORT.${key} の表示値「${value}」とセル「${segments.join("/")}」が一致しない`,
+        errors,
+      );
     }
   }
 
+  if (citedKeys.size > 0) return;
+
+  if (
+    /\.tsx`|aria-label|title:|placeholder|select）|split|追加メニュー|説明を消す/.test(
+      cell,
+    )
+  ) {
+    return;
+  }
 }
 
 /**
@@ -230,6 +277,22 @@ function validateToolbar(row, catalog, errors) {
  * @param {string[]} errors
  * @param {Map<string, string>} previousByColumn
  */
+function extractRightClickTokens(cell) {
+  /** @type {string[]} */
+  const tokens = [...extractBacktickTokens(cell)];
+  const withoutBackticks = cell.replace(/`[^`]*`/g, " ");
+  const visibles = withoutBackticks
+    .replace(/（[^）]*）/g, "")
+    .replace(/\([^)]*\)/g, "")
+    .split("/")
+    .map((part) => stripNotes(part).trim())
+    .filter(Boolean);
+  for (const v of visibles) {
+    if (!tokens.includes(v)) tokens.push(v);
+  }
+  return tokens;
+}
+
 function validateRightClick(row, catalog, errors, previousByColumn) {
   let cell = row.cells["右クリック"];
   if (!cell) return;
@@ -241,12 +304,8 @@ function validateRightClick(row, catalog, errors, previousByColumn) {
     }
   }
 
-  const tokens = extractBacktickTokens(cell);
-  const candidates =
-    tokens.length > 0
-      ? tokens
-      : [stripNotes(cell)].filter(Boolean);
-  for (const token of candidates) {
+  for (const token of extractRightClickTokens(cell)) {
+    if (token.includes("${")) continue;
     if (
       !catalog.contextMenuOutputs.includes(token) &&
       !catalog.contextMenuTemplates.includes(token)
@@ -279,16 +338,15 @@ function validatePalette(row, catalog, errors) {
         errors,
       );
     }
-    const expr = extractBacktickTokens(cell).join("");
+    const normalized = cell.replace(/\\`/g, "`");
     if (
-      expr &&
-      !expr.includes("recentFileCommandPaletteLabel") &&
-      !expr.includes("${prefix}")
+      !normalized.includes(catalog.recentFilePaletteFactory) ||
+      normalized.includes("最近開いたファイル ${prefix}")
     ) {
       report(
         row,
         "コマンドパレット",
-        "recent 行は recentFileCommandPaletteLabel の式をそのまま書く",
+        `recent 行は \`${catalog.recentFilePaletteFactory}\` をそのまま書く`,
         errors,
       );
     }
@@ -300,10 +358,7 @@ function validatePalette(row, catalog, errors) {
     .map((p) => p.trim().replace(/^`|`$/g, ""))
     .filter(Boolean);
   for (const label of slashParts.length ? slashParts : [stripNotes(cell)]) {
-    if (
-      !catalog.paletteStaticLabels.includes(label) &&
-      label !== "履歴を消す"
-    ) {
+    if (!catalog.paletteStaticLabels.includes(label)) {
       const conditional = catalog.paletteConditionalCommands.find((cmd) => {
         const labels = catalog.paletteLabelsByCommandId[cmd.id] ?? [];
         return labels.includes(label);
@@ -338,7 +393,7 @@ function validateSharedMenus(row, catalog, errors) {
         core &&
         !catalog.sharedFileMenuLabels.includes(core) &&
         !catalog.hamburgerTailLabels.includes(core) &&
-        !catalog.operationFormalValues.includes(core) &&
+        !(catalog.hamburgerExtraLabels ?? []).includes(core) &&
         !/^設定（/.test(hamburger)
       ) {
         report(
@@ -352,7 +407,7 @@ function validateSharedMenus(row, catalog, errors) {
   }
 
   const macCell = row.cells["macOS メニュー"];
-  if (macCell && !macCell.includes("PredefinedMenuItem")) {
+  if (macCell && !/PredefinedMenuItem/.test(macCell)) {
     if (macCell.includes("entry.label")) return;
     if (macCell.includes("schedule-viewer を終了")) return;
     if (macCell.includes("の上（アプリメニュー）")) return;
@@ -390,13 +445,95 @@ function extractMenuLabelToken(cell) {
  * @param {string[]} errors
  * @param {string[]} unverified
  */
-function validateShortcut(row, catalog, errors, unverified) {
+function shortcutReferenceActionForRow(row) {
+  const mapped = OPERATION_TO_SHORTCUT_ACTION[row.operation];
+  if (mapped) return mapped;
+  if (row.operation.startsWith("表示サイズを")) return null;
+  const palette = paletteLabelFromRow(row);
+  if (palette === "全体") return "全体表示";
+  if (palette) return palette.split("/")[0].trim();
+  return row.operation;
+}
+
+function findShortcutReference(row, catalog) {
+  const action = shortcutReferenceActionForRow(row);
+  return catalog.shortcutReferenceRows.find((ref) => ref.action === action);
+}
+
+function validateShortcut(row, catalog, errors, unverified, shortcutActionsMatched) {
   const cell = row.cells["ショートカット"];
   if (!cell) return;
 
   if (cell.includes("macOS メニューのみ")) {
-    unverified.push(`操作「${row.operation}」: ${cell}（macOS 限定注記）`);
+    unverified.push(
+      `[ショートカット] 操作「${row.operation}」: ${cell}（macOS メニュー accelerator は未照合）`,
+    );
     return;
+  }
+  if (cell.includes("matchMacAppQuit") || /⌘Q/.test(cell)) {
+    unverified.push(
+      `[ショートカット] 操作「${row.operation}」: ⌘Q（matchMacAppQuit。メニュー accelerator は未照合）`,
+    );
+  }
+  if (/⌘M/.test(cell) && cell.includes("PredefinedMenuItem")) {
+    unverified.push(
+      `[ショートカット] 操作「${row.operation}」: ⌘M（PredefinedMenuItem Minimize。OS accelerator は未照合）`,
+    );
+  }
+
+  const paletteForSkip = paletteLabelFromRow(row);
+  const skipRefCommand =
+    paletteForSkip &&
+    catalog.formalToPaletteCommandId[paletteForSkip] === "addTask";
+  const reference =
+    skipRefCommand || row.operation.startsWith("表示サイズを")
+      ? null
+      : findShortcutReference(row, catalog);
+  if (reference) {
+    shortcutActionsMatched.add(reference.action);
+    const cleaned = cell
+      .replace(/（`[^`]+`）/g, "")
+      .replace(/（[^）]*）/g, "");
+    if (reference.mac === reference.win) {
+      if (
+        reference.mac &&
+        !shortcutHintMatchesCell(cleaned, reference.mac) &&
+        !shortcutCellMatchesReference(cleaned, reference.mac, reference.action)
+      ) {
+        report(
+          row,
+          "ショートカット",
+          `「${cell}」が shortcutReference（${reference.action}）の「${reference.mac}」と一致しない`,
+          errors,
+        );
+      }
+    } else {
+      const { macPart, winPart } = splitShortcutCell(cleaned);
+      if (
+        reference.mac &&
+        macPart &&
+        !shortcutCellMatchesReference(macPart, reference.mac, reference.action)
+      ) {
+        report(
+          row,
+          "ショートカット",
+          `Mac「${macPart}」が shortcutReference（${reference.action}）の「${reference.mac}」と一致しない`,
+          errors,
+        );
+      }
+      if (
+        reference.win &&
+        winPart &&
+        !shortcutCellMatchesReference(winPart, reference.win, reference.action)
+      ) {
+        report(
+          row,
+          "ショートカット",
+          `Win「${winPart}」が shortcutReference（${reference.action}）の「${reference.win}」と一致しない`,
+          errors,
+        );
+      }
+    }
   }
 
   const paletteLabel = paletteLabelFromRow(row);
@@ -404,11 +541,11 @@ function validateShortcut(row, catalog, errors, unverified) {
   const commandId = catalog.formalToPaletteCommandId[paletteLabel];
   if (!commandId) return;
   const expected = catalog.paletteShortcutByCommandId[commandId];
-  if (!expected) return;
+  if (!expected?.mac && !expected?.win) return;
 
   if (commandId === "addTask") {
     const joined = [expected.mac, expected.win].filter(Boolean).join(" / ");
-  if (!shortcutHintMatchesCell(cell, joined)) {
+    if (!shortcutHintMatchesCell(cell, joined)) {
       report(
         row,
         "ショートカット",
@@ -419,8 +556,19 @@ function validateShortcut(row, catalog, errors, unverified) {
     return;
   }
 
+  if (commandId === "displayScaleIn" || commandId === "displayScaleOut") {
+    const { macPart, winPart } = splitShortcutCell(cell);
+    if (expected.mac && macPart && !shortcutHintMatchesCell(macPart, expected.mac)) {
+      report(row, "ショートカット", `Mac「${macPart}」が ${commandId} の「${expected.mac}」と一致しない`, errors);
+    }
+    if (expected.win && winPart && !shortcutHintMatchesCell(winPart, expected.win)) {
+      report(row, "ショートカット", `Win「${winPart}」が ${commandId} の「${expected.win}」と一致しない`, errors);
+    }
+    return;
+  }
+
   if (commandId === "deleteTask") {
-    if (expected.win && !cell.includes("Delete")) {
+    if (!cell.includes("Delete")) {
       report(row, "ショートカット", "Delete がショートカット列に無い", errors);
     }
     return;
@@ -443,6 +591,42 @@ function validateShortcut(row, catalog, errors, unverified) {
       errors,
     );
   }
+}
+
+/**
+ * @param {string} cellPart
+ * @param {string} referenceKeys
+ * @param {string} action
+ */
+function shortcutCellMatchesReference(cellPart, referenceKeys, action) {
+  const cellAlts = expandShortcutAlternatives(cellPart);
+  const refAlts = expandShortcutAlternatives(
+    referenceKeys.replace(/（[^）]*）/g, ""),
+  );
+  if (refAlts.length === 0) return true;
+  if (
+    !refAlts.every((alt) =>
+      cellAlts.some(
+        (c) => normalizeShortcutKey(c) === normalizeShortcutKey(alt),
+      ),
+    )
+  ) {
+    return false;
+  }
+  if (SHORTCUT_EXTRA_ALTS.has(action)) {
+    return true;
+  }
+  const extras =
+    action === "削除"
+      ? ["Backspace"]
+      : action === "やり直し"
+        ? ["Ctrl+Y"]
+        : [];
+  return cellAlts.every(
+    (c) =>
+      refAlts.some((r) => normalizeShortcutKey(c) === normalizeShortcutKey(r)) ||
+      extras.some((e) => normalizeShortcutKey(c) === normalizeShortcutKey(e)),
+  );
 }
 
 /**
@@ -512,25 +696,46 @@ function splitShortcutCell(cell) {
  * @param {import("./operationEntryCatalog.ts").OperationEntryCatalog} catalog
  * @param {string[]} errors
  */
+function extractPredefinedItemIds(cell) {
+  /** @type {string[]} */
+  const ids = [];
+  for (const match of cell.matchAll(/([A-Za-z]+)（`PredefinedMenuItem`）/g)) {
+    ids.push(match[1]);
+  }
+  for (const match of cell.matchAll(/`PredefinedMenuItem`\s+(\w+)/g)) {
+    ids.push(match[1]);
+  }
+  return [...new Set(ids)];
+}
+
 function validateMacosMenu(row, catalog, errors) {
   const cell = row.cells["macOS メニュー"];
   if (!cell) return;
-  for (const token of extractBacktickTokens(cell)) {
-    if (token === "PredefinedMenuItem") continue;
-    if (token.startsWith("PredefinedMenuItem")) {
-      const id = token.replace(/.*\s/, "").trim();
-      if (!catalog.macosPredefinedMenuIds.includes(id)) {
-        report(
-          row,
-          "macOS メニュー",
-          `PredefinedMenuItem「${id}」がソースの識別子一覧に無い`,
-          errors,
-        );
-      }
-    } else if (catalog.macosPredefinedMenuIds.includes(token)) {
-      // plain Predefined id reference
+
+  if (
+    /\bPredefinedMenuItem\b/.test(cell) &&
+    !/（`PredefinedMenuItem`/.test(cell)
+  ) {
+    report(
+      row,
+      "macOS メニュー",
+      "PredefinedMenuItem は（`識別子`（`PredefinedMenuItem`））形式で書く",
+      errors,
+    );
+  }
+
+  for (const id of extractPredefinedItemIds(cell)) {
+    if (id === "PredefinedMenuItem") continue;
+    if (!catalog.macosPredefinedMenuIds.includes(id)) {
+      report(
+        row,
+        "macOS メニュー",
+        `PredefinedMenuItem「${id}」が useMacOSAppMenu の識別子一覧に無い`,
+        errors,
+      );
     }
   }
+
   const plainLabel = cell
     .replace(/（[^）]*PredefinedMenuItem[^）]*）/g, "")
     .replace(/`/g, "")
@@ -546,14 +751,6 @@ function validateMacosMenu(row, catalog, errors) {
       errors,
     );
   }
-  if (cell.includes("Cut") && !cell.includes("PredefinedMenuItem")) {
-    report(
-      row,
-      "macOS メニュー",
-      "Cut は PredefinedMenuItem の識別子として書く",
-      errors,
-    );
-  }
 }
 
 /**
@@ -562,7 +759,7 @@ function validateMacosMenu(row, catalog, errors) {
  * @param {string[]} errors
  * @param {Map<string, string>} previousByColumn
  */
-function validateGuide(row, catalog, errors, previousByColumn) {
+function validateGuide(row, catalog, errors, previousByColumn, unverified) {
   let cell = row.cells["操作の案内"];
   if (!cell || cell.startsWith("（")) {
     return;
@@ -587,8 +784,13 @@ function validateGuide(row, catalog, errors, previousByColumn) {
     }
   }
 
-  if (quoted.length === 0 && cell.length > 0 && !cell.includes("同上")) {
-    // 要約は未照合（unverified は呼び出し側でまとめる）
+  const prose = cell.replace(/`[^`]*`/g, "").trim();
+  if (quoted.length === 0 && prose.length > 0 && !prose.includes("同上")) {
+    if (!catalog.guideTexts.some((text) => text.includes(prose))) {
+      unverified.push(
+        `[操作の案内] 操作「${row.operation}」: 無引用要約「${prose.slice(0, 80)}${prose.length > 80 ? "…" : ""}」は GUIDE 本文と厳密一致していない`,
+      );
+    }
   }
 }
 
@@ -601,7 +803,9 @@ function validateMcp(row, catalog, errors) {
   const cell = row.cells["MCP"];
   if (!cell) return;
 
-  for (const match of cell.matchAll(/`([a-z_]+)`(?:\s*\(([^)]+)\))?/g)) {
+  for (const match of cell.matchAll(
+    /`([a-z_]+)`(?:\s*[\(（]([^)）]+)[\)）])?/g,
+  )) {
     const tool = match[1];
     if (!catalog.mcpToolNames.includes(tool)) {
       report(
@@ -611,14 +815,34 @@ function validateMcp(row, catalog, errors) {
         errors,
       );
     }
-    const action = match[2];
-    if (action && !/^[\w]+$/.test(action.trim())) {
-      report(
-        row,
-        "MCP",
-        `括弧内 action「${action}」の形式が不正`,
-        errors,
-      );
+    const action = match[2]?.trim();
+    if (action) {
+      if (tool === "file_action") {
+        if (!catalog.mcpFileActions?.includes(action)) {
+          report(
+            row,
+            "MCP",
+            `file_action の action「${action}」がソースの列挙に無い`,
+            errors,
+          );
+        }
+      } else if (tool === "history") {
+        if (!catalog.mcpHistoryActions?.includes(action)) {
+          report(
+            row,
+            "MCP",
+            `history の action「${action}」は undo か redo だけ`,
+            errors,
+          );
+        }
+      } else if (!/^[\w]+$/.test(action)) {
+        report(
+          row,
+          "MCP",
+          `括弧内 action「${action}」の形式が不正`,
+          errors,
+        );
+      }
     }
   }
 
@@ -690,15 +914,14 @@ function validateCli(row, catalog, errors) {
       errors,
     );
   }
-  if (
-    !rejectsWindow &&
-    catalog.mcpReadToolNames.includes(tool) &&
-    !hasWindow
-  ) {
+  const needsWindow =
+    catalog.mcpReadToolNames.includes(tool) ||
+    catalog.mcpWindowTargetToolNames?.includes(tool);
+  if (!rejectsWindow && needsWindow && !hasWindow) {
     report(
       row,
       "CLI",
-      `読み取りツール ${tool} は --window <label> を書く`,
+      `${tool} は --window <label> を書く`,
       errors,
     );
   }
@@ -784,18 +1007,88 @@ function validateToolbarShortCoverage(rows, catalog, errors) {
  * @param {string[]} errors
  * @param {string[]} unverified
  */
-function validateFormalSurfaceEvidence(rows, catalog, errors, unverified) {
+function collectColumnTokens(rows, column, transform = (s) => s) {
+  /** @type {Set<string>} */
+  const tokens = new Set();
+  for (const row of rows) {
+    const cell = row.cells[column] ?? "";
+    if (!cell) continue;
+    for (const token of extractBacktickTokens(cell)) {
+      tokens.add(transform(token));
+    }
+    const plain = stripNotes(cell).replace(/`/g, "").trim();
+    if (plain) {
+      for (const part of plain.split(/[/／、]/)) {
+        const t = transform(part.trim());
+        if (t) tokens.add(t);
+      }
+    }
+  }
+  return tokens;
+}
+
+function validateCatalogColumnCoverage(rows, catalog, errors) {
+  const paletteTokens = collectColumnTokens(rows, "コマンドパレット");
+  const requiredPalette = catalog.paletteStaticLabels.filter(
+    (label) => !/^最近開いたファイル /.test(label),
+  );
+  for (const label of requiredPalette) {
+    if (!paletteTokens.has(label) && label !== catalog.recentFilePaletteFactory) {
+      errors.push(`[コマンドパレット] ラベル「${label}」が主表のどの行にも無い`);
+    }
+  }
+  const recentFactory = catalog.recentFilePaletteFactory;
+  if (
+    !rows.some((row) => {
+      const cell = (row.cells["コマンドパレット"] ?? "").replace(/\\`/g, "`");
+      return (
+        cell.includes(recentFactory) &&
+        !cell.includes("最近開いたファイル ${prefix}")
+      );
+    })
+  ) {
+    errors.push(`[コマンドパレット] recent 行に ${recentFactory} が無い`);
+  }
+
+  const hamburgerTokens = collectColumnTokens(rows, "☰");
+  for (const label of catalog.sharedFileMenuLabels) {
+    if (!hamburgerTokens.has(label)) {
+      errors.push(`[☰] ラベル「${label}」が主表のどの行にも無い`);
+    }
+  }
+  for (const label of catalog.hamburgerTailLabels) {
+    if (!hamburgerTokens.has(label)) {
+      errors.push(`[☰] ラベル「${label}」が主表のどの行にも無い`);
+    }
+  }
+
+  const rcTokens = collectColumnTokens(rows, "右クリック");
+  for (const label of Object.values(catalog.contextMenuFixed)) {
+    if (label && !rcTokens.has(label)) {
+      errors.push(`[右クリック] 固定ラベル「${label}」が主表のどの行にも無い`);
+    }
+  }
+
+  const mcpTools = new Set();
+  for (const row of rows) {
+    const cell = row.cells["MCP"] ?? "";
+    for (const match of cell.matchAll(/`([a-z_]+)`/g)) {
+      mcpTools.add(match[1]);
+    }
+  }
+  for (const tool of catalog.mcpToolNames) {
+    if (!mcpTools.has(tool)) {
+      errors.push(`[MCP] ツール「${tool}」が主表のどの行にも無い`);
+    }
+  }
+}
+
+function appendKnownLimitations(unverified) {
   unverified.push(
-    "ツールバー限定の正式名（階層編集・繋がりも辿るなど）は、表がその入口だけを示す行として扱う。",
+    "[ツールバー] 動的ラベル（StatusBar・FilterPanel 等）の title 属性とマウント済み UI は未検証",
   );
   unverified.push(
-    "ツールバー列の動的ラベル（StatusBar・FilterPanel 等）と title 属性は、列内の出典引用のみ照合。マウント済み UI は未検証。",
-  );
-  unverified.push(
-    "操作の案内列の無引用要約文は GUIDE と厳密一致せず、未照合として扱う。",
-  );
-  unverified.push(
-    "空セルは「入口なし」の表明。列ごとの網羅的反証は段階2の列照合とは別。",
+    "[macOS メニュー] PredefinedMenuItem の OS 表示文言は未検証（識別子のみ照合）",
   );
 }
 

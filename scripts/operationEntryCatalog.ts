@@ -11,8 +11,10 @@ import { GUIDE_SECTIONS } from "../src/model/guideContent.ts";
 import {
   MCP_ALL_TOOL_NAMES,
   MCP_READ_TOOL_NAMES,
+  MCP_WINDOW_TARGET_TOOL_NAMES,
   mcpToolRejectsWindowArgument,
 } from "../src/model/mcpToolNames.ts";
+import { recentMenuCommandPalettePrefix } from "../src/model/recentFilesMenu.ts";
 import { OPERATION_FORMAL, TOOLBAR_SHORT } from "../src/model/operationLabels.ts";
 import { lineagePaletteLabel } from "../src/model/operationLabels.ts";
 import { recentFileCommandPaletteLabel } from "../src/model/recentFiles.ts";
@@ -40,13 +42,26 @@ import {
 } from "../src/operations/operationLabelLink.ts";
 import { OPERATION_ID } from "../src/operations/operationIds.ts";
 
-const MACOS_PREDEFINED_MENU_IDS = [
-  "Cut",
-  "Copy",
-  "Paste",
-  "SelectAll",
-  "Minimize",
+const MCP_FILE_ACTIONS = [
+  "open",
+  "save",
+  "saveAs",
+  "export",
+  "exportWorkspace",
 ] as const;
+
+const MCP_HISTORY_ACTIONS = ["undo", "redo"] as const;
+
+function parseMacOSPredefinedMenuIds(): string[] {
+  const text = readFileSync("src/hooks/useMacOSAppMenu.ts", "utf8");
+  const ids = new Set<string>();
+  for (const match of text.matchAll(
+    /PredefinedMenuItem\.new\(\{\s*item:\s*"([^"]+)"/g,
+  )) {
+    ids.add(match[1]);
+  }
+  return [...ids].sort();
+}
 
 const PALETTE_TEMPLATE_IDS = [
   "open",
@@ -142,7 +157,10 @@ function collectPaletteLabels(): {
     }
   }
 
-  const openRecentLabel = recentFileCommandPaletteLabel("最近開いたファイル sample.json");
+  const samplePrefix = recentMenuCommandPalettePrefix("schedule");
+  const openRecentLabel = recentFileCommandPaletteLabel(
+    `${samplePrefix}schedule.json`,
+  );
   staticLabels.add(openRecentLabel);
   staticLabels.add(OPERATION_FORMAL.clearRecentHistory);
 
@@ -330,9 +348,13 @@ export function buildOperationEntryCatalog() {
     paletteCommandIds: [...PALETTE_TEMPLATE_IDS],
     sharedFileMenuLabels,
     hamburgerTailLabels,
-    macosPredefinedMenuIds: [...MACOS_PREDEFINED_MENU_IDS],
+    hamburgerExtraLabels: [OPERATION_FORMAL.clearRecentHistory],
+    macosPredefinedMenuIds: parseMacOSPredefinedMenuIds(),
     mcpToolNames: [...MCP_ALL_TOOL_NAMES],
     mcpReadToolNames: [...MCP_READ_TOOL_NAMES],
+    mcpWindowTargetToolNames: [...MCP_WINDOW_TARGET_TOOL_NAMES],
+    mcpFileActions: [...MCP_FILE_ACTIONS],
+    mcpHistoryActions: [...MCP_HISTORY_ACTIONS],
     mcpToolsRejectingWindow: MCP_ALL_TOOL_NAMES.filter(
       (name) => mcpToolRejectsWindowArgument(name) != null,
     ),
@@ -341,7 +363,7 @@ export function buildOperationEntryCatalog() {
     ),
     externalFeatureIds: parseExternalFeatureIds(),
     recentFilePaletteFactory:
-      "recentFileCommandPaletteLabel(`最近開いたファイル ${prefix}${entry.label}`)",
+      "recentFileCommandPaletteLabel(`${prefix}${entry.label}`)",
     recentFilePaletteFactoryFile: "src/model/recentFiles.ts",
     recentFileMenuLabelPattern: "サブメニュー内 `entry.label`",
     shortcutHints: shortcutHintCatalog(),
