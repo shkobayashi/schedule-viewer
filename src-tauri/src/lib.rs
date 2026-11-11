@@ -2352,7 +2352,7 @@ fn ack_pending_schedule_window_open(
 async fn create_schedule_window(
     app: tauri::AppHandle,
     session: State<'_, Mutex<WindowSessionState>>,
-    states: State<'_, Mutex<ScheduleFileStates>>,
+    _states: State<'_, Mutex<ScheduleFileStates>>,
     path: String,
     contents: String,
     workspace_path: Option<String>,
@@ -2361,20 +2361,6 @@ async fn create_schedule_window(
         return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
     }
     let app_data = app_data_dir(&app)?;
-    if let Some(existing_label) = {
-        let guard = session.lock().expect("window session");
-        window_session::pending_label_for_path(&guard, &path)
-    } {
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
-        while std::time::Instant::now() < deadline {
-            if let Some(window) = app.get_webview_window(&existing_label) {
-                let _ = set_focused_label(&app_data, &existing_label);
-                let _ = window.set_focus();
-                return Ok(existing_label);
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
-    }
     let label = loop {
         let candidate = {
             let guard = session.lock().expect("window session");
@@ -2397,13 +2383,15 @@ async fn create_schedule_window(
             "schedule-viewer",
         ) {
             Ok(()) => {
-                upsert_window_path(
-                    &app_data,
-                    &candidate,
-                    Some(&path),
-                    workspace_path.as_deref(),
-                    false,
-                )?;
+                if let Err(error) = upsert_window_path(&app_data, &candidate, None, None, true) {
+                    let mut guard = session.lock().expect("window session");
+                    let _ = take_pending_open(&mut guard, &candidate);
+                    forget_window_focus(&mut guard, &candidate);
+                    if let Some(window) = app.get_webview_window(&candidate) {
+                        let _ = window.close();
+                    }
+                    return Err(error);
+                }
                 let emit_app = app.clone();
                 let emit_label = candidate.clone();
                 let emit_payload = PendingScheduleWindowOpen {
@@ -2441,10 +2429,6 @@ async fn create_schedule_window(
             }
         }
     };
-    let mut guard = states.lock().expect("schedule file states");
-    let state = guard.by_label.entry(label.clone()).or_default();
-    state.path = Some(PathBuf::from(path));
-    state.content_hash = Some(hash_contents(&contents));
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.set_focus();
     }
@@ -2497,6 +2481,7 @@ fn unregister_window_session(
         let mut session_guard = session.lock().expect("window session");
         forget_startup_settlement(&mut session_guard, &label);
         forget_window_focus(&mut session_guard, &label);
+        let _ = take_pending_open(&mut session_guard, &label);
         let mut states_guard = states.lock().expect("schedule file states");
         states_guard.by_label.remove(&label);
     }
@@ -3360,6 +3345,7 @@ pub fn run() {
                         let mut guard = session.lock().expect("window session");
                         forget_startup_settlement(&mut guard, &label);
                         forget_window_focus(&mut guard, &label);
+                        let _ = take_pending_open(&mut guard, &label);
                     }
                     if let Some(states) = app.try_state::<Mutex<ScheduleFileStates>>() {
                         states

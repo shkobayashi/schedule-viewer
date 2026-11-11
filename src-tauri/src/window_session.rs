@@ -856,14 +856,6 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
     }
 }
 
-pub fn pending_label_for_path(state: &WindowSessionState, path: &str) -> Option<String> {
-    state
-        .pending_opens
-        .iter()
-        .find(|(_, pending)| pending.path == path)
-        .map(|(label, _)| label.clone())
-}
-
 pub fn peek_pending_open(state: &WindowSessionState, label: &str) -> Option<PendingWindowOpen> {
     state.pending_opens.get(label).cloned()
 }
@@ -1019,6 +1011,22 @@ mod tests {
             Some("/tmp/workspace.json"),
         );
         let _ = fs::remove_dir_all(&app_data);
+    }
+
+    #[test]
+    fn take_pending_open_clears_reservation_for_label() {
+        let mut state = WindowSessionState::default();
+        store_pending_open(
+            &mut state,
+            "schedule-3".to_string(),
+            "/tmp/a.schedule.json".to_string(),
+            "{}".to_string(),
+            None,
+        );
+        assert!(state.pending_opens.contains_key("schedule-3"));
+        let taken = take_pending_open(&mut state, "schedule-3").expect("pending");
+        assert_eq!(taken.path, "/tmp/a.schedule.json");
+        assert!(take_pending_open(&mut state, "schedule-3").is_none());
     }
 
     #[test]

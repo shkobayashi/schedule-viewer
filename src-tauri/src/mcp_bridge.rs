@@ -339,12 +339,18 @@ fn bridge_tool_error_response(id: String, text: &str) -> BridgeResponse {
     }
 }
 
+enum EmitWaitOutcome {
+    Ok(BridgeResponse),
+    EmitFailed,
+    TimedOut,
+}
+
 fn emit_and_wait_for_screen_tool(
     window: &WebviewWindow,
     label: &str,
     request: &BridgeRequest,
     state: &Arc<McpBridgeState>,
-) -> Option<BridgeResponse> {
+) -> EmitWaitOutcome {
     let generation = state.generation_for(label);
     let notify = Arc::new((Mutex::new(false), Condvar::new()));
     let result_slot = Arc::new(Mutex::new(None));
@@ -383,7 +389,7 @@ fn emit_and_wait_for_screen_tool(
         .is_err()
     {
         state.pending.lock().expect("mcp pending").remove(&request.id);
-        return None;
+        return EmitWaitOutcome::EmitFailed;
     }
     let (lock, cvar) = &*notify;
     let mut done = lock.lock().expect("mcp notify");
@@ -402,10 +408,10 @@ fn emit_and_wait_for_screen_tool(
     }
     let stored = result_slot.lock().expect("mcp result").clone();
     if let Some(response) = stored {
-        return Some(response);
+        return EmitWaitOutcome::Ok(response);
     }
     state.pending.lock().expect("mcp pending").remove(&request.id);
-    None
+    EmitWaitOutcome::TimedOut
 }
 
 fn dispatch_tool_request(
@@ -530,12 +536,17 @@ fn dispatch_tool_request(
         }
     };
     let label = window.label().to_string();
-    if let Some(response) = emit_and_wait_for_screen_tool(&window, &label, &request, state) {
-        return Ok(response);
-    }
-    std::thread::sleep(Duration::from_millis(250));
-    if let Some(response) = emit_and_wait_for_screen_tool(&window, &label, &request, state) {
-        return Ok(response);
+    match emit_and_wait_for_screen_tool(&window, &label, &request, state) {
+        EmitWaitOutcome::Ok(response) => return Ok(response),
+        EmitWaitOutcome::EmitFailed => {
+            std::thread::sleep(Duration::from_millis(250));
+            if let EmitWaitOutcome::Ok(response) =
+                emit_and_wait_for_screen_tool(&window, &label, &request, state)
+            {
+                return Ok(response);
+            }
+        }
+        EmitWaitOutcome::TimedOut => {}
     }
     Ok(BridgeResponse {
         v: BRIDGE_VERSION,

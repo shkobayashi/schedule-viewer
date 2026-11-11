@@ -648,6 +648,28 @@ fn wait_open_windows_labels_exactly_one_new(
     );
 }
 
+fn wait_open_windows_row_file(h: &RunningHarness, label: &str, file: &str) {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let wins = parse_mcp_json_text(&h.mcp_call("open_windows", json!({})).text);
+        let row = wins.as_array().and_then(|rows| {
+            rows.iter()
+                .find(|w| w.get("label").and_then(|v| v.as_str()) == Some(label))
+        });
+        if row.and_then(|w| w.get("file").and_then(|v| v.as_str())) == Some(file) {
+            return;
+        }
+        if Instant::now() >= deadline {
+            panic!(
+                "open_windows file for {label} did not become {file:?}: row={row:?}"
+            );
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}
+
+const MCP_WINDOW_SAMPLE_DISPLAY: &str = "サンプルデータ";
+
 struct ChildGuard {
     child: Child,
     _keep_dir: tempfile::TempDir,
@@ -1687,6 +1709,12 @@ where
         r.text
     );
     wait_open_windows_labels_exactly_one_new(&h, &before_labels, &new_label);
+    let main_file = h
+        .main_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .expect("main file name");
+    wait_open_windows_row_file(&h, &new_label, main_file);
     let rows = h.open_windows_rows();
     assert_eq!(
         rows.len(),
@@ -1694,11 +1722,6 @@ where
         "open_new_window should add exactly one window row, got {}",
         rows.len()
     );
-    let main_file = h
-        .main_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .expect("main file name");
     let second = rows
         .iter()
         .filter(|w| w.get("file").and_then(|v| v.as_str()) == Some(main_file))
@@ -2143,6 +2166,7 @@ fn open_new_window_adds_the_third_file_and_keeps_the_first_two_file_and_folder()
             r.text
         );
         wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
+        wait_open_windows_row_file(h, &new_label, "schedule-3.schedule.json");
         let wins = parse_mcp_json_text(&h.mcp_call("open_windows", json!({})).text);
         let files: Vec<_> = wins
             .as_array()
@@ -2760,6 +2784,7 @@ fn open_new_window_keeps_process_alive_and_both_windows_return_current_schedule(
         assert!(h.gui.try_wait().expect("try_wait").is_none());
         let new_label = normalize_text(&r.text);
         wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
+        wait_open_windows_row_file(h, &new_label, "schedule-3.schedule.json");
         let main_doc = h.current_schedule_json(Some("main"));
         assert!(schedule_contains_task(&main_doc, SEEDED_TASK_ID));
         let new_doc = h.current_schedule_json(Some(&new_label));
@@ -2815,12 +2840,94 @@ fn open_new_window_while_main_is_dirty_keeps_the_edited_date_and_adds_a_window()
         );
         let new_label = normalize_text(&r.text);
         wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
+        wait_open_windows_row_file(h, &new_label, "schedule-3.schedule.json");
         let after = h.open_windows_rows();
         let schedule3_rows: Vec<_> = after
             .iter()
             .filter(|w| w.get("file").and_then(|v| v.as_str()) == Some("schedule-3.schedule.json"))
             .collect();
         assert_eq!(schedule3_rows.len(), 1);
+    });
+}
+
+#[test]
+fn open_new_window_same_path_twice_adds_two_distinct_labels() {
+    with_two_windows_same_path(|h, _second| {
+        let main_file = h
+            .main_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .expect("main file name");
+        let path = h.main_path.to_string_lossy();
+        let workspace = h.work.join("workspace.json").to_string_lossy().to_string();
+        let before1 = window_labels(h);
+        let r1 = h.mcp_call(
+            "open_new_window",
+            json!({ "path": path, "workspacePath": workspace }),
+        );
+        assert!(!r1.is_error, "{}", r1.text);
+        let label1 = normalize_text(&r1.text);
+        wait_open_windows_labels_exactly_one_new(h, &before1, &label1);
+        wait_open_windows_row_file(h, &label1, main_file);
+        let before2 = window_labels(h);
+        let r2 = h.mcp_call(
+            "open_new_window",
+            json!({ "path": path, "workspacePath": workspace }),
+        );
+        assert!(!r2.is_error, "{}", r2.text);
+        let label2 = normalize_text(&r2.text);
+        assert_ne!(
+            label1, label2,
+            "two distinct open_new_window calls should return different labels"
+        );
+        wait_open_windows_labels_exactly_one_new(h, &before2, &label2);
+        wait_open_windows_row_file(h, &label2, main_file);
+        let rows = h.open_windows_rows();
+        let matching: Vec<_> = rows
+            .iter()
+            .filter(|w| w.get("file").and_then(|v| v.as_str()) == Some(main_file))
+            .collect();
+        assert_eq!(
+            matching.len(),
+            4,
+            "main, schedule-2 from harness, and two new windows should show the same schedule file name"
+        );
+    });
+}
+
+#[test]
+fn open_new_window_with_bad_workspace_keeps_sample_row_without_attached_file() {
+    with_gui(|h| {
+        let before_labels = window_labels(h);
+        let missing_workspace = h.work.join("missing-workspace.json");
+        let r = h.mcp_call(
+            "open_new_window",
+            json!({
+                "path": h.schedule3_path.to_string_lossy(),
+                "workspacePath": missing_workspace.to_string_lossy(),
+            }),
+        );
+        assert!(!r.is_error, "{}", r.text);
+        let new_label = normalize_text(&r.text);
+        wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            let wins = parse_mcp_json_text(&h.mcp_call("open_windows", json!({})).text);
+            let row = wins.as_array().and_then(|rows| {
+                rows.iter()
+                    .find(|w| w.get("label").and_then(|v| v.as_str()) == Some(new_label.as_str()))
+            });
+            let file = row.and_then(|w| w.get("file").and_then(|v| v.as_str()));
+            if file == Some(MCP_WINDOW_SAMPLE_DISPLAY) {
+                break;
+            }
+            if Instant::now() >= deadline {
+                panic!(
+                    "expected sample row for failed workspace startup, got row={row:?}"
+                );
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
     });
 }
 

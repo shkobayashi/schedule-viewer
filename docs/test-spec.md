@@ -1791,6 +1791,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `screen_replace_schedule_with_window_exits_1_writes_front_only_sentence_and_leaves_current_schedule`（`mcp_running_app.rs`） | `--screen replace_schedule --window` が終了 1 と前面のみ文。画面は不変 | MCP-01, MCP-02 |
 | `open_new_window_keeps_process_alive_and_both_windows_return_current_schedule`（`mcp_running_app.rs`） | 3 枚目追加後もプロセスが生き、元 2 枚と 3 枚目が `current_schedule` を返す | WIN-01, MCP-01 |
 | `open_new_window_while_main_is_dirty_keeps_the_edited_date_and_adds_a_window`（`mcp_running_app.rs`） | 未保存のまま 3 枚目が 1 枚だけ増え、`main` の日付は残る | WIN-01, MCP-01 |
+| `open_new_window_same_path_twice_adds_two_distinct_labels`（`mcp_running_app.rs`） | 同じパスで MCP `open_new_window` を 2 回呼ぶと、返るラベルと生きている窓が 2 枚増える | WIN-01, MCP-01 |
+| `open_new_window_with_bad_workspace_keeps_sample_row_without_attached_file`（`mcp_running_app.rs`） | 存在しない `workspacePath` で開いた窓は `open_windows.file` がサンプルのまま残り、スケジュールのパスが記録に載らない | WIN-01, FILE-10, MCP-01 |
 | `close_window_on_main_then_restart_opens_only_schedule_2`（`mcp_running_app.rs`） | `main` を閉じて再起動すると `schedule-2` だけ | WIN-01, SYNC-03, MCP-01 |
 | `startup_without_main_in_open_windows_opens_only_schedule_2`（`mcp_running_app.rs`） | 記録に `main` が無いとき起動で `schedule-2` だけ | WIN-01, SYNC-03, MCP-01 |
 | `close_window_schedule_2_leaves_only_main_still_answering_current_schedule`（`mcp_running_app.rs`） | `schedule-2` を閉じたあと `main` だけが応答する | WIN-01, MCP-01 |

@@ -229,7 +229,8 @@ export function useScheduleStartupRecovery({
         const pending = await takePendingScheduleWindowOpenViaTauri();
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (pending) {
-          if (pending.label !== (await getCurrentWindow().label)) {
+          const windowLabel = await getCurrentWindow().label;
+          if (pending.label !== windowLabel) {
             releaseStartupBusy();
             return;
           }

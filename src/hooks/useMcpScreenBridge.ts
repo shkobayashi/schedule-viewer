@@ -100,6 +100,7 @@ export type UseMcpScreenBridgeInput = McpScreenBridgeFilteredTasksSnap & {
 export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
   const inputRef = useRef(input);
   inputRef.current = input;
+  const mcpActionRequestIdsInFlight = useRef(new Set<string>());
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -156,6 +157,21 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
     ]);
 
     async function handleMcpActionTool(
+      payload: McpScreenRequest,
+      snap: UseMcpScreenBridgeInput,
+    ) {
+      if (mcpActionRequestIdsInFlight.current.has(payload.id)) {
+        return;
+      }
+      mcpActionRequestIdsInFlight.current.add(payload.id);
+      try {
+        await handleMcpActionToolBody(payload, snap);
+      } finally {
+        mcpActionRequestIdsInFlight.current.delete(payload.id);
+      }
+    }
+
+    async function handleMcpActionToolBody(
       payload: McpScreenRequest,
       snap: UseMcpScreenBridgeInput,
     ) {
