@@ -51,9 +51,6 @@ const OPERATION_TO_SHORTCUT_ACTION = {
   "全体表示": "全体表示",
 };
 
-/** ショートカット列で Backspace を併記してよい reference action */
-const SHORTCUT_EXTRA_ALTS = new Set(["削除"]);
-
 /**
  * @param {string} markdown
  * @returns {{ rows: OperationRow[], parseErrors: string[] }}
