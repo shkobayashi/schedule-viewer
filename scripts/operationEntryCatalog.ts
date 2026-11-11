@@ -24,6 +24,7 @@ import {
   confidenceToggleShortcutHint,
   diffCopyShortcutHint,
   displayScaleShortcutHint,
+  matchDisplayScale,
   fileShortcutHint,
   filterPanelShortcutHint,
   findShortcutHint,
@@ -222,6 +223,97 @@ function collectContextMenuOutputs(): {
   };
 }
 
+type ShortcutProbeEvent = {
+  key: string;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  altKey: boolean;
+  shiftKey?: boolean;
+};
+
+function formatDisplayScaleKey(key: string, commandKey: boolean): string | null {
+  const mod = commandKey ? "⌘" : "Ctrl";
+  if (key === "+") return `${mod}+`;
+  if (key === "=") return `${mod}=`;
+  if (key === "-") return `${mod}-`;
+  return null;
+}
+
+function deriveDisplayScaleShortcuts(): {
+  enlarge: { mac: string[]; win: string[] };
+  reduce: { mac: string[]; win: string[] };
+} {
+  const enlarge = { mac: [] as string[], win: [] as string[] };
+  const reduce = { mac: [] as string[], win: [] as string[] };
+  const candidates = ["+", "=", "-"] as const;
+  for (const key of candidates) {
+    for (const commandKey of [true, false] as const) {
+      const event: ShortcutProbeEvent = {
+        key,
+        ctrlKey: !commandKey,
+        metaKey: commandKey,
+        altKey: false,
+        shiftKey: false,
+      };
+      const direction = matchDisplayScale(event);
+      const label = formatDisplayScaleKey(key, commandKey);
+      if (!direction || !label) continue;
+      const bucket = direction === "in" ? enlarge : reduce;
+      const side = commandKey ? bucket.mac : bucket.win;
+      if (!side.includes(label)) side.push(label);
+    }
+  }
+  const macReduceHint = displayScaleShortcutHint(true).split(" / ")[1];
+  const winReduceParts = displayScaleShortcutHint(false).split(" / ");
+  const winReduceHint = winReduceParts[winReduceParts.length - 1];
+  if (macReduceHint && !reduce.mac.includes(macReduceHint)) {
+    reduce.mac.push(macReduceHint);
+  }
+  if (winReduceHint && !reduce.win.includes(winReduceHint)) {
+    reduce.win.push(winReduceHint);
+  }
+  return { enlarge, reduce };
+}
+
+function extractToolbarSourceLabels() {
+  const toolbar = readFileSync("src/components/Toolbar.tsx", "utf8");
+  const active = readFileSync("src/components/ActiveFilterBar.tsx", "utf8");
+  const scheduleFile = readFileSync("src/hooks/useScheduleFile.ts", "utf8");
+
+  const shortcutsButtonGlyph =
+    toolbar
+      .match(/className="icon-btn shortcuts-btn"[^>]*>\s*([^<]+?)\s*<\/button>/)
+      ?.[1]?.trim() ?? "?";
+
+  const lineageNamedTemplate =
+    toolbar.match(/lineageName \? `([^`]+)` :/)?.[1] ??
+    "系統: ${lineageName}";
+
+  const lineageButtonLabel =
+    toolbar.match(/lineageName \? `系統: \$\{lineageName\}` : "([^"]+)"/)?.[1] ??
+    "系統";
+
+  const clearAllFiltersLabel =
+    active
+      .match(/className="filter-clear-all"[\s\S]*?>\s*([^<\s]+)\s*</)?.[1]
+      ?.trim() ?? "すべて解除";
+
+  const saveStatusBlock =
+    scheduleFile.match(
+      /const saveStatusLabel = useMemo\(\(\) => \{[\s\S]*?\}, \[browserFileLabel, filePath, isDirty\]\);/,
+    )?.[0] ?? "";
+  const dirtySaveStatusLabel =
+    saveStatusBlock.match(/if \(isDirty\) return "([^"]+)"/)?.[1] ?? "未保存";
+
+  return {
+    shortcutsButtonGlyph,
+    lineageButtonLabel,
+    lineageNamedTemplate,
+    clearAllFiltersLabel,
+    dirtySaveStatusLabel,
+  };
+}
+
 function parseExternalFeatureIds(): string[] {
   const text = readFileSync("docs/external-spec.md", "utf8");
   const ids = new Set<string>();
@@ -326,6 +418,15 @@ export type OperationEntryCatalog = ReturnType<typeof buildOperationEntryCatalog
 export function buildOperationEntryCatalog() {
   const palette = collectPaletteLabels();
   const contextMenu = collectContextMenuOutputs();
+  const toolbarSourceLabels = extractToolbarSourceLabels();
+  const toolbarStaticLabelSet = [
+    ...Object.values(OPERATION_FORMAL),
+    ...Object.values(TOOLBAR_SHORT),
+    toolbarSourceLabels.shortcutsButtonGlyph,
+    toolbarSourceLabels.lineageButtonLabel,
+    toolbarSourceLabels.clearAllFiltersLabel,
+    toolbarSourceLabels.dirtySaveStatusLabel,
+  ];
 
   const sharedFileMenuLabels = SHARED_FILE_MENU_ROWS.filter(
     (row): row is Extract<typeof row, { kind: "action" }> => row.kind === "action",
@@ -344,13 +445,9 @@ export function buildOperationEntryCatalog() {
     contextMenuOutputs: contextMenu.allOutputs,
     contextMenuTemplates: contextMenu.templates,
     contextMenuTemplateLiterals: contextMenu.templateLiterals,
-    displayScaleShortcuts: {
-      enlarge: { mac: ["⌘+", "⌘="], win: ["Ctrl+", "Ctrl="] },
-      reduce: {
-        mac: ["⌘−", "⌘-"],
-        win: ["Ctrl−", "Ctrl-"],
-      },
-    },
+    displayScaleShortcuts: deriveDisplayScaleShortcuts(),
+    toolbarSourceLabels,
+    toolbarStaticLabelSet,
     toolbarTitleHintGoToday: goTodayShortcutHint(),
     paletteStaticLabels: palette.staticLabels,
     paletteLabelsByCommandId: palette.labelsByCommandId,

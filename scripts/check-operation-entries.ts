@@ -4,7 +4,9 @@
  * 段階1の doc.includes 部分一致は廃止。主表以外（set_view 追加入力、Excel 列、
  * 編集中キー、LLM 後手順）は本チェックの対象外。
  *
- * 未照合: 操作の案内の無引用要約（セルごとに列挙）、ツールバー動的ラベル引用行（セルごと）、
+ * 未照合: 操作の案内の無引用要約（セルごとに列挙）、ツールバー行別未登録の出典引用セル、
+ * context menu テンプレの levelName/childName 手書き whitelist、FILTER-09 行の機能 ID 所有、
+ * MCP file_action/history の action 列挙コピー（useMcpActionExecutor との手動同期）、
  * macOS PredefinedMenuItem の OS 文言、一部メニュー accelerator。
  * 機能 ID は external-spec.md への存在のみ（FILTER-09 等の行の所有対応は未照合）。
  * file_action / history の action 列挙は useMcpActionExecutor と同じ固定集合（ドリフトは手で揃える）。

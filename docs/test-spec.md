@@ -247,6 +247,16 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `delete shortcut with NotAKey fails validation` | — |
 | 同上 | `empty tierDay shortcut with palette label fails validation` | — |
 | 同上 | `wrong context menu template placeholder fails validation` | — |
+| 同上 | `empty chart-scroll shortcut cell fails shortcutReference consumption` | — |
+| 同上 | `empty zoom-wheel shortcut cell fails shortcutReference consumption` | — |
+| 同上 | `display scale enlarge without Mac counterpart fails validation` | — |
+| 同上 | `fake toolbar lineage follow label fails validation` | — |
+| 同上 | `fake toolbar clear-all-filters label fails validation` | — |
+| 同上 | `fake toolbar shortcuts glyph fails validation` | — |
+| 同上 | `fake toolbar add-milestone label fails validation` | — |
+| 同上 | `fake toolbar edit-title label fails validation` | — |
+| 同上 | `fake toolbar lineage button label fails validation` | — |
+| 同上 | `fake toolbar dirty save-status label fails validation` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentity valid when full SHAs match` | — |

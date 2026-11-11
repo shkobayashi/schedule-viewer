@@ -268,3 +268,97 @@ test("wrong context menu template placeholder fails validation", () => {
   );
   expectFailures(doc, [/テンプレート.*nope/]);
 });
+
+test("empty chart-scroll shortcut cell fails shortcutReference consumption", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| チャートをスクロール | | | | ⌘矢印 / Ctrl+矢印 |",
+      "| チャートをスクロール | | | | |",
+    ),
+  );
+  expectFailures(doc, [/チャートのスクロール|チャートをスクロール/]);
+});
+
+test("empty zoom-wheel shortcut cell fails shortcutReference consumption", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| ズーム（ホイール） | | | | ⌘+ホイール / Ctrl+ホイール（`shortcutReferenceRows`） |",
+      "| ズーム（ホイール） | | | | |",
+    ),
+  );
+  expectFailures(doc, [/ズーム/]);
+});
+
+test("display scale enlarge without Mac counterpart fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "⌘+ / ⌘= / Ctrl+ / Ctrl=",
+      "Ctrl+ / Ctrl=",
+    ),
+  );
+  expectFailures(doc, [/Mac|matchDisplayScale/]);
+});
+
+test("fake toolbar lineage follow label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("`繋がりも辿る`", "`偽物`"),
+  );
+  expectFailures(doc, [/ツールバー.*偽物|繋がりも辿る/]);
+});
+
+test("fake toolbar clear-all-filters label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("`すべて解除`", "`偽物`"),
+  );
+  expectFailures(doc, [/ツールバー.*偽物|すべて解除/]);
+});
+
+test("fake toolbar shortcuts glyph fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| ショートカット一覧を開く | `?`（title: ショートカット一覧（?、F1）） |",
+      "| ショートカット一覧を開く | `X`（title: ショートカット一覧（?、F1）） |",
+    ),
+  );
+  expectFailures(doc, [/ツールバー.*X|\?/]);
+});
+
+test("fake toolbar add-milestone label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| マイルストンを追加 | 追加メニュー `マイルストンを追加` |",
+      "| マイルストンを追加 | 追加メニュー `偽物` |",
+    ),
+  );
+  expectFailures(doc, [/ツールバー.*偽物|マイルストンを追加/]);
+});
+
+test("fake toolbar edit-title label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "`タイトルを変更`（aria-label / title。鉛筆）",
+      "`偽物`（aria-label / title。鉛筆）",
+    ),
+  );
+  expectFailures(doc, [/ツールバー.*偽物|タイトルを変更/]);
+});
+
+test("fake toolbar lineage button label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "`系統` または `系統: ${lineageName}`",
+      "`偽物` または `系統: ${lineageName}`",
+    ),
+  );
+  expectFailures(doc, [/ツールバー.*偽物|系統/]);
+});
+
+test("fake toolbar dirty save-status label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 未保存の差分を開く（状態バー） | `未保存`（`saveStatus`。`StatusBar.tsx`） |",
+      "| 未保存の差分を開く（状態バー） | `偽物`（`saveStatus`。`StatusBar.tsx`） |",
+    ),
+  );
+  expectFailures(doc, [/ツールバー.*偽物|未保存/]);
+});
