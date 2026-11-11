@@ -920,7 +920,15 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `set_view hiddenMilestoneIds shows mark hidden chip without clearing explanation` | MCP-01, VIEW-16 |
 | 同上 | `set_view rejects unknown lineage task without changing status filter chip` | MCP-01, FILTER-08 |
 | 同上 | `set_view hiddenMilestoneIds prunes unknown ids and keeps known hidden mark chip` | MCP-01, VIEW-16 |
-| `scripts/capture-issue-475-set-view-ui-evidence.mjs` | UI evidence PNGs under `/opt/cursor/artifacts/issue-475/` (1440×900, `--s` 1.15, light/dark; baseline vs UI-equivalent after; not MCP) | MCP-01, FILTER-08, VIEW-16 |
+| `scripts/capture-issue-475-set-view-ui-evidence.mjs` | UI evidence PNGs under `/opt/cursor/artifacts/issue-475/` and `/cursor/stores/self/issue-475/` (1440×900, `--s` 1.15, light/dark; toolbar/chips + chart-context; baseline vs UI-equivalent after; not MCP) | MCP-01, FILTER-08, VIEW-16 |
+| `excelExportColumns.test.ts` | `rejects excelColumns on html export` | MCP-01, EXPORT |
+| 同上 | `rejects string array excelColumns as invalid shape` | MCP-01, EXPORT |
+| 同上 | `merges sparse excelColumns patch onto saved preferences for one export` | MCP-01, EXPORT |
+| 同上 | `rejects unknown excelFieldColumns key before export` | MCP-01, EXPORT |
+| 同上 | `uses saved preferences when column options are omitted` | MCP-01, EXPORT |
+| 同上 | `resolveFileActionExportColumns does not write export overrides to localStorage` | MCP-01, EXPORT |
+| `mcpActionExecutor.file.test.ts` | `file_action export passes resolved boolean excelColumns to runExport` | MCP-01, EXPORT |
+| 同上 | `file_action html export rejects excelColumns without calling runExport` | MCP-01, EXPORT |
 | `explainView.test.ts` | `parseExplainView_acceptsTaskIdsAndCollapse`、`parseExplainView_rejectsEmptyTaskIds`、`parseExplainView_rejectsUnknownTaskId`、`parseExplainView_rejectsUnknownCollapseId`、`parseExplainView_rejectsTagsAndColorId`、`parseExplainView_rejectsClearWithOtherFields`、`parseExplainView_rejectsEmptyRequest`、`parseExplainView_clearWhenInactive`、`applyExplainView_clearsSelectionWhenTaskIdsChange`、`applyExplainView_keepsSelectionForCollapseOnly`、`composeDisplayedCollapse_usesOverrideOrUserSet`、`composeDisplayedRows_replaceKeepsTaskOutsideUserFilter`、`explanationRead_includesTaskIdsAndBaseCollapsed` | VIEW-16, MCP-01 |
 | `screenContext.test.ts` | `includes view.explanation when explanation view is active`、`omits view.explanation when explanation is inactive`、`includes view.explanation milestoneGroupIds and milestoneIds` | VIEW-16, MCP-01 |
 | `explainView.test.ts` | `parseExplainView_acceptsMilestoneGroupIds`、`parseExplainView_rejectsHiddenMilestoneGroup`、`parseExplainView_rejectsMilestoneNotInGroupFilter`、`parseExplainView_rejectsMilestoneOutsideFilteredGroup`、`resolveExplanationMilestoneBand_hidesEmptyGroupsWhenStarOnly` | VIEW-16, MCP-01 |

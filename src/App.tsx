@@ -258,8 +258,9 @@ import {
 } from "./model/exportHtml";
 import { exportScheduleExcel, exportScheduleExcelToPath } from "./model/exportExcel";
 import {
-  DEFAULT_EXCEL_EXPORT_COLUMNS,
+  readExcelExportColumns,
   readExcelExportFieldColumns,
+  type ExcelExportColumnsPreference,
   type ExcelExportFieldColumnsPreference,
 } from "./model/excelExportColumns";
 import {
@@ -2686,7 +2687,7 @@ function App() {
   const runScheduleExport = useCallback(
     async (
       format: ScheduleExportFormat,
-      excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
+      excelColumns?: ExcelExportColumnsPreference,
       excelFieldColumns?: ExcelExportFieldColumnsPreference,
       exportPath?: string,
     ) => {
@@ -2814,7 +2815,7 @@ function App() {
           taskNames,
           connections: schedule.connections,
           exportedAtIso: new Date().toISOString(),
-          excelColumns: excelColumns ?? DEFAULT_EXCEL_EXPORT_COLUMNS,
+          excelColumns: excelColumns ?? readExcelExportColumns(),
           fieldDefs: editableFieldDefs,
           excelFieldColumns:
             excelFieldColumns ??
@@ -3182,8 +3183,8 @@ function App() {
       try {
         await runScheduleExport(
           format,
-          excelColumns as typeof DEFAULT_EXCEL_EXPORT_COLUMNS | undefined,
-          excelFieldColumns as ExcelExportFieldColumnsPreference | undefined,
+          excelColumns,
+          excelFieldColumns,
           path,
         );
         return { ok: true, text: path };

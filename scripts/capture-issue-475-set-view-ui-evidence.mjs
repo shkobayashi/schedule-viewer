@@ -12,6 +12,7 @@ import { chromium } from "playwright";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDir = "/opt/cursor/artifacts/issue-475";
+const storeDir = "/cursor/stores/self/issue-475";
 const smokeSchedule = path.join(root, "examples/regression/smoke.schedule.json");
 const PORT = 5175;
 const viewport = { width: 1440, height: 900 };
@@ -131,22 +132,90 @@ async function screenshotToolbarAndChips(page, filePath) {
   await page.screenshot({ path: filePath, clip });
 }
 
+async function screenshotChartContext(page, filePath) {
+  const clip = await page.evaluate(() => {
+    const toolbar = document.querySelector(".toolbar");
+    const filterBar = document.querySelector(".filter-bar");
+    const band = document.querySelector(".milestone-band");
+    const sidebarMarks = document.querySelector(".sidebar-milestones");
+    const nodes = [toolbar, filterBar, band, sidebarMarks].filter(Boolean);
+    if (nodes.length === 0) return null;
+    let top = Infinity;
+    let left = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    for (const node of nodes) {
+      const r = node.getBoundingClientRect();
+      top = Math.min(top, r.top);
+      left = Math.min(left, r.left);
+      right = Math.max(right, r.right);
+      bottom = Math.max(bottom, r.bottom);
+    }
+    const padX = 16;
+    const padY = 12;
+    return {
+      x: 0,
+      y: Math.max(0, top - padY),
+      width: window.innerWidth,
+      height: Math.min(window.innerHeight, bottom - top + padY * 2),
+    };
+  });
+  if (clip == null) throw new Error("chart context not found");
+  await page.screenshot({ path: filePath, clip });
+}
+
+async function scrollChartToShowMilestoneBand(page) {
+  await page.waitForFunction(
+    () => typeof window.__manualScreenshotSetToday === "function",
+    null,
+    { timeout: 60_000 },
+  );
+  await page.evaluate(() => {
+    window.__manualScreenshotSetToday?.("2026-04-15");
+    window.__manualScreenshotScrollToToday?.();
+  });
+  await page.waitForTimeout(600);
+}
+
+async function assertApprovalMarkVisible(page) {
+  await page.waitForSelector(".milestone-band", { state: "visible", timeout: 10_000 });
+  const bandHeight = await page.locator(".milestone-band").evaluate((el) => el.clientHeight);
+  if (bandHeight <= 0) throw new Error("milestone band height is zero");
+}
+
 async function captureBaseline(page, scheme) {
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "networkidle" });
   await page.setViewportSize(viewport);
   await prepareColorScheme(page, scheme);
   await applyOpen(page, smokeSchedule);
   await page.waitForSelector(".toolbar-title-text", { hasText: "回帰確認", timeout: 60_000 });
-  await page.waitForTimeout(350);
+  await scrollChartToShowMilestoneBand(page);
   const metrics = await readScale(page);
-  const file = path.join(artifactDir, `ui-baseline-${scheme}-toolbar-chips.png`);
-  await screenshotToolbarAndChips(page, file);
-  return {
-    file,
-    metrics,
-    caption:
-      "Baseline UI state (smoke): no active filter chips; toolbar 系統 control without a named lineage chip row.",
-  };
+  await assertApprovalMarkVisible(page);
+  const toolbarFile = path.join(
+    artifactDir,
+    `ui-baseline-${scheme}-toolbar-chips.png`,
+  );
+  await screenshotToolbarAndChips(page, toolbarFile);
+  const chartFile = path.join(
+    artifactDir,
+    `ui-baseline-${scheme}-chart-context.png`,
+  );
+  await screenshotChartContext(page, chartFile);
+  return [
+    {
+      file: toolbarFile,
+      metrics,
+      caption:
+        "Baseline UI state (smoke): no active filter chips; toolbar 系統 control without a named lineage chip row.",
+    },
+    {
+      file: chartFile,
+      metrics,
+      caption:
+        "Baseline UI state (smoke): milestone band and sidebar show the 承認 mark visible (UI, not MCP).",
+    },
+  ];
 }
 
 async function captureAfterUi(page, scheme) {
@@ -155,6 +224,7 @@ async function captureAfterUi(page, scheme) {
   await prepareColorScheme(page, scheme);
   await applyOpen(page, smokeSchedule);
   await page.waitForSelector(".toolbar-title-text", { hasText: "回帰確認", timeout: 60_000 });
+  await scrollChartToShowMilestoneBand(page);
 
   const designRow = page.getByText("設計", { exact: true }).first();
   await designRow.click();
@@ -185,14 +255,32 @@ async function captureAfterUi(page, scheme) {
 
   await page.waitForTimeout(350);
   const metrics = await readScale(page);
-  const file = path.join(artifactDir, `ui-after-${scheme}-toolbar-chips.png`);
-  await screenshotToolbarAndChips(page, file);
-  return {
-    file,
-    metrics,
-    caption:
-      "Equivalent UI state (not MCP): lineage chip 系統: 設計 and hidden mark chip 帯の印: 承認（…）. Reached via toolbar + filter panel.",
-  };
+  await page
+    .locator(".filter-chip")
+    .filter({ hasText: /帯の印: 承認/ })
+    .first()
+    .waitFor({ state: "visible", timeout: 10_000 });
+  const toolbarFile = path.join(
+    artifactDir,
+    `ui-after-${scheme}-toolbar-chips.png`,
+  );
+  await screenshotToolbarAndChips(page, toolbarFile);
+  const chartFile = path.join(artifactDir, `ui-after-${scheme}-chart-context.png`);
+  await screenshotChartContext(page, chartFile);
+  return [
+    {
+      file: toolbarFile,
+      metrics,
+      caption:
+        "Equivalent UI state (not MCP): lineage chip 系統: 設計 and hidden mark chip 帯の印: 承認（…）. Reached via toolbar + filter panel.",
+    },
+    {
+      file: chartFile,
+      metrics,
+      caption:
+        "Equivalent UI state (not MCP): 承認 mark absent from milestone band after hiding via filter 帯の印 (chips still visible above).",
+    },
+  ];
 }
 
 async function main() {
@@ -211,14 +299,26 @@ async function main() {
     for (const scheme of ["light", "dark"]) {
       const context = await browser.newContext({ viewport });
       const page = await context.newPage();
-      manifest.push(await captureBaseline(page, scheme));
-      manifest.push(await captureAfterUi(page, scheme));
+      manifest.push(...(await captureBaseline(page, scheme)));
+      manifest.push(...(await captureAfterUi(page, scheme)));
       await context.close();
     }
     await browser.close();
     const manifestPath = path.join(artifactDir, "manifest.json");
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    console.log(JSON.stringify({ artifactDir, manifestPath, items: manifest.length }, null, 2));
+    fs.mkdirSync(storeDir, { recursive: true });
+    fs.copyFileSync(manifestPath, path.join(storeDir, "manifest.json"));
+    for (const entry of manifest) {
+      const base = path.basename(entry.file);
+      fs.copyFileSync(entry.file, path.join(storeDir, base));
+    }
+    console.log(
+      JSON.stringify(
+        { artifactDir, storeDir, manifestPath, items: manifest.length },
+        null,
+        2,
+      ),
+    );
   } finally {
     vite?.kill("SIGTERM");
   }

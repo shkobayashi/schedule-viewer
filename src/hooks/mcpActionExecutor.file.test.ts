@@ -24,7 +24,12 @@ import { AUTO_UPDATE_LS_KEY, readAutoUpdateEnabled } from "../model/autoUpdate";
 import { importMemberCatalog, readMemberCatalog } from "../model/memberAppData";
 import { documentToJsonString } from "../model/serialize";
 import { loadRegressionSchedule } from "../test/searchErrorKeysFixtures";
-import type { ScheduleDocument } from "../model/types";
+import type { ScheduleDocument, ScheduleFieldDef } from "../model/types";
+import {
+  EXCEL_EXPORT_COLUMNS_LS_KEY,
+  DEFAULT_EXCEL_EXPORT_COLUMNS,
+  writeExcelExportColumns,
+} from "../model/excelExportColumns";
 
 vi.mock("@tauri-apps/api/core", () => ({
   isTauri: () => false,
@@ -130,6 +135,84 @@ async function memberCatalogSaveLikeApp(
   await importMemberCatalog(catalogId, validated.canonical, envelope.overwrite === true);
   return { ok: true, text: catalogId };
 }
+
+const SAMPLE_FIELDS: ScheduleFieldDef[] = [
+  { key: "score", name: "点数", type: "number" },
+];
+
+describe("useMcpActionExecutor file_action export", () => {
+  beforeEach(() => {
+    memory.clear();
+    installLocalStorage();
+  });
+
+  afterEach(() => {
+    memory.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it("file_action export passes resolved boolean excelColumns to runExport", async () => {
+    writeExcelExportColumns({
+      ...DEFAULT_EXCEL_EXPORT_COLUMNS,
+      assignee: false,
+    });
+    const runExportMock = vi.fn(
+      async () => ({ ok: true as const, text: "/tmp/out.xlsx" }),
+    );
+    const runExport = runExportMock as UseMcpActionExecutorInput["runExport"];
+    const { result } = renderHook(() =>
+      useMcpActionExecutor(
+        baseInput({
+          fields: SAMPLE_FIELDS,
+          runExport,
+        }),
+      ),
+    );
+    const response = await executeMcpActionTool(
+      MCP_TOOL_FILE_ACTION,
+      {
+        action: "export",
+        format: "xlsx",
+        path: "/tmp/out.xlsx",
+        excelColumns: { assignee: true, progress: true },
+      },
+      result.current,
+    );
+    expect(response.ok).toBe(true);
+    expect(runExportMock).toHaveBeenCalledWith(
+      "xlsx",
+      "/tmp/out.xlsx",
+      {
+        ...DEFAULT_EXCEL_EXPORT_COLUMNS,
+        assignee: true,
+        progress: true,
+      },
+      { score: false },
+    );
+    expect(memory.get(EXCEL_EXPORT_COLUMNS_LS_KEY)).toBe(
+      JSON.stringify({ ...DEFAULT_EXCEL_EXPORT_COLUMNS, assignee: false }),
+    );
+  });
+
+  it("file_action html export rejects excelColumns without calling runExport", async () => {
+    const runExport = vi.fn(async () => ({ ok: true as const, text: "" }));
+    const { result } = renderHook(() =>
+      useMcpActionExecutor(baseInput({ runExport })),
+    );
+    const response = await executeMcpActionTool(
+      MCP_TOOL_FILE_ACTION,
+      {
+        action: "export",
+        format: "html",
+        path: "/tmp/out.html",
+        excelColumns: { note: true },
+      },
+      result.current,
+    );
+    expect(response.ok).toBe(false);
+    expect(runExport).not.toHaveBeenCalled();
+  });
+});
 
 describe("useMcpActionExecutor file_action", () => {
   beforeEach(() => {
