@@ -13,6 +13,30 @@ use crate::{
 };
 
 const OPEN_WINDOWS_FILE: &str = "open-windows.json";
+pub const PENDING_STARTUP_STAGES_FILE: &str = "pending-startup-stages.jsonl";
+/// 設定ファイルを読み込めませんでした。中のスケジュールは開いていません。
+pub const PENDING_STARTUP_STAGE_WORKSPACE_FAILED: &str = "pending-workspace-failed";
+
+pub fn append_pending_startup_stage(
+    app_data: &Path,
+    label: &str,
+    stage: &str,
+) -> Result<(), String> {
+    fs::create_dir_all(app_data).map_err(|e| format!("アプリデータを準備できません: {}", e))?;
+    let path = app_data.join(PENDING_STARTUP_STAGES_FILE);
+    let line = serde_json::json!({ "label": label, "stage": stage });
+    let mut text = serde_json::to_string(&line).map_err(|e| e.to_string())?;
+    text.push('\n');
+    use std::io::Write;
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|e| format!("起動記録を書けません: {}", e))?;
+    file.write_all(text.as_bytes())
+        .map_err(|e| format!("起動記録を書けません: {}", e))?;
+    Ok(())
+}
 const RECOVERY_DIR: &str = "schedule-recovery";
 const FILTER_DIR: &str = "schedule-filters";
 const LEGACY_LAST: &str = "last-schedule.json";

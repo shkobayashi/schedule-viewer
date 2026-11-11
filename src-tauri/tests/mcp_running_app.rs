@@ -3078,6 +3078,59 @@ fn open_new_window_workspace_persists_workspace_path_and_restart() {
     });
 }
 
+const PENDING_STARTUP_STAGES_FILE: &str = "pending-startup-stages.jsonl";
+const PENDING_STARTUP_STAGE_WORKSPACE_FAILED: &str = "pending-workspace-failed";
+
+fn read_pending_startup_stages(h: &RunningHarness) -> Vec<Value> {
+    let path = h.app_data_dir().join(PENDING_STARTUP_STAGES_FILE);
+    if !path.is_file() {
+        return vec![];
+    }
+    let text = fs::read_to_string(&path).unwrap_or_default();
+    text.lines()
+        .filter(|line| !line.trim().is_empty())
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .collect()
+}
+
+fn wait_pending_startup_stage(h: &RunningHarness, label: &str, stage: &str) {
+    let deadline = Instant::now() + Duration::from_secs(45);
+    loop {
+        let seen = read_pending_startup_stages(h).iter().any(|row| {
+            row.get("label").and_then(|v| v.as_str()) == Some(label)
+                && row.get("stage").and_then(|v| v.as_str()) == Some(stage)
+        });
+        if seen {
+            return;
+        }
+        if Instant::now() >= deadline {
+            panic!(
+                "expected pending startup stage {stage:?} for {label:?}, stages={:?}",
+                read_pending_startup_stages(h)
+            );
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn current_schedule_object_without_probe(h: &RunningHarness, label: &str) -> Option<Value> {
+    let doc = parse_mcp_json_text(
+        &h
+            .mcp_call("current_schedule", json!({ "window": label }))
+            .text,
+    );
+    if !doc.is_object() {
+        return None;
+    }
+    if doc.get("schemaVersion").is_none() {
+        return None;
+    }
+    if schedule_has_probe_task(&doc) {
+        return None;
+    }
+    Some(doc)
+}
+
 #[test]
 fn open_new_window_with_bad_workspace_keeps_sample_row_without_attached_file() {
     with_gui(|h| {
@@ -3095,32 +3148,37 @@ fn open_new_window_with_bad_workspace_keeps_sample_row_without_attached_file() {
         assert!(!r.is_error, "{}", r.text);
         let new_label = normalize_text(&r.text);
         wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
+        wait_pending_startup_stage(h, &new_label, PENDING_STARTUP_STAGE_WORKSPACE_FAILED);
         let deadline = Instant::now() + Duration::from_secs(45);
-        loop {
-            let doc = parse_mcp_json_text(
-                &h.mcp_call(
-                    "current_schedule",
-                    json!({ "window": new_label }),
-                )
-                .text,
-            );
-            let wins = parse_mcp_json_text(&h.mcp_call("open_windows", json!({})).text);
-            let row = wins.as_array().and_then(|rows| {
-                rows.iter()
-                    .find(|w| w.get("label").and_then(|v| v.as_str()) == Some(new_label.as_str()))
-            });
-            let file = row.and_then(|w| w.get("file").and_then(|v| v.as_str()));
-            if !schedule_has_probe_task(&doc) && file == Some(MCP_WINDOW_SAMPLE_DISPLAY) {
-                break;
+        let doc = loop {
+            if let Some(doc) = current_schedule_object_without_probe(h, &new_label) {
+                break doc;
             }
             if Instant::now() >= deadline {
+                let raw = h
+                    .mcp_call("current_schedule", json!({ "window": new_label }))
+                    .text;
                 panic!(
-                    "expected sample row without probe task after failed workspace startup, doc_has_probe={} row={row:?}",
-                    schedule_has_probe_task(&doc)
+                    "expected object current_schedule without probe after workspace failure stage, raw={raw:?}"
                 );
             }
             std::thread::sleep(Duration::from_millis(200));
-        }
+        };
+        assert!(
+            doc.get("schemaVersion").is_some(),
+            "current_schedule should be a parsed schedule object"
+        );
+        let wins = parse_mcp_json_text(&h.mcp_call("open_windows", json!({})).text);
+        let row = wins.as_array().and_then(|rows| {
+            rows.iter()
+                .find(|w| w.get("label").and_then(|v| v.as_str()) == Some(new_label.as_str()))
+        });
+        let file = row.and_then(|w| w.get("file").and_then(|v| v.as_str()));
+        assert_eq!(
+            file,
+            Some(MCP_WINDOW_SAMPLE_DISPLAY),
+            "open_windows row should stay sample after failure completion"
+        );
         let wins = parse_mcp_json_text(&h.mcp_call("open_windows", json!({})).text);
         let row = wins.as_array().and_then(|rows| {
             rows.iter()

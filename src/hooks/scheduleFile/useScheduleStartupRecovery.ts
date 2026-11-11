@@ -17,7 +17,9 @@ import {
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   ackPendingScheduleWindowOpenViaTauri,
+  PENDING_STARTUP_STAGE_WORKSPACE_FAILED,
   readWindowStartupViaTauri,
+  recordPendingWorkspaceStartupStageViaTauri,
   takePendingScheduleWindowOpenViaTauri,
 } from "../../model/windowSession";
 import { recordRecentWorkspaceViaTauri } from "../../model/recentFilesAppData";
@@ -246,6 +248,13 @@ export function useScheduleStartupRecovery({
             );
             if (!workspaceStartupOk) {
               setErrorMessageText(WORKSPACE_STARTUP_FAILED_MESSAGE);
+              try {
+                await recordPendingWorkspaceStartupStageViaTauri(
+                  PENDING_STARTUP_STAGE_WORKSPACE_FAILED,
+                );
+              } catch {
+                // 観測用。起動処理は続行する。
+              }
               setStartupContentReady(true);
               await ackPendingScheduleWindowOpenViaTauri();
               releaseStartupBusy();
@@ -279,6 +288,7 @@ export function useScheduleStartupRecovery({
             );
           }
           await ackPendingScheduleWindowOpenViaTauri();
+          setStartupContentReady(true);
           releaseStartupBusy();
           return;
         }

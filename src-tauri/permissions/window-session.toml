@@ -6,7 +6,12 @@ commands.allow = ["read_window_startup"]
 [[permission]]
 identifier = "allow-create-schedule-window"
 description = "Allows opening a schedule in a new window."
-commands.allow = ["create_schedule_window", "take_pending_schedule_window_open", "ack_pending_schedule_window_open"]
+commands.allow = [
+  "create_schedule_window",
+  "take_pending_schedule_window_open",
+  "ack_pending_schedule_window_open",
+  "record_pending_workspace_startup_stage",
+]
 
 [[permission]]
 identifier = "allow-window-session"

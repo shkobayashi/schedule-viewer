@@ -2350,6 +2350,23 @@ fn ack_pending_schedule_window_open(
 }
 
 #[tauri::command]
+fn record_pending_workspace_startup_stage(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    stage: String,
+) -> Result<(), String> {
+    if stage != window_session::PENDING_STARTUP_STAGE_WORKSPACE_FAILED {
+        return Err("不正なステージです。".to_string());
+    }
+    let app_data = app_data_dir(&app)?;
+    window_session::append_pending_startup_stage(
+        &app_data,
+        &window_label(&window),
+        &stage,
+    )
+}
+
+#[tauri::command]
 async fn create_schedule_window(
     app: tauri::AppHandle,
     session: State<'_, Mutex<WindowSessionState>>,
@@ -3470,6 +3487,7 @@ pub fn run() {
             create_schedule_window,
             take_pending_schedule_window_open,
             ack_pending_schedule_window_open,
+            record_pending_workspace_startup_stage,
             register_window_focus,
             unregister_window_session,
             emit_schedule_peer_notice,
