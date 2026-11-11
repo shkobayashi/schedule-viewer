@@ -11,7 +11,7 @@
     "pr_head_sha": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
     "provenance": "coordinator launch/review/fix record and GitHub fetch at slice authoring"
   },
-  "verified_head_sha": null,
+  "verified_head_sha": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
   "ready_head_sha": "60d5252149558ddf0146866f0cd2f60995ee03e4",
   "post_integration_ready_head_sha": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
   "fix_rounds": 2,
@@ -139,7 +139,19 @@
     {
       "id": "591-corr-review4-historical-pending",
       "appended_at": "2026-11-11",
-      "correction_note": "Historical at PR #593 slice authoring: phase 591-review-4 findings were 'Post-integration review active; do not invent final result.' Outcome MERGE-READY on the same head was appended without removing earlier phases.",
+      "correction_note": "Post-integration review active as of slice authoring; do not invent final result.",
+      "provenance": "coordinator correction (historical finding at 591-review-4 before run 4 complete)"
+    },
+    {
+      "id": "591-corr-review4-run4-outcome",
+      "appended_at": "2026-11-11",
+      "correction_note": "Review run 4 complete: MERGE-READY on head 2add60baa4014c3900cca4f5a77ae73d00aaae1d. Phase 591-review-4 findings updated; historical pending sentence preserved in correction id 591-corr-review4-historical-pending above.",
+      "provenance": "coordinator correction"
+    },
+    {
+      "id": "591-corr-pr593-review-fix",
+      "appended_at": "2026-11-11",
+      "correction_note": "PR #593 review-fix (one-time schema delivery): verified_head_sha set from latest MERGE-READY review while integration_status.pr_state remains open; human merge is separate.",
       "provenance": "coordinator correction"
     }
   ],

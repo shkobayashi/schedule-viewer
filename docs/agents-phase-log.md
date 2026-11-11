@@ -4,7 +4,7 @@
 
 各エントリの正本は次のとおりである。
 
-- **verified_head_sha** — マージ可能と判断したときの Git の head（40 桁の小文字 HEX）。未マージの PR は `null` または未記載のままにし、代わりに **ready_head_sha** や **integration_status** の時点行を残す。
+- **verified_head_sha** — マージ可能と判断したときの Git head（40 桁の小文字 HEX）。人が PR をマージしたかどうか（`integration_status`）とは別の判断である。未マージでも、最新の MERGE-READY（または当該 PR で最後に効く Ready）レビューがあれば、その `head_sha_reviewed` を書く。統合前の ready は **ready_head_sha**、統合後の別判断は **post_integration_ready_head_sha** に残す。
 - **phase-history** — フェンス内 YAML。フェーズごとの task_type、model_id、effort、**effort_basis**（`configured` は起動設定、`runtime` は実行時帰属、分からなければ `unknown`）、session_id、head_sha_produced / head_sha_reviewed、selection_rationale、findings、correction_note など。
 - **phase-record JSON**（#553 実践） — [docs/phase-records/](phase-records/) の構造化 JSON。マークダウンは要約とリンクであり、二重の正本にしない。訂正は **corrections** 配列へ追記し、既存フェーズ行は消さない。
 - **execution-snapshot**（任意） — [scripts/format-check-record.mjs](../scripts/format-check-record.mjs) が **呼び出し側が集めた** コマンド結果から整形した JSON。`shaIdentity.status` が `valid` でも、コマンドが本当にそのツリーで走った証明にはならない。head が更新されると、古いスナップショットは `stale` 扱いになる。
@@ -103,8 +103,9 @@ provenance: |
 
 ## Issue #553 — PR #591
 
-- **PR:** [#591](https://github.com/shkobayashi/schedule-viewer/pull/591)
+- **PR:** [#591](https://github.com/shkobayashi/schedule-viewer/pull/591)（未マージ）
 - **canonical:** [issue-553-pr591.json](phase-records/issue-553-pr591.json)
+- **verified_head_sha:** `2add60baa4014c3900cca4f5a77ae73d00aaae1d`（統合 head への post-integration レビュー run 4 で MERGE-READY。マージ済みとは別）
 - **ready_head_sha:** `60d5252149558ddf0146866f0cd2f60995ee03e4`（統合前レビュー ready。統合後 ready とは別判断）
 - **post_integration_ready_head_sha:** `2add60baa4014c3900cca4f5a77ae73d00aaae1d`（統合 head への post-integration レビュー run 4 で MERGE-READY。PR 未マージのまま）
 - **integration_head_sha（時点）:** 上記と同じ — JSON の `integration_status` を見る。

@@ -16,6 +16,7 @@ import {
   validateIssue475HistoricalPhases,
   validatePhaseLogFile,
   validatePhaseLogStructure,
+  latestMergeReadyHeadSha,
   validatePhaseRecord,
   validatePhaseRecordRevision,
 } from "./format-check-record.mjs";
@@ -321,6 +322,7 @@ test("phase log validator rejects fabricated old table March migration phrase", 
 test("validatePhaseRecord rejects high effort without effort_basis", () => {
   const bad = validatePhaseRecord({
     record_id: "t",
+    provenance: "test",
     fix_rounds: 0,
     phases: [
       {
@@ -328,6 +330,7 @@ test("validatePhaseRecord rejects high effort without effort_basis", () => {
         task_type: "計画",
         effort: "high",
         effort_basis: "unknown",
+        provenance: "test",
       },
     ],
     corrections: [],
@@ -339,6 +342,7 @@ test("validatePhaseRecord rejects high effort without effort_basis", () => {
 test("validatePhaseRecord accepts configured high plan with effort_basis configured", () => {
   const good = validatePhaseRecord({
     record_id: "t",
+    provenance: "test",
     fix_rounds: 0,
     phases: [
       {
@@ -347,6 +351,7 @@ test("validatePhaseRecord accepts configured high plan with effort_basis configu
         effort: "high",
         effort_basis: "configured",
         session_id: "bc-730af328-eac8-54ff-ad46-aef8345f8a92",
+        provenance: "test",
       },
     ],
     corrections: [],
@@ -357,12 +362,14 @@ test("validatePhaseRecord accepts configured high plan with effort_basis configu
 test("validatePhaseRecord rejects fix_rounds mismatch", () => {
   const bad = validatePhaseRecord({
     record_id: "t",
+    provenance: "test",
     fix_rounds: 2,
     phases: [
       {
         id: "f1",
         task_type: "修正",
         substantive_fix: true,
+        provenance: "test",
       },
     ],
     corrections: [],
@@ -374,19 +381,41 @@ test("validatePhaseRecord rejects fix_rounds mismatch", () => {
 test("validatePhaseRecordRevision rejects dropped earlier phase", () => {
   const prev = {
     record_id: "t",
+    provenance: "test",
     fix_rounds: 0,
-    phases: [{ id: "a", task_type: "計画", effort: "unknown", effort_basis: "unknown" }],
+    phases: [
+      {
+        id: "a",
+        task_type: "計画",
+        effort: "unknown",
+        effort_basis: "unknown",
+        provenance: "test",
+      },
+    ],
     corrections: [],
   };
   const next = {
     record_id: "t",
+    provenance: "test",
     fix_rounds: 0,
-    phases: [{ id: "b", task_type: "実装", effort: "unknown", effort_basis: "unknown" }],
+    phases: [
+      {
+        id: "b",
+        task_type: "実装",
+        effort: "unknown",
+        effort_basis: "unknown",
+        provenance: "test",
+      },
+    ],
     corrections: [],
   };
   const rev = validatePhaseRecordRevision(prev, next);
   assert.equal(rev.ok, false);
-  assert.ok(rev.issues.some((i) => i.includes("dropped phase id a")));
+  assert.ok(
+    rev.issues.some(
+      (i) => i.includes("dropped phase") || i.includes("mutated phase at index 0"),
+    ),
+  );
 });
 
 test("validatePhaseRecordRevision allows appended correction and integration status change", () => {
@@ -433,6 +462,96 @@ test("committed #592 canonical record matches high plan configured and fix_round
   const plan = rec592.phases.find((p) => p.id === "592-plan-1");
   assert.equal(plan.effort_basis, "configured");
   assert.equal(rec592.verified_head_sha, "eb0c804e42a6c1359920da7b202f103124dcbb0a");
+});
+
+test("#591 committed record verified_head_sha matches latest MERGE-READY review", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  assert.equal(committed.ok, true, committed.issues.join("; "));
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  assert.ok(rec591);
+  assert.equal(
+    latestMergeReadyHeadSha(rec591.phases),
+    "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
+  );
+  assert.equal(rec591.verified_head_sha, "2add60baa4014c3900cca4f5a77ae73d00aaae1d");
+  assert.equal(rec591.integration_status.pr_state, "open");
+  assert.equal(rec591.ready_head_sha, "60d5252149558ddf0146866f0cd2f60995ee03e4");
+});
+
+test("validatePhaseRecord rejects verified_head_sha missing when MERGE-READY review exists", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  assert.ok(rec591);
+  const broken = structuredClone(rec591);
+  broken.verified_head_sha = null;
+  const check = validatePhaseRecord(broken);
+  assert.equal(check.ok, false);
+  assert.ok(check.issues.some((i) => i.includes("verified_head_sha required")));
+});
+
+test("validatePhaseRecordRevision rejects mutated committed #591 phase prefix", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  assert.ok(rec591);
+  const mutated = structuredClone(rec591);
+  mutated.phases[0].effort = "medium";
+  const rev = validatePhaseRecordRevision(rec591, mutated);
+  assert.equal(rev.ok, false);
+  assert.ok(rev.issues.some((i) => i.includes("mutated phase at index 0")));
+});
+
+test("validatePhaseRecordRevision rejects replaced committed #591 correction prefix", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  assert.ok(rec591);
+  const mutated = structuredClone(rec591);
+  mutated.corrections[0].correction_note = "replaced text";
+  const rev = validatePhaseRecordRevision(rec591, mutated);
+  assert.equal(rev.ok, false);
+  assert.ok(rev.issues.some((i) => i.includes("mutated correction at index 0")));
+});
+
+test("validatePhaseRecordRevision rejects reordered committed #591 phases", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  assert.ok(rec591);
+  const mutated = structuredClone(rec591);
+  const [first, second] = mutated.phases;
+  mutated.phases[0] = second;
+  mutated.phases[1] = first;
+  const rev = validatePhaseRecordRevision(rec591, mutated);
+  assert.equal(rev.ok, false);
+  assert.ok(rev.issues.some((i) => i.includes("mutated phase")));
+});
+
+test("validatePhaseRecordRevision rejects deleted committed #591 correction", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  assert.ok(rec591);
+  const shortened = structuredClone(rec591);
+  shortened.corrections = shortened.corrections.slice(0, -1);
+  const rev = validatePhaseRecordRevision(rec591, shortened);
+  assert.equal(rev.ok, false);
+  assert.ok(rev.issues.some((i) => i.includes("removed correction")));
+});
+
+test("validatePhaseRecordRevision accepts appended phase on committed #591 record", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  assert.ok(rec591);
+  const appended = structuredClone(rec591);
+  appended.phases.push({
+    id: "591-review-5",
+    task_type: "レビュー",
+    model_id: "grok-4.7",
+    effort: "high",
+    effort_basis: "configured",
+    provenance: "coordinator review record",
+    findings: "Not ready; example append-only phase.",
+  });
+  const rev = validatePhaseRecordRevision(rec591, appended);
+  assert.equal(rev.ok, true, rev.issues.join("; "));
+  assert.equal(validatePhaseRecord(appended).ok, true);
 });
 
 test("phase log practice entries link canonical #591 and #592 records", () => {

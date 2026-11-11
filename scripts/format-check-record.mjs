@@ -434,6 +434,65 @@ function effortClaimsConfiguredLevel(effort) {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function stableStringify(value) {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => stableStringify(v)).join(",")}]`;
+  }
+  const obj = /** @type {Record<string, unknown>} */ (value);
+  const keys = Object.keys(obj).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(",")}}`;
+}
+
+/**
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {boolean}
+ */
+function valueDeepEqual(a, b) {
+  return stableStringify(a) === stableStringify(b);
+}
+
+/**
+ * Latest applicable merge-ready head from review phases (not every historical Ready).
+ * @param {unknown[]} phases
+ * @returns {string | null}
+ */
+export function latestMergeReadyHeadSha(phases) {
+  if (!Array.isArray(phases)) return null;
+  /** @type {string | null} */
+  let mergeReady = null;
+  /** @type {string | null} */
+  let readyFallback = null;
+  for (let i = phases.length - 1; i >= 0; i--) {
+    const phase = phases[i];
+    if (phase == null || typeof phase !== "object") continue;
+    const p = /** @type {Record<string, unknown>} */ (phase);
+    if (p.task_type !== "レビュー") continue;
+    const head = p.head_sha_reviewed;
+    if (head == null || String(head).trim() === "") continue;
+    const headStr = String(head).trim().toLowerCase();
+    if (p.review_outcome === "MERGE-READY") {
+      mergeReady = headStr;
+      break;
+    }
+    const findings = p.findings == null ? "" : String(p.findings);
+    if (
+      readyFallback == null &&
+      (/^MERGE-READY\b/.test(findings) || /^Ready\b/.test(findings))
+    ) {
+      readyFallback = headStr;
+    }
+  }
+  return mergeReady ?? readyFallback;
+}
+
+/**
  * @param {unknown} record
  * @returns {{ ok: boolean, issues: string[] }}
  */
@@ -446,6 +505,10 @@ export function validatePhaseRecord(record) {
 
   if (typeof r.record_id !== "string" || !r.record_id.trim()) {
     issues.push("record_id required");
+  }
+
+  if (typeof r.provenance !== "string" || !r.provenance.trim()) {
+    issues.push("record provenance required");
   }
 
   if (!Array.isArray(r.phases) || r.phases.length === 0) {
@@ -474,6 +537,10 @@ export function validatePhaseRecord(record) {
 
     if (typeof p.task_type !== "string" || !p.task_type.trim()) {
       issues.push(`phases[${i}] missing task_type`);
+    }
+
+    if (typeof p.provenance !== "string" || !p.provenance.trim()) {
+      issues.push(`phases[${i}] provenance required`);
     }
 
     const basis = p.effort_basis;
@@ -510,11 +577,20 @@ export function validatePhaseRecord(record) {
     }
   }
 
+  const expectedVerified = latestMergeReadyHeadSha(phases);
   if (r.verified_head_sha != null && String(r.verified_head_sha).trim() !== "") {
-    const { wellFormed } = describeSha(String(r.verified_head_sha));
+    const { wellFormed, value } = describeSha(String(r.verified_head_sha));
     if (!wellFormed) {
       issues.push("malformed verified_head_sha");
+    } else if (expectedVerified != null && value !== expectedVerified) {
+      issues.push(
+        `verified_head_sha ${value} does not match latest merge-ready review head ${expectedVerified}`,
+      );
     }
+  } else if (expectedVerified != null) {
+    issues.push(
+      `verified_head_sha required (latest merge-ready review head ${expectedVerified})`,
+    );
   }
 
   const integration = r.integration_status;
@@ -589,24 +665,20 @@ export function validatePhaseRecordRevision(previous, next) {
   )
     ? /** @type {Record<string, unknown>} */ (next).phases
     : [];
-  const nextById = new Map(
-    nextPhases
-      .filter((p) => p && typeof p === "object" && typeof p.id === "string")
-      .map((p) => [String(p.id), p]),
-  );
+  if (nextPhases.length < prevPhases.length) {
+    issues.push("revision removed phases");
+  }
 
-  for (const phase of prevPhases) {
-    if (phase == null || typeof phase !== "object") continue;
-    const p = /** @type {Record<string, unknown>} */ (phase);
-    const id = p.id;
-    if (typeof id !== "string") continue;
-    const kept = nextById.get(id);
-    if (!kept) {
-      issues.push(`revision dropped phase id ${id}`);
-      continue;
-    }
-    if (String(kept.task_type) !== String(p.task_type)) {
-      issues.push(`revision changed task_type for phase id ${id}`);
+  const prefixLen = Math.min(prevPhases.length, nextPhases.length);
+  for (let i = 0; i < prefixLen; i++) {
+    if (!valueDeepEqual(prevPhases[i], nextPhases[i])) {
+      const id =
+        prevPhases[i] &&
+        typeof prevPhases[i] === "object" &&
+        /** @type {Record<string, unknown>} */ (prevPhases[i]).id;
+      issues.push(
+        `revision mutated phase at index ${i}${typeof id === "string" ? ` (id ${id})` : ""}`,
+      );
     }
   }
 
@@ -622,6 +694,18 @@ export function validatePhaseRecordRevision(previous, next) {
     : [];
   if (nextCorr.length < prevCorr.length) {
     issues.push("revision removed correction entries");
+  }
+  const corrPrefix = Math.min(prevCorr.length, nextCorr.length);
+  for (let i = 0; i < corrPrefix; i++) {
+    if (!valueDeepEqual(prevCorr[i], nextCorr[i])) {
+      const cid =
+        prevCorr[i] &&
+        typeof prevCorr[i] === "object" &&
+        /** @type {Record<string, unknown>} */ (prevCorr[i]).id;
+      issues.push(
+        `revision mutated correction at index ${i}${typeof cid === "string" ? ` (id ${cid})` : ""}`,
+      );
+    }
   }
 
   return { ok: issues.length === 0, issues };
@@ -654,6 +738,7 @@ export function validateCommittedPhaseRecordFiles(dir = PHASE_RECORDS_DIR) {
 }
 
 const PR591_READY_SHA = "60d5252149558ddf0146866f0cd2f60995ee03e4";
+const PR591_VERIFIED_SHA = "2add60baa4014c3900cca4f5a77ae73d00aaae1d";
 const PR592_VERIFIED_SHA = "eb0c804e42a6c1359920da7b202f103124dcbb0a";
 const PR592_MERGE_SHA = "4879ed7a02eb8d6df1ba47c8e4f894bfed83c6b2";
 
@@ -678,6 +763,9 @@ export function validatePhaseLogPracticeEntries(markdown) {
   }
   if (!markdown.includes(PR591_READY_SHA)) {
     issues.push("missing #591 ready_head_sha in phase log");
+  }
+  if (!markdown.includes(PR591_VERIFIED_SHA)) {
+    issues.push("missing #591 verified_head_sha in phase log");
   }
   if (!markdown.includes(PR592_VERIFIED_SHA)) {
     issues.push("missing #592 verified_head_sha in phase log");
