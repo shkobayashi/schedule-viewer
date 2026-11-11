@@ -20,7 +20,7 @@
 | Rust | Linux では `xvfb-run -a cargo test --locked`（`src-tauri`） | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査、`tests/mcp_stdio_client.rs` の標準入出力と `--screen` CLI（GUI 不要）、`tests/mcp_running_app.rs` の起動中 GUI 向け MCP 統合試験（Vite 1420・`DISPLAY` 必須。Linux CI は xvfb） |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1）。警告の上限を超えると失敗する。上限は [package.json](../package.json) の `lint`（`--max-warnings`） |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
-| 操作の入口表（段階1） | `npm run check:operation-entries` | `operation-entries.md` と `OPERATION_FORMAL` / 右クリック固定 / MCP 名。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
+| 操作の入口表（段階2） | `npm run check:operation-entries` | `operation-entries.md` 主表の各列とソースカタログ（`operationEntryCatalog.ts`）の機械照合。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
 | エージェント向け文書 | `npm run check:agent-docs` | `AGENTS.md`、`docs/agents-*.md`、`.cursor/rules/*.mdc`、各スキルの `SKILL.md` と `references/*.md` の相対リンク（ファイルまたは既存ディレクトリ。`#` アンカーは見ない）。コードフェンス内とインラインの `` `...` `` 内は無視。`[text][ref]` 形式と HTML の `href` は見ない。`SKILL.md` の frontmatter に空でない `name` と `description`。`alwaysApply` ルールと `AGENTS.md` のバイト数を標準出力へ出す |
 | 回帰の対応 | `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定である。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない |
 | 循環 import | `npm run check:madge-circular-baseline` | madge とベースライン JSON の一致。**CI frontend で失敗扱い** |
@@ -222,6 +222,17 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/how-to-citations.test.mjs` | `extractFileHeadingCitations finds citations in markdown` | SET-05 |
 | `scripts/check-madge-circular-baseline.test.mjs` | `check-madge-circular-baseline matches madge-circular-baseline.json` | — |
 | `scripts/check-operation-entries.test.mjs` | `check-operation-entries matches labels and MCP names in operation-entries.md` | — |
+| 同上 | `wrong TOOLBAR_SHORT key in toolbar column fails validation` | — |
+| 同上 | `removed context menu label token fails validation` | — |
+| 同上 | `forbidden --window on open_windows CLI fails validation` | — |
+| 同上 | `unresolved feature ID 他 fails validation` | — |
+| 同上 | `false quoted guide span fails validation` | — |
+| 同上 | `schedule_diff row must not use baseline_diffs MCP name` | — |
+| 同上 | `missing TOOLBAR_SHORT catalog citation fails toolbar short coverage` | — |
+| 同上 | `hamburger label drift from SHARED_FILE_MENU_ROWS fails validation` | — |
+| 同上 | `wrong Mac shortcut for palette tierDay fails validation` | — |
+| 同上 | `palette label absent from buildCommandPaletteItems fails validation` | — |
+| 同上 | `production doc passes direct validateOperationEntryCoverage` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentity valid when full SHAs match` | — |

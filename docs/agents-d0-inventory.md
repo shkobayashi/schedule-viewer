@@ -294,6 +294,6 @@ Issue #490 本文の madge 表現更新案は [agents-d1-issue-490-proposal.md](
 
 **触らない（済）:** implement-change 1–57 全文、AGENTS 8 原則骨格。
 
-**P-CI-06 段階2（将来）:** 入口表の全列とソースの機械照合。段階1は [check-operation-entries.ts](../scripts/check-operation-entries.ts) 冒頭。
+**P-CI-06 段階2:** 入口表の主表と [operationEntryCatalog.ts](../scripts/operationEntryCatalog.ts)、[operationEntryCoverage.mjs](../scripts/operationEntryCoverage.mjs) による機械照合。段階1の `doc.includes` 検査は段階2で置き換え済み。
 
 **統合 TODO:** `agents-d0-principles-analysis.md` と inventory の1ファイル化 — **完了**（§0・§分析）。
