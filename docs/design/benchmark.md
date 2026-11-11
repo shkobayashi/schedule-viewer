@@ -51,7 +51,7 @@ npm run capture:phase3-evidence # 5174 · 本ブランチ + compare 合成
 
 ## あとで整える余地（フェーズ 3 では未着手）
 
-- ダイアログ内の個別フォーム（エクスポート、ガイド、コマンドパレット）の `border-radius` / `padding` 直書き
+- ダイアログ内の個別フォーム（エクスポート、ガイド、コマンドパレット）の `border-radius` / `padding` 直書き。コマンドパレットは Issue #551 増分 1 で、入力・候補行の余白と gap だけ `var(--space-sm)` / `var(--space-md)` へ寄せた（フレーム `padding: calc(20px * var(--s))`、オーバーレイ 72px、空一覧 12px はトークン一致が無いため据え置き）。`ExportFormatDialog` の未スケール `gap: 8px` 等は同 Issue の別増分
 - フィルタパネル・差分ストリップの影と gap の統一
 - 詳細パネル内フィールドを `.ui-field` へ段階的に移行
 - Konva 試し行の点線・ハロ色（意味色は維持しつつ UI トークンとの整理）
