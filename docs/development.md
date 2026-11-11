@@ -260,7 +260,7 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 
 lint の警告上限は `package.json` の `lint`、jscpd の重複率の上限は `scripts/check-architecture-warn.mjs` にあり、どちらも上の表と揃える。カバレッジの閾値を下げるとき、警告上限を上げるとき、重複率の上限を上げるときは、理由を pull request に書く。
 
-Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` は、これまでどおり失敗にする。
+Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` は、これまでどおり失敗にする。Ubuntu の CI では GUI を要する `tests/mcp_running_app.rs` のため `xvfb` を入れ、`xvfb-run -a cargo test --locked` で走らせる。手元の Linux でも同様に `xvfb-run` を使う。起動中アプリの統合試験は、リポジトリ直下で `TAURI_ENV_PLATFORM` を付けた `npm run dev` がポート 1420 で応答していること、1420 が空いていることを要する。試験用の Vite は `mcp_running_app.rs` が共有で起動し、試験バイナリの終了時に子プロセスごと片付ける。Windows では、GUI を起動する前に `RunningHarness` が利用者向けの名前付きパイプ（`\\.\pipe\{APP_IDENTIFIER}-{SID}`）へ `CreateFileW` で接続できるかだけを見る。接続できたら `schedule_diff` などのツールは送らず、その場で失敗する。手元では schedule-viewer を閉じてから `cargo test --locked --test mcp_running_app` を回す。`.cursor/mcp-e2e-run.py` は `cargo test --locked --test mcp_running_app` だけを実行する。
 
 ## ブランチと CI
 
@@ -276,7 +276,7 @@ Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` 
 
 CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。読み取りステップは `shell: bash` にする。Release の Windows ランナーの既定シェルは PowerShell で、bash のまま書くと構文エラーになる。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
-- `src-tauri/`、`rust-toolchain.toml`、`read-screen/*`、`.cursor/skills/schedule-talk/*` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`）が動く
+- `src-tauri/`、`rust-toolchain.toml`、`read-screen/*`、`.cursor/skills/schedule-talk/*` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。Ubuntu だけ `xvfb-run -a`）が動く
 - `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`、`test:ci`（カバレッジの閾値を下回ると失敗）、`check:architecture-warn`（jscpd。上限を超えても警告）、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物と `src/model/generated/` の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
 - `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`）が動く。`package.json` と `package-lock.json` が変わったときも同じ
