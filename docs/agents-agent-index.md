@@ -33,7 +33,7 @@
 
 - 依存: `App` / `components` → `operations`（操作 ID と入口定義）・`hooks`（実行と状態）→ `model`（純粋関数）。`model` は `hooks` / `components` / `operations` を import しない
 - 循環 import: `npm run check:madge-circular-baseline`（CI **エラー**、現状 0 件）
-- jscpd は警告のまま（`check:architecture-warn`。上限は [development.md](development.md)）。coverage は CI の `test:ci` の中のカバレッジが同じ文書の閾値を下回ると失敗する
+- jscpd は警告のまま（`check:architecture-warn`。上限は [check-architecture-warn.mjs](../scripts/check-architecture-warn.mjs) の `--threshold`）。coverage は CI の `test:ci` の中のカバレッジが [vitest.config.ts](../vitest.config.ts) の `coverage.thresholds` を下回ると失敗する（上げ方は [development.md](development.md)）
 - Issue #490 の段 8 作業指示（C/T/M 順、#491 を混ぜない、D0–D2）: [PLANNING.md](PLANNING.md) / Issue #490 / [model-circular-import-plan.md](model-circular-import-plan.md) — **恒久原則ではない**
 
 ## スキルとルール
@@ -61,7 +61,7 @@
 
 スキルの分割・更新はエージェントが同じ作業で行う。半分以上の節が不要なら種類別スキルへ分ける（スキーマ変更は update-schedule-schema のまま）。毎回 2 つの実装スキルを読む計画になっているときは 1 つに戻す。
 
-レビュー指摘を直すとき、再発防止は該当 SKILL 節へ同じ変更で必ず足す（review-implementation）。計画だけの指摘は足さない。`write-*` へアプリ実装手順を書かない。
+レビュー指摘を直すとき、再発防止はテスト・lint・スキーマ検査・既存 check で止められるならその検査を先に足し、足りないときだけ該当 SKILL 節へ同じ変更で足す（review-implementation）。計画だけの指摘は足さない。`write-*` へアプリ実装手順を書かない。
 
 日本語: [japanese-prose.mdc](../.cursor/rules/japanese-prose.mdc)（J1–J5、**チャット含む**）と [japanese-prose-examples.md](japanese-prose-examples.md)。相談: [consult.mdc](../.cursor/rules/consult.mdc) + [consult/SKILL.md](../.cursor/skills/consult/SKILL.md) + [session.md](../.cursor/skills/consult/references/session.md)
 
@@ -71,5 +71,5 @@
 - 個人の好みとマシン固有の事実は `.cursor/rules/personal.local.mdc`（Git 外）。`AGENTS.md` に Learned User Preferences / Workspace Facts を足さない。実行状態は `.cursor/hooks/state/`
 - デスクトップ: `npm run tauri dev`（[development.md](development.md)）。`src-tauri/target/debug/schedule-viewer` を直接開かない。UI は `http://localhost:1420/`。`schedule-viewer --mcp` は画面プロセスと別
 - Cloud Agent: **マージ済み PR の head ブランチへ push しない**（続きは新ブランチ・新 PR）。amend / force-push / rebase 禁止 — [development.md](development.md)「Cursor Cloud Agent」（P-AG-03）
-- 計画・実装・レビューを分けるとき: [work-phases/SKILL.md](../.cursor/skills/work-phases/SKILL.md)。マージ可能になったら [agents-phase-log.md](agents-phase-log.md) に一行足す
+- 計画・実装・レビューを分けるとき: [work-phases/SKILL.md](../.cursor/skills/work-phases/SKILL.md)。マージ可能になったら [agents-phase-log.md](agents-phase-log.md) に `verified_head_sha` と **phase-history**（フェンス内 YAML）のエントリを足す
 - 文書を短くするとき: [agents-d0-inventory.md](agents-d0-inventory.md)（**削除 0**、§1・§6–§7）。Issue #490 D0–D2 は同ファイル §4。届け方: `feature-436` → `next`；必要なら `develop` へ cherry-pick

@@ -48,7 +48,7 @@ jobs:
       # Circular imports: madge vs scripts/madge-circular-baseline.json (non-zero cycles fail the job).
       - run: npm run check:madge-circular-baseline
       - run: npm run test:ci
-      # jscpd only. The script always exits 0. Above 6% it logs a warning.
+      # jscpd only. The script always exits 0. Above scripts/check-architecture-warn.mjs --threshold it logs a warning.
       - run: npm run check:architecture-warn
       - run: npm run check:schedule
       - run: npm run check:calendar

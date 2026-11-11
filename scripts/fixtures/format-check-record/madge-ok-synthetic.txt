@@ -1,0 +1,2 @@
+# SYNTHETIC FIXTURE — matches check-madge-circular-baseline.ts success line shape
+madge circular baseline OK (0 cycles).
