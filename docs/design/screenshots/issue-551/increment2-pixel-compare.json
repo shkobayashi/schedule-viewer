@@ -1,0 +1,47 @@
+{
+  "comparedAt": "2026-11-11T06:58:23.767Z",
+  "rows": [
+    {
+      "case": "filter-panel",
+      "scheme": "light",
+      "status": "byte-identical",
+      "beforeSha": "398facd147843b14",
+      "afterSha": "398facd147843b14"
+    },
+    {
+      "case": "filter-panel",
+      "scheme": "dark",
+      "status": "byte-identical",
+      "beforeSha": "31e075e2e4fba0a7",
+      "afterSha": "31e075e2e4fba0a7"
+    },
+    {
+      "case": "filter-chip",
+      "scheme": "light",
+      "status": "byte-identical",
+      "beforeSha": "a16d34309e056587",
+      "afterSha": "a16d34309e056587"
+    },
+    {
+      "case": "filter-chip",
+      "scheme": "dark",
+      "status": "byte-identical",
+      "beforeSha": "fd9ef6e409d5da97",
+      "afterSha": "fd9ef6e409d5da97"
+    },
+    {
+      "case": "diff-strip",
+      "scheme": "light",
+      "status": "byte-identical",
+      "beforeSha": "6926812772eb5f69",
+      "afterSha": "6926812772eb5f69"
+    },
+    {
+      "case": "diff-strip",
+      "scheme": "dark",
+      "status": "byte-identical",
+      "beforeSha": "d4030026e50a1f41",
+      "afterSha": "d4030026e50a1f41"
+    }
+  ]
+}
