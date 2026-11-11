@@ -223,6 +223,16 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 
 索引: [agents-agent-index.md](agents-agent-index.md)、[agents-d0-inventory.md](agents-d0-inventory.md) §3（P-AG-03）。
 
+### beforeShellExecution（Issue #553 項目 6）
+
+リポジトリ直下の [`.cursor/hooks.json`](../.cursor/hooks.json) が `beforeShellExecution` で [`.cursor/hooks/block-history-rewrite.mjs`](../.cursor/hooks/block-history-rewrite.mjs) を呼び出す。`failClosed: true` のため、Node が無い・フックがタイムアウト・異常終了したときもシェルは止まる。公式の入出力は [Cursor Hooks](https://cursor.com/docs/hooks) の `beforeShellExecution` を参照する。
+
+フックは **コマンド文字列を静的解析して** `commit --amend`、force push、rebase、`pull --rebase` など履歴を書き換える git 操作だけを拒否する。サンドボックスや確認の文言では拒否を回避できない。`reset --hard`、`push --delete`、`branch -D` など、この狭い方針の外の危険操作は通す（安全と断言しない）。sudo、alias、xargs、外部スクリプトの中身、算出される置換の評価は行わない。`$()` や `` ` `` 内のリテラル文字列、`bash -lc` / `eval` の引数文字列は、深さに上限付きで追加解析する。
+
+空の `command` は許可する。不正な JSON、配列の入力、非文字列の `command`、引用符の対応が崩れたコマンドは exit 0 で `permission: deny` を返す（この VM の単体試験のみ。IDE / Cloud Agent での実際の遮断は別途確かめる）。
+
+Cloud Agent は書き込み可能な環境になってからプロジェクトの `hooks.json` を読み込む。読み取り専用の初期ターンではフックは動かない。
+
 ## npm スクリプト
 
 リポジトリ直下の `.npmrc` は `legacy-peer-deps=true` である。`madge` が TypeScript 6 を peer として想定していないため、`npm ci` を通すために必要である。

@@ -70,6 +70,6 @@
 - GitHub Issue は gh を使う
 - 個人の好みとマシン固有の事実は `.cursor/rules/personal.local.mdc`（Git 外）。`AGENTS.md` に Learned User Preferences / Workspace Facts を足さない。実行状態は `.cursor/hooks/state/`
 - デスクトップ: `npm run tauri dev`（[development.md](development.md)）。`src-tauri/target/debug/schedule-viewer` を直接開かない。UI は `http://localhost:1420/`。`schedule-viewer --mcp` は画面プロセスと別
-- Cloud Agent: **マージ済み PR の head ブランチへ push しない**（続きは新ブランチ・新 PR）。amend / force-push / rebase 禁止 — [development.md](development.md)「Cursor Cloud Agent」（P-AG-03）
+- Cloud Agent: **マージ済み PR の head ブランチへ push しない**（続きは新ブランチ・新 PR）。amend / force-push / rebase 禁止 — [development.md](development.md)「Cursor Cloud Agent」（P-AG-03）。リポジトリの [`.cursor/hooks.json`](../.cursor/hooks.json) が履歴書き換え系 git を `beforeShellExecution` で拒否する（#553 項目 6。手順は development の同節）
 - 計画・実装・レビューを分けるとき: [work-phases/SKILL.md](../.cursor/skills/work-phases/SKILL.md)。マージ可能になったら [agents-phase-log.md](agents-phase-log.md) に `verified_head_sha` と **phase-history**（フェンス内 YAML）のエントリを足す
 - 文書を短くするとき: [agents-d0-inventory.md](agents-d0-inventory.md)（**削除 0**、§1・§6–§7）。Issue #490 D0–D2 は同ファイル §4。届け方: `feature-436` → `next`；必要なら `develop` へ cherry-pick
