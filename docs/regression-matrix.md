@@ -2,6 +2,14 @@
 
 見出し、操作名、MCP ツール名を、計算、画面の接続、OS、見た目に分けた対応である。自動済みは、相対パスとテスト名が実在する計算か文言である。自動化予定は合格にしない。この検査は名前と参照の欠落を見るもので、振る舞いが正しいことの保証ではない。
 
+許可する `自動化予定:#` の Issue 番号は #541 と #543 だけである。検査は `scripts/check-regression-coverage.ts` が付録・対応表・手順の「扱い」を見る。一覧を変えるときは同じ変更で [regression-tc.md](regression-tc.md) の冒頭と揃える。
+
+`#541` の Windows CI 待ち（切替候補 7 行）: `MX-O-26`、`MX-O-29`、`MX-T-16` と、付録側の対応行。`#[ignore]` 11 本と `TC-FILE-10` の残りは Windows が緑でも自動済みにしない。
+
+`#543`。**未着手**（自動参照なし）: `MX-O-111`、`MX-O-113`、`MX-T-7`、`MX-T-9`。**未解決の観測**: `mcp_running_app.rs` の `#[ignore]` 11 本（PR #570 別報告）と `TC-FILE-10` の前面化・再起動。**Windows CI 待ち**（`自動:` が `mcp_running_app.rs`）: 付録 `TC-MCP-425a`、`TC-MCP-425g`、`TC-SYNC-01k`、`TC-WIN-01g`、`TC-VIEW-16h`、`TC-MCP-01`、`TC-MCP-01i`、`TC-MCP-01e`、`TC-MCP-01f`、`TC-MCP-01g`、`TC-MCP-01j`、`TC-MCP-01p`、`TC-MCP-02`。対応表 `MX-O-30`、`MX-O-66`、`MX-O-109`、`MX-O-115`、`MX-O-117`、`MX-O-119`、`MX-O-128`、`MX-O-130`、`MX-T-1`、`MX-T-3`、`MX-T-5`、`MX-T-11`、`MX-T-13`、`MX-T-14`、`MX-T-15`、`MX-T-20`、`MX-T-27`。Linux で通っていても、Windows の `cargo test` が通るまで自動済みにしない。区分は一部自動のまま `自動化予定:#543` を付ける。
+
+閉じた #535、#540、#547、#563 と、#536、#538 へは移さない。
+
 シナリオの手順は [regression.md](regression.md)、付録の仕分けは [regression-tc.md](regression-tc.md) である。
 
 ## 全機能の見出し
@@ -73,8 +81,8 @@
 | MX-O-3 | 計算 | 最近開いたファイルの1件を開く | 自動済み | 自動:src/model/recentFiles.test.ts#prepends a new path |
 | MX-O-4 | UI | 最近開いたファイルの1件を開く | 自動済み | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#opening from history resets filters and fit。自動:src/components/AppMenu.recent.dom.test.tsx#opens the first recent schedule when chosen from the submenu |
 | MX-O-5 | UI | 履歴を消す | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#clear history leaves the open schedule and the recovery file。手動:RG-F9-2 |
-| MX-O-6 | UI | 新しいウィンドウで開く | 自動化予定 | 手動:RG-F9-1。自動化予定:#541 |
-| MX-O-7 | OS | 新しいウィンドウで開く | 自動化予定 | 自動化予定:#541 |
+| MX-O-6 | UI | 新しいウィンドウで開く | 手動のまま | 手動:RG-F9-1。手動のまま:「新しいウィンドウで開く」と、2 枚目で `members.json` を選ぶ操作は、ファイルを選ぶ画面が要る。 |
+| MX-O-7 | OS | 新しいウィンドウで開く | 手動のまま | 手動のまま:☰ の「新しいウィンドウで開く」と MCP `open_new_window`（PR #570 別報告、`#[ignore]` 3 本）。 |
 | MX-O-8 | 計算 | 保存 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#stays the same after save, reload, and save again |
 | MX-O-9 | OS | 保存 | 一部手動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。手動のまま:OS の保存ダイアログは mock だけでは足りない。 |
 | MX-O-10 | OS | 別名保存 | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#save as then save writes the second change to the new path。手動:RG-S4-5 |
@@ -93,11 +101,11 @@
 | MX-O-23 | UI | 更新を確認 | 一部自動 | 自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m3: manual check shows a failure message when check throws |
 | MX-O-24 | UI | 設定を開く | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows |
 | MX-O-25 | OS | ウィンドウを閉じる | 手動のまま | 手動のまま:OS のウィンドウを閉じる操作は mock だけでは足りない。 |
-| MX-O-26 | OS | ウィンドウを閉じる | 自動化予定 | 自動化予定:#541 |
-| MX-O-27 | OS | ウィンドウを最小化 | 自動化予定 | 手動:RG-F9-4。自動化予定:#541 |
+| MX-O-26 | OS | ウィンドウを閉じる | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#close_window_on_main_then_restart_opens_only_schedule_2。自動:src-tauri/tests/mcp_running_app.rs#close_window_schedule_2_leaves_only_main_still_answering_current_schedule。自動化予定:#541 |
+| MX-O-27 | OS | ウィンドウを最小化 | 手動のまま | 手動:RG-F9-4。手動のまま:最小化の状態は `open_windows` の一覧に無い。 |
 | MX-O-28 | OS | アプリを終了 | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#quit cancel keeps the sample path and does not clear the other window hook |
-| MX-O-29 | OS | 前面ウィンドウを前面にする | 自動化予定 | 自動化予定:#541 |
-| MX-O-30 | 計算 | 開いているウィンドウ一覧を読む | 自動化予定 | 自動化予定:#543 |
+| MX-O-29 | OS | 前面ウィンドウを前面にする | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#focus_window_sets_schedule_2_front_and_leaves_both_file_bytes。自動化予定:#541 |
+| MX-O-30 | 計算 | 開いているウィンドウ一覧を読む | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#open_windows_lists_main_and_schedule_2_with_file_and_folder_and_only_main_front。自動化予定:#543 |
 | MX-O-31 | UI | コマンドパレットを開く／閉じる | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens and closes the command palette without the guide |
 | MX-O-32 | UI | コマンドパレットを開く／閉じる | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens and closes the command palette without the guide |
 | MX-O-33 | 計算 | 操作の案内を開く | 自動済み | 自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open |
@@ -133,7 +141,7 @@
 | MX-O-63 | UI | マイルストン帯の行を非表示 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#hides milestone bands and marks from the panel and the menu |
 | MX-O-64 | UI | この行だけ表示（帯グループ） | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#hides milestone bands and marks from the panel and the menu |
 | MX-O-65 | 計算 | 絞り込み結果のタスク一覧を読む | 自動済み | 自動:src/model/mcpVisible.test.ts#lists rows that intersect the vertical viewport |
-| MX-O-66 | 計算 | 絞り込み結果のタスク一覧を読む | 自動化予定 | 自動化予定:#543 |
+| MX-O-66 | 計算 | 絞り込み結果のタスク一覧を読む | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#filtered_tasks_after_set_view_status_lists_only_the_matching_task_names。自動化予定:#543 |
 | MX-O-67 | 計算 | 取り消し | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#undo and redo restore the exact saved schedule |
 | MX-O-68 | UI | 取り消し | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。手動:RG-S3-10 |
 | MX-O-69 | 計算 | やり直し | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#undo and redo restore the exact saved schedule |
@@ -176,17 +184,17 @@
 | MX-O-106 | 計算 | 選択を伸ばす | 自動済み | 自動:src/model/taskSelection.test.ts#extends selection with shift+arrow |
 | MX-O-107 | UI | 選択を伸ばす | 自動済み | 自動:e2e/browser-regression/specs/smoke-edit-drag.spec.ts#extends the selection with shift and arrow keys |
 | MX-O-108 | 計算 | 説明を消す | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
-| MX-O-109 | 計算 | 前面スケジュールを置き換え | 自動化予定 | 自動化予定:#543 |
+| MX-O-109 | 計算 | 前面スケジュールを置き換え | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#replace_schedule_changes_screen_keeps_file_bytes_and_identical_second_call_returns_diff_text。自動化予定:#543 |
 | MX-O-110 | 計算 | 選択中タスクを1件読む | 自動済み | 自動:src/model/screenContext.test.ts#returns null when selection is not exactly one task |
 | MX-O-111 | 計算 | 選択中タスクを1件読む | 自動化予定 | 自動化予定:#543 |
 | MX-O-112 | 計算 | 選択中タスクを読む（複数） | 自動済み | 自動:src/model/screenContext.test.ts#orders by document order not selection order |
 | MX-O-113 | 計算 | 選択中タスクを読む（複数） | 自動化予定 | 自動化予定:#543 |
 | MX-O-114 | 計算 | 画面のスケジュール JSON を読む | 自動済み | 自動:src/model/screenContext.test.ts#has no top-level fields property |
-| MX-O-115 | 計算 | 画面のスケジュール JSON を読む | 自動化予定 | 自動化予定:#543 |
+| MX-O-115 | 計算 | 画面のスケジュール JSON を読む | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#current_schedule_returns_the_seeded_document_without_a_members_key。自動化予定:#543 |
 | MX-O-116 | 計算 | 差分テキストを読む | 自動済み | 自動:src/model/scheduleDiff.test.ts#says there is no difference when the documents match |
-| MX-O-117 | 計算 | 差分テキストを読む | 自動化予定 | 自動化予定:#543 |
+| MX-O-117 | 計算 | 差分テキストを読む | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#schedule_diff_after_open_is_no_difference_text。自動化予定:#543 |
 | MX-O-118 | 計算 | 起点・画面・ファイルの分類を読む | 自動済み | 自動:src/model/baselineDiffs.test.ts#reports no changes when baseline, screen, and file match |
-| MX-O-119 | 計算 | 起点・画面・ファイルの分類を読む | 自動化予定 | 自動化予定:#543 |
+| MX-O-119 | 計算 | 起点・画面・ファイルの分類を読む | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#baseline_diffs_after_screen_edit_and_file_edit_has_screen_file_and_class_lines。自動化予定:#543 |
 | MX-O-120 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the status editor open and shows the saved status name。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color。自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SET-02e: closes the member catalog editor on reload without writing the draft |
 | MX-O-121 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 一部自動 | 自動:e2e/browser-regression/specs/settings-catalog.spec.ts#keeps 200 percent and auto after reload。自動:e2e/browser-regression/specs/settings-catalog.spec.ts#shows catalog status colors, overdue borders, and lightning folds on the bars。自動:e2e/browser-regression/specs/settings-catalog.spec.ts#keeps extension definitions after reload and leaves schedule field values unsaved。手動のまま:編集用拡張の作成と statuses／colors 欠落時の表示は人が残す |
 | MX-O-122 | UI | JSON作成スキル・更新確認の設定 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the browser skill note, the seven skill names, and a disabled install button。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the package version and omits the updates section in the browser。自動:src/components/settingsDesktopChrome.dom.test.tsx#shows the overwrite confirmation when install reports existing paths。自動:src/components/settingsDesktopChrome.dom.test.tsx#disables install and remove when every skill target is unchecked。自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m: manual check with no update shows the latest message |
@@ -195,9 +203,9 @@
 | MX-O-125 | UI | 説明の半透明・試しの計画 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch |
 | MX-O-126 | 計算 | 試しの計画を計画へ反映 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch |
 | MX-O-127 | 計算 | 画面の見方を LLM から変更 | 自動済み | 自動:src/model/mcpSetView.test.ts#leaves collapse unchanged when patch has no collapsed fields |
-| MX-O-128 | 計算 | 画面の見方を LLM から変更 | 自動化予定 | 自動化予定:#543 |
+| MX-O-128 | 計算 | 画面の見方を LLM から変更 | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#set_view_filter_leaves_schedule_diff_no_difference_and_file_mtime。自動化予定:#543 |
 | MX-O-129 | 計算 | 計画を部分更新 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#shifts two tasks, keeps the file until save, then clears the diff |
-| MX-O-130 | 計算 | 計画を部分更新 | 自動化予定 | 自動化予定:#543 |
+| MX-O-130 | 計算 | 計画を部分更新 | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#edit_plan_changes_one_date_keeps_mtime_undo_restores_and_save_writes_that_date。自動化予定:#543 |
 | MX-O-131 | UI | 文字の切り取り | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#cuts copies pastes and selects all in the name field |
 | MX-O-132 | UI | 文字の切り取り | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#cuts copies pastes and selects all in the name field |
 | MX-O-133 | UI | 文字のコピー | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#cuts copies pastes and selects all in the name field |
@@ -209,32 +217,32 @@
 
 | ID | 種類 | 項目 | 区分 | 行き先 |
 | --- | --- | --- | --- | --- |
-| MX-T-1 | 計算 | open_windows | 自動化予定 | 自動化予定:#543 |
+| MX-T-1 | 計算 | open_windows | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#open_windows_lists_main_and_schedule_2_with_file_and_folder_and_only_main_front。自動化予定:#543 |
 | MX-T-2 | 計算 | schedule_diff | 自動済み | 自動:src/model/scheduleDiff.test.ts#says there is no difference when the documents match |
-| MX-T-3 | 計算 | schedule_diff | 自動化予定 | 自動化予定:#543 |
+| MX-T-3 | 計算 | schedule_diff | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#schedule_diff_after_open_is_no_difference_text。自動化予定:#543 |
 | MX-T-4 | 計算 | baseline_diffs | 自動済み | 自動:src/model/baselineDiffs.test.ts#reports no changes when baseline, screen, and file match |
-| MX-T-5 | 計算 | baseline_diffs | 自動化予定 | 自動化予定:#543 |
+| MX-T-5 | 計算 | baseline_diffs | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#baseline_diffs_after_screen_edit_and_file_edit_has_screen_file_and_class_lines。自動化予定:#543 |
 | MX-T-6 | 計算 | selected_task | 自動済み | 自動:src/model/screenContext.test.ts#returns null when selection is not exactly one task |
 | MX-T-7 | 計算 | selected_task | 自動化予定 | 自動化予定:#543 |
 | MX-T-8 | 計算 | selected_tasks | 自動済み | 自動:src/model/screenContext.test.ts#orders by document order not selection order |
 | MX-T-9 | 計算 | selected_tasks | 自動化予定 | 自動化予定:#543 |
 | MX-T-10 | 計算 | filtered_tasks | 自動済み | 自動:src/model/mcpVisible.test.ts#lists rows that intersect the vertical viewport |
-| MX-T-11 | 計算 | filtered_tasks | 自動化予定 | 自動化予定:#543 |
-| MX-T-13 | 計算 | current_schedule | 自動化予定 | 自動化予定:#543 |
-| MX-T-14 | 計算 | replace_schedule | 自動化予定 | 自動化予定:#543 |
-| MX-T-15 | 計算 | focus_window | 自動化予定 | 自動化予定:#543 |
-| MX-T-16 | 計算 | close_window | 自動化予定 | 自動化予定:#541 |
-| MX-T-17 | 計算 | minimize_window | 自動化予定 | 自動化予定:#541 |
-| MX-T-18 | 計算 | open_new_window | 自動化予定 | 自動化予定:#543 |
+| MX-T-11 | 計算 | filtered_tasks | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#filtered_tasks_after_set_view_status_lists_only_the_matching_task_names。自動化予定:#543 |
+| MX-T-13 | 計算 | current_schedule | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#current_schedule_returns_the_seeded_document_without_a_members_key。自動化予定:#543 |
+| MX-T-14 | 計算 | replace_schedule | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#replace_schedule_changes_screen_keeps_file_bytes_and_identical_second_call_returns_diff_text。自動化予定:#543 |
+| MX-T-15 | 計算 | focus_window | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#focus_window_sets_schedule_2_front_and_leaves_both_file_bytes。自動化予定:#543 |
+| MX-T-16 | 計算 | close_window | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#close_window_on_main_then_restart_opens_only_schedule_2。自動:src-tauri/tests/mcp_running_app.rs#close_window_schedule_2_leaves_only_main_still_answering_current_schedule。自動化予定:#541 |
+| MX-T-17 | 計算 | minimize_window | 手動のまま | 手動:RG-F9-4。手動のまま:最小化の状態は `open_windows` の一覧に無い。 |
+| MX-T-18 | 計算 | open_new_window | 手動のまま | 手動のまま:MCP `open_new_window` の統合試験は PR #570 別報告（`#[ignore]` 3 本）。 |
 | MX-T-19 | 計算 | set_view | 自動済み | 自動:src/model/mcpSetView.test.ts#leaves collapse unchanged when patch has no collapsed fields |
-| MX-T-20 | 計算 | set_view | 自動化予定 | 自動化予定:#543 |
+| MX-T-20 | 計算 | set_view | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#set_view_filter_leaves_schedule_diff_no_difference_and_file_mtime。自動化予定:#543 |
 | MX-T-21 | 計算 | explain_view | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
 | MX-T-22 | 計算 | explain_view | 自動済み | 自動:src/model/rows.test.ts#keeps only listed ids and ignores user filters and lineage。自動:src/model/screenContext.test.ts#includes view.explanation when explanation view is active |
 | MX-T-23 | 計算 | explain_overlay | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
 | MX-T-24 | 計算 | explain_overlay | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch |
 | MX-T-25 | 計算 | apply_explanation_pattern | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#rejects apply_explanation_pattern without overlay or with unknown id。自動:src/test/headlessScheduleSession.regression.test.ts#adopts one explanation pattern through MCP dispatch |
 | MX-T-26 | 計算 | edit_plan | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#shifts two tasks, keeps the file until save, then clears the diff |
-| MX-T-27 | 計算 | edit_plan | 自動化予定 | 自動化予定:#543 |
+| MX-T-27 | 計算 | edit_plan | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#edit_plan_changes_one_date_keeps_mtime_undo_restores_and_save_writes_that_date。自動化予定:#543 |
 | MX-T-28 | 計算 | file_action | 自動済み | 自動:src/hooks/mcpActionExecutor.file.test.ts#TC-MCP-425h: file_action save without a path returns 保存先がありません。。自動:src/hooks/mcpActionExecutor.file.test.ts#TC-MCP-425i: file_action save without overwrite or saveAs returns DISK_HASH_MISMATCH |
 | MX-T-29 | 計算 | catalog_action | 自動済み | 自動:src/hooks/mcpActionExecutor.file.test.ts#TC-MCP-425e: catalog_action without save leaves the members file bytes |
 | MX-T-30 | 計算 | set_preferences | 自動済み | 自動:src/hooks/mcpActionExecutor.file.test.ts#set_preferences on writes the auto update key and does not call check |

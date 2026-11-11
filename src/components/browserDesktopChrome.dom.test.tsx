@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isTauri } from "@tauri-apps/api/core";
 import { AppMenu } from "./AppMenu";
 import { CommandPalette } from "./CommandPalette";
 import { FirstRunHintCard } from "./FirstRunHintCard";
 import { SettingsDesktopSectionButtons } from "./SettingsDesktopSectionButtons";
+import { SettingsDialog } from "./SettingsDialog";
+import { DEFAULT_SIDEBAR_COLUMNS } from "../model/viewPreferences";
 import { useDesktopFirstRunSession } from "../hooks/useDesktopFirstRunSession";
 import {
   scheduleFilePoll,
@@ -206,6 +208,77 @@ describe("browser menu and settings", () => {
     expect(screen.queryByRole("option", { name: /最近開いたファイル/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "履歴を消す" })).not.toBeInTheDocument();
     expect(screen.queryByText("a.json")).not.toBeInTheDocument();
+  });
+
+  const settingsCatalog = {
+    settings: { selectedCatalogId: null, catalogs: [] },
+    selectedCatalogLabel: null,
+    onImport: vi.fn(async () => {}),
+    onSelectCatalog: vi.fn(async () => {}),
+    onDeleteCatalog: vi.fn(async () => {}),
+    onOpenEditor: vi.fn(),
+  };
+
+  function renderSettingsDialog() {
+    return render(
+      <SettingsDialog
+        open
+        memberCatalog={settingsCatalog}
+        statusCatalog={settingsCatalog}
+        colorCatalog={settingsCatalog}
+        calendarLabel={null}
+        displayScalePreference="auto"
+        onDisplayScaleChange={vi.fn()}
+        colorSchemePreference="system"
+        onColorSchemeChange={vi.fn()}
+        rowDensity="comfortable"
+        onRowDensityChange={vi.fn()}
+        showLightningLine={false}
+        onShowLightningLineChange={vi.fn()}
+        sidebarColumns={DEFAULT_SIDEBAR_COLUMNS}
+        onSidebarColumnsChange={vi.fn()}
+        onClose={vi.fn()}
+        onImportCalendar={async () => {}}
+        onDeleteCalendar={async () => {}}
+      />,
+    );
+  }
+
+  it("opens settings in the browser without the screen-state button and shows that button when tauri is on", () => {
+    vi.mocked(isTauri).mockReturnValue(false);
+    const { rerender } = renderSettingsDialog();
+    const dialog = screen.getByRole("dialog", { name: "設定" });
+    expect(
+      within(dialog).queryByRole("button", { name: "画面の状態を渡す" }),
+    ).not.toBeInTheDocument();
+    vi.mocked(isTauri).mockReturnValue(true);
+    rerender(
+      <SettingsDialog
+        open
+        memberCatalog={settingsCatalog}
+        statusCatalog={settingsCatalog}
+        colorCatalog={settingsCatalog}
+        calendarLabel={null}
+        displayScalePreference="auto"
+        onDisplayScaleChange={vi.fn()}
+        colorSchemePreference="system"
+        onColorSchemeChange={vi.fn()}
+        rowDensity="comfortable"
+        onRowDensityChange={vi.fn()}
+        showLightningLine={false}
+        onShowLightningLineChange={vi.fn()}
+        sidebarColumns={DEFAULT_SIDEBAR_COLUMNS}
+        onSidebarColumnsChange={vi.fn()}
+        onClose={vi.fn()}
+        onImportCalendar={async () => {}}
+        onDeleteCalendar={async () => {}}
+      />,
+    );
+    expect(
+      within(screen.getByRole("dialog", { name: "設定" })).getByRole("button", {
+        name: "画面の状態を渡す",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("omits the screen-state settings section in the browser", () => {

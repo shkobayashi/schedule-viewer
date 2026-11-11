@@ -1,6 +1,6 @@
 # テスト仕様
 
-何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。Vitest の Node 側のテスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。jsdom 側は `src/**/*.test.tsx` の `it` 名を [自動テスト一覧](#自動テスト一覧) の Vitest 表に書く。
+何を自動で確かめ、何を手で確かめるかを定める。機能 ID は [外部仕様](external-spec.md#機能) のものである。Vitest の Node 側のテスト名は、各 `src/model/*.test.ts` の `it` と、`src-tauri/src/lib.rs`、`src-tauri/src/recent_files.rs`、`src-tauri/src/json_skills.rs`、`src-tauri/src/mcp_app_data.rs`、`src-tauri/src/mcp_stdio.rs`、`src-tauri/src/schedule_drop.rs`、および Windows では `src-tauri/src/mcp_bridge_windows.rs` の `#[test]` の名前である。Rust の統合試験は `src-tauri/tests/mcp_stdio_client.rs` と `src-tauri/tests/mcp_running_app.rs` の `#[test]` 名を [Rust 表](#rust) に書く。jsdom 側は `src/**/*.test.tsx` の `it` 名を [自動テスト一覧](#自動テスト一覧) の Vitest 表に書く。
 
 ## 方針
 
@@ -17,7 +17,7 @@
 | node:test | `npm test` の中の `node --test scripts/*.test.mjs` | `scripts/*.test.mjs`。操作マニュアルサイトは、同じページ内の `#見出し` をその HTML の見出し id と照合する |
 | Vitest（Node） | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
 | Vitest（jsdom） | `npm test` | `src/**/*.test.tsx`。jsdom と Testing Library。React コンポーネントの DOM 特性（Issue #490、C3 のあと） |
-| Rust | `cd src-tauri && cargo test --locked` | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査 |
+| Rust | Linux では `xvfb-run -a cargo test --locked`（`src-tauri`） | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査、`tests/mcp_stdio_client.rs` の標準入出力と `--screen` CLI（GUI 不要）、`tests/mcp_running_app.rs` の起動中 GUI 向け MCP 統合試験（Vite 1420・`DISPLAY` 必須。Linux CI は xvfb） |
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1）。警告の上限を超えると失敗する。上限は [開発ガイド](development.md) |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
 | 操作の入口表（段階1） | `npm run check:operation-entries` | `operation-entries.md` と `OPERATION_FORMAL` / 右クリック固定 / MCP 名。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
@@ -527,6 +527,10 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `settingsDesktopChrome.dom.test.tsx` | `shows the version line on display, members, and updates` | SET-07 |
 | 同上 | `disables install and remove when every skill target is unchecked` | SET-05 |
 | 同上 | `shows the overwrite confirmation when install reports existing paths` | SET-05 |
+| 同上 | `copies the mcp json to the clipboard and does not invoke tauri again on copy` | MCP-01 |
+| 同上 | `shows the copilot read-screen path and the executable after placing` | MCP-02 |
+| 同上 | `shows only the removed read-screen path after confirming uninstall` | MCP-02 |
+| 同上 | `disables place and remove when every read-screen target is unchecked` | MCP-02 |
 | `contextMenuItems.test.ts` | `lists edit, duplicate, note shortcut, and delete for one task` | EDIT-11, EDIT-06, EDIT-14 |
 | 同上 | `switches confidence and lineage labels for a tentative task on mac` | EDIT-11, VIEW-12, FILTER-08 |
 | 同上 | `lists only delete when several tasks are selected` | EDIT-11, EDIT-09 |
@@ -619,6 +623,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `shows the first-run card in the screenshot runtime without Tauri` | NAV-09 |
 | 同上 | `shows a disabled recent-files row and the empty hint on the desktop menu` | NAV-09, FILE-09 |
 | 同上 | `omits recent files and clear history from the browser menu and palette` | FILE-09 |
+| 同上 | `opens settings in the browser without the screen-state button and shows that button when tauri is on` | MCP-01 |
 | 同上 | `omits the screen-state settings section in the browser` | NAV-09 |
 | 同上 | `prevents the browser from navigating when a file is dropped` | FILE-08 |
 | 同上 | `does not subscribe to schedule drops outside Tauri` | FILE-08 |
@@ -1467,7 +1472,71 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `install_and_uninstall_skip_copilot_when_dot_copilot_is_symlink`（`read_screen_skill.rs`） | read-screen は `.copilot` がシンボリックリンクなら置かず、外さない | MCP-02 |
 | `install_and_uninstall_skip_copilot_when_skills_under_copilot_is_symlink`（`read_screen_skill.rs`） | read-screen は `.copilot/skills` がシンボリックリンクなら置かず、外さない | MCP-02 |
 | `uninstall_with_symlink_copilot_does_not_remove_cursor_read_screen`（`read_screen_skill.rs`） | Copilot の親がシンボリックリンクで外すのが失敗したとき、先に置いた Cursor の read-screen は残る | MCP-02 |
-| `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` と `hasJsonSkillToolSelection` | SET-05, MCP-02 |
+| `uninstall_copilot_removes_only_read_screen_and_leaves_other_skills`（`read_screen_skill.rs`） | Copilot の read-screen だけを外し、別名スキルと Cursor の read-screen は残す | MCP-02 |
+| `initialize_echoes_id_and_returns_protocol_version_server_name_and_tools_capability`（`mcp_stdio_client.rs`） | `initialize` が protocolVersion・serverInfo・tools capability を返す | MCP-01 |
+| `tools_list_returns_twenty_one_tools_with_each_input_schema`（`mcp_stdio_client.rs`） | `tools/list` が 21 ツールと各 `inputSchema` を返す | MCP-01 |
+| `invalid_json_returns_parse_error_then_initialize_still_succeeds`（`mcp_stdio_client.rs`） | 壊れた JSON のあとも次の要求が通る | MCP-01 |
+| `unknown_method_returns_method_not_found_and_echoes_id`（`mcp_stdio_client.rs`） | 未知のメソッドが -32601 で id を返す | MCP-01 |
+| `tools_call_missing_name_returns_invalid_params_and_not_the_no_window_message`（`mcp_stdio_client.rs`） | 名前のない `tools/call` が -32602 で、ウィンドウ無し文を出さない | MCP-01 |
+| `notification_writes_no_line_and_ping_returns_empty_object`（`mcp_stdio_client.rs`） | 通知は応答を書かず、続く `ping` だけが返る | MCP-01 |
+| `blank_line_produces_no_response_and_ping_echoes_id`（`mcp_stdio_client.rs`） | 空行のあとの `ping` だけが返る | MCP-01 |
+| `mcp_exits_0_when_stdin_closes_without_a_request`（`mcp_stdio_client.rs`） | 要求なしで標準入力を閉じると終了コード 0 | MCP-01 |
+| `front_only_tools_with_window_exit_1_with_empty_stdout_and_the_rejection_on_stderr`（`mcp_stdio_client.rs`） | 前面限定 12 ツールが `--window` を標準エラーで拒む | MCP-02 |
+| `unknown_screen_tool_exits_1_and_writes_usage_to_stderr`（`mcp_stdio_client.rs`） | 未知の `--screen` ツールが使い方の文を出す | MCP-02 |
+| `screen_flag_without_tool_exits_1_and_writes_usage_to_stderr`（`mcp_stdio_client.rs`） | `--screen` だけが使い方の文を出す | MCP-02 |
+| `screen_with_extra_arg_exits_1_and_writes_usage_to_stderr`（`mcp_stdio_client.rs`） | 余分な引数が使い方の文を出す | MCP-02 |
+| `replace_schedule_over_ten_megabytes_exits_1_and_writes_too_large_to_stderr`（`mcp_stdio_client.rs`） | 10MB 超の標準入力が拒否される | MCP-02 |
+| `replace_schedule_invalid_json_exits_1_and_writes_unreadable_to_stderr`（`mcp_stdio_client.rs`） | 壊れたスケジュール JSON が拒否される | MCP-02 |
+| `stdin_action_tools_reject_invalid_json_with_exit_1_and_the_action_message`（`mcp_stdio_client.rs`） | 操作 JSON 10 ツールが壊れた入力を拒否する | MCP-02 |
+| `schedule_diff_without_gui_exits_1_and_writes_no_window_to_stderr`（`mcp_stdio_client.rs`） | GUI 無しの `schedule_diff` がウィンドウ無し文で失敗する | MCP-02 |
+| `tools_call_schedule_diff_without_gui_returns_no_window_text_is_error_and_not_json_rpc_error`（`mcp_stdio_client.rs`） | GUI 無しの `tools/call schedule_diff` が `isError` とウィンドウ無し文を返し、JSON-RPC エラーにならない | MCP-01 |
+| `running_app_current_schedule_returns_the_seeded_task_id_and_the_process_is_killed_on_drop`（`mcp_running_app.rs`） | 起動直後のハーネスで `current_schedule` がシード済みタスクを返し、ハーネス破棄で GUI を止める | MCP-01 |
+| `screen_seven_reads_and_replace_schedule_exit_0_and_write_the_tool_text_to_stdout`（`mcp_running_app.rs`） | 起動中の読み取り 7 ツールの本文が同状態の `tools/call` と一致し、`--screen replace_schedule` が終了コード 0。`filtered_tasks` の PNG 行は先頭が PNG マジック | MCP-01, MCP-02 |
+| `open_windows_lists_main_and_schedule_2_with_file_and_folder_and_only_main_front`（`mcp_running_app.rs`） | `open_windows` が 2 件で `main` と `schedule-2` の相対 `file`・`folder` と前面 1 件を返す | MCP-01, WIN-01 |
+| `replace_schedule_changes_screen_keeps_file_bytes_and_identical_second_call_returns_diff_text`（`mcp_running_app.rs`） | `replace_schedule` が画面だけ変え、同一 JSON の 2 回目も差分テキストを返す | MCP-01, SYNC-01 |
+| `filtered_and_selected_payloads_order_members_after_colors_and_omit_blank_descriptions`（`mcp_running_app.rs`） | `filtered_tasks` と `selected_tasks` のキー順とメンバー `description` の有無 | MCP-01, SET-02 |
+| `schedule_diff_after_open_is_no_difference_text`（`mcp_running_app.rs`） | 未編集の `schedule_diff` が差無し文を返し、ファイルの更新時刻は変わらない | MCP-01, FILE-07 |
+| `baseline_diffs_after_screen_edit_and_file_edit_has_screen_file_and_class_lines`（`mcp_running_app.rs`） | `baseline_diffs` が `画面:`・`ファイル:`・`分類:` の順で画面だけ・ファイルだけの id を出す | MCP-01, FILE-07 |
+| `selected_task_with_no_selection_returns_null_and_unknown_window_is_specified_missing`（`mcp_running_app.rs`） | 選択 0 件で null、無い `window` で指定ウィンドウ無し文。種ファイルは不変 | MCP-01 |
+| `selected_tasks_with_no_selection_returns_empty_array_and_catalog_keys`（`mcp_running_app.rs`） | 選択 0 件で空配列、カタログキー順 | MCP-01 |
+| `filtered_tasks_after_set_view_status_lists_only_the_matching_task_names`（`mcp_running_app.rs`） | ステータス絞り込み後のタスク名と `visibility: collapsed` | MCP-01 |
+| `current_schedule_returns_the_seeded_document_without_a_members_key`（`mcp_running_app.rs`） | ルートにシードタスクがあり、先頭に `members` が無い | MCP-01 |
+| `focus_window_sets_schedule_2_front_and_leaves_both_file_bytes`（`mcp_running_app.rs`） | `open_windows` の `front` が `schedule-2` だけ。両ファイルのバイト列は不変 | MCP-01, WIN-01 |
+| `open_new_window_adds_the_third_file_and_keeps_the_first_two_file_and_folder`（`mcp_running_app.rs`） | 3 枚目のラベルと元 2 枚の file・folder が不変。`#[ignore]`（`open_new_window` 1 回でラベルが2枚増え厳密集合が満たせない。別報告 PR #570） | MCP-01, WIN-01 |
+| `set_view_filter_leaves_schedule_diff_no_difference_and_file_mtime`（`mcp_running_app.rs`） | 絞り込み後も `schedule_diff` は差無し、更新時刻不変 | MCP-01 |
+| `edit_plan_changes_one_date_keeps_mtime_undo_restores_and_save_writes_that_date`（`mcp_running_app.rs`） | 日付変更、保存前は更新時刻不変、undo で戻り、save でディスク一致 | MCP-01, FILE-07 |
+| `edit_plan_with_end_before_start_returns_the_date_sentence_and_leaves_file_bytes`（`mcp_running_app.rs`） | 終了日エラー文で画面とファイルは種のまま | MCP-01 |
+| `explain_view_limits_filtered_tasks_and_clear_removes_view_explanation`（`mcp_running_app.rs`） | `view.explanation.taskIds` と clear で説明が消える | MCP-01 |
+| `explain_overlay_summary_is_on_filtered_tasks_and_hide_removes_it`（`mcp_running_app.rs`） | `explanationOverlay.summary` と非半透明でキーが無い | MCP-01 |
+| `apply_explanation_pattern_without_overlay_returns_the_missing_plan_sentence`（`mcp_running_app.rs`） | 半透明無しで「試しの計画がありません。」 | MCP-01 |
+| `file_action_export_after_filter_writes_only_the_visible_task_names`（`mcp_running_app.rs`） | 書き出しに見えているタスク名だけ含む | MCP-01, FILE-07 |
+| `catalog_action_members_without_save_leaves_the_members_file_bytes`（`mcp_running_app.rs`） | `save` 無しの `catalog_action` でメンバーファイル不変 | MCP-01 |
+| `set_preferences_auto_update_false_is_read_back_and_true_restores_it`（`mcp_running_app.rs`） | `autoUpdate` false と true の読み戻し | MCP-01 |
+| `history_undo_then_redo_restores_the_edited_date_and_not_the_filter`（`mcp_running_app.rs`） | undo/redo で日付が戻り、絞り込みは残る | MCP-01 |
+| `close_window_with_unknown_label_keeps_the_open_windows_list`（`mcp_running_app.rs`） | 無い `close_window` で窓一覧不変 | MCP-01 |
+| `minimize_window_with_unknown_label_keeps_the_open_windows_list`（`mcp_running_app.rs`） | 無い `minimize_window` で窓一覧不変 | MCP-01 |
+| `two_windows_external_date_appears_and_restart_restores_unsaved_date`（`mcp_running_app.rs`） | 2 窓でディスクの開始日の外部反映と未保存の再起動を見る。`#[ignore]`（ディスクの開始日変更が 10 秒以内に `current_schedule` に載らない。別報告 PR #570） | WIN-01, FILE-10, SYNC-01, SYNC-03, MCP-01 |
+| `six_reads_leave_open_windows_front_on_main`（`mcp_running_app.rs`） | 読み取り 6 ツールのあいだも `front` が `main` の 1 件だけ | MCP-01 |
+| `focus_window_and_same_path_second_process_both_set_front_to_main`（`mcp_running_app.rs`） | `focus_window` のあと同パス第 2 プロセスで前面が `main` だけ（前面順の新しい方） | MCP-01, WIN-01 |
+| `foreign_schedule_viewer_process_fails_without_sending_tools`（`mcp_running_app.rs`） | `sleep` を `schedule-viewer` の名前で起動して検出したあと `assert_no_foreign_schedule_viewer_processes` が panic する（GTK・D-Bus・MCP へ届かない） | MCP-01 |
+| `filtered_tasks_follows_the_front_window_status_filter`（`mcp_running_app.rs`） | 同パス 2 窓で前面の絞り込みだけが `filtered_tasks` に効く | MCP-01 |
+| `screen_replace_schedule_with_window_exits_1_writes_front_only_sentence_and_leaves_current_schedule`（`mcp_running_app.rs`） | `--screen replace_schedule --window` が終了 1 と前面のみ文。画面は不変 | MCP-01, MCP-02 |
+| `open_new_window_keeps_process_alive_and_both_windows_return_current_schedule`（`mcp_running_app.rs`） | 3 枚目追加後もプロセスが生き、元 2 枚と 3 枚目が `current_schedule` を返す。同上 `#[ignore]` | WIN-01, MCP-01 |
+| `open_new_window_while_main_is_dirty_keeps_the_edited_date_and_adds_a_window`（`mcp_running_app.rs`） | 未保存のまま 3 枚目が増え、`main` の日付は残る。同上 `#[ignore]` | WIN-01, MCP-01 |
+| `close_window_on_main_then_restart_opens_only_schedule_2`（`mcp_running_app.rs`） | `main` を閉じて再起動すると `schedule-2` だけ | WIN-01, SYNC-03, MCP-01 |
+| `startup_without_main_in_open_windows_opens_only_schedule_2`（`mcp_running_app.rs`） | 記録に `main` が無いとき起動で `schedule-2` だけ | WIN-01, SYNC-03, MCP-01 |
+| `close_window_schedule_2_leaves_only_main_still_answering_current_schedule`（`mcp_running_app.rs`） | `schedule-2` を閉じたあと `main` だけが応答する | WIN-01, MCP-01 |
+| `restart_restores_the_front_status_filter_for_the_shared_path`（`mcp_running_app.rs`） | 同パス 2 窓で前面だけの絞り込みが再起動後に戻る。`#[ignore]`（xvfb で schedule-filters 永続化待ちが 60 秒以内に終わらない。別報告 PR #570） | SYNC-03, MCP-01 |
+| `second_process_same_path_focuses_newer_window_and_keeps_unsaved_date_and_file_bytes`（`mcp_running_app.rs`） | 同パス第 2 プロセスで新しい窓が前面になり未保存とファイルは不変 | WIN-04, MCP-01 |
+| `second_process_other_json_adds_a_window_and_keeps_main_edited_date`（`mcp_running_app.rs`） | 別 JSON の第 2 プロセスで窓が 1 枚増え、`main` の未保存は残る。`#[ignore]`（xvfb で 45 秒以内に窓が増えない。別報告 PR #570） | WIN-04, MCP-01 |
+| `second_process_folder_does_not_add_a_window_or_change_current_schedule`（`mcp_running_app.rs`） | フォルダ引数の第 2 プロセスで窓数とタイトルは不変 | WIN-04, MCP-01 |
+| `workspace_window_catalogs_differ_from_the_plain_window`（`mcp_running_app.rs`） | 設定ファイル窓だけ作業用カタログが `filtered_tasks` に載る | FILE-10, MCP-01 |
+| `focus_rereads_members_statuses_and_calendar_and_leaves_field_names`（`mcp_running_app.rs`） | 前面化でメンバー・ステータス・カレンダーだけ読み直し、拡張名の集合は不変。`#[ignore]`（xvfb でディスク差分の再読込待ちが不安定。別報告 PR #570） | FILE-10, MCP-01 |
+| `save_then_restart_keeps_workspace_path_and_field_name`（`mcp_running_app.rs`） | 保存して再起動しても設定ファイル束縛と拡張名が残る。`#[ignore]`（同上） | FILE-10, MCP-01 |
+| `catalog_action_save_changes_workspace_member_name_and_leaves_app_members_dir`（`mcp_running_app.rs`） | 設定ファイルのメンバー保存で作業用 JSON だけ変わり、アプリデータの `members/` は不変。`#[ignore]`（xvfb 上で `catalog_action` の `save: true` が「一覧を保存できませんでした。」で失敗するため。別報告 PR #570） | SET-02, FILE-10, MCP-01 |
+| `catalog_action_save_changes_workspace_status_color_and_leaves_app_statuses_dir`（`mcp_running_app.rs`） | 設定ファイルのステータス保存で作業用 JSON だけ変わり、アプリデータの `statuses/` は不変。同上 `#[ignore]` | SET-08, FILE-10, MCP-01 |
+| `catalog_action_save_on_app_catalog_updates_member_name_on_both_plain_windows`（`mcp_running_app.rs`） | 設定ファイル無し 2 窓で片方のカタログ保存が両方の読み取りに揃う。同上 `#[ignore]` | SET-02, MCP-01 |
+| `jsonSkills.test.ts` | `defaultJsonSkillToolSelection` and `hasJsonSkillToolSelection` | SET-05, MCP-02 |
 | `install_does_not_write_through_tool_dir_symlink`（`read_screen_skill.rs`） | `.cursor` がシンボリックリンクなら置かない | MCP-02 |
 | `mcp_stdio_mode_requires_only_flag` | 引数が `--mcp` だけのとき MCP 起動になる | MCP-01 |
 | `tools_list_exposes_screen_tools` | `tools/list` が `open_windows`、読み取り 6 ツール（省略できる `window`）、`current_schedule`、`replace_schedule` を返し、`screen_context` が無い。`selected_tasks` は1件でも配列で、選択数が不明なときはこちらを使うと説明し、`selected_task` は不明なとき `selected_tasks` を使うと説明する。読み取り 7 ツールの説明末尾に「判断の手順は schedule-talk スキルにある。」がある。`replace_schedule` の説明にはその一文が無い。`edit_plan` と `replace_schedule` の説明に、タスクが2件以上変わった成功のあと LLM が `explain_view` と `explain_overlay` の両方で示しチャットでも説明する旨がある。`consultation-flow.md` に「計画を変えたあとの説明」があり、2件以上のとき `explain_overlay`（`summary` と `marks` の `kind: change` など）を必須とする旨、パス無しの差分と削除 id を `explain_view` に渡さない旨がある。`read-screen` スキルに手順の重複が無い。`point-by-appearance.md` に見た目で指す条件の連続した文があり、それらの文は MCP の説明と `read-screen` スキルに無い。「色を選ぶ材料は description」は `screen-judgment.md` にあり `read-screen` に無い（MCP の `selected_task` 等の説明には従来どおりある）。読み取り 3 ツールの説明に `view`、折りたたみでタスクを減らさない旨、自動表示サイズの effective、システム配色の effective、ステータス色を id の材料にしない旨がある。`replace_schedule` の説明に繋がりの規則（`predecessors とは別`、`繋がりの話でない更新では`、`残ったタスク同士はつなぎ直さない` など）がある。`current_schedule` の説明に `connections` と、タスク読み取りには載らない旨がある | MCP-01 |
@@ -1565,7 +1634,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 手動の通しは [regression.md](regression.md) にまとめた。既存ケースの全文は [regression-tc.md](regression-tc.md) にある。ここには同じ表を重ねて置かない。新しい手動ケースは regression-tc.md と `docs/regression-tc-ids.txt` に足し、`npm run check:regression-coverage` が通ることを見る。
 
-短い通しは RG-S2 から RG-S4（目安 約 22 分・手順 72。シナリオ見積は RG-S2 12 分・RG-S3 15 分・RG-S4 18 分）、全体の代表手順はそれに RG-F1 から RG-F14 を足す（目安 約 2 時間 10 分＝158 分−17 分−8 分−3 分。RG-F2 10 分・RG-F9 14 分・RG-F10 9 分を含む。RG-F9 の分は引かない）である。手順数と分数の内訳は [regression.md](regression.md) の見積と同じである。いずれも [regression.md](regression.md) の見積と同じで、実測ではない。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
+人が必ず行う範囲は [regression.md](regression.md) の「実施範囲の索引」と「結果の記録」を正とする。旧い短い通し（RG-S2 から RG-S4 を一括で回す定義、目安 約 22 分・手順 72）は必須範囲の定義ではない。代表手順 62 と全体目安 約 2 時間 10 分は [regression.md](regression.md) の見積と同じで、実測ではない。Windows と macOS の所要時間は未測定である。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
 
 ## リリース前確認
 

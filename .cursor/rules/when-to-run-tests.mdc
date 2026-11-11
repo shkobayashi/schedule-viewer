@@ -12,8 +12,8 @@ alwaysApply: true
 | 普段の開発（コミット、push） | `npm test`、`npm run lint`、`npm run typecheck`。Vitest は「触ったテスト」で絞ってよい |
 | 子 Issue の PR（feature ブランチ向け） | 作業中は、触ったテストと `npm run check:regression-coverage`。PR を出す前に 1 回だけ「PR 前の一回」 |
 | `e2e/browser-regression/` を触る Issue の作業中 | 触った spec だけ `npx playwright test -c e2e/browser-regression/playwright.config.ts <spec>`。全 spec を繰り返し回さない |
-| next、develop へのマージ前 | `npm run test:browser-regression` を、そのコミットで 1 回 |
-| 夜間 | ブラウザ回帰。定期実行は別の Issue で GitHub Actions に足す。このリポジトリにはまだ無い |
+| next、develop へのマージ前 | `.github/workflows/browser-regression.yml` が、base が `develop` または `next` の pull request の `opened` と `synchronize` で `npm run test:browser-regression` を 1 回回す。手元では同じコミットで繰り返さない |
+| 夜間 | 同じワークフローが、既定ブランチ `develop` の `schedule`（cron `0 16 * * *`、UTC、日本時間 1:00）で回す。このファイルが `develop` に入るまでは動かない |
 | リリース前 | 「リリース前に回す検査」の自動を全部回す。手動の回帰も行う。緊急のリリースは手動の回帰だけ飛ばしてよい |
 
 `src-tauri/` を変えたときは、普段の開発でも、手元の OS で `cd src-tauri && cargo clippy -- -D warnings` と `cargo test --locked` を足す。

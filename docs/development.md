@@ -244,10 +244,10 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 | `npm run lint` | ESLint。警告が 48 件を超えると失敗する |
 | `npm run check:mcp-tool-names` | MCP ツール名が TypeScript と Rust で一致すること |
 | `npm run check:operation-entries` | `docs/operation-entries.md` が右クリック固定ラベル・`OPERATION_FORMAL`・MCP 全ツール名を参照していること。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06 段階1） |
-| `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定である。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない。通し方は [regression.md](regression.md) |
+| `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定である。`自動化予定:#` は #541 と #543 のみ許可する（冒頭の説明と同じ変更で更新する）。一部手動に `自動:` が無い行は失敗する。`自動:` の試験名は、参照ファイル内のその名前の試験がすべて `#[ignore]` または `test.skip` / `it.skip` / `describe.skip` 内なら失敗する。JS/TS は TypeScript の構文木で `it`/`test` の呼び出しだけを見る（コメント・文字列は除外）。Rust はコメントを除いたうえで `fn` 定義だけを見る。同名の別スイート・別ファイルでは落とさない。`手動のまま:` の理由に名前があるだけでは落とさない。`cfg_attr`・実行時 skip は見ない。構文解析が万能ではない。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない。通し方は [regression.md](regression.md) |
 | `npm run check:madge-circular-baseline` | madge 循環が [scripts/madge-circular-baseline.json](../scripts/madge-circular-baseline.json) と一致すること（`cycleCount: 0` と `cycles: []` 可）。**CI frontend で失敗扱い**（循環が 1 件でも増えたら失敗）。意図的に解消・再計測した PR では JSON を同じ変更で更新する |
 | `npm run check:architecture-warn` | jscpd（重複 clone）。重複率の上限は 6%。超えても終了コードは 0 なので、CI では警告のままである（循環 import は上の `check:madge-circular-baseline`） |
-| `npm run test:coverage` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。全体は行（lines）67%、文（statements）64%、分岐（branches）58%、関数（functions）66% を下回ると失敗する。`src/model/**` は行 77%、文 69%、分岐 62%、関数 79% を下回ると失敗する。**CI frontend では `test:ci` の中で失敗扱い** |
+| `npm run test:coverage` | 上記と同じ Vitest 2プロジェクトを coverage 付きで1回実行する。全体は行（lines）68%、文（statements）64%、分岐（branches）58%、関数（functions）67% を下回ると失敗する。`src/model/**` は行 78%、文 70%、分岐 63%、関数 82% を下回ると失敗する。**CI frontend では `test:ci` の中で失敗扱い** |
 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` のサンプルを検証する。JSON のパスを渡すとそのファイルを検証する。`examples/playground.schedule.json` は引数なしでは見ない |
 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` を検証する |
 | `npm run check:members` | 引数なしなら `examples/playground.members.json` を検証する |
@@ -260,7 +260,7 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 
 lint の警告上限は `package.json` の `lint`、jscpd の重複率の上限は `scripts/check-architecture-warn.mjs` にあり、どちらも上の表と揃える。カバレッジの閾値を下げるとき、警告上限を上げるとき、重複率の上限を上げるときは、理由を pull request に書く。
 
-Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` は、これまでどおり失敗にする。
+Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` は、これまでどおり失敗にする。Ubuntu の CI では GUI を要する `tests/mcp_running_app.rs` のため `xvfb` を入れ、`xvfb-run -a cargo test --locked` で走らせる。手元の Linux でも同様に `xvfb-run` を使う。起動中アプリの統合試験は、リポジトリ直下で `TAURI_ENV_PLATFORM` を付けた `npm run dev` がポート 1420 で応答していること、1420 が空いていることを要する。試験用の Vite は `mcp_running_app.rs` が共有で起動し、試験バイナリの終了時に子プロセスごと片付ける。Windows では、GUI を起動する前に `RunningHarness` が利用者向けの名前付きパイプ（`\\.\pipe\{APP_IDENTIFIER}-{SID}`）へ `CreateFileW` で接続できるかだけを見る。接続できたら `schedule_diff` などのツールは送らず、その場で失敗する。手元では schedule-viewer を閉じてから `cargo test --locked --test mcp_running_app` を回す。`mcp_running_app` の第 2 プロセス試験は、ほかに同一ユーザーの `schedule-viewer`（実行ファイル名が `schedule-viewer` または `schedule-viewer.exe`。インストール先のパスは問わない）が動いていると、シグナルやツールを送らずその場で失敗する。許可するのは試験が起動した GUI とその子孫だけ（`pgrep -P` で木ごと列挙）である。Linux は `/proc/<pid>/status` の UID で所有者を区別し、同一 UID のときだけ `/proc/<pid>/exe` を読む。macOS は `proc_pidpath` でパスの basename を見る。他ユーザーのプロセスは無視する。同一ユーザーのプロセスで exe の確認に失敗したときは「ほかにいない」と見なさない。Windows は `tasklist` でイメージ名を列挙する。列挙自体に失敗したときも同様である。他プロセス検出の単体試験は、本物の schedule-viewer ではなく `sleep`（Windows では `timeout`）を `schedule-viewer` の名前でコピーして起動する。`RunningHarness` の破棄では試験が起動した GUI だけを終了させる。`--test-threads=1` で回す。`.cursor/mcp-e2e-run.py` は `cargo test --locked --test mcp_running_app` だけを実行する。
 
 ## ブランチと CI
 
@@ -271,12 +271,17 @@ Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` 
 | `develop`、`main`、`next` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルドを分け、集約ジョブ `ci` で結果をまとめる |
 | `main` への push（操作マニュアルとサイトビルドの入力） | Pages（`.github/workflows/pages.yml`） | `npm run build:manual-site` のあと GitHub Pages へ公開。URL は https://shkobayashi.github.io/schedule-viewer/ 。`workflow_dispatch` でも動く |
 | `main` または `release/**` への push | Release（`.github/workflows/release.yml`） | 版とブランチを検査したあと、環境 `release` の承認のあと、Ubuntu (deb) を GitHub Release へ公開する。`main` の安定版では Windows が署名しない MSIX を Microsoft Store へ提出する。`release/X.Y.Z` の Pre-release では Windows (NSIS) も出す |
+| `develop` または `next` 向け pull request の `opened` と `synchronize`。既定ブランチの `schedule`（`0 16 * * *`、UTC）。`workflow_dispatch` | Browser regression（`.github/workflows/browser-regression.yml`） | パスでは絞らない。`npm ci`、`npx playwright install --with-deps chromium`、`npm run test:browser-regression`。失敗したときは `test-results/` を成果物にする。`main` 向けの pull request では動かない |
 
 `develop` への push だけでは CI は動かない。CI が動くのは `develop`、`main`、`next` 向けの pull request のときである。
 
+`browser-regression.yml` は、`develop` への push では動かない。夜間の `schedule` は、このファイルが既定ブランチ `develop` にあるとき、その最新コミットで動く。`workflow_dispatch` も、ファイルが `develop` にあるときだけ起動できる。
+
+`browser-regression` ジョブの `timeout-minutes` は 45 である。Playwright の `globalTimeout`（20 分）は `npm run test:browser-regression` のプロセスだけを止める。
+
 CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。読み取りステップは `shell: bash` にする。Release の Windows ランナーの既定シェルは PowerShell で、bash のまま書くと構文エラーになる。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
-- `src-tauri/`、`rust-toolchain.toml`、`read-screen/*`、`.cursor/skills/schedule-talk/*` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`）が動く
+- `src-tauri/`、`rust-toolchain.toml`、`read-screen/*`、`.cursor/skills/schedule-talk/*` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。Ubuntu だけ `xvfb-run -a`）が動く
 - `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`、`test:ci`（カバレッジの閾値を下回ると失敗）、`check:architecture-warn`（jscpd。上限を超えても警告）、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物と `src/model/generated/` の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
 - `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`）が動く。`package.json` と `package-lock.json` が変わったときも同じ
@@ -293,13 +298,13 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 | 普段の開発（コミット、push） | `npm test`、`npm run lint`、`npm run typecheck`。Vitest は「触ったテスト」で絞ってよい |
 | 子 Issue の PR（feature ブランチ向け） | 作業中は、触ったテストと `npm run check:regression-coverage`。PR を出す前に 1 回だけ「PR 前の一回」 |
 | `e2e/browser-regression/` を触る Issue の作業中 | 触った spec だけ `npx playwright test -c e2e/browser-regression/playwright.config.ts <spec>`。全 spec を繰り返し回さない |
-| next、develop へのマージ前 | `npm run test:browser-regression` を、そのコミットで 1 回 |
-| 夜間 | ブラウザ回帰。定期実行は別の Issue で GitHub Actions に足す。このリポジトリにはまだ無い |
+| next、develop へのマージ前 | `.github/workflows/browser-regression.yml` が、base が `develop` または `next` の pull request の `opened` と `synchronize` で `npm run test:browser-regression` を 1 回回す。手元では同じコミットで繰り返さない |
+| 夜間 | 同じワークフローが、既定ブランチ `develop` の `schedule`（cron `0 16 * * *`、UTC、日本時間 1:00）で回す。このファイルが `develop` に入るまでは動かない |
 | リリース前 | 「リリース前に回す検査」の自動を全部回す。手動の回帰も行う。緊急のリリースは手動の回帰だけ飛ばしてよい |
 
 `src-tauri/` を変えたときは、普段の開発でも、手元の OS で `cd src-tauri && cargo clippy -- -D warnings` と `cargo test --locked` を足す。
 
-ブラウザ回帰は、子 Issue の作業中と「PR 前の一回」には含めない。next または develop へマージする直前の 1 回と、リリース前の自動に含める。同じコミットでは繰り返さない。
+ブラウザ回帰は、子 Issue の作業中と「PR 前の一回」には含めない。`develop` または `next` 向けの pull request では、上のワークフローが回す。リリース前の自動にも含める。同じコミットでは繰り返さない。夜間は、ワークフローファイルが `develop` に入ってから動く。
 
 **触ったテスト**
 

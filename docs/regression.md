@@ -4,6 +4,58 @@
 
 機能の対応は [regression-matrix.md](regression-matrix.md) である。
 
+## 自動化予定（許可と更新）
+
+`scripts/check-regression-coverage.ts` が `自動化予定:#` を検査する。許可する Issue 番号は #541 と #543 だけである。手順の「扱い」本文も同じ検査に含める。番号を変えるときは、付録・対応表・手順の扱いと、この節を同じ変更で揃える。
+
+### #541
+
+Windows の CI で `cargo test --locked` が通っても、次は自動済みに移さない。
+
+- `src-tauri/tests/mcp_running_app.rs` の `#[ignore]` 11 本（PR #570 別報告）
+- 付録 `TC-FILE-10` の前面化の読み直しと再起動後の拡張名（試験 `workspace_window_catalogs_differ_from_the_plain_window` は初回 workspace 読み取りだけを見る）
+
+Windows CI 後に区分だけ見直す切替候補は、試験本文でその行の期待を断言できた次の 7 行だけである。付録 `TC-MCP-425c`、`TC-MCP-01c`、`TC-WIN-01e`、`TC-WIN-01f`。対応表 `MX-O-26`、`MX-O-29`、`MX-T-16`。`TC-FILE-10` は切替候補に含めない。
+
+### #543
+
+- **未着手**（自動参照なし）: 対応表 `MX-O-111`、`MX-O-113`、`MX-T-7`、`MX-T-9`
+- **未解決の観測**: 上記 `#[ignore]` 11 本と、`TC-FILE-10` の前面化・再起動（どちらも #541 の一覧にも入れない）
+- **Windows CI 待ち**（`自動:` が `mcp_running_app.rs`）: 付録 `TC-MCP-425a`、`TC-MCP-425g`、`TC-SYNC-01k`、`TC-WIN-01g`、`TC-VIEW-16h`、`TC-MCP-01`、`TC-MCP-01i`、`TC-MCP-01e`、`TC-MCP-01f`、`TC-MCP-01g`、`TC-MCP-01j`、`TC-MCP-01p`、`TC-MCP-02`。対応表 `MX-O-30`、`MX-O-66`、`MX-O-109`、`MX-O-115`、`MX-O-117`、`MX-O-119`、`MX-O-128`、`MX-O-130`、`MX-T-1`、`MX-T-3`、`MX-T-5`、`MX-T-11`、`MX-T-13`、`MX-T-14`、`MX-T-15`、`MX-T-20`、`MX-T-27`。Linux で通っていても、Windows の `cargo test` が通るまで自動済みにしない。
+
+閉じた #535、#540、#547、#563 と、#536、#538 へは移さない。
+
+## 実施範囲の索引
+
+人が必ず行う記録は、末尾の「結果の記録」テンプレートを範囲ごとに使う。付録 466 行は追跡用であり、毎回走らせない。欄が空の項目は未実施である。未実施は合格ではない。約 2 時間 10 分と手順 62 は見積であり、記録の実測ではない。Windows と macOS は未測定である。
+
+**短い確認**（目標 10〜15 分。見積。実測は未実施）:
+
+- 実 IME: `RG-F1-1`〜`RG-F1-5`（追跡 `TC-FILTER-07e`、`TC-FILTER-12j`。短い確認の時間には別枠）
+- 実ドラッグの感触と右クリック直後のポインタ: [RG-S3 ドラッグと、右クリックの直後](#rg-s3-ドラッグと右クリックの直後) の目的欄。`RG-S3-1` で「設計」バーを一度動かし、感触とポインタだけ記録する（日付の期待は e2e に任せる。新しい手順 ID は作らない）
+- 色と読みやすさ: `RG-S2-6`（`TC-VIEW-15b`）
+- 実 Excel: `RG-F5-2` のうち、表計算アプリで開いた見た目だけ（payload の自動試験は手で行わない）
+- 実 OS の代表（開発版）: 開くダイアログ `RG-S4-8`、新しいウィンドウ `RG-F9-1`、外部更新の監視の残り `RG-F7-1`、起動復旧の残り `RG-F8-2`
+- 固定プロンプトの実 LLM: `RG-F12-3`、`RG-F12-4`、`RG-F12-5`、`RG-F12-8`。クライアントが無いときは保留で合格にしない
+
+**フル**: 短い確認に、まだ人が行う残りの手順を足す。扱いに「手で行わない」「手で通さない」と書いてある手順は除く。一部自動でも OS のダイアログ、別名保存、DragDrop、ファイル監視の残りなど人が行う操作が残る手順は含める。次の 12 手順は既存のテストが期待を断言するためフル記録には載せない: `RG-S1-1`、`RG-S1-2`、`RG-S1-4`、`RG-S3-13`、`RG-S4-3`、`RG-S4-6`、`RG-F7-2`、`RG-F7-3`、`RG-F8-1`、`RG-F10-3`、`RG-F10-4`、`RG-F14-3`。未実施と記録する `RG-F12-6` と未検証の `RG-F12-7` は常に載せる。配布物専用の `RG-F14-1`、`RG-F14-4`、`RG-F14-5` は含めない。`RG-F12-7` は #543 が終わるまで未検証であり、手で行っても自動の合格にはしない。
+
+ブラウザ版では [準備](#準備) のとおり `TC-SYNC-01c` を加え `TC-SYNC-03` は対象外とする。`RG-S5` は手で行わない。`npm run test:browser-regression` はこの子 Issue の作業中と PR 前には入れない。
+
+**配布前**: [test-spec.md](test-spec.md) の「リリース前確認」1 から 16。本文は test-spec に一つだけ置き、この節は索引である。OS ごとの列はテンプレートの配布前欄を使う。
+
+旧い「短い通し」（RG-S2 から RG-S4 を一括で回す定義、約 22 分・手順 72 の見積）は、**人が必須の範囲の定義ではない**。自動の手順と OS のダイアログが混ざっている。
+
+## 親 Issue #534 への対応
+
+#537 がこの文書で担うものは、必須手動の範囲、付録と対応表の照合、空欄の記録テンプレート、親のレビュー指摘との対応である。準備・コピー復元・再起動・実 IME・実ドラッグ・色・実 Excel・OS の配布物・実 LLM の実測は未実施である。親 Issue #534 の最終チェックは付けない。
+
+子 Issue の状態（2026-11-11、`gh issue list` で確認）: closed が #542、#539、#546、#544、#540、#545、#547、#535、#563。open が #548、#536、#538、#543、#541、#537、#566。
+
+レビュー 7 節の時間目標と残す手動、優先修正の最終判定は #537 の担当のままである。1〜6 節と 7 節の各自動化は、それぞれ担当の子 Issue のままである。#541 と #543 が open のあいだは、全機能確認済みとはしない。
+
+目標との比較欄（短い確認 10〜15 分、フル 45〜70 分、OS 別配布 5〜10 分、P6 未完了時のフル 60〜90 分）は空欄のままである。実測は書かない。
+
 ## 準備
 
 原本はリポジトリの `examples/` のままにする。実施の前に作業用フォルダへコピーし、シナリオのたびに、そのシナリオが使うファイルだけ原本からコピーし直す。作業用を保存しても原本は変わらない。
@@ -51,7 +103,9 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## 短い通しと、全体
 
-短い通しは RG-S2 から RG-S4 である。RG-S1 と RG-S5 は自動テストが見ている。シナリオの見積は RG-S2 が 12 分、RG-S3 が 15 分、RG-S4 が 18 分である。基準は feature-436 時点の 39 分・約 2 時間 38 分・手順 89 である（#547 の 9 手順・約 22 分、RG-S3-13 の 1 分、以前分の約 16 分は再引きしない）。いまの目安は約 22 分である（39 分−17 分＝22 分。見積。短い通しで引く手順は RG-S2-1〜5・RG-S2-7、RG-S3-1・2・4・5・6・9・12 の 13 件で、見積として RG-S2 から約 11 分・RG-S3 から約 6 分を割り当てる。RG-S3-3 右端、RG-S3-7、RG-S3-8、RG-S2-6、RG-S3-10、RG-S3-11 は引かない）。全体の代表手順は、それに RG-F1 から RG-F14 を足して約 2 時間 10 分である（158 分−17 分−8 分−3 分＝130 分。見積。短い通しの 17 分に加え RG-F2-1〜3 に 8 分、RG-F10-2 に 3 分を割り当てて引く。RG-F2 の 8 分は F2-1〜3 のみで、RG-F2-4 と RG-F2-5 は DOM 自動で以前から手で行わないため二重に引かない。RG-F9 の分は引かない）。シナリオの見積は RG-F2 が 10 分、RG-F9 が 14 分、RG-F10 が 9 分である。RG-F9-3 は窓の前面が自動化予定:#541 のまま残る。RG-S1-4 は扱いが自動になったが、89 の引き算には含めない。RG-S3-7 と RG-S3-8 はメニュー表示は e2e が見ているが、手順数と時間の引き算には含めない。RG-F7-1 と RG-F8-2 は実機の監視が残るため、上の引き算には含めない。RG-F5-3・RG-F9-2 のファイルダイアログ部分・RG-F14-2 は扱い本文に手動が残るため、時間と手順数の引き算には含めない。RG-F3 と RG-F13 は手で通さない。シナリオは 19 本、手順は 62 である（72−10＝62。引いた 10 手順は RG-F4-1・RG-F4-3・RG-F4-4・RG-F5-1・RG-F10-1・RG-F11-1・RG-F11-2・RG-F11-4・RG-S3-10・RG-S3-11。RG-F4-2・RG-F5-2・RG-F10-2・そのほか手動が残る手順は含めない）。#536 で自動化した RG-F4・RG-F5・RG-F10・RG-F11・RG-S3 の 10 手順は、シナリオ見積の分数は引かない（各シナリオの目安分は、表計算アプリや追随矢印など手動が残る分を含むため）。この分数は見積で、実測ではない。`test.skip` で合格にするテストは自動済みに数えない。
+人が必須の範囲は [実施範囲の索引](#実施範囲の索引) を正とする。次の「短い通し」は、従来どおり RG-S2 から RG-S4 を一括で回す見積の説明であり、必須範囲の定義ではない。
+
+短い通しは RG-S2 から RG-S4 である。RG-S1 と RG-S5 は自動テストが見ている。シナリオの見積は RG-S2 が 12 分、RG-S3 が 15 分、RG-S4 が 18 分である。基準は feature-436 時点の 39 分・約 2 時間 38 分・手順 89 である（#547 の 9 手順・約 22 分、RG-S3-13 の 1 分、以前分の約 16 分は再引きしない）。いまの目安は約 22 分である（39 分−17 分＝22 分。見積。短い通しで引く手順は RG-S2-1〜5・RG-S2-7、RG-S3-1・2・4・5・6・9・12 の 13 件で、見積として RG-S2 から約 11 分・RG-S3 から約 6 分を割り当てる。RG-S3-3 右端、RG-S3-7、RG-S3-8、RG-S2-6、RG-S3-10、RG-S3-11 は引かない）。全体の代表手順は、それに RG-F1 から RG-F14 を足して約 2 時間 10 分である（158 分−17 分−8 分−3 分＝130 分。見積。短い通しの 17 分に加え RG-F2-1〜3 に 8 分、RG-F10-2 に 3 分を割り当てて引く。RG-F2 の 8 分は F2-1〜3 のみで、RG-F2-4 と RG-F2-5 は DOM 自動で以前から手で行わないため二重に引かない。RG-F9 の分は引かない）。シナリオの見積は RG-F2 が 10 分、RG-F9 が 14 分、RG-F10 が 9 分である。RG-F9-3 は覆いの前面化が手動のまま残る。RG-S1-4 は扱いが自動になったが、89 の引き算には含めない。RG-S3-7 と RG-S3-8 はメニュー表示は e2e が見ているが、手順数と時間の引き算には含めない。RG-F7-1 と RG-F8-2 は実機の監視が残るため、上の引き算には含めない。RG-F5-3・RG-F9-2 のファイルダイアログ部分・RG-F14-2 は扱い本文に手動が残るため、時間と手順数の引き算には含めない。RG-F3 と RG-F13 は手で通さない。#543 では手順も分数も引かない。見積。#541 は手順も分数も引かない。シナリオは 19 本、手順は 62 である（72−10＝62。引いた 10 手順は RG-F4-1・RG-F4-3・RG-F4-4・RG-F5-1・RG-F10-1・RG-F11-1・RG-F11-2・RG-F11-4・RG-S3-10・RG-S3-11。RG-F4-2・RG-F5-2・RG-F10-2・そのほか手動が残る手順は含めない）。#536 で自動化した RG-F4・RG-F5・RG-F10・RG-F11・RG-S3 の 10 手順は、シナリオ見積の分数は引かない（各シナリオの目安分は、表計算アプリや追随矢印など手動が残る分を含むため）。この分数は見積で、実測ではない。`test.skip` で合格にするテストは自動済みに数えない。
 
 各手順の番号ごとに、合、否、保留、未検証、対象外のいずれかと、違ったときは見えた文を記録する。記録の型は末尾にある。自動化予定と書いた手順を手で行っても、その Issue が終わるまで自動の代わりの合格にはしない。
 
@@ -69,8 +123,6 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 扱い: 自動:src/components/FirstRunHintCard.dom.test.tsx#shows the sample heading, three items, and two prepare buttons。この手順の期待は既存のテストが断言している。
 
-自動化予定: #544。文言は `FirstRunHintCard.dom.test.tsx` が既に見ている。
-
 ### RG-S1-2
 
 操作: 「操作の案内を読む」を押し、閉じる。
@@ -78,8 +130,6 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 期待: 案内に「最初にやる 3 つ」「開く・保存」「画面の見方」「もう少し知りたいとき」がある。
 
 扱い: 自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open。この手順の期待は既存のテストが断言している。
-
-自動化予定: #544。文言は `GuideDialog.dom.test.tsx` が既に見ている。
 
 ### RG-S1-3
 
@@ -149,7 +199,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 基準日 2026-04-15 なら、日の表示で今日線が 2026 年 4 月の範囲に見える。OS の日付を変えられないときは未検証とし、合にしない。
 
-扱い: 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03)。自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette...。この手順は手で行わない。
+扱い: 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03)。自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette and ignores the palette shortcut while a dialog is open。この手順は手で行わない。
 
 
 ### RG-S2-6
@@ -349,7 +399,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 1 つのときは開く。2 つのときは開かず、「スケジュールの JSON を1つだけ落としてください。」が出る。
 
-扱い: 自動化予定:#541。この Issue が終わると、この手順は手で行わない。
+扱い: 手動のまま:ウィンドウへ JSON を落とす操作は DragDrop で、試験から送れない。
 
 ### RG-S4-8
 
@@ -741,7 +791,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 元の窓は残り、タイトルは「回帰確認」である。新しい窓のタイトルは「回帰の詳細」である。
 
-扱い: 自動化予定:#541。この Issue が終わると、この手順は手で行わない。
+扱い: 手動のまま:「新しいウィンドウで開く」と、2 枚目で `members.json` を選ぶ操作は、ファイルを選ぶ画面が要る。
 
 ### RG-F9-2
 
@@ -757,7 +807,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 編集中の 1 枚目が前面になる。2 枚目では、その操作では選ばれない。
 
-扱い: 自動化予定:#541。この Issue が終わると、この手順は手で行わない。
+扱い: 手動のまま:覆いを開いたまま、もう一方で同じメンバーを選ぶ操作は、覆いのボタンが要る。
 
 ### RG-F9-4
 
@@ -765,9 +815,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 最小化から戻せる。キャンセルした窓は閉じない。
 
-扱い: 自動化予定:#541。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #541。
+扱い: 手動のまま:最小化から戻すことと、閉じる確認のキャンセルは、`open_windows` では見えない。
 
 ## RG-F10 階層の線
 
@@ -849,7 +897,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## RG-F12 本物の LLM
 
-目的は、決めた依頼文で、説明と、渡していない値を作らないことを見ることである。対象はデスクトップ版で、Cursor または Claude に MCP を登録してあるときだけである。クライアントが無いときは、このシナリオを保留とし、合格にしない。目安は 20 分である。短い通しには入れない。通信の自動は #538 と #543 である。文の解釈は人が残す。
+目的は、決めた依頼文で、説明と、渡していない値を作らないことを見ることである。対象はデスクトップ版で、Cursor または Claude に MCP を登録してあるときだけである。クライアントが無いときは、このシナリオを保留とし、合格にしない。目安は 20 分である。短い通しには入れない。窓の要らない JSON-RPC と CLI の拒否は自動テスト、起動中のアプリへの `tools/call` は #543、文の解釈は人が残す。#538 では手順も分数も引かない。
 
 ### RG-F12-1
 
@@ -857,7 +905,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 登録できないときは保留である。合にしない。
 
-扱い: 自動化予定:#538。この Issue が終わると、この手順は手で行わない。
+扱い: 手動のまま、実クライアントが登録できるかを人が見て、できないときは保留とし、合にしない。あわせて initialize、tools/list、壊れた JSON、未知のメソッド、名前の無い tools/call の自動は、src-tauri/tests/mcp_stdio_client.rs の `initialize_echoes_id_and_returns_protocol_version_server_name_and_tools_capability`、`tools_list_returns_twenty_one_tools_with_each_input_schema`、`invalid_json_returns_parse_error_then_initialize_still_succeeds`、`unknown_method_returns_method_not_found_and_echoes_id`、`tools_call_missing_name_returns_invalid_params_and_not_the_no_window_message` である。
 
 ### RG-F12-2
 
@@ -865,9 +913,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: アプリは、設定からクライアントのプロセスを起動しない。
 
-扱い: 自動化予定:#538。この Issue が終わると、この手順は手で行わない。
-
-自動化予定: #538。実クライアントへの初回登録は人が残す。
+扱い: 自動:src/components/settingsDesktopChrome.dom.test.tsx#copies the mcp json to the clipboard and does not invoke tauri again on copy。手動のまま、実クライアントの mcp.json への初回の貼り付けは人が残す。
 
 ### RG-F12-3
 
@@ -903,9 +949,9 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 操作: 複数の窓の読み取りと、`--screen` の CLI は、この通しでは行わない。
 
-期待: 未実施と記録する。合格にしない。自動は #543 と #538 である。
+期待: 未実施と記録する。合格にしない。
 
-扱い: 自動化予定:#538。この Issue が終わると、この手順は手で行わない。
+扱い: 自動:src-tauri/tests/mcp_stdio_client.rs#front_only_tools_with_window_exit_1_with_empty_stdout_and_the_rejection_on_stderr、src-tauri/tests/mcp_stdio_client.rs#unknown_screen_tool_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#screen_flag_without_tool_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#screen_with_extra_arg_exits_1_and_writes_usage_to_stderr、src-tauri/tests/mcp_stdio_client.rs#replace_schedule_over_ten_megabytes_exits_1_and_writes_too_large_to_stderr、src-tauri/tests/mcp_stdio_client.rs#replace_schedule_invalid_json_exits_1_and_writes_unreadable_to_stderr、src-tauri/tests/mcp_stdio_client.rs#stdin_action_tools_reject_invalid_json_with_exit_1_and_the_action_message、src-tauri/tests/mcp_stdio_client.rs#schedule_diff_without_gui_exits_1_and_writes_no_window_to_stderr。起動中のアプリへの `--screen` の成功は自動:src-tauri/tests/mcp_running_app.rs#screen_seven_reads_and_replace_schedule_exit_0_and_write_the_tool_text_to_stdout。複数の窓の読み取りは自動:src-tauri/tests/mcp_running_app.rs#filtered_tasks_follows_the_front_window_status_filter、src-tauri/tests/mcp_running_app.rs#six_reads_leave_open_windows_front_on_main。本物の LLM の通しでは、窓の要らない CLI の試験は自動試験が行い、起動中のアプリへの成功と複数窓の読み取りは行わず、未実施と記録し、合格にしない。
 
 ### RG-F12-7
 
@@ -1007,116 +1053,102 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 ## 結果の記録
 
-次をコピーして、実施日とビルドを書く。各手順は、合、否、保留、未検証、対象外のいずれかにする。自動化予定の手順は、手で行っても自動の代わりの合格にはしない。
+欄が空の項目は未実施である。未実施は合格ではない。約 2 時間 10 分と手順 62 は見積であり、この記録の実測ではない。Windows と macOS は未測定である。自動化予定の手順を手で行っても、その Issue が終わるまで自動の代わりの合格にはしない。実施範囲は [実施範囲の索引](#実施範囲の索引) を正とする。手順の全文は上のシナリオ節を見る。
+
+### 共通欄
 
 ```
 実施日:
+実施者:
 ビルド（版またはコミット）:
-OS:
+OS と配布形態:
 基準日を 2026-04-15 にできたか:
 原本を変更したか（はいなら実施は無効）:
-自動（npm test から check:members まで）:
+自動を先に流したコマンドと合否（regression.md「自動を先に流す」）:
+準備・コピー復元（分）:
+操作（分）:
+LLM 待ち（分）:
+合計（分）:
+```
 
-RG-S1-1:
-RG-S1-2:
-RG-S1-3:
-RG-S1-4:
-RG-S2-1:
-RG-S2-2:
-RG-S2-3:
-RG-S2-4:
-RG-S2-5:
-RG-S2-6:
-RG-S2-7:
-RG-S3-1:
-RG-S3-2:
-RG-S3-3:
-RG-S3-4:
-RG-S3-5:
-RG-S3-6:
-RG-S3-7:
-RG-S3-8:
-RG-S3-9:
-RG-S3-10:
-RG-S3-11:
-RG-S3-12:
-RG-S3-13:
-RG-S4-1:
-RG-S4-2:
-RG-S4-3:
-RG-S4-4:
-RG-S4-5:
-RG-S4-6:
-RG-S4-7:
-RG-S4-8:
-RG-S5-1:
-RG-S5-2:
-RG-S5-3:
+各手順欄は `ID: 合否= 分= 備考=` とする。合否は合、否、保留、未検証、対象外、未実施のいずれか。
+
+### 短い確認（目標 10〜15 分・見積）
+
+```
 RG-F1-1:
 RG-F1-2:
 RG-F1-3:
 RG-F1-4:
 RG-F1-5:
-RG-F1-6:
-RG-F2-1:
-RG-F2-2:
-RG-F2-3:
-RG-F2-4:
-RG-F2-5:
-RG-F3-1:
-RG-F3-2:
-RG-F3-3:
-RG-F3-4:
-RG-F3-5:
-RG-F3-6:
-RG-F3-7:
-RG-F4-1:
-RG-F4-2:
-RG-F4-3:
-RG-F4-4:
-RG-F5-1:
-RG-F5-2:
-RG-F5-3:
-RG-F6-1:
-RG-F6-2:
-RG-F6-3:
-RG-F6-4:
-RG-F6-5:
-RG-F7-1:
-RG-F7-2:
-RG-F7-3:
-RG-F8-1:
-RG-F8-2:
+RG-S2-6:
+RG-S3 ドラッグ感触・右クリック直後ポインタ（RG-S3-1 で設計バーを動かした観測）:
+RG-F5-2（表計算で開いた見た目のみ）:
+RG-S4-8:
 RG-F9-1:
-RG-F9-2:
-RG-F9-3:
-RG-F9-4:
-RG-F10-1:
-RG-F10-2:
-RG-F10-3:
-RG-F10-4:
-RG-F11-1:
-RG-F11-2:
-RG-F11-3:
-RG-F11-4:
-RG-F12-1:
-RG-F12-2:
+RG-F7-1:
+RG-F8-2:
 RG-F12-3:
 RG-F12-4:
 RG-F12-5:
-RG-F12-6:
-RG-F12-7:
 RG-F12-8:
-RG-F13-1:
-RG-F13-2:
-RG-F13-3:
-RG-F14-1:
-RG-F14-2:
-RG-F14-3:
-RG-F14-4:
-RG-F14-5:
-
-否または未検証の手順と、見えた文:
+目標 10〜15 分との比較（分）:
 ```
 
-短い通しでは、RG-F の行に「短い通しでは未実施」と書く。未実施は合格ではない。
+### フル（目標 45〜70 分・見積。短い確認を足した残り）
+
+[実施範囲の索引](#実施範囲の索引) のフルと同じ規則。配布物専用 `RG-F14-1`・`RG-F14-4`・`RG-F14-5` は含めない。
+
+```
+RG-S3-3:
+RG-S4-1:
+RG-S4-2:
+RG-S4-4:
+RG-S4-5:
+RG-S4-7:
+RG-F4-2:
+RG-F5-3:
+RG-F6-5:
+RG-F9-2:
+RG-F9-3:
+RG-F9-4:
+RG-F12-1:
+RG-F12-2:
+RG-F12-6:
+RG-F12-7（#543 終了まで未検証。合格にしない）:
+RG-F14-2:
+目標 45〜70 分との比較（分）:
+P6 未完了時の暫定 60〜90 分との比較（分）:
+```
+
+### 配布前（[test-spec.md](test-spec.md) のリリース前確認 1〜16）
+
+付録を毎回走らせない。番号ごとに test-spec の項目と付録 ID を開いて行う。
+
+```
+| # | macOS | Windows | Ubuntu | 分 |
+| --- | --- | --- | --- | --- |
+| 1 | | | | |
+| 2 | | | | |
+| 3 | | | | |
+| 4 | | | | |
+| 5 | | | | |
+| 6 | | | | |
+| 7 | | | | |
+| 8 | | | | |
+| 9 | | | | |
+| 10 | | | | |
+| 11 | | | | |
+| 12 | | | | |
+| 13 | | | | |
+| 14 | | | | |
+| 15 | | | | |
+| 16 | | | | |
+目標 OS 別 5〜10 分との比較（分）:
+```
+
+### その他
+
+```
+否または未検証の手順と、見えた文:
+```
