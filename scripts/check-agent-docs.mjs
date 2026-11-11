@@ -224,27 +224,38 @@ export function resolveRelativeFileLink(root, sourceRel, url) {
 }
 
 /**
- * @param {string} root
- * @returns {string[]}
+ * @param {string} line
  */
+function normalizedClauseMoveTableLine(line) {
+  return line.trimStart();
+}
+
 /**
  * @param {string} line
- * @returns {"separator" | { old: number, new: number } | { malformed: true, raw: string } | null}
+ */
+function lineLooksLikeClauseMoveTableRow(line) {
+  return normalizedClauseMoveTableLine(line).startsWith("|");
+}
+
+/**
+ * @param {string} line
+ * @returns {"separator" | "header" | { old: number, new: number } | { malformed: true, raw: string }}
  */
 function parseClauseMoveTableRow(line) {
-  const match = line.match(/^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/);
+  const normalized = normalizedClauseMoveTableLine(line);
+  const match = normalized.match(/^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/);
   if (!match) {
-    return null;
+    return { malformed: true, raw: line.trim() };
   }
   const left = match[1].trim();
   const right = match[2].trim();
   if (/^[-:\s]+$/.test(left) && /^[-:\s]+$/.test(right)) {
     return "separator";
   }
+  if (left.includes("番号") || right.includes("番号")) {
+    return "header";
+  }
   if (!/^\d+$/.test(left) || !/^\d+$/.test(right)) {
-    if (left.includes("番号")) {
-      return null;
-    }
     return { malformed: true, raw: line.trim() };
   }
   return { old: Number(left), new: Number(right) };
@@ -280,7 +291,7 @@ export function parseClauseMoveTable(markdown) {
       }
       continue;
     }
-    if (!line.startsWith("|")) {
+    if (!lineLooksLikeClauseMoveTableRow(line)) {
       if (tableStarted) {
         if (line.trim().length === 0) {
           continue;
@@ -291,10 +302,7 @@ export function parseClauseMoveTable(markdown) {
     }
 
     const row = parseClauseMoveTableRow(line);
-    if (row === null) {
-      continue;
-    }
-    if (row === "separator") {
+    if (row === "separator" || row === "header") {
       tableStarted = true;
       continue;
     }
@@ -452,5 +460,6 @@ const isMain =
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMain) {
-  runCheckAgentDocs();
+  const rootArg = process.argv[2];
+  runCheckAgentDocs(rootArg ? path.resolve(rootArg) : defaultRepoRoot);
 }

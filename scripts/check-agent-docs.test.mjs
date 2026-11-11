@@ -41,6 +41,12 @@ function writeClauseFixtures(root, { splitMarkdown, screenMarkdown }) {
   fs.writeFileSync(path.join(root, IMPLEMENT_CHANGE_SCREEN_REL), screenMarkdown);
 }
 
+function writeMinimalAgentDocRoot(root) {
+  fs.mkdirSync(path.join(root, "docs"), { recursive: true });
+  fs.mkdirSync(path.join(root, ".cursor/rules"), { recursive: true });
+  fs.writeFileSync(path.join(root, "AGENTS.md"), "agent doc checker fixture root\n");
+}
+
 function tempRepoRoot() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "check-agent-docs-"));
 }
@@ -225,6 +231,63 @@ test("clause move table rejects duplicate old 52", () => {
   );
 });
 
+test("clause move table rejects indented duplicate new 55", () => {
+  const root = tempRepoRoot();
+  const split = repoSplitDoc.replace(
+    "| 54 | 57 |",
+    "| 54 | 57 |\n | 99 | 55 |",
+  );
+  writeClauseFixtures(root, {
+    splitMarkdown: split,
+    screenMarkdown: minimalScreenClauses51to57(),
+  });
+  const errors = collectClauseMoveErrors(root);
+  assert.ok(
+    errors.some((e) => e.includes("duplicate new clause 55")),
+    errors.join("; "),
+  );
+});
+
+test("clause move table rejects single-cell malformed row", () => {
+  const root = tempRepoRoot();
+  const split = repoSplitDoc.replace(
+    "| 53 | 56 |",
+    "| 53 | 56 |\n| not-a-pair |",
+  );
+  writeClauseFixtures(root, {
+    splitMarkdown: split,
+    screenMarkdown: minimalScreenClauses51to57(),
+  });
+  const errors = collectClauseMoveErrors(root);
+  assert.ok(
+    errors.some((e) => e.includes("malformed row")),
+    errors.join("; "),
+  );
+});
+
+test("clause move table accepts indented valid mapping row", () => {
+  const root = tempRepoRoot();
+  const split = repoSplitDoc.replace("| 53 | 56 |", " | 53 | 56 |");
+  writeClauseFixtures(root, {
+    splitMarkdown: split,
+    screenMarkdown: minimalScreenClauses51to57(),
+  });
+  assert.deepEqual(collectClauseMoveErrors(root), []);
+});
+
+test("clause move table accepts extra mapping rows after required pairs", () => {
+  const root = tempRepoRoot();
+  const split = repoSplitDoc.replace(
+    "| 54 | 57 |",
+    "| 54 | 57 |\n| 60 | 70 |",
+  );
+  writeClauseFixtures(root, {
+    splitMarkdown: split,
+    screenMarkdown: minimalScreenClauses51to57(),
+  });
+  assert.deepEqual(collectClauseMoveErrors(root), []);
+});
+
 test("clause move table rejects malformed mapping row", () => {
   const root = tempRepoRoot();
   const split = repoSplitDoc.replace(
@@ -257,6 +320,37 @@ test("reworded screen clause 55 still passes", () => {
   assert.deepEqual(collectClauseMoveErrors(root), []);
 });
 
+test("screen missing live clause 55 fails", () => {
+  const root = tempRepoRoot();
+  const screen = minimalScreenClauses51to57().replace(/^55\. .*\n/m, "");
+  writeClauseFixtures(root, {
+    splitMarkdown: repoSplitDoc,
+    screenMarkdown: screen,
+  });
+  const errors = collectClauseMoveErrors(root);
+  assert.ok(
+    errors.some((e) => e.includes("clause 55 must appear exactly once (found 0)")),
+    errors.join("; "),
+  );
+});
+
+test("screen duplicate live clause 55 fails", () => {
+  const root = tempRepoRoot();
+  const screen = minimalScreenClauses51to57().replace(
+    /^55\. /m,
+    "55. first.\n55. ",
+  );
+  writeClauseFixtures(root, {
+    splitMarkdown: repoSplitDoc,
+    screenMarkdown: screen,
+  });
+  const errors = collectClauseMoveErrors(root);
+  assert.ok(
+    errors.some((e) => e.includes("clause 55 must appear exactly once (found 2)")),
+    errors.join("; "),
+  );
+});
+
 test("screen missing live clauses 52 to 54 fails", () => {
   const root = tempRepoRoot();
   const screen = minimalScreenClauses51to57();
@@ -276,4 +370,24 @@ test("screen missing live clauses 52 to 54 fails", () => {
 
 test("repository clause move table and screen clauses pass", () => {
   assert.deepEqual(collectClauseMoveErrors(repoRoot), []);
+});
+
+test("check-agent-docs command fails on clause move mutation", () => {
+  const root = tempRepoRoot();
+  writeMinimalAgentDocRoot(root);
+  const split = repoSplitDoc.replace("| 54 | 57 |", "| 54 | 58 |");
+  writeClauseFixtures(root, {
+    splitMarkdown: split,
+    screenMarkdown: minimalScreenClauses51to57(),
+  });
+  const script = path.join(repoRoot, "scripts/check-agent-docs.mjs");
+  const result = spawnSync(process.execPath, [script, root], {
+    encoding: "utf8",
+    cwd: repoRoot,
+  });
+  assert.notEqual(result.status, 0, result.stdout || "expected non-zero exit");
+  assert.match(
+    result.stderr,
+    /missing or wrong required pair 54→57|check-agent-docs failed/,
+  );
 });

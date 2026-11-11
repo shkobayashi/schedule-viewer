@@ -21,7 +21,7 @@
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1）。警告の上限を超えると失敗する。上限は [package.json](../package.json) の `lint`（`--max-warnings`） |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
 | 操作の入口表（段階1） | `npm run check:operation-entries` | `operation-entries.md` と `OPERATION_FORMAL` / 右クリック固定 / MCP 名。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
-| エージェント向け文書 | `npm run check:agent-docs` | `AGENTS.md`、`docs/agents-*.md`、`.cursor/rules/*.mdc`、各スキルの `SKILL.md` と `references/*.md` の相対リンク（ファイルまたは既存ディレクトリ。`#` アンカーは見ない）。コードフェンス内とインラインの `` `...` `` 内は無視。`[text][ref]` 形式と HTML の `href` は見ない。`SKILL.md` の frontmatter に空でない `name` と `description`。`alwaysApply` ルールと `AGENTS.md` のバイト数を標準出力へ出す |
+| エージェント向け文書 | `npm run check:agent-docs` | `AGENTS.md`、`docs/agents-*.md`、`.cursor/rules/*.mdc`、各スキルの `SKILL.md` と `references/*.md` の相対リンク（ファイルまたは既存ディレクトリ。`#` アンカーは見ない）。コードフェンス内とインラインの `` `...` `` 内は無視。`[text][ref]` 形式と HTML の `href` は見ない。`SKILL.md` の frontmatter に空でない `name` と `description`。`docs/agents-implement-change-51-split.md` の旧→新番号対応表（必須 `52→55`、`53→56`、`54→57`。重複と不正行は拒否。先頭の空白インデントは無視）。`.cursor/skills/implement-change/references/screen.md` の条項 51–57 が各1回（番号のみ。本文の言い換えは可）。`alwaysApply` ルールと `AGENTS.md` のバイト数を標準出力へ出す |
 | 回帰の対応 | `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定である。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない |
 | 循環 import | `npm run check:madge-circular-baseline` | madge とベースライン JSON の一致。**CI frontend で失敗扱い** |
 | 重複（警告） | `npm run check:architecture-warn` | jscpd のみ。重複率の上限を超えても CI では失敗にしない。上限は [scripts/check-architecture-warn.mjs](../scripts/check-architecture-warn.mjs) の `--threshold` |
@@ -266,9 +266,41 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/check-agent-docs.test.mjs` | `clause move table rejects duplicate new 55` | — |
 | `scripts/check-agent-docs.test.mjs` | `clause move table rejects duplicate old 52` | — |
 | `scripts/check-agent-docs.test.mjs` | `clause move table rejects malformed mapping row` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table rejects indented duplicate new 55` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table rejects single-cell malformed row` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table accepts indented valid mapping row` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table accepts extra mapping rows after required pairs` | — |
 | `scripts/check-agent-docs.test.mjs` | `reworded screen clause 55 still passes` | — |
 | `scripts/check-agent-docs.test.mjs` | `screen missing live clauses 52 to 54 fails` | — |
+| `scripts/check-agent-docs.test.mjs` | `screen missing live clause 55 fails` | — |
+| `scripts/check-agent-docs.test.mjs` | `screen duplicate live clause 55 fails` | — |
 | `scripts/check-agent-docs.test.mjs` | `repository clause move table and screen clauses pass` | — |
+| `scripts/check-agent-docs.test.mjs` | `check-agent-docs command fails on clause move mutation` | — |
+| `scripts/block-history-rewrite.test.mjs` | `allows ordinary status commit push and merge` | — |
+| `scripts/block-history-rewrite.test.mjs` | `denies commit amend through global options and wrappers` | — |
+| `scripts/block-history-rewrite.test.mjs` | `denies force push flags short clusters and plus refspecs` | — |
+| `scripts/block-history-rewrite.test.mjs` | `denies rebase and pull rebase but allows rebase false` | — |
+| `scripts/block-history-rewrite.test.mjs` | `allows quoted text that mentions forbidden words` | — |
+| `scripts/block-history-rewrite.test.mjs` | `denies a forbidden command after a chain operator` | — |
+| `scripts/block-history-rewrite.test.mjs` | `malformed hook input denies with json` | — |
+| `scripts/block-history-rewrite.test.mjs` | `stdin fixtures do not execute the command` | — |
+| `scripts/block-history-rewrite.test.mjs` | `sandbox and confirmation words do not allow a rewrite` | — |
+| `scripts/block-history-rewrite.test.mjs` | `substitution with rewrite is denied` | — |
+| `scripts/block-history-rewrite.test.mjs` | `unbalanced double quotes deny` | — |
+| `scripts/block-history-rewrite.test.mjs` | `empty command is allowed` | — |
+| `scripts/block-history-rewrite.test.mjs` | `denies substitutions inside double quotes and commit -m with them` | — |
+| `scripts/block-history-rewrite.test.mjs` | `backslash outside quotes preserves argv boundaries for amend` | — |
+| `scripts/block-history-rewrite.test.mjs` | `pull rebase flag order terminator and qr cluster` | — |
+| `scripts/block-history-rewrite.test.mjs` | `git globals support documented options and deny unknown globals` | — |
+| `scripts/block-history-rewrite.test.mjs` | `shell dash c skips long rcfile options` | — |
+| `scripts/block-history-rewrite.test.mjs` | `env command exec wrappers peel to git` | — |
+| `scripts/block-history-rewrite.test.mjs` | `push force policy push options and no force independence` | — |
+| `scripts/block-history-rewrite.test.mjs` | `trailing shell comments do not hide git verbs` | — |
+| `scripts/block-history-rewrite.test.mjs` | `pull rebase from git config global only with explicit override` | — |
+| `scripts/block-history-rewrite.test.mjs` | `simple grouped commands still classify git` | — |
+| `scripts/block-history-rewrite.test.mjs` | `hooks.json registers beforeShellExecution block-history-rewrite` | — |
+| `scripts/block-history-rewrite.test.mjs` | `env peeled through assignments chdir and double hyphen` | — |
+| `scripts/block-history-rewrite.test.mjs` | `git informational globals without subcommand allow` | — |
 | `scripts/check-implement-change-split.test.mjs` | `implement-change references are scanned by the agent-doc checker` | — |
 | `scripts/check-implement-change-split.test.mjs` | `reference files do not require skill frontmatter` | — |
 | `scripts/check-implement-change-split.test.mjs` | `entry keeps before-start and completion and omits moved headings` | — |
