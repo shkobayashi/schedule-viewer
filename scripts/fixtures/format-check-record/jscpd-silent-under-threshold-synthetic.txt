@@ -1,0 +1,2 @@
+# SYNTHETIC FIXTURE — check:architecture-warn jscpd --silent under threshold (no ERROR line)
+Duplications detection: Found 10 exact clones with 100(4.2%) duplicated lines in 50 (2 formats) files.

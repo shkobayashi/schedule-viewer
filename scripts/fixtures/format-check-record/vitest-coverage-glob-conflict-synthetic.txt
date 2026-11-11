@@ -1,0 +1,10 @@
+# SYNTHETIC FIXTURE — global summary vs scoped threshold failure (vitest test:ci)
+ % Coverage report from v8
+
+=============================== Coverage summary ===============================
+Statements   : 71.00% ( 71/100 )
+Branches     : 68.00% ( 68/100 )
+Functions    : 70.00% ( 35/50 )
+Lines        : 70.00% ( 70/100 )
+================================================================================
+ERROR: Coverage for lines (77%) does not meet "src/model/**" threshold (78%)

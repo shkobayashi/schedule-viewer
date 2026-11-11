@@ -224,6 +224,31 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/check-operation-entries.test.mjs` | `check-operation-entries matches labels and MCP names in operation-entries.md` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
+| `scripts/format-check-record.test.mjs` | `shaIdentity valid when full SHAs match` | — |
+| `scripts/format-check-record.test.mjs` | `shaIdentity stale when full SHAs differ` | — |
+| `scripts/format-check-record.test.mjs` | `shaIdentity invalid when SHA missing or malformed` | — |
+| `scripts/format-check-record.test.mjs` | `missing command output yields unknown metrics not zero` | — |
+| `scripts/format-check-record.test.mjs` | `parseLintWarningCount from synthetic eslint fixture` | — |
+| `scripts/format-check-record.test.mjs` | `parseCoverageLinesPercent from synthetic vitest text-summary fixture` | — |
+| `scripts/format-check-record.test.mjs` | `parseCoverageLinesPercent prefers global summary over scoped threshold errors` | — |
+| `scripts/format-check-record.test.mjs` | `parseMadgeCycleCount from synthetic madge OK fixture` | — |
+| `scripts/format-check-record.test.mjs` | `parseJscpdDuplicatedLinesPercent from synthetic jscpd ERROR over threshold` | — |
+| `scripts/format-check-record.test.mjs` | `parseJscpdDuplicatedLinesPercent from synthetic jscpd silent detection line` | — |
+| `scripts/format-check-record.test.mjs` | `parseJscpdDuplicatedLinesPercent without detection percent stays unknown` | — |
+| `scripts/format-check-record.test.mjs` | `parseJscpdDuplicatedLinesPercent from synthetic jscpd total row` | — |
+| `scripts/format-check-record.test.mjs` | `collectMetrics maps synthetic fixtures to command rows` | — |
+| `scripts/format-check-record.test.mjs` | `nonzero command exit marks failed aggregate status` | — |
+| `scripts/format-check-record.test.mjs` | `failed or missing command exit makes usableForGuideline false despite valid sha` | — |
+| `scripts/format-check-record.test.mjs` | `durationMs provenance is provided only when caller supplied a number` | — |
+| `scripts/format-check-record.test.mjs` | `record limits state shaIdentity is not execution proof` | — |
+| `scripts/format-check-record.test.mjs` | `phase log migration preserves #551 and #475 structured history` | — |
+| `scripts/format-check-record.test.mjs` | `phase log validator allows future numeric token fields` | — |
+| `scripts/format-check-record.test.mjs` | `phase log validator rejects #475 plan effort not high` | — |
+| `scripts/format-check-record.test.mjs` | `phase log validator rejects #475 review effort not high` | — |
+| `scripts/format-check-record.test.mjs` | `phase log validator rejects #475 implement effort not unknown` | — |
+| `scripts/format-check-record.test.mjs` | `phase log validator rejects #475 fix composer effort not unknown` | — |
+| `scripts/format-check-record.test.mjs` | `phase log validator rejects fabricated old table March migration phrase` | — |
+| `scripts/format-check-record.test.mjs` | `shaIdentityStatus unit cases` | — |
 | `scripts/check-agent-docs.test.mjs` | `stripFencedCodeBlocks removes fenced links` | — |
 | `scripts/check-agent-docs.test.mjs` | `resolveRelativeFileLink rejects broken relative link` | — |
 | `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects missing description` | — |
