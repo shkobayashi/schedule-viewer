@@ -249,6 +249,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/format-check-record.test.mjs` | `phase log validator rejects #475 fix composer effort not unknown` | — |
 | `scripts/format-check-record.test.mjs` | `phase log validator rejects fabricated old table March migration phrase` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentityStatus unit cases` | — |
+| `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent frontmatter name model readonly` | — |
+| `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent explicit invocation and review-implementation link` | — |
 | `scripts/check-agent-docs.test.mjs` | `stripFencedCodeBlocks removes fenced links` | — |
 | `scripts/check-agent-docs.test.mjs` | `resolveRelativeFileLink rejects broken relative link` | — |
 | `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects missing description` | — |

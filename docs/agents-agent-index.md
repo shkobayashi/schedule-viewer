@@ -47,6 +47,7 @@
 | 操作マニュアル Pages | [publish-user-manual](../.cursor/skills/publish-user-manual/SKILL.md) |
 | 全体レビュー | [review-project](../.cursor/skills/review-project/SKILL.md) |
 | 計画実装のレビュー | [review-implementation](../.cursor/skills/review-implementation/SKILL.md) |
+| 挙動レビュー（読むだけ・名指し） | [review-behavior](../.cursor/agents/review-behavior.md)。親が `/review-behavior` で起動。手順の正本は [review-implementation](../.cursor/skills/review-implementation/SKILL.md) |
 | 計画からマージまでの段階 | [work-phases](../.cursor/skills/work-phases/SKILL.md) |
 | 起動中スケジュール相談 | [schedule-talk](../.cursor/skills/schedule-talk/SKILL.md) |
 | `/consult` 相談モード | [consult](../.cursor/skills/consult/SKILL.md) + [session.md](../.cursor/skills/consult/references/session.md) + [consult.mdc](../.cursor/rules/consult.mdc) |
