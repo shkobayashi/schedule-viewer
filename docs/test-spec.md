@@ -18,14 +18,14 @@
 | Vitest（Node） | `npm test` | `src/**/*.test.ts`。環境は Node。先に検証器を生成する |
 | Vitest（jsdom） | `npm test` | `src/**/*.test.tsx`。jsdom と Testing Library。React コンポーネントの DOM 特性（Issue #490、C3 のあと） |
 | Rust | Linux では `xvfb-run -a cargo test --locked`（`src-tauri`） | `lib.rs`、`json_skills.rs`、MCP 関連のパスとフレーム検査、`tests/mcp_stdio_client.rs` の標準入出力と `--screen` CLI（GUI 不要）、`tests/mcp_running_app.rs` の起動中 GUI 向け MCP 統合試験（Vite 1420・`DISPLAY` 必須。Linux CI は xvfb） |
-| ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1）。警告の上限を超えると失敗する。上限は [開発ガイド](development.md) |
+| ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1）。警告の上限を超えると失敗する。上限は [package.json](../package.json) の `lint`（`--max-warnings`） |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
 | 操作の入口表（段階1） | `npm run check:operation-entries` | `operation-entries.md` と `OPERATION_FORMAL` / 右クリック固定 / MCP 名。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
 | エージェント向け文書 | `npm run check:agent-docs` | `AGENTS.md`、`docs/agents-*.md`、`.cursor/rules/*.mdc`、各スキルの `SKILL.md` と `references/*.md` の相対リンク（ファイルまたは既存ディレクトリ。`#` アンカーは見ない）。コードフェンス内とインラインの `` `...` `` 内は無視。`[text][ref]` 形式と HTML の `href` は見ない。`SKILL.md` の frontmatter に空でない `name` と `description`。`alwaysApply` ルールと `AGENTS.md` のバイト数を標準出力へ出す |
 | 回帰の対応 | `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定である。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない |
 | 循環 import | `npm run check:madge-circular-baseline` | madge とベースライン JSON の一致。**CI frontend で失敗扱い** |
-| 重複（警告） | `npm run check:architecture-warn` | jscpd のみ。重複率の上限を超えても CI では失敗にしない。上限は [開発ガイド](development.md) |
-| カバレッジ | `npm run test:coverage` | Vitest coverage。閾値を下回ると CI で失敗する。数値と上げ方は [開発ガイド](development.md) |
+| 重複（警告） | `npm run check:architecture-warn` | jscpd のみ。重複率の上限を超えても CI では失敗にしない。上限は [scripts/check-architecture-warn.mjs](../scripts/check-architecture-warn.mjs) の `--threshold` |
+| カバレッジ | `npm run test:coverage` | Vitest coverage。閾値を下回ると CI で失敗する。数値は [vitest.config.ts](../vitest.config.ts) の `coverage.thresholds`。上げ方と緩和時の記載は [開発ガイド](development.md) |
 | 型検査 | `npm run typecheck`（`tsc --noEmit`）。`npm run build` は本番ビルドを含む | `src` |
 | Clippy | `cd src-tauri && cargo clippy -- -D warnings` | Rust。警告をエラーにする |
 | スケジュール検証 | `npm run check:schedule` | 引数なしなら `src/sample/schedule.ts` |
@@ -259,6 +259,11 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/check-agent-docs.test.mjs` | `inline backtick link is ignored after fence strip` | — |
 | `scripts/check-agent-docs.test.mjs` | `unquoted broken prose link still fails` | — |
 | `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects empty quoted description` | — |
+| `scripts/check-quality-doc-sources.test.mjs` | `development quality table links sources and omits mutable limits` | — |
+| `scripts/check-quality-doc-sources.test.mjs` | `copied limit guard tolerates Issue #436 in scoped jscpd cell` | — |
+| `scripts/check-quality-doc-sources.test.mjs` | `agent-facing quality pointers reference config sources` | — |
+| `scripts/check-quality-doc-sources.test.mjs` | `recurrence instructions require checks before skill prose in four sources` | — |
+| `scripts/check-quality-doc-sources.test.mjs` | `recurrence mutation fixtures reject prose-only regressions` | — |
 | `scripts/ci-changed-path-flags.test.mjs` | `ci.yml changes job pipes git diff into ci-changed-path-flags.sh` | — |
 | `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: build-user-manual-site.mjs is manual only` | — |
 | `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: manual-site render.mjs is manual only` | — |

@@ -4,7 +4,7 @@
 
 **正本の使い分け:** 質問に答える・場所を絞るときは文書を先に使う（広く検索してからソースを開かない）。**変更とレビュー**では、文書で場所を絞ったあとソースを開き、利用者に見える挙動はソースを正として、ずれた文書を同じ変更で直す。データ形の正本は `docs/*.schema.json`、層と import の正本は [docs/internal-spec.md](docs/internal-spec.md)「コードの境界」。
 
-**新しい事故**が起きたときは、AGENTS に番号付きルールを増やさない。該当する原則の下へ [agents-pitfall-examples.md](docs/agents-pitfall-examples.md) に例を足し、再発防止の手順は implement-change へ同じ変更で足す（[review-implementation](.cursor/skills/review-implementation/SKILL.md)）。短くするときは [docs/agents-d0-inventory.md](docs/agents-d0-inventory.md)（**削除 0**、§1・§6–§7）。
+**新しい事故**が起きたときは、AGENTS に番号付きルールを増やさない。該当する原則の下へ [agents-pitfall-examples.md](docs/agents-pitfall-examples.md) に例を足す。再発防止は、テスト・lint・スキーマ検査・既存 check で止められるならその検査を先に足し、足りないときだけ implement-change の該当条項へ同じ変更で足す（[review-implementation](.cursor/skills/review-implementation/SKILL.md)）。短くするときは [docs/agents-d0-inventory.md](docs/agents-d0-inventory.md)（**削除 0**、§1・§6–§7）。
 
 分析と Issue #490 の作業記録: [docs/agents-d0-inventory.md](docs/agents-d0-inventory.md)（§分析・§1–§8）。
 
@@ -48,7 +48,7 @@
 
 **根本原因:** 「テストを足した」だけでは計画の分岐を通ったことにならない。Konva・Tauri ダイアログ・IME は自動では見られない。誤った計算でも同じ期待値になる入力がある。
 
-**ガード:** [test-spec.md](docs/test-spec.md)、`npm test`、review-implementation「テスト網羅性」、implement-change「テストと確認」。coverage は [development.md](docs/development.md) の閾値を下回ると CI が失敗する。jscpd は警告のまま。**例:** [§7](docs/agents-pitfall-examples.md#原則-7--テストと手動)。
+**ガード:** [test-spec.md](docs/test-spec.md)、`npm test`、review-implementation「テスト網羅性」、implement-change「テストと確認」。coverage は [vitest.config.ts](vitest.config.ts) の `coverage.thresholds` を下回ると CI が失敗する（上げ方と緩和時の記載は [development.md](docs/development.md)）。jscpd は警告のまま（上限は [scripts/check-architecture-warn.mjs](scripts/check-architecture-warn.mjs) の `--threshold`）。**例:** [§7](docs/agents-pitfall-examples.md#原則-7--テストと手動)。
 
 ## 原則 8 — スキルは作業種別の手順書。再発防止はスキルへ。持ち出し用にアプリ実装を混ぜない
 
