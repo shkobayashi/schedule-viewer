@@ -195,3 +195,192 @@ test("empty command is allowed", () => {
   assert.equal(classifyShellCommand("").permission, "allow");
   assert.equal(classifyShellCommand("   ").permission, "allow");
 });
+
+test("denies substitutions inside double quotes and commit -m with them", () => {
+  const denied = [
+    'echo "$(git commit --amend)"',
+    'git commit -m "$(git commit --amend)"',
+    "echo `git commit --amend`",
+  ];
+  for (const command of denied) {
+    assert.equal(
+      classifyShellCommand(command).permission,
+      "deny",
+      `expected deny for ${command}`,
+    );
+  }
+  assert.equal(
+    classifyShellCommand("echo 'git commit --amend'").permission,
+    "allow",
+  );
+  assert.equal(
+    classifyShellCommand('echo "git commit --amend"').permission,
+    "allow",
+  );
+});
+
+test("backslash outside quotes preserves argv boundaries for amend", () => {
+  assert.equal(classifyShellCommand("git commit \\--amend").permission, "deny");
+  assert.equal(classifyShellCommand("git\\ commit --amend").permission, "allow");
+});
+
+test("pull rebase flag order terminator and qr cluster", () => {
+  assert.equal(
+    classifyShellCommand("git pull --rebase=false --rebase").permission,
+    "deny",
+  );
+  assert.equal(
+    classifyShellCommand("git pull --rebase --rebase=false").permission,
+    "allow",
+  );
+  assert.equal(
+    classifyShellCommand("git pull -qr origin main").permission,
+    "deny",
+  );
+  assert.equal(
+    classifyShellCommand("git pull -- --rebase").permission,
+    "allow",
+  );
+});
+
+test("git globals support documented options and deny unknown globals", () => {
+  assert.equal(classifyShellCommand("git -p status").permission, "allow");
+  assert.equal(classifyShellCommand("git -P log -1").permission, "allow");
+  assert.equal(classifyShellCommand("git -C /tmp/repo status").permission, "allow");
+  assert.equal(classifyShellCommand("git -c advice.statusHints=false status").permission, "allow");
+  assert.equal(
+    classifyShellCommand("git -cuser.name=x commit --amend").permission,
+    "deny",
+  );
+  assert.equal(
+    classifyShellCommand("git --exec-path=/usr/bin status").permission,
+    "allow",
+  );
+  assert.equal(
+    classifyShellCommand("git --no-replace-objects status").permission,
+    "allow",
+  );
+  assert.equal(classifyShellCommand("git --nonsense status").permission, "deny");
+});
+
+test("shell dash c skips long rcfile options", () => {
+  const denied = [
+    'bash --rcfile /dev/null -c "git commit --amend"',
+    "sh -c 'git commit --amend'",
+    "zsh --rcs -c 'git commit --amend'",
+  ];
+  for (const command of denied) {
+    assert.equal(
+      classifyShellCommand(command).permission,
+      "deny",
+      `expected deny for ${command}`,
+    );
+  }
+  assert.equal(
+    classifyShellCommand("bash --rcfile /dev/null -c 'echo ok'").permission,
+    "allow",
+  );
+});
+
+test("env command exec wrappers peel to git", () => {
+  const denied = [
+    "env git commit --amend",
+    "env -u PATH git push --force",
+    "command git commit --amend",
+    "command env git commit --amend",
+    "exec -a git git commit --amend",
+  ];
+  for (const command of denied) {
+    assert.equal(
+      classifyShellCommand(command).permission,
+      "deny",
+      `expected deny for ${command}`,
+    );
+  }
+  assert.equal(classifyShellCommand("env FOO=1 git status").permission, "allow");
+  assert.equal(classifyShellCommand("env -i git status").permission, "allow");
+  assert.equal(classifyShellCommand("command -p git status").permission, "allow");
+});
+
+test("push force policy push options and no force independence", () => {
+  assert.equal(classifyShellCommand("git push -ofollow").permission, "allow");
+  assert.equal(
+    classifyShellCommand("git push -o force-with-lease").permission,
+    "allow",
+  );
+  assert.equal(
+    classifyShellCommand("git push --no-force --force-with-lease").permission,
+    "deny",
+  );
+  assert.equal(
+    classifyShellCommand("git push --force=false origin main").permission,
+    "allow",
+  );
+  assert.equal(
+    classifyShellCommand("git push --no-force --force").permission,
+    "deny",
+  );
+  assert.equal(classifyShellCommand("git push --force=true").permission, "deny");
+});
+
+test("trailing shell comments do not hide git verbs", () => {
+  assert.equal(
+    classifyShellCommand("git commit -m 'ok' # not --amend").permission,
+    "allow",
+  );
+  assert.equal(
+    classifyShellCommand("git push origin main # not --force").permission,
+    "allow",
+  );
+  assert.equal(
+    classifyShellCommand("git status # $(unclosed").permission,
+    "allow",
+  );
+  assert.equal(
+    classifyShellCommand("path#file git status").permission,
+    "allow",
+  );
+});
+
+test("pull rebase from git config global only with explicit override", () => {
+  assert.equal(
+    classifyShellCommand("git -c pull.rebase=true pull").permission,
+    "deny",
+  );
+  assert.equal(
+    classifyShellCommand("git -c pull.rebase=true pull --rebase=false").permission,
+    "allow",
+  );
+  assert.equal(
+    classifyShellCommand("git -c pull.rebase=true pull --no-rebase").permission,
+    "allow",
+  );
+});
+
+test("simple grouped commands still classify git", () => {
+  const denied = [
+    "(git commit --amend)",
+    "( git commit --amend )",
+    "{ git commit --amend; }",
+  ];
+  for (const command of denied) {
+    assert.equal(
+      classifyShellCommand(command).permission,
+      "deny",
+      `expected deny for ${command}`,
+    );
+  }
+});
+
+test("hooks.json registers beforeShellExecution block-history-rewrite", () => {
+  const hooksPath = path.join(REPO_ROOT, ".cursor/hooks.json");
+  const hooks = JSON.parse(fs.readFileSync(hooksPath, "utf8"));
+  assert.equal(hooks.version, 1);
+  const entries = hooks.hooks.beforeShellExecution;
+  assert.ok(Array.isArray(entries) && entries.length === 1);
+  const entry = entries[0];
+  assert.equal(entry.command, "node .cursor/hooks/block-history-rewrite.mjs");
+  assert.equal(entry.timeout, 10);
+  assert.equal(entry.failClosed, true);
+  assert.equal(entry.matcher, undefined);
+});

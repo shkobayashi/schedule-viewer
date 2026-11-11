@@ -13,8 +13,51 @@ const MALFORMED_AGENT_MESSAGE =
   "シェルコマンドの解析に失敗したため、このコマンドは拒否されました。";
 
 const MAX_SUBSTITUTION_DEPTH = 8;
-const SHELL_NAMES = new Set(["sh", "bash", "zsh"]);
+const SHELL_NAMES = new Set(["sh", "bash", "zsh", "dash", "ksh"]);
 const WRAPPER_NAMES = new Set(["command", "exec", "env"]);
+
+const SHELL_LONG_OPTS_WITH_ARG = new Set([
+  "rcfile",
+  "init-file",
+  "login",
+]);
+
+const GIT_GLOBALS_WITH_VALUE = new Set([
+  "-C",
+  "-c",
+  "--git-dir",
+  "--work-tree",
+  "--namespace",
+  "--exec-path",
+]);
+
+const GIT_GLOBALS_WITH_VALUE_EQ = new Set([
+  "--git-dir",
+  "--work-tree",
+  "--namespace",
+  "--exec-path",
+]);
+
+const GIT_GLOBALS_BOOL = new Set([
+  "-p",
+  "-P",
+  "--paginate",
+  "--no-pager",
+  "--bare",
+  "--no-replace-objects",
+  "--no-optional-locks",
+  "--literal-pathspecs",
+  "--glob-pathspecs",
+  "--noglob-pathspecs",
+  "--icase-pathspecs",
+  "--version",
+  "--help",
+  "-h",
+  "-v",
+]);
+
+const PULL_REBASE_TRUTHY = new Set(["true", "1", "yes", "on"]);
+const PULL_REBASE_FALSY = new Set(["false", "0", "no", "off"]);
 
 /**
  * @param {string} [reason]
@@ -39,6 +82,73 @@ function allow() {
 function basenameOnly(word) {
   const idx = Math.max(word.lastIndexOf("/"), word.lastIndexOf("\\"));
   return idx === -1 ? word : word.slice(idx + 1);
+}
+
+/**
+ * @param {string} segment
+ */
+function advanceQuoted(c, i, quote, text) {
+  if (quote === "'") {
+    if (c === "'") return { quote: null, i: i + 1, inQuote: true };
+    return { quote, i: i + 1, inQuote: true };
+  }
+  if (quote === '"') {
+    if (c === "\\" && i + 1 < text.length) {
+      return { quote, i: i + 2, inQuote: true };
+    }
+    if (c === '"') return { quote: null, i: i + 1, inQuote: true };
+    return { quote, i: i + 1, inQuote: true };
+  }
+  if (c === "'" || c === '"') {
+    return { quote: c, i: i + 1, inQuote: true };
+  }
+  return { quote, i, inQuote: false };
+}
+
+function stripTrailingShellComment(segment) {
+  let quote = null;
+  for (let i = 0; i < segment.length; i += 1) {
+    const c = segment[i];
+    const next = advanceQuoted(c, i, quote, segment);
+    if (next.inQuote) {
+      quote = next.quote;
+      i = next.i - 1;
+      continue;
+    }
+    if (c === "#" && (i === 0 || /[ \t]/.test(segment[i - 1]))) {
+      return segment.slice(0, i).trimEnd();
+    }
+  }
+  return segment;
+}
+
+/**
+ * @param {string} command
+ */
+function stripAllShellComments(command) {
+  let quote = null;
+  /** @type {string[]} */
+  const parts = [];
+  let start = 0;
+  for (let i = 0; i < command.length; i += 1) {
+    const c = command[i];
+    const next = advanceQuoted(c, i, quote, command);
+    if (next.inQuote) {
+      quote = next.quote;
+      i = next.i - 1;
+      continue;
+    }
+    if (c === "#" && (i === 0 || /[ \t]/.test(command[i - 1]))) {
+      parts.push(command.slice(start, i));
+      while (i < command.length && command[i] !== "\n") {
+        i += 1;
+      }
+      start = i;
+      continue;
+    }
+  }
+  parts.push(command.slice(start));
+  return parts.join("").replace(/\n+$/, "");
 }
 
 /**
@@ -76,6 +186,7 @@ function splitChainSegments(command) {
   const segments = [];
   let start = 0;
   let quote = null;
+  let groupDepth = 0;
   let i = 0;
 
   const pushSeg = (end) => {
@@ -106,6 +217,16 @@ function splitChainSegments(command) {
       i += 1;
       continue;
     }
+    if (c === "{" || c === "(") {
+      groupDepth += 1;
+      i += 1;
+      continue;
+    }
+    if (c === "}" || c === ")") {
+      groupDepth = Math.max(0, groupDepth - 1);
+      i += 1;
+      continue;
+    }
     if (c === "\\" && command[i + 1] === "\n") {
       i += 2;
       continue;
@@ -127,6 +248,10 @@ function splitChainSegments(command) {
       continue;
     }
     if (c === ";" || c === "\n" || c === "|") {
+      if (c === ";" && groupDepth > 0) {
+        i += 1;
+        continue;
+      }
       pushSeg(i);
       start = i + 1;
       i += 1;
@@ -197,7 +322,13 @@ function tokenizeWords(segment) {
       i += 1;
       continue;
     }
-    if (c === "\\" && segment[i + 1] === "\n") {
+    if (c === "\\" && i + 1 < segment.length) {
+      const next = segment[i + 1];
+      if (next === "\n") {
+        i += 2;
+        continue;
+      }
+      buf.push(next);
       i += 2;
       continue;
     }
@@ -238,65 +369,170 @@ function stripAssignmentPrefixes(words) {
 }
 
 /**
- * @param {string[]} argv
- * @param {number} i
+ * @param {string} configValue
+ * @returns {boolean | null}
  */
-function isGitGlobalOption(argv, i) {
-  const t = argv[i];
-  if (t === "-C" || t === "-c") return true;
-  if (
-    t === "--git-dir" ||
-    t === "--work-tree" ||
-    t === "--namespace" ||
-    t === "--paginate" ||
-    t === "--no-pager" ||
-    t === "--bare"
-  ) {
-    return true;
-  }
-  if (
-    t.startsWith("--git-dir=") ||
-    t.startsWith("--work-tree=") ||
-    t.startsWith("--namespace=")
-  ) {
-    return true;
-  }
-  return false;
+function parsePullRebaseConfigValue(configValue) {
+  const val = configValue.toLowerCase();
+  if (PULL_REBASE_TRUTHY.has(val)) return true;
+  if (PULL_REBASE_FALSY.has(val)) return false;
+  return null;
 }
 
 /**
- * @param {string[]} argv
- * @param {number} i
+ * @param {string} nameEq
  */
-function consumeGitGlobalOption(argv, i) {
-  const t = argv[i];
-  if (t === "-C" || t === "-c" || t === "--git-dir" || t === "--work-tree" || t === "--namespace") {
-    return i + 2 <= argv.length ? i + 2 : i + 1;
-  }
-  return i + 1;
+function extractPullRebaseFromConfig(nameEq) {
+  const eq = nameEq.indexOf("=");
+  if (eq === -1) return null;
+  const name = nameEq.slice(0, eq).trim().toLowerCase();
+  if (name !== "pull.rebase") return null;
+  return parsePullRebaseConfigValue(nameEq.slice(eq + 1).trim());
 }
 
 /**
+ * @param {string} t
+ * @returns {{ attached?: string, consumesNext?: boolean, pullRebase?: boolean | null, bool?: boolean, unknown?: boolean }}
+ */
+function classifyGitGlobalToken(t) {
+  if (t === "--") {
+    return { bool: true };
+  }
+  for (const g of GIT_GLOBALS_BOOL) {
+    if (t === g) return { bool: true };
+  }
+  if (t === "-C" && t.length > 2) return { unknown: true };
+  if (t.startsWith("-C") && t.length > 2) {
+    return { bool: true };
+  }
+  if (t.startsWith("-c") && t.length > 2) {
+    const val = extractPullRebaseFromConfig(t.slice(2));
+    return { bool: true, pullRebase: val };
+  }
+  if (GIT_GLOBALS_WITH_VALUE.has(t)) {
+    return { consumesNext: true };
+  }
+  for (const g of GIT_GLOBALS_WITH_VALUE_EQ) {
+    if (t.startsWith(`${g}=`)) {
+      return { bool: true };
+    }
+  }
+  if (t.startsWith("-c") && t.includes("=")) {
+    const val = extractPullRebaseFromConfig(t.slice(2));
+    return { bool: true, pullRebase: val };
+  }
+  if (t.startsWith("--") && t.includes("=")) {
+    const eq = t.indexOf("=");
+    const head = t.slice(0, eq);
+    if (
+      GIT_GLOBALS_WITH_VALUE_EQ.has(head) ||
+      GIT_GLOBALS_BOOL.has(head)
+    ) {
+      return { bool: true };
+    }
+    return { unknown: true };
+  }
+  if (t.startsWith("-") && !t.startsWith("--")) {
+    const letters = t.slice(1);
+    const allowed = new Set(["C", "c", "p", "P", "h", "v", "q"]);
+    for (const ch of letters) {
+      if (!allowed.has(ch)) {
+        return { unknown: true };
+      }
+    }
+    return { bool: true };
+  }
+  if (t.startsWith("--")) {
+    return { unknown: true };
+  }
+  return { attached: t };
+}
+
+/**
+ * @typedef {{ ok: false, reason: 'unknown' | 'malformed' }} GitParseFail
+ * @typedef {{ ok: true, sub: string, rest: string[], pullRebaseConfig: boolean | null }} GitParseOk
+ * @typedef {GitParseFail | GitParseOk} GitParseResult
+ */
+
+/**
  * @param {string[]} argv
- * @returns {{ sub: string, rest: string[] } | null}
+ * @returns {GitParseResult}
  */
 function parseGitInvocation(argv) {
   let i = 0;
+  /** @type {boolean | null} */
+  let pullRebaseConfig = null;
+
   while (i < argv.length) {
     const t = argv[i];
     if (t === "--") {
-      return null;
+      i += 1;
+      break;
     }
-    if (isGitGlobalOption(argv, i)) {
-      i = consumeGitGlobalOption(argv, i);
+  if (!t.startsWith("-")) {
+      return {
+        ok: true,
+        sub: t.toLowerCase(),
+        rest: argv.slice(i + 1),
+        pullRebaseConfig,
+      };
+    }
+
+    const cls = classifyGitGlobalToken(t);
+    if (cls.unknown) {
+      return { ok: false, reason: "unknown" };
+    }
+    if (cls.attached) {
+      return {
+        ok: true,
+        sub: cls.attached.toLowerCase(),
+        rest: argv.slice(i + 1),
+        pullRebaseConfig,
+      };
+    }
+    if (cls.pullRebase !== undefined && cls.pullRebase !== null) {
+      pullRebaseConfig = cls.pullRebase;
+    }
+    if (t.startsWith("-c") && t.length > 2) {
+      const val = extractPullRebaseFromConfig(t.slice(2));
+      if (val !== null) pullRebaseConfig = val;
+    }
+    if (t === "-c" || t === "-C") {
+      if (i + 1 >= argv.length) {
+        return { ok: false, reason: "malformed" };
+      }
+      const next = argv[i + 1];
+      if (t === "-c") {
+        const val = extractPullRebaseFromConfig(next);
+        if (val !== null) pullRebaseConfig = val;
+      }
+      i += 2;
       continue;
     }
-    if (t.startsWith("-")) {
-      return null;
+    if (cls.consumesNext) {
+      if (i + 1 >= argv.length) {
+        return { ok: false, reason: "malformed" };
+      }
+      if (t === "-c") {
+        const val = extractPullRebaseFromConfig(argv[i + 1]);
+        if (val !== null) pullRebaseConfig = val;
+      }
+      i += 2;
+      continue;
     }
-    return { sub: t.toLowerCase(), rest: argv.slice(i + 1) };
+    i += 1;
   }
-  return null;
+
+  if (i >= argv.length) {
+    return { ok: false, reason: "malformed" };
+  }
+  const sub = argv[i].toLowerCase();
+  return {
+    ok: true,
+    sub,
+    rest: argv.slice(i + 1),
+    pullRebaseConfig,
+  };
 }
 
 /**
@@ -330,57 +566,143 @@ function gitCommitDenied(args) {
 }
 
 /**
- * @param {string} flag
- */
-function pushForceTokenDenied(flag) {
-  if (flag === "--force") return true;
-  if (flag.startsWith("--force-with-lease")) return true;
-  if (flag.startsWith("--force-if-includes")) return true;
-  return false;
-}
-
-/**
  * @param {string[]} args
  */
 function gitPushDenied(args) {
+  let plainForce = false;
+  let hasLease = false;
+  let hasIfIncludes = false;
   let i = 0;
+
   while (i < args.length) {
     const t = args[i];
     if (t === "--") break;
-    if (pushForceTokenDenied(t)) return true;
-    if (t === "-o" || t === "--repo") {
+    if (t.startsWith("+")) return true;
+
+    if (t === "--force-with-lease" || t.startsWith("--force-with-lease=")) {
+      hasLease = true;
+      i += 1;
+      continue;
+    }
+    if (t === "--force-if-includes") {
+      hasIfIncludes = true;
+      i += 1;
+      continue;
+    }
+    if (t === "--no-force") {
+      plainForce = false;
+      i += 1;
+      continue;
+    }
+    if (t === "--force") {
+      plainForce = true;
+      i += 1;
+      continue;
+    }
+    if (t.startsWith("--force=")) {
+      const v = t.slice("--force=".length).toLowerCase();
+      plainForce = !(v === "false" || v === "0" || v === "no");
+      i += 1;
+      continue;
+    }
+    if (t === "-o" || t === "--push-option") {
+      i += 2;
+      continue;
+    }
+    if (t.startsWith("--push-option=")) {
+      i += 1;
+      continue;
+    }
+    if (t === "--repo") {
       i += 2;
       continue;
     }
     if (t.startsWith("-") && !t.startsWith("--")) {
-      if (t.includes("f")) return true;
+      let idx = 1;
+      let sawO = false;
+      while (idx < t.length) {
+        const ch = t[idx];
+        if (ch === "o") {
+          sawO = true;
+          break;
+        }
+        if (ch === "f") plainForce = true;
+        idx += 1;
+      }
+      if (sawO && idx + 1 < t.length) {
+        i += 1;
+        continue;
+      }
+      if (sawO) {
+        i += 2;
+        continue;
+      }
       i += 1;
       continue;
     }
-    if (t.startsWith("+")) return true;
     i += 1;
   }
-  return false;
+
+  if (hasLease || hasIfIncludes) return true;
+  return plainForce;
 }
 
 /**
  * @param {string[]} args
+ * @param {boolean | null} pullRebaseConfig
  */
-function gitPullDenied(args) {
-  let wantsRebase = false;
-  let blocksRebase = false;
+function gitPullDenied(args, pullRebaseConfig) {
+  /** @type {'rebase' | 'no-rebase' | null} */
+  let explicit = null;
+  let pastTerminator = false;
+
   for (const t of args) {
+    if (t === "--") {
+      pastTerminator = true;
+      continue;
+    }
+    if (pastTerminator) continue;
+
     if (t === "--no-rebase" || t === "--rebase=false") {
-      blocksRebase = true;
+      explicit = "no-rebase";
+      continue;
     }
     if (t === "--rebase" || t === "-r") {
-      wantsRebase = true;
+      explicit = "rebase";
+      continue;
     }
     if (t.startsWith("--rebase=") && t !== "--rebase=false") {
-      wantsRebase = true;
+      explicit = "rebase";
+      continue;
+    }
+    if (t.startsWith("-") && !t.startsWith("--") && t.includes("r")) {
+      let hasO = false;
+      for (const ch of t.slice(1)) {
+        if (ch === "o") hasO = true;
+      }
+      if (!hasO || t === "-r" || t === "-qr" || /r/.test(t)) {
+        if (t.includes("r") && !t.startsWith("-o")) {
+          explicit = "rebase";
+        }
+      }
     }
   }
-  return wantsRebase && !blocksRebase;
+
+  if (explicit === "rebase") return true;
+  if (explicit === "no-rebase") return false;
+  return pullRebaseConfig === true;
+}
+
+/**
+ * @param {GitParseOk} parsed
+ */
+function gitSubcommandDenied(parsed) {
+  const { sub, rest, pullRebaseConfig } = parsed;
+  if (sub === "commit") return gitCommitDenied(rest);
+  if (sub === "push") return gitPushDenied(rest);
+  if (sub === "rebase") return true;
+  if (sub === "pull") return gitPullDenied(rest, pullRebaseConfig);
+  return false;
 }
 
 /**
@@ -388,49 +710,104 @@ function gitPullDenied(args) {
  */
 function gitArgvRewriteDenied(argv) {
   const parsed = parseGitInvocation(argv);
-  if (!parsed) return false;
-  const { sub, rest } = parsed;
-  if (sub === "commit") return gitCommitDenied(rest);
-  if (sub === "push") return gitPushDenied(rest);
-  if (sub === "rebase") return true;
-  if (sub === "pull") return gitPullDenied(rest);
-  return false;
+  if (!parsed.ok) return "unknown";
+  return gitSubcommandDenied(parsed) ? "rewrite" : false;
+}
+
+/**
+ * @param {string[]} argv
+ */
+function skipEnvOptions(argv) {
+  let i = 0;
+  while (i < argv.length) {
+    const t = argv[i];
+    if (t === "-i" || t === "-0" || t === "--ignore-environment") {
+      i += 1;
+      continue;
+    }
+    if (t === "-u" || t === "--unset") {
+      i += 2;
+      continue;
+    }
+    if (t.startsWith("--unset=")) {
+      i += 1;
+      continue;
+    }
+    if (t.startsWith("-") && t !== "--") {
+      i += 1;
+      continue;
+    }
+    break;
+  }
+  return argv.slice(i);
+}
+
+/**
+ * @param {string[]} argv
+ */
+function skipCommandOptions(argv) {
+  let i = 0;
+  while (i < argv.length) {
+    const t = argv[i];
+    if (t === "-p" || t === "-v" || t === "-V") {
+      i += 1;
+      continue;
+    }
+    if (t === "--") {
+      return argv.slice(i + 1);
+    }
+    if (t.startsWith("-")) {
+      i += 1;
+      continue;
+    }
+    break;
+  }
+  return argv.slice(i);
+}
+
+/**
+ * @param {string[]} argv
+ */
+function skipExecOptions(argv) {
+  let i = 0;
+  while (i < argv.length) {
+    const t = argv[i];
+    if (t === "-a" || t === "-l") {
+      i += 2;
+      continue;
+    }
+    if (t.startsWith("-") && t !== "--") {
+      i += 1;
+      continue;
+    }
+    break;
+  }
+  return argv.slice(i);
 }
 
 /**
  * @param {string[]} words
- * @returns {{ ok: boolean, targets: { type: 'argv', argv: string[] } | { type: 'script', script: string }[] }}
  */
-function expandWordsToTargets(words) {
-  if (words.length === 0) {
-    return { ok: true, targets: [] };
-  }
-  let argv = words;
-  const head = argv[0].toLowerCase();
-  if (WRAPPER_NAMES.has(head)) {
-    argv = argv.slice(1);
-  }
-  if (argv.length === 0) {
-    return { ok: true, targets: [] };
-  }
-
-  const base = basenameOnly(argv[0]).toLowerCase();
-  if (SHELL_NAMES.has(base)) {
-    const script = extractShellDashCScript(argv);
-    if (script === undefined) {
-      return { ok: true, targets: [{ type: "argv", argv }] };
+function peelWrapperArgv(words) {
+  let argv = stripAssignmentPrefixes(words);
+  for (let guard = 0; guard < 16; guard += 1) {
+    if (argv.length === 0) break;
+    const base = basenameOnly(argv[0]).toLowerCase();
+    if (base === "env") {
+      argv = skipEnvOptions(argv.slice(1));
+      continue;
     }
-    return { ok: true, targets: [{ type: "script", script }] };
+    if (base === "command") {
+      argv = skipCommandOptions(argv.slice(1));
+      continue;
+    }
+    if (base === "exec") {
+      argv = skipExecOptions(argv.slice(1));
+      continue;
+    }
+    break;
   }
-
-  if (head === "eval" && argv.length > 1) {
-    return {
-      ok: true,
-      targets: [{ type: "script", script: argv.slice(1).join(" ") }],
-    };
-  }
-
-  return { ok: true, targets: [{ type: "argv", argv }] };
+  return argv;
 }
 
 /**
@@ -443,21 +820,60 @@ function extractShellDashCScript(argv) {
   let sawC = false;
   for (let i = 1; i < argv.length; i += 1) {
     const t = argv[i];
+    if (t.startsWith("--")) {
+      const name = t.slice(2).split("=")[0];
+      if (SHELL_LONG_OPTS_WITH_ARG.has(name)) {
+        if (t.includes("=")) {
+          continue;
+        }
+        i += 1;
+      }
+      continue;
+    }
     if (t === "-c" || t === "-lc") {
       sawC = true;
-      if (i + 1 < argv.length) {
-        script = argv[i + 1];
-      }
+      if (i + 1 < argv.length) script = argv[i + 1];
       break;
     }
-    if (t.startsWith("-") && t.includes("c") && t.length > 2) {
-      sawC = true;
-      script = argv[i + 1] ?? "";
-      break;
+    if (t.startsWith("-") && !t.startsWith("--")) {
+      const body = t.slice(1);
+      if (body.includes("c")) {
+        sawC = true;
+        if (i + 1 < argv.length) script = argv[i + 1];
+        break;
+      }
     }
   }
   if (!sawC) return undefined;
   return script ?? "";
+}
+
+/**
+ * @param {string[]} words
+ * @returns {{ targets: { type: 'argv', argv: string[] } | { type: 'script', script: string }[] }}
+ */
+function expandWordsToTargets(words) {
+  const argv = peelWrapperArgv(words);
+  if (argv.length === 0) {
+    return { targets: [] };
+  }
+
+  const base = basenameOnly(argv[0]).toLowerCase();
+  if (SHELL_NAMES.has(base)) {
+    const script = extractShellDashCScript(argv);
+    if (script === undefined) {
+      return { targets: [{ type: "argv", argv }] };
+    }
+    return { targets: [{ type: "script", script }] };
+  }
+
+  if (base === "eval" && argv.length > 1) {
+    return {
+      targets: [{ type: "script", script: argv.slice(1).join(" ") }],
+    };
+  }
+
+  return { targets: [{ type: "argv", argv }] };
 }
 
 /**
@@ -471,14 +887,26 @@ function isGitArgv(argv) {
 
 /**
  * @param {string} segment
+ */
+function unwrapGroupedSegment(segment) {
+  let s = segment.trim();
+  const paren = s.match(/^\(\s*([\s\S]*?)\s*\)$/);
+  if (paren) return paren[1].trim();
+  const brace = s.match(/^\{\s*([\s\S]*?)\s*;?\s*\}$/);
+  if (brace) return brace[1].trim();
+  return s;
+}
+
+/**
+ * @param {string} segment
  * @returns {ClassifyResult | null}
  */
 function analyzeSegment(segment) {
-  const { ok, words } = tokenizeWords(segment.trim());
+  const withoutComment = stripTrailingShellComment(segment);
+  const grouped = unwrapGroupedSegment(withoutComment);
+  const { ok, words } = tokenizeWords(grouped.trim());
   if (!ok) return deny("malformed");
-  const stripped = stripAssignmentPrefixes(words);
-  const { ok: expandOk, targets } = expandWordsToTargets(stripped);
-  if (!expandOk) return deny("malformed");
+  const { targets } = expandWordsToTargets(words);
 
   for (const target of targets) {
     if (target.type === "script") {
@@ -488,9 +916,9 @@ function analyzeSegment(segment) {
     }
     if (!isGitArgv(target.argv)) continue;
     const gitArgs = target.argv.slice(1);
-    if (gitArgvRewriteDenied(gitArgs)) {
-      return deny("rewrite");
-    }
+    const verdict = gitArgvRewriteDenied(gitArgs);
+    if (verdict === "unknown" || verdict === "malformed") return deny("malformed");
+    if (verdict === "rewrite") return deny("rewrite");
   }
   return null;
 }
@@ -498,7 +926,6 @@ function analyzeSegment(segment) {
 /**
  * @param {string} command
  * @param {number} depth
- * @param {boolean} inner
  * @returns {ClassifyResult | null}
  */
 function scanSubstitutions(command, depth = 0) {
@@ -517,7 +944,29 @@ function scanSubstitutions(command, depth = 0) {
         i += 2;
         continue;
       }
-      if (c === '"') quote = null;
+      if (c === '"') {
+        quote = null;
+        i += 1;
+        continue;
+      }
+      if (command.startsWith("$(", i)) {
+        const close = findClosingParen(command, i + 2);
+        if (close === -1) return deny("malformed");
+        const innerText = command.slice(i + 2, close);
+        const nested = classifyShellCommand(innerText, depth + 1, true);
+        if (nested.permission === "deny") return nested;
+        i = close + 1;
+        continue;
+      }
+      if (c === "`") {
+        const close = command.indexOf("`", i + 1);
+        if (close === -1) return deny("malformed");
+        const innerText = command.slice(i + 1, close);
+        const nested = classifyShellCommand(innerText, depth + 1, true);
+        if (nested.permission === "deny") return nested;
+        i = close + 1;
+        continue;
+      }
       i += 1;
       continue;
     }
@@ -591,10 +1040,10 @@ function findClosingParen(s, start) {
  *
  * @param {string} command
  * @param {number} [substitutionDepth]
- * @param {boolean} [nested]
+ * @param {boolean} [_nested]
  * @returns {ClassifyResult}
  */
-export function classifyShellCommand(command, substitutionDepth = 0, nested = false) {
+export function classifyShellCommand(command, substitutionDepth = 0, _nested = false) {
   if (typeof command !== "string") {
     return deny("malformed");
   }
@@ -605,12 +1054,13 @@ export function classifyShellCommand(command, substitutionDepth = 0, nested = fa
     return deny("malformed");
   }
 
-  const subScan = scanSubstitutions(command, substitutionDepth);
+  const sansComment = stripAllShellComments(command);
+  const subScan = scanSubstitutions(sansComment, substitutionDepth);
   if (subScan && subScan.permission === "deny") {
     return subScan;
   }
 
-  const segments = splitChainSegments(command);
+  const segments = splitChainSegments(sansComment);
   for (const segment of segments) {
     const result = analyzeSegment(segment);
     if (result) return result;

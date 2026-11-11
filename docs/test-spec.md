@@ -273,6 +273,17 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/block-history-rewrite.test.mjs` | `substitution with rewrite is denied` | — |
 | `scripts/block-history-rewrite.test.mjs` | `unbalanced double quotes deny` | — |
 | `scripts/block-history-rewrite.test.mjs` | `empty command is allowed` | — |
+| `scripts/block-history-rewrite.test.mjs` | `denies substitutions inside double quotes and commit -m with them` | — |
+| `scripts/block-history-rewrite.test.mjs` | `backslash outside quotes preserves argv boundaries for amend` | — |
+| `scripts/block-history-rewrite.test.mjs` | `pull rebase flag order terminator and qr cluster` | — |
+| `scripts/block-history-rewrite.test.mjs` | `git globals support documented options and deny unknown globals` | — |
+| `scripts/block-history-rewrite.test.mjs` | `shell dash c skips long rcfile options` | — |
+| `scripts/block-history-rewrite.test.mjs` | `env command exec wrappers peel to git` | — |
+| `scripts/block-history-rewrite.test.mjs` | `push force policy push options and no force independence` | — |
+| `scripts/block-history-rewrite.test.mjs` | `trailing shell comments do not hide git verbs` | — |
+| `scripts/block-history-rewrite.test.mjs` | `pull rebase from git config global only with explicit override` | — |
+| `scripts/block-history-rewrite.test.mjs` | `simple grouped commands still classify git` | — |
+| `scripts/block-history-rewrite.test.mjs` | `hooks.json registers beforeShellExecution block-history-rewrite` | — |
 | `scripts/check-quality-doc-sources.test.mjs` | `development quality table links sources and omits mutable limits` | — |
 | `scripts/check-quality-doc-sources.test.mjs` | `copied limit guard tolerates Issue #436 in scoped jscpd cell` | — |
 | `scripts/check-quality-doc-sources.test.mjs` | `agent-facing quality pointers reference config sources` | — |
