@@ -238,10 +238,24 @@ function lineLooksLikeClauseMoveTableRow(line) {
 }
 
 /**
+ * @param {string} left
+ * @param {string} right
+ */
+function isLegitimateMoveTableHeader(left, right) {
+  return (
+    left.includes("旧") &&
+    left.includes("番号") &&
+    right.includes("新") &&
+    right.includes("番号")
+  );
+}
+
+/**
  * @param {string} line
+ * @param {{ beforeDataRows: boolean }} context
  * @returns {"separator" | "header" | { old: number, new: number } | { malformed: true, raw: string }}
  */
-function parseClauseMoveTableRow(line) {
+function parseClauseMoveTableRow(line, { beforeDataRows }) {
   const normalized = normalizedClauseMoveTableLine(line);
   const match = normalized.match(/^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/);
   if (!match) {
@@ -252,7 +266,7 @@ function parseClauseMoveTableRow(line) {
   if (/^[-:\s]+$/.test(left) && /^[-:\s]+$/.test(right)) {
     return "separator";
   }
-  if (left.includes("番号") || right.includes("番号")) {
+  if (isLegitimateMoveTableHeader(left, right) && beforeDataRows) {
     return "header";
   }
   if (!/^\d+$/.test(left) || !/^\d+$/.test(right)) {
@@ -301,7 +315,9 @@ export function parseClauseMoveTable(markdown) {
       continue;
     }
 
-    const row = parseClauseMoveTableRow(line);
+    const row = parseClauseMoveTableRow(line, {
+      beforeDataRows: pairs.length === 0,
+    });
     if (row === "separator" || row === "header") {
       tableStarted = true;
       continue;

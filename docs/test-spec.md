@@ -269,6 +269,9 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/check-agent-docs.test.mjs` | `clause move table rejects indented duplicate new 55` | — |
 | `scripts/check-agent-docs.test.mjs` | `clause move table rejects single-cell malformed row` | — |
 | `scripts/check-agent-docs.test.mjs` | `clause move table accepts indented valid mapping row` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table rejects mixed numeric and new header cell after data` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table rejects mixed old header cell and numeric after data` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table rejects repeated header row after data` | — |
 | `scripts/check-agent-docs.test.mjs` | `clause move table accepts extra mapping rows after required pairs` | — |
 | `scripts/check-agent-docs.test.mjs` | `reworded screen clause 55 still passes` | — |
 | `scripts/check-agent-docs.test.mjs` | `screen missing live clauses 52 to 54 fails` | — |

@@ -275,6 +275,57 @@ test("clause move table accepts indented valid mapping row", () => {
   assert.deepEqual(collectClauseMoveErrors(root), []);
 });
 
+test("clause move table rejects mixed numeric and new header cell after data", () => {
+  const root = tempRepoRoot();
+  const split = repoSplitDoc.replace(
+    "| 54 | 57 |",
+    "| 54 | 57 |\n| 99 | 新番号 |",
+  );
+  writeClauseFixtures(root, {
+    splitMarkdown: split,
+    screenMarkdown: minimalScreenClauses51to57(),
+  });
+  const errors = collectClauseMoveErrors(root);
+  assert.ok(
+    errors.some((e) => e.includes("malformed row")),
+    errors.join("; "),
+  );
+});
+
+test("clause move table rejects mixed old header cell and numeric after data", () => {
+  const root = tempRepoRoot();
+  const split = repoSplitDoc.replace(
+    "| 54 | 57 |",
+    "| 54 | 57 |\n| 旧番号 | 99 |",
+  );
+  writeClauseFixtures(root, {
+    splitMarkdown: split,
+    screenMarkdown: minimalScreenClauses51to57(),
+  });
+  const errors = collectClauseMoveErrors(root);
+  assert.ok(
+    errors.some((e) => e.includes("malformed row")),
+    errors.join("; "),
+  );
+});
+
+test("clause move table rejects repeated header row after data", () => {
+  const root = tempRepoRoot();
+  const split = repoSplitDoc.replace(
+    "| 54 | 57 |",
+    "| 54 | 57 |\n| 旧番号 | 新番号 |",
+  );
+  writeClauseFixtures(root, {
+    splitMarkdown: split,
+    screenMarkdown: minimalScreenClauses51to57(),
+  });
+  const errors = collectClauseMoveErrors(root);
+  assert.ok(
+    errors.some((e) => e.includes("malformed row")),
+    errors.join("; "),
+  );
+});
+
 test("clause move table accepts extra mapping rows after required pairs", () => {
   const root = tempRepoRoot();
   const split = repoSplitDoc.replace(
