@@ -4,7 +4,7 @@ use std::path::{Component, Path, PathBuf};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
-pub const JSON_SKILL_NAMES: [&str; 7] = [
+pub const JSON_SKILL_NAMES: [&str; 8] = [
     "write-schedule",
     "write-members",
     "write-calendar",
@@ -12,6 +12,7 @@ pub const JSON_SKILL_NAMES: [&str; 7] = [
     "write-fields",
     "write-colors",
     "schedule-talk",
+    "how-to",
 ];
 
 const RESOURCE_SKILLS_DIR: &str = "json-skills";
@@ -1361,6 +1362,20 @@ mod tests {
             .expect("build-msix.ps1");
         for name in JSON_SKILL_NAMES {
             let needle = format!("json-skills\\{name}\\SKILL.md");
+            assert!(
+                msix_script.contains(&needle),
+                "build-msix.ps1 missing {needle}"
+            );
+        }
+        for manual in [
+            "user-manual.md",
+            "getting-started.md",
+            "find-by-intent.md",
+            "tutorial.md",
+            "features.md",
+            "privacy.md",
+        ] {
+            let needle = format!("json-skills\\how-to\\manual\\{manual}");
             assert!(
                 msix_script.contains(&needle),
                 "build-msix.ps1 missing {needle}"

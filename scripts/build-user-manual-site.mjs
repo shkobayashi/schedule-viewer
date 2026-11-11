@@ -15,7 +15,7 @@ const cssSrc = path.join(__dirname, "manual-site", "manual.css");
 const GITHUB_BLOB =
   "https://github.com/shkobayashi/schedule-viewer/blob/main/docs/";
 
-const PAGES = [
+export const PAGES = [
   {
     source: path.join(docsDir, "user-manual.md"),
     out: "index.html",
@@ -73,7 +73,7 @@ const NAV_ITEMS = [
   { href: "privacy.html", nav: "privacy", label: "プライバシーポリシー" },
 ];
 
-function buildSlugSet(markdown) {
+export function buildSlugSet(markdown) {
   const slugger = new GithubSlugger();
   const ids = new Set();
   for (const line of markdown.split("\n")) {

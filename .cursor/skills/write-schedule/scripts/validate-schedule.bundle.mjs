@@ -4080,7 +4080,7 @@ function formatAjvErrors(data2, errors) {
     message: localizeAjvError(error)
   }));
 }
-function formatValidationErrors2(errors) {
+function formatValidationErrors(errors) {
   return errors.map((issue) => `${issue.path}: ${issue.message}`).join("\n");
 }
 
@@ -4167,8 +4167,8 @@ function validateSchedule(data2) {
   }
   return { ok: true, document: normalizeScheduleDocument(document2) };
 }
-function formatValidationErrors(errors) {
-  return formatValidationErrors2(errors);
+function formatValidationErrors2(errors) {
+  return formatValidationErrors(errors);
 }
 
 // scripts/validate-schedule-cli.ts
@@ -4187,7 +4187,7 @@ try {
 }
 var result = validateSchedule(data);
 if (!result.ok) {
-  console.error(formatValidationErrors(result.errors));
+  console.error(formatValidationErrors2(result.errors));
   process.exit(1);
 }
 console.log("OK");

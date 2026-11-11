@@ -306,7 +306,7 @@ describe("settings, hierarchy, and diff chrome", () => {
     expect(screen.getByRole("button", { name: "削除" })).toBeEnabled();
   });
 
-  it("shows the browser skill note, the seven skill names, and a disabled install button", async () => {
+  it("shows the browser skill note, the eight skill names, and a disabled install button", async () => {
     renderFull();
     openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: /設定/ }));
@@ -319,7 +319,8 @@ describe("settings, hierarchy, and diff chrome", () => {
     expect(within(settings).getByText(/write-schedule/)).toHaveTextContent("write-fields");
     expect(within(settings).getByText(/write-schedule/)).toHaveTextContent("write-colors");
     expect(within(settings).getByText(/write-schedule/)).toHaveTextContent("schedule-talk");
-    expect(within(settings).getByText(/の7つをまとめて置きます/)).toBeInTheDocument();
+    expect(within(settings).getByText(/write-schedule/)).toHaveTextContent("how-to");
+    expect(within(settings).getByText(/の8つをまとめて置きます/)).toBeInTheDocument();
     expect(within(settings).getByRole("button", { name: "置く" })).toBeDisabled();
     expect(within(settings).getByRole("button", { name: "外す" })).toBeDisabled();
   });

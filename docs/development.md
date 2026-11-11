@@ -282,9 +282,9 @@ Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` 
 CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。読み取りステップは `shell: bash` にする。Release の Windows ランナーの既定シェルは PowerShell で、bash のまま書くと構文エラーになる。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
 - `src-tauri/`、`rust-toolchain.toml`、`read-screen/*`、`.cursor/skills/schedule-talk/*` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。Ubuntu だけ `xvfb-run -a`）が動く
-- `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`、`test:ci`（カバレッジの閾値を下回ると失敗）、`check:architecture-warn`（jscpd。上限を超えても警告）、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物と `src/model/generated/` の差分検査である
+- `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/`、`.cursor/skills/how-to/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`、`test:ci`（カバレッジの閾値を下回ると失敗）、`check:architecture-warn`（jscpd。上限を超えても警告）、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物・`how-to` の `manual/` 6 ファイルと `src/model/generated/` の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
-- `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`）が動く。`package.json` と `package-lock.json` が変わったときも同じ
+- `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`、`build:validate-skill`、マニュアル6ファイルと `how-to/manual/` の差分検査、`node --test scripts/how-to-citations.test.mjs`）が動く。`package.json` と `package-lock.json` が変わったときも同じ
 - `docs/*.md` や `README.md` だけの変更（操作マニュアル以外）では、フロントと Rust と `manual` はスキップする。集約ジョブ `ci` は成功する
 
 ワークフロー全体の `permissions` は `contents: read` である。Release の `contents: write` は配布ジョブだけに付ける。Pages の `pages: write` と `id-token: write` は deploy ジョブだけに付ける。`actions/checkout` は `persist-credentials: false` である。
@@ -336,7 +336,7 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 12. `npm run build:validate-skill`
 13. `npm run version:check`
 14. `npm audit --audit-level=high`
-15. `.github/workflows/ci.yml` の frontend ジョブにある `git diff --exit-code` を、同じパスで実行する
+15. `.github/workflows/ci.yml` の frontend ジョブにある `git diff --exit-code` を、同じパスで実行する（`how-to/manual/` の6ファイルを含む）
 
 `src-tauri/` を変えたときは、手元の OS の Clippy と `cargo test --locked` をこの 1 回に足す。
 
@@ -756,7 +756,7 @@ npm run tauri build
 
 成果物は `src-tauri/target/release/bundle/` に出る。ファイル名に入るバージョンは [`npm run version:check`](#main-に載せる前のバージョン上げ) で揃えている番号である。初回は依存のコンパイルで時間がかかる。
 
-配布パッケージには `.cursor/skills/write-schedule/`、`.cursor/skills/write-members/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/`、`.cursor/skills/schedule-talk/` が `json-skills/` として同梱される。deb や NSIS などのインストーラーは、これらをホームやプロジェクトへコピーしない。利用者が置くのは、デスクトップ版の設定「JSON作成スキルを置く」からである。
+配布パッケージには `.cursor/skills/write-schedule/`、`.cursor/skills/write-members/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/`、`.cursor/skills/schedule-talk/`、`.cursor/skills/how-to/`（`manual/` に画像を除いたマニュアル6ファイル）が `json-skills/` として同梱される。deb や NSIS などのインストーラーは、これらをホームやプロジェクトへコピーしない。利用者が置くのは、デスクトップ版の設定「JSON作成スキルを置く」からである。
 
 ### Ubuntu
 
@@ -818,7 +818,7 @@ MSI の作成で `failed to run light.exe` と出たときは、Windows のオ�
 
 ### Microsoft Store 用 MSIX
 
-Partner Center の Product identity と同じ名前で、安定版だけ MSIX を作る。Tauri は MSIX を出さない。[packaging/msix/build-msix.ps1](../packaging/msix/build-msix.ps1) が `MakeAppx` で署名しないパッケージを作る。スクリプトは `target/release` の `json-skills/` と `read-screen/` を実行ファイルの隣へ入れる。`json-skills/write-schedule/SKILL.md`、`json-skills/write-members/SKILL.md`、`json-skills/write-calendar/SKILL.md`、`json-skills/write-workspace/SKILL.md`、`json-skills/write-fields/SKILL.md`、`json-skills/write-colors/SKILL.md`、`json-skills/schedule-talk/SKILL.md`、`json-skills/schedule-talk/references/point-by-appearance.md`、`json-skills/schedule-talk/references/screen-judgment.md`、`json-skills/schedule-talk/references/consultation-flow.md`、`read-screen/SKILL.md` のどれかが無いときは、MakeAppx の前に失敗し、MSIX を作らない。WebView2 は同梱しない。マニフェストの `PackageDependency` にも書かない。Windows 11 には WebView2 が入っている。Windows 10 で入っていない場合は、上の「Windows の開発環境」のとおり Evergreen Bootstrapper を入れる。
+Partner Center の Product identity と同じ名前で、安定版だけ MSIX を作る。Tauri は MSIX を出さない。[packaging/msix/build-msix.ps1](../packaging/msix/build-msix.ps1) が `MakeAppx` で署名しないパッケージを作る。スクリプトは `target/release` の `json-skills/` と `read-screen/` を実行ファイルの隣へ入れる。`json-skills/write-schedule/SKILL.md`、`json-skills/write-members/SKILL.md`、`json-skills/write-calendar/SKILL.md`、`json-skills/write-workspace/SKILL.md`、`json-skills/write-fields/SKILL.md`、`json-skills/write-colors/SKILL.md`、`json-skills/schedule-talk/SKILL.md`、`json-skills/how-to/SKILL.md`、`json-skills/how-to/manual/user-manual.md`、`json-skills/how-to/manual/getting-started.md`、`json-skills/how-to/manual/find-by-intent.md`、`json-skills/how-to/manual/tutorial.md`、`json-skills/how-to/manual/features.md`、`json-skills/how-to/manual/privacy.md`、`json-skills/schedule-talk/references/point-by-appearance.md`、`json-skills/schedule-talk/references/screen-judgment.md`、`json-skills/schedule-talk/references/consultation-flow.md`、`read-screen/SKILL.md` のどれかが無いときは、MakeAppx の前に失敗し、MSIX を作らない。WebView2 は同梱しない。マニフェストの `PackageDependency` にも書かない。Windows 11 には WebView2 が入っている。Windows 10 で入っていない場合は、上の「Windows の開発環境」のとおり Evergreen Bootstrapper を入れる。
 
 `Square44x44Logo.png` だけを置くと、Windows はタスクバーでロゴを色付きの板の上に縮小して描く。板の色は `#0078D4` で、角丸の外に出る。スクリプトは `icon.png` から、16、20、24、30、32、36、40、48、60、64、72、80、96、256 の各辺について、`Square44x44Logo.targetsize-<px>.png` と、同じ絵の `_altform-unplated`、`_altform-lightunplated` を作る。四隅は透明である。明るいテーマのタスクバーは `lightunplated`、暗いテーマは `unplated` を使う。続けて Windows SDK の `makepri.exe` で `resources.pri` を作り、これらの名前をパッケージのリソースに載せる。ファイルを置いただけではタスクバーは板のままである。`makepri.exe` が無いとき、または `resources.pri` に 24px、暗いテーマ用のプレートなし、明るいテーマ用のプレートなしのどれかが無いときは、MakeAppx の前に失敗する。`BackgroundColor` は `transparent` のままである。`makeappx.exe` と `makepri.exe` は Windows SDK の x64 から、新しいものを使う。
 

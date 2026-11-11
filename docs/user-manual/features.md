@@ -270,7 +270,7 @@ GitHub Releases から入れた Ubuntu 版と Apple Silicon の Mac 版には「
 
 ![設定の「JSON作成スキルを置く」欄。置く先と範囲の選択が見える](images/ui-settings-skills.png)
 
-「JSON作成スキルを置く」では、write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk の7つをまとめて置けます。Cursor、Claude Code、GitHub Copilot のうち置く先を1つ以上選び、ユーザー全体か指定したフォルダかを選びます。自分の作業ならユーザー全体、チームで同じ手順をリポジトリに残すなら指定したフォルダを使います。GitHub Copilot はユーザー全体なら `~/.copilot/skills/`、指定したフォルダなら `.github/skills/` です。置いたパスだけを示し、git には入れません。同名フォルダがあるときは上書きを確認します。「外す」で、同じ選び方の場所から7つだけ削除できます。デスクトップ版だけ使えます。ブラウザ版では同じ欄に、デスクトップ版で置く旨だけ出ます。`.cursor` と `.claude` と `.copilot` と `.github` と、それぞれの `skills` がシンボリックリンクのときは置けません。外すときも、リンクの先は消しません。
+「JSON作成スキルを置く」では、write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk、how-to の8つをまとめて置けます。`how-to` は操作を聞かれたときに手順を一つ返すスキルで、画像のないマニュアルが横の `manual/` に置かれます。Cursor、Claude Code、GitHub Copilot のうち置く先を1つ以上選び、ユーザー全体か指定したフォルダかを選びます。自分の作業ならユーザー全体、チームで同じ手順をリポジトリに残すなら指定したフォルダを使います。GitHub Copilot はユーザー全体なら `~/.copilot/skills/`、指定したフォルダなら `.github/skills/` です。置いたパスだけを示し、git には入れません。同名フォルダがあるときは上書きを確認します。「外す」で、同じ選び方の場所から8つだけ削除できます。デスクトップ版だけ使えます。ブラウザ版では同じ欄に、デスクトップ版で置く旨だけ出ます。`.cursor` と `.claude` と `.copilot` と `.github` と、それぞれの `skills` がシンボリックリンクのときは置けません。外すときも、リンクの先は消しません。
 
 ## ほかのプログラムがファイルを書き換えたとき
 
