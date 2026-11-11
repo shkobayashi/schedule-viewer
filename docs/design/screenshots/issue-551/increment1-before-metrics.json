@@ -1,0 +1,92 @@
+{
+  "phase": "before",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "capturedAt": "2026-11-11T06:44:32.728Z",
+  "schemes": [
+    {
+      "scheme": "light",
+      "metrics": {
+        "s": "1.15",
+        "spaceSm": "calc(8px * 1.15)",
+        "spaceMd": "calc(10px * 1.15)",
+        "radiusDialog": "calc(18px * 1.15)",
+        "elevationModal": "0 24px 64px rgba(0, 0, 0, 0.2)",
+        "commandPalette": {
+          "paddingTop": "23px",
+          "paddingRight": "23px",
+          "paddingBottom": "23px",
+          "paddingLeft": "23px",
+          "marginBottom": "0px",
+          "gap": "11.5px",
+          "borderRadius": "20.7px",
+          "boxShadow": "(set)"
+        },
+        "commandPaletteInput": {
+          "paddingTop": "9.2px",
+          "paddingRight": "11.5px",
+          "paddingBottom": "9.2px",
+          "paddingLeft": "11.5px",
+          "marginBottom": "9.2px",
+          "gap": "normal",
+          "borderRadius": "12px",
+          "boxShadow": "(set)"
+        },
+        "commandPaletteItem": {
+          "paddingTop": "9.2px",
+          "paddingRight": "11.5px",
+          "paddingBottom": "9.2px",
+          "paddingLeft": "11.5px",
+          "marginBottom": "0px",
+          "gap": "9.2px",
+          "borderRadius": "12px",
+          "boxShadow": "(set)"
+        }
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment1-before-light-command-palette.png"
+    },
+    {
+      "scheme": "dark",
+      "metrics": {
+        "s": "1.15",
+        "spaceSm": "calc(8px * 1.15)",
+        "spaceMd": "calc(10px * 1.15)",
+        "radiusDialog": "calc(18px * 1.15)",
+        "elevationModal": "0 24px 64px rgba(0, 0, 0, 0.55)",
+        "commandPalette": {
+          "paddingTop": "23px",
+          "paddingRight": "23px",
+          "paddingBottom": "23px",
+          "paddingLeft": "23px",
+          "marginBottom": "0px",
+          "gap": "11.5px",
+          "borderRadius": "20.7px",
+          "boxShadow": "(set)"
+        },
+        "commandPaletteInput": {
+          "paddingTop": "9.2px",
+          "paddingRight": "11.5px",
+          "paddingBottom": "9.2px",
+          "paddingLeft": "11.5px",
+          "marginBottom": "9.2px",
+          "gap": "normal",
+          "borderRadius": "12px",
+          "boxShadow": "(set)"
+        },
+        "commandPaletteItem": {
+          "paddingTop": "9.2px",
+          "paddingRight": "11.5px",
+          "paddingBottom": "9.2px",
+          "paddingLeft": "11.5px",
+          "marginBottom": "0px",
+          "gap": "9.2px",
+          "borderRadius": "12px",
+          "boxShadow": "(set)"
+        }
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment1-before-dark-command-palette.png"
+    }
+  ]
+}

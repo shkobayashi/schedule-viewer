@@ -6,6 +6,7 @@ import {
   explanationMarkHaloStroke,
   explanationMarkRingDashStyle,
 } from "../model/explanationMarkColor";
+import { EXPLANATION_TRIAL_STROKE_WIDTH } from "../design/uiTokens";
 import { paletteFor, type ResolvedColorScheme } from "../model/palette";
 import type { ExplanationMarkHole } from "../model/explainOverlayLayout";
 
@@ -54,7 +55,7 @@ function ExplanationHoleRing({
         height={hole.height}
         fill="transparent"
         stroke={stroke}
-        strokeWidth={2}
+        strokeWidth={EXPLANATION_TRIAL_STROKE_WIDTH}
         dash={konvaDash}
         listening={false}
       />

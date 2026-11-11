@@ -1,0 +1,166 @@
+{
+  "phase": "after",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "capturedAt": "2026-11-11T06:58:02.920Z",
+  "captures": [
+    {
+      "case": "filter-panel",
+      "scheme": "light",
+      "metrics": {
+        "s": "1.15",
+        "filterPanel": {
+          "padding": "13.8px",
+          "gap": "normal",
+          "borderRadius": "8px",
+          "boxShadow": "(set)",
+          "height": "435.312px"
+        },
+        "filterBar": null,
+        "filterChip": null,
+        "diffStrip": null,
+        "diffHeader": null,
+        "detailPanel": null
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment2-after-light-filter-panel.png"
+    },
+    {
+      "case": "filter-chip",
+      "scheme": "light",
+      "metrics": {
+        "s": "1.15",
+        "filterPanel": null,
+        "filterBar": {
+          "padding": "4px 12px",
+          "gap": "6px",
+          "borderRadius": "0px",
+          "boxShadow": "none",
+          "height": "32.1875px"
+        },
+        "filterChip": {
+          "padding": "2px 8px",
+          "gap": "6px",
+          "borderRadius": "999px",
+          "boxShadow": "none",
+          "height": "22px"
+        },
+        "diffStrip": null,
+        "diffHeader": null,
+        "detailPanel": null
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment2-after-light-filter-chip.png"
+    },
+    {
+      "case": "diff-strip",
+      "scheme": "light",
+      "metrics": {
+        "s": "1.15",
+        "filterPanel": null,
+        "filterBar": null,
+        "filterChip": null,
+        "diffStrip": {
+          "padding": "0px",
+          "gap": "normal",
+          "borderRadius": "0px",
+          "boxShadow": "none",
+          "height": "748.875px"
+        },
+        "diffHeader": {
+          "padding": "6.9px 13.8px",
+          "gap": "9.2px",
+          "borderRadius": "0px",
+          "boxShadow": "none",
+          "height": "47.5625px"
+        },
+        "detailPanel": {
+          "padding": "13.8px",
+          "gap": "normal",
+          "borderRadius": "0px",
+          "boxShadow": "(set)",
+          "height": "748.875px"
+        }
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment2-after-light-diff-strip.png"
+    },
+    {
+      "case": "filter-panel",
+      "scheme": "dark",
+      "metrics": {
+        "s": "1.15",
+        "filterPanel": {
+          "padding": "13.8px",
+          "gap": "normal",
+          "borderRadius": "8px",
+          "boxShadow": "(set)",
+          "height": "435.312px"
+        },
+        "filterBar": null,
+        "filterChip": null,
+        "diffStrip": null,
+        "diffHeader": null,
+        "detailPanel": null
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment2-after-dark-filter-panel.png"
+    },
+    {
+      "case": "filter-chip",
+      "scheme": "dark",
+      "metrics": {
+        "s": "1.15",
+        "filterPanel": null,
+        "filterBar": {
+          "padding": "4px 12px",
+          "gap": "6px",
+          "borderRadius": "0px",
+          "boxShadow": "none",
+          "height": "32.1875px"
+        },
+        "filterChip": {
+          "padding": "2px 8px",
+          "gap": "6px",
+          "borderRadius": "999px",
+          "boxShadow": "none",
+          "height": "22px"
+        },
+        "diffStrip": null,
+        "diffHeader": null,
+        "detailPanel": null
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment2-after-dark-filter-chip.png"
+    },
+    {
+      "case": "diff-strip",
+      "scheme": "dark",
+      "metrics": {
+        "s": "1.15",
+        "filterPanel": null,
+        "filterBar": null,
+        "filterChip": null,
+        "diffStrip": {
+          "padding": "0px",
+          "gap": "normal",
+          "borderRadius": "0px",
+          "boxShadow": "none",
+          "height": "746.875px"
+        },
+        "diffHeader": {
+          "padding": "6.9px 13.8px",
+          "gap": "9.2px",
+          "borderRadius": "0px",
+          "boxShadow": "none",
+          "height": "47.5625px"
+        },
+        "detailPanel": {
+          "padding": "13.8px",
+          "gap": "normal",
+          "borderRadius": "0px",
+          "boxShadow": "(set)",
+          "height": "746.875px"
+        }
+      },
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment2-after-dark-diff-strip.png"
+    }
+  ]
+}

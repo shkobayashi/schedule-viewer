@@ -1782,7 +1782,7 @@ input[type="number"] {
   min-width: calc(320px * var(--s));
   padding: calc(12px * var(--s));
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   box-shadow: var(--elevation-menu);
   box-sizing: border-box;
@@ -1827,7 +1827,7 @@ input[type="number"] {
 .filter-panel-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: calc(10px * var(--s));
+  gap: var(--space-md);
 }
 
 .filter-panel-field {
@@ -1873,8 +1873,8 @@ input[type="number"] {
 .filter-field-rows {
   display: flex;
   flex-direction: column;
-  gap: calc(10px * var(--s));
-  margin-top: calc(4px * var(--s));
+  gap: var(--space-md);
+  margin-top: var(--space-xs);
 }
 
 .filter-field-row {
@@ -1887,7 +1887,7 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: calc(8px * var(--s));
+  gap: var(--space-sm);
   min-width: 0;
 }
 
@@ -1920,7 +1920,7 @@ input[type="number"] {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: calc(8px * var(--s)) calc(10px * var(--s));
+  gap: var(--space-sm) var(--space-md);
 }
 
 .filter-field-control {
@@ -1944,7 +1944,7 @@ input[type="number"] {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: calc(8px * var(--s)) calc(10px * var(--s));
+  gap: var(--space-sm) var(--space-md);
   flex: 1 1 100%;
 }
 
@@ -1970,7 +1970,7 @@ input[type="number"] {
 .filter-panel-checks {
   display: flex;
   flex-direction: column;
-  gap: calc(4px * var(--s, 1));
+  gap: var(--space-xs);
   --filter-panel-check-row: calc(18px * var(--s, 1));
 }
 
@@ -2007,7 +2007,7 @@ input[type="number"] {
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(100% + calc(4px * var(--s, 1)));
+  top: calc(100% + var(--space-xs));
   z-index: 1;
   display: flex;
   flex-direction: column;
@@ -2022,7 +2022,7 @@ input[type="number"] {
 .filter-panel-milestone-options {
   list-style: none;
   margin: 0;
-  padding: calc(4px * var(--s, 1)) 0;
+  padding: var(--space-xs) 0;
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
@@ -2034,7 +2034,7 @@ input[type="number"] {
   text-align: left;
   border: 0;
   background: transparent;
-  padding: calc(6px * var(--s, 1)) calc(8px * var(--s, 1));
+  padding: calc(6px * var(--s, 1)) var(--space-sm);
   font-size: calc(13px * var(--s, 1));
   color: var(--text);
   cursor: pointer;
@@ -2050,7 +2050,7 @@ input[type="number"] {
 .filter-panel-milestone-status {
   margin: 0;
   flex-shrink: 0;
-  padding: calc(6px * var(--s, 1)) calc(8px * var(--s, 1));
+  padding: calc(6px * var(--s, 1)) var(--space-sm);
   font-size: calc(13px * var(--s, 1));
   color: var(--text-secondary);
   border-top: 1px solid var(--border);
@@ -2064,7 +2064,7 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: calc(8px * var(--s));
+  gap: var(--space-sm);
   font-size: calc(11px * var(--s));
   min-height: calc(4px + calc(11px * var(--s) * 1.5));
 }
@@ -2103,15 +2103,15 @@ input[type="number"] {
 .filter-panel-tag-options {
   display: flex;
   flex-direction: column;
-  gap: calc(4px * var(--s, 1));
+  gap: var(--space-xs);
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(100% + calc(4px * var(--s, 1)));
+  top: calc(100% + var(--space-xs));
   z-index: 1;
   list-style: none;
   margin: 0;
-  padding: calc(4px * var(--s, 1)) 0;
+  padding: var(--space-xs) 0;
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -2125,7 +2125,7 @@ input[type="number"] {
   align-items: center;
   gap: calc(6px * var(--s, 1));
   min-height: var(--filter-panel-check-row);
-  padding: 0 calc(8px * var(--s, 1));
+  padding: 0 var(--space-sm);
   font-size: calc(13px * var(--s, 1));
   color: var(--text-secondary);
   cursor: pointer;
@@ -2156,7 +2156,7 @@ input[type="number"] {
 }
 
 .filter-panel-tag-none {
-  padding: calc(6px * var(--s, 1)) calc(8px * var(--s, 1));
+  padding: calc(6px * var(--s, 1)) var(--space-sm);
   font-size: calc(13px * var(--s, 1));
   color: var(--text-secondary);
 }
@@ -2199,7 +2199,7 @@ input[type="number"] {
   align-items: center;
   gap: 6px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
   padding: 2px 8px;
   font-size: calc(11px * var(--s));
@@ -3736,8 +3736,8 @@ html[data-color-scheme="dark"] .command-palette {
 .command-palette-input {
   width: 100%;
   box-sizing: border-box;
-  margin-bottom: calc(8px * var(--s));
-  padding: calc(8px * var(--s)) calc(10px * var(--s));
+  margin-bottom: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
   font-size: calc(13px * var(--s));
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -3757,10 +3757,10 @@ html[data-color-scheme="dark"] .command-palette {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: calc(8px * var(--s));
+  gap: var(--space-sm);
   width: 100%;
   text-align: left;
-  padding: calc(8px * var(--s)) calc(10px * var(--s));
+  padding: var(--space-sm) var(--space-md);
   border: none;
   border-radius: var(--radius-md);
   background: transparent;
@@ -4843,7 +4843,7 @@ html[data-color-scheme="dark"] .command-palette {
   min-height: 0;
   width: 100%;
   margin: 0;
-  padding: calc(8px * var(--s)) calc(6px * var(--s));
+  padding: var(--space-sm) calc(6px * var(--s));
   box-sizing: border-box;
   border: none;
   background: var(--panel);
@@ -4871,7 +4871,7 @@ html[data-color-scheme="dark"] .command-palette {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: calc(8px * var(--s));
+  gap: var(--space-sm);
   padding: calc(6px * var(--s)) calc(12px * var(--s));
   flex-shrink: 0;
 }
@@ -4886,12 +4886,12 @@ html[data-color-scheme="dark"] .command-palette {
 .diff-strip-actions {
   display: flex;
   align-items: center;
-  gap: calc(8px * var(--s));
+  gap: var(--space-sm);
   flex-shrink: 0;
 }
 
 .diff-strip-btn {
-  padding: calc(6px * var(--s)) calc(14px * var(--s));
+  padding: calc(6px * var(--s)) var(--space-lg);
   font-size: calc(12px * var(--s));
   border-radius: var(--radius-md);
   border: 1px solid var(--text-secondary);
@@ -4918,7 +4918,7 @@ html[data-color-scheme="dark"] .command-palette {
   min-height: 0;
   width: 100%;
   margin: 0;
-  padding: calc(8px * var(--s)) calc(12px * var(--s));
+  padding: var(--space-sm) calc(12px * var(--s));
   box-sizing: border-box;
   resize: none;
   border: none;
@@ -4947,7 +4947,7 @@ html[data-color-scheme="dark"] .command-palette {
   min-height: 0;
   overflow: auto;
   border-top: 1px solid var(--border);
-  padding: calc(4px * var(--s)) 0;
+  padding: var(--space-xs) 0;
   outline: none;
 }
 
@@ -4968,7 +4968,7 @@ html[data-color-scheme="dark"] .command-palette {
   gap: calc(6px * var(--s));
   width: 100%;
   box-sizing: border-box;
-  padding: 0 calc(8px * var(--s));
+  padding: 0 var(--space-sm);
   border: none;
   background: transparent;
   color: var(--text);
@@ -5026,7 +5026,7 @@ html[data-color-scheme="dark"] .command-palette {
 
 .diff-strip-row-body {
   margin: 0;
-  padding: calc(4px * var(--s)) calc(12px * var(--s)) calc(8px * var(--s));
+  padding: var(--space-xs) calc(12px * var(--s)) var(--space-sm);
   font-family: ui-monospace, Consolas, monospace;
   font-size: calc(11px * var(--s));
   line-height: 1.45;
@@ -5036,7 +5036,7 @@ html[data-color-scheme="dark"] .command-palette {
 
 .diff-strip-row-status {
   margin: 0;
-  padding: 0 calc(12px * var(--s)) calc(8px * var(--s));
+  padding: 0 calc(12px * var(--s)) var(--space-sm);
   font-size: calc(12px * var(--s));
   color: var(--text-secondary);
 }

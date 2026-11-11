@@ -18,6 +18,8 @@ type DateInputProps = {
   id: string;
   value: string;
   onChange: (value: string) => void;
+  /** Optional class for the text field only (detail/bulk use `ui-field`). */
+  inputClassName?: string;
 };
 
 type MonthCursor = { year: number; month: number };
@@ -33,7 +35,7 @@ function shiftMonth(cursor: MonthCursor, delta: number): MonthCursor {
   return { year: date.getUTCFullYear(), month: date.getUTCMonth() };
 }
 
-export function DateInput({ id, value, onChange }: DateInputProps) {
+export function DateInput({ id, value, onChange, inputClassName }: DateInputProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -49,6 +51,7 @@ export function DateInput({ id, value, onChange }: DateInputProps) {
         inputMode="numeric"
         autoComplete="off"
         spellCheck={false}
+        className={inputClassName}
         value={shown}
         onFocus={() => setDraft(value)}
         onChange={(event) => {

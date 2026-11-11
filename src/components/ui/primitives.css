@@ -101,6 +101,10 @@
   transition: border-color var(--motion-duration-fast) var(--motion-ease-standard);
 }
 
+.field .date-input input.ui-field {
+  padding-right: calc(28px * var(--s));
+}
+
 .ui-dialog-surface {
   border-radius: var(--radius-dialog);
   box-shadow: var(--elevation-modal);
