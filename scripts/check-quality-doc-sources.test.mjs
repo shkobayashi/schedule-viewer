@@ -87,10 +87,30 @@ export function assertNoCopiedLimits(text, limits) {
   }
 }
 
+/** @param {string} prose development.md threshold policy paragraph */
+export function assertNoDualLimitCopyPolicy(prose) {
+  assert.doesNotMatch(prose, /上の表の両方/);
+  assert.doesNotMatch(prose, /上の表と揃える/);
+  assert.doesNotMatch(
+    prose,
+    /数値は\s*vitest\.config\.ts\s*と上の表の両方に、同じ変更で書く/,
+  );
+}
+
+/** @param {string} text */
+function assertRecurrenceGapCondition(text) {
+  const tied =
+    /検査では止められない/.test(text) ||
+    /足りないときだけ/.test(text) ||
+    /検査だけで足りる/.test(text) ||
+    /止められるならその検査を先に足し、足りないときだけ/.test(text);
+  assert.ok(tied, "recurrence must tie skill prose to 止められない or 足りない");
+}
+
 /** @param {string} text */
 function assertRecurrenceCheckFirst(text, { forbidProseOnly = true } = {}) {
   assert.match(text, /検査.*先に足/);
-  assert.match(text, /(足りない|止められない|だけ)/);
+  assertRecurrenceGapCondition(text);
   if (forbidProseOnly) {
     assert.doesNotMatch(text, /再発を防ぐ検査または該当する節/);
     assert.doesNotMatch(text, /手順を該当スキルへ同じ変更で必ず足す/);
@@ -125,7 +145,7 @@ test("development quality table links sources and omits mutable limits", () => {
   assert.match(prose, /check-architecture-warn\.mjs/);
   assert.match(prose, /約 1 ポイント/);
   assert.match(prose, /pull request に書く/);
-  assert.doesNotMatch(prose, /表.*数値.*同じ変更/);
+  assertNoDualLimitCopyPolicy(prose);
   assertNoCopiedLimits(prose, limits);
 });
 
@@ -224,12 +244,22 @@ test("recurrence mutation fixtures reject prose-only regressions", () => {
     "再発を防ぐ手順を該当スキルへ同じ変更で必ず足したか";
   assert.throws(() => assertRecurrenceCheckFirst(badReviewProject), assert.AssertionError);
 
+  const oldDualCopySentence =
+    "数値は vitest.config.ts と上の表の両方に、同じ変更で書く。";
+  assert.throws(
+    () => assertNoDualLimitCopyPolicy(oldDualCopySentence),
+    assert.AssertionError,
+  );
+
   const badDevPolicy = `カバレッジの閾値は 80 である。表と vitest.config.ts の両方を同じ変更で直す。`;
   assert.throws(
     () => assertNoCopiedLimits(badDevPolicy, ["80"]),
     /must not copy limit/,
   );
-  assert.match(badDevPolicy, /表と vitest/);
+
+  const strippedRecurrence =
+    "**再発防止:** 同じ失敗をテスト、lint、スキーマ検査、または既存の check の失敗で止められるときは、その検査を先に足す。レビューで直したあとは、例を短く足し、条項の直後へ追記する。末尾にだけ「58.」を足して新ルール化しない。";
+  assert.throws(() => assertRecurrenceCheckFirst(strippedRecurrence), assert.AssertionError);
 
   const badJscpdRow = "| check:architecture-warn | 上限 6% を超えると CI が失敗する |";
   assert.throws(() => assertNoCopiedLimits(badJscpdRow, ["6"]), /must not copy limit/);
