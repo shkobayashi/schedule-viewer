@@ -49,13 +49,27 @@ npm run capture:phase3-before   # 5175 · origin/feature-436
 npm run capture:phase3-evidence # 5174 · 本ブランチ + compare 合成
 ```
 
-## あとで整える余地（フェーズ 3 では未着手）
+## Issue #551（スペーシングと試し行トークン）— 完了
 
-- ダイアログ内の個別フォーム（エクスポート、ガイド、コマンドパレット）の `border-radius` / `padding` 直書き。コマンドパレットは Issue #551 増分 1 で、入力・候補行の余白と gap だけ `var(--space-sm)` / `var(--space-md)` へ寄せた（フレーム `padding: calc(20px * var(--s))`、オーバーレイ 72px、空一覧 12px はトークン一致が無いため据え置き）。`ExportFormatDialog` の未スケール `gap: 8px` 等は同 Issue の別増分
-- フィルタパネル・差分ストリップの影と gap の統一（増分 2 済み: スケール済み 4/8/10/14px と `border-radius: 8px`・チップ `999px` をトークン化。`.filter-bar` の未スケール `6px` / `4px 12px`、チップ `2px 8px`、パネル `calc(12px * var(--s))`、`6px` 行間、差分の `calc(12px * var(--s))`、`.detail-panel` の `-6px 0 24px` は据え置き）
-- 詳細パネル内フィールドの `.ui-field` 移行（増分 3 済み: `TaskDetailPanel` / `BulkTaskDetailPanel` のテキスト・テキストエリア・select・日付・タグ・TODO 入力と、`DateInput` の任意 `inputClassName`。レンジ・チェックボックス・色・担当・適用ボタンは除外。`DateInput` 単体利用は従来クラスのまま）
-- Konva 試し行の点線・ハロ色（意味色は維持しつつ UI トークンとの整理）
-- 操作マニュアル 19 図（`capture:manual-screenshots`）の撮り直し
+| 増分 | 内容 | 証跡 |
+| --- | --- | --- |
+| 1 | コマンドパレット入力・候補行の `var(--space-sm)` / `var(--space-md)` | `docs/design/screenshots/issue-551/increment1-*` |
+| 2 | フィルタパネル・差分ストリップの gap／半径（チップ `radius-pill`） | `increment2-*`（パネル crop はラベル欠けの可能性あり — [EVIDENCE-NOTES](screenshots/issue-551/EVIDENCE-NOTES.md)） |
+| 3 | 詳細／一括の `.ui-field`、日付の任意クラス。単行 +5px 前後の意図的高さ変化 | `increment3-*`（上部 crop と `*-todo` / `*-apply` 補助） |
+| 4 | `uiTokens.ts` の試し行 Konva ダッシュ `[6,4]`・枠幅 `2`（`--border-width-focus` と一致）。`connectionArcHalo` は `palette.chart` のみ | `increment4-*-explain-overlay.png` |
+
+**意図的に残しているリテラル（後続 Issue に回さない）**
+
+- `ExportFormatDialog` 等の **未スケール** `gap: 8px` など — 既存のスケール済み `--space-*` と数値が一致せず、無理な置換を避ける。
+- コマンドパレット枠 `padding: calc(20px * var(--s))`、オーバーレイ **72px**、空一覧 **12px**。
+- `.filter-bar` の **6px** / `4px 12px`、チップ `2px 8px`、フィルタパネル内 **6px** 行間、差分 `calc(12px * var(--s))` — **差分ストリップへ影トークンは足さない**。
+- `.detail-panel` の左向き影 `-6px 0 24px var(--menu-shadow)`。
+
+**手動マニュアル図** — PR #488 で 19 図は既に Raycast 標準に合わせて撮り直し済み。本 Issue では `phase3-*` および `capture:manual-screenshots` の PNG を上書きしない。
+
+## あとで整える余地（フェーズ 3 以外）
+
+- ガイドダイアログなど、コマンドパレット・エクスポート以外のダイアログ内フォームの半径／余白直書き
 
 ## implement-change からの参照
 

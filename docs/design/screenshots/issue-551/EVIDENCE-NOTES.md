@@ -15,3 +15,7 @@ Captured at `--s = 1.15` (1440×900, auto scale). Single-line controls gain abou
 **Intended dark change:** input surface `rgb(35, 36, 44)` (#23242c) vs panel `rgb(26, 27, 34)` (#1a1b22).
 
 Side-by-side (top crop only): `increment3-compare-light-task-detail.png`, `increment3-compare-dark-task-detail.png`.
+
+## Increment 4 — explanation overlay (trial Konva)
+
+Full viewport captures at `--s = 1.15` via `__manualScreenshotShowExplainOverlay` on `examples/playground.schedule.json` (`increment4-{before,after}-{light,dark}-explain-overlay.png`). Veil, summary band, trial dashed bar, and numbered balloons are visible. **Halo rings on colored marks** use `explanationMarkHaloStroke` when `color` is set; the hook fixture’s marks include `color` but halo contrast is **not** asserted from these crops — see `explanationTrialTokens.test.ts` and `explanationMarkColor.test.ts`. Trial predecessor halos use `chart.connectionArcHalo` passed from the timeline (no `#f8fafc` default).

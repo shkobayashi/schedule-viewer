@@ -103,6 +103,12 @@ export function uiTokensFor(scheme: ResolvedColorScheme): UiTokenSet {
   return scheme === "dark" ? DARK_CHROME : LIGHT_CHROME;
 }
 
+/** Konva stroke width for explanation mark rings and trial task bars (matches `borderWidthFocus`). */
+export const EXPLANATION_TRIAL_STROKE_WIDTH = 2;
+
+/** Konva dash pattern for trial bars and trial milestone outlines (geometry unchanged). */
+export const EXPLANATION_TRIAL_KONVA_DASH: readonly [number, number] = [6, 4];
+
 /** CSS custom properties for Issue #449 phase 3 — single source applied with palette. */
 export function uiTokenCssProperties(
   scheme: ResolvedColorScheme,
