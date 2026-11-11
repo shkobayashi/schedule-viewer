@@ -16,6 +16,6 @@ alwaysApply: true
 | 夜間 | 同じワークフローが、既定ブランチ `develop` の `schedule`（cron `0 16 * * *`、UTC、日本時間 1:00）で回す。このファイルが `develop` に入るまでは動かない |
 | リリース前 | 「リリース前に回す検査」の自動を全部回す。手動の回帰も行う。緊急のリリースは手動の回帰だけ飛ばしてよい |
 
-`src-tauri/` を変えた作業の途中は、手元の OS で `cargo clippy --lib -- -D warnings` と `cargo test --lib --locked` を足す。`tests/mcp_running_app.rs` を含む全体の `cargo test --locked` は、PR 前の一回、リリース前、CI で回す。
+`src-tauri/` を変えた作業の途中は、手元の OS で `cd src-tauri && cargo clippy --lib -- -D warnings && cargo test --lib --locked` を足す。`tests/mcp_running_app.rs` を含む全体の `cargo test --locked` は、PR 前の一回、リリース前、CI で回す。
 
-文書だけの修正のあとに、フロントエンドの全テストを理由なく繰り返さない。
+差分が文書だけのときは、作業中も「PR 前の一回」も、フロントエンド向けの検査を理由なく求めない。該当する文書用の checker とリンク検査は、差分に合わせて回す。PR 本文では省略した「PR 前の一回」の項目を not-run と書く。

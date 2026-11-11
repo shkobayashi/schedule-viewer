@@ -43,4 +43,4 @@ Issue がマージ可能になったら、[docs/agents-phase-log.md](../../../do
 
 ## 操作の対称
 
-人が UI でできることは MCP と CLI からもできる方向を標準とする。逆方向（JSON を貼る専用 UI、画面操作の自動再生、画面ごとの置き換え UI）は求めない。文言の正本は [docs/operation-entries.md](../../../docs/operation-entries.md) の冒頭である。このスキルではそこへ指すだけにする。
+文言の正本は [docs/operation-entries.md](../../../docs/operation-entries.md) の冒頭である。このスキルではそこへ指すだけにする。
