@@ -12,6 +12,7 @@ import {
   parseMadgeCycleCount,
   shaIdentityStatus,
   usableForGuidelineFromRun,
+  validateIssue475HistoricalPhases,
   validatePhaseLogFile,
   validatePhaseLogStructure,
 } from "./format-check-record.mjs";
@@ -103,10 +104,15 @@ test("parseJscpdDuplicatedLinesPercent from synthetic jscpd ERROR over threshold
   assert.equal(n, 5.18);
 });
 
-test("parseJscpdDuplicatedLinesPercent silent under threshold stays unknown", () => {
+test("parseJscpdDuplicatedLinesPercent from synthetic jscpd silent detection line", () => {
   const n = parseJscpdDuplicatedLinesPercent(
     readFixture("jscpd-silent-under-threshold-synthetic.txt"),
   );
+  assert.equal(n, 4.2);
+});
+
+test("parseJscpdDuplicatedLinesPercent without detection percent stays unknown", () => {
+  const n = parseJscpdDuplicatedLinesPercent(readFixture("jscpd-silent-empty-synthetic.txt"));
   assert.equal(n, "unknown");
 });
 
@@ -141,7 +147,7 @@ test("collectMetrics maps synthetic fixtures to command rows", () => {
   assert.equal(metrics.lintWarnings, 12);
   assert.equal(metrics.coverageLinesPercent, 81.45);
   assert.equal(metrics.madgeCycleCount, 0);
-  assert.equal(metrics.jscpdDuplicatedLinesPercent, "unknown");
+  assert.equal(metrics.jscpdDuplicatedLinesPercent, 4.2);
 });
 
 test("nonzero command exit marks failed aggregate status", () => {
@@ -209,8 +215,34 @@ test("phase log migration preserves #551 and #475 structured history", () => {
   assert.equal(result.ok, true, result.issues.join("; "));
 });
 
-test("phase log validator allows future numeric token fields", () => {
-  const sample = `
+const PHASE_LOG_CAVEAT_FOR_FIXTURE =
+  "計画の軽い見直しは、別の Cloud Agent セッションとして残らないインライン確認であり、索引に無いことだけをもって省略したとは書かない";
+
+const POSITIVE_475_YAML = `phases:
+  - task_type: 計画
+    model_id: grok-4.7
+    effort: high
+    source: coordinator launch record
+  - task_type: 実装
+    model_id: composer-2.5
+    effort: unknown
+  - task_type: レビュー
+    model_id: grok-4.7
+    effort: high
+    source: coordinator review record
+  - task_type: 修正
+    model_id: composer-2.5
+    effort: unknown
+merge_summary:
+  git_size: "26 テキストファイル +1922 / −33、8 バイナリ"
+  review_findings: "文書の食い違い 5 件"
+  fix_rounds: unknown
+  tokens: 120000
+  measured_on: 2026-03-02
+`;
+
+function minimalPhaseLogWith475Yaml(yamlBody) {
+  return `
 ## Issue #551
 verified_head_sha: \`693fff1d57c4f1ce6180dd3772fce997f0d392bb\`
 ### phase-history
@@ -219,19 +251,68 @@ merge_summary:
   review_findings: unknown
   fix_rounds: unknown
 effort: unknown
-tokens: 120000
-${"計画の軽い見直しは、別の Cloud Agent セッションとして残らないインライン確認であり、索引に無いことだけをもって省略したとは書かない"}
+${PHASE_LOG_CAVEAT_FOR_FIXTURE}
 ## Issue #475
 verified_head_sha: \`798f4761693d6a38bb164b85859be98f0238fae7\`
 ### phase-history
-merge_summary:
-  git_size: "26 テキストファイル +1922 / −33、8 バイナリ"
-  文書の食い違い 5 件
-  fix_rounds: unknown
-  effort: high
-  source: coordinator launch record
+\`\`\`yaml
+${yamlBody}
+\`\`\`
 `;
+}
+
+test("phase log validator allows future numeric token fields", () => {
+  const sample = minimalPhaseLogWith475Yaml(POSITIVE_475_YAML);
   assert.equal(validatePhaseLogStructure(sample).ok, true);
+});
+
+test("phase log validator rejects #475 plan effort not high", () => {
+  const yaml = POSITIVE_475_YAML.replace(
+    /- task_type: 計画[\s\S]*?source: coordinator launch record/,
+    `- task_type: 計画
+    model_id: grok-4.7
+    effort: unknown
+    source: coordinator launch record`,
+  );
+  assert.equal(validateIssue475HistoricalPhases(yaml).ok, false);
+});
+
+test("phase log validator rejects #475 review effort not high", () => {
+  const yaml = POSITIVE_475_YAML.replace(
+    /- task_type: レビュー[\s\S]*?source: coordinator review record/,
+    `- task_type: レビュー
+    model_id: grok-4.7
+    effort: unknown
+    source: coordinator review record`,
+  );
+  assert.equal(validateIssue475HistoricalPhases(yaml).ok, false);
+});
+
+test("phase log validator rejects #475 implement effort not unknown", () => {
+  const yaml = POSITIVE_475_YAML.replace(
+    /- task_type: 実装[\s\S]*?effort: unknown/,
+    `- task_type: 実装
+    model_id: composer-2.5
+    effort: medium`,
+  );
+  assert.equal(validateIssue475HistoricalPhases(yaml).ok, false);
+});
+
+test("phase log validator rejects #475 fix composer effort not unknown", () => {
+  const yaml = POSITIVE_475_YAML.replace(
+    /- task_type: 修正[\s\S]*?effort: unknown/,
+    `- task_type: 修正
+    model_id: composer-2.5
+    effort: medium`,
+  );
+  assert.equal(validateIssue475HistoricalPhases(yaml).ok, false);
+});
+
+test("phase log validator rejects fabricated old table March migration phrase", () => {
+  const sample = `${minimalPhaseLogWith475Yaml(POSITIVE_475_YAML)}
+移行元は旧一行表（2026-03 以前）
+`;
+  assert.equal(validatePhaseLogStructure(sample).ok, false);
 });
 
 test("shaIdentityStatus unit cases", () => {

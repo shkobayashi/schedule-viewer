@@ -66,7 +66,7 @@ PR 前などで検査を回したあと、**生ログはコミットしない。
 }
 ```
 
-出力の `shaIdentity.status` が `valid` なのは **渡した SHA が一致したこと**だけを意味し、コマンドがそのツリーで実行された証明ではない。`usableForGuideline` は SHA が valid で、かつ列挙したコマンドがすべて exit 0 のときだけ true になる。欠落した exit や非ゼロ終了があるときは false のままにする。`provenance` は常に `provided` である。パーサが拾えない指標は `unknown`（0 にしない）。失敗したコマンドは `aggregateCommandStatus: failed` のまま残す。jscpd は CI 上 warn のみで、`--silent` かつ閾値内のときは重複率を unknown のままにする（Duplications detection 行だけでは数値にしない）。
+出力の `shaIdentity.status` が `valid` なのは **渡した SHA が一致したこと**だけを意味し、コマンドがそのツリーで実行された証明ではない。`usableForGuideline` は SHA が valid で、かつ列挙したコマンドがすべて exit 0 のときだけ true になる。欠落した exit や非ゼロ終了があるときは false のままにする。`provenance` は常に `provided` である。パーサが拾えない指標は `unknown`（0 にしない）。失敗したコマンドは `aggregateCommandStatus: failed` のまま残す。jscpd 4.x の SilentReporter は閾値の内外を問わず `Duplications detection: … (N%) duplicated lines` を出す。その `(N%)` は ERROR 行と同じ重複行率なので、stdout にあればパーサが拾ってよい。行が無い、または `%` が無いときだけ unknown とする。終了コード 0 だけでは閾値内である証明にならない。
 
 ## 操作の対称
 

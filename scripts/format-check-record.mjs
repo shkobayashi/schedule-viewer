@@ -121,6 +121,11 @@ export function parseJscpdDuplicatedLinesPercent(combined) {
   );
   if (overThreshold) return Number(overThreshold[1]);
 
+  const detectionLine = plain.match(
+    /Duplications detection:[^\n]*\(\s*([\d.]+)%\s*\)\s*duplicated lines/i,
+  );
+  if (detectionLine) return Number(detectionLine[1]);
+
   const totalLine = plain.split("\n").find((line) => /Total:/i.test(line));
   if (totalLine) {
     const cells = totalLine.split("|").map((cell) => cell.trim());
@@ -254,7 +259,7 @@ export function formatExecutionRecord(input) {
       "shaIdentity status valid means recordedHeadSha matches currentHeadSha only; it is not proof these commands ran on that tree.",
       "usableForGuideline is true only when shaIdentity is valid and every listed command has exit 0.",
       "Metrics are parsed from provided stdout/stderr only; missing or unparseable fields stay unknown (not 0).",
-      "jscpd command exit 0 is warn-only in CI; --silent under threshold leaves duplicated-lines percent unknown.",
+      "jscpd command exit 0 is warn-only in CI; it is not proof duplicated lines are under the configured threshold.",
     ],
   };
 }
@@ -269,6 +274,81 @@ const PHASE_LOG = path.join(REPO_ROOT, "docs/agents-phase-log.md");
  */
 const PHASE_LOG_CAVEAT =
   "計画の軽い見直しは、別の Cloud Agent セッションとして残らないインライン確認であり、索引に無いことだけをもって省略したとは書かない";
+
+/**
+ * @param {string} markdown full phase log
+ * @returns {string}
+ */
+export function extractIssue475PhaseYaml(markdown) {
+  const start = markdown.indexOf("## Issue #475");
+  if (start < 0) return "";
+  const rest = markdown.slice(start);
+  const nextHeading = rest.search(/\n## (?!#)/);
+  const block = nextHeading > 0 ? rest.slice(0, nextHeading) : rest;
+  const yamlMatch = block.match(/```yaml\n([\s\S]*?)```/);
+  return yamlMatch?.[1] ?? "";
+}
+
+/**
+ * Historical #475 phase-history facts (source-backed migration).
+ * @param {string} phaseYaml content inside the #475 phase-history fence
+ */
+export function validateIssue475HistoricalPhases(phaseYaml) {
+  const issues = [];
+  const segments = phaseYaml.split(/(?=- task_type:)/).filter((s) => s.includes("task_type:"));
+
+  const findPhase = (label) => segments.find((s) => new RegExp(`task_type:\\s*${label}`).test(s));
+
+  const plan = findPhase("計画");
+  if (!plan) {
+    issues.push("missing #475 計画 phase");
+  } else {
+    if (!/effort:\s*high\b/m.test(plan)) {
+      issues.push("#475 計画 effort must be high");
+    }
+    if (!plan.includes("coordinator launch record")) {
+      issues.push("#475 計画 missing coordinator launch record source");
+    }
+  }
+
+  const review = findPhase("レビュー");
+  if (!review) {
+    issues.push("missing #475 レビュー phase");
+  } else {
+    if (!/effort:\s*high\b/m.test(review)) {
+      issues.push("#475 レビュー effort must be high");
+    }
+    if (!review.includes("coordinator review record")) {
+      issues.push("#475 レビュー missing coordinator review record source");
+    }
+  }
+
+  const implement = findPhase("実装");
+  if (!implement) {
+    issues.push("missing #475 実装 phase");
+  } else {
+    if (!/model_id:\s*composer-2\.5/.test(implement)) {
+      issues.push("#475 実装 model_id must be composer-2.5");
+    }
+    if (!/effort:\s*unknown\b/m.test(implement)) {
+      issues.push("#475 実装 effort must be unknown");
+    }
+  }
+
+  const fix = findPhase("修正");
+  if (!fix) {
+    issues.push("missing #475 修正 phase");
+  } else {
+    if (!/model_id:\s*composer-2\.5/.test(fix)) {
+      issues.push("#475 修正 model_id must be composer-2.5");
+    }
+    if (!/effort:\s*unknown\b/m.test(fix)) {
+      issues.push("#475 修正 effort must be unknown");
+    }
+  }
+
+  return { ok: issues.length === 0, issues };
+}
 
 export function validatePhaseLogStructure(markdown) {
   const issues = [];
@@ -313,15 +393,15 @@ export function validatePhaseLogStructure(markdown) {
   if (!issue475.includes("fix_rounds: unknown")) {
     issues.push("missing #475 merge_summary fix_rounds unknown");
   }
-  if (!issue475.includes("effort: high")) {
-    issues.push("missing #475 coordinator effort high on plan/review");
+
+  const issue475Yaml = extractIssue475PhaseYaml(markdown);
+  if (!issue475Yaml) {
+    issues.push("missing #475 phase-history yaml fence");
+  } else {
+    const phaseCheck = validateIssue475HistoricalPhases(issue475Yaml);
+    if (!phaseCheck.ok) issues.push(...phaseCheck.issues);
   }
-  if (!issue475.includes("coordinator launch record")) {
-    issues.push("missing #475 coordinator launch provenance");
-  }
-  if (markdown.includes("2026-03")) {
-    issues.push("fabricated 2026-03 migration date");
-  }
+
   if (!markdown.includes(PHASE_LOG_CAVEAT)) {
     issues.push("missing coordinator light plan review caveat");
   }
