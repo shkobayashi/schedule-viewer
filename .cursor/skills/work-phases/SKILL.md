@@ -53,7 +53,7 @@ Issue がマージ可能になったら、[docs/agents-phase-log.md](../../../do
 
 ### 実行スナップショット
 
-PR 前などで検査を回したあと、**生ログはコミットしない。** 呼び出し側が `git rev-parse HEAD` と各コマンドの exit・stdout・stderr を集め、JSON を [scripts/format-check-record.mjs](../../../scripts/format-check-record.mjs) に渡して整形する。
+PR 前などで検査を回したあと、**生ログはコミットしない。** 呼び出し側が `git rev-parse HEAD` と各コマンドの exit・stdout・stderr を集め、JSON を [scripts/format-check-record.mjs](../../../scripts/format-check-record.mjs) に渡して整形する。合成フィクスチャは [scripts/fixtures/format-check-record/](../../../scripts/fixtures/format-check-record/) に置き、実際のレポーター形（Vitest の `text-summary`、`check:architecture-warn` の jscpd `--silent` など）に合わせる。捏造した日付や推測メトリクスは phase-history に書かない。
 
 ```json
 {
@@ -66,7 +66,7 @@ PR 前などで検査を回したあと、**生ログはコミットしない。
 }
 ```
 
-出力の `shaIdentity` が `valid` なのは **渡した SHA が一致したこと**だけを意味し、コマンドがそのツリーで実行された証明ではない。`provenance` は常に `provided` である。パーサが拾えない指標は `unknown`（0 にしない）。失敗したコマンドは `aggregateCommandStatus: failed` のまま残す。jscpd は CI 上 warn のみで、終了コード 0 は閾値内の証明にならない。
+出力の `shaIdentity.status` が `valid` なのは **渡した SHA が一致したこと**だけを意味し、コマンドがそのツリーで実行された証明ではない。`usableForGuideline` は SHA が valid で、かつ列挙したコマンドがすべて exit 0 のときだけ true になる。欠落した exit や非ゼロ終了があるときは false のままにする。`provenance` は常に `provided` である。パーサが拾えない指標は `unknown`（0 にしない）。失敗したコマンドは `aggregateCommandStatus: failed` のまま残す。jscpd は CI 上 warn のみで、`--silent` かつ閾値内のときは重複率を unknown のままにする（Duplications detection 行だけでは数値にしない）。
 
 ## 操作の対称
 

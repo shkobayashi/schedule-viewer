@@ -31,6 +31,7 @@
     "check:regression-coverage": "tsx scripts/check-regression-coverage.ts",
     "check:madge-circular-baseline": "tsx scripts/check-madge-circular-baseline.ts",
     "check:architecture-warn": "node scripts/check-architecture-warn.mjs",
+    "check:agent-docs": "node scripts/check-agent-docs.mjs",
     "test:coverage": "vitest run --coverage",
     "test:ci": "node scripts/compile-validators.mjs && node --test scripts/*.test.mjs && vitest run --coverage",
     "test": "node scripts/compile-validators.mjs && node --test scripts/*.test.mjs && vitest run",

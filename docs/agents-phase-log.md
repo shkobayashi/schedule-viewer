@@ -44,13 +44,15 @@ merge_summary:
   review_findings: unknown
   human_edits: unknown
   tokens: unknown
+  fix_rounds: unknown
   coordinator_notes: |
     追コミット 693fff1d は test-spec・証拠断言・increment 4 のメモ。
     コーディネータ起動・レビュー記録はテスト・文書・証拠中心。
     初期の撮影ではコントロールが切れていた。
 provenance: |
-  移行元は旧一行表（2026-03 以前）。effort・トークン・所要時間は記録がなく unknown。
-  当時の Cloud Agent 索引に effort 列が無かった。
+  移行元は旧一行表。effort・トークン・所要時間は記録がなく unknown。
+  当時の Cloud Agent 索引に effort 列が無かった。コーディネータの起動・レビュー記録と実行ログから分かる範囲だけを書いている。
+  計画の軽い見直しは、別の Cloud Agent セッションとして残らないインライン確認であり、索引に無いことだけをもって省略したとは書かない。
 ```
 
 ---

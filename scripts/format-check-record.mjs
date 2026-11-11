@@ -41,9 +41,18 @@ export function shaIdentityStatus(recorded, current, recordedOk, currentOk) {
     return { status: "invalid", usableForGuideline: false };
   }
   if (recorded === current) {
-    return { status: "valid", usableForGuideline: true };
+    return { status: "valid", usableForGuideline: false };
   }
   return { status: "stale", usableForGuideline: false };
+}
+
+/**
+ * SHA match alone does not make a record usable; commands must all pass when present.
+ * @param {"valid" | "stale" | "invalid"} identityStatus
+ * @param {"passed" | "failed" | "unknown"} aggregateCommandStatus
+ */
+export function usableForGuidelineFromRun(identityStatus, aggregateCommandStatus) {
+  return identityStatus === "valid" && aggregateCommandStatus === "passed";
 }
 
 /**
@@ -67,18 +76,22 @@ export function parseLintWarningCount(combined) {
  */
 export function parseCoverageLinesPercent(combined) {
   if (!combined?.trim()) return "unknown";
-  const thresholdFail = combined.match(
-    /Coverage for lines \(([\d.]+)%\)/i,
+
+  const summaryBlock = combined.match(
+    /Coverage summary[\s\S]*?^Lines\s*:\s*([\d.]+)%/m,
   );
-  if (thresholdFail) return Number(thresholdFail[1]);
+  if (summaryBlock) return Number(summaryBlock[1]);
+
   const allFiles = combined.match(
     /^All files\s+\|\s+[\d.]+\s+\|\s+[\d.]+\s+\|\s+[\d.]+\s+\|\s+([\d.]+)/m,
   );
   if (allFiles) return Number(allFiles[1]);
-  const stmtLine = combined.match(
-    /Statements\s*:\s*[\d.]+%\s*\([\d/]+\)[\s\S]*?Lines\s*:\s*([\d.]+)%/i,
+
+  const globalThresholdOnly = combined.match(
+    /Coverage for lines \(([\d.]+)%\) does not meet global threshold/i,
   );
-  if (stmtLine) return Number(stmtLine[1]);
+  if (globalThresholdOnly) return Number(globalThresholdOnly[1]);
+
   return "unknown";
 }
 
@@ -102,13 +115,22 @@ export function parseMadgeCycleCount(combined) {
 export function parseJscpdDuplicatedLinesPercent(combined) {
   if (!combined?.trim()) return "unknown";
   const plain = normalizeTableSeparators(stripAnsi(combined));
+
+  const overThreshold = plain.match(
+    /ERROR:\s*jscpd found too many duplicates \(([\d.]+)%\) over threshold/i,
+  );
+  if (overThreshold) return Number(overThreshold[1]);
+
   const totalLine = plain.split("\n").find((line) => /Total:/i.test(line));
-  if (!totalLine) return "unknown";
-  const cells = totalLine.split("|").map((cell) => cell.trim());
-  const dupLinesCell = cells[6];
-  if (!dupLinesCell) return "unknown";
-  const pct = dupLinesCell.match(/\(([\d.]+)%\)/);
-  if (pct) return Number(pct[1]);
+  if (totalLine) {
+    const cells = totalLine.split("|").map((cell) => cell.trim());
+    const dupLinesCell = cells[6];
+    if (dupLinesCell) {
+      const pct = dupLinesCell.match(/\(([\d.]+)%\)/);
+      if (pct) return Number(pct[1]);
+    }
+  }
+
   return "unknown";
 }
 
@@ -210,6 +232,11 @@ export function formatExecutionRecord(input) {
 
   const metrics = collectMetrics(results);
 
+  shaIdentity.usableForGuideline = usableForGuidelineFromRun(
+    shaIdentity.status,
+    aggregateCommandStatus,
+  );
+
   return {
     kind: "execution-record",
     provenance: "provided",
@@ -225,8 +252,9 @@ export function formatExecutionRecord(input) {
     metrics,
     limits: [
       "shaIdentity status valid means recordedHeadSha matches currentHeadSha only; it is not proof these commands ran on that tree.",
+      "usableForGuideline is true only when shaIdentity is valid and every listed command has exit 0.",
       "Metrics are parsed from provided stdout/stderr only; missing or unparseable fields stay unknown (not 0).",
-      "jscpd command exit 0 is warn-only in CI; duplicated-lines percent is not proof under the threshold.",
+      "jscpd command exit 0 is warn-only in CI; --silent under threshold leaves duplicated-lines percent unknown.",
     ],
   };
 }
@@ -239,6 +267,9 @@ const PHASE_LOG = path.join(REPO_ROOT, "docs/agents-phase-log.md");
  * Does not forbid numeric token fields when present.
  * @param {string} markdown
  */
+const PHASE_LOG_CAVEAT =
+  "計画の軽い見直しは、別の Cloud Agent セッションとして残らないインライン確認であり、索引に無いことだけをもって省略したとは書かない";
+
 export function validatePhaseLogStructure(markdown) {
   const issues = [];
   if (!markdown.includes("## Issue #551")) {
@@ -247,20 +278,55 @@ export function validatePhaseLogStructure(markdown) {
   if (!markdown.includes("## Issue #475")) {
     issues.push("missing heading ## Issue #475");
   }
+  if (!markdown.includes("verified_head_sha:")) {
+    issues.push("missing verified_head_sha fields");
+  }
   if (!markdown.includes("693fff1d57c4f1ce6180dd3772fce997f0d392bb")) {
     issues.push("missing #551 verified head SHA");
   }
   if (!markdown.includes("798f4761693d6a38bb164b85859be98f0238fae7")) {
     issues.push("missing #475 verified head SHA");
   }
-  if (!markdown.includes("phase-history")) {
-    issues.push("missing phase-history blocks");
+  if (!markdown.includes("### phase-history")) {
+    issues.push("missing phase-history headings");
   }
-  if (!markdown.includes("effort: unknown") && !markdown.includes("effort: \"unknown\"")) {
-    issues.push("missing preserved unknown effort for #551");
+  if (!markdown.includes("31 テキストファイル +2796 / −53、34 バイナリ")) {
+    issues.push("missing #551 git numstat");
   }
-  if (!markdown.includes("文書の食い違い 5 件")) {
+  if (!markdown.includes("26 テキストファイル +1922 / −33、8 バイナリ")) {
+    issues.push("missing #475 git numstat");
+  }
+  const issue551 = markdown.split("## Issue #475")[0] ?? "";
+  if (!issue551.includes("review_findings: unknown")) {
+    issues.push("missing #551 review_findings unknown");
+  }
+  if (!issue551.includes("fix_rounds: unknown")) {
+    issues.push("missing #551 merge_summary fix_rounds unknown");
+  }
+  if (!(issue551.includes("effort: unknown") || issue551.includes('effort: "unknown"'))) {
+    issues.push("missing #551 effort unknown in phases");
+  }
+  const issue475 = markdown.slice(markdown.indexOf("## Issue #475"));
+  if (!issue475.includes("文書の食い違い 5 件")) {
     issues.push("missing #475 doc mismatch count");
+  }
+  if (!issue475.includes("fix_rounds: unknown")) {
+    issues.push("missing #475 merge_summary fix_rounds unknown");
+  }
+  if (!issue475.includes("effort: high")) {
+    issues.push("missing #475 coordinator effort high on plan/review");
+  }
+  if (!issue475.includes("coordinator launch record")) {
+    issues.push("missing #475 coordinator launch provenance");
+  }
+  if (markdown.includes("2026-03")) {
+    issues.push("fabricated 2026-03 migration date");
+  }
+  if (!markdown.includes(PHASE_LOG_CAVEAT)) {
+    issues.push("missing coordinator light plan review caveat");
+  }
+  if (markdown.includes("旧一行表（2026-03")) {
+    issues.push("fabricated old table date");
   }
   return { ok: issues.length === 0, issues };
 }
