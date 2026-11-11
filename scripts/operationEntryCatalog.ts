@@ -285,6 +285,14 @@ export type ToolbarOperationSpec = {
   slashLiterals?: string[];
   /** Placeholder strings cited in backticks in the doc. */
   placeholderLiterals?: string[];
+  /** Backtick citation identifiers (not display labels) allowed in this row only. */
+  citationBackticks?: string[];
+  /** Keywords outside notes (e.g. placeholder, メニュー). */
+  cellKeywords?: string[];
+  /** Plain note metadata segments (split on 。 inside notes). */
+  noteMetadata?: string[];
+  /** Visible connectors allowed on this row (e.g. または, 追加メニュー). */
+  structuralText?: string[];
   /** Runtime suffix only (listed in unverified, static prefix validated). */
   dynamicUnverified?: Array<"lineageName" | "linkSourceName" | "filterCount">;
   /** Toolbar column may be empty in doc. */
@@ -363,6 +371,7 @@ function buildToolbarByOperation(
   return {
     "未保存の差分を開く（状態バー）": {
       backtickStatic: [toolbarSourceLabels.dirtySaveStatusLabel],
+      citationBackticks: ["saveStatus", "StatusBar.tsx"],
     },
     "外部ファイル更新の確認": {
       backtickStatic: [ui.externalReloadLabel],
@@ -377,13 +386,28 @@ function buildToolbarByOperation(
         ui.searchNamePlaceholder,
         ui.searchNotePlaceholder,
       ],
+      cellKeywords: ["placeholder"],
+      noteMetadata: ["select"],
     },
     "今日へ移動": { ownerFormal: "goToday" },
-    "日表示": { toolbarShortKeys: ["tierDay"] },
-    "週表示": { toolbarShortKeys: ["tierWeek"] },
-    "月表示": { toolbarShortKeys: ["tierMonth"] },
+    "日表示": {
+      toolbarShortKeys: ["tierDay"],
+      noteMetadata: ["tier-toggle"],
+    },
+    "週表示": {
+      toolbarShortKeys: ["tierWeek"],
+      noteMetadata: ["tier-toggle"],
+    },
+    "月表示": {
+      toolbarShortKeys: ["tierMonth"],
+      noteMetadata: ["tier-toggle"],
+    },
     "全体表示": { ownerFormal: "fit" },
-    "スケジュールのタイトルを変更": { ownerFormal: "editTitle", backtickStatic: [f.editTitle] },
+    "スケジュールのタイトルを変更": {
+      ownerFormal: "editTitle",
+      backtickStatic: [f.editTitle],
+      noteMetadata: ["aria-label / title", "鉛筆"],
+    },
     "階層の名前・意味・指示を編集": { ownerFormal: "hierarchyEdit" },
     "絞り込みパネルを開く": {
       ownerFormal: "filterPanel",
@@ -392,19 +416,23 @@ function buildToolbarByOperation(
     },
     "絞り込みをすべて解除": {
       backtickStatic: [toolbarSourceLabels.clearAllFiltersLabel],
+      citationBackticks: ["ActiveFilterBar.tsx"],
     },
     "系統を表示／解除": {
       backtickStatic: [
         toolbarSourceLabels.lineageButtonLabel,
         toolbarSourceLabels.lineageNamedTemplate,
       ],
+      structuralText: ["または"],
       dynamicUnverified: ["lineageName"],
     },
     "系統（繋がりも辿る）": {
       backtickStatic: [f.lineageFollowConnections],
+      noteMetadata: ["系統 split メニュー"],
     },
     "線を引くモード": {
       backtickStatic: [f.link, ui.linkNamedTemplate],
+      structuralText: ["または"],
       dynamicUnverified: ["linkSourceName"],
     },
     "取り消し": { ownerFormal: "undo" },
@@ -412,12 +440,19 @@ function buildToolbarByOperation(
     "タスクを追加": {
       toolbarShortKeys: ["addTask"],
       backtickStatic: [f.addTask],
+      noteMetadata: ["split 主ボタン"],
+      cellKeywords: ["メニュー"],
+      structuralText: ["／"],
     },
     "マイルストンを追加": {
       backtickStatic: [f.addMilestone],
+      structuralText: ["追加メニュー"],
     },
     "タスクを削除": { ownerFormal: "deleteTask" },
-    "説明を消す": { backtickStatic: [ui.explanationDismissLabel] },
+    "説明を消す": {
+      backtickStatic: [ui.explanationDismissLabel],
+      noteMetadata: ["バナー"],
+    },
   };
 }
 

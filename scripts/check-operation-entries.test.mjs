@@ -553,6 +553,83 @@ test("add-task toolbar menu suffix fake token fails validation", () => {
   expectFailures(doc, [/偽物|未消費/]);
 });
 
+test("dirty save toolbar backtick delete formal instead of saveStatus fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "`saveStatus`",
+      "`削除`",
+    ),
+  );
+  expectFailures(doc, [/削除|許可されていない|saveStatus|必須/]);
+});
+
+test("dirty save toolbar extra delete backtick in note fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 未保存の差分を開く（状態バー） | `未保存`（`saveStatus`。`StatusBar.tsx`） |",
+      "| 未保存の差分を開く（状態バー） | `未保存`（`saveStatus`。`StatusBar.tsx`。`削除`） |",
+    ),
+  );
+  expectFailures(doc, [/削除|許可されていない|未消費/]);
+});
+
+test("lineage toolbar fake dynamic template backtick fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "`系統: ${lineageName}`",
+      "`偽系統: ${lineageName}`",
+    ),
+  );
+  expectFailures(doc, [/偽|動的テンプレート|系統/]);
+});
+
+test("undo toolbar tierDay TOOLBAR_SHORT in note fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 取り消し | 取り消し |",
+      "| 取り消し | 取り消し（TOOLBAR_SHORT.tierDay） |",
+    ),
+  );
+  expectFailures(doc, [/TOOLBAR_SHORT\.tierDay|許可されていない|未消費/]);
+});
+
+test("undo toolbar pencil metadata in note fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("| 取り消し | 取り消し |", "| 取り消し | 取り消し（鉛筆） |"),
+  );
+  expectFailures(doc, [/鉛筆|未消費|許可/]);
+});
+
+test("undo toolbar cross-row saveStatus citation backtick fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 取り消し | 取り消し |",
+      "| 取り消し | 取り消し（`saveStatus`） |",
+    ),
+  );
+  expectFailures(doc, [/saveStatus|許可されていない|未消費/]);
+});
+
+test("dirty save toolbar cross-row undo formal backtick fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 未保存の差分を開く（状態バー） | `未保存`（`saveStatus`。`StatusBar.tsx`） |",
+      "| 未保存の差分を開く（状態バー） | `未保存`（`saveStatus`。`StatusBar.tsx`。`取り消し`） |",
+    ),
+  );
+  expectFailures(doc, [/取り消し|許可されていない|正式名/]);
+});
+
+test("undo toolbar cross-row tier-toggle metadata fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 取り消し | 取り消し |",
+      "| 取り消し | 取り消し（tier-toggle） |",
+    ),
+  );
+  expectFailures(doc, [/tier-toggle|未消費|許可/]);
+});
+
 test("parseToolbarUiSourceFromText throws when toolbar search block is missing", () => {
   const snippet = [
     'import { parseToolbarUiSourceFromText } from "./scripts/operationEntryCatalog.ts";',

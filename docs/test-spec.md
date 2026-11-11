@@ -281,6 +281,14 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `undo toolbar long japanese garbage in note fails validation` | — |
 | 同上 | `search toolbar suffix after note with fake token fails validation` | — |
 | 同上 | `add-task toolbar menu suffix fake token fails validation` | — |
+| 同上 | `dirty save toolbar backtick delete formal instead of saveStatus fails validation` | — |
+| 同上 | `dirty save toolbar extra delete backtick in note fails validation` | — |
+| 同上 | `lineage toolbar fake dynamic template backtick fails validation` | — |
+| 同上 | `undo toolbar tierDay TOOLBAR_SHORT in note fails validation` | — |
+| 同上 | `undo toolbar pencil metadata in note fails validation` | — |
+| 同上 | `undo toolbar cross-row saveStatus citation backtick fails validation` | — |
+| 同上 | `dirty save toolbar cross-row undo formal backtick fails validation` | — |
+| 同上 | `undo toolbar cross-row tier-toggle metadata fails validation` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentity valid when full SHAs match` | — |
