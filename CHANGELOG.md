@@ -8,7 +8,7 @@
 
 ### 変更
 
-- Issue #475（操作入口の欠け）のうち、見方の MCP/CLI 書き込みとして `set_view` に `lineage` と `hiddenMilestoneIds` を足し、`file_action` の Excel 書き出しで `excelColumns` と `excelFieldColumns` を書き出しダイアログと同じ真偽マップで受け付ける。人の操作は MCP/CLI から可能とするが、JSON 貼り付け UI やダイアログの機械再生といった**逆方向の対称**は求めない（#475 の他候補は別途）
+- Issue #475（操作入口の欠け）のうち、見方の MCP/CLI 書き込みとして `set_view` に `lineage` と `hiddenMilestoneIds` を足し、`file_action` の Excel 書き出しで `excelColumns` と `excelFieldColumns` を書き出しダイアログと同じ真偽マップで受け付ける。人の操作は MCP/CLI から可能とするが、JSON 貼り付け UI やダイアログの機械再生といった**逆方向の対称**は求めない。チャート操作の MCP 化など、人→機械でまだ足りない候補は Issue #475 を見る（確定日付まわりの境界内。`edit_plan` の拡張とは別）
 
 - 設定「JSON作成スキルを置く」で `how-to` スキルを8つ目として配布し、画像を除いた操作マニュアル6ファイルを `manual/` に同梱する。チュートリアル末尾に操作の聞き方の一行を足す（#344）
 - 初回ガイド（NAV-09）の 1 項目目を「スケジュールを用意する」にし、「LLM で作る」（デスクトップ版は JSON 作成スキル設定、ブラウザ版は案内）と「ある JSON を開く」の 2 ボタンに分けた。スキル設置または JSON を開いたときに完了とする（#469）

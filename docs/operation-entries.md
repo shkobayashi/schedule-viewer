@@ -89,8 +89,8 @@
 | 系統を表示／解除 | `系統` または `系統: ${lineageName}`（title に ⌘⇧L / Ctrl+Shift+L） | | `系統を表示` / `系統を解除` | ⌘⇧L / Ctrl+Shift+L | | | タスクを選んで「系統」を押すと… | `set_view` | `--screen set_view` | `FILTER-08` |
 | 系統（繋がりも辿る） | `繋がりも辿る`（系統 split メニュー） | | | | | | | `set_view` | `--screen set_view` | `FILTER-08` |
 | 線を引くモード | `線を引く` または `線を引く: ${linkSourceName}` | | 線を引く | ⌘L / Ctrl+L | | | | | | `EDIT-05` |
-| マイルストン帯の印を非表示 | | 非表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
-| このマイルストンだけ表示 | | このマイルストンだけ表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
+| マイルストン帯の印を非表示 | | 非表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-13` |
+| このマイルストンだけ表示 | | このマイルストンだけ表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-13` |
 | マイルストン帯の行を非表示 | | 非表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
 | この行だけ表示（帯グループ） | | この行だけ表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
 | 絞り込み結果のタスク一覧を読む | | | | | | | | `filtered_tasks` | `--screen filtered_tasks --window <label>` | `MCP-01` |
@@ -158,8 +158,8 @@
 
 | 人の操作 | `set_view` の JSON（要約） |
 | --- | --- |
-| 系統・繋がりも辿る（`FILTER-08`） | `lineage`: `{ "taskId", "includesConnections" }` または `null` で解除 |
-| 帯の印の非表示（`FILTER-06` の印） | `hiddenMilestoneIds`: 非表示にする印 id の配列（丸ごと置き換え） |
+| 系統・繋がりも辿る（`FILTER-08`） | `lineage`: `{ "taskId", "includesConnections" }`。解除は `{ "taskId": null }`（`lineage: null` は不可） |
+| 帯の印の非表示（`FILTER-13` の印） | `hiddenMilestoneIds`: 非表示にする印 id の配列（丸ごと置き換え） |
 
 ### `file_action` 書き出し（Excel）の列（#475）
 

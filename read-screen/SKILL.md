@@ -43,7 +43,7 @@ schedule-viewer のデスクトップ版ウィンドウと連携するスキル�
 | 説明の半透明 | `explain_overlay` | `--screen explain_overlay`（stdin に JSON） |
 | 試しの計画を計画へ入れる | `apply_explanation_pattern` | `--screen apply_explanation_pattern`（stdin に `patternId`） |
 | 計画の部分更新（日付、担当、並べ替え、先行） | `edit_plan` | `--screen edit_plan` |
-| 保存、別名保存、書き出し、開く、設定ファイルの書き出し | `file_action` | `--screen file_action`（Excel 書き出しは `excelColumns` / `excelFieldColumns` を真偽マップで任意指定。省略時は保存済み列設定） |
+| 保存、別名保存、書き出し、開く、設定ファイルの書き出し | `file_action` | `--screen file_action`（書き出しが Excel（`xlsx`）のとき `excelColumns` / `excelFieldColumns` を書き出しダイアログと同じ真偽マップで任意指定。省略時は保存済みの列設定を使い、渡した項目だけその 1 回の書き出しに効かせ、保存済み設定は変えない。`html` と `svg` では列指定を受け付けず、渡したときは書き出し前に拒む） |
 | 一覧（メンバー、色、ステータス、追加項目） | `catalog_action` | `--screen catalog_action` |
 | JSON 作成スキルと起動時の更新確認 | `set_preferences` | `--screen set_preferences` |
 | 取り消しとやり直し（1 段） | `history` | `--screen history` |

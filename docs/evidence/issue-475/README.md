@@ -13,6 +13,10 @@ Regenerate: `SKIP_VITE_START=1 node scripts/capture-issue-475-set-view-ui-eviden
 
 ## Scope note (#475)
 
-Human view operations for **系統** (`set_view.lineage`) and **帯の印の非表示** (`set_view.hiddenMilestoneIds`), plus Excel export column maps on `file_action` export, are in scope for MCP/CLI.
+This evidence supports human UI steps equivalent to **`set_view.lineage`**, **`set_view.hiddenMilestoneIds`**, and the in-scope slice in the PR. It does not prove MCP/CLI `set_view`.
 
-**Out of scope (owner decision):** reverse parity — dedicated human UI for pasting `set_view` JSON, or machine-only replay of filter/export dialogs. Other #475 candidates (drag-equivalent MCP, full filter-panel symmetry, `replace_schedule` UI, explain_* menus, read-dialog mirrors, file-drop export columns) remain separate unless already documented elsewhere.
+**In scope for MCP/CLI (owner):** human operations must be reachable via MCP/CLI — including lineage, hidden band marks, and Excel column maps on `file_action` export.
+
+**Out of scope (owner):** reverse parity — JSON paste UI for `set_view`, or machine-only replay of filter/export dialogs. Owner-rejected reverse-parity items (`replace_schedule` dedicated UI, explain_* human menus, read-dialog mirrors, file-drop column replay) are **not** listed here as follow-up work from this slice.
+
+**Still open on Issue #475 (human → machine, not reverse parity):** e.g. chart-drag-equivalent MCP UX within the existing committed-date operation boundary (not `edit_plan`), and any filter-panel entries without MCP/CLI write yet — see the issue for the current list.
