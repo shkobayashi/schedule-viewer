@@ -3,7 +3,9 @@
  * 回帰確認の対応表と付録に、行として行き先を持つかを見る。
  *
  * 注記や別名の一部分では通さない。自動テストのファイルとテスト名、
- * 手順 ID が実在することも見る。振る舞いが正しいことは保証しない。
+ * 手順 ID が実在することも見る。`it.each` / `test.each` の表先頭列タイトルだけを
+ * 試験名の代替に使う。動的タイトル（実行時に決まる書式）は未対応である。
+ * 振る舞いが正しいことは保証しない。
  * 手動ケース ID の追加と削除は、このファイルの EXPECTED_CASE_ID_SHA256 を
  * 変えることで承認する。
  */
@@ -11,6 +13,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { MCP_ALL_TOOL_NAMES } from "../src/model/mcpToolNames.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -19,8 +22,10 @@ const root = process.argv[2] ?? repoRoot;
 /** 付録 ID 一覧の承認済みハッシュ。変えるときは、行の追加か削除の理由を同じ変更に書く。 */
 export const EXPECTED_CASE_ID_SHA256 = "2cca659b56960ebd29c9af6616cc5929c846d1dc334470483b5d7b445549698c";
 
-const plannedIssues = new Set(["535", "536", "537", "538", "540", "541", "543", "544", "545", "547"]);
+/** 付録・対応表・手順「扱い」で `自動化予定:#` に許可する Issue。一覧を変えるときは regression.md の冒頭と揃える。 */
+const REGRESSION_PLANNED_ISSUES = new Set(["541", "543"]);
 const errors: string[] = [];
+const fileCache = new Map<string, string>();
 
 const features = readRepo("docs/user-manual/features.md");
 const intent = readRepo("docs/user-manual/find-by-intent.md");
@@ -116,6 +121,17 @@ for (const line of caseRows) {
   checkDestination(`${kind} ${dest}`, id);
 }
 
+for (const match of scenarios.matchAll(/### (RG-[A-Z0-9-]+)\n([\s\S]*?)(?=\n### |\n## |$)/g)) {
+  const stepId = match[1];
+  const section = match[2];
+  const handling = section.includes("扱い:") ? section.split("扱い:").slice(1).join("扱い:") : "";
+  if (handling.length === 0) continue;
+  checkPlannedIssueRefs(handling, stepId);
+  for (const ref of autoRefsFrom(handling)) {
+    assertAutoRefNotSkipped(ref, stepId);
+  }
+}
+
 for (const id of caseIds) {
   if (!seen.has(id)) errors.push(`${id} が regression-tc.md に無い`);
 }
@@ -154,6 +170,11 @@ function matrixRowsFrom(text: string): { id: string; item: string; kind: string;
 }
 
 function checkDestination(text: string, label: string): void {
+  const kindPrefix = text.split(" ")[0];
+  if (kindPrefix === "一部手動" && !text.includes("自動:")) {
+    errors.push(`${label} の一部手動に自動参照が無い。手動のままへ移す`);
+  }
+  checkPlannedIssueRefs(text, label);
   const hasManual = text.includes("手動:");
   const manuals = [...text.matchAll(/手動:(RG-[A-Z0-9-]+)/g)];
   if (
@@ -183,26 +204,407 @@ function checkDestination(text: string, label: string): void {
       errors.push(`${label} の ${id} に操作か期待か扱いが無い`);
     }
   }
-  for (const match of text.matchAll(/自動:(\S+?)#([^。\n|]+)/g)) {
-    const file = match[1];
-    const name = match[2].trim();
-    const absolute = join(repoRoot, file);
+  for (const ref of autoRefsFrom(text)) {
+    const absolute = resolveTestFile(ref.file);
     if (!existsSync(absolute)) {
-      errors.push(`${label} の自動テストが無い: ${file}`);
+      errors.push(`${label} の自動テストが無い: ${ref.file}`);
       continue;
     }
-    if (!readFileSync(absolute, "utf8").includes(name)) {
-      errors.push(`${label} のテスト名が ${file} に無い: ${name}`);
+    const content = readCached(absolute);
+    if (!testRefExists(content, ref.file, ref.name)) {
+      errors.push(`${label} のテスト名が ${ref.file} に無い: ${ref.name}`);
+      continue;
     }
-  }
-  for (const match of text.matchAll(/自動化予定:#(\d+)/g)) {
-    if (!plannedIssues.has(match[1])) {
-      errors.push(`${label} の自動化予定 #${match[1]} は後続の Issue ではない`);
-    }
+    assertAutoRefNotSkipped(ref, label);
   }
   if (text.includes("理由:") && text.split("理由:")[1].trim().length < 4) {
     errors.push(`${label} の対象外の理由が無い`);
   }
+}
+
+function autoRefsFrom(text: string): { file: string; name: string }[] {
+  const refs: { file: string; name: string }[] = [];
+  const chainSep = /、(?=[^\s#、]+\/[^#、]*#)/;
+  for (const match of text.matchAll(/自動:([^\s#]+)#([^。\n|]+)/g)) {
+    const primaryFile = match[1];
+    const parts = match[2].trim().split(chainSep);
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i].trim();
+      if (i === 0) {
+        refs.push({ file: primaryFile, name: part });
+        continue;
+      }
+      const sharp = part.indexOf("#");
+      if (sharp < 0) continue;
+      refs.push({ file: part.slice(0, sharp).trim(), name: part.slice(sharp + 1).trim() });
+    }
+  }
+  return refs;
+}
+
+function checkPlannedIssueRefs(text: string, label: string): void {
+  for (const match of text.matchAll(/自動化予定:\s*#(\d+)/g)) {
+    if (!REGRESSION_PLANNED_ISSUES.has(match[1])) {
+      errors.push(`${label} の自動化予定 #${match[1]} は許可されていない（#541 と #543 のみ）`);
+    }
+  }
+}
+
+function resolveTestFile(file: string): string {
+  const inSandbox = join(root, file);
+  if (existsSync(inSandbox)) return inSandbox;
+  return join(repoRoot, file);
+}
+
+function readCached(absolute: string): string {
+  const cached = fileCache.get(absolute);
+  if (cached != null) return cached;
+  const content = readFileSync(absolute, "utf8");
+  fileCache.set(absolute, content);
+  return content;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** 回帰文書の短い名前と、試験側の `(FILE-09)` などの接尾辞付き名前を同一とみなす。 */
+function vitestNameMatches(want: string, actual: string): boolean {
+  if (actual === want) return true;
+  if (actual.startsWith(`${want} (`)) return true;
+  if (actual.startsWith(`${want}:`)) return true;
+  if (actual.startsWith(want) && actual.length > want.length) {
+    const next = actual[want.length];
+    if (next === "。" || next === " " || next === "(") return true;
+  }
+  return false;
+}
+
+/**
+ * `自動:` にだけ適用する。参照ファイル内の同名試験がすべて skip または #[ignore] のときだけ落とす。
+ * `cfg_attr`、文字列中の波括弧、実行時 skip、`it.each` の動的タイトルは見ない。
+ * 別ファイルの同名は読まない。
+ */
+function assertAutoRefNotSkipped(ref: { file: string; name: string }, label: string): void {
+  const absolute = resolveTestFile(ref.file);
+  if (!existsSync(absolute)) {
+    errors.push(`${label} の自動テストが無い: ${ref.file}`);
+    return;
+  }
+  const content = readCached(absolute);
+  if (!testRefExists(content, ref.file, ref.name)) {
+    errors.push(`${label} のテスト名が ${ref.file} に無い: ${ref.name}`);
+    return;
+  }
+  if (ref.file.endsWith(".rs")) {
+    if (isRustTestIgnored(content, ref.name)) {
+      errors.push(`${label} の自動参照が #[ignore] 付き: ${ref.file}#${ref.name}`);
+    }
+    return;
+  }
+  if (isJsTestSkipped(content, ref.file, ref.name)) {
+    errors.push(`${label} の自動参照が skip 付き: ${ref.file}#${ref.name}`);
+  }
+}
+
+function scriptKindForTestFile(file: string): ts.ScriptKind {
+  if (file.endsWith(".tsx")) return ts.ScriptKind.TSX;
+  if (file.endsWith(".jsx")) return ts.ScriptKind.JSX;
+  return ts.ScriptKind.TS;
+}
+
+function vitestCallKind(expr: ts.Expression, sf: ts.SourceFile): { base: "it" | "test"; skipped: boolean } | null {
+  if (ts.isIdentifier(expr) && (expr.text === "it" || expr.text === "test")) {
+    return { base: expr.text, skipped: false };
+  }
+  if (ts.isPropertyAccessExpression(expr)) {
+    const base = expr.expression.getText(sf);
+    if ((base === "it" || base === "test") && expr.name.text === "skip") {
+      return { base, skipped: true };
+    }
+  }
+  return null;
+}
+
+function collectDescribeSkipBodies(sf: ts.SourceFile): Array<{ start: number; end: number }> {
+  const ranges: Array<{ start: number; end: number }> = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      const cal = node.expression;
+      if (
+        ts.isPropertyAccessExpression(cal) &&
+        cal.name.text === "skip" &&
+        cal.expression.getText(sf) === "describe"
+      ) {
+        const cb = node.arguments[1];
+        const body =
+          cb && (ts.isArrowFunction(cb) || ts.isFunctionExpression(cb)) ? cb.body : undefined;
+        if (body) ranges.push({ start: body.getStart(sf), end: body.getEnd() });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return ranges;
+}
+
+function jsTestOccurrences(content: string, file: string, testName: string): Array<{ skipped: boolean }> {
+  const sf = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true, scriptKindForTestFile(file));
+  const skipRanges = collectDescribeSkipBodies(sf);
+  const out: Array<{ skipped: boolean }> = [];
+  const visit = (node: ts.Node): void => {
+    if (!ts.isCallExpression(node)) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+    const kind = vitestCallKind(node.expression, sf);
+    if (!kind) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+    const arg0 = node.arguments[0];
+    if (!arg0 || !ts.isStringLiteralLike(arg0) || !vitestNameMatches(testName, arg0.text)) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+    const pos = node.getStart(sf);
+    const inDescribeSkip = skipRanges.some((range) => pos >= range.start && pos <= range.end);
+    out.push({ skipped: kind.skipped || inDescribeSkip });
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return out;
+}
+
+function stripRustComments(source: string): string {
+  let out = "";
+  let i = 0;
+  while (i < source.length) {
+    const ch = source[i];
+    if (ch === '"') {
+      out += ch;
+      i += 1;
+      while (i < source.length) {
+        out += source[i];
+        if (source[i] === "\\") {
+          i += 1;
+          if (i < source.length) {
+            out += source[i];
+            i += 1;
+          }
+          continue;
+        }
+        if (source[i] === '"') {
+          i += 1;
+          break;
+        }
+        i += 1;
+      }
+      continue;
+    }
+    if (ch === "/" && source[i + 1] === "/") {
+      while (i < source.length && source[i] !== "\n") i += 1;
+      out += "\n";
+      continue;
+    }
+    if (ch === "/" && source[i + 1] === "*") {
+      i += 2;
+      while (i < source.length && !(source[i] === "*" && source[i + 1] === "/")) {
+        if (source[i] === "\n") out += "\n";
+        i += 1;
+      }
+      i += 2;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out;
+}
+
+function rustStrippedLines(content: string): string[] {
+  return stripRustComments(content).split("\n");
+}
+
+function rustFnDefinitionLines(content: string, testName: string): number[] {
+  const lines = rustStrippedLines(content);
+  const fnPattern = new RegExp(`^\\s*fn\\s+${escapeRegExp(testName)}\\s*\\(`);
+  const fnLines: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (fnPattern.test(lines[i])) fnLines.push(i);
+  }
+  return fnLines;
+}
+
+function isRustFnDefinitionLine(line: string): boolean {
+  return /^\s*fn\s+\w/.test(line);
+}
+
+function rustAttributesBefore(lines: string[], fnLine: number): string[] {
+  const attrs: string[] = [];
+  let i = fnLine - 1;
+  while (i >= 0) {
+    const trimmed = lines[i].trim();
+    if (trimmed.length === 0) {
+      i -= 1;
+      continue;
+    }
+    if (isRustFnDefinitionLine(lines[i])) break;
+    let combined = trimmed;
+    let start = i;
+    while (!combined.startsWith("#[") && start > 0) {
+      const prev = start - 1;
+      if (isRustFnDefinitionLine(lines[prev])) break;
+      start = prev;
+      combined = `${lines[start].trim()} ${combined}`;
+    }
+    if (!combined.startsWith("#[")) {
+      i -= 1;
+      continue;
+    }
+    while (!combined.includes("]") && start > 0) {
+      const prev = start - 1;
+      if (isRustFnDefinitionLine(lines[prev])) break;
+      start = prev;
+      combined = `${lines[start].trim()} ${combined}`;
+    }
+    attrs.unshift(combined.replace(/\s+/g, " ").trim());
+    i = start - 1;
+  }
+  return attrs;
+}
+
+function parseEachCall(expr: ts.Expression): { base: "it" | "test"; skipped: boolean } | null {
+  if (!ts.isPropertyAccessExpression(expr) || expr.name.text !== "each") return null;
+  const inner = expr.expression;
+  if (ts.isIdentifier(inner) && (inner.text === "it" || inner.text === "test")) {
+    return { base: inner.text, skipped: false };
+  }
+  if (
+    ts.isPropertyAccessExpression(inner) &&
+    inner.name.text === "skip" &&
+    ts.isIdentifier(inner.expression) &&
+    (inner.expression.text === "it" || inner.expression.text === "test")
+  ) {
+    return { base: inner.expression.text, skipped: true };
+  }
+  return null;
+}
+
+function arrayLiteralForEachTable(arg: ts.Expression, sf: ts.SourceFile): ts.ArrayLiteralExpression | null {
+  if (ts.isArrayLiteralExpression(arg)) return arg;
+  if (!ts.isIdentifier(arg)) return null;
+  let found: ts.ArrayLiteralExpression | null = null;
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === arg.text &&
+      node.initializer != null &&
+      ts.isArrayLiteralExpression(node.initializer)
+    ) {
+      found = node.initializer;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return found;
+}
+
+function titlesFromEachTable(node: ts.ArrayLiteralExpression): string[] {
+  const titles: string[] = [];
+  for (const element of node.elements) {
+    if (ts.isStringLiteralLike(element)) {
+      titles.push(element.text);
+      continue;
+    }
+    if (ts.isArrayLiteralExpression(element) && element.elements.length > 0) {
+      const head = element.elements[0];
+      if (head && ts.isStringLiteralLike(head)) titles.push(head.text);
+    }
+  }
+  return titles;
+}
+
+function jsEachTitleOccurrences(
+  content: string,
+  file: string,
+): Array<{ title: string; skipped: boolean }> {
+  const sf = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true, scriptKindForTestFile(file));
+  const skipRanges = collectDescribeSkipBodies(sf);
+  const out: Array<{ title: string; skipped: boolean }> = [];
+  const visit = (node: ts.Node): void => {
+    if (!ts.isCallExpression(node)) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+    const each = parseEachCall(node.expression);
+    if (!each) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+    const tableArg = node.arguments[0];
+    if (tableArg == null) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+    const table = arrayLiteralForEachTable(tableArg, sf);
+    if (table == null) {
+      ts.forEachChild(node, visit);
+      return;
+    }
+    const pos = node.getStart(sf);
+    const inDescribeSkip = skipRanges.some((range) => pos >= range.start && pos <= range.end);
+    const skipped = each.skipped || inDescribeSkip;
+    for (const title of titlesFromEachTable(table)) {
+      out.push({ title, skipped });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return out;
+}
+
+function jsEachTitlesMatch(content: string, file: string, testName: string): boolean {
+  return jsEachTitleOccurrences(content, file).some((item) => vitestNameMatches(testName, item.title));
+}
+
+function rustTestRefExists(content: string, testName: string): boolean {
+  return rustFnDefinitionLines(content, testName).length > 0;
+}
+
+function testRefExists(content: string, file: string, testName: string): boolean {
+  if (file.endsWith(".rs")) return rustTestRefExists(content, testName);
+  if (jsTestOccurrences(content, file, testName).length > 0) return true;
+  return jsEachTitlesMatch(content, file, testName);
+}
+
+function isRustTestIgnored(content: string, testName: string): boolean {
+  const lines = rustStrippedLines(content);
+  const fnPattern = new RegExp(`^\\s*fn\\s+${escapeRegExp(testName)}\\s*\\(`);
+  const fnLines: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (fnPattern.test(lines[i])) fnLines.push(i);
+  }
+  if (fnLines.length === 0) return false;
+  return fnLines.every((fnLine) => {
+    const attrs = rustAttributesBefore(lines, fnLine);
+    if (attrs.some((attr) => /^#\[\s*ignore\b/.test(attr))) return true;
+    return false;
+  });
+}
+
+function isJsTestSkipped(content: string, file: string, testName: string): boolean {
+  const occurrences = [
+    ...jsTestOccurrences(content, file, testName),
+    ...jsEachTitleOccurrences(content, file)
+      .filter((item) => vitestNameMatches(testName, item.title))
+      .map((item) => ({ skipped: item.skipped })),
+  ];
+  if (occurrences.length === 0) return false;
+  return occurrences.every((item) => item.skipped);
 }
 
 function stepSection(id: string): string {

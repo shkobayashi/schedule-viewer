@@ -2,9 +2,13 @@
 
 見出し、操作名、MCP ツール名を、計算、画面の接続、OS、見た目に分けた対応である。自動済みは、相対パスとテスト名が実在する計算か文言である。自動化予定は合格にしない。この検査は名前と参照の欠落を見るもので、振る舞いが正しいことの保証ではない。
 
-`#541` の行は、Windows の CI で `cargo test --locked` が通ったら自動済みか一部手動か手動のままへ移す。`#543` の行は移さない。起動中アプリの試験を参照する行は、Windows が緑になるまで一部自動のまま `自動化予定:#541` を付ける。
+許可する `自動化予定:#` の Issue 番号は #541 と #543 だけである。検査は `scripts/check-regression-coverage.ts` が付録・対応表・手順の「扱い」を見る。一覧を変えるときは同じ変更で [regression-tc.md](regression-tc.md) の冒頭と揃える。
 
-起動中アプリの試験（`mcp_running_app.rs`）を参照する行は、Windows の CI で `cargo test --locked` が通るまで自動済みにしない。区分は一部自動とし、`自動化予定:#543` を付ける。
+`#541` の Windows CI 待ち（切替候補 7 行）: `MX-O-26`、`MX-O-29`、`MX-T-16` と、付録側の対応行。`#[ignore]` 11 本と `TC-FILE-10` の残りは Windows が緑でも自動済みにしない。
+
+`#543`。**未着手**（自動参照なし）: `MX-O-111`、`MX-O-113`、`MX-T-7`、`MX-T-9`。**未解決の観測**: `mcp_running_app.rs` の `#[ignore]` 11 本（PR #570 別報告）と `TC-FILE-10` の前面化・再起動。**Windows CI 待ち**（`自動:` が `mcp_running_app.rs`）: 付録 `TC-MCP-425a`、`TC-MCP-425g`、`TC-SYNC-01k`、`TC-WIN-01g`、`TC-VIEW-16h`、`TC-MCP-01`、`TC-MCP-01i`、`TC-MCP-01e`、`TC-MCP-01f`、`TC-MCP-01g`、`TC-MCP-01j`、`TC-MCP-01p`、`TC-MCP-02`。対応表 `MX-O-30`、`MX-O-66`、`MX-O-109`、`MX-O-115`、`MX-O-117`、`MX-O-119`、`MX-O-128`、`MX-O-130`、`MX-T-1`、`MX-T-3`、`MX-T-5`、`MX-T-11`、`MX-T-13`、`MX-T-14`、`MX-T-15`、`MX-T-20`、`MX-T-27`。Linux で通っていても、Windows の `cargo test` が通るまで自動済みにしない。区分は一部自動のまま `自動化予定:#543` を付ける。
+
+閉じた #535、#540、#547、#563 と、#536、#538 へは移さない。
 
 シナリオの手順は [regression.md](regression.md)、付録の仕分けは [regression-tc.md](regression-tc.md) である。
 
@@ -78,7 +82,7 @@
 | MX-O-4 | UI | 最近開いたファイルの1件を開く | 自動済み | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#opening from history resets filters and fit。自動:src/components/AppMenu.recent.dom.test.tsx#opens the first recent schedule when chosen from the submenu |
 | MX-O-5 | UI | 履歴を消す | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#clear history leaves the open schedule and the recovery file。手動:RG-F9-2 |
 | MX-O-6 | UI | 新しいウィンドウで開く | 手動のまま | 手動:RG-F9-1。手動のまま:「新しいウィンドウで開く」と、2 枚目で `members.json` を選ぶ操作は、ファイルを選ぶ画面が要る。 |
-| MX-O-7 | OS | 新しいウィンドウで開く | 一部手動 | 手動のまま:☰ の「新しいウィンドウで開く」と MCP `open_new_window`（PR #570 別報告、`#[ignore]` 3 本）。 |
+| MX-O-7 | OS | 新しいウィンドウで開く | 手動のまま | 手動のまま:☰ の「新しいウィンドウで開く」と MCP `open_new_window`（PR #570 別報告、`#[ignore]` 3 本）。 |
 | MX-O-8 | 計算 | 保存 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#stays the same after save, reload, and save again |
 | MX-O-9 | OS | 保存 | 一部手動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。手動のまま:OS の保存ダイアログは mock だけでは足りない。 |
 | MX-O-10 | OS | 別名保存 | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#save as then save writes the second change to the new path。手動:RG-S4-5 |
@@ -229,7 +233,7 @@
 | MX-T-15 | 計算 | focus_window | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#focus_window_sets_schedule_2_front_and_leaves_both_file_bytes。自動化予定:#543 |
 | MX-T-16 | 計算 | close_window | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#close_window_on_main_then_restart_opens_only_schedule_2。自動:src-tauri/tests/mcp_running_app.rs#close_window_schedule_2_leaves_only_main_still_answering_current_schedule。自動化予定:#541 |
 | MX-T-17 | 計算 | minimize_window | 手動のまま | 手動:RG-F9-4。手動のまま:最小化の状態は `open_windows` の一覧に無い。 |
-| MX-T-18 | 計算 | open_new_window | 一部手動 | 手動のまま:MCP `open_new_window` の統合試験は PR #570 別報告（`#[ignore]` 3 本）。 |
+| MX-T-18 | 計算 | open_new_window | 手動のまま | 手動のまま:MCP `open_new_window` の統合試験は PR #570 別報告（`#[ignore]` 3 本）。 |
 | MX-T-19 | 計算 | set_view | 自動済み | 自動:src/model/mcpSetView.test.ts#leaves collapse unchanged when patch has no collapsed fields |
 | MX-T-20 | 計算 | set_view | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#set_view_filter_leaves_schedule_diff_no_difference_and_file_mtime。自動化予定:#543 |
 | MX-T-21 | 計算 | explain_view | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
