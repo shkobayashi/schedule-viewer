@@ -16,6 +16,7 @@ import {
   validateIssue475HistoricalPhases,
   validatePhaseLogFile,
   validatePhaseLogStructure,
+  currentVerifiedHeadFromReviews,
   latestMergeReadyHeadSha,
   validatePhaseRecord,
   validatePhaseRecordRevision,
@@ -507,7 +508,7 @@ test("#591 committed record verified_head_sha matches latest MERGE-READY review"
   const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
   assert.ok(rec591);
   assert.equal(
-    latestMergeReadyHeadSha(rec591.phases),
+    currentVerifiedHeadFromReviews(rec591.phases),
     "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
   );
   assert.equal(rec591.verified_head_sha, "2add60baa4014c3900cca4f5a77ae73d00aaae1d");
@@ -572,23 +573,158 @@ test("validatePhaseRecordRevision rejects deleted committed #591 correction", ()
   assert.ok(rev.issues.some((i) => i.includes("removed correction")));
 });
 
-test("validatePhaseRecordRevision accepts appended phase on committed #591 record", () => {
+const REVIEW_HEAD_WITHDRAWN = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+const REVIEW_HEAD_REREADY = "cccccccccccccccccccccccccccccccccccccccc";
+
+test("validatePhaseRecord rejects stale verified_head_sha after appended NOT-READY review", () => {
   const committed = validateCommittedPhaseRecordFiles();
   const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
   assert.ok(rec591);
-  const appended = structuredClone(rec591);
-  appended.phases.push({
-    id: "591-review-5",
+  const withdrawn = structuredClone(rec591);
+  withdrawn.phases.push({
+    id: "591-review-adverse-rereview",
+    task_type: "レビュー",
+    model_id: "grok-4.7",
+    effort: "high",
+    effort_basis: "configured",
+    session_id: "bc-f2aab7f8-7be0-5eac-adea-5ed6f54baadf",
+    review_outcome: "NOT-READY",
+    head_sha_reviewed: REVIEW_HEAD_WITHDRAWN,
+    findings: "Not ready; regressions on the integration head.",
+    provenance: "coordinator review record",
+  });
+  assert.equal(currentVerifiedHeadFromReviews(withdrawn.phases), null);
+  const check = validatePhaseRecord(withdrawn);
+  assert.equal(check.ok, false);
+  assert.ok(
+    check.issues.some((i) => i.includes("verified_head_sha must be null")),
+  );
+});
+
+test("validatePhaseRecord accepts null verified_head_sha after NOT-READY withdrawal", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const withdrawn = structuredClone(rec591);
+  withdrawn.phases.push({
+    id: "591-review-adverse-rereview",
+    task_type: "レビュー",
+    model_id: "grok-4.7",
+    effort: "high",
+    effort_basis: "configured",
+    session_id: "bc-f2aab7f8-7be0-5eac-adea-5ed6f54baadf",
+    review_outcome: "NOT-READY",
+    head_sha_reviewed: REVIEW_HEAD_WITHDRAWN,
+    findings: "Not ready; regressions on the integration head.",
+    provenance: "coordinator review record",
+  });
+  withdrawn.verified_head_sha = null;
+  const check = validatePhaseRecord(withdrawn);
+  assert.equal(check.ok, true, check.issues.join("; "));
+  const r3 = withdrawn.phases.find((p) => p.id === "591-review-3");
+  const r4 = withdrawn.phases.find((p) => p.id === "591-review-4");
+  assert.equal(r3?.head_sha_reviewed, "60d5252149558ddf0146866f0cd2f60995ee03e4");
+  assert.equal(r4?.review_outcome, "MERGE-READY");
+});
+
+test("validatePhaseRecord preserves verified_head when appended review has no readiness judgment", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const noop = structuredClone(rec591);
+  noop.phases.push({
+    id: "591-review-notes-only",
     task_type: "レビュー",
     model_id: "grok-4.7",
     effort: "high",
     effort_basis: "configured",
     provenance: "coordinator review record",
-    findings: "Not ready; example append-only phase.",
+    head_sha_reviewed: "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
+    findings: "Coverage notes only; no merge readiness stated.",
   });
-  const rev = validatePhaseRecordRevision(rec591, appended);
-  assert.equal(rev.ok, true, rev.issues.join("; "));
-  assert.equal(validatePhaseRecord(appended).ok, true);
+  assert.equal(
+    currentVerifiedHeadFromReviews(noop.phases),
+    "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
+  );
+  assert.equal(validatePhaseRecord(noop).ok, true, validatePhaseRecord(noop).issues.join("; "));
+  assert.equal(validatePhaseRecordRevision(rec591, noop).ok, true);
+});
+
+test("validatePhaseRecord requires new head after MERGE-READY re-ready on later head", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const reready = structuredClone(rec591);
+  reready.phases.push(
+    {
+      id: "591-review-adverse-rereview",
+      task_type: "レビュー",
+      review_outcome: "NOT-READY",
+      head_sha_reviewed: REVIEW_HEAD_WITHDRAWN,
+      findings: "Not ready; regressions on the integration head.",
+      provenance: "coordinator review record",
+    },
+    {
+      id: "591-review-reready",
+      task_type: "レビュー",
+      review_outcome: "MERGE-READY",
+      head_sha_reviewed: REVIEW_HEAD_REREADY,
+      findings: "MERGE-READY after fix on new head.",
+      provenance: "coordinator review record",
+    },
+  );
+  assert.equal(currentVerifiedHeadFromReviews(reready.phases), REVIEW_HEAD_REREADY);
+  reready.verified_head_sha = "2add60baa4014c3900cca4f5a77ae73d00aaae1d";
+  assert.equal(validatePhaseRecord(reready).ok, false);
+  reready.verified_head_sha = REVIEW_HEAD_REREADY;
+  assert.equal(validatePhaseRecord(reready).ok, true);
+});
+
+test("validatePhaseRecord review_outcome NOT-READY overrides positive findings text", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const contradictory = structuredClone(rec591);
+  contradictory.phases.push({
+    id: "591-review-outcome-wins",
+    task_type: "レビュー",
+    review_outcome: "NOT-READY",
+    head_sha_reviewed: REVIEW_HEAD_WITHDRAWN,
+    findings: "MERGE-READY prose contradiction must not apply.",
+    provenance: "coordinator review record",
+  });
+  contradictory.verified_head_sha = null;
+  assert.equal(currentVerifiedHeadFromReviews(contradictory.phases), null);
+  assert.equal(validatePhaseRecord(contradictory).ok, true);
+});
+
+test("validatePhaseRecord rejects invalid review_outcome on review phase", () => {
+  const bad = validatePhaseRecord({
+    record_id: "t",
+    provenance: "test",
+    verified_head_sha: null,
+    fix_rounds: 0,
+    phases: [
+      {
+        id: "r1",
+        task_type: "レビュー",
+        review_outcome: "MAYBE",
+        provenance: "test",
+      },
+    ],
+    corrections: [],
+  });
+  assert.equal(bad.ok, false);
+  assert.ok(bad.issues.some((i) => i.includes("invalid review_outcome")));
+});
+
+test("validatePhaseRecordRevision rejects invented merge_summary tokens without prior observation", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const inflated = structuredClone(rec591);
+  inflated.merge_summary = {
+    ...inflated.merge_summary,
+    tokens: 99999,
+  };
+  const rev = validatePhaseRecordRevision(rec591, inflated);
+  assert.equal(rev.ok, false);
+  assert.ok(rev.issues.some((i) => i.includes("merge_summary.tokens")));
 });
 
 test("phase log practice entries link canonical #591 and #592 records", () => {

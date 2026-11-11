@@ -264,7 +264,13 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects replaced committed #591 correction prefix` | — |
 | `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects reordered committed #591 phases` | — |
 | `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects deleted committed #591 correction` | — |
-| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision accepts appended phase on committed #591 record` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects stale verified_head_sha after appended NOT-READY review` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord accepts null verified_head_sha after NOT-READY withdrawal` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord preserves verified_head when appended review has no readiness judgment` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord requires new head after MERGE-READY re-ready on later head` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord review_outcome NOT-READY overrides positive findings text` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects invalid review_outcome on review phase` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects invented merge_summary tokens without prior observation` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentityStatus unit cases` | — |
 | `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent frontmatter name model readonly` | — |
 | `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent explicit invocation and review-implementation link` | — |

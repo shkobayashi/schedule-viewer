@@ -422,6 +422,13 @@ const SESSION_ID_RE =
   /^bc-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EFFORT_BASIS_ALLOWED = new Set(["configured", "runtime", "unknown"]);
 const KNOWN_INTEGRATION_STATES = new Set(["open", "merged", "closed"]);
+const KNOWN_REVIEW_OUTCOMES = new Set(["MERGE-READY", "NOT-READY"]);
+const MERGE_SUMMARY_ROLLUP_KEYS = [
+  "tokens",
+  "actual_cost",
+  "duration",
+  "composer_effort",
+];
 
 /**
  * @param {unknown} effort
@@ -459,37 +466,74 @@ function valueDeepEqual(a, b) {
 }
 
 /**
- * Latest applicable merge-ready head from review phases (not every historical Ready).
+ * Readiness judgment for one レビュー phase. Structured review_outcome wins over findings text.
+ * @param {Record<string, unknown>} p
+ * @returns {{ kind: "positive" | "negative" | "none", head: string | null }}
+ */
+function reviewPhaseReadinessJudgment(p) {
+  const head = p.head_sha_reviewed;
+  const headStr =
+    head != null && String(head).trim() !== ""
+      ? String(head).trim().toLowerCase()
+      : null;
+
+  const outcome = p.review_outcome;
+  if (outcome != null && String(outcome).trim() !== "") {
+    const o = String(outcome).trim();
+    if (o === "MERGE-READY") {
+      return headStr
+        ? { kind: "positive", head: headStr }
+        : { kind: "none", head: null };
+    }
+    if (o === "NOT-READY") {
+      return { kind: "negative", head: null };
+    }
+    return { kind: "none", head: null };
+  }
+
+  const findings = p.findings == null ? "" : String(p.findings).trim();
+  if (!findings) {
+    return { kind: "none", head: null };
+  }
+  if (/^Not ready\b/i.test(findings)) {
+    return { kind: "negative", head: null };
+  }
+  if (/^MERGE-READY\b/.test(findings)) {
+    return headStr
+      ? { kind: "positive", head: headStr }
+      : { kind: "none", head: null };
+  }
+  if (/^Ready\b/.test(findings)) {
+    return headStr
+      ? { kind: "positive", head: headStr }
+      : { kind: "none", head: null };
+  }
+  return { kind: "none", head: null };
+}
+
+/**
+ * Current verified head from the latest explicit readiness judgment (newest レビュー first).
+ * NOT-READY withdraws readiness (null). Reviews with no judgment are skipped.
  * @param {unknown[]} phases
  * @returns {string | null}
  */
-export function latestMergeReadyHeadSha(phases) {
+export function currentVerifiedHeadFromReviews(phases) {
   if (!Array.isArray(phases)) return null;
-  /** @type {string | null} */
-  let mergeReady = null;
-  /** @type {string | null} */
-  let readyFallback = null;
   for (let i = phases.length - 1; i >= 0; i--) {
     const phase = phases[i];
     if (phase == null || typeof phase !== "object") continue;
     const p = /** @type {Record<string, unknown>} */ (phase);
     if (p.task_type !== "レビュー") continue;
-    const head = p.head_sha_reviewed;
-    if (head == null || String(head).trim() === "") continue;
-    const headStr = String(head).trim().toLowerCase();
-    if (p.review_outcome === "MERGE-READY") {
-      mergeReady = headStr;
-      break;
-    }
-    const findings = p.findings == null ? "" : String(p.findings);
-    if (
-      readyFallback == null &&
-      (/^MERGE-READY\b/.test(findings) || /^Ready\b/.test(findings))
-    ) {
-      readyFallback = headStr;
-    }
+    const judgment = reviewPhaseReadinessJudgment(p);
+    if (judgment.kind === "positive") return judgment.head;
+    if (judgment.kind === "negative") return null;
   }
-  return mergeReady ?? readyFallback;
+  return null;
+}
+
+/** @deprecated Use currentVerifiedHeadFromReviews; kept for importers. */
+export function latestMergeReadyHeadSha(phases) {
+  return currentVerifiedHeadFromReviews(phases);
 }
 
 /**
@@ -572,25 +616,52 @@ export function validatePhaseRecord(record) {
       }
     }
 
+    if (p.task_type === "レビュー" && p.review_outcome != null) {
+      const o = String(p.review_outcome).trim();
+      if (o && !KNOWN_REVIEW_OUTCOMES.has(o)) {
+        issues.push(`phases[${i}] invalid review_outcome ${o}`);
+      }
+    }
+
     if (p.task_type === "修正" && p.substantive_fix !== false) {
       substantiveFixCount += 1;
     }
   }
 
-  const expectedVerified = latestMergeReadyHeadSha(phases);
-  if (r.verified_head_sha != null && String(r.verified_head_sha).trim() !== "") {
-    const { wellFormed, value } = describeSha(String(r.verified_head_sha));
+  const expectedVerified = currentVerifiedHeadFromReviews(phases);
+  const verifiedRaw = r.verified_head_sha;
+  const hasVerified =
+    verifiedRaw != null && String(verifiedRaw).trim() !== "";
+  if (hasVerified) {
+    const { wellFormed, value } = describeSha(String(verifiedRaw));
     if (!wellFormed) {
       issues.push("malformed verified_head_sha");
-    } else if (expectedVerified != null && value !== expectedVerified) {
+    } else if (expectedVerified == null) {
       issues.push(
-        `verified_head_sha ${value} does not match latest merge-ready review head ${expectedVerified}`,
+        "verified_head_sha must be null (latest review withdrew readiness or no positive judgment)",
+      );
+    } else if (value !== expectedVerified) {
+      issues.push(
+        `verified_head_sha ${value} does not match current verified judgment head ${expectedVerified}`,
       );
     }
   } else if (expectedVerified != null) {
     issues.push(
-      `verified_head_sha required (latest merge-ready review head ${expectedVerified})`,
+      `verified_head_sha required (current verified judgment head ${expectedVerified})`,
     );
+  }
+
+  const mergeSummary = r.merge_summary;
+  if (mergeSummary != null && typeof mergeSummary === "object") {
+    const ms = /** @type {Record<string, unknown>} */ (mergeSummary);
+    for (const key of MERGE_SUMMARY_ROLLUP_KEYS) {
+      const v = ms[key];
+      if (v != null && v !== "unknown" && String(v).trim() !== "unknown") {
+        if (typeof v === "number" && !Number.isFinite(v)) {
+          issues.push(`merge_summary.${key} must be unknown or a finite number`);
+        }
+      }
+    }
   }
 
   const integration = r.integration_status;
@@ -705,6 +776,26 @@ export function validatePhaseRecordRevision(previous, next) {
       issues.push(
         `revision mutated correction at index ${i}${typeof cid === "string" ? ` (id ${cid})` : ""}`,
       );
+    }
+  }
+
+  const prevMs = /** @type {Record<string, unknown>} */ (previous).merge_summary;
+  const nextMs = /** @type {Record<string, unknown>} */ (next).merge_summary;
+  if (
+    prevMs != null &&
+    nextMs != null &&
+    typeof prevMs === "object" &&
+    typeof nextMs === "object" &&
+    !valueDeepEqual(prevMs, nextMs)
+  ) {
+    for (const key of MERGE_SUMMARY_ROLLUP_KEYS) {
+      const pv = prevMs[key];
+      const nv = nextMs[key];
+      if (pv === "unknown" && nv !== "unknown" && nv != null && String(nv).trim() !== "") {
+        issues.push(
+          `revision invented merge_summary.${key} without prior observation (was unknown)`,
+        );
+      }
     }
   }
 
