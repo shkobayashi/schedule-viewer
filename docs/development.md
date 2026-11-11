@@ -282,9 +282,9 @@ Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` 
 CI は変更されたパスでジョブを分ける。ビルドの入力を足したら、ここと `.github/workflows/ci.yml` の対象パスにも足す。Rust の版の正本は `rust-toolchain.toml` で、ワークフローには版番号を書かない。`dtolnay/rust-toolchain` は `toolchain` の入力が必須で、このファイルを自分では読まない。CI と Release は `channel` と `components` を読んでその入力へ渡す。読み取りステップは `shell: bash` にする。Release の Windows ランナーの既定シェルは PowerShell で、bash のまま書くと構文エラーになる。Release は配布物のビルドと公開だけで、検査は繰り返さない。`main` へ載せる前の `version:check` は手元で行う。
 
 - `src-tauri/`、`rust-toolchain.toml`、`read-screen/*`、`.cursor/skills/schedule-talk/*` が変わると Rust ジョブ（`npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。Ubuntu だけ `xvfb-run -a`）が動く
-- `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/`、`.cursor/skills/how-to/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`、`test:ci`（カバレッジの閾値を下回ると失敗）、`check:architecture-warn`（jscpd。上限を超えても警告）、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物・`how-to` の `manual/` 6 ファイルと `src/model/generated/` の差分検査である
+- `index.html`、`src/`、`scripts/`、スキーマ、`examples/`、パッケージ定義、フロントの設定、`.cursor/skills/write-schedule/`、`.cursor/skills/write-calendar/`、`.cursor/skills/write-members/`、`.cursor/skills/write-workspace/`、`.cursor/skills/write-fields/`、`.cursor/skills/write-colors/`、`.cursor/skills/how-to/` が変わるとフロントジョブが動く。中身は `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`、`test:ci`（カバレッジの閾値を下回ると失敗）、`check:architecture-warn`（jscpd。上限を超えても警告）、`check:schedule`、`check:calendar`、`check:members`、`node --test scripts/how-to-citations.test.mjs`（生成前。`how-to/manual/` の鮮度と引用検査）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、`npm audit --audit-level=high`、スキル同梱物・`how-to` の `manual/` 6 ファイルと `src/model/generated/` の差分検査である
 - ワークフロー定義が変わると、両方のジョブが動く
-- `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`、`build:validate-skill`、マニュアル6ファイルと `how-to/manual/` の差分検査、`node --test scripts/how-to-citations.test.mjs`）が動く。`package.json` と `package-lock.json` が変わったときも同じ
+- `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、マニュアル6ファイルと `how-to/manual/` の差分検査）が動く。`package.json` と `package-lock.json` だけが変わったときはフロントジョブが動き、`manual` は動かない
 - `docs/*.md` や `README.md` だけの変更（操作マニュアル以外）では、フロントと Rust と `manual` はスキップする。集約ジョブ `ci` は成功する
 
 ワークフロー全体の `permissions` は `contents: read` である。Release の `contents: write` は配布ジョブだけに付ける。Pages の `pages: write` と `id-token: write` は deploy ジョブだけに付ける。`actions/checkout` は `persist-credentials: false` である。
@@ -333,10 +333,12 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 9. `npm run check:schedule`
 10. `npm run check:calendar`
 11. `npm run check:members`
-12. `npm run build:validate-skill`
-13. `npm run version:check`
-14. `npm audit --audit-level=high`
-15. `.github/workflows/ci.yml` の frontend ジョブにある `git diff --exit-code` を、同じパスで実行する（`how-to/manual/` の6ファイルを含む）
+12. `node --test scripts/how-to-citations.test.mjs`
+13. `npm run build:validate-skill`
+14. `test -z "$(git status --porcelain .cursor/skills/how-to/manual/)"`
+15. `npm run version:check`
+16. `npm audit --audit-level=high`
+17. `.github/workflows/ci.yml` の frontend ジョブにある `git diff --exit-code` を、同じパスで実行する（`how-to/manual/` の6ファイルを含む）
 
 `src-tauri/` を変えたときは、手元の OS の Clippy と `cargo test --locked` をこの 1 回に足す。
 

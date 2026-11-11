@@ -805,6 +805,58 @@ mod tests {
     }
 
     #[test]
+    fn install_copies_how_to_manual_nested_and_uninstall_preserves_neighbors() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let skills = home.join(".cursor").join("skills");
+        fs::create_dir_all(skills.join("other-skill")).expect("neighbor");
+        fs::write(skills.join("other-skill").join("SKILL.md"), "neighbor").expect("write");
+        let resource = dir.path().join("resources");
+        write_bundled_skills_with_how_to_manual(&resource);
+
+        let result = install_json_skills_to_disk(
+            &resource,
+            &home,
+            selection_cursor_only(),
+            JsonSkillScope::User,
+            None,
+            false,
+        )
+        .expect("install");
+        assert_eq!(result.installed_paths.len(), JSON_SKILL_NAMES.len());
+
+        let how_to_dest = skills.join("how-to");
+        let canonical = how_to_dest.canonicalize().expect("canonicalize how-to");
+        assert!(canonical.ends_with("how-to"));
+        assert!(
+            !how_to_dest
+                .symlink_metadata()
+                .expect("how-to meta")
+                .file_type()
+                .is_symlink()
+        );
+        let manual_features = how_to_dest.join("manual").join("features.md");
+        assert!(manual_features.is_file());
+        assert_eq!(
+            fs::read_to_string(&manual_features).expect("read features"),
+            "features.md"
+        );
+        assert!(canonical.join("manual").join("features.md").exists());
+
+        let uninstall = uninstall_json_skills_from_disk(
+            &home,
+            selection_cursor_only(),
+            JsonSkillScope::User,
+            None,
+        )
+        .expect("uninstall");
+        assert_eq!(uninstall.removed_paths.len(), JSON_SKILL_NAMES.len());
+        assert!(!how_to_dest.exists());
+        assert!(skills.join("other-skill").exists());
+    }
+
+    #[test]
     fn uninstall_removes_only_bundled_skill_folders() {
         let dir = tempfile::tempdir().expect("temp dir");
         let home = dir.path().join("home");
@@ -831,6 +883,28 @@ mod tests {
             let skill_dir = resource.join(RESOURCE_SKILLS_DIR).join(name);
             fs::create_dir_all(&skill_dir).expect("mkdir skill");
             fs::write(skill_dir.join("SKILL.md"), name).expect("write");
+        }
+    }
+
+    fn write_bundled_skills_with_how_to_manual(resource: &Path) {
+        for name in JSON_SKILL_NAMES {
+            let skill_dir = resource.join(RESOURCE_SKILLS_DIR).join(name);
+            fs::create_dir_all(&skill_dir).expect("mkdir skill");
+            fs::write(skill_dir.join("SKILL.md"), name).expect("write");
+            if name == "how-to" {
+                let manual = skill_dir.join("manual");
+                fs::create_dir_all(&manual).expect("mkdir manual");
+                for file in [
+                    "user-manual.md",
+                    "getting-started.md",
+                    "find-by-intent.md",
+                    "tutorial.md",
+                    "features.md",
+                    "privacy.md",
+                ] {
+                    fs::write(manual.join(file), file).expect("write manual");
+                }
+            }
         }
     }
 

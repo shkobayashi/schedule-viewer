@@ -63,30 +63,44 @@ export function writeHowToManualBundle(repoRoot) {
 }
 
 /**
- * @param {string} repoRoot
+ * @param {string} manualDir
+ * @param {Map<string, string>} expectedFromSources
  * @returns {string[]}
  */
-export function assertHowToManualBundleFresh(repoRoot) {
+export function assertHowToManualBundleState(manualDir, expectedFromSources) {
   const errors = [];
-  const manualDir = path.join(repoRoot, HOW_TO_MANUAL_DIR);
-  const expectedFromSources = buildHowToManualFromSources(repoRoot);
+  const expectedNames = new Set(HOW_TO_MANUAL_PAGES.map((p) => p.out));
 
   if (!fs.existsSync(manualDir)) {
-    errors.push(`missing directory ${HOW_TO_MANUAL_DIR}`);
-    for (const out of HOW_TO_MANUAL_PAGES.map((p) => p.out)) {
+    errors.push(`missing directory ${manualDir}`);
+    for (const out of expectedNames) {
       errors.push(`missing bundled file manual/${out}`);
     }
     return errors;
   }
 
-  const onDisk = new Set(
-    fs.readdirSync(manualDir).filter((name) => {
-      const full = path.join(manualDir, name);
-      return fs.statSync(full).isFile();
-    }),
-  );
+  const entries = fs.readdirSync(manualDir);
+  const onDisk = new Set();
 
-  for (const out of HOW_TO_MANUAL_PAGES.map((p) => p.out)) {
+  for (const name of entries) {
+    const full = path.join(manualDir, name);
+    const stat = fs.lstatSync(full);
+    if (stat.isDirectory()) {
+      errors.push(`unexpected bundled directory manual/${name}`);
+      continue;
+    }
+    if (stat.isSymbolicLink()) {
+      errors.push(`unexpected symlink manual/${name}`);
+      continue;
+    }
+    if (stat.isFile()) {
+      onDisk.add(name);
+    } else {
+      errors.push(`unexpected non-regular entry manual/${name}`);
+    }
+  }
+
+  for (const out of expectedNames) {
     if (!onDisk.has(out)) {
       errors.push(`missing bundled file manual/${out}`);
     }
@@ -112,4 +126,16 @@ export function assertHowToManualBundleFresh(repoRoot) {
   }
 
   return errors;
+}
+
+/**
+ * @param {string} repoRoot
+ * @returns {string[]}
+ */
+export function assertHowToManualBundleFresh(repoRoot) {
+  const manualDir = path.join(repoRoot, HOW_TO_MANUAL_DIR);
+  return assertHowToManualBundleState(
+    manualDir,
+    buildHowToManualFromSources(repoRoot),
+  );
 }
