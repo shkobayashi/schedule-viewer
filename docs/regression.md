@@ -19,11 +19,9 @@ Windows CI 後に区分だけ見直す切替候補は、試験本文でその行
 
 ### #543
 
-#543 が open のあいだは、Linux で通っている試験があっても行を自動済みに移さない。
-
 - **未着手**（自動参照なし）: 対応表 `MX-O-111`、`MX-O-113`、`MX-T-7`、`MX-T-9`
-- **未解決の観測**: 上記 `#[ignore]` 11 本
-- **Windows CI 待ち**: 上記 #541 の切替候補 7 行
+- **未解決の観測**: 上記 `#[ignore]` 11 本と、`TC-FILE-10` の前面化・再起動（どちらも #541 の一覧にも入れない）
+- **Windows CI 待ち**（`自動:` が `mcp_running_app.rs`）: 付録 `TC-MCP-425a`、`TC-MCP-425g`、`TC-SYNC-01k`、`TC-WIN-01g`、`TC-VIEW-16h`、`TC-MCP-01`、`TC-MCP-01i`、`TC-MCP-01e`、`TC-MCP-01f`、`TC-MCP-01g`、`TC-MCP-01j`、`TC-MCP-01p`、`TC-MCP-02`。対応表 `MX-O-30`、`MX-O-66`、`MX-O-109`、`MX-O-115`、`MX-O-117`、`MX-O-119`、`MX-O-128`、`MX-O-130`、`MX-T-1`、`MX-T-3`、`MX-T-5`、`MX-T-11`、`MX-T-13`、`MX-T-14`、`MX-T-15`、`MX-T-20`、`MX-T-27`。Linux で通っていても、Windows の `cargo test` が通るまで自動済みにしない。
 
 閉じた #535、#540、#547、#563 と、#536、#538 へは移さない。
 
@@ -40,7 +38,9 @@ Windows CI 後に区分だけ見直す切替候補は、試験本文でその行
 - 実 OS の代表（開発版）: 開くダイアログ `RG-S4-8`、新しいウィンドウ `RG-F9-1`、外部更新の監視の残り `RG-F7-1`、起動復旧の残り `RG-F8-2`
 - 固定プロンプトの実 LLM: `RG-F12-3`、`RG-F12-4`、`RG-F12-5`、`RG-F12-8`。クライアントが無いときは保留で合格にしない
 
-**フル**: 短い確認に、まだ人が行う残りの手順（「扱い」が手動のまま、または手で行うと書いたもの）を足す。配布物でしか見ない `RG-F14-1`、`RG-F14-4`、`RG-F14-5` は含めない。`RG-F12-7` は #543 が終わるまで未検証であり、手で行っても自動の合格にはしない。
+**フル**: 短い確認に、扱いが `手動のまま` で始まる手順のうち短い確認に入っていないものを足す。未実施と記録する `RG-F12-6` と、未検証の `RG-F12-7` も載せる。配布物でしか見ない `RG-F14-1`、`RG-F14-4`、`RG-F14-5` は含めない。`RG-F12-7` は #543 が終わるまで未検証であり、手で行っても自動の合格にはしない。
+
+ブラウザ版では [準備](#準備) のとおり `TC-SYNC-01c` を加え `TC-SYNC-03` は対象外とする。`RG-S5` は手で行わない。`npm run test:browser-regression` はこの子 Issue の作業中と PR 前には入れない。
 
 **配布前**: [test-spec.md](test-spec.md) の「リリース前確認」1 から 16。本文は test-spec に一つだけ置き、この節は索引である。OS ごとの列はテンプレートの配布前欄を使う。
 
@@ -199,7 +199,7 @@ TC-MCP-01k から TC-MCP-01o は、ツールを直接呼ばない。画面を操
 
 期待: 基準日 2026-04-15 なら、日の表示で今日線が 2026 年 4 月の範囲に見える。OS の日付を変えられないときは未検証とし、合にしない。
 
-扱い: 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03)。自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette...。この手順は手で行わない。
+扱い: 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#sets day week and month widths to 40 22 and 8 and fits (NAV-02, NAV-03)。自動:e2e/browser-regression/specs/layout-f2.spec.ts#runs 今日 from the command palette and ignores the palette shortcut while a dialog is open。この手順は手で行わない。
 
 
 ### RG-S2-6
@@ -1097,38 +1097,16 @@ RG-F12-8:
 
 ### フル（目標 45〜70 分・見積。短い確認を足した残り）
 
-短い確認に載せた ID を除き、本文で「手で行わない」「手で通さない」と書いていない手順。配布物専用 `RG-F14-1`・`RG-F14-4`・`RG-F14-5` は含めない。
+[実施範囲の索引](#実施範囲の索引) のフルと同じ規則。配布物専用 `RG-F14-1`・`RG-F14-4`・`RG-F14-5` は含めない。
 
 ```
-RG-S1-1:
-RG-S1-2:
-RG-S1-4:
 RG-S3-3:
-RG-S3-13:
-RG-S4-1:
-RG-S4-2:
-RG-S4-3:
-RG-S4-4:
-RG-S4-5:
-RG-S4-6:
 RG-S4-7:
-RG-F4-2:
-RG-F5-3:
-RG-F6-5:
-RG-F7-2:
-RG-F7-3:
-RG-F8-1:
-RG-F9-2:
 RG-F9-3:
 RG-F9-4:
-RG-F10-3:
-RG-F10-4:
 RG-F12-1:
-RG-F12-2:
 RG-F12-6:
 RG-F12-7（#543 終了まで未検証。合格にしない）:
-RG-F14-2:
-RG-F14-3:
 目標 45〜70 分との比較（分）:
 P6 未完了時の暫定 60〜90 分との比較（分）:
 ```

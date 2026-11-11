@@ -6,7 +6,7 @@
 
 `#541` の Windows CI 待ち（切替候補 7 行）: `MX-O-26`、`MX-O-29`、`MX-T-16` と、付録側の対応行。`#[ignore]` 11 本と `TC-FILE-10` の残りは Windows が緑でも自動済みにしない。
 
-`#543`: 未着手 `MX-O-111`、`MX-O-113`、`MX-T-7`、`MX-T-9`。起動中アプリの試験を参照する行は、Windows の CI が通るまで自動済みにしない。区分は一部自動とし `自動化予定:#543` を付ける。Linux で通っても #543 が open のあいだは移さない。
+`#543`。**未着手**（自動参照なし）: `MX-O-111`、`MX-O-113`、`MX-T-7`、`MX-T-9`。**未解決の観測**: `mcp_running_app.rs` の `#[ignore]` 11 本（PR #570 別報告）と `TC-FILE-10` の前面化・再起動。**Windows CI 待ち**（`自動:` が `mcp_running_app.rs`）: 付録 `TC-MCP-425a`、`TC-MCP-425g`、`TC-SYNC-01k`、`TC-WIN-01g`、`TC-VIEW-16h`、`TC-MCP-01`、`TC-MCP-01i`、`TC-MCP-01e`、`TC-MCP-01f`、`TC-MCP-01g`、`TC-MCP-01j`、`TC-MCP-01p`、`TC-MCP-02`。対応表 `MX-O-30`、`MX-O-66`、`MX-O-109`、`MX-O-115`、`MX-O-117`、`MX-O-119`、`MX-O-128`、`MX-O-130`、`MX-T-1`、`MX-T-3`、`MX-T-5`、`MX-T-11`、`MX-T-13`、`MX-T-14`、`MX-T-15`、`MX-T-20`、`MX-T-27`。Linux で通っていても、Windows の `cargo test` が通るまで自動済みにしない。区分は一部自動のまま `自動化予定:#543` を付ける。
 
 閉じた #535、#540、#547、#563 と、#536、#538 へは移さない。
 

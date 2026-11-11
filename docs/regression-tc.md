@@ -6,7 +6,7 @@
 
 `#541` は次の三つを分ける。**Windows CI 待ち**（切替候補 7 行）: 付録 `TC-MCP-425c`、`TC-MCP-01c`、`TC-WIN-01e`、`TC-WIN-01f`、対応表 `MX-O-26`、`MX-O-29`、`MX-T-16`。試験本文でその行の期待を断言できたものだけである。`TC-FILE-10` は初回 workspace 読み取りだけを見ており、切替候補に含めない。**未解決の観測**: `mcp_running_app.rs` の `#[ignore]` 11 本（PR #570 別報告）。**`TC-FILE-10` の残り**: 前面化の読み直し・再起動後の拡張名。Windows が緑でも ignore と `TC-FILE-10` の残りは自動済みにしない。
 
-`#543` は Issue が open だからだけでは移さない。**未着手**（自動参照なし）: 対応表 `MX-O-111`、`MX-O-113`、`MX-T-7`、`MX-T-9`。**未解決の観測**: 上記 ignore 11 本。Linux で通っても #543 が open のあいだは一部自動または自動化予定のままである。
+`#543`。**未着手**（自動参照なし）: 対応表 `MX-O-111`、`MX-O-113`、`MX-T-7`、`MX-T-9`。**未解決の観測**: 上記 ignore 11 本と `TC-FILE-10` の前面化・再起動（#541 の一覧にも入れない）。**Windows CI 待ち**（`自動:` が `mcp_running_app.rs`）: 付録 `TC-MCP-425a`、`TC-MCP-425g`、`TC-SYNC-01k`、`TC-WIN-01g`、`TC-VIEW-16h`、`TC-MCP-01`、`TC-MCP-01i`、`TC-MCP-01e`、`TC-MCP-01f`、`TC-MCP-01g`、`TC-MCP-01j`、`TC-MCP-01p`、`TC-MCP-02`。対応表 `MX-O-30`、`MX-O-66`、`MX-O-109`、`MX-O-115`、`MX-O-117`、`MX-O-119`、`MX-O-128`、`MX-O-130`、`MX-T-1`、`MX-T-3`、`MX-T-5`、`MX-T-11`、`MX-T-13`、`MX-T-14`、`MX-T-15`、`MX-T-20`、`MX-T-27`。Linux で通っていても、Windows の `cargo test` が通るまで自動済みにしない。
 
 閉じた #535、#540、#547、#563 と、#536、#538 へは移さない。
 

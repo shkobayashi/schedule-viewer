@@ -243,6 +243,119 @@ test("it.skip on an 自動 reference fails", () => {
   });
 });
 
+test("describe.skip inner target fails and outside same name passes", () => {
+  withCopy((root) => {
+    const testPath = join(root, "src/model/fixture-describe-skip.test.ts");
+    mkdirSync(dirname(testPath), { recursive: true });
+    const onlyInside = `import { describe, it } from "vitest";
+describe.skip("suite", () => {
+  it("inner_other", () => { expect(1).toBe(1); });
+  it("only_in_skip", () => {});
+});
+`;
+    writeFileSync(testPath, onlyInside);
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-describe-skip.test.ts#only_in_skip",
+    );
+    assert.failWith(run(root), "skip 付き");
+    writeFileSync(
+      testPath,
+      onlyInside + `it("only_in_skip", () => {});\n`,
+    );
+    const ok = run(root);
+    assert.equal(ok.status, 0, ok.stderr || ok.stdout);
+  });
+});
+
+test("commented it.skip and another suite it.skip do not fail active same name", () => {
+  withCopy((root) => {
+    const testPath = join(root, "src/model/fixture-skip-false-positive.test.ts");
+    mkdirSync(dirname(testPath), { recursive: true });
+    writeFileSync(
+      testPath,
+      `import { describe, it } from "vitest";
+// it.skip("fp_target")
+describe("a", () => { it.skip("fp_target", () => {}); });
+describe("b", () => { it("fp_target", () => {}); });
+`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-skip-false-positive.test.ts#fp_target",
+    );
+    const result = run(root);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  });
+});
+
+test("test.skip on auto reference fails", () => {
+  withCopy((root) => {
+    const testPath = join(root, "src/model/fixture-test-skip.test.ts");
+    mkdirSync(dirname(testPath), { recursive: true });
+    writeFileSync(testPath, `import { test } from "vitest";\ntest.skip("test_skip_sample", () => {});\n`);
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-test-skip.test.ts#test_skip_sample",
+    );
+    assert.failWith(run(root), "skip 付き");
+  });
+});
+
+test("indented #[ignore] on auto reference fails", () => {
+  withCopy((root) => {
+    const rustPath = join(root, "src-tauri/tests/fixture_indented_ignore.rs");
+    mkdirSync(dirname(rustPath), { recursive: true });
+    writeFileSync(
+      rustPath,
+      `mod inner {
+  #[test]
+  #[ignore = "xvfb"]
+  fn indented_ignore_sample() {}
+}
+`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src-tauri/tests/fixture_indented_ignore.rs#indented_ignore_sample",
+    );
+    assert.failWith(run(root), "#[ignore]");
+  });
+});
+
+test("#[ignore] on one fn does not fail another fn in the same file", () => {
+  withCopy((root) => {
+    const rustPath = join(root, "src-tauri/tests/fixture_ignore_neighbor.rs");
+    mkdirSync(dirname(rustPath), { recursive: true });
+    writeFileSync(
+      rustPath,
+      `#[test]
+#[ignore = "xvfb"]
+fn ignored_neighbor() {}
+
+#[test]
+fn active_neighbor() {}
+`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src-tauri/tests/fixture_ignore_neighbor.rs#active_neighbor",
+    );
+    const result = run(root);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  });
+});
+
 test("手動のまま reason mentioning a test name does not fail on skip", () => {
   withCopy((root) => {
     const rustPath = join(root, "src-tauri/tests/fixture_ignore.rs");

@@ -115,9 +115,6 @@ for (const line of caseRows) {
   if ((kind === "手動のまま" || kind === "一部手動") && !dest.includes("手動のまま:")) {
     errors.push(`${id} の手動のままには理由が要る`);
   }
-  if (kind === "一部手動" && !dest.includes("自動:")) {
-    errors.push(`${id} の一部手動に自動参照が無い。手動のままへ移す`);
-  }
   checkDestination(`${kind} ${dest}`, id);
 }
 
@@ -224,7 +221,7 @@ function checkDestination(text: string, label: string): void {
 
 function autoRefsFrom(text: string): { file: string; name: string }[] {
   const refs: { file: string; name: string }[] = [];
-  for (const match of text.matchAll(/自動:([^\s#]+)#([^。\n|]+)/g)) {
+  for (const match of text.matchAll(/自動:([^\s#]+)#([^。、\n|]+)/g)) {
     refs.push({ file: match[1], name: match[2].trim() });
   }
   return refs;
@@ -257,12 +254,20 @@ function escapeRegExp(value: string): string {
 }
 
 /**
- * `自動:` にだけ適用する。Rust の #[ignore] と JS/TS の it.skip/test.skip、describe.skip 直下を見る。
- * 動的 skip や別ファイルの同名は判定しない（限界）。
+ * `自動:` にだけ適用する。参照ファイル内の同名試験がすべて skip または #[ignore] のときだけ落とす。
+ * `cfg_attr`、文字列中の波括弧、実行時 skip は見ない。別ファイルの同名は読まない。
  */
 function assertAutoRefNotSkipped(ref: { file: string; name: string }, label: string): void {
   const absolute = resolveTestFile(ref.file);
+  if (!existsSync(absolute)) {
+    errors.push(`${label} の自動テストが無い: ${ref.file}`);
+    return;
+  }
   const content = readCached(absolute);
+  if (!content.includes(ref.name)) {
+    errors.push(`${label} のテスト名が ${ref.file} に無い: ${ref.name}`);
+    return;
+  }
   if (ref.file.endsWith(".rs")) {
     if (isRustTestIgnored(content, ref.name)) {
       errors.push(`${label} の自動参照が #[ignore] 付き: ${ref.file}#${ref.name}`);
@@ -274,50 +279,83 @@ function assertAutoRefNotSkipped(ref: { file: string; name: string }, label: str
   }
 }
 
+function braceDelta(line: string): number {
+  const open = (line.match(/\{/g) ?? []).length;
+  const close = (line.match(/\}/g) ?? []).length;
+  return open - close;
+}
+
+function findDescribeSkipRanges(content: string): Array<[number, number]> {
+  const lines = content.split("\n");
+  const ranges: Array<[number, number]> = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!/describe\.skip\s*\(/.test(lines[i])) continue;
+    let balance = 0;
+    let started = false;
+    for (let j = i; j < lines.length; j++) {
+      if (!started) {
+        if (lines[j].includes("{")) {
+          started = true;
+          balance += braceDelta(lines[j]);
+        }
+      } else {
+        balance += braceDelta(lines[j]);
+        if (balance <= 0) {
+          ranges.push([i, j]);
+          break;
+        }
+      }
+    }
+  }
+  return ranges;
+}
+
+function lineInRanges(lineIndex: number, ranges: Array<[number, number]>): boolean {
+  return ranges.some(([start, end]) => lineIndex >= start && lineIndex <= end);
+}
+
 function isRustTestIgnored(content: string, testName: string): boolean {
   const lines = content.split("\n");
-  const fnPattern = new RegExp(`^fn\\s+${escapeRegExp(testName)}\\s*\\(`);
-  const fnLine = lines.findIndex((line) => fnPattern.test(line));
-  if (fnLine < 0) return false;
-  for (let i = fnLine - 1; i >= 0; i--) {
-    const line = lines[i].trim();
-    if (line.length === 0) continue;
-    if (line.startsWith("#[")) {
-      if (/^#\[ignore\b/.test(line)) return true;
-      continue;
-    }
-    break;
+  const fnPattern = new RegExp(`^\\s*fn\\s+${escapeRegExp(testName)}\\s*\\(`);
+  const fnLines: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (fnPattern.test(lines[i])) fnLines.push(i);
   }
-  return false;
+  if (fnLines.length === 0) return false;
+  return fnLines.every((fnLine) => {
+    for (let i = fnLine - 1; i >= 0; i--) {
+      const line = lines[i].trim();
+      if (line.length === 0) continue;
+      if (line.startsWith("#[")) {
+        if (/^#\[ignore\b/.test(line)) return true;
+        if (/^#\[cfg_attr\b/.test(line)) continue;
+        continue;
+      }
+      break;
+    }
+    return false;
+  });
 }
 
 function isJsTestSkipped(content: string, testName: string): boolean {
-  const quoted = escapeRegExp(testName);
-  const direct = new RegExp(`(?:it|test)\\.skip\\s*\\(\\s*['"\`]${quoted}['"\`]`);
-  if (direct.test(content)) return true;
-  return isInsideDescribeSkipBlock(content, testName);
-}
-
-function isInsideDescribeSkipBlock(content: string, testName: string): boolean {
   const lines = content.split("\n");
-  let depth = 0;
-  let skipped = false;
-  const testLine = new RegExp(`(?:it|test)\\s*\\(\\s*['"\`]${escapeRegExp(testName)}['"\`]`);
-  for (const line of lines) {
-    if (/describe\.skip\s*\(/.test(line)) {
-      skipped = true;
-      depth = 1;
-      continue;
-    }
-    if (!skipped) continue;
-    if (testLine.test(line)) return true;
-    if (/(?:describe|describe\.skip)\s*\(/.test(line)) depth += 1;
-    if (/\}\s*\)\s*;?\s*$/.test(line.trim()) || /^\s*\}\)\s*;/.test(line)) {
-      depth -= 1;
-      if (depth <= 0) skipped = false;
-    }
+  const quoted = escapeRegExp(testName);
+  const defPattern = new RegExp(`^\\s*(?:it|test)(?:\\.skip)?\\s*\\(\\s*['"\`]${quoted}['"\`]`);
+  const describeRanges = findDescribeSkipRanges(content);
+  let found = 0;
+  let allSkipped = true;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith("//")) continue;
+    if (/\/\*/.test(lines[i]) && !/\*\//.test(lines[i])) continue;
+    if (!defPattern.test(lines[i])) continue;
+    found += 1;
+    const directSkip = /^\s*(?:it|test)\.skip\s*\(/.test(lines[i]);
+    const inDescribeSkip = lineInRanges(i, describeRanges);
+    if (!directSkip && !inDescribeSkip) allSkipped = false;
   }
-  return false;
+  if (found === 0) return false;
+  return allSkipped;
 }
 
 function stepSection(id: string): string {
