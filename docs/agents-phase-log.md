@@ -162,3 +162,41 @@ provenance: |
 | 2026-11-11 | Issue #553 継続改善の仕組み | **keep** — 固定の難易度×モデル表はまだ置かない | #551 / #475 の実測だけでは因果比較にならない。選定理由と実行記録を段階履歴に残す方針を採用 |
 | 2026-11-11 | Issue #553 項目 5 | **change** — 実行スナップショット用に `format-check-record.mjs` を追加 | head SHA とコマンド結果の整形を分離し、生ログをコミットしない |
 | 2026-11-11 | Issue #553 段階ログ実践（#591 / #592） | **keep** — 固定の難易度×モデル表はまだ置かない | 実測 2 PR 分を phase-record JSON と検証器で残し、訂正は追記。因果比較はしない |
+| 2026-11-11 | Issue #553 段階ログ実践（追記） | **keep** — 履歴 JSON はそのまま、観測欠落は本節へ | check-rerun 回数・スコープ内外ファイル・途中停止・人手編集は coordinator 記録に無いため unknown。項目 5 の実行スナップショットは未採取 |
+
+---
+
+## Issue #553 — 段階ログ実践（観測メモ）
+
+#591 / #592 の phase-record JSON はコミット済みのままにする。次の項目は、既存 JSON の `merge_summary` や coordinator phases からは確定できないため、本メモでは `unknown` と書く（捏造しない）。
+
+| 項目 | #591 | #592 |
+| --- | --- | --- |
+| check-rerun 回数 | unknown | unknown |
+| スコープ内／外ファイル一覧 | unknown | unknown |
+| 途中停止（mid-stop） | unknown | unknown |
+| 人手編集（human_edits） | unknown | unknown |
+
+既知のまま残す数値: **fix_rounds** は #591 が `2`、#592 が `1`。コスト・トークン・所要時間・composer_effort は JSON どおり `unknown`。
+
+### 固定の評価セット（過去事故の型）
+
+Issue #553「継続改善の仕組み」用。出典は [agents-pitfall-examples.md](agents-pitfall-examples.md) と [agents-d0-inventory.md](agents-d0-inventory.md) §3 の ID のみ（新規の事故は捏造しない）。
+
+| # | 型（要約） | 出典 | 現在のガード |
+| --- | --- | --- | --- |
+| 1 | 同一事実の二重管理（入口表・版番号・MCP 名など） | 原則 1 サンプル | P-CI-04 `check:mcp-tool-names`、各 IC 条項 |
+| 2 | 計画の手動条件の抜け・代表 1 件で済ませる | 原則 2 サンプル | IC 着手前 4–7、review-implementation |
+| 3 | model/UI 境界・循環 import | 原則 3 サンプル | **P-CI-03** `check:madge-circular-baseline`、**P-AG-04** |
+| 4 | 操作入口の漏れ・二重ダイアログ | 原則 4 サンプル | **P-CI-06** `check:operation-entries` |
+| 5 | ポインタ／IME／`fileBusy` の持ち主 | 原則 5 サンプル | Vitest + test-spec 手動 |
+| 6 | test-spec 表の行差し替え | **P-AG-02** | review + IC テスト 1 |
+| 7 | マージ済みブランチへの再 push | **P-AG-03** | [development.md](development.md)「Cursor Cloud Agent」。マージ済みブランチへの自動拒否は未証明（`beforeShellExecution` は履歴書き換え系のみ） |
+| 8 | 検査優先でスキルだけ肥大化 | 原則 8 サンプル | **P-AG-01**、IC 完了条件 |
+
+### #553 受け入れの残り（観測のみ）
+
+- **項目 5（実行スナップショット）:** `format-check-record.mjs` はあるが、本ブランチ作業時点で head SHA・lint/coverage/madge/jscpd の実測入れ子は未採取。SHA 一致だけでは実行証明にならない。
+- **相談モードの遅延読み込み:** 本セッションでは consult 本文の reload を観測していない。
+- **hook の live deny:** `beforeShellExecution` はリポジトリにあるが、本セッションで禁止 git 操作のブロックは観測していない（既存の「live 未証明」観測のまま）。
+- **#553 完了・P-CI-06 完了・Issue クローズ:** 主張しない。#595 マージ後も未照合セルがあり得る。
