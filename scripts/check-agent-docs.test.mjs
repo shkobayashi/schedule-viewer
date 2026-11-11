@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import {
   collectLinkErrors,
   extractMarkdownLinkTargets,
+  markdownForLinkScan,
   resolveRelativeFileLink,
   stripFencedCodeBlocks,
   validateSkillFrontmatter,
@@ -96,4 +97,46 @@ test("resolveRelativeFileLink accepts external URL without file check", () => {
     "https://example.com/doc.md",
   );
   assert.equal(result.ok, true);
+});
+
+test("resolveRelativeFileLink accepts existing directory target", () => {
+  const root = tempRepoRoot();
+  fs.mkdirSync(path.join(root, "docs"), { recursive: true });
+  fs.writeFileSync(path.join(root, "AGENTS.md"), "stub\n");
+  const result = resolveRelativeFileLink(root, "AGENTS.md", "docs");
+  assert.equal(result.ok, true);
+});
+
+test("inline backtick link is ignored after fence strip", () => {
+  const md = "Example `[broken](missing.md)` in prose.\n";
+  const stripped = markdownForLinkScan(md);
+  assert.deepEqual(extractMarkdownLinkTargets(stripped), []);
+});
+
+test("unquoted broken prose link still fails", () => {
+  const root = tempRepoRoot();
+  fs.mkdirSync(path.join(root, "docs"), { recursive: true });
+  fs.mkdirSync(path.join(root, ".cursor/skills"), { recursive: true });
+  fs.mkdirSync(path.join(root, ".cursor/rules"), { recursive: true });
+  fs.writeFileSync(path.join(root, "AGENTS.md"), "stub\n");
+  fs.writeFileSync(
+    path.join(root, "docs", "agents-a.md"),
+    "See [x](no-such.md) in prose.\n",
+  );
+  const errors = collectLinkErrors(root);
+  assert.ok(errors.some((e) => e.includes("broken relative link")));
+});
+
+test("validateSkillFrontmatter rejects empty quoted description", () => {
+  const content = `---
+name: sample-skill
+description: ""
+---
+
+# body
+`;
+  const errors = validateSkillFrontmatter(content, ".cursor/skills/sample/SKILL.md");
+  assert.deepEqual(errors, [
+    '.cursor/skills/sample/SKILL.md: frontmatter "description" is required',
+  ]);
 });

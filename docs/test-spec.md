@@ -21,7 +21,7 @@
 | ESLint | `npm run lint` | `src` と `scripts` の TypeScript。`dist`、`src-tauri`、`mockup`、`.cursor` は対象外。`src/model/**` と `src/hooks/**` には import 境界（Issue #490 PR 1）。警告の上限を超えると失敗する。上限は [開発ガイド](development.md) |
 | MCP ツール名 | `npm run check:mcp-tool-names` | `mcpToolNames.ts` と `mcp_tool_names.rs` の集合が一致すること |
 | 操作の入口表（段階1） | `npm run check:operation-entries` | `operation-entries.md` と `OPERATION_FORMAL` / 右クリック固定 / MCP 名。操作 ID のすべてに右クリック用ラベルがあること（P-CI-06） |
-| エージェント向け文書 | `npm run check:agent-docs` | `AGENTS.md`、`docs/agents-*.md`、`.cursor/rules/*.mdc`、各スキルの `SKILL.md` と `references/*.md` の相対ファイルリンク（存在のみ。`#` アンカーは見ない）。コードフェンス内は無視。`SKILL.md` の frontmatter に `name` と `description`。`alwaysApply` ルールと `AGENTS.md` のバイト数を標準出力へ出す |
+| エージェント向け文書 | `npm run check:agent-docs` | `AGENTS.md`、`docs/agents-*.md`、`.cursor/rules/*.mdc`、各スキルの `SKILL.md` と `references/*.md` の相対リンク（ファイルまたは既存ディレクトリ。`#` アンカーは見ない）。コードフェンス内とインラインの `` `...` `` 内は無視。`[text][ref]` 形式と HTML の `href` は見ない。`SKILL.md` の frontmatter に空でない `name` と `description`。`alwaysApply` ルールと `AGENTS.md` のバイト数を標準出力へ出す |
 | 回帰の対応 | `npm run check:regression-coverage` | 全機能の見出し、操作名、MCP ツール名、既存の手動ケースが [regression-matrix.md](regression-matrix.md) と [regression-tc.md](regression-tc.md) の項目と一致すること。注記の一部分では通さない。自動済みのテスト名と、番号付き手順の操作と期待が実在すること。付録 ID の追加と削除は、検査スクリプトの承認済みハッシュを変える。一部自動は計算だけが既存のテストで、残りは自動化予定である。自動化予定と手動のままは合格にしない。振る舞いの正しさは保証しない |
 | 循環 import | `npm run check:madge-circular-baseline` | madge とベースライン JSON の一致。**CI frontend で失敗扱い** |
 | 重複（警告） | `npm run check:architecture-warn` | jscpd のみ。重複率の上限を超えても CI では失敗にしない。上限は [開発ガイド](development.md) |
@@ -222,12 +222,25 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/how-to-citations.test.mjs` | `extractFileHeadingCitations finds citations in markdown` | SET-05 |
 | `scripts/check-madge-circular-baseline.test.mjs` | `check-madge-circular-baseline matches madge-circular-baseline.json` | — |
 | `scripts/check-operation-entries.test.mjs` | `check-operation-entries matches labels and MCP names in operation-entries.md` | — |
+| `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
+| `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
 | `scripts/check-agent-docs.test.mjs` | `stripFencedCodeBlocks removes fenced links` | — |
 | `scripts/check-agent-docs.test.mjs` | `resolveRelativeFileLink rejects broken relative link` | — |
 | `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects missing description` | — |
 | `scripts/check-agent-docs.test.mjs` | `valid relative links and frontmatter pass in fixture tree` | — |
 | `scripts/check-agent-docs.test.mjs` | `check-agent-docs passes on repository agent-doc tree` | — |
 | `scripts/check-agent-docs.test.mjs` | `resolveRelativeFileLink accepts external URL without file check` | — |
+| `scripts/check-agent-docs.test.mjs` | `resolveRelativeFileLink accepts existing directory target` | — |
+| `scripts/check-agent-docs.test.mjs` | `inline backtick link is ignored after fence strip` | — |
+| `scripts/check-agent-docs.test.mjs` | `unquoted broken prose link still fails` | — |
+| `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects empty quoted description` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `check-agent-docs script changes agentdocs only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `consult rule and session set agentdocs without dropping frontend overlap elsewhere` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `AGENTS.md sets agentdocs only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `write-schedule SKILL sets agentdocs and frontend` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `schedule-talk reference sets agentdocs and rust` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ordinary src change sets frontend only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `pathSetsAgentdocs matches all agent-doc scan paths` | — |
 
 ### Vitest
 

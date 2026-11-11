@@ -9,7 +9,7 @@ alwaysApply: true
 
 具体例（避ける言い方と代わりの言い方、禁止語、相談の型）: [docs/japanese-prose-examples.md](../../docs/japanese-prose-examples.md)。
 
-`/consult` または相談モードの**返答の順**と設計相談の姿勢: [consult.mdc](consult.mdc)（モードが付いているときだけ）。
+`/consult` または相談モードのときだけ（始まりと終わりは [consult.mdc](consult.mdc)）、**返答の順**と設計相談の姿勢は [session.md](../skills/consult/references/session.md) に従う。
 
 ## 原則 J1 — 結論を先に、一段落一論点
 

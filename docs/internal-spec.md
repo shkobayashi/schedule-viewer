@@ -63,7 +63,7 @@ Issue #490 の PR 0–7 と、その後の **カタログ共通化 → `Timeline
 
 操作の入口を増やす・変えるときは、同じ変更で [operation-entries.md](operation-entries.md) と [feature-checklist.md](feature-checklist.md) の「操作の入口」を更新する。機械検査: `check:mcp-tool-names`、`check:operation-entries`（P-CI-06、段階1）、import 境界（`lint`）、循環（`check:madge-circular-baseline`）。
 
-段 8 の実装順序（**C0–C4**、**T0–T5**、**M0–M3b**、Toolbar/FilterPanel、hooks 循環解消）は **完了済み**（Issue #490 段 8 コード整理）。手順の履歴と madge 解消の記録は [model-circular-import-plan.md](model-circular-import-plan.md)。エージェント向け文書の **D0（#525）・D1（#526）・D2（#527）** も完了済み（[agents-d0-inventory.md](agents-d0-inventory.md) §4）。**Issue #553** の残り（相談フロー、段階ログ、エージェント文書のリンク検査など）と、P-CI-06 段階2（入口表の全列照合）は未了。
+段 8 の実装順序（**C0–C4**、**T0–T5**、**M0–M3b**、Toolbar/FilterPanel、hooks 循環解消）は **完了済み**（Issue #490 段 8 コード整理）。手順の履歴と madge 解消の記録は [model-circular-import-plan.md](model-circular-import-plan.md)。エージェント向け文書の **D0（#525）・D1（#526）・D2（#527）** も完了済み（[agents-d0-inventory.md](agents-d0-inventory.md) §4）。**Issue #553** では、相談モード本文の遅延読み込み（PR #586）と、エージェント向け文書の相対リンク・`SKILL.md` の frontmatter・`alwaysApply` と `AGENTS.md` のバイト数ガード（項目7）は完了済みである。**残り**は項目2–6・8、段階ログの実践、条項マッピング、P-CI-06 段階2（入口表の全列照合）である。
 
 **以前の目安順序（履歴）:** カタログ共通化 → `Timeline.tsx` 分割 → `model` 循環 0 件。詳細な PR 分解表は git 履歴上の internal-spec または Issue #490 を参照。
 

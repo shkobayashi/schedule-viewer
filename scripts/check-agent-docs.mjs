@@ -69,6 +69,21 @@ export function stripFencedCodeBlocks(markdown) {
 }
 
 /**
+ * Remove inline backtick spans so example links inside `...` are not validated.
+ * @param {string} markdown
+ */
+export function stripInlineCodeSpans(markdown) {
+  return markdown.replace(/`[^`\n]+`/g, "");
+}
+
+/**
+ * @param {string} markdown
+ */
+export function markdownForLinkScan(markdown) {
+  return stripInlineCodeSpans(stripFencedCodeBlocks(markdown));
+}
+
+/**
  * @param {string} markdown
  * @returns {string[]}
  */
@@ -118,7 +133,14 @@ export function readYamlScalar(yaml, field) {
   if (!lineMatch) {
     return null;
   }
-  return lineMatch[1].trim();
+  let value = lineMatch[1].trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1);
+  }
+  return value;
 }
 
 /**
@@ -178,8 +200,8 @@ export function resolveRelativeFileLink(root, sourceRel, url) {
     return { ok: false, reason: `broken relative link: ${url}` };
   }
   const stat = fs.statSync(resolved);
-  if (!stat.isFile()) {
-    return { ok: false, reason: `link target is not a file: ${url}` };
+  if (!stat.isFile() && !stat.isDirectory()) {
+    return { ok: false, reason: `link target is missing: ${url}` };
   }
   return { ok: true, target: resolved };
 }
@@ -194,7 +216,7 @@ export function collectLinkErrors(root) {
     const abs = path.join(root, relPath);
     const content = fs.readFileSync(abs, "utf8");
     errors.push(...validateSkillFrontmatter(content, relPath));
-    const stripped = stripFencedCodeBlocks(content);
+    const stripped = markdownForLinkScan(content);
     for (const url of extractMarkdownLinkTargets(stripped)) {
       const result = resolveRelativeFileLink(root, relPath, url);
       if (!result.ok) {
