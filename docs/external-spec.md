@@ -1031,9 +1031,9 @@ Tauri で作ったデスクトップアプリをデスクトップ版、`npm run
 
 ### SET-05 JSON作成スキルを置く
 
-**操作** 設定の「JSON作成スキルを置く」で、Cursor、Claude Code、GitHub Copilot のうち置く先を1つ以上選び、ユーザー全体か指定したフォルダかを選び、「置く」を押す。指定したフォルダのときは「フォルダを選ぶ…」で1つ示す。置く先を1つも選んでいないときは「置く」と「外す」は押せない。「外す」で、同じ選び方の場所から7つを削除する。
+**操作** 設定の「JSON作成スキルを置く」で、Cursor、Claude Code、GitHub Copilot のうち置く先を1つ以上選び、ユーザー全体か指定したフォルダかを選び、「置く」を押す。指定したフォルダのときは「フォルダを選ぶ…」で1つ示す。置く先を1つも選んでいないときは「置く」と「外す」は押せない。「外す」で、同じ選び方の場所から8つを削除する。
 
-**挙動** `write-schedule`、`write-members`、`write-calendar`、`write-workspace`、`write-fields`、`write-colors`、`schedule-talk` の7つを、その版のアプリに同梱されている内容のまま置く。Cursor へ置くときは `~/.cursor/skills/<name>/` または `<フォルダ>/.cursor/skills/<name>/` である。Claude Code へ置くときは `~/.claude/skills/<name>/` または `<フォルダ>/.claude/skills/<name>/` である。GitHub Copilot へ置くときは、ユーザー全体なら `~/.copilot/skills/<name>/`、指定したフォルダなら `<フォルダ>/.github/skills/<name>/` である。`<name>` は上の7つだけである。選んだツールすべてへ同じ内容を置く。`~/.cursor`、`~/.claude`、`~/.copilot` が無くても、選べば親ディレクトリを作る。先に同名フォルダがあれば、置き換えるか設定の中で確認する。中身はマージしない。終わったら置いたパスを示す。Claude Code で指定フォルダへ置き、かつ `~/.claude/skills/` に同名があるときは、個人用がプロジェクト用より先に使われる旨を出す。初回起動では書かない。「外す」は、置くのと同じツールと範囲で、存在する7つだけを消す。消す前に確認する。無いパスはそのままにし、外したパスを示す。skills フォルダや別名のスキルは残す。スキルフォルダ自体がシンボリックリンクのときは、リンクだけ外し、リンク先は消さない。`.cursor` と `.claude` と `.copilot` と `.github` と、それぞれの中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。
+**挙動** `write-schedule`、`write-members`、`write-calendar`、`write-workspace`、`write-fields`、`write-colors`、`schedule-talk`、`how-to` の8つを、その版のアプリに同梱されている内容のまま置く。Cursor へ置くときは `~/.cursor/skills/<name>/` または `<フォルダ>/.cursor/skills/<name>/` である。Claude Code へ置くときは `~/.claude/skills/<name>/` または `<フォルダ>/.claude/skills/<name>/` である。GitHub Copilot へ置くときは、ユーザー全体なら `~/.copilot/skills/<name>/`、指定したフォルダなら `<フォルダ>/.github/skills/<name>/` である。`<name>` は上の8つだけである。選んだツールすべてへ同じ内容を置く。`~/.cursor`、`~/.claude`、`~/.copilot` が無くても、選べば親ディレクトリを作る。先に同名フォルダがあれば、置き換えるか設定の中で確認する。中身はマージしない。終わったら置いたパスを示す。Claude Code で指定フォルダへ置き、かつ `~/.claude/skills/` に同名があるときは、個人用がプロジェクト用より先に使われる旨を出す。初回起動では書かない。「外す」は、置くのと同じツールと範囲で、存在する8つだけを消す。消す前に確認する。無いパスはそのままにし、外したパスを示す。skills フォルダや別名のスキルは残す。スキルフォルダ自体がシンボリックリンクのときは、リンクだけ外し、リンク先は消さない。`.cursor` と `.claude` と `.copilot` と `.github` と、それぞれの中の `skills` がシンボリックリンクのときは置かず、外さない。入れ替えに失敗したときは、そのスキルフォルダの元の中身を残す。
 
 **制約** デスクトップ版だけである。ブラウザ版では同じ欄を出すが、置けない。インストーラーはホームやプロジェクトへコピーしない。git には入れない。検証スクリプトは Node.js で動かす。`implement-change` など開発用スキルは置かない。画面の状態を読む `read-screen` は MCP-02 の欄で置く。ここでは置かない。
 
@@ -1121,7 +1121,7 @@ Tauri で作ったデスクトップアプリをデスクトップ版、`npm run
 
 コマンドは、次の形を受け付ける。`--screen` とツール名、読み取り 6 つまたは `focus_window`・`close_window`・`minimize_window` に `--window` と内部ラベル、前面向けの操作に `--screen <ツール名>` と標準入力の JSON である。使えるツール名は MCP-01 と同じ 21 個である。`open_windows`、`replace_schedule`、前面向けの操作（`set_view`、`explain_view`、`explain_overlay`、`apply_explanation_pattern`、`edit_plan`、`file_action`、`catalog_action`、`set_preferences`、`history`、`open_new_window`）に `--window` を付けたときは待ち受けへ送らず、ツールごとの拒否文を標準エラーへ出し、終了コードは 1 である。`replace_schedule` は引数に `--screen replace_schedule` だけを渡し、スケジュール JSON 全体は標準入力から読む。`set_view` 以降の前面向け操作も標準入力に JSON を読む。操作 JSON に `discardInProgress: true` があるときだけ、途中の入力やダイアログを確定せず閉じてから実行する。背面を読むときは `--screen <読み取り6つ> --window <label>` とする。Windows で実行ファイルが Local AppData 配下のときは、1 行のコマンド例のうしろに `--window` とラベルを足す。それ以外は、実行ファイルの行、`--screen` とツール名の行に続け、`--window` とラベルを別の行に書く。中身は MCP-01 と同じ待ち受けへ送り、成功時はツール結果のテキストを標準出力へ出す。`selected_task`、`selected_tasks`、`filtered_tasks` で PNG が付くときは、JSON の次の行に一時 PNG のパスを出す。`isError` のときはその文を標準エラーへ出し、終了コードは 1 である。形が合わないとき、またはツール名が上のどれでもないときは待ち受けへ繋がない。標準入力が 10MB を超えるときは、待ち受けへ送る前に拒否する。
 
-**制約** ブラウザ版には「画面の状態を渡す」欄が無い。指定したプロジェクトフォルダへは置かない。MCP-01 の登録を終えても、このスキル置きは終わらない。逆も同じである。スケジュール JSON を作る SET-05 の7スキルとは別である。絞り込みの別実装はスキルに書かない。
+**制約** ブラウザ版には「画面の状態を渡す」欄が無い。指定したプロジェクトフォルダへは置かない。MCP-01 の登録を終えても、このスキル置きは終わらない。逆も同じである。スケジュール JSON を作る SET-05 の8スキルとは別である。絞り込みの別実装はスキルに書かない。
 
 ## ダイアログ
 

@@ -8,7 +8,7 @@
 
 ![設定の「JSON作成スキルを置く」欄。置く先と範囲の選択が見える](images/ui-settings-skills.png)
 
-デスクトップ版の設定「JSON作成スキルを置く」で、Cursor、Claude Code、GitHub Copilot のうち置く先を選び、ユーザー全体か指定したフォルダかを選び、write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk の 7 つをまとめて置けます。GitHub Copilot はユーザー全体なら `~/.copilot/skills/`、チームで残すなら指定したフォルダの `.github/skills/` です。手で `.cursor/skills/` などへコピーして使うこともできます。
+デスクトップ版の設定「JSON作成スキルを置く」で、Cursor、Claude Code、GitHub Copilot のうち置く先を選び、ユーザー全体か指定したフォルダかを選び、write-schedule、write-members、write-calendar、write-workspace、write-fields、write-colors、schedule-talk、how-to の 8 つをまとめて置けます。GitHub Copilot はユーザー全体なら `~/.copilot/skills/`、チームで残すなら指定したフォルダの `.github/skills/` です。手で `.cursor/skills/` などへコピーして使うこともできます。
 
 上書きの確認、外す、シンボリックリンクのときの扱いは [全機能の「設定」](features.md#設定) にあります。
 
@@ -139,3 +139,5 @@ MCP を置いていないときは、☰ の「差分を表示」か、状態バ
 ## 残した行を書き出す
 
 絞り込みと折りたたみで残した行だけを、☰ の「書き出し」で HTML または SVG にできます。HTML と SVG には、前後の折れ線は入りますが、前後ではない繋がりの円弧と言葉は入りません。行数と図の大きさの上限、書き出しに入る行の範囲は [全機能の「書き出す」](features.md#書き出す) にあります。
+
+操作がわからなければ『〇〇のやり方を教えて』と聞ける。

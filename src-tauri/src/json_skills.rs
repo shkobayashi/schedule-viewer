@@ -4,7 +4,7 @@ use std::path::{Component, Path, PathBuf};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
-pub const JSON_SKILL_NAMES: [&str; 7] = [
+pub const JSON_SKILL_NAMES: [&str; 8] = [
     "write-schedule",
     "write-members",
     "write-calendar",
@@ -12,6 +12,7 @@ pub const JSON_SKILL_NAMES: [&str; 7] = [
     "write-fields",
     "write-colors",
     "schedule-talk",
+    "how-to",
 ];
 
 const RESOURCE_SKILLS_DIR: &str = "json-skills";
@@ -804,6 +805,85 @@ mod tests {
     }
 
     #[test]
+    fn install_copies_how_to_manual_nested_and_uninstall_preserves_neighbors() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let home = dir.path().join("home");
+        fs::create_dir_all(&home).expect("home");
+        let skills = home.join(".cursor").join("skills");
+        fs::create_dir_all(skills.join("other-skill")).expect("neighbor");
+        fs::write(skills.join("other-skill").join("SKILL.md"), "neighbor").expect("write");
+        let resource = dir.path().join("resources");
+        write_bundled_skills_with_how_to_manual(&resource);
+
+        let result = install_json_skills_to_disk(
+            &resource,
+            &home,
+            selection_cursor_only(),
+            JsonSkillScope::User,
+            None,
+            false,
+        )
+        .expect("install");
+        assert_eq!(result.installed_paths.len(), JSON_SKILL_NAMES.len());
+
+        let how_to_dest = skills.join("how-to");
+        let skills_canonical = skills.canonicalize().expect("canonicalize skills");
+        let expected_how_to = skills_canonical.join("how-to");
+        let how_to_canonical = how_to_dest.canonicalize().expect("canonicalize how-to");
+        assert_eq!(how_to_canonical, expected_how_to);
+        let how_to_meta = how_to_dest
+            .symlink_metadata()
+            .expect("how-to meta");
+        assert!(how_to_meta.is_dir());
+        assert!(!how_to_meta.file_type().is_symlink());
+
+        let manual_names = [
+            "user-manual.md",
+            "getting-started.md",
+            "find-by-intent.md",
+            "tutorial.md",
+            "features.md",
+            "privacy.md",
+        ];
+        for name in manual_names {
+            let file_path = how_to_dest.join("manual").join(name);
+            let meta = file_path.symlink_metadata().expect("manual file meta");
+            assert!(meta.is_file(), "expected regular file for manual/{name}");
+            assert!(
+                !meta.file_type().is_symlink(),
+                "manual/{name} must not be a symlink"
+            );
+            assert_eq!(
+                fs::read_to_string(&file_path).expect("read manual file"),
+                name,
+                "manual/{name} content"
+            );
+            let file_canonical = file_path.canonicalize().expect("canonicalize manual file");
+            assert!(
+                file_canonical.starts_with(&how_to_canonical),
+                "manual/{name} must resolve inside how-to: {:?} not under {:?}",
+                file_canonical,
+                how_to_canonical
+            );
+        }
+
+        let uninstall = uninstall_json_skills_from_disk(
+            &home,
+            selection_cursor_only(),
+            JsonSkillScope::User,
+            None,
+        )
+        .expect("uninstall");
+        assert_eq!(uninstall.removed_paths.len(), JSON_SKILL_NAMES.len());
+        assert!(!how_to_dest.exists());
+        assert!(skills.join("other-skill").exists());
+        assert_eq!(
+            fs::read_to_string(skills.join("other-skill").join("SKILL.md")).expect("neighbor"),
+            "neighbor"
+        );
+    }
+
+    #[test]
     fn uninstall_removes_only_bundled_skill_folders() {
         let dir = tempfile::tempdir().expect("temp dir");
         let home = dir.path().join("home");
@@ -830,6 +910,28 @@ mod tests {
             let skill_dir = resource.join(RESOURCE_SKILLS_DIR).join(name);
             fs::create_dir_all(&skill_dir).expect("mkdir skill");
             fs::write(skill_dir.join("SKILL.md"), name).expect("write");
+        }
+    }
+
+    fn write_bundled_skills_with_how_to_manual(resource: &Path) {
+        for name in JSON_SKILL_NAMES {
+            let skill_dir = resource.join(RESOURCE_SKILLS_DIR).join(name);
+            fs::create_dir_all(&skill_dir).expect("mkdir skill");
+            fs::write(skill_dir.join("SKILL.md"), name).expect("write");
+            if name == "how-to" {
+                let manual = skill_dir.join("manual");
+                fs::create_dir_all(&manual).expect("mkdir manual");
+                for file in [
+                    "user-manual.md",
+                    "getting-started.md",
+                    "find-by-intent.md",
+                    "tutorial.md",
+                    "features.md",
+                    "privacy.md",
+                ] {
+                    fs::write(manual.join(file), file).expect("write manual");
+                }
+            }
         }
     }
 
@@ -1361,6 +1463,20 @@ mod tests {
             .expect("build-msix.ps1");
         for name in JSON_SKILL_NAMES {
             let needle = format!("json-skills\\{name}\\SKILL.md");
+            assert!(
+                msix_script.contains(&needle),
+                "build-msix.ps1 missing {needle}"
+            );
+        }
+        for manual in [
+            "user-manual.md",
+            "getting-started.md",
+            "find-by-intent.md",
+            "tutorial.md",
+            "features.md",
+            "privacy.md",
+        ] {
+            let needle = format!("json-skills\\how-to\\manual\\{manual}");
             assert!(
                 msix_script.contains(&needle),
                 "build-msix.ps1 missing {needle}"

@@ -31,7 +31,7 @@
 | カレンダー検証 | `npm run check:calendar` | 引数なしなら `examples/jp-2026.calendar.json` |
 | メンバー検証 | `npm run check:members` | 引数なしなら `examples/playground.members.json` |
 | バージョン | `npm run version:check` | 5ファイルのバージョン番号と `X.Y.Z` / `X.Y.Z-alpha.N` / `X.Y.Z-beta.N` の形、`tauri.conf.json` の `plugins.updater.endpoints` がそのメジャー用 `updater-X` を指すこと |
-| スキル同梱物 | `npm run build:validate-skill` のあと、CI と同じパスで `git diff --exit-code` | スキーマコピーと検証 bundle の差分 |
+| スキル同梱物 | `node --test scripts/how-to-citations.test.mjs` のあと `npm run build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、CI と同じパスで `git diff --exit-code` | 生成前の鮮度と引用、スキーマコピー、検証 bundle、`how-to/manual/` の6ファイルの差分 |
 
 Playwright は手動スクリーンショット用に devDependencies にある。画面コンポーネントの単体 DOM テストには jsdom と `@testing-library/react` を使う（`src/**/*.test.tsx`）。ブラウザ回帰の E2E は `npm run test:browser-regression` で実行する（[development.md](development.md)）。
 
@@ -190,7 +190,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `develop`、`main`、`next` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`（循環 import）、`test:ci`（閾値未満は失敗）、`check:architecture-warn`（jscpd。上限超過は警告）、`check:schedule`、`check:calendar`、`check:members`、`build:validate-skill`、`npm audit --audit-level=high`、スキル同梱物の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`。最後に集約ジョブ `ci` が成功する |
+| `.github/workflows/ci.yml` | `develop`、`main`、`next` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`（循環 import）、`test:ci`（閾値未満は失敗）、`check:architecture-warn`（jscpd。上限超過は警告）、`check:schedule`、`check:calendar`、`check:members`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、`npm audit --audit-level=high`、スキル同梱物と `how-to/manual/` の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、マニュアル6ファイルと `how-to/manual/` の差分。最後に集約ジョブ `ci` が成功する |
 | `.github/workflows/pages.yml` | `main` への push（操作マニュアルとサイトビルドの入力）または `workflow_dispatch` | `npm ci` のあと `build:manual-site` を GitHub Pages へ公開する |
 | `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Apple Silicon の dmg を GitHub Release へ出す。安定版では Windows が署名しない MSIX を Microsoft Store（`9PP41TRJ8ZT8`）へ提出する。Pre-release では Windows NSIS と `schedule-viewer-codesign.cer` と `latest-windows-x86_64.json` を出す。`latest-linux-x86_64.json`、`latest-darwin-aarch64.json` と、安定版では `linux-x86_64` と `darwin-aarch64` の `latest.json`、Pre-release では `windows-x86_64` も含む `latest.json`、`SHA256SUMS` を載せる。Pre-release では Latest を付けず `updater-X` も更新しない。安定版の `checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。`main` は安定版で CHANGELOG から本文を組み立てる。安定版ではビルド前に GitHub Release を作り、`checksums` が `updater-X` を更新し、より大きいメジャーが無いときだけ Latest を付ける。`release/X.Y.Z` は Pre-release で、アルファまたはベータに応じた短い確認用の本文 |
 
@@ -200,9 +200,25 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 ### node:test
 
-| ファイル | ケース |
-| --- | --- |
-| `scripts/build-user-manual-site.test.mjs` | 同じページ内の `#見出し` は、その HTML の見出し id と照合する。無いときは HTML ファイル名を出して失敗する |
+| ファイル | ケース | 機能 ID |
+| --- | --- | --- |
+| `scripts/build-user-manual-site.test.mjs` | 同じページ内の `#見出し` は、その HTML の見出し id と照合する。無いときは HTML ファイル名を出して失敗する | — |
+| `scripts/how-to-citations.test.mjs` | `how-to manual bundle matches stripped sources and exact six files` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `assertHowToManualBundleState rejects missing file` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `assertHowToManualBundleState rejects extra file` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `assertHowToManualBundleState rejects extra directory` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `assertHowToManualBundleState rejects stale content` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `assertHowToManualBundleState rejects leftover image tokens` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `strip removes image tokens from features sample` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `declared citations in SKILL and questions use known manual slugs`（`SKILL.md` と `docs/how-to-questions.md` に書いた引用だけ。LLM の返答は対象外） | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `docs how-to-questions has eight fixed question headings` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `features.md#設定 is a valid citation` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `features.md#この見出しは無い is rejected` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `features.md heading ファイルを開く・保存する uses slug ファイルを開く保存する` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `duplicate manual headings use github-slugger -1 suffix` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `slash-qualified citation manual/features.md#設定 is rejected` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `unknown file bogus.md#foo is rejected` | SET-05 |
+| `scripts/how-to-citations.test.mjs` | `extractFileHeadingCitations finds citations in markdown` | SET-05 |
 | `scripts/check-madge-circular-baseline.test.mjs` | `check-madge-circular-baseline matches madge-circular-baseline.json` | — |
 | `scripts/check-operation-entries.test.mjs` | `check-operation-entries matches labels and MCP names in operation-entries.md` | — |
 
@@ -511,7 +527,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `rejects a blank task name and leaves the task unchanged` | EDIT-04 |
 | 同上 | `shows unregistered field values as read-only without a catalog` | EDIT-04 |
 | 同上 | `hides delete until a task is selected` | EDIT-09 |
-| 同上 | `shows the browser skill note, the seven skill names, and a disabled install button` | SET-05 |
+| 同上 | `shows the browser skill note, the eight skill names, and a disabled install button` | SET-05 |
 | 同上 | `shows the package version and omits the updates section in the browser` | SET-07 |
 | 同上 | `stores the display scale and applies it as --s` | SET-01 |
 | 同上 | `stores dark and clears the key when returning to the system scheme` | SET-04 |
@@ -1427,10 +1443,10 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `filter_path_uses_same_hash_as_recovery` | 絞り込みのファイル名のハッシュは控えと同じ | SYNC-03 |
 | `choose_open_directory_uses_parent_or_home` | 初期フォルダは親があればそこ、無ければホーム | SYNC-03 |
 | `validate_project_folder_rejects_relative_and_symlink` | 相対パスと、シンボリックリンクのプロジェクトフォルダを拒否する | SET-05 |
-| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの7スキルに限る | SET-05 |
-| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の7スキルだけ | SET-05 |
-| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は21パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各7つは `JSON_SKILL_NAMES` の順 | SET-05 |
-| `bundled_skill_lists_match_json_skill_names_in_tauri_and_msix` | `JSON_SKILL_NAMES` の各名前が `tauri.conf.json` の `json-skills/<name>/` と MSIX の `json-skills\<name>\SKILL.md` にある。`read-screen/` と `read-screen\SKILL.md` もある | SET-05 |
+| `skill_destinations_stay_under_allowed_bases` | 書き先はユーザー全体か指定フォルダの8スキルに限る | SET-05 |
+| `skill_destinations_copilot_user_and_project` | Copilot はユーザー全体で `~/.copilot/skills/`、指定フォルダで `.github/skills/` の8スキルだけ | SET-05 |
+| `skill_destinations_all_tools_user_scope` | 3ツール同時のユーザー全体は24パス。並びは Cursor、Claude Code、GitHub Copilot の順で、各8つは `JSON_SKILL_NAMES` の順 | SET-05 |
+| `bundled_skill_lists_match_json_skill_names_in_tauri_and_msix` | `JSON_SKILL_NAMES` の各名前が `tauri.conf.json` の `json-skills/<name>/` と MSIX の `json-skills\<name>\SKILL.md` にある。`how-to` は `manual/` の6ファイルも MSIX 必須一覧にある。`read-screen/` と `read-screen\SKILL.md` もある | SET-05 |
 | `parse_tool_selection_requires_at_least_one` | ツール未選択は「ツールを1つ以上選んでください。」 | SET-05, MCP-02 |
 | `claude_user_shadows_only_when_claude_project_scope` | Copilot だけの指定フォルダでは Claude の個人用優先警告を出さない | SET-05 |
 | `install_creates_copilot_parent_directories` | 無い `~/.copilot/skills` を実ディレクトリとして作る | SET-05 |
@@ -1446,7 +1462,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `install_does_not_write_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら置かない | SET-05 |
 | `place_staged_skill_restores_original_when_copy_fails` | 入れ替えのコピーに失敗したら元のフォルダを残す | SET-05 |
 | `install_keeps_earlier_skill_when_a_later_copy_fails` | 後続のコピーに失敗しても、先に置けたスキルは残る | SET-05 |
-| `uninstall_removes_only_bundled_skill_folders` | 外すのは7スキルだけで、別名のスキルは残す | SET-05 |
+| `install_copies_how_to_manual_nested_and_uninstall_preserves_neighbors` | `how-to` の `manual/` 6 ファイルをネストごと置き、`canonicalize` がスキルフォルダ内にあること。外すと隣の別名スキルは残る | SET-05 |
+| `uninstall_removes_only_bundled_skill_folders` | 外すのは8スキルだけで、別名のスキルは残す | SET-05 |
 | `uninstall_does_not_remove_through_tool_dir_symlink` | `.cursor` がシンボリックリンクなら外さない | SET-05 |
 | `uninstall_removes_broken_symlink_at_destination` | 宛先の壊れたシンボリックリンクはリンクだけ外す | SET-05 |
 | `uninstall_does_not_follow_symlink_inside_skill` | スキル内のシンボリックリンクの先は消さない | SET-05 |
