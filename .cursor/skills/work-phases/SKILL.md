@@ -43,7 +43,7 @@ description: >-
 
 ## 検査
 
-どの場面で何を回すかは、既存の表に任せる。[.cursor/rules/when-to-run-tests.mdc](../../rules/when-to-run-tests.mdc)、[implement-change](../implement-change/SKILL.md)「テストと確認」、[docs/development.md](../../../docs/development.md)「場面ごとに回す検査」を見る。表の直後にある `src-tauri/` と文書だけの修正についての二文は、そこで三か所同じ文言に揃えてある。
+どの場面で何を回すかは、既存の表に任せる。[.cursor/rules/when-to-run-tests.mdc](../../rules/when-to-run-tests.mdc)、[implement-change/references/tests.md](../implement-change/references/tests.md)、[docs/development.md](../../../docs/development.md)「場面ごとに回す検査」を見る。表の直後にある `src-tauri/` と文書だけの修正についての二文は、そこで三か所同じ文言に揃えてある。
 
 試験は「試した」「終わった」「通った」を分けて書く。測っていない秒数は測っていないままにする。閾値、除外、skip の扱いは既存どおりである。[docs/development.md](../../../docs/development.md) に書いてある依存の入れ方で足りるものを、理由なく省略しない。Rust を途中まで直しているときの lib 限定の clippy と test は、表の直後の文に従う。`mcp_running_app` を含む全体の `cargo test --locked` は、PR 前の一回、リリース前、CI に任せる。手元で統合試験を回す前提（アプリの起動状態など）は、[docs/development.md](../../../docs/development.md) の既存の説明に従う。
 

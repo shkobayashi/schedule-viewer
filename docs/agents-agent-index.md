@@ -38,11 +38,11 @@
 
 ## スキルとルール
 
-計画には読むスキル名と節を書く。名指しが無いときは `description` が合うスキルを 1 つ。`implement-change` は指定節 + 常に「着手前」。
+計画には読むスキル名と節を書く。名指しが無いときは `description` が合うスキルを 1 つ。`implement-change` は指定節に対応する [references/](../.cursor/skills/implement-change/references/) と、常に入口の「着手前」；終了前は入口の「完了条件」。
 
 | 用途 | スキル |
 | --- | --- |
-| アプリ実装・文書・テスト | [implement-change](../.cursor/skills/implement-change/SKILL.md) |
+| アプリ実装・文書・テスト | [implement-change](../.cursor/skills/implement-change/SKILL.md)（入口。[references/](../.cursor/skills/implement-change/references/) に条項全文） |
 | リリース・CI・配布 | [cut-release](../.cursor/skills/cut-release/SKILL.md) |
 | 操作マニュアル Pages | [publish-user-manual](../.cursor/skills/publish-user-manual/SKILL.md) |
 | 全体レビュー | [review-project](../.cursor/skills/review-project/SKILL.md) |

@@ -12,7 +12,7 @@
 | [agents-pitfall-examples.md](agents-pitfall-examples.md) | 事故例・IC 番号 → 原則 |
 | **本ファイル** | Issue #490 の分析、D0–D2 対応表、ガード ID |
 | [internal-spec.md](internal-spec.md) | モジュール構成、層と import、自動検査 |
-| [implement-change/SKILL.md](../.cursor/skills/implement-change/SKILL.md) | 番号付き具体条項（削らない） |
+| [implement-change/SKILL.md](../.cursor/skills/implement-change/SKILL.md) + [references/](../.cursor/skills/implement-change/references/) | 番号付き具体条項（入口と reference に分割。削らない） |
 
 ---
 
@@ -145,7 +145,7 @@ Issue #490 本文の madge 表現更新案は [agents-d1-issue-490-proposal.md](
 | 旧の置き場 | D0 後 | 以降 |
 | --- | --- | --- |
 | AGENTS 長段落スキル列挙 | agent-index | D1: skills 索引 → **§6** |
-| implement-change 57 条項 | 同 SKILL 正本 | D1 原則タグ → **§6** |
+| implement-change 57 条項 | 入口 SKILL + references 正本 | D1 原則タグ → **§6**（#553 項目3で分割） |
 | internal-spec 段 8 長表 | C/T/M 履歴短縮 | D1 → **§6** |
 | japanese-prose | J1–J5 + examples | [japanese-prose-d1-inventory.md](japanese-prose-d1-inventory.md) |
 | schedule-talk / consult | 変更なし | **§6** #344 |

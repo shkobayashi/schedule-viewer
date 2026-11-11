@@ -286,6 +286,10 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/block-history-rewrite.test.mjs` | `hooks.json registers beforeShellExecution block-history-rewrite` | — |
 | `scripts/block-history-rewrite.test.mjs` | `env peeled through assignments chdir and double hyphen` | — |
 | `scripts/block-history-rewrite.test.mjs` | `git informational globals without subcommand allow` | — |
+| `scripts/check-implement-change-split.test.mjs` | `implement-change references are scanned by the agent-doc checker` | — |
+| `scripts/check-implement-change-split.test.mjs` | `reference files do not require skill frontmatter` | — |
+| `scripts/check-implement-change-split.test.mjs` | `entry keeps before-start and completion and omits moved headings` | — |
+| `scripts/check-implement-change-split.test.mjs` | `moved sections keep clause numbers once` | — |
 | `scripts/check-quality-doc-sources.test.mjs` | `development quality table links sources and omits mutable limits` | — |
 | `scripts/check-quality-doc-sources.test.mjs` | `copied limit guard tolerates Issue #436 in scoped jscpd cell` | — |
 | `scripts/check-quality-doc-sources.test.mjs` | `agent-facing quality pointers reference config sources` | — |
