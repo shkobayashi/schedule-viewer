@@ -274,14 +274,12 @@ test("commented it.skip and another suite it.skip do not fail active same name",
   withCopy((root) => {
     const testPath = join(root, "src/model/fixture-skip-false-positive.test.ts");
     mkdirSync(dirname(testPath), { recursive: true });
-    writeFileSync(
-      testPath,
-      `import { describe, it } from "vitest";
+    const activeSuite = `import { describe, it } from "vitest";
 // it.skip("fp_target")
 describe("a", () => { it.skip("fp_target", () => {}); });
 describe("b", () => { it("fp_target", () => {}); });
-`,
-    );
+`;
+    writeFileSync(testPath, activeSuite);
     replace(
       root,
       "docs/regression-matrix.md",
@@ -290,6 +288,14 @@ describe("b", () => { it("fp_target", () => {}); });
     );
     const result = run(root);
     assert.equal(result.status, 0, result.stderr || result.stdout);
+    writeFileSync(
+      testPath,
+      `import { describe, it } from "vitest";
+// it.skip("fp_target")
+describe("a", () => { it.skip("fp_target", () => {}); });
+`,
+    );
+    assert.failWith(run(root), "skip 付き");
   });
 });
 
@@ -353,6 +359,144 @@ fn active_neighbor() {}
     );
     const result = run(root);
     assert.equal(result.status, 0, result.stderr || result.stdout);
+  });
+});
+
+test("single-line describe.skip is followed by a non-skipped test outside", () => {
+  withCopy((root) => {
+    const testPath = join(root, "src/model/fixture-single-line-describe-skip.test.ts");
+    mkdirSync(dirname(testPath), { recursive: true });
+    writeFileSync(
+      testPath,
+      `import { describe, it } from "vitest";
+describe.skip("s", () => { it("after_skip_line", () => {}); });
+it("after_skip_line", () => {});
+`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-single-line-describe-skip.test.ts#after_skip_line",
+    );
+    const ok = run(root);
+    assert.equal(ok.status, 0, ok.stderr || ok.stdout);
+    writeFileSync(
+      testPath,
+      `import { describe, it } from "vitest";
+describe.skip("s", () => { it("after_skip_line", () => {}); });
+`,
+    );
+    assert.failWith(run(root), "skip 付き");
+  });
+});
+
+test("describe.skip inside a string does not mark nested tests", () => {
+  withCopy((root) => {
+    const testPath = join(root, "src/model/fixture-string-describe-skip.test.ts");
+    mkdirSync(dirname(testPath), { recursive: true });
+    writeFileSync(
+      testPath,
+      `import { it } from "vitest";
+const hint = "describe.skip('not code')";
+it("string_describe_target", () => {});
+`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-string-describe-skip.test.ts#string_describe_target",
+    );
+    assert.equal(run(root).status, 0);
+  });
+});
+
+test("it.skip inside block comment does not fail an active test", () => {
+  withCopy((root) => {
+    const testPath = join(root, "src/model/fixture-block-comment-skip.test.ts");
+    mkdirSync(dirname(testPath), { recursive: true });
+    writeFileSync(
+      testPath,
+      `import { it } from "vitest";
+/* it.skip("block_comment_target", () => {}) */
+it("block_comment_target", () => {});
+`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-block-comment-skip.test.ts#block_comment_target",
+    );
+    assert.equal(run(root).status, 0);
+  });
+});
+
+test("same name skipped in another file does not fail", () => {
+  withCopy((root) => {
+    const activePath = join(root, "src/model/fixture-other-file-active.test.ts");
+    const skippedPath = join(root, "src/model/fixture-other-file-skipped.test.ts");
+    mkdirSync(dirname(activePath), { recursive: true });
+    writeFileSync(activePath, `import { it } from "vitest";\nit("other_file_target", () => {});\n`);
+    writeFileSync(skippedPath, `import { it } from "vitest";\nit.skip("other_file_target", () => {});\n`);
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-other-file-active.test.ts#other_file_target",
+    );
+    assert.equal(run(root).status, 0);
+  });
+});
+
+test("Rust comment-only fn name is not treated as a definition", () => {
+  withCopy((root) => {
+    const rustPath = join(root, "src-tauri/tests/fixture_comment_only_fn.rs");
+    mkdirSync(dirname(rustPath), { recursive: true });
+    writeFileSync(rustPath, `// fn comment_only_fn is not a definition\nfn real_fn() {}\n`);
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "| MX-O-33 | 計算 | 操作の案内を開く | 自動済み | 自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open |",
+      "| MX-O-33 | 計算 | 操作の案内を開く | 自動済み | 自動:src-tauri/tests/fixture_comment_only_fn.rs#comment_only_fn |",
+    );
+    assert.failWith(run(root), "comment_only_fn");
+  });
+});
+
+test("multiline Rust #[ignore] attributes fail auto refs", () => {
+  withCopy((root) => {
+    const rustPath = join(root, "src-tauri/tests/fixture_multiline_ignore.rs");
+    mkdirSync(dirname(rustPath), { recursive: true });
+    writeFileSync(
+      rustPath,
+      `#[test]\n#[ignore = "xvfb"]\nfn multiline_ignore_sample() {}\n`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "| MX-O-33 | 計算 | 操作の案内を開く | 自動済み | 自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open |",
+      "| MX-O-33 | 計算 | 操作の案内を開く | 自動済み | 自動:src-tauri/tests/fixture_multiline_ignore.rs#multiline_ignore_sample |",
+    );
+    assert.failWith(run(root), "#[ignore]");
+  });
+});
+
+test("same-line it definition is detected", () => {
+  withCopy((root) => {
+    const testPath = join(root, "src/model/fixture-same-line-it.test.ts");
+    mkdirSync(dirname(testPath), { recursive: true });
+    writeFileSync(testPath, `import { it } from "vitest"; describe("x",()=>{it.skip("same_line_target",()=>{});}); it("same_line_target",()=>{});\n`);
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-same-line-it.test.ts#same_line_target",
+    );
+    assert.equal(run(root).status, 0);
+    writeFileSync(testPath, `import { it } from "vitest"; describe("x",()=>{it.skip("same_line_target",()=>{});});\n`);
+    assert.failWith(run(root), "skip 付き");
   });
 });
 
