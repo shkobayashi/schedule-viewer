@@ -1670,6 +1670,8 @@ where
     });
     let mut h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[])
         .expect("start two-window same-path harness");
+    let before_labels = window_labels(&h);
+    let expected_len = before_labels.len() + 1;
     let r = h.mcp_call(
         "open_new_window",
         json!({
@@ -1678,10 +1680,18 @@ where
         }),
     );
     assert!(!r.is_error, "{}", r.text);
-    let rows = h.open_windows_rows();
+    let new_label = normalize_text(&r.text);
     assert!(
-        rows.len() >= 2,
-        "at least two windows with the same schedule path, got {}",
+        new_label.starts_with("schedule-"),
+        "open_new_window should return the new window label: {}",
+        r.text
+    );
+    wait_open_windows_labels_exactly_one_new(&h, &before_labels, &new_label);
+    let rows = h.open_windows_rows();
+    assert_eq!(
+        rows.len(),
+        expected_len,
+        "open_new_window should add exactly one window row, got {}",
         rows.len()
     );
     let main_file = h
@@ -2110,7 +2120,6 @@ fn focus_window_sets_schedule_2_front_and_leaves_both_file_bytes() {
 }
 
 #[test]
-#[ignore = "Linux xvfb で MCP open_new_window 1 回のあとラベル集合が before+返却1件にならない（schedule-3 と schedule-4 の2枚が増え、返却 schedule-3 の row はサンプルデータ、schedule-3.schedule.json は schedule-4）。厳密集合の待ちが90秒で失敗。別報告（PR #570）。"]
 fn open_new_window_adds_the_third_file_and_keeps_the_first_two_file_and_folder() {
     with_gui(|h| {
         let main_before = h.file_bytes(&h.main_path);
@@ -2737,7 +2746,6 @@ fn screen_replace_schedule_with_window_exits_1_writes_front_only_sentence_and_le
 }
 
 #[test]
-#[ignore = "Linux xvfb で MCP open_new_window 1 回のあとラベル集合が before+返却1件にならない（schedule-3 と schedule-4 の2枚が増え、返却 schedule-3 の row はサンプルデータ、schedule-3.schedule.json は schedule-4）。厳密集合の待ちが90秒で失敗。別報告（PR #570）。"]
 fn open_new_window_keeps_process_alive_and_both_windows_return_current_schedule() {
     with_gui(|h| {
         let before_labels = window_labels(h);
@@ -2774,7 +2782,6 @@ fn open_new_window_keeps_process_alive_and_both_windows_return_current_schedule(
 }
 
 #[test]
-#[ignore = "Linux xvfb で MCP open_new_window 1 回のあとラベル集合が before+返却1件にならない（schedule-3 と schedule-4 の2枚が増え、返却 schedule-3 の row はサンプルデータ、schedule-3.schedule.json は schedule-4）。厳密集合の待ちが90秒で失敗。別報告（PR #570）。"]
 fn open_new_window_while_main_is_dirty_keeps_the_edited_date_and_adds_a_window() {
     with_gui(|h| {
         let edited = "2026-04-07";

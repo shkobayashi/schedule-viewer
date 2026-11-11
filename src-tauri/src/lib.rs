@@ -2361,8 +2361,25 @@ async fn create_schedule_window(
         return Err("ファイルが大きすぎます（上限 10 MB）".to_string());
     }
     let app_data = app_data_dir(&app)?;
+    if let Some(existing_label) = {
+        let guard = session.lock().expect("window session");
+        window_session::pending_label_for_path(&guard, &path)
+    } {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        while std::time::Instant::now() < deadline {
+            if let Some(window) = app.get_webview_window(&existing_label) {
+                let _ = set_focused_label(&app_data, &existing_label);
+                let _ = window.set_focus();
+                return Ok(existing_label);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+    }
     let label = loop {
-        let candidate = window_session::next_schedule_window_label(&app)?;
+        let candidate = {
+            let guard = session.lock().expect("window session");
+            window_session::next_schedule_window_label(&app, &guard)?
+        };
         {
             let mut guard = session.lock().expect("window session");
             store_pending_open(
@@ -2374,19 +2391,19 @@ async fn create_schedule_window(
             );
             note_window_focus(&mut guard, &candidate);
         }
-        upsert_window_path(
-            &app_data,
-            &candidate,
-            Some(&path),
-            workspace_path.as_deref(),
-            false,
-        )?;
         match window_session::create_schedule_webview_on_main_thread(
             &app,
             &candidate,
             "schedule-viewer",
         ) {
             Ok(()) => {
+                upsert_window_path(
+                    &app_data,
+                    &candidate,
+                    Some(&path),
+                    workspace_path.as_deref(),
+                    false,
+                )?;
                 let emit_app = app.clone();
                 let emit_label = candidate.clone();
                 let emit_payload = PendingScheduleWindowOpen {
@@ -2411,14 +2428,12 @@ async fn create_schedule_window(
                 break candidate;
             }
             Err(error) if error.contains("同じウィンドウが既に開いています") => {
-                let _ = remove_window_label(&app_data, &candidate);
                 let mut guard = session.lock().expect("window session");
                 let _ = take_pending_open(&mut guard, &candidate);
                 forget_window_focus(&mut guard, &candidate);
                 continue;
             }
             Err(error) => {
-                let _ = remove_window_label(&app_data, &candidate);
                 let mut guard = session.lock().expect("window session");
                 let _ = take_pending_open(&mut guard, &candidate);
                 forget_window_focus(&mut guard, &candidate);

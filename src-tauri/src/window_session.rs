@@ -536,17 +536,23 @@ pub fn delete_filter_for_path(app_data: &Path, schedule_path: &str) -> Result<()
     Ok(())
 }
 
-pub fn next_schedule_window_label(app: &AppHandle) -> Result<String, String> {
+pub fn next_schedule_window_label(
+    app: &AppHandle,
+    session: &WindowSessionState,
+) -> Result<String, String> {
     let mut index = 2;
     loop {
         let label = format!("schedule-{index}");
-        if app.get_webview_window(&label).is_none() {
-            return Ok(label);
+        if app.get_webview_window(&label).is_some()
+            || session.pending_opens.contains_key(&label)
+        {
+            index += 1;
+            if index > 10_000 {
+                return Err("ウィンドウをこれ以上開けません。".to_string());
+            }
+            continue;
         }
-        index += 1;
-        if index > 10_000 {
-            return Err("ウィンドウをこれ以上開けません。".to_string());
-        }
+        return Ok(label);
     }
 }
 
@@ -848,6 +854,14 @@ pub fn read_window_startup(app_data: &Path, label: &str) -> Result<WindowStartup
             draft_text,
         }),
     }
+}
+
+pub fn pending_label_for_path(state: &WindowSessionState, path: &str) -> Option<String> {
+    state
+        .pending_opens
+        .iter()
+        .find(|(_, pending)| pending.path == path)
+        .map(|(label, _)| label.clone())
 }
 
 pub fn peek_pending_open(state: &WindowSessionState, label: &str) -> Option<PendingWindowOpen> {

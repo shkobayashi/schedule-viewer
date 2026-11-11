@@ -14,7 +14,9 @@ import {
   scheduleJsonFilename,
   scheduleParentDirectory,
 } from "../../model/scheduleFile";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  ackPendingScheduleWindowOpenViaTauri,
   readWindowStartupViaTauri,
   takePendingScheduleWindowOpenViaTauri,
 } from "../../model/windowSession";
@@ -227,6 +229,25 @@ export function useScheduleStartupRecovery({
         const pending = await takePendingScheduleWindowOpenViaTauri();
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (pending) {
+          if (pending.label !== (await getCurrentWindow().label)) {
+            releaseStartupBusy();
+            return;
+          }
+          if (pending.workspacePath) {
+            const workspaceStartupOk = await restoreWorkspaceBinding(
+              pending.workspacePath,
+            );
+            if (!workspaceStartupOk) {
+              setErrorMessageText(WORKSPACE_STARTUP_FAILED_MESSAGE);
+              setStartupContentReady(true);
+              await ackPendingScheduleWindowOpenViaTauri();
+              releaseStartupBusy();
+              return;
+            }
+          }
+          await acceptOpenedScheduleViaTauri(pending.path, pending.contents, {
+            preserveWorkspaceBinding: !!pending.workspacePath,
+          });
           await applyOpenedFileRef.current(
             {
               path: pending.path,
@@ -234,6 +255,7 @@ export function useScheduleStartupRecovery({
             },
             { recordRecent: true },
           );
+          await ackPendingScheduleWindowOpenViaTauri();
           releaseStartupBusy();
           return;
         }
