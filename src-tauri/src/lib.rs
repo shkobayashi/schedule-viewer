@@ -68,7 +68,8 @@ use window_session::{
     recovery_owner_label,
     recovery_owners_by_path, remove_window_label,
     should_remove_open_window_label_after_destroy, set_focused_label, sha256_hex,
-    spawn_startup_windows, store_pending_open, take_pending_open, upsert_window_path,
+    reserve_next_schedule_window_open, spawn_startup_windows, take_pending_open,
+    upsert_window_path,
     workspace_path_for_schedule_record, write_filter_for_path, write_recovery_for_path,
     entry_for_label,
     WindowSessionState,
@@ -2363,20 +2364,15 @@ async fn create_schedule_window(
     let app_data = app_data_dir(&app)?;
     let label = loop {
         let candidate = {
-            let guard = session.lock().expect("window session");
-            window_session::next_schedule_window_label(&app, &guard)?
-        };
-        {
             let mut guard = session.lock().expect("window session");
-            store_pending_open(
+            reserve_next_schedule_window_open(
+                &app,
                 &mut guard,
-                candidate.clone(),
                 path.clone(),
                 contents.clone(),
                 workspace_path.clone(),
-            );
-            note_window_focus(&mut guard, &candidate);
-        }
+            )?
+        };
         match window_session::create_schedule_webview_on_main_thread(
             &app,
             &candidate,

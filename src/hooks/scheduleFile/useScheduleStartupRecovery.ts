@@ -20,7 +20,9 @@ import {
   readWindowStartupViaTauri,
   takePendingScheduleWindowOpenViaTauri,
 } from "../../model/windowSession";
+import { recordRecentWorkspaceViaTauri } from "../../model/recentFilesAppData";
 import {
+  acceptOpenedWorkspaceViaTauri,
   openWorkspaceFromFile,
   readJsonFileLimitedViaTauri,
   WORKSPACE_STARTUP_FAILED_MESSAGE,
@@ -126,6 +128,7 @@ export function useScheduleStartupRecovery({
         deferDisk?: boolean;
         abortIfMovedOn?: boolean;
         restoreFilters?: boolean;
+        preserveWorkspaceBinding?: boolean;
         onDocumentApplied?: () => void;
       },
     ): Promise<boolean> => {
@@ -136,7 +139,10 @@ export function useScheduleStartupRecovery({
           recoveryStartupRef.current !== startupId ||
           filePathRef.current != null ||
           isDirtyRef.current,
-        accept: () => acceptOpenedScheduleViaTauri(session.path, session.diskContents),
+        accept: () =>
+          acceptOpenedScheduleViaTauri(session.path, session.diskContents, {
+            preserveWorkspaceBinding: options?.preserveWorkspaceBinding ?? false,
+          }),
         apply: () => {
           replaceDocument(session.document);
           filePathRef.current = session.path;
@@ -245,17 +251,33 @@ export function useScheduleStartupRecovery({
               releaseStartupBusy();
               return;
             }
+            await acceptOpenedWorkspaceViaTauri(
+              pending.workspacePath,
+              pending.path,
+              pending.contents,
+            );
+            await applyOpenedFileRef.current(
+              {
+                path: pending.path,
+                contents: pending.contents,
+              },
+              { recordRecent: false },
+            );
+            void recordRecentWorkspaceViaTauri(pending.workspacePath).catch(
+              () => {},
+            );
+          } else {
+            await acceptOpenedScheduleViaTauri(pending.path, pending.contents, {
+              preserveWorkspaceBinding: false,
+            });
+            await applyOpenedFileRef.current(
+              {
+                path: pending.path,
+                contents: pending.contents,
+              },
+              { recordRecent: true },
+            );
           }
-          await acceptOpenedScheduleViaTauri(pending.path, pending.contents, {
-            preserveWorkspaceBinding: !!pending.workspacePath,
-          });
-          await applyOpenedFileRef.current(
-            {
-              path: pending.path,
-              contents: pending.contents,
-            },
-            { recordRecent: true },
-          );
           await ackPendingScheduleWindowOpenViaTauri();
           releaseStartupBusy();
           return;
@@ -265,6 +287,7 @@ export function useScheduleStartupRecovery({
           releaseStartupBusy();
           return;
         }
+        const preserveWorkspaceBinding = Boolean(startup.workspacePath);
         const workspaceStartupOk = await restoreWorkspaceBinding(
           startup.workspacePath,
         );
@@ -352,7 +375,11 @@ export function useScheduleStartupRecovery({
                 baselineJson: action.baselineJson,
                 diskContents: action.diskContents,
               },
-              { abortIfMovedOn: true, restoreFilters: true },
+              {
+                abortIfMovedOn: true,
+                restoreFilters: true,
+                preserveWorkspaceBinding,
+              },
             );
             if (applied) {
               await clearRecoveryDraft();
@@ -368,7 +395,11 @@ export function useScheduleStartupRecovery({
                 baselineJson: action.baselineJson,
                 diskContents: action.diskContents,
               },
-              { abortIfMovedOn: true, restoreFilters: true },
+              {
+                abortIfMovedOn: true,
+                restoreFilters: true,
+                preserveWorkspaceBinding,
+              },
             );
             releaseStartupBusy();
             return;
@@ -398,6 +429,7 @@ export function useScheduleStartupRecovery({
               {
                 abortIfMovedOn: true,
                 restoreFilters: true,
+                preserveWorkspaceBinding,
                 onDocumentApplied: () => {
                   markMissingFilePrompted();
                   recoveryConflictRef.current = {

@@ -536,16 +536,14 @@ pub fn delete_filter_for_path(app_data: &Path, schedule_path: &str) -> Result<()
     Ok(())
 }
 
-pub fn next_schedule_window_label(
-    app: &AppHandle,
+fn next_schedule_window_label_with_live(
     session: &WindowSessionState,
+    is_label_live: impl Fn(&str) -> bool,
 ) -> Result<String, String> {
     let mut index = 2;
     loop {
         let label = format!("schedule-{index}");
-        if app.get_webview_window(&label).is_some()
-            || session.pending_opens.contains_key(&label)
-        {
+        if is_label_live(&label) || session.pending_opens.contains_key(&label) {
             index += 1;
             if index > 10_000 {
                 return Err("ウィンドウをこれ以上開けません。".to_string());
@@ -554,6 +552,56 @@ pub fn next_schedule_window_label(
         }
         return Ok(label);
     }
+}
+
+pub fn next_schedule_window_label(
+    app: &AppHandle,
+    session: &WindowSessionState,
+) -> Result<String, String> {
+    next_schedule_window_label_with_live(session, |label| {
+        app.get_webview_window(label).is_some()
+    })
+}
+
+/// ラベル選定と pending 予約を同一セッション操作の中で行う。単体試験から使う。
+#[allow(dead_code)]
+pub fn reserve_next_schedule_window_open_with_live(
+    session: &mut WindowSessionState,
+    is_label_live: impl Fn(&str) -> bool,
+    path: String,
+    contents: String,
+    workspace_path: Option<String>,
+) -> Result<String, String> {
+    let label = next_schedule_window_label_with_live(session, is_label_live)?;
+    store_pending_open(
+        session,
+        label.clone(),
+        path,
+        contents,
+        workspace_path,
+    );
+    note_window_focus(session, &label);
+    Ok(label)
+}
+
+/// `create_schedule_window` が使う。
+pub fn reserve_next_schedule_window_open(
+    app: &AppHandle,
+    session: &mut WindowSessionState,
+    path: String,
+    contents: String,
+    workspace_path: Option<String>,
+) -> Result<String, String> {
+    let label = next_schedule_window_label(app, session)?;
+    store_pending_open(
+        session,
+        label.clone(),
+        path,
+        contents,
+        workspace_path,
+    );
+    note_window_focus(session, &label);
+    Ok(label)
 }
 
 static MAIN_THREAD_ID: OnceLock<thread::ThreadId> = OnceLock::new();
@@ -1027,6 +1075,42 @@ mod tests {
         let taken = take_pending_open(&mut state, "schedule-3").expect("pending");
         assert_eq!(taken.path, "/tmp/a.schedule.json");
         assert!(take_pending_open(&mut state, "schedule-3").is_none());
+    }
+
+    #[test]
+    fn concurrent_reserve_next_schedule_window_open_yields_distinct_labels() {
+        use std::sync::{Arc, Barrier, Mutex};
+        use std::thread;
+
+        let state = Arc::new(Mutex::new(WindowSessionState::default()));
+        let barrier = Arc::new(Barrier::new(2));
+        let mut handles = Vec::new();
+        for index in 0..2 {
+            let state = Arc::clone(&state);
+            let barrier = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                barrier.wait();
+                let mut guard = state.lock().expect("session lock");
+                let label = reserve_next_schedule_window_open_with_live(
+                    &mut guard,
+                    |_| false,
+                    format!("/tmp/open-{index}.schedule.json"),
+                    "{}".to_string(),
+                    None,
+                )
+                .expect("reserve");
+                label
+            }));
+        }
+        let mut labels = Vec::new();
+        for handle in handles {
+            labels.push(handle.join().expect("thread"));
+        }
+        assert_ne!(labels[0], labels[1]);
+        let guard = state.lock().expect("session lock");
+        assert_eq!(guard.pending_opens.len(), 2);
+        assert!(guard.pending_opens.contains_key(&labels[0]));
+        assert!(guard.pending_opens.contains_key(&labels[1]));
     }
 
     #[test]

@@ -648,6 +648,68 @@ fn wait_open_windows_labels_exactly_one_new(
     );
 }
 
+fn open_windows_disk_row(h: &RunningHarness, label: &str) -> Option<Value> {
+    let path = h.app_data_dir().join("open-windows.json");
+    let text = fs::read_to_string(&path).unwrap_or_default();
+    let stored: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+    stored
+        .get("windows")
+        .and_then(|v| v.as_array())
+        .and_then(|rows| {
+            rows.iter()
+                .find(|w| w.get("label").and_then(|v| v.as_str()) == Some(label))
+                .cloned()
+        })
+}
+
+fn wait_open_windows_disk_workspace_path(h: &RunningHarness, label: &str, workspace: &Path) {
+    let expected = workspace.to_string_lossy();
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let row = open_windows_disk_row(h, label);
+        let on_disk = row
+            .as_ref()
+            .and_then(|w| w.get("workspacePath"))
+            .and_then(|v| v.as_str());
+        if on_disk == Some(expected.as_ref()) {
+            return;
+        }
+        if Instant::now() >= deadline {
+            panic!(
+                "workspacePath on disk for {label}: expected {expected:?}, row={row:?}"
+            );
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn wait_label_current_schedule_ready(h: &RunningHarness, label: &str) {
+    let deadline = Instant::now() + Duration::from_secs(45);
+    loop {
+        let out = h.run_screen(&["--screen", "current_schedule"], Some(label), None);
+        if out.code == 0 {
+            if let Ok(doc) = serde_json::from_str::<Value>(&out.stdout) {
+                if schedule_contains_task(&doc, SEEDED_TASK_ID) {
+                    return;
+                }
+            }
+        }
+        if Instant::now() >= deadline {
+            panic!("current_schedule not ready for label {label}");
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn read_recent_files_store(h: &RunningHarness) -> Value {
+    let path = h.app_data_dir().join("recent-files.json");
+    if !path.is_file() {
+        return json!({ "schedules": [], "workspaces": [] });
+    }
+    serde_json::from_str(&fs::read_to_string(&path).expect("recent-files"))
+        .expect("recent-files json")
+}
+
 fn wait_open_windows_row_file(h: &RunningHarness, label: &str, file: &str) {
     let deadline = Instant::now() + Duration::from_secs(30);
     loop {
@@ -2895,39 +2957,191 @@ fn open_new_window_same_path_twice_adds_two_distinct_labels() {
     });
 }
 
+const OPEN_NEW_WINDOW_PROBE_TASK_ID: &str = "e1999999-0000-4000-8000-000000000099";
+const OPEN_NEW_WINDOW_PROBE_TASK_NAME: &str = "workspace-open-probe-only";
+
+fn write_schedule_with_probe_task(path: &Path) {
+    let regression = Path::new(REPO_ROOT).join("examples/regression");
+    let mut doc: Value = serde_json::from_str(
+        &fs::read_to_string(regression.join("smoke.schedule.json")).expect("smoke"),
+    )
+    .expect("smoke json");
+    if let Some(categories) = doc.get_mut("categories").and_then(|v| v.as_array_mut()) {
+        if let Some(first) = categories.first_mut() {
+            if let Some(tasks) = first.get_mut("tasks").and_then(|v| v.as_array_mut()) {
+                tasks.push(json!({
+                    "id": OPEN_NEW_WINDOW_PROBE_TASK_ID,
+                    "type": "task",
+                    "name": OPEN_NEW_WINDOW_PROBE_TASK_NAME,
+                    "start": "2026-05-01",
+                    "end": "2026-05-07",
+                    "status": "planned"
+                }));
+            }
+        }
+    }
+    fs::write(
+        path,
+        serde_json::to_string_pretty(&doc).expect("schedule json") + "\n",
+    )
+    .expect("write probe schedule");
+}
+
+fn schedule_has_probe_task(doc: &Value) -> bool {
+    fn walk_nodes(nodes: Option<&Value>, task_id: &str) -> bool {
+        let Some(nodes) = nodes.and_then(|v| v.as_array()) else {
+            return false;
+        };
+        for node in nodes {
+            if node.get("id").and_then(|v| v.as_str()) == Some(task_id) {
+                return true;
+            }
+            if walk_nodes(node.get("tasks"), task_id) {
+                return true;
+            }
+            if walk_nodes(node.get("children"), task_id) {
+                return true;
+            }
+        }
+        false
+    }
+    walk_nodes(doc.get("categories"), OPEN_NEW_WINDOW_PROBE_TASK_ID)
+        || walk_nodes(
+            doc
+                .get("outline")
+                .and_then(|o| o.get("children")),
+            OPEN_NEW_WINDOW_PROBE_TASK_ID,
+        )
+}
+
+#[test]
+fn open_new_window_workspace_persists_workspace_path_and_restart() {
+    with_gui(|h| {
+        let workspace = h.work.join("workspace.json");
+        let schedule3 = h.schedule3_path.clone();
+        let before_labels = window_labels(h);
+        let r = h.mcp_call(
+            "open_new_window",
+            json!({
+                "path": schedule3.to_string_lossy(),
+                "workspacePath": workspace.to_string_lossy(),
+            }),
+        );
+        assert!(!r.is_error, "{}", r.text);
+        let new_label = normalize_text(&r.text);
+        wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
+        wait_open_windows_row_file(h, &new_label, "schedule-3.schedule.json");
+        wait_label_current_schedule_ready(h, &new_label);
+        wait_open_windows_disk_workspace_path(h, &new_label, &workspace);
+        let row = open_windows_disk_row(h, &new_label).expect("disk row");
+        assert_eq!(
+            row.get("path").and_then(|v| v.as_str()),
+            Some(schedule3.to_string_lossy().as_ref())
+        );
+        assert!(
+            row.get("sample").and_then(|v| v.as_bool()) != Some(true),
+            "opened row should not stay sample"
+        );
+        let recent = read_recent_files_store(h);
+        let workspaces: Vec<&str> = recent
+            .get("workspaces")
+            .and_then(|v| v.as_array())
+            .map(|rows| {
+                rows.iter()
+                    .filter_map(|p| p.as_str())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let schedules: Vec<&str> = recent
+            .get("schedules")
+            .and_then(|v| v.as_array())
+            .map(|rows| {
+                rows.iter()
+                    .filter_map(|p| p.as_str())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        assert!(
+            workspaces
+                .iter()
+                .any(|p| p == &workspace.to_string_lossy().as_ref()),
+            "recent workspaces should list workspace, got {workspaces:?}"
+        );
+        assert!(
+            !schedules
+                .iter()
+                .any(|p| p == &schedule3.to_string_lossy().as_ref()),
+            "recent schedules should not list the opened schedule path, got {schedules:?}"
+        );
+        h.stop_gui_and_respawn().expect("respawn");
+        wait_open_windows_disk_workspace_path(h, &new_label, &workspace);
+    });
+}
+
 #[test]
 fn open_new_window_with_bad_workspace_keeps_sample_row_without_attached_file() {
     with_gui(|h| {
+        let probe_schedule = h.work.join("bad-workspace-probe.schedule.json");
+        write_schedule_with_probe_task(&probe_schedule);
         let before_labels = window_labels(h);
         let missing_workspace = h.work.join("missing-workspace.json");
         let r = h.mcp_call(
             "open_new_window",
             json!({
-                "path": h.schedule3_path.to_string_lossy(),
+                "path": probe_schedule.to_string_lossy(),
                 "workspacePath": missing_workspace.to_string_lossy(),
             }),
         );
         assert!(!r.is_error, "{}", r.text);
         let new_label = normalize_text(&r.text);
         wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
-        let deadline = Instant::now() + Duration::from_secs(30);
+        let deadline = Instant::now() + Duration::from_secs(45);
         loop {
+            let doc = parse_mcp_json_text(
+                &h.mcp_call(
+                    "current_schedule",
+                    json!({ "window": new_label }),
+                )
+                .text,
+            );
             let wins = parse_mcp_json_text(&h.mcp_call("open_windows", json!({})).text);
             let row = wins.as_array().and_then(|rows| {
                 rows.iter()
                     .find(|w| w.get("label").and_then(|v| v.as_str()) == Some(new_label.as_str()))
             });
             let file = row.and_then(|w| w.get("file").and_then(|v| v.as_str()));
-            if file == Some(MCP_WINDOW_SAMPLE_DISPLAY) {
+            if !schedule_has_probe_task(&doc) && file == Some(MCP_WINDOW_SAMPLE_DISPLAY) {
                 break;
             }
             if Instant::now() >= deadline {
                 panic!(
-                    "expected sample row for failed workspace startup, got row={row:?}"
+                    "expected sample row without probe task after failed workspace startup, doc_has_probe={} row={row:?}",
+                    schedule_has_probe_task(&doc)
                 );
             }
             std::thread::sleep(Duration::from_millis(200));
         }
+        let wins = parse_mcp_json_text(&h.mcp_call("open_windows", json!({})).text);
+        let row = wins.as_array().and_then(|rows| {
+            rows.iter()
+                .find(|w| w.get("label").and_then(|v| v.as_str()) == Some(new_label.as_str()))
+        });
+        let file = row.and_then(|w| w.get("file").and_then(|v| v.as_str()));
+        assert_eq!(
+            file,
+            Some(MCP_WINDOW_SAMPLE_DISPLAY),
+            "open_windows row should stay sample"
+        );
+        let disk_row = open_windows_disk_row(h, &new_label).expect("disk row");
+        assert!(
+            disk_row.get("sample").and_then(|v| v.as_bool()) == Some(true)
+                || disk_row.get("path").is_none(),
+            "disk row should remain sample without schedule path, got {disk_row:?}"
+        );
+        assert!(
+            disk_row.get("workspacePath").is_none(),
+            "disk row must not record workspacePath after failed binding"
+        );
     });
 }
 
