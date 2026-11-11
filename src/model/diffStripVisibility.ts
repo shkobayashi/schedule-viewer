@@ -58,7 +58,11 @@ export function shouldDeferBodyUpdate(
   current: DiffStripView,
   next: Extract<DiffStripView, { visible: true }>,
   textareaFocused: boolean,
+  source: "auto" | "explicit" = "auto",
 ): boolean {
+  if (source === "explicit") {
+    return false;
+  }
   if (!textareaFocused || next.kind !== "body") {
     return false;
   }

@@ -8,7 +8,9 @@ import {
   matchesUnassignedFilter,
   memberOptionLabel,
   assigneeExcelCellLabel,
+  formatUnknownAssigneeOption,
   resolveAssigneeRowDisplay,
+  taskHasUnknownAssignee,
 } from "./assigneeDisplay";
 import { memberMapFromList } from "./assigneeDisplay";
 import type { Member } from "./memberTypes";
@@ -87,6 +89,17 @@ describe("matchesUnassignedFilter", () => {
     expect(matchesUnassignedFilter(["missing", "ghost"], catalog)).toBe(true);
     expect(matchesUnassignedFilter(["sato"], catalog)).toBe(false);
     expect(matchesUnassignedFilter(["sato", "missing"], catalog)).toBe(false);
+  });
+});
+
+describe("taskHasUnknownAssignee", () => {
+  const catalog = memberMapFromList(members);
+
+  it("is true when any id is missing from the catalog", () => {
+    expect(taskHasUnknownAssignee(["sato"], catalog)).toBe(false);
+    expect(taskHasUnknownAssignee(["missing"], catalog)).toBe(true);
+    expect(taskHasUnknownAssignee(["sato", "ghost"], catalog)).toBe(true);
+    expect(formatUnknownAssigneeOption("ghost")).toBe("メンバー不明（ghost）");
   });
 });
 

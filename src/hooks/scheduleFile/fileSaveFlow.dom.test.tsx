@@ -436,16 +436,13 @@ describe("file save flow", () => {
   it("the status bar opens the diff from the real file bytes (FILE-07)", async () => {
     const { flow, ref } = await mountOpenSmoke();
     await setDesignEnd(ref, "2026-04-10");
-    fireEvent.click(screen.getByRole("button", { name: "未保存" }));
-    const diffButton = screen.queryByRole("button", { name: "差分" });
-    if (diffButton) {
-      fireEvent.click(diffButton);
-    }
-    await waitFor(() => {
-      const strip = flow.getDisk(FLOW_SCHEDULE_PATH) ?? "";
-      expect(strip).not.toContain('"end": "2026-04-10"');
-      expect(document.body.textContent).toMatch(/2026-04-10/);
-    });
+    const unsaved = screen.getByRole("button", { name: "未保存" });
+    fireEvent.click(unsaved);
+    const column = await screen.findByRole("region", { name: "差分" });
+    const strip = flow.getDisk(FLOW_SCHEDULE_PATH) ?? "";
+    expect(strip).not.toContain('"end": "2026-04-10"');
+    expect(within(column).getByText(/2026-04-10/)).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "差分" })).toBeNull();
   });
 
   it("a broken file on disk yields the read error and no diff rows (FILE-07)", async () => {
