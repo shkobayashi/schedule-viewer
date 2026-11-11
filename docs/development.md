@@ -286,9 +286,10 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 - ワークフロー定義が変わると、両方のジョブが動く
 - `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、マニュアル6ファイルと `how-to/manual/` の差分検査）が動く。`package.json` と `package-lock.json` だけが変わったときはフロントジョブが動き、`manual` は動かない
 - `docs/*.md` や `README.md` だけの変更（操作マニュアル以外）では、フロントと Rust と `manual` はスキップする。集約ジョブ `ci` は成功する
-- `AGENTS.md`、`docs/agents-*`、`.cursor/rules`、各スキルの `SKILL.md` と `references/*.md`、`scripts/check-agent-docs.*` だけの変更では `agentdocs` ジョブ（`npm run check:agent-docs` と `node --test scripts/check-agent-docs.test.mjs`）だけが動く
-- `scripts/check-agent-docs.*` だけの変更ではフロントジョブは動かない（`scripts/*` の先頭一致から除外する）
-- `.cursor/skills/write-*` や `.cursor/skills/how-to/` の `SKILL.md` と `references/*.md` は、フロントまたは Rust と重なっても `agentdocs` を立てる（`agentdocs` の判定は別ループで行う。`scripts/ci-changed-path-flags.mjs` と `scripts/ci-changed-path-flags.test.mjs` が同じ分類を固定する）
+- `agentdocs` だけが動くのは、変更がフロント・Rust・`manual` のいずれにも当たらないときだけである（例: `AGENTS.md`、`docs/agents-*`、`.cursor/rules/*` のうちスキル配下を除くファイル、`consult` など write / how-to / schedule-talk と重ならない SKILL・`references`、`scripts/check-agent-docs.*`）。`scripts/check-agent-docs.*` は広い `scripts/*` の frontend 枝から除外する
+- `.cursor/skills/write-*` と `.cursor/skills/how-to/` の `SKILL.md` と `references/*.md` は **frontend と agentdocs の両方**が立つ
+- `.cursor/skills/schedule-talk/` の `SKILL.md` と `references/*.md` は **Rust と agentdocs の両方**が立つ（`schedule-talk/*` 全体は Rust 側）
+- 分類の正本は `scripts/ci-changed-path-flags.sh` で、CI の `changes` ジョブが `git diff` をこのスクリプトへ渡す。`node --test scripts/ci-changed-path-flags.test.mjs` は同じスクリプトを実行して旗を固定する
 
 **case の先頭一致:** Bash の `case` は先に当たった枝だけを実行する。広い `scripts/*` や `schedule-talk/*` を先に書くと、狭い `scripts/check-agent-docs.*` や `references/*.md` が同じ枝に入らず `agentdocs` が立たない。`agentdocs` は changed ファイルをもう一度回して先に判定する。
 

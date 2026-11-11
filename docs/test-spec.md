@@ -191,11 +191,11 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 | ワークフロー | きっかけ | 実行するもの |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `develop`、`main`、`next` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`（循環 import）、`test:ci`（閾値未満は失敗）、`check:architecture-warn`（jscpd。上限超過は警告）、`check:schedule`、`check:calendar`、`check:members`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、`npm audit --audit-level=high`、スキル同梱物と `how-to/manual/` の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、マニュアル6ファイルと `how-to/manual/` の差分。最後に集約ジョブ `ci` が成功する |
+| `.github/workflows/ci.yml` | `develop`、`main`、`next` 向けの pull request | 変更パスがフロントなら `version:check`、`build`、`lint`、`check:mcp-tool-names`、`check:operation-entries`、`check:regression-coverage`、`check:madge-circular-baseline`（循環 import）、`test:ci`（閾値未満は失敗）、`check:architecture-warn`（jscpd。上限超過は警告）、`check:schedule`、`check:calendar`、`check:members`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、`npm audit --audit-level=high`、スキル同梱物と `how-to/manual/` の差分。Rust なら `npm ci` のあと `version:check`、Ubuntu と Windows で Clippy と `cargo test --locked`。操作マニュアルのサイト入力なら `npm ci` のあと `build:manual-site`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、マニュアル6ファイルと `how-to/manual/` の差分。エージェント向け文書だけ（フロント・Rust・`manual` と重ならないパス）なら `npm run check:agent-docs` と `node --test scripts/check-agent-docs.test.mjs`。最後に集約ジョブ `ci` が成功する |
 | `.github/workflows/pages.yml` | `main` への push（操作マニュアルとサイトビルドの入力）または `workflow_dispatch` | `npm ci` のあと `build:manual-site` を GitHub Pages へ公開する |
 | `.github/workflows/release.yml` | `main` または `release/**` への push | 版、ブランチ、タグの検査のあと、環境 `release` の承認のあと、更新用署名付きの Ubuntu deb と Apple Silicon の dmg を GitHub Release へ出す。安定版では Windows が署名しない MSIX を Microsoft Store（`9PP41TRJ8ZT8`）へ提出する。Pre-release では Windows NSIS と `schedule-viewer-codesign.cer` と `latest-windows-x86_64.json` を出す。`latest-linux-x86_64.json`、`latest-darwin-aarch64.json` と、安定版では `linux-x86_64` と `darwin-aarch64` の `latest.json`、Pre-release では `windows-x86_64` も含む `latest.json`、`SHA256SUMS` を載せる。Pre-release では Latest を付けず `updater-X` も更新しない。安定版の `checksums` は deb と dmg の成功を待ち、Store 提出の成否では止まらない。`main` は安定版で CHANGELOG から本文を組み立てる。安定版ではビルド前に GitHub Release を作り、`checksums` が `updater-X` を更新し、より大きいメジャーが無いときだけ Latest を付ける。`release/X.Y.Z` は Pre-release で、アルファまたはベータに応じた短い確認用の本文 |
 
-`develop` への push だけでは CI は動かない。`docs/*.md` だけの変更（操作マニュアル以外）ではフロントと Rust と `manual` はスキップするが、集約ジョブ `ci` は成功する。`AGENTS.md`、`docs/agents-*`、`.cursor/rules`、各スキルの `SKILL.md` と `references/*.md`、`scripts/check-agent-docs.*` だけの変更では `agentdocs` ジョブが `check:agent-docs` と fixture の node:test だけを走らせる。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
+`develop` への push だけでは CI は動かない。`docs/*.md` だけの変更（操作マニュアル以外）ではフロントと Rust と `manual` はスキップするが、集約ジョブ `ci` は成功する。`agentdocs` ジョブは `npm run check:agent-docs` と `node --test scripts/check-agent-docs.test.mjs` を走らせる。**agentdocs だけ**が立つのは、変更がフロント・Rust・`manual` に当たらないときである。`.cursor/skills/write-*` と `how-to/` の SKILL・`references` は frontend と重なり、`.cursor/skills/schedule-talk/` の SKILL・`references` は Rust と重なる。詳細は [開発ガイド](development.md#ブランチと-ci) にある。
 
 ## 自動テスト一覧
 
@@ -234,13 +234,20 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/check-agent-docs.test.mjs` | `inline backtick link is ignored after fence strip` | — |
 | `scripts/check-agent-docs.test.mjs` | `unquoted broken prose link still fails` | — |
 | `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects empty quoted description` | — |
-| `scripts/ci-changed-path-flags.test.mjs` | `check-agent-docs script changes agentdocs only` | — |
-| `scripts/ci-changed-path-flags.test.mjs` | `consult rule and session set agentdocs without dropping frontend overlap elsewhere` | — |
-| `scripts/ci-changed-path-flags.test.mjs` | `AGENTS.md sets agentdocs only` | — |
-| `scripts/ci-changed-path-flags.test.mjs` | `write-schedule SKILL sets agentdocs and frontend` | — |
-| `scripts/ci-changed-path-flags.test.mjs` | `schedule-talk reference sets agentdocs and rust` | — |
-| `scripts/ci-changed-path-flags.test.mjs` | `ordinary src change sets frontend only` | — |
-| `scripts/ci-changed-path-flags.test.mjs` | `pathSetsAgentdocs matches all agent-doc scan paths` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci.yml changes job pipes git diff into ci-changed-path-flags.sh` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: build-user-manual-site.mjs is manual only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: manual-site render.mjs is manual only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: ci.yml is frontend and rust` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: pages.yml is frontend and rust` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: docs agents non-md still sets agentdocs only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: rules non-mdc still sets agentdocs only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: check-agent-docs files are agentdocs only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: ci-changed-path-flags files are frontend only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: write-schedule SKILL is frontend and agentdocs` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: schedule-talk reference is rust and agentdocs` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: src App is frontend only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: src-tauri lib is rust only` | — |
+| `scripts/ci-changed-path-flags.test.mjs` | `ci workflow script: consult rule and session are agentdocs only` | — |
 
 ### Vitest
 

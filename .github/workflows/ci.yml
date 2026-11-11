@@ -24,40 +24,7 @@ jobs:
         run: |
           BASE="${{ github.event.pull_request.base.sha }}"
           HEAD="${{ github.sha }}"
-          frontend=false
-          rust=false
-          manual=false
-          agentdocs=false
-          while IFS= read -r file; do
-            case "$file" in
-              AGENTS.md|docs/agents-*|.cursor/rules/*|.cursor/skills/*/SKILL.md|.cursor/skills/*/references/*.md|scripts/check-agent-docs.*)
-                agentdocs=true
-                ;;
-            esac
-          done < <(git diff --name-only "$BASE" "$HEAD")
-          while IFS= read -r file; do
-            case "$file" in
-              src-tauri/*|rust-toolchain.toml|read-screen/*|.cursor/skills/schedule-talk/*)
-                rust=true
-                ;;
-              .github/workflows/*)
-                frontend=true
-                rust=true
-                ;;
-              docs/user-manual/*|docs/user-manual.md|scripts/build-user-manual-site.mjs|scripts/manual-site/*|.github/workflows/pages.yml)
-                manual=true
-                ;;
-              scripts/check-agent-docs.*)
-                ;;
-              index.html|src/*|scripts/*|docs/schedule.schema.json|docs/members.schema.json|docs/calendar.schema.json|docs/field-extensions.schema.json|docs/workspace.schema.json|docs/colors.schema.json|examples/*|package.json|package-lock.json|eslint.config.js|vite.config.ts|tsconfig.json|tsconfig.node.json|vitest.config.ts|.cursor/skills/write-schedule/*|.cursor/skills/write-calendar/*|.cursor/skills/write-members/*|.cursor/skills/write-workspace/*|.cursor/skills/write-fields/*|.cursor/skills/write-colors/*|.cursor/skills/how-to/*)
-                frontend=true
-                ;;
-            esac
-          done < <(git diff --name-only "$BASE" "$HEAD")
-          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
-          echo "rust=$rust" >> "$GITHUB_OUTPUT"
-          echo "manual=$manual" >> "$GITHUB_OUTPUT"
-          echo "agentdocs=$agentdocs" >> "$GITHUB_OUTPUT"
+          git diff --name-only "$BASE" "$HEAD" | bash scripts/ci-changed-path-flags.sh
 
   frontend:
     needs: changes
