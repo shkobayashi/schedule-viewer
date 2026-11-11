@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   expandSidebarUntilTask,
@@ -140,11 +140,24 @@ describe("detail panel ui-field (#551 increment 3)", () => {
     fireEvent.click(survey);
     fireEvent.click(design, { ctrlKey: true });
     await waitFor(() => expect(screen.getByText("2件を選択中")).toBeInTheDocument());
-    const bulkStatus = screen.getByLabelText("ステータス");
+    const bulkPanel = screen.getByRole("complementary", {
+      name: /2件の一括編集/,
+    });
+    const bulkStatus = within(bulkPanel).getByLabelText("ステータス");
     expect(bulkStatus).toHaveClass("ui-field");
     fireEvent.change(bulkStatus, { target: { value: "done" } });
-    const apply = screen.getByRole("button", { name: /件に適用/ });
+    const apply = within(bulkPanel).getByRole("button", { name: /件に適用/ });
     await waitFor(() => expect(apply).not.toBeDisabled());
-    expect(screen.getByText(/適用する項目:.*ステータス/)).toBeInTheDocument();
+    expect(within(bulkPanel).getByText(/適用する項目:.*ステータス/)).toBeInTheDocument();
+    fireEvent.click(apply);
+    await waitFor(() => expect(apply).toBeDisabled());
+    fireEvent.click(survey);
+    await waitFor(() =>
+      expect((screen.getByLabelText("ステータス") as HTMLSelectElement).value).toBe("done"),
+    );
+    fireEvent.click(design);
+    await waitFor(() =>
+      expect((screen.getByLabelText("ステータス") as HTMLSelectElement).value).toBe("done"),
+    );
   });
 });

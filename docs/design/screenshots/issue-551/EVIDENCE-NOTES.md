@@ -6,10 +6,12 @@
 
 ## Increment 3 — detail / bulk panels
 
-Screenshots use a 24px margin clip around the detail aside so panel boundary, side shadow, and footer actions stay in frame.
+**Primary crops** (`increment3-*-{task,bulk}-detail.png`) use a 24px margin clip from the **top** of the detail aside (`shotPanelMargin` caps height at the viewport). Tall panels scroll internally (~751px panel in a 900px window). These top crops show name/notes/dates/status and bulk upper fields; they **do not** show TODO text inputs or bulk **Apply** — bulk crops may stop around 対応マイルストン / 先行タスク. A `bulkApply` height metric only shows the footer button exists in the DOM, not that it appears in the crop.
 
-Captured at `--s = 1.15` (1440×900, auto scale). Single-line controls gain about **+5px** height after `ui-field` (e.g. `#detailName` 30.78px → 35.78px; `line-height` 20.01px on several fields). Multi-line note height unchanged in samples. Panel height ~751px light unchanged.
+**Supplemental crops** (`increment3-*-task-detail-todo.png`, `increment3-*-bulk-detail-apply.png`) scroll the panel and clip around the TODO field or enabled Apply control (status set to 完了 for bulk) to prove lower fields stay reachable after the `ui-field` height increase. Check `visibility` objects in `increment3-after-metrics.json` for `panelScrollTop`, `fullyInPanel`, and `fullyInViewport`.
 
-**Intended dark change:** input surface `rgb(35, 36, 44)` (#23242c) vs panel `rgb(26, 27, 34)` (#1a1b22). Bulk apply button remains visible in margin crops.
+Captured at `--s = 1.15` (1440×900, auto scale). Single-line controls gain about **+5px** height after `ui-field` (e.g. `#detailName` 30.78px → 35.78px; status ~+4px). Multi-line note height unchanged in samples. Panel height ~751px light unchanged.
 
-Side-by-side: `increment3-compare-light-task-detail.png`, `increment3-compare-dark-task-detail.png`.
+**Intended dark change:** input surface `rgb(35, 36, 44)` (#23242c) vs panel `rgb(26, 27, 34)` (#1a1b22).
+
+Side-by-side (top crop only): `increment3-compare-light-task-detail.png`, `increment3-compare-dark-task-detail.png`.

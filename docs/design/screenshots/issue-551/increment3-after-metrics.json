@@ -5,7 +5,7 @@
     "height": 900
   },
   "marginPx": 24,
-  "capturedAt": "2026-11-11T07:04:59.684Z",
+  "capturedAt": "2026-11-11T07:14:52.990Z",
   "captures": [
     {
       "case": "task-detail",
@@ -58,7 +58,27 @@
         },
         "bulkApply": null
       },
-      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-light-task-detail.png"
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-light-task-detail.png",
+      "supplements": [
+        {
+          "case": "task-detail-todo",
+          "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-light-task-detail-todo.png",
+          "visibility": {
+            "anchorFound": true,
+            "anchorSelector": ".detail-todo-text",
+            "panelScrollTop": 431,
+            "panelClientHeight": 751,
+            "anchorLabel": "",
+            "fullyInPanel": true,
+            "fullyInViewport": true,
+            "anchorTop": 465.390625,
+            "anchorBottom": 501.171875,
+            "panelTop": 107.15625,
+            "panelBottom": 858.625,
+            "disabled": null
+          }
+        }
+      ]
     },
     {
       "case": "bulk-detail",
@@ -87,7 +107,28 @@
           "className": ""
         }
       },
-      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-light-bulk-detail.png"
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-light-bulk-detail.png",
+      "supplements": [
+        {
+          "case": "bulk-detail-apply",
+          "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-light-bulk-detail-apply.png",
+          "visibility": {
+            "anchorFound": true,
+            "anchorSelector": ".detail-bulk-actions button",
+            "panelScrollTop": 465,
+            "panelClientHeight": 751,
+            "anchorLabel": "2件に適用",
+            "fullyInPanel": true,
+            "fullyInViewport": true,
+            "anchorTop": 778.25,
+            "anchorBottom": 802.25,
+            "panelTop": 107.15625,
+            "panelBottom": 858.625,
+            "disabled": false
+          },
+          "draftPreview": "適用する項目: ステータス"
+        }
+      ]
     },
     {
       "case": "task-detail",
@@ -140,7 +181,27 @@
         },
         "bulkApply": null
       },
-      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-dark-task-detail.png"
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-dark-task-detail.png",
+      "supplements": [
+        {
+          "case": "task-detail-todo",
+          "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-dark-task-detail-todo.png",
+          "visibility": {
+            "anchorFound": true,
+            "anchorSelector": ".detail-todo-text",
+            "panelScrollTop": 432,
+            "panelClientHeight": 749,
+            "anchorLabel": "",
+            "fullyInPanel": true,
+            "fullyInViewport": true,
+            "anchorTop": 466.390625,
+            "anchorBottom": 502.171875,
+            "panelTop": 109.15625,
+            "panelBottom": 858.625,
+            "disabled": null
+          }
+        }
+      ]
     },
     {
       "case": "bulk-detail",
@@ -169,7 +230,33 @@
           "className": ""
         }
       },
-      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-dark-bulk-detail.png"
+      "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-dark-bulk-detail.png",
+      "supplements": [
+        {
+          "case": "bulk-detail-apply",
+          "file": "/agent/repos/schedule-viewer/docs/design/screenshots/issue-551/increment3-after-dark-bulk-detail-apply.png",
+          "visibility": {
+            "anchorFound": true,
+            "anchorSelector": ".detail-bulk-actions button",
+            "panelScrollTop": 467,
+            "panelClientHeight": 749,
+            "anchorLabel": "2件に適用",
+            "fullyInPanel": true,
+            "fullyInViewport": true,
+            "anchorTop": 778.25,
+            "anchorBottom": 802.25,
+            "panelTop": 109.15625,
+            "panelBottom": 858.625,
+            "disabled": false
+          },
+          "draftPreview": "適用する項目: ステータス"
+        }
+      ]
     }
-  ]
+  ],
+  "bulkApplyVerification": {
+    "verifiedAt": "2026-11-11T07:15:07.447Z",
+    "surveyDetailStatus": "done",
+    "designDetailStatus": "done"
+  }
 }
