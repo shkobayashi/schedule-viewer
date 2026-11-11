@@ -261,6 +261,10 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/check-agent-docs.test.mjs` | `inline backtick link is ignored after fence strip` | — |
 | `scripts/check-agent-docs.test.mjs` | `unquoted broken prose link still fails` | — |
 | `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects empty quoted description` | — |
+| `scripts/check-implement-change-split.test.mjs` | `implement-change references are scanned by the agent-doc checker` | — |
+| `scripts/check-implement-change-split.test.mjs` | `reference files do not require skill frontmatter` | — |
+| `scripts/check-implement-change-split.test.mjs` | `entry keeps before-start and completion and omits moved headings` | — |
+| `scripts/check-implement-change-split.test.mjs` | `moved sections keep clause numbers once` | — |
 | `scripts/check-quality-doc-sources.test.mjs` | `development quality table links sources and omits mutable limits` | — |
 | `scripts/check-quality-doc-sources.test.mjs` | `copied limit guard tolerates Issue #436 in scoped jscpd cell` | — |
 | `scripts/check-quality-doc-sources.test.mjs` | `agent-facing quality pointers reference config sources` | — |

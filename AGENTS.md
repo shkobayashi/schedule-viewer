@@ -1,6 +1,6 @@
 # エージェント向け指示
 
-**地図と手順**は [docs/agents-agent-index.md](docs/agents-agent-index.md) と [docs/agents-doc-update-map.md](docs/agents-doc-update-map.md)（更新表の正本）。**具体の事故例**は [docs/agents-pitfall-examples.md](docs/agents-pitfall-examples.md) と [.cursor/skills/implement-change/SKILL.md](.cursor/skills/implement-change/SKILL.md)（番号付き全文。削らない）。
+**地図と手順**は [docs/agents-agent-index.md](docs/agents-agent-index.md) と [docs/agents-doc-update-map.md](docs/agents-doc-update-map.md)（更新表の正本）。**具体の事故例**は [docs/agents-pitfall-examples.md](docs/agents-pitfall-examples.md) と implement-change（入口 [.cursor/skills/implement-change/SKILL.md](.cursor/skills/implement-change/SKILL.md) と [references/](.cursor/skills/implement-change/references/) の番号付き全文。削らない）。
 
 **正本の使い分け:** 質問に答える・場所を絞るときは文書を先に使う（広く検索してからソースを開かない）。**変更とレビュー**では、文書で場所を絞ったあとソースを開き、利用者に見える挙動はソースを正として、ずれた文書を同じ変更で直す。データ形の正本は `docs/*.schema.json`、層と import の正本は [docs/internal-spec.md](docs/internal-spec.md)「コードの境界」。
 
