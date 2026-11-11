@@ -261,6 +261,14 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/check-agent-docs.test.mjs` | `inline backtick link is ignored after fence strip` | — |
 | `scripts/check-agent-docs.test.mjs` | `unquoted broken prose link still fails` | — |
 | `scripts/check-agent-docs.test.mjs` | `validateSkillFrontmatter rejects empty quoted description` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table rejects destination 58 for old 54` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table rejects missing pair for old 52` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table rejects duplicate new 55` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table rejects duplicate old 52` | — |
+| `scripts/check-agent-docs.test.mjs` | `clause move table rejects malformed mapping row` | — |
+| `scripts/check-agent-docs.test.mjs` | `reworded screen clause 55 still passes` | — |
+| `scripts/check-agent-docs.test.mjs` | `screen missing live clauses 52 to 54 fails` | — |
+| `scripts/check-agent-docs.test.mjs` | `repository clause move table and screen clauses pass` | — |
 | `scripts/check-implement-change-split.test.mjs` | `implement-change references are scanned by the agent-doc checker` | — |
 | `scripts/check-implement-change-split.test.mjs` | `reference files do not require skill frontmatter` | — |
 | `scripts/check-implement-change-split.test.mjs` | `entry keeps before-start and completion and omits moved headings` | — |

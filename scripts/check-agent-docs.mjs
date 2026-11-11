@@ -1,7 +1,8 @@
 /**
- * Issue #553 item 7: relative file links and SKILL frontmatter for agent-facing docs.
+ * Issue #553 item 7: relative file links, SKILL frontmatter, and implement-change
+ * clause-id move table for agent-facing docs.
  * Not a full Markdown parser — fenced code is stripped; link targets must exist on disk.
- * In-document #anchors are not verified.
+ * In-document #anchors are not verified. Clause mapping checks ids only, not prose.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -10,6 +11,22 @@ import { fileURLToPath } from "node:url";
 const defaultRepoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const LINK_PATTERN = /!?\[[^\]]*\]\(([^)]+)\)/g;
+
+/** @type {readonly (readonly [number, number])[]} */
+export const REQUIRED_CLAUSE_MOVE_PAIRS = [
+  [52, 55],
+  [53, 56],
+  [54, 57],
+];
+
+export const CLAUSE_MOVE_SPLIT_REL = "docs/agents-implement-change-51-split.md";
+export const IMPLEMENT_CHANGE_SCREEN_REL =
+  ".cursor/skills/implement-change/references/screen.md";
+
+/** Live screen clauses 51–57 (51–54 are the old-51 split; 55–57 are moved old 52–54). */
+export const SCREEN_CLAUSE_IDS_51_57 = [51, 52, 53, 54, 55, 56, 57];
+
+const MOVE_TABLE_SECTION_HEADING = /^## 旧 52/m;
 
 /**
  * @param {string} root
@@ -210,6 +227,165 @@ export function resolveRelativeFileLink(root, sourceRel, url) {
  * @param {string} root
  * @returns {string[]}
  */
+/**
+ * @param {string} line
+ * @returns {"separator" | { old: number, new: number } | { malformed: true, raw: string } | null}
+ */
+function parseClauseMoveTableRow(line) {
+  const match = line.match(/^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/);
+  if (!match) {
+    return null;
+  }
+  const left = match[1].trim();
+  const right = match[2].trim();
+  if (/^[-:\s]+$/.test(left) && /^[-:\s]+$/.test(right)) {
+    return "separator";
+  }
+  if (!/^\d+$/.test(left) || !/^\d+$/.test(right)) {
+    if (left.includes("番号")) {
+      return null;
+    }
+    return { malformed: true, raw: line.trim() };
+  }
+  return { old: Number(left), new: Number(right) };
+}
+
+/**
+ * @param {string} markdown
+ * @returns {{ pairs: [number, number][], errors: string[] }}
+ */
+export function parseClauseMoveTable(markdown) {
+  /** @type {string[]} */
+  const errors = [];
+  const sectionIndex = markdown.search(MOVE_TABLE_SECTION_HEADING);
+  if (sectionIndex < 0) {
+    return {
+      pairs: [],
+      errors: ["missing move-table section heading (## 旧 52…)"],
+    };
+  }
+
+  /** @type {[number, number][]} */
+  const pairs = [];
+  const lines = markdown.slice(sectionIndex).split(/\r?\n/);
+  let tableStarted = false;
+
+  for (const line of lines) {
+    if (line.match(MOVE_TABLE_SECTION_HEADING) && !line.trimStart().startsWith("|")) {
+      continue;
+    }
+    if (line.startsWith("## ") && !line.match(MOVE_TABLE_SECTION_HEADING)) {
+      if (tableStarted) {
+        break;
+      }
+      continue;
+    }
+    if (!line.startsWith("|")) {
+      if (tableStarted) {
+        if (line.trim().length === 0) {
+          continue;
+        }
+        break;
+      }
+      continue;
+    }
+
+    const row = parseClauseMoveTableRow(line);
+    if (row === null) {
+      continue;
+    }
+    if (row === "separator") {
+      tableStarted = true;
+      continue;
+    }
+    if ("malformed" in row) {
+      errors.push(`move table malformed row: ${row.raw}`);
+      tableStarted = true;
+      continue;
+    }
+    tableStarted = true;
+    pairs.push([row.old, row.new]);
+  }
+
+  /** @type {Map<number, number>} */
+  const byOld = new Map();
+  /** @type {Map<number, number>} */
+  const byNew = new Map();
+  for (const [oldId, newId] of pairs) {
+    if (byOld.has(oldId)) {
+      errors.push(`move table duplicate old clause ${oldId}`);
+    } else {
+      byOld.set(oldId, newId);
+    }
+    if (byNew.has(newId)) {
+      errors.push(`move table duplicate new clause ${newId}`);
+    } else {
+      byNew.set(newId, oldId);
+    }
+  }
+
+  for (const [requiredOld, requiredNew] of REQUIRED_CLAUSE_MOVE_PAIRS) {
+    if (byOld.get(requiredOld) !== requiredNew) {
+      errors.push(
+        `move table missing or wrong required pair ${requiredOld}→${requiredNew}`,
+      );
+    }
+  }
+
+  return { pairs, errors };
+}
+
+/**
+ * @param {string} markdown
+ * @param {string} [relPath]
+ * @returns {string[]}
+ */
+export function validateScreenClauses51to57(
+  markdown,
+  relPath = IMPLEMENT_CHANGE_SCREEN_REL,
+) {
+  /** @type {string[]} */
+  const errors = [];
+  for (const clauseId of SCREEN_CLAUSE_IDS_51_57) {
+    const pattern = new RegExp(`^${clauseId}\\. `, "gm");
+    const count = [...markdown.matchAll(pattern)].length;
+    if (count !== 1) {
+      errors.push(
+        `${relPath}: clause ${clauseId} must appear exactly once (found ${count})`,
+      );
+    }
+  }
+  return errors;
+}
+
+/**
+ * @param {string} root
+ * @returns {string[]}
+ */
+export function collectClauseMoveErrors(root) {
+  const splitAbs = path.join(root, CLAUSE_MOVE_SPLIT_REL);
+  const screenAbs = path.join(root, IMPLEMENT_CHANGE_SCREEN_REL);
+  /** @type {string[]} */
+  const errors = [];
+
+  if (!fs.existsSync(splitAbs)) {
+    return [`${CLAUSE_MOVE_SPLIT_REL}: file not found`];
+  }
+  if (!fs.existsSync(screenAbs)) {
+    return [`${IMPLEMENT_CHANGE_SCREEN_REL}: file not found`];
+  }
+
+  const splitMarkdown = fs.readFileSync(splitAbs, "utf8");
+  const screenMarkdown = fs.readFileSync(screenAbs, "utf8");
+
+  const table = parseClauseMoveTable(splitMarkdown);
+  for (const err of table.errors) {
+    errors.push(`${CLAUSE_MOVE_SPLIT_REL}: ${err}`);
+  }
+  errors.push(...validateScreenClauses51to57(screenMarkdown));
+  return errors;
+}
+
 export function collectLinkErrors(root) {
   const errors = [];
   for (const relPath of collectAgentDocRelPaths(root)) {
@@ -255,7 +431,10 @@ export function printAlwaysOnByteSizes(root) {
  */
 export function runCheckAgentDocs(root = defaultRepoRoot) {
   printAlwaysOnByteSizes(root);
-  const errors = collectLinkErrors(root);
+  const errors = [
+    ...collectLinkErrors(root),
+    ...collectClauseMoveErrors(root),
+  ];
   if (errors.length > 0) {
     console.error("check-agent-docs failed:");
     for (const err of errors) {
@@ -264,7 +443,7 @@ export function runCheckAgentDocs(root = defaultRepoRoot) {
     process.exit(1);
   }
   console.log(
-    `check-agent-docs ok (${collectAgentDocRelPaths(root).length} agent-doc files; relative file links and SKILL frontmatter)`,
+    `check-agent-docs ok (${collectAgentDocRelPaths(root).length} agent-doc files; links, frontmatter, clause move table)`,
   );
 }
 
