@@ -221,6 +221,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/how-to-citations.test.mjs` | `extractFileHeadingCitations finds citations in markdown` | SET-05 |
 | `scripts/check-madge-circular-baseline.test.mjs` | `check-madge-circular-baseline matches madge-circular-baseline.json` | — |
 | `scripts/check-operation-entries.test.mjs` | `check-operation-entries matches labels and MCP names in operation-entries.md` | — |
+| `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
+| `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
 
 ### Vitest
 

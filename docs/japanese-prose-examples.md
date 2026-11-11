@@ -1,6 +1,6 @@
 # 日本語ルール — 具体例
 
-[.cursor/rules/japanese-prose.mdc](../.cursor/rules/japanese-prose.mdc) の **J1–J5** の下に置くサンプル。**悪い例は出力に使わない。** 相談モードの返答順・見出しは [consult.mdc](../.cursor/rules/consult.mdc)（examples §相談の型は型だけ）。
+[.cursor/rules/japanese-prose.mdc](../.cursor/rules/japanese-prose.mdc) の **J1–J5** の下に置くサンプル。**悪い例は出力に使わない。** 相談モードの返答順・見出しは [session.md](../.cursor/skills/consult/references/session.md)（モードの始まりと終わりは [consult.mdc](../.cursor/rules/consult.mdc)。examples §相談の型は型だけ）。
 
 分析（会話がつらい理由 → 原則）: [japanese-prose-principles-analysis.md](japanese-prose-principles-analysis.md)。旧から新への対応: [japanese-prose-d1-inventory.md](japanese-prose-d1-inventory.md)。
 
@@ -112,7 +112,7 @@
 
 ## 相談の型（consult 用・J1 J2）
 
-`/consult` 時は [consult.mdc](../.cursor/rules/consult.mdc) の**返答の順**が優先する。**通常の作業報告では、この見出し型や表で報告書を組まない**（J2）。
+`/consult` 時は [session.md](../.cursor/skills/consult/references/session.md) の**返答の順**が優先する。**通常の作業報告では、この見出し型や表で報告書を組まない**（J2）。
 
 1. 依頼を一文で復唱（「〜という相談ですね」可）。目的は〜である、で始めない。
 2. 次の一文で**推す結論を一つ**（二択で終わらない）。
@@ -144,7 +144,7 @@
 
 - です・ますの自然な話し言葉。翻訳調・論文調・仕様書調にしない。
 - レポートや仕様書の口調にせず、会話として書く。
-- **通常の作業報告では、依頼の復唱から始める必要はない。** 相談モードでは復唱を省かない（consult.mdc）。相談の見出し（理由1、変える場所など）はレポート調には数えないが、**相談のときだけ**使う。
+- **通常の作業報告では、依頼の復唱から始める必要はない。** 相談モードでは復唱を省かない（[session.md](../.cursor/skills/consult/references/session.md) の「返答の順」）。相談の見出し（理由1、変える場所など）はレポート調には数えないが、**相談のときだけ**使う。
 - 利用者が「分からない」と言ったら、同じ説明を繰り返さず、別の言い方で言い直す。
 
 ---

@@ -23,8 +23,8 @@
 | 「直し方の例」（2ファイル重複） | 1話題の長文見本だけでは他話題に汎化されない | J3 + examples |
 | AGENTS 向けの言い換え表（旧 prose） | 実装用語の言い換えが prose に散在 | examples |
 | 「チャットの回答」 | 会話調が後ろにあり、英語だけの依頼で英語出力になりやすい | J2 |
-| consult「返答の順」 | 相談専用の構造は prose と別物 | consult.mdc（モード時） |
-| consult「仕様と設計の相談」 | 設計相談の姿勢（推す案一つ） | consult.mdc |
+| consult「返答の順」 | 相談専用の構造は prose と別物 | session.md（モード時は consult.mdc が誘導） |
+| consult「仕様と設計の相談」 | 設計相談の姿勢（推す案一つ） | session.md |
 | write-* の日本語 | JSON 不足を推測で埋めない | AGENTS 原則 2 + examples 末尾 |
 
 ## 新構造が会話に効く理由
