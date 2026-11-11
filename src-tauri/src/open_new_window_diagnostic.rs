@@ -127,7 +127,9 @@ fn trim_trace_file(path: &Path) {
         text
     } else {
         let rest = &text[keep_from..];
-        rest.split_once('\n').map(|(_, tail)| tail).unwrap_or(rest)
+        rest.split_once('\n')
+            .map(|(_, tail)| tail.to_string())
+            .unwrap_or_else(|| rest.to_string())
     };
     let _ = fs::write(path, trimmed);
 }

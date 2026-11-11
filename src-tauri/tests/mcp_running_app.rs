@@ -2845,7 +2845,7 @@ fn open_new_window_writes_correlated_diagnostic_trace() {
         assert!(!r.is_error, "{}", r.text);
         let new_label = normalize_text(&r.text);
         wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
-        wait_open_new_window_diagnostic_correlation(h);
+        wait_open_new_window_diagnostic_correlation(h, &new_label);
     });
 }
 
@@ -3124,7 +3124,22 @@ fn read_open_new_window_trace(h: &RunningHarness) -> Vec<Value> {
         .collect()
 }
 
-fn wait_open_new_window_diagnostic_correlation(h: &RunningHarness) {
+fn sanitized_open_new_window_trace(rows: &[Value]) -> Vec<Value> {
+    rows.iter()
+        .map(|row| {
+            json!({
+                "requestId": row.get("requestId"),
+                "phase": row.get("phase"),
+                "origin": row.get("origin"),
+                "windowLabel": row.get("windowLabel"),
+                "handlerLabel": row.get("handlerLabel"),
+                "sequence": row.get("sequence"),
+            })
+        })
+        .collect()
+}
+
+fn wait_open_new_window_diagnostic_correlation(h: &RunningHarness, mcp_tool_label: &str) {
     let deadline = Instant::now() + Duration::from_secs(30);
     loop {
         let rows = read_open_new_window_trace(h);
@@ -3140,7 +3155,7 @@ fn wait_open_new_window_diagnostic_correlation(h: &RunningHarness) {
             let same_id = |row: &Value| {
                 row.get("requestId").and_then(|v| v.as_str()) == Some(request_id)
             };
-            let has_complete = rows.iter().any(|row| {
+            let complete = rows.iter().find(|row| {
                 same_id(row) && row.get("phase").and_then(|v| v.as_str()) == Some("bridge-complete")
             });
             let created: Vec<&Value> = rows
@@ -3149,16 +3164,50 @@ fn wait_open_new_window_diagnostic_correlation(h: &RunningHarness) {
                     same_id(row) && row.get("phase").and_then(|v| v.as_str()) == Some("frontend-created")
                 })
                 .collect();
-            if has_complete && created.len() == 1 {
-                assert!(
-                    created[0].get("windowLabel").and_then(|v| v.as_str()).is_some(),
-                    "frontend-created should carry windowLabel, rows={rows:?}"
+            if complete.is_some() && created.len() == 1 {
+                let complete_label = complete
+                    .and_then(|row| row.get("windowLabel").and_then(|v| v.as_str()))
+                    .expect("bridge-complete should carry windowLabel");
+                let created_label = created[0]
+                    .get("windowLabel")
+                    .and_then(|v| v.as_str())
+                    .expect("frontend-created should carry windowLabel");
+                assert_eq!(
+                    complete_label, mcp_tool_label,
+                    "bridge-complete windowLabel should match MCP tool result"
+                );
+                assert_eq!(
+                    created_label, mcp_tool_label,
+                    "frontend-created windowLabel should match MCP tool result"
                 );
                 assert!(
                     rows.iter()
                         .all(|row| row.get("path").is_none() && row.get("arguments").is_none()),
                     "diagnostic rows must not carry paths or bodies"
                 );
+                let correlated: Vec<Value> = rows
+                    .iter()
+                    .filter(|row| same_id(row))
+                    .cloned()
+                    .collect();
+                let sanitized = sanitized_open_new_window_trace(&correlated);
+                let summary = json!({
+                    "requestId": request_id,
+                    "mcpToolLabel": mcp_tool_label,
+                    "bridgeCompleteLabel": complete_label,
+                    "frontendCreatedLabel": created_label,
+                    "rows": sanitized,
+                });
+                eprintln!(
+                    "OPEN_NEW_WINDOW_DIAG_TRACE {}",
+                    serde_json::to_string(&summary).expect("summary json")
+                );
+                if let Ok(text) = serde_json::to_string_pretty(&summary) {
+                    let _ = fs::write(
+                        Path::new("/opt/cursor/artifacts/observed-open-new-window-trace.json"),
+                        text,
+                    );
+                }
                 return;
             }
         }
