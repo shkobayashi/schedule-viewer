@@ -21,7 +21,17 @@ description: >-
 5. **修正** — 実装用の新しいセッションを開く。小さな修正が一つ二つなら、同じセッションに留めてよい。
 6. **続行** — コーディネータは、人がマージできる状態になるまで続ける。マージは人が行う。続けてよいか止まって確認しない。
 
-既定の割り当てとして、計画とレビューに Grok 系、実装と修正に Composer 系を使う例がある。作業の難しさや用途に応じて、別の強いモデルや effort の高い設定を選んでもよい。同種の作業で足りなかったことが [docs/agents-phase-log.md](../../../docs/agents-phase-log.md) に記録されるまで、難易度とモデルの固定表はこのスキルには書かない。
+既定の割り当てとして、計画とレビューに Grok 系、実装と修正に Composer 系を使う例がある。**選定は固定表にしない。** 難しさ、リスク、回数、利用者の指定に応じてモデル ID・バージョン・effort を決め、**なぜそうしたか**を段階履歴の `selection_rationale` に短く書く。足りなかったパターンや同種タスクの手戻りが [docs/agents-phase-log.md](../../../docs/agents-phase-log.md) に溜まったら見直すが、一例だけで因果と決めない。
+
+### モデルと effort の見直し
+
+次のいずれかで、**日付付き**の見直し行を [docs/agents-phase-log.md](../../../docs/agents-phase-log.md) の「見直しメモ」または当該 Issue の `recheck_decision` に足す。
+
+- 同種タスクで繰り返し足りない、またはレビュー所見の型が偏る
+- 新しいモデル・バージョン、または effort 設定が利用可能になった
+- 別 PR・別実行から**実際に渡された**比較材料がある（推測や再実行だけのための第二走査はしない）
+
+決定は `keep` / `change` / `insufficient` のいずれかと理由を一行で書く。統計的なサンプル数は義務にしない。
 
 ## 文章
 
@@ -39,7 +49,24 @@ description: >-
 
 ## 記録
 
-Issue がマージ可能になったら、[docs/agents-phase-log.md](../../../docs/agents-phase-log.md) に一行足す。分からない列は `unknown` のままにする。トークン数は、ツールが実際に返したときだけ書く。サイズは git の差分行数であり、難易度のスコアではない。別 Issue どうしで作業が違うとき、一方の手順がもう一方より手戻りが少なかったと因果では書かない。
+Issue がマージ可能になったら、[docs/agents-phase-log.md](../../../docs/agents-phase-log.md) にエントリを足す。`verified_head_sha` と **phase-history**（フェンス内 YAML）に、task_type、model_id、effort、selection_rationale、finding_types、fix_rounds、actual_cost、comparison_limits、recheck_decision を書く。分からない項目は `unknown` のままにする。トークン数はツールが実際に返したときだけ整数で書いてよい。サイズは git の差分行数であり、難易度のスコアではない。別 Issue どうしで一方が手戻り少なかったと因果では書かない。head が更新されたら、古い **execution-snapshot** は stale とみなす。古い phase-history 行は消さない。
+
+### 実行スナップショット
+
+PR 前などで検査を回したあと、**生ログはコミットしない。** 呼び出し側が `git rev-parse HEAD` と各コマンドの exit・stdout・stderr を集め、JSON を [scripts/format-check-record.mjs](../../../scripts/format-check-record.mjs) に渡して整形する。
+
+```json
+{
+  "sha": "<recorded HEAD>",
+  "currentSha": "<git rev-parse HEAD at format time>",
+  "durationMs": 120000,
+  "results": [
+    { "cmd": "npm run lint", "exit": 0, "stdout": "...", "stderr": "" }
+  ]
+}
+```
+
+出力の `shaIdentity` が `valid` なのは **渡した SHA が一致したこと**だけを意味し、コマンドがそのツリーで実行された証明ではない。`provenance` は常に `provided` である。パーサが拾えない指標は `unknown`（0 にしない）。失敗したコマンドは `aggregateCommandStatus: failed` のまま残す。jscpd は CI 上 warn のみで、終了コード 0 は閾値内の証明にならない。
 
 ## 操作の対称
 
