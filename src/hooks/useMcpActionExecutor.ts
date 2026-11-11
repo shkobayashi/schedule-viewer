@@ -8,6 +8,10 @@ import type { McpSetViewPatch } from "../model/mcpSetView";
 import {
   mergeMcpSetViewCollapsed,
   mcpSetViewTouchesFilterState,
+  mcpSetViewTouchesHiddenMilestoneMarks,
+  mcpSetViewTouchesLineage,
+  validateMcpSetViewLineageForApply,
+  type McpSetViewLineagePatch,
 } from "../model/mcpSetView";
 import {
   createScheduleWindowViaTauri,
@@ -63,8 +67,10 @@ export type UseMcpActionExecutorInput = {
     filters?: ScheduleFilters;
     searchField?: "name" | "note";
     hiddenMilestoneGroupIds?: ScheduleId[];
+    hiddenMilestoneIds?: ScheduleId[];
     collapsed?: ReadonlySet<string>;
   }) => void;
+  applyMcpSetViewLineage: (lineage: McpSetViewLineagePatch) => void;
   clearExplanationOnSetView: () => void;
   runExplainViewAction: (
     envelope: Record<string, unknown>,
@@ -103,6 +109,16 @@ export function useMcpActionExecutor(
       visibleRows: input.visibleRows,
       getDocument: input.getDocument,
       applySetView: async (patch) => {
+        const lineageGate = validateMcpSetViewLineageForApply(
+          patch,
+          input.getDocument(),
+        );
+        if (!lineageGate.ok) return lineageGate;
+
+        if (mcpSetViewTouchesLineage(patch)) {
+          input.clearExplanationOnSetView();
+          input.applyMcpSetViewLineage(patch.lineage!);
+        }
         if (mcpSetViewTouchesFilterState(patch)) {
           input.clearExplanationOnSetView();
           const current = input.getFilterViewState();
@@ -113,6 +129,11 @@ export function useMcpActionExecutor(
             hiddenMilestoneGroupIds:
               patch.hiddenMilestoneGroupIds ?? current.hiddenMilestoneGroupIds,
             collapsed,
+          });
+        }
+        if (mcpSetViewTouchesHiddenMilestoneMarks(patch)) {
+          input.applyPartialFilterViewState({
+            hiddenMilestoneIds: patch.hiddenMilestoneIds,
           });
         }
         input.applySetViewPreferences(patch);

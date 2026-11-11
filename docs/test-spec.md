@@ -901,6 +901,20 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `does not apply twice on the same window` | WIN-01 |
 | `mcpSetView.test.ts` | `leaves collapse unchanged when patch has no collapsed fields` | MCP-01 |
 | 同上 | `keeps vertical scroll unchanged` | MCP-01 |
+| 同上 | `accepts lineage with taskId and default includesConnections false` | MCP-01, FILTER-08 |
+| 同上 | `omits includesConnections false when lineage has only taskId` | MCP-01, FILTER-08 |
+| 同上 | `accepts lineage clear with taskId null` | MCP-01, FILTER-08 |
+| 同上 | `rejects includesConnections true without a starting task` | MCP-01, FILTER-08 |
+| 同上 | `rejects includesConnections true when clearing lineage` | MCP-01, FILTER-08 |
+| 同上 | `rejects malformed lineage object` | MCP-01, FILTER-08 |
+| 同上 | `rejects hiddenMilestoneIds when an entry is not a string` | MCP-01, VIEW-16 |
+| 同上 | `accepts hiddenMilestoneIds as an empty array` | MCP-01, VIEW-16 |
+| 同上 | `rejects unknown lineage task without mutating apply path` | MCP-01, FILTER-08 |
+| 同上 | `accepts lineage clear without a document task` | MCP-01, FILTER-08 |
+| `useMcpActionExecutor.setView.test.ts` | `applySetView clears explanation for lineage but not for hiddenMilestoneIds` | MCP-01, VIEW-16, FILTER-08 |
+| 同上 | `applySetView rejects unknown lineage task without touching filters` | MCP-01, FILTER-08 |
+| 同上 | `executeMcpActionTool_set_view passes parsed lineage with connections` | MCP-01, FILTER-08 |
+| `screenContext.test.ts` | `adds includesConnections to activeConditions only when connection lineage is on` | MCP-01, FILTER-08 |
 | `explainView.test.ts` | `parseExplainView_acceptsTaskIdsAndCollapse`、`parseExplainView_rejectsEmptyTaskIds`、`parseExplainView_rejectsUnknownTaskId`、`parseExplainView_rejectsUnknownCollapseId`、`parseExplainView_rejectsTagsAndColorId`、`parseExplainView_rejectsClearWithOtherFields`、`parseExplainView_rejectsEmptyRequest`、`parseExplainView_clearWhenInactive`、`applyExplainView_clearsSelectionWhenTaskIdsChange`、`applyExplainView_keepsSelectionForCollapseOnly`、`composeDisplayedCollapse_usesOverrideOrUserSet`、`composeDisplayedRows_replaceKeepsTaskOutsideUserFilter`、`explanationRead_includesTaskIdsAndBaseCollapsed` | VIEW-16, MCP-01 |
 | `screenContext.test.ts` | `includes view.explanation when explanation view is active`、`omits view.explanation when explanation is inactive`、`includes view.explanation milestoneGroupIds and milestoneIds` | VIEW-16, MCP-01 |
 | `explainView.test.ts` | `parseExplainView_acceptsMilestoneGroupIds`、`parseExplainView_rejectsHiddenMilestoneGroup`、`parseExplainView_rejectsMilestoneNotInGroupFilter`、`parseExplainView_rejectsMilestoneOutsideFilteredGroup`、`resolveExplanationMilestoneBand_hidesEmptyGroupsWhenStarOnly` | VIEW-16, MCP-01 |

@@ -356,6 +356,58 @@ describe("buildFilteredTasksPayload", () => {
       "lineage",
     ]);
   });
+
+  it("adds includesConnections to activeConditions only when connection lineage is on", () => {
+    const a: Task = {
+      id: "00000000-0000-4000-8000-000000000010",
+      name: "A",
+      start: "2026-01-01",
+      end: "2026-01-02",
+      assigneeIds: [],
+      status: "not-started",
+      progress: 0,
+      confidence: "committed",
+      predecessors: [],
+      milestoneId: null,
+    };
+    const categories = categoryWithTasks([a]);
+    const without = buildFilteredTasksPayload({
+      categories,
+      filters,
+      lineageTaskId: a.id,
+      lineageIncludesConnections: false,
+      hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: new Set([a.id]),
+    });
+    const lineageCondition = without.activeConditions.find((c) => c.type === "lineage");
+    expect(lineageCondition).toBeDefined();
+    expect(lineageCondition).not.toHaveProperty("includesConnections");
+
+    const withConnections = buildFilteredTasksPayload({
+      categories,
+      filters,
+      lineageTaskId: a.id,
+      lineageIncludesConnections: true,
+      hiddenMilestoneGroupIds: [],
+      hiddenMilestoneIds: [],
+      milestoneGroups: [],
+      milestones: [],
+      today: "2026-01-15",
+      memberCatalog: null,
+      lineageIds: new Set([a.id]),
+    });
+    expect(withConnections.activeConditions).toContainEqual({
+      type: "lineage",
+      taskId: a.id,
+      taskName: "A",
+      includesConnections: true,
+    });
+  });
 });
 
 describe("buildSelectedTaskPayload", () => {

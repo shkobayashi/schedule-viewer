@@ -3108,6 +3108,17 @@ function App() {
     runExplainOverlayAction: schedule.runExplainOverlayAction,
     getExplanationOverlay: () => schedule.explanationOverlay,
     applyPartialFilterViewState: schedule.applyPartialFilterViewState,
+    applyMcpSetViewLineage: (lineage) => {
+      if (lineage.taskId === null) {
+        schedule.clearLineage();
+        return;
+      }
+      if (lineage.includesConnections) {
+        schedule.showLineageWithConnections(lineage.taskId);
+        return;
+      }
+      schedule.showLineage(lineage.taskId);
+    },
     applySetViewPreferences: (patch: McpSetViewPatch) => {
       if (patch.displayScale !== undefined) {
         setDisplayScalePreference(patch.displayScale);
@@ -3218,6 +3229,7 @@ function App() {
     milestoneGroups: schedule.milestoneGroups,
     filters: schedule.filters,
     lineageTaskId: schedule.lineageTaskId,
+    lineageIncludesConnections: schedule.lineageIncludesConnections,
     lineageIds: schedule.lineageIds,
     hiddenMilestoneGroupIds: schedule.hiddenMilestoneGroupIds,
     hiddenMilestoneIds: schedule.hiddenMilestoneIds,
