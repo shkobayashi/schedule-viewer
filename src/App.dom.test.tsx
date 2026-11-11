@@ -383,21 +383,33 @@ describe("App integration (Issue 548)", () => {
       expect(screen.queryByRole("dialog", { name: "ファイルが更新されています" })).toBeNull();
     });
 
+    expect(
+      invoke.mock.calls.filter(
+        ([cmd]) => cmd === "save_schedule_file" || cmd === "save_schedule_at_path",
+      ).length,
+    ).toBe(0);
+
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true, bubbles: true });
+    await waitFor(() => {
+      expect(
+        invoke.mock.calls.filter(
+          ([cmd]) => cmd === "save_schedule_file" || cmd === "save_schedule_at_path",
+        ).length,
+      ).toBe(1);
+    });
     const saveCall = invoke.mock.calls.find(
       ([cmd]) => cmd === "save_schedule_file" || cmd === "save_schedule_at_path",
     );
-    if (saveCall != null) {
-      const saved = parseScheduleText(String(saveCall[1]?.contents ?? ""));
-      expect(saved.ok).toBe(true);
-      if (saved.ok) {
-        expect(saved.document.levels?.length).toBeGreaterThan(0);
-        expect(saved.document.outline?.length).toBeGreaterThan(0);
-        const savedJson = saveCall[1]?.contents;
-        expect(String(savedJson)).not.toContain("また下書き");
-        expect(String(savedJson)).not.toContain("回帰の意味");
-        expect(String(savedJson)).toContain("2026-10-14");
-      }
-    }
+    if (!saveCall) throw new Error("save call missing");
+    const saved = parseScheduleText(String(saveCall[1]?.contents ?? ""));
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) throw new Error(saved.message);
+    expect(saved.document.levels?.length).toBeGreaterThan(0);
+    expect(saved.document.outline?.length).toBeGreaterThan(0);
+    const savedJson = saveCall[1]?.contents;
+    expect(String(savedJson)).not.toContain("また下書き");
+    expect(String(savedJson)).not.toContain("回帰の意味");
+    expect(String(savedJson)).toContain("2026-10-14");
     const diskJson = flow.getDisk(schedulePath) ?? "";
     expect(diskJson).not.toContain("また下書き");
     expect(diskJson).not.toContain("回帰の意味");
@@ -524,13 +536,14 @@ describe("App integration (Issue 548)", () => {
     });
     fireEvent.click(within(editor).getByRole("button", { name: "保存" }));
     await waitFor(() => {
-      expect(
-        flow.writeCalls.some(
-          (call) =>
-            call.command === "write_members_at_path" &&
-            call.args?.path === "/tmp/regression/config/sample-team.members.json",
-        ),
-      ).toBe(true);
+      const memberWrites = flow.writeCalls.filter(
+        (call) => call.command === "write_members_at_path",
+      );
+      expect(memberWrites).toHaveLength(1);
+      expect(memberWrites[0]?.args?.path).toBe(
+        "/tmp/regression/config/sample-team.members.json",
+      );
+      expect(String(memberWrites[0]?.args?.contents)).toContain("田中改");
     });
     expect(localStorage.getItem("schedule-viewer/members/catalogs")).toBe(membersBefore);
     fireEvent.keyDown(editor, { key: "Escape" });
@@ -691,6 +704,8 @@ describe("App integration (Issue 548)", () => {
       .filter((c) => c.command === "write_field_extension_at_path")
       .slice(-1)[0];
     expect(writeCall?.args?.path).toBe(editablePath);
+    expect(String(writeCall?.args?.contents)).toContain("別名項目");
+    expect(String(writeCall?.args?.contents)).toContain('"id": "custom"');
     expect(flow.getDisk(pinnedPath)).toBe(pinnedBefore);
   });
 
@@ -840,6 +855,79 @@ describe("App integration (Issue 548)", () => {
     const openBytesAfterDiff = await flow.invoke("read_open_schedule_file");
     expect(String(openBytesAfterDiff)).toContain("2026-04-11");
     expect(screen.queryByRole("dialog", { name: "差分" })).toBeNull();
+  });
+
+  it("TC-FILE-07g: explicit 未保存 shows the fresh diff while the list is focused", async () => {
+    const schedulePath = "/tmp/regression/file-07g-explicit/plan.json";
+    const scheduleText = readRegressionText("smoke.schedule.json");
+    const canonical = canonicalText(scheduleText);
+    const { flow, document } = await mountApp({ path: schedulePath, contents: canonical });
+    flow.setDisk(schedulePath, canonical);
+
+    const design = document.categories[0]?.groups[0]?.tasks.find((t) => t.name === "設計");
+    if (!design) throw new Error("設計 missing");
+    fireEvent.click(screen.getByText("設計"));
+    const end = screen.getByLabelText("終了");
+    fireEvent.change(end, { target: { value: "2026-04-12" } });
+    await waitFor(() => expect(end).toHaveValue("2026-04-12"));
+
+    const disk = cloneWithTaskEnd(document, design.id, "2026-04-11");
+    flow.setDisk(schedulePath, documentToJsonString(disk));
+    await driveExternalPoll(flow, disk);
+    fireEvent.click(
+      within(await screen.findByRole("dialog", { name: "ファイルが更新されています" })).getByRole(
+        "button",
+        { name: "画面の編集を残す" },
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "ファイルが更新されています" })).toBeNull(),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "未保存" }));
+    const column = await screen.findByRole("region", { name: "差分" });
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-12/));
+
+    const list = within(column).getByRole("listbox", { name: "差分の一覧" });
+    list.focus();
+    fireEvent.change(end, { target: { value: "2026-04-13" } });
+    await waitFor(() => expect(end).toHaveValue("2026-04-13"));
+
+    fireEvent.click(await screen.findByRole("button", { name: "未保存" }));
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-13/));
+  });
+
+  it("TC-FILE-07g: auto diff keeps the prior body while focused and applies after blur", async () => {
+    const schedulePath = "/tmp/regression/file-07g-defer/plan.json";
+    const scheduleText = readRegressionText("smoke.schedule.json");
+    const canonical = canonicalText(scheduleText);
+    const { flow, document } = await mountApp({ path: schedulePath, contents: canonical });
+    flow.setDisk(schedulePath, canonical);
+
+    const design = document.categories[0]?.groups[0]?.tasks.find((t) => t.name === "設計");
+    if (!design) throw new Error("設計 missing");
+    fireEvent.click(screen.getByText("設計"));
+    const end = screen.getByLabelText("終了");
+    fireEvent.change(end, { target: { value: "2026-04-12" } });
+    await waitFor(() => expect(end).toHaveValue("2026-04-12"));
+
+    fireEvent.click(await screen.findByRole("button", { name: "未保存" }));
+    const column = await screen.findByRole("region", { name: "差分" });
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-12/));
+    const list = within(column).getByRole("listbox", { name: "差分の一覧" });
+    list.focus();
+
+    fireEvent.change(end, { target: { value: "2026-04-13" } });
+    await waitFor(() => expect(end).toHaveValue("2026-04-13"));
+    await act(async () => {
+      await flushMicrotasks(80);
+    });
+    expect(column.textContent).toMatch(/2026-04-12/);
+    expect(column.textContent).not.toMatch(/2026-04-13/);
+
+    fireEvent.blur(list);
+    screen.getByLabelText("スケジュールチャート").focus();
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-13/));
   });
 });
 

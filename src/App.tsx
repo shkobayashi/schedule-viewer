@@ -3321,6 +3321,7 @@ function App() {
       next: DiffStripView,
       announce: boolean,
       entries?: ScheduleDiffEntry[],
+      source: "auto" | "explicit" = "auto",
     ) => {
       if (!next.visible) {
         if (!diffStripRef.current.visible) {
@@ -3340,6 +3341,7 @@ function App() {
           diffStripRef.current,
           next,
           diffStripFocusedRef.current,
+          source,
         )
       ) {
         pendingDiffBodyRef.current = next.text;
@@ -3479,6 +3481,8 @@ function App() {
           commitDiffStripView(
             resolveStripAfterExplicitLoad(result.message),
             true,
+            undefined,
+            "explicit",
           );
           return;
         }
@@ -3502,7 +3506,7 @@ function App() {
             setDiffPanelExpanded(false);
           }
         }
-        commitDiffStripView(view, true, result.entries);
+        commitDiffStripView(view, true, result.entries, "auto");
         return;
       }
       const explicitView = resolveStripAfterExplicitLoad(result.text);
@@ -3521,7 +3525,7 @@ function App() {
       if (view.kind === "body") {
         setDiffFocusListOnMount(true);
       }
-      commitDiffStripView(view, true, result.entries);
+      commitDiffStripView(view, true, result.entries, "explicit");
     },
     [commitDiffStripView],
   );
@@ -3599,6 +3603,8 @@ function App() {
           commitDiffStripView(
             resolveStripAfterExplicitLoad(result.message),
             true,
+            undefined,
+            "explicit",
           );
         } else {
           setDiffError(result.message);
@@ -3616,7 +3622,7 @@ function App() {
         if (view.kind === "body") {
           setDiffFocusListOnMount(true);
         }
-        commitDiffStripView(view, false, result.entries);
+        commitDiffStripView(view, false, result.entries, "explicit");
       }
     });
   }, [
