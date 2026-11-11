@@ -66,6 +66,7 @@ import {
   type McpScreenBridgeFilteredTasksSnap,
   type McpScreenRequest,
 } from "../model/mcpScreenBridgeSnap";
+import { recordMcpOpenNewWindowDiagnostic } from "../model/mcpOpenNewWindowDiagnostic";
 
 export type UseMcpScreenBridgeInput = McpScreenBridgeFilteredTasksSnap & {
     selectedTaskId: ScheduleId | null;
@@ -156,11 +157,35 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       MCP_TOOL_MINIMIZE_WINDOW,
     ]);
 
+  function logOpenNewWindowFrontend(
+    payload: McpScreenRequest,
+    phase:
+      | "frontend-receive"
+      | "frontend-duplicate-skip"
+      | "frontend-execute-start"
+      | "frontend-created",
+    windowLabel?: string,
+  ) {
+    if (payload.tool !== MCP_TOOL_OPEN_NEW_WINDOW) return;
+    recordMcpOpenNewWindowDiagnostic({
+      requestId: payload.id,
+      phase,
+      origin: "frontend",
+      windowLabel,
+    });
+  }
+
     async function handleMcpActionTool(
       payload: McpScreenRequest,
       snap: UseMcpScreenBridgeInput,
     ) {
+      if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW) {
+        logOpenNewWindowFrontend(payload, "frontend-receive");
+      }
       if (mcpActionRequestIdsInFlight.current.has(payload.id)) {
+        if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW) {
+          logOpenNewWindowFrontend(payload, "frontend-duplicate-skip");
+        }
         return;
       }
       mcpActionRequestIdsInFlight.current.add(payload.id);
@@ -196,6 +221,9 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       if (gate.discardInProgress) {
         snap.onDiscardInProgress();
       }
+      if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW) {
+        logOpenNewWindowFrontend(payload, "frontend-execute-start");
+      }
       const result = await executeMcpActionTool(
         payload.tool,
         parsedEnvelope.envelope,
@@ -204,6 +232,9 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       if (!result.ok) {
         await replyError(payload, result.message, discardInProgress);
         return;
+      }
+      if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW && result.ok) {
+        logOpenNewWindowFrontend(payload, "frontend-created", result.text);
       }
       const body = mcpPlainTextToolBody(result.text, false);
       if ("tooLarge" in body) {

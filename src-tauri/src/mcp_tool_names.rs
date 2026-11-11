@@ -1,4 +1,5 @@
 pub const OPEN_WINDOWS_TOOL_NAME: &str = "open_windows";
+pub const OPEN_NEW_WINDOW_TOOL_NAME: &str = "open_new_window";
 pub const SCREEN_REPLACE_TOOL_NAME: &str = "replace_schedule";
 
 pub const SCREEN_READ_TOOLS_WITH_WINDOW: [&str; 6] = [

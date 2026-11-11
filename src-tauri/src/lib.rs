@@ -9,6 +9,7 @@ mod json_skills;
 mod mcp_app_data;
 mod mcp_bridge;
 mod mcp_tool_names;
+mod open_new_window_diagnostic;
 pub mod mcp_stdio;
 mod read_screen_skill;
 pub mod screen_cli;
@@ -2366,6 +2367,42 @@ fn record_pending_workspace_startup_stage(
     )
 }
 
+#[derive(Deserialize)]
+struct OpenNewWindowDiagnosticRecord {
+    #[serde(rename = "requestId")]
+    request_id: String,
+    phase: String,
+    origin: String,
+    #[serde(rename = "windowLabel", default)]
+    window_label: Option<String>,
+    #[serde(rename = "handlerLabel", default)]
+    handler_label: Option<String>,
+    #[serde(default)]
+    sequence: Option<u8>,
+}
+
+#[tauri::command]
+fn record_open_new_window_diagnostic(
+    app: tauri::AppHandle,
+    record: OpenNewWindowDiagnosticRecord,
+) -> Result<(), String> {
+    let Ok(app_data) = app_data_dir(&app) else {
+        return Ok(());
+    };
+    open_new_window_diagnostic::try_append_open_new_window_diagnostic(
+        &app_data,
+        &open_new_window_diagnostic::OpenNewWindowDiagnosticInput {
+            request_id: record.request_id,
+            phase: record.phase,
+            origin: record.origin,
+            window_label: record.window_label,
+            handler_label: record.handler_label,
+            sequence: record.sequence,
+        },
+    );
+    Ok(())
+}
+
 #[tauri::command]
 async fn create_schedule_window(
     app: tauri::AppHandle,
@@ -3488,6 +3525,7 @@ pub fn run() {
             take_pending_schedule_window_open,
             ack_pending_schedule_window_open,
             record_pending_workspace_startup_stage,
+            record_open_new_window_diagnostic,
             register_window_focus,
             unregister_window_session,
             emit_schedule_peer_notice,

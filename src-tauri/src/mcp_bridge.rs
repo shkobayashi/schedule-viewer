@@ -13,8 +13,13 @@ use uuid::Uuid;
 #[cfg(unix)]
 use crate::mcp_app_data::mcp_socket_path;
 use crate::mcp_tool_names::{
-    mcp_tool_rejects_window_argument, MCP_WINDOW_TARGET_TOOL_NAMES, OPEN_WINDOWS_TOOL_NAME,
-    SCREEN_READ_TOOLS_WITH_WINDOW,
+    mcp_tool_rejects_window_argument, MCP_WINDOW_TARGET_TOOL_NAMES, OPEN_NEW_WINDOW_TOOL_NAME,
+    OPEN_WINDOWS_TOOL_NAME, SCREEN_READ_TOOLS_WITH_WINDOW,
+};
+use crate::open_new_window_diagnostic::{
+    created_label_from_mcp_success_body, try_append_open_new_window_diagnostic,
+    OpenNewWindowDiagnosticInput, ORIGIN_BRIDGE, PHASE_BRIDGE_COMPLETE, PHASE_BRIDGE_EMIT,
+    PHASE_BRIDGE_EMIT_FAILED, PHASE_BRIDGE_EMIT_RETRY, PHASE_BRIDGE_RECEIVE, PHASE_BRIDGE_TIMEOUT,
 };
 use crate::window_session::{
     build_mcp_open_windows_list, read_open_windows,
@@ -345,11 +350,36 @@ enum EmitWaitOutcome {
     TimedOut,
 }
 
+fn log_open_new_window_bridge(
+    app_data: &Path,
+    request: &BridgeRequest,
+    handler_label: &str,
+    phase: &str,
+    window_label: Option<String>,
+    sequence: Option<u8>,
+) {
+    if request.tool != OPEN_NEW_WINDOW_TOOL_NAME {
+        return;
+    }
+    try_append_open_new_window_diagnostic(
+        app_data,
+        &OpenNewWindowDiagnosticInput {
+            request_id: request.id.clone(),
+            phase: phase.to_string(),
+            origin: ORIGIN_BRIDGE.to_string(),
+            window_label,
+            handler_label: Some(handler_label.to_string()),
+            sequence,
+        },
+    );
+}
+
 fn emit_and_wait_for_screen_tool(
     window: &WebviewWindow,
     label: &str,
     request: &BridgeRequest,
     state: &Arc<McpBridgeState>,
+    sequence: u8,
 ) -> EmitWaitOutcome {
     let generation = state.generation_for(label);
     let notify = Arc::new((Mutex::new(false), Condvar::new()));
@@ -388,9 +418,25 @@ fn emit_and_wait_for_screen_tool(
         )
         .is_err()
     {
+        log_open_new_window_bridge(
+            &state.app_data,
+            request,
+            label,
+            PHASE_BRIDGE_EMIT_FAILED,
+            None,
+            Some(sequence),
+        );
         state.pending.lock().expect("mcp pending").remove(&request.id);
         return EmitWaitOutcome::EmitFailed;
     }
+    log_open_new_window_bridge(
+        &state.app_data,
+        request,
+        label,
+        PHASE_BRIDGE_EMIT,
+        None,
+        Some(sequence),
+    );
     let (lock, cvar) = &*notify;
     let mut done = lock.lock().expect("mcp notify");
     let deadline = Instant::now() + RESPONSE_TIMEOUT;
@@ -410,6 +456,14 @@ fn emit_and_wait_for_screen_tool(
     if let Some(response) = stored {
         return EmitWaitOutcome::Ok(response);
     }
+    log_open_new_window_bridge(
+        &state.app_data,
+        request,
+        label,
+        PHASE_BRIDGE_TIMEOUT,
+        None,
+        Some(sequence),
+    );
     state.pending.lock().expect("mcp pending").remove(&request.id);
     EmitWaitOutcome::TimedOut
 }
@@ -536,13 +590,97 @@ fn dispatch_tool_request(
         }
     };
     let label = window.label().to_string();
-    match emit_and_wait_for_screen_tool(&window, &label, &request, state) {
-        EmitWaitOutcome::Ok(response) => return Ok(response),
+    if request.tool == OPEN_NEW_WINDOW_TOOL_NAME {
+        log_open_new_window_bridge(
+            &state.app_data,
+            &request,
+            &label,
+            PHASE_BRIDGE_RECEIVE,
+            None,
+            None,
+        );
+    }
+    match emit_and_wait_for_screen_tool(&window, &label, &request, state, 0) {
+        EmitWaitOutcome::Ok(response) => {
+            if request.tool == OPEN_NEW_WINDOW_TOOL_NAME {
+                if let Some(created) = response
+                    .body
+                    .as_ref()
+                    .and_then(|body| {
+                        body.get("content")
+                            .and_then(|c| c.as_array())
+                            .and_then(|arr| arr.first())
+                            .and_then(|item| item.get("text"))
+                            .and_then(|t| t.as_str())
+                    })
+                    .and_then(created_label_from_mcp_success_body)
+                {
+                    log_open_new_window_bridge(
+                        &state.app_data,
+                        &request,
+                        &label,
+                        PHASE_BRIDGE_COMPLETE,
+                        Some(created),
+                        None,
+                    );
+                } else {
+                    log_open_new_window_bridge(
+                        &state.app_data,
+                        &request,
+                        &label,
+                        PHASE_BRIDGE_COMPLETE,
+                        None,
+                        None,
+                    );
+                }
+            }
+            return Ok(response);
+        }
         EmitWaitOutcome::EmitFailed => {
             std::thread::sleep(Duration::from_millis(250));
+            log_open_new_window_bridge(
+                &state.app_data,
+                &request,
+                &label,
+                PHASE_BRIDGE_EMIT_RETRY,
+                None,
+                Some(1),
+            );
             if let EmitWaitOutcome::Ok(response) =
-                emit_and_wait_for_screen_tool(&window, &label, &request, state)
+                emit_and_wait_for_screen_tool(&window, &label, &request, state, 1)
             {
+                if request.tool == OPEN_NEW_WINDOW_TOOL_NAME {
+                    if let Some(created) = response
+                        .body
+                        .as_ref()
+                        .and_then(|body| {
+                            body.get("content")
+                                .and_then(|c| c.as_array())
+                                .and_then(|arr| arr.first())
+                                .and_then(|item| item.get("text"))
+                                .and_then(|t| t.as_str())
+                        })
+                        .and_then(created_label_from_mcp_success_body)
+                    {
+                        log_open_new_window_bridge(
+                            &state.app_data,
+                            &request,
+                            &label,
+                            PHASE_BRIDGE_COMPLETE,
+                            Some(created),
+                            Some(1),
+                        );
+                    } else {
+                        log_open_new_window_bridge(
+                            &state.app_data,
+                            &request,
+                            &label,
+                            PHASE_BRIDGE_COMPLETE,
+                            None,
+                            Some(1),
+                        );
+                    }
+                }
                 return Ok(response);
             }
         }

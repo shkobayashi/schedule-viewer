@@ -11,6 +11,7 @@ commands.allow = [
   "take_pending_schedule_window_open",
   "ack_pending_schedule_window_open",
   "record_pending_workspace_startup_stage",
+  "record_open_new_window_diagnostic",
 ]
 
 [[permission]]

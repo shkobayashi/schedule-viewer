@@ -2832,6 +2832,24 @@ fn screen_replace_schedule_with_window_exits_1_writes_front_only_sentence_and_le
 }
 
 #[test]
+fn open_new_window_writes_correlated_diagnostic_trace() {
+    with_gui(|h| {
+        let before_labels = window_labels(h);
+        let r = h.mcp_call(
+            "open_new_window",
+            json!({
+                "path": h.schedule3_path.to_string_lossy(),
+                "workspacePath": h.work.join("workspace.json").to_string_lossy(),
+            }),
+        );
+        assert!(!r.is_error, "{}", r.text);
+        let new_label = normalize_text(&r.text);
+        wait_open_windows_labels_exactly_one_new(h, &before_labels, &new_label);
+        wait_open_new_window_diagnostic_correlation(h);
+    });
+}
+
+#[test]
 fn open_new_window_keeps_process_alive_and_both_windows_return_current_schedule() {
     with_gui(|h| {
         let before_labels = window_labels(h);
@@ -3080,6 +3098,7 @@ fn open_new_window_workspace_persists_workspace_path_and_restart() {
 
 const PENDING_STARTUP_STAGES_FILE: &str = "pending-startup-stages.jsonl";
 const PENDING_STARTUP_STAGE_WORKSPACE_FAILED: &str = "pending-workspace-failed";
+const OPEN_NEW_WINDOW_TRACE_FILE: &str = "open-new-window-trace.jsonl";
 
 fn read_pending_startup_stages(h: &RunningHarness) -> Vec<Value> {
     let path = h.app_data_dir().join(PENDING_STARTUP_STAGES_FILE);
@@ -3091,6 +3110,65 @@ fn read_pending_startup_stages(h: &RunningHarness) -> Vec<Value> {
         .filter(|line| !line.trim().is_empty())
         .filter_map(|line| serde_json::from_str(line).ok())
         .collect()
+}
+
+fn read_open_new_window_trace(h: &RunningHarness) -> Vec<Value> {
+    let path = h.app_data_dir().join(OPEN_NEW_WINDOW_TRACE_FILE);
+    if !path.is_file() {
+        return vec![];
+    }
+    let text = fs::read_to_string(&path).unwrap_or_default();
+    text.lines()
+        .filter(|line| !line.trim().is_empty())
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .collect()
+}
+
+fn wait_open_new_window_diagnostic_correlation(h: &RunningHarness) {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let rows = read_open_new_window_trace(h);
+        let receives: Vec<&Value> = rows
+            .iter()
+            .filter(|row| row.get("phase").and_then(|v| v.as_str()) == Some("bridge-receive"))
+            .collect();
+        if receives.len() == 1 {
+            let request_id = receives[0]
+                .get("requestId")
+                .and_then(|v| v.as_str())
+                .expect("requestId on bridge-receive");
+            let same_id = |row: &Value| {
+                row.get("requestId").and_then(|v| v.as_str()) == Some(request_id)
+            };
+            let has_complete = rows.iter().any(|row| {
+                same_id(row) && row.get("phase").and_then(|v| v.as_str()) == Some("bridge-complete")
+            });
+            let created: Vec<&Value> = rows
+                .iter()
+                .filter(|row| {
+                    same_id(row) && row.get("phase").and_then(|v| v.as_str()) == Some("frontend-created")
+                })
+                .collect();
+            if has_complete && created.len() == 1 {
+                assert!(
+                    created[0].get("windowLabel").and_then(|v| v.as_str()).is_some(),
+                    "frontend-created should carry windowLabel, rows={rows:?}"
+                );
+                assert!(
+                    rows.iter()
+                        .all(|row| row.get("path").is_none() && row.get("arguments").is_none()),
+                    "diagnostic rows must not carry paths or bodies"
+                );
+                return;
+            }
+        }
+        if Instant::now() >= deadline {
+            panic!(
+                "expected correlated open_new_window diagnostic trace, rows={rows:?}"
+            );
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
 }
 
 fn wait_pending_startup_stage(h: &RunningHarness, label: &str, stage: &str) {
