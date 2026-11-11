@@ -1,6 +1,26 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import {
+  REQUIRED_SESSION_HEADINGS,
+  findForbiddenHeadingsInStub,
+} from "./check-consult-lazy-loading.mjs";
+
+test("stub must reject every relocated session body heading", () => {
+  const minimalStub = "---\ndescription: x\nalwaysApply: true\n---\n";
+  assert.deepEqual(findForbiddenHeadingsInStub(minimalStub), []);
+  assert.deepEqual(findForbiddenHeadingsInStub(`${minimalStub}## 説明の仕方\n`), [
+    "## 説明の仕方",
+  ]);
+  for (const heading of REQUIRED_SESSION_HEADINGS) {
+    assert.ok(
+      findForbiddenHeadingsInStub(`${minimalStub}${heading}\n`).includes(
+        heading,
+      ),
+      `expected checker to flag stub containing ${heading}`,
+    );
+  }
+});
 
 test("check-consult-lazy-loading structural guard", () => {
   const result = spawnSync(

@@ -30,11 +30,14 @@ const REQUIRED_SESSION_HEADINGS = [
   "## 問いと作業",
 ];
 
-const FORBIDDEN_IN_STUB = [
-  "## 返答の順",
-  "## 始め方",
-  "## 案の出し方",
-];
+const FORBIDDEN_IN_STUB = REQUIRED_SESSION_HEADINGS;
+
+/** @param {string} stub */
+export function findForbiddenHeadingsInStub(stub) {
+  return FORBIDDEN_IN_STUB.filter((heading) => stub.includes(heading));
+}
+
+export { REQUIRED_SESSION_HEADINGS };
 
 function read(relFromRepoRoot) {
   return fs.readFileSync(path.join(REPO_ROOT, relFromRepoRoot), "utf8");
@@ -77,12 +80,12 @@ function main() {
     "stub must reference consult SKILL",
   );
 
-  for (const forbidden of FORBIDDEN_IN_STUB) {
-    assert.ok(
-      !stub.includes(forbidden),
-      `stub must not contain relocated body heading: ${forbidden}`,
-    );
-  }
+  const forbiddenFound = findForbiddenHeadingsInStub(stub);
+  assert.equal(
+    forbiddenFound.length,
+    0,
+    `stub must not contain relocated body heading(s): ${forbiddenFound.join(", ")}`,
+  );
 
   for (const heading of REQUIRED_SESSION_HEADINGS) {
     assert.ok(

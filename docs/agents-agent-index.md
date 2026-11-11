@@ -49,7 +49,7 @@
 | 計画実装のレビュー | [review-implementation](../.cursor/skills/review-implementation/SKILL.md) |
 | 計画からマージまでの段階 | [work-phases](../.cursor/skills/work-phases/SKILL.md) |
 | 起動中スケジュール相談 | [schedule-talk](../.cursor/skills/schedule-talk/SKILL.md) |
-| `/consult` 相談モード | [consult](../.cursor/skills/consult/SKILL.md) + [consult.mdc](../.cursor/rules/consult.mdc) |
+| `/consult` 相談モード | [consult](../.cursor/skills/consult/SKILL.md) + [session.md](../.cursor/skills/consult/references/session.md) + [consult.mdc](../.cursor/rules/consult.mdc) |
 | 起動中の相談・試し計画（Issue #490 #344） | [schedule-talk/references/consultation-flow.md](../.cursor/skills/schedule-talk/references/consultation-flow.md) |
 | 日本語（チャット含む） | [japanese-prose.mdc](../.cursor/rules/japanese-prose.mdc) **J1–J5**、[japanese-prose-examples.md](japanese-prose-examples.md)、[分析](japanese-prose-principles-analysis.md) |
 | スケジュール JSON | write-schedule（他リポジトリ可） |
@@ -62,7 +62,7 @@
 
 レビュー指摘を直すとき、再発防止は該当 SKILL 節へ同じ変更で必ず足す（review-implementation）。計画だけの指摘は足さない。`write-*` へアプリ実装手順を書かない。
 
-日本語: [japanese-prose.mdc](../.cursor/rules/japanese-prose.mdc)（J1–J5、**チャット含む**）と [japanese-prose-examples.md](japanese-prose-examples.md)。相談: [consult.mdc](../.cursor/rules/consult.mdc) + [consult/SKILL.md](../.cursor/skills/consult/SKILL.md)
+日本語: [japanese-prose.mdc](../.cursor/rules/japanese-prose.mdc)（J1–J5、**チャット含む**）と [japanese-prose-examples.md](japanese-prose-examples.md)。相談: [consult.mdc](../.cursor/rules/consult.mdc) + [consult/SKILL.md](../.cursor/skills/consult/SKILL.md) + [session.md](../.cursor/skills/consult/references/session.md)
 
 ## 作業の進め方
 
