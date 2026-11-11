@@ -78,7 +78,7 @@
 | MX-O-4 | UI | 最近開いたファイルの1件を開く | 自動済み | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#opening from history resets filters and fit。自動:src/components/AppMenu.recent.dom.test.tsx#opens the first recent schedule when chosen from the submenu |
 | MX-O-5 | UI | 履歴を消す | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#clear history leaves the open schedule and the recovery file。手動:RG-F9-2 |
 | MX-O-6 | UI | 新しいウィンドウで開く | 手動のまま | 手動:RG-F9-1。手動のまま:「新しいウィンドウで開く」と、2 枚目で `members.json` を選ぶ操作は、ファイルを選ぶ画面が要る。 |
-| MX-O-7 | OS | 新しいウィンドウで開く | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#open_new_window_keeps_process_alive_and_both_windows_return_current_schedule。自動:src-tauri/tests/mcp_running_app.rs#close_window_schedule_2_leaves_only_main_still_answering_current_schedule。自動化予定:#541 |
+| MX-O-7 | OS | 新しいウィンドウで開く | 一部手動 | 手動のまま:☰ の「新しいウィンドウで開く」と MCP `open_new_window`（PR #570 別報告、`#[ignore]` 3 本）。 |
 | MX-O-8 | 計算 | 保存 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#stays the same after save, reload, and save again |
 | MX-O-9 | OS | 保存 | 一部手動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。手動のまま:OS の保存ダイアログは mock だけでは足りない。 |
 | MX-O-10 | OS | 別名保存 | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#save as then save writes the second change to the new path。手動:RG-S4-5 |
@@ -229,7 +229,7 @@
 | MX-T-15 | 計算 | focus_window | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#focus_window_sets_schedule_2_front_and_leaves_both_file_bytes。自動化予定:#543 |
 | MX-T-16 | 計算 | close_window | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#close_window_on_main_then_restart_opens_only_schedule_2。自動:src-tauri/tests/mcp_running_app.rs#close_window_schedule_2_leaves_only_main_still_answering_current_schedule。自動化予定:#541 |
 | MX-T-17 | 計算 | minimize_window | 手動のまま | 手動:RG-F9-4。手動のまま:最小化の状態は `open_windows` の一覧に無い。 |
-| MX-T-18 | 計算 | open_new_window | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#open_new_window_adds_the_third_file_and_keeps_the_first_two_file_and_folder。自動化予定:#543 |
+| MX-T-18 | 計算 | open_new_window | 一部手動 | 手動のまま:MCP `open_new_window` の統合試験は PR #570 別報告（`#[ignore]` 3 本）。 |
 | MX-T-19 | 計算 | set_view | 自動済み | 自動:src/model/mcpSetView.test.ts#leaves collapse unchanged when patch has no collapsed fields |
 | MX-T-20 | 計算 | set_view | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#set_view_filter_leaves_schedule_diff_no_difference_and_file_mtime。自動化予定:#543 |
 | MX-T-21 | 計算 | explain_view | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
