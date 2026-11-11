@@ -207,3 +207,64 @@ test("malformed main-table column count fails parse", () => {
   );
   expectFailures(doc, [/主表の列数が/]);
 });
+
+test("fake toolbar undo label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("| 取り消し | 取り消し |", "| 取り消し | 偽物 |"),
+  );
+  expectFailures(doc, [/ツールバー.*偽物/]);
+});
+
+test("fake toolbar today label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 今日へ移動 | 今日（title に T） |",
+      "| 今日へ移動 | 偽物（title に T） |",
+    ),
+  );
+  expectFailures(doc, [/ツールバー.*偽物/]);
+});
+
+test("cleared hierarchy toolbar fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 階層の名前・意味・指示を編集 | 階層編集 |",
+      "| 階層の名前・意味・指示を編集 | |",
+    ),
+  );
+  expectFailures(doc, [/階層編集.*セルが空/]);
+});
+
+test("wrong display scale enlarge keys fail validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("⌘+ / ⌘= / Ctrl+ / Ctrl=", "⌘9 / Ctrl+9"),
+  );
+  expectFailures(doc, [/matchDisplayScale/]);
+});
+
+test("delete shortcut with NotAKey fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("Delete / Backspace", "Delete / NotAKey"),
+  );
+  expectFailures(doc, [/Backspace 以外/]);
+});
+
+test("empty tierDay shortcut with palette label fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 日表示 | `日`（`TOOLBAR_SHORT.tierDay`。tier-toggle。title に ⌘/Ctrl+1） | | 日表示 | ⌘1 / Ctrl+1 |",
+      "| 日表示 | `日`（`TOOLBAR_SHORT.tierDay`。tier-toggle。title に ⌘/Ctrl+1） | | 日表示 | |",
+    ),
+  );
+  expectFailures(doc, [/日表示.*列が空/]);
+});
+
+test("wrong context menu template placeholder fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "`下に${levelName}を追加`",
+      "`下に${nope}を追加`",
+    ),
+  );
+  expectFailures(doc, [/テンプレート.*nope/]);
+});

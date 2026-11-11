@@ -189,7 +189,7 @@ export function validateOperationEntryCoverage(markdown, catalog, options = {}) 
   const shortcutActionsMatched = new Set();
 
   for (const row of rows) {
-    validateToolbar(row, catalog, errors);
+    validateToolbar(row, catalog, errors, unverified);
     validateRightClick(row, catalog, errors, previousCellByColumn);
     validatePalette(row, catalog, errors);
     validateSharedMenus(row, catalog, errors);
@@ -208,6 +208,7 @@ export function validateOperationEntryCoverage(markdown, catalog, options = {}) 
 
   validateToolbarShortCoverage(rows, catalog, errors);
   validateCatalogColumnCoverage(rows, catalog, errors);
+  validateShortcutReferenceConsumption(rows, catalog, shortcutActionsMatched, errors);
   appendKnownLimitations(unverified);
   ensureEveryOperationIdHasContextMenuLabel(catalog, errors);
 
@@ -231,9 +232,36 @@ function toolbarVisibleSegments(cell) {
     .filter(Boolean);
 }
 
-function validateToolbar(row, catalog, errors) {
+/** @type {Record<string, string>} */
+const TOOLBAR_FORMAL_BY_OPERATION = {
+  "階層の名前・意味・指示を編集": "階層編集",
+  "取り消し": "取り消し",
+  "今日へ移動": "今日",
+};
+
+function isToolbarDynamicCitation(cell) {
+  return (
+    /\.tsx`|StatusBar|ActiveFilterBar|aria-label|placeholder|select）|split メニュー|追加メニュー|saveStatus|\$\{|更新あり|説明を消す|title:/.test(
+      cell,
+    )
+  );
+}
+
+function validateToolbar(row, catalog, errors, unverified) {
   const cell = row.cells["ツールバー"];
-  if (!cell || cell.startsWith("（")) return;
+  const requiredFormal = TOOLBAR_FORMAL_BY_OPERATION[row.operation];
+  if (!cell || !cell.trim()) {
+    if (requiredFormal) {
+      report(
+        row,
+        "ツールバー",
+        `必須の正式ラベル「${requiredFormal}」のセルが空`,
+        errors,
+      );
+    }
+    return;
+  }
+  if (cell.startsWith("（")) return;
 
   const citedKeys = new Set();
   for (const match of cell.matchAll(/TOOLBAR_SHORT\.(\w+)/g)) {
@@ -260,14 +288,63 @@ function validateToolbar(row, catalog, errors) {
     }
   }
 
-  if (citedKeys.size > 0) return;
-
-  if (
-    /\.tsx`|aria-label|title:|placeholder|select）|split|追加メニュー|説明を消す/.test(
-      cell,
-    )
-  ) {
+  if (citedKeys.size > 0) {
+    const titleMatch = cell.match(/title に ([^）]+)/);
+    if (titleMatch && row.operation === "今日へ移動") {
+      const hint = titleMatch[1].trim();
+      if (hint !== catalog.toolbarTitleHintGoToday) {
+        report(
+          row,
+          "ツールバー",
+          `title に「${hint}」が goTodayShortcutHint の「${catalog.toolbarTitleHintGoToday}」と一致しない`,
+          errors,
+        );
+      }
+    }
     return;
+  }
+
+  if (isToolbarDynamicCitation(cell)) {
+    unverified.push(
+      `[ツールバー] 操作「${row.operation}」: 動的ラベル引用（出典のみ照合。マウント UI は未検証）`,
+    );
+    return;
+  }
+
+  const primary = extractMenuLabelToken(cell);
+  if (
+    primary &&
+    !catalog.operationFormalValues.includes(primary) &&
+    !Object.values(catalog.toolbarShort).includes(primary)
+  ) {
+    report(
+      row,
+      "ツールバー",
+      `表示「${primary}」が OPERATION_FORMAL / TOOLBAR_SHORT と一致しない`,
+      errors,
+    );
+  }
+
+  const titleMatch = cell.match(/title に ([^）]+)/);
+  if (titleMatch && primary === catalog.operationFormal?.goToday) {
+    const hint = titleMatch[1].trim();
+    if (hint !== catalog.toolbarTitleHintGoToday) {
+      report(
+        row,
+        "ツールバー",
+        `title に「${hint}」が goTodayShortcutHint の「${catalog.toolbarTitleHintGoToday}」と一致しない`,
+        errors,
+      );
+    }
+  }
+
+  if (requiredFormal && primary !== requiredFormal) {
+    report(
+      row,
+      "ツールバー",
+      `表示「${primary}」が必須の「${requiredFormal}」と一致しない`,
+      errors,
+    );
   }
 }
 
@@ -305,7 +382,17 @@ function validateRightClick(row, catalog, errors, previousByColumn) {
   }
 
   for (const token of extractRightClickTokens(cell)) {
-    if (token.includes("${")) continue;
+    if (token.includes("${")) {
+      if (!catalog.contextMenuTemplateLiterals?.includes(token)) {
+        report(
+          row,
+          "右クリック",
+          `テンプレート「${token}」が operationLabelLink の許可リテラルと一致しない`,
+          errors,
+        );
+      }
+      continue;
+    }
     if (
       !catalog.contextMenuOutputs.includes(token) &&
       !catalog.contextMenuTemplates.includes(token)
@@ -460,8 +547,118 @@ function findShortcutReference(row, catalog) {
   return catalog.shortcutReferenceRows.find((ref) => ref.action === action);
 }
 
+function displayScaleKeysMatch(cellPart, allowed, requireAllKeys) {
+  const cellAlts = expandShortcutAlternatives(cellPart);
+  if (cellAlts.length === 0) return false;
+  const allowedNorm = new Set(
+    allowed.map((k) => normalizeShortcutKey(k)),
+  );
+  if (
+    requireAllKeys &&
+    cellAlts.length !== allowed.length
+  ) {
+    return false;
+  }
+  if (!requireAllKeys && cellAlts.length !== 1) {
+    return false;
+  }
+  return cellAlts.every((c) => allowedNorm.has(normalizeShortcutKey(c)));
+}
+
+function splitDisplayScaleShortcutCell(cell) {
+  const parts = cell
+    .split(" / ")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const macParts = [];
+  const winParts = [];
+  for (const part of parts) {
+    if (/^Ctrl/i.test(part) || /^Alt/i.test(part)) {
+      winParts.push(part);
+    } else {
+      macParts.push(part);
+    }
+  }
+  return {
+    macPart: macParts.join(" / "),
+    winPart: winParts.join(" / "),
+  };
+}
+
+function validateDisplayScaleShortcut(row, cell, catalog, errors) {
+  const isEnlarge = row.operation.includes("拡大");
+  const isReduce = row.operation.includes("縮小");
+  if (!isEnlarge && !isReduce) return false;
+  const spec = isEnlarge
+    ? catalog.displayScaleShortcuts.enlarge
+    : catalog.displayScaleShortcuts.reduce;
+  const cleaned = cell.replace(/（[^）]*）/g, "").trim();
+  const { macPart, winPart } = splitDisplayScaleShortcutCell(cleaned);
+  let ok = true;
+  if (macPart && !displayScaleKeysMatch(macPart, spec.mac, isEnlarge)) {
+    report(
+      row,
+      "ショートカット",
+      `Mac「${macPart}」が matchDisplayScale 拡大=${isEnlarge} の許可キー「${spec.mac.join("/")}」と一致しない`,
+      errors,
+    );
+    ok = false;
+  }
+  if (winPart && !displayScaleKeysMatch(winPart, spec.win, isEnlarge)) {
+    report(
+      row,
+      "ショートカット",
+      `Win「${winPart}」が matchDisplayScale 拡大=${isEnlarge} の許可キー「${spec.win.join("/")}」と一致しない`,
+      errors,
+    );
+    ok = false;
+  }
+  return ok;
+}
+
+function paletteCommandRequiresShortcut(commandId) {
+  return (
+    commandId !== "displayScaleIn" &&
+    commandId !== "displayScaleOut" &&
+    commandId !== "shortcuts"
+  );
+}
+
 function validateShortcut(row, catalog, errors, unverified, shortcutActionsMatched) {
-  const cell = row.cells["ショートカット"];
+  const cell = row.cells["ショートカット"] ?? "";
+
+  const paletteLabel = paletteLabelFromRow(row);
+  const commandId = paletteLabel
+    ? catalog.formalToPaletteCommandId[paletteLabel]
+    : null;
+  const expected =
+    commandId != null ? catalog.paletteShortcutByCommandId[commandId] : null;
+
+  if (commandId && paletteCommandRequiresShortcut(commandId)) {
+    const needsShortcut =
+      (expected?.mac && expected.mac.length > 0) ||
+      (expected?.win && expected.win.length > 0);
+  if (needsShortcut && !cell.trim()) {
+      report(
+        row,
+        "ショートカット",
+        `${paletteLabel} は palette shortcut があるが列が空`,
+        errors,
+      );
+    }
+  }
+
+  if (row.operation.startsWith("表示サイズを")) {
+    if (!cell.trim()) {
+      report(row, "ショートカット", "表示サイズ行のショートカット列が空", errors);
+      return;
+    }
+    if (validateDisplayScaleShortcut(row, cell, catalog, errors)) {
+      shortcutActionsMatched.add("表示サイズ");
+    }
+    return;
+  }
+
   if (!cell) return;
 
   if (cell.includes("macOS メニューのみ")) {
@@ -481,24 +678,21 @@ function validateShortcut(row, catalog, errors, unverified, shortcutActionsMatch
     );
   }
 
-  const paletteForSkip = paletteLabelFromRow(row);
-  const skipRefCommand =
-    paletteForSkip &&
-    catalog.formalToPaletteCommandId[paletteForSkip] === "addTask";
-  const reference =
-    skipRefCommand || row.operation.startsWith("表示サイズを")
-      ? null
-      : findShortcutReference(row, catalog);
+  const skipRefCommand = commandId === "addTask";
+  const reference = skipRefCommand ? null : findShortcutReference(row, catalog);
+  let referenceOk = false;
   if (reference) {
-    shortcutActionsMatched.add(reference.action);
     const cleaned = cell
       .replace(/（`[^`]+`）/g, "")
       .replace(/（[^）]*）/g, "");
     if (reference.mac === reference.win) {
       if (
         reference.mac &&
-        !shortcutHintMatchesCell(cleaned, reference.mac) &&
-        !shortcutCellMatchesReference(cleaned, reference.mac, reference.action)
+        !shortcutCellMatchesReferenceStrict(
+          cleaned,
+          reference.mac,
+          reference.action,
+        )
       ) {
         report(
           row,
@@ -506,13 +700,21 @@ function validateShortcut(row, catalog, errors, unverified, shortcutActionsMatch
           `「${cell}」が shortcutReference（${reference.action}）の「${reference.mac}」と一致しない`,
           errors,
         );
+      } else {
+        referenceOk = true;
       }
     } else {
       const { macPart, winPart } = splitShortcutCell(cleaned);
+      let macOk = true;
+      let winOk = true;
       if (
         reference.mac &&
         macPart &&
-        !shortcutCellMatchesReference(macPart, reference.mac, reference.action)
+        !shortcutCellMatchesReferenceStrict(
+          macPart,
+          reference.mac,
+          reference.action,
+        )
       ) {
         report(
           row,
@@ -520,11 +722,16 @@ function validateShortcut(row, catalog, errors, unverified, shortcutActionsMatch
           `Mac「${macPart}」が shortcutReference（${reference.action}）の「${reference.mac}」と一致しない`,
           errors,
         );
+        macOk = false;
       }
       if (
         reference.win &&
         winPart &&
-        !shortcutCellMatchesReference(winPart, reference.win, reference.action)
+        !shortcutCellMatchesReferenceStrict(
+          winPart,
+          reference.win,
+          reference.action,
+        )
       ) {
         report(
           row,
@@ -532,15 +739,14 @@ function validateShortcut(row, catalog, errors, unverified, shortcutActionsMatch
           `Win「${winPart}」が shortcutReference（${reference.action}）の「${reference.win}」と一致しない`,
           errors,
         );
+        winOk = false;
       }
+      referenceOk = macOk && winOk;
     }
+    if (referenceOk) shortcutActionsMatched.add(reference.action);
   }
 
-  const paletteLabel = paletteLabelFromRow(row);
-  if (!paletteLabel) return;
-  const commandId = catalog.formalToPaletteCommandId[paletteLabel];
-  if (!commandId) return;
-  const expected = catalog.paletteShortcutByCommandId[commandId];
+  if (!paletteLabel || !commandId) return;
   if (!expected?.mac && !expected?.win) return;
 
   if (commandId === "addTask") {
@@ -552,24 +758,31 @@ function validateShortcut(row, catalog, errors, unverified, shortcutActionsMatch
         `「${cell}」が addTaskShortcutHint の候補「${joined}」をすべて含まない`,
         errors,
       );
-    }
-    return;
-  }
-
-  if (commandId === "displayScaleIn" || commandId === "displayScaleOut") {
-    const { macPart, winPart } = splitShortcutCell(cell);
-    if (expected.mac && macPart && !shortcutHintMatchesCell(macPart, expected.mac)) {
-      report(row, "ショートカット", `Mac「${macPart}」が ${commandId} の「${expected.mac}」と一致しない`, errors);
-    }
-    if (expected.win && winPart && !shortcutHintMatchesCell(winPart, expected.win)) {
-      report(row, "ショートカット", `Win「${winPart}」が ${commandId} の「${expected.win}」と一致しない`, errors);
+    } else {
+      shortcutActionsMatched.add("タスクを追加");
     }
     return;
   }
 
   if (commandId === "deleteTask") {
-    if (!cell.includes("Delete")) {
+    const alts = expandShortcutAlternatives(
+      cell.replace(/（[^）]*）/g, ""),
+    );
+    const allowed = new Set(["Delete", "Backspace"]);
+    if (!alts.some((a) => a === "Delete")) {
       report(row, "ショートカット", "Delete がショートカット列に無い", errors);
+    } else if (!alts.every((a) => allowed.has(a))) {
+      report(
+        row,
+        "ショートカット",
+        `「${cell}」は Delete と Backspace 以外のキーを含めてはいけない`,
+        errors,
+      );
+    } else {
+      shortcutActionsMatched.add("削除");
+    }
+    if (!errors.some((e) => e.includes("addTaskShortcutHint"))) {
+      shortcutActionsMatched.add("タスクを追加");
     }
     return;
   }
@@ -598,12 +811,18 @@ function validateShortcut(row, catalog, errors, unverified, shortcutActionsMatch
  * @param {string} referenceKeys
  * @param {string} action
  */
-function shortcutCellMatchesReference(cellPart, referenceKeys, action) {
+function shortcutExtraAlts(action) {
+  if (action === "削除") return ["Backspace"];
+  if (action === "やり直し") return ["Ctrl+Y"];
+  return [];
+}
+
+function shortcutCellMatchesReferenceStrict(cellPart, referenceKeys, action) {
   const cellAlts = expandShortcutAlternatives(cellPart);
   const refAlts = expandShortcutAlternatives(
     referenceKeys.replace(/（[^）]*）/g, ""),
   );
-  if (refAlts.length === 0) return true;
+  if (refAlts.length === 0) return cellAlts.length === 0;
   if (
     !refAlts.every((alt) =>
       cellAlts.some(
@@ -613,20 +832,16 @@ function shortcutCellMatchesReference(cellPart, referenceKeys, action) {
   ) {
     return false;
   }
-  if (SHORTCUT_EXTRA_ALTS.has(action)) {
-    return true;
-  }
-  const extras =
-    action === "削除"
-      ? ["Backspace"]
-      : action === "やり直し"
-        ? ["Ctrl+Y"]
-        : [];
-  return cellAlts.every(
-    (c) =>
-      refAlts.some((r) => normalizeShortcutKey(c) === normalizeShortcutKey(r)) ||
-      extras.some((e) => normalizeShortcutKey(c) === normalizeShortcutKey(e)),
-  );
+  const allowed = new Set([
+    ...refAlts.map((r) => normalizeShortcutKey(r)),
+    ...shortcutExtraAlts(action).map((e) => normalizeShortcutKey(e)),
+  ]);
+  return cellAlts.every((c) => allowed.has(normalizeShortcutKey(c)));
+}
+
+/** @deprecated use strict variant in new checks */
+function shortcutCellMatchesReference(cellPart, referenceKeys, action) {
+  return shortcutCellMatchesReferenceStrict(cellPart, referenceKeys, action);
 }
 
 /**
@@ -1083,10 +1298,33 @@ function validateCatalogColumnCoverage(rows, catalog, errors) {
   }
 }
 
+function validateShortcutReferenceConsumption(rows, catalog, matched, errors) {
+  /** @type {Set<string>} */
+  const required = new Set();
+  for (const row of rows) {
+    if (
+      row.operation.startsWith("表示サイズを") &&
+      row.cells["ショートカット"]?.trim()
+    ) {
+      required.add("表示サイズ");
+    }
+    const ref = findShortcutReference(row, catalog);
+    if (ref && row.cells["ショートカット"]?.trim()) {
+      required.add(ref.action);
+    }
+  }
+  const paletteOnlyReference = new Set(["タスクを追加"]);
+  for (const action of required) {
+    if (paletteOnlyReference.has(action)) continue;
+    if (!matched.has(action)) {
+      errors.push(
+        `[ショートカット] shortcutReference「${action}」の照合が主表で成立していない`,
+      );
+    }
+  }
+}
+
 function appendKnownLimitations(unverified) {
-  unverified.push(
-    "[ツールバー] 動的ラベル（StatusBar・FilterPanel 等）の title 属性とマウント済み UI は未検証",
-  );
   unverified.push(
     "[macOS メニュー] PredefinedMenuItem の OS 表示文言は未検証（識別子のみ照合）",
   );

@@ -240,6 +240,13 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `file_action with invalid action fails validation` | — |
 | 同上 | `recent palette double prefix fails validation` | — |
 | 同上 | `malformed main-table column count fails parse` | — |
+| 同上 | `fake toolbar undo label fails validation` | — |
+| 同上 | `fake toolbar today label fails validation` | — |
+| 同上 | `cleared hierarchy toolbar fails validation` | — |
+| 同上 | `wrong display scale enlarge keys fail validation` | — |
+| 同上 | `delete shortcut with NotAKey fails validation` | — |
+| 同上 | `empty tierDay shortcut with palette label fails validation` | — |
+| 同上 | `wrong context menu template placeholder fails validation` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentity valid when full SHAs match` | — |

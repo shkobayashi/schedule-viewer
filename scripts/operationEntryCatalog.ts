@@ -218,6 +218,7 @@ function collectContextMenuOutputs(): {
       `下に${"段"}を追加`,
       `${"子"}を追加`,
     ],
+    templateLiterals: ["下に${levelName}を追加", "${childName}を追加"],
   };
 }
 
@@ -342,6 +343,15 @@ export function buildOperationEntryCatalog() {
     contextMenuFixed: contextMenu.fixedLabels,
     contextMenuOutputs: contextMenu.allOutputs,
     contextMenuTemplates: contextMenu.templates,
+    contextMenuTemplateLiterals: contextMenu.templateLiterals,
+    displayScaleShortcuts: {
+      enlarge: { mac: ["⌘+", "⌘="], win: ["Ctrl+", "Ctrl="] },
+      reduce: {
+        mac: ["⌘−", "⌘-"],
+        win: ["Ctrl−", "Ctrl-"],
+      },
+    },
+    toolbarTitleHintGoToday: goTodayShortcutHint(),
     paletteStaticLabels: palette.staticLabels,
     paletteLabelsByCommandId: palette.labelsByCommandId,
     paletteConditionalCommands: palette.conditionalCommands,
