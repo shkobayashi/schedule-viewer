@@ -274,6 +274,13 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `undo toolbar fake word in note fails validation` | — |
 | 同上 | `toolbar catalog source extractions are non-empty and live-derived` | — |
 | 同上 | `parseToolbarUiSourceFromText throws when toolbar search block is missing` | — |
+| 同上 | `undo toolbar backtick delete in note fails validation` | — |
+| 同上 | `undo toolbar backtick fake in note fails validation` | — |
+| 同上 | `go-today invalid title tail without ni fails validation` | — |
+| 同上 | `undo toolbar ASCII fake in note fails validation` | — |
+| 同上 | `undo toolbar long japanese garbage in note fails validation` | — |
+| 同上 | `search toolbar suffix after note with fake token fails validation` | — |
+| 同上 | `add-task toolbar menu suffix fake token fails validation` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `stub must reject every relocated session body heading` | — |
 | `scripts/check-consult-lazy-loading.test.mjs` | `check-consult-lazy-loading structural guard` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentity valid when full SHAs match` | — |

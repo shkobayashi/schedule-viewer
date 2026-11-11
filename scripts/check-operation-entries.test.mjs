@@ -492,6 +492,67 @@ test("toolbar catalog source extractions are non-empty and live-derived", () => 
   assert.equal(c.toolbarSourceLabels.dirtySaveStatusLabel, "未保存");
 });
 
+test("undo toolbar backtick delete in note fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("| 取り消し | 取り消し |", "| 取り消し | 取り消し（`削除`） |"),
+  );
+  expectFailures(doc, [/削除|バッククォート|未消費/]);
+});
+
+test("undo toolbar backtick fake in note fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("| 取り消し | 取り消し |", "| 取り消し | 取り消し（`偽物`） |"),
+  );
+  expectFailures(doc, [/偽物|バッククォート|未消費/]);
+});
+
+test("go-today invalid title tail without ni fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 今日へ移動 | 今日（title に T） |",
+      "| 今日へ移動 | 今日（title 削除） |",
+    ),
+  );
+  expectFailures(doc, [/title|削除|未消費/]);
+});
+
+test("undo toolbar ASCII fake in note fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace("| 取り消し | 取り消し |", "| 取り消し | 取り消し（FAKE） |"),
+  );
+  expectFailures(doc, [/FAKE|未消費/]);
+});
+
+test("undo toolbar long japanese garbage in note fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "| 取り消し | 取り消し |",
+      "| 取り消し | 取り消し（あいうえおかきくけこさしす） |",
+    ),
+  );
+  expectFailures(doc, [/あいう|未消費/]);
+});
+
+test("search toolbar suffix after note with fake token fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "`名前` / `ノート`（select）＋ placeholder `タスク名で検索` / `ノートで検索`",
+      "`名前` / `ノート`（select）＋ 偽物 `タスク名で検索` / `ノートで検索`",
+    ),
+  );
+  expectFailures(doc, [/偽物|未消費/]);
+});
+
+test("add-task toolbar menu suffix fake token fails validation", () => {
+  const doc = mutateDoc((text) =>
+    text.replace(
+      "）／メニュー `タスクを追加`",
+      "）／メニュー `タスクを追加` 偽物",
+    ),
+  );
+  expectFailures(doc, [/偽物|未消費/]);
+});
+
 test("parseToolbarUiSourceFromText throws when toolbar search block is missing", () => {
   const snippet = [
     'import { parseToolbarUiSourceFromText } from "./scripts/operationEntryCatalog.ts";',

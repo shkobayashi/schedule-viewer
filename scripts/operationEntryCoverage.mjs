@@ -236,33 +236,89 @@ const TOOLBAR_PARENTHESIS_ONLY_OPERATIONS = new Set([
   "JSON作成スキル・更新確認の設定",
 ]);
 
-const TOOLBAR_HEAD_CONNECTIVES = new Set(["または", "＋", "／"]);
-const TOOLBAR_HEAD_STRUCTURAL = new Set([
-  "メニュー",
+const TOOLBAR_CELL_KEYWORDS = [
   "追加メニュー",
-  "split",
-  "主ボタン",
-  "select",
-]);
-
-const TOOLBAR_NOTE_ALLOW_WORDS = new Set([
-  "select",
-  "title",
+  "または",
   "placeholder",
-  "split",
-  "メニュー",
-  "主ボタン",
-  "系統",
-  "操作の案内",
-  "aria-label",
-  "鉛筆",
-  "バナー",
   "tier-toggle",
+  "split メニュー",
+  "split 主ボタン",
   "shortcutReferenceRows",
+  "aria-label",
+  "select）",
+  "バナー",
+  "鉛筆",
+  "主ボタン",
+  "メニュー",
+];
+
+const TOOLBAR_CITATION_BACKTICKS = new Set([
   "saveStatus",
   "StatusBar.tsx",
   "ActiveFilterBar.tsx",
 ]);
+
+/** @param {import("./operationEntryCatalog.ts").OperationEntryCatalog} catalog */
+function toolbarAllowedTitleNi(operation, catalog) {
+  /** @type {string[]} */
+  const ni = [];
+  switch (operation) {
+    case "今日へ移動":
+      ni.push(catalog.toolbarTitleHintGoToday);
+      break;
+    case "日表示":
+      ni.push("⌘/Ctrl+1");
+      break;
+    case "週表示":
+      ni.push("⌘/Ctrl+2");
+      break;
+    case "月表示":
+      ni.push("⌘/Ctrl+3");
+      break;
+    case "全体表示":
+      ni.push("⌘/Ctrl+4");
+      break;
+    case "絞り込みパネルを開く":
+      ni.push("⌘⇧F / Ctrl+Shift+F");
+      break;
+    case "系統を表示／解除":
+      ni.push("⌘⇧L / Ctrl+Shift+L");
+      break;
+    default:
+      break;
+  }
+  return ni;
+}
+
+/** @param {string} operation */
+function toolbarAllowedTitleColon(operation) {
+  if (operation === "ショートカット一覧を開く") {
+    return ["ショートカット一覧（?、F1）"];
+  }
+  return [];
+}
+
+/** @param {string} operation */
+function toolbarAllowedTitleHa(operation) {
+  if (operation === "操作の案内を開く") return ["操作の案内"];
+  return [];
+}
+
+/**
+ * @param {string} s
+ * @param {number} openPos
+ */
+function indexOfFullwidthNoteClose(s, openPos) {
+  let depth = 0;
+  for (let i = openPos; i < s.length; i++) {
+    if (s.startsWith("（", i)) depth++;
+    else if (s.startsWith("）", i)) {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
 
 /** @param {import("./operationEntryCatalog.ts").ToolbarOperationSpec} spec */
 /** @param {import("./operationEntryCatalog.ts").OperationEntryCatalog} catalog */
@@ -298,73 +354,84 @@ function toolbarAllowedVisibleLabels(spec, catalog) {
 
 /**
  * @param {OperationRow} row
- * @param {string} cell
- * @param {import("./operationEntryCatalog.ts").ToolbarOperationSpec} spec
- * @param {import("./operationEntryCatalog.ts").OperationEntryCatalog} catalog
+ * @param {string} lit
+ * @param {{
+ *   allowedLabels: Set<string>,
+ *   ownerLabel: string | null,
+ *   operationFormalValues: string[],
+ * }} ctx
  * @param {string[]} errors
  */
-function validateToolbarHeadTokens(row, cell, spec, catalog, errors) {
-  const allowed = toolbarAllowedVisibleLabels(spec, catalog);
-  const head = cell.split("（")[0].trim();
-
-  const onlyBacktick = head.match(/^`([^`]+)`$/);
-  if (onlyBacktick && allowed.has(onlyBacktick[1])) {
+function validateConsumedBacktick(row, lit, ctx, errors) {
+  if (TOOLBAR_CITATION_BACKTICKS.has(lit) || lit.startsWith("TOOLBAR_SHORT.")) {
     return;
   }
-
-  for (const seg of toolbarVisibleSegments(cell)) {
-    const addMenuSeg = seg.match(/^追加メニュー\s+(.+)$/);
-    if (addMenuSeg) {
-      const lit = addMenuSeg[1].replace(/`/g, "").trim();
-      if (allowed.has(lit)) continue;
+  if (lit.includes("${lineageName}") || lit.includes("${linkSourceName}")) {
+    return;
+  }
+  if (ctx.allowedLabels.has(lit)) return;
+  if (ctx.operationFormalValues.includes(lit)) {
+    if (ctx.ownerLabel && lit !== ctx.ownerLabel) {
+      report(
+        row,
+        "ツールバー",
+        `バッククォート内の正式名「${lit}」は owner「${ctx.ownerLabel}」と一致しない`,
+        errors,
+      );
     }
-    const cleaned = seg.replace(/\$\{[^}]+\}/g, "").trim();
-    if (allowed.has(cleaned) || allowed.has(seg)) continue;
-    const orParts = seg.split(/\s+または\s+/).map((p) => p.trim()).filter(Boolean);
-    for (const part of orParts) {
-      const partClean = part.replace(/\$\{[^}]+\}/g, "").trim();
-      if (
-        allowed.has(partClean) ||
-        allowed.has(part) ||
-        TOOLBAR_HEAD_CONNECTIVES.has(partClean) ||
-        TOOLBAR_HEAD_STRUCTURAL.has(partClean)
-      ) {
-        continue;
-      }
-      if (partClean === seg && orParts.length === 1) {
-        report(
-          row,
-          "ツールバー",
-          `許可されていない可視トークン「${partClean}」（owner 許可: ${[...allowed].join(" / ") || "なし"}）`,
-          errors,
-        );
-      }
+    return;
+  }
+  report(
+    row,
+    "ツールバー",
+    `許可されていないバッククォート「${lit}」`,
+    errors,
+  );
+}
+
+/**
+ * @param {OperationRow} row
+ * @param {string} segment
+ * @param {import("./operationEntryCatalog.ts").OperationEntryCatalog} catalog
+ * @param {{
+ *   allowedLabels: Set<string>,
+ *   ownerLabel: string | null,
+ *   operationFormalValues: string[],
+ * }} ctx
+ * @param {string[]} errors
+ */
+function consumeToolbarTitleClause(row, segment, catalog, ctx, errors) {
+  const colonAllowed = toolbarAllowedTitleColon(row.operation);
+  for (const exact of colonAllowed) {
+    if (segment === "title: " + exact || segment === "title:" + exact) {
+      return true;
     }
   }
-
-  const plainOutside = head
-    .replace(/`[^`]*`/g, " ")
-    .replace(/[／/]/g, " ")
-    .trim();
-  const plainTokens = plainOutside
-    .split(/\s+/)
-    .map((t) => t.trim())
-    .filter(Boolean);
-  for (const token of plainTokens) {
-    if (
-      allowed.has(token) ||
-      TOOLBAR_HEAD_CONNECTIVES.has(token) ||
-      TOOLBAR_HEAD_STRUCTURAL.has(token)
-    ) {
-      continue;
+  const haAllowed = toolbarAllowedTitleHa(row.operation);
+  for (const exact of haAllowed) {
+    if (segment === "title は" + exact || segment === "title は " + exact) {
+      return true;
     }
+  }
+  const niAllowed = toolbarAllowedTitleNi(row.operation, catalog);
+  for (const hint of niAllowed) {
+    if (segment === "title に " + hint || segment === "title に" + hint) {
+      return true;
+    }
+  }
+  if (segment === "aria-label / title" || segment === "aria-label / title。鉛筆") {
+    return true;
+  }
+  if (segment.startsWith("title")) {
     report(
       row,
       "ツールバー",
-      `バッククォート外の余分な文言「${token}」`,
+      `title 注記が許可形式と一致しない「${segment}」`,
       errors,
     );
+    return true;
   }
+  return false;
 }
 
 /**
@@ -374,57 +441,166 @@ function validateToolbarHeadTokens(row, cell, spec, catalog, errors) {
  * @param {import("./operationEntryCatalog.ts").OperationEntryCatalog} catalog
  * @param {string[]} errors
  */
-function validateToolbarNotes(row, cell, spec, catalog, errors) {
-  const owner = spec.ownerFormal
+function consumeToolbarCellRemaining(row, cell, spec, catalog, errors) {
+  const allowedLabels = toolbarAllowedVisibleLabels(spec, catalog);
+  const ownerLabel = spec.ownerFormal
     ? catalog.operationFormal[spec.ownerFormal]
     : null;
-  for (const match of cell.matchAll(/（([^）]*)）/g)) {
-    const note = match[1];
-  const stripped = note
-      .replace(/title[^）]*/g, " ")
-      .replace(/`[^`]+`/g, " ")
-      .replace(/（[^）]*）/g, " ")
-      .replace(/[、。．：:（）\s＋+／/]+/g, " ")
-      .trim();
-    if (!stripped) continue;
-    const tokens = stripped.split(/\s+/).filter(Boolean);
-    for (const tok of tokens) {
-      if (catalog.operationFormalValues.includes(tok)) {
-        if (owner && tok !== owner) {
-          report(
-            row,
-            "ツールバー",
-            `注記内の正式名「${tok}」はこの行の owner「${owner}」と一致しない`,
-            errors,
-          );
-        } else if (!owner) {
-          report(
-            row,
-            "ツールバー",
-            `注記内に別操作の正式名「${tok}」`,
-            errors,
-          );
+  const ctx = {
+    allowedLabels,
+    ownerLabel,
+    operationFormalValues: catalog.operationFormalValues,
+  };
+
+  let pos = 0;
+  const s = cell;
+  let sawOwnerVisible = !ownerLabel;
+
+  while (pos < s.length) {
+    while (pos < s.length && /\s/.test(s[pos])) pos++;
+    if (pos >= s.length) break;
+
+    if (s[pos] === "`") {
+      const end = s.indexOf("`", pos + 1);
+      if (end < 0) {
+        report(row, "ツールバー", "閉じるバッククォートが無い", errors);
+        return;
+      }
+      const lit = s.slice(pos + 1, end);
+      validateConsumedBacktick(row, lit, ctx, errors);
+      if (ownerLabel && lit === ownerLabel) sawOwnerVisible = true;
+      pos = end + 1;
+      continue;
+    }
+
+    if (s.startsWith("（", pos)) {
+      const close = indexOfFullwidthNoteClose(s, pos);
+      if (close < 0) {
+        report(row, "ツールバー", "閉じる全角括弧が無い", errors);
+        return;
+      }
+      const inner = s.slice(pos + 1, close);
+      const parts = inner.split("。").map((p) => p.trim()).filter(Boolean);
+      for (const part of parts) {
+        if (consumeToolbarTitleClause(row, part, catalog, ctx, errors)) {
+          continue;
         }
-        continue;
+        if (/^TOOLBAR_SHORT\.\w+$/.test(part)) continue;
+        if (
+          part === "tier-toggle" ||
+          part === "select" ||
+          part === "select）" ||
+          part === "バナー" ||
+          part === "split メニュー" ||
+          part === "split 主ボタン" ||
+          part === "shortcutReferenceRows" ||
+          part === "鉛筆" ||
+          part === "saveStatus" ||
+          part === "ActiveFilterBar.tsx"
+        ) {
+          continue;
+        }
+        if (part.startsWith("`")) {
+          consumeToolbarCellRemaining(row, part, spec, catalog, errors);
+          continue;
+        }
+        if (
+          (part === "系統 split メニュー" || part === "系統") &&
+          row.operation === "系統（繋がりも辿る）"
+        ) {
+          continue;
+        }
+        if (catalog.operationFormalValues.includes(part)) {
+          if (ownerLabel && part !== ownerLabel) {
+            report(
+              row,
+              "ツールバー",
+              `注記内の正式名「${part}」は owner「${ownerLabel}」と一致しない`,
+              errors,
+            );
+          }
+          continue;
+        }
+        consumeToolbarCellRemaining(row, part, spec, catalog, errors);
       }
-      if (
-        TOOLBAR_NOTE_ALLOW_WORDS.has(tok) ||
-        tok.startsWith("TOOLBAR_SHORT.") ||
-        /^[\d?、F1\-]+$/.test(tok) ||
-        tok.includes("ショートカット一覧")
-      ) {
-        continue;
-      }
-      if (/^[\u3040-\u9fff]+(?:\s*[\u3040-\u9fff]+)*$/.test(tok) && tok.length <= 12) {
-        report(
-          row,
-          "ツールバー",
-          `注記内の許可されていない文言「${tok}」`,
-          errors,
-        );
+      pos = close + 1;
+      continue;
+    }
+
+    let keywordMatched = false;
+    for (const kw of TOOLBAR_CELL_KEYWORDS) {
+      if (s.startsWith(kw, pos)) {
+        pos += kw.length;
+        keywordMatched = true;
+        break;
       }
     }
+    if (keywordMatched) continue;
+
+    if (s[pos] === "／" || s[pos] === "/") {
+      pos++;
+      continue;
+    }
+    if (s[pos] === "＋") {
+      pos++;
+      continue;
+    }
+    if (s[pos] === "。" || s[pos] === "、") {
+      pos++;
+      continue;
+    }
+
+    if (s.startsWith("TOOLBAR_SHORT.", pos)) {
+      const m = s.slice(pos).match(/^TOOLBAR_SHORT\.(\w+)/);
+      if (m) {
+        pos += m[0].length;
+        continue;
+      }
+    }
+
+    /** @type {string | null} */
+    let labelMatch = null;
+    for (const label of [...allowedLabels].sort((a, b) => b.length - a.length)) {
+      if (s.startsWith(label, pos)) {
+        labelMatch = label;
+        pos += label.length;
+        break;
+      }
+    }
+    if (labelMatch) {
+      if (ownerLabel && labelMatch === ownerLabel) sawOwnerVisible = true;
+      continue;
+    }
+
+    const rest = s.slice(pos);
+    const unk = rest.match(/^[^`（／\/＋\s。、]+/);
+    if (unk) {
+      report(
+        row,
+        "ツールバー",
+        `未消費のツールバー文言「${unk[0]}」`,
+        errors,
+      );
+      pos += unk[0].length;
+      continue;
+    }
+
+    report(row, "ツールバー", `未消費の文字「${s[pos]}」`, errors);
+    pos++;
   }
+
+  if (ownerLabel && !sawOwnerVisible) {
+    report(
+      row,
+      "ツールバー",
+      `owner 表示「${ownerLabel}」がセル内に無い`,
+      errors,
+    );
+  }
+}
+
+function validateToolbarWholeCell(row, cell, spec, catalog, errors) {
+  consumeToolbarCellRemaining(row, cell, spec, catalog, errors);
 }
 
 /** @param {import("./operationEntryCatalog.ts").ToolbarOperationSpec} spec */
@@ -450,26 +626,17 @@ function validateToolbarOperationSpec(row, cell, spec, catalog, errors, unverifi
     const want = catalog.operationFormal[spec.ownerFormal];
     const inBacktick =
       spec.backtickStatic?.includes(want) && cell.includes("`" + want + "`");
-  const segments = toolbarVisibleSegments(cell);
-    const visibles =
-      segments.length > 0 ? segments : [extractMenuLabelToken(cell)].filter(Boolean);
-    if (!inBacktick && !visibles.includes(want)) {
+    const visibles = toolbarVisibleSegments(cell);
+    const hasPlain =
+      visibles.includes(want) ||
+      extractMenuLabelToken(cell.split("（")[0]) === want;
+    if (!inBacktick && !hasPlain && !cell.includes(want)) {
       report(
         row,
         "ツールバー",
-        `表示が owner OPERATION_FORMAL.${spec.ownerFormal} の「${want}」と一致しない（実際: ${visibles.join(" / ") || "空"}）`,
+        `必須 owner「${want}」がセルに無い`,
         errors,
       );
-    }
-    for (const visible of visibles) {
-      if (visible !== want) {
-        report(
-          row,
-          "ツールバー",
-          `owner「${want}」以外の可視セグメント「${visible}」`,
-          errors,
-        );
-      }
     }
   }
 
@@ -546,31 +713,6 @@ function validateToolbarOperationSpec(row, cell, spec, catalog, errors, unverifi
           row,
           "ツールバー",
           `必須のバッククォート静的文字「${lit}」が無い`,
-          errors,
-        );
-      }
-    }
-    for (const match of cell.matchAll(/`([^`]+)`/g)) {
-      const lit = match[1];
-      if (
-        lit === "saveStatus" ||
-        lit === "StatusBar.tsx" ||
-        lit === "ActiveFilterBar.tsx" ||
-        lit.startsWith("TOOLBAR_SHORT.")
-      ) {
-        continue;
-      }
-      if (lit.includes("${")) continue;
-      const allowed = new Set([
-        ...spec.backtickStatic,
-        ...(spec.placeholderLiterals ?? []),
-        ...(spec.toolbarShortKeys ?? []).map((k) => catalog.toolbarShort[k]),
-      ]);
-      if (!allowed.has(lit)) {
-        report(
-          row,
-          "ツールバー",
-          `バッククォート内「${lit}」がこの操作の許可静的トークンと一致しない`,
           errors,
         );
       }
@@ -690,21 +832,7 @@ function validateToolbar(row, catalog, errors, unverified) {
   }
 
   validateToolbarOperationSpec(row, cell, spec, catalog, errors, unverified);
-  validateToolbarHeadTokens(row, cell, spec, catalog, errors);
-  validateToolbarNotes(row, cell, spec, catalog, errors);
-
-  const titleMatch = cell.match(/title に ([^）]+)/);
-  if (titleMatch && row.operation === "今日へ移動") {
-    const hint = titleMatch[1].trim();
-    if (hint !== catalog.toolbarTitleHintGoToday) {
-      report(
-        row,
-        "ツールバー",
-        `title に「${hint}」が goTodayShortcutHint の「${catalog.toolbarTitleHintGoToday}」と一致しない`,
-        errors,
-      );
-    }
-  }
+  validateToolbarWholeCell(row, cell, spec, catalog, errors);
 
   if (row.operation === "マイルストンを追加") {
     const menu = cell.match(/追加メニュー\s+`([^`]+)`/);
