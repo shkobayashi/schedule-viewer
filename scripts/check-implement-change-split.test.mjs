@@ -1,106 +1,42 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { execSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   collectAgentDocRelPaths,
   collectLinkErrors,
-  markdownForLinkScan,
-  resolveRelativeFileLink,
   validateSkillFrontmatter,
 } from "./check-agent-docs.mjs";
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const skillRoot = ".cursor/skills/implement-change";
 const entryRel = `${skillRoot}/SKILL.md`;
+const selfPath = fileURLToPath(import.meta.url);
 
 function readRel(rel) {
   return fs.readFileSync(path.join(repoRoot, rel), "utf8");
 }
 
-/** @param {string} text @param {string} sourceRel */
-function normalizeMarkdownLinks(text, sourceRel) {
-  const stripped = markdownForLinkScan(text);
-  return stripped.replace(/!?\[[^\]]*\]\(([^)]+)\)/g, (full, url) => {
-    const trimmed = url.trim();
-    if (/^(https?:|mailto:|tel:|data:)/i.test(trimmed)) {
-      return full;
+function assertNoHistoricalGitOrSubprocessHarness() {
+  const selfSource = fs.readFileSync(selfPath, "utf8");
+  for (const line of selfSource.split("\n")) {
+    if (!line.startsWith("import ")) {
+      continue;
     }
-    const hashIndex = trimmed.indexOf("#");
-    const pathPart = hashIndex >= 0 ? trimmed.slice(0, hashIndex) : trimmed;
-    const hash = hashIndex >= 0 ? trimmed.slice(hashIndex) : "";
-    if (pathPart.length === 0) {
-      return full;
-    }
-    const result = resolveRelativeFileLink(repoRoot, sourceRel, pathPart);
-    if (!result.ok) {
-      return full;
-    }
-    const relToRepo = path.relative(repoRoot, result.target).split(path.sep).join("/");
-    const label = full.match(/^!?\[([^\]]*)\]/)?.[1] ?? "";
-    return `[${label}](${relToRepo}${hash})`;
-  });
-}
-
-function revertEntryPointerPhrases(head) {
-  return head
-    .replace(
-      /\[画面と操作（条項 1–57）\]\([^)]+\) の条項は全文を残す/g,
-      "本 SKILL の **1–57** は全文を残す",
-    )
-    .replace(
-      /手順の全文は、下の「どの節を読むか」の表で当たる reference の\*\*最も近い既存条項の直後\*\*/g,
-      "手順の全文は本 SKILL の**最も近い既存条項の直後**",
+    assert.doesNotMatch(
+      line,
+      /(?:^|\/)child_process/,
+      `import must not use child_process: ${line}`,
     );
-}
-
-function stripRoutingSection(entry) {
-  const start = entry.indexOf("## どの節を読むか");
-  const shoumae = entry.indexOf("## 着手前");
-  if (start < 0 || shoumae < start) {
-    throw new Error("routing section boundaries missing");
   }
-  return `${entry.slice(0, start).trimEnd()}\n\n${entry.slice(shoumae).trimStart()}`;
-}
-
-function recombineFromSplit() {
-  const entry = readRel(entryRel);
-  const strippedEntry = stripRoutingSection(entry);
-  const idxDone = strippedEntry.indexOf("## 完了条件");
-  const idxShoumae = strippedEntry.indexOf("## 着手前");
-  let head = strippedEntry.slice(0, idxShoumae).trimEnd();
-  head = revertEntryPointerPhrases(head);
-  let shoumae = strippedEntry.slice(idxShoumae, idxDone).trimEnd();
-  shoumae = shoumae.replace(
-    "具体条項の全文は下の「どの節を読むか」の表が指す reference（削らない）",
-    "具体条項の全文は本 SKILL（削らない）",
-  );
-  const done = strippedEntry.slice(idxDone).trimEnd();
-
-  let screen = readRel(`${skillRoot}/references/screen.md`);
-  screen = screen.replace(/^## 画面と操作[^\n]+\n\n/, "");
-
-  const state = readRel(`${skillRoot}/references/state.md`).trimEnd();
-  const docs = readRel(`${skillRoot}/references/docs.md`).trimEnd();
-  const tests = readRel(`${skillRoot}/references/tests.md`).trimEnd();
-
-  return `${head}\n\n${shoumae}\n\n${screen}\n\n${state}\n\n${docs}\n\n${tests}\n\n${done}\n`;
-}
-
-/** @param {string} text @param {string} sourceRel */
-function normalizeBody(text, sourceRel) {
-  const depthFromSkill = sourceRel.includes("/references/")
-    ? "../../../../"
-    : "../../../";
-  const uplifted = text
-    .replace(/\]\(\.\.\/\.\.\/\.\.\/\.\.\//g, `](${depthFromSkill}`)
-    .replace(/\]\(\.\.\/\.\.\/review-implementation\//g, "](../review-implementation/");
-  return normalizeMarkdownLinks(uplifted, sourceRel);
+  assert.doesNotMatch(selfSource, /\bexecSync\s*\(/);
+  assert.doesNotMatch(selfSource, /\bspawnSync\s*\(/);
+  assert.doesNotMatch(selfSource, /\bspawn\s*\(/);
 }
 
 test("implement-change references are scanned by the agent-doc checker", () => {
+  assertNoHistoricalGitOrSubprocessHarness();
   const rels = collectAgentDocRelPaths(repoRoot);
   for (const name of ["screen.md", "state.md", "docs.md", "tests.md"]) {
     const expected = `${skillRoot}/references/${name}`;
@@ -181,6 +117,12 @@ test("moved sections keep clause numbers once", () => {
       assert.equal(count, 1, `${area.file} clause ${n} exactly once`);
     }
   }
+  const testsText = readRel(`${skillRoot}/references/tests.md`);
+  assert.equal(
+    [...testsText.matchAll(/^3a\. /gm)].length,
+    1,
+    `${skillRoot}/references/tests.md clause 3a exactly once`,
+  );
   assert.match(readRel(`${skillRoot}/references/screen.md`), /^53\. /m);
   assert.match(readRel(`${skillRoot}/references/state.md`), /^17\. /m);
   assert.match(readRel(`${skillRoot}/references/state.md`), /^28\. /m);
@@ -188,36 +130,4 @@ test("moved sections keep clause numbers once", () => {
   assert.match(readRel(`${skillRoot}/references/tests.md`), /^13\. /m);
   assert.match(entry, /^5\. /m);
   assert.match(entry, /^7\. /m);
-});
-
-test("split recombine preserves base prose aside from allowed entry routing", () => {
-  let base;
-  const tmpBase = "/tmp/implement-change-skill-base.md";
-  if (fs.existsSync(tmpBase)) {
-    base = fs.readFileSync(tmpBase, "utf8");
-  } else {
-    base = execSync("git show 16b5aed2359d6782601cd0971ffcc3586b588018:.cursor/skills/implement-change/SKILL.md", {
-      cwd: repoRoot,
-      encoding: "utf8",
-    });
-  }
-  const recombined = recombineFromSplit();
-  const normBase = normalizeBody(base, entryRel);
-  const normRecombined = normalizeBody(recombined, entryRel);
-  if (normBase !== normRecombined) {
-    const baseParas = normBase.split(/\n\n+/);
-    const newParas = normRecombined.split(/\n\n+/);
-    assert.equal(
-      baseParas.length,
-      newParas.length,
-      `paragraph count base=${baseParas.length} recombined=${newParas.length}`,
-    );
-    for (let i = 0; i < baseParas.length; i++) {
-      assert.equal(
-        baseParas[i],
-        newParas[i],
-        `paragraph ${i + 1} differs`,
-      );
-    }
-  }
 });

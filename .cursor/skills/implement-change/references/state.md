@@ -33,4 +33,3 @@
 29. Windows API を `windows-sys` で呼ぶときは、`Cargo.toml` に書いた版のクレートで、その関数があるモジュールと feature を見てから使う。別の版にあるモジュール名だけで feature を足さない。`#[cfg(windows)]` の中は macOS の Clippy ではコンパイルされない。unsafe な関数は unsafe ブロックで呼び、Windows の `cargo clippy -- -D warnings` が通る形にする
 30. 計画が文書の入口を関数名で挙げたときは、同じフックで文書を差し替える残りの関数も照合し、同じ片付けや副作用が抜けていないかを見る
 31. `src/model/` でシンボルを再エクスポートするときは、import ブロックの途中に `export` を挟まない。import をまとめたあとに `export { ... } from` を置く（`tasks.ts` の `forEachTask` / `mapTasks` と同型）。**ガード:** P-AG-06（review-implementation「model の export 配置」）
-
