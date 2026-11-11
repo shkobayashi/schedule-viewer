@@ -19,8 +19,10 @@ const root = process.argv[2] ?? repoRoot;
 /** 付録 ID 一覧の承認済みハッシュ。変えるときは、行の追加か削除の理由を同じ変更に書く。 */
 export const EXPECTED_CASE_ID_SHA256 = "2cca659b56960ebd29c9af6616cc5929c846d1dc334470483b5d7b445549698c";
 
-const plannedIssues = new Set(["535", "536", "537", "538", "540", "541", "543", "544", "545", "547"]);
+/** 付録・対応表・手順「扱い」で `自動化予定:#` に許可する Issue。一覧を変えるときは regression.md の冒頭と揃える。 */
+const REGRESSION_PLANNED_ISSUES = new Set(["541", "543"]);
 const errors: string[] = [];
+const fileCache = new Map<string, string>();
 
 const features = readRepo("docs/user-manual/features.md");
 const intent = readRepo("docs/user-manual/find-by-intent.md");
@@ -113,7 +115,21 @@ for (const line of caseRows) {
   if ((kind === "手動のまま" || kind === "一部手動") && !dest.includes("手動のまま:")) {
     errors.push(`${id} の手動のままには理由が要る`);
   }
+  if (kind === "一部手動" && !dest.includes("自動:")) {
+    errors.push(`${id} の一部手動に自動参照が無い。手動のままへ移す`);
+  }
   checkDestination(`${kind} ${dest}`, id);
+}
+
+for (const match of scenarios.matchAll(/### (RG-[A-Z0-9-]+)\n([\s\S]*?)(?=\n### |\n## |$)/g)) {
+  const stepId = match[1];
+  const section = match[2];
+  const handling = section.includes("扱い:") ? section.split("扱い:").slice(1).join("扱い:") : "";
+  if (handling.length === 0) continue;
+  checkPlannedIssueRefs(handling, stepId);
+  for (const ref of autoRefsFrom(handling)) {
+    assertAutoRefNotSkipped(ref, stepId);
+  }
 }
 
 for (const id of caseIds) {
@@ -154,6 +170,11 @@ function matrixRowsFrom(text: string): { id: string; item: string; kind: string;
 }
 
 function checkDestination(text: string, label: string): void {
+  const kindPrefix = text.split(" ")[0];
+  if (kindPrefix === "一部手動" && !text.includes("自動:")) {
+    errors.push(`${label} の一部手動に自動参照が無い。手動のままへ移す`);
+  }
+  checkPlannedIssueRefs(text, label);
   const hasManual = text.includes("手動:");
   const manuals = [...text.matchAll(/手動:(RG-[A-Z0-9-]+)/g)];
   if (
@@ -183,26 +204,120 @@ function checkDestination(text: string, label: string): void {
       errors.push(`${label} の ${id} に操作か期待か扱いが無い`);
     }
   }
-  for (const match of text.matchAll(/自動:(\S+?)#([^。\n|]+)/g)) {
-    const file = match[1];
-    const name = match[2].trim();
-    const absolute = join(repoRoot, file);
+  for (const ref of autoRefsFrom(text)) {
+    const absolute = resolveTestFile(ref.file);
     if (!existsSync(absolute)) {
-      errors.push(`${label} の自動テストが無い: ${file}`);
+      errors.push(`${label} の自動テストが無い: ${ref.file}`);
       continue;
     }
-    if (!readFileSync(absolute, "utf8").includes(name)) {
-      errors.push(`${label} のテスト名が ${file} に無い: ${name}`);
+    const content = readCached(absolute);
+    if (!content.includes(ref.name)) {
+      errors.push(`${label} のテスト名が ${ref.file} に無い: ${ref.name}`);
+      continue;
     }
-  }
-  for (const match of text.matchAll(/自動化予定:#(\d+)/g)) {
-    if (!plannedIssues.has(match[1])) {
-      errors.push(`${label} の自動化予定 #${match[1]} は後続の Issue ではない`);
-    }
+    assertAutoRefNotSkipped(ref, label);
   }
   if (text.includes("理由:") && text.split("理由:")[1].trim().length < 4) {
     errors.push(`${label} の対象外の理由が無い`);
   }
+}
+
+function autoRefsFrom(text: string): { file: string; name: string }[] {
+  const refs: { file: string; name: string }[] = [];
+  for (const match of text.matchAll(/自動:([^\s#]+)#([^。\n|]+)/g)) {
+    refs.push({ file: match[1], name: match[2].trim() });
+  }
+  return refs;
+}
+
+function checkPlannedIssueRefs(text: string, label: string): void {
+  for (const match of text.matchAll(/自動化予定:\s*#(\d+)/g)) {
+    if (!REGRESSION_PLANNED_ISSUES.has(match[1])) {
+      errors.push(`${label} の自動化予定 #${match[1]} は許可されていない（#541 と #543 のみ）`);
+    }
+  }
+}
+
+function resolveTestFile(file: string): string {
+  const inSandbox = join(root, file);
+  if (existsSync(inSandbox)) return inSandbox;
+  return join(repoRoot, file);
+}
+
+function readCached(absolute: string): string {
+  const cached = fileCache.get(absolute);
+  if (cached != null) return cached;
+  const content = readFileSync(absolute, "utf8");
+  fileCache.set(absolute, content);
+  return content;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * `自動:` にだけ適用する。Rust の #[ignore] と JS/TS の it.skip/test.skip、describe.skip 直下を見る。
+ * 動的 skip や別ファイルの同名は判定しない（限界）。
+ */
+function assertAutoRefNotSkipped(ref: { file: string; name: string }, label: string): void {
+  const absolute = resolveTestFile(ref.file);
+  const content = readCached(absolute);
+  if (ref.file.endsWith(".rs")) {
+    if (isRustTestIgnored(content, ref.name)) {
+      errors.push(`${label} の自動参照が #[ignore] 付き: ${ref.file}#${ref.name}`);
+    }
+    return;
+  }
+  if (isJsTestSkipped(content, ref.name)) {
+    errors.push(`${label} の自動参照が skip 付き: ${ref.file}#${ref.name}`);
+  }
+}
+
+function isRustTestIgnored(content: string, testName: string): boolean {
+  const lines = content.split("\n");
+  const fnPattern = new RegExp(`^fn\\s+${escapeRegExp(testName)}\\s*\\(`);
+  const fnLine = lines.findIndex((line) => fnPattern.test(line));
+  if (fnLine < 0) return false;
+  for (let i = fnLine - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (line.length === 0) continue;
+    if (line.startsWith("#[")) {
+      if (/^#\[ignore\b/.test(line)) return true;
+      continue;
+    }
+    break;
+  }
+  return false;
+}
+
+function isJsTestSkipped(content: string, testName: string): boolean {
+  const quoted = escapeRegExp(testName);
+  const direct = new RegExp(`(?:it|test)\\.skip\\s*\\(\\s*['"\`]${quoted}['"\`]`);
+  if (direct.test(content)) return true;
+  return isInsideDescribeSkipBlock(content, testName);
+}
+
+function isInsideDescribeSkipBlock(content: string, testName: string): boolean {
+  const lines = content.split("\n");
+  let depth = 0;
+  let skipped = false;
+  const testLine = new RegExp(`(?:it|test)\\s*\\(\\s*['"\`]${escapeRegExp(testName)}['"\`]`);
+  for (const line of lines) {
+    if (/describe\.skip\s*\(/.test(line)) {
+      skipped = true;
+      depth = 1;
+      continue;
+    }
+    if (!skipped) continue;
+    if (testLine.test(line)) return true;
+    if (/(?:describe|describe\.skip)\s*\(/.test(line)) depth += 1;
+    if (/\}\s*\)\s*;?\s*$/.test(line.trim()) || /^\s*\}\)\s*;/.test(line)) {
+      depth -= 1;
+      if (depth <= 0) skipped = false;
+    }
+  }
+  return false;
 }
 
 function stepSection(id: string): string {

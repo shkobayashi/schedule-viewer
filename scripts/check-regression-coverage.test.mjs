@@ -191,6 +191,77 @@ test("a fourth-level heading in the feature manual fails", () => {
   });
 });
 
+test("一部手動 without 自動 fails", () => {
+  withCopy((root) => {
+    const path = join(root, "docs/regression-tc.md");
+    const lines = readFileSync(path, "utf8").split("\n");
+    const idx = lines.findIndex((line) => line.includes("| 一部手動 |") && line.includes("自動:"));
+    assert.ok(idx >= 0);
+    lines[idx] = lines[idx].replace(/自動:[^|。]+/g, "");
+    writeFileSync(path, lines.join("\n"));
+    assert.failWith(run(root), "一部手動に自動参照が無い");
+  });
+});
+
+test("disallowed 自動化予定 issue fails", () => {
+  withCopy((root) => {
+    replace(root, "docs/regression-tc.md", "自動化予定:#541", "自動化予定:#999");
+    assert.failWith(run(root), "許可されていない");
+  });
+});
+
+test("#[ignore] on an 自動 reference fails", () => {
+  withCopy((root) => {
+    const rustPath = join(root, "src-tauri/tests/fixture_ignore.rs");
+    mkdirSync(dirname(rustPath), { recursive: true });
+    writeFileSync(
+      rustPath,
+      `#[test]\n#[ignore = "xvfb"]\nfn ignored_sample() {}\n`,
+    );
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src-tauri/tests/fixture_ignore.rs#ignored_sample",
+    );
+    assert.failWith(run(root), "#[ignore]");
+  });
+});
+
+test("it.skip on an 自動 reference fails", () => {
+  withCopy((root) => {
+    const testPath = join(root, "src/model/fixture-skip.test.ts");
+    mkdirSync(dirname(testPath), { recursive: true });
+    writeFileSync(testPath, `import { it } from "vitest";\nit.skip("skipped_sample", () => {});\n`);
+    replace(
+      root,
+      "docs/regression-matrix.md",
+      "自動:src/components/GuideDialog.dom.test.tsx#shows the four headings while open",
+      "自動:src/model/fixture-skip.test.ts#skipped_sample",
+    );
+    assert.failWith(run(root), "skip 付き");
+  });
+});
+
+test("手動のまま reason mentioning a test name does not fail on skip", () => {
+  withCopy((root) => {
+    const rustPath = join(root, "src-tauri/tests/fixture_ignore.rs");
+    mkdirSync(dirname(rustPath), { recursive: true });
+    writeFileSync(
+      rustPath,
+      `#[test]\n#[ignore = "xvfb"]\nfn ignored_sample() {}\n`,
+    );
+    replace(
+      root,
+      "docs/regression-tc.md",
+      "手動のまま:☰ の「新しいウィンドウで開く」でファイルダイアログから選ぶ操作は試験が行わない",
+      "手動のまま:ignored_sample は試験が行わない",
+    );
+    const result = run(root);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  });
+});
+
 function run(cwd) {
   return spawnSync("npx", ["tsx", "scripts/check-regression-coverage.ts", cwd], {
     encoding: "utf8",
