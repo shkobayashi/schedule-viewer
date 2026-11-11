@@ -1,10 +1,6 @@
 name: Browser regression
 
 on:
-  # 計測用。最終差分から外す。
-  push:
-    branches:
-      - cursor/issue-566-browser-regression-ci-5397
   pull_request:
     branches: [develop, next]
     types: [opened, synchronize]
