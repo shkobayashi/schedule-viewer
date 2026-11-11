@@ -957,11 +957,14 @@ describe("App integration (Issue 548)", () => {
     const schedulePath = "/tmp/regression/file-07g-explicit-queue/plan.json";
     const scheduleText = readRegressionText("smoke.schedule.json");
     const canonical = canonicalText(scheduleText);
+    const diskBaseline = parseScheduleText(canonical);
+    if (!diskBaseline.ok) throw new Error(diskBaseline.message);
     const { flow, document } = await mountApp({ path: schedulePath, contents: canonical });
     flow.setDisk(schedulePath, canonical);
 
     const design = document.categories[0]?.groups[0]?.tasks.find((t) => t.name === "設計");
-    if (!design) throw new Error("設計 missing");
+    const survey = document.categories[0]?.groups[0]?.tasks.find((t) => t.name === "調査");
+    if (!design || !survey) throw new Error("設計 or 調査 missing");
     fireEvent.click(screen.getByText("設計"));
     const end = screen.getByLabelText("終了");
     fireEvent.change(end, { target: { value: "2026-04-12" } });
@@ -981,17 +984,39 @@ describe("App integration (Issue 548)", () => {
     expect(column.textContent).toMatch(/2026-04-12/);
     expect(column.textContent).not.toMatch(/2026-04-13/);
 
-    fireEvent.change(end, { target: { value: "2026-04-14" } });
-    await waitFor(() => expect(end).toHaveValue("2026-04-14"));
-    fireEvent.click(await screen.findByRole("button", { name: "未保存" }));
-    await waitFor(() => expect(column.textContent).toMatch(/2026-04-14/));
-    expect(within(column).getByRole("option", { name: /設計/ })).toBeInTheDocument();
+    const diskDoc = cloneWithTaskEnd(diskBaseline.document, survey.id, "2026-04-06");
+    const diskJson = documentToJsonString(diskDoc);
+    flow.setDisk(schedulePath, diskJson);
 
+    const assertDiskSurveyInColumn = () => {
+      const surveyRow = within(column).getByRole("option", { name: /調査/ });
+      fireEvent.click(surveyRow);
+      const detail = within(column).getByLabelText("差分の詳細");
+      expect(detail.textContent).toMatch(/2026-04-06/);
+      const designRow = within(column).getByRole("option", { name: /設計/ });
+      fireEvent.click(designRow);
+      expect(within(column).getByLabelText("差分の詳細").textContent).toMatch(/2026-04-13/);
+    };
+
+    fireEvent.click(await screen.findByRole("button", { name: "未保存" }));
+    await waitFor(() => {
+      expect(within(column).getByRole("option", { name: /調査/ })).toBeInTheDocument();
+      expect(column.textContent).toMatch(/2026-04-06/);
+    });
+    assertDiskSurveyInColumn();
+
+    list.focus();
     fireEvent.blur(list);
     screen.getByLabelText("スケジュールチャート").focus();
-    await waitFor(() => expect(column.textContent).toMatch(/2026-04-14/));
-    expect(column.textContent).not.toMatch(/2026-04-13/);
-    expect(flow.getDisk(schedulePath)).toBe(canonical);
+    await waitFor(() => {
+      const surveyRow = within(column).queryByRole("option", { name: /調査/ });
+      expect(surveyRow).toBeInTheDocument();
+    });
+    assertDiskSurveyInColumn();
+    expect(
+      within(column).queryByRole("option", { name: /調査/ })?.textContent,
+    ).not.toMatch(/2026-04-03/);
+    expect(flow.getDisk(schedulePath)).toBe(diskJson);
   });
 
   it("TC-FILE-07: copy from the diff strip writes the diff text", async () => {
@@ -1014,7 +1039,7 @@ describe("App integration (Issue 548)", () => {
     const bodyBefore = column.textContent;
     fireEvent.click(within(column).getByRole("button", { name: "コピー" }));
     await waitFor(() => expect(writeText).toHaveBeenCalled());
-    expect(String(writeText.mock.calls[0]?.[0])).toMatch(/2026-04-12/);
+    expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/2026-04-12/));
     expect(column.textContent).toBe(bodyBefore);
   });
 
@@ -1043,16 +1068,37 @@ describe("App integration (Issue 548)", () => {
       await flushMicrotasks(80);
     });
     expect(column.textContent).toMatch(/2026-04-12/);
+    expect(column.textContent).not.toMatch(/2026-04-13/);
 
-    fireEvent.change(end, { target: { value: "2026-04-12" } });
-    await waitFor(() => expect(end).toHaveValue("2026-04-12"));
     fireEvent.click(await screen.findByRole("button", { name: "未保存" }));
-    await waitFor(() => expect(column.textContent).toMatch(/2026-04-12/));
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-13/));
 
+    list.focus();
+    fireEvent.change(end, { target: { value: "2026-04-14" } });
+    await waitFor(() => expect(end).toHaveValue("2026-04-14"));
+    await act(async () => {
+      await flushMicrotasks(80);
+    });
+    expect(column.textContent).toMatch(/2026-04-13/);
+    expect(column.textContent).not.toMatch(/2026-04-14/);
+
+    list.focus();
+    await act(async () => {
+      fireEvent.change(end, { target: { value: "2026-04-13" } });
+      fireEvent.click(screen.getByRole("button", { name: "未保存" }));
+    });
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-13/));
+
+    list.focus();
     fireEvent.blur(list);
     screen.getByLabelText("スケジュールチャート").focus();
-    await waitFor(() => expect(column.textContent).toMatch(/2026-04-12/));
-    expect(column.textContent).not.toMatch(/2026-04-13/);
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-13/));
+    expect(column.textContent).not.toMatch(/2026-04-14/);
+    const designRow = within(column).getByRole("option", { name: /設計/ });
+    fireEvent.click(designRow);
+    const detail = within(column).getByLabelText("差分の詳細").textContent ?? "";
+    expect(detail).toMatch(/2026-04-13/);
+    expect(detail).not.toMatch(/2026-04-14/);
   });
 });
 
