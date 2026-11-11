@@ -14,6 +14,7 @@ export default defineConfig({
   globalTimeout: 20 * 60_000,
   reporter: process.env.CI ? "github" : "list",
   use: {
+    acceptDownloads: true,
     viewport: { width: 1280, height: 800 },
     locale: "ja-JP",
     timezoneId: "Asia/Tokyo",

@@ -26,15 +26,15 @@
 | MX-H-16 | UI | 絞り込む | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#keeps only tasks whose name contains the query |
 | MX-H-17 | 計算 | 絞り込む | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#keeps only tasks whose name contains the query |
 | MX-H-18 | 見た目 | 色と線の見かた | 手動のまま | 手動:RG-S2-6。手動のまま:色が地に溶けて読めるかは人が判断する |
-| MX-H-19 | 見た目 | 色と線の見かた | 自動化予定 | 自動化予定:#536 |
+| MX-H-19 | 見た目 | 色と線の見かた | 自動済み | 自動:e2e/browser-regression/specs/view-appearance.spec.ts#fills in-progress bars with a darker progress segment, done in green, and not-started in gray。自動:e2e/browser-regression/specs/view-appearance.spec.ts#shows tentative hatch, committed solid bar, and no 未確定 in the task list |
 | MX-H-20 | UI | 編集する | 自動済み | 自動:e2e/browser-regression/specs/smoke-view-nav.spec.ts#moves 設計 to 2026-04-06 through 2026-04-10 on release and adds one undo (EDIT-02) |
 | MX-H-21 | 計算 | 編集する | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#toggles 設計 confidence without moving dates and one undo restores it |
 | MX-H-22 | 計算 | 選択と移動 | 自動済み | 自動:src/model/taskSelection.test.ts#selects a range with shift+click |
 | MX-H-23 | UI | 選択と移動 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
 | MX-H-24 | UI | 詳細パネルと線 | 手動のまま | 手動:RG-F1-1。手動のまま:変換中の Enter は実機の日本語変換でしか確認できない |
-| MX-H-25 | 見た目 | 詳細パネルと線 | 自動化予定 | 手動:RG-F4-1。自動化予定:#536 |
+| MX-H-25 | 見た目 | 詳細パネルと線 | 自動済み | 自動:e2e/browser-regression/specs/links-f4.spec.ts#deletes the hovered predecessor with Delete and restores it with undo |
 | MX-H-26 | UI | タスクへの色 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color |
-| MX-H-27 | UI | タスクへの色 | 自動化予定 | 自動化予定:#536 |
+| MX-H-27 | UI | タスクへの色 | 一部手動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color。自動:e2e/browser-regression/specs/settings-catalog.spec.ts#shows the color field on detail, bulk, and duplicate, and separates leave-unchanged from none。自動:e2e/browser-regression/specs/view-appearance.spec.ts#leaves unknown color ids and catalog-only risk unpainted, and hides the color field on the startup sample。手動のまま:色一覧の行の地色と Excel 行地は人が見る |
 | MX-H-28 | 計算 | 右クリックと複製 | 自動済み | 自動:src/operations/contextMenuItems.test.ts#lists only delete when several tasks are selected |
 | MX-H-29 | UI | 右クリックと複製 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#duplicates 調査 on full.schedule with unchanged pointed tasks |
 | MX-H-30 | UI | ノートと名前 | 手動のまま | 手動:RG-F1-2。手動のまま:実機の変換確定は模擬イベントで代用しない |
@@ -42,8 +42,8 @@
 | MX-H-32 | UI | 追加と削除 | 一部自動 | 自動:src/test/headlessScheduleSession.regression.test.ts#restores 調査 note and 設計 predecessor after delete undo and redo。自動:src/test/headlessScheduleSession.regression.test.ts#restores empty group 後半 after removeGroup and one undo。手動:RG-S3-9 |
 | MX-H-33 | 計算 | 取り消しと、入力中のキー | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#undo and redo restore the exact saved schedule |
 | MX-H-34 | UI | 取り消しと、入力中のキー | 手動のまま | 手動:RG-F1-3。手動のまま:変換中の Escape は実機の日本語変換でしか確認できない |
-| MX-H-35 | 見た目 | 書き出す | 自動化予定 | 手動:RG-F5-2。自動化予定:#536 |
-| MX-H-36 | 計算 | 書き出す | 自動化予定 | 自動化予定:#536 |
+| MX-H-35 | 見た目 | 書き出す | 一部手動 | 手動:RG-F5-2。自動:e2e/browser-regression/specs/export-f5.spec.ts#downloads HTML and SVG of the smoke schedule and opens the HTML。自動:e2e/browser-regression/specs/export-f5.spec.ts#matches exported summary bars, hollow milestones, and hatches to the screen |
+| MX-H-36 | 計算 | 書き出す | 一部自動 | 自動:src/model/exportExcel.test.ts#puts the smoke task name, start date, and Japanese text in the excel payload。自動:src/model/exportHtml.test.ts#refuses export when visible rows exceed 10000。自動:src/model/exportExcel.test.ts#refuses export when visible rows exceed 10000 |
 | MX-H-37 | UI | 設定 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows |
 | MX-H-38 | UI | 設定 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the status editor open and shows the saved status name。自動:src/components/settingsHierarchyDiff.dom.test.tsx#stores dark and clears the key when returning to the system scheme。自動:src/components/settingsHierarchyDiff.dom.test.tsx#stores the display scale and applies it as --s。自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-07: shows the version on display, members, and updates in settings |
 | MX-H-39 | UI | ほかのプログラムがファイルを書き換えたとき | 一部自動 | 自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SYNC-01: applies a clean disk change after one poll interval。手動:RG-F7-1 |
@@ -79,14 +79,14 @@
 | MX-O-9 | OS | 保存 | 一部手動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#saves the open path without a dialog and the design end becomes 2026-04-10 (FILE-02)。手動のまま:OS の保存ダイアログは mock だけでは足りない。 |
 | MX-O-10 | OS | 別名保存 | 一部自動 | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#save as then save writes the second change to the new path。手動:RG-S4-5 |
 | MX-O-11 | OS | 別名保存 | 手動のまま | 手動のまま:OS の別名保存ダイアログは mock だけでは足りない。 |
-| MX-O-12 | 見た目 | 書き出し（HTML / SVG / Excel） | 自動化予定 | 手動:RG-F5-2。自動化予定:#536 |
-| MX-O-13 | 計算 | 書き出し（HTML / SVG / Excel） | 自動化予定 | 自動化予定:#536 |
+| MX-O-12 | 見た目 | 書き出し（HTML / SVG / Excel） | 一部手動 | 手動:RG-F5-2。自動:e2e/browser-regression/specs/export-f5.spec.ts#downloads HTML and SVG of the smoke schedule and opens the HTML。自動:e2e/browser-regression/specs/export-f5.spec.ts#exports only the rows left by the name filter, including rows below the viewport |
+| MX-O-13 | 計算 | 書き出し（HTML / SVG / Excel） | 一部自動 | 自動:src/model/exportExcel.test.ts#puts the smoke task name, start date, and Japanese text in the excel payload。自動:src/model/exportHtml.test.ts#refuses export when visible rows exceed 10000。自動:src/model/exportExcel.test.ts#refuses export when visible rows exceed 10000 |
 | MX-O-14 | OS | 設定ファイルを新しいフォルダへ書き出す | 一部手動 | 自動:src-tauri/src/lib.rs#write_workspace_bundle_to_folder_omits_builtin_statuses_and_keeps_field_order。手動のまま:OS のフォルダ選択は mock だけでは足りない。 |
 | MX-O-15 | UI | JSON を表示 | 自動済み | 自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#JsonDialog shows the edited task name and save is not invoked |
 | MX-O-16 | 計算 | 差分を表示 | 自動済み | 自動:src/model/scheduleDiff.test.ts#says there is no difference when the documents match |
-| MX-O-17 | UI | 差分を表示 | 一部自動 | 手動:RG-F11-1。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動化予定:#536 |
-| MX-O-18 | UI | 差分をコピー | 一部自動 | 手動:RG-F11-4。自動:src/components/settingsHierarchyDiff.dom.test.tsx#copies diff text to the clipboard。自動化予定:#536 |
-| MX-O-19 | UI | 未保存の差分を開く（状態バー） | 一部自動 | 手動:RG-F11-1。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#the status bar opens the diff from the real file bytes。自動化予定:#536 |
+| MX-O-17 | UI | 差分を表示 | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動:e2e/browser-regression/specs/settings-diff.spec.ts#opens the diff from the right-edge handle and shows the old and new end |
+| MX-O-18 | UI | 差分をコピー | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#copies diff text to the clipboard。自動:e2e/browser-regression/specs/settings-diff.spec.ts#places the copy notice off the diff column and scrolls only the list at height 800。自動:e2e/browser-regression/specs/settings-diff.spec.ts#collapses back to the handle and copies with the shortcut without opening the column |
+| MX-O-19 | UI | 未保存の差分を開く（状態バー） | 自動済み | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the old and new end dates in the diff column。自動:src/hooks/scheduleFile/fileSaveFlow.dom.test.tsx#the status bar opens the diff from the real file bytes。自動:e2e/browser-regression/specs/settings-diff.spec.ts#opens the diff from the right-edge handle and shows the old and new end |
 | MX-O-20 | UI | 外部ファイル更新の確認 | 一部自動 | 自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SYNC-01b: keep local edits and show the deferred reload banner |
 | MX-O-21 | OS | 外部ファイル更新の確認 | 手動のまま | 手動のまま:OS の外部ファイル更新確認ダイアログは mock だけでは足りない。 |
 | MX-O-22 | UI | 更新を確認 | 一部自動 | 自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m: manual check with no update shows the latest message。手動:RG-F14-2 |
@@ -126,8 +126,8 @@
 | MX-O-56 | UI | 絞り込みをすべて解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#filters tags and clears one chip without clearing lineage |
 | MX-O-57 | UI | 系統を表示／解除 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
 | MX-O-58 | UI | 系統（繋がりも辿る） | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
-| MX-O-59 | UI | 線を引くモード | 自動化予定 | 手動:RG-F4-2。自動化予定:#536 |
-| MX-O-60 | 見た目 | 線を引くモード | 自動化予定 | 自動化予定:#536 |
+| MX-O-59 | UI | 線を引くモード | 一部手動 | 自動:e2e/browser-regression/specs/links-f4.spec.ts#cancels a link drag onto an earlier task with Escape。手動のまま:線を引くモードの追随矢印は通常色のままなので、ドラッグ中の赤と太さは人が見る |
+| MX-O-60 | 見た目 | 線を引くモード | 一部手動 | 自動:e2e/browser-regression/specs/links-f4.spec.ts#cancels a link drag onto an earlier task with Escape。手動のまま:線を引くモードの追随矢印は通常色のままなので、ドラッグ中の赤と太さは人が見る |
 | MX-O-61 | UI | マイルストン帯の印を非表示 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#hides milestone bands and marks from the panel and the menu |
 | MX-O-62 | UI | このマイルストンだけ表示 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#hides milestone bands and marks from the panel and the menu |
 | MX-O-63 | UI | マイルストン帯の行を非表示 | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#hides milestone bands and marks from the panel and the menu |
@@ -150,13 +150,13 @@
 | MX-O-80 | UI | ノートを開く | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#opens the note with ctrl+n and shows the shortcut |
 | MX-O-81 | UI | 系統を表示／解除（タスク） | 自動済み | 自動:src/components/searchErrorKeys.dom.test.tsx#toggles lineage from the toolbar and the task menu |
 | MX-O-82 | UI | 確定／未確定（タスク） | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#toggles 設計 confidence without moving dates and one undo restores it |
-| MX-O-83 | 見た目 | 確定／未確定（マイルストン） | 自動化予定 | 手動:RG-F4-3。自動化予定:#536 |
-| MX-O-84 | UI | マイルストンを編集 | 一部自動 | 自動化予定:#536 |
+| MX-O-83 | 見た目 | 確定／未確定（マイルストン） | 自動済み | 自動:e2e/browser-regression/specs/links-f4.spec.ts#shows a filled approval diamond and a hollow tentative diamond。自動:e2e/browser-regression/specs/export-f5.spec.ts#matches exported summary bars, hollow milestones, and hatches to the screen |
+| MX-O-84 | UI | マイルストンを編集 | 自動済み | 自動:e2e/browser-regression/specs/milestone-links.spec.ts#edits a milestone from the name menu and undoes |
 | MX-O-85 | 計算 | マイルストンを削除 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#adds and deletes a milestone, then undo restores it |
 | MX-O-86 | UI | マイルストンを削除 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#clears 調査 milestoneId when 承認 is deleted and undo restores both。自動:e2e/browser-regression/specs/milestone-links.spec.ts#deletes a milestone used as a filter and leaves the selection |
-| MX-O-87 | UI | 前後の線を外す | 自動化予定 | 手動:RG-F4-1。自動化予定:#536 |
-| MX-O-88 | 見た目 | 前後の線を外す | 自動化予定 | 自動化予定:#536 |
-| MX-O-89 | UI | 繋がりを外す | 自動化予定 | 手動:RG-F4-4。自動化予定:#536 |
+| MX-O-87 | UI | 前後の線を外す | 自動済み | 自動:e2e/browser-regression/specs/links-f4.spec.ts#deletes the hovered predecessor with Delete and restores it with undo |
+| MX-O-88 | 見た目 | 前後の線を外す | 自動済み | 自動:e2e/browser-regression/specs/links-f4.spec.ts#deletes the hovered predecessor with Delete and restores it with undo |
+| MX-O-89 | UI | 繋がりを外す | 自動済み | 自動:e2e/browser-regression/specs/links-f4.spec.ts#deletes the hovered connection arc with Delete and restores the label with undo |
 | MX-O-90 | UI | カテゴリ名を変更 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#undo restores 計画 name and keeps category id |
 | MX-O-91 | UI | 下にカテゴリを追加 | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#undo removes a category added under 計画 and its default グループ。自動:src/test/headlessScheduleSession.regression.test.ts#appends category and default group at document end then undo removes both |
 | MX-O-92 | UI | グループを追加（カテゴリ下） | 自動済み | 自動:src/test/headlessScheduleSession.regression.test.ts#appends a group under the chosen category and one undo removes it |
@@ -188,7 +188,7 @@
 | MX-O-118 | 計算 | 起点・画面・ファイルの分類を読む | 自動済み | 自動:src/model/baselineDiffs.test.ts#reports no changes when baseline, screen, and file match |
 | MX-O-119 | 計算 | 起点・画面・ファイルの分類を読む | 自動化予定 | 自動化予定:#543 |
 | MX-O-120 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the member editor open and shows the saved display name on the rows。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the status editor open and shows the saved status name。自動:src/components/settingsHierarchyDiff.dom.test.tsx#keeps the row fill bound to the renamed color。自動:src/hooks/scheduleFile/externalReloadFlow.dom.test.tsx#TC-SET-02e: closes the member catalog editor on reload without writing the draft |
-| MX-O-121 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 自動化予定 | 自動化予定:#536 |
+| MX-O-121 | UI | メンバー／色／ステータス／拡張項目の一覧操作 | 一部自動 | 自動:e2e/browser-regression/specs/settings-catalog.spec.ts#keeps 200 percent and auto after reload。自動:e2e/browser-regression/specs/settings-catalog.spec.ts#shows catalog status colors, overdue borders, and lightning folds on the bars。自動:e2e/browser-regression/specs/settings-catalog.spec.ts#keeps extension definitions after reload and leaves schedule field values unsaved。手動のまま:編集用拡張の作成と statuses／colors 欠落時の表示は人が残す |
 | MX-O-122 | UI | JSON作成スキル・更新確認の設定 | 一部自動 | 自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the browser skill note, the seven skill names, and a disabled install button。自動:src/components/settingsHierarchyDiff.dom.test.tsx#shows the package version and omits the updates section in the browser。自動:src/components/settingsDesktopChrome.dom.test.tsx#shows the overwrite confirmation when install reports existing paths。自動:src/components/settingsDesktopChrome.dom.test.tsx#disables install and remove when every skill target is unchecked。自動:src/hooks/useAppAutoUpdate.flow.test.tsx#TC-SET-06m: manual check with no update shows the latest message |
 | MX-O-123 | 計算 | 説明のための見え方を掛ける | 自動済み | 自動:src/model/screenContext.test.ts#includes view.explanation when explanation view is active。自動:src/model/rows.test.ts#keeps only listed ids and ignores user filters and lineage |
 | MX-O-124 | 計算 | 説明の半透明・試しの計画 | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |

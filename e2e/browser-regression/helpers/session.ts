@@ -15,6 +15,10 @@ export const longSchedulePath = path.join(
   repoRoot,
   "examples/regression/long.schedule.json",
 );
+export const manyTasksSchedulePath = path.join(
+  repoRoot,
+  "examples/regression/many-tasks.schedule.json",
+);
 export const levels5SchedulePath = path.join(
   repoRoot,
   "examples/hierarchy/levels-5.schedule.json",
@@ -27,9 +31,29 @@ export const fullSchedulePath = path.join(
   repoRoot,
   "examples/regression/full.schedule.json",
 );
+export const fieldsSchedulePath = path.join(
+  repoRoot,
+  "examples/fields.schedule.json",
+);
 export const connectionsSchedulePath = path.join(
   repoRoot,
   "examples/connections/schedule.json",
+);
+export const manualColorsSchedulePath = path.join(
+  repoRoot,
+  "examples/manual-colors.schedule.json",
+);
+export const levels2SchedulePath = path.join(
+  repoRoot,
+  "examples/hierarchy/levels-2.schedule.json",
+);
+export const levels3SchedulePath = path.join(
+  repoRoot,
+  "examples/hierarchy/levels-3.schedule.json",
+);
+export const levels4SchedulePath = path.join(
+  repoRoot,
+  "examples/hierarchy/levels-4.schedule.json",
 );
 export const statusesRegressionPath = path.join(
   repoRoot,
@@ -43,6 +67,29 @@ export const fieldsRegressionPath = path.join(
   repoRoot,
   "examples/regression/fields.json",
 );
+export const brokenCalendarPath = path.join(
+  repoRoot,
+  "examples/regression/broken.calendar.json",
+);
+export const jp2026CalendarPath = path.join(
+  repoRoot,
+  "examples/jp-2026.calendar.json",
+);
+export const lightningSchedulePath = path.join(
+  repoRoot,
+  "examples/lightning/schedule.json",
+);
+export const lightningStatusesPath = path.join(
+  repoRoot,
+  "examples/lightning/statuses.json",
+);
+export const playgroundMembersPath = path.join(
+  repoRoot,
+  "examples/playground.members.json",
+);
+export const playgroundSchedulePath = path.join(repoRoot, "examples/playground.schedule.json");
+export const colorsSchedulePath = path.join(repoRoot, "examples/colors/schedule.json");
+export const colorsCatalogPath = path.join(repoRoot, "examples/colors/colors.json");
 
 export async function dismissBlockingUi(page: Page): Promise<void> {
   const firstRunClose = page.locator(".first-run-hint-card .modal-close-btn");
@@ -82,14 +129,21 @@ export async function openSmokeSchedule(page: Page): Promise<void> {
   await waitForTitle(page, "回帰確認");
 }
 
-export async function openSmokeScheduleManualScreenshot(page: Page): Promise<void> {
+/** Browser regression uses this port when diff must compare to an on-disk file (manual-screenshot shim). */
+export const BROWSER_DIFF_REGRESSION_PORT = 5174;
+
+export async function openScheduleFileManualScreenshot(
+  page: Page,
+  filePath: string,
+  title?: string,
+): Promise<void> {
   await page.waitForFunction(
     () => typeof window.__manualScreenshotApplyOpen === "function",
     null,
     { timeout: 60_000 },
   );
-  const contents = fs.readFileSync(smokeSchedulePath, "utf8");
-  const mockPath = `/Users/example/Documents/${path.basename(smokeSchedulePath)}`;
+  const contents = fs.readFileSync(filePath, "utf8");
+  const mockPath = `/Users/example/Documents/${path.basename(filePath)}`;
   await page.evaluate(
     async ({ pickPath, pickContents }) => {
       const apply = window.__manualScreenshotApplyOpen;
@@ -100,7 +154,13 @@ export async function openSmokeScheduleManualScreenshot(page: Page): Promise<voi
     },
     { pickPath: mockPath, pickContents: contents },
   );
-  await waitForTitle(page, "回帰確認");
+  if (title) {
+    await waitForTitle(page, title);
+  }
+}
+
+export async function openSmokeScheduleManualScreenshot(page: Page): Promise<void> {
+  await openScheduleFileManualScreenshot(page, smokeSchedulePath, "回帰確認");
 }
 
 export async function openLongSchedule(page: Page): Promise<void> {
@@ -269,4 +329,13 @@ export function smokeScheduleTitle(): string {
   const raw = fs.readFileSync(smokeSchedulePath, "utf8");
   const doc = JSON.parse(raw) as { title?: string };
   return doc.title ?? "回帰確認";
+}
+
+export async function readSidebarAppliedWidth(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const app = document.querySelector(".app");
+    if (!app) return 0;
+    const raw = getComputedStyle(app).getPropertyValue("--sidebar-w").trim();
+    return Number.parseFloat(raw) || 0;
+  });
 }

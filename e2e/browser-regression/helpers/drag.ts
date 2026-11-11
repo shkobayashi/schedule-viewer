@@ -161,6 +161,13 @@ export async function clickUndoOnce(page: Page): Promise<void> {
   await undo.click();
 }
 
+export async function clickRedoOnce(page: Page): Promise<void> {
+  const redo = page.getByRole("button", { name: "やり直し" });
+  await redo.waitFor({ state: "visible" });
+  await expect(redo).toBeEnabled();
+  await redo.click();
+}
+
 export async function isDetailNameFocused(page: Page): Promise<boolean> {
   return page.evaluate(() => document.activeElement?.id === "detailName");
 }

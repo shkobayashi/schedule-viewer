@@ -478,6 +478,21 @@ describe("schedule export documents", () => {
     expect(svg).toContain('fill="#FEF3C7"');
   });
 
+  it("refuses export when visible rows exceed 10000", () => {
+    const huge: VisibleRow[] = Array.from({ length: 10_001 }, (_, index) => ({
+      type: "task",
+      y: index * 32,
+      task: {
+        ...task,
+        id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+        name: `行${index}`,
+      },
+    }));
+    expect(() => buildScheduleHtml({ ...input(), visibleRows: huge })).toThrow(
+      "書き出し対象の行数が上限（10000 行）を超えています。絞り込みや折りたたみで行数を減らしてください。",
+    );
+  });
+
   it("omits fieldValues from HTML and SVG export", () => {
     const marker = "追加項目の値は書き出さない";
     const taskWithFields: Task = {

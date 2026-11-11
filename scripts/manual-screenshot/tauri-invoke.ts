@@ -4,6 +4,29 @@ type OpenPick = { path: string; contents: string };
 
 let pendingOpenPick: OpenPick | null = null;
 let openScheduleDiskContents: string | null = null;
+
+const DISK_GLOBAL_KEY = "__manualScreenshotOpenScheduleDisk";
+
+function syncDiskGlobal(contents: string | null): void {
+  if (typeof window === "undefined") return;
+  const globalStore = window as unknown as Record<string, unknown>;
+  if (contents == null) {
+    delete globalStore[DISK_GLOBAL_KEY];
+    return;
+  }
+  globalStore[DISK_GLOBAL_KEY] = contents;
+}
+
+function resolveDiskContents(): string | null {
+  if (openScheduleDiskContents != null) return openScheduleDiskContents;
+  if (typeof window === "undefined") return null;
+  const shared = (window as unknown as Record<string, unknown>)[DISK_GLOBAL_KEY];
+  if (typeof shared === "string") {
+    openScheduleDiskContents = shared;
+    return shared;
+  }
+  return null;
+}
 const memberCatalogBodies = new Map<string, string>();
 let selectedMemberCatalogId: string | null = null;
 const statusCatalogBodies = new Map<string, string>();
@@ -17,6 +40,12 @@ export function setManualScreenshotOpenPick(pick: OpenPick | null): void {
 
 export function setManualScreenshotDiskContents(contents: string | null): void {
   openScheduleDiskContents = contents;
+  syncDiskGlobal(contents);
+}
+
+function rememberOpenSchedule(contents: string): void {
+  openScheduleDiskContents = contents;
+  syncDiskGlobal(contents);
 }
 
 const MANUAL_SCREENSHOT_EXE_PATH =
@@ -186,7 +215,7 @@ export async function manualScreenshotInvoke(
     }
     case "accept_opened_schedule":
       if (typeof args.contents === "string") {
-        openScheduleDiskContents = args.contents;
+        rememberOpenSchedule(args.contents);
       }
       return null;
     case "acknowledge_schedule_file_contents":
@@ -195,11 +224,34 @@ export async function manualScreenshotInvoke(
       return null;
     case "check_schedule_file_changed":
       return false;
-    case "read_open_schedule_file":
-      if (openScheduleDiskContents == null) {
+    case "save_schedule_file": {
+      const saveAs = Boolean(args.saveAs);
+      const contents = String(args.contents ?? "");
+      const suggested = String(args.suggestedName ?? "schedule.json");
+      const expectedPath =
+        typeof args.expectedPath === "string" && args.expectedPath.length > 0
+          ? args.expectedPath
+          : null;
+      const path =
+        saveAs || expectedPath == null
+          ? `/Users/example/Documents/${suggested.endsWith(".json") ? suggested : `${suggested}.json`}`
+          : expectedPath;
+      rememberOpenSchedule(contents);
+      return path;
+    }
+    case "save_schedule_at_path": {
+      const path = String(args.path ?? "");
+      const contents = String(args.contents ?? "");
+      rememberOpenSchedule(contents);
+      return path;
+    }
+    case "read_open_schedule_file": {
+      const disk = resolveDiskContents();
+      if (disk == null) {
         throw new Error("開いているスケジュールファイルがありません");
       }
-      return openScheduleDiskContents;
+      return disk;
+    }
     case "read_members_app_data":
     case "write_members_app_data":
     case "read_calendar_app_data":

@@ -85,12 +85,14 @@ test("runs 今日 from the command palette and ignores the palette shortcut whil
       { timeout: 5_000 },
     )
     .toBe(true);
-  await page.locator(".sidebar-row.task", { hasText: "設計" }).first().click();
-  await page.getByRole("button", { name: "タイトルを変更" }).click();
-  await page.keyboard.down(process.platform === "darwin" ? "Meta" : "Control");
-  await page.keyboard.press("KeyP");
-  await page.keyboard.up(process.platform === "darwin" ? "Meta" : "Control");
+  await page.getByRole("button", { name: "階層の名前、意味、指示" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  const mod = process.platform === "darwin" ? "Meta" : "Control";
+  await page.keyboard.down(mod);
+  await page.keyboard.press("KeyK");
+  await page.keyboard.up(mod);
   await expect(page.getByRole("searchbox", { name: "コマンドパレット" })).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toBeVisible();
 });
 
 test("compares light and dark screenshots of the sample without judging readability", async ({
