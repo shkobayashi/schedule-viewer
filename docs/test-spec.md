@@ -1634,7 +1634,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 
 手動の通しは [regression.md](regression.md) にまとめた。既存ケースの全文は [regression-tc.md](regression-tc.md) にある。ここには同じ表を重ねて置かない。新しい手動ケースは regression-tc.md と `docs/regression-tc-ids.txt` に足し、`npm run check:regression-coverage` が通ることを見る。
 
-短い通しは RG-S2 から RG-S4（目安 約 22 分・手順 72。シナリオ見積は RG-S2 12 分・RG-S3 15 分・RG-S4 18 分）、全体の代表手順はそれに RG-F1 から RG-F14 を足す（目安 約 2 時間 10 分＝158 分−17 分−8 分−3 分。RG-F2 10 分・RG-F9 14 分・RG-F10 9 分を含む。RG-F9 の分は引かない）である。手順数と分数の内訳は [regression.md](regression.md) の見積と同じである。いずれも [regression.md](regression.md) の見積と同じで、実測ではない。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
+人が必ず行う範囲は [regression.md](regression.md) の「実施範囲の索引」と「結果の記録」を正とする。旧い短い通し（RG-S2 から RG-S4 を一括で回す定義、目安 約 22 分・手順 72）は必須範囲の定義ではない。代表手順 62 と全体目安 約 2 時間 10 分は [regression.md](regression.md) の見積と同じで、実測ではない。Windows と macOS の所要時間は未測定である。自動化予定、保留、未検証、対象外が残るあいだは、この通しを終えても全機能を確認し終えたことにはしない。自動は、その前に regression.md の「自動を先に流す」を実行する。前提に書いていないときはデスクトップ版のサンプルから始める。TC-MCP-01、TC-MCP-01b、TC-MCP-01c は macOS だけ実機確認済みで、Ubuntu と Windows は未確認である。TC-MCP-01k から TC-MCP-01o は本物のチャットで判定し、未提供の値の補完や色だけの id 選択は失敗である。ブラウザ版では TC-SYNC-01c を加え、TC-SYNC-03 は対象外である。
 
 ## リリース前確認
 
