@@ -270,7 +270,14 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/format-check-record.test.mjs` | `validatePhaseRecord requires new head after MERGE-READY re-ready on later head` | — |
 | `scripts/format-check-record.test.mjs` | `validatePhaseRecord review_outcome NOT-READY overrides positive findings text` | — |
 | `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects invalid review_outcome on review phase` | — |
-| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects invented merge_summary tokens without prior observation` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects uncited merge_summary tokens on committed #591 clone (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord accepts cited merge_summary tokens with appended observation (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecordRevision rejects merge_summary token change without fresh observation (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord accepts merge_summary token change with fresh observation (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects rollup_observation without provenance (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects rollup_observation key value mismatch (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects MERGE-READY without head_sha_reviewed on #591 clone (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects MERGE-READY with malformed head_sha_reviewed (example)` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentityStatus unit cases` | — |
 | `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent frontmatter name model readonly` | — |
 | `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent explicit invocation and review-implementation link` | — |

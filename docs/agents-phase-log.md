@@ -6,7 +6,7 @@
 
 - **verified_head_sha** — いま有効なマージ可能判断の Git head（40 桁の小文字 HEX）。人が PR をマージしたか（`integration_status`）とは別。新しい **レビュー** からさかのぼり、最初に当たった明示的な readiness 判断だけが効く（`review_outcome` の `MERGE-READY` / `NOT-READY` を優先し、無いときだけ findings 先頭の `Ready` / `MERGE-READY` / `Not ready`）。`NOT-READY` のあとは `verified_head_sha` は `null` 必須。readiness を言わないレビューは判断を変えない。統合前 ready は **ready_head_sha**、統合後の別判断は **post_integration_ready_head_sha** に残す。
 - **phase-history** — フェンス内 YAML（要約）。`record_ref`、`fix_rounds`、`merge_summary`（rollup）と provenance だけにし、フェーズごとの effort / session / SHA の正本は JSON に書く。
-- **phase-record JSON**（#553 実践） — [docs/phase-records/](phase-records/) の構造化 JSON。マークダウンは要約とリンクであり、二重の正本にしない。訂正は **corrections** 配列へ追記し、既存フェーズ行は消さない。**merge_summary** は観測の rollup（`unknown` 前提）であり、フェーズ配列の事実より後から数値だけを差し替えない。
+- **phase-record JSON**（#553 実践） — [docs/phase-records/](phase-records/) の構造化 JSON。マークダウンは要約とリンクであり、二重の正本にしない。訂正は **corrections** 配列へ追記し、既存フェーズ行は消さない。**merge_summary** の rollup キー（`tokens` / `actual_cost` / `duration` / `composer_effort`）を `unknown` 以外にするときは、同じ値を **`rollup_observation`**（`{ "key", "value" }`）として **corrections** に追記し、訂正行の `provenance` を空にしない。値を変えるたびに新しい訂正が要る（検査用の例示であり、ツール出力の実行証明ではない）。
 - **execution-snapshot**（任意） — [scripts/format-check-record.mjs](../scripts/format-check-record.mjs) が **呼び出し側が集めた** コマンド結果から整形した JSON。`shaIdentity.status` が `valid` でも、コマンドが本当にそのツリーで走った証明にはならない。head が更新されると、古いスナップショットは `stale` 扱いになる。
 
 **fix_rounds** は、実装・テスト・文書本文の手戻り（`修正` で `substantive_fix` が false でないもの）だけを数える。PR 本文だけの訂正、統合マージ、メタデータ訂正は数えない。コスト・トークン・所要時間・Composer の effort は、観測が無ければ `unknown` のままにする。

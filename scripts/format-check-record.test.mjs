@@ -714,17 +714,143 @@ test("validatePhaseRecord rejects invalid review_outcome on review phase", () =>
   assert.ok(bad.issues.some((i) => i.includes("invalid review_outcome")));
 });
 
-test("validatePhaseRecordRevision rejects invented merge_summary tokens without prior observation", () => {
+function exampleRollupCorrection(id, key, value, provenance) {
+  return {
+    id,
+    appended_at: "2026-11-11",
+    provenance: provenance ?? "tool usage response (synthetic example)",
+    correction_note: `Example observation: ${key} ${value}.`,
+    rollup_observation: { key, value },
+  };
+}
+
+test("validatePhaseRecord rejects uncited merge_summary tokens on committed #591 clone (example)", () => {
   const committed = validateCommittedPhaseRecordFiles();
   const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
   const inflated = structuredClone(rec591);
-  inflated.merge_summary = {
-    ...inflated.merge_summary,
-    tokens: 99999,
-  };
+  inflated.merge_summary = { ...inflated.merge_summary, tokens: 99999 };
+  const check = validatePhaseRecord(inflated);
+  assert.equal(check.ok, false);
+  assert.ok(check.issues.some((i) => i.includes("merge_summary.tokens")));
   const rev = validatePhaseRecordRevision(rec591, inflated);
   assert.equal(rev.ok, false);
-  assert.ok(rev.issues.some((i) => i.includes("merge_summary.tokens")));
+});
+
+test("validatePhaseRecord accepts cited merge_summary tokens with appended observation (example)", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const cited = structuredClone(rec591);
+  cited.merge_summary = { ...cited.merge_summary, tokens: 1200 };
+  cited.corrections = [
+    ...cited.corrections,
+    exampleRollupCorrection("591-corr-tokens-1200-example", "tokens", 1200),
+  ];
+  const check = validatePhaseRecord(cited);
+  assert.equal(check.ok, true, check.issues.join("; "));
+  const rev = validatePhaseRecordRevision(rec591, cited);
+  assert.equal(rev.ok, true, rev.issues.join("; "));
+  assert.equal(cited.phases[0].id, rec591.phases[0].id);
+});
+
+test("validatePhaseRecordRevision rejects merge_summary token change without fresh observation (example)", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const with1200 = structuredClone(rec591);
+  with1200.merge_summary = { ...with1200.merge_summary, tokens: 1200 };
+  with1200.corrections = [
+    ...with1200.corrections,
+    exampleRollupCorrection("591-corr-tokens-1200-example", "tokens", 1200),
+  ];
+  const bumped = structuredClone(with1200);
+  bumped.merge_summary = { ...bumped.merge_summary, tokens: 1500 };
+  const rev = validatePhaseRecordRevision(with1200, bumped);
+  assert.equal(rev.ok, false);
+  assert.ok(rev.issues.some((i) => i.includes("appended rollup_observation")));
+});
+
+test("validatePhaseRecord accepts merge_summary token change with fresh observation (example)", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const with1200 = structuredClone(rec591);
+  with1200.merge_summary = { ...with1200.merge_summary, tokens: 1200 };
+  with1200.corrections = [
+    ...with1200.corrections,
+    exampleRollupCorrection("591-corr-tokens-1200-example", "tokens", 1200),
+  ];
+  const bumped = structuredClone(with1200);
+  bumped.merge_summary = { ...bumped.merge_summary, tokens: 1500 };
+  bumped.corrections = [
+    ...bumped.corrections,
+    exampleRollupCorrection("591-corr-tokens-1500-example", "tokens", 1500),
+  ];
+  assert.equal(validatePhaseRecordRevision(with1200, bumped).ok, true);
+  assert.equal(validatePhaseRecord(bumped).ok, true);
+});
+
+test("validatePhaseRecord rejects rollup_observation without provenance (example)", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const bad = structuredClone(rec591);
+  bad.merge_summary = { ...bad.merge_summary, tokens: 1200 };
+  bad.corrections = [
+    ...bad.corrections,
+    {
+      id: "591-corr-no-prov",
+      appended_at: "2026-11-11",
+      provenance: "  ",
+      rollup_observation: { key: "tokens", value: 1200 },
+    },
+  ];
+  assert.equal(validatePhaseRecord(bad).ok, false);
+});
+
+test("validatePhaseRecord rejects rollup_observation key value mismatch (example)", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const bad = structuredClone(rec591);
+  bad.merge_summary = { ...bad.merge_summary, tokens: 1200 };
+  bad.corrections = [
+    ...bad.corrections,
+    exampleRollupCorrection("591-corr-wrong-value", "tokens", 999),
+  ];
+  const check = validatePhaseRecord(bad);
+  assert.equal(check.ok, false);
+  assert.ok(check.issues.some((i) => i.includes("merge_summary.tokens")));
+});
+
+test("validatePhaseRecord rejects MERGE-READY without head_sha_reviewed on #591 clone (example)", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const broken = structuredClone(rec591);
+  broken.phases.push({
+    id: "591-review-merge-ready-no-head",
+    task_type: "レビュー",
+    review_outcome: "MERGE-READY",
+    findings: "MERGE-READY stated without reviewed head.",
+    provenance: "coordinator review record (synthetic example)",
+  });
+  assert.equal(currentVerifiedHeadFromReviews(broken.phases), null);
+  const check = validatePhaseRecord(broken);
+  assert.equal(check.ok, false);
+  assert.ok(
+    check.issues.some((i) => i.includes("MERGE-READY requires well-formed head_sha_reviewed")),
+  );
+});
+
+test("validatePhaseRecord rejects MERGE-READY with malformed head_sha_reviewed (example)", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const broken = structuredClone(rec591);
+  broken.phases.push({
+    id: "591-review-merge-ready-bad-head",
+    task_type: "レビュー",
+    review_outcome: "MERGE-READY",
+    head_sha_reviewed: "not-a-sha",
+    provenance: "coordinator review record (synthetic example)",
+  });
+  const check = validatePhaseRecord(broken);
+  assert.equal(check.ok, false);
+  assert.ok(check.issues.some((i) => i.includes("malformed head_sha_reviewed")));
 });
 
 test("phase log practice entries link canonical #591 and #592 records", () => {

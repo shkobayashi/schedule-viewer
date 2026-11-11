@@ -481,9 +481,10 @@ function reviewPhaseReadinessJudgment(p) {
   if (outcome != null && String(outcome).trim() !== "") {
     const o = String(outcome).trim();
     if (o === "MERGE-READY") {
-      return headStr
-        ? { kind: "positive", head: headStr }
-        : { kind: "none", head: null };
+      if (headStr && describeSha(headStr).wellFormed) {
+        return { kind: "positive", head: headStr };
+      }
+      return { kind: "invalid_positive", head: null };
     }
     if (o === "NOT-READY") {
       return { kind: "negative", head: null };
@@ -499,14 +500,16 @@ function reviewPhaseReadinessJudgment(p) {
     return { kind: "negative", head: null };
   }
   if (/^MERGE-READY\b/.test(findings)) {
-    return headStr
-      ? { kind: "positive", head: headStr }
-      : { kind: "none", head: null };
+    if (headStr && describeSha(headStr).wellFormed) {
+      return { kind: "positive", head: headStr };
+    }
+    return { kind: "invalid_positive", head: null };
   }
   if (/^Ready\b/.test(findings)) {
-    return headStr
-      ? { kind: "positive", head: headStr }
-      : { kind: "none", head: null };
+    if (headStr && describeSha(headStr).wellFormed) {
+      return { kind: "positive", head: headStr };
+    }
+    return { kind: "invalid_positive", head: null };
   }
   return { kind: "none", head: null };
 }
@@ -527,8 +530,65 @@ export function currentVerifiedHeadFromReviews(phases) {
     const judgment = reviewPhaseReadinessJudgment(p);
     if (judgment.kind === "positive") return judgment.head;
     if (judgment.kind === "negative") return null;
+    if (judgment.kind === "invalid_positive") return null;
   }
   return null;
+}
+
+/**
+ * @param {unknown} v
+ * @returns {boolean}
+ */
+function mergeSummaryValueIsConcrete(v) {
+  if (v == null) return false;
+  const s = String(v).trim();
+  return s !== "" && s !== "unknown";
+}
+
+/**
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {boolean}
+ */
+function rollupObservationValuesMatch(a, b) {
+  if (typeof a === "number" && typeof b === "number") return a === b;
+  return String(a) === String(b);
+}
+
+/**
+ * @param {unknown} correction
+ * @param {string} key
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function correctionSupportsRollup(correction, key, value) {
+  if (correction == null || typeof correction !== "object") return false;
+  const c = /** @type {Record<string, unknown>} */ (correction);
+  if (typeof c.provenance !== "string" || !c.provenance.trim()) return false;
+  const ro = c.rollup_observation;
+  if (ro == null || typeof ro !== "object") return false;
+  const obs = /** @type {Record<string, unknown>} */ (ro);
+  if (String(obs.key) !== key) return false;
+  if (obs.value === undefined || obs.value === null) return false;
+  return rollupObservationValuesMatch(obs.value, value);
+}
+
+/**
+ * @param {unknown[]} corrections
+ * @param {Record<string, unknown>} mergeSummary
+ * @param {string[]} issues
+ */
+function validateMergeSummaryRollupObservations(corrections, mergeSummary, issues) {
+  for (const key of MERGE_SUMMARY_ROLLUP_KEYS) {
+    const v = mergeSummary[key];
+    if (!mergeSummaryValueIsConcrete(v)) continue;
+    const supported = corrections.some((c) => correctionSupportsRollup(c, key, v));
+    if (!supported) {
+      issues.push(
+        `merge_summary.${key} lacks matching rollup_observation in corrections with provenance`,
+      );
+    }
+  }
 }
 
 /** @deprecated Use currentVerifiedHeadFromReviews; kept for importers. */
@@ -621,6 +681,14 @@ export function validatePhaseRecord(record) {
       if (o && !KNOWN_REVIEW_OUTCOMES.has(o)) {
         issues.push(`phases[${i}] invalid review_outcome ${o}`);
       }
+      if (o === "MERGE-READY") {
+        const { wellFormed } = describeSha(p.head_sha_reviewed);
+        if (!wellFormed) {
+          issues.push(
+            `phases[${i}] MERGE-READY requires well-formed head_sha_reviewed`,
+          );
+        }
+      }
     }
 
     if (p.task_type === "修正" && p.substantive_fix !== false) {
@@ -651,16 +719,42 @@ export function validatePhaseRecord(record) {
     );
   }
 
+  const corrections = Array.isArray(r.corrections) ? r.corrections : [];
+
   const mergeSummary = r.merge_summary;
   if (mergeSummary != null && typeof mergeSummary === "object") {
     const ms = /** @type {Record<string, unknown>} */ (mergeSummary);
     for (const key of MERGE_SUMMARY_ROLLUP_KEYS) {
       const v = ms[key];
-      if (v != null && v !== "unknown" && String(v).trim() !== "unknown") {
+      if (mergeSummaryValueIsConcrete(v)) {
         if (typeof v === "number" && !Number.isFinite(v)) {
           issues.push(`merge_summary.${key} must be unknown or a finite number`);
         }
       }
+    }
+    validateMergeSummaryRollupObservations(corrections, ms, issues);
+  }
+
+  for (let i = 0; i < corrections.length; i++) {
+    const c = corrections[i];
+    if (c == null || typeof c !== "object") continue;
+    const corr = /** @type {Record<string, unknown>} */ (c);
+    const ro = corr.rollup_observation;
+    if (ro == null) continue;
+    if (typeof ro !== "object") {
+      issues.push(`corrections[${i}] rollup_observation must be an object`);
+      continue;
+    }
+    const obs = /** @type {Record<string, unknown>} */ (ro);
+    const ok = typeof obs.key === "string" && MERGE_SUMMARY_ROLLUP_KEYS.includes(obs.key);
+    if (!ok) {
+      issues.push(`corrections[${i}] rollup_observation.key invalid`);
+    }
+    if (obs.value === undefined || obs.value === null) {
+      issues.push(`corrections[${i}] rollup_observation.value required`);
+    }
+    if (typeof corr.provenance !== "string" || !corr.provenance.trim()) {
+      issues.push(`corrections[${i}] rollup_observation requires provenance`);
     }
   }
 
@@ -697,7 +791,7 @@ export function validatePhaseRecord(record) {
     issues.push("corrections must be an array (may be empty)");
   } else {
     const corrIds = new Set();
-    for (const c of r.corrections) {
+    for (const c of corrections) {
       if (c == null || typeof c !== "object") continue;
       const cid = /** @type {Record<string, unknown>} */ (c).id;
       if (typeof cid === "string" && corrIds.has(cid)) {
@@ -781,19 +875,22 @@ export function validatePhaseRecordRevision(previous, next) {
 
   const prevMs = /** @type {Record<string, unknown>} */ (previous).merge_summary;
   const nextMs = /** @type {Record<string, unknown>} */ (next).merge_summary;
+  const appendedCorr = nextCorr.slice(prevCorr.length);
   if (
     prevMs != null &&
     nextMs != null &&
     typeof prevMs === "object" &&
-    typeof nextMs === "object" &&
-    !valueDeepEqual(prevMs, nextMs)
+    typeof nextMs === "object"
   ) {
     for (const key of MERGE_SUMMARY_ROLLUP_KEYS) {
       const pv = prevMs[key];
       const nv = nextMs[key];
-      if (pv === "unknown" && nv !== "unknown" && nv != null && String(nv).trim() !== "") {
+      if (rollupObservationValuesMatch(pv, nv)) continue;
+      if (!mergeSummaryValueIsConcrete(nv)) continue;
+      const hasNewObs = appendedCorr.some((c) => correctionSupportsRollup(c, key, nv));
+      if (!hasNewObs) {
         issues.push(
-          `revision invented merge_summary.${key} without prior observation (was unknown)`,
+          `revision merge_summary.${key} change requires appended rollup_observation for new value`,
         );
       }
     }
