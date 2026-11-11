@@ -13,6 +13,7 @@
   },
   "verified_head_sha": null,
   "ready_head_sha": "60d5252149558ddf0146866f0cd2f60995ee03e4",
+  "post_integration_ready_head_sha": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
   "fix_rounds": 2,
   "fix_rounds_note": "Counts substantive implementation/test/doc fixes only. Integration merge and post-integration review are not fix rounds.",
   "phases": [
@@ -122,8 +123,10 @@
       "session_id": "bc-f2aab7f8-7be0-5eac-adea-5ed6f54baadf",
       "coordinator_run": 4,
       "head_sha_reviewed": "2add60baa4014c3900cca4f5a77ae73d00aaae1d",
-      "findings": "Post-integration review active as of slice authoring; do not invent final result.",
-      "provenance": "coordinator review record"
+      "base_sha_reviewed": "4879ed7a02eb8d6df1ba47c8e4f894bfed83c6b2",
+      "review_outcome": "MERGE-READY",
+      "findings": "MERGE-READY on integration head. Provider and fetched heads matched; parents 60d52521 and 4879ed7a both ancestors. Hook bytes unchanged from 60d52521; split files byte-identical to merged #592; conflicted docs preserve both sides. 87 targeted tests, 35-file agent-docs checker, exact test-spec title parity, full correct-base PR diff check passed on archive Node v22.23.4. GitHub mergeable; no check runs. No Node 24 or live IDE/Cloud blocking proof.",
+      "provenance": "coordinator review record (run 4 complete)"
     }
   ],
   "corrections": [
@@ -131,6 +134,12 @@
       "id": "591-corr-reviewer-1",
       "appended_at": "2026-11-11",
       "correction_note": "Reviewer correction: escaped-space executable 'git\\ commit' not git+argv; no-force does not cancel independent lease/if-includes.",
+      "provenance": "coordinator correction"
+    },
+    {
+      "id": "591-corr-review4-historical-pending",
+      "appended_at": "2026-11-11",
+      "correction_note": "Historical at PR #593 slice authoring: phase 591-review-4 findings were 'Post-integration review active; do not invent final result.' Outcome MERGE-READY on the same head was appended without removing earlier phases.",
       "provenance": "coordinator correction"
     }
   ],

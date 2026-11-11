@@ -105,8 +105,9 @@ provenance: |
 
 - **PR:** [#591](https://github.com/shkobayashi/schedule-viewer/pull/591)
 - **canonical:** [issue-553-pr591.json](phase-records/issue-553-pr591.json)
-- **ready_head_sha:** `60d5252149558ddf0146866f0cd2f60995ee03e4`（レビュー ready、統合前）
-- **integration_head_sha（時点）:** `2add60baa4014c3900cca4f5a77ae73d00aaae1d` — JSON の `integration_status` を見る。Open/Merged は固定しない。
+- **ready_head_sha:** `60d5252149558ddf0146866f0cd2f60995ee03e4`（統合前レビュー ready。統合後 ready とは別判断）
+- **post_integration_ready_head_sha:** `2add60baa4014c3900cca4f5a77ae73d00aaae1d`（統合 head への post-integration レビュー run 4 で MERGE-READY。PR 未マージのまま）
+- **integration_head_sha（時点）:** 上記と同じ — JSON の `integration_status` を見る。
 - **fix_rounds:** `2`（実装修正のみ）
 
 ### phase-history（要約）
@@ -121,8 +122,9 @@ merge_summary:
   tokens: unknown
   actual_cost: unknown
 provenance: |
-  コーディネータ起動・レビュー・修正の記録。#591 は統合後も独立レビューが続く場合があり、
-  時点の pr_state は JSON integration_status に書く。古い行は訂正で上書きせず corrections へ足す。
+  コーディネータ起動・レビュー・修正の記録。統合前 ready と統合後 MERGE-READY は別 SHA。
+  スライス作成時点で run 4 が保留に見えた記述は corrections に残し、完了結果を 591-review-4 に追記した。
+  pr_state は JSON integration_status に書く。PR #591 は検証時点では未マージ。
 ```
 
 ---
