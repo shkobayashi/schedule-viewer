@@ -56,7 +56,14 @@ const GIT_GLOBALS_BOOL = new Set([
   "-v",
 ]);
 
-const PULL_REBASE_TRUTHY = new Set(["true", "1", "yes", "on"]);
+const PULL_REBASE_TRUTHY = new Set([
+  "true",
+  "1",
+  "yes",
+  "on",
+  "merges",
+  "interactive",
+]);
 const PULL_REBASE_FALSY = new Set(["false", "0", "no", "off"]);
 
 /**
@@ -232,12 +239,20 @@ function splitChainSegments(command) {
       continue;
     }
     if (command.startsWith("&&", i)) {
+      if (groupDepth > 0) {
+        i += 2;
+        continue;
+      }
       pushSeg(i);
       start = i + 2;
       i += 2;
       continue;
     }
     if (command.startsWith("||", i)) {
+      if (groupDepth > 0) {
+        i += 2;
+        continue;
+      }
       pushSeg(i);
       start = i + 2;
       i += 2;
@@ -248,7 +263,7 @@ function splitChainSegments(command) {
       continue;
     }
     if (c === ";" || c === "\n" || c === "|") {
-      if (c === ";" && groupDepth > 0) {
+      if (groupDepth > 0) {
         i += 1;
         continue;
       }
@@ -258,6 +273,10 @@ function splitChainSegments(command) {
       continue;
     }
     if (c === "&" && command[i + 1] !== "&") {
+      if (groupDepth > 0) {
+        i += 1;
+        continue;
+      }
       pushSeg(i);
       start = i + 1;
       i += 1;
@@ -401,7 +420,6 @@ function classifyGitGlobalToken(t) {
   for (const g of GIT_GLOBALS_BOOL) {
     if (t === g) return { bool: true };
   }
-  if (t === "-C" && t.length > 2) return { unknown: true };
   if (t.startsWith("-C") && t.length > 2) {
     return { bool: true };
   }
@@ -450,7 +468,7 @@ function classifyGitGlobalToken(t) {
 
 /**
  * @typedef {{ ok: false, reason: 'unknown' | 'malformed' }} GitParseFail
- * @typedef {{ ok: true, sub: string, rest: string[], pullRebaseConfig: boolean | null }} GitParseOk
+ * @typedef {{ ok: true, sub: string | null, rest: string[], pullRebaseConfig: boolean | null, informational?: boolean }} GitParseOk
  * @typedef {GitParseFail | GitParseOk} GitParseResult
  */
 
@@ -511,7 +529,8 @@ function parseGitInvocation(argv) {
     }
     if (cls.consumesNext) {
       if (i + 1 >= argv.length) {
-        return { ok: false, reason: "malformed" };
+        i += 1;
+        continue;
       }
       if (t === "-c") {
         const val = extractPullRebaseFromConfig(argv[i + 1]);
@@ -524,7 +543,13 @@ function parseGitInvocation(argv) {
   }
 
   if (i >= argv.length) {
-    return { ok: false, reason: "malformed" };
+    return {
+      ok: true,
+      sub: null,
+      rest: [],
+      pullRebaseConfig,
+      informational: true,
+    };
   }
   const sub = argv[i].toLowerCase();
   return {
@@ -698,6 +723,7 @@ function gitPullDenied(args, pullRebaseConfig) {
  */
 function gitSubcommandDenied(parsed) {
   const { sub, rest, pullRebaseConfig } = parsed;
+  if (sub === null) return false;
   if (sub === "commit") return gitCommitDenied(rest);
   if (sub === "push") return gitPushDenied(rest);
   if (sub === "rebase") return true;
@@ -721,6 +747,13 @@ function skipEnvOptions(argv) {
   let i = 0;
   while (i < argv.length) {
     const t = argv[i];
+    if (t === "--") {
+      return argv.slice(i + 1);
+    }
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) {
+      i += 1;
+      continue;
+    }
     if (t === "-i" || t === "-0" || t === "--ignore-environment") {
       i += 1;
       continue;
@@ -730,6 +763,14 @@ function skipEnvOptions(argv) {
       continue;
     }
     if (t.startsWith("--unset=")) {
+      i += 1;
+      continue;
+    }
+    if (t === "-C" || t === "--chdir") {
+      i += 2;
+      continue;
+    }
+    if (t.startsWith("--chdir=")) {
       i += 1;
       continue;
     }
@@ -772,8 +813,12 @@ function skipExecOptions(argv) {
   let i = 0;
   while (i < argv.length) {
     const t = argv[i];
-    if (t === "-a" || t === "-l") {
+    if (t === "-a") {
       i += 2;
+      continue;
+    }
+    if (t === "-l") {
+      i += 1;
       continue;
     }
     if (t.startsWith("-") && t !== "--") {
@@ -886,25 +931,86 @@ function isGitArgv(argv) {
 }
 
 /**
- * @param {string} segment
+ * @param {string} s
+ * @param {string} openCh
+ * @param {string} closeCh
+ * @returns {string | null}
  */
-function unwrapGroupedSegment(segment) {
-  let s = segment.trim();
-  const paren = s.match(/^\(\s*([\s\S]*?)\s*\)$/);
-  if (paren) return paren[1].trim();
-  const brace = s.match(/^\{\s*([\s\S]*?)\s*;?\s*\}$/);
-  if (brace) return brace[1].trim();
-  return s;
+function extractOuterDelimitedInterior(s, openCh, closeCh) {
+  let quote = null;
+  let depth = 0;
+  let started = false;
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s[i];
+    if (quote === "'") {
+      if (c === "'") quote = null;
+      continue;
+    }
+    if (quote === '"') {
+      if (c === "\\" && i + 1 < s.length) {
+        i += 1;
+        continue;
+      }
+      if (c === '"') quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      quote = c;
+      continue;
+    }
+    if (c === openCh) {
+      if (depth === 0) started = i === 0;
+      depth += 1;
+      continue;
+    }
+    if (c === closeCh) {
+      depth -= 1;
+      if (depth === 0 && started && i === s.length - 1) {
+        return s.slice(1, i).trim();
+      }
+    }
+  }
+  return null;
 }
 
 /**
  * @param {string} segment
+ * @returns {string | null}
+ */
+function extractBalancedGroupInterior(segment) {
+  const s = segment.trim();
+  if (s.startsWith("((") && s.endsWith("))")) {
+    return s.slice(2, -2).trim();
+  }
+  const parenInner = extractOuterDelimitedInterior(s, "(", ")");
+  if (parenInner !== null) return parenInner;
+  let braceInner = extractOuterDelimitedInterior(s, "{", "}");
+  if (braceInner !== null) {
+    braceInner = braceInner.replace(/;+\s*$/, "").trim();
+    return braceInner;
+  }
+  return null;
+}
+
+/**
+ * @param {string} segment
+ * @param {number} depth
  * @returns {ClassifyResult | null}
  */
-function analyzeSegment(segment) {
+function analyzeSegment(segment, depth = 0) {
   const withoutComment = stripTrailingShellComment(segment);
-  const grouped = unwrapGroupedSegment(withoutComment);
-  const { ok, words } = tokenizeWords(grouped.trim());
+  const trimmed = withoutComment.trim();
+  const groupInner = extractBalancedGroupInterior(trimmed);
+  if (groupInner !== null) {
+    if (depth > MAX_SUBSTITUTION_DEPTH) {
+      return deny("malformed");
+    }
+    const inner = classifyShellCommand(groupInner, depth + 1, true);
+    if (inner.permission === "deny") return inner;
+    return null;
+  }
+
+  const { ok, words } = tokenizeWords(trimmed);
   if (!ok) return deny("malformed");
   const { targets } = expandWordsToTargets(words);
 
@@ -1062,7 +1168,7 @@ export function classifyShellCommand(command, substitutionDepth = 0, _nested = f
 
   const segments = splitChainSegments(sansComment);
   for (const segment of segments) {
-    const result = analyzeSegment(segment);
+    const result = analyzeSegment(segment, substitutionDepth);
     if (result) return result;
   }
 

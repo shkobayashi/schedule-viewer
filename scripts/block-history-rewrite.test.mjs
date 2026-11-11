@@ -201,6 +201,7 @@ test("denies substitutions inside double quotes and commit -m with them", () => 
     'echo "$(git commit --amend)"',
     'git commit -m "$(git commit --amend)"',
     "echo `git commit --amend`",
+    'echo "`git commit --amend`"',
   ];
   for (const command of denied) {
     assert.equal(
@@ -302,6 +303,28 @@ test("env command exec wrappers peel to git", () => {
   assert.equal(classifyShellCommand("command -p git status").permission, "allow");
 });
 
+test("env peeled through assignments chdir and double hyphen", () => {
+  const denied = [
+    "env FOO=1 git commit --amend",
+    "env -i FOO=1 git commit --amend",
+    "env -C /tmp git commit --amend",
+    "env -- git commit --amend",
+    "exec -l git commit --amend",
+  ];
+  for (const command of denied) {
+    assert.equal(
+      classifyShellCommand(command).permission,
+      "deny",
+      `expected deny for ${command}`,
+    );
+  }
+  assert.equal(classifyShellCommand("env FOO=1 git status").permission, "allow");
+  assert.equal(
+    classifyShellCommand("env -C /tmp git -C /other status").permission,
+    "allow",
+  );
+});
+
 test("push force policy push options and no force independence", () => {
   assert.equal(classifyShellCommand("git push -ofollow").permission, "allow");
   assert.equal(
@@ -355,6 +378,42 @@ test("pull rebase from git config global only with explicit override", () => {
     classifyShellCommand("git -c pull.rebase=true pull --no-rebase").permission,
     "allow",
   );
+  assert.equal(
+    classifyShellCommand("git -c pull.rebase=merges pull").permission,
+    "deny",
+  );
+  assert.equal(
+    classifyShellCommand("git -c pull.rebase=interactive pull").permission,
+    "deny",
+  );
+  assert.equal(
+    classifyShellCommand("git -c pull.rebase=false pull").permission,
+    "allow",
+  );
+  assert.equal(
+    classifyShellCommand("git -c pull.rebase=off pull --no-rebase").permission,
+    "allow",
+  );
+});
+
+test("git informational globals without subcommand allow", () => {
+  const allowed = [
+    "git",
+    "git --version",
+    "git --help",
+    "git -h",
+    "git -v",
+    "git --exec-path",
+    "git -p --version",
+  ];
+  for (const command of allowed) {
+    assert.equal(
+      classifyShellCommand(command).permission,
+      "allow",
+      `expected allow for ${command}`,
+    );
+  }
+  assert.equal(classifyShellCommand("git --nonsense").permission, "deny");
 });
 
 test("simple grouped commands still classify git", () => {
@@ -362,12 +421,30 @@ test("simple grouped commands still classify git", () => {
     "(git commit --amend)",
     "( git commit --amend )",
     "{ git commit --amend; }",
+    "(true; git commit --amend)",
+    "( git commit --amend && true )",
+    "{ echo x; git commit --amend; }",
+    "{ git commit --amend && git status; }",
+    "((git commit --amend))",
   ];
   for (const command of denied) {
     assert.equal(
       classifyShellCommand(command).permission,
       "deny",
       `expected deny for ${command}`,
+    );
+  }
+  const allowed = [
+    "(git status)",
+    "( true && git status )",
+    "{ git commit -m ok; }",
+    '{ echo "parens (literal)"; git status; }',
+  ];
+  for (const command of allowed) {
+    assert.equal(
+      classifyShellCommand(command).permission,
+      "allow",
+      `expected allow for ${command}`,
     );
   }
 });
