@@ -833,7 +833,49 @@ test("validatePhaseRecord rejects MERGE-READY without head_sha_reviewed on #591 
   const check = validatePhaseRecord(broken);
   assert.equal(check.ok, false);
   assert.ok(
-    check.issues.some((i) => i.includes("MERGE-READY requires well-formed head_sha_reviewed")),
+    check.issues.some((i) =>
+      i.includes("positive readiness judgment requires well-formed head_sha_reviewed"),
+    ),
+  );
+});
+
+test("validatePhaseRecord rejects legacy Ready findings without head_sha_reviewed on #591 clone (example)", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const broken = structuredClone(rec591);
+  broken.verified_head_sha = null;
+  broken.phases.push({
+    id: "591-review-legacy-ready-no-head",
+    task_type: "レビュー",
+    findings: "Ready on an omitted head.",
+    provenance: "coordinator review record (synthetic example)",
+  });
+  assert.equal(currentVerifiedHeadFromReviews(broken.phases), null);
+  const check = validatePhaseRecord(broken);
+  assert.equal(check.ok, false);
+  assert.ok(
+    check.issues.some((i) =>
+      i.includes("positive readiness judgment requires well-formed head_sha_reviewed"),
+    ),
+  );
+});
+
+test("validatePhaseRecord NOT-READY with Ready prose does not require positive head (example)", () => {
+  const committed = validateCommittedPhaseRecordFiles();
+  const rec591 = committed.records.find((r) => r?.record_id === "issue-553-pr-591");
+  const withdrawn = structuredClone(rec591);
+  withdrawn.verified_head_sha = null;
+  withdrawn.phases.push({
+    id: "591-review-not-ready-ready-prose",
+    task_type: "レビュー",
+    review_outcome: "NOT-READY",
+    findings: "Ready on paper only; explicit NOT-READY applies.",
+    provenance: "coordinator review record (synthetic example)",
+  });
+  const check = validatePhaseRecord(withdrawn);
+  assert.equal(check.ok, true, check.issues.join("; "));
+  assert.ok(
+    !check.issues.some((i) => i.includes("positive readiness judgment requires")),
   );
 });
 

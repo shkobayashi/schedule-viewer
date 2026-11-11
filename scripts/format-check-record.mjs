@@ -676,18 +676,18 @@ export function validatePhaseRecord(record) {
       }
     }
 
-    if (p.task_type === "レビュー" && p.review_outcome != null) {
-      const o = String(p.review_outcome).trim();
-      if (o && !KNOWN_REVIEW_OUTCOMES.has(o)) {
-        issues.push(`phases[${i}] invalid review_outcome ${o}`);
-      }
-      if (o === "MERGE-READY") {
-        const { wellFormed } = describeSha(p.head_sha_reviewed);
-        if (!wellFormed) {
-          issues.push(
-            `phases[${i}] MERGE-READY requires well-formed head_sha_reviewed`,
-          );
+    if (p.task_type === "レビュー") {
+      if (p.review_outcome != null) {
+        const o = String(p.review_outcome).trim();
+        if (o && !KNOWN_REVIEW_OUTCOMES.has(o)) {
+          issues.push(`phases[${i}] invalid review_outcome ${o}`);
         }
+      }
+      const judgment = reviewPhaseReadinessJudgment(p);
+      if (judgment.kind === "invalid_positive") {
+        issues.push(
+          `phases[${i}] positive readiness judgment requires well-formed head_sha_reviewed`,
+        );
       }
     }
 

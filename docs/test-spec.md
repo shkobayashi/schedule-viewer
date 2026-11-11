@@ -278,6 +278,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects rollup_observation key value mismatch (example)` | — |
 | `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects MERGE-READY without head_sha_reviewed on #591 clone (example)` | — |
 | `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects MERGE-READY with malformed head_sha_reviewed (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord rejects legacy Ready findings without head_sha_reviewed on #591 clone (example)` | — |
+| `scripts/format-check-record.test.mjs` | `validatePhaseRecord NOT-READY with Ready prose does not require positive head (example)` | — |
 | `scripts/format-check-record.test.mjs` | `shaIdentityStatus unit cases` | — |
 | `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent frontmatter name model readonly` | — |
 | `scripts/check-review-agent-frontmatter.test.mjs` | `review-behavior agent explicit invocation and review-implementation link` | — |
