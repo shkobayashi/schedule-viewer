@@ -14,6 +14,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       rust: ${{ steps.filter.outputs.rust }}
       manual: ${{ steps.filter.outputs.manual }}
+      agentdocs: ${{ steps.filter.outputs.agentdocs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -26,6 +27,7 @@ jobs:
           frontend=false
           rust=false
           manual=false
+          agentdocs=false
           while IFS= read -r file; do
             case "$file" in
               src-tauri/*|rust-toolchain.toml|read-screen/*|.cursor/skills/schedule-talk/*)
@@ -41,11 +43,15 @@ jobs:
               index.html|src/*|scripts/*|docs/schedule.schema.json|docs/members.schema.json|docs/calendar.schema.json|docs/field-extensions.schema.json|docs/workspace.schema.json|docs/colors.schema.json|examples/*|package.json|package-lock.json|eslint.config.js|vite.config.ts|tsconfig.json|tsconfig.node.json|vitest.config.ts|.cursor/skills/write-schedule/*|.cursor/skills/write-calendar/*|.cursor/skills/write-members/*|.cursor/skills/write-workspace/*|.cursor/skills/write-fields/*|.cursor/skills/write-colors/*|.cursor/skills/how-to/*)
                 frontend=true
                 ;;
+              AGENTS.md|docs/agents-*|.cursor/rules/*|.cursor/skills/*/SKILL.md|.cursor/skills/*/references/*.md|scripts/check-agent-docs.*)
+                agentdocs=true
+                ;;
             esac
           done < <(git diff --name-only "$BASE" "$HEAD")
           echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
           echo "rust=$rust" >> "$GITHUB_OUTPUT"
           echo "manual=$manual" >> "$GITHUB_OUTPUT"
+          echo "agentdocs=$agentdocs" >> "$GITHUB_OUTPUT"
 
   frontend:
     needs: changes
@@ -144,6 +150,20 @@ jobs:
         working-directory: src-tauri
         run: cargo test --locked
 
+  agentdocs:
+    needs: changes
+    if: needs.changes.outputs.agentdocs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - run: npm run check:agent-docs
+      - run: node --test scripts/check-agent-docs.test.mjs
+
   manual:
     needs: changes
     if: needs.changes.outputs.manual == 'true'
@@ -166,7 +186,7 @@ jobs:
 
   ci:
     name: ci
-    needs: [changes, frontend, rust, manual]
+    needs: [changes, frontend, rust, manual, agentdocs]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -186,5 +206,9 @@ jobs:
           fi
           if [ "${{ needs.changes.outputs.manual }}" = "true" ] && [ "${{ needs.manual.result }}" != "success" ]; then
             echo "manual job did not succeed"
+            exit 1
+          fi
+          if [ "${{ needs.changes.outputs.agentdocs }}" = "true" ] && [ "${{ needs.agentdocs.result }}" != "success" ]; then
+            echo "agentdocs job did not succeed"
             exit 1
           fi

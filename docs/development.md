@@ -286,6 +286,7 @@ CI は変更されたパスでジョブを分ける。ビルドの入力を足�
 - ワークフロー定義が変わると、両方のジョブが動く
 - `docs/user-manual/`、`docs/user-manual.md`、`scripts/build-user-manual-site.mjs`、`scripts/manual-site/`、`.github/workflows/pages.yml` が変わると `manual` ジョブ（`npm ci` のあと `build:manual-site`、`node --test scripts/how-to-citations.test.mjs`（生成前）、`build:validate-skill`、`git status --porcelain` で `how-to/manual/` が空であること、マニュアル6ファイルと `how-to/manual/` の差分検査）が動く。`package.json` と `package-lock.json` だけが変わったときはフロントジョブが動き、`manual` は動かない
 - `docs/*.md` や `README.md` だけの変更（操作マニュアル以外）では、フロントと Rust と `manual` はスキップする。集約ジョブ `ci` は成功する
+- `AGENTS.md`、`docs/agents-*`、`.cursor/rules`、各スキルの `SKILL.md` と `references/*.md`、`scripts/check-agent-docs.*` だけの変更では `agentdocs` ジョブ（`npm run check:agent-docs` と `node --test scripts/check-agent-docs.test.mjs`）だけが動く
 
 ワークフロー全体の `permissions` は `contents: read` である。Release の `contents: write` は配布ジョブだけに付ける。Pages の `pages: write` と `id-token: write` は deploy ジョブだけに付ける。`actions/checkout` は `persist-credentials: false` である。
 
