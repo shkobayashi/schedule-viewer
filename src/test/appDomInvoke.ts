@@ -1,15 +1,10 @@
 import { dirname } from "node:path";
 import { vi } from "vitest";
 import type { ScheduleDocument } from "../model/types";
-import {
-  parseWorkspaceText,
-  resolveWorkspaceRelativePath,
-} from "../model/workspaceJson";
-import {
-  createFileSaveFlowInvoke,
-  type FileSaveFlowInvoke,
-  type ScheduleFileTauriInvoke,
-} from "./fileSaveFlowInvoke";
+import { parseWorkspaceText } from "../model/workspaceJson";
+import { resolveWorkspaceRelativePath } from "../model/workspacePath";
+import { createFileSaveFlowInvoke, type FileSaveFlowInvoke } from "./fileSaveFlowInvoke";
+import type { ScheduleFileTauriInvoke } from "./scheduleFileFlowInvoke";
 
 export type AppDomInvoke = FileSaveFlowInvoke & {
   writeCalls: Array<{ command: string; args: Record<string, unknown> | undefined }>;
@@ -105,6 +100,12 @@ export function createAppDomInvoke(document: ScheduleDocument): AppDomInvoke {
         writeWorkspaceJson(base.diskStore, workspacePath, wsDoc);
         notifyReload(workspacePath);
         return;
+      }
+      case "read_json_file_limited": {
+        const path = String(args?.path ?? "");
+        const text = base.diskStore.get(path);
+        if (text == null) throw new Error("SCHEDULE_FILE_NOT_FOUND");
+        return text;
       }
       case "create_workspace_colors_catalog": {
         const workspacePath = String(args?.workspacePath ?? "");

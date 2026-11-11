@@ -88,7 +88,7 @@ export function createFileSaveFlowInvoke(
         return path;
       }
       case "read_open_schedule_file": {
-        const path = openPath ?? FLOW_SCHEDULE_PATH;
+        const path = openPath ?? lastSchedulePath ?? FLOW_SCHEDULE_PATH;
         const text = diskStore.get(path);
         if (text == null) throw new Error("SCHEDULE_FILE_NOT_FOUND");
         return text;

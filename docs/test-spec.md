@@ -1180,6 +1180,15 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `does not accept once the generation has already moved on` | SYNC-03 |
 | `pollGate.test.ts` | `does not read or apply while a file operation is busy or paused` | SYNC-01 |
 | 同上 | `prompts for a missing file on the fifth consecutive read failure` | SYNC-01 |
+| `App.dom.test.tsx` | `TC-HIER-06c: hierarchy draft blocks immediate reload and stays out of the document` | HIER-06, SYNC-01, EDIT-21 |
+| `App.dom.test.tsx` | `TC-SET-08m: hides 項目を編集 when workspace statuses are absent` / `…cannot be read` | SET-08, FILE-10 |
+| `App.dom.test.tsx` | `TC-SET-10l: shows the pinned extension and 編集用の拡張を作る without 項目を編集` | SET-10, FILE-10 |
+| `App.dom.test.tsx` | `TC-SET-02d: workspace member rename changes the row label and leaves the app catalog` | SET-02, FILE-10 |
+| `App.dom.test.tsx` | `TC-SET-09c: 色の一覧を作る opens the editor after the workspace reload` | SET-09, FILE-10 |
+| `App.dom.test.tsx` | `TC-SET-10m: create editable extension updates the settings buttons and leaves app catalogs unchanged` | SET-10, FILE-10 |
+| `App.dom.test.tsx` | `TC-SET-10n: refuses a pinned plugin id and writes only the editable path` | SET-10, FILE-10 |
+| `App.dom.test.tsx` | `TC-SET-10o: cancel keeps the editable extension and confirm removes it from settings` | SET-10, FILE-10 |
+| `App.dom.test.tsx` | `TC-FILE-07g: keep local then 未保存 opens the diff against the file` | FILE-07, SYNC-01 |
 | `externalReloadFlow.dom.test.tsx` | `TC-SYNC-01: applies a clean disk change after one poll interval` | SYNC-01 |
 | 同上 | `TC-SYNC-01b: opens confirm when the screen is dirty and disk differs` / `TC-SYNC-01b: keep local edits and show the deferred reload banner` | SYNC-01 |
 | 同上 | `TC-SYNC-01e: lists screen and file sections in the merge review` / `TC-SYNC-01e2: merges screen and file edits and becomes dirty` | SYNC-01 |
@@ -1589,7 +1598,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `errors.ts` | 未テスト |
 | `timelineVisibleDays.ts` | 未テスト |
 | `layoutSizes.ts` | 未テスト |
-| `src/components/`、`src/hooks/`、`App.tsx` | 検索、絞り込み、エラー表示、メニュー、パレット、ショートカットの DOM は `searchErrorKeys.dom.test.tsx` がテストしている。設定、階層、差分列の DOM は `settingsHierarchyDiff.dom.test.tsx` と `settingsDesktopChrome.dom.test.tsx` がテストしている。`settingsHierarchyDiff.dom.test.tsx` はハーネス上の部品を見ており、`App.tsx` への配線までは見ない。Konva の描画、Tauri のダイアログ、ファイルの監視は手で確かめる。キーの判断、チャートの当たり、保存の直列化、起動の世代、監視の停止は純粋関数としてもテストしている |
+| `src/components/`、`src/hooks/`、`App.tsx` | 検索、絞り込み、エラー表示、メニュー、パレット、ショートカットの DOM は `searchErrorKeys.dom.test.tsx` がテストしている。設定、階層、差分列の DOM は `settingsHierarchyDiff.dom.test.tsx` と `settingsDesktopChrome.dom.test.tsx` がテストしている。Issue #548 の `App.dom.test.tsx` は `App.tsx` 配線上で workspace 操作と外部反映を mock の Tauri・ディスクで見る。`settingsHierarchyDiff.dom.test.tsx` はハーネス上の部品を見ており、`App.tsx` への配線までは見ない。Konva の描画、Tauri のダイアログ、ファイルの監視は手で確かめる。キーの判断、チャートの当たり、保存の直列化、起動の世代、監視の停止は純粋関数としてもテストしている |
 
 足すなら、手間のわりに効果が大きい次の順がよい。
 

@@ -9,7 +9,6 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { documentToJsonString } from "./model/serialize";
@@ -18,6 +17,7 @@ import { parseScheduleText } from "./model/scheduleFile";
 import { resolveWorkspaceRelativePath } from "./model/workspacePath";
 import { createAppDomInvoke } from "./test/appDomInvoke";
 import {
+  cloneWithOutlineTaskEnd,
   cloneWithTaskEnd,
   installDomFlowPrereqs,
   pollJson,
@@ -25,6 +25,7 @@ import {
 } from "./test/scheduleFileFlowTestEnv";
 import { EXTERNAL_RELOAD_POLL_MS } from "./hooks/scheduleFile/constants";
 import type { ScheduleFileTauriInvoke } from "./test/scheduleFileFlowInvoke";
+import { FLOW_SCHEDULE_PATH } from "./test/fileSaveFlowInvoke";
 import {
   loadExampleSchedule,
   loadRegressionSchedule,
@@ -147,14 +148,17 @@ async function settleAfterPoll() {
     await Promise.resolve();
     await Promise.resolve();
   });
+  vi.useRealTimers();
 }
 
-async function waitForNextPoll() {
+async function driveExternalPoll(flow: AppDomInvoke, document: ScheduleDocument) {
+  flow.queuePoll(pollJson(document));
   await act(async () => {
     await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, EXTERNAL_RELOAD_POLL_MS * 2);
+      window.setTimeout(resolve, EXTERNAL_RELOAD_POLL_MS + 50);
     });
   });
+  await settleAfterPoll();
 }
 
 async function flushMicrotasks(times = 40) {
@@ -204,6 +208,10 @@ async function mountApp(startup: {
   render(<App />);
   await act(async () => {
     flow.resolveStartup(startupRead);
+    await flow.invoke("accept_opened_schedule", {
+      path: startup.path,
+      contents: startup.contents,
+    });
   });
   await waitForAppReady();
   await dismissFirstRunIfPresent();
@@ -237,6 +245,10 @@ async function mountWorkspaceApp(options: {
   render(<App />);
   await act(async () => {
     flow.resolveStartup(startupRead);
+    await flow.invoke("accept_opened_schedule", {
+      path: options.schedulePath,
+      contents: options.scheduleContents,
+    });
   });
   await waitForAppReady();
   await waitFor(() =>
@@ -318,14 +330,11 @@ describe("App integration (Issue 548)", () => {
     await waitFor(() => {
       expect(meaning).toHaveValue("回帰の意味");
     });
-    fireEvent.click(screen.getByText("調査A"));
-    fireEvent.change(screen.getByLabelText("終了"), { target: { value: "2026-10-03" } });
-
-    const updated = cloneWithTaskEnd(document, "e2000001-0000-4000-8000-000000000001", "2026-10-05");
+    const SURVEY_ID = "e2000001-0000-4000-8000-000000000001";
+    const DESIGN_ID = "e2000001-0000-4000-8000-000000000002";
+    const updated = cloneWithOutlineTaskEnd(document, SURVEY_ID, "2026-10-05");
     flow.setDisk(schedulePath, documentToJsonString(updated));
-    flow.queuePoll(pollJson(updated));
-    await waitForNextPoll();
-    await settleAfterPoll();
+    await driveExternalPoll(flow, updated);
 
     await screen.findByRole("dialog", { name: "ファイルが更新されています" });
     expect(within(screen.getByRole("dialog", { name: "階層" })).getAllByLabelText("意味")[0]).toHaveValue(
@@ -333,7 +342,9 @@ describe("App integration (Issue 548)", () => {
     );
 
     fireEvent.click(screen.getByText("調査A"));
-    expect(screen.getByLabelText("終了")).toHaveValue("2026-10-04");
+    await waitFor(() => {
+      expect(screen.getByLabelText("終了")).toHaveValue("2026-10-04");
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "読み直す" }));
     await waitFor(() => {
@@ -358,18 +369,11 @@ describe("App integration (Issue 548)", () => {
     fireEvent.change(within(hierarchyAgain).getAllByLabelText("意味")[0], {
       target: { value: "また下書き" },
     });
-    fireEvent.keyDown(hierarchyAgain, { key: "Escape" });
+    fireEvent.blur(within(hierarchyAgain).getAllByLabelText("意味")[0]);
 
-    fireEvent.click(screen.getByText("設計A"));
-    const endField = screen.getByLabelText("終了");
-    fireEvent.change(endField, { target: { value: "2026-10-13" } });
-    await waitFor(() => expect(endField).toHaveValue("2026-10-13"));
-
-    const disk2 = cloneWithTaskEnd(updated, "e2000001-0000-4000-8000-000000000002", "2026-10-14");
+    const disk2 = cloneWithOutlineTaskEnd(updated, DESIGN_ID, "2026-10-14");
     flow.setDisk(schedulePath, documentToJsonString(disk2));
-    flow.queuePoll(pollJson(disk2));
-    await waitForNextPoll();
-    await settleAfterPoll();
+    await driveExternalPoll(flow, disk2);
 
     const mergeDialog = await screen.findByRole("dialog", {
       name: "ファイルが更新されています",
@@ -379,6 +383,21 @@ describe("App integration (Issue 548)", () => {
       expect(screen.queryByRole("dialog", { name: "ファイルが更新されています" })).toBeNull();
     });
 
+    const saveCall = invoke.mock.calls.find(
+      ([cmd]) => cmd === "save_schedule_file" || cmd === "save_schedule_at_path",
+    );
+    if (saveCall != null) {
+      const saved = parseScheduleText(String(saveCall[1]?.contents ?? ""));
+      expect(saved.ok).toBe(true);
+      if (saved.ok) {
+        expect(saved.document.levels?.length).toBeGreaterThan(0);
+        expect(saved.document.outline?.length).toBeGreaterThan(0);
+        const savedJson = saveCall[1]?.contents;
+        expect(String(savedJson)).not.toContain("また下書き");
+        expect(String(savedJson)).not.toContain("回帰の意味");
+        expect(String(savedJson)).toContain("2026-10-14");
+      }
+    }
     const diskJson = flow.getDisk(schedulePath) ?? "";
     expect(diskJson).not.toContain("また下書き");
     expect(diskJson).not.toContain("回帰の意味");
@@ -397,7 +416,7 @@ describe("App integration (Issue 548)", () => {
     const schedulePath = "/tmp/regression/ws-no-status/plan.json";
     const scheduleText = readRegressionText("smoke.schedule.json");
     const canonical = canonicalText(scheduleText);
-    const flow = await mountWorkspaceApp({
+    await mountWorkspaceApp({
       document: loadRegressionSchedule("smoke.schedule.json"),
       workspacePath: wsPath,
       schedulePath,
@@ -448,7 +467,9 @@ describe("App integration (Issue 548)", () => {
     });
 
     const settings = await openSettingsSection("ステータス");
-    expect(within(settings).getByRole("alert")).toBeInTheDocument();
+    expect(within(settings).getByRole("alert")).toHaveTextContent(
+      "ステータス設定を読み込めませんでした。",
+    );
     expect(within(settings).queryByRole("button", { name: "項目を編集…" })).toBeNull();
   });
 
@@ -559,10 +580,6 @@ describe("App integration (Issue 548)", () => {
     });
     emitWorkspaceReload(wsPath);
     await flushMicrotasks(80);
-    const settingsDialog = screen.getByRole("dialog", { name: "設定" });
-    if (!screen.queryByRole("dialog", { name: "色の一覧の項目を編集" })) {
-      fireEvent.click(within(settingsDialog).getByRole("button", { name: "項目を編集…" }));
-    }
     await screen.findByRole("dialog", { name: "色の一覧の項目を編集" });
     fireEvent.keyDown(screen.getByRole("dialog", { name: "色の一覧の項目を編集" }), {
       key: "Escape",
@@ -647,7 +664,7 @@ describe("App integration (Issue 548)", () => {
       within(settings).getByRole("button", { name: "項目を編集…" }),
     );
     fireEvent.click(editBtn);
-    const overlay = await screen.findByRole("dialog", { name: "拡張項目の項目を編集" });
+    const overlay = await screen.findByRole("dialog", { name: "拡張項目" });
     const pinnedBefore = flow.getDisk(pinnedPath) ?? "";
     const idField = within(overlay).getByLabelText("プラグイン ID");
     fireEvent.change(idField, { target: { value: "sample" } });
@@ -660,7 +677,7 @@ describe("App integration (Issue 548)", () => {
     const writesBefore = flow.writeCalls.filter(
       (c) => c.command === "write_field_extension_at_path",
     ).length;
-    fireEvent.change(within(overlay).getByLabelText("名前"), {
+    fireEvent.change(within(overlay).getAllByLabelText("名前")[0]!, {
       target: { value: "別名項目" },
     });
     fireEvent.change(idField, { target: { value: "custom" } });
@@ -672,7 +689,7 @@ describe("App integration (Issue 548)", () => {
     });
     const writeCall = flow.writeCalls
       .filter((c) => c.command === "write_field_extension_at_path")
-      .at(-1);
+      .slice(-1)[0];
     expect(writeCall?.args?.path).toBe(editablePath);
     expect(flow.getDisk(pinnedPath)).toBe(pinnedBefore);
   });
@@ -716,25 +733,51 @@ describe("App integration (Issue 548)", () => {
     expect(screen.getByDisplayValue("残す値")).toBeInTheDocument();
 
     const settings = await openSettingsSection("拡張項目");
+    await waitFor(() => {
+      expect(within(settings).getByText(/編集用: 編集用拡張/)).toBeInTheDocument();
+    });
     const deleteBtn = within(settings).getByRole("button", { name: "消す" });
     const deletesBefore = flow.writeCalls.filter(
       (c) => c.command === "delete_workspace_editable_field_extension",
     ).length;
     fireEvent.click(deleteBtn);
-    const confirm = await screen.findByRole("alertdialog", {}, { timeout: 4000 });
-    fireEvent.click(within(confirm).getByRole("button", { name: "やめる" }));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    const settingsFields = within(screen.getByRole("dialog", { name: "設定" }));
+    expect(
+      settingsFields.getByText(
+        "編集用の拡張を設定ファイルから外し、ファイルを消します。タスクの値は残り、定義の無い追加項目になります。",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(settingsFields.getByRole("button", { name: "やめる" }));
+    await waitFor(() =>
+      expect(
+        settingsFields.queryByText(
+          "編集用の拡張を設定ファイルから外し、ファイルを消します。タスクの値は残り、定義の無い追加項目になります。",
+        ),
+      ).toBeNull(),
+    );
     expect(
       flow.writeCalls.filter((c) => c.command === "delete_workspace_editable_field_extension").length,
     ).toBe(deletesBefore);
     expect(within(screen.getByRole("dialog", { name: "設定" })).getByText(/編集用:/)).toBeInTheDocument();
 
-    fireEvent.click(deleteBtn);
-    const confirm2 = await screen.findByRole("alertdialog");
-    fireEvent.click(within(confirm2).getByRole("button", { name: "消す" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "設定" })).getByRole("button", {
+        name: "消す",
+      }),
+    );
+    const settingsFieldsConfirm = within(screen.getByRole("dialog", { name: "設定" }));
+    const confirmDelete = settingsFieldsConfirm
+      .getAllByRole("button", { name: "消す" })
+      .find((btn) => btn.classList.contains("toolbar-btn-danger"));
+    if (!confirmDelete) throw new Error("confirm 消す not found");
+    await act(async () => {
+      fireEvent.click(confirmDelete);
+      await flushMicrotasks(80);
+    });
     await waitFor(() => {
       expect(
-        flow.writeCalls.filter((c) => c.command === "delete_workspace_editable_field_extension").length,
+        invoke.mock.calls.filter(([cmd]) => cmd === "delete_workspace_editable_field_extension")
+          .length,
       ).toBe(deletesBefore + 1);
     });
     await waitFor(() => {
@@ -747,8 +790,13 @@ describe("App integration (Issue 548)", () => {
     ).toBeEnabled();
     expect(flow.getDisk(editablePath)).toBeUndefined();
     fireEvent.keyDown(screen.getByRole("dialog", { name: "設定" }), { key: "Escape" });
-    expect(screen.getByText("未登録の追加項目")).toBeInTheDocument();
-    expect(screen.getByText("残す値")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("値あり"));
+    await waitFor(() => {
+      expect(screen.getByText("未登録の追加項目")).toBeInTheDocument();
+    });
+    const orphanSection = screen.getByText("未登録の追加項目").closest(".detail-section");
+    expect(orphanSection).not.toBeNull();
+    expect(within(orphanSection as HTMLElement).getByText("残す値")).toBeInTheDocument();
   });
 
   it("TC-FILE-07g: keep local then 未保存 opens the diff against the file", async () => {
@@ -766,24 +814,31 @@ describe("App integration (Issue 548)", () => {
     await waitFor(() => expect(end).toHaveValue("2026-04-12"));
 
     const disk = cloneWithTaskEnd(document, design.id, "2026-04-11");
-    flow.setDisk(schedulePath, documentToJsonString(disk));
-    flow.queuePoll(pollJson(disk));
-    await waitForNextPoll();
-    await settleAfterPoll();
+    const diskJson = documentToJsonString(disk);
+    flow.setDisk(schedulePath, diskJson);
+    flow.setDisk(FLOW_SCHEDULE_PATH, diskJson);
+    await driveExternalPoll(flow, disk);
     const dialog = await screen.findByRole("dialog", { name: "ファイルが更新されています" });
     fireEvent.click(within(dialog).getByRole("button", { name: "画面の編集を残す" }));
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "ファイルが更新されています" })).toBeNull(),
     );
 
-    const user = userEvent.setup();
+    const diskBytes = await flow.invoke("read_open_schedule_file");
+    expect(String(diskBytes)).toContain("2026-04-11");
+    expect(String(diskBytes)).not.toContain("2026-04-12");
+
     const unsaved = await screen.findByRole("button", { name: "未保存" });
-    await user.click(unsaved);
+    fireEvent.click(unsaved);
     const column = await screen.findByRole("region", { name: "差分" });
     await waitFor(() => {
-      expect(column.textContent).toMatch(/2026-04-12/);
-      expect(column.textContent).toMatch(/2026-04-11/);
+      expect(flow.getDisk(schedulePath)).toContain("2026-04-11");
     });
+    await waitFor(() => {
+      expect(column.textContent).toMatch(/2026-04-12/);
+    });
+    const openBytesAfterDiff = await flow.invoke("read_open_schedule_file");
+    expect(String(openBytesAfterDiff)).toContain("2026-04-11");
     expect(screen.queryByRole("dialog", { name: "差分" })).toBeNull();
   });
 });

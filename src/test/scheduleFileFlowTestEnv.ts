@@ -87,6 +87,30 @@ export function cloneWithTaskEnd(
   return next;
 }
 
+export function cloneWithOutlineTaskEnd(
+  source: ScheduleDocument,
+  taskId: string,
+  end: string,
+): ScheduleDocument {
+  const next = structuredClone(source);
+  const outline = next.outline;
+  if (outline == null) return next;
+  const walk = (nodes: NonNullable<ScheduleDocument["outline"]>): boolean => {
+    for (const node of nodes) {
+      if (node.id === taskId && "end" in node) {
+        node.end = end;
+        return true;
+      }
+      if ("children" in node && node.children != null && walk(node.children)) {
+        return true;
+      }
+    }
+    return false;
+  };
+  walk(outline);
+  return next;
+}
+
 export function cloneWithTaskName(
   source: ScheduleDocument,
   taskId: string,
