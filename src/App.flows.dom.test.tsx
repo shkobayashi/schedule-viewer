@@ -208,7 +208,7 @@ describe("App flows (Issue 548 coverage)", () => {
     await waitFor(() => expect(screen.queryByText("2件を選択中")).toBeNull());
   });
 
-  it("stores row density from settings and renders compact class", async () => {
+  it("stores compact row density and applies 26px task row height", async () => {
     const path = "/tmp/flows/density/plan.json";
     const canonical = canonicalText(readRegressionText("smoke.schedule.json"));
     await mountApp({ path, contents: canonical }, invoke);
@@ -221,6 +221,12 @@ describe("App flows (Issue 548 coverage)", () => {
       expect(localStorage.getItem(ROW_DENSITY_LS_KEY)).toBe("compact"),
     );
     pressKey(screen.getByRole("dialog", { name: "設定" }), { key: "Escape" });
+    await expandSidebarUntilTask("設計");
+    const designRow = document.querySelector(`[data-task-id="${TASK_DESIGN}"]`);
+    if (!(designRow instanceof HTMLElement)) {
+      throw new Error("設計 row missing");
+    }
+    expect(designRow.style.height).toBe("26px");
   });
 
   it("opens the shortcuts dialog from the status bar", async () => {
@@ -356,14 +362,6 @@ describe("App flows (Issue 548 coverage)", () => {
     });
     fireEvent.click(screen.getByRole("option", { name: /^取り消し/ }));
     await waitFor(() => expect(end).toHaveValue(before));
-  });
-
-  it("moves the timeline when 今日 is pressed", async () => {
-    const path = "/tmp/flows/today/plan.json";
-    const canonical = canonicalText(readRegressionText("smoke.schedule.json"));
-    await mountApp({ path, contents: canonical }, invoke);
-    fireEvent.click(screen.getByRole("button", { name: "今日" }));
-    expect(screen.getByRole("button", { name: "今日" })).toBeInTheDocument();
   });
 
   it("shows lineage for the selected task", async () => {

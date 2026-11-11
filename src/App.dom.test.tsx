@@ -713,6 +713,7 @@ describe("App integration (Issue 548)", () => {
     const wsPath = "/tmp/regression/fields-delete/workspace.json";
     const schedulePath = "/tmp/regression/fields-delete/schedule.json";
     const editablePath = "/tmp/regression/fields-delete/custom.fields.json";
+    const pinnedPath = "/tmp/regression/fields-delete/sample.fields.json";
     let customBody = readExampleText("fields/sample.fields.json");
     customBody = customBody
       .replace('"id": "sample"', '"id": "custom"')
@@ -755,6 +756,8 @@ describe("App integration (Issue 548)", () => {
     const deletesBefore = flow.writeCalls.filter(
       (c) => c.command === "delete_workspace_editable_field_extension",
     ).length;
+    const pinnedBefore = flow.getDisk(pinnedPath) ?? "";
+    expect(within(settings).getByText(/ピン留め: サンプル追加項目/)).toBeInTheDocument();
     fireEvent.click(deleteBtn);
     const settingsFields = within(screen.getByRole("dialog", { name: "設定" }));
     expect(
@@ -773,7 +776,9 @@ describe("App integration (Issue 548)", () => {
     expect(
       flow.writeCalls.filter((c) => c.command === "delete_workspace_editable_field_extension").length,
     ).toBe(deletesBefore);
+    expect(flow.getDisk(pinnedPath)).toBe(pinnedBefore);
     expect(within(screen.getByRole("dialog", { name: "設定" })).getByText(/編集用:/)).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog", { name: "設定" })).getByText(/ピン留め: サンプル追加項目/)).toBeInTheDocument();
 
     fireEvent.click(
       within(screen.getByRole("dialog", { name: "設定" })).getByRole("button", {
@@ -804,6 +809,11 @@ describe("App integration (Issue 548)", () => {
       }),
     ).toBeEnabled();
     expect(flow.getDisk(editablePath)).toBeUndefined();
+    expect(flow.getDisk(pinnedPath)).toBe(pinnedBefore);
+    expect(
+      invoke.mock.calls.filter(([cmd]) => cmd === "delete_workspace_editable_field_extension").length,
+    ).toBe(deletesBefore + 1);
+    expect(within(screen.getByRole("dialog", { name: "設定" })).getByText(/ピン留め: サンプル追加項目/)).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("dialog", { name: "設定" }), { key: "Escape" });
     fireEvent.click(screen.getByText("値あり"));
     await waitFor(() => {
@@ -822,13 +832,18 @@ describe("App integration (Issue 548)", () => {
     flow.setDisk(schedulePath, canonical);
 
     const design = document.categories[0]?.groups[0]?.tasks.find((t) => t.name === "設計");
-    if (!design) throw new Error("設計 missing");
+    const survey = document.categories[0]?.groups[0]?.tasks.find((t) => t.name === "調査");
+    if (!design || !survey) throw new Error("設計 or 調査 missing");
     fireEvent.click(screen.getByText("設計"));
     const end = screen.getByLabelText("終了");
     fireEvent.change(end, { target: { value: "2026-04-12" } });
     await waitFor(() => expect(end).toHaveValue("2026-04-12"));
 
-    const disk = cloneWithTaskEnd(document, design.id, "2026-04-11");
+    const disk = cloneWithTaskEnd(
+      cloneWithTaskEnd(document, survey.id, "2026-04-05"),
+      design.id,
+      "2026-04-08",
+    );
     const diskJson = documentToJsonString(disk);
     flow.setDisk(schedulePath, diskJson);
     flow.setDisk(FLOW_SCHEDULE_PATH, diskJson);
@@ -840,20 +855,28 @@ describe("App integration (Issue 548)", () => {
     );
 
     const diskBytes = await flow.invoke("read_open_schedule_file");
-    expect(String(diskBytes)).toContain("2026-04-11");
+    expect(String(diskBytes)).toContain("2026-04-05");
+    expect(String(diskBytes)).toContain('"name": "調査"');
     expect(String(diskBytes)).not.toContain("2026-04-12");
 
     const unsaved = await screen.findByRole("button", { name: "未保存" });
     fireEvent.click(unsaved);
     const column = await screen.findByRole("region", { name: "差分" });
     await waitFor(() => {
-      expect(flow.getDisk(schedulePath)).toContain("2026-04-11");
+      expect(flow.getDisk(schedulePath)).toContain("2026-04-05");
+      expect(flow.getDisk(schedulePath)).not.toContain("2026-04-12");
     });
+    await waitFor(() => {
+      expect(column.textContent).toMatch(/設計/);
+      expect(column.textContent).toMatch(/2026-04-05/);
+    });
+    const designRow = within(column).getByRole("option", { name: /設計/ });
+    fireEvent.click(designRow);
     await waitFor(() => {
       expect(column.textContent).toMatch(/2026-04-12/);
     });
     const openBytesAfterDiff = await flow.invoke("read_open_schedule_file");
-    expect(String(openBytesAfterDiff)).toContain("2026-04-11");
+    expect(String(openBytesAfterDiff)).toContain("2026-04-05");
     expect(screen.queryByRole("dialog", { name: "差分" })).toBeNull();
   });
 
@@ -928,6 +951,108 @@ describe("App integration (Issue 548)", () => {
     fireEvent.blur(list);
     screen.getByLabelText("スケジュールチャート").focus();
     await waitFor(() => expect(column.textContent).toMatch(/2026-04-13/));
+  });
+
+  it("TC-FILE-07g: explicit 未保存 replaces a queued auto diff while focused and keeps it after blur", async () => {
+    const schedulePath = "/tmp/regression/file-07g-explicit-queue/plan.json";
+    const scheduleText = readRegressionText("smoke.schedule.json");
+    const canonical = canonicalText(scheduleText);
+    const { flow, document } = await mountApp({ path: schedulePath, contents: canonical });
+    flow.setDisk(schedulePath, canonical);
+
+    const design = document.categories[0]?.groups[0]?.tasks.find((t) => t.name === "設計");
+    if (!design) throw new Error("設計 missing");
+    fireEvent.click(screen.getByText("設計"));
+    const end = screen.getByLabelText("終了");
+    fireEvent.change(end, { target: { value: "2026-04-12" } });
+    await waitFor(() => expect(end).toHaveValue("2026-04-12"));
+
+    fireEvent.click(await screen.findByRole("button", { name: "未保存" }));
+    const column = await screen.findByRole("region", { name: "差分" });
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-12/));
+    const list = within(column).getByRole("listbox", { name: "差分の一覧" });
+    list.focus();
+
+    fireEvent.change(end, { target: { value: "2026-04-13" } });
+    await waitFor(() => expect(end).toHaveValue("2026-04-13"));
+    await act(async () => {
+      await flushMicrotasks(80);
+    });
+    expect(column.textContent).toMatch(/2026-04-12/);
+    expect(column.textContent).not.toMatch(/2026-04-13/);
+
+    fireEvent.change(end, { target: { value: "2026-04-14" } });
+    await waitFor(() => expect(end).toHaveValue("2026-04-14"));
+    fireEvent.click(await screen.findByRole("button", { name: "未保存" }));
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-14/));
+    expect(within(column).getByRole("option", { name: /設計/ })).toBeInTheDocument();
+
+    fireEvent.blur(list);
+    screen.getByLabelText("スケジュールチャート").focus();
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-14/));
+    expect(column.textContent).not.toMatch(/2026-04-13/);
+    expect(flow.getDisk(schedulePath)).toBe(canonical);
+  });
+
+  it("TC-FILE-07: copy from the diff strip writes the diff text", async () => {
+    const schedulePath = "/tmp/regression/file-07-copy/plan.json";
+    const scheduleText = readRegressionText("smoke.schedule.json");
+    const canonical = canonicalText(scheduleText);
+    const { document } = await mountApp({ path: schedulePath, contents: canonical });
+    const writeText = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    const design = document.categories[0]?.groups[0]?.tasks.find((t) => t.name === "設計");
+    if (!design) throw new Error("設計 missing");
+    fireEvent.click(screen.getByText("設計"));
+    fireEvent.change(screen.getByLabelText("終了"), { target: { value: "2026-04-12" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "未保存" })).toBeInTheDocument());
+
+    fireEvent.click(await screen.findByRole("button", { name: "未保存" }));
+    const column = await screen.findByRole("region", { name: "差分" });
+    await waitFor(() => expect(column.textContent).toMatch(/設計/));
+    const bodyBefore = column.textContent;
+    fireEvent.click(within(column).getByRole("button", { name: "コピー" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(String(writeText.mock.calls[0]?.[0])).toMatch(/2026-04-12/);
+    expect(column.textContent).toBe(bodyBefore);
+  });
+
+  it("TC-FILE-07g: explicit reload with the same body clears a queued auto diff on blur", async () => {
+    const schedulePath = "/tmp/regression/file-07g-explicit-same/plan.json";
+    const scheduleText = readRegressionText("smoke.schedule.json");
+    const canonical = canonicalText(scheduleText);
+    const { document } = await mountApp({ path: schedulePath, contents: canonical });
+
+    const design = document.categories[0]?.groups[0]?.tasks.find((t) => t.name === "設計");
+    if (!design) throw new Error("設計 missing");
+    fireEvent.click(screen.getByText("設計"));
+    const end = screen.getByLabelText("終了");
+    fireEvent.change(end, { target: { value: "2026-04-12" } });
+    await waitFor(() => expect(end).toHaveValue("2026-04-12"));
+
+    fireEvent.click(await screen.findByRole("button", { name: "未保存" }));
+    const column = await screen.findByRole("region", { name: "差分" });
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-12/));
+    const list = within(column).getByRole("listbox", { name: "差分の一覧" });
+    list.focus();
+
+    fireEvent.change(end, { target: { value: "2026-04-13" } });
+    await waitFor(() => expect(end).toHaveValue("2026-04-13"));
+    await act(async () => {
+      await flushMicrotasks(80);
+    });
+    expect(column.textContent).toMatch(/2026-04-12/);
+
+    fireEvent.change(end, { target: { value: "2026-04-12" } });
+    await waitFor(() => expect(end).toHaveValue("2026-04-12"));
+    fireEvent.click(await screen.findByRole("button", { name: "未保存" }));
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-12/));
+
+    fireEvent.blur(list);
+    screen.getByLabelText("スケジュールチャート").focus();
+    await waitFor(() => expect(column.textContent).toMatch(/2026-04-12/));
+    expect(column.textContent).not.toMatch(/2026-04-13/);
   });
 });
 

@@ -3350,6 +3350,10 @@ function App() {
         }
         return;
       }
+      if (source === "explicit") {
+        pendingDiffBodyRef.current = null;
+        pendingDiffEntriesRef.current = null;
+      }
       const prev = diffStripRef.current;
       const wasVisible = prev.visible;
       const prevStatus =
@@ -3517,6 +3521,8 @@ function App() {
         explicitView.kind === "body" &&
         result.text === strip.text
       ) {
+        pendingDiffBodyRef.current = null;
+        pendingDiffEntriesRef.current = null;
         return;
       }
       const view = explicitView;
