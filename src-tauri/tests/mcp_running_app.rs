@@ -131,6 +131,25 @@ fn finish_child(child: Child) -> ProcessOutput {
     finish_child_with_timeout(child, CHILD_WAIT_TIMEOUT)
 }
 
+#[cfg(windows)]
+fn windows_profile_dirs(home: &Path) -> (PathBuf, PathBuf) {
+    let roaming = home.join("AppData").join("Roaming");
+    let local = home.join("AppData").join("Local");
+    (roaming, local)
+}
+
+/// Tauri の `app_data_dir` と `dirs::data_dir()` が同じ規則になるよう、隔離用ホームの配置を揃える。
+fn harness_app_data_dir(home: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        windows_profile_dirs(home).0.join(APP_IDENTIFIER)
+    }
+    #[cfg(not(windows))]
+    {
+        home.join(APP_IDENTIFIER)
+    }
+}
+
 fn apply_isolated_home(cmd: &mut Command, home: &Path) {
     let path = home.to_string_lossy();
     cmd.env("HOME", &*path);
@@ -139,9 +158,27 @@ fn apply_isolated_home(cmd: &mut Command, home: &Path) {
     cmd.env("XDG_CACHE_HOME", &*path);
     #[cfg(windows)]
     {
-        cmd.env("APPDATA", &*path);
-        cmd.env("LOCALAPPDATA", &*path);
+        let (roaming, local) = windows_profile_dirs(home);
+        let _ = fs::create_dir_all(&roaming);
+        let _ = fs::create_dir_all(&local);
+        cmd.env("USERPROFILE", &*path);
+        cmd.env("APPDATA", roaming.as_os_str());
+        cmd.env("LOCALAPPDATA", local.as_os_str());
     }
+}
+
+#[cfg(windows)]
+fn wait_for_gui_mcp_pipe(deadline: Instant, gui: &mut Child) -> Result<(), String> {
+    while Instant::now() < deadline {
+        if mcp_named_pipe_is_open() {
+            return Ok(());
+        }
+        if gui.try_wait().map_err(|e| e.to_string())?.is_some() {
+            return Err("gui exited during readiness".to_string());
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    Err("gui not ready".to_string())
 }
 
 fn assert_linux_display() {
@@ -1571,7 +1608,8 @@ impl RunningHarness {
         let home_path = home.path().to_path_buf();
         let work = home_path.join("work");
         fs::create_dir_all(&work).map_err(|e| e.to_string())?;
-        let app_data = home_path.join(APP_IDENTIFIER);
+        let app_data = harness_app_data_dir(&home_path);
+        fs::create_dir_all(&app_data).map_err(|e| e.to_string())?;
 
         let main_path = copy_regression_workspace(&work);
         let schedule2_path = work.join("schedule-2.schedule.json");
@@ -1628,7 +1666,7 @@ impl RunningHarness {
     }
 
     fn app_data_dir(&self) -> PathBuf {
-        self.home.join(APP_IDENTIFIER)
+        harness_app_data_dir(&self.home)
     }
 
     fn seed_schedule_bytes(&self) -> Vec<u8> {
@@ -1663,6 +1701,8 @@ impl RunningHarness {
 
     fn wait_ready_with(&mut self, timeout: Duration) -> Result<(), String> {
         let deadline = Instant::now() + timeout;
+        #[cfg(windows)]
+        wait_for_gui_mcp_pipe(deadline, &mut self.gui)?;
         loop {
             let out = self.run_screen(&["--screen", "current_schedule"], None, None);
             if out.code == 0 {
