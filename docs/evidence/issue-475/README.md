@@ -19,4 +19,4 @@ This evidence supports human UI steps equivalent to **`set_view.lineage`**, **`s
 
 **Out of scope (owner):** reverse parity — JSON paste UI for `set_view`, or machine-only replay of filter/export dialogs. Owner-rejected reverse-parity items (`replace_schedule` dedicated UI, explain_* human menus, read-dialog mirrors, file-drop column replay) are **not** listed here as follow-up work from this slice.
 
-**Still open on Issue #475 (human → machine, not reverse parity):** e.g. chart-drag-equivalent MCP UX within the existing committed-date operation boundary (not `edit_plan`), and any filter-panel entries without MCP/CLI write yet — see the issue for the current list.
+**Issue #475 status:** The in-scope human→machine write slice for this evidence landed in PR #584. Wording that still listed chart-drag MCP or unspecified filter-panel writes as open follow-up was stale only; no further product work remains from that slice. Issue #475 stays open until the owner closes it.
