@@ -278,12 +278,12 @@ Rust のカバレッジ閾値は置かない。Clippy と `cargo test --locked` 
 
 | トリガー | ワークフロー | 内容 |
 | --- | --- | --- |
-| `develop`、`main`、`next` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルド、`agentdocs` を分け、集約ジョブ `ci` で結果をまとめる |
+| `develop`、`main`、`next`、`feature-436` 向けの pull request | CI（`.github/workflows/ci.yml`） | 変更パスに応じてフロント、Rust、操作マニュアルのサイトビルド、`agentdocs` を分け、集約ジョブ `ci` で結果をまとめる |
 | `main` への push（操作マニュアルとサイトビルドの入力） | Pages（`.github/workflows/pages.yml`） | `npm run build:manual-site` のあと GitHub Pages へ公開。URL は https://shkobayashi.github.io/schedule-viewer/ 。`workflow_dispatch` でも動く |
 | `main` または `release/**` への push | Release（`.github/workflows/release.yml`） | 版とブランチを検査したあと、環境 `release` の承認のあと、Ubuntu (deb) を GitHub Release へ公開する。`main` の安定版では Windows が署名しない MSIX を Microsoft Store へ提出する。`release/X.Y.Z` の Pre-release では Windows (NSIS) も出す |
 | `develop` または `next` 向け pull request の `opened` と `synchronize`。既定ブランチの `schedule`（`0 16 * * *`、UTC）。`workflow_dispatch` | Browser regression（`.github/workflows/browser-regression.yml`） | パスでは絞らない。`npm ci`、`npx playwright install --with-deps chromium`、`npm run test:browser-regression`。失敗したときは `test-results/` を成果物にする。`main` 向けの pull request では動かない |
 
-`develop` への push だけでは CI は動かない。CI が動くのは `develop`、`main`、`next` 向けの pull request のときである。
+`develop` への push だけでは CI は動かない。CI が動くのは `develop`、`main`、`next`、`feature-436` 向けの pull request のときである。
 
 `browser-regression.yml` は、`develop` への push では動かない。夜間の `schedule` は、このファイルが既定ブランチ `develop` にあるとき、その最新コミットで動く。`workflow_dispatch` も、ファイルが `develop` にあるときだけ起動できる。
 
