@@ -502,6 +502,47 @@ fn inspect_schedule_viewer_image(pid: u32, me: u32) -> Result<ExeInspection, Str
 }
 
 #[cfg(unix)]
+fn unix_pid_is_schedule_viewer(pid: u32) -> bool {
+    let me = current_euid();
+    match inspect_schedule_viewer_image(pid, me) {
+        Ok(ExeInspection::Resolved(path)) => is_schedule_viewer_image_path(&path),
+        Ok(ExeInspection::NoSuchProcess | ExeInspection::OtherUser) => false,
+        Ok(ExeInspection::InspectFailed(_)) => {
+            #[cfg(target_os = "linux")]
+            {
+                linux_image_hint_from_proc(pid)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|path| is_schedule_viewer_image_path(&path))
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                false
+            }
+        }
+        Err(_) => false,
+    }
+}
+
+#[cfg(unix)]
+fn schedule_viewer_pid_listed(pid: u32) -> bool {
+    if schedule_viewer_pids()
+        .map(|pids| pids.contains(&pid))
+        .unwrap_or(false)
+    {
+        return true;
+    }
+    unix_pid_is_schedule_viewer(pid)
+}
+
+#[cfg(windows)]
+fn schedule_viewer_pid_listed(pid: u32) -> bool {
+    schedule_viewer_pids()
+        .map(|pids| pids.contains(&pid))
+        .unwrap_or(false)
+}
+
+#[cfg(unix)]
 fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
     let me = current_euid();
     let mut found = Vec::new();
@@ -509,17 +550,30 @@ fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
     for pid in all_pids()? {
         match inspect_schedule_viewer_image(pid, me)? {
             ExeInspection::Resolved(path) if is_schedule_viewer_image_path(&path) => found.push(pid),
-            ExeInspection::InspectFailed(msg) => inspect_failures.push((pid, msg)),
+            ExeInspection::InspectFailed(msg) => {
+                #[cfg(target_os = "linux")]
+                {
+                    if let Ok(Some(path)) = linux_image_hint_from_proc(pid) {
+                        if is_schedule_viewer_image_path(&path) {
+                            found.push(pid);
+                            continue;
+                        }
+                    }
+                }
+                inspect_failures.push((pid, msg));
+            }
             ExeInspection::Resolved(_)
             | ExeInspection::NoSuchProcess
             | ExeInspection::OtherUser => {}
         }
     }
+    #[cfg(target_os = "macos")]
     if !inspect_failures.is_empty() {
         return Err(format!(
             "同一ユーザーの schedule-viewer 実行ファイルを確認できません: {inspect_failures:?}"
         ));
     }
+    let _ = inspect_failures;
     Ok(found)
 }
 
@@ -872,12 +926,13 @@ fn spawn_harmless_schedule_viewer_decoy() -> (ChildGuard, u32) {
 }
 
 fn wait_for_foreign_schedule_viewer_pid(pid: u32) {
-    wait_until(Duration::from_secs(30), || {
-        schedule_viewer_pids()
-            .map(|pids| pids.contains(&pid))
-            .unwrap_or(false)
-    });
-    let pids = schedule_viewer_pids().expect("schedule_viewer_pids after decoy spawn");
+    wait_until(Duration::from_secs(30), || schedule_viewer_pid_listed(pid));
+    assert!(
+        schedule_viewer_pid_listed(pid),
+        "harmless decoy pid {pid} not listed in schedule-viewer pids {:?}",
+        schedule_viewer_pids().unwrap_or_default()
+    );
+    let pids = schedule_viewer_pids().unwrap_or_default();
     assert!(
         pids.contains(&pid),
         "harmless decoy pid {pid} not listed in schedule-viewer pids {pids:?}"
@@ -3946,12 +4001,12 @@ fn catalog_action_save_on_app_catalog_updates_member_name_on_both_plain_windows(
 fn foreign_schedule_viewer_process_fails_without_sending_tools() {
     #[cfg(target_os = "linux")]
     assert_linux_display();
-    let _gui = GuiGuard {
-        _lock: lock_ignore_poison(&GUI_MUTEX),
-    };
     let (mut guard, foreign_pid) = spawn_harmless_schedule_viewer_decoy();
     #[cfg(any(unix, windows))]
     wait_for_foreign_schedule_viewer_pid(foreign_pid);
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
     let result = std::panic::catch_unwind(|| assert_no_foreign_schedule_viewer_processes(&[]));
     assert!(
         result.is_err(),
