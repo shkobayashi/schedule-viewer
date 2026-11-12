@@ -9,6 +9,7 @@ mod json_skills;
 mod mcp_app_data;
 mod mcp_bridge;
 mod mcp_tool_names;
+mod open_new_window_diagnostic;
 pub mod mcp_stdio;
 mod read_screen_skill;
 pub mod screen_cli;
@@ -68,7 +69,8 @@ use window_session::{
     recovery_owner_label,
     recovery_owners_by_path, remove_window_label,
     should_remove_open_window_label_after_destroy, set_focused_label, sha256_hex,
-    spawn_startup_windows, store_pending_open, take_pending_open, upsert_window_path,
+    reserve_next_schedule_window_open, spawn_startup_windows, take_pending_open,
+    upsert_window_path,
     workspace_path_for_schedule_record, write_filter_for_path, write_recovery_for_path,
     entry_for_label,
     WindowSessionState,
@@ -2349,10 +2351,63 @@ fn ack_pending_schedule_window_open(
 }
 
 #[tauri::command]
+fn record_pending_workspace_startup_stage(
+    window: tauri::Window,
+    app: tauri::AppHandle,
+    stage: String,
+) -> Result<(), String> {
+    if stage != window_session::PENDING_STARTUP_STAGE_WORKSPACE_FAILED {
+        return Err("不正なステージです。".to_string());
+    }
+    let app_data = app_data_dir(&app)?;
+    window_session::append_pending_startup_stage(
+        &app_data,
+        &window_label(&window),
+        &stage,
+    )
+}
+
+#[derive(Deserialize)]
+struct OpenNewWindowDiagnosticRecord {
+    #[serde(rename = "requestId")]
+    request_id: String,
+    phase: String,
+    origin: String,
+    #[serde(rename = "windowLabel", default)]
+    window_label: Option<String>,
+    #[serde(rename = "handlerLabel", default)]
+    handler_label: Option<String>,
+    #[serde(default)]
+    sequence: Option<u8>,
+}
+
+#[tauri::command]
+fn record_open_new_window_diagnostic(
+    app: tauri::AppHandle,
+    record: OpenNewWindowDiagnosticRecord,
+) -> Result<(), String> {
+    let Ok(app_data) = app_data_dir(&app) else {
+        return Ok(());
+    };
+    open_new_window_diagnostic::try_append_open_new_window_diagnostic(
+        &app_data,
+        &open_new_window_diagnostic::OpenNewWindowDiagnosticInput {
+            request_id: record.request_id,
+            phase: record.phase,
+            origin: record.origin,
+            window_label: record.window_label,
+            handler_label: record.handler_label,
+            sequence: record.sequence,
+        },
+    );
+    Ok(())
+}
+
+#[tauri::command]
 async fn create_schedule_window(
     app: tauri::AppHandle,
     session: State<'_, Mutex<WindowSessionState>>,
-    states: State<'_, Mutex<ScheduleFileStates>>,
+    _states: State<'_, Mutex<ScheduleFileStates>>,
     path: String,
     contents: String,
     workspace_path: Option<String>,
@@ -2362,31 +2417,31 @@ async fn create_schedule_window(
     }
     let app_data = app_data_dir(&app)?;
     let label = loop {
-        let candidate = window_session::next_schedule_window_label(&app)?;
-        {
+        let candidate = {
             let mut guard = session.lock().expect("window session");
-            store_pending_open(
+            reserve_next_schedule_window_open(
+                &app,
                 &mut guard,
-                candidate.clone(),
                 path.clone(),
                 contents.clone(),
                 workspace_path.clone(),
-            );
-            note_window_focus(&mut guard, &candidate);
-        }
-        upsert_window_path(
-            &app_data,
-            &candidate,
-            Some(&path),
-            workspace_path.as_deref(),
-            false,
-        )?;
+            )?
+        };
         match window_session::create_schedule_webview_on_main_thread(
             &app,
             &candidate,
             "schedule-viewer",
         ) {
             Ok(()) => {
+                if let Err(error) = upsert_window_path(&app_data, &candidate, None, None, true) {
+                    let mut guard = session.lock().expect("window session");
+                    let _ = take_pending_open(&mut guard, &candidate);
+                    forget_window_focus(&mut guard, &candidate);
+                    if let Some(window) = app.get_webview_window(&candidate) {
+                        let _ = window.close();
+                    }
+                    return Err(error);
+                }
                 let emit_app = app.clone();
                 let emit_label = candidate.clone();
                 let emit_payload = PendingScheduleWindowOpen {
@@ -2411,14 +2466,12 @@ async fn create_schedule_window(
                 break candidate;
             }
             Err(error) if error.contains("同じウィンドウが既に開いています") => {
-                let _ = remove_window_label(&app_data, &candidate);
                 let mut guard = session.lock().expect("window session");
                 let _ = take_pending_open(&mut guard, &candidate);
                 forget_window_focus(&mut guard, &candidate);
                 continue;
             }
             Err(error) => {
-                let _ = remove_window_label(&app_data, &candidate);
                 let mut guard = session.lock().expect("window session");
                 let _ = take_pending_open(&mut guard, &candidate);
                 forget_window_focus(&mut guard, &candidate);
@@ -2426,10 +2479,6 @@ async fn create_schedule_window(
             }
         }
     };
-    let mut guard = states.lock().expect("schedule file states");
-    let state = guard.by_label.entry(label.clone()).or_default();
-    state.path = Some(PathBuf::from(path));
-    state.content_hash = Some(hash_contents(&contents));
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.set_focus();
     }
@@ -2482,6 +2531,7 @@ fn unregister_window_session(
         let mut session_guard = session.lock().expect("window session");
         forget_startup_settlement(&mut session_guard, &label);
         forget_window_focus(&mut session_guard, &label);
+        let _ = take_pending_open(&mut session_guard, &label);
         let mut states_guard = states.lock().expect("schedule file states");
         states_guard.by_label.remove(&label);
     }
@@ -3345,6 +3395,7 @@ pub fn run() {
                         let mut guard = session.lock().expect("window session");
                         forget_startup_settlement(&mut guard, &label);
                         forget_window_focus(&mut guard, &label);
+                        let _ = take_pending_open(&mut guard, &label);
                     }
                     if let Some(states) = app.try_state::<Mutex<ScheduleFileStates>>() {
                         states
@@ -3473,6 +3524,8 @@ pub fn run() {
             create_schedule_window,
             take_pending_schedule_window_open,
             ack_pending_schedule_window_open,
+            record_pending_workspace_startup_stage,
+            record_open_new_window_diagnostic,
             register_window_focus,
             unregister_window_session,
             emit_schedule_peer_notice,

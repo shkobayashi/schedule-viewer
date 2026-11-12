@@ -14,11 +14,17 @@ import {
   scheduleJsonFilename,
   scheduleParentDirectory,
 } from "../../model/scheduleFile";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  ackPendingScheduleWindowOpenViaTauri,
+  PENDING_STARTUP_STAGE_WORKSPACE_FAILED,
   readWindowStartupViaTauri,
+  recordPendingWorkspaceStartupStageViaTauri,
   takePendingScheduleWindowOpenViaTauri,
 } from "../../model/windowSession";
+import { recordRecentWorkspaceViaTauri } from "../../model/recentFilesAppData";
 import {
+  acceptOpenedWorkspaceViaTauri,
   openWorkspaceFromFile,
   readJsonFileLimitedViaTauri,
   WORKSPACE_STARTUP_FAILED_MESSAGE,
@@ -124,6 +130,7 @@ export function useScheduleStartupRecovery({
         deferDisk?: boolean;
         abortIfMovedOn?: boolean;
         restoreFilters?: boolean;
+        preserveWorkspaceBinding?: boolean;
         onDocumentApplied?: () => void;
       },
     ): Promise<boolean> => {
@@ -134,7 +141,10 @@ export function useScheduleStartupRecovery({
           recoveryStartupRef.current !== startupId ||
           filePathRef.current != null ||
           isDirtyRef.current,
-        accept: () => acceptOpenedScheduleViaTauri(session.path, session.diskContents),
+        accept: () =>
+          acceptOpenedScheduleViaTauri(session.path, session.diskContents, {
+            preserveWorkspaceBinding: options?.preserveWorkspaceBinding ?? false,
+          }),
         apply: () => {
           replaceDocument(session.document);
           filePathRef.current = session.path;
@@ -227,13 +237,58 @@ export function useScheduleStartupRecovery({
         const pending = await takePendingScheduleWindowOpenViaTauri();
         if (cancelled || recoveryStartupRef.current !== startupId) return;
         if (pending) {
-          await applyOpenedFileRef.current(
-            {
-              path: pending.path,
-              contents: pending.contents,
-            },
-            { recordRecent: true },
-          );
+          const windowLabel = await getCurrentWindow().label;
+          if (pending.label !== windowLabel) {
+            releaseStartupBusy();
+            return;
+          }
+          if (pending.workspacePath) {
+            const workspaceStartupOk = await restoreWorkspaceBinding(
+              pending.workspacePath,
+            );
+            if (!workspaceStartupOk) {
+              setErrorMessageText(WORKSPACE_STARTUP_FAILED_MESSAGE);
+              try {
+                await recordPendingWorkspaceStartupStageViaTauri(
+                  PENDING_STARTUP_STAGE_WORKSPACE_FAILED,
+                );
+              } catch {
+                // 観測用。起動処理は続行する。
+              }
+              setStartupContentReady(true);
+              await ackPendingScheduleWindowOpenViaTauri();
+              releaseStartupBusy();
+              return;
+            }
+            await acceptOpenedWorkspaceViaTauri(
+              pending.workspacePath,
+              pending.path,
+              pending.contents,
+            );
+            await applyOpenedFileRef.current(
+              {
+                path: pending.path,
+                contents: pending.contents,
+              },
+              { recordRecent: false },
+            );
+            void recordRecentWorkspaceViaTauri(pending.workspacePath).catch(
+              () => {},
+            );
+          } else {
+            await acceptOpenedScheduleViaTauri(pending.path, pending.contents, {
+              preserveWorkspaceBinding: false,
+            });
+            await applyOpenedFileRef.current(
+              {
+                path: pending.path,
+                contents: pending.contents,
+              },
+              { recordRecent: true },
+            );
+          }
+          await ackPendingScheduleWindowOpenViaTauri();
+          setStartupContentReady(true);
           releaseStartupBusy();
           return;
         }
@@ -242,6 +297,7 @@ export function useScheduleStartupRecovery({
           releaseStartupBusy();
           return;
         }
+        const preserveWorkspaceBinding = Boolean(startup.workspacePath);
         const workspaceStartupOk = await restoreWorkspaceBinding(
           startup.workspacePath,
         );
@@ -329,7 +385,11 @@ export function useScheduleStartupRecovery({
                 baselineJson: action.baselineJson,
                 diskContents: action.diskContents,
               },
-              { abortIfMovedOn: true, restoreFilters: true },
+              {
+                abortIfMovedOn: true,
+                restoreFilters: true,
+                preserveWorkspaceBinding,
+              },
             );
             if (applied) {
               await clearRecoveryDraft();
@@ -345,7 +405,11 @@ export function useScheduleStartupRecovery({
                 baselineJson: action.baselineJson,
                 diskContents: action.diskContents,
               },
-              { abortIfMovedOn: true, restoreFilters: true },
+              {
+                abortIfMovedOn: true,
+                restoreFilters: true,
+                preserveWorkspaceBinding,
+              },
             );
             releaseStartupBusy();
             return;
@@ -375,6 +439,7 @@ export function useScheduleStartupRecovery({
               {
                 abortIfMovedOn: true,
                 restoreFilters: true,
+                preserveWorkspaceBinding,
                 onDocumentApplied: () => {
                   markMissingFilePrompted();
                   recoveryConflictRef.current = {

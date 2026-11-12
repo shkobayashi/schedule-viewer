@@ -1,6 +1,9 @@
 import { vi } from "vitest";
 import { documentToJsonString } from "../model/serialize";
-import type { WindowStartupRead } from "../model/windowSession";
+import type {
+  PendingScheduleWindowOpen,
+  WindowStartupRead,
+} from "../model/windowSession";
 import type { PollScheduleFileUpdateResult } from "../model/scheduleFile";
 import type { ScheduleDocument } from "../model/types";
 
@@ -75,6 +78,7 @@ export type ScheduleFileFlowInvoke = {
   filterStore: Map<string, string>;
   recoveryStore: Map<string, string>;
   ackedDisk: string[];
+  setPendingScheduleOpen: (pending: PendingScheduleWindowOpen | null) => void;
 };
 
 export function createScheduleFileFlowInvoke(
@@ -97,6 +101,7 @@ export function createScheduleFileFlowInvoke(
   let pollWaiters: Array<(value: PollScheduleFileUpdateResult | null) => void> =
     [];
   let pollQueue: Array<PollScheduleFileUpdateResult | null> = [];
+  let pendingScheduleOpen: PendingScheduleWindowOpen | null = null;
 
   const defaultStartupForOpen = (): WindowStartupRead => ({
     path: FLOW_SCHEDULE_PATH,
@@ -114,7 +119,10 @@ export function createScheduleFileFlowInvoke(
         if (startupDeferred) return startupDeferred.promise;
         return startupRead;
       case "take_pending_schedule_window_open":
-        return null;
+        return pendingScheduleOpen;
+      case "ack_pending_schedule_window_open":
+        pendingScheduleOpen = null;
+        return;
       case "poll_schedule_file_update": {
         if (pollQueue.length > 0) {
           return pollQueue.shift() ?? null;
@@ -276,6 +284,9 @@ export function createScheduleFileFlowInvoke(
     resetPollQueue() {
       pollQueue = [];
       pollWaiters = [];
+    },
+    setPendingScheduleOpen(pending) {
+      pendingScheduleOpen = pending;
     },
   };
 }

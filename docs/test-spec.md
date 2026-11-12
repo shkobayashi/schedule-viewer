@@ -1104,6 +1104,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | 同上 | `moveTask on playground review task after e2e-like preamble uses normalized document` | MCP-01 |
 | `pendingScheduleOpen.test.ts` | `applies only on the window that matches payload label` | WIN-01 |
 | 同上 | `does not apply twice on the same window` | WIN-01 |
+| `pendingScheduleStartupFlow.dom.test.tsx` | `marks startup content ready after a successful pending open (WIN-01)` | WIN-01 |
 | `mcpSetView.test.ts` | `leaves collapse unchanged when patch has no collapsed fields` | MCP-01 |
 | 同上 | `keeps vertical scroll unchanged` | MCP-01 |
 | 同上 | `accepts lineage with taskId and default includesConnections false` | MCP-01, FILTER-08 |
@@ -1770,7 +1771,7 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `filtered_tasks_after_set_view_status_lists_only_the_matching_task_names`（`mcp_running_app.rs`） | ステータス絞り込み後のタスク名と `visibility: collapsed` | MCP-01 |
 | `current_schedule_returns_the_seeded_document_without_a_members_key`（`mcp_running_app.rs`） | ルートにシードタスクがあり、先頭に `members` が無い | MCP-01 |
 | `focus_window_sets_schedule_2_front_and_leaves_both_file_bytes`（`mcp_running_app.rs`） | `open_windows` の `front` が `schedule-2` だけ。両ファイルのバイト列は不変 | MCP-01, WIN-01 |
-| `open_new_window_adds_the_third_file_and_keeps_the_first_two_file_and_folder`（`mcp_running_app.rs`） | 3 枚目のラベルと元 2 枚の file・folder が不変。`#[ignore]`（`open_new_window` 1 回でラベルが2枚増え厳密集合が満たせない。別報告 PR #570） | MCP-01, WIN-01 |
+| `open_new_window_adds_the_third_file_and_keeps_the_first_two_file_and_folder`（`mcp_running_app.rs`） | MCP `open_new_window` 1 回で 3 枚目のラベルだけ増え、返却ラベルの `open_windows.file` が要求パスと一致し、元 2 枚の file・folder が不変 | MCP-01, WIN-01 |
 | `set_view_filter_leaves_schedule_diff_no_difference_and_file_mtime`（`mcp_running_app.rs`） | 絞り込み後も `schedule_diff` は差無し、更新時刻不変 | MCP-01 |
 | `edit_plan_changes_one_date_keeps_mtime_undo_restores_and_save_writes_that_date`（`mcp_running_app.rs`） | 日付変更、保存前は更新時刻不変、undo で戻り、save でディスク一致 | MCP-01, FILE-07 |
 | `edit_plan_with_end_before_start_returns_the_date_sentence_and_leaves_file_bytes`（`mcp_running_app.rs`） | 終了日エラー文で画面とファイルは種のまま | MCP-01 |
@@ -1789,8 +1790,12 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `foreign_schedule_viewer_process_fails_without_sending_tools`（`mcp_running_app.rs`） | `sleep` を `schedule-viewer` の名前で起動して検出したあと `assert_no_foreign_schedule_viewer_processes` が panic する（GTK・D-Bus・MCP へ届かない） | MCP-01 |
 | `filtered_tasks_follows_the_front_window_status_filter`（`mcp_running_app.rs`） | 同パス 2 窓で前面の絞り込みだけが `filtered_tasks` に効く | MCP-01 |
 | `screen_replace_schedule_with_window_exits_1_writes_front_only_sentence_and_leaves_current_schedule`（`mcp_running_app.rs`） | `--screen replace_schedule --window` が終了 1 と前面のみ文。画面は不変 | MCP-01, MCP-02 |
-| `open_new_window_keeps_process_alive_and_both_windows_return_current_schedule`（`mcp_running_app.rs`） | 3 枚目追加後もプロセスが生き、元 2 枚と 3 枚目が `current_schedule` を返す。同上 `#[ignore]` | WIN-01, MCP-01 |
-| `open_new_window_while_main_is_dirty_keeps_the_edited_date_and_adds_a_window`（`mcp_running_app.rs`） | 未保存のまま 3 枚目が増え、`main` の日付は残る。同上 `#[ignore]` | WIN-01, MCP-01 |
+| `open_new_window_keeps_process_alive_and_both_windows_return_current_schedule`（`mcp_running_app.rs`） | 3 枚目追加後もプロセスが生き、元 2 枚と 3 枚目が `current_schedule` を返す | WIN-01, MCP-01 |
+| `open_new_window_while_main_is_dirty_keeps_the_edited_date_and_adds_a_window`（`mcp_running_app.rs`） | 未保存のまま 3 枚目が 1 枚だけ増え、`main` の日付は残る | WIN-01, MCP-01 |
+| `open_new_window_same_path_twice_adds_two_distinct_labels`（`mcp_running_app.rs`） | 同じパスで MCP `open_new_window` を 2 回呼ぶと、返るラベルと生きている窓が 2 枚増える | WIN-01, MCP-01 |
+| `open_new_window_workspace_persists_workspace_path_and_restart`（`mcp_running_app.rs`） | MCP `open_new_window` で設定ファイル付きの窓を開いたあと、ディスクの `open-windows.json` に `workspacePath` が残り、再起動後も同じラベル行に残る。`recent-files.json` の `workspaces` にだけ設定ファイルが載り、開いたスケジュールパスは `schedules` に載らない | WIN-01, FILE-10, MCP-01 |
+| `open_new_window_with_bad_workspace_keeps_sample_row_without_attached_file`（`mcp_running_app.rs`） | 存在しない `workspacePath` で開いた窓は、アプリデータの `pending-startup-stages.jsonl` に `pending-workspace-failed` が記録されたあと、オブジェクト形式の `current_schedule`（プローブ行なし）になる。`open_windows` とディスク行はサンプルのまま、`workspacePath` も付かない | WIN-01, FILE-10, MCP-01 |
+| `concurrent_reserve_next_schedule_window_open_yields_distinct_labels`（`window_session.rs`） | 2 スレッドが同じ予約 helper を競合させてもラベルと pending が重ならない | WIN-01, SYNC-03 |
 | `close_window_on_main_then_restart_opens_only_schedule_2`（`mcp_running_app.rs`） | `main` を閉じて再起動すると `schedule-2` だけ | WIN-01, SYNC-03, MCP-01 |
 | `startup_without_main_in_open_windows_opens_only_schedule_2`（`mcp_running_app.rs`） | 記録に `main` が無いとき起動で `schedule-2` だけ | WIN-01, SYNC-03, MCP-01 |
 | `close_window_schedule_2_leaves_only_main_still_answering_current_schedule`（`mcp_running_app.rs`） | `schedule-2` を閉じたあと `main` だけが応答する | WIN-01, MCP-01 |

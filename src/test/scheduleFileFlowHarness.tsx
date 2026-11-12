@@ -323,6 +323,9 @@ export const ScheduleFileFlowHarness = forwardRef<
   return (
     <div>
       <span data-testid="startup-settled">{scheduleFile.startupSettled ? "yes" : "no"}</span>
+      <span data-testid="startup-content-ready">
+        {scheduleFile.startupContentReady ? "yes" : "no"}
+      </span>
       <span data-testid="members-settled">{memberCatalog.loading ? "no" : "yes"}</span>
       <span data-testid="colors-settled">{colorCatalog.loading ? "no" : "yes"}</span>
       <span data-testid="fields-settled">{fieldCatalog.loading ? "no" : "yes"}</span>
