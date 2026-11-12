@@ -57,6 +57,8 @@ fn mcp_harness_log(test_label: &str, message: &str) {
     eprintln!("[mcp-harness] test={test_label} {message}");
 }
 
+const MCP_MSG_FRONT_STALE: &str = "前面のウィンドウが応答しなかったので、渡せません。";
+
 #[cfg(windows)]
 fn log_schedule_viewer_process_snapshot(
     test_label: &str,
@@ -1231,12 +1233,41 @@ fn spawn_harmless_schedule_viewer_decoy() -> (ChildGuard, u32) {
 }
 
 fn wait_for_foreign_schedule_viewer_pid(pid: u32) {
-    wait_until(Duration::from_secs(30), || schedule_viewer_pid_listed(pid));
-    assert!(
-        schedule_viewer_pid_listed(pid),
-        "harmless decoy pid {pid} not listed in schedule-viewer pids {:?}",
-        schedule_viewer_pids().unwrap_or_default()
+    let test_label = harness_caller_label(std::panic::Location::caller());
+    let timeout = Duration::from_secs(30);
+    let started = Instant::now();
+    let deadline = Instant::now() + timeout;
+    mcp_harness_log(
+        &test_label,
+        &format!(
+            "foreign_pid_wait: start target_pid={pid} waiting_for=schedule_viewer_pid_listed(timeout={timeout:?})"
+        ),
     );
+    loop {
+        let listed = schedule_viewer_pid_listed(pid);
+        let pids = schedule_viewer_pids().unwrap_or_default();
+        if listed {
+            mcp_harness_log(
+                &test_label,
+                &format!(
+                    "foreign_pid_wait: ok elapsed={:?} schedule_viewer_pids={pids:?}",
+                    started.elapsed()
+                ),
+            );
+            break;
+        }
+        if Instant::now() >= deadline {
+            mcp_harness_log(
+                &test_label,
+                &format!(
+                    "foreign_pid_wait: timeout elapsed={:?} target_pid={pid} target_listed={listed} \
+                     schedule_viewer_pids={pids:?}"
+                ),
+            );
+            panic!("timed out after {timeout:?}");
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
     let pids = schedule_viewer_pids().unwrap_or_default();
     assert!(
         pids.contains(&pid),
@@ -1950,6 +1981,10 @@ impl RunningHarness {
             stderr_log,
         };
         if let Err(err) = harness.wait_ready_with(ready_timeout) {
+            mcp_harness_log(
+                &harness.diag_test_label,
+                &format!("start_with: wait_ready_with failed err={err:?}"),
+            );
             kill_child_fast(&mut harness.gui);
             let _ = harness.gui.wait();
             return Err(err);
@@ -1992,11 +2027,35 @@ impl RunningHarness {
     }
 
     fn wait_ready_with(&mut self, timeout: Duration) -> Result<(), String> {
+        let test_label = &self.diag_test_label;
+        let started = Instant::now();
         let deadline = Instant::now() + timeout;
         #[cfg(windows)]
-        wait_for_gui_mcp_pipe(deadline, &mut self.gui)?;
+        if let Err(e) = wait_for_gui_mcp_pipe(deadline, &mut self.gui) {
+            mcp_harness_log(
+                test_label,
+                &format!(
+                    "wait_ready_with: named_pipe wait failed err={e:?} elapsed={:?}",
+                    started.elapsed()
+                ),
+            );
+            log_schedule_viewer_process_snapshot(
+                test_label,
+                "wait_ready_with pipe timeout",
+                Some(self.gui_pid),
+                None,
+                &[self.gui_pid],
+            );
+            return Err(e);
+        }
+        let mut last_probe = summarize_current_schedule_probe(&ProcessOutput {
+            code: -1,
+            stdout: String::new(),
+            stderr: String::new(),
+        });
         loop {
             let out = self.run_screen(&["--screen", "current_schedule"], None, None);
+            last_probe = summarize_current_schedule_probe(&out);
             if out.code == 0 {
                 if let Ok(doc) = serde_json::from_str::<Value>(&out.stdout) {
                     if schedule_contains_task(&doc, SEEDED_TASK_ID) {
@@ -2005,9 +2064,29 @@ impl RunningHarness {
                 }
             }
             if Instant::now() >= deadline {
+                mcp_harness_log(
+                    test_label,
+                    &format!(
+                        "wait_ready_with: gui not ready timeout={timeout:?} elapsed={:?} last_probe={last_probe}",
+                        started.elapsed()
+                    ),
+                );
+                log_schedule_viewer_process_snapshot(
+                    test_label,
+                    "wait_ready_with seeded_task timeout",
+                    Some(self.gui_pid),
+                    None,
+                    &[self.gui_pid],
+                );
                 return Err("gui not ready".to_string());
             }
             if self.gui.try_wait().map_err(|e| e.to_string())?.is_some() {
+                mcp_harness_log(
+                    test_label,
+                    &format!(
+                        "wait_ready_with: gui exited during readiness last_probe={last_probe}"
+                    ),
+                );
                 return Err("gui exited during readiness".to_string());
             }
             std::thread::sleep(Duration::from_millis(300));
@@ -2075,10 +2154,11 @@ impl RunningHarness {
             .and_then(|t| t.as_str())
             .unwrap_or("")
             .to_string();
-        McpCallResult {
-            is_error,
-            text,
+        let result = McpCallResult { is_error, text };
+        if result.is_error && result.text.contains(MCP_MSG_FRONT_STALE) {
+            log_mcp_front_stale_diag(self, name, &arguments, &result.text);
         }
+        result
     }
 
     fn run_mcp_stdio(&self, stdin_body: &str) -> ProcessOutput {
@@ -2338,6 +2418,109 @@ fn schedule_contains_task(doc: &Value, task_id: &str) -> bool {
     false
 }
 
+fn summarize_current_schedule_probe(out: &ProcessOutput) -> String {
+    let parse = serde_json::from_str::<Value>(&out.stdout);
+    let parse_ok = parse.is_ok();
+    let seeded = parse
+        .as_ref()
+        .ok()
+        .map(|doc| schedule_contains_task(doc, SEEDED_TASK_ID))
+        .unwrap_or(false);
+    let stdout_head: String = out.stdout.chars().take(400).collect();
+    format!(
+        "code={} stdout_len={} stderr={:?} parse_ok={parse_ok} seeded_task={seeded} stdout_head={stdout_head:?}"
+    )
+}
+
+fn diag_open_windows_front_snapshot(h: &RunningHarness) -> String {
+    let body =
+        r#"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"open_windows","arguments":{}},"id":1}"#;
+    let out = h.run_mcp_stdio(&format!("{body}\n"));
+    let detail = format!(
+        "open_windows_stdio code={} stdout_len={} stderr={:?}",
+        out.code,
+        out.stdout.len(),
+        out.stderr
+    );
+    let line = out
+        .stdout
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or("");
+    if line.is_empty() {
+        return detail;
+    }
+    let Ok(raw) = serde_json::from_str::<Value>(line) else {
+        let head: String = line.chars().take(200).collect();
+        return format!("{detail} json_parse_failed line_head={head:?}");
+    };
+    if let Some(err) = raw.get("error") {
+        return format!("{detail} rpc_error={err}");
+    }
+    let Some(result) = raw.get("result") else {
+        return format!("{detail} missing_result");
+    };
+    let is_error = result
+        .get("isError")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let text = result
+        .get("content")
+        .and_then(|c| c.as_array())
+        .and_then(|items| items.first())
+        .and_then(|item| item.get("text"))
+        .and_then(|t| t.as_str())
+        .unwrap_or("");
+    if is_error {
+        return format!("{detail} tool_is_error text={text:?}");
+    }
+    let wins = parse_mcp_json_text(text);
+    let rows = wins.as_array().map(|a| a.as_slice()).unwrap_or(&[]);
+    let labels: Vec<&str> = rows
+        .iter()
+        .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
+        .collect();
+    let front_labels: Vec<&str> = rows
+        .iter()
+        .filter(|w| w.get("front").and_then(|v| v.as_bool()) == Some(true))
+        .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
+        .collect();
+    format!(
+        "{detail} window_count={} labels={labels:?} front_labels={front_labels:?}"
+    )
+}
+
+fn log_mcp_front_stale_diag(h: &RunningHarness, tool: &str, arguments: &Value, err_text: &str) {
+    #[cfg(target_os = "linux")]
+    let display = std::env::var("DISPLAY").unwrap_or_default();
+    #[cfg(not(target_os = "linux"))]
+    let display = String::new();
+    let open_windows = diag_open_windows_front_snapshot(h);
+    mcp_harness_log(
+        &h.diag_test_label,
+        &format!(
+            "mcp_front_stale: tool={tool} arguments={arguments} err_text={err_text:?} \
+             gui_pid={} gui_alive={} DISPLAY={display:?} {open_windows}",
+            h.gui_pid,
+            h.gui
+                .try_wait()
+                .ok()
+                .flatten()
+                .is_none()
+        ),
+    );
+}
+
+fn log_front_after_read(h: &RunningHarness, phase: &str) {
+    mcp_harness_log(
+        &h.diag_test_label,
+        &format!(
+            "front_after_read #{phase}: {}",
+            diag_open_windows_front_snapshot(h)
+        ),
+    );
+}
+
 fn task_start(doc: &Value, task_id: &str) -> Option<String> {
     fn walk(nodes: Option<&Value>, task_id: &str) -> Option<String> {
         let nodes = nodes?.as_array()?;
@@ -2467,6 +2650,7 @@ fn open_windows_lists_main_and_schedule_2_with_file_and_folder_and_only_main_fro
             .collect();
         assert!(labels.contains(&"main"));
         assert!(labels.contains(&"schedule-2"));
+        log_front_after_read(h, "open_windows_lists_before_front_assert");
         let mut front_count = 0;
         for w in rows {
             let file = w.get("file").and_then(|v| v.as_str()).unwrap_or("");
@@ -2530,11 +2714,33 @@ fn baseline_diffs_after_screen_edit_and_file_edit_has_screen_file_and_class_line
                 }
             }
         }
+        let file_write_started = Instant::now();
         fs::write(&h.main_path, serde_json::to_vec_pretty(&on_disk).expect("pretty")).expect("write file");
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "baseline_diffs_diag: file_write path={} elapsed_since_fs_write={:?} mtime_nanos={}",
+                h.main_path.display(),
+                file_write_started.elapsed(),
+                h.mtime_nanos(&h.main_path)
+            ),
+        );
 
+        let capture_started = Instant::now();
         let screen = h.run_screen(&["--screen", "baseline_diffs"], None, None);
         assert_eq!(screen.code, 0);
         let text = &screen.stdout;
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "baseline_diffs_diag: capture elapsed_since_file_write={:?} elapsed_capture={:?} \
+                 stdout_len={} contains_file_only={} text={text}",
+                file_write_started.elapsed(),
+                capture_started.elapsed(),
+                text.len(),
+                text.contains("ファイルのみ")
+            ),
+        );
         let pos_screen = text.find("画面:").expect("画面:");
         let pos_file = text.find("ファイル:").expect("ファイル:");
         let pos_class = text.find("分類:").expect("分類:");
@@ -2825,20 +3031,39 @@ fn set_view_filter_leaves_schedule_diff_no_difference_and_file_mtime() {
 fn edit_plan_changes_one_date_keeps_mtime_undo_restores_and_save_writes_that_date() {
     with_gui(|h| {
         let before_mtime = h.mtime_nanos(&h.main_path);
-        let edit = h.mcp_call(
-            "edit_plan",
-            json!({
-                "ops": [{
-                    "type": "setTaskDates",
-                    "taskId": SEEDED_TASK_ID,
-                    "start": "2026-04-02",
-                    "end": "2026-04-04",
-                }]
-            }),
+        let edit_args = json!({
+            "ops": [{
+                "type": "setTaskDates",
+                "taskId": SEEDED_TASK_ID,
+                "start": "2026-04-02",
+                "end": "2026-04-04",
+            }]
+        });
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: edit1 send task_id={SEEDED_TASK_ID} start=2026-04-02 end=2026-04-04 path={}",
+                h.main_path.display()
+            ),
+        );
+        let edit = h.mcp_call("edit_plan", edit_args.clone());
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: edit1 response is_error={} text={}",
+                edit.is_error, edit.text
+            ),
         );
         assert!(!edit.is_error, "{}", edit.text);
         assert_eq!(h.mtime_nanos(&h.main_path), before_mtime);
         let current = parse_mcp_json_text(&h.mcp_call("current_schedule", json!({})).text);
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: current_schedule after edit1 task_id={SEEDED_TASK_ID} start={:?}",
+                task_start(&current, SEEDED_TASK_ID)
+            ),
+        );
         assert_eq!(
             task_start(&current, SEEDED_TASK_ID).as_deref(),
             Some("2026-04-02")
@@ -2850,21 +3075,39 @@ fn edit_plan_changes_one_date_keeps_mtime_undo_restores_and_save_writes_that_dat
             task_start(&restored, SEEDED_TASK_ID).as_deref(),
             Some("2026-04-01")
         );
-        let edit2 = h.mcp_call(
-            "edit_plan",
-            json!({
-                "ops": [{
-                    "type": "setTaskDates",
-                    "taskId": SEEDED_TASK_ID,
-                    "start": "2026-04-02",
-                    "end": "2026-04-04",
-                }]
-            }),
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: edit2 send task_id={SEEDED_TASK_ID} start=2026-04-02 end=2026-04-04 (save next)"
+            ),
+        );
+        let edit2 = h.mcp_call("edit_plan", edit_args);
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: edit2 response is_error={} text={}",
+                edit2.is_error, edit2.text
+            ),
         );
         assert!(!edit2.is_error);
         let save = h.mcp_call("file_action", json!({ "action": "save" }));
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: save response is_error={} text={}",
+                save.is_error, save.text
+            ),
+        );
         assert!(!save.is_error, "{}", save.text);
         let on_disk: Value = serde_json::from_slice(&h.file_bytes(&h.main_path)).expect("file");
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: on_disk read path={} task_id={SEEDED_TASK_ID} start={:?}",
+                h.main_path.display(),
+                task_start(&on_disk, SEEDED_TASK_ID)
+            ),
+        );
         assert_eq!(
             task_start(&on_disk, SEEDED_TASK_ID).as_deref(),
             Some("2026-04-02")
@@ -3275,6 +3518,7 @@ fn six_reads_leave_open_windows_front_on_main() {
         ] {
             let read = h.mcp_call(tool, json!({}));
             assert!(!read.is_error, "tool {tool}: {}", read.text);
+            log_front_after_read(h, tool);
             assert_only_front_label(&h, "main");
         }
     });
@@ -4351,13 +4595,44 @@ fn catalog_action_save_on_app_catalog_updates_member_name_on_both_plain_windows(
 fn foreign_schedule_viewer_process_fails_without_sending_tools() {
     #[cfg(target_os = "linux")]
     assert_linux_display();
+    let test_label = harness_caller_label(std::panic::Location::caller());
     let (mut guard, foreign_pid) = spawn_harmless_schedule_viewer_decoy();
+    let decoy_alive = guard.child.try_wait().expect("try_wait").is_none();
+    mcp_harness_log(
+        &test_label,
+        &format!(
+            "foreign_schedule_viewer_test: decoy_pid={foreign_pid} decoy_alive={decoy_alive} \
+             waiting_for=schedule_viewer_pid_listed then assert_no_foreign_schedule_viewer_processes"
+        ),
+    );
     #[cfg(any(unix, windows))]
     wait_for_foreign_schedule_viewer_pid(foreign_pid);
+    let decoy_alive_after_wait = guard.child.try_wait().expect("try_wait").is_none();
+    #[cfg(windows)]
+    let pipe_open = mcp_named_pipe_is_open();
+    #[cfg(not(windows))]
+    let pipe_open = false;
+    mcp_harness_log(
+        &test_label,
+        &format!(
+            "foreign_schedule_viewer_test: after_wait decoy_alive={decoy_alive_after_wait} \
+             pipe_open={pipe_open} schedule_viewer_pids={:?}",
+            schedule_viewer_pids().unwrap_or_default()
+        ),
+    );
     let _gui = GuiGuard {
         _lock: lock_ignore_poison(&GUI_MUTEX),
     };
+    let assert_started = Instant::now();
     let result = std::panic::catch_unwind(|| assert_no_foreign_schedule_viewer_processes(&[]));
+    mcp_harness_log(
+        &test_label,
+        &format!(
+            "foreign_schedule_viewer_test: assert_no_foreign finished elapsed={:?} panicked={}",
+            assert_started.elapsed(),
+            result.is_err()
+        ),
+    );
     assert!(
         result.is_err(),
         "harmless decoy pid {foreign_pid} should make assert_no_foreign fail"
