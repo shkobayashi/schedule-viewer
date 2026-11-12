@@ -1261,7 +1261,8 @@ fn wait_for_foreign_schedule_viewer_pid(pid: u32) {
                 &test_label,
                 &format!(
                     "foreign_pid_wait: timeout elapsed={:?} target_pid={pid} target_listed={listed} \
-                     schedule_viewer_pids={pids:?}"
+                     schedule_viewer_pids={pids:?}",
+                    started.elapsed()
                 ),
             );
             panic!("timed out after {timeout:?}");
@@ -2048,11 +2049,7 @@ impl RunningHarness {
             );
             return Err(e);
         }
-        let mut last_probe = summarize_current_schedule_probe(&ProcessOutput {
-            code: -1,
-            stdout: String::new(),
-            stderr: String::new(),
-        });
+        let mut last_probe;
         loop {
             let out = self.run_screen(&["--screen", "current_schedule"], None, None);
             last_probe = summarize_current_schedule_probe(&out);
@@ -2428,7 +2425,10 @@ fn summarize_current_schedule_probe(out: &ProcessOutput) -> String {
         .unwrap_or(false);
     let stdout_head: String = out.stdout.chars().take(400).collect();
     format!(
-        "code={} stdout_len={} stderr={:?} parse_ok={parse_ok} seeded_task={seeded} stdout_head={stdout_head:?}"
+        "code={} stdout_len={} stderr={:?} parse_ok={parse_ok} seeded_task={seeded} stdout_head={stdout_head:?}",
+        out.code,
+        out.stdout.len(),
+        out.stderr
     )
 }
 
@@ -2486,7 +2486,8 @@ fn diag_open_windows_front_snapshot(h: &RunningHarness) -> String {
         .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
         .collect();
     format!(
-        "{detail} window_count={} labels={labels:?} front_labels={front_labels:?}"
+        "{detail} window_count={} labels={labels:?} front_labels={front_labels:?}",
+        rows.len()
     )
 }
 
@@ -2496,17 +2497,14 @@ fn log_mcp_front_stale_diag(h: &RunningHarness, tool: &str, arguments: &Value, e
     #[cfg(not(target_os = "linux"))]
     let display = String::new();
     let open_windows = diag_open_windows_front_snapshot(h);
+    let gui_listed = schedule_viewer_pids()
+        .map(|pids| pids.contains(&h.gui_pid))
+        .unwrap_or(false);
     mcp_harness_log(
         &h.diag_test_label,
         &format!(
             "mcp_front_stale: tool={tool} arguments={arguments} err_text={err_text:?} \
-             gui_pid={} gui_alive={} DISPLAY={display:?} {open_windows}",
-            h.gui_pid,
-            h.gui
-                .try_wait()
-                .ok()
-                .flatten()
-                .is_none()
+             gui_pid={} gui_listed_in_schedule_viewer_pids={gui_listed} DISPLAY={display:?} {open_windows}"
         ),
     );
 }
