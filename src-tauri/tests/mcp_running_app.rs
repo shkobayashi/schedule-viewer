@@ -2,6 +2,7 @@
 
 const APP_IDENTIFIER: &str = "io.github.shkobayashi.schedule-viewer";
 use serde_json::{json, Value};
+use std::cell::{Cell, RefCell};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -39,6 +40,84 @@ static VITE_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 static GUI_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 static VITE_CHILD: LazyLock<Mutex<Option<Child>>> = LazyLock::new(|| Mutex::new(None));
 
+static LAST_DROP_TEST_NAME: LazyLock<Mutex<String>> =
+    LazyLock::new(|| Mutex::new("(none)".to_string()));
+
+thread_local! {
+    static HARNESS_TEST_LABEL_OVERRIDE: RefCell<Option<String>> = const { RefCell::new(None) };
+    static CHILD_WAIT_GUI_PID: Cell<Option<u32>> = const { Cell::new(None) };
+    static CHILD_WAIT_TEST_LABEL: RefCell<Option<String>> = const { RefCell::new(None) };
+}
+
+fn harness_caller_label(loc: &'static std::panic::Location<'_>) -> String {
+    format!("{}:{}", loc.file(), loc.line())
+}
+
+fn mcp_harness_log(test_label: &str, message: &str) {
+    eprintln!("[mcp-harness] test={test_label} {message}");
+}
+
+const MCP_MSG_FRONT_STALE: &str = "前面のウィンドウが応答しなかったので、渡せません。";
+
+#[cfg(windows)]
+fn log_schedule_viewer_process_snapshot(
+    test_label: &str,
+    phase: &str,
+    gui_pid: Option<u32>,
+    child_pid: Option<u32>,
+    allowed_roots: &[u32],
+) {
+    let pipe_open = mcp_named_pipe_is_open();
+    let all_pids = schedule_viewer_pids().unwrap_or_default();
+    let allowed = allowed_schedule_viewer_pids(allowed_roots);
+    let mut tagged_owned = Vec::new();
+    let mut tagged_extra = Vec::new();
+    for pid in all_pids {
+        let mut tags = Vec::new();
+        if gui_pid == Some(pid) {
+            tags.push("gui");
+        }
+        if child_pid == Some(pid) {
+            tags.push("cli_child");
+        }
+        if allowed.contains(&pid) {
+            tags.push("allowed_subtree");
+        }
+        if tags.is_empty() {
+            tagged_extra.push(pid.to_string());
+        } else {
+            tagged_owned.push(format!("{pid}({})", tags.join(",")));
+        }
+    }
+    let gui_alive = gui_pid
+        .map(|pid| schedule_viewer_pids().map(|p| p.contains(&pid)).unwrap_or(false))
+        .unwrap_or(false);
+    mcp_harness_log(
+        test_label,
+        &format!(
+            "{phase}: pipe_open={pipe_open} gui_pid={gui_pid:?} gui_alive={gui_alive} \
+             child_pid={child_pid:?} schedule_viewer_pids_owned=[{}] extras=[{}]",
+            tagged_owned.join(" "),
+            tagged_extra.join(" ")
+        ),
+    );
+}
+
+#[cfg(not(windows))]
+fn log_schedule_viewer_process_snapshot(
+    test_label: &str,
+    phase: &str,
+    gui_pid: Option<u32>,
+    child_pid: Option<u32>,
+    _allowed_roots: &[u32],
+) {
+    let _ = (gui_pid, child_pid);
+    mcp_harness_log(
+        test_label,
+        &format!("{phase}: (process snapshot logging is Windows-only)"),
+    );
+}
+
 struct ProcessOutput {
     code: i32,
     stdout: String,
@@ -61,6 +140,7 @@ struct RunningHarness {
     members_path: PathBuf,
     gui: Child,
     gui_pid: u32,
+    diag_test_label: String,
     _gui_output_drains: Vec<std::thread::JoinHandle<Vec<u8>>>,
     stderr_log: Arc<Mutex<Vec<u8>>>,
 }
@@ -72,10 +152,35 @@ struct OpenWindowsSnapshot {
 
 impl Drop for RunningHarness {
     fn drop(&mut self) {
+        let test_label = self.diag_test_label.clone();
+        if let Ok(mut last) = LAST_DROP_TEST_NAME.lock() {
+            *last = test_label.clone();
+        }
+        mcp_harness_log(&test_label, "Drop: begin");
         let root = self.gui_pid;
         kill_child_fast(&mut self.gui);
+        let gui_exit_deadline = Instant::now() + Duration::from_secs(30);
+        let gui_wait_started = Instant::now();
+        let mut gui_exited = false;
+        while Instant::now() < gui_exit_deadline {
+            if self.gui.try_wait().expect("try_wait").is_some() {
+                gui_exited = true;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
         let _ = self.gui.wait();
-        cleanup_owned_extra_schedule_viewer_instances(root);
+        mcp_harness_log(
+            &test_label,
+            &format!(
+                "Drop: after gui kill/wait exited={gui_exited} elapsed={:?}",
+                gui_wait_started.elapsed()
+            ),
+        );
+        cleanup_owned_extra_schedule_viewer_instances(root, &test_label);
+        #[cfg(windows)]
+        wait_for_mcp_pipe_closed(Duration::from_secs(30), &test_label);
+        mcp_harness_log(&test_label, "Drop: end");
     }
 }
 
@@ -85,6 +190,24 @@ fn normalize_text(text: &str) -> String {
 }
 
 fn finish_child_with_timeout(mut child: Child, timeout: Duration) -> ProcessOutput {
+    let child_pid = child.id();
+    let test_label = CHILD_WAIT_TEST_LABEL
+        .with(|c| c.borrow_mut().take())
+        .unwrap_or_else(|| "(unknown)".to_string());
+    let gui_pid = CHILD_WAIT_GUI_PID.with(|c| c.take());
+    let allowed_roots: Vec<u32> = gui_pid.into_iter().collect();
+    mcp_harness_log(
+        &test_label,
+        &format!("finish_child_with_timeout: start child_pid={child_pid} timeout={timeout:?}"),
+    );
+    log_schedule_viewer_process_snapshot(
+        &test_label,
+        "finish_child_with_timeout start",
+        gui_pid,
+        Some(child_pid),
+        &allowed_roots,
+    );
+
     let stdout_reader = child.stdout.take().map(|mut out| {
         std::thread::spawn(move || {
             let mut buf = Vec::new();
@@ -106,6 +229,20 @@ fn finish_child_with_timeout(mut child: Child, timeout: Duration) -> ProcessOutp
             break status;
         }
         if Instant::now() >= deadline {
+            let still_running = child.try_wait().expect("try_wait").is_none();
+            mcp_harness_log(
+                &test_label,
+                &format!(
+                    "finish_child_with_timeout: timeout child_pid={child_pid} still_running={still_running}"
+                ),
+            );
+            log_schedule_viewer_process_snapshot(
+                &test_label,
+                "finish_child_with_timeout timeout",
+                gui_pid,
+                Some(child_pid),
+                &allowed_roots,
+            );
             let _ = child.kill();
             let _ = child.wait();
             panic!("child did not exit within {timeout:?}");
@@ -131,6 +268,25 @@ fn finish_child(child: Child) -> ProcessOutput {
     finish_child_with_timeout(child, CHILD_WAIT_TIMEOUT)
 }
 
+#[cfg(windows)]
+fn windows_profile_dirs(home: &Path) -> (PathBuf, PathBuf) {
+    let roaming = home.join("AppData").join("Roaming");
+    let local = home.join("AppData").join("Local");
+    (roaming, local)
+}
+
+/// Tauri の `app_data_dir` と `dirs::data_dir()` が同じ規則になるよう、隔離用ホームの配置を揃える。
+fn harness_app_data_dir(home: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        windows_profile_dirs(home).0.join(APP_IDENTIFIER)
+    }
+    #[cfg(not(windows))]
+    {
+        home.join(APP_IDENTIFIER)
+    }
+}
+
 fn apply_isolated_home(cmd: &mut Command, home: &Path) {
     let path = home.to_string_lossy();
     cmd.env("HOME", &*path);
@@ -139,9 +295,27 @@ fn apply_isolated_home(cmd: &mut Command, home: &Path) {
     cmd.env("XDG_CACHE_HOME", &*path);
     #[cfg(windows)]
     {
-        cmd.env("APPDATA", &*path);
-        cmd.env("LOCALAPPDATA", &*path);
+        let (roaming, local) = windows_profile_dirs(home);
+        let _ = fs::create_dir_all(&roaming);
+        let _ = fs::create_dir_all(&local);
+        cmd.env("USERPROFILE", &*path);
+        cmd.env("APPDATA", roaming.as_os_str());
+        cmd.env("LOCALAPPDATA", local.as_os_str());
     }
+}
+
+#[cfg(windows)]
+fn wait_for_gui_mcp_pipe(deadline: Instant, gui: &mut Child) -> Result<(), String> {
+    while Instant::now() < deadline {
+        if mcp_named_pipe_is_open() {
+            return Ok(());
+        }
+        if gui.try_wait().map_err(|e| e.to_string())?.is_some() {
+            return Err("gui exited during readiness".to_string());
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    Err("gui not ready".to_string())
 }
 
 fn assert_linux_display() {
@@ -208,7 +382,7 @@ fn mcp_named_pipe_is_open() -> bool {
         s.encode_utf16().chain([0]).collect()
     }
 
-    let sid = current_user_sid_string().expect("sid");
+    let sid = unsafe { current_user_sid_string() }.expect("sid");
     let pipe_name = format!(r"\\.\pipe\{}-{}", APP_IDENTIFIER, sid);
     let wide = wide_null(&pipe_name);
     let handle = unsafe {
@@ -239,8 +413,97 @@ fn mcp_named_pipe_is_open() -> bool {
 }
 
 #[cfg(windows)]
+fn kill_schedule_viewer_tree_logged(pid: u32, test_label: &str, context: &str) {
+    let status = Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output();
+    match status {
+        Ok(out) => {
+            let code = out.status.code().unwrap_or(-1);
+            if code != 0 {
+                let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+                mcp_harness_log(
+                    test_label,
+                    &format!("{context}: taskkill pid={pid} exit={code} stderr={err}"),
+                );
+            }
+        }
+        Err(err) => mcp_harness_log(
+            test_label,
+            &format!("{context}: taskkill pid={pid} failed to run: {err}"),
+        ),
+    }
+}
+
+#[cfg(windows)]
+fn wait_for_mcp_pipe_closed(timeout: Duration, test_label: &str) {
+    let started = Instant::now();
+    let deadline = Instant::now() + timeout;
+    mcp_harness_log(
+        test_label,
+        &format!("wait_for_mcp_pipe_closed: start timeout={timeout:?}"),
+    );
+    while Instant::now() < deadline {
+        if !mcp_named_pipe_is_open() {
+            mcp_harness_log(
+                test_label,
+                &format!(
+                    "wait_for_mcp_pipe_closed: closed ok elapsed={:?}",
+                    started.elapsed()
+                ),
+            );
+            log_schedule_viewer_process_snapshot(
+                test_label,
+                "wait_for_mcp_pipe_closed closed",
+                None,
+                None,
+                &[],
+            );
+            return;
+        }
+        if let Ok(pids) = schedule_viewer_pids() {
+            for pid in pids {
+                kill_schedule_viewer_tree_logged(pid, test_label, "wait_for_mcp_pipe_closed");
+            }
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    mcp_harness_log(
+        test_label,
+        &format!(
+            "wait_for_mcp_pipe_closed: timed out elapsed={:?}",
+            started.elapsed()
+        ),
+    );
+    log_schedule_viewer_process_snapshot(
+        test_label,
+        "wait_for_mcp_pipe_closed timeout",
+        None,
+        None,
+        &[],
+    );
+}
+
+#[cfg(windows)]
 fn assert_no_foreign_mcp_pipe() {
     if mcp_named_pipe_is_open() {
+        let last_drop = LAST_DROP_TEST_NAME
+            .lock()
+            .map(|g| g.clone())
+            .unwrap_or_else(|_| "(lock poisoned)".to_string());
+        log_schedule_viewer_process_snapshot(
+            "(assert_no_foreign_mcp_pipe)",
+            "assert_no_foreign_mcp_pipe about to fail",
+            None,
+            None,
+            &[],
+        );
+        mcp_harness_log(
+            "(assert_no_foreign_mcp_pipe)",
+            &format!("last_completed_harness_drop_test={last_drop}"),
+        );
         panic!("named pipe is already open; close other schedule-viewer instances before tests");
     }
 }
@@ -355,6 +618,40 @@ fn is_schedule_viewer_image_path(path: &Path) -> bool {
     )
 }
 
+#[cfg(target_os = "linux")]
+fn is_schedule_viewer_comm(comm: &str) -> bool {
+    comm == SCHEDULE_VIEWER_IMAGE_NAME_UNIX
+}
+
+/// GitHub-hosted `ubuntu-latest` などでは同一 UID でも `/proc/<pid>/exe` が permission denied になる。
+/// 列挙のフォールバックに `comm` と `cmdline` の argv0 を使う。
+#[cfg(target_os = "linux")]
+fn linux_image_hint_from_proc(pid: u32) -> Result<Option<PathBuf>, String> {
+    let comm_path = format!("/proc/{pid}/comm");
+    if let Ok(comm) = fs::read_to_string(&comm_path) {
+        let comm = comm.trim();
+        if is_schedule_viewer_comm(comm) {
+            return Ok(Some(PathBuf::from(SCHEDULE_VIEWER_IMAGE_NAME_UNIX)));
+        }
+    }
+    let cmdline_path = format!("/proc/{pid}/cmdline");
+    let bytes = match fs::read(&cmdline_path) {
+        Ok(b) => b,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(format!("read {cmdline_path}: {err}")),
+    };
+    let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+    if end == 0 {
+        return Ok(None);
+    }
+    use std::os::unix::ffi::OsStrExt;
+    let argv0 = PathBuf::from(std::ffi::OsStr::from_bytes(&bytes[..end]));
+    if is_schedule_viewer_image_path(&argv0) {
+        return Ok(Some(argv0));
+    }
+    Ok(None)
+}
+
 enum ExeInspection {
     Resolved(PathBuf),
     NoSuchProcess,
@@ -425,9 +722,13 @@ fn inspect_schedule_viewer_image(pid: u32, me: u32) -> Result<ExeInspection, Str
             Ok(path) => Ok(ExeInspection::Resolved(path)),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(ExeInspection::NoSuchProcess),
             Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied => {
-                Ok(ExeInspection::InspectFailed(format!(
-                    "read_link {link}: permission denied (same uid)"
-                )))
+                match linux_image_hint_from_proc(pid) {
+                    Ok(Some(path)) => Ok(ExeInspection::Resolved(path)),
+                    Ok(None) => Ok(ExeInspection::NoSuchProcess),
+                    Err(detail) => Ok(ExeInspection::InspectFailed(format!(
+                        "read_link {link}: permission denied (same uid); proc fallback: {detail}"
+                    ))),
+                }
             }
             Err(err) => Ok(ExeInspection::InspectFailed(format!("read_link {link}: {err}"))),
         }
@@ -464,6 +765,47 @@ fn inspect_schedule_viewer_image(pid: u32, me: u32) -> Result<ExeInspection, Str
 }
 
 #[cfg(unix)]
+fn unix_pid_is_schedule_viewer(pid: u32) -> bool {
+    let me = current_euid();
+    match inspect_schedule_viewer_image(pid, me) {
+        Ok(ExeInspection::Resolved(path)) => is_schedule_viewer_image_path(&path),
+        Ok(ExeInspection::NoSuchProcess | ExeInspection::OtherUser) => false,
+        Ok(ExeInspection::InspectFailed(_)) => {
+            #[cfg(target_os = "linux")]
+            {
+                linux_image_hint_from_proc(pid)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|path| is_schedule_viewer_image_path(&path))
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                false
+            }
+        }
+        Err(_) => false,
+    }
+}
+
+#[cfg(unix)]
+fn schedule_viewer_pid_listed(pid: u32) -> bool {
+    if schedule_viewer_pids()
+        .map(|pids| pids.contains(&pid))
+        .unwrap_or(false)
+    {
+        return true;
+    }
+    unix_pid_is_schedule_viewer(pid)
+}
+
+#[cfg(windows)]
+fn schedule_viewer_pid_listed(pid: u32) -> bool {
+    schedule_viewer_pids()
+        .map(|pids| pids.contains(&pid))
+        .unwrap_or(false)
+}
+
+#[cfg(unix)]
 fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
     let me = current_euid();
     let mut found = Vec::new();
@@ -471,22 +813,35 @@ fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
     for pid in all_pids()? {
         match inspect_schedule_viewer_image(pid, me)? {
             ExeInspection::Resolved(path) if is_schedule_viewer_image_path(&path) => found.push(pid),
-            ExeInspection::InspectFailed(msg) => inspect_failures.push((pid, msg)),
+            ExeInspection::InspectFailed(msg) => {
+                #[cfg(target_os = "linux")]
+                {
+                    if let Ok(Some(path)) = linux_image_hint_from_proc(pid) {
+                        if is_schedule_viewer_image_path(&path) {
+                            found.push(pid);
+                            continue;
+                        }
+                    }
+                }
+                inspect_failures.push((pid, msg));
+            }
             ExeInspection::Resolved(_)
             | ExeInspection::NoSuchProcess
             | ExeInspection::OtherUser => {}
         }
     }
+    #[cfg(target_os = "macos")]
     if !inspect_failures.is_empty() {
         return Err(format!(
             "同一ユーザーの schedule-viewer 実行ファイルを確認できません: {inspect_failures:?}"
         ));
     }
+    let _ = inspect_failures;
     Ok(found)
 }
 
 #[cfg(windows)]
-fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
+fn schedule_viewer_pids_from_tasklist() -> Result<Vec<u32>, String> {
     let out = Command::new("tasklist")
         .args([
             "/FO",
@@ -503,17 +858,58 @@ fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
     let mut found = Vec::new();
     for line in String::from_utf8_lossy(&out.stdout).lines() {
         let line = line.trim();
-        if line.is_empty() {
+        if line.is_empty() || line.starts_with("INFO:") {
             continue;
         }
-        let parts: Vec<&str> = line.split("\",\"").collect();
+        let parts: Vec<&str> = line.split(',').collect();
         if parts.len() >= 2 {
-            let pid = parts[1].trim_end_matches('"').trim();
+            let pid = parts[1].trim().trim_matches('"');
             if let Ok(pid) = pid.parse::<u32>() {
                 found.push(pid);
             }
         }
     }
+    Ok(found)
+}
+
+#[cfg(windows)]
+fn schedule_viewer_pids_from_powershell() -> Result<Vec<u32>, String> {
+    let out = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "Get-Process -Name schedule-viewer -ErrorAction SilentlyContinue | ForEach-Object { $_.Id }",
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Err(format!("powershell exited {}", out.status));
+    }
+    let mut found = Vec::new();
+    for line in String::from_utf8_lossy(&out.stdout).lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(pid) = line.parse::<u32>() {
+            found.push(pid);
+        }
+    }
+    Ok(found)
+}
+
+#[cfg(windows)]
+fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
+    let mut found = schedule_viewer_pids_from_tasklist().unwrap_or_default();
+    if let Ok(extra) = schedule_viewer_pids_from_powershell() {
+        for pid in extra {
+            if !found.contains(&pid) {
+                found.push(pid);
+            }
+        }
+    }
+    found.sort_unstable();
+    found.dedup();
     Ok(found)
 }
 
@@ -526,32 +922,73 @@ fn kill_schedule_viewer_tree(pid: u32) {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+fn kill_schedule_viewer_tree(pid: u32) {
+    let _ = Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
+#[cfg(not(any(unix, windows)))]
 fn kill_schedule_viewer_tree(_pid: u32) {}
 
-fn cleanup_owned_extra_schedule_viewer_instances(gui_root: u32) {
-    #[cfg(unix)]
-    {
-        let allowed = allowed_schedule_viewer_pids(&[gui_root]);
-        let Ok(mut extra) = schedule_viewer_pids().map(|pids| {
-            pids.into_iter()
-                .filter(|pid| !allowed.contains(pid))
-                .collect::<Vec<_>>()
-        }) else {
-            return;
-        };
-        for pid in &extra {
-            kill_schedule_viewer_tree(*pid);
-        }
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while Instant::now() < deadline && !extra.is_empty() {
-            extra = schedule_viewer_pids()
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|pid| !allowed.contains(pid))
-                .collect();
-            std::thread::sleep(Duration::from_millis(100));
-        }
+#[cfg(windows)]
+fn allowed_schedule_viewer_pids(roots: &[u32]) -> std::collections::HashSet<u32> {
+    roots.iter().copied().collect()
+}
+
+fn cleanup_owned_extra_schedule_viewer_instances(gui_root: u32, test_label: &str) {
+    let allowed = allowed_schedule_viewer_pids(&[gui_root]);
+    let Ok(mut extra) = schedule_viewer_pids().map(|pids| {
+        pids.into_iter()
+            .filter(|pid| !allowed.contains(pid))
+            .collect::<Vec<_>>()
+    }) else {
+        mcp_harness_log(
+            test_label,
+            "cleanup_owned_extra: could not list schedule-viewer pids",
+        );
+        return;
+    };
+    if !extra.is_empty() {
+        mcp_harness_log(
+            test_label,
+            &format!("cleanup_owned_extra: killing extras {extra:?}"),
+        );
+    }
+    for pid in &extra {
+        #[cfg(windows)]
+        kill_schedule_viewer_tree_logged(*pid, test_label, "cleanup_owned_extra");
+        #[cfg(not(windows))]
+        kill_schedule_viewer_tree(*pid);
+    }
+    let started = Instant::now();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline && !extra.is_empty() {
+        extra = schedule_viewer_pids()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|pid| !allowed.contains(pid))
+            .collect();
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    if !extra.is_empty() {
+        mcp_harness_log(
+            test_label,
+            &format!(
+                "cleanup_owned_extra: still remaining after {:?} {extra:?}",
+                started.elapsed()
+            ),
+        );
+        log_schedule_viewer_process_snapshot(
+            test_label,
+            "cleanup_owned_extra incomplete",
+            Some(gui_root),
+            None,
+            &[gui_root],
+        );
     }
 }
 
@@ -575,7 +1012,10 @@ fn assert_no_foreign_schedule_viewer_processes(exclude: &[u32]) {
 
 #[cfg(windows)]
 fn assert_no_foreign_schedule_viewer_processes(exclude: &[u32]) {
-    assert_no_foreign_mcp_pipe();
+    // 共有 named pipe は前面 GUI が 1 本だけ開く。テスト GUI 稼働中の spawn_second_instance では開いているのが正常。
+    if exclude.is_empty() {
+        assert_no_foreign_mcp_pipe();
+    }
     let allowed: std::collections::HashSet<u32> = exclude.iter().copied().collect();
     let pids = schedule_viewer_pids().unwrap_or_else(|err| {
         panic!("schedule-viewer の実行ファイルを列挙できません: {err}");
@@ -793,12 +1233,43 @@ fn spawn_harmless_schedule_viewer_decoy() -> (ChildGuard, u32) {
 }
 
 fn wait_for_foreign_schedule_viewer_pid(pid: u32) {
-    wait_until(Duration::from_secs(30), || {
-        schedule_viewer_pids()
-            .map(|pids| pids.contains(&pid))
-            .unwrap_or(false)
-    });
-    let pids = schedule_viewer_pids().expect("schedule_viewer_pids after decoy spawn");
+    let test_label = harness_caller_label(std::panic::Location::caller());
+    let timeout = Duration::from_secs(30);
+    let started = Instant::now();
+    let deadline = Instant::now() + timeout;
+    mcp_harness_log(
+        &test_label,
+        &format!(
+            "foreign_pid_wait: start target_pid={pid} waiting_for=schedule_viewer_pid_listed(timeout={timeout:?})"
+        ),
+    );
+    loop {
+        let listed = schedule_viewer_pid_listed(pid);
+        let pids = schedule_viewer_pids().unwrap_or_default();
+        if listed {
+            mcp_harness_log(
+                &test_label,
+                &format!(
+                    "foreign_pid_wait: ok elapsed={:?} schedule_viewer_pids={pids:?}",
+                    started.elapsed()
+                ),
+            );
+            break;
+        }
+        if Instant::now() >= deadline {
+            mcp_harness_log(
+                &test_label,
+                &format!(
+                    "foreign_pid_wait: timeout elapsed={:?} target_pid={pid} target_listed={listed} \
+                     schedule_viewer_pids={pids:?}",
+                    started.elapsed()
+                ),
+            );
+            panic!("timed out after {timeout:?}");
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    let pids = schedule_viewer_pids().unwrap_or_default();
     assert!(
         pids.contains(&pid),
         "harmless decoy pid {pid} not listed in schedule-viewer pids {pids:?}"
@@ -936,7 +1407,16 @@ fn kill_child_fast(child: &mut Child) {
     {
         let _ = Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .status();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if child.try_wait().expect("try_wait").is_some() {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
     #[cfg(unix)]
     {
@@ -1196,6 +1676,27 @@ fn json_body_matches(lhs: &str, rhs: &str) {
     assert_eq!(left, right);
 }
 
+/// Rust の `Command::new("npm")` は Windows では PATH 解決されないことがある（CI で `program not found`）。
+fn command_npm<I, S>(args: I) -> Command
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<std::ffi::OsStr>,
+{
+    #[cfg(windows)]
+    {
+        let mut cmd = Command::new("cmd");
+        cmd.arg("/C").arg("npm");
+        cmd.args(args);
+        cmd
+    }
+    #[cfg(not(windows))]
+    {
+        let mut cmd = Command::new("npm");
+        cmd.args(args);
+        cmd
+    }
+}
+
 fn ensure_vite() {
     let _lock = lock_ignore_poison(&VITE_MUTEX);
     let mut slot = VITE_CHILD.lock().expect("vite child");
@@ -1210,19 +1711,28 @@ fn ensure_vite() {
         if slot.is_some() {
             return;
         }
-        let _ = Command::new("bash")
-            .args(["-c", "lsof -ti :1420 | xargs -r kill -9"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+        #[cfg(unix)]
+        {
+            let _ = Command::new("bash")
+                .args(["-c", "lsof -ti :1420 | xargs -r kill -9"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
+        #[cfg(windows)]
+        {
+            let _ = Command::new("cmd").args([
+                "/C",
+                "for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :1420') do taskkill /F /PID %a 2>nul",
+            ]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        }
         std::thread::sleep(Duration::from_millis(800));
         if client.get("http://localhost:1420/").send().is_ok() {
             panic!("port 1420 is already in use; stop other Vite or schedule-viewer dev servers");
         }
     }
     let platform = tauri_platform_env();
-    let mut cmd = Command::new("npm");
-    cmd.args(["run", "dev"]);
+    let mut cmd = command_npm(["run", "dev"]);
     cmd.current_dir(REPO_ROOT);
     cmd.env("TAURI_ENV_PLATFORM", platform);
     cmd.stdout(Stdio::null());
@@ -1267,6 +1777,7 @@ fn ensure_vite() {
         std::thread::sleep(Duration::from_millis(200));
     }
     *slot = Some(child);
+    #[cfg(unix)]
     register_vite_process_exit_cleanup();
 }
 
@@ -1285,13 +1796,17 @@ struct GuiGuard {
     _lock: std::sync::MutexGuard<'static, ()>,
 }
 
+#[track_caller]
 fn with_gui<F, R>(f: F) -> R
 where
     F: FnOnce(&mut RunningHarness) -> R,
 {
+    let test_label = harness_caller_label(std::panic::Location::caller());
+    HARNESS_TEST_LABEL_OVERRIDE.with(|c| *c.borrow_mut() = Some(test_label));
     with_gui_seeded(OpenWindowsSeed::Default, f)
 }
 
+#[track_caller]
 fn with_gui_seeded<F, R>(seed: OpenWindowsSeed, f: F) -> R
 where
     F: FnOnce(&mut RunningHarness) -> R,
@@ -1300,7 +1815,13 @@ where
     let _gui = GuiGuard {
         _lock: lock_ignore_poison(&GUI_MUTEX),
     };
+    HARNESS_TEST_LABEL_OVERRIDE.with(|c| {
+        if c.borrow().is_none() {
+            *c.borrow_mut() = Some(harness_caller_label(std::panic::Location::caller()));
+        }
+    });
     let mut harness = RunningHarness::start_seeded(seed).expect("start gui");
+    HARNESS_TEST_LABEL_OVERRIDE.with(|c| *c.borrow_mut() = None);
     f(&mut harness)
 }
 
@@ -1398,7 +1919,11 @@ impl RunningHarness {
         Self::start_with(seed, &[])
     }
 
+    #[track_caller]
     fn start_with(seed: OpenWindowsSeed, launch_args: &[&str]) -> Result<Self, String> {
+        let diag_test_label = HARNESS_TEST_LABEL_OVERRIDE
+            .with(|c| c.borrow_mut().take())
+            .unwrap_or_else(|| harness_caller_label(std::panic::Location::caller()));
         assert_linux_display();
         assert_no_foreign_schedule_viewer_processes(&[]);
 
@@ -1406,7 +1931,8 @@ impl RunningHarness {
         let home_path = home.path().to_path_buf();
         let work = home_path.join("work");
         fs::create_dir_all(&work).map_err(|e| e.to_string())?;
-        let app_data = home_path.join(APP_IDENTIFIER);
+        let app_data = harness_app_data_dir(&home_path);
+        fs::create_dir_all(&app_data).map_err(|e| e.to_string())?;
 
         let main_path = copy_regression_workspace(&work);
         let schedule2_path = work.join("schedule-2.schedule.json");
@@ -1451,10 +1977,15 @@ impl RunningHarness {
             members_path,
             gui,
             gui_pid,
+            diag_test_label,
             _gui_output_drains: drains,
             stderr_log,
         };
         if let Err(err) = harness.wait_ready_with(ready_timeout) {
+            mcp_harness_log(
+                &harness.diag_test_label,
+                &format!("start_with: wait_ready_with failed err={err:?}"),
+            );
             kill_child_fast(&mut harness.gui);
             let _ = harness.gui.wait();
             return Err(err);
@@ -1463,7 +1994,7 @@ impl RunningHarness {
     }
 
     fn app_data_dir(&self) -> PathBuf {
-        self.home.join(APP_IDENTIFIER)
+        harness_app_data_dir(&self.home)
     }
 
     fn seed_schedule_bytes(&self) -> Vec<u8> {
@@ -1497,9 +2028,31 @@ impl RunningHarness {
     }
 
     fn wait_ready_with(&mut self, timeout: Duration) -> Result<(), String> {
+        let test_label = &self.diag_test_label;
+        let started = Instant::now();
         let deadline = Instant::now() + timeout;
+        #[cfg(windows)]
+        if let Err(e) = wait_for_gui_mcp_pipe(deadline, &mut self.gui) {
+            mcp_harness_log(
+                test_label,
+                &format!(
+                    "wait_ready_with: named_pipe wait failed err={e:?} elapsed={:?}",
+                    started.elapsed()
+                ),
+            );
+            log_schedule_viewer_process_snapshot(
+                test_label,
+                "wait_ready_with pipe timeout",
+                Some(self.gui_pid),
+                None,
+                &[self.gui_pid],
+            );
+            return Err(e);
+        }
+        let mut last_probe;
         loop {
             let out = self.run_screen(&["--screen", "current_schedule"], None, None);
+            last_probe = summarize_current_schedule_probe(&out);
             if out.code == 0 {
                 if let Ok(doc) = serde_json::from_str::<Value>(&out.stdout) {
                     if schedule_contains_task(&doc, SEEDED_TASK_ID) {
@@ -1508,9 +2061,29 @@ impl RunningHarness {
                 }
             }
             if Instant::now() >= deadline {
+                mcp_harness_log(
+                    test_label,
+                    &format!(
+                        "wait_ready_with: gui not ready timeout={timeout:?} elapsed={:?} last_probe={last_probe}",
+                        started.elapsed()
+                    ),
+                );
+                log_schedule_viewer_process_snapshot(
+                    test_label,
+                    "wait_ready_with seeded_task timeout",
+                    Some(self.gui_pid),
+                    None,
+                    &[self.gui_pid],
+                );
                 return Err("gui not ready".to_string());
             }
             if self.gui.try_wait().map_err(|e| e.to_string())?.is_some() {
+                mcp_harness_log(
+                    test_label,
+                    &format!(
+                        "wait_ready_with: gui exited during readiness last_probe={last_probe}"
+                    ),
+                );
                 return Err("gui exited during readiness".to_string());
             }
             std::thread::sleep(Duration::from_millis(300));
@@ -1542,6 +2115,8 @@ impl RunningHarness {
                 .expect("write stdin");
         }
         drop(child.stdin.take());
+        CHILD_WAIT_GUI_PID.with(|c| c.set(Some(self.gui_pid)));
+        CHILD_WAIT_TEST_LABEL.with(|c| *c.borrow_mut() = Some(self.diag_test_label.clone()));
         finish_child(child)
     }
 
@@ -1576,10 +2151,11 @@ impl RunningHarness {
             .and_then(|t| t.as_str())
             .unwrap_or("")
             .to_string();
-        McpCallResult {
-            is_error,
-            text,
+        let result = McpCallResult { is_error, text };
+        if result.is_error && result.text.contains(MCP_MSG_FRONT_STALE) {
+            log_mcp_front_stale_diag(self, name, &arguments, &result.text);
         }
+        result
     }
 
     fn run_mcp_stdio(&self, stdin_body: &str) -> ProcessOutput {
@@ -1597,6 +2173,8 @@ impl RunningHarness {
             .write_all(stdin_body.as_bytes())
             .expect("write mcp stdin");
         drop(child.stdin.take());
+        CHILD_WAIT_GUI_PID.with(|c| c.set(Some(self.gui_pid)));
+        CHILD_WAIT_TEST_LABEL.with(|c| *c.borrow_mut() = Some(self.diag_test_label.clone()));
         finish_child(child)
     }
 
@@ -1685,7 +2263,7 @@ impl RunningHarness {
             stdout: normalize_text(&String::from_utf8_lossy(&stdout_bytes)),
             stderr: normalize_text(&String::from_utf8_lossy(&stderr_bytes)),
         };
-        cleanup_owned_extra_schedule_viewer_instances(self.gui_pid);
+        cleanup_owned_extra_schedule_viewer_instances(self.gui_pid, &self.diag_test_label);
         output
     }
 
@@ -1731,6 +2309,7 @@ fn wait_app_member_catalog_ready(h: &RunningHarness) {
     });
 }
 
+#[track_caller]
 fn with_two_windows_same_path<F, R>(f: F) -> R
 where
     F: FnOnce(&mut RunningHarness, &str) -> R,
@@ -1739,6 +2318,8 @@ where
     let _gui = GuiGuard {
         _lock: lock_ignore_poison(&GUI_MUTEX),
     };
+    let test_label = harness_caller_label(std::panic::Location::caller());
+    HARNESS_TEST_LABEL_OVERRIDE.with(|c| *c.borrow_mut() = Some(test_label));
     let home = tempfile::tempdir().expect("home");
     let work = home.path().join("work");
     fs::create_dir_all(&work).expect("work");
@@ -1754,6 +2335,7 @@ where
     });
     let mut h = RunningHarness::start_with(OpenWindowsSeed::Custom(body), &[])
         .expect("start two-window same-path harness");
+    HARNESS_TEST_LABEL_OVERRIDE.with(|c| *c.borrow_mut() = None);
     let before_labels = window_labels(&h);
     let expected_len = before_labels.len() + 1;
     let r = h.mcp_call(
@@ -1831,6 +2413,111 @@ fn schedule_contains_task(doc: &Value, task_id: &str) -> bool {
         }
     }
     false
+}
+
+fn summarize_current_schedule_probe(out: &ProcessOutput) -> String {
+    let parse = serde_json::from_str::<Value>(&out.stdout);
+    let parse_ok = parse.is_ok();
+    let seeded = parse
+        .as_ref()
+        .ok()
+        .map(|doc| schedule_contains_task(doc, SEEDED_TASK_ID))
+        .unwrap_or(false);
+    let stdout_head: String = out.stdout.chars().take(400).collect();
+    format!(
+        "code={} stdout_len={} stderr={:?} parse_ok={parse_ok} seeded_task={seeded} stdout_head={stdout_head:?}",
+        out.code,
+        out.stdout.len(),
+        out.stderr
+    )
+}
+
+fn diag_open_windows_front_snapshot(h: &RunningHarness) -> String {
+    let body =
+        r#"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"open_windows","arguments":{}},"id":1}"#;
+    let out = h.run_mcp_stdio(&format!("{body}\n"));
+    let detail = format!(
+        "open_windows_stdio code={} stdout_len={} stderr={:?}",
+        out.code,
+        out.stdout.len(),
+        out.stderr
+    );
+    let line = out
+        .stdout
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or("");
+    if line.is_empty() {
+        return detail;
+    }
+    let Ok(raw) = serde_json::from_str::<Value>(line) else {
+        let head: String = line.chars().take(200).collect();
+        return format!("{detail} json_parse_failed line_head={head:?}");
+    };
+    if let Some(err) = raw.get("error") {
+        return format!("{detail} rpc_error={err}");
+    }
+    let Some(result) = raw.get("result") else {
+        return format!("{detail} missing_result");
+    };
+    let is_error = result
+        .get("isError")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let text = result
+        .get("content")
+        .and_then(|c| c.as_array())
+        .and_then(|items| items.first())
+        .and_then(|item| item.get("text"))
+        .and_then(|t| t.as_str())
+        .unwrap_or("");
+    if is_error {
+        return format!("{detail} tool_is_error text={text:?}");
+    }
+    let wins = parse_mcp_json_text(text);
+    let rows = wins.as_array().map(|a| a.as_slice()).unwrap_or(&[]);
+    let labels: Vec<&str> = rows
+        .iter()
+        .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
+        .collect();
+    let front_labels: Vec<&str> = rows
+        .iter()
+        .filter(|w| w.get("front").and_then(|v| v.as_bool()) == Some(true))
+        .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
+        .collect();
+    format!(
+        "{detail} window_count={} labels={labels:?} front_labels={front_labels:?}",
+        rows.len()
+    )
+}
+
+fn log_mcp_front_stale_diag(h: &RunningHarness, tool: &str, arguments: &Value, err_text: &str) {
+    #[cfg(target_os = "linux")]
+    let display = std::env::var("DISPLAY").unwrap_or_default();
+    #[cfg(not(target_os = "linux"))]
+    let display = String::new();
+    let open_windows = diag_open_windows_front_snapshot(h);
+    let gui_pid = h.gui_pid;
+    let gui_listed = schedule_viewer_pids()
+        .map(|pids| pids.contains(&gui_pid))
+        .unwrap_or(false);
+    mcp_harness_log(
+        &h.diag_test_label,
+        &format!(
+            "mcp_front_stale: tool={tool} arguments={arguments} err_text={err_text:?} \
+             gui_pid={gui_pid} gui_listed_in_schedule_viewer_pids={gui_listed} DISPLAY={display:?} {open_windows}"
+        ),
+    );
+}
+
+fn log_front_after_read(h: &RunningHarness, phase: &str) {
+    mcp_harness_log(
+        &h.diag_test_label,
+        &format!(
+            "front_after_read #{phase}: {}",
+            diag_open_windows_front_snapshot(h)
+        ),
+    );
 }
 
 fn task_start(doc: &Value, task_id: &str) -> Option<String> {
@@ -1922,11 +2609,21 @@ fn default_filters() -> Value {
 fn running_app_current_schedule_returns_the_seeded_task_id_and_the_process_is_killed_on_drop() {
     let gui_pid = with_gui(|h| {
         let _ = h.mcp_call("schedule_diff", json!({}));
-        let socket = find_mcp_socket_under(&h.home).expect("mcp socket under isolated home");
-        assert!(
-            socket.starts_with(&h.home),
-            "mcp socket must stay under the test home"
-        );
+        #[cfg(unix)]
+        {
+            let socket = find_mcp_socket_under(&h.home).expect("mcp socket under isolated home");
+            assert!(
+                socket.starts_with(&h.home),
+                "mcp socket must stay under the test home"
+            );
+        }
+        #[cfg(windows)]
+        {
+            assert!(
+                mcp_named_pipe_is_open(),
+                "mcp named pipe should be open while the gui runs"
+            );
+        }
         let out = h.run_screen(&["--screen", "current_schedule"], None, None);
         assert_eq!(out.code, 0);
         let doc: Value = serde_json::from_str(&out.stdout).expect("current_schedule json");
@@ -1952,6 +2649,7 @@ fn open_windows_lists_main_and_schedule_2_with_file_and_folder_and_only_main_fro
             .collect();
         assert!(labels.contains(&"main"));
         assert!(labels.contains(&"schedule-2"));
+        log_front_after_read(h, "open_windows_lists_before_front_assert");
         let mut front_count = 0;
         for w in rows {
             let file = w.get("file").and_then(|v| v.as_str()).unwrap_or("");
@@ -2015,11 +2713,33 @@ fn baseline_diffs_after_screen_edit_and_file_edit_has_screen_file_and_class_line
                 }
             }
         }
+        let file_write_started = Instant::now();
         fs::write(&h.main_path, serde_json::to_vec_pretty(&on_disk).expect("pretty")).expect("write file");
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "baseline_diffs_diag: file_write path={} elapsed_since_fs_write={:?} mtime_nanos={}",
+                h.main_path.display(),
+                file_write_started.elapsed(),
+                h.mtime_nanos(&h.main_path)
+            ),
+        );
 
+        let capture_started = Instant::now();
         let screen = h.run_screen(&["--screen", "baseline_diffs"], None, None);
         assert_eq!(screen.code, 0);
         let text = &screen.stdout;
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "baseline_diffs_diag: capture elapsed_since_file_write={:?} elapsed_capture={:?} \
+                 stdout_len={} contains_file_only={} text={text}",
+                file_write_started.elapsed(),
+                capture_started.elapsed(),
+                text.len(),
+                text.contains("ファイルのみ")
+            ),
+        );
         let pos_screen = text.find("画面:").expect("画面:");
         let pos_file = text.find("ファイル:").expect("ファイル:");
         let pos_class = text.find("分類:").expect("分類:");
@@ -2310,20 +3030,39 @@ fn set_view_filter_leaves_schedule_diff_no_difference_and_file_mtime() {
 fn edit_plan_changes_one_date_keeps_mtime_undo_restores_and_save_writes_that_date() {
     with_gui(|h| {
         let before_mtime = h.mtime_nanos(&h.main_path);
-        let edit = h.mcp_call(
-            "edit_plan",
-            json!({
-                "ops": [{
-                    "type": "setTaskDates",
-                    "taskId": SEEDED_TASK_ID,
-                    "start": "2026-04-02",
-                    "end": "2026-04-04",
-                }]
-            }),
+        let edit_args = json!({
+            "ops": [{
+                "type": "setTaskDates",
+                "taskId": SEEDED_TASK_ID,
+                "start": "2026-04-02",
+                "end": "2026-04-04",
+            }]
+        });
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: edit1 send task_id={SEEDED_TASK_ID} start=2026-04-02 end=2026-04-04 path={}",
+                h.main_path.display()
+            ),
+        );
+        let edit = h.mcp_call("edit_plan", edit_args.clone());
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: edit1 response is_error={} text={}",
+                edit.is_error, edit.text
+            ),
         );
         assert!(!edit.is_error, "{}", edit.text);
         assert_eq!(h.mtime_nanos(&h.main_path), before_mtime);
         let current = parse_mcp_json_text(&h.mcp_call("current_schedule", json!({})).text);
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: current_schedule after edit1 task_id={SEEDED_TASK_ID} start={:?}",
+                task_start(&current, SEEDED_TASK_ID)
+            ),
+        );
         assert_eq!(
             task_start(&current, SEEDED_TASK_ID).as_deref(),
             Some("2026-04-02")
@@ -2335,21 +3074,39 @@ fn edit_plan_changes_one_date_keeps_mtime_undo_restores_and_save_writes_that_dat
             task_start(&restored, SEEDED_TASK_ID).as_deref(),
             Some("2026-04-01")
         );
-        let edit2 = h.mcp_call(
-            "edit_plan",
-            json!({
-                "ops": [{
-                    "type": "setTaskDates",
-                    "taskId": SEEDED_TASK_ID,
-                    "start": "2026-04-02",
-                    "end": "2026-04-04",
-                }]
-            }),
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: edit2 send task_id={SEEDED_TASK_ID} start=2026-04-02 end=2026-04-04 (save next)"
+            ),
+        );
+        let edit2 = h.mcp_call("edit_plan", edit_args);
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: edit2 response is_error={} text={}",
+                edit2.is_error, edit2.text
+            ),
         );
         assert!(!edit2.is_error);
         let save = h.mcp_call("file_action", json!({ "action": "save" }));
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: save response is_error={} text={}",
+                save.is_error, save.text
+            ),
+        );
         assert!(!save.is_error, "{}", save.text);
         let on_disk: Value = serde_json::from_slice(&h.file_bytes(&h.main_path)).expect("file");
+        mcp_harness_log(
+            &h.diag_test_label,
+            &format!(
+                "edit_plan_diag: on_disk read path={} task_id={SEEDED_TASK_ID} start={:?}",
+                h.main_path.display(),
+                task_start(&on_disk, SEEDED_TASK_ID)
+            ),
+        );
         assert_eq!(
             task_start(&on_disk, SEEDED_TASK_ID).as_deref(),
             Some("2026-04-02")
@@ -2760,6 +3517,7 @@ fn six_reads_leave_open_windows_front_on_main() {
         ] {
             let read = h.mcp_call(tool, json!({}));
             assert!(!read.is_error, "tool {tool}: {}", read.text);
+            log_front_after_read(h, tool);
             assert_only_front_label(&h, "main");
         }
     });
@@ -3836,13 +4594,44 @@ fn catalog_action_save_on_app_catalog_updates_member_name_on_both_plain_windows(
 fn foreign_schedule_viewer_process_fails_without_sending_tools() {
     #[cfg(target_os = "linux")]
     assert_linux_display();
+    let test_label = harness_caller_label(std::panic::Location::caller());
+    let (mut guard, foreign_pid) = spawn_harmless_schedule_viewer_decoy();
+    let decoy_alive = guard.child.try_wait().expect("try_wait").is_none();
+    mcp_harness_log(
+        &test_label,
+        &format!(
+            "foreign_schedule_viewer_test: decoy_pid={foreign_pid} decoy_alive={decoy_alive} \
+             waiting_for=schedule_viewer_pid_listed then assert_no_foreign_schedule_viewer_processes"
+        ),
+    );
+    #[cfg(any(unix, windows))]
+    wait_for_foreign_schedule_viewer_pid(foreign_pid);
+    let decoy_alive_after_wait = guard.child.try_wait().expect("try_wait").is_none();
+    #[cfg(windows)]
+    let pipe_open = mcp_named_pipe_is_open();
+    #[cfg(not(windows))]
+    let pipe_open = false;
+    mcp_harness_log(
+        &test_label,
+        &format!(
+            "foreign_schedule_viewer_test: after_wait decoy_alive={decoy_alive_after_wait} \
+             pipe_open={pipe_open} schedule_viewer_pids={:?}",
+            schedule_viewer_pids().unwrap_or_default()
+        ),
+    );
     let _gui = GuiGuard {
         _lock: lock_ignore_poison(&GUI_MUTEX),
     };
-    let (mut guard, foreign_pid) = spawn_harmless_schedule_viewer_decoy();
-    #[cfg(any(unix, windows))]
-    wait_for_foreign_schedule_viewer_pid(foreign_pid);
+    let assert_started = Instant::now();
     let result = std::panic::catch_unwind(|| assert_no_foreign_schedule_viewer_processes(&[]));
+    mcp_harness_log(
+        &test_label,
+        &format!(
+            "foreign_schedule_viewer_test: assert_no_foreign finished elapsed={:?} panicked={}",
+            assert_started.elapsed(),
+            result.is_err()
+        ),
+    );
     assert!(
         result.is_err(),
         "harmless decoy pid {foreign_pid} should make assert_no_foreign fail"
