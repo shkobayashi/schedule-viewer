@@ -355,6 +355,40 @@ fn is_schedule_viewer_image_path(path: &Path) -> bool {
     )
 }
 
+#[cfg(target_os = "linux")]
+fn is_schedule_viewer_comm(comm: &str) -> bool {
+    comm == SCHEDULE_VIEWER_IMAGE_NAME_UNIX
+}
+
+/// GitHub-hosted `ubuntu-latest` などでは同一 UID でも `/proc/<pid>/exe` が permission denied になる。
+/// 列挙のフォールバックに `comm` と `cmdline` の argv0 を使う。
+#[cfg(target_os = "linux")]
+fn linux_image_hint_from_proc(pid: u32) -> Result<Option<PathBuf>, String> {
+    let comm_path = format!("/proc/{pid}/comm");
+    if let Ok(comm) = fs::read_to_string(&comm_path) {
+        let comm = comm.trim();
+        if is_schedule_viewer_comm(comm) {
+            return Ok(Some(PathBuf::from(SCHEDULE_VIEWER_IMAGE_NAME_UNIX)));
+        }
+    }
+    let cmdline_path = format!("/proc/{pid}/cmdline");
+    let bytes = match fs::read(&cmdline_path) {
+        Ok(b) => b,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(format!("read {cmdline_path}: {err}")),
+    };
+    let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+    if end == 0 {
+        return Ok(None);
+    }
+    use std::os::unix::ffi::OsStrExt;
+    let argv0 = PathBuf::from(std::ffi::OsStr::from_bytes(&bytes[..end]));
+    if is_schedule_viewer_image_path(&argv0) {
+        return Ok(Some(argv0));
+    }
+    Ok(None)
+}
+
 enum ExeInspection {
     Resolved(PathBuf),
     NoSuchProcess,
@@ -425,9 +459,13 @@ fn inspect_schedule_viewer_image(pid: u32, me: u32) -> Result<ExeInspection, Str
             Ok(path) => Ok(ExeInspection::Resolved(path)),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(ExeInspection::NoSuchProcess),
             Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied => {
-                Ok(ExeInspection::InspectFailed(format!(
-                    "read_link {link}: permission denied (same uid)"
-                )))
+                match linux_image_hint_from_proc(pid) {
+                    Ok(Some(path)) => Ok(ExeInspection::Resolved(path)),
+                    Ok(None) => Ok(ExeInspection::NoSuchProcess),
+                    Err(detail) => Ok(ExeInspection::InspectFailed(format!(
+                        "read_link {link}: permission denied (same uid); proc fallback: {detail}"
+                    ))),
+                }
             }
             Err(err) => Ok(ExeInspection::InspectFailed(format!("read_link {link}: {err}"))),
         }
