@@ -208,7 +208,7 @@ fn mcp_named_pipe_is_open() -> bool {
         s.encode_utf16().chain([0]).collect()
     }
 
-    let sid = current_user_sid_string().expect("sid");
+    let sid = unsafe { current_user_sid_string() }.expect("sid");
     let pipe_name = format!(r"\\.\pipe\{}-{}", APP_IDENTIFIER, sid);
     let wide = wide_null(&pipe_name);
     let handle = unsafe {
@@ -1305,6 +1305,7 @@ fn ensure_vite() {
         std::thread::sleep(Duration::from_millis(200));
     }
     *slot = Some(child);
+    #[cfg(unix)]
     register_vite_process_exit_cleanup();
 }
 
