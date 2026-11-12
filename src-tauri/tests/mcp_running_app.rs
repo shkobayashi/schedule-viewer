@@ -2497,14 +2497,15 @@ fn log_mcp_front_stale_diag(h: &RunningHarness, tool: &str, arguments: &Value, e
     #[cfg(not(target_os = "linux"))]
     let display = String::new();
     let open_windows = diag_open_windows_front_snapshot(h);
+    let gui_pid = h.gui_pid;
     let gui_listed = schedule_viewer_pids()
-        .map(|pids| pids.contains(&h.gui_pid))
+        .map(|pids| pids.contains(&gui_pid))
         .unwrap_or(false);
     mcp_harness_log(
         &h.diag_test_label,
         &format!(
             "mcp_front_stale: tool={tool} arguments={arguments} err_text={err_text:?} \
-             gui_pid={h.gui_pid} gui_listed_in_schedule_viewer_pids={gui_listed} DISPLAY={display:?} {open_windows}"
+             gui_pid={gui_pid} gui_listed_in_schedule_viewer_pids={gui_listed} DISPLAY={display:?} {open_windows}"
         ),
     );
 }
