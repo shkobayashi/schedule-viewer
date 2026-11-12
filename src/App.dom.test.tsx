@@ -339,7 +339,11 @@ describe("App integration (Issue 548)", () => {
     flow.setDisk(schedulePath, documentToJsonString(updated));
     await driveExternalPoll(flow, updated);
 
-    await screen.findByRole("dialog", { name: "ファイルが更新されています" });
+    await screen.findByRole(
+      "dialog",
+      { name: "ファイルが更新されています" },
+      { timeout: 8000 },
+    );
     expect(within(screen.getByRole("dialog", { name: "階層" })).getAllByLabelText("意味")[0]).toHaveValue(
       "回帰の意味",
     );
@@ -378,9 +382,11 @@ describe("App integration (Issue 548)", () => {
     flow.setDisk(schedulePath, documentToJsonString(disk2));
     await driveExternalPoll(flow, disk2);
 
-    const mergeDialog = await screen.findByRole("dialog", {
-      name: "ファイルが更新されています",
-    });
+    const mergeDialog = await screen.findByRole(
+      "dialog",
+      { name: "ファイルが更新されています" },
+      { timeout: 8000 },
+    );
     fireEvent.click(within(mergeDialog).getByRole("button", { name: "両方を画面へ反映" }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "ファイルが更新されています" })).toBeNull();

@@ -1010,7 +1010,10 @@ fn assert_no_foreign_schedule_viewer_processes(exclude: &[u32]) {
 
 #[cfg(windows)]
 fn assert_no_foreign_schedule_viewer_processes(exclude: &[u32]) {
-    assert_no_foreign_mcp_pipe();
+    // 共有 named pipe は前面 GUI が 1 本だけ開く。テスト GUI 稼働中の spawn_second_instance では開いているのが正常。
+    if exclude.is_empty() {
+        assert_no_foreign_mcp_pipe();
+    }
     let allowed: std::collections::HashSet<u32> = exclude.iter().copied().collect();
     let pids = schedule_viewer_pids().unwrap_or_else(|err| {
         panic!("schedule-viewer の実行ファイルを列挙できません: {err}");
