@@ -2504,7 +2504,7 @@ fn log_mcp_front_stale_diag(h: &RunningHarness, tool: &str, arguments: &Value, e
         &h.diag_test_label,
         &format!(
             "mcp_front_stale: tool={tool} arguments={arguments} err_text={err_text:?} \
-             gui_pid={} gui_listed_in_schedule_viewer_pids={gui_listed} DISPLAY={display:?} {open_windows}"
+             gui_pid={h.gui_pid} gui_listed_in_schedule_viewer_pids={gui_listed} DISPLAY={display:?} {open_windows}"
         ),
     );
 }
