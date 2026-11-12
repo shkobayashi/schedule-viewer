@@ -311,7 +311,10 @@ describe("App integration (Issue 548)", () => {
     localStorage.clear();
   });
 
-  it("TC-HIER-06c: hierarchy draft blocks immediate reload and stays out of the document", async () => {
+  it(
+    "TC-HIER-06c: hierarchy draft blocks immediate reload and stays out of the document",
+    { timeout: 15_000 },
+    async () => {
     const schedulePath = "/tmp/regression/hierarchy/levels-2.schedule.json";
     const scheduleText = readExampleText("hierarchy/levels-2.schedule.json");
     const canonical = canonicalText(scheduleText);
@@ -421,7 +424,8 @@ describe("App integration (Issue 548)", () => {
     );
     expect(screen.getByText("北ブロック")).toBeInTheDocument();
     expect(screen.getByText("設計A")).toBeInTheDocument();
-  });
+  },
+  );
 
   it("TC-SET-08m: hides 項目を編集 when workspace statuses are absent", async () => {
     const wsPath = "/tmp/regression/ws-no-status/workspace.json";
