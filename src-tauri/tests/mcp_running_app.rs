@@ -74,8 +74,17 @@ impl Drop for RunningHarness {
     fn drop(&mut self) {
         let root = self.gui_pid;
         kill_child_fast(&mut self.gui);
+        let gui_exit_deadline = Instant::now() + Duration::from_secs(30);
+        while Instant::now() < gui_exit_deadline {
+            if self.gui.try_wait().expect("try_wait").is_some() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
         let _ = self.gui.wait();
         cleanup_owned_extra_schedule_viewer_instances(root);
+        #[cfg(windows)]
+        wait_for_mcp_pipe_closed(Duration::from_secs(30));
     }
 }
 
@@ -273,6 +282,22 @@ fn mcp_named_pipe_is_open() -> bool {
     }
     let _ = unsafe { CloseHandle(handle) };
     true
+}
+
+#[cfg(windows)]
+fn wait_for_mcp_pipe_closed(timeout: Duration) {
+    let deadline = Instant::now() + timeout;
+    while Instant::now() < deadline {
+        if !mcp_named_pipe_is_open() {
+            return;
+        }
+        if let Ok(pids) = schedule_viewer_pids() {
+            for pid in pids {
+                kill_schedule_viewer_tree(pid);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
 }
 
 #[cfg(windows)]
@@ -696,32 +721,43 @@ fn kill_schedule_viewer_tree(pid: u32) {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+fn kill_schedule_viewer_tree(pid: u32) {
+    let _ = Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
+#[cfg(not(any(unix, windows)))]
 fn kill_schedule_viewer_tree(_pid: u32) {}
 
+#[cfg(windows)]
+fn allowed_schedule_viewer_pids(roots: &[u32]) -> std::collections::HashSet<u32> {
+    roots.iter().copied().collect()
+}
+
 fn cleanup_owned_extra_schedule_viewer_instances(gui_root: u32) {
-    #[cfg(unix)]
-    {
-        let allowed = allowed_schedule_viewer_pids(&[gui_root]);
-        let Ok(mut extra) = schedule_viewer_pids().map(|pids| {
-            pids.into_iter()
-                .filter(|pid| !allowed.contains(pid))
-                .collect::<Vec<_>>()
-        }) else {
-            return;
-        };
-        for pid in &extra {
-            kill_schedule_viewer_tree(*pid);
-        }
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while Instant::now() < deadline && !extra.is_empty() {
-            extra = schedule_viewer_pids()
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|pid| !allowed.contains(pid))
-                .collect();
-            std::thread::sleep(Duration::from_millis(100));
-        }
+    let allowed = allowed_schedule_viewer_pids(&[gui_root]);
+    let Ok(mut extra) = schedule_viewer_pids().map(|pids| {
+        pids.into_iter()
+            .filter(|pid| !allowed.contains(pid))
+            .collect::<Vec<_>>()
+    }) else {
+        return;
+    };
+    for pid in &extra {
+        kill_schedule_viewer_tree(*pid);
+    }
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline && !extra.is_empty() {
+        extra = schedule_viewer_pids()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|pid| !allowed.contains(pid))
+            .collect();
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 
@@ -1107,7 +1143,16 @@ fn kill_child_fast(child: &mut Child) {
     {
         let _ = Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .status();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if child.try_wait().expect("try_wait").is_some() {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
     #[cfg(unix)]
     {
@@ -2127,11 +2172,21 @@ fn default_filters() -> Value {
 fn running_app_current_schedule_returns_the_seeded_task_id_and_the_process_is_killed_on_drop() {
     let gui_pid = with_gui(|h| {
         let _ = h.mcp_call("schedule_diff", json!({}));
-        let socket = find_mcp_socket_under(&h.home).expect("mcp socket under isolated home");
-        assert!(
-            socket.starts_with(&h.home),
-            "mcp socket must stay under the test home"
-        );
+        #[cfg(unix)]
+        {
+            let socket = find_mcp_socket_under(&h.home).expect("mcp socket under isolated home");
+            assert!(
+                socket.starts_with(&h.home),
+                "mcp socket must stay under the test home"
+            );
+        }
+        #[cfg(windows)]
+        {
+            assert!(
+                mcp_named_pipe_is_open(),
+                "mcp named pipe should be open while the gui runs"
+            );
+        }
         let out = h.run_screen(&["--screen", "current_schedule"], None, None);
         assert_eq!(out.code, 0);
         let doc: Value = serde_json::from_str(&out.stdout).expect("current_schedule json");
