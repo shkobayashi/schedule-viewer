@@ -524,7 +524,7 @@ fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
 }
 
 #[cfg(windows)]
-fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
+fn schedule_viewer_pids_from_tasklist() -> Result<Vec<u32>, String> {
     let out = Command::new("tasklist")
         .args([
             "/FO",
@@ -541,17 +541,58 @@ fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
     let mut found = Vec::new();
     for line in String::from_utf8_lossy(&out.stdout).lines() {
         let line = line.trim();
-        if line.is_empty() {
+        if line.is_empty() || line.starts_with("INFO:") {
             continue;
         }
-        let parts: Vec<&str> = line.split("\",\"").collect();
+        let parts: Vec<&str> = line.split(',').collect();
         if parts.len() >= 2 {
-            let pid = parts[1].trim_end_matches('"').trim();
+            let pid = parts[1].trim().trim_matches('"');
             if let Ok(pid) = pid.parse::<u32>() {
                 found.push(pid);
             }
         }
     }
+    Ok(found)
+}
+
+#[cfg(windows)]
+fn schedule_viewer_pids_from_powershell() -> Result<Vec<u32>, String> {
+    let out = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "Get-Process -Name schedule-viewer -ErrorAction SilentlyContinue | ForEach-Object { $_.Id }",
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Err(format!("powershell exited {}", out.status));
+    }
+    let mut found = Vec::new();
+    for line in String::from_utf8_lossy(&out.stdout).lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(pid) = line.parse::<u32>() {
+            found.push(pid);
+        }
+    }
+    Ok(found)
+}
+
+#[cfg(windows)]
+fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
+    let mut found = schedule_viewer_pids_from_tasklist().unwrap_or_default();
+    if let Ok(extra) = schedule_viewer_pids_from_powershell() {
+        for pid in extra {
+            if !found.contains(&pid) {
+                found.push(pid);
+            }
+        }
+    }
+    found.sort_unstable();
+    found.dedup();
     Ok(found)
 }
 
@@ -1234,6 +1275,27 @@ fn json_body_matches(lhs: &str, rhs: &str) {
     assert_eq!(left, right);
 }
 
+/// Rust の `Command::new("npm")` は Windows では PATH 解決されないことがある（CI で `program not found`）。
+fn command_npm<I, S>(args: I) -> Command
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<std::ffi::OsStr>,
+{
+    #[cfg(windows)]
+    {
+        let mut cmd = Command::new("cmd");
+        cmd.arg("/C").arg("npm");
+        cmd.args(args);
+        cmd
+    }
+    #[cfg(not(windows))]
+    {
+        let mut cmd = Command::new("npm");
+        cmd.args(args);
+        cmd
+    }
+}
+
 fn ensure_vite() {
     let _lock = lock_ignore_poison(&VITE_MUTEX);
     let mut slot = VITE_CHILD.lock().expect("vite child");
@@ -1248,19 +1310,28 @@ fn ensure_vite() {
         if slot.is_some() {
             return;
         }
-        let _ = Command::new("bash")
-            .args(["-c", "lsof -ti :1420 | xargs -r kill -9"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+        #[cfg(unix)]
+        {
+            let _ = Command::new("bash")
+                .args(["-c", "lsof -ti :1420 | xargs -r kill -9"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
+        #[cfg(windows)]
+        {
+            let _ = Command::new("cmd").args([
+                "/C",
+                "for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :1420') do taskkill /F /PID %a 2>nul",
+            ]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        }
         std::thread::sleep(Duration::from_millis(800));
         if client.get("http://localhost:1420/").send().is_ok() {
             panic!("port 1420 is already in use; stop other Vite or schedule-viewer dev servers");
         }
     }
     let platform = tauri_platform_env();
-    let mut cmd = Command::new("npm");
-    cmd.args(["run", "dev"]);
+    let mut cmd = command_npm(["run", "dev"]);
     cmd.current_dir(REPO_ROOT);
     cmd.env("TAURI_ENV_PLATFORM", platform);
     cmd.stdout(Stdio::null());
