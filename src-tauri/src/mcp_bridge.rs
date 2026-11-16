@@ -378,12 +378,12 @@ fn emit_mcp_screen_request(app: &AppHandle, label: &str, payload: Value) -> bool
     #[cfg(unix)]
     {
         use std::sync::mpsc;
-        let app = app.clone();
+        let app_for_emit = app.clone();
         let label = label.to_string();
         let (tx, rx) = mpsc::channel();
         let send_ok = app
             .run_on_main_thread(move || {
-                let ok = app.get_webview_window(&label).is_some_and(|window| {
+                let ok = app_for_emit.get_webview_window(&label).is_some_and(|window| {
                     window
                         .emit_to(
                             EventTarget::webview_window(label),
