@@ -621,6 +621,8 @@ fn is_schedule_viewer_image_path(path: &Path) -> bool {
 #[cfg(target_os = "linux")]
 fn is_schedule_viewer_comm(comm: &str) -> bool {
     comm == SCHEDULE_VIEWER_IMAGE_NAME_UNIX
+        || comm == "schedule-viewe"
+        || comm.starts_with("schedule-view")
 }
 
 /// GitHub-hosted `ubuntu-latest` などでは同一 UID でも `/proc/<pid>/exe` が permission denied になる。
@@ -800,9 +802,13 @@ fn schedule_viewer_pid_listed(pid: u32) -> bool {
 
 #[cfg(windows)]
 fn schedule_viewer_pid_listed(pid: u32) -> bool {
-    schedule_viewer_pids()
+    if schedule_viewer_pids()
         .map(|pids| pids.contains(&pid))
         .unwrap_or(false)
+    {
+        return true;
+    }
+    windows_pid_is_schedule_viewer(pid)
 }
 
 #[cfg(unix)]
@@ -825,9 +831,18 @@ fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
                 }
                 inspect_failures.push((pid, msg));
             }
-            ExeInspection::Resolved(_)
-            | ExeInspection::NoSuchProcess
-            | ExeInspection::OtherUser => {}
+            ExeInspection::Resolved(path) => {
+                let _ = path;
+                #[cfg(target_os = "linux")]
+                {
+                    if let Ok(Some(hint)) = linux_image_hint_from_proc(pid) {
+                        if is_schedule_viewer_image_path(&hint) {
+                            found.push(pid);
+                        }
+                    }
+                }
+            }
+            ExeInspection::NoSuchProcess | ExeInspection::OtherUser => {}
         }
     }
     #[cfg(target_os = "macos")]
@@ -899,9 +914,79 @@ fn schedule_viewer_pids_from_powershell() -> Result<Vec<u32>, String> {
 }
 
 #[cfg(windows)]
+fn is_schedule_viewer_windows_exe_path(path: &str) -> bool {
+    Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.eq_ignore_ascii_case(SCHEDULE_VIEWER_IMAGE_NAME_WINDOWS))
+}
+
+#[cfg(windows)]
+fn schedule_viewer_pids_from_powershell_exe_path() -> Result<Vec<u32>, String> {
+    let out = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and ($_.ExecutablePath -like '*\\schedule-viewer.exe') } | ForEach-Object { $_.ProcessId }",
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Err(format!("powershell exited {}", out.status));
+    }
+    let mut found = Vec::new();
+    for line in String::from_utf8_lossy(&out.stdout).lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(pid) = line.parse::<u32>() {
+            found.push(pid);
+        }
+    }
+    Ok(found)
+}
+
+#[cfg(windows)]
+fn windows_process_exe_path(pid: u32) -> Option<String> {
+    let out = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            &format!(
+                "(Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}').ExecutablePath"
+            ),
+        ])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if path.is_empty() {
+        None
+    } else {
+        Some(path)
+    }
+}
+
+#[cfg(windows)]
+fn windows_pid_is_schedule_viewer(pid: u32) -> bool {
+    windows_process_exe_path(pid)
+        .is_some_and(|path| is_schedule_viewer_windows_exe_path(&path))
+}
+
+#[cfg(windows)]
 fn schedule_viewer_pids() -> Result<Vec<u32>, String> {
     let mut found = schedule_viewer_pids_from_tasklist().unwrap_or_default();
     if let Ok(extra) = schedule_viewer_pids_from_powershell() {
+        for pid in extra {
+            if !found.contains(&pid) {
+                found.push(pid);
+            }
+        }
+    }
+    if let Ok(extra) = schedule_viewer_pids_from_powershell_exe_path() {
         for pid in extra {
             if !found.contains(&pid) {
                 found.push(pid);
@@ -1946,6 +2031,9 @@ impl RunningHarness {
             OpenWindowsSeed::Custom(body) => write_open_windows_value(&app_data, &body),
             OpenWindowsSeed::Absent => {}
         }
+        if !matches!(seed, OpenWindowsSeed::Absent) {
+            log_h4_setup_after_seed(&diag_test_label, &app_data, "after_files_passed");
+        }
 
         let mut cmd = Command::new(EXECUTABLE);
         apply_isolated_home(&mut cmd, &home_path);
@@ -1990,6 +2078,7 @@ impl RunningHarness {
             let _ = harness.gui.wait();
             return Err(err);
         }
+        log_front_setup_h4(&harness, "after_launch");
         Ok(harness)
     }
 
@@ -2359,6 +2448,7 @@ where
         .and_then(|n| n.to_str())
         .expect("main file name");
     wait_open_windows_row_file(&h, &new_label, main_file);
+    log_front_setup_h4(&h, "after_schedule_2_opened");
     let rows = h.open_windows_rows();
     assert_eq!(
         rows.len(),
@@ -2517,6 +2607,48 @@ fn log_front_after_read(h: &RunningHarness, phase: &str) {
             "front_after_read #{phase}: {}",
             diag_open_windows_front_snapshot(h)
         ),
+    );
+}
+
+fn log_h4_setup_after_seed(test_label: &str, app_data: &Path, step: &str) {
+    let path = app_data.join("open-windows.json");
+    let seed_focused = fs::read_to_string(&path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        .and_then(|body| {
+            body.get("focusedLabel")
+                .and_then(|value| value.as_str())
+                .map(str::to_string)
+        });
+    let window_labels: Vec<String> = fs::read_to_string(&path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        .and_then(|body| {
+            body.get("windows")
+                .and_then(|value| value.as_array())
+                .map(|rows| {
+                    rows.iter()
+                        .filter_map(|row| {
+                            row.get("label")
+                                .and_then(|value| value.as_str())
+                                .map(str::to_string)
+                        })
+                        .collect()
+                })
+        })
+        .unwrap_or_default();
+    mcp_harness_log(
+        test_label,
+        &format!(
+            "h4_setup_{step}: seed_focused_label={seed_focused:?} window_labels={window_labels:?}"
+        ),
+    );
+}
+
+fn log_front_setup_h4(h: &RunningHarness, step: &str) {
+    mcp_harness_log(
+        &h.diag_test_label,
+        &format!("h4_setup_{step}: {}", diag_open_windows_front_snapshot(h)),
     );
 }
 

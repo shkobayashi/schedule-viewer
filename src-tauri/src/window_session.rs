@@ -470,10 +470,21 @@ pub fn remove_window_label(app_data: &Path, label: &str) -> Result<(), String> {
     write_open_windows(app_data, &file)
 }
 
-pub fn set_focused_label(app_data: &Path, label: &str) -> Result<(), String> {
+fn log_focused_label_write(label: &str, trigger: &str) {
+    let ts_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    eprintln!(
+        "[mcp-harness] h5_focused_label_write: label={label} trigger={trigger} ts_ms={ts_ms}"
+    );
+}
+
+pub fn set_focused_label(app_data: &Path, label: &str, trigger: &str) -> Result<(), String> {
     let mut file = read_open_windows(app_data)?;
     if file.windows.iter().any(|entry| entry.label == label) {
         file.focused_label = label.to_string();
+        log_focused_label_write(label, trigger);
         write_open_windows(app_data, &file)
     } else {
         Ok(())

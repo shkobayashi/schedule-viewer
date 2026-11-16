@@ -2482,7 +2482,7 @@ async fn create_schedule_window(
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.set_focus();
     }
-    let _ = set_focused_label(&app_data, &label);
+    let _ = set_focused_label(&app_data, &label, "explicit_open_window");
     Ok(label)
 }
 
@@ -2498,7 +2498,7 @@ fn register_window_focus(
         note_window_focus(&mut guard, &label);
     }
     let app_data = app_data_dir(&app)?;
-    set_focused_label(&app_data, &label)
+    set_focused_label(&app_data, &label, "register_window_focus")
 }
 
 #[tauri::command]
@@ -2710,7 +2710,7 @@ fn focus_schedule_window(
         let mut guard = session.lock().expect("window session");
         note_window_focus(&mut guard, &label);
     }
-    let _ = set_focused_label(&app_data_dir(&app)?, &label);
+    let _ = set_focused_label(&app_data_dir(&app)?, &label, "explicit_focus_schedule_window");
     Ok(())
 }
 
@@ -3430,7 +3430,7 @@ pub fn run() {
                             note_window_focus(&mut guard, &label);
                         }
                         if let Ok(app_data) = app_data_dir(app) {
-                            let _ = set_focused_label(&app_data, &label);
+                            let _ = set_focused_label(&app_data, &label, "os_focus_event");
                         }
                     }
                 }

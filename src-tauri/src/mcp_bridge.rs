@@ -374,6 +374,51 @@ fn log_open_new_window_bridge(
     );
 }
 
+fn emit_mcp_screen_request(app: &AppHandle, label: &str, payload: Value) -> bool {
+    #[cfg(unix)]
+    {
+        use std::sync::mpsc;
+        let app = app.clone();
+        let label = label.to_string();
+        let (tx, rx) = mpsc::channel();
+        let send_ok = app
+            .run_on_main_thread(move || {
+                let ok = app.get_webview_window(&label).is_some_and(|window| {
+                    window
+                        .emit_to(
+                            EventTarget::webview_window(label),
+                            "mcp-screen-request",
+                            payload,
+                        )
+                        .is_ok()
+                });
+                let _ = tx.send(ok);
+            })
+            .is_ok();
+        if !send_ok {
+            return false;
+        }
+        rx.recv().unwrap_or(false)
+    }
+    #[cfg(windows)]
+    {
+        app.get_webview_window(label).is_some_and(|window| {
+            window
+                .emit_to(
+                    EventTarget::webview_window(label.to_string()),
+                    "mcp-screen-request",
+                    payload,
+                )
+                .is_ok()
+        })
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (app, label, payload);
+        false
+    }
+}
+
 fn emit_and_wait_for_screen_tool(
     window: &WebviewWindow,
     label: &str,
@@ -410,14 +455,8 @@ fn emit_and_wait_for_screen_tool(
         "tool": request.tool,
         "arguments": webview_arguments,
     });
-    if window
-        .emit_to(
-            EventTarget::webview_window(label.to_string()),
-            "mcp-screen-request",
-            payload,
-        )
-        .is_err()
-    {
+    let app = window.app_handle();
+    if !emit_mcp_screen_request(app, label, payload) {
         log_open_new_window_bridge(
             &state.app_data,
             request,
@@ -523,6 +562,19 @@ fn dispatch_tool_request(
     .unwrap_or_else(|| recorded_focused.clone());
 
     if request.tool == OPEN_WINDOWS_TOOL_NAME {
+        let creation_order: Vec<String> = read_open_windows(&state.app_data)
+            .map(|file| {
+                file.windows
+                    .iter()
+                    .map(|entry| entry.label.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        eprintln!(
+            "[mcp-harness] h6_open_windows_front: stored_focused={recorded_focused} \
+             os_focused={} creation_order={creation_order:?} chosen_front={front_label}",
+            os_focused.as_deref().unwrap_or("(none)")
+        );
         let list = build_mcp_open_windows_list(
             &read_open_windows(&state.app_data).unwrap_or_else(|_| {
                 crate::window_session::OpenWindowsFile {
