@@ -380,6 +380,7 @@ fn emit_mcp_screen_request(app: &AppHandle, label: &str, payload: Value) -> bool
         use std::sync::mpsc;
         let app_for_emit = app.clone();
         let label = label.to_string();
+        let label_for_log = label.clone();
         let (tx, rx) = mpsc::channel();
         let send_ok = app
             .run_on_main_thread(move || {
@@ -387,7 +388,7 @@ fn emit_mcp_screen_request(app: &AppHandle, label: &str, payload: Value) -> bool
                 let ok = app_for_emit.get_webview_window(&label).is_some_and(|window| {
                     window
                         .emit_to(
-                            EventTarget::webview_window(label.clone()),
+                            EventTarget::webview_window(label),
                             "mcp-screen-request",
                             payload,
                         )
@@ -398,13 +399,13 @@ fn emit_mcp_screen_request(app: &AppHandle, label: &str, payload: Value) -> bool
             .is_ok();
         if !send_ok {
             eprintln!(
-                "[mcp-harness] h605_bridge_emit: label={label} run_on_main_thread=false"
+                "[mcp-harness] h605_bridge_emit: label={label_for_log} run_on_main_thread=false"
             );
             return false;
         }
         let (webview_present, emit_ok) = rx.recv().unwrap_or((false, false));
         eprintln!(
-            "[mcp-harness] h605_bridge_emit: label={label} webview_present={webview_present} emit_ok={emit_ok}"
+            "[mcp-harness] h605_bridge_emit: label={label_for_log} webview_present={webview_present} emit_ok={emit_ok}"
         );
         emit_ok
     }
