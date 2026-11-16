@@ -1325,7 +1325,12 @@ fn harmless_schedule_viewer_image_path(dir: &Path) -> PathBuf {
 fn spawn_harmless_schedule_viewer_decoy() -> (ChildGuard, u32, PathBuf) {
     let keep_dir = tempfile::tempdir().expect("decoy dir");
     let image = harmless_schedule_viewer_image_path(keep_dir.path());
-    fs::copy(LONG_SLEEP_HELPER, &image).expect("copy long-sleep helper");
+    {
+        let data = fs::read(LONG_SLEEP_HELPER).expect("read long-sleep helper");
+        let mut file = fs::File::create(&image).expect("create decoy image");
+        file.write_all(&data).expect("write decoy image");
+        file.sync_all().expect("sync decoy image");
+    }
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -5001,6 +5006,9 @@ fn foreign_schedule_viewer_process_fails_without_sending_tools() {
     #[cfg(target_os = "linux")]
     assert_linux_display();
     let test_label = harness_caller_label(std::panic::Location::caller());
+    let _gui = GuiGuard {
+        _lock: lock_ignore_poison(&GUI_MUTEX),
+    };
     let (mut guard, foreign_pid, decoy_image) = spawn_harmless_schedule_viewer_decoy();
     let decoy_alive = guard.child.try_wait().expect("try_wait").is_none();
     mcp_harness_log(
@@ -5026,9 +5034,6 @@ fn foreign_schedule_viewer_process_fails_without_sending_tools() {
             schedule_viewer_pids().unwrap_or_default()
         ),
     );
-    let _gui = GuiGuard {
-        _lock: lock_ignore_poison(&GUI_MUTEX),
-    };
     let assert_started = Instant::now();
     let result = std::panic::catch_unwind(|| assert_no_foreign_schedule_viewer_processes(&[]));
     mcp_harness_log(
@@ -5045,6 +5050,9 @@ fn foreign_schedule_viewer_process_fails_without_sending_tools() {
     );
     assert!(
         guard.child.try_wait().expect("try_wait").is_none(),
-        "harmless decoy must stay alive until drop"
+        "harmless decoy must stay alive until explicit teardown"
     );
+    kill_child_fast(&mut guard.child);
+    let _ = guard.child.wait().expect("wait decoy after kill");
+    drop(guard);
 }
