@@ -16,7 +16,8 @@ const REPO_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
 const SCHEDULE_VIEWER_IMAGE_NAME_UNIX: &str = "schedule-viewer";
 const SCHEDULE_VIEWER_IMAGE_NAME_WINDOWS: &str = "schedule-viewer.exe";
 
-const CHILD_WAIT_TIMEOUT: Duration = Duration::from_secs(10);
+// Must exceed the MCP bridge response wait (15s in mcp_bridge.rs).
+const CHILD_WAIT_TIMEOUT: Duration = Duration::from_secs(20);
 const GUI_READY_TIMEOUT: Duration = Duration::from_secs(120);
 const VITE_READY_TIMEOUT: Duration = Duration::from_secs(120);
 
