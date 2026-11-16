@@ -11,10 +11,7 @@ use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 const EXECUTABLE: &str = env!("CARGO_BIN_EXE_schedule-viewer");
-#[cfg(unix)]
-const IDLE_FIXTURE_SLEEP: &str = "/bin/sleep";
-#[cfg(windows)]
-const IDLE_FIXTURE_SLEEP: &str = r"C:\Windows\System32\timeout.exe";
+const LONG_SLEEP_HELPER: &str = env!("CARGO_BIN_EXE_mcp_test_long_sleep");
 const REPO_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
 const SCHEDULE_VIEWER_IMAGE_NAME_UNIX: &str = "schedule-viewer";
 const SCHEDULE_VIEWER_IMAGE_NAME_WINDOWS: &str = "schedule-viewer.exe";
@@ -1328,7 +1325,7 @@ fn harmless_schedule_viewer_image_path(dir: &Path) -> PathBuf {
 fn spawn_harmless_schedule_viewer_decoy() -> (ChildGuard, u32, PathBuf) {
     let keep_dir = tempfile::tempdir().expect("decoy dir");
     let image = harmless_schedule_viewer_image_path(keep_dir.path());
-    fs::copy(IDLE_FIXTURE_SLEEP, &image).expect("copy sleep stub");
+    fs::copy(LONG_SLEEP_HELPER, &image).expect("copy long-sleep helper");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -1338,14 +1335,7 @@ fn spawn_harmless_schedule_viewer_decoy() -> (ChildGuard, u32, PathBuf) {
     }
     let mut cmd = Command::new(&image);
     cmd.stdout(Stdio::null()).stderr(Stdio::null());
-    #[cfg(unix)]
-    {
-        cmd.arg("3600");
-    }
-    #[cfg(windows)]
-    {
-        cmd.args(["/T", "3600", "/NOBREAK"]);
-    }
+    cmd.arg("3600");
     let child = cmd.spawn().expect("spawn harmless decoy");
     let pid = child.id();
     let image_path = image.clone();
@@ -1774,6 +1764,17 @@ fn format_decoy_pid_probe_row(pid: u32, marker: &str) -> String {
         #[cfg(not(target_os = "linux"))]
         let comm = "?".to_string();
         #[cfg(target_os = "linux")]
+        let proc_state = fs::read_to_string(format!("/proc/{pid}/status"))
+            .ok()
+            .and_then(|s| {
+                s.lines()
+                    .find(|l| l.starts_with("State:"))
+                    .map(|l| l.trim().to_string())
+            })
+            .unwrap_or_else(|| "State:?".to_string());
+        #[cfg(not(target_os = "linux"))]
+        let proc_state = "?".to_string();
+        #[cfg(target_os = "linux")]
         let cmdline0 = linux_image_hint_from_proc(pid)
             .ok()
             .flatten()
@@ -1782,7 +1783,7 @@ fn format_decoy_pid_probe_row(pid: u32, marker: &str) -> String {
         #[cfg(not(target_os = "linux"))]
         let cmdline0 = "?".to_string();
         format!(
-            "{marker}pid={pid} ppid={ppid:?} owner={owner:?} alive={alive} listed={listed} inspection={inspection_s} comm={comm} cmdline0={cmdline0}"
+            "{marker}pid={pid} ppid={ppid:?} owner={owner:?} alive={alive} listed={listed} inspection={inspection_s} {proc_state} comm={comm} cmdline0={cmdline0}"
         )
     }
     #[cfg(windows)]

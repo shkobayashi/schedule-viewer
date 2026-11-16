@@ -858,6 +858,9 @@ pub fn spawn_startup_windows(app: &AppHandle, app_data: &Path) -> Result<(), Str
     } else {
         false
     };
+    if focus_applied {
+        let _ = set_focused_label(app_data, &file.focused_label, "startup_focus");
+    }
     let live_after: Vec<String> = app.webview_windows().keys().cloned().collect();
     eprintln!(
         "[mcp-harness] h4_startup_restore: phase=after_spawn spawned={spawned:?} focus_target={focused_label} focus_applied={focus_applied} live_labels={live_after:?}"

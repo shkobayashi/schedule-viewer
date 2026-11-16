@@ -32,7 +32,7 @@ use crate::window_session::{
 mod mcp_bridge_windows;
 
 pub(crate) const BRIDGE_VERSION: u32 = 1;
-pub(crate) const MCP_PIPE_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+pub(crate) const MCP_PIPE_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 const RESPONSE_TIMEOUT: Duration = MCP_PIPE_CONNECT_TIMEOUT;
 
 const MSG_NO_GUI: &str = "スケジュールのウィンドウが開いていないので、渡せません。";
