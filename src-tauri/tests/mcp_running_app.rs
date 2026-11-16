@@ -2024,6 +2024,7 @@ impl RunningHarness {
         let schedule3_path = work.join("schedule-3.schedule.json");
         let members_path = work.join("members.json");
         let workspace_path = work.join("workspace.json");
+        let seeded_open_windows = !matches!(seed, OpenWindowsSeed::Absent);
         match seed {
             OpenWindowsSeed::Default => {
                 write_open_windows(&app_data, &main_path, &schedule2_path, &workspace_path);
@@ -2031,7 +2032,7 @@ impl RunningHarness {
             OpenWindowsSeed::Custom(body) => write_open_windows_value(&app_data, &body),
             OpenWindowsSeed::Absent => {}
         }
-        if !matches!(seed, OpenWindowsSeed::Absent) {
+        if seeded_open_windows {
             log_h4_setup_after_seed(&diag_test_label, &app_data, "after_files_passed");
         }
 
