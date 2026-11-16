@@ -110,12 +110,28 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       return snap.explainOverlayLiveAnchorsRef.current;
     }
 
+    function traceMcpHarnessGui(phase: string, detail: string) {
+      const label = getCurrentWindow().label;
+      void invoke("mcp_harness_gui_trace", { label, phase, detail }).catch(
+        () => {},
+      );
+    }
+
     async function reply(
       id: string,
       generation: number,
       body: McpToolResultBody,
       invalidateInProgress = false,
     ) {
+      const isError =
+        typeof body === "object" &&
+        body !== null &&
+        "isError" in body &&
+        (body as { isError?: boolean }).isError === true;
+      traceMcpHarnessGui(
+        "reply",
+        `id=${id} generation=${generation} invalidate=${invalidateInProgress} isError=${isError}`,
+      );
       await invoke("mcp_reply", {
         id,
         generation,
@@ -331,6 +347,10 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
 
     async function handleRequest(payload: McpScreenRequest) {
       const snap = inputRef.current;
+      traceMcpHarnessGui(
+        "receive",
+        `id=${payload.id} generation=${payload.generation} tool=${payload.tool} startupSettled=${snap.startupSettled} startupRecoveryDialogOpen=${snap.startupRecoveryDialogOpen}`,
+      );
       if (payload.tool === MCP_TOOL_REPLACE_SCHEDULE) {
         await handleReplaceSchedule(payload, snap);
         return;

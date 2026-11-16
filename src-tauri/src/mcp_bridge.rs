@@ -383,26 +383,35 @@ fn emit_mcp_screen_request(app: &AppHandle, label: &str, payload: Value) -> bool
         let (tx, rx) = mpsc::channel();
         let send_ok = app
             .run_on_main_thread(move || {
+                let webview_present = app_for_emit.get_webview_window(&label).is_some();
                 let ok = app_for_emit.get_webview_window(&label).is_some_and(|window| {
                     window
                         .emit_to(
-                            EventTarget::webview_window(label),
+                            EventTarget::webview_window(label.clone()),
                             "mcp-screen-request",
                             payload,
                         )
                         .is_ok()
                 });
-                let _ = tx.send(ok);
+                let _ = tx.send((webview_present, ok));
             })
             .is_ok();
         if !send_ok {
+            eprintln!(
+                "[mcp-harness] h605_bridge_emit: label={label} run_on_main_thread=false"
+            );
             return false;
         }
-        rx.recv().unwrap_or(false)
+        let (webview_present, emit_ok) = rx.recv().unwrap_or((false, false));
+        eprintln!(
+            "[mcp-harness] h605_bridge_emit: label={label} webview_present={webview_present} emit_ok={emit_ok}"
+        );
+        emit_ok
     }
     #[cfg(windows)]
     {
-        app.get_webview_window(label).is_some_and(|window| {
+        let webview_present = app.get_webview_window(label).is_some();
+        let emit_ok = app.get_webview_window(label).is_some_and(|window| {
             window
                 .emit_to(
                     EventTarget::webview_window(label.to_string()),
@@ -410,7 +419,11 @@ fn emit_mcp_screen_request(app: &AppHandle, label: &str, payload: Value) -> bool
                     payload,
                 )
                 .is_ok()
-        })
+        });
+        eprintln!(
+            "[mcp-harness] h605_bridge_emit: label={label} webview_present={webview_present} emit_ok={emit_ok}"
+        );
+        emit_ok
     }
     #[cfg(not(any(unix, windows)))]
     {
@@ -455,6 +468,12 @@ fn emit_and_wait_for_screen_tool(
         "tool": request.tool,
         "arguments": webview_arguments,
     });
+    let request_id = request.id.clone();
+    let request_tool = request.tool.clone();
+    eprintln!(
+        "[mcp-harness] h605_bridge_wait_begin: id={request_id} tool={request_tool} label={label} generation={generation} sequence={sequence} timeout_s={}",
+        RESPONSE_TIMEOUT.as_secs()
+    );
     let app = window.app_handle();
     if !emit_mcp_screen_request(app, label, payload) {
         log_open_new_window_bridge(
@@ -493,6 +512,9 @@ fn emit_and_wait_for_screen_tool(
     }
     let stored = result_slot.lock().expect("mcp result").clone();
     if let Some(response) = stored {
+        eprintln!(
+            "[mcp-harness] h605_bridge_wait_ok: id={request_id} tool={request_tool} label={label} generation={generation}"
+        );
         return EmitWaitOutcome::Ok(response);
     }
     log_open_new_window_bridge(
@@ -504,6 +526,9 @@ fn emit_and_wait_for_screen_tool(
         Some(sequence),
     );
     state.pending.lock().expect("mcp pending").remove(&request.id);
+    eprintln!(
+        "[mcp-harness] h605_bridge_wait_timeout: id={request_id} tool={request_tool} label={label} generation={generation} sequence={sequence}"
+    );
     EmitWaitOutcome::TimedOut
 }
 
@@ -738,6 +763,12 @@ fn dispatch_tool_request(
         }
         EmitWaitOutcome::TimedOut => {}
     }
+    eprintln!(
+        "[mcp-harness] h605_bridge_stale: id={} tool={} target_label={label} front_label={front_label} recorded_focused={recorded_focused} os_focused={} live_labels={live_labels:?} specified={specified}",
+        request.id,
+        request.tool,
+        os_focused.as_deref().unwrap_or("(none)")
+    );
     Ok(BridgeResponse {
         v: BRIDGE_VERSION,
         id: request.id,
@@ -766,6 +797,11 @@ fn take_pending_reply_for_window(
 }
 
 #[tauri::command]
+pub fn mcp_harness_gui_trace(label: String, phase: String, detail: String) {
+    eprintln!("[mcp-harness] h605_gui_{phase}: window={label} {detail}");
+}
+
+#[tauri::command]
 pub fn mcp_reply(
     id: String,
     generation: u64,
@@ -775,7 +811,11 @@ pub fn mcp_reply(
     state: tauri::State<'_, Arc<McpBridgeState>>,
 ) -> Result<(), String> {
     let label = window.label().to_string();
-    if state.generation_for(&label) != generation {
+    let live_generation = state.generation_for(&label);
+    if live_generation != generation {
+        eprintln!(
+            "[mcp-harness] h605_bridge_reply_drop: id={id} reply_label={label} reply_generation={generation} live_generation={live_generation} reason=generation_mismatch"
+        );
         return Ok(());
     }
     let entry = {
@@ -785,6 +825,10 @@ pub fn mcp_reply(
     let mut replied = false;
     if let Some(entry) = entry {
         if entry.generation != generation {
+            eprintln!(
+                "[mcp-harness] h605_bridge_reply_drop: id={id} reply_label={label} pending_generation={} reply_generation={generation} reason=pending_generation_mismatch",
+                entry.generation
+            );
             return Ok(());
         }
         let response = BridgeResponse {
@@ -802,6 +846,23 @@ pub fn mcp_reply(
         *done = true;
         cvar.notify_one();
         replied = true;
+    } else {
+        let pending_label = {
+            let pending = state.pending.lock().expect("mcp pending");
+            pending
+                .get(&id)
+                .map(|entry| entry.window_label.clone())
+        };
+        eprintln!(
+            "[mcp-harness] h605_bridge_reply_drop: id={id} reply_label={label} pending_label={} reason=no_pending_match",
+            pending_label.as_deref().unwrap_or("(none)")
+        );
+    }
+    if replied {
+        eprintln!(
+            "[mcp-harness] h605_bridge_reply_ok: id={id} reply_label={label} generation={generation} invalidate_in_progress={:?}",
+            invalidate_in_progress
+        );
     }
     if replied && invalidate_in_progress == Some(true) {
         state.bump_generation(&label);

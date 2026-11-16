@@ -40,7 +40,8 @@ use file_dialog_filters::{
     calendar_import_filters, members_import_filters, schedule_open_save_filters,
 };
 use mcp_bridge::{
-    cleanup_mcp_socket, mcp_reply, start_mcp_bridge_server, McpBridgeState,
+    cleanup_mcp_socket, mcp_harness_gui_trace, mcp_reply, start_mcp_bridge_server,
+    McpBridgeState,
 };
 use std::sync::Arc;
 use field_extension_edit::{
@@ -3559,6 +3560,7 @@ pub fn run() {
             uninstall_read_screen_skill,
             get_executable_path,
             is_store_distribution,
+            mcp_harness_gui_trace,
             mcp_reply,
         ])
         .build(tauri::generate_context!())

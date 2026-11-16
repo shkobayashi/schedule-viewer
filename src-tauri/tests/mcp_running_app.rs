@@ -150,9 +150,48 @@ struct OpenWindowsSnapshot {
     folders: Vec<(String, String)>,
 }
 
+fn gui_stderr_line_matches_harness_trace(line: &str) -> bool {
+    line.contains("[mcp-harness]")
+        && (line.contains("h5_")
+            || line.contains("h6_")
+            || line.contains("h605_")
+            || line.contains("h4_startup"))
+}
+
+fn flush_gui_harness_stderr_to_test_output(
+    stderr_log: &Arc<Mutex<Vec<u8>>>,
+    test_label: &str,
+    reason: &str,
+) {
+    let text = stderr_log
+        .lock()
+        .ok()
+        .map(|buf| String::from_utf8_lossy(&buf).to_string())
+        .unwrap_or_default();
+    let mut matched = 0usize;
+    for line in text.lines() {
+        if gui_stderr_line_matches_harness_trace(line) {
+            matched += 1;
+            mcp_harness_log(
+                test_label,
+                &format!("gui_stderr_forward ({reason}): {line}"),
+            );
+        }
+    }
+    if matched == 0 {
+        mcp_harness_log(
+            test_label,
+            &format!("gui_stderr_forward ({reason}): (no h5/h6/h605/h4_startup lines yet)"),
+        );
+    }
+}
+
 impl Drop for RunningHarness {
     fn drop(&mut self) {
         let test_label = self.diag_test_label.clone();
+        if std::thread::panicking() {
+            flush_gui_harness_stderr_to_test_output(&self.stderr_log, &test_label, "drop_panic");
+        }
         if let Ok(mut last) = LAST_DROP_TEST_NAME.lock() {
             *last = test_label.clone();
         }
@@ -1260,6 +1299,7 @@ const MCP_WINDOW_SAMPLE_DISPLAY: &str = "サンプルデータ";
 struct ChildGuard {
     child: Child,
     _keep_dir: tempfile::TempDir,
+    image_path: PathBuf,
 }
 
 impl Drop for ChildGuard {
@@ -1285,7 +1325,7 @@ fn harmless_schedule_viewer_image_path(dir: &Path) -> PathBuf {
     }
 }
 
-fn spawn_harmless_schedule_viewer_decoy() -> (ChildGuard, u32) {
+fn spawn_harmless_schedule_viewer_decoy() -> (ChildGuard, u32, PathBuf) {
     let keep_dir = tempfile::tempdir().expect("decoy dir");
     let image = harmless_schedule_viewer_image_path(keep_dir.path());
     fs::copy(IDLE_FIXTURE_SLEEP, &image).expect("copy sleep stub");
@@ -1308,16 +1348,19 @@ fn spawn_harmless_schedule_viewer_decoy() -> (ChildGuard, u32) {
     }
     let child = cmd.spawn().expect("spawn harmless decoy");
     let pid = child.id();
+    let image_path = image.clone();
     (
         ChildGuard {
             child,
             _keep_dir: keep_dir,
+            image_path: image_path.clone(),
         },
         pid,
+        image_path,
     )
 }
 
-fn wait_for_foreign_schedule_viewer_pid(pid: u32) {
+fn wait_for_foreign_schedule_viewer_pid(pid: u32, spawn_image: &Path) {
     let test_label = harness_caller_label(std::panic::Location::caller());
     let timeout = Duration::from_secs(30);
     let started = Instant::now();
@@ -1328,6 +1371,8 @@ fn wait_for_foreign_schedule_viewer_pid(pid: u32) {
             "foreign_pid_wait: start target_pid={pid} waiting_for=schedule_viewer_pid_listed(timeout={timeout:?})"
         ),
     );
+    #[cfg(any(unix, windows))]
+    log_foreign_decoy_enumeration(&test_label, "start", pid, spawn_image);
     loop {
         let listed = schedule_viewer_pid_listed(pid);
         let pids = schedule_viewer_pids().unwrap_or_default();
@@ -1350,6 +1395,8 @@ fn wait_for_foreign_schedule_viewer_pid(pid: u32) {
                     started.elapsed()
                 ),
             );
+            #[cfg(any(unix, windows))]
+            log_foreign_decoy_enumeration(&test_label, "timeout", pid, spawn_image);
             panic!("timed out after {timeout:?}");
         }
         std::thread::sleep(Duration::from_millis(200));
@@ -1619,6 +1666,216 @@ fn assert_relative_path_segment(value: &str, field: &str) {
             !value.contains(':'),
             "{field} must not be an absolute path: {value}"
         );
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_proc_ppid(pid: u32) -> Option<u32> {
+    let path = format!("/proc/{pid}/status");
+    let status = fs::read_to_string(&path).ok()?;
+    for line in status.lines() {
+        if let Some(rest) = line.strip_prefix("PPid:") {
+            return rest.trim().parse().ok();
+        }
+    }
+    None
+}
+
+#[cfg(windows)]
+fn windows_proc_parent_pid(pid: u32) -> Option<u32> {
+    let out = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            &format!("(Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}').ParentProcessId"),
+        ])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    text.parse().ok()
+}
+
+#[cfg(windows)]
+fn windows_process_image_name(pid: u32) -> Option<String> {
+    let out = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            &format!("(Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}').Name"),
+        ])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
+}
+
+#[cfg(windows)]
+fn windows_process_subtree_pids(root: u32) -> Vec<u32> {
+    let out = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            &format!(
+                "$roots = @({root}); $seen = @{{}}; $queue = [System.Collections.Generic.Queue[int]]::new(); $roots | ForEach-Object {{ $queue.Enqueue($_) }}; while ($queue.Count -gt 0) {{ $p = $queue.Dequeue(); if ($seen.ContainsKey($p)) {{ continue }}; $seen[$p] = $true; Get-CimInstance Win32_Process | Where-Object {{ $_.ParentProcessId -eq $p }} | ForEach-Object {{ $queue.Enqueue($_.ProcessId) }} }}; $seen.Keys | Sort-Object"
+            ),
+        ])
+        .output();
+    let Ok(out) = out else {
+        return vec![root];
+    };
+    if !out.status.success() {
+        return vec![root];
+    }
+    let mut pids = Vec::new();
+    for line in String::from_utf8_lossy(&out.stdout).lines() {
+        if let Ok(pid) = line.trim().parse::<u32>() {
+            pids.push(pid);
+        }
+    }
+    if pids.is_empty() {
+        pids.push(root);
+    }
+    pids
+}
+
+#[cfg(any(unix, windows))]
+fn format_decoy_pid_probe_row(pid: u32, marker: &str) -> String {
+    #[cfg(unix)]
+    {
+        let me = current_euid();
+        let owner = unix_proc_owner_uid(pid).ok().flatten();
+        let ppid = linux_proc_ppid(pid);
+        let alive = unix_pid_alive(pid);
+        let listed = schedule_viewer_pids()
+            .map(|pids| pids.contains(&pid))
+            .unwrap_or(false);
+        let inspection = inspect_schedule_viewer_image(pid, me).ok();
+        let inspection_s = match inspection {
+            Some(ExeInspection::Resolved(path)) => format!("Resolved({})", path.display()),
+            Some(ExeInspection::NoSuchProcess) => "NoSuchProcess".to_string(),
+            Some(ExeInspection::OtherUser) => "OtherUser".to_string(),
+            Some(ExeInspection::InspectFailed(msg)) => format!("InspectFailed({msg})"),
+            None => "Err".to_string(),
+        };
+        #[cfg(target_os = "linux")]
+        let comm = fs::read_to_string(format!("/proc/{pid}/comm"))
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|_| "?".to_string());
+        #[cfg(not(target_os = "linux"))]
+        let comm = "?".to_string();
+        #[cfg(target_os = "linux")]
+        let cmdline0 = linux_image_hint_from_proc(pid)
+            .ok()
+            .flatten()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "?".to_string());
+        #[cfg(not(target_os = "linux"))]
+        let cmdline0 = "?".to_string();
+        format!(
+            "{marker}pid={pid} ppid={ppid:?} owner={owner:?} alive={alive} listed={listed} inspection={inspection_s} comm={comm} cmdline0={cmdline0}"
+        )
+    }
+    #[cfg(windows)]
+    {
+        let ppid = windows_proc_parent_pid(pid);
+        let name = windows_process_image_name(pid).unwrap_or_else(|| "?".to_string());
+        let exe = windows_process_exe_path(pid).unwrap_or_else(|| "?".to_string());
+        let listed = schedule_viewer_pids()
+            .map(|pids| pids.contains(&pid))
+            .unwrap_or(false);
+        let matches = windows_pid_is_schedule_viewer(pid);
+        format!(
+            "{marker}pid={pid} ppid={ppid:?} image_name={name} exe_path={exe} listed={listed} matches_name_or_path={matches}"
+        )
+    }
+}
+
+#[cfg(any(unix, windows))]
+fn log_foreign_decoy_enumeration(
+    test_label: &str,
+    phase: &str,
+    decoy_pid: u32,
+    spawn_image: &Path,
+) {
+    mcp_harness_log(
+        test_label,
+        &format!(
+            "foreign_pid_wait:{phase} decoy_spawn_pid={decoy_pid} decoy_image={}",
+            spawn_image.display()
+        ),
+    );
+    let marker = if cfg!(unix) { "decoy_row:" } else { "decoy_row:" };
+    mcp_harness_log(
+        test_label,
+        &format!(
+            "foreign_pid_wait:{phase} {}",
+            format_decoy_pid_probe_row(decoy_pid, marker)
+        ),
+    );
+    #[cfg(unix)]
+    {
+        let subtree: Vec<u32> = process_subtree_pids(decoy_pid).into_iter().collect();
+        mcp_harness_log(
+            test_label,
+            &format!("foreign_pid_wait:{phase} decoy_subtree_pids={subtree:?}"),
+        );
+        for child in subtree {
+            if child == decoy_pid {
+                continue;
+            }
+            mcp_harness_log(
+                test_label,
+                &format!(
+                    "foreign_pid_wait:{phase} {}",
+                    format_decoy_pid_probe_row(child, "decoy_child_row:")
+                ),
+            );
+        }
+    }
+    #[cfg(windows)]
+    {
+        let subtree = windows_process_subtree_pids(decoy_pid);
+        mcp_harness_log(
+            test_label,
+            &format!("foreign_pid_wait:{phase} decoy_subtree_pids={subtree:?}"),
+        );
+        for child in subtree {
+            if child == decoy_pid {
+                continue;
+            }
+            mcp_harness_log(
+                test_label,
+                &format!(
+                    "foreign_pid_wait:{phase} {}",
+                    format_decoy_pid_probe_row(child, "decoy_child_row:")
+                ),
+            );
+        }
+    }
+    if let Ok(listed) = schedule_viewer_pids() {
+        mcp_harness_log(
+            test_label,
+            &format!("foreign_pid_wait:{phase} schedule_viewer_pids_list={listed:?}"),
+        );
+        for pid in listed {
+            mcp_harness_log(
+                test_label,
+                &format!(
+                    "foreign_pid_wait:{phase} {}",
+                    format_decoy_pid_probe_row(pid, "listed_row:")
+                ),
+            );
+        }
     }
 }
 
@@ -2075,6 +2332,11 @@ impl RunningHarness {
                 &harness.diag_test_label,
                 &format!("start_with: wait_ready_with failed err={err:?}"),
             );
+            flush_gui_harness_stderr_to_test_output(
+                &harness.stderr_log,
+                &harness.diag_test_label,
+                "wait_ready_failed",
+            );
             kill_child_fast(&mut harness.gui);
             let _ = harness.gui.wait();
             return Err(err);
@@ -2165,6 +2427,11 @@ impl RunningHarness {
                     None,
                     &[self.gui_pid],
                 );
+                flush_gui_harness_stderr_to_test_output(
+                    &self.stderr_log,
+                    test_label,
+                    "wait_ready_timeout",
+                );
                 return Err("gui not ready".to_string());
             }
             if self.gui.try_wait().map_err(|e| e.to_string())?.is_some() {
@@ -2244,6 +2511,11 @@ impl RunningHarness {
         let result = McpCallResult { is_error, text };
         if result.is_error && result.text.contains(MCP_MSG_FRONT_STALE) {
             log_mcp_front_stale_diag(self, name, &arguments, &result.text);
+            flush_gui_harness_stderr_to_test_output(
+                &self.stderr_log,
+                &self.diag_test_label,
+                "mcp_front_stale",
+            );
         }
         result
     }
@@ -4728,17 +5000,18 @@ fn foreign_schedule_viewer_process_fails_without_sending_tools() {
     #[cfg(target_os = "linux")]
     assert_linux_display();
     let test_label = harness_caller_label(std::panic::Location::caller());
-    let (mut guard, foreign_pid) = spawn_harmless_schedule_viewer_decoy();
+    let (mut guard, foreign_pid, decoy_image) = spawn_harmless_schedule_viewer_decoy();
     let decoy_alive = guard.child.try_wait().expect("try_wait").is_none();
     mcp_harness_log(
         &test_label,
         &format!(
-            "foreign_schedule_viewer_test: decoy_pid={foreign_pid} decoy_alive={decoy_alive} \
-             waiting_for=schedule_viewer_pid_listed then assert_no_foreign_schedule_viewer_processes"
+            "foreign_schedule_viewer_test: decoy_pid={foreign_pid} decoy_alive={decoy_alive} decoy_image={} \
+             waiting_for=schedule_viewer_pid_listed then assert_no_foreign_schedule_viewer_processes",
+            decoy_image.display()
         ),
     );
     #[cfg(any(unix, windows))]
-    wait_for_foreign_schedule_viewer_pid(foreign_pid);
+    wait_for_foreign_schedule_viewer_pid(foreign_pid, &decoy_image);
     let decoy_alive_after_wait = guard.child.try_wait().expect("try_wait").is_none();
     #[cfg(windows)]
     let pipe_open = mcp_named_pipe_is_open();

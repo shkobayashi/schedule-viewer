@@ -831,6 +831,13 @@ pub fn spawn_startup_windows(app: &AppHandle, app_data: &Path) -> Result<(), Str
     let file = dedupe_open_windows(read_open_windows(app_data)?);
     write_open_windows(app_data, &file)?;
     let close_default_main = should_close_default_main_window(&file);
+    let window_labels: Vec<String> = file.windows.iter().map(|e| e.label.clone()).collect();
+    let live_before: Vec<String> = app.webview_windows().keys().cloned().collect();
+    let focused_label = file.focused_label.clone();
+    eprintln!(
+        "[mcp-harness] h4_startup_restore: phase=before_spawn window_labels={window_labels:?} focused_label={focused_label} close_default_main={close_default_main} live_labels={live_before:?}"
+    );
+    let mut spawned = Vec::new();
     for entry in &file.windows {
         if entry.label == "main" {
             continue;
@@ -839,15 +846,22 @@ pub fn spawn_startup_windows(app: &AppHandle, app_data: &Path) -> Result<(), Str
             continue;
         }
         create_schedule_webview(app, &entry.label, "schedule-viewer")?;
+        spawned.push(entry.label.clone());
     }
     if close_default_main {
         if let Some(main) = app.get_webview_window("main") {
             let _ = main.close();
         }
     }
-    if let Some(window) = app.get_webview_window(&file.focused_label) {
-        let _ = window.set_focus();
-    }
+    let focus_applied = if let Some(window) = app.get_webview_window(&file.focused_label) {
+        window.set_focus().is_ok()
+    } else {
+        false
+    };
+    let live_after: Vec<String> = app.webview_windows().keys().cloned().collect();
+    eprintln!(
+        "[mcp-harness] h4_startup_restore: phase=after_spawn spawned={spawned:?} focus_target={focused_label} focus_applied={focus_applied} live_labels={live_after:?}"
+    );
     Ok(())
 }
 
