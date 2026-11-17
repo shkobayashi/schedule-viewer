@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { documentToJsonString } from "./model/serialize";
 import type { ScheduleDocument } from "./model/types";
-import { parseScheduleText } from "./model/scheduleFile";
+import { hashTextSha256, parseScheduleText } from "./model/scheduleFile";
 import { resolveWorkspaceRelativePath } from "./model/workspacePath";
 import { createAppDomInvoke } from "./test/appDomInvoke";
 import {
@@ -183,11 +183,14 @@ async function expandSidebarUntilTask(taskName: string) {
   await waitFor(() => expect(screen.getByText(taskName)).toBeInTheDocument());
 }
 
-async function mountApp(startup: {
-  path: string;
-  workspacePath?: string | null;
-  contents: string;
-}) {
+async function mountApp(
+  startup: {
+    path: string;
+    workspacePath?: string | null;
+    contents: string;
+  },
+  options?: { rustLikePoll?: boolean },
+) {
   const parsed = parseScheduleText(startup.contents);
   if (!parsed.ok) throw new Error(parsed.message);
   const flow = createAppDomInvoke(parsed.document);
@@ -203,7 +206,32 @@ async function mountApp(startup: {
   };
   flow.setStartupRead(startupRead);
   flow.setDisk(startup.path, startup.contents);
-  invoke.mockImplementation((command, args) => flow.invoke(command, args));
+  if (options?.rustLikePoll) {
+    // Rust の poll は、承認するまで同じ新しいバイトを毎回返す。1回だけの queue では再現しない。
+    let contentHash = await hashTextSha256(startup.contents);
+    invoke.mockImplementation(async (command, args) => {
+      if (command === "poll_schedule_file_update") {
+        const disk = flow.getDisk(startup.path);
+        if (disk == null) throw new Error("SCHEDULE_FILE_NOT_FOUND");
+        const hash = await hashTextSha256(disk);
+        if (hash === contentHash) return null;
+        return { contents: disk };
+      }
+      const result = await flow.invoke(command, args);
+      if (
+        typeof args?.contents === "string" &&
+        (command === "acknowledge_schedule_file_contents" ||
+          command === "accept_opened_schedule" ||
+          command === "save_schedule_file" ||
+          command === "save_schedule_at_path")
+      ) {
+        contentHash = await hashTextSha256(args.contents);
+      }
+      return result;
+    });
+  } else {
+    invoke.mockImplementation((command, args) => flow.invoke(command, args));
+  }
   flow.holdStartup();
   render(<App />);
   await act(async () => {
@@ -313,15 +341,18 @@ describe("App integration (Issue 548)", () => {
 
   it(
     "TC-HIER-06c: hierarchy draft blocks immediate reload and stays out of the document",
-    { timeout: 15_000 },
+    { timeout: 25_000 },
     async () => {
     const schedulePath = "/tmp/regression/hierarchy/levels-2.schedule.json";
     const scheduleText = readExampleText("hierarchy/levels-2.schedule.json");
     const canonical = canonicalText(scheduleText);
-    const { flow, document } = await mountApp({
-      path: schedulePath,
-      contents: canonical,
-    });
+    const { flow, document } = await mountApp(
+      {
+        path: schedulePath,
+        contents: canonical,
+      },
+      { rustLikePoll: true },
+    );
     flow.setDisk(schedulePath, canonical);
     await waitFor(() => expect(screen.getByText("調査A")).toBeInTheDocument());
 
@@ -337,7 +368,6 @@ describe("App integration (Issue 548)", () => {
     const DESIGN_ID = "e2000001-0000-4000-8000-000000000002";
     const updated = cloneWithOutlineTaskEnd(document, SURVEY_ID, "2026-10-05");
     flow.setDisk(schedulePath, documentToJsonString(updated));
-    await driveExternalPoll(flow, updated);
 
     await screen.findByRole(
       "dialog",
@@ -380,7 +410,6 @@ describe("App integration (Issue 548)", () => {
 
     const disk2 = cloneWithOutlineTaskEnd(updated, DESIGN_ID, "2026-10-14");
     flow.setDisk(schedulePath, documentToJsonString(disk2));
-    await driveExternalPoll(flow, disk2);
 
     const mergeDialog = await screen.findByRole(
       "dialog",
@@ -431,6 +460,65 @@ describe("App integration (Issue 548)", () => {
     expect(screen.getByText("北ブロック")).toBeInTheDocument();
     expect(screen.getByText("設計A")).toBeInTheDocument();
   },
+  );
+
+  it(
+    "TC-HIER-06c: external change while the hierarchy dialog is open still asks after close",
+    { timeout: 25_000 },
+    async () => {
+      const schedulePath = "/tmp/regression/hierarchy/levels-2.schedule.json";
+      const scheduleText = readExampleText("hierarchy/levels-2.schedule.json");
+      const canonical = canonicalText(scheduleText);
+      const { flow, document } = await mountApp(
+        {
+          path: schedulePath,
+          contents: canonical,
+        },
+        { rustLikePoll: true },
+      );
+      flow.setDisk(schedulePath, canonical);
+      await waitFor(() => expect(screen.getByText("調査A")).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole("button", { name: "階層の名前、意味、指示" }));
+      const hierarchy = await screen.findByRole("dialog", { name: "階層" });
+      const meaning = within(hierarchy).getAllByLabelText("意味")[0];
+      fireEvent.change(meaning, { target: { value: "回帰の意味" } });
+      fireEvent.blur(meaning);
+      await waitFor(() => {
+        expect(meaning).toHaveValue("回帰の意味");
+      });
+
+      const surveyId = "e2000001-0000-4000-8000-000000000001";
+      const updated = cloneWithOutlineTaskEnd(document, surveyId, "2026-10-05");
+      flow.setDisk(schedulePath, documentToJsonString(updated));
+      fireEvent.click(within(hierarchy).getByRole("button", { name: "閉じる" }));
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog", { name: "階層" })).toBeNull();
+      });
+
+      const reloadDialog = await screen.findByRole(
+        "dialog",
+        { name: "ファイルが更新されています" },
+        { timeout: 8000 },
+      );
+      expect(reloadDialog).toHaveClass("ui-dialog-overlay--external-reload");
+      await act(async () => {
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, EXTERNAL_RELOAD_POLL_MS + 400);
+        });
+      });
+      expect(reloadDialog).toBeInTheDocument();
+      expect(
+        screen.getByRole("dialog", { name: "ファイルが更新されています" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("ファイルがもう一度更新されました")).toBeNull();
+      expect(screen.queryByText("ファイルを反映しました")).toBeNull();
+
+      fireEvent.click(screen.getByText("調査A"));
+      await waitFor(() => {
+        expect(screen.getByLabelText("終了")).toHaveValue("2026-10-04");
+      });
+    },
   );
 
   it("TC-SET-08m: hides 項目を編集 when workspace statuses are absent", async () => {

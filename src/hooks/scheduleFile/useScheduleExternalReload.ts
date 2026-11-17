@@ -15,7 +15,10 @@ import {
   type BaselineMergeConflictItem,
   type BaselineMergeReviewView,
 } from "../../model/baselineMergeReview";
-import { decideExternalReload } from "../../model/scheduleExternalReload";
+import {
+  decideExternalReload,
+  shouldKeepExternalReloadConfirmation,
+} from "../../model/scheduleExternalReload";
 import {
   acknowledgeScheduleFileContentsViaTauri,
   hashTextSha256,
@@ -99,6 +102,13 @@ export function useScheduleExternalReload({
   const mergeNoticeTimerRef = useRef<number | null>(null);
   const externalReloadOpenRef = useRef(externalReloadOpen);
   externalReloadOpenRef.current = externalReloadOpen;
+  const pendingExternalContentsRef = useRef(pendingExternalContents);
+  pendingExternalContentsRef.current = pendingExternalContents;
+  // 編集ダイアログを開いているあいだに差が出たあとは、閉じた直後の監視でも即時反映しない。
+  const changeSeenWhileEditingRef = useRef(false);
+  if (hasOpenEditDialogRef.current) {
+    changeSeenWhileEditingRef.current = true;
+  }
   const lastInvalidDiskHashRef = useRef<string | null>(null);
   const pollReadFailuresRef = useRef(0);
   const missingFilePromptedRef = useRef(false);
@@ -106,6 +116,7 @@ export function useScheduleExternalReload({
   const reloadNoticeTimerRef = useRef<number | null>(null);
 
   const clearExternalReloadPrompt = useCallback(() => {
+    externalReloadOpenRef.current = false;
     setPendingExternalContents(null);
     setDeferredExternalContents(null);
     setExternalReloadOpen(false);
@@ -177,6 +188,8 @@ export function useScheduleExternalReload({
       document: ScheduleDocument,
     ) => {
       mergeDeferredTrackingRef.current = null;
+      changeSeenWhileEditingRef.current = false;
+      externalReloadOpenRef.current = false;
       reloadDocumentFromDisk(document);
       setBaselineJson(canonicalJson);
       setDeferredExternalContents(null);
@@ -238,6 +251,9 @@ export function useScheduleExternalReload({
       lastInvalidDiskHashRef.current = null;
 
       if (decision.kind === "noop") {
+        if (!hasOpenEditDialogRef.current && !externalReloadOpenRef.current) {
+          changeSeenWhileEditingRef.current = false;
+        }
         clearExternalReloadPrompt();
         await acknowledgeDisk(diskContents);
         return;
@@ -246,31 +262,46 @@ export function useScheduleExternalReload({
       if (diskContents === suppressedDiskRef.current) return;
 
       if (decision.kind === "apply") {
-        if (
-          shouldDropExternalReload({
-            fileBusy: fileBusyRef.current,
-            pausePoll: pausePollRef.current,
-          }) ||
-          diskContents === suppressedDiskRef.current
-        ) {
+        const keepConfirmation = shouldKeepExternalReloadConfirmation({
+          editDialogOpen: hasOpenEditDialogRef.current,
+          promptOpen: externalReloadOpenRef.current,
+          changeSeenWhileEditing: changeSeenWhileEditingRef.current,
+        });
+        if (!keepConfirmation) {
+          if (
+            shouldDropExternalReload({
+              fileBusy: fileBusyRef.current,
+              pausePoll: pausePollRef.current,
+            }) ||
+            diskContents === suppressedDiskRef.current
+          ) {
+            return;
+          }
+          await applyExternalReload(
+            diskContents,
+            decision.canonicalJson,
+            decision.document,
+          );
           return;
         }
-        await applyExternalReload(
-          diskContents,
-          decision.canonicalJson,
-          decision.document,
-        );
-        return;
       }
 
       if (diskContents === suppressedDiskRef.current) return;
-      if (externalReloadOpenRef.current) {
+      if (
+        externalReloadOpenRef.current &&
+        pendingExternalContentsRef.current != null &&
+        pendingExternalContentsRef.current !== diskContents
+      ) {
         setDiskUpdatedAgain(true);
       }
       setPendingExternalContents(diskContents);
       if (!externalReloadOpenRef.current) {
+        externalReloadOpenRef.current = true;
         notifyPeersRef?.current("pending");
         setExternalReloadOpen(true);
+      }
+      if (!hasOpenEditDialogRef.current) {
+        changeSeenWhileEditingRef.current = false;
       }
     },
     [
@@ -316,7 +347,12 @@ export function useScheduleExternalReload({
         }
         pollReadFailuresRef.current = 0;
         missingFilePromptedRef.current = false;
-        if (!update) return;
+        if (!update) {
+          if (!hasOpenEditDialogRef.current && !externalReloadOpenRef.current) {
+            changeSeenWhileEditingRef.current = false;
+          }
+          return;
+        }
         await processDiskContents(update.contents);
       } catch {
         const next = recordPollReadFailure({
@@ -347,7 +383,14 @@ export function useScheduleExternalReload({
       cancelled = true;
       stop();
     };
-  }, [fileBusyRef, filePath, pausePollRef, processDiskContents, requestMissingFileOpenRef]);
+  }, [
+    fileBusyRef,
+    filePath,
+    hasOpenEditDialogRef,
+    pausePollRef,
+    processDiskContents,
+    requestMissingFileOpenRef,
+  ]);
 
   const confirmExternalReload = useCallback(() => {
     const diskContents = pendingExternalContents ?? deferredExternalContents;
@@ -372,9 +415,11 @@ export function useScheduleExternalReload({
   const keepLocalEditsOnExternalReload = useCallback(() => {
     const diskContents = pendingExternalContents;
     if (!diskContents) {
+      externalReloadOpenRef.current = false;
       setExternalReloadOpen(false);
       return;
     }
+    externalReloadOpenRef.current = false;
     setDeferredExternalContents(diskContents);
     setPendingExternalContents(null);
     setExternalReloadOpen(false);
@@ -393,6 +438,7 @@ export function useScheduleExternalReload({
     setPendingExternalContents(diskContents);
     setDiskUpdatedAgain(false);
     notifyPeersRef?.current("pending");
+    externalReloadOpenRef.current = true;
     setExternalReloadOpen(true);
   }, [deferredExternalContents, notifyPeersRef]);
 
@@ -401,6 +447,8 @@ export function useScheduleExternalReload({
       const merged = applyMergedDocument(document);
       if (!merged) return;
       isDirtyRef.current = true;
+      changeSeenWhileEditingRef.current = false;
+      externalReloadOpenRef.current = false;
       mergeDeferredTrackingRef.current = createBaselineMergeDeferredTracking(
         merged.before,
         merged.after,
