@@ -204,6 +204,9 @@ Issue #553「継続改善の仕組み」用。出典は [agents-pitfall-examples
 - **限界:** `shaIdentity.status: valid` は渡した SHA の一致だけであり、コマンドがそのツリーで走った機械証明ではない。スナップショットは `format-check-record.mjs` で caller 供給の抜粋ログから整形した。
 
 ### #553 受け入れの残り（観測のみ）
+
 - **相談モードの遅延読み込み:** 本セッションでは consult 本文の reload を観測していない。
+- **相談モードの遅延読み込み:** `postToolUse`（Read）の [`log-consult-session-read.mjs`](../.cursor/hooks/log-consult-session-read.mjs) が、`tool_input.path` から `session.md` を判定し、`additional_context` で `[agent-obs] hook=consult-session-read …` を会話へ差し込む。週次レビューでは **transcript を正**に grep し、ローカルだけなら gitignore 済みの `.cursor/hooks/logs/agent-obs.jsonl` も使える。
 - **hook の live deny:** `beforeShellExecution` はリポジトリにあるが、本セッションで禁止 git 操作のブロックは観測していない（既存の「live 未証明」観測のまま）。
+- **hook の live deny:** `beforeShellExecution` は拒否時に `[agent-obs] hook=block-history-rewrite decision=deny …` を `agent_message` 末尾と stderr に出す。live で deny が起きたかは transcript / JSONL で後追いする（本メモ作成時点の「live 未証明」は、マーカー導入前の観測として残す）。
 - **#553 完了・P-CI-06 完了・Issue クローズ:** 主張しない。#595 マージ後も未照合セルがあり得る。

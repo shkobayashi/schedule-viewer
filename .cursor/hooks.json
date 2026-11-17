@@ -7,6 +7,13 @@
         "timeout": 10,
         "failClosed": true
       }
+    ],
+    "postToolUse": [
+      {
+        "command": "node .cursor/hooks/log-consult-session-read.mjs",
+        "matcher": "Read",
+        "timeout": 5
+      }
     ]
   }
 }
