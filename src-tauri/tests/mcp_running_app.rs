@@ -185,6 +185,42 @@ fn flush_gui_harness_stderr_to_test_output(
     }
 }
 
+// GUI の受信トレース。書式の出どころは `src/hooks/useMcpScreenBridge.ts` の
+// `traceMcpHarnessGui("receive", …)` と、`src-tauri/src/mcp_bridge.rs` の `mcp_harness_gui_trace`。
+// 書式が変わると起動待ちが期限切れで失敗する（黙って通らない）。
+const GUI_TRACE_RECEIVE_PREFIX: &str = "h605_gui_receive: window=";
+const GUI_TRACE_STARTUP_SETTLED: &str = "startupSettled=true";
+const GUI_TRACE_STARTUP_UNSETTLED: &str = "startupSettled=false";
+
+/// `scan_from` バイト目より後ろで、`receive_marker` を含む受信行を調べる。
+/// 戻り値は（`startupSettled=true` の行があるか、それより前に false の行があったか、最後の受信行）。
+fn scan_startup_settled_trace(
+    stderr_log: &Arc<Mutex<Vec<u8>>>,
+    scan_from: usize,
+    receive_marker: &str,
+) -> (bool, bool, Option<String>) {
+    let text = stderr_log
+        .lock()
+        .ok()
+        .map(|buf| String::from_utf8_lossy(buf.get(scan_from..).unwrap_or_default()).to_string())
+        .unwrap_or_default();
+    let mut seen_unsettled = false;
+    let mut last_receive = None;
+    for line in text.lines() {
+        if !line.contains(receive_marker) {
+            continue;
+        }
+        last_receive = Some(line.to_string());
+        if line.contains(GUI_TRACE_STARTUP_SETTLED) {
+            return (true, seen_unsettled, last_receive);
+        }
+        if line.contains(GUI_TRACE_STARTUP_UNSETTLED) {
+            seen_unsettled = true;
+        }
+    }
+    (false, seen_unsettled, last_receive)
+}
+
 impl Drop for RunningHarness {
     fn drop(&mut self) {
         let test_label = self.diag_test_label.clone();
@@ -2427,7 +2463,8 @@ impl RunningHarness {
             if out.code == 0 {
                 if let Ok(doc) = serde_json::from_str::<Value>(&out.stdout) {
                     if schedule_contains_task(&doc, SEEDED_TASK_ID) {
-                        return Ok(());
+                        // シードタスクが見えても、起動復旧はまだ終わっていないことがある（#616）。
+                        return self.wait_windows_startup_settled(deadline);
                     }
                 }
             }
@@ -2464,6 +2501,88 @@ impl RunningHarness {
             }
             std::thread::sleep(Duration::from_millis(300));
         }
+    }
+
+    /// 開いている窓のラベル。`mcp_call` と違い、失敗しても panic せずに `Err` を返す。
+    fn live_window_labels_for_readiness(&self) -> Result<Vec<String>, String> {
+        let out = self.run_mcp_stdio(
+            "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"open_windows\",\"arguments\":{}},\"id\":1}\n",
+        );
+        if out.code != 0 {
+            return Err(format!("open_windows exit code {} stderr={:?}", out.code, out.stderr));
+        }
+        let line = out
+            .stdout
+            .lines()
+            .find(|l| !l.trim().is_empty())
+            .ok_or_else(|| "open_windows: empty stdout".to_string())?;
+        let raw: Value = serde_json::from_str(line).map_err(|e| format!("open_windows json: {e}"))?;
+        let text = raw
+            .pointer("/result/content/0/text")
+            .and_then(|t| t.as_str())
+            .ok_or_else(|| format!("open_windows: no text in {line}"))?;
+        let rows: Value = serde_json::from_str(text).map_err(|e| format!("open_windows rows: {e}"))?;
+        let labels: Vec<String> = rows
+            .as_array()
+            .ok_or_else(|| format!("open_windows: not an array {text}"))?
+            .iter()
+            .filter_map(|w| w.get("label").and_then(|v| v.as_str()))
+            .map(str::to_string)
+            .collect();
+        if labels.is_empty() {
+            return Err("open_windows: no live window".to_string());
+        }
+        Ok(labels)
+    }
+
+    /// 生きている全窓が起動復旧を終える（`startupSettled=true`）まで待つ（#616）。
+    ///
+    /// 判定は GUI のトレース行で行う。読み取りツールは起動ゲートを通らないので、
+    /// `current_schedule` を送っても画面は変わらない。トレースは `void invoke` で出るため、
+    /// 応答より後に書かれることがある。だから送ったあとは次の回で探し直す。
+    fn wait_windows_startup_settled(&self, deadline: Instant) -> Result<(), String> {
+        let test_label = &self.diag_test_label;
+        // 再起動のあとも前の GUI の行が残っているので、ここから後ろだけを見る。
+        let scan_from = self.stderr_log.lock().map(|buf| buf.len()).unwrap_or(0);
+        let labels = self.live_window_labels_for_readiness()?;
+        for label in &labels {
+            let started = Instant::now();
+            let receive_marker = format!("{GUI_TRACE_RECEIVE_PREFIX}{label} id=");
+            let mut probes = 0u32;
+            loop {
+                let (settled, first_seen_unsettled, last_receive) =
+                    scan_startup_settled_trace(&self.stderr_log, scan_from, &receive_marker);
+                if settled {
+                    mcp_harness_log(
+                        test_label,
+                        &format!(
+                            "startup_settled_wait: label={label} settled=true waited={:?} probes={probes} first_seen_unsettled={first_seen_unsettled}",
+                            started.elapsed()
+                        ),
+                    );
+                    break;
+                }
+                if Instant::now() >= deadline {
+                    mcp_harness_log(
+                        test_label,
+                        &format!(
+                            "startup_settled_wait: label={label} settled=false waited={:?} probes={probes} first_seen_unsettled={first_seen_unsettled} last_receive={last_receive:?}",
+                            started.elapsed()
+                        ),
+                    );
+                    flush_gui_harness_stderr_to_test_output(
+                        &self.stderr_log,
+                        test_label,
+                        "startup_settled_timeout",
+                    );
+                    return Err(format!("window startup not settled: {label}"));
+                }
+                let _ = self.run_screen(&["--screen", "current_schedule"], Some(label), None);
+                probes += 1;
+                std::thread::sleep(Duration::from_millis(300));
+            }
+        }
+        Ok(())
     }
 
     fn run_screen(
