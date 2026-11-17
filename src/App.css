@@ -3815,9 +3815,11 @@ html[data-color-scheme="dark"] .command-palette {
   width: 440px;
 }
 
-.modal.external-reload-dialog {
+.modal.external-reload-dialog,
+.modal-legacy.external-reload-dialog {
   width: min(calc(640px * var(--s)), calc(100vw - calc(48px * var(--s))));
   max-height: calc(100vh - calc(48px * var(--s)));
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -3949,14 +3951,17 @@ html[data-color-scheme="dark"] .command-palette {
   color: var(--text-secondary);
 }
 
-.modal.external-reload-dialog .modal-actions {
+.modal.external-reload-dialog .modal-actions,
+.modal-legacy.external-reload-dialog .modal-actions {
   margin-top: calc(4px * var(--s));
   flex-shrink: 0;
 }
 
-.modal.editor {
+.modal.editor,
+.modal-legacy.editor {
   width: 420px;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - calc(48px * var(--s)));
+  min-height: 0;
   overflow: auto;
 }
 
@@ -4145,8 +4150,9 @@ html[data-color-scheme="dark"] .command-palette {
 
 .modal.settings-dialog,
 .modal-legacy.settings-dialog {
-  width: min(880px, calc(100vw - 48px));
-  max-height: calc(100vh - 48px);
+  width: min(880px, calc(100vw - calc(48px * var(--s))));
+  max-height: calc(100vh - calc(48px * var(--s)));
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -4167,29 +4173,34 @@ html[data-color-scheme="dark"] .command-palette {
   grid-template-rows: minmax(0, 1fr);
 }
 
-.modal.settings-dialog .settings-nav {
+.modal.settings-dialog .settings-nav,
+.modal-legacy.settings-dialog .settings-nav {
   min-height: 0;
   overflow: auto;
 }
 
-.modal.settings-dialog:not(.settings-dialog--updates) .settings-panel {
+.modal.settings-dialog:not(.settings-dialog--updates) .settings-panel,
+.modal-legacy.settings-dialog:not(.settings-dialog--updates) .settings-panel {
   min-height: 0;
   overflow: auto;
 }
 
-.modal.settings-dialog > .settings-confirm {
+.modal.settings-dialog > .settings-confirm,
+.modal-legacy.settings-dialog > .settings-confirm {
   flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
 }
 
-.modal.settings-dialog.settings-dialog--updates .settings-panel {
+.modal.settings-dialog.settings-dialog--updates .settings-panel,
+.modal-legacy.settings-dialog.settings-dialog--updates .settings-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.modal.settings-dialog.settings-dialog--updates .settings-changelog {
+.modal.settings-dialog.settings-dialog--updates .settings-changelog,
+.modal-legacy.settings-dialog.settings-dialog--updates .settings-changelog {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -4220,7 +4231,8 @@ html[data-color-scheme="dark"] .command-palette {
   background: var(--panel);
 }
 
-.modal.settings-dialog.settings-dialog--updates .settings-changelog-scroll {
+.modal.settings-dialog.settings-dialog--updates .settings-changelog-scroll,
+.modal-legacy.settings-dialog.settings-dialog--updates .settings-changelog-scroll {
   flex: 1;
   overflow: auto;
 }
