@@ -33,6 +33,7 @@ mod mcp_bridge_windows;
 
 pub(crate) const BRIDGE_VERSION: u32 = 1;
 /// Windows の名前付きパイプが使用中のとき、クライアントが接続を試し直す上限。
+#[cfg(windows)]
 pub(crate) const MCP_PIPE_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 /// 送り先 webview の受け口の準備と、`mcp_reply` の応答を、それぞれ待つ上限。
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
