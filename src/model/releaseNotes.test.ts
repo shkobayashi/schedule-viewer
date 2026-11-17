@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFullReleaseBody,
   buildReleaseNotesMarkdownSection,
+  bundledChangelogCategoryKeysForVersion,
   extractVersionSectionBody,
   linkifyIssueReferencesInLine,
   normalizeVersionLabel,
@@ -164,6 +165,28 @@ describe("parseBundledChangelogVersions", () => {
     const versions = parseBundledChangelogVersions(SAMPLE);
     const first = versions[1].categories[0].items[0];
     expect(first).toEqual({ text: "初版", issueNumbers: [] });
+  });
+
+  it("uses distinct category keys when one version repeats the same heading", () => {
+    const changelog = `# Changelog
+
+## [1.6.0] - 2026-10-15
+
+### 修正
+
+- 1件目
+
+### 修正
+
+- 2件目
+`;
+    const entry = parseBundledChangelogVersions(changelog)[0];
+    expect(entry?.categories).toHaveLength(2);
+    expect(entry?.categories[0].title).toBe("修正");
+    expect(entry?.categories[1].title).toBe("修正");
+    const keys = bundledChangelogCategoryKeysForVersion(entry!);
+    expect(keys).toEqual(["1.6.0-修正-0", "1.6.0-修正-1"]);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it("omits versions with no list items", () => {
