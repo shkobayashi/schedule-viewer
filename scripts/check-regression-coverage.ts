@@ -23,7 +23,7 @@ const root = process.argv[2] ?? repoRoot;
 export const EXPECTED_CASE_ID_SHA256 = "2cca659b56960ebd29c9af6616cc5929c846d1dc334470483b5d7b445549698c";
 
 /** 付録・対応表・手順「扱い」で `自動化予定:#` に許可する Issue。一覧を変えるときは regression.md の冒頭と揃える。 */
-const REGRESSION_PLANNED_ISSUES = new Set(["541", "543"]);
+const REGRESSION_PLANNED_ISSUES = new Set(["541"]);
 const errors: string[] = [];
 const fileCache = new Map<string, string>();
 
@@ -112,8 +112,12 @@ for (const line of caseRows) {
   if (!["自動済み", "一部自動", "シナリオ", "統合", "自動化予定", "手動のまま", "一部手動", "対象外", "重複"].includes(kind)) {
     errors.push(`${id} の区分が無い`);
   }
-  if (kind === "一部自動" && (!dest.includes("自動:") || !dest.includes("自動化予定:#"))) {
-    errors.push(`${id} の一部自動には、自動のテストと残りの自動化予定が要る`);
+  if (
+    kind === "一部自動" &&
+    (!dest.includes("自動:") ||
+      (!dest.includes("自動化予定:#") && !dest.includes("手動のまま:") && !dest.includes("手動:")))
+  ) {
+    errors.push(`${id} の一部自動には、自動のテストと、残りの自動化予定か手動のままが要る`);
   }
   if ((kind === "手動のまま" || kind === "一部手動") && !dest.includes("手動のまま:")) {
     errors.push(`${id} の手動のままには理由が要る`);
@@ -245,7 +249,7 @@ function autoRefsFrom(text: string): { file: string; name: string }[] {
 function checkPlannedIssueRefs(text: string, label: string): void {
   for (const match of text.matchAll(/自動化予定:\s*#(\d+)/g)) {
     if (!REGRESSION_PLANNED_ISSUES.has(match[1])) {
-      errors.push(`${label} の自動化予定 #${match[1]} は許可されていない（#541 と #543 のみ）`);
+      errors.push(`${label} の自動化予定 #${match[1]} は許可されていない（#541 のみ）`);
     }
   }
 }
