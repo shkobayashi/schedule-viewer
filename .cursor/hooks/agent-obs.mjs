@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 const HOOK_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.join(HOOK_DIR, "..", "..");
 export const AGENT_OBS_LOG_REL = ".cursor/hooks/logs/agent-obs.jsonl";
+export const CONSULT_SESSION_READ_MARKER =
+  "[agent-obs] hook=consult-session-read decision=log path=.cursor/skills/consult/references/session.md";
 
 const MAX_CMD_CHARS = 160;
 
@@ -55,6 +57,9 @@ export function formatBlockHistoryRewriteMarker(decision, rule, command) {
  * @returns {string}
  */
 export function formatConsultSessionReadMarker(filePath) {
+  if (isConsultSessionReadPath(filePath)) {
+    return CONSULT_SESSION_READ_MARKER;
+  }
   const rel = toRepoRelativeConsultPath(filePath);
   return `[agent-obs] hook=consult-session-read decision=log path=${rel}`;
 }
@@ -87,9 +92,48 @@ export function isConsultSessionReadPath(filePath) {
   if (typeof filePath !== "string") return false;
   const normalized = filePath.replace(/\\/g, "/");
   return (
+    normalized === ".cursor/skills/consult/references/session.md" ||
     normalized.endsWith(".cursor/skills/consult/references/session.md") ||
     normalized.endsWith("/skills/consult/references/session.md")
   );
+}
+
+/**
+ * Read tool path from postToolUse hook input (`tool_input.path`, then `file_path`).
+ * @param {unknown} input
+ * @returns {string | undefined}
+ */
+export function readPathFromPostToolUse(input) {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) {
+    return undefined;
+  }
+  const { tool_input: toolInput, cwd } = /** @type {{
+    tool_input?: unknown;
+    cwd?: unknown;
+  }} */ (input);
+  if (
+    toolInput === null ||
+    typeof toolInput !== "object" ||
+    Array.isArray(toolInput)
+  ) {
+    return undefined;
+  }
+  const ti = /** @type {{ path?: unknown; file_path?: unknown }} */ (toolInput);
+  let raw =
+    typeof ti.path === "string"
+      ? ti.path
+      : typeof ti.file_path === "string"
+        ? ti.file_path
+        : undefined;
+  if (raw === undefined || raw.trim() === "") {
+    return undefined;
+  }
+  if (path.isAbsolute(raw)) {
+    return path.normalize(raw);
+  }
+  const base =
+    typeof cwd === "string" && cwd.trim() !== "" ? cwd : REPO_ROOT;
+  return path.normalize(path.resolve(base, raw));
 }
 
 /**

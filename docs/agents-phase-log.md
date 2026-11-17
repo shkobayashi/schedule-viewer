@@ -197,6 +197,6 @@ Issue #553「継続改善の仕組み」用。出典は [agents-pitfall-examples
 ### #553 受け入れの残り（観測のみ）
 
 - **項目 5（実行スナップショット）:** `format-check-record.mjs` はあるが、本ブランチ作業時点で head SHA・lint/coverage/madge/jscpd の実測入れ子は未採取。SHA 一致だけでは実行証明にならない。
-- **相談モードの遅延読み込み:** `beforeReadFile` の [`log-consult-session-read.mjs`](../.cursor/hooks/log-consult-session-read.mjs) が、`session.md` 読み取りごとに `[agent-obs] hook=consult-session-read …` を出す。週次レビューでは transcript または gitignore 済みの `.cursor/hooks/logs/agent-obs.jsonl` を grep する。
+- **相談モードの遅延読み込み:** `postToolUse`（Read）の [`log-consult-session-read.mjs`](../.cursor/hooks/log-consult-session-read.mjs) が、`tool_input.path` から `session.md` を判定し、`additional_context` で `[agent-obs] hook=consult-session-read …` を会話へ差し込む。週次レビューでは **transcript を正**に grep し、ローカルだけなら gitignore 済みの `.cursor/hooks/logs/agent-obs.jsonl` も使える。
 - **hook の live deny:** `beforeShellExecution` は拒否時に `[agent-obs] hook=block-history-rewrite decision=deny …` を `agent_message` 末尾と stderr に出す。live で deny が起きたかは transcript / JSONL で後追いする（本メモ作成時点の「live 未証明」は、マーカー導入前の観測として残す）。
 - **#553 完了・P-CI-06 完了・Issue クローズ:** 主張しない。#595 マージ後も未照合セルがあり得る。

@@ -239,13 +239,13 @@ Cloud Agent は書き込み可能な環境になってからプロジェクト�
 
 `rule` は分類理由（`rewrite` / `malformed` など）。`cmd` は短く要約し、トークン様の文字列は伏せる。ログへの追記に失敗しても拒否可否は変わらない。
 
-### beforeReadFile（Issue #553 相談本文の再読）
+### postToolUse / Read（Issue #553 相談本文の再読）
 
-[`hooks.json`](../.cursor/hooks.json) の `beforeReadFile` が [`.cursor/hooks/log-consult-session-read.mjs`](../.cursor/hooks/log-consult-session-read.mjs) を呼ぶ。エージェントが [`.cursor/skills/consult/references/session.md`](../.cursor/skills/consult/references/session.md) を Read する直前にだけ動き、**常に allow**（ブロックしない）。マーカーは標準エラーと上記 JSONL に書く。形式:
+[`hooks.json`](../.cursor/hooks.json) の `postToolUse`（`matcher`: `Read`）が [`.cursor/hooks/log-consult-session-read.mjs`](../.cursor/hooks/log-consult-session-read.mjs) を呼ぶ。エージェントが Read で [`.cursor/skills/consult/references/session.md`](../.cursor/skills/consult/references/session.md) を読んだ直後、**ツール結果のあと**に `additional_context` として次の1行が会話へ差し込まれる（Cloud Agent の transcript でも grep できる）。Read 自体は変更しない。
 
 `[agent-obs] hook=consult-session-read decision=log path=.cursor/skills/consult/references/session.md`
 
-相談スタブ（[`.cursor/rules/consult.mdc`](../.cursor/rules/consult.mdc)）が毎ターンの再読を指示しているのに対し、このフックはその読み取りが実際に起きたことの観測用である（モデルが自分で宣言するより、Read イベントにぶら下げる方が transcript 上で確実）。
+判別には `postToolUse` 入力の `tool_input.path`（無いとき `tool_input.file_path`）を、`cwd` 基準で絶対パスに直してから使う。それ以外の Read は空の出力（ノイズなし）。書き込み可能なら上記 JSONL にも同じ行を追記するが、失敗しても `additional_context` は返す。相談スタブ（[`.cursor/rules/consult.mdc`](../.cursor/rules/consult.mdc)）が毎ターンの再読を指示しているのに対し、このフックはその Read が実際に起きたことの観測用である。
 
 ## npm スクリプト
 

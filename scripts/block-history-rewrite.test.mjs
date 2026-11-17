@@ -467,16 +467,18 @@ test("hooks.json registers beforeShellExecution block-history-rewrite", () => {
   assert.equal(entry.matcher, undefined);
 });
 
-test("hooks.json registers beforeReadFile consult session logger", () => {
+test("hooks.json registers postToolUse consult session logger", () => {
   const hooksPath = path.join(REPO_ROOT, ".cursor/hooks.json");
   const hooks = JSON.parse(fs.readFileSync(hooksPath, "utf8"));
-  const entries = hooks.hooks.beforeReadFile;
+  const entries = hooks.hooks.postToolUse;
   assert.ok(Array.isArray(entries) && entries.length === 1);
   assert.equal(
     entries[0].command,
     "node .cursor/hooks/log-consult-session-read.mjs",
   );
+  assert.equal(entries[0].matcher, "Read");
   assert.equal(entries[0].failClosed, undefined);
+  assert.equal(hooks.hooks.beforeReadFile, undefined);
 });
 
 test("deny emits agent-obs marker on stderr and in agent_message", () => {

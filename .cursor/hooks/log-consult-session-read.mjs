@@ -1,35 +1,31 @@
 /**
- * Issue #553: log consult session.md reads via beforeReadFile (allow-only).
+ * Issue #553: log consult session.md reads via postToolUse (Read matcher).
  */
 import { pathToFileURL } from "node:url";
 import {
-  emitAgentObs,
-  formatConsultSessionReadMarker,
+  CONSULT_SESSION_READ_MARKER,
+  appendAgentObsLog,
   isConsultSessionReadPath,
+  readPathFromPostToolUse,
 } from "./agent-obs.mjs";
+
+/** @typedef {{ additional_context?: string }} PostToolUseResult */
 
 /**
  * @param {unknown} input
- * @returns {{ permission: 'allow' }}
+ * @returns {PostToolUseResult}
  */
-export function handleBeforeReadFile(input) {
-  if (input !== null && typeof input === "object" && !Array.isArray(input)) {
-    const { file_path: filePath } = /** @type {{ file_path?: unknown }} */ (
-      input
-    );
-    if (isConsultSessionReadPath(
-      typeof filePath === "string" ? filePath : undefined,
-    )) {
-      emitAgentObs(formatConsultSessionReadMarker(
-        typeof filePath === "string" ? filePath : undefined,
-      ));
-    }
+export function handlePostToolUse(input) {
+  const readPath = readPathFromPostToolUse(input);
+  if (!readPath || !isConsultSessionReadPath(readPath)) {
+    return {};
   }
-  return { permission: "allow" };
+  appendAgentObsLog(CONSULT_SESSION_READ_MARKER);
+  return { additional_context: CONSULT_SESSION_READ_MARKER };
 }
 
 /**
- * @param {{ permission: string }} payload
+ * @param {PostToolUseResult} payload
  */
 export function formatHookStdout(payload) {
   return `${JSON.stringify(payload)}\n`;
@@ -46,7 +42,7 @@ async function runHookCli() {
   } catch {
     parsed = null;
   }
-  const result = handleBeforeReadFile(parsed);
+  const result = parsed === null ? {} : handlePostToolUse(parsed);
   process.stdout.write(formatHookStdout(result));
   process.exit(0);
 }
