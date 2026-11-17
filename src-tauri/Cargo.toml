@@ -4,6 +4,7 @@ version = "1.12.1"
 description = "WBS schedule viewer"
 authors = ["schedule-viewer"]
 edition = "2021"
+default-run = "schedule-viewer"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
