@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { decideExternalReload } from "./scheduleExternalReload";
+import {
+  decideExternalReload,
+  shouldKeepExternalReloadConfirmation,
+} from "./scheduleExternalReload";
 import { serializeScheduleDocument } from "./scheduleFile";
 import {
   sampleCategories,
@@ -43,6 +46,40 @@ describe("decideExternalReload", () => {
     const disk = withTitle("別タイトル");
     const result = decideExternalReload(disk, baselineJson, false, true);
     expect(result).toEqual({ kind: "confirm", diskContents: disk });
+  });
+
+  it("keeps a confirmation after an edit dialog saw the change", () => {
+    expect(
+      shouldKeepExternalReloadConfirmation({
+        editDialogOpen: false,
+        promptOpen: false,
+        changeSeenWhileEditing: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldKeepExternalReloadConfirmation({
+        editDialogOpen: false,
+        promptOpen: true,
+        changeSeenWhileEditing: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldKeepExternalReloadConfirmation({
+        editDialogOpen: true,
+        promptOpen: false,
+        changeSeenWhileEditing: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("applies when no edit dialog saw the change and no confirmation is open", () => {
+    expect(
+      shouldKeepExternalReloadConfirmation({
+        editDialogOpen: false,
+        promptOpen: false,
+        changeSeenWhileEditing: false,
+      }),
+    ).toBe(false);
   });
 
   it("returns apply when clean and content differs", () => {

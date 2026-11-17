@@ -1,0 +1,21 @@
+---
+description: 場面ごとに回す検査。作業中は表の行より多く繰り返さない
+alwaysApply: true
+---
+
+# 場面ごとに回す検査
+
+作業中は、この表の場面より多い検査を繰り返さない。詳細（触ったテストの絞り方、PR 前の一回の列挙、リリース前に回す検査の列挙）は [docs/development.md](../../docs/development.md) の「場面ごとに回す検査」を見る。
+
+| 場面 | 回すもの |
+| --- | --- |
+| 普段の開発（コミット、push） | `npm test`、`npm run lint`、`npm run typecheck`。Vitest は「触ったテスト」で絞ってよい |
+| 子 Issue の PR（feature ブランチ向け） | 作業中は、触ったテストと `npm run check:regression-coverage`。PR を出す前に 1 回だけ「PR 前の一回」 |
+| `e2e/browser-regression/` を触る Issue の作業中 | 触った spec だけ `npx playwright test -c e2e/browser-regression/playwright.config.ts <spec>`。全 spec を繰り返し回さない |
+| next、develop へのマージ前 | `.github/workflows/browser-regression.yml` が、base が `develop` または `next` の pull request の `opened` と `synchronize` で `npm run test:browser-regression` を 1 回回す。手元では同じコミットで繰り返さない |
+| 夜間 | 同じワークフローが、既定ブランチ `develop` の `schedule`（cron `0 16 * * *`、UTC、日本時間 1:00）で回す。このファイルが `develop` に入るまでは動かない |
+| リリース前 | 「リリース前に回す検査」の自動を全部回す。手動の回帰も行う。緊急のリリースは手動の回帰だけ飛ばしてよい |
+
+`src-tauri/` を変えた作業の途中は、手元の OS で `cd src-tauri && cargo clippy --lib -- -D warnings && cargo test --lib --locked` を足す。`tests/mcp_running_app.rs` を含む全体の `cargo test --locked` は、PR 前の一回、リリース前、CI で回す。
+
+差分が文書だけのときは、作業中も「PR 前の一回」も、フロントエンド向けの検査を理由なく求めない。該当する文書用の checker とリンク検査は、差分に合わせて回す。PR 本文では省略した「PR 前の一回」の項目を not-run と書く。

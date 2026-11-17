@@ -15,6 +15,12 @@ import {
   recentMenuSections,
 } from "../model/recentFilesMenu";
 import { diffCopyShortcutHint, fileShortcutHint, usesCommandKey } from "../model/shortcuts";
+import {
+  dispatchHamburgerTailAction,
+  dispatchSharedFileMenuAction,
+  type FileMenuDispatchHandlers,
+  type HamburgerTailDispatchHandlers,
+} from "../operations/dispatchPaletteCommand";
 import { anchorBelowRect, menuShiftForRect } from "./anchoredMenu";
 import { focusMenuEdge, moveMenuFocus } from "./menuFocus";
 
@@ -295,16 +301,23 @@ export function AppMenu({
   const showRecentDisabled =
     showRecentDesktopRow && recentSections.length === 0;
 
-  const fileActionHandlers: Record<SharedFileMenuActionId, () => void> = {
-    open: onOpen,
-    openNewWindow: onOpenInNewWindow ?? (() => {}),
-    save: onSave,
-    saveAs: onSaveAs,
-    exportHtml: onExportHtml,
-    exportWorkspace: onExportWorkspace ?? (() => {}),
-    showJson: onShowJson,
-    showDiff: onShowDiff,
-    copyDiff: onCopyDiff,
+  const fileMenuDispatchHandlers: FileMenuDispatchHandlers = {
+    onOpen,
+    onOpenInNewWindow: onOpenInNewWindow ?? (() => {}),
+    onSave,
+    onSaveAs,
+    onExportHtml,
+    onExportWorkspace,
+    onShowJson,
+    onShowDiff,
+    onCopyDiff,
+  };
+
+  const hamburgerTailDispatchHandlers: HamburgerTailDispatchHandlers = {
+    onOpenGuide,
+    onOpenShortcuts,
+    onOpenSettings,
+    onCheckForUpdates,
   };
 
   const renderFileAction = (id: SharedFileMenuActionId, label: string, opts: {
@@ -321,7 +334,7 @@ export function AppMenu({
         type="button"
         role="menuitem"
         disabled={disabled}
-        onClick={() => run(fileActionHandlers[id])}
+        onClick={() => run(() => dispatchSharedFileMenuAction(id, fileMenuDispatchHandlers))}
       >
         <span>{label}</span>
         {opts.fileShortcut ? (
@@ -446,20 +459,14 @@ export function AppMenu({
       <hr />
       {HAMBURGER_MENU_TAIL_ROWS.map((row) => {
         if (row.id === "checkForUpdates" && !onCheckForUpdates) return null;
-        const action =
-          row.id === "guide"
-            ? onOpenGuide
-            : row.id === "shortcuts"
-              ? onOpenShortcuts
-              : row.id === "checkForUpdates"
-                ? onCheckForUpdates!
-                : onOpenSettings;
         return (
           <button
             key={row.id}
             type="button"
             role="menuitem"
-            onClick={() => run(action)}
+            onClick={() =>
+              run(() => dispatchHamburgerTailAction(row.id, hamburgerTailDispatchHandlers))
+            }
           >
             <span>{row.label}</span>
             {row.menuShortcut ? (

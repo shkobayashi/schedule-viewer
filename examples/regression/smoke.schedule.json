@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 8,
+  "title": "回帰確認",
+  "milestoneGroups": [
+    { "id": "a1000001-0000-4000-8000-0000000000aa", "name": "節目" }
+  ],
+  "milestones": [
+    {
+      "id": "b1000001-0000-4000-8000-000000000001",
+      "name": "承認",
+      "date": "2026-05-01",
+      "confidence": "committed",
+      "groupId": "a1000001-0000-4000-8000-0000000000aa"
+    },
+    {
+      "id": "b1000001-0000-4000-8000-000000000002",
+      "name": "未確定の節目",
+      "date": "2026-06-01",
+      "confidence": "tentative",
+      "groupId": "a1000001-0000-4000-8000-0000000000aa"
+    }
+  ],
+  "categories": [
+    {
+      "id": "c1000001-0000-4000-8000-000000000001",
+      "name": "計画",
+      "groups": [
+        {
+          "id": "d1000001-0000-4000-8000-000000000001",
+          "name": "前半",
+          "tasks": [
+            {
+              "id": "e1000001-0000-4000-8000-000000000001",
+              "name": "調査",
+              "start": "2026-04-01",
+              "end": "2026-04-03",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": "b1000001-0000-4000-8000-000000000001",
+              "note": "回帰確認用のノート"
+            },
+            {
+              "id": "e1000001-0000-4000-8000-000000000002",
+              "name": "設計",
+              "start": "2026-04-04",
+              "end": "2026-04-08",
+              "assigneeId": null,
+              "status": "in-progress",
+              "progress": 40,
+              "confidence": "tentative",
+              "predecessors": ["e1000001-0000-4000-8000-000000000001"],
+              "milestoneId": null,
+              "tags": ["回帰"]
+            },
+            {
+              "id": "e1000001-0000-4000-8000-000000000004",
+              "name": "期限超過の作業",
+              "start": "2020-01-01",
+              "end": "2020-01-05",
+              "assigneeId": null,
+              "status": "not-started",
+              "progress": 0,
+              "confidence": "committed",
+              "predecessors": [],
+              "milestoneId": null
+            }
+          ]
+        },
+        {
+          "id": "d1000001-0000-4000-8000-000000000002",
+          "name": "後半",
+          "tasks": []
+        }
+      ]
+    },
+    {
+      "id": "c1000001-0000-4000-8000-000000000002",
+      "name": "空の分類",
+      "groups": [
+        {
+          "id": "d1000001-0000-4000-8000-000000000003",
+          "name": "グループ",
+          "tasks": []
+        }
+      ]
+    }
+  ]
+}

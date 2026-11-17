@@ -79,20 +79,8 @@ export const EXCEL_MAX_DATE_COLUMNS = 2_000;
 export const EXCEL_MAX_SHAPES = 5_000;
 export const EXCEL_MAX_BYTES = 10 * 1024 * 1024;
 
-export type ExcelExportShape = {
-  row: number;
-  anchorCol: number;
-  xOffsetPx: number;
-  yOffsetPx: number;
-  widthPx: number;
-  heightPx: number;
-  fillRgb: string;
-  pattern: "solid" | "tentative";
-  patternForeRgb: string | null;
-  fillTransparency?: number;
-  text?: string;
-  textRgb?: string;
-};
+import type { ExcelExportShape } from "./excelExportTypes";
+export type { ExcelExportShape } from "./excelExportTypes";
 
 export type ExcelExportRow = {
   kind: "category" | "group" | "task";

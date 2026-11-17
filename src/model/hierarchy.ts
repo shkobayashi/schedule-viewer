@@ -1,4 +1,4 @@
-import type { TaskRef } from "./dependencies";
+import type { TaskRef } from "./taskRef";
 import {
   SCHEDULE_SCHEMA_VERSION,
   type Category,

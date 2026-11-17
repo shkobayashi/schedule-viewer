@@ -1,5 +1,5 @@
 import { connectionPairKey } from "./connections";
-import type { BaselineDiffClassification } from "./baselineDiffs";
+import type { BaselineDiffClassification } from "./baselineDiffsClassification";
 import type { ScheduleDocument, ScheduleId, TaskConnection } from "./types";
 
 function indexConnections(

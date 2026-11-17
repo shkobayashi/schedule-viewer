@@ -7,13 +7,6 @@ import {
   useState,
 } from "react";
 import { flushSync } from "react-dom";
-import {
-  Copy,
-  GitBranch,
-  Pencil,
-  StickyNote,
-  Trash2,
-} from "lucide-react";
 import type Konva from "konva";
 import { DeleteMilestoneDialog } from "./components/DeleteMilestoneDialog";
 import { DeleteTaskDialog } from "./components/DeleteTaskDialog";
@@ -55,14 +48,17 @@ import type { CommandPaletteRunTarget } from "./model/commandPalette";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
 import type { ScheduleToolbarTitleHandle } from "./components/ScheduleToolbarTitle";
-import { ContextMenu, type ContextMenuItem } from "./components/ContextMenu";
+import { ContextMenu } from "./components/ContextMenu";
+import { buildContextMenuItems } from "./operations/contextMenuItems";
 import {
-  confidenceToggleShortcutHint,
-  deleteShortcutHint,
-  duplicateTaskShortcutHint,
-  editShortcutHint,
-  lineageToggleShortcutHint,
-  noteShortcutHint,
+  dispatchCommandPaletteRunTarget,
+  type PaletteCommandDispatchHandlers,
+} from "./operations/dispatchPaletteCommand";
+import {
+  contextMenuTarget,
+  type ContextMenuState,
+} from "./operations/contextMenuTypes";
+import {
   usesCommandKey,
 } from "./model/shortcuts";
 import { useAppKeyboard } from "./hooks/useAppKeyboard";
@@ -145,18 +141,10 @@ import {
 } from "./model/viewPreferences";
 import { writeColorSchemePreference } from "./model/colorScheme";
 import {
-  RECENT_FILES_EMPTY_HINT,
-  dismissFirstRunHint,
-  isFirstRunChecklistComplete,
-  isFirstRunHintDismissed,
-  isSaveHintCompleted,
-  markFirstRunChecklistItem,
-  markSaveHintCompleted,
-  readFirstRunChecklist,
-  saveHintLabel,
-  shouldShowFirstRunHintCard,
-  shouldShowSaveHintPill,
+  desktopFirstRunVisibility,
+  isDesktopFirstRunRuntime,
 } from "./model/firstRunGuidance";
+import { useDesktopFirstRunSession } from "./hooks/useDesktopFirstRunSession";
 import {
   clearPrepareLlmStepsVisible,
   markPrepareLlmStepsVisible,
@@ -270,8 +258,9 @@ import {
 } from "./model/exportHtml";
 import { exportScheduleExcel, exportScheduleExcelToPath } from "./model/exportExcel";
 import {
-  DEFAULT_EXCEL_EXPORT_COLUMNS,
+  readExcelExportColumns,
   readExcelExportFieldColumns,
+  type ExcelExportColumnsPreference,
   type ExcelExportFieldColumnsPreference,
 } from "./model/excelExportColumns";
 import {
@@ -290,21 +279,11 @@ import {
 } from "./model/milestones";
 import type { ChartPointer } from "./model/chartHitTest";
 import {
-  hasOtherVisibleMilestoneBandGroup,
-  hasOtherVisibleMilestoneMark,
-} from "./model/filterChips";
-import {
   layoutStickyHeaders,
   scrollYToRevealTask,
   scrollYToShowSelectedTask,
 } from "./model/stickyRows";
 import {
-  findOutlineBranchLevelIndex,
-  taskParentLevelIndex,
-} from "./model/outlineCrud";
-import {
-  canDeleteCategory,
-  canDeleteGroup,
   findTaskPlace,
 } from "./model/tasks";
 import {
@@ -397,29 +376,6 @@ function initialSampleAtOpen(openToday: string) {
 const initialSample = initialSampleAtOpen(todayIso());
 const INITIAL_BASELINE_JSON = initialSample.baselineJson;
 
-type ContextMenuState =
-  | { kind: "task"; taskId: ScheduleId; x: number; y: number }
-  | { kind: "milestone"; milestoneId: ScheduleId; x: number; y: number }
-  | { kind: "category"; id: ScheduleId; x: number; y: number }
-  | { kind: "group"; id: ScheduleId; x: number; y: number }
-  | { kind: "hierarchy"; id: ScheduleId; x: number; y: number }
-  | {
-      kind: "link";
-      fromId: ScheduleId;
-      toId: ScheduleId;
-      linkKind: "predecessor" | "connection";
-      x: number;
-      y: number;
-    }
-  | {
-      kind: "addMilestone";
-      date: string;
-      groupId: ScheduleId | null;
-      x: number;
-      y: number;
-    }
-  | { kind: "milestoneGroup"; groupId: ScheduleId; x: number; y: number };
-
 function App() {
   const timelineAreaRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -493,41 +449,22 @@ function App() {
   const [storeDistribution, setStoreDistribution] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
-  const [firstRunHintDismissed, setFirstRunHintDismissed] = useState(
-    () => isFirstRunHintDismissed(),
-  );
-  const [firstRunChecklist, setFirstRunChecklist] = useState(() =>
-    readFirstRunChecklist(),
-  );
+  const {
+    dismissed: firstRunDismissed,
+    checklist: firstRunChecklist,
+    saveHintCompleted,
+    dismiss: dismissFirstRunHintCard,
+    markSaved: markSaveHintCompleted,
+    markStep: markFirstRunStep,
+  } = useDesktopFirstRunSession();
   const [prepareLlmStepsVisible, setPrepareLlmStepsVisible] = useState(() =>
     readPrepareLlmStepsVisible(),
-  );
-  const [saveHintCompleted, setSaveHintCompleted] = useState(
-    () => isSaveHintCompleted(),
   );
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const openGuide = useCallback(() => {
     setShortcutsOpen(false);
     setGuideOpen(true);
   }, []);
-  const dismissFirstRunHintCard = useCallback(() => {
-    dismissFirstRunHint();
-    setFirstRunHintDismissed(true);
-  }, []);
-  const syncFirstRunChecklist = useCallback(() => {
-    const next = readFirstRunChecklist();
-    setFirstRunChecklist(next);
-    if (isFirstRunChecklistComplete(next) || isFirstRunHintDismissed()) {
-      setFirstRunHintDismissed(true);
-    }
-  }, []);
-  const markFirstRunStep = useCallback(
-    (id: Parameters<typeof markFirstRunChecklistItem>[0]) => {
-      markFirstRunChecklistItem(id);
-      syncFirstRunChecklist();
-    },
-    [syncFirstRunChecklist],
-  );
   const openFirstRunMcpSettings = useCallback(() => {
     setSettingsSection("mcp");
     setSettingsOpen(true);
@@ -1459,8 +1396,7 @@ function App() {
   const handleScheduleSaved = useCallback(() => {
     schedule.clearExplanationView();
     markSaveHintCompleted();
-    setSaveHintCompleted(true);
-  }, [schedule.clearExplanationView]);
+  }, [markSaveHintCompleted, schedule.clearExplanationView]);
 
   const reportFileErrorRef = useRef<(message: string) => void>(() => {});
   const {
@@ -1547,31 +1483,22 @@ function App() {
 
   const showScheduleBody = scheduleFile.startupContentReady;
 
-  const isDesktopFirstRunUi =
-    isTauri() || import.meta.env.MODE === "manual-screenshot";
   const showingBuiltInSample =
     scheduleFile.filePath == null &&
     scheduleFile.displayFileName === "サンプルデータ";
-  const showFirstRunHintCard =
-    isDesktopFirstRunUi &&
-    shouldShowFirstRunHintCard({
-      dismissed: firstRunHintDismissed,
-      startupSettled: scheduleFile.startupSettled,
-      checklist: firstRunChecklist,
-    });
-  const statusBarSaveHint =
-    isDesktopFirstRunUi &&
-    shouldShowSaveHintPill({
-      completed: saveHintCompleted,
-      startupSettled: scheduleFile.startupSettled,
-      isDirty: scheduleFile.isDirty,
-    })
-      ? saveHintLabel(commandKey)
-      : null;
-  const recentFilesMenuEmptyHint =
-    isDesktopFirstRunUi && !hasRecentMenuItems(recentFilesStore)
-      ? RECENT_FILES_EMPTY_HINT
-      : null;
+  const firstRunChrome = desktopFirstRunVisibility({
+    desktopRuntime: isDesktopFirstRunRuntime(isTauri(), import.meta.env.MODE),
+    dismissed: firstRunDismissed,
+    checklist: firstRunChecklist,
+    startupSettled: scheduleFile.startupSettled,
+    saveHintCompleted,
+    isDirty: scheduleFile.isDirty,
+    commandKey,
+    recentMenuEmpty: !hasRecentMenuItems(recentFilesStore),
+  });
+  const showFirstRunHintCard = firstRunChrome.showCard;
+  const statusBarSaveHint = firstRunChrome.saveHint;
+  const recentFilesMenuEmptyHint = firstRunChrome.recentEmptyHint;
 
   const onFirstRunOpenFile = useCallback(() => {
     flushTitleEdit();
@@ -2760,7 +2687,7 @@ function App() {
   const runScheduleExport = useCallback(
     async (
       format: ScheduleExportFormat,
-      excelColumns?: typeof DEFAULT_EXCEL_EXPORT_COLUMNS,
+      excelColumns?: ExcelExportColumnsPreference,
       excelFieldColumns?: ExcelExportFieldColumnsPreference,
       exportPath?: string,
     ) => {
@@ -2888,7 +2815,7 @@ function App() {
           taskNames,
           connections: schedule.connections,
           exportedAtIso: new Date().toISOString(),
-          excelColumns: excelColumns ?? DEFAULT_EXCEL_EXPORT_COLUMNS,
+          excelColumns: excelColumns ?? readExcelExportColumns(),
           fieldDefs: editableFieldDefs,
           excelFieldColumns:
             excelFieldColumns ??
@@ -3182,6 +3109,17 @@ function App() {
     runExplainOverlayAction: schedule.runExplainOverlayAction,
     getExplanationOverlay: () => schedule.explanationOverlay,
     applyPartialFilterViewState: schedule.applyPartialFilterViewState,
+    applyMcpSetViewLineage: (lineage) => {
+      if (lineage.taskId === null) {
+        schedule.clearLineage();
+        return;
+      }
+      if (lineage.includesConnections) {
+        schedule.showLineageWithConnections(lineage.taskId);
+        return;
+      }
+      schedule.showLineage(lineage.taskId);
+    },
     applySetViewPreferences: (patch: McpSetViewPatch) => {
       if (patch.displayScale !== undefined) {
         setDisplayScalePreference(patch.displayScale);
@@ -3245,8 +3183,8 @@ function App() {
       try {
         await runScheduleExport(
           format,
-          excelColumns as typeof DEFAULT_EXCEL_EXPORT_COLUMNS | undefined,
-          excelFieldColumns as ExcelExportFieldColumnsPreference | undefined,
+          excelColumns,
+          excelFieldColumns,
           path,
         );
         return { ok: true, text: path };
@@ -3292,6 +3230,7 @@ function App() {
     milestoneGroups: schedule.milestoneGroups,
     filters: schedule.filters,
     lineageTaskId: schedule.lineageTaskId,
+    lineageIncludesConnections: schedule.lineageIncludesConnections,
     lineageIds: schedule.lineageIds,
     hiddenMilestoneGroupIds: schedule.hiddenMilestoneGroupIds,
     hiddenMilestoneIds: schedule.hiddenMilestoneIds,
@@ -3395,6 +3334,7 @@ function App() {
       next: DiffStripView,
       announce: boolean,
       entries?: ScheduleDiffEntry[],
+      source: "auto" | "explicit" = "auto",
     ) => {
       if (!next.visible) {
         if (!diffStripRef.current.visible) {
@@ -3414,6 +3354,7 @@ function App() {
           diffStripRef.current,
           next,
           diffStripFocusedRef.current,
+          source,
         )
       ) {
         pendingDiffBodyRef.current = next.text;
@@ -3421,6 +3362,10 @@ function App() {
           pendingDiffEntriesRef.current = entries;
         }
         return;
+      }
+      if (source === "explicit") {
+        pendingDiffBodyRef.current = null;
+        pendingDiffEntriesRef.current = null;
       }
       const prev = diffStripRef.current;
       const wasVisible = prev.visible;
@@ -3553,6 +3498,8 @@ function App() {
           commitDiffStripView(
             resolveStripAfterExplicitLoad(result.message),
             true,
+            undefined,
+            "explicit",
           );
           return;
         }
@@ -3576,7 +3523,7 @@ function App() {
             setDiffPanelExpanded(false);
           }
         }
-        commitDiffStripView(view, true, result.entries);
+        commitDiffStripView(view, true, result.entries, "auto");
         return;
       }
       const explicitView = resolveStripAfterExplicitLoad(result.text);
@@ -3587,6 +3534,8 @@ function App() {
         explicitView.kind === "body" &&
         result.text === strip.text
       ) {
+        pendingDiffBodyRef.current = null;
+        pendingDiffEntriesRef.current = null;
         return;
       }
       const view = explicitView;
@@ -3595,7 +3544,7 @@ function App() {
       if (view.kind === "body") {
         setDiffFocusListOnMount(true);
       }
-      commitDiffStripView(view, true, result.entries);
+      commitDiffStripView(view, true, result.entries, "explicit");
     },
     [commitDiffStripView],
   );
@@ -3673,6 +3622,8 @@ function App() {
           commitDiffStripView(
             resolveStripAfterExplicitLoad(result.message),
             true,
+            undefined,
+            "explicit",
           );
         } else {
           setDiffError(result.message);
@@ -3690,7 +3641,7 @@ function App() {
         if (view.kind === "body") {
           setDiffFocusListOnMount(true);
         }
-        commitDiffStripView(view, false, result.entries);
+        commitDiffStripView(view, false, result.entries, "explicit");
       }
     });
   }, [
@@ -3772,9 +3723,63 @@ function App() {
     ],
   );
 
-  const runCommandPalette = useCallback(
-    (target: CommandPaletteRunTarget) => {
-      const stepScale = (direction: "in" | "out") => {
+  const paletteCommandDispatchHandlers = useMemo(
+    (): PaletteCommandDispatchHandlers => ({
+      onOpen: () => {
+        flushTitleEdit();
+        scheduleFile.requestOpen();
+      },
+      onOpenInNewWindow: () => {
+        flushTitleEdit();
+        scheduleFile.requestOpenInNewWindow();
+      },
+      onSave: () => {
+        flushTitleEdit();
+        void scheduleFile.save(false);
+      },
+      onSaveAs: () => {
+        flushTitleEdit();
+        void scheduleFile.save(true);
+      },
+      onExportHtml: () => {
+        flushTitleEdit();
+        setExportOpen(true);
+      },
+      onExportWorkspace: workspaceBinding
+        ? undefined
+        : () => {
+            flushTitleEdit();
+            void handleExportWorkspace();
+          },
+      onShowJson: () => {
+        flushTitleEdit();
+        setJsonOpen(true);
+      },
+      onShowDiff: showScheduleDiff,
+      onCopyDiff: copyScheduleDiff,
+      onClearRecentHistory: handleClearRecentHistory,
+      onOpenRecent: requestOpenFromRecentWithTitleFlush,
+      onEditTitle: () => setTitleEditRequestToken((token) => token + 1),
+      onFocusSearch: () => {
+        taskSearchRef.current?.focus();
+        taskSearchRef.current?.select();
+      },
+      onToggleFilterPanel: () => setFilterPanelOpen((open) => !open),
+      onOpenGuide: openGuide,
+      onOpenShortcuts: openShortcuts,
+      onOpenSettings: () => {
+        setSettingsSection("display");
+        setSettingsOpen(true);
+      },
+      onCheckForUpdates: storeDistribution
+        ? undefined
+        : () => handleCheckForUpdates(false),
+      onGoToday: scrollToToday,
+      onSetTier: setTierZoom,
+      onFit: fitToWidth,
+      onUndo: undo,
+      onRedo: redo,
+      onAdjustDisplayScale: (direction) => {
         const next = stepDisplayScale(
           displayScalePreferenceRef.current,
           uiScaleRef.current,
@@ -3789,130 +3794,21 @@ function App() {
         );
         writeDisplayScalePreference(next);
         handleDisplayScaleChange(next);
-      };
-      if (target.type === "openRecent") {
-        requestOpenFromRecentWithTitleFlush(target.path);
-        return;
-      }
-      switch (target.id) {
-        case "clearRecentHistory":
-          handleClearRecentHistory();
-          break;
-        case "editTitle":
-          setTitleEditRequestToken((token) => token + 1);
-          break;
-        case "open":
-          flushTitleEdit();
-          scheduleFile.requestOpen();
-          break;
-        case "openNewWindow":
-          flushTitleEdit();
-          scheduleFile.requestOpenInNewWindow();
-          break;
-        case "save":
-          flushTitleEdit();
-          void scheduleFile.save(false);
-          break;
-        case "saveAs":
-          flushTitleEdit();
-          void scheduleFile.save(true);
-          break;
-        case "find":
-          taskSearchRef.current?.focus();
-          taskSearchRef.current?.select();
-          break;
-        case "toggleFilterPanel":
-          setFilterPanelOpen((open) => !open);
-          break;
-        case "showDiff":
-          showScheduleDiff();
-          break;
-        case "copyDiff":
-          copyScheduleDiff();
-          break;
-        case "showJson":
-          flushTitleEdit();
-          setJsonOpen(true);
-          break;
-        case "export":
-          flushTitleEdit();
-          setExportOpen(true);
-          break;
-        case "settings":
-          setSettingsSection("display");
-          setSettingsOpen(true);
-          break;
-        case "guide":
-          openGuide();
-          break;
-        case "shortcuts":
-          openShortcuts();
-          break;
-        case "goToday":
-          scrollToToday();
-          break;
-        case "tierDay":
-          setTierZoom("day");
-          break;
-        case "tierWeek":
-          setTierZoom("week");
-          break;
-        case "tierMonth":
-          setTierZoom("month");
-          break;
-        case "fit":
-          fitToWidth();
-          break;
-        case "undo":
-          undo();
-          break;
-        case "redo":
-          redo();
-          break;
-        case "displayScaleIn":
-          stepScale("in");
-          break;
-        case "displayScaleOut":
-          stepScale("out");
-          break;
-        case "editTask":
-          if (schedule.selectedTaskId == null) break;
-          focusDetailName();
-          break;
-        case "deleteTask":
-          requestDeleteTask();
-          break;
-        case "link":
-          toggleLinkMode();
-          break;
-        case "note":
-          if (schedule.selectedTaskId != null) {
-            schedule.openTaskNoteDialog(schedule.selectedTaskId);
-          }
-          break;
-        case "lineage":
-          schedule.toggleLineage();
-          break;
-        case "addTask":
-          setAddOpen(true);
-          break;
-        case "addMilestone":
-          setAddMilestoneInitialDate(null);
-          setAddMilestoneInitialGroupId(null);
-          setAddMilestoneOpen(true);
-          break;
-        case "duplicateTask":
-          if (schedule.selectedTaskId != null) {
-            openDuplicateDialog(schedule.selectedTaskId);
-          }
-          break;
-        case "checkForUpdates":
-          handleCheckForUpdates(false);
-          break;
-        default:
-          break;
-      }
-    },
+      },
+      onFocusEditTask: focusDetailName,
+      onDeleteTask: requestDeleteTask,
+      onToggleLinkMode: toggleLinkMode,
+      onOpenTaskNote: (taskId) => schedule.openTaskNoteDialog(taskId),
+      onToggleLineage: () => schedule.toggleLineage(),
+      onAddTask: () => setAddOpen(true),
+      onAddMilestone: () => {
+        setAddMilestoneInitialDate(null);
+        setAddMilestoneInitialGroupId(null);
+        setAddMilestoneOpen(true);
+      },
+      onDuplicateTask: (taskId) => openDuplicateDialog(taskId),
+      selectedTaskId: schedule.selectedTaskId,
+    }),
     [
       copyScheduleDiff,
       fitToWidth,
@@ -3921,6 +3817,7 @@ function App() {
       handleCheckForUpdates,
       handleClearRecentHistory,
       handleDisplayScaleChange,
+      handleExportWorkspace,
       openDuplicateDialog,
       openGuide,
       openShortcuts,
@@ -3932,9 +3829,18 @@ function App() {
       scrollToToday,
       setTierZoom,
       showScheduleDiff,
+      storeDistribution,
       toggleLinkMode,
       undo,
+      workspaceBinding,
     ],
+  );
+
+  const runCommandPalette = useCallback(
+    (target: CommandPaletteRunTarget) => {
+      dispatchCommandPaletteRunTarget(target, paletteCommandDispatchHandlers);
+    },
+    [paletteCommandDispatchHandlers],
   );
 
   useAppKeyboard({
@@ -4308,359 +4214,94 @@ function App() {
     };
   }, [openTaskContextMenu]);
 
-  const contextMenuItems = useMemo((): ContextMenuItem[] => {
+  const contextMenuItemHandlers = useMemo(
+    () => ({
+      setMilestoneMarkVisible,
+      showOnlyMilestoneMark,
+      openMilestoneEdit,
+      setMilestoneConfidence,
+      setDeleteMilestoneId,
+      removeTaskConnection,
+      removePredecessorLink,
+      openAddMilestone: (date: string, groupId: ScheduleId | null) => {
+        setAddMilestoneInitialDate(date);
+        setAddMilestoneInitialGroupId(groupId);
+        setAddMilestoneOpen(true);
+      },
+      setMilestoneGroupVisible,
+      showOnlyMilestoneGroup,
+      openHierarchyEdit,
+      openAddCategoryAfter,
+      openAddGroupToCategory,
+      openAddGroupAfter,
+      openAddOutlineSiblingAfter,
+      openAddOutlineChild,
+      openDeleteHierarchy,
+      setDeleteOpen,
+      openTaskForEdit,
+      openDuplicateDialog,
+      setTaskConfidence,
+      openTaskNoteDialog,
+      clearLineage,
+      showLineage,
+    }),
+    [
+      setMilestoneMarkVisible,
+      showOnlyMilestoneMark,
+      openMilestoneEdit,
+      setMilestoneConfidence,
+      removeTaskConnection,
+      removePredecessorLink,
+      setMilestoneGroupVisible,
+      showOnlyMilestoneGroup,
+      openHierarchyEdit,
+      openAddCategoryAfter,
+      openAddGroupToCategory,
+      openAddGroupAfter,
+      openAddOutlineSiblingAfter,
+      openAddOutlineChild,
+      openDeleteHierarchy,
+      openTaskForEdit,
+      openDuplicateDialog,
+      setTaskConfidence,
+      openTaskNoteDialog,
+      clearLineage,
+      showLineage,
+    ],
+  );
+
+  const contextMenuItems = useMemo(() => {
     if (contextMenu == null) return [];
-    if (contextMenu.kind === "milestone") {
-      const milestoneId = contextMenu.milestoneId;
-      const milestone = milestones.find((item) => item.id === milestoneId);
-      return [
-        {
-          type: "item",
-          id: "hide-milestone-mark",
-          label: "非表示",
-          onSelect: () => setMilestoneMarkVisible(milestoneId, false),
-        },
-        ...(hasOtherVisibleMilestoneMark(
-          visibleMilestoneGroupIds,
-          milestones,
-          hiddenMilestoneIdSet,
-          milestoneId,
-        )
-          ? [
-              {
-                type: "item" as const,
-                id: "show-only-milestone-mark",
-                label: "このマイルストンだけ表示",
-                onSelect: () => showOnlyMilestoneMark(milestoneId),
-              },
-            ]
-          : []),
-        {
-          type: "item",
-          id: "edit",
-          label: "編集",
-          icon: <Pencil size={14} strokeWidth={2} />,
-          onSelect: () => openMilestoneEdit(milestoneId),
-        },
-        ...(milestone
-          ? [
-              {
-                type: "item" as const,
-                id: "confidence",
-                label:
-                  milestone.confidence === "tentative"
-                    ? "確定にする"
-                    : "未確定にする",
-                onSelect: () => {
-                  setMilestoneConfidence(
-                    milestoneId,
-                    milestone.confidence === "tentative" ? "committed" : "tentative",
-                  );
-                },
-              },
-            ]
-          : []),
-        { type: "separator", id: "milestone-sep" },
-        {
-          type: "item",
-          id: "delete",
-          label: "削除",
-          danger: true,
-          icon: <Trash2 size={14} strokeWidth={2} />,
-          onSelect: () => setDeleteMilestoneId(milestoneId),
-        },
-      ];
-    }
-    if (contextMenu.kind === "link") {
-      const { fromId, toId, linkKind } = contextMenu;
-      return [
-        {
-          type: "item",
-          id: "unlink",
-          label: linkKind === "connection" ? "繋がりを外す" : "線を外す",
-          onSelect: () =>
-            linkKind === "connection"
-              ? removeTaskConnection(fromId, toId)
-              : removePredecessorLink(fromId, toId),
-        },
-      ];
-    }
-    if (contextMenu.kind === "addMilestone") {
-      const date = contextMenu.date;
-      return [
-        {
-          type: "item",
-          id: "add-milestone",
-          label: "マイルストンを追加",
-          onSelect: () => {
-            setAddMilestoneInitialDate(date);
-            setAddMilestoneInitialGroupId(contextMenu.groupId);
-            setAddMilestoneOpen(true);
-          },
-        },
-      ];
-    }
-    if (contextMenu.kind === "milestoneGroup") {
-      const groupId = contextMenu.groupId;
-      const items: ContextMenuItem[] = [
-        {
-          type: "item",
-          id: "hide-milestone-group",
-          label: "非表示",
-          onSelect: () => setMilestoneGroupVisible(groupId, false),
-        },
-      ];
-      if (
-        hasOtherVisibleMilestoneBandGroup(
-          visibleMilestoneGroupIds,
-          milestones,
-          groupId,
-        )
-      ) {
-        items.push({
-          type: "item",
-          id: "show-only-milestone-group",
-          label: "この行だけ表示",
-          onSelect: () => showOnlyMilestoneGroup(groupId),
-        });
-      }
-      return items;
-    }
-    if (contextMenu.kind === "category") {
-      const { id } = contextMenu;
-      const items: ContextMenuItem[] = [
-        {
-          type: "item",
-          id: "rename",
-          label: "名前を変更",
-          onSelect: () => openHierarchyEdit("category", id),
-        },
-        {
-          type: "item",
-          id: "add-category",
-          label: "下にカテゴリを追加",
-          onSelect: () => openAddCategoryAfter(id),
-        },
-        {
-          type: "item",
-          id: "add-group",
-          label: "グループを追加",
-          onSelect: () => openAddGroupToCategory(id),
-        },
-      ];
-      if (canDeleteCategory(categories, id)) {
-        items.push(
-          { type: "separator", id: "category-sep" },
-          {
-            type: "item",
-            id: "delete",
-            label: "削除",
-            danger: true,
-            icon: <Trash2 size={14} strokeWidth={2} />,
-            onSelect: () => openDeleteHierarchy("category", id),
-          },
-        );
-      }
-      return items;
-    }
-    if (contextMenu.kind === "group") {
-      const { id } = contextMenu;
-      const items: ContextMenuItem[] = [
-        {
-          type: "item",
-          id: "rename",
-          label: "名前を変更",
-          onSelect: () => openHierarchyEdit("group", id),
-        },
-        {
-          type: "item",
-          id: "add-group",
-          label: "下にグループを追加",
-          onSelect: () => openAddGroupAfter(id),
-        },
-      ];
-      if (canDeleteGroup(categories, id)) {
-        items.push(
-          { type: "separator", id: "group-sep" },
-          {
-            type: "item",
-            id: "delete",
-            label: "削除",
-            danger: true,
-            icon: <Trash2 size={14} strokeWidth={2} />,
-            onSelect: () => openDeleteHierarchy("group", id),
-          },
-        );
-      }
-      return items;
-    }
-    if (contextMenu.kind === "hierarchy") {
-      if (!hierarchyLayout.aligned || levels == null || outline == null) {
-        return [];
-      }
-      const { id } = contextMenu;
-      const levelIndex = findOutlineBranchLevelIndex(outline, id);
-      if (levelIndex == null) return [];
-      const levelName = levels[levelIndex]?.name ?? "階層";
-      const items: ContextMenuItem[] = [
-        {
-          type: "item",
-          id: "rename",
-          label: "名前を変更",
-          onSelect: () => openHierarchyEdit("outline", id),
-        },
-        {
-          type: "item",
-          id: "add-sibling",
-          label: `下に${levelName}を追加`,
-          onSelect: () => openAddOutlineSiblingAfter(id),
-        },
-      ];
-      if (levelIndex < taskParentLevelIndex(levels.length)) {
-        const childName = levels[levelIndex + 1]?.name ?? "階層";
-        items.push({
-          type: "item",
-          id: "add-child",
-          label: `${childName}を追加`,
-          onSelect: () => openAddOutlineChild(id),
-        });
-      }
-      if (canDeleteOutlineBranch(id)) {
-        items.push(
-          { type: "separator", id: "hierarchy-sep" },
-          {
-            type: "item",
-            id: "delete",
-            label: "削除",
-            danger: true,
-            icon: <Trash2 size={14} strokeWidth={2} />,
-            onSelect: () => openDeleteHierarchy("outline", id),
-          },
-        );
-      }
-      return items;
-    }
-    const taskId = contextMenu.taskId;
-    const task = findTaskInDocument(categories, outline, taskId);
-    const multiCount = schedule.selectedTaskIds.length;
-    if (multiCount > 1) {
-      return [
-        {
-          type: "item",
-          id: "delete",
-          label: "削除",
-          danger: true,
-          icon: <Trash2 size={14} strokeWidth={2} />,
-          shortcut: deleteShortcutHint(),
-          onSelect: () => setDeleteOpen(true),
-        },
-      ];
-    }
-    const lineageActive = lineageTask?.id === taskId;
-    const commandKey = usesCommandKey(navigator.platform || navigator.userAgent);
-    return [
-      {
-        type: "item",
-        id: "edit",
-        label: "編集",
-        icon: <Pencil size={14} strokeWidth={2} />,
-        shortcut: editShortcutHint(),
-        onSelect: () => {
-          if (task) openTaskForEdit(task);
-        },
-      },
-      {
-        type: "item",
-        id: "duplicate",
-        label: "複製",
-        icon: <Copy size={14} strokeWidth={2} />,
-        shortcut: duplicateTaskShortcutHint(),
-        onSelect: () => openDuplicateDialog(taskId),
-      },
-      { type: "separator", id: "task-sep-1" },
-      ...(task
-        ? [
-            {
-              type: "item" as const,
-              id: "confidence",
-              label:
-                task.confidence === "tentative" ? "確定にする" : "未確定にする",
-              shortcut: confidenceToggleShortcutHint(commandKey),
-              onSelect: () => {
-                setTaskConfidence(
-                  taskId,
-                  task.confidence === "tentative" ? "committed" : "tentative",
-                );
-              },
-            },
-          ]
-        : []),
-      {
-        type: "item",
-        id: "note",
-        label: "ノート",
-        icon: <StickyNote size={14} strokeWidth={2} />,
-        shortcut: noteShortcutHint(commandKey),
-        onSelect: () => openTaskNoteDialog(taskId),
-      },
-      { type: "separator", id: "task-sep-2" },
-      {
-        type: "item",
-        id: "lineage",
-        label: lineageActive ? "系統を解除" : "系統を表示",
-        icon: <GitBranch size={14} strokeWidth={2} />,
-        shortcut: lineageToggleShortcutHint(commandKey),
-        onSelect: () => {
-          if (lineageActive) clearLineage();
-          else showLineage(taskId);
-        },
-      },
-      { type: "separator", id: "task-sep-3" },
-      {
-        type: "item",
-        id: "delete",
-        label: "削除",
-        danger: true,
-        icon: <Trash2 size={14} strokeWidth={2} />,
-        shortcut: deleteShortcutHint(),
-        onSelect: () => setDeleteOpen(true),
-      },
-    ];
+    return buildContextMenuItems({
+      target: contextMenuTarget(contextMenu),
+      categories,
+      outline,
+      levels,
+      milestones,
+      hierarchyAligned: hierarchyLayout.aligned,
+      visibleMilestoneGroupIds,
+      hiddenMilestoneIdSet,
+      selectedTaskCount: schedule.selectedTaskIds.length,
+      lineageTaskId: lineageTask?.id,
+      commandKey: usesCommandKey(navigator.platform || navigator.userAgent),
+      canDeleteOutlineBranch,
+      handlers: contextMenuItemHandlers,
+    });
   }, [
     categories,
-    clearLineage,
     contextMenu,
-    lineageTask?.id,
-    outline,
-    milestones,
-    openDuplicateDialog,
-    openTaskForEdit,
-    openHierarchyEdit,
-    setMilestoneConfidence,
-    setTaskConfidence,
-    openMilestoneEdit,
-    openTaskNoteDialog,
-    removePredecessorLink,
-    removeTaskConnection,
-    openAddCategoryAfter,
-    openAddGroupToCategory,
-    openAddGroupAfter,
-    openAddOutlineSiblingAfter,
-    openAddOutlineChild,
-    openDeleteHierarchy,
-    canDeleteOutlineBranch,
+    contextMenuItemHandlers,
     hierarchyLayout.aligned,
-    levels,
-    outline,
-    setMilestoneGroupVisible,
-    showOnlyMilestoneGroup,
-    visibleMilestoneGroupIds,
     hiddenMilestoneIdSet,
-    setMilestoneMarkVisible,
-    showOnlyMilestoneMark,
-    showLineage,
+    levels,
+    lineageTask?.id,
+    milestones,
+    outline,
     schedule.selectedTaskIds.length,
+    visibleMilestoneGroupIds,
+    canDeleteOutlineBranch,
   ]);
+
 
   return (
     <div

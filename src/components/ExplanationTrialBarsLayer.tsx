@@ -2,6 +2,10 @@ import { useEffect, useRef } from "react";
 import { Group, Layer, Line, Rect } from "react-konva";
 import type Konva from "konva";
 import {
+  EXPLANATION_TRIAL_KONVA_DASH,
+  EXPLANATION_TRIAL_STROKE_WIDTH,
+} from "../design/uiTokens";
+import {
   CONNECTION_HALO_STROKE_WIDTH,
   CONNECTION_STROKE_WIDTH,
 } from "../model/connections";
@@ -17,7 +21,7 @@ type ExplanationTrialBarsLayerProps = {
   bars: readonly ExplanationTrialBarLayout[];
   predecessorArcs?: readonly ExplanationTrialPredecessorArc[];
   connectionArcColor?: string;
-  connectionArcHaloColor?: string;
+  connectionArcHaloColor: string;
   clipTop?: number;
   clipHeight?: number;
 };
@@ -34,7 +38,7 @@ export function ExplanationTrialBarsLayer({
   height,
   bars,
   predecessorArcs = [],
-  connectionArcHaloColor = "#f8fafc",
+  connectionArcHaloColor,
   clipTop,
   clipHeight,
 }: ExplanationTrialBarsLayerProps) {
@@ -72,8 +76,8 @@ export function ExplanationTrialBarsLayer({
       height={bar.rect.height}
       fill={trialBarFill(bar.color)}
       stroke={bar.color}
-      strokeWidth={2}
-      dash={[6, 4]}
+      strokeWidth={EXPLANATION_TRIAL_STROKE_WIDTH}
+      dash={[...EXPLANATION_TRIAL_KONVA_DASH]}
       listening={false}
     />
   ));

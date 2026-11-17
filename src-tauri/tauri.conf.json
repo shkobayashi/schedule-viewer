@@ -32,6 +32,7 @@
       "../.cursor/skills/write-fields/": "json-skills/write-fields/",
       "../.cursor/skills/write-colors/": "json-skills/write-colors/",
       "../.cursor/skills/schedule-talk/": "json-skills/schedule-talk/",
+      "../.cursor/skills/how-to/": "json-skills/how-to/",
       "../read-screen/": "read-screen/"
     },
     "icon": [

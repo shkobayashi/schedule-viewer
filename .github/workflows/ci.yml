@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [develop, main, next]
+    branches: [develop, main, next, feature-436]
 
 permissions:
   contents: read
@@ -14,6 +14,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       rust: ${{ steps.filter.outputs.rust }}
       manual: ${{ steps.filter.outputs.manual }}
+      agentdocs: ${{ steps.filter.outputs.agentdocs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -23,29 +24,7 @@ jobs:
         run: |
           BASE="${{ github.event.pull_request.base.sha }}"
           HEAD="${{ github.sha }}"
-          frontend=false
-          rust=false
-          manual=false
-          while IFS= read -r file; do
-            case "$file" in
-              src-tauri/*|rust-toolchain.toml|read-screen/*|.cursor/skills/schedule-talk/*)
-                rust=true
-                ;;
-              .github/workflows/*)
-                frontend=true
-                rust=true
-                ;;
-              docs/user-manual/*|docs/user-manual.md|scripts/build-user-manual-site.mjs|scripts/manual-site/*|.github/workflows/pages.yml)
-                manual=true
-                ;;
-              index.html|src/*|scripts/*|docs/schedule.schema.json|docs/members.schema.json|docs/calendar.schema.json|docs/field-extensions.schema.json|docs/workspace.schema.json|docs/colors.schema.json|examples/*|package.json|package-lock.json|eslint.config.js|vite.config.ts|tsconfig.json|tsconfig.node.json|vitest.config.ts|.cursor/skills/write-schedule/*|.cursor/skills/write-calendar/*|.cursor/skills/write-members/*|.cursor/skills/write-workspace/*|.cursor/skills/write-fields/*|.cursor/skills/write-colors/*)
-                frontend=true
-                ;;
-            esac
-          done < <(git diff --name-only "$BASE" "$HEAD")
-          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
-          echo "rust=$rust" >> "$GITHUB_OUTPUT"
-          echo "manual=$manual" >> "$GITHUB_OUTPUT"
+          git diff --name-only "$BASE" "$HEAD" | bash scripts/ci-changed-path-flags.sh
 
   frontend:
     needs: changes
@@ -63,18 +42,29 @@ jobs:
       - run: npm run version:check
       - run: npm run build
       - run: npm run lint
-      - run: npm test
+      - run: npm run check:mcp-tool-names
+      - run: npm run check:operation-entries
+      - run: npm run check:regression-coverage
+      # Circular imports: madge vs scripts/madge-circular-baseline.json (non-zero cycles fail the job).
+      - run: npm run check:madge-circular-baseline
+      - run: npm run test:ci
+      # jscpd only. The script always exits 0. Above scripts/check-architecture-warn.mjs --threshold it logs a warning.
+      - run: npm run check:architecture-warn
       - run: npm run check:schedule
       - run: npm run check:calendar
       - run: npm run check:members
+      - run: node --test scripts/how-to-citations.test.mjs
       - run: npm run build:validate-skill
+      - name: how-to manual folder has no untracked or dirty files after generation
+        run: test -z "$(git status --porcelain .cursor/skills/how-to/manual/)"
       - run: npm audit --audit-level=high
-      - run: git diff --exit-code src/model/generated docs/schedule.schema.json .cursor/skills/write-schedule/schedule.schema.json .cursor/skills/write-schedule/scripts/validate-schedule.bundle.mjs docs/calendar.schema.json .cursor/skills/write-calendar/calendar.schema.json .cursor/skills/write-calendar/scripts/validate-calendar.bundle.mjs docs/members.schema.json .cursor/skills/write-members/members.schema.json .cursor/skills/write-members/scripts/validate-members.bundle.mjs docs/workspace.schema.json .cursor/skills/write-workspace/workspace.schema.json .cursor/skills/write-workspace/scripts/validate-workspace.bundle.mjs docs/field-extensions.schema.json .cursor/skills/write-fields/field-extensions.schema.json .cursor/skills/write-fields/scripts/validate-field-extensions.bundle.mjs docs/colors.schema.json .cursor/skills/write-colors/colors.schema.json .cursor/skills/write-colors/scripts/validate-colors.bundle.mjs
+      - run: git diff --exit-code src/model/generated docs/schedule.schema.json .cursor/skills/write-schedule/schedule.schema.json .cursor/skills/write-schedule/scripts/validate-schedule.bundle.mjs docs/calendar.schema.json .cursor/skills/write-calendar/calendar.schema.json .cursor/skills/write-calendar/scripts/validate-calendar.bundle.mjs docs/members.schema.json .cursor/skills/write-members/members.schema.json .cursor/skills/write-members/scripts/validate-members.bundle.mjs docs/workspace.schema.json .cursor/skills/write-workspace/workspace.schema.json .cursor/skills/write-workspace/scripts/validate-workspace.bundle.mjs docs/field-extensions.schema.json .cursor/skills/write-fields/field-extensions.schema.json .cursor/skills/write-fields/scripts/validate-field-extensions.bundle.mjs docs/colors.schema.json .cursor/skills/write-colors/colors.schema.json .cursor/skills/write-colors/scripts/validate-colors.bundle.mjs docs/user-manual.md docs/user-manual/getting-started.md docs/user-manual/find-by-intent.md docs/user-manual/tutorial.md docs/user-manual/features.md docs/user-manual/privacy.md .cursor/skills/how-to/manual/user-manual.md .cursor/skills/how-to/manual/getting-started.md .cursor/skills/how-to/manual/find-by-intent.md .cursor/skills/how-to/manual/tutorial.md .cursor/skills/how-to/manual/features.md .cursor/skills/how-to/manual/privacy.md
 
   rust:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -120,10 +110,33 @@ jobs:
         with:
           toolchain: ${{ steps.rust-toolchain.outputs.channel }}
           components: ${{ steps.rust-toolchain.outputs.components }}
+      - name: Install xvfb (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xvfb
       - run: cargo clippy -- -D warnings
         working-directory: src-tauri
-      - run: cargo test --locked
+      - name: cargo test (Linux)
+        if: matrix.os == 'ubuntu-latest'
         working-directory: src-tauri
+        run: xvfb-run -a cargo test --locked
+      - name: cargo test (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: src-tauri
+        run: cargo test --locked
+
+  agentdocs:
+    needs: changes
+    if: needs.changes.outputs.agentdocs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - run: npm run check:agent-docs
+      - run: node --test scripts/check-agent-docs.test.mjs
 
   manual:
     needs: changes
@@ -139,10 +152,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:manual-site
+      - run: node --test scripts/how-to-citations.test.mjs
+      - run: npm run build:validate-skill
+      - name: how-to manual folder has no untracked or dirty files after generation
+        run: test -z "$(git status --porcelain .cursor/skills/how-to/manual/)"
+      - run: git diff --exit-code docs/user-manual.md docs/user-manual/getting-started.md docs/user-manual/find-by-intent.md docs/user-manual/tutorial.md docs/user-manual/features.md docs/user-manual/privacy.md .cursor/skills/how-to/manual/user-manual.md .cursor/skills/how-to/manual/getting-started.md .cursor/skills/how-to/manual/find-by-intent.md .cursor/skills/how-to/manual/tutorial.md .cursor/skills/how-to/manual/features.md .cursor/skills/how-to/manual/privacy.md
 
   ci:
     name: ci
-    needs: [changes, frontend, rust, manual]
+    needs: [changes, frontend, rust, manual, agentdocs]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -162,5 +180,9 @@ jobs:
           fi
           if [ "${{ needs.changes.outputs.manual }}" = "true" ] && [ "${{ needs.manual.result }}" != "success" ]; then
             echo "manual job did not succeed"
+            exit 1
+          fi
+          if [ "${{ needs.changes.outputs.agentdocs }}" = "true" ] && [ "${{ needs.agentdocs.result }}" != "success" ]; then
+            echo "agentdocs job did not succeed"
             exit 1
           fi

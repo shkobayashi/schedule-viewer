@@ -71,6 +71,15 @@ export async function ackPendingScheduleWindowOpenViaTauri(): Promise<void> {
   await invoke("ack_pending_schedule_window_open");
 }
 
+export const PENDING_STARTUP_STAGE_WORKSPACE_FAILED =
+  "pending-workspace-failed" as const;
+
+export async function recordPendingWorkspaceStartupStageViaTauri(
+  stage: typeof PENDING_STARTUP_STAGE_WORKSPACE_FAILED,
+): Promise<void> {
+  await invoke("record_pending_workspace_startup_stage", { stage });
+}
+
 export async function createScheduleWindowViaTauri(
   path: string,
   contents: string,
