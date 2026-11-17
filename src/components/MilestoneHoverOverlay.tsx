@@ -1,17 +1,13 @@
 import { useLayoutEffect, useState } from "react";
 import {
   layoutMilestoneHoverLabel,
+  type MilestoneHoverState,
   type ResolvedMilestoneHover,
 } from "../model/milestoneHoverLabel";
 import { KONVA_FONT_FAMILY } from "../model/fontStack";
 import type { ChartPalette } from "../model/palette";
-import type { ScheduleId } from "../model/types";
 
-export type MilestoneHoverState = {
-  id: ScheduleId;
-};
-
-export type { ResolvedMilestoneHover };
+export type { MilestoneHoverState, ResolvedMilestoneHover };
 
 type MilestoneHoverOverlayProps = {
   hover: ResolvedMilestoneHover | null;

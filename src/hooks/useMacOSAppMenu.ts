@@ -13,6 +13,7 @@ import {
 import { OPERATION_FORMAL } from "../model/operationLabels";
 import { recentMenuSections } from "../model/recentFilesMenu";
 import { requestApplicationQuitViaTauri } from "../model/windowSession";
+import { dispatchSharedFileMenuAction } from "../operations/dispatchPaletteCommand";
 import type { GridTier } from "../model/timeline";
 
 export type MacOSAppMenuHandlers = {
@@ -84,28 +85,18 @@ export function useMacOSAppMenu(
         });
 
       const fileAction = (menuId: SharedFileMenuActionId): (() => void) => {
-        switch (menuId) {
-          case "open":
-            return () => h().onOpen();
-          case "openNewWindow":
-            return () => h().onOpenInNewWindow();
-          case "save":
-            return () => h().onSave();
-          case "saveAs":
-            return () => h().onSaveAs();
-          case "exportHtml":
-            return () => h().onExportHtml();
-          case "exportWorkspace":
-            return () => h().onExportWorkspace?.();
-          case "showJson":
-            return () => h().onShowJson();
-          case "showDiff":
-            return () => h().onShowDiff();
-          case "copyDiff":
-            return () => h().onCopyDiff();
-          default:
-            return () => {};
-        }
+        return () =>
+          dispatchSharedFileMenuAction(menuId, {
+            onOpen: () => h().onOpen(),
+            onOpenInNewWindow: () => h().onOpenInNewWindow(),
+            onSave: () => h().onSave(),
+            onSaveAs: () => h().onSaveAs(),
+            onExportHtml: () => h().onExportHtml(),
+            onExportWorkspace: () => h().onExportWorkspace?.(),
+            onShowJson: () => h().onShowJson(),
+            onShowDiff: () => h().onShowDiff(),
+            onCopyDiff: () => h().onCopyDiff(),
+          });
       };
 
       const appSubmenu = await Submenu.new({

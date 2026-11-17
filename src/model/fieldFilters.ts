@@ -1,21 +1,17 @@
 import { isIsoDateString } from "./dates";
 import type { ScheduleFieldDef, ScheduleFilters, Task } from "./types";
+import {
+  DEFAULT_FIELD_FILTER_EMPTY,
+  type FieldFilterCondition,
+  type FieldFiltersState,
+} from "./fieldFiltersTypes";
 
-export type FieldFilterEmptyMode = "any" | "keep" | "exclude";
-
-export type FieldFilterCondition = {
-  empty: FieldFilterEmptyMode;
-  text?: string;
-  min?: number;
-  max?: number;
-  from?: string;
-  to?: string;
-  choice?: string;
-};
-
-export type FieldFiltersState = Record<string, FieldFilterCondition>;
-
-export const DEFAULT_FIELD_FILTER_EMPTY: FieldFilterEmptyMode = "any";
+export type {
+  FieldFilterCondition,
+  FieldFilterEmptyMode,
+  FieldFiltersState,
+} from "./fieldFiltersTypes";
+export { DEFAULT_FIELD_FILTER_EMPTY } from "./fieldFiltersTypes";
 
 export function emptyFieldFiltersState(): FieldFiltersState {
   return {};

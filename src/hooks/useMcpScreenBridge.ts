@@ -2,13 +2,6 @@ import { useEffect, useRef, type RefObject } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { CalendarDocument } from "../model/calendarTypes";
-import type { ColorSchemePreference } from "../model/colorScheme";
-import type { ResolvedColorScheme } from "../model/palette";
-import type { DisplayScalePreference } from "../model/uiScale";
-import type { RowDensity, SidebarColumnsPreference } from "../model/viewPreferences";
-import type { ColorItem } from "../model/colorCatalog";
-import type { StatusItem } from "../model/statusCatalog";
 import { loadBaselineDiffsText } from "../model/baselineDiffsLoad";
 import { loadScheduleDiffText } from "../model/scheduleDiffLoad";
 import { assessReplaceScheduleLevelCount } from "../model/hierarchyLevelEdit";
@@ -59,193 +52,86 @@ import {
   mcpReadToolsPayloadToToolBody,
   isMcpReadToolName,
   mcpToolErrorBody,
+  type McpToolResultBody,
 } from "../model/screenContext";
-import type { VisibleRow } from "../model/types";
 import { captureMainElementForMcp } from "../model/captureMainForMcp";
 import { isTauri } from "../model/scheduleFile";
 import { setMcpInProgressGeneration } from "../model/mcpInProgressInvalidation";
-import type { Member, MemberId } from "../model/memberTypes";
-import type {
-  Category,
-  Milestone,
-  MilestoneGroup,
-  OutlineRoot,
-  ScheduleDocument,
-  ScheduleFilters,
-  ScheduleId,
-  ScheduleFieldDef,
-  ScheduleLevelDef,
-} from "../model/types";
-import type { ExplanationViewState } from "../model/explainView";
-import type {
-  BuildMcpExplanationOverlayInput,
-  ExplanationOverlayState,
-} from "../model/explainOverlay";
-import { buildTaskBarAnchorsForOverlay } from "../model/explainOverlayLayout";
+import type { ScheduleDocument, ScheduleId } from "../model/types";
 import type { TaskBarAnchor } from "../model/connections";
+import {
+  mcpFilteredTasksPayloadInputFromSnap,
+  mcpSelectedTaskPayloadInputFromSnap,
+  mcpSelectedTasksPayloadInputFromSnap,
+  type McpScreenBridgeFilteredTasksSnap,
+  type McpScreenRequest,
+} from "../model/mcpScreenBridgeSnap";
+import { recordMcpOpenNewWindowDiagnostic } from "../model/mcpOpenNewWindowDiagnostic";
 
-type McpScreenRequest = {
-  id: string;
-  generation: number;
-  tool: string;
-  arguments: unknown;
-};
-
-type UseMcpScreenBridgeInput = {
-  categories: Category[];
-  outline?: OutlineRoot | undefined;
-  title: string;
-  milestones: Milestone[];
-  milestoneGroups: MilestoneGroup[];
-  filters: ScheduleFilters;
-  lineageTaskId: ScheduleId | null;
-  lineageIds: ReadonlySet<ScheduleId> | null;
-  hiddenMilestoneGroupIds: ScheduleId[];
-  hiddenMilestoneIds: ScheduleId[];
-  selectedTaskId: ScheduleId | null;
-  selectedTaskIds: readonly ScheduleId[];
-  today: string;
-  memberMap: Map<MemberId, Member> | null;
-  mcpMembers: readonly Member[];
-  statuses: readonly StatusItem[];
-  colors: readonly ColorItem[] | null;
-  colorsCatalogError?: string | null;
-  levels?: ScheduleLevelDef[] | null;
-  fields?: readonly ScheduleFieldDef[] | undefined;
-  collapsed: ReadonlySet<string>;
-  userCollapsed: ReadonlySet<string>;
-  explanationView: ExplanationViewState | null;
-  explanationOverlay: ExplanationOverlayState | null;
-  displayScalePreference: DisplayScalePreference;
-  effectiveUiScale: number;
-  rowDensity: RowDensity;
-  showLightningLine: boolean;
-  sidebarColumns: SidebarColumnsPreference;
-  colorSchemePreference: ColorSchemePreference;
-  resolvedColorScheme: ResolvedColorScheme;
-  calendar: CalendarDocument | null;
-  getScheduleFilePath: () => string | null;
-  getCanonicalJson?: () => string;
-  scheduleCurrentJson: string;
-  scheduleBaselineJson: string;
-  startupSettled: boolean;
-  startupRecoveryDialogOpen: boolean;
-  fileBusy: boolean;
-  mcpReplaceUiBlocking: () => boolean;
-  mcpUiBlocking: () => boolean;
-  onDiscardInProgress: () => void;
-  mcpActionExecutor: McpActionExecutorContext;
-  replaceScheduleDocument: (
-    document: ScheduleDocument,
-  ) => ReplaceScheduleDocumentResult;
-  onReplaceScheduleApplied?: (result: ReplaceScheduleDocumentResult) => void;
-  visibleRows: VisibleRow[];
-  prepareMcpPngCapture?: () => void;
-  finalizeMcpPngCapture?: () => void;
-  viewStart: Date;
-  viewTotalDays: number;
-  scrollX: number;
-  pxPerDay: number;
-  chartWidth: number;
-  scrollY: number;
-  rowHeight: number;
-  bodyHeight: number;
-  dateToX: (d: Date) => number;
-  headerHeight: number;
-  milestoneBandHeight: number;
-  barHeight: number;
-  mainElement: HTMLElement | null;
-  explainOverlayLiveAnchorsRef: RefObject<
-    ReadonlyMap<ScheduleId, TaskBarAnchor>
-  >;
-};
+export type UseMcpScreenBridgeInput = McpScreenBridgeFilteredTasksSnap & {
+    selectedTaskId: ScheduleId | null;
+    selectedTaskIds: readonly ScheduleId[];
+    getScheduleFilePath: () => string | null;
+    getCanonicalJson?: () => string;
+    scheduleCurrentJson: string;
+    scheduleBaselineJson: string;
+    startupSettled: boolean;
+    startupRecoveryDialogOpen: boolean;
+    fileBusy: boolean;
+    mcpReplaceUiBlocking: () => boolean;
+    mcpUiBlocking: () => boolean;
+    onDiscardInProgress: () => void;
+    mcpActionExecutor: McpActionExecutorContext;
+    replaceScheduleDocument: (
+      document: ScheduleDocument,
+    ) => ReplaceScheduleDocumentResult;
+    onReplaceScheduleApplied?: (result: ReplaceScheduleDocumentResult) => void;
+    prepareMcpPngCapture?: () => void;
+    finalizeMcpPngCapture?: () => void;
+    mainElement: HTMLElement | null;
+    colorsCatalogError?: string | null;
+    explainOverlayLiveAnchorsRef: RefObject<
+      ReadonlyMap<ScheduleId, TaskBarAnchor>
+    >;
+    /** App から渡されるが bridge 本体では未参照（型互換のため残す）。 */
+    headerHeight?: number;
+    milestoneBandHeight?: number;
+  };
 
 export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
   const inputRef = useRef(input);
   inputRef.current = input;
+  const mcpActionRequestIdsInFlight = useRef(new Set<string>());
 
   useEffect(() => {
     if (!isTauri()) return;
 
-    function mcpViewFields(snap: UseMcpScreenBridgeInput) {
-      return {
-        collapsed: snap.collapsed,
-        userCollapsed: snap.userCollapsed,
-        explanationView: snap.explanationView,
-        displayScalePreference: snap.displayScalePreference,
-        effectiveUiScale: snap.effectiveUiScale,
-        rowDensity: snap.rowDensity,
-        showLightningLine: snap.showLightningLine,
-        sidebarColumns: snap.sidebarColumns,
-        colorSchemePreference: snap.colorSchemePreference,
-        resolvedColorScheme: snap.resolvedColorScheme,
-        calendar: snap.calendar,
-        categories: snap.categories,
-        outline: snap.outline,
-      };
+    function liveAnchorsFromSnap(snap: UseMcpScreenBridgeInput) {
+      return snap.explainOverlayLiveAnchorsRef.current;
     }
 
-    function mcpViewportFromSnap(snap: UseMcpScreenBridgeInput) {
-      return {
-        timelineStart: snap.viewStart,
-        totalDays: snap.viewTotalDays,
-        scrollX: snap.scrollX,
-        pxPerDay: snap.pxPerDay,
-        chartWidth: snap.chartWidth,
-        scrollY: snap.scrollY,
-        rowHeight: snap.rowHeight,
-        bodyHeight: snap.bodyHeight,
-        visibleRows: snap.visibleRows,
-      };
-    }
-
-    function mcpExplanationOverlayBuild(
-      snap: UseMcpScreenBridgeInput,
-    ): Omit<BuildMcpExplanationOverlayInput, "overlay"> | null {
-      const liveFromChart = snap.explainOverlayLiveAnchorsRef.current;
-      return {
-        visibleRows: snap.visibleRows,
-        pxPerDay: snap.pxPerDay,
-        scrollX: snap.scrollX,
-        scrollY: snap.scrollY,
-        rowHeight: snap.rowHeight,
-        bodyHeight: snap.bodyHeight,
-        chartWidth: snap.chartWidth,
-        timelineStart: snap.viewStart,
-        liveAnchors:
-          liveFromChart ??
-          buildTaskBarAnchorsForOverlay({
-            visibleRows: snap.visibleRows,
-            scrollY: snap.scrollY,
-            rowHeight: snap.rowHeight,
-            barHeight: snap.barHeight,
-            dateToX: snap.dateToX,
-            pxPerDay: snap.pxPerDay,
-          }),
-      };
-    }
-
-    function mcpPayloadFields(snap: UseMcpScreenBridgeInput) {
-      return {
-        ...mcpViewFields(snap),
-        explanationOverlay: snap.explanationOverlay,
-        explanationOverlayBuild: mcpExplanationOverlayBuild(snap),
-        viewport: mcpViewportFromSnap(snap),
-      };
+    function traceMcpHarnessGui(phase: string, detail: string) {
+      const label = getCurrentWindow().label;
+      void invoke("mcp_harness_gui_trace", { label, phase, detail }).catch(
+        () => {},
+      );
     }
 
     async function reply(
       id: string,
       generation: number,
-      body: {
-        content: Array<
-          | { type: string; text: string }
-          | { type: string; data: string; mimeType: string }
-        >;
-        isError?: boolean;
-      },
+      body: McpToolResultBody,
       invalidateInProgress = false,
     ) {
+      const isError =
+        typeof body === "object" &&
+        body !== null &&
+        "isError" in body &&
+        (body as { isError?: boolean }).isError === true;
+      traceMcpHarnessGui(
+        "reply",
+        `id=${id} generation=${generation} invalidate=${invalidateInProgress} isError=${isError}`,
+      );
       await invoke("mcp_reply", {
         id,
         generation,
@@ -287,7 +173,46 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       MCP_TOOL_MINIMIZE_WINDOW,
     ]);
 
+  function logOpenNewWindowFrontend(
+    payload: McpScreenRequest,
+    phase:
+      | "frontend-receive"
+      | "frontend-duplicate-skip"
+      | "frontend-execute-start"
+      | "frontend-created",
+    windowLabel?: string,
+  ) {
+    if (payload.tool !== MCP_TOOL_OPEN_NEW_WINDOW) return;
+    recordMcpOpenNewWindowDiagnostic({
+      requestId: payload.id,
+      phase,
+      origin: "frontend",
+      windowLabel,
+    });
+  }
+
     async function handleMcpActionTool(
+      payload: McpScreenRequest,
+      snap: UseMcpScreenBridgeInput,
+    ) {
+      if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW) {
+        logOpenNewWindowFrontend(payload, "frontend-receive");
+      }
+      if (mcpActionRequestIdsInFlight.current.has(payload.id)) {
+        if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW) {
+          logOpenNewWindowFrontend(payload, "frontend-duplicate-skip");
+        }
+        return;
+      }
+      mcpActionRequestIdsInFlight.current.add(payload.id);
+      try {
+        await handleMcpActionToolBody(payload, snap);
+      } finally {
+        mcpActionRequestIdsInFlight.current.delete(payload.id);
+      }
+    }
+
+    async function handleMcpActionToolBody(
       payload: McpScreenRequest,
       snap: UseMcpScreenBridgeInput,
     ) {
@@ -312,6 +237,9 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       if (gate.discardInProgress) {
         snap.onDiscardInProgress();
       }
+      if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW) {
+        logOpenNewWindowFrontend(payload, "frontend-execute-start");
+      }
       const result = await executeMcpActionTool(
         payload.tool,
         parsedEnvelope.envelope,
@@ -320,6 +248,9 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       if (!result.ok) {
         await replyError(payload, result.message, discardInProgress);
         return;
+      }
+      if (payload.tool === MCP_TOOL_OPEN_NEW_WINDOW && result.ok) {
+        logOpenNewWindowFrontend(payload, "frontend-created", result.text);
       }
       const body = mcpPlainTextToolBody(result.text, false);
       if ("tooLarge" in body) {
@@ -416,6 +347,10 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
 
     async function handleRequest(payload: McpScreenRequest) {
       const snap = inputRef.current;
+      traceMcpHarnessGui(
+        "receive",
+        `id=${payload.id} generation=${payload.generation} tool=${payload.tool} startupSettled=${snap.startupSettled} startupRecoveryDialogOpen=${snap.startupRecoveryDialogOpen}`,
+      );
       if (payload.tool === MCP_TOOL_REPLACE_SCHEDULE) {
         await handleReplaceSchedule(payload, snap);
         return;
@@ -425,6 +360,7 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
         return;
       }
       let toolPayload: unknown;
+      const liveAnchors = liveAnchorsFromSnap(snap);
       switch (payload.tool) {
         case MCP_TOOL_SCHEDULE_DIFF: {
           const screenJson =
@@ -468,41 +404,15 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
           return;
         }
         case MCP_TOOL_SELECTED_TASK: {
-          toolPayload = buildSelectedTaskPayload({
-            ...mcpPayloadFields(snap),
-            categories: snap.categories,
-            outline: snap.outline,
-            title: snap.title,
-            milestoneGroups: snap.milestoneGroups,
-            milestones: snap.milestones,
-            filters: snap.filters,
-            today: snap.today,
-            memberCatalog: snap.memberMap,
-            lineageIds: snap.lineageIds,
-            selectedTaskId: snap.selectedTaskId,
-            statuses: snap.statuses,
-            colors: snap.colors,
-            mcpMembers: snap.mcpMembers,
-            levels: snap.levels,
-            fields: snap.fields,
-          });
+          toolPayload = buildSelectedTaskPayload(
+            mcpSelectedTaskPayloadInputFromSnap(snap, liveAnchors),
+          );
           break;
         }
         case MCP_TOOL_SELECTED_TASKS: {
-          toolPayload = buildSelectedTasksPayload({
-            ...mcpPayloadFields(snap),
-            categories: snap.categories,
-            outline: snap.outline,
-            title: snap.title,
-            milestoneGroups: snap.milestoneGroups,
-            milestones: snap.milestones,
-            selectedTaskIds: snap.selectedTaskIds,
-            statuses: snap.statuses,
-            colors: snap.colors,
-            mcpMembers: snap.mcpMembers,
-            levels: snap.levels,
-            fields: snap.fields,
-          });
+          toolPayload = buildSelectedTasksPayload(
+            mcpSelectedTasksPayloadInputFromSnap(snap, liveAnchors),
+          );
           break;
         }
         case MCP_TOOL_CURRENT_SCHEDULE: {
@@ -528,26 +438,9 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
             );
             return;
           }
-          toolPayload = buildFilteredTasksPayload({
-            ...mcpPayloadFields(snap),
-            categories: snap.categories,
-            outline: snap.outline,
-            title: snap.title,
-            filters: snap.filters,
-            lineageTaskId: snap.lineageTaskId,
-            hiddenMilestoneGroupIds: snap.hiddenMilestoneGroupIds,
-            hiddenMilestoneIds: snap.hiddenMilestoneIds,
-            milestoneGroups: snap.milestoneGroups,
-            milestones: snap.milestones,
-            today: snap.today,
-            memberCatalog: snap.memberMap,
-            lineageIds: snap.lineageIds,
-            statuses: snap.statuses,
-            colors: snap.colors,
-            mcpMembers: snap.mcpMembers,
-            levels: snap.levels,
-            fields: snap.fields,
-          });
+          toolPayload = buildFilteredTasksPayload(
+            mcpFilteredTasksPayloadInputFromSnap(snap, liveAnchors),
+          );
           break;
         }
         default:
@@ -585,11 +478,15 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       await reply(payload.id, payload.generation, body);
     }
 
+    // listen の解決前にクリーンアップが走っても（StrictMode の再マウントなど）受け口を残さない。
+    // 残ると 1 つの要求を 2 回処理する。
+    let disposed = false;
     let unlistenInvalidated: (() => void) | undefined;
     void listen<number>("mcp-in-progress-invalidated", (event) => {
       setMcpInProgressGeneration(event.payload);
     }).then((off) => {
-      unlistenInvalidated = off;
+      if (disposed) off();
+      else unlistenInvalidated = off;
     });
 
     let unlisten: (() => void) | undefined;
@@ -600,9 +497,16 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       },
       { target: getCurrentWindow().label },
     ).then((off) => {
+      if (disposed) {
+        off();
+        return;
+      }
       unlisten = off;
+      // 受け口ができたことを待ち受けへ知らせる。待ち受けはこれを待ってから要求を送る。
+      void invoke("mcp_screen_listener_ready").catch(() => {});
     });
     return () => {
+      disposed = true;
       unlisten?.();
       unlistenInvalidated?.();
     };

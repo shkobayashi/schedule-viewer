@@ -6,6 +6,7 @@ import {
   hasOtherVisibleMilestoneBandGroup,
   hiddenMilestoneGroupIdsForShowOnly,
   pruneHiddenMilestoneGroupIds,
+  pruneHiddenMilestoneIds,
 } from "./filterChips";
 import type { ScheduleFilters } from "./types";
 
@@ -109,6 +110,28 @@ describe("pruneHiddenMilestoneGroupIds", () => {
         [{ id: "e1000001-0000-4000-8000-000000000001", name: "G" }],
       ),
     ).toEqual(["e1000001-0000-4000-8000-000000000001"]);
+  });
+});
+
+describe("pruneHiddenMilestoneIds", () => {
+  it("drops ids whose milestones are gone", () => {
+    expect(
+      pruneHiddenMilestoneIds(
+        [
+          "a1000001-0000-4000-8000-000000000001",
+          "a1000001-0000-4000-8000-000000000099",
+        ],
+        [
+          {
+            id: "a1000001-0000-4000-8000-000000000001",
+            name: "M",
+            date: "2026-01-01",
+            confidence: "committed",
+            groupId: "g1",
+          },
+        ],
+      ),
+    ).toEqual(["a1000001-0000-4000-8000-000000000001"]);
   });
 });
 

@@ -20,6 +20,15 @@ import {
   undoMemberCatalogEditHistory,
 } from "../model/memberCatalogEditHistory";
 import {
+  catalogExportErrorMessage,
+  catalogExportResultMessage,
+  catalogSaveErrorMessage,
+  catalogSavedMessage,
+  memberCatalogEditorCopy,
+} from "../model/catalogEditorCopy";
+import { canEditCatalogItems, catalogExportSuggestedName } from "../model/catalogEditorUi";
+import { CatalogEditorPanelFooter } from "./CatalogEditorPanelFooter";
+import {
   memberDescriptionErrorAt,
   memberDraftError,
   membersToJson,
@@ -49,8 +58,7 @@ export type MemberCatalogEditorPanelProps = {
   onDirtyChange?: (dirty: boolean) => void;
 };
 
-const DESCRIPTION_HINT =
-  "この id を選ぶ担当だけを書く。表示名は書かない。";
+const DESCRIPTION_HINT = memberCatalogEditorCopy.descriptionHint;
 
 type MemberCatalogEditorItemRowProps = {
   item: Member;
@@ -257,10 +265,7 @@ export const MemberCatalogEditorPanel = forwardRef<
   const sessionNewIdsRef = useRef(new Set<string>());
   const dirty = !sameMemberItems(draft, items);
   const error = memberDraftError(draft);
-  const canEditItems =
-    mode === "workspace"
-      ? editingCatalogId === "__workspace__"
-      : editingCatalogId != null;
+  const canEditItems = canEditCatalogItems(mode, editingCatalogId);
 
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
@@ -429,9 +434,9 @@ export const MemberCatalogEditorPanel = forwardRef<
       }
       if (!editingCatalogId || editingCatalogId === "__workspace__") return;
       await onSaveApp(editingCatalogId, membersToJson(draft));
-      onMessage(`「${editingCatalogId}」を保存しました。`);
+      onMessage(catalogSavedMessage(editingCatalogId));
     } catch (e) {
-      onMessage(e instanceof Error ? e.message : "保存に失敗しました。");
+      onMessage(catalogSaveErrorMessage(e));
     }
   };
 
@@ -440,13 +445,11 @@ export const MemberCatalogEditorPanel = forwardRef<
     try {
       const path = await exportMembersJson(
         membersToJson(draft),
-        editingCatalogId === "__workspace__" || editingCatalogId == null
-          ? "members"
-          : editingCatalogId,
+        catalogExportSuggestedName(editingCatalogId, "members"),
       );
-      onMessage(path ? `${path} に書き出しました。` : null);
+      onMessage(catalogExportResultMessage(path));
     } catch (e) {
-      onMessage(e instanceof Error ? e.message : "書き出しに失敗しました。");
+      onMessage(catalogExportErrorMessage(e));
     }
   };
 
@@ -577,42 +580,17 @@ export const MemberCatalogEditorPanel = forwardRef<
           ) : null}
         </div>
       </div>
-      <footer className="status-catalog-editor-footer">
-        <div className="settings-actions">
-          <button
-            type="button"
-            className="toolbar-btn"
-            disabled={!canEditItems || busy}
-            onClick={addItem}
-          >
-            人を足す
-          </button>
-          <button
-            type="button"
-            className="toolbar-btn toolbar-btn-primary"
-            disabled={!canEditItems || busy || !dirty || error != null}
-            onClick={() => void save()}
-          >
-            保存
-          </button>
-          <button
-            type="button"
-            className="toolbar-btn"
-            disabled={!dirty || busy}
-            onClick={resetDraft}
-          >
-            編集を戻す
-          </button>
-          <button
-            type="button"
-            className="toolbar-btn"
-            disabled={busy || error != null || !canEditItems}
-            onClick={() => void exportJson()}
-          >
-            JSON を書き出す
-          </button>
-        </div>
-      </footer>
+      <CatalogEditorPanelFooter
+        addLabel={memberCatalogEditorCopy.addItemButton}
+        canEditItems={canEditItems}
+        busy={busy}
+        dirty={dirty}
+        draftError={error}
+        onAdd={addItem}
+        onSave={() => void save()}
+        onResetDraft={resetDraft}
+        onExportJson={() => void exportJson()}
+      />
     </>
   );
 });

@@ -1,0 +1,2 @@
+# SYNTHETIC FIXTURE — not from a live eslint run
+✖ 12 problems (0 errors, 12 warnings)

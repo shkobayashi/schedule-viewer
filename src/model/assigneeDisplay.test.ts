@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   assigneeColumnChars,
   assigneeSidebarLabel,
+  duplicateMemberNamesFromCatalog,
   formatAssigneeListLabel,
   matchesMemberAssigneeFilter,
   matchesUnassignedFilter,
   memberOptionLabel,
   assigneeExcelCellLabel,
+  formatUnknownAssigneeOption,
   resolveAssigneeRowDisplay,
+  taskHasUnknownAssignee,
 } from "./assigneeDisplay";
 import { memberMapFromList } from "./assigneeDisplay";
 import type { Member } from "./memberTypes";
@@ -89,6 +92,17 @@ describe("matchesUnassignedFilter", () => {
   });
 });
 
+describe("taskHasUnknownAssignee", () => {
+  const catalog = memberMapFromList(members);
+
+  it("is true when any id is missing from the catalog", () => {
+    expect(taskHasUnknownAssignee(["sato"], catalog)).toBe(false);
+    expect(taskHasUnknownAssignee(["missing"], catalog)).toBe(true);
+    expect(taskHasUnknownAssignee(["sato", "ghost"], catalog)).toBe(true);
+    expect(formatUnknownAssigneeOption("ghost")).toBe("メンバー不明（ghost）");
+  });
+});
+
 describe("matchesMemberAssigneeFilter", () => {
   it("matches when id is in the list", () => {
     expect(matchesMemberAssigneeFilter(["a", "b"], "b")).toBe(true);
@@ -151,5 +165,28 @@ describe("memberOptionLabel", () => {
   it("appends the id only when the display name is duplicated", () => {
     expect(memberOptionLabel(members[0], new Set(["田中"]))).toBe("田中（tanaka）");
     expect(memberOptionLabel(members[2], new Set(["田中"]))).toBe("佐藤");
+  });
+});
+
+describe("TC-EDIT-04u workspace member catalog", () => {
+  const workspaceMembers: Member[] = [{ id: "ws-only", name: "設定ファイルの山田" }];
+  const workspaceCatalog = memberMapFromList(workspaceMembers);
+  const appCatalog = memberMapFromList([{ id: "tanaka", name: "田中" }]);
+  const duplicateNames = duplicateMemberNamesFromCatalog(workspaceCatalog);
+  const assigneeIds = ["ws-only"] as const;
+
+  it("TC-EDIT-04u: resolves workspace-only ids for sidebar, detail, bulk, and duplicate labels", () => {
+    const row = resolveAssigneeRowDisplay(assigneeIds, workspaceCatalog, duplicateNames);
+    expect(row.kind).toBe("text");
+    expect(assigneeSidebarLabel(row)).toBe("設定ファイルの山田");
+    expect(formatAssigneeListLabel(assigneeIds, workspaceCatalog, duplicateNames)).toBe(
+      "設定ファイルの山田",
+    );
+    expect(assigneeExcelCellLabel(assigneeIds, workspaceCatalog)).toBe("設定ファイルの山田");
+    expect(memberOptionLabel(workspaceMembers[0], duplicateNames)).toBe("設定ファイルの山田");
+    expect(resolveAssigneeRowDisplay(assigneeIds, appCatalog, new Set()).kind).toBe("allUnknown");
+    expect(assigneeSidebarLabel(resolveAssigneeRowDisplay(assigneeIds, appCatalog, new Set()))).toBe(
+      "メンバー不明（ws-only）",
+    );
   });
 });

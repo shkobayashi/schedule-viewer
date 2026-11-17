@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Layer, Line, RegularPolygon } from "react-konva";
 import type Konva from "konva";
 import { registerExplanationKonvaCapture } from "../model/explanationKonvaCapture";
+import { EXPLANATION_TRIAL_KONVA_DASH } from "../design/uiTokens";
 import { milestoneDiamondOutlineWidth } from "../model/milestones";
 import type { ExplanationTrialMilestoneLayout } from "../model/explainOverlayPatterns";
 
@@ -72,7 +73,7 @@ export function ExplanationTrialMilestonesLayer({
               points={[from.x, from.y, to.x, to.y]}
               stroke={item.color}
               strokeWidth={outlineWidth}
-              dash={[6, 4]}
+              dash={[...EXPLANATION_TRIAL_KONVA_DASH]}
               listening={false}
             />
           );
@@ -89,7 +90,7 @@ export function ExplanationTrialMilestonesLayer({
           fill={trialDiamondFill(item.color)}
           stroke={item.color}
           strokeWidth={outlineWidth}
-          dash={[6, 4]}
+          dash={[...EXPLANATION_TRIAL_KONVA_DASH]}
           listening={false}
         />
       ))}

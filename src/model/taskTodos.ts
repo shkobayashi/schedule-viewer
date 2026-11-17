@@ -8,8 +8,8 @@ import type {
   Task,
   TaskTodoItem,
 } from "./types";
-import { mapAllTasksInOutline } from "./outlineTasks";
-import { mapTasks } from "./tasks";
+import { mapAllTasksInOutline } from "./outlineTaskMap";
+import { mapTasks } from "./taskTraversal";
 
 /** 済んだ件数を全体で割り、切り捨てた整数。全部済んだときだけ 100。 */
 export function progressFromTodoItems(

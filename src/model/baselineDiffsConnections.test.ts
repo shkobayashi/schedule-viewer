@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { BaselineDiffClassification } from "./baselineDiffs";
+import type { BaselineDiffClassification } from "./baselineDiffsClassification";
 import {
   appendConnectionBaselineClassification,
   mergeBaselineConnections,

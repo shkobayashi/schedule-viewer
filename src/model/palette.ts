@@ -1,6 +1,7 @@
 import { uiTokenCssProperties } from "../design/uiTokens";
+import type { ResolvedColorScheme } from "./resolvedColorScheme";
 
-export type ResolvedColorScheme = "light" | "dark";
+export type { ResolvedColorScheme } from "./resolvedColorScheme";
 
 export type StatusBarColors = {
   bg: string;

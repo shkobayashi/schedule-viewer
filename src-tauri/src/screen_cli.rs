@@ -343,6 +343,7 @@ mod tests {
         );
     }
 
+    #[test]
     fn screen_tool_rejects_window_on_explain_view() {
         assert_eq!(
             screen_cli_window_rejection_message("explain_view", Some("schedule-2")),

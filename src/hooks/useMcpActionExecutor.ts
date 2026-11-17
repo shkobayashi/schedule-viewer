@@ -8,6 +8,10 @@ import type { McpSetViewPatch } from "../model/mcpSetView";
 import {
   mergeMcpSetViewCollapsed,
   mcpSetViewTouchesFilterState,
+  mcpSetViewTouchesHiddenMilestoneMarks,
+  mcpSetViewTouchesLineage,
+  validateMcpSetViewLineageForApply,
+  type McpSetViewLineagePatch,
 } from "../model/mcpSetView";
 import {
   createScheduleWindowViaTauri,
@@ -27,6 +31,13 @@ import {
   assessRequiredFieldValuesSave,
 } from "../model/taskFields";
 import type { ScheduleExportFormat } from "../model/exportHtml";
+import {
+  readExcelExportColumns,
+  readExcelExportFieldColumns,
+  resolveFileActionExportColumns,
+  type ExcelExportColumnsPreference,
+  type ExcelExportFieldColumnsPreference,
+} from "../model/excelExportColumns";
 import { installJsonSkills, uninstallJsonSkills } from "../model/jsonSkills";
 import { writeAutoUpdateEnabled } from "../model/autoUpdate";
 import type { ReplaceScheduleDocumentResult } from "../model/replaceSchedule";
@@ -63,8 +74,10 @@ export type UseMcpActionExecutorInput = {
     filters?: ScheduleFilters;
     searchField?: "name" | "note";
     hiddenMilestoneGroupIds?: ScheduleId[];
+    hiddenMilestoneIds?: ScheduleId[];
     collapsed?: ReadonlySet<string>;
   }) => void;
+  applyMcpSetViewLineage: (lineage: McpSetViewLineagePatch) => void;
   clearExplanationOnSetView: () => void;
   runExplainViewAction: (
     envelope: Record<string, unknown>,
@@ -81,8 +94,8 @@ export type UseMcpActionExecutorInput = {
   runExport: (
     format: ScheduleExportFormat,
     path: string,
-    excelColumns?: readonly string[],
-    excelFieldColumns?: readonly string[],
+    excelColumns?: ExcelExportColumnsPreference,
+    excelFieldColumns?: ExcelExportFieldColumnsPreference,
   ) => Promise<McpActionResult>;
   undo: () => boolean;
   redo: () => boolean;
@@ -103,6 +116,16 @@ export function useMcpActionExecutor(
       visibleRows: input.visibleRows,
       getDocument: input.getDocument,
       applySetView: async (patch) => {
+        const lineageGate = validateMcpSetViewLineageForApply(
+          patch,
+          input.getDocument(),
+        );
+        if (!lineageGate.ok) return lineageGate;
+
+        if (mcpSetViewTouchesLineage(patch)) {
+          input.clearExplanationOnSetView();
+          input.applyMcpSetViewLineage(patch.lineage!);
+        }
         if (mcpSetViewTouchesFilterState(patch)) {
           input.clearExplanationOnSetView();
           const current = input.getFilterViewState();
@@ -113,6 +136,11 @@ export function useMcpActionExecutor(
             hiddenMilestoneGroupIds:
               patch.hiddenMilestoneGroupIds ?? current.hiddenMilestoneGroupIds,
             collapsed,
+          });
+        }
+        if (mcpSetViewTouchesHiddenMilestoneMarks(patch)) {
+          input.applyPartialFilterViewState({
+            hiddenMilestoneIds: patch.hiddenMilestoneIds,
           });
         }
         input.applySetViewPreferences(patch);
@@ -245,17 +273,20 @@ export function useMcpActionExecutor(
           if (typeof envelope.path !== "string" || envelope.path.length === 0) {
             return { ok: false, message: "書き出しの path が要ります。" };
           }
+          const resolved = resolveFileActionExportColumns({
+            format: format as ScheduleExportFormat,
+            excelColumns: envelope.excelColumns,
+            excelFieldColumns: envelope.excelFieldColumns,
+            fieldDefs: input.fields ?? [],
+            savedExcelColumns: readExcelExportColumns(),
+            savedExcelFieldColumns: readExcelExportFieldColumns(input.fields ?? []),
+          });
+          if (!resolved.ok) return resolved;
           return input.runExport(
             format as ScheduleExportFormat,
             envelope.path,
-            Array.isArray(envelope.excelColumns)
-              ? envelope.excelColumns.filter((c): c is string => typeof c === "string")
-              : undefined,
-            Array.isArray(envelope.excelFieldColumns)
-              ? envelope.excelFieldColumns.filter(
-                  (c): c is string => typeof c === "string",
-                )
-              : undefined,
+            resolved.excelColumns,
+            resolved.excelFieldColumns,
           );
         }
         if (action === "exportWorkspace") {

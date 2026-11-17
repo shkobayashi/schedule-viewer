@@ -234,7 +234,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "set_view",
-                "description": "前面ウィンドウの見方だけを変えます。計画のファイルは変えず、未保存にもしません。絞り込み、折りたたみ、表示サイズ、行の密度、追加列、配色、イナズマ線、稼働日、ズーム、スクロール、Fit を標準入力の JSON で渡します。",
+                "description": "前面ウィンドウの見方だけを変えます。計画のファイルは変えず、未保存にもしません。絞り込み、折りたたみ、表示サイズ、行の密度、追加列、配色、イナズマ線、稼働日、ズーム、スクロール、Fit、系統（lineage）、帯の印の非表示（hiddenMilestoneIds）を標準入力の JSON で渡します。",
                 "inputSchema": { "type": "object" }
             },
             {
@@ -265,7 +265,7 @@ fn tools_list_result() -> Value {
             },
             {
                 "name": "file_action",
-                "description": "保存、別名保存、書き出し、開く、設定ファイルの書き出しを、結果の JSON だけで行います。ダイアログは開きません。",
+                "description": "保存、別名保存、書き出し、開く、設定ファイルの書き出しを、結果の JSON だけで行います。ダイアログは開きません。書き出しが Excel（`xlsx`）のとき、`excelColumns` と `excelFieldColumns` は書き出しダイアログと同じ形の真偽マップであり、省略時は保存済みの列設定を使い、渡した項目だけその 1 回の書き出しに効かせ、保存済み設定は変えない。`html` と `svg` では列指定を受け付けず、渡したときは書き出し前に拒む。",
                 "inputSchema": { "type": "object" }
             },
             {
@@ -602,6 +602,21 @@ mod tests {
             !read_screen_skill.contains("色を選ぶ材料は description"),
             "read-screen must not contain color selection rule"
         );
+        let file_action = description("file_action");
+        const FILE_ACTION_EXPORT_PHRASES: [&str; 2] = [
+            "渡した項目だけその 1 回の書き出しに効かせ、保存済み設定は変えない",
+            "`html` と `svg` では列指定を受け付けず、渡したときは書き出し前に拒む",
+        ];
+        for phrase in FILE_ACTION_EXPORT_PHRASES {
+            assert!(
+                file_action.contains(phrase),
+                "file_action description missing {phrase}"
+            );
+            assert!(
+                read_screen_skill.contains(phrase),
+                "read-screen SKILL.md missing {phrase}"
+            );
+        }
         let replace_schema = tools
             .iter()
             .find(|t| t.get("name").and_then(|n| n.as_str()) == Some("replace_schedule"))

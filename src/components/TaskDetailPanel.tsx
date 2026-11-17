@@ -422,6 +422,7 @@ export function TaskDetailPanel({
             ref={nameRef}
             id="detailName"
             type="text"
+            className="ui-field"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={() => commitNameIfDirty()}
@@ -431,7 +432,7 @@ export function TaskDetailPanel({
           <label htmlFor="detailNote">ノート</label>
           <textarea
             id="detailNote"
-            className="note-textarea"
+            className="note-textarea ui-field"
             rows={4}
             value={note}
             placeholder="補足説明（任意）"
@@ -460,6 +461,7 @@ export function TaskDetailPanel({
           <input
             id="detailTagInput"
             type="text"
+            className="ui-field"
             list={tagSuggestions.length > 0 ? "detailTagSuggestions" : undefined}
             value={tagInput}
             placeholder="タグを入力して Enter"
@@ -500,6 +502,7 @@ export function TaskDetailPanel({
             <DateInput
               id="detailStart"
               value={start}
+              inputClassName="ui-field"
               onChange={(next) => {
                 setStart(next);
                 commitWith({ start: next });
@@ -511,6 +514,7 @@ export function TaskDetailPanel({
             <DateInput
               id="detailEnd"
               value={end}
+              inputClassName="ui-field"
               onChange={(next) => {
                 setEnd(next);
                 commitWith({ end: next });
@@ -538,6 +542,7 @@ export function TaskDetailPanel({
           <label htmlFor="detailStatus">ステータス</label>
           <select
             id="detailStatus"
+            className="ui-field"
             value={status}
             onChange={(e) => {
               const next = e.target.value as TaskStatus;
@@ -598,7 +603,7 @@ export function TaskDetailPanel({
                 type="number"
                 min={0}
                 max={100}
-                className="detail-progress-num"
+                className="detail-progress-num ui-field"
                 value={progress}
                 onChange={(e) => {
                   setProgress(Number(e.target.value) || 0);
@@ -637,7 +642,7 @@ export function TaskDetailPanel({
                   />
                   <input
                     type="text"
-                    className="detail-todo-text"
+                    className="detail-todo-text ui-field"
                     value={item.text}
                     onChange={(e) => {
                       const next = [...todoItems];
@@ -698,7 +703,7 @@ export function TaskDetailPanel({
                   <span className="detail-todo-pending-spacer" aria-hidden="true" />
                   <input
                     type="text"
-                    className="detail-todo-text"
+                    className="detail-todo-text ui-field"
                     value={pendingTodoText}
                     autoFocus
                     placeholder="TODOの文"
@@ -727,7 +732,7 @@ export function TaskDetailPanel({
               <span className="detail-todo-pending-spacer" aria-hidden="true" />
               <input
                 type="text"
-                className="detail-todo-text"
+                className="detail-todo-text ui-field"
                 value={pendingTodoText}
                 autoFocus
                 placeholder="TODOの文"
@@ -761,6 +766,7 @@ export function TaskDetailPanel({
           <label htmlFor="detailConfidence">確度</label>
           <select
             id="detailConfidence"
+            className="ui-field"
             value={confidence}
             onChange={(e) => {
               const next = e.target.value as TaskConfidence;
@@ -873,6 +879,7 @@ export function TaskDetailPanel({
                   </label>
                   <select
                     id={inputId}
+                    className="ui-field"
                     value={selectValue}
                     onChange={(e) => {
                       const next = e.target.value;
@@ -900,6 +907,7 @@ export function TaskDetailPanel({
                   <DateInput
                     id={inputId}
                     value={draft}
+                    inputClassName="ui-field"
                     onChange={(next) => {
                       setCustomFieldDrafts((prev) => ({
                         ...prev,
@@ -921,6 +929,7 @@ export function TaskDetailPanel({
                     <input
                       id={inputId}
                       type="number"
+                      className="ui-field"
                       value={draft}
                       onChange={(e) => {
                         setCustomFieldDrafts((prev) => ({
@@ -945,6 +954,7 @@ export function TaskDetailPanel({
                 <input
                   id={inputId}
                   type="text"
+                  className="ui-field"
                   value={draft}
                   onChange={(e) => {
                     setCustomFieldDrafts((prev) => ({

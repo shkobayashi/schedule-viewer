@@ -1,4 +1,4 @@
-import type { FieldFiltersState } from "./fieldFilters";
+import type { FieldFiltersState } from "./fieldFiltersTypes";
 import type { SummarySpan } from "./summary";
 import type { MemberId } from "./memberTypes";
 

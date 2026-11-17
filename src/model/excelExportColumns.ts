@@ -1,3 +1,4 @@
+import type { ScheduleExportFormat } from "./exportHtml";
 import type { ScheduleFieldDef } from "./types";
 
 export type ExcelExportColumnId =
@@ -224,6 +225,165 @@ export function excelNoteColumnIndex(
   }
   index += 1;
   return index;
+}
+
+const EXCEL_EXPORT_COLUMN_ID_SET = new Set<string>(EXCEL_EXPORT_COLUMN_ORDER);
+
+export function mergeExcelExportColumnsPreference(
+  base: ExcelExportColumnsPreference,
+  overlay: Partial<ExcelExportColumnsPreference>,
+): ExcelExportColumnsPreference {
+  const next = { ...base };
+  for (const id of EXCEL_EXPORT_COLUMN_ORDER) {
+    if (typeof overlay[id] === "boolean") {
+      next[id] = overlay[id]!;
+    }
+  }
+  return next;
+}
+
+export function mergeExcelExportFieldColumnsPreference(
+  base: ExcelExportFieldColumnsPreference,
+  overlay: ExcelExportFieldColumnsPreference,
+): ExcelExportFieldColumnsPreference {
+  const next = { ...base };
+  for (const [key, value] of Object.entries(overlay)) {
+    if (typeof value === "boolean") {
+      next[key] = value;
+    }
+  }
+  return next;
+}
+
+function parseMcpExcelColumnsPatch(
+  value: unknown,
+):
+  | { ok: true; patch: Partial<ExcelExportColumnsPreference> }
+  | { ok: false; message: string } {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      ok: false,
+      message:
+        "excelColumns はオブジェクトで、各列 id を true か false で指定してください。",
+    };
+  }
+  const record = value as Record<string, unknown>;
+  const patch: Partial<ExcelExportColumnsPreference> = {};
+  for (const [key, raw] of Object.entries(record)) {
+    if (!EXCEL_EXPORT_COLUMN_ID_SET.has(key)) {
+      return {
+        ok: false,
+        message: `excelColumns に未知の列があります: ${key}`,
+      };
+    }
+    if (typeof raw !== "boolean") {
+      return {
+        ok: false,
+        message: `excelColumns の ${key} は true か false だけにしてください。`,
+      };
+    }
+    patch[key as ExcelExportColumnId] = raw;
+  }
+  return { ok: true, patch };
+}
+
+function parseMcpExcelFieldColumnsPatch(
+  value: unknown,
+  fieldKeys: ReadonlySet<string>,
+):
+  | { ok: true; patch: ExcelExportFieldColumnsPreference }
+  | { ok: false; message: string } {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      ok: false,
+      message:
+        "excelFieldColumns はオブジェクトで、各追加項目の key を true か false で指定してください。",
+    };
+  }
+  const record = value as Record<string, unknown>;
+  const patch: ExcelExportFieldColumnsPreference = {};
+  for (const [key, raw] of Object.entries(record)) {
+    if (!fieldKeys.has(key)) {
+      return {
+        ok: false,
+        message: `excelFieldColumns に未知の追加項目があります: ${key}`,
+      };
+    }
+    if (typeof raw !== "boolean") {
+      return {
+        ok: false,
+        message: `excelFieldColumns の ${key} は true か false だけにしてください。`,
+      };
+    }
+    patch[key] = raw;
+  }
+  return { ok: true, patch };
+}
+
+export type ResolveFileActionExportColumnsInput = {
+  format: ScheduleExportFormat;
+  excelColumns: unknown;
+  excelFieldColumns: unknown;
+  fieldDefs: readonly Pick<ScheduleFieldDef, "key">[];
+  savedExcelColumns: ExcelExportColumnsPreference;
+  savedExcelFieldColumns: ExcelExportFieldColumnsPreference;
+};
+
+export type ResolveFileActionExportColumnsResult =
+  | {
+      ok: true;
+      excelColumns?: ExcelExportColumnsPreference;
+      excelFieldColumns?: ExcelExportFieldColumnsPreference;
+    }
+  | { ok: false; message: string };
+
+/**
+ * MCP / CLI の file_action export 向け。省略時は保存済みの書き出し列設定を使う。
+ * 渡した項目だけがその 1 回の書き出しを上書きし、localStorage は変えない。
+ */
+export function resolveFileActionExportColumns(
+  input: ResolveFileActionExportColumnsInput,
+): ResolveFileActionExportColumnsResult {
+  const hasFixed = input.excelColumns !== undefined;
+  const hasField = input.excelFieldColumns !== undefined;
+
+  if (input.format !== "xlsx") {
+    if (hasFixed || hasField) {
+      return {
+        ok: false,
+        message:
+          "html または svg の書き出しでは excelColumns と excelFieldColumns は使えません。",
+      };
+    }
+    return { ok: true };
+  }
+
+  const fieldKeys = new Set(input.fieldDefs.map((field) => field.key));
+  let excelColumns = input.savedExcelColumns;
+  let excelFieldColumns = input.savedExcelFieldColumns;
+
+  if (hasFixed) {
+    const parsed = parseMcpExcelColumnsPatch(input.excelColumns);
+    if (!parsed.ok) return parsed;
+    excelColumns = mergeExcelExportColumnsPreference(
+      input.savedExcelColumns,
+      parsed.patch,
+    );
+  }
+
+  if (hasField) {
+    const parsed = parseMcpExcelFieldColumnsPatch(
+      input.excelFieldColumns,
+      fieldKeys,
+    );
+    if (!parsed.ok) return parsed;
+    excelFieldColumns = mergeExcelExportFieldColumnsPreference(
+      input.savedExcelFieldColumns,
+      parsed.patch,
+    );
+  }
+
+  return { ok: true, excelColumns, excelFieldColumns };
 }
 
 export function excelTodosColumnIndex(

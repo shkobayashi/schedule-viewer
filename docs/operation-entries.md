@@ -2,19 +2,21 @@
 
 利用者が同じ操作を始められる場所を、内部用に1行1操作で並べた表である。利用者向けの手順書ではない。[機能チェックリスト](feature-checklist.md) の「操作の入口」と [外部仕様](external-spec.md) の機能 ID と対応づける。
 
+人が UI でできることは、MCP と CLI からもできる方向を標準とする。逆は求めない。JSON を貼る専用 UI、画面操作の自動再生、画面ごとの置き換え UI は今後の要件にしない。個別の例外は下の表と節に書く。
+
 ## 列の意味
 
 | 列 | 意味 |
 | --- | --- |
 | 操作 | この行で扱う操作の呼び名（表内の見出し用。入口のラベルとは限らない） |
-| 正式名 | ☰・macOS・パレット・右クリック・案内の共通ラベル（`src/model/operationLabels.ts` の `OPERATION_FORMAL`） |
+| 正式名 | ☰・macOS・パレット・右クリック・案内の共通ラベル（`src/model/operationLabels.ts` の `OPERATION_FORMAL`。右クリックは `operationLabelLink.ts` の `OPERATION_FORMAL_LINK` 経由） |
 | 略称 | ツールバーだけの短いラベル（同ファイルの `TOOLBAR_SHORT`） |
 | ツールバー | 画面上部ツールバー。略称がある操作は `TOOLBAR_SHORT`、それ以外は正式名 |
-| 右クリック | チャート／一覧のコンテキストメニュー（`src/App.tsx` の `contextMenuItems`） |
-| コマンドパレット | ⌘/Ctrl+K の一覧（`src/model/commandPalette.ts` の `label`） |
+| 右クリック | チャート／一覧のコンテキストメニュー（`src/operations/contextMenuItems.tsx`。操作 ID は `operationIds.ts`、ラベルは `operationLabelLink.ts` と `operationLabels.ts`） |
+| コマンドパレット | ⌘/Ctrl+K の一覧（`src/model/commandPalette.ts` の `label`。実行は `src/operations/dispatchPaletteCommand.ts`） |
 | ショートカット (Mac / Win) | キー割り当て（`src/model/shortcuts.ts` とメニューに出すヒント。未記載の入口は空） |
 | macOS メニュー | Tauri アプリメニュー（`src/hooks/useMacOSAppMenu.ts`。デスクトップ macOS のみ） |
-| ☰ | ☰ メニュー（`src/components/AppMenu.tsx`） |
+| ☰ | ☰ メニュー（`src/components/AppMenu.tsx`。ファイル行と末尾行の dispatch は `dispatchPaletteCommand.ts`） |
 | 操作の案内 | `src/model/guideContent.ts` でその操作に触れる文（要約。ボタン名ではない） |
 | MCP | MCP ツール名（`src/model/mcpToolNames.ts`）。`file_action` などは JSON の `action` を括弧で足す |
 | CLI | `--screen` のツール名（MCP と同じ名前。読み取りで `--window` が要るものは注記） |
@@ -26,6 +28,8 @@
 
 表示名は、上記ソースの文字列をそのまま書く。動的なラベルは、ソースの式をバッククォートで示す。macOS の `PredefinedMenuItem`（Cut など）は Tauri が OS 文言を出すため、コード上の識別子を書く。
 
+操作 ID の正本は `src/operations/operationIds.ts` である。右クリック項目の DOM id（React の `key`）も同じ文字列を使う。ラベルは `operationLabelLink.ts` が `OPERATION_FORMAL` と右クリック専用固定文言を結びつける。
+
 ---
 
 ## ファイルとウィンドウ
@@ -33,7 +37,7 @@
 | 操作 | ツールバー | 右クリック | コマンドパレット | ショートカット (Mac / Win) | macOS メニュー | ☰ | 操作の案内 | MCP | CLI | 機能 ID |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 開く | | | 開く | ⌘O / Ctrl+O | 開く | 開く | スケジュールは、☰ の「開く」で読み込む | `file_action` (open) | `--screen file_action` | `FILE-01` |
-| 最近開いたファイルの1件を開く | | | `recentFileCommandPaletteLabel(\`最近開いたファイル ${prefix}${entry.label}\`)`（`src/model/recentFiles.ts`） | | サブメニュー内 `entry.label` | サブメニュー内 `entry.label` | | `file_action` (open) | `--screen file_action` | `FILE-09` |
+| 最近開いたファイルの1件を開く | | | `recentFileCommandPaletteLabel(\`${prefix}${entry.label}\`)`（`src/model/recentFiles.ts`） | | サブメニュー内 `entry.label` | サブメニュー内 `entry.label` | | `file_action` (open) | `--screen file_action` | `FILE-09` |
 | 履歴を消す | | | 履歴を消す | | 履歴を消す | 履歴を消す | | | | `FILE-09` |
 | 新しいウィンドウで開く | | | 新しいウィンドウで開く | ⌘⇧O / Ctrl+Shift+O | 新しいウィンドウで開く | 新しいウィンドウで開く | | `open_new_window` | `--screen open_new_window` | `WIN-04` |
 | 保存 | | | 保存 | ⌘S / Ctrl+S | 保存 | 保存 | | `file_action` (save) | `--screen file_action` | `FILE-02` |
@@ -43,12 +47,12 @@
 | JSON を表示 | | | JSON を表示 | | JSON を表示 | JSON を表示 | | | | `FILE-06` |
 | 差分を表示 | | | 差分を表示 | | 差分を表示 | 差分を表示 | 画面と開いているファイルの違いは、☰ の「差分を表示」、または状態バーの「未保存」 | | | `FILE-04` |
 | 差分をコピー | | | 差分をコピー | ⌘⇧D / Ctrl+Shift+D | 差分をコピー | 差分をコピー | | | | `FILE-05` |
-| 未保存の差分を開く（状態バー） | `未保存`（`saveStatus`。`StatusBar.tsx`） | | | | | | 同上 | | | `FILE-04` |
+| 未保存の差分を開く（状態バー） | `未保存`（`saveStatus`。`StatusBar.tsx`） | | | | | | 画面と開いているファイルの違いは、☰ の「差分を表示」、または状態バーの「未保存」 | | | `FILE-04` |
 | 外部ファイル更新の確認 | `ファイルに更新あり — 確認する` | | | | | | 状態バーの「ファイルに更新あり — 確認する」から確認を開く | | | `SYNC-01` |
 | 更新を確認 | | | 更新を確認 | | schedule-viewer を終了 の上（アプリメニュー） | 更新を確認 | 設定の「更新」（案内内の説明） | | | `SET-06` |
-| 設定を開く | | | 設定 | ⌘, / Ctrl+, | 設定（⌘,） | 設定（⌘, / Ctrl+,） | | `set_preferences` | `--screen set_preferences` | `SET-01` 他 |
+| 設定を開く | | | 設定 | ⌘, / Ctrl+, | 設定（⌘,） | 設定（⌘, / Ctrl+,） | | `set_preferences` | `--screen set_preferences` | `SET-01`、`SET-02`、`SET-03`、`SET-04`、`SET-05`、`SET-06`、`SET-07`、`SET-08`、`SET-09`、`SET-10` |
 | ウィンドウを閉じる | | | | ⌘W（macOS メニューのみ） | 閉じる | | | `close_window` | `--screen close_window --window <label>` | `FILE-07` |
-| ウィンドウを最小化 | | | | ⌘M（`PredefinedMenuItem` Minimize） | Minimize | | | `minimize_window` | `--screen minimize_window --window <label>` | |
+| ウィンドウを最小化 | | | | ⌘M（`PredefinedMenuItem` Minimize） | Minimize（`PredefinedMenuItem`） | | | `minimize_window` | `--screen minimize_window --window <label>` | |
 | アプリを終了 | | | | ⌘Q（`matchMacAppQuit`。メニューは schedule-viewer を終了） | schedule-viewer を終了 | | | | | `FILE-07` |
 | 前面ウィンドウを前面にする | | | | | | | | `focus_window` | `--screen focus_window --window <label>` | `MCP-01` |
 | 開いているウィンドウ一覧を読む | | | | | | | | `open_windows` | `--screen open_windows` | `MCP-01` |
@@ -64,9 +68,9 @@
 | ショートカット一覧を開く | `?`（title: ショートカット一覧（?、F1）） | | ショートカット一覧 | ? / F1 | ショートカット一覧 | ショートカット一覧 | キーの一覧は、? と F1、または「ショートカット一覧」 | | | `NAV-08` |
 | タスク名／ノートで検索 | `名前` / `ノート`（select）＋ placeholder `タスク名で検索` / `ノートで検索` | | 検索 | ⌘F / Ctrl+F | | | 上の「絞り込み」で、残す行を選ぶ（検索欄自体は案内に未記名） | `set_view`（filters） | `--screen set_view` | `FILTER-01` |
 | 今日へ移動 | 今日（title に T） | | 今日 | T | 今日（T） | | | `set_view` | `--screen set_view` | `NAV-01` |
-| 日表示 | `日`（tier-toggle。title に ⌘/Ctrl+1） | | 日表示 | ⌘1 / Ctrl+1 | 日表示（⌘1） | | | `set_view` | `--screen set_view` | `NAV-02` |
-| 週表示 | `週`（title に ⌘/Ctrl+2） | | 週表示 | ⌘2 / Ctrl+2 | 週表示（⌘2） | | | `set_view` | `--screen set_view` | `NAV-02` |
-| 月表示 | `月`（title に ⌘/Ctrl+3） | | 月表示 | ⌘3 / Ctrl+3 | 月表示（⌘3） | | | `set_view` | `--screen set_view` | `NAV-02` |
+| 日表示 | `日`（`TOOLBAR_SHORT.tierDay`。tier-toggle。title に ⌘/Ctrl+1） | | 日表示 | ⌘1 / Ctrl+1 | 日表示（⌘1） | | | `set_view` | `--screen set_view` | `NAV-02` |
+| 週表示 | `週`（`TOOLBAR_SHORT.tierWeek`。title に ⌘/Ctrl+2） | | 週表示 | ⌘2 / Ctrl+2 | 週表示（⌘2） | | | `set_view` | `--screen set_view` | `NAV-02` |
+| 月表示 | `月`（`TOOLBAR_SHORT.tierMonth`。title に ⌘/Ctrl+3） | | 月表示 | ⌘3 / Ctrl+3 | 月表示（⌘3） | | | `set_view` | `--screen set_view` | `NAV-02` |
 | 全体表示 | 全体（title に ⌘/Ctrl+4） | | 全体 | ⌘4 / Ctrl+4 | 全体（⌘4） | | | `set_view` | `--screen set_view` | `NAV-03` |
 | 表示サイズを拡大 | | | 表示サイズを拡大 | ⌘+ / ⌘= / Ctrl+ / Ctrl= | | | | `set_view` | `--screen set_view` | `NAV-01` |
 | 表示サイズを縮小 | | | 表示サイズを縮小 | ⌘− / Ctrl− | | | | `set_view` | `--screen set_view` | `NAV-01` |
@@ -82,13 +86,13 @@
 
 | 操作 | ツールバー | 右クリック | コマンドパレット | ショートカット (Mac / Win) | macOS メニュー | ☰ | 操作の案内 | MCP | CLI | 機能 ID |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 絞り込みパネルを開く | `絞り込み`（title に ⌘⇧F / Ctrl+Shift+F） | | 絞り込み | ⌘⇧F / Ctrl+Shift+F | | | 上の「絞り込み」で、残す行を選ぶ | `set_view` | `--screen set_view` | `FILTER-01` 他 |
+| 絞り込みパネルを開く | `絞り込み`（title に ⌘⇧F / Ctrl+Shift+F） | | 絞り込み | ⌘⇧F / Ctrl+Shift+F | | | 上の「絞り込み」で、残す行を選ぶ | `set_view` | `--screen set_view` | `FILTER-01`、`FILTER-02`、`FILTER-03`、`FILTER-04`、`FILTER-05`、`FILTER-06`、`FILTER-07`、`FILTER-09`、`FILTER-10`、`FILTER-11`、`FILTER-12`、`FILTER-13` |
 | 絞り込みをすべて解除 | `すべて解除`（`ActiveFilterBar.tsx`） | | | | | | | `set_view` | `--screen set_view` | `FILTER-01` |
 | 系統を表示／解除 | `系統` または `系統: ${lineageName}`（title に ⌘⇧L / Ctrl+Shift+L） | | `系統を表示` / `系統を解除` | ⌘⇧L / Ctrl+Shift+L | | | タスクを選んで「系統」を押すと… | `set_view` | `--screen set_view` | `FILTER-08` |
 | 系統（繋がりも辿る） | `繋がりも辿る`（系統 split メニュー） | | | | | | | `set_view` | `--screen set_view` | `FILTER-08` |
 | 線を引くモード | `線を引く` または `線を引く: ${linkSourceName}` | | 線を引く | ⌘L / Ctrl+L | | | | | | `EDIT-05` |
-| マイルストン帯の印を非表示 | | 非表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
-| このマイルストンだけ表示 | | このマイルストンだけ表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
+| マイルストン帯の印を非表示 | | 非表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-13` |
+| このマイルストンだけ表示 | | このマイルストンだけ表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-13` |
 | マイルストン帯の行を非表示 | | 非表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
 | この行だけ表示（帯グループ） | | この行だけ表示 | | | | | | `set_view` | `--screen set_view` | `FILTER-06` |
 | 絞り込み結果のタスク一覧を読む | | | | | | | | `filtered_tasks` | `--screen filtered_tasks --window <label>` | `MCP-01` |
@@ -101,7 +105,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 取り消し | 取り消し | | 取り消し | ⌘Z / Ctrl+Z | 取り消し | | | `history` (undo) | `--screen history` | `EDIT-10` |
 | やり直し | やり直し | | やり直し | ⌘⇧Z / Ctrl+Shift+Z / Ctrl+Y | やり直し | | | `history` (redo) | `--screen history` | `EDIT-10` |
-| タスクを追加 | `追加`（split 主ボタン）／メニュー `タスクを追加` | | タスクを追加 | ⌘+Enter / Insert / Ctrl+Enter | | | | `edit_plan` | `--screen edit_plan` | `EDIT-08` |
+| タスクを追加 | `追加`（`TOOLBAR_SHORT.addTask`。split 主ボタン）／メニュー `タスクを追加` | | タスクを追加 | ⌘+Enter / Insert / Ctrl+Enter | | | | `edit_plan` | `--screen edit_plan` | `EDIT-08` |
 | マイルストンを追加 | 追加メニュー `マイルストンを追加` | マイルストンを追加 | マイルストンを追加 | ⌘⇧Enter / Ctrl+Shift+Enter | | | | `edit_plan` | `--screen edit_plan` | `EDIT-07` |
 | タスクを編集（詳細） | | 編集 | 編集 | Enter | | | | `edit_plan` | `--screen edit_plan` | `EDIT-04` |
 | タスクを削除 | 削除 | 削除 | 削除 | Delete / Backspace | | | | `edit_plan` | `--screen edit_plan` | `EDIT-09` |
@@ -150,6 +154,24 @@
 | 画面の見方を LLM から変更 | | | | | | | | `set_view` | `--screen set_view` | `MCP-01`、`VIEW-16` |
 | 計画を部分更新 | | | | | | | | `edit_plan` | `--screen edit_plan` | `MCP-01` |
 
+### `set_view` の見方だけの追加入力（#475）
+
+人がツールバー・絞り込みパネル・右クリックで変えられる見方のうち、次は `set_view` の JSON でも渡せる。逆方向の対称は [operation-entries.md](operation-entries.md) 冒頭のとおり求めない。
+
+| 人の操作 | `set_view` の JSON（要約） |
+| --- | --- |
+| 系統・繋がりも辿る（`FILTER-08`） | `lineage`: `{ "taskId", "includesConnections" }`。解除は `{ "taskId": null }`（`lineage: null` は不可） |
+| 帯の印の非表示（`FILTER-13` の印） | `hiddenMilestoneIds`: 非表示にする印 id の配列（丸ごと置き換え） |
+
+### `file_action` 書き出し（Excel）の列（#475）
+
+| 人の操作 | `file_action` の JSON（`action`: `export`, `format`: `xlsx`） |
+| --- | --- |
+| 書き出しダイアログの列チェック | `excelColumns`: 固定列 id → 真偽。省略時は保存済み設定 |
+| 追加項目の列チェック | `excelFieldColumns`: 項目 key → 真偽。省略時は保存済み設定 |
+
+`html` / `svg` では `excelColumns` と `excelFieldColumns` を受け付けない。
+
 ---
 
 ## 編集中・モード内のキー（入口のショートカットではない）
@@ -174,9 +196,9 @@
 | 操作 | ツールバー | 右クリック | コマンドパレット | ショートカット (Mac / Win) | macOS メニュー | ☰ | 操作の案内 | MCP | CLI | 機能 ID |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 文字の切り取り | | | | | Cut（`PredefinedMenuItem`） | | | | | |
-| 文字のコピー | | | | | Copy | | | | | |
-| 文字の貼り付け | | | | | Paste | | | | | |
-| すべて選択 | | | | | SelectAll | | | | | |
+| 文字のコピー | | | | | Copy（`PredefinedMenuItem`） | | | | | |
+| 文字の貼り付け | | | | | Paste（`PredefinedMenuItem`） | | | | | |
+| すべて選択 | | | | | SelectAll（`PredefinedMenuItem`） | | | | | |
 
 ---
 

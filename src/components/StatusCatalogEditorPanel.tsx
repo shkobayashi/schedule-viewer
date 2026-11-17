@@ -10,6 +10,18 @@ import {
 } from "react";
 import { exportStatusesJson } from "../model/statusAppData";
 import {
+  catalogExportErrorMessage,
+  catalogExportResultMessage,
+  catalogSaveErrorMessage,
+  catalogSavedMessage,
+  statusCatalogEditorCopy,
+} from "../model/catalogEditorCopy";
+import {
+  canEditCatalogItems,
+  catalogExportSuggestedName,
+} from "../model/catalogEditorUi";
+import { CatalogEditorPanelFooter } from "./CatalogEditorPanelFooter";
+import {
   STATUS_ROLE_HINTS,
   STATUS_ROLE_LABELS,
   type StatusItem,
@@ -68,10 +80,8 @@ const COLOR_FIELDS = [
   { scheme: "dark", key: "border", label: "ダーク 枠" },
 ] as const;
 
-const DESCRIPTION_HINT =
-  "この id を選ぶ状態だけを書く。隣の項目と同じ依頼で迷いそうなときだけ、分かれ目を一文足す。扱いと色は書かない。";
-const INSTRUCTION_HINT =
-  "空でよい。選んだあとに守ることだけを書く。進捗を揃える、移す前に確認する、など。状態は書かない。";
+const DESCRIPTION_HINT = statusCatalogEditorCopy.descriptionHint;
+const INSTRUCTION_HINT = statusCatalogEditorCopy.instructionHint ?? "";
 
 type StatusCatalogEditorItemRowProps = {
   item: StatusItem;
@@ -365,10 +375,7 @@ export const StatusCatalogEditorPanel = forwardRef<
   const savedIds = useMemo(() => new Set(items.map((item) => item.id)), [items]);
   const dirty = !sameStatusItems(draft, items);
   const error = statusDraftError(draft);
-  const canEditItems =
-    mode === "workspace"
-      ? editingCatalogId === "__workspace__"
-      : editingCatalogId != null;
+  const canEditItems = canEditCatalogItems(mode, editingCatalogId);
 
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
@@ -541,9 +548,9 @@ export const StatusCatalogEditorPanel = forwardRef<
       }
       if (!editingCatalogId || editingCatalogId === "__workspace__") return;
       await onSaveApp(editingCatalogId, statusesToJson(draft));
-      onMessage(`「${editingCatalogId}」を保存しました。`);
+      onMessage(catalogSavedMessage(editingCatalogId));
     } catch (e) {
-      onMessage(e instanceof Error ? e.message : "保存に失敗しました。");
+      onMessage(catalogSaveErrorMessage(e));
     }
   };
 
@@ -552,13 +559,11 @@ export const StatusCatalogEditorPanel = forwardRef<
     try {
       const path = await exportStatusesJson(
         statusesToJson(draft),
-        editingCatalogId === "__workspace__" || editingCatalogId == null
-          ? "statuses"
-          : editingCatalogId,
+        catalogExportSuggestedName(editingCatalogId, "statuses"),
       );
-      onMessage(path ? `${path} に書き出しました。` : null);
+      onMessage(catalogExportResultMessage(path));
     } catch (e) {
-      onMessage(e instanceof Error ? e.message : "書き出しに失敗しました。");
+      onMessage(catalogExportErrorMessage(e));
     }
   };
 
@@ -699,42 +704,17 @@ export const StatusCatalogEditorPanel = forwardRef<
           ) : null}
         </div>
       </div>
-      <footer className="status-catalog-editor-footer">
-        <div className="settings-actions">
-          <button
-            type="button"
-            className="toolbar-btn"
-            disabled={!canEditItems || busy}
-            onClick={addItem}
-          >
-            項目を足す
-          </button>
-          <button
-            type="button"
-            className="toolbar-btn toolbar-btn-primary"
-            disabled={!canEditItems || busy || !dirty || error != null}
-            onClick={() => void save()}
-          >
-            保存
-          </button>
-          <button
-            type="button"
-            className="toolbar-btn"
-            disabled={!dirty || busy}
-            onClick={resetDraft}
-          >
-            編集を戻す
-          </button>
-          <button
-            type="button"
-            className="toolbar-btn"
-            disabled={busy || error != null || !canEditItems}
-            onClick={() => void exportJson()}
-          >
-            JSON を書き出す
-          </button>
-        </div>
-      </footer>
+      <CatalogEditorPanelFooter
+        addLabel={statusCatalogEditorCopy.addItemButton}
+        canEditItems={canEditItems}
+        busy={busy}
+        dirty={dirty}
+        draftError={error}
+        onAdd={addItem}
+        onSave={() => void save()}
+        onResetDraft={resetDraft}
+        onExportJson={() => void exportJson()}
+      />
     </>
   );
 });

@@ -1,11 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_EXCEL_EXPORT_COLUMNS,
+  EXCEL_EXPORT_COLUMNS_LS_KEY,
+  EXCEL_EXPORT_FIELD_COLUMNS_LS_KEY,
   excelDuplicateFieldNames,
   excelFieldHeaderLabel,
   excelLeftHeaders,
   excelNoteColumnIndex,
   readExcelExportFieldColumns,
+  resolveFileActionExportColumns,
+  writeExcelExportColumns,
 } from "./excelExportColumns";
 
 function layout(
@@ -87,5 +91,141 @@ describe("excelExportColumns", () => {
     expect(excelDuplicateFieldNames(defs, bothOn)).toEqual(new Set(["メモ"]));
     expect(excelDuplicateFieldNames(defs, { a: true, b: false })).toEqual(new Set());
     expect(excelFieldHeaderLabel(defs[0]!, excelDuplicateFieldNames(defs, { a: true, b: false }))).toBe("メモ");
+  });
+});
+
+describe("resolveFileActionExportColumns", () => {
+  const fieldDefs = [{ key: "score", name: "点数", type: "number" as const }];
+  const savedFixed = {
+    ...DEFAULT_EXCEL_EXPORT_COLUMNS,
+    assignee: true,
+    note: false,
+  };
+  const savedField = { score: true };
+
+  it("rejects excelColumns on html export", () => {
+    expect(
+      resolveFileActionExportColumns({
+        format: "html",
+        excelColumns: { assignee: true },
+        excelFieldColumns: undefined,
+        fieldDefs,
+        savedExcelColumns: savedFixed,
+        savedExcelFieldColumns: savedField,
+      }),
+    ).toEqual({
+      ok: false,
+      message:
+        "html または svg の書き出しでは excelColumns と excelFieldColumns は使えません。",
+    });
+  });
+
+  it("rejects string array excelColumns as invalid shape", () => {
+    expect(
+      resolveFileActionExportColumns({
+        format: "xlsx",
+        excelColumns: ["assignee", "start"],
+        excelFieldColumns: undefined,
+        fieldDefs,
+        savedExcelColumns: savedFixed,
+        savedExcelFieldColumns: savedField,
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("merges sparse excelColumns patch onto saved preferences for one export", () => {
+    const resolved = resolveFileActionExportColumns({
+      format: "xlsx",
+      excelColumns: { progress: true },
+      excelFieldColumns: undefined,
+      fieldDefs,
+      savedExcelColumns: savedFixed,
+      savedExcelFieldColumns: savedField,
+    });
+    expect(resolved).toEqual({
+      ok: true,
+      excelColumns: {
+        ...savedFixed,
+        progress: true,
+      },
+      excelFieldColumns: savedField,
+    });
+  });
+
+  it("rejects unknown excelFieldColumns key before export", () => {
+    expect(
+      resolveFileActionExportColumns({
+        format: "xlsx",
+        excelColumns: undefined,
+        excelFieldColumns: { unknown: true },
+        fieldDefs,
+        savedExcelColumns: savedFixed,
+        savedExcelFieldColumns: savedField,
+      }),
+    ).toEqual({
+      ok: false,
+      message: "excelFieldColumns に未知の追加項目があります: unknown",
+    });
+  });
+
+  it("uses saved preferences when column options are omitted", () => {
+    expect(
+      resolveFileActionExportColumns({
+        format: "xlsx",
+        excelColumns: undefined,
+        excelFieldColumns: undefined,
+        fieldDefs,
+        savedExcelColumns: savedFixed,
+        savedExcelFieldColumns: savedField,
+      }),
+    ).toEqual({
+      ok: true,
+      excelColumns: savedFixed,
+      excelFieldColumns: savedField,
+    });
+  });
+});
+
+describe("resolveFileActionExportColumns with localStorage", () => {
+  const memory = new Map<string, string>();
+
+  beforeEach(() => {
+    memory.clear();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        memory.set(key, value);
+      },
+      removeItem: (key: string) => {
+        memory.delete(key);
+      },
+    });
+    writeExcelExportColumns({
+      ...DEFAULT_EXCEL_EXPORT_COLUMNS,
+      todos: true,
+    });
+  });
+
+  afterEach(() => {
+    memory.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it("resolveFileActionExportColumns does not write export overrides to localStorage", () => {
+    const beforeFixed = memory.get(EXCEL_EXPORT_COLUMNS_LS_KEY);
+    const beforeField = memory.get(EXCEL_EXPORT_FIELD_COLUMNS_LS_KEY);
+    resolveFileActionExportColumns({
+      format: "xlsx",
+      excelColumns: { note: false, todos: false },
+      excelFieldColumns: undefined,
+      fieldDefs: [],
+      savedExcelColumns: {
+        ...DEFAULT_EXCEL_EXPORT_COLUMNS,
+        todos: true,
+      },
+      savedExcelFieldColumns: {},
+    });
+    expect(memory.get(EXCEL_EXPORT_COLUMNS_LS_KEY)).toBe(beforeFixed);
+    expect(memory.get(EXCEL_EXPORT_FIELD_COLUMNS_LS_KEY)).toBe(beforeField);
   });
 });

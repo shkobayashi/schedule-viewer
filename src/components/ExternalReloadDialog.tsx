@@ -304,6 +304,7 @@ export function ExternalReloadDialog({
       title="ファイルが更新されています"
       onClose={onKeepLocal}
       className="modal external-reload-dialog"
+      overlayClassName="ui-dialog-overlay--external-reload"
       initialFocusRef={initialFocusRef}
     >
       {diskUpdatedAgain ? (

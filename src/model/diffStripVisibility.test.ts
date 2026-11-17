@@ -95,15 +95,21 @@ describe("shouldDeferBodyUpdate", () => {
     showClose: true,
   };
 
-  it("defers only body to body while focused", () => {
+  it("defers auto body to body while focused", () => {
     expect(
-      shouldDeferBodyUpdate(bodyView, { ...bodyView, text: "b" }, true),
+      shouldDeferBodyUpdate(bodyView, { ...bodyView, text: "b" }, true, "auto"),
     ).toBe(true);
     expect(
-      shouldDeferBodyUpdate(emptyView, bodyView, true),
+      shouldDeferBodyUpdate(emptyView, bodyView, true, "auto"),
     ).toBe(false);
     expect(
-      shouldDeferBodyUpdate(bodyView, { ...bodyView, text: "b" }, false),
+      shouldDeferBodyUpdate(bodyView, { ...bodyView, text: "b" }, false, "auto"),
+    ).toBe(false);
+  });
+
+  it("does not defer explicit body update while focused", () => {
+    expect(
+      shouldDeferBodyUpdate(bodyView, { ...bodyView, text: "b" }, true, "explicit"),
     ).toBe(false);
   });
 });
