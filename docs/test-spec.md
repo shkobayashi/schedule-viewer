@@ -1120,6 +1120,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `useMcpActionExecutor.setView.test.ts` | `applySetView clears explanation for lineage but not for hiddenMilestoneIds` | MCP-01, VIEW-16, FILTER-08 |
 | 同上 | `applySetView rejects unknown lineage task without touching filters` | MCP-01, FILTER-08 |
 | 同上 | `executeMcpActionTool_set_view passes parsed lineage with connections` | MCP-01, FILTER-08 |
+| `useMcpScreenBridge.dom.test.tsx` | `listen の解決前に unmount すると、解決したときに受け口を外し、準備完了を知らせない`、`マウント中に listen が解決すると、準備完了を 1 回だけ知らせ、unmount で受け口を外す` | MCP-01 |
+| `tauriCommandPermissions.test.ts` | `フロントが invoke する命令は、すべて src-tauri/permissions の commands.allow にある` | MCP-01 |
 | `screenContext.test.ts` | `adds includesConnections to activeConditions only when connection lineage is on` | MCP-01, FILTER-08 |
 | `mcpSetView.dom.test.tsx` | `set_view lineage through executor shows lineage chip and clears explanation` | MCP-01, FILTER-08, VIEW-16 |
 | 同上 | `set_view lineage with includesConnections shows connection chip label` | MCP-01, FILTER-08 |
@@ -1682,6 +1684,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `should_remove_label_after_destroy_when_another_window_remains` | 終了中以外で別ウィンドウが残る破棄では一覧から外す | SYNC-03, WIN-01 |
 | `resolve_mcp_label_prefers_recorded_then_os_then_focus_order` | MCP の送り先は記録の前面、OS の前面、直近の前面順の順で決める | MCP-01, WIN-01 |
 | `reply_from_other_window_keeps_pending` | 送り先と違うウィンドウの応答は pending を外さない | MCP-01, WIN-01 |
+| `listener_ready_*` と `forgotten_listener_is_not_ready`（`mcp_bridge.rs`） | 受け口の準備待ちは、登録済みなら即座に返り、別ラベルの登録では起きずに期限で false、別スレッドの登録で起き、Destroyed で外したラベルは準備なしに戻る | MCP-01, WIN-01 |
+| `startup_focus_hold_*` と `no_startup_focus_hold_never_blocks`（`window_session.rs`） | 起動時の前面の保留は、保留の対象以外のラベルだけを 30 秒未満のあいだ止める。対象が `main` 以外でも同じ。保留が無ければ止めない | MCP-01, WIN-01 |
 | `dedupe_keeps_focused_path` | 同じパスが複数あるとき、前面のウィンドウの未保存を残す | SYNC-03, WIN-01 |
 | `pending_open_roundtrips_workspace_path`（`window_session.rs`） | 新しいウィンドウ用の pending が設定ファイルのパスを往復する | WIN-01, FILE-10 |
 | `workspace_path_for_schedule_record_*` と `upsert_schedule_record_preserves_workspace_path_in_file`（`window_session.rs`） | 同じスケジュールパスの記録し直しで `workspacePath` を残し、直接開きと別パスでは外す | FILE-10, SYNC-03 |

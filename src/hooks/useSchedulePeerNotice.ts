@@ -46,6 +46,7 @@ export function useSchedulePeerNotice({
 
   useEffect(() => {
     if (!isTauri()) return;
+    let disposed = false;
     let unlisten: (() => void) | undefined;
     void getCurrentWindow()
       .onFocusChanged(({ payload: focused }) => {
@@ -57,15 +58,18 @@ export function useSchedulePeerNotice({
           .catch(() => undefined);
       })
       .then((fn) => {
-        unlisten = fn;
+        if (disposed) fn();
+        else unlisten = fn;
       });
     return () => {
+      disposed = true;
       unlisten?.();
     };
   }, []);
 
   useEffect(() => {
     if (!isTauri()) return;
+    let disposed = false;
     let unlisten: (() => void) | undefined;
     void listen<SchedulePeerNotice>("schedule-peer-notice", (event) => {
       const payload = event.payload;
@@ -87,9 +91,11 @@ export function useSchedulePeerNotice({
         targetLabel: payload.targetLabel,
       });
     }).then((fn) => {
-      unlisten = fn;
+      if (disposed) fn();
+      else unlisten = fn;
     });
     return () => {
+      disposed = true;
       unlisten?.();
     };
   }, []);

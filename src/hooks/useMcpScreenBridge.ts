@@ -110,12 +110,28 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       return snap.explainOverlayLiveAnchorsRef.current;
     }
 
+    function traceMcpHarnessGui(phase: string, detail: string) {
+      const label = getCurrentWindow().label;
+      void invoke("mcp_harness_gui_trace", { label, phase, detail }).catch(
+        () => {},
+      );
+    }
+
     async function reply(
       id: string,
       generation: number,
       body: McpToolResultBody,
       invalidateInProgress = false,
     ) {
+      const isError =
+        typeof body === "object" &&
+        body !== null &&
+        "isError" in body &&
+        (body as { isError?: boolean }).isError === true;
+      traceMcpHarnessGui(
+        "reply",
+        `id=${id} generation=${generation} invalidate=${invalidateInProgress} isError=${isError}`,
+      );
       await invoke("mcp_reply", {
         id,
         generation,
@@ -331,6 +347,10 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
 
     async function handleRequest(payload: McpScreenRequest) {
       const snap = inputRef.current;
+      traceMcpHarnessGui(
+        "receive",
+        `id=${payload.id} generation=${payload.generation} tool=${payload.tool} startupSettled=${snap.startupSettled} startupRecoveryDialogOpen=${snap.startupRecoveryDialogOpen}`,
+      );
       if (payload.tool === MCP_TOOL_REPLACE_SCHEDULE) {
         await handleReplaceSchedule(payload, snap);
         return;
@@ -458,11 +478,15 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       await reply(payload.id, payload.generation, body);
     }
 
+    // listen の解決前にクリーンアップが走っても（StrictMode の再マウントなど）受け口を残さない。
+    // 残ると 1 つの要求を 2 回処理する。
+    let disposed = false;
     let unlistenInvalidated: (() => void) | undefined;
     void listen<number>("mcp-in-progress-invalidated", (event) => {
       setMcpInProgressGeneration(event.payload);
     }).then((off) => {
-      unlistenInvalidated = off;
+      if (disposed) off();
+      else unlistenInvalidated = off;
     });
 
     let unlisten: (() => void) | undefined;
@@ -473,9 +497,16 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       },
       { target: getCurrentWindow().label },
     ).then((off) => {
+      if (disposed) {
+        off();
+        return;
+      }
       unlisten = off;
+      // 受け口ができたことを待ち受けへ知らせる。待ち受けはこれを待ってから要求を送る。
+      void invoke("mcp_screen_listener_ready").catch(() => {});
     });
     return () => {
+      disposed = true;
       unlisten?.();
       unlistenInvalidated?.();
     };

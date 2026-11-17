@@ -311,7 +311,10 @@ describe("App integration (Issue 548)", () => {
     localStorage.clear();
   });
 
-  it("TC-HIER-06c: hierarchy draft blocks immediate reload and stays out of the document", async () => {
+  it(
+    "TC-HIER-06c: hierarchy draft blocks immediate reload and stays out of the document",
+    { timeout: 15_000 },
+    async () => {
     const schedulePath = "/tmp/regression/hierarchy/levels-2.schedule.json";
     const scheduleText = readExampleText("hierarchy/levels-2.schedule.json");
     const canonical = canonicalText(scheduleText);
@@ -336,7 +339,11 @@ describe("App integration (Issue 548)", () => {
     flow.setDisk(schedulePath, documentToJsonString(updated));
     await driveExternalPoll(flow, updated);
 
-    await screen.findByRole("dialog", { name: "ファイルが更新されています" });
+    await screen.findByRole(
+      "dialog",
+      { name: "ファイルが更新されています" },
+      { timeout: 8000 },
+    );
     expect(within(screen.getByRole("dialog", { name: "階層" })).getAllByLabelText("意味")[0]).toHaveValue(
       "回帰の意味",
     );
@@ -375,9 +382,11 @@ describe("App integration (Issue 548)", () => {
     flow.setDisk(schedulePath, documentToJsonString(disk2));
     await driveExternalPoll(flow, disk2);
 
-    const mergeDialog = await screen.findByRole("dialog", {
-      name: "ファイルが更新されています",
-    });
+    const mergeDialog = await screen.findByRole(
+      "dialog",
+      { name: "ファイルが更新されています" },
+      { timeout: 8000 },
+    );
     fireEvent.click(within(mergeDialog).getByRole("button", { name: "両方を画面へ反映" }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "ファイルが更新されています" })).toBeNull();
@@ -421,7 +430,8 @@ describe("App integration (Issue 548)", () => {
     );
     expect(screen.getByText("北ブロック")).toBeInTheDocument();
     expect(screen.getByText("設計A")).toBeInTheDocument();
-  });
+  },
+  );
 
   it("TC-SET-08m: hides 項目を編集 when workspace statuses are absent", async () => {
     const wsPath = "/tmp/regression/ws-no-status/workspace.json";

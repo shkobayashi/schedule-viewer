@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
@@ -32,8 +32,11 @@ use crate::window_session::{
 mod mcp_bridge_windows;
 
 pub(crate) const BRIDGE_VERSION: u32 = 1;
+/// Windows の名前付きパイプが使用中のとき、クライアントが接続を試し直す上限。
+#[cfg(windows)]
 pub(crate) const MCP_PIPE_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
-const RESPONSE_TIMEOUT: Duration = MCP_PIPE_CONNECT_TIMEOUT;
+/// 送り先 webview の受け口の準備と、`mcp_reply` の応答を、それぞれ待つ上限。
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
 
 const MSG_NO_GUI: &str = "スケジュールのウィンドウが開いていないので、渡せません。";
 const MSG_NO_WINDOW: &str = "前面のウィンドウが開いていないので、渡せません。";
@@ -93,6 +96,9 @@ pub struct McpBridgeState {
     app_data: PathBuf,
     generations: Mutex<HashMap<String, u64>>,
     pending: Mutex<HashMap<String, PendingReply>>,
+    /// `mcp-screen-request` の listen を登録し終えた webview のラベル。
+    listener_ready: Mutex<HashSet<String>>,
+    listener_ready_changed: Condvar,
 }
 
 impl McpBridgeState {
@@ -101,6 +107,39 @@ impl McpBridgeState {
             app_data,
             generations: Mutex::new(HashMap::new()),
             pending: Mutex::new(HashMap::new()),
+            listener_ready: Mutex::new(HashSet::new()),
+            listener_ready_changed: Condvar::new(),
+        }
+    }
+
+    pub fn mark_listener_ready(&self, label: &str) {
+        let mut ready = self.listener_ready.lock().expect("mcp listener ready");
+        ready.insert(label.to_string());
+        self.listener_ready_changed.notify_all();
+    }
+
+    pub fn forget_listener(&self, label: &str) {
+        let mut ready = self.listener_ready.lock().expect("mcp listener ready");
+        ready.remove(label);
+    }
+
+    /// 受け口の登録を `timeout` まで待つ。登録済みなら即座に true。
+    pub fn wait_listener_ready(&self, label: &str, timeout: Duration) -> bool {
+        let deadline = Instant::now() + timeout;
+        let mut ready = self.listener_ready.lock().expect("mcp listener ready");
+        loop {
+            if ready.contains(label) {
+                return true;
+            }
+            let now = Instant::now();
+            if now >= deadline {
+                return false;
+            }
+            ready = self
+                .listener_ready_changed
+                .wait_timeout(ready, deadline - now)
+                .expect("mcp listener ready wait")
+                .0;
         }
     }
 
@@ -374,6 +413,65 @@ fn log_open_new_window_bridge(
     );
 }
 
+fn emit_mcp_screen_request(app: &AppHandle, label: &str, payload: Value) -> bool {
+    #[cfg(unix)]
+    {
+        use std::sync::mpsc;
+        let app_for_emit = app.clone();
+        let label = label.to_string();
+        let label_for_log = label.clone();
+        let (tx, rx) = mpsc::channel();
+        let send_ok = app
+            .run_on_main_thread(move || {
+                let webview_present = app_for_emit.get_webview_window(&label).is_some();
+                let ok = app_for_emit.get_webview_window(&label).is_some_and(|window| {
+                    window
+                        .emit_to(
+                            EventTarget::webview_window(label),
+                            "mcp-screen-request",
+                            payload,
+                        )
+                        .is_ok()
+                });
+                let _ = tx.send((webview_present, ok));
+            })
+            .is_ok();
+        if !send_ok {
+            eprintln!(
+                "[mcp-harness] h605_bridge_emit: label={label_for_log} run_on_main_thread=false"
+            );
+            return false;
+        }
+        let (webview_present, emit_ok) = rx.recv().unwrap_or((false, false));
+        eprintln!(
+            "[mcp-harness] h605_bridge_emit: label={label_for_log} webview_present={webview_present} emit_ok={emit_ok}"
+        );
+        emit_ok
+    }
+    #[cfg(windows)]
+    {
+        let webview_present = app.get_webview_window(label).is_some();
+        let emit_ok = app.get_webview_window(label).is_some_and(|window| {
+            window
+                .emit_to(
+                    EventTarget::webview_window(label.to_string()),
+                    "mcp-screen-request",
+                    payload,
+                )
+                .is_ok()
+        });
+        eprintln!(
+            "[mcp-harness] h605_bridge_emit: label={label} webview_present={webview_present} emit_ok={emit_ok}"
+        );
+        emit_ok
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (app, label, payload);
+        false
+    }
+}
+
 fn emit_and_wait_for_screen_tool(
     window: &WebviewWindow,
     label: &str,
@@ -410,14 +508,27 @@ fn emit_and_wait_for_screen_tool(
         "tool": request.tool,
         "arguments": webview_arguments,
     });
-    if window
-        .emit_to(
-            EventTarget::webview_window(label.to_string()),
-            "mcp-screen-request",
-            payload,
-        )
-        .is_err()
-    {
+    let request_id = request.id.clone();
+    let request_tool = request.tool.clone();
+    eprintln!(
+        "[mcp-harness] h605_bridge_wait_begin: id={request_id} tool={request_tool} label={label} generation={generation} sequence={sequence} timeout_s={}",
+        RESPONSE_TIMEOUT.as_secs()
+    );
+    let listener_wait_started = Instant::now();
+    let listener_ready = state.wait_listener_ready(label, RESPONSE_TIMEOUT);
+    eprintln!(
+        "[mcp-harness] h605_bridge_listener_wait: id={request_id} label={label} ready={listener_ready} elapsed_ms={}",
+        listener_wait_started.elapsed().as_millis()
+    );
+    if !listener_ready {
+        state.pending.lock().expect("mcp pending").remove(&request.id);
+        eprintln!(
+            "[mcp-harness] h605_bridge_wait_timeout: id={request_id} tool={request_tool} label={label} generation={generation} sequence={sequence} reason=listener_not_ready"
+        );
+        return EmitWaitOutcome::TimedOut;
+    }
+    let app = window.app_handle();
+    if !emit_mcp_screen_request(app, label, payload) {
         log_open_new_window_bridge(
             &state.app_data,
             request,
@@ -454,6 +565,9 @@ fn emit_and_wait_for_screen_tool(
     }
     let stored = result_slot.lock().expect("mcp result").clone();
     if let Some(response) = stored {
+        eprintln!(
+            "[mcp-harness] h605_bridge_wait_ok: id={request_id} tool={request_tool} label={label} generation={generation}"
+        );
         return EmitWaitOutcome::Ok(response);
     }
     log_open_new_window_bridge(
@@ -465,6 +579,9 @@ fn emit_and_wait_for_screen_tool(
         Some(sequence),
     );
     state.pending.lock().expect("mcp pending").remove(&request.id);
+    eprintln!(
+        "[mcp-harness] h605_bridge_wait_timeout: id={request_id} tool={request_tool} label={label} generation={generation} sequence={sequence}"
+    );
     EmitWaitOutcome::TimedOut
 }
 
@@ -523,6 +640,19 @@ fn dispatch_tool_request(
     .unwrap_or_else(|| recorded_focused.clone());
 
     if request.tool == OPEN_WINDOWS_TOOL_NAME {
+        let creation_order: Vec<String> = read_open_windows(&state.app_data)
+            .map(|file| {
+                file.windows
+                    .iter()
+                    .map(|entry| entry.label.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        eprintln!(
+            "[mcp-harness] h6_open_windows_front: stored_focused={recorded_focused} \
+             os_focused={} creation_order={creation_order:?} chosen_front={front_label}",
+            os_focused.as_deref().unwrap_or("(none)")
+        );
         let list = build_mcp_open_windows_list(
             &read_open_windows(&state.app_data).unwrap_or_else(|_| {
                 crate::window_session::OpenWindowsFile {
@@ -686,6 +816,12 @@ fn dispatch_tool_request(
         }
         EmitWaitOutcome::TimedOut => {}
     }
+    eprintln!(
+        "[mcp-harness] h605_bridge_stale: id={} tool={} target_label={label} front_label={front_label} recorded_focused={recorded_focused} os_focused={} live_labels={live_labels:?} specified={specified}",
+        request.id,
+        request.tool,
+        os_focused.as_deref().unwrap_or("(none)")
+    );
     Ok(BridgeResponse {
         v: BRIDGE_VERSION,
         id: request.id,
@@ -713,6 +849,22 @@ fn take_pending_reply_for_window(
     }
 }
 
+/// webview が `mcp-screen-request` の listen を登録し終えたことを知らせる。
+#[tauri::command]
+pub fn mcp_screen_listener_ready(
+    window: WebviewWindow,
+    state: tauri::State<'_, Arc<McpBridgeState>>,
+) {
+    let label = window.label().to_string();
+    eprintln!("[mcp-harness] h605_listener_ready: label={label}");
+    state.mark_listener_ready(&label);
+}
+
+#[tauri::command]
+pub fn mcp_harness_gui_trace(label: String, phase: String, detail: String) {
+    eprintln!("[mcp-harness] h605_gui_{phase}: window={label} {detail}");
+}
+
 #[tauri::command]
 pub fn mcp_reply(
     id: String,
@@ -723,7 +875,11 @@ pub fn mcp_reply(
     state: tauri::State<'_, Arc<McpBridgeState>>,
 ) -> Result<(), String> {
     let label = window.label().to_string();
-    if state.generation_for(&label) != generation {
+    let live_generation = state.generation_for(&label);
+    if live_generation != generation {
+        eprintln!(
+            "[mcp-harness] h605_bridge_reply_drop: id={id} reply_label={label} reply_generation={generation} live_generation={live_generation} reason=generation_mismatch"
+        );
         return Ok(());
     }
     let entry = {
@@ -733,6 +889,10 @@ pub fn mcp_reply(
     let mut replied = false;
     if let Some(entry) = entry {
         if entry.generation != generation {
+            eprintln!(
+                "[mcp-harness] h605_bridge_reply_drop: id={id} reply_label={label} pending_generation={} reply_generation={generation} reason=pending_generation_mismatch",
+                entry.generation
+            );
             return Ok(());
         }
         let response = BridgeResponse {
@@ -750,6 +910,23 @@ pub fn mcp_reply(
         *done = true;
         cvar.notify_one();
         replied = true;
+    } else {
+        let pending_label = {
+            let pending = state.pending.lock().expect("mcp pending");
+            pending
+                .get(&id)
+                .map(|entry| entry.window_label.clone())
+        };
+        eprintln!(
+            "[mcp-harness] h605_bridge_reply_drop: id={id} reply_label={label} pending_label={} reason=no_pending_match",
+            pending_label.as_deref().unwrap_or("(none)")
+        );
+    }
+    if replied {
+        eprintln!(
+            "[mcp-harness] h605_bridge_reply_ok: id={id} reply_label={label} generation={generation} invalidate_in_progress={:?}",
+            invalidate_in_progress
+        );
     }
     if replied && invalidate_in_progress == Some(true) {
         state.bump_generation(&label);
@@ -859,6 +1036,50 @@ pub fn cleanup_mcp_socket(app_data: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn bridge_state() -> McpBridgeState {
+        McpBridgeState::new(PathBuf::from("unused-app-data"))
+    }
+
+    #[test]
+    fn listener_ready_returns_at_once_when_label_is_registered() {
+        let state = bridge_state();
+        state.mark_listener_ready("main");
+        let started = Instant::now();
+        assert!(state.wait_listener_ready("main", Duration::from_secs(5)));
+        assert!(started.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn listener_ready_for_other_label_does_not_count_and_times_out() {
+        let state = bridge_state();
+        state.mark_listener_ready("schedule-2");
+        let started = Instant::now();
+        assert!(!state.wait_listener_ready("main", Duration::from_millis(200)));
+        assert!(started.elapsed() >= Duration::from_millis(200));
+    }
+
+    #[test]
+    fn listener_ready_wakes_when_registered_from_another_thread() {
+        let state = Arc::new(bridge_state());
+        let writer = Arc::clone(&state);
+        let handle = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            writer.mark_listener_ready("main");
+        });
+        let started = Instant::now();
+        assert!(state.wait_listener_ready("main", Duration::from_secs(10)));
+        assert!(started.elapsed() < Duration::from_secs(5));
+        handle.join().expect("writer thread");
+    }
+
+    #[test]
+    fn forgotten_listener_is_not_ready() {
+        let state = bridge_state();
+        state.mark_listener_ready("main");
+        state.forget_listener("main");
+        assert!(!state.wait_listener_ready("main", Duration::from_millis(50)));
+    }
 
     fn pending(label: &str) -> PendingReply {
         PendingReply {

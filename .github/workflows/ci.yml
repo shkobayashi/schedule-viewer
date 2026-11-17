@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [develop, main, next]
+    branches: [develop, main, next, feature-436]
 
 permissions:
   contents: read
@@ -64,6 +64,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}

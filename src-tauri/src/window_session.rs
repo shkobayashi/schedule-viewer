@@ -103,6 +103,34 @@ pub struct WindowSessionState {
     pub external_drop_queue: ExternalDropQueue,
     /// 起動復旧の確認ダイアログを閉じ、外部ドロップを受け付けられるウィンドウ。
     pub external_drop_ready_labels: Vec<String>,
+    /// 起動復旧で窓を作ったあと、全窓の起動が落ち着くまで記録の前面を守る。
+    pub startup_focus_hold: Option<StartupFocusHold>,
+}
+
+/// 起動復旧で作った窓が、表示や WebView の初期化のときに OS のフォーカスを取っても、
+/// 記録の前面（`focusedLabel`）を書き換えないための保留。
+#[derive(Clone, Debug)]
+pub struct StartupFocusHold {
+    pub target: String,
+    pub started: std::time::Instant,
+}
+
+/// 保留が残ったままにならないための上限。過ぎたら OS のフォーカスをそのまま記録する。
+pub const STARTUP_FOCUS_HOLD_LIMIT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// OS のフォーカスで `label` を記録の前面に書くのを、起動時の保留が止めるとき true。
+pub fn startup_focus_hold_blocks(
+    hold: Option<&StartupFocusHold>,
+    label: &str,
+    now: std::time::Instant,
+) -> bool {
+    let Some(hold) = hold else {
+        return false;
+    };
+    if now.saturating_duration_since(hold.started) >= STARTUP_FOCUS_HOLD_LIMIT {
+        return false;
+    }
+    hold.target != label
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -470,10 +498,21 @@ pub fn remove_window_label(app_data: &Path, label: &str) -> Result<(), String> {
     write_open_windows(app_data, &file)
 }
 
-pub fn set_focused_label(app_data: &Path, label: &str) -> Result<(), String> {
+fn log_focused_label_write(label: &str, trigger: &str) {
+    let ts_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    eprintln!(
+        "[mcp-harness] h5_focused_label_write: label={label} trigger={trigger} ts_ms={ts_ms}"
+    );
+}
+
+pub fn set_focused_label(app_data: &Path, label: &str, trigger: &str) -> Result<(), String> {
     let mut file = read_open_windows(app_data)?;
     if file.windows.iter().any(|entry| entry.label == label) {
         file.focused_label = label.to_string();
+        log_focused_label_write(label, trigger);
         write_open_windows(app_data, &file)
     } else {
         Ok(())
@@ -642,7 +681,7 @@ pub fn create_schedule_webview_on_main_thread(
         let app = app.clone();
         app.clone()
             .run_on_main_thread(move || {
-                let result = create_schedule_webview(&app, &label, &title);
+                let result = create_schedule_webview(&app, &label, &title, true);
                 let _ = tx.send(result);
             })
             .map_err(|e| format!("ウィンドウを開けません: {}", e))?;
@@ -804,13 +843,20 @@ pub enum McpWindowOverrideError {
     NotOpen,
 }
 
-pub fn create_schedule_webview(app: &AppHandle, label: &str, title: &str) -> Result<(), String> {
+/// `focused` が false のとき、窓と WebView は作成時に OS のフォーカスを取らない（起動復旧用）。
+pub fn create_schedule_webview(
+    app: &AppHandle,
+    label: &str,
+    title: &str,
+    focused: bool,
+) -> Result<(), String> {
     if app.get_webview_window(label).is_some() {
         return Err("同じウィンドウが既に開いています。".to_string());
     }
     WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title(title)
         .inner_size(1100.0, 780.0)
+        .focused(focused)
         .build()
         .map_err(|e| format!("ウィンドウを開けません: {}", e))?;
     Ok(())
@@ -820,23 +866,50 @@ pub fn spawn_startup_windows(app: &AppHandle, app_data: &Path) -> Result<(), Str
     let file = dedupe_open_windows(read_open_windows(app_data)?);
     write_open_windows(app_data, &file)?;
     let close_default_main = should_close_default_main_window(&file);
-    for entry in &file.windows {
-        if entry.label == "main" {
-            continue;
+    let window_labels: Vec<String> = file.windows.iter().map(|e| e.label.clone()).collect();
+    let live_before: Vec<String> = app.webview_windows().keys().cloned().collect();
+    let focused_label = file.focused_label.clone();
+    eprintln!(
+        "[mcp-harness] h4_startup_restore: phase=before_spawn window_labels={window_labels:?} focused_label={focused_label} close_default_main={close_default_main} live_labels={live_before:?}"
+    );
+    let to_spawn: Vec<&OpenWindowEntry> = file
+        .windows
+        .iter()
+        .filter(|entry| entry.label != "main" && app.get_webview_window(&entry.label).is_none())
+        .collect();
+    // 作った窓は、イベントループが回り始めてから表示や WebView の初期化で OS のフォーカスを取る。
+    // ここで set_focus して記録しても後から上書きされるので、全窓の起動が落ち着くまで保留する。
+    if !to_spawn.is_empty() {
+        if let Some(session) = app.try_state::<std::sync::Mutex<WindowSessionState>>() {
+            session.lock().expect("window session").startup_focus_hold = Some(StartupFocusHold {
+                target: focused_label.clone(),
+                started: std::time::Instant::now(),
+            });
         }
-        if app.get_webview_window(&entry.label).is_some() {
-            continue;
-        }
-        create_schedule_webview(app, &entry.label, "schedule-viewer")?;
+    }
+    let mut spawned = Vec::new();
+    for entry in to_spawn {
+        let take_focus = entry.label == focused_label;
+        create_schedule_webview(app, &entry.label, "schedule-viewer", take_focus)?;
+        spawned.push(entry.label.clone());
     }
     if close_default_main {
         if let Some(main) = app.get_webview_window("main") {
             let _ = main.close();
         }
     }
-    if let Some(window) = app.get_webview_window(&file.focused_label) {
-        let _ = window.set_focus();
+    let focus_applied = if let Some(window) = app.get_webview_window(&file.focused_label) {
+        window.set_focus().is_ok()
+    } else {
+        false
+    };
+    if focus_applied {
+        let _ = set_focused_label(app_data, &file.focused_label, "startup_focus");
     }
+    let live_after: Vec<String> = app.webview_windows().keys().cloned().collect();
+    eprintln!(
+        "[mcp-harness] h4_startup_restore: phase=after_spawn spawned={spawned:?} focus_target={focused_label} focus_applied={focus_applied} live_labels={live_after:?}"
+    );
     Ok(())
 }
 
@@ -947,6 +1020,50 @@ pub fn store_pending_open(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn hold_for(target: &str, started: std::time::Instant) -> StartupFocusHold {
+        StartupFocusHold {
+            target: target.to_string(),
+            started,
+        }
+    }
+
+    #[test]
+    fn startup_focus_hold_blocks_only_other_labels_within_limit() {
+        let started = std::time::Instant::now();
+        let hold = hold_for("main", started);
+        let soon = started + std::time::Duration::from_secs(1);
+        assert!(startup_focus_hold_blocks(Some(&hold), "schedule-2", soon));
+        assert!(!startup_focus_hold_blocks(Some(&hold), "main", soon));
+    }
+
+    #[test]
+    fn startup_focus_hold_follows_target_not_main() {
+        let started = std::time::Instant::now();
+        let hold = hold_for("schedule-2", started);
+        let soon = started + std::time::Duration::from_secs(1);
+        assert!(startup_focus_hold_blocks(Some(&hold), "main", soon));
+        assert!(!startup_focus_hold_blocks(Some(&hold), "schedule-2", soon));
+    }
+
+    #[test]
+    fn startup_focus_hold_expires_at_limit() {
+        let started = std::time::Instant::now();
+        let hold = hold_for("main", started);
+        let just_before = started + STARTUP_FOCUS_HOLD_LIMIT - std::time::Duration::from_millis(1);
+        assert!(startup_focus_hold_blocks(Some(&hold), "schedule-2", just_before));
+        let at_limit = started + STARTUP_FOCUS_HOLD_LIMIT;
+        assert!(!startup_focus_hold_blocks(Some(&hold), "schedule-2", at_limit));
+    }
+
+    #[test]
+    fn no_startup_focus_hold_never_blocks() {
+        assert!(!startup_focus_hold_blocks(
+            None,
+            "schedule-2",
+            std::time::Instant::now()
+        ));
+    }
 
     #[test]
     fn recovery_roundtrip_reads_the_draft_bytes() {

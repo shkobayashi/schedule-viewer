@@ -4,9 +4,9 @@
 
 許可する `自動化予定:#` の Issue 番号は #541 と #543 だけである。検査は `scripts/check-regression-coverage.ts` が付録・対応表・手順の「扱い」を見る。一覧を変えるときは同じ変更で [regression-tc.md](regression-tc.md) の冒頭と揃える。
 
-`#541` の Windows CI 待ち（切替候補 7 行）: `MX-O-26`、`MX-O-29`、`MX-T-16` と、付録側の対応行。`#[ignore]` 11 本と `TC-FILE-10` の残りは Windows が緑でも自動済みにしない。
+`#541` の Windows CI 待ち（切替候補 7 行）: `MX-O-26`、`MX-O-29`、`MX-T-16` と、付録側の対応行。`#[ignore]` 8 本と `TC-FILE-10` の残りは Windows が緑でも自動済みにしない。
 
-`#543`。**未着手**（自動参照なし）: `MX-O-111`、`MX-O-113`、`MX-T-7`、`MX-T-9`。**未解決の観測**: `mcp_running_app.rs` の `#[ignore]` 11 本（PR #570 別報告）と `TC-FILE-10` の前面化・再起動。**Windows CI 待ち**（`自動:` が `mcp_running_app.rs`）: 付録 `TC-MCP-425a`、`TC-MCP-425g`、`TC-SYNC-01k`、`TC-WIN-01g`、`TC-VIEW-16h`、`TC-MCP-01`、`TC-MCP-01i`、`TC-MCP-01e`、`TC-MCP-01f`、`TC-MCP-01g`、`TC-MCP-01j`、`TC-MCP-01p`、`TC-MCP-02`。対応表 `MX-O-30`、`MX-O-66`、`MX-O-109`、`MX-O-115`、`MX-O-117`、`MX-O-119`、`MX-O-128`、`MX-O-130`、`MX-T-1`、`MX-T-3`、`MX-T-5`、`MX-T-11`、`MX-T-13`、`MX-T-14`、`MX-T-15`、`MX-T-20`、`MX-T-27`。Linux で通っていても、Windows の `cargo test` が通るまで自動済みにしない。区分は一部自動のまま `自動化予定:#543` を付ける。
+`#543`。**未解決の観測**: `mcp_running_app.rs` の `#[ignore]` 8 本（PR #570 別報告）と `TC-FILE-10` の前面化・再起動。**Windows CI 待ち**（`自動:` が `mcp_running_app.rs`）: 付録 `TC-MCP-425a`、`TC-MCP-425g`、`TC-SYNC-01k`、`TC-WIN-01g`、`TC-VIEW-16h`、`TC-MCP-01`、`TC-MCP-01i`、`TC-MCP-01e`、`TC-MCP-01f`、`TC-MCP-01g`、`TC-MCP-01p`、`TC-MCP-02`。対応表 `MX-O-30`、`MX-O-66`、`MX-O-109`、`MX-O-115`、`MX-O-117`、`MX-O-119`、`MX-O-128`、`MX-O-130`、`MX-T-1`、`MX-T-3`、`MX-T-5`、`MX-T-7`、`MX-T-9`、`MX-T-11`、`MX-T-13`、`MX-T-14`、`MX-T-15`、`MX-T-18`、`MX-T-20`、`MX-T-27`。Linux で通っていても、Windows の `cargo test` が通るまで自動済みにしない。区分は一部自動のまま `自動化予定:#543` を付ける。
 
 閉じた #535、#540、#547、#563 と、#536、#538 へは移さない。
 
@@ -186,9 +186,9 @@
 | MX-O-108 | 計算 | 説明を消す | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |
 | MX-O-109 | 計算 | 前面スケジュールを置き換え | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#replace_schedule_changes_screen_keeps_file_bytes_and_identical_second_call_returns_diff_text。自動化予定:#543 |
 | MX-O-110 | 計算 | 選択中タスクを1件読む | 自動済み | 自動:src/model/screenContext.test.ts#returns null when selection is not exactly one task |
-| MX-O-111 | 計算 | 選択中タスクを1件読む | 自動化予定 | 自動化予定:#543 |
+| MX-O-111 | 計算 | 選択中タスクを1件読む | 自動済み | 自動:src/model/screenContext.test.ts#matches single-task payload for one selection。自動:src/model/screenContext.test.ts#returns selected task outside filter |
 | MX-O-112 | 計算 | 選択中タスクを読む（複数） | 自動済み | 自動:src/model/screenContext.test.ts#orders by document order not selection order |
-| MX-O-113 | 計算 | 選択中タスクを読む（複数） | 自動化予定 | 自動化予定:#543 |
+| MX-O-113 | 計算 | 選択中タスクを読む（複数） | 自動済み | 自動:src/model/screenContext.test.ts#orders by document order not selection order。自動:src/model/screenContext.test.ts#includes tasks outside any filter because it does not use filters |
 | MX-O-114 | 計算 | 画面のスケジュール JSON を読む | 自動済み | 自動:src/model/screenContext.test.ts#has no top-level fields property |
 | MX-O-115 | 計算 | 画面のスケジュール JSON を読む | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#current_schedule_returns_the_seeded_document_without_a_members_key。自動化予定:#543 |
 | MX-O-116 | 計算 | 差分テキストを読む | 自動済み | 自動:src/model/scheduleDiff.test.ts#says there is no difference when the documents match |
@@ -223,9 +223,9 @@
 | MX-T-4 | 計算 | baseline_diffs | 自動済み | 自動:src/model/baselineDiffs.test.ts#reports no changes when baseline, screen, and file match |
 | MX-T-5 | 計算 | baseline_diffs | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#baseline_diffs_after_screen_edit_and_file_edit_has_screen_file_and_class_lines。自動化予定:#543 |
 | MX-T-6 | 計算 | selected_task | 自動済み | 自動:src/model/screenContext.test.ts#returns null when selection is not exactly one task |
-| MX-T-7 | 計算 | selected_task | 自動化予定 | 自動化予定:#543 |
+| MX-T-7 | 計算 | selected_task | 一部自動 | 自動:src/model/screenContext.test.ts#matches single-task payload for one selection。自動:src/model/screenContext.test.ts#returns null when selection is not exactly one task。自動:src/model/bulkTaskEdit.test.ts#returns null when two tasks are selected。自動:src-tauri/tests/mcp_running_app.rs#selected_task_with_no_selection_returns_null_and_unknown_window_is_specified_missing。自動化予定:#543 |
 | MX-T-8 | 計算 | selected_tasks | 自動済み | 自動:src/model/screenContext.test.ts#orders by document order not selection order |
-| MX-T-9 | 計算 | selected_tasks | 自動化予定 | 自動化予定:#543 |
+| MX-T-9 | 計算 | selected_tasks | 一部自動 | 自動:src/model/screenContext.test.ts#orders by document order not selection order。自動:src/model/screenContext.test.ts#includes tasks outside any filter because it does not use filters。自動:src-tauri/tests/mcp_running_app.rs#selected_tasks_with_no_selection_returns_empty_array_and_catalog_keys。自動化予定:#543 |
 | MX-T-10 | 計算 | filtered_tasks | 自動済み | 自動:src/model/mcpVisible.test.ts#lists rows that intersect the vertical viewport |
 | MX-T-11 | 計算 | filtered_tasks | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#filtered_tasks_after_set_view_status_lists_only_the_matching_task_names。自動化予定:#543 |
 | MX-T-13 | 計算 | current_schedule | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#current_schedule_returns_the_seeded_document_without_a_members_key。自動化予定:#543 |
@@ -233,7 +233,7 @@
 | MX-T-15 | 計算 | focus_window | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#focus_window_sets_schedule_2_front_and_leaves_both_file_bytes。自動化予定:#543 |
 | MX-T-16 | 計算 | close_window | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#close_window_on_main_then_restart_opens_only_schedule_2。自動:src-tauri/tests/mcp_running_app.rs#close_window_schedule_2_leaves_only_main_still_answering_current_schedule。自動化予定:#541 |
 | MX-T-17 | 計算 | minimize_window | 手動のまま | 手動:RG-F9-4。手動のまま:最小化の状態は `open_windows` の一覧に無い。 |
-| MX-T-18 | 計算 | open_new_window | 自動済み | 自動:src-tauri/tests/mcp_running_app.rs#open_new_window_adds_the_third_file_and_keeps_the_first_two_file_and_folder。自動:src-tauri/tests/mcp_running_app.rs#open_new_window_keeps_process_alive_and_both_windows_return_current_schedule。自動:src-tauri/tests/mcp_running_app.rs#open_new_window_while_main_is_dirty_keeps_the_edited_date_and_adds_a_window |
+| MX-T-18 | 計算 | open_new_window | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#open_new_window_adds_the_third_file_and_keeps_the_first_two_file_and_folder。自動:src-tauri/tests/mcp_running_app.rs#open_new_window_keeps_process_alive_and_both_windows_return_current_schedule。自動:src-tauri/tests/mcp_running_app.rs#open_new_window_while_main_is_dirty_keeps_the_edited_date_and_adds_a_window。自動化予定:#543 |
 | MX-T-19 | 計算 | set_view | 自動済み | 自動:src/model/mcpSetView.test.ts#leaves collapse unchanged when patch has no collapsed fields |
 | MX-T-20 | 計算 | set_view | 一部自動 | 自動:src-tauri/tests/mcp_running_app.rs#set_view_filter_leaves_schedule_diff_no_difference_and_file_mtime。自動化予定:#543 |
 | MX-T-21 | 計算 | explain_view | 自動済み | 自動:src/test/headlessScheduleSession.test.ts#keeps both explanation filter and overlay after two date changes |

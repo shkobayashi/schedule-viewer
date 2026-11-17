@@ -40,7 +40,9 @@ use file_dialog_filters::{
     calendar_import_filters, members_import_filters, schedule_open_save_filters,
 };
 use mcp_bridge::{
-    cleanup_mcp_socket, mcp_reply, start_mcp_bridge_server, McpBridgeState,
+    cleanup_mcp_socket, mcp_harness_gui_trace, mcp_reply, mcp_screen_listener_ready,
+    start_mcp_bridge_server,
+    McpBridgeState,
 };
 use std::sync::Arc;
 use field_extension_edit::{
@@ -69,6 +71,7 @@ use window_session::{
     recovery_owner_label,
     recovery_owners_by_path, remove_window_label,
     should_remove_open_window_label_after_destroy, set_focused_label, sha256_hex,
+    startup_focus_hold_blocks,
     reserve_next_schedule_window_open, spawn_startup_windows, take_pending_open,
     upsert_window_path,
     workspace_path_for_schedule_record, write_filter_for_path, write_recovery_for_path,
@@ -2479,10 +2482,12 @@ async fn create_schedule_window(
             }
         }
     };
+    // 明示の前面変更は、起動時の前面の保留より優先する。
+    session.lock().expect("window session").startup_focus_hold = None;
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.set_focus();
     }
-    let _ = set_focused_label(&app_data, &label);
+    let _ = set_focused_label(&app_data, &label, "explicit_open_window");
     Ok(label)
 }
 
@@ -2493,12 +2498,50 @@ fn register_window_focus(
     session: State<'_, Mutex<WindowSessionState>>,
 ) -> Result<(), String> {
     let label = window_label(&window);
-    {
+    let held = {
         let mut guard = session.lock().expect("window session");
         note_window_focus(&mut guard, &label);
+        startup_focus_hold_blocks(
+            guard.startup_focus_hold.as_ref(),
+            &label,
+            std::time::Instant::now(),
+        )
+    };
+    if held {
+        log_startup_focus_hold_skip(&label, "register_window_focus");
+        return Ok(());
     }
     let app_data = app_data_dir(&app)?;
-    set_focused_label(&app_data, &label)
+    set_focused_label(&app_data, &label, "register_window_focus")
+}
+
+fn log_startup_focus_hold_skip(label: &str, trigger: &str) {
+    eprintln!(
+        "[mcp-harness] h5_focused_label_skip: label={label} trigger={trigger} reason=startup_focus_hold"
+    );
+}
+
+/// 全窓の起動が落ち着いたら保留を外し、保留していた前面を OS と記録の両方へ戻す。
+fn release_startup_focus_hold_after_settled(
+    app: &tauri::AppHandle,
+    session: &Mutex<WindowSessionState>,
+) {
+    let target = {
+        let mut guard = session.lock().expect("window session");
+        guard.startup_focus_hold.take().map(|hold| hold.target)
+    };
+    let Some(target) = target else {
+        return;
+    };
+    let focus_applied = app
+        .get_webview_window(&target)
+        .is_some_and(|window| window.set_focus().is_ok());
+    eprintln!(
+        "[mcp-harness] h4_startup_restore: phase=focus_hold_released target={target} focus_applied={focus_applied}"
+    );
+    if let Ok(app_data) = app_data_dir(app) {
+        let _ = set_focused_label(&app_data, &target, "startup_focus_settled");
+    }
 }
 
 #[tauri::command]
@@ -2709,8 +2752,10 @@ fn focus_schedule_window(
     {
         let mut guard = session.lock().expect("window session");
         note_window_focus(&mut guard, &label);
+        // 明示の前面変更は、起動時の前面の保留より優先する。
+        guard.startup_focus_hold = None;
     }
-    let _ = set_focused_label(&app_data_dir(&app)?, &label);
+    let _ = set_focused_label(&app_data_dir(&app)?, &label, "explicit_focus_schedule_window");
     Ok(())
 }
 
@@ -3074,6 +3119,9 @@ fn report_startup_settled(
             .insert(label, auto_update_at_startup);
         all_windows_startup_settled(&app, &guard.startup_settled_labels)
     };
+    if all_settled {
+        release_startup_focus_hold_after_settled(&app, session.inner());
+    }
     try_finalize_startup_update_check(&app, session.inner());
     Ok(StartupSettledResult { all_settled })
 }
@@ -3379,6 +3427,7 @@ pub fn run() {
                     let app = window.app_handle();
                     let label = window.label().to_string();
                     if let Some(state) = window.try_state::<Arc<McpBridgeState>>() {
+                        state.forget_listener(&label);
                         state.bump_generation(&label);
                     }
                     let quitting = app
@@ -3396,6 +3445,13 @@ pub fn run() {
                         forget_startup_settlement(&mut guard, &label);
                         forget_window_focus(&mut guard, &label);
                         let _ = take_pending_open(&mut guard, &label);
+                        if guard
+                            .startup_focus_hold
+                            .as_ref()
+                            .is_some_and(|hold| hold.target == label)
+                        {
+                            guard.startup_focus_hold = None;
+                        }
                     }
                     if let Some(states) = app.try_state::<Mutex<ScheduleFileStates>>() {
                         states
@@ -3425,12 +3481,21 @@ pub fn run() {
                     let app = window.app_handle();
                     let label = window.label().to_string();
                     if *focused {
-                        if let Some(session) = app.try_state::<Mutex<WindowSessionState>>() {
-                            let mut guard = session.lock().expect("window session");
-                            note_window_focus(&mut guard, &label);
-                        }
-                        if let Ok(app_data) = app_data_dir(app) {
-                            let _ = set_focused_label(&app_data, &label);
+                        let held = app
+                            .try_state::<Mutex<WindowSessionState>>()
+                            .is_some_and(|session| {
+                                let mut guard = session.lock().expect("window session");
+                                note_window_focus(&mut guard, &label);
+                                startup_focus_hold_blocks(
+                                    guard.startup_focus_hold.as_ref(),
+                                    &label,
+                                    std::time::Instant::now(),
+                                )
+                            });
+                        if held {
+                            log_startup_focus_hold_skip(&label, "os_focus_event");
+                        } else if let Ok(app_data) = app_data_dir(app) {
+                            let _ = set_focused_label(&app_data, &label, "os_focus_event");
                         }
                     }
                 }
@@ -3559,7 +3624,9 @@ pub fn run() {
             uninstall_read_screen_skill,
             get_executable_path,
             is_store_distribution,
+            mcp_harness_gui_trace,
             mcp_reply,
+            mcp_screen_listener_ready,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
