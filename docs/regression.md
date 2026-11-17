@@ -6,7 +6,7 @@
 
 ## 自動化予定（許可と更新）
 
-`scripts/check-regression-coverage.ts` が `自動化予定:#` を検査する。許可する Issue 番号は #541 と #543 だけである。手順の「扱い」本文も同じ検査に含める。番号を変えるときは、付録・対応表・手順の扱いと、この節を同じ変更で揃える。
+`scripts/check-regression-coverage.ts` が `自動化予定:#` を検査する。許可する Issue 番号は #541 だけである。手順の「扱い」本文も同じ検査に含める。番号を変えるときは、付録・対応表・手順の扱いと、この節を同じ変更で揃える。
 
 ### #541
 
@@ -19,8 +19,9 @@ Windows CI 後に区分だけ見直す切替候補は、試験本文でその行
 
 ### #543
 
-- **未解決の観測**: 上記 `#[ignore]` 8 本と、`TC-FILE-10` の前面化・再起動（どちらも #541 の一覧にも入れない）
-- **Windows CI 待ち**（`自動:` が `mcp_running_app.rs`）: 付録 `TC-MCP-425a`、`TC-MCP-425g`、`TC-SYNC-01k`、`TC-WIN-01g`、`TC-VIEW-16h`、`TC-MCP-01`、`TC-MCP-01i`、`TC-MCP-01e`、`TC-MCP-01f`、`TC-MCP-01g`、`TC-MCP-01p`、`TC-MCP-02`。対応表 `MX-O-30`、`MX-O-66`、`MX-O-109`、`MX-O-115`、`MX-O-117`、`MX-O-119`、`MX-O-128`、`MX-O-130`、`MX-T-1`、`MX-T-3`、`MX-T-5`、`MX-T-7`、`MX-T-9`、`MX-T-11`、`MX-T-13`、`MX-T-14`、`MX-T-15`、`MX-T-18`、`MX-T-20`、`MX-T-27`。Linux で通っていても、Windows の `cargo test` が通るまで自動済みにしない。
+- **Windows CI 待ちは解消**: PR #599 の CI run 43991241509 で Windows の `cargo test --locked`（`mcp_running_app` 42 passed、8 ignored）が通った
+- **残り**: 上記 `#[ignore]` 8 本と、`TC-FILE-10` の前面化・再起動（どちらも #541 の一覧にも入れない）
+- 付録 `TC-MCP-01`、`TC-MCP-01i`、`TC-MCP-02` は手動のままが残るため一部自動のままである
 
 閉じた #535、#540、#547、#563 と、#536、#538 へは移さない。
 
