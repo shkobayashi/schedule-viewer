@@ -33,6 +33,7 @@ test("shows the smoke fixture title and task names (VIEW-01)", async ({ page }) 
   for (const name of SMOKE_TASKS) {
     await expect(page.locator(".sidebar-row", { hasText: name }).first()).toBeVisible();
   }
+  expect(1, "#566 intentional failure, do not merge").toBe(2);
 });
 
 test("pans the empty chart 80px without moving the list vertically (NAV-01)", async ({
