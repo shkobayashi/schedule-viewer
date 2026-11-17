@@ -1422,6 +1422,8 @@ Playwright は手動スクリーンショット用に devDependencies にある�
 | `pollGate.test.ts` | `does not read or apply while a file operation is busy or paused` | SYNC-01 |
 | 同上 | `prompts for a missing file on the fifth consecutive read failure` | SYNC-01 |
 | `App.dom.test.tsx` | `TC-HIER-06c: hierarchy draft blocks immediate reload and stays out of the document` | HIER-06, SYNC-01, EDIT-21 |
+| `App.dom.test.tsx` | `TC-HIER-06c: external change while the hierarchy dialog is open still asks after close` | HIER-06, SYNC-01, EDIT-21 |
+| `scheduleExternalReload.test.ts` | `keeps a confirmation after an edit dialog saw the change` / `applies when no edit dialog saw the change and no confirmation is open` | SYNC-01, EDIT-21 |
 | `App.dom.test.tsx` | `TC-SET-08m: hides 項目を編集 when workspace statuses are absent` / `…cannot be read` | SET-08, FILE-10 |
 | `App.dom.test.tsx` | `TC-SET-10l: shows the pinned extension and 編集用の拡張を作る without 項目を編集` | SET-10, FILE-10 |
 | `App.dom.test.tsx` | `TC-SET-02d: workspace member rename changes the row label and leaves the app catalog` | SET-02, FILE-10 |

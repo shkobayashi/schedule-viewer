@@ -248,7 +248,7 @@ flowchart TD
   decide -->|confirm| ask[読み直すか画面の編集を残すか]
 ```
 
-判断は `scheduleExternalReload.ts` の純粋関数である。自分の保存のあとは `acknowledge_schedule_file_contents` でハッシュを更新し、直後の監視を外部更新とみなさない。監視の開始、停止、5回連続の読み取り失敗は `useScheduleExternalReload` が持つ。ファイル操作中と保存の確認中は、読んだ内容を反映しない。監視は、ロック中にパスと期待ハッシュだけを取り、ファイルの読み込みとハッシュ計算はロックの外で行う。読み終わったときにパスが違っていたら、その結果は使わずにもう一度読む。未保存の確認では `assessBaselineMerge` で分類し、衝突が無いときは `useSchedule` の `applyMergedDocument` が履歴付きで画面へ置く。編集中の判定には、階層の編集ダイアログ（`hierarchyLevelsOpen`）と「繋がりを足す」ダイアログ（`connectionAddDialogOpen`）も含める。読み直しと「両方を画面へ反映」の前に、これらは確定せず閉じる。取り消しで反映の直前の文書に戻ったときだけ、`baselineMergeDeferred.ts` の判定で保留のディスク内容を状態バーへ戻す。やり直しで反映の直後の文書に進んだときだけ帯を消す。起点が変わったあとは、覚えていたディスク内容を捨てる。
+判断は `scheduleExternalReload.ts` の純粋関数である。自分の保存のあとは `acknowledge_schedule_file_contents` でハッシュを更新し、直後の監視を外部更新とみなさない。監視の開始、停止、5回連続の読み取り失敗は `useScheduleExternalReload` が持つ。ファイル操作中と保存の確認中は、読んだ内容を反映しない。監視は、ロック中にパスと期待ハッシュだけを取り、ファイルの読み込みとハッシュ計算はロックの外で行う。読み終わったときにパスが違っていたら、その結果は使わずにもう一度読む。未保存の確認では `assessBaselineMerge` で分類し、衝突が無いときは `useSchedule` の `applyMergedDocument` が履歴付きで画面へ置く。編集中の判定には、階層の編集ダイアログ（`hierarchyLevelsOpen`）と「繋がりを足す」ダイアログ（`connectionAddDialogOpen`）も含める。読み直しと「両方を画面へ反映」の前に、これらは確定せず閉じる。編集ダイアログを開いているあいだは、そのあいだに見た差を覚えておく。ダイアログを閉じたあとの監視が即時反映と返しても、`shouldKeepExternalReloadConfirmation` が確認のままにする。確認が開いているあいだの次の監視も即時反映にしない。同じ中身がもう一度見えても、「ファイルがもう一度更新されました」は出さない。確認のダイアログは、開いている編集ダイアログより前面（z-index 80）に出す。取り消しで反映の直前の文書に戻ったときだけ、`baselineMergeDeferred.ts` の判定で保留のディスク内容を状態バーへ戻す。やり直しで反映の直後の文書に進んだときだけ帯を消す。起点が変わったあとは、覚えていたディスク内容を捨てる。
 
 ### 差分
 

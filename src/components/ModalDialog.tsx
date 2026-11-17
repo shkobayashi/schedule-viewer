@@ -6,6 +6,7 @@ type ModalDialogProps = {
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  overlayClassName?: string;
   /** 最初のフォーカスをパネル本体に置く（一覧の先頭ボタンへ飛ばさない） */
   initialFocusOnPanel?: boolean;
   /** 最初のフォーカスをこの要素に置く */
@@ -18,6 +19,7 @@ export function ModalDialog({
   onClose,
   children,
   className = "",
+  overlayClassName = "",
   initialFocusOnPanel = false,
   initialFocusRef,
 }: ModalDialogProps) {
@@ -32,6 +34,7 @@ export function ModalDialog({
       title={title}
       onClose={onClose}
       panelClassName={panelClassName}
+      overlayClassName={overlayClassName}
       initialFocusOnPanel={initialFocusOnPanel}
       initialFocusRef={initialFocusRef}
     >

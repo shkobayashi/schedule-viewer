@@ -131,6 +131,10 @@
   background: var(--overlay);
 }
 
+.ui-dialog-overlay--external-reload {
+  z-index: 80;
+}
+
 .ui-dialog-panel {
   box-sizing: border-box;
   width: min(calc(320px * var(--s)), calc(100vw - calc(48px * var(--s))));

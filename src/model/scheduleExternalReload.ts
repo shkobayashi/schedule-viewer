@@ -29,3 +29,16 @@ export function decideExternalReload(
     document: parsed.document,
   };
 }
+
+/** 純粋関数が即時反映と返しても、編集中に見た差と、出ている確認は画面へ載せない。 */
+export function shouldKeepExternalReloadConfirmation(input: {
+  editDialogOpen: boolean;
+  promptOpen: boolean;
+  changeSeenWhileEditing: boolean;
+}): boolean {
+  return (
+    input.editDialogOpen ||
+    input.promptOpen ||
+    input.changeSeenWhileEditing
+  );
+}
