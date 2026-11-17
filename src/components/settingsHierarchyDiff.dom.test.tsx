@@ -7,6 +7,8 @@ import {
   loadRegressionSchedule,
   readRegressionText,
 } from "../test/searchErrorKeysFixtures";
+import packageJson from "../../package.json";
+import { normalizeVersionLabel } from "../model/releaseNotes";
 import { SettingsHierarchyDiffHarness } from "../test/settingsHierarchyDiffHarness";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -330,7 +332,9 @@ describe("settings, hierarchy, and diff chrome", () => {
     openMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: /設定/ }));
     const settings = await screen.findByRole("dialog", { name: "設定" });
-    expect(within(settings).getByText("バージョン 1.12.1")).toBeInTheDocument();
+    expect(
+      within(settings).getByText(`バージョン ${normalizeVersionLabel(packageJson.version)}`),
+    ).toBeInTheDocument();
     expect(within(settings).queryByRole("button", { name: "更新" })).toBeNull();
   });
 
