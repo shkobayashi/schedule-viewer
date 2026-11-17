@@ -162,7 +162,8 @@ provenance: |
 | 2026-11-11 | Issue #553 継続改善の仕組み | **keep** — 固定の難易度×モデル表はまだ置かない | #551 / #475 の実測だけでは因果比較にならない。選定理由と実行記録を段階履歴に残す方針を採用 |
 | 2026-11-11 | Issue #553 項目 5 | **change** — 実行スナップショット用に `format-check-record.mjs` を追加 | head SHA とコマンド結果の整形を分離し、生ログをコミットしない |
 | 2026-11-11 | Issue #553 段階ログ実践（#591 / #592） | **keep** — 固定の難易度×モデル表はまだ置かない | 実測 2 PR 分を phase-record JSON と検証器で残し、訂正は追記。因果比較はしない |
-| 2026-11-11 | Issue #553 段階ログ実践（追記） | **keep** — 履歴 JSON はそのまま、観測欠落は本節へ | check-rerun 回数・スコープ内外ファイル・途中停止・人手編集は coordinator 記録に無いため unknown。項目 5 の実行スナップショットは未採取 |
+| 2026-11-11 | Issue #553 段階ログ実践（追記） | **keep** — 履歴 JSON はそのまま、観測欠落は本節へ | check-rerun 回数・スコープ内外ファイル・途中停止・人手編集は coordinator 記録に無いため unknown |
+| 2026-11-17 | Issue #553 項目 5 | **change** — feature-436 head の実行スナップショットを採取 | CI ログから整形 JSON を phase-records に置く |
 
 ---
 
@@ -194,9 +195,15 @@ Issue #553「継続改善の仕組み」用。出典は [agents-pitfall-examples
 | 7 | マージ済みブランチへの再 push | **P-AG-03** | [development.md](development.md)「Cursor Cloud Agent」。マージ済みブランチへの自動拒否は未証明（`beforeShellExecution` は履歴書き換え系のみ） |
 | 8 | 検査優先でスキルだけ肥大化 | 原則 8 サンプル | **P-AG-01**、IC 完了条件 |
 
-### #553 受け入れの残り（観測のみ）
+### Issue #553 — 実行スナップショット（項目 5 実践）
 
-- **項目 5（実行スナップショット）:** `format-check-record.mjs` はあるが、本ブランチ作業時点で head SHA・lint/coverage/madge/jscpd の実測入れ子は未採取。SHA 一致だけでは実行証明にならない。
+- **canonical:** [execution-snapshot-feature-436-f8b0ae07.json](phase-records/execution-snapshot-feature-436-f8b0ae07.json)
+- **recorded_head_sha:** `f8b0ae07d8a23039ffb7ba6997fdf7a87d0dbec8`（`feature-436` のマージ head）
+- **CI 出典:** [GitHub Actions run 44027574313](https://github.com/shkobayashi/schedule-viewer/actions/runs/44027574313)（`success`、workflow の `head_sha` は PR #608 の `d7a124ef7f09714f1162a946a7a28f988e3b5f90`。マージ後の `f8b0ae07` と同一ツリー）
+- **整形メトリクス:** lint 警告 48、madge 循環 0、カバレッジ Lines 69.04%、jscpd 重複行率 5.19%（`source.coverage_summary` に Stmts / Branch / Func も CI ログどおり記録）
+- **限界:** `shaIdentity.status: valid` は渡した SHA の一致だけであり、コマンドがそのツリーで走った機械証明ではない。スナップショットは `format-check-record.mjs` で caller 供給の抜粋ログから整形した。
+
+### #553 受け入れの残り（観測のみ）
 - **相談モードの遅延読み込み:** 本セッションでは consult 本文の reload を観測していない。
 - **hook の live deny:** `beforeShellExecution` はリポジトリにあるが、本セッションで禁止 git 操作のブロックは観測していない（既存の「live 未証明」観測のまま）。
 - **#553 完了・P-CI-06 完了・Issue クローズ:** 主張しない。#595 マージ後も未照合セルがあり得る。
