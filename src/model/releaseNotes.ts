@@ -143,6 +143,22 @@ function parseSectionBodyToCategories(
   return nonEmpty;
 }
 
+export function bundledChangelogCategoryKey(
+  version: string,
+  categoryTitle: string,
+  categoryIndex: number,
+): string {
+  return `${version}-${categoryTitle}-${categoryIndex}`;
+}
+
+export function bundledChangelogCategoryKeysForVersion(
+  entry: Pick<BundledReleaseNotesVersion, "version" | "categories">,
+): string[] {
+  return entry.categories.map((category, index) =>
+    bundledChangelogCategoryKey(entry.version, category.title, index),
+  );
+}
+
 export function parseBundledChangelogVersions(
   changelog: string,
 ): BundledReleaseNotesVersion[] {

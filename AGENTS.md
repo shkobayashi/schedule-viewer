@@ -55,3 +55,5 @@
 **根本原因:** レビューをその場のパッチで終えると同じ省略が繰り返す。write-* へアプリ手順を書くと他リポジトリへ汚染する。短くして移動先を示さないと観点が消える。
 
 **ガード:** [agents-agent-index.md](docs/agents-agent-index.md) のスキル表、review-implementation / implement-change 完了条件、`.cursor/rules/personal.local.mdc`（Git 外）、inventory の old→new。場面ごとに回す検査は、ルール（`.cursor/rules/when-to-run-tests.mdc`）、implement-change の「テストと確認」、`docs/development.md` の「場面ごとに回す検査」に同じ表がある。作業中は、その場面の行より多い検査を繰り返さない。日本語は [japanese-prose.mdc](.cursor/rules/japanese-prose.mdc) **J1–J5**（チャット含む）。**例:** [§8](docs/agents-pitfall-examples.md#原則-8--スキルと再発防止)。
+
+仕様や方向の相談は、利用者が `/consult` または「相談モード」で始めたときに行う。始まりと終わりは [.cursor/rules/consult.mdc](.cursor/rules/consult.mdc) にある。返し方と答えの形は [.cursor/skills/consult/references/session.md](.cursor/skills/consult/references/session.md) にある。始めるときと、相談が続いているあいだの各ターンで、[.cursor/skills/consult/SKILL.md](.cursor/skills/consult/SKILL.md) とその本文を読む。
