@@ -173,9 +173,9 @@ test("leaves chart assignee text unchanged when an unused catalog is renamed", a
   await waitForTitle(page, "回帰の詳細");
   await openSettingsSection(page, "メンバー");
   await importJsonInOpenSettings(page, membersRegressionPath);
-  await page.getByRole("radio", { name: "members" }).click();
+  await page.getByRole("radio", { name: "members", exact: true }).click();
   await importJsonInOpenSettings(page, playgroundMembersPath);
-  await page.getByRole("radio", { name: "members" }).click();
+  await page.getByRole("radio", { name: "members", exact: true }).click();
   await page.getByRole("button", { name: "項目を編集…" }).click();
   const editor = page.getByRole("dialog", { name: "メンバーの項目を編集" });
   const playgroundRadio = editor.getByRole("radio", { name: /playground/ });
