@@ -478,11 +478,15 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       await reply(payload.id, payload.generation, body);
     }
 
+    // listen の解決前にクリーンアップが走っても（StrictMode の再マウントなど）受け口を残さない。
+    // 残ると 1 つの要求を 2 回処理する。
+    let disposed = false;
     let unlistenInvalidated: (() => void) | undefined;
     void listen<number>("mcp-in-progress-invalidated", (event) => {
       setMcpInProgressGeneration(event.payload);
     }).then((off) => {
-      unlistenInvalidated = off;
+      if (disposed) off();
+      else unlistenInvalidated = off;
     });
 
     let unlisten: (() => void) | undefined;
@@ -493,9 +497,16 @@ export function useMcpScreenBridge(input: UseMcpScreenBridgeInput): void {
       },
       { target: getCurrentWindow().label },
     ).then((off) => {
+      if (disposed) {
+        off();
+        return;
+      }
       unlisten = off;
+      // 受け口ができたことを待ち受けへ知らせる。待ち受けはこれを待ってから要求を送る。
+      void invoke("mcp_screen_listener_ready").catch(() => {});
     });
     return () => {
+      disposed = true;
       unlisten?.();
       unlistenInvalidated?.();
     };

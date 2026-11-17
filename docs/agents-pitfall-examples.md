@@ -23,7 +23,7 @@
 
 ## 原則 1 — 同じ事実の写し
 
-**サンプル:** 入口表と `operation-entries`、19 図と `capture:manual-screenshots`、`JSON_SKILL_NAMES` と MSIX 同梱、MCP ツール名と Rust、read-screen 照合句（画面 **52**）、版番号 5 ファイル（cut-release）。
+**サンプル:** 入口表と `operation-entries`、19 図と `capture:manual-screenshots`、`JSON_SKILL_NAMES` と MSIX 同梱、MCP ツール名と Rust、read-screen 照合句（画面 **52**）、版番号 5 ファイル（cut-release）、MCP の接続と応答の秒数（1 つの定数で兼ねて秒数だけ変え、external-spec と internal-spec の「5 秒」が残った）、Tauri 命令と `permissions/*.toml` の `commands.allow`（許可に足さないと invoke が拒否され、黙って失敗する）。
 
 **implement-change:** 画面 2–4, 26, 32；状態 28；文書；テスト 13；完了条件。
 
@@ -55,7 +55,7 @@
 
 ## 原則 5 — 「今の操作」の持ち主
 
-**サンプル:** Konva `click` と右ボタン（10）、pointer capture（11, 15–16）、`pointerup` 確定（20）、IME（24）、起動復旧と `fileBusy`（19）、世代番号（状態 4）、試し行と文書行（**54**）。
+**サンプル:** Konva `click` と右ボタン（10）、pointer capture（11, 15–16）、`pointerup` 確定（20）、IME（24）、起動復旧と `fileBusy`（19）、世代番号（状態 4）、試し行と文書行（**54**）、起動復旧の前面（`setup` 中の `set_focus` のあとに前面を記録しても、イベントループ開始後の OS のフォーカスで上書きされる）。
 
 **implement-change:** 画面 10–22, 24, 30, 34–36, 42, 46, 50, 54–55；状態 4, 11–24 等。
 

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
@@ -32,8 +32,10 @@ use crate::window_session::{
 mod mcp_bridge_windows;
 
 pub(crate) const BRIDGE_VERSION: u32 = 1;
-pub(crate) const MCP_PIPE_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
-const RESPONSE_TIMEOUT: Duration = MCP_PIPE_CONNECT_TIMEOUT;
+/// Windows の名前付きパイプが使用中のとき、クライアントが接続を試し直す上限。
+pub(crate) const MCP_PIPE_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+/// 送り先 webview の受け口の準備と、`mcp_reply` の応答を、それぞれ待つ上限。
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(15);
 
 const MSG_NO_GUI: &str = "スケジュールのウィンドウが開いていないので、渡せません。";
 const MSG_NO_WINDOW: &str = "前面のウィンドウが開いていないので、渡せません。";
@@ -93,6 +95,9 @@ pub struct McpBridgeState {
     app_data: PathBuf,
     generations: Mutex<HashMap<String, u64>>,
     pending: Mutex<HashMap<String, PendingReply>>,
+    /// `mcp-screen-request` の listen を登録し終えた webview のラベル。
+    listener_ready: Mutex<HashSet<String>>,
+    listener_ready_changed: Condvar,
 }
 
 impl McpBridgeState {
@@ -101,6 +106,39 @@ impl McpBridgeState {
             app_data,
             generations: Mutex::new(HashMap::new()),
             pending: Mutex::new(HashMap::new()),
+            listener_ready: Mutex::new(HashSet::new()),
+            listener_ready_changed: Condvar::new(),
+        }
+    }
+
+    pub fn mark_listener_ready(&self, label: &str) {
+        let mut ready = self.listener_ready.lock().expect("mcp listener ready");
+        ready.insert(label.to_string());
+        self.listener_ready_changed.notify_all();
+    }
+
+    pub fn forget_listener(&self, label: &str) {
+        let mut ready = self.listener_ready.lock().expect("mcp listener ready");
+        ready.remove(label);
+    }
+
+    /// 受け口の登録を `timeout` まで待つ。登録済みなら即座に true。
+    pub fn wait_listener_ready(&self, label: &str, timeout: Duration) -> bool {
+        let deadline = Instant::now() + timeout;
+        let mut ready = self.listener_ready.lock().expect("mcp listener ready");
+        loop {
+            if ready.contains(label) {
+                return true;
+            }
+            let now = Instant::now();
+            if now >= deadline {
+                return false;
+            }
+            ready = self
+                .listener_ready_changed
+                .wait_timeout(ready, deadline - now)
+                .expect("mcp listener ready wait")
+                .0;
         }
     }
 
@@ -475,6 +513,19 @@ fn emit_and_wait_for_screen_tool(
         "[mcp-harness] h605_bridge_wait_begin: id={request_id} tool={request_tool} label={label} generation={generation} sequence={sequence} timeout_s={}",
         RESPONSE_TIMEOUT.as_secs()
     );
+    let listener_wait_started = Instant::now();
+    let listener_ready = state.wait_listener_ready(label, RESPONSE_TIMEOUT);
+    eprintln!(
+        "[mcp-harness] h605_bridge_listener_wait: id={request_id} label={label} ready={listener_ready} elapsed_ms={}",
+        listener_wait_started.elapsed().as_millis()
+    );
+    if !listener_ready {
+        state.pending.lock().expect("mcp pending").remove(&request.id);
+        eprintln!(
+            "[mcp-harness] h605_bridge_wait_timeout: id={request_id} tool={request_tool} label={label} generation={generation} sequence={sequence} reason=listener_not_ready"
+        );
+        return EmitWaitOutcome::TimedOut;
+    }
     let app = window.app_handle();
     if !emit_mcp_screen_request(app, label, payload) {
         log_open_new_window_bridge(
@@ -797,6 +848,17 @@ fn take_pending_reply_for_window(
     }
 }
 
+/// webview が `mcp-screen-request` の listen を登録し終えたことを知らせる。
+#[tauri::command]
+pub fn mcp_screen_listener_ready(
+    window: WebviewWindow,
+    state: tauri::State<'_, Arc<McpBridgeState>>,
+) {
+    let label = window.label().to_string();
+    eprintln!("[mcp-harness] h605_listener_ready: label={label}");
+    state.mark_listener_ready(&label);
+}
+
 #[tauri::command]
 pub fn mcp_harness_gui_trace(label: String, phase: String, detail: String) {
     eprintln!("[mcp-harness] h605_gui_{phase}: window={label} {detail}");
@@ -973,6 +1035,50 @@ pub fn cleanup_mcp_socket(app_data: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn bridge_state() -> McpBridgeState {
+        McpBridgeState::new(PathBuf::from("unused-app-data"))
+    }
+
+    #[test]
+    fn listener_ready_returns_at_once_when_label_is_registered() {
+        let state = bridge_state();
+        state.mark_listener_ready("main");
+        let started = Instant::now();
+        assert!(state.wait_listener_ready("main", Duration::from_secs(5)));
+        assert!(started.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn listener_ready_for_other_label_does_not_count_and_times_out() {
+        let state = bridge_state();
+        state.mark_listener_ready("schedule-2");
+        let started = Instant::now();
+        assert!(!state.wait_listener_ready("main", Duration::from_millis(200)));
+        assert!(started.elapsed() >= Duration::from_millis(200));
+    }
+
+    #[test]
+    fn listener_ready_wakes_when_registered_from_another_thread() {
+        let state = Arc::new(bridge_state());
+        let writer = Arc::clone(&state);
+        let handle = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            writer.mark_listener_ready("main");
+        });
+        let started = Instant::now();
+        assert!(state.wait_listener_ready("main", Duration::from_secs(10)));
+        assert!(started.elapsed() < Duration::from_secs(5));
+        handle.join().expect("writer thread");
+    }
+
+    #[test]
+    fn forgotten_listener_is_not_ready() {
+        let state = bridge_state();
+        state.mark_listener_ready("main");
+        state.forget_listener("main");
+        assert!(!state.wait_listener_ready("main", Duration::from_millis(50)));
+    }
 
     fn pending(label: &str) -> PendingReply {
         PendingReply {

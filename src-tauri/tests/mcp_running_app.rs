@@ -16,8 +16,9 @@ const REPO_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
 const SCHEDULE_VIEWER_IMAGE_NAME_UNIX: &str = "schedule-viewer";
 const SCHEDULE_VIEWER_IMAGE_NAME_WINDOWS: &str = "schedule-viewer.exe";
 
-// Must exceed the MCP bridge response wait (15s in mcp_bridge.rs).
-const CHILD_WAIT_TIMEOUT: Duration = Duration::from_secs(20);
+// ブリッジ 1 回の最悪値より長くする（mcp_bridge.rs）: 接続の試し直し 5 秒 + 受け口の準備待ち 15 秒
+// + 応答待ち 15 秒 + emit 失敗時の再試行 0.25 秒と応答待ち 15 秒 ≒ 50 秒。
+const CHILD_WAIT_TIMEOUT: Duration = Duration::from_secs(60);
 const GUI_READY_TIMEOUT: Duration = Duration::from_secs(120);
 const VITE_READY_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -1890,11 +1891,22 @@ fn spawn_output_drain(
     mut reader: impl Read + Send + 'static,
     stderr_log: Arc<Mutex<Vec<u8>>>,
 ) -> std::thread::JoinHandle<Vec<u8>> {
+    // GUI が生きているあいだの panic でも h5/h6/h605 を出せるよう、読んだ分をその都度ためる。
     std::thread::spawn(move || {
         let mut buf = Vec::new();
-        reader.read_to_end(&mut buf).expect("drain child output");
-        if let Ok(mut slot) = stderr_log.lock() {
-            slot.extend_from_slice(&buf);
+        let mut chunk = [0u8; 4096];
+        loop {
+            match reader.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => {
+                    buf.extend_from_slice(&chunk[..n]);
+                    if let Ok(mut slot) = stderr_log.lock() {
+                        slot.extend_from_slice(&chunk[..n]);
+                    }
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(_) => break,
+            }
         }
         buf
     })
