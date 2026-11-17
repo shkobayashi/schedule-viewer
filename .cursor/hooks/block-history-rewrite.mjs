@@ -3,6 +3,11 @@
  * Pure classifier plus stdin wrapper — never executes the supplied command.
  */
 import { pathToFileURL } from "node:url";
+import {
+  appendMarkerToAgentMessage,
+  emitAgentObs,
+  formatBlockHistoryRewriteMarker,
+} from "./agent-obs.mjs";
 
 /** @typedef {{ permission: 'allow' | 'deny', agent_message?: string, reason?: string }} ClassifyResult */
 
@@ -1202,6 +1207,31 @@ export function formatHookStdout(result) {
   return `${JSON.stringify(payload)}\n`;
 }
 
+/**
+ * @param {ClassifyResult} result
+ * @param {string} [command]
+ * @returns {ClassifyResult}
+ */
+export function applyDenyObservability(result, command) {
+  if (result.permission !== "deny") {
+    return result;
+  }
+  const rule =
+    typeof result.reason === "string" && result.reason !== ""
+      ? result.reason
+      : "unknown";
+  const marker = formatBlockHistoryRewriteMarker(
+    "deny",
+    rule,
+    typeof command === "string" ? command : "",
+  );
+  emitAgentObs(marker);
+  return {
+    ...result,
+    agent_message: appendMarkerToAgentMessage(result.agent_message, marker),
+  };
+}
+
 async function runHookCli() {
   let raw = "";
   for await (const chunk of process.stdin) {
@@ -1213,7 +1243,14 @@ async function runHookCli() {
   } catch {
     parsed = null;
   }
-  const result = classifyHookInput(parsed);
+  const command =
+    parsed !== null &&
+    typeof parsed === "object" &&
+    !Array.isArray(parsed) &&
+    typeof /** @type {{ command?: unknown }} */ (parsed).command === "string"
+      ? /** @type {{ command: string }} */ (parsed).command
+      : undefined;
+  const result = applyDenyObservability(classifyHookInput(parsed), command);
   process.stdout.write(formatHookStdout(result));
   process.exit(0);
 }

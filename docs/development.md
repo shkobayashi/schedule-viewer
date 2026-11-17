@@ -233,6 +233,20 @@ Issue #490 の Cloud Agent 運用（P-AG-03）。
 
 Cloud Agent は書き込み可能な環境になってからプロジェクトの `hooks.json` を読み込む。読み取り専用の初期ターンではフックは動かない。
 
+拒否時だけ、履歴書き換えフックは transcript 用の1行マーカーを出す。`agent_message` の末尾と標準エラーに同じ行を書き、書き込み可能なら `.cursor/hooks/logs/agent-obs.jsonl` に JSONL で追記する（ディレクトリは gitignore。実行時にだけできる）。許可時は何も出さない。形式の例:
+
+`[agent-obs] hook=block-history-rewrite decision=deny rule=rewrite cmd=git commit --amend`
+
+`rule` は分類理由（`rewrite` / `malformed` など）。`cmd` は短く要約し、トークン様の文字列は伏せる。ログへの追記に失敗しても拒否可否は変わらない。
+
+### beforeReadFile（Issue #553 相談本文の再読）
+
+[`hooks.json`](../.cursor/hooks.json) の `beforeReadFile` が [`.cursor/hooks/log-consult-session-read.mjs`](../.cursor/hooks/log-consult-session-read.mjs) を呼ぶ。エージェントが [`.cursor/skills/consult/references/session.md`](../.cursor/skills/consult/references/session.md) を Read する直前にだけ動き、**常に allow**（ブロックしない）。マーカーは標準エラーと上記 JSONL に書く。形式:
+
+`[agent-obs] hook=consult-session-read decision=log path=.cursor/skills/consult/references/session.md`
+
+相談スタブ（[`.cursor/rules/consult.mdc`](../.cursor/rules/consult.mdc)）が毎ターンの再読を指示しているのに対し、このフックはその読み取りが実際に起きたことの観測用である（モデルが自分で宣言するより、Read イベントにぶら下げる方が transcript 上で確実）。
+
 ## npm スクリプト
 
 リポジトリ直下の `.npmrc` は `legacy-peer-deps=true` である。`madge` が TypeScript 6 を peer として想定していないため、`npm ci` を通すために必要である。

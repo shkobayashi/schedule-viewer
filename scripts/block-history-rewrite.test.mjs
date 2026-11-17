@@ -6,9 +6,11 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 import {
+  applyDenyObservability,
   classifyHookInput,
   classifyShellCommand,
 } from "../.cursor/hooks/block-history-rewrite.mjs";
+import { formatBlockHistoryRewriteMarker } from "../.cursor/hooks/agent-obs.mjs";
 
 const REPO_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const HOOK_SCRIPT = path.join(
@@ -19,14 +21,17 @@ const HOOK_SCRIPT = path.join(
 /**
  * @param {unknown} stdinJson
  */
-function runHookWithStdin(stdinJson) {
+function runHookWithStdin(stdinJson, env = {}) {
   const input = JSON.stringify(stdinJson);
   return spawnSync(process.execPath, [HOOK_SCRIPT], {
     input,
     encoding: "utf8",
     cwd: REPO_ROOT,
+    env: { ...process.env, ...env },
   });
 }
+
+const AGENT_OBS_PREFIX = "[agent-obs] hook=block-history-rewrite";
 
 test("allows ordinary status commit push and merge", () => {
   const allowed = [
@@ -460,4 +465,97 @@ test("hooks.json registers beforeShellExecution block-history-rewrite", () => {
   assert.equal(entry.timeout, 10);
   assert.equal(entry.failClosed, true);
   assert.equal(entry.matcher, undefined);
+});
+
+test("hooks.json registers beforeReadFile consult session logger", () => {
+  const hooksPath = path.join(REPO_ROOT, ".cursor/hooks.json");
+  const hooks = JSON.parse(fs.readFileSync(hooksPath, "utf8"));
+  const entries = hooks.hooks.beforeReadFile;
+  assert.ok(Array.isArray(entries) && entries.length === 1);
+  assert.equal(
+    entries[0].command,
+    "node .cursor/hooks/log-consult-session-read.mjs",
+  );
+  assert.equal(entries[0].failClosed, undefined);
+});
+
+test("deny emits agent-obs marker on stderr and in agent_message", () => {
+  const command = "git commit --amend";
+  const logPath = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), "agent-obs-")),
+    "nested",
+    "agent-obs.jsonl",
+  );
+  try {
+    const hookResult = runHookWithStdin(
+      { command },
+      { AGENT_OBS_LOG_PATH: logPath },
+    );
+    assert.equal(hookResult.status, 0);
+    assert.match(
+      hookResult.stderr,
+      /\[agent-obs\] hook=block-history-rewrite.*rule=rewrite/,
+    );
+    const payload = JSON.parse(hookResult.stdout.trim());
+    assert.equal(payload.permission, "deny");
+    assert.match(payload.agent_message, /\[agent-obs\] hook=block-history-rewrite/);
+    assert.match(
+      payload.agent_message,
+      /rule=rewrite cmd=git commit --amend/,
+    );
+    const logText = fs.readFileSync(logPath, "utf8").trim();
+    assert.match(logText, /\[agent-obs\] hook=block-history-rewrite/);
+  } finally {
+    fs.rmSync(path.dirname(logPath), { recursive: true, force: true });
+  }
+});
+
+test("allow emits no agent-obs marker on stderr or stdout json", () => {
+  const logPath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "agent-obs-")), "x.jsonl");
+  const dir = path.dirname(logPath);
+  try {
+    const hookResult = runHookWithStdin(
+      { command: "git status" },
+      { AGENT_OBS_LOG_PATH: logPath },
+    );
+    assert.equal(hookResult.status, 0);
+    assert.equal(hookResult.stderr, "");
+    const payload = JSON.parse(hookResult.stdout.trim());
+    assert.equal(payload.permission, "allow");
+    assert.equal(payload.agent_message, undefined);
+    assert.equal(fs.existsSync(logPath), false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("agent-obs log write failure does not change deny decision", () => {
+  const blockedLog = path.join(os.tmpdir(), "agent-obs-not-writable-dir");
+  try {
+    const hookResult = runHookWithStdin(
+      { command: "git push --force" },
+      { AGENT_OBS_LOG_PATH: blockedLog },
+    );
+    assert.equal(hookResult.status, 0);
+    const payload = JSON.parse(hookResult.stdout.trim());
+    assert.equal(payload.permission, "deny");
+    assert.match(hookResult.stderr, /rule=rewrite/);
+    assert.match(payload.agent_message, /rule=rewrite/);
+  } finally {
+    // blockedLog is a directory path — append should fail without affecting deny
+  }
+});
+
+test("applyDenyObservability leaves allow unchanged", () => {
+  const allowed = applyDenyObservability(
+    { permission: "allow" },
+    "git status",
+  );
+  assert.deepEqual(allowed, { permission: "allow" });
+  const marker = formatBlockHistoryRewriteMarker(
+    "deny",
+    "malformed",
+    "git commit --amend",
+  );
+  assert.match(marker, /^\[agent-obs\]/);
 });
