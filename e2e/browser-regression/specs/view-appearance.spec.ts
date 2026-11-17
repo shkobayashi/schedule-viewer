@@ -568,6 +568,10 @@ test("matches overdue borders, overrun frames, and lightning folds to isOverdue 
   page,
 }) => {
   requireKonva();
+  // examples/lightning/schedule.json の「未着手・期間中」は 2026-11-06 終了。未着手で終了後は折り目が終了日になる。
+  // 今日線は常に実行日の x に立つので、終了の翌日に合わせないと折り目と今日線の x が日数分ずれて 180px を超える。
+  await page.clock.install({ time: new Date("2026-11-07T12:00:00+09:00") });
+  await bootNormalPage(page, 5173, { clearLocalStorage: true });
   await openScheduleFile(page, lightningSchedulePath);
   await waitForTitle(page, "イナズマ線の確認用");
   await page.locator(".timeline-body").waitFor({ state: "visible" });
