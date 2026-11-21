@@ -19,6 +19,7 @@
 | 環境・CI・リリース | [development.md](development.md) |
 | 1.x と next のブランチ | [development.md](development.md)（1.x を出しながら次のメジャーを進める） |
 | 方針・ロードマップ | [PLANNING.md](PLANNING.md) |
+| 残している作業上の決定（#541、#436、PR599 の教訓） | [standing-decisions.md](standing-decisions.md) |
 | UI デザイン #449 | [design/benchmark.md](design/benchmark.md)、[inventory.md](design/inventory.md) |
 | 同じ変更で揃える文書 | [agents-doc-update-map.md](agents-doc-update-map.md) |
 | 段階の手順と実測記録 | [work-phases/SKILL.md](../.cursor/skills/work-phases/SKILL.md)、[agents-phase-log.md](agents-phase-log.md) |
